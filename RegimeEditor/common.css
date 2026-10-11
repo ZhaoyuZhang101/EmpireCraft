@@ -1,0 +1,78 @@
+/* 三个编辑器页面共用的样式：沿用政体编辑器的羊皮纸配色，图标用原版/模组像素图(assets/icons) */
+:root{--bg:#f6efe2;--panel:#fffaf1;--ink:#2d2318;--muted:#6f5d45;--line:#d8c5a4;--accent:#8d6836;--accent2:#6d4e24;--danger:#9f4335;--good:#446b49;--r:18px;--r2:12px}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;color:var(--ink);font:14px/1.5 "Microsoft YaHei","Segoe UI",sans-serif;background:radial-gradient(circle at top left,rgba(141,104,54,.12),transparent 30%),linear-gradient(180deg,#fbf6ed 0%,var(--bg) 100%)}
+img.ico{width:20px;height:20px;image-rendering:pixelated;vertical-align:middle;flex:none}
+img.ico.lg{width:32px;height:32px}
+img.ico.sm{width:16px;height:16px}
+
+/* 顶部应用切换 */
+.appbar{display:flex;align-items:center;gap:8px;padding:10px 16px;background:linear-gradient(180deg,#5b4122 0%,#3f2c16 100%);color:#f6e7c8;box-shadow:0 4px 16px rgba(40,25,8,.35);position:sticky;top:0;z-index:20}
+.appbar .title{font-weight:700;font-size:16px;margin-right:12px;display:flex;align-items:center;gap:8px}
+.appbar a{display:flex;align-items:center;gap:6px;color:#f6e7c8;text-decoration:none;padding:6px 12px;border-radius:999px;border:1px solid transparent}
+.appbar a:hover{border-color:#b48b50}
+.appbar a.active{background:linear-gradient(180deg,#b48b50 0%,#8d6836 100%);color:#fff}
+.appbar .spacer{flex:1}
+.appbar .root{font-size:12px;opacity:.8;max-width:420px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.layout{display:grid;grid-template-columns:280px minmax(0,1fr);gap:14px;padding:14px;height:calc(100vh - 52px)}
+.side,.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);box-shadow:0 12px 36px rgba(50,36,15,.1)}
+.side{padding:12px;display:flex;flex-direction:column;gap:10px;min-height:0}
+.panel{padding:16px;overflow:auto;min-height:0}
+.list{overflow:auto;display:grid;gap:4px;align-content:start;flex:1;min-height:0}
+.item{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:10px;cursor:pointer;border:1px solid transparent}
+.item:hover{background:#f3e6cc}
+.item.active{background:linear-gradient(180deg,#f0dcb3 0%,#e4c995 100%);border-color:#c9a86d}
+.item .sub{color:var(--muted);font-size:12px;margin-left:auto}
+.item .dot{width:12px;height:12px;border-radius:3px;border:1px solid rgba(0,0,0,.25);flex:none}
+.item.bad{color:var(--danger)}
+
+h2{margin:0 0 10px;display:flex;align-items:center;gap:8px}
+h3{margin:14px 0 8px;color:var(--accent2);display:flex;align-items:center;gap:8px}
+.muted{color:var(--muted)}
+.tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;border-bottom:1px solid var(--line);padding-bottom:10px}
+.tabs button{display:flex;align-items:center;gap:6px}
+.tabs button.active{background:linear-gradient(180deg,#b48b50 0%,var(--accent2) 100%);color:#fff;border-color:transparent}
+.tab{display:none}.tab.active{display:block}
+.grid{display:grid;gap:10px}.grid.two{grid-template-columns:repeat(2,minmax(0,1fr))}.grid.three{grid-template-columns:repeat(3,minmax(0,1fr))}.grid.four{grid-template-columns:repeat(4,minmax(0,1fr))}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+label.field{display:grid;gap:4px;color:var(--muted);font-size:13px}
+input,select,textarea,button{font:inherit}
+input,select,textarea{width:100%;padding:7px 10px;border:1px solid var(--line);border-radius:10px;background:#fffdfa;color:var(--ink)}
+input[type=checkbox]{width:auto}
+input[type=color]{padding:2px;height:36px}
+textarea{min-height:90px;resize:vertical}
+textarea.code{font-family:Consolas,monospace;font-size:12px;min-height:420px;white-space:pre}
+button{display:inline-flex;align-items:center;gap:6px;border:1px solid color-mix(in srgb,var(--accent) 30%,var(--line));background:linear-gradient(180deg,#fffdf8 0%,#efe1c4 100%);color:var(--ink);padding:6px 12px;border-radius:999px;cursor:pointer}
+button:hover{filter:brightness(1.04)}
+button.primary{background:linear-gradient(180deg,#b48b50 0%,var(--accent2) 100%);color:#fff;border-color:transparent}
+button.danger{background:linear-gradient(180deg,#cb7368 0%,var(--danger) 100%);color:#fff;border-color:transparent}
+button.small{padding:3px 8px;font-size:12px}
+.card{border:1px solid color-mix(in srgb,var(--line) 85%,white);border-radius:14px;padding:12px;background:linear-gradient(180deg,#fffdf8 0%,#f7efdf 100%)}
+.note{border:1px dashed var(--line);border-radius:12px;padding:10px;background:rgba(255,255,255,.55);color:var(--muted);font-size:13px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.chip{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border:1px solid var(--line);border-radius:999px;background:#fffdfa;font-size:12px}
+.chip button{padding:0 4px;border:none;background:transparent;color:var(--danger);font-size:13px}
+.chip.missing{border-color:var(--danger);color:var(--danger)}
+.chip-add{display:flex;gap:6px;align-items:center}
+.chip-add input{width:180px;padding:4px 8px}
+table.sheet{border-collapse:collapse;width:100%;font-size:13px}
+table.sheet th,table.sheet td{border:1px solid var(--line);padding:0}
+table.sheet th{background:#efe1c4;padding:4px 6px;text-align:left;position:sticky;top:0}
+table.sheet td input{border:none;border-radius:0;padding:4px 6px;background:transparent}
+table.sheet td input:focus{background:#fff}
+table.sheet td.act{width:34px;text-align:center}
+table.sheet tr:hover td{background:#fbf3e3}
+.status{position:fixed;right:16px;bottom:14px;padding:8px 14px;border-radius:12px;background:#446b49;color:#fff;box-shadow:0 6px 18px rgba(0,0,0,.25);display:none;max-width:60vw;z-index:40}
+.status.err{background:var(--danger)}
+.status.show{display:block}
+.badge{display:inline-flex;align-items:center;padding:1px 8px;border-radius:999px;border:1px solid var(--line);background:#fff7e8;color:var(--accent2);font-size:12px}
+.dirty::after{content:" ●";color:var(--danger)}
+dialog{border:1px solid var(--line);border-radius:16px;background:var(--panel);padding:18px;min-width:420px}
+dialog::backdrop{background:rgba(40,25,8,.35)}
+.graph{position:relative;overflow:auto;border:1px solid var(--line);border-radius:12px;background:repeating-linear-gradient(0deg,#fbf5e8 0 39px,#f1e6cf 39px 40px);height:420px}
+.graph svg{position:absolute;left:0;top:0;pointer-events:none}
+.gnode{position:absolute;width:150px;padding:4px 6px;border:1px solid #b08a52;border-radius:8px;background:#fffaf0;font-size:12px;cursor:pointer;display:flex;gap:4px;align-items:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gnode.active{background:#e8c98c;border-color:var(--accent2);font-weight:700}
+.gnode.rel{background:#f4e2bd}

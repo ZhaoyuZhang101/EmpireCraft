@@ -1,10 +1,13 @@
 using EmpireCraft.Scripts.Enums;
+using EmpireCraft.Scripts.AI.ActorAI;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GameLibrary;
+using EmpireCraft.Scripts.GeneralSystems;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
 using HarmonyLib;
 using NeoModLoader.api;
+using NeoModLoader.General;
 using NeoModLoader.services;
 using System;
 using System.Collections.Generic;
@@ -20,6 +23,10 @@ namespace EmpireCraft.Scripts.GamePatches;
 public class WarPatch: GamePatch
 {
     public ModDeclare declare { get; set; }
+
+    // 同一 Kingdom 在同一场 War 里只排队一次开战动员。
+    private static readonly Dictionary<War, HashSet<long>> _warMobilizedKingdoms = new();
+    private static readonly HashSet<War> _expandingFeudalWars = new();
     public void Initialize()
     {
         new Harmony(nameof(end_war)).Patch(
@@ -32,7 +39,15 @@ public class WarPatch: GamePatch
         );
         new Harmony(nameof(update)).Patch(
             AccessTools.Method(typeof(War), nameof(War.update)),
+            prefix: new HarmonyLib.HarmonyMethod(GetType(), nameof(DropBrokenWar)) { priority = Priority.First },
             postfix: new HarmonyLib.HarmonyMethod(GetType(), nameof(update))
+        );
+
+        // V3：把分帧征兵、分帧出征、和平/战争都可运行的 Warrior 生育
+        // 统一挂在 ArmyManager.update，而不是 War.update。
+        new Harmony(nameof(army_update_population)).Patch(
+            AccessTools.Method(typeof(ArmyManager), nameof(ArmyManager.update)),
+            postfix: new HarmonyLib.HarmonyMethod(GetType(), nameof(army_update_population))
         );
         new Harmony(nameof(new_war)).Patch(
             AccessTools.Method(typeof(WarManager), nameof(WarManager.newWar)),
@@ -40,20 +55,75 @@ public class WarPatch: GamePatch
         );
         new Harmony(nameof(join_war_side)).Patch(
             AccessTools.Method(typeof(War), nameof(War.joinAttackers), new[] { typeof(Kingdom) }),
+            prefix: new HarmonyLib.HarmonyMethod(GetType(), nameof(BeforeJoinAttackers)),
             postfix: new HarmonyLib.HarmonyMethod(GetType(), nameof(join_war_side))
         );
         new Harmony(nameof(join_war_side) + "_defenders").Patch(
             AccessTools.Method(typeof(War), nameof(War.joinDefenders), new[] { typeof(Kingdom) }),
+            prefix: new HarmonyLib.HarmonyMethod(GetType(), nameof(BeforeJoinDefenders)),
             postfix: new HarmonyLib.HarmonyMethod(GetType(), nameof(join_war_side))
         );
         LogService.LogInfo("战争补丁加载成功");
     }
     
+    private static readonly HashSet<long> _brokenWarsLogged = new();
+
+    // 原版 War.update 默认主攻方、主守方都在：任何一方的王国查不到(比如开战时守方传了 null，
+    // 或者王国在同一帧被革命/叛乱抹掉)就会在 main_defender.isAlive() 上崩，而且战争永远结束不了，每帧报一次。
+    // 这种战争直接判和结束。
+    public static bool DropBrokenWar(War __instance)
+    {
+        if (__instance?.data == null || __instance.hasEnded()) return true;
+        if (__instance.getMainAttacker() != null &&
+            (__instance.isTotalWar() || __instance.getMainDefender() != null &&
+             __instance.getMainAttacker() != __instance.getMainDefender())) return true;
+        try
+        {
+            World.world.wars.endWar(__instance, WarWinner.Nobody);
+        }
+        catch (Exception exception)
+        {
+            if (_brokenWarsLogged.Add(__instance.data.id))
+                LogService.LogWarning($"[EmpireCraft] 结束主攻/主守方缺失或相同的战争 {__instance.data.name} 失败: {exception.Message}");
+            return false;
+        }
+        if (_brokenWarsLogged.Add(__instance.data.id))
+            LogService.LogInfo($"[EmpireCraft] 战争 {__instance.data.name} 主攻/主守方缺失或相同，已自动结束");
+        return false;
+    }
+
     public static void update(War __instance)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
+        if (__instance.getMainAttacker() == null) return; // 坏战争，前置已经处理
+
         RecordWarDeclared(__instance);
-        if (__instance.getDuration() > ModClass.WAR_END_YEAR)
+        WorldWarSystem.TryEscalate(__instance);
+        if (!__instance.hasEnded() && __instance.GetEmpireWarType() == EmpireWarType.索取法理)
+        {
+            KingdomTitle targetTitle = __instance.GetTitleTarget();
+            if (__instance.IsMainDefenderEliminated() ||
+                __instance.AreAllDeJureTitleZonesControlledByAttackers(targetTitle))
+            {
+                World.world.wars.endWar(__instance, WarWinner.Attackers);
+                return;
+            }
+        }
+        if (!__instance.hasEnded() && __instance.GetEmpireWarType() == EmpireWarType.不奉诏)
+        {
+            VassalInvestitureService.CheckDefianceWar(__instance);
+            if (__instance.hasEnded()) return;
+        }
+        if (!__instance.hasEnded() && __instance.GetEmpireWarType() == EmpireWarType.去帝号 &&
+            (__instance.IsMainDefenderEliminated() || __instance.HasLegitimacyOccupationThreshold()))
+        {
+            World.world.wars.endWar(__instance, WarWinner.Attackers);
+            return;
+        }
+        // 同一法统内部的统一战争打到底，不受战争年限强制停战(见 WarlordEraSystem 统一进程)；
+        // 开国雄主统一本帝国核心的战争同样打到底
+        if (__instance.getDuration() > ModClass.WAR_END_YEAR && !WarlordEraSystem.IsCivilWar(__instance) &&
+            !RulerTraitSystem.IsFounderUnificationWar(__instance))
         {
             var attacker = __instance.getMainAttacker()?.king;
             if (attacker != null)
@@ -77,39 +147,89 @@ public class WarPatch: GamePatch
             }
         }
     }
+    public static void army_update_population(
+        ArmyManager __instance,
+        float pElapsed)
+    {
+        // 这三个函数内部都有限额/错峰，不会在同一帧处理全部人口。
+        EmpireCraftActorCheckWarrior.ProcessArmyPopulationMaintenance();
+        EmpireCraftActorCheckWarriorMove.ProcessQueuedMovementJobs();
+    }
+
     public static void removeData(War __instance)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
+
+        _warMobilizedKingdoms.Remove(__instance);
+        _expandingFeudalWars.Remove(__instance);
         __instance.RemoveExtraData<War, WarExtraData>();
     }
+
+    // 战争结束：一方的城市里清掉另一方(这场战争的对手)留下的占领；若城主与该占领者还有别的战争在打，保留
+    private static void ClearOccupationAfterWar(War endedWar, List<Kingdom> owners, List<Kingdom> opponents)
+    {
+        foreach (Kingdom owner in owners)
+        {
+            if (owner?.cities == null || owner.isRekt()) continue;
+            var cleared = new HashSet<Kingdom>(opponents.Where(opponent => opponent != null &&
+                !StillAtWar(owner, opponent, endedWar)));
+            if (cleared.Count == 0) continue;
+            foreach (City city in owner.cities.ToList())
+                city?.ClearOccupationBy(cleared.Contains);
+        }
+    }
+
+    private static bool StillAtWar(Kingdom a, Kingdom b, War except) =>
+        a.getWars().Any(war => war != null && war != except && !war.hasEnded() &&
+                               (war.isAttacker(a) && war.isDefender(b) || war.isDefender(a) && war.isAttacker(b)));
 
     public static bool end_war(WarManager __instance, War pWar, WarWinner pWinner = WarWinner.Nobody)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(pWar)) return true;
+        if (pWinner == WarWinner.Attackers && pWar.GetEmpireWarType() == EmpireWarType.索取法理 &&
+            !pWar.IsMainDefenderEliminated() &&
+            !pWar.AreAllDeJureTitleZonesControlledByAttackers(pWar.GetTitleTarget()))
+        {
+            return false;
+        }
+        if (pWinner == WarWinner.Attackers && pWar.GetEmpireWarType() == EmpireWarType.去帝号 &&
+            !pWar.IsMainDefenderEliminated() && !pWar.HasLegitimacyOccupationThreshold())
+        {
+            return false;
+        }
         if (pWar.isAlive() && !pWar.hasEnded())
         {
             RecordWarDeclared(pWar);
             CaptureWarRoyalHouses(pWar);
             RememberDefeatedWarHouses(pWar, pWinner);
             RecordWarEnded(pWar, pWinner);
+            // 和约赔款(见 WarReparationsSystem)
+            EmpireCraft.Scripts.GeneralSystems.WarReparationsSystem.OnWarEnded(pWar, pWinner);
+            ReignRecordSystem.OnWarEnded(pWar, pWinner);
+            WorldWarSystem.Resolve(pWar, pWinner);
             World.world.game_stats.data.peacesMade++;
             World.world.map_stats.peacesMade++;
             pWar.setWinner(pWinner);
             __instance.warStateChanged();
             pWar.endForSides(pWinner);
             pWar.data.died_time = World.world.getCurWorldTime();
+            FeudalVassalService.ResolveIndependenceWar(pWar, pWinner);
+
+            // 不在 endWar 同一帧直接复员。
+            // 延后由 ArmyManager.update 检查，避免战争关系尚未完全刷新。
+            EmpireCraftActorCheckWarrior.RequestDemobilizationCheck();
             Kingdom aKingdom = null;
             Kingdom dKingdom = null;
             aKingdom = pWar.getMainAttacker();
             dKingdom = pWar.getMainDefender();
-            foreach (var a in pWar._list_attackers)
-            {
-                a.cities.ForEach(c=>c.ClearOccupiedStatus());
-            }
-            foreach (var d in pWar._list_defenders)
-            {
-                d.cities.ForEach(c=>c.ClearOccupiedStatus());
-            }
+            // 正在筹备称帝的国家打了败仗，称帝即失败
+            if (pWinner == WarWinner.Attackers)
+                foreach (Kingdom loser in pWar._list_defenders.ToList()) EmpireFormationService.OnWarLost(loser);
+            else if (pWinner == WarWinner.Defenders)
+                foreach (Kingdom loser in pWar._list_attackers.ToList()) EmpireFormationService.OnWarLost(loser);
+            // 只清掉这场战争的对手留下的占领；与城主还有别的仗在打的占领者保留进度
+            ClearOccupationAfterWar(pWar, pWar._list_attackers.ToList(), pWar._list_defenders.ToList());
+            ClearOccupationAfterWar(pWar, pWar._list_defenders.ToList(), pWar._list_attackers.ToList());
             if (pWinner == WarWinner.Attackers)
             {
                 if (aKingdom.IsEmpire())
@@ -170,7 +290,13 @@ public class WarPatch: GamePatch
                     break;
                 case EmpireWarType.派系叛乱:
                     Kingdom attacker = pWar.getMainAttacker();
-                    if (pWinner == WarWinner.Attackers)
+                    // 在胜方替换帝国核心之前结算改革叛乱，否则原帝国和派系上下文会丢失。
+                    InstitutionSystem.ResolveReformRebellion(pWar, pWinner);
+                    InstitutionSystem.ResolveSocialRebellion(pWar, pWinner);
+                    LandEconomySystem.ResolvePeasantLandRebellion(pWar, pWinner);
+                    if (RepublicSystem.IsRevolutionWar(pWar))
+                        RepublicSystem.ResolveRevolutionWar(pWar, pWinner);
+                    else if (pWinner == WarWinner.Attackers)
                     {
                         attacker.GetEmpire().ReplaceEmpire(attacker);
                     }
@@ -179,26 +305,56 @@ public class WarPatch: GamePatch
                 case EmpireWarType.地方叛乱:
                 case EmpireWarType.地方独立:
                     Kingdom attacker1 = pWar.getMainAttacker();
+                    InstitutionSystem.ResolveSocialRebellion(pWar, pWinner);
+                    LandEconomySystem.ResolvePeasantLandRebellion(pWar, pWinner);
+                    RepublicSystem.ResolveRevolutionWar(pWar, pWinner);
                     attacker1.EndLocalRebelling();
                     break;
                 case EmpireWarType.索取法理:
                     KingdomTitle title = pWar.GetTitleTarget();
                     if (pWinner == WarWinner.Attackers)
                     {
-                        if (title != null)
+                        Kingdom kingdom = pWar.getMainAttacker();
+                        Kingdom defeatedKingdom = pWar.getMainDefender();
+                        if (kingdom != null && !kingdom.HasTakenAlliance() && pWar.IsMainDefenderEliminated())
                         {
-                            Kingdom kingdom = pWar.getMainAttacker();
+                            List<long> defeatedTitleIds = pWar.GetOrCreate().defender_realm_title_ids ??
+                                                          new List<long>();
+                            if (defeatedTitleIds.Count == 0 && defeatedKingdom != null)
+                                defeatedTitleIds = defeatedKingdom.GetRealmTitleIds().ToList();
+                            // 西方封建制一法理一国：能另立的法理由获胜君主兼领，其余照旧并入
+                            List<KingdomTitle> inherited = PersonalUnionService.InheritTitlesAsUnion(kingdom,
+                                defeatedKingdom, defeatedTitleIds, out List<long> mergeTitleIds);
+                            inherited.AddRange(kingdom.InheritRealmTitles(defeatedKingdom, mergeTitleIds));
+                            if (inherited.Count > 0)
+                            {
+                                string notice = string.Format(LM.Get("title_all_inherited_notice"),
+                                    kingdom.GetKingdomName(), pWar.GetOrCreate().defender_kingdom_name);
+                                EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventMessage(notice, kingdom);
+                                kingdom.GetEmpire()?.RecordHistory(directContent: notice,
+                                    actorId: kingdom.king?.id ?? -1L, kingdomId: kingdom.id);
+                                kingdom.king?.RecordPersonalHistory(notice);
+                            }
+                        }
+                        else if (title != null)
+                        {
                             if (kingdom != null && !kingdom.HasTakenAlliance())
                             {
-                                title.SetOwner(kingdom.king);
-                                kingdom.king.AddOwnedTitle(title);
-                                kingdom.ReconcileMainTitle(new[] { title });
-                                kingdom.GetEmpire()?.SynchronizeLandedLegalTitles(kingdom);
-                                TranslateHelper.LogKingTakeTitle(kingdom, title);
+                                List<KingdomTitle> transferred = PersonalUnionService.InheritTitlesAsUnion(kingdom,
+                                    defeatedKingdom, new[] { title.id }, out List<long> mergeTitleIds);
+                                transferred.AddRange(kingdom.InheritRealmTitles(defeatedKingdom, mergeTitleIds));
+                                if (transferred.Contains(title))
+                                    TranslateHelper.LogKingTakeTitle(kingdom, title);
                             }
                         }
                         return false;
                     }
+                    break;
+                case EmpireWarType.去帝号:
+                    ImperialLegitimacyChallengeService.ResolveWar(pWar, pWinner);
+                    break;
+                case EmpireWarType.不奉诏:
+                    VassalInvestitureService.ResolveDefianceWar(pWar, pWinner);
                     break;
             }
             WorldLog.logWarEnded(pWar);
@@ -209,25 +365,127 @@ public class WarPatch: GamePatch
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__result)) return;
         if (__result == null) return;
+
+        WarSituation.RecordParticipant(__result, __result.main_attacker);
+        WarSituation.RecordParticipant(__result, __result.main_defender);
+        // 原版按模板用 kingdom.name 生成战争名，改用地图铭牌上的国名
+        if (__result.data != null)
+            __result.data.name = WorldLogNamePatch.UseDisplayNames(__result.data.name,
+                __result.main_attacker, __result.main_defender);
+        ExpandFeudalWar(__result);
         RecordWarDeclared(__result);
         DetachHostileTributaries(__result);
+        WorldWarSystem.TryEscalate(__result, force: true);
+
+        // 只“排队”，这里不再同步扫描全国人口/军队。
+        QueueWarSideMobilization(__result, __result._list_attackers);
+        QueueWarSideMobilization(__result, __result._list_defenders);
+
+        QueueKingdomMobilizationOnce(__result, __result.getMainAttacker());
+        QueueKingdomMobilizationOnce(__result, __result.getMainDefender());
+
         Kingdom aKingdom = __result.getMainAttacker();
         Kingdom dKingdom = __result.getMainDefender();
+
         if (aKingdom != null && aKingdom.IsEmpire())
         {
             Empire empire = aKingdom.GetEmpire();
         }
+
         if (dKingdom != null && dKingdom.IsEmpire())
         {
             Empire empire = dKingdom.GetEmpire();
         }
     }
 
-    public static void join_war_side(War __instance)
+    public static bool BeforeJoinAttackers(War __instance, Kingdom pKingdom, ref bool __state)
     {
+        return __state = CanJoinWarSide(__instance, pKingdom, attackers: true);
+    }
+
+    public static bool BeforeJoinDefenders(War __instance, Kingdom pKingdom, ref bool __state)
+    {
+        return __state = CanJoinWarSide(__instance, pKingdom, attackers: false);
+    }
+
+    public static bool CanJoinWarSide(War war, Kingdom kingdom, bool attackers)
+    {
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(war)) return true;
+        if (war?.data == null || kingdom?.data == null || kingdom.isRekt()) return false;
+        // During creation the main defender is known before its first native join runs.
+        if (attackers && !war.isTotalWar() && kingdom.id == war.data.main_defender ||
+            !attackers && kingdom.id == war.data.main_attacker) return false;
+        // Native joins only check the destination list; alliance auto-joining can otherwise
+        // put one polity on both sides, even when feudal expansion itself filters correctly.
+        var opposite = attackers ? war.data.list_defenders : war.data.list_attackers;
+        return opposite?.Contains(kingdom.id) != true;
+    }
+
+    // 同一个 Postfix 兼容 joinAttackers(Kingdom) / joinDefenders(Kingdom)。
+    public static void join_war_side(War __instance, Kingdom pKingdom, bool __state)
+    {
+        if (!__state) return;
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
+
+        WarSituation.RecordParticipant(__instance, pKingdom);
+        ExpandFeudalWar(__instance);
         CaptureWarRoyalHouses(__instance);
         DetachHostileTributaries(__instance);
+        WorldWarSystem.TryEscalate(__instance, force: true);
+
+        QueueKingdomMobilizationOnce(__instance, pKingdom);
+    }
+
+    private static void ExpandFeudalWar(War war)
+    {
+        if (war?.getAsset() != WarTypeLibrary.normal || !_expandingFeudalWars.Add(war)) return;
+        try { FeudalVassalService.ExpandWar(war); }
+        finally { _expandingFeudalWars.Remove(war); }
+    }
+
+    private static void QueueWarSideMobilization(
+        War war,
+        IEnumerable<Kingdom> side)
+    {
+        if (war == null || side == null)
+            return;
+
+        foreach (Kingdom kingdom in side)
+        {
+            QueueKingdomMobilizationOnce(war, kingdom);
+        }
+    }
+
+    private static void QueueKingdomMobilizationOnce(
+        War war,
+        Kingdom kingdom)
+    {
+        if (war == null ||
+            kingdom == null ||
+            kingdom.isRekt())
+        {
+            return;
+        }
+
+        if (!_warMobilizedKingdoms.TryGetValue(
+                war,
+                out HashSet<long> mobilized))
+        {
+            mobilized = new HashSet<long>();
+            _warMobilizedKingdoms[war] = mobilized;
+        }
+
+        if (!mobilized.Add(kingdom.id))
+            return;
+
+        // 1. 原有 Warrior 马上进入“分帧出征队列”。
+        EmpireCraftActorCheckWarriorMove
+            .QueueKingdomMobilizationOnWarStart(kingdom);
+
+        // 2. 缺少的 Warrior 进入“分帧征兵队列”。
+        // 每征出一个新兵，它会自动追加到上面的移动队列。
+        EmpireCraftActorCheckWarrior
+            .QueueWarStartFill(kingdom);
     }
 
     private static void CaptureWarRoyalHouses(War war)

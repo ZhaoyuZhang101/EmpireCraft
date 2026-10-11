@@ -1,11 +1,16 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using EmpireCraft.Scripts.AI.KingdomAI;
+using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.GeneralSystems;
 using EmpireCraft.Scripts.HelperFunc;
+using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
 using EmpireCraft.Scripts.UI.Components;
+using NeoModLoader.api;
 using NeoModLoader.api.attributes;
 using NeoModLoader.General;
 using NeoModLoader.General.UI.Prefabs;
@@ -19,8 +24,12 @@ using UnityEngine.UI;
 
 namespace EmpireCraft.Scripts.UI.Windows;
 
-public class RegimeWindow : AutoLayoutWindow<RegimeWindow>
+// 宽窗口(480×380)横屏骨架：左栏国名、政体与自定义命名固定不随滚动，右侧是政体选择、派系格局、地方政治与政体选项
+public class RegimeWindow : AbstractWideWindow<RegimeWindow>
 {
+    private AutoVertLayoutGroup _root;
+    private AutoVertLayoutGroup _rail;
+    private AutoVertLayoutGroup _content;
     private TextInput _regimeInput;
     private TextInput _customCountryNameInput;
     private TextInput _customCountrySuffixInput;
@@ -33,15 +42,23 @@ public class RegimeWindow : AutoLayoutWindow<RegimeWindow>
     private Dictionary<RegimeType, AdvancedButton> _regimeButtons = new Dictionary<RegimeType, AdvancedButton>();
     protected override void Init()
     {
-        layout.spacing = 3;
-        layout.padding = new RectOffset(3, 3, 3, 3);
-        _regimeInput = Instantiate(TextInput.Prefab, this.transform.parent.transform.parent);
+        UIHelper.FixWideWindowScrollArea(BackgroundTransform);
+        _root = UIHelper.SetupWideWindowContentRoot(ContentTransform, 3f, new RectOffset(3, 3, 3, 3));
+        _rail = UIHelper.CreateWideWindowRail(BackgroundTransform, UIHelper.RailWidth, UIHelper.RailInset);
+        _regimeInput = Instantiate(TextInput.Prefab, this.transform);
+        // 宽窗口脚本挂在窗口根上：输入框挂窗口根并脱离布局、锚点居中(同帝国窗口)
+        var inputElement = _regimeInput.gameObject.GetComponent<LayoutElement>() ?? _regimeInput.gameObject.AddComponent<LayoutElement>();
+        inputElement.ignoreLayout = true;
+        var inputRect = (RectTransform)_regimeInput.transform;
+        inputRect.anchorMin = inputRect.anchorMax = inputRect.pivot = new Vector2(0.5f, 0.5f);
         _regimeInput.Setup("", ChangeKingdomName);
     }
 
     public override void OnNormalEnable()
     {
         base.OnNormalEnable();
+        UIHelper.FixWideWindowScrollArea(BackgroundTransform);
+        StartCoroutine(UIHelper.StabilizeWideWindowScrollArea(BackgroundTransform));
         InitialTextInput();
         InitialContent();
     }
@@ -49,35 +66,121 @@ public class RegimeWindow : AutoLayoutWindow<RegimeWindow>
     private void InitialContent()
     {
         Clear();
+        DrawRail();
+        _content = _root.BeginVertGroup(pSpacing: 4, pAlignment: TextAnchor.UpperCenter, pPadding: new RectOffset(0, 0, 0, 6));
+        UIHelper.FixPanelWidth(_content.transform, ContentWidth);
+        _groups.Add(_content.gameObject);
+        _content.AddPageHeader(ContentWidth, "regime_title", _kingdom.GetKingdomName());
         InitialRegimeSelection();
-        InitialCustomNaming();
-        UIHelper.InitialFactionSpace(this.BeginHoriGroup(), _kingdom, _groups);
+        // 派系格局与帝国主页同一套：占比扇形图 + 2×n 派系卡
+        UIHelper.InitialEmpireFactionOverview(_content.BeginHoriGroup(pAlignment: TextAnchor.UpperLeft,
+            pPadding: new RectOffset(0, 0, 0, 0)), _kingdom, ContentWidth);
+        InitialLocalPolitics();
         InitialSetting();
+    }
+
+    // 左栏：国名、政体与国家类别 → 自定义命名(国名、后缀)
+    private void DrawRail()
+    {
+        UIHelper.ClearRail(_rail);
+        if (_rail == null) return;
+        var identity = _rail.BeginRailCard("FactionFrame_dominate");
+        identity.AddRailText(_kingdom.GetKingdomFullName().ColorString(_kingdom.getColor().color_text), 10, 26f, wrap: true);
+        identity.AddRailText(CompositeEmpireService.GetRegimeName(_kingdom.GetRegime().type).ColorString("#F3C34A"), 7, 10f);
+        identity.AddRailText(LM.Get(_kingdom.GetKingdomTypeDisplayKey()).ColorString("#8FE7FF"), 7, 10f);
+        Empire empire = _kingdom.GetEmpire();
+        if (empire != null)
+            identity.AddRailText(empire.GetEmpireFullName().ColorString("#8FA0A8"), 6, 9f);
+        InitialCustomNaming();
+    }
+
+    // 地方政治(见 ProvincialPoliticsSystem)：本省执政党、各党支持率，玩家可花国库资助/打压某党
+    private void InitialLocalPolitics()
+    {
+        Empire empire = _kingdom?.GetEmpire();
+        if (!ProvincialPoliticsSystem.IsProvince(empire, _kingdom) || !PartySystem.IsActive(empire)) return;
+        List<(FixedFaction party, float share)> shares = ProvincialPoliticsSystem.GetShares(empire, _kingdom);
+        if (shares.Count == 0) return;
+        float height = 32f + shares.Count * 14f;
+        var panel = _content.BeginVertGroup(new Vector2(ContentWidth, height), pSpacing: 1, pAlignment: TextAnchor.UpperCenter,
+            pPadding: new RectOffset(4, 4, 3, 3));
+        _groups.Add(panel.gameObject);
+
+        FixedFaction governing = ProvincialPoliticsSystem.GetGoverningParty(empire, _kingdom);
+        bool opposition = ProvincialPoliticsSystem.IsOppositionHeld(empire, _kingdom);
+        string title = LM.Get("local_politics_title").ColorString("#7FD8EA");
+        if (governing != null)
+            title += " · " + string.Format(LM.Get("local_politics_governing"), governing.Name)
+                .ColorString(opposition ? "#E9A85B" : "#65D66E");
+        panel.AddTextIntoVertLayout(title, true, TextAnchor.MiddleLeft, new Vector2(ContentWidth - 8f, 11))
+            .UseFixedFontSize(8, HorizontalWrapMode.Overflow);
+        int years = ProvincialPoliticsSystem.YearsUntilLocalElection(empire);
+        string status = years < 0 ? LM.Get("local_politics_no_elections")
+            : string.Format(LM.Get("local_politics_next_election"), years) +
+              (opposition ? "  " + LM.Get("local_politics_resistance") : "");
+        SimpleText statusText = panel.AddTextIntoVertLayout(status.ColorString("#A8B8BE"), true, TextAnchor.MiddleLeft,
+            new Vector2(ContentWidth - 8f, 9));
+        statusText.UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+        UIHelper.AttachTextTooltip(statusText.gameObject, "local_politics_help", LM.Get("local_politics_title"),
+            LM.Get("local_politics_help_body"));
+
+        int cost = ProvincialPoliticsSystem.InfluenceCost(_kingdom);
+        foreach ((FixedFaction party, float share) in shares)
+        {
+            FixedFaction target = party;
+            var row = panel.BeginHoriGroup(new Vector2(ContentWidth - 8f, 13), TextAnchor.MiddleLeft, 2, new RectOffset(0, 0, 0, 0));
+            UIHelper.AddLayoutIcon(row.transform,
+                SpriteTextureLoader.getSprite(EmpireCraft.Scripts.GameLibrary.IdeologyTraitIcons.Path(party.Ideology)), 10f);
+            string line = party.Name.ColorString(party == governing ? "#F3C34A" : "#E6E0CF") +
+                          $" {share * 100f:0}%".ColorString("#C9A7E8");
+            float influence = ProvincialPoliticsSystem.GetInfluence(empire, _kingdom, party);
+            if (Mathf.Abs(influence) >= 0.01f)
+                line += " " + string.Format(LM.Get("local_politics_influence"),
+                        (influence > 0 ? "+" : "") + Mathf.RoundToInt(influence * 100f))
+                    .ColorString(influence > 0 ? "#65D66E" : "#E05A4F");
+            row.AddTextIntoHoriLayout(line, true, TextAnchor.MiddleLeft, new Vector2(ContentWidth - 90f, 12))
+                .UseFixedFontSize(7, HorizontalWrapMode.Overflow);
+            var fund = row.AddButtonIntoHoriLayout($"local_fund_{party.GetID()}", LM.Get("local_politics_fund"),
+                () => ApplyLocalInfluence(empire, target, 1), size: new Vector2(31, 11));
+            UIHelper.AttachTextTooltip(fund.gameObject, "local_fund_tip", LM.Get("local_politics_fund"),
+                string.Format(LM.Get("local_politics_fund_tip"), cost));
+            var suppress = row.AddButtonIntoHoriLayout($"local_suppress_{party.GetID()}",
+                LM.Get("local_politics_suppress"), () => ApplyLocalInfluence(empire, target, -1),
+                size: new Vector2(31, 11));
+            UIHelper.AttachTextTooltip(suppress.gameObject, "local_suppress_tip", LM.Get("local_politics_suppress"),
+                string.Format(LM.Get("local_politics_suppress_tip"), cost));
+        }
+        panel.transform.AddStretchBackground("regimeFrame", new Vector2(ContentWidth, height));
+    }
+
+    private void ApplyLocalInfluence(Empire empire, FixedFaction party, int direction)
+    {
+        string error = ProvincialPoliticsSystem.Influence(empire, _kingdom, party, direction);
+        if (error != null)
+        {
+            ActionLibrary.showWhisperTip(error);
+            return;
+        }
+        InitialContent();
     }
 
     private void InitialCustomNaming()
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(_kingdom)) return;
-        var namingSpace = this.BeginVertGroup(pSize: new Vector2(200, 63), pSpacing: 2,
-            pAlignment: TextAnchor.MiddleCenter);
-        namingSpace.AddTextIntoVertLayout(LM.Get("kingdom_custom_naming"), true,
-            TextAnchor.MiddleCenter, new Vector2(190, 15));
-
+        var namingSpace = _rail.BeginRailCard();
+        namingSpace.AddRailText(LM.Get("kingdom_custom_naming").ColorString("#7FD8EA"), 8, 12f);
         _refreshingNameInputs = true;
         try
         {
-            AddNamingInputRow(namingSpace, LM.Get("kingdom_custom_name"),
-                _kingdom.GetCustomCountryName(), ChangeCustomCountryName, out _customCountryNameInput);
-            AddNamingInputRow(namingSpace, LM.Get("kingdom_custom_suffix"),
-                _kingdom.GetCustomCountrySuffix(), ChangeCustomCountrySuffix, out _customCountrySuffixInput);
+            _customCountryNameInput = namingSpace.AddRailInput(LM.Get("kingdom_custom_name"),
+                _kingdom.GetCustomCountryName(), ChangeCustomCountryName);
+            _customCountrySuffixInput = namingSpace.AddRailInput(LM.Get("kingdom_custom_suffix"),
+                _kingdom.GetCustomCountrySuffix(), ChangeCustomCountrySuffix);
         }
         finally
         {
             _refreshingNameInputs = false;
         }
-
-        namingSpace.transform.AddStretchBackground("regimeFrame", size: new Vector2(200, 63));
-        _groups.Add(namingSpace.gameObject);
     }
 
     private static void AddNamingInputRow(AutoVertLayoutGroup parent, string label, string value,
@@ -94,51 +197,147 @@ public class RegimeWindow : AutoLayoutWindow<RegimeWindow>
         row.AddChild(input.gameObject);
     }
 
+    // ── 政体选项：每行 = 游戏图标 + 选项名 + 带文字的档位按钮（开关类为 开/关）──
+    private const float ContentWidth = UIHelper.PageMainWidth;
+    private const float SettingWidth = ContentWidth - 4f;
+    private static readonly Color ChoiceOnColor = new Color(0.95f, 0.76f, 0.29f);
+    private static readonly Color ChoiceOffColor = new Color(0.72f, 0.72f, 0.72f);
+    private static readonly Color ChoiceLockedColor = new Color(0.4f, 0.4f, 0.4f);
+
+    // 每个选项行用的图标：依次尝试，取第一个能加载到的游戏自带图标
+    private static readonly Dictionary<string, string[]> OptionIcons = new()
+    {
+        ["toggle_allow_diplomacy"] = new[] { "ui/icons/iconAlliance", "ui/icons/iconDiplomacy" },
+        ["toggle_allow_army"] = new[] { "ui/icons/iconWar", "ui/icons/iconArmy" },
+        ["toggle_support_army_to_center"] = new[] { "ui/icons/iconKingdom", "ui/icons/iconWar" },
+        ["option_tax_level"] = new[] { "ui/icons/iconMoney", "ui/icons/iconGold", "ui/icons/iconKingdom" },
+        ["option_leader_select_method"] = new[] { "ui/icons/iconKings", "ui/icons/actor_traits/iconJingshi" },
+        ["option_religion_type"] = new[] { "ui/icons/iconReligion", "ui/icons/iconCulture" },
+        ["option_succession_law"] = new[] { "ui/icons/iconChildren", "ui/icons/iconFamily", "ui/specificClanIcon" }
+    };
+
+    private static Sprite LoadFirstSprite(IEnumerable<string> paths, string fallback = "ui/icons/iconOptions")
+    {
+        foreach (string path in paths ?? Array.Empty<string>())
+        {
+            Sprite sprite = SpriteTextureLoader.getSprite(path);
+            if (sprite != null) return sprite;
+        }
+        return SpriteTextureLoader.getSprite(fallback);
+    }
+
     private void InitialSetting()
     {
-        var settingSpace = this.BeginVertGroup();
-        
-        foreach (var option in _kingdom.GetRegime().options)
+        var options = _kingdom.GetRegime().options;
+        int rows = options.Keys.Count(key => key.Contains("toggle_") || key.Contains("option_"));
+        float height = 6f + rows * 17f;
+        var settingSpace = _content.BeginVertGroup(new Vector2(SettingWidth, height), pSpacing: 1,
+            pAlignment: TextAnchor.UpperCenter, pPadding: new RectOffset(3, 3, 3, 3));
+        foreach (var option in options)
         {
-            if (option.Key.Contains("toggle_"))
-            {
-                var button = settingSpace.transform.AddNormalOptionIntoHori(this.BeginHoriGroup(), option.Key, ()=>Toggle(option.Key), Convert.ToBoolean(option.Value[0]), hasIcon:false);
-                _toggleButtons[option.Key]  = button;
-            } else if (option.Key.Contains("option_"))
-            {
-                var optionButton = settingSpace.transform.AddMultipleOption(this.BeginHoriGroup(), option.Key, Option, option.Value[0], option.Value[1], hasIcon:false);
-                _optionButtons[option.Key] = optionButton;
-            }
+            if (option.Key.Contains("toggle_")) AddToggleRow(settingSpace, option.Key, option.Value[0] != 0);
+            else if (option.Key.Contains("option_")) AddChoiceRow(settingSpace, option.Key, option.Value[0], option.Value[1]);
         }
-        settingSpace.transform.AddStretchBackground("regimeFrame", size:new Vector2(200, 137));
+        settingSpace.transform.AddStretchBackground("regimeFrame", size: new Vector2(SettingWidth + 4f, height));
         _groups.Add(settingSpace.gameObject);
+    }
+
+    private AutoHoriLayoutGroup BeginSettingRow(AutoVertLayoutGroup parent, string key)
+    {
+        var row = parent.BeginHoriGroup(new Vector2(SettingWidth - 6f, 16), TextAnchor.MiddleLeft, 2);
+        OptionIcons.TryGetValue(key, out string[] icons);
+        row.AddButtonIntoHoriLayout(key, "", () => { }, LoadFirstSprite(icons), size: new Vector2(12, 12),
+            showTip: true, hideBackground: true);
+        var label = row.AddTextIntoHoriLayout(LM.Get(key), true, TextAnchor.MiddleLeft, new Vector2(84, 14));
+        label.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
+        return row;
+    }
+
+    private void AddToggleRow(AutoVertLayoutGroup parent, string key, bool on)
+    {
+        var row = BeginSettingRow(parent, key);
+        var button = row.AddButtonIntoHoriLayout($"{key}_switch", LM.Get(on ? "regime_switch_on" : "regime_switch_off"),
+            () => Toggle(key), size: new Vector2(34, 12));
+        ApplyChoiceVisual(button, on, true);
+        _toggleButtons[key] = button;
+    }
+
+    private void AddChoiceRow(AutoVertLayoutGroup parent, string key, int current, int count)
+    {
+        var row = BeginSettingRow(parent, key);
+        float width = Math.Max(14f, (SettingWidth - 112f) / Math.Max(1, count) - 2f);
+        var buttons = new List<AdvancedButton>();
+        var laws = (SuccessionLawType[])Enum.GetValues(typeof(SuccessionLawType));
+        for (int i = 0; i < count; i++)
+        {
+            int index = i;
+            string shortKey = $"{key}{i}_short";
+            string label = LM.Has(shortKey) ? LM.Get(shortKey) : LM.Get($"{key}{i}");
+            var button = row.AddButtonIntoHoriLayout($"{key}{i}", label, () => Option(key, index),
+                size: new Vector2(width, 12), showTip: true);
+            bool enabled = key != "option_succession_law" || i >= laws.Length ||
+                           SuccessionLawSystem.IsSuccessionLawUnlocked(_kingdom, laws[i]);
+            if (!enabled && button.TipButton != null)
+                button.TipButton.textOnClickDescription = "succession_law_locked_description";
+            ApplyChoiceVisual(button, i == current, enabled);
+            buttons.Add(button);
+        }
+        _optionButtons[key] = buttons;
+    }
+
+    private static void ApplyChoiceVisual(AdvancedButton button, bool selected, bool enabled)
+    {
+        if (button == null) return;
+        button.Button.interactable = enabled;
+        if (button.Text != null)
+        {
+            button.Text.color = !enabled ? ChoiceLockedColor : selected ? ChoiceOnColor : ChoiceOffColor;
+            button.Text.fontStyle = selected ? FontStyle.Bold : FontStyle.Normal;
+        }
+        if (button.Background != null)
+            button.Background.color = selected ? Color.white : new Color(1f, 1f, 1f, 0.35f);
     }
 
     private void Option(string title, int option)
     {
-        _kingdom.GetRegime().options[title][0] = option;
-        var index = 0;
-        foreach (var optionButton in _optionButtons[title])
+        Regime regime = _kingdom.GetRegime();
+        if (title == "option_succession_law")
         {
-            optionButton.SetStatus(option==index);
-            index++;
+            regime.SetSuccessionLaw((SuccessionLawType)option);
+        }
+        else if (title == "option_tax_level")
+        {
+            // 议会掌握征税同意权时，税率可能被否决：以实际生效的值为准
+            regime.SetTaxLevel((TaxLevel)option);
+            option = (int)regime.GetTaxLevel();
+        }
+        else
+        {
+            regime.options[title][0] = option;
+        }
+        if (_optionButtons.TryGetValue(title, out List<AdvancedButton> buttons))
+        {
+            var laws = (SuccessionLawType[])Enum.GetValues(typeof(SuccessionLawType));
+            for (int i = 0; i < buttons.Count; i++)
+            {
+                bool enabled = title != "option_succession_law" || i >= laws.Length ||
+                               SuccessionLawSystem.IsSuccessionLawUnlocked(_kingdom, laws[i]);
+                ApplyChoiceVisual(buttons[i], i == option, enabled);
+            }
         }
         RefreshKingdomStatus();
     }
 
-
     private void Toggle(string option)
     {
-
-        if (_kingdom.GetRegime().options[option][0] == 0)
+        int[] value = _kingdom.GetRegime().options[option];
+        value[0] = value[0] == 0 ? 1 : 0;
+        if (_toggleButtons.TryGetValue(option, out AdvancedButton button))
         {
-            _kingdom.GetRegime().options[option][0] = 1;
+            bool on = value[0] != 0;
+            if (button.Text != null) button.Text.text = LM.Get(on ? "regime_switch_on" : "regime_switch_off");
+            ApplyChoiceVisual(button, on, true);
         }
-        else
-        {
-            _kingdom.GetRegime().options[option][0] = 0;
-        }
-        _toggleButtons[option].SetStatus(Convert.ToBoolean(_kingdom.GetRegime().options[option][0]));
         RefreshKingdomStatus();
     }
 
@@ -183,6 +382,7 @@ public class RegimeWindow : AutoLayoutWindow<RegimeWindow>
 
     private void Clear()
     {
+        UIHelper.ClearRail(_rail);
         foreach (var regimeOption in _regimeButtons)
         {
             Destroy(regimeOption.Value.gameObject);
@@ -197,60 +397,111 @@ public class RegimeWindow : AutoLayoutWindow<RegimeWindow>
             Destroy(button.Value.gameObject);
         }
         _toggleButtons.Clear();
+        _optionButtons.Clear();
         _groups.Clear();
         _customCountryNameInput = null;
         _customCountrySuffixInput = null;
     }
+    // ── 政体选择：列出所有已注册政体（读配置，不写死），图标 + 名称的网格；当前政体高亮，
+    //    下方给出当前政体说明与君主立宪状态 ──
+    private const int RegimesPerRow = 7;
+
+    // 没有专属按钮图标的政体借用相近的图标，最后退回游戏自带的王国图标
+    private static readonly Dictionary<RegimeType, RegimeType> RegimeIconFallback = new()
+    {
+        [RegimeType.ClassicalRepublic] = RegimeType.Republic,
+        [RegimeType.Modern] = RegimeType.Republic
+    };
+
+    private static Sprite GetRegimeIcon(RegimeType type, bool selected)
+    {
+        string state = selected ? "On" : "Off";
+        var paths = new List<string> { $"ui/buttons/{type}{state}" };
+        if (RegimeIconFallback.TryGetValue(type, out RegimeType alias)) paths.Add($"ui/buttons/{alias}{state}");
+        paths.Add("ui/icons/iconKingdom");
+        return LoadFirstSprite(paths);
+    }
+
     [Hotfixable]
     private void InitialRegimeSelection()
     {
-        var regimeSpace = this.BeginVertGroup();
-        regimeSpace.AddTextIntoVertLayout(LM.Get("regime_title"), true, TextAnchor.MiddleCenter, new Vector2(25, 15));
-        var regimeIconPart = this.BeginHoriGroup();
-        LoadRegimeButton(regimeIconPart.transform, RegimeType.LvLing);
-        LoadRegimeButton(regimeIconPart.transform, RegimeType.ZhouFeudalism);
-        LoadRegimeButton(regimeIconPart.transform, RegimeType.Feudalism);
-        LoadRegimeButton(regimeIconPart.transform, RegimeType.Modern);
-        
-        regimeSpace.AddChild(regimeIconPart.gameObject);
-        regimeSpace.transform.AddStretchBackground("regimeFrame");
+        RegimeType current = _kingdom.GetRegime().type;
+        Empire empire = _kingdom.GetEmpire();
+        bool partyPoliticsLocked = empire?.CoreKingdom == _kingdom && PartySystem.IsActive(empire);
+        List<RegimeType> regimes = (RegimeManager.regimes?.Keys ?? Enumerable.Empty<RegimeType>())
+            .OrderBy(type => (int)type).ToList();
+        int rows = (regimes.Count + RegimesPerRow - 1) / RegimesPerRow;
+        float height = 18f + rows * 36f + 30f;
+        var regimeSpace = _content.BeginVertGroup(new Vector2(SettingWidth, height), pSpacing: 1,
+            pAlignment: TextAnchor.UpperCenter, pPadding: new RectOffset(3, 3, 3, 3));
+        var title = regimeSpace.AddTextIntoVertLayout(LM.Get("regime_title"), true, TextAnchor.MiddleCenter,
+            new Vector2(SettingWidth - 6f, 13));
+        title.UseFixedFontSize(9, HorizontalWrapMode.Overflow);
+
+        for (int start = 0; start < regimes.Count; start += RegimesPerRow)
+        {
+            var row = regimeSpace.BeginHoriGroup(new Vector2(SettingWidth - 6f, 35), TextAnchor.MiddleCenter, 3);
+            foreach (RegimeType type in regimes.Skip(start).Take(RegimesPerRow))
+            {
+                bool selected = type == current;
+                var cell = row.BeginVertGroup(new Vector2(34, 35), pSpacing: 0, pAlignment: TextAnchor.UpperCenter);
+                RegimeType target = type;
+                var button = cell.AddButtonIntoVertLayout(type.ToString(), "", () => ChangeRegime(target),
+                    GetRegimeIcon(type, selected), size: new Vector2(22, 22));
+                button.Background.enabled = selected;
+                button.Button.interactable = !partyPoliticsLocked;
+                UIHelper.AttachTextTooltip(button.gameObject, $"regime_select_{type}",
+                    CompositeEmpireService.GetRegimeName(type), partyPoliticsLocked
+                        ? LM.Get("regime_party_transition_locked") : RegimeManager.GetTemplate(type)?.description ?? "");
+                _regimeButtons[type] = button;
+                var name = cell.AddTextIntoVertLayout(CompositeEmpireService.GetRegimeName(type)
+                        .ColorString(pColor: selected ? ChoiceOnColor : ChoiceOffColor), true,
+                    TextAnchor.MiddleCenter, new Vector2(34, 10));
+                name.UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+            }
+        }
+
+        // 当前政体说明 + 君主立宪状态
+        string status = LM.Get("constitution_status_pending");
+        if (empire?.CoreKingdom == _kingdom)
+        {
+            ConstitutionalEconomyView economy = ConstitutionalEconomySystem.GetView(empire);
+            if (economy.constitutional) status = LM.Get("constitution_status_enacted");
+            else if (economy.reforming) status = LM.Get("constitution_status_reforming");
+        }
+        var summary = regimeSpace.AddTextIntoVertLayout(
+            string.Format(LM.Get("regime_current_line"),
+                CompositeEmpireService.GetRegimeName(current).ColorString(pColor: ChoiceOnColor),
+                LM.Get("constitution_title"), status), true, TextAnchor.MiddleCenter,
+            new Vector2(SettingWidth - 6f, 11));
+        summary.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
+        string description = partyPoliticsLocked ? LM.Get("regime_party_transition_locked") :
+            RegimeManager.GetTemplate(current)?.description ?? "";
+        if (!string.IsNullOrWhiteSpace(description))
+        {
+            var desc = regimeSpace.AddTextIntoVertLayout(description.ColorString("#B8C6CC"), true,
+                TextAnchor.UpperCenter, new Vector2(SettingWidth - 8f, 18));
+            desc.UseFixedFontSize(6, HorizontalWrapMode.Wrap);
+        }
+
+        regimeSpace.transform.AddStretchBackground("regimeFrame", size: new Vector2(SettingWidth + 4f, height));
         _groups.Add(regimeSpace.gameObject);
-    }
-    [Hotfixable]
-    public void LoadRegimeButton(Transform parent, RegimeType pType)
-    {
-        var toggle = GameObject.Instantiate(AdvancedButton.Prefab, parent);
-        toggle.Setup(pType.ToString(), ()=>ChangeRegime(pType),pSize:new Vector2(25, 25), isToggle:true, showTip:true, customIcon:true);
-        toggle.Background.enabled = false;
-        _regimeButtons[pType]  = toggle;
-        toggle.SetStatus(_kingdom.GetRegime().type == pType);
     }
 
     private void ChangeRegime(RegimeType pType)
     {
-        foreach (var regimeOption in _regimeButtons)
+        if (_kingdom.GetRegime()?.type == pType) return;
+        Empire empire = _kingdom.GetEmpire();
+        if (empire?.CoreKingdom == _kingdom && PartySystem.IsActive(empire)) return;
+        // 有政党的话换政体时保留下来；帝国核心国换政体后立即同步共和/君主状态
+        GeneralSystems.RepublicSystem.CarryPartiesAcrossRegimeChange(_kingdom, () =>
         {
-            regimeOption.Value.SetStatus(regimeOption.Key == pType);
-        }
-        _kingdom.SetRegimeType(pType);
-        _kingdom.LoadRegime();
+            _kingdom.SetRegimeType(pType);
+            _kingdom.GetOrCreate().regime_manually_selected = true;
+            _kingdom.LoadRegime();
+        });
+        if (empire != null && empire.CoreKingdom == _kingdom) GeneralSystems.RepublicSystem.SyncWithRegime(empire, manual: true);
         RefreshKingdomStatus();
-        foreach (var option in _kingdom.GetRegime().options)
-        {
-            if (option.Key.Contains("toggle_"))
-            {
-                _toggleButtons[option.Key].SetStatus(Convert.ToBoolean(option.Value[0]));
-            } 
-            else if (option.Key.Contains("option_"))
-            {
-                var index = 0;
-                foreach (var optionButton in _optionButtons[option.Key])
-                {
-                    optionButton.SetStatus(index==option.Value[0]);
-                    index++;
-                }
-            }
-        }
         InitialContent();
     }
 
@@ -261,7 +512,7 @@ public class RegimeWindow : AutoLayoutWindow<RegimeWindow>
         _refreshingNameInputs = true;
         try
         {
-            UIHelper.GenerateTextInput(this.transform.parent.transform.parent, offset: new Vector2(0, 152),
+            UIHelper.GenerateTextInput(this.transform, offset: new Vector2(0, 218),
                 default_text: _kingdom.GetKingdomFullName(), input: _regimeInput);
         }
         finally

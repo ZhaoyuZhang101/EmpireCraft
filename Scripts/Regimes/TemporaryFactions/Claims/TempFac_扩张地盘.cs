@@ -25,11 +25,15 @@ public class TempFac_扩张地盘 : TemporaryFaction
     public override void Execute()
     {
         LogService.LogInfo($"执行{this.type}");
+        var empire = GetEmpire();
         var kingdom = GetKingdomTarget();
-        if (kingdom != null)
+        Kingdom coreKingdom = empire?.CoreKingdom;
+        if (empire != null && !empire.isRekt() && coreKingdom != null && !coreKingdom.isRekt() &&
+            kingdom != null && !kingdom.isRekt() && kingdom != coreKingdom &&
+            !kingdom.isInWarWith(coreKingdom))
         {
-            War war = DiplomacyHelpers.wars.newWar(GetEmpire().CoreKingdom, kingdom, WarTypeLibrary.normal);
-            war.SetEmpireWarType(EmpireWarType.帝国扩张);
+            War war = DiplomacyHelpers.wars.newWar(coreKingdom, kingdom, WarTypeLibrary.normal);
+            war?.SetEmpireWarType(EmpireWarType.帝国扩张);
         }
         End();
     }
@@ -37,7 +41,7 @@ public class TempFac_扩张地盘 : TemporaryFaction
     public override bool CheckCondition()
     {
         Empire empire = GetEmpire();
-        if (empire == null) return false;
+        if (empire == null || empire.isRekt() || empire.CoreKingdom == null || empire.CoreKingdom.isRekt()) return false;
         if (empire.CoreKingdom.hasEnemies()) return false;
         foreach (var kingdom in World.world.kingdoms)
         {

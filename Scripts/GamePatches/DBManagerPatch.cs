@@ -1,5 +1,6 @@
 using db;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.GeneralSystems;
 using HarmonyLib;
 using NeoModLoader.api;
 using NeoModLoader.services;
@@ -48,11 +49,17 @@ public class DBManagerPatch:GamePatch
 
     public static void AllClear()
     {
+        // 文化制度状态是个 static 字典，只有读档路径（DataManager.LoadAll）会重置它。
+        // 新建地图走的是 MapBox.clear_data → 这里，不清的话上一局的"已掌握制度/接触度/
+        // 手动文明等级"会整份带进新世界。
+        InstitutionSystem.ResetWorldState();
+        TechnologySystem.ResetWorldState();
         ExtensionBase.Clear<Actor, ActorExtraData>();
         ExtensionBase.Clear<Family, FamilyExtraData>();
         ExtensionBase.Clear<War, WarExtraData>();
         ExtensionBase.Clear<Kingdom, KingdomExtraData>();
         ExtensionBase.Clear<City, CityExtraData>();
+        ExtensionBase.Clear<Book, EmpireCraft.Scripts.GameClassExtensions.BookExtension.BookExtraData>();
         ExtensionBase.Clear<Religion, ReligionExtraData>();
     }
 }

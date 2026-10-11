@@ -1,0 +1,4 @@
+key,cz,en,ch
+book_template_india_fable_1,$word$,$word$,$word$
+book_template_india_fable_2,$city$$word$,$word$ of $city$,$city$$word$
+book_template_india_fable_3,$author$的$word$,$author$'s $word$,$author$的$word$

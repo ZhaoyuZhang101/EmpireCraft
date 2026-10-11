@@ -1,8 +1,10 @@
 using System.Collections.Generic;
 using System.Linq;
 using ai;
+using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GameLibrary;
+using EmpireCraft.Scripts.GeneralSystems;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
@@ -13,6 +15,19 @@ namespace EmpireCraft.Scripts.HelperFunc;
 
 public static class OfficeSelector
 {
+    public static bool IsPreferredOfficeCandidate(Actor actor, Kingdom kingdom)
+    {
+        if (actor == null) return false;
+        if (kingdom == null) return true;
+        string culture = CultureService.GetRealmCulture(kingdom);
+        if (string.IsNullOrEmpty(culture)) return true;
+        if (!OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(culture, out Setting setting) || setting?.traits == null)
+            return true;
+        if (setting.traits.Contains("patriarchy")) return actor.isSexMale();
+        if (setting.traits.Contains("matriarchy")) return actor.isSexFemale();
+        return true;
+    }
+
     public static void Select(this OfficeObject office, Kingdom pKingdom, string debugType = "中央")
     {
         Actor actor = null;
@@ -22,6 +37,9 @@ public static class OfficeSelector
         {
             method =  regime.GetLeaderSelectMethod();
         }
+        // 古典共和帝国首领：施行「元老院」之前谁强谁上，之后由元老院推举
+        if (regime?.type == RegimeType.ClassicalRepublic && pKingdom.IsEmpire() && office == pKingdom.GetOffice())
+            method = CityStateService.HasSenate(pKingdom.GetEmpire()) ? LeaderSelectMethod.Vote : LeaderSelectMethod.Army;
         switch (method)
         {
             case LeaderSelectMethod.Exam:
@@ -48,6 +66,10 @@ public static class OfficeSelector
                 break;
         }
 
+        // 无小人模式：没有合适人选就从人口里生成一人补上(后宫除外)
+        if (actor == null && method != LeaderSelectMethod.Harem)
+            actor = CityPopulationSystem.SpawnForOffice(office, pKingdom);
+
         if (actor != null)
         {
             office.SetActor(actor);
@@ -66,11 +88,14 @@ public static class OfficeSelector
                 var emperor = empire.Emperor;
                 var concubines = emperor.GetPersonalIdentity().concubines;
                 var lives = concubines.Select(pValueTuple => SpecificClanManager.getPerson(pValueTuple.identity)).ToList()
-                    .FindAll(a => a.is_alive&&!a._actor.IsSkeleton()).Select(a=>a._actor).ToList();
+                    .FindAll(a => a.is_alive && a._actor.CanServeOffice(pKingdom) && !a._actor.IsSkeleton())
+                    .Select(a=>a._actor).ToList();
                 if (pOffice.officeType != 13)
                 {
                     var lover = empire.getUnits().ToList().Find(a =>
-                        a.isSexFemale() && a.isAdult() && a.age <= 25&&!a.hasLover()&&!lives.Contains(a));
+                        a.CanServeOffice(pKingdom) && a.isSexFemale() && a.isAdult() && a.age <= 25 &&
+                        (a.clan == null || a.clan != emperor.clan) &&
+                        !a.hasLover() && !lives.Contains(a));
                     if (lover != null)
                     {
                         lover.lover = emperor;
@@ -81,13 +106,15 @@ public static class OfficeSelector
                 }
                 else
                 {
-                    if (emperor.hasLover())
+                    if (emperor.hasLover() && emperor.lover.CanServeOffice(pKingdom))
                     {
                         return emperor.lover;
                     }
 
                     var lover = empire.getUnits().ToList().Find(a =>
-                        a.isSexFemale() && a.isAdult() && a.age <= 25&&!a.hasLover() && !a.IsSkeleton());
+                        a.CanServeOffice(pKingdom) && a.isSexFemale() && a.isAdult() && a.age <= 25 &&
+                        (a.clan == null || a.clan != emperor.clan) &&
+                        !a.hasLover() && !a.IsSkeleton());
                     if (lover != null)
                     {
                         lover.lover = emperor;
@@ -105,13 +132,21 @@ public static class OfficeSelector
     private static Actor TryGetFeudalElectiveRuler(OfficeObject office, Kingdom pKingdom)
     {
         if (office == null || pKingdom == null || !pKingdom.IsEmpire() ||
-            pKingdom.GetRegime()?.type != RegimeType.Feudalism || office != pKingdom.GetOffice())
+            pKingdom.GetRegime()?.type is not (RegimeType.Feudalism or RegimeType.ClassicalRepublic) ||
+            office != pKingdom.GetOffice())
         {
             return null;
         }
 
-        Empire empire = pKingdom.GetEmpire();
-        if (empire == null) return null;
+        return RankElectiveCandidates(pKingdom).Select(item => item.candidate).FirstOrDefault();
+    }
+
+    // 选举制首领(封建选帝、古典共和元老院)的推举次序：同派系的选帝侯/元老票数 → 偏好人选 → 威望 → 兵力。
+    // 候选人是帝国各成员国(不含中央)的君主。帝国窗口的元老院示意图也按这个次序画
+    public static List<(Actor candidate, int votes)> RankElectiveCandidates(Kingdom pKingdom)
+    {
+        Empire empire = pKingdom?.GetEmpire();
+        if (empire == null) return new List<(Actor, int)>();
         List<Actor> electors = empire.GetCabinetMembers()
             .Where(elector => elector != null && !elector.isRekt())
             .ToList();
@@ -122,10 +157,25 @@ public static class OfficeSelector
             .Where(candidate => candidate != null && !candidate.isRekt() && candidate.isAdult() &&
                                 candidate.isUnitFitToRule() && candidate.CanServeOffice(pKingdom) &&
                                 !candidate.IsSkeleton())
-            .OrderByDescending(candidate => electors.Count(elector => elector.GetFaction() == candidate.GetFaction()))
-            .ThenByDescending(candidate => candidate.renown)
-            .ThenByDescending(candidate => candidate.kingdom?.countTotalWarriors() ?? 0)
-            .FirstOrDefault();
+            .Select(candidate => (candidate, votes: electors.Count(elector => elector.GetFaction() == candidate.GetFaction())))
+            .OrderByDescending(item => item.votes)
+            .ThenByDescending(item => IsPreferredOfficeCandidate(item.candidate, pKingdom))
+            .ThenByDescending(item => item.candidate.renown)
+            .ThenByDescending(item => item.candidate.kingdom?.countTotalWarriors() ?? 0)
+            .ToList();
+    }
+
+    // 没有元老院的古典共和：偏好人选优先，其次兵力最强的成员国君主(同 TryGetStrongerLeader)
+    public static List<Actor> RankStrongestCandidates(Kingdom pKingdom)
+    {
+        Empire empire = pKingdom?.GetEmpire();
+        if (empire == null) return new List<Actor>();
+        return empire.kingdoms_list
+            .Where(kingdom => kingdom != null && !kingdom.isRekt() && kingdom.hasKing() &&
+                              kingdom.king.CanServeOffice(pKingdom))
+            .OrderByDescending(kingdom => IsPreferredOfficeCandidate(kingdom.king, pKingdom))
+            .ThenByDescending(kingdom => kingdom.countTotalWarriors())
+            .Select(kingdom => kingdom.king).ToList();
     }
 
     private static Actor TryGetStrongerLeader(OfficeObject pOffice, Kingdom pKingdom)
@@ -138,23 +188,28 @@ public static class OfficeSelector
             Empire empire = pKingdom.GetEmpire();
             foreach (var k in empire.kingdoms_list)
             {
-                if (!k.hasKing()) continue;
+                if (!k.hasKing() || !k.king.CanServeOffice(pKingdom)) continue;
                 if (k.countTotalWarriors() >= currentWarriors)
                 {
                     kingdom = k;
                     currentWarriors = k.countTotalWarriors();
                 }
             }
-            return kingdom?.king;
+            Actor preferred = empire.kingdoms_list
+                .Where(k => k != null && !k.isRekt() && k.hasKing() && k.king.CanServeOffice(pKingdom) &&
+                            IsPreferredOfficeCandidate(k.king, pKingdom))
+                .OrderByDescending(k => k.countTotalWarriors())
+                .Select(k => k.king).FirstOrDefault();
+            return preferred ?? kingdom?.king;
         }
         return null;
     }
 
     private static Actor TryGetExamOfficer(OfficeObject pOffice, Kingdom  pKingdom)
     {
-        List<Actor> targetPool;
+        IEnumerable<Actor> targetPool;
         if (pOffice.meta_object.isRekt()) return null;
-        ListPool<Actor> pool = new ListPool<Actor>();
+        using ListPool<Actor> pool = new ListPool<Actor>();
         if (pOffice.select_from_local)
         {
             targetPool = pOffice.meta_object.meta_type == MetaType.City
@@ -169,7 +224,7 @@ public static class OfficeSelector
             if (kingdom.IsInEmpire())
             {
                 Empire empire = kingdom.GetEmpire();
-                targetPool = empire.getUnits().ToList();
+                targetPool = CityPopulationSystem.AbstractPopulationEnabled ? OfficeCandidateRoster.Empire(empire.kingdoms_list) : empire.getUnits().ToList();
             }
             else
             {
@@ -193,7 +248,8 @@ public static class OfficeSelector
                     {
                         flag1 = true;
                     }
-                    if (pOffice.require_traits.FindAll(t => unit.hasTrait(t)).Any())
+                    if (CityPopulationSystem.AbstractPopulationEnabled ? pOffice.require_traits.Any(t => unit.hasTrait(t)) :
+                        pOffice.require_traits.FindAll(t => unit.hasTrait(t)).Any())
                     {
                         flag2 = true;
                     }
@@ -205,16 +261,7 @@ public static class OfficeSelector
                 }
             }
         }
-        if (pool.Any())
-        {
-            if (pKingdom.hasCulture())
-            {
-                return ListSorters.getUnitSortedByAgeAndTraits(pool, pKingdom.culture);
-            }
-            pool.Sort(ListSorters.sortUnitByAgeOldFirst);
-            return pool.ElementAt(0);
-        }
-        return null;
+        return SelectBestCandidate(pool, pKingdom);
     }
     private static Actor TryGetProfessionOfficer(Kingdom pKingdom)
     {
@@ -225,6 +272,8 @@ public static class OfficeSelector
 
         Actor actor = null;
         int num = 0;
+        Actor fallback = null;
+        int fallbackScore = 0;
         foreach (Actor unit in pKingdom.units)
         {
             if (unit == null || unit.isRekt())
@@ -244,14 +293,22 @@ public static class OfficeSelector
                     num2 += 2;
                 }
                 int num3 = ActorTool.attributeDice(unit, num2);
-                if (actor == null || num3 > num)
+                if (IsPreferredOfficeCandidate(unit, pKingdom))
                 {
-                    actor = unit;
-                    num = num3;
+                    if (actor == null || num3 > num)
+                    {
+                        actor = unit;
+                        num = num3;
+                    }
+                }
+                else if (fallback == null || num3 > fallbackScore)
+                {
+                    fallback = unit;
+                    fallbackScore = num3;
                 }
             }
         }
-        return actor;
+        return actor ?? fallback;
     }
     private static Actor TryGetClanOfficer(Kingdom pKingdom)
     {
@@ -279,25 +336,31 @@ public static class OfficeSelector
                 }
             }
         }
-        Actor result = null;
-        if (listPool.Any())
-        {
-            if (pKingdom.hasCulture())
-            {
-                return ListSorters.getUnitSortedByAgeAndTraits(listPool, pKingdom.culture);
-            }
-            listPool.Sort(ListSorters.sortUnitByAgeOldFirst);
-            return listPool.ElementAt(0);
-        }
-        if (listPool2.Any())
-        {
-            if (pKingdom.hasCulture())
-            {
-                return ListSorters.getUnitSortedByAgeAndTraits(listPool2, pKingdom.culture);
-            }
-            listPool2.Sort(ListSorters.sortUnitByAgeOldFirst);
-            return listPool2.ElementAt(0);
-        }
-        return result;
+        using ListPool<Actor> preferredRoyal = new ListPool<Actor>();
+        using ListPool<Actor> preferredOther = new ListPool<Actor>();
+        foreach (Actor unit in listPool)
+            if (IsPreferredOfficeCandidate(unit, pKingdom)) preferredRoyal.Add(unit);
+        foreach (Actor unit in listPool2)
+            if (IsPreferredOfficeCandidate(unit, pKingdom)) preferredOther.Add(unit);
+
+        return SelectBestCandidate(preferredRoyal, pKingdom, alreadyPreferred: true) ??
+               SelectBestCandidate(preferredOther, pKingdom, alreadyPreferred: true) ??
+               SelectBestCandidate(listPool, pKingdom) ??
+               SelectBestCandidate(listPool2, pKingdom);
+    }
+
+    private static Actor SelectBestCandidate(ListPool<Actor> pool, Kingdom kingdom, bool alreadyPreferred = false)
+    {
+        if (!pool.Any()) return null;
+        using ListPool<Actor> preferred = new ListPool<Actor>();
+        bool ready = alreadyPreferred && CityPopulationSystem.AbstractPopulationEnabled;
+        if (!ready)
+            foreach (Actor unit in pool)
+                if (IsPreferredOfficeCandidate(unit, kingdom)) preferred.Add(unit);
+        ListPool<Actor> candidates = ready ? pool : preferred.Any() ? preferred : pool;
+        if (kingdom.hasCulture())
+            return ListSorters.getUnitSortedByAgeAndTraits(candidates, kingdom.culture);
+        candidates.Sort(ListSorters.sortUnitByAgeOldFirst);
+        return candidates.ElementAt(0);
     }
 }

@@ -16,6 +16,34 @@ public static class EmpireCraftOpinionAddition
     public static void init()
     {
         OpinionLibrary opl = AssetManager.opinion_library;
+        // 对某国称帝不服：对其帝国核心王国好感大降，二十年内逐渐恢复(武力霸权称帝降得更多)
+        opl.add(new OpinionAsset
+        {
+            id = "opinion_empire_proclamation_grudge",
+            translation_key = "opinion_empire_proclamation_grudge",
+            calc = EmpireCraft.Scripts.GeneralSystems.EmpireFormationService.GetGrudgeOpinion
+        });
+        // 核威慑：对方有核则不敢轻易开战，自己有核则有恃无恐(见 NuclearDoctrineSystem)
+        opl.add(new OpinionAsset
+        {
+            id = "opinion_nuclear_deterrence",
+            translation_key = "opinion_nuclear_deterrence",
+            translation_key_negative = "opinion_nuclear_superiority",
+            calc = EmpireCraft.Scripts.Compatibility.NuclearDoctrineSystem.DeterrenceOpinion
+        });
+        opl.add(new OpinionAsset
+        {
+            id = "opinion_false_empire_core",
+            translation_key_negative = "opinion_false_empire_core",
+            calc = delegate (Kingdom pMain, Kingdom pTarget)
+            {
+                if (pMain == null || pTarget == null) return 0;
+                Empire claimant = pMain.GetEmpire();
+                Empire legitimate = EmpireCoreManager.GetLegitimateEmpire(EmpireCoreManager.Get(claimant));
+                return legitimate != null && legitimate != claimant && pTarget.GetEmpire() == legitimate
+                    ? -1200 : 0;
+            }
+        });
         opl.add(new OpinionAsset
         {
             id = "opinion_empire_loyalty",
@@ -27,7 +55,7 @@ public static class EmpireCraftOpinionAddition
                 {
                     if (!pMain.IsEmpire()&&pTarget.IsEmpire())
                     {
-                        var mandate = pTarget.GetEmpire().Mandate;
+                        var mandate = pTarget.GetEmpire().Legitimacy;
                         result = (mandate-50)*5;
                     }
                 }
@@ -83,7 +111,8 @@ public static class EmpireCraftOpinionAddition
                     {
                         if (pMain.king.GetFaction() != pTarget.king.GetFaction())
                         {
-                            result = -300;
+                            // 前现代分封的不同派系是有限的政见分歧，不能单项压过全部正统贡献。
+                            result = EmpireCraft.Scripts.GeneralSystems.ModernLegitimacy.Applies(pMain.GetEmpire()) ? -300 : -30;
                         }
                     }
                 }
@@ -96,19 +125,8 @@ public static class EmpireCraftOpinionAddition
             translation_key = "opinion_empire_maintained",
             calc = delegate (Kingdom pMain, Kingdom pTarget)
             {
-                int result = 0;
-                if (pMain.IsInSameEmpire(pTarget))
-                {
-                    if (pTarget.IsEmpire())
-                    {
-                        if (pMain.IsNeedToMaintainGoodOpinion() &&
-                            (pTarget.GetEmpire()?.GetMinisterOppositionPenalty() ?? 0) == 0)
-                        {
-                            result = 99999;
-                        }
-                    }
-                }
-                return result;
+                // 保留资产 ID 以兼容旧档；旧维持标记不再提供异常的免叛好感。
+                return 0;
             }
         });
         opl.add(new OpinionAsset

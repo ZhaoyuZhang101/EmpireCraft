@@ -5,6 +5,9 @@
     "icon_url": "",
     "era_name": false,
     "has_cabinet": false,
+    "is_monarchy": false,
+    // 共和：土地收归国有，不设地主阶层(私有土地市场随之关闭)
+    "allows_landlord_class": false,
     "cabinet_number": 0,
     "leader_select_method": "Vote",
     "default_kingdom": "Modern_centre",
@@ -78,7 +81,8 @@
       "toggle_support_army_to_center": [1],
       "option_tax_level": [2, 4],
       "option_leader_select_method": [2, 3],
-      "option_religion_type": [0, 4]
+      "option_religion_type": [0, 4],
+      "option_succession_law": [0, 5]
     },
     "bureau_config": {
       "cores": [

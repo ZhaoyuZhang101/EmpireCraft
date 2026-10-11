@@ -1,5 +1,6 @@
 ﻿using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.GeneralSystems;
 using HarmonyLib;
 using NeoModLoader.api;
 using System;
@@ -24,6 +25,11 @@ public class AlliancePatch : GamePatch
     public static bool can_join(Alliance __instance, Kingdom pKingdom, ref bool __result)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(pKingdom)) return true;
+        if (!FeudalVassalService.CanJoinAlliance(pKingdom, __instance))
+        {
+            __result = false;
+            return false;
+        }
         if (pKingdom.IsInEmpire())
         {
             __result = false;

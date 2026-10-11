@@ -40,7 +40,19 @@ public class KingdomWindowPatch: GamePatch
         if (__instance.tabs._tabs.All(p => p.name != "regime"))
         {
             SimpleWindowTab simpleWindowTab = Object.Instantiate(SimpleWindowTab.Prefab);
-            simpleWindowTab.Setup("regime", __instance.scroll_window, action:(_) => ShowRegime(), sprite:SpriteTextureLoader.getSprite("ui/regime"));
+            simpleWindowTab.Setup("regime", __instance.scroll_window, action:(_) => ShowRegime(), sprite:SpriteTextureLoader.getSprite("TabConstitution"));
+        }
+        if (__instance.tabs._tabs.All(p => p.name != "technology"))
+        {
+            SimpleWindowTab techTab = Object.Instantiate(SimpleWindowTab.Prefab);
+            techTab.Setup("technology", __instance.scroll_window, action:(_) => TechWindow.Open(_kingdom),
+                sprite:SpriteTextureLoader.getSprite("ui/icons/iconKnowledge"));
+        }
+        if (__instance.tabs._tabs.All(p => p.name != "kingdom_military"))
+        {
+            SimpleWindowTab militaryTab = Object.Instantiate(SimpleWindowTab.Prefab);
+            militaryTab.Setup("kingdom_military", __instance.scroll_window,
+                action:(_) => KingdomMilitaryWindow.Open(_kingdom), sprite:SpriteTextureLoader.getSprite("TabMilitary"));
         }
     }
     public static bool showStatsRows(KingdomWindow __instance)
@@ -61,15 +73,75 @@ public class KingdomWindowPatch: GamePatch
             if (metaObject.king.s_personality != null)
                 __instance.showStatRow("creature_statistics_personality", (object) metaObject.king.s_personality.getTranslatedName(), MetaType.None, -1L, "actor_traits/iconStupid", (string) null, (TooltipDataGetter) null);
             __instance.showStatRow("kingdom_statistics_king_ruled", (object) Date.getYearsSince(metaObject.data.timestamp_king_rule), MetaType.None, -1L, "iconClock", (string) null, (TooltipDataGetter) null);
-            __instance.showStatRow("ruler_money", (object) metaObject.GetMoney(), "#43FF43", pIconPath: "iconMoney");
+            if (!metaObject.wild)
+                __instance.showStatRow("plan_policy", EmpireCraft.Scripts.GeneralSystems.ZonePlanSystem.PolicyName(
+                    EmpireCraft.Scripts.GeneralSystems.ZonePlanSystem.PolicyOf(metaObject)), "#F3C34A", pIconPath: "iconCity");
             if (metaObject.GetKingdomType() == KingdomType.Feudalism_papal_state)
             {
                 __instance.showStatRow("religion_point", (object) metaObject.GetRegime().religion_point, "#43FF43", pIconPath: "iconMoney");
             }
         }
         
-        __instance.showStatRow("tribute", (object) metaObject.GetTaxRate().ToString("0%"), "#43FF43", pIconPath: "kingdom_traits/kingdom_trait_tax_rate_tribute_high");
+        __instance.showStatRow("ruler_money", EmpireCraft.Scripts.HelperFunc.MoneyDisplay.Format(metaObject.GetTreasuryBalance()), "#43FF43", pIconPath: "iconMoney");
+        if (EmpireCraft.Scripts.GeneralSystems.TreasurySystem.Enabled(metaObject))
+        {
+            var fiscal = EmpireCraft.Scripts.GeneralSystems.TreasurySystem.Report(metaObject);
+            __instance.showStatRow("fiscal_safety_reserve", EmpireCraft.Scripts.HelperFunc.MoneyDisplay.Format(
+                EmpireCraft.Scripts.GeneralSystems.TreasurySystem.SafetyReserve(metaObject)), "#E6A166", pIconPath: "iconMoney");
+            __instance.showStatRow("fiscal_cash_balance", EmpireCraft.Scripts.HelperFunc.MoneyDisplay.Format(
+                fiscal.cash_balance), fiscal.cash_balance >= 0 ? "#66D98A" : "#E66B66", pIconPath: "iconMoney");
+            __instance.showStatRow("fiscal_available", EmpireCraft.Scripts.HelperFunc.MoneyDisplay.Format(
+                EmpireCraft.Scripts.GeneralSystems.StateSettlementSystem.DiscretionaryBalance(metaObject)), "#43FF43", pIconPath: "iconMoney");
+            Kingdom feudalLord = EmpireCraft.Scripts.GeneralSystems.FeudalVassalService.GetOverlord(metaObject);
+            if (feudalLord != null)
+                __instance.showStatRow("feudal_overlord", string.Format(NeoModLoader.General.LM.Get("feudal_overlord_format"),
+                    feudalLord.GetKingdomName(), metaObject.GetOrCreate().feudal_vassal_level), "#D9B36A", pIconPath: "iconKings");
+            else if (metaObject.HasTakenAlliance())
+                __instance.showStatRow("tribute_overlord",
+                    metaObject.GetTakenAllianceEmpire()?.GetEmpireFullName() ?? "-", "#D9B36A", pIconPath: "iconKings");
+            int directVassals = global::System.Linq.Enumerable.Count(
+                EmpireCraft.Scripts.GeneralSystems.FeudalVassalService.GetDirectVassals(metaObject));
+            if (directVassals > 0)
+                __instance.showStatRow("feudal_vassals", directVassals.ToString(), "#D9B36A", pIconPath: "iconKings");
+            var reparations = EmpireCraft.Scripts.GeneralSystems.WarReparationsSystem.Owed(metaObject);
+            if (reparations.monthly > 0L)
+                __instance.showStatRow("war_reparations", string.Format(NeoModLoader.General.LM.Get("war_reparations_format"),
+                    EmpireCraft.Scripts.HelperFunc.MoneyDisplay.Format(reparations.monthly), reparations.monthsLeft),
+                    "#E66B66", pIconPath: "iconMoney");
+            long stateDebt = EmpireCraft.Scripts.GeneralSystems.StateDebtSystem.Outstanding(metaObject);
+            if (stateDebt > 0L)
+                __instance.showStatRow("state_debt", string.Format(NeoModLoader.General.LM.Get("state_debt_format"),
+                        EmpireCraft.Scripts.HelperFunc.MoneyDisplay.Format(stateDebt),
+                        EmpireCraft.Scripts.GeneralSystems.StateDebtSystem.AverageRate(metaObject)),
+                    EmpireCraft.Scripts.GeneralSystems.StateDebtSystem.DefaultedRecently(metaObject) ? "#E66B66" : "#E6A166",
+                    pIconPath: "iconMoney");
+            double budgetRatio = EmpireCraft.Scripts.GeneralSystems.FiscalBudgetPlanner.NormalRatio(metaObject);
+            if (budgetRatio < 0.999d)
+                __instance.showStatRow("fiscal_budget_ratio", string.Format(NeoModLoader.General.LM.Get("fiscal_budget_ratio_format"), budgetRatio),
+                    "#E6A166", pIconPath: "iconMoney");
+            __instance.showStatRow("fiscal_flows", EmpireCraft.Scripts.GeneralSystems.TreasurySystem.FlowText(fiscal), "#B8C6CC", pIconPath: "iconMoney");
+            __instance.showStatRow("fiscal_transfers", EmpireCraft.Scripts.GeneralSystems.TreasurySystem.TransferText(fiscal), "#B8C6CC", pIconPath: "iconMoney");
+            __instance.showStatRow("fiscal_spending", EmpireCraft.Scripts.GeneralSystems.TreasurySystem.SpendingText(fiscal), "#F3C34A", pIconPath: "iconMoney");
+            __instance.showStatRow("fiscal_operating_balance", EmpireCraft.Scripts.HelperFunc.MoneyDisplay.Format(fiscal.operating_balance),
+                fiscal.operating_balance >= 0 ? "#66D98A" : "#E66B66", pIconPath: "iconMoney");
+            foreach (var item in EmpireCraft.Scripts.GeneralSystems.TreasurySystem.Details(fiscal))
+                __instance.showStatRow(item.key, item.value, "#B8C6CC", pIconPath: "iconMoney");
+        }
+        if (EmpireCraft.Scripts.GeneralSystems.TreasurySystem.Enabled(metaObject))
+        {
+            __instance.showStatRow("tax", metaObject.GetTaxRate().ToString("0%"), "#43FF43", pIconPath: "kingdom_traits/kingdom_trait_tax_rate_local_low");
+            __instance.showStatRow("fiscal_tax_shares", EmpireCraft.Scripts.GeneralSystems.TreasurySystem.TaxSharingText(metaObject),
+                "#B8C6CC", pIconPath: "kingdom_traits/kingdom_trait_tax_rate_tribute_high");
+        }
+        else
+            __instance.showStatRow("tribute", (object) metaObject.GetTaxRate().ToString("0%"), "#43FF43", pIconPath: "kingdom_traits/kingdom_trait_tax_rate_tribute_high");
+        if (EmpireCraft.Scripts.GeneralSystems.CityPopulationSystem.AbstractPopulationEnabled && !metaObject.wild)
+            __instance.showStatRow("state_settlement", EmpireCraft.Scripts.GeneralSystems.StateSettlementSystem.Status(metaObject),
+                "#F3C34A", pIconPath: "iconCity");
         __instance.showStatRow("national_power", (object) metaObject.GetNationalPower().ToString("0.##"), "#FFD34E", pIconPath: "iconKings");
+        if (EmpireCraft.Scripts.GeneralSystems.TreasurySystem.Enabled(metaObject) &&
+            EmpireCraft.Scripts.GeneralSystems.ExclaveMaintenanceSystem.Status(metaObject) is string exclaveStatus)
+            __instance.showStatRow("exclave_maintenance", exclaveStatus, "#E6D36A", pIconPath: "iconMoney");
         __instance.tryToShowMetaSpecies("founder_species", metaObject.getFounderSpecies().id);
         return false;
     }

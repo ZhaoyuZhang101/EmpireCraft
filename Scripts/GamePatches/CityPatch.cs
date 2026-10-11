@@ -25,12 +25,40 @@ using EmpireCraft.Scripts.System;
 using NeoModLoader.General.Game.extensions;
 using UnityEngine;
 using static EmpireCraft.Scripts.GameClassExtensions.CityExtension;
+using EmpireCraft.Scripts.GeneralSystems;
 
 namespace EmpireCraft.Scripts.GamePatches;
 
 public class CityPatch : GamePatch
 {
     public ModDeclare declare { get; set; }
+
+    // ============================================================
+    // 低兵力城市：帝国军入城即降
+    // ============================================================
+
+    // 整个守方 Kingdom 只剩 3 名及以下存活 Warrior 时触发。
+    private const int ImperialArrivalSurrenderWarriorThreshold = 3;
+
+    // 每帧只扫描一次 World.world.units，避免每座城市都全量扫描单位。
+    private static int _imperialPresenceCacheFrame = -1;
+
+    // 同一帧内缓存“整个 Kingdom 的存活 Warrior 总数”。
+    // 统计包含在外征战、驻扎其他城市、正在移动的所有本国 Warrior，
+    // 而不是只统计当前城市里的守军。
+    private static int _kingdomWarriorCountCacheFrame = -1;
+    private static readonly Dictionary<Kingdom, int> _kingdomLivingWarriorCounts = new();
+
+    // key = 当前帝国士兵实际所在的城市
+    // value = 第一个检测到的、与该城市所属国家交战的帝国士兵所属 Kingdom
+    private static readonly Dictionary<City, Kingdom> _imperialAttackerByCity = new();
+
+    // 防止 finishCapture -> 城市状态变化 -> update 重入导致重复归降。
+    private static readonly HashSet<City> _imperialArrivalSurrenderGuard = new();
+    // 入城即降没能让城市易主时（接收国解析失败等），该城在冷却期内不再重试，
+    // 否则每帧都会重新触发一次投降结算并刷屏日志。键为城市，值为失败时的世界时间。
+    private static readonly Dictionary<City, double> _imperialArrivalSurrenderCooldown = new();
+    private const int ImperialArrivalSurrenderRetryMonths = 6;
 
     public void Initialize()
     {
@@ -53,6 +81,16 @@ public class CityPatch : GamePatch
         new Harmony(nameof(isArmyOverLimit)).Patch(
             AccessTools.Method(typeof(City), nameof(City.isArmyOverLimit)),
             prefix: new HarmonyMethod(GetType(), nameof(isArmyOverLimit))
+        );
+
+        // 国库亏空时只有京师养得起兵(见 EmpireBankruptcySystem)。原版招兵看 status.warrior_slots，不看 getMaxWarriors，两处都要改
+        new Harmony(nameof(unpaid_max_warriors)).Patch(
+            AccessTools.Method(typeof(City), nameof(City.getMaxWarriors)),
+            postfix: new HarmonyMethod(GetType(), nameof(unpaid_max_warriors)) { priority = Priority.Last }
+        );
+        new Harmony(nameof(unpaid_warrior_slots)).Patch(
+            AccessTools.Method(typeof(City), "updateCityStatus"),
+            postfix: new HarmonyMethod(GetType(), nameof(unpaid_warrior_slots)) { priority = Priority.Last }
         );
 
         new Harmony(nameof(removeData)).Patch(
@@ -126,6 +164,11 @@ public class CityPatch : GamePatch
             prefix: new HarmonyMethod(GetType(), nameof(newCity))
         );
 
+        new Harmony(nameof(CityBuilt)).Patch(
+            AccessTools.Method(typeof(CityManager), nameof(CityManager.buildNewCity)),
+            postfix: new HarmonyMethod(GetType(), nameof(CityBuilt))
+        );
+
         new Harmony(nameof(FinishedCapture)).Patch(
             AccessTools.Method(typeof(City), nameof(City.finishCapture)),
             prefix: new HarmonyMethod(GetType(), nameof(FinishedCapture))
@@ -165,6 +208,12 @@ public class CityPatch : GamePatch
     public static bool CanUseBuildAsset(CityBehBuild __instance, BuildOrder pBuildAsset, City pCity, ref bool __result)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(pCity)) return true;
+        // 科技树：本文化还没研究出来的建筑等级不能建/升
+        if (!TechnologyPatch.CanUseBuildOrder(pBuildAsset, pCity))
+        {
+            __result = false;
+            return false;
+        }
         BuildingAsset buildingAsset = pBuildAsset.getBuildingAsset(pCity);
         if (pBuildAsset.min_zones != 0 && pCity.zones.Count < pBuildAsset.min_zones)
         {
@@ -272,7 +321,9 @@ public class CityPatch : GamePatch
     public static bool getMainSubspecies(City __instance, ref Subspecies __result)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return true;
-        if (__instance.CountLivingPopulation() == 0)
+        // 无小人模式下人口计入虚拟人口，城里可能一个实体都没有：原版会去取 units[0] 越界
+        if (__instance.CountLivingPopulation() == 0 ||
+            !__instance.hasLeader() && (__instance.units == null || __instance.units.Count == 0))
         {
             __result = null;
             return false;
@@ -288,78 +339,51 @@ public class CityPatch : GamePatch
     public static bool FinishedCapture(City __instance, Kingdom pNewKingdom)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return true;
+        if (__instance == null || __instance.kingdom == null || pNewKingdom == null || pNewKingdom.isRekt())
+            return false;
+
         Kingdom oldKingdom = __instance.kingdom;
         bool isEmpireCapital = oldKingdom.IsEmpire() && oldKingdom.capital == __instance;
         Empire targetEmpire = oldKingdom.GetEmpire();
-        if (__instance.kingdom.hasKing() && __instance.kingdom.king.city == __instance)
-            __instance.kingdom.kingFledCity();
         if (World.world.cities.isLocked())
             return false;
-        __instance.clearCapture();
-        __instance.ClearOccupiedStatus();
-        __instance.recalculateNeighbourCities();
-        pNewKingdom.increaseHappinessFromNewCityCapture();
-        __instance.kingdom.decreaseHappinessFromLostCityCapture(__instance);
-        if (targetEmpire != null)
-        {
-            if (!oldKingdom.IsInSameEmpire(pNewKingdom))
-            {
-                var newEmpire = pNewKingdom.GetEmpire();
-                if (targetEmpire.CoreKingdom?.HasSameEmpireCraftCulture(newEmpire?.CoreKingdom) ?? false)
-                {
-                    targetEmpire.AddMandate(-20);
-                }
-                else
-                {
-                    targetEmpire.AddMandate(-10);
-                }
-            }
-            else
-            {
-                if (oldKingdom.IsEmpire())
-                {
-                    targetEmpire.AddMandate(-40);
-                }
-            }
-        }
-        if (targetEmpire != null && isEmpireCapital)
-        {
-            Regime newRegime = pNewKingdom.GetRegime();
-            if (newRegime != null && newRegime.type == RegimeType.Modern)
-            {
-                FixedFaction dominate = newRegime.GetDominateFaction();
-                if (dominate != null)
-                {
-                    newRegime.BlockFactionChange(50); 
-                    
-                    if (newRegime.PlayerFactions != null)
-                    {
-                        foreach (var f in newRegime.PlayerFactions)
-                        {
-                            if (f.Type != dominate.Type)
-                            {
-                                f.BanFaction();
-                                f.Ban = true;
-                                f.Force = false;
-                            }
-                            else
-                            {
-                                f.Ban = false;
-                                f.Force = true;
-                            }
-                        }
-                    }
-
-                    ActionLibrary.showWhisperTip($"{pNewKingdom.GetKingdomName()} 攻占首都，革命胜利！确立{dominate.Name}领导地位！");
-                    
-                    pNewKingdom.LoadRegime();
-                }
-            }
-        }
 
         using (ListPool<War> pWars = new ListPool<War>(pNewKingdom.getWars()))
         {
             Kingdom joinAfterCapture = __instance.findKingdomToJoinAfterCapture(pNewKingdom, pWars);
+            if (joinAfterCapture == null || joinAfterCapture.isRekt())
+            {
+                LogService.LogWarning(
+                    $"城市占领结算找不到有效接收国：城市={__instance.name}, 进攻方={pNewKingdom.name}");
+                return false;
+            }
+
+            // 原版的接收国解析在帝国战争里可能返回守城国自己（进攻方并非战争的直接参与者时），
+            // 这样"占领"不会让城市易主，只会每次重复结算。此时改由实际进攻方接收；
+            // 同一帝国的成员之间(藩王之乱、地方叛乱、军阀混战)只要确实在交战，同样由进攻方接收——
+            // 以前同帝国一律放弃结算，内战里城市占满进度就被清零、永远打不下来。
+            // 进攻方就是守城国、或双方并未交战时才放弃本次结算并清空占领进度。
+            if (joinAfterCapture == oldKingdom)
+            {
+                if (pNewKingdom != oldKingdom &&
+                    (!pNewKingdom.IsInSameEmpire(oldKingdom) || pNewKingdom.isInWarWith(oldKingdom)))
+                {
+                    joinAfterCapture = pNewKingdom;
+                }
+                else
+                {
+                    LogService.LogWarning(
+                        $"城市占领结算的接收国就是守城国自身，放弃本次结算：城市={__instance.name}, 进攻方={pNewKingdom.name}");
+                    ClearResolvedCaptureProgress(__instance);
+                    return false;
+                }
+            }
+
+            // 帝国成员在中央也参战的对外战争里打下的城：战时交中央暂管，战后再分配(见 WartimeCustodySystem)
+            Kingdom actualCapturer = joinAfterCapture;
+            Kingdom custodian = WartimeCustodySystem.CustodianFor(joinAfterCapture, oldKingdom);
+            if (custodian != null) joinAfterCapture = custodian;
+
             LogService.LogInfo($"{__instance.kingdom}的城市{__instance.name}即将被{joinAfterCapture.name}捕获");
             War war = null;
             War expendWar = null;
@@ -369,35 +393,39 @@ public class CityPatch : GamePatch
             bool attackerInEmpire = joinAfterCapture.isAttacker() && joinAfterCapture.IsInEmpire();
             foreach (War w in pWars)
             {
+                // pNewKingdom 可能同时参加多场战争。这里只能读取与当前守城国
+                // 真正处于敌对阵营的那一场，否则别处的劫掠/朝贡战争会让本城
+                // 提前结束占领结算，造成进度清空但城市不易主。
+                if (!IsWarRelevantToCapture(w, pNewKingdom, joinAfterCapture, oldKingdom))
+                    continue;
+
                 LogService.LogInfo($"战争名称{w.name}类型：{w.GetEmpireWarType().ToString()}");
                 EmpireWarType warType = w.GetEmpireWarType();
-                if (war == null && attackerInEmpire && warType == EmpireWarType.劫掠)
+                bool capturingSideIsAttacker =
+                    IsKingdomRepresentedOnWarSide(w, pNewKingdom, true) ||
+                    IsKingdomRepresentedOnWarSide(w, joinAfterCapture, true);
+                bool eligibleImperialAttacker = attackerInEmpire && capturingSideIsAttacker;
+
+                if (war == null && eligibleImperialAttacker && warType == EmpireWarType.劫掠)
                     war = w;
-                if (expendWar == null && attackerInEmpire && warType == EmpireWarType.游牧扩张)
+                if (expendWar == null && eligibleImperialAttacker && warType == EmpireWarType.游牧扩张)
                     expendWar = w;
-                if (chaoGongWar == null && attackerInEmpire && warType == EmpireWarType.迫使朝贡)
+                if (chaoGongWar == null && eligibleImperialAttacker && warType == EmpireWarType.迫使朝贡)
                     chaoGongWar = w;
-                if (religionWar == null && joinAfterCapture.isAttacker() && warType == EmpireWarType.神圣)
+                if (religionWar == null && capturingSideIsAttacker && warType == EmpireWarType.神圣)
                     religionWar = w;
-                if (empireRoyalAcquireEmpireWar == null && attackerInEmpire && warType == EmpireWarType.藩王索取皇位)
+                if (empireRoyalAcquireEmpireWar == null && eligibleImperialAttacker && warType == EmpireWarType.藩王索取皇位)
                     empireRoyalAcquireEmpireWar = w;
             }
             //检测城市是否被劫掠如果是则不执行占领城市逻辑但是相应的城市金库会被劫走
             if (war!= null)
             {
-                var money = 0;
-                if (__instance.isCapitalCity())
-                {
-                    money = __instance.kingdom.GetMoney();
-                    __instance.kingdom.SubMoney(__instance.kingdom.GetMoney());
-                }
-                else
-                {
-                    money = __instance.GetMoney();
-                    __instance.SubMoney(__instance.GetMoney());
-                }
-                pNewKingdom.AddMoney(money);
-                war.lostWar(__instance.kingdom);
+                EmpireCraft.Scripts.GeneralSystems.TreasurySystem.TransferWarSpoils(__instance, pNewKingdom);
+                ClearResolvedCaptureProgress(__instance);
+                // 劫掠是一次性有限战争：第一座城市被成功洗劫后，
+                // 立即判进攻方获胜并结束整场战争，而不是只让当前守城国退出。
+                if (war.isAlive() && !war.hasEnded())
+                    World.world.wars.endWar(war, WarWinner.Attackers);
                 return false;
             }
             //检测是否为游牧扩张战争，如果是则返还法理土地，保留制度但是加入帝国
@@ -415,6 +443,7 @@ public class CityPatch : GamePatch
                         }
                     });
                     empire.join(__instance.kingdom, pForce:true);
+                    ClearResolvedCaptureProgress(__instance);
                     expendWar.lostWar(__instance.kingdom);
                     return false;
                 }
@@ -427,6 +456,7 @@ public class CityPatch : GamePatch
                 if (__instance.isCapitalCity())
                 {
                     __instance.kingdom.JoinTakenAlliance(empire, pForce: true);
+                    ClearResolvedCaptureProgress(__instance);
                     chaoGongWar.lostWar(__instance.kingdom);
                     return false;
                 }
@@ -446,12 +476,13 @@ public class CityPatch : GamePatch
                 {
                     var empire = joinAfterCapture.GetEmpire();
                     var newEmperor = joinAfterCapture.king;
-                    if (newEmperor != null&&newEmperor.GetSpecificClan()==empire.EmpireSpecificClan)
+                    if (newEmperor != null&&SpecificClanManager.SameLineage(newEmperor.GetSpecificClan(), empire.EmpireSpecificClan))
                     {
                         TranslateHelper.LogRoyalKingBecomeEmperor(empire, joinAfterCapture.GetMainTitle()??joinAfterCapture.capital.GetTitle(), newEmperor);
                         empire.CoreKingdom.GetOffice().meta_object = empire.CoreKingdom;
                         empire.CoreKingdom.GetOffice().SetActor(newEmperor);
                         joinAfterCapture.cities.ForEach(c=>c.joinAnotherKingdom(empire.CoreKingdom));
+                        ClearResolvedCaptureProgress(__instance);
                         return false;
                     }
                     empireRoyalAcquireEmpireWar.leaveWar(joinAfterCapture);
@@ -459,20 +490,172 @@ public class CityPatch : GamePatch
                     joinAfterCapture.GetRegime().SetAllowArmy(false);
                     joinAfterCapture.GetRegime().SetAllowSupportCenterArmy(false);
                     joinAfterCapture.GetRegime().SetLeaderSelectMethod(LeaderSelectMethod.Exam);
+                    ClearResolvedCaptureProgress(__instance);
                     return false;
                 }
             }
+            // 正统之争以实际占领计算胜负，不能让城邦并国或封建归附拦截占城。
+            bool legitimacyWar = pWars.Any(w => IsWarRelevantToCapture(w, pNewKingdom, joinAfterCapture, oldKingdom) &&
+                                                 w.GetEmpireWarType() == EmpireWarType.去帝号);
+            // 城邦一城一国：攻下的城由本地贵族立为新城邦入盟，对方只剩一城则整国入盟
+            if (!legitimacyWar && CityStateService.TryResolveCapture(__instance, joinAfterCapture, oldKingdom))
+            {
+                ClearResolvedCaptureProgress(__instance);
+                return false;
+            }
+            // 分封制帝国攻下别国都城：对方称臣归附，已占的该国法理之地全部归还，城市不易主
+            if (!legitimacyWar &&
+                FeudalConquestService.TryResolveCapitalConquest(__instance, joinAfterCapture, oldKingdom))
+            {
+                ClearResolvedCaptureProgress(__instance);
+                return false;
+            }
+            PrepareCompletedCityTransfer(__instance, pNewKingdom, oldKingdom, targetEmpire, isEmpireCapital);
             if (TryTriggerEmpirePressureSurrender(__instance, joinAfterCapture, oldKingdom))
             {
                 return false;
             }
             if (!__instance.checkRebelWar(joinAfterCapture, pWars))
                 joinAfterCapture.data.timestamp_new_conquest = World.world.getCurWorldTime();
+            if (custodian != null && joinAfterCapture == custodian)
+                WartimeCustodySystem.Record(__instance, actualCapturer, oldKingdom,
+                    pWars.FirstOrDefault(w => IsWarRelevantToCapture(w, pNewKingdom, joinAfterCapture, oldKingdom)));
+            else WartimeCustodySystem.Clear(__instance);
             __instance.removeSoldiers();
             __instance.joinAnotherKingdom(joinAfterCapture, true);
         }
 
         return false;
+    }
+
+    private static void ClearResolvedCaptureProgress(City city)
+    {
+        if (city == null)
+            return;
+
+        city.clearCapture();
+        city.ClearOccupiedStatus();
+        city.recalculateNeighbourCities();
+    }
+
+    private static void PrepareCompletedCityTransfer(
+        City city,
+        Kingdom capturingKingdom,
+        Kingdom oldKingdom,
+        Empire targetEmpire,
+        bool isEmpireCapital)
+    {
+        if (city == null || capturingKingdom == null || oldKingdom == null)
+            return;
+
+        if (oldKingdom.hasKing() && oldKingdom.king?.city == city)
+            oldKingdom.kingFledCity();
+
+        ClearResolvedCaptureProgress(city);
+        capturingKingdom.increaseHappinessFromNewCityCapture();
+        oldKingdom.decreaseHappinessFromLostCityCapture(city);
+
+        if (targetEmpire != null)
+        {
+            if (!oldKingdom.IsInSameEmpire(capturingKingdom))
+            {
+                Empire newEmpire = capturingKingdom.GetEmpire();
+                if (targetEmpire.CoreKingdom?.HasSameEmpireCraftCulture(newEmpire?.CoreKingdom) ?? false)
+                    targetEmpire.AddMandate(-20);
+                else
+                    targetEmpire.AddMandate(-10);
+            }
+            else if (oldKingdom.IsEmpire())
+            {
+                targetEmpire.AddMandate(-40);
+            }
+        }
+
+        if (targetEmpire == null || !isEmpireCapital)
+            return;
+
+        Regime newRegime = capturingKingdom.GetRegime();
+        if (newRegime == null || newRegime.type != RegimeType.Modern)
+            return;
+
+        FixedFaction dominate = newRegime.GetDominateFaction();
+        if (dominate == null)
+            return;
+
+        newRegime.BlockFactionChange(50);
+        if (newRegime.PlayerFactions != null)
+        {
+            foreach (FixedFaction faction in newRegime.PlayerFactions)
+            {
+                if (faction.Type != dominate.Type)
+                {
+                    faction.BanFaction();
+                    faction.Ban = true;
+                    faction.Force = false;
+                }
+                else
+                {
+                    faction.Ban = false;
+                    faction.Force = true;
+                }
+            }
+        }
+
+        string revolution = string.Format(LM.Get("revolution_victory_history"), capturingKingdom.GetKingdomName(),
+            dominate.Name);
+        EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventMessage(revolution, capturingKingdom);
+        capturingKingdom.GetEmpire()?.RecordHistory(directContent: revolution,
+            actorId: capturingKingdom.king?.id ?? -1L, kingdomId: capturingKingdom.id);
+        capturingKingdom.LoadRegime();
+    }
+
+    private static bool IsWarRelevantToCapture(
+        War war,
+        Kingdom capturingKingdom,
+        Kingdom resolvedCaptureKingdom,
+        Kingdom defendingKingdom)
+    {
+        if (war == null ||
+            !war.isAlive() ||
+            war.hasEnded() ||
+            defendingKingdom == null)
+        {
+            return false;
+        }
+
+        return AreKingdomsOpposingInWar(war, capturingKingdom, defendingKingdom) ||
+               AreKingdomsOpposingInWar(war, resolvedCaptureKingdom, defendingKingdom);
+    }
+
+    private static bool AreKingdomsOpposingInWar(War war, Kingdom first, Kingdom second)
+    {
+        if (war == null || first == null || second == null || first == second)
+            return false;
+
+        bool firstAttacker = IsKingdomRepresentedOnWarSide(war, first, true);
+        bool firstDefender = IsKingdomRepresentedOnWarSide(war, first, false);
+        bool secondAttacker = IsKingdomRepresentedOnWarSide(war, second, true);
+        bool secondDefender = IsKingdomRepresentedOnWarSide(war, second, false);
+
+        return (firstAttacker && secondDefender) ||
+               (firstDefender && secondAttacker);
+    }
+
+    private static bool IsKingdomRepresentedOnWarSide(War war, Kingdom kingdom, bool attackers)
+    {
+        if (war == null || kingdom == null)
+            return false;
+
+        if (attackers ? war.isAttacker(kingdom) : war.isDefender(kingdom))
+            return true;
+
+        Empire empire = kingdom.GetEmpire();
+        Kingdom coreKingdom = empire?.CoreKingdom;
+        if (coreKingdom == null && kingdom.IsEmpire())
+            coreKingdom = kingdom;
+
+        return coreKingdom != null && coreKingdom != kingdom &&
+               (attackers ? war.isAttacker(coreKingdom) : war.isDefender(coreKingdom));
     }
 
     private static bool TryTriggerEmpirePressureSurrender(City capturedCity, Kingdom attackerKingdom, Kingdom defenderKingdom)
@@ -617,7 +800,10 @@ public class CityPatch : GamePatch
     public static bool getPopulationPeople(City __instance, ref int __result)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return true;
-        __result = __instance.CountLivingPopulation();
+        // 原版逻辑读人口时按户计(见 CityPopulationSystem.VanillaScale)，界面与统计读真实人数
+        __result = CityPopulationSystem.VanillaScale && CityPopulationSystem.AbstractPopulationEnabled
+            ? CityPopulationSystem.Households(__instance)
+            : __instance.CountLivingPopulation();
         return false;
     }
     public static bool isArmyOverLimit(City __instance, ref bool __result)
@@ -635,6 +821,18 @@ public class CityPatch : GamePatch
         }
         __result = false;
         return false; 
+    }
+    public static void unpaid_max_warriors(City __instance, ref int __result)
+    {
+        __result = Math.Max(__result, CityStabilitySystem.FundedSlots(__instance));
+        if (__result > 0 && EmpireBankruptcySystem.IsUnpaidGarrison(__instance)) __result = 0;
+    }
+    public static void unpaid_warrior_slots(City __instance)
+    {
+        if (__instance?.status != null)
+            __instance.status.warrior_slots = Math.Max(__instance.status.warrior_slots, CityStabilitySystem.FundedSlots(__instance));
+        if (__instance?.status != null && EmpireBankruptcySystem.IsUnpaidGarrison(__instance))
+            __instance.status.warrior_slots = 0;
     }
     public static bool getPopulationMaximum(City __instance, ref int __result)
     {
@@ -657,7 +855,8 @@ public class CityPatch : GamePatch
         if (WorldLawLibrary.world_law_civ_limit_population_100?.isEnabled() == true)
             cap = Math.Min(cap, 100);
 
-        __result = cap;
+        // 无小人模式：一个住房位住一户(古代 100 人、现代 1000 人)；原版逻辑读上限时仍按住房位数
+        __result = CityPopulationSystem.VanillaScale ? cap : cap * CityPopulationSystem.PeoplePerSlot(__instance);
         return false;
     }
     public static bool HasReachedWorldLawLimit(City __instance, ref bool __result)
@@ -739,6 +938,9 @@ public class CityPatch : GamePatch
             pHappinessEvent = "just_rebelled";
         }
         Kingdom pKingdom = __instance.kingdom;
+        pKingdom?.InvalidateCityValueContext();
+        pNewSetKingdom.InvalidateCityValueContext();
+        __instance.InvalidateCityStrategicValue();
         __instance.removeFromCurrentKingdom();
         if (pNewSetKingdom.IsInEmpire())
         {
@@ -774,20 +976,22 @@ public class CityPatch : GamePatch
             empire?.cities_list.Remove(__instance);
         }
         __instance.setKingdom(pNewSetKingdom);
+        if (pCaptured)
+            CultureService.ApplyForeignOccupationCulture(__instance, pNewSetKingdom);
         __instance.newForceKingdomEvent(__instance.units, __instance._boats, pNewSetKingdom, pHappinessEvent);
         __instance.switchedKingdom();
         pNewSetKingdom.capturedFrom(pKingdom);
         __instance.ClearOccupiedStatus();
+        __instance.InvalidateCityStrategicValue();
+        pNewSetKingdom.InvalidateCityValueContext();
         return false;
     }
     public static bool removeZone(City __instance, TileZone pZone)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return true;
-        if (EmpireCraftWorldLawLibrary.empirecraft_law_prevent_city_destroy.isEnabled())
-        {
-            return false;
-        }
-
+        if (!CityTerritoryProtection.CanRemoveZone(__instance, pZone)) return false;
+        ZonePlanSystem.InvalidatePlanning(__instance);
+        OccupationReadIndex.Invalidate(__instance);
         return true;
     }
     public static bool addZone(City __instance, TileZone pZone)
@@ -795,13 +999,14 @@ public class CityPatch : GamePatch
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return true;
         if (!__instance.zones.Contains(pZone))
         {
+            ZonePlanSystem.InvalidatePlanning(__instance);
+            OccupationReadIndex.Invalidate(__instance);
             if (pZone.city != null)
             {
-                if (EmpireCraftWorldLawLibrary.empirecraft_law_prevent_city_destroy.isEnabled())
-                {
-                    return false;
-                }
+                if (!CityTerritoryProtection.CanRemoveZone(pZone.city, pZone)) return false;
                 pZone.city.removeZone(pZone);
+                // Another mod may veto removal. Never add a still-owned zone to a second city.
+                if (pZone.city != null) return false;
             }
             __instance.zones.Add(pZone);
             pZone.setCity(__instance);
@@ -814,12 +1019,36 @@ public class CityPatch : GamePatch
         }
         return false;
     }
+    // 存档里在世城市指向的王国不存在时(王国已被删除)，城市没有王国，随后加载单位时 City.isNeutral() 空引用、
+    // 整个存档读不进来。加载单位之前(SaveManagerPatch 的 loadActors 前置)把这些城市归到上一个王国，找不到就划为中立。
+    // 只修在世城市：统计库里已灭亡城市的历史记录本来就没有王国，不能碰。
+    public static void RepairLiveCityKingdoms()
+    {
+        if (World.world?.cities == null) return;
+        foreach (City city in World.world.cities.ToList())
+        {
+            if (city?.data == null || city.kingdom != null) continue;
+            Kingdom previous = city.data.last_kingdom_id > 0 ? World.world.kingdoms.get(city.data.last_kingdom_id) : null;
+            Kingdom fallback = previous != null && !previous.isRekt() && previous.asset != null
+                ? previous
+                : WildKingdomsManager.neutral;
+            city.setKingdom(fallback, pFromLoad: true);
+            LogService.LogWarning($"[EmpireCraft] 城市 {city.data.name}({city.id}) 指向的王国不存在，已归入 {fallback?.name}");
+        }
+    }
+
     public static bool makeOwnKingdom(City __instance, Actor pActor, bool pRebellion, bool pFellApart, ref Kingdom __result)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return true;
         if (__instance == null || pActor == null)
         {
             return false;
+        }
+        // 非文明单位不能当建国者：换城里一个文明居民，找不到就不建
+        if (!pActor.CanFoundCivKingdom())
+        {
+            pActor = __instance.units?.FirstOrDefault(actor => actor.CanFoundCivKingdom() && actor.isAdult());
+            if (pActor == null) return false;
         }
 
         string pHappinessEvent = null;
@@ -834,24 +1063,92 @@ public class CityPatch : GamePatch
             pHappinessEvent = "kingdom_fell_apart";
         }
         Kingdom pKingdom = __instance.kingdom;
+        CityValueSnapshot rebellionOriginValue = pRebellion ? __instance.GetCityStrategicValue() : default;
+        pKingdom?.InvalidateCityValueContext();
+        __instance.InvalidateCityStrategicValue();
         Empire rebellionOrigin = pRebellion ? pKingdom?.GetEmpire() : null;
         __instance.removeFromCurrentKingdom();
         __instance.removeLeader();
+        pActor.ClearDisposedKingdom();
         Kingdom kingdom = World.world.kingdoms.makeNewCivKingdom(pActor);
+        kingdom.copyMetasFromOtherKingdom(pKingdom);
+        kingdom.generateColor();
         __instance.newForceKingdomEvent(__instance.units, __instance._boats, kingdom, pHappinessEvent);
         __instance.setKingdom(kingdom);
         __instance.switchedKingdom();
-        kingdom.copyMetasFromOtherKingdom(pKingdom);
         kingdom.setCityMetas(__instance);
         kingdom.RememberRebellionOrigin(rebellionOrigin);
+        if (pRebellion) kingdom.SetRebellionOriginCityValue(rebellionOriginValue);
+        kingdom.InvalidateCityValueContext();
+        __instance.InvalidateCityStrategicValue();
         __result = kingdom;
         return false;
     }
 
 
+    // 全世界的年度扫描：以前挂在每座城的更新里，第一座城一到期就七个一起跑，叠成大顿挫。
+    // 现在每帧只轮到其中一个(各扫描自己仍按"一年一次"判断是否到期)，到期的扫描最多晚几帧执行
+    private static readonly Action[] WorldYearlyScans =
+    {
+        ClanBranchSystem.TryYearlyScan,
+        IdeologySpreadSystem.TryYearlyScan,
+        TechnologySystem.TryYearlyScan,
+        InstitutionSystem.TryYearlyCultureDrift,
+        HarshRuleSystem.TryYearlyKingdomScan,
+        EmpireCraft.Scripts.Compatibility.NuclearDoctrineSystem.TryYearlyScan,
+        CultureModernizationSystem.TryYearlyRealmTransitionScan,
+        CapitalLossNamingSystem.TryYearlyScan,
+        WartimeCustodySystem.TryMonthlyScan,
+        JimiSystem.TryMonthlyScan,
+        InternalBoundarySystem.TryYearlyScan,
+        StateDebtSystem.TryMonthlyScan,
+        CoreCapitalRestorationSystem.TryMonthlyScan,
+        WarReparationsSystem.TryMonthlyScan,
+        TradeRouteSystem.TryMonthlyScan,
+        VassalColorService.TickReassert,
+        FeudalVassalService.TryYearlyTribute
+    };
+    private static readonly string[] WorldYearlyScanNames =
+        { "宗族分支", "理念传播", "科技", "制度漂移", "苛政", "核威慑", "文化近代化", "失都改称", "战后分配", "羁縻边防", "行政区划界", "国债", "还于旧都", "战争赔款", "海上商路", "附庸描边", "封建贡赋" };
+    private static int _worldScanFrame = -1;
+    private const int SurrenderCheckEvery = 10;
+    private const int SlowHookCitiesPerFrame = 3;
+
+    private static void RunWorldYearlyScans()
+    {
+        int frame = Time.frameCount;
+        if (frame == _worldScanFrame) return;
+        _worldScanFrame = frame;
+        int index = frame % WorldYearlyScans.Length;
+        using (FrameProfiler.Measure("年度扫描·" + WorldYearlyScanNames[index])) WorldYearlyScans[index]();
+    }
+
     public static void city_update(City __instance, float pElapsed)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
+
+        // 守城军已经被打到 3 人及以下时：
+        // 只要敌对帝国的 Warrior 实际进入本城市任意 Zone，
+        // 该城立即归降。
+        // 每座城每帧都跑：分段累计计时，每 10 秒在日志里报一次平均每帧耗时(见 FrameProfiler)
+        // 这几项按年、按月更新就够，不用每座城每帧都查：
+        //   入城归降每座城每 10 帧查一次；土地经济、占领扩散、城市就业每帧只轮到约 3 座城
+        //   (100 多座城大约两秒轮一遍；游戏开得再快，这几项的总开销也不会跟着翻倍)
+        int frame = Time.frameCount;
+        long cityKey = __instance.data?.id ?? 0L;
+        if ((cityKey + frame) % SurrenderCheckEvery == 0)
+            using (FrameProfiler.Measure("城市钩子·入城归降")) TryImmediateSurrenderOnImperialArmyArrival(__instance);
+        int cycle = Math.Max(1, (World.world?.cities?.Count ?? 1) / SlowHookCitiesPerFrame);
+        if ((cityKey + frame) % cycle == 0)
+        {
+            using (FrameProfiler.Measure("城市钩子·土地经济")) LandEconomySystem.UpdateCity(__instance);
+            using (FrameProfiler.Measure("城市钩子·占领扩散")) __instance.TryYearlyOccupationSpread();
+            using (FrameProfiler.Measure("城市钩子·城市就业")) UrbanEmploymentSystem.UpdateCity(__instance);
+        }
+        // 无小人模式：城主一空缺立即从人口里补位
+        using (FrameProfiler.Measure("城市钩子·城主补位")) CityPopulationSystem.EnsureLeader(__instance);
+        using (FrameProfiler.Measure("城市钩子·年度扫描")) RunWorldYearlyScans();
+
         /*
         if (__instance.hasTitle())
         {
@@ -862,9 +1159,520 @@ public class CityPatch : GamePatch
         }
         */
     }
+
+    /// <summary>
+    /// 城市低兵力时，检测敌对帝国 Warrior 是否已经实际进入该城市。
+    /// 满足条件后直接调用 finishCapture，而不是 setKingdom：
+    /// 这样仍然会进入本 CityPatch 已有的 FinishedCapture 逻辑，
+    /// 包括可占领战争、帝国压力投降、占领清理、日志等。
+    /// 劫掠战争不转移城市，因此不能由这里触发自动归降。
+    /// </summary>
+    private const int ImperialArrivalSurrenderPeakWarriors = 10;
+
+    // 存档后清理：去掉已消亡城市的重试冷却记录
+    public static void PruneDeadCityCaches()
+    {
+        foreach (City city in _imperialArrivalSurrenderCooldown.Keys.Where(city => city == null || city.isRekt()).ToList())
+            _imperialArrivalSurrenderCooldown.Remove(city);
+    }
+
+    private static void TryImmediateSurrenderOnImperialArmyArrival(City city)
+    {
+        if (city == null || city.isRekt())
+            return;
+
+        if (city.kingdom == null || city.kingdom.isRekt())
+            return;
+
+        // 避免重入。
+        if (_imperialArrivalSurrenderGuard.Contains(city))
+            return;
+        if (_imperialArrivalSurrenderCooldown.TryGetValue(city, out double failedAt))
+        {
+            if (Date.getMonthsSince(failedAt) < ImperialArrivalSurrenderRetryMonths) return;
+            _imperialArrivalSurrenderCooldown.Remove(city);
+        }
+
+        // 不再使用 city.kingdom.hasEnemies() 作为前置条件。
+        // 帝国战争可能只登记在帝国核心国上，地方王国本身未必 hasEnemies()。
+
+        Kingdom defenderKingdom = city.kingdom;
+
+        // 独立国按全国兵力；帝国成员按全帝国兵力，避免弱小诸侯在两支帝国军之间反复归附。
+        Empire defendingEmpire = defenderKingdom.GetEmpire();
+        int kingdomWarriors = defendingEmpire != null && !defendingEmpire.IsArchived() && !defendingEmpire.isRekt()
+            ? GetEmpireLivingWarriorCount(defendingEmpire)
+            : GetKingdomLivingWarriorCount(defenderKingdom);
+        // 无小人模式：太平时只留少数将领，还能按战时兵额动员的不算"兵败"
+        kingdomWarriors += CityPopulationSystem.MobilizableReserve(defenderKingdom);
+        KingdomExtension.KingdomExtraData defenderData = defenderKingdom.GetOrCreate();
+        if (kingdomWarriors > defenderData.peak_warriors) defenderData.peak_warriors = kingdomWarriors;
+
+        // 守方整体只剩 0 / 1 / 2 / 3 个 Warrior 时，
+        // 才允许帝国军入城触发该城立即归降。
+        if (kingdomWarriors > ImperialArrivalSurrenderWarriorThreshold)
+            return;
+        // 而且必须是"曾经有过军队后崩溃"：新立国(比如刚起事的叛军)还没来得及征兵，不算崩溃
+        if (defenderData.peak_warriors < ImperialArrivalSurrenderPeakWarriors)
+            return;
+
+        EnsureImperialPresenceCache();
+
+        if (!_imperialAttackerByCity.TryGetValue(city, out Kingdom attackerKingdom))
+            return;
+
+        if (!IsValidImperialSurrenderAttacker(city, attackerKingdom))
+            return;
+
+        // 同帧各城共用动员统计；真正转移城市前再核对，避免本帧刚征兵或切换军制时误降。
+        if (CityPopulationSystem.AbstractPopulationEnabled)
+        {
+            int fresh = (defendingEmpire != null && !defendingEmpire.IsArchived() && !defendingEmpire.isRekt()
+                ? GetEmpireLivingWarriorCount(defendingEmpire) : GetKingdomLivingWarriorCount(defenderKingdom)) +
+                CityPopulationSystem.MobilizableReserve(defenderKingdom, true);
+            if (fresh > defenderData.peak_warriors) defenderData.peak_warriors = fresh;
+            if (fresh > ImperialArrivalSurrenderWarriorThreshold) return;
+            kingdomWarriors = fresh;
+        }
+
+        try
+        {
+            _imperialArrivalSurrenderGuard.Add(city);
+
+            // 直接走原版/本模组“完成占领”的入口。
+            //
+            // 不直接 city.joinAnotherKingdom()，
+            // 因为 finishCapture 已被本 CityPatch Patch，
+            // 会继续执行游牧扩张、迫使朝贡、圣战、
+            // 藩王索取皇位、帝国压力投降等现有规则。
+            LogService.LogInfo(
+                $"国家兵力崩溃，城市立即归降：{city.name}，{defenderKingdom.name}全国剩余士兵={kingdomWarriors}，归降于={attackerKingdom.name}");
+
+            city.finishCapture(attackerKingdom);
+            if (!city.isRekt() && city.kingdom == defenderKingdom)
+            {
+                _imperialArrivalSurrenderCooldown[city] = World.world.getCurWorldTime();
+                LogService.LogWarning(
+                    $"入城即降未能让城市易主，{ImperialArrivalSurrenderRetryMonths}个月内不再重试：城市={city.name}, 攻方={attackerKingdom.name}");
+            }
+        }
+        catch (Exception e)
+        {
+            _imperialArrivalSurrenderCooldown[city] = World.world.getCurWorldTime();
+            LogService.LogWarning(
+                $"帝国军入城即降失败：城市={city?.name}, 攻方={attackerKingdom?.name}, {e.Message}");
+        }
+        finally
+        {
+            _imperialArrivalSurrenderGuard.Remove(city);
+        }
+    }
+
+    /// <summary>
+    /// 返回整个 Kingdom 当前所有存活 Warrior 的总数。
+    ///
+    /// 注意：
+    /// - 不按 City 统计；
+    /// - 士兵人在国外、前线、船上或其他城市，只要 actor.kingdom == kingdom，
+    ///   且仍然存活并且 isWarrior()，都算作这个国家的兵力。
+    /// </summary>
+    // 全帝国兵力：同一帧内各城共用(随王国兵力缓存一起按帧清空)
+    private static readonly Dictionary<long, int> _empireLivingWarriorCounts = new();
+
+    private static int GetEmpireLivingWarriorCount(Empire empire)
+    {
+        EnsureKingdomWarriorCountCache();
+        if (_empireLivingWarriorCounts.TryGetValue(empire.id, out int cached)) return cached;
+        int total = 0;
+        List<Kingdom> members = empire.kingdoms_list;
+        if (members != null)
+            for (int i = 0; i < members.Count; i++)
+            {
+                Kingdom member = members[i];
+                if (member != null && !member.isRekt() && _kingdomLivingWarriorCounts.TryGetValue(member, out int count))
+                    total += count;
+            }
+        _empireLivingWarriorCounts[empire.id] = total;
+        return total;
+    }
+
+    private static int GetKingdomLivingWarriorCount(Kingdom kingdom)
+    {
+        if (kingdom == null || kingdom.isRekt())
+            return 0;
+
+        EnsureKingdomWarriorCountCache();
+
+        return _kingdomLivingWarriorCounts.TryGetValue(kingdom, out int count)
+            ? count
+            : 0;
+    }
+
+    private static void EnsureKingdomWarriorCountCache()
+    {
+        int frame = Time.frameCount;
+
+        if (_kingdomWarriorCountCacheFrame == frame)
+            return;
+
+        _kingdomWarriorCountCacheFrame = frame;
+        _kingdomLivingWarriorCounts.Clear();
+        _empireLivingWarriorCounts.Clear();
+
+        if (World.world == null || World.world.units == null)
+            return;
+
+        foreach (Actor actor in World.world.units)
+        {
+            if (actor == null ||
+                !actor.isAlive() ||
+                actor.isRekt() ||
+                !actor.isWarrior())
+            {
+                continue;
+            }
+
+            Kingdom kingdom = actor.kingdom;
+
+            if (kingdom == null || kingdom.isRekt())
+                continue;
+
+            _kingdomLivingWarriorCounts.TryGetValue(kingdom, out int count);
+            _kingdomLivingWarriorCounts[kingdom] = count + 1;
+        }
+    }
+
+    /// <summary>
+    /// 每帧最多扫描一次所有 Actor。
+    ///
+    /// 判断“到达该地”的标准：
+    /// Warrior.current_tile.zone.city == city
+    ///
+    /// 即只要士兵脚下的 Zone 属于该城市，就算已经真正进入城市领土，
+    /// 不要求必须抵达中心格。
+    /// </summary>
+    private static void EnsureImperialPresenceCache()
+    {
+        int frame = Time.frameCount;
+
+        if (_imperialPresenceCacheFrame == frame)
+            return;
+
+        _imperialPresenceCacheFrame = frame;
+        _imperialAttackerByCity.Clear();
+
+        if (World.world == null || World.world.units == null)
+            return;
+
+        foreach (Actor actor in World.world.units)
+        {
+            if (actor == null || !actor.isAlive() || actor.isRekt())
+                continue;
+
+            if (!actor.isWarrior())
+                continue;
+
+            Kingdom troopKingdom = actor.kingdom;
+
+            if (troopKingdom == null || troopKingdom.isRekt())
+                continue;
+
+            // 必须是真正的帝国体系军队：
+            // 帝国核心国或帝国成员国均可。
+            Empire attackerEmpire = troopKingdom.GetEmpire();
+            if (attackerEmpire == null && !troopKingdom.IsEmpire())
+                continue;
+
+            WorldTile tile = actor.current_tile;
+            TileZone zone = tile?.zone;
+            City enteredCity = zone?.city;
+
+            if (enteredCity == null || enteredCity.isRekt())
+                continue;
+
+            Kingdom defenderKingdom = enteredCity.kingdom;
+
+            if (defenderKingdom == null ||
+                defenderKingdom == troopKingdom ||
+                defenderKingdom.isRekt())
+            {
+                continue;
+            }
+
+            // 同一帝国内部不触发投降。
+            if (defenderKingdom.IsInSameEmpire(troopKingdom))
+                continue;
+
+            // 关键修正：
+            // 不再要求 troopKingdom 自己必须直接和 defenderKingdom 开战。
+            //
+            // 帝国战争中常见情况：
+            //   CoreKingdom A <-> CoreKingdom B 正在战争
+            //   但实际进入城市的是 A 帝国下属 Kingdom C 的士兵。
+            //
+            // ResolveImperialCaptureKingdom 会把这种情况解析到真正的参战方。
+            Kingdom captureKingdom =
+                ResolveImperialCaptureKingdom(
+                    troopKingdom,
+                    defenderKingdom);
+
+            if (captureKingdom == null)
+                continue;
+
+            // 如果多个帝国同时进入同一城市，
+            // 当前帧保留第一个有效敌对帝国。
+            if (!_imperialAttackerByCity.ContainsKey(enteredCity))
+            {
+                _imperialAttackerByCity[enteredCity] = captureKingdom;
+            }
+        }
+    }
+
+    private static bool IsValidImperialSurrenderAttacker(
+        City city,
+        Kingdom attackerKingdom)
+    {
+        if (city == null ||
+            attackerKingdom == null ||
+            attackerKingdom.isRekt())
+        {
+            return false;
+        }
+
+        Kingdom defenderKingdom = city.kingdom;
+
+        if (defenderKingdom == null ||
+            defenderKingdom.isRekt() ||
+            defenderKingdom == attackerKingdom)
+        {
+            return false;
+        }
+
+        if (!attackerKingdom.IsInEmpire() &&
+            !attackerKingdom.IsEmpire())
+        {
+            return false;
+        }
+
+        if (defenderKingdom.IsInSameEmpire(attackerKingdom))
+            return false;
+
+        // attackerKingdom 已经由 ResolveImperialCaptureKingdom
+        // 解析成真正可代表此次战争的一方。
+        return AreEligibleImmediateSurrenderWarSides(
+            attackerKingdom,
+            defenderKingdom);
+    }
+
+    /// <summary>
+    /// 从“实际进入城市的士兵所属 Kingdom”
+    /// 解析出应该用于 finishCapture 的真正参战 Kingdom。
+    ///
+    /// 支持：
+    /// 1. 成员国直接参战；
+    /// 2. 帝国核心国参战、成员国士兵作战；
+    /// 3. 双方都是帝国，战争登记在两个 CoreKingdom 上。
+    /// </summary>
+    private static Kingdom ResolveImperialCaptureKingdom(
+        Kingdom troopKingdom,
+        Kingdom defenderKingdom)
+    {
+        if (troopKingdom == null ||
+            defenderKingdom == null)
+        {
+            return null;
+        }
+
+        Empire attackerEmpire =
+            troopKingdom.GetEmpire();
+
+        Kingdom attackerCore =
+            attackerEmpire?.CoreKingdom;
+
+        // 某些实现中核心国的 GetEmpire() 可能为空，
+        // 但 IsEmpire() 为 true，此时本身就是战争核心。
+        if (attackerCore == null &&
+            troopKingdom.IsEmpire())
+        {
+            attackerCore = troopKingdom;
+        }
+
+        Empire defenderEmpire =
+            defenderKingdom.GetEmpire();
+
+        Kingdom defenderCore =
+            defenderEmpire?.CoreKingdom;
+
+        if (defenderCore == null &&
+            defenderKingdom.IsEmpire())
+        {
+            defenderCore = defenderKingdom;
+        }
+
+        // 1. 实际部队所属国家自己就是直接参战方。
+        if (AreDirectlyAtWarForImmediateSurrender(
+                troopKingdom,
+                defenderKingdom))
+        {
+            return troopKingdom;
+        }
+
+        // 2. 攻方核心国 vs 当前守城国。
+        if (attackerCore != null &&
+            AreDirectlyAtWarForImmediateSurrender(
+                attackerCore,
+                defenderKingdom))
+        {
+            return attackerCore;
+        }
+
+        // 3. 实际部队所属国 vs 守方帝国核心。
+        if (defenderCore != null &&
+            AreDirectlyAtWarForImmediateSurrender(
+                troopKingdom,
+                defenderCore))
+        {
+            return troopKingdom;
+        }
+
+        // 4. 最常见的帝国战争：
+        //    攻方 CoreKingdom vs 守方 CoreKingdom。
+        if (attackerCore != null &&
+            defenderCore != null &&
+            AreDirectlyAtWarForImmediateSurrender(
+                attackerCore,
+                defenderCore))
+        {
+            return attackerCore;
+        }
+
+        return null;
+    }
+
+    private static bool AreEligibleImmediateSurrenderWarSides(
+        Kingdom attackerKingdom,
+        Kingdom defenderKingdom)
+    {
+        if (attackerKingdom == null ||
+            defenderKingdom == null)
+        {
+            return false;
+        }
+
+        if (AreDirectlyAtWarForImmediateSurrender(
+                attackerKingdom,
+                defenderKingdom))
+        {
+            return true;
+        }
+
+        Empire attackerEmpire =
+            attackerKingdom.GetEmpire();
+
+        Kingdom attackerCore =
+            attackerEmpire?.CoreKingdom;
+
+        if (attackerCore == null &&
+            attackerKingdom.IsEmpire())
+        {
+            attackerCore = attackerKingdom;
+        }
+
+        Empire defenderEmpire =
+            defenderKingdom.GetEmpire();
+
+        Kingdom defenderCore =
+            defenderEmpire?.CoreKingdom;
+
+        if (defenderCore == null &&
+            defenderKingdom.IsEmpire())
+        {
+            defenderCore = defenderKingdom;
+        }
+
+        if (attackerCore != null &&
+            AreDirectlyAtWarForImmediateSurrender(
+                attackerCore,
+                defenderKingdom))
+        {
+            return true;
+        }
+
+        if (defenderCore != null &&
+            AreDirectlyAtWarForImmediateSurrender(
+                attackerKingdom,
+                defenderCore))
+        {
+            return true;
+        }
+
+        if (attackerCore != null &&
+            defenderCore != null &&
+            AreDirectlyAtWarForImmediateSurrender(
+                attackerCore,
+                defenderCore))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool AreDirectlyAtWarForImmediateSurrender(
+        Kingdom a,
+        Kingdom b)
+    {
+        if (a == null ||
+            b == null ||
+            a == b ||
+            a.isRekt() ||
+            b.isRekt())
+        {
+            return false;
+        }
+
+        try
+        {
+            foreach (War war in a.getWars())
+            {
+                if (war == null ||
+                    !war.isAlive() ||
+                    war.hasEnded() ||
+                    war.GetEmpireWarType() == EmpireWarType.劫掠)
+                {
+                    continue;
+                }
+
+                bool oppositeSides =
+                    (war.isAttacker(a) && war.isDefender(b)) ||
+                    (war.isDefender(a) && war.isAttacker(b));
+
+                if (oppositeSides)
+                    return true;
+            }
+        }
+        catch
+        {
+            // 战争正在结束时，列表可能被原版同时修改；本帧不触发归降即可。
+        }
+
+        return false;
+    }
     public static bool removeObject(CityManager __instance, City pObject)
     {
-        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(pObject)) return true;
+        if (CityTerritoryProtection.ShouldPreventDestruction(pObject))
+        {
+            FiscalDiagnostics.Count("保城拦截");
+            return false;
+        }
+        // 保城开关开着、活城却仍被移除时记下原因(领土被蚕食光等)，便于追查"开关没生效"的路径；
+        // 换地图时旧城先被标记死亡，不会触发这条
+        if (EmpireCraft.Scripts.GameLibrary.EmpireCraftWorldLawLibrary.empirecraft_law_prevent_city_destroy?.isEnabled() == true &&
+            pObject?.data != null && pObject.isAlive() && !ModClass.IS_CLEAR &&
+            !EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(pObject))
+            NeoModLoader.services.LogService.LogWarning(
+                $"[EmpireCraft][保城] 城市 {pObject.data.name} 仍被移除：领土 {pObject.zones?.Count ?? -1} 块，" +
+                $"背景人口 {EmpireCraft.Scripts.GeneralSystems.CityPopulationSystem.GetBackgroundTotal(pObject):0}");
         return true;
     }
 
@@ -874,22 +1682,20 @@ public class CityPatch : GamePatch
         Regime regime = pKingdom.GetRegime();
         if (regime != null)
         {
-            CityType cityType = regime.bureau_config.kingdoms.TryGetValue(pKingdom.GetKingdomType(), out var value)
-                ?regime.bureau_config.kingdoms[pKingdom.GetKingdomType()].city_type
-                : regime.bureau_config.cities.Keys.First();
-            BureauSetting citySetting = regime.bureau_config.cities[cityType];
-            OfficeObject officeObject = __instance.GetOffice();
-            if (officeObject != null)
+            CityType cityType = EmpireCraftKingdomBehCheckKingdomType.CalcCityType(pKingdom);
+            __instance.SetCityType(cityType);
+            if (regime.bureau_config?.cities != null &&
+                regime.bureau_config.cities.TryGetValue(cityType, out BureauSetting citySetting) && citySetting != null)
             {
-                officeObject.InitialOffice(citySetting, isNew:false);
+                OfficeObject officeObject = __instance.GetOffice();
+                if (officeObject != null) officeObject.InitialOffice(citySetting, isNew: false);
+                else
+                {
+                    officeObject = new OfficeObject();
+                    officeObject.InitialOffice(citySetting);
+                    __instance.SetOffice(officeObject);
+                }
                 officeObject.regimeType = regime.type;
-            }
-            else
-            {
-                officeObject = new OfficeObject();
-                officeObject.InitialOffice(citySetting);
-                officeObject.regimeType = regime.type;
-                __instance.SetOffice(officeObject);
             }
         }
 
@@ -907,6 +1713,9 @@ public class CityPatch : GamePatch
     public static void setKingdom_Postfix(City __instance)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
+        if (__instance.kingdom?.GetRegime() != null) __instance.RefreshCityDisplayName();
+        ZonePlanSystem.InvalidatePlanning(__instance);
+        OccupationReadIndex.Invalidate(__instance);
         if (__instance.hasTitle())
         {
             __instance.GetTitle().isBeenControlled();
@@ -914,25 +1723,37 @@ public class CityPatch : GamePatch
     }
     
     //创建新城市时触发
+    // 城邦：开国之城定国名，之后新建的城独立为殖民城邦
+    public static void CityBuilt(City __result, Actor pActor)
+    {
+        if (StateSettlementSystem.CreatingCity) return; // 国家移民安置完毕后再处理城邦独立。
+        if (__result == null || EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__result)) return;
+        CityStateService.OnCityBuilt(__result, pActor);
+    }
+
     public static void newCity(City __instance, Actor pActor)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
-        
+        CultureService.InitializeCityCulture(__instance);
+        if (pActor != null && !pActor.hasCulture())
+            CultureService.SyncActorToCityMainCulture(pActor, __instance);
     }
 
     public static bool zone_steal(CityBehBorderSteal __instance, City pCity)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(pCity)) return true;
-        if (EmpireCraftWorldLawLibrary.empirecraft_law_prevent_city_destroy.isEnabled())
-        {
-            return false;
-        }
         return true;
     }
 
-    public static void destroy_city(City __instance)
+    public static bool destroy_city(City __instance)
     {
-        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
+        // 拦截必须发生在法理、宗教及帝国列表清理之前。
+        if (CityTerritoryProtection.ShouldPreventDestruction(__instance))
+        {
+            FiscalDiagnostics.Count("保城拦截");
+            return false;
+        }
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return true;
         foreach (var religion in World.world.religions)
         {
             if (religion.GetCity() == __instance)
@@ -960,10 +1781,15 @@ public class CityPatch : GamePatch
         {
             __instance.GetTitle().removeCity(__instance);
         }
+        EmpireCraft.Scripts.GeneralSystems.CityAssetSettlement.OnCityDestroyed(__instance);
+        return true;
     }
     public static void removeData(City __instance)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
+        OccupationReadIndex.Invalidate(__instance);
+        ZonePlanSystem.InvalidatePlanning(__instance);
         __instance.RemoveExtraData<City, CityExtraData>();
+        _imperialArrivalSurrenderCooldown.Remove(__instance);
     }
 }

@@ -5,6 +5,7 @@ using ai.behaviours;
 using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.GeneralSystems;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.Regimes;
@@ -27,6 +28,10 @@ public enum ConditionType
     religion_level,
     empire_royal,
     is_border,
+    culture_mismatch,
+    empire_institution,
+    empire_feature,
+    jimi_region,
     None
 }
 public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
@@ -156,7 +161,7 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
                 case ConditionType.empire_royal:
                 {
                     var expect = val.Equals("true", StringComparison.OrdinalIgnoreCase);
-                    var actual = empire != null && kingdom.GetSpecificClan() == empire.EmpireSpecificClan;
+                    var actual = empire != null && SpecificClanManager.SameLineage(kingdom.GetSpecificClan(), empire.EmpireSpecificClan);
                     if (actual != expect) return false;
                     break;
                 }
@@ -165,6 +170,52 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
                     var expect = val.Equals("true", StringComparison.OrdinalIgnoreCase);
                     var actual = kingdom.IsBorder();
                     if (actual != expect) return false;
+                    break;
+                }
+                case ConditionType.culture_mismatch:
+                {
+                    // 都护府/羁縻州判定用：这个 administration 实际统治的文化（主流文化）
+                    // 跟它所属帝国的官方文化是否不一致——即异文化地区。跟 another_race
+                    // （物种）是两回事：文化是 CultureService 动态追踪的，同一物种也可能
+                    // 已经被同化/还没被同化成不同的文化。
+                    var expect = val.Equals("true", StringComparison.OrdinalIgnoreCase);
+                    string empireCulture = empire != null ? CultureService.GetEmpireDefaultCulture(empire) : "";
+                    string kingdomCulture = CultureService.GetRealmCulture(kingdom);
+                    bool valid = CultureService.IsValidCulture(empireCulture) &&
+                                 CultureService.IsValidCulture(kingdomCulture);
+                    var actual = valid && !string.Equals(empireCulture, kingdomCulture, StringComparison.Ordinal);
+                    if (actual != expect) return false;
+                    break;
+                }
+                case ConditionType.empire_institution:
+                {
+                    // 所属帝国已施行某个制度节点，例："empire_institution:western_theocratic_state"
+                    if (string.IsNullOrEmpty(val) || empire == null) return false;
+                    if (!InstitutionSystem.IsEnacted(empire, val)) return false;
+                    break;
+                }
+                case ConditionType.empire_feature:
+                {
+                    // 所属帝国具备某个制度特性，可选最低值，例："empire_feature:theocratic_state"、
+                    // "empire_feature:vassal_authority|50"。比 empire_institution 更通用：不绑定具体节点，
+                    // 任何线里声明了该特性的制度都能满足。
+                    if (string.IsNullOrEmpty(val) || empire == null) return false;
+                    // 特性名里可能带冒号(如 claim_reform:xxx)，所以取第一个冒号之后的全部内容
+                    string featureSpec = cond.Substring(cond.IndexOf(':') + 1);
+                    string[] featureParts = featureSpec.Split('|');
+                    float minimum = featureParts.Length > 1 &&
+                                    float.TryParse(featureParts[1], global::System.Globalization.NumberStyles.Float,
+                                        global::System.Globalization.CultureInfo.InvariantCulture, out float parsed)
+                        ? parsed
+                        : float.Epsilon;
+                    if (InstitutionSystem.GetFeature(empire, featureParts[0]) < minimum) return false;
+                    break;
+                }
+                case ConditionType.jimi_region:
+                {
+                    // 羁縻地区：施行羁縻制度后，按国家的羁縻规划(自动按文化/种族)判定，见 JimiSystem
+                    var expect = val.Equals("true", StringComparison.OrdinalIgnoreCase);
+                    if (JimiSystem.IsJimiRegion(kingdom, empire) != expect) return false;
                     break;
                 }
                 default:
@@ -186,7 +237,11 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
                 return BehResult.Continue;
             }
         }
+        FeudalVassalService.Sync(pKingdom);
+        InstitutionSystem.TryAdvanceFeudalTransition(pKingdom);
         SyncKingdomStatus(pKingdom);
+        // 周制诸侯各用各的颜色(帝国仍是天子的颜色)
+        KingdomColorService.EnsureDistinctInZhou(pKingdom);
         SyncOffice(pKingdom);
         if (ked != null) ked.last_kingdom_status_ts = World.world.getCurWorldTime();
         return BehResult.Continue;
@@ -228,7 +283,9 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
         {
             Empire empire = pKingdom.GetEmpire();
             // Keep automatic empire naming alive beneath any temporary player-facing override.
-            empire?.SetEmpireName(pKingdom.GetAutomaticKingdomName());
+            // 已改用帝国核心名作国号的(如统一中华核心后称中华民国)不再被本国法理名覆盖回去
+            if (empire != null && (empire.data?.constitutional_economy?.named_after_core_id ?? -1L) <= 0)
+                empire.SetEmpireName(pKingdom.GetAutomaticKingdomName());
         }
         //获取国家政体后同步国家官位
         var regime = pKingdom.GetRegime();
@@ -254,7 +311,8 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
             officeObject.regimeType = regime.type;
             officeObject.meta_object = pKingdom;
             officeObject.is_local = true;
-            if (officeObject.leader_select_method != LeaderSelectMethod.Default)
+            if (officeObject.leader_select_method != LeaderSelectMethod.Default &&
+                !IsHereditaryGarrison(pKingdom, regime))
             {
                 regime.SetLeaderSelectMethod(officeObject.leader_select_method);
             }
@@ -289,14 +347,47 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
             }
             else kingdomFront = pKingdom.GetUntitledKingdomName();
         }
-        var kingdomBack = LM.Get(newkingdomType.ToString());
-        string cultureName = OverallHelperFunc.GetCultureFromSpecies(pKingdom.getSpecies());
-        pKingdom.SetKingdomName(OverallHelperFunc.FormatCountryTypeName(kingdomFront, kingdomBack, cultureName));
+        // 华夏朝代演进下京畿与行政区改称(司州/京畿道/直隶省，州/道/省，见 DynastyNaming)
+        var kingdomBack = LM.Get(DynastyNaming.KingdomTypeKey(pKingdom, newkingdomType));
+        string cultureName = pKingdom.GetEmpireCraftCulture() ?? "Western";
+        string kingdomName = OverallHelperFunc.FormatCountryTypeName(kingdomFront, kingdomBack, cultureName);
+        // 同名去重：法理省名可能被两个政权同时用上(自持法理的行政区不经过省名归属判定；交战中改不了名的政权
+        // 失去法理后还留着旧名)，地图上就出现两个"荆湖北军"。已有别的政权叫这个名字、而自己又没控制该法理的
+        // 首府时，改用自己首府的城名。
+        if (!pKingdom.IsEmpire() && IsNameTaken(pKingdom, kingdomName) && !HoldsTitleCapital(pKingdom) &&
+            pKingdom.capital != null && !pKingdom.capital.isRekt())
+            kingdomName = OverallHelperFunc.FormatCountryTypeName(pKingdom.capital.GetCityName(), kingdomBack, cultureName);
+        // 未组建政府的现代势力(某系军阀、工农红军……)：存下的国名与地图铭牌一致，王国窗口和翻页栏才不会显示成"某某直辖市(首都)"。
+        // 直接写显示名，不经 SetKingdomName——那会把"蜀系军阀"记成本国核心名，日后组建政府时国号就成了"蜀系军阀民国"
+        if (WarlordEraSystem.TryGetNonGovernmentKingdomName(pKingdom, out string armedName) &&
+            !string.IsNullOrWhiteSpace(armedName))
+            pKingdom.data.name = armedName.UseLocalizedNameSeparator();
+        else
+            pKingdom.SetKingdomName(kingdomName);
+        CityType currentCityType = CalcCityType(pKingdom);
         foreach (var city in pKingdom.cities)
         {
-            var cityBack = LM.Get(city.GetCityType().ToString());
-            city.data.name = OverallHelperFunc.JoinNameParts(city.GetCityName(), cityBack);
+            if (city == null || city.isRekt()) continue;
+            city.RefreshCityDisplayName();
+            city.SetCityType(currentCityType);
         }
+    }
+
+    private static bool IsNameTaken(Kingdom kingdom, string name)
+    {
+        string normalized = name.UseLocalizedNameSeparator();
+        foreach (Kingdom other in World.world.kingdoms)
+            if (other != null && other != kingdom && !other.isRekt() &&
+                string.Equals(other.data?.name?.UseLocalizedNameSeparator(), normalized, StringComparison.Ordinal))
+                return true;
+        return false;
+    }
+
+    // 省名的正主：控制着所用法理(托管的或自持的)首府的那个政权
+    private static bool HoldsTitleCapital(Kingdom kingdom)
+    {
+        KingdomTitle title = kingdom.GetAdministrativeTitle() ?? kingdom.GetMainTitle();
+        return title?.title_capital != null && !title.title_capital.isRekt() && title.title_capital.kingdom == kingdom;
     }
 
     public static CityType CalcCityType(Kingdom kingdom)
@@ -307,18 +398,17 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
             LogService.LogInfo("国家政策为空");
             return CityType.Feudalism_city;
         }
-        KingdomType kingdomType = kingdom.GetKingdomType();
-        if (regime.bureau_config != null && regime.bureau_config.kingdoms != null)
-        {
-            if (regime.bureau_config.kingdoms.TryGetValue(kingdomType, out var setting))
-            {
-                if (setting != null)
-                {
-                    return setting.city_type;
-                }
-            }
-        }
-        return CityType.Feudalism_city;
+        return GetCityNamingSetting(kingdom)?.city_type ?? CityType.Feudalism_city;
+    }
+
+    public static BureauSetting GetCityNamingSetting(Kingdom kingdom)
+    {
+        Regime regime = kingdom?.GetRegime();
+        var settings = regime?.bureau_config?.kingdoms;
+        if (settings == null) return null;
+        if (settings.TryGetValue(kingdom.GetKingdomType(), out var selected) && selected != null) return selected;
+        if (settings.TryGetValue(regime.default_kingdom, out var fallback) && fallback != null) return fallback;
+        return settings.TryGetValue(KingdomType.default_country_post, out var generic) ? generic : null;
     }
     
     //依据制度的不同选项动态调整国家后缀
@@ -326,6 +416,8 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
     {
         var regime = kingdom.GetRegime();
         if (regime == null) return KingdomType.LvLing_kingdom;
+        // 军府(节度使、都护府)世袭之后仍是藩镇：照旧称"某某军"，不因父死子继改成封国
+        if (IsHereditaryGarrison(kingdom, regime)) return kingdom.GetKingdomType();
         // A hereditary landed title is a vassal kingdom, never an administrative
         // circuit or military governorship left over from an earlier configuration.
         if (regime.type == RegimeType.LvLing && !kingdom.IsEmpire() && kingdom.HasMainTitle() &&
@@ -351,6 +443,16 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
         }
         return  regime.default_kingdom;
     }
+    // 已是军府、节度使改为世袭(仍有外交与兵权)的藩镇
+    public static bool IsHereditaryGarrison(Kingdom kingdom, Regime regime)
+    {
+        if (kingdom == null || regime == null || regime.type != RegimeType.LvLing || kingdom.IsEmpire() ||
+            !kingdom.IsInEmpire() || regime.GetLeaderSelectMethod() != LeaderSelectMethod.Succession ||
+            !regime.IsAllowDiplomacy()) return false;
+        KingdomType current = kingdom.GetKingdomType();
+        return current == KingdomType.LvLing_jiedushi || current == KingdomType.LvLing_duhufu;
+    }
+
     private static int GetOption(Regime regime, ConditionType key)
     {
         if (regime?.options == null) return 0;

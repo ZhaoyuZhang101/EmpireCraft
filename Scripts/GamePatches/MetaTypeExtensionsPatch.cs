@@ -77,6 +77,15 @@ public class MetaTypeExtensionsPatch:GamePatch
             case MetaTypeExtension.KingdomTitle:
                 __result = "kingdomTitle";
                 return false;
+            case MetaTypeExtension.Ideology:
+                __result = "ideology";
+                return false;
+            case MetaTypeExtension.Nation:
+                __result = "nation";
+                return false;
+            case MetaTypeExtension.Mineral:
+                __result = "mineral";
+                return false;
             default:
                 Debug.LogError((object) ("MetaTypeExtensions.AsString missing option for : " + pType.ToString()));
                 __result = pType.ToString().ToLower();

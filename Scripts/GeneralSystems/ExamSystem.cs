@@ -16,6 +16,13 @@ public static class ExamSystem
         Empire, //殿试
         Office //官员晋级
     }
+    // 个人经历：现代国家的科举就是公务员考试，记作"通过某级公务员考试"
+    private static string PassedText(Actor actor, string level)
+    {
+        bool modern = actor?.kingdom?.GetRegime()?.type == EmpireCraft.Scripts.Regimes.RegimeType.Modern;
+        return LM.Get(modern ? $"personal_history_civil_exam_{level}_passed" : $"personal_history_exam_{level}_passed");
+    }
+
     public static void startExam(ExamType type, NanoObject nano)
     {
         switch (type) 
@@ -35,7 +42,16 @@ public static class ExamSystem
     {
         City city = (City)nano;
         Dictionary<Actor, double> MarksData = new Dictionary<Actor, double>();
-        foreach(Actor actor in city.units)
+        // 无小人模式：城里几乎没有平民实体，从人口里召集几位读书人赴考(识字人口越多、有藏书处的城越多)；
+        // 落榜的下次并入时回到人口数据里，中举的有了功名就一直保留为实体(见 CityPopulationSystem.IsNotable)
+        if (CityPopulationSystem.AbstractPopulationEnabled)
+        {
+            int examinees = UnityEngine.Mathf.Clamp(1 + CityPopulationSystem.LiterateHouseholds(city) / 3 +
+                                                    (city.hasBookSlots() ? 1 : 0), 1, 6);
+            for (int i = 0; i < examinees; i++)
+                if (CityPopulationSystem.SpawnScholar(city) == null) break;
+        }
+        foreach(Actor actor in city.units.ToList())
         {
             double mark = 0;
             if (!actor.isAdult()) continue;
@@ -45,7 +61,7 @@ public static class ExamSystem
             if (actor.hasTrait("jingshi")) continue;
             if (actor.hasTrait("juren")) continue;
             if (actor.hasTrait("gongshi")) continue;
-            actor.RecordPersonalHistory(LM.Get("personal_history_exam_city_attended"));
+            // 只记中榜，不记每次赴考：屡试不第的考生每次都记一条，存档会膨胀到几百 MB
             mark = actor.startCityExam();
             if (mark > 0)
             {
@@ -66,7 +82,7 @@ public static class ExamSystem
             sorted.Take(takeNum).ForEach(item=>
             {
                 item.Key.addTrait("juren");
-                item.Key.RecordPersonalHistory(LM.Get("personal_history_exam_city_passed"));
+                item.Key.RecordPersonalHistory(PassedText(item.Key, "city"));
                 OfficeIdentity identity = new OfficeIdentity
                 {
                     actor_id = item.Key.getID()
@@ -79,7 +95,7 @@ public static class ExamSystem
             sorted.ForEach(item =>
             {
                 item.Key.addTrait("juren");
-                item.Key.RecordPersonalHistory(LM.Get("personal_history_exam_city_passed"));
+                item.Key.RecordPersonalHistory(PassedText(item.Key, "city"));
                 OfficeIdentity identity = new OfficeIdentity
                 {
                     actor_id = item.Key.getID()
@@ -95,11 +111,11 @@ public static class ExamSystem
         Dictionary<Actor, double> MarksData = new Dictionary<Actor, double>();
         foreach(City city in province.cities)
         {
-            foreach (Actor actor in city.units.FindAll(a => a.hasTrait("juren")))
+            foreach (Actor actor in city.units.FindAll(a => a != null && !a.isRekt() && a.hasTrait("juren")))
             {
-                actor.RecordPersonalHistory(LM.Get("personal_history_exam_province_attended"));
+                // 只记中榜，不记每次赴考：屡试不第的考生每次都记一条，存档会膨胀到几百 MB
                 double mark = actor.startProvinceExam();
-                MarksData.Add(actor, mark);
+                MarksData[actor] = mark;
             }
         }
         var sorted = MarksData.OrderByDescending(kv => kv.Value).ToList();
@@ -112,9 +128,9 @@ public static class ExamSystem
                 item.Key.addTrait("gongshi");
                 if (newlyPassed)
                 {
-                    item.Key.RecordPersonalHistory(LM.Get("personal_history_exam_province_passed"));
+                    item.Key.RecordPersonalHistory(PassedText(item.Key, "province"));
                 }
-                OfficeIdentity identity = item.Key.GetIdentity();
+                OfficeIdentity identity = EnsureExamIdentity(item.Key);
                 identity.TotalPerformance += 200;
             });
         }
@@ -126,9 +142,9 @@ public static class ExamSystem
                 item.Key.addTrait("gongshi");
                 if (newlyPassed)
                 {
-                    item.Key.RecordPersonalHistory(LM.Get("personal_history_exam_province_passed"));
+                    item.Key.RecordPersonalHistory(PassedText(item.Key, "province"));
                 }
-                OfficeIdentity identity = item.Key.GetIdentity();
+                OfficeIdentity identity = EnsureExamIdentity(item.Key);
                 identity.TotalPerformance += 200;
             });
         }
@@ -139,13 +155,14 @@ public static class ExamSystem
     {
         Empire empire = (Empire)nano;
         Dictionary<Actor, double> MarksData = new Dictionary<Actor, double>();
-        foreach (Kingdom province in empire.kingdoms_hashset) 
+        if (empire == null || empire.isRekt()) return;
+        foreach (Kingdom province in empire.kingdoms_hashset.Where(province => province != null && !province.isRekt()))
         {
-            foreach (Actor actor in province.AllGongshi())
+            foreach (Actor actor in province.AllGongshi().Where(actor => actor != null && !actor.isRekt()))
             {
                 if (!MarksData.TryGetValue(actor, out double m))
                 {
-                    actor.RecordPersonalHistory(LM.Get("personal_history_exam_empire_attended"));
+                    // 只记中榜，不记每次赴考：屡试不第的考生每次都记一条，存档会膨胀到几百 MB
                     double mark = actor.startEmpireExam();
                     MarksData.Add(actor, mark);
                 }
@@ -160,9 +177,9 @@ public static class ExamSystem
                 item.Key.addTrait("jingshi");
                 if (newlyPassed)
                 {
-                    item.Key.RecordPersonalHistory(LM.Get("personal_history_exam_empire_passed"));
+                    item.Key.RecordPersonalHistory(PassedText(item.Key, "empire"));
                 }
-                OfficeIdentity identity = item.Key.GetIdentity();
+                OfficeIdentity identity = EnsureExamIdentity(item.Key);
                 identity.TotalPerformance += 300;
             });
         }
@@ -173,12 +190,21 @@ public static class ExamSystem
                 item.Key.addTrait("jingshi");
                 if (newlyPassed)
                 {
-                    item.Key.RecordPersonalHistory(LM.Get("personal_history_exam_empire_passed"));
+                    item.Key.RecordPersonalHistory(PassedText(item.Key, "empire"));
                 }
-                OfficeIdentity identity = item.Key.GetIdentity();
+                OfficeIdentity identity = EnsureExamIdentity(item.Key);
                 identity.TotalPerformance += 300;
             });
         }
+    }
+
+    private static OfficeIdentity EnsureExamIdentity(Actor actor)
+    {
+        OfficeIdentity identity = actor.GetIdentity();
+        if (identity != null) return identity;
+        identity = new OfficeIdentity { actor_id = actor.getID() };
+        actor.SetIdentity(identity, true);
+        return identity;
     }
 
     public static double startCityExam(this Actor actor) 

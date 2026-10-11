@@ -1,0 +1,27 @@
+key,cz,en,ch
+book_template_china_warfare_manual_1,$word$,$word$,$word$
+book_template_china_warfare_manual_2,$word$要略,Essentials of $word$,$word$要略
+book_template_china_warfare_manual_3,$city$$word$,$word$ of $city$,$city$$word$
+book_template_china_warfare_manual_4,$author$$word$,$author$'s $word$,$author$$word$
+book_template_china_warfare_manual_5,增订$word$,Expanded $word$,增訂$word$
+book_template_china_warfare_manual_6,$word$辑要,Digest of $word$,$word$輯要
+book_template_china_warfare_manual_7,$year_name$$word$,$word$ of the $year_name$ Era,$year_name$$word$
+book_template_china_warfare_manual_8,$emperor$圣训,Sacred Instructions of $emperor$,$emperor$聖訓
+book_template_china_warfare_manual_9,$dynasty$$word$,$word$ of $dynasty$,$dynasty$$word$
+book_template_china_warfare_manual_10,$kingdom$武经,Military Classic of $kingdom$,$kingdom$武經
+book_template_china_warfare_manual_11,$author$兵法,Art of War by $author$,$author$兵法
+book_template_china_warfare_manual_12,$author$兵书,Military Book of $author$,$author$兵書
+book_template_china_warfare_manual_13,$city$守御录,Defense of $city$,$city$守御錄
+book_template_china_warfare_manual_14,$dynasty_short$兵志,Military Treatise of $dynasty_short$,$dynasty_short$兵志
+book_template_china_warfare_manual_15,$year_name$平乱记,Suppressing the Rebellion of the $year_name$ Era,$year_name$平亂記
+book_template_china_warfare_manual_16,$city$战记,Battles of $city$,$city$戰記
+book_template_china_warfare_manual_17,$author$阵纪,Formations of $author$,$author$陣紀
+book_template_china_warfare_manual_18,$kingdom$将略,Generalship of $kingdom$,$kingdom$將略
+book_template_china_warfare_manual_19,$dynasty_short$名将列传,Famous Generals of $dynasty_short$,$dynasty_short$名將列傳
+book_template_china_warfare_manual_20,$city$攻守图,Siege Maps of $city$,$city$攻守圖
+book_template_china_warfare_manual_21,$author$练兵实纪,Record of Training Troops by $author$,$author$練兵實紀
+book_template_china_warfare_manual_22,$topic$图说,Illustrated Guide to $topic$,$topic$圖說
+book_template_china_warfare_manual_23,$topic$纪要,Essentials of $topic$,$topic$紀要
+book_template_china_warfare_manual_24,$author$$topic$论,$author$ on $topic$,$author$$topic$論
+book_template_china_warfare_manual_25,$dynasty_short$$topic$考,Study of $topic$ under $dynasty_short$,$dynasty_short$$topic$考
+book_template_china_warfare_manual_26,$topic$要诀,Secrets of $topic$,$topic$要訣

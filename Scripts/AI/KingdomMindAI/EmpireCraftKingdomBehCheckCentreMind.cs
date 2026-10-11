@@ -2,6 +2,7 @@ using System;
 using ai.behaviours;
 using EmpireCraft.Scripts.AI.KingdomAI;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.GeneralSystems;
 using NeoModLoader.services;
 
 namespace EmpireCraft.Scripts.AI.KingdomMindAI;
@@ -16,7 +17,7 @@ public class EmpireCraftKingdomBehCheckCentreMind: GameAIKingdomMindBase
         var regime = pKingdom.GetRegime();
         var centreMind = regime?.CentreMind;
         if (centreMind == null) return BehResult.Continue;
-        //todo: 國家意志檢測
+        CorruptionSystem.TryYearlyCampaign(pKingdom);
         return BehResult.Continue;
     }
 

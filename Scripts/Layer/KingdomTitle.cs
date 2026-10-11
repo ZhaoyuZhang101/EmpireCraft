@@ -10,6 +10,7 @@ using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Assertions;
+using EmpireCraft.Scripts.GeneralSystems;
 
 namespace EmpireCraft.Scripts.Layer;
 public class KingdomTitle : MetaObject<KingdomTitleData>
@@ -44,6 +45,8 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
     }
     public void newKingdomTitle(City city)
     {
+        if (city == null || city.isRekt() || city.kingdom == null || city.kingdom.isRekt() ||
+            city.kingdom.king == null || city.kingdom.king.isRekt() || city.kingdom.king.asset == null) return;
         this.title_capital = city;
         this.data.founder_actor_id = city.kingdom.king.getID();
         this.data.founder_actor_name = city.kingdom.king.name;
@@ -60,6 +63,7 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
         this.data.name = !string.IsNullOrEmpty(kingdomName) ? kingdomName : city.kingdom.GetKingdomName();
         this.addCity(city);
         data.original_actor_asset = city.kingdom.king.asset.id;
+        CultureService.InitializeTitleCulture(this);
         recalculate();
         generateColor();
         LogService.LogInfo("创建头衔成功");
@@ -122,16 +126,18 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
 
     public Sprite getElementIcon()
     {
+        ActorAsset actorAsset = getActorAsset();
+        if (actorAsset == null) return null;
         try
         {
-            return AssetManager.kingdom_banners_library.getSpriteIcon(data.banner_icon_id, getActorAsset().banner_id);
+            return AssetManager.kingdom_banners_library.getSpriteIcon(data.banner_icon_id, actorAsset.banner_id);
         }
         catch (ArgumentOutOfRangeException)
         {
             data.banner_icon_id = 0;
             try
             {
-                return AssetManager.kingdom_banners_library.getSpriteIcon(0, getActorAsset().banner_id);
+                return AssetManager.kingdom_banners_library.getSpriteIcon(0, actorAsset.banner_id);
             }
             catch (ArgumentOutOfRangeException)
             {
@@ -142,16 +148,18 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
     
     public Sprite getElementBackground()
     {
+        ActorAsset actorAsset = getActorAsset();
+        if (actorAsset == null) return null;
         try
         {
-            return AssetManager.kingdom_banners_library.getSpriteBackground(data.banner_background_id, getActorAsset().banner_id);
+            return AssetManager.kingdom_banners_library.getSpriteBackground(data.banner_background_id, actorAsset.banner_id);
         }
         catch (ArgumentOutOfRangeException)
         {
             data.banner_background_id = 0;
             try
             {
-                return AssetManager.kingdom_banners_library.getSpriteBackground(0, getActorAsset().banner_id);
+                return AssetManager.kingdom_banners_library.getSpriteBackground(0, actorAsset.banner_id);
             }
             catch (ArgumentOutOfRangeException)
             {
@@ -197,13 +205,27 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
     public override void generateColor()
     {
         ActorAsset actorAsset = getActorAsset();
+        if (actorAsset == null)
+        {
+            data.setColorID(0);
+            return;
+        }
         int nextColorIndex = getColorLibrary().getNextColorIndex(actorAsset);
         data.setColorID(nextColorIndex);
     }
 
     public ActorAsset getFounderSpecies()
     {
-        return AssetManager.actor_library.get(data.original_actor_asset);
+        if (!string.IsNullOrWhiteSpace(data?.original_actor_asset))
+        {
+            ActorAsset storedAsset = AssetManager.actor_library.get(data.original_actor_asset);
+            if (storedAsset != null) return storedAsset;
+        }
+
+        ActorAsset recoveredAsset = title_capital?.kingdom?.king?.asset ??
+                                    city_list.FirstOrDefault(city => city?.kingdom?.king?.asset != null)?.kingdom.king.asset;
+        if (recoveredAsset != null && data != null) data.original_actor_asset = recoveredAsset.id;
+        return recoveredAsset;
     }
 
 
@@ -368,6 +390,7 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
         }
         city.SetTitle(this);
         city_list_hash.Add(city);
+        CultureService.InitializeCityCulture(city);
         EmpireCore core = this.title_capital?.GetEmpireCore();
         if (core != null && EmpireCoreManager.ContainsTitle(core, this))
         {
@@ -376,7 +399,9 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
         recalculate();
     }
 
-    public void removeCity(City city)
+    // byPlayer：玩家用权能把城市从法理上摘下。冻结法理只防止城市毁灭、战乱让法理自然消失；
+    // 玩家亲手摘掉最后一座城时照样解散，否则会留下没有城市的"幽灵法理"
+    public void removeCity(City city, bool byPlayer = false)
     {
         EmpireCore core = this.title_capital?.GetEmpireCore();
         city.RemoveTitle();
@@ -386,7 +411,7 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
             city.SetEmpireCore(null);
         }
         this.recalculate();
-        if (this.city_list_hash.Count <= 0)
+        if (this.city_list_hash.Count <= 0 && (byPlayer || !ModClass.KINGDOM_TITLE_FREEZE))
         {
             ModClass.KINGDOM_TITLE_MANAGER.dissolveTitle(this);
         }

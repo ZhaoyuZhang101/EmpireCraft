@@ -6,10 +6,28 @@ using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Events;
+using EmpireCraft.Scripts.UI.Components;
+using System.Collections;
 
 namespace EmpireCraft.Scripts.UI;
 public class EmpireCraftStatsRow : StatsRowsContainer
 {
+    public bool WideLayout { get; set; }
+
+    // 原版一帧仅显示一行，长财政表会逐行等待数秒。这里每帧显示八行。
+    public new IEnumerator showRows()
+    {
+        for (int i = 0; i < stats_rows.Count; i++)
+        {
+            if (this == null || !gameObject.activeInHierarchy) yield break;
+            KeyValueField row = stats_rows[i];
+            if (row == null) continue;
+            if (WideLayout)
+                (row.GetComponent<WideStatsField>() ?? row.gameObject.AddComponent<WideStatsField>()).Bind(row);
+            row.gameObject.SetActive(true);
+            if ((i + 1) % 8 == 0) yield return CoroutineHelper.wait_for_next_frame;
+        }
+    }
     public new void Awake()
     {
         KeyValueField pPrefab = Resources.Load<KeyValueField>("ui/KeyValueFieldStats");

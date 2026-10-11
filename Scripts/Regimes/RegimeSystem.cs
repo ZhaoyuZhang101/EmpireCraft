@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using EmpireCraft.Scripts.Enums;
+using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GeneralSystems;
 using EmpireCraft.Scripts.GeneralSystems.EmpireLaw;
@@ -27,6 +28,7 @@ public enum KingdomType
     Feudalism_march,
     Feudalism_papal_state,
     LvLing_centre,
+    LvLing_duhufu,
     LvLing_jiedushi,
     LvLing_jimizhou,
     LvLing_kingdom,
@@ -46,6 +48,11 @@ public enum KingdomType
     ZhouFeudalism_hou,
     ZhouFeudalism_zi,
     default_country_post,
+    ClassicalRepublic_centre,
+    ClassicalRepublic_city_state,
+    ZhouFeudalism_jun, // 郡国并行下分封制的郡(官员选拔的行政区)；追加在末尾以保持旧存档枚举值稳定
+    Feudalism_intendancy, // 中央集权君主制下西方封建制的辖区(官员选拔的行政区)
+    Feudalism_diocese, // 神权国家下西方封建制的教区(官员选拔的行政区)
 }
 
 public enum ArmyOfficialType
@@ -62,10 +69,12 @@ public enum CityType
     Feudalism_dirC,
     Feudalism_religion_district,
     LvLing_city,
+    LvLing_jimizhou,
     Modern_city,
     Origin_city,
     YouMu_city,
     ZhouFeudalism_city,
+    ClassicalRepublic_city,
 }
 public enum TaxLevel
 {
@@ -95,7 +104,8 @@ public enum RegimeType
     Arabic,        //阿拉伯政体 - 阿拉伯世界
     YouMu,         //游牧政体   - 蒙古汗国
     Republic,
-    Origin
+    Origin,
+    ClassicalRepublic //古典城邦共和；追加在末尾以保持旧存档枚举值稳定
 }
 
 public enum ReligionLevel
@@ -126,6 +136,14 @@ public class Regime
     public bool enfeoff_virtual_only;
     public bool enfeoff_virtual_can_use_empire_titles;
     public bool enable_auto_honorary_peerages;
+    // 政体性质由配置声明，而不是在各个系统里罗列 RegimeType：
+    //   is_monarchy            君主制（可以推行君主立宪、可以有议会限制君权）
+    //   allows_landlord_class  允许出现地主阶层（封建/分封制土地归领主，没有自由的地主）
+    public bool is_monarchy;
+    public bool allows_landlord_class = true;
+    // 该政体的"内阁"实际上是选举君主的选帝侯团（如西方封建）。议会成立后这类内阁照常保留，
+    // 普通内阁则被议会与总理取代。
+    public bool cabinet_is_electoral_college;
     public List<PeeragesLevel> virtual_peerages;
     public List<string> virtual_peerage_names;
     public List<string> virtual_honorary_peerages;
@@ -137,6 +155,8 @@ public class Regime
     public Dictionary<string, int[]> options;
     public BureauConfig bureau_config;
     public List<LawType> laws;
+    // 制度科技树曾经挂在这里，现在已经搬到 InstitutionTrees/<线 id>.json：制度归属文化
+    // （进而归属科技线），跟政体不是一回事。政体配置只管"国家形态"，不再管制度。
     public double FactionChangeBlockUntil = -1f;
 
     public void BlockFactionChange(int years)
@@ -182,6 +202,9 @@ public class Regime
             enfeoff_virtual_only = this.enfeoff_virtual_only,
             enfeoff_virtual_can_use_empire_titles = this.enfeoff_virtual_can_use_empire_titles,
             enable_auto_honorary_peerages = this.enable_auto_honorary_peerages,
+            is_monarchy = this.is_monarchy,
+            allows_landlord_class = this.allows_landlord_class,
+            cabinet_is_electoral_college = this.cabinet_is_electoral_college,
             virtual_peerages = this.virtual_peerages?.ToList() ?? new List<PeeragesLevel>(),
             virtual_peerage_names = this.virtual_peerage_names?.ToList() ?? new List<string>(),
             virtual_honorary_peerages = this.virtual_honorary_peerages?.ToList() ?? new List<string>(),
@@ -238,6 +261,9 @@ public class Regime
     }
     public void SetTaxLevel(TaxLevel level)
     {
+        Kingdom kingdom = World.world?.kingdoms?.get(control_kingdom_id);
+        if (kingdom != null && level != GetTaxLevel() &&
+            !ConstitutionalEconomySystem.CanChangeTax(kingdom.GetEmpire())) return;
         options["option_tax_level"][0] = (int) level;
     }
 
@@ -259,6 +285,19 @@ public class Regime
     public void SetLeaderSelectMethod(LeaderSelectMethod value)
     {
         options["option_leader_select_method"][0] = (int)value;
+    }
+
+    // 继承法的持久状态存在 KingdomExtraData.SuccessionLaw 上(regime 对象本身每次读档都会重新 Clone),
+    // 这里的 option 只是给 RegimeWindow 通用渲染用的镜像,读写都要和 KingdomExtraData 同步。
+    public SuccessionLawType GetSuccessionLaw()
+    {
+        return (SuccessionLawType)options["option_succession_law"][0];
+    }
+
+    public void SetSuccessionLaw(SuccessionLawType value)
+    {
+        options["option_succession_law"][0] = (int)value;
+        World.world.kingdoms.get(control_kingdom_id)?.SetSuccessionLaw(value);
     }
 
     public bool IsAllowDiplomacy()
@@ -295,6 +334,18 @@ public class Regime
 public static class RegimeManager
 {
     public static Dictionary<RegimeType, Regime> regimes;
+
+    // 政体性质一律以模板为准：kingdom 身上的 regime 是克隆出来的，旧存档里的克隆没有这些字段。
+    // 模板缺失（例如配置里写了尚未实现的政体）时视为非君主制、允许地主。
+    public static Regime GetTemplate(RegimeType? type) =>
+        type.HasValue && regimes != null && regimes.TryGetValue(type.Value, out Regime regime) ? regime : null;
+
+    public static bool IsMonarchy(RegimeType? type) => GetTemplate(type)?.is_monarchy == true;
+
+    public static bool AllowsLandlordClass(RegimeType? type) => GetTemplate(type)?.allows_landlord_class ?? true;
+
+    public static bool IsCabinetElectoralCollege(RegimeType? type) =>
+        GetTemplate(type)?.cabinet_is_electoral_college == true;
     private static string _folderPath = Path.Combine(ModClass._declare.FolderPath, "Scripts", "Regimes", "Configs");
 
     public static void init()
@@ -334,6 +385,10 @@ public static class RegimeManager
         {
             LogService.LogInfo($"未发现政体目录: {_folderPath}");
         }
+
+        // 制度科技线是独立的一套配置（InstitutionTrees/），跟政体目录互不依赖：
+        // 政体目录缺失也照样把制度线读进来，反之亦然。
+        InstitutionDefinitionRegistry.Load();
     }
     private static void NormalizeRegime(Regime regime)
     {
@@ -388,6 +443,10 @@ public static class RegimeManager
         }
         regime.bureau_config = bc;
         regime.options ??= new Dictionary<string, int[]>();
+        if (!regime.options.ContainsKey("option_succession_law"))
+        {
+            regime.options["option_succession_law"] = new[] { 0, Enum.GetValues(typeof(SuccessionLawType)).Length };
+        }
         regime.laws ??= new List<LawType>();
     }
 }

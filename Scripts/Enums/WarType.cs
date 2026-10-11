@@ -21,11 +21,14 @@ namespace EmpireCraft.Scripts.Enums
         迫使朝贡,
         藩王索取皇位,
         帝国正统,
+        去帝号,
         劫掠,
         游牧扩张,
         帝国扩张,
         清君侧,
         索取法理,
-        None
+        None,
+        不奉诏, // 追加在 None 之后，保持旧存档里的枚举值不变
+        附庸独立
     }
 }

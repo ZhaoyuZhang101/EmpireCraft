@@ -7,7 +7,9 @@ namespace EmpireCraft.Scripts.Regimes.TemporaryFactions.Claims;
 
 public class TempFac_设置行政区 : TemporaryFaction
 {
-    public override int Budget => GetTitleTarget()?.city_list?.ToList()?.Sum(c => c.units.Count)??0;
+    // 设治经费：每座城两份(见 ClaimTuning)
+    public override int Budget => EmpireCraft.Scripts.GeneralSystems.ClaimTuning.Cost(GetEmpire(), type) *
+                                  global::System.Math.Max(1, GetTitleTarget()?.city_list?.Count() ?? 1);
 
     public override TemporaryFaction Clone(FixedFaction faction)
     {

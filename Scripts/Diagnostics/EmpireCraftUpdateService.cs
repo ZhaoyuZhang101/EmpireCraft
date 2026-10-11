@@ -5,9 +5,11 @@ using System.Globalization;
 using System.IO;
 using System.IO.Compression;
 using System.Net;
+using System.Net.Cache;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
+using EmpireCraft.Scripts.HelperFunc;
 using Newtonsoft.Json.Linq;
 using NeoModLoader.services;
 
@@ -21,6 +23,10 @@ public enum EmpireCraftUpdateStatus
     UpdateAvailable,
     Downloading,
     InstallScheduled,
+    InstallPending,
+    InstallSucceeded,
+    InstallFailed,
+    ManualPackageReady,
     ManualInstallRequired,
     Failed
 }
@@ -54,9 +60,16 @@ public static class EmpireCraftUpdateService
 
     private const int NetworkTimeoutMilliseconds = 20000;
     private const long MaximumPackageBytes = 128L * 1024L * 1024L;
+    private const long MaximumExtractedBytes = 512L * 1024L * 1024L;
+    private const int MaximumArchiveEntries = 20000;
+    private const string PendingInstallFileName = "pending-install.json";
+    private const string InstallResultFileName = "install-result.json";
+    private const string UpdateSettingsFileName = "update-settings.json";
     private static readonly object Sync = new();
     private static bool _initialized;
     private static bool _busy;
+    private static bool _manualPackageMode;
+    private static bool _archiveCurrentVersion;
     private static UpdateManifest _manifest;
     private static EmpireCraftUpdateSnapshot _snapshot = new()
     {
@@ -73,17 +86,39 @@ public static class EmpireCraftUpdateService
         public string ReleaseNotes;
     }
 
+    private sealed class PendingInstall
+    {
+        public string Version;
+        public string PackagePath;
+        public string ScriptPath;
+        public string TargetPath;
+        public int HelperProcessId;
+        public int ResumeAttempts;
+    }
+
     public static void Initialize()
     {
         ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
+        (bool manualPackageMode, bool archiveCurrentVersion) = ReadUpdateSettings();
         lock (Sync)
         {
             if (_initialized) return;
             _initialized = true;
+            _manualPackageMode = manualPackageMode;
+            _archiveCurrentVersion = archiveCurrentVersion;
             _snapshot.CurrentVersion = ReadInstalledVersion();
         }
 
-        CheckForUpdates();
+        if (!RestoreInstallState()) CheckForUpdates();
+    }
+
+    // 有新版本可更新(用于更新按钮上的小红点)
+    public static bool HasUpdateAvailable
+    {
+        get
+        {
+            lock (Sync) return _snapshot.Status == EmpireCraftUpdateStatus.UpdateAvailable;
+        }
     }
 
     public static EmpireCraftUpdateSnapshot GetSnapshot()
@@ -104,6 +139,46 @@ public static class EmpireCraftUpdateService
         }
     }
 
+    public static bool ManualPackageMode
+    {
+        get
+        {
+            lock (Sync) return _manualPackageMode;
+        }
+    }
+
+    public static void SetManualPackageMode(bool enabled)
+    {
+        lock (Sync)
+        {
+            if (_manualPackageMode == enabled) return;
+            _manualPackageMode = enabled;
+            _snapshot.Revision++;
+        }
+
+        SaveUpdateSettings();
+    }
+
+    public static bool ArchiveCurrentVersion
+    {
+        get
+        {
+            lock (Sync) return _archiveCurrentVersion;
+        }
+    }
+
+    public static void SetArchiveCurrentVersion(bool enabled)
+    {
+        lock (Sync)
+        {
+            if (_archiveCurrentVersion == enabled) return;
+            _archiveCurrentVersion = enabled;
+            _snapshot.Revision++;
+        }
+
+        SaveUpdateSettings();
+    }
+
     public static void CheckForUpdates()
     {
         if (!TryBegin(EmpireCraftUpdateStatus.Checking)) return;
@@ -113,75 +188,79 @@ public static class EmpireCraftUpdateService
     public static void DownloadAndInstallOnExit()
     {
         UpdateManifest manifest;
+        bool manualPackageMode;
+        bool archiveCurrentVersion;
         lock (Sync)
         {
             if (_busy || _manifest == null ||
-                _snapshot.Status != EmpireCraftUpdateStatus.UpdateAvailable)
+                _snapshot.Status != EmpireCraftUpdateStatus.UpdateAvailable ||
+                File.Exists(Path.Combine(GetUpdatesRoot(), PendingInstallFileName)))
                 return;
 
             _busy = true;
             manifest = _manifest;
+            manualPackageMode = _manualPackageMode;
+            archiveCurrentVersion = _archiveCurrentVersion;
             PublishLocked(EmpireCraftUpdateStatus.Downloading, progress: 0);
         }
 
-        ThreadPool.QueueUserWorkItem(_ => DownloadWorker(manifest));
+        ThreadPool.QueueUserWorkItem(_ => DownloadWorker(manifest, manualPackageMode, archiveCurrentVersion));
+    }
+
+    public static bool OpenModsFolder()
+    {
+        try
+        {
+            DirectoryInfo modsDirectory = GetModsDirectory();
+            if (modsDirectory == null || !modsDirectory.Exists)
+                return false;
+
+            Process.Start(new ProcessStartInfo(modsDirectory.FullName)
+            {
+                UseShellExecute = true
+            });
+            return true;
+        }
+        catch (Exception error)
+        {
+            LogService.LogWarning("EmpireCraft could not open the Mods directory: " + error.Message);
+            return false;
+        }
+    }
+
+    public static bool OpenArchivedVersionsFolder()
+    {
+        try
+        {
+            string path = GetArchivedVersionsRoot();
+            Directory.CreateDirectory(path);
+            Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+            return true;
+        }
+        catch (Exception error)
+        {
+            LogService.LogWarning("EmpireCraft could not open the archive directory: " + error.Message);
+            return false;
+        }
     }
 
     internal static int CompareVersions(string left, string right)
     {
-        List<string> leftParts = TokenizeVersion(left);
-        List<string> rightParts = TokenizeVersion(right);
-        int count = Math.Max(leftParts.Count, rightParts.Count);
-
-        for (int i = 0; i < count; i++)
-        {
-            string l = i < leftParts.Count ? leftParts[i] : "0";
-            string r = i < rightParts.Count ? rightParts[i] : "0";
-            bool lNumber = long.TryParse(l, NumberStyles.None, CultureInfo.InvariantCulture, out long ln);
-            bool rNumber = long.TryParse(r, NumberStyles.None, CultureInfo.InvariantCulture, out long rn);
-
-            int comparison;
-            if (lNumber && rNumber)
-                comparison = ln.CompareTo(rn);
-            else if (lNumber != rNumber)
-                comparison = lNumber ? 1 : -1;
-            else
-                comparison = CompareVersionLabels(l, r);
-
-            if (comparison != 0) return comparison;
-        }
-
-        return 0;
+        return EmpireCraftVersionRules.Compare(left, right);
     }
 
     private static void CheckWorker()
     {
         var failures = new List<string>();
+        UpdateManifest newestManifest = null;
 
         foreach (string endpoint in ManifestEndpoints)
         {
             try
             {
                 UpdateManifest manifest = ParseManifest(DownloadText(endpoint));
-                string currentVersion = ReadInstalledVersion();
-                bool available = CompareVersions(manifest.Version, currentVersion) > 0;
-
-                lock (Sync)
-                {
-                    _manifest = available ? manifest : null;
-                    _busy = false;
-                    _snapshot.CurrentVersion = currentVersion;
-                    _snapshot.AvailableVersion = manifest.Version;
-                    _snapshot.ReleaseNotes = manifest.ReleaseNotes;
-                    _snapshot.Error = null;
-                    PublishLocked(available
-                        ? EmpireCraftUpdateStatus.UpdateAvailable
-                        : EmpireCraftUpdateStatus.UpToDate);
-                }
-
-                if (available)
-                    LogService.LogInfo("EmpireCraft update available: " + manifest.Version);
-                return;
+                if (newestManifest == null || CompareVersions(manifest.Version, newestManifest.Version) > 0)
+                    newestManifest = manifest;
             }
             catch (Exception error)
             {
@@ -189,10 +268,33 @@ public static class EmpireCraftUpdateService
             }
         }
 
-        Fail(string.Join("\n", failures));
+        if (newestManifest == null)
+        {
+            Fail(string.Join("\n", failures));
+            return;
+        }
+
+        string currentVersion = ReadInstalledVersion();
+        bool available = CompareVersions(newestManifest.Version, currentVersion) > 0;
+        lock (Sync)
+        {
+            _manifest = available ? newestManifest : null;
+            _busy = false;
+            _snapshot.CurrentVersion = currentVersion;
+            _snapshot.AvailableVersion = newestManifest.Version;
+            _snapshot.ReleaseNotes = newestManifest.ReleaseNotes;
+            _snapshot.Error = null;
+            PublishLocked(available
+                ? EmpireCraftUpdateStatus.UpdateAvailable
+                : EmpireCraftUpdateStatus.UpToDate);
+        }
+
+        if (available)
+            LogService.LogInfo("EmpireCraft update available: " + newestManifest.Version);
     }
 
-    private static void DownloadWorker(UpdateManifest manifest)
+    private static void DownloadWorker(UpdateManifest manifest, bool manualPackageMode,
+        bool archiveCurrentVersion)
     {
         try
         {
@@ -216,7 +318,15 @@ public static class EmpireCraftUpdateService
             ValidateStagedPackage(packageRoot, manifest.Version);
 
             string modFolder = Path.GetFullPath(ModClass._declare.FolderPath);
-            bool developerCheckout = Directory.Exists(Path.Combine(modFolder, ".git"));
+            if (manualPackageMode)
+            {
+                string manualPackagePath = CopyPackageToMods(packagePath, modFolder, manifest);
+                Complete(EmpireCraftUpdateStatus.ManualPackageReady, manualPackagePath, null);
+                return;
+            }
+
+            string gitMarker = Path.Combine(modFolder, ".git");
+            bool developerCheckout = Directory.Exists(gitMarker) || File.Exists(gitMarker);
 
             if (developerCheckout || !IsWindows())
             {
@@ -229,7 +339,8 @@ public static class EmpireCraftUpdateService
                 return;
             }
 
-            ScheduleInstallAfterExit(packageRoot, modFolder, updateRoot);
+            ScheduleInstallAfterExit(packageRoot, modFolder, updateRoot, manifest.Version, packagePath,
+                archiveCurrentVersion);
             Complete(EmpireCraftUpdateStatus.InstallScheduled, packagePath, null);
         }
         catch (Exception error)
@@ -242,7 +353,9 @@ public static class EmpireCraftUpdateService
     {
         lock (Sync)
         {
-            if (_busy) return false;
+            if (_busy || _snapshot.Status is EmpireCraftUpdateStatus.InstallScheduled or
+                EmpireCraftUpdateStatus.InstallPending ||
+                File.Exists(Path.Combine(GetUpdatesRoot(), PendingInstallFileName))) return false;
             _busy = true;
             _snapshot.Error = null;
             _snapshot.ProgressPercent = 0;
@@ -283,7 +396,12 @@ public static class EmpireCraftUpdateService
 
     private static string DownloadText(string url)
     {
-        Uri uri = new(url);
+        var builder = new UriBuilder(url);
+        string cacheBust = "ec_check=" + DateTime.UtcNow.Ticks.ToString(CultureInfo.InvariantCulture);
+        builder.Query = string.IsNullOrEmpty(builder.Query)
+            ? cacheBust
+            : builder.Query.TrimStart('?') + "&" + cacheBust;
+        Uri uri = builder.Uri;
         if (uri.Scheme != Uri.UriSchemeHttps) throw new Exception("Update manifest must use HTTPS.");
 
         HttpWebRequest request = CreateRequest(uri);
@@ -340,6 +458,7 @@ public static class EmpireCraftUpdateService
         request.ReadWriteTimeout = NetworkTimeoutMilliseconds;
         request.AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate;
         request.KeepAlive = false;
+        request.CachePolicy = new RequestCachePolicy(RequestCacheLevel.BypassCache);
         return request;
     }
 
@@ -384,15 +503,57 @@ public static class EmpireCraftUpdateService
             throw new Exception("Update package SHA-256 verification failed.");
     }
 
+    private static string CopyPackageToMods(string packagePath, string modFolder, UpdateManifest manifest)
+    {
+        DirectoryInfo modsDirectory = GetModsDirectory(modFolder);
+        if (modsDirectory == null || !modsDirectory.Exists)
+            throw new DirectoryNotFoundException("The WorldBox Mods directory could not be located.");
+
+        string fileName = "EmpireCraft_" + SanitizeFileName(manifest.Version) + ".zip";
+        string destination = Path.Combine(modsDirectory.FullName, fileName);
+        string temporaryDestination = destination + ".download";
+        TryDeleteFile(temporaryDestination);
+        try
+        {
+            File.Copy(packagePath, temporaryDestination, true);
+            if (manifest.Size > 0 && new FileInfo(temporaryDestination).Length != manifest.Size)
+                throw new Exception("The copied update package size does not match the manifest.");
+            VerifySha256(temporaryDestination, manifest.Sha256);
+            TryDeleteFile(destination);
+            File.Move(temporaryDestination, destination);
+            return destination;
+        }
+        catch
+        {
+            TryDeleteFile(temporaryDestination);
+            throw;
+        }
+    }
+
+    private static DirectoryInfo GetModsDirectory(string modFolder = null)
+    {
+        string path = modFolder ?? ModClass._declare?.FolderPath;
+        if (string.IsNullOrWhiteSpace(path))
+            return null;
+
+        return new DirectoryInfo(Path.GetFullPath(path)).Parent;
+    }
+
     private static void ExtractArchiveSafely(string archivePath, string destination)
     {
         string root = Path.GetFullPath(destination) + Path.DirectorySeparatorChar;
         using ZipArchive archive = ZipFile.OpenRead(archivePath);
+        if (archive.Entries.Count > MaximumArchiveEntries)
+            throw new Exception("Update package contains too many entries.");
+        long extracted = 0;
+        var buffer = new byte[64 * 1024];
         foreach (ZipArchiveEntry entry in archive.Entries)
         {
             string outputPath = Path.GetFullPath(Path.Combine(destination, entry.FullName));
             if (!outputPath.StartsWith(root, StringComparison.OrdinalIgnoreCase))
                 throw new Exception("Update package contains an unsafe path.");
+            if (entry.Length < 0 || entry.Length > MaximumExtractedBytes - extracted)
+                throw new Exception("Update package exceeds the extracted size limit.");
 
             if (string.IsNullOrEmpty(entry.Name))
             {
@@ -403,7 +564,14 @@ public static class EmpireCraftUpdateService
             Directory.CreateDirectory(Path.GetDirectoryName(outputPath));
             using Stream input = entry.Open();
             using var output = new FileStream(outputPath, FileMode.Create, FileAccess.Write, FileShare.None);
-            input.CopyTo(output);
+            int read;
+            while ((read = input.Read(buffer, 0, buffer.Length)) > 0)
+            {
+                if (read > MaximumExtractedBytes - extracted)
+                    throw new Exception("Update package exceeds the extracted size limit.");
+                output.Write(buffer, 0, read);
+                extracted += read;
+            }
         }
     }
 
@@ -423,16 +591,431 @@ public static class EmpireCraftUpdateService
             throw new Exception("Update package version does not match its manifest.");
         if (!Directory.Exists(Path.Combine(packageRoot, "Scripts")))
             throw new Exception("Update package is missing the Scripts directory.");
+        if (File.Exists(Path.Combine(packageRoot, ".git")) ||
+            Directory.Exists(Path.Combine(packageRoot, ".git")))
+            throw new Exception("Update package contains a Git checkout marker.");
     }
 
-    private static void ScheduleInstallAfterExit(string source, string target, string updateRoot)
+    private static void ScheduleInstallAfterExit(string source, string target, string updateRoot,
+        string version, string packagePath, bool archiveCurrentVersion)
     {
-        string scriptPath = Path.Combine(updateRoot, "install-after-exit.ps1");
+        string installId = Guid.NewGuid().ToString("N");
+        string targetParent = Directory.GetParent(Path.GetFullPath(target))?.FullName ??
+                              throw new InvalidOperationException("The mod folder has no parent directory.");
+        string workRoot = Directory.GetParent(targetParent)?.FullName ??
+                          throw new InvalidOperationException("The Mods folder has no parent directory.");
+        string targetName = new DirectoryInfo(target).Name;
+        string candidatePath = Path.Combine(workRoot, "." + targetName + ".update-" + installId);
+        string backupPath = Path.Combine(workRoot, "." + targetName + ".backup-" + installId);
+        string archivePath = null;
+        if (archiveCurrentVersion)
+        {
+            string archiveRoot = Path.GetFullPath(GetArchivedVersionsRoot());
+            string modsRoot = targetParent.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+            if (PathsEqual(archiveRoot, targetParent) ||
+                archiveRoot.StartsWith(modsRoot, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("The update archive must be outside the Mods directory.");
+            string oldVersion = SanitizeFileName(ReadInstalledVersion());
+            archivePath = Path.Combine(archiveRoot, "EmpireCraft_" + oldVersion + "_" +
+                DateTime.UtcNow.ToString("yyyyMMddTHHmmssZ", CultureInfo.InvariantCulture) + "_" +
+                installId + ".ecbackup");
+        }
+        string scriptPath = Path.Combine(updateRoot, "install-after-exit-" + installId + ".ps1");
         string logPath = Path.Combine(updateRoot, "install.log");
+        string stateRoot = GetUpdatesRoot();
+        string pendingPath = Path.Combine(stateRoot, PendingInstallFileName);
+        string resultPath = Path.Combine(stateRoot, InstallResultFileName);
+        if (File.Exists(pendingPath))
+            throw new InvalidOperationException("An update is already scheduled for installation.");
         int processId = Process.GetCurrentProcess().Id;
-        string script = BuildInstallScript(processId, source, target, logPath);
+        string processName = Process.GetCurrentProcess().ProcessName;
+        string script = BuildInstallScript(processId, processName, source, target, version,
+            packagePath, logPath, pendingPath, resultPath, candidatePath, backupPath, archivePath);
         File.WriteAllText(scriptPath, script, new UTF8Encoding(false));
 
+        var pending = new PendingInstall
+        {
+            Version = version,
+            PackagePath = packagePath,
+            ScriptPath = scriptPath,
+            TargetPath = target
+        };
+        TryDeleteFile(resultPath);
+        WritePendingInstall(pendingPath, pending);
+        int helperProcessId = 0;
+        try
+        {
+            helperProcessId = StartInstallHelper(scriptPath);
+            pending.HelperProcessId = helperProcessId;
+            WritePendingInstall(pendingPath, pending);
+        }
+        catch
+        {
+            if (helperProcessId == 0 || StopInstallHelper(helperProcessId)) TryDeleteFile(pendingPath);
+            throw;
+        }
+    }
+
+    private static string BuildInstallScript(int processId, string processName, string source, string target,
+        string version, string packagePath, string logPath, string pendingPath, string resultPath,
+        string candidatePath, string backupPath, string archivePath)
+    {
+        string n = EscapePowerShellLiteral(processName);
+        string s = EscapePowerShellLiteral(source);
+        string t = EscapePowerShellLiteral(target);
+        string v = EscapePowerShellLiteral(version);
+        string p = EscapePowerShellLiteral(packagePath);
+        string l = EscapePowerShellLiteral(logPath);
+        string q = EscapePowerShellLiteral(pendingPath);
+        string r = EscapePowerShellLiteral(resultPath);
+        string c = EscapePowerShellLiteral(candidatePath);
+        string b = EscapePowerShellLiteral(backupPath);
+        string a = EscapePowerShellLiteral(archivePath ?? "");
+        return "$ErrorActionPreference = 'Stop'\r\n" +
+               "$processName = '" + n + "'\r\n" +
+               "$source = '" + s + "'\r\n" +
+               "$target = '" + t + "'\r\n" +
+               "$version = '" + v + "'\r\n" +
+               "$package = '" + p + "'\r\n" +
+               "$log = '" + l + "'\r\n" +
+               "$pending = '" + q + "'\r\n" +
+               "$result = '" + r + "'\r\n" +
+               "$candidate = '" + c + "'\r\n" +
+               "$backup = '" + b + "'\r\n" +
+               "$archive = '" + a + "'\r\n" +
+               "$archiveTemp = if ($archive) { $archive + '.tmp' } else { '' }\r\n" +
+               "$resultTemp = $result + '.tmp'\r\n" +
+               "$ownsBackup = $false\r\n" +
+               "function Assert-Sibling([string]$path) {\r\n" +
+               "  $full = [System.IO.Path]::GetFullPath($path)\r\n" +
+               "  if ([System.IO.Path]::GetDirectoryName($full) -ne $workRoot -or $full -eq $target) { throw ('Unsafe update path: ' + $full) }\r\n" +
+               "}\r\n" +
+               "function Write-InstallResult([string]$status, [string]$detail) {\r\n" +
+               "  $payload = [ordered]@{ status = $status; version = $version; packagePath = $package; targetPath = $target; detail = $detail; completedAt = (Get-Date).ToUniversalTime().ToString('o') } | ConvertTo-Json -Compress\r\n" +
+               "  [System.IO.File]::WriteAllText($resultTemp, $payload, (New-Object System.Text.UTF8Encoding($false)))\r\n" +
+               "  Move-Item -LiteralPath $resultTemp -Destination $result -Force\r\n" +
+               "  Remove-Item -LiteralPath $pending -Force -ErrorAction SilentlyContinue\r\n" +
+               "}\r\n" +
+               "function Complete-Install {\r\n" +
+               "  if ($archive) {\r\n" +
+               "    Add-Type -AssemblyName System.IO.Compression.FileSystem\r\n" +
+               "    New-Item -ItemType Directory -Path ([System.IO.Path]::GetDirectoryName($archive)) -Force | Out-Null\r\n" +
+               "    if (Test-Path -LiteralPath $archiveTemp) { Remove-Item -LiteralPath $archiveTemp -Force }\r\n" +
+               "    if (-not (Test-Path -LiteralPath $archive)) {\r\n" +
+               "      [System.IO.Compression.ZipFile]::CreateFromDirectory($backup, $archiveTemp, [System.IO.Compression.CompressionLevel]::Optimal, $false)\r\n" +
+               "      Move-Item -LiteralPath $archiveTemp -Destination $archive -ErrorAction Stop\r\n" +
+               "    }\r\n" +
+               "    $zip = [System.IO.Compression.ZipFile]::OpenRead($archive)\r\n" +
+               "    try { if ($null -eq $zip.GetEntry('mod.json')) { throw 'Version archive is missing mod.json.' } } finally { $zip.Dispose() }\r\n" +
+               "  }\r\n" +
+               "  ('Installed ' + $version + ' at ' + (Get-Date -Format o) + ' into ' + $target + '; archive: ' + $archive) | Set-Content -LiteralPath $log -Encoding UTF8\r\n" +
+               "  Write-InstallResult 'success' $(if ($archive) { 'Archive: ' + $archive } else { '' })\r\n" +
+               "  try { Remove-Item -LiteralPath $backup -Recurse -Force -ErrorAction Stop } catch { }\r\n" +
+               "}\r\n" +
+               "try {\r\n" +
+               "  $target = [System.IO.Path]::GetFullPath($target)\r\n" +
+               "  if ($target -eq [System.IO.Path]::GetPathRoot($target)) { throw 'The mod folder cannot be a drive root.' }\r\n" +
+               "  $target = $target.TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar)\r\n" +
+               "  $parent = [System.IO.Path]::GetDirectoryName($target)\r\n" +
+               "  $workRoot = [System.IO.Path]::GetDirectoryName($parent)\r\n" +
+               "  if (-not $workRoot) { throw 'The Mods folder has no parent directory.' }\r\n" +
+               "  Assert-Sibling $candidate\r\n" +
+               "  Assert-Sibling $backup\r\n" +
+               "  Wait-Process -Id " + processId + " -ErrorAction SilentlyContinue\r\n" +
+               "  $quietChecks = 0\r\n" +
+               "  while ($quietChecks -lt 4) {\r\n" +
+               "    if (@(Get-Process -Name $processName -ErrorAction SilentlyContinue).Count -eq 0) { $quietChecks++ } else { $quietChecks = 0 }\r\n" +
+               "    if ($quietChecks -lt 4) { Start-Sleep -Milliseconds 250 }\r\n" +
+               "  }\r\n" +
+               "  if (-not (Test-Path -LiteralPath (Join-Path $source 'mod.json'))) { throw 'Invalid staged update.' }\r\n" +
+               "  if (Test-Path -LiteralPath (Join-Path $source '.git')) { throw 'Update package contains a Git checkout marker.' }\r\n" +
+               "  if (Test-Path -LiteralPath $backup) {\r\n" +
+               "    if (-not (Test-Path -LiteralPath $target)) { Move-Item -LiteralPath $backup -Destination $target -ErrorAction Stop }\r\n" +
+               "    else {\r\n" +
+               "      $existing = Get-Content -Raw -LiteralPath (Join-Path $target 'mod.json') | ConvertFrom-Json\r\n" +
+               "      if ([string]$existing.version -eq $version) { $ownsBackup = $true; Complete-Install; return }\r\n" +
+               "      throw ('An earlier update left a backup at ' + $backup)\r\n" +
+               "    }\r\n" +
+               "  }\r\n" +
+               "  if (-not (Test-Path -LiteralPath $target -PathType Container)) { throw 'Installed mod folder is missing.' }\r\n" +
+               "  if (Test-Path -LiteralPath (Join-Path $target '.git')) { throw 'Developer checkout detected; automatic replacement is disabled.' }\r\n" +
+               "  if (Test-Path -LiteralPath $candidate) { Remove-Item -LiteralPath $candidate -Recurse -Force }\r\n" +
+               "  New-Item -ItemType Directory -Path $candidate -Force | Out-Null\r\n" +
+               "  Get-ChildItem -LiteralPath $target -Force | ForEach-Object { Copy-Item -LiteralPath $_.FullName -Destination $candidate -Recurse -Force }\r\n" +
+               "  Get-ChildItem -LiteralPath $source -Directory | ForEach-Object {\r\n" +
+               "    if ($_.Name -eq '.git') { throw 'Update package contains a Git directory.' }\r\n" +
+               "    $destination = Join-Path $candidate $_.Name\r\n" +
+               "    if (Test-Path -LiteralPath $destination) { Remove-Item -LiteralPath $destination -Recurse -Force }\r\n" +
+               "    Copy-Item -LiteralPath $_.FullName -Destination $destination -Recurse -Force\r\n" +
+               "  }\r\n" +
+               "  Get-ChildItem -LiteralPath $source -File | Where-Object { $_.Name -ne 'default_config.json' } | ForEach-Object {\r\n" +
+               "    Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $candidate $_.Name) -Force\r\n" +
+               "  }\r\n" +
+               "  if (-not (Test-Path -LiteralPath (Join-Path $candidate 'default_config.json'))) { Copy-Item -LiteralPath (Join-Path $source 'default_config.json') -Destination $candidate -Force }\r\n" +
+               "  if (-not (Test-Path -LiteralPath (Join-Path $candidate 'Scripts') -PathType Container)) { throw 'Candidate update is missing Scripts.' }\r\n" +
+               "  $candidateManifest = Get-Content -Raw -LiteralPath (Join-Path $candidate 'mod.json') | ConvertFrom-Json\r\n" +
+               "  if ([string]$candidateManifest.version -ne $version) { throw 'Candidate update version mismatch.' }\r\n" +
+               "  $lastError = $null\r\n" +
+               "  for ($attempt = 1; $attempt -le 6; $attempt++) {\r\n" +
+               "    try { Move-Item -LiteralPath $target -Destination $backup -ErrorAction Stop; $ownsBackup = $true; $lastError = $null; break }\r\n" +
+               "    catch { $lastError = $_.Exception; if ($attempt -lt 6) { Start-Sleep -Seconds 1 } }\r\n" +
+               "  }\r\n" +
+               "  if ($lastError -ne $null) { throw $lastError }\r\n" +
+               "  Move-Item -LiteralPath $candidate -Destination $target -ErrorAction Stop\r\n" +
+               "  $installedManifest = Get-Content -Raw -LiteralPath (Join-Path $target 'mod.json') | ConvertFrom-Json\r\n" +
+               "  if ([string]$installedManifest.version -ne $version) { throw ('Installed version mismatch. Expected ' + $version + ', found ' + [string]$installedManifest.version) }\r\n" +
+               "  Complete-Install\r\n" +
+               "} catch {\r\n" +
+               "  $detail = $_.Exception.ToString()\r\n" +
+               "  try {\r\n" +
+               "    if ($archiveTemp -and (Test-Path -LiteralPath $archiveTemp)) { Remove-Item -LiteralPath $archiveTemp -Force }\r\n" +
+               "    if ($ownsBackup -and $archive -and (Test-Path -LiteralPath $archive)) { Remove-Item -LiteralPath $archive -Force }\r\n" +
+               "    if ($ownsBackup -and (Test-Path -LiteralPath $backup)) {\r\n" +
+               "      if (Test-Path -LiteralPath $target) {\r\n" +
+               "        $failed = $candidate + '.failed'\r\n" +
+               "        Assert-Sibling $failed\r\n" +
+               "        if (Test-Path -LiteralPath $failed) { throw ('Failed update directory already exists: ' + $failed) }\r\n" +
+               "        Move-Item -LiteralPath $target -Destination $failed -ErrorAction Stop\r\n" +
+               "      }\r\n" +
+               "      Move-Item -LiteralPath $backup -Destination $target -ErrorAction Stop\r\n" +
+               "      $detail += ' Previous installation restored.'\r\n" +
+               "    }\r\n" +
+               "    if ((Test-Path -LiteralPath $target) -and (Test-Path -LiteralPath $candidate)) { Remove-Item -LiteralPath $candidate -Recurse -Force }\r\n" +
+               "  } catch { $detail += (' Rollback failed: ' + $_.Exception + '; backup: ' + $backup) }\r\n" +
+               "  try { $detail | Set-Content -LiteralPath $log -Encoding UTF8 } catch { }\r\n" +
+               "  Write-InstallResult 'failure' $detail\r\n" +
+               "}\r\n";
+    }
+
+    private static bool RestoreInstallState()
+    {
+        string stateRoot = GetUpdatesRoot();
+        string resultPath = Path.Combine(stateRoot, InstallResultFileName);
+        string pendingPath = Path.Combine(stateRoot, PendingInstallFileName);
+
+        if (File.Exists(resultPath)) return RestoreInstallResult(resultPath, pendingPath);
+        if (!File.Exists(pendingPath)) return false;
+
+        PendingInstall pending = null;
+        try
+        {
+            pending = ReadPendingInstall(pendingPath);
+            if (!IsInstallHelperRunning(pending.HelperProcessId))
+            {
+                if (string.IsNullOrWhiteSpace(pending.ScriptPath) || !File.Exists(pending.ScriptPath))
+                    throw new FileNotFoundException("The pending update installer is missing.", pending.ScriptPath);
+                pending.ResumeAttempts++;
+                if (pending.ResumeAttempts > 2)
+                    throw new InvalidOperationException(
+                        "The update installer stopped repeatedly. Security software may be blocking PowerShell.");
+                int restartedHelperId = StartInstallHelper(pending.ScriptPath);
+                try
+                {
+                    pending.HelperProcessId = restartedHelperId;
+                    WritePendingInstall(pendingPath, pending);
+                }
+                catch
+                {
+                    if (!StopInstallHelper(restartedHelperId))
+                        throw new InvalidOperationException("The installer restarted but its process ID could not be saved.");
+                    throw;
+                }
+            }
+
+            lock (Sync)
+            {
+                _snapshot.AvailableVersion = pending.Version;
+                _snapshot.LocalPackagePath = pending.PackagePath;
+                _snapshot.Error = null;
+                PublishLocked(EmpireCraftUpdateStatus.InstallPending);
+            }
+            LogService.LogInfo("EmpireCraft update is still waiting for the game to exit: " + pending.Version);
+            return true;
+        }
+        catch (Exception error)
+        {
+            if (!IsInstallHelperRunning(pending?.HelperProcessId ?? 0)) TryDeleteFile(pendingPath);
+            lock (Sync)
+            {
+                _snapshot.AvailableVersion = pending?.Version;
+                _snapshot.LocalPackagePath = pending?.PackagePath;
+                _snapshot.Error = error.Message;
+                PublishLocked(EmpireCraftUpdateStatus.InstallFailed);
+            }
+            LogService.LogWarning("EmpireCraft pending update could not be resumed: " + error);
+            return true;
+        }
+    }
+
+    private static bool RestoreInstallResult(string resultPath, string pendingPath)
+    {
+        try
+        {
+            JObject result = JObject.Parse(File.ReadAllText(resultPath));
+            string status = result.Value<string>("status")?.Trim();
+            string version = result.Value<string>("version")?.Trim();
+            string packagePath = result.Value<string>("packagePath")?.Trim();
+            string targetPath = result.Value<string>("targetPath")?.Trim();
+            string detail = result.Value<string>("detail")?.Trim();
+            string currentVersion = ReadInstalledVersion();
+            string currentTarget = Path.GetFullPath(ModClass._declare?.FolderPath ?? "");
+            bool helperReportedSuccess = string.Equals(status, "success", StringComparison.OrdinalIgnoreCase);
+            bool versionMatches = !string.IsNullOrWhiteSpace(version) &&
+                                  CompareVersions(currentVersion, version) >= 0;
+            bool targetMatches = !string.IsNullOrWhiteSpace(targetPath) && PathsEqual(currentTarget, targetPath);
+
+            EmpireCraftUpdateStatus restoredStatus;
+            if (helperReportedSuccess && versionMatches && targetMatches)
+            {
+                restoredStatus = EmpireCraftUpdateStatus.InstallSucceeded;
+                detail = null;
+            }
+            else
+            {
+                restoredStatus = EmpireCraftUpdateStatus.InstallFailed;
+                if (helperReportedSuccess)
+                {
+                    detail = "The updater replaced " + targetPath + " with " + version +
+                             ", but the game loaded " + currentVersion + " from " + currentTarget +
+                             ". Remove duplicate EmpireCraft installations or restart once more.";
+                }
+                else if (string.IsNullOrWhiteSpace(detail))
+                {
+                    detail = "The external installer reported a failure without an error message.";
+                }
+            }
+
+            lock (Sync)
+            {
+                _snapshot.CurrentVersion = currentVersion;
+                _snapshot.AvailableVersion = version;
+                _snapshot.LocalPackagePath = packagePath;
+                _snapshot.Error = detail;
+                _snapshot.ProgressPercent = helperReportedSuccess ? 100 : 0;
+                PublishLocked(restoredStatus);
+            }
+
+            if (restoredStatus == EmpireCraftUpdateStatus.InstallSucceeded)
+                LogService.LogInfo("EmpireCraft update installation verified: " + version);
+            else
+                LogService.LogWarning("EmpireCraft update installation failed: " + detail);
+        }
+        catch (Exception error)
+        {
+            lock (Sync)
+            {
+                _snapshot.Error = "Could not read the update installation result: " + error.Message;
+                PublishLocked(EmpireCraftUpdateStatus.InstallFailed);
+            }
+            LogService.LogWarning("EmpireCraft update result is invalid: " + error);
+        }
+        finally
+        {
+            TryDeleteFile(resultPath);
+            TryDeleteFile(pendingPath);
+        }
+        return true;
+    }
+
+    private static string GetUpdatesRoot()
+    {
+        return Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "EmpireCraft",
+            "Updates");
+    }
+
+    private static string GetArchivedVersionsRoot()
+    {
+        return Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "EmpireCraft",
+            "ArchivedVersions");
+    }
+
+    private static (bool manualPackageMode, bool archiveCurrentVersion) ReadUpdateSettings()
+    {
+        try
+        {
+            string path = Path.Combine(GetUpdatesRoot(), UpdateSettingsFileName);
+            if (!File.Exists(path)) return (false, false);
+            JObject settings = JObject.Parse(File.ReadAllText(path));
+            return (settings.Value<bool?>("manualPackageMode") ?? false,
+                    settings.Value<bool?>("archiveCurrentVersion") ?? false);
+        }
+        catch (Exception error)
+        {
+            LogService.LogWarning("EmpireCraft update preference could not be read: " + error.Message);
+            return (false, false);
+        }
+    }
+
+    private static void SaveUpdateSettings()
+    {
+        try
+        {
+            lock (Sync) WriteUpdateSettings(_manualPackageMode, _archiveCurrentVersion);
+        }
+        catch (Exception error)
+        {
+            LogService.LogWarning("EmpireCraft update preference could not be saved: " + error.Message);
+        }
+    }
+
+    private static void WriteUpdateSettings(bool manualPackageMode, bool archiveCurrentVersion)
+    {
+        string root = GetUpdatesRoot();
+        Directory.CreateDirectory(root);
+        string path = Path.Combine(root, UpdateSettingsFileName);
+        string temporaryPath = path + ".tmp";
+        var settings = new JObject
+        {
+            ["manualPackageMode"] = manualPackageMode,
+            ["archiveCurrentVersion"] = archiveCurrentVersion
+        };
+        File.WriteAllText(temporaryPath, settings.ToString(), new UTF8Encoding(false));
+        if (File.Exists(path)) File.Replace(temporaryPath, path, null);
+        else File.Move(temporaryPath, path);
+    }
+
+    private static void WritePendingInstall(string path, PendingInstall pending)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(path));
+        var json = new JObject
+        {
+            ["version"] = pending.Version,
+            ["packagePath"] = pending.PackagePath,
+            ["scriptPath"] = pending.ScriptPath,
+            ["targetPath"] = pending.TargetPath,
+            ["helperProcessId"] = pending.HelperProcessId,
+            ["resumeAttempts"] = pending.ResumeAttempts,
+            ["scheduledAt"] = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture)
+        };
+        string temporaryPath = path + ".tmp";
+        File.WriteAllText(temporaryPath, json.ToString(), new UTF8Encoding(false));
+        if (File.Exists(path)) File.Replace(temporaryPath, path, null);
+        else File.Move(temporaryPath, path);
+    }
+
+    private static PendingInstall ReadPendingInstall(string path)
+    {
+        JObject json = JObject.Parse(File.ReadAllText(path));
+        var pending = new PendingInstall
+        {
+            Version = json.Value<string>("version")?.Trim(),
+            PackagePath = json.Value<string>("packagePath")?.Trim(),
+            ScriptPath = json.Value<string>("scriptPath")?.Trim(),
+            TargetPath = json.Value<string>("targetPath")?.Trim(),
+            HelperProcessId = json.Value<int?>("helperProcessId") ?? 0,
+            ResumeAttempts = json.Value<int?>("resumeAttempts") ?? 0
+        };
+        if (string.IsNullOrWhiteSpace(pending.Version) || string.IsNullOrWhiteSpace(pending.ScriptPath))
+            throw new InvalidDataException("The pending update record is incomplete.");
+        return pending;
+    }
+
+    private static int StartInstallHelper(string scriptPath)
+    {
         var start = new ProcessStartInfo
         {
             FileName = "powershell.exe",
@@ -441,33 +1024,70 @@ public static class EmpireCraftUpdateService
             CreateNoWindow = true,
             WindowStyle = ProcessWindowStyle.Hidden
         };
-        Process.Start(start);
+        using Process process = Process.Start(start) ??
+                                throw new InvalidOperationException("The update installer process did not start.");
+        return process.Id;
     }
 
-    private static string BuildInstallScript(int processId, string source, string target, string logPath)
+    private static bool IsInstallHelperRunning(int processId)
     {
-        string s = EscapePowerShellLiteral(source);
-        string t = EscapePowerShellLiteral(target);
-        string l = EscapePowerShellLiteral(logPath);
-        return "$ErrorActionPreference = 'Stop'\r\n" +
-               "$source = '" + s + "'\r\n" +
-               "$target = '" + t + "'\r\n" +
-               "$log = '" + l + "'\r\n" +
-               "try {\r\n" +
-               "  Wait-Process -Id " + processId + " -ErrorAction SilentlyContinue\r\n" +
-               "  Start-Sleep -Seconds 2\r\n" +
-               "  if (-not (Test-Path -LiteralPath (Join-Path $source 'mod.json'))) { throw 'Invalid staged update.' }\r\n" +
-               "  Get-ChildItem -LiteralPath $source -Directory | ForEach-Object {\r\n" +
-               "    $destination = Join-Path $target $_.Name\r\n" +
-               "    if (Test-Path -LiteralPath $destination) { Remove-Item -LiteralPath $destination -Recurse -Force }\r\n" +
-               "    Copy-Item -LiteralPath $_.FullName -Destination $destination -Recurse -Force\r\n" +
-               "  }\r\n" +
-               "  Get-ChildItem -LiteralPath $source -File | Where-Object { $_.Name -ne 'default_config.json' } | ForEach-Object {\r\n" +
-               "    Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $target $_.Name) -Force\r\n" +
-               "  }\r\n" +
-               "  if (-not (Test-Path -LiteralPath (Join-Path $target 'default_config.json'))) { Copy-Item -LiteralPath (Join-Path $source 'default_config.json') -Destination $target -Force }\r\n" +
-               "  ('Installed at ' + (Get-Date -Format o)) | Set-Content -LiteralPath $log -Encoding UTF8\r\n" +
-               "} catch { $_.Exception.ToString() | Set-Content -LiteralPath $log -Encoding UTF8 }\r\n";
+        if (processId <= 0) return false;
+        try
+        {
+            using Process process = Process.GetProcessById(processId);
+            if (process.HasExited) return false;
+            return process.ProcessName.Equals("powershell", StringComparison.OrdinalIgnoreCase) ||
+                   process.ProcessName.Equals("pwsh", StringComparison.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static bool StopInstallHelper(int processId)
+    {
+        if (processId <= 0) return true;
+        try
+        {
+            using Process process = Process.GetProcessById(processId);
+            if (!process.HasExited && (process.ProcessName.Equals("powershell", StringComparison.OrdinalIgnoreCase) ||
+                                       process.ProcessName.Equals("pwsh", StringComparison.OrdinalIgnoreCase)))
+            {
+                process.Kill();
+                process.WaitForExit(5000);
+            }
+            return process.HasExited;
+        }
+        catch (ArgumentException)
+        {
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static bool PathsEqual(string left, string right)
+    {
+        if (string.IsNullOrWhiteSpace(left) || string.IsNullOrWhiteSpace(right)) return false;
+        return string.Equals(
+            Path.GetFullPath(left).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+            Path.GetFullPath(right).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+            StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static void TryDeleteFile(string path)
+    {
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(path) && File.Exists(path)) File.Delete(path);
+        }
+        catch
+        {
+            // Cleanup failures must not hide the actual update result.
+        }
     }
 
     private static string ReadInstalledVersion()
@@ -502,59 +1122,6 @@ public static class EmpireCraftUpdateService
     {
         if (Directory.Exists(path)) Directory.Delete(path, true);
         Directory.CreateDirectory(path);
-    }
-
-    private static List<string> TokenizeVersion(string version)
-    {
-        var parts = new List<string>();
-        if (string.IsNullOrWhiteSpace(version)) return parts;
-        var token = new StringBuilder();
-        bool? numeric = null;
-        foreach (char c in version.Trim().ToLowerInvariant())
-        {
-            if (!char.IsLetterOrDigit(c))
-            {
-                FlushToken(parts, token);
-                numeric = null;
-                continue;
-            }
-            bool isNumeric = char.IsDigit(c);
-            if (numeric.HasValue && numeric.Value != isNumeric) FlushToken(parts, token);
-            token.Append(c);
-            numeric = isNumeric;
-        }
-        FlushToken(parts, token);
-        return parts;
-    }
-
-    private static void FlushToken(List<string> parts, StringBuilder token)
-    {
-        if (token.Length == 0) return;
-        parts.Add(token.ToString());
-        token.Clear();
-    }
-
-    private static int CompareVersionLabels(string left, string right)
-    {
-        int leftRank = VersionLabelRank(left);
-        int rightRank = VersionLabelRank(right);
-        return leftRank != rightRank
-            ? leftRank.CompareTo(rightRank)
-            : string.Compare(left, right, StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static int VersionLabelRank(string label)
-    {
-        return label switch
-        {
-            "dev" => 0,
-            "alpha" or "a" => 1,
-            "beta" or "b" => 2,
-            "preview" or "pre" => 3,
-            "rc" => 4,
-            "stable" or "release" => 5,
-            _ => 2
-        };
     }
 
     private static bool IsWindows()

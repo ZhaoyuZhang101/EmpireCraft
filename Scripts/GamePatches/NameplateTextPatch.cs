@@ -28,8 +28,10 @@ public class NameplateTextPatch:GamePatch
         __instance._text_name.enabled = true;
         __instance._text_name.gameObject.SetActive(true);
         __instance._background_image.transform.localPosition = Vector3.zero;
-        __instance._background_image.transform.localScale = Vector3.one;
         __instance._background_image.type = Image.Type.Sliced;
+        // 原版铭牌对象池化复用，原版 prepare 只在模式变化时才设底板；这里每次按当前模式明确设定，
+        // 否则王国铭牌会沿用上一帧这块铭牌(城市、无底板铭牌)的底板状态，在有边框/无边框之间来回闪
+        EmpireCraftNamePlateLibrary.ApplyReusableNameplateMode(__instance, pAsset, pMeta);
         var outline = __instance._text_name.GetComponent<Outline>();
         if (outline != null)
         {
@@ -55,7 +57,7 @@ public class NameplateTextPatch:GamePatch
                     break;
                 case MetaType.City:
                     City city = pMeta as City;
-                    if (city == null || city.isRekt())
+                    if (city == null || city.isRekt() || __instance._banner_city == null)
                     {
                         __instance.setShowing(false);
                         break;
@@ -63,7 +65,14 @@ public class NameplateTextPatch:GamePatch
                     __instance._show_banner_city = true;
                     __instance._banner_city.enabled = true;
                     __instance._banner_city.gameObject.SetActive(true);
-                    __instance._banner_city.load(city);
+                    try
+                    {
+                        __instance._banner_city.load(city);
+                    }
+                    catch
+                    {
+                        __instance.setShowing(false);
+                    }
                     break;
                 case MetaTypeExtension.KingdomTitle:
                     City capital = pMeta as City;

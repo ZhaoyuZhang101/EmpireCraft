@@ -1,0 +1,6 @@
+key,cz,en,ch
+book_template_default_biology_book_1,$word$,$word$,$word$
+book_template_default_biology_book_2,$city$$word$,$word$ of $city$,$city$$word$
+book_template_default_biology_book_3,$author$的$word$,$author$'s $word$,$author$的$word$
+book_template_default_biology_book_4,$word$图说,Illustrated $word$,$word$圖說
+book_template_default_biology_book_5,$era$$word$,$word$ of the $era$,$era$$word$

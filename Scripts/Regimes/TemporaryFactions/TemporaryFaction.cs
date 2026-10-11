@@ -1,3 +1,4 @@
+using EmpireCraft.Scripts.System;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -6,6 +7,7 @@ using System.Runtime.CompilerServices;
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GeneralSystems.EmpireLaw;
+using EmpireCraft.Scripts.GeneralSystems;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.UI.Components;
@@ -17,13 +19,26 @@ namespace EmpireCraft.Scripts.Regimes.TemporaryFactions;
 public abstract class TemporaryFaction
 {
     [JsonIgnore]
-    public TemporaryFactionType type => Enum.TryParse(GetType().ToString().Split('_').Last(), out TemporaryFactionType res) ? res : default;
+    public TemporaryFactionType type => ResolveType(GetType().Name);
+
+    internal static TemporaryFactionType ResolveType(string name)
+    {
+        string key = name.StartsWith("KingdomMind_", StringComparison.Ordinal)
+            ? "国_" + name.Substring("KingdomMind_".Length)
+            : name.StartsWith("TempFac_", StringComparison.Ordinal) ? name.Substring("TempFac_".Length)
+                : name.Split('_').Last();
+        return Enum.TryParse(key, out TemporaryFactionType result) ? result : default;
+    }
 
     public int Acc = 0;
     public bool Hide = false;
     public bool Active = true;
     public int CountDown = 0;
-    public virtual int Budget => 0;
+    // 施行经费(见 ClaimTuning)：朝廷推动的由国库出，地方推动的由该地出
+    public virtual int Budget => ClaimTuning.Cost(GetEmpire(), type, IsLocallyPushed ? GetKingdom() : null);
+    // 本轮经费是否已付、付了多少(没推进就作罢的退回)
+    public bool BudgetPaid;
+    public int PaidBudget;
     public List<long>  kingdoms = new List<long>();
     public string factionID = "";
     public bool ShowAsPlot = false;
@@ -62,8 +77,20 @@ public abstract class TemporaryFaction
     public virtual bool RequireCrimeTarget => false;
     [JsonIgnore]
     public virtual bool RequireRenown => false;
+    // Public reform campaigns keep their own eligibility checks outside the cabinet.
+    public virtual bool CanProceedOutsideGovernment => false;
     [JsonIgnore]
     public string CompletionOutcome { get; protected set; }
+    // 本轮是否真的执行了(进度满或谋划完成)；End 时记入 LastRunCompleted，朝堂据此结算奏议
+    [Newtonsoft.Json.JsonIgnore] public bool ExecutedThisRun;
+    [Newtonsoft.Json.JsonIgnore] public bool LastRunCompleted;
+
+    // 执行诉求的统一入口(进度推满、谋划完成都走这里)
+    public void RunExecute()
+    {
+        ExecutedThisRun = true;
+        Execute();
+    }
     public virtual float RequireRenownMultiplier => 1f;
 
     public bool OwnEnoughRenown(Kingdom target)
@@ -90,6 +117,8 @@ public abstract class TemporaryFaction
         TargetType = other.TargetType;
         progress = other.progress;
         progressMax = other.progressMax;
+        BudgetPaid = other.BudgetPaid;
+        PaidBudget = other.PaidBudget;
         StartedState = other.StartedState;
         timestamp = other.timestamp;
         countDownTimestamp = other.countDownTimestamp;
@@ -98,6 +127,7 @@ public abstract class TemporaryFaction
     {
         factionID = faction.GetID();
         EmpireID    = faction.EmpireId;
+        progressMax = ClaimTuning.Duration(type);
         if (timestamp < 0) timestamp = World.world.getCurWorldTime();
         kingdoms ??= new List<long>();
         if (countDownTimestamp < 0) countDownTimestamp = World.world.getCurWorldTime();
@@ -285,6 +315,7 @@ public abstract class TemporaryFaction
         }
 
         GetCrimeScopeForCurrentTarget(out Actor actor, out Kingdom kingdom);
+        if (!CanUseCrimeRestrictedTarget(actor, kingdom)) return false;
         return EmpireLawSystem.TryEnforceCrimeForClaim(actor, kingdom) != null;
     }
 
@@ -296,6 +327,7 @@ public abstract class TemporaryFaction
         }
 
         GetCrimeScopeForCurrentTarget(out Actor actor, out Kingdom kingdom);
+        if (!CanUseCrimeRestrictedTarget(actor, kingdom)) return null;
         return EmpireLawSystem.GetResolvableCrimeName(actor, kingdom);
     }
 
@@ -311,7 +343,9 @@ public abstract class TemporaryFaction
             return false;
         }
 
-        return EmpireLawSystem.HasResolvableCrimeRecord(actor, kingdom);
+        if (IsLocallyPushed && actor == GetEmpire()?.Emperor) return false;
+        return EmpireLawSystem.CanEnforceLawInEmpireScope(actor, kingdom) &&
+               EmpireLawSystem.HasResolvableCrimeRecord(actor, kingdom);
     }
 
     private void GetCrimeScopeForCurrentTarget(out Actor actor, out Kingdom kingdom)
@@ -349,15 +383,19 @@ public abstract class TemporaryFaction
 
     protected bool CheckRebelling(Kingdom kingdom)
     {
+        Empire empire = GetEmpire();
+        if (kingdom == null || kingdom.isRekt() || empire == null || empire.isRekt() ||
+            empire.CoreKingdom == null || empire.CoreKingdom.isRekt() || kingdom == empire.CoreKingdom ||
+            !RebellionSystem.CanAttempt(kingdom) || !CityStabilitySystem.CanRise(kingdom.capital)) return false;
         var targetFaction = kingdom?.king?.GetFaction();
         //全部势力
         var cities = new List<City>();
         if (targetFaction != null)
         {
-            var targetMembers = targetFaction.Members.ToList();
+            var targetMembers = targetFaction.Members?.ToList() ?? new List<long>();
             if (targetFaction != GetFaction())
             {
-                foreach (var a in targetFaction.Members)
+                foreach (var a in targetMembers.ToList())
                 {
                     if (targetMembers.Contains(a))
                     {
@@ -365,9 +403,9 @@ public abstract class TemporaryFaction
                         if (actor?.isKing() ?? false)
                         {
                             targetMembers.Remove(a);
-                            foreach (var city in actor.kingdom.cities)
+                            foreach (var city in actor.kingdom.cities.Where(city => city != null && !city.isRekt()))
                             {
-                                if (GetEmpire().CoreKingdom.capital!=city)
+                                if (empire.CoreKingdom.capital != city)
                                 {
                                     cities.Add(city);
                                 }
@@ -378,7 +416,7 @@ public abstract class TemporaryFaction
                         {
                             if (actor?.isCityLeader() ?? false)
                             {
-                                if (GetEmpire().CoreKingdom.capital!=actor.city)
+                                if (empire.CoreKingdom.capital != actor.city)
                                 {
                                     cities.Add(actor.city);
                                 }
@@ -389,12 +427,18 @@ public abstract class TemporaryFaction
                 }
             }
         }
+        cities = cities.Where(city => city != null && !city.isRekt() &&
+            city.kingdom?.GetEmpire() == empire &&
+            RebellionSystem.CanAttempt(city.kingdom) && CityStabilitySystem.CanRise(city)).Distinct().ToList();
         var totalWarriors = cities.Sum(c => c.countWarriors());
-        if (totalWarriors >= (GetEmpire()?.countWarriors()??9999) - totalWarriors || (kingdom?.GetEmpire()?.CoreKingdom?.GetMoney()??9999)<0)
+        if (totalWarriors > 0 && (totalWarriors >= empire.countWarriors() - totalWarriors ||
+            empire.CoreKingdom.GetMoney() < 0))
         {
             var leader = targetFaction?.GetLeader()??kingdom?.king;
-            var royalMembers = targetFaction?.Members.Select(id => World.world.units.get(id)).ToList().FindAll(a =>
-                a.GetSpecificClan() == GetEmpire().EmpireSpecificClan && a != null);
+            var royalMembers = targetFaction?.Members?
+                .Select(id => World.world.units.get(id))
+                .Where(actor => actor != null && !actor.isRekt() && SpecificClanManager.SameLineage(actor.GetSpecificClan(), empire.EmpireSpecificClan))
+                .ToList();
             if (royalMembers?.Any()??false)
             {
                 leader = royalMembers?.OrderByDescending(a => a.age).First();
@@ -402,20 +446,22 @@ public abstract class TemporaryFaction
 
             if (leader != null)
             {
+                var cause = RebellionSystem.Capture(kingdom, kingdom.capital, "rebellion_reason_faction",
+                    targetFaction?.Name ?? kingdom.GetOffice().GetName());
+                var war = World.world.diplomacy.startWar(kingdom, empire.CoreKingdom,
+                    WarTypeLibrary.normal);
+                if (war == null)
+                {
+                    return false;
+                }
                 kingdom.StartFactionRebelling(targetFaction);
                 foreach (var c in cities)
                 {
                     if (c == kingdom.capital) continue;
                     c.joinAnotherKingdom(kingdom);
                 }
-
-                var war = World.world.diplomacy.startWar(kingdom, GetEmpire().CoreKingdom,
-                    WarTypeLibrary.normal);
-                if (war == null)
-                {
-                    return false;
-                }
                 war.SetEmpireWarType(EmpireWarType.派系叛乱);
+                RebellionSystem.Record(kingdom, war, cause);
                 if (targetFaction != null)
                 {
                     war.data.name = targetFaction.Name + "\u200A" + "叛乱";
@@ -444,7 +490,7 @@ public abstract class TemporaryFaction
 
     public Empire GetEmpire()
     {
-        return ModClass.EMPIRE_MANAGER.get(EmpireID);
+        return ModClass.EMPIRE_MANAGER?.get(EmpireID);
     }
     public void Start()
     {
@@ -453,6 +499,13 @@ public abstract class TemporaryFaction
         if (CountDown <= 0)
         {
             bool shouldLogPreparing = !started;
+            if (!started)
+            {
+                progressMax = ClaimTuning.Duration(type);
+                // 经费不够不施行
+                if (!TryPayBudget()) return;
+                ExecutedThisRun = false;
+            }
             started = true;
             CompletionOutcome = null;
             timestamp = World.world.getCurWorldTime();
@@ -494,8 +547,19 @@ public abstract class TemporaryFaction
 
     public void End()
     {
+        if (started)
+        {
+            LastRunCompleted = ExecutedThisRun;
+            // 一个月都没推进就作罢的(谋划没起头、目标当场消失)，经费退回
+            if (BudgetPaid && !ExecutedThisRun && progress <= 0f && PaidBudget > 0)
+                Payer()?.AddMoney(PaidBudget, TreasuryCategory.Policy);
+            ExecutedThisRun = false;
+        }
+        BudgetPaid = false;
+        PaidBudget = 0;
         TargetID = -1L;
         TargetType = MetaType.None;
+        kingdoms ??= new List<long>();
         kingdoms.Clear();
         started = false;
         progress = 0;
@@ -511,10 +575,36 @@ public abstract class TemporaryFaction
         }
     }
 
+    // 旧写法：施行完再付钱。开始时已付过就不再扣
     public void FinishedAction()
     {
-        GetEmpire()?.CoreKingdom?.SubMoney(Budget);
+        TryPayBudget();
     }
+
+    private Kingdom Payer() => IsLocallyPushed ? GetKingdom() : GetEmpire()?.CoreKingdom;
+
+    public bool CanAffordBudget()
+    {
+        if (BudgetPaid) return true;
+        int cost = Budget;
+        if (cost <= 0) return true;
+        Kingdom payer = Payer();
+        return payer != null && !payer.isRekt() && payer.GetMoney() >= cost;
+    }
+
+    public bool TryPayBudget()
+    {
+        if (BudgetPaid) return true;
+        if (!CanAffordBudget()) return false;
+        int cost = Budget;
+        if (cost > 0) Payer().SubMoney(cost, TreasuryCategory.Policy);
+        BudgetPaid = true;
+        PaidBudget = Math.Max(0, cost);
+        return true;
+    }
+
+    // 针对具体目标的诉求(如册立储君)：各派因目标而起的额外立场，加在议题立场上
+    public virtual float TargetStance(FixedFaction faction) => 0f;
 
     public void JoinKingdom(Kingdom kingdom)
     {
@@ -535,7 +625,19 @@ public abstract class TemporaryFaction
                 End();
                 return;
             }
-            if (!IsLocallyPushed && GetEmpire().CoreKingdom.GetRegime().has_cabinet)
+            if (!IsLocallyPushed && !CanProceedOutsideGovernment && GeneralSystems.ParliamentSystem.HasParliament(GetEmpire()))
+            {
+                // 责任政府：只有执政一方(联合政府时为整个执政联盟)能继续推动诉求
+                if (GeneralSystems.ParliamentSystem.HasResponsibleGovernment(GetEmpire()) &&
+                    !GeneralSystems.ParliamentSystem.IsGoverningFaction(GetEmpire(), factionID))
+                {
+                    End();
+                    return;
+                }
+            }
+            // 朝堂博弈下奏议已经由皇帝准奏，不再要求首辅同派
+            else if (!IsLocallyPushed && !CanProceedOutsideGovernment && GetEmpire().CoreKingdom.GetRegime().has_cabinet &&
+                     !GeneralSystems.CourtSystem.Applies(GetEmpire()))
             {
                 if (GetEmpire().CoreKingdom.GetRegime().type != RegimeType.Feudalism)
                 {
@@ -548,8 +650,22 @@ public abstract class TemporaryFaction
             }
             if (!ShowAsPlot)
             {
-                progress += (1+((acceleration<0?0:acceleration)/5));
-                if (progress >= progressMax) Execute();
+                float progressRate = 1 + ((acceleration < 0 ? 0 : acceleration) / 5);
+                FixedFaction faction = GetFaction();
+                if (faction?.IsParty == true || CanProceedOutsideGovernment)
+                {
+                    ClaimAgendaView agenda = ClaimAgendaSystem.Evaluate(
+                        ClaimAgendaSystem.BuildContext(GetEmpire()), faction, this);
+                    if (!agenda.CanPropose)
+                    {
+                        End();
+                        return;
+                    }
+                    progressRate *= agenda.ProgressMultiplier;
+                }
+                if (!IsLocallyPushed) progressRate *= GeneralSystems.CourtSystem.ProgressMultiplier(GetEmpire(), this);
+                progress += progressRate;
+                if (progress >= progressMax) RunExecute();
             }
         }
         else
@@ -596,6 +712,8 @@ public abstract class TemporaryFaction
     {
         var empire = GetEmpire();
         if (empire == null || empire.isRekt() || !Active || !canBePushByLocal) return false;
+        // 与文化制度树、科技时代挂钩的前提(见 ClaimRules)：地方推动同样受限
+        if (!EmpireCraft.Scripts.GeneralSystems.ClaimRules.IsAllowed(empire, type, out _)) return false;
         if (actor == null || actor.isRekt() || actor.king == null || actor.king.isRekt() ||
             actor == empire.CoreKingdom || actor.GetEmpire() != empire || actor.isInWarWith(empire.CoreKingdom)) return false;
         var actorFaction = actor.king.GetFaction();

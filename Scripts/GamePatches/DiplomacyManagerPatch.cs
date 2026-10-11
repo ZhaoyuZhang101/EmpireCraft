@@ -1,4 +1,6 @@
 ﻿using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.GeneralSystems;
+using EmpireCraft.Scripts.AI;
 using HarmonyLib;
 using NeoModLoader.api;
 using System;
@@ -29,6 +31,11 @@ public class DiplomacyManagerPatch : GamePatch
     public static bool get_alliance_target(Kingdom pKingdomStarter, ref Kingdom __result)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(pKingdomStarter)) return true;
+        if (!FeudalVassalService.CanJoinAlliance(pKingdomStarter, null))
+        {
+            __result = null;
+            return false;
+        }
         if (pKingdomStarter.isSupreme())
         {
             __result = null;
@@ -42,6 +49,9 @@ public class DiplomacyManagerPatch : GamePatch
         }
         foreach (Kingdom item in listPool.LoopRandom())
         {
+            if (!FeudalVassalService.CanJoinAlliance(item, null) ||
+                FeudalVassalService.GetOverlord(item) == pKingdomStarter ||
+                FeudalVassalService.GetOverlord(pKingdomStarter) == item) continue;
             if (item.IsInEmpire()) continue;
             if (!item.IsNeighbourWith(pKingdomStarter)) continue;
             if (!item.hasKing() || item.isSupreme() || item.king.hasPlot() ||
@@ -66,53 +76,10 @@ public class DiplomacyManagerPatch : GamePatch
     static bool get_war_target(Kingdom pInitiatorKingdom, ref Kingdom __result)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(pInitiatorKingdom)) return true;
-        Kingdom tBestTarget = null;
-        float tBestFastDist = float.MaxValue;
-        int tCurrentArmy = pInitiatorKingdom.countTotalWarriors();
-        if (pInitiatorKingdom.hasAlliance())
-        {
-            tCurrentArmy = pInitiatorKingdom.getAlliance().countWarriors();
-        } else if (pInitiatorKingdom.IsEmpire())
-        {
-            tCurrentArmy = pInitiatorKingdom.GetEmpire().countWarriors();
-        }
-        Kingdom result;
-        using (ListPool<Kingdom> tPossibleKingdomsList = DiplomacyHelpers.wars.getNeutralKingdoms(pInitiatorKingdom, false, false))
-        {
-            foreach (Kingdom ptr in tPossibleKingdomsList)
-            {
-                Kingdom tTargetKingdom = ptr;
-                if (tTargetKingdom.hasCities() && tTargetKingdom.hasCapital() && tTargetKingdom.getAge() >= SimGlobals.m.minimum_kingdom_age_for_attack)
-                {
-                    int tTargetArmy;
-                    if (tTargetKingdom.hasAlliance())
-                    {
-                        tTargetArmy = tTargetKingdom.getAlliance().countWarriors();
-                    } else if (tTargetKingdom.IsEmpire())
-                    {
-                        tTargetArmy = tTargetKingdom.GetEmpire().countWarriors();
-                    }
-                    else
-                    {
-                        tTargetArmy = tTargetKingdom.countTotalWarriors();
-                    }
-                    if (tCurrentArmy >= tTargetArmy && 
-                        pInitiatorKingdom.capital.reachableFrom(tTargetKingdom.capital) && 
-                        (float)Date.getYearsSince(DiplomacyHelpers.diplomacy.getRelation(pInitiatorKingdom, tTargetKingdom).data.timestamp_last_war_ended) >= (float)SimGlobals.m.minimum_years_between_wars && 
-                        !pInitiatorKingdom.isOpinionTowardsKingdomGood(tTargetKingdom))
-                    {
-                        float tFastDist = Kingdom.distanceBetweenKingdom(pInitiatorKingdom, tTargetKingdom);
-                        if (tFastDist < tBestFastDist)
-                        {
-                            tBestFastDist = tFastDist;
-                            tBestTarget = tTargetKingdom;
-                        }
-                    }
-                }
-            }
-            result = tBestTarget;
-        }
-        __result = result;
+        if (pInitiatorKingdom != null && EmpireCraftPlotsAddition.UsesVanillaWarPlot(
+                pInitiatorKingdom.IsEmpire(), pInitiatorKingdom.IsInEmpire(),
+                FeudalVassalService.GetOverlord(pInitiatorKingdom) != null)) return true;
+        __result = EmpireCraftPlotsAddition.GetWarTarget(pInitiatorKingdom);
         return false;
     }
 

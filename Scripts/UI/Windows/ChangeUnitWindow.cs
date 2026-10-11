@@ -56,7 +56,8 @@ public class ChangeUnitWindow : AutoLayoutWindow<ChangeUnitWindow>
             {
                 foreach (Actor actor in kingdom.units)
                 {
-                    if (actor.isUnitFitToRule() && !actor.isKing() && (actor.hasTrait("jingshi") || actor.hasTrait("gongshi")))
+                    if (CanShowCandidate(actor) && actor.isUnitFitToRule() && !actor.isKing() &&
+                        (actor.hasTrait("jingshi") || actor.hasTrait("gongshi")))
                     {
                         actorsPool.Add(actor);
                     }
@@ -71,7 +72,7 @@ public class ChangeUnitWindow : AutoLayoutWindow<ChangeUnitWindow>
         {
             foreach (Actor actor in kingdom.units)
             {
-                if (actor.isUnitFitToRule())
+                if (CanShowCandidate(actor) && actor.isUnitFitToRule())
                 {
                     string culture = ConfigData.speciesCulturePair.TryGetValue(actor.asset.id, out string culturePair)? culturePair:"Western";
                     string merit = "";
@@ -137,7 +138,8 @@ public class ChangeUnitWindow : AutoLayoutWindow<ChangeUnitWindow>
         {
             foreach (Actor actor in kingdom.units)
             {
-                if (actor.isUnitFitToRule() && !actor.isKing() && (actor.hasTrait("jingshi") || actor.hasTrait("gongshi")))
+                if (CanShowCandidate(actor) && actor.isUnitFitToRule() && !actor.isKing() &&
+                    (actor.hasTrait("jingshi") || actor.hasTrait("gongshi")))
                 {
                     listActor.Add(actor);
                 }
@@ -194,6 +196,7 @@ public class ChangeUnitWindow : AutoLayoutWindow<ChangeUnitWindow>
 
     public void ChangeAvatar(Actor actor)
     {
+        if (!CanShowCandidate(actor)) return;
         if (_office!=null)
         {
             _office.SetActor(actor);
@@ -205,5 +208,11 @@ public class ChangeUnitWindow : AutoLayoutWindow<ChangeUnitWindow>
             actor.joinKingdom(_kingdom);
         }
         ScrollWindow.getCurrentWindow().clickBack();
+    }
+
+    private bool CanShowCandidate(Actor actor)
+    {
+        Kingdom target = _kingdom ?? _empire?.CoreKingdom ?? actor?.kingdom;
+        return actor.CanServeOffice(target);
     }
 }

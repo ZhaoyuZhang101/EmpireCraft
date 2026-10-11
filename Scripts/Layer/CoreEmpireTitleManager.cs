@@ -4,6 +4,8 @@ using System.Linq;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.HelperFunc;
 using NeoModLoader.General;
+using EmpireCraft.Scripts.GeneralSystems;
+using EmpireCraft.Scripts.Data;
 
 namespace EmpireCraft.Scripts.Layer;
 
@@ -11,7 +13,7 @@ public static class EmpireCoreManager
 {
     public static Dictionary<long, EmpireCore> EmpireCores = new Dictionary<long, EmpireCore>();
 
-    public static void SyncCitiesFromTitles(EmpireCore core)
+    public static void SyncCitiesFromTitles(EmpireCore core, bool preserveOccupiedCore = false)
     {
         if (core == null) return;
         HashSet<City> targetCities = GetCities(core).Where(c => c != null && !c.isRekt()).ToHashSet();
@@ -21,6 +23,12 @@ public static class EmpireCoreManager
             if (city == null || city.isRekt()) continue;
             if (targetCities.Contains(city))
             {
+                if (preserveOccupiedCore || core.false_core_against_empire_id > 0)
+                {
+                    EmpireCore current = city.GetEmpireCore();
+                    if (current != null && current != core &&
+                        GetEmpires(current).Any(empire => !empire.IsArchived())) continue;
+                }
                 city.SetEmpireCore(core);
             }
             else if (city.GetEmpireCoreID() == core.id)
@@ -28,6 +36,74 @@ public static class EmpireCoreManager
                 city.SetEmpireCore(null);
             }
         }
+        RestoreParentCities(core);
+    }
+
+    // 军阀时期另立政府的临时子核心(warlord_parent_core_id)只是技术记录：建立时登记了政府控制的全部法理，
+    // 却没从原核心里移走，两边共用同一批法理。城市只能记一个核心，谁最后同步就归谁——
+    // 子核心一同步(吸收法理、读档修复……)就会把这些城市从原核心抢走，地图上原核心被割得七零八落。
+    // 凡是法理同属上级核心的城市，一律归还上级核心。
+    public static void RestoreParentCities(EmpireCore child)
+    {
+        EmpireCore parent = child?.warlord_parent_core_id > 0 ? Get(child.warlord_parent_core_id) : null;
+        if (parent == null || parent == child || World.world?.cities == null) return;
+        foreach (City city in World.world.cities.list)
+        {
+            if (city == null || city.isRekt() || city.GetEmpireCoreID() != child.id) continue;
+            if (ContainsTitle(parent, city.GetTitle())) city.SetEmpireCore(parent);
+        }
+    }
+
+    // 军阀时期的核心"有主"：除了直接绑定它的帝国，挂在它下面的临时子核心政府、它记录的中央政府也算。
+    // 否则各政府都挂在子核心上时原核心看似无主，外人称帝就会把整个原核心拿走。
+    public static bool IsClaimedByContest(EmpireCore core, Empire except = null)
+    {
+        if (core == null || ModClass.EMPIRE_MANAGER == null) return false;
+        Empire central = core.central_empire_id > 0 ? ModClass.EMPIRE_MANAGER.get(core.central_empire_id) : null;
+        if (central != null && central != except && !central.isRekt() && !central.IsArchived()) return true;
+        return ModClass.EMPIRE_MANAGER.Any(empire => empire != null && empire != except && !empire.isRekt() &&
+                                                     !empire.IsArchived() &&
+                                                     Get(empire)?.warlord_parent_core_id == core.id);
+    }
+
+    // 读档修复：原核心被外来帝国占着(见 IsClaimedByContest)，而它记录的中央政府仍在、且挂在它下面时，
+    // 把原核心还给中央政府；外来帝国另立核心，只保留它自己实际控制的法理。
+    public static int RepairContestedCoreOwners()
+    {
+        if (EmpireCores == null || ModClass.EMPIRE_MANAGER == null) return 0;
+        int repaired = 0;
+        foreach (EmpireCore core in EmpireCores.Values.ToList())
+        {
+            if (core == null || core.warlord_parent_core_id > 0 || core.central_empire_id <= 0) continue;
+            Empire central = ModClass.EMPIRE_MANAGER.get(core.central_empire_id);
+            if (central == null || central.isRekt() || central.IsArchived() || central.CoreKingdom == null) continue;
+            EmpireCore centralCore = Get(central);
+            if (centralCore == core || centralCore?.warlord_parent_core_id != core.id) continue;
+            Empire intruder = core.empire_id > 0 ? ModClass.EMPIRE_MANAGER.get(core.empire_id) : null;
+            if (intruder == null || intruder == central || intruder.isRekt() || intruder.IsArchived() ||
+                intruder.CoreKingdom == null) continue;
+            // 外来帝国另立核心：它实际控制的法理从原核心移过去
+            List<KingdomTitle> owned = intruder.CoreKingdom.GetControlledTitles()
+                .Where(title => title != null && !title.isRekt()).ToList();
+            foreach (KingdomTitle title in owned) core.RemoveTitle(title);
+            intruder.data.empire_core_id = -1L;
+            newEmpireCore(intruder);
+            // 中央政府接管原核心，撤销它的临时子核心
+            RebindEmpire(central, core);
+            DestroyEmpireCore(centralCore);
+            SyncCitiesFromTitles(core);
+            repaired++;
+            NeoModLoader.services.LogService.LogInfo($"[EmpireCraft] 读档修复：{core.name} 核心归还中央政府 {central.GetEmpireName()}，" +
+                               $"{intruder.GetEmpireName()} 另立核心");
+        }
+        return repaired;
+    }
+
+    public static void RestoreAllParentCities()
+    {
+        if (EmpireCores == null) return;
+        foreach (EmpireCore core in EmpireCores.Values.ToList())
+            if (core?.warlord_parent_core_id > 0) RestoreParentCities(core);
     }
 
     public static EmpireCore newEmpireCore(Empire empire)
@@ -37,7 +113,8 @@ public static class EmpireCoreManager
             id = OverallHelperFunc.IdGenerator.NextId(),
             empire_id = empire.id,
             culture = empire.CoreKingdom.culture.id,
-            name =  empire.GetEmpireName().AppendWithNarrowSpace("EmpireText".GetLocal()),
+            default_culture = CultureService.GetRealmCulture(empire.CoreKingdom),
+            name = NormalizeCoreName(empire.GetEmpireName()),
             create_timestamp = empire.data.created_time,
             titlesRecord = empire.CoreKingdom.GetControlledTitles().Select(t=>(World.world.getCurWorldTime(), t.id)).ToList(),
             empire_history_ids = new List<long>(),
@@ -46,7 +123,7 @@ public static class EmpireCoreManager
         EmpireCores[empireCore.id] = empireCore;
         empire.data.empire_core_id = empireCore.id;
         RegisterEmpireHistory(empireCore, empire.id);
-        SyncCitiesFromTitles(empireCore);
+        SyncCitiesFromTitles(empireCore, preserveOccupiedCore: true);
         return empireCore;
     }
 
@@ -76,13 +153,23 @@ public static class EmpireCoreManager
     public static IEnumerable<City> EnumerateCities(EmpireCore core)
     {
         if (core?.titlesRecord == null) yield break;
+        bool provisional = core.false_core_against_empire_id > 0 || core.warlord_parent_core_id > 0;
         foreach (var record in core.titlesRecord)
         {
             KingdomTitle title = ModClass.KINGDOM_TITLE_MANAGER.get(record.titleId);
             if (title == null || title.isRekt()) continue;
             foreach (City city in title.getCities())
             {
-                if (city != null && !city.isRekt()) yield return city;
+                if (city == null || city.isRekt()) continue;
+                // Claimant/provisional cores may reference the same kingdom title as the lawful
+                // core. Only draw territory actually assigned to the provisional core, otherwise
+                // its plate and colour cover the original de jure region.
+                if (provisional)
+                {
+                    EmpireCore assigned = city.GetEmpireCore();
+                    if (assigned != null && assigned != core) continue;
+                }
+                yield return city;
             }
         }
     }
@@ -91,7 +178,8 @@ public static class EmpireCoreManager
     {
         if (core == null) return new List<Empire>();
         return ModClass.EMPIRE_MANAGER.ToList()
-            .Where(e => e != null && !e.IsArchived() && e.data?.empire_core_id == core.id &&
+            .Where(e => e != null && !e.isRekt() && e.data?.empire_core_id == core.id &&
+                e.CoreKingdom != null && !e.CoreKingdom.isRekt() &&
                 !EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(e.CoreKingdom))
             .ToList();
     }
@@ -154,6 +242,10 @@ public static class EmpireCoreManager
     public static string GetCultureDisplayName(EmpireCore core)
     {
         if (core == null) return "";
+        if (CultureService.IsValidCulture(core.default_culture))
+        {
+            return core.default_culture.GetCultureTranslate();
+        }
         Culture culture = World.world.cultures.get(core.culture);
         if (culture != null && !string.IsNullOrWhiteSpace(culture.data?.name))
         {
@@ -169,27 +261,52 @@ public static class EmpireCoreManager
         if (core == null) return "";
         if (!string.IsNullOrWhiteSpace(core.name))
         {
-            return core.name;
+            string normalized = NormalizeCoreName(core.name);
+            if (!string.Equals(core.name, normalized, StringComparison.Ordinal)) core.name = normalized;
+            return normalized;
         }
 
         string cultureName = GetCultureDisplayName(core);
         if (!string.IsNullOrWhiteSpace(cultureName))
         {
-            return OverallHelperFunc.JoinNameParts(cultureName[0].ToString(), LM.Get("EmpireText"));
+            return cultureName[0].ToString();
         }
 
-        return LM.Get("EmpireText");
+        return "";
+    }
+
+    public static string NormalizeCoreName(string name)
+    {
+        string normalized = name?.Trim() ?? "";
+        string[] suffixes = { LM.Get("EmpireText"), "帝国", "帝國", "Empire" };
+        foreach (string suffix in suffixes.Where(value => !string.IsNullOrWhiteSpace(value)).Distinct())
+        {
+            if (!normalized.EndsWith(suffix, StringComparison.OrdinalIgnoreCase)) continue;
+            normalized = normalized.Substring(0, normalized.Length - suffix.Length);
+            break;
+        }
+        return normalized.Trim().Trim(ModClass.NARROW_SPACE.ToCharArray()).Trim();
+    }
+
+    public static Empire GetLegitimateEmpire(EmpireCore core)
+    {
+        if (core == null || core.false_core_against_empire_id <= 0) return null;
+        Empire empire = ModClass.EMPIRE_MANAGER?.get(core.false_core_against_empire_id);
+        return empire != null && !empire.isRekt() && !empire.IsArchived() ? empire : null;
+    }
+
+    public static string GetStatusDisplayName(EmpireCore core)
+    {
+        string name = GetDisplayName(core);
+        // 伪核心不会因为原正统国家灭亡、解除对手关系或关闭法理冻结而转正。
+        // 胜利者取得正统时会销毁该对象并改绑到已有正规核心。
+        return core?.false_core_against_empire_id > 0
+            ? $"{name} ({LM.Get("empire_core_false")})"
+            : name;
     }
 
     public static string GetPlateName(EmpireCore core)
     {
-        if (core == null) return "";
-        string cultureName = GetCultureDisplayName(core);
-        if (!string.IsNullOrWhiteSpace(cultureName))
-        {
-            return OverallHelperFunc.JoinNameParts(cultureName[0].ToString(), LM.Get("EmpireText"));
-        }
-
         return GetDisplayName(core);
     }
 
@@ -357,10 +474,15 @@ public static class EmpireCoreManager
         if (ContainsTitle(core, title)) return false;
         if (EmpireCores.Values.Any(other => other != null && other.id != core.id && ContainsTitle(other, title))) return false;
         if (!empire.kingdoms_hashset.Any(k => k != null && !k.isRekt() && title.getCities().Any(c => c != null && !c.isRekt() && c.kingdom == k))) return false;
+        // 帝国核心法理可以自由扩张(不受王国法理的城市上限约束)，但只能扩张到同文化的法理，异族文化的法理吸收不进来
+        string empireCulture = CultureService.GetEmpireDefaultCulture(empire);
+        string titleCulture = CultureService.GetEffectiveTitleCulture(title);
+        if (CultureService.IsValidCulture(empireCulture) && CultureService.IsValidCulture(titleCulture) &&
+            !string.Equals(empireCulture, titleCulture, StringComparison.Ordinal)) return false;
         int cost = GetAssimilationCost(empire, title);
-        if (empire.CurrentMoney < cost) return false;
-        empire.CoreKingdom.SubMoney(cost);
+        if (!TreasurySystem.TrySpend(empire.CoreKingdom, cost, TreasuryCategory.Policy)) return false;
         bool result = AddTitleToCore(core, title);
+        if (!result) empire.CoreKingdom.AddMoney(cost, TreasuryCategory.Policy);
         if (result)
         {
             TranslateHelper.LogEmpireCoreAbsorbTitle(empire, title, core);
@@ -409,7 +531,10 @@ public static class EmpireCoreManager
             id = OverallHelperFunc.IdGenerator.NextId(),
             empire_id = -1L,
             culture = kingdom?.culture?.id ?? -1L,
-            name = string.IsNullOrWhiteSpace(title.data?.name) ? (kingdom?.name ?? capital.GetCityName()) : title.data.name,
+            default_culture = CultureService.GetRealmCulture(kingdom),
+            name = NormalizeCoreName(string.IsNullOrWhiteSpace(title.data?.name)
+                ? (kingdom?.name ?? capital.GetCityName())
+                : title.data.name),
             create_timestamp = World.world.getCurWorldTime(),
             titlesRecord = new List<(double time, long titleId)>()
         };

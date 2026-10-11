@@ -5,6 +5,8 @@
     "icon_url": "",
     "era_name": false,
     "has_cabinet": false,
+    "is_monarchy": true,
+    "allows_landlord_class": true,
     "cabinet_number": 0,
     "centre_empire_separate": true,
     "leader_select_method": "Succession",
@@ -42,7 +44,8 @@
       "toggle_support_army_to_center": [0],
       "option_tax_level": [2, 4],
       "option_leader_select_method": [1, 3],
-      "option_religion_type": [2, 4]
+      "option_religion_type": [2, 4],
+      "option_succession_law": [0, 5]
     },
     "bureau_config": {
       "cores": [

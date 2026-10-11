@@ -20,6 +20,7 @@ using System.Configuration;
 using EmpireCraft.Scripts.GameClassExtensions;
 using System.Runtime.CompilerServices;
 using EmpireCraft.Scripts.Compatibility;
+using EmpireCraft.Scripts.GeneralSystems;
 namespace EmpireCraft.Scripts.GamePatches;
 
 public class CulturePatch : GamePatch
@@ -43,8 +44,18 @@ public class CulturePatch : GamePatch
         EnsureEmpireNaming(__instance?.culture);
         try
         {
+            if (__instance.kingdom?.data == null || __instance.city?.data == null ||
+                __instance.culture?.data == null || __instance.language?.data == null) return;
+            string realmCulture = CultureService.GetMainCulture(__instance.city, initialize: false);
+            if (!CultureService.IsValidCulture(realmCulture))
+                realmCulture = GetInjectedCultureName(__instance.culture);
+            if (CultureService.IsValidCulture(realmCulture))
+                CultureService.SetRealmCulture(__instance.kingdom, realmCulture, updatePoliticalSystem: false);
+            OnomasticsData kingdomNames = GetOnomasticDataSafe(__instance.culture, MetaType.Kingdom);
+            OnomasticsData cityNames = GetOnomasticDataSafe(__instance.culture, MetaType.City);
+            if (kingdomNames == null || cityNames == null) return;
             var beforeKingdomName = __instance.kingdom.data.name;
-            __instance.kingdom.data.name = __instance.culture.getOnomasticData(MetaType.Kingdom).generateName()
+            __instance.kingdom.data.name = kingdomNames.generateName()
                 .UseLocalizedNameSeparator();
             __instance.kingdom.RememberInitialRandomKingdomName(__instance.kingdom.data.name, overwrite: true);
             __instance.kingdom.GetOrCreate().core_name = "";
@@ -53,7 +64,7 @@ public class CulturePatch : GamePatch
             var afterKingdomName = __instance.kingdom.data.name;
             TranslateHelper.LogChangeKingdomName(__instance, __instance.kingdom, beforeKingdomName, afterKingdomName);
             var beforeCityName = __instance.city.data.name;
-            __instance.city.data.name = __instance.culture.getOnomasticData(MetaType.City).generateName()
+            __instance.city.data.name = cityNames.generateName()
                 .UseLocalizedNameSeparator();
             __instance.city.GetOrCreate().core_name = "";
             __instance.city.GetOrCreate().core_name_source = "";
@@ -62,8 +73,10 @@ public class CulturePatch : GamePatch
             TranslateHelper.LogChangeCityName(__instance, __instance.city, beforeCityName, afterCityName);
             __instance.language.data.name = __instance.kingdom.GetKingdomName() + LM.Get("Language") +
                                             __instance.city.GetCityName() + LM.Get("Dialect");
-            __instance.culture.data.name = __instance.kingdom.GetKingdomName() + "-" + LM.Get("OriginalCulture");
+            SyncCultureDisplayName(__instance.culture, realmCulture);
             __instance.culture.data.creator_city_name = __instance.city.data.name;
+            // 城邦国名默认用城市名
+            CityStateService.ApplyCityName(__instance.kingdom);
         }
         catch (Exception e)
         {
@@ -76,14 +89,26 @@ public class CulturePatch : GamePatch
     {
         if (__instance?.data == null || pActor?.data == null) return;
         if (AncientWarfareCompatibility.Owns(pActor)) return;
-        __instance.data.name = pActor.kingdom.GetKingdomName() + "-" + pActor.city.GetCityName() + LM.Get("Culture");
-        setDefaultNameTemplate(__instance);
+        string kingdomName = pActor.kingdom?.data == null ? "" : pActor.kingdom.GetKingdomName();
+        string cityName = pActor.city?.data == null ? "" : pActor.city.GetCityName();
+        __instance.data.name = kingdomName + "-" + cityName + LM.Get("Culture");
+        setDefaultNameTemplate(__instance, pActor);
         EnsureEmpireNaming(__instance);
         
     }
-    private static void clone_culture_name(Culture __instance)
+    private static void clone_culture_name(Culture __instance, Culture pFrom)
     {
         if (__instance?.data == null) return;
+        // Evolution copies the parent's naming data, so it must also copy the EC
+        // binding. Creator species describes ancestry, not the culture being evolved.
+        string inheritedCulture = GetInjectedCultureName(pFrom);
+        if (CultureService.IsValidCulture(inheritedCulture))
+        {
+            NamingTemplateState state = GetNamingTemplateState(__instance);
+            state.empireCraftCulture = inheritedCulture;
+            state.signature = null;
+        }
+        if (SyncCultureDisplayName(__instance)) return;
         string kingdomName = ExtractStoredCoreName(__instance.data.creator_kingdom_name);
         string cityName = ExtractStoredCoreName(__instance.data.creator_city_name);
         __instance.data.name = kingdomName + "-" + cityName + LM.Get("EvolvedCulture");
@@ -97,11 +122,13 @@ public class CulturePatch : GamePatch
         string[] parts = storedName.SplitNameParts();
         return parts.Length > 0 ? parts[0] : storedName.Trim();
     }
-    private static void setDefaultNameTemplate(Culture culture)
+    private static void setDefaultNameTemplate(Culture culture, Actor founder)
     {
-
-        string species = culture.data.creator_species_id;
-        string insertCulture = OverallHelperFunc.GetCultureFromSpecies(species);
+        string insertCulture = CultureService.GetMainCulture(founder?.city, initialize: false);
+        if (!CultureService.IsValidCulture(insertCulture))
+            insertCulture = CultureService.GetActorCulture(founder);
+        if (!CultureService.IsValidCulture(insertCulture))
+            insertCulture = OverallHelperFunc.GetCultureFromSpecies(culture.data.creator_species_id);
         insertCultureTemplate(culture, insertCulture);
     }
 
@@ -110,21 +137,124 @@ public class CulturePatch : GamePatch
         public NamingTemplateState() { }
         internal string signature;
         internal object data;
+        internal string empireCraftCulture;
     }
-    private static readonly ConditionalWeakTable<Culture, NamingTemplateState> NamingTemplates = new();
+    private static ConditionalWeakTable<Culture, NamingTemplateState> NamingTemplates = new();
+
+    public static void ResetWorldState()
+    {
+        NamingTemplates = new();
+    }
+
+    private static NamingTemplateState GetNamingTemplateState(Culture culture)
+    {
+        NamingTemplateState state = NamingTemplates.GetOrCreateValue(culture);
+        // 原版会回收复用 Culture 对象；绑定只属于当前数据，不能跟随对象进入另一份存档。
+        if (!ReferenceEquals(state.data, culture.data))
+        {
+            state.data = culture.data;
+            state.signature = null;
+            state.empireCraftCulture = null;
+        }
+        return state;
+    }
 
     internal static void EnsureEmpireNaming(Culture culture)
     {
         if (!AncientWarfareCompatibility.Loaded || culture?.data == null) return;
-        string cultureName = OverallHelperFunc.GetCultureFromSpecies(culture.data.creator_species_id);
+        NamingTemplateState state = GetNamingTemplateState(culture);
+        string cultureName = GetInjectedCultureName(culture);
         if (!OnomasticsRule.ALL_CULTURE_RULE.ContainsKey(cultureName)) return;
         string signature = cultureName + "/" + PlayerConfig.detectLanguage();
-        NamingTemplateState state = NamingTemplates.GetOrCreateValue(culture);
+        state.empireCraftCulture = cultureName;
         if (state.signature == signature && ReferenceEquals(state.data, culture.data)) return;
         // Repair saved/previously AW-created templates, without adding EC political traits.
         insertCultureTemplate(culture, cultureName, false);
         state.signature = signature;
         state.data = culture.data;
+    }
+
+    public static string GetInjectedCultureName(Culture culture)
+    {
+        if (culture?.data == null) return "";
+        NamingTemplateState state = GetNamingTemplateState(culture);
+        if (!string.IsNullOrWhiteSpace(state.empireCraftCulture) &&
+            OnomasticsRule.ALL_CULTURE_RULE.ContainsKey(state.empireCraftCulture))
+        {
+            return state.empireCraftCulture;
+        }
+
+        // Legacy cultures did not persist the injected key. Recover it from the culture's
+        // own creator metadata, never from the current actor's race.
+        // 更早的存档没有 creator_species_id，但仍保存了文化自身的 original_actor_asset。
+        string species = !string.IsNullOrWhiteSpace(culture.data.creator_species_id)
+            ? culture.data.creator_species_id
+            : culture.data.original_actor_asset;
+        string recovered = OverallHelperFunc.GetCultureFromSpecies(species);
+        if (!OnomasticsRule.ALL_CULTURE_RULE.ContainsKey(recovered)) return "";
+        state.empireCraftCulture = recovered;
+        return recovered;
+    }
+
+    public static bool SyncCultureDisplayName(Culture culture, string cultureName = null)
+    {
+        if (culture?.data == null) return false;
+        if (!CultureService.IsValidCulture(cultureName)) cultureName = GetInjectedCultureName(culture);
+        if (!CultureService.IsValidCulture(cultureName)) return false;
+
+        string displayName;
+        try
+        {
+            displayName = cultureName.GetCultureTranslate();
+        }
+        catch (Exception)
+        {
+            displayName = cultureName;
+        }
+
+        if (string.IsNullOrWhiteSpace(displayName)) return false;
+        culture.data.name = displayName;
+        return true;
+    }
+
+    public static Dictionary<long, string> ExportCultureBindings()
+    {
+        Dictionary<long, string> bindings = new();
+        if (World.world?.cultures == null) return bindings;
+        foreach (Culture culture in World.world.cultures)
+        {
+            if (culture?.data == null) continue;
+            string cultureName = GetInjectedCultureName(culture);
+            if (OnomasticsRule.ALL_CULTURE_RULE.ContainsKey(cultureName))
+                bindings[culture.id] = cultureName;
+        }
+        return bindings;
+    }
+
+    public static void ImportCultureBindings(IDictionary<long, string> bindings)
+    {
+        if (bindings == null || World.world?.cultures == null) return;
+        foreach (KeyValuePair<long, string> binding in bindings)
+        {
+            if (!OnomasticsRule.ALL_CULTURE_RULE.ContainsKey(binding.Value)) continue;
+            Culture culture = World.world.cultures.get(binding.Key);
+            if (culture?.data == null) continue;
+            GetNamingTemplateState(culture).empireCraftCulture = binding.Value;
+            insertCultureTemplate(culture, binding.Value, addTraits: false);
+        }
+    }
+
+    internal static OnomasticsData GetOnomasticDataSafe(Culture culture, MetaType type)
+    {
+        if (culture?.data == null) return null;
+        try
+        {
+            return culture.getOnomasticData(type);
+        }
+        catch (NullReferenceException)
+        {
+            return null;
+        }
     }
 
     public static void insertCultureTemplate(Culture culture, string cultureName, bool addTraits = true)
@@ -140,6 +270,8 @@ public class CulturePatch : GamePatch
         {
             return;
         }
+        GetNamingTemplateState(culture).empireCraftCulture = cultureName;
+        SyncCultureDisplayName(culture, cultureName);
         FamilySetting familySetting = setting.Family;
         UnitSetting unitSetting = setting.Unit;
         KingdomSetting kingdomSetting = setting.Kingdom;

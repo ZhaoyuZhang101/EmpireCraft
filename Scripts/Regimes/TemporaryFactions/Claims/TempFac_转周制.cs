@@ -1,5 +1,7 @@
+using EmpireCraft.Scripts.System;
 using System.Linq;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.GeneralSystems;
 using EmpireCraft.Scripts.Layer;
 using NeoModLoader.General.Game.extensions;
 using NeoModLoader.services;
@@ -48,7 +50,7 @@ public class TempFac_转周制 : TemporaryFaction
                 {
                     if (!child.isKing())
                     {
-                        if (kingdom.king.GetSpecificClan() != empire.EmpireSpecificClan)
+                        if (!SpecificClanManager.SameLineage(kingdom.king.GetSpecificClan(), empire.EmpireSpecificClan))
                         {
                             kingdom.setKing(child);
                             child.setCity(kingdom.capital);
@@ -90,6 +92,9 @@ public class TempFac_转周制 : TemporaryFaction
         }
         empire.data.centerOffice.Init(empire.CoreKingdom);
         empire.CoreKingdom.SystemChange();
+        // 同样的道理：这条诉求直接把政体改成分封制，补记一下对应节点的施行状态，
+        // 免得科技树跟实际政体对不上。
+        InstitutionSystem.SyncEnactedNodeForRegime(empire, RegimeType.ZhouFeudalism);
         End();
     }
 

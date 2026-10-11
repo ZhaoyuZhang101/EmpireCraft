@@ -1,10 +1,15 @@
-﻿using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.UI.Components;
+using EmpireCraft.Scripts.UI.Windows;
+using EmpireCraft.Scripts.Layer;
+using EmpireCraft.Scripts.GeneralSystems;
+using EmpireCraft.Scripts.Data;
 using HarmonyLib;
 using NeoModLoader.api;
 using NeoModLoader.api.attributes;
 using NeoModLoader.General;
 using NeoModLoader.General.UI.Prefabs;
+using NeoModLoader.General.UI.Window;
 using NeoModLoader.services;
 using System;
 using System.Collections.Generic;
@@ -49,14 +54,223 @@ public class CityWindowPatch : GamePatch
         __instance.tryToShowActor("founder", metaObject.data.founder_id, metaObject.data.founder_name, pIconPath: "actor_traits/iconStupid");
         __instance.tryShowPastRulers();
         __instance.tryToShowActor("village_statistics_leader", pObject: metaObject.leader, pIconPath: "iconLeaders");
-        if (metaObject.hasLeader())
-            __instance.showStatRow("ruler_money", (object) metaObject.GetMoney(), "#43FF43", pIconPath: "iconMoney");
+        __instance.showStatRow("ruler_money", EmpireCraft.Scripts.HelperFunc.MoneyDisplay.Format(metaObject.GetTreasuryBalance()), "#43FF43", pIconPath: "iconMoney");
+        if (TreasurySystem.Enabled(metaObject))
+        {
+            var fiscal = TreasurySystem.Report(metaObject);
+            __instance.showStatRow("fiscal_safety_reserve", EmpireCraft.Scripts.HelperFunc.MoneyDisplay.Format(
+                TreasurySystem.SafetyReserve(metaObject)), "#E6A166", pIconPath: "iconMoney");
+            __instance.showStatRow("fiscal_available", EmpireCraft.Scripts.HelperFunc.MoneyDisplay.Format(
+                TreasurySystem.DiscretionaryBalance(metaObject)), "#43FF43", pIconPath: "iconMoney");
+            __instance.showStatRow("fiscal_cash_balance", EmpireCraft.Scripts.HelperFunc.MoneyDisplay.Format(
+                fiscal.cash_balance), fiscal.cash_balance >= 0 ? "#66D98A" : "#E66B66", pIconPath: "iconMoney");
+            __instance.showStatRow("fiscal_flows", TreasurySystem.FlowText(fiscal), "#B8C6CC", pIconPath: "iconMoney");
+            __instance.showStatRow("fiscal_transfers", TreasurySystem.TransferText(fiscal), "#B8C6CC", pIconPath: "iconMoney");
+            __instance.showStatRow("fiscal_spending", TreasurySystem.SpendingText(fiscal), "#F3C34A", pIconPath: "iconMoney");
+            __instance.showStatRow("fiscal_operating_balance", EmpireCraft.Scripts.HelperFunc.MoneyDisplay.Format(
+                fiscal.operating_balance), fiscal.operating_balance >= 0 ? "#66D98A" : "#E66B66", pIconPath: "iconMoney");
+            foreach (var item in TreasurySystem.Details(fiscal))
+                __instance.showStatRow(item.key, item.value, "#B8C6CC", pIconPath: "iconMoney");
+        }
+        if (CityStabilitySystem.State(metaObject) is CityStabilityData stability)
+        {
+            __instance.showStatRow("city_stability", $"{CityStabilitySystem.Effective(metaObject):0}/100", "#7FD8EA", pIconPath: "iconKings");
+            __instance.showStatRow("city_stability_base", $"{stability.stability:0} / {stability.natural_stability:0}", "#B8C6CC", pIconPath: "iconKings");
+            __instance.showStatRow("city_garrison", CityStabilitySystem.GarrisonText(metaObject), "#F3C34A", pIconPath: "iconWar");
+            __instance.showStatRow("city_stability_cost", CityStabilitySystem.CostText(stability), "#B8C6CC", pIconPath: "iconMoney");
+            __instance.showStatRow("city_stability_unfunded", stability.unfunded_months.ToString(), "#E6A166", pIconPath: "iconClock");
+            __instance.showStatRow("city_stability_arrears", EmpireCraft.Scripts.HelperFunc.MoneyDisplay.Format(stability.arrears), "#E6A166", pIconPath: "iconMoney");
+            __instance.showStatRow("city_governance_quality", $"{stability.governance_quality:0}/100", "#7FD8EA", pIconPath: "iconKings");
+            if (!string.IsNullOrEmpty(stability.pressure_detail))
+                foreach (string line in RebellionSystem.DetailLines(stability.pressure_detail))
+                    __instance.showStatRow("city_stability_pressure", line, "#E6A166", pIconPath: "iconKings");
+        }
+        CityValueSnapshot cityValue = metaObject.GetCityStrategicValue();
+        string cityValueText = $"{cityValue.Total}/100" +
+                               (cityValue.IsIsolated ? $" ({LM.Get("city_value_isolated")})" : "");
+        __instance.showStatRow("city_value", cityValueText, "#FFD34E", pIconPath: "iconKings");
         __instance.showStatRow("tax", (object) metaObject.kingdom.GetTaxRate().ToString("0%"), "#43FF43", pIconPath: "kingdom_traits/kingdom_trait_tax_rate_local_low");
-        __instance.showStatRow("tribute", (object) metaObject.kingdom.GetTaxRate().ToString("0%"), "#43FF43", pIconPath: "kingdom_traits/kingdom_trait_tax_rate_tribute_high");
+        if (TreasurySystem.Enabled(metaObject))
+            __instance.showStatRow("fiscal_tax_shares", TreasurySystem.TaxSharingText(metaObject), "#B8C6CC",
+                pIconPath: "kingdom_traits/kingdom_trait_tax_rate_tribute_high");
+        else
+            __instance.showStatRow("tribute", (object) metaObject.kingdom.GetTaxRate().ToString("0%"), "#43FF43", pIconPath: "kingdom_traits/kingdom_trait_tax_rate_tribute_high");
         __instance.tryToShowActor("king", pObject: metaObject.kingdom.king, pIconPath: "iconKings");
         __instance.tryToShowMetaSpecies("founder_species", metaObject.getFounderSpecies()?.id);
+        CityLandReport land = LandEconomySystem.GetReport(metaObject);
+        string landSystem = land.MarketOpen
+            ? LM.Get("city_land_system_open")
+            : LM.Get("city_land_system_closed");
+        __instance.showStatRow("city_land_system", landSystem,
+            land.MarketOpen ? "#66D98A" : "#F3C34A", pIconPath: "iconKings");
+        __instance.showStatRow("city_household_migration",
+            LM.Get(land.MigrationBlocked ? "city_household_migration_blocked" : "city_household_migration_free"),
+            land.MigrationBlocked ? "#E66B66" : "#66D98A", pIconPath: "iconChildren");
+        __instance.showStatRow("city_landless_population", $"{land.LandlessPopulationRatio:P0}",
+            land.LandlessPopulationRatio >= LandEconomySystem.RebellionLandlessThreshold ? "#E66B66" : "#B8C6CC",
+            pIconPath: "iconChildren");
+        if (CityPopulationSystem.AbstractPopulationEnabled) ShowPopulationRows(__instance, metaObject);
+        ShowZoneRows(__instance, metaObject);
+        UrbanEmploymentReport employment = UrbanEmploymentSystem.GetReport(metaObject);
+        __instance.showStatRow("city_production_stage",
+            LM.Get($"urban_production_stage_{employment.Stage}"), "#F3C34A", pIconPath: "iconMoney");
+        __instance.showStatRow("city_workshop_employment",
+            $"{employment.Employed}/{employment.Capacity}", "#7FD8EA", pIconPath: "iconMoney");
+        __instance.showStatRow("city_job_sources",
+            string.Format(LM.Get("city_job_sources_format"), employment.Buildings, employment.Merchants,
+                employment.RecentVoyages, employment.Factories), "#B8C6CC", pIconPath: "iconMoney");
+        __instance.showStatRow("city_worker_population", employment.Workers.ToString(), "#7FD8EA",
+            pIconPath: "iconChildren");
+        __instance.showStatRow("city_job_seekers", employment.AvailableResidents.ToString(), "#B8C6CC",
+            pIconPath: "iconChildren");
+        for (int index = 0; index < land.Holders.Count; index++)
+        {
+            CityLandHolderView holder = land.Holders[index];
+            __instance.showStatRow("city_land_owner",
+                $"{index + 1}. {holder.Name}  {holder.Share:0.#}%",
+                holder.Institutional ? "#F3C34A" : "#7FD8EA", pIconPath: "iconKings");
+        }
         return false;
     }
+    // 城市规划：各用途的区块数，以及矿场、伐木场的最高等级
+    private static void ShowZoneRows(CityWindow window, City city)
+    {
+        var parts = new global::System.Collections.Generic.List<string>();
+        foreach (ZoneUse use in new[] { ZoneUse.Farm, ZoneUse.Industry, ZoneUse.Residential, ZoneUse.Commerce,
+                     ZoneUse.Military, ZoneUse.Reserve })
+        {
+            int count = ZonePlanSystem.Count(city, use);
+            if (count > 0) parts.Add($"{ZonePlanSystem.UseName(use)} {count}");
+        }
+        if (parts.Count > 0)
+            window.showStatRow("city_zone_plan", string.Join(" / ", parts), "#B8C6CC", pIconPath: "iconCity");
+        int mine = 0, lumber = 0;
+        if (city.buildings != null)
+            foreach (Building building in city.buildings)
+            {
+                if (building?.asset == null || building.isUnderConstruction()) continue;
+                int tier = IndustryBuildingSystem.Tier(building.asset);
+                if (IndustryBuildingSystem.IsMine(building.asset) && tier > mine) mine = tier;
+                if (IndustryBuildingSystem.IsLumber(building.asset) && tier > lumber) lumber = tier;
+            }
+        float herd = CityPopulationSystem.Get(city)?.herd ?? 0f;
+        float capacity = AnimalHusbandrySystem.HerdCapacity(city);
+        if (capacity > 0f || herd > 0f)
+            window.showStatRow("city_herd", string.Format(LM.Get("city_herd_format"), Mathf.RoundToInt(herd),
+                Mathf.RoundToInt(capacity)), "#B8E07A", pIconPath: "iconPopulation");
+        if (CityPopulationSystem.AbstractPopulationEnabled)
+        {
+            int ruins = CityConstructionSystem.CountRuins(city);
+            if (ruins > 0)
+                window.showStatRow("city_ruins", string.Format(LM.Get("city_ruins_format"), ruins,
+                    CityConstructionSystem.LastRuinsCleared.TryGetValue(city, out int cleared) ? cleared : 0),
+                    "#B8A27A", pIconPath: "iconMoney");
+        }
+        var deposits = MineralResourceSystem.Deposits(city);
+        if (deposits.Count > 0)
+        {
+            var names = new global::System.Collections.Generic.List<string>();
+            foreach ((string id, bool minable, float remaining, int cooldown) in deposits)
+            {
+                if (cooldown > 0)
+                    names.Add($"<color=#E66B66>{string.Format(LM.Get("deposit_cooldown"), LM.Get(id), cooldown)}</color>");
+                else if (minable) names.Add($"{LM.Get(id)} {remaining:P0}");
+                else names.Add($"<color=#8A8A8A>{LM.Get(id)}</color>");
+            }
+            window.showStatRow("city_deposits", string.Join(" ", names), "#E6C27A", pIconPath: "iconMoney");
+        }
+        float shortage = IdeologyPopulationSystem.GoodsShortage(city);
+        if (shortage > 0f)
+            window.showStatRow("city_leather_shortage", $"{shortage:P0}", "#E6A166", pIconPath: "iconMoney");
+        if (mine > 0 || lumber > 0)
+            window.showStatRow("city_industry_tier", string.Format(LM.Get("city_industry_tier_format"), mine, lumber),
+                "#E6A166", pIconPath: "iconMoney");
+    }
+
+    // 无小人模式的城市人口面板：规模与户数、年增长率、粮食、就业、在外军团，以及阶层、文化、物种构成
+    private static void ShowPopulationRows(CityWindow window, City city)
+    {
+        CityPopulationData data = CityPopulationSystem.Get(city);
+        if (data == null) return;
+        int people = city.getPopulationPeople();
+        int households = CityPopulationSystem.Households(city);
+        window.showStatRow("city_pop_scale", string.Format(LM.Get("city_pop_scale_format"), people, households,
+            CityPopulationSystem.PeoplePerSlot(city)), "#F3C34A", pIconPath: "iconPopulation");
+        window.showStatRow("city_pop_economy_scale", string.Format(LM.Get("city_pop_economy_scale_format"),
+            CityPopulationSystem.PeoplePerSlot(city)), "#B8C6CC", pIconPath: "iconMoney");
+        CityPopulationSystem.GrowthFactors factors = CityPopulationSystem.GetGrowthFactors(city, data);
+        float growth = factors.BirthRate - factors.DeathRate;
+        window.showStatRow("city_pop_growth", $"{growth:+0.0%;-0.0%;0.0%}",
+            growth >= 0f ? "#66D98A" : "#E66B66", pIconPath: "iconPopulation");
+        string food = string.Format(LM.Get("city_pop_food_format"), factors.FoodPerCapita,
+            factors.Famine ? LM.Get("city_pop_famine") : "");
+        window.showStatRow("city_pop_food", food, factors.Famine ? "#E66B66" : "#B8C6CC", pIconPath: "iconPopulation");
+        if (data.last_workforce > 0f)
+            window.showStatRow("city_pop_employment", $"{Mathf.Clamp01(data.last_jobs / data.last_workforce):P0}",
+                "#7FD8EA", pIconPath: "iconMoney");
+        if (MarketSystem.Blockaded(city))
+            window.showStatRow("city_market_status", data.siege_famine_months > 0
+                ? string.Format(LM.Get("city_market_siege_famine"), data.siege_famine_months)
+                : LM.Get("city_market_blockaded"), "#E66B66", pIconPath: "iconWar");
+        else if (city.kingdom != null && city.kingdom.hasEnemies())
+            window.showStatRow("city_market_status", LM.Get("city_market_embargo"), "#E6A166", pIconPath: "iconWar");
+        window.showStatRow("city_market_prices", string.Format(LM.Get("city_market_prices_format"),
+                MarketSystem.Price(city, MarketSystem.Good.Food), MarketSystem.Price(city, MarketSystem.Good.Wood),
+                MarketSystem.Price(city, MarketSystem.Good.Stone), MarketSystem.Price(city, MarketSystem.Good.Metal)),
+            "#F3C34A", pIconPath: "iconMoney");
+        if (data.last_market_bought > 0f || data.last_market_sold > 0f || data.market_sold_month > 0f)
+            window.showStatRow("city_market_trade", string.Format(LM.Get("city_market_trade_format"),
+                    Mathf.RoundToInt(data.last_market_bought),
+                    Mathf.RoundToInt(Mathf.Max(data.last_market_sold, data.market_sold_month))),
+                "#7FD8EA", pIconPath: "iconMoney");
+        window.showStatRow("city_pop_income", EmpireCraft.Scripts.HelperFunc.MoneyDisplay.Format(data.last_income), "#C8E66A",
+            pIconPath: "iconMoney");
+        if (data.private_savings >= 0f)
+            window.showStatRow("city_pop_savings", string.Format(LM.Get("city_pop_savings_format"),
+                    EmpireCraft.Scripts.HelperFunc.MoneyDisplay.Format(data.private_savings),
+                    EmpireCraft.Scripts.HelperFunc.MoneyDisplay.Format(data.last_consumption)), "#E6D36A",
+                pIconPath: "iconMoney");
+        if (EnterpriseSystem.Cash(data) > 0L)
+            window.showStatRow("city_pop_cash", EmpireCraft.Scripts.HelperFunc.MoneyDisplay.Format(EnterpriseSystem.Cash(data)),
+                "#E6D36A", pIconPath: "iconMoney");
+        window.showStatRow("city_pop_tax", EmpireCraft.Scripts.HelperFunc.MoneyDisplay.Format(data.last_tax_income), "#43FF43",
+            pIconPath: "iconMoney");
+        // 民间投资、官营产业、俸饷回流各占一行，值保持简短，避免盖住左边的标题
+        if (data.investment_pool >= 1f || data.last_private_investment > 0f)
+            window.showStatRow("city_enterprise_pool", string.Format(LM.Get("city_enterprise_pool_format"),
+                    EmpireCraft.Scripts.HelperFunc.MoneyDisplay.Format(data.investment_pool),
+                    EmpireCraft.Scripts.HelperFunc.MoneyDisplay.Format(data.last_private_investment)), "#D9B36A",
+                pIconPath: "iconMoney");
+        EnterpriseSystem.CountEnterprises(city, out int enterprises, out int publicEnterprises);
+        if (enterprises > 0)
+            window.showStatRow("city_enterprise_public", string.Format(LM.Get("city_enterprise_public_format"),
+                    publicEnterprises, enterprises,
+                    EmpireCraft.Scripts.HelperFunc.MoneyDisplay.Format(data.last_public_profit)), "#D9B36A",
+                pIconPath: "iconMoney");
+        if (data.last_wage_inflow > 0f)
+            window.showStatRow("city_enterprise_wages", string.Format(LM.Get("city_enterprise_wages_format"),
+                    EmpireCraft.Scripts.HelperFunc.MoneyDisplay.Format(data.last_wage_inflow)), "#D9B36A",
+                pIconPath: "iconMoney");
+        if (data.levied > 0f)
+            window.showStatRow("city_pop_legions", Mathf.RoundToInt(data.levied).ToString(), "#E6A166",
+                pIconPath: "iconWar");
+        window.showStatRow("city_pop_classes", Top(CityPopulationSystem.GetClassCounts(city),
+            socialClass => socialClass.ToTranslate(), 4), "#B8C6CC", pIconPath: "iconKings");
+        window.showStatRow("city_pop_cultures", Top(CityPopulationSystem.GetCultureCounts(city),
+            culture => string.IsNullOrEmpty(culture) ? "-" : culture.GetCultureTranslate(), 3), "#B8C6CC",
+            pIconPath: "iconCulture");
+        window.showStatRow("city_pop_species", Top(CityPopulationSystem.GetSpeciesCounts(city),
+            species => LM.Get(species), 3), "#B8C6CC", pIconPath: "iconPopulation");
+    }
+
+    private static string Top<TKey>(Dictionary<TKey, float> counts, Func<TKey, string> name, int take)
+    {
+        float total = counts.Values.Sum();
+        if (total <= 0f) return "-";
+        return string.Join("  ", counts.OrderByDescending(pair => pair.Value).Take(take)
+            .Select(pair => $"{name(pair.Key)} {pair.Value / total:P0}"));
+    }
+
     public static void startShowingWindow(CityWindow __instance)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
@@ -139,7 +353,7 @@ public class CityWindowPatch : GamePatch
         limitInput.Setup(city.GetMaxPopulationLimitStats()? city.GetMaxPopulation().ToString(): LM.Get("population_limit_text"), newValue => InputCityPopLimit(newValue, limitInput));
         limitInput.SetSize(new Vector2(210, 30));
         limitInput.transform.localScale = Vector3.one;
-        limitToggle.Setup(() => LimitationToggleSwitch(limitToggle, limitInput), SpriteTextureLoader.getSprite("ui/buttonToggleIndicator_1"), city.GetMaxPopulationLimitStats() ? LM.Get("On") : LM.Get("Off"), pSize: new Vector2(65, 30));
+        limitToggle.Setup(() => LimitationToggleSwitch(limitToggle, limitInput), SpriteTextureLoader.getSprite("ui/icons/iconArrowUP"), city.GetMaxPopulationLimitStats() ? LM.Get("On") : LM.Get("Off"), pSize: new Vector2(65, 30));
         // 强制输入框大小
         var inputLayout = limitInput.gameObject.AddComponent<LayoutElement>();
         inputLayout.minWidth = inputLayout.preferredWidth = 210;
@@ -149,8 +363,63 @@ public class CityWindowPatch : GamePatch
         city_setting_contents.Add(title.transform);
         city_setting_contents.Add(hori.transform);
 
+        // 城市改名 + 文化地名历史不再直接摊在设置面板里了（之前那版每次点开设置都要
+        // 把整份可编辑列表都画出来，用户明确要求挪到单独的窗口）。这里只留一个入口
+        // 按钮，点了以后按跟法理窗口"文化地名历史"标签页同一套规范打开的独立窗口
+        // （CityNameHistoryWindow：文化标签 + 可编辑输入框 + 删除按钮，一行一条）。
+        SimpleText nameHistoryTitle = GameObject.Instantiate(SimpleText.Prefab);
+        nameHistoryTitle.Setup(LM.Get("city_setting_name_history_title"), TextAnchor.MiddleCenter, new Vector2(180, 30));
+        nameHistoryTitle.background.enabled = false;
+        var nameHistoryTitleLayout = nameHistoryTitle.gameObject.AddComponent<LayoutElement>();
+        nameHistoryTitleLayout.minWidth = nameHistoryTitleLayout.preferredWidth = 180;
+        nameHistoryTitleLayout.minHeight = nameHistoryTitleLayout.preferredHeight = 30;
+        nameHistoryTitle.transform.localScale = Vector3.one;
+
+        SimpleButton openNameHistoryButton = GameObject.Instantiate(SimpleButton.Prefab);
+        openNameHistoryButton.Setup(OpenCityNameHistoryWindow, SpriteTextureLoader.getSprite("ui/icons/iconCulture"),
+            LM.Get("city_setting_open_name_history"), pSize: new Vector2(200, 30));
+        openNameHistoryButton.transform.localScale = Vector3.one;
+        var openNameHistoryButtonLayout = openNameHistoryButton.gameObject.AddComponent<LayoutElement>();
+        openNameHistoryButtonLayout.minWidth = openNameHistoryButtonLayout.preferredWidth = 200;
+        openNameHistoryButtonLayout.minHeight = openNameHistoryButtonLayout.preferredHeight = 30;
+
+        city_setting_contents.Add(nameHistoryTitle.transform);
+        city_setting_contents.Add(openNameHistoryButton.transform);
+        foreach (bool governance in new[] { true, false })
+        {
+            SimpleButton policy = GameObject.Instantiate(SimpleButton.Prefab);
+            bool governor = governance;
+            string Label()
+            {
+                var state = CityStabilitySystem.State(city);
+                return LM.Get(governor ? "city_governance_policy" : "city_garrison_policy") + "：" +
+                    CityStabilitySystem.PolicyText(governor ? state?.governance_policy ?? -1 : state?.garrison_policy ?? -1);
+            }
+            policy.Setup(() =>
+            {
+                var state = CityStabilitySystem.State(city);
+                if (state == null) return;
+                if (governor) state.governance_policy = state.governance_policy >= 2 ? -1 : state.governance_policy + 1;
+                else state.garrison_policy = state.garrison_policy >= 2 ? -1 : state.garrison_policy + 1;
+                policy.Text.text = Label();
+            }, SpriteTextureLoader.getSprite("ui/icons/iconMoney"), Label(), pSize: new Vector2(220, 30));
+            policy.transform.localScale = Vector3.one;
+            var size = policy.gameObject.AddComponent<LayoutElement>();
+            size.minWidth = size.preferredWidth = 220;
+            size.minHeight = size.preferredHeight = 30;
+            city_setting_contents.Add(policy.transform);
+        }
+
         return city_setting_contents;
-    }                                                                                   
+    }
+
+    public static void OpenCityNameHistoryWindow()
+    {
+        City city = SelectedMetas.selected_city;
+        if (city == null) return;
+        ScrollWindow.showWindow(nameof(CityNameHistoryWindow));
+    }
+
     public static void InputCityPopLimit(string pName, TextInput textInput)
     {
         City city = SelectedMetas.selected_city;

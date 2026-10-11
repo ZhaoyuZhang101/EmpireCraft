@@ -1,0 +1,23 @@
+key,cz,en,ch
+book_template_shanhai_economy_manual_1,$word$,$word$,$word$
+book_template_shanhai_economy_manual_2,$word$要略,Essentials of $word$,$word$要略
+book_template_shanhai_economy_manual_3,$city$$word$,$word$ of $city$,$city$$word$
+book_template_shanhai_economy_manual_4,$author$$word$,$author$'s $word$,$author$$word$
+book_template_shanhai_economy_manual_5,增订$word$,Expanded $word$,增訂$word$
+book_template_shanhai_economy_manual_6,$word$辑要,Digest of $word$,$word$輯要
+book_template_shanhai_economy_manual_7,$year_name$$word$,$word$ of the $year_name$ Era,$year_name$$word$
+book_template_shanhai_economy_manual_8,$emperor$圣训,Sacred Instructions of $emperor$,$emperor$聖訓
+book_template_shanhai_economy_manual_9,$dynasty$$word$,$word$ of $dynasty$,$dynasty$$word$
+book_template_shanhai_economy_manual_10,$kingdom$食货志,Treatise on Food and Money of $kingdom$,$kingdom$食貨志
+book_template_shanhai_economy_manual_11,$city$商录,Merchants of $city$,$city$商錄
+book_template_shanhai_economy_manual_12,$dynasty$会计录,Accounts of $dynasty$,$dynasty$會計錄
+book_template_shanhai_economy_manual_13,$year_name$赋役全书,Complete Book of Taxes and Corvee of the $year_name$ Era,$year_name$賦役全書
+book_template_shanhai_economy_manual_14,$city$市井录,Marketplaces of $city$,$city$市井錄
+book_template_shanhai_economy_manual_15,$kingdom$货殖列传,Biographies of the Money-Makers of $kingdom$,$kingdom$貨殖列傳
+book_template_shanhai_economy_manual_16,$author$富国策,Plan to Enrich the State by $author$,$author$富國策
+book_template_shanhai_economy_manual_17,$city$物价考,Prices in $city$,$city$物價考
+book_template_shanhai_economy_manual_18,$topic$法考,Study of $topic$ Laws,$topic$法考
+book_template_shanhai_economy_manual_19,$dynasty_short$$topic$志,Treatise on $topic$ of $dynasty_short$,$dynasty_short$$topic$志
+book_template_shanhai_economy_manual_20,$topic$议,Discussion of $topic$,$topic$議
+book_template_shanhai_economy_manual_21,$author$论$topic$,$author$ on $topic$,$author$論$topic$
+book_template_shanhai_economy_manual_22,$city$$topic$录,Records of $topic$ in $city$,$city$$topic$錄

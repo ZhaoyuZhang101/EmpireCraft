@@ -4,6 +4,8 @@
     "icon_url": "",
     "era_name": false,
     "has_cabinet": false,
+    "is_monarchy": false,
+    "allows_landlord_class": true,
     "cabinet_number": 0,
     "leader_select_method": "Succession",
     "default_kingdom": "Origin_kingdom",
@@ -44,6 +46,10 @@
       "option_religion_type": [
         2,
         4
+      ],
+      "option_succession_law": [
+        0,
+        5
       ]
     },
     "bureau_config": {
@@ -79,7 +85,8 @@
           "leader_select_method": "Succession",
           "require_traits": [],
           "condition": [],
-          "city_type": "Origin_city"
+          "city_type": "Origin_city",
+          "city_suffix_keys_by_culture": { "Huaxia": "city_suffix_county", "China": "city_suffix_county" }
         },
         "Origin_centre": {
           "pre": "",
@@ -100,7 +107,8 @@
           "condition": [
             "empire_center:true"
           ],
-          "city_type": "Origin_city"
+          "city_type": "Origin_city",
+          "city_suffix_keys_by_culture": { "Huaxia": "city_suffix_county", "China": "city_suffix_county" }
         },
         "Origin_kingdom": {
           "pre": "",
@@ -116,7 +124,8 @@
           "condition": [
             "empire_center:false"
           ],
-          "city_type": "Origin_city"
+          "city_type": "Origin_city",
+          "city_suffix_keys_by_culture": { "Huaxia": "city_suffix_county", "China": "city_suffix_county" }
         }
       },
       "cities": {

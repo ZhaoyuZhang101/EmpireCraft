@@ -6,6 +6,7 @@
     <ImplicitUsings>disable</ImplicitUsings>
     <Nullable>disable</Nullable>
     <OutputType>Library</OutputType>
+        <NoStdLib>true</NoStdLib>
     <RootNamespace>EmpireCraft</RootNamespace>
         <DefineConstants>DEBUG;TRACE</DefineConstants>
 
@@ -33,8 +34,15 @@
       <PackageReference Include="System.Collections.NonGeneric" Version="4.3.0" />
 
       <PackageReference Include="System.Text.Json" Version="9.0.7" />
+      <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     </ItemGroup>
     <ItemGroup>
+        <Reference Include="mscorlib">
+            <HintPath>..\..\worldbox_Data\Managed\mscorlib.dll</HintPath>
+        </Reference>
+        <Reference Include="System">
+            <HintPath>..\..\worldbox_Data\Managed\System.dll</HintPath>
+        </Reference>
         <Reference Include="DOTween">
             <HintPath Condition="Exists('..\..\worldbox_Data\Managed\DOTween.dll')">..\..\worldbox_Data\Managed\DOTween.dll</HintPath>
             <HintPath Condition="Exists('$(UserProfile)\.nuget\packages\dotween\1.0.0\lib\net35\DOTween.dll')">$(UserProfile)\.nuget\packages\dotween\1.0.0\lib\net35\DOTween.dll</HintPath>
@@ -43,8 +51,8 @@
             <HintPath Condition="Exists('..\..\worldbox_Data\StreamingAssets\mods\NML\Assemblies\0Harmony.dll')">..\..\worldbox_Data\StreamingAssets\mods\NML\Assemblies\0Harmony.dll</HintPath>
             <HintPath Condition="Exists('$(UserProfile)\.nuget\packages\lib.harmony\2.3.6\lib\net48\0Harmony.dll')">$(UserProfile)\.nuget\packages\lib.harmony\2.3.6\lib\net48\0Harmony.dll</HintPath>
         </Reference>
-        <Reference Include="Newtonsoft.Json">
-            <HintPath Condition="Exists('$(UserProfile)\.nuget\packages\newtonsoft.json\10.0.1\lib\net45\Newtonsoft.Json.dll')">$(UserProfile)\.nuget\packages\newtonsoft.json\10.0.1\lib\net45\Newtonsoft.Json.dll</HintPath>
+        <Reference Include="netstandard">
+            <HintPath>..\..\worldbox_Data\Managed\netstandard.dll</HintPath>
         </Reference>
 
 
@@ -73,6 +81,9 @@
         </Reference>
         <Reference Include="UnityEngine.CoreModule">
             <HintPath>..\..\worldbox_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
+        </Reference>
+        <Reference Include="UnityEngine.ImageConversionModule">
+            <HintPath>..\..\worldbox_Data\Managed\UnityEngine.ImageConversionModule.dll</HintPath>
         </Reference>
         <Reference Include="UnityEngine.UI">
             <HintPath>..\..\worldbox_Data\Managed\UnityEngine.UI.dll</HintPath>

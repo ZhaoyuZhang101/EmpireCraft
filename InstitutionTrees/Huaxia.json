@@ -1,0 +1,1383 @@
+{
+  "name_key": "institution_line_huaxia",
+  "root_nodes": [
+    "huaxia_patriarchal_clan"
+  ],
+  "nodes": [
+    {
+      "id": "huaxia_patriarchal_clan",
+      "name_key": "institution_huaxia_patriarchal_clan",
+      "description_key": "institution_huaxia_patriarchal_clan_desc",
+      "branch": "society",
+      "advancement": 1,
+      "reform": {
+        "minimum_years": 1,
+        "allow_force": false
+      },
+      "politics": {
+        "support_classes": {
+          "Noble": 0.6
+        },
+        "support_factions": {
+          "尊王": 0.5
+        }
+      },
+      "absorb": {
+        "enabled": false
+      },
+      "regime": "ZhouFeudalism"
+    },
+    {
+      "id": "huaxia_recommendation",
+      "name_key": "institution_huaxia_recommendation",
+      "description_key": "institution_huaxia_recommendation_desc",
+      "branch": "society",
+      "advancement": 4,
+      "requires_any": [
+        "huaxia_commandery_kingdom",
+        "zhou_forbid_private_wars"
+      ],
+      "research": {
+        "mandate_required": 40
+      },
+      "reform": {
+        "base_progress_per_year": 8.0,
+        "minimum_years": 8,
+        "force_radicalism": 20.0
+      },
+      "resistance": {
+        "base_radicalism": 7.0,
+        "vested_interest_radicalism": 10.0,
+        "rebellion_threshold": 78.0
+      },
+      "politics": {
+        "support_classes": {
+          "Officer": 0.8,
+          "Noble": 0.4
+        },
+        "oppose_classes": {
+          "Peasant": 0.2
+        },
+        "support_factions": {
+          "绥靖": 0.8,
+          "尊王": 0.5
+        }
+      },
+      "effects_on_complete": [
+        {
+          "type": "add_mandate",
+          "int_value": 3
+        },
+        {
+          "type": "modify_faction_power",
+          "int_value": 2,
+          "faction": "绥靖"
+        }
+      ]
+    },
+    {
+      "id": "zhou_enfeoffment",
+      "name_key": "institution_zhou_enfeoffment",
+      "description_key": "institution_zhou_enfeoffment_desc",
+      "branch": "administration",
+      "advancement": 2,
+      "requires": [
+        "huaxia_patriarchal_clan"
+      ],
+      "research": {
+        "mandate_required": 25
+      },
+      "reform": {
+        "base_progress_per_year": 9.0,
+        "minimum_years": 6
+      },
+      "resistance": {
+        "base_radicalism": 6.0,
+        "rebellion_threshold": 80.0
+      },
+      "politics": {
+        "support_classes": {
+          "Noble": 0.9,
+          "Army": 0.3
+        },
+        "oppose_classes": {
+          "Officer": 0.3
+        },
+        "support_factions": {
+          "诸侯": 1.0,
+          "尊王": 0.3
+        }
+      },
+      "effects_on_complete": [
+        {
+          "type": "enable_claim",
+          "value": "分封"
+        },
+        {
+          "type": "unlock_succession_law",
+          "value": "分割继承法"
+        }
+      ],
+      "features": {
+        "sibling_enfeoffment": 1
+      }
+    },
+    {
+      "id": "huaxia_well_field",
+      "name_key": "institution_huaxia_well_field",
+      "description_key": "institution_huaxia_well_field_desc",
+      "branch": "finance",
+      "advancement": 2,
+      "requires": [
+        "huaxia_patriarchal_clan"
+      ],
+      "research": {
+        "mandate_required": 25
+      },
+      "reform": {
+        "base_progress_per_year": 9.0,
+        "minimum_years": 6
+      },
+      "resistance": {
+        "base_radicalism": 6.0,
+        "rebellion_threshold": 80.0
+      },
+      "politics": {
+        "support_classes": {
+          "Peasant": 0.9,
+          "Officer": 0.4
+        },
+        "oppose_classes": {
+          "Merchant": 0.4
+        },
+        "support_factions": {
+          "绥靖": 0.6,
+          "尊王": 0.3
+        }
+      },
+      "effects_on_complete": [
+        {
+          "type": "change_tax_level",
+          "value": "Low"
+        }
+      ]
+    },
+    {
+      "id": "zhou_vassal_self_succession",
+      "name_key": "institution_zhou_vassal_self_succession",
+      "description_key": "institution_zhou_vassal_self_succession_desc",
+      "branch": "administration",
+      "advancement": 3,
+      "requires": [
+        "zhou_enfeoffment"
+      ],
+      "exclusive_with": [
+        "zhou_reduce_vassals",
+        "huaxia_grace_edict"
+      ],
+      "research": {
+        "mandate_required": 35
+      },
+      "reform": {
+        "base_progress_per_year": 8.0,
+        "minimum_years": 8
+      },
+      "resistance": {
+        "base_radicalism": 10.0,
+        "rebellion_threshold": 75.0
+      },
+      "politics": {
+        "support_classes": {
+          "Noble": 1.1,
+          "Army": 0.3
+        },
+        "oppose_classes": {
+          "Officer": 0.8
+        },
+        "support_factions": {
+          "诸侯": 1.3
+        },
+        "oppose_factions": {
+          "尊王": 1.0
+        },
+        "sponsor_only": [
+          "诸侯"
+        ]
+      },
+      "effects_on_complete": [
+        {
+          "type": "modify_faction_power",
+          "faction": "诸侯",
+          "int_value": 5
+        },
+        {
+          "type": "add_mandate",
+          "int_value": -5
+        }
+      ],
+      "features": {
+        "vassal_self_succession": 1
+      }
+    },
+    {
+      "id": "huaxia_grace_edict",
+      "name_key": "institution_huaxia_grace_edict",
+      "description_key": "institution_huaxia_grace_edict_desc",
+      "branch": "administration",
+      "advancement": 4,
+      "requires": [
+        "huaxia_commandery_kingdom"
+      ],
+      "replaces": [
+        "zhou_vassal_self_succession"
+      ],
+      "research": {
+        "mandate_required": 45
+      },
+      "reform": {
+        "base_progress_per_year": 8.0,
+        "minimum_years": 8
+      },
+      "resistance": {
+        "base_radicalism": 8.0,
+        "vested_interest_radicalism": 12.0,
+        "rebellion_threshold": 75.0
+      },
+      "politics": {
+        "support_classes": {
+          "Officer": 0.8,
+          "Peasant": 0.2
+        },
+        "oppose_classes": {
+          "Noble": 0.9
+        },
+        "support_factions": {
+          "尊王": 1.1
+        },
+        "oppose_factions": {
+          "诸侯": 1.0
+        }
+      },
+      "effects_on_complete": [
+        {
+          "type": "add_mandate",
+          "int_value": 5
+        }
+      ],
+      "features": {
+        "grace_edict": 1
+      }
+    },
+    {
+      "id": "huaxia_commandery_kingdom",
+      "name_key": "institution_huaxia_commandery_kingdom",
+      "description_key": "institution_huaxia_commandery_kingdom_desc",
+      "branch": "administration",
+      "advancement": 3,
+      "requires": [
+        "zhou_enfeoffment"
+      ],
+      "exclusive_with": [
+        "zhou_reduce_vassals"
+      ],
+      "research": {
+        "mandate_required": 30
+      },
+      "reform": {
+        "base_progress_per_year": 9.0,
+        "minimum_years": 6
+      },
+      "resistance": {
+        "base_radicalism": 6.0,
+        "rebellion_threshold": 80.0
+      },
+      "politics": {
+        "support_classes": {
+          "Officer": 0.6,
+          "Noble": 0.3
+        },
+        "support_factions": {
+          "尊王": 0.6,
+          "诸侯": 0.4
+        }
+      },
+      "effects_on_complete": [
+        {
+          "type": "add_mandate",
+          "int_value": 3
+        }
+      ],
+      "features": {
+        "commandery_kingdom": 1
+      }
+    },
+    {
+      "id": "zhou_forbid_private_wars",
+      "name_key": "institution_zhou_forbid_private_wars",
+      "description_key": "institution_zhou_forbid_private_wars_desc",
+      "branch": "military",
+      "advancement": 3,
+      "requires": [
+        "zhou_enfeoffment"
+      ],
+      "research": {
+        "mandate_required": 45
+      },
+      "reform": {
+        "base_progress_per_year": 8.5,
+        "minimum_years": 7,
+        "force_radicalism": 18.0
+      },
+      "resistance": {
+        "base_radicalism": 8.0,
+        "vested_interest_radicalism": 12.0,
+        "rebellion_threshold": 78.0
+      },
+      "politics": {
+        "support_classes": {
+          "Officer": 0.9,
+          "Army": 0.3
+        },
+        "oppose_classes": {
+          "Noble": 0.7
+        },
+        "support_factions": {
+          "尊王": 1.1
+        },
+        "oppose_factions": {
+          "诸侯": 1.0
+        }
+      },
+      "effects_on_complete": [
+        {
+          "type": "enable_claim",
+          "value": "夺取诸侯开战权"
+        },
+        {
+          "type": "set_regime_option",
+          "option": "toggle_support_army_to_center",
+          "int_value": 1
+        }
+      ],
+      "features": {
+        "vassal_authority": 50
+      }
+    },
+    {
+      "id": "huaxia_merit_ranks",
+      "name_key": "institution_huaxia_merit_ranks",
+      "description_key": "institution_huaxia_merit_ranks_desc",
+      "branch": "military",
+      "advancement": 4,
+      "requires": [
+        "zhou_forbid_private_wars"
+      ],
+      "research": {
+        "mandate_required": 45
+      },
+      "reform": {
+        "base_progress_per_year": 8.0,
+        "minimum_years": 8,
+        "force_radicalism": 22.0
+      },
+      "resistance": {
+        "base_radicalism": 9.0,
+        "vested_interest_radicalism": 14.0,
+        "rebellion_threshold": 74.0,
+        "opposition_faction_growth": 1,
+        "reason_key": "institution_resistance_reason_local_privilege"
+      },
+      "politics": {
+        "support_classes": {
+          "Army": 1.2,
+          "Peasant": 0.4
+        },
+        "oppose_classes": {
+          "Noble": 0.9
+        },
+        "support_factions": {
+          "攘夷": 1.0,
+          "尊王": 0.5
+        },
+        "oppose_factions": {
+          "诸侯": 0.8
+        }
+      },
+      "effects_on_complete": [
+        {
+          "type": "modify_faction_power",
+          "int_value": 3,
+          "faction": "攘夷"
+        },
+        {
+          "type": "add_mandate",
+          "int_value": 2
+        }
+      ],
+      "features": {
+        "vassal_authority": 30
+      }
+    },
+    {
+      "id": "huaxia_tributary_system",
+      "name_key": "institution_huaxia_tributary_system",
+      "description_key": "institution_huaxia_tributary_system_desc",
+      "branch": "administration",
+      "advancement": 3,
+      "requires": [
+        "zhou_enfeoffment"
+      ],
+      "research": {
+        "mandate_required": 40
+      },
+      "reform": {
+        "base_progress_per_year": 8.5,
+        "minimum_years": 6,
+        "force_radicalism": 15.0
+      },
+      "resistance": {
+        "base_radicalism": 6.0,
+        "rebellion_threshold": 80.0
+      },
+      "politics": {
+        "support_classes": {
+          "Officer": 0.6,
+          "Merchant": 0.5,
+          "Army": 0.3
+        },
+        "support_factions": {
+          "尊王": 0.8,
+          "攘夷": 1.0
+        }
+      },
+      "effects_on_complete": [
+        {
+          "type": "enable_claim",
+          "value": "迫使朝贡"
+        },
+        {
+          "type": "add_mandate",
+          "int_value": 3
+        }
+      ]
+    },
+    {
+      "id": "huaxia_jimi_system",
+      "name_key": "institution_huaxia_jimi_system",
+      "description_key": "institution_huaxia_jimi_system_desc",
+      "branch": "administration",
+      "advancement": 4,
+      "requires": [
+        "huaxia_tributary_system"
+      ],
+      "research": {
+        "mandate_required": 45
+      },
+      "reform": {
+        "base_progress_per_year": 8.0,
+        "minimum_years": 6,
+        "force_radicalism": 12.0
+      },
+      "resistance": {
+        "base_radicalism": 5.0,
+        "rebellion_threshold": 80.0
+      },
+      "politics": {
+        "support_classes": {
+          "Officer": 0.7,
+          "Army": 0.5
+        },
+        "support_factions": {
+          "尊王": 0.9
+        },
+        "oppose_factions": {
+          "攘夷": 0.6
+        }
+      },
+      "effects_on_complete": [
+        {
+          "type": "add_mandate",
+          "int_value": 3
+        }
+      ],
+      "features": {
+        "jimi_system": 1
+      }
+    },
+    {
+      "id": "huaxia_land_equalization",
+      "name_key": "institution_huaxia_land_equalization",
+      "description_key": "institution_huaxia_land_equalization_desc",
+      "branch": "finance",
+      "advancement": 4,
+      "requires": [
+        "huaxia_land_sale_decree"
+      ],
+      "research": {
+        "mandate_required": 42
+      },
+      "reform": {
+        "base_progress_per_year": 8.0,
+        "minimum_years": 7,
+        "force_radicalism": 18.0
+      },
+      "resistance": {
+        "base_radicalism": 8.0,
+        "rebellion_threshold": 78.0
+      },
+      "politics": {
+        "support_classes": {
+          "Peasant": 1.0,
+          "Officer": 0.6
+        },
+        "oppose_classes": {
+          "Noble": 0.6
+        },
+        "support_factions": {
+          "绥靖": 0.9
+        },
+        "oppose_factions": {
+          "诸侯": 0.5
+        }
+      },
+      "effects_on_complete": [
+        {
+          "type": "change_tax_level",
+          "value": "Medium"
+        },
+        {
+          "type": "modify_faction_power",
+          "int_value": 3
+        }
+      ]
+    },
+    {
+      "id": "zhou_reduce_vassals",
+      "name_key": "institution_zhou_reduce_vassals",
+      "description_key": "institution_zhou_reduce_vassals_desc",
+      "branch": "administration",
+      "advancement": 4,
+      "requires": [
+        "zhou_forbid_private_wars"
+      ],
+      "replaces": [
+        "zhou_vassal_self_succession"
+      ],
+      "exclusive_with": [
+        "huaxia_commandery_kingdom"
+      ],
+      "research": {
+        "mandate_required": 60
+      },
+      "reform": {
+        "base_progress_per_year": 7.0,
+        "minimum_years": 10,
+        "force_radicalism": 24.0
+      },
+      "resistance": {
+        "base_radicalism": 12.0,
+        "vested_interest_radicalism": 32.0,
+        "rebellion_threshold": 70.0,
+        "opposition_faction_growth": 2
+      },
+      "politics": {
+        "support_classes": {
+          "Officer": 1.1,
+          "Peasant": 0.3
+        },
+        "oppose_classes": {
+          "Noble": 1.1
+        },
+        "support_factions": {
+          "尊王": 1.2
+        },
+        "oppose_factions": {
+          "诸侯": 1.3
+        }
+      },
+      "effects_on_complete": [
+        {
+          "type": "enable_claim",
+          "value": "削藩"
+        },
+        {
+          "type": "modify_faction_power",
+          "int_value": 5
+        }
+      ],
+      "features": {
+        "vassal_authority": 100,
+        "sibling_enfeoffment_abolished": 1
+      }
+    },
+    {
+      "id": "huaxia_salt_iron_monopoly",
+      "name_key": "institution_huaxia_salt_iron_monopoly",
+      "description_key": "institution_huaxia_salt_iron_monopoly_desc",
+      "branch": "finance",
+      "advancement": 4,
+      "requires": [
+        "huaxia_land_sale_decree"
+      ],
+      "research": {
+        "mandate_required": 55
+      },
+      "reform": {
+        "base_progress_per_year": 7.5,
+        "minimum_years": 9,
+        "force_radicalism": 22.0
+      },
+      "resistance": {
+        "base_radicalism": 10.0,
+        "rebellion_threshold": 74.0
+      },
+      "politics": {
+        "support_classes": {
+          "Officer": 1.0,
+          "Army": 0.4
+        },
+        "oppose_classes": {
+          "Merchant": 1.1,
+          "Noble": 0.3
+        },
+        "support_factions": {
+          "攘夷": 0.8,
+          "绥靖": 0.3
+        }
+      },
+      "effects_on_complete": [
+        {
+          "type": "change_tax_level",
+          "value": "High"
+        },
+        {
+          "type": "add_mandate",
+          "int_value": -5
+        }
+      ],
+      "features": {
+        "state_enterprise": 1
+      }
+    },
+    {
+      "id": "huaxia_military_garrison",
+      "features": {
+        "army_prefecture": 1
+      },
+      "name_key": "institution_huaxia_military_garrison",
+      "description_key": "institution_huaxia_military_garrison_desc",
+      "branch": "military",
+      "advancement": 5,
+      "requires": [
+        "huaxia_merit_ranks"
+      ],
+      "research": {
+        "mandate_required": 50
+      },
+      "reform": {
+        "base_progress_per_year": 8.0,
+        "minimum_years": 8,
+        "force_radicalism": 20.0
+      },
+      "resistance": {
+        "base_radicalism": 9.0,
+        "rebellion_threshold": 76.0
+      },
+      "politics": {
+        "support_classes": {
+          "Army": 1.1,
+          "Peasant": 0.4
+        },
+        "oppose_classes": {
+          "Noble": 0.5
+        },
+        "support_factions": {
+          "攘夷": 1.1
+        },
+        "oppose_factions": {
+          "绥靖": 0.4
+        }
+      },
+      "effects_on_complete": [
+        {
+          "type": "set_regime_option",
+          "option": "toggle_allow_army",
+          "int_value": 1
+        },
+        {
+          "type": "modify_faction_power",
+          "int_value": 4,
+          "faction": "攘夷"
+        }
+      ]
+    },
+    {
+      "id": "huaxia_prefecture_county_bureaucracy",
+      "name_key": "institution_huaxia_prefecture_county_bureaucracy",
+      "description_key": "institution_huaxia_prefecture_county_bureaucracy_desc",
+      "branch": "administration",
+      "advancement": 5,
+      "requires_any": [
+        "zhou_reduce_vassals",
+        "huaxia_grace_edict"
+      ],
+      "replaces": [
+        "zhou_enfeoffment"
+      ],
+      "research": {
+        "mandate_required": 75
+      },
+      "reform": {
+        "base_progress_per_year": 6.0,
+        "minimum_years": 14,
+        "force_radicalism": 30.0
+      },
+      "resistance": {
+        "base_radicalism": 15.0,
+        "vested_interest_radicalism": 25.0,
+        "rebellion_threshold": 65.0,
+        "opposition_faction_growth": 2
+      },
+      "politics": {
+        "support_classes": {
+          "Officer": 1.3,
+          "Peasant": 0.3
+        },
+        "oppose_classes": {
+          "Noble": 1.3
+        },
+        "support_factions": {
+          "尊王": 1.3,
+          "绥靖": 0.4
+        },
+        "oppose_factions": {
+          "诸侯": 1.4
+        }
+      },
+      "effects_on_complete": [
+        {
+          "type": "add_mandate",
+          "int_value": -10
+        }
+      ],
+      "regime": "LvLing",
+      "features": {
+        "state_granary": 1,
+        "vassal_authority": 100,
+        "claim_reform:转天朝制度": 1
+      }
+    },
+    {
+      "id": "huaxia_three_departments",
+      "name_key": "institution_huaxia_three_departments",
+      "description_key": "institution_huaxia_three_departments_desc",
+      "branch": "administration",
+      "advancement": 6,
+      "requires": [
+        "huaxia_prefecture_county_bureaucracy"
+      ],
+      "research": {
+        "mandate_required": 65
+      },
+      "reform": {
+        "base_progress_per_year": 6.5,
+        "minimum_years": 10,
+        "force_radicalism": 18.0
+      },
+      "resistance": {
+        "base_radicalism": 8.0,
+        "vested_interest_radicalism": 12.0,
+        "rebellion_threshold": 78.0
+      },
+      "politics": {
+        "support_classes": {
+          "Officer": 1.0
+        },
+        "oppose_classes": {
+          "Noble": 0.6
+        },
+        "support_factions": {
+          "尊王": 1.0,
+          "绥靖": 0.5
+        },
+        "oppose_factions": {
+          "诸侯": 0.6
+        }
+      },
+      "effects_on_complete": [
+        {
+          "type": "add_mandate",
+          "int_value": 2
+        }
+      ],
+      "features": {
+        "three_departments": 1,
+        "claim_reform:推行三省六部": 1
+      }
+    },
+    {
+      "id": "huaxia_examination_officialdom",
+      "name_key": "institution_huaxia_examination_officialdom",
+      "description_key": "institution_huaxia_examination_officialdom_desc",
+      "branch": "society",
+      "advancement": 6,
+      "requires": [
+        "huaxia_prefecture_county_bureaucracy",
+        "huaxia_recommendation"
+      ],
+      "research": {
+        "mandate_required": 70
+      },
+      "reform": {
+        "base_progress_per_year": 6.5,
+        "minimum_years": 12,
+        "force_radicalism": 26.0
+      },
+      "resistance": {
+        "base_radicalism": 12.0,
+        "vested_interest_radicalism": 16.0,
+        "rebellion_threshold": 70.0,
+        "opposition_faction_growth": 2
+      },
+      "politics": {
+        "support_classes": {
+          "Officer": 1.3,
+          "Peasant": 0.4
+        },
+        "oppose_classes": {
+          "Noble": 1.0
+        },
+        "support_factions": {
+          "绥靖": 1.2
+        },
+        "oppose_factions": {
+          "诸侯": 0.9
+        }
+      },
+      "effects_on_complete": [
+        {
+          "type": "set_regime_option",
+          "option": "option_leader_select_method",
+          "int_value": 1
+        },
+        {
+          "type": "enable_claim",
+          "value": "开科取士"
+        }
+      ],
+      "features": {
+        "claim_reform:开科取士": 1
+      },
+      "replaces": [
+        "huaxia_recommendation"
+      ]
+    },
+    {
+      "id": "huaxia_grand_secretariat",
+      "name_key": "institution_huaxia_grand_secretariat",
+      "description_key": "institution_huaxia_grand_secretariat_desc",
+      "branch": "administration",
+      "advancement": 7,
+      "requires": [
+        "huaxia_three_departments",
+        "huaxia_examination_officialdom"
+      ],
+      "research": {
+        "mandate_required": 70
+      },
+      "reform": {
+        "base_progress_per_year": 6.0,
+        "minimum_years": 10,
+        "force_radicalism": 20.0
+      },
+      "resistance": {
+        "base_radicalism": 8.0,
+        "vested_interest_radicalism": 10.0,
+        "rebellion_threshold": 80.0
+      },
+      "politics": {
+        "support_classes": {
+          "Officer": 1.0
+        },
+        "oppose_classes": {
+          "Noble": 0.5
+        },
+        "support_factions": {
+          "尊王": 1.0,
+          "绥靖": 0.6
+        },
+        "oppose_factions": {
+          "诸侯": 0.6
+        }
+      },
+      "effects_on_complete": [
+        {
+          "type": "add_mandate",
+          "int_value": 2
+        }
+      ],
+      "features": {
+        "grand_secretariat": 1,
+        "claim_reform:设立内阁": 1
+      }
+    },
+    {
+      "id": "huaxia_warlord_succession",
+      "features": {
+        "army_regional": 1
+      },
+      "name_key": "institution_huaxia_warlord_succession",
+      "description_key": "institution_huaxia_warlord_succession_desc",
+      "branch": "military",
+      "advancement": 6,
+      "requires": [
+        "huaxia_military_garrison"
+      ],
+      "research": {
+        "mandate_required": 60
+      },
+      "reform": {
+        "base_progress_per_year": 6.0,
+        "minimum_years": 10,
+        "force_radicalism": 28.0
+      },
+      "resistance": {
+        "base_radicalism": 14.0,
+        "vested_interest_radicalism": 20.0,
+        "rebellion_threshold": 68.0,
+        "opposition_faction_growth": 2
+      },
+      "politics": {
+        "support_classes": {
+          "Army": 1.2
+        },
+        "oppose_classes": {
+          "Noble": 0.8
+        },
+        "support_factions": {
+          "攘夷": 0.8,
+          "僭主": 1.3
+        },
+        "oppose_factions": {
+          "尊王": 1.0
+        }
+      },
+      "effects_on_complete": [
+        {
+          "type": "unlock_succession_law",
+          "value": "强者继承法"
+        }
+      ]
+    },
+    {
+      "template": "tactical_drilling",
+      "id": "huaxia_tactical_drilling",
+      "branch": "military",
+      "advancement": 6,
+      "requires": [
+        "huaxia_military_garrison"
+      ]
+    },
+    {
+      "id": "huaxia_two_tax_law",
+      "name_key": "institution_huaxia_two_tax_law",
+      "description_key": "institution_huaxia_two_tax_law_desc",
+      "branch": "finance",
+      "advancement": 5,
+      "requires": [
+        "huaxia_land_equalization"
+      ],
+      "research": {
+        "mandate_required": 55
+      },
+      "reform": {
+        "base_progress_per_year": 7.5,
+        "minimum_years": 9,
+        "force_radicalism": 22.0
+      },
+      "resistance": {
+        "base_radicalism": 10.0,
+        "vested_interest_radicalism": 16.0,
+        "rebellion_threshold": 73.0,
+        "opposition_faction_growth": 1,
+        "reason_key": "institution_resistance_reason_tax_register"
+      },
+      "politics": {
+        "support_classes": {
+          "Officer": 1.1,
+          "Merchant": 0.6
+        },
+        "oppose_classes": {
+          "Noble": 0.7,
+          "Peasant": 0.3
+        },
+        "support_factions": {
+          "尊王": 0.9,
+          "绥靖": 0.4
+        },
+        "oppose_factions": {
+          "诸侯": 0.8
+        }
+      },
+      "effects_on_complete": [
+        {
+          "type": "change_tax_level",
+          "value": "Medium"
+        },
+        {
+          "type": "modify_faction_power",
+          "int_value": 3,
+          "faction": "尊王"
+        }
+      ],
+      "replaces": [
+        "huaxia_land_equalization"
+      ]
+    },
+    {
+      "id": "huaxia_single_whip_reform",
+      "name_key": "institution_huaxia_single_whip_reform",
+      "description_key": "institution_huaxia_single_whip_reform_desc",
+      "branch": "finance",
+      "advancement": 6,
+      "requires": [
+        "huaxia_two_tax_law"
+      ],
+      "research": {
+        "mandate_required": 72
+      },
+      "reform": {
+        "base_progress_per_year": 6.0,
+        "minimum_years": 12,
+        "force_radicalism": 28.0
+      },
+      "resistance": {
+        "base_radicalism": 14.0,
+        "vested_interest_radicalism": 22.0,
+        "rebellion_threshold": 67.0,
+        "opposition_faction_growth": 2,
+        "reason_key": "institution_resistance_reason_tax_register"
+      },
+      "politics": {
+        "support_classes": {
+          "Officer": 1.3,
+          "Merchant": 0.8
+        },
+        "oppose_classes": {
+          "Noble": 1.1,
+          "Peasant": 0.4
+        },
+        "support_factions": {
+          "尊王": 1.3,
+          "绥靖": 0.5
+        },
+        "oppose_factions": {
+          "诸侯": 1.2
+        }
+      },
+      "effects_on_complete": [
+        {
+          "type": "change_tax_level",
+          "value": "High"
+        },
+        {
+          "type": "add_mandate",
+          "int_value": -4
+        },
+        {
+          "type": "modify_faction_power",
+          "int_value": 4,
+          "faction": "尊王"
+        }
+      ],
+      "features": {
+        "constitution_basis_fiscal": 1
+      }
+    },
+    {
+      "id": "huaxia_constitutional_preparation",
+      "name_key": "institution_huaxia_constitutional_preparation",
+      "description_key": "institution_huaxia_constitutional_preparation_desc",
+      "branch": "administration",
+      "advancement": 7,
+      "requires": [
+        "huaxia_prefecture_county_bureaucracy",
+        "huaxia_single_whip_reform"
+      ],
+      "research": {
+        "mandate_required": 70
+      },
+      "reform": {
+        "base_progress_per_year": 6.0,
+        "minimum_years": 12,
+        "force_radicalism": 30.0
+      },
+      "resistance": {
+        "base_radicalism": 12.0,
+        "vested_interest_radicalism": 18.0,
+        "rebellion_threshold": 68.0,
+        "opposition_faction_growth": 2,
+        "reason_key": "institution_resistance_reason_constitutional_preparation"
+      },
+      "politics": {
+        "support_classes": {
+          "Merchant": 1.4,
+          "Officer": 0.4
+        },
+        "oppose_classes": {
+          "Noble": 0.3
+        },
+        "support_factions": {
+          "共和": 1.0,
+          "绥靖": 0.8,
+          "诸侯": 0.6
+        },
+        "oppose_factions": {
+          "尊王": 1.2
+        }
+      },
+      "effects_on_complete": [
+        {
+          "type": "add_mandate",
+          "int_value": -3
+        }
+      ],
+      "features": {
+        "constitution_basis_administration": 1
+      }
+    },
+    {
+      "id": "huaxia_recruited_army",
+      "features": {
+        "army_standing": 1
+      },
+      "name_key": "institution_huaxia_recruited_army",
+      "description_key": "institution_huaxia_recruited_army_desc",
+      "branch": "military",
+      "advancement": 6,
+      "requires": [
+        "huaxia_military_garrison"
+      ],
+      "replaces": [
+        "huaxia_military_garrison"
+      ],
+      "research": {
+        "mandate_required": 66
+      },
+      "reform": {
+        "base_progress_per_year": 6.5,
+        "minimum_years": 11,
+        "force_radicalism": 26.0
+      },
+      "resistance": {
+        "base_radicalism": 12.0,
+        "vested_interest_radicalism": 20.0,
+        "rebellion_threshold": 70.0,
+        "opposition_faction_growth": 2,
+        "reason_key": "institution_resistance_reason_standing_army"
+      },
+      "politics": {
+        "support_classes": {
+          "Army": 1.3,
+          "Merchant": 0.4
+        },
+        "oppose_classes": {
+          "Peasant": 0.8,
+          "Noble": 0.5
+        },
+        "support_factions": {
+          "攘夷": 1.2,
+          "尊王": 0.5
+        },
+        "oppose_factions": {
+          "诸侯": 0.7,
+          "绥靖": 0.4
+        }
+      },
+      "effects_on_complete": [
+        {
+          "type": "set_regime_option",
+          "option": "toggle_allow_army",
+          "int_value": 1
+        },
+        {
+          "type": "modify_faction_power",
+          "int_value": 4,
+          "faction": "攘夷"
+        },
+        {
+          "type": "add_mandate",
+          "int_value": -5
+        }
+      ]
+    },
+    {
+      "id": "huaxia_land_sale_decree",
+      "name_key": "institution_huaxia_abolish_well_field",
+      "description_key": "institution_huaxia_abolish_well_field_desc",
+      "branch": "finance",
+      "advancement": 3,
+      "requires": [
+        "huaxia_well_field"
+      ],
+      "replaces": [
+        "huaxia_well_field"
+      ],
+      "research": {
+        "mandate_required": 35
+      },
+      "reform": {
+        "base_progress_per_year": 7.0,
+        "minimum_years": 8,
+        "force_radicalism": 24.0
+      },
+      "resistance": {
+        "base_radicalism": 10.0,
+        "vested_interest_radicalism": 16.0,
+        "rebellion_threshold": 72.0,
+        "opposition_faction_growth": 2,
+        "reason_key": "institution_resistance_reason_local_privilege"
+      },
+      "politics": {
+        "support_classes": {
+          "Peasant": 0.8,
+          "Officer": 0.6,
+          "Merchant": 0.6
+        },
+        "oppose_classes": {
+          "Noble": 1.2
+        },
+        "support_factions": {
+          "尊王": 0.8,
+          "攘夷": 0.6
+        },
+        "oppose_factions": {
+          "诸侯": 1.0
+        }
+      },
+      "effects_on_complete": [
+        {
+          "type": "open_private_land_market"
+        },
+        {
+          "type": "add_mandate",
+          "int_value": 2
+        }
+      ]
+    },
+    {
+      "template": "lift_party_ban",
+      "id": "huaxia_lift_party_ban",
+      "branch": "administration",
+      "advancement": 8,
+      "requires": [
+        "huaxia_constitutional_preparation"
+      ]
+    },
+    {
+      "template": "universal_suffrage",
+      "id": "huaxia_universal_suffrage",
+      "branch": "society",
+      "advancement": 9,
+      "requires": [
+        "huaxia_lift_party_ban"
+      ]
+    },
+    {
+      "template": "ideology_capitalism",
+      "id": "huaxia_ideology_capitalism",
+      "branch": "ideology",
+      "advancement": 10,
+      "requires": [
+        "huaxia_lift_party_ban"
+      ]
+    },
+    {
+      "template": "ideology_libertarianism",
+      "id": "huaxia_ideology_libertarianism",
+      "branch": "ideology",
+      "advancement": 11,
+      "requires": [
+        "huaxia_ideology_capitalism"
+      ]
+    },
+    {
+      "template": "ideology_religious_democracy",
+      "id": "huaxia_ideology_religious_democracy",
+      "branch": "ideology",
+      "advancement": 10,
+      "requires": [
+        "huaxia_lift_party_ban"
+      ]
+    },
+    {
+      "template": "ideology_authoritarianism",
+      "id": "huaxia_ideology_authoritarianism",
+      "branch": "ideology",
+      "advancement": 10,
+      "requires": [
+        "huaxia_lift_party_ban"
+      ]
+    },
+    {
+      "template": "ideology_social_democracy",
+      "id": "huaxia_ideology_social_democracy",
+      "branch": "ideology",
+      "advancement": 10,
+      "requires": [
+        "huaxia_universal_suffrage"
+      ]
+    },
+    {
+      "template": "ideology_socialism",
+      "id": "huaxia_ideology_socialism",
+      "branch": "ideology",
+      "advancement": 10,
+      "requires": [
+        "huaxia_universal_suffrage"
+      ]
+    },
+    {
+      "template": "ideology_communism",
+      "id": "huaxia_ideology_communism",
+      "branch": "ideology",
+      "advancement": 11,
+      "requires": [
+        "huaxia_ideology_socialism"
+      ]
+    },
+    {
+      "template": "ideology_anarchism",
+      "id": "huaxia_ideology_anarchism",
+      "branch": "ideology",
+      "advancement": 11,
+      "requires": [
+        "huaxia_ideology_socialism"
+      ]
+    },
+    {
+      "template": "ideology_fascism",
+      "id": "huaxia_ideology_fascism",
+      "branch": "ideology",
+      "advancement": 11,
+      "requires": [
+        "huaxia_ideology_authoritarianism"
+      ]
+    },
+    {
+      "template": "abolish_monarchy",
+      "id": "huaxia_abolish_monarchy",
+      "branch": "administration",
+      "advancement": 9,
+      "requires": [
+        "huaxia_lift_party_ban"
+      ]
+    }
+  ],
+  "constitution": {
+    "required_features": [
+      "constitution_basis_administration",
+      "constitution_basis_fiscal"
+    ]
+  }
+}

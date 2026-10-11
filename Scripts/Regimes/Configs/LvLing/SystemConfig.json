@@ -5,6 +5,8 @@
     "icon_url": "",
     "era_name": true,
     "has_cabinet": true,
+    "is_monarchy": true,
+    "allows_landlord_class": true,
     "cabinet_number": 5,
     "leader_select_method": "Succession",
     "default_kingdom": "LvLing_kingdom",
@@ -49,7 +51,8 @@
       "toggle_support_army_to_center": [1],
       "option_tax_level": [1, 4],
       "option_leader_select_method": [1, 3],
-      "option_religion_type": [0, 4]
+      "option_religion_type": [0, 4],
+      "option_succession_law": [0, 5]
     },
     "bureau_config": {
       "cores": [
@@ -398,7 +401,8 @@
           "leader_select_method": "Succession",
           "require_traits": [],
           "condition": [],
-          "city_type": "LvLing_city"
+          "city_type": "LvLing_city",
+          "city_suffix_key": "city_suffix_county"
         },
         "LvLing_centre":{
           "pre": "",
@@ -412,7 +416,8 @@
           "leader_select_method": "Succession",
           "require_traits": [],
           "condition": ["empire_center:true"],
-          "city_type": "LvLing_city"
+          "city_type": "LvLing_city",
+          "city_suffix_key": "city_suffix_county"
         },
         "LvLing_kingdom":{
           "pre": "",
@@ -426,7 +431,8 @@
           "leader_select_method": "Succession",
           "require_traits": [],
           "condition": ["succession:true","empire_center:false"],
-          "city_type": "LvLing_city"
+          "city_type": "LvLing_city",
+          "city_suffix_key": "city_suffix_county"
         },
         "LvLing_jiedushi":{
           "pre": "",
@@ -439,8 +445,26 @@
           "select_from_local": false,
           "leader_select_method": "Exam",
           "require_traits": ["gongshi", "jingshi"],
-          "condition": ["allow_diplomacy:true", "succession:false","empire_center:false"],
-          "city_type": "LvLing_city"
+          "condition": ["allow_diplomacy:true", "succession:false","empire_center:false","jimi_region:false"],
+          "city_type": "LvLing_city",
+          "city_suffix_key": "city_suffix_county",
+          "capital_city_suffix_key": "city_suffix_prefecture"
+        },
+        "LvLing_duhufu":{
+          "pre": "",
+          "type": 6,
+          "description": "",
+          "powers": [],
+          "merit": -1,
+          "honorary": -1,
+          "peerageType": "Civil",
+          "select_from_local": false,
+          "leader_select_method": "Exam",
+          "require_traits": ["gongshi", "jingshi"],
+          "condition": ["allow_diplomacy:true", "succession:false","empire_center:false","jimi_region:true"],
+          "city_type": "LvLing_jimizhou",
+          "city_suffix_key": "city_suffix_county",
+          "capital_city_suffix_key": "city_suffix_prefecture"
         },
         "LvLing_province":{
           "pre": "",
@@ -453,8 +477,10 @@
           "select_from_local": false,
           "leader_select_method": "Exam",
           "require_traits": ["gongshi", "jingshi"],
-          "condition": ["allow_diplomacy:false", "succession:false","empire_center:false"],
-          "city_type": "LvLing_city"
+          "condition": ["allow_diplomacy:false", "succession:false","empire_center:false","jimi_region:false"],
+          "city_type": "LvLing_city",
+          "city_suffix_key": "city_suffix_county",
+          "capital_city_suffix_key": "city_suffix_prefecture"
         },
         "LvLing_jimizhou":{
           "pre": "",
@@ -465,10 +491,11 @@
           "honorary": -1,
           "peerageType": "Military",
           "select_from_local": true,
-          "officer_selected_method": "Exam",
+          "leader_select_method": "Exam",
           "require_traits": [],
-          "condition": ["another_race:true","empire_center:false"],
-          "city_type": "LvLing_city"
+          "condition": ["jimi_region:true","empire_center:false"],
+          "city_type": "LvLing_jimizhou",
+          "city_suffix_key": "city_suffix_county"
         }
       },
       "cities": {
@@ -483,6 +510,19 @@
           "select_from_local": false,
           "leader_select_method": "Default",
           "require_traits": ["gongshi", "juren"],
+          "condition": []
+        },
+        "LvLing_jimizhou": {
+          "pre": "",
+          "type": 8,
+          "description": "",
+          "powers": [],
+          "merit": -1,
+          "honorary": -1,
+          "peerageType": "Military",
+          "select_from_local": true,
+          "leader_select_method": "Default",
+          "require_traits": [],
           "condition": []
         }
       }

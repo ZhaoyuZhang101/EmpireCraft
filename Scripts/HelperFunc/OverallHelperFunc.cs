@@ -30,13 +30,16 @@ namespace EmpireCraft.Scripts.HelperFunc
         }
         public static string GetCultureFromSpecies(string species)
         {
+            // 物种未知(读档途中王国数据还没就绪等)时返回空：调用方按"文化无效"处理、之后再解析。
+            // 不能兜底成西方——GetRealmCulture 会把它存成王国文化并扩散到全图，旧存档的华夏会整片变成西方
+            if (string.IsNullOrWhiteSpace(species)) return "";
             if (ConfigData.speciesCulturePair.TryGetValue(species, out var insertCulture))
             {
-                return insertCulture;
+                return insertCulture ?? "";
             }
             else
             {
-                return "Western";
+                return "";
             }
         }
         public static string GetLocal(this string key)
@@ -186,7 +189,10 @@ namespace EmpireCraft.Scripts.HelperFunc
             }
             else
             {
-                result = JoinNameParts(coreName, typeName);
+                // 地名本身已带类别字时不再重复(幽州 + 州 → 幽州，而不是"幽州州")
+                result = coreName.TrimEnd().EndsWith(typeName.Trim(), global::System.StringComparison.Ordinal)
+                    ? coreName
+                    : JoinNameParts(coreName, typeName);
             }
             return result.ReduceNarrowSpaces();
         }
@@ -533,7 +539,7 @@ namespace EmpireCraft.Scripts.HelperFunc
                 string officeName = "";
                 string name = cIdentity.Item2.name;
                 string educationLevel = "";
-                if (cIdentity.Item2.is_alive)
+                if (cIdentity.Item2.is_alive && cIdentity.Item2._actor != null)
                 {
                     Actor actor = cIdentity.Item2._actor;
                     OfficeIdentity identity = actor.GetIdentity();

@@ -33,18 +33,25 @@ internal static class CreateEmpireButton
 
     public static bool clickKingdom(WorldTile pTile, string pPowerID)
     {
-        City city = pTile.zone.city;
-        if (city.isRekt())
+        City city = pTile?.zone?.city;
+        if (city == null || city.isRekt())
         {
             return false;
         }
         Kingdom kingdom = city.kingdom;
-        if (kingdom.isRekt())
+        if (kingdom == null || kingdom.isRekt())
         {
             return false;
         }
         if (kingdom.isNeutral())
         {
+            return false;
+        }
+        if (Config.unity_A != null && Config.unity_A.isRekt())
+        {
+            Config.unity_A = null;
+            Config.unity_B = null;
+            ActionLibrary.showWhisperTip("kingdom_cancelled");
             return false;
         }
         if (Config.unity_A == null)
@@ -53,7 +60,7 @@ internal static class CreateEmpireButton
             ActionLibrary.showWhisperTip("kingdom_selected_first");
             return false;
         }
-        if (Config.whisper_B == null && Config.unity_A == kingdom)
+        if (Config.unity_A == kingdom)
         {
             ActionLibrary.showWhisperTip("kingdom_cancelled");
             Config.unity_A = null;
@@ -75,32 +82,29 @@ internal static class CreateEmpireButton
         {
             return false;
         }
-        if (Config.unity_A.IsInEmpire())
-        {
-            if (Config.unity_A.GetEmpire() == Config.unity_B.GetEmpire())
-            {
-                ActionLibrary.showWhisperTip("kingdom_cancelled");
-                Config.unity_B = null;
-                return false;
-            }
-            if (Config.unity_B.IsInEmpire())
-            {
-                Config.unity_A.GetEmpire().leave(Config.unity_A, true);
-            }
-        }
-        if (ModClass.EMPIRE_MANAGER.forceEmpire(Config.unity_A, Config.unity_B))
+        // Let forceEmpire choose and transfer the actual members. Selecting two existing
+        // empires must not first detach (and recolor) the first selection before validation.
+        Kingdom first = Config.unity_A, second = Config.unity_B;
+        bool created = ModClass.EMPIRE_MANAGER.forceEmpire(first, second);
+        bool joined = first.IsInEmpire() && first.GetEmpire() == second.GetEmpire();
+        if (created)
         {
             ActionLibrary.showWhisperTip("unity_new_empire");
         }
-        else
+        else if (joined)
         {
             ActionLibrary.showWhisperTip("unity_joined_empire");
         }
-        Config.unity_A.affectKingByPowers();
+        else
+        {
+            // 按实际结果提示：加入没有成功就不能说"已加入"
+            ActionLibrary.showWhisperTip("unity_join_failed");
+        }
+        if (created || joined) first.affectKingByPowers();
         Config.unity_A = null;
         Config.unity_B = null;
-        World.world.zone_calculator.dirtyAndClear();
-        return true;
+        if (created || joined) World.world.zone_calculator.dirtyAndClear();
+        return created || joined;
     }
  
     public static bool selectKingdom(string pPowerID)

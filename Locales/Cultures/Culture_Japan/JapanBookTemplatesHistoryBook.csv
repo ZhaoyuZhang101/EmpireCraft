@@ -1,0 +1,9 @@
+key,cz,en,ch
+book_template_japan_history_book_1,$kingdom$$word$,$word$ of $kingdom$,$kingdom$$word$
+book_template_japan_history_book_2,$city$$word$,$word$ of $city$,$city$$word$
+book_template_japan_history_book_3,$clan$家$word$,$word$ of the $clan$ House,$clan$家$word$
+book_template_japan_history_book_4,续$kingdom$$word$,Continued $word$ of $kingdom$,續$kingdom$$word$
+book_template_japan_history_book_5,$dynasty$史,History of $dynasty$,$dynasty$史
+book_template_japan_history_book_6,$past_emperor$记,Record of $past_emperor$,$past_emperor$記
+book_template_japan_history_book_7,$past_year_name$年代记,Chronicle of the $past_year_name$ Era,$past_year_name$年代記
+book_template_japan_history_book_8,$era$物语,Tale of the $era$,$era$物語

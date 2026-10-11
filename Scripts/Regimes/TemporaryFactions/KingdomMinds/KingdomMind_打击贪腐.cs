@@ -1,4 +1,5 @@
 using EmpireCraft.Scripts.Layer;
+using EmpireCraft.Scripts.GeneralSystems;
 using NeoModLoader.services;
 
 namespace EmpireCraft.Scripts.Regimes.TemporaryFactions.KingdomMinds;
@@ -19,14 +20,16 @@ public class KingdomMind_打击贪腐 : TemporaryFaction
     public override void Execute()
     {
         LogService.LogInfo($"执行{this.type}");
-        var kingdom = GetKingdom();
-        FinishedAction();
+        Empire empire = GetEmpire();
+        var kingdom = GetKingdom() ?? empire?.CoreKingdom;
+        if (CorruptionSystem.TryCampaign(empire, kingdom)) FinishedAction();
         End();
     }
     
     public override bool CheckCondition()
     {
-        var kingdom = GetKingdom();
-        return false;
+        Empire empire = GetEmpire();
+        var kingdom = GetKingdom() ?? empire?.CoreKingdom;
+        return CorruptionSystem.CanCampaign(empire, kingdom);
     }
 }

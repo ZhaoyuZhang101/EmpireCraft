@@ -1,0 +1,6 @@
+key,cz,en,ch
+book_template_western_stewardship_manual_1,$word$,$word$,$word$
+book_template_western_stewardship_manual_2,论$word$,On $word$,論$word$
+book_template_western_stewardship_manual_3,$city$$word$,$word$ of $city$,$city$$word$
+book_template_western_stewardship_manual_4,$author$的$word$,$author$'s $word$,$author$的$word$
+book_template_western_stewardship_manual_5,$era$$word$,$word$ of the $era$,$era$$word$

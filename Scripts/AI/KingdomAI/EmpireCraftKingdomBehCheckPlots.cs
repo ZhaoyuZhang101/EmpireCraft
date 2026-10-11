@@ -7,6 +7,7 @@ using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
+using EmpireCraft.Scripts.GeneralSystems;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
 using NCMS.Extensions;
@@ -93,6 +94,7 @@ public class EmpireCraftKingdomBehCheckPlots : GameAIKingdomBase
         if  (empire == null) return;
         var faction = war.GetEmpireFaction();
         var rebelData = pKingdom.GetOrCreate();
+        if (TryEndExclaveRebellionWar(pKingdom, war, rebelData)) return;
         if (rebelData.rebellion_auto_expand_remaining < 0)
         {
             rebelData.rebellion_auto_expand_remaining = (int)Math.Ceiling(pKingdom.getMaxCities() * 1.5d);
@@ -101,6 +103,7 @@ public class EmpireCraftKingdomBehCheckPlots : GameAIKingdomBase
         {
             if (k == null || k.isRekt() || !k.hasKing() || k.king == null) continue;
             if (k.IsEmpire()) continue;
+            if (!RebellionSystem.CanAttempt(k) || !CityStabilitySystem.CanRise(k.capital)) continue;
             if (k == pKingdom) continue;
             if (!k.king.HasFaction()) continue;
             if (k.GetHighestFactionRatio()!=faction) continue;
@@ -117,6 +120,27 @@ public class EmpireCraftKingdomBehCheckPlots : GameAIKingdomBase
             if (rebelData.rebellion_auto_expand_remaining <= 0) return;
         }
         
+    }
+
+    private static bool TryEndExclaveRebellionWar(Kingdom rebels, War war,
+        KingdomExtension.KingdomExtraData rebelData)
+    {
+        if (rebels == null || war == null || rebelData == null || !rebelData.rebellion_origin_city_isolated ||
+            rebelData.rebellion_origin_city_value < 0) return false;
+        double now = World.world.getCurWorldTime();
+        if (rebelData.last_rebellion_exclave_disengagement_roll >= 0 &&
+            Date.getYearsSince(rebelData.last_rebellion_exclave_disengagement_roll) < 1) return false;
+        rebelData.last_rebellion_exclave_disengagement_roll = now;
+
+        CityValueSnapshot origin = new CityValueSnapshot
+        {
+            Total = rebelData.rebellion_origin_city_value,
+            IsIsolated = true
+        };
+        float chance = CityValueRules.GetExclaveDisengagementChance(origin, rebels.countCities());
+        if (chance <= 0f || !Randy.randomChance(chance)) return false;
+        World.world.wars.endWar(war, WarWinner.Peace);
+        return true;
     }
     public void CheckJoinReligionWar(Kingdom pKingdom)
     {
@@ -147,6 +171,7 @@ public class EmpireCraftKingdomBehCheckPlots : GameAIKingdomBase
     public void CheckJoinWar(Kingdom pKingdom)
     {
         Empire empire = pKingdom.GetEmpire();
+        if (empire == null || empire.CoreKingdom == null || empire.CoreKingdom.isRekt()) return;
         var regime = pKingdom.GetRegime();
         if (regime == null) return;
         if (empire.CoreKingdom.getWars().Any(w=>w.GetEmpireWarType()== EmpireWarType.藩王索取皇位)) return;
@@ -164,19 +189,17 @@ public class EmpireCraftKingdomBehCheckPlots : GameAIKingdomBase
                 {
                     var wars = coreKingdom.GetWarsCached(true);
                     var enumerable = wars.ToArray();
+                    bool joinedAny = false;
                     for (int i = 0; i < enumerable.Count(); i++)
                     {
                         var w = enumerable[i];
-                        if (w.isAttacker(coreKingdom))
-                        {
-                            w.joinAttackers(pKingdom);
-                        }
-                        else if (w.isDefender(coreKingdom))
-                        {
-                            w.joinDefenders(pKingdom);
-                        }
+                        joinedAny |= TryJoinWarOnSameSide(w, coreKingdom, pKingdom);
                     }
-                    TranslateHelper.LogJoinEmpireWar(pKingdom, empire);
+                    if (joinedAny)
+                    {
+                        empire.data.timestamp_invite_war_cool_down = World.world.getCurWorldTime();
+                        TranslateHelper.LogJoinEmpireWar(pKingdom, empire);
+                    }
                 } 
             }
             else
@@ -194,21 +217,62 @@ public class EmpireCraftKingdomBehCheckPlots : GameAIKingdomBase
                     if (!pKingdom.isOpinionTowardsKingdomGood(empireKingdom)&&regime.IsAllowDiplomacy()) continue;
                     var wars2 = empireKingdom.GetWarsCached(true);
                     var enumerable = wars2.ToArray();
+                    bool joinedMemberWar = false;
                     for (int i = 0; i < enumerable.Count(); i++)
                     {
                         var w = enumerable[i];
-                        if (w.isAttacker(empireKingdom))
-                        {
-                            w.joinAttackers(pKingdom);
-                        }
-                        else if (w.isDefender(empireKingdom))
-                        {
-                            w.joinDefenders(pKingdom);
-                        }
+                        joinedMemberWar |= TryJoinWarOnSameSide(w, empireKingdom, pKingdom);
                     }
-                    TranslateHelper.LogEmpireJoinWar(empire, empireKingdom);
+                    if (joinedMemberWar)
+                    {
+                        empire.data.timestamp_invite_war_cool_down = World.world.getCurWorldTime();
+                        TranslateHelper.LogEmpireJoinWar(empire, empireKingdom);
+                    }
                 }
             }
         }
+    }
+
+    private static bool TryJoinWarOnSameSide(War war, Kingdom sideKingdom, Kingdom joiningKingdom)
+    {
+        if (war == null ||
+            sideKingdom == null ||
+            joiningKingdom == null ||
+            joiningKingdom.isRekt() ||
+            !war.isAlive() ||
+            war.hasEnded() ||
+            war.GetEmpireWarType() == EmpireWarType.劫掠 ||
+            IsWarMember(war, joiningKingdom) ||
+            // 春秋战国：周室诸侯之间的征伐不拉天子与别的诸侯下场(犯天子的勤王见 ZhouEraSystem)
+            ZhouEraSystem.IsInternalWar(war))
+        {
+            return false;
+        }
+
+        if (war.isAttacker(sideKingdom))
+        {
+            war.joinAttackers(joiningKingdom);
+        }
+        else if (war.isDefender(sideKingdom))
+        {
+            war.joinDefenders(joiningKingdom);
+        }
+        else
+        {
+            return false;
+        }
+
+        // joinAttackers/joinDefenders 可能因战争正在结算而拒绝加入。
+        // 只有最终真的出现在阵营名单中，才允许播报和写入历史。
+        return IsWarMember(war, joiningKingdom);
+    }
+
+    private static bool IsWarMember(War war, Kingdom kingdom)
+    {
+        if (war == null || kingdom == null)
+            return false;
+
+        return (war._list_attackers != null && war._list_attackers.Contains(kingdom)) ||
+               (war._list_defenders != null && war._list_defenders.Contains(kingdom));
     }
 }

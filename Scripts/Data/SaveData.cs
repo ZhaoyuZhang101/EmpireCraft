@@ -24,15 +24,24 @@ public class SaveData
     public List<KingdomExtraData> kingdomExtraData = new List<KingdomExtraData>();
     public List<CityExtraData> cityExtraData = new List<CityExtraData>();
     public List<ClanExtraData> clanExtraData = new List<ClanExtraData>();
+    // 时代名著挂在原版书上的扩展(见 BookExtension)
+    public List<BookExtension.BookExtraData> bookExtraData = new List<BookExtension.BookExtraData>();
     public List<WarExtraData> warExtraData = new List<WarExtraData>();
     public List<ReligionExtraData> religionExtraData = new List<ReligionExtraData>();
     public List<EmpireData> empireDatas = new List<EmpireData>();
     public List<EmpireCore> empireCoreDatas = new List<EmpireCore>();
     public List<KingdomTitleData> kingdomTitleDatas = new List<KingdomTitleData>();
+    public Dictionary<long, string> cultureBindings = new Dictionary<long, string>();
+    public Dictionary<string, CultureInstitutionState> cultureInstitutionStates = new Dictionary<string, CultureInstitutionState>();
+    public Dictionary<string, CultureTechState> cultureTechStates = new Dictionary<string, CultureTechState>();
     public List<string> yearNameSubspecies = new List<string>();
     public Dictionary<long, List<EmpireCraftHistory>> all_history;
+    public Dictionary<string, double> culture_no_empire_since = new Dictionary<string, double>();
+    public Dictionary<string, List<long>> feudal_empire_lineage = new Dictionary<string, List<long>>();
+    public List<long> mod_alliance_ids = new List<long>();
     public bool switch_real_num = false;
     public bool switch_simple_nameplate = false;
+    public bool switch_empire_show_alliance = false;
     public List<SpecificClan> specificClans = new List<SpecificClan>();
     public Dictionary<long, OfficeObject>  officeObjects = new Dictionary<long, OfficeObject>();
     public int mod_version = 0;

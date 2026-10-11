@@ -1,0 +1,6 @@
+key,cz,en,ch
+book_template_japan_diplomacy_manual_1,$word$,$word$,$word$
+book_template_japan_diplomacy_manual_2,$word$秘传,Secret $word$,$word$秘傳
+book_template_japan_diplomacy_manual_3,$city$$word$,$word$ of $city$,$city$$word$
+book_template_japan_diplomacy_manual_4,$author$流$word$,$word$ of the $author$ School,$author$流$word$
+book_template_japan_diplomacy_manual_5,$year_name$$word$,$word$ of the $year_name$ Era,$year_name$$word$

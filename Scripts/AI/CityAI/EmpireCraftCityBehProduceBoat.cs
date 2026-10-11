@@ -41,7 +41,8 @@ public class EmpireCraftBehCheckBoat: GameAICityBase
         }
         catch
         {
-            pCity._boats.ForEach(b=>b.die(true));
+            // Passengers are unloaded by ActorPatch.Die before the boat is destroyed.
+            foreach (Actor boat in pCity._boats.ToList()) boat.dieAndDestroy(AttackType.Other);
             return null;
         }
         if (boatAssetToBuild == null)

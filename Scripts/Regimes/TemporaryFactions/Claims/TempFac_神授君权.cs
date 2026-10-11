@@ -35,11 +35,17 @@ public class TempFac_神授君权 : TemporaryFaction
     public override bool CheckCondition()
     {
         Empire empire = GetEmpire();
+        if (empire == null) return false;
+        // 西方封建：确立国教 → 恢复圣地(建立教宗国) → 神授君权，只能向帝国内的教宗国(不是皇帝本国)求得教宗法理，方可称"神圣"
+        bool western = empire.CoreKingdom?.GetRegime()?.type == RegimeType.Feudalism;
         if (String.IsNullOrEmpty(empire.data.directPre)&&!empire.Religion.isRekt())
         {
             
             var religionCoreCity = empire.Religion.GetCity();
-            var religionKingdom = religionCoreCity.kingdom;
+            var religionKingdom = religionCoreCity?.kingdom;
+            if (religionKingdom == null) return false;
+            if (western && (religionKingdom == empire.CoreKingdom ||
+                            religionKingdom.GetKingdomType() != KingdomType.Feudalism_papal_state)) return false;
             if (religionKingdom.GetRegime().GetReligionLevel() == ReligionLevel.High)
             {
                 if (religionKingdom.IsInSameEmpire(empire.CoreKingdom))

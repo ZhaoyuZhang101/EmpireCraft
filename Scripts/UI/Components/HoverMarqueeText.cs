@@ -131,7 +131,8 @@ public sealed class HoverMarqueeText : MonoBehaviour, IPointerEnterHandler, IPoi
         _content.pivot = new Vector2(0f, 0.5f);
         float viewportHeight = _viewport.rect.height;
         if (viewportHeight <= 0f && _root != null) viewportHeight = _root.rect.height;
-        _content.sizeDelta = new Vector2(Mathf.Max(contentWidth, viewportWidth), viewportHeight * 0.95f);
+        // 放得下时文字框正好等于视口内宽：右对齐/居中的文字才不会被推到视口右缘外、尾字被裁掉
+        _content.sizeDelta = new Vector2(_overflows ? contentWidth : viewportWidth - EdgePadding * 2f, viewportHeight * 0.95f);
         _startX = EdgePadding;
         _endX = viewportWidth - contentWidth - EdgePadding;
         _content.anchoredPosition = new Vector2(_startX, 0f);

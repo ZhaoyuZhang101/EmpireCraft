@@ -7,6 +7,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
+using EmpireCraft.Scripts.GeneralSystems;
 
 namespace EmpireCraft.Scripts.Layer;
 public class KingdomTitleManager : MetaSystemManager<KingdomTitle, KingdomTitleData>
@@ -47,7 +48,9 @@ public class KingdomTitleManager : MetaSystemManager<KingdomTitle, KingdomTitleD
     }
     public KingdomTitle newKingdomTitle(City pCity)
     {
-        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(pCity)) return null;
+        if (pCity == null || pCity.isRekt() || pCity.kingdom == null || pCity.kingdom.isRekt() ||
+            pCity.kingdom.king == null || pCity.kingdom.king.isRekt() || pCity.kingdom.king.asset == null ||
+            EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(pCity)) return null;
         long id = OverallHelperFunc.IdGenerator.NextId();
         KingdomTitle title = base.newObjectFromID(id);
         title.newKingdomTitle(pCity);
@@ -59,6 +62,19 @@ public class KingdomTitleManager : MetaSystemManager<KingdomTitle, KingdomTitleD
     {
         update(-1L);
         return get(t) != null;
+    }
+
+    // 法理扩张(未冻结法理)时，单个王国法理最多容纳的城市数；0 表示不限。只限制决议自动扩张，
+    // 上帝之力手动加城不受影响。
+    public static int MaxCitiesPerTitle => ModClass.KINGDOM_TITLE_FREEZE ? 0 : Math.Max(0, ModClass.TITLE_MAX_CITIES);
+
+    public static int CountTitleCities(KingdomTitle title) =>
+        title?.getCities()?.Count(city => city != null && !city.isRekt()) ?? 0;
+
+    public static bool HasRoomFor(KingdomTitle title, int adding = 1)
+    {
+        int max = MaxCitiesPerTitle;
+        return max <= 0 || title == null || CountTitleCities(title) + adding <= max;
     }
 
     public void AddCityToTitle(KingdomTitle pTitle, City pCity)
@@ -81,6 +97,7 @@ public class KingdomTitleManager : MetaSystemManager<KingdomTitle, KingdomTitleD
         if (title == null)
         {
             title = ModClass.KINGDOM_TITLE_MANAGER.newKingdomTitle(pCity1);
+            if (title == null) return false;
             title.addCity(pCity2);
             result = true;
         }
@@ -97,6 +114,7 @@ public class KingdomTitleManager : MetaSystemManager<KingdomTitle, KingdomTitleD
     {
         base.update(pElapsed);
         if (this.Count <= 0) return;
+        using var frameWork = SimulationFrameBudget.Measure();
         _titleUpdateBuffer.Clear();
         bool forceFullUpdate = pElapsed < 0f;
         if (forceFullUpdate)
@@ -111,19 +129,30 @@ public class KingdomTitleManager : MetaSystemManager<KingdomTitle, KingdomTitleD
                 ModClass.PERFORMANCE_HIGH_POPULATION_MODE,
                 ModClass.PERFORMANCE_ADAPTIVE_THROUGHPUT_MODE, population,
                 Math.Max(0d, Time.unscaledDeltaTime * 1000d));
+            if (ModClass.PERFORMANCE_ADAPTIVE_THROUGHPUT_MODE)
+            {
+                int minimumThroughput = EmpireCraftFrameSchedulingRules.ResolveMinimumItemsForSweep(
+                    this.list.Count, Math.Max(0d, Time.unscaledDeltaTime),
+                    EmpireCraftFrameSchedulingRules.TitleSweepTargetSeconds, 96);
+                budget = Math.Max(budget, minimumThroughput);
+            }
             int count = Math.Min(this.list.Count, Math.Max(1, budget));
             for (int index = 0; index < count; index++)
             {
                 if (_scheduledUpdateCursor >= this.list.Count) _scheduledUpdateCursor = 0;
-                _titleUpdateBuffer.Add(this.list[_scheduledUpdateCursor++]);
+                _titleUpdateBuffer.Add(this.list[(_scheduledUpdateCursor + index) % this.list.Count]);
             }
         }
 
         for (int index = 0; index < _titleUpdateBuffer.Count; index++)
         {
+            if (!forceFullUpdate && !SimulationFrameBudget.HasTime) break;
+            if (!forceFullUpdate) _scheduledUpdateCursor = (_scheduledUpdateCursor + 1) % this.list.Count;
             KingdomTitle title = _titleUpdateBuffer[index];
             if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(title)) continue;
-            if (!title.checkActive()) this._to_dissolve.Add(title);
+            // 法理默认文化不再由这里按年自动检查/转换：占比够高之后要靠"文治"派系发起
+            // 文化转化决议来正式改变（见 TempFac_文化转化.cs），所以旧的按年计时器已移除。
+            if (!title.checkActive() && !ModClass.KINGDOM_TITLE_FREEZE) this._to_dissolve.Add(title);
         }
         for (int index = 0; index < this._to_dissolve.Count; index++)
         {

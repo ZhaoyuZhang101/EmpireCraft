@@ -18,19 +18,66 @@ public class CultureRule
     public string translate_ch;
     public string translate_cz;
     public string translate_en;
+    // 文化地图图层（图层染色/悬停高亮）使用的预制颜色，"#RRGGBB" 十六进制格式。
+    // 不配置时 GetCultureColor 会退化成按文化名哈希取一个固定但随意的颜色，
+    // 不会报错，但同名文化每次读表颜色都一样（哈希是确定性的）。
+    public string color;
+    // 哪些物种默认属于这个文化(物种 id，比如 "human"、"civ_fox")。可选；
+    // 会覆盖代码里 ConfigData.speciesCulturePair 的默认映射，玩家的 CultureSpeciesPairPlayerConfig.json 仍然优先。
+    public List<string> species;
     public Setting setting;
 }
 
 public class Setting
 {
     public List<string> traits = new List<string>();
+    // 只供 EmpireCraft 政治系统读取，不会注册成原版 CultureTrait。
+    // 例如 strong_unification 会启用严格的军阀时期、易帜与统一继承逻辑。
+    public List<string> political_traits = new List<string>();
     public RegimeType regime;
+    // 这个文化归属哪条制度科技线（对应 InstitutionTrees/<线 id>.json 的文件名）。
+    // 制度归属文化而不是政体：政体会被制度节点的 change_regime 效果改掉（华夏线的郡县制
+    // 会把周制改成律令制），但文化所属的线终身不变。
+    // 留空或写了个目录里不存在的 id，会退化成 InstitutionTrees/Settings.json 里的 default_line。
+    public string institution_line = "";
     public CitySetting City;
     public KingdomSetting Kingdom;
     public ClanSetting Clan;
     public FamilySetting Family;
     public UnitSetting Unit;
     public string Religion = "";
+    // 政党命名：理念 → 词库(见 PartySystem)
+    public PartySetting Party;
+    // 宪法：名称词库与本文化的制宪倾向(见 ConstitutionSystem)
+    public ConstitutionSetting Constitution;
+}
+
+public class ConstitutionSetting
+{
+    // 正式宪法名称词库(本文件夹 <文化><词库名>.csv，可写"别的文化:词库名")，{0} 代入国号；没配用"{0}宪法"
+    public string name_group = "";
+    // 临时约法名称词库，规则同上；没配用"{0}临时约法"
+    public string provisional_name_group = "";
+    // 本文化的制宪倾向：条款名 → 方案名(如 "territory": "Federal")，
+    // 制宪会议起草时覆盖各党的主张(条款与方案名见 ConstitutionTemplates.json)
+    public Dictionary<string, string> clauses;
+}
+
+public class PartySetting
+{
+    // key 为理念(PartyIdeology 的名字，如 "Socialism")，value 为词库名；
+    // 词库文件放在 Locales/Cultures/Culture_<文化>/<文化><词库名>.csv，格式与其他命名词库相同(key,cz,en,ch)。
+    // 没配的理念用 Locales/Cultures/PartyNames/Party<理念>.csv 里的通用党名。
+    public Dictionary<string, string> groups;
+    // 改制共和后的国号后缀词库：理念 → 词库名(同上的放置规则)；没配用 PartyNames/Suffix<理念>.csv
+    public Dictionary<string, string> suffix_groups;
+    // 未组建政府的现代势力(军阀、武装)称呼词库：理念 → 词库名；没配用 PartyNames/Untitled<理念>.csv。
+    // 称呼里写 {0} 时代入势力名号(如"{0}系军阀")，否则接在名号后面(如 晋 + 工农红军)。
+    public Dictionary<string, string> untitled_groups;
+    // 已组建政府但尚非中央的临时政府称呼词库：理念 → 词库名；没配用 PartyNames/Provisional<理念>.csv，{0} 规则同上。
+    public Dictionary<string, string> provisional_groups;
+    // 以上各项的词库名都可以写成"别的文化:词库名"(如 "Huaxia:UntitledCommunism")，直接引用那个文化的词库，
+    // 同一套称呼给几个文化共用时不必复制文件。
 }
 
 public class UnitSetting
@@ -80,17 +127,108 @@ public static class OnomasticsRule
 {
     public static Dictionary<string, Setting> ALL_CULTURE_RULE = new Dictionary<string, Setting>();
     public static Dictionary<string, (string ch, string cz, string en)> ALL_CULTURE_TRANSLATE = new Dictionary<string, (string ch, string cz, string en)>();
+    // 每种文化的预制染色（来自 CultureRule.jsonc 的 color 字段），供地图上
+    // 文化图层的地块底色/悬停高亮使用，避免继续用原版自带的、跟模组文化实体对不上
+    // 的颜色，也避免像铭牌图标那样只是"看着还行"的哈希取色（那个是给旗帜图标用的，
+    // 玩家不会拿它跟别的文化的颜色反复比较；地图底色不一样，需要真正稳定可配置）。
+    public static Dictionary<string, Color> ALL_CULTURE_COLOR = new Dictionary<string, Color>();
+    // 每个文化一个文件夹：Locales/Cultures/Culture_<文化>/CultureRule.jsonc 放规则，同文件夹放各种词库 CSV。
+    // 加一个文化只要新建这个文件夹，不用改代码也不用动别的文件。
+    // 旧版的根目录 CultureRulesConfig.json(一个数组)如果还在也照读，文件夹里的同名文化覆盖它。
+    public const string RuleFileName = "CultureRule.jsonc";
+
     public static void ReadSetting()
     {
-        string settingPath = Path.Combine(ModClass._declare.FolderPath, "CultureRulesConfig.json");
-        string text = File.ReadAllText(settingPath);
-        List<CultureRule>  cultureRules = JsonConvert.DeserializeObject<List<CultureRule>>(text);
-        foreach (CultureRule cultureRule in cultureRules)
+        var rules = new List<CultureRule>();
+        string legacyPath = Path.Combine(ModClass._declare.FolderPath, "CultureRulesConfig.json");
+        if (File.Exists(legacyPath))
         {
-            ALL_CULTURE_TRANSLATE.Add(cultureRule.name, (cultureRule.translate_ch, cultureRule.translate_cz, string.IsNullOrEmpty(cultureRule.translate_en)?cultureRule.name:cultureRule.translate_en));
-            ALL_CULTURE_RULE.Add(cultureRule.name, cultureRule.setting);
+            try
+            {
+                rules.AddRange(JsonConvert.DeserializeObject<List<CultureRule>>(File.ReadAllText(legacyPath)) ?? new List<CultureRule>());
+            }
+            catch (Exception e)
+            {
+                LogService.LogWarning($"[EmpireCraft] 读取 {legacyPath} 失败: {e.Message}");
+            }
+        }
+        foreach (string file in CultureRuleFiles())
+        {
+            try
+            {
+                CultureRule rule = JsonConvert.DeserializeObject<CultureRule>(File.ReadAllText(file));
+                if (rule == null) continue;
+                // 没写 name 就用文件夹名(Culture_Xxx → Xxx)
+                if (string.IsNullOrWhiteSpace(rule.name))
+                    rule.name = Path.GetFileName(Path.GetDirectoryName(file))!.Substring("Culture_".Length);
+                rules.Add(rule);
+            }
+            catch (Exception e)
+            {
+                LogService.LogWarning($"[EmpireCraft] 文化配置 {file} 格式有误，已跳过: {e.Message}");
+            }
+        }
+        foreach (CultureRule cultureRule in rules)
+        {
+            if (string.IsNullOrWhiteSpace(cultureRule?.name) || cultureRule.setting == null) continue;
+            ALL_CULTURE_TRANSLATE[cultureRule.name] = (cultureRule.translate_ch, cultureRule.translate_cz, string.IsNullOrEmpty(cultureRule.translate_en)?cultureRule.name:cultureRule.translate_en);
+            ALL_CULTURE_RULE[cultureRule.name] = cultureRule.setting;
+            if (!string.IsNullOrEmpty(cultureRule.color) && ColorUtility.TryParseHtmlString(cultureRule.color, out Color parsedColor))
+            {
+                ALL_CULTURE_COLOR[cultureRule.name] = parsedColor;
+            }
+            if (cultureRule.species != null)
+                foreach (string species in cultureRule.species.Where(id => !string.IsNullOrWhiteSpace(id)))
+                    ConfigData.speciesCulturePair[species.Trim()] = cultureRule.name;
             LogService.LogInfo("载入文化配置"+cultureRule.name);
         }
+    }
+
+    public static IEnumerable<string> CultureRuleFiles()
+    {
+        string root = Path.Combine(ModClass._declare.FolderPath, "Locales", "Cultures");
+        if (!Directory.Exists(root)) yield break;
+        foreach (string dir in Directory.EnumerateDirectories(root, "Culture_*").OrderBy(d => d, StringComparer.Ordinal))
+        {
+            string file = Path.Combine(dir, RuleFileName);
+            if (File.Exists(file)) yield return file;
+        }
+    }
+
+    // 文化地图图层用的预制颜色。配置里没填 color、或者填的十六进制解析失败时，
+    // 退化成按文化名哈希出一个稳定（同一次读表内每次都一样，但换个文化名字就会
+    // 变别的颜色）的柔和色，而不是直接报错/给纯黑——这样即使漏填颜色，地图上
+    // 也不会出现一块诡异的纯黑/纯白区域，只是不一定好看，需要回去补配置。
+    public static Color GetCultureColor(this string culture)
+    {
+        if (!string.IsNullOrEmpty(culture) && ALL_CULTURE_COLOR.TryGetValue(culture, out Color color))
+        {
+            return color;
+        }
+        int hash = Math.Abs((culture ?? "").GetHashCode());
+        float hue = (hash % 360) / 360f;
+        Color fallback = Color.HSVToRGB(hue, 0.55f, 0.85f);
+        fallback.a = 1f;
+        return fallback;
+    }
+
+    // 文化归属的制度科技线 id。返回空串表示没配/配错，由 InstitutionDefinitionRegistry.ResolveLine
+    // 兜底到 Settings.json 的 default_line —— 线是纯字符串而不是枚举，就是为了让加一条新线
+    // 只需要往 InstitutionTrees/ 里丢一个 json，不用改代码。
+    public static string GetInstitutionLine(this string culture)
+    {
+        return !string.IsNullOrEmpty(culture) && ALL_CULTURE_RULE.TryGetValue(culture, out Setting setting) &&
+               !string.IsNullOrWhiteSpace(setting?.institution_line)
+            ? setting.institution_line.Trim()
+            : "";
+    }
+
+    public static bool HasPoliticalTrait(this string culture, string trait)
+    {
+        if (string.IsNullOrWhiteSpace(culture) || string.IsNullOrWhiteSpace(trait) ||
+            !ALL_CULTURE_RULE.TryGetValue(culture, out Setting setting)) return false;
+        return setting?.political_traits?.Any(value =>
+            string.Equals(value?.Trim(), trait, StringComparison.OrdinalIgnoreCase)) == true;
     }
 
     public static string GetCultureTranslate(this string culture)

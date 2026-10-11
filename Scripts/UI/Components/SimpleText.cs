@@ -24,7 +24,7 @@ public class SimpleText : APrefab<SimpleText>
         SetSize(pSize == default ? new Vector2(200, 18) : pSize);
         text.text = pText;
         text.alignment = pAlignment;
-        background.sprite = pBackground == null ? SpriteTextureLoader.getSprite("ui/special/windowInnerSliced") : pBackground;
+        background.sprite = pBackground == null ? EmpireCraft.Scripts.HelperFunc.SpriteGetHelper.GetUiSprite("ui/special/windowInnerSliced", "windowInnerSliced") : pBackground;
     }
     public void UseFixedFontSize(int pFontSize, HorizontalWrapMode pHorizontalWrap = HorizontalWrapMode.Wrap,
         VerticalWrapMode pVerticalWrap = VerticalWrapMode.Overflow)
@@ -63,7 +63,7 @@ public class SimpleText : APrefab<SimpleText>
     {
         GameObject obj = new("SimpleText", typeof(Image));
         obj.transform.SetParent(ModClass.prefab_library);
-        obj.GetComponent<Image>().sprite = SpriteTextureLoader.getSprite("ui/special/windowInnerSliced");
+        obj.GetComponent<Image>().sprite = EmpireCraft.Scripts.HelperFunc.SpriteGetHelper.GetUiSprite("ui/special/windowInnerSliced", "windowInnerSliced");
         obj.GetComponent<Image>().type = Image.Type.Sliced;
         obj.GetComponent<RectTransform>().sizeDelta = new Vector2(200, 18);
 

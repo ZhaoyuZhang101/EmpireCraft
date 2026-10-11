@@ -145,7 +145,7 @@ public class AdvancedButton:APrefab<AdvancedButton>
         GameObject obj = new GameObject(nameof(AdvancedButton), typeof(Button), typeof(Image), typeof(TipButton));
         obj.transform.SetParent(ModClass.prefab_library);
         obj.GetComponent<TipButton>().enabled = false;
-        obj.GetComponent<Image>().sprite = SpriteTextureLoader.getSprite("ui/special/special_buttonRed");
+        obj.GetComponent<Image>().sprite = EmpireCraft.Scripts.HelperFunc.SpriteGetHelper.GetUiSprite("ui/special/special_buttonRed", "special_buttonRed");
         obj.GetComponent<Image>().type = Image.Type.Sliced;
 
         GameObject icon = new GameObject("Icon", typeof(Image));

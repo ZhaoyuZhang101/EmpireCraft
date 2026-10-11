@@ -15,6 +15,47 @@ using UnityEngine.UI;
 namespace EmpireCraft.Scripts.UI;
 public static class FixFunctions
 {
+    public static PowerButton CloneExistingLayerButton(MetaType mapType, Sprite fallbackIcon)
+    {
+        MetaTypeAsset mapAsset = mapType.getAsset();
+        string powerId = mapAsset?.power_option_zone_id;
+        GodPower power = string.IsNullOrEmpty(powerId) ? null : AssetManager.powers.get(powerId);
+        if (power == null)
+        {
+            LogService.LogError($"Unable to copy the {mapType} layer button: its original power is unavailable.");
+            return null;
+        }
+
+        PowerButton prefab = ResourcesFinder.FindResource<PowerButton>(powerId);
+        if (prefab == null)
+        {
+            // Keep the shortcut functional if another mod replaced the original toolbar prefab.
+            PowerButton fallback = PowerButtonCreator.CreateGodPowerButton(powerId, fallbackIcon);
+            TipButton fallbackTip = fallback?.GetComponent<TipButton>();
+            if (fallbackTip != null)
+            {
+                fallbackTip.textOnClick = power.getLocaleID();
+                fallbackTip.textOnClickDescription = power.getDescriptionID();
+                fallbackTip.type = "normal";
+            }
+            return fallback;
+        }
+
+        // Clone the vanilla button itself so its multi-toggle icons, tooltip and click handling
+        // continue to use the original culture-layer power and option state.
+        bool wasActive = prefab.gameObject.activeSelf;
+        if (wasActive) prefab.gameObject.SetActive(false);
+        PowerButton clone = UnityEngine.Object.Instantiate(prefab);
+        if (wasActive) prefab.gameObject.SetActive(true);
+
+        clone.name = powerId;
+        clone.transform.localPosition = Vector3.zero;
+        clone.transform.localScale = Vector3.one;
+        clone.gameObject.SetActive(true);
+        clone.init();
+        return clone;
+    }
+
     public static PowerButton CreateLayerButton(MetaType mapType, Sprite pIcon, [CanBeNull] Transform pParent = null,
         Vector2 pLocalPosition = default, int maxOption=3)
     {

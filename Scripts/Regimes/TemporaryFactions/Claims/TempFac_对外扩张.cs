@@ -45,7 +45,9 @@ public class TempFac_对外扩张 : TemporaryFaction
             {
                 if (kingdom.species_id != empire.CoreKingdom.species_id)
                 {
-                    if (!kingdom.isInWarWith(empire.CoreKingdom))
+                    // 对方有核、自己没有：不敢下手(见 NuclearDoctrineSystem)
+                    if (!kingdom.isInWarWith(empire.CoreKingdom) &&
+                        !EmpireCraft.Scripts.Compatibility.NuclearDoctrineSystem.IsDeterred(empire.CoreKingdom, kingdom))
                     {
                         if (empire.countWarriors() > kingdom.countTotalWarriors())
                         {

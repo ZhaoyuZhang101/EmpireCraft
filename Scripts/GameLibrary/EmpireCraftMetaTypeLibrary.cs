@@ -21,7 +21,150 @@ public static class EmpireCraftMetaTypeLibrary
     {
       AddEmpireMeta();
       AddKingdomTitleMeta();
+      AddIdeologyMeta();
+      AddNationMeta();
+      AddWealthMeta();
+      AddMineralMeta();
       AssetManager.meta_type_library.linkAssets();
+    }
+
+    // 理念图层：按各城市的主理念上色，独立于原版宗教；点城市打开理念窗口
+    public static MetaTypeAsset ideology;
+    public static MetaTypeAsset nation;
+    public static MetaTypeAsset mineral;
+
+    // 矿产图层：地块按城描边、有矿藏的城淡淡上色，城上方并排显示矿藏图标(见 Layer/MineralMap.cs)
+    public static void AddMineralMeta()
+    {
+        var asset = new MetaTypeAsset
+        {
+            id = "mineral",
+            ranks = MetaTypeLibrary.generateExponentialRanks(100.0, 1.5),
+            window_name = "IdeologyInfoWindow",
+            power_tab_id = "selected_empire",
+            force_zone_when_selected = false,
+            set_icon_for_cancel_button = true,
+            icon_list = "iconReligionList",
+            icon_single_path = "ui/icons/resources/iconRes_coal",
+            has_dynamic_zones = false,
+            reports = new string[0],
+            map_mode = MetaTypeExtension.Mineral,
+            option_id = "map_Mineral_layer",
+            power_option_zone_id = "Mineral_layer"
+        };
+        asset.window_action_clear = (MetaTypeAction) (() => { });
+        asset.window_history_action_update = (MetaTypeHistoryAction) ((ref WindowHistoryData pHistoryData) => { });
+        asset.window_history_action_restore = (MetaTypeHistoryAction) ((ref WindowHistoryData pHistoryData) => { });
+        asset.get_list = (MetaTypeListAction) (() => Enumerable.Empty<NanoObject>());
+        asset.has_any = (MetaTypeListHasAction) (() => false);
+        asset.get_selected = (MetaSelectedGetter) (() => null);
+        asset.set_selected = (MetaSelectedSetter) (_ => { });
+        asset.get = (MetaGetter) (_ => null);
+        asset.check_unit_has_meta = (MetaCheckUnitWindowAction) (_ => false);
+        asset.set_unit_set_meta_for_meta_for_window = (MetaUnitSetMetaForWindow) (_ => { });
+        EmpireCraft.Scripts.Layer.MineralMap.Configure(asset);
+        mineral = AssetManager.meta_type_library.add(asset);
+    }
+
+    // 民族情绪图层：与理念图层一样不开 has_dynamic_zones，地块在 draw_zones 里自己画(见 Layer/NationMap.cs)
+    public static void AddNationMeta()
+    {
+        var asset = new MetaTypeAsset
+        {
+            id = "nation",
+            ranks = MetaTypeLibrary.generateExponentialRanks(100.0, 1.5),
+            window_name = "IdeologyInfoWindow",
+            power_tab_id = "selected_empire",
+            force_zone_when_selected = false,
+            set_icon_for_cancel_button = true,
+            icon_list = "iconReligionList",
+            icon_single_path = "ui/icons/iconNationLayer",
+            has_dynamic_zones = false,
+            reports = new string[0],
+            map_mode = MetaTypeExtension.Nation,
+            option_id = "map_Nation_layer",
+            power_option_zone_id = "Nation_layer"
+        };
+        asset.window_action_clear = (MetaTypeAction) (() => { });
+        asset.window_history_action_update = (MetaTypeHistoryAction) ((ref WindowHistoryData pHistoryData) => { });
+        asset.window_history_action_restore = (MetaTypeHistoryAction) ((ref WindowHistoryData pHistoryData) => { });
+        asset.get_list = (MetaTypeListAction) (() => Enumerable.Empty<NanoObject>());
+        asset.has_any = (MetaTypeListHasAction) (() => false);
+        asset.get_selected = (MetaSelectedGetter) (() => null);
+        asset.set_selected = (MetaSelectedSetter) (_ => { });
+        asset.get = (MetaGetter) (_ => null);
+        asset.check_unit_has_meta = (MetaCheckUnitWindowAction) (_ => false);
+        asset.set_unit_set_meta_for_meta_for_window = (MetaUnitSetMetaForWindow) (_ => { });
+        EmpireCraft.Scripts.Layer.NationMap.Configure(asset);
+        nation = AssetManager.meta_type_library.add(asset);
+    }
+
+    // 财富图层：结构与民族情绪图层一致(见 Layer/WealthMap.cs)
+    public static void AddWealthMeta()
+    {
+        var asset = new MetaTypeAsset
+        {
+            id = "wealth",
+            ranks = MetaTypeLibrary.generateExponentialRanks(100.0, 1.5),
+            window_name = "IdeologyInfoWindow",
+            power_tab_id = "selected_empire",
+            force_zone_when_selected = false,
+            set_icon_for_cancel_button = true,
+            icon_list = "iconReligionList",
+            icon_single_path = "ui/icons/godpowers/wealth_layer",
+            has_dynamic_zones = false,
+            reports = new string[0],
+            map_mode = MetaTypeExtension.Wealth,
+            option_id = "map_Wealth_layer",
+            power_option_zone_id = "Wealth_layer"
+        };
+        asset.window_action_clear = (MetaTypeAction) (() => { });
+        asset.window_history_action_update = (MetaTypeHistoryAction) ((ref WindowHistoryData pHistoryData) => { });
+        asset.window_history_action_restore = (MetaTypeHistoryAction) ((ref WindowHistoryData pHistoryData) => { });
+        asset.get_list = (MetaTypeListAction) (() => Enumerable.Empty<NanoObject>());
+        asset.has_any = (MetaTypeListHasAction) (() => false);
+        asset.get_selected = (MetaSelectedGetter) (() => null);
+        asset.set_selected = (MetaSelectedSetter) (_ => { });
+        asset.get = (MetaGetter) (_ => null);
+        asset.check_unit_has_meta = (MetaCheckUnitWindowAction) (_ => false);
+        asset.set_unit_set_meta_for_meta_for_window = (MetaUnitSetMetaForWindow) (_ => { });
+        EmpireCraft.Scripts.Layer.WealthMap.Configure(asset);
+        AssetManager.meta_type_library.add(asset);
+    }
+
+    public static void AddIdeologyMeta()
+    {
+        var asset = new MetaTypeAsset
+        {
+            id = "ideology",
+            ranks = MetaTypeLibrary.generateExponentialRanks(100.0, 1.5),
+            window_name = "IdeologyInfoWindow",
+            power_tab_id = "selected_empire",
+            force_zone_when_selected = false,
+            set_icon_for_cancel_button = true,
+            icon_list = "iconReligionList",
+            icon_single_path = "ui/icons/iconBooks",
+            // 不能开 has_dynamic_zones：那是原版宗教/文化"流动区块"用的，要配 dynamic_zones 委托。
+            // 理念图层自己在 draw_zones 里画，没有这个委托；开着它原版每帧都会调一个空委托，
+            // 抛空引用把日志刷爆、游戏卡死(帝国/法理图层也都没开)
+            has_dynamic_zones = false,
+            reports = new string[0],
+            map_mode = MetaTypeExtension.Ideology,
+            option_id = "map_Ideology_layer",
+            power_option_zone_id = "Ideology_layer"
+        };
+        asset.window_action_clear = (MetaTypeAction) (() => { });
+        asset.window_history_action_update = (MetaTypeHistoryAction) ((ref WindowHistoryData pHistoryData) => { });
+        asset.window_history_action_restore = (MetaTypeHistoryAction) ((ref WindowHistoryData pHistoryData) => { });
+        asset.get_list = (MetaTypeListAction) (() => Enumerable.Empty<NanoObject>());
+        asset.has_any = (MetaTypeListHasAction) (() => false);
+        asset.get_selected = (MetaSelectedGetter) (() => null);
+        asset.set_selected = (MetaSelectedSetter) (_ => { });
+        asset.get = (MetaGetter) (_ => null);
+        asset.check_unit_has_meta = (MetaCheckUnitWindowAction) (_ => false);
+        asset.set_unit_set_meta_for_meta_for_window = (MetaUnitSetMetaForWindow) (_ => { });
+        EmpireCraftNamePlateLibrary.ConfigureIdeologyMapAsset(asset);
+        ideology = AssetManager.meta_type_library.add(asset);
     }
 
     public static void AddEmpireMeta()
@@ -50,11 +193,14 @@ public static class EmpireCraftMetaTypeLibrary
           "many_children",
           "many_homeless"
         };
-        pAsset13.get_list = (MetaTypeListAction) (() => (IEnumerable<NanoObject>) ModClass.EMPIRE_MANAGER.ToList().Where(e => !e.IsArchived()));
-        pAsset13.has_any = (MetaTypeListHasAction) (() => ModClass.EMPIRE_MANAGER.ToList().Any(e => !e.IsArchived()));
+        pAsset13.get_list = (MetaTypeListAction) (() => ModClass.EMPIRE_MANAGER == null
+            ? Enumerable.Empty<NanoObject>()
+            : ModClass.EMPIRE_MANAGER.ToList().Where(e => !e.IsArchived()).Cast<NanoObject>());
+        pAsset13.has_any = (MetaTypeListHasAction) (() =>
+            ModClass.EMPIRE_MANAGER?.ToList().Any(e => !e.IsArchived()) == true);
         pAsset13.get_selected = (MetaSelectedGetter) (() => (NanoObject) selected_empire);
         pAsset13.set_selected = (MetaSelectedSetter) (pElement => selected_empire = pElement as Empire);
-        pAsset13.get = (MetaGetter) (pId => (NanoObject) ModClass.EMPIRE_MANAGER.get(pId));
+        pAsset13.get = (MetaGetter) (pId => (NanoObject) ModClass.EMPIRE_MANAGER?.get(pId));
         pAsset13.map_mode = MetaTypeExtension.Empire;
         pAsset13.option_id = "map_Empire_layer";
       
@@ -65,6 +211,7 @@ public static class EmpireCraftMetaTypeLibrary
         pAsset13.set_unit_set_meta_for_meta_for_window = (MetaUnitSetMetaForWindow) (pActor => selected_empire = pActor.kingdom.GetEmpire());
         pAsset13.draw_zones = (MetaZoneDrawAction) (pMetaTypeAsset =>
         {
+	        if (World.world == null || ModClass.EMPIRE_MANAGER == null) return;
 	        switch (pMetaTypeAsset.getZoneOptionState())
 	        {
 		        case 0:
@@ -87,6 +234,23 @@ public static class EmpireCraftMetaTypeLibrary
                     }
                     continue;
                   }
+                }
+                // 帝国视图显示同盟时，同盟成员涂同盟的颜色(保留各国边界)；悬停的成员国显示本国颜色
+                if (ModClass.EMPIRE_SHOW_ALLIANCE_SWITCH && kingdom.hasAlliance())
+                {
+                  Alliance alliance = kingdom.getAlliance();
+                  Kingdom hovered = World.world.getMouseTilePosCachedFrame()?.zone_city?.kingdom;
+                  foreach (City city in kingdom.cities)
+                  {
+                    foreach (TileZone zone in city.zones)
+                    {
+                      zone_manager.drawBegin();
+                      if (hovered == kingdom) drawZoneSelectedEmpireWithKingdomBorder(zone, kingdom);
+                      else drawZoneAllianceWithKingdomBorder(zone, alliance);
+                      zone_manager.drawEnd(zone);
+                    }
+                  }
+                  continue;
                 }
                 // drawDefaultMeta() traverses every kingdom. Calling it once per
                 // independent kingdom made this branch quadratic on large worlds.
@@ -138,12 +302,12 @@ public static class EmpireCraftMetaTypeLibrary
 			        foreach (var pEmpire in ModClass.EMPIRE_MANAGER)
 			        {
                 if (pEmpire == null || pEmpire.IsArchived()) continue;
-                if (pEmpire.CoreKingdom.HasTakenAlliance()) continue;
+                if (pEmpire.CoreKingdom == null || pEmpire.CoreKingdom.HasTakenAlliance()) continue;
                 drawEmpireViewCities(pEmpire, pEmpire.getCities());
                 foreach (var kingdom in pEmpire.taken_Kingdoms)
                 {
-                  if (kingdom.isRekt()) continue;
-                  drawEmpireViewCities(pEmpire, kingdom.cities);
+                  if (kingdom == null || kingdom.isRekt() || kingdom.GetTakenAllianceEmpire() != pEmpire) continue;
+                  drawEmpireViewCities(pEmpire, kingdom.cities.Where(city => city?.kingdom == kingdom));
                 }
 			        }
 			        break;
@@ -151,12 +315,12 @@ public static class EmpireCraftMetaTypeLibrary
               foreach (var pEmpire in ModClass.EMPIRE_MANAGER)
               {
                 if (pEmpire == null || pEmpire.IsArchived()) continue;
-                if (pEmpire.CoreKingdom.HasGivenAlliance()) continue;
+                if (pEmpire.CoreKingdom == null || pEmpire.CoreKingdom.HasGivenAlliance()) continue;
                 drawEmpireViewCities(pEmpire, pEmpire.getCities());
                 foreach (var kingdom in pEmpire.given_Kingdoms)
                 {
-                  if (kingdom.isRekt()) continue;
-                  drawEmpireViewCities(pEmpire, kingdom.cities);
+                  if (kingdom == null || kingdom.isRekt() || kingdom.GetGivenAllianceEmpire() != pEmpire) continue;
+                  drawEmpireViewCities(pEmpire, kingdom.cities.Where(city => city?.kingdom == kingdom));
                 }
               }
 			        break;
@@ -165,9 +329,14 @@ public static class EmpireCraftMetaTypeLibrary
         double _last_dynamic_zones_ts = -1L;
         pAsset13.dynamic_zones = (MetaZoneDynamicAction) (() =>
         {
-          if (_last_dynamic_zones_ts > 0 && Date.getMonthsSince(_last_dynamic_zones_ts) < 1) return;
+          // 原版的流动区块数据约 5 个世界时间单位就过期(ZoneMetaDataVisualizer.clearOldAndDeadZones)，
+          // 之前按"每个游戏月"才统计一次，刚写进去就过期，颜色时有时无、跟不上人口移动。
+          // 改成每 1 个时间单位统计一次(原版宗教/文化是每次都统计)。
+          if (_last_dynamic_zones_ts > 0 && World.world.getCurWorldTime() >= _last_dynamic_zones_ts &&
+              World.world.getCurWorldTime() - _last_dynamic_zones_ts < 1d) return;
           List<Actor> simpleList = World.world.units.getSimpleList();
           double curWorldTime = World.world.getCurWorldTime();
+          var empireByCity = new Dictionary<City, Empire>();
           int index = 0;
           for (int count = simpleList.Count; index < count; ++index)
           {
@@ -175,9 +344,12 @@ public static class EmpireCraftMetaTypeLibrary
             if (actor.asset.show_on_meta_layer)
             {
               TileZone zone = actor.current_tile.zone;
-              if (actor.hasCity())
-                if (actor.city?.kingdom?.GetEmpire()!=null)
-                  ZoneMetaDataVisualizer.countMetaZone(zone, (IMetaObject) actor.city.kingdom.GetEmpire(), curWorldTime);
+              if (!actor.hasCity()) continue;
+              // 同一座城的人都查同一个帝国，按城市缓存，别每个人都查一遍扩展数据
+              if (!empireByCity.TryGetValue(actor.city, out Empire cityEmpire))
+                empireByCity[actor.city] = cityEmpire = actor.city.kingdom?.GetEmpire();
+              if (cityEmpire != null)
+                ZoneMetaDataVisualizer.countMetaZone(zone, (IMetaObject) cityEmpire, curWorldTime);
             }
           }
           _last_dynamic_zones_ts = World.world.getCurWorldTime();
@@ -338,9 +510,14 @@ public static class EmpireCraftMetaTypeLibrary
         double _last_dynamic_zones_ts = -1L;
         pAsset13.dynamic_zones = (MetaZoneDynamicAction) (() =>
         {
-          if (_last_dynamic_zones_ts > 0 && Date.getMonthsSince(_last_dynamic_zones_ts) < 1) return;
+          // 原版的流动区块数据约 5 个世界时间单位就过期(ZoneMetaDataVisualizer.clearOldAndDeadZones)，
+          // 之前按"每个游戏月"才统计一次，刚写进去就过期，颜色时有时无、跟不上人口移动。
+          // 改成每 1 个时间单位统计一次(原版宗教/文化是每次都统计)。
+          if (_last_dynamic_zones_ts > 0 && World.world.getCurWorldTime() >= _last_dynamic_zones_ts &&
+              World.world.getCurWorldTime() - _last_dynamic_zones_ts < 1d) return;
           List<Actor> simpleList = World.world.units.getSimpleList();
           double curWorldTime = World.world.getCurWorldTime();
+          var titleByCity = new Dictionary<City, KingdomTitle>();
           int index = 0;
           for (int count = simpleList.Count; index < count; ++index)
           {
@@ -348,9 +525,11 @@ public static class EmpireCraftMetaTypeLibrary
             if (actor.asset.show_on_meta_layer)
             {
               TileZone zone = actor.current_tile.zone;
-              if (actor.hasCity())
-                if (actor.city.hasTitle())
-                  ZoneMetaDataVisualizer.countMetaZone(zone, (IMetaObject) actor.city.GetTitle(), curWorldTime);
+              if (!actor.hasCity()) continue;
+              if (!titleByCity.TryGetValue(actor.city, out KingdomTitle cityTitle))
+                titleByCity[actor.city] = cityTitle = actor.city.hasTitle() ? actor.city.GetTitle() : null;
+              if (cityTitle != null)
+                ZoneMetaDataVisualizer.countMetaZone(zone, (IMetaObject) cityTitle, curWorldTime);
             }
           }
           _last_dynamic_zones_ts = curWorldTime;
@@ -591,7 +770,7 @@ public static class EmpireCraftMetaTypeLibrary
       if (kingdom?.cities == null) return;
       foreach (City city in kingdom.cities)
       {
-        if (city == null || city.isRekt()) continue;
+        if (city == null || city.isRekt() || city.kingdom != kingdom) continue;
         QuantumSpriteLibrary.colorZones(pQAsset, city.zones, color);
       }
     }
@@ -610,7 +789,11 @@ public static class EmpireCraftMetaTypeLibrary
         : pZoneOption == 2 ? empire.given_Kingdoms : null;
       if (associatedKingdoms == null) return;
       foreach (Kingdom kingdom in associatedKingdoms)
+      {
+        if (kingdom == null || pZoneOption == 1 && kingdom.GetTakenAllianceEmpire() != empire ||
+            pZoneOption == 2 && kingdom.GetGivenAllianceEmpire() != empire) continue;
         highlightKingdomZones(kingdom, pQAsset, color);
+      }
     }
 
     private static void drawEmpireViewCities(Empire empire, IEnumerable<City> cities)
@@ -621,6 +804,7 @@ public static class EmpireCraftMetaTypeLibrary
         if (city == null || city.isRekt()) continue;
         foreach (TileZone zone in city.zones)
         {
+          if (zone?.city != city) continue;
           zone_manager.drawBegin();
           drawZoneEmpireWithKingdomBorder(zone, empire);
           zone_manager.drawEnd(zone);
@@ -818,6 +1002,17 @@ public static class EmpireCraftMetaTypeLibrary
         zone_manager.drawZoneMeta(pEmpire, pZone, pUp, pDown, pLeft, pRight, pEmpire.data, empire);
     }
     
+    public static void drawZoneAllianceWithKingdomBorder(TileZone pZone, Alliance pAlliance)
+    {
+        Kingdom kingdomOnZone = pZone?.city?.kingdom;
+        if (kingdomOnZone == null || pAlliance == null) return;
+        bool pUp = isBorderColor_empire_kingdoms(pZone.zone_up, kingdomOnZone);
+        bool pDown = isBorderColor_empire_kingdoms(pZone.zone_down, kingdomOnZone);
+        bool pLeft = isBorderColor_empire_kingdoms(pZone.zone_left, kingdomOnZone);
+        bool pRight = isBorderColor_empire_kingdoms(pZone.zone_right, kingdomOnZone);
+        zone_manager.drawZoneMeta(pAlliance, pZone, pUp, pDown, pLeft, pRight, pAlliance.data, empire);
+    }
+
     public static void drawZoneSelectedEmpireWithKingdomBorder(TileZone pZone, Kingdom pKingdom)
     {
         Kingdom kingdomOnZone = pZone?.city?.kingdom;

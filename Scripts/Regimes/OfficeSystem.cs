@@ -6,6 +6,7 @@ using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.System;
+using EmpireCraft.Scripts.GeneralSystems;
 using NeoModLoader.General;
 using NeoModLoader.services;
 using Newtonsoft.Json;
@@ -42,7 +43,15 @@ public class BureauSetting
     public List<string> condition;
     public LeaderSelectMethod leader_select_method;
     public List<string> require_traits;
+    // Central offices are department heads by default; false explicitly marks a permanent deputy/administrative post.
+    public bool? political_appointment;
     public CityType city_type;
+    // Optional display suffix overrides; city_type continues to select city offices.
+    public string city_suffix_key;
+    public string capital_city_suffix_key;
+    // Optional culture-specific overrides for shared government templates.
+    public Dictionary<string, string> city_suffix_keys_by_culture;
+    public Dictionary<string, string> capital_city_suffix_keys_by_culture;
 }
 
 public class BureauConfig
@@ -76,6 +85,7 @@ public class OfficeObject
     public long OfficeID { get; set; }
     public double timestamp { get; set; }
     public int officeType { get; set; }
+    public bool? political_appointment { get; set; }
     public long actor_id { get; set; } = -1L;
     public string pre { get; set; } = "";
     public int merit { get; set; }
@@ -123,8 +133,13 @@ public class OfficeObject
                 }
                 break;
         }
-        string post = LM.Get(string.Join("_", regimeType, "officiallevel", officeType)) ?? "";
-        return flag? post: preX + post;
+        string post = LM.Get(EmpireCraft.Scripts.GeneralSystems.DynastyNaming.RankKey(regimeType, officeType,
+            pNano ?? meta_object)) ?? "";
+        if (flag) return post;
+        // 封国国君的官称：单字国名补“国”(湘国侯)
+        return pNano?.meta_type == MetaType.Kingdom
+            ? EmpireCraft.Scripts.GameClassExtensions.ActorExtension.JoinRealmRank(preX, post)
+            : preX + post;
     }
     public void DetectPower(Empire empire)
     {
@@ -165,7 +180,8 @@ public class OfficeObject
     {
         string officePrefix = pre ?? "";
         var flag = officePrefix.Contains("full")||officePrefix.Contains("all");
-        var preX = LM.Get(string.Join("_", regimeType, "officiallevel", officeType));
+        var preX = LM.Get(EmpireCraft.Scripts.GeneralSystems.DynastyNaming.RankKey(regimeType, officeType,
+            pNano ?? meta_object));
         if (flag) preX = LM.Get(officePrefix);
         switch (pNano?.meta_type)
         {
@@ -185,6 +201,7 @@ public class OfficeObject
     public void InitialOffice(BureauSetting config, Action action = null, bool isNew = true)
     {
         officeType = config.type;
+        political_appointment = config.political_appointment;
         timestamp = World.world.getCurWorldTime();
         pre = config.pre;
         merit = config.merit;
@@ -203,6 +220,10 @@ public class OfficeObject
 
     public void SetActor (Actor actor)
     {
+        if (is_local && meta_object is Kingdom constitutionalCore && constitutionalCore.IsEmpire() &&
+            ConstitutionalSuccessionSystem.IsProtected(constitutionalCore.GetEmpire()) &&
+            !ConstitutionalSuccessionSystem.CanInherit(constitutionalCore.GetEmpire(), actor)) return;
+        if (actor == null || !actor.CanServeOffice(GetOfficeKingdom(actor))) return;
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(actor) ||
             EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(meta_object)) return;
         var originalActor = GetActor();
@@ -227,7 +248,7 @@ public class OfficeObject
         bool isReappointment = history_officers.Contains(actor.data.name);
         if(!actor.hasCulture())
         {
-            actor.setCulture(actor.kingdom.culture);
+            CultureService.SyncActorToCityMainCulture(actor, actor.city ?? actor.kingdom?.capital);
         }
         actor.CheckSpecificClan();
         //初始化角色官职
@@ -298,6 +319,11 @@ public class OfficeObject
     public Actor GetActor()
     {
         var res = World.world.units.get(actor_id);
+        if (res != null && res.IsWarMachine())
+        {
+            ClearInvalidHolder(res);
+            return null;
+        }
         if (res != null)
         {
             if (res.isUnitFitToRule() && res.isAdult())
@@ -306,6 +332,26 @@ public class OfficeObject
             }
         }
         return null;
+    }
+
+    private Kingdom GetOfficeKingdom(Actor fallback = null)
+    {
+        if (meta_object is Kingdom kingdom) return kingdom;
+        if (meta_object is City city) return city.kingdom;
+        if (meta_object is Army army) return army._city?.kingdom;
+        return fallback?.kingdom;
+    }
+
+    private void ClearInvalidHolder(Actor actor)
+    {
+        if (actor != null)
+        {
+            actor.EndOffice();
+            if (actor.hasTrait("officer")) actor.removeTrait("officer");
+            if (actor.hasTrait("officerLeave")) actor.removeTrait("officerLeave");
+            actor.RemoveIdentity();
+        }
+        actor_id = -1L;
     }
     public int GetOnTime()
     {
@@ -358,7 +404,11 @@ public class CenterOffice
         CoreOffices.ForEach(id=>OfficeManager.Remove(id));
         CoreOffices.Clear();
         Regime pRegime = pKingdom.GetRegime();
-        foreach (var core in pRegime.bureau_config.cores)
+        // 共和国的核心国：中央机构按执政理念成套(见 RepublicSystem / IdeologyBureaus.json)
+        // 华夏律令制在秦汉阶段设三公九卿(见 CourtSystem.Dynasty)
+        BureauConfig bureau = RepublicSystem.GetBureauOverride(pKingdom, pRegime.bureau_config) ??
+                              CourtSystem.GetBureauOverride(pKingdom, pRegime.bureau_config) ?? pRegime.bureau_config;
+        foreach (var core in bureau.cores)
         {
 
             var o = new OfficeObject();
@@ -375,7 +425,7 @@ public class CenterOffice
         }
         Divisions.ForEach(id=>OfficeManager.Remove(id));
         Divisions.Clear();
-        foreach (var div in pRegime.bureau_config.division)
+        foreach (var div in bureau.division)
         {
 
             var o = new OfficeObject();
@@ -392,8 +442,8 @@ public class CenterOffice
         }
         Harems.ForEach(id=>OfficeManager.Remove(id));
         Harems.Clear();
-        if (pRegime.bureau_config.harems == null) return;
-        foreach (var div in pRegime.bureau_config.harems)
+        if (bureau.harems == null) return;
+        foreach (var div in bureau.harems)
         {
             var o = new OfficeObject();
             o.InitialOffice(div);

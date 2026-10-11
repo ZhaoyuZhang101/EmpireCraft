@@ -96,7 +96,8 @@ public enum LawType
     扰乱集市 = 53,
     污染水源 = 54,
     散布恐慌谣言 = 55,
-    过于强大 = 56
+    过于强大 = 56,
+    逃人法 = 57
 }
 
 public enum PunishmentLevel
@@ -221,6 +222,10 @@ public static class EmpireLawSystem
             return false;
         }
 
+        // Membership is not jurisdiction: local authorities cannot accuse or punish the sovereign.
+        // Central procedures keep their existing rules, including modern constitutional cases.
+        if (actor == empire.Emperor && kingdom != empire.CoreKingdom) return false;
+
         if (!actor.hasKingdom() || !actor.kingdom.IsInEmpire())
         {
             return false;
@@ -273,6 +278,10 @@ public static class EmpireLawSystem
             CrimeDate = crimeDate
         };
 
+        City corruptionCity = actor.GetOffice()?.meta_object as City;
+        if (corruptionCity == null && actor.isCityLeader()) corruptionCity = actor.city;
+        bool corruptionAdministration = kingdom.king == actor || actor.GetOffice()?.meta_object == kingdom;
+        int moneyBefore = actor.money;
         foreach (PunishmentLevel punishment in law.Punishments ?? new List<PunishmentLevel>())
         {
             if (ApplyPunishment(context, punishment))
@@ -285,6 +294,9 @@ public static class EmpireLawSystem
         {
             extraPunishment(context);
         }
+
+        CorruptionSystem.OnLawEnforced(kingdom, corruptionCity, corruptionAdministration, type,
+            context.AppliedPunishments, moneyBefore, actor.money);
 
         if (context.AppliedPunishments.Count > 0)
         {
@@ -672,6 +684,7 @@ public static class EmpireLawSystem
     private static bool CanResolveCrimeRecord(Actor actor, Kingdom kingdom, CrimeRecord record)
     {
         if (actor == null || kingdom == null || record == null) return false;
+        if (!CanEnforceLawInEmpireScope(actor, kingdom)) return false;
 
         LawType lawType = (LawType)record.law_type;
         if (lawType == LawType.过于强大)
@@ -830,6 +843,7 @@ public static class EmpireLawSystem
 
     public static bool ApplyPunishment(LawEnforcementContext context, PunishmentLevel punishment)
     {
+        if (context == null || !CanEnforceLawInEmpireScope(context.Actor, context.Kingdom)) return false;
         switch (punishment)
         {
             case PunishmentLevel.无罪:
@@ -984,4 +998,3 @@ public static class EmpireLawSystem
         return true;
     }
 }
-

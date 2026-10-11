@@ -1,15 +1,16 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>EmpireCraft 政体编辑器</title>
+  <link rel="stylesheet" href="common.css" />
   <style>
     :root{--bg:#f6efe2;--panel:#fffaf1;--ink:#2d2318;--muted:#6f5d45;--line:#d8c5a4;--accent:#8d6836;--accent2:#6d4e24;--danger:#9f4335;--good:#446b49;--r:18px;--r2:12px}
     *{box-sizing:border-box} body{margin:0;color:var(--ink);font:14px/1.5 "Microsoft YaHei","Segoe UI",sans-serif;background:radial-gradient(circle at top left,rgba(141,104,54,.12),transparent 30%),linear-gradient(180deg,#fbf6ed 0%,var(--bg) 100%)}
-    .shell{width:min(1440px,calc(100vw - 24px));margin:12px auto 24px;display:grid;grid-template-columns:310px minmax(0,1fr);gap:16px}
+    .shell{width:min(1440px,calc(100vw - 24px));margin:12px auto 24px;display:grid;grid-template-columns:240px minmax(0,1fr);gap:16px}
     .side,.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);box-shadow:0 12px 36px rgba(50,36,15,.1)}
-    .side{position:sticky;top:12px;align-self:start;padding:18px}.panel{padding:18px}.brand h1,.panel h2{margin:0 0 10px}.brand p,.muted{margin:0;color:var(--muted)}
+    .side{position:sticky;top:64px;align-self:start;padding:18px}.panel{padding:18px}.brand h1,.panel h2{margin:0 0 10px}.brand p,.muted{margin:0;color:var(--muted)}
     .stack,.grid,.cards,.toolbar{display:grid;gap:10px}.toolbar{display:flex;flex-wrap:wrap}.grid.two{grid-template-columns:repeat(2,minmax(0,1fr))}.grid.three{grid-template-columns:repeat(3,minmax(0,1fr))}
     .section-nav{display:flex;flex-wrap:wrap;gap:10px}.section-nav button{min-width:120px}.section-nav button.active{background:linear-gradient(180deg,#b48b50 0%,var(--accent2) 100%);color:#fff;border-color:transparent}
     .section-panel{display:none}.section-panel.active{display:block}
@@ -28,26 +29,13 @@
     .office-group{display:grid;gap:10px}.office-group-title{font-size:18px;font-weight:700;color:var(--accent2);padding:6px 4px 0}.office-summary{display:grid;gap:6px;color:var(--muted)}
     @media (max-width:1120px){.shell{grid-template-columns:1fr}.side{position:static}} @media (max-width:760px){.grid.two,.grid.three{grid-template-columns:1fr}}
   </style>
+  <link rel="stylesheet" href="pixel-theme.css" />
 </head>
 <body>
   <div class="shell">
     <aside class="side">
-      <div class="brand">
-        <h1>EmpireCraft 政体编辑器</h1>
-        <p>独立放在模组根目录即可使用，面向新手的政体配置小工具。</p>
-      </div>
-      <div class="stack" style="margin-top:14px">
-        <button class="primary" id="loadTemplateBtn">载入模板</button>
-        <label class="button-like" for="importEditorState">导入编辑器状态</label>
-        <input id="importEditorState" type="file" accept=".json" hidden />
-        <button id="loadCultureRulesBtn">读取文化配置</button>
-        <button id="chooseModRootBtn">选择模组目录</button>
-        <button id="openConfigsBtn">打开政体目录</button>
-        <button class="primary" id="writeConfigsBtn">写入政体目录</button>
-        <button id="syncEnumsBtn">同步代码枚举</button>
-        <button id="downloadBtn">下载导出文件</button>
-      </div>
-      <div class="stack" style="margin-top:14px">
+      <div class="side-group">
+        <h4>编辑</h4>
         <div class="section-nav">
           <button type="button" data-open-section="meta" class="active">基本信息</button>
           <button type="button" data-open-section="offices">官职结构</button>
@@ -55,66 +43,88 @@
           <button type="button" data-open-section="preview">导出预览</button>
         </div>
       </div>
-      <div class="note" style="margin-top:14px">
-        说明：
-        <br />1. 新增官职时，官职等级默认按创建顺序自动递增。
-        <br />2. `core / division` 会额外显示部门命名规则。
-        <br />3. 桌面版会读取并直接修改现有的 `CultureRulesConfig.json`，这里只改文化的政体字段。
-        <br />4. “打开政体目录”会尝试打开 `Scripts/Regimes/Configs/`。
-        <br />5. 桌面版可以先选择一次模组目录，之后会自动记住。
-        <br />6. 桌面版可以直接写入 `Scripts/Regimes/Configs/<政体文件夹名>/`，不用手动逐个下载。
+      <div class="side-group">
+        <h4>文件</h4>
+        <div class="btn-grid">
+          <button id="loadTemplateBtn">载入模板</button>
+          <label class="button-like" for="importEditorState">导入状态</label>
+          <input id="importEditorState" type="file" accept=".json" hidden />
+          <button id="loadCultureRulesBtn" class="wide">读取文化配置</button>
+        </div>
       </div>
-      <div class="note" id="modRootNote" style="margin-top:14px">当前模组目录：未设置</div>
+      <div class="side-group">
+        <h4>保存到模组</h4>
+        <button class="primary wide" id="writeConfigsBtn">写入政体目录</button>
+        <div class="btn-list">
+          <button id="downloadBtn">下载导出文件</button>
+          <button id="openConfigsBtn">打开政体目录</button>
+          <button id="syncEnumsBtn">同步代码枚举</button>
+        </div>
+        <button id="chooseModRootBtn" hidden>选择模组目录</button>
+      </div>
       <div class="status" id="statusText"></div>
+      <details class="help">
+        <summary>使用说明</summary>
+        <ol>
+          <li>新增官职时，官职等级默认按创建顺序自动递增。</li>
+          <li><code>core / division</code> 会额外显示部门命名规则。</li>
+          <li>桌面版会读取并直接修改各文化的 <code>CultureRule.jsonc</code>，这里只改文化的政体字段。</li>
+          <li>"打开政体目录"会打开 <code>Scripts/Regimes/Configs/</code>。</li>
+          <li>模组目录在顶部右侧选择一次即可，之后会自动记住。</li>
+          <li>"写入政体目录"直接写到 <code>Scripts/Regimes/Configs/&lt;政体文件夹名&gt;/</code>，不用手动逐个下载。</li>
+        </ol>
+      </details>
+      <div class="side-foot" id="modRootNote">当前模组目录：未设置</div>
     </aside>
 
     <main class="stack">
       <section class="panel section-panel active" id="meta">
         <h2>基本信息</h2>
+
+        <h3>标识</h3>
         <div class="grid two">
           <label class="field">政体文件夹名<input id="folderName" value="CustomRegimeTemplate" /></label>
           <label class="field">政体键名<input id="regimeKey" value="CustomRegimeTemplate" /></label>
-        </div>
-        <div class="grid three" style="margin-top:12px">
-          <label class="field">简体名称<input id="regimeNameCh" value="自定义政体模板" /></label>
-          <label class="field">繁体名稱<input id="regimeNameCz" value="自訂政體模板" /></label>
-          <label class="field">英文名称<input id="regimeNameEn" value="Custom Regime Template" /></label>
-        </div>
-        <div class="grid three" style="margin-top:12px">
-          <label class="field">简体描述<textarea id="descriptionCh">一个用于演示自定义政体配置结构的模板政体。</textarea></label>
-          <label class="field">繁體描述<textarea id="descriptionCz">一個用於演示自訂政體配置結構的模板政體。</textarea></label>
-          <label class="field">英文描述<textarea id="descriptionEn">A template regime used to demonstrate a custom regime configuration structure.</textarea></label>
-        </div>
-        <div class="grid three" style="margin-top:12px">
+          <label class="field">默认国家职类 default_kingdom<input id="defaultKingdom" value="CustomRegimeTemplate_county" /></label>
           <label class="field">图标地址 icon_url<input id="iconUrl" /></label>
+        </div>
+
+        <h3>名称与描述</h3>
+        <div class="lang-grid">
+          <span></span><span class="lang-head">名称</span><span class="lang-head">描述</span>
+          <span class="lang-label">简体</span>
+          <input id="regimeNameCh" value="自定义政体模板" />
+          <textarea id="descriptionCh">一个用于演示自定义政体配置结构的模板政体。</textarea>
+          <span class="lang-label">繁體</span>
+          <input id="regimeNameCz" value="自訂政體模板" />
+          <textarea id="descriptionCz">一個用於演示自訂政體配置結構的模板政體。</textarea>
+          <span class="lang-label">English</span>
+          <input id="regimeNameEn" value="Custom Regime Template" />
+          <textarea id="descriptionEn">A template regime used to demonstrate a custom regime configuration structure.</textarea>
+        </div>
+
+        <h3>运作方式</h3>
+        <div class="grid two">
           <label class="field">默认选拔方式
             <select id="leaderSelectMethod">
               <option value="Succession">世袭继承</option><option value="Exam">科举考试</option><option value="Vote">投票推选</option><option value="Army">军权决定</option><option value="Harem">后宫生育</option><option value="Default">跟随默认</option>
             </select>
           </label>
-          <label class="field">default_kingdom<input id="defaultKingdom" value="CustomRegimeTemplate_county" /></label>
+          <label class="field">内阁人数 cabinet_number<input id="cabinetNumber" value="6" type="number" /></label>
         </div>
-        <div class="grid three" style="margin-top:12px">
+        <div class="toggles">
           <label class="check"><input id="eraName" type="checkbox" /> 启用年号</label>
           <label class="check"><input id="hasCabinet" type="checkbox" checked /> 启用内阁</label>
           <label class="check"><input id="centreSeparate" type="checkbox" checked /> 中央与帝国分离</label>
         </div>
-        <div class="grid two" style="margin-top:12px">
-          <label class="field">内阁人数 cabinet_number<input id="cabinetNumber" value="6" type="number" /></label>
-          <div class="field">
-            <span>启用法律 laws</span>
-            <div id="lawsEditor"></div>
-          </div>
-        </div>
-        <div class="grid two" style="margin-top:12px">
-          <div class="field">
-            <span>派系 factions</span>
-            <div id="factionsEditor"></div>
-          </div>
-          <div class="field">
-            <span>政体选项 options</span>
-            <div id="optionsEditor"></div>
-          </div>
+
+        <h3>法律 laws</h3>
+        <div id="lawsEditor"></div>
+
+        <h3>派系与选项</h3>
+        <div class="grid two">
+          <div class="field"><span>派系 factions</span><div id="factionsEditor"></div></div>
+          <div class="field"><span>政体选项 options</span><div id="optionsEditor"></div></div>
         </div>
       </section>
 
@@ -134,7 +144,7 @@
 
       <section class="panel section-panel" id="cultures">
         <h2>文化绑定</h2>
-        <p class="muted">这里会读取真实的 `CultureRulesConfig.json`，只修改每个文化的 `setting.regime`。界面只显示文化名称，方便直接勾选后绑定当前政体。</p>
+        <p class="muted">这里会读取真实的 各文化的 `CultureRule.jsonc`，只修改每个文化的 `setting.regime`。界面只显示文化名称，方便直接勾选后绑定当前政体。</p>
         <div class="toolbar">
           <button id="selectAllCulturesBtn">全选</button>
           <button id="clearCultureSelectionBtn">清空选择</button>
@@ -170,7 +180,14 @@
     </main>
   </div>
 
+  <script src="common.js"></script>
   <script>
+    mountAppBar("index.html");
+    // 侧栏按钮配上原版图标
+    for (const [id, icon] of [["loadTemplateBtn","iconKings"],["loadCultureRulesBtn","iconCulture"],["chooseModRootBtn","iconOptions"],["openConfigsBtn","iconCultureList"],["writeConfigsBtn","iconSaveLocal"],["syncEnumsBtn","iconArrowBack"],["downloadBtn","iconBooks"]]) {
+      const el = document.getElementById(id);
+      if (el) el.insertAdjacentHTML("afterbegin", ico(icon, "sm") + " ");
+    }
     const scopeLabels={cores:"核心官职",division:"部门官职",harems:"后宫官职",kingdoms:"国家职类",cities:"城市职类",armies:"军职"};
     const namedScopes=new Set(["cores","division"]);
     const leaderMethodOptions=[["","留空，跟随默认"],["Succession","世袭继承"],["Exam","科举考试"],["Vote","投票推选"],["Army","军权决定"],["Harem","后宫生育"],["Default","跟随默认"]];
@@ -212,6 +229,18 @@
     ];
     const state={offices:{cores:[],division:[],harems:[],kingdoms:[],cities:[],armies:[]},cultures:[],rawCultureRules:[],factions:[],regimeOptions:{},laws:[]};
     const desktopApi=window.regimeEditorDesktop||null;
+
+    // 重新渲染卡片列表（整段替换 innerHTML）会让浏览器丢失当前的滚动位置，
+    // 表现为“新增/修改一条就把整个窗口滚回顶部”。这里在替换内容前记录窗口滚动位置，
+    // 替换后立刻恢复，并在下一帧再恢复一次以覆盖重新排版导致的二次跳动。
+    function withPreservedScroll(fn){
+      const x=window.scrollX,y=window.scrollY;
+      const result=fn();
+      const restore=()=>window.scrollTo(x,y);
+      restore();
+      requestAnimationFrame(restore);
+      return result;
+    }
 
     function uid(){return Math.random().toString(36).slice(2,10)+Date.now().toString(36)}
     function esc(v){return String(v??"").replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m]))}
@@ -322,8 +351,24 @@
         local:!!seed.local,
         collapsed:!!seed.collapsed,
         cityType:seed.cityType||seed.city_type||"",
+        politicalAppointment:seed.politicalAppointment ?? (seed.political_appointment === true ? "true" : seed.political_appointment === false ? "false" : ""),
+        citySuffixKey:seed.citySuffixKey||seed.city_suffix_key||"",
+        capitalCitySuffixKey:seed.capitalCitySuffixKey||seed.capital_city_suffix_key||"",
+        citySuffixesByCulture:normalizeSuffixMap(seed.citySuffixesByCulture ?? seed.city_suffix_keys_by_culture),
+        capitalCitySuffixesByCulture:normalizeSuffixMap(seed.capitalCitySuffixesByCulture ?? seed.capital_city_suffix_keys_by_culture),
         conditionRows:parseConditionRows(seed.conditionRows||seed.condition||[])
       };
+    }
+
+    function normalizeSuffixMap(value){
+      return typeof value==="string" ? value : value && typeof value==="object" ? JSON.stringify(value) : "";
+    }
+    function parseSuffixMap(value){
+      if(!value.trim()) return null;
+      const map=JSON.parse(value);
+      if(!map || Array.isArray(map) || typeof map!=="object" || Object.entries(map).some(([culture,key])=>!culture.trim() || typeof key!=="string" || !key.trim()))
+        throw new Error("文化后缀请填写文化ID与本地化key的JSON对象，例如 {\"Huaxia\":\"city_suffix_county\"}");
+      return Object.keys(map).length ? map : null;
     }
 
     function cloneOffice(scope,id){
@@ -345,6 +390,7 @@
         translate_cz:seed.translate_cz||"",
         translate_en:seed.translate_en||"",
         regime:seed.regime||"",
+        file:seed.file||"",
         selected:!!seed.selected
       };
     }
@@ -411,7 +457,17 @@
       };
       const conds=(office.conditionRows||[]).map(row=>row.mode==="number"?`${row.key}:${row.operator}|${row.value}`:`${row.key}:${row.value}`).filter(Boolean);
       if(conds.length) out.condition=conds;
+      if((office.scope==="cores" || office.scope==="division") && office.politicalAppointment!=="")
+        out.political_appointment=office.politicalAppointment==="true";
       if(office.scope==="kingdoms" && office.cityType.trim()) out.city_type=office.cityType.trim();
+      if(office.scope==="kingdoms" && office.citySuffixKey.trim()) out.city_suffix_key=office.citySuffixKey.trim();
+      if(office.scope==="kingdoms" && office.capitalCitySuffixKey.trim()) out.capital_city_suffix_key=office.capitalCitySuffixKey.trim();
+      if(office.scope==="kingdoms"){
+        const cityMap=parseSuffixMap(office.citySuffixesByCulture);
+        const capitalMap=parseSuffixMap(office.capitalCitySuffixesByCulture);
+        if(cityMap) out.city_suffix_keys_by_culture=cityMap;
+        if(capitalMap) out.capital_city_suffix_keys_by_culture=capitalMap;
+      }
       return out;
     }
 
@@ -509,15 +565,10 @@
       for(const row of localeMap.values()) localeRows.push(row.map(csv).join(","));
 
         const editorState={meta,offices:state.offices,factions:state.factions,regimeOptions:state.regimeOptions,laws:state.laws};
-        const cultureRules=(state.rawCultureRules.length?state.rawCultureRules.map(x=>JSON.parse(JSON.stringify(x))):state.cultures.map(c=>({name:c.name,translate_ch:c.translate_ch,translate_cz:c.translate_cz,translate_en:c.translate_en,setting:{regime:c.regime}}))).map(item=>{
-          const found=state.cultures.find(c=>c.name===item.name);
-          if(found){
-            item.setting=item.setting||{}; item.setting.regime=found.regime;
-          }
-          return item;
-        });
+        // 每个文化一个 CultureRule.jsonc：只把各自的 setting.regime 交给桌面端改，文件其余内容(含注释)不动
+        const cultureRegimes=state.cultures.filter(c=>c.file).map(c=>({file:c.file,name:c.name,regime:c.regime}));
 
-      return {systemText:JSON.stringify({[meta.regimeKey]:systemConfig},null,2),officialText:localeRows.join("\n"),stateText:JSON.stringify(editorState,null,2),cultureText:JSON.stringify(cultureRules,null,2)};
+      return {systemText:JSON.stringify({[meta.regimeKey]:systemConfig},null,2),officialText:localeRows.join("\n"),stateText:JSON.stringify(editorState,null,2),cultureRegimes,cultureText:cultureRegimes.map(c=>`${c.name}: ${c.regime||"(未绑定)"}`).join("\n")};
     }
 
     async function openConfigsDirectory(){
@@ -542,7 +593,7 @@
           "SystemConfig.json":out.systemText,
           "OfficialType.csv":out.officialText,
           "RegimeEditorState.json":out.stateText,
-          cultureText:out.cultureText
+          cultureRegimes:out.cultureRegimes
         }
       });
       if(result?.error) throw new Error(result.error);
@@ -584,7 +635,8 @@
         translate_ch:item.translate_ch,
         translate_cz:item.translate_cz,
         translate_en:item.translate_en,
-        regime:item.setting?.regime||""
+        regime:item.setting?.regime||"",
+        file:item.__file||""
       }));
       renderCultures();
       refreshPreview();
@@ -604,6 +656,7 @@
     }
 
     function renderMetaSelectors(){
+      withPreservedScroll(()=>{
       document.getElementById("optionsEditor").innerHTML=`<div class="config-list">${regimeOptionDefinitions.map(def=>{
         const arr=state.regimeOptions[def.key]||[def.defaultValue,def.max];
         return `<div class="config-card">
@@ -641,6 +694,7 @@
             <div data-faction-trait-box="${f.id}">${renderTagEditor(f._requiredTraits,traitOptions,"faction","_requiredTraits","",f.id,"输入特质后点添加")}</div>
           </div>
         </div>`).join("")}</div>`;
+      });
     }
 
     function setOfficeTagValue(scope,id,path,values){
@@ -660,19 +714,21 @@
     }
 
     function refreshOfficeDisplay(scope,id){
-      const office=findOffice(scope,id);
-      const root=document.querySelector(`[data-office-root="${scope}:${id}"]`);
-      if(!office || !root) return;
-      const title=root.querySelector("[data-office-title]");
-      if(title) title.textContent=`${scopeLabels[office.scope]}：${office.nameCh||office.key||"未命名官职"}`;
-      const summary=root.querySelector("[data-office-summary]");
-      if(summary) summary.innerHTML=`<div>${esc(officeSummary(office))}</div><div>${esc(office.nameCh||"未填写简体名")} / ${esc(office.nameCz||"未填写繁体名")} / ${esc(office.nameEn||"未填写英文名")}</div>`;
-      const preView=root.querySelector("[data-office-prepreview]");
-      if(preView) preView.value=officePreValue(office);
-      const powerBox=root.querySelector("[data-tag-box='powers']");
-      if(powerBox) powerBox.innerHTML=renderTagEditor(office.powers,powerOptions,"office","powers",scope,id,"输入能力后点添加");
-      const traitBox=root.querySelector("[data-tag-box='requireTraits']");
-      if(traitBox) traitBox.innerHTML=renderTagEditor(office.requireTraits,traitOptions,"office","requireTraits",scope,id,"输入特质后点添加");
+      withPreservedScroll(()=>{
+        const office=findOffice(scope,id);
+        const root=document.querySelector(`[data-office-root="${scope}:${id}"]`);
+        if(!office || !root) return;
+        const title=root.querySelector("[data-office-title]");
+        if(title) title.textContent=`${scopeLabels[office.scope]}：${office.nameCh||office.key||"未命名官职"}`;
+        const summary=root.querySelector("[data-office-summary]");
+        if(summary) summary.innerHTML=`<div>${esc(officeSummary(office))}</div><div>${esc(office.nameCh||"未填写简体名")} / ${esc(office.nameCz||"未填写繁体名")} / ${esc(office.nameEn||"未填写英文名")}</div>`;
+        const preView=root.querySelector("[data-office-prepreview]");
+        if(preView) preView.value=officePreValue(office);
+        const powerBox=root.querySelector("[data-tag-box='powers']");
+        if(powerBox) powerBox.innerHTML=renderTagEditor(office.powers,powerOptions,"office","powers",scope,id,"输入能力后点添加");
+        const traitBox=root.querySelector("[data-tag-box='requireTraits']");
+        if(traitBox) traitBox.innerHTML=renderTagEditor(office.requireTraits,traitOptions,"office","requireTraits",scope,id,"输入特质后点添加");
+      });
     }
 
     function officeCard(office){
@@ -696,6 +752,12 @@
             </select>
           </label>
         </div>
+        ${office.scope==="cores" || office.scope==="division" ? `
+        <label class="field">任命属性<select data-kind="office" data-scope="${office.scope}" data-id="${office.id}" data-path="politicalAppointment">
+          <option value="" ${office.politicalAppointment===""?"selected":""}>默认：政治主官</option>
+          <option value="true" ${office.politicalAppointment==="true"?"selected":""}>政治任命（部长、部门主官）</option>
+          <option value="false" ${office.politicalAppointment==="false"?"selected":""}>常任事务官（副职、执行岗位）</option>
+        </select></label>` : ""}
         ${office.scope==="kingdoms" || office.scope==="cities" ? `
         <div class="grid two">
           <label class="field">类别名（自动拼接政体 key）<input data-kind="office" data-scope="${office.scope}" data-id="${office.id}" data-path="categoryKeyRaw" value="${esc(office.categoryKeyRaw || office.categoryKey)}" placeholder="${office.scope==="kingdoms"?"如 jimizhou":"如 city"}" /></label>
@@ -716,6 +778,12 @@
               </select>
               <div class="muted">国家类别必须绑定一个城市类别，这会决定该国家下属城市使用哪套城市名称与职位配置。</div>`
             : `<div class="note">还没有创建任何城市类别。请先在“城市职类”里新增至少一个条目并填写类别 key，否则当前国家类别配置不会生效。</div>`}
+        </div>
+        <div class="grid two">
+          <label class="field">普通城市后缀翻译 key（可选）<input data-kind="office" data-scope="${office.scope}" data-id="${office.id}" data-path="citySuffixKey" value="${esc(office.citySuffixKey)}" placeholder="留空遵循 city_type；县：city_suffix_county" /></label>
+          <label class="field">首府城市后缀翻译 key（可选）<input data-kind="office" data-scope="${office.scope}" data-id="${office.id}" data-path="capitalCitySuffixKey" value="${esc(office.capitalCitySuffixKey)}" placeholder="留空同普通城市；府：city_suffix_prefecture" /></label>
+          <label class="field">按文化覆盖普通城市后缀（可选 JSON）<textarea data-kind="office" data-scope="${office.scope}" data-id="${office.id}" data-path="citySuffixesByCulture" placeholder='{"Huaxia":"city_suffix_county"}'>${esc(office.citySuffixesByCulture)}</textarea></label>
+          <label class="field">按文化覆盖首府后缀（可选 JSON）<textarea data-kind="office" data-scope="${office.scope}" data-id="${office.id}" data-path="capitalCitySuffixesByCulture" placeholder='{"Huaxia":"city_suffix_prefecture"}'>${esc(office.capitalCitySuffixesByCulture)}</textarea></label>
         </div>`:""}
         <div class="grid three">
           <label class="field">${office.scope==="kingdoms" || office.scope==="cities" ? "简体头衔名" : "简体官职名"}<input data-kind="office" data-scope="${office.scope}" data-id="${office.id}" data-path="nameCh" value="${esc(office.nameCh)}" placeholder="${office.scope==="kingdoms"?"如 国王 / 国公 / 省长":office.scope==="cities"?"如 市长 / 城主 / 府尹":"可填写官职名"}" /></label>
@@ -800,29 +868,33 @@
     }
 
     function renderOffices(){
-      const box=document.getElementById("officeCards");
-      let html="";
-      for(const scope of Object.keys(state.offices)){
-        const list=state.offices[scope];
-        html+=`<div class="office-group"><div class="office-group-title">${scopeLabels[scope]}</div>${list.length?list.map(officeCard).join(""):`<div class="note">这个分类下还没有条目。</div>`}</div>`;
-      }
-      box.innerHTML=html||'<div class="note">还没有官职，点击上面的按钮开始添加。</div>';
+      withPreservedScroll(()=>{
+        const box=document.getElementById("officeCards");
+        let html="";
+        for(const scope of Object.keys(state.offices)){
+          const list=state.offices[scope];
+          html+=`<div class="office-group"><div class="office-group-title">${scopeLabels[scope]}</div>${list.length?list.map(officeCard).join(""):`<div class="note">这个分类下还没有条目。</div>`}</div>`;
+        }
+        box.innerHTML=html||'<div class="note">还没有官职，点击上面的按钮开始添加。</div>';
+      });
     }
 
     function renderCultures(){
-      const box=document.getElementById("cultureCards");
-      renderCultureSummary();
-      box.innerHTML=(state.cultures||[]).map(c=>`
-        <div class="culture">
-          <div class="head"><strong>${esc(cultureDisplayName(c))}</strong><label class="check"><input type="checkbox" data-culture-check="${c.id}" ${c.selected?"checked":""} /> 选择</label></div>
-          <div class="grid two">
-            <div class="muted">文化 key：<span class="mono">${esc(c.name||"")}</span></div>
-            <div class="muted">当前政体：<span class="badge mono">${esc(c.regime||"未绑定")}</span></div>
-          </div>
-          <div class="toolbar" style="margin-top:8px">
-            <button type="button" data-culture-apply="${c.id}">绑定当前政体</button>
-          </div>
-        </div>`).join("")||'<div class="note">还没有读取到文化配置，请先点击“读取文化配置”。</div>';
+      withPreservedScroll(()=>{
+        const box=document.getElementById("cultureCards");
+        renderCultureSummary();
+        box.innerHTML=(state.cultures||[]).map(c=>`
+          <div class="culture">
+            <div class="head"><strong>${esc(cultureDisplayName(c))}</strong><label class="check"><input type="checkbox" data-culture-check="${c.id}" ${c.selected?"checked":""} /> 选择</label></div>
+            <div class="grid two">
+              <div class="muted">文化 key：<span class="mono">${esc(c.name||"")}</span></div>
+              <div class="muted">当前政体：<span class="badge mono">${esc(c.regime||"未绑定")}</span></div>
+            </div>
+            <div class="toolbar" style="margin-top:8px">
+              <button type="button" data-culture-apply="${c.id}">绑定当前政体</button>
+            </div>
+          </div>`).join("")||'<div class="note">还没有读取到文化配置，请先点击“读取文化配置”。</div>';
+      });
     }
 
     function refreshPreview(){
@@ -832,8 +904,8 @@
         document.getElementById("officialPreview").value=out.officialText;
         document.getElementById("statePreview").value=out.stateText;
         document.getElementById("culturePreview").value=state.rawCultureRules.length
-          ? "不会生成新的 CultureRulesConfig.json 文件。\n写入时会直接修改当前读取到的真实文化配置文件，并且只更新每个文化的 setting.regime 字段。"
-          : "还没有读取到真实文化配置文件。点击“读取文化配置”后，写入操作才会修改现有的 CultureRulesConfig.json。";
+          ? "不会生成新的文化配置文件。\n写入时会直接修改当前读取到的真实文化配置文件，并且只更新每个文化的 setting.regime 字段。"
+          : "还没有读取到真实文化配置文件。点击“读取文化配置”后，写入操作才会修改各文化现有的 CultureRule.jsonc。";
         setStatus("预览已更新");
       }catch(err){setStatus(`预览更新失败：${err.message}`,true)}
     }
@@ -992,8 +1064,8 @@
     document.getElementById("openConfigsBtn").addEventListener("click",async()=>{try{const result=await openConfigsDirectory();setStatus(`已打开政体目录：${result.path||"Scripts/Regimes/Configs"}`)}catch(err){setStatus(`打开政体目录失败：${err.message}`,true)}});
     document.getElementById("writeConfigsBtn").addEventListener("click",async()=>{try{const result=await writeConfigsToFolder();setStatus(`已写入政体目录：${result.directory}；文化配置已更新：${result.culturePath}`)}catch(err){setStatus(`写入政体目录失败：${err.message}`,true)}});
     document.getElementById("syncEnumsBtn").addEventListener("click",async()=>{try{const result=await syncEnumsToCode();const msg=result?.stdout?`同步完成：${result.stdout}`:"同步完成";setStatus(msg)}catch(err){setStatus(`同步枚举失败：${err.message}`,true)}});
-    document.getElementById("downloadBtn").addEventListener("click",()=>{try{const out=buildOutputs();const files=[["SystemConfig.json",out.systemText],["OfficialType.csv",out.officialText],["RegimeEditorState.json",out.stateText]];for(const [name,text] of files){const blob=new Blob([text],{type:"text/plain;charset=utf-8"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=name;a.click();URL.revokeObjectURL(url)}setStatus("导出文件已开始下载；CultureRulesConfig.json 不会被导出成新文件")}catch(err){setStatus(`导出失败：${err.message}`,true)}});
-    document.getElementById("importEditorState").addEventListener("change",async e=>{const file=e.target.files?.[0];if(!file)return;try{const json=JSON.parse(await file.text());const meta=json.meta||{};for(const [id,key] of [["folderName","folderName"],["regimeKey","regimeKey"],["regimeNameCh","regimeNameCh"],["regimeNameCz","regimeNameCz"],["regimeNameEn","regimeNameEn"],["descriptionCh","descriptionCh"],["descriptionCz","descriptionCz"],["descriptionEn","descriptionEn"],["iconUrl","iconUrl"],["defaultKingdom","defaultKingdom"],["cabinetNumber","cabinetNumber"]]){if(meta[key]!==undefined)document.getElementById(id).value=Array.isArray(meta[key])?meta[key].join(","):meta[key]} document.getElementById("leaderSelectMethod").value=meta.leaderSelectMethod||"Succession"; document.getElementById("eraName").checked=!!meta.eraName; document.getElementById("hasCabinet").checked=meta.hasCabinet!==false; document.getElementById("centreSeparate").checked=meta.centreSeparate!==false; state.offices={cores:[],division:[],harems:[],kingdoms:[],cities:[],armies:[]}; for(const scope of Object.keys(state.offices)) state.offices[scope]=(json.offices?.[scope]||[]).map(x=>makeOffice(scope,x)); state.factions=(json.factions||[]).map(makeFaction); state.regimeOptions=normalizeRegimeOptions(json.regimeOptions||meta.options); state.laws=normalizeLaws(json.laws||json.selectedLaws||meta.laws); renderOffices(); renderCultures(); renderMetaSelectors(); refreshPreview(); setStatus("编辑器状态已导入；文化列表仍以真实 CultureRulesConfig.json 为准")}catch(err){setStatus(`导入编辑器状态失败：${err.message}`,true)}});
+    document.getElementById("downloadBtn").addEventListener("click",()=>{try{const out=buildOutputs();const files=[["SystemConfig.json",out.systemText],["OfficialType.csv",out.officialText],["RegimeEditorState.json",out.stateText]];for(const [name,text] of files){const blob=new Blob([text],{type:"text/plain;charset=utf-8"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=name;a.click();URL.revokeObjectURL(url)}setStatus("导出文件已开始下载；各文化的 CultureRule.jsonc 不会被导出成新文件")}catch(err){setStatus(`导出失败：${err.message}`,true)}});
+    document.getElementById("importEditorState").addEventListener("change",async e=>{const file=e.target.files?.[0];if(!file)return;try{const json=JSON.parse(await file.text());const meta=json.meta||{};for(const [id,key] of [["folderName","folderName"],["regimeKey","regimeKey"],["regimeNameCh","regimeNameCh"],["regimeNameCz","regimeNameCz"],["regimeNameEn","regimeNameEn"],["descriptionCh","descriptionCh"],["descriptionCz","descriptionCz"],["descriptionEn","descriptionEn"],["iconUrl","iconUrl"],["defaultKingdom","defaultKingdom"],["cabinetNumber","cabinetNumber"]]){if(meta[key]!==undefined)document.getElementById(id).value=Array.isArray(meta[key])?meta[key].join(","):meta[key]} document.getElementById("leaderSelectMethod").value=meta.leaderSelectMethod||"Succession"; document.getElementById("eraName").checked=!!meta.eraName; document.getElementById("hasCabinet").checked=meta.hasCabinet!==false; document.getElementById("centreSeparate").checked=meta.centreSeparate!==false; state.offices={cores:[],division:[],harems:[],kingdoms:[],cities:[],armies:[]}; for(const scope of Object.keys(state.offices)) state.offices[scope]=(json.offices?.[scope]||[]).map(x=>makeOffice(scope,x)); state.factions=(json.factions||[]).map(makeFaction); state.regimeOptions=normalizeRegimeOptions(json.regimeOptions||meta.options); state.laws=normalizeLaws(json.laws||json.selectedLaws||meta.laws); renderOffices(); renderCultures(); renderMetaSelectors(); refreshPreview(); setStatus("编辑器状态已导入；文化列表仍以真实 各文化的 CultureRule.jsonc 为准")}catch(err){setStatus(`导入编辑器状态失败：${err.message}`,true)}});
     seedTemplate();
     renderOffices();
     renderCultures();

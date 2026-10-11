@@ -9,6 +9,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using EmpireCraft.Scripts.GameLibrary;
+using EmpireCraft.Scripts.GeneralSystems;
 
 namespace EmpireCraft.Scripts.GamePatches;
 internal class CityBehBorderShrinkPatch : GamePatch
@@ -31,17 +32,13 @@ internal class CityBehBorderShrinkPatch : GamePatch
             __result = BehResult.Stop;
             return false;
         }
-        if (pCity.units.Count > 0)
+        if (pCity.units.Count > 0 ||
+            CityPopulationSystem.AbstractPopulationEnabled && CityPopulationSystem.GetTotal(pCity) > 0)
         {
             __result = BehResult.Stop;
             return false;
         }
 
-        if (EmpireCraftWorldLawLibrary.empirecraft_law_prevent_city_destroy.isEnabled())
-        {
-            __result = BehResult.Stop;
-            return false;
-        }
         using ListPool<TileZone> listPool = new ListPool<TileZone>(pCity.border_zones);
         if (!listPool.Any())
         {
@@ -49,6 +46,11 @@ internal class CityBehBorderShrinkPatch : GamePatch
             return false;
         }
         TileZone random = listPool.GetRandom();
+        if (!CityTerritoryProtection.CanRemoveZone(pCity, random))
+        {
+            __result = BehResult.Stop;
+            return false;
+        }
         pCity.removeZone(random);
         pCity.timestamp_shrink = BehaviourActionBase<City>.world.getCurWorldTime();
         __result = BehResult.Continue;

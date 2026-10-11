@@ -13,6 +13,8 @@ public class EmpireCraftKingdomBehCheckExam: GameAIKingdomBase
     public override Type OriginalBeh => GetType();
     public override BehResult execute(Kingdom pKingdom)
     {
+        // 旧存档里船只/战争机器当了君主：撤下，由原版另选(新的册立已在 KingdomPatch.before_new_emperor 拦下)
+        if (pKingdom.king != null && pKingdom.king.IsWarMachine()) pKingdom.removeKing();
         pKingdom.CheckEmpire();
         var regime = pKingdom.GetRegime();
         if (regime == null) return BehResult.Continue;

@@ -25,22 +25,34 @@ public class EmpireCraftCityBehCheckArmy:GameAICityBase
         }
         if (!pCity.hasKingdom()) return BehResult.Continue;
         if (!WorldLawLibrary.world_law_civ_army.isEnabled()) return BehResult.Continue;
+        // 关闭军团统领实体：不组建原版城市军队，已有的解散、军职空缺
+        if (EmpireCraft.Scripts.GeneralSystems.CorpsSystem.NoMilitaryUnits)
+        {
+            EmpireCraft.Scripts.GeneralSystems.CorpsSystem.DisbandCityArmy(pCity);
+            if (ced != null) ced.last_army_check_ts = World.world.getCurWorldTime();
+            return BehResult.Continue;
+        }
         Regime regime = pCity.kingdom.GetRegime();
-        if (regime == null || !regime.IsAllowArmy())
+        if (regime == null || !regime.IsAllowArmy() &&
+            EmpireCraft.Scripts.GeneralSystems.CityStabilitySystem.FundedSlots(pCity) <= 0)
         {
             pCity.disbandArmy();
             if (ced != null) ced.last_army_check_ts = World.world.getCurWorldTime();
             return BehResult.Continue;
         };
-        if (pCity.kingdom.GetKingdomType() == KingdomType.LvLing_jiedushi)
+        // 无小人模式下城里只剩官员、城主等名人，士兵由军制征召，不再把全城的人拉去当兵
+        if (pCity.kingdom.GetKingdomType() == KingdomType.LvLing_jiedushi &&
+            !EmpireCraft.Scripts.GeneralSystems.CityPopulationSystem.AbstractPopulationEnabled)
         {
-            pCity.units.ForEach(a =>
+            foreach (Actor a in pCity.units.ToList())
             {
+                // 单位列表里可能残留已死亡/无装备栏的单位，原版 makeWarrior 不判空
+                if (a == null || !a.isAlive() || a.equipment == null) continue;
                 if (pCity.checkCanMakeWarrior(a))
                 {
                     pCity.makeWarrior(a);
-                } 
-            });
+                }
+            }
         }
         pCity.checkArmyExistence();
         if (pCity.hasArmy())

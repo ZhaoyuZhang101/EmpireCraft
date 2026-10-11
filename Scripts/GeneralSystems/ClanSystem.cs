@@ -11,6 +11,7 @@ using NeoModLoader.services;
 using Newtonsoft.Json;
 using UnityEngine;
 using static EmpireCraft.Scripts.HelperFunc.OverallHelperFunc;
+using EmpireCraft.Scripts.GeneralSystems;
 
 namespace EmpireCraft.Scripts.System;
 public enum SpecificClanType
@@ -66,25 +67,110 @@ public class SpecificClan
     public string name { get; set; }
     public double established_timestamp { get; set; }
     [JsonIgnore]
-    public ActorAsset asset => AllAliveMembers?.FirstOrDefault()?.asset ?? null;
+    // 整族虚拟时没有实体族人，按族谱里在世族人记的物种取
+    public ActorAsset asset => AllAliveMembers?.FirstOrDefault()?.asset ??
+                               AssetManager.actor_library.get(SnapshotPeople()
+                                   .FirstOrDefault(person => person != null && person.is_alive &&
+                                                             !string.IsNullOrEmpty(person.species))?.species ?? "");
+    // 在世族人(含虚拟族人)
+    [JsonIgnore]
+    public List<PersonalClanIdentity> LivingPeople =>
+        CityPopulationSystem.AbstractPopulationEnabled ? LivingSnapshot().ToList() :
+            SnapshotPeople().Where(person => person != null && person.is_alive).ToList();
     public long founder { get; set; }
     public SpecificClanType clan_sex_priority { get; set; }
     public string color { get; set; } = (new Color(0.7f, 0.8f, 0.7f)).ToHexString();
     public long ancestral_city_id { get; set; } = -1L;
+    // 族长死于战乱或饥荒(无小人模式，见 VirtualGenealogySystem)：不再从虚拟族人里补族长；之后又有实体族人时清除
+    public bool head_lost_to_calamity { get; set; }
+    // 整族都已过世的时间(-1 = 还有在世族人)；绝嗣久了的小宗族会被族谱瘦身清掉，见 VirtualGenealogySystem
+    public double extinct_since { get; set; } = -1d;
+    // 平民宗族整族成为虚拟族人的时间(-1 = 还有实体族人)；沉寂太久就销户，见 VirtualGenealogySystem
+    public double virtual_since { get; set; } = -1d;
+    // 本宗族作为皇族统治的帝国灭亡的时间(-1 表示没有记录)，用于判定"宗室复国"的时效。
+    public double empire_fall_timestamp { get; set; } = -1d;
     public long capital_city_id { get; set; }
     public string empire_name { get; set; }
     public float capital_city_pos_x { get; set; }
     public float capital_city_pos_y { get; set; }
+    // —— 分家(见 ClanBranchSystem) ——
+    // 从哪个宗族分出来的(-1 表示本身就是始祖宗族)；分支与原宗族同属一个世系
+    public long parent_clan_id { get; set; } = -1L;
+    // 分支的称号，如"越国支"/"苏城支"/"谈华房"
+    public string branch_label { get; set; } = "";
+    public string branch_reason { get; set; } = "";
+    public double last_branch_timestamp { get; set; } = -1d;
+    // 族人在各城最早定居的时间，用来判定"迁徙开基"
+    public Dictionary<long, double> city_settle_since { get; set; } = new();
+
+    // 显示名：始祖宗族是"谈宗族"，分支是"谈宗族·越国支"
+    public string GetDisplayName()
+    {
+        string clanName = JoinNameParts(name, LM.Get("specific_clan"));
+        return parent_clan_id < 0 || string.IsNullOrWhiteSpace(branch_label)
+            ? clanName
+            : string.Format(LM.Get("clan_branch_display"), clanName, branch_label);
+    }
+
+    // 顺着 parent_clan_id 找到始祖宗族(分支链断了就停在能找到的最上面一支)
+    public SpecificClan GetRootClan()
+    {
+        SpecificClan current = this;
+        var visited = new HashSet<long>();
+        while (current.parent_clan_id >= 0 && visited.Add(current.id))
+        {
+            SpecificClan parent = SpecificClanManager.Get(current.parent_clan_id);
+            if (parent == null) break;
+            current = parent;
+        }
+        return current;
+    }
+
+    // 分家时把人从本宗族的名册里拿走(全局索引不动，身份只是换个宗族)
+    public bool TakePerson(long personId)
+    {
+        lock (_cacheLock)
+        {
+            bool removed = _cache.Remove(personId);
+            if (removed) _peopleRevision++;
+            return removed;
+        }
+    }
     [JsonIgnore]
-    public List<PersonalClanIdentity> all_valid_members => SnapshotPeople().ToList().FindAll(i=>i.CanHeir());
+    public List<PersonalClanIdentity> all_valid_members => CityPopulationSystem.AbstractPopulationEnabled
+        ? LivingSnapshot().Where(i => i.CanHeir()).ToList() : SnapshotPeople().ToList().FindAll(i=>i.CanHeir());
     [JsonIgnore] 
-    public List<Actor> AllAliveMembers => SnapshotPeople().ToList().FindAll(i => i.is_alive).Select(i=>i._actor).ToList();
+    // 有实体的在世族人(虚拟族人不在其中：他们没有单位，需要时用 PersonalClanIdentity.Realize() 落成)
+    public List<Actor> AllAliveMembers => (CityPopulationSystem.AbstractPopulationEnabled ? LivingSnapshot() : SnapshotPeople())
+        .Where(i => i.is_alive && !i.is_virtual)
+        .Select(i=>i._actor).Where(actor => actor != null).ToList();
     [JsonIgnore]
     private readonly object _cacheLock = new();
     public Dictionary<long, PersonalClanIdentity> _cache = new();
+    private Dictionary<long, PersonalClanIdentity> _peopleSource;
+    private PersonalClanIdentity[] _livingSnapshot;
+    private long _peopleRevision, _livingRevision = -1;
+    private int _peopleCount = -1;
     [JsonIgnore]
-    public int Count => SnapshotPeople().ToList().FindAll(i=>i.is_alive).Count;
-    public int CountTotal =>SnapshotPeople().ToList().Count;
+    public int Count => CityPopulationSystem.AbstractPopulationEnabled ? LivingSnapshot().Length : SnapshotPeople().ToList().FindAll(i=>i.is_alive).Count;
+    public int CountTotal { get { if (!CityPopulationSystem.AbstractPopulationEnabled) return SnapshotPeople().ToList().Count;
+        lock (_cacheLock) return _cache.Count; } }
+
+    public void InvalidatePeople() { lock (_cacheLock) _peopleRevision++; }
+
+    private PersonalClanIdentity[] LivingSnapshot()
+    {
+        lock (_cacheLock)
+        {
+            if (_livingSnapshot == null || !ReferenceEquals(_peopleSource, _cache) || _peopleCount != _cache.Count ||
+                _livingRevision != _peopleRevision)
+            {
+                _livingSnapshot = _cache.Values.Where(person => person != null && person.is_alive).ToArray();
+                _peopleSource = _cache; _peopleCount = _cache.Count; _livingRevision = _peopleRevision;
+            }
+            return _livingSnapshot;
+        }
+    }
     public PersonalClanIdentity GetPerson(long personId)
     {
         lock (_cacheLock)
@@ -106,10 +192,12 @@ public class SpecificClan
         lock (_cacheLock)
         {
             _cache[p.id] = p;
+            _peopleRevision++;
         }
     }
     public void RecordHistoryEmpire(Empire empire, City capital)
     {
+        if (empire == null || empire.isRekt() || capital == null || capital.isRekt()) return;
         empire_name = empire.GetEmpireName();
         capital_city_id = capital.getID();
         capital_city_pos_x = capital.city_center.x;
@@ -196,6 +284,7 @@ public class SpecificClan
     }
     public void addActor(Actor actor, bool is_concubines= false)
     {
+        if (actor == null || actor.IsWarMachine()) return;
         if (!actor.HasSpecificClan())
         {
             PersonalClanIdentity pci = actor.InitialPersonalIdentity(this);
@@ -218,13 +307,14 @@ public class SpecificClan
         lock (_cacheLock)
         {
             _cache.Remove(identity.id);
+            _peopleRevision++;
         }
         SpecificClanManager._globalPersonLookup.Remove(identity.id);
         SpecificClanManager._actorToPersonLookup.Remove(identity.actor_id);
 
         if (identity.is_alive)
         {
-            identity._actor.RemoveSpecificClan();
+            identity._actor?.RemoveSpecificClan();
         }
     }
 
@@ -261,6 +351,7 @@ public class SpecificClan
                 SpecificClanManager._actorToPersonLookup.Remove(pci.actor_id);
             }
             _cache.Clear();
+            _peopleRevision++;
         }
     }
 }
@@ -745,6 +836,69 @@ public static class SpecificClanManager
             _specificClans.Add(sc);
         }
     }
+    // 读档修复配偶记录(以前嫁娶时会覆盖对方原有的配偶，留下双方对不上的记录)，返回修正的条数：
+    //   · 妾室名单里，记录的丈夫不是此人的，移出名单；
+    //   · 妾：丈夫的妾室名单里没有她——其实是正妻就改正标记，否则清掉这条失效记录；
+    //   · 正妻/正夫：双方互指则无误；对方没有配偶就补上回指；对方与第三人互指，说明这边是被覆盖的旧记录，清掉；
+    //     对方指向的第三人没有回指，说明对方的记录失效，改为与这边互指。
+    public static int RepairSpouseRecords()
+    {
+        List<PersonalClanIdentity> people;
+        lock (_clansLock) people = _globalPersonLookup.Values.ToList();
+        int fixes = 0;
+        foreach (PersonalClanIdentity husband in people)
+        {
+            if (husband.concubines == null || husband.concubines.Count == 0) continue;
+            fixes += husband.concubines.RemoveAll(entry =>
+            {
+                PersonalClanIdentity concubine = getPerson(entry.identity);
+                return concubine == null || concubine.id == husband.id || concubine.lover.identity != husband.id;
+            });
+        }
+        foreach (PersonalClanIdentity person in people)
+        {
+            if (!person.hasLover()) continue;
+            PersonalClanIdentity partner = getPerson(person.lover.identity);
+            if (partner == null || partner.id == person.id)
+            {
+                ClearLover(person);
+                fixes++;
+                continue;
+            }
+            bool listedAsConcubine = partner.concubines?.Any(entry => entry.identity == person.id) == true;
+            if (person.is_concubine)
+            {
+                if (listedAsConcubine) continue;
+                if (partner.lover.identity == person.id) person.is_concubine = false;
+                else ClearLover(person);
+                fixes++;
+                continue;
+            }
+            if (partner.lover.identity == person.id) continue;
+            fixes++;
+            if (listedAsConcubine)
+            {
+                person.is_concubine = true;
+                continue;
+            }
+            if (!partner.hasLover())
+            {
+                partner.lover = (person.specific_clan_id, person.id);
+                continue;
+            }
+            PersonalClanIdentity third = getPerson(partner.lover.identity);
+            if (third != null && third.lover.identity == partner.id) ClearLover(person);
+            else partner.lover = (person.specific_clan_id, person.id);
+        }
+        return fixes;
+    }
+
+    private static void ClearLover(PersonalClanIdentity person)
+    {
+        person.lover = (-1L, -1L);
+        person.is_concubine = false;
+    }
+
     public static PersonalClanIdentity getPerson(long identity_id)
     {
         if (_globalPersonLookup.TryGetValue(identity_id, out var pci))
@@ -762,6 +916,13 @@ public static class SpecificClanManager
     public static void RemoveClan(long id)
     {
         lock (_clansLock) _specificClans.RemoveAll(c => c.id == id);
+    }
+
+    // 一次删掉一批宗族(族谱瘦身用，逐个 RemoveClan 是平方复杂度)
+    public static void RemoveClans(HashSet<long> ids)
+    {
+        if (ids == null || ids.Count == 0) return;
+        lock (_clansLock) _specificClans.RemoveAll(c => c == null || ids.Contains(c.id));
     }
     public static void removePerson(PersonalClanIdentity pci)
     {
@@ -840,14 +1001,44 @@ public static class SpecificClanManager
         newSpecificClan(actor, show_log);
     }
 
+    // "是不是同一家"：同一个宗族，或者同出一个始祖宗族的分支(别子为祖的王子、迁居他乡的一支仍是宗室)。
+    // 两边都为空时跟原来的 == 一样算相同。
+    public static bool SameLineage(SpecificClan a, SpecificClan b)
+    {
+        if (a == b) return true;
+        if (a == null || b == null) return false;
+        if (a.parent_clan_id < 0 && b.parent_clan_id < 0) return false;
+        return a.GetRootClan() == b.GetRootClan();
+    }
+
+    // 按 id 找宗族：以前每次都在整个宗族列表里线性查找(几万个宗族时，每个族人取一次宗族就要扫几万遍，
+    // 分户、族长、宗族分支这些逐人处理的地方因此每帧卡十几毫秒)。改用字典索引；列表的增删有好几处
+    // 直接改 _specificClans，索引在数量变化或查到的对不上时整体重建
+    private static readonly Dictionary<long, SpecificClan> _clanIndex = new();
+    private static int _clanIndexCount = -1;
+    private static List<SpecificClan> _clanIndexList;
+
     public static SpecificClan Get(long id)
     {
-        SpecificClan clan = _specificClans.Find(sc => sc.id == id);
-        if (clan == null)
+        lock (_clansLock)
         {
-            return null;
-        } 
-        return clan;
+            if (_clanIndexCount != _specificClans.Count || !ReferenceEquals(_clanIndexList, _specificClans))
+                RebuildClanIndex();
+            if (!_clanIndex.TryGetValue(id, out SpecificClan clan)) return null;
+            if (clan != null && clan.id == id) return clan;
+            // 索引过期(宗族改过 id 或被原地替换)：重建一次再查
+            RebuildClanIndex();
+            return _clanIndex.TryGetValue(id, out clan) ? clan : null;
+        }
+    }
+
+    private static void RebuildClanIndex()
+    {
+        _clanIndex.Clear();
+        foreach (SpecificClan clan in _specificClans)
+            if (clan != null) _clanIndex[clan.id] = clan;
+        _clanIndexCount = _specificClans.Count;
+        _clanIndexList = _specificClans;
     }
     public static void Remove(SpecificClan sc)
     {
@@ -879,6 +1070,8 @@ public class PersonalClanIdentity
     public string culture = "";
     public string officeName = "";
     public string fullOfficeName = "";
+    // 封国国君身后的谥号(湘文侯)，见 FeudalPosthumousSystem
+    public string posthumous_name = "";
     public string clanName = "";
     public string familyName = "";
     public string factionName = "";
@@ -894,7 +1087,12 @@ public class PersonalClanIdentity
     [JsonIgnore]
     public Actor _actor => World.world.units.get(actor_id);
     public int rank = 1;
-    public bool is_alive { get; set; }
+    private bool _isAlive;
+    public bool is_alive
+    {
+        get => _isAlive;
+        set { if (_isAlive == value) return; _isAlive = value; _specificClan?.InvalidatePeople(); }
+    }
     public bool is_concubine {  get; set; } = false; //是否是小妾/男宠（当小妾/男宠无自身宗族时，会加入丈夫/妻子氏族并标记为小妾/男宠身份）
     public bool is_main { get; set; } = true; //在婚姻关系中是否为主要角色（对于爱人来说是嫁/入赘，还是娶/招亲）
     [JsonIgnore]
@@ -903,7 +1101,10 @@ public class PersonalClanIdentity
         get
         {
             Actor actor = _actor;
-            return is_alive && actor != null ? actor.getAge() : recordedAge;
+            if (is_alive && actor != null) return actor.getAge();
+            if (is_alive && is_virtual && virtual_since >= 0d && World.world != null)
+                return recordedAge + Date.getYearsSince(virtual_since);
+            return recordedAge;
         }
     }
     [JsonIgnore] public string isMainText => hasLover()?(is_main ? "i_first" : "i_second"):"i_none_lover";
@@ -922,6 +1123,31 @@ public class PersonalClanIdentity
     public List<long> pending_child_birth_history_parents = new List<long>();
     public bool death_history_recorded = false;
 
+    // —— 虚拟族谱(无小人模式，见 VirtualGenealogySystem) ——
+    // 并入人口数据后没有实体单位、但仍在世的族人：只记人名、出生地、受封(爵位/封号)，需要时再落成实体
+    public bool is_virtual { get; set; }
+    // Personal name parts survive virtualisation; familyName below is a household label.
+    public string given_name { get; set; } = "";
+    public string surname { get; set; } = "";
+    public string birthplace { get; set; } = "";
+    // 落成实体时生成在哪座城(并入时所在的城)
+    public long virtual_city_id { get; set; } = -1L;
+    // 成为虚拟族人的时间，用来推算年龄
+    public double virtual_since { get; set; } = -1d;
+    // 真实年龄开启时的预定寿数(60~80)，切换法则不会重新抽取
+    public int virtual_death_age { get; set; } = -1;
+    // Native lifespan and immortality survive conversion; null is a legacy save.
+    public float? virtual_native_lifespan { get; set; }
+    public bool virtual_immortal { get; set; }
+    // 已存在的个人钱包保管额；落成、继承不作为当期收入，旧档缺省为空。
+    public WalletReserve wallet_reserve { get; set; }
+    // Newtonsoft convention: do not inflate every historical person with an empty account.
+    public bool ShouldSerializewallet_reserve() => wallet_reserve != null &&
+        (wallet_reserve.cash != 0L || wallet_reserve.loot != 0L);
+
+    // 需要这个人(继承、分封、作乱……)时调用：虚拟族人当场落成实体，否则返回现有实体
+    public Actor Realize() => is_alive ? VirtualGenealogySystem.Realize(this) : _actor;
+
     public void newPersonalClanIdentity(SpecificClan specificClan, Actor a)
     {
         id = IdGenerator.NextId();
@@ -929,12 +1155,14 @@ public class PersonalClanIdentity
         actor_id = a.getID();
         specific_clan_id = specificClan.id;
         name = a.getName();
+        given_name = a.GetModName()?.firstName ?? "";
+        surname = a.GetModName()?.familyName ?? "";
         birthday = a.getBirthday();
         sex = a.data.sex;
         recordedAge = a.getAge();
         species = a.asset.id;
         is_main = true;
-        culture = ConfigData.speciesCulturePair.TryGetValue(species, out string culturePair)? culturePair:"Western";
+        culture = CultureService.ResolveRecordedActorCulture(a);
         generation = 0;
     }
 
@@ -944,9 +1172,11 @@ public class PersonalClanIdentity
     }
     public void recordAllInfo()
     {
-        culture = ConfigData.speciesCulturePair.TryGetValue(species, out string culturePair)? culturePair:"Western";
         Actor actor = _actor;
         if (actor == null) return;
+        given_name = actor.GetModName()?.firstName ?? given_name;
+        surname = actor.GetModName()?.familyName ?? surname;
+        culture = CultureService.ResolveRecordedActorCulture(actor, culture);
         recordedAge = actor.getAge();
         OfficeIdentity identity = null;
         if (actor.hasCity())
@@ -959,7 +1189,8 @@ public class PersonalClanIdentity
         {
             merit = string.Join("_", culture, "meritlevel", identity.peerageType.ToString(), identity.meritLevel);
             honoraryOfficial = string.Join("_", culture, "honoraryofficial", identity.peerageType.ToString(), identity.honoraryOfficial);
-            officialLevel = string.Join("_", actor.kingdom.GetRegime().type, "officiallevel", identity.officialLevel.ToString());
+            officialLevel = DynastyNaming.RankKey(actor.kingdom.GetRegime().type, identity.officialLevel,
+                actor.isCityLeader() ? actor.city : actor.kingdom);
         }
         if (actor.GetOffice() != null)
         {
@@ -985,6 +1216,14 @@ public class PersonalClanIdentity
     public bool hasLover()
     {
         return lover != (-1L, -1L);
+    }
+
+    // 能否与 partnerId 结为夫妻/纳为妾：没有配偶，或配偶已去世(丧偶)，或本来就是这个人
+    public bool IsFreeToMarry(long partnerId)
+    {
+        if (!hasLover() || lover.identity == partnerId) return true;
+        PersonalClanIdentity current = SpecificClanManager.getPerson(lover.identity);
+        return current == null || !current.is_alive;
     }
 
     public string getDeathday()
@@ -1015,7 +1254,10 @@ public class PersonalClanIdentity
         }
         actor.CheckSpecificClan(false);
         PersonalClanIdentity lpci = actor.GetPersonalIdentity();
-        if (lpci == null) return;
+        if (lpci == null || lpci.id == id) return;
+        // 对方已有在世的配偶、或已是别人的妾：不能再嫁娶(以前直接覆盖对方的配偶记录，
+        // 原配偶那边还指着他，于是双方的配偶名字对不上)。丧偶的可以再婚
+        if (!lpci.IsFreeToMarry(id)) return;
         lpci.lover.specific_clan = specific_clan_id;
         lpci.lover.identity = id;
         lpci.is_main = !IsHeirPriority();
@@ -1235,14 +1477,12 @@ public class PersonalClanIdentity
 
     private static string GetHistoryDay(double timestamp)
     {
-        return GetHistoryDay(Date.getDate(timestamp));
+        return HistoryDateFormatter.GetMonthDay(timestamp);
     }
 
-    private static string GetHistoryDay(string date)
+    private static string GetHistoryDay(string formattedDate)
     {
-        if (string.IsNullOrWhiteSpace(date)) return "";
-        int yearEnd = date.LastIndexOf('年');
-        return yearEnd >= 0 ? date.Substring(yearEnd + 1) : date;
+        return HistoryDateFormatter.GetMonthDay(-1, formattedDate);
     }
 
     public void addChild(Actor actor, bool isNeedSetParentBoth=true, bool recordHistory = true)
@@ -1293,6 +1533,15 @@ public class PersonalHistoryRecord
     public long related_actor_id { get; set; } = -1L;
     public long related_personal_identity_id { get; set; } = -1L;
     public long owner_personal_identity_id { get; set; } = -1L;
+
+    // 存档时省略仍是初始值的字段(读档按初始值还原)，族谱生平约小三成
+    public bool ShouldSerializetimestamp() => timestamp != -1d;
+    public bool ShouldSerializekingdom_name() => !string.IsNullOrEmpty(kingdom_name);
+    public bool ShouldSerializeempire_id() => empire_id != -1L;
+    public bool ShouldSerializeevent_key() => !string.IsNullOrEmpty(event_key);
+    public bool ShouldSerializerelated_actor_id() => related_actor_id != -1L;
+    public bool ShouldSerializerelated_personal_identity_id() => related_personal_identity_id != -1L;
+    public bool ShouldSerializeowner_personal_identity_id() => owner_personal_identity_id != -1L;
 }
 
 public class CrimeRecord

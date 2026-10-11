@@ -1,5 +1,7 @@
 ﻿using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.GeneralSystems;
+using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
 using NeoModLoader.General;
 using System;
@@ -16,79 +18,144 @@ using UnityEngine;
 namespace EmpireCraft.Scripts.GameLibrary;
 public static class EmpireCraftTooltipLibrary
 {
+    // 覆盖原版同名提示(如 kingdom)：先移除旧的再加，避免 AssetLibrary 报 duplicate asset 错误
+    private static void AddOrReplace(TooltipLibrary tl, TooltipAsset asset)
+    {
+        if (tl.dict.TryGetValue(asset.id, out TooltipAsset existing))
+        {
+            tl.dict.Remove(asset.id);
+            tl.list.Remove(existing);
+        }
+        tl.add(asset);
+    }
+
     public static void init()
     {
         TooltipLibrary tl = AssetManager.tooltips;
-        tl.add(new TooltipAsset
+        AddOrReplace(tl, new TooltipAsset
         {
             id = "empire",
             prefab_id = "tooltips/tooltip_kingdom",
             callback = showEmpireToolTip
         });
-        tl.add(new TooltipAsset
+        AddOrReplace(tl, new TooltipAsset
         {
             id = "kingdomTitle",
             prefab_id = "tooltips/tooltip_city",
             callback = showKingdomTitleToolTip
         });
-        tl.add(new TooltipAsset
+        AddOrReplace(tl, new TooltipAsset
         {
             id = "empireCore",
             prefab_id = "tooltips/tooltip_kingdom",
             callback = showEmpireCoreToolTip
         });
-        tl.add(new TooltipAsset
+        AddOrReplace(tl, new TooltipAsset
         {
             id = "actor_officer",
             prefab_id = "tooltips/tooltip_actor",
             callback = showOfficer
         });
-        tl.add(new TooltipAsset
+        AddOrReplace(tl, new TooltipAsset
         {
             id = "actor_emperor",
             prefab_id = "tooltips/tooltip_actor",
             callback = showEmperor
         });
-        tl.add(new TooltipAsset
+        AddOrReplace(tl, new TooltipAsset
         {
             id = "all_titles",
             callback = showTitleList
         });
-        tl.add(new TooltipAsset
+        AddOrReplace(tl, new TooltipAsset
         {
             id = "kingdom",
             prefab_id = "tooltips/tooltip_kingdom",
             callback = showKingdom
         });
-        tl.add(new TooltipAsset
+        AddOrReplace(tl, new TooltipAsset
         {
 	        id = "actor_king",
 	        prefab_id = "tooltips/tooltip_actor",
 	        callback = showKing
         });
-        tl.add(new TooltipAsset
+        AddOrReplace(tl, new TooltipAsset
         {
 	        id = "actor",
 	        prefab_id = "tooltips/tooltip_actor",
 	        callback = showActorNormal
         });
-        tl.add(new TooltipAsset
+        AddOrReplace(tl, new TooltipAsset
         {
 	        id = "actor_leader",
 	        prefab_id = "tooltips/tooltip_actor",
 	        callback = showLeader
         });
-        tl.add(new TooltipAsset
+        AddOrReplace(tl, new TooltipAsset
         {
             id = "empirecraft_actor",
             prefab_id = "tooltips/tooltip_normal",
             callback = showEmpireCraftActor
         });
+        // 文化图层悬停城市时用：展示该城市自己的文化影响力前三，用真正的鼠标悬停
+        // Tooltip 呈现（跟"empire"图层的 ShowEmpireCursorTooltip 走同一套
+        // Tooltip.show/hideTooltip API），而不是伪造一块透明铭牌顶在城市上方。
+        AddOrReplace(tl, new TooltipAsset
+        {
+            id = "empirecraft_culture_share",
+            prefab_id = "tooltips/tooltip_normal",
+            callback = showCultureShareTooltip
+        });
+        AddOrReplace(tl, new TooltipAsset
+        {
+            id = "empirecraft_ideology_share",
+            prefab_id = "tooltips/tooltip_normal",
+            callback = showIdeologyShareTooltip
+        });
+        AddOrReplace(tl, new TooltipAsset
+        {
+            id = EmpireCraft.Scripts.Layer.MineralMap.TooltipType,
+            prefab_id = "tooltips/tooltip_normal",
+            callback = EmpireCraft.Scripts.Layer.MineralMap.ShowTooltip
+        });
+        AddOrReplace(tl, new TooltipAsset
+        {
+            id = EmpireCraft.Scripts.Layer.NationMap.TooltipType,
+            prefab_id = "tooltips/tooltip_normal",
+            callback = EmpireCraft.Scripts.Layer.NationMap.ShowTooltip
+        });
+        AddOrReplace(tl, new TooltipAsset
+        {
+            id = EmpireCraft.Scripts.Layer.WealthMap.TooltipType,
+            prefab_id = "tooltips/tooltip_normal",
+            callback = EmpireCraft.Scripts.Layer.WealthMap.ShowTooltip
+        });
+        // 地图兵牌与交战标记的悬停详情(见 CorpsMapRenderer)
+        AddOrReplace(tl, new TooltipAsset
+        {
+            id = UI.Components.CorpsMapRenderer.CounterTooltip,
+            prefab_id = "tooltips/tooltip_normal",
+            callback = UI.Components.CorpsMapRenderer.ShowCounterTooltip
+        });
+        AddOrReplace(tl, new TooltipAsset
+        {
+            id = UI.Components.CorpsMapRenderer.BattleTooltip,
+            prefab_id = "tooltips/tooltip_normal",
+            callback = UI.Components.CorpsMapRenderer.ShowBattleTooltip
+        });
+        // 窗口里"理念"一行的提示(见 IdeologyRowPatch)
+        AddOrReplace(tl, new TooltipAsset
+        {
+            id = GamePatches.IdeologyRowPatch.TooltipId,
+            prefab_id = "tooltips/tooltip_normal",
+            callback = GamePatches.IdeologyRowPatch.ShowIdeologyTooltip
+        });
     }
-    
+
     private static void showActorNormal(Tooltip pTooltip, string pType, TooltipData pData)
     {
 	    AssetManager.tooltips.showActor("", pTooltip, pData);
+        AddActorIdeology(pTooltip, pData?.actor);
     }
 
     private static void showLeader(Tooltip pTooltip, string pType, TooltipData pData)
@@ -101,6 +168,7 @@ public static class EmpireCraftTooltipLibrary
 		    subTitle = office.GetName(city);
 	    }
 	    AssetManager.tooltips.showActor(string.IsNullOrEmpty(subTitle)?"village_statistics_leader":subTitle, pTooltip, pData);
+        AddActorIdeology(pTooltip, pData?.actor);
     }
 
     private static void showKing(Tooltip pTooltip, string pType, TooltipData pData)
@@ -113,14 +181,16 @@ public static class EmpireCraftTooltipLibrary
 		    subTitle = office.GetName(kingdom);
 	    }
 	    AssetManager.tooltips.showActor(string.IsNullOrEmpty(subTitle)?"village_statistics_king":subTitle, pTooltip, pData);
+        AddActorIdeology(pTooltip, pData?.actor);
     }
 	public static void showKingdom(Tooltip pTooltip, string pType, TooltipData pData)
 	{
-		Kingdom kingdom = pData.kingdom;
+		Kingdom kingdom = pData?.kingdom;
+		if (pTooltip == null || kingdom == null || kingdom.isRekt()) return;
 		pTooltip.setSpeciesIcon(kingdom.getSpeciesIcon());
 		string color_text = kingdom.getColor().color_text;
 		KingdomType type = kingdom.GetKingdomType();
-		pTooltip.setTitle(kingdom.GetKingdomFullName(), type.ToString(), kingdom.getColor().color_text);
+		pTooltip.setTitle(kingdom.GetKingdomFullName(), kingdom.GetKingdomTypeDisplayKey(), kingdom.getColor().color_text);
 		pTooltip.transform.FindRecursive("Stats").gameObject.SetActive(value: true);
 		AssetManager.tooltips.setIconValue(pTooltip, "i_age", kingdom.getAge());
 		AssetManager.tooltips.setIconValue(pTooltip, "i_population", kingdom.getPopulationPeople());
@@ -132,12 +202,27 @@ public static class EmpireCraftTooltipLibrary
 			pValue = kingdom.king.getName();
 		}
 		pTooltip.addLineText("village_statistics_king", pValue, color_text);
-		if (kingdom.hasKing())
+		Kingdom feudalLord = FeudalVassalService.GetOverlord(kingdom);
+		if (feudalLord != null)
 		{
-			pTooltip.addLineIntText("ruler_money", kingdom.king.money);
+			var fealty = kingdom.GetOrCreate();
+			pTooltip.addLineText("feudal_vassal_status",
+				$"{feudalLord.GetKingdomName()} ({fealty.feudal_vassal_level}, {fealty.feudal_vassal_progress}/{FeudalVassalService.ProgressPerLevel})",
+				"#FF5555");
 		}
+		pTooltip.addLineText("ruler_money", EmpireCraft.Scripts.HelperFunc.MoneyDisplay.Format(kingdom.GetTreasuryBalance()));
+        if (CityPopulationSystem.AbstractPopulationEnabled && ExclaveMaintenanceSystem.Status(kingdom) is string exclaveStatus)
+            pTooltip.addLineText("exclave_maintenance", exclaveStatus);
+		if (CityPopulationSystem.AbstractPopulationEnabled && !kingdom.wild &&
+		    !EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(kingdom))
+			pTooltip.addLineText("state_settlement", StateSettlementSystem.Status(kingdom), "#F3C34A");
 		pTooltip.addLineBreak();
 		pTooltip.addLineText("villages", kingdom.cities.Count.ToText() + "/" + kingdom.getMaxCities().ToText());
+        int deJureExemptCities = kingdom.CountDeJureCapacityExemptCities();
+        if (deJureExemptCities > 0)
+        {
+            pTooltip.addLineText("de_jure_city_capacity_exempt", deJureExemptCities.ToText(), color_text);
+        }
 		pTooltip.addLineIntText("adults", kingdom.countAdults());
 		pTooltip.addLineIntText("children", kingdom.countChildren());
 		pTooltip.addLineIntText("families", kingdom.countFamilies());
@@ -163,9 +248,32 @@ public static class EmpireCraftTooltipLibrary
 		{
 			pTooltip.addLineText("language", kingdom.language.data.name, kingdom.language.getColor().color_text);
 		}
-		if (kingdom.hasReligion())
+		if (kingdom.capital != null)
 		{
-			pTooltip.addLineText("religion", kingdom.religion.data.name, kingdom.religion.getColor().color_text);
+			PartyIdeology ideology = IdeologyPopulationSystem.GetDominant(kingdom.capital);
+			pTooltip.addLineText("ideology_population_title", PartySystem.GetIdeologyName(ideology), "#7FD8EA");
+		}
+		// 独立王国的苛政(帝国成员看帝国提示框)
+		float kingdomBurden = HarshRuleSystem.GetBurden(kingdom);
+		if (kingdomBurden >= 1f)
+		{
+			string burdenColor = kingdomBurden >= 60f ? "#FF6666" : kingdomBurden >= 30f ? "#E9A85B" : "#B8C6CC";
+			pTooltip.addLineText("label_harsh_rule", $"{kingdomBurden:0}", burdenColor);
+			AddTooltipSources(pTooltip, HarshRuleSystem.Breakdown(kingdom).Take(3), burdenColor);
+		}
+		// 地方政治：本省执政党与各党支持率
+		AddStabilityTooltip(pTooltip, kingdom);
+		Empire provinceEmpire = kingdom.GetEmpire();
+		if (ProvincialPoliticsSystem.IsProvince(provinceEmpire, kingdom) && PartySystem.IsActive(provinceEmpire))
+		{
+			FixedFaction localParty = ProvincialPoliticsSystem.GetGoverningParty(provinceEmpire, kingdom);
+			if (localParty != null)
+				pTooltip.addLineText("local_governing_party", localParty.Name +
+					(ProvincialPoliticsSystem.IsOppositionHeld(provinceEmpire, kingdom) ? LM.Get("local_opposition_mark") : ""),
+					ProvincialPoliticsSystem.IsOppositionHeld(provinceEmpire, kingdom) ? "#E9A85B" : "#65D66E");
+			string leaning = string.Join("  ", ProvincialPoliticsSystem.GetShares(provinceEmpire, kingdom).Take(3)
+				.Select(item => $"{item.party.Name} {item.share * 100f:0}%"));
+			if (!string.IsNullOrEmpty(leaning)) pTooltip.addLineText("local_party_leaning", leaning, "#C9A7E8");
 		}
 		Alliance alliance = kingdom.getAlliance();
 		if (alliance != null)
@@ -179,11 +287,15 @@ public static class EmpireCraftTooltipLibrary
 		pTooltip.addLineIntText("deaths", kingdom.getTotalDeaths());
 		pTooltip.addLineIntText("kills", kingdom.getTotalKills());
 		pTooltip.addLineBreak();
-		pTooltip.addLineText("species", kingdom.getActorAsset().getTranslatedName());
+		ActorAsset actorAsset = kingdom.getActorAsset();
+		if (actorAsset != null)
+		{
+			pTooltip.addLineText("species", actorAsset.getTranslatedName());
+		}
 		KingdomBanner[] array = pTooltip.transform.FindAllRecursive<KingdomBanner>();
 		for (int i = 0; i < array.Length; i++)
 		{
-			array[i].load(kingdom);
+			TryLoadKingdomBanner(array[i], kingdom);
 		}
 		TooltipKingdomTraitsRow componentInChildren = pTooltip.GetComponentInChildren<TooltipKingdomTraitsRow>(includeInactive: true);
 		if (componentInChildren != null)
@@ -220,7 +332,7 @@ public static class EmpireCraftTooltipLibrary
         KingdomBanner[] array = pTooltip.transform.FindAllRecursive<KingdomBanner>();
         for (int i = 0; i < array.Length; i++)
         {
-            array[i].load(tKingdom);
+            TryLoadKingdomBanner(array[i], tKingdom);
         }
         long explicitEmpireId;
         Empire pEmpire = long.TryParse(pData.tip_description, out explicitEmpireId)
@@ -240,29 +352,77 @@ public static class EmpireCraftTooltipLibrary
                 pValue = pEmpire.Emperor.getName();
             }
         }
-        pTooltip.addLineText("emperor", pValue, "#FE9900", false, true, 21);
-        if (pEmpire.EmpireClan != null)
+        bool republic = RepublicSystem.IsRepublic(pEmpire);
+        if (republic)
+            pTooltip.addLineText(RepublicSystem.GetHeadOfStateTitle(pEmpire), pValue, "#FE9900", false, false, 21);
+        else
+            pTooltip.addLineText("emperor", pValue, "#FE9900", false, true, 21);
+        if (!republic && pEmpire.EmpireClan != null)
         {
             if (pEmpire.EmpireClan.isAlive())
             {
                 pTooltip.addLineText("empire_clan", pEmpire.EmpireClan.data.name, pEmpire.EmpireClan.getColor().color_text, false, true, 21);
             }
         }
-        pTooltip.addLineText("empire_capital", pEmpire.CoreKingdom.GetKingdomFullName(), "#CC6CE7", false, true, 21);
+        // 帝国首府显示首都城市(还于旧都等迁都后这里要能看出变化)；帝国名就是核心王国名，再显示王国全名没有信息量
+        pTooltip.addLineText("empire_capital", pEmpire.CoreKingdom.capital?.GetCityName() ?? pEmpire.CoreKingdom.GetKingdomFullName(), "#CC6CE7", false, true, 21);
         Regime regime = pEmpire.CoreKingdom.GetRegime();
-        if (regime?.HasEraName() == true && pEmpire.HasYearName())
+        if (republic)
+        {
+            pTooltip.addLineText(RepublicSystem.GetCalendarMode(pEmpire) == RepublicSystem.CommonEraCalendar
+                ? "republic_common_era_label" : "republic_era_label",
+                RepublicSystem.GetCalendarText(pEmpire), "#FE9900", false, true, 21);
+        }
+        else if (regime?.HasEraName() == true && pEmpire.HasYearName())
         {
             pTooltip.addLineText("year_name", pEmpire.GetYearNameWithTime(), "#FE9900", false, true, 21);
         }
 
         pTooltip.addLineBreak();
         EmpireCore core = EmpireCoreManager.Get(pEmpire);
-        AddTooltipLine(pTooltip, "empire_tooltip_core", EmpireCoreManager.GetDisplayName(core), "#74D7FF", true);
-        AddTooltipLine(pTooltip, "empire_tooltip_ascension_title",
+        // 现代政体没有"称帝"：帝国核心称法统，称帝法理称建政之地
+        bool modern = regime?.type == RegimeType.Modern;
+        // 分治期另立政府的子核心(warlord_parent_core_id)只是技术记录，显示它所属的正规核心
+        EmpireCore lawfulCore = core?.warlord_parent_core_id > 0
+            ? EmpireCoreManager.Get(core.warlord_parent_core_id) ?? core
+            : core;
+        AddTooltipLine(pTooltip, modern ? "modern_tooltip_core" : "empire_tooltip_core",
+            EmpireCoreManager.GetStatusDisplayName(lawfulCore), "#74D7FF", true);
+        AddTooltipLine(pTooltip, "empire_core_legitimate_empire",
+            EmpireCoreManager.GetLegitimateEmpire(core)?.GetEmpireFullName(), "#FF6666");
+        AddTooltipLine(pTooltip, modern ? "modern_tooltip_founding_title" : "empire_tooltip_ascension_title",
             GetAscensionTitleName(pEmpire, core), "#FFD34E", true);
-        AddTooltipLine(pTooltip, "label_treasury", pEmpire.CurrentMoney.ToString(),
+        AddTooltipLine(pTooltip, "label_treasury", EmpireCraft.Scripts.HelperFunc.MoneyDisplay.Format(pEmpire.CoreKingdom?.GetTreasuryBalance() ?? 0L),
             pEmpire.CurrentMoney < 0 ? "#FF6666" : "#76E6C2", true);
-        AddTooltipLine(pTooltip, "label_mandate", pEmpire.Mandate.ToString(), "#FFCF55", true);
+        AddTooltipLine(pTooltip, pEmpire.LegitimacyLabelKey, pEmpire.Legitimacy.ToString(), "#FFCF55", true);
+        // 苛政与街头抗争
+        float burden = HarshRuleSystem.GetBurden(pEmpire);
+        if (burden >= 1f)
+        {
+            string burdenColor = burden >= 60f ? "#FF6666" : burden >= 30f ? "#E9A85B" : "#B8C6CC";
+            AddTooltipLine(pTooltip, "label_harsh_rule", $"{burden:0}", burdenColor);
+            AddTooltipSources(pTooltip, HarshRuleSystem.Breakdown(pEmpire).Take(3), burdenColor);
+        }
+        int streetStage = HarshRuleSystem.GetStreetStage(pEmpire);
+        double corruption = CorruptionSystem.GetRate(pEmpire);
+        AddTooltipLine(pTooltip, "label_realm_corruption", $"{corruption:P0}",
+            corruption >= 0.5d ? "#FF6666" : "#B8C6CC");
+        if (ModernLegitimacy.Applies(pEmpire) && streetStage > 0)
+            AddTooltipLine(pTooltip, "label_street_unrest", HarshRuleSystem.GetStageName(streetStage),
+                streetStage >= 3 ? "#FF6666" : "#E9A85B");
+        if (ModernLegitimacy.Applies(pEmpire))
+        {
+            pTooltip.addLineText("label_legitimacy_sources", "", "#B8C6CC");
+            AddTooltipSources(pTooltip, ModernLegitimacy.Breakdown(pEmpire), "#B8C6CC", signed: true);
+        }
+        else if (MonarchyLegitimacy.Applies(pEmpire))
+        {
+            pTooltip.addLineText("label_mandate_sources", "", "#B8C6CC");
+            AddTooltipSources(pTooltip, MonarchyLegitimacy.Breakdown(pEmpire), "#B8C6CC", signed: true);
+            AddTooltipLine(pTooltip, "label_dynasty_age", DynasticCycleSystem.GetAge(pEmpire).ToString(), "#B8C6CC");
+            AddTooltipLine(pTooltip, "label_dynastic_strain", $"{DynasticCycleSystem.GetPressure(pEmpire):0.0}/100",
+                DynasticCycleSystem.InCrisis(pEmpire) ? "#FF6666" : "#B8C6CC");
+        }
 
         FixedFaction dominantFaction = regime?.GetDominateFaction();
         AddTooltipLine(pTooltip, "label_dominant_faction", dominantFaction?.Name, "#E78BFF", true);
@@ -275,9 +435,35 @@ public static class EmpireCraftTooltipLibrary
             tKingdom.getColor().color_text, true);
         AddTooltipLine(pTooltip, "empire_tooltip_province_ruler", tKingdom.king?.getName(), "#FE9900", true);
         AddTooltipLine(pTooltip, "empire_tooltip_province_type",
-            LM.Get(tKingdom.GetKingdomType().ToString()), "#8FE7FF", true);
+            LM.Get(tKingdom.GetKingdomTypeDisplayKey()), "#8FE7FF", true);
         AddTooltipLine(pTooltip, "empire_tooltip_province_titles",
             GetOwnedTitleNames(tKingdom.king, null), "#FFD34E", true);
+    }
+
+    private static bool TryLoadKingdomBanner(KingdomBanner banner, Kingdom kingdom)
+    {
+        if (banner == null || kingdom?.data == null) return false;
+        try
+        {
+            banner.load(kingdom);
+            return true;
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            kingdom.generateBanner();
+            try
+            {
+                banner.load(kingdom);
+                return true;
+            }
+            catch (ArgumentOutOfRangeException)
+            {
+                kingdom.data.banner_background_id = 0;
+                kingdom.data.banner_icon_id = 0;
+                banner.gameObject.SetActive(false);
+                return false;
+            }
+        }
     }
 
     private static TemporaryFaction GetRunningClaim(Empire empire, Regime regime)
@@ -292,7 +478,7 @@ public static class EmpireCraftTooltipLibrary
     private static string FormatRunningClaim(TemporaryFaction claim, Regime regime)
     {
         if (claim == null) return "";
-        string claimName = LM.Get(claim.type.ToString()) ?? claim.type.ToString();
+        string claimName = TranslateHelper.GetTemporaryFactionClaimText(claim.type);
         FixedFaction sponsor = regime?.GetPlayerFactions()?.FirstOrDefault(faction => faction?.GetID() == claim.factionID);
         string sponsorName = sponsor?.Name ?? LM.Get("label_none");
         int progress = claim.progressMax > 0
@@ -332,6 +518,19 @@ public static class EmpireCraftTooltipLibrary
             ? title.title_capital?.GetCityName()
             : title.data.province_name;
         AddTooltipLine(pTooltip, "province_name", provinceName, "#FFD34E", true);
+        string culture = CultureService.GetEffectiveTitleCulture(title);
+        string cultureName = CultureService.IsValidCulture(culture)
+            ? culture.GetCultureTranslate()
+            : LM.Get("label_none");
+        AddTooltipLine(pTooltip, "kingdom_title_effective_culture", cultureName, "#74D7FF", true);
+        bool globallyLocked = CultureService.IsFixedDeJureCultureEnabled();
+        string cultureStatus = globallyLocked
+            ? LM.Get("kingdom_title_culture_locked_globally")
+            : title.data.culture_locked
+                ? LM.Get("kingdom_title_culture_locked")
+                : LM.Get("kingdom_title_culture_unlocked");
+        AddTooltipLine(pTooltip, "kingdom_title_culture_status", cultureStatus,
+            globallyLocked || title.data.culture_locked ? "#FFD34E" : "#AEB6C2", true);
         AddTooltipLine(pTooltip, "kingdom_title_capital", title.title_capital?.GetCityName(), "#CC6CE7", true);
 
         List<KingdomTitleHolderRelation> holders = KingdomTitleRelationResolver.ResolveCurrentHolders(title);
@@ -393,7 +592,7 @@ public static class EmpireCraftTooltipLibrary
         Kingdom repKingdom = repCity?.kingdom;
         string colorText = repKingdom?.getColor().color_text ?? "#FFFFFF";
         pTooltip.setDescription(LM.Get("empire_core_description"), null);
-        pTooltip.setTitle(EmpireCoreManager.GetDisplayName(core), "EmpireCoreWindowTitle", colorText);
+        pTooltip.setTitle(EmpireCoreManager.GetStatusDisplayName(core), "EmpireCoreWindowTitle", colorText);
         AssetManager.tooltips.setIconValue(pTooltip, "i_age", Date.getYearsSince(core.create_timestamp));
         AssetManager.tooltips.setIconValue(pTooltip, "i_population", EmpireCoreManager.GetCities(core).Sum(c => c?.CountLivingPopulation() ?? 0));
         AssetManager.tooltips.setIconValue(pTooltip, "i_army", EmpireCoreManager.GetCities(core).Sum(c => c?.CountLivingWarriors() ?? 0));
@@ -407,6 +606,9 @@ public static class EmpireCraftTooltipLibrary
         }
         pTooltip.addLineText("empire_core_titles_count", EmpireCoreManager.GetTitles(core).Count.ToString(), colorText, false, true, 21);
         pTooltip.addLineText("empire_core_cities_count", EmpireCoreManager.GetCities(core).Count.ToString(), colorText, false, true, 21);
+        Empire legitimate = EmpireCoreManager.GetLegitimateEmpire(core);
+        if (legitimate != null)
+            pTooltip.addLineText("empire_core_legitimate_empire", legitimate.GetEmpireFullName(), "#FF6666", false, true, 21);
 
         List<string> empires = EmpireCoreManager.GetCurrentEmpireNames(core);
         if (empires.Count > 0)
@@ -417,11 +619,251 @@ public static class EmpireCraftTooltipLibrary
     private static void showOfficer(Tooltip pTooltip, string pType, TooltipData pData)
     {
         AssetManager.tooltips.showActor("actor_officer", pTooltip, pData);
+        AddActorIdeology(pTooltip, pData?.actor);
     }
 
     private static void showEmperor(Tooltip pTooltip, string pType, TooltipData pData)
     {
         AssetManager.tooltips.showActor("actor_emperor", pTooltip, pData);
+        AddActorIdeology(pTooltip, pData?.actor);
+    }
+
+    private static void AddActorIdeology(Tooltip tooltip, Actor actor)
+    {
+        if (tooltip == null || actor == null || actor.isRekt()) return;
+        tooltip.addLineText("ideology_population_title",
+            PartySystem.GetIdeologyName(IdeologyPopulationSystem.Get(actor)), "#7FD8EA");
+        tooltip.addLineText("ideology_social_class_title",
+            LM.Get($"class_{actor.GetOrCreate().socialClass}"), "#E0C783");
+    }
+
+    // 文化图层悬停某城市时显示：该城市自己的文化影响力前三（不要求它是所属文化的
+    // “代表城市”），跟原来铭牌库里 showCultureShareDetailForCity 展示的信息完全
+    // 一样，只是从伪造的透明铭牌换成了真正的 Tooltip.show 悬停提示框。
+    private static void showCultureShareTooltip(Tooltip pTooltip, string pType, TooltipData pData)
+    {
+        City city = pData.city;
+        if (city == null || city.isRekt()) return;
+
+        Dictionary<string, float> shares = CultureService.GetCityCultureShares(city);
+        string dominantCulture = CultureService.GetMainCulture(city);
+        List<KeyValuePair<string, float>> topShares = shares
+            .Where(pair => CultureService.IsValidCulture(pair.Key) && pair.Value > 0.05f)
+            .OrderByDescending(pair => pair.Value)
+            .Take(3)
+            .ToList();
+
+        pTooltip.clear();
+        pTooltip.setTitle(city.GetCityFullName(), "empirecraft_culture_share_tooltip", "#FFFFFF");
+        if (topShares.Count == 0) return;
+
+        if (CultureService.IsValidCulture(dominantCulture))
+            pTooltip.addLineText("city_official_culture", dominantCulture.GetCultureTranslate(), "#FFD91A");
+
+        Dictionary<PartyIdeology, int> ideologies = IdeologyPopulationSystem.GetCityCounts(city);
+        if (ideologies.Count > 0)
+        {
+            KeyValuePair<PartyIdeology, int> dominant = ideologies.OrderByDescending(pair => pair.Value).First();
+            pTooltip.addLineText("ideology_population_title",
+                $"{PartySystem.GetIdeologyName(dominant.Key)} {100f * dominant.Value / ideologies.Values.Sum():0.#}%",
+                "#7FD8EA");
+        }
+
+        foreach (KeyValuePair<string, float> pair in topShares)
+        {
+            bool isDominant = string.Equals(pair.Key, dominantCulture, StringComparison.Ordinal);
+            string lineColor = isDominant ? "#FFD91A" : null;
+            pTooltip.addLineText(pair.Key.GetCultureTranslate(), $"{pair.Value:0.#}%", lineColor,
+                pPercent: false, pLocalize: false);
+        }
+
+        string occupationCulture = CultureService.GetOccupationCultureTarget(city);
+        if (CultureService.IsValidCulture(occupationCulture))
+        {
+            string status = string.Format(LM.Get("city_occupation_culture_pressure_value"),
+                occupationCulture.GetCultureTranslate(), CultureService.GetCultureShare(city, occupationCulture));
+            pTooltip.addLineText("city_occupation_culture_pressure", status, "#FFB84D");
+        }
+
+        if (CultureService.FindCultureRestorationCandidate(city, city.kingdom, out string restorationCulture))
+            pTooltip.addLineText("city_culture_restoration_available",
+                restorationCulture.GetCultureTranslate(), "#65E572");
+
+        if (CultureService.IsCityMainCultureLocked(city))
+        {
+            string deJureCulture = CultureService.GetEffectiveTitleCulture(city.GetTitle());
+            string status = CultureService.IsValidCulture(deJureCulture)
+                ? deJureCulture.GetCultureTranslate()
+                : LM.Get("label_none");
+            pTooltip.addLineText("city_culture_shift_locked", status, "#9FB7D9");
+        }
+
+        string candidate = CultureService.UpdateCityCultureShiftCandidate(city);
+        if (CultureService.IsValidCulture(candidate))
+        {
+            int stableYears = CultureService.GetCityCultureShiftStableYears(city);
+            int requiredYears = CultureShareRules.CityCultureShiftStableYears;
+            string progress = string.Format(LM.Get("city_culture_shift_candidate_progress"),
+                candidate.GetCultureTranslate(), Math.Min(stableYears, requiredYears), requiredYears);
+            string color = stableYears >= requiredYears ? "#65E572" : "#FFD34E";
+            pTooltip.addLineText("city_culture_shift_candidate", progress, color);
+        }
+
+        string assimilationTarget = CultureService.GetCulturalAssimilationTarget(city);
+        string assimilationPhase = CultureService.GetCulturalAssimilationPhase(city);
+        if (CultureService.IsValidCulture(assimilationTarget) && !string.IsNullOrWhiteSpace(assimilationPhase))
+        {
+            string progress = string.Format(LM.Get("cultural_assimilation_campaign_progress"),
+                assimilationTarget.GetCultureTranslate(),
+                CultureService.GetCultureShare(city, assimilationTarget),
+                LM.Get(assimilationPhase));
+            string color = assimilationPhase == "cultural_assimilation_phase_consolidation"
+                ? "#65E572"
+                : "#FFB84D";
+            pTooltip.addLineText("cultural_assimilation_campaign", progress, color);
+        }
+    }
+
+    // 理念图层悬停提示，随图层三档切换：
+    //   0 理念区块 → 这片理念区的总览：规模、信众，以及是被哪些名著/执政党推动还是自然发展起来的
+    //   1 城市边界 → 这座城的理念占比
+    //   2 执政理念 → 这个国家的执政党与民间支持度
+    private static void showIdeologyShareTooltip(Tooltip tooltip, string type, TooltipData data)
+    {
+        City city = data?.city;
+        if (city == null || city.isRekt()) return;
+        tooltip.clear();
+        switch (EmpireCraftMetaTypeLibrary.ideology?.getZoneOptionState() ?? 1)
+        {
+            case 0: ShowIdeologyRegionTooltip(tooltip, city); break;
+            case 2: ShowRulingIdeologyTooltip(tooltip, city); break;
+            default: ShowCityIdeologyShares(tooltip, city); break;
+        }
+    }
+
+    private static string IdeologyHex(PartyIdeology ideology)
+    {
+        ColorAsset color = EmpireCraftNamePlateLibrary.GetIdeologyColorAsset(ideology);
+        return color == null ? "#7FD8EA" : "#" + ColorUtility.ToHtmlStringRGB(color.getColorBanner());
+    }
+
+    private static void ShowCityIdeologyShares(Tooltip tooltip, City city)
+    {
+        Dictionary<PartyIdeology, int> counts = IdeologyPopulationSystem.GetCityCounts(city);
+        int total = counts.Values.Sum();
+        tooltip.setTitle(city.GetCityFullName(), "ideology_population_title", "#FFFFFF");
+        foreach (KeyValuePair<PartyIdeology, int> pair in counts.OrderByDescending(pair => pair.Value).Take(6))
+            tooltip.addLineText(PartySystem.GetIdeologyName(pair.Key),
+                total == 0 ? "0%" : $"{100f * pair.Value / total:0.#}% ({pair.Value})",
+                IdeologyHex(pair.Key), pPercent: false, pLocalize: false);
+        List<LandmarkBookSystem.CityIdeologyBook> books = LandmarkBookSystem.GetCityIdeologyBooks(city);
+        if (books.Count > 0)
+            tooltip.addBottomDescription(string.Format(LM.Get("ideology_window_city_books"),
+                string.Join("、", books.Select(book => book.Ideology).Distinct().Select(PartySystem.GetIdeologyName))));
+    }
+
+    private sealed class IdeologyRegionSummary
+    {
+        public PartyIdeology Ideology;
+        public HashSet<City> Cities = new();
+        public int Believers;
+        public int Population;
+        public List<(City city, LandmarkBookSystem.CityIdeologyBook book)> Books = new();
+        public List<Kingdom> RulingKingdoms = new();
+        public float BuiltAt;
+    }
+
+    private static IdeologyRegionSummary _regionCache;
+
+    // 从悬停城市出发，沿相邻城市连出同一主理念的整片区域(跟区块图层的画法一致)；
+    // 提示每帧都会重建，结果缓存 1 秒
+    private static IdeologyRegionSummary GetIdeologyRegion(City start)
+    {
+        PartyIdeology ideology = LayerCityCache.Ideology(start);
+        if (_regionCache != null && _regionCache.Ideology == ideology && _regionCache.Cities.Contains(start) &&
+            Time.unscaledTime - _regionCache.BuiltAt < 1f) return _regionCache;
+        var summary = new IdeologyRegionSummary { Ideology = ideology, BuiltAt = Time.unscaledTime };
+        var queue = new Queue<City>();
+        queue.Enqueue(start);
+        summary.Cities.Add(start);
+        while (queue.Count > 0)
+        {
+            City city = queue.Dequeue();
+            foreach (City neighbour in city.neighbours_cities ?? Enumerable.Empty<City>())
+            {
+                if (neighbour == null || neighbour.isRekt() || neighbour.units == null || neighbour.units.Count == 0 ||
+                    summary.Cities.Contains(neighbour) || LayerCityCache.Ideology(neighbour) != ideology) continue;
+                summary.Cities.Add(neighbour);
+                queue.Enqueue(neighbour);
+            }
+        }
+        var kingdoms = new HashSet<Kingdom>();
+        foreach (City city in summary.Cities)
+        {
+            Dictionary<PartyIdeology, int> counts = IdeologyPopulationSystem.GetCityCounts(city);
+            summary.Population += counts.Values.Sum();
+            summary.Believers += counts.TryGetValue(ideology, out int believers) ? believers : 0;
+            foreach (LandmarkBookSystem.CityIdeologyBook book in LandmarkBookSystem.GetCityIdeologyBooks(city))
+                if (book.Ideology == ideology) summary.Books.Add((city, book));
+            if (city.kingdom != null && !city.kingdom.isRekt() && kingdoms.Add(city.kingdom) &&
+                EmpireCraftNamePlateLibrary.TryGetRulingIdeology(city.kingdom, out PartyIdeology ruling) &&
+                ruling == ideology)
+                summary.RulingKingdoms.Add(city.kingdom);
+        }
+        _regionCache = summary;
+        return summary;
+    }
+
+    private static void ShowIdeologyRegionTooltip(Tooltip tooltip, City city)
+    {
+        IdeologyRegionSummary region = GetIdeologyRegion(city);
+        string hex = IdeologyHex(region.Ideology);
+        tooltip.setTitle(PartySystem.GetIdeologyName(region.Ideology), "ideology_tooltip_region", hex);
+        tooltip.addLineIntText("ideology_tooltip_region_cities", region.Cities.Count);
+        tooltip.addLineText("ideology_tooltip_region_believers",
+            $"{region.Believers}/{region.Population} " +
+            $"({(region.Population == 0 ? 0f : 100f * region.Believers / region.Population):0.#}%)", hex);
+
+        // 推动力量：名著(附发酵程度与社会条件) → 执政党 → 都没有则是自然发展
+        foreach (var (bookCity, book) in region.Books.OrderByDescending(pair => pair.book.Strength).Take(3))
+        {
+            string state = book.SocietyReady
+                ? book.Maturity >= 0.999f ? LM.Get("ideology_tooltip_book_flourishing")
+                  : string.Format(LM.Get("ideology_tooltip_book_maturing"), $"{book.Maturity * 100f:0}%")
+                : LM.Get("ideology_tooltip_book_unripe");
+            tooltip.addLineText("ideology_tooltip_driver_book",
+                $"《{book.Book.name}》· {bookCity.name} · {state}", book.SocietyReady ? "#FFD34E" : "#9FB7D9");
+        }
+        if (region.Books.Count > 3)
+            tooltip.addLineText("ideology_tooltip_driver_book",
+                string.Format(LM.Get("ideology_tooltip_more_books"), region.Books.Count - 3), "#9FB7D9");
+        if (region.RulingKingdoms.Count > 0)
+            tooltip.addLineText("ideology_tooltip_driver_state",
+                string.Join("、", region.RulingKingdoms.Take(3).Select(kingdom => kingdom.name)) +
+                (region.RulingKingdoms.Count > 3 ? "…" : ""), "#65E572");
+        if (region.Books.Count == 0 && region.RulingKingdoms.Count == 0)
+            tooltip.addBottomDescription(LM.Get("ideology_tooltip_natural"));
+    }
+
+    private static void ShowRulingIdeologyTooltip(Tooltip tooltip, City city)
+    {
+        Kingdom kingdom = city.kingdom;
+        if (kingdom == null || kingdom.isRekt())
+        {
+            ShowCityIdeologyShares(tooltip, city);
+            return;
+        }
+        tooltip.setTitle(kingdom.name, "ideology_tooltip_ruling", "#FFFFFF");
+        if (!EmpireCraftNamePlateLibrary.TryGetRulingIdeology(kingdom, out PartyIdeology ruling))
+        {
+            tooltip.addBottomDescription(LM.Get("ideology_tooltip_no_party_politics"));
+            return;
+        }
+        FixedFaction party = PartySystem.GetGovernmentParty(kingdom.GetEmpire());
+        tooltip.addLineText("republic_ruling_party",
+            $"{party?.Name} ({PartySystem.GetIdeologyName(ruling)})", IdeologyHex(ruling));
+        tooltip.addLineText("ideology_tooltip_ruling_support",
+            $"{IdeologyPopulationSystem.GetKingdomShare(kingdom, ruling) * 100f:0.#}%", IdeologyHex(ruling));
     }
 
     private static void showEmpireCraftActor(Tooltip pTooltip, string pType, TooltipData pData)
@@ -449,7 +891,9 @@ public static class EmpireCraftTooltipLibrary
         AddTooltipLine(pTooltip, "empirecraft_actor_titles", GetOwnedTitleNames(actor, identity), "#FFD34E", true);
         AddTooltipLine(pTooltip, "empirecraft_actor_office", GetFullOfficeName(actor, identity), "#76E6C2");
         AddTooltipLine(pTooltip, "empirecraft_actor_peerage", GetPeerageName(actor, identity), "#FFB45C");
+        AddTooltipLine(pTooltip, "empirecraft_actor_posthumous", identity?.posthumous_name, "#E6C27A");
         AddTooltipLine(pTooltip, "empirecraft_actor_faction", actor?.GetFaction()?.Name ?? identity?.factionName, "#E78BFF");
+        if (actor != null) AddActorIdeology(pTooltip, actor);
 
         pTooltip.addLineBreak();
         AddTooltipLine(pTooltip, "empirecraft_actor_specific_clan",
@@ -485,6 +929,34 @@ public static class EmpireCraftTooltipLibrary
             ActorSex.Female => LM.Get("empirecraft_actor_gender_female"),
             _ => LM.Get("empirecraft_actor_gender_unknown")
         };
+    }
+
+    // 原版提示框用两个独立文本列，右列不按左列宽度换行。明细必须逐项使用同一行的名称和数值。
+    private static void AddStabilityTooltip(Tooltip tooltip, Kingdom kingdom)
+    {
+        if (kingdom.hasCapital() && TreasurySystem.Enabled(kingdom.capital))
+        {
+            float stability = CityStabilitySystem.Effective(kingdom.capital);
+            AddTooltipLine(tooltip, "city_stability", $"{stability:0}/100", stability < 40f ? "#FF6666" : "#65D66E");
+            AddTooltipLine(tooltip, "city_garrison", CityStabilitySystem.GarrisonText(kingdom.capital), "#B8C6CC");
+        }
+        int grace = RebellionSystem.GraceYearsRemaining(kingdom);
+        if (grace > 0) AddTooltipLine(tooltip, "rebellion_grace_remaining", grace.ToString(), "#65D66E");
+        var cause = kingdom.GetOrCreate().last_rebellion_cause;
+        if (cause == null) return;
+        AddTooltipLine(tooltip, "rebellion_last_reason", LM.Get(cause.reason_key), "#E9A85B");
+        if (cause.legitimacy >= 0) AddTooltipLine(tooltip, "rebellion_original_legitimacy", cause.legitimacy.ToString(), "#B8C6CC");
+        if (cause.loyalty.HasValue) AddTooltipLine(tooltip, "rebellion_original_loyalty", cause.loyalty.Value.ToString(), "#B8C6CC");
+        if (cause.stability.HasValue) AddTooltipLine(tooltip, "rebellion_original_stability", $"{cause.stability:0}", "#B8C6CC");
+        foreach (string line in RebellionSystem.DetailLines(cause.detail))
+            tooltip.addLineText(line, "", "#B8C6CC", pLocalize: false);
+    }
+
+    private static void AddTooltipSources(Tooltip tooltip, IEnumerable<(string key, int value)> sources,
+        string color, bool signed = false)
+    {
+        foreach (var item in sources)
+            AddTooltipLine(tooltip, item.key, (signed && item.value > 0 ? "+" : "") + item.value, color);
     }
 
     private static void AddTooltipLine(Tooltip tooltip, string key, string value, string color, bool showNone = false)

@@ -1,0 +1,6 @@
+key,cz,en,ch
+book_template_japan_mathbook_1,$word$,$word$,$word$
+book_template_japan_mathbook_2,$city$$word$,$word$ of $city$,$city$$word$
+book_template_japan_mathbook_3,$author$$word$,$author$'s $word$,$author$$word$
+book_template_japan_mathbook_4,$word$图会,Illustrated $word$,$word$圖會
+book_template_japan_mathbook_5,$year_name$$word$,$word$ of the $year_name$ Era,$year_name$$word$

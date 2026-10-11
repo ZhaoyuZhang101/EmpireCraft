@@ -3,6 +3,7 @@ using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
+using EmpireCraft.Scripts.GeneralSystems;
 using NCMS.Extensions;
 using NeoModLoader.General;
 using NeoModLoader.services;
@@ -30,18 +31,31 @@ public class TempFac_索取皇位 : TemporaryFaction
 
     public override void Execute()
     {
+        Empire constitutionalEmpire = GetEmpire();
+        if (ConstitutionalSuccessionSystem.IsProtected(constitutionalEmpire))
+        {
+            ConstitutionalSuccessionSystem.TryHandleVacancy(constitutionalEmpire.CoreKingdom);
+            End();
+            return;
+        }
         LogService.LogInfo($"执行{this.type}");
         var target = GetActorTarget();
         Actor newEmperor = null;
         if (target != null)
         {
             var empire = GetEmpire();
+            // 帝国或核心王国可能刚被革命、叛乱抹掉
+            if (empire?.CoreKingdom == null || !empire.CoreKingdom.isAlive())
+            {
+                End();
+                return;
+            }
             if (empire.Mandate >= 70)
             {
                 if (empire.EmpireSpecificClan != null)
                 {
-                    var kingCandidate = empire.EmpireSpecificClan.all_valid_members.FindAll(v=>v._actor.isKing());
-                    var normalCandidate = empire.EmpireSpecificClan.all_valid_members.FindAll(v=>!v._actor.isKing());
+                    var kingCandidate = empire.EmpireSpecificClan.all_valid_members.FindAll(v=>v._actor?.isKing() == true);
+                    var normalCandidate = empire.EmpireSpecificClan.all_valid_members.FindAll(v=>v._actor?.isKing() != true);
                     if (kingCandidate.Count > 0)
                     {
                         newEmperor = kingCandidate.OrderByDescending(k=>k._actor.kingdom.countTotalWarriors()).FirstOrDefault()?._actor;
@@ -52,9 +66,9 @@ public class TempFac_索取皇位 : TemporaryFaction
                     {
                         if (normalCandidate.Count > 0)
                         {
-                            newEmperor = kingCandidate.OrderBy(k => k._actor.GetIdentity()?.honoraryOfficial??999)
+                            newEmperor = normalCandidate.OrderBy(k => k._actor?.GetIdentity()?.honoraryOfficial??999)
                                 .FirstOrDefault()
-                                ?._actor;
+                                ?.Realize();
                             if (newEmperor != null) TranslateHelper.LogMinisterSelectEmpire(empire, newEmperor.GetOffice(), null, newEmperor);
                         }
                     }
@@ -67,16 +81,18 @@ public class TempFac_索取皇位 : TemporaryFaction
                         return;
                     }
                 }
-            } else if (empire.Mandate >= 30 && (empire.CoreKingdom.GetRegime().type == RegimeType.LvLing || empire.CoreKingdom.GetRegime().type == RegimeType.ZhouFeudalism))
+            } else if (empire.Mandate >= 30 && (empire.CoreKingdom.GetRegime()?.type == RegimeType.LvLing || empire.CoreKingdom.GetRegime()?.type == RegimeType.ZhouFeudalism))
             {
                 War war = null;
-                foreach (var kingdom in empire.kingdoms_list)
+                // StartLocalRebelling 会改动帝国成员，先拷一份
+                foreach (var kingdom in empire.kingdoms_list.ToList())
                 {
+                    if (kingdom == null || !kingdom.isAlive() || kingdom == empire.CoreKingdom) continue;
                     if (!kingdom.StartLocalRebelling(EmpireWarType.藩王索取皇位)) continue;
                     if (war == null)
                     {
                         war = DiplomacyHelpers.diplomacy.startWar(kingdom, empire.CoreKingdom, WarTypeLibrary.normal);
-                        war.SetEmpireWarType(EmpireWarType.藩王索取皇位);
+                        war?.SetEmpireWarType(EmpireWarType.藩王索取皇位);
                     }
                     else
                     {
@@ -95,14 +111,14 @@ public class TempFac_索取皇位 : TemporaryFaction
             if (empire.Mandate<30)
             {
                 War war = null;
-                foreach (var kingdom in empire.kingdoms_hashset)
+                foreach (var kingdom in empire.kingdoms_hashset.ToList())
                 {
-                    if (kingdom.IsEmpire()) continue;
+                    if (kingdom == null || !kingdom.isAlive() || kingdom.IsEmpire()) continue;
                     if (kingdom?.king?.GetFaction()==target.GetFaction() && war == null) continue;
                     if (war == null)
                     {
                         war = DiplomacyHelpers.wars.newWar(kingdom, empire.CoreKingdom, WarTypeLibrary.normal);
-                        war.SetEmpireWarType(EmpireWarType.清君侧);
+                        war?.SetEmpireWarType(EmpireWarType.清君侧);
                     }
                     else
                     {
@@ -123,11 +139,13 @@ public class TempFac_索取皇位 : TemporaryFaction
     public override bool CheckContinue()
     {
         Empire empire = GetEmpire();
+        if (ConstitutionalSuccessionSystem.IsProtected(empire)) return false;
         return empire?.Emperor == null;
     }
     public override bool CheckCondition()
     {
         Empire empire = GetEmpire();
+        if (ConstitutionalSuccessionSystem.IsProtected(empire)) return false;
         if (empire != null)
         {
             if (empire.getWars().Any(w=>w.GetEmpireWarType()== EmpireWarType.藩王索取皇位)) return false;
@@ -154,7 +172,7 @@ public class TempFac_索取皇位 : TemporaryFaction
             {
                 if (!empire.HasEmperor()&&!empire.CoreKingdom.HasHeir())
                 {
-                    var target = empire.CoreKingdom?.GetRegime()?.type== RegimeType.Feudalism?empire.CoreKingdom?.GetRegime()?.GetDominateFaction()?.GetLeader():empire.GetCabinetLeader();
+                    var target = empire.CoreKingdom?.GetRegime()?.type== RegimeType.Feudalism?empire.CoreKingdom?.GetRegime()?.GetDominateFaction()?.GetLeader():GeneralSystems.ParliamentSystem.GetHeadOfGovernment(empire);
                     if (target == null) return false;
                     if (target.GetFaction() == empire.CoreKingdom?.GetRegime()?.GetDominateFaction())
                     {

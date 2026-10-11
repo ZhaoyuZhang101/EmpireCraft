@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using EmpireCraft;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.GeneralSystems;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
 using UnityEngine;
@@ -26,8 +27,13 @@ public sealed class TerritoryLabelStyle
     public int min_font_size = 3;
     public int max_font_size = 512;
     public FontStyle font_style = FontStyle.Normal;
+    public bool rich_text;
     public bool use_gold_gradient;
+    // Only the Empire label may wrap long Latin names; ordinary nameplates stay single-line.
+    public bool wrap_english_name;
     public bool bridge_internal_gaps;
+    // Maximum bend for a baseline fitted from the territory's actual center line.
+    public float arc_curvature;
     public Color gold_top = new Color32(255, 244, 194, 255);
     public Color gold_bottom = new Color32(184, 156, 68, 255);
 }
@@ -37,23 +43,21 @@ public static class TerritoryLabelRenderer
 {
     private const float GeometryRefreshInterval = 0.75f;
     private const float LatinOutlineDistance = 8f;
+    private const float CollisionSeparationPixels = 2f;
     private static readonly Dictionary<string, RuntimeLabel> _labels = new Dictionary<string, RuntimeLabel>();
+    private static readonly List<RuntimeLabel> _render_order = new List<RuntimeLabel>();
+    private static readonly List<ScreenLabelBounds> _occupied_label_bounds = new List<ScreenLabelBounds>();
     private static TerritoryLabelRendererHost _host;
     private static RectTransform _root;
     private static Text _text_template;
-    private static Font _clerical_font;
-    private static bool _clerical_font_resolved;
+    // 已建好的本机字体(按字体名)；字体设置改变时清空(见 TerritoryFontSettings)
+    private static readonly Dictionary<string, Font> _os_fonts = new(StringComparer.OrdinalIgnoreCase);
     private static Font _latin_font;
     private static bool _latin_font_resolved;
+    private static Sprite _culture_lock_sprite;
+    private static Texture2D _culture_lock_texture;
     private static int _submission_frame = -1;
-
-    private static readonly string[] ClericalFontNames =
-    {
-        "LiSu",
-        "隶书",
-        "STLiti",
-        "华文隶书"
-    };
+    private static MetaType _submission_mode = MetaType.None;
 
     private static readonly string[] LatinFontNames =
     {
@@ -69,10 +73,12 @@ public static class TerritoryLabelRenderer
         outline_color = new Color32(54, 46, 20, 204),
         size_multiplier = 0.90f,
         territory_padding = 0.95f,
-        min_font_size = 1,
+        min_font_size = 6,
         font_style = FontStyle.Normal,
         use_gold_gradient = true,
-        bridge_internal_gaps = true
+        wrap_english_name = true,
+        bridge_internal_gaps = true,
+        arc_curvature = 0.1f
     };
 
     public static readonly TerritoryLabelStyle FadedEmpireStyle = new TerritoryLabelStyle
@@ -81,10 +87,39 @@ public static class TerritoryLabelRenderer
         outline_color = new Color32(54, 46, 20, 49),
         size_multiplier = 0.90f,
         territory_padding = 0.95f,
-        min_font_size = 1,
+        min_font_size = 6,
         font_style = FontStyle.Normal,
         use_gold_gradient = true,
-        bridge_internal_gaps = true
+        wrap_english_name = true,
+        bridge_internal_gaps = true,
+        arc_curvature = 0.1f
+    };
+
+    // 同盟标签(帝国视图的补充)：蓝色文字，排版同帝国标签
+    public static readonly TerritoryLabelStyle AllianceStyle = new TerritoryLabelStyle
+    {
+        text_color = new Color32(110, 180, 255, 214),
+        outline_color = new Color32(14, 30, 64, 204),
+        size_multiplier = 0.90f,
+        territory_padding = 0.95f,
+        min_font_size = 6,
+        font_style = FontStyle.Normal,
+        wrap_english_name = true,
+        bridge_internal_gaps = true,
+        arc_curvature = 0.1f
+    };
+
+    public static readonly TerritoryLabelStyle FadedAllianceStyle = new TerritoryLabelStyle
+    {
+        text_color = new Color32(110, 180, 255, 57),
+        outline_color = new Color32(14, 30, 64, 49),
+        size_multiplier = 0.90f,
+        territory_padding = 0.95f,
+        min_font_size = 6,
+        font_style = FontStyle.Normal,
+        wrap_english_name = true,
+        bridge_internal_gaps = true,
+        arc_curvature = 0.1f
     };
 
     public static readonly TerritoryLabelStyle KingdomStyle = new TerritoryLabelStyle
@@ -92,7 +127,8 @@ public static class TerritoryLabelRenderer
         text_color = new Color(1f, 1f, 1f, 0.9f),
         size_multiplier = 0.95f,
         min_font_size = 3,
-        font_style = FontStyle.Normal
+        font_style = FontStyle.Normal,
+        arc_curvature = 0.08f
     };
 
     public static readonly TerritoryLabelStyle RebellionKingdomStyle = new TerritoryLabelStyle
@@ -101,46 +137,92 @@ public static class TerritoryLabelRenderer
         outline_color = new Color32(74, 15, 12, 204),
         size_multiplier = 0.9f,
         min_font_size = 3,
-        font_style = FontStyle.Normal
+        font_style = FontStyle.Normal,
+        arc_curvature = 0.08f
+    };
+
+    public static readonly TerritoryLabelStyle FeudalVassalStyle = new TerritoryLabelStyle
+    {
+        text_color = KingdomStyle.text_color,
+        size_multiplier = KingdomStyle.size_multiplier,
+        min_font_size = KingdomStyle.min_font_size,
+        arc_curvature = KingdomStyle.arc_curvature,
+        rich_text = true
+    };
+
+    public static readonly TerritoryLabelStyle FeudalVassalRebellionStyle = new TerritoryLabelStyle
+    {
+        text_color = RebellionKingdomStyle.text_color,
+        outline_color = RebellionKingdomStyle.outline_color,
+        size_multiplier = RebellionKingdomStyle.size_multiplier,
+        min_font_size = RebellionKingdomStyle.min_font_size,
+        arc_curvature = RebellionKingdomStyle.arc_curvature,
+        rich_text = true
     };
 
     public static void RenderLawLayer(int zoneOptionState)
     {
-        BeginFrame();
+        BeginFrame(MetaTypeExtension.KingdomTitle);
         City hoveredCity = World.world?.getMouseTilePosCachedFrame()?.zone_city;
+        // A city cache can be stale after an old-save load or a title reassignment.
+        // The title remains the authoritative source for an imperial administrative area.
+        EmpireCore hoveredEmpireCore = hoveredCity?.GetEmpireCore() ??
+                                        GetClaimingEmpireCore(hoveredCity?.GetTitle());
+        long hoveredEmpireId = hoveredEmpireCore != null && hoveredEmpireCore.id > 0 ? hoveredEmpireCore.id : 0;
+
         if (zoneOptionState == 0)
         {
             foreach (EmpireCore core in EmpireCoreManager.EmpireCores.Values)
             {
                 if (core == null || core.id <= 0) continue;
-                SubmitEmpireCore($"law-empire:{core.id}", EmpireCoreManager.GetDisplayName(core), core, EmpireStyle,
-                    hoveredCity != null && hoveredCity.GetEmpireCoreID() == core.id);
+                bool expanded = hoveredEmpireId == core.id;
+                SubmitEmpireCore($"law-empire:{core.id}", EmpireCoreManager.GetStatusDisplayName(core), core,
+                    expanded ? FadedEmpireStyle : EmpireStyle);
             }
         }
 
         foreach (KingdomTitle title in ModClass.KINGDOM_TITLE_MANAGER)
         {
             if (title == null || title.isRekt() || title.data == null) continue;
-            if (zoneOptionState == 0 && IsClaimedByEmpireCore(title)) continue;
+
+            EmpireCore claimingCore = GetClaimingEmpireCore(title);
+            bool claimedByEmpire = claimingCore != null;
+            bool expandedByHover = zoneOptionState == 0 && claimedByEmpire && claimingCore.id == hoveredEmpireId;
+
+            // In the empire overview, imperial subjects stay collapsed until the mouse enters that empire.
+            if (zoneOptionState == 0 && claimedByEmpire && !expandedByHover) continue;
+
             IEnumerable<City> cities = title.getCities();
-            SubmitCities($"law-kingdom:{title.id}", title.data.name, cities, KingdomStyle,
-                hoveredCity?.GetTitle() == title);
+            bool fullyOpaque = expandedByHover || hoveredCity?.GetTitle() == title;
+
+            // Expanded imperial subjects must remain visible even if their bounds cross the faded empire label
+            // (or another expanded subject label). Other labels keep the normal anti-overlap behaviour.
+            bool showCultureLock = title.data.culture_locked &&
+                                   !CultureService.IsFixedDeJureCultureEnabled();
+            SubmitCities($"law-kingdom:{title.id}", title.data.name, cities, KingdomStyle, fullyOpaque,
+                expandedByHover, showCultureLock);
         }
         EndFrame();
     }
 
-    public static void BeginFrame()
+    public static void BeginFrame(MetaType mode)
     {
         if (!EnsureHost()) return;
         _submission_frame = Time.frameCount;
+        _submission_mode = mode;
     }
 
+    // icon：可选，画在名字前面的小图标(如理念图层的理念徽章)，随文字一起旋转、缩放
+    // sealFont：这个铭牌用内置篆书(华夏国号，见 TerritoryFontSettings.SealHuaxiaNames)
     public static void SubmitCities(string id, string text, IEnumerable<City> cities, TerritoryLabelStyle style,
-        bool fullyOpaque = false)
+        bool fullyOpaque = false, bool ignoreOverlap = false, bool showCultureLock = false, Sprite icon = null,
+        bool sealFont = false)
     {
         if (string.IsNullOrWhiteSpace(id) || cities == null || !EnsureHost()) return;
         MarkSubmissionFrame();
-        GetOrCreateLabel(id).UpdateFromCities(text, cities, style ?? KingdomStyle, fullyOpaque);
+        RuntimeLabel label = GetOrCreateLabel(id);
+        label.seal_font = sealFont;
+        label.UpdateFromCities(text, cities, style ?? KingdomStyle, fullyOpaque, ignoreOverlap, showCultureLock, icon);
     }
 
     public static void SubmitEmpireCore(string id, string text, EmpireCore core, TerritoryLabelStyle style,
@@ -176,12 +258,17 @@ public static class TerritoryLabelRenderer
             if (label.last_seen_frame != _submission_frame) label.Hide();
     }
 
-    private static bool ContainsLatin(string text)
+    private static bool ContainsLatin(string text, bool richText = false)
     {
         if (string.IsNullOrEmpty(text)) return false;
         for (int i = 0; i < text.Length; i++)
         {
             char c = text[i];
+            if (richText && c == '<')
+            {
+                int tagEnd = text.IndexOf('>', i + 1);
+                if (tagEnd >= 0) { i = tagEnd; continue; }
+            }
             if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')) return true;
         }
         return false;
@@ -214,23 +301,202 @@ public static class TerritoryLabelRenderer
         return fallback;
     }
 
-    private static Font ResolveTerritoryFont(Font fallback, string text)
+    // 字体按铭牌字体设置(TerritoryFontSettings)：游戏字体 / 自动挑本机的传统书体 / 指定字体。
+    // 自动模式下含英文字母的名字用西文衬线字体。
+    // sealFont(华夏国号)：依次试内置篆书(小篆 → 中山王篆)。
+    // 隶书兜底：选中的字体(或篆书)缺字、加载出错、取不到字形(会显示成空白)时一律改用本机隶书，本机没有隶书才用游戏字体。
+    // display：实际要显示的文字(繁体篆书会把简体转成繁体)
+    // 每帧每个铭牌都要问一次：按(文字, 富文本, 篆书)缓存结果，字体设置改变时清空(见 ResetFonts)
+    private static readonly Dictionary<(string, bool, bool, Font), (Font font, string display)> _resolve_cache = new();
+
+    private static Font ResolveTerritoryFont(Font fallback, string text, bool richText, bool sealFont, out string display)
     {
-        return ContainsLatin(text)
-            ? ResolveInstalledFont(LatinFontNames, fallback, ref _latin_font, ref _latin_font_resolved)
-            : ResolveInstalledFont(ClericalFontNames, fallback, ref _clerical_font, ref _clerical_font_resolved);
+        var key = (text ?? "", richText, sealFont, fallback);
+        if (_resolve_cache.TryGetValue(key, out var cached))
+        {
+            display = cached.display;
+            return cached.font;
+        }
+        if (_resolve_cache.Count > 4096) _resolve_cache.Clear();
+        Font font = ResolveTerritoryFontUncached(fallback, text, richText, sealFont, out display);
+        _resolve_cache[key] = (font, display);
+        return font;
+    }
+
+    private static Font ResolveTerritoryFontUncached(Font fallback, string text, bool richText, bool sealFont,
+        out string display)
+    {
+        display = text;
+        if (sealFont && TerritoryFontSettings.SealHuaxiaNames)
+        {
+            foreach (BundledFont bundled in BundledTerritoryFonts.SealChain)
+                if (bundled.TryAdapt(text, richText, out string adapted) && CanRender(bundled.Font, adapted, richText))
+                {
+                    display = adapted;
+                    return bundled.Font;
+                }
+            return ClericalFallback(text, richText, out display) ?? fallback;
+        }
+        string choice = TerritoryFontSettings.Choice;
+        if (choice == TerritoryFontSettings.Game) return fallback;
+        Font selected;
+        if (choice == TerritoryFontSettings.Auto && ContainsLatin(text, richText))
+            selected = ResolveInstalledFont(LatinFontNames, fallback, ref _latin_font, ref _latin_font_resolved);
+        else
+        {
+            string fontName = TerritoryFontSettings.ResolveFontName();
+            selected = fontName == null ? fallback : GetOsFont(fontName) ?? fallback;
+        }
+        if (selected == null || selected == fallback) return fallback;
+        // 展示字体字库较小；名字缺字时回退，不能让整张铭牌变成空白
+        BundledFont chosen = BundledTerritoryFonts.Of(selected);
+        if (chosen != null)
+        {
+            if (chosen.TryAdapt(text, richText, out string adapted) && CanRender(selected, adapted, richText))
+            {
+                display = adapted;
+                return selected;
+            }
+        }
+        else if (HasAll(selected, text, richText) && CanRender(selected, text, richText)) return selected;
+        return ClericalFallback(text, richText, out display, selected) ?? fallback;
+    }
+
+    private static bool HasAll(Font font, string text, bool richText)
+    {
+        bool insideTag = false;
+        foreach (char character in text ?? "")
+        {
+            if (richText && character == '<') { insideTag = true; continue; }
+            if (insideTag) { if (character == '>') insideTag = false; continue; }
+            if (char.IsWhiteSpace(character)) continue;
+            if (!font.HasCharacter(character)) return false;
+        }
+        return true;
+    }
+
+    // 兜底字体(默认本机隶书，可在字体窗口里另选，见 TerritoryFontSettings.FallbackCandidates)：第一个字全、画得出来的
+    public static Font ClericalFallback(string text, bool richText, out string display, Font except = null)
+    {
+        display = text;
+        foreach (string name in TerritoryFontSettings.FallbackCandidates())
+        {
+            Font font = GetOsFont(name);
+            if (font == null || font == except) continue;
+            // 兜底选了内置篆书：按它的字表查字(繁体篆书先转繁体)
+            BundledFont bundled = BundledTerritoryFonts.Find(name);
+            string shown = text;
+            bool has = bundled != null ? bundled.TryAdapt(text, richText, out shown) : HasAll(font, text, richText);
+            if (has && CanRender(font, shown, richText))
+            {
+                display = shown;
+                return font;
+            }
+        }
+        return null;
+    }
+
+    // 字体真的画得出这些字吗：先让字体把字形画进图集，再看每个字都有大小、图集贴图存在。
+    // 从文件读的字体有时认得字却画不出来(显示成空白)，这里查出来就改用隶书
+    public static bool CanRender(Font font, string text, bool richText)
+    {
+        if (font == null) return false;
+        try
+        {
+            var builder = new global::System.Text.StringBuilder();
+            bool insideTag = false;
+            foreach (char character in text ?? "")
+            {
+                if (richText && character == '<') { insideTag = true; continue; }
+                if (insideTag) { if (character == '>') insideTag = false; continue; }
+                if (!char.IsWhiteSpace(character)) builder.Append(character);
+            }
+            string glyphs = builder.ToString();
+            if (glyphs.Length == 0) return true;
+            // 字形包：把字拼进贴图，拼得进就画得出
+            BakedGlyphFont baked = BundledTerritoryFonts.BakedOf(font);
+            if (baked != null) return baked.Ensure(glyphs);
+            int size = TerritoryLabelProjection.ReferenceFontSize;
+            font.RequestCharactersInTexture(glyphs, size, FontStyle.Normal);
+            foreach (char character in glyphs)
+                if (!font.GetCharacterInfo(character, out CharacterInfo info, size, FontStyle.Normal) ||
+                    info.glyphWidth <= 0 || info.glyphHeight <= 0)
+                    return false;
+            return font.material != null && font.material.mainTexture != null;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    public static Font GetOsFont(string fontName)
+    {
+        if (string.IsNullOrEmpty(fontName)) return null;
+        if (_os_fonts.TryGetValue(fontName, out Font cached)) return cached;
+        Font font = null;
+        try
+        {
+            BundledFont bundled = BundledTerritoryFonts.Find(fontName);
+            font = bundled != null ? bundled.Load() : Font.CreateDynamicFontFromOSFont(fontName, 64);
+        }
+        catch (Exception exception)
+        {
+            Debug.LogWarning($"EmpireCraft could not load font {fontName}: {exception.Message}");
+        }
+        _os_fonts[fontName] = font;
+        return font;
+    }
+
+    // 字体设置改变：保留字体对象，作废铭牌的材质与文字尺寸缓存。
+    public static void ResetFonts()
+    {
+        // 复用已经加载的 Font，反复选择不再创建新图集或让旧材质引用失效。
+        var missing = new List<string>();
+        foreach (KeyValuePair<string, Font> pair in _os_fonts)
+            if (pair.Value == null) missing.Add(pair.Key);
+        foreach (string name in missing) _os_fonts.Remove(name);
+        if (_latin_font == null) _latin_font_resolved = false;
+        _resolve_cache.Clear();
+        foreach (RuntimeLabel label in _labels.Values) label.InvalidateFont();
     }
 
     public static void HideAll()
     {
         foreach (RuntimeLabel label in _labels.Values) label.Hide();
+        _submission_frame = -1;
+        _submission_mode = MetaType.None;
+    }
+
+    public static void ResetWorldState()
+    {
+        HideAll();
+        if (_root != null) UnityEngine.Object.Destroy(_root.gameObject);
+        _host = null;
+        _root = null;
+        _text_template = null;
+        _labels.Clear();
+        _render_order.Clear();
+        _occupied_label_bounds.Clear();
     }
 
     internal static void HostLateUpdate(TerritoryLabelRendererHost host)
     {
         if (host != _host) return;
-        if (_submission_frame != Time.frameCount) { HideAll(); return; }
-        foreach (RuntimeLabel label in _labels.Values) label.RenderSubmitted();
+        Canvas canvas = CanvasMain.instance == null ? null : CanvasMain.instance.canvas_map_names;
+        NameplateManager manager = canvas == null ? null : canvas.GetComponent<NameplateManager>();
+        if (_submission_frame < 0 || !Zones.showMapNames() || manager == null ||
+            manager.getCurrentMode() != _submission_mode)
+        {
+            HideAll();
+            return;
+        }
+        _render_order.Clear();
+        foreach (RuntimeLabel label in _labels.Values)
+            if (label.last_seen_frame == _submission_frame) _render_order.Add(label);
+        _render_order.Sort((left, right) => right.RenderPriority.CompareTo(left.RenderPriority));
+        _occupied_label_bounds.Clear();
+        foreach (RuntimeLabel label in _render_order) label.RenderSubmitted(_submission_frame);
     }
 
     internal static void HostDestroyed(TerritoryLabelRendererHost host)
@@ -240,6 +506,10 @@ public static class TerritoryLabelRenderer
         _root = null;
         _text_template = null;
         _labels.Clear();
+        _render_order.Clear();
+        _occupied_label_bounds.Clear();
+        _submission_frame = -1;
+        _submission_mode = MetaType.None;
     }
 
     private static void MarkSubmissionFrame()
@@ -247,17 +517,22 @@ public static class TerritoryLabelRenderer
         if (_submission_frame != Time.frameCount) _submission_frame = Time.frameCount;
     }
 
-    private static bool IsClaimedByEmpireCore(KingdomTitle title)
+    private static EmpireCore GetClaimingEmpireCore(KingdomTitle title)
     {
-        EmpireCore capitalCore = title?.title_capital?.GetEmpireCore();
-        if (capitalCore != null) return EmpireCoreManager.ContainsTitle(capitalCore, title);
+        if (title == null) return null;
+
+        EmpireCore capitalCore = title.title_capital?.GetEmpireCore();
+        if (capitalCore != null && EmpireCoreManager.ContainsTitle(capitalCore, title)) return capitalCore;
+
         foreach (City city in title.getCities())
         {
             EmpireCore core = city?.GetEmpireCore();
-            if (core != null && EmpireCoreManager.ContainsTitle(core, title)) return true;
+            if (core != null && EmpireCoreManager.ContainsTitle(core, title)) return core;
         }
-        return false;
+        return null;
     }
+
+    private static bool IsClaimedByEmpireCore(KingdomTitle title) => GetClaimingEmpireCore(title) != null;
 
     private static RuntimeLabel GetOrCreateLabel(string id)
     {
@@ -301,6 +576,67 @@ public static class TerritoryLabelRenderer
         return _text_template;
     }
 
+    private static Sprite GetCultureLockSprite()
+    {
+        if (_culture_lock_sprite != null) return _culture_lock_sprite;
+
+        const int width = 12;
+        const int height = 14;
+        var pixels = new Color32[width * height];
+        Color32 outline = new Color32(67, 45, 12, 255);
+        Color32 gold = new Color32(235, 181, 48, 255);
+        Color32 highlight = new Color32(255, 226, 112, 255);
+
+        void Set(int x, int y, Color32 color)
+        {
+            if (x >= 0 && x < width && y >= 0 && y < height)
+                pixels[y * width + x] = color;
+        }
+
+        void Fill(int minX, int maxX, int minY, int maxY, Color32 color)
+        {
+            for (int y = minY; y <= maxY; y++)
+                for (int x = minX; x <= maxX; x++)
+                    Set(x, y, color);
+        }
+
+        Fill(1, 10, 1, 8, outline);
+        Fill(2, 9, 2, 7, gold);
+        Fill(2, 9, 7, 7, highlight);
+
+        Fill(4, 7, 13, 13, outline);
+        Fill(3, 8, 12, 12, outline);
+        Fill(4, 7, 12, 12, highlight);
+        for (int y = 9; y <= 11; y++)
+        {
+            Set(2, y, outline);
+            Set(3, y, gold);
+            Set(8, y, gold);
+            Set(9, y, outline);
+        }
+
+        Fill(5, 6, 4, 6, outline);
+        Set(5, 3, outline);
+        Set(6, 3, outline);
+
+        _culture_lock_texture = new Texture2D(width, height, TextureFormat.RGBA32, false)
+        {
+            name = "EmpireCraftCultureLock",
+            filterMode = FilterMode.Point,
+            wrapMode = TextureWrapMode.Clamp
+        };
+        _culture_lock_texture.SetPixels32(pixels);
+        _culture_lock_texture.Apply(false, true);
+        _culture_lock_sprite = Sprite.Create(
+            _culture_lock_texture,
+            new Rect(0f, 0f, width, height),
+            new Vector2(0.5f, 0.5f),
+            height
+        );
+        _culture_lock_sprite.name = "EmpireCraftCultureLock";
+        return _culture_lock_sprite;
+    }
+
     private sealed class RuntimeLabel
     {
         private const int MaxCandidateCenters = 48;
@@ -309,15 +645,22 @@ public static class TerritoryLabelRenderer
         private const float SampleSpacing = 3.25f;
 
         private readonly string _id;
+        public bool seal_font;
         private readonly List<Vector3> _points = new List<Vector3>(64);
         private readonly List<TileZone> _zones = new List<TileZone>(64);
         private readonly List<TileZone> _walk_component = new List<TileZone>(64);
         private readonly List<TileZone> _largest_component = new List<TileZone>(64);
         private readonly HashSet<int> _zone_ids = new HashSet<int>();
+        private readonly HashSet<int> _component_zone_ids = new HashSet<int>();
         private readonly HashSet<int> _visited_ids = new HashSet<int>();
         private readonly Queue<TileZone> _zone_queue = new Queue<TileZone>();
+        private readonly Queue<Vector2Int> _gap_queue = new Queue<Vector2Int>();
+        private readonly HashSet<int> _gap_tiles = new HashSet<int>();
+        private readonly Dictionary<int, bool> _small_gap_cache = new Dictionary<int, bool>();
         private TerritoryPlacement _placement;
         private Text _text;
+        private Image _culture_lock_badge;
+        private Image _leading_icon;
         private TerritoryLabelGoldGradient _gold_gradient;
         private Outline _outline;
         private int _source_signature;
@@ -330,6 +673,9 @@ public static class TerritoryLabelRenderer
         private string _render_text;
         private TerritoryLabelStyle _render_style;
         private bool _render_fully_opaque;
+        private bool _render_ignore_overlap;
+        private bool _render_show_culture_lock;
+        private Sprite _render_icon;
         private bool _render_requested;
         private string _metrics_text;
         private FontStyle _metrics_style;
@@ -339,12 +685,21 @@ public static class TerritoryLabelRenderer
         private float _reference_height;
         public int last_seen_frame;
 
+        public float RenderPriority
+        {
+            get
+            {
+                float area = _placement.valid ? _placement.half_width * _placement.half_height : 0f;
+                return (_render_style?.wrap_english_name == true ? 1000000f : 0f) + area;
+            }
+        }
+
         public RuntimeLabel(string id) => _id = id;
 
         public void UpdateFromCities(string text, IEnumerable<City> cities, TerritoryLabelStyle style,
-            bool fullyOpaque)
+            bool fullyOpaque, bool ignoreOverlap = false, bool showCultureLock = false, Sprite icon = null)
         {
-            text = OverallHelperFunc.WrapEnglishDisplayName(text);
+            text = FormatDisplayText(text, style);
             last_seen_frame = Time.frameCount;
             bool inputsChanged = PlacementInputsChanged(text, style);
             if (!_has_geometry_result || inputsChanged || Time.unscaledTime >= _next_geometry_refresh)
@@ -352,13 +707,13 @@ public static class TerritoryLabelRenderer
                 CollectCityZones(cities, _zones, _zone_ids);
                 RefreshZonePlacement(text, style, inputsChanged);
             }
-            QueueRender(text, style, fullyOpaque);
+            QueueRender(text, style, fullyOpaque, ignoreOverlap, showCultureLock, icon);
         }
 
         public void UpdateFromEmpireCore(string text, EmpireCore core, TerritoryLabelStyle style,
             bool fullyOpaque)
         {
-            text = OverallHelperFunc.WrapEnglishDisplayName(text);
+            text = FormatDisplayText(text, style);
             last_seen_frame = Time.frameCount;
             bool inputsChanged = PlacementInputsChanged(text, style);
             if (!_has_geometry_result || inputsChanged || Time.unscaledTime >= _next_geometry_refresh)
@@ -372,7 +727,7 @@ public static class TerritoryLabelRenderer
         public void UpdateFromZones(string text, IEnumerable<TileZone> zones, TerritoryLabelStyle style,
             bool fullyOpaque)
         {
-            text = OverallHelperFunc.WrapEnglishDisplayName(text);
+            text = FormatDisplayText(text, style);
             last_seen_frame = Time.frameCount;
             bool inputsChanged = PlacementInputsChanged(text, style);
             if (!_has_geometry_result || inputsChanged || Time.unscaledTime >= _next_geometry_refresh)
@@ -386,7 +741,7 @@ public static class TerritoryLabelRenderer
         public void UpdateFromPoints(string text, IEnumerable<Vector3> points, TerritoryLabelStyle style,
             bool fullyOpaque)
         {
-            text = OverallHelperFunc.WrapEnglishDisplayName(text);
+            text = FormatDisplayText(text, style);
             last_seen_frame = Time.frameCount;
             bool inputsChanged = PlacementInputsChanged(text, style);
             if (!_has_geometry_result || inputsChanged || Time.unscaledTime >= _next_geometry_refresh)
@@ -418,20 +773,36 @@ public static class TerritoryLabelRenderer
         {
             _render_requested = false;
             if (_text != null && _text.gameObject.activeSelf) _text.gameObject.SetActive(false);
+            if (_culture_lock_badge != null && _culture_lock_badge.gameObject.activeSelf)
+                _culture_lock_badge.gameObject.SetActive(false);
+            if (_leading_icon != null && _leading_icon.gameObject.activeSelf)
+                _leading_icon.gameObject.SetActive(false);
         }
 
-        private void QueueRender(string text, TerritoryLabelStyle style, bool fullyOpaque)
+        private void QueueRender(string text, TerritoryLabelStyle style, bool fullyOpaque, bool ignoreOverlap = false,
+            bool showCultureLock = false, Sprite icon = null)
         {
+            _render_icon = icon;
             _render_text = text;
             _render_style = style;
             _render_fully_opaque = fullyOpaque;
+            _render_ignore_overlap = ignoreOverlap;
+            _render_show_culture_lock = showCultureLock;
             _render_requested = true;
         }
 
-        public void RenderSubmitted()
+        private static string FormatDisplayText(string text, TerritoryLabelStyle style)
         {
-            if (last_seen_frame != Time.frameCount) { Hide(); return; }
-            if (_render_requested) Render(_render_text, _render_style, _render_fully_opaque);
+            text ??= string.Empty;
+            return style?.wrap_english_name == true ? OverallHelperFunc.WrapEnglishDisplayName(text) : text;
+        }
+
+        public void RenderSubmitted(int activeSubmissionFrame)
+        {
+            if (last_seen_frame != activeSubmissionFrame) { Hide(); return; }
+            if (_render_requested)
+                Render(_render_text, _render_style, _render_fully_opaque, _render_ignore_overlap,
+                    _render_show_culture_lock, _render_icon);
         }
 
         private bool PlacementInputsChanged(string text, TerritoryLabelStyle style)
@@ -447,16 +818,15 @@ public static class TerritoryLabelRenderer
             int signature = CalculateZoneSignature(_zones);
             if (!_has_geometry_result || inputsChanged || signature != _source_signature)
             {
-                if (style.bridge_internal_gaps)
-                {
-                    _placement = BuildZoneEnvelopePlacement(_zones, text, style);
-                }
-                else
-                {
-                    FindLargestConnectedComponent(_zones, _zone_ids, _walk_component, _largest_component,
-                        _visited_ids, _zone_queue);
-                    _placement = BuildZonePlacement(_largest_component, _zone_ids, text, style);
-                }
+                // Never join exclaves. Only the dominant connected territory is allowed to host its label.
+                FindLargestConnectedComponent(_zones, _zone_ids, _walk_component, _largest_component,
+                    _visited_ids, _zone_queue);
+                _component_zone_ids.Clear();
+                for (int i = 0; i < _largest_component.Count; i++)
+                    _component_zone_ids.Add(_largest_component[i].id);
+                _small_gap_cache.Clear();
+                _placement = BuildZonePlacement(_largest_component, _component_zone_ids, text, style,
+                    style.bridge_internal_gaps);
                 _source_signature = signature;
                 RememberPlacementInputs(text, style);
                 _has_geometry_result = true;
@@ -472,7 +842,8 @@ public static class TerritoryLabelRenderer
             _placement_bridges_gaps = style.bridge_internal_gaps;
         }
 
-        private void Render(string value, TerritoryLabelStyle style, bool fullyOpaque)
+        private void Render(string value, TerritoryLabelStyle style, bool fullyOpaque, bool ignoreOverlap,
+            bool showCultureLock, Sprite icon = null)
         {
             if (!_placement.valid || string.IsNullOrWhiteSpace(value) || World.world?.camera == null)
             {
@@ -506,16 +877,14 @@ public static class TerritoryLabelRenderer
             EnsureText();
             if (_text == null) return;
 
-            string trimmedValue = value.Trim();
-            Font desiredFont = ResolveTerritoryFont(_fallback_font ?? _text.font, trimmedValue);
+            Font desiredFont = ResolveTerritoryFont(_fallback_font ?? _text.font, value.Trim(), style.rich_text, seal_font,
+                out string trimmedValue);
             if (_text.font != desiredFont)
             {
                 _text.font = desiredFont;
-                Text template = GetTextTemplate();
-                if (desiredFont == _fallback_font && template?.material != null)
-                    _text.material = template.material;
-                else if (desiredFont?.material != null)
-                    _text.material = desiredFont.material;
+                // Text.mainTexture 随当前字体取图集；不保留上一个字体的显式材质。
+                _text.material = null;
+                _text.SetAllDirty();
 
                 _metrics_text = null;
                 _metrics_font = null;
@@ -525,15 +894,28 @@ public static class TerritoryLabelRenderer
                 _gold_gradient = _text.GetComponent<TerritoryLabelGoldGradient>() ??
                                  _text.gameObject.AddComponent<TerritoryLabelGoldGradient>();
             RectTransform rect = _text.rectTransform;
-            bool containsLatin = ContainsLatin(trimmedValue);
+            if (_text.supportRichText != style.rich_text)
+            {
+                _text.supportRichText = style.rich_text;
+                _metrics_text = null;
+            }
+            bool containsLatin = ContainsLatin(trimmedValue, style.rich_text);
             FontStyle effectiveFontStyle = containsLatin ? FontStyle.Bold : style.font_style;
             if (_metrics_text != trimmedValue || _metrics_style != effectiveFontStyle || _metrics_font != _text.font)
             {
                 _text.text = trimmedValue;
-                _text.fontSize = TerritoryLabelProjection.ReferenceFontSize;
-                _text.fontStyle = effectiveFontStyle;
+                // 字形包字体不是动态字体：不认字号和字形样式(设了会报警告)，字形已按参考字号排好
+                BakedGlyphFont baked = BundledTerritoryFonts.BakedOf(_text.font);
+                _text.fontSize = baked != null ? 0 : TerritoryLabelProjection.ReferenceFontSize;
+                _text.fontStyle = baked != null ? FontStyle.Normal : effectiveFontStyle;
+                if (baked != null) baked.Ensure(trimmedValue);
+                else _text.font?.RequestCharactersInTexture(trimmedValue, _text.fontSize, effectiveFontStyle);
+                _text.cachedTextGenerator.Invalidate();
+                _text.cachedTextGeneratorForLayout.Invalidate();
                 _reference_width = Mathf.Max(1f, _text.preferredWidth);
                 _reference_height = Mathf.Max(1f, _text.preferredHeight);
+                // 字形包字体的行高 Unity 量不出来，按字形包的上伸加下伸算
+                if (baked != null) _reference_height = Mathf.Max(_reference_height, baked.LineHeight);
                 rect.sizeDelta = new Vector2(_reference_width + 2f, _reference_height + 2f);
                 _metrics_text = trimmedValue;
                 _metrics_style = effectiveFontStyle;
@@ -547,6 +929,12 @@ public static class TerritoryLabelRenderer
                 outlineDistance);
             float visibility = TerritoryLabelProjection.Visibility(scale, style.min_font_size);
             if (visibility <= 0f) { Hide(); return; }
+            float renderedFontPixels = scale * TerritoryLabelProjection.ReferenceFontSize * canvasScale;
+            bool displayCultureLock = showCultureLock && (fullyOpaque || renderedFontPixels >= 14f);
+            float lockReferenceSize = Mathf.Clamp(_reference_height * 0.26f, 20f, 40f);
+            // 名字前的图标：与字同高，字太小(远景)时不画
+            bool displayIcon = icon != null && (fullyOpaque || renderedFontPixels >= 10f);
+            float iconReferenceSize = _reference_height * 0.9f;
             float textAlpha = (fullyOpaque ? 1f : style.text_color.a) * visibility;
             if (style.use_gold_gradient)
             {
@@ -569,11 +957,76 @@ public static class TerritoryLabelRenderer
             _outline.effectColor = outlineColor;
             _outline.effectDistance = new Vector2(outlineDistance, -outlineDistance);
 
+            float rotation = Mathf.Atan2(alongDelta.y, alongDelta.x) * Mathf.Rad2Deg;
+            float arcHeight = Mathf.Abs(_placement.curvature) * _reference_width * scale * canvasScale;
+            float widthPixels = _reference_width * scale * canvasScale + outlineDistance * 2f;
+            if (displayCultureLock)
+                widthPixels += lockReferenceSize * scale * canvasScale * 1.45f;
+            if (displayIcon)
+                widthPixels += iconReferenceSize * scale * canvasScale * 1.25f;
+            float heightPixels = _reference_height * scale * canvasScale + outlineDistance * 2f + arcHeight;
+            float radians = rotation * Mathf.Deg2Rad;
+            float boundWidth = Mathf.Abs(Mathf.Cos(radians)) * widthPixels +
+                               Mathf.Abs(Mathf.Sin(radians)) * heightPixels;
+            float boundHeight = Mathf.Abs(Mathf.Sin(radians)) * widthPixels +
+                                Mathf.Abs(Mathf.Cos(radians)) * heightPixels;
+            ScreenLabelBounds collisionBounds = new ScreenLabelBounds((Vector2)centerScreen,
+                widthPixels * 0.5f, heightPixels * 0.5f, radians);
+            float screenCoverageVisibility = TerritoryLabelProjection.ScreenCoverageVisibility(
+                boundWidth / Mathf.Max(1f, Screen.width), boundHeight / Mathf.Max(1f, Screen.height));
+            if (screenCoverageVisibility < 1f)
+            {
+                textAlpha *= screenCoverageVisibility;
+                if (style.use_gold_gradient)
+                    _gold_gradient.Configure(style.gold_top, style.gold_bottom, textAlpha);
+                else
+                {
+                    Color textColor = style.text_color;
+                    textColor.a = textAlpha;
+                    _text.color = textColor;
+                }
+
+                outlineColor.a *= screenCoverageVisibility;
+                _outline.effectColor = outlineColor;
+            }
+            if (!ignoreOverlap && OverlapsSubmittedLabel(collisionBounds))
+            {
+                Hide();
+                return;
+            }
+            _occupied_label_bounds.Add(collisionBounds);
+
             rect.position = centerScreen;
-            rect.localRotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(alongDelta.y, alongDelta.x) * Mathf.Rad2Deg);
+            rect.localRotation = Quaternion.Euler(0f, 0f, rotation);
             rect.localScale = new Vector3(scale, scale, 1f);
+            TerritoryLabelArc arc = _text.GetComponent<TerritoryLabelArc>() ??
+                                    _text.gameObject.AddComponent<TerritoryLabelArc>();
+            arc.Configure(_placement.curvature);
+            UpdateCultureLockBadge(displayCultureLock, lockReferenceSize,
+                (fullyOpaque ? 1f : 0.78f) * visibility * screenCoverageVisibility);
+            UpdateLeadingIcon(displayIcon, icon, iconReferenceSize,
+                (fullyOpaque ? 1f : 0.9f) * visibility * screenCoverageVisibility);
+            if (ignoreOverlap) rect.SetAsLastSibling();
             if (!_text.gameObject.activeSelf) _text.gameObject.SetActive(true);
             _text.enabled = true;
+        }
+
+        private static bool OverlapsSubmittedLabel(ScreenLabelBounds bounds)
+        {
+            for (int i = 0; i < _occupied_label_bounds.Count; i++)
+                if (bounds.Overlaps(_occupied_label_bounds[i])) return true;
+            return false;
+        }
+
+        public void InvalidateFont()
+        {
+            _metrics_text = null;
+            _metrics_font = null;
+            if (_text == null) return;
+            _text.material = null;
+            _text.cachedTextGenerator.Invalidate();
+            _text.cachedTextGeneratorForLayout.Invalidate();
+            _text.SetAllDirty();
         }
 
         private void EnsureText()
@@ -593,23 +1046,95 @@ public static class TerritoryLabelRenderer
             _text.resizeTextForBestFit = false;
             _text.supportRichText = false;
             _text.raycastTarget = false;
-            if (template?.material != null)
-                _text.material = template.material;
-            else if (fallbackFont?.material != null)
-                _text.material = fallbackFont.material;
+            _text.material = null;
             RectTransform rect = _text.rectTransform;
             rect.anchorMin = new Vector2(0.5f, 0.5f);
             rect.anchorMax = new Vector2(0.5f, 0.5f);
             rect.pivot = new Vector2(0.5f, 0.5f);
             _gold_gradient = textObject.AddComponent<TerritoryLabelGoldGradient>();
             _outline = textObject.AddComponent<Outline>();
+            textObject.AddComponent<TerritoryLabelArc>();
         }
 
-        private static TerritoryPlacement BuildZonePlacement(List<TileZone> component, HashSet<int> zoneIds,
-            string text, TerritoryLabelStyle style)
+        private void UpdateLeadingIcon(bool visible, Sprite sprite, float referenceSize, float alpha)
+        {
+            if (!visible || sprite == null)
+            {
+                if (_leading_icon != null) _leading_icon.gameObject.SetActive(false);
+                return;
+            }
+            if (_leading_icon == null)
+            {
+                GameObject iconObject = new GameObject($"TerritoryLabelIcon_{_id}", typeof(RectTransform),
+                    typeof(CanvasRenderer), typeof(Image));
+                iconObject.transform.SetParent(_text.transform, false);
+                _leading_icon = iconObject.GetComponent<Image>();
+                _leading_icon.preserveAspect = true;
+                _leading_icon.raycastTarget = false;
+                RectTransform iconRect = _leading_icon.rectTransform;
+                iconRect.anchorMin = new Vector2(0.5f, 0.5f);
+                iconRect.anchorMax = new Vector2(0.5f, 0.5f);
+                iconRect.pivot = new Vector2(0.5f, 0.5f);
+            }
+            _leading_icon.sprite = sprite;
+            RectTransform rect = _leading_icon.rectTransform;
+            rect.sizeDelta = new Vector2(referenceSize, referenceSize);
+            rect.anchoredPosition = new Vector2(-(_reference_width * 0.5f + referenceSize * 0.65f), 0f);
+            rect.localRotation = Quaternion.identity;
+            rect.localScale = Vector3.one;
+            _leading_icon.color = new Color(1f, 1f, 1f, Mathf.Clamp01(alpha));
+            _leading_icon.transform.SetAsLastSibling();
+            if (!_leading_icon.gameObject.activeSelf) _leading_icon.gameObject.SetActive(true);
+        }
+
+        private void UpdateCultureLockBadge(bool visible, float referenceSize, float alpha)
+        {
+            if (!visible)
+            {
+                if (_culture_lock_badge != null)
+                    _culture_lock_badge.gameObject.SetActive(false);
+                return;
+            }
+
+            if (_culture_lock_badge == null)
+            {
+                GameObject badgeObject = new GameObject(
+                    $"CultureLockBadge_{_id}",
+                    typeof(RectTransform),
+                    typeof(CanvasRenderer),
+                    typeof(Image)
+                );
+                badgeObject.transform.SetParent(_text.transform, false);
+                _culture_lock_badge = badgeObject.GetComponent<Image>();
+                _culture_lock_badge.sprite = GetCultureLockSprite();
+                _culture_lock_badge.preserveAspect = true;
+                _culture_lock_badge.raycastTarget = false;
+
+                RectTransform badgeRect = _culture_lock_badge.rectTransform;
+                badgeRect.anchorMin = new Vector2(0.5f, 0.5f);
+                badgeRect.anchorMax = new Vector2(0.5f, 0.5f);
+                badgeRect.pivot = new Vector2(0.5f, 0.5f);
+            }
+
+            RectTransform rect = _culture_lock_badge.rectTransform;
+            rect.sizeDelta = new Vector2(referenceSize, referenceSize);
+            rect.anchoredPosition = new Vector2(
+                _reference_width * 0.5f + referenceSize * 0.8f,
+                _reference_height * 0.02f
+            );
+            rect.localRotation = Quaternion.identity;
+            rect.localScale = Vector3.one;
+            _culture_lock_badge.color = new Color(1f, 1f, 1f, Mathf.Clamp01(alpha));
+            _culture_lock_badge.transform.SetAsLastSibling();
+            if (!_culture_lock_badge.gameObject.activeSelf)
+                _culture_lock_badge.gameObject.SetActive(true);
+        }
+
+        private TerritoryPlacement BuildZonePlacement(List<TileZone> component, HashSet<int> zoneIds,
+            string text, TerritoryLabelStyle style, bool allowSmallEmptyGaps)
         {
             if (component == null || component.Count == 0) return default;
-            float textAspect = EstimateTextAspect(text);
+            float textAspect = EstimateTextAspect(text, style.rich_text);
             Vector3 centroid = CalculateZoneCentroid(component);
             float principalAngle = CalculatePrincipalAngle(component, centroid);
             List<float> angles = BuildCandidateAngles(principalAngle, style.orientation);
@@ -638,7 +1163,8 @@ public static class TerritoryLabelRenderer
                     for (int iteration = 0; iteration < SearchIterations; iteration++)
                     {
                         float candidate = (low + high) * 0.5f;
-                        if (FitsInsideSparse(center, axis, normal, candidate * textAspect, candidate, zoneIds)) low = candidate;
+                        if (FitsInsideSparse(center, axis, normal, candidate * textAspect, candidate, zoneIds,
+                                allowSmallEmptyGaps)) low = candidate;
                         else high = candidate;
                     }
                     if (low <= bestHalfHeight) continue;
@@ -649,17 +1175,21 @@ public static class TerritoryLabelRenderer
             }
 
             if (bestHalfHeight <= 0.2f) return default;
-            float halfHeight = bestHalfHeight * Mathf.Clamp(style.territory_padding, 0.5f, 0.94f);
+            float halfHeight = bestHalfHeight * Mathf.Clamp(style.territory_padding, 0.5f, 0.98f);
             float halfWidth = halfHeight * textAspect;
             Vector3 bestNormal = new Vector3(-bestAxis.y, bestAxis.x);
             for (int attempt = 0; attempt < 12 &&
-                 !FitsInsideDense(bestCenter, bestAxis, bestNormal, halfWidth, halfHeight, zoneIds); attempt++)
+                 !FitsInsideDense(bestCenter, bestAxis, bestNormal, halfWidth, halfHeight, zoneIds,
+                     allowSmallEmptyGaps); attempt++)
             {
                 halfWidth *= 0.9f;
                 halfHeight *= 0.9f;
             }
-            if (!FitsInsideDense(bestCenter, bestAxis, bestNormal, halfWidth, halfHeight, zoneIds)) return default;
-            return TerritoryPlacement.Create(bestCenter, bestAxis, halfWidth, halfHeight);
+            if (!FitsInsideDense(bestCenter, bestAxis, bestNormal, halfWidth, halfHeight, zoneIds,
+                    allowSmallEmptyGaps)) return default;
+            float curvature = CalculateTerritoryCurvature(component, bestCenter, bestAxis, halfWidth,
+                halfHeight, style.arc_curvature);
+            return TerritoryPlacement.Create(bestCenter, bestAxis, halfWidth, halfHeight, curvature);
         }
 
         private static TerritoryPlacement BuildPointPlacement(List<Vector3> points, string text, TerritoryLabelStyle style)
@@ -675,35 +1205,18 @@ public static class TerritoryLabelRenderer
             Vector3 normal = new Vector3(-axis.y, axis.x);
             GetProjectedBounds(points, axis, normal, out float minAlong, out float maxAlong,
                 out float minAcross, out float maxAcross);
-            float aspect = EstimateTextAspect(text);
+            float aspect = EstimateTextAspect(text, style.rich_text);
             float halfHeight = Mathf.Min((maxAlong - minAlong) / (2f * aspect),
                 (maxAcross - minAcross) * 0.5f) * Mathf.Clamp(style.territory_padding, 0.5f, 0.94f);
-            return halfHeight <= 0.2f ? default : TerritoryPlacement.Create(centroid, axis, halfHeight * aspect, halfHeight);
-        }
-
-        private static TerritoryPlacement BuildZoneEnvelopePlacement(List<TileZone> zones, string text,
-            TerritoryLabelStyle style)
-        {
-            if (zones == null || zones.Count == 0) return default;
-            Vector3 centroid = CalculateZoneCentroid(zones);
-            float angle = style.orientation == TerritoryLabelOrientation.Horizontal ? 0f :
-                style.orientation == TerritoryLabelOrientation.Vertical ? 90f : CalculatePrincipalAngle(zones, centroid);
-            float radians = angle * Mathf.Deg2Rad;
-            Vector3 axis = new Vector3(Mathf.Cos(radians), Mathf.Sin(radians));
-            Vector3 normal = new Vector3(-axis.y, axis.x);
-            GetProjectedBounds(zones, axis, normal, out float minAlong, out float maxAlong,
-                out float minAcross, out float maxAcross);
-            float aspect = EstimateTextAspect(text);
-            float halfHeight = Mathf.Min((maxAlong - minAlong) / (2f * aspect),
-                (maxAcross - minAcross) * 0.5f) * Mathf.Clamp(style.territory_padding, 0.5f, 0.98f);
             if (halfHeight <= 0.2f) return default;
-            Vector3 center = axis * ((minAlong + maxAlong) * 0.5f) +
-                             normal * ((minAcross + maxAcross) * 0.5f);
-            return TerritoryPlacement.Create(center, axis, halfHeight * aspect, halfHeight);
+            float halfWidth = halfHeight * aspect;
+            float curvature = CalculateTerritoryCurvature(points, centroid, axis, halfWidth, halfHeight,
+                style.arc_curvature);
+            return TerritoryPlacement.Create(centroid, axis, halfWidth, halfHeight, curvature);
         }
 
-        private static bool FitsInsideSparse(Vector3 center, Vector3 axis, Vector3 normal,
-            float halfWidth, float halfHeight, HashSet<int> zoneIds)
+        private bool FitsInsideSparse(Vector3 center, Vector3 axis, Vector3 normal,
+            float halfWidth, float halfHeight, HashSet<int> zoneIds, bool allowSmallEmptyGaps)
         {
             if (halfWidth <= 0f || halfHeight <= 0f) return false;
             int steps = Mathf.Max(4, Mathf.CeilToInt(halfWidth * 2f / SampleSpacing));
@@ -713,14 +1226,15 @@ public static class TerritoryLabelRenderer
                 for (int step = 0; step <= steps; step++)
                 {
                     float along = Mathf.Lerp(-halfWidth, halfWidth, step / (float)steps);
-                    if (!ContainsTerritoryPoint(center + axis * along + normal * across, zoneIds)) return false;
+                    if (!ContainsTerritoryPoint(center + axis * along + normal * across, zoneIds,
+                            allowSmallEmptyGaps)) return false;
                 }
             }
             return true;
         }
 
-        private static bool FitsInsideDense(Vector3 center, Vector3 axis, Vector3 normal,
-            float halfWidth, float halfHeight, HashSet<int> zoneIds)
+        private bool FitsInsideDense(Vector3 center, Vector3 axis, Vector3 normal,
+            float halfWidth, float halfHeight, HashSet<int> zoneIds, bool allowSmallEmptyGaps)
         {
             int xSteps = Mathf.Max(2, Mathf.CeilToInt(halfWidth * 2f / SampleSpacing));
             int ySteps = Mathf.Max(2, Mathf.CeilToInt(halfHeight * 2f / SampleSpacing));
@@ -730,17 +1244,90 @@ public static class TerritoryLabelRenderer
                 for (int x = 0; x <= xSteps; x++)
                 {
                     float along = Mathf.Lerp(-halfWidth, halfWidth, x / (float)xSteps);
-                    if (!ContainsTerritoryPoint(center + axis * along + normal * across, zoneIds)) return false;
+                    if (!ContainsTerritoryPoint(center + axis * along + normal * across, zoneIds,
+                            allowSmallEmptyGaps)) return false;
                 }
             }
             return true;
         }
 
-        private static bool ContainsTerritoryPoint(Vector3 point, HashSet<int> zoneIds)
+        private bool ContainsTerritoryPoint(Vector3 point, HashSet<int> zoneIds, bool allowSmallEmptyGaps)
         {
             if (World.world == null) return false;
-            WorldTile tile = World.world.GetTile(Mathf.FloorToInt(point.x), Mathf.FloorToInt(point.y));
-            return tile?.zone != null && zoneIds.Contains(tile.zone.id);
+            int x = Mathf.FloorToInt(point.x);
+            int y = Mathf.FloorToInt(point.y);
+            WorldTile tile = World.world.GetTile(x, y);
+            if (tile?.zone != null && zoneIds.Contains(tile.zone.id)) return true;
+            return allowSmallEmptyGaps && IsSmallNeutralGap(x, y, zoneIds);
+        }
+
+        // A gap is usable only when it is a tiny, closed neutral pocket. City-owned enclaves always reject it.
+        private bool IsSmallNeutralGap(int startX, int startY, HashSet<int> zoneIds)
+        {
+            // 两三个区块大小的无主缺口也允许文字跨过(连通判断同样桥接，见 FindLargestConnectedComponent)
+            const int maxGapTiles = 160;
+            int startKey = GetTileKey(startX, startY);
+            if (_small_gap_cache.TryGetValue(startKey, out bool cached)) return cached;
+
+            _gap_queue.Clear();
+            _gap_tiles.Clear();
+            _gap_queue.Enqueue(new Vector2Int(startX, startY));
+            _gap_tiles.Add(startKey);
+            int friendlyBorder = 0;
+            bool valid = true;
+
+            while (_gap_queue.Count > 0 && valid)
+            {
+                Vector2Int point = _gap_queue.Dequeue();
+                WorldTile tile = World.world.GetTile(point.x, point.y);
+                if (tile == null || tile.zone_city != null)
+                {
+                    valid = false;
+                    break;
+                }
+
+                for (int direction = 0; direction < 4; direction++)
+                {
+                    int x = point.x + (direction == 0 ? 1 : direction == 1 ? -1 : 0);
+                    int y = point.y + (direction == 2 ? 1 : direction == 3 ? -1 : 0);
+                    WorldTile neighbour = World.world.GetTile(x, y);
+                    if (neighbour == null)
+                    {
+                        valid = false;
+                        break;
+                    }
+                    if (neighbour.zone != null && zoneIds.Contains(neighbour.zone.id))
+                    {
+                        friendlyBorder++;
+                        continue;
+                    }
+                    // Even a very small country inside another country is never treated as empty space.
+                    if (neighbour.zone_city != null)
+                    {
+                        valid = false;
+                        break;
+                    }
+                    int key = GetTileKey(x, y);
+                    if (_gap_tiles.Add(key))
+                    {
+                        if (_gap_tiles.Count > maxGapTiles)
+                        {
+                            valid = false;
+                            break;
+                        }
+                        _gap_queue.Enqueue(new Vector2Int(x, y));
+                    }
+                }
+            }
+
+            valid &= friendlyBorder >= 4;
+            foreach (int key in _gap_tiles) _small_gap_cache[key] = valid;
+            return valid;
+        }
+
+        private static int GetTileKey(int x, int y)
+        {
+            unchecked { return x * 486187739 + y; }
         }
 
         private static List<float> BuildCandidateAngles(float principalAngle, TerritoryLabelOrientation orientation)
@@ -829,6 +1416,75 @@ public static class TerritoryLabelRenderer
             return result / zones.Count;
         }
 
+        // Measure the territory's middle path in seven slices. This preserves a straight label for
+        // straight countries and only bends labels where the country itself bends.
+        private static float CalculateTerritoryCurvature(List<TileZone> zones, Vector3 center, Vector3 axis,
+            float halfWidth, float halfHeight, float maximumCurvature)
+        {
+            if (zones == null || zones.Count < 3) return 0f;
+            Vector3[] points = new Vector3[zones.Count];
+            for (int i = 0; i < zones.Count; i++) points[i] = ZoneCenter(zones[i]);
+            return CalculateTerritoryCurvature(points, center, axis, halfWidth, halfHeight, maximumCurvature);
+        }
+
+        private static float CalculateTerritoryCurvature(IList<Vector3> points, Vector3 center, Vector3 axis,
+            float halfWidth, float halfHeight, float maximumCurvature)
+        {
+            const int sliceCount = 7;
+            if (points == null || points.Count < 3 || halfWidth <= 0.01f || halfHeight <= 0.01f) return 0f;
+            Vector3 normal = new Vector3(-axis.y, axis.x);
+            float minAlong = float.MaxValue;
+            float maxAlong = float.MinValue;
+            for (int i = 0; i < points.Count; i++)
+            {
+                float along = Vector3.Dot(points[i] - center, axis);
+                minAlong = Mathf.Min(minAlong, along);
+                maxAlong = Mathf.Max(maxAlong, along);
+            }
+            float span = maxAlong - minAlong;
+            if (span <= 0.1f) return 0f;
+
+            float[] offsets = new float[sliceCount];
+            int[] counts = new int[sliceCount];
+            for (int i = 0; i < points.Count; i++)
+            {
+                Vector3 delta = points[i] - center;
+                float along = Vector3.Dot(delta, axis);
+                int slice = Mathf.Clamp(Mathf.FloorToInt((along - minAlong) / span * sliceCount), 0,
+                    sliceCount - 1);
+                offsets[slice] += Vector3.Dot(delta, normal);
+                counts[slice]++;
+            }
+
+            int first = -1;
+            int last = -1;
+            for (int i = 0; i < sliceCount; i++)
+            {
+                if (counts[i] == 0) continue;
+                offsets[i] /= counts[i];
+                if (first < 0) first = i;
+                last = i;
+            }
+            if (first < 0 || last - first < 2) return 0f;
+
+            float residualSum = 0f;
+            float weightSum = 0f;
+            for (int i = first + 1; i < last; i++)
+            {
+                if (counts[i] == 0) continue;
+                float progress = (i - first) / (float)(last - first);
+                float baseline = Mathf.Lerp(offsets[first], offsets[last], progress);
+                float profile = 4f * progress * (1f - progress);
+                residualSum += (offsets[i] - baseline) * profile;
+                weightSum += profile * profile;
+            }
+            if (weightSum <= 0.01f) return 0f;
+
+            float bend = residualSum / weightSum;
+            float usableCurvature = Mathf.Min(Mathf.Abs(maximumCurvature), halfHeight * 0.45f / halfWidth);
+            return Mathf.Clamp(bend / halfWidth, -usableCurvature, usableCurvature);
+        }
+
         private static void GetProjectedBounds(List<TileZone> zones, Vector3 axis, Vector3 normal,
             out float minAlong, out float maxAlong, out float minAcross, out float maxAcross)
         {
@@ -869,7 +1525,7 @@ public static class TerritoryLabelRenderer
             return new Vector3(zone.x * ZoneSize + ZoneSize * 0.5f, zone.y * ZoneSize + ZoneSize * 0.5f);
         }
 
-        private static float EstimateTextAspect(string value)
+        private static float EstimateTextAspect(string value, bool richText)
         {
             if (string.IsNullOrWhiteSpace(value)) return 1.5f;
             float width = 0f;
@@ -878,6 +1534,11 @@ public static class TerritoryLabelRenderer
             for (int i = 0; i < value.Length; i++)
             {
                 char character = value[i];
+                if (richText && character == '<')
+                {
+                    int tagEnd = value.IndexOf('>', i + 1);
+                    if (tagEnd >= 0) { i = tagEnd; continue; }
+                }
                 if (character == '\n')
                 {
                     maxWidth = Mathf.Max(maxWidth, width);
@@ -885,13 +1546,38 @@ public static class TerritoryLabelRenderer
                     lineCount++;
                     continue;
                 }
-                if (char.IsWhiteSpace(character)) width += 0.35f;
-                else if (character >= '\u3400' && character <= '\u9fff') width += 1f;
-                else if (char.IsUpper(character)) width += 0.72f;
-                else width += 0.58f;
+                float glyphScale = richText && lineCount > 1 ? 0.55f : 1f;
+                if (char.IsWhiteSpace(character)) width += 0.35f * glyphScale;
+                else if (character >= '\u3400' && character <= '\u9fff') width += glyphScale;
+                else if (char.IsUpper(character)) width += 0.72f * glyphScale;
+                else width += 0.58f * glyphScale;
             }
             maxWidth = Mathf.Max(maxWidth, width);
             return Mathf.Clamp(maxWidth * 1.08f / Mathf.Max(1f, lineCount * 0.92f), 1.4f, 24f);
+        }
+    }
+
+    private readonly struct ScreenLabelBounds
+    {
+        private readonly Vector2 _center;
+        private readonly float _half_width;
+        private readonly float _half_height;
+        private readonly float _radians;
+
+        public ScreenLabelBounds(Vector2 center, float halfWidth, float halfHeight, float radians)
+        {
+            _center = center;
+            _half_width = halfWidth;
+            _half_height = halfHeight;
+            _radians = radians;
+        }
+
+        public bool Overlaps(ScreenLabelBounds other)
+        {
+            return TerritoryLabelProjection.OrientedRectanglesOverlap(
+                _center.x, _center.y, _half_width, _half_height, _radians,
+                other._center.x, other._center.y, other._half_width, other._half_height,
+                other._radians, CollisionSeparationPixels);
         }
     }
 
@@ -903,8 +1589,10 @@ public static class TerritoryLabelRenderer
         public Vector3 normal;
         public float half_width;
         public float half_height;
+        public float curvature;
 
-        public static TerritoryPlacement Create(Vector3 center, Vector3 axis, float halfWidth, float halfHeight)
+        public static TerritoryPlacement Create(Vector3 center, Vector3 axis, float halfWidth, float halfHeight,
+            float curvature = 0f)
         {
             axis.Normalize();
             return new TerritoryPlacement
@@ -914,7 +1602,8 @@ public static class TerritoryLabelRenderer
                 axis = axis,
                 normal = new Vector3(-axis.y, axis.x),
                 half_width = halfWidth,
-                half_height = halfHeight
+                half_height = halfHeight,
+                curvature = curvature
             };
         }
     }
@@ -961,29 +1650,49 @@ public static class TerritoryLabelRenderer
         }
     }
 
+    // 国土中间的无主空地(没有任何城市的区块)不该把领土切成两块：连通判断允许跨过最多
+    // MaxNeutralBridgeZones 个无主区块把两侧桥接起来；第三方国家的区块一律不能跨。
+    private const int MaxNeutralBridgeZones = 2;
+
     private static void FindLargestConnectedComponent(List<TileZone> zones, HashSet<int> zoneIds,
         List<TileZone> walk, List<TileZone> largest, HashSet<int> visited, Queue<TileZone> queue)
     {
         largest.Clear();
         visited.Clear();
         queue.Clear();
+        var bridgeQueue = new Queue<(TileZone zone, int gap)>();
+        var bridgeBest = new Dictionary<int, int>();
         for (int i = 0; i < zones.Count; i++)
         {
             TileZone start = zones[i];
             if (!visited.Add(start.id)) continue;
             walk.Clear();
-            queue.Enqueue(start);
-            while (queue.Count > 0)
+            bridgeQueue.Clear();
+            bridgeBest.Clear();
+            bridgeQueue.Enqueue((start, 0));
+            while (bridgeQueue.Count > 0)
             {
-                TileZone zone = queue.Dequeue();
-                walk.Add(zone);
+                (TileZone zone, int gap) = bridgeQueue.Dequeue();
+                bool friendly = zoneIds.Contains(zone.id);
+                if (friendly) walk.Add(zone);
                 TileZone[] neighbours = zone.neighbours;
                 if (neighbours == null) continue;
                 for (int n = 0; n < neighbours.Length; n++)
                 {
                     TileZone neighbour = neighbours[n];
-                    if (neighbour == null || !zoneIds.Contains(neighbour.id) || !visited.Add(neighbour.id)) continue;
-                    queue.Enqueue(neighbour);
+                    if (neighbour == null) continue;
+                    if (zoneIds.Contains(neighbour.id))
+                    {
+                        if (visited.Add(neighbour.id)) bridgeQueue.Enqueue((neighbour, 0));
+                        continue;
+                    }
+                    // 只有无国籍空地可以当桥；别国领土(含中立部落的城)不能跨
+                    if (neighbour.city != null) continue;
+                    int nextGap = (friendly ? 0 : gap) + 1;
+                    if (nextGap > MaxNeutralBridgeZones) continue;
+                    if (bridgeBest.TryGetValue(neighbour.id, out int best) && best <= nextGap) continue;
+                    bridgeBest[neighbour.id] = nextGap;
+                    bridgeQueue.Enqueue((neighbour, nextGap));
                 }
             }
             if (walk.Count <= largest.Count) continue;
@@ -1050,6 +1759,46 @@ public sealed class TerritoryLabelGoldGradient : BaseMeshEffect
             Color color = Color.Lerp(_bottom, _top, (vertex.position.y - minY) / height);
             color.a *= _alpha;
             vertex.color = color;
+            vertexHelper.SetUIVertex(vertex, i);
+        }
+    }
+}
+
+// Bends the baseline along the territory-specific path calculated by TerritoryLabelRenderer.
+public sealed class TerritoryLabelArc : BaseMeshEffect
+{
+    private float _curvature;
+
+    public void Configure(float curvature)
+    {
+        curvature = Mathf.Clamp(curvature, -0.16f, 0.16f);
+        bool changed = !Mathf.Approximately(_curvature, curvature);
+        _curvature = curvature;
+        enabled = !Mathf.Approximately(_curvature, 0f);
+        if (changed && graphic != null) graphic.SetVerticesDirty();
+    }
+
+    public override void ModifyMesh(VertexHelper vertexHelper)
+    {
+        if (!IsActive() || vertexHelper.currentVertCount == 0) return;
+        UIVertex vertex = default;
+        float minX = float.MaxValue;
+        float maxX = float.MinValue;
+        for (int i = 0; i < vertexHelper.currentVertCount; i++)
+        {
+            vertexHelper.PopulateUIVertex(ref vertex, i);
+            minX = Mathf.Min(minX, vertex.position.x);
+            maxX = Mathf.Max(maxX, vertex.position.x);
+        }
+
+        float halfSpan = (maxX - minX) * 0.5f;
+        if (halfSpan <= 0.01f) return;
+        float centerX = (minX + maxX) * 0.5f;
+        for (int i = 0; i < vertexHelper.currentVertCount; i++)
+        {
+            vertexHelper.PopulateUIVertex(ref vertex, i);
+            float normalized = (vertex.position.x - centerX) / halfSpan;
+            vertex.position.y += _curvature * halfSpan * (1f - normalized * normalized);
             vertexHelper.SetUIVertex(vertex, i);
         }
     }

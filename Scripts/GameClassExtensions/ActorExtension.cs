@@ -68,42 +68,30 @@ public class Name
 
     public void Initialize(Setting setting, string culture)
     {
-        if (setting?.Clan?.sex_post_Male == null) return;
-        if (setting?.Clan?.sex_post_Female == null) return;
-        if (setting.City == null) return;
-        if (setting.Family == null) return;
-        if (setting.Kingdom == null) return;
-        if (setting.Religion == null) return;
-        this.has_sex_post = setting.Clan.has_sex_post;
-        this.use_local_as_family_name = setting.Clan.use_local_as_lastname;
+        if (setting?.Unit == null) return;
+        this.has_sex_post = setting.Clan?.has_sex_post == true;
+        this.use_local_as_family_name = setting.Clan?.use_local_as_lastname == true;
         this.is_invert = setting.Unit.is_invert;
         var language = PlayerConfig.dict["language"].stringVal;
-        switch (language)
-        {
-            case "ch":
-                this.sex_post_Male = setting.Clan.sex_post_Male[0];
-                this.sex_post_Female = setting.Clan.sex_post_Female[0];
-                break;
-            case "en":
-                this.sex_post_Male = setting.Clan.sex_post_Male[1];
-                this.sex_post_Female = setting.Clan.sex_post_Female[1];
-                break;
-            case "cz":
-                this.sex_post_Male = setting.Clan.sex_post_Male[2];
-                this.sex_post_Female = setting.Clan.sex_post_Female[2];
-                break;
-            default:
-                this.sex_post_Male = setting.Clan.sex_post_Male[1];
-                this.sex_post_Female = setting.Clan.sex_post_Female[1];
-                break;
-        }
+        int suffixIndex = language == "ch" ? 0 : language == "cz" ? 2 : 1;
+        this.sex_post_Male = LocalizedSuffix(setting.Clan?.sex_post_Male, suffixIndex);
+        this.sex_post_Female = LocalizedSuffix(setting.Clan?.sex_post_Female, suffixIndex);
         
         this.cultureName = culture;
+    }
+
+    private static string LocalizedSuffix(string[] suffixes, int index)
+    {
+        if (suffixes == null || suffixes.Length == 0) return "";
+        return suffixes[index < suffixes.Length ? index : 0] ?? "";
     }
 
     public void SetName(Actor actor)
     {
         if (actor == null) return;
+        // Serialized Name flags may belong to an earlier culture or template version.
+        // Refresh formatting at naming events, rather than scanning all actors every frame.
+        actor.initializeActorName();
         sex = actor.isSexMale() ? ActorSex.Male : ActorSex.Female;
         if (hasFamilyName(actor))
         {
@@ -164,6 +152,8 @@ public class Name
                 if (identity != null)
                 {
                     identity.name = actor.name;
+                    identity.given_name = firstName ?? "";
+                    identity.surname = familyName ?? "";
                     SpecificClan sc = identity._specificClan;
                     if (sc != null)
                     {
@@ -182,10 +172,35 @@ public class Name
                 actor.data.name = firstName;
             }
         }
+        // 西方帝国皇帝的王号：名 + 罗马数字序数(不带姓)
+        string regnalSuffix = actor.GetOrCreate()?.regnal_suffix;
+        if (!string.IsNullOrWhiteSpace(regnalSuffix) && hasFirstName(actor))
+        {
+            actor.data.name = OverallHelperFunc.JoinNameParts(firstName, regnalSuffix);
+            PersonalClanIdentity regnalIdentity = actor.GetPersonalIdentity();
+            if (regnalIdentity != null) regnalIdentity.name = actor.data.name;
+        }
         if (has_whole_name(actor))
         {
             actor.GetPersonalIdentity()?.BackfillRelatedHistoryRecords();
         }
+    }
+
+    public void RepairOrder(Actor actor)
+    {
+        if (actor?.data == null || !has_whole_name(actor)) return;
+        if (!string.IsNullOrWhiteSpace(actor.GetOrCreate()?.regnal_suffix)) return;
+        actor.initializeActorName();
+        string surname = familyName;
+        string post = actor.isSexMale() ? sex_post_Male : sex_post_Female;
+        if (has_sex_post && !string.IsNullOrEmpty(post) && !surname.Contains(post)) surname += post;
+        string expected = is_invert ? OverallHelperFunc.JoinNameParts(firstName, surname)
+            : OverallHelperFunc.JoinNameParts(surname, firstName);
+        string reversed = is_invert ? OverallHelperFunc.JoinNameParts(surname, firstName)
+            : OverallHelperFunc.JoinNameParts(firstName, surname);
+        string current = actor.data.name.UseLocalizedNameSeparator();
+        // Only correct a recognized composed name; arbitrary player names stay intact.
+        if (current != expected && current == reversed) SetName(actor);
     }
 }
 public class OfficeIdentity
@@ -317,6 +332,21 @@ public enum PerformanceEventType
 }
 public static class ActorExtension
 {
+    // 单位仍指向已 Dispose 的王国(asset 为空)时，原版 joinKingdom 会在 kingdom.isCiv() 抛空引用，
+    // 让 makeNewCivKingdom 只建了一半。建国前先把这种失效引用清掉。
+    public static void ClearDisposedKingdom(this Actor actor)
+    {
+        if (actor?.kingdom != null && actor.kingdom.asset == null) actor.kingdom = null;
+    }
+
+    // 只有文明物种能建国：原版按 kingdom_id_civilization 取王国资产，非文明单位建出的王国没有资产
+    public static bool CanFoundCivKingdom(this Actor actor)
+    {
+        string id = actor?.asset?.kingdom_id_civilization;
+        return actor != null && !actor.isRekt() && actor.isAlive() && !string.IsNullOrEmpty(id) &&
+               AssetManager.kingdoms.dict.TryGetValue(id, out KingdomAsset asset) && asset.civ;
+    }
+
     public class ActorExtraData:ExtraDataBase
     {
         // 爵位  
@@ -331,13 +361,40 @@ public static class ActorExtension
         public long virtual_enfeoff_empire_id = -1L;
         public string virtual_enfeoff_peerage_key = "";
         public string honorary_peerage_key = "";
+        // 西方帝国皇帝的王号序数(罗马数字)，有值时名字显示为"名 序数"，如"腓特烈 II"
+        public string regnal_suffix = "";
         public long honorary_peerage_empire_id = -1L;
         public string factionID = "";
         public Name name;
         public bool has_become_cleric = false;
         public SocialClass  socialClass = SocialClass.Peasant;
+        // 无小人模式的征召兵：这个士兵代表的军团人数(含本人)，随生命值下降而阵亡的部分不再恢复
+        public float legion_size;
+        // 军团满编人数(征召时的人数)：回血时按生命值补员到这个数
+        public float legion_full;
+        public long legion_home_city_id = -1L;
+        public SocialClass legion_home_social_class = SocialClass.Peasant;
+        public List<LegionPopulationContribution> legion_population;
+        // Mod-managed workshop employment. Tied to a city so migration ends the job.
+        public long urban_employment_city_id = -1L;
+        // Advanced urban housing creates a persistent citizen stratum. Migration ends the status.
+        public long urban_citizen_city_id = -1L;
+        public string personal_ideology = "";
+        // Used by the yearly ideology pass to react when urbanisation changes an actor's class.
+        public string last_ideology_social_class = "";
+        // 商人不是职业，而是家庭长期收入形成的经济身份。收入按城市年度结算滚动。
+        public long economic_income_current_year = 0;
+        public long economic_income_previous_year = 0;
+        public int merchant_high_income_years = 0;
+        public int merchant_low_income_years = 0;
+        public bool is_economic_merchant = false;
+        public long pending_trade_origin_city_id = -1L;
+        public long pending_trade_destination_city_id = -1L;
+        public double pending_trade_timestamp = -1d;
+        public bool pending_trade_foreign_kingdom = false;
         public OfficeIdentity officeIdentity { get; set; } = null;
         public double last_tax_timestamp = -1L;
+        public double last_fiscal_corruption_crime_timestamp = -1d;
         public double last_add_lover_timestamp = -1L;
         public double last_give_birth_timestamp = -1L;
         public long empire_id { get; set; } = -1L;
@@ -457,7 +514,7 @@ public static class ActorExtension
         return data.target_tile == tile;
     }
 
-    public static bool ShouldBlockMoveToByFrontLine(this Actor a, WorldTile requestedTile)
+    public static bool ShouldBlockGoToByFrontLine(this Actor a, WorldTile requestedTile)
     {
         if (a == null || requestedTile == null)
         {
@@ -474,24 +531,18 @@ public static class ActorExtension
             return false;
         }
 
-        if (a.HasNearbyEnemyAttackOpportunity())
+        if (a.IsNearbyEnemyAttackTarget(requestedTile))
         {
             return false;
         }
 
         var data = a.GetOrCreate();
 
+        // Target selection belongs to EmpireCraftActorCheckWarriorMove. Creating a
+        // second target here used the legacy planner and let two military AIs compete.
         if (data.target_tile == null)
         {
-            WorldTile frontTile = EmpireCraftActorCheckWarriorMoveAdvanced.TryGetFrontLineMoveTileForActor(a);
-
-            if (frontTile == null)
-            {
-                return false;
-            }
-
-            // 这里只设置目标，不要 goTo，否则递归
-            a.SetFrontLineMoveTarget(frontTile);
+            return false;
         }
 
         WorldTile targetTile = data.target_tile;
@@ -545,6 +596,21 @@ public static class ActorExtension
         }
 
         return false;
+    }
+
+    private static bool IsNearbyEnemyAttackTarget(this Actor a, WorldTile requestedTile)
+    {
+        TileZone currentZone = a?.current_tile?.zone;
+        TileZone requestedZone = requestedTile?.zone;
+        if (currentZone == null || requestedZone == null)
+        {
+            return false;
+        }
+
+        bool isNearby = requestedZone == currentZone ||
+                        (currentZone.neighbours_all != null &&
+                         currentZone.neighbours_all.Contains(requestedZone));
+        return isNearby && HasEnemyArmyInZone(a, requestedZone);
     }
 
     private static bool HasEnemyArmyInZone(Actor actor, TileZone zone)
@@ -717,9 +783,20 @@ public static class ActorExtension
         return false;
     }
 
-    public static bool CanServeOffice(this Actor a, Kingdom kingdom)
+    // WarBox 等模组的载具(坦克、飞机、炮艇)也是 Actor，不能当官、入党、进宗族、当议员
+    public static bool IsWarMachine(this Actor a)
     {
         if (a == null) return false;
+        // 原版的船只也是 Actor：不能当君主、官员、作者，也不算人口
+        if (a.asset?.is_boat == true) return true;
+        if (a.hasTrait("warbox_unit")) return true;
+        string id = a.asset?.id;
+        return id != null && id.StartsWith("warbox_", StringComparison.Ordinal);
+    }
+
+    public static bool CanServeOffice(this Actor a, Kingdom kingdom)
+    {
+        if (a == null || a.isRekt() || !a.isAlive() || a.IsWarMachine()) return false;
         if (kingdom == null || !kingdom.IsInEmpire())
         {
             return true;
@@ -899,6 +976,28 @@ public static class ActorExtension
             relatedActorId, relatedPersonalIdentityId);
     }
 
+    // 个人经历上限：族谱里连已故族人的经历也存档，不设上限存档会膨胀到几百 MB、读档内存不够直接闪退。
+    // 超出时丢掉最早的记录，但保留第一条(通常是出生)
+    // 已故族人只留 12 条(出生、婚育、官职、逝世这些大事足够)，族谱里绝大多数是已故的人
+    public const int MaxPersonalHistory = 80;
+    public const int MaxDeceasedPersonalHistory = 12;
+
+    public static void TrimPersonalHistory(PersonalClanIdentity identity)
+    {
+        List<PersonalHistoryRecord> history = identity?.personal_history;
+        int cap = identity?.is_alive == false ? MaxDeceasedPersonalHistory : MaxPersonalHistory;
+        if (history == null || history.Count <= cap) return;
+        history.RemoveRange(1, history.Count - cap);
+    }
+
+    // 存档前把所有族人的经历压到上限(已故的人不再记新经历，只能在这里收)
+    public static void TrimAllPersonalHistories()
+    {
+        foreach (SpecificClan clan in SpecificClanManager._specificClans ?? new List<SpecificClan>())
+        foreach (PersonalClanIdentity person in clan?.SnapshotPeople() ?? Array.Empty<PersonalClanIdentity>())
+            TrimPersonalHistory(person);
+    }
+
     public static void RecordPersonalHistory(this PersonalClanIdentity identity, string content, string historyDate = null,
         string kingdomName = "", long empireId = -1L, string eventKey = "", long relatedActorId = -1L,
         long relatedPersonalIdentityId = -1L)
@@ -920,6 +1019,7 @@ public static class ActorExtension
             owner_personal_identity_id = identity.id
         };
         identity.personal_history.Add(record);
+        TrimPersonalHistory(identity);
         PersonalClanIdentity relatedIdentity = relatedPersonalIdentityId > 0
             ? SpecificClanManager.getPerson(relatedPersonalIdentityId)
             : relatedActorId > 0 ? World.world.units.get(relatedActorId)?.GetPersonalIdentity() : null;
@@ -950,7 +1050,7 @@ public static class ActorExtension
         var ed = a.GetOrCreate();
         PersonalClanIdentity pci = new PersonalClanIdentity();
         pci.newPersonalClanIdentity(clan, a);
-        clan._cache.Add(pci.id, pci);
+        clan.Upsert(pci);
         SpecificClanManager._globalPersonLookup[pci.id] = pci;
         SpecificClanManager._actorToPersonLookup[pci.actor_id] = pci;
         a.SetPersonalIdentity (pci);
@@ -999,8 +1099,7 @@ public static class ActorExtension
     {
         var officeIdentity =  a.GetOrCreate().officeIdentity;
         if (officeIdentity == null) return false;
-        officeIdentity.ViolateLevel = Math.Min(100, officeIdentity.ViolateLevel+=value);
-        officeIdentity.ViolateLevel = Math.Max(0, officeIdentity.ViolateLevel+=value);
+        officeIdentity.ViolateLevel = (int)Math.Max(0L, Math.Min(100L, (long)officeIdentity.ViolateLevel + value));
         return true;
     }
 
@@ -1021,6 +1120,18 @@ public static class ActorExtension
             return ModClass.EMPIRE_MANAGER.get(GetOrCreate(a).empire_id);
         }
     }
+    public static string HereditaryRealmRank(Actor a)
+    {
+        Kingdom realm = a?.kingdom;
+        if (realm?.data == null || realm.isRekt() || realm.king != a || realm.IsEmpire() || !realm.IsInEmpire() ||
+            realm.IsAdministrativeKingdomType()) return null;
+        // 世袭(含原版默认继承)的才是封国；考选、推举、军功产生的长官不按封国定爵
+        var method = realm.GetRegime()?.GetLeaderSelectMethod();
+        if (method != EmpireCraft.Scripts.Regimes.LeaderSelectMethod.Succession &&
+            method != EmpireCraft.Scripts.Regimes.LeaderSelectMethod.Default) return null;
+        return realm.GetOffice()?.GetName(realm);
+    }
+
     public static bool HasVirtualEnfeoff(this Actor a, Empire empire = null)
     {
         if (a == null || (empire != null && empire.data == null)) return false;
@@ -1038,7 +1149,8 @@ public static class ActorExtension
     {
         if (a == null || a.isRekt() || empire == null || string.IsNullOrEmpty(peerageKey)) return false;
         Regime regime = empire.CoreKingdom?.GetRegime();
-        if (regime?.virtual_honorary_peerages?.Contains(peerageKey) != true || a.HasHonoraryPeerage() ||
+        if (regime?.type == RegimeType.Modern ||
+            regime?.virtual_honorary_peerages?.Contains(peerageKey) != true || a.HasHonoraryPeerage() ||
             empire.IsHonoraryPeerageReserved(peerageKey)) return false;
         if (peerageKey == "tang_honorary_anle_gong" && empire.GetAnlePeeragePriority(a) <= 0) return false;
         a.CheckSpecificClan(false);
@@ -1137,7 +1249,8 @@ public static class ActorExtension
     
     public static void initializeActorName(this Actor a)
     {
-        string culture_name = GetCultureFromSpecies(a.getActorAsset().id);
+        string culture_name = CultureService.GetFounderCulture(a);
+        if (!CultureService.IsValidCulture(culture_name)) return;
         if (OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(culture_name, out Setting setting))
         {
             a.GetModName().Initialize(setting, culture_name);
@@ -1250,35 +1363,8 @@ public static class ActorExtension
 
     public static bool CanAcquireTitle(this Actor a)
     {
-        if (a.isKing())
-        {
-            Kingdom k = a.kingdom;
-            if (!k.CanPursueDeJureTitle()) return false;
-            foreach (City city in k.cities)
-            {
-                if (city.hasTitle())
-                {
-                    KingdomTitle title = city.GetTitle();
-                    if (title == null) continue;
-                    if (title.data == null)
-                    {
-                        ModClass.KINGDOM_TITLE_MANAGER.update(-1L);
-                    }
-                    if (title.data != null && !a.GetOwnedTitle().Contains(title.data.id))
-                    {
-                        if (IsLvLingTitleProtected(title, a, out _)) continue;
-                        foreach(City tCity in title.city_list)
-                        {
-                            if (tCity.kingdom != k && tCity.kingdom.countTotalWarriors()<k.countTotalWarriors())
-                            {
-                                return true;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        return false;
+        return a != null && a.isKing() && a.kingdom != null &&
+               a.kingdom.CanPursueDeJureTitle() && a.getAcquireTitle().Any();
     }
 
     public static void UpgradeOfficial(this Actor a, bool merit = false, int direct = -1)
@@ -1377,7 +1463,8 @@ public static class ActorExtension
         if (string.IsNullOrEmpty(a.name)) return null;
         string[] nameParts = a.name.SplitNameParts();
 
-        if (ConfigData.speciesCulturePair.TryGetValue(a.asset.id, out var culture))
+        string culture = CultureService.GetActorCulture(a);
+        if (CultureService.IsValidCulture(culture))
         {
             if (OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(culture, out Setting setting))
             {
@@ -1399,7 +1486,7 @@ public static class ActorExtension
     public static List<KingdomTitle> getAcquireTitle(this Actor a)
     {
         List<KingdomTitle> titles = new();
-        if (a.isKing())
+        if (a != null && a.isKing() && a.kingdom != null)
         {
             Kingdom k = a.kingdom;
             foreach (City city in k.cities)
@@ -1407,7 +1494,11 @@ public static class ActorExtension
                 if (city.hasTitle())
                 {
                     KingdomTitle title = city.GetTitle();
-                    if (!titles.Contains(title)&&!a.GetOwnedTitle().Contains(title.data.id))
+                    if (title?.data == null) continue;
+                    Kingdom holder = title?.FindRealmTitleHolder();
+                    if (title != null && !titles.Contains(title) &&
+                        !a.GetOwnedTitle().Contains(title.data.id) &&
+                        k.CanDeclareDeJureTitleWar(holder, title))
                     {
                         titles.Add(title);
                     }
@@ -1525,13 +1616,30 @@ public static class ActorExtension
             {
                 KingdomTitle kt = ModClass.KINGDOM_TITLE_MANAGER.get(id);
                 if (kt == null) continue;
-                if (Date.getYearsSince(kt.data.timestamp_been_controlled) >= ModClass.TITLE_BEEN_DESTROY_TIME && kt != a.kingdom.GetMainTitle())
+                // 只销毁被本国完整控制满年限的法理(它的城市会全部并入主法理)。
+                // 城市分属多国(时间戳为 -1)或由别国控制(如现代国家收归中央、由省州受托管理的法理)的不能销毁，
+                // 否则别国手里的城市会被整片移出法理
+                if (kt.control_kingdom == a.kingdom && kt.data.timestamp_been_controlled > 0 &&
+                    kt.GetTitleBeenControlledYear() >= ModClass.TITLE_BEEN_DESTROY_TIME && kt != a.kingdom.GetMainTitle())
                 {
                     titles.Add(kt);
                 }
             }
         }
-        return titles;
+        // 法理扩张有城市上限：销毁一个法理意味着它在本国的城市要并进主法理，并不进去的法理就不销毁
+        int max = KingdomTitleManager.MaxCitiesPerTitle;
+        if (max <= 0) return titles;
+        KingdomTitle mainTitle = a.kingdom?.GetMainTitle();
+        int room = max - (mainTitle != null ? KingdomTitleManager.CountTitleCities(mainTitle) : 1);
+        var destroyable = new List<KingdomTitle>();
+        foreach (KingdomTitle kt in titles)
+        {
+            int absorbed = kt.getCities().Count(city => city != null && !city.isRekt() && city.kingdom == a.kingdom);
+            if (absorbed > room) continue;
+            room -= absorbed;
+            destroyable.Add(kt);
+        }
+        return destroyable;
     }
 
     public static List<KingdomTitle> takeTitle(this Actor a)
@@ -1544,6 +1652,16 @@ public static class ActorExtension
         List<KingdomTitle> titles = GetTakeableTitles(a);
         foreach(KingdomTitle t in titles)
         {
+            if (kingdom.CanAcquireDeJureTitleWithoutWar(t))
+            {
+                Kingdom previousRealm = t.FindRealmTitleHolder();
+                if (kingdom.InheritRealmTitles(previousRealm, new[] { t.id }).Contains(t))
+                {
+                    takedTitles.Add(t);
+                    if (kingdom.GetMainTitle() == null) kingdom.SetMainTitle(t);
+                }
+                continue;
+            }
             if(t.HasOwner()&&t.owner.IsEmperor())
             {
                 a.AddAcquireTitle(t);
@@ -1578,14 +1696,9 @@ public static class ActorExtension
             .Where(title => title != null && !title.isRekt() && title.data != null)
             .ToHashSet();
 
-        foreach (City city in kingdom.cities)
+        foreach (KingdomTitle title in ModClass.KINGDOM_TITLE_MANAGER)
         {
-            KingdomTitle title = city?.GetTitle();
-            if (title == null || title.isRekt() || title.data == null || title.HasOwner()) continue;
-            List<City> titleCities = title.getCities().ToList();
-            if (titleCities.Count == 0) continue;
-            float controlledRatio = (float)titleCities.Intersect(kingdom.cities).Count() / titleCities.Count;
-            if (controlledRatio >= 0.5f) candidates.Add(title);
+            if (kingdom.CanAcquireDeJureTitleWithoutWar(title)) candidates.Add(title);
         }
 
         List<long> ownedTitles = actor.GetOwnedTitle();
@@ -1593,7 +1706,11 @@ public static class ActorExtension
         return candidates.Where(title =>
         {
             if (ownedTitles.Contains(title.id)) return false;
+            if (kingdom.IsDeJureTitleHeldBySovereign(title)) return false;
             if (IsLvLingTitleProtected(title, actor, out _)) return false;
+            if (kingdom.CanAcquireDeJureTitleWithoutWar(title)) return true;
+            Kingdom realmHolder = title.FindRealmTitleHolder();
+            if (realmHolder != null && realmHolder != kingdom) return false;
             if (!title.HasOwner() || !title.owner.IsEmperor()) return true;
             return title.owner.id != actor.id && !acquiredTitles.Contains(title.id);
         }).ToList();
@@ -1739,11 +1856,18 @@ public static class ActorExtension
             return a.GetTitle() + emperorSuffix;
         }
 
-        string peerageKey = data.virtual_enfeoff_peerage_key;
+        // 世袭封国的国君：爵位就是封国的等级，以政体给这类封国定的官称为准(周制按宗室与规模定公侯伯子)，
+        // 不再另按功勋等级或虚封爵名(唐制国公)显示，避免"官称湘侯、爵位湘国公"。
+        // 受托管理的道、军等行政区长官没有封国，爵位仍按个人功勋/虚封
+        string realmRank = HereditaryRealmRank(a);
+        if (!string.IsNullOrWhiteSpace(realmRank)) return realmRank;
+
+        bool honorary = a.HasHonoraryPeerage();
+        string peerageKey = honorary ? data.honorary_peerage_key : data.virtual_enfeoff_peerage_key;
         if (a.HasVirtualEnfeoff() && string.IsNullOrWhiteSpace(peerageKey))
         {
             Empire empire = ModClass.EMPIRE_MANAGER.get(data.virtual_enfeoff_empire_id);
-            peerageKey = a.GetSpecificClan() != null && a.GetSpecificClan() == empire?.EmpireSpecificClan
+            peerageKey = a.GetSpecificClan() != null && SpecificClanManager.SameLineage(a.GetSpecificClan(), empire?.EmpireSpecificClan)
                 ? "default_peerages_2"
                 : "tang_peerage_guogong";
             data.virtual_enfeoff_peerage_key = peerageKey;
@@ -1753,17 +1877,25 @@ public static class ActorExtension
         }
         string suffix = LM.Get(string.IsNullOrWhiteSpace(peerageKey) ? "default_" + a.GetPeeragesLevel() : peerageKey) ?? "";
         string prefix = "";
-        if (a.HasVirtualEnfeoff())
+        if (!honorary && a.HasVirtualEnfeoff())
         {
             long titleId = data.virtual_enfeoff_title_id;
             prefix = titleId > 0 ? ModClass.KINGDOM_TITLE_MANAGER.get(titleId)?.data?.name : null;
             prefix ??= a.city?.GetCityName() ?? "";
         }
-        else if (a.HasTitle())
+        else if (!honorary && a.HasTitle())
         {
             prefix = a.GetTitle();
         }
-        if (prefix?.Length == 1 && (suffix == "公" || suffix == "侯")) prefix += "国";
-        return prefix + suffix;
+        return JoinRealmRank(prefix, suffix);
+    }
+
+    // 单字国名接爵称要补“国”：湘国公、湘国侯、湘国伯；王号照旧(湘王)
+    private static readonly HashSet<string> RealmRanks = new() { "公", "侯", "伯", "子", "男" };
+    public static string JoinRealmRank(string prefix, string rank)
+    {
+        prefix ??= "";
+        rank ??= "";
+        return prefix.Length == 1 && RealmRanks.Contains(rank) ? prefix + "国" + rank : prefix + rank;
     }
 }

@@ -1,5 +1,6 @@
 using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.Enums;
+using EmpireCraft.Scripts.GeneralSystems;
 using EmpireCraft.Scripts.Layer;
 using NeoModLoader.General.UI.Prefabs;
 using System;
@@ -44,8 +45,24 @@ public static class CityExtension
     // Temporary isolation guard: capture resolution must never run while testing
     // the war-start crash. Occupation progress remains enabled.
     private const bool EnableOccupationCaptureEvents = false;
+    // Ruler-death occupation settlement is deterministic and independent from the
+    // random capture-event path above. Keep a separate runtime switch so disabling
+    // capture events does not silently disable the 70% death settlement as well.
+    private static readonly bool EnableRulerDeathAnnexation = true;
+    // 统治者战死触发的即时兼并：一旦城主/国王本人真正阵亡（而非仅仅被俘获释放），
+    // 只要城市（或首都）被所有敌对政权合计占领到这个比例，就直接判定
+    // 全境易主给占领地块最多的一方，不再要求 GetRequiredFinishedCaptureRate() 的动态门槛
+    // （通常 50%~95%）——毕竟统治者已经死了，守城的核心已经没有了。
+    private const float RulerDeathAnnexationThreshold = 0.70f;
+    // 首都占领达标后国王阵亡：这个概率下整个王国直接并入主要占领方；
+    // 剩余概率则是"王国瓦解"——首都仍然归主要占领方，但王国内其余各城市
+    // 按各自实际已经被谁占领来分别易主，完全没被触碰过的城市保留在原王国，
+    // 交由既有的继承人机制处理。
+    private const float KingDeathWholeKingdomSurrenderChance = 0.5f;
     public class CityExtraData: ExtraDataBase
     {
+        // 关闭军团统领实体时，WarBox 载具只记在城里的账面上(见 WarBoxVehicles)
+        public int virtual_vehicles;
         public string kingdom_names = "";
         public long title_id = -1L;
         public long empire_core_id = -1L;
@@ -53,11 +70,37 @@ public static class CityExtension
         public int MAX_POPULATION = 100;
         public bool MAX_POPULATION_LIMIT = false;
         public double last_tax_timestamp = -1L;
-        public int Money = 0;
+        public long Money = 0;
+        public TreasuryData treasury;
+        public CityStabilityData stability;
+        public string tax_sharing_relationship;
+        public int tax_city_carry, tax_central_carry, tax_corruption_carry;
         [JsonIgnore]
         public TextInput limitationNumber { get; set; }
 
         public double corruption_rate = 0.0f;
+        // 屠城之恨(见 MassacreSystem)：哪国军队屠戮了本城平民、死难人数、最后一次屠戮的时间
+        public long massacre_by_kingdom_id = -1L;
+        public int massacre_victims;
+        public double massacre_last = -1d;
+        // 战时中央代管(见 WartimeCustodySystem)：打下本城的成员国、原属国、所在战争；-1 = 不在代管中
+        public long custody_capturer_id = -1L, custody_enemy_id = -1L, custody_war_id = -1L;
+        // 国库出资兴建的官营产业建筑(见 EnterpriseSystem)
+        public List<long> public_enterprise_ids = new List<long>();
+        public bool massacre_noticed;
+        // 播报过屠城的国家 → 播报时间：同一国在同一城 MemoryYears 年内只播报一次(几国轮番烧杀时不会刷屏)
+        public Dictionary<long, double> massacre_announced = new Dictionary<long, double>();
+        // 上次因苛政爆发民变的时间(见 HarshRuleSystem)
+        public double last_harsh_uprising = -1d;
+        // 规划农田区(区块 id，见 FarmlandSystem)
+        public List<int> farm_zones = new List<int>();
+        // 退耕的区块(区块 id)：AI 不再自动划为农田、风车周围也不再开田，直到重新手动规划
+        public List<int> retired_farm_zones = new List<int>();
+        // 区块用途(区块 id → ZoneUse，农耕区另存在 farm_zones 里，见 ZonePlanSystem)
+        public Dictionary<int, int> zone_uses = new Dictionary<int, int>();
+        // 建筑选址失败时请求扩大现有连片区域；重新加载后由建造流程再次判断。
+        [JsonIgnore]
+        public int district_space_requests;
         public long personalIdentityId = -1L;
         public bool is_choosing_heir = false;
         [JsonIgnore]
@@ -69,18 +112,113 @@ public static class CityExtension
         public int cached_warriors = 0;
         public int cached_population = 0;
         public double last_cached_timestamp = -1L;
+        public int city_value = 0;
+        public float city_value_distance_to_core = 0f;
+        public bool city_value_isolated = false;
+        public double last_city_value_timestamp = -1L;
         public double last_army_check_ts = -1L;
         public double last_law_scan_ts = -1L;
+        // Multiple EmpireCraft cultures may coexist. Values are percentages normalized to 100.
+        public Dictionary<string, float> culture_shares = new Dictionary<string, float>();
+        // Last yearly population-pressure update. Resident composition nudges ideological
+        // influence over time; it is not itself the city's official culture distribution.
+        public double last_culture_share_sync_timestamp = -1d;
+        // 城市"官方"的主流文化。不再随 culture_shares 的占比波动而自动实时切换，
+        // 只有城主发起并执行"改变城市主流文化"决议后才会更新（见 CultureService.SetCityMainCulture）。
+        public string main_culture = "";
+        // 挑战文化必须持续满足人口优势若干年，才能由城主正式承认为城市主流文化。
+        // 候选变化或优势消失时会重置计时；时间戳随存档保存。
+        public string culture_shift_candidate = "";
+        public double culture_shift_candidate_since = -1d;
+        // 异文化占领只建立统治压力，不会立即替换官方文化或城市名。目标文化影响力达到
+        // 转换门槛并完成稳定期后，才可通过城市文化转换谋划正式落地。
+        public string occupation_pressure_culture = "";
+        // 第一次异文化占领前的本土官方文化。若同文化国家日后收复城市，会解锁一次
+        // 强制文化复原决议；完成后清除这段待恢复状态。
+        public string restoration_culture = "";
+        public bool culture_restoration_available = false;
+        // 每种文化在这座城市上出现过的名字：key 是文化 key，value 是该文化下这座城市曾经/正在
+        // 使用的名字。一旦某个文化记录过名字就永久保留，只有玩家在法理界面手动删除才会清除；
+        // 不会被文化转变逻辑自动覆盖或清空（见 CultureService.ResolveCulturalCityName）。
+        public Dictionary<string, string> name_history = new Dictionary<string, string>();
+        // 帝国直辖城市的文化同化任务。目标文化和发布任务时的帝国均作为快照保存，
+        // 避免帝国改换主文化后进行中的任务突然改变方向。
+        public bool cultural_assimilation_duty = false;
+        public long cultural_assimilation_empire_id = -1L;
+        public string cultural_assimilation_target_culture = "";
+        public double cultural_assimilation_started_timestamp = -1d;
+        // 每座城市最多每年被同化 Plot 推动一次；行政区任务也复用该城市级冷却。
+        public double last_cultural_assimilation_push_timestamp = -1d;
+        // 私有土地份额只在土地交易开放后生效。key 为家庭或无家庭人物的稳定标识。
+        public Dictionary<string, float> household_land_shares = new Dictionary<string, float>();
+        public Dictionary<string, long> household_land_representatives = new Dictionary<string, long>();
+        public double last_land_economy_timestamp = -1d;
+        public double last_urban_employment_timestamp = -1d;
+        public double last_land_rebellion_timestamp = -1d;
+        public bool land_redistribution_pending = false;
+        // 开国均田：已为哪个帝国的哪一朝(帝国id:开国君主id)平均过地权，见 LandEconomySystem.TryFoundingLandReform
+        public string land_reform_key = "";
+        // 占领区年度扩散的计时(见 TryYearlyOccupationSpread)；-1 表示城里当前没有占领区
+        public double last_occupation_spread_timestamp = -1d;
         [JsonConverter(typeof(OccupiedStatusConverter))]
         public Dictionary<long, List<int>> OccupiedStatus = new();
         [JsonIgnore]
         public Dictionary<int, long> OccupiedZoneOwners = new();
+        [JsonIgnore]
+        public long occupation_revision;
+        // 民族情绪 0~100(见 NationalSentimentSystem)：受异族统治、外敌入侵时上升，否则回落
+        public float national_sentiment;
+        // 城市人口数据层：按阶层/文化/物种/理念分组的居民人数(见 CityPopulationSystem)
+        public CityPopulationData population = new CityPopulationData();
     }
     
     private static int GetZoneId(TileZone zone)
     {
         return zone?.id ?? -1;
     }
+    // 地块占领模式(所有时期)：被占的地块守方迟迟不夺回，占领区每年向四周扩散一层——
+    // 每个仍在交战的占领者，其每块占领地向相邻的本城地块各扩一块(规则同正统扩张：须连着己方前线、不抢友军)。
+    // 城里出现占领区时开始计时，满一年结算一次；全城被占即按正常流程完成占领。
+    public static void TryYearlyOccupationSpread(this City city)
+    {
+        if (!EmpireCraft.Scripts.GameLibrary.EmpireCraftWorldLawLibrary.empirecraft_law_switch_occupy_mode.isEnabled())
+            return;
+        if (city?.data == null || city.isRekt() || city.kingdom == null || city.kingdom.isRekt()) return;
+        CityExtraData data = city.GetOrCreate();
+        if (data.OccupiedStatus == null || data.OccupiedStatus.All(pair => pair.Value == null || pair.Value.Count == 0))
+        {
+            data.last_occupation_spread_timestamp = -1d;
+            return;
+        }
+        double now = World.world.getCurWorldTime();
+        if (data.last_occupation_spread_timestamp < 0d)
+        {
+            data.last_occupation_spread_timestamp = EmpireCraft.Scripts.HelperFunc.YearlyStagger.Initial(now);
+            return;
+        }
+        if (Date.getYearsSince(data.last_occupation_spread_timestamp) < 1) return;
+        data.last_occupation_spread_timestamp = EmpireCraft.Scripts.HelperFunc.YearlyStagger.Next(now);
+
+        Kingdom owner = city.kingdom;
+        foreach (KeyValuePair<long, List<int>> pair in data.OccupiedStatus.ToList())
+        {
+            Kingdom occupier = World.world.kingdoms.get(pair.Key);
+            if (occupier == null || occupier.isRekt() || !occupier.isInWarWith(owner) || pair.Value == null) continue;
+            List<TileZone> held = pair.Value.Select(GetZoneById).Where(zone => zone != null).ToList();
+            foreach (TileZone zone in held)
+            {
+                if (zone.neighbours_all == null) continue;
+                foreach (TileZone neighbour in zone.neighbours_all)
+                {
+                    if (city.IsValidAutoSpreadOccupyZone(occupier, neighbour))
+                        city.AddOccupiedTileZoneByMandateSpread(occupier, neighbour);
+                }
+            }
+            city.CheckFinishedCapture(occupier);
+            if (city.isRekt() || city.kingdom != owner) return;
+        }
+    }
+
     private static TileZone GetZoneById(int zoneId)
     {
         if (zoneId < 0 || World.world?.zone_calculator == null)
@@ -149,11 +287,25 @@ public static class CityExtension
             return;
         }
 
+        // 地块占领模式下的攻城加速(普通模式见 CaptureSpeedPatch)：
+        // 民心归附(本城土地兼并严重、来攻者兼并轻得多，见 LandEconomySystem.WouldSurrenderTo)：占下第一块地就开城归降
+        if (LandEconomySystem.WouldSurrenderTo(city, occupier, out float landless))
+        {
+            string cityName = city.GetCityName();
+            city.ForceOccupyAllRemainingZones(occupier);
+            TranslateHelper.LogEventMessage(string.Format(LM.Get("land_surrender_event"), cityName,
+                landless * 100f, occupier.GetKingdomName()), occupier);
+            return;
+        }
+        // 开国气象期间的帝国：每占一块地，顺势再拿下相邻的地块(与下面的正统扩张叠加)
+        if (occupier.GetEmpire()?.InFoundingGrace == true)
+            city.SpreadOccupation(occupier, startZone, 1, FoundingSpreadLimit);
+
         Empire occupierEmpire = occupier.GetEmpire();
         Empire defenderEmpire = defender.GetEmpire();
 
-        int occupierMandate = occupierEmpire?.Mandate ?? 0;
-        int defenderMandate = defenderEmpire?.Mandate ?? 0;
+        int occupierMandate = GetOccupationSpreadMandate(occupier, occupierEmpire);
+        int defenderMandate = GetOccupationSpreadMandate(defender, defenderEmpire);
 
         // 进攻方正统不到 80，不触发自动扩张
         if (occupierMandate < OccupySpreadMinMandate && !defenderKingDead)
@@ -177,6 +329,15 @@ public static class CityExtension
             return;
         }
 
+        city.SpreadOccupation(occupier, startZone, spreadDepth, spreadLimit);
+    }
+
+    private const int FoundingSpreadLimit = 2;
+
+    // 从 startZone 向外按层扩张占领，最多 spreadDepth 层、spreadLimit 块
+    private static void SpreadOccupation(this City city, Kingdom occupier, TileZone startZone, int spreadDepth,
+        int spreadLimit)
+    {
         HashSet<TileZone> visited = new HashSet<TileZone>();
         Queue<(TileZone zone, int depth)> queue = new Queue<(TileZone zone, int depth)>();
 
@@ -236,6 +397,14 @@ public static class CityExtension
             }
         }
     }
+    // 占领扩散用的天命：帝国用帝国天命；阶层起义的叛军以所代表阶层的怨气(民心)作为天命，
+    // 其余不属于帝国的国家为 0。
+    private static int GetOccupationSpreadMandate(Kingdom kingdom, Empire empire)
+    {
+        if (empire != null) return empire.Mandate;
+        return InstitutionSystem.TryGetSocialRebelMandate(kingdom, out int mandate) ? mandate : 0;
+    }
+
     private static int GetEffectiveOccupySpreadMandateDiff(this City city, Kingdom occupier, Kingdom defender)
     {
         if (city == null || occupier == null || defender == null)
@@ -246,8 +415,8 @@ public static class CityExtension
         Empire occupierEmpire = occupier.GetEmpire();
         Empire defenderEmpire = defender.GetEmpire();
 
-        int occupierMandate = occupierEmpire?.Mandate ?? 0;
-        int defenderMandate = defenderEmpire?.Mandate ?? 0;
+        int occupierMandate = GetOccupationSpreadMandate(occupier, occupierEmpire);
+        int defenderMandate = GetOccupationSpreadMandate(defender, defenderEmpire);
 
         int diff = occupierMandate - defenderMandate;
 
@@ -491,6 +660,7 @@ public static class CityExtension
 
         zones.Add(tileZoneId);
         city.GetOccupiedZoneOwnerMap()[tileZoneId] = occupier.id;
+        OccupationReadIndex.Invalidate(city);
         if (city.TryTriggerOccupationCaptureEvent(occupier, tileZone, zoneOccupationMode:true))
         {
             return true;
@@ -498,7 +668,9 @@ public static class CityExtension
 
         return true;
     }
-    public static bool AddOccupiedTileZone(this City city, Kingdom occupier, TileZone tileZone, Actor capturer = null)
+    // landing：登陆(与敌国不接壤时的第一块滩头，见 FrontSystem)，不要求与己方控制区相连
+    public static bool AddOccupiedTileZone(this City city, Kingdom occupier, TileZone tileZone, Actor capturer = null,
+        bool landing = false)
     {
         var occupierId = occupier?.id??-1L;
         if (city == null || occupier == null || tileZone == null)
@@ -511,7 +683,7 @@ public static class CityExtension
             return false;
         }
 
-        if (!city.CanOccupyZoneFromFriendlyEdge(occupier, tileZone))
+        if (!landing && !city.CanOccupyZoneFromFriendlyEdge(occupier, tileZone))
         {
             return false;
         }
@@ -564,6 +736,7 @@ public static class CityExtension
 
         zones.Add(tileZoneId);
         city.GetOccupiedZoneOwnerMap()[tileZoneId] = occupierId;
+        OccupationReadIndex.Invalidate(city);
 
         // 高正统占领自动扩张：只在手动/士兵占领成功后触发
         city.TrySpreadOccupiedZonesByMandate(occupier, tileZone);
@@ -596,6 +769,7 @@ public static class CityExtension
         if (zones == null)
         {
             occupiedStatus.Remove(occupierId);
+            OccupationReadIndex.Invalidate(city);
             return false;
         }
 
@@ -611,6 +785,7 @@ public static class CityExtension
         {
             occupiedStatus.Remove(occupierId);
         }
+        OccupationReadIndex.Invalidate(city);
         return removed;
     }
     public static bool TransferOccupiedTileZone(this City city, Kingdom toKingdom, TileZone tileZone)
@@ -746,6 +921,8 @@ public static class CityExtension
                 ownerMap?.Remove(tileZoneId);
             }
         }
+
+        OccupationReadIndex.Invalidate(city);
 
         return removedAny;
     }
@@ -1171,6 +1348,7 @@ public static class CityExtension
         {
             return;
         }
+        OccupationReadIndex.Invalidate(city);
         var occupierId = occupier?.id??-1L;
         Dictionary<long, List<int>> occupiedStatus = city.GetOrCreate().OccupiedStatus;
         if (!occupiedStatus.ContainsKey(occupierId))
@@ -1369,12 +1547,409 @@ public static class CityExtension
 
         return false;
     }
+
+    // 与 GetFinishedCaptureWinner 内部选取逻辑保持一致（同一敌对阵营不算敌对占领、
+    // 按单一占领方实际占据的合法 zone 数量决出赢家、并列时按正统值优先），唯一区别是
+    // 这里把"综合所有敌对势力加起来的占领率"直接返回给调用方比较，而不是内置固定用
+    // GetRequiredFinishedCaptureRate() 的动态门槛——调用方（统治者死亡兼并逻辑）需要
+    // 用一个独立于那套动态门槛的固定阈值。如果以后修改了 GetFinishedCaptureWinner 的
+    // 选取算法，这里也要同步更新。
+    private static bool TryFindDominantHostileOccupier(this City city, out Kingdom occupier, out float combinedOccupiedRate)
+    {
+        occupier = null;
+        combinedOccupiedRate = 0f;
+
+        if (city == null || city.isRekt())
+        {
+            return false;
+        }
+
+        Kingdom originKingdom = city.kingdom;
+        if (originKingdom == null || originKingdom.isRekt())
+        {
+            return false;
+        }
+
+        Dictionary<long, List<int>> occupiedStatus = city.GetOrCreate().OccupiedStatus;
+        if (occupiedStatus == null || occupiedStatus.Count == 0)
+        {
+            return false;
+        }
+
+        int validZoneCount = city.GetValidCityZoneCount();
+        if (validZoneCount <= 0)
+        {
+            return false;
+        }
+
+        Dictionary<Kingdom, int> validOccupiedCountMap = new Dictionary<Kingdom, int>();
+        Dictionary<int, long> ownerMap = city.GetOccupiedZoneOwnerMap();
+        int allEnemyOccupiedCount = 0;
+
+        foreach (var pair in occupiedStatus)
+        {
+            Kingdom candidate = World.world.kingdoms.get(pair.Key);
+            List<int> zones = pair.Value;
+
+            if (candidate == null || zones == null || zones.Count == 0)
+            {
+                continue;
+            }
+
+            if (candidate.isRekt() || candidate.isNeutral())
+            {
+                continue;
+            }
+
+            if (candidate == originKingdom)
+            {
+                continue;
+            }
+
+            // 如果和原城市国家在同一战争阵营，不算敌对占领
+            if (candidate.isInWarOnSameSide(originKingdom))
+            {
+                continue;
+            }
+
+            int count = 0;
+
+            for (int i = 0; i < zones.Count; i++)
+            {
+                TileZone zone = GetZoneById(zones[i]);
+
+                if (!city.IsValidCaptureZone(zone))
+                {
+                    continue;
+                }
+
+                int zoneId = GetZoneId(zone);
+                if (ownerMap != null && zoneId >= 0 && ownerMap.TryGetValue(zoneId, out var currentOwner) && currentOwner != pair.Key)
+                {
+                    continue;
+                }
+
+                count++;
+                allEnemyOccupiedCount++;
+            }
+
+            if (count > 0)
+            {
+                validOccupiedCountMap[candidate] = count;
+            }
+        }
+
+        if (validOccupiedCountMap.Count == 0)
+        {
+            return false;
+        }
+
+        Kingdom bestOccupier = null;
+        int bestCount = 0;
+
+        foreach (var pair in validOccupiedCountMap)
+        {
+            Kingdom candidate = pair.Key;
+            int count = pair.Value;
+
+            if (bestOccupier == null || count > bestCount)
+            {
+                bestOccupier = candidate;
+                bestCount = count;
+                continue;
+            }
+
+            if (count == bestCount)
+            {
+                int currentMandate = candidate.GetEmpire()?.Mandate ?? 0;
+                int bestMandate = bestOccupier.GetEmpire()?.Mandate ?? 0;
+
+                if (currentMandate > bestMandate)
+                {
+                    bestOccupier = candidate;
+                    bestCount = count;
+                }
+            }
+        }
+
+        if (bestOccupier == null)
+        {
+            return false;
+        }
+
+        occupier = bestOccupier;
+        combinedOccupiedRate = (float)allEnemyOccupiedCount / validZoneCount;
+        return true;
+    }
+
+    // Phase 17："都占领地块百分之七十了如果当地(城市)统治者死了就直接全占领"——
+    // 普通城市（非首都，或者无王王国的首都，因为那种情况下城主本身就是最高统治者，
+    // 走这条分支而不是下面的国王分支）的城主真正阵亡时，如果城市已经被单一敌对
+    // 政权合计占领到 70% 以上，直接判定整城归于占领地块最多的一方，不再等占领率追上动态门槛或等下一次
+    // 随机的"占领捕获事件"来结算。
+    public static void TryResolveCityLeaderDeathAnnexation(this Actor deceased)
+    {
+        if (!EnableRulerDeathAnnexation)
+        {
+            return;
+        }
+
+        if (deceased == null || !deceased.isCityLeader())
+        {
+            return;
+        }
+
+        City city = deceased.city;
+        if (city == null || city.isRekt())
+        {
+            return;
+        }
+
+        Kingdom kingdom = city.kingdom;
+        if (kingdom == null || kingdom.isRekt())
+        {
+            return;
+        }
+
+        // 有王的王国里，首都由国王代表，走 TryResolveKingDeathAnnexation 那条分支。
+        if (kingdom.capital == city && kingdom.hasKing())
+        {
+            return;
+        }
+
+        if (!city.TryFindDominantHostileOccupier(out Kingdom occupier, out float occupiedRate))
+        {
+            return;
+        }
+
+        if (occupiedRate < RulerDeathAnnexationThreshold)
+        {
+            return;
+        }
+
+        if (!occupier.isInWarWith(kingdom))
+        {
+            return;
+        }
+
+        Actor announcer = occupier.king ?? occupier.GetEmpire()?.Emperor;
+        city.ForceOccupyAllRemainingZones(occupier);
+        city.finishCapture(occupier);
+        city.ClearOccupiedStatus();
+        TranslateHelper.LogOccupationCaptureEvent(announcer, deceased, "occupation_capture_result_lord_death_annexation", occupier.GetEmpire());
+    }
+
+    // Phase 17："首都的话就判断国王死亡,国王死亡就王国或者分裂(概率)全境占领"——
+    // 首都已经被敌对政权合计占领到 70% 以上时，国王真正阵亡就直接结算：按概率
+    // 要么整个王国直接并入主要占领方，要么王国瓦解——首都归主要占领方，其余
+    // 各城市按各自实际已经被谁占领来分别易主，完全没被触碰过的城市保留在原
+    // 王国，交由既有的继承人机制处理。若两国间存在专门类型的战争（比如"去帝号"
+    // 或"索取法理"），则让位给那套战争自己的胜负结算逻辑，避免重复易主。
+    public static void TryResolveKingDeathAnnexation(this Actor deceased)
+    {
+        if (!EnableRulerDeathAnnexation)
+        {
+            return;
+        }
+
+        if (deceased == null || !deceased.isKing())
+        {
+            return;
+        }
+
+        Kingdom kingdom = deceased.kingdom;
+        if (kingdom == null || kingdom.isRekt() || kingdom.king != deceased)
+        {
+            return;
+        }
+
+        City capital = kingdom.capital;
+        if (capital == null || capital.isRekt())
+        {
+            return;
+        }
+
+        if (!capital.TryFindDominantHostileOccupier(out Kingdom occupier, out float occupiedRate))
+        {
+            return;
+        }
+
+        if (occupiedRate < RulerDeathAnnexationThreshold)
+        {
+            return;
+        }
+
+        if (!occupier.isInWarWith(kingdom))
+        {
+            return;
+        }
+
+        War typedWar = null;
+        War activeWar = null;
+        foreach (War war in occupier.getWars())
+        {
+            if (war == null || !war.isAlive())
+            {
+                continue;
+            }
+
+            bool occupierParticipates = war._list_attackers.Contains(occupier) || war._list_defenders.Contains(occupier);
+            bool kingdomParticipates = war._list_attackers.Contains(kingdom) || war._list_defenders.Contains(kingdom);
+            if (!occupierParticipates || !kingdomParticipates)
+            {
+                continue;
+            }
+
+            activeWar ??= war;
+            if (war.GetEmpireWarType() != EmpireWarType.None)
+            {
+                typedWar = war;
+                break;
+            }
+        }
+
+        // 专门类型的战争（去帝号/索取法理等）自己有一套胜负结算逻辑，别抢它的活。
+        if (typedWar != null)
+        {
+            return;
+        }
+
+        Actor announcer = occupier.king ?? occupier.GetEmpire()?.Emperor;
+        capital.ForceOccupyAllRemainingZones(occupier);
+
+        // Snapshot every city's current winner before any capture or war-ending
+        // callback can clear OccupiedStatus. The 70% capital threshold intentionally
+        // combines all hostile occupation, while each city still goes to its own
+        // largest occupier during a collapse.
+        List<City> kingdomCities = kingdom.cities != null
+            ? new List<City>(kingdom.cities)
+            : new List<City>();
+        Dictionary<City, Kingdom> occupiedCityWinners = new Dictionary<City, Kingdom>();
+        foreach (City otherCity in kingdomCities)
+        {
+            if (otherCity == null || otherCity.isRekt() || otherCity == capital || otherCity.kingdom != kingdom)
+            {
+                continue;
+            }
+
+            if (otherCity.TryFindDominantHostileOccupier(out Kingdom otherOccupier, out float _) &&
+                otherOccupier.isInWarWith(kingdom))
+            {
+                occupiedCityWinners[otherCity] = otherOccupier;
+            }
+        }
+
+        if (UnityEngine.Random.value <= KingDeathWholeKingdomSurrenderChance)
+        {
+            // 整体投降：王国全境（含首都）直接并入主要占领方。
+            kingdom.ForceKingdomSurrenderTo(occupier, capital);
+            capital.ClearOccupiedStatus();
+            TranslateHelper.LogOccupationCaptureEvent(announcer, deceased, "occupation_capture_result_king_death_kingdom_surrender", occupier.GetEmpire());
+        }
+        else
+        {
+            // 王国瓦解：首都并入主要占领方；国王一死，其余各城市但凡已经被
+            // 某个敌对国家实际占领（无论占了多少），也一并就地易主给各自的
+            // 占领者——不再单独要求达到 70% 门槛，因为中枢已经垮了。未被占领
+            // 的城市除新首都外各自独立，确保“王国瓦解”真的改变政治版图。
+            capital.joinAnotherKingdom(occupier, true);
+            capital.ClearOccupiedStatus();
+
+            HashSet<City> transferredOccupiedCities = new HashSet<City>();
+            foreach (var pair in occupiedCityWinners)
+            {
+                City otherCity = pair.Key;
+                Kingdom otherOccupier = pair.Value;
+                if (otherCity == null || otherCity.isRekt() || otherCity == capital || otherCity.kingdom != kingdom)
+                {
+                    continue;
+                }
+
+                if (otherOccupier == null || otherOccupier.isRekt())
+                {
+                    continue;
+                }
+
+                otherCity.ForceOccupyAllRemainingZones(otherOccupier);
+                otherCity.joinAnotherKingdom(otherOccupier, true);
+                otherCity.ClearOccupiedStatus();
+                transferredOccupiedCities.Add(otherCity);
+            }
+
+            City successorCapital = kingdom.isRekt() ? null : kingdom.capital;
+            foreach (City otherCity in kingdomCities)
+            {
+                if (otherCity == null || otherCity.isRekt() || otherCity == capital ||
+                    otherCity == successorCapital || otherCity.kingdom != kingdom ||
+                    transferredOccupiedCities.Contains(otherCity))
+                {
+                    continue;
+                }
+
+                Actor collapseLeader = otherCity.leader;
+                if (collapseLeader == null || collapseLeader.isRekt())
+                {
+                    collapseLeader = otherCity.units?.FirstOrDefault(actor => actor != null && !actor.isRekt());
+                }
+
+                if (collapseLeader == null)
+                {
+                    continue;
+                }
+
+                otherCity.makeOwnKingdom(collapseLeader, pRebellion: false, pFellApart: true);
+                otherCity.ClearOccupiedStatus();
+            }
+
+            TranslateHelper.LogOccupationCaptureEvent(announcer, deceased, "occupation_capture_result_king_death_kingdom_split", occupier.GetEmpire());
+        }
+
+        // End the relevant ordinary war only after all occupation-dependent
+        // transfers have finished; WarPatch clears occupation data on war end.
+        if (activeWar != null && activeWar.isAlive())
+        {
+            activeWar.lostWar(kingdom);
+        }
+    }
+
+    // 只清除指定国家留下的占领(区块占领与原版占领进度)，其他国家的占领保留。
+    // 战争结束时用：A 与 C 停战，不能把 B 正在攻占 A 城的进度一并清掉
+    public static void ClearOccupationBy(this City city, Func<Kingdom, bool> occupier)
+    {
+        if (city == null || occupier == null) return;
+        OccupationReadIndex.Invalidate(city);
+        CityExtraData data = city.GetOrCreate();
+        if (data.OccupiedStatus != null && data.OccupiedStatus.Count > 0)
+        {
+            foreach (long id in data.OccupiedStatus.Keys.ToList())
+            {
+                Kingdom kingdom = World.world.kingdoms.get(id);
+                if (kingdom != null && !occupier(kingdom)) continue;
+                data.OccupiedStatus.Remove(id);
+                if (data.OccupiedZoneOwners == null) continue;
+                foreach (int zone in data.OccupiedZoneOwners.Where(pair => pair.Value == id).Select(pair => pair.Key).ToList())
+                    data.OccupiedZoneOwners.Remove(zone);
+            }
+        }
+        try
+        {
+            foreach (Kingdom kingdom in city._capturing_units.Keys.ToList())
+                if (kingdom != null && occupier(kingdom)) city._capturing_units.Remove(kingdom);
+            if (city.being_captured_by != null && occupier(city.being_captured_by)) city.clearCapture();
+        }
+        catch
+        {
+            // Ignore vanilla capture cleanup failures here.
+        }
+    }
+
     public static void ClearOccupiedStatus(this City city)
     {
         if (city == null)
         {
             return;
         }
+        OccupationReadIndex.Invalidate(city);
 
         try
         {
@@ -1402,6 +1977,7 @@ public static class CityExtension
     public static void AddCorruptionRate(this City city, double addition)
     {
         if (city == null || addition == 0) return;
+        addition = RulerTraitSystem.ScaleCorruptionGain(city.kingdom, addition);
         double current = city.GetCorruptionRate();
         if ((current >= 1.0f && addition > 0) || (current <= 0.0f && addition < 0))
         {
@@ -1467,6 +2043,8 @@ public static class CityExtension
     }
     public static void SetCityType(this City c, CityType type)
     {
+        // Preserve the core name while the previous type still identifies its suffix.
+        if (c?.data != null) c.EnsureCityCoreName();
         c.GetOrCreate().cityType = type;
     }
     public static double GetLastTaxTime(this City k)
@@ -1500,17 +2078,135 @@ public static class CityExtension
     
     public static int GetMoney(this City c)
     {
-        return c.GetOrCreate().Money;
+        return TreasuryRules.QuoteBalance(c.GetTreasuryBalance());
+    }
+
+    public static long GetTreasuryBalance(this City c) => c.GetOrCreate().Money;
+
+    public static CityValueSnapshot GetCityStrategicValue(this City city)
+    {
+        if (city == null || city.isRekt() || city.kingdom == null) return default;
+        CityExtraData data = city.GetOrCreate();
+        if (data.last_city_value_timestamp >= 0 && World.world != null &&
+            Date.getYearsSince(data.last_city_value_timestamp) < 1)
+        {
+            return new CityValueSnapshot
+            {
+                Total = data.city_value,
+                IsIsolated = data.city_value_isolated,
+                DistanceToCore = data.city_value_distance_to_core
+            };
+        }
+
+        Kingdom kingdom = city.kingdom;
+        GetCityValueContext(kingdom, out Vector2 qualityCenter, out float coreRadius);
+        Vector2 cityPosition = GetCityValuePosition(city);
+        Vector2 capitalPosition = GetCityValuePosition(kingdom.capital);
+        float distanceToCore = Mathf.Min(Vector2.Distance(cityPosition, capitalPosition),
+            Vector2.Distance(cityPosition, qualityCenter));
+        CityValueSnapshot value = CityValueRules.Evaluate(city.countUnits(), city.GetMoney(), distanceToCore,
+            coreRadius, !city.IsConnectedToKingdomCapital());
+        data.city_value = value.Total;
+        data.city_value_distance_to_core = value.DistanceToCore;
+        data.city_value_isolated = value.IsIsolated;
+        data.last_city_value_timestamp = World.world?.getCurWorldTime() ?? -1L;
+        return value;
+    }
+
+    public static void InvalidateCityStrategicValue(this City city)
+    {
+        if (city == null) return;
+        city.GetOrCreate().last_city_value_timestamp = -1L;
+    }
+
+    public static void InvalidateCityValueContext(this Kingdom kingdom)
+    {
+        if (kingdom == null || kingdom.isRekt()) return;
+        kingdom.GetOrCreate().last_city_value_context_timestamp = -1L;
+    }
+
+    public static bool IsConnectedToKingdomCapital(this City city)
+    {
+        Kingdom kingdom = city?.kingdom;
+        City capital = kingdom?.capital;
+        if (city == null || capital == null || kingdom == null) return false;
+        if (city == capital) return true;
+        if (city.neighbours_cities == null) return false;
+
+        var visited = new HashSet<long> { city.id };
+        var queue = new Queue<City>();
+        queue.Enqueue(city);
+        while (queue.Count > 0)
+        {
+            City current = queue.Dequeue();
+            if (current == capital) return true;
+            if (current?.neighbours_cities == null) continue;
+            foreach (City neighbour in current.neighbours_cities)
+            {
+                if (neighbour == null || neighbour.isRekt() || neighbour.kingdom != kingdom ||
+                    !visited.Add(neighbour.id)) continue;
+                queue.Enqueue(neighbour);
+            }
+        }
+        return false;
+    }
+
+    private static void GetCityValueContext(Kingdom kingdom, out Vector2 qualityCenter, out float coreRadius)
+    {
+        var data = kingdom.GetOrCreate();
+        if (data.last_city_value_context_timestamp >= 0 && World.world != null &&
+            Date.getYearsSince(data.last_city_value_context_timestamp) < 1)
+        {
+            qualityCenter = data.city_value_quality_center;
+            coreRadius = data.city_value_core_radius;
+            return;
+        }
+
+        Vector2 total = Vector2.zero;
+        float totalWeight = 0f;
+        foreach (City candidate in kingdom.cities)
+        {
+            if (candidate == null || candidate.isRekt()) continue;
+            float weight = 1f + Mathf.Sqrt(Mathf.Max(0, candidate.countUnits())) +
+                           Mathf.Sqrt(Mathf.Max(0, candidate.GetMoney())) * 0.25f;
+            total += GetCityValuePosition(candidate) * weight;
+            totalWeight += weight;
+        }
+        qualityCenter = totalWeight > 0f ? total / totalWeight : GetCityValuePosition(kingdom.capital);
+
+        float weightedDistance = 0f;
+        foreach (City candidate in kingdom.cities)
+        {
+            if (candidate == null || candidate.isRekt()) continue;
+            float weight = 1f + Mathf.Sqrt(Mathf.Max(0, candidate.countUnits())) +
+                           Mathf.Sqrt(Mathf.Max(0, candidate.GetMoney())) * 0.25f;
+            weightedDistance += Vector2.Distance(GetCityValuePosition(candidate), qualityCenter) * weight;
+        }
+        coreRadius = Mathf.Max(24f, totalWeight > 0f ? weightedDistance / totalWeight : 24f);
+        data.city_value_quality_center = qualityCenter;
+        data.city_value_core_radius = coreRadius;
+        data.last_city_value_context_timestamp = World.world?.getCurWorldTime() ?? -1L;
+    }
+
+    private static Vector2 GetCityValuePosition(City city)
+    {
+        return city?.getTile()?.posV ?? Vector2.zero;
     }
 
     public static void AddMoney(this City c, int money)
+        => AddMoney(c, money, TreasuryCategory.Other);
+    public static void AddMoney(this City c, int money, TreasuryCategory category)
     {
-        c.GetOrCreate().Money += money;
+        long change = TreasuryRules.ChangeBalance(ref c.GetOrCreate().Money, money);
+        TreasurySystem.Record(c, change, category);
     }
 
     public static void SubMoney(this City c, int money)
+        => SubMoney(c, money, TreasuryCategory.Other);
+    public static void SubMoney(this City c, int money, TreasuryCategory category)
     {
-        c.GetOrCreate().Money -= money; 
+        long change = TreasuryRules.ChangeBalance(ref c.GetOrCreate().Money, -(long)money);
+        TreasurySystem.Record(c, change, category);
     }
 
     public static CityType GetCityType(this City c)
@@ -1540,9 +2236,10 @@ public static class CityExtension
 
     public static int CountLivingPopulation(this City city)
     {
-        if (city == null || city.units == null)
+        if (city == null) return 0;
+        if (city.units == null)
         {
-            return 0;
+            return CityPopulationSystem.BackgroundCount(city);
         }
 
         int count = 0;
@@ -1551,10 +2248,13 @@ public static class CityExtension
             Actor actor = city.units[i];
             if (actor == null || actor.isRekt()) continue;
             if (!actor.isAlive()) continue;
+            // 载具不是人，不计人口
+            if (CityPopulationSystem.IsVehicle(actor)) continue;
             count++;
         }
 
-        return count;
+        // 无小人模式：没有实体单位的背景人口也是城里的居民
+        return count + CityPopulationSystem.BackgroundCount(city);
     }
 
     public static int CountLivingWarriors(this City city)
@@ -1665,7 +2365,10 @@ public static class CityExtension
         if (c == null) return true;
         var ed = c.GetOrCreate();
         if (ed == null) return true;
-        if (c.getPopulationPeople()>ed.MAX_POPULATION&&ed.MAX_POPULATION_LIMIT)
+        // 玩家设的人口上限管的是出生和迁入，按"户"(和单位个数同一量级)比较
+        int population = CityPopulationSystem.AbstractPopulationEnabled
+            ? CityPopulationSystem.Households(c) : c.getPopulationPeople();
+        if (population > ed.MAX_POPULATION && ed.MAX_POPULATION_LIMIT)
         {
             return true;
         }
@@ -1731,8 +2434,7 @@ public static class CityExtension
     public static bool hasTitle(this City c)
     {
         if (c == null) return false;
-        if (GetOrCreate(c)==null) return false; 
-        return GetOrCreate(c).title_id!=-1L;
+        return c.GetTitle() != null;
     }
     
     public static void Clear()
@@ -1755,9 +2457,9 @@ public static class CityExtension
     {
         var ed = GetOrCreate(c);
         if (ed == null) return null;
-        KingdomTitle title = ed.title_id==-1L?null:ModClass.KINGDOM_TITLE_MANAGER.get(ed.title_id);
-        if (title==null) c.RemoveTitle();
-        return title;
+        // 查不到法理时只返回 null，不清掉城市记的法理编号：读档过程中法理管理器还没载入完，
+        // 此时清掉会被存进存档，下次读档这座城就被移出法理。法理真正解散时由 Dissolve 统一清除
+        return ed.title_id == -1L ? null : ModClass.KINGDOM_TITLE_MANAGER?.get(ed.title_id);
     }
     
 
@@ -1793,11 +2495,15 @@ public static class CityExtension
         string result = null;
 
         string citySuffix = "";
+        // The saved type belongs to the previous naming pass. Keep it for stripping
+        // the old suffix when a government changes or the capital moves.
         try { citySuffix = LM.Get(city.GetCityType().ToString()); }
         catch { }
         if (nameParts.Length <= 1)
         {
             string strippedName = OverallHelperFunc.StripLocalizedTypeSuffix(fullName, citySuffix);
+            if (string.Equals(strippedName, fullName.Trim(), StringComparison.Ordinal))
+                strippedName = OverallHelperFunc.StripLocalizedTypeSuffix(fullName, LM.Get(city.GetCitySuffixKey()));
             if (!string.Equals(strippedName, fullName.Trim(), StringComparison.Ordinal)) result = strippedName;
         }
 
@@ -1828,11 +2534,15 @@ public static class CityExtension
         {
             if (city.hasKingdom())
             {
-                if (!string.IsNullOrWhiteSpace(citySuffix) &&
-                    result.Length > citySuffix.Length &&
-                    result.EndsWith(citySuffix, StringComparison.Ordinal))
+                string currentSuffix = LM.Get(city.GetCitySuffixKey());
+                string suffixToRemove = !string.IsNullOrWhiteSpace(citySuffix) &&
+                    result.Length > citySuffix.Length && result.EndsWith(citySuffix, StringComparison.Ordinal)
+                    ? citySuffix : currentSuffix;
+                if (!string.IsNullOrWhiteSpace(suffixToRemove) &&
+                    result.Length > suffixToRemove.Length &&
+                    result.EndsWith(suffixToRemove, StringComparison.Ordinal))
                 {
-                    result = result.Substring(0, result.Length - citySuffix.Length);
+                    result = result.Substring(0, result.Length - suffixToRemove.Length);
                 }
             }
         }
@@ -1864,9 +2574,45 @@ public static class CityExtension
         string coreName = city.EnsureCityCoreName();
         if (string.IsNullOrWhiteSpace(coreName)) return city.data.name ?? "";
         string typeName = "";
-        try { typeName = LM.Get(city.GetCityType().ToString()); }
+        try { typeName = LM.Get(city.GetCitySuffixKey()); }
         catch { }
         return OverallHelperFunc.FormatCityFullName(coreName, typeName);
+    }
+
+    public static string GetCitySuffixKey(this City city)
+    {
+        // 华夏朝代演进：周制称邑，郡县称郡(见 DynastyNaming)
+        string dynasty = EmpireCraft.Scripts.GeneralSystems.DynastyNaming.CitySuffixKey(city);
+        if (dynasty != null) return dynasty;
+        Kingdom kingdom = city?.kingdom;
+        BureauSetting setting = EmpireCraftKingdomBehCheckKingdomType.GetCityNamingSetting(kingdom);
+        if (setting != null)
+        {
+            string culture = setting.city_suffix_keys_by_culture?.Count > 0 ||
+                             setting.capital_city_suffix_keys_by_culture?.Count > 0
+                ? CultureService.GetRealmCulture(kingdom) ?? "" : "";
+            if (kingdom.capital == city)
+            {
+                if (setting.capital_city_suffix_keys_by_culture?.TryGetValue(culture, out string capitalSuffix) == true &&
+                    !string.IsNullOrWhiteSpace(capitalSuffix)) return capitalSuffix;
+                if (!string.IsNullOrWhiteSpace(setting.capital_city_suffix_key)) return setting.capital_city_suffix_key;
+            }
+            if (setting.city_suffix_keys_by_culture?.TryGetValue(culture, out string citySuffix) == true &&
+                !string.IsNullOrWhiteSpace(citySuffix)) return citySuffix;
+            if (!string.IsNullOrWhiteSpace(setting.city_suffix_key)) return setting.city_suffix_key;
+            return setting.city_type.ToString();
+        }
+        return city.GetCityType().ToString();
+    }
+
+    public static void RefreshCityDisplayName(this City city)
+    {
+        if (city?.data == null) return;
+        string coreName = city.EnsureCityCoreName();
+        if (string.IsNullOrWhiteSpace(coreName)) return;
+        city.data.name = OverallHelperFunc.FormatCityFullName(coreName, LM.Get(city.GetCitySuffixKey()));
+        // Generated display names must not be mistaken for a new player-supplied core name.
+        city.GetOrCreate().core_name_source = city.data.name;
     }
 
     public static string GetKingdomNames(this City city)

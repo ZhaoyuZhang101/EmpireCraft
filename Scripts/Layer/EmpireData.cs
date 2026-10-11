@@ -1,4 +1,4 @@
-﻿using EmpireCraft.Scripts;
+using EmpireCraft.Scripts;
 using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
@@ -25,14 +25,19 @@ public class EmpireData : MetaObjectData
     public long empire_specific_clan { get; set; } = -1L;
     public float TaxRate = 0.2f;
     public int banner_icon_id { get; set; }
-    public int Mandate { get; set; } = 100; //正统
+    public int Mandate { get; set; } = 100; // 原始事件法统；综合正统由 MonarchyLegitimacy 计算
     public List<long> CabinetMembers { get; set; } = new List<long>();
+    // 朝堂博弈(见 CourtSystem)
+    public CourtState court = new();
+    // 周制的天下大势：西周、春秋、战国(见 ZhouEraSystem)
+    public ZhouEraState zhou = new();
     public long Religion { get; set; } = -1L;
     public EmpireHeirLawType heir_type { get; set; }
     public int max_province_city_num { get; set; } = 3;
     public List<int> PreviousYearsMoney = new();
     public double MilitaryExpenditureRate { get; set; } = 0.2;
     public int MilitaryExpenditure = 0;
+    public double last_military_expenditure_timestamp = -1d;
     public double last_increase_mandate_timestamp = -1L;
     public bool original_royal_been_changed { get; set; } = false;
     public bool feed_royal = false;
@@ -50,6 +55,8 @@ public class EmpireData : MetaObjectData
     public bool is_been_controlled { get; set; } = false;
     //岁币国
     public List<long> given_Kingdoms = new List<long>();
+    // 岁赐报价随协定保存，人口变化不改变已签订的年度金额。
+    public Dictionary<long, int> given_annual_quotes = new();
     //朝贡国
     public List<long> taken_Kingdoms = new List<long>();
     public EmpireAddition additions = new EmpireAddition();
@@ -57,8 +64,14 @@ public class EmpireData : MetaObjectData
     public long founder_kingdom_id { get; set; } = -1L;
 
     public string directPre = "";
+    // 失都改称(见 CapitalLossNamingSystem)：核心首都失陷的时间(-1 = 没失陷)、是否已加方位、加方位前原来的前缀
+    public double core_capital_lost_since = -1d;
+    public bool capital_loss_prefix_applied;
+    public string capital_loss_previous_prefix = "";
     public string core_name = "";
     public string empire_type_key = "";
+    // 西方封建帝国的代数：同名封建帝国反复建立时称"第二帝国""第三帝国"(0/1 表示不加序数)
+    public int western_ordinal = 0;
     public long emperor { get; set; } = -1L;
     public long empire_clan { get; set; } = -1L;
     public long empire_core_id { get; set; } = -1L;
@@ -95,6 +108,8 @@ public class EmpireData : MetaObjectData
     public Dictionary<string, long> honorary_peerage_holder_identities { get; set; } = new Dictionary<string, long>();
     public Dictionary<string, string> honorary_peerage_holder_names { get; set; } = new Dictionary<string, string>();
     public List<DefeatedEmpireHouse> defeated_empire_houses { get; set; } = new List<DefeatedEmpireHouse>();
+    // 西方帝国历代皇帝的即位记录(王号序数用)：同一帝国、同一氏族、同名才累计
+    public List<RegnalRecord> regnal_records { get; set; } = new List<RegnalRecord>();
     public double last_legal_peerage_timestamp { get; set; } = -1L;
     public Dictionary<long, long> legal_peerage_holders { get; set; } = new Dictionary<long, long>();
     public Dictionary<long, long> legal_peerage_holder_identities { get; set; } = new Dictionary<long, long>();
@@ -126,6 +141,37 @@ public class EmpireData : MetaObjectData
     public int annual_power_economy { get; set; } = 0;
     public double annual_power_index { get; set; } = 0d;
     public double last_national_power_timestamp { get; set; } = -1L;
+    [DefaultValue(-1L)]
+    public long legitimacy_rival_empire_id { get; set; } = -1L;
+    public bool legitimacy_rivalry_recognized { get; set; } = false;
+    public bool legitimacy_challenger { get; set; } = false;
+    public bool auto_enfeoff_tracking_initialized { get; set; } = false;
+    public bool territorial_enfeoff_pending { get; set; }
+    public bool succession_enfeoff_pending { get; set; }
+    public List<long> pending_conquest_enfeoff_kingdom_ids { get; set; } = new();
+    public bool administrative_reorganization_pending { get; set; }
+    public double last_administrative_reorganization_timestamp { get; set; } = -1d;
+    public List<long> auto_enfeoff_observed_title_ids { get; set; } = new List<long>();
+    public List<long> auto_enfeoff_observed_city_ids { get; set; } = new List<long>();
+    public double last_auto_enfeoff_check_timestamp { get; set; } = -1L;
+    public string conquest_founder_culture { get; set; } = "";
+    public string ruling_culture { get; set; } = "";
+    public string institutional_culture { get; set; } = "";
+    public string external_identity_culture { get; set; } = "";
+    public string military_tradition { get; set; } = "";
+    public CompositeEmpireIntegrationStage composite_integration_stage { get; set; } = CompositeEmpireIntegrationStage.None;
+    public int composite_integration { get; set; } = 0;
+    public int central_plains_legitimacy { get; set; } = 0;
+    public int ruling_tradition_legitimacy { get; set; } = 0;
+    public double composite_identity_adopted_timestamp { get; set; } = -1L;
+    public double last_composite_identity_update_timestamp { get; set; } = -1L;
+    public bool composite_cultural_name_adopted { get; set; } = false;
+    public string composite_cultural_name { get; set; } = "";
+    public string composite_cultural_name_culture { get; set; } = "";
+    public string composite_cultural_name_source { get; set; } = "";
+    public double composite_cultural_name_adopted_timestamp { get; set; } = -1L;
+    public InstitutionEmpireState institution_state { get; set; } = new InstitutionEmpireState();
+    public ConstitutionalEconomyState constitutional_economy { get; set; } = new ConstitutionalEconomyState();
 }
 
 public enum RoyalFeedLevel
@@ -174,9 +220,34 @@ public class EmpireCraftHistory
     public string miaohao_suffix { get; set; }
     public string shihao_name { get; set; }
     public int total_time { get; set; }
+    // 共和国元首的任期(与君主的在位记录分开显示，不按姓氏分朝代)；office_title 为当时的元首称号(总统、主席……)
+    public bool is_republic { get; set; }
+    public string office_title { get; set; } = "";
+
+    // 在位生平统计(谥法依据，见 ReignRecordSystem / PosthumousNameGenerator)；-1 表示旧档没有记录
+    public int start_cities { get; set; } = -1;
+    public int max_cities { get; set; } = -1;
+    public int end_cities { get; set; } = -1;
+    public int start_mandate { get; set; } = -1;
+    public int end_mandate { get; set; } = -1;
+    public int wars_won { get; set; }
+    public int wars_lost { get; set; }
+    public int rebellions { get; set; }
+    public int rebellions_lost { get; set; }
+    public int age_at_end { get; set; } = -1;
+    public bool ended_alive { get; set; }
+    public bool ended_dynasty { get; set; }
+    public bool restorer { get; set; }
 
     public List<string> initial_cities = new List<string>();
     public List<HistoryDescription> descriptions =  new List<HistoryDescription>();
+}
+
+public class RegnalRecord
+{
+    public long actor_id = -1L;
+    public long clan_id = -1L;
+    public string given_name = "";
 }
 
 public class HistoryDescription

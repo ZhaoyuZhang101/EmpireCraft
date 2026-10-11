@@ -25,14 +25,15 @@ public class TempFac_夺取诸侯开战权 : TemporaryFaction
     {
         LogService.LogInfo($"执行{this.type}");
         Kingdom kingdom = GetKingdomTarget();
-        if (kingdom != null && !CheckRebelling(kingdom))
+        Regime regime = kingdom?.GetRegime();
+        if (regime != null && !CheckRebelling(kingdom))
         {
             if (!TryEnforceCrimeForCurrentTarget())
             {
                 End();
                 return;
             }
-            kingdom.GetRegime().SetAllowDiplomacy(false);
+            regime.SetAllowDiplomacy(false);
         }
 
         End();
@@ -41,12 +42,14 @@ public class TempFac_夺取诸侯开战权 : TemporaryFaction
     public override bool CheckCondition()
     {
         Empire empire = GetEmpire();
-        if (empire == null) return false;
+        if (empire?.CoreKingdom == null || empire.kingdoms_list == null) return false;
         foreach (Kingdom kingdom in empire.kingdoms_list)
         {
-            if (kingdom.IsEmpire()) continue;
+            if (kingdom?.data == null || kingdom.isRekt() || kingdom == empire.CoreKingdom ||
+                kingdom.IsEmpire()) continue;
             Regime regime = kingdom.GetRegime();
-            if (regime.IsAllowDiplomacy() && kingdom.countTotalWarriors() * 3 > empire.countWarriors())
+            if (regime != null && regime.IsAllowDiplomacy() &&
+                kingdom.countTotalWarriors() * 3 > empire.countWarriors())
             {
                 return TrySetTarget(kingdom);
             }

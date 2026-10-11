@@ -1,7 +1,11 @@
+using EmpireCraft.Scripts.GeneralSystems;
+using EmpireCraft.Scripts.Layer;
+using NeoModLoader.General;
 using NeoModLoader.services;
 
 namespace EmpireCraft.Scripts.Regimes.TemporaryFactions.Claims;
 
+// 拓展金融霸权：金融国策放宽一档(缩减 → 常态 → 霸权)。霸权时城市公营贸易收入 +15%，商人得利、劳工农民不满(见 ClaimPolicySystem)
 public class TempFac_拓展金融霸权 : TemporaryFaction
 {
     public override TemporaryFaction Clone(FixedFaction faction)
@@ -18,11 +22,16 @@ public class TempFac_拓展金融霸权 : TemporaryFaction
     public override void Execute()
     {
         LogService.LogInfo($"执行{this.type}");
+        Empire empire = GetEmpire();
+        int level = ClaimPolicySystem.FinancePolicy(empire) + 1;
+        ClaimPolicySystem.SetFinancePolicy(empire, level);
+        CompletionOutcome = string.Format(LM.Get("claim_outcome_finance_policy"), ClaimPolicySystem.FinancePolicyText(level));
         End();
     }
 
     public override bool CheckCondition()
     {
-        return false;
+        Empire empire = GetEmpire();
+        return empire?.data?.constitutional_economy != null && ClaimPolicySystem.FinancePolicy(empire) < 1;
     }
 }

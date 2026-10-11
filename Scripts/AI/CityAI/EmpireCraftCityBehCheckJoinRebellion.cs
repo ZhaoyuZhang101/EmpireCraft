@@ -3,6 +3,8 @@ using System.Linq;
 using ai.behaviours;
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.Layer;
+using EmpireCraft.Scripts.GeneralSystems;
 
 namespace EmpireCraft.Scripts.AI.CityAI;
 
@@ -15,7 +17,11 @@ public class EmpireCraftCityBehCheckJoinRebellion: GameAICityBase
         if (pCity.isRekt()) return BehResult.Stop;
         if (pCity.isNeutral()) return BehResult.Stop;
         if (pCity.isCapitalCity()&&pCity.kingdom.IsEmpire()) return BehResult.Stop;
-        if (pCity.getLoyalty()>0) return BehResult.Continue;
+        if (!RebellionSystem.CanAttempt(pCity.kingdom) || !CityStabilitySystem.CanRise(pCity)) return BehResult.Continue;
+        int loyalty = pCity.getLoyalty();
+        if (loyalty > 38) return BehResult.Continue;
+        CityValueSnapshot cityValue = pCity.GetCityStrategicValue();
+        if (loyalty > CityValueRules.GetIsolationRebellionLoyaltyThreshold(cityValue)) return BehResult.Continue;
         var initKingdom = pCity.kingdom;
         var target = pCity.neighbours_cities.ToList().Find(c =>
         {

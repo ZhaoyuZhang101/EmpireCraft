@@ -16,7 +16,7 @@ public class EmpireCraftEmpireBehSyncMapView:GameAIEmpireBase
         if (!pKingdom.IsEmpire()) return BehResult.Continue;
         Empire empire = pKingdom.GetEmpire();
         if (empire == null) return BehResult.Continue;
-        empire.cities_list = empire.kingdoms_list.SelectMany(k => k.cities).ToList();
+        empire.cities_list = EmpireMembershipService.EnumerateCities(empire).ToList();
         return BehResult.Continue;
     }
 }

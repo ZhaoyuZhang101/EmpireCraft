@@ -48,7 +48,8 @@ public class TempFac_撤销军府 : TemporaryFaction
         if (empire == null) return false;
         foreach (var kingdom in empire.kingdoms_list)
         {
-            if (!kingdom.IsEmpire() && kingdom.GetKingdomType() == KingdomType.LvLing_jiedushi)
+            if (!kingdom.IsEmpire() && (kingdom.GetKingdomType() == KingdomType.LvLing_jiedushi ||
+                                        kingdom.GetKingdomType() == KingdomType.LvLing_duhufu))
             {
                 if (kingdom.hasEnemies()) continue;
                 return TrySetTarget(kingdom);

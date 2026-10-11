@@ -42,6 +42,24 @@ public class EmpireCraftActorCheckWarriorMoveAdvanced : GameAIActorBase
     private static int _targetZoneCacheFrame = -1;
     private static readonly Dictionary<(Kingdom kingdom, TileZone currentZone), TileZone> _targetZoneCache = new();
 
+    public static void ClearRuntimeState()
+    {
+        _lastGlobalMobilizeFrame = -1;
+        _zoneWarriorCacheFrame = -1;
+        _zoneWarriors.Clear();
+        _zoneWarriorCounts.Clear();
+        _frontZoneCacheFrame = -1;
+        _frontZoneCache.Clear();
+        _occupiedOwnZoneCacheFrame = -1;
+        _occupiedOwnZoneCache.Clear();
+        _armyMemberCountCacheFrame = -1;
+        _armyMemberCountCache.Clear();
+        _nearbyRetakeCandidates.Clear();
+        _availableFrontZoneCandidates.Clear();
+        _targetZoneCacheFrame = -1;
+        _targetZoneCache.Clear();
+    }
+
     public override BehResult execute(Actor pActor)
     {
         return BehResult.Continue;

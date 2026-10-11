@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.GeneralSystems;
 using EmpireCraft.Scripts.GameLibrary;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
@@ -24,14 +25,22 @@ namespace EmpireCraft.Scripts.UI.Windows;
 public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
 {
     Actor _actor;
+    // 下次打开时按这个族谱身份显示(整族虚拟的宗族没有实体可选)
+    public static PersonalClanIdentity OpenIdentity;
     private string _lastSearchContent = "";
     private readonly Dictionary<string, AutoVertLayoutGroup> _groups = new ();
     private readonly Dictionary<string, AutoHoriLayoutGroup> _hGroups = new ();
     SpecificClan _sc;
     PersonalClanIdentity _identity;
     private TextInput _clanInput;
+
+    // AutoLayoutWindow<T> 不像 AbstractWindow<T> 那样自带静态 Instance——补一个，
+    // 好让 SpecificClanTreeWindow 能拿到这边的 ShowPersonalInfo 直接复用同一张卡片。
+    public static SpecificClanWindow Instance { get; private set; }
+
     protected override void Init()
     {
+        Instance = this;
         this.layout.spacing = 3;
         this.layout.padding = new RectOffset(3, 3, 80, 3);
         _clanInput = Instantiate(TextInput.Prefab, this.transform.parent.transform.parent);
@@ -39,11 +48,18 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
     }
     private void InitialTabButtons()
     {
+        // 宗族总览：整个宗族的概况(不是当前这个人的)，放在页签第一个
+        if (ScrollWindowComponent.tabs._tabs.All(p => p.name != "specific_clan_overview"))
+        {
+            var tab = GameObject.Instantiate(SimpleWindowTab.Prefab);
+            tab.Setup("specific_clan_overview", ScrollWindowComponent, action: ShowClanOverview,
+                sprite: UIHelper.FirstSprite("ui/icons/iconClanList", "ui/icons/iconClan", "ui/specificClanIcon"));
+        }
         if (ScrollWindowComponent.tabs._tabs.All(p => p.name != "specific_clan_relations"))
         {
             var tab = GameObject.Instantiate(SimpleWindowTab.Prefab);
             tab.Setup("specific_clan_relations", ScrollWindowComponent, action: _ => refreshAll(),
-                sprite: SpriteTextureLoader.getSprite("ui/iconOptions"));
+                sprite: SpriteTextureLoader.getSprite("ui/icons/iconOptions"));
         }
         if (ScrollWindowComponent.tabs._tabs.All(p => p.name != "specific_clan_history"))
         {
@@ -57,6 +73,15 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
             tab.Setup("specific_clan_related_history", ScrollWindowComponent, action: ShowRelatedHistory,
                 sprite: SpriteTextureLoader.getSprite("ui/iconHistory"));
         }
+        if (ScrollWindowComponent.tabs._tabs.All(p => p.name != "specific_clan_tree"))
+        {
+            var tab = GameObject.Instantiate(SimpleWindowTab.Prefab);
+            // 族谱树自己开一个单独的宽窗口(SpecificClanTreeWindow)，不再是这个窗口内部的一个页签内容——
+            // 宗族主窗口保持原来的窄卡片布局不变，只有树状图需要更宽的可视区域。
+            tab.Setup("specific_clan_tree", ScrollWindowComponent,
+                action: _ => SpecificClanTreeWindow.ShowFor(_identity),
+                sprite: SpriteTextureLoader.getSprite("ui/specificClanIcon"));
+        }
     }
 
     public void ChangeClanName(string text)
@@ -65,7 +90,7 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
         if (namePart.Length == 0) return;
         _clanInput.input.text = OverallHelperFunc.JoinNameParts(namePart[0], LM.Get("specific_clan"));
         _sc.name = namePart[0];
-        foreach (var member in _sc._cache.Where(member => member.Value.is_alive))
+        foreach (var member in _sc._cache.Where(member => member.Value.is_alive && member.Value._actor != null))
         {
             member.Value._actor.GetModName().familyName = namePart[0];
             member.Value._actor.GetModName().SetName(member.Value._actor);
@@ -81,6 +106,19 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
     public override void OnNormalEnable()
     {
         base.OnNormalEnable();
+        // 从宗族列表打开整族虚拟的宗族：没有实体，按族谱身份显示
+        if (OpenIdentity != null)
+        {
+            PersonalClanIdentity identity = OpenIdentity;
+            OpenIdentity = null;
+            this._actor = identity._actor;
+            _identity = identity;
+            _sc = identity._specificClan;
+            if (_sc == null) return;
+            InitialTabButtons();
+            refreshAll();
+            return;
+        }
         this._actor = SelectedUnit.unit;
         if (this._actor == null) return;
         if (!this._actor.HasSpecificClan()) return;
@@ -107,6 +145,114 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
         ShowSameGenerationSpace();
         ShowSiblingChildGenerationSpace();
     }
+    // ── 宗族总览 ──
+    // 概况 / 土地占有(只列有地的城市) / 族人分布 / 显赫族人
+    private void ShowClanOverview(WindowMetaTab _)
+    {
+        if (_sc == null) return;
+        Clear();
+        InitialTextInput();
+        InitialTop();
+        var space = this.BeginVertGroup(pSpacing: 1, pAlignment: TextAnchor.UpperCenter);
+        List<PersonalClanIdentity> people = _sc.SnapshotPeople().Where(person => person != null).ToList();
+        List<PersonalClanIdentity> living = people
+            .Where(person => person.is_alive && person._actor != null && !person._actor.isRekt()).ToList();
+
+        AddOverviewHeading(space, _sc.GetDisplayName());
+        string founder = SpecificClanManager.getPerson(_sc.founder)?.name ?? LM.Get("label_none");
+        City ancestral = _sc.ancestral_city_id > 0 ? World.world.cities.get(_sc.ancestral_city_id) : null;
+        int generations = people.Count == 0 ? 0 : people.Max(person => person.generation);
+        AddOverviewRow(space, LM.Get("i_founder"), founder, "#F2EEE2");
+        AddOverviewRow(space, LM.Get("clan_overview_established"), Date.getDate(_sc.established_timestamp), "#A8B8BE");
+        AddOverviewRow(space, LM.Get("total_sc_count"), $"{living.Count}/{people.Count}", "#7FD8EA");
+        AddOverviewRow(space, LM.Get("clan_overview_generations"), generations.ToString(), "#7FD8EA");
+        AddOverviewRow(space, LM.Get("clan_overview_ancestral_city"),
+            ancestral == null || ancestral.isRekt() ? LM.Get("label_none") : ancestral.GetCityName(), "#F3C34A");
+        AddOverviewRow(space, LM.Get("clan_overview_officials"),
+            $"{living.Count(person => person._actor.IsOnOffice())}  ·  {LM.Get("clan_overview_rulers")} " +
+            $"{living.Count(person => person._actor.isKing())}", "#65D6C4");
+        AddOverviewRow(space, LM.Get("clan_overview_history_empire"),
+            _sc.HasHistoryEmpire() ? _sc.empire_name : LM.Get("label_none"), "#F3C34A");
+
+        // 世系：从哪一支分出来、又分出了哪些支
+        SpecificClan parentClan = _sc.parent_clan_id >= 0 ? SpecificClanManager.Get(_sc.parent_clan_id) : null;
+        List<SpecificClan> branches = SpecificClanManager._specificClans.ToList()
+            .Where(clan => clan != null && clan.parent_clan_id == _sc.id).ToList();
+        if (parentClan != null || branches.Count > 0)
+        {
+            AddOverviewHeading(space, LM.Get("clan_overview_lineage"));
+            if (parentClan != null)
+                AddOverviewRow(space, LM.Get("clan_overview_parent_clan"),
+                    $"{parentClan.GetDisplayName()} · {LM.Get($"clan_branch_reason_{_sc.branch_reason}")}", "#C9A7E8");
+            foreach (SpecificClan branch in branches.OrderBy(clan => clan.established_timestamp))
+                AddOverviewRow(space, branch.GetDisplayName(),
+                    $"{LM.Get($"clan_branch_reason_{branch.branch_reason}")} · " +
+                    string.Format(LM.Get("clan_overview_member_count"), branch.Count), "#C9A7E8");
+        }
+
+        // 土地：只列有地的城市
+        AddOverviewHeading(space, LM.Get("clan_overview_land"));
+        List<ClanLandHoldingView> holdings = LandEconomySystem.GetSpecificClanHoldings(_sc);
+        if (holdings.Count == 0)
+            AddOverviewNote(space, LM.Get("clan_overview_no_land"));
+        else
+        {
+            AddOverviewRow(space, LM.Get("clan_overview_land_total"),
+                $"{holdings.Count} · {holdings.Sum(holding => holding.Share):0.##}%", "#65D66E");
+            foreach (ClanLandHoldingView holding in holdings)
+                AddOverviewRow(space, $"{holding.CityName} · {holding.KingdomName}",
+                    $"{holding.Share:0.##}%  " + string.Format(LM.Get("clan_overview_city_rank"), holding.Rank),
+                    holding.Rank == 1 ? "#F3C34A" : "#65D66E");
+        }
+
+        // 族人分布
+        AddOverviewHeading(space, LM.Get("clan_overview_distribution"));
+        var byCity = living.Where(person => person._actor.city != null && !person._actor.city.isRekt())
+            .GroupBy(person => person._actor.city).OrderByDescending(group => group.Count()).Take(8).ToList();
+        if (byCity.Count == 0) AddOverviewNote(space, LM.Get("label_none"));
+        foreach (IGrouping<City, PersonalClanIdentity> group in byCity)
+            AddOverviewRow(space, $"{group.Key.GetCityName()} · {group.Key.kingdom?.GetKingdomName() ?? ""}",
+                string.Format(LM.Get("clan_overview_member_count"), group.Count()), "#7FD8EA");
+
+        // 显赫族人：按声望取前 8
+        AddOverviewHeading(space, LM.Get("clan_overview_notables"));
+        foreach (PersonalClanIdentity person in living.OrderByDescending(person => person._actor.renown).Take(8))
+        {
+            bool onOffice = person._actor.IsOnOffice() || person._actor.isKing();
+            AddOverviewRow(space, person.name, GetDisplayOfficeName(person), onOffice ? "#F3C34A" : "#8FA0A8");
+        }
+
+        AddChild(space.gameObject);
+        _groups["clan_overview"] = space;
+    }
+
+    private static void AddOverviewHeading(AutoVertLayoutGroup space, string text)
+    {
+        var heading = space.AddTextIntoVertLayout(text.ColorString("#F3C34A"), true, TextAnchor.MiddleCenter,
+            new Vector2(190, 16));
+        heading.UseFixedFontSize(10, HorizontalWrapMode.Overflow);
+    }
+
+    // 一行：深色内嵌底，左边灰色标签，右边彩色数值
+    private static void AddOverviewRow(AutoVertLayoutGroup space, string label, string value, string valueHex)
+    {
+        var row = space.BeginHoriGroup(new Vector2(190, 12), TextAnchor.MiddleCenter, 2);
+        UIHelper.AddInsetBackground(row, new Vector2(190, 12));
+        var labelText = row.AddTextIntoHoriLayout(label.ColorString("#A8B8BE"), true, TextAnchor.MiddleLeft,
+            new Vector2(100, 12));
+        labelText.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
+        var valueText = row.AddTextIntoHoriLayout((value ?? "").ColorString(valueHex), true, TextAnchor.MiddleRight,
+            new Vector2(84, 12));
+        valueText.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
+    }
+
+    private static void AddOverviewNote(AutoVertLayoutGroup space, string text)
+    {
+        var note = space.AddTextIntoVertLayout(text.ColorString("#8FA0A8"), true, TextAnchor.MiddleCenter,
+            new Vector2(190, 12));
+        note.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
+    }
+
     private void ShowPersonalHistory(WindowMetaTab _)
     {
         if (_identity == null) return;
@@ -265,17 +411,13 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
 
     private static string GetHistoryYear(PersonalHistoryRecord record)
     {
-        string date = record?.date ?? "";
-        int yearEnd = date.IndexOf('年');
-        return yearEnd >= 0 ? date.Substring(0, yearEnd + 1) : date;
+        return HistoryDateFormatter.GetYear(record?.timestamp ?? -1, record?.date);
     }
 
     private static string GetHistoryMonthDay(PersonalHistoryRecord record)
     {
         if (record == null) return "";
-        string date = Date.getDate(record.timestamp);
-        int yearEnd = date.IndexOf('年');
-        return yearEnd >= 0 ? date.Substring(yearEnd + 1) : date;
+        return HistoryDateFormatter.GetMonthDay(record.timestamp, record.date);
     }
     public void ShowFatherSideSpace()
     {
@@ -420,6 +562,9 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
     }
     public void Clear()
     {
+        // 每次切换页面(卡片视图/历史/树状图)都先把外层窗口的滚动条恢复默认——只有树状图
+        // 自己要关掉它(树本身已经有一套独立的拖拽/缩放了，两层滚动叠在一起会互相抢事件)。
+        SetScrollEnabled(true);
         foreach (var group in _groups)
         {
             Destroy(group.Value.gameObject);
@@ -430,6 +575,12 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
             Destroy(group.Value.gameObject);
         }
         _hGroups.Clear();
+    }
+
+    private void SetScrollEnabled(bool enabled)
+    {
+        ScrollRect scrollRect = ScrollWindowComponent?.scrollRect;
+        if (scrollRect != null) scrollRect.vertical = enabled;
     }
     //显示直系长辈空间
     public AutoVertLayoutGroup ShowParentGenerationSpace()
@@ -523,16 +674,63 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
         this._sc = actor_identity._specificClan;
         refreshAll();
     }
-    [Hotfixable]
-    public void ShowPersonalInfo(AutoGridLayoutGroup parent, PersonalClanIdentity actor, ClanRelation relation = ClanRelation.NONE)
+    // parent 允许传 null：树状图那边要把卡片摆到自己的绝对坐标系里，不走网格流式布局，
+    // 所以卡片建好后不在这里挂父节点，由调用方自己 SetParent + 定位；网格视图照常传
+    // 非空 parent，行为完全不变。卡片本身的搭法(头像+信息栏+clanFrame 边框)一个字没动。
+    // 当过皇帝的人，官职栏换成帝号：在位的显示"国号+年号+皇帝"(明永乐皇帝)；
+    // 已故且被追封了庙号的显示"国号+庙号(年号)"(明成祖(永乐))，只有谥号的用"国号+谥号+帝"。
+    // 其余情况(没当过皇帝、被废黜仍在世、已故但还没追封又没有年号)照旧显示记录的官职。
+    private static string GetDisplayOfficeName(PersonalClanIdentity identity)
     {
-        
+        string fallback = string.IsNullOrEmpty(identity?.officeName) ? "无" : identity.officeName;
+        if (identity == null || identity.actor_id <= 0 || ModClass.EMPIRE_MANAGER == null) return fallback;
+
+        foreach (Empire empire in ModClass.EMPIRE_MANAGER)
+        {
+            EmpireCraftHistory current = empire?.data?.currentHistory;
+            if (identity.is_alive && current != null && current.id == identity.actor_id)
+            {
+                string yearName = empire.data.has_year_name ? current.year_name : "";
+                return string.IsNullOrWhiteSpace(yearName)
+                    ? fallback
+                    : $"{current.empire_name}{yearName}{LM.Get("emperor")}";
+            }
+        }
+        if (identity.is_alive) return fallback;
+
+        // 跟帝国核心窗口同一个来源：在世帝国的历代记录 + 已灭亡帝国归档在 ALL_HISTORY_DATA 里的记录，
+        // 亡朝皇帝的庙号/谥号也能查到。
+        IEnumerable<EmpireCraftHistory> liveHistories = ModClass.EMPIRE_MANAGER
+            .Where(empire => empire?.data?.history != null)
+            .SelectMany(empire => empire.data.history);
+        IEnumerable<EmpireCraftHistory> archivedHistories = (ModClass.ALL_HISTORY_DATA ??
+                                                             new Dictionary<long, List<EmpireCraftHistory>>())
+            .Values.Where(list => list != null).SelectMany(list => list);
+        EmpireCraftHistory history = liveHistories.Concat(archivedHistories)
+            .LastOrDefault(record => record != null && record.id == identity.actor_id);
+        if (history == null) return fallback;
+
+        string era = string.IsNullOrWhiteSpace(history.year_name) ? "" : $"({history.year_name})";
+        if (!string.IsNullOrEmpty(history.miaohao_name))
+            return $"{history.empire_name}{LM.Get(history.miaohao_name)}{LM.Get(history.miaohao_suffix)}{era}";
+        if (!string.IsNullOrEmpty(history.shihao_name))
+            return $"{history.empire_name}{LM.Get(history.shihao_name)}{LM.Get("emperor_suffix")}{era}";
+        return string.IsNullOrWhiteSpace(history.year_name)
+            ? fallback
+            : $"{history.empire_name}{history.year_name}{LM.Get("emperor")}";
+    }
+
+    [Hotfixable]
+    public AutoHoriLayoutGroup ShowPersonalInfo(AutoGridLayoutGroup parent, PersonalClanIdentity actor, ClanRelation relation = ClanRelation.NONE, UnityAction<PersonalClanIdentity> onAvatarClick = null)
+    {
+
         AutoHoriLayoutGroup personalGroup = this.BeginHoriGroup(pAlignment: TextAnchor.MiddleCenter);
 
         //右边头像
         AutoVertLayoutGroup avatarLayoutGroup = this.BeginVertGroup(new Vector2(30, 30), pSpacing:12, pAlignment: TextAnchor.MiddleCenter, pPadding: new RectOffset(0, 0, 0, 0));
-        
-        SimpleButton clickframe = UIHelper.CreateAvatarView(actor.actor_id, () => ChangeActor(actor),
+
+        UnityAction<PersonalClanIdentity> avatarClick = onAvatarClick ?? ChangeActor;
+        SimpleButton clickframe = UIHelper.CreateAvatarView(actor.actor_id, () => avatarClick(actor),
             pIsAlive:actor.is_alive, pIdentity:actor);
         avatarLayoutGroup.AddChild(clickframe.gameObject);
         avatarLayoutGroup.transform.localPosition = Vector3.zero;
@@ -544,12 +742,13 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
         
         leftVertGroup.AddTextIntoVertLayout($"<color=#FF4500>{(actor.is_alive?"":LM.Get("is_dead")+"-")}</color>{actor.name} ({LM.Get($"relation_{relation.ToString()}")}-{LM.Get(actor.isMainText)})", size: new Vector2(50, 10));
         leftVertGroup.AddTextIntoVertLayout($"{actor.birthday+"-"+actor.getDeathday()}", size: new Vector2(50, 10));
-        var flag = actor.is_alive && actor._actor.IsOnOffice();
-        leftVertGroup.AddTextIntoVertLayout($"官职：{(string.IsNullOrEmpty(actor.officeName)?"无":actor.officeName).ColorString(pColor:flag?Color.yellow:Color.gray)}");
+        var flag = actor.is_alive && actor._actor?.IsOnOffice() == true;
+        leftVertGroup.AddTextIntoVertLayout($"官职：{GetDisplayOfficeName(actor).ColorString(pColor:flag?Color.yellow:Color.gray)}");
         leftVertGroup.transform.localPosition = Vector3.zero;
         personalGroup.AddChild(leftVertGroup.gameObject);
         personalGroup.transform.AddStretchBackground("clanFrame", size: new Vector2(100, 50));
-        parent.AddChild(personalGroup.gameObject);
+        parent?.AddChild(personalGroup.gameObject);
+        return personalGroup;
     }
     [Hotfixable]
     
@@ -564,8 +763,8 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
         nameText.Setup($"<color=#FF4500>{(actor.is_alive?"":LM.Get("is_dead")+"-")}</color>{actor.name}-{LM.Get(actor.isMainText)}", pSize: new Vector2(50, 10));
 
         SimpleText levelText = GameObject.Instantiate(SimpleText.Prefab);
-        var flag = actor.is_alive && actor._actor.IsOnOffice();
-        levelText.Setup($"官职：{(string.IsNullOrEmpty(actor.officeName)?"无":actor.officeName).ColorString(pColor:flag?Color.yellow:Color.gray)}", pSize: new Vector2(50, 10));
+        var flag = actor.is_alive && actor._actor?.IsOnOffice() == true;
+        levelText.Setup($"官职：{GetDisplayOfficeName(actor).ColorString(pColor:flag?Color.yellow:Color.gray)}", pSize: new Vector2(50, 10));
 
         SimpleText timeText = GameObject.Instantiate(SimpleText.Prefab);
         timeText.Setup($"{actor.birthday+"-"+actor.getDeathday()}", pSize: new Vector2(50, 10));

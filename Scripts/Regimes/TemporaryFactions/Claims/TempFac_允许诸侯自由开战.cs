@@ -20,9 +20,9 @@ public class TempFac_允许诸侯自由开战 : TemporaryFaction
     public override void Execute()
     {
         Kingdom kingdom = GetKingdomTarget();
-        if (kingdom != null)
+        Regime regime = kingdom?.GetRegime();
+        if (regime != null)
         {
-            Regime regime = kingdom.GetRegime();
             regime.SetAllowDiplomacy(true);
             regime.SetAllowSupportCenterArmy(false);
         }
@@ -32,14 +32,16 @@ public class TempFac_允许诸侯自由开战 : TemporaryFaction
     public override bool CheckCondition()
     {
         Empire empire = GetEmpire();
+        if (empire?.CoreKingdom == null || empire.kingdoms_list == null) return false;
         if (empire.HasEmperor())
         {
             if (!empire.Emperor.hasTrait("ambitious")) return false;
         }
         foreach (Kingdom kingdom in empire.kingdoms_list)
         {
+            if (kingdom?.data == null || kingdom.isRekt() || kingdom == empire.CoreKingdom) continue;
             Regime regime = kingdom.GetRegime();
-            if (!regime.IsAllowDiplomacy())
+            if (regime != null && !regime.IsAllowDiplomacy())
             {
                 SetKingdomTarget(kingdom);
                 return true;

@@ -1,6 +1,7 @@
 using NeoModLoader.services;
 using EmpireCraft.Scripts;
 using EmpireCraft.Scripts.GamePatches;
+using EmpireCraft.Scripts.GeneralSystems;
 using NCMS.Extensions;
 using System.Linq;
 
@@ -18,11 +19,19 @@ public static class EmpireCraftWorldLawLibrary
     public static WorldLawAsset empirecraft_law_allow_harem;
     public static WorldLawAsset empirecraft_law_allow_skeleton;
     public static WorldLawAsset empirecraft_law_switch_occupy_mode;
+    public static WorldLawAsset empirecraft_law_corps_general;
     public static WorldLawAsset empirecraft_law_allow_social;
+    public static WorldLawAsset empirecraft_law_fixed_de_jure_culture;
+    public static WorldLawAsset empirecraft_law_ban_vanilla_alliance;
+    public static WorldLawAsset empirecraft_law_tech_tree;
+    public static WorldLawAsset empirecraft_law_combine_houses;
+    public static WorldLawAsset empirecraft_law_premodern;
+    public static WorldLawAsset empirecraft_law_no_commoners;
     public static void init()
     {
         LogService.LogInfo("加载帝国世界规则");
         AssetManager.world_laws_library.list.RemoveAll(w => w.id == "world_law_civ_limit_population_100");
+        AssetManager.world_laws_library.dict.Remove("world_law_civ_limit_population_100");
         //限制人口100
         AssetManager.world_laws_library.add(WorldLawLibrary.world_law_civ_limit_population_100  = new WorldLawAsset()
         {
@@ -114,6 +123,14 @@ public static class EmpireCraftWorldLawLibrary
             icon_path = "ui/icons/iconWar",
             default_state = true
         });
+        //军团统领实体(占领模式下的军团在地图上由一名统领代表；关闭则只有兵牌)
+        AssetManager.world_laws_library.add(empirecraft_law_corps_general = new WorldLawAsset()
+        {
+            id = nameof(empirecraft_law_corps_general),
+            group_id = "EmpireCraftCommonSetting",
+            icon_path = "ui/icons/iconWar",
+            default_state = true
+        });
         //允许社交
         AssetManager.world_laws_library.add(empirecraft_law_allow_social = new WorldLawAsset()
         {
@@ -123,7 +140,80 @@ public static class EmpireCraftWorldLawLibrary
             on_state_change = AllowSocialChange,
             default_state = false
         });
+        // 固定法理文化及其辖内城市的官方主流文化。居民文化与人口流动继续运行，
+        // 因而解锁后城市仍可从当时的人口结构重新开始文化转变流程。
+        AssetManager.world_laws_library.add(empirecraft_law_fixed_de_jure_culture = new WorldLawAsset()
+        {
+            id = nameof(empirecraft_law_fixed_de_jure_culture),
+            group_id = "EmpireCraftCommonSetting",
+            icon_path = "ui/icons/iconCulture",
+            on_state_change = FixedDeJureCultureChange,
+            default_state = false
+        });
+        // 禁止原版结盟(默认开启)：原版的建盟/入盟决议不再发起；模组自己的同盟不受影响
+        AssetManager.world_laws_library.add(empirecraft_law_ban_vanilla_alliance = new WorldLawAsset()
+        {
+            id = nameof(empirecraft_law_ban_vanilla_alliance),
+            group_id = "EmpireCraftCommonSetting",
+            icon_path = "plots/icons/plot_alliance_create",
+            on_state_change = BanVanillaAllianceChange,
+            default_state = true
+        });
+        // 文明科技树(默认开启)：装备材质、枪械和高级建筑需要本文化研究对应技术；关闭则全部放开
+        AssetManager.world_laws_library.add(empirecraft_law_tech_tree = new WorldLawAsset()
+        {
+            id = nameof(empirecraft_law_tech_tree),
+            group_id = "EmpireCraftCommonSetting",
+            icon_path = "ui/icons/iconKnowledge",
+            default_state = true
+        });
+        // 禁止近代化(默认关闭)：打开后世界停在君主立宪与中古技术，不出现政党政治、共和、工业与各模组的现代内容
+        AssetManager.world_laws_library.add(empirecraft_law_premodern = new WorldLawAsset()
+        {
+            id = nameof(empirecraft_law_premodern),
+            group_id = "EmpireCraftCommonSetting",
+            icon_path = "ui/icons/iconBooks",
+            default_state = false
+        });
+        // 民居合并为文化城池(默认开启)：城市人口过 80 后拆掉民居、建一座文化大城。
+        // 装了 modernmod 想看 6~11 级民居的话关掉它。
+        AssetManager.world_laws_library.add(empirecraft_law_combine_houses = new WorldLawAsset()
+        {
+            id = nameof(empirecraft_law_combine_houses),
+            group_id = "EmpireCraftCommonSetting",
+            icon_path = "ui/icons/iconHoused",
+            default_state = true
+        });
+        // 无小人模式(默认开启)：普通人口由城市人口数据层承载，只保留名人作为实体单位(见 CityPopulationSystem)。
+        // 默认值只用于新世界和不含此法则的旧存档；已存过此法则的存档按存档里的开关读取
+        AssetManager.world_laws_library.add(empirecraft_law_no_commoners = new WorldLawAsset()
+        {
+            id = nameof(empirecraft_law_no_commoners),
+            group_id = "EmpireCraftCommonSetting",
+            icon_path = "ui/icons/iconPopulation",
+            default_state = true
+        });
         
+    }
+
+    private static void BanVanillaAllianceChange(PlayerOptionData pOption)
+    {
+        if (pOption?.boolVal == true) ModAllianceService.DissolveVanillaAlliances();
+    }
+
+    private static void FixedDeJureCultureChange(PlayerOptionData pOption)
+    {
+        if (World.world == null) return;
+        if (World.world.cities != null)
+        {
+            foreach (City city in World.world.cities)
+                CultureService.UpdateCityCultureShiftCandidate(city);
+        }
+        if (World.world.kingdoms != null)
+        {
+            foreach (Kingdom kingdom in World.world.kingdoms)
+                CultureService.UpdateCulturalAssimilationDuty(kingdom);
+        }
     }
 
     private static void AllowSocialChange(PlayerOptionData pOption)

@@ -12,6 +12,12 @@ public static class EmpireCraftActorTraitGroupLibrary
         ActorTraitGroupLibrary lib = AssetManager.trait_groups;
         lib.add(new ActorTraitGroupAsset
         {
+            id = "EmpireIdeology",
+            name = "EmpireIdeologyGroup",
+            color = "#6AB9AE"
+        });
+        lib.add(new ActorTraitGroupAsset
+        {
             id = "EmpireExam",
             name = "EmpireExamGroup",
             color = "#5EFFFF"

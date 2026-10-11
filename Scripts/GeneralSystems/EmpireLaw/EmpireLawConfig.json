@@ -454,6 +454,15 @@
     "Note": "战时或灾时从重处罚。"
   },
   {
+    "Type": "逃人法",
+    "Category": "土地与农业",
+    "Name": "逃人法",
+    "Description": "将家庭固定于户籍所在城市，禁止无地农户因土地份额耗尽而自行迁往邻近城市。",
+    "IsForbidden": true,
+    "Punishments": ["杖刑", "监禁"],
+    "Note": "该法会阻止土地不足家庭的自发迁移，并可能使本地无地人口持续累积。"
+  },
+  {
     "Type": "MercenaryOvermighty",
     "Category": 5,
     "Name": "拥兵自重罪",

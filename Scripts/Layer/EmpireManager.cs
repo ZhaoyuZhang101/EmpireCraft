@@ -1,6 +1,7 @@
 using db;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GameLibrary;
+using EmpireCraft.Scripts.GeneralSystems;
 using EmpireCraft.Scripts.HelperFunc;
 using HarmonyLib;
 using NeoModLoader.services;
@@ -43,12 +44,19 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
             empire.RefreshCompatibilityMembership();
             _empiresToProcess.Add(empire);
         }
+        ClearStaleLegitimacyRivalries();
         double worldTime = World.world.getCurWorldTime();
-        if (_lastStatsCacheTimestamp <= 0 || Date.getMonthsSince(_lastStatsCacheTimestamp) >= 1)
+        if (_dirty_cities || _lastStatsCacheTimestamp <= 0 || worldTime < _lastStatsCacheTimestamp ||
+            Date.getMonthsSince(_lastStatsCacheTimestamp) >= 1)
         {
+            // 禁止原版结盟时，旧存档遗留或其他途径漏进来的原版同盟也一并清掉(模组同盟与神力强制同盟保留)
+            if (ModAllianceService.IsVanillaAllianceBanned()) ModAllianceService.DissolveVanillaAlliances();
+            // 帝国本身及其成员国不留在同盟里(兜底：称帝、继承、读档等途径进帝国的)
+            ModAllianceService.RemoveEmpireMembersFromAlliances();
             foreach (Empire e in _empiresToProcess)
             {
                 if (e.IsArchived()) continue;
+                e.recalculate();
                 int pop = 0;
                 int warriors = 0;
                 int warriorsMax = 0;
@@ -56,6 +64,7 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
                 for (int i = 0; i < tKingdoms.Count; i++)
                 {
                     var k = tKingdoms[i];
+                    if (!EmpireMembershipService.BelongsTo(e, k)) continue;
                     var ked = KingdomExtension.GetOrCreate(k);
                     ked.last_cached_timestamp = -1L;
                     int kp = k.getPopulationPeople();
@@ -84,11 +93,12 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
                 e.data.last_cached_timestamp = worldTime;
             }
             _lastStatsCacheTimestamp = worldTime;
+            _dirty_cities = false;
         }
 
         foreach (Empire current in _empiresToProcess)
         {
-            if (current.IsArchived()) continue;
+            if (current.IsArchived() || _to_dissolve.Contains(current)) continue;
             current.clearCursorOver();
 
             if (!current.checkActive())
@@ -112,13 +122,46 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
         _empiresToProcess.Clear();
     }
 
+    // 清理失效的正统对手，并为旧存档中的既有僭越者补齐伪法理标记。
+    private void ClearStaleLegitimacyRivalries()
+    {
+        foreach (Empire empire in _empiresToProcess)
+        {
+            if (empire?.data == null || empire.IsArchived() || empire.isRekt() ||
+                !empire.data.legitimacy_rivalry_recognized) continue;
+            Empire rival = ModClass.EMPIRE_MANAGER.get(empire.data.legitimacy_rival_empire_id);
+            if (rival == null || rival.IsArchived() || rival.isRekt())
+            {
+                ImperialLegitimacyChallengeService.ClearRivalry(empire);
+                continue;
+            }
+            if (!empire.data.legitimacy_challenger) continue;
+            EmpireCore core = EmpireCoreManager.Get(empire);
+            EmpireCore legitimateCore = EmpireCoreManager.Get(rival);
+            KingdomTitle mainTitle = empire.CoreKingdom?.GetMainTitle();
+            if (core == null || core.false_core_against_empire_id == rival.id ||
+                !EmpireCoreManager.ContainsTitle(legitimateCore, mainTitle)) continue;
+            core.false_core_against_empire_id = rival.id;
+            EmpireCoreManager.SyncCitiesFromTitles(legitimateCore);
+        }
+    }
+
+
     public void dissolveEmpire(Empire pEmpire)
     {
         if (pEmpire == null) return;
+        EmpireCore falseCore = EmpireCoreManager.Get(pEmpire);
+        bool destroyFalseCore = falseCore?.false_core_against_empire_id > 0 &&
+                                !EmpireCoreManager.GetEmpires(falseCore)
+                                    .Any(other => other != pEmpire && !other.IsArchived());
+        EmpireFormationService.OnEmpireDissolving(pEmpire);
         pEmpire.dissolve();
         pEmpire.Dispose();
         pEmpire.Archive();
         removeObject(pEmpire);
+        // 伪核心只是僭称者自行制造的主张，不是可被后继国家继承的历史法理。
+        if (destroyFalseCore && EmpireCoreManager.Get(falseCore.id) == falseCore)
+            EmpireCoreManager.DestroyEmpireCore(falseCore);
     }
 
     private List<Empire> _to_dissolve = new List<Empire>();
@@ -182,10 +225,45 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
     public Sprite[] _cached_banner_icons;
 
 
-    public Empire NewEmpire(Kingdom pKingdom, bool isSplit = false)
+    // replacingEmpire：由该帝国延续而来（核心王国灭亡后由皇族王国接续等）。它此刻仍然存在，
+    // 不能把它当成"同文化已有帝国"而拒绝建立继承者。
+    // 成员国、分封国沿用帝国的颜色；它后来自立成帝国(分裂、皇族延续如"南唐"、正统对手)时会和原帝国同色，
+    // 地图上连成一片分不清。两个现存帝国同色时，给较晚成立的一方换一个颜色
+    public static void EnsureDistinctColor(Empire empire)
+    {
+        Kingdom core = empire?.CoreKingdom;
+        if (core?.data == null || core.isRekt() || ModClass.EMPIRE_MANAGER == null) return;
+        foreach (Empire other in ModClass.EMPIRE_MANAGER.ToList())
+        {
+            if (other == null || other == empire || other.isRekt() || other.IsArchived() ||
+                other.CoreKingdom?.data == null || other.CoreKingdom.isRekt()) continue;
+            if (other.CoreKingdom.data.color_id != core.data.color_id) continue;
+            Empire younger = other.data.timestamp_established_time > empire.data.timestamp_established_time
+                ? other
+                : empire;
+            Kingdom kingdom = younger.CoreKingdom;
+            ActorAsset asset = kingdom.king?.asset ?? kingdom.units?.FirstOrDefault(unit => unit != null)?.asset;
+            if (asset == null) return;
+            ColorAsset next = kingdom.getColorLibrary()?.getNextColor(asset);
+            if (next == null) return;
+            kingdom.updateColor(next);
+            younger.updateColor(kingdom.getColor());
+            return;
+        }
+    }
+
+    public Empire NewEmpire(Kingdom pKingdom, bool isSplit = false,
+        bool allowCultureRival = false, bool forceNewCore = false, Empire replacingEmpire = null,
+        bool suppressFoundingLog = false)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.BlocksEmpireFormation(pKingdom)) return null;
         if (pKingdom == null || !pKingdom.isAlive())
+        {
+            return null;
+        }
+        string culture = CultureService.GetRealmCulture(pKingdom);
+        if (!CultureService.IsValidCulture(culture) ||
+            (!allowCultureRival && CultureService.HasActiveEmpireForCulture(culture, replacingEmpire)))
         {
             return null;
         }
@@ -204,8 +282,16 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
         }
         empire.addFounder(pKingdom);
         empire.updateColor(pKingdom.getColor());
+        EnsureDistinctColor(empire);
         empire.data.timestamp_given_time = World.world.getCurWorldTime();
-        var riseCore = EmpireCoreManager.GetRiseCandidateCore(pKingdom);
+        // 立国时间(开国气象 Empire.InFoundingGrace 用)
+        empire.data.created_time = World.world.getCurWorldTime();
+        var riseCore = forceNewCore ? null : EmpireCoreManager.GetRiseCandidateCore(pKingdom);
+        // 候选核心已归属别的现存帝国时不能抢过来(主法理在别国核心里的根本不能称帝，见 EmpireFormationService)；
+        // 此时只可能是都城/其他法理落在别国核心里，主法理本身没有核心，按规则新建核心
+        if (riseCore != null && (EmpireCoreManager.GetEmpires(riseCore).Any(other => other != empire && !other.IsArchived()) ||
+                                 EmpireCoreManager.IsClaimedByContest(riseCore, empire)))
+            riseCore = null;
         if (riseCore != null)
         {
             EmpireCoreManager.RebindEmpire(empire, riseCore);
@@ -215,8 +301,9 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
             EmpireCoreManager.newEmpireCore(empire);
         }
         pKingdom.GetOrCreate().isEmpire = true;
-        pKingdom.GetOrCreate().EmpireID = empire.id;
-        if (empire.data.has_year_name)
+        pKingdom.SetEmpireID(empire.id);
+        EmpireFormationService.OnEmpireCreated(empire);
+        if (!suppressFoundingLog && empire.data.has_year_name)
         {
             new WorldLogMessage(EmpireCraftWorldLogLibrary.become_new_empire_log, pKingdom.king.name, empire.GetEmpireName())
             {
@@ -224,7 +311,7 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
                 color_special1 = pKingdom.getColor().getColorText()
             }.add();
         }
-        else
+        else if (!suppressFoundingLog)
         {
             new WorldLogMessage(EmpireCraftWorldLogLibrary.become_new_empire_west_log, pKingdom.king.name, empire.GetEmpireName())
             {
@@ -334,8 +421,9 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
         }
         else
         {
-            empire.join(pKingdom1, true, true);
-            empire.join(pKingdom2, true, true);
+            // 玩家用权能手动加入是明确意图：无视以前的反叛记录(join 的 pLegitimacyTransfer 会一并清除)
+            empire.join(pKingdom1, true, true, pLegitimacyTransfer: true);
+            empire.join(pKingdom2, true, true, pLegitimacyTransfer: true);
         }
         return result;
     }

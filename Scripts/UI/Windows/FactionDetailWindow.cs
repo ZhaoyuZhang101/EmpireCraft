@@ -4,7 +4,9 @@ using System.Collections.Generic;
 using System.Linq;
 using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.GeneralSystems;
 using EmpireCraft.Scripts.HelperFunc;
+using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.Regimes.TemporaryFactions;
 using EmpireCraft.Scripts.UI.Components;
@@ -22,8 +24,13 @@ using Object = UnityEngine.Object;
 
 namespace EmpireCraft.Scripts.UI.Windows;
 
-public class FactionDetailWindow: AutoLayoutWindow<FactionDetailWindow>
+// 宽窗口(480×380)横屏骨架：左栏派系档案(名称/领袖/规模/所需特质/操作)固定不随滚动，右侧是成员、诉求、制度立场、阶层基本盘
+public class FactionDetailWindow : AbstractWideWindow<FactionDetailWindow>
 {
+    private AutoVertLayoutGroup _root;
+    private AutoVertLayoutGroup _rail;
+    private ScrollWindow ScrollWindowComponent => GetComponent<ScrollWindow>();
+    private const float ContentWidth = UIHelper.PageMainWidth;
     private FixedFaction _faction;
     private Kingdom _kingdom;
     private TextInput _factionNameInput;
@@ -33,14 +40,22 @@ public class FactionDetailWindow: AutoLayoutWindow<FactionDetailWindow>
     private AdvancedButton SaveOption = null;
     protected override void Init()
     {
-        layout.spacing = 3;
-        layout.padding = new RectOffset(3, 3, 80, 3);
-        _factionNameInput = Instantiate(TextInput.Prefab, this.transform.parent.transform.parent);
+        UIHelper.FixWideWindowScrollArea(BackgroundTransform);
+        _root = UIHelper.SetupWideWindowContentRoot(ContentTransform, 3f, new RectOffset(3, 3, 3, 3));
+        _rail = UIHelper.CreateWideWindowRail(BackgroundTransform, UIHelper.RailWidth, UIHelper.RailInset);
+        _factionNameInput = Instantiate(TextInput.Prefab, this.transform);
+        // 宽窗口脚本挂在窗口根上：输入框挂窗口根并脱离布局、锚点居中(同帝国窗口)
+        var inputElement = _factionNameInput.gameObject.GetComponent<LayoutElement>() ?? _factionNameInput.gameObject.AddComponent<LayoutElement>();
+        inputElement.ignoreLayout = true;
+        var inputRect = (RectTransform)_factionNameInput.transform;
+        inputRect.anchorMin = inputRect.anchorMax = inputRect.pivot = new Vector2(0.5f, 0.5f);
         _factionNameInput.Setup("", ChangeFactionName);
     }
     public override void OnNormalEnable()
     {
         base.OnNormalEnable();
+        UIHelper.FixWideWindowScrollArea(BackgroundTransform);
+        StartCoroutine(UIHelper.StabilizeWideWindowScrollArea(BackgroundTransform));
         _kingdom = SelectedMetas.selected_kingdom;   
         Clear();
         //初始化输入框
@@ -52,36 +67,56 @@ public class FactionDetailWindow: AutoLayoutWindow<FactionDetailWindow>
         //初始化成员列表
         StartCoroutine(ShowMembers());
     }
+    // 左栏派系档案：名称与理念 → 领袖 → 规模 → 所需特质(可增删) → 恢复诉求 / 存档
     [Hotfixable]
     public void InitialTopPart()
     {
         _faction?.Update();
-        if (topPart)
-        {
-            Destroy(topPart.gameObject);
-        }   
-        topPart = this.BeginVertGroup(pSpacing:-12);
-        var infoPart = topPart.BeginHoriGroup();
-        infoPart.AddActorViewIntoHoriLayout(_faction.GetLeader());
-        var leftPart = infoPart.BeginVertGroup(pAlignment: TextAnchor.MiddleCenter);
-        leftPart.AddTextIntoVertLayout($"{LM.Get("label_member_count")}: "+_faction.Count);
-        leftPart.AddTextIntoVertLayout($"{LM.Get("label_central_ratio")}: {_faction.CentralRatio}%");
-        var rightPart = infoPart.BeginHoriGroup(pAlignment: TextAnchor.MiddleCenter);
-        rightPart.AddButtonIntoHoriLayout("recover_tfaction", icon: SpriteTextureLoader.getSprite("ui/changeOfficer"), size: new Vector2(15, 15), showTip:true, action:
+        UIHelper.ClearRail(_rail);
+        if (_rail == null || _faction == null) return;
+        var identity = _rail.BeginRailCard("FactionFrame_dominate");
+        topPart = identity;
+        identity.AddRailText(_faction.Name.ColorString("#F3C34A"), 10, 14f);
+        PartyIdeology ideology = PartySystem.LeaningOf(_faction);
+        identity.AddRailText(PartySystem.GetIdeologyName(ideology).ColorString("#7FD8EA"), 7, 10f);
+        var leaderRow = identity.BeginHoriGroup(new Vector2(UIHelper.RailWidth - 8f, 32f), TextAnchor.MiddleLeft, 3,
+            new RectOffset(0, 0, 0, 0));
+        leaderRow.transform.localPosition = Vector3.zero;
+        Actor leader = _faction.GetLeader();
+        leaderRow.AddActorViewIntoHoriLayout(leader);
+        var leaderText = leaderRow.BeginVertGroup(new Vector2(UIHelper.RailWidth - 42f, 28f), pSpacing: 0,
+            pAlignment: TextAnchor.MiddleLeft, pPadding: new RectOffset(0, 0, 0, 0));
+        leaderText.transform.localPosition = Vector3.zero;
+        leaderText.AddTextIntoVertLayout(LM.Get("faction_leader").ColorString("#FFCC00"), true, TextAnchor.MiddleLeft,
+            new Vector2(UIHelper.RailWidth - 42f, 10f)).UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+        leaderText.AddTextIntoVertLayout((leader?.getName() ?? LM.Get("label_none")).ColorString("#F2EEE2"), true,
+            TextAnchor.MiddleLeft, new Vector2(UIHelper.RailWidth - 42f, 12f)).UseFixedFontSize(8, HorizontalWrapMode.Overflow);
+        var actions = identity.BeginHoriGroup(new Vector2(UIHelper.RailWidth - 8f, 16f), TextAnchor.MiddleCenter, 6,
+            new RectOffset(0, 0, 0, 0));
+        actions.AddButtonIntoHoriLayout("recover_tfaction", icon: SpriteTextureLoader.getSprite("ui/changeOfficer"), size: new Vector2(15, 15), showTip:true, action:
             () =>
             {
-                _faction.TemporaryFactionTypesRecord = new List<TemporaryFactionType>(_faction.TemporaryFactionTypes);
+                _faction.TemporaryFactionTypesRecord = _faction.IsParty && _faction.TemporaryFactionTypesRecord != null
+                    ? _faction.TemporaryFactionTypesRecord
+                    : new List<TemporaryFactionType>(_faction.TemporaryFactionTypes ?? new List<TemporaryFactionType>());
                 _faction.TemporaryFactions = _faction.ConvertToObjectFromFactionType();
                 ShowClaims();
             });
-        rightPart.AddButtonIntoHoriLayout("save_faction", icon:SpriteTextureLoader.getSprite("ui/icons/iconSaveLocal"), size:new Vector2(15, 15), showTip:true, action:
+        actions.AddButtonIntoHoriLayout("save_faction", icon:SpriteTextureLoader.getSprite("ui/icons/iconSaveLocal"), size:new Vector2(15, 15), showTip:true, action:
             ShowFactionSaveSpace);
-        topPart.AddTextIntoVertLayout("所需特质: ", hideBackground:true, TextAnchor.LowerCenter, size: new Vector2(25, 15));
-        var traitsPart =  topPart.BeginHoriGroup();
+
+        var stats = _rail.BeginRailCard();
+        float rowWidth = UIHelper.RailWidth - 8f;
+        stats.AddRailRow(rowWidth, LM.Get("label_member_count"), _faction.Count.ToString(), "#F2EEE2", 0);
+        stats.AddRailRow(rowWidth, LM.Get("label_central_ratio"), $"{_faction.CentralRatio}%", "#F3C34A", 1);
+        stats.AddRailRow(rowWidth, LM.Get("faction_rail_class_power"), $"{_faction.ClassPower:0.#}%", "#7FD8EA", 2);
+
+        var traits = _rail.BeginRailCard();
+        traits.AddRailText(LM.Get("faction_required_traits").ColorString("#8FA0A8"), 6, 9f);
+        var traitsPart = traits.BeginHoriGroup(pAlignment: TextAnchor.MiddleLeft, pPadding: new RectOffset(0, 0, 0, 0));
         InitTraitPart(traitsPart);
-        topPart.gameObject.AdjustTopPart(transform.parent.transform);
-        topPart.transform.AddStretchBackground("regimeFrame", new Vector2(220, 75));
     }
+
     /// <summary>
     /// 显示派系存储配置
     /// </summary>
@@ -89,7 +124,7 @@ public class FactionDetailWindow: AutoLayoutWindow<FactionDetailWindow>
     {
         Clear();
         InitialTopPart();
-        var factionSavePart = this.BeginVertGroup(pAlignment:  TextAnchor.MiddleCenter);
+        var factionSavePart = _root.BeginVertGroup(pAlignment:  TextAnchor.MiddleCenter);
         factionSavePart.AddTextIntoVertLayout(LM.Get("save_faction_setting"), true, size: new Vector2(45, 25));
         var saveCardSpace = factionSavePart.BeginHoriGroup();
         SaveOption = saveCardSpace.transform.AddNormalOptionIntoHori(saveCardSpace.BeginHoriGroup(), "save_into_current_title",
@@ -121,7 +156,7 @@ public class FactionDetailWindow: AutoLayoutWindow<FactionDetailWindow>
         {
             ShowTrait(trait, parent);
         }
-        var addOrRecoverSpace = parent.BeginVertGroup(pSize: new Vector2(20, 45), TextAnchor.MiddleCenter);
+        var addOrRecoverSpace = parent.BeginVertGroup(pSize: new Vector2(14, 30), TextAnchor.MiddleCenter);
             
         addOrRecoverSpace.AddButtonIntoVertLayout("addNewTrait", "", () =>
         {
@@ -134,7 +169,7 @@ public class FactionDetailWindow: AutoLayoutWindow<FactionDetailWindow>
         var actorTrait = AssetManager.traits.get(trait);
         if (actorTrait != null)
         {
-            var traitEdit = parent.BeginVertGroup(pSize:new Vector2(20, 45), pSpacing: -5);
+            var traitEdit = parent.BeginVertGroup(pSize:new Vector2(20, 30), pSpacing: -5);
             traitEdit.AddTraitIntoVertLayout(trait);
             traitEdit.AddButtonIntoVertLayout("remove_trait", "", ()=>RemoveTrait(trait, parent), icon: SpriteTextureLoader.getSprite("ui/iconRemove"), size: new Vector2(8, 8));
         }
@@ -173,10 +208,179 @@ public class FactionDetailWindow: AutoLayoutWindow<FactionDetailWindow>
             pastEmperorsWindowTab.Setup("show_claims", this.ScrollWindowComponent, action:ShowClaims,
                 sprite:SpriteTextureLoader.getSprite("SplitAllUnderHeaven"));
         }
+        if (ScrollWindowComponent.tabs._tabs.All(p => p.name != "show_institution_stance"))
+        {
+            var institutionTab = GameObject.Instantiate(SimpleWindowTab.Prefab);
+            institutionTab.Setup("show_institution_stance", ScrollWindowComponent, action: ShowInstitutionStance,
+                sprite: SpriteTextureLoader.getSprite("ChineseCrown"));
+        }
+        if (ScrollWindowComponent.tabs._tabs.All(p => p.name != "show_faction_class_base"))
+        {
+            var classTab = GameObject.Instantiate(SimpleWindowTab.Prefab);
+            classTab.Setup("show_faction_class_base", ScrollWindowComponent, action: ShowClassBase,
+                sprite: SpriteTextureLoader.getSprite("ui/icons/actor_traits/iconJingshi"));
+        }
+    }
+
+    [Hotfixable]
+    public void ShowClassBase(WindowMetaTab window = null)
+    {
+        Clear();
+        InitialTopPart();
+        Empire empire = _faction?.Empire ?? _kingdom?.GetEmpire();
+        if (empire == null || _faction == null) return;
+        List<FixedFaction> factions = empire.CoreKingdom?.GetRegime()?.GetPlayerFactions() ?? new List<FixedFaction>();
+        FactionClassSystem.EnsureEmpireProfiles(empire, factions);
+        Dictionary<SocialClass, float> population = InstitutionSystem.BuildClassShares(empire);
+        _faction.ClassPower = population.Sum(pair => pair.Value * _faction.ClassSupport[pair.Key]);
+
+        var content = _root.BeginVertGroup(pSpacing: 1, pAlignment: TextAnchor.UpperCenter);
+        content.AddTextIntoVertLayout(LM.Get("faction_class_foundation_title").ColorString("#7FD8EA"), true,
+            TextAnchor.MiddleCenter, new Vector2(ContentWidth, 15));
+        content.AddTextIntoVertLayout(
+            string.Format(LM.Get("faction_class_power_summary"), _faction.ClassPower, _faction.CentralRatio), true,
+            TextAnchor.MiddleCenter, new Vector2(ContentWidth, 14));
+        content.AddTextIntoVertLayout(LM.Get("faction_class_model_hint").ColorString("#8FA0A8"), true,
+            TextAnchor.MiddleCenter, new Vector2(ContentWidth, 28));
+
+        List<SocialClass> classes = Enum.GetValues(typeof(SocialClass)).Cast<SocialClass>()
+            .OrderByDescending(socialClass => population.TryGetValue(socialClass, out float share)
+                ? share * _faction.ClassSupport[socialClass]
+                : 0f)
+            .ToList();
+        foreach (SocialClass socialClass in classes)
+        {
+            float populationShare = population.TryGetValue(socialClass, out float share) ? share * 100f : 0f;
+            float affinity = _faction.ClassAffinities[socialClass];
+            float favor = _faction.ClassFavor[socialClass];
+            float support = _faction.ClassSupport[socialClass];
+            float contribution = populationShare * support / 100f;
+            string affinityText = GetAffinityText(affinity);
+            string affinityColor = affinity >= 20f ? "#65D66E" : affinity <= -20f ? "#D98C8C" : "#B8C6CC";
+            string favorColor = favor >= 60f ? "#65D66E" : favor <= 40f ? "#D98C8C" : "#F3C34A";
+
+            var row = content.BeginVertGroup(pSpacing: 0, pAlignment: TextAnchor.MiddleCenter);
+            row.AddTextIntoVertLayout(
+                $"{LM.Get($"class_{socialClass}").ColorString("#F3C34A")}  " +
+                $"[{LM.Get(FactionClassSystem.GetStratumKey(socialClass))}]  " +
+                string.Format(LM.Get("faction_class_population"), populationShare), true,
+                TextAnchor.MiddleLeft, new Vector2(ContentWidth - 8f, 12));
+            row.AddTextIntoVertLayout(
+                string.Format(LM.Get("faction_class_attitude_line"),
+                    affinityText.ColorString(affinityColor), favor.ToString("0").ColorString(favorColor)), true,
+                TextAnchor.MiddleLeft, new Vector2(ContentWidth - 8f, 12));
+            row.AddTextIntoVertLayout(
+                string.Format(LM.Get("faction_class_support_line"), support, contribution), true,
+                TextAnchor.MiddleLeft, new Vector2(ContentWidth - 8f, 12));
+            row.AddTextIntoVertLayout(
+                string.Format(LM.Get("faction_class_recent_source"),
+                    FactionClassSystem.GetFavorSourceText(_faction, socialClass)).ColorString("#8FA0A8"), true,
+                TextAnchor.MiddleLeft, new Vector2(ContentWidth - 8f, 16));
+            List<string> claimOptions = (_faction.TemporaryFactionTypesRecord ?? new List<TemporaryFactionType>())
+                .Select(claim => (claim, effect: FactionClassSystem.GetClaimClassEffect(claim, socialClass)))
+                .Where(item => item.effect > 0f).OrderByDescending(item => item.effect).Take(2)
+                .Select(item => $"{LM.Get(item.claim.ToString())} +{item.effect:0}").ToList();
+            List<string> institutionOptions = InstitutionSystem.GetFactionInstitutionStance(
+                    InstitutionSystem.GetPrimaryCulture(empire), _faction.Type).supports
+                .Where(node => !InstitutionSystem.IsEnacted(empire, node.id) &&
+                               node.politics.support_classes.TryGetValue(socialClass, out float weight) && weight > 0f)
+                .OrderByDescending(node => node.politics.support_classes[socialClass]).Take(2)
+                .Select(InstitutionSystem.GetNodeName).ToList();
+            string options = string.Join(" · ", claimOptions.Concat(institutionOptions));
+            row.AddTextIntoVertLayout(
+                string.Format(LM.Get("faction_class_courting_options"), string.IsNullOrWhiteSpace(options)
+                    ? LM.Get("faction_class_no_courting_option")
+                    : options).ColorString("#B8C6CC"), true,
+                TextAnchor.MiddleLeft, new Vector2(ContentWidth - 8f, 22));
+        }
+        _groups.Add(content.gameObject);
+    }
+
+    private static string GetAffinityText(float affinity)
+    {
+        if (affinity >= 60f) return LM.Get("faction_class_affinity_core");
+        if (affinity >= 20f) return LM.Get("faction_class_affinity_friendly");
+        if (affinity > -20f) return LM.Get("faction_class_affinity_neutral");
+        if (affinity > -60f) return LM.Get("faction_class_affinity_distant");
+        return LM.Get("faction_class_affinity_hostile");
+    }
+
+    [Hotfixable]
+    public void ShowInstitutionStance(WindowMetaTab window = null)
+    {
+        Clear();
+        InitialTopPart();
+        Empire empire = _faction?.Empire ?? _kingdom?.GetEmpire();
+        if (empire == null || _faction == null) return;
+
+        string culture = InstitutionSystem.GetPrimaryCulture(empire);
+        (List<InstitutionNodeConfig> supports, List<InstitutionNodeConfig> opposes) =
+            InstitutionSystem.GetFactionInstitutionStance(culture, _faction.Type);
+        Dictionary<string, InstitutionNodeView> views = InstitutionSystem.BuildLineView(empire)
+            .ToDictionary(view => view.Node.id, view => view);
+
+        var content = _root.BeginVertGroup(pSpacing: 1, pAlignment: TextAnchor.UpperCenter);
+        content.AddTextIntoVertLayout(LM.Get("institution_faction_stance_title").ColorString("#7FD8EA"), true,
+            TextAnchor.MiddleCenter, new Vector2(ContentWidth, 16));
+
+        InstitutionReformState active = empire.data.institution_state?.active_reform;
+        if (active != null)
+        {
+            InstitutionNodeConfig activeNode = InstitutionDefinitionRegistry.Get(active.node_id);
+            FixedFaction sponsor = InstitutionSystem.GetReformSponsor(empire, active);
+            string role = sponsor == _faction
+                ? LM.Get("institution_faction_role_sponsor")
+                : activeNode?.politics.support_factions.ContainsKey(_faction.Type) == true
+                    ? LM.Get("institution_faction_role_supporter")
+                    : activeNode?.politics.oppose_factions.ContainsKey(_faction.Type) == true
+                        ? LM.Get("institution_faction_role_opponent")
+                        : LM.Get("institution_faction_role_neutral");
+            content.AddTextIntoVertLayout(string.Format(LM.Get("institution_faction_active_reform"),
+                    InstitutionSystem.GetNodeName(activeNode), role, active.progress, active.radicalism), true,
+                TextAnchor.MiddleCenter, new Vector2(ContentWidth, 28));
+        }
+
+        AddInstitutionStanceGroup(content, LM.Get("institution_faction_supports"), supports, views, "#65D66E");
+        AddInstitutionStanceGroup(content, LM.Get("institution_faction_opposes"), opposes, views, "#D98C8C");
+        _groups.Add(content.gameObject);
+    }
+
+    private static void AddInstitutionStanceGroup(AutoVertLayoutGroup parent, string title,
+        IEnumerable<InstitutionNodeConfig> nodes, Dictionary<string, InstitutionNodeView> views, string color)
+    {
+        List<InstitutionNodeConfig> list = nodes?.ToList() ?? new List<InstitutionNodeConfig>();
+        parent.AddTextIntoVertLayout(title.ColorString(color), true, TextAnchor.MiddleCenter,
+            new Vector2(ContentWidth, 14));
+        if (list.Count == 0)
+        {
+            parent.AddTextIntoVertLayout(LM.Get("institution_faction_no_stance").ColorString("#8FA0A8"), true,
+                TextAnchor.MiddleCenter, new Vector2(ContentWidth, 14));
+            return;
+        }
+
+        foreach (InstitutionNodeConfig node in list)
+        {
+            InstitutionNodeStatus status = views.TryGetValue(node.id, out InstitutionNodeView view)
+                ? view.Status
+                : InstitutionNodeStatus.Locked;
+            string statusText = status switch
+            {
+                InstitutionNodeStatus.Enacted => LM.Get("institution_status_enacted"),
+                InstitutionNodeStatus.Reforming => LM.Get("institution_status_reforming"),
+                InstitutionNodeStatus.Available => LM.Get("institution_status_available"),
+                InstitutionNodeStatus.Forceable => LM.Get("institution_status_force_available"),
+                InstitutionNodeStatus.Superseded => LM.Get("institution_status_superseded"),
+                _ => LM.Get("institution_status_locked")
+            };
+            parent.AddTextIntoVertLayout(
+                $"{InstitutionSystem.GetNodeName(node)}  [{statusText}]".ColorString(color), true,
+                TextAnchor.MiddleLeft, new Vector2(ContentWidth - 10f, 14));
+        }
     }
 
     public void Clear()
     {
+        UIHelper.ClearRail(_rail);
         foreach (var part in _groups)
         {
             Destroy(part);
@@ -192,7 +396,7 @@ public class FactionDetailWindow: AutoLayoutWindow<FactionDetailWindow>
     {
         Clear();
         InitialTopPart();
-        var content = this.BeginVertGroup();
+        var content = _root.BeginVertGroup();
         content.AddTextIntoVertLayout(LM.Get("label_all_members"), true, TextAnchor.MiddleCenter, size:new Vector2(40, 15));
         yield  return CoroutineHelper.wait_for_next_frame;
         var card = content.BeginVertGroup(pSpacing:-5);
@@ -217,7 +421,7 @@ public class FactionDetailWindow: AutoLayoutWindow<FactionDetailWindow>
             yield return CoroutineHelper.wait_for_next_frame;
         }
 
-        var buttonSpace = parent.BeginVertGroup(pSize: new Vector2(185, 55), TextAnchor.MiddleCenter);
+        var buttonSpace = parent.BeginVertGroup(pSize: new Vector2(ContentWidth - 15f, 55), TextAnchor.MiddleCenter);
         buttonSpace.AddButtonIntoVertLayout("add_member", "", () =>
         {
             if (!_faction.Empire.isRekt())
@@ -226,7 +430,7 @@ public class FactionDetailWindow: AutoLayoutWindow<FactionDetailWindow>
             }
             ActionLibrary.showWhisperTip("inactivated_faction");
         }, icon: SpriteTextureLoader.getSprite("ui/setOfficer"), size:new Vector2(25, 25), hideBackground:false);
-        buttonSpace.transform.transform.AddStretchBackground("FactionFrame", size: new Vector2(185, 45));
+        buttonSpace.transform.transform.AddStretchBackground("FactionFrame", size: new Vector2(ContentWidth - 15f, 45));
         yield return CoroutineHelper.wait_for_next_frame;
         
     }
@@ -269,7 +473,7 @@ public class FactionDetailWindow: AutoLayoutWindow<FactionDetailWindow>
         pActor.GetIdentity()?.setLeaderButton?.SetStatus(_faction.GetLeader()==pActor);
         editActorPart.AddButtonIntoVertLayout("remove_member", action:() => RemoveMember(pActor), showTip:true, size: new Vector2(12, 12), icon:SpriteTextureLoader.getSprite("ui/iconRemove"));
         pActor.GetIdentity()?.memberCardSpace.transform.AddStretchBackground(
-            _faction.GetLeader() == pActor ? "FactionFrame_dominate" : "FactionFrame", size: new Vector2(185, 45));
+            _faction.GetLeader() == pActor ? "FactionFrame_dominate" : "FactionFrame", size: new Vector2(ContentWidth - 15f, 45));
     }
     public void RemoveMember(Actor pActor)
     {
@@ -279,7 +483,7 @@ public class FactionDetailWindow: AutoLayoutWindow<FactionDetailWindow>
     public void SetLeader(Actor pActor)
     {
         _faction.SetLeader(pActor);
-        pActor?.GetIdentity()?.memberCardSpace.transform.AddStretchBackground("FactionFrame_dominate", size: new Vector2(185, 45));
+        pActor?.GetIdentity()?.memberCardSpace.transform.AddStretchBackground("FactionFrame_dominate", size: new Vector2(ContentWidth - 15f, 45));
         pActor?.GetIdentity()?.setLeaderButton?.SetStatus(true);
         InitialTopPart();
         foreach (var actor in _faction.AllMembers)
@@ -288,7 +492,7 @@ public class FactionDetailWindow: AutoLayoutWindow<FactionDetailWindow>
             if (actor == pActor) continue;
             if (identity != null)
             {
-                identity.memberCardSpace?.transform.AddStretchBackground("FactionFrame", size: new Vector2(185, 45));
+                identity.memberCardSpace?.transform.AddStretchBackground("FactionFrame", size: new Vector2(ContentWidth - 15f, 45));
                 identity.setLeaderButton?.SetStatus(false);
             }
         }
@@ -332,56 +536,71 @@ public class FactionDetailWindow: AutoLayoutWindow<FactionDetailWindow>
     {
         Clear();
         InitialTopPart();
-        var claimSpace = this.BeginVertGroup();
-        claimSpace.AddTextIntoVertLayout(LM.Get("label_all_claims"), size: new Vector2(35, 18), hideBackground:true, anchor: TextAnchor.MiddleCenter);
-        foreach (var tf in _faction.TemporaryFactions)
+        var claimSpace = _root.BeginVertGroup();
+        string agendaTitle = _faction.IsParty
+            ? string.Format(LM.Get("agenda_party_title"), PartySystem.GetIdeologyName(_faction.Ideology))
+            : LM.Get("label_all_claims");
+        claimSpace.AddTextIntoVertLayout(agendaTitle, size: new Vector2(ContentWidth, 18), hideBackground:true,
+            anchor: TextAnchor.MiddleCenter);
+        ClaimAgendaContext context = ClaimAgendaSystem.BuildContext(_faction?.Empire ?? _kingdom?.GetEmpire());
+        var entries = _faction.TemporaryFactions.Where(tf => tf != null)
+            .Select(tf => (claim: tf, view: ClaimAgendaSystem.Evaluate(context, _faction, tf)))
+            .OrderByDescending(entry => entry.view.Score).ToList();
+        // 议题分两组：本派独有的议题，与各派都能上奏的公共议题(赋税、战和、取士)
+        foreach ((string key, bool isPublic) in new[] { ("court_unique_issues", false), ("court_public_issues", true) })
         {
-            ShowClaim(tf, claimSpace);
+            var group = entries.Where(entry => CourtIssues.IsPublic(entry.claim.type) == isPublic).ToList();
+            if (group.Count == 0) continue;
+            claimSpace.AddTextIntoVertLayout(LM.Get(key).ColorString("#F3C34A"), size: new Vector2(ContentWidth, 14),
+                hideBackground: true, anchor: TextAnchor.MiddleLeft);
+            foreach (var entry in group) ShowClaim(entry.claim, entry.view, claimSpace, context);
         }
-        var addSpace = claimSpace.BeginHoriGroup(new Vector2(200, 30), TextAnchor.MiddleCenter);
+        var addSpace = claimSpace.BeginHoriGroup(new Vector2(ContentWidth, 30), TextAnchor.MiddleCenter);
         addSpace.AddButtonIntoHoriLayout("add_tfaction", "", () =>
         {
             Clear();
             InitialTopPart();
-            var selectPart = this.BeginVertGroup(pSize: new Vector2(200, 800), pAlignment: TextAnchor.MiddleCenter);
+            var selectPart = _root.BeginVertGroup(pSize: new Vector2(ContentWidth, 800), pAlignment: TextAnchor.MiddleCenter);
             foreach (var tf in FactionManager.FactionConfig)
             {
                 selectPart.AddTextIntoVertLayout(tf.Key.ToString(), size: new Vector2(35, 18), anchor: TextAnchor.MiddleCenter, hideBackground:true);
-                var tFactionContent = selectPart.BeginGridGroup(5, pCellSize: new Vector2(30, 18));
+                var tFactionContent = selectPart.BeginGridGroup(5, pCellSize: new Vector2(58, 18));
                 foreach (var tf2 in tf.Value)
                 {
-                    tFactionContent.AddButtonIntoGirdLayout(tf2.ToString(), LM.Get(tf2.ToString()), () =>
+                    tFactionContent.AddButtonIntoGirdLayout(tf2.ToString(), TranslateHelper.GetTemporaryFactionClaimText(tf2), () =>
                     {
                         _faction.TemporaryFactionTypesRecord.Add(tf2);
                         _faction.TemporaryFactions = _faction.ConvertToObjectFromFactionType();
                         ShowClaims();
-                    }, size: new Vector2(30, 18));
+                    }, size: new Vector2(58, 18));
                 }
             }
             _groups.Add(selectPart.gameObject);
         },SpriteTextureLoader.getSprite("ui/setOfficer"), size: new Vector2(20, 20));
-        addSpace.transform.AddStretchBackground("FactionFrame", new Vector2(200, 30));
+        addSpace.transform.AddStretchBackground("FactionFrame", new Vector2(ContentWidth, 30));
         _groups.Add(claimSpace.gameObject);
     }
     [Hotfixable]
-    public void ShowClaim(TemporaryFaction pFaction, AutoVertLayoutGroup parent)
+    public void ShowClaim(TemporaryFaction pFaction, ClaimAgendaView agenda, AutoVertLayoutGroup parent,
+        ClaimAgendaContext context)
     {
-        var tfSpace = parent.BeginHoriGroup(new Vector2(200, 40), pSpacing:20);
+        var card = parent.BeginVertGroup(pSpacing: 0, pAlignment: TextAnchor.MiddleCenter);
+        var tfSpace = card.BeginHoriGroup(new Vector2(ContentWidth, 36), pSpacing:20);
         var firstPart = tfSpace.BeginVertGroup();
-        firstPart.AddTextIntoVertLayout(LM.Get(pFaction.type.ToString()), hideBackground:true);
+        firstPart.AddTextIntoVertLayout(TranslateHelper.GetTemporaryFactionClaimText(pFaction.type), hideBackground:true);
         firstPart.AddTextIntoVertLayout($"{LM.Get("label_budget")}: {pFaction.Budget}");
         var secondPart = tfSpace.BeginVertGroup(pSpacing:-5);
-        var hideButton = secondPart.transform.AddNormalOptionIntoHori(this.BeginHoriGroup(), "hide_tfaction", () =>
+        var hideButton = secondPart.transform.AddNormalOptionIntoHori(_root.BeginHoriGroup(), "hide_tfaction", () =>
         {
             pFaction.Hide = !pFaction.Hide;
             pFaction.hideButton?.SetStatus(pFaction.Hide);
         }, pFaction.Hide, size: new Vector2(12, 12), isOption:true);
-        var localPushButton = secondPart.transform.AddNormalOptionIntoHori(this.BeginHoriGroup(), "localpush_tfaction", () =>
+        var localPushButton = secondPart.transform.AddNormalOptionIntoHori(_root.BeginHoriGroup(), "localpush_tfaction", () =>
         {
             pFaction.canBePushByLocal = !pFaction.canBePushByLocal;
             pFaction.localPushButton?.SetStatus(pFaction.canBePushByLocal);
-        }, pFaction.Hide, size: new Vector2(12, 12), isOption:false, hasTitle:false);
-        var activeButton = secondPart.transform.AddNormalOptionIntoHori(this.BeginHoriGroup(), "active_tfaction", () =>
+        }, pFaction.canBePushByLocal, size: new Vector2(12, 12), isOption:false, hasTitle:false);
+        var activeButton = secondPart.transform.AddNormalOptionIntoHori(_root.BeginHoriGroup(), "active_tfaction", () =>
         {
             pFaction.Active = !pFaction.Active;
             pFaction.activeButton?.SetStatus(pFaction.Active);
@@ -389,21 +608,19 @@ public class FactionDetailWindow: AutoLayoutWindow<FactionDetailWindow>
         pFaction.hideButton =  hideButton;
         pFaction.activeButton =  activeButton;
         pFaction.localPushButton = localPushButton;
-        var thirdPart = tfSpace.BeginVertGroup(new Vector2(30, 30));
-        var showButton = thirdPart.transform.AddNormalOptionIntoHori(this.BeginHoriGroup(), "show_tfaction_as_plot", () =>
+        if (!_faction.IsParty)
         {
-            pFaction.ShowAsPlot = !pFaction.ShowAsPlot;
-            if ((_kingdom?.king?.plot?.name??"") == pFaction.type.ToString())
+            var thirdPart = tfSpace.BeginVertGroup(new Vector2(30, 30));
+            var showButton = thirdPart.transform.AddNormalOptionIntoHori(_root.BeginHoriGroup(), "show_tfaction_as_plot", () =>
             {
-                _kingdom?.king?.plot?.setAlive(false);
-            }
-            if (pFaction.IsStarted())
-            {
-                pFaction.End();
-            }
-            pFaction.showButton?.SetStatus(pFaction.ShowAsPlot);
-        }, pFaction.ShowAsPlot, size: new Vector2(12, 12), isOption:true);
-        pFaction.showButton =  showButton;
+                pFaction.ShowAsPlot = !pFaction.ShowAsPlot;
+                if ((_kingdom?.king?.plot?.name??"") == pFaction.type.ToString())
+                    _kingdom?.king?.plot?.setAlive(false);
+                if (pFaction.IsStarted()) pFaction.End();
+                pFaction.showButton?.SetStatus(pFaction.ShowAsPlot);
+            }, pFaction.ShowAsPlot, size: new Vector2(12, 12), isOption:true);
+            pFaction.showButton = showButton;
+        }
         
         var fourthPart = tfSpace.BeginVertGroup(pAlignment: TextAnchor.MiddleCenter);
         fourthPart.AddButtonIntoVertLayout("remove_tfaction", "", () =>
@@ -412,7 +629,49 @@ public class FactionDetailWindow: AutoLayoutWindow<FactionDetailWindow>
             _faction.TemporaryFactionTypesRecord.Remove(pFaction.type);
             ShowClaims();
         }, icon: SpriteTextureLoader.getSprite("ui/iconRemove"), size: new Vector2(13, 13));
-        tfSpace.transform.AddStretchBackground("FactionFrame", new Vector2(200, 42));
+        string statusKey = !pFaction.Active ? "agenda_status_inactive" :
+            pFaction.IsStarted() ? "agenda_status_running" :
+            pFaction.CountDown > 0 ? "agenda_status_cooldown" :
+            !agenda.CanPropose ? "agenda_status_blocked" : "agenda_status_eligible";
+        string status = LM.Get(statusKey);
+        if (!agenda.CanPropose) status += $": {LM.Get(agenda.Blocker)}";
+        card.AddTextIntoVertLayout(status.ColorString(agenda.CanPropose ? "#65D6C4" : "#D98C8C"), true,
+            TextAnchor.MiddleLeft, new Vector2(ContentWidth - 8f, 14));
+        card.AddTextIntoVertLayout(string.Format(LM.Get("agenda_support_line"), agenda.Support,
+                agenda.Opposition), true,
+            TextAnchor.MiddleLeft, new Vector2(ContentWidth - 8f, 14));
+        if (!_faction.IsParty)
+            card.AddTextIntoVertLayout(string.Format(LM.Get("court_stance_line"),
+                    CourtPanel.StanceMark(CourtIssues.StanceLevel(_faction, pFaction.type)),
+                    CourtIssues.Stance(_faction, pFaction.type).ToString("0")), true,
+                TextAnchor.MiddleLeft, new Vector2(ContentWidth - 8f, 14));
+        string technology = string.IsNullOrEmpty(agenda.TechnologyName) ? LM.Get("agenda_no_technology") :
+            agenda.TechnologyName;
+        if (_faction.IsParty)
+        {
+            string seats = context?.ParliamentSeats > 0 ? $"{agenda.LegislativeShare:0}%" :
+                LM.Get("agenda_no_parliament");
+            card.AddTextIntoVertLayout(string.Format(LM.Get("agenda_political_line"), agenda.PopulationShare,
+                    seats, agenda.Urgency), true, TextAnchor.MiddleLeft, new Vector2(ContentWidth - 8f, 14));
+            card.AddTextIntoVertLayout(string.Format(LM.Get("agenda_technology_line"), technology,
+                    agenda.IdeologyStage, pFaction.progress, pFaction.progressMax), true,
+                TextAnchor.MiddleLeft, new Vector2(ContentWidth - 8f, 14));
+        }
+        else
+        {
+            card.AddTextIntoVertLayout(string.Format(LM.Get("agenda_faction_progress_line"), technology,
+                    pFaction.progress, pFaction.progressMax), true, TextAnchor.MiddleLeft, new Vector2(ContentWidth - 8f, 14));
+        }
+        if (pFaction.type == TemporaryFactionType.提高福利 && context?.Empire?.data?.constitutional_economy != null)
+        {
+            var state = context.Empire.data.constitutional_economy;
+            card.AddTextIntoVertLayout(string.Format(LM.Get("agenda_welfare_line"), state.welfare_level,
+                    ConstitutionalEconomySystem.GetWelfareAnnualCost(context.Empire, state.welfare_level),
+                    LM.Get(state.welfare_funded ? "agenda_welfare_funded" : "agenda_welfare_unfunded")),
+                true, TextAnchor.MiddleLeft, new Vector2(ContentWidth - 8f, 14));
+        }
+        card.transform.AddStretchBackground("FactionFrame", new Vector2(ContentWidth,
+            (_faction.IsParty ? 94 : 80) + (pFaction.type == TemporaryFactionType.提高福利 ? 14 : 0)));
     }
     
     public void ChangeFactionName(string newName)
@@ -424,6 +683,6 @@ public class FactionDetailWindow: AutoLayoutWindow<FactionDetailWindow>
     {
         _faction = ConfigData.CURRENT_SELECTED_FACTION;
         var text = _faction.Name;
-        UIHelper.GenerateTextInput(this.transform.parent.transform.parent, offset:new Vector2(0, 152), default_text:text, input:_factionNameInput);
+        this.transform.GenerateTextInput(offset:new Vector2(0, 218), default_text:text, input:_factionNameInput);
     }
 }

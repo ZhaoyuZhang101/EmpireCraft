@@ -6,17 +6,20 @@ public static class HighPopulationPerformance
 {
     private const int CivilianAiThreshold = 5000;
     private const int ExtremePopulationThreshold = 20000;
+    private const float HighPopulationFrontLineCacheSeconds = 0.25f;
+    private const float ExtremePopulationFrontLineCacheSeconds = 0.5f;
 
     public static int GetFrontLineCacheKey()
     {
-        int interval = 1;
-        if (ModClass.PERFORMANCE_HIGH_POPULATION_MODE && World.world?.units != null)
-        {
-            int unitCount = World.world.units.Count;
-            interval = unitCount >= ExtremePopulationThreshold ? 4 :
-                unitCount >= CivilianAiThreshold ? 2 : 1;
-        }
+        if (!ModClass.PERFORMANCE_HIGH_POPULATION_MODE || World.world?.units == null)
+            return Time.frameCount;
 
-        return Time.frameCount / interval;
+        int unitCount = World.world.units.Count;
+        if (unitCount < CivilianAiThreshold) return Time.frameCount;
+
+        float cacheSeconds = unitCount >= ExtremePopulationThreshold
+            ? ExtremePopulationFrontLineCacheSeconds
+            : HighPopulationFrontLineCacheSeconds;
+        return Mathf.FloorToInt(Time.realtimeSinceStartup / cacheSeconds);
     }
 }

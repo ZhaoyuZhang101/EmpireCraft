@@ -1,6 +1,7 @@
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
+using EmpireCraft.Scripts.GeneralSystems;
 using NeoModLoader.services;
 using System;
 using System.Collections.Generic;
@@ -15,6 +16,16 @@ public static class EmpireCraftActorTraitLibrary
     public static void init()
     {
         ActorTraitLibrary lib = AssetManager.traits;
+        IdeologyTraitIcons.Register();
+        foreach (PartyIdeology ideology in Enum.GetValues(typeof(PartyIdeology)))
+            lib.add(new ActorTrait
+            {
+                id = IdeologyPopulationSystem.TraitId(ideology),
+                path_icon = IdeologyTraitIcons.Path(ideology),
+                group_id = "EmpireIdeology",
+                action_on_augmentation_add = IdeologyPopulationSystem.OnTraitAdded
+            });
+        IdeologyPopulationSystem.SetTraitsReady();
         lib.add(new ActorTrait
         {
             id = "jingshi",
@@ -87,6 +98,44 @@ public static class EmpireCraftActorTraitLibrary
         lib.t.base_stats["critical_chance"] = 0.8f;
         lib.t.base_stats["critical_damage_multiplier"] = 0.5f;
 
+        // 文化科技树"战术研究"类节点解锁后发放的特质：不是靠身份(入伍/晋升)获得，
+        // 而是靠制度研究获得，所以数值比 empireSoldier/empireArmedProvinceSoldier
+        // (那两个是"身份"特质)小一些，算是在身份特质之上的额外加成，不是替代关系。
+        // 图标复用游戏自带的 ui/icons/iconWar(本模组其它地方已经在用这个图标，确认加载没问题)，
+        // 跟 empireSoldier/empireArmedProvinceSoldier 已经占用的两张兵种图标区分开。
+        lib.add(new ActorTrait
+        {
+            id = "tacticalDrilling",
+            path_icon = "ui/icons/iconWar",
+            group_id = "EmpireArmy"
+        });
+        lib.t.base_stats["damage"] = 10f;
+        lib.t.base_stats["speed"] = 10f;
+
+        // 开国雄主 / 中兴之主：授予条件与忠诚、腐败效果见 RulerTraitSystem
+        lib.add(new ActorTrait
+        {
+            id = RulerTraitSystem.Founder,
+            path_icon = "ui/icons/actor_traits/iconFounderRuler",
+            group_id = "EmpireOffice"
+        });
+        lib.t.base_stats["lifespan"] = 10f;
+        lib.t.base_stats["multiplier_lifespan"] = 0.3f;
+        lib.add(new ActorTrait
+        {
+            id = RulerTraitSystem.Restorer,
+            path_icon = "ui/icons/actor_traits/iconRestorerRuler",
+            group_id = "EmpireOffice"
+        });
+        // 中兴雄主(极品中兴之主)：与开国雄主同样长寿，其余特性见 RulerTraitSystem
+        lib.add(new ActorTrait
+        {
+            id = RulerTraitSystem.GreatRestorer,
+            path_icon = "ui/icons/actor_traits/iconGreatRestorerRuler",
+            group_id = "EmpireOffice"
+        });
+        lib.t.base_stats["lifespan"] = 10f;
+        lib.t.base_stats["multiplier_lifespan"] = 0.3f;
     }
     public static bool been_soldier(NanoObject pTarget, BaseAugmentationAsset pTrait)
     {

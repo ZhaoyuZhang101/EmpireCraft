@@ -5,6 +5,9 @@
     "icon_url": "",
     "era_name": false,
     "has_cabinet": true,
+    "is_monarchy": true,
+    "allows_landlord_class": false,
+    "cabinet_is_electoral_college": true,
     "cabinet_number": 7,
     "leader_select_method": "Succession",
     "default_kingdom": "default_country_post",
@@ -57,7 +60,8 @@
       "toggle_support_army_to_center": [1],
       "option_tax_level": [1, 4],
       "option_leader_select_method": [0, 3],
-      "option_religion_type": [2, 4]
+      "option_religion_type": [2, 4],
+      "option_succession_law": [0, 5]
     },
     "bureau_config": {
       "cores": [],
@@ -89,6 +93,34 @@
           "leader_select_method": "Default",
           "require_traits": [],
           "condition": [],
+          "city_type": "Feudalism_city"
+        },
+        // 神权国家：由官员治理的教区，要排在辖区之前判定
+        "Feudalism_diocese": {
+          "pre": "",
+          "type": 7,
+          "description": "",
+          "powers": [],
+          "merit": -1,
+          "honorary": -1,
+          "select_from_local": false,
+          "leader_select_method": "Exam",
+          "require_traits": [],
+          "condition": ["empire_center:false", "succession:false", "allow_diplomacy:false", "empire_feature:theocratic_state"],
+          "city_type": "Feudalism_city"
+        },
+        // 中央集权君主制：由官员治理的辖区(非世袭、无外交)，要排在各级封建领地之前判定
+        "Feudalism_intendancy": {
+          "pre": "",
+          "type": 7,
+          "description": "",
+          "powers": [],
+          "merit": -1,
+          "honorary": -1,
+          "select_from_local": false,
+          "leader_select_method": "Exam",
+          "require_traits": [],
+          "condition": ["empire_center:false", "succession:false", "allow_diplomacy:false"],
           "city_type": "Feudalism_city"
         },
         "Feudalism_grand_duchy": {
@@ -166,7 +198,7 @@
           "select_from_local": false,
           "leader_select_method": "Default",
           "require_traits": [],
-          "condition": ["religion_level:>=|3"],
+          "condition": ["religion_level:>=|3", "empire_feature:theocratic_state", "empire_center:false"],
           "city_type": "Feudalism_religion_district"
         },
         "Feudalism_empire": {

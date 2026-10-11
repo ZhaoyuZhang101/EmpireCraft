@@ -1,0 +1,1518 @@
+// 共和国按执政理念自动成套的中央机构(见 RepublicSystem)。只影响该帝国自己，不随文化同步。
+// cores = 立法/行政等核心机构，division = 各部与法院；字段同政体 SystemConfig.json 的 bureau_config。
+// pre 为机构名的本地化键(以 _full 结尾时直接显示为机构全称)；powers 可选：宗教 备选 拟定 审核 执行 人事 财政 礼仪 军事 司法 建设 教育
+{
+  "Communism": {
+    "cores": [
+      {
+        "pre": "ideology_office_npc_full",
+        "type": 1,
+        "description": "",
+        "powers": [
+          "备选",
+          "审核"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_state_council_full",
+        "type": 2,
+        "description": "",
+        "powers": [
+          "执行",
+          "拟定",
+          "人事"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_central_military_commission_full",
+        "type": 2,
+        "description": "",
+        "powers": [
+          "军事"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      }
+    ],
+    "division": [
+      {
+        "pre": "ideology_office_supreme_peoples_court_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "司法"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_supreme_procuratorate_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "司法"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_state_planning_commission_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "建设"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_finance_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "财政"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_public_security_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "人事"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_education_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "教育"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_foreign_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "礼仪"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      }
+    ]
+  },
+  "Socialism": {
+    "cores": [
+      {
+        "pre": "ideology_office_peoples_assembly_full",
+        "type": 1,
+        "description": "",
+        "powers": [
+          "备选",
+          "审核"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_council_of_ministers_full",
+        "type": 2,
+        "description": "",
+        "powers": [
+          "执行",
+          "拟定",
+          "人事"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      }
+    ],
+    "division": [
+      {
+        "pre": "ideology_office_supreme_court_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "司法"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_planning_commission_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "建设"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_labour_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "建设"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_finance_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "财政"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_education_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "教育"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_foreign_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "礼仪"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_defence_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "军事"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      }
+    ]
+  },
+  "SocialDemocracy": {
+    "cores": [
+      {
+        "pre": "ideology_office_parliament_full",
+        "type": 1,
+        "description": "",
+        "powers": [
+          "备选",
+          "审核"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_cabinet_full",
+        "type": 2,
+        "description": "",
+        "powers": [
+          "执行",
+          "拟定",
+          "人事",
+          "礼仪"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      }
+    ],
+    "division": [
+      {
+        "pre": "ideology_office_supreme_court_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "司法"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_social_affairs_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "教育"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_labour_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "建设"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_labour_council_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "审核"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_finance_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "财政"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_foreign_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "礼仪"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_defence_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "军事"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      }
+    ]
+  },
+  "SocialLiberalism": {
+    "cores": [
+      {
+        "pre": "ideology_office_bicameral_parliament_full",
+        "type": 1,
+        "description": "",
+        "powers": [
+          "备选",
+          "审核"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_cabinet_full",
+        "type": 2,
+        "description": "",
+        "powers": [
+          "执行",
+          "拟定",
+          "人事",
+          "礼仪"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      }
+    ],
+    "division": [
+      {
+        "pre": "ideology_office_constitutional_court_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "司法"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_justice_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "司法"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_education_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "教育"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_interior_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "人事"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_finance_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "财政"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_foreign_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "礼仪"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_defence_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "军事"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      }
+    ]
+  },
+  "Capitalism": {
+    "cores": [
+      {
+        "pre": "ideology_office_congress_full",
+        "type": 1,
+        "description": "",
+        "powers": [
+          "备选",
+          "审核"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_presidential_office_full",
+        "type": 2,
+        "description": "",
+        "powers": [
+          "执行",
+          "拟定",
+          "人事",
+          "礼仪"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      }
+    ],
+    "division": [
+      {
+        "pre": "ideology_office_supreme_court_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "司法"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_finance_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "财政"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_commerce_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "财政"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_central_bank_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "财政"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_foreign_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "礼仪"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_defence_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "军事"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      }
+    ]
+  },
+  "ConservativeLiberalism": {
+    "cores": [
+      {
+        "pre": "ideology_office_parliament_full",
+        "type": 1,
+        "description": "",
+        "powers": [
+          "备选",
+          "审核"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_cabinet_full",
+        "type": 2,
+        "description": "",
+        "powers": [
+          "执行",
+          "拟定",
+          "人事",
+          "礼仪"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      }
+    ],
+    "division": [
+      {
+        "pre": "ideology_office_supreme_court_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "司法"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_finance_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "财政"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_commerce_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "财政"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_interior_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "人事"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_education_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "教育"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_foreign_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "礼仪"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_defence_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "军事"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      }
+    ]
+  },
+  "Libertarianism": {
+    "cores": [
+      {
+        "pre": "ideology_office_parliament_full",
+        "type": 1,
+        "description": "",
+        "powers": [
+          "备选",
+          "审核"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_executive_council_full",
+        "type": 2,
+        "description": "",
+        "powers": [
+          "执行",
+          "拟定"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      }
+    ],
+    "division": [
+      {
+        "pre": "ideology_office_supreme_court_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "司法"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_finance_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "财政"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_defence_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "军事"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      }
+    ]
+  },
+  "Anarchism": {
+    "cores": [
+      {
+        "pre": "ideology_office_commune_congress_full",
+        "type": 1,
+        "description": "",
+        "powers": [
+          "备选",
+          "审核",
+          "执行"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_syndicate_federation_full",
+        "type": 2,
+        "description": "",
+        "powers": [
+          "拟定",
+          "建设",
+          "人事"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      }
+    ],
+    "division": [
+      {
+        "pre": "ideology_office_mutual_aid_council_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "教育"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_militia_council_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "军事"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      }
+    ]
+  },
+  "Centrism": {
+    "cores": [
+      {
+        "pre": "ideology_office_parliament_full",
+        "type": 1,
+        "description": "",
+        "powers": [
+          "备选",
+          "审核"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_cabinet_full",
+        "type": 2,
+        "description": "",
+        "powers": [
+          "执行",
+          "拟定",
+          "人事",
+          "礼仪"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      }
+    ],
+    "division": [
+      {
+        "pre": "ideology_office_supreme_court_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "司法"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_justice_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "司法"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_finance_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "财政"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_interior_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "人事"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_education_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "教育"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_foreign_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "礼仪"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_defence_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "军事"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      }
+    ]
+  },
+  "ReligiousDemocracy": {
+    "cores": [
+      {
+        "pre": "ideology_office_parliament_full",
+        "type": 1,
+        "description": "",
+        "powers": [
+          "备选",
+          "审核"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_cabinet_full",
+        "type": 2,
+        "description": "",
+        "powers": [
+          "执行",
+          "拟定",
+          "人事",
+          "礼仪"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      }
+    ],
+    "division": [
+      {
+        "pre": "ideology_office_supreme_court_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "司法"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_religious_affairs_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "宗教"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_social_affairs_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "教育"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_finance_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "财政"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_foreign_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "礼仪"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_defence_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "军事"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      }
+    ]
+  },
+  "Authoritarianism": {
+    "cores": [
+      {
+        "pre": "ideology_office_presidential_office_full",
+        "type": 1,
+        "description": "",
+        "powers": [
+          "备选",
+          "执行",
+          "拟定"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_state_council_meeting_full",
+        "type": 2,
+        "description": "",
+        "powers": [
+          "审核",
+          "人事"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_military_commission_full",
+        "type": 2,
+        "description": "",
+        "powers": [
+          "军事"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      }
+    ],
+    "division": [
+      {
+        "pre": "ideology_office_interior_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "人事"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_intelligence_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "司法"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_supreme_court_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "司法"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_finance_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "财政"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_foreign_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "礼仪"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      }
+    ]
+  },
+  "Conservatism": {
+    "cores": [
+      {
+        "pre": "ideology_office_house_of_lords_full",
+        "type": 1,
+        "description": "",
+        "powers": [
+          "备选",
+          "审核"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_house_of_commons_full",
+        "type": 1,
+        "description": "",
+        "powers": [
+          "审核"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_privy_council_full",
+        "type": 2,
+        "description": "",
+        "powers": [
+          "拟定",
+          "礼仪"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_cabinet_full",
+        "type": 2,
+        "description": "",
+        "powers": [
+          "执行",
+          "人事"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      }
+    ],
+    "division": [
+      {
+        "pre": "ideology_office_supreme_court_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "司法"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_state_church_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "宗教"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_finance_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "财政"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_interior_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "人事"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_foreign_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "礼仪"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_defence_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "军事"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      }
+    ]
+  },
+  "Fascism": {
+    "cores": [
+      {
+        "pre": "ideology_office_grand_council_full",
+        "type": 1,
+        "description": "",
+        "powers": [
+          "备选",
+          "拟定"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_corporative_chamber_full",
+        "type": 1,
+        "description": "",
+        "powers": [
+          "审核"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_leaders_office_full",
+        "type": 2,
+        "description": "",
+        "powers": [
+          "执行",
+          "人事"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      }
+    ],
+    "division": [
+      {
+        "pre": "ideology_office_secret_police_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "司法"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_propaganda_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "教育"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_defence_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "军事"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_finance_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "财政"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_interior_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "人事"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      },
+      {
+        "pre": "ideology_office_foreign_full",
+        "type": 3,
+        "description": "",
+        "powers": [
+          "礼仪"
+        ],
+        "merit": -1,
+        "honorary": -1,
+        "select_from_local": false,
+        "leader_select_method": "Default",
+        "require_traits": []
+      }
+    ]
+  }
+}

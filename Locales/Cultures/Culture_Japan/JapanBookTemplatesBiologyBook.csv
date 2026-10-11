@@ -1,0 +1,6 @@
+key,cz,en,ch
+book_template_japan_biology_book_1,$word$,$word$,$word$
+book_template_japan_biology_book_2,$city$$word$,$word$ of $city$,$city$$word$
+book_template_japan_biology_book_3,$author$$word$,$author$'s $word$,$author$$word$
+book_template_japan_biology_book_4,$word$图会,Illustrated $word$,$word$圖會
+book_template_japan_biology_book_5,$year_name$$word$,$word$ of the $year_name$ Era,$year_name$$word$

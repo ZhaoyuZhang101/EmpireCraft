@@ -1,0 +1,25 @@
+key,cz,en,ch
+book_template_huaxia_stewardship_manual_1,$word$,$word$,$word$
+book_template_huaxia_stewardship_manual_2,$word$要略,Essentials of $word$,$word$要略
+book_template_huaxia_stewardship_manual_3,$city$$word$,$word$ of $city$,$city$$word$
+book_template_huaxia_stewardship_manual_4,$author$$word$,$author$'s $word$,$author$$word$
+book_template_huaxia_stewardship_manual_5,增订$word$,Expanded $word$,增訂$word$
+book_template_huaxia_stewardship_manual_6,$word$辑要,Digest of $word$,$word$輯要
+book_template_huaxia_stewardship_manual_7,$year_name$$word$,$word$ of the $year_name$ Era,$year_name$$word$
+book_template_huaxia_stewardship_manual_8,$emperor$圣训,Sacred Instructions of $emperor$,$emperor$聖訓
+book_template_huaxia_stewardship_manual_9,$dynasty$$word$,$word$ of $dynasty$,$dynasty$$word$
+book_template_huaxia_stewardship_manual_10,$kingdom$政要,Essentials of Government of $kingdom$,$kingdom$政要
+book_template_huaxia_stewardship_manual_11,$dynasty$会典,Collected Statutes of $dynasty$,$dynasty$會典
+book_template_huaxia_stewardship_manual_12,$year_name$政要,Essentials of Government of the $year_name$ Era,$year_name$政要
+book_template_huaxia_stewardship_manual_13,$city$治略,Governing $city$,$city$治略
+book_template_huaxia_stewardship_manual_14,$author$从政录,Record of Office by $author$,$author$從政錄
+book_template_huaxia_stewardship_manual_15,$author$牧令书,Book for Magistrates by $author$,$author$牧令書
+book_template_huaxia_stewardship_manual_16,$city$县志,County Gazetteer of $city$,$city$縣誌
+book_template_huaxia_stewardship_manual_17,$dynasty_short$律,The $dynasty_short$ Code,$dynasty_short$律
+book_template_huaxia_stewardship_manual_18,$year_name$条例,Regulations of the $year_name$ Era,$year_name$條例
+book_template_huaxia_stewardship_manual_19,$emperor$圣谕,Sacred Edict of $emperor$,$emperor$聖諭
+book_template_huaxia_stewardship_manual_20,$city$官箴,Admonitions for Officials of $city$,$city$官箴
+book_template_huaxia_stewardship_manual_21,$topic$辑要,Essentials of $topic$,$topic$輯要
+book_template_huaxia_stewardship_manual_22,$topic$全书,Complete Book of $topic$,$topic$全書
+book_template_huaxia_stewardship_manual_23,$author$$topic$说,$author$ on $topic$,$author$$topic$說
+book_template_huaxia_stewardship_manual_24,$dynasty_short$$topic$考,Study of $topic$ under $dynasty_short$,$dynasty_short$$topic$考
