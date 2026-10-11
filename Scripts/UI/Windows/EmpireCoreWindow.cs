@@ -34,8 +34,14 @@ namespace EmpireCraft.Scripts.UI.Windows
         {
             UIHelper.FixWideWindowScrollArea(BackgroundTransform);
             _root = UIHelper.SetupWideWindowContentRoot(ContentTransform, 3f, new RectOffset(3, 3, 3, 3));
-            // 宽窗口脚本挂在窗口根上：输入框挂窗口根，随窗口显示/隐藏(同 EmpireWindow 的修复)
+            // 宽窗口脚本挂在窗口根上：输入框挂窗口根，随窗口显示/隐藏(同 EmpireWindow 的修复)。
+            // 脱离窗口根布局并锚点居中，否则被拉成贯穿窗口的细长条
             _nameInput = Object.Instantiate(TextInput.Prefab, this.transform);
+            var coreInputElement = _nameInput.gameObject.GetComponent<UnityEngine.UI.LayoutElement>()
+                                   ?? _nameInput.gameObject.AddComponent<UnityEngine.UI.LayoutElement>();
+            coreInputElement.ignoreLayout = true;
+            var coreInputRect = (RectTransform)_nameInput.transform;
+            coreInputRect.anchorMin = coreInputRect.anchorMax = coreInputRect.pivot = new Vector2(0.5f, 0.5f);
             _nameInput.Setup("", ChangeName);
         }
 

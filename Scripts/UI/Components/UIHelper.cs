@@ -254,14 +254,18 @@ public static class UIHelper
 
     public const float WidePanelWidth = 440f;
 
-    // 分节标题：────  文字  ────。统一各内容页的分组样式，长页一眼能分块
+    // 分节标题：与官僚窗口同一套设计语言——全宽深色内嵌条 + 左侧小图标 + 左对齐标题。
+    // 图标路径找不到时自动降级为纯文字条，不会出白块
     public static SimpleText AddSectionHeader(this AutoVertLayoutGroup layout, string text,
-        string hex = "#D9B36A", bool localize = true)
+        string hex = "#F3C34A", bool localize = true, params string[] icons)
     {
         string label = localize ? LM.Get(text) : text;
-        SimpleText header = layout.AddTextIntoVertLayout(
-            $"<color=#6B6353>────</color>  {label.ColorString(hex)}  <color=#6B6353>────</color>",
-            true, TextAnchor.MiddleCenter, new Vector2(WidePanelWidth - 12f, 15f));
+        var bar = layout.BeginHoriGroup(new Vector2(WidePanelWidth, 15f), TextAnchor.MiddleCenter, 3);
+        AddInsetBackground(bar, new Vector2(WidePanelWidth, 15f));
+        Sprite icon = FirstSprite(icons);
+        AddLayoutIcon(bar.transform, icon, 11f);
+        SimpleText header = bar.AddTextIntoHoriLayout(label.ColorString(hex), true, TextAnchor.MiddleLeft,
+            new Vector2(WidePanelWidth - (icon != null ? 24f : 10f), 13f));
         header.UseFixedFontSize(9, HorizontalWrapMode.Overflow);
         return header;
     }
