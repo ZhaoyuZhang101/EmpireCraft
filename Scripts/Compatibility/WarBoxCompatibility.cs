@@ -27,7 +27,7 @@ namespace EmpireCraft.Scripts.Compatibility;
 //   · 帝国成员的王权合法性以本模组的正统值为基础。
 //
 // 全部按类型名反射查找，没装 WarBox 就什么都不做。
-public static class WarBoxCompatibility
+public static partial class WarBoxCompatibility
 {
     private static bool _applied;
 
@@ -76,6 +76,8 @@ public static class WarBoxCompatibility
         TryPatch(harmony, "WarBox.Content.PoliticalSystem", "UpdateChronicle", nameof(BeforeLegitimacyChronicle));
         TryPatch(harmony, "WarBox.Content.DiplomacyEvents", "ChronicleAt", nameof(BeforeChronicleAt));
         TryPatch(harmony, "WarBox.Content.DiplomacyEvents", "ChronicleRaw", nameof(BeforeChronicleRaw));
+        // 总参谋部：帝国中央与行政区共用一个帝国总参谋部，左栏按帝国分组(见 WarBoxGeneralStaff.cs)
+        ApplyGeneralStaffPatches(harmony);
     }
 
     private static void TryPatch(Harmony harmony, string typeName, string methodName, string prefix,
