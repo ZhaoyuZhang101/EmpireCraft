@@ -64,12 +64,17 @@ public class EmpireCraftActorCheckTax: GameAIActorBase
                 SocialClass.Merchant => TreasuryCategory.CommercialTax,
                 _ => TreasuryCategory.ResidentTax
             };
-            int tax = (int)(Math.Max(0, pActor.money) * SectorTaxRules.Rate(pTaxRate, category));
+            // 按上次纳税以来新增的钱(收入)纳税，不按存款余额：以前每年按全部余额征一次，
+            // 全国税收九成以上来自官员攒下的存款(多是贪污来的)，跟人口与经济规模无关
+            var extra = pActor.GetOrCreate();
+            long income = extra.tax_money_baseline < 0 ? 0L : Math.Max(0L, Math.Max(0, pActor.money) - extra.tax_money_baseline);
+            int tax = (int)Math.Min(int.MaxValue, income * SectorTaxRules.Rate(pTaxRate, category));
             if (tax > 0)
             {
                 pActor.addMoney(-tax);
                 TreasurySystem.CollectResidentTax(city, tax, category);
             }
+            extra.tax_money_baseline = Math.Max(0, pActor.money);
         }
         else if (hadLoot)
         {

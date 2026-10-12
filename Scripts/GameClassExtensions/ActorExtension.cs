@@ -394,6 +394,8 @@ public static class ActorExtension
         public bool pending_trade_foreign_kingdom = false;
         public OfficeIdentity officeIdentity { get; set; } = null;
         public double last_tax_timestamp = -1L;
+        // 上次纳税后的存款：下次按新增的部分(收入)纳税，见 EmpireCraftActorCheckTax
+        public long tax_money_baseline = -1L;
         public double last_fiscal_corruption_crime_timestamp = -1d;
         public double last_add_lover_timestamp = -1L;
         public double last_give_birth_timestamp = -1L;

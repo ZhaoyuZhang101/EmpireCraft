@@ -2509,6 +2509,39 @@ public static class CityPopulationSystem
         return result;
     }
 
+    // 财政口径的户数：固定 100 人一户。住房位的"户"进入现代后变成 1000 人，按它计的治理费、福利、
+    // 诉求经费、岁赐会在进入现代时一夜降到十分之一
+    public const float FiscalPeoplePerHousehold = 100f;
+
+    public static int FiscalHouseholds(City city)
+    {
+        if (!AbstractPopulationEnabled) return Households(city);
+        if (city == null) return 0;
+        int units = 0;
+        if (city.units != null)
+            foreach (Actor actor in city.units)
+                if (actor != null && !actor.isRekt() && actor.isAlive()) units++;
+        return units + Mathf.CeilToInt(GetBackgroundTotal(city) / FiscalPeoplePerHousehold);
+    }
+
+    public static int FiscalHouseholds(Kingdom kingdom)
+    {
+        if (kingdom?.cities == null) return 0;
+        int total = 0;
+        foreach (City city in kingdom.cities)
+            if (city != null && !city.isRekt()) total += FiscalHouseholds(city);
+        return total;
+    }
+
+    public static int FiscalHouseholds(Layer.Empire empire)
+    {
+        if (empire?.kingdoms_list == null) return 0;
+        int total = 0;
+        foreach (Kingdom kingdom in empire.kingdoms_list)
+            if (kingdom != null && !kingdom.isRekt()) total += FiscalHouseholds(kingdom);
+        return total;
+    }
+
     public static int Households(Kingdom kingdom)
     {
         if (kingdom?.cities == null) return 0;

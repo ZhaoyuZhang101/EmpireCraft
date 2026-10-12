@@ -57,10 +57,10 @@ public static class ClaimTuning
     public static int Share(Empire empire, Kingdom localPayer = null)
     {
         int households = localPayer != null
-            ? CityPopulationSystem.AbstractPopulationEnabled ? CityPopulationSystem.Households(localPayer)
+            ? CityPopulationSystem.AbstractPopulationEnabled ? CityPopulationSystem.FiscalHouseholds(localPayer)
                 : localPayer.getPopulationTotal()
             : empire == null ? 0
-                : CityPopulationSystem.AbstractPopulationEnabled ? CityPopulationSystem.Households(empire)
+                : CityPopulationSystem.AbstractPopulationEnabled ? CityPopulationSystem.FiscalHouseholds(empire)
                     : empire.CountPopulation();
         return Math.Max(5, households / 100);
     }

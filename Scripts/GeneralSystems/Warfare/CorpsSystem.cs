@@ -199,8 +199,44 @@ public static class CorpsSystem
             if (!posts && (list == null || list.Count == 0)) continue;
             Mobilize(kingdom, now);
             Recover(kingdom);
+            PayUpkeep(kingdom);
             AbsorbLegacyLegions(kingdom);
         }
+    }
+
+    // 野战军饷：按人头每月发(见 CityStabilityRules.CorpsAnnual)，本国先付，听命于中央的成员付不起由中央补；
+    // 饷银发给各军的家乡城(回到民间)。发不出的那部分军心涣散，组织度下降。以前野战军不花一分钱
+    private static void PayUpkeep(Kingdom kingdom)
+    {
+        List<CorpsData> list = Of(kingdom);
+        float soldiers = 0f;
+        foreach (CorpsData corps in list) soldiers += Mathf.Max(0f, corps.strength);
+        if (soldiers < 1f || !TreasurySystem.Enabled(kingdom)) return;
+        var data = kingdom.GetOrCreate();
+        int bill = CityStabilityRules.Invoice(CityStabilityRules.CorpsAnnual(soldiers, IsAtWar(kingdom)),
+            ref data.corps_upkeep_carry);
+        if (bill <= 0) return;
+        int paid = Draw(kingdom, bill);
+        Layer.Empire empire = kingdom.GetEmpire();
+        Kingdom core = empire?.CoreKingdom;
+        if (paid < bill && core != null && core != kingdom && TreasurySystem.Enabled(core) &&
+            GamePatches.EmpirePeacePatch.Obeys(empire, kingdom))
+            paid += Draw(core, bill - paid);
+        foreach (CorpsData corps in list)
+        {
+            int share = (int)(paid * (double)Mathf.Max(0f, corps.strength) / soldiers);
+            if (share > 0 && Home(corps) is City home) EnterpriseSystem.ReturnToLocal(home, share);
+        }
+        float shortfall = 1f - paid / (float)bill;
+        if (shortfall <= 0f) return;
+        foreach (CorpsData corps in list) corps.org = Mathf.Max(0f, corps.org - 20f * shortfall);
+    }
+
+    private static int Draw(Kingdom payer, int amount)
+    {
+        int paid = Mathf.Min(amount, Mathf.Max(0, payer.GetMoney()));
+        if (paid > 0) payer.SubMoney(paid, TreasuryCategory.Military);
+        return paid;
     }
 
     // 各军镇应有几支军、每支多少人；缺的当场征召，多的和平时退伍

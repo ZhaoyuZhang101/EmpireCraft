@@ -521,7 +521,7 @@ public class Empire : MetaObject<EmpireData>
                 data.given_annual_quotes.Remove(id);
             foreach (Kingdom recipient in recipients)
                 if (!data.given_annual_quotes.ContainsKey(recipient.id))
-                    data.given_annual_quotes[recipient.id] = Math.Max(1, CityPopulationSystem.Households(recipient) / 20);
+                    data.given_annual_quotes[recipient.id] = Math.Max(1, CityPopulationSystem.FiscalHouseholds(recipient) / 20);
             // 先覆盖能完整履约的协定，避免把预算分成所有协定都不够的碎款。
             foreach (Kingdom recipient in recipients.OrderBy(k => data.given_annual_quotes[k.id]).ThenBy(k => k.id))
             {

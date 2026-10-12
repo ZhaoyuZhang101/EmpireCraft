@@ -32,6 +32,8 @@ public static class PopulationEconomySystem
     private const int FarmJobsPerZone = 4;
     // 没有岗位的劳动力仍有这一比例的产出(零工、自给自足)
     private const float UnemployedOutputShare = 0.25f;
+    // 劳动力的市场收入：每 100 个劳动力(一财政户)每年的产值，有岗位全额、没岗位按 UnemployedOutputShare
+    private const float LaborIncomePerHouseholdYear = 20f;
     // 每人每年的产出
     private const float PeasantFoodPerYear = 2f;
     private const float LabourConstructionPerYear = 6f;
@@ -134,6 +136,13 @@ public static class PopulationEconomySystem
         // 伐木场砍本城领地里的树出木头(见 IndustryBuildingSystem.HarvestTrees)
         float wood = IndustryBuildingSystem.HarvestTrees(city, years) / Mathf.Max(0.0001f, years);
         if (wood > 0f && AssetManager.resources?.get("wood") != null) Deposit(city, data, "wood", wood * years);
+        // 劳动力的市场收入(佃作、手工、零工)：按劳动力人数计，只计产值(进税基与民间资产估值)，不生成实物。
+        // 以前产出只按原版岗位数算、跟人口多少无关(上面算出的就业效率 productivity 也没用上)，
+        // 本地存档里 6.6 万人的京城一年产值才一百来金，全国背景人口的税连各城治理费都付不起
+        float laborIncome = workforce * perSlot / CityPopulationSystem.FiscalPeoplePerHousehold * productivity *
+                            LaborIncomePerHouseholdYear * years;
+        if (laborIncome > 0f && !float.IsNaN(laborIncome) && !float.IsInfinity(laborIncome))
+            data.produced_value += laborIncome;
         PayTaxes(city, data, years);
         float settledIncome = data.last_income * years;
         float settledTax = data.last_tax_income * years + data.other_background_tax;

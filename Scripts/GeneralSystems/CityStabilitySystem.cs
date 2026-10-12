@@ -194,7 +194,8 @@ public static class CityStabilitySystem
         float corruption = (float)CorruptionSystem.GetRate(city.kingdom);
         float sentiment = NationalSentimentSystem.GetCity(city);
         float landless = LandEconomySystem.GetLandlessRatio(city);
-        int households = CityPopulationSystem.Households(city);
+        // 治理费按财政户(固定 100 人一户)计，进入现代时不跳变
+        int households = CityPopulationSystem.FiscalHouseholds(city);
         bool famine = CityPopulationSystem.AbstractPopulationEnabled
             ? CityPopulationSystem.GetGrowthFactors(city).Famine
             : households > 0 && city.getTotalFood() < households * 0.5f;
@@ -410,13 +411,14 @@ public static class CityStabilitySystem
         if (guardBudget) { state.withdrawn = false; Recruit(city, Math.Max(0, state.garrison_required - assigned)); }
         Counts(city, out assigned, out int present, refresh: true);
         int maintained = Math.Min(present, state.garrison_required);
-        double garrisonAnnual = CityStabilityRules.GarrisonAnnual(maintained, state.natural_stability) / input.PeoplePerFiscalUnit;
+        // 驻军按人头计价(以前再除以每户人数，100 个兵只算一户的钱，全国驻军每月才几金)
+        double garrisonAnnual = CityStabilityRules.GarrisonAnnual(maintained, state.natural_stability);
         state.garrison_due = CityStabilityRules.Invoice(garrisonAnnual, ref state.garrison_carry);
         state.garrison_paid = Pay(city, state.garrison_due, TreasuryCategory.Garrison, false);
         float guardFunding = Funding(state.garrison_due, state.garrison_paid, guardBudget);
         // 超出本城驻防需求的现有部队另记野战军费，替代旧的“国库增长×比例”账单。
         state.military_due = CityStabilityRules.Invoice(CityStabilityRules.MilitaryAnnual(
-            Math.Max(0, assigned - maintained), city.kingdom.hasEnemies()) / input.PeoplePerFiscalUnit, ref state.military_carry);
+            Math.Max(0, assigned - maintained), city.kingdom.hasEnemies()), ref state.military_carry);
         state.military_paid = Pay(city, state.military_due, TreasuryCategory.Military, false);
         long unpaid = (long)state.governance_due - state.governance_paid + state.garrison_due - state.garrison_paid +
                       state.military_due - state.military_paid;
@@ -458,7 +460,29 @@ public static class CityStabilitySystem
         if (MassacreSystem.LoyaltyPenalty(city) < 0 && extra.massacre_last > state.last_massacre)
         { state.last_massacre = extra.massacre_last; state.fear = 15f; }
         else state.fear = Mathf.Max(0f, state.fear - 0.5f);
+        RemitSurplus(city, state);
         ReviewWithdrawal(city, state, plannedMonthly + governanceAnnual / 12d);
+    }
+
+    // 城库余钱上缴：超过两年开支(与安全储备)的部分每月上缴一成，按税款分成比例交本国与中央；拒缴的城不交。
+    // 以前城市留成而开支极小，城库越攒越多(本地存档里各城合计与全部国库相当)，却从不上缴
+    private static void RemitSurplus(City city, CityStabilityData state)
+    {
+        Kingdom local = city.kingdom;
+        if (local == null || !TreasurySystem.Enabled(local) || city.getLoyalty() <= 0 && !ControlsTax(city)) return;
+        long monthly = (long)state.governance_due + state.garrison_due + state.military_due;
+        long reserve = Math.Max(TreasurySystem.SafetyReserve(city), monthly * 24L);
+        long surplus = city.GetTreasuryBalance() - reserve;
+        if (surplus < 10L) return;
+        int remit = (int)Math.Min(int.MaxValue, surplus / 10L);
+        Kingdom central = local.GetEmpire()?.CoreKingdom;
+        var shares = TreasurySystem.TaxShares(local);
+        int toCentral = central != null && central != local && TreasurySystem.Enabled(central) &&
+                        shares.local + shares.central > 0
+            ? (int)((long)remit * shares.central / (shares.local + shares.central)) : 0;
+        city.SubMoney(remit, TreasuryCategory.InternalTransfer);
+        if (toCentral > 0) central.AddMoney(toCentral, TreasuryCategory.InternalTransfer);
+        if (remit > toCentral) local.AddMoney(remit - toCentral, TreasuryCategory.InternalTransfer);
     }
 
     private static void ReviewWithdrawal(City city, CityStabilityData state, double monthlyCost)

@@ -87,11 +87,14 @@ public static class DataManager
                 actor.SyncData(entry);
         }
         LogService.LogInfo("Sync Actor Data");
+        // 没存过政体选项的旧存档，读完后按封号修复成员地位(见 RepairLegacyRegimeRole)
+        var legacyRegimeKingdoms = new HashSet<long>();
         foreach (var entry in saveData.kingdomExtraData)
         {
             if (entry == null) continue;
             if (kingdomById.TryGetValue(entry.id, out var kingdom))
             {
+                if (entry.saved_regime_options == null) legacyRegimeKingdoms.Add(entry.id);
                 kingdom.SyncData(entry);
                 if (kingdom.GetOfficeID() == -1L)
                 {
@@ -184,6 +187,8 @@ public static class DataManager
             try
             {
                 NormalizeEmpireData(empireData);
+                // 旧版"减税随时能提、加税几乎提不成"把基础税率压到了 0(见 TempFac_提高赋税)：恢复默认税率
+                if (empireData.TaxRate < Empire.MinimumTaxRate) empireData.TaxRate = 0.2f;
                 Empire empire = new Empire();
                 empire.loadData(empireData);
                 ModClass.EMPIRE_MANAGER.addObject(empire);
@@ -297,6 +302,7 @@ public static class DataManager
             if (worldKingdom.hasKing()) worldKingdom.TransferRealmTitlesToRuler(worldKingdom.king);
             worldKingdom.ReconcileMainTitle();
             worldKingdom.GetInitialRandomKingdomName();
+            if (legacyRegimeKingdoms.Contains(worldKingdom.id)) worldKingdom.RepairLegacyRegimeRole();
             EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(worldKingdom);
         }
         foreach (Empire empire in ModClass.EMPIRE_MANAGER
@@ -371,6 +377,12 @@ public static class DataManager
         {
             if (kingdom?.data == null || kingdom.isRekt()) continue;
             KingdomExtraData extra = kingdom.GetOrCreate();
+            if (extra?.regime?.options != null)
+            {
+                extra.saved_regime_options = extra.regime.options.Where(option => option.Value != null && option.Value.Length > 0)
+                    .ToDictionary(option => option.Key, option => option.Value[0]);
+                extra.saved_regime_options_type = extra.regime.type;
+            }
             if (extra?.regime?.PlayerFactions == null) continue;
             extra.saved_factions = extra.regime.PlayerFactions.Where(f => f != null).Select(f => f.ToSaveCopy()).ToList();
             extra.saved_factions_regime = extra.regime.type;
@@ -439,7 +451,11 @@ public static class DataManager
         double serializeMs = saveTimer.Elapsed.TotalMilliseconds - collectMs;
         // 序列化完再清掉内存里的派系副本：政体已在内存中的王国不需要它，留着反而会在之后重建政体时被误用
         foreach (KingdomExtraData extra in saveData.kingdomExtraData)
-            if (extra?.regime != null) extra.saved_factions = null;
+            if (extra?.regime != null)
+            {
+                extra.saved_factions = null;
+                extra.saved_regime_options = null;
+            }
         LogService.LogInfo($"Save Data: actors={saveData.actorsExtraData.Count}, wars={saveData.warExtraData.Count}, kingdoms={saveData.kingdomExtraData.Count}, cities={saveData.cityExtraData.Count}, religions={saveData.religionExtraData.Count}");
         double totalMs = saveTimer.Elapsed.TotalMilliseconds;
         LogService.LogInfo($"[EmpireCraft][存档] 收集 {collectMs:0} ms / 序列化写盘 {serializeMs:0} ms，" +

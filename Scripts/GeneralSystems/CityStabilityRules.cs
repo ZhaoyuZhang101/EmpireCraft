@@ -20,6 +20,8 @@ public static class CityStabilityRules
     public static double GarrisonAnnual(int people, float natural) => Math.Max(0, people) * 0.3d *
         (1d + (100d - Clamp(natural)) / 100d * 1.5d);
     public static double MilitaryAnnual(int people, bool atWar) => Math.Max(0, people) * (atWar ? 0.45d : 0.3d);
+    // 野战军团的军饷(按人头)：平时轮番操练每兵每年 0.1，战时 0.3
+    public static double CorpsAnnual(float soldiers, bool atWar) => Math.Max(0f, soldiers) * (atWar ? 0.3d : 0.1d);
 
     // 小额月费积累尾数，十二个月的实际扣款与年报价相符，不强制每城每月至少一金币。
     public static int Invoice(double annual, ref double carry)

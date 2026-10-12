@@ -51,7 +51,7 @@ public static class CityStabilityMath
             input.ArmyEnabled ? Policy(input.GarrisonPolicy, 1f) : 0f);
         return new CityStabilityBudget(natural, governance, guards,
             CityStabilityRules.GovernanceAnnual(input.Households, natural, input.Corruption, governance),
-            CityStabilityRules.GarrisonAnnual(guards, natural) / input.PeoplePerFiscalUnit / 12d);
+            CityStabilityRules.GarrisonAnnual(guards, natural) / 12d);
     }
 
     public static CityStabilityBudget[] Compute(CityStabilityInput[] inputs)

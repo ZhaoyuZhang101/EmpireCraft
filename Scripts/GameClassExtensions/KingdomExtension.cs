@@ -253,6 +253,12 @@ public static class KingdomExtension
         // 党员归属、议席与执政联盟都按派系 id 记录)，单独存一份，读档重建政体时还原(见 LoadRegime)
         public List<FixedFaction> saved_factions;
         public RegimeType saved_factions_regime;
+        // 政体选项(外交权、兵权、选官方式、税级、供养中央军……)也随王国一起存，读档重建政体时还原(见 LoadRegime)。
+        // 以前不存，读一次档全部回到模板默认：律令制默认有外交权、科举选任，州郡、封国全被判成军府
+        public Dictionary<string, int> saved_regime_options;
+        public RegimeType saved_regime_options_type;
+        // 野战军饷按月开票的尾数(见 CorpsSystem.PayUpkeep)
+        public double corps_upkeep_carry;
         public KingdomType kingdomType = KingdomType.default_country_post;
         public string core_name = "";
         public string core_name_source = "";
@@ -2028,6 +2034,16 @@ public static class KingdomExtension
         {
             successionLawOption[0] = (int)ed.SuccessionLaw;
         }
+        // 读档后第一次建政体：还原存档里的政体选项(只用一次，之后改换政体照常按新政体的模板重建)
+        if (regime?.options != null && ed.saved_regime_options != null)
+        {
+            if (ed.saved_regime_options_type == type)
+                foreach (var pair in ed.saved_regime_options)
+                    if (pair.Key != "option_succession_law" && regime.options.TryGetValue(pair.Key, out int[] option) &&
+                        option != null && option.Length > 0)
+                        option[0] = pair.Value;
+            ed.saved_regime_options = null;
+        }
         k.SetRegime(regime);
         if (k.IsEmpire())
         {
@@ -2077,6 +2093,27 @@ public static class KingdomExtension
         loaded.SetAllowDiplomacy(diplomacy);
         if (method != LeaderSelectMethod.Default) loaded.SetLeaderSelectMethod(method);
         return true;
+    }
+
+    // 旧存档(没存过政体选项)：读档时政体已按模板重建，州郡、封国被判成了军府。按封号还原：
+    // 有自己封号的成员是世袭封国，只有行政区封号的是朝廷任命的州郡；羁縻地另有规则不动
+    public static void RepairLegacyRegimeRole(this Kingdom k)
+    {
+        if (k?.data == null || k.isRekt()) return;
+        KingdomExtraData data = k.GetOrCreate();
+        if (data.isEmpire || data.EmpireID < 0 || data.jimi_mode != 0) return;
+        Regime regime = k.GetRegime();
+        if (regime == null || !RegimeManager.IsMonarchy(regime.type)) return;
+        if (data.MainTitle > 0)
+        {
+            regime.SetAllowDiplomacy(true);
+            regime.SetLeaderSelectMethod(LeaderSelectMethod.Succession);
+        }
+        else if (data.AdministrativeTitle > 0)
+        {
+            regime.SetAllowDiplomacy(false);
+            regime.SetLeaderSelectMethod(LeaderSelectMethod.Exam);
+        }
     }
 
     public static void InitialRegime(this Kingdom k)
