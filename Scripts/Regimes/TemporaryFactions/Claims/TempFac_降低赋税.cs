@@ -32,7 +32,7 @@ public class TempFac_降低赋税 : TemporaryFaction
     {
         Empire empire = GetEmpire();
         if (empire == null) return false;
-        return empire.data != null && empire.data.TaxRate > 0f &&
+        return empire.data != null && empire.data.TaxRate > Empire.MinimumTaxRate &&
                ConstitutionalEconomySystem.CanChangeTax(empire);
     }
 }

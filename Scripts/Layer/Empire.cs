@@ -162,17 +162,17 @@ public class Empire : MetaObject<EmpireData>
         AddMandate(-(int)Math.Round((data.TaxRate - before) * 100f));
     }
 
+    // 帝国基础税率的下限：地方实际税率 = 基础税率 + 政体税级加成，税级为"低"时没有加成，
+    // 基础税率减到 0 就整个帝国一分税都收不上
+    public const float MinimumTaxRate = 0.05f;
+
     public void SubTaxRate(float substraction = 0.1f)
     {
         if (!ConstitutionalEconomySystem.CanChangeTax(this)) return;
         float before = data.TaxRate;
-        if (data.TaxRate > 0.0f)
+        if (data.TaxRate > MinimumTaxRate)
         {
-            data.TaxRate  -= substraction;
-            if (data.TaxRate <= 0.0f)
-            {
-                data.TaxRate =  0.0f;
-            }
+            data.TaxRate = Math.Max(MinimumTaxRate, data.TaxRate - substraction);
         }
         //减少税收增加正统性
         AddMandate((int)Math.Round((before - data.TaxRate) * 100f));

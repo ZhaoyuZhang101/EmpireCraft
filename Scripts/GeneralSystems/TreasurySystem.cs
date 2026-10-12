@@ -244,7 +244,7 @@ public static class TreasurySystem
         city.AddMoney(amount, category);
         // 城市征收环节的漏损只扣本期款项，并明确记为腐败支出。
         bool hasCollector = city.hasLeader() && city.leader.isAlive() && !city.leader.isRekt();
-        double leak = hasCollector ? amount * Rate(city.GetCorruptionRate()) + data.tax_corruption_carry / 10000d : 0d;
+        double leak = hasCollector ? amount * CorruptionRules.Leak(city.GetCorruptionRate()) + data.tax_corruption_carry / 10000d : 0d;
         int stolen = Math.Min(amount, (int)leak);
         if (hasCollector) data.tax_corruption_carry = (int)Math.Floor((leak - stolen) * 10000d);
         if (stolen > 0)
@@ -271,7 +271,7 @@ public static class TreasurySystem
         TreasuryRules.AttributeTaxTransfer(kingdom.GetOrCreate().treasury, amount, source);
         if (!kingdom.hasKing() || kingdom.king.isRekt() || !kingdom.king.isAlive()) return;
         var data = kingdom.GetOrCreate();
-        double leak = amount * Rate(kingdom.GetCorruptionRate()) + data.tax_corruption_carry / 10000d;
+        double leak = amount * CorruptionRules.Leak(kingdom.GetCorruptionRate()) + data.tax_corruption_carry / 10000d;
         int stolen = Math.Min(amount, (int)leak);
         data.tax_corruption_carry = (int)Math.Floor((leak - stolen) * 10000d);
         if (stolen <= 0) return;

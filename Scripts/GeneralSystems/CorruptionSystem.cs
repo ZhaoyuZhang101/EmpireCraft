@@ -78,7 +78,12 @@ public static class CorruptionSystem
 
     public static double AnnualOfficeChange(Actor actor, Kingdom kingdom, double? corruptibility = null) =>
         actor == null || actor.isRekt() || !actor.isAlive() ? 0d
-            : CorruptionRules.AnnualOfficeChange(corruptibility ?? actor.CalcCorruptionValue(), kingdom.IsInEmpire());
+            : CorruptionRules.AnnualOfficeChange(corruptibility ?? actor.CalcCorruptionValue(), kingdom.IsInEmpire(),
+                Integrity(actor));
+
+    // 清廉程度：品行(正面特质多于负面)越好越高，0~1
+    private static double Integrity(Actor actor) =>
+        Math.Max(0d, EmpireCraft.Scripts.System.PerformanceEvents.GetPersonalPerformance(actor) - 0.5d) / 0.5d;
 
     private static IEnumerable<Kingdom> CampaignRealms(Empire empire, Kingdom target) =>
         target == empire.CoreKingdom

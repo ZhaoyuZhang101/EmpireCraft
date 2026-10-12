@@ -181,6 +181,7 @@ public static class ClaimAgendaSystem
                 (Grievance(SocialClass.Labour) + Grievance(SocialClass.Peasant)) * 0.18f,
             TemporaryFactionType.土地改革 => GetLandlessUrgency(empire),
             TemporaryFactionType.降低赋税 => (empire.data?.TaxRate ?? 0f) * 25f,
+            TemporaryFactionType.提高赋税 => TaxRaiseUrgency(empire),
             TemporaryFactionType.建立共和 => (100f - empire.Legitimacy) * 0.18f +
                 Mathf.Max(0f, (Share(SocialClass.Labour) + Share(SocialClass.Peasant) - 0.45f) * 80f),
             TemporaryFactionType.推行普选 => PartySystem.HasUniversalSuffrage(empire) ? 0f : 15f +
@@ -188,11 +189,27 @@ public static class ClaimAgendaSystem
             TemporaryFactionType.开放党禁 => PartySystem.IsActive(empire) ? 0f : 15f,
             // 饥荒人命关天；腐败越重越该整顿；皇帝年纪越大，立储越急
             TemporaryFactionType.赈济灾荒 => 20f + Grievance(SocialClass.Peasant) * 0.2f,
-            TemporaryFactionType.整顿吏治 => (float)(empire.CoreKingdom?.GetCorruptionRate() ?? 0d) * 60f,
+            // 看全帝国(中央、各州、各城)的腐败，以前只看中央王国自己，州县贪到顶朝廷也不急
+            TemporaryFactionType.整顿吏治 => (float)CorruptionSystem.GetRate(empire) * 60f,
             TemporaryFactionType.册立储君 => empire.Emperor == null ? 0f
                 : Mathf.Clamp((empire.Emperor.getAge() - 30) * 0.5f, 0f, 20f),
             _ => 0f
         };
+    }
+
+    // 国库欠饷、入不敷出，或税率压得很低时急着加税(以前加税没有紧迫度，减税却税率越高越急，税率只降不升)
+    private static float TaxRaiseUrgency(Empire empire)
+    {
+        Kingdom core = empire?.CoreKingdom;
+        if (core == null || empire.data == null) return 0f;
+        float urgency = Mathf.Max(0f, 0.2f - empire.data.TaxRate) * 100f;
+        if (EmpireBankruptcySystem.IsBankrupt(empire)) return urgency + 20f;
+        if (TreasurySystem.Enabled(core))
+        {
+            TreasuryReport report = TreasurySystem.Report(core);
+            if (report.months >= 6 && report.operating_balance < 0) urgency += 10f;
+        }
+        return urgency;
     }
 
     private static float GetLandlessUrgency(Empire empire)

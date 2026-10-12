@@ -434,7 +434,8 @@ public static class HarshRuleSystem
     // 让步：减税、整顿腐败(街头压力下绕过议会的征税同意权)
     private static void Concede(Empire empire, float taxCut, double corruptionCut)
     {
-        empire.data.TaxRate = Mathf.Max(0f, empire.data.TaxRate - taxCut);
+        empire.data.TaxRate = Mathf.Max(Mathf.Min(empire.data.TaxRate, Empire.MinimumTaxRate),
+            empire.data.TaxRate - taxCut);
         empire.CoreKingdom.AddCorruptionRate(-corruptionCut);
     }
 
