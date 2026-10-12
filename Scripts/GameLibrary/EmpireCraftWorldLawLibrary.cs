@@ -129,6 +129,7 @@ public static class EmpireCraftWorldLawLibrary
             id = nameof(empirecraft_law_corps_general),
             group_id = "EmpireCraftCommonSetting",
             icon_path = "ui/icons/iconWar",
+            on_state_change = CorpsGeneralChange,
             default_state = true
         });
         //允许社交
@@ -214,6 +215,13 @@ public static class EmpireCraftWorldLawLibrary
             foreach (Kingdom kingdom in World.world.kingdoms)
                 CultureService.UpdateCulturalAssimilationDuty(kingdom);
         }
+    }
+
+    // 军团(以及"不留军人实体")只在无小人模式 + 帝国占领模式下运行：没开时切换这个开关不会有任何变化，提示一下
+    private static void CorpsGeneralChange(PlayerOptionData pOption)
+    {
+        if (World.world == null || GeneralSystems.CorpsSystem.Enabled) return;
+        WorldTip.showNow(NeoModLoader.General.LM.Get("empirecraft_law_corps_general_needs_modes"), false, "top", 5f);
     }
 
     private static void AllowSocialChange(PlayerOptionData pOption)
