@@ -1400,8 +1400,9 @@ public static class EmpireCraftNamePlateLibrary
         string kingdomName = kingdom?.GetKingdomFullName() ?? "";
         if (kingdom?.IsEmpire() == true && kingdom.GetRegime()?.type == RegimeType.Modern)
             return kingdomName;
-        // 篆书国号不带后缀
-        if (UseSealName(kingdom) && !string.IsNullOrWhiteSpace(kingdom.GetKingdomName())) return kingdom.GetKingdomName();
+        // 篆书国号不带后缀；帝国里的行政区、封国照样带后缀(州、道、省、某某国……)，否则看不出是哪一级
+        if (UseSealName(kingdom) && !(kingdom.IsInEmpire() && !kingdom.IsEmpire()) &&
+            !string.IsNullOrWhiteSpace(kingdom.GetKingdomName())) return kingdom.GetKingdomName();
         if (!ModClass.SIMPLE_NAMEPLATE_SWITCH || string.IsNullOrWhiteSpace(kingdomName)) return kingdomName;
         // 隐藏后缀：没有法理的现代势力只显示都城名(不显示原版随机国名)
         if (kingdom.GetRegime()?.type == RegimeType.Modern && !kingdom.HasMainTitle())

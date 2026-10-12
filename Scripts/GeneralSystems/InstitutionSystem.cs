@@ -2116,6 +2116,9 @@ public static class InstitutionSystem
                 {
                     Regime regime = kingdom.GetRegime();
                     if (regime?.options == null) continue;
+                    // 科举取士只改流官的选任：世袭的封国、核心王国不改，否则有外交权的封国一改就成了"军府"
+                    if (effect.option == "option_leader_select_method" &&
+                        regime.GetLeaderSelectMethod() == LeaderSelectMethod.Succession) continue;
                     if (regime.options.TryGetValue(effect.option, out int[] option) && option?.Length > 0)
                     {
                         option[0] = effect.int_value;
@@ -2266,14 +2269,30 @@ public static class InstitutionSystem
         return true;
     }
 
+    private static bool IsHuaxiaMonarchy(RegimeType? type) =>
+        type == RegimeType.LvLing || type == RegimeType.ZhouFeudalism;
+
     private static void ApplyRegimeChange(Empire empire, RegimeType regimeType)
     {
         List<Kingdom> affected = EnumerateAffectedKingdoms(empire);
         foreach (Kingdom kingdom in affected)
         {
-            if (kingdom.GetRegime()?.type == regimeType) continue;
+            Regime old = kingdom.GetRegime();
+            if (old?.type == regimeType) continue;
+            // 周制 ⇄ 律令制：成员保留原有的外交权与选任方式(州郡仍是州郡、封国仍是封国)，
+            // 否则 LoadRegime 重置成模板默认(律令制默认有外交权、科举选任)，州郡和封国全被判成军府
+            bool keepRole = kingdom != empire.CoreKingdom && old != null && IsHuaxiaMonarchy(old.type) &&
+                            IsHuaxiaMonarchy(regimeType);
+            bool diplomacy = old?.IsAllowDiplomacy() ?? false;
+            LeaderSelectMethod method = old?.GetLeaderSelectMethod() ?? LeaderSelectMethod.Default;
             kingdom.SetRegimeType(regimeType);
             kingdom.LoadRegime();
+            if (keepRole)
+            {
+                Regime loaded = kingdom.GetRegime();
+                loaded?.SetAllowDiplomacy(diplomacy);
+                if (method != LeaderSelectMethod.Default) loaded?.SetLeaderSelectMethod(method);
+            }
             kingdom.SystemChange();
         }
         empire.data.centerOffice ??= new CenterOffice();
