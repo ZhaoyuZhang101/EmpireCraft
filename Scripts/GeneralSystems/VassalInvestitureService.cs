@@ -145,6 +145,8 @@ public static class VassalInvestitureService
 
         EvaluateKingdom(empire, vassal, out float authority, out float autonomy);
         InvestitureMode mode = Evaluate(authority, autonomy, IsSelfSuccessionEnacted(empire));
+        // 周制春秋战国王室衰微：诸侯自立嗣君，天子不再册封或驳回改立，只能追认(春秋时实力足够才可能兴兵)
+        if (ZhouEraSystem.RoyalReclaimBlocked(empire)) mode = InvestitureMode.SelfProclaimed;
         string vassalName = vassal.GetKingdomName();
         switch (mode)
         {
@@ -192,6 +194,8 @@ public static class VassalInvestitureService
     private static bool WillWageDefianceWar(Empire empire, Kingdom vassal)
     {
         if (empire.Mandate < 40 || empire.CoreKingdom.GetMoney() <= 0) return false;
+        // 战国诸侯已称王自立，周天子无力过问
+        if (ZhouEraSystem.Era(empire) >= ZhouEraSystem.Warring) return false;
         float core = GetMilitaryStrength(empire.CoreKingdom, empire);
         if (core <= 0f) return false;
         return core >= GetMilitaryStrength(vassal) * 1.5f && Randy.randomChance(0.6f);
