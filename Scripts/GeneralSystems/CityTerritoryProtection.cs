@@ -5,12 +5,15 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 
 public static class CityTerritoryProtection
 {
+    // 正在撤城(见 CityDissolution)：不再保护
+    public static readonly global::System.Collections.Generic.HashSet<long> Dissolving = new();
+
     // World teardown marks cities dead before disposal. Only protect live cities
     // that still own territory, so loading another map can clear the old world.
     public static bool ShouldPreventDestruction(City city)
     {
         if (city?.data == null || city.isRekt() || city.zones.Count == 0 ||
-            AncientWarfareCompatibility.OwnsObject(city)) return false;
+            AncientWarfareCompatibility.OwnsObject(city) || Dissolving.Contains(city.id)) return false;
         return EmpireCraftWorldLawLibrary.empirecraft_law_prevent_city_destroy?.isEnabled() == true ||
                CityPopulationSystem.AbstractPopulationEnabled &&
                (CityPopulationSystem.GetBackgroundTotal(city) > 0f ||

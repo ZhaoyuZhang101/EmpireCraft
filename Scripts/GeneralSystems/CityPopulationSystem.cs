@@ -791,6 +791,8 @@ public static class CityPopulationSystem
     private static void Migrate(City city, CityPopulationData data, double now)
     {
         if (data == null || city.kingdom == null || city.kingdom.wild || city.kingdom.cities == null) return;
+        // 住不了人的城：百姓逃散(见 CityDissolution.TryAbandon)
+        if (CityDissolution.TryAbandon(city)) return;
         KingdomExtension.KingdomExtraData kingdomData = city.kingdom.GetOrCreate();
         if (kingdomData.fugitive_household_law_enacted || EmpireCraft.Scripts.GeneralSystems.EmpireLaw.EmpireLawSystem.HasLaw(city.kingdom, EmpireCraft.Scripts.GeneralSystems.EmpireLaw.LawType.逃人法)) return;
         float push = Push(city, data);
@@ -2380,6 +2382,15 @@ public static class CityPopulationSystem
     #endregion
 
     // 迁出一部分背景人口到另一座城(建新城时的移民)：各组按同一比例迁出，构成不变。返回迁出的人数
+    // 清空城里的背景人口(撤城而本国无处可迁时)
+    public static void ClearBackground(City city)
+    {
+        CityPopulationData data = Get(city);
+        if (data?.groups == null) return;
+        foreach (PopGroup group in data.groups.ToList()) RemoveBackground(group, group.Background);
+        InvalidateHouseholdCaches();
+    }
+
     public static float TransferBackground(City from, City to, float share)
     {
         if (!AbstractPopulationEnabled || from == null || to == null || from == to || share <= 0f) return 0f;

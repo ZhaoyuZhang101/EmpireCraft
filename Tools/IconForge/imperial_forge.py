@@ -1050,6 +1050,7 @@ GODPOWERS = {
     "zhou_conference": (obj_banners, "plus"),
     "zhou_bestow": (obj_ding, "up"),
     "zhou_advance": (obj_calendar, "arrow"),
+    "dissolve_city": (obj_city, "cross"),
     "empire_layer": (obj_title, "crown"),
     "create_empire": (obj_crown, "plus"),
     "empire_form": (obj_crown, "up"),

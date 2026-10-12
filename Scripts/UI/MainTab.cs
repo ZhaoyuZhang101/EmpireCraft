@@ -349,6 +349,11 @@ internal static class MainTab
         AddButton(PLANNING_GROUP,
             PowerButtonCreator.CreateGodPowerButton("plan_policy",
                 SpriteTextureLoader.getSprite("ui/icons/godpowers/plan_policy")));
+        // 撤城：点一座城，百姓迁往本国最近的城，城市废弃
+        CityDissolutionPower.init();
+        AddButton(PLANNING_GROUP,
+            PowerButtonCreator.CreateGodPowerButton("dissolve_city",
+                SpriteTextureLoader.getSprite("ui/icons/godpowers/dissolve_city")));
 
         // ---- 理念种子 ----
         IdeologyTraitIcons.Register();
