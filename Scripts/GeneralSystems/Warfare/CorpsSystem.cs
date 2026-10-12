@@ -120,6 +120,7 @@ public static class CorpsSystem
         GeneralIndex.Clear();
         _lastSecond = _lastMonth = -1d;
         GeneralMoves.Clear();
+        Paths.Clear();
         FrontSystem.ResetWorldState();
         NavySystem.ResetWorldState();
     }
@@ -631,11 +632,66 @@ public static class CorpsSystem
             return;
         }
         if (current == target) return;
-        TileZone best = current;
+        TileZone next = NextStep(corps, current, target);
+        if (next != null) corps.zone_id = next.id;
+    }
+
+    // 行军路线：按地块寻路，绕开原版最高的地形(见 TerrainSystem.Impassable)；路线按目标缓存，
+    // 走偏了(撤退、改派)或目标变了再重算；找不到路就朝目标就近挪一块可走的地
+    private const int MaxPathSearch = 6000;
+    private static readonly Dictionary<long, (int target, List<int> path)> Paths = new();
+
+    private static TileZone NextStep(CorpsData corps, TileZone current, TileZone target)
+    {
+        if (Paths.TryGetValue(corps.id, out var cached) && cached.target == target.id && cached.path.Count >= 2 &&
+            cached.path[0] == current.id)
+        {
+            cached.path.RemoveAt(0);
+            return ZoneById(cached.path[0]);
+        }
+        List<int> path = FindPath(current, target);
+        if (path == null || path.Count < 2)
+        {
+            Paths.Remove(corps.id);
+            return Nearer(current, target);
+        }
+        path.RemoveAt(0);
+        Paths[corps.id] = (target.id, path);
+        return ZoneById(path[0]);
+    }
+
+    // 广度优先(八方向，与 ZoneDistance 同一度量)；不可通行的地块不进，终点除外
+    private static List<int> FindPath(TileZone from, TileZone to)
+    {
+        var previous = new Dictionary<int, int> { [from.id] = -1 };
+        var queue = new Queue<TileZone>();
+        queue.Enqueue(from);
+        while (queue.Count > 0 && previous.Count < MaxPathSearch)
+        {
+            TileZone zone = queue.Dequeue();
+            if (zone == to) break;
+            foreach (TileZone neighbour in zone.neighbours_all ?? Array.Empty<TileZone>())
+            {
+                if (neighbour == null || previous.ContainsKey(neighbour.id)) continue;
+                if (neighbour != to && TerrainSystem.Impassable(neighbour)) continue;
+                previous[neighbour.id] = zone.id;
+                queue.Enqueue(neighbour);
+            }
+        }
+        if (!previous.ContainsKey(to.id)) return null;
+        var path = new List<int>();
+        for (int id = to.id; id != -1; id = previous[id]) path.Add(id);
+        path.Reverse();
+        return path;
+    }
+
+    private static TileZone Nearer(TileZone current, TileZone target)
+    {
+        TileZone best = null;
         float bestDistance = ZoneDistance(current, target);
         foreach (TileZone neighbour in current.neighbours_all ?? Array.Empty<TileZone>())
         {
-            if (neighbour == null) continue;
+            if (neighbour == null || neighbour != target && TerrainSystem.Impassable(neighbour)) continue;
             float distance = ZoneDistance(neighbour, target);
             if (distance < bestDistance)
             {
@@ -643,7 +699,7 @@ public static class CorpsSystem
                 bestDistance = distance;
             }
         }
-        corps.zone_id = best.id;
+        return best;
     }
 
     public static float ZoneDistance(TileZone a, TileZone b) =>

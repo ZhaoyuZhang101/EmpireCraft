@@ -101,17 +101,17 @@ public static class FrontSystem
         public bool Landing;
     }
 
-    // 敌城里可以下手的地块：敌控、且与己方控制的地块相邻
+    // 敌城里可以下手的地块：敌控、且与己方控制的地块相邻；不可通行的高山两边都不算(见 TerrainSystem.Impassable)
     private static List<TileZone> TargetZones(Kingdom side, City city)
     {
         var result = new List<TileZone>();
         if (city?.zones == null) return result;
         foreach (TileZone zone in city.zones)
         {
-            if (zone == null || !Hostile(side, Controller(zone))) continue;
+            if (zone == null || !Hostile(side, Controller(zone)) || TerrainSystem.Impassable(zone)) continue;
             foreach (TileZone neighbour in zone.neighbours ?? Array.Empty<TileZone>())
             {
-                if (neighbour == null || neighbour.world_edge) continue;
+                if (neighbour == null || neighbour.world_edge || TerrainSystem.Impassable(neighbour)) continue;
                 Kingdom controller = Controller(neighbour);
                 if (controller == null || !Friendly(side, controller)) continue;
                 result.Add(zone);
@@ -128,7 +128,7 @@ public static class FrontSystem
         if (city?.zones == null) return result;
         foreach (TileZone zone in city.zones)
         {
-            if (zone == null) continue;
+            if (zone == null || TerrainSystem.Impassable(zone)) continue;
             if ((zone.neighbours ?? Array.Empty<TileZone>()).Any(neighbour => neighbour != null && !neighbour.world_edge &&
                                                                               neighbour.city == null))
                 result.Add(zone);
@@ -325,7 +325,7 @@ public static class FrontSystem
         if (city?.zones != null)
             foreach (TileZone zone in city.zones)
             {
-                if (zone == null || !Friendly(kingdom, Controller(zone))) continue;
+                if (zone == null || !Friendly(kingdom, Controller(zone)) || TerrainSystem.Impassable(zone)) continue;
                 if ((zone.neighbours ?? Array.Empty<TileZone>()).Any(neighbour => Hostile(kingdom, Controller(neighbour))))
                     return zone;
             }
@@ -485,7 +485,8 @@ public static class FrontSystem
             List<TileZone> targets = TargetZones(attacker, city);
             if (targets.Count == 0 && landing) targets = LandingZones(city).Where(zone => Hostile(attacker, Controller(zone))).ToList();
             if (targets.Count == 0) break;
-            int remaining = city.zones.Count(zone => zone != null && !Friendly(attacker, Controller(zone)));
+            int remaining = city.zones.Count(zone => zone != null && !Friendly(attacker, Controller(zone)) &&
+                                                     !TerrainSystem.Impassable(zone));
             if (defended && remaining <= 1) break;
             TileZone center = city.getTile()?.zone;
             TileZone zone = targets.OrderBy(candidate => candidate == center ? 1 : 0)
@@ -498,7 +499,24 @@ public static class FrontSystem
             if (!ok) break;
             taken++;
         }
+        SweepImpassable(city, attacker, owner);
         return taken;
+    }
+
+    // 城里能走到的地都占了，剩下的高山随城陷落(军团进不去，否则这座城永远打不下)
+    private static void SweepImpassable(City city, Kingdom attacker, Kingdom owner)
+    {
+        if (city.kingdom != owner || city.zones == null) return;
+        var rest = city.zones.Where(zone => zone != null && !Friendly(attacker, Controller(zone))).ToList();
+        if (rest.Count == 0 || rest.Any(zone => !TerrainSystem.Impassable(zone))) return;
+        Kingdom occupier = Belligerent(attacker, owner);
+        foreach (TileZone zone in rest)
+        {
+            if (city.kingdom != owner) break;
+            Kingdom current = city.GetTileZoneOccupier(zone);
+            if (current != null && current != owner) city.RemoveOccupiedTileZone(current, zone);
+            if (!city.AddOccupiedTileZone(occupier, zone, landing: true)) break;
+        }
     }
 
     // 守方(或收复的一方)夺回本城被敌军占去、与己方相连的地块
