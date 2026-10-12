@@ -18,7 +18,8 @@ namespace EmpireCraft.Scripts.UI.Components;
 //   · 兵牌：帝国卷册小框(Tools/IconForge/frame_forge.py 的 CorpsFrame_*)，边色表示任务——
 //     进攻朱漆、防守石青、溃退铁灰、驻守橄榄青铜；左边国色印面上一枚棋子(中央禁军为后、军区为车、
 //     军府为马、义军为兵)，右边兵力与兵力条(绿)、组织度条(青)；有统领实体时跟在统领头顶；
-//     同一地块同一国的几支军合并成一块(标"×N"、兵力相加)，不同国并排；
+//     同一地块同一国的几支军合并成一块(标"×N"、兵力相加)，不同国并排；镜头拉远、同一国的兵牌在屏幕上挤在一起时
+//     再折叠成一块(拉近分开后各自显示)，悬停详情与点击打开军事页都包括折进来的全部军；
 //   · 交战标记：正在交战的城，朱漆框绛红底，两侧是攻守双方国色，中间是本月攻方胜算；
 //   · 鼠标悬停兵牌或交战标记：放大、换金边、置顶，并显示详情提示；
 //     点击打开军事页(属于帝国的国家开帝国窗口的军团页，独立王国开本国军事窗口)，点进来的那几支军、那处交战高亮。
@@ -89,10 +90,16 @@ public static class CorpsMapRenderer
         public Kingdom Kingdom;
         public TileZone Zone;
         public Vector3 World;
+        public Vector3 Screen;
         public string Task;
         public int Count, Rank;
         public float Strength, Full, Org;
+        public readonly List<int> Zones = new();
     }
+
+    // 折叠后每块兵牌包括哪些地块(键：代表地块 + 国)，悬停详情与点击用
+    private static readonly Dictionary<(long zone, long kingdom), List<int>> FoldedZones = new();
+    private static readonly List<CounterGroup> Folded = new();
 
     // 棋子：义军为兵、军府为马、军区为车、中央禁军为后
     private static int Rank(CorpsData corps) => corps.militia ? 0 : corps.post switch
@@ -395,11 +402,43 @@ public static class CorpsMapRenderer
                 general.current_tile?.zone != null && CorpsSystem.ZoneDistance(general.current_tile.zone, zone) <= 2f)
                 group.World = (Vector3)general.current_position + new Vector3(0f, 3f);
         }
-        StackOffsets.Clear();
-        foreach (CounterGroup group in Groups.Values)
+        // 折叠：同一国的兵牌在屏幕上会互相压住时并成一块(先放兵力大的，挨着它的并进去)
+        Folded.Clear();
+        FoldedZones.Clear();
+        float foldX = CounterWidth * zoom * 0.9f, foldY = CounterHeight * zoom * 1.3f;
+        foreach (CounterGroup group in Groups.Values.OrderByDescending(group => group.Strength))
         {
-            Vector3 screen = camera.WorldToScreenPoint(group.World);
-            if (!OnScreen(screen, 80f)) continue;
+            group.Screen = camera.WorldToScreenPoint(group.World);
+            if (!OnScreen(group.Screen, 80f)) continue;
+            CounterGroup into = null;
+            foreach (CounterGroup other in Folded)
+                if (other.Kingdom == group.Kingdom && Mathf.Abs(other.Screen.x - group.Screen.x) < foldX &&
+                    Mathf.Abs(other.Screen.y - group.Screen.y) < foldY)
+                {
+                    into = other;
+                    break;
+                }
+            if (into == null)
+            {
+                group.Zones.Clear();
+                group.Zones.Add(group.Zone.id);
+                Folded.Add(group);
+                continue;
+            }
+            into.Count += group.Count;
+            into.Rank = Mathf.Max(into.Rank, group.Rank);
+            into.Strength += group.Strength;
+            into.Full += group.Full;
+            into.Org += group.Org;
+            if (group.Task == "attack" || group.Task == "defend" && into.Task != "attack") into.Task = group.Task;
+            into.Zones.Add(group.Zone.id);
+        }
+        foreach (CounterGroup group in Folded) FoldedZones[(group.Zone.id, group.Kingdom.id)] = group.Zones;
+
+        StackOffsets.Clear();
+        foreach (CounterGroup group in Folded)
+        {
+            Vector3 screen = group.Screen;
             Counter counter = GetCounter(counterCount++);
             counter.Root.gameObject.SetActive(true);
             counter.Root.localScale = pixelScale;
@@ -482,6 +521,10 @@ public static class CorpsMapRenderer
         _hoverA = _hoverB = -1L;
         Tooltip.hideTooltip(null, true, string.Empty);
     }
+
+    // 悬停的兵牌折叠了哪些地块(没折叠就是它自己那块)
+    private static List<int> HoverZones(long kingdomId) =>
+        FoldedZones.TryGetValue((_hoverA, kingdomId), out List<int> zones) ? zones : new List<int> { (int)_hoverA };
 
     private static bool CanHover() =>
         InputHelpers.mouseSupported && !ScrollWindow.isWindowActive() && !ScrollWindow.isAnimationActive();
@@ -585,7 +628,8 @@ public static class CorpsMapRenderer
         {
             kingdom = World.world.kingdoms.get(_hoverB);
             if (kingdom?.data == null || kingdom.isRekt()) return false;
-            corps = CorpsSystem.Of(kingdom).Where(entry => entry.zone_id == _hoverA && ShowsCorps(kingdom, entry))
+            List<int> zones = HoverZones(kingdom.id);
+            corps = CorpsSystem.Of(kingdom).Where(entry => zones.Contains(entry.zone_id) && ShowsCorps(kingdom, entry))
                 .Select(entry => entry.id).ToList();
         }
         else if (_hoverKind == HoverMarker && FrontSystem.Battles.TryGetValue(_hoverA, out var battle))
@@ -634,8 +678,9 @@ public static class CorpsMapRenderer
     {
         Kingdom kingdom = data?.kingdom;
         if (kingdom?.data == null || kingdom.isRekt() || _hoverKind != HoverCounter) return;
+        List<int> zones = HoverZones(kingdom.id);
         List<CorpsData> list = CorpsSystem.Of(kingdom)
-            .Where(corps => corps.zone_id == _hoverA && ShowsCorps(kingdom, corps))
+            .Where(corps => zones.Contains(corps.zone_id) && ShowsCorps(kingdom, corps))
             .OrderByDescending(Rank).ThenByDescending(corps => corps.strength).ToList();
         if (list.Count == 0) return;
         tooltip.clear();
