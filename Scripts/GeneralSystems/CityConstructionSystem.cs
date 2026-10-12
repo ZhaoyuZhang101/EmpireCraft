@@ -20,7 +20,9 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   - 民居跟上科技：每月按本文化掌握的技术直接升级民居，不看人口(见 UpgradeHousing)；
 //   - 修路：没有修路工，城市每月自己把建筑之间的路铺上(见 BuildRoads)；
 //   - 清理废墟：没有清洁工，城里的废墟每月花钱请人拆(见 ClearRuins)，先花城市国库，不够由国家出；
-//     拆下来的木头、石头回到仓库。没钱就留着，废墟占着地方盖不了新房。
+//     拆下来的木头、石头回到仓库。没钱就留着，废墟占着地方盖不了新房；
+//   - 拓荒：新城还没盖起民居时，没有砍树采石的实体，民居要的木头凑不齐，城就一直只有篝火。这时百姓自己拾柴采石，
+//     每次结算往仓库补一点木头、石头，凑够盖头几座民居为止(见 Pioneer)。
 // 富庶度 = 经济繁荣度(商人、市民多、高级民居)与城市国库的综合，0~1。
 public static class CityConstructionSystem
 {
@@ -94,7 +96,37 @@ public static class CityConstructionSystem
         ClearRuins(city, rate);
         BuildRoads(city, rate);
         UpgradeHousing(city, rate);
+        Pioneer(city);
         if (!HasConstruction(city)) StartNext(city);
+    }
+
+    // ---- 拓荒 ----
+    // 民居(含在建)不到 PioneerHouses 座时，仓库里的木头、石头每次结算各补到 PioneerWood / PioneerStone 为止(每次最多补 10 / 5)；
+    // 还没有仓库就先等原版把仓库盖起来(仓库不要材料)
+    private const int PioneerHouses = 3, PioneerWood = 30, PioneerStone = 15;
+
+    private static void Pioneer(City city)
+    {
+        try
+        {
+            if (city.countBuildingsType("type_house", pCountOnlyFinished: false) >= PioneerHouses) return;
+            Building storage = city.getRandomStockpile();
+            if (storage == null) return;
+            Gather(city, storage, "wood", PioneerWood, 10);
+            Gather(city, storage, "stone", PioneerStone, 5);
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft][城市建设] 拓荒采集失败({city.data?.name}): {exception.Message}");
+        }
+    }
+
+    private static void Gather(City city, Building storage, string resource, int target, int step)
+    {
+        if (AssetManager.resources?.get(resource) == null) return;
+        int have = city.getResourcesAmount(resource);
+        if (have >= target) return;
+        storage.addResources(resource, Mathf.Min(step, target - have));
     }
 
     // ---- 民居跟上科技 ----
