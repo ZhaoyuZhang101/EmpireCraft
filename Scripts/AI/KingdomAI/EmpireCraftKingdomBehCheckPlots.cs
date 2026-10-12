@@ -176,6 +176,8 @@ public class EmpireCraftKingdomBehCheckPlots : GameAIKingdomBase
         if (regime == null) return;
         if (empire.CoreKingdom.getWars().Any(w=>w.GetEmpireWarType()== EmpireWarType.藩王索取皇位)) return;
         if (!empire.CanJoinWar()) return;
+        // 战国：诸侯已称王自立，天子与诸侯不再自动互相参战(合纵连横见 ZhouEraSystem)
+        if (ZhouEraSystem.Era(empire) >= ZhouEraSystem.Warring) return;
         if (!empire.isRekt())
         {
             if (!pKingdom.IsEmpire())

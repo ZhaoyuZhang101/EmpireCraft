@@ -256,7 +256,8 @@ public static class ZhouEraSystem
             foreach (Kingdom loyal in Loyalists(empire, state, foe).Take(3))
                 JoinSide(war, loyal, coreAttacker);
         }
-        // 攘夷：夷狄攻打诸侯，天子与霸主出兵来援
+        // 攘夷：夷狄攻打诸侯，天子与霸主出兵来援(只在春秋；战国不再尊王攘夷)
+        if (state.era == Spring)
         foreach (Kingdom vassal in Vassals(empire).ToList())
             foreach (War war in vassal.getWars().ToList())
             {
@@ -289,6 +290,8 @@ public static class ZhouEraSystem
     {
         if (war == null || kingdom?.data == null || kingdom.isRekt() || war.hasEnded()) return;
         if (war.isAttacker(kingdom) || war.isDefender(kingdom)) return;
+        // 已经和对方议和退出过这场仗的，不再被攘夷、尊王、合纵拉回去
+        if (GamePatches.EmpirePeacePatch.HasLeft(kingdom, war, attackerSide)) return;
         Kingdom enemy = attackerSide ? war.main_defender : war.main_attacker;
         if (enemy == null || enemy == kingdom) return;
         try

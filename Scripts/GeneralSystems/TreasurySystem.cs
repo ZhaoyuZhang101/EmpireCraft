@@ -184,6 +184,10 @@ public static class TreasurySystem
             centralPercent = administrative || local.GetKingdomType() == KingdomType.ZhouFeudalism_jun ||
                 local.GetKingdomType() == KingdomType.Feudalism_intendancy ||
                 local.GetKingdomType() == KingdomType.Feudalism_diocese ? 55 : 20;
+            // 周室衰微(见 ZhouEraSystem)：春秋诸侯只给天子象征性的贡赋(霸主另收一成)，战国诸侯不再向周室交税；郡照旧
+            int era = ZhouEraSystem.Era(empire);
+            if (era >= ZhouEraSystem.Spring && local.GetKingdomType() != KingdomType.ZhouFeudalism_jun)
+                centralPercent = era == ZhouEraSystem.Spring ? 5 : 0;
         }
         return (25, 75 - centralPercent, centralPercent);
     }

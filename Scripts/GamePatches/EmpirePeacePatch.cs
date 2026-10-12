@@ -117,14 +117,19 @@ public class EmpirePeacePatch : GamePatch
     }
 
     // 这场仗是不是中央已经议和退出过的旧仗(开战早于中央与对方停战)
-    public static bool IsWarAlreadyLeft(Kingdom core, War war, Kingdom member)
+    public static bool IsWarAlreadyLeft(Kingdom core, War war, Kingdom member) =>
+        member != null && war?.data != null && HasLeft(core, war, joiningAttackers: war.isAttacker(member));
+
+    // 要加入某一方的国家，是否已经和另一方议和、退出过这场仗(开战早于双方停战)：
+    // 自动参战(中央援助成员、周室攘夷/尊王/合纵)都不再把它拉回同一场旧仗
+    public static bool HasLeft(Kingdom kingdom, War war, bool joiningAttackers)
     {
-        if (core == null || war?.data == null || World.world?.diplomacy == null) return false;
-        var opponents = war.isAttacker(member) ? war._list_defenders : war._list_attackers;
+        if (kingdom == null || war?.data == null || World.world?.diplomacy == null) return false;
+        var opponents = joiningAttackers ? war._list_defenders : war._list_attackers;
         foreach (Kingdom foe in opponents)
         {
-            if (foe == null || foe.isRekt() || foe == core) continue;
-            double ended = World.world.diplomacy.getRelation(core, foe).data.timestamp_last_war_ended;
+            if (foe == null || foe.isRekt() || foe == kingdom) continue;
+            double ended = World.world.diplomacy.getRelation(kingdom, foe).data.timestamp_last_war_ended;
             if (ended > 0d && war.data.created_time <= ended) return true;
         }
         return false;
