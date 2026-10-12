@@ -414,13 +414,77 @@ public static class InstitutionSystem
     {
         // 制度按国家绑定的文化走：征服王朝采用当地制度后，制度树跟随制度文化(而不是统治族群的文化)，
         // 否则会按统治族群的科技线把政体改回去(如阿拉伯王朝治下的华夏帝国显示哈里发)
-        string culture = CompositeEmpireService.IsComposite(empire)
+        bool composite = CompositeEmpireService.IsComposite(empire);
+        string culture = composite
             ? CompositeEmpireService.GetInstitutionalCulture(empire)
             : CultureService.GetEmpireDefaultCulture(empire);
+        // 统治者与治下多数城市同属一种文化：制度跟着这种文化走，不看法统缓存的文化。
+        // 华夏的梁继承了游牧政权"西苏"的法统(法统文化不能改：一种文化同时只能有一个正统帝国)，
+        // 以前按法统的游牧文化走游牧制度、改游牧政体，国号也成了"匈鲁斯"
+        if (!composite && empire?.data != null && RulingMajorityCulture(empire) is string local) culture = local;
         return CultureService.IsValidCulture(culture)
             ? culture
             : CultureService.GetRealmCulture(empire?.CoreKingdom);
     }
+
+    // 统治文化同时也是治下多数城市的主流文化时返回它，否则 null(按帝国缓存，一年重算一次)
+    private static readonly Dictionary<long, (string culture, double at)> RulingMajority = new();
+
+    private static string RulingMajorityCulture(Empire empire)
+    {
+        if (World.world == null || empire.kingdoms_list == null) return null;
+        double now = World.world.getCurWorldTime();
+        if (RulingMajority.TryGetValue(empire.data.id, out var hit) && now >= hit.at && Date.getYearsSince(hit.at) < 1)
+            return hit.culture;
+        string result = null;
+        string ruling = CompositeEmpireService.GetRulingCulture(empire);
+        if (CultureService.IsValidCulture(ruling))
+        {
+            int total = 0, same = 0;
+            foreach (Kingdom kingdom in empire.kingdoms_list)
+            {
+                if (kingdom?.cities == null || kingdom.isRekt()) continue;
+                foreach (City city in kingdom.cities)
+                {
+                    string main = city?.data == null ? null : city.GetOrCreate().main_culture;
+                    if (!CultureService.IsValidCulture(main)) continue;
+                    total++;
+                    if (string.Equals(main, ruling, StringComparison.Ordinal)) same++;
+                }
+            }
+            if (total > 0 && same * 2 > total) result = ruling;
+        }
+        RulingMajority[empire.data.id] = (result, now);
+        return result;
+    }
+
+    // 帝国核心的政体根本不属于制度文化那条线(如华夏制度线上没有游牧政体)：改成本文化已施行到的政体，
+    // 帝号随之重算；正在推的外线改革作废。封建化过渡、共和、手动指定、复合帝国这些正常的不一致不动
+    private static void SyncForeignRegime(Empire empire)
+    {
+        Kingdom core = empire?.CoreKingdom;
+        Regime regime = core?.GetRegime();
+        if (regime == null || CompositeEmpireService.IsComposite(empire) || RepublicSystem.IsRegimeLocked(core) ||
+            core.GetOrCreate().regime_manually_selected) return;
+        string culture = GetPrimaryCulture(empire);
+        string line = GetCultureLine(culture);
+        InstitutionEmpireState state = empire.data.institution_state;
+        if (state?.active_reform != null && InstitutionDefinitionRegistry.Get(state.active_reform.node_id) is InstitutionNodeConfig node &&
+            InstitutionDefinitionRegistry.HasLine(line) && !IsSameLine(node.line, line))
+            state.active_reform = null;
+        if (regime.type != RegimeType.YouMu && regime.type != RegimeType.Arabic && regime.type != RegimeType.LvLing &&
+            regime.type != RegimeType.ZhouFeudalism) return;
+        if (!InstitutionDefinitionRegistry.HasLine(line) || LineDeclares(line, regime.type)) return;
+        if (!TryResolveCultureRegime(culture, out RegimeType target) || target == regime.type) return;
+        LogService.LogInfo($"[EmpireCraft][制度] {empire.GetEmpireName()} 政体 {regime.type} 不属于 {culture} 的制度线，改为 {target}");
+        ChangeRegime(empire, target);
+        empire.data.empire_type_key = "";
+    }
+
+    private static bool LineDeclares(string line, RegimeType type) =>
+        InstitutionDefinitionRegistry.TryGetRootRegime(line, out RegimeType root) && root == type ||
+        InstitutionDefinitionRegistry.GetForLine(line).Any(node =>
+            InstitutionDefinitionRegistry.TryGetNodeRegime(node, out RegimeType declared) && declared == type);
 
     #endregion
 
@@ -455,6 +519,7 @@ public static class InstitutionSystem
             }
         }
 
+        SyncForeignRegime(empire);
         // 同文化的其他政权研究出来的制度，在这里把持久效果补到本政权身上
         SyncSharedEffects(empire);
         SyncGrantedTraits(empire);
@@ -478,6 +543,7 @@ public static class InstitutionSystem
     {
         if (EnsureEmpireState(empire) == null) return;
         GetOrCreateCultureState(GetPrimaryCulture(empire));
+        SyncForeignRegime(empire);
     }
 
     #endregion
