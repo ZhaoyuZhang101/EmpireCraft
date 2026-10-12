@@ -54,9 +54,11 @@ public class EmpirePeacePatch : GamePatch
 
     public static void AfterRemove(Snapshot __state) => Cascade(__state);
 
-    public static void BeforeEnd(War pWar, out List<Snapshot> __state)
+    public static void BeforeEnd(War pWar, WarWinner pWinner, out List<Snapshot> __state)
     {
         __state = null;
+        // 同盟把两场战争并成一场(Merged)不是议和：参战各方转到合并后的战争里接着打
+        if (pWinner == WarWinner.Merged) return;
         if (pWar?.data == null || !pWar.isAlive() || pWar.hasEnded()) return;
         foreach (Kingdom kingdom in pWar._list_attackers.Concat(pWar._list_defenders).ToList())
         {
