@@ -282,7 +282,8 @@ public class NoCommonersPatch : GamePatch
 
     // 全图野生生物上限：每座城 WildPerCity 只(畜牧、狩猎的产出已经按地形自动结算，地图上的动物只是点缀)
     private const int WildPerCity = 2;
-    public static int WildCap => (World.world?.cities?.Count ?? 0) * WildPerCity;
+    // 纯净地图模式一只野生动物都不留(也不再生出来)
+    public static int WildCap => GeneralSystems.PureMapMode.Enabled ? 0 : (World.world?.cities?.Count ?? 0) * WildPerCity;
 
     public static int WildCount()
     {

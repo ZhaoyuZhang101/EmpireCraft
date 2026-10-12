@@ -751,6 +751,8 @@ public static class VirtualGenealogySystem
             else if (Date.getYearsSince(clan.virtual_since) >= DormantYears) Disperse(clan, virtuals, dormant: true);
             return;
         }
+        // 纯净地图模式(接近零实体)不为族长落成实体，宗族照常作为虚拟族谱存在；否则每年落成、每月又并回人口
+        if (PureMapMode.Enabled) return;
         PersonalClanIdentity heir = PickHead(virtuals.Where(person => person.age >= HeadMinAge)) ?? PickHead(virtuals);
         Actor head = heir?.Realize();
         if (head != null) ClanHeads[clan.id] = heir.id;

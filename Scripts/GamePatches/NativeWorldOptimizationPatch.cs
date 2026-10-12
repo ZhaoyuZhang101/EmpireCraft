@@ -71,6 +71,19 @@ public class NativeWorldOptimizationPatch : GamePatch
         Profile(harmony, typeof(MapBox), "checkEventHouses");
         Profile(harmony, typeof(BatchActors), "u4_deadCheck");
         Profile(harmony, typeof(BatchActors), "u10_checkSmoothMovement");
+        // 原版·updateCities 偶有几百毫秒的尖峰：城市自身的几步与城市 AI 各行为(原版与模组的)分别计时，尖峰帧里直接点名
+        Profile(harmony, typeof(City), "updateCityStatus");
+        Profile(harmony, typeof(City), "updateCitizens");
+        Profile(harmony, typeof(City), "updateCapture");
+        foreach (Type type in AccessTools.AllTypes())
+        {
+            if (type == null || type.IsAbstract || !type.IsSubclassOf(typeof(BehaviourActionCity))) continue;
+            MethodInfo execute = AccessTools.DeclaredMethod(type, "execute", new[] { typeof(City) });
+            if (execute == null) continue;
+            harmony.Patch(execute,
+                prefix: new HarmonyMethod(typeof(NativeWorldOptimizationPatch), nameof(BeforeCityBehaviour)) { priority = Priority.First },
+                finalizer: new HarmonyMethod(typeof(NativeWorldOptimizationPatch), nameof(AfterProfile)) { priority = Priority.Last });
+        }
         Initialized = true;
     }
 
@@ -194,6 +207,20 @@ public class NativeWorldOptimizationPatch : GamePatch
         __state = Profiling
             ? FrameProfiler.Measure("原版·" + __originalMethod.Name) : null;
     public static void AfterProfile(FrameProfiler.Scope? __state) => __state?.Dispose();
+
+    // 城市 AI 行为都叫 execute：按类名记(标签缓存，免得每次拼字符串)
+    private static readonly Dictionary<MethodBase, string> BehaviourLabels = new();
+    public static void BeforeCityBehaviour(MethodBase __originalMethod, out FrameProfiler.Scope? __state)
+    {
+        if (!Profiling)
+        {
+            __state = null;
+            return;
+        }
+        if (!BehaviourLabels.TryGetValue(__originalMethod, out string label))
+            BehaviourLabels[__originalMethod] = label = "城市AI·" + __originalMethod.DeclaringType?.Name;
+        __state = FrameProfiler.Measure(label);
+    }
 
     // 原版作业线程只写线程编号，不访问 Unity、世界法则或主线程计时字典。
     public static void RecordBuildingThread()

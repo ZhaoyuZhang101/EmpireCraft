@@ -1256,6 +1256,7 @@ public static class CityPopulationSystem
     public static bool IsNotable(Actor actor, bool includeClanHead)
     {
         if (actor?.data == null || actor.isRekt()) return true;
+        if (PureMapMode.Enabled) return PureNotable(actor);
         if (actor.isKing() || actor.isCityLeader()) return true;
         if (actor.isFavorite() || actor.isCameraFollowingUnit()) return true;
         if (actor.plot != null) return true;
@@ -1280,6 +1281,16 @@ public static class CityPopulationSystem
             using (FrameProfiler.Measure("名人判定·族长"))
                 if (VirtualGenealogySystem.IsClanHead(actor)) return true;
         return false;
+    }
+
+    // 纯净地图模式(接近零实体)只留朝堂离不开的人：君主、城主、在任官员、要紧宗室(储君、君主配偶子女、有封号的)、
+    // 派系成员、谋划中、收藏的；宗族族长、地主、举人进士都并回人口(宗族转为虚拟，需要时再落成)
+    private static bool PureNotable(Actor actor)
+    {
+        if (actor.isKing() || actor.isCityLeader() || actor.isFavorite() || actor.isCameraFollowingUnit() ||
+            actor.plot != null || actor.IsOnOffice()) return true;
+        if (EmpireCaftActorJudgeClass.IsNoble(actor) && IsImportantNoble(actor)) return true;
+        return actor.GetFaction() != null;
     }
 
     // 月度并入最多重算十二人，由每城游标轮转，未知者等待检查。
