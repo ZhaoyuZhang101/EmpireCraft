@@ -730,9 +730,12 @@ public static class ActorExtension
         return OfficeManager.Offices.TryGetValue(a.GetOrCreate().OfficeId,  out var value) ? value : null;
     }
 
+    // 在任：官职还在、而且挂着的就是这个人(官职撤销、换人后残留的"在任"标记不算)
     public static bool IsOnOffice(this Actor a)
     {
-        return a.GetOrCreate().is_on_office;
+        var data = a.GetOrCreate();
+        return data.is_on_office && OfficeManager.Offices.TryGetValue(data.OfficeId, out OfficeObject office) &&
+               office != null && office.actor_id == a.getID();
     }
 
     public static void BanFromOffice(this Actor a, long empireId)

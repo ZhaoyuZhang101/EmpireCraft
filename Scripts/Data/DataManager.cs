@@ -305,6 +305,7 @@ public static class DataManager
             if (legacyRegimeKingdoms.Contains(worldKingdom.id)) worldKingdom.RepairLegacyRegimeRole();
             EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(worldKingdom);
         }
+        OfficeManager.Prune();
         foreach (Empire empire in ModClass.EMPIRE_MANAGER
                      .Where(value => value != null && !value.IsArchived() && !value.isRekt()).ToList())
         {
@@ -392,6 +393,7 @@ public static class DataManager
         saveData.clanExtraData = World.world.clans.Select(a => a.GetExtraData<Clan, ClanExtraData>(true)).Where(ed => ed != null).ToList(); ;
         saveData.bookExtraData = World.world.books.Select(b => b.GetExtraData<Book, BookExtension.BookExtraData>(true))
             .Where(ed => ed != null && (!string.IsNullOrEmpty(ed.landmark_id) || !string.IsNullOrEmpty(ed.culture))).ToList();
+        OfficeManager.Prune();
         saveData.empireDatas = new List<EmpireData>(ModClass.EMPIRE_MANAGER.Count);
         saveData.empireCoreDatas = EmpireCoreManager.EmpireCores.Values.Where(c => c != null).ToList();
         saveData.kingdomTitleDatas = new List<KingdomTitleData>(ModClass.KINGDOM_TITLE_MANAGER.Count);

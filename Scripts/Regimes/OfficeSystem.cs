@@ -72,6 +72,58 @@ public static class OfficeManager
         var res = Offices.Remove(pOfficeID);
         return res;
     }
+
+    // 清掉没有主人的官职：存活国家、存活城市、未解散帝国的中央机构(含后宫)、仍在的原版军队之外的官职都删掉，
+    // 挂在上面的人一并卸任。以前国家灭亡、城市被毁、帝国解散、军队解散后旧官职一直留着；
+    // 军队官职的归属不进存档，读档后认不回来又新建一份；中央机构每次重建还把每个官职登记两次。
+    // 本地存档里官职表有 11157 条，真正有人在任的只有 92 条。读档后、存档前与游戏中每分钟各清一次
+    public static int Prune()
+    {
+        if (World.world?.kingdoms == null || Offices.Count == 0) return 0;
+        var live = new HashSet<long>();
+        foreach (Kingdom kingdom in World.world.kingdoms)
+            if (kingdom?.data != null && !kingdom.isRekt()) live.Add(kingdom.GetOfficeID());
+        foreach (City city in World.world.cities)
+            if (city?.data != null && !city.isRekt()) live.Add(city.GetOfficeID());
+        if (ModClass.EMPIRE_MANAGER != null)
+            foreach (Empire empire in ModClass.EMPIRE_MANAGER)
+            {
+                CenterOffice center = empire?.data?.centerOffice;
+                if (center == null || empire.IsArchived() || empire.isRekt()) continue;
+                foreach (long id in center.CoreOffices ?? new List<long>()) live.Add(id);
+                foreach (long id in center.Divisions ?? new List<long>()) live.Add(id);
+                foreach (long id in center.Harems ?? new List<long>()) live.Add(id);
+            }
+        var stale = new List<long>();
+        foreach (KeyValuePair<long, OfficeObject> pair in Offices)
+        {
+            if (live.Contains(pair.Key)) continue;
+            if (pair.Value?.meta_object is Army army && !army.isRekt()) continue;
+            stale.Add(pair.Key);
+        }
+        foreach (long id in stale)
+        {
+            Actor holder = Offices[id]?.GetActor();
+            if (holder?.data != null && !holder.isRekt() && holder.GetOrCreate().OfficeId == id)
+            {
+                holder.EndOffice();
+                if (holder.HasOfficeIdentity() && holder.GetIdentity()?.GetOfficeId() == id) holder.GetIdentity().RemoveOffice();
+            }
+            Offices.Remove(id);
+        }
+        if (stale.Count > 0) LogService.LogInfo($"[EmpireCraft][官职] 清掉没有主人的官职 {stale.Count} 条，剩 {Offices.Count} 条");
+        return stale.Count;
+    }
+
+    private static float _pruneAt;
+
+    // 游戏中每分钟清一次
+    public static void Tick()
+    {
+        if (World.world == null || !Config.game_loaded || SmoothLoader.isLoading() || UnityEngine.Time.unscaledTime < _pruneAt) return;
+        _pruneAt = UnityEngine.Time.unscaledTime + 60f;
+        Prune();
+    }
     public static List<OfficerPowerType> AllPower = new List<OfficerPowerType>
     {
         OfficerPowerType.财政, OfficerPowerType.人事, OfficerPowerType.军事, OfficerPowerType.审核, 
@@ -415,7 +467,8 @@ public class CenterOffice
         {
 
             var o = new OfficeObject();
-            o.InitialOffice(core);
+            // 下面自己取 id 登记；这里再登记一次的话，第一个 id 没人记得，永远留在官职表里
+            o.InitialOffice(core, isNew: false);
             o.regimeType = pKingdom.GetRegime().type;
             o.meta_object = pKingdom;
             o.is_local = false;
@@ -432,7 +485,7 @@ public class CenterOffice
         {
 
             var o = new OfficeObject();
-            o.InitialOffice(div);
+            o.InitialOffice(div, isNew: false);
             o.regimeType = pKingdom.GetRegime().type;
             o.select_from_local = false;
             o.meta_object = pKingdom;
@@ -449,7 +502,7 @@ public class CenterOffice
         foreach (var div in bureau.harems)
         {
             var o = new OfficeObject();
-            o.InitialOffice(div);
+            o.InitialOffice(div, isNew: false);
             o.regimeType = pKingdom.GetRegime().type;
             o.select_from_local = false;
             o.meta_object = pKingdom;
