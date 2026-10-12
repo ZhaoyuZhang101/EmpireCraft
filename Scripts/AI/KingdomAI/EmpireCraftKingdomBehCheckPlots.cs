@@ -174,71 +174,32 @@ public class EmpireCraftKingdomBehCheckPlots : GameAIKingdomBase
         if (empire == null || empire.CoreKingdom == null || empire.CoreKingdom.isRekt()) return;
         var regime = pKingdom.GetRegime();
         if (regime == null) return;
+        // 成员挨打向中央求援、邻近成员挨打议驰援(中央不再自动援助成员，见 MemberWarAid)
+        if (!pKingdom.IsEmpire()) MemberWarAid.TryRaise(pKingdom);
         if (empire.CoreKingdom.getWars().Any(w=>w.GetEmpireWarType()== EmpireWarType.藩王索取皇位)) return;
         if (!empire.CanJoinWar()) return;
         // 战国：诸侯已称王自立，天子与诸侯不再自动互相参战(合纵连横见 ZhouEraSystem)
         if (ZhouEraSystem.Era(empire) >= ZhouEraSystem.Warring) return;
-        if (!empire.isRekt())
+        if (empire.isRekt() || pKingdom.IsEmpire()) return;
+        var coreKingdom = empire.CoreKingdom;
+        if (pKingdom.isInWarWith(coreKingdom)) return;
+        if (pKingdom.isInWarOnSameSide(coreKingdom)) return;
+        if (pKingdom.getWars().Any()) return;
+        if (!coreKingdom.hasEnemies()) return;
+        // 听命于中央的成员(行政区、军府等没有自主外交权的)是中央的一部分，中央开战一律随征，不看好感
+        if (!GamePatches.EmpirePeacePatch.Obeys(empire, pKingdom) &&
+            !pKingdom.isOpinionTowardsKingdomGood(coreKingdom) && !regime.IsAllowDiplomacy()) return;
+        bool joinedAny = false;
+        foreach (War w in coreKingdom.GetWarsCached(true).ToArray())
         {
-            if (!pKingdom.IsEmpire())
-            {
-                var coreKingdom = empire.CoreKingdom;
-                if (pKingdom.isInWarWith(coreKingdom)) return;
-                if (pKingdom.isInWarOnSameSide(coreKingdom)) return;
-                if (pKingdom.getWars().Any()) return;
-                if (!coreKingdom.hasEnemies()) return;
-                // 听命于中央的成员(行政区、军府等没有自主外交权的)是中央的一部分，中央开战一律随征，不看好感
-                if (GamePatches.EmpirePeacePatch.Obeys(empire, pKingdom) ||
-                    pKingdom.isOpinionTowardsKingdomGood(coreKingdom) || regime.IsAllowDiplomacy())
-                {
-                    var wars = coreKingdom.GetWarsCached(true);
-                    var enumerable = wars.ToArray();
-                    bool joinedAny = false;
-                    for (int i = 0; i < enumerable.Count(); i++)
-                    {
-                        var w = enumerable[i];
-                        joinedAny |= TryJoinWarOnSameSide(w, coreKingdom, pKingdom);
-                    }
-                    if (joinedAny)
-                    {
-                        empire.data.timestamp_invite_war_cool_down = World.world.getCurWorldTime();
-                        TranslateHelper.LogJoinEmpireWar(pKingdom, empire);
-                    }
-                } 
-            }
-            else
-            {
-                var ks = empire.kingdoms_list;
-                for (int x = 0; x < ks.Count; x++)
-                {
-                    var empireKingdom = ks[x];
-                    if (empireKingdom.IsEmpire()) continue;
-                    if (pKingdom.isInWarWith(empireKingdom)) continue;
-                    if (pKingdom.isInWarOnSameSide(empireKingdom)) continue;
-                    if (!empireKingdom.hasEnemies())  continue;
-                    var kRegime = empireKingdom.GetRegime();
-                    if (kRegime == null) continue;
-                    if (!pKingdom.isOpinionTowardsKingdomGood(empireKingdom)&&regime.IsAllowDiplomacy()) continue;
-                    var wars2 = empireKingdom.GetWarsCached(true);
-                    var enumerable = wars2.ToArray();
-                    bool joinedMemberWar = false;
-                    for (int i = 0; i < enumerable.Count(); i++)
-                    {
-                        var w = enumerable[i];
-                        // 中央只援助挨打的成员：成员自己开的仗不跟；中央已经议和退出的旧仗也不再回去
-                        if (w == null || !w.isDefender(empireKingdom) ||
-                            GamePatches.EmpirePeacePatch.IsWarAlreadyLeft(pKingdom, w, empireKingdom)) continue;
-                        joinedMemberWar |= TryJoinWarOnSameSide(w, empireKingdom, pKingdom);
-                    }
-                    if (joinedMemberWar)
-                    {
-                        empire.data.timestamp_invite_war_cool_down = World.world.getCurWorldTime();
-                        TranslateHelper.LogEmpireJoinWar(empire, empireKingdom);
-                        empire.RecordHistory(directContent: string.Format(NeoModLoader.General.LM.Get("empire_join_member_war_history"),
-                            empire.GetEmpireFullName(), empireKingdom.GetKingdomName()), kingdomId: empireKingdom.id);
-                    }
-                }
-            }
+            // 中央援助成员的仗不随征(邻近成员要议驰援，见 MemberWarAid)
+            if (MemberWarAid.IsMemberWar(w, empire, w.isAttacker(coreKingdom))) continue;
+            joinedAny |= TryJoinWarOnSameSide(w, coreKingdom, pKingdom);
+        }
+        if (joinedAny)
+        {
+            empire.data.timestamp_invite_war_cool_down = World.world.getCurWorldTime();
+            TranslateHelper.LogJoinEmpireWar(pKingdom, empire);
         }
     }
 

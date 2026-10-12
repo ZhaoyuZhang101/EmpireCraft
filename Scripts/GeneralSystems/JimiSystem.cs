@@ -113,6 +113,7 @@ public static class JimiSystem
                 if (IsMember(war, region)) continue;
                 bool coreAttacks = war.isAttacker(core);
                 if (!coreAttacks && !war.isDefender(core)) continue;
+                if (MemberWarAid.IsMemberWar(war, empire, coreAttacks)) continue;
                 if (!BordersSide(region, war, !coreAttacks)) continue;
                 if (coreAttacks) war.joinAttackers(region);
                 else war.joinDefenders(region);

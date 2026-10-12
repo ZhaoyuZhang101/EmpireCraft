@@ -1063,6 +1063,37 @@ namespace EmpireCraft.Scripts.AI
                     return CultureService.ConvertKingdomRegime(kingdom, culture, regimeType);
                 }
             });
+            // 成员向中央求援、驰援邻近成员(见 MemberWarAid)：中央与别的成员不再自动插手成员的仗
+            AssetManager.plots_library.add(new PlotAsset
+            {
+                id = MemberWarAid.RequestPlot,
+                path_icon = "ui/icons/plots/plot_" + MemberWarAid.RequestPlot,
+                group_id = "empirecraft_diplomacy",
+                is_basic_plot = true,
+                progress_needed = 15f,
+                can_be_done_by_king = true,
+                check_target_war = true,
+                try_to_start_advanced = MemberWarAid.StartRequest,
+                check_is_possible = actor => actor?.kingdom?.king == actor && MemberWarAid.FindRequestWar(actor.kingdom) != null,
+                check_can_be_forced = actor => actor?.kingdom?.king == actor && MemberWarAid.FindRequestWar(actor.kingdom) != null,
+                check_should_continue = MemberWarAid.RequestContinues,
+                action = MemberWarAid.AnswerRequest
+            });
+            AssetManager.plots_library.add(new PlotAsset
+            {
+                id = MemberWarAid.NeighbourPlot,
+                path_icon = "ui/icons/plots/plot_" + MemberWarAid.NeighbourPlot,
+                group_id = "empirecraft_diplomacy",
+                is_basic_plot = true,
+                progress_needed = 20f,
+                can_be_done_by_king = true,
+                check_target_war = true,
+                try_to_start_advanced = MemberWarAid.StartNeighbour,
+                check_is_possible = actor => actor?.kingdom?.king == actor && MemberWarAid.FindNeighbourWar(actor.kingdom, out _, out _),
+                check_can_be_forced = actor => actor?.kingdom?.king == actor && MemberWarAid.FindNeighbourWar(actor.kingdom, out _, out _),
+                check_should_continue = MemberWarAid.NeighbourContinues,
+                action = MemberWarAid.AidNeighbour
+            });
             AssetManager.plots_library.add(new PlotAsset
             {
                 id = "kingdom_expose_crime",
@@ -2267,10 +2298,7 @@ namespace EmpireCraft.Scripts.AI
                         war.SetEmpireWarType(EmpireWarType.地方独立);
                         pActor.kingdom.StartLocalRebelling(EmpireWarType.地方独立, pre: pActor.city.GetCityName());
                         RebellionSystem.Record(pActor.kingdom, war, cause);
-                        if (pActor.plot.target_kingdom.IsInEmpire() && !pActor.plot.target_kingdom.IsEmpire())
-                        {
-                            war.joinDefenders(pActor.plot.target_kingdom.GetEmpire().CoreKingdom);
-                        }
+                        // 成员的城市独立：中央不自动出兵，由成员长官求援(见 MemberWarAid)
                     }
 				    return true;
 			    }

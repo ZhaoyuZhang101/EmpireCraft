@@ -4,6 +4,7 @@ using System.Linq;
 using EmpireCraft.Scripts.Compatibility;
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.GamePatches;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.Regimes;
 
@@ -443,10 +444,14 @@ public static class FeudalVassalService
             Kingdom current = queue.Dequeue();
             if (current == null || current.isRekt() || !visited.Add(current.id)) continue;
             var followers = GetDirectVassals(current).ToList();
+            // 帝国：只有中央自己的仗，听命于中央的成员才随征；成员的仗中央不插手(要求援，见 MemberWarAid)，
+            // 有自主外交的诸侯、藩镇看好感自己决定(见 CheckJoinWar)；战国周室不再号令诸侯
             Empire empire = current.GetEmpire();
-            if (empire != null && war.getMainAttacker() != null && war.getMainDefender() != null &&
-                !war.getMainAttacker().IsInSameEmpire(war.getMainDefender()))
-                followers.AddRange(empire.kingdoms_list.Where(member => member != null && member != current));
+            if (empire != null && current == empire.CoreKingdom && war.getMainAttacker() != null &&
+                war.getMainDefender() != null && !war.getMainAttacker().IsInSameEmpire(war.getMainDefender()) &&
+                !MemberWarAid.IsMemberWar(war, empire, attackers) && ZhouEraSystem.Era(empire) < ZhouEraSystem.Warring)
+                followers.AddRange(empire.kingdoms_list.Where(member => member != null && member != current &&
+                    EmpirePeacePatch.Obeys(empire, member) && !EmpirePeacePatch.HasLeft(member, war, attackers)));
             bool directIndependence = GetOverlord(war.getMainAttacker()) == war.getMainDefender();
             if (!attackers && !directIndependence && GetOverlord(current) is Kingdom protector)
                 followers.Add(protector);

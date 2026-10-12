@@ -474,6 +474,8 @@ PLOTS = {
     "minister_acquire_empire": (obj_minister, "up"),
     "minister_acquire_title": (obj_minister, "seal"),
     "minister_receive_nine_bestowments": (obj_axe, "star"),
+    "member_request_aid": (obj_envoy, "alert"),
+    "member_aid_neighbour": (obj_swords, "arrow"),
 }
 
 

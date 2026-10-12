@@ -297,7 +297,6 @@ public static class LandEconomySystem
         warData.peasant_land_rebellion_cause = cause ?? "";
         warData.peasant_landless_ratio = Mathf.Clamp01(landlessRatio);
         DetachPeasantRebelFromOriginEmpire(rebel, origin);
-        JoinPeasantRebellionOriginEmpireDefense(war, rebel, origin);
         KingdomExtension.KingdomExtraData rebelData = rebel.GetOrCreate();
         rebelData.is_peasant_land_rebellion = true;
         rebelData.peasant_land_rebellion_war_id = war.id;
@@ -310,15 +309,6 @@ public static class LandEconomySystem
         if (rebel == null || originEmpire == null || originEmpire.IsArchived() || originEmpire.isRekt()) return;
         if (rebel.GetEmpire() == originEmpire)
             originEmpire.leave(rebel, pRecalc: true, isLeave: true);
-    }
-
-    private static void JoinPeasantRebellionOriginEmpireDefense(War war, Kingdom rebel, Kingdom origin)
-    {
-        Empire originEmpire = origin?.GetEmpire();
-        Kingdom coreKingdom = originEmpire?.CoreKingdom;
-        if (war == null || rebel == null || origin == null || coreKingdom == null || coreKingdom.isRekt()) return;
-        if (coreKingdom == rebel || coreKingdom == origin || war.hasKingdom(coreKingdom)) return;
-        war.joinDefenders(coreKingdom);
     }
 
     public static void ResolvePeasantLandRebellion(War war, WarWinner winner)
