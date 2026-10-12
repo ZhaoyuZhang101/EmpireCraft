@@ -249,7 +249,7 @@ public class NoCommonersPatch : GamePatch
         if (!CityPopulationSystem.AbstractPopulationEnabled || pActor == null ||
             !CityPopulationSystem.IsSoldier(pActor) || __instance?.kingdom == null ||
             EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
-        Actor civilian = CityPopulationSystem.SpawnCivilian(__instance);
+        Actor civilian = CityPopulationSystem.SpawnOfficial(__instance);
         if (civilian != null) pActor = civilian;
     }
 

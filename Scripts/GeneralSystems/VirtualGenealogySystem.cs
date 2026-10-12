@@ -567,7 +567,7 @@ public static class VirtualGenealogySystem
         if (actor != null || clan == null || kingdom.capital == null) return actor;
 
         // 宗室旁支入继
-        actor = CityPopulationSystem.SpawnCivilian(kingdom.capital);
+        actor = CityPopulationSystem.SpawnOfficial(kingdom.capital, kingdom);
         if (actor == null) return null;
         try
         {

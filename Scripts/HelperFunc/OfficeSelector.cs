@@ -19,6 +19,8 @@ public static class OfficeSelector
     {
         if (actor == null) return false;
         if (kingdom == null) return true;
+        // 现代、共和政体任官不分性别
+        if (kingdom.GetRegime()?.type is RegimeType.Modern or RegimeType.Republic) return true;
         string culture = CultureService.GetRealmCulture(kingdom);
         if (string.IsNullOrEmpty(culture)) return true;
         if (!OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(culture, out Setting setting) || setting?.traits == null)
@@ -65,6 +67,10 @@ public static class OfficeSelector
                 actor = TryGetProfessionOfficer(pKingdom);
                 break;
         }
+
+        // 前现代父系(母系)文化：选出的人不合择官偏好时，无小人模式先从人口里补一名合偏好的人，补不出才用原人选
+        if (actor != null && method != LeaderSelectMethod.Harem && !IsPreferredOfficeCandidate(actor, pKingdom))
+            actor = CityPopulationSystem.SpawnForOffice(office, pKingdom, preferredOnly: true) ?? actor;
 
         // 无小人模式：没有合适人选就从人口里生成一人补上(后宫除外)
         if (actor == null && method != LeaderSelectMethod.Harem)

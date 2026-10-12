@@ -46,7 +46,7 @@ public static class PersonalUnionService
                             !actor.isKing() && actor.isUnitFitToRule())
             .OrderByDescending(actor => actor.data?.renown ?? 0).FirstOrDefault();
         // 无小人模式：藩国里没有合适的实体，从其都城人口中生成一人
-        if (local == null && realm?.capital != null) local = CityPopulationSystem.SpawnCivilian(realm.capital);
+        if (local == null && realm?.capital != null) local = CityPopulationSystem.SpawnOfficial(realm.capital, realm);
         if (local == null || !FeudalVassalService.CanBind(overlord, realm)) return false;
         GraceEdictService.Crown(realm, local);
         return realm.king == local && FeudalVassalService.Bind(overlord, realm);

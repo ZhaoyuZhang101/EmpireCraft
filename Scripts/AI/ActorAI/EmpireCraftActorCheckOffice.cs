@@ -20,7 +20,11 @@ public class EmpireCraftActorCheckOffice:GameAIActorBase
             return BehResult.Continue;
         }
 
-        if (!pActor.CanServeOffice(pActor.kingdom))
+        // 妃嫔、在位君主的配偶不担任后宫以外的官职(已在任的卸任，另选他人)
+        bool rulerOffice = office.meta_object is Kingdom ruled && ruled.GetOffice() == office;
+        if (!pActor.CanServeOffice(pActor.kingdom) ||
+            office.leader_select_method != EmpireCraft.Scripts.Regimes.LeaderSelectMethod.Harem && !rulerOffice &&
+            pActor.IsHaremOrConsort())
         {
             office.RemoveActor();
             pActor.EndOffice();

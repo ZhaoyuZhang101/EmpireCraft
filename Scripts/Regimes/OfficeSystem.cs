@@ -224,6 +224,9 @@ public class OfficeObject
             ConstitutionalSuccessionSystem.IsProtected(constitutionalCore.GetEmpire()) &&
             !ConstitutionalSuccessionSystem.CanInherit(constitutionalCore.GetEmpire(), actor)) return;
         if (actor == null || !actor.CanServeOffice(GetOfficeKingdom(actor))) return;
+        // 后宫以外的官职不任用妃嫔与在位君主的配偶；君主之位(本国的君主官职)不受影响
+        if (leader_select_method != LeaderSelectMethod.Harem && !(meta_object is Kingdom ruled && ruled.GetOffice() == this) &&
+            actor.IsHaremOrConsort()) return;
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(actor) ||
             EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(meta_object)) return;
         var originalActor = GetActor();

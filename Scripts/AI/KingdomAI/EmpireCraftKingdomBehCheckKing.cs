@@ -72,7 +72,7 @@ public class EmpireCraftKingdomBehCheckKing : GameAIKingdomBase
         // 无小人模式：选不出人(城里实体单位很少)时，从都城人口中生成一人出任
         if (!pKingdom.hasKing() && CityPopulationSystem.AbstractPopulationEnabled && pKingdom.capital != null)
         {
-            Actor ruler = CityPopulationSystem.SpawnCivilian(pKingdom.capital);
+            Actor ruler = CityPopulationSystem.SpawnOfficial(pKingdom.capital, pKingdom);
             if (ruler != null) office.SetActor(ruler);
         }
         return BehResult.Continue;

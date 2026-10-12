@@ -794,6 +794,15 @@ public static class ActorExtension
         return id != null && id.StartsWith("warbox_", StringComparison.Ordinal);
     }
 
+    // 妃嫔(记为妾室的)或在位君主的配偶：不出任后宫以外的官职
+    public static bool IsHaremOrConsort(this Actor a)
+    {
+        if (a?.data == null || a.isRekt() || a.isKing()) return false;
+        if (a.GetPersonalIdentity()?.is_concubine == true) return true;
+        Actor spouse = a.lover;
+        return spouse != null && !spouse.isRekt() && spouse.isAlive() && spouse.isKing();
+    }
+
     public static bool CanServeOffice(this Actor a, Kingdom kingdom)
     {
         if (a == null || a.isRekt() || !a.isAlive() || a.IsWarMachine()) return false;

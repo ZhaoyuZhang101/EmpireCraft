@@ -1389,7 +1389,7 @@ public static class CityPopulationSystem
         // 城主空缺：从人口中当场生成一人出任(总人口不变)
         if (city.leader == null || city.leader.isRekt() || !city.leader.isAlive())
         {
-            Actor leader = SpawnCivilian(city);
+            Actor leader = SpawnOfficial(city);
             if (leader != null) city.setLeader(leader, true);
         }
 
@@ -2017,14 +2017,46 @@ public static class CityPopulationSystem
 
     // 官职空缺且找不到合适人选时(无小人模式)，从官职所在城市(否则本国首都)的人口中生成一人。
     // 王位不在此列：君主空缺走继承制度，不能凭空生成
-    public static Actor SpawnForOffice(OfficeObject office, Kingdom kingdom)
+    // preferredOnly：只要合本国择官偏好(前现代父系文化男性、母系文化女性)的人，补不出就不补
+    public static Actor SpawnForOffice(OfficeObject office, Kingdom kingdom, bool preferredOnly = false)
     {
         if (!AbstractPopulationEnabled || office == null) return null;
         if (office.is_local && office.meta_object is Kingdom) return null;
         City city = office.meta_object as City ?? (office.meta_object as Army)?._city ?? kingdom?.capital;
         if (city == null || city.isRekt() || city.kingdom == null) return null;
-        Actor actor = SpawnCivilian(city);
-        return actor != null && actor.CanServeOffice(kingdom ?? city.kingdom) ? actor : null;
+        return SpawnOfficial(city, kingdom ?? city.kingdom, preferredOnly);
+    }
+
+    // 从人口里补一名城主、君主或官员：按本国择官偏好(见 OfficeSelector.IsPreferredOfficeCandidate)挑性别，
+    // 最多试 4 次，不合偏好的并回人口；都不合时 preferredOnly 就不补，否则用第一个不合偏好的人
+    public static Actor SpawnOfficial(City city, Kingdom realm = null, bool preferredOnly = false)
+    {
+        if (city == null || city.isRekt()) return null;
+        realm ??= city.kingdom;
+        Actor fallback = null;
+        for (int attempt = 0; attempt < 4; attempt++)
+        {
+            Actor actor = SpawnCivilian(city);
+            if (actor == null) break;
+            if (!actor.CanServeOffice(realm))
+            {
+                DisbandIntoPopulation(actor, city);
+                continue;
+            }
+            if (OfficeSelector.IsPreferredOfficeCandidate(actor, realm))
+            {
+                if (fallback != null) DisbandIntoPopulation(fallback, city);
+                return actor;
+            }
+            if (fallback == null) fallback = actor;
+            else DisbandIntoPopulation(actor, city);
+        }
+        if (fallback != null && preferredOnly)
+        {
+            DisbandIntoPopulation(fallback, city);
+            return null;
+        }
+        return fallback;
     }
 
     // 落成一名指定物种/文化的人(虚拟族人用)：优先从同物种同文化的背景人口里扣，其次同物种，
@@ -2336,7 +2368,7 @@ public static class CityPopulationSystem
                 if (city.hasLeader()) city.removeLeader();
             }
             EnsureFloor(city);
-            Actor leader = SpawnCivilian(city);
+            Actor leader = SpawnOfficial(city);
             if (leader != null && !city.hasLeader()) city.setLeader(leader, true);
         }
         catch (Exception exception)
