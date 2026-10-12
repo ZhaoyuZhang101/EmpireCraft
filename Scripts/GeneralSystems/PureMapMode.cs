@@ -4,7 +4,7 @@ using NeoModLoader.services;
 namespace EmpireCraft.Scripts.GeneralSystems;
 
 // 纯净地图模式(模组设置，下次启动生效，见 ConfigActions.PureMapCallBack)：地图上只留不透明的国家色块。
-//   · 开启后自动打开无小人模式，关掉军团统领实体与小人社交(开着本模式时改回去也会被再改过来)；
+//   · 开启后自动打开无小人模式与占领模式，关掉军团统领实体与小人社交(开着本模式时改回去也会被再改过来)；
 //   · 全图没有植物：树、灌木、花草、菌菇、庄稼分帧清掉，原版的植物蔓延、随机播种、生物群系蔓生停掉；
 //     木头改由伐木场按产能直接产出(见 IndustryBuildingSystem.HarvestTrees)，粮食按田里的种植位折算(见 FarmlandSystem)；
 //   · 除船以外不画任何人物(血条、头像、物品、旗帜、状态图标也不画)，人物要去哪里直接到位、不走路，鼠标也不再选中人物
@@ -16,7 +16,8 @@ public static class PureMapMode
 {
     public static bool Enabled => ModClass.PURE_MAP_MODE;
 
-    private const string NoCommonersLaw = "empirecraft_law_no_commoners";
+    // 本模式下打开的法则：无小人模式、占领模式(军团与战线这套虚拟军队要两者都开)
+    private static readonly string[] ForcedOnLaws = { "empirecraft_law_no_commoners", "empirecraft_law_switch_occupy_mode" };
     // 本模式下关掉的法则：军团统领实体、小人社交
     private static readonly string[] ForcedOffLaws = { "empirecraft_law_corps_general", "empirecraft_law_allow_social" };
 
@@ -78,7 +79,7 @@ public static class PureMapMode
 
     public static bool Visible(Actor actor) => actor?.asset != null && actor.asset.is_boat;
 
-    // 停掉植物蔓延类法则，打开无小人模式，关掉军团统领实体与小人社交
+    // 停掉植物蔓延类法则，打开无小人模式与占领模式，关掉军团统领实体与小人社交
     private static void SyncLaws()
     {
         var laws = World.world.world_laws;
@@ -90,11 +91,12 @@ public static class PureMapMode
             option.boolVal = false;
             changed = true;
         }
-        if (laws.dict.TryGetValue(NoCommonersLaw, out PlayerOptionData noCommoners) && !noCommoners.boolVal)
+        foreach (string id in ForcedOnLaws)
         {
-            noCommoners.boolVal = true;
+            if (!laws.dict.TryGetValue(id, out PlayerOptionData option) || option.boolVal) continue;
+            option.boolVal = true;
             changed = true;
-            LogService.LogInfo("[EmpireCraft][纯净地图] 已自动打开无小人模式");
+            LogService.LogInfo($"[EmpireCraft][纯净地图] 已自动打开 {id}");
         }
         var switched = new List<(WorldLawAsset law, PlayerOptionData option)>();
         foreach (string id in ForcedOffLaws)
