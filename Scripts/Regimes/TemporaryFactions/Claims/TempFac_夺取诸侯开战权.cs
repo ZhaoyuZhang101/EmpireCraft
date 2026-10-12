@@ -26,7 +26,8 @@ public class TempFac_夺取诸侯开战权 : TemporaryFaction
         LogService.LogInfo($"执行{this.type}");
         Kingdom kingdom = GetKingdomTarget();
         Regime regime = kingdom?.GetRegime();
-        if (regime != null && !CheckRebelling(kingdom))
+        if (regime != null && !CheckRebelling(kingdom) &&
+            !EmpireCraft.Scripts.GeneralSystems.ZhouEraSystem.RoyalReclaimBlocked(GetEmpire()))
         {
             if (!TryEnforceCrimeForCurrentTarget())
             {
@@ -43,6 +44,8 @@ public class TempFac_夺取诸侯开战权 : TemporaryFaction
     {
         Empire empire = GetEmpire();
         if (empire?.CoreKingdom == null || empire.kingdoms_list == null) return false;
+        // 春秋战国王室衰微，诸侯的征伐之权收不回来(周制每年都会还给诸侯，见 ZhouEraSystem)
+        if (EmpireCraft.Scripts.GeneralSystems.ZhouEraSystem.RoyalReclaimBlocked(empire)) return false;
         foreach (Kingdom kingdom in empire.kingdoms_list)
         {
             if (kingdom?.data == null || kingdom.isRekt() || kingdom == empire.CoreKingdom ||
