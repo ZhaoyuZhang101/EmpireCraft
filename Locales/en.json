@@ -858,7 +858,7 @@
   "terrain_effect_none": "terrain has no effect",
   "terrain_effect_separator": "; ",
   "pure_map_toggle": "Pure Map Mode (restart required)",
-  "pure_map_toggle Description": "Only opaque realm colours remain on the map: all plants are removed and stop growing; no characters or buildings are drawn (they keep working as data, and characters arrive instantly instead of walking); purely decorative buildings such as statues and gardens are no longer built. Turns on No Commoners mode automatically. Takes effect after restarting the game.",
+  "pure_map_toggle Description": "Only opaque realm colours and ships remain on the map: all plants are removed and stop growing; no characters other than ships, and no buildings, are drawn (they keep working as data, and characters arrive instantly instead of walking); purely decorative buildings such as statues and gardens are no longer built. Turns on No Commoners mode and turns off corps commander units and commoner socializing. Takes effect after restarting the game.",
   "pure_map_toggle_restart": "Pure Map Mode will take effect after restarting the game",
   "capital_loss_restored": "{0} retakes its old capital {1} and is again known as {2}.",
   "kingdom_type_xingzai": "Temporary Court",

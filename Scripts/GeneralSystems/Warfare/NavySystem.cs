@@ -509,7 +509,8 @@ public static class NavySystem
 
     public static void SecondTick()
     {
-        bool flagships = CorpsSystem.GeneralUnits;
+        // 纯净地图模式关掉了统领实体，但船保留
+        bool flagships = CorpsSystem.GeneralUnits || PureMapMode.Enabled;
         foreach ((Kingdom kingdom, FleetData fleet) in All().ToList())
         {
             StepZone(fleet);

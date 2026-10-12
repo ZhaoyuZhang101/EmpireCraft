@@ -861,7 +861,7 @@
   "terrain_effect_none": "地形无影响",
   "terrain_effect_separator": "，",
   "pure_map_toggle": "纯净地图模式（重启生效）",
-  "pure_map_toggle Description": "地图上只留不透明的国家色块：全图清除植物并停止生长，不画任何人物和建筑(都照常作为数据运作，人物直接到位、不走路)，雕像、花园等纯装饰建筑不再建造。开启后自动打开无小人模式。下次启动游戏生效。",
+  "pure_map_toggle Description": "地图上只留不透明的国家色块和船：全图清除植物并停止生长，除船以外不画任何人物和建筑(都照常作为数据运作，人物直接到位、不走路)，雕像、花园等纯装饰建筑不再建造。开启后自动打开无小人模式，关掉军团统领实体与小人社交。下次启动游戏生效。",
   "pure_map_toggle_restart": "纯净地图模式将在下次启动游戏时生效",
   "capital_loss_restored": "{0}收复旧都{1}，还于旧都，复称{2}。",
   "kingdom_type_xingzai": "行在",
