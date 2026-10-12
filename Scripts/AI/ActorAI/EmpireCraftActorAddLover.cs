@@ -53,7 +53,8 @@ public class EmpireCraftActorAddLover:GameAIActorBase
                 var actor = pActor.kingdom.units.Find(a => a.data.sex == loverSex
                                                               && a.age <= 35 && a.isAdult()
                                                               && !a.hasLover()
-                                                              && a.GetPersonalIdentity()?.IsFreeToMarry(identity.id) != false);
+                                                              && a.GetPersonalIdentity()?.IsFreeToMarry(identity.id) != false
+                                                              && !GeneralSystems.KinshipRules.AreCloseKin(pActor, a));
                 if (actor == null) return BehResult.Continue;
                 identity.setLover(actor, true);
             }

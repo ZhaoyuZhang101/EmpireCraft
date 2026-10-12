@@ -101,7 +101,7 @@ public static class OfficeSelector
                     var lover = empire.getUnits().ToList().Find(a =>
                         a.CanServeOffice(pKingdom) && a.isSexFemale() && a.isAdult() && a.age <= 25 &&
                         (a.clan == null || a.clan != emperor.clan) &&
-                        !a.hasLover() && !lives.Contains(a));
+                        !a.hasLover() && !lives.Contains(a) && !KinshipRules.AreCloseKin(emperor, a));
                     if (lover != null)
                     {
                         lover.lover = emperor;
@@ -120,7 +120,7 @@ public static class OfficeSelector
                     var lover = empire.getUnits().ToList().Find(a =>
                         a.CanServeOffice(pKingdom) && a.isSexFemale() && a.isAdult() && a.age <= 25 &&
                         (a.clan == null || a.clan != emperor.clan) &&
-                        !a.hasLover() && !a.IsSkeleton());
+                        !a.hasLover() && !a.IsSkeleton() && !KinshipRules.AreCloseKin(emperor, a));
                     if (lover != null)
                     {
                         lover.lover = emperor;
