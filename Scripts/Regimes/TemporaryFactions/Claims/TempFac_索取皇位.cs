@@ -81,7 +81,10 @@ public class TempFac_索取皇位 : TemporaryFaction
                         return;
                     }
                 }
-            } else if (empire.Mandate >= 30 && (empire.CoreKingdom.GetRegime()?.type == RegimeType.LvLing || empire.CoreKingdom.GetRegime()?.type == RegimeType.ZhouFeudalism))
+            }
+            // 周制春秋战国：天子绝嗣由朝廷另立新王，不让诸侯群起合攻王畿(春秋不得攻王畿；战国取周而代之另有规则，见 ZhouEraSystem)
+            else if (empire.Mandate >= 30 && !EmpireCraft.Scripts.GeneralSystems.ZhouEraSystem.RoyalReclaimBlocked(empire) &&
+                     (empire.CoreKingdom.GetRegime()?.type == RegimeType.LvLing || empire.CoreKingdom.GetRegime()?.type == RegimeType.ZhouFeudalism))
             {
                 War war = null;
                 // StartLocalRebelling 会改动帝国成员，先拷一份
