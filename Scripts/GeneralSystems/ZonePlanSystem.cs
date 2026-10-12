@@ -168,20 +168,31 @@ public static partial class ZonePlanSystem
     }
 
     // 先收集再拆除，避免原版移除建筑时改变正在遍历的集合；不拆其他配套或外国建筑。
+    // 只拆到剩下的住房仍够住为止：缺木头石头时新民居盖不起来，一拆就没房住，手动造的民居也会被月度规划拆掉
     public static int ClearHousing(City city, TileZone zone, ZoneUse use)
     {
         if (zone?.city != city || zone.tiles == null || use != ZoneUse.Industry && use != ZoneUse.Farm) return 0;
+        int spare = city.status.housing_total - CityPopulationSystem.Households(city);
+        if (spare <= 0) return 0;
         var houses = new HashSet<Building>();
         foreach (WorldTile tile in zone.tiles)
         {
             Building building = tile?.building;
-            if (building?.asset == null || building.city != city || building.isOnRemove() || !IsHousing(building.asset)) continue;
+            if (building?.asset == null || building.city != city || building.isOnRemove() || !IsHousing(building.asset) ||
+                building.asset.id.StartsWith("city_")) continue;
             if (use == ZoneUse.Farm && (!FarmlandSystem.IsWithinWindmillRange(city, tile) ||
                 tile.Type == null || !tile.Type.can_be_farm && !tile.Type.farm_field)) continue;
             houses.Add(building);
         }
-        foreach (Building house in houses) house.startDestroyBuilding();
-        return houses.Count;
+        int cleared = 0;
+        foreach (Building house in houses)
+        {
+            if (spare - house.asset.housing_slots < 0) continue;
+            spare -= house.asset.housing_slots;
+            house.startDestroyBuilding();
+            cleared++;
+        }
+        return cleared;
     }
 
     public static int Count(City city, ZoneUse use)

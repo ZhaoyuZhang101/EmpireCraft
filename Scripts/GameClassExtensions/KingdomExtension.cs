@@ -2058,6 +2058,27 @@ public static class KingdomExtension
         }
     }
 
+    // 换政体、重载政体模板时保住帝国成员原来的地位(外交权、选任方式)：律令制模板默认有外交权、科举选任，
+    // 不保留的话州郡一重载就被判成军府(有外交权、不世袭)，封国改成科举也成了军府。
+    // 只管换成华夏君主制(律令制、周制)的情形；封建化等别的改制照模板来。返回是否保留了原地位
+    public static bool LoadRegimeKeepingRole(this Kingdom k)
+    {
+        if (k?.data == null || k.isRekt()) return false;
+        KingdomExtraData data = k.GetOrCreate();
+        Regime old = data.regime;
+        bool keep = old != null && k.IsInEmpire() && !k.IsEmpire() && RegimeManager.IsMonarchy(old.type) &&
+                    (data.regimeType == RegimeType.LvLing || data.regimeType == RegimeType.ZhouFeudalism);
+        bool diplomacy = old?.IsAllowDiplomacy() ?? false;
+        LeaderSelectMethod method = old?.GetLeaderSelectMethod() ?? LeaderSelectMethod.Default;
+        k.LoadRegime();
+        if (!keep) return false;
+        Regime loaded = k.GetRegime();
+        if (loaded == null) return false;
+        loaded.SetAllowDiplomacy(diplomacy);
+        if (method != LeaderSelectMethod.Default) loaded.SetLeaderSelectMethod(method);
+        return true;
+    }
+
     public static void InitialRegime(this Kingdom k)
     {
         if (k?.data == null || k.isRekt()) return;
@@ -2075,10 +2096,11 @@ public static class KingdomExtension
         bool manuallySelected = k.GetOrCreate().regime_manually_selected;
         k.SetRegimeType(regimeType);
         k.GetOrCreate().regime_manually_selected = manuallySelected;
-        k.LoadRegime();
+        // 官职丢失重建时帝国成员保留原地位(州郡仍是州郡)，只有新国家才默认有外交权
+        bool keptRole = k.LoadRegimeKeepingRole();
         var regime = k.GetRegime();
         if (regime == null) return;
-        regime.SetAllowDiplomacy(true);
+        if (!keptRole) regime.SetAllowDiplomacy(true);
         var type = EmpireCraftKingdomBehCheckKingdomType.CalcKingdomType(k);
         BureauSetting set = null;
         if (regime?.bureau_config?.kingdoms != null)

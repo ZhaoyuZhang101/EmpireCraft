@@ -31,8 +31,22 @@ public static class EmpireBankruptcySystem
     private const float MaxLossShare = 0.5f;
     private const float NearbyRebelDistance = 60f;
 
+    // 国库亏空；新财政下国库不记成负数，京畿四分之一以上的城欠着治理、驻军、军费也算朝廷发不出饷
     public static bool IsBankrupt(Empire empire) =>
-        empire?.CoreKingdom != null && !empire.CoreKingdom.isRekt() && empire.CurrentMoney < 0;
+        empire?.CoreKingdom != null && !empire.CoreKingdom.isRekt() &&
+        (empire.CurrentMoney < 0 || TreasurySystem.Enabled(empire.CoreKingdom) && InArrears(empire.CoreKingdom));
+
+    private static bool InArrears(Kingdom core)
+    {
+        if (core.cities == null || core.cities.Count == 0) return false;
+        int owing = 0;
+        foreach (City city in core.cities)
+        {
+            CityStabilityData state = city?.data == null ? null : city.GetOrCreate().stability;
+            if (state != null && state.owner_id == core.id && state.arrears > 0) owing++;
+        }
+        return owing * 4 >= core.cities.Count;
+    }
 
     // 亏空期间只有京师养得起兵
     public static bool IsUnpaidGarrison(City city)
@@ -86,8 +100,9 @@ public static class EmpireBankruptcySystem
     private static void Disintegrate(Empire empire, int years)
     {
         Kingdom core = empire.CoreKingdom;
-        // 新财政逐城评估欠款、稳定恢复和撤军，不再凭国库瞬时负数随机拆分地方。
-        if (TreasurySystem.Enabled(core)) return;
+        // 新财政逐城评估欠款、稳定恢复和撤军，普通州郡不再随机拆分；
+        // 但拥兵的节度使、藩镇照样趁朝廷发不出饷拥兵自立(以前新财政下整段跳过，节度使从来不反)
+        bool cityLevel = TreasurySystem.Enabled(core);
         float chance = Mathf.Min(MaxChance, BaseChance + ChancePerYear * years);
         List<Kingdom> rebels = RebellionSnowballSystem.FindRebels(empire, core).ToList();
         List<Kingdom> members = empire.kingdoms_list.Where(kingdom => kingdom != null && !kingdom.isRekt() &&
@@ -99,8 +114,10 @@ public static class EmpireBankruptcySystem
         foreach (Kingdom member in members)
         {
             if (lost >= budget || empire.isRekt() || core.isRekt()) break;
-            bool jiedushi = member.GetKingdomType() == KingdomType.LvLing_jiedushi;
+            bool jiedushi = member.GetKingdomType() == KingdomType.LvLing_jiedushi ||
+                            member.GetKingdomType() == KingdomType.LvLing_duhufu;
             bool autonomous = member.hasKing() && (jiedushi || IsAutonomous(member));
+            if (cityLevel && (!autonomous || !RebellionSystem.CanAttempt(member))) continue;
             Kingdom rebel = autonomous ? null : FindNearbyRebel(member, rebels);
             float factor = jiedushi ? JiedushiFactor
                 : autonomous ? AutonomousFactor

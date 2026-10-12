@@ -1515,7 +1515,11 @@ namespace EmpireCraft.Scripts.AI
                     if (empire.Legitimacy > 40 || !RebellionSystem.CanAttempt(kingdom) ||
                         !CityStabilitySystem.CanRise(kingdom.capital)) return false;
                     if (regime == null) return false;
-                    if (regime.type != RegimeType.Feudalism && regime.type != RegimeType.Arabic) return false;
+                    // 律令制的藩镇(世袭节度使、都护)也能拥兵自立；以前只开放封建制与哈里发，节度使永远反不了
+                    bool garrison = regime.type == RegimeType.LvLing &&
+                                    (kingdom.GetKingdomType() == KingdomType.LvLing_jiedushi ||
+                                     kingdom.GetKingdomType() == KingdomType.LvLing_duhufu);
+                    if (regime.type != RegimeType.Feudalism && regime.type != RegimeType.Arabic && !garrison) return false;
                     if (!regime.IsAllowDiplomacy()) return false;
                     if (!regime.IsAllowArmy()) return false;
                     if (regime.GetLeaderSelectMethod() != LeaderSelectMethod.Succession) return false;

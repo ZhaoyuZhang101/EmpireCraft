@@ -2279,20 +2279,11 @@ public static class InstitutionSystem
         {
             Regime old = kingdom.GetRegime();
             if (old?.type == regimeType) continue;
-            // 周制 ⇄ 律令制：成员保留原有的外交权与选任方式(州郡仍是州郡、封国仍是封国)，
-            // 否则 LoadRegime 重置成模板默认(律令制默认有外交权、科举选任)，州郡和封国全被判成军府
-            bool keepRole = kingdom != empire.CoreKingdom && old != null && IsHuaxiaMonarchy(old.type) &&
-                            IsHuaxiaMonarchy(regimeType);
-            bool diplomacy = old?.IsAllowDiplomacy() ?? false;
-            LeaderSelectMethod method = old?.GetLeaderSelectMethod() ?? LeaderSelectMethod.Default;
+            // 改行律令制、周制时成员保留原有的外交权与选任方式(州郡仍是州郡、封国仍是封国)，
+            // 否则重置成模板默认(律令制默认有外交权、科举选任)，州郡和封国全被判成军府。
+            // 以前只管周制 ⇄ 律令制，封建制等改行律令制(如采纳三省六部连带补上郡县制)时全帝国州郡秒变军府
             kingdom.SetRegimeType(regimeType);
-            kingdom.LoadRegime();
-            if (keepRole)
-            {
-                Regime loaded = kingdom.GetRegime();
-                loaded?.SetAllowDiplomacy(diplomacy);
-                if (method != LeaderSelectMethod.Default) loaded?.SetLeaderSelectMethod(method);
-            }
+            kingdom.LoadRegimeKeepingRole();
             kingdom.SystemChange();
         }
         empire.data.centerOffice ??= new CenterOffice();

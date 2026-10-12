@@ -196,7 +196,7 @@ public static class CultureService
         if (!IsRegimeAvailable(regimeType)) return false;
         if (kingdom.GetRegime()?.type == regimeType) return true;
         kingdom.SetRegimeType(regimeType);
-        kingdom.LoadRegime();
+        kingdom.LoadRegimeKeepingRole();
         return kingdom.GetRegime()?.type == regimeType;
     }
 
