@@ -90,16 +90,20 @@ public class EmpirePeacePatch : GamePatch
             Kingdom core = snapshot.Empire.CoreKingdom;
             var foes = new HashSet<Kingdom>(snapshot.Foes);
             foreach (Kingdom foe in foes) SetTruce(core, foe, now);
+            ClearMutualOccupation(core, foes);
             foreach (Kingdom member in snapshot.Empire.kingdoms_list.ToList())
             {
                 if (!Obeys(snapshot.Empire, member)) continue;
+                bool left = false;
                 foreach (War war in member.getWars().ToList())
                 {
                     if (war?.data == null || !war.isAlive() || war.hasEnded()) continue;
                     var opponents = war.isAttacker(member) ? war._list_defenders : war._list_attackers;
                     if (!opponents.Any(foes.Contains)) continue;
                     war.leaveWar(member);
+                    left = true;
                 }
+                if (left) ClearMutualOccupation(member, foes);
             }
         }
         catch (Exception exception)
@@ -109,6 +113,20 @@ public class EmpirePeacePatch : GamePatch
         finally
         {
             _cascading = false;
+        }
+    }
+
+    // 停战后双方互相留下的占领(地块与攻城进度)清掉：整场战争结束时战争补丁会清，单方面退出时不会
+    private static void ClearMutualOccupation(Kingdom kingdom, HashSet<Kingdom> foes)
+    {
+        if (kingdom == null || kingdom.isRekt()) return;
+        foreach (City city in kingdom.cities.ToList())
+            city?.ClearOccupationBy(occupier => foes.Contains(occupier) && !occupier.isInWarWith(kingdom));
+        foreach (Kingdom foe in foes)
+        {
+            if (foe == null || foe.isRekt() || foe.isInWarWith(kingdom)) continue;
+            foreach (City city in foe.cities.ToList())
+                city?.ClearOccupationBy(occupier => occupier == kingdom);
         }
     }
 
