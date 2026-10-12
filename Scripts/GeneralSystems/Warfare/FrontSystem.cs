@@ -19,6 +19,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   ③ 交战：攻方(兵力×组织度×火力) 对 守方(兵力×组织度×火力×(1.25+堑壕)，无军驻守时由团练抵抗)，
 //      双方按战况伤亡、掉组织度；攻方占优就沿战线连片占领 1~4 块地块(沿用地块占领模式，满城即陷落)，
 //      守方占优就夺回一块；守军还在时城中最后一块地不会丢；组织度归零的军溃退。
+//      地形(见 TerrainSystem)看攻方要推进的那块地：攻方战力打折、双方额外掉组织度、限制每月推进的块数。
 // 军团须开到战线附近(两块地块以内)才参战。
 public static class FrontSystem
 {
@@ -38,6 +39,7 @@ public static class FrontSystem
         public long attacker_id = -1L, defender_id = -1L;
         public int taken;
         public double time;
+        public FrontTerrain terrain;
     }
 
     public static readonly Dictionary<long, BattleView> Battles = new();
@@ -51,6 +53,7 @@ public static class FrontSystem
         Battles.Clear();
         Engaged.Clear();
         Logs.Clear();
+        TerrainSystem.ResetWorldState();
         _contested.Clear();
         _contestedAt = -1;
     }
@@ -409,8 +412,12 @@ public static class FrontSystem
         }
         Kingdom attacker = attackers.GroupBy(entry => entry.kingdom)
             .OrderByDescending(entries => entries.Sum(entry => entry.corps.strength)).First().Key;
+        // 地形：攻方要推进的那块地(城中心那块是城池)
+        FrontTerrain terrain = TerrainSystem.OfBattle(city, FrontZone(city, attacker, landing));
+        TerrainEffect ground = TerrainSystem.Effect(terrain);
         // 跨海登陆的头一个月攻方吃亏
-        float attack = attackers.Sum(entry => Effective(entry.corps) * Firepower(entry.kingdom)) * (landing ? 0.7f : 1f);
+        float attack = attackers.Sum(entry => Effective(entry.corps) * Firepower(entry.kingdom)) * (landing ? 0.7f : 1f) *
+                       ground.Attack;
         float defend = holders.Sum(entry => Effective(entry.corps) * Firepower(entry.kingdom) *
                                             (DefenderBonus + entry.corps.entrench));
         float militia = holders.Count == 0 ? Militia(city, attacker) : 0f;
@@ -428,20 +435,20 @@ public static class FrontSystem
         foreach (var entry in attackers)
         {
             CorpsSystem.Casualties(entry.corps, entry.corps.strength * CasualtyRate * (1f - ratio) * (defend > 0f ? 1f : 0.2f));
-            entry.corps.org = Mathf.Max(0f, entry.corps.org - (8f + 20f * (1f - ratio)));
+            entry.corps.org = Mathf.Max(0f, entry.corps.org - (8f + 20f * (1f - ratio) + ground.AttackerOrg));
             Engaged.Add(entry.corps.id);
         }
         foreach (var entry in holders)
         {
             CorpsSystem.Casualties(entry.corps, entry.corps.strength * CasualtyRate * ratio);
-            entry.corps.org = Mathf.Max(0f, entry.corps.org - (6f + 20f * ratio));
+            entry.corps.org = Mathf.Max(0f, entry.corps.org - (6f + 20f * ratio + ground.DefenderOrg));
             Engaged.Add(entry.corps.id);
         }
         bool standing = holders.Any(entry => entry.corps.org > RetreatOrg && entry.corps.strength >= 1f);
         int taken = 0;
         if (ratio >= 0.55f)
         {
-            int zones = ratio >= 0.9f ? 4 : ratio >= 0.75f ? 3 : ratio >= 0.65f ? 2 : 1;
+            int zones = Mathf.Min(ground.MaxAdvance, ratio >= 0.9f ? 4 : ratio >= 0.75f ? 3 : ratio >= 0.65f ? 2 : 1);
             taken = Advance(city, attacker, zones, standing, landing);
             if (city.kingdom != owner)
             {
@@ -454,7 +461,18 @@ public static class FrontSystem
             Kingdom lead = holders.OrderByDescending(entry => entry.corps.strength).First().kingdom;
             Retake(city, lead, 1);
         }
-        Record(city, attacker, owner, ratio, attackStrength, holdStrength + militia, taken, now);
+        Record(city, attacker, owner, ratio, attackStrength, holdStrength + militia, taken, now, terrain);
+    }
+
+    // 攻方下一块要推进的地(与 Advance 的挑法一致)：交战地形按它
+    private static TileZone FrontZone(City city, Kingdom attacker, bool landing)
+    {
+        List<TileZone> targets = TargetZones(attacker, city);
+        if (targets.Count == 0 && landing) targets = LandingZones(city).Where(zone => Hostile(attacker, Controller(zone))).ToList();
+        TileZone center = city.getTile()?.zone;
+        return targets.OrderBy(candidate => candidate == center ? 1 : 0)
+            .ThenByDescending(candidate => (candidate.neighbours ?? Array.Empty<TileZone>())
+                .Count(neighbour => Friendly(attacker, Controller(neighbour)))).FirstOrDefault() ?? center;
     }
 
     // 攻方沿战线占领地块；守军还在时留下城中最后一块
@@ -500,13 +518,14 @@ public static class FrontSystem
     }
 
     private static void Record(City city, Kingdom attacker, Kingdom defender, float ratio, float attack, float defend,
-        int taken, double now)
+        int taken, double now, FrontTerrain terrain = FrontTerrain.Plains)
     {
         TileZone marker = TargetZones(attacker, city).FirstOrDefault() ?? city.getTile()?.zone;
         Battles[city.id] = new BattleView
         {
             city_id = city.id, zone_id = marker?.id ?? -1, ratio = ratio, attack = attack, defend = defend,
-            attacker_id = attacker?.id ?? -1L, defender_id = defender?.id ?? -1L, taken = taken, time = now
+            attacker_id = attacker?.id ?? -1L, defender_id = defender?.id ?? -1L, taken = taken, time = now,
+            terrain = terrain
         };
     }
 

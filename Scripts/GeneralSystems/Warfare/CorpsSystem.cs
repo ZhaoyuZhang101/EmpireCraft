@@ -561,7 +561,13 @@ public static class CorpsSystem
         {
             if (generals) EnsureGeneral(kingdom, corps);
             else RemoveGeneral(corps);
-            for (int step = 0; step < MarchZonesPerSecond; step++) StepTowardTarget(corps);
+            for (int step = 0; step < MarchZonesPerSecond; step++)
+            {
+                int before = corps.zone_id;
+                StepTowardTarget(corps);
+                // 山地、沼泽、丛林行军慢一半：进了这类地块，本秒不再前进
+                if (corps.zone_id == before || TerrainSystem.SlowsMarch(Zone(corps))) break;
+            }
             MoveGeneral(corps);
         }
     }

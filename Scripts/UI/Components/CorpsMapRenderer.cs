@@ -829,6 +829,9 @@ public static class CorpsMapRenderer
         if (at?.data != null && !at.isRekt())
             tooltip.addLineText(LM.Get("corps_tip_location"), at.GetCityName(), "#C8C2B4", pPercent: false,
                 pLocalize: false, pLimitValue: 40);
+        if (zone != null)
+            tooltip.addLineText(LM.Get("corps_tip_terrain"), TerrainSystem.Name(TerrainSystem.OfBattle(at, zone)), "#C9E6A8",
+                pPercent: false, pLocalize: false, pLimitValue: 40);
 
         if (list.Count == 1)
         {
@@ -939,7 +942,10 @@ public static class CorpsMapRenderer
         int occupied = city.zones?.Count(zone => FrontSystem.Hostile(city.kingdom, FrontSystem.Controller(zone))) ?? 0;
         tooltip.addLineText(LM.Get("corps_tip_occupied"), $"{occupied}/{city.zones?.Count ?? 0}", "#C8C2B4",
             pPercent: false, pLocalize: false);
-        tooltip.addBottomDescription(LM.Get("corps_tip_battle_hint") + "\n" + LM.Get("corps_tip_click"));
+        tooltip.addLineText(LM.Get("corps_tip_terrain"), TerrainSystem.Name(battle.terrain), "#C9E6A8",
+            pPercent: false, pLocalize: false, pLimitValue: 40);
+        tooltip.addBottomDescription(TerrainSystem.Describe(battle.terrain) + "\n" + LM.Get("corps_tip_battle_hint") +
+                                     "\n" + LM.Get("corps_tip_click"));
     }
 
     #endregion
