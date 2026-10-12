@@ -141,9 +141,68 @@ namespace EmpireCraft.Scripts.UI.Windows
                 log.AddTextIntoVertLayout(LM.Get("corps_log_none").ColorString("#8FA0A8"), true, TextAnchor.MiddleLeft,
                     new Vector2(half, 12f)).UseFixedFontSize(6, HorizontalWrapMode.Wrap);
 
+            AddNavyCard(parent, realms, mainWidth);
+
             var hint = parent.AddTextIntoVertLayout(LM.Get("corps_rules_hint").ColorString("#8FA0A8"), true,
                 TextAnchor.UpperLeft, new Vector2(mainWidth - 4f, 30f));
             hint.UseFixedFontSize(6, HorizontalWrapMode.Wrap);
+        }
+
+        // 列宽：舰队 | 舰种 | 战舰+运输 | 组织度 | 任务
+        private static readonly float[] NavyColumns = { 0.26f, 0.18f, 0.18f, 0.18f, 0.2f };
+
+        // 海军卡(见 NavySystem)：各舰队、制海海区数、被封锁的港口；没有港口也没有舰队的内陆国不画
+        private static void AddNavyCard(AutoVertLayoutGroup parent, List<Kingdom> realms, float width)
+        {
+            var fleets = realms.SelectMany(kingdom => NavySystem.Of(kingdom).Select(fleet => (kingdom, fleet)))
+                .Where(entry => entry.fleet.warships + entry.fleet.transports > 0).ToList();
+            var ports = realms.SelectMany(NavySystem.Ports).ToList();
+            if (fleets.Count == 0 && ports.Count == 0) return;
+            int controlled = SeaRegionSystem.All.Count(region => NavySystem.Controller(region) is Kingdom owner &&
+                                                                 realms.Contains(owner));
+            var card = parent.BeginCard(width, "navy_card_title", "#7FD8EA",
+                string.Format(LM.Get("navy_card_header"), fleets.Count, fleets.Sum(entry => entry.fleet.warships),
+                    fleets.Sum(entry => entry.fleet.transports), controlled), "ui/icons/iconBoat");
+            float inner = width - 12f;
+            float W(int i) => inner * NavyColumns[i] - 2f;
+            var header = card.BeginHoriGroup(new Vector2(inner, 10f), TextAnchor.MiddleLeft, 2, new RectOffset(0, 0, 0, 0));
+            string[] keys = { "navy_col_fleet", "navy_col_tier", "navy_col_ships", "corps_col_org", "corps_col_task" };
+            for (int i = 0; i < keys.Length; i++)
+                header.AddTextIntoHoriLayout(LM.Get(keys[i]).ColorString("#8FA0A8"), true, TextAnchor.MiddleLeft,
+                    new Vector2(W(i), 10f)).UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+            foreach ((Kingdom kingdom, FleetData fleet) in fleets.OrderByDescending(entry => entry.fleet.warships))
+            {
+                var row = card.BeginHoriGroup(new Vector2(inner, 12f), TextAnchor.MiddleLeft, 2, new RectOffset(0, 0, 0, 0));
+                string name = NavySystem.Name(fleet);
+                if (realms.Count > 1) name = $"{kingdom.GetKingdomName()} · {name}";
+                var nameText = row.AddTextIntoHoriLayout(name, true, TextAnchor.MiddleLeft, new Vector2(W(0), 12f));
+                nameText.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
+                HoverMarqueeText.Attach(nameText);
+                row.AddTextIntoHoriLayout(LM.Get(NavySystem.TierKey(kingdom)).ColorString("#F3C34A"), true,
+                    TextAnchor.MiddleLeft, new Vector2(W(1), 12f)).UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+                row.AddTextIntoHoriLayout($"{fleet.warships}" + $" + {fleet.transports}".ColorString("#C8C2B4"), true,
+                    TextAnchor.MiddleLeft, new Vector2(W(2), 12f)).UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+                var org = row.BeginHoriGroup(new Vector2(W(3), 12f), TextAnchor.MiddleLeft, 3, new RectOffset(0, 0, 0, 0));
+                UIHelper.AddShareBar(org.transform, new Vector2(W(3) * 0.6f, 5f), fleet.org / 100f,
+                    fleet.org < 30f ? OrgLowColor : OrgColor);
+                org.AddTextIntoHoriLayout(Mathf.RoundToInt(fleet.org).ToString(), true, TextAnchor.MiddleLeft,
+                    new Vector2(W(3) * 0.4f - 3f, 12f)).UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+                string hex = fleet.task switch
+                {
+                    "escort" or "blockade" => "#FFB3A8",
+                    "patrol" => "#A8CCFF",
+                    "retreat" => "#E8584F",
+                    _ => "#C9E6A8"
+                };
+                row.AddTextIntoHoriLayout(LM.Get("navy_task_" + fleet.task).ColorString(hex), true, TextAnchor.MiddleLeft,
+                    new Vector2(W(4), 12f)).UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+            }
+            var blockaded = ports.Where(NavySystem.IsBlockaded).Select(city => city.GetCityName()).ToList();
+            if (blockaded.Count > 0)
+                card.AddTextIntoVertLayout(string.Format(LM.Get("navy_blockaded"), string.Join("、", blockaded)).ColorString("#E8584F"),
+                    true, TextAnchor.MiddleLeft, new Vector2(inner, 10f)).UseFixedFontSize(6, HorizontalWrapMode.Wrap);
+            card.AddTextIntoVertLayout(LM.Get("navy_rules_hint").ColorString("#8FA0A8"), true, TextAnchor.UpperLeft,
+                new Vector2(inner, 26f)).UseFixedFontSize(6, HorizontalWrapMode.Wrap);
         }
 
         // 从地图点进来的那几行垫一层淡金底

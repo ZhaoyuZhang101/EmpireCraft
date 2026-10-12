@@ -12,7 +12,9 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 
 // 战线(借鉴钢铁雄心)：每月结算一次。
 //   ① 战线段：一座敌城里，与己方控制的地块相邻的敌控地块(己方城市被敌军占去的地块同理，可收复)；
-//      与敌国完全不接壤(隔海、隔荒野)时，挑离本国首都最近的敌城，从其外缘地块登陆；
+//      与敌国完全不接壤(隔海、隔荒野)时，挑离本国首都最近的敌城，从其外缘地块登陆——跨海登陆是硬限制：
+//      要有一条从本国港口出发、不经过敌方制海海区的航线，运输船总运力装得下的军才能派去(见 NavySystem)，
+//      登陆头一个月攻方战力 ×0.7；
 //   ② 分派：各国先按上月敌军的攻势分兵守城，余下的军集中攻打一两段；组织度太低的军回乡休整；
 //   ③ 交战：攻方(兵力×组织度×火力) 对 守方(兵力×组织度×火力×(1.25+堑壕)，无军驻守时由团练抵抗)，
 //      双方按战况伤亡、掉组织度；攻方占优就沿战线连片占领 1~4 块地块(沿用地块占领模式，满城即陷落)，
@@ -135,6 +137,7 @@ public static class FrontSystem
 
     private static List<Sector> Sectors(Kingdom side)
     {
+        NavySystem.DesiredLanding.Remove(side.id);
         var sectors = new Dictionary<City, Sector>();
         void Collect(City city)
         {
@@ -161,6 +164,12 @@ public static class FrontSystem
             .OrderBy(city => Toolbox.SquaredDistTile(city.getTile(), origin)).FirstOrDefault();
         List<TileZone> landing = LandingZones(nearest);
         if (landing.Count == 0) return new List<Sector>();
+        // 跨海：记下想登陆的城(舰队据此护航)；没有航线(没有港口、或被敌方制海截断)就登不了陆
+        if (nearest.getTile() != null && origin != null && !nearest.getTile().isSameIsland(origin))
+        {
+            NavySystem.DesiredLanding[side.id] = nearest.id;
+            if (NavySystem.LandingRoute(side, nearest) == null) return new List<Sector>();
+        }
         var beachhead = new Sector { City = nearest, Landing = true };
         beachhead.Targets.AddRange(landing);
         return new List<Sector> { beachhead };
@@ -256,8 +265,9 @@ public static class FrontSystem
                 have += corps.strength;
             }
         }
-        // ② 进攻：集中在少数几段
+        // ② 进攻：集中在少数几段；跨海登陆的军(还没上岸的)兵力合计不超过运输船运力
         var attackOn = new Dictionary<Sector, float>();
+        float shipping = sectors.Any(sector => sector.Landing) ? NavySystem.TransportCapacity(kingdom) : 0f;
         foreach (CorpsData corps in ready.Where(corps => !assigned.Contains(corps)).OrderByDescending(corps => corps.strength))
         {
             if (sectors.Count == 0) break;
@@ -266,6 +276,11 @@ public static class FrontSystem
                 .Where(sector => attackOn.ContainsKey(sector) || attackOn.Count < MaxOffensives)
                 .OrderByDescending(sector => Score(kingdom, corps, sector, attackOn)).FirstOrDefault();
             if (choice == null) break;
+            if (choice.Landing && CorpsSystem.Zone(corps)?.city != choice.City)
+            {
+                if (corps.strength > shipping) continue;
+                shipping -= corps.strength;
+            }
             attackOn.TryGetValue(choice, out float strength);
             attackOn[choice] = strength + corps.strength;
             corps.task = "attack";
@@ -394,7 +409,8 @@ public static class FrontSystem
         }
         Kingdom attacker = attackers.GroupBy(entry => entry.kingdom)
             .OrderByDescending(entries => entries.Sum(entry => entry.corps.strength)).First().Key;
-        float attack = attackers.Sum(entry => Effective(entry.corps) * Firepower(entry.kingdom));
+        // 跨海登陆的头一个月攻方吃亏
+        float attack = attackers.Sum(entry => Effective(entry.corps) * Firepower(entry.kingdom)) * (landing ? 0.7f : 1f);
         float defend = holders.Sum(entry => Effective(entry.corps) * Firepower(entry.kingdom) *
                                             (DefenderBonus + entry.corps.entrench));
         float militia = holders.Count == 0 ? Militia(city, attacker) : 0f;

@@ -12,7 +12,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 海上商路(无小人模式)：建成港口的城市与最近的外国港口城结成商路，每月按双方富庶度产生贸易利得——
 //   双方民间资产各记一笔贸易利润(与生产估值同口径，之后由商业税基征税)，
 //   并按商业税率就地征一笔关税：从民间现金扣，入城市国库(商业税)；没有现金就征不到。
-//   两国交战即断航(禁运)；港口被拆、城市易主重新配对。配对每年重算一次，结算每月一次。
+//   两国交战即断航(禁运)，任一港口被敌方舰队封锁也断航；港口被拆、城市易主重新配对。配对每年重算一次，结算每月一次。
 public static class TradeRouteSystem
 {
     private const float MaxRouteDistance = 160f;
@@ -37,6 +37,8 @@ public static class TradeRouteSystem
         if (partner?.data == null || partner.isRekt() || city?.kingdom == null || partner.kingdom == null) return null;
         if (city.kingdom.isInWarWith(partner.kingdom))
             return string.Format(LM.Get("trade_route_embargo"), partner.GetCityName());
+        if (NavySystem.IsBlockaded(city) || NavySystem.IsBlockaded(partner))
+            return string.Format(LM.Get("trade_route_blockaded"), partner.GetCityName());
         return string.Format(LM.Get("trade_route_status"), partner.GetCityName(), (long)TradeValue(city, partner));
     }
 
@@ -99,8 +101,9 @@ public static class TradeRouteSystem
             City city = World.world.cities.get(route.Key);
             City partner = World.world.cities.get(route.Value);
             if (!Tradeable(city) || !Tradeable(partner) || city.kingdom == partner.kingdom) continue;
-            // 交战禁运
-            if (city.kingdom.isInWarWith(partner.kingdom)) continue;
+            // 交战禁运；任一港口被敌方舰队封锁也断航(见 NavySystem)
+            if (city.kingdom.isInWarWith(partner.kingdom) || NavySystem.IsBlockaded(city) ||
+                NavySystem.IsBlockaded(partner)) continue;
             Earn(city, TradeValue(city, partner));
         }
     }

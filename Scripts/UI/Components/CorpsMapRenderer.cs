@@ -21,6 +21,8 @@ namespace EmpireCraft.Scripts.UI.Components;
 //     同一地块同一国的几支军合并成一块(标"×N"、兵力相加)，不同国并排；镜头拉远、同一国的兵牌在屏幕上挤在一起时
 //     再折叠成一块(拉近分开后各自显示)，悬停详情与点击打开军事页都包括折进来的全部军；
 //   · 交战标记：正在交战的城，朱漆框绛红底，两侧是攻守双方国色，中间是本月攻方胜算；
+//   · 舰队兵牌(见 NavySystem)：画在海上，船形图标按舰种(楼船/帆舰/铁甲/现代)，数字是战舰数(+运输船)，
+//     条是战舰编制与组织度；海战标记同交战标记，写本月胜算；
 //   · 鼠标悬停兵牌或交战标记：放大、换金边、置顶，并显示详情提示；
 //     点击打开军事页(属于帝国的国家开帝国窗口的军团页，独立王国开本国军事窗口)，点进来的那几支军、那处交战高亮。
 // 画在地名画布上，按屏幕像素定大小(不随界面缩放放大)，镜头拉远时略缩小。
@@ -57,7 +59,7 @@ public static class CorpsMapRenderer
         public Vector2 Center, Half;
     }
 
-    private const int HoverNone = 0, HoverCounter = 1, HoverMarker = 2;
+    private const int HoverNone = 0, HoverCounter = 1, HoverMarker = 2, HoverFleet = 3, HoverNaval = 4;
 
     private static RectTransform _root;
     private static Canvas _canvas;
@@ -76,11 +78,15 @@ public static class CorpsMapRenderer
     private static float _tipAt = float.NegativeInfinity;
     private static readonly object CounterTipOwner = new();
     private static readonly object BattleTipOwner = new();
+    private static readonly object FleetTipOwner = new();
+    private static readonly object NavalTipOwner = new();
     private static PointerEventData _pointer;
     private static readonly List<RaycastResult> RaycastHits = new();
 
     public const string CounterTooltip = "empirecraft_corps_counter";
     public const string BattleTooltip = "empirecraft_corps_battle";
+    public const string FleetTooltip = "empirecraft_navy_fleet";
+    public const string NavalTooltip = "empirecraft_navy_battle";
 
     // 悬停兵牌时原版地图提示让路(见 CorpsPatch)
     public static bool Hovering => _hoverKind != HoverNone;
@@ -118,6 +124,23 @@ public static class CorpsMapRenderer
         rank = Mathf.Clamp(rank, 0, 3);
         return Pieces[rank] ??= SpriteTextureLoader.getSprite("ui/icons/corps/chess_" + PieceNames[rank]) ?? White;
     }
+
+    private static readonly Sprite[] Ships = new Sprite[4];
+
+    private static Sprite Ship(Kingdom kingdom)
+    {
+        float tier = NavySystem.Tier(kingdom);
+        int index = tier >= 4f ? 3 : tier >= 2.5f ? 2 : tier >= 1.5f ? 1 : 0;
+        return Ships[index] ??= SpriteTextureLoader.getSprite("ui/icons/corps/ship_" + index) ?? Piece(0);
+    }
+
+    private static Sprite FleetFrame(string task) => Frame(task switch
+    {
+        "escort" or "blockade" => "CorpsFrame_lacquer",
+        "patrol" => "CorpsFrame_azure",
+        "retreat" => "CorpsFrame_ash",
+        _ => "CorpsFrame_olive"
+    });
 
     private static readonly Dictionary<(int zone, long kingdom), CounterGroup> Groups = new();
 
@@ -506,6 +529,79 @@ public static class CorpsMapRenderer
             });
         }
 
+        // 舰队兵牌
+        foreach ((Kingdom kingdom, FleetData fleet) in NavySystem.All())
+        {
+            if (fleet.warships + fleet.transports <= 0) continue;
+            TileZone zone = CorpsSystem.ZoneById(fleet.zone_id);
+            if (zone?.centerTile == null) continue;
+            Vector3 screen = camera.WorldToScreenPoint(zone.centerTile.posV);
+            if (!OnScreen(screen, 80f)) continue;
+            Counter counter = GetCounter(counterCount++);
+            counter.Root.gameObject.SetActive(true);
+            counter.Root.localScale = pixelScale;
+            SetFrame(counter.Frame, FleetFrame(fleet.task));
+            counter.Piece.sprite = Ship(kingdom);
+            counter.Plate.color = kingdom.getColor()?.getColorMain() ?? Color.gray;
+            string label = fleet.transports > 0
+                ? $"{fleet.warships}<color=#C8C2B4>+{fleet.transports}</color>"
+                : fleet.warships.ToString();
+            if (counter.Label.text != label)
+            {
+                counter.Label.text = label;
+                counter.LabelWidth = counter.Label.preferredWidth;
+            }
+            float width = Mathf.Max(CounterWidth, 29f + counter.LabelWidth);
+            counter.Root.sizeDelta = new Vector2(width, CounterHeight);
+            float barLength = width - 30f;
+            float ships = Mathf.Clamp01(fleet.warships / 6f);
+            float org = Mathf.Clamp01(fleet.org / 100f);
+            Place(counter.Strength.rectTransform, Vector2.zero, Vector2.zero, new Vector2(25f, 8f),
+                new Vector2(25f + barLength * ships, 10f));
+            Place(counter.Org.rectTransform, Vector2.zero, Vector2.zero, new Vector2(25f, 6f),
+                new Vector2(25f + barLength * org, 8f));
+            counter.Org.color = org < 0.3f ? OrgLowColor : OrgColor;
+            StackOffsets.TryGetValue(zone.id, out float offset);
+            StackOffsets[zone.id] = offset + width + 3f;
+            Vector3 center = screen + new Vector3(offset * zoom, 0f);
+            counter.Root.position = center;
+            Hits.Add(new Hit
+            {
+                Kind = HoverFleet, Index = counterCount - 1, A = fleet.id, B = kingdom.id,
+                Center = center, Half = new Vector2(width, CounterHeight) * (0.5f * zoom)
+            });
+        }
+
+        // 海战标记
+        foreach (NavySystem.BattleView battle in NavySystem.Battles.Values)
+        {
+            TileZone zone = CorpsSystem.ZoneById(battle.zone_id);
+            if (zone?.centerTile == null) continue;
+            Vector3 screen = camera.WorldToScreenPoint(zone.centerTile.posV);
+            if (!OnScreen(screen, 80f)) continue;
+            Marker marker = GetMarker(markerCount++);
+            marker.Root.gameObject.SetActive(true);
+            marker.Root.localScale = pixelScale;
+            SetFrame(marker.Frame, Frame("CorpsBattle"));
+            string label = string.Format(LM.Get("navy_battle_marker"), Mathf.RoundToInt(battle.ratio * 100f));
+            if (marker.Label.text != label)
+            {
+                marker.Label.text = label;
+                marker.LabelWidth = marker.Label.preferredWidth;
+            }
+            float width = Mathf.Max(MarkerWidth, 26f + marker.LabelWidth);
+            marker.Root.sizeDelta = new Vector2(width, MarkerHeight);
+            marker.Attacker.color = KingdomColor(battle.attacker_id);
+            marker.Defender.color = KingdomColor(battle.defender_id);
+            Vector3 center = screen - new Vector3(0f, (CounterHeight + MarkerHeight) * 0.5f * zoom + 3f);
+            marker.Root.position = center;
+            Hits.Add(new Hit
+            {
+                Kind = HoverNaval, Index = markerCount - 1, A = battle.region_id,
+                Center = center, Half = new Vector2(width, MarkerHeight) * (0.5f * zoom)
+            });
+        }
+
         UpdateHover(pixelScale);
     }
 
@@ -555,7 +651,7 @@ public static class CorpsMapRenderer
             bool held = MouseHeld;
             Vector2 mouse = Input.mousePosition;
             // 兵牌优先；后画的在上面。已悬停的那块按放大后的范围算，免得边缘来回闪
-            for (int pass = HoverCounter; pass <= HoverMarker && kind == HoverNone; pass++)
+            for (int pass = HoverCounter; pass <= HoverNaval && kind == HoverNone; pass++)
             {
                 for (int i = Hits.Count - 1; i >= 0; i--)
                 {
@@ -588,7 +684,7 @@ public static class CorpsMapRenderer
             _tipAt = float.NegativeInfinity;
         }
         RectTransform root;
-        if (kind == HoverCounter)
+        if (kind is HoverCounter or HoverFleet)
         {
             Counter counter = Counters[index];
             SetFrame(counter.Frame, Frame("CorpsFrame_gold"));
@@ -611,6 +707,16 @@ public static class CorpsMapRenderer
             {
                 kingdom = World.world.kingdoms.get(b), tooltip_scale = 0.7f, is_sim_tooltip = true, sound_allowed = false
             });
+        else if (kind == HoverFleet)
+            Tooltip.show(FleetTipOwner, FleetTooltip, new TooltipData
+            {
+                kingdom = World.world.kingdoms.get(b), tooltip_scale = 0.7f, is_sim_tooltip = true, sound_allowed = false
+            });
+        else if (kind == HoverNaval)
+            Tooltip.show(NavalTipOwner, NavalTooltip, new TooltipData
+            {
+                tooltip_scale = 0.7f, is_sim_tooltip = true, sound_allowed = false
+            });
         else
             Tooltip.show(BattleTipOwner, BattleTooltip, new TooltipData
             {
@@ -632,6 +738,16 @@ public static class CorpsMapRenderer
             corps = CorpsSystem.Of(kingdom).Where(entry => zones.Contains(entry.zone_id) && ShowsCorps(kingdom, entry))
                 .Select(entry => entry.id).ToList();
         }
+        else if (_hoverKind == HoverFleet)
+        {
+            kingdom = World.world.kingdoms.get(_hoverB);
+            if (kingdom?.data == null || kingdom.isRekt()) return false;
+        }
+        else if (_hoverKind == HoverNaval && NavySystem.Battles.TryGetValue((int)_hoverA, out var naval))
+        {
+            kingdom = PickSide(naval.attacker_id, naval.defender_id);
+            if (kingdom == null) return false;
+        }
         else if (_hoverKind == HoverMarker && FrontSystem.Battles.TryGetValue(_hoverA, out var battle))
         {
             Kingdom attacker = World.world.kingdoms.get(battle.attacker_id);
@@ -650,6 +766,17 @@ public static class CorpsMapRenderer
         if (empire?.CoreKingdom != null && !empire.isRekt()) EmpireWindow.OpenMilitary(empire, corps, city);
         else KingdomMilitaryWindow.Open(kingdom, corps, city);
         return true;
+    }
+
+    // 攻方优先；攻方不在帝国里而守方在，就开守方帝国的军事页
+    private static Kingdom PickSide(long attackerId, long defenderId)
+    {
+        Kingdom attacker = World.world.kingdoms.get(attackerId);
+        Kingdom defender = World.world.kingdoms.get(defenderId);
+        bool attackerAlive = attacker?.data != null && !attacker.isRekt();
+        bool defenderAlive = defender?.data != null && !defender.isRekt();
+        return attackerAlive && (attacker.GetEmpire() != null || !defenderAlive || defender.GetEmpire() == null)
+            ? attacker : defenderAlive ? defender : null;
     }
 
     #endregion
@@ -737,6 +864,51 @@ public static class CorpsMapRenderer
         tooltip.addBottomDescription((list.Count > shown
             ? string.Format(LM.Get("corps_tip_more"), list.Count - shown) + "\n"
             : "") + LM.Get("corps_tip_click"));
+    }
+
+    // 舰队：所属国与舰队名、任务，舰种、战舰、运输船(运力)、组织度、所在海区的制海权
+    public static void ShowFleetTooltip(Tooltip tooltip, string type, TooltipData data)
+    {
+        Kingdom kingdom = data?.kingdom;
+        if (kingdom?.data == null || kingdom.isRekt() || _hoverKind != HoverFleet) return;
+        FleetData fleet = NavySystem.Of(kingdom).FirstOrDefault(entry => entry.id == _hoverA);
+        if (fleet == null) return;
+        tooltip.clear();
+        tooltip.setTitle($"{kingdom.GetKingdomName()} · {NavySystem.Name(fleet)}", "navy_task_" + fleet.task,
+            kingdom.getColor()?.color_text ?? "#FFFFFF");
+        tooltip.addLineText(LM.Get("navy_tip_tier"), LM.Get(NavySystem.TierKey(kingdom)), "#F3C34A", pPercent: false,
+            pLocalize: false, pLimitValue: 40);
+        tooltip.addLineText(LM.Get("navy_tip_warships"), fleet.warships.ToString(), "#65D66E", pPercent: false, pLocalize: false);
+        float capacity = fleet.transports * 1500f * NavySystem.Tier(kingdom);
+        tooltip.addLineText(LM.Get("navy_tip_transports"),
+            string.Format(LM.Get("navy_tip_capacity"), fleet.transports, CorpsSystem.ShortStrength(capacity)), "#C8C2B4",
+            pPercent: false, pLocalize: false, pLimitValue: 40);
+        tooltip.addLineText(LM.Get("corps_col_org"), Mathf.RoundToInt(fleet.org).ToString(),
+            fleet.org < 30f ? "#E8584F" : "#7FD8EA", pPercent: false, pLocalize: false);
+        Kingdom controller = NavySystem.Controller(SeaRegionSystem.Get(fleet.region_id));
+        tooltip.addLineText(LM.Get("navy_tip_control"), controller?.GetKingdomName() ?? LM.Get("navy_tip_none"),
+            controller?.getColor()?.color_text ?? "#8FA0A8", pPercent: false, pLocalize: false, pLimitValue: 40);
+        tooltip.addBottomDescription(LM.Get("corps_tip_click"));
+    }
+
+    // 海战：交战双方、胜算、双方舰只与击沉
+    public static void ShowNavalTooltip(Tooltip tooltip, string type, TooltipData data)
+    {
+        if (_hoverKind != HoverNaval || !NavySystem.Battles.TryGetValue((int)_hoverA, out var battle)) return;
+        tooltip.clear();
+        Kingdom attacker = World.world.kingdoms.get(battle.attacker_id);
+        Kingdom defender = World.world.kingdoms.get(battle.defender_id);
+        tooltip.setTitle(LM.Get("navy_tip_battle"), "", "#FFB3A8");
+        tooltip.addLineText(attacker?.GetKingdomName() ?? "?",
+            string.Format(LM.Get("navy_tip_ships_sunk"), battle.attacker_ships, battle.sunk_attacker),
+            attacker?.getColor()?.color_text ?? "#FFB3A8", pPercent: false, pLocalize: false, pLimitValue: 40);
+        tooltip.addLineText(defender?.GetKingdomName() ?? "?",
+            string.Format(LM.Get("navy_tip_ships_sunk"), battle.defender_ships, battle.sunk_defender),
+            defender?.getColor()?.color_text ?? "#A8CCFF", pPercent: false, pLocalize: false, pLimitValue: 40);
+        int odds = Mathf.RoundToInt(battle.ratio * 100f);
+        tooltip.addLineText(LM.Get("navy_tip_odds"), odds + "%", odds >= 50 ? "#FFB3A8" : "#A8CCFF", pPercent: false,
+            pLocalize: false);
+        tooltip.addBottomDescription(LM.Get("navy_tip_battle_hint") + "\n" + LM.Get("corps_tip_click"));
     }
 
     // 交战：攻守双方、攻方胜算、兵力对比、参战军数、已占地块

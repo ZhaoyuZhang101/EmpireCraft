@@ -121,6 +121,7 @@ public static class CorpsSystem
         _lastSecond = _lastMonth = -1d;
         GeneralMoves.Clear();
         FrontSystem.ResetWorldState();
+        NavySystem.ResetWorldState();
     }
 
     #endregion
@@ -153,6 +154,8 @@ public static class CorpsSystem
             try
             {
                 MonthTick(now);
+                // 海军先结算：制海权决定这个月的跨海登陆能不能成行(见 FrontSystem)
+                if (!first) NavySystem.MonthTick(now);
                 if (!first) FrontSystem.MonthTick(now);
             }
             catch (Exception exception)
@@ -166,6 +169,8 @@ public static class CorpsSystem
             _lastSecond = now;
             try { SecondTick(); }
             catch (Exception exception) { LogService.LogWarning($"[EmpireCraft][军团] 行军失败: {exception.Message}"); }
+            try { NavySystem.SecondTick(); }
+            catch (Exception exception) { LogService.LogWarning($"[EmpireCraft][海军] 航行失败: {exception.Message}"); }
         }
     }
 
@@ -173,6 +178,7 @@ public static class CorpsSystem
     private static void DisbandAllOnDisable()
     {
         foreach ((Kingdom kingdom, CorpsData corps) in All().ToList()) Disband(kingdom, corps);
+        NavySystem.RemoveAllFlagships();
         RebuildIndex();
         _lastMonth = -1d;
     }
@@ -246,7 +252,9 @@ public static class CorpsSystem
                     if (!war && corps.task != "attack" && corps.task != "defend") Disband(kingdom, corps);
                     continue;
                 }
-                if (corps.strength < corps.full) Reinforce(kingdom, corps, corps.full * ReinforceShare);
+                // 海外断了补给(航线被敌方制海截断)的军补不上兵
+                if (corps.strength < corps.full && !NavySystem.IsCutOff(kingdom, corps))
+                    Reinforce(kingdom, corps, corps.full * ReinforceShare);
                 else if (!war && corps.strength > corps.full)
                     Demobilize(kingdom, corps, Mathf.Min(corps.strength - corps.full, corps.full * DemobilizeShare + 1f));
             }
@@ -348,6 +356,12 @@ public static class CorpsSystem
     {
         foreach (CorpsData corps in Of(kingdom))
         {
+            // 海外断了补给：组织度不恢复，每月再掉 5
+            if (NavySystem.IsCutOff(kingdom, corps))
+            {
+                corps.org = Mathf.Max(0f, corps.org - 5f);
+                continue;
+            }
             bool fighting = corps.task is "attack" or "defend" && FrontSystem.EngagedLastMonth(corps);
             if (!fighting) corps.org = Mathf.Min(100f, corps.org + (corps.task is "reserve" or "retreat" ? RestOrg : IdleOrg));
             if (corps.task == "retreat" && corps.org >= 50f) corps.task = "reserve";
@@ -563,7 +577,7 @@ public static class CorpsSystem
         FrontSystem.Log(kingdom, string.Format(LM.Get("corps_log_general_killed"), Name(corps), actor.getName()));
     }
 
-    // 军团在地块上一格一格挪向目标(跨海也照走，代表舟船转运)
+    // 军团在地块上一格一格挪向目标(跨海登陆要有航线与运力，见 FrontSystem / NavySystem)
     private static void StepTowardTarget(CorpsData corps)
     {
         TileZone target = FrontSystem.TargetZone(corps);

@@ -143,6 +143,18 @@ public static class EmpireCraftTooltipLibrary
             prefab_id = "tooltips/tooltip_normal",
             callback = UI.Components.CorpsMapRenderer.ShowBattleTooltip
         });
+        AddOrReplace(tl, new TooltipAsset
+        {
+            id = UI.Components.CorpsMapRenderer.FleetTooltip,
+            prefab_id = "tooltips/tooltip_normal",
+            callback = UI.Components.CorpsMapRenderer.ShowFleetTooltip
+        });
+        AddOrReplace(tl, new TooltipAsset
+        {
+            id = UI.Components.CorpsMapRenderer.NavalTooltip,
+            prefab_id = "tooltips/tooltip_normal",
+            callback = UI.Components.CorpsMapRenderer.ShowNavalTooltip
+        });
         // 窗口里"理念"一行的提示(见 IdeologyRowPatch)
         AddOrReplace(tl, new TooltipAsset
         {
