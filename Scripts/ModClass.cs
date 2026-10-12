@@ -63,6 +63,8 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
     public static bool PERFORMANCE_HIGH_POPULATION_MODE = true;
     public static bool PERFORMANCE_ADAPTIVE_THROUGHPUT_MODE = true;
     public static bool PERFORMANCE_SKIP_HIDDEN_VISUALS = true;
+    // 抽象地图模式(模组设置，下次启动生效，见 AbstractMapMode)
+    public static bool ABSTRACT_MAP_MODE;
     public static bool PERFORMANCE_SKIP_NAMEPLATE_OVERLAP = true;
     public static ModDeclare _declare;
     private GameObject _modObject;
@@ -93,6 +95,7 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
     {
         FrameProfiler.FrameTick();
         using (FrameProfiler.Measure("后台·原生植被")) EmpireCraft.Scripts.GeneralSystems.NativeVegetationScheduler.Tick();
+        using (FrameProfiler.Measure("后台·抽象地图")) EmpireCraft.Scripts.GeneralSystems.AbstractMapMode.Tick();
         EmpireCraft.Scripts.GeneralSystems.PopulationRuntimeDiagnostics.Tick();
         if (!EmpireCraft.Scripts.GeneralSystems.CityPopulationSystem.AbstractPopulationEnabled)
         {

@@ -252,6 +252,7 @@ public static class FarmlandSystem
 
     private static float Harvest(City city)
     {
+        if (AbstractMapMode.Enabled) return VirtualHarvest(city);
         float food = 0f;
         int count = 0;
         foreach (KeyValuePair<TileZone, List<WorldTile>> pair in FieldsByZone(city))
@@ -286,8 +287,33 @@ public static class FarmlandSystem
         return food;
     }
 
+    // 抽象地图模式没有庄稼：按田里的种植位折算，每个种植位一轮成熟收 FoodPerCrop 份，
+    // 一轮按原版麦子的成熟时间(每长一级 growth_time 秒，一个月 5 秒)；不宜耕作的时代减半
+    private static float VirtualHarvest(City city)
+    {
+        int spots = 0;
+        foreach (KeyValuePair<TileZone, List<WorldTile>> pair in FieldsByZone(city))
+        {
+            if (ScorchedEarthSystem.IsOccupiedZone(city, pair.Key)) continue;
+            foreach (WorldTile tile in pair.Value)
+                if (tile.Type == TopTileLibrary.field && IsCropSpot(tile, pair.Key)) spots++;
+        }
+        if (spots == 0) return 0f;
+        float food = spots * FoodPerCrop * Productivity(city) / CropCycleMonths();
+        if (World.world_era != null && !World.world_era.flag_crops_grow) food *= 0.5f;
+        return food;
+    }
+
+    private static float CropCycleMonths()
+    {
+        BuildingAsset wheat = AssetManager.buildings.get("wheat");
+        int levels = Math.Max(1, (wheat?.building_sprites?.animation_data?.Count ?? 4) - 1);
+        return Math.Max(1f, (wheat?.growth_time ?? 50f) * levels / 5f);
+    }
+
     private static void Plant(City city)
     {
+        if (AbstractMapMode.Enabled) return;
         int count = 0;
         foreach (KeyValuePair<TileZone, List<WorldTile>> pair in FieldsByZone(city))
         {
