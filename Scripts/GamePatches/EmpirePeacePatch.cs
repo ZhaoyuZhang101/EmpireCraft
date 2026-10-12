@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.Layer;
+using EmpireCraft.Scripts.Regimes;
 using HarmonyLib;
 using NeoModLoader.api;
 using NeoModLoader.services;
@@ -74,11 +75,17 @@ public class EmpirePeacePatch : GamePatch
         foreach (Snapshot snapshot in __state) Cascade(snapshot);
     }
 
-    // 听命于中央的成员：行政区、军府等，或政体没有自主外交权的成员；正在叛乱的不算
-    public static bool Obeys(Empire empire, Kingdom member) =>
-        member?.data != null && !member.isRekt() && member != empire.CoreKingdom && member.GetEmpire() == empire &&
-        !member.IsFactionRebelling() && !member.IsLocalRebelling() &&
-        (member.IsAdministrativeKingdomType() || member.GetRegime()?.IsAllowDiplomacy() == false);
+    // 听命于中央的成员：没有自主外交权的成员，或朝廷任命(不世袭)的行政区、军府；
+    // 世袭的藩镇、封国保留自主外交与兵权，正在叛乱的也不算
+    public static bool Obeys(Empire empire, Kingdom member)
+    {
+        if (member?.data == null || member.isRekt() || member == empire.CoreKingdom || member.GetEmpire() != empire ||
+            member.IsFactionRebelling() || member.IsLocalRebelling()) return false;
+        Regime regime = member.GetRegime();
+        if (regime == null) return false;
+        if (!regime.IsAllowDiplomacy()) return true;
+        return member.IsAdministrativeKingdomType() && regime.GetLeaderSelectMethod() != LeaderSelectMethod.Succession;
+    }
 
     private static void Cascade(Snapshot snapshot)
     {

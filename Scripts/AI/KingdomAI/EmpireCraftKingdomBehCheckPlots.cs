@@ -187,7 +187,9 @@ public class EmpireCraftKingdomBehCheckPlots : GameAIKingdomBase
                 if (pKingdom.isInWarOnSameSide(coreKingdom)) return;
                 if (pKingdom.getWars().Any()) return;
                 if (!coreKingdom.hasEnemies()) return;
-                if (pKingdom.isOpinionTowardsKingdomGood(coreKingdom) || regime.IsAllowDiplomacy())
+                // 听命于中央的成员(行政区、军府等没有自主外交权的)是中央的一部分，中央开战一律随征，不看好感
+                if (GamePatches.EmpirePeacePatch.Obeys(empire, pKingdom) ||
+                    pKingdom.isOpinionTowardsKingdomGood(coreKingdom) || regime.IsAllowDiplomacy())
                 {
                     var wars = coreKingdom.GetWarsCached(true);
                     var enumerable = wars.ToArray();
