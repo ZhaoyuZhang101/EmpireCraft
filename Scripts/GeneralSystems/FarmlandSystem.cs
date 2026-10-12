@@ -252,7 +252,7 @@ public static class FarmlandSystem
 
     private static float Harvest(City city)
     {
-        if (AbstractMapMode.Enabled) return VirtualHarvest(city);
+        if (PureMapMode.Enabled) return VirtualHarvest(city);
         float food = 0f;
         int count = 0;
         foreach (KeyValuePair<TileZone, List<WorldTile>> pair in FieldsByZone(city))
@@ -287,7 +287,7 @@ public static class FarmlandSystem
         return food;
     }
 
-    // 抽象地图模式没有庄稼：按田里的种植位折算，每个种植位一轮成熟收 FoodPerCrop 份，
+    // 纯净地图模式没有庄稼：按田里的种植位折算，每个种植位一轮成熟收 FoodPerCrop 份，
     // 一轮按原版麦子的成熟时间(每长一级 growth_time 秒，一个月 5 秒)；不宜耕作的时代减半
     private static float VirtualHarvest(City city)
     {
@@ -313,7 +313,7 @@ public static class FarmlandSystem
 
     private static void Plant(City city)
     {
-        if (AbstractMapMode.Enabled) return;
+        if (PureMapMode.Enabled) return;
         int count = 0;
         foreach (KeyValuePair<TileZone, List<WorldTile>> pair in FieldsByZone(city))
         {

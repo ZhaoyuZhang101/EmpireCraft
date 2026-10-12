@@ -73,18 +73,18 @@ namespace EmpireCraft.Scripts.Data
             ModClass.PERFORMANCE_SKIP_NAMEPLATE_OVERLAP = on;
         }
 
-        // 抽象地图模式(见 AbstractMapMode)下次启动生效：启动读设置时定下本次是否开启，游戏中切换只存下来、提示重启
-        private static bool _abstractMapLoaded;
-        public static void AbstractMapCallBack(bool on)
+        // 纯净地图模式(见 PureMapMode)下次启动生效：启动读设置时定下本次是否开启，游戏中切换只存下来、提示重启
+        private static bool _pureMapLoaded;
+        public static void PureMapCallBack(bool on)
         {
-            if (!_abstractMapLoaded)
+            if (!_pureMapLoaded)
             {
-                _abstractMapLoaded = true;
-                ModClass.ABSTRACT_MAP_MODE = on;
+                _pureMapLoaded = true;
+                ModClass.PURE_MAP_MODE = on;
                 return;
             }
-            if (on != ModClass.ABSTRACT_MAP_MODE)
-                WorldTip.showNow(NeoModLoader.General.LM.Get("abstract_map_toggle_restart"), false, "top", 4f);
+            if (on != ModClass.PURE_MAP_MODE)
+                WorldTip.showNow(NeoModLoader.General.LM.Get("pure_map_toggle_restart"), false, "top", 4f);
         }
     }
 }

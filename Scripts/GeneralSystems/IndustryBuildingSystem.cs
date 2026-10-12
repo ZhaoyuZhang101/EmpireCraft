@@ -269,8 +269,8 @@ public static class IndustryBuildingSystem
         float want = factor * TreesPerLumberYear * years + carry;
         int target = Mathf.FloorToInt(want);
         FellCarry[city.data.id] = want - target;
-        // 抽象地图模式没有树：伐木场按产能直接出木头
-        if (AbstractMapMode.Enabled) return target * WoodPerTree;
+        // 纯净地图模式没有树：伐木场按产能直接出木头
+        if (PureMapMode.Enabled) return target * WoodPerTree;
         int cut = 0;
         if (target > 0)
         {

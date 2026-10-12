@@ -121,7 +121,7 @@ public static class CorpsSystem
         _lastSecond = _lastMonth = -1d;
         GeneralMoves.Clear();
         Paths.Clear();
-        AbstractMapMode.ResetWorldState();
+        PureMapMode.ResetWorldState();
         FrontSystem.ResetWorldState();
         NavySystem.ResetWorldState();
     }
