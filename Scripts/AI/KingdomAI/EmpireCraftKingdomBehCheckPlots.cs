@@ -221,12 +221,17 @@ public class EmpireCraftKingdomBehCheckPlots : GameAIKingdomBase
                     for (int i = 0; i < enumerable.Count(); i++)
                     {
                         var w = enumerable[i];
+                        // 中央只援助挨打的成员：成员自己开的仗不跟；中央已经议和退出的旧仗也不再回去
+                        if (w == null || !w.isDefender(empireKingdom) ||
+                            GamePatches.EmpirePeacePatch.IsWarAlreadyLeft(pKingdom, w, empireKingdom)) continue;
                         joinedMemberWar |= TryJoinWarOnSameSide(w, empireKingdom, pKingdom);
                     }
                     if (joinedMemberWar)
                     {
                         empire.data.timestamp_invite_war_cool_down = World.world.getCurWorldTime();
                         TranslateHelper.LogEmpireJoinWar(empire, empireKingdom);
+                        empire.RecordHistory(directContent: string.Format(NeoModLoader.General.LM.Get("empire_join_member_war_history"),
+                            empire.GetEmpireFullName(), empireKingdom.GetKingdomName()), kingdomId: empireKingdom.id);
                     }
                 }
             }

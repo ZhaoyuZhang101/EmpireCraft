@@ -788,6 +788,7 @@
   "kingdom_military_war": "戰時",
   "kingdom_military_peace": "太平",
   "corps_tip_click": "點擊打開軍事頁",
+  "empire_join_member_war_history": "{0}出兵援助遭到進攻的{1}",
   "capital_loss_restored": "{0}收復舊都{1}，還於舊都，復稱{2}。",
   "kingdom_type_xingzai": "行在",
   "Later": "後",
