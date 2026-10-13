@@ -72,6 +72,11 @@ namespace EmpireCraft.Scripts.Data
         {
             ModClass.PERFORMANCE_SKIP_NAMEPLATE_OVERLAP = on;
         }
+        // 稳定帧率：锁每秒 30 帧、关垂直同步(见 StableFrameRate)
+        public static void StableFrameRateCallBack(bool on)
+        {
+            EmpireCraft.Scripts.GeneralSystems.StableFrameRate.Set(on);
+        }
 
         // 纯净地图模式(见 PureMapMode)下次启动生效：启动读设置时定下本次是否开启，游戏中切换只存下来、提示重启
         private static bool _pureMapLoaded;

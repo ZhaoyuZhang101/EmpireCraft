@@ -1583,6 +1583,8 @@
   "plot_emperor_simplify_posthumous_info_base": "诏定谥法从简，此后先帝只加简谥，不再增广尊谥(与增广尊谥二选一，一个帝国只定一次)",
   "history_simplify_posthumous": "{0}诏定谥法从简，{1}自此先帝只加简谥。",
   "custom_color_label": "自定义地图色(如 #3A6EA5，留空恢复)",
+  "performance_stable_framerate_toggle": "稳定帧率(锁 30 帧)",
+  "performance_stable_framerate_toggle Description": "把帧率锁在每秒 30 帧、关掉垂直同步，平时的帧都匀速出，比忽高忽低看着稳；关掉恢复原来的设置。",
   "capital_loss_restored": "{0}收复旧都{1}，还于旧都，复称{2}。",
   "kingdom_type_xingzai": "行在",
   "Later": "后",
