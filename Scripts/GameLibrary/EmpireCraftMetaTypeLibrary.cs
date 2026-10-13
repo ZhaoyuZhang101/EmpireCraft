@@ -31,6 +31,7 @@ public static class EmpireCraftMetaTypeLibrary
     // 理念图层：按各城市的主理念上色，独立于原版宗教；点城市打开理念窗口
     public static MetaTypeAsset ideology;
     public static MetaTypeAsset nation;
+    public static MetaTypeAsset wealth;
     public static MetaTypeAsset mineral;
 
     // 矿产图层：地块按城描边、有矿藏的城淡淡上色，城上方并排显示矿藏图标(见 Layer/MineralMap.cs)
@@ -129,7 +130,7 @@ public static class EmpireCraftMetaTypeLibrary
         asset.check_unit_has_meta = (MetaCheckUnitWindowAction) (_ => false);
         asset.set_unit_set_meta_for_meta_for_window = (MetaUnitSetMetaForWindow) (_ => { });
         EmpireCraft.Scripts.Layer.WealthMap.Configure(asset);
-        AssetManager.meta_type_library.add(asset);
+        wealth = AssetManager.meta_type_library.add(asset);
     }
 
     public static void AddIdeologyMeta()

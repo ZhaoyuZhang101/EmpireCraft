@@ -55,6 +55,9 @@ public static class WealthMap
         return score;
     }
 
+    // 富庶档位的颜色(铭牌数额用)
+    public static string Hex(City city) => BucketHex[Bucket(Score(city))];
+
     public static int Bucket(float score) => score >= 0.75f ? 4 : score >= 0.55f ? 3 : score >= 0.35f ? 2 :
         score >= 0.15f ? 1 : 0;
 

@@ -83,6 +83,9 @@ public class MetaTypeExtensionsPatch:GamePatch
             case MetaTypeExtension.Nation:
                 __result = "nation";
                 return false;
+            case MetaTypeExtension.Wealth:
+                __result = "wealth";
+                return false;
             case MetaTypeExtension.Mineral:
                 __result = "mineral";
                 return false;

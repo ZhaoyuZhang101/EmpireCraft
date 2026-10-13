@@ -99,6 +99,12 @@ public class ZonesPatch:GamePatch
             __result = MetaTypeExtension.Nation;
             return false;
         }
+        // 财富图层用自己的铭牌(只写城市国库数额，见 EmpireCraftNamePlateLibrary plate_wealth)
+        if (EmpireCraftMetaTypeLibrary.wealth?.isActive(pCheckOnlyOption) == true)
+        {
+            __result = MetaTypeExtension.Wealth;
+            return false;
+        }
         if (EmpireCraftMetaTypeLibrary.mineral?.isActive(pCheckOnlyOption) == true)
         {
             __result = MetaTypeExtension.Mineral;
