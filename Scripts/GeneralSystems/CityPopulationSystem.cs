@@ -193,7 +193,8 @@ public static class CityPopulationSystem
 
     // 战备状态：已经开战，或者本国(帝国则为整个帝国)正在谋划发动战争。谋划期间各军镇就按战时兵额征兵集结，
     // 谋划完成宣战时大军已在城下——"陈兵百万，一举灭敌"。被攻击的一方事先不知情，宣战后才开始动员
-    private static readonly string[] WarPlots = { "new_war", "empirecraft_war" };
+    // 发动战争的谋划：普通开战、帝国开战、索取法理、宗教战争(进度满了还要等陈兵边境才宣战，见 WarReadinessSystem)
+    public static readonly string[] WarPlots = { "new_war", "empirecraft_war", "king_acquire_title", "kingdom_start_religion_war" };
     private static readonly HashSet<Kingdom> Mobilizing = new();
     // 谋划开战的目标国(兵往哪一侧的边境集结)
     private static readonly Dictionary<Kingdom, Kingdom> MobilizationTargets = new();
@@ -258,6 +259,13 @@ public static class CityPopulationSystem
             }
         }
         return null;
+    }
+
+    // 本国朝向敌国的整条边境(地块)；没有接壤或算不出来时为空
+    public static IReadOnlyList<TileZone> FrontZones(Kingdom kingdom)
+    {
+        if (FrontTile(kingdom) == null) return Array.Empty<TileZone>();
+        return FrontCache.TryGetValue(kingdom, out var cached) ? cached.zones : (IReadOnlyList<TileZone>)Array.Empty<TileZone>();
     }
 
     // 本国朝向敌国的边境上的一个地块；没有接壤或算不出来时返回 null

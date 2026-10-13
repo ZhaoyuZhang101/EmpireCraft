@@ -41,6 +41,8 @@ public sealed class CorpsData
     public long order_id = -1L;
     // 后勤(见 LogisticsSystem)：补给程度 0~1、上月口粮够了几成
     public float supply = 1f;
+    // 本月陆上走过的地块数(月底按路程收行军费，见 CorpsSystem.PayUpkeep)
+    public int march_zones;
     public float rations = 1f;
     // 跨海运兵(见 CorpsSystem.Embark/Sail)：在船上、航线(海区 id)、走到第几段、计步
     public bool embarked;

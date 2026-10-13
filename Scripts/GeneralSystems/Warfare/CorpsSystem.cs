@@ -124,6 +124,7 @@ public static class CorpsSystem
         PureMapMode.ResetWorldState();
         WarScopeSystem.ResetWorldState();
         FrontSystem.ResetWorldState();
+        WarReadinessSystem.ResetWorldState();
         NavySystem.ResetWorldState();
     }
 
@@ -211,17 +212,25 @@ public static class CorpsSystem
     }
 
     // 野战军饷：按人头每月发(见 CityStabilityRules.CorpsAnnual)，本国先付，听命于中央的成员付不起由中央补；
-    // 饷银发给各军的家乡城(回到民间)。发不出的那部分军心涣散，组织度下降。以前野战军不花一分钱
+    // 饷银发给各军的家乡城(回到民间)。发不出的那部分军心涣散，组织度下降。以前野战军不花一分钱。
+    // 另收行军费：每人每走一块地块 MarchCostPerZone，离前线越远的军开过去越贵(所以动员只动就近的军)
+    private const float MarchCostPerZone = 0.002f;
+
     private static void PayUpkeep(Kingdom kingdom)
     {
         // 骑士团的军由骑士团自己付饷(见 PapacySystem.Orders)
         List<CorpsData> list = Of(kingdom).Where(corps => corps.order_id < 0).ToList();
-        float soldiers = 0f;
-        foreach (CorpsData corps in list) soldiers += Mathf.Max(0f, corps.strength);
+        float soldiers = 0f, marching = 0f;
+        foreach (CorpsData corps in list)
+        {
+            soldiers += Mathf.Max(0f, corps.strength);
+            marching += Mathf.Max(0f, corps.strength) * corps.march_zones;
+            corps.march_zones = 0;
+        }
         if (soldiers < 1f || !TreasurySystem.Enabled(kingdom)) return;
         var data = kingdom.GetOrCreate();
         int bill = CityStabilityRules.Invoice(CityStabilityRules.CorpsAnnual(soldiers, IsAtWar(kingdom)),
-            ref data.corps_upkeep_carry);
+            ref data.corps_upkeep_carry) + Mathf.RoundToInt(marching * MarchCostPerZone);
         if (bill <= 0) return;
         int paid = Draw(kingdom, bill);
         Layer.Empire empire = kingdom.GetEmpire();
@@ -589,6 +598,8 @@ public static class CorpsSystem
             {
                 int before = corps.zone_id;
                 StepTowardTarget(corps);
+                // 陆上行军记程，月底按路程收行军费(见 PayUpkeep)
+                if (!corps.embarked && corps.zone_id != before) corps.march_zones++;
                 // 山地、沼泽、丛林行军慢一半：进了这类地块，本秒不再前进；在船上按船速走(见 Sail)
                 if (corps.embarked || corps.zone_id == before || TerrainSystem.SlowsMarch(Zone(corps))) break;
             }

@@ -264,15 +264,19 @@ public static class FrontSystem
         var ready = list.Where(corps => corps.task != "retreat" && corps.org >= ReadyOrg && corps.strength >= 1f && Eligible(corps)).ToList();
         if (!war)
         {
-            // 战备：动员范围里的军开往朝向目标国的边境；太平：回驻地
-            TileZone border = CityPopulationSystem.IsMobilizing(kingdom) ? CityPopulationSystem.FrontTile(kingdom)?.zone : null;
+            // 战备：动员范围里的军开往朝向目标国的边境(离自己最近的一段，见 WarReadinessSystem)；太平：回驻地
+            IReadOnlyList<TileZone> border = CityPopulationSystem.IsMobilizing(kingdom)
+                ? CityPopulationSystem.FrontZones(kingdom) : Array.Empty<TileZone>();
             foreach (CorpsData corps in list)
             {
                 corps.sector_city_id = -1L;
                 if (corps.task == "retreat") { corps.target_zone_id = HomeZone(corps); continue; }
-                bool marching = border != null && WarScopeSystem.InScope(CorpsSystem.Home(corps));
+                bool marching = border.Count > 0 && WarScopeSystem.InScope(CorpsSystem.Home(corps));
                 corps.task = marching ? "march" : "reserve";
-                corps.target_zone_id = marching ? border.id : HomeZone(corps);
+                TileZone at = CorpsSystem.Zone(corps);
+                corps.target_zone_id = marching
+                    ? border.OrderBy(zone => CorpsSystem.ZoneDistance(zone, at)).First().id
+                    : HomeZone(corps);
             }
             return;
         }
