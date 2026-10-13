@@ -415,6 +415,8 @@ public static partial class CourtSystem
         FixedFaction faction = actor.GetFaction();
         float favor = faction == null ? 50f : FactionState(empire, faction).favor;
         float score = Competence(actor) + (favor - 50f) / 5f;
+        // 外戚得势时(皇帝庸弱昏聩、或年轻而有太后撑腰)外家子弟优先入阁(见 ConsortKinSystem)
+        if (ConsortKinSystem.Backed(empire) && ConsortKinSystem.IsConsortKin(empire, actor)) score += 12f;
         string id = faction?.GetID() ?? "";
         switch (state.strategy)
         {

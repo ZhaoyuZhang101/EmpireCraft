@@ -3234,6 +3234,7 @@ public class Empire : MetaObject<EmpireData>
     private bool HasPowerfulMinisterSupport(Actor actor, Regime currentRegime)
     {
         return IsEmpressDowager(actor) ||
+               (data.powerful_minister_is_consort_kin && IsCurrentPowerfulMinister(actor) && ConsortKinSystem.Backed(this)) ||
                (data.powerful_minister_is_regent && Emperor?.isAdult() == false &&
                 IsCurrentPowerfulMinister(actor)) || HasCentralMinisterSupport(actor, currentRegime);
     }
@@ -3241,6 +3242,9 @@ public class Empire : MetaObject<EmpireData>
     private bool IsValidPowerfulMinister(Actor actor)
     {
         if (IsCentralMinister(actor)) return true;
+        // 外戚专权不必身居中枢
+        if (data.powerful_minister_is_consort_kin && IsCurrentPowerfulMinister(actor) && IsValidRegencyCandidate(actor) &&
+            ConsortKinSystem.Backed(this)) return true;
         return data.powerful_minister_is_regent && Emperor?.isAdult() == false &&
                IsCurrentPowerfulMinister(actor) && IsValidRegencyCandidate(actor);
     }
@@ -3336,6 +3340,13 @@ public class Empire : MetaObject<EmpireData>
                     actor.id != dowager?.id && actor.kingdom == CoreKingdom)
                 .OrderByDescending(actor => actor.id == current?.id)
                 .ThenByDescending(actor => actor.renown).ThenBy(actor => actor.id).FirstOrDefault();
+            // 外戚：外戚首领以大将军辅政，优先于朝臣与太后本人(见 ConsortKinSystem)
+            Actor consortRegent = ConsortKinSystem.RegentFor(this, normalCandidate);
+            if (consortRegent != null)
+            {
+                isRegent = true;
+                return consortRegent;
+            }
             if (PowerfulMinisterRules.ShouldPreferEmpressDowager(true, dowager != null,
                     dowager?.renown ?? 0, normalCandidate != null, normalCandidate?.renown ?? 0))
             {
@@ -3352,6 +3363,11 @@ public class Empire : MetaObject<EmpireData>
             return null;
         }
         if (IsCentralMinister(current)) return current;
+        // 外戚专权不必身居中枢：已在专权的照旧；皇帝庸弱昏聩、或年轻而有太后撑腰时外戚首领可以专权
+        if (current != null && data.powerful_minister_is_consort_kin && IsValidRegencyCandidate(current) &&
+            ConsortKinSystem.Backed(this)) return current;
+        Actor consort = ConsortKinSystem.DominantFor(this, PowerfulMinisterRules.EntryInfluence);
+        if (consort != null) return consort;
         return centralCandidates.Where(actor => IsEligiblePowerBase(actor, currentRegime, true, out _))
             .OrderByDescending(actor => actor.id == cabinetLeader?.id)
             .ThenByDescending(actor => HasCentralMinisterSupport(actor, currentRegime))
@@ -3396,6 +3412,7 @@ public class Empire : MetaObject<EmpireData>
             data.powerful_minister_is_regent = isRegent;
             data.powerful_minister_is_empress_dowager = isEmpressDowager;
             data.powerful_minister_is_former_empress = isFormerEmpress;
+            data.powerful_minister_is_consort_kin = !isEmpressDowager && ConsortKinSystem.IsConsortKin(this, candidate);
             data.last_powerful_minister_timestamp = World.world.getCurWorldTime();
             data.powerful_minister_emperor_id = emperor.id;
             if (candidate.HasVirtualEnfeoff(this))
@@ -3406,7 +3423,9 @@ public class Empire : MetaObject<EmpireData>
                     ? PowerfulMinisterStageKing : PowerfulMinisterStageDuke;
                 data.powerful_minister_stage_timestamp = World.world.getCurWorldTime();
             }
-            if (isRegent) RecordMinisterTransition(candidate,
+            if (data.powerful_minister_is_consort_kin)
+                RecordMinisterTransition(candidate, isRegent ? "history_consort_regent" : "history_consort_dominant");
+            else if (isRegent) RecordMinisterTransition(candidate,
                 isEmpressDowager ? "history_empress_dowager_regent" : "history_minister_regent");
             return;
         }
@@ -3496,8 +3515,13 @@ public class Empire : MetaObject<EmpireData>
         Emperor?.RecordPersonalHistory(content, relatedActorId: minister.id);
     }
 
+    // 外戚(见 ConsortKinSystem)用到的太后与重置权臣
+    public Actor GetEmpressDowager() => GetPreferredEmpressDowager(out _);
+    public void ResetPowerfulMinister() => ClearPowerfulMinister();
+
     private void ClearPowerfulMinister()
     {
+        data.powerful_minister_is_consort_kin = false;
         data.powerful_minister_id = -1L;
         data.powerful_minister_progress = 0;
         data.powerful_minister_stage = PowerfulMinisterStageNone;

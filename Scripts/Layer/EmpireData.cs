@@ -132,6 +132,8 @@ public class EmpireData : MetaObjectData
     public double powerful_minister_regency_end_timestamp { get; set; } = -1L;
     public long powerful_minister_emperor_id { get; set; } = -1L;
     public long minister_usurper_id { get; set; } = -1L;
+    // 当今权臣是外戚(见 ConsortKinSystem)
+    public bool powerful_minister_is_consort_kin { get; set; } = false;
 
     public bool archived { get; set; } = false;
     
