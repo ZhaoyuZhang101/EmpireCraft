@@ -539,6 +539,15 @@ public static class InstitutionSystem
 
     // 老存档 / 新建帝国的兜底：确保文化状态存在并带上本线根节点。
     // 刻意不再往帝国身上塞任何"已施行"节点——施行记录只存在文化里。
+    // 易俗改制(见 CultureReformSystem)改了统治文化之后：重算制度文化，政体不属于新制度线的当即改过来
+    public static void ResyncCulture(Empire empire)
+    {
+        if (empire?.data == null) return;
+        RulingMajority.Remove(empire.data.id);
+        GetOrCreateCultureState(GetPrimaryCulture(empire));
+        SyncForeignRegime(empire);
+    }
+
     public static void MigrateEmpire(Empire empire)
     {
         if (EnsureEmpireState(empire) == null) return;

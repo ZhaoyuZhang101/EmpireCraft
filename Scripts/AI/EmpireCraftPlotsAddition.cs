@@ -1063,6 +1063,21 @@ namespace EmpireCraft.Scripts.AI
                     return CultureService.ConvertKingdomRegime(kingdom, culture, regimeType);
                 }
             });
+            // 易俗改制(如北魏孝文帝改革)：君主改从治下多数百姓之俗，王族改姓，政体随之更易(见 CultureReformSystem)
+            AssetManager.plots_library.add(new PlotAsset
+            {
+                id = CultureReformSystem.Plot,
+                path_icon = "ui/icons/plots/plot_" + CultureReformSystem.Plot,
+                group_id = "empirecraft_diplomacy",
+                is_basic_plot = true,
+                min_level = 1,
+                progress_needed = 30f,
+                can_be_done_by_king = true,
+                check_is_possible = CultureReformSystem.CanReform,
+                check_can_be_forced = CultureReformSystem.CanReform,
+                check_should_continue = CultureReformSystem.CanReform,
+                action = CultureReformSystem.Enact
+            });
             // 成员向中央求援、驰援邻近成员(见 MemberWarAid)：中央与别的成员不再自动插手成员的仗
             AssetManager.plots_library.add(new PlotAsset
             {

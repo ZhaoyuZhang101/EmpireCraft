@@ -483,7 +483,10 @@ public static class CompositeEmpireService
 
         int delta = CompositeEmpireRules.GetAnnualIntegrationDelta(institutionalShare, rulingShare,
             emperorUsesInstitution, emperorUsesRuling);
-        bool rulingEliteStillExists = emperorUsesRuling || rulingShare >= 0.08f;
+        // 融合完成后统治文化就是制度文化，不再有"保留旧俗的统治族群"压着融合度
+        // (以前完成融合的王朝次年又被压回 69、退回"复合帝国")
+        bool rulingEliteStillExists = !string.Equals(rulingCulture, institutionalCulture, StringComparison.Ordinal) &&
+                                      (emperorUsesRuling || rulingShare >= 0.08f);
         int nextIntegration = Math.Max(1, CompositeEmpireRules.CapIntegration(
             empire.data.composite_integration + delta, rulingEliteStillExists));
         CompositeEmpireIntegrationStage oldStage = empire.data.composite_integration_stage;
@@ -617,6 +620,20 @@ public static class CompositeEmpireService
     {
         if (seat == null || seat.isRekt() || target == null || target.isRekt()) return float.MaxValue;
         return UnityEngine.Vector2.Distance(seat.city_center, target.city_center);
+    }
+
+    // 易俗改制(见 CultureReformSystem)：君主改从制度文化之俗，融合一步到位
+    public static void CompleteByReform(Empire empire)
+    {
+        if (!IsComposite(empire)) return;
+        string institutionalCulture = GetInstitutionalCulture(empire);
+        CompositeEmpireIntegrationStage oldStage = empire.data.composite_integration_stage;
+        empire.data.composite_integration = Math.Max(empire.data.composite_integration, CompositeEmpireRules.IntegratedThreshold);
+        empire.data.composite_integration_stage = CompositeEmpireRules.GetStage(empire.data.composite_integration);
+        TryAdoptInstitutionalCultureName(empire);
+        if (oldStage != empire.data.composite_integration_stage)
+            TranslateHelper.LogCompositeEmpireStageChanged(empire, oldStage, empire.data.composite_integration_stage);
+        CompleteIntegration(empire, institutionalCulture);
     }
 
     private static void CompleteIntegration(Empire empire, string institutionalCulture)

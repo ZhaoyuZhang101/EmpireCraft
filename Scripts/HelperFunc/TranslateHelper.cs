@@ -1503,6 +1503,24 @@ namespace EmpireCraft.Scripts.HelperFunc
             }.add();
         }
 
+        public static void LogCultureReform(Kingdom kingdom, Empire empire, Actor king, string culture, string surname)
+        {
+            if (kingdom?.data == null) return;
+            string cultureName = CultureService.IsValidCulture(culture) ? culture.GetCultureTranslate() : culture;
+            bool renamed = !string.IsNullOrWhiteSpace(surname);
+            var message = renamed
+                ? new WorldLogMessage(EmpireCraftWorldLogLibrary.culture_reform_surname_log, kingdom.GetKingdomName(), cultureName, surname)
+                : new WorldLogMessage(EmpireCraftWorldLogLibrary.culture_reform_log, kingdom.GetKingdomName(), cultureName);
+            message.color_special1 = kingdom.getColor()._color_text;
+            message.color_special2 = kingdom.getColor()._color_text;
+            message.color_special3 = kingdom.getColor()._color_text;
+            if (empire != null) message.RecordNationalHistoryIntoEmpire(empire, king, kingdom);
+            else message.add();
+            king?.RecordPersonalHistory(renamed
+                ? string.Format(LM.Get("personal_history_culture_reform_surname"), cultureName, surname)
+                : string.Format(LM.Get("personal_history_culture_reform"), cultureName));
+        }
+
         public static void LogKingdomRegimeConversion(Kingdom kingdom, RegimeType? oldRegime, RegimeType newRegime)
         {
             if (kingdom?.data == null) return;

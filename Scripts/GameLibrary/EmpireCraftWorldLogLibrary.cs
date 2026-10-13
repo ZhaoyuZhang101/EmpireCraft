@@ -101,6 +101,8 @@ public static class EmpireCraftWorldLogLibrary
     public static WorldLogAsset cultural_assimilation_duty_assigned_city_log;
     public static WorldLogAsset cultural_assimilation_duty_completed_log;
     public static WorldLogAsset kingdom_regime_conversion_log;
+    public static WorldLogAsset culture_reform_log;
+    public static WorldLogAsset culture_reform_surname_log;
     public static WorldLogAsset cultural_name_changed_log;
     public static WorldLogAsset cultural_name_restored_log;
     public static WorldLogAsset composite_empire_adoption_started_log;
@@ -274,6 +276,31 @@ public static class EmpireCraftWorldLogLibrary
             {
                 wl.updateText(ref pText, pMessage, "$target$", 1);
                 wl.updateText(ref pText, pMessage, "$culture$", 2);
+            }
+        });
+        culture_reform_log = wl.add(new WorldLogAsset
+        {
+            id = nameof(culture_reform_log),
+            group = "emperors",
+            path_icon = "ui/icons/plots/plot_kingdom_culture_reform",
+            color = Toolbox.color_log_good,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$kingdom$", 1);
+                wl.updateText(ref pText, pMessage, "$culture$", 2);
+            }
+        });
+        culture_reform_surname_log = wl.add(new WorldLogAsset
+        {
+            id = nameof(culture_reform_surname_log),
+            group = "emperors",
+            path_icon = "ui/icons/plots/plot_kingdom_culture_reform",
+            color = Toolbox.color_log_good,
+            text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+            {
+                wl.updateText(ref pText, pMessage, "$kingdom$", 1);
+                wl.updateText(ref pText, pMessage, "$culture$", 2);
+                wl.updateText(ref pText, pMessage, "$surname$", 3);
             }
         });
         kingdom_regime_conversion_log = wl.add(new WorldLogAsset

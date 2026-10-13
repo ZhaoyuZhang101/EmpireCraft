@@ -452,6 +452,7 @@ PLOTS = {
     "empirecraft_restore_native_culture": (obj_brush, "back"),
     "empirecraft_cultural_assimilation_duty": (obj_brush, "check"),
     "empirecraft_kingdom_regime_conversion": (obj_edict, "swap"),
+    "kingdom_culture_reform": (lambda i: (obj_crown(i), obj_brush(i)), "swap"),
     "kingdom_expose_crime": (obj_scales, "alert"),
     "kingdom_start_religion_war": (obj_temple, "war"),
     "new_empire_royal": (obj_crown, "star"),
