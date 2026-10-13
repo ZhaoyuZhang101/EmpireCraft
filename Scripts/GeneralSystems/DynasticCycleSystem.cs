@@ -49,6 +49,8 @@ public static class DynasticCycleSystem
         if (!interregnum) change += RulerQualitySystem.StrainDelta(empire.Emperor);
         // 六条朝政积弊合计推高王朝积弊(见 MaladySystem)
         change += MaladySystem.StrainDelta(empire);
+        // 派系失衡(见 FactionBalanceSystem)
+        change += FactionBalanceSystem.StrainDelta(empire);
         state.dynastic_strain = DynasticCycleRules.Advance(state.dynastic_strain, change);
         MonarchyLegitimacy.Invalidate(empire);
         if (state.dynastic_strain >= DynasticCycleRules.CrisisPressure && !state.dynastic_crisis_announced)
@@ -72,6 +74,7 @@ public static class DynasticCycleSystem
         state.last_dynastic_update = state.dynastic_since;
         // 改朝换代，旧弊一扫而空；"增广尊谥"由新朝自己再行
         MaladySystem.OnDynastyChanged(empire);
+        FactionBalanceSystem.OnDynastyChanged(empire);
         empire.data.long_posthumous = false;
         state.last_dynastic_uprising_attempt = -1d;
         int previousBurden = DynasticCycleRules.HarshBurden(state.dynastic_strain);

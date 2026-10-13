@@ -64,8 +64,10 @@ public static class ProvincialCollapseSystem
         float usurped = empire.Emperor != null && empire.data.minister_usurper_id == empire.Emperor.id &&
                         empire.data.newEmperor_timestamp >= 0d && Date.getYearsSince(empire.data.newEmperor_timestamp) < 10
             ? 0.5f : 0f;
-        float top = Mathf.Max(Mathf.Max(Mathf.Max(legitimacy, strain), Mathf.Max(fiscal, grievance)), usurped);
-        return Mathf.Clamp01(top + 0.25f * (legitimacy + strain + fiscal + grievance + usurped - top));
+        // 武人跋扈(藩镇)、诸侯坐大(见 FactionBalanceSystem)
+        float faction = FactionBalanceSystem.CollapseFactor(empire);
+        float top = Mathf.Max(Mathf.Max(Mathf.Max(legitimacy, strain), Mathf.Max(fiscal, grievance)), Mathf.Max(usurped, faction));
+        return Mathf.Clamp01(top + 0.25f * (legitimacy + strain + fiscal + grievance + usurped + faction - top));
     }
 
     private static List<Kingdom> Provinces(Empire empire) =>

@@ -3474,6 +3474,8 @@ public class Empire : MetaObject<EmpireData>
             PowerfulMinisterRules.IsMandateCollapsed(Mandate));
         // 庸弱、昏聩、荒淫之君在位，权臣(外戚)坐大更快(见 RulerQualitySystem)
         if (monthlyChange > 0) monthlyChange += RulerQualitySystem.MinisterBonus(emperor);
+        // 一派独大(文臣专权、外戚干政等)，这一派的人做权臣更快，强势皇帝也压不太住(见 FactionBalanceSystem)
+        monthlyChange += FactionBalanceSystem.MinisterBonus(this, candidate);
         monthlyChange = PowerfulMinisterRules.ApplyMandate(monthlyChange, Mandate);
         monthlyChange = PowerfulMinisterRules.ApplyEmpressDowagerRate(monthlyChange, isEmpressDowager);
         int previousProgress = data.powerful_minister_progress;

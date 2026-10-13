@@ -78,7 +78,9 @@ public static class ConsortKinSystem
     {
         Actor emperor = empire?.Emperor;
         if (emperor?.data == null) return false;
-        return RulerQualitySystem.IsBad(emperor) || emperor.getAge() < YoungEmperor && empire.GetEmpressDowager() != null;
+        // 宗室外戚一派独大时外戚随时有撑腰(见 FactionBalanceSystem)
+        return RulerQualitySystem.IsBad(emperor) || emperor.getAge() < YoungEmperor && empire.GetEmpressDowager() != null ||
+               FactionBalanceSystem.BacksConsortKin(empire);
     }
 
     private const int YoungEmperor = 25;

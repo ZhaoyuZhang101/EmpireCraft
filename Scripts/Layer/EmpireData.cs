@@ -139,6 +139,11 @@ public class EmpireData : MetaObjectData
     // 朝政积弊：六条弊病各 0~100、上次结算(见 MaladySystem)
     public Dictionary<string, float> maladies { get; set; } = new();
     public double last_malady_update { get; set; } = -1d;
+    // 派系失衡(见 FactionBalanceSystem)：失衡度 0~100、独大的派系、是否已记过"一家独大"、上次结算
+    public float faction_imbalance { get; set; }
+    public string faction_imbalance_id { get; set; } = "";
+    public bool faction_imbalance_warned { get; set; }
+    public double last_faction_balance_update { get; set; } = -1d;
 
     public bool archived { get; set; } = false;
     

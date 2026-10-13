@@ -240,6 +240,8 @@ public static class ConstitutionalEconomySystem
         PapacySystem.Yearly(empire);
         // 伪法理转正：正统帝国已亡而据有正规核心过半
         ImperialLegitimacyChallengeService.TryLegitimizeFalseCore(empire);
+        // 派系失衡：一派独大按其极端方向引发乱局(先于朝政积弊，见 FactionBalanceSystem)
+        FactionBalanceSystem.Yearly(empire);
         // 朝政积弊滋生与后果
         MaladySystem.Yearly(empire);
         // 荒淫之君的宫廷开支；诛外戚

@@ -1,6 +1,7 @@
 using System.Linq;
 using EmpireCraft.Scripts.GeneralSystems;
 using EmpireCraft.Scripts.Layer;
+using EmpireCraft.Scripts.Regimes;
 using NeoModLoader.General;
 using NeoModLoader.General.UI.Window.Layout;
 
@@ -14,12 +15,25 @@ public static class MaladyPanel
         if (!MaladySystem.Applies(empire)) return;
         float average = MaladySystem.Average(empire);
         var card = parent.BeginCard(width, "malady_title", Hex(average), string.Format(LM.Get("malady_header"), average.ToString("0")));
-        if (MaladySystem.All.All(key => MaladySystem.Get(empire, key) < 5f))
+        float imbalance = FactionBalanceSystem.Imbalance(empire);
+        if (MaladySystem.All.All(key => MaladySystem.Get(empire, key) < 5f) && imbalance < 5f)
         {
             card.AddListRow(width, 0, null, LM.Get("malady_none"), "", titleWidth: 220f);
             return;
         }
         int index = 0;
+        // 派系失衡：哪一派独大、走向哪种乱局(见 FactionBalanceSystem)
+        if (imbalance >= 5f)
+        {
+            string hex = Hex(imbalance);
+            FixedFaction dominant = FactionBalanceSystem.Dominant(empire);
+            FactionBalanceSystem.Direction direction = FactionBalanceSystem.Current(empire);
+            string detail = direction == FactionBalanceSystem.Direction.None || dominant == null
+                ? LM.Get("faction_imbalance_rising")
+                : string.Format(LM.Get("faction_imbalance_detail"), dominant.Name, FactionBalanceSystem.DirectionName(direction));
+            card.AddListRow(width, index++, null, LM.Get("faction_imbalance_title"), $"<color={hex}>{imbalance:0}</color>  {detail}",
+                titleHex: hex, titleWidth: 80f);
+        }
         foreach (string key in MaladySystem.All)
         {
             float value = MaladySystem.Get(empire, key);

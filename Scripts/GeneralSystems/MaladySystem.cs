@@ -52,6 +52,12 @@ public static class MaladySystem
         if (Applies(empire)) Add(empire, key, -Mathf.Abs(amount));
     }
 
+    // 别的系统加重某条积弊(如派系失衡，见 FactionBalanceSystem)
+    public static void Aggravate(Empire empire, string key, float amount)
+    {
+        if (Applies(empire)) Add(empire, key, Mathf.Abs(amount));
+    }
+
     // 改朝换代：旧弊一扫而空，各留两成
     public static void OnDynastyChanged(Empire empire)
     {

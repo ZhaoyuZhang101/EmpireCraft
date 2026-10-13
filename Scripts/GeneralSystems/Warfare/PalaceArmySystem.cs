@@ -64,7 +64,8 @@ public static class PalaceArmySystem
                 corps.commander_seen = corps.general_id;
                 corps.commander_since = now;
             }
-            float target = baseTarget;
+            // 武人一派独大，禁军跋扈(见 FactionBalanceSystem)
+            float target = baseTarget - FactionBalanceSystem.PalaceUnrest(empire);
             if (corps.general_id >= 0 && corps.commander_since >= 0d && Date.getYearsSince(corps.commander_since) >= PrivateArmyYears)
                 target -= 15f;
             corps.loyalty = Mathf.Clamp(Mathf.MoveTowards(corps.loyalty, Mathf.Clamp(target, 0f, 100f), LoyaltyDrift), 0f, 100f);
