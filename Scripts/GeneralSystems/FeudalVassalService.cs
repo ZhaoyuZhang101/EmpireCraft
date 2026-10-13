@@ -444,7 +444,7 @@ public static class FeudalVassalService
         bool includeImperialMembers = false)
     {
         if (attacker == null || target == null || attacker == target || !target.isAlive() ||
-            attacker.IsInSameEmpire(target) ||
+            attacker.IsInSameEmpire(target) || RoyalMarriageSystem.Allied(attacker, target) ||
             IsInChain(attacker, target) || IsInChain(target, attacker) ||
             attacker.king != null && attacker.king == target.king ||
             attacker.hasAlliance() && attacker.getAlliance() == target.getAlliance()) return false;
@@ -467,7 +467,12 @@ public static class FeudalVassalService
                 member != attacker && member.IsNeighbourWith(target) &&
                 (World.world?.diplomacy?.getOpinion(member, target)?.total ?? 0) < 0) == true;
         }
-        return hostile && GetWarPower(attacker, false) > GetWarPower(target, true);
+        // 开战的由头：交恶(好感为负)且强过对方整个附庸体系；对那国王位有继承宣称(见 RoyalMarriageSystem)且实力
+        // 不太悬殊；或实力是对方整个附庸体系的两倍以上(以强凌弱，好感再好也会动手)
+        double ours = GetWarPower(attacker, false), theirs = GetWarPower(target, true);
+        if (hostile) return ours > theirs;
+        if (RoyalMarriageSystem.HasClaim(attacker, target)) return ours > theirs * 0.8d;
+        return ours >= theirs * 2d;
     }
 
     public const int DefectorLoyaltyYears = 10;

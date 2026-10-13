@@ -438,10 +438,11 @@ public class WarPatch: GamePatch
         try
         {
             EmpirePartitionSystem.OnWarStarted(__result);
+            RoyalMarriageSystem.OnWarStarted(__result);
         }
         catch (Exception exception)
         {
-            LogService.LogWarning($"[EmpireCraft][分裂] 兄弟之国援助失败: {exception.Message}");
+            LogService.LogWarning($"[EmpireCraft][分裂] 兄弟之国、姻亲之国援助失败: {exception.Message}");
         }
         // 原版按模板用 kingdom.name 生成战争名，改用地图铭牌上的国名
         if (__result.data != null)

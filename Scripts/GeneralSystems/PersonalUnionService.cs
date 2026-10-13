@@ -131,12 +131,13 @@ public static class PersonalUnionService
             }
         }
 
-        // 封建：按长幼每人一国，不分男女；主要王国(本国，其次城多的)排在前面
+        // 封建：施行分割继承法的，按长幼每人一国，不分男女；主要王国(本国，其次城多的)排在前面。
+        // 其余继承法由继承人一并继承，各国按各自的继承顺序选出同一人，共主联盟延续(见 TryHandleVacancy、CrownInUnion)
         List<Kingdom> feudalRealms = realms.Where(IsFeudal)
             .OrderByDescending(realm => realm == home)
             .ThenByDescending(realm => realm.cities?.Count ?? 0).ThenBy(realm => realm.id)
             .ToList();
-        if (feudalRealms.Count < 2) return;
+        if (feudalRealms.Count < 2 || feudalRealms[0].GetSuccessionLaw() != SuccessionLawType.分割继承法) return;
         PersonalClanIdentity identity = ruler.GetPersonalIdentity();
         if (identity == null) return;
         List<Actor> children = VirtualGenealogySystem.RealizeAll(SpecificClanManager.getChildren(identity)

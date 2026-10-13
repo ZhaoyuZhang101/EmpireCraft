@@ -108,6 +108,12 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
         foreach (EmpireHeirLawType step in new[] { EmpireHeirLawType.siblings, EmpireHeirLawType.grand_child_generation,
                      EmpireHeirLawType.random, EmpireHeirLawType.officer })
         {
+            // 西方封建制(女性可继承)：本宗旁支之前先按血缘远近找外嫁宗亲的后代入继(见 RoyalMarriageSystem)
+            if (step == EmpireHeirLawType.random && PersonalUnionService.AllowsFemaleSuccession(kingdom))
+            {
+                var cognate = CognaticHeir(kingdom, parent);
+                if (cognate.actor != null) return cognate;
+            }
             if (step == start || step == EmpireHeirLawType.officer && kingdom.IsEmpire()) continue;
             result = CheckHeir(kingdom, step, law, parent);
             if (result.actor != null) return result;
@@ -270,6 +276,23 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
             default: return (null, relation);
         }
         return (Pick(kingdom, candidates, parent, out _), relation.ColorString(pColor: new Color(0.3f, 0.3f, 0.9f)));
+    }
+
+    // 外家入继：沿父母、子女找先君六步以内的血亲(含外嫁女子的后代)，近的在前；入继者本是别国君主的两国共主
+    private static (Actor actor, string relation) CognaticHeir(Kingdom kingdom, PersonalClanIdentity parent)
+    {
+        bool protectedDynasty = kingdom.IsEmpire() && ConstitutionalSuccessionSystem.IsProtected(kingdom.GetEmpire());
+        int realized = 0;
+        foreach ((PersonalClanIdentity person, int _) in RoyalMarriageSystem.Cognates(parent, 6))
+        {
+            if (person.is_virtual && realized >= 6) continue;
+            if (person.is_virtual) realized++;
+            Actor actor = person.Realize();
+            if (!IsFitCandidate(actor, parent) || actor.IsEmperor() ||
+                protectedDynasty && !ConstitutionalSuccessionSystem.CanInherit(kingdom.GetEmpire(), actor)) continue;
+            return (actor, LM.Get("heir_relation_cognatic").ColorString(pColor: new Color(0.3f, 0.6f, 0.9f)));
+        }
+        return (null, "");
     }
 
     // 议立新君的宗室人选池：先君以外、可以继位的宗亲(兄弟、叔侄、族人)，附亲疏(隔几代)

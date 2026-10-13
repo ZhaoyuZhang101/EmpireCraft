@@ -23,7 +23,8 @@ public class WarTargetPatch : GamePatch
     {
         if (pInitiatorKingdom == null) return;
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(pInitiatorKingdom)) return;
-        if (__result != null && IsNeighbour(pInitiatorKingdom, __result)) return;
+        if (__result != null && IsNeighbour(pInitiatorKingdom, __result) &&
+            !GeneralSystems.RoyalMarriageSystem.Allied(pInitiatorKingdom, __result)) return;
         __result = NearestNeighbourTarget(pInitiatorKingdom);
     }
 
@@ -43,11 +44,13 @@ public class WarTargetPatch : GamePatch
                 target.getAge() < SimGlobals.m.minimum_kingdom_age_for_attack || !IsNeighbour(initiator, target))
                 continue;
             int theirs = target.hasAlliance() ? target.getAlliance().countWarriors() : target.countTotalWarriors();
-            if (ours < theirs ||
+            // 好感好的邻国：有继承宣称、或兵力是对方两倍以上才打；姻亲之国不打(见 RoyalMarriageSystem)
+            bool friendly = initiator.isOpinionTowardsKingdomGood(target);
+            if (ours < theirs || GeneralSystems.RoyalMarriageSystem.Allied(initiator, target) ||
                 !initiator.capital.reachableFrom(target.capital) && !GeneralSystems.StraitReach.Across(initiator, target) ||
                 Date.getYearsSince(DiplomacyHelpers.diplomacy.getRelation(initiator, target).data.timestamp_last_war_ended) <
                 SimGlobals.m.minimum_years_between_wars ||
-                initiator.isOpinionTowardsKingdomGood(target))
+                friendly && ours < theirs * 2 && !GeneralSystems.RoyalMarriageSystem.HasClaim(initiator, target))
                 continue;
             float distance = Kingdom.distanceBetweenKingdom(initiator, target);
             if (distance >= bestDistance) continue;

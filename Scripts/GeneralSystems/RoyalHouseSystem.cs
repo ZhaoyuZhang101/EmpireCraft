@@ -171,6 +171,7 @@ public static class RoyalHouseSystem
                     EmpirePartitionSystem.Yearly(empire);
                 }
             foreach (Kingdom kingdom in World.world.kingdoms.list.ToList()) Enfeoff(kingdom);
+            RoyalMarriageSystem.Yearly();
         }
         catch (Exception exception)
         {
