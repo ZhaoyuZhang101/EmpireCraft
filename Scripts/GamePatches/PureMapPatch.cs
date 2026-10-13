@@ -17,7 +17,7 @@ namespace EmpireCraft.Scripts.GamePatches;
 //   · 人物要去哪里直接到位、不走路(地图上也不画人物)：原版的行为照常完成(回家、上任、相会生子)，不再寻路；
 //     鼠标附近只认得船，悬停与点击都落到城市、国家上；除船以外的人物逐帧设为不可见；
 //   · 纯装饰建筑(雕像、训练木桩、花园、喷泉)建造上限为 0，城市不再建；
-//   · 建筑不画，城心下方改画一排城市发展图标(住房等级、工厂、市场、港口、兵营、寺庙，见 CityDevelopmentRenderer)
+//   · 建筑不画，城市铭牌上的种族头像换成城市性质徽记、文字后写民居等级(见 CityDevelopment)
 public class PureMapPatch : GamePatch
 {
     public ModDeclare declare { get; set; }
@@ -76,8 +76,6 @@ public class PureMapPatch : GamePatch
         Color color = __instance.sprRnd.color;
         color.a = 1f;
         __instance.sprRnd.color = color;
-        // 城市发展图标(每帧提交，没提交的那帧自动隐藏)
-        CityDevelopmentRenderer.Submit();
     }
 
     private static readonly Color32 EmpireGold = new(232, 184, 64, 255);

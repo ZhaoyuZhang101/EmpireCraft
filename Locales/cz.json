@@ -1310,6 +1310,7 @@
   "tech_storied_housing_desc": "木构楼阁、上下两层，民居可升到四级。",
   "tech_ward_housing": "坊巷街市",
   "tech_ward_housing_desc": "里坊街巷规划成片，民居可升到五级，为日后的砖混民居打下基础。",
+  "city_house_tier_suffix": " <color=#F3C34A>{0}级</color>",
   "capital_loss_restored": "{0}收复旧都{1}，还于旧都，复称{2}。",
   "kingdom_type_xingzai": "行在",
   "Later": "后",

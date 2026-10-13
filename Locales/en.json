@@ -1307,6 +1307,7 @@
   "tech_storied_housing_desc": "Two-storey timber houses: fourth-tier homes.",
   "tech_ward_housing": "Wards and Lanes",
   "tech_ward_housing_desc": "Planned wards and lanes let houses reach the fifth tier, paving the way for later brick-and-concrete housing.",
+  "city_house_tier_suffix": " <color=#F3C34A>T{0}</color>",
   "capital_loss_restored": "{0} retakes its old capital {1} and is again known as {2}.",
   "kingdom_type_xingzai": "Temporary Court",
   "Later": "Later",

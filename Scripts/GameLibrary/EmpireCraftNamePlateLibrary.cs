@@ -1721,6 +1721,9 @@ public static class EmpireCraftNamePlateLibrary
         npt.setNameplateSprite(city.isCapitalCity() ? "ui/nameplates/nameplate_city_capital" : "ui/nameplates/nameplate_city");
         string amount = MoneyDisplay.Format(city.GetMoney());
         setTextIfChanged(npt, $"<color={EmpireCraft.Scripts.Layer.WealthMap.Hex(city)}>{amount}</color>", city.city_center);
+        // 纯净地图模式：城市性质徽记(见 CityDevelopment)
+        if (PureMapMode.Enabled && EmpireCraft.Scripts.Layer.CityDevelopment.Emblem(city) is Sprite emblem)
+            npt.showSpecies(emblem);
     }
 
     public static void showTextCity(NameplateText npt, City pMetaObject, Vector2 pPosition)
@@ -1767,6 +1770,10 @@ public static class EmpireCraftNamePlateLibrary
                 text = text + " | F" + pMetaObject.getTotalFood();
             }
         }
+        // 纯净地图模式：建筑不画，铭牌文字后写民居最高等级(见 CityDevelopment)
+        bool pureMap = PureMapMode.Enabled;
+        if (pureMap && EmpireCraft.Scripts.Layer.CityDevelopment.HouseTier(pMetaObject) is int tier && tier > 0)
+            text += string.Format(LM.Get("city_house_tier_suffix"), tier);
         setTextIfChanged(npt, text, pPosition);
         Subspecies mainSubspecies = null;
         try
@@ -1777,7 +1784,13 @@ public static class EmpireCraftNamePlateLibrary
         {
         }
 
-        if (mainSubspecies != null)
+        // 纯净地图模式：种族头像换成城市性质徽记(工业城、港城、商城……，见 CityDevelopment)
+        Sprite cityEmblem = pureMap ? EmpireCraft.Scripts.Layer.CityDevelopment.Emblem(pMetaObject) : null;
+        if (cityEmblem != null)
+        {
+            npt.showSpecies(cityEmblem);
+        }
+        else if (mainSubspecies != null)
         {
             npt.showSpecies(mainSubspecies.getActorAsset().getSpriteIcon());
         }
