@@ -10,8 +10,9 @@ using UnityEngine;
 
 namespace EmpireCraft.Scripts.Layer;
 
-// 财富地图图层(MetaTypeExtension.Wealth)：按城市富庶度(经济繁荣 + 城市国库，见 CityConstructionSystem.Wealth)
-// 由红(赤贫)到绿(富庶)着色。两种显示模式(图层按钮切换)：
+// 财富地图图层(MetaTypeExtension.Wealth)：按城市富庶度(经济繁荣 + 城市国库，乘地利，见 CityConstructionSystem.Wealth)
+// 由红(赤贫)到绿(富庶)着色——按全图排名分五档(最穷的两成赤贫、最富的两成富庶)，各城都穷或都富时也一眼看得出
+// 哪里最富庶、哪里最贫瘠。两种显示模式(图层按钮切换)：
 //   0 贫富热度：同一档的城市连成一片，只描档位交界；
 //   1 城市边界：每座城单独描边。
 public sealed class WealthMapColor : MetaObject<IdeologyMapColorData>
@@ -58,8 +59,25 @@ public static class WealthMap
     // 富庶档位的颜色(铭牌数额用)
     public static string Hex(City city) => BucketHex[Bucket(Score(city))];
 
-    public static int Bucket(float score) => score >= 0.75f ? 4 : score >= 0.55f ? 3 : score >= 0.35f ? 2 :
-        score >= 0.15f ? 1 : 0;
+    // 按全图排名分档：富庶度在全图各城里排第几(两秒重排一次)
+    private static float[] _ranked = new float[0];
+    private static float _rankedAt = -10f;
+
+    public static int Bucket(float score)
+    {
+        float now = Time.unscaledTime;
+        if (now - _rankedAt >= 2f || now < _rankedAt)
+        {
+            _rankedAt = now;
+            _ranked = World.world?.cities?.list?.Where(Shown).Select(Score).OrderBy(value => value).ToArray() ?? new float[0];
+        }
+        if (_ranked.Length < 5)
+            return score >= 0.75f ? 4 : score >= 0.55f ? 3 : score >= 0.35f ? 2 : score >= 0.15f ? 1 : 0;
+        int below = global::System.Array.BinarySearch(_ranked, score);
+        if (below < 0) below = ~below;
+        float percentile = below / (float)_ranked.Length;
+        return Mathf.Clamp(Mathf.FloorToInt(percentile * 5f), 0, 4);
+    }
 
     private static WealthMapColor ColorOf(int bucket)
     {
@@ -131,6 +149,10 @@ public static class WealthMap
         tooltip.setTitle(city.GetCityFullName(), "wealth_layer_tooltip", "#FFFFFF");
         tooltip.addLineText(LM.Get("wealth_layer_tooltip"), $"{score:P0} · {LM.Get(BucketKeys[bucket])}",
             BucketHex[bucket], pPercent: false, pLocalize: false);
+        float geography = CityGeographySystem.Factor(city);
+        tooltip.addLineText(LM.Get("city_geography_label"),
+            string.Format(LM.Get("city_geography_value"), geography, CityGeographySystem.Commerce(city), CityGeographySystem.Industry(city)),
+            geography >= 1.1f ? "#7CD27C" : geography <= 0.8f ? "#E07A5F" : "#D8D2B8", pPercent: false, pLocalize: false);
         tooltip.addLineText(LM.Get("fiscal_cash_balance"),
             HelperFunc.MoneyDisplay.Format(city.GetTreasuryBalance()), "#F3C34A", pPercent: false, pLocalize: false);
         CityPopulationData population = CityPopulationSystem.Get(city);

@@ -1551,6 +1551,8 @@
   "famine_rebellion_war_name": "Famine Uprising",
   "great_famine_history": "A great famine grips {0}: {1} cities have starved for two years or more",
   "great_famine_end_history": "The great famine in {0} slowly subsides",
+  "city_geography_label": "Geography",
+  "city_geography_value": "×{0:0.00} (trade ×{1:0.00} · industry ×{2:0.00})",
   "capital_loss_restored": "{0} retakes its old capital {1} and is again known as {2}.",
   "kingdom_type_xingzai": "Temporary Court",
   "Later": "Later",

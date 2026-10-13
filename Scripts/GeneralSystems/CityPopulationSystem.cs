@@ -814,7 +814,8 @@ public static class CityPopulationSystem
         if (factors.Capacity <= 0f || factors.Famine || data.last_food_shortage > 0f) return 0f;
         float room = Mathf.Clamp01((factors.Capacity - factors.Total) / factors.Capacity);
         float jobs = data.last_workforce > 0f ? Mathf.Clamp01(data.last_jobs / data.last_workforce) : 1f;
-        return room * (0.5f + 0.5f * jobs);
+        // 人往地利好的地方走(见 CityGeographySystem)
+        return room * (0.5f + 0.5f * jobs) * CityGeographySystem.Factor(city);
     }
 
     private static void Migrate(City city, CityPopulationData data, double now)
@@ -948,7 +949,7 @@ public static class CityPopulationSystem
         // 商贸：有市场、码头的城才有成规模的商人；古代乡村小城没有商人
         bool market = city.hasBuildingType("type_market");
         bool docks = city.hasBuildingType("type_docks");
-        float trade = (market ? 0.03f : 0f) + (docks ? 0.02f : 0f);
+        float trade = ((market ? 0.03f : 0f) + (docks ? 0.02f : 0f)) * CityGeographySystem.Commerce(city);
         bool town = households >= 50 || CityConstructionSystem.SeatBonus(city) > 0f;
         // 工人：城市工场岗位(按生产阶段、建筑、商人、航运、工厂算，见 UrbanEmploymentSystem)占成年人口的比例，
         // 加上伐木采矿等体力活

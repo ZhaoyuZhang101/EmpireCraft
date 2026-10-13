@@ -32,7 +32,9 @@ public static class VirtualIndustrySystem
         var (_, all, shipyards) = Count(TechnologySystem.GetCultureOf(city) ?? "");
         if (!city.hasBuildingType("type_docks")) all -= shipyards;
         if (all <= 0) return 0;
-        int capacity = CityPopulationSystem.Households(city) / HouseholdsPerFactory +
+        // 工厂要水运与平地：按地利的工业系数(见 CityGeographySystem)
+        int capacity = Mathf.FloorToInt(CityPopulationSystem.Households(city) / (float)HouseholdsPerFactory *
+                                        CityGeographySystem.Industry(city)) +
                        ZonePlanSystem.Count(city, ZoneUse.Industry);
         return Mathf.Clamp(capacity, 0, all);
     }

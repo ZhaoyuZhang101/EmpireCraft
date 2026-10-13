@@ -93,7 +93,8 @@ public static class MarketSystem
         }
         if (city.hasBuildingType("type_market")) capacity += MarketCapacity;
         if (city.hasBuildingType("type_docks")) capacity += DocksCapacity;
-        return capacity;
+        // 港口、河口、路口商贸最旺(见 CityGeographySystem)
+        return Mathf.RoundToInt(capacity * CityGeographySystem.Commerce(city));
     }
 
     // ---- 禁运与封锁 ----

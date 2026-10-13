@@ -1553,6 +1553,8 @@
   "famine_rebellion_war_name": "饑民起義",
   "great_famine_history": "{0}連年大飢，餓殍遍野，{1}座城連荒兩年以上",
   "great_famine_end_history": "{0}的大饑荒漸漸平息",
+  "city_geography_label": "地利",
+  "city_geography_value": "×{0:0.00}(商 ×{1:0.00} · 工 ×{2:0.00})",
   "capital_loss_restored": "{0}收復舊都{1}，還於舊都，復稱{2}。",
   "kingdom_type_xingzai": "行在",
   "Later": "後",

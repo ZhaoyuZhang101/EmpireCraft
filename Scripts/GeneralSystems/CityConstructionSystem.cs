@@ -37,6 +37,9 @@ public static class CityConstructionSystem
     // 升级的花费：基础 + 升级后建筑施工量的一半
     private const int UpgradeBaseCost = 10;
 
+    // 整体发展节奏(以前各城建得太快)；各城再按地利快慢(见 CityGeographySystem)
+    private const float DevelopmentPace = 0.6f;
+
     // 首都、首府优先：建设力更高、更倾向于升级、房屋更密集
     private const float CapitalBonus = 0.6f;
     private const float ProvincialSeatBonus = 0.3f;
@@ -63,7 +66,8 @@ public static class CityConstructionSystem
             // 算不出繁荣度按 0
         }
         float treasury = Mathf.Clamp01(city.GetMoney() / RichCityMoney);
-        return Mathf.Clamp01(prosperity * 0.6f + treasury * 0.4f);
+        // 地利好的城更富庶(富庶度又加快建设，财富向河海平原、交通要冲集中)
+        return Mathf.Clamp01((prosperity * 0.6f + treasury * 0.4f) * CityGeographySystem.Factor(city));
     }
 
     // 每月随人口经济结算一次：按经过的秒数推进施工，空闲时开下一座(或升级)
@@ -73,7 +77,7 @@ public static class CityConstructionSystem
         StateSettlementPatch.FlushSupplies(city);
         float rate = Mathf.Min(MaxPointsPerSecond,
             (BasePointsPerSecond + CityPopulationSystem.Households(city) * PointsPerHousehold) * (1f + Wealth(city)) *
-            (1f + SeatBonus(city)));
+            (1f + SeatBonus(city)) * CityGeographySystem.Factor(city) * DevelopmentPace);
         Kingdom kingdom = city.kingdom;
         bool funded = kingdom != null && !kingdom.wild && StateSettlementSystem.DiscretionaryFunds(kingdom) >= FundingThreshold;
         // 国家不拨款时，民间投资池充裕也能出资加快施工
