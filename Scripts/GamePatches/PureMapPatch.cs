@@ -13,11 +13,12 @@ namespace EmpireCraft.Scripts.GamePatches;
 //     这里任何缩放都填满，颜色不透明(透明的清除色不动，否则空白处会变成白块)；
 //     没选地图图层时默认显示国家图层、关了"地图图层"也照样显示；图层不随地图不透明度设置变淡
 //     (入夜也不变淡、不被夜色压暗，见 NightMapLayerPatch；云照旧)；
-//   · 地形浮雕：色块不透明也看得出地形——掺一些地表本色(沙漠、雪原、草原、沼泽)，山地、丘陵压暗，
-//     按与西北邻格的高差打光(迎光坡亮、背光坡暗)，林地略暗；块里的海、河、湖掺六成水色，海岸线是真实的形状；
-//   · 城市肌理：建筑虽不画，占地照样显出来——民居按等级由浅到亮(大城一片亮街区，小县只一小撮)，工厂、矿场、伐木场深灰，
-//     市场金、码头蓝、兵营暗红、寺庙骨白、其它公共建筑浅色，庄稼淡黄，道路浅色街道；城市规划的地块再铺一层淡纹理——
-//     居住区街格、工业区斜纹、商业区点阵、农田条垄、军事区格点，城心略亮。看图就能看出各地发展到哪一步；
+//   · 地形浮雕：色块不透明也看得出地形——掺一点地表本色(沙漠、雪原、草原、沼泽)，山地、丘陵压暗，
+//     按与西北邻格的高差轻轻打光，林地略暗；块里的海、河、湖画成干净的蓝，海岸线是真实的形状；
+//   · 城市肌理(仿电子地图)：建筑虽不画，占地照样显出来——每座建筑一块实心浅色块、块边描深一圈，民居等级越高越实
+//     (大城一大片街区，小县只一小撮)，工业淡紫灰、商业淡橙、码头淡蓝、兵营淡红灰、寺庙米黄，庄稼淡绿；
+//     城里的路是白线、城外连城的路是黄线，成片路面的中间当广场；规划区只铺很淡的平涂色，城心略亮；
+//     地形打光与掺色都调淡，河湖用干净的蓝。看图就能看出路网与各地发展到哪一步；
 //     建筑与规划会变，每秒轮流重画一批城的地块，约十秒全图刷新一遍；
 //   · 国家图层下，帝国与外国接壤的陆上边界画成金色，帝国内部各成员之间照旧；海岸、湖泊、无主荒地不描金
 //     (原来连这些也描，整片海岸线和境内每块荒地周围都是金线，看不出哪里才是国界)；
@@ -156,7 +157,8 @@ public class PureMapPatch : GamePatch
 
     // ───────── 地形浮雕 ─────────
     // 掺地表本色的比例；块里的水掺水色的比例；高差打光的强度与上限
-    private const float TerrainTint = 0.18f, WaterTint = 0.6f, SlopeLight = 0.004f, SlopeCap = 0.12f;
+    private const float TerrainTint = 0.1f, WaterTint = 0.85f, SlopeLight = 0.003f, SlopeCap = 0.06f;
+    private static readonly Color32 Water = new(140, 185, 235, 255);
     private static readonly global::System.Collections.Generic.Dictionary<TileTypeBase, float> TypeLight = new();
 
     // 色块里每一格按地形调色；边框像素(原版按 pUp…pRight 画的外框)不动，保持清楚
@@ -177,53 +179,83 @@ public class PureMapPatch : GamePatch
         }
     }
 
-    // ───────── 城市肌理 ─────────
-    private static readonly Color32 HouseLight = new(236, 226, 206, 255), Industrial = new(58, 58, 64, 255),
-        Market = new(232, 188, 82, 255), Port = new(96, 146, 196, 255), Garrison = new(128, 44, 40, 255),
-        Temple = new(246, 240, 222, 255), Crop = new(214, 196, 96, 255), Civic = new(240, 232, 214, 255),
-        Road = new(204, 194, 172, 255);
+    // ───────── 城市肌理(仿电子地图：路网与建筑块) ─────────
+    // 建筑占地画成实心浅色块、块边描深一圈(一座座房子分得开)；城里的路是白线，城外连城的路是黄线，
+    // 成片路面的中间当广场铺浅灰；规划区只铺很淡的平涂色
+    private static readonly Color32 Block = new(236, 232, 224, 255), Civic = new(232, 228, 236, 255),
+        Industrial = new(214, 208, 226, 255), Market = new(250, 226, 196, 255), Temple = new(246, 238, 214, 255),
+        Garrison = new(230, 206, 204, 255), Port = new(206, 224, 242, 255), Crop = new(228, 238, 200, 255),
+        Street = new(255, 255, 255, 255), Highway = new(255, 210, 110, 255), Plaza = new(222, 220, 216, 255);
+    private const float BlockEdge = 0.78f;
+
+    private static int RoadNeighbours(WorldTile tile)
+    {
+        int count = 0;
+        if (tile.tile_up?.Type?.road == true) count++;
+        if (tile.tile_down?.Type?.road == true) count++;
+        if (tile.tile_left?.Type?.road == true) count++;
+        if (tile.tile_right?.Type?.road == true) count++;
+        return count;
+    }
+
+    // 块边：四邻里有一格不是同一座建筑
+    private static bool BlockBorder(WorldTile tile)
+    {
+        Building building = tile.building;
+        return tile.tile_up?.building != building || tile.tile_down?.building != building ||
+               tile.tile_left?.building != building || tile.tile_right?.building != building;
+    }
 
     private static Color32 Urban(WorldTile tile, Color32 color, ZoneUse use, bool center)
     {
         BuildingAsset asset = tile.building?.asset;
-        if (asset != null && !tile.building.isRekt())
+        if (asset != null && !tile.building.isRekt() && asset.building_type != BuildingType.Building_Tree)
         {
-            if (asset.type == "type_house")
-                return Lerp(color, HouseLight, Mathf.Min(0.6f, 0.25f + 0.06f * CityDevelopment.Tier(asset)));
-            if (TechnologySystem.IsFactory(asset) || IndustryBuildingSystem.IsMine(asset) || IndustryBuildingSystem.IsLumber(asset))
-                return Lerp(color, Industrial, 0.45f);
-            switch (asset.type)
+            if (asset.building_type == BuildingType.Building_Wheat) return Lerp(color, Crop, 0.3f);
+            (Color32 fill, float share) = asset.type switch
             {
-                case "type_market": return Lerp(color, Market, 0.4f);
-                case "type_docks": return Lerp(color, Port, 0.35f);
-                case "type_barracks": return Lerp(color, Garrison, 0.4f);
-                case "type_temple": return Lerp(color, Temple, 0.45f);
+                "type_house" => (Block, Mathf.Min(0.72f, 0.55f + 0.03f * CityDevelopment.Tier(asset))),
+                "type_market" => (Market, 0.65f),
+                "type_docks" => (Port, 0.6f),
+                "type_barracks" => (Garrison, 0.6f),
+                "type_temple" => (Temple, 0.65f),
+                _ => TechnologySystem.IsFactory(asset) || IndustryBuildingSystem.IsMine(asset) || IndustryBuildingSystem.IsLumber(asset)
+                    ? (Industrial, 0.6f)
+                    : asset.building_type == BuildingType.Building_Civ ? (Civic, 0.6f) : (default(Color32), 0f)
+            };
+            if (share > 0f)
+            {
+                Color32 block = Lerp(color, fill, share);
+                return BlockBorder(tile) ? Scale(block, BlockEdge) : block;
             }
-            if (asset.building_type == BuildingType.Building_Wheat) return Lerp(color, Crop, 0.25f);
-            if (asset.building_type == BuildingType.Building_Civ) return Lerp(color, Civic, 0.35f);
         }
-        if (tile.Type != null && tile.Type.road) return Lerp(color, Road, 0.45f);
-        int x = tile.x, y = tile.y;
+        if (tile.Type != null && tile.Type.road)
+        {
+            // 城外连城的路是黄线；成片路面(四面都是路)的中间当广场
+            if (tile.zone?.city == null) return Lerp(color, Highway, 0.7f);
+            return RoadNeighbours(tile) >= 4 ? Lerp(color, Plaza, 0.35f) : Lerp(color, Street, 0.65f);
+        }
         color = use switch
         {
-            ZoneUse.Residential => Lerp(color, HouseLight, x % 4 == 0 || y % 4 == 0 ? 0.14f : 0.05f),
-            ZoneUse.Industry => Lerp(color, Industrial, (x + y) % 4 == 0 ? 0.28f : 0.08f),
-            ZoneUse.Commerce => Lerp(color, Market, x % 3 == 0 && y % 3 == 0 ? 0.3f : 0.05f),
-            ZoneUse.Farm => Lerp(color, Crop, y % 2 == 0 ? 0.14f : 0.04f),
-            ZoneUse.Military => Lerp(color, Garrison, x % 4 == 1 && y % 4 == 1 ? 0.3f : 0.06f),
+            ZoneUse.Residential => Lerp(color, Block, 0.15f),
+            ZoneUse.Industry => Lerp(color, Industrial, 0.2f),
+            ZoneUse.Commerce => Lerp(color, Market, 0.2f),
+            ZoneUse.Farm => Lerp(color, Crop, 0.15f),
+            ZoneUse.Military => Lerp(color, Garrison, 0.15f),
             _ => color
         };
-        return center ? Lerp(color, Civic, 0.1f) : color;
+        return center ? Lerp(color, Block, 0.2f) : color;
     }
 
     private static Color32 Shade(WorldTile tile, Color32 color)
     {
         TileTypeBase type = tile.Type;
         if (type == null) return color;
-        if (type.liquid || type.lava) return Lerp(color, type.color, WaterTint);
+        if (type.lava) return Lerp(color, type.color, WaterTint);
+        if (type.liquid) return Lerp(color, Water, WaterTint);
         TileTypeBase surface = tile.top_type != null ? tile.top_type : type;
         float light = Light(type);
-        if (tile.building?.asset != null && tile.building.asset.building_type == BuildingType.Building_Tree) light *= 0.9f;
+        if (tile.building?.asset != null && tile.building.asset.building_type == BuildingType.Building_Tree) light *= 0.94f;
         int height = tile.Height;
         int north = tile.tile_up?.Height ?? height, west = tile.tile_left?.Height ?? height;
         light += Mathf.Clamp((height * 2 - north - west) * SlopeLight, -SlopeCap, SlopeCap);
