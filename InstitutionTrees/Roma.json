@@ -408,7 +408,8 @@
         "western_feudalization"
       ],
       "exclusive_with": [
-        "western_secular_estates"
+        "western_secular_estates",
+        "western_concordat"
       ],
       "research": {
         "mandate_required": 46
@@ -859,10 +860,9 @@
       "name_key": "institution_western_concordat",
       "description_key": "institution_western_concordat_desc",
       "branch": "society",
-      "advancement": 5,
-      "requires_any": [
-        "western_clerical_supremacy",
-        "western_theocratic_state"
+      "advancement": 4,
+      "requires": [
+        "western_feudalization"
       ],
       "replaces": [
         "western_clerical_supremacy"
