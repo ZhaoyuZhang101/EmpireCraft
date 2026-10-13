@@ -851,7 +851,8 @@ namespace EmpireCraft.Scripts.UI.Windows
             var columns = parent.BeginColumns(MainWidth);
             var incomeCard = columns.BeginColumnCard(HalfWidth, "fiscal_income_breakdown", "#65D66E",
                 MoneyDisplay.Format(report.income + report.transfer_in), "ui/icons/iconMoney");
-            AddBreakdown(incomeCard, report.income_sources, new Color(0.4f, 0.84f, 0.43f));
+            AddBreakdown(incomeCard, TreasuryRules.SplitTaxTransfers(report.income_sources, report.tax_transfer_sources),
+                new Color(0.4f, 0.84f, 0.43f));
             var expenseCard = columns.BeginColumnCard(HalfWidth, "fiscal_expense_breakdown", "#E9A85B",
                 MoneyDisplay.Format(report.expense + report.transfer_out), "ui/icons/iconMoney");
             AddBreakdown(expenseCard, report.expense_sources, new Color(0.91f, 0.66f, 0.36f));

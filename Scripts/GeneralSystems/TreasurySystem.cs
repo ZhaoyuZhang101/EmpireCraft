@@ -44,7 +44,7 @@ public static class TreasurySystem
             if (ago < 0 || ago > 11) continue;
             TreasuryMonth slot = result[11 - ago];
             slot.has_data = true;
-            Merge(slot.inflow, period.income);
+            Merge(slot.inflow, TreasuryRules.SplitTaxTransfers(period.income, period.tax_transfer_income));
             Merge(slot.outflow, period.expense);
         }
         return result;

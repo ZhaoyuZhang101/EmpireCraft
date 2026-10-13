@@ -70,6 +70,32 @@ public static class TreasuryRules
         amounts[key] = old + Math.Abs(change);
     }
 
+    // 各城上缴中央的税在中央账上记作一笔"央地拨款"，另记了各税种的份额：显示时拆成"某税(各城上缴)"，
+    // 认不出税种的余数仍算央地拨款。只用于显示，不改账。
+    public const string SharedTaxPrefix = "Shared";
+
+    public static Dictionary<string, long> SplitTaxTransfers(Dictionary<string, long> income, Dictionary<string, long> shares)
+    {
+        var result = income == null ? new Dictionary<string, long>() : new Dictionary<string, long>(income);
+        if (shares == null || shares.Count == 0) return result;
+        string transferKey = nameof(TreasuryCategory.InternalTransfer);
+        result.TryGetValue(transferKey, out long transfers);
+        long moved = 0;
+        foreach (var pair in shares)
+        {
+            long amount = Math.Min(Math.Max(0L, pair.Value), transfers - moved);
+            if (amount <= 0) continue;
+            string key = SharedTaxPrefix + pair.Key;
+            result.TryGetValue(key, out long old);
+            result[key] = old + amount;
+            moved += amount;
+        }
+        if (moved <= 0) return result;
+        if (transfers - moved > 0) result[transferKey] = transfers - moved;
+        else result.Remove(transferKey);
+        return result;
+    }
+
     public static void AttributeTaxTransfer(TreasuryData data, long amount, TreasuryCategory source)
     {
         if (amount <= 0 || data?.periods?.Count > 0 != true) return;
