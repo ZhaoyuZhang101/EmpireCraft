@@ -356,7 +356,7 @@
         "western_clerical_supremacy"
       ],
       "research": {
-        "mandate_required": 48
+        "mandate_required": 46
       },
       "reform": {
         "base_progress_per_year": 8.0,
@@ -371,12 +371,12 @@
       "politics": {
         "support_classes": {
           "Merchant": 1.1,
-          "Officer": 0.8,
-          "Noble": 0.2
+          "Officer": 0.9,
+          "Noble": 0.6,
+          "Citizen": 0.6,
+          "Army": 0.3
         },
-        "oppose_classes": {
-          "Noble": 0.3
-        },
+        "oppose_classes": {},
         "support_factions": {
           "中央": 0.9,
           "自治": 0.4
@@ -393,7 +393,8 @@
         },
         {
           "type": "modify_faction_power",
-          "int_value": 4
+          "int_value": 5,
+          "faction": "中央"
         }
       ]
     },
@@ -410,7 +411,7 @@
         "western_secular_estates"
       ],
       "research": {
-        "mandate_required": 44
+        "mandate_required": 46
       },
       "reform": {
         "base_progress_per_year": 8.0,
@@ -424,19 +425,19 @@
       },
       "politics": {
         "support_classes": {
-          "Noble": 0.5,
-          "Peasant": 0.5
+          "Noble": 0.35,
+          "Peasant": 0.15
         },
         "oppose_classes": {
           "Merchant": 0.8,
-          "Officer": 0.4
+          "Officer": 0.6
         },
         "support_factions": {
-          "神权": 1.4,
+          "神权": 1.2,
           "自治": 0.2
         },
         "oppose_factions": {
-          "中央": 0.7
+          "中央": 0.9
         }
       },
       "effects_on_complete": [
@@ -463,8 +464,11 @@
       "branch": "administration",
       "advancement": 5,
       "requires": [
-        "western_feudal_contract",
-        "western_secular_estates"
+        "western_feudal_contract"
+      ],
+      "requires_any": [
+        "western_secular_estates",
+        "western_concordat"
       ],
       "replaces": [
         "western_feudal_contract"
@@ -675,8 +679,11 @@
       "branch": "finance",
       "advancement": 5,
       "requires": [
-        "western_burgher_charters",
-        "western_secular_estates"
+        "western_burgher_charters"
+      ],
+      "requires_any": [
+        "western_secular_estates",
+        "western_concordat"
       ],
       "exclusive_with": [
         "western_theocratic_state"
@@ -735,8 +742,9 @@
       "description_key": "institution_western_reformation_desc",
       "branch": "society",
       "advancement": 5,
-      "requires": [
-        "western_secular_estates"
+      "requires_any": [
+        "western_secular_estates",
+        "western_concordat"
       ],
       "exclusive_with": [
         "western_clerical_supremacy",
@@ -764,7 +772,7 @@
         },
         "oppose_classes": {
           "Noble": 0.7,
-          "Peasant": 0.5
+          "Peasant": 0.2
         },
         "support_factions": {
           "共和": 1.1,
@@ -787,6 +795,135 @@
         {
           "type": "modify_faction_power",
           "int_value": 4,
+          "faction": "共和"
+        },
+        {
+          "type": "modify_faction_power",
+          "int_value": 4,
+          "faction": "中央"
+        }
+      ]
+    },
+    {
+      "id": "western_concordat",
+      "name_key": "institution_western_concordat",
+      "description_key": "institution_western_concordat_desc",
+      "branch": "society",
+      "advancement": 5,
+      "requires_any": [
+        "western_clerical_supremacy",
+        "western_theocratic_state"
+      ],
+      "replaces": [
+        "western_clerical_supremacy"
+      ],
+      "research": {
+        "mandate_required": 52
+      },
+      "reform": {
+        "base_progress_per_year": 6.5,
+        "minimum_years": 10,
+        "force_radicalism": 24.0
+      },
+      "resistance": {
+        "base_radicalism": 10.0,
+        "vested_interest_radicalism": 18.0,
+        "rebellion_threshold": 72.0,
+        "reason_key": "institution_resistance_reason_religious_reform"
+      },
+      "politics": {
+        "support_classes": {
+          "Officer": 1.0,
+          "Merchant": 0.8,
+          "Noble": 0.5,
+          "Citizen": 0.4
+        },
+        "oppose_classes": {},
+        "support_factions": {
+          "中央": 1.2,
+          "自治": 0.5
+        },
+        "oppose_factions": {
+          "神权": 1.0
+        }
+      },
+      "effects_on_complete": [
+        {
+          "type": "set_regime_option",
+          "option": "option_religion_type",
+          "int_value": 2
+        },
+        {
+          "type": "modify_faction_power",
+          "int_value": 5,
+          "faction": "中央"
+        }
+      ]
+    },
+    {
+      "id": "western_secularization",
+      "name_key": "institution_western_secularization",
+      "description_key": "institution_western_secularization_desc",
+      "branch": "society",
+      "advancement": 6,
+      "requires_any": [
+        "western_reformation",
+        "western_concordat",
+        "western_parliamentary_taxation"
+      ],
+      "replaces": [
+        "western_clerical_supremacy",
+        "western_theocratic_state"
+      ],
+      "research": {
+        "mandate_required": 58
+      },
+      "reform": {
+        "base_progress_per_year": 6.0,
+        "minimum_years": 12,
+        "force_radicalism": 26.0
+      },
+      "resistance": {
+        "base_radicalism": 12.0,
+        "vested_interest_radicalism": 20.0,
+        "rebellion_threshold": 70.0,
+        "opposition_faction_growth": 2,
+        "reason_key": "institution_resistance_reason_religious_reform"
+      },
+      "politics": {
+        "support_classes": {
+          "Merchant": 1.2,
+          "Officer": 1.0,
+          "Citizen": 0.8,
+          "Labour": 0.3
+        },
+        "oppose_classes": {
+          "Noble": 0.3,
+          "Peasant": 0.2
+        },
+        "support_factions": {
+          "中央": 1.0,
+          "共和": 1.0,
+          "自治": 0.3
+        },
+        "oppose_factions": {
+          "神权": 1.6
+        }
+      },
+      "effects_on_complete": [
+        {
+          "type": "set_regime_option",
+          "option": "option_religion_type",
+          "int_value": 1
+        },
+        {
+          "type": "modify_faction_power",
+          "int_value": 8,
+          "faction": "中央"
+        },
+        {
+          "type": "modify_faction_power",
+          "int_value": 3,
           "faction": "共和"
         }
       ]

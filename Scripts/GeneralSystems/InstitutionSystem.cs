@@ -1112,7 +1112,9 @@ public static class InstitutionSystem
         InstitutionNodeConfig target = GetForLine(culture)
             .Where(node => IsDriftCandidate(culture, state, node) && (empires.Count == 0 || !ChangesRegime(node)))
             .OrderByDescending(node => TechnologySystem.GetInstitutionPush(culture, node))
-            .ThenBy(node => node.advancement).FirstOrDefault();
+            .ThenBy(node => node.advancement)
+            // 西方教会、世俗两条路：教权高先倒向教会，低先倒向世俗(以前按字母顺序，永远先选教会)
+            .ThenBy(node => PapacySystem.DriftRank(culture, node)).FirstOrDefault();
         if (target == null)
         {
             state.drift_node_id = "";
@@ -1198,7 +1200,8 @@ public static class InstitutionSystem
             if (!CanStartReform(empire, node, out _, false, balance)) continue;
             if (balance.Support < balance.Opposition + 5f) continue;
             float score = balance.Support - balance.Opposition + node.advancement * 2f +
-                          TechnologySystem.GetInstitutionPush(GetPrimaryCulture(empire), node) * 40f;
+                          TechnologySystem.GetInstitutionPush(GetPrimaryCulture(empire), node) * 40f +
+                          PapacySystem.ReformBias(empire, node);
             if (score <= bestScore) continue;
             bestScore = score;
             selected = node;

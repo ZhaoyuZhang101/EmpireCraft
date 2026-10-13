@@ -148,6 +148,48 @@ public static partial class PapacySystem
 
     #endregion
 
+    #region 教会与世俗两条路
+
+    private static readonly HashSet<string> ClericalNodes = new() { NodeClerical, "western_theocratic_state" };
+    private static readonly HashSet<string> SecularNodes = new()
+        { NodeSecular, "western_centralized_monarchy", NodeConcordat, NodeReformation, NodeSecularization };
+
+    // AI 选改革的加分：教会类节点 (教权-50)×0.6，世俗类节点反过来
+    public static float ReformBias(Empire empire, InstitutionNodeConfig node)
+    {
+        if (node == null || !IsWestern(empire)) return 0f;
+        Religion religion = ReligionOf(empire);
+        if (religion == null) return 0f;
+        float lean = (Authority(religion) - 50f) * 0.6f;
+        if (ClericalNodes.Contains(node.id)) return lean;
+        if (SecularNodes.Contains(node.id)) return -lean;
+        return 0f;
+    }
+
+    // 文化演进挑节点的次序：教权 55 以上先教会后世俗，以下反过来；文化没有教廷时按文化名随机定一边
+    public static int DriftRank(string culture, InstitutionNodeConfig node)
+    {
+        if (node == null || (!ClericalNodes.Contains(node.id) && !SecularNodes.Contains(node.id))) return 0;
+        Religion religion = CultureReligion(culture);
+        bool church = religion != null
+            ? Authority(religion) >= 55f
+            : ((culture?.GetHashCode() ?? 0) & 1) == 0;
+        return ClericalNodes.Contains(node.id) == church ? 0 : 1;
+    }
+
+    private static Religion CultureReligion(string culture)
+    {
+        if (string.IsNullOrEmpty(culture) || World.world?.kingdoms == null) return null;
+        foreach (Kingdom kingdom in World.world.kingdoms)
+            if (kingdom?.data != null && !kingdom.isRekt() && kingdom.hasReligion() &&
+                string.Equals(CultureService.GetRealmCulture(kingdom), culture, StringComparison.Ordinal) &&
+                HolyCity(kingdom.religion) != null)
+                return kingdom.religion;
+        return null;
+    }
+
+    #endregion
+
     #region 年度结算
 
     // 每年(ConstitutionalEconomySystem 年度结算)逐个帝国调用

@@ -302,8 +302,9 @@ public static class FactionClassSystem
                 (SocialClass.Noble, -25)),
             FactionType.诸侯 => Affinities((SocialClass.Noble, 95), (SocialClass.Army, 45),
                 (SocialClass.Landlord, 70), (SocialClass.Officer, -45), (SocialClass.Peasant, -25)),
+            // 君主是农民对抗领主与教会的靠山：中央派系也亲农民
             FactionType.中央 => Affinities((SocialClass.Officer, 90), (SocialClass.Army, 45),
-                (SocialClass.Merchant, 30), (SocialClass.Noble, -55)),
+                (SocialClass.Merchant, 30), (SocialClass.Peasant, 25), (SocialClass.Noble, -55)),
             FactionType.自治 => Affinities((SocialClass.Merchant, 75), (SocialClass.Noble, 65),
                 (SocialClass.Landlord, 55), (SocialClass.Officer, 20)),
             FactionType.攘夷 => Affinities((SocialClass.Army, 95), (SocialClass.Noble, 35),
@@ -313,8 +314,9 @@ public static class FactionClassSystem
             FactionType.血脉 => Affinities((SocialClass.Noble, 100), (SocialClass.Officer, 20)),
             FactionType.僭主 => Affinities((SocialClass.Army, 90), (SocialClass.Labour, 30),
                 (SocialClass.Noble, -35)),
-            FactionType.神权 => Affinities((SocialClass.Peasant, 60), (SocialClass.Noble, 55),
-                (SocialClass.Officer, 45), (SocialClass.Merchant, -30)),
+            // 以前农民 60、贵族 55、官员 45，样样都亲，神权派系天然比别的派系长得快(世俗永远打不过教会)
+            FactionType.神权 => Affinities((SocialClass.Peasant, 45), (SocialClass.Noble, 35),
+                (SocialClass.Officer, 15), (SocialClass.Merchant, -30)),
             FactionType.共和 => Affinities((SocialClass.Merchant, 95), (SocialClass.Officer, 65),
                 (SocialClass.Landlord, 35), (SocialClass.Noble, -45)),
             FactionType.民主 => Affinities((SocialClass.Merchant, 70), (SocialClass.Labour, 65),
