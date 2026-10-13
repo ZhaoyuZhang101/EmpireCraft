@@ -130,9 +130,13 @@ public static class StateSettlementSystem
             if (project?.city >= 0L || project?.committing == true) Complete(payer, state);
             return;
         }
+        // 未支付的官办计划让位给实际迁民；但已经选好地点、开始筹备的，只让位给逃荒、避战的难民
+        // (住房拥挤、缺岗的迁民同样要筹备，顶掉官办计划只会让筹备从头再来)
         if (project == null || !project.spontaneous && project.city < 0L && !project.committing)
         {
-            City source = Cities(payer).FirstOrDefault(city => SpontaneousCause(city) != null &&
+            bool planning = project != null && project.zone >= 0;
+            City source = Cities(payer).FirstOrDefault(city => SpontaneousCause(city) is string cause &&
+                (!planning || cause == "famine" || cause == "war") &&
                 CityPopulationSystem.CivilianBackground(city) >= 1f && Founder(city.kingdom, city) != null);
             if (source != null)
             {
@@ -313,7 +317,8 @@ public static class StateSettlementSystem
             if (project.spontaneous)
             {
                 if (!SimulationFrameBudget.HasTime) { PendingSearches.Enqueue(id); return; }
-                if (!Ready(project)) { state.status = "sailing"; return; }
+                // 还在筹备(或渡海)：等月度检查到期后提交
+                if (!Ready(project)) { state.status = project.overseas ? "sailing" : "planning"; return; }
                 Complete(payer, state);
             }
             return;
@@ -390,7 +395,7 @@ public static class StateSettlementSystem
             ReserveForProject(state, project.gold);
         }
         Searches.Remove(id);
-        // 迁民没有六个月的官办筹备期；留到下一帧提交，仍服从统一帧预算。
+        // 自发迁民留到下一帧提交(逃荒、避战的不筹备，当即成行)，仍服从统一帧预算。
         if (project.spontaneous) PendingSearches.Enqueue(id);
     }
 
@@ -454,9 +459,16 @@ public static class StateSettlementSystem
         return GoodSite(target, source, actor, project.spontaneous, landfall, project.overseas);
     }
 
+    // 建城筹备月数(模组设置)：官办建城与百姓因住房拥挤、缺少岗位自发迁出的聚落都要筹备；逃荒、避战的难民当即动身。
+    // 以前自发聚落一律不筹备，而满城、缺岗时常有自发迁民，看起来就像筹备月数不生效
+    private static int PreparationMonths(StateSettlementProject project) =>
+        project.spontaneous && (project.cause == "famine" || project.cause == "war")
+            ? 0
+            : Math.Max(0, ModClass.SETTLEMENT_PREPARATION_MONTHS);
+
     private static bool Ready(StateSettlementProject project) => project.started >= 0d &&
         World.world.getCurWorldTime() >= project.started && Date.getMonthsSince(project.started) >=
-        (project.spontaneous ? 0 : Math.Max(0, ModClass.SETTLEMENT_PREPARATION_MONTHS)) +
+        PreparationMonths(project) +
         (project.overseas ? SettlementSeaSearch.TravelMonths(project.sea_route?.Count ?? 0,
             World.world?.cities?.get(project.embarkation_city)) : 0);
 

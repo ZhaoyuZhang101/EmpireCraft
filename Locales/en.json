@@ -4225,7 +4225,7 @@
   "Settlement_Food_Years_Text": "Years of settlement food supply",
   "Settlement_Food_Years_Text_description": "Used only for state-funded settlement in virtual population mode. Default 2. The zone trigger shares the existing city expansion limit.",
   "Settlement_Preparation_Months_Text": "Settlement preparation months",
-  "Settlement_Preparation_Months_Text_description": "Used only for state-funded settlement in virtual population mode. Default 6. The zone trigger shares the existing city expansion limit.",
+  "Settlement_Preparation_Months_Text_description": "With virtual population, state-funded settlements and settlements founded by people leaving overcrowded or jobless cities take this many months to prepare (plus sailing time overseas); refugees from famine or war leave at once. Default 6; the trigger shares the \"city expansion zone limit\" setting rather than a separate 50-zone threshold.",
   "Settlement_Cooldown_Months_Text": "Cooldown months after settlement",
   "Settlement_Cooldown_Months_Text_description": "Used only for state-funded settlement in virtual population mode. Default 36. The zone trigger shares the existing city expansion limit.",
   "state_settlement_resettling": "Resettling an empty city first",

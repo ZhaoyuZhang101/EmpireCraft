@@ -4225,7 +4225,7 @@
   "Settlement_Food_Years_Text": "新城启动口粮年数",
   "Settlement_Food_Years_Text_description": "仅无小人模式的国家出资建城使用。默认2；区域触发门槛共用“城市扩张区域上限”，不另设50区阈值。",
   "Settlement_Preparation_Months_Text": "建城筹备月数",
-  "Settlement_Preparation_Months_Text_description": "仅无小人模式的国家出资建城使用。默认6；区域触发门槛共用“城市扩张区域上限”，不另设50区阈值。",
+  "Settlement_Preparation_Months_Text_description": "无小人模式下，官办建城以及百姓因住房拥挤、缺少岗位自发迁出的聚落，都要筹备这么多个月才建城(跨海另加航行时间)；逃荒、避战的难民当即动身。默认6；区域触发门槛共用“城市扩张区域上限”，不另设50区阈值。",
   "Settlement_Cooldown_Months_Text": "建城成功后冷却月数",
   "Settlement_Cooldown_Months_Text_description": "仅无小人模式的国家出资建城使用。默认36；区域触发门槛共用“城市扩张区域上限”，不另设50区阈值。",
   "state_settlement_resettling": "优先迁民安置空城",

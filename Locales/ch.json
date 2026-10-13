@@ -4225,7 +4225,7 @@
   "Settlement_Food_Years_Text": "新城啟動口糧年數",
   "Settlement_Food_Years_Text_description": "僅無小人模式的國家出資建城使用。預設2；區域觸發門檻共用「城市擴張區域上限」，不另設50區閾值。",
   "Settlement_Preparation_Months_Text": "建城籌備月數",
-  "Settlement_Preparation_Months_Text_description": "僅無小人模式的國家出資建城使用。預設6；區域觸發門檻共用「城市擴張區域上限」，不另設50區閾值。",
+  "Settlement_Preparation_Months_Text_description": "無小人模式下，官辦建城以及百姓因住房擁擠、缺少崗位自發遷出的聚落，都要籌備這麼多個月才建城(跨海另加航行時間)；逃荒、避戰的難民當即動身。默認6；區域觸發門檻共用「城市擴張區域上限」，不另設50區閾值。",
   "Settlement_Cooldown_Months_Text": "建城成功後冷卻月數",
   "Settlement_Cooldown_Months_Text_description": "僅無小人模式的國家出資建城使用。預設36；區域觸發門檻共用「城市擴張區域上限」，不另設50區閾值。",
   "state_settlement_resettling": "優先遷民安置空城",
