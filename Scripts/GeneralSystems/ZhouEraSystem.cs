@@ -26,6 +26,9 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     · 变法：大国推行变法，战时兵额 +25%、赋税每年多收一成，旧贵族怨望；
 //     · 合纵连横：最强一国独大时，其余诸侯合纵，它攻打合纵之国则各国来援；弱小之国可能连横依附于它，彼此不攻；
 //   统一：攻下王畿者取周而代之(接续为新王朝)；天子(或代周者)直辖天下三分之二以上的城即称皇帝，改行郡县律令制。
+// 战国时诸侯不再留在帝国里：各自离开帝国(郡仍归王畿)，成为自由度很高的诸侯——有自己的颜色、国库、官制、军队，
+// 只记着所属周室(KingdomExtraData.zhou_sphere_id，标"某诸侯国")，地图上整个周室(王畿连同诸侯)外围一圈加粗边框；
+// 春秋战国的规则照旧，判断"是不是周室诸侯"一律看 SphereOf(帝国成员或战国离开帝国的诸侯)。统一后诸侯各自独立。
 public static class ZhouEraSystem
 {
     public const int WesternZhou = 0, Spring = 1, Warring = 2, Unified = 3;
@@ -48,28 +51,70 @@ public static class ZhouEraSystem
     // 战时代管、收复旧都、绝嗣收归都不再发生；诸侯打下的地归自己(尽有其地)，王畿只靠自己的兵守土开疆
     public static bool RoyalReclaimBlocked(Empire empire) => Applies(empire) && State(empire).era >= Spring;
 
-    public static IEnumerable<Kingdom> Vassals(Empire empire) =>
-        empire?.kingdoms_list?.Where(kingdom => kingdom?.data != null && !kingdom.isRekt() &&
-                                                kingdom != empire.CoreKingdom && kingdom.hasCities()) ??
-        Enumerable.Empty<Kingdom>();
+    // 这国所属的周室：周制帝国的成员，或战国时离开帝国、仍记着所属周室的诸侯；都不是返回 null
+    public static Empire SphereOf(Kingdom kingdom)
+    {
+        if (kingdom?.data == null || kingdom.isRekt()) return null;
+        Empire member = kingdom.GetEmpire();
+        if (member != null) return Applies(member) ? member : null;
+        long id = kingdom.GetOrCreate().zhou_sphere_id;
+        if (id < 0 || ModClass.EMPIRE_MANAGER == null) return null;
+        Empire sphere = ModClass.EMPIRE_MANAGER.get(id);
+        return Applies(sphere) && State(sphere).era >= Warring ? sphere : null;
+    }
+
+    // 战国时离开帝国的周诸侯
+    public static bool IsDetachedVassal(Kingdom kingdom) => kingdom?.GetEmpire() == null && SphereOf(kingdom) != null;
+
+    public static IEnumerable<Kingdom> Vassals(Empire empire)
+    {
+        if (empire?.data == null) return Enumerable.Empty<Kingdom>();
+        IEnumerable<Kingdom> members = empire.kingdoms_list?.Where(kingdom => kingdom?.data != null && !kingdom.isRekt() &&
+            kingdom != empire.CoreKingdom && kingdom.hasCities()) ?? Enumerable.Empty<Kingdom>();
+        if (!Applies(empire) || State(empire).era < Warring || World.world?.kingdoms == null) return members;
+        IEnumerable<Kingdom> detached = World.world.kingdoms.Where(kingdom => kingdom?.data != null && !kingdom.isRekt() &&
+            kingdom.hasCities() && kingdom.GetEmpire() == null && kingdom.GetOrCreate().zhou_sphere_id == empire.id);
+        return members.Concat(detached).ToList();
+    }
+
+    // 战国：诸侯(郡除外)离开帝国，记下所属周室；爵位(国家类别)照旧
+    private static void Detach(Empire empire)
+    {
+        int count = 0;
+        foreach (Kingdom kingdom in empire.kingdoms_list.ToList())
+        {
+            if (kingdom?.data == null || kingdom.isRekt() || kingdom == empire.CoreKingdom ||
+                kingdom.GetKingdomType() == KingdomType.ZhouFeudalism_jun) continue;
+            var data = kingdom.GetOrCreate();
+            KingdomType rank = data.kingdomType;
+            data.zhou_sphere_id = empire.id;
+            empire.leave(kingdom, pRecalc: false);
+            data.kingdomType = rank;
+            kingdom.GetRegime()?.SetAllowDiplomacy(true);
+            count++;
+        }
+        if (count == 0) return;
+        empire.recalculate();
+        Log(empire, string.Format(LM.Get("zhou_log_detached"), count));
+    }
 
     public static int Power(Kingdom kingdom) =>
         kingdom?.data == null || kingdom.isRekt() ? 0 : (kingdom.cities?.Count ?? 0) * 4 + kingdom.countTotalWarriors();
 
     public static bool IsHegemon(Kingdom kingdom) =>
-        kingdom?.GetEmpire() is Empire empire && Applies(empire) && State(empire).hegemon_id == kingdom.id;
+        SphereOf(kingdom) is Empire empire && State(empire).hegemon_id == kingdom.id;
 
     public static bool IsKing(Kingdom kingdom) =>
-        kingdom?.GetEmpire() is Empire empire && Applies(empire) && State(empire).kings.Contains(kingdom.id);
+        SphereOf(kingdom) is Empire empire && State(empire).kings.Contains(kingdom.id);
 
     public static bool IsReformed(Kingdom kingdom) =>
-        kingdom?.GetEmpire() is Empire empire && Applies(empire) && State(empire).reforms.Contains(kingdom.id);
+        SphereOf(kingdom) is Empire empire && State(empire).reforms.Contains(kingdom.id);
 
     // 夷狄：不在周室之内、与天子不同族或不同文化的国家
     public static bool IsBarbarian(Empire empire, Kingdom kingdom)
     {
         Kingdom core = empire?.CoreKingdom;
-        if (core == null || kingdom?.data == null || kingdom.isRekt() || kingdom.GetEmpire() == empire) return false;
+        if (core == null || kingdom?.data == null || kingdom.isRekt() || SphereOf(kingdom) == empire) return false;
         return kingdom.species_id != core.species_id ||
                CultureService.GetRealmCulture(kingdom) != CultureService.GetRealmCulture(core);
     }
@@ -78,15 +123,15 @@ public static class ZhouEraSystem
     public static bool IsInternalWar(War war)
     {
         Kingdom attacker = war?.main_attacker, defender = war?.main_defender;
-        Empire empire = attacker?.GetEmpire();
-        return empire != null && Applies(empire) && State(empire).era >= Spring && defender?.GetEmpire() == empire;
+        Empire empire = SphereOf(attacker);
+        return empire != null && State(empire).era >= Spring && SphereOf(defender) == empire;
     }
 
     // 卿族坐大：春秋时六城以上(可能被三分)、或四城以上而国君年幼年老的大国
     public static bool MinistersRising(Kingdom kingdom)
     {
-        Empire empire = kingdom?.GetEmpire();
-        if (!Applies(empire) || State(empire).era != Spring || kingdom == empire.CoreKingdom) return false;
+        Empire empire = SphereOf(kingdom);
+        if (empire == null || State(empire).era != Spring || kingdom == empire.CoreKingdom) return false;
         int cities = kingdom.cities?.Count ?? 0;
         Actor ruler = kingdom.king;
         bool weakRuler = ruler == null || !ruler.isAdult() || ruler.getAge() > 60;
@@ -101,9 +146,9 @@ public static class ZhouEraSystem
     // 春秋、战国：周室诸侯可以自己开战
     public static bool VassalMayWage(Kingdom kingdom)
     {
-        Empire empire = kingdom?.GetEmpire();
-        return empire != null && kingdom != empire.CoreKingdom && Applies(empire) && State(empire).era >= Spring &&
-               kingdom.GetRegime()?.IsAllowDiplomacy() == true;
+        Empire empire = SphereOf(kingdom);
+        return empire != null && kingdom != empire.CoreKingdom && State(empire).era >= Spring &&
+               (IsDetachedVassal(kingdom) || kingdom.GetRegime()?.IsAllowDiplomacy() == true);
     }
 
     // 诸侯能否向 target 开战：同为周室诸侯可以(春秋不得攻王畿)；周室之外按常规
@@ -111,8 +156,8 @@ public static class ZhouEraSystem
     {
         handled = false;
         if (!VassalMayWage(initiator) || target?.data == null || target.isRekt()) return false;
-        Empire empire = initiator.GetEmpire();
-        if (target.GetEmpire() != empire) return false;
+        Empire empire = SphereOf(initiator);
+        if (SphereOf(target) != empire) return false;
         handled = true;
         if (target == initiator) return false;
         if (target == empire.CoreKingdom && State(empire).era < Warring) return false;
@@ -161,8 +206,8 @@ public static class ZhouEraSystem
     public static void OnCapitalTaken(City city, Kingdom loser, Kingdom winner)
     {
         if (_annexing || city == null || loser?.data == null || winner?.data == null || loser == winner) return;
-        Empire empire = winner.GetEmpire();
-        if (!Applies(empire) || loser.GetEmpire() != empire || State(empire).era < Spring) return;
+        Empire empire = SphereOf(winner);
+        if (empire == null || SphereOf(loser) != empire || State(empire).era < Spring) return;
         if (loser == empire.CoreKingdom) return;
         _annexing = true;
         try
@@ -190,14 +235,19 @@ public static class ZhouEraSystem
     public static void OnRoyalCapitalTaken(City city, Kingdom royal, Kingdom winner)
     {
         Empire empire = royal?.GetEmpire();
-        if (!Applies(empire) || empire.CoreKingdom != royal || winner?.data == null || winner.GetEmpire() != empire ||
+        if (!Applies(empire) || empire.CoreKingdom != royal || winner?.data == null || SphereOf(winner) != empire ||
             State(empire).era < Warring) return;
         string zhou = empire.GetEmpireName();
         Log(empire, string.Format(LM.Get("zhou_log_zhou_fell"), winner.GetKingdomName(), zhou));
         ZhouEraState carried = State(empire);
+        long oldId = empire.id;
         if (!empire.ReplaceEmpire(winner)) return;
         Empire successor = winner.GetEmpire();
         if (successor?.data == null) return;
+        // 各诸侯改奉代周者
+        winner.GetOrCreate().zhou_sphere_id = -1L;
+        foreach (Kingdom kingdom in World.world.kingdoms)
+            if (kingdom?.data != null && kingdom.GetOrCreate().zhou_sphere_id == oldId) kingdom.GetOrCreate().zhou_sphere_id = successor.id;
         successor.data.zhou = carried;
         carried.hegemon_id = -1L;
         carried.royal_capital_id = winner.capital?.id ?? -1L;
@@ -244,6 +294,8 @@ public static class ZhouEraSystem
     private static void Monthly(Empire empire, ZhouEraState state)
     {
         if (state.era < Spring) return;
+        // 战国：诸侯离开帝国(读档、新并入的诸侯也是)
+        if (state.era == Warring) Detach(empire);
         Kingdom core = empire.CoreKingdom;
         // 尊王：诸侯犯天子，霸主与诸侯共讨(加入天子一方)
         foreach (War war in core.getWars().ToList())
@@ -251,7 +303,7 @@ public static class ZhouEraSystem
             if (war == null || war.hasEnded()) continue;
             bool coreAttacker = war.isAttacker(core);
             Kingdom foe = coreAttacker ? war.main_defender : war.main_attacker;
-            if (foe == null || foe.GetEmpire() != empire) continue;
+            if (foe == null || SphereOf(foe) != empire) continue;
             if (state.era >= Warring) continue;
             foreach (Kingdom loyal in Loyalists(empire, state, foe).Take(3))
                 JoinSide(war, loyal, coreAttacker);
@@ -313,8 +365,8 @@ public static class ZhouEraSystem
             foreach (Kingdom vassal in Vassals(empire))
                 if (vassal.GetKingdomType() != KingdomType.ZhouFeudalism_jun)
                     vassal.GetRegime()?.SetAllowDiplomacy(true);
-        state.kings.RemoveAll(id => World.world.kingdoms.get(id)?.GetEmpire() != empire);
-        state.reforms.RemoveAll(id => World.world.kingdoms.get(id)?.GetEmpire() != empire);
+        state.kings.RemoveAll(id => SphereOf(World.world.kingdoms.get(id)) != empire);
+        state.reforms.RemoveAll(id => SphereOf(World.world.kingdoms.get(id)) != empire);
         switch (state.era)
         {
             case WesternZhou:
@@ -373,6 +425,7 @@ public static class ZhouEraSystem
         if (state.era >= Warring) return;
         state.era = Warring;
         state.era_since = World.world.getCurWorldTime();
+        Detach(empire);
         if (state.hegemon_id >= 0) Log(empire, LM.Get("zhou_log_hegemony_ends"));
         state.hegemon_id = -1L;
         Log(empire, LM.Get("zhou_log_warring"));
@@ -387,7 +440,7 @@ public static class ZhouEraSystem
     private static void SpringYear(Empire empire, ZhouEraState state)
     {
         Kingdom hegemon = World.world.kingdoms.get(state.hegemon_id);
-        bool valid = hegemon != null && !hegemon.isRekt() && hegemon.GetEmpire() == empire &&
+        bool valid = hegemon != null && !hegemon.isRekt() && SphereOf(hegemon) == empire &&
                      !hegemon.isInWarWith(empire.CoreKingdom) && !state.kings.Contains(hegemon.id) &&
                      Power(hegemon) >= 0.7f * Vassals(empire).Where(other => other != hegemon).Select(Power).DefaultIfEmpty(0).Max();
         if (!valid)
@@ -496,7 +549,7 @@ public static class ZhouEraSystem
             {
                 if (war == null || war.hasEnded() || !war.isAttacker(vassal)) continue;
                 Kingdom victim = war.main_defender;
-                if (victim == null || victim.GetEmpire() != empire || victim == empire.CoreKingdom) continue;
+                if (victim == null || SphereOf(victim) != empire || victim == empire.CoreKingdom) continue;
                 if (vassal == hegemon || victim == hegemon || state.kings.Contains(victim.id)) continue;
                 float chance = Power(victim) * 2 < Power(vassal) ? 0.5f : 0.25f;
                 if (Random.value > chance) continue;
@@ -661,7 +714,7 @@ public static class ZhouEraSystem
         }
         bool formed = state.coalition_target != strongest.id;
         if (formed) state.horizontal.Clear();
-        state.horizontal.RemoveAll(id => World.world.kingdoms.get(id)?.GetEmpire() != empire);
+        state.horizontal.RemoveAll(id => SphereOf(World.world.kingdoms.get(id)) != empire);
         // 连横：与独大之国接壤、国力不到它一成半的弱国，每年有一成可能依附于它(不入合纵，彼此不攻)
         foreach (Kingdom weak in realms.Where(kingdom => kingdom != strongest && kingdom != empire.CoreKingdom &&
                                                          !state.horizontal.Contains(kingdom.id) &&
@@ -686,7 +739,8 @@ public static class ZhouEraSystem
     // 天子(或代周者)直辖天下三分之二的城：称皇帝，改行郡县
     private static void TryUnify(Empire empire, ZhouEraState state)
     {
-        int total = empire.kingdoms_list.Where(kingdom => kingdom?.cities != null && !kingdom.isRekt())
+        // 天下 = 王畿、郡与诸侯(含战国离开帝国的)
+        int total = Vassals(empire).Append(empire.CoreKingdom).Distinct().Where(kingdom => kingdom?.cities != null && !kingdom.isRekt())
             .Sum(kingdom => kingdom.cities.Count);
         int core = empire.CoreKingdom?.cities?.Count ?? 0;
         if (total <= 0 || core * 3 < total * 2) return;
@@ -696,6 +750,9 @@ public static class ZhouEraSystem
     public static void Unify(Empire empire, ZhouEraState state)
     {
         Kingdom core = empire.CoreKingdom;
+        // 战国离开帝国的诸侯从此各自独立(要靠征伐一统)
+        foreach (Kingdom kingdom in Vassals(empire).Where(IsDetachedVassal).ToList())
+            kingdom.GetOrCreate().zhou_sphere_id = -1L;
         state.era = Unified;
         state.era_since = World.world.getCurWorldTime();
         foreach (Kingdom kingdom in empire.kingdoms_list.ToList())
@@ -738,7 +795,7 @@ public static class ZhouEraSystem
                 {
                     City royal = empire.CoreKingdom.capital;
                     OnRoyalCapitalTaken(royal, empire.CoreKingdom, strongest);
-                    empire = strongest.GetEmpire();
+                    empire = SphereOf(strongest);
                     if (!Applies(empire)) return;
                 }
                 Unify(empire, State(empire));

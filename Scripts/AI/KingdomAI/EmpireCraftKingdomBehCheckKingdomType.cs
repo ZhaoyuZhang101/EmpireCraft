@@ -416,6 +416,8 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
     {
         var regime = kingdom.GetRegime();
         if (regime == null) return KingdomType.LvLing_kingdom;
+        // 战国离开帝国的周诸侯：爵位照旧(见 ZhouEraSystem.Detach)
+        if (ZhouEraSystem.IsDetachedVassal(kingdom)) return kingdom.GetOrCreate().kingdomType;
         // 军府(节度使、都护府)世袭之后仍是藩镇：照旧称"某某军"，不因父死子继改成封国
         if (IsHereditaryGarrison(kingdom, regime)) return kingdom.GetOrCreate().kingdomType;
         // A hereditary landed title is a vassal kingdom, never an administrative

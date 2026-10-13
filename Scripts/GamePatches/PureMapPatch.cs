@@ -78,13 +78,16 @@ public class PureMapPatch : GamePatch
 
     private static readonly Color32 EmpireGold = new(232, 184, 64, 255);
 
-    // 帝国对外的边画成金色：原版画完这块地后，把对面不是本帝国的那几条边重新涂一遍
+    // 帝国对外的边画成金色(纯净地图模式)：原版画完这块地后，把对面不是本帝国的那几条边重新涂一遍。
+    // 战国的周室(王畿连同离开帝国的诸侯)在任何地图模式都画，而且加粗一格，用来看出是不是同一个势力
     private static void AfterApplyColors(ZoneCalculator __instance, TileZone pZone, bool pUp, bool pDown, bool pLeft, bool pRight)
     {
-        if (!PureMapMode.Enabled || pZone?.tiles == null || __instance.pixels == null) return;
+        if (pZone?.tiles == null || __instance.pixels == null) return;
         Kingdom kingdom = pZone.city?.kingdom;
         if (kingdom == null || World.world.getCachedMapMetaAsset()?.map_mode != MetaType.Kingdom) return;
-        Empire empire = kingdom.GetEmpire();
+        Empire sphere = ZhouEraSystem.SphereOf(kingdom);
+        bool bold = sphere != null && ZhouEraSystem.Era(sphere) >= ZhouEraSystem.Warring;
+        Empire empire = bold ? sphere : PureMapMode.Enabled ? kingdom.GetEmpire() : null;
         if (empire == null) return;
         bool up = pUp && Outside(pZone.zone_up, empire), down = pDown && Outside(pZone.zone_down, empire);
         bool left = pLeft && Outside(pZone.zone_left, empire), right = pRight && Outside(pZone.zone_right, empire);
@@ -94,13 +97,32 @@ public class PureMapPatch : GamePatch
         {
             WorldTileZoneBorder border = tile?.world_tile_zone_border;
             if (border == null || !border.border) continue;
-            if (up && border.border_up || down && border.border_down || left && border.border_left || right && border.border_right)
-                pixels[tile.data.tile_id] = EmpireGold;
+            bool onUp = up && border.border_up, onDown = down && border.border_down;
+            bool onLeft = left && border.border_left, onRight = right && border.border_right;
+            if (!onUp && !onDown && !onLeft && !onRight) continue;
+            pixels[tile.data.tile_id] = EmpireGold;
+            if (!bold) continue;
+            // 加粗：往里再涂一格
+            Paint(pixels, onUp ? tile.tile_down : null, pZone);
+            Paint(pixels, onDown ? tile.tile_up : null, pZone);
+            Paint(pixels, onLeft ? tile.tile_right : null, pZone);
+            Paint(pixels, onRight ? tile.tile_left : null, pZone);
         }
     }
 
-    private static bool Outside(TileZone zone, Empire empire) =>
-        zone?.city?.kingdom == null || zone.city.kingdom.GetEmpire() != empire;
+    private static void Paint(Color32[] pixels, WorldTile tile, TileZone zone)
+    {
+        if (tile?.data == null || tile.zone != zone || tile.data.tile_id < 0 || tile.data.tile_id >= pixels.Length) return;
+        pixels[tile.data.tile_id] = EmpireGold;
+    }
+
+    // 对面不是同一势力：周室按 SphereOf 算(王畿、郡与离开帝国的诸侯是一家)，其余按帝国
+    private static bool Outside(TileZone zone, Empire empire)
+    {
+        Kingdom other = zone?.city?.kingdom;
+        if (other == null) return true;
+        return (ZhouEraSystem.SphereOf(other) ?? other.GetEmpire()) != empire;
+    }
 
     // 鼠标只认得船
     private static void AfterActorNearCursor(ref Actor __result)

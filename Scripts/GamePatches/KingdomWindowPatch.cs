@@ -92,6 +92,11 @@ public class KingdomWindowPatch: GamePatch
                 fiscal.cash_balance), fiscal.cash_balance >= 0 ? "#66D98A" : "#E66B66", pIconPath: "iconMoney");
             __instance.showStatRow("fiscal_available", EmpireCraft.Scripts.HelperFunc.MoneyDisplay.Format(
                 EmpireCraft.Scripts.GeneralSystems.StateSettlementSystem.DiscretionaryBalance(metaObject)), "#43FF43", pIconPath: "iconMoney");
+            // 战国离开帝国的周诸侯：标"某诸侯国"
+            if (EmpireCraft.Scripts.GeneralSystems.ZhouEraSystem.IsDetachedVassal(metaObject))
+                __instance.showStatRow("zhou_vassal", string.Format(NeoModLoader.General.LM.Get("zhou_vassal_tag"),
+                        EmpireCraft.Scripts.GeneralSystems.ZhouEraSystem.SphereOf(metaObject).GetEmpireName()), "#D9B36A",
+                    pIconPath: "iconKings");
             Kingdom feudalLord = EmpireCraft.Scripts.GeneralSystems.FeudalVassalService.GetOverlord(metaObject);
             if (feudalLord != null)
                 __instance.showStatRow("feudal_overlord", string.Format(NeoModLoader.General.LM.Get("feudal_overlord_format"),

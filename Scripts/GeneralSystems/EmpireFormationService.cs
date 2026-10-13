@@ -334,6 +334,8 @@ public static class EmpireFormationService
     {
         if (kingdom == null || kingdom.isRekt()) return false;
         if (Compatibility.AncientWarfareCompatibility.BlocksEmpireFormation(kingdom)) return false;
+        // 战国的周诸侯只称王，不另行称帝(统一后才各自独立)
+        if (ZhouEraSystem.IsDetachedVassal(kingdom)) return false;
         if (EmpireCraftWorldLawLibrary.empirecraft_law_ban_empire.isEnabled()) return false;
         if (requireNonNegativeTreasury && kingdom.GetMoney() < 0) return false;
         if (!kingdom.hasKing() || kingdom.king == null || kingdom.king.isRekt()) return false;

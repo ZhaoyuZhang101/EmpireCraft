@@ -28,8 +28,8 @@ public class ZhouEraPatch : GamePatch
     {
         if (!pCaptured || !__state.capital || __state.owner?.data == null || __instance?.kingdom == null ||
             __instance.kingdom == __state.owner || __instance.kingdom != pNewSetKingdom) return;
-        var empire = __state.owner.GetEmpire();
-        if (!ZhouEraSystem.Applies(empire)) return;
+        var empire = ZhouEraSystem.SphereOf(__state.owner);
+        if (empire == null) return;
         ZhouEraSystem.QueueCapitalTaken(__instance, __state.owner, pNewSetKingdom, empire.CoreKingdom == __state.owner);
     }
 }

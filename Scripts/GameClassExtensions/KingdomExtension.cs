@@ -267,6 +267,8 @@ public static class KingdomExtension
         public long war_commander_id = -1L;
         public string war_commander_title = "";
         // 粮草官、就地征粮截止时间、上月军粮需求与缺口(见 LogisticsSystem)
+        // 战国时离开帝国的周诸侯：所属周室(帝国 id，见 ZhouEraSystem.SphereOf)
+        public long zhou_sphere_id = -1L;
         public long war_quartermaster_id = -1L;
         public string war_quartermaster_title = "";
         public double forage_until = -1d;
