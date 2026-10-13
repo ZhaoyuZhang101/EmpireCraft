@@ -5,8 +5,8 @@ using NeoModLoader.api;
 namespace EmpireCraft.Scripts.GamePatches;
 
 // 宣战只能就近：原版给独立王国挑宣战目标(DiplomacyHelpers.getWarTarget)只找"最近的、比自己弱的、可达的"国家，
-// 不要求接壤，近处没有合适目标时就会远距离宣战。这里要求目标与本国(或本国所在帝国)接壤：
-// 原版挑中的目标不接壤时，按原版同样的条件改从接壤的国家里挑；接壤的没有合适的就不宣战。
+// 不要求接壤，近处没有合适目标时就会远距离宣战。这里要求目标与本国(或本国所在帝国)接壤或隔海相望(见 StraitReach)：
+// 原版挑中的目标不近、或原版没挑出目标(隔海的小岛陆路不可达，原版不挑)时，按原版同样的条件改从近邻里挑；没有合适的就不宣战。
 // (帝国与帝国成员的宣战走 EmpireCraftPlotsAddition.GetWarTarget，本来就要求接壤)
 public class WarTargetPatch : GamePatch
 {
@@ -21,14 +21,13 @@ public class WarTargetPatch : GamePatch
 
     private static void only_neighbours(Kingdom pInitiatorKingdom, ref Kingdom __result)
     {
-        if (pInitiatorKingdom == null || __result == null) return;
+        if (pInitiatorKingdom == null) return;
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(pInitiatorKingdom)) return;
-        if (IsNeighbour(pInitiatorKingdom, __result)) return;
+        if (__result != null && IsNeighbour(pInitiatorKingdom, __result)) return;
         __result = NearestNeighbourTarget(pInitiatorKingdom);
     }
 
-    private static bool IsNeighbour(Kingdom initiator, Kingdom target) =>
-        initiator.IsNeighbourWith(target) || initiator.GetEmpire()?.IsNeighbourWith(target) == true;
+    private static bool IsNeighbour(Kingdom initiator, Kingdom target) => GeneralSystems.StraitReach.Near(initiator, target);
 
     // 与原版 getWarTarget 相同的条件，只是限定接壤
     private static Kingdom NearestNeighbourTarget(Kingdom initiator)
@@ -44,7 +43,8 @@ public class WarTargetPatch : GamePatch
                 target.getAge() < SimGlobals.m.minimum_kingdom_age_for_attack || !IsNeighbour(initiator, target))
                 continue;
             int theirs = target.hasAlliance() ? target.getAlliance().countWarriors() : target.countTotalWarriors();
-            if (ours < theirs || !initiator.capital.reachableFrom(target.capital) ||
+            if (ours < theirs ||
+                !initiator.capital.reachableFrom(target.capital) && !GeneralSystems.StraitReach.Across(initiator, target) ||
                 Date.getYearsSince(DiplomacyHelpers.diplomacy.getRelation(initiator, target).data.timestamp_last_war_ended) <
                 SimGlobals.m.minimum_years_between_wars ||
                 initiator.isOpinionTowardsKingdomGood(target))

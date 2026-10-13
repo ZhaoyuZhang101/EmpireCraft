@@ -2763,7 +2763,7 @@ namespace EmpireCraft.Scripts.AI
             if (initiator?.capital == null || target?.capital == null || initiator == target ||
                 !target.isAlive() ||
                 !target.hasCities() || target.getAge() < SimGlobals.m.minimum_kingdom_age_for_attack ||
-                !initiator.capital.reachableFrom(target.capital))
+                !initiator.capital.reachableFrom(target.capital) && !StraitReach.Across(initiator, target))
                 return false;
             double lastWarEnded = DiplomacyHelpers.diplomacy?.getRelation(initiator, target)
                 ?.data?.timestamp_last_war_ended ?? -1d;
@@ -2780,8 +2780,8 @@ namespace EmpireCraft.Scripts.AI
             if (initiator.HasGivenAlliance() &&
                 target == initiator.GetGivenAllianceEmpire()?.CoreKingdom &&
                 !initiator.NeedToRemoveGivenAlliance()) return false;
-            bool neighbours = initiator.IsNeighbourWith(target) ||
-                              empire?.IsNeighbourWith(target) == true;
+            // 接壤或隔海相望(见 StraitReach)
+            bool neighbours = StraitReach.Near(initiator, target);
             return neighbours && FeudalVassalService.CanDeclareExternalWar(initiator, target);
         }
 
@@ -2792,7 +2792,7 @@ namespace EmpireCraft.Scripts.AI
                 !target.isAlive() || target.IsInSameEmpire(initiator)) return false;
             Empire empire = initiator.GetEmpire();
             if (empire == null || empire.IsArchived() || empire.isRekt() ||
-                !empire.IsNeighbourWith(target)) return false;
+                !empire.IsNeighbourWith(target) && !StraitReach.Across(initiator, target)) return false;
             if (target.GetGivenAllianceEmpire() == empire || target.GetTakenAllianceEmpire() == empire)
                 return false;
             return FeudalVassalService.CanDeclareExternalWar(initiator, target,

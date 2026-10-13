@@ -83,7 +83,8 @@ public class TempFac_谋求统一 : TemporaryFaction
                 }
             };
             if (kingdom.IsInEmpire()) continue;
-            if (empire.IsNeighbourWith(kingdom))
+            // 接壤或隔海相望(见 StraitReach)
+            if (empire.IsNeighbourWith(kingdom) || StraitReach.Across(empire.CoreKingdom, kingdom))
             {
                 if (kingdom.species_id == empire.CoreKingdom.species_id)
                 {

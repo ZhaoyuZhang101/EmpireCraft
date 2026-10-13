@@ -41,7 +41,8 @@ public class TempFac_对外扩张 : TemporaryFaction
             if (empire.given_Kingdoms.Contains(kingdom)) continue;
             if (empire.taken_Kingdoms.Contains(kingdom)) continue;
             if (kingdom.IsInEmpire()) continue;
-            if (empire.IsNeighbourWith(kingdom))
+            // 接壤或隔海相望(见 StraitReach)
+            if (empire.IsNeighbourWith(kingdom) || EmpireCraft.Scripts.GeneralSystems.StraitReach.Across(empire.CoreKingdom, kingdom))
             {
                 if (kingdom.species_id != empire.CoreKingdom.species_id)
                 {

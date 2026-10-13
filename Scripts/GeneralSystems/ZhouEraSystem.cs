@@ -103,7 +103,10 @@ public static class ZhouEraSystem
     {
         if (!Applies(empire) || empire.CoreKingdom == null) return null;
         int royal = empire.countWarriors();
+        // 接壤或隔海相望(见 StraitReach)
         return empire.GetKingdomNeighbours()
+            .Concat(World.world.kingdoms.list.Where(kingdom => Unsubmitted(empire, kingdom) && StraitReach.Across(empire.CoreKingdom, kingdom)))
+            .Distinct()
             .Where(kingdom => Unsubmitted(empire, kingdom) && !kingdom.IsLocalRebelling() && !kingdom.IsFactionRebelling() &&
                               !kingdom.isInWarWith(empire.CoreKingdom) && kingdom.countTotalWarriors() < royal)
             .OrderBy(kingdom => kingdom.countTotalWarriors()).FirstOrDefault();
