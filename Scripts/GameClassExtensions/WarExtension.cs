@@ -101,6 +101,8 @@ public static class WarExtension
         // sides contain several independent political blocs. These fields keep
         // the announcement and settlement idempotent across saves.
         public bool world_war;
+        // 纯净地图模式的核打击(见 NuclearDoctrineSystem.VirtualStrike)：这场战争里已挨过核弹的敌国，每国只用一次
+        public List<long> nuclear_struck_kingdom_ids = new List<long>();
         public bool world_war_end_recorded;
         public double world_war_last_check = -1d;
         public int world_war_bloc_count;

@@ -124,6 +124,7 @@ public static class CorpsSystem
         Paths.Clear();
         PureMapMode.ResetWorldState();
         CorpsArmSystem.ResetWorldState();
+        VirtualIndustrySystem.ResetWorldState();
         WarScopeSystem.ResetWorldState();
         FrontSystem.ResetWorldState();
         WarReadinessSystem.ResetWorldState();

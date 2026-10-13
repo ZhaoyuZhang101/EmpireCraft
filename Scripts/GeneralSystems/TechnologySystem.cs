@@ -641,6 +641,15 @@ public static class TechnologySystem
     {
         if (tech.id == SettlementSeaSearch.OceanNavigationTech)
             yield return (LM.Get("tech_unlock_ocean_settlement"), true, "EmpireCraft");
+        // 本模组的兵种(见 CorpsArmSystem)
+        foreach (CorpsArmSystem.Arm arm in CorpsArmSystem.UnlockedBy(tech.id))
+            yield return (string.Format(LM.Get("tech_unlock_arm"), CorpsArmSystem.Name(arm)), true, "EmpireCraft");
+        // 纯净地图模式：没装模组的工厂、核武器都虚拟结算，缺了模组的枪械、载具、建筑也不再列为缺失
+        bool virtualContent = PureMapMode.Enabled;
+        int factories = VirtualIndustrySystem.VirtualUnlocks(tech);
+        if (factories > 0) yield return (string.Format(LM.Get("tech_unlock_virtual_factory"), factories), true, "EmpireCraft");
+        if (virtualContent && tech.id == "nuclear_fission")
+            yield return (LM.Get("tech_unlock_virtual_nuke"), true, "EmpireCraft");
         foreach (string material in tech.unlock_materials)
             yield return (string.Format(LM.Get("tech_unlock_material"), LM.Get($"tech_material_{material}")), true,
                 GetContentSource(material, "material"));
@@ -650,6 +659,7 @@ public static class TechnologySystem
             ItemAsset asset = TechnologyContentRules.FindAsset(item,
                 id => AssetManager.items?.get(id), AssetManager.items?.list, asset => asset.id);
             if (asset != null && !seenItems.Add(asset.id)) continue;
+            if (asset == null && virtualContent) continue;
             yield return (asset != null ? asset.getTranslatedName() : item, asset != null,
                 GetContentSource(asset?.id ?? item, "item"));
         }
@@ -659,6 +669,7 @@ public static class TechnologySystem
             ActorAsset asset = TechnologyContentRules.FindAsset(unit,
                 id => AssetManager.actor_library?.get(id), AssetManager.actor_library?.list, asset => asset.id);
             if (asset != null && !seenUnits.Add(asset.id)) continue;
+            if (asset == null && virtualContent) continue;
             yield return (asset != null ? string.Format(LM.Get("tech_unlock_unit"), asset.getTranslatedName()) : unit,
                 asset != null, GetContentSource(asset?.id ?? unit, "unit"));
         }
@@ -669,6 +680,7 @@ public static class TechnologySystem
             BuildingAsset sample = AssetManager.buildings?.list.FirstOrDefault(asset =>
                 asset != null && !string.IsNullOrEmpty(asset.id) && regex.IsMatch(asset.id));
             if (sample != null && !seenBuildings.Add(sample.id)) continue;
+            if (sample == null && virtualContent) continue;
             string label = sample != null
                 ? string.Format(LM.Get("tech_unlock_building"), DescribeBuilding(sample))
                 : pattern;

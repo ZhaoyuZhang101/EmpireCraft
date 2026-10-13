@@ -203,5 +203,25 @@ public static class CorpsArmSystem
     // 兵牌图标(Tools/IconForge/ship_forge.py 的 ARMS)
     public static string IconPath(Arm arm) => "ui/icons/corps/arm_" + arm.ToString().ToLowerInvariant();
 
+    // 科技窗口：这项技术让本文化新成军时可以有哪些兵种
+    public static IEnumerable<Arm> UnlockedBy(string techId)
+    {
+        switch (techId)
+        {
+            case "bronze_casting": yield return Arm.Chariot; break;
+            case "ironworking": yield return Arm.Cavalry; break;
+            case "matchlock": yield return Arm.Musket; break;
+            case "rifling": yield return Arm.Rifle; break;
+            case "gunpowder": yield return Arm.Artillery; break;
+            case "motorization": yield return Arm.Mechanized; break;
+            case "armored_warfare": yield return Arm.Tank; break;
+            case "aviation": yield return Arm.Helicopter; break;
+            case "strategic_aviation":
+                yield return Arm.Fighter;
+                yield return Arm.Bomber;
+                break;
+        }
+    }
+
     public static void ResetWorldState() => Mixes.Clear();
 }

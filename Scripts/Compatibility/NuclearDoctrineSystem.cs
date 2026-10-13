@@ -16,6 +16,7 @@ namespace EmpireCraft.Scripts.Compatibility;
 // 而本模组的战争节奏快得多(战争消耗、受降、开国速攻)，几乎等不到那一天。
 // 这里按战局的危急程度替 AI 决策，决定动用后调用 WarBox 自己的核打击流程
 // (NuclearStrikeSystem.TryPlayerNuclearStrike：照常花费国库、长期准备、每场战争对同一敌国只用一次)。
+// 纯净地图模式不靠 WarBox：人物、建筑都是数据，核打击自己结算(见 VirtualStrike)，没装 WarBox 也有核武器。
 //
 // 每年对每个掌握核裂变技术、正在打仗的国家评估一次"危急度"：
 //   战争已打满 10 年 +1；敌军兵力达到本国 1.5 倍 +1；本国城市不到敌国一半 +1；
@@ -64,7 +65,7 @@ public static class NuclearDoctrineSystem
 
     public static void TryYearlyScan()
     {
-        if (World.world?.kingdoms == null || ModClass.IS_CLEAR || TryStrike == null) return;
+        if (World.world?.kingdoms == null || ModClass.IS_CLEAR || !Available) return;
         double now = World.world.getCurWorldTime();
         if (!ReferenceEquals(_scanWorld, World.world) || now < _lastScan)
         {
@@ -95,8 +96,8 @@ public static class NuclearDoctrineSystem
         }
     }
 
-    // 装了 WarBox(有核打击可用)时核武器才存在
-    public static bool Available => TryStrike != null;
+    // 装了 WarBox(有核打击可用)，或纯净地图模式(核打击自己结算)时核武器才存在
+    public static bool Available => TryStrike != null || PureMapMode.Enabled;
 
     // 帝国成员按帝国核心是否有核
     private static Kingdom Realm(Kingdom kingdom) =>
@@ -162,6 +163,7 @@ public static class NuclearDoctrineSystem
         if (kingdom.IsInEmpire() && !kingdom.IsEmpire()) return;
 
         Kingdom target = null;
+        War targetWar = null;
         int best = int.MinValue;
         foreach (War war in kingdom.getWars().Where(war => war != null && !war.hasEnded()))
         {
@@ -172,12 +174,61 @@ public static class NuclearDoctrineSystem
             {
                 best = score;
                 target = enemy;
+                targetWar = war;
             }
         }
         if (target == null || best < Threshold || UnityEngine.Random.value >= YearlyChance) return;
+        if (PureMapMode.Enabled || TryStrike == null)
+        {
+            VirtualStrike(kingdom, target, targetWar);
+            return;
+        }
         object[] args = { kingdom, target, null, 0 };
         TryStrike.Invoke(null, args);
     }
+
+    // 纯净地图模式的核打击：花国库 VirtualNukeCost，同一场战争对同一敌国只用一次；
+    // 落在敌国人口与兵力最集中的城——城中七成人口罹难，驻在城里的各军折损七成、组织度清零，接壤的城再死两成
+    private const int VirtualNukeCost = 3000;
+    private const float GroundZeroDeaths = 0.7f, FalloutDeaths = 0.2f, CorpsLoss = 0.7f;
+
+    private static void VirtualStrike(Kingdom kingdom, Kingdom target, War war)
+    {
+        if (war?.data == null || kingdom.GetMoney() < VirtualNukeCost) return;
+        var data = war.GetOrCreate();
+        data.nuclear_struck_kingdom_ids ??= new List<long>();
+        if (data.nuclear_struck_kingdom_ids.Contains(target.id)) return;
+        var stationed = new Dictionary<long, float>();
+        foreach ((Kingdom owner, Data.CorpsData corps) in CorpsSystem.All())
+        {
+            City at = corps.zone_id >= 0 ? CorpsSystem.Zone(corps)?.city : null;
+            if (owner == target && at != null) stationed[at.id] = stationed.TryGetValue(at.id, out float sum) ? sum + corps.strength : corps.strength;
+        }
+        City city = target.cities.Where(candidate => candidate?.data != null && !candidate.isRekt())
+            .OrderByDescending(candidate => CityPopulationSystem.Households(candidate) +
+                                            (stationed.TryGetValue(candidate.id, out float strength) ? strength * 0.05f : 0f))
+            .FirstOrDefault();
+        if (city == null) return;
+        kingdom.SubMoney(VirtualNukeCost, TreasuryCategory.Military);
+        data.nuclear_struck_kingdom_ids.Add(target.id);
+        int dead = ScorchedEarthSystem.Kill(city, GroundZeroDeaths);
+        foreach (City neighbour in city.neighbours_cities.ToList())
+            if (neighbour?.data != null && !neighbour.isRekt()) dead += ScorchedEarthSystem.Kill(neighbour, FalloutDeaths);
+        var zones = new HashSet<int>(city.zones.Where(zone => zone != null).Select(zone => zone.id));
+        foreach ((Kingdom _, Data.CorpsData corps) in CorpsSystem.All().ToList())
+        {
+            if (!zones.Contains(corps.zone_id)) continue;
+            CorpsSystem.Casualties(corps, corps.strength * CorpsLoss);
+            corps.org = 0f;
+        }
+        string text = string.Format(LM.Get("nuclear_virtual_strike"), kingdom.GetKingdomName(), target.GetKingdomName(),
+            city.GetCityName(), UIHelperShort(dead));
+        TranslateHelper.LogEventMessage(text, kingdom);
+        FrontSystem.Log(kingdom, text);
+        FrontSystem.Log(target, text);
+    }
+
+    private static string UIHelperShort(int value) => EmpireCraft.Scripts.UI.Components.UIHelper.ShortCount(value);
 
     #region 施压弃核
 
