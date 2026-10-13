@@ -258,6 +258,8 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
         if (pKingdom.GetRegime()?.type == RegimeType.Modern) return false;
         // 本文化已废除君主制：不再有人称帝
         if (CultureAbolishedMonarchy(pKingdom)) return false;
+        // 周制下一个文化只有一个正统核心：本文化已有周制王朝时，别国不能称帝(只能受封为诸侯，战国称王)
+        if (ZhouEraSystem.BlocksRivalEmpire(pKingdom)) return false;
         if (repairMainTitle && pKingdom.hasKing() && !pKingdom.HasMainTitle() &&
             !pKingdom.IsEmpire() && !pKingdom.IsInEmpire())
         {

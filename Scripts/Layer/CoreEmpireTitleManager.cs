@@ -298,8 +298,9 @@ public static class EmpireCoreManager
     public static string GetStatusDisplayName(EmpireCore core)
     {
         string name = GetDisplayName(core);
-        // 伪核心不会因为原正统国家灭亡、解除对手关系或关闭法理冻结而转正。
-        // 胜利者取得正统时会销毁该对象并改绑到已有正规核心。
+        // 伪核心不会仅因原正统国家灭亡、解除对手关系或关闭法理冻结而转正：胜利者取得正统时，
+        // 或正统国家已亡而僭越者据有正规核心过半时(ImperialLegitimacyChallengeService.TryLegitimizeFalseCore)，
+        // 会销毁该对象并改绑到已有正规核心。
         return core?.false_core_against_empire_id > 0
             ? $"{name} ({LM.Get("empire_core_false")})"
             : name;

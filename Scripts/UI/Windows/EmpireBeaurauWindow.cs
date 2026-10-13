@@ -575,7 +575,7 @@ public partial class EmpireBeaurauWindow : AbstractWideWindow<EmpireBeaurauWindo
         return BuildNode(officeName, titleHex, officer,
             (vacant ? LM.Get("office_vacant") : officer.data.name).ColorString(vacant ? "#8FA0A8" : "#F2EEE2"),
             rankLine, footer, $"office_{oid}", string.Join("\n", tip),
-            () => ChangeOfficer(officeObject), highlight: false, onClick: openKingdom);
+            () => ChangeOfficer(officeObject), highlight: false, onClick: openKingdom, warOf: province);
     }
 
     // 金字塔顶端的君主
@@ -770,7 +770,7 @@ public partial class EmpireBeaurauWindow : AbstractWideWindow<EmpireBeaurauWindo
     // 用绝对坐标摆放，不走布局组——布局组在这么小的卡片里总是把文字挤到一角。
     private GameObject BuildNode(string title, string titleHex, Actor actor, string nameLine, string rankLine,
         string footerLine, string tipKey, string tipBody, UnityAction onChange, bool highlight,
-        UnityAction onClick = null)
+        UnityAction onClick = null, Kingdom warOf = null)
     {
         var root = new GameObject("OfficeNode", typeof(RectTransform), typeof(CanvasGroup));
         var rect = root.GetComponent<RectTransform>();
@@ -814,6 +814,8 @@ public partial class EmpireBeaurauWindow : AbstractWideWindow<EmpireBeaurauWindo
             button.transition = Selectable.Transition.None;
             button.onClick.AddListener(onClick);
         }
+        // 行政区正在打仗：左上角挂战争图标，点开看战争详情(见 WarBadge)
+        UI.Components.WarBadge.Place(rect, warOf, new Vector2(-NodeWidth / 2f + 8f, NodeHeight / 2f - 17f), 9f);
         UIHelper.AttachTextTooltip(root, $"bureau_{tipKey}", title, tipBody);
         pool.Add(root);
         return root;

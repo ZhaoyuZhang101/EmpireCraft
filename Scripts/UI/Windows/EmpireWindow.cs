@@ -1095,13 +1095,15 @@ namespace EmpireCraft.Scripts.UI.Windows
 
         private void AddDependencyRow(EmpireCraftStatsRow rows, Kingdom kingdom, string value, string name = null)
         {
-            rows.IShowStatsRow(name ?? kingdom.GetKingdomName(), value, kingdom.getColor().color_text,
-                pIconPath: "iconKings", action: () =>
+            // 正在打仗的国家行首换成战争图标，点图标看战争详情(见 WarBadge)；点行打开国家窗口
+            KeyValueField field = rows.IShowStatsRow(name ?? kingdom.GetKingdomName(), value, kingdom.getColor().color_text,
+                pIconPath: WarBadge.IconFor(kingdom, "iconKings"), action: () =>
                 {
                     if (kingdom == null || kingdom.isRekt()) return;
                     SelectedMetas.selected_kingdom = kingdom;
                     ScrollWindow.showWindow("kingdom");
                 });
+            WarBadge.Bind(field, kingdom);
         }
 
         // 朝贡年贡估计(与 StartToTaken 同口径：户数的一半；财政下实缴受国库限制，这里是名义值)

@@ -79,7 +79,9 @@ public static class ZhouPanel
         foreach (Kingdom vassal in vassals.Take(MaxRows))
         {
             var row = card.BeginHoriGroup(new Vector2(inner, 12f), TextAnchor.MiddleLeft, 2, new RectOffset(0, 0, 0, 0));
-            var name = row.AddTextIntoHoriLayout(vassal.GetKingdomName(), true, TextAnchor.MiddleLeft, new Vector2(W(0), 12f));
+            // 正在打仗的诸侯名前挂战争图标，点开看战争详情(见 WarBadge)
+            float badge = WarBadge.Add(row.transform, vassal, 9f) ? 11f : 0f;
+            var name = row.AddTextIntoHoriLayout(vassal.GetKingdomName(), true, TextAnchor.MiddleLeft, new Vector2(W(0) - badge, 12f));
             name.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
             HoverMarqueeText.Attach(name);
             row.AddTextIntoHoriLayout(Rank(vassal).ColorString("#E9A85B"), true, TextAnchor.MiddleLeft, new Vector2(W(1), 12f))

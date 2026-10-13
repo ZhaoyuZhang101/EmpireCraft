@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using EmpireCraft.Scripts.Data;
+using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.Regimes;
@@ -71,6 +72,52 @@ public static class ZhouEraSystem
         if (id < 0 || ModClass.EMPIRE_MANAGER == null) return null;
         Empire sphere = ModClass.EMPIRE_MANAGER.get(id);
         return Applies(sphere) && State(sphere).era >= Warring ? sphere : null;
+    }
+
+    // 周制下一个文化只有一个天下共主：本文化的周制王朝(没有返回 null)
+    public static Empire RealmOfCulture(string culture)
+    {
+        if (!CultureService.IsValidCulture(culture) || ModClass.EMPIRE_MANAGER == null) return null;
+        return ModClass.EMPIRE_MANAGER.FirstOrDefault(empire => Applies(empire) &&
+            string.Equals(CultureService.GetEmpireDefaultCulture(empire), culture, StringComparison.Ordinal));
+    }
+
+    // 本文化已有周制王朝、这国又不是它的王畿：不能另行称帝或发动正统之争，天下只有一个正统核心。
+    // 这样的国家只能受封为诸侯(春秋战国照样可以称王)；取周而代之要攻下王畿(见 Unified)
+    public static bool BlocksRivalEmpire(Kingdom kingdom)
+    {
+        if (kingdom?.data == null) return false;
+        Empire realm = RealmOfCulture(CultureService.GetRealmCulture(kingdom));
+        return realm != null && realm.CoreKingdom != kingdom;
+    }
+
+    // 不服王化：与周室同文化，却不在周室之内(不是成员、也不是战国离开帝国的诸侯)、也没向别国称臣纳贡的独立之国
+    public static bool Unsubmitted(Empire empire, Kingdom kingdom) =>
+        Applies(empire) && kingdom?.data != null && !kingdom.isRekt() && kingdom != empire.CoreKingdom &&
+        SphereOf(kingdom) == null && !kingdom.IsInEmpire() && !kingdom.IsEmpire() && !kingdom.HasTakenAlliance() &&
+        string.Equals(CultureService.GetRealmCulture(kingdom), CultureService.GetEmpireDefaultCulture(empire),
+            StringComparison.Ordinal);
+
+    // 天子兴师讨伐的不服王化之国：与王畿接壤、兵力不及王师的，先挑最弱的
+    public static Kingdom SubdueTarget(Empire empire)
+    {
+        if (!Applies(empire) || empire.CoreKingdom == null) return null;
+        int royal = empire.countWarriors();
+        return empire.GetKingdomNeighbours()
+            .Where(kingdom => Unsubmitted(empire, kingdom) && !kingdom.IsLocalRebelling() && !kingdom.IsFactionRebelling() &&
+                              !kingdom.isInWarWith(empire.CoreKingdom) && kingdom.countTotalWarriors() < royal)
+            .OrderBy(kingdom => kingdom.countTotalWarriors()).FirstOrDefault();
+    }
+
+    // 讨伐不服王化之战：攻下其都城即迫其称臣、受封为诸侯(见 FeudalConquestService.TryResolveCapitalConquest)，
+    // 不按吞并、割地议和(见 WarGoalSystem.OwnEnding)
+    public static void MarkSubdueWar(War war, Empire empire, Kingdom target)
+    {
+        if (war?.data == null || empire == null || target == null) return;
+        war.SetEmpireWarType(EmpireWarType.征伐不服);
+        string royal = EmpireCraft.Scripts.GameLibrary.EmpireCraftNamePlateLibrary.GetDisplayName(empire.CoreKingdom);
+        war.data.name = string.Format(LM.Get("zhou_subdue_war_name"),
+            string.IsNullOrWhiteSpace(royal) ? empire.GetEmpireName() : royal, target.GetKingdomName());
     }
 
     // 战国时离开帝国的周诸侯

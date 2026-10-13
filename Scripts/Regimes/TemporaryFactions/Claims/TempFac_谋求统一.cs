@@ -1,6 +1,7 @@
 using System.Linq;
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.GeneralSystems;
 using EmpireCraft.Scripts.Layer;
 using NeoModLoader.services;
 
@@ -25,10 +26,12 @@ public class TempFac_谋求统一 : TemporaryFaction
         Kingdom kingdom = GetKingdomTarget();
         if (kingdom != null)
         {
-            var war = World.world.diplomacy.startWar(GetEmpire().CoreKingdom, kingdom, WarTypeLibrary.normal);
+            Empire empire = GetEmpire();
+            var war = World.world.diplomacy.startWar(empire.CoreKingdom, kingdom, WarTypeLibrary.normal);
             if (war != null)
             {
-                war.SetEmpireWarType(EmpireWarType.统一);
+                if (ZhouEraSystem.Applies(empire)) ZhouEraSystem.MarkSubdueWar(war, empire, kingdom);
+                else war.SetEmpireWarType(EmpireWarType.统一);
             }
         }
         CountDown = 5;
@@ -39,6 +42,15 @@ public class TempFac_谋求统一 : TemporaryFaction
     {
         Empire empire = GetEmpire();
         if (empire?.CoreKingdom?.hasEnemies()??true) return false;
+        // 周制没有统一战争：天下只有一个共主，同文化而不在周室之内的国家就是不服王化，
+        // 天子兴师讨伐，攻下其都城即迫其称臣、受封为诸侯；周室之内的诸侯(含战国离开帝国的)不在此列
+        if (ZhouEraSystem.Applies(empire))
+        {
+            Kingdom target = ZhouEraSystem.SubdueTarget(empire);
+            if (target == null) return false;
+            SetKingdomTarget(target);
+            return true;
+        }
         EmpireCore selfCore = EmpireCoreManager.Get(empire);
         foreach (var kingdom in World.world.kingdoms)
         {

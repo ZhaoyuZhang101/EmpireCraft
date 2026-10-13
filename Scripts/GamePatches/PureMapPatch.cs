@@ -13,7 +13,8 @@ namespace EmpireCraft.Scripts.GamePatches;
 //     这里任何缩放都填满，颜色不透明(透明的清除色不动，否则空白处会变成白块)；
 //     没选地图图层时默认显示国家图层、关了"地图图层"也照样显示；图层不随地图不透明度设置变淡
 //     (入夜也不变淡、不被夜色压暗，见 NightMapLayerPatch；云照旧)；
-//   · 国家图层下，帝国对外的边(对面不是本帝国的国家或无主地)画成金色，帝国内部各成员之间照旧；
+//   · 国家图层下，帝国与外国接壤的陆上边界画成金色，帝国内部各成员之间照旧；海岸、湖泊、无主荒地不描金
+//     (原来连这些也描，整片海岸线和境内每块荒地周围都是金线，看不出哪里才是国界)；
 //   · 人物要去哪里直接到位、不走路(地图上也不画人物)：原版的行为照常完成(回家、上任、相会生子)，不再寻路；
 //     鼠标附近只认得船，悬停与点击都落到城市、国家上；除船以外的人物逐帧设为不可见；
 //   · 纯装饰建筑(雕像、训练木桩、花园、喷泉)建造上限为 0，城市不再建；
@@ -120,11 +121,12 @@ public class PureMapPatch : GamePatch
         pixels[tile.data.tile_id] = EmpireGold;
     }
 
-    // 对面不是同一势力：周室按 SphereOf 算(王畿、郡与离开帝国的诸侯是一家)，其余按帝国
+    // 对面是别的国家、且不是同一势力：周室按 SphereOf 算(王畿、郡与离开帝国的诸侯是一家)，其余按帝国。
+    // 对面是海、湖或无主地不算，那里本来就看得出疆域
     private static bool Outside(TileZone zone, Empire empire)
     {
         Kingdom other = zone?.city?.kingdom;
-        if (other == null) return true;
+        if (other == null) return false;
         return (ZhouEraSystem.SphereOf(other) ?? other.GetEmpire()) != empire;
     }
 

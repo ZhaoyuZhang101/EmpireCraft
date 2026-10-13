@@ -28,6 +28,8 @@ public static class ImperialLegitimacyChallengeService
         if (kingdom.GetRegime()?.type == RegimeType.Modern) return false;
         // 战国的周诸侯仍奉王室，只称王不称帝；王畿只剩几城，按国力比较人人都能压倒它(王室亡了才各自独立)
         if (ZhouEraSystem.IsDetachedVassal(kingdom)) return false;
+        // 周制下一个文化只有一个正统核心：同文化之国不能另立帝国与周室争正统，只能受封为诸侯
+        if (ZhouEraSystem.BlocksRivalEmpire(kingdom)) return false;
         if (!kingdom.HasMainTitle() && !kingdom.GetControlledTitle().Any()) return false;
 
         string culture = CultureService.GetRealmCulture(kingdom);
@@ -190,11 +192,61 @@ public static class ImperialLegitimacyChallengeService
                second.data.legitimacy_rival_empire_id == first.id;
     }
 
+    // 得天下者得正统：伪核心针对的正统帝国已经不在(被别的方式灭掉、解散)，正规核心也没有别的帝国据有，
+    // 而僭越者占据了正规核心过半城池时，伪核心销毁、由它接管正规核心(同打赢正统之战)。
+    // 以前只能靠打赢"去帝号"之战转正，正统帝国另外亡了就永远是伪法理，占满全图也一样。
+    // 每年(ConstitutionalEconomySystem 年度结算)查一次
+    public static bool TryLegitimizeFalseCore(Empire empire)
+    {
+        if (!IsActiveEmpire(empire)) return false;
+        EmpireCore falseCore = EmpireCoreManager.Get(empire);
+        if (falseCore == null || falseCore.false_core_against_empire_id <= 0 ||
+            EmpireCoreManager.GetLegitimateEmpire(falseCore) != null) return false;
+        EmpireCore lawful = FindLawfulCore(empire, falseCore);
+        if (lawful == null || EmpireCoreManager.GetEmpires(lawful)
+                .Any(other => other != null && other != empire && !other.IsArchived() && !other.isRekt())) return false;
+        List<City> cities = EmpireCoreManager.GetCities(lawful);
+        if (cities.Count == 0 || cities.Count(city => Holds(empire, city)) * 2 <= cities.Count)
+            return false;
+        EmpireCoreManager.DestroyEmpireCore(falseCore);
+        EmpireCoreManager.RebindEmpire(empire, lawful);
+        ClearRivalry(empire);
+        empire.recalculate();
+        string text = string.Format(LM.Get("history_false_core_legitimized"), empire.GetEmpireFullName(),
+            EmpireCoreManager.GetDisplayName(lawful));
+        empire.RecordHistory(directContent: text, actorId: empire.Emperor?.id ?? -1L, kingdomId: empire.CoreKingdom?.id ?? -1L);
+        TranslateHelper.LogEventMessage(text, empire.CoreKingdom);
+        return true;
+    }
+
+    // 这座城归本帝国：周制战国时诸侯离开帝国、只记着所属周室，也算(见 ZhouEraSystem.SphereOf)
+    private static bool Holds(Empire empire, City city)
+    {
+        Kingdom kingdom = city?.kingdom;
+        return kingdom != null && (ZhouEraSystem.SphereOf(kingdom) ?? kingdom.GetEmpire()) == empire;
+    }
+
+    // 伪核心对应的正规核心：原正统帝国据有过的那个；其次含本国主法理的；都找不到就取本帝国据有城池最多的正规核心
+    private static EmpireCore FindLawfulCore(Empire empire, EmpireCore falseCore)
+    {
+        long rivalId = falseCore.false_core_against_empire_id;
+        KingdomTitle mainTitle = empire.CoreKingdom?.GetMainTitle();
+        List<EmpireCore> lawful = EmpireCoreManager.EmpireCores.Values
+            .Where(core => core != null && core != falseCore && core.false_core_against_empire_id <= 0 &&
+                           core.warlord_parent_core_id <= 0 && core.titlesRecord is { Count: > 0 }).ToList();
+        EmpireCore byRival = lawful.FirstOrDefault(core => core.empire_id == rivalId ||
+                                                           core.empire_history_ids?.Contains(rivalId) == true);
+        if (byRival != null) return byRival;
+        EmpireCore byTitle = mainTitle == null ? null : lawful.FirstOrDefault(core => EmpireCoreManager.ContainsTitle(core, mainTitle));
+        return byTitle ?? lawful.OrderByDescending(core => EmpireCoreManager.GetCities(core)
+            .Count(city => Holds(empire, city))).FirstOrDefault();
+    }
+
     public static void ClearRivalry(Empire empire)
     {
         if (empire?.data == null) return;
-        // 正统对手关系可以结束，但伪核心的法理性质不能因此自动转正。
-        // 它只有在统一胜利后被销毁并由政权接管现成正规核心，或随政权败亡而消失。
+        // 正统对手关系可以结束，但伪核心的法理性质不因此自动转正：要么打赢正统之战，
+        // 要么正统帝国已亡而自己据有正规核心过半(见 TryLegitimizeFalseCore)，或随政权败亡而消失。
         empire.data.legitimacy_rival_empire_id = -1L;
         empire.data.legitimacy_rivalry_recognized = false;
         empire.data.legitimacy_challenger = false;

@@ -1398,6 +1398,8 @@
   "honor_shi_孝": "孝",
   "honor_shi_天": "天",
   "honor_shi_道": "道",
+  "history_false_core_legitimized": "正统帝国已亡，{0}据有{1}故土过半，正统归之，伪法理转正。",
+  "zhou_subdue_war_name": "{0}讨伐不服王化之{1}",
   "capital_loss_restored": "{0}收复旧都{1}，还于旧都，复称{2}。",
   "kingdom_type_xingzai": "行在",
   "Later": "后",

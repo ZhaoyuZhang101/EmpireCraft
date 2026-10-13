@@ -41,6 +41,7 @@ namespace EmpireCraft.Scripts.Enums
         索取法理,
         None,
         不奉诏, // 追加在 None 之后，保持旧存档里的枚举值不变
-        附庸独立
+        附庸独立,
+        征伐不服 // 周制天子讨伐不服王化的同文化之国(见 ZhouEraSystem.MarkSubdueWar)
     }
 }
