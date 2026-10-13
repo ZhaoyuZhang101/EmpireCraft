@@ -392,6 +392,8 @@ public static class RepublicSystem
         return true;
     }
 
+    public static PartyIdeology ReformIdeology(Empire empire) => StrongestReformIdeology(empire);
+
     // 没有政党时的纲领：帝国里人口占比最大的非保守理念
     private static PartyIdeology StrongestReformIdeology(Empire empire) =>
         Enum.GetValues(typeof(PartyIdeology)).Cast<PartyIdeology>()
@@ -761,7 +763,10 @@ public static class RepublicSystem
             Establish(origin, party, snapshot.republic_revolution_ideology, leader, false,
                 "regional_republic_abdication_history");
         }
-        else if (winner == WarWinner.Attackers && leaderRealm != null && leaderRealm.HasMainTitle())
+        // 各省陆续独立(见 ProvincialCollapseSystem)：议和收场、三省以上的，联合建立共和国
+        else if ((winner == WarWinner.Attackers ||
+                  snapshot.republic_provincial && winner == WarWinner.Peace && coalition.Count >= 3) &&
+                 leaderRealm != null && (leaderRealm.HasMainTitle() || snapshot.republic_provincial))
         {
             foreach (Kingdom member in coalition)
             {

@@ -174,6 +174,17 @@ public sealed class ConstitutionalEconomyState
     public double forced_at = -1d;
     // 上帝模式直接确立的立宪同样不受门槛限制
     public bool constitution_gate_exempt;
+    // 土崩瓦解(见 ProvincialCollapseSystem)：首义时间(-1 = 没在瓦解)、月度计时、上次结束时间、近代模式、
+    // 近代模式下的革命战争、首义时帝国的城数、已独立的省
+    public double collapse_started_at = -1d;
+    public double collapse_month_at = -1d;
+    public double collapse_ended_at = -1d;
+    public bool collapse_modern;
+    public long collapse_war_id = -1L;
+    public int collapse_origin_cities;
+    public List<long> collapse_risen = new();
+    // 兵变(见 MilitaryCoupSystem)：上次兵变时间
+    public double last_coup_at = -1d;
     public double last_deadlock_notice = -1d;
 
     // —— 议会（制宪进入议会阶段后出现，取代原有内阁）——

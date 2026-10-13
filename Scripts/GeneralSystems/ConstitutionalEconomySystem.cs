@@ -213,6 +213,8 @@ public static class ConstitutionalEconomySystem
         ZhouEraSystem.Update(empire);
         WarlordEraSystem.UpdateWorld();
         NationalSentimentSystem.UpdateWorld();
+        // 土崩瓦解：各省响应(自带月度计时)
+        ProvincialCollapseSystem.Monthly(empire);
         if (state.last_economy_update >= 0 && Date.getYearsSince(state.last_economy_update) < 1) return;
         state.last_economy_update = World.world.getCurWorldTime();
         PruneTrade(state);
@@ -231,6 +233,9 @@ public static class ConstitutionalEconomySystem
         RepublicSystem.UpdateAbolitionPressure(empire);
         RepublicSystem.TryMandateCollapseCoalition(empire);
         RebellionSnowballSystem.Update(empire);
+        // 内忧深重时一省首义；武官势大、正统低落时兵变
+        ProvincialCollapseSystem.Yearly(empire);
+        MilitaryCoupSystem.Yearly(empire);
         EmpireBankruptcySystem.Update(empire, state);
         ModernTitleCentralization.Update(empire);
         UpdateBudding(empire, state);

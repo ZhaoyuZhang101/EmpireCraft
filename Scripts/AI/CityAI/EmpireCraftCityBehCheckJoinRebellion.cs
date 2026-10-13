@@ -23,6 +23,7 @@ public class EmpireCraftCityBehCheckJoinRebellion: GameAICityBase
         CityValueSnapshot cityValue = pCity.GetCityStrategicValue();
         if (loyalty > CityValueRules.GetIsolationRebellionLoyaltyThreshold(cityValue)) return BehResult.Continue;
         var initKingdom = pCity.kingdom;
+        var initCore = initKingdom.GetEmpire()?.CoreKingdom;
         var target = pCity.neighbours_cities.ToList().Find(c =>
         {
             if (c.isRekt()) return false;
@@ -31,7 +32,8 @@ public class EmpireCraftCityBehCheckJoinRebellion: GameAICityBase
             var targetKingdom = c.kingdom;
             if (initKingdom == targetKingdom) return false;
             var targetWar = targetKingdom.getWars().ToList().Find(w =>
-                (w.GetEmpireWarType() == EmpireWarType.地方叛乱 || w.GetEmpireWarType() == EmpireWarType.地方独立)&&w.main_attacker==initKingdom&&w.main_defender==targetKingdom);
+                (w.GetEmpireWarType() == EmpireWarType.地方叛乱 || w.GetEmpireWarType() == EmpireWarType.地方独立) &&
+                w.main_attacker == targetKingdom && (w.main_defender == initKingdom || initCore != null && w.main_defender == initCore));
             if (targetWar == null) return false;
             return true;
         });

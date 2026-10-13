@@ -12,8 +12,10 @@ internal static class DynasticCycleRules
     public static float AnnualChange(int age, float burden, bool bankrupt, bool atWar, double corruption,
         bool interregnum, bool restorer, bool founding, float settledOtherBurden = -1f)
     {
-        float friction = age < TypicalCrisisYears / 3 ? 0.05f
-            : age < TypicalCrisisYears * 2 / 3 ? 0.25f : age < TypicalCrisisYears ? 0.45f : 0.6f;
+        // 土地兼并、冗官、宗室膨胀随王朝年岁累积；治世只能延缓：开国百年内每年消 1.2，百年后 0.4，两百年后 0.2
+        float friction = age < TypicalCrisisYears / 3 ? 0.15f
+            : age < TypicalCrisisYears * 2 / 3 ? 0.35f : age < TypicalCrisisYears ? 0.6f : 0.8f;
+        float relief = age < TypicalCrisisYears / 3 ? 1.2f : age < TypicalCrisisYears * 2 / 3 ? 0.4f : 0.2f;
         double rate = CorruptionRules.Bound(corruption);
         // 即时腐败的民怨已包含在 burden 内；积弊只另计多年腐败的缓慢沉积。
         float otherBurden = settledOtherBurden >= 0f ? Bound(settledOtherBurden)
@@ -22,7 +24,7 @@ internal static class DynasticCycleRules
             (float)Math.Max(0d, rate - 0.25d) * 0.24f;
         if (bankrupt) change += 0.15f;
         if (interregnum) change += 0.2f;
-        if (!bankrupt && !atWar && burden <= 20f && corruption <= 0.25d && !interregnum) change -= 1.2f;
+        if (!bankrupt && !atWar && burden <= 20f && corruption <= 0.25d && !interregnum) change -= relief;
         if (restorer && !bankrupt && burden < 40f && !interregnum) change -= 0.6f;
         if (founding && !bankrupt && burden < 50f && !interregnum) change -= 0.3f;
         return change;

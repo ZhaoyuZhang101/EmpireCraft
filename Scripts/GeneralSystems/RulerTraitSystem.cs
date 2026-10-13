@@ -61,6 +61,17 @@ public static class RulerTraitSystem
         return emperor != null && emperor.isAlive() && emperor.hasTrait(trait) && IsMonarchy(empire);
     }
 
+    // 开国之初人心未散：开国雄主登基后头 15 年帝国境内不起叛乱；此后雄主的忠诚、正统加成照旧，叛乱照常检定
+    public const int FounderShieldYears = 15;
+
+    public static bool FounderShield(Kingdom kingdom)
+    {
+        if (!ReignedBy(kingdom, Founder)) return false;
+        double since = kingdom.GetEmpire().data.newEmperor_timestamp;
+        return since < 0d || World.world == null || World.world.getCurWorldTime() < since ||
+               Date.getYearsSince(since) < FounderShieldYears;
+    }
+
     // 开国雄主或中兴雄主(享有开国雄主全部特性)是否在位(kingdom 为帝国的任一成员国均可)
     public static bool FounderReigns(Kingdom kingdom) => ReignedBy(kingdom, Founder) || ReignedBy(kingdom, GreatRestorer);
 

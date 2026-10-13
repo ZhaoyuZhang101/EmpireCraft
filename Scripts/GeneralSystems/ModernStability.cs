@@ -10,7 +10,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 军阀时期的统一进程(民心所向、兵败起义)是内战的一部分，不受此限。
 public static class ModernStability
 {
-    public const float RebellionFactor = 0.3f;
+    public const float RebellionFactor = 0.5f;
     public const int Loyalty = 15;
 
     public static bool IsModern(Kingdom kingdom)
