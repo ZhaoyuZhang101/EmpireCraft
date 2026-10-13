@@ -131,9 +131,9 @@ namespace EmpireCraft.Scripts.UI.Windows
             {
                 Empire oldest = living.OrderByDescending(Years).First();
                 page.AddKpiRow(PageWidth,
-                    (LM.Get("empire_list_kpi_cities"), living.Sum(empire => empire.countCities()).ToString(), WideKit.Green),
+                    (LM.Get("empire_list_kpi_cities"), living.Sum(ZhouEraSystem.SphereCities).ToString(), WideKit.Green),
                     (LM.Get("empire_list_kpi_population"),
-                        UIHelper.ShortCount(living.Sum(empire => (double)empire.CountPopulation())), WideKit.Cyan),
+                        UIHelper.ShortCount(living.Sum(empire => (double)ZhouEraSystem.SpherePopulation(empire))), WideKit.Cyan),
                     (LM.Get("empire_list_kpi_oldest"), $"{Years(oldest)}{LM.Get("Year")}", WideKit.Gold));
             }
 
@@ -142,7 +142,7 @@ namespace EmpireCraft.Scripts.UI.Windows
                 page.AddSectionHeader(PageWidth, $"{GetCultureDisplayName(group.Key)}  ×{group.Count()}", WideKit.Cyan, false,
                     "ui/icons/cultures/" + group.Key);
                 List<Empire> current = group.Where(empire => !empire.IsArchived())
-                    .OrderByDescending(empire => empire.countCities()).ToList();
+                    .OrderByDescending(ZhouEraSystem.SphereCities).ToList();
                 page.AddCardGrid(PageWidth, current, 2, AddAliveCard);
                 List<Empire> fallen = group.Where(empire => empire.IsArchived())
                     .OrderByDescending(empire => empire.data.timestamp_established_time).ToList();
@@ -155,8 +155,13 @@ namespace EmpireCraft.Scripts.UI.Windows
         {
             var card = row.BeginColumnCard(width);
             card.AddColorStrip(width, empire.getColor()?.getColorMain() ?? Color.gray);
+            // 战国周室：城与人口按"天下"(连同离开帝国的诸侯)算，标题条注明诸侯数
+            int detached = ZhouEraSystem.DetachedVassals(empire).Count;
+            string regime = detached > 0
+                ? RegimeLabel(empire) + " · " + string.Format(LM.Get("dependency_chip_zhou"), detached)
+                : RegimeLabel(empire);
             UIHelper.AddCardTitle(card, width, empire.GetEmpireFullName(),
-                WideKit.Hex(empire.getColor()?._color_text ?? Color.white), RegimeLabel(empire), 0f);
+                WideKit.Hex(empire.getColor()?._color_text ?? Color.white), regime, 0f);
 
             bool republic = RepublicSystem.IsRepublic(empire);
             Actor head = empire.Emperor;
@@ -174,8 +179,8 @@ namespace EmpireCraft.Scripts.UI.Windows
 
             int legitimacy = empire.Legitimacy;
             card.AddMetricRow(width,
-                (LM.Get("empire_list_metric_cities"), empire.countCities().ToString(), WideKit.Green),
-                (LM.Get("empire_list_metric_population"), UIHelper.ShortCount(empire.CountPopulation()), WideKit.Cyan),
+                (LM.Get("empire_list_metric_cities"), ZhouEraSystem.SphereCities(empire).ToString(), WideKit.Green),
+                (LM.Get("empire_list_metric_population"), UIHelper.ShortCount(ZhouEraSystem.SpherePopulation(empire)), WideKit.Cyan),
                 (LM.Get("empire_list_metric_legitimacy"), legitimacy.ToString(), WideKit.Grade(legitimacy, 70, 40)),
                 (LM.Get("empire_list_metric_years"), $"{Years(empire)}{LM.Get("Year")}", WideKit.Value));
             UIHelper.MakeClickable(card.gameObject, () => OpenEmpire(empire));

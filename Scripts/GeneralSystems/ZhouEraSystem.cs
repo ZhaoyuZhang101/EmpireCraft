@@ -91,6 +91,22 @@ public static class ZhouEraSystem
         return members.Concat(detached).ToList();
     }
 
+    // 战国离开帝国的诸侯(帝国名下的成员不在内)
+    public static List<Kingdom> DetachedVassals(Empire empire)
+    {
+        if (!Applies(empire) || State(empire).era < Warring || World.world?.kingdoms == null) return new List<Kingdom>();
+        return World.world.kingdoms.Where(kingdom => kingdom?.data != null && !kingdom.isRekt() && kingdom.hasCities() &&
+                                                     kingdom.GetEmpire() == null &&
+                                                     kingdom.GetOrCreate().zhou_sphere_id == empire.id).ToList();
+    }
+
+    // 周室"天下"的城与人口：战国时诸侯不在帝国名下，帝国自己的统计(国力、赋税用)不含他们，显示时连他们一起算
+    public static int SphereCities(Empire empire) =>
+        (empire?.countCities() ?? 0) + DetachedVassals(empire).Sum(kingdom => kingdom.cities?.Count ?? 0);
+
+    public static int SpherePopulation(Empire empire) =>
+        (empire?.CountPopulation() ?? 0) + DetachedVassals(empire).Sum(kingdom => kingdom.getPopulationPeople());
+
     // 战国：诸侯(郡除外)离开帝国，记下所属周室；爵位(国家类别)照旧
     private static void Detach(Empire empire)
     {

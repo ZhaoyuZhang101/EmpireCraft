@@ -289,6 +289,10 @@ namespace EmpireCraft.Scripts.UI.Windows
                     _empire.EmpireSpecificClan?.color ?? "#FFFFFF");
             }
             Stat(LM.Get("i_population"), $"{ShortCount(_empire.CountPopulation())}/{ShortCount(_empire.countMaxPopulation())}", "#F2EEE2");
+            // 战国周室：连同离开帝国的诸侯的"天下"城与人口
+            if (ZhouEraSystem.DetachedVassals(_empire).Count > 0)
+                Stat(LM.Get("zhou_sphere_rail"), string.Format(LM.Get("zhou_sphere_rail_value"),
+                    ZhouEraSystem.SphereCities(_empire), ShortCount(ZhouEraSystem.SpherePopulation(_empire))), "#E8B840");
             Stat(LM.Get("national_power"), ShortCount(_empire.GetNationalPower()), "#F2EEE2");
             Stat(LM.Get("i_age"), _empire.CoreKingdom.getAge().ToString(), "#F2EEE2");
             Stat(LM.Get("official_students_num"),

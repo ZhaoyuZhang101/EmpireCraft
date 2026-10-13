@@ -1054,6 +1054,8 @@
   "zhou_vassal_sort": "按国力排序",
   "dependency_chip_zhou": "诸侯 {0}",
   "zhou_vassal_value": "{0} · {1}城 · 兵{2}",
+  "zhou_sphere_rail": "天下",
+  "zhou_sphere_rail_value": "{0}城 · {1}人",
   "capital_loss_restored": "{0}收复旧都{1}，还于旧都，复称{2}。",
   "kingdom_type_xingzai": "行在",
   "Later": "后",

@@ -26,6 +26,8 @@ public static class ImperialLegitimacyChallengeService
             EmpireCraftWorldLawLibrary.empirecraft_law_ban_empire.isEnabled()) return false;
         // 现代政体没有僭越称帝：政权只能组建政府(见 ModernStateFormationSystem)
         if (kingdom.GetRegime()?.type == RegimeType.Modern) return false;
+        // 战国的周诸侯仍奉王室，只称王不称帝；王畿只剩几城，按国力比较人人都能压倒它(王室亡了才各自独立)
+        if (ZhouEraSystem.IsDetachedVassal(kingdom)) return false;
         if (!kingdom.HasMainTitle() && !kingdom.GetControlledTitle().Any()) return false;
 
         string culture = CultureService.GetRealmCulture(kingdom);
