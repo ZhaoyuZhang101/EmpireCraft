@@ -136,6 +136,8 @@ public class EmpireData : MetaObjectData
     public bool powerful_minister_is_consort_kin { get; set; } = false;
     // 本朝已施行"增广尊谥"：此后有庙号的先帝都得长谥(见 PosthumousNameGenerator)，改朝换代后重来
     public bool long_posthumous { get; set; }
+    // 帝国设置"开启长谥号"：打开后本朝有庙号的先帝都显示长谥，关着(默认)显示短谥"国号某帝"
+    public bool show_long_posthumous { get; set; }
     // 朝政积弊：六条弊病各 0~100、上次结算(见 MaladySystem)
     public Dictionary<string, float> maladies { get; set; } = new();
     public double last_malady_update { get; set; } = -1d;

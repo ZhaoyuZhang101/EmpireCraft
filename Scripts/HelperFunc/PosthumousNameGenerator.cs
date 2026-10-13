@@ -245,13 +245,35 @@ namespace EmpireCraft.Scripts.HelperFunc
             return language == "cz" || language == "ch";
         }
 
-        // 谥号的显示：有长谥且在中文下为"……孝某皇帝"，否则"国号某帝"
-        public static string ShiTitle(EmpireCraftHistory history)
+        // 谥号的显示：帝国设置开了长谥号、有长谥且在中文下为"……孝某皇帝"，否则"国号某帝"
+        public static string ShiTitle(EmpireCraftHistory history, Empire empire = null)
         {
             if (history == null || string.IsNullOrEmpty(history.shihao_name)) return "";
-            if (history.shihao_long is { Count: > 0 } && ChineseLocale())
+            if (history.shihao_long is { Count: > 0 } && ChineseLocale() && (empire ?? EmpireOf(history))?.data?.show_long_posthumous == true)
                 return string.Concat(history.shihao_long.Select(LM.Get)) + LM.Get("emperor_suffix_long");
             return history.empire_name + LM.Get(history.shihao_name) + LM.Get("emperor_suffix");
+        }
+
+        // 这条纪年属于哪个帝国(史书里有它的)
+        private static Empire EmpireOf(EmpireCraftHistory history)
+        {
+            if (ModClass.EMPIRE_MANAGER == null) return null;
+            foreach (Empire empire in ModClass.EMPIRE_MANAGER)
+                if (empire?.data != null && (empire.data.currentHistory == history || empire.data.history?.Contains(history) == true))
+                    return empire;
+            return null;
+        }
+
+        // 帝国设置打开长谥号：本朝有庙号、谥号的先帝补上长谥(之后定谥的先帝也给，见 EmpireCraftPlotsAddition)
+        public static void EnsureLong(Empire empire)
+        {
+            if (empire?.data == null) return;
+            foreach (EmpireCraftHistory history in CurrentDynasty(empire))
+            {
+                if (string.IsNullOrEmpty(history.shihao_name) || string.IsNullOrEmpty(history.miaohao_name) ||
+                    history.shihao_long is { Count: > 0 }) continue;
+                history.shihao_long = LongName(history.shihao_name, history.is_first);
+            }
         }
 
         // 本朝能否施行"增广尊谥"：华夏律令制的皇帝亲政、本朝已有三位以上定了谥号的先帝、正统 50 以上
@@ -269,6 +291,7 @@ namespace EmpireCraft.Scripts.HelperFunc
         {
             if (empire?.data == null || empire.data.long_posthumous) return false;
             empire.data.long_posthumous = true;
+            empire.data.show_long_posthumous = true;
             foreach (EmpireCraftHistory history in CurrentDynasty(empire))
             {
                 if (string.IsNullOrEmpty(history.shihao_name) || string.IsNullOrEmpty(history.miaohao_name) ||

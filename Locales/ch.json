@@ -1505,6 +1505,7 @@
   "city_style_rebuild_history": "{0}下令按本國風俗改建{1}座城池",
   "corps_log_supply_cut": "{0}的補給線被切斷了",
   "corps_log_supply_restored": "{0}的補給線恢復了",
+  "open_long_posthumous": "開啓長諡號",
   "capital_loss_restored": "{0}收復舊都{1}，還於舊都，復稱{2}。",
   "kingdom_type_xingzai": "行在",
   "Later": "後",

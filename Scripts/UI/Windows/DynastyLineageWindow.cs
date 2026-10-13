@@ -304,7 +304,7 @@ public class DynastyLineageWindow : AbstractWideWindow<DynastyLineageWindow>
             if (history == _empire?.data?.currentHistory && string.IsNullOrEmpty(history.miaohao_name) &&
                 string.IsNullOrEmpty(history.shihao_name)) return LM.Get("lineage_reigning");
             if (!string.IsNullOrEmpty(history.miaohao_name)) return LM.Get(history.miaohao_name) + LM.Get(history.miaohao_suffix);
-            if (!string.IsNullOrEmpty(history.shihao_name)) return PosthumousNameGenerator.ShiTitle(history);
+            if (!string.IsNullOrEmpty(history.shihao_name)) return PosthumousNameGenerator.ShiTitle(history, _empire);
             return string.Format(LM.Get("lineage_reign_n"), node.reign + 1);
         }
         PersonalClanIdentity identity = node.identity;

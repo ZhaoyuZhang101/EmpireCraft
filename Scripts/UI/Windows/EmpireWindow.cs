@@ -827,7 +827,7 @@ namespace EmpireCraft.Scripts.UI.Windows
             {
                 if (!string.IsNullOrEmpty(history.shihao_name))
                 {
-                    string shi = PosthumousNameGenerator.ShiTitle(history);
+                    string shi = PosthumousNameGenerator.ShiTitle(history, _empire);
                     title = string.IsNullOrEmpty(history.miaohao_name)
                         ? shi
                         : history.empire_name + LM.Get(history.miaohao_name) + LM.Get(history.miaohao_suffix) + "-" + shi;

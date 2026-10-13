@@ -1703,8 +1703,8 @@ namespace EmpireCraft.Scripts.AI
                                 cHistory.shihao_name = names.shi;
                                 cHistory.miaohao_name = names.miao;
                                 cHistory.miaohao_suffix = names.miao_suffix;
-                                // 本朝施行"增广尊谥"后，有庙号的先帝得明式长谥
-                                if (empire.data.long_posthumous && names.HasTemple)
+                                // 本朝施行"增广尊谥"后(或帝国设置开了长谥号)，有庙号的先帝得明式长谥
+                                if ((empire.data.long_posthumous || empire.data.show_long_posthumous) && names.HasTemple)
                                     cHistory.shihao_long = PosthumousNameGenerator.LongName(names.shi, cHistory.is_first);
                                 string template = LM.Get(names.HasTemple
                                     ? "history_name_previous_emperor_reason"
@@ -1714,7 +1714,7 @@ namespace EmpireCraft.Scripts.AI
                                     .Replace("$actor2$", cHistory.emperor)
                                     .Replace("$reason$", LM.Get(names.reason))
                                     .Replace("$shihao$", cHistory.shihao_long is { Count: > 0 }
-                                        ? PosthumousNameGenerator.ShiTitle(cHistory)
+                                        ? PosthumousNameGenerator.ShiTitle(cHistory, empire)
                                         : LM.Get(cHistory.shihao_name))
                                     .Replace("$miaohao$", names.HasTemple
                                         ? LM.Get(cHistory.miaohao_name) + LM.Get(cHistory.miaohao_suffix)
