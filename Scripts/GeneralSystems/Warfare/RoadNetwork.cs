@@ -6,8 +6,11 @@ using UnityEngine;
 namespace EmpireCraft.Scripts.GeneralSystems;
 
 // 路网与航线(模拟的，不实际铺在地上)。
-//   · 陆路：同一片陆地上相邻的城之间各修一条干道。按地块寻路，绕开高山与海面，山地、沼泽、丛林代价高，
-//     过河代价更高(架桥)，已有的路代价低——所以路沿平地、谷地走，彼此并成干线网；
+//   · 陆路：同一片陆地上相邻的城之间修干道，但不是两两都通——
+//       - 两城之间另有一座城比它们彼此都近(A 到 C、C 到 B 都比 A 到 B 近)，就经那座城走，不另修直路；
+//       - 隔着山地、沼泽、丛林、大河，地形代价超过直线距离 DetourLimit 倍的不修(山里的城就只有一两条出山的路)；
+//     按地块寻路，绕开高山与海面，山地、沼泽、丛林代价高，过河代价更高(架桥)，已有的路代价低——
+//     所以路沿平地、谷地走，彼此并成干线网；
 //     行军(见 CorpsSystem)：寻路时路上的地块代价低、路外按兵种加价，路外行军按兵种打折(见 CorpsArmSystem.OffRoad)；城心也算有路。
 //   · 海路：港口城之间的航线——每座港口连最近的两座港口，另连一座别的陆地上最近的港口。按地块在海面上寻路，
 //     绕开陆地，近岸与海峡代价高，已有的航线代价低，彼此并成航线网；
@@ -25,6 +28,8 @@ public static class RoadNetwork
     // 港口连几座最近的港口；航线最长几个地块；绕得比直线远太多(隔着整片大陆)的不连
     private const int LaneNeighbours = 2, LaneMaxZones = 72;
     private const float LaneDetour = 2.5f;
+    // 陆路：地形代价超过直线距离几倍就不修
+    private const float DetourLimit = 2.2f;
     // 海路虚线：每段几格画、几格空
     private const int DashOn = 3, DashOff = 2;
 
@@ -132,6 +137,7 @@ public static class RoadNetwork
             {
                 WorldTile to = other?.getTile();
                 if (to == null || other.isRekt() || other.data.id <= city.data.id || !from.isSameIsland(to)) continue;
+                if (Bypassed(city, other, from, to)) continue;
                 var key = (city.data.id, other.data.id);
                 wanted.Add(key);
                 if (Spent(budget) || Fresh(Roads, key, now)) continue;
@@ -142,12 +148,32 @@ public static class RoadNetwork
         Prune(Roads, wanted);
     }
 
+    // 两城之间另有一座城比它们彼此都近：经那座城走，不另修直路
+    private static bool Bypassed(City a, City b, WorldTile ta, WorldTile tb)
+    {
+        float ab = Squared(ta, tb);
+        foreach (City c in a.neighbours_cities.Concat(b.neighbours_cities))
+        {
+            WorldTile tc = c?.getTile();
+            if (tc == null || c == a || c == b || c.isRekt() || !tc.isSameIsland(ta)) continue;
+            if (Squared(ta, tc) < ab && Squared(tc, tb) < ab) return true;
+        }
+        return false;
+    }
+
+    private static float Squared(WorldTile a, WorldTile b) => (a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y);
+
     private static Route BuildRoad(WorldTile from, WorldTile to, float now)
     {
         var route = new Route { at = now };
         TileZone goal = to.zone;
         List<TileZone> path = FindZones(from.zone, goal, zone => RoadStep(zone, goal), RoadCost);
         if (path == null) return route;
+        // 地形太难(翻山、穿沼泽丛林、大河、大绕路)：不修
+        float terrain = 0f;
+        for (int i = 1; i < path.Count; i++)
+            terrain += Terrain(path[i]) * (path[i].x != path[i - 1].x && path[i].y != path[i - 1].y ? 1.41f : 1f);
+        if (terrain > Mathf.Max(1f, Distance(from.zone, goal)) * DetourLimit) return route;
         route.zones.AddRange(path.Select(zone => zone.id));
         Draw(Smooth(path, from, to), route.tiles, liquid: false, dashed: false);
         return route;
@@ -156,7 +182,13 @@ public static class RoadNetwork
     private static float RoadStep(TileZone zone, TileZone goal)
     {
         if (zone != goal && (TerrainSystem.Impassable(zone) || SeaRegionSystem.IsSea(zone))) return -1f;
-        float cost = RoadZones.Contains(zone.id) ? RoadCost : 1f;
+        return (RoadZones.Contains(zone.id) ? RoadCost : 1f) * Terrain(zone);
+    }
+
+    // 地形代价：平地 1，山地沼泽丛林乘 RoughCost，多水的地块(大河、湖)乘 RiverCost
+    private static float Terrain(TileZone zone)
+    {
+        float cost = 1f;
         if (TerrainSystem.SlowsMarch(zone)) cost *= RoughCost;
         if (zone.tiles_with_liquid * 4 > zone.tiles_with_ground + zone.tiles_with_liquid) cost *= RiverCost;
         return cost;
