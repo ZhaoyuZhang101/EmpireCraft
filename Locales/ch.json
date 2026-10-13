@@ -1266,6 +1266,7 @@
   "war_ready_waiting": "{0}謀定伐{1}，大軍動員、開赴邊境，集結完畢再宣戰。",
   "war_ready_massed": "{0}大軍已陳兵{1}邊境，宣戰。",
   "war_ready_rushed": "{0}大軍久久未能集結，倉促向{1}開戰。",
+  "war_alert_mobilize": "{0}察覺{1}大軍陳兵邊境，開始動員。",
   "capital_loss_restored": "{0}收復舊都{1}，還於舊都，復稱{2}。",
   "kingdom_type_xingzai": "行在",
   "Later": "後",

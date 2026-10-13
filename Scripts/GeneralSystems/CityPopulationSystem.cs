@@ -192,12 +192,15 @@ public static class CityPopulationSystem
     }
 
     // 战备状态：已经开战，或者本国(帝国则为整个帝国)正在谋划发动战争。谋划期间各军镇就按战时兵额征兵集结，
-    // 谋划完成宣战时大军已在城下——"陈兵百万，一举灭敌"。被攻击的一方事先不知情，宣战后才开始动员
+    // 谋划完成宣战时大军已在城下——"陈兵百万，一举灭敌"。被攻击的一方起初不知情，
+    // 看到对方大军开到边境(见 WarReadinessSystem.Massing)才跟着动员，所属帝国的中央也一并动员
     // 发动战争的谋划：普通开战、帝国开战、索取法理、宗教战争(进度满了还要等陈兵边境才宣战，见 WarReadinessSystem)
     public static readonly string[] WarPlots = { "new_war", "empirecraft_war", "king_acquire_title", "kingdom_start_religion_war" };
     private static readonly HashSet<Kingdom> Mobilizing = new();
     // 谋划开战的目标国(兵往哪一侧的边境集结)
     private static readonly Dictionary<Kingdom, Kingdom> MobilizationTargets = new();
+    // 看到边境集结而动员的国家(上一次重算时)，新察觉的记一笔
+    private static readonly HashSet<Kingdom> Alerted = new();
     private static double _mobilizingAt = -1d;
 
     // 只有就近动员范围里的城按战时兵额征兵(见 WarScopeSystem)
@@ -227,6 +230,7 @@ public static class CityPopulationSystem
                     Mobilizing.Add(author);
                     if (target != null) MobilizationTargets[author] = target;
                 }
+                Alert();
             }
             catch (Exception exception)
             {
@@ -234,6 +238,29 @@ public static class CityPopulationSystem
             }
         }
         return Mobilizing.Contains(kingdom);
+    }
+
+    // 被侵略方看到对方大军开到边境，自己(和所属帝国的中央)也动员，兵锋朝向对方；本来就在谋划开战的不改方向
+    private static void Alert()
+    {
+        var now = new HashSet<Kingdom>();
+        foreach (var pair in MobilizationTargets.ToList())
+        {
+            Kingdom author = pair.Key, target = pair.Value;
+            if (target?.data == null || target.isRekt() || !WarReadinessSystem.Massing(author)) continue;
+            foreach (Kingdom side in new[] { target, FrontSystem.Realm(target) }.Distinct())
+            {
+                if (side?.data == null || side.isRekt() || side == author || Mobilizing.Contains(side) && !Alerted.Contains(side))
+                    continue;
+                Mobilizing.Add(side);
+                if (!MobilizationTargets.ContainsKey(side)) MobilizationTargets[side] = author;
+                now.Add(side);
+                if (!Alerted.Contains(side))
+                    FrontSystem.Log(side, string.Format(NeoModLoader.General.LM.Get("war_alert_mobilize"), side.GetKingdomName(), author.GetKingdomName()));
+            }
+        }
+        Alerted.Clear();
+        Alerted.UnionWith(now);
     }
 
     // ---- 陈兵边境 ----
