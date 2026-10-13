@@ -255,7 +255,8 @@ public static class CityConstructionSystem
 
     private static void BuildRoads(City city, float rate)
     {
-        if (city.buildings == null || city.buildings.Count < 2) return;
+        // 纯净地图模式不实际铺路，路网在地图上模拟(见 PureMapPatch)
+        if (PureMapMode.Enabled || city.buildings == null || city.buildings.Count < 2) return;
         try
         {
             for (int i = 0; i < RoadPlansPerMonth && city.road_tiles_to_build.Count == 0; i++)

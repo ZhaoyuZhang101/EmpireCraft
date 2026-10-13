@@ -27,6 +27,7 @@
 | 理念徽章 | 保留原设计，在原图上调色(降饱和、冷色再去色、金色转旧铜、纯黑描边) | `regrade_badge` | 母版在 `Tools/IconForge/source/` |
 | 卷册卡片框(九宫格 36×36) | 深橄榄底；普通=橄榄青铜边+金回纹角(中心朱红)，高亮=金边，选中=朱漆边，宗族=缠枝纹角 | `frame_forge.py`(单独脚本) | `GameResources/ui/FactionFrame*.png`、`regimeFrame.png`、`clanFrame.png` |
 | 世界提示 | 直接复用上面的图标，`path_icon` 指过去 | —— | —— |
+| 纯净地图城市平面图的建筑图块(3×3 像素，按时代分代) | 平涂像素图块，"." 透明露出街区底色 | `citymap_forge.py`(单独脚本) | `GameResources/ui/citymap/<名>.png` |
 
 **角标含义**：骨白 = 增加 / 转移 / 允许 / 互换；血红 = 取消 / 销毁 / 揭发 / 停止；旧铜 = 提升 / 新立；枪灰双剑 = 战争；红印 = 涉及法理；小冕 = 帝国。
 
