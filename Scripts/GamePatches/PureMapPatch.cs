@@ -24,7 +24,8 @@ namespace EmpireCraft.Scripts.GamePatches;
 //     商业集市→商场，官署衙署→现代政府大楼；没装工厂模组时虚拟工厂(见 VirtualIndustrySystem)也画出来；
 //     民居进居住区、工厂矿场进工业区、市场进商业区、兵营进军事区、官署寺庙进城心，没规划的地块从城心往外按圈放，
 //     城越大城心的楼越高，码头放临水的地块；农田地块画淡绿条垄；
-//     城与城之间(同一片陆地、相邻)连黄色干道。本模式下不再实际铺路，地上已有的路格也不画出来。
+//     城与城之间(同一片陆地、相邻)连黄色干道，港口之间连浅色虚线航线(路线顺着地形弯曲，见 RoadNetwork，
+//     画在单独的路网图层上，见 RoadOverlay)。本模式下不再实际铺路，地上已有的路格也不画出来。
 //     规划决议有分量：国家规划过(划了用途)的地块横平竖直、有白色街格；没规划的地块自发生长，没有方正的街格，
 //     房子错落、中间是弯曲的土路小巷。规划过的城(至少一块规划地、建成两块以上)四面有城墙，每段在地块中点开城门；
 //     华夏的城规划成片(三块以上规划地、建成四块以上)时穿城心有南北中轴御道与东西大街，都城的城心(大城连北面一块)是宫城——
@@ -105,6 +106,7 @@ public class PureMapPatch : GamePatch
         color.a = 1f;
         __instance.sprRnd.color = color;
         RefreshUrbanSlice();
+        UI.Components.RoadOverlay.Update();
     }
 
     // 城市肌理随建筑、规划变化：每秒让一批城的地块下次重画(原版只在归属、颜色变了才重画)
@@ -130,7 +132,7 @@ public class PureMapPatch : GamePatch
             foreach (TileZone zone in city.zones) zone?.resetRenderHelpers();
         }
         _urbanCursor = (_urbanCursor + slice) % cities.Count;
-        if (now >= _nextHighways || _nextHighways - now > HighwaySeconds) RebuildHighways(now);
+        RoadNetwork.Tick();
     }
 
     private static readonly Color32 EmpireGold = new(232, 184, 64, 255);
@@ -257,13 +259,18 @@ public class PureMapPatch : GamePatch
 
     private static bool Maze(string family) => family is "arab" or "viking";
 
-    private const float PlanSeconds = 5f, HighwaySeconds = 30f;
+    private const float PlanSeconds = 5f;
     private static readonly Dictionary<long, CityPlan> Plans = new();
-    private static readonly HashSet<int> Highways = new();
-    private static float _nextHighways;
 
     private static readonly Color32 Block = new(236, 232, 224, 255), Street = new(255, 255, 255, 255),
-        Highway = new(255, 210, 110, 255), Crop = new(228, 238, 200, 255);
+        Crop = new(228, 238, 200, 255);
+
+    // 城里建成的地块(有自己的街格，路网图层的干道不压上去)
+    internal static bool Built(TileZone zone)
+    {
+        City city = zone?.city;
+        return city?.data != null && !city.isRekt() && PlanFor(city)?.built.Contains(zone.id) == true;
+    }
 
     // 住房技术(科技树里的八项)，研究到第几项住宅就画到第几代
     private static readonly string[] HousingTechs =
@@ -472,7 +479,7 @@ public class PureMapPatch : GamePatch
     }
 
     // 一格：建成的地块按格局画(城墙、都城地标、中轴、规划过的街格或自发的小巷、营地、街区里的建筑图块)；
-    // 农田画条垄(阿兹特克是水上田园)；其余照地形，干道压在上面
+    // 农田画条垄(阿兹特克是水上田园)；其余照地形(干道画在路网图层上，见 RoadOverlay)
     private static Color32 Plan(WorldTile tile, Color32 color, ZoneUse use, Slot[] slots, int lx, int ly, CityPlan plan, TileZone zone)
     {
         if (tile.Type != null && tile.Type.liquid) return color;
@@ -495,7 +502,6 @@ public class PureMapPatch : GamePatch
                 return use != ZoneUse.None && (lx == 4 || ly == 4) ? Lerp(color, Lane, 0.6f) : Organic(color, slots, lx, ly, plan, zone);
             return use == ZoneUse.None ? Organic(color, slots, lx, ly, plan, zone) : Grid(color, slots, lx, ly, plan, zone, false);
         }
-        if (Highways.Contains(tile.data.tile_id)) return Lerp(color, Highway, 0.7f);
         if (use == ZoneUse.Farm)
         {
             // 阿兹特克的水上田园：一垄田一道水渠
@@ -669,42 +675,6 @@ public class PureMapPatch : GamePatch
         if (r > 2.9f) return Lerp(color, new Color32(225, 190, 90, 255), 0.95f);
         return Lerp(color, Mathf.Abs(dx) < 0.6f || Mathf.Abs(dy) < 0.6f ? new Color32(225, 220, 210, 255)
             : new Color32(246, 244, 236, 255), 0.95f);
-    }
-
-    // 干道：同一片陆地上相邻的城，城心之间连直线，跨水的不连
-    private static void RebuildHighways(float now)
-    {
-        _nextHighways = now + HighwaySeconds;
-        Highways.Clear();
-        var line = new List<int>();
-        foreach (City city in World.world.cities.list)
-        {
-            WorldTile from = city?.getTile();
-            if (from == null || city.isRekt()) continue;
-            foreach (City other in city.neighbours_cities)
-            {
-                WorldTile to = other?.getTile();
-                if (to == null || other.isRekt() || other.data.id <= city.data.id || !from.isSameIsland(to)) continue;
-                line.Clear();
-                if (Trace(from, to, line)) Highways.UnionWith(line);
-            }
-        }
-    }
-
-    private static bool Trace(WorldTile from, WorldTile to, List<int> line)
-    {
-        int x0 = from.x, y0 = from.y, x1 = to.x, y1 = to.y;
-        int dx = Math.Abs(x1 - x0), dy = -Math.Abs(y1 - y0), sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1, err = dx + dy;
-        while (true)
-        {
-            WorldTile tile = World.world.GetTile(x0, y0);
-            if (tile == null || tile.Type?.liquid == true) return false;
-            line.Add(tile.data.tile_id);
-            if (x0 == x1 && y0 == y1) return true;
-            int e2 = 2 * err;
-            if (e2 >= dy) { err += dy; x0 += sx; }
-            if (e2 <= dx) { err += dx; y0 += sy; }
-        }
     }
 
     // 本模式下不实际铺路(原版建筑落成时排的连路)

@@ -21,6 +21,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 行军(CorpsSystem.SecondTick、StepTowardTarget)：
 //   · 速度：步兵类 1 倍，民兵 0.8，炮兵 0.75，车兵 1.3，骑兵 1.6，装甲车 2，坦克 1.6，直升机 2.4，战斗机 3.2，轰炸机 2.8；
 //   · 山地、沼泽、丛林：步兵类剩一半，骑兵剩四成，车兵、炮兵、装甲车、坦克剩三成；飞机不受地形影响；
+//   · 优先走路网(见 RoadNetwork)：离开道路步兵类剩八成五、民兵九成，骑兵八成，车兵七成，炮兵六成五，坦克六成，装甲车五成五；
+//     寻路按代价走(路上的地块代价 1，路外按兵种加价，山地沼泽丛林再加)，所以宁可绕一段路走大道；
 //   · 飞机直线飞越高山与海面，不必去港口登船；陆军照旧绕开高山、跨海要登船。
 // 战力(纯净地图模式，见 FrontSystem.Firepower)：人物、载具都是数据，不靠 WarBox 的实体载具，按兵种定火力倍数。
 public static class CorpsArmSystem
@@ -29,12 +31,13 @@ public static class CorpsArmSystem
 
     private readonly struct Spec
     {
-        public readonly float Speed, Rough, Upkeep, Power;
+        public readonly float Speed, Rough, OffRoad, Upkeep, Power;
         public readonly bool Flies;
-        public Spec(float speed, float rough, float upkeep, float power, bool flies = false)
+        public Spec(float speed, float rough, float offRoad, float upkeep, float power, bool flies = false)
         {
             Speed = speed;
             Rough = rough;
+            OffRoad = offRoad;
             Upkeep = upkeep;
             Power = power;
             Flies = flies;
@@ -43,19 +46,19 @@ public static class CorpsArmSystem
 
     private static readonly Dictionary<Arm, Spec> Specs = new()
     {
-        [Arm.Infantry] = new Spec(1f, 0.5f, 1f, 1f),
-        [Arm.Archer] = new Spec(1f, 0.5f, 1f, 1.05f),
-        [Arm.Chariot] = new Spec(1.3f, 0.3f, 1.3f, 1.15f),
-        [Arm.Cavalry] = new Spec(1.6f, 0.4f, 1.5f, 1.3f),
-        [Arm.Musket] = new Spec(1f, 0.5f, 1.2f, 1.4f),
-        [Arm.Rifle] = new Spec(1f, 0.5f, 1.5f, 1.8f),
-        [Arm.Artillery] = new Spec(0.75f, 0.3f, 1.8f, 1.7f),
-        [Arm.Mechanized] = new Spec(2f, 0.3f, 2.5f, 2.2f),
-        [Arm.Tank] = new Spec(1.6f, 0.3f, 3.2f, 2.8f),
-        [Arm.Helicopter] = new Spec(2.4f, 1f, 3.5f, 2.4f, true),
-        [Arm.Fighter] = new Spec(3.2f, 1f, 4f, 2.6f, true),
-        [Arm.Bomber] = new Spec(2.8f, 1f, 4.5f, 3f, true),
-        [Arm.Militia] = new Spec(0.8f, 0.5f, 0.6f, 0.8f),
+        [Arm.Infantry] = new Spec(1f, 0.5f, 0.85f, 1f, 1f),
+        [Arm.Archer] = new Spec(1f, 0.5f, 0.85f, 1f, 1.05f),
+        [Arm.Chariot] = new Spec(1.3f, 0.3f, 0.7f, 1.3f, 1.15f),
+        [Arm.Cavalry] = new Spec(1.6f, 0.4f, 0.8f, 1.5f, 1.3f),
+        [Arm.Musket] = new Spec(1f, 0.5f, 0.85f, 1.2f, 1.4f),
+        [Arm.Rifle] = new Spec(1f, 0.5f, 0.85f, 1.5f, 1.8f),
+        [Arm.Artillery] = new Spec(0.75f, 0.3f, 0.65f, 1.8f, 1.7f),
+        [Arm.Mechanized] = new Spec(2f, 0.3f, 0.55f, 2.5f, 2.2f),
+        [Arm.Tank] = new Spec(1.6f, 0.3f, 0.6f, 3.2f, 2.8f),
+        [Arm.Helicopter] = new Spec(2.4f, 1f, 1f, 3.5f, 2.4f, true),
+        [Arm.Fighter] = new Spec(3.2f, 1f, 1f, 4f, 2.6f, true),
+        [Arm.Bomber] = new Spec(2.8f, 1f, 1f, 4.5f, 3f, true),
+        [Arm.Militia] = new Spec(0.8f, 0.5f, 0.9f, 0.6f, 0.8f),
     };
 
     // 换装费 = 换装后几年的军饷；换装后组织度损失；国库至少留几倍费用才换
@@ -187,6 +190,9 @@ public static class CorpsArmSystem
 
     // 山地、沼泽、丛林里剩几成速度
     public static float Rough(Arm arm) => Specs[arm].Rough;
+
+    // 离开道路剩几成速度(见 RoadNetwork)；寻路时路外每块的代价是它的倒数
+    public static float OffRoad(Arm arm) => Specs[arm].OffRoad;
 
     public static bool Flies(Arm arm) => Specs[arm].Flies;
 

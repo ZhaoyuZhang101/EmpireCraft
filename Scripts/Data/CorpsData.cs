@@ -59,4 +59,6 @@ public sealed class CorpsData
     public List<int> sea_route;
     public int sea_step;
     public int sea_tick;
+    // 船走的海上路线(地块 id，第一块是所在地块；见 RoadNetwork.SeaPath)：尽量沿航线走；空表示寻不到，按海区走
+    public List<int> sea_path;
 }

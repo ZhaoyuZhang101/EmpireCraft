@@ -58,6 +58,7 @@ public static class NavySystem
         FlagshipMoves.Clear();
         FlagshipRetry.Clear();
         StuckSeconds.Clear();
+        Courses.Clear();
         FlagshipIndex.Clear();
         DesiredLanding.Clear();
         SeaRegionSystem.ResetWorldState();
@@ -582,7 +583,11 @@ public static class NavySystem
         }
     }
 
-    // 兵牌在海上一块一块挪向所在海区的中心
+    // 兵牌在海上每秒三块挪向所在海区的中心：按海上路线走，尽量沿航线(见 RoadNetwork.SeaPath)，
+    // 路线按目标缓存，走偏了再重算；寻不到路线就朝中心就近挪
+    private const int FleetZonesPerSecond = 3;
+    private static readonly Dictionary<long, (int target, List<int> path)> Courses = new();
+
     private static void StepZone(FleetData fleet)
     {
         SeaRegionSystem.Region region = SeaRegionSystem.Get(fleet.region_id);
@@ -592,10 +597,23 @@ public static class NavySystem
         if (current == null || !SeaRegionSystem.IsSea(current))
         {
             fleet.zone_id = target.id;
+            Courses.Remove(fleet.id);
             return;
         }
         if (current == target) return;
-        for (int step = 0; step < 3 && current != target; step++)
+        if (!Courses.TryGetValue(fleet.id, out var course) || course.target != target.id ||
+            course.path != null && (course.path.Count < 2 || course.path[0] != current.id))
+        {
+            course = (target.id, RoadNetwork.SeaPath(current, target)?.Select(zone => zone.id).ToList());
+            Courses[fleet.id] = course;
+        }
+        if (course.path != null && course.path.Count >= 2)
+        {
+            for (int step = 0; step < FleetZonesPerSecond && course.path.Count >= 2; step++) course.path.RemoveAt(0);
+            fleet.zone_id = course.path[0];
+            return;
+        }
+        for (int step = 0; step < FleetZonesPerSecond && current != target; step++)
         {
             TileZone best = null;
             float bestDistance = CorpsSystem.ZoneDistance(current, target);

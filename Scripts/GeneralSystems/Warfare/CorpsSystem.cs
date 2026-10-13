@@ -122,6 +122,7 @@ public static class CorpsSystem
         _lastSecond = _lastMonth = -1d;
         GeneralMoves.Clear();
         Paths.Clear();
+        RoadNetwork.ResetWorldState();
         PureMapMode.ResetWorldState();
         CorpsArmSystem.ResetWorldState();
         VirtualIndustrySystem.ResetWorldState();
@@ -171,6 +172,8 @@ public static class CorpsSystem
             }
             RebuildIndex();
         }
+        // 路网与航线(行军、航行据此寻路；自己按真实时间限频，见 RoadNetwork)
+        using (FrameProfiler.Measure("路网")) RoadNetwork.Tick();
         if (_lastSecond < 0d || now < _lastSecond || now - _lastSecond >= 1d)
         {
             _lastSecond = now;
@@ -642,10 +645,12 @@ public static class CorpsSystem
             }
             else
             {
-                // 兵种定行军速度；山地、沼泽、丛林按兵种减速，飞机不受地形影响(见 CorpsArmSystem)
+                // 兵种定行军速度；山地、沼泽、丛林按兵种减速，离开道路再按兵种减速，飞机不受地形影响(见 CorpsArmSystem、RoadNetwork)
                 CorpsArmSystem.Arm arm = CorpsArmSystem.Of(corps);
                 float speed = MarchZonesPerSecond * CorpsArmSystem.Speed(arm);
-                if (TerrainSystem.SlowsMarch(Zone(corps))) speed *= CorpsArmSystem.Rough(arm);
+                TileZone here = Zone(corps);
+                if (TerrainSystem.SlowsMarch(here)) speed *= CorpsArmSystem.Rough(arm);
+                if (!CorpsArmSystem.Flies(arm) && !RoadNetwork.IsRoad(here)) speed *= CorpsArmSystem.OffRoad(arm);
                 corps.march_progress += speed;
                 while (corps.march_progress >= 1f)
                 {
@@ -808,18 +813,38 @@ public static class CorpsSystem
         corps.sea_route = route.Select(region => region.Id).ToList();
         corps.sea_step = 0;
         corps.sea_tick = 0;
-        if (route[0].Center != null) corps.zone_id = route[0].Center.id;
+        corps.sea_path = Voyage(corps, Zone(corps), target);
+        // 寻不到海上路线：照旧从第一个海区出发，按海区走
+        if (corps.sea_path.Count == 0 && route[0].Center != null) corps.zone_id = route[0].Center.id;
         Paths.Remove(corps.id);
     }
 
-    // 船队每 SailSteps 次行军结算前进一个海区(约两秒一个，与舰队相当)；过了最后一个海区登陆
-    private const int SailSteps = 4;
+    // 船走的路线：只走登陆航线上的海区(不进敌方制海的海区)，海面上尽量沿航线(见 RoadNetwork.SeaPath)；寻不到返回空表
+    private static List<int> Voyage(CorpsData corps, TileZone from, TileZone landing)
+    {
+        if (from == null || landing == null || corps.sea_route == null) return new List<int>();
+        var regions = new HashSet<int>(corps.sea_route);
+        List<TileZone> path = RoadNetwork.SeaPath(from, landing, from.city, landing.city,
+            zone => SeaRegionSystem.Of(zone) is { } region && regions.Contains(region.Id));
+        return path == null || path.Count < 2 ? new List<int>() : path.Select(zone => zone.id).ToList();
+    }
+
+    // 船队每秒沿海上路线走 SailZones 块(与舰队相当)，驶入航线上的下一个海区可能遭截击，到了登陆；
+    // 旧存档(没有路线)先补算一条；寻不到路线时照旧每 SailSteps 秒前进一个海区，过了最后一个海区登陆
+    private const int SailSteps = 4, SailZones = 2;
 
     private static void Sail(CorpsData corps)
     {
         if (corps.sea_route == null || corps.sea_route.Count == 0)
         {
             Disembark(corps);
+            return;
+        }
+        corps.sea_path ??= Voyage(corps, Zone(corps),
+            FrontSystem.TargetZone(corps) ?? World.world.cities.get(corps.sector_city_id)?.getTile()?.zone);
+        if (corps.sea_path.Count > 0)
+        {
+            SailAlong(corps);
             return;
         }
         if (++corps.sea_tick < SailSteps) return;
@@ -835,9 +860,31 @@ public static class CorpsSystem
         Intercept(corps, region);
     }
 
+    private static void SailAlong(CorpsData corps)
+    {
+        for (int i = 0; i < SailZones; i++)
+        {
+            if (corps.sea_path.Count <= 1)
+            {
+                Disembark(corps);
+                return;
+            }
+            corps.sea_path.RemoveAt(0);
+            TileZone zone = ZoneById(corps.sea_path[0]);
+            if (zone == null) continue;
+            corps.zone_id = zone.id;
+            SeaRegionSystem.Region region = SeaRegionSystem.Of(zone);
+            int index = region == null ? -1 : corps.sea_route.IndexOf(region.Id);
+            if (index <= corps.sea_step) continue;
+            corps.sea_step = index;
+            Intercept(corps, region);
+        }
+    }
+
     private static void Disembark(CorpsData corps)
     {
         corps.embarked = false;
+        corps.sea_path = null;
         corps.sea_route = null;
         corps.sea_step = 0;
         corps.sea_tick = 0;
@@ -871,7 +918,7 @@ public static class CorpsSystem
             cached.path.RemoveAt(0);
             return ZoneById(cached.path[0]);
         }
-        List<int> path = FindPath(current, target);
+        List<int> path = FindPath(current, target, CorpsArmSystem.Of(corps));
         if (path == null || path.Count < 2)
         {
             Paths.Remove(corps.id);
@@ -899,23 +946,35 @@ public static class CorpsSystem
         return best;
     }
 
-    // 广度优先(八方向，与 ZoneDistance 同一度量)；不可通行的地块不进，终点除外
-    private static List<int> FindPath(TileZone from, TileZone to)
+    // 按代价寻路(八方向)：路上的地块代价 1，路外按兵种加价(OffRoad 的倒数)，山地、沼泽、丛林再按兵种加价(Rough 的倒数)，
+    // 斜走乘 1.41；不可通行的地块与海面不进，终点除外
+    private static List<int> FindPath(TileZone from, TileZone to, CorpsArmSystem.Arm arm)
     {
+        float offRoad = 1f / Mathf.Max(0.1f, CorpsArmSystem.OffRoad(arm));
+        float rough = 1f / Mathf.Max(0.1f, CorpsArmSystem.Rough(arm));
+        var cost = new Dictionary<int, float> { [from.id] = 0f };
         var previous = new Dictionary<int, int> { [from.id] = -1 };
-        var queue = new Queue<TileZone>();
-        queue.Enqueue(from);
-        while (queue.Count > 0 && previous.Count < MaxPathSearch)
+        var closed = new HashSet<int>();
+        var open = new List<(float key, TileZone zone)> { (0f, from) };
+        while (open.Count > 0 && closed.Count < MaxPathSearch)
         {
-            TileZone zone = queue.Dequeue();
+            TileZone zone = PopMin(open);
             if (zone == to) break;
+            if (!closed.Add(zone.id)) continue;
+            float here = cost[zone.id];
             foreach (TileZone neighbour in zone.neighbours_all ?? Array.Empty<TileZone>())
             {
-                if (neighbour == null || previous.ContainsKey(neighbour.id)) continue;
+                if (neighbour == null || closed.Contains(neighbour.id)) continue;
                 // 陆军不走海面(跨海见 Embark)
                 if (neighbour != to && (TerrainSystem.Impassable(neighbour) || SeaRegionSystem.IsSea(neighbour))) continue;
+                float step = RoadNetwork.IsRoad(neighbour) ? 1f : offRoad;
+                if (TerrainSystem.SlowsMarch(neighbour)) step *= rough;
+                if (neighbour.x != zone.x && neighbour.y != zone.y) step *= 1.41f;
+                float total = here + step;
+                if (cost.TryGetValue(neighbour.id, out float known) && known <= total) continue;
+                cost[neighbour.id] = total;
                 previous[neighbour.id] = zone.id;
-                queue.Enqueue(neighbour);
+                PushHeap(open, (total + ZoneDistance(neighbour, to), neighbour));
             }
         }
         if (!previous.ContainsKey(to.id)) return null;
@@ -923,6 +982,37 @@ public static class CorpsSystem
         for (int id = to.id; id != -1; id = previous[id]) path.Add(id);
         path.Reverse();
         return path;
+    }
+
+    public static void PushHeap(List<(float key, TileZone zone)> heap, (float key, TileZone zone) item)
+    {
+        heap.Add(item);
+        int i = heap.Count - 1;
+        while (i > 0)
+        {
+            int parent = (i - 1) / 2;
+            if (heap[parent].key <= heap[i].key) break;
+            (heap[parent], heap[i]) = (heap[i], heap[parent]);
+            i = parent;
+        }
+    }
+
+    public static TileZone PopMin(List<(float key, TileZone zone)> heap)
+    {
+        TileZone top = heap[0].zone;
+        int last = heap.Count - 1;
+        heap[0] = heap[last];
+        heap.RemoveAt(last);
+        for (int i = 0; ;)
+        {
+            int left = i * 2 + 1, right = left + 1, smallest = i;
+            if (left < heap.Count && heap[left].key < heap[smallest].key) smallest = left;
+            if (right < heap.Count && heap[right].key < heap[smallest].key) smallest = right;
+            if (smallest == i) break;
+            (heap[smallest], heap[i]) = (heap[i], heap[smallest]);
+            i = smallest;
+        }
+        return top;
     }
 
     private static TileZone Nearer(TileZone current, TileZone target)

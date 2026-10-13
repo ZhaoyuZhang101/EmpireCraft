@@ -226,24 +226,37 @@ public static class CorpsMapRenderer
     private const float DashLength = 7f, DashGap = 6f, RouteWidth = 2f;
     private const int MaxDashes = 600;
 
-    private static void DrawDashes(Vector3 from, Vector3 to, Color color, ref int lineCount, float scale)
+    // 一条折线(屏幕坐标)画成虚线，虚实跨段连续，弯处的一截按各段方向拼起来
+    private static void DrawDashedPath(IReadOnlyList<Vector3> points, Color color, ref int lineCount, float scale)
     {
-        if (!OnScreen(from, 200f) && !OnScreen(to, 200f)) return;
-        Vector2 delta = to - from;
-        float length = delta.magnitude;
-        if (length < 1f) return;
-        Vector2 direction = delta / length;
-        Quaternion rotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg);
-        for (float travelled = 0f; travelled < length && lineCount < MaxDashes; travelled += DashLength + DashGap)
+        const float cycle = DashLength + DashGap;
+        float phase = 0f;
+        for (int i = 0; i + 1 < points.Count && lineCount < MaxDashes; i++)
         {
-            float dash = Mathf.Min(DashLength, length - travelled);
-            Image line = GetLine(lineCount++);
-            line.gameObject.SetActive(true);
-            line.color = color;
-            RectTransform rect = line.rectTransform;
-            rect.position = from + (Vector3)(direction * (travelled + dash * 0.5f));
-            rect.sizeDelta = new Vector2(dash / scale, RouteWidth / scale);
-            rect.localRotation = rotation;
+            Vector3 from = points[i], to = points[i + 1];
+            Vector2 delta = to - from;
+            float length = delta.magnitude;
+            if (length < 0.01f) continue;
+            bool visible = OnScreen(from, 200f) || OnScreen(to, 200f);
+            Vector2 direction = delta / length;
+            Quaternion rotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg);
+            for (float travelled = 0f; travelled < length;)
+            {
+                bool on = phase < DashLength;
+                float piece = Mathf.Min((on ? DashLength : cycle) - phase, length - travelled);
+                if (on && visible && piece > 0.2f && lineCount < MaxDashes)
+                {
+                    Image line = GetLine(lineCount++);
+                    line.gameObject.SetActive(true);
+                    line.color = color;
+                    RectTransform rect = line.rectTransform;
+                    rect.position = from + (Vector3)(direction * (travelled + piece * 0.5f));
+                    rect.sizeDelta = new Vector2(piece / scale, RouteWidth / scale);
+                    rect.localRotation = rotation;
+                }
+                travelled += piece;
+                phase = (phase + piece) % cycle;
+            }
         }
     }
 
@@ -562,7 +575,8 @@ public static class CorpsMapRenderer
             rect.localRotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg);
         }
 
-        // 跨海运兵的航线：从所在海区经剩下的海区到登陆点，画成本国颜色的虚线(同一支船队只画一次)
+        // 跨海运兵的航线：船走的海上路线(见 CorpsSystem.Voyage)平滑成曲线，画成本国颜色的虚线(同一支船队只画一次)；
+        // 旧存档没有路线的，从所在海区经剩下的海区到登陆点
         var drawnRoutes = new HashSet<(long kingdom, int step, int first, int last)>();
         foreach ((Kingdom kingdom, CorpsData corps) in CorpsSystem.All())
         {
@@ -571,15 +585,23 @@ public static class CorpsMapRenderer
                 continue;
             Color routeColor = kingdom.getColor()?.getColorMain() ?? Color.white;
             routeColor.a = 0.9f;
-            Vector3? previous = null;
-            for (int i = Mathf.Max(0, corps.sea_step); i <= corps.sea_route.Count; i++)
+            var points = new List<Vector3>();
+            if (corps.sea_path != null && corps.sea_path.Count >= 2)
             {
-                TileZone stop = i < corps.sea_route.Count ? SeaRegionSystem.Get(corps.sea_route[i])?.Center : FrontSystem.TargetZone(corps);
-                if (stop?.centerTile == null) continue;
-                Vector3 point = camera.WorldToScreenPoint(stop.centerTile.posV);
-                if (previous is Vector3 from) DrawDashes(from, point, routeColor, ref lineCount, scale);
-                previous = point;
+                List<TileZone> zones = corps.sea_path.Select(CorpsSystem.ZoneById).Where(zone => zone?.centerTile != null).ToList();
+                if (zones.Count >= 2)
+                    foreach (Vector2 point in RoadNetwork.Smooth(zones, zones[0].centerTile, zones[zones.Count - 1].centerTile))
+                        points.Add(camera.WorldToScreenPoint(new Vector3(point.x, point.y)));
             }
+            else
+            {
+                for (int i = Mathf.Max(0, corps.sea_step); i <= corps.sea_route.Count; i++)
+                {
+                    TileZone stop = i < corps.sea_route.Count ? SeaRegionSystem.Get(corps.sea_route[i])?.Center : FrontSystem.TargetZone(corps);
+                    if (stop?.centerTile != null) points.Add(camera.WorldToScreenPoint(stop.centerTile.posV));
+                }
+            }
+            DrawDashedPath(points, routeColor, ref lineCount, scale);
         }
 
         // 以屏幕像素定大小：抵消画布缩放，镜头拉远时最多缩到八成五、拉近时最多放大一成五
