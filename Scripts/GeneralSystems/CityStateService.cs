@@ -10,7 +10,7 @@ using NeoModLoader.services;
 
 namespace EmpireCraft.Scripts.GeneralSystems;
 
-// 西方古典共和(城邦)阶段：一城一国。
+// 西方古典共和(城邦)阶段：一城一国(名下多出来的城每月分出一座，见 EnforceOneCity)。
 //   · 城邦不占第二座城：攻下的城由本地贵族立为新城邦、加入攻城方的同盟；对方只剩这一座城时整国入盟；
 //   · 城邦的国民新建城市即独立为殖民城邦，与母邦结盟；
 //   · 联盟只用于没有称帝的城邦：攻城方/母邦已属于帝国时，新城邦或被征服的城邦直接并入该帝国
@@ -67,6 +67,41 @@ public static class CityStateService
         bool inEmpire = Attach(mother, colony);
         Record(mother, inEmpire ? "city_state_colony_empire_history" : "city_state_colony_history",
             mother.GetKingdomName(), colony.GetKingdomName());
+    }
+
+    // 一城一国：城邦名下多出来的城(建城时还没施行城邦共和、后来才改制；和约割让、归附等别的来路)每月分出一座，
+    // 由本城的主事者立为殖民城邦，与母邦结盟、共用一位君主(母邦在帝国里的并入帝国)。RoyalHouseSystem 每月调用
+    public static void EnforceOneCity()
+    {
+        if (World.world?.kingdoms == null) return;
+        foreach (Kingdom mother in World.world.kingdoms.list.ToList())
+        {
+            if (!IsCityState(mother) || mother.capital == null || mother.cities == null || mother.cities.Count <= 1 ||
+                EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(mother)) continue;
+            City city = mother.cities.Where(candidate => candidate?.data != null && !candidate.isRekt() &&
+                                                         candidate != mother.capital)
+                .OrderBy(candidate => candidate.id).FirstOrDefault();
+            if (city == null) continue;
+            if (!city.hasLeader()) CityPopulationSystem.EnsureLeader(city);
+            Actor current = city.leader;
+            Actor leader = current != null && !current.isRekt() && current.isAlive() && current.isAdult() &&
+                           !current.isKing() && current.isUnitFitToRule()
+                ? current
+                : FindLocalLeader(city, mother.king);
+            if (leader == null) continue;
+            try
+            {
+                Kingdom colony = SpinOff(city, leader, mother);
+                if (colony == null) continue;
+                bool inEmpire = Attach(mother, colony);
+                Record(mother, inEmpire ? "city_state_colony_empire_history" : "city_state_colony_history",
+                    mother.GetKingdomName(), colony.GetKingdomName());
+            }
+            catch (global::System.Exception exception)
+            {
+                LogService.LogWarning($"[EmpireCraft][城邦] {mother.GetKingdomName()} 分出殖民城邦失败: {exception.Message}");
+            }
+        }
     }
 
     // CityPatch.FinishedCapture 调用。返回 true 表示已按城邦规则处理，城市不归攻城方。

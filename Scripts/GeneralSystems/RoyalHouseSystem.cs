@@ -160,6 +160,7 @@ public static class RoyalHouseSystem
             PrinceStruggleSystem.Monthly();
             SuccessionCouncilSystem.Monthly();
             EmpirePartitionSystem.Monthly();
+            CityStateService.EnforceOneCity();
             if (++_months % 12 != 0) return;
             if (ModClass.EMPIRE_MANAGER != null)
                 foreach (Empire empire in ModClass.EMPIRE_MANAGER.ToList())
