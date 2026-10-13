@@ -88,6 +88,10 @@ public static class WarExtension
         public bool republic_regional_forced_abdication;
         // 土崩瓦解(见 ProvincialCollapseSystem)：各省陆续独立的革命战争；议和时三省以上就联合建立共和国
         public bool republic_provincial;
+        // 圣战(见 PapacySystem.Crusade)：哪个宗教、目标类别、要收复的圣地
+        public long crusade_religion_id = -1L;
+        public int crusade_kind;
+        public long crusade_city_id = -1L;
         // 现代革命：共和国里另一理念占主导、提前大选也没能上台的政党起兵推翻现政府(不是废君)
         public bool republic_modern_revolution;
         // A large industrial-era conflict is promoted to a world war once both

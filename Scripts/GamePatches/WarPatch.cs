@@ -209,6 +209,8 @@ public class WarPatch: GamePatch
             RecordWarEnded(pWar, pWinner);
             // 按开战目标结算和约(赔款、割地、吞并，见 WarGoalSystem)
             EmpireCraft.Scripts.GeneralSystems.WarGoalSystem.Settle(pWar, pWinner);
+            // 圣战：圣地交接、教权与正统
+            EmpireCraft.Scripts.GeneralSystems.PapacySystem.OnWarEnded(pWar, pWinner);
             ReignRecordSystem.OnWarEnded(pWar, pWinner);
             WorldWarSystem.Resolve(pWar, pWinner);
             World.world.game_stats.data.peacesMade++;

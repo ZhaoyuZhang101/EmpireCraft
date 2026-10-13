@@ -221,7 +221,13 @@ public static partial class PapacySystem
         if (data.PapalUpdatedAt >= 0d && now >= data.PapalUpdatedAt && Date.getYearsSince(data.PapalUpdatedAt) < 1) return;
         data.PapalUpdatedAt = now;
         Kingdom papacy = Papacy(religion);
-        if (papacy == null) return;
+        if (papacy == null)
+        {
+            Kingdom strongest = Strongest(religion);
+            string holder = strongest == null ? "" : InstitutionSystem.GetCultureLine(CultureService.GetRealmCulture(strongest));
+            if (holder == Line || holder == "Arabic") TryCrusade(religion);
+            return;
+        }
         float target = BaseAuthority;
         if (papacy.GetKingdomType() == KingdomType.Feudalism_papal_state) target += PapalStateBonus;
         float stance = 0f;
@@ -238,6 +244,9 @@ public static partial class PapacySystem
         target += Mathf.Clamp(stance, -20f, 20f);
         if (IsCaptive(religion)) target -= CaptivityPenalty;
         data.PapalAuthority = Mathf.Clamp(data.PapalAuthority + (target - data.PapalAuthority) * AuthorityDrift, 0f, 100f);
+        // 圣战：西方(与阿拉伯的吉哈德)才有
+        string line = InstitutionSystem.GetCultureLine(CultureService.GetRealmCulture(papacy));
+        if (line == Line || line == "Arabic") TryCrusade(religion);
     }
 
     // 加冕：教宗加冕(献礼)、帝国自己握有圣地直接加冕、脱离罗马后自行加冕

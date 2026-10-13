@@ -163,7 +163,7 @@ public static class WarGoalSystem
     }
 
     // 攻守双方在这场仗里各得几城：对方参战以来少了的城 + 己方占了一半以上地块的对方城市
-    private static (int attackerGain, int defenderGain) Gains(War war)
+    public static (int attackerGain, int defenderGain) Gains(War war)
     {
         Kingdom attacker = war.main_attacker, defender = war.main_defender;
         int defenderLost = Math.Max(0, WarSituation.CitiesLost(war, defender));

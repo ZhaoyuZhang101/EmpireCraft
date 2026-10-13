@@ -11,6 +11,11 @@ public static class ReligionExtension
         // 教权(0~100，见 PapacySystem)与上次结算时间
         public float PapalAuthority = 60f;
         public double PapalUpdatedAt = -1d;
+        // 圣战(见 PapacySystem.Crusade)：进行中的圣战、冷却到何时、第几次、失利次数
+        public long CrusadeWarId = -1L;
+        public double CrusadeCooldownUntil = -1d;
+        public int CrusadeCount;
+        public int CrusadeLosses;
     }
     public static ReligionExtraData GetOrCreate(this Religion a, bool isSave = false)
     {
