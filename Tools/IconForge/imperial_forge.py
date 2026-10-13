@@ -528,8 +528,22 @@ def obj_military(img):
         over(img, shade(ellipse([x - 7, y - 7, x + 7, y + 7]), BRASS, bevel=3, gloss=0.9))
 
 
+def obj_keys(img):
+    """教廷：交叉的金、银两把钥匙(柄环在上、齿在下)，交叉处系一段红绳。"""
+    for (x0, y0, x1, y1), metal, d in (((66, 212, 190, 60), BRASS, 1), ((190, 212, 66, 60), STEEL, -1)):
+        over(img, shade(lines([[(x0, y0), (x1, y1)]], 14), metal, bevel=5, gloss=0.9))
+        over(img, shade(sub(ellipse([x1 - 30, y1 - 30, x1 + 30, y1 + 30]),
+                            ellipse([x1 - 13, y1 - 13, x1 + 13, y1 + 13])), metal, bevel=6, gloss=0.9))
+        left, right = sorted((x0, x0 + 38 * d))
+        over(img, shade(rrect([left, y0 - 36, right, y0 - 22], 3), metal, bevel=4))
+        over(img, shade(rrect([left, y0 - 14, right, y0], 3), metal, bevel=4))
+    over(img, shade(ellipse([112, 118, 144, 150]), RED, bevel=6))
+    over(img, shade(lines([[(128, 146), (116, 182)], [(128, 146), (140, 182)]], 7), RED, bevel=3))
+
+
 TABS = {
     "TabMilitary": obj_military,
+    "TabPapacy": obj_keys,
     "TabDynasty": obj_tablet,
     "TabDependencies": obj_banners,
     "TabBureau": obj_palace,

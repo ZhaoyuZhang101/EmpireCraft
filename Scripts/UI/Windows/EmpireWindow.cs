@@ -100,6 +100,12 @@ namespace EmpireCraft.Scripts.UI.Windows
                 dependenciesTab.Setup("empire_dependencies", this.TabsWindow, action: ShowDependencies,
                     sprite: SpriteTextureLoader.getSprite("TabDependencies"));
             }
+            if (TabsWindow.tabs._tabs.All(p => p.name != "empire_papacy"))
+            {
+                var papacyTab = GameObject.Instantiate(SimpleWindowTab.Prefab);
+                papacyTab.Setup("empire_papacy", this.TabsWindow, action: ShowPapacy,
+                    sprite: SpriteTextureLoader.getSprite("TabPapacy"));
+            }
             if (TabsWindow.tabs._tabs.All(p => p.name != "past_emperors"))
             {
                 var pastEmperorsWindowTab = GameObject.Instantiate(SimpleWindowTab.Prefab);

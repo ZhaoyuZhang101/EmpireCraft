@@ -31,6 +31,7 @@ namespace EmpireCraft.Scripts.UI.Components;
 //   });
 //   var list = page.BeginCard(PageWidth, "已亡帝国", WideKit.Muted, "3");
 //   list.AddListRow(PageWidth, 0, icon, "某朝", "延续 120 年 · 末代 某某", () => OpenHistory());
+//   card.AddButtonRow(PageWidth, ("act_a", "加冕", () => {...}), ("act_b", "绝罚", () => {...}));
 public static class WideKit
 {
     public const string Gold = "#F3C34A", Cyan = "#7FD8EA", Muted = "#8FA0A8", Green = "#65D66E",
@@ -193,6 +194,19 @@ public static class WideKit
         float cell = inner / cells.Length;
         foreach ((string label, string value, string hex) in cells)
             UIHelper.AddMetricCell(row, cell, label, value, string.IsNullOrEmpty(hex) ? Value : hex);
+        return row;
+    }
+
+    // 按钮行：几个按钮等宽平分卡片内宽
+    public static AutoHoriLayoutGroup AddButtonRow(this AutoVertLayoutGroup card, float cardWidth,
+        params (string id, string label, UnityAction action)[] buttons)
+    {
+        float inner = cardWidth - CardPadding;
+        var row = card.BeginHoriGroup(new Vector2(inner, 16f), TextAnchor.MiddleCenter, 3, new RectOffset(0, 0, 0, 0));
+        if (buttons.Length == 0) return row;
+        float width = (inner - 3f * (buttons.Length - 1)) / buttons.Length;
+        foreach ((string id, string label, UnityAction action) in buttons)
+            row.AddButtonIntoHoriLayout(id, label, action, size: new Vector2(width, 15f));
         return row;
     }
 

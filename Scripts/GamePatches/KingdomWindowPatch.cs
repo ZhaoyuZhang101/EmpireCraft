@@ -97,6 +97,11 @@ public class KingdomWindowPatch: GamePatch
                 __instance.showStatRow("zhou_vassal", string.Format(NeoModLoader.General.LM.Get("zhou_vassal_tag"),
                         EmpireCraft.Scripts.GeneralSystems.ZhouEraSystem.SphereOf(metaObject).GetEmpireName()), "#D9B36A",
                     pIconPath: "iconKings");
+            // 西方帝国成员国：教皇党或皇帝党(见 PapacySystem)
+            int papalParty = EmpireCraft.Scripts.GeneralSystems.PapacySystem.Party(metaObject);
+            if (papalParty != EmpireCraft.Scripts.GeneralSystems.PapacySystem.PartyNone)
+                __instance.showStatRow("papacy_party", NeoModLoader.General.LM.Get(papalParty == EmpireCraft.Scripts.GeneralSystems.PapacySystem.PartyPope
+                    ? "papacy_party_pope" : "papacy_party_emperor"), "#D9B36A", pIconPath: "iconKings");
             Kingdom feudalLord = EmpireCraft.Scripts.GeneralSystems.FeudalVassalService.GetOverlord(metaObject);
             if (feudalLord != null)
                 __instance.showStatRow("feudal_overlord", string.Format(NeoModLoader.General.LM.Get("feudal_overlord_format"),
