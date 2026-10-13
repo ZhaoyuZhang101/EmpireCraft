@@ -96,7 +96,13 @@ public static class IdeologyInstitutionPaths
             string branch = Branch(ideology);
             InstitutionNodeConfig foundation = tree.nodes.FirstOrDefault(node =>
                 node?.features?.ContainsKey(IdeologySpreadSystem.FeatureKey(ideology)) == true);
-            if (foundation == null)
+            if (foundation == partyBan)
+            {
+                // 开放党禁本身就放开了这几种理念(自由组党)：它留在原来的分支，不挪进某一理念的分支
+                // (以前四种理念轮流把它的分支改掉，最后落在保守主义上，看着像"保守主义开放党禁")；
+                // 这几种理念的三个阶段直接接在开放党禁后面
+            }
+            else if (foundation == null)
             {
                 foundation = new InstitutionNodeConfig
                 {
