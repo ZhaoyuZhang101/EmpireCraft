@@ -46,7 +46,7 @@ public static class RoadNetwork
     private static readonly Dictionary<(long, long), RoadPlan> Roads = new(), Lanes = new();
     private static readonly HashSet<int> RoadZones = new(), RoadTiles = new(), LaneZones = new(), LaneTiles = new(),
         BuildingTiles = new();
-    private static readonly Dictionary<int, int> TileGrades = new();
+    private static readonly Dictionary<int, int> TileGrades = new(), ZoneGrades = new();
     private static readonly List<City> PortCities = new();
     private static float _nextTick, _nextPorts;
     private static bool _dirty;
@@ -72,6 +72,14 @@ public static class RoadNetwork
     public static bool IsRoad(TileZone zone) =>
         zone != null && (RoadZones.Contains(zone.id) || zone.city?.data != null && zone.city.getTile()?.zone == zone);
 
+    // 地块上最好的路的等级(没有路为 0；城心按驿道算)
+    public static int RoadGrade(TileZone zone)
+    {
+        if (zone == null) return 0;
+        if (ZoneGrades.TryGetValue(zone.id, out int grade)) return grade;
+        return zone.city?.data != null && zone.city.getTile()?.zone == zone ? 2 : 0;
+    }
+
     public static void ResetWorldState()
     {
         Roads.Clear();
@@ -82,6 +90,7 @@ public static class RoadNetwork
         LaneTiles.Clear();
         BuildingTiles.Clear();
         TileGrades.Clear();
+        ZoneGrades.Clear();
         PortCities.Clear();
         PlansComplete = false;
         RoadBuildingSystem.ResetWorldState();
@@ -139,6 +148,7 @@ public static class RoadNetwork
         RoadTiles.Clear();
         BuildingTiles.Clear();
         TileGrades.Clear();
+        ZoneGrades.Clear();
         foreach (var pair in Roads)
         {
             RoadLink link = RoadBuildingSystem.Get(pair.Key);
@@ -150,6 +160,8 @@ public static class RoadNetwork
                 RoadTiles.UnionWith(plan.tiles);
                 foreach (int tile in plan.tiles)
                     TileGrades[tile] = TileGrades.TryGetValue(tile, out int grade) ? Math.Max(grade, link.grade) : link.grade;
+                foreach (int zone in plan.zones)
+                    ZoneGrades[zone] = ZoneGrades.TryGetValue(zone, out int grade) ? Math.Max(grade, link.grade) : link.grade;
             }
             if (link.building > 0 && plan.terrain > 0f)
             {

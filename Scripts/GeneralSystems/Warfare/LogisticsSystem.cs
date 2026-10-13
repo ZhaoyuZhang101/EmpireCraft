@@ -10,15 +10,17 @@ using UnityEngine;
 namespace EmpireCraft.Scripts.GeneralSystems;
 
 // 后勤补给(每月，CorpsSystem 月度结算里逐国调用，先于休整与补员)：
-//   · 补给程度(0~1)：在本国、友军控制区或野地为满；深入敌境按离最近己方控制区几块地递减(两块内不减，之后每块 -12%，
-//     山地、丛林、沼泽、沙漠、雪原再打八折)，12 块内找不到己方控制区(被围)为 0；
-//     海外靠海路：回国航线被敌方制海截断为 0，否则最多七成五，超出舰种航程只剩四成；在船上八成；
+//   · 补给线(0~1)：从军所在的地块往后方找一条运粮的路，到最近的己方(含友军)城为止，沿途每块地折损一点——
+//     有路的地块折损小(路越好越小)，路外大，山地、丛林、沼泽、沙漠、雪原的路外再加重；己方控制区折损最小、无主地次之；
+//     敌军控制的地块只有阵地前沿两块能穿过；找不到这样的路(被围、孤军深入、后路被截断)就是补给线被切断，补给为 0；
+//     海外靠海路：回国航线被敌方制海截断为 0，否则补给线可以到沿岸(从海上卸粮)，最多七成五，超出舰种航程只剩四成；在船上八成；
 //     粮草官按治事加成(每点 +1%，最多 +20%，被围的不加)；就地征粮期间在敌境的军 +35%；
 //   · 军粮：各军按人头每月吃粮(每户每年 1.25 份，与百姓同一尺度；粮草官按治事省一些)，
 //     就地征粮期间在敌城的军先从所在敌城征(那座城每月掉稳定)；其余就近调粮——先从离这支军最近的几座本国城
 //     口粮线(每户一份)以上的余粮里调，再从国家粮仓扣，还不够再从全国各城的余粮里调；
 //     调不够的按缺口比例口粮不足；
-//   · 效果：战力 × (0.6 + 0.4×补给)(见 FrontSystem)；补给不到五成组织度不恢复反而下降，也补不上兵(见 CorpsSystem)；
+//   · 效果：战力 × (0.35 + 0.65×补给)(见 FrontSystem)，补给线被切断战力只剩三成五；补给不到五成组织度不恢复反而下降，
+//     也补不上兵(见 CorpsSystem)；补给线被切断、恢复时记入纪事；
 //     交战时补给不到三成或口粮不足就减员，每月 3%~8%(越缺越多)；太平时缺粮只掉组织度；
 //   · 就地征粮是统帅的决议(见 PlotAsset war_forage)：交战中缺粮、或三分之一以上的军在敌境时，统帅发起，为期半年。
 public static class LogisticsSystem
@@ -26,10 +28,10 @@ public static class LogisticsSystem
     private const float RationPerHouseholdYear = 1.25f;
     // 就近调粮的城数
     private const int NearbyGranaries = 3;
-    private const int FullSupplyDepth = 2;
-    private const float SupplyPerZone = 0.12f;
-    private const int MaxSupplyDepth = 12;
-    private const float RoughTerrain = 0.8f;
+    // 补给线：敌占的阵地前沿能穿过几块；最多找多远、展开几块
+    private const int FrontlineDepth = 2, MaxSupplyDepth = 30, MaxSupplySearch = 1500;
+    // 每块地的折损：己方控制区、无主地、敌占前沿；有路时按路的等级再减，山地等路外再加重
+    private const float FriendlyLoss = 0.04f, NeutralLoss = 0.1f, EnemyLoss = 0.25f, RoadShare = 0.3f, RoughLoss = 1.5f;
     private const float OverseasCap = 0.75f, OutOfRange = 0.4f, AtSea = 0.8f;
     private const float ForageBonus = 0.35f;
     public const int ForageMonths = 6;
@@ -38,8 +40,8 @@ public static class LogisticsSystem
     // 原版一个月是 5 个世界秒(见 Date.getMonthsSince)
     private const double SecondsPerMonth = 5d;
 
-    // 战力：补给满时不打折，断绝时六成
-    public static float AttackFactor(CorpsData corps) => 0.6f + 0.4f * Mathf.Clamp01(corps?.supply ?? 1f);
+    // 战力：补给满时不打折，补给线被切断时只剩三成五
+    public static float AttackFactor(CorpsData corps) => 0.35f + 0.65f * Mathf.Clamp01(corps?.supply ?? 1f);
 
     public static bool Foraging(Kingdom kingdom)
     {
@@ -57,7 +59,11 @@ public static class LogisticsSystem
         foreach (CorpsData corps in list)
         {
             float supply = Supply(kingdom, corps, foraging);
+            bool wasCut = corps.supply <= 0f;
             corps.supply = supply <= 0f ? 0f : Mathf.Min(1f, supply + bonus);
+            if (wasCut != corps.supply <= 0f && !corps.embarked)
+                FrontSystem.Log(kingdom, string.Format(LM.Get(wasCut ? "corps_log_supply_restored" : "corps_log_supply_cut"),
+                    CorpsSystem.Name(corps)));
         }
         Feed(kingdom, list, foraging);
         Attrition(kingdom, list);
@@ -69,46 +75,91 @@ public static class LogisticsSystem
         if (corps.embarked) return AtSea;
         TileZone zone = CorpsSystem.Zone(corps);
         if (zone == null) return 1f;
-        float supply = 1f;
-        Kingdom controller = FrontSystem.Controller(zone);
-        if (controller != null && !FrontSystem.Friendly(kingdom, controller))
-        {
-            int depth = DepthToFriendly(kingdom, zone);
-            supply = depth < 0 ? 0f : depth <= FullSupplyDepth ? 1f : Mathf.Max(0f, 1f - SupplyPerZone * (depth - FullSupplyDepth));
-            if (TerrainSystem.Of(zone) is FrontTerrain.Mountain or FrontTerrain.Jungle or FrontTerrain.Swamp or
-                FrontTerrain.Desert or FrontTerrain.Snow) supply *= RoughTerrain;
-            if (foraging && supply > 0f) supply = Mathf.Min(1f, supply + ForageBonus);
-        }
-        // 海外：补给走海路
+        // 海外：补给走海路，可以从沿岸卸粮
         City home = CorpsSystem.Home(corps);
+        float seaCap = -1f;
         if (home != null && !CorpsSystem.SameLand(zone, home.getTile()?.zone))
         {
             if (NavySystem.IsCutOff(kingdom, corps)) return 0f;
             List<SeaRegionSystem.Region> route = zone.city != null ? NavySystem.LandingRoute(kingdom, zone.city) : null;
-            supply = Mathf.Min(supply, route != null && route.Count > NavySystem.MaxRange(kingdom) ? OutOfRange : OverseasCap);
+            seaCap = route != null && route.Count > NavySystem.MaxRange(kingdom) ? OutOfRange : OverseasCap;
         }
+        float supply = SupplyLine(kingdom, zone, seaCap);
+        Kingdom controller = FrontSystem.Controller(zone);
+        if (foraging && supply > 0f && controller != null && FrontSystem.Hostile(kingdom, controller))
+            supply = Mathf.Min(1f, supply + ForageBonus);
         return supply;
     }
 
-    // 离最近的己方(含友军)控制区隔几块地；12 块内找不到返回 -1(被围或孤军深入)
-    private static int DepthToFriendly(Kingdom kingdom, TileZone start)
+    // 补给线：从军所在的地块往后方找折损最小的运粮路线，到最近的己方(含友军)城为止(海外还可以到沿岸，按海路封顶)；
+    // 返回沿途剩下的几成，找不到为 0(被切断)。按每块折损取对数做最短路
+    private static float SupplyLine(Kingdom kingdom, TileZone start, float seaCap)
     {
-        var seen = new HashSet<int> { start.id };
-        var frontier = new List<TileZone> { start };
-        for (int depth = 1; depth <= MaxSupplyDepth && frontier.Count > 0; depth++)
+        float Source(TileZone zone)
         {
-            var next = new List<TileZone>();
-            foreach (TileZone zone in frontier)
-                foreach (TileZone neighbour in zone.neighbours_all ?? Array.Empty<TileZone>())
-                {
-                    if (neighbour == null || !seen.Add(neighbour.id) || SeaRegionSystem.IsSea(neighbour)) continue;
-                    Kingdom controller = FrontSystem.Controller(neighbour);
-                    if (controller != null && FrontSystem.Friendly(kingdom, controller)) return depth;
-                    if (!TerrainSystem.Impassable(neighbour)) next.Add(neighbour);
-                }
-            frontier = next;
+            City city = zone.city;
+            if (city?.data != null && !city.isRekt() && city.getTile()?.zone == zone && FrontSystem.Friendly(kingdom, city.kingdom))
+                return 1f;
+            if (seaCap > 0f && zone.neighbours_all != null && zone.neighbours_all.Any(SeaRegionSystem.IsSea)) return seaCap;
+            return 0f;
         }
-        return -1;
+        float here = Source(start);
+        if (here >= 1f) return 1f;
+        var cost = new Dictionary<int, float> { [start.id] = 0f };
+        var steps = new Dictionary<int, int> { [start.id] = 0 };
+        var closed = new HashSet<int>();
+        var open = new List<(float key, TileZone zone)> { (0f, start) };
+        float best = here;
+        while (open.Count > 0 && closed.Count < MaxSupplySearch)
+        {
+            (float key, TileZone zone) = (open[0].key, CorpsSystem.PopMin(open));
+            // 再往外走剩下的不会比已找到的多
+            if (Mathf.Exp(-key) <= best) break;
+            if (!closed.Add(zone.id)) continue;
+            int depth = steps[zone.id];
+            if (zone != start)
+            {
+                float source = Source(zone);
+                if (source > 0f)
+                {
+                    best = Mathf.Max(best, Mathf.Exp(-key) * source);
+                    continue;
+                }
+            }
+            if (depth >= MaxSupplyDepth) continue;
+            foreach (TileZone next in zone.neighbours_all ?? Array.Empty<TileZone>())
+            {
+                if (next == null || closed.Contains(next.id) || SeaRegionSystem.IsSea(next) || TerrainSystem.Impassable(next)) continue;
+                float loss = Loss(kingdom, next, depth + 1);
+                if (loss >= 1f) continue;
+                float total = key - Mathf.Log(1f - loss);
+                if (cost.TryGetValue(next.id, out float known) && known <= total) continue;
+                cost[next.id] = total;
+                steps[next.id] = depth + 1;
+                CorpsSystem.PushHeap(open, (total, next));
+            }
+        }
+        return best;
+    }
+
+    // 运粮经过这块地折损几成；敌占的地块只有阵地前沿几块能穿过(否则返回 1，走不通)
+    private static float Loss(Kingdom kingdom, TileZone zone, int depth)
+    {
+        Kingdom controller = FrontSystem.Controller(zone);
+        float loss;
+        if (controller == null) loss = NeutralLoss;
+        else if (FrontSystem.Friendly(kingdom, controller)) loss = FriendlyLoss;
+        else if (FrontSystem.Hostile(kingdom, controller))
+        {
+            if (depth > FrontlineDepth) return 1f;
+            loss = EnemyLoss;
+        }
+        else loss = NeutralLoss;
+        int grade = RoadNetwork.RoadGrade(zone);
+        if (grade > 0) return loss * RoadShare * (1.25f - 0.15f * grade);
+        bool rough = TerrainSystem.Of(zone) is FrontTerrain.Mountain or FrontTerrain.Jungle or FrontTerrain.Swamp or
+            FrontTerrain.Desert or FrontTerrain.Snow;
+        return Mathf.Min(0.9f, rough ? loss * RoughLoss : loss);
     }
 
     private static float Ration(CorpsData corps)
