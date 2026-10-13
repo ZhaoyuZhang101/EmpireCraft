@@ -27,7 +27,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 诸侯坐大(诸侯、自治)：土地兼并，各省离心；
 //   · 教权干政(神权)：苛捐杂税(什一税)、党争；
 //   · 其余：吏治败坏、党争。
-//   各方向都让被排挤的派系积怨(朝堂怨望)，并每年推高王朝积弊(见 DynasticCycleSystem)。
+//   各方向都让被排挤的派系积怨(朝堂怨望)，并每年推高王朝积弊(见 DynasticCycleSystem)；
+//   失衡度 60 以上、被排挤的派系怨望深重又有本派主政的省，可能以"清君侧"为名起兵(见 FactionPurgeSystem)。
 // 失衡度过 40 记一笔"一家独大"，回落到 20 以下记"复归平衡"。帝国主页"朝政积弊"卡里有一行派系失衡。
 public static class FactionBalanceSystem
 {
@@ -84,6 +85,8 @@ public static class FactionBalanceSystem
             Balance(empire, factions, top);
             Consequences(empire, factions, top);
             Chronicle(empire, top);
+            // 被排挤的派系以清君侧为名起兵(见 FactionPurgeSystem)
+            FactionPurgeSystem.TryRaise(empire, factions, top);
         }
         catch (Exception exception)
         {

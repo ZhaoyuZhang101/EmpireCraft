@@ -212,6 +212,7 @@ public static class FrontSystem
     public static void MonthTick(double now)
     {
         MusterSystem.MonthTick();
+        FactionPurgeSystem.MonthTick();
         _atWar = World.world.kingdoms.Where(kingdom => kingdom?.data != null && !kingdom.isRekt() &&
                                                        (kingdom.hasEnemies() || Realm(kingdom).hasEnemies())).ToList();
         DefenseByCity.Clear();

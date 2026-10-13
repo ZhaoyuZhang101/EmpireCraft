@@ -32,6 +32,10 @@ public static class WarExtension
         public bool history_declaration_recorded;
         public bool history_end_recorded;
         public RebellionCauseData rebellion_cause;
+        // 清君侧(见 FactionPurgeSystem)：起兵的派系、要讨伐的独大派系、起兵时的京城
+        public string purge_faction_id = "";
+        public string purge_target_faction_id = "";
+        public long purge_capital_city_id = -1L;
         public List<DefeatedEmpireHouse> attacker_empire_houses = new List<DefeatedEmpireHouse>();
         public List<DefeatedEmpireHouse> defender_empire_houses = new List<DefeatedEmpireHouse>();
         public List<long> defender_realm_title_ids = new List<long>();

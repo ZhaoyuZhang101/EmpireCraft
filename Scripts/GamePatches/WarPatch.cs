@@ -310,6 +310,10 @@ public class WarPatch: GamePatch
                     }
                     attacker.EndFactionRebelling();
                     break;
+                case EmpireWarType.清君侧:
+                    // 一派独大引发的清君侧(见 FactionPurgeSystem)；皇位空缺时的清君侧没有派系记录，照旧
+                    FactionPurgeSystem.Resolve(pWar, pWinner);
+                    break;
                 case EmpireWarType.地方叛乱:
                 case EmpireWarType.地方独立:
                     Kingdom attacker1 = pWar.getMainAttacker();
