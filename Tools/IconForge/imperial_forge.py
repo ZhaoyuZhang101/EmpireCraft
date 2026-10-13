@@ -477,6 +477,7 @@ PLOTS = {
     "minister_receive_nine_bestowments": (obj_axe, "star"),
     "member_request_aid": (obj_envoy, "alert"),
     "member_aid_neighbour": (obj_swords, "arrow"),
+    "member_aid_center": (obj_banners, "up"),
 }
 
 

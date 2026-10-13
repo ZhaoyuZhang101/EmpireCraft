@@ -1109,6 +1109,22 @@ namespace EmpireCraft.Scripts.AI
                 check_should_continue = MemberWarAid.NeighbourContinues,
                 action = MemberWarAid.AidNeighbour
             });
+            // 发兵勤王：中央与外敌交战吃紧时，成员发兵赴援(见 MemberWarAid、WarScopeSystem)
+            AssetManager.plots_library.add(new PlotAsset
+            {
+                id = MemberWarAid.CenterPlot,
+                path_icon = "ui/icons/plots/plot_" + MemberWarAid.CenterPlot,
+                group_id = "empirecraft_diplomacy",
+                is_basic_plot = true,
+                progress_needed = 20f,
+                can_be_done_by_king = true,
+                check_target_war = true,
+                try_to_start_advanced = MemberWarAid.StartCenter,
+                check_is_possible = actor => actor?.kingdom?.king == actor && MemberWarAid.FindCenterWar(actor.kingdom) != null,
+                check_can_be_forced = actor => actor?.kingdom?.king == actor && MemberWarAid.FindCenterWar(actor.kingdom, needy: false) != null,
+                check_should_continue = MemberWarAid.CenterContinues,
+                action = MemberWarAid.AidCenter
+            });
             AssetManager.plots_library.add(new PlotAsset
             {
                 id = "kingdom_expose_crime",

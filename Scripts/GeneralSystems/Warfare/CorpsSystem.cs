@@ -122,6 +122,7 @@ public static class CorpsSystem
         GeneralMoves.Clear();
         Paths.Clear();
         PureMapMode.ResetWorldState();
+        WarScopeSystem.ResetWorldState();
         FrontSystem.ResetWorldState();
         NavySystem.ResetWorldState();
     }
@@ -195,6 +196,7 @@ public static class CorpsSystem
         {
             if (kingdom?.data == null || kingdom.isRekt() || kingdom.isNeutral() ||
                 Compatibility.AncientWarfareCompatibility.OwnsObject(kingdom)) continue;
+            WarScopeSystem.MonthTick(kingdom);
             List<CorpsData> list = kingdom.GetOrCreate().corps;
             bool posts = kingdom.cities?.Any(city => city != null && !city.isRekt() &&
                 CityPopulationSystem.PostOf(city, CityPopulationSystem.DoctrineOf(kingdom)) != CityPopulationSystem.ArmyPost.None) == true;
@@ -327,15 +329,16 @@ public static class CorpsSystem
         return corps;
     }
 
-    // 从本国各城的背景人口里征兵(义军只从本城征)
+    // 从本国各城的背景人口里征兵(义军只从本城征)；就近动员的军先从动员范围里的城征(见 WarScopeSystem)
     private static void Reinforce(Kingdom kingdom, CorpsData corps, float amount, City only = null)
     {
         float need = Mathf.Min(amount, corps.full - corps.strength);
         if (need < 1f) return;
         float taken = 0f;
+        bool near = only == null && WarScopeSystem.InScope(Home(corps) ?? World.world.cities.get(corps.home_city_id));
         for (int attempt = 0; taken < need && attempt < 12; attempt++)
         {
-            City source = only ?? CityPopulationSystem.DrawKingdomCity(kingdom);
+            City source = only ?? (near ? WarScopeSystem.DrawSource(kingdom) : CityPopulationSystem.DrawKingdomCity(kingdom));
             PopGroup group = source == null ? null
                 : CityPopulationSystem.DrawBackground(source, candidate => candidate.Background >= 1f);
             if (group == null) break;

@@ -19,6 +19,7 @@ public static class MemberWarAid
 {
     public const string RequestPlot = "member_request_aid";
     public const string NeighbourPlot = "member_aid_neighbour";
+    public const string CenterPlot = "member_aid_center";
 
     // 某一方领头的是本帝国的非核心成员：这是成员的仗，不是中央的
     public static bool IsMemberWar(War war, Empire empire, bool attackers)
@@ -35,7 +36,8 @@ public static class MemberWarAid
         if (king == null || king.isRekt() || !king.isAlive() || king.plot?.isActive() == true ||
             World.world?.plots == null || Context(member) == null) return;
         string id = FindRequestWar(member) != null ? RequestPlot :
-            FindNeighbourWar(member, out _, out _) ? NeighbourPlot : null;
+            FindNeighbourWar(member, out _, out _) ? NeighbourPlot :
+            FindCenterWar(member) != null ? CenterPlot : null;
         if (id == null) return;
         PlotAsset asset = AssetManager.plots_library.get(id);
         asset?.try_to_start_advanced?.Invoke(king, asset, false);
@@ -112,13 +114,14 @@ public static class MemberWarAid
     public static bool NeighbourContinues(Actor actor) =>
         actor?.kingdom?.king == actor && NeighbourValid(actor.kingdom, actor.plot?.target_war, actor.plot?.target_kingdom);
 
-    // 求援决议通过：中央加入守方
+    // 求援决议通过：中央加入守方，并为这场仗出征(京师禁军与扩大范围的兵开往成员那里，见 WarScopeSystem)
     public static bool AnswerRequest(Actor actor)
     {
         if (!RequestContinues(actor)) return false;
         Kingdom member = actor.kingdom;
         Empire empire = member.GetEmpire();
         if (!Join(actor.plot.target_war, empire.CoreKingdom)) return false;
+        WarScopeSystem.Dispatch(empire.CoreKingdom, actor.plot.target_war);
         empire.data.timestamp_invite_war_cool_down = World.world.getCurWorldTime();
         TranslateHelper.LogEmpireJoinWar(empire, member);
         empire.RecordHistory(directContent: string.Format(LM.Get("empire_join_member_war_history"),
@@ -133,13 +136,78 @@ public static class MemberWarAid
         Kingdom member = actor.kingdom;
         Kingdom ally = actor.plot.target_kingdom;
         if (!Join(actor.plot.target_war, member)) return false;
+        WarScopeSystem.Dispatch(member, actor.plot.target_war);
         string text = string.Format(LM.Get("member_aid_neighbour_history"), member.GetKingdomName(), ally.GetKingdomName());
         TranslateHelper.LogEventMessage(text, member);
         member.GetEmpire().RecordHistory(directContent: text, kingdomId: member.id);
         return true;
     }
 
-    // 能发起这两项决议的成员：帝国的非核心成员、没在叛乱；战国周室已不管诸侯的仗
+    // 发兵勤王：中央自己的仗吃紧(就近动员升到一级以上，见 WarScopeSystem)，本成员还没为这场仗出征。
+    // 已随中央参战的(听命于中央的)出征即可；没参战的(世袭诸侯、藩镇)一并加入中央一方，要对中央有好感。
+    // 中央与本帝国(没在叛乱的)成员之间的仗不算。needy = false 时不看中央是否吃紧(谋划已开始、强制发起)
+    public static War FindCenterWar(Kingdom member, bool needy = true) =>
+        Context(member) is Empire empire
+            ? empire.CoreKingdom.getWars().FirstOrDefault(war => CenterValid(member, war, needy))
+            : null;
+
+    public static bool CenterValid(Kingdom member, War war, bool needy = true)
+    {
+        Empire empire = Context(member);
+        Kingdom core = empire?.CoreKingdom;
+        if (core == null || war?.data == null || !war.isAlive() || war.hasEnded() || !war.hasKingdom(core) ||
+            war.GetEmpireWarType() == EmpireWarType.劫掠 || ZhouEraSystem.IsInternalWar(war) ||
+            WarScopeSystem.DispatchedFor(member, war)) return false;
+        bool attacking = war.isAttacker(core);
+        var opponents = attacking ? war._list_defenders : war._list_attackers;
+        if (opponents.Any(kingdom => kingdom != null && !kingdom.isRekt() && kingdom.GetEmpire() == empire &&
+                                     !kingdom.IsFactionRebelling() && !kingdom.IsLocalRebelling())) return false;
+        if (war.hasKingdom(member))
+        {
+            if (attacking ? !war.isAttacker(member) : !war.isDefender(member)) return false;
+        }
+        else if (member.getWars().Any(other => other != null && !other.hasEnded()) ||
+                 EmpirePeacePatch.HasLeft(member, war, joiningAttackers: attacking)) return false;
+        if (needy && WarScopeSystem.Level(core) < WarScopeSystem.Wider) return false;
+        return EmpirePeacePatch.Obeys(empire, member) || member.isOpinionTowardsKingdomGood(core);
+    }
+
+    public static bool StartCenter(Actor actor, PlotAsset asset, bool forced)
+    {
+        Kingdom member = actor?.kingdom;
+        if (member?.king != actor || actor.plot?.isActive() == true) return false;
+        War war = FindCenterWar(member, needy: !forced);
+        if (war == null) return false;
+        Plot plot = World.world.plots.newPlot(actor, asset, forced);
+        plot.target_war = war;
+        plot.target_kingdom = member.GetEmpire().CoreKingdom;
+        return true;
+    }
+
+    public static bool CenterContinues(Actor actor) =>
+        actor?.kingdom?.king == actor && CenterValid(actor.kingdom, actor.plot?.target_war, needy: false);
+
+    // 勤王决议通过：没参战的加入中央一方，为这场仗出征
+    public static bool AidCenter(Actor actor)
+    {
+        if (!CenterContinues(actor)) return false;
+        Kingdom member = actor.kingdom;
+        War war = actor.plot.target_war;
+        Kingdom core = member.GetEmpire().CoreKingdom;
+        if (!war.hasKingdom(member))
+        {
+            if (war.isAttacker(core)) war.joinAttackers(member);
+            else war.joinDefenders(member);
+            if (!war.hasKingdom(member)) return false;
+        }
+        WarScopeSystem.Dispatch(member, war);
+        string text = string.Format(LM.Get("member_aid_center_history"), member.GetKingdomName());
+        TranslateHelper.LogEventMessage(text, member);
+        member.GetEmpire().RecordHistory(directContent: text, kingdomId: member.id);
+        return true;
+    }
+
+    // 能发起这几项决议的成员：帝国的非核心成员、没在叛乱；战国周室已不管诸侯的仗
     private static Empire Context(Kingdom member)
     {
         if (member?.data == null || member.isRekt() || member.IsEmpire() ||

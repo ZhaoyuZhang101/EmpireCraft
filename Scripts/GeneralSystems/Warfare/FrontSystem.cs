@@ -228,17 +228,23 @@ public static class FrontSystem
         {
             if (corps.org <= RetreatOrg && corps.task != "retreat") Retreat(kingdom, corps);
         }
-        var ready = list.Where(corps => corps.task != "retreat" && corps.org >= ReadyOrg && corps.strength >= 1f).ToList();
+        // 就近动员(见 WarScopeSystem)：驻地在动员范围里的军、已经在打的军、义军才上前线；
+        // 出征(决议或奉诏)与举国总动员时全军可以开往任何战线；其余留守驻地
+        bool unbounded = WarScopeSystem.Unbounded(kingdom);
+        bool Eligible(CorpsData corps) => unbounded || corps.militia || corps.task is "attack" or "defend" ||
+                                          WarScopeSystem.InScope(CorpsSystem.Home(corps));
+        var ready = list.Where(corps => corps.task != "retreat" && corps.org >= ReadyOrg && corps.strength >= 1f && Eligible(corps)).ToList();
         if (!war)
         {
-            // 战备：开往朝向目标国的边境；太平：回驻地
+            // 战备：动员范围里的军开往朝向目标国的边境；太平：回驻地
             TileZone border = CityPopulationSystem.IsMobilizing(kingdom) ? CityPopulationSystem.FrontTile(kingdom)?.zone : null;
             foreach (CorpsData corps in list)
             {
                 corps.sector_city_id = -1L;
                 if (corps.task == "retreat") { corps.target_zone_id = HomeZone(corps); continue; }
-                corps.task = border != null ? "march" : "reserve";
-                corps.target_zone_id = border?.id ?? HomeZone(corps);
+                bool marching = border != null && WarScopeSystem.InScope(CorpsSystem.Home(corps));
+                corps.task = marching ? "march" : "reserve";
+                corps.target_zone_id = marching ? border.id : HomeZone(corps);
             }
             return;
         }
@@ -267,6 +273,8 @@ public static class FrontSystem
                 assigned.Add(corps);
                 have += corps.strength;
             }
+            // 分不出足够的守军：打不过了，下个月扩大动员
+            if (have < need) WarScopeSystem.ReportShortfall(kingdom);
         }
         // ② 进攻：集中在少数几段；跨海登陆的军(还没上岸的)兵力合计不超过运输船运力
         var attackOn = new Dictionary<Sector, float>();

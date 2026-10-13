@@ -199,7 +199,8 @@ public static class CityPopulationSystem
     private static readonly Dictionary<Kingdom, Kingdom> MobilizationTargets = new();
     private static double _mobilizingAt = -1d;
 
-    public static bool OnWarFooting(City city) => IsAtWar(city) || IsMobilizing(city?.kingdom);
+    // 只有就近动员范围里的城按战时兵额征兵(见 WarScopeSystem)
+    public static bool OnWarFooting(City city) => WarScopeSystem.InScope(city);
 
     public static bool IsMobilizing(Kingdom kingdom)
     {
@@ -221,17 +222,9 @@ public static class CityPopulationSystem
                     Kingdom author = plot.getAuthor()?.kingdom;
                     if (author == null) continue;
                     Kingdom target = plot.target_kingdom;
+                    // 只有谋划的国家动员(朝向目标国的一侧，见 WarScopeSystem)；帝国的成员开战后按远近各自动员
                     Mobilizing.Add(author);
                     if (target != null) MobilizationTargets[author] = target;
-                    // 帝国核心谋划开战：整个帝国(中央与各军区)一起动员
-                    Layer.Empire empire = author.IsEmpire() ? author.GetEmpire() : null;
-                    if (empire?.kingdoms_list != null)
-                        foreach (Kingdom member in empire.kingdoms_list)
-                        {
-                            if (member == null) continue;
-                            Mobilizing.Add(member);
-                            if (target != null) MobilizationTargets[member] = target;
-                        }
                 }
             }
             catch (Exception exception)
@@ -325,7 +318,7 @@ public static class CityPopulationSystem
     }
 
     // 按背景人口加权抽一座本国城市(兵源从哪座城出、退伍回哪座城)
-    public static City DrawKingdomCity(Kingdom kingdom)
+    public static City DrawKingdomCity(Kingdom kingdom, Func<City, bool> filter = null)
     {
         if (kingdom?.cities == null) return null;
         float total = 0f;
@@ -333,7 +326,7 @@ public static class CityPopulationSystem
         // 加权蓄水池抽样：保持相同分布，只遍历一次，不再先统计全国再重复读各城人口组。
         foreach (City city in kingdom.cities)
         {
-            if (city == null || city.isRekt()) continue;
+            if (city == null || city.isRekt() || filter != null && !filter(city)) continue;
             float weight = GetBackgroundTotal(city);
             if (weight <= 0f) continue;
             total += weight;
