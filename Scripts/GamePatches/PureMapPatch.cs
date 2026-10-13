@@ -13,6 +13,8 @@ namespace EmpireCraft.Scripts.GamePatches;
 //     这里任何缩放都填满，颜色不透明(透明的清除色不动，否则空白处会变成白块)；
 //     没选地图图层时默认显示国家图层、关了"地图图层"也照样显示；图层不随地图不透明度设置变淡
 //     (入夜也不变淡、不被夜色压暗，见 NightMapLayerPatch；云照旧)；
+//   · 地形浮雕：色块不透明也看得出地形——掺一些地表本色(沙漠、雪原、草原、沼泽)，山地、丘陵压暗，
+//     按与西北邻格的高差打光(迎光坡亮、背光坡暗)，林地略暗；块里的海、河、湖掺六成水色，海岸线是真实的形状；
 //   · 国家图层下，帝国与外国接壤的陆上边界画成金色，帝国内部各成员之间照旧；海岸、湖泊、无主荒地不描金
 //     (原来连这些也描，整片海岸线和境内每块荒地周围都是金线，看不出哪里才是国界)；
 //   · 人物要去哪里直接到位、不走路(地图上也不画人物)：原版的行为照常完成(回家、上任、相会生子)，不再寻路；
@@ -50,6 +52,8 @@ public class PureMapPatch : GamePatch
             postfix: new HarmonyMethod(typeof(PureMapPatch), nameof(AfterZoneAnimations)));
         harmony.Patch(AccessTools.Method(typeof(ZoneCalculator), "applyMetaColorsToZone"),
             postfix: new HarmonyMethod(typeof(PureMapPatch), nameof(AfterApplyColors)));
+        harmony.Patch(AccessTools.Method(typeof(ZoneCalculator), "applyMetaColorsToZoneFull"),
+            postfix: new HarmonyMethod(typeof(PureMapPatch), nameof(AfterApplyColorsFull)));
     }
 
     private static MetaTypeAsset _kingdomLayer;
@@ -86,6 +90,7 @@ public class PureMapPatch : GamePatch
     private static void AfterApplyColors(ZoneCalculator __instance, TileZone pZone, bool pUp, bool pDown, bool pLeft, bool pRight)
     {
         if (pZone?.tiles == null || __instance.pixels == null) return;
+        if (PureMapMode.Enabled) ShadeTerrain(__instance.pixels, pZone, pUp, pDown, pLeft, pRight);
         Kingdom kingdom = pZone.city?.kingdom;
         MetaType? mode = World.world.getCachedMapMetaAsset()?.map_mode;
         bool kingdomLayer = mode == MetaType.Kingdom, empireLayer = mode == MetaTypeExtension.Empire;
@@ -114,6 +119,63 @@ public class PureMapPatch : GamePatch
             Paint(pixels, onRight ? tile.tile_left : null, pZone);
         }
     }
+
+    private static void AfterApplyColorsFull(ZoneCalculator __instance, TileZone pZone)
+    {
+        if (PureMapMode.Enabled && pZone?.tiles != null && __instance.pixels != null)
+            ShadeTerrain(__instance.pixels, pZone, false, false, false, false);
+    }
+
+    // ───────── 地形浮雕 ─────────
+    // 掺地表本色的比例；块里的水掺水色的比例；高差打光的强度与上限
+    private const float TerrainTint = 0.18f, WaterTint = 0.6f, SlopeLight = 0.004f, SlopeCap = 0.12f;
+    private static readonly global::System.Collections.Generic.Dictionary<TileTypeBase, float> TypeLight = new();
+
+    // 色块里每一格按地形调色；边框像素(原版按 pUp…pRight 画的外框)不动，保持清楚
+    private static void ShadeTerrain(Color32[] pixels, TileZone zone, bool up, bool down, bool left, bool right)
+    {
+        foreach (WorldTile tile in zone.tiles)
+        {
+            int id = tile?.data?.tile_id ?? -1;
+            if (id < 0 || id >= pixels.Length || pixels[id].a == 0) continue;
+            WorldTileZoneBorder border = tile.world_tile_zone_border;
+            if (border != null && border.border && (up && border.border_up || down && border.border_down ||
+                                                    left && border.border_left || right && border.border_right)) continue;
+            pixels[id] = Shade(tile, pixels[id]);
+        }
+    }
+
+    private static Color32 Shade(WorldTile tile, Color32 color)
+    {
+        TileTypeBase type = tile.Type;
+        if (type == null) return color;
+        if (type.liquid || type.lava) return Lerp(color, type.color, WaterTint);
+        TileTypeBase surface = tile.top_type != null ? tile.top_type : type;
+        float light = Light(type);
+        if (tile.building?.asset != null && tile.building.asset.building_type == BuildingType.Building_Tree) light *= 0.9f;
+        int height = tile.Height;
+        int north = tile.tile_up?.Height ?? height, west = tile.tile_left?.Height ?? height;
+        light += Mathf.Clamp((height * 2 - north - west) * SlopeLight, -SlopeCap, SlopeCap);
+        return Scale(Lerp(color, surface.color, TerrainTint), light);
+    }
+
+    // 各地形的明暗：峰顶、山地、丘陵压暗，沙地、雪地提亮
+    private static float Light(TileTypeBase type)
+    {
+        if (TypeLight.TryGetValue(type, out float light)) return light;
+        string id = type.id ?? "";
+        light = type.summit ? 0.66f : type.mountains ? 0.76f : id.Contains("hills") ? 0.88f : type.sand ? 1.05f : 1f;
+        if (id.Contains("snow")) light += 0.1f;
+        TypeLight[type] = light;
+        return light;
+    }
+
+    private static Color32 Lerp(Color32 a, Color32 b, float t) => new(
+        (byte)(a.r + (b.r - a.r) * t), (byte)(a.g + (b.g - a.g) * t), (byte)(a.b + (b.b - a.b) * t), a.a);
+
+    private static Color32 Scale(Color32 color, float light) => new(
+        (byte)Mathf.Clamp(color.r * light, 0f, 255f), (byte)Mathf.Clamp(color.g * light, 0f, 255f),
+        (byte)Mathf.Clamp(color.b * light, 0f, 255f), color.a);
 
     private static void Paint(Color32[] pixels, WorldTile tile, TileZone zone)
     {
