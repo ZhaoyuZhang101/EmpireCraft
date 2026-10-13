@@ -15,6 +15,8 @@ public static class ExtensionManager<TKey, TData>
 
     public static TData GetOrCreate(TKey key, bool isSave=false)
     {
+        // 深递归探针(见 StackGuard)：模组逻辑几乎每层都经过这里
+        EmpireCraft.Scripts.Diagnostics.StackGuard.Probe();
         if (isSave)
         {
             if (key == null) return null;

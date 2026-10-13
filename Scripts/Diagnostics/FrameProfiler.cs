@@ -45,6 +45,7 @@ public static class FrameProfiler
 
         public Scope(string label)
         {
+            EmpireCraft.Scripts.Diagnostics.StackGuard.Probe();
             EnsureFrame();
             _label = label;
             _started = Stopwatch.GetTimestamp();
