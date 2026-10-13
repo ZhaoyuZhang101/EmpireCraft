@@ -670,6 +670,7 @@
   "corps_task_march": "Marching",
   "corps_task_attack": "Attacking",
   "corps_task_defend": "Defending",
+  "corps_task_embarked": "At sea",
   "corps_task_retreat": "Routed, regrouping",
   "corps_none": "The empire has no corps. Military towns raise troops by their doctrine: expanded in war, standing levels in peace.",
   "corps_front_title": "Fronts",

@@ -27,6 +27,7 @@ namespace EmpireCraft.Scripts.UI.Components;
 //   · 交战标记：正在交战的城，朱漆框绛红底，两侧是攻守双方国色，中间是本月攻方胜算；
 //   · 舰队兵牌(见 NavySystem)：画在海上，船形图标按舰种(楼船/帆舰/铁甲/现代)，数字是战舰数(+运输船)，
 //     条是战舰编制与组织度；海战标记同交战标记，写本月胜算；
+//   · 渡海中的军团(运兵船)：海青边、深海底的框，印面是本军棋子站在船上，与舰队兵牌一眼分开；
 //   · 鼠标悬停兵牌或交战标记：放大、换金边、置顶，并显示详情提示；
 //     点击打开军事页(属于帝国的国家开帝国窗口的军团页，独立王国开本国军事窗口)，点进来的那几支军、那处交战高亮。
 // 画在地名画布上，按屏幕像素定大小(不随界面缩放放大)，镜头拉远时略缩小。
@@ -258,6 +259,15 @@ public static class CorpsMapRenderer
     {
         rank = Mathf.Clamp(rank, 0, 3);
         return Pieces[rank] ??= SpriteTextureLoader.getSprite("ui/icons/corps/chess_" + PieceNames[rank]) ?? White;
+    }
+
+    private static readonly Sprite[] Troopships = new Sprite[4];
+
+    // 运兵船：本军棋子站在船上
+    private static Sprite Troopship(int rank)
+    {
+        rank = Mathf.Clamp(rank, 0, 3);
+        return Troopships[rank] ??= SpriteTextureLoader.getSprite("ui/icons/corps/troopship_" + PieceNames[rank]) ?? Piece(rank);
     }
 
     private static readonly Sprite[] Ships = new Sprite[4];
@@ -605,7 +615,7 @@ public static class CorpsMapRenderer
         (_corpsGliders, _nextCorpsGliders) = (_nextCorpsGliders, _corpsGliders);
         // 折叠(先放兵力大的，挨着它的并进去)：镜头越远并得越宽，拉近后各自分开——
         // 近处只并同一国、在屏幕上互相压住的；拉远后范围放宽到约三块兵牌，行军途中的也并进去；
-        // 再远，互不交战的各国并成一块(兵力最大那国的颜色)，敌对的始终分开
+        // 再远，互不交战的各国并成一块(兵力最大那国的颜色)，敌对的始终分开；船上的(运兵船)不与岸上的并
         float far = FarFactor(camera);
         bool foldMovers = far >= FoldMoversFar, mixRealms = far >= MixRealmsFar;
         float foldX = CounterWidth * zoom * Mathf.Lerp(0.9f, 3f, far), foldY = CounterHeight * zoom * Mathf.Lerp(1.3f, 4.5f, far);
@@ -619,7 +629,8 @@ public static class CorpsMapRenderer
             if (!OnScreen(group.Screen, 80f)) continue;
             CounterGroup into = null;
             foreach (CounterGroup other in Folded)
-                if (Mergeable(other.Kingdom, group.Kingdom, mixRealms) && Mathf.Abs(other.Screen.x - group.Screen.x) < foldX &&
+                if (other.Embarked == group.Embarked && Mergeable(other.Kingdom, group.Kingdom, mixRealms) &&
+                    Mathf.Abs(other.Screen.x - group.Screen.x) < foldX &&
                     Mathf.Abs(other.Screen.y - group.Screen.y) < foldY)
                 {
                     into = other;
@@ -677,9 +688,10 @@ public static class CorpsMapRenderer
             Counter counter = GetCounter(counterCount++);
             counter.Root.gameObject.SetActive(true);
             counter.Root.localScale = pixelScale;
-            // 补给断绝换灰边；在船上换船形图标
-            SetFrame(counter.Frame, group.MinSupply < 0.25f ? Frame("CorpsFrame_ash") : TaskFrame(group.Task));
-            counter.Piece.sprite = group.Embarked ? Ship(group.Kingdom) : Piece(group.Rank);
+            // 在船上(运兵船)换海青框、棋子站在船上；否则补给断绝换灰边
+            SetFrame(counter.Frame, group.Embarked ? Frame("CorpsFrame_sea")
+                : group.MinSupply < 0.25f ? Frame("CorpsFrame_ash") : TaskFrame(group.Task));
+            counter.Piece.sprite = group.Embarked ? Troopship(group.Rank) : Piece(group.Rank);
             counter.Plate.color = group.Kingdom.getColor()?.getColorMain() ?? Color.gray;
             string label = group.Count > 1
                 ? $"{CorpsSystem.ShortStrength(group.Strength)}<color=#F3C34A>×{group.Count}</color>"
@@ -1092,6 +1104,8 @@ public static class CorpsMapRenderer
         string realmName = owners.Values.Distinct().Count() > 1
             ? string.Format(LM.Get("corps_chip_realms"), kingdom.GetKingdomName(), owners.Values.Distinct().Count())
             : kingdom.GetKingdomName();
+        // 渡海中的军团副标题写"渡海"，与舰队区分
+        if (list.Any(corps => corps.embarked)) task = "embarked";
         tooltip.setTitle($"{realmName} · {title}", "corps_task_" + task, colorHex);
 
         float strength = list.Sum(corps => corps.strength), full = list.Sum(corps => corps.full);

@@ -672,6 +672,7 @@
   "corps_task_march": "開赴邊境",
   "corps_task_attack": "進攻",
   "corps_task_defend": "防守",
+  "corps_task_embarked": "渡海",
   "corps_task_retreat": "潰退休整",
   "corps_none": "帝國目前沒有軍團。軍鎮按軍制徵兵：戰時擴編，太平時只留常備兵額。",
   "corps_front_title": "戰線",

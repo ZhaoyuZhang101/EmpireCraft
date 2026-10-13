@@ -12,6 +12,7 @@
 地图兵牌与交战标记用小号框(18×18，九宫格边距四边各 6，见 CorpsMapRenderer)：
   · CorpsFrame_olive / lacquer / azure / ash ：兵牌，边色分别表示驻守、进攻(朱漆)、防守(石青)、溃退(铁灰)；
   · CorpsFrame_gold                          ：鼠标悬停的兵牌，金边；
+  · CorpsFrame_sea                           ：渡海中的军团(运兵船)，海青边、深海底，与舰队兵牌区分；
   · CorpsBattle / CorpsBattle_gold           ：交战标记，朱漆边、绛红底；悬停时金边。
   四角是小号金色角铁，内角一点朱红。
 
@@ -41,6 +42,8 @@ JADE = (94, 138, 90, 255)
 AZURE = ((122, 166, 222, 255), (78, 118, 176, 255), (42, 68, 112, 255))
 ASH = ((156, 152, 140, 255), (116, 112, 104, 255), (72, 70, 64, 255))
 BATTLE_FILL = (58, 26, 21, 246)
+SEA = ((110, 196, 184, 255), (58, 140, 134, 255), (28, 84, 84, 255))
+SEA_FILL = (22, 44, 56, 246)
 COUNTER_SIZE = 18
 COUNTER_BORDER = 6
 
@@ -197,6 +200,7 @@ def build():
         "GameResources/ui/CorpsFrame_azure.png": counter(AZURE),
         "GameResources/ui/CorpsFrame_ash.png": counter(ASH),
         "GameResources/ui/CorpsFrame_gold.png": counter(GOLD_EDGE),
+        "GameResources/ui/CorpsFrame_sea.png": counter(SEA, SEA_FILL),
         "GameResources/ui/CorpsBattle.png": counter(LACQUER, BATTLE_FILL),
         "GameResources/ui/CorpsBattle_gold.png": counter(GOLD_EDGE, BATTLE_FILL),
     }

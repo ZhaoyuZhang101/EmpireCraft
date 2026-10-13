@@ -10,7 +10,8 @@
   1 远洋帆舰  三桅白帆、船艉楼、金饰条与炮窗；
   2 蒸汽铁甲  铁灰船身、红色水线、烟囱(红箍、冒烟)、前后炮塔；
   3 现代舰艇  灰色舰身、阶梯式上层建筑与舰桥、雷达桅、前主炮、后烟囱。
-另出地图兵牌用的船形小图标 ui/icons/corps/ship_0..3(13×14 白色剪影 + 暗描边，与棋子同风格，按国色染色)。
+另出地图兵牌用的船形小图标 ui/icons/corps/ship_0..3(13×14 白色剪影 + 暗描边，与棋子同风格，按国色染色)；
+运兵船兵牌(渡海中的军团)用 ui/icons/corps/troopship_<棋子>：小号棋子站在船上，与舰队的船形图标区分开。
 
 python Tools/IconForge/ship_forge.py --preview   # 输出 ship_preview.png(放大)
 python Tools/IconForge/ship_forge.py --write     # 写入 GameResources
@@ -309,8 +310,49 @@ ICONS = [
 ]
 
 
+# 运兵船：军团的棋子(缩成 7 行)站在船舷之间，下面是船身(右为翘起的船首)
+_HULL = ["#........##",
+         "###########",
+         ".##########",
+         "..#######..",
+         "..........."]
+TROOPSHIP = {
+    "pawn": ["...........",
+             "....###....",
+             "...#####...",
+             "....###....",
+             "....###....",
+             "...#####...",
+             "..#######.."] + _HULL,
+    "knight": ["....##.....",
+               "...####....",
+               "..######...",
+               ".##.####...",
+               "....####...",
+               "...######..",
+               "..#######.."] + _HULL,
+    "rook": ["...........",
+             "..#.###.#..",
+             "..#######..",
+             "...#####...",
+             "...#####...",
+             "...#####...",
+             "..#######.."] + _HULL,
+    "queen": ["..#.#.#.#..",
+              "..#######..",
+              "...#####...",
+              "....###....",
+              "....###....",
+              "...#####...",
+              "..#######.."] + _HULL,
+}
+
+
 def icon(tier):
-    rows = ICONS[tier]
+    return silhouette(ICONS[tier])
+
+
+def silhouette(rows):
     img = Image.new("RGBA", (13, 14), (0, 0, 0, 0))
     filled = {(x + 1, y + 1) for y, row in enumerate(rows) for x, ch in enumerate(row) if ch == "#"}
     for x, y in filled:
@@ -330,6 +372,8 @@ def build():
         for name, img in sprites(tier).items():
             out[f"GameResources/actors/boats/ec_warship_{tier}/{name}.png"] = img
         out[f"GameResources/ui/icons/corps/ship_{tier}.png"] = icon(tier)
+    for name, rows in TROOPSHIP.items():
+        out[f"GameResources/ui/icons/corps/troopship_{name}.png"] = silhouette(rows)
     return out
 
 
@@ -350,6 +394,10 @@ def preview(images):
         ic = images[f"GameResources/ui/icons/corps/ship_{tier}.png"]
         sheet.alpha_composite(ic.resize((13 * 8, 14 * 8), Image.NEAREST),
                               (10 + tier * 130, sheet.height - 125))
+    for i, name in enumerate(TROOPSHIP):
+        ic = images[f"GameResources/ui/icons/corps/troopship_{name}.png"]
+        sheet.alpha_composite(ic.resize((13 * 8, 14 * 8), Image.NEAREST),
+                              (10 + (4 + i) * 130, sheet.height - 125))
     sheet.save(os.path.join(HERE, "ship_preview.png"))
 
 
