@@ -1431,7 +1431,8 @@ public static class EmpireCraftNamePlateLibrary
     private static TerritoryLabelStyle GetTerritoryKingdomStyle(Kingdom kingdom)
     {
         bool rebelling = kingdom != null && (kingdom.IsFactionRebelling() || kingdom.IsLocalRebelling());
-        if (FeudalVassalService.GetOverlord(kingdom) != null)
+        // 带第二行小字(附庸宗主、战国周诸侯金字)的要开富文本，否则 <size>/<color> 标签会原样显示
+        if (FeudalVassalService.GetOverlord(kingdom) != null || ZhouVassalTag(kingdom) != null)
             return rebelling ? TerritoryLabelRenderer.FeudalVassalRebellionStyle
                 : TerritoryLabelRenderer.FeudalVassalStyle;
         return rebelling ? TerritoryLabelRenderer.RebellionKingdomStyle : TerritoryLabelRenderer.KingdomStyle;
