@@ -1045,6 +1045,28 @@ def obj_houses(img):
         over(img, shade(rrect([x0 + 10, 214 - h + 14, x0 + 26, 214 - h + 30], 2), LACQ, bevel=2))
 
 
+def obj_anchor(img):
+    """港口：黑铁船锚，顶上铜环、横杆。"""
+    over(img, shade(sub(ellipse([104, 24, 152, 72]), ellipse([118, 38, 138, 58])), BRASS, bevel=6, gloss=0.9))
+    over(img, shade(rrect([120, 66, 136, 206], 4), IRON, bevel=6, gloss=0.6))
+    over(img, shade(rrect([80, 88, 176, 104], 4), IRON, bevel=5, gloss=0.6))
+    arc = sub(ellipse([52, 116, 204, 226]), ellipse([72, 100, 184, 206]))
+    over(img, shade(sub(arc, rrect([40, 100, 216, 160], 0)), IRON, bevel=7, gloss=0.6))
+    for x, d in ((54, -1), (202, 1)):
+        over(img, shade(poly([(x, 150), (x + 22 * d, 142), (x + 6 * d, 176)]), IRON, bevel=4, gloss=0.6))
+
+
+# 纯净地图模式下城市发展的小图标(见 CityDevelopmentRenderer)：住房、工厂、市场、港口、兵营、寺庙
+CITYDEV = {
+    "house": obj_houses,
+    "factory": obj_factory,
+    "market": lambda i: obj_market(i),
+    "port": obj_anchor,
+    "barracks": obj_swords,
+    "temple": obj_temple,
+}
+
+
 def obj_market(img):
     """商业区：条纹遮阳篷(暗红/骨白)的货摊，台面上旧铜钱币一摞。"""
     over(img, shade(rrect([40, 96, 50, 214], 3), WOOD, bevel=4, grain=0.3))
@@ -1312,6 +1334,8 @@ def build():
     out = {}
     for name, obj in TABS.items():
         out[f"GameResources/{name}.png"] = make_tab(obj)
+    for name, obj in CITYDEV.items():
+        out[f"GameResources/ui/icons/citydev/{name}.png"] = make_tab(obj)
     for name, art in POWER_TABS.items():
         out[f"GameResources/{name}.png"] = make_power_tab(art)
     for name, rows in CHESS.items():
