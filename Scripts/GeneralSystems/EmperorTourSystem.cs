@@ -63,6 +63,22 @@ public static class EmperorTourSystem
     public static TileZone Away(Empire empire) =>
         empire?.data == null || string.IsNullOrEmpty(empire.data.tour_kind) ? null : CorpsSystem.ZoneById(empire.data.tour_zone);
 
+    // 画皇帝标记用：出行途中按进度画在所在地块与路线上下一块之间(一块地要走好几秒，只在换地块时跳一下会一卡一卡的)；
+    // 在宫里返回 null(画在城上)
+    public static Vector3? DrawPosition(Empire empire)
+    {
+        TileZone zone = Away(empire);
+        if (zone?.centerTile == null) return null;
+        Vector3 here = zone.centerTile.posV;
+        long id = empire.data.id;
+        if (!Paths.TryGetValue(id, out var cached) || cached.path == null || cached.path.Count < 2 || cached.path[0] != zone.id)
+            return here;
+        TileZone next = CorpsSystem.ZoneById(cached.path[1]);
+        if (next?.centerTile == null) return here;
+        Progress.TryGetValue(id, out float progress);
+        return Vector3.Lerp(here, next.centerTile.posV, Mathf.Clamp01(progress));
+    }
+
     public static City Home(Empire empire)
     {
         Actor emperor = empire?.Emperor;

@@ -31,8 +31,8 @@ public static class EmperorMarkerRenderer
 
     private static RectTransform _root;
     private static readonly List<Mark> Marks = new();
-    // 各帝国的标记画在哪(世界坐标)，滑向目标
-    private static readonly Dictionary<long, Vector3> Drawn = new();
+    // 各帝国的标记画在哪(世界坐标)、滑向哪、多快：目标一变就定一个速度，在一个游戏秒里匀速滑过去
+    private static readonly Dictionary<long, (Vector3 at, Vector3 target, float speed)> Drawn = new();
     private static Sprite _field, _overlay;
     // 本帧画出的标记：屏幕中心与帝国(悬停判定)
     private static readonly List<(Vector2 center, long empire, Mark mark)> Hits = new();
@@ -76,10 +76,11 @@ public static class EmperorMarkerRenderer
             {
                 Actor emperor = empire?.data == null ? null : empire.Emperor;
                 if (emperor?.data == null || emperor.isRekt() || !emperor.isAlive() || RepublicSystem.IsRepublic(empire)) continue;
-                TileZone away = EmperorTourSystem.Away(empire);
-                WorldTile tile = away?.centerTile ?? EmperorTourSystem.Home(empire)?.getTile();
-                if (tile == null) continue;
-                Vector3 at = Glide(empire.data.id, tile.posV);
+                // 出行途中按进度画在两块地之间，每个游戏秒往前挪一点、滑过去(见 EmperorTourSystem.DrawPosition)
+                Vector3? away = EmperorTourSystem.DrawPosition(empire);
+                WorldTile home = away == null ? EmperorTourSystem.Home(empire)?.getTile() : null;
+                if (away == null && home == null) continue;
+                Vector3 at = Glide(empire.data.id, away ?? home.posV);
                 Vector3 screen = camera.WorldToScreenPoint(at);
                 if (screen.z < 0f || screen.x < -40f || screen.x > Screen.width + 40f || screen.y < -40f ||
                     screen.y > Screen.height + 40f) continue;
@@ -205,18 +206,19 @@ public static class EmperorMarkerRenderer
         return string.Format(LM.Get(data.tour_kind == EmperorTourSystem.Visit ? "emperor_tip_state_visit" : "emperor_tip_state_tour"), where);
     }
 
-    // 一个世界秒走一块地：换了位置就匀速滑过去(太远就直接到，如换了皇帝)；暂停时不动
+    // 换了位置就在一个游戏秒里匀速滑过去(太远就直接到，如换了皇帝)；暂停时不动
     private static Vector3 Glide(long id, Vector3 target)
     {
-        if (!Drawn.TryGetValue(id, out Vector3 at) || (target - at).magnitude > 40f)
+        if (!Drawn.TryGetValue(id, out var glide) || (target - glide.at).magnitude > 40f)
         {
-            Drawn[id] = target;
+            Drawn[id] = (target, target, 0f);
             return target;
         }
+        if (glide.target != target) glide = (glide.at, target, Mathf.Max(0.5f, (target - glide.at).magnitude));
         float delta = Config.paused ? 0f : Time.deltaTime * Mathf.Max(1f, Config.time_scale_asset?.multiplier ?? 1f);
-        at = Vector3.MoveTowards(at, target, Mathf.Max(8f, (target - at).magnitude) * delta);
-        Drawn[id] = at;
-        return at;
+        glide.at = Vector3.MoveTowards(glide.at, glide.target, glide.speed * delta);
+        Drawn[id] = glide;
+        return glide.at;
     }
 
     private static Mark Get(int index)
