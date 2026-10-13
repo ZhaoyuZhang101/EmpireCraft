@@ -82,11 +82,31 @@ public static class LandEconomySystem
         IsLandMarketOpen(actor.city.kingdom) && IsAgrarianCommoner(actor) &&
         GetHouseholdShare(actor.city, GetHouseholdKey(actor)) <= 0f;
 
+    // 土地买卖开放：本国开过(制度完成时逐国打开)，或本文化已完成开放土地买卖的制度——
+    // 以前只打开制度完成那一刻在帝国里的国家，后来加入的成员国、同文化的独立王国永远停在贵族八成
     public static bool IsLandMarketOpen(Kingdom kingdom)
     {
         if (kingdom == null || kingdom.isRekt()) return false;
         KingdomExtension.KingdomExtraData data = kingdom.GetOrCreate();
-        return data.private_land_market_open && IsLandlordClassEnabled(kingdom);
+        if (!IsLandlordClassEnabled(kingdom)) return false;
+        if (!data.private_land_market_open && CultureOpensLandMarket(kingdom)) data.private_land_market_open = true;
+        return data.private_land_market_open;
+    }
+
+    private static readonly Dictionary<string, (float at, bool open)> CultureLandMarket = new();
+
+    private static bool CultureOpensLandMarket(Kingdom kingdom)
+    {
+        Empire empire = kingdom.GetEmpire();
+        string culture = empire != null ? InstitutionSystem.GetPrimaryCulture(empire) : TechnologySystem.GetCultureOf(kingdom);
+        if (string.IsNullOrEmpty(culture)) return false;
+        float now = Time.unscaledTime;
+        if (CultureLandMarket.TryGetValue(culture, out var cached) && now >= cached.at && now - cached.at < 10f) return cached.open;
+        CultureInstitutionState state = InstitutionSystem.GetOrCreateCultureState(culture);
+        bool open = state?.enacted_node_ids?.Any(id => InstitutionDefinitionRegistry.Get(id)?.effects_on_complete?
+            .Any(effect => effect?.type == "open_private_land_market") == true) == true;
+        CultureLandMarket[culture] = (now, open);
+        return open;
     }
 
     public static bool IsLandlordClassEnabled(Kingdom kingdom)
