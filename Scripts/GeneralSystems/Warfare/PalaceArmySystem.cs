@@ -52,7 +52,8 @@ public static class PalaceArmySystem
         List<CorpsData> palace = Palace(kingdom).ToList();
         if (palace.Count == 0) return;
         double now = World.world.getCurWorldTime();
-        float phantomTarget = Mathf.Min(PhantomCap, (float)CorruptionSystem.GetRate(empire) * PhantomShare);
+        float phantomTarget = Mathf.Min(PhantomCap, (float)CorruptionSystem.GetRate(empire) * PhantomShare +
+                                                    MaladySystem.PhantomExtra(empire));
         float baseTarget = LoyaltyTarget(empire, kingdom);
         bool refusedAny = false;
         foreach (CorpsData corps in palace)

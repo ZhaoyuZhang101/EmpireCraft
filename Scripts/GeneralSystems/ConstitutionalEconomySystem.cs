@@ -238,6 +238,8 @@ public static class ConstitutionalEconomySystem
         MilitaryCoupSystem.Yearly(empire);
         // 西方：教权、加冕、叙任权、什一税
         PapacySystem.Yearly(empire);
+        // 朝政积弊滋生与后果
+        MaladySystem.Yearly(empire);
         // 荒淫之君的宫廷开支；诛外戚
         RulerQualitySystem.Yearly(empire);
         ConsortKinSystem.Yearly(empire);

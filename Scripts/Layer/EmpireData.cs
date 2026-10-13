@@ -134,6 +134,9 @@ public class EmpireData : MetaObjectData
     public long minister_usurper_id { get; set; } = -1L;
     // 当今权臣是外戚(见 ConsortKinSystem)
     public bool powerful_minister_is_consort_kin { get; set; } = false;
+    // 朝政积弊：六条弊病各 0~100、上次结算(见 MaladySystem)
+    public Dictionary<string, float> maladies { get; set; } = new();
+    public double last_malady_update { get; set; } = -1d;
 
     public bool archived { get; set; } = false;
     

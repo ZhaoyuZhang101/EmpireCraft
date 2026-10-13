@@ -413,9 +413,10 @@ public static class FrontSystem
         return zone != null && target != null && CorpsSystem.ZoneDistance(zone, target) <= ArriveDistance;
     }
 
-    // 禁军的空饷不打仗(见 PalaceArmySystem)
+    // 禁军的空饷不打仗(见 PalaceArmySystem)；武备废弛打折(见 MaladySystem)
     private static float Effective(CorpsData corps) =>
-        corps.strength * PalaceArmySystem.RealShare(corps) * (0.25f + 0.75f * Mathf.Clamp01(corps.org / 100f));
+        corps.strength * PalaceArmySystem.RealShare(corps) * MaladySystem.MilitaryFactor(corps) *
+        (0.25f + 0.75f * Mathf.Clamp01(corps.org / 100f));
 
     // 火力：WarBox 的坦克、装甲车、飞机等载具每辆 +4%，最多 +60%
     private static readonly Dictionary<long, float> FirepowerCache = new();

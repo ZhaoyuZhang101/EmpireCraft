@@ -455,7 +455,7 @@ public static partial class CourtSystem
             FixedFaction deciderFaction = decider?.GetFaction();
             float own = deciderFaction == proposer ? 0.35f
                 : deciderFaction == null ? 0f : CourtIssues.StanceLevel(deciderFaction, issue) * 0.2f;
-            return Mathf.Clamp(0.2f + support * 0.5f + own, 0.05f, 0.95f);
+            return Mathf.Clamp(0.2f + support * 0.5f + own - MaladySystem.ApprovalMalus(empire), 0.05f, 0.95f);
         }
         float authority = Mathf.Clamp01(empire.Legitimacy / 100f);
         float chance = 0.1f + (0.75f - 0.35f * authority) * support + (data.favor - 50f) / 150f +
@@ -479,6 +479,8 @@ public static partial class CourtSystem
                 chance -= 0.35f;
                 break;
         }
+        // 党争(见 MaladySystem)
+        chance -= MaladySystem.ApprovalMalus(empire);
         return Mathf.Clamp(chance, 0.05f, 0.95f);
     }
 

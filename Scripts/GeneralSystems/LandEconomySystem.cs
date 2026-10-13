@@ -720,7 +720,8 @@ public static class LandEconomySystem
         if (pool >= 0.01f && owned > 0f)
         {
             // 想卖的地：商人、地主占比越高越多；饥荒、苛政逼人贱卖
-            float voluntary = owned * BaseConcentration * (1f + 4f * buyers / total);
+            // 土地兼并的积弊越重，卖地越快(见 MaladySystem)
+            float voluntary = owned * BaseConcentration * (1f + 4f * buyers / total) * MaladySystem.AnnexationFactor(city.kingdom);
             float distress = owned * Mathf.Min(1f, (data.last_food_shortage > 0f ? FamineConcentration : 0f) +
                 Mathf.Min(0.03f, HarshRuleSystem.GetRealmBurden(city.kingdom) / 2000f));
             // 先买便宜的贱卖地

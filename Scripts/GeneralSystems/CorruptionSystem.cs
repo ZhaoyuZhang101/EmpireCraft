@@ -118,6 +118,8 @@ public static class CorruptionSystem
                      .OrderByDescending(c => c.GetCorruptionRate()).Take(3)) city.AddCorruptionRate(-0.1d);
         RefreshLocalSnapshot(empire);
         MonarchyLegitimacy.Invalidate(empire);
+        // 整顿吏治告成，吏治败坏的积弊减轻
+        MaladySystem.Relieve(empire, MaladySystem.Graft, 15f);
         return true;
     }
 

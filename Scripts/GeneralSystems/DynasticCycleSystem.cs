@@ -47,6 +47,8 @@ public static class DynasticCycleSystem
             empire.InFoundingGrace, state.harsh_other_burden);
         // 明君拉回、昏君暴君加速衰败(见 RulerQualitySystem)
         if (!interregnum) change += RulerQualitySystem.StrainDelta(empire.Emperor);
+        // 六条朝政积弊合计推高王朝积弊(见 MaladySystem)
+        change += MaladySystem.StrainDelta(empire);
         state.dynastic_strain = DynasticCycleRules.Advance(state.dynastic_strain, change);
         MonarchyLegitimacy.Invalidate(empire);
         if (state.dynastic_strain >= DynasticCycleRules.CrisisPressure && !state.dynastic_crisis_announced)
@@ -68,6 +70,8 @@ public static class DynasticCycleSystem
         ConstitutionalEconomyState state = empire.data.constitutional_economy ??= new ConstitutionalEconomyState();
         state.dynastic_since = World.world.getCurWorldTime();
         state.last_dynastic_update = state.dynastic_since;
+        // 改朝换代，旧弊一扫而空
+        MaladySystem.OnDynastyChanged(empire);
         state.last_dynastic_uprising_attempt = -1d;
         int previousBurden = DynasticCycleRules.HarshBurden(state.dynastic_strain);
         state.dynastic_strain = Math.Min(20f, DynasticCycleRules.Advance(state.dynastic_strain, 0f) * 0.25f);

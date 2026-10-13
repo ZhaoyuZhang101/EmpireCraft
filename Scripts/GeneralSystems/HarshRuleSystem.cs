@@ -115,8 +115,9 @@ public static class HarshRuleSystem
         if (population > 0 && realms.Sum(kingdom => kingdom.countTotalFood()) < population * 0.5f)
             Add("harsh_famine", 15f);
         if (censorship) Add("harsh_speech", 8f);
-        // 暴虐之君(见 RulerQualitySystem)
+        // 暴虐之君(见 RulerQualitySystem)；苛捐杂税的积弊(见 MaladySystem)
         Add("harsh_tyranny", RulerQualitySystem.TyrannyBurden(core.king));
+        Add("harsh_levies", MaladySystem.LeviesHarsh(core));
         return items.OrderByDescending(item => item.value).ToList();
     }
 
