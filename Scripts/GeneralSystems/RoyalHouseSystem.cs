@@ -274,7 +274,7 @@ public static class RoyalHouseSystem
             CityStabilityData state = city?.data == null ? null : CityStabilitySystem.State(city);
             if (state != null) state.stability = Mathf.Max(0f, state.stability - 8f * severity);
         }
-        empire.data.powerful_minister_progress += Mathf.RoundToInt(10f * severity);
+        empire.data.powerful_minister_progress += Mathf.RoundToInt(3f * severity);
         string text = LM.Get("emperor_turmoil_history") + string.Concat(notes.Select(LM.Get));
         empire.RecordHistory(directContent: text);
         if (!designated) PrinceStruggleSystem.QueueContest(empire, severity);

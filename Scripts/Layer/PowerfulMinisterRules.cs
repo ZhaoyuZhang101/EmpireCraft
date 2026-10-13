@@ -7,7 +7,9 @@ namespace EmpireCraft.Scripts.Layer
     {
         public const int EntryInfluence = 300;
         public const int MonthlyCost = 10;
-        public const int StageIntervalMonths = 6;
+        // 掌控朝廷 → 封公 → 九锡 → 篡位，每一步至少隔三年(以前六个月，一年半就能篡位；
+        // 君主天年变短后幼帝多了、辅政常见，一朝往往只传一代)
+        public const int StageIntervalMonths = 36;
         public const int RegencyRecoveryMonths = 12;
         public const int ReleaseControlBelow = 80;
         public const int VulnerableEmperorInfluence = 100;
@@ -117,7 +119,8 @@ namespace EmpireCraft.Scripts.Layer
             bool hasNineBestowments, bool mandateCollapsed)
         {
             if (!controlsCourt || progress < 100) return false;
-            if (!hasNineBestowments && monthsSinceStage < StageIntervalMonths) return false;
+            // 加了九锡之后到篡位同样至少隔一个阶段间隔
+            if (monthsSinceStage < StageIntervalMonths) return false;
             return mandateCollapsed ||
                    hasCentralSupport && !strongEmperor && !regencyEnding && usurpingDisposition;
         }
