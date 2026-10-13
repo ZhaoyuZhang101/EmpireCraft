@@ -192,7 +192,9 @@ public static class FrontSystem
         if (nearest.getTile() != null && origin != null && !nearest.getTile().isSameIsland(origin))
         {
             NavySystem.DesiredLanding[side.id] = nearest.id;
-            if (NavySystem.LandingRoute(side, nearest) == null) return new List<Sector>();
+            // 超出舰种航程(楼船只能近海)的远洋登陆打不了
+            List<SeaRegionSystem.Region> route = NavySystem.LandingRoute(side, nearest);
+            if (route == null || route.Count > NavySystem.MaxRange(side)) return new List<Sector>();
         }
         var beachhead = new Sector { City = nearest, Landing = true };
         beachhead.Targets.AddRange(landing);
@@ -463,10 +465,13 @@ public static class FrontSystem
         TerrainEffect ground = TerrainSystem.Effect(terrain);
         // 跨海登陆的头一个月攻方吃亏
         // 战时统帅按兵略给本国各军加成(见 WarCommandSystem)
+        // 补给不足打折(见 LogisticsSystem)
         float attack = attackers.Sum(entry => Effective(entry.corps) * Firepower(entry.kingdom) *
-                                              WarCommandSystem.Factor(entry.kingdom)) * (landing ? 0.7f : 1f) * ground.Attack;
+                                              WarCommandSystem.Factor(entry.kingdom) * LogisticsSystem.AttackFactor(entry.corps)) *
+                       (landing ? 0.7f : 1f) * ground.Attack;
         float defend = holders.Sum(entry => Effective(entry.corps) * Firepower(entry.kingdom) *
-                                            WarCommandSystem.Factor(entry.kingdom) * (DefenderBonus + entry.corps.entrench));
+                                            WarCommandSystem.Factor(entry.kingdom) * LogisticsSystem.AttackFactor(entry.corps) *
+                                            (DefenderBonus + entry.corps.entrench));
         float militia = holders.Count == 0 ? Militia(city, attacker) : 0f;
         defend += militia;
         float ratio = attack + defend <= 0f ? 0.5f : attack / (attack + defend);

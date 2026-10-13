@@ -109,6 +109,9 @@ public static class CorpsMapRenderer
         public readonly List<int> Zones = new();
         // 并进来的各国(第一个是兵力最大、颜色所用的那国)
         public readonly List<Kingdom> Realms = new();
+        // 最差的补给(断绝时灰边)；有军在船上(换船形图标)
+        public float MinSupply = 1f;
+        public bool Embarked;
     }
 
     private sealed class FleetGroup
@@ -206,6 +209,33 @@ public static class CorpsMapRenderer
         // 进攻优先显示，其次防守
         if (corps.task == "attack" || corps.task == "defend" && group.Task != "attack") group.Task = corps.task;
         if (group.Moving && !group.Zones.Contains(zone.id)) group.Zones.Add(zone.id);
+        group.MinSupply = Mathf.Min(group.MinSupply, corps.supply);
+        if (corps.embarked) group.Embarked = true;
+    }
+
+    // 航线虚线
+    private const float DashLength = 7f, DashGap = 6f, RouteWidth = 2f;
+    private const int MaxDashes = 600;
+
+    private static void DrawDashes(Vector3 from, Vector3 to, Color color, ref int lineCount, float scale)
+    {
+        if (!OnScreen(from, 200f) && !OnScreen(to, 200f)) return;
+        Vector2 delta = to - from;
+        float length = delta.magnitude;
+        if (length < 1f) return;
+        Vector2 direction = delta / length;
+        Quaternion rotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg);
+        for (float travelled = 0f; travelled < length && lineCount < MaxDashes; travelled += DashLength + DashGap)
+        {
+            float dash = Mathf.Min(DashLength, length - travelled);
+            Image line = GetLine(lineCount++);
+            line.gameObject.SetActive(true);
+            line.color = color;
+            RectTransform rect = line.rectTransform;
+            rect.position = from + (Vector3)(direction * (travelled + dash * 0.5f));
+            rect.sizeDelta = new Vector2(dash / scale, RouteWidth / scale);
+            rect.localRotation = rotation;
+        }
     }
 
     // 折叠后每块兵牌包括哪些地块(键：代表地块 + 国)，悬停详情与点击用
@@ -494,11 +524,32 @@ public static class CorpsMapRenderer
             if (!OnScreen(p1, 40f) && !OnScreen(p2, 40f)) continue;
             Image line = GetLine(lineCount++);
             line.gameObject.SetActive(true);
+            line.color = FrontColor;
             Vector2 delta = p2 - p1;
             RectTransform rect = line.rectTransform;
             rect.position = (p1 + p2) * 0.5f;
             rect.sizeDelta = new Vector2((delta.magnitude + LineWidth) / scale, LineWidth / scale);
             rect.localRotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg);
+        }
+
+        // 跨海运兵的航线：从所在海区经剩下的海区到登陆点，画成本国颜色的虚线(同一支船队只画一次)
+        var drawnRoutes = new HashSet<(long kingdom, int step, int first, int last)>();
+        foreach ((Kingdom kingdom, CorpsData corps) in CorpsSystem.All())
+        {
+            if (!corps.embarked || corps.sea_route == null || corps.sea_route.Count == 0) continue;
+            if (!drawnRoutes.Add((kingdom.id, corps.sea_step, corps.sea_route[0], corps.sea_route[corps.sea_route.Count - 1])))
+                continue;
+            Color routeColor = kingdom.getColor()?.getColorMain() ?? Color.white;
+            routeColor.a = 0.9f;
+            Vector3? previous = null;
+            for (int i = Mathf.Max(0, corps.sea_step); i <= corps.sea_route.Count; i++)
+            {
+                TileZone stop = i < corps.sea_route.Count ? SeaRegionSystem.Get(corps.sea_route[i])?.Center : FrontSystem.TargetZone(corps);
+                if (stop?.centerTile == null) continue;
+                Vector3 point = camera.WorldToScreenPoint(stop.centerTile.posV);
+                if (previous is Vector3 from) DrawDashes(from, point, routeColor, ref lineCount, scale);
+                previous = point;
+            }
         }
 
         // 以屏幕像素定大小：抵消画布缩放，镜头拉远时最多缩到八成五、拉近时最多放大一成五
@@ -599,6 +650,8 @@ public static class CorpsMapRenderer
             }
             else if (!into.Zones.Contains(group.Zone.id)) into.Zones.Add(group.Zone.id);
             if (!into.Realms.Contains(group.Kingdom)) into.Realms.Add(group.Kingdom);
+            into.MinSupply = Mathf.Min(into.MinSupply, group.MinSupply);
+            into.Embarked |= group.Embarked;
         }
         foreach (CounterGroup group in Folded)
         {
@@ -623,8 +676,9 @@ public static class CorpsMapRenderer
             Counter counter = GetCounter(counterCount++);
             counter.Root.gameObject.SetActive(true);
             counter.Root.localScale = pixelScale;
-            SetFrame(counter.Frame, TaskFrame(group.Task));
-            counter.Piece.sprite = Piece(group.Rank);
+            // 补给断绝换灰边；在船上换船形图标
+            SetFrame(counter.Frame, group.MinSupply < 0.25f ? Frame("CorpsFrame_ash") : TaskFrame(group.Task));
+            counter.Piece.sprite = group.Embarked ? Ship(group.Kingdom) : Piece(group.Rank);
             counter.Plate.color = group.Kingdom.getColor()?.getColorMain() ?? Color.gray;
             string label = group.Count > 1
                 ? $"{CorpsSystem.ShortStrength(group.Strength)}<color=#F3C34A>×{group.Count}</color>"
@@ -1046,6 +1100,20 @@ public static class CorpsMapRenderer
             pPercent: false, pLocalize: false, pLimitValue: 40);
         tooltip.addLineText(LM.Get("corps_col_org"), Mathf.RoundToInt(org).ToString(), org < 30f ? "#E8584F" : "#7FD8EA",
             pPercent: false, pLocalize: false);
+        // 后勤(见 LogisticsSystem)：补给、口粮、海上航行
+        float supply = list.Average(corps => corps.supply);
+        string supplyState = LM.Get(supply >= 0.75f ? "corps_supply_good" : supply >= 0.3f ? "corps_supply_tight" : "corps_supply_cut");
+        tooltip.addLineText(LM.Get("corps_tip_supply"), string.Format(LM.Get("corps_tip_supply_format"),
+                Mathf.RoundToInt(supply * 100f), supplyState), supply >= 0.75f ? "#9BD27A" : supply >= 0.3f ? "#E8C35A" : "#E8584F",
+            pPercent: false, pLocalize: false, pLimitValue: 40);
+        float rations = list.Min(corps => corps.rations);
+        if (rations < 0.99f)
+            tooltip.addLineText(LM.Get("corps_tip_rations"), $"{Mathf.RoundToInt(rations * 100f)}%", "#E8584F",
+                pPercent: false, pLocalize: false);
+        CorpsData sailing = list.FirstOrDefault(corps => corps.embarked && corps.sea_route != null);
+        if (sailing != null)
+            tooltip.addLineText(LM.Get("corps_tip_at_sea"), string.Format(LM.Get("corps_tip_at_sea_format"),
+                sailing.sea_step + 1, sailing.sea_route.Count), "#8FC3E8", pPercent: false, pLocalize: false);
         TileZone zone = CorpsSystem.ZoneById((int)_hoverA);
         City at = zone?.city;
         if (at?.data != null && !at.isRekt())

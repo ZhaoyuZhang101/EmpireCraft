@@ -478,6 +478,7 @@ PLOTS = {
     "member_request_aid": (obj_envoy, "alert"),
     "member_aid_neighbour": (obj_swords, "arrow"),
     "member_aid_center": (obj_banners, "up"),
+    "war_forage": (lambda i: obj_farmland(i), "minus"),
 }
 
 

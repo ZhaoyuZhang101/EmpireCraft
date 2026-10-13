@@ -86,7 +86,7 @@ public static class WarGoalSystem
         RegimeType? regime = attacker.GetRegime()?.type;
         bool feudal = regime == RegimeType.Feudalism || regime == RegimeType.ZhouFeudalism;
         bool small = theirs <= AnnexSmallCities || theirs * 2 <= ours;
-        data.war_goal = !borders ? WarGoal.赔款
+        data.war_goal = !borders ? OverseasGoal(attacker, defender, strength, small)
             : Claimed(attacker, defender.cities).Count > 0 ? WarGoal.收复
             : strength >= AnnexStrength && small && !feudal ? WarGoal.吞并
             : strength >= VassalStrength && !defender.IsEmpire() && (feudal || strength >= AnnexStrength) ? WarGoal.迫使附庸
@@ -98,6 +98,17 @@ public static class WarGoalSystem
         // 开打即拜统帅(谋划开战时已拜的不变，见 WarCommandSystem)
         WarCommandSystem.MonthTick(FrontSystem.Realm(attacker));
         WarCommandSystem.MonthTick(FrontSystem.Realm(defender));
+    }
+
+    // 跨海：兵力两倍以上、战舰是对方一倍半以上、对方都城在舰种航程内，才谋割地(小国则吞并)，否则只求赔款
+    private static WarGoal OverseasGoal(Kingdom attacker, Kingdom defender, float strength, bool small)
+    {
+        if (strength < AnnexStrength || defender.capital?.data == null) return WarGoal.赔款;
+        int ours = NavySystem.Warships(attacker), theirs = NavySystem.Warships(defender);
+        if (ours <= 0 || ours < theirs * 1.5f) return WarGoal.赔款;
+        List<SeaRegionSystem.Region> route = NavySystem.LandingRoute(attacker, defender.capital);
+        if (route == null || route.Count > NavySystem.MaxRange(attacker)) return WarGoal.赔款;
+        return small ? WarGoal.吞并 : WarGoal.割地;
     }
 
     // 窗口里能不能轮换目标：定了目标、还没打完、不是劫掠

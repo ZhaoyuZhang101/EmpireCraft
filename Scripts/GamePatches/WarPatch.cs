@@ -394,6 +394,25 @@ public class WarPatch: GamePatch
                     __instance.showStatRow(id, $"{EmpireCraft.Scripts.GeneralSystems.WarCommandSystem.TitleOf(side)} {commander.getName()}",
                         "#D9B36A", pIconPath: "iconWar");
             }
+            // 双方粮草官与军粮(见 LogisticsSystem)
+            foreach ((string qmId, string foodId, Kingdom side) in new[]
+                     {
+                         ("war_quartermaster_attackers", "war_rations_attackers", war?.main_attacker),
+                         ("war_quartermaster_defenders", "war_rations_defenders", war?.main_defender)
+                     })
+            {
+                if (war == null || war.hasEnded() || side?.data == null) continue;
+                Actor quartermaster = EmpireCraft.Scripts.GeneralSystems.WarCommandSystem.Quartermaster(side);
+                if (quartermaster != null)
+                    __instance.showStatRow(qmId,
+                        $"{EmpireCraft.Scripts.GeneralSystems.WarCommandSystem.QuartermasterTitleOf(side)} {quartermaster.getName()}",
+                        "#D9B36A", pIconPath: "iconWar");
+                var sideData = side.GetOrCreate();
+                if (sideData.war_food_need > 0f)
+                    __instance.showStatRow(foodId, string.Format(NeoModLoader.General.LM.Get("war_rations_format"),
+                        sideData.war_food_need.ToString("0.#"), sideData.war_food_short.ToString("0.#")),
+                        sideData.war_food_short > 0f ? "#E8584F" : "#9BD27A", pIconPath: "iconWar");
+            }
         }
         catch (Exception exception)
         {

@@ -561,6 +561,19 @@ public static class PopulationEconomySystem
         return ResourceDelta(city.getResourcesAmount(resource), before, take);
     }
 
+    // 军粮(见 LogisticsSystem)：从城市仓库按粮食种类整批取走 portions 份，返回实际取到的
+    public static int TakeFood(City city, int portions)
+    {
+        if (city?.data == null || city.isRekt() || portions <= 0) return 0;
+        int taken = 0;
+        foreach (ResourceAsset food in FoodAssets())
+        {
+            if (taken >= portions) break;
+            taken += ConsumeStoredResource(city, food.id, portions - taken);
+        }
+        return taken;
+    }
+
     // 按种类整批扣粮；未实际出库的部分记为缺粮。
     private static float EatFood(City city, CityPopulationData data, float need, out float shortage)
     {

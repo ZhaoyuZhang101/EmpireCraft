@@ -37,4 +37,12 @@ public sealed class CorpsData
     public List<LegionPopulationContribution> population = new();
     // 义军：起义、革命时临时武装，仗打完就地解散
     public bool militia;
+    // 后勤(见 LogisticsSystem)：补给程度 0~1、上月口粮够了几成
+    public float supply = 1f;
+    public float rations = 1f;
+    // 跨海运兵(见 CorpsSystem.Embark/Sail)：在船上、航线(海区 id)、走到第几段、计步
+    public bool embarked;
+    public List<int> sea_route;
+    public int sea_step;
+    public int sea_tick;
 }

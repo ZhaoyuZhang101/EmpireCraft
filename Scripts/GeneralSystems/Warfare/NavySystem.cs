@@ -137,6 +137,36 @@ public static class NavySystem
         return controller != null && FrontSystem.Hostile(side, controller);
     }
 
+    // 远洋航程(登陆航线最多经过几个海区)：楼船只能近海，远洋帆舰起才能远航，现代舰艇不限
+    public static int MaxRange(Kingdom kingdom) => Tier(kingdom) switch
+    {
+        >= 4f => 999,
+        >= 2.5f => 24,
+        >= 1.5f => 10,
+        _ => 3
+    };
+
+    public static bool IsHostile(Kingdom side, SeaRegionSystem.Region region) => HostileControl(side, region);
+
+    // 本国(连同宗主中央)有战舰在这片海区：运兵船有护航
+    public static bool Escorted(Kingdom side, SeaRegionSystem.Region region)
+    {
+        if (side == null || region == null) return false;
+        Kingdom realm = FrontSystem.Realm(side);
+        return Of(side).Any(fleet => fleet.region_id == region.Id && fleet.warships > 0) ||
+               realm != null && realm != side && Of(realm).Any(fleet => fleet.region_id == region.Id && fleet.warships > 0);
+    }
+
+    // 本国(连同宗主中央)战舰总数
+    public static int Warships(Kingdom kingdom)
+    {
+        if (kingdom == null) return 0;
+        int total = Of(kingdom).Sum(fleet => fleet.warships);
+        Kingdom realm = FrontSystem.Realm(kingdom);
+        if (realm != null && realm != kingdom) total += Of(realm).Sum(fleet => fleet.warships);
+        return total;
+    }
+
     // 港口被封锁：港外任一海区在敌方手里
     public static bool IsBlockaded(City city)
     {

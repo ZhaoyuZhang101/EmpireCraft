@@ -266,6 +266,12 @@ public static class KingdomExtension
         // 战时统帅(见 WarCommandSystem)：人与官名的本地化键(拜将时按时代、文化、战争性质定下)
         public long war_commander_id = -1L;
         public string war_commander_title = "";
+        // 粮草官、就地征粮截止时间、上月军粮需求与缺口(见 LogisticsSystem)
+        public long war_quartermaster_id = -1L;
+        public string war_quartermaster_title = "";
+        public double forage_until = -1d;
+        public float war_food_need;
+        public float war_food_short;
         public KingdomType kingdomType = KingdomType.default_country_post;
         public string core_name = "";
         public string core_name_source = "";

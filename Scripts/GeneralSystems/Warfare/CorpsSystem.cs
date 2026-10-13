@@ -203,6 +203,7 @@ public static class CorpsSystem
                 CityPopulationSystem.PostOf(city, CityPopulationSystem.DoctrineOf(kingdom)) != CityPopulationSystem.ArmyPost.None) == true;
             if (!posts && (list == null || list.Count == 0)) continue;
             Mobilize(kingdom, now);
+            using (FrameProfiler.Measure("军团·后勤")) LogisticsSystem.MonthTick(kingdom);
             Recover(kingdom);
             PayUpkeep(kingdom);
             AbsorbLegacyLegions(kingdom);
@@ -293,9 +294,9 @@ public static class CorpsSystem
                     if (!war && corps.task != "attack" && corps.task != "defend") Disband(kingdom, corps);
                     continue;
                 }
-                // 海外断了补给(航线被敌方制海截断)的军补不上兵
-                if (corps.strength < corps.full && !NavySystem.IsCutOff(kingdom, corps))
-                    Reinforce(kingdom, corps, corps.full * ReinforceShare);
+                // 补给不到五成(海外断了航线、孤军深入、被围)补不上兵；在船上的也补不了
+                if (corps.strength < corps.full && corps.supply >= 0.5f && !corps.embarked)
+                    Reinforce(kingdom, corps, corps.full * ReinforceShare * corps.supply);
                 else if (!war && corps.strength > corps.full)
                     Demobilize(kingdom, corps, Mathf.Min(corps.strength - corps.full, corps.full * DemobilizeShare + 1f));
             }
@@ -398,10 +399,10 @@ public static class CorpsSystem
     {
         foreach (CorpsData corps in Of(kingdom))
         {
-            // 海外断了补给：组织度不恢复，每月再掉 5
-            if (NavySystem.IsCutOff(kingdom, corps))
+            // 补给不到五成：组织度不恢复，反而下降(断绝时每月 -5)
+            if (corps.supply < 0.5f)
             {
-                corps.org = Mathf.Max(0f, corps.org - 5f);
+                corps.org = Mathf.Max(0f, corps.org - (0.5f - corps.supply) * 10f);
                 continue;
             }
             bool fighting = corps.task is "attack" or "defend" && FrontSystem.EngagedLastMonth(corps);
@@ -571,8 +572,8 @@ public static class CorpsSystem
             {
                 int before = corps.zone_id;
                 StepTowardTarget(corps);
-                // 山地、沼泽、丛林行军慢一半：进了这类地块，本秒不再前进
-                if (corps.zone_id == before || TerrainSystem.SlowsMarch(Zone(corps))) break;
+                // 山地、沼泽、丛林行军慢一半：进了这类地块，本秒不再前进；在船上按船速走(见 Sail)
+                if (corps.embarked || corps.zone_id == before || TerrainSystem.SlowsMarch(Zone(corps))) break;
             }
             MoveGeneral(corps);
         }
@@ -628,6 +629,11 @@ public static class CorpsSystem
     // 军团在地块上一格一格挪向目标(跨海登陆要有航线与运力，见 FrontSystem / NavySystem)
     private static void StepTowardTarget(CorpsData corps)
     {
+        if (corps.embarked)
+        {
+            Sail(corps);
+            return;
+        }
         TileZone target = FrontSystem.TargetZone(corps);
         if (target == null) return;
         TileZone current = Zone(corps);
@@ -637,8 +643,124 @@ public static class CorpsSystem
             return;
         }
         if (current == target) return;
+        // 旧存档里不在船上却停在海面的军(以前陆军直接走海面)：直接上岸到目标
+        if (SeaRegionSystem.IsSea(current))
+        {
+            corps.zone_id = target.id;
+            return;
+        }
+        // 目标在另一片陆地上：先开到本国港口，在港口上船(见 Embark、Sail)
+        if (!SeaRegionSystem.IsSea(current) && !SameLand(current, target))
+        {
+            Kingdom kingdom = World.world.kingdoms.get(corps.kingdom_id);
+            City port = PortFor(kingdom, current);
+            TileZone portZone = port?.getTile()?.zone;
+            if (portZone == null) return;
+            if (current == portZone || current.city == port)
+            {
+                Embark(kingdom, corps, target);
+                return;
+            }
+            target = portZone;
+        }
         TileZone next = NextStep(corps, current, target);
         if (next != null) corps.zone_id = next.id;
+    }
+
+    // 两块地是否在同一片陆地上(有城的取城心，野地取地块中心)；拿不准时当作同一片
+    public static bool SameLand(TileZone a, TileZone b)
+    {
+        WorldTile ta = LandTile(a), tb = LandTile(b);
+        return ta == null || tb == null || ta.isSameIsland(tb);
+    }
+
+    private static WorldTile LandTile(TileZone zone)
+    {
+        if (zone == null) return null;
+        WorldTile tile = zone.city?.data != null && !zone.city.isRekt() ? zone.city.getTile() : zone.centerTile;
+        return tile?.Type?.ground == true ? tile : null;
+    }
+
+    // 上船的港口：本国(连同宗主中央)在这片陆地上、离得最近的港口城
+    private static City PortFor(Kingdom kingdom, TileZone at)
+    {
+        if (kingdom == null) return null;
+        Kingdom realm = FrontSystem.Realm(kingdom);
+        IEnumerable<City> ports = NavySystem.Ports(kingdom);
+        if (realm != null && realm != kingdom) ports = ports.Concat(NavySystem.Ports(realm));
+        City best = null;
+        float bestDistance = float.MaxValue;
+        foreach (City port in ports)
+        {
+            TileZone zone = port.getTile()?.zone;
+            if (zone == null || !SameLand(at, zone)) continue;
+            float distance = ZoneDistance(at, zone);
+            if (distance >= bestDistance) continue;
+            best = port;
+            bestDistance = distance;
+        }
+        return best;
+    }
+
+    // 在港口上船：按登陆航线出海(航线不经敌方制海、在舰种航程内；走不了就在港口等)
+    private static void Embark(Kingdom kingdom, CorpsData corps, TileZone target)
+    {
+        City destination = target.city ?? World.world.cities.get(corps.sector_city_id);
+        if (kingdom == null || destination?.data == null) return;
+        List<SeaRegionSystem.Region> route = NavySystem.LandingRoute(kingdom, destination);
+        if (route == null || route.Count == 0 || route.Count > NavySystem.MaxRange(kingdom)) return;
+        corps.embarked = true;
+        corps.sea_route = route.Select(region => region.Id).ToList();
+        corps.sea_step = 0;
+        corps.sea_tick = 0;
+        if (route[0].Center != null) corps.zone_id = route[0].Center.id;
+        Paths.Remove(corps.id);
+    }
+
+    // 船队每 SailSteps 次行军结算前进一个海区(约两秒一个，与舰队相当)；过了最后一个海区登陆
+    private const int SailSteps = 4;
+
+    private static void Sail(CorpsData corps)
+    {
+        if (corps.sea_route == null || corps.sea_route.Count == 0)
+        {
+            Disembark(corps);
+            return;
+        }
+        if (++corps.sea_tick < SailSteps) return;
+        corps.sea_tick = 0;
+        corps.sea_step++;
+        if (corps.sea_step >= corps.sea_route.Count)
+        {
+            Disembark(corps);
+            return;
+        }
+        SeaRegionSystem.Region region = SeaRegionSystem.Get(corps.sea_route[corps.sea_step]);
+        if (region?.Center != null) corps.zone_id = region.Center.id;
+        Intercept(corps, region);
+    }
+
+    private static void Disembark(CorpsData corps)
+    {
+        corps.embarked = false;
+        corps.sea_route = null;
+        corps.sea_step = 0;
+        corps.sea_tick = 0;
+        TileZone landing = FrontSystem.TargetZone(corps);
+        if (landing == null || SeaRegionSystem.IsSea(landing))
+            landing = World.world.cities.get(corps.sector_city_id)?.getTile()?.zone;
+        if (landing != null) corps.zone_id = landing.id;
+    }
+
+    // 船队驶入敌方制海的海区遭截击：没有护航折损一成五，有护航减半；组织度 -15
+    private static void Intercept(CorpsData corps, SeaRegionSystem.Region region)
+    {
+        Kingdom kingdom = World.world.kingdoms.get(corps.kingdom_id);
+        if (kingdom == null || region == null || !NavySystem.IsHostile(kingdom, region)) return;
+        float loss = NavySystem.Escorted(kingdom, region) ? 0.07f : 0.15f;
+        Casualties(corps, corps.strength * loss);
+        corps.org = Mathf.Max(0f, corps.org - 15f);
+        FrontSystem.Log(kingdom, string.Format(LM.Get("corps_log_intercepted"), Name(corps), Mathf.RoundToInt(loss * 100f)));
     }
 
     // 行军路线：按地块寻路，绕开原版最高的地形(见 TerrainSystem.Impassable)；路线按目标缓存，
@@ -678,7 +800,8 @@ public static class CorpsSystem
             foreach (TileZone neighbour in zone.neighbours_all ?? Array.Empty<TileZone>())
             {
                 if (neighbour == null || previous.ContainsKey(neighbour.id)) continue;
-                if (neighbour != to && TerrainSystem.Impassable(neighbour)) continue;
+                // 陆军不走海面(跨海见 Embark)
+                if (neighbour != to && (TerrainSystem.Impassable(neighbour) || SeaRegionSystem.IsSea(neighbour))) continue;
                 previous[neighbour.id] = zone.id;
                 queue.Enqueue(neighbour);
             }
@@ -696,7 +819,8 @@ public static class CorpsSystem
         float bestDistance = ZoneDistance(current, target);
         foreach (TileZone neighbour in current.neighbours_all ?? Array.Empty<TileZone>())
         {
-            if (neighbour == null || neighbour != target && TerrainSystem.Impassable(neighbour)) continue;
+            if (neighbour == null || neighbour != target && (TerrainSystem.Impassable(neighbour) || SeaRegionSystem.IsSea(neighbour)))
+                continue;
             float distance = ZoneDistance(neighbour, target);
             if (distance < bestDistance)
             {

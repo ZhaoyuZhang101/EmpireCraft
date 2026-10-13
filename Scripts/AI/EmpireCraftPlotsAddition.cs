@@ -1109,6 +1109,22 @@ namespace EmpireCraft.Scripts.AI
                 check_should_continue = MemberWarAid.NeighbourContinues,
                 action = MemberWarAid.AidNeighbour
             });
+            // 就地征粮：战时统帅的决议(见 LogisticsSystem)，由后勤月结在缺粮或大军深入敌境时发起
+            AssetManager.plots_library.add(new PlotAsset
+            {
+                id = LogisticsSystem.ForagePlot,
+                path_icon = "ui/icons/plots/plot_" + LogisticsSystem.ForagePlot,
+                group_id = "empirecraft_diplomacy",
+                is_basic_plot = true,
+                progress_needed = 10f,
+                can_be_done_by_king = true,
+                can_be_done_by_leader = true,
+                can_be_done_by_clan_member = true,
+                check_is_possible = actor => LogisticsSystem.CanForage(actor, needy: true),
+                check_can_be_forced = actor => LogisticsSystem.CanForage(actor, needy: false),
+                check_should_continue = actor => LogisticsSystem.CanForage(actor, needy: false),
+                action = LogisticsSystem.Forage
+            });
             // 发兵勤王：中央与外敌交战吃紧时，成员发兵赴援(见 MemberWarAid、WarScopeSystem)
             AssetManager.plots_library.add(new PlotAsset
             {
