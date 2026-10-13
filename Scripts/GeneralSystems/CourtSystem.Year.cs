@@ -298,6 +298,8 @@ public static partial class CourtSystem
             }
             war.SetEmpireWarType(EmpireWarType.派系叛乱);
             RebellionSystem.Record(rebel, war, cause);
+            // 郡县多不许养兵，起兵时就地武装义军(见 RebellionStartupService)，按怨望定规模
+            RebellionStartupService.RaiseUprisingMilitia(rebel, data.grievance / 100f);
             data.grievance = 50f;
             Log(state, "court_log_mutiny", faction.Name, rebel.GetKingdomName());
             empire.RecordHistory(directContent: string.Format(LM.Get("court_history_mutiny"), faction.Name,

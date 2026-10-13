@@ -10,7 +10,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 
 // 叛乱初起的集结期：叛军先动手，被叛的一方要先集结大军，叛军有机会在大军到来前打下一个省。
 //   · 叛乱类战争(原版起义、派系/地方/民族/宗教叛乱、地方独立、附庸独立、清君侧)开打时掷定集结期 0~5 个月：
-//     基础 0~3 个月(按战争定，存档稳定)；叛军都城离被叛方都城远(超过 120 格)+1；帝国正统不足 40 +1；
+//     基础 1~3 个月(按战争定，存档稳定；以前基础可以是 0，叛军一点反应时间都没有)；叛军都城离被叛方都城远(超过 120 格)+1；帝国正统不足 40 +1；
 //     被叛方已在举国总动员 -1；
 //   · 集结期间，被叛方对这伙叛军：不反攻(不分兵去打叛军占的城)；只有当时就在受攻城附近(六块地块以内)的军能赶来守城，
 //     远处的军还在集结；仓促应战，守方战力 ×0.75；
@@ -38,7 +38,7 @@ public static class MusterSystem
     {
         var data = war.GetOrCreate();
         if (data.muster_months >= 0) return data.muster_months;
-        int months = (int)(Math.Abs(war.data.id * 7919L) % 4);
+        int months = 1 + (int)(Math.Abs(war.data.id * 7919L) % 3);
         Kingdom rebel = war.main_attacker, loyal = FrontSystem.Realm(war.main_defender);
         if (rebel?.capital != null && loyal?.capital != null &&
             Vector2.Distance(rebel.capital.city_center, loyal.capital.city_center) > FarDistance) months++;

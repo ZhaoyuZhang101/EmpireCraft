@@ -1203,6 +1203,8 @@ namespace EmpireCraft.Scripts.AI
                             empire.leave(target, true, true);
                             target.StartLocalRebelling(EmpireWarType.地方叛乱);
                             RebellionSystem.Record(target, war, cause);
+                            // 郡县多不许养兵，起兵时就地武装义军(见 RebellionStartupService)
+                            RebellionStartupService.RaiseUprisingMilitia(target, 0.4f);
                         }
                         else
                         {
@@ -2371,6 +2373,10 @@ namespace EmpireCraft.Scripts.AI
                         war.SetEmpireWarType(EmpireWarType.地方独立);
                         pActor.kingdom.StartLocalRebelling(EmpireWarType.地方独立, pre: pActor.city.GetCityName());
                         RebellionSystem.Record(pActor.kingdom, war, cause);
+                        // 就地武装义军：以前城市起事走原版起义流程，无小人模式下城里几乎没有实体兵，
+                        // 叛军一冒头手里没兵，集结期一过本省军府开到就收复了。民心越背离(忠诚越低)武装越多
+                        float fervor = Mathf.Clamp(0.3f + Mathf.Max(0f, -(cause.loyalty ?? 0)) / 100f, 0.3f, 1f);
+                        RebellionStartupService.RaiseUprisingMilitia(pActor.kingdom, fervor);
                         // 成员的城市独立：中央不自动出兵，由成员长官求援(见 MemberWarAid)
                     }
 				    return true;
