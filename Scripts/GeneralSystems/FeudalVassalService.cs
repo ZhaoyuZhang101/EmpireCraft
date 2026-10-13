@@ -2,11 +2,15 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using EmpireCraft.Scripts.Compatibility;
+using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GamePatches;
 using EmpireCraft.Scripts.Layer;
+using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Regimes;
+using EmpireCraft.Scripts.System;
+using NeoModLoader.General;
 
 namespace EmpireCraft.Scripts.GeneralSystems;
 
@@ -127,6 +131,8 @@ public static class FeudalVassalService
         data.feudal_vassal_level = 1;
         data.feudal_vassal_progress = 0;
         data.feudal_last_control_timestamp = -1d;
+        data.feudal_vassal_since = World.world.getCurWorldTime();
+        data.feudal_annex_failed_at = -1d;
         if (subject.hasAlliance() && lord.hasAlliance() && subject.getAlliance() == lord.getAlliance())
             subject.getAlliance().leave(subject);
         VassalColorService.Apply(subject, lord);
@@ -146,6 +152,8 @@ public static class FeudalVassalService
         data.feudal_vassal_level = 0;
         data.feudal_vassal_progress = 0;
         data.feudal_last_control_timestamp = -1d;
+        data.feudal_vassal_since = -1d;
+        data.feudal_annex_failed_at = -1d;
         VassalColorService.Clear(subject);
         // 旧版把附庸整个染成宗主色的，独立时要换一个颜色；新版附庸本来就是自己的底色，原样保留
         bool legacyRecolored = formerOverlord != null && subject.data.color_id == formerOverlord.data.color_id;
@@ -262,16 +270,126 @@ public static class FeudalVassalService
         return true;
     }
 
-    public static bool CanAnnex(Kingdom lord, Kingdom subject) =>
-        lord?.king != null && lord.king.isAlive() && GetOverlord(subject) == lord &&
-        !lord.getWars().Any(war => war != null && !war.hasEnded()) &&
-        !subject.getWars().Any(war => war != null && !war.hasEnded()) &&
-        subject.GetOrCreate().feudal_vassal_level == 3 &&
-        subject.GetOrCreate().feudal_vassal_progress >= ProgressPerLevel;
+    // 吞并附庸：控制度练满(三级满进度)照旧可以；此外附庸满十年后——
+    //   · 宗主(连同治下各国)实力达到附庸三倍以上；
+    //   · 或宗主施行了能容纳多个法理与城市的制度(西方的中央集权君主制等"直辖治理")，实力达到附庸一倍半以上；
+    // 双方都没在打仗。吞并是一次尝试，会失败(见 Annex)，失败后十年内不能再试
+    private const int AnnexMinYears = 10, AnnexRetryYears = 10;
+    private const double AnnexPowerRatio = 3d, CentralizedAnnexPowerRatio = 1.5d;
+
+    // 能容纳多个法理与城市：施行了"直辖治理"特性的制度(西方中央集权君主制、神权国家)
+    public static bool HasDirectAdministration(Kingdom kingdom)
+    {
+        if (kingdom?.data == null || kingdom.isRekt()) return false;
+        Empire empire = kingdom.GetEmpire();
+        if (empire != null && !empire.IsArchived())
+            return InstitutionSystem.HasFeature(empire, InstitutionFeatures.DirectAdministration);
+        string culture = CultureService.GetRealmCulture(kingdom);
+        return !string.IsNullOrEmpty(culture) && InstitutionSystem.HasFeature(culture, InstitutionFeatures.DirectAdministration);
+    }
+
+    public static bool CanAnnex(Kingdom lord, Kingdom subject)
+    {
+        if (lord?.king == null || !lord.king.isAlive() || GetOverlord(subject) != lord ||
+            lord.getWars().Any(war => war != null && !war.hasEnded()) ||
+            subject.getWars().Any(war => war != null && !war.hasEnded())) return false;
+        var data = subject.GetOrCreate();
+        if (data.feudal_vassal_level == 3 && data.feudal_vassal_progress >= ProgressPerLevel) return true;
+        if (data.feudal_vassal_since < 0d) data.feudal_vassal_since = World.world.getCurWorldTime();
+        if (Date.getYearsSince(data.feudal_vassal_since) < AnnexMinYears) return false;
+        if (data.feudal_annex_failed_at >= 0d && Date.getYearsSince(data.feudal_annex_failed_at) < AnnexRetryYears) return false;
+        double ratio = GetWarPower(lord, false, subject) / Math.Max(1d, GetWarPower(subject, false));
+        return ratio >= (HasDirectAdministration(lord) ? CentralizedAnnexPowerRatio : AnnexPowerRatio);
+    }
+
+    // 吞并的成算：控制度越高、实力越悬殊、宗主集权越易成；控制度练满的必成
+    public static float AnnexChance(Kingdom lord, Kingdom subject)
+    {
+        var data = subject.GetOrCreate();
+        if (data.feudal_vassal_level == 3 && data.feudal_vassal_progress >= ProgressPerLevel) return 1f;
+        double ratio = GetWarPower(lord, false, subject) / Math.Max(1d, GetWarPower(subject, false));
+        float chance = 0.4f + 0.12f * (data.feudal_vassal_level - 1) + (float)Math.Min(0.3d, (ratio - 1.5d) * 0.06d);
+        if (HasDirectAdministration(lord)) chance += 0.15f;
+        return UnityEngine.Mathf.Clamp(chance, 0.2f, 0.9f);
+    }
 
     public static bool Annex(Kingdom lord, Kingdom subject)
     {
         if (!CanAnnex(lord, subject)) return false;
+        var data = subject.GetOrCreate();
+        // 吞并失败：附庸离心，控制度清零，十年内不能再试；附庸可能就此起兵独立
+        if (UnityEngine.Random.value >= AnnexChance(lord, subject))
+        {
+            data.feudal_annex_failed_at = World.world.getCurWorldTime();
+            data.feudal_vassal_progress = 0;
+            string failed = string.Format(LM.Get("feudal_annex_failed_history"), lord.GetKingdomName(), subject.GetKingdomName());
+            TranslateHelper.LogEventMessage(failed, lord);
+            if (UnityEngine.Random.value < 0.35f)
+            {
+                War war = World.world.diplomacy.startWar(subject, lord, WarTypeLibrary.normal);
+                war?.SetEmpireWarType(EmpireWarType.附庸独立);
+            }
+            return false;
+        }
+        string subjectName = subject.GetKingdomName();
+        // 宗主能容纳多个法理与城市(集权君主、共和、现代)：附庸真正并入，城市与法理归宗主；否则由宗主兼领(共主)
+        if (IsPostMonarchy(lord) || HasDirectAdministration(lord))
+        {
+            Absorb(lord, subject);
+            TranslateHelper.LogEventMessage(string.Format(LM.Get("feudal_annex_absorbed_history"), lord.GetKingdomName(), subjectName), lord);
+            return true;
+        }
+        bool united = UniteUnderLord(lord, subject);
+        if (united)
+            TranslateHelper.LogEventMessage(string.Format(LM.Get("feudal_annex_union_history"), lord.GetKingdomName(), subjectName), lord);
+        return united;
+    }
+
+    // 共主兼领(未集权的封建宗主)：宗主君主兼任附庸之君，入盟或并入宗主的帝国
+    private static bool UniteUnderLord(Kingdom lord, Kingdom subject)
+    {
+        PersonalUnionService.CrownInUnion(subject, lord.king);
+        if (subject.king != lord.king) return false;
+        Break(subject);
+        subject.updateColor(lord.getColor());
+        if (lord.IsInEmpire()) lord.GetEmpire()?.join(subject, pForce: true);
+        else PersonalUnionService.JoinAlliance(lord, subject);
+        return true;
+    }
+
+    // 真正并入：附庸手下的小附庸改向宗主效忠，法理交给宗主君主，城市并入宗主
+    private static void Absorb(Kingdom lord, Kingdom subject)
+    {
+        foreach (Kingdom vassal in GetDirectVassals(subject).ToList())
+            if (vassal != lord) BindCore(lord, vassal);
+        Empire subjectGovernment = subject.IsEmpire() ? subject.GetEmpire() : null;
+        Actor ruler = lord.king;
+        Actor former = subject.king;
+        var titles = new List<KingdomTitle>(subject.GetControlledTitles() ?? new List<KingdomTitle>());
+        KingdomTitle main = subject.GetMainTitle();
+        if (main != null && !titles.Contains(main)) titles.Add(main);
+        Break(subject);
+        if (subjectGovernment != null && !subjectGovernment.IsArchived())
+            ModClass.EMPIRE_MANAGER?.dissolveEmpire(subjectGovernment);
+        if (lord.IsInEmpire() && IsPostMonarchy(lord)) lord.GetEmpire()?.join(subject, pForce: true);
+        else
+            foreach (City city in subject.cities?.ToList() ?? new List<City>())
+                city.joinAnotherKingdom(lord);
+        if (ruler == null) return;
+        foreach (KingdomTitle title in titles)
+        {
+            if (title == null || title.isRekt()) continue;
+            if (former != null && former != ruler) former.GetOwnedTitle()?.Remove(title.id);
+            if (title.owner != null && title.owner != ruler) title.owner.GetOwnedTitle()?.Remove(title.id);
+            ruler.AddOwnedTitle(title);
+            title.owner = ruler;
+            if (lord.IsTitleWithinRealm(title)) lord.RegisterRealmTitle(title);
+        }
+    }
+
+    // 旧的吞并实现(兼容)：共和、现代宗主直接并入
+    private static bool AnnexLegacy(Kingdom lord, Kingdom subject)
+    {
         if (IsPostMonarchy(lord))
         {
             // 共和国/现代国家没有君主可以兼领：附庸直接并入宗主国家

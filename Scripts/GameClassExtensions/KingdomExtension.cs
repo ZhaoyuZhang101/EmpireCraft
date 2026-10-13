@@ -408,6 +408,9 @@ public static class KingdomExtension
         public double feudal_defected_at = -1d;
         public int feudal_vassal_level;
         public int feudal_vassal_progress;
+        // 成为附庸的时间(旧档第一次查到时补记)、宗主上次吞并失败的时间(见 FeudalVassalService.CanAnnex)
+        public double feudal_vassal_since = -1d;
+        public double feudal_annex_failed_at = -1d;
         public double feudal_last_control_timestamp = -1d;
         // 土地制度属于政权本身，不依赖其是否加入或建立帝国。
         public bool private_land_market_open = false;

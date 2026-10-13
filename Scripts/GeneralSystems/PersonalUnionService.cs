@@ -244,7 +244,9 @@ public static class PersonalUnionService
         var inherited = new List<KingdomTitle>();
         remaining = new List<long>();
         Actor ruler = successor?.king;
-        if (!IsFeudal(successor) || ruler == null || ruler.isRekt() || titleIds == null)
+        // 施行中央集权(直辖治理)后能容纳多个法理与城市：索取的法理照常并入获胜国
+        if (!IsFeudal(successor) || FeudalVassalService.HasDirectAdministration(successor) || ruler == null ||
+            ruler.isRekt() || titleIds == null)
         {
             remaining.AddRange(titleIds ?? Enumerable.Empty<long>());
             return inherited;

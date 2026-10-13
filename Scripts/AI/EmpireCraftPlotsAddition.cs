@@ -499,8 +499,9 @@ namespace EmpireCraft.Scripts.AI
                     var allKingdoms = GetKingdomsRuledByActor(pActor);
                     // 推恩令下不允许统合封国(一人本就不得兼领两国)
                     if (allKingdoms.Any(k => GraceEdictService.IsActive(k.GetEmpire()))) return false;
-                    // 西方封建制与城邦无法整合土地
-                    if (allKingdoms.Any(PersonalUnionService.IsUnionRegime)) return false;
+                    // 西方封建制与城邦无法整合土地，施行中央集权(直辖治理)后可以
+                    if (allKingdoms.Any(k => PersonalUnionService.IsUnionRegime(k) && !FeudalVassalService.HasDirectAdministration(k)))
+                        return false;
                     if (!pActor.HasTitle()) return false;
                     if (ModClass.KINGDOM_TITLE_MANAGER.get(pActor.GetOwnedTitle()[0])?.title_capital?.kingdom?.king !=
                         pActor) return false;
@@ -511,8 +512,9 @@ namespace EmpireCraft.Scripts.AI
                     if (!pActor.isKing()) return false;
                     var allKingdoms = GetKingdomsRuledByActor(pActor);
                     if (allKingdoms.Any(k => GraceEdictService.IsActive(k.GetEmpire()))) return false;
-                    // 西方封建制与城邦无法整合土地
-                    if (allKingdoms.Any(PersonalUnionService.IsUnionRegime)) return false;
+                    // 西方封建制与城邦无法整合土地，施行中央集权(直辖治理)后可以
+                    if (allKingdoms.Any(k => PersonalUnionService.IsUnionRegime(k) && !FeudalVassalService.HasDirectAdministration(k)))
+                        return false;
                     if (!pActor.HasTitle()) return false;
                     return allKingdoms.Count > 1;
                 },
