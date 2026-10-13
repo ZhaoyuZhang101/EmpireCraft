@@ -30,13 +30,15 @@ public static class PureMapMode
         "world_law_spread_fast_fungi", "world_law_spread_fast_plants"
     };
 
-    // 不画的精灵层：人物的附属图层与建筑。人物本体与影子照常画(船要显示)，非船的人物由 PureMapPatch 设为不可见
+    // 不画的精灵层：人物的附属图层与建筑。人物本体与影子照常画(船要显示)，非船的人物由 PureMapPatch 设为不可见；
+    // 地图拉远时的君主、城主头像、收藏、谋划、军队、社交图标也不画(人物到处瞬移，头像跟着闪来闪去)
     private static readonly string[] HiddenSprites =
     {
         "draw_healthbars", "draw_units_avatars", "unit_items", "draw_unit_hit_effect",
         "draw_parabolic_unload", "draw_unit_highlight_effect", "unit_banners", "selected_units",
         "unit_metas", "happiness_icons", "task_icons", "family_species_icons", "status_effects",
-        "draw_buildings", "draw_building_stockpiles", "shadows_buildings", "draw_walls", "draw_light_walls_light_blobs"
+        "draw_buildings", "draw_building_stockpiles", "shadows_buildings", "draw_walls", "draw_light_walls_light_blobs",
+        "kings", "leaders", "favorites_map", "plots", "armies", "socialize", "magnet_units"
     };
 
     // 纯装饰建筑(按类型或资源 id)
