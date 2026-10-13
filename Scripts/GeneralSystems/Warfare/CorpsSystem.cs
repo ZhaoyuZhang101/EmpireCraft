@@ -1015,6 +1015,25 @@ public static class CorpsSystem
         return top;
     }
 
+    // 画兵牌用：行军途中按行军进度画在所在地块与下一块之间(行军很慢，一块地要走二十几秒，
+    // 只在换地块时滑一下会一卡一卡的)；下一块按缓存的路线，飞机朝目标就近一块；不在行军返回所在地块中心
+    public static Vector3 DrawPosition(CorpsData corps)
+    {
+        TileZone zone = Zone(corps);
+        Vector3 here = zone?.centerTile?.posV ?? Vector3.zero;
+        if (zone == null || corps.embarked) return here;
+        TileZone next = null;
+        if (CorpsArmSystem.Flies(corps))
+        {
+            TileZone target = FrontSystem.TargetZone(corps);
+            if (target != null && target != zone) next = FlyStep(zone, target);
+        }
+        else if (Paths.TryGetValue(corps.id, out var cached) && cached.path.Count >= 2 && cached.path[0] == zone.id)
+            next = ZoneById(cached.path[1]);
+        if (next?.centerTile == null) return here;
+        return Vector3.Lerp(here, next.centerTile.posV, Mathf.Clamp01(corps.march_progress));
+    }
+
     // 别的系统借用军团的寻路(按兵种代价，优先走路，见 FindPath)，如皇帝出行(EmperorTourSystem)
     public static List<int> PathFor(TileZone from, TileZone to, CorpsArmSystem.Arm arm = CorpsArmSystem.Arm.Cavalry) =>
         from == null || to == null ? null : FindPath(from, to, arm);

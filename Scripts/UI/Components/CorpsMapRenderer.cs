@@ -22,7 +22,8 @@ namespace EmpireCraft.Scripts.UI.Components;
 //     再折叠成一块(拉近分开后各自显示)，悬停详情与点击打开军事页都包括折进来的全部军；
 //     镜头越远并得越宽：近处只并同一国、在屏幕上互相压住的；拉远后范围放宽到约三块兵牌、行军途中的也并进去；
 //     再远，互不交战的各国并成一块(兵力最大那国的颜色，×N 是合计几支，悬停逐支列出)，敌对的始终分开；舰队同理。拉近后各自分开；
-//     行军不再一格一格跳：每支军、每支舰队记着自己画在哪，换了地块就在一个游戏秒(一次行军结算)里匀速滑过去，
+//     行军不再一格一格跳：每支军、每支舰队记着自己画在哪，行军途中按进度画在所在地块与下一块之间，
+//     每个游戏秒(一次行军结算)里匀速滑到新位置，所以慢速行军也是连续地走，
 //     暂停时不动；途中的兵牌单独画在上层(同路同步的几支并成一块)，到位后再并进所在地块的那一块；
 //   · 交战标记：正在交战的城，朱漆框绛红底，两侧是攻守双方国色，中间是本月攻方胜算；
 //   · 舰队兵牌(见 NavySystem)：画在海上，船形图标按舰种(楼船/帆舰/铁甲/现代)，数字是战舰数(+运输船)，
@@ -622,7 +623,8 @@ public static class CorpsMapRenderer
             Actor general = corps.general_id >= 0 ? World.world.units.get(corps.general_id) : null;
             bool follows = general?.data != null && !general.isRekt() && general.isAlive() &&
                            general.current_tile?.zone != null && CorpsSystem.ZoneDistance(general.current_tile.zone, zone) <= 2f;
-            Vector3 target = follows ? (Vector3)general.current_position + new Vector3(0f, 3f) : zone.centerTile.posV;
+            // 行军途中按进度画在两块地之间，每个游戏秒往前挪一点，滑起来是连续的(见 CorpsSystem.DrawPosition)
+            Vector3 target = follows ? (Vector3)general.current_position + new Vector3(0f, 3f) : CorpsSystem.DrawPosition(corps);
             // 统领实体自己在走，兵牌直接跟着，不再另外滑
             Glider glider = follows ? new Glider { At = target, Target = target } : Glide(_corpsGliders, corps.id, target, glideDelta);
             _nextCorpsGliders[corps.id] = glider;

@@ -216,7 +216,7 @@ public static class EmpireCraftMetaTypeLibrary
 	        switch (pMetaTypeAsset.getZoneOptionState())
 	        {
 		        case 0:
-              // 画到了哪些城(纯净地图模式下没画到的王国最后按本国颜色补上，见 drawUncoveredKingdoms)
+              // 画到了哪些城(没画到的王国最后按本国颜色补上，见 drawUncoveredKingdoms)
               var covered = new HashSet<City>();
               foreach (var kingdom in World.world.kingdoms)
               { 
@@ -880,11 +880,10 @@ public static class EmpireCraftMetaTypeLibrary
       using (ListPool<TileZone> zonesWithMeta = ZoneMetaDataVisualizer.getZonesWithMeta(zoneMetaData.meta_object))
         QuantumSpriteLibrary.colorZones(pQAsset, zonesWithMeta, pColorAnimated);
     }
-    // 纯净地图模式：帝国图层上没被哪个帝国(或同盟视图)画到的王国，按本国颜色补画——同盟视图本来只画帝国，
-    // 叛军从帝国分出来时还记着旧帝国、却不在帝国成员里，两边都不画；色块是不透明的，没画的地方是空的，露出底下的地图
+    // 帝国图层上没被哪个帝国(或同盟视图)画到的王国，按本国颜色补画：同盟视图本来只画帝国与同盟，
+    // 独立王国是空的(纯净地图下色块不透明，那里露出底下的地图)
     private static void drawUncoveredKingdoms(HashSet<City> covered)
     {
-      if (!EmpireCraft.Scripts.GeneralSystems.PureMapMode.Enabled) return;
       foreach (Kingdom kingdom in World.world.kingdoms)
       {
         if (kingdom == null || kingdom.isRekt() || kingdom.isNeutral() || kingdom.cities == null) continue;
