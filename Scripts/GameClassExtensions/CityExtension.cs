@@ -90,6 +90,8 @@ public static class CityExtension
         public string map_style = "";
         public string map_style_target = "";
         public double map_style_since = -1d;
+        // 从本城通往 id 更大的邻城的路(见 RoadBuildingSystem)
+        public List<RoadLink> road_links;
         public int massacre_victims;
         public double massacre_last = -1d;
         // 战时中央代管(见 WartimeCustodySystem)：打下本城的成员国、原属国、所在战争；-1 = 不在代管中

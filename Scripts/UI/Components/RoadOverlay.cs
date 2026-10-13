@@ -5,13 +5,19 @@ using UnityEngine;
 
 namespace EmpireCraft.Scripts.UI.Components;
 
-// 纯净地图的路网图层(见 RoadNetwork)：干道画成黄色实线，航线画成浅色虚线，盖在国家色块之上——
+// 纯净地图的路网图层(见 RoadNetwork)：修通的路按等级画(土路淡褐、驿道浅黄、官道黄、公路金黄、柏油公路橙)，
+// 在修的路段画成灰色，航线画成浅色虚线，盖在国家色块之上——
 // 海面与无主地在色块里是空的，所以单独用一张与地图等大的贴图画，跟着色块图层一起显示。
 // 城里建成的地块有自己的街格，干道不压上去。路网变了(至少隔三秒)、或每十秒(城在长)重画一次。
 public static class RoadOverlay
 {
     private const float RedrawSeconds = 10f, MinRedrawSeconds = 3f;
-    private static readonly Color32 Road = new(255, 205, 100, 215), Lane = new(232, 244, 255, 205), Clear = new(0, 0, 0, 0);
+    private static readonly Color32 Lane = new(232, 244, 255, 205), Building = new(170, 170, 170, 150), Clear = new(0, 0, 0, 0);
+    private static readonly Color32[] Grades =
+    {
+        new(0, 0, 0, 0), new(190, 165, 120, 170), new(225, 198, 135, 195), new(245, 208, 115, 215),
+        new(255, 200, 90, 225), new(255, 165, 60, 235)
+    };
 
     private static GameObject _object;
     private static SpriteRenderer _renderer;
@@ -76,14 +82,19 @@ public static class RoadOverlay
         Painted.Clear();
         WorldTile[] tiles = World.world.tiles_list;
         foreach (int id in RoadNetwork.LaneTileIds) Paint(id, Lane);
-        foreach (int id in RoadNetwork.RoadTileIds)
-        {
-            WorldTile tile = tiles != null && id >= 0 && id < tiles.Length ? tiles[id] : null;
-            if (tile?.zone == null || PureMapPatch.Built(tile.zone)) continue;
-            Paint(id, Road);
-        }
+        foreach (int id in RoadNetwork.BuildingTileIds)
+            if (Outside(tiles, id)) Paint(id, Building);
+        foreach (var pair in RoadNetwork.RoadTileGrades)
+            if (Outside(tiles, pair.Key)) Paint(pair.Key, Grades[Mathf.Clamp(pair.Value, 1, Grades.Length - 1)]);
         _texture.SetPixels32(_pixels);
         _texture.Apply(false);
+    }
+
+    // 城里建成的地块有自己的街格，路不压上去
+    private static bool Outside(WorldTile[] tiles, int id)
+    {
+        WorldTile tile = tiles != null && id >= 0 && id < tiles.Length ? tiles[id] : null;
+        return tile?.zone != null && !PureMapPatch.Built(tile.zone);
     }
 
     private static void Paint(int id, Color32 color)

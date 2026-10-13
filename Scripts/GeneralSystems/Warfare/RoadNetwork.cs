@@ -6,11 +6,11 @@ using UnityEngine;
 namespace EmpireCraft.Scripts.GeneralSystems;
 
 // 路网与航线(模拟的，不实际铺在地上)。
-//   · 陆路：同一片陆地上相邻的城之间修干道，但不是两两都通——
-//       - 两城之间另有一座城比它们彼此都近(A 到 C、C 到 B 都比 A 到 B 近)，就经那座城走，不另修直路；
-//       - 隔着山地、沼泽、丛林、大河，地形代价超过直线距离 DetourLimit 倍的不修(山里的城就只有一两条出山的路)；
-//     按地块寻路，绕开高山与海面，山地、沼泽、丛林代价高，过河代价更高(架桥)，已有的路代价低——
-//     所以路沿平地、谷地走，彼此并成干线网；
+//   · 陆路规划：同一片陆地上相邻的城之间规划干道，但不是两两都通——
+//       - 两城之间另有一座城比它们彼此都近(A 到 C、C 到 B 都比 A 到 B 近)，就经那座城走，不另规划直路；
+//       - 按地块寻路，绕开高山与海面，山地、沼泽、丛林代价高，过河代价更高(架桥)，已有的路代价低——
+//         所以路沿平地、谷地走，彼此并成干线网；地形代价是直线距离几倍(RoadPlan.terrain / straight)决定要什么等级才修得通；
+//     规划好的路要各国出钱修、每年出钱养(见 RoadBuildingSystem)，修通的路才画出来、才能走；
 //     行军(见 CorpsSystem)：寻路时路上的地块代价低、路外按兵种加价，路外行军按兵种打折(见 CorpsArmSystem.OffRoad)；城心也算有路。
 //   · 海路：港口城之间的航线——每座港口连最近的两座港口，另连一座别的陆地上最近的港口。按地块在海面上寻路，
 //     绕开陆地，近岸与海峡代价高，已有的航线代价低，彼此并成航线网；
@@ -28,20 +28,25 @@ public static class RoadNetwork
     // 港口连几座最近的港口；航线最长几个地块；绕得比直线远太多(隔着整片大陆)的不连
     private const int LaneNeighbours = 2, LaneMaxZones = 72;
     private const float LaneDetour = 2.5f;
-    // 陆路：地形代价超过直线距离几倍就不修
-    private const float DetourLimit = 2.2f;
     // 海路虚线：每段几格画、几格空
     private const int DashOn = 3, DashOff = 2;
 
-    private sealed class Route
+    // 一条路线(陆路或海路)：经过的地块、落到的格子；陆路另记地形代价与直线距离(地块)
+    public sealed class RoadPlan
     {
         public float at;
+        public float terrain, straight;
         public readonly List<int> zones = new();
         public readonly List<int> tiles = new();
+
+        // 这个等级的路修得通吗(地形代价不超过直线距离的几倍，见 RoadBuildingSystem.DetourLimit)
+        public bool Buildable(int grade) => zones.Count > 0 && terrain <= Mathf.Max(1f, straight) * RoadBuildingSystem.DetourLimit(grade);
     }
 
-    private static readonly Dictionary<(long, long), Route> Roads = new(), Lanes = new();
-    private static readonly HashSet<int> RoadZones = new(), RoadTiles = new(), LaneZones = new(), LaneTiles = new();
+    private static readonly Dictionary<(long, long), RoadPlan> Roads = new(), Lanes = new();
+    private static readonly HashSet<int> RoadZones = new(), RoadTiles = new(), LaneZones = new(), LaneTiles = new(),
+        BuildingTiles = new();
+    private static readonly Dictionary<int, int> TileGrades = new();
     private static readonly List<City> PortCities = new();
     private static float _nextTick, _nextPorts;
     private static bool _dirty;
@@ -50,8 +55,18 @@ public static class RoadNetwork
     // 路网每变一次加一(RoadOverlay 据此重画)
     public static int Version { get; private set; }
 
-    public static IReadOnlyCollection<int> RoadTileIds => RoadTiles;
+    // 修通的路(格 → 等级)、在修的路段、航线
+    public static IReadOnlyDictionary<int, int> RoadTileGrades => TileGrades;
+    public static IReadOnlyCollection<int> BuildingTileIds => BuildingTiles;
     public static IReadOnlyCollection<int> LaneTileIds => LaneTiles;
+
+    // 陆路规划(两城 id，小的在前)；规划还有没算完的
+    public static IReadOnlyDictionary<(long, long), RoadPlan> Plans => Roads;
+    public static bool PlansComplete { get; private set; }
+
+    public static RoadPlan PlanOf((long, long) key) => Roads.TryGetValue(key, out RoadPlan plan) ? plan : null;
+
+    public static void MarkDirty() => _dirty = true;
 
     // 有路的地块：干道经过的，以及城心
     public static bool IsRoad(TileZone zone) =>
@@ -65,7 +80,11 @@ public static class RoadNetwork
         RoadTiles.Clear();
         LaneZones.Clear();
         LaneTiles.Clear();
+        BuildingTiles.Clear();
+        TileGrades.Clear();
         PortCities.Clear();
+        PlansComplete = false;
+        RoadBuildingSystem.ResetWorldState();
         _nextTick = _nextPorts = 0f;
         _world = null;
         Version++;
@@ -85,11 +104,14 @@ public static class RoadNetwork
         try
         {
             var budget = global::System.Diagnostics.Stopwatch.StartNew();
+            RoadBuildingSystem.Refresh();
             TickRoads(now, budget);
             TickLanes(now, budget);
+            RoadBuildingSystem.SeedIfOldWorld();
+            RoadBuildingSystem.Tick();
             if (!_dirty) return;
             _dirty = false;
-            Collect(Roads, RoadZones, RoadTiles);
+            CollectRoads();
             Collect(Lanes, LaneZones, LaneTiles);
             Version++;
         }
@@ -99,21 +121,49 @@ public static class RoadNetwork
         }
     }
 
-    private static void Collect(Dictionary<(long, long), Route> routes, HashSet<int> zones, HashSet<int> tiles)
+    private static void Collect(Dictionary<(long, long), RoadPlan> routes, HashSet<int> zones, HashSet<int> tiles)
     {
         zones.Clear();
         tiles.Clear();
-        foreach (Route route in routes.Values)
+        foreach (RoadPlan route in routes.Values)
         {
             zones.UnionWith(route.zones);
             tiles.UnionWith(route.tiles);
         }
     }
 
-    private static bool Fresh(Dictionary<(long, long), Route> routes, (long, long) key, float now) =>
-        routes.TryGetValue(key, out Route route) && now - route.at < StaleSeconds && now >= route.at;
+    // 只收修通的路(按等级)；在修的路从起点画到修到的地方
+    private static void CollectRoads()
+    {
+        RoadZones.Clear();
+        RoadTiles.Clear();
+        BuildingTiles.Clear();
+        TileGrades.Clear();
+        foreach (var pair in Roads)
+        {
+            RoadLink link = RoadBuildingSystem.Get(pair.Key);
+            if (link == null) continue;
+            RoadPlan plan = pair.Value;
+            if (link.grade > 0)
+            {
+                RoadZones.UnionWith(plan.zones);
+                RoadTiles.UnionWith(plan.tiles);
+                foreach (int tile in plan.tiles)
+                    TileGrades[tile] = TileGrades.TryGetValue(tile, out int grade) ? Math.Max(grade, link.grade) : link.grade;
+            }
+            if (link.building > 0 && plan.terrain > 0f)
+            {
+                int built = Mathf.FloorToInt(plan.tiles.Count * Mathf.Clamp01(link.progress / plan.terrain));
+                for (int i = 0; i < built; i++)
+                    if (!TileGrades.ContainsKey(plan.tiles[i])) BuildingTiles.Add(plan.tiles[i]);
+            }
+        }
+    }
 
-    private static void Prune(Dictionary<(long, long), Route> routes, HashSet<(long, long)> wanted)
+    private static bool Fresh(Dictionary<(long, long), RoadPlan> routes, (long, long) key, float now) =>
+        routes.TryGetValue(key, out RoadPlan route) && now - route.at < StaleSeconds && now >= route.at;
+
+    private static void Prune(Dictionary<(long, long), RoadPlan> routes, HashSet<(long, long)> wanted)
     {
         foreach (var key in routes.Keys.Where(key => !wanted.Contains(key)).ToList())
         {
@@ -129,6 +179,7 @@ public static class RoadNetwork
     private static void TickRoads(float now, global::System.Diagnostics.Stopwatch budget)
     {
         var wanted = new HashSet<(long, long)>();
+        bool pending = false;
         foreach (City city in World.world.cities.list)
         {
             WorldTile from = city?.getTile();
@@ -138,14 +189,31 @@ public static class RoadNetwork
                 WorldTile to = other?.getTile();
                 if (to == null || other.isRekt() || other.data.id <= city.data.id || !from.isSameIsland(to)) continue;
                 if (Bypassed(city, other, from, to)) continue;
-                var key = (city.data.id, other.data.id);
-                wanted.Add(key);
-                if (Spent(budget) || Fresh(Roads, key, now)) continue;
-                Roads[key] = BuildRoad(from, to, now);
-                _dirty = true;
+                pending |= Plan((city.data.id, other.data.id), from, to, now, budget, wanted);
             }
         }
+        // 已经修了(或在修)的路照旧保留，即使后来两城之间又建了新城
+        foreach (var key in RoadBuildingSystem.All.Keys.ToList())
+        {
+            if (wanted.Contains(key)) continue;
+            WorldTile from = World.world.cities.get(key.Item1)?.getTile(), to = World.world.cities.get(key.Item2)?.getTile();
+            if (from != null && to != null) pending |= Plan(key, from, to, now, budget, wanted);
+        }
         Prune(Roads, wanted);
+        PlansComplete = !pending;
+    }
+
+    // 规划一条路(已修的路线不再重算，免得路自己挪地方)；返回是不是因为本次时间用完还没算
+    private static bool Plan((long, long) key, WorldTile from, WorldTile to, float now,
+        global::System.Diagnostics.Stopwatch budget, HashSet<(long, long)> wanted)
+    {
+        wanted.Add(key);
+        bool built = RoadBuildingSystem.Get(key) is { } link && (link.grade > 0 || link.building > 0);
+        if (Roads.ContainsKey(key) && (built || Fresh(Roads, key, now))) return false;
+        if (Spent(budget)) return true;
+        Roads[key] = BuildRoad(from, to, now);
+        _dirty = true;
+        return false;
     }
 
     // 两城之间另有一座城比它们彼此都近：经那座城走，不另修直路
@@ -163,17 +231,19 @@ public static class RoadNetwork
 
     private static float Squared(WorldTile a, WorldTile b) => (a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y);
 
-    private static Route BuildRoad(WorldTile from, WorldTile to, float now)
+    private static RoadPlan BuildRoad(WorldTile from, WorldTile to, float now)
     {
-        var route = new Route { at = now };
+        var route = new RoadPlan { at = now };
         TileZone goal = to.zone;
         List<TileZone> path = FindZones(from.zone, goal, zone => RoadStep(zone, goal), RoadCost);
         if (path == null) return route;
-        // 地形太难(翻山、穿沼泽丛林、大河、大绕路)：不修
+        // 地形代价(翻山、穿沼泽丛林、大河、大绕路都高)：最高等级的路也修不通的不规划
         float terrain = 0f;
         for (int i = 1; i < path.Count; i++)
             terrain += Terrain(path[i]) * (path[i].x != path[i - 1].x && path[i].y != path[i - 1].y ? 1.41f : 1f);
-        if (terrain > Mathf.Max(1f, Distance(from.zone, goal)) * DetourLimit) return route;
+        route.terrain = Mathf.Max(1f, terrain);
+        route.straight = Mathf.Max(1f, Distance(from.zone, goal));
+        if (route.terrain > route.straight * RoadBuildingSystem.DetourLimit(RoadBuildingSystem.MaxGrade)) return route;
         route.zones.AddRange(path.Select(zone => zone.id));
         Draw(Smooth(path, from, to), route.tiles, liquid: false, dashed: false);
         return route;
@@ -231,9 +301,9 @@ public static class RoadNetwork
         Prune(Lanes, wanted);
     }
 
-    private static Route BuildLane(City from, City to, float now)
+    private static RoadPlan BuildLane(City from, City to, float now)
     {
-        var route = new Route { at = now };
+        var route = new RoadPlan { at = now };
         TileZone a = from.getTile().zone, b = to.getTile().zone;
         List<TileZone> path = SeaPath(a, b, from, to);
         if (path == null || path.Count > CorpsSystem.ZoneDistance(a, b) * LaneDetour + 6) return route;
