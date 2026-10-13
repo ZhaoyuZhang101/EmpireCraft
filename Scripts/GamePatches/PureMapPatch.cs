@@ -15,6 +15,10 @@ namespace EmpireCraft.Scripts.GamePatches;
 //     (入夜也不变淡、不被夜色压暗，见 NightMapLayerPatch；云照旧)；
 //   · 地形浮雕：色块不透明也看得出地形——掺一些地表本色(沙漠、雪原、草原、沼泽)，山地、丘陵压暗，
 //     按与西北邻格的高差打光(迎光坡亮、背光坡暗)，林地略暗；块里的海、河、湖掺六成水色，海岸线是真实的形状；
+//   · 城市肌理：建筑虽不画，占地照样显出来——民居按等级由浅到亮(大城一片亮街区，小县只一小撮)，工厂、矿场、伐木场深灰，
+//     市场金、码头蓝、兵营暗红、寺庙骨白、其它公共建筑浅色，庄稼淡黄，道路浅色街道；城市规划的地块再铺一层淡纹理——
+//     居住区街格、工业区斜纹、商业区点阵、农田条垄、军事区格点，城心略亮。看图就能看出各地发展到哪一步；
+//     建筑与规划会变，每秒轮流重画一批城的地块，约十秒全图刷新一遍；
 //   · 国家图层下，帝国与外国接壤的陆上边界画成金色，帝国内部各成员之间照旧；海岸、湖泊、无主荒地不描金
 //     (原来连这些也描，整片海岸线和境内每块荒地周围都是金线，看不出哪里才是国界)；
 //   · 人物要去哪里直接到位、不走路(地图上也不画人物)：原版的行为照常完成(回家、上任、相会生子)，不再寻路；
@@ -81,6 +85,30 @@ public class PureMapPatch : GamePatch
         Color color = __instance.sprRnd.color;
         color.a = 1f;
         __instance.sprRnd.color = color;
+        RefreshUrbanSlice();
+    }
+
+    // 城市肌理随建筑、规划变化：每秒让一批城的地块下次重画(原版只在归属、颜色变了才重画)
+    private const float UrbanRefreshSeconds = 1f;
+    private const int UrbanRefreshRounds = 10;
+    private static float _nextUrbanRefresh;
+    private static int _urbanCursor;
+
+    private static void RefreshUrbanSlice()
+    {
+        float now = Time.unscaledTime;
+        if (now < _nextUrbanRefresh && _nextUrbanRefresh - now <= UrbanRefreshSeconds) return;
+        _nextUrbanRefresh = now + UrbanRefreshSeconds;
+        var cities = World.world?.cities?.list;
+        if (cities == null || cities.Count == 0) return;
+        int slice = Mathf.Max(1, Mathf.CeilToInt(cities.Count / (float)UrbanRefreshRounds));
+        for (int i = 0; i < slice; i++)
+        {
+            City city = cities[(_urbanCursor + i) % cities.Count];
+            if (city?.zones == null || city.isRekt()) continue;
+            foreach (TileZone zone in city.zones) zone?.resetRenderHelpers();
+        }
+        _urbanCursor = (_urbanCursor + slice) % cities.Count;
     }
 
     private static readonly Color32 EmpireGold = new(232, 184, 64, 255);
@@ -134,6 +162,9 @@ public class PureMapPatch : GamePatch
     // 色块里每一格按地形调色；边框像素(原版按 pUp…pRight 画的外框)不动，保持清楚
     private static void ShadeTerrain(Color32[] pixels, TileZone zone, bool up, bool down, bool left, bool right)
     {
+        City city = zone.city != null && !zone.city.isRekt() ? zone.city : null;
+        ZoneUse use = city != null ? ZonePlanSystem.Get(city, zone) : ZoneUse.None;
+        bool center = city != null && ZonePlanSystem.IsCenter(city, zone);
         foreach (WorldTile tile in zone.tiles)
         {
             int id = tile?.data?.tile_id ?? -1;
@@ -141,8 +172,48 @@ public class PureMapPatch : GamePatch
             WorldTileZoneBorder border = tile.world_tile_zone_border;
             if (border != null && border.border && (up && border.border_up || down && border.border_down ||
                                                     left && border.border_left || right && border.border_right)) continue;
-            pixels[id] = Shade(tile, pixels[id]);
+            Color32 shaded = Shade(tile, pixels[id]);
+            pixels[id] = city != null ? Urban(tile, shaded, use, center) : shaded;
         }
+    }
+
+    // ───────── 城市肌理 ─────────
+    private static readonly Color32 HouseLight = new(236, 226, 206, 255), Industrial = new(58, 58, 64, 255),
+        Market = new(232, 188, 82, 255), Port = new(96, 146, 196, 255), Garrison = new(128, 44, 40, 255),
+        Temple = new(246, 240, 222, 255), Crop = new(214, 196, 96, 255), Civic = new(240, 232, 214, 255),
+        Road = new(204, 194, 172, 255);
+
+    private static Color32 Urban(WorldTile tile, Color32 color, ZoneUse use, bool center)
+    {
+        BuildingAsset asset = tile.building?.asset;
+        if (asset != null && !tile.building.isRekt())
+        {
+            if (asset.type == "type_house")
+                return Lerp(color, HouseLight, Mathf.Min(0.6f, 0.25f + 0.06f * CityDevelopment.Tier(asset)));
+            if (TechnologySystem.IsFactory(asset) || IndustryBuildingSystem.IsMine(asset) || IndustryBuildingSystem.IsLumber(asset))
+                return Lerp(color, Industrial, 0.45f);
+            switch (asset.type)
+            {
+                case "type_market": return Lerp(color, Market, 0.4f);
+                case "type_docks": return Lerp(color, Port, 0.35f);
+                case "type_barracks": return Lerp(color, Garrison, 0.4f);
+                case "type_temple": return Lerp(color, Temple, 0.45f);
+            }
+            if (asset.building_type == BuildingType.Building_Wheat) return Lerp(color, Crop, 0.25f);
+            if (asset.building_type == BuildingType.Building_Civ) return Lerp(color, Civic, 0.35f);
+        }
+        if (tile.Type != null && tile.Type.road) return Lerp(color, Road, 0.45f);
+        int x = tile.x, y = tile.y;
+        color = use switch
+        {
+            ZoneUse.Residential => Lerp(color, HouseLight, x % 4 == 0 || y % 4 == 0 ? 0.14f : 0.05f),
+            ZoneUse.Industry => Lerp(color, Industrial, (x + y) % 4 == 0 ? 0.28f : 0.08f),
+            ZoneUse.Commerce => Lerp(color, Market, x % 3 == 0 && y % 3 == 0 ? 0.3f : 0.05f),
+            ZoneUse.Farm => Lerp(color, Crop, y % 2 == 0 ? 0.14f : 0.04f),
+            ZoneUse.Military => Lerp(color, Garrison, x % 4 == 1 && y % 4 == 1 ? 0.3f : 0.06f),
+            _ => color
+        };
+        return center ? Lerp(color, Civic, 0.1f) : color;
     }
 
     private static Color32 Shade(WorldTile tile, Color32 color)

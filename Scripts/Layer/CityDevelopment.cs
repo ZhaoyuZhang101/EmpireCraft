@@ -74,7 +74,7 @@ public static class CityDevelopment
     }
 
     // 民居等级(从 1 起)：原版 house_*_N 为 N+1；近代模组的 Nhouse_*(接在原版之后)为 N+1；都不是就按升级等级
-    private static int Tier(BuildingAsset asset)
+    public static int Tier(BuildingAsset asset)
     {
         string id = asset.id ?? "";
         int digits = 0;
