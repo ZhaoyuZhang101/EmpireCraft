@@ -259,6 +259,8 @@ public static class KingdomExtension
         public RegimeType saved_regime_options_type;
         // 野战军饷按月开票的尾数(见 CorpsSystem.PayUpkeep)
         public double corps_upkeep_carry;
+        // 战时多出来的军饷的月结尾数(见 CorpsSystem.PayUpkeep，记"战争开支")
+        public double corps_war_carry;
         // 就近动员(见 WarScopeSystem)：吃紧升级(0 就近、1 扩大、2 举国)、连续没吃紧的月数、为哪几场仗出征
         public int war_mobilization_level;
         public int war_calm_months;

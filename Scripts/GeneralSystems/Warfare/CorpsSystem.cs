@@ -221,31 +221,46 @@ public static class CorpsSystem
     // 野战军饷：按人头每月发(见 CityStabilityRules.CorpsAnnual)，按兵种加权(装备越先进越贵，见 CorpsArmSystem)，本国先付，听命于中央的成员付不起由中央补；
     // 饷银发给各军的家乡城(回到民间)。发不出的那部分军心涣散，组织度下降。以前野战军不花一分钱。
     // 另收行军费：每人每走一块地块 MarchCostPerZone，离前线越远的军开过去越贵(所以动员只动就近的军)
+    // 打仗的花销单记"战争开支"(TreasuryCategory.War，帝国收支里单列)：战时比平时多出来的军饷、行军费，
+    // 以及在前线交战的军每月的粮秣军械损耗(每人 BattleCostPerSoldier，按兵种加权)；平时的军饷照旧记"野战军费"
     private const float MarchCostPerZone = 0.002f;
+    private const float BattleCostPerSoldier = 0.01f;
 
     private static void PayUpkeep(Kingdom kingdom)
     {
         // 骑士团的军由骑士团自己付饷(见 PapacySystem.Orders)
         List<CorpsData> list = Of(kingdom).Where(corps => corps.order_id < 0).ToList();
-        float soldiers = 0f, marching = 0f;
+        float soldiers = 0f, marching = 0f, engaged = 0f;
         foreach (CorpsData corps in list)
         {
             // 装备越先进军饷越贵(见 CorpsArmSystem.Upkeep)
-            soldiers += Mathf.Max(0f, corps.strength) * CorpsArmSystem.Upkeep(CorpsArmSystem.Of(corps));
+            float weighted = Mathf.Max(0f, corps.strength) * CorpsArmSystem.Upkeep(CorpsArmSystem.Of(corps));
+            soldiers += weighted;
             marching += Mathf.Max(0f, corps.strength) * corps.march_zones;
             corps.march_zones = 0;
+            if (corps.task is "attack" or "defend" && FrontSystem.Battles.ContainsKey(corps.sector_city_id)) engaged += weighted;
         }
         if (soldiers < 1f || !TreasurySystem.Enabled(kingdom)) return;
         var data = kingdom.GetOrCreate();
-        int bill = CityStabilityRules.Invoice(CityStabilityRules.CorpsAnnual(soldiers, IsAtWar(kingdom)),
-            ref data.corps_upkeep_carry) + Mathf.RoundToInt(marching * MarchCostPerZone);
+        double peace = CityStabilityRules.CorpsAnnual(soldiers, false);
+        int baseBill = CityStabilityRules.Invoice(peace, ref data.corps_upkeep_carry);
+        int warBill = (IsAtWar(kingdom)
+                          ? CityStabilityRules.Invoice(CityStabilityRules.CorpsAnnual(soldiers, true) - peace, ref data.corps_war_carry)
+                          : 0) +
+                      Mathf.RoundToInt(marching * MarchCostPerZone) + Mathf.RoundToInt(engaged * BattleCostPerSoldier);
+        int bill = baseBill + warBill;
         if (bill <= 0) return;
-        int paid = Draw(kingdom, bill);
+        int paidBase = Draw(kingdom, baseBill, TreasuryCategory.Military);
+        int paidWar = Draw(kingdom, warBill, TreasuryCategory.War);
         Layer.Empire empire = kingdom.GetEmpire();
         Kingdom core = empire?.CoreKingdom;
-        if (paid < bill && core != null && core != kingdom && TreasurySystem.Enabled(core) &&
+        if (paidBase + paidWar < bill && core != null && core != kingdom && TreasurySystem.Enabled(core) &&
             GamePatches.EmpirePeacePatch.Obeys(empire, kingdom))
-            paid += Draw(core, bill - paid);
+        {
+            paidBase += Draw(core, baseBill - paidBase, TreasuryCategory.Military);
+            paidWar += Draw(core, warBill - paidWar, TreasuryCategory.War);
+        }
+        int paid = paidBase + paidWar;
         foreach (CorpsData corps in list)
         {
             int share = (int)(paid * (double)(Mathf.Max(0f, corps.strength) * CorpsArmSystem.Upkeep(CorpsArmSystem.Of(corps))) /
@@ -258,10 +273,11 @@ public static class CorpsSystem
         foreach (CorpsData corps in list) corps.org = Mathf.Max(0f, corps.org - 20f * shortfall);
     }
 
-    private static int Draw(Kingdom payer, int amount)
+    private static int Draw(Kingdom payer, int amount, TreasuryCategory category)
     {
+        if (amount <= 0) return 0;
         int paid = Mathf.Min(amount, Mathf.Max(0, payer.GetMoney()));
-        if (paid > 0) payer.SubMoney(paid, TreasuryCategory.Military);
+        if (paid > 0) payer.SubMoney(paid, category);
         return paid;
     }
 

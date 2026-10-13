@@ -19,7 +19,9 @@ public enum TreasuryCategory
     // 帝国摊派(帝国议会通过后成员国上缴中央，见 HolyRomanSystem.Diet)
     ImperialLevy,
     // 宫廷开支(荒淫之君，见 RulerQualitySystem)
-    Palace
+    Palace,
+    // 战争开支：战时多出来的军饷、行军费、前线交战的粮秣军械损耗(见 CorpsSystem.PayUpkeep)
+    War
 }
 
 public sealed class TreasuryReport
@@ -28,6 +30,8 @@ public sealed class TreasuryReport
     public long income, expense, transfer_in, transfer_out, essential_expense, maintenance_expense, stable_income, operating_balance;
     public int months;
     public long military, research, construction, corruption, debt_repayment;
+    // 其中的战争开支(见 TreasuryCategory.War)
+    public long war;
     public Dictionary<string, long> income_sources = new(), expense_sources = new(), tax_transfer_sources = new();
 }
 
@@ -52,7 +56,7 @@ public static class TreasuryRules
     };
 
     private static readonly string[] CategoryNames = Enum.GetNames(typeof(TreasuryCategory));
-    private static readonly string[] EssentialCategories = { nameof(TreasuryCategory.Military),
+    private static readonly string[] EssentialCategories = { nameof(TreasuryCategory.Military), nameof(TreasuryCategory.War),
         nameof(TreasuryCategory.Administration), nameof(TreasuryCategory.Welfare),
         nameof(TreasuryCategory.Maintenance), nameof(TreasuryCategory.Garrison), nameof(TreasuryCategory.Governance) };
     public static void Record(TreasuryData data, double now, Func<double, int> monthsSince,
@@ -187,13 +191,16 @@ public static class TreasuryRules
             { if (expense) report.transfer_out += value; else report.transfer_in += value; }
             else if (expense) report.expense += value;
             else report.income += value;
-            bool essential = pair.Key == nameof(TreasuryCategory.Military) || pair.Key == nameof(TreasuryCategory.Administration) ||
+            bool essential = pair.Key == nameof(TreasuryCategory.Military) || pair.Key == nameof(TreasuryCategory.War) ||
+                pair.Key == nameof(TreasuryCategory.Administration) ||
                 pair.Key == nameof(TreasuryCategory.Welfare) || pair.Key == nameof(TreasuryCategory.Maintenance) ||
                 pair.Key == nameof(TreasuryCategory.Garrison) || pair.Key == nameof(TreasuryCategory.Governance) ||
                 pair.Key == nameof(TreasuryCategory.DebtInterest);
             if (essential) report.essential_expense += expense ? value : -value;
             if (expense && pair.Key == nameof(TreasuryCategory.Maintenance)) report.maintenance_expense += value;
-            if (pair.Key == nameof(TreasuryCategory.Military)) report.military += expense ? value : -value;
+            if (pair.Key == nameof(TreasuryCategory.Military) || pair.Key == nameof(TreasuryCategory.War))
+                report.military += expense ? value : -value;
+            if (pair.Key == nameof(TreasuryCategory.War)) report.war += expense ? value : -value;
             if (expense && pair.Key == nameof(TreasuryCategory.Research)) report.research += value;
             if (expense && pair.Key == nameof(TreasuryCategory.Construction)) report.construction += value;
             if (expense && pair.Key == nameof(TreasuryCategory.Corruption)) report.corruption += value;

@@ -874,12 +874,15 @@ namespace EmpireCraft.Scripts.UI.Windows
             var realmCard = parent.BeginCard(MainWidth, "fiscal_section_realm", "#F3C34A", LM.Get("fiscal_realm_scope"),
                 "ui/icons/iconKingdom");
             var cells = realmCard.BeginHoriGroup(new Vector2(MainWidth - 12f, 22f), TextAnchor.MiddleLeft, 2, new RectOffset(0, 0, 0, 0));
-            float cellWidth = (MainWidth - 12f - 6f) / 4f;
+            float cellWidth = (MainWidth - 12f - 8f) / 5f;
             UIHelper.AddMetricCell(cells, cellWidth, LM.Get("fiscal_income"), MoneyDisplay.Format(realm.income), "#65D66E");
             UIHelper.AddMetricCell(cells, cellWidth, LM.Get("fiscal_expense"), MoneyDisplay.Format(realm.expense), "#E9A85B");
             UIHelper.AddMetricCell(cells, cellWidth, LM.Get("fiscal_realm_cash_balance"), MoneyDisplay.Format(realm.cash_balance),
                 realm.cash_balance < 0 ? "#FF6666" : "#65D66E");
             UIHelper.AddMetricCell(cells, cellWidth, LM.Get("fiscal_realm_debt_repayment"), MoneyDisplay.Format(realm.debt_repayment), "#E9A85B");
+            // 全境的战争开支(各省自付的也算，见 TreasuryCategory.War)
+            UIHelper.AddMetricCell(cells, cellWidth, LM.Get("fiscal_source_War"), MoneyDisplay.Format(realm.war),
+                realm.war > 0 ? "#FF6666" : "#8FA0A8");
 
             // 小字：可支配、安全储备、现金结余、税收转移与记账说明
             string footnote = $"{LM.Get("fiscal_available")} {MoneyDisplay.Format(StateSettlementSystem.DiscretionaryBalance(core))}  ·  " +

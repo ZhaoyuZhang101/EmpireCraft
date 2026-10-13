@@ -1481,6 +1481,7 @@
   "history_purge_raised": "{0}以清君側爲名起兵，討伐{1}，{2}響應",
   "history_purge_success": "{0}清君側功成，{1}伏誅，{2}失勢",
   "history_purge_failed": "{0}清君側兵敗，{1}更加專橫",
+  "fiscal_source_War": "戰爭開支",
   "capital_loss_restored": "{0}收復舊都{1}，還於舊都，復稱{2}。",
   "kingdom_type_xingzai": "行在",
   "Later": "後",

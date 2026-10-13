@@ -131,7 +131,8 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
             var fiscal = TreasurySystem.Consolidated(core);
             fiscal.expense_sources.TryGetValue(nameof(TreasuryCategory.Military), out long fieldArmy);
             fiscal.expense_sources.TryGetValue(nameof(TreasuryCategory.Garrison), out long garrisons);
-            empire.data.MilitaryExpenditure = (int)Math.Min(int.MaxValue, fieldArmy + garrisons);
+            fiscal.expense_sources.TryGetValue(nameof(TreasuryCategory.War), out long war);
+            empire.data.MilitaryExpenditure = (int)Math.Min(int.MaxValue, fieldArmy + garrisons + war);
             if (empire.IsNeedToGive()) empire.StartToGive();
             return;
         }
