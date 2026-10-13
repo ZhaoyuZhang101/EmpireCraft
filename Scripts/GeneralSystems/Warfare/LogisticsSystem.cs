@@ -177,6 +177,8 @@ public static class LogisticsSystem
             float hunger = 1f - Mathf.Clamp01(corps.rations);
             float cut = corps.supply < 0.3f ? (0.3f - corps.supply) / 0.3f : 0f;
             float severity = Mathf.Max(hunger, cut);
+            // 骑士团的军宗教狂热，缺粮断供只受一半的损耗
+            if (corps.order_id >= 0) severity *= 0.5f;
             if (severity <= 0.01f) continue;
             corps.org = Mathf.Max(0f, corps.org - 10f * severity);
             if (!war) continue;

@@ -214,7 +214,8 @@ public static class CorpsSystem
     // 饷银发给各军的家乡城(回到民间)。发不出的那部分军心涣散，组织度下降。以前野战军不花一分钱
     private static void PayUpkeep(Kingdom kingdom)
     {
-        List<CorpsData> list = Of(kingdom);
+        // 骑士团的军由骑士团自己付饷(见 PapacySystem.Orders)
+        List<CorpsData> list = Of(kingdom).Where(corps => corps.order_id < 0).ToList();
         float soldiers = 0f;
         foreach (CorpsData corps in list) soldiers += Mathf.Max(0f, corps.strength);
         if (soldiers < 1f || !TreasurySystem.Enabled(kingdom)) return;
@@ -271,7 +272,7 @@ public static class CorpsSystem
             if (CityPopulationSystem.PostOf(city, doctrine) == CityPopulationSystem.ArmyPost.None) continue;
             int legions = Mathf.Max(0, CityPopulationSystem.LevyTarget(city) - CityStabilitySystem.FundedSlots(city));
             int wanted = legions <= 0 ? 0 : Mathf.CeilToInt(legions / (float)LegionsPerCorps);
-            var here = list.Where(corps => corps.home_city_id == city.id && !corps.militia).ToList();
+            var here = list.Where(corps => corps.home_city_id == city.id && !corps.militia && corps.order_id < 0).ToList();
             // 每支军分到的旧制军团数
             for (int i = 0; i < Mathf.Max(wanted, here.Count); i++)
             {
@@ -329,6 +330,22 @@ public static class CorpsSystem
         if (corps.strength < 1f) return null;
         Of(kingdom).Add(corps);
         return corps;
+    }
+
+    // 骑士团的军：在驻地城组建、补员、解散(见 PapacySystem.Orders)
+    public static CorpsData RaiseOrderCorps(Kingdom host, City home, float people, long orderId)
+    {
+        if (!Enabled || host?.data == null || home?.data == null) return null;
+        CorpsData corps = Raise(host, home, Mathf.Max(1, Mathf.RoundToInt(people / CityPopulationSystem.PeoplePerLegion)),
+            people, World.world.getCurWorldTime());
+        if (corps != null) corps.order_id = orderId;
+        return corps;
+    }
+
+    public static void ReinforceOrderCorps(Kingdom host, CorpsData corps, float amount)
+    {
+        if (host?.data == null || corps == null || amount <= 0f || corps.embarked || corps.supply < 0.5f) return;
+        Reinforce(host, corps, amount);
     }
 
     // 从本国各城的背景人口里征兵(义军只从本城征)；就近动员的军先从动员范围里的城征(见 WarScopeSystem)

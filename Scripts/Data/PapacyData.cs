@@ -1,5 +1,20 @@
 namespace EmpireCraft.Scripts.Data;
 
+// 骑士团(见 PapacySystem.Orders)，存在宗教的 ReligionExtraData.Orders
+public sealed class KnightOrderData
+{
+    public long id = -1L;
+    public string name = "";
+    // 驻在国(军驻其国都)、大团长、团库
+    public long host_kingdom_id = -1L;
+    public long grand_master_id = -1L;
+    public long treasury;
+    public double founded_at = -1d;
+    // 在圣地立的骑士团国(-1 = 没有)
+    public long state_kingdom_id = -1L;
+    public bool dissolved;
+}
+
 // 西方帝国与教廷的关系(见 PapacySystem)，存在 EmpireData.papal
 public sealed class PapalRelationState
 {

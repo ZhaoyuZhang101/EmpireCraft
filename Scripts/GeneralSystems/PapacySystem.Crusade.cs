@@ -142,6 +142,7 @@ public static partial class PapacySystem
             if (empire != null && IsCrowned(empire) && !State(empire).self_crowned) chance += 0.25f;
             if (empire != null ? IsWestern(empire)
                     : InstitutionSystem.GetCultureLine(CultureService.GetRealmCulture(kingdom)) == Line) chance += 0.1f;
+            chance += OrderHostBonus(kingdom, religion);
             if (seat != null && kingdom.capital != null)
                 chance -= Vector2.Distance(kingdom.capital.city_center, seat.city_center) / 8f / 20f * 0.05f;
             if (UnityEngine.Random.value >= chance) continue;
@@ -186,9 +187,10 @@ public static partial class PapacySystem
                 AddAuthority(religion, 15f);
                 foreach (Kingdom kingdom in war._list_attackers.ToList())
                     if (kingdom?.data != null && !kingdom.isRekt() && kingdom.IsEmpire()) kingdom.GetEmpire()?.AddMandate(25);
-                // 收复圣地：圣地交给教廷，没有教廷就交给号召者
+                // 收复圣地：圣地交给教廷；没有教廷时由骑士团在圣地立国，没有骑士团就交给号召者
                 City holy = snapshot.crusade_kind == CrusadeHolyLand ? World.world.cities.get(snapshot.crusade_city_id) : null;
-                if (holy?.data != null && !holy.isRekt() && holy.kingdom?.religion != religion)
+                if (holy?.data != null && !holy.isRekt() && holy.kingdom?.religion != religion &&
+                    !(Papacy(religion) == null && TryFoundOrderState(religion, holy)))
                 {
                     Kingdom receiver = Papacy(religion) ?? (caller?.data != null && !caller.isRekt() ? caller : null);
                     if (receiver != null)
@@ -197,6 +199,8 @@ public static partial class PapacySystem
                         holy.setReligion(religion);
                     }
                 }
+                // 圣战告捷，可能成立骑士团(驻在号召国)
+                if (caller?.data != null && !caller.isRekt() && caller.religion == religion) TryFoundOrder(religion, caller);
                 if (caller?.data != null && !caller.isRekt())
                     RecordReligion(caller, string.Format(LM.Get("crusade_won_history"), war.data.name, religion.name));
             }

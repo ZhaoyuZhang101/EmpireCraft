@@ -1,3 +1,6 @@
+using System.Collections.Generic;
+using EmpireCraft.Scripts.Data;
+
 namespace EmpireCraft.Scripts.GameClassExtensions;
 
 public static class ReligionExtension
@@ -16,6 +19,8 @@ public static class ReligionExtension
         public double CrusadeCooldownUntil = -1d;
         public int CrusadeCount;
         public int CrusadeLosses;
+        // 本宗教的骑士团(含已解散的)
+        public List<KnightOrderData> Orders = new();
     }
     public static ReligionExtraData GetOrCreate(this Religion a, bool isSave = false)
     {

@@ -226,6 +226,7 @@ public static partial class PapacySystem
             Kingdom strongest = Strongest(religion);
             string holder = strongest == null ? "" : InstitutionSystem.GetCultureLine(CultureService.GetRealmCulture(strongest));
             if (holder == Line || holder == "Arabic") TryCrusade(religion);
+            UpdateOrders(religion);
             return;
         }
         float target = BaseAuthority;
@@ -247,6 +248,7 @@ public static partial class PapacySystem
         // 圣战：西方(与阿拉伯的吉哈德)才有
         string line = InstitutionSystem.GetCultureLine(CultureService.GetRealmCulture(papacy));
         if (line == Line || line == "Arabic") TryCrusade(religion);
+        UpdateOrders(religion);
     }
 
     // 加冕：教宗加冕(献礼)、帝国自己握有圣地直接加冕、脱离罗马后自行加冕

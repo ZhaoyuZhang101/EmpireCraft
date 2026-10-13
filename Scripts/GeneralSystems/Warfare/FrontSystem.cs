@@ -466,12 +466,14 @@ public static class FrontSystem
         // 跨海登陆的头一个月攻方吃亏
         // 战时统帅按兵略给本国各军加成(见 WarCommandSystem)
         // 补给不足打折(见 LogisticsSystem)
+        // 骑士团的军是精锐(见 PapacySystem.Orders)
         float attack = attackers.Sum(entry => Effective(entry.corps) * Firepower(entry.kingdom) *
-                                              WarCommandSystem.Factor(entry.kingdom) * LogisticsSystem.AttackFactor(entry.corps)) *
+                                              WarCommandSystem.Factor(entry.kingdom) * LogisticsSystem.AttackFactor(entry.corps) *
+                                              PapacySystem.OrderFactor(entry.corps)) *
                        (landing ? 0.7f : 1f) * ground.Attack;
         float defend = holders.Sum(entry => Effective(entry.corps) * Firepower(entry.kingdom) *
                                             WarCommandSystem.Factor(entry.kingdom) * LogisticsSystem.AttackFactor(entry.corps) *
-                                            (DefenderBonus + entry.corps.entrench));
+                                            PapacySystem.OrderFactor(entry.corps) * (DefenderBonus + entry.corps.entrench));
         float militia = holders.Count == 0 ? Militia(city, attacker) : 0f;
         defend += militia;
         float ratio = attack + defend <= 0f ? 0.5f : attack / (attack + defend);

@@ -37,6 +37,8 @@ public sealed class CorpsData
     public List<LegionPopulationContribution> population = new();
     // 义军：起义、革命时临时武装，仗打完就地解散
     public bool militia;
+    // 骑士团的军(见 PapacySystem.Orders)：骑士团自己出钱养、自己补员，不随本国动员与复员；-1 = 不是
+    public long order_id = -1L;
     // 后勤(见 LogisticsSystem)：补给程度 0~1、上月口粮够了几成
     public float supply = 1f;
     public float rations = 1f;
