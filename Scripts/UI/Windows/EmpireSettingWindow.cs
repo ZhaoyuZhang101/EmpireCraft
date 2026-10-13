@@ -10,7 +10,10 @@ using NeoModLoader.General.UI.Prefabs;
 using NeoModLoader.General.UI.Window;
 using NeoModLoader.General.UI.Window.Layout;
 using NeoModLoader.General.UI.Window.Utils.Extensions;
+using System;
+using EmpireCraft.Scripts.GameClassExtensions;
 using UnityEngine;
+using UnityEngine.UI;
 using UnityEngine.Serialization;
 using NeoModLoader.api;
 
@@ -26,6 +29,10 @@ public class EmpireSettingWindow : AbstractWideWindow<EmpireSettingWindow>
     [FormerlySerializedAs("year_name_button")] public SimpleButton yearNameButton;
     private SimpleButton _longNameButton;
     private GameObject _longNameRow;
+    // 国号前缀：自动、不加、方位词，或自己写
+    private static readonly string[] PrefixChoices = { "", "Eastern", "Western", "Southern", "Northern", "Former", "Later", "great" };
+    private AutoHoriLayoutGroup _prefixRow, _prefixRow2;
+    private TextInput _prefixInput;
     protected override void Init()
     {
         UIHelper.FixWideWindowScrollArea(BackgroundTransform);
@@ -66,6 +73,70 @@ public class EmpireSettingWindow : AbstractWideWindow<EmpireSettingWindow>
         colorButton.Setup(() => EmpireColorPatch.Open(EmpireCraftMetaTypeLibrary.selected_empire),
             SpriteTextureLoader.getSprite("TabColor"), LM.Get("empire_change_color"), new Vector2(CardWidth - 12f, 18f));
         lookCard.AddChild(colorButton.gameObject);
+
+        // 国号前缀(东汉、西汉、北魏、后唐之类)：自动跟随迁都、复国，或手选、自己写
+        lookCard.AddRailText(LM.Get("empire_prefix_label").ColorString("#8FA0A8"), 6, 10f);
+        _prefixRow = lookCard.BeginHoriGroup(new Vector2(CardWidth - 8f, 16f), TextAnchor.MiddleLeft, 2);
+        _prefixRow2 = lookCard.BeginHoriGroup(new Vector2(CardWidth - 8f, 16f), TextAnchor.MiddleLeft, 2);
+        _prefixInput = Instantiate(TextInput.Prefab, null);
+        _prefixInput.Setup("", SetCustomPrefix);
+        _prefixInput.SetSize(new Vector2(CardWidth - 12f, 18f));
+        Text inputText = _prefixInput.input.textComponent;
+        if (inputText != null)
+        {
+            inputText.resizeTextMinSize = 6;
+            inputText.resizeTextMaxSize = 10;
+        }
+        _prefixInput.input.characterLimit = 4;
+        lookCard.AddChild(_prefixInput.gameObject);
+    }
+
+    private void SetCustomPrefix(string text)
+    {
+        _empire = EmpireCraftMetaTypeLibrary.selected_empire;
+        if (_empire?.data == null) return;
+        string value = (text ?? "").Trim();
+        if (value.Length == 0 && !_empire.data.prefix_manual) return;
+        _empire.data.prefix_manual = true;
+        _empire.data.prefix_choice = value;
+        RefreshPrefix();
+    }
+
+    private void ChoosePrefix(bool manual, string key)
+    {
+        _empire = EmpireCraftMetaTypeLibrary.selected_empire;
+        if (_empire?.data == null) return;
+        _empire.data.prefix_manual = manual;
+        _empire.data.prefix_choice = key;
+        if (_prefixInput != null) _prefixInput.input.SetTextWithoutNotify("");
+        RefreshPrefix();
+    }
+
+    // 两行按钮：自动、不加、东西南北、前后、大；选中的加括号
+    private void RefreshPrefix()
+    {
+        if (_empire?.data == null || _prefixRow == null) return;
+        _prefixRow.transform.ClearChildren();
+        _prefixRow2.transform.ClearChildren();
+        var data = _empire.data;
+        string Mark(string text, bool on) => on ? $"【{text}】".ColorString("#F3C34A") : text;
+        _prefixRow.AddButtonIntoHoriLayout("empire_prefix_auto", Mark(LM.Get("empire_prefix_auto"), !data.prefix_manual),
+            () => ChoosePrefix(false, ""), size: new Vector2(40f, 14f));
+        _prefixRow.AddButtonIntoHoriLayout("empire_prefix_none", Mark(LM.Get("empire_prefix_none"),
+            data.prefix_manual && string.IsNullOrEmpty(data.prefix_choice)), () => ChoosePrefix(true, ""), size: new Vector2(34f, 14f));
+        for (int i = 1; i < PrefixChoices.Length; i++)
+        {
+            string key = PrefixChoices[i];
+            AutoHoriLayoutGroup row = i <= 4 ? _prefixRow : _prefixRow2;
+            row.AddButtonIntoHoriLayout("empire_prefix_" + key, Mark(LM.Get(key), data.prefix_manual && data.prefix_choice == key),
+                () => ChoosePrefix(true, key), size: new Vector2(24f, 14f));
+        }
+        bool custom = data.prefix_manual && !string.IsNullOrEmpty(data.prefix_choice) &&
+                      Array.IndexOf(PrefixChoices, data.prefix_choice) < 0;
+        _prefixRow2.AddTextIntoHoriLayout((custom
+                ? string.Format(LM.Get("empire_prefix_custom_now"), data.prefix_choice)
+                : LM.Get("empire_prefix_custom_hint")).ColorString(custom ? "#F3C34A" : "#8FA0A8"), true,
+            TextAnchor.MiddleLeft, new Vector2(CardWidth - 8f - 4 * 26f, 14f)).UseFixedFontSize(6, HorizontalWrapMode.Overflow);
     }
 
     private void ToggleYearName()
@@ -115,6 +186,7 @@ public class EmpireSettingWindow : AbstractWideWindow<EmpireSettingWindow>
             ? RepublicSystem.GetCalendarMode(_empire) == RepublicSystem.CommonEraCalendar
             : _empire.data.has_year_name);
         _longNameRow.SetActive(!republic);
+        RefreshPrefix();
         _longNameButton.Icon.sprite = SpriteTextureLoader.getSprite(_empire.data.show_long_posthumous ? "ui/toggle_open" : "ui/toggle_close");
     }
 

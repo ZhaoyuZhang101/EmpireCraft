@@ -267,6 +267,8 @@ namespace EmpireCraft.Scripts.HelperFunc
             { "South", "Southern" },
             { "北", "Northern" },
             { "North", "Northern" },
+            { "前", "Former" },
+            { "Former", "Former" },
             { "后", "Later" },
             { "後", "Later" },
             { "Later", "Later" },
@@ -274,8 +276,10 @@ namespace EmpireCraft.Scripts.HelperFunc
 
         public static string LocalizeDirectPrefix(EmpireData data)
         {
-            if (data == null || string.IsNullOrWhiteSpace(data.directPre)) return "";
-            string raw = data.directPre.Trim();
+            // 帝国设置里手选了前缀：以它为准，系统自动加的方位词不再生效
+            string chosen = data?.prefix_manual == true ? data.prefix_choice : data?.directPre;
+            if (data == null || string.IsNullOrWhiteSpace(chosen)) return "";
+            string raw = chosen.Trim();
             string key = DirectPrefixKeyMap.TryGetValue(raw, out string mapped) ? mapped : raw;
             string translated = LM.Get(key);
             if (!string.IsNullOrWhiteSpace(translated) && !string.Equals(translated, key, StringComparison.Ordinal))
