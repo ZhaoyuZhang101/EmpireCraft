@@ -1,8 +1,6 @@
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
-using NeoModLoader.General.UI.Window;
 using NeoModLoader.General.UI.Window.Layout;
-using NeoModLoader.General.UI.Window.Utils.Extensions;
 using System.Collections.Generic;
 using System.Linq;
 using EmpireCraft.Scripts.GameClassExtensions;
@@ -10,8 +8,6 @@ using EmpireCraft.Scripts.GeneralSystems;
 using EmpireCraft.Scripts.Regimes;
 using UnityEngine;
 using EmpireCraft.Scripts.UI.Components;
-using UnityEngine.UI;
-using NeoModLoader.General.UI.Prefabs;
 using NeoModLoader.General;
 using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GameLibrary;
@@ -19,255 +15,192 @@ using EmpireCraft.Scripts.System;
 
 namespace EmpireCraft.Scripts.UI.Windows
 {
-    // 帝国列表：顶部概览与筛选(现存 / 历史 / 全部)，按文化分组(文化纹章盾作组标题)。
-    //   · 现存帝国：帝国色带、国名、元首与政体、城市 / 人口 / 正统 / 立国年数，右侧元首头像；点开帝国窗口；
-    //   · 历史帝国：紧凑一行(牌位图标、国名、存续年数、末代君主)，点开史书；
+    // 帝国列表(「卷册」宽窗口，组件见 WideScrollWindow / WideKit)：
+    //   · 左栏(固定)：天下帝国概览 → 现存 / 已亡 / 全部 → 按文化筛选(文化纹章) → 清理百年前的历史帝国；
+    //   · 右栏：页头(当前筛选 · 国数) → 主指标(辖城、人口、最久立国) → 按文化分节：
+    //     现存帝国两栏卡片(国色条、国号与政体、元首头像与年号、城/人口/正统/立国，整卡点开帝国窗口)，
+    //     已亡帝国收在一张卡里一行一国(立国年、存续、末代君主，点开史书)；
     //   · 没有帝国时显示空状态与称帝提示。
     // 图标在 GameResources/ui/icons/empirelist/(Tools/IconForge/imperial_forge.py 的 EMPIRELIST)。
-    public class EmpireListWindow : AutoLayoutWindow<EmpireListWindow>
+    public class EmpireListWindow : WideScrollWindow<EmpireListWindow>
     {
         private enum Filter { Alive, Archived, All }
 
         private const string IconPath = "ui/icons/empirelist/";
-        private const float Width = 196f;
-        private static readonly Color Gold = new(1f, 0.82f, 0.38f);
-        private static readonly Color Muted = new(0.68f, 0.72f, 0.74f);
-        private static readonly Color Live = new(0.42f, 0.9f, 0.58f);
+        private const int RailCultureRows = 8;
 
-        private AutoVertLayoutGroup _top;
-        private readonly List<GameObject> _rows = new();
         private Filter _filter = Filter.Alive;
+        // 空 = 全部文化
+        private string _culture = "";
+        private List<Empire> _alive = new(), _archived = new();
+        private List<IGrouping<string, Empire>> _groups = new();
 
-        protected override void Init()
+        // ───────── 数据(每次重画前取一遍) ─────────
+        protected override void Prepare()
         {
-            _top = this.BeginVertGroup(pSpacing: 4, pPadding: new RectOffset(3, 3, 80, 3));
-        }
-
-        public override void OnNormalEnable()
-        {
-            base.OnNormalEnable();
-            Rebuild();
-        }
-
-        private void Rebuild()
-        {
-            foreach (GameObject go in _rows)
-            {
-                go.SetActive(false);
-                Destroy(go);
-            }
-            _rows.Clear();
-
             List<Empire> all = ModClass.EMPIRE_MANAGER.Where(empire => empire?.data != null).ToList();
-            List<Empire> alive = all.Where(empire => !empire.IsArchived()).ToList();
-            List<Empire> archived = all.Where(empire => empire.IsArchived()).ToList();
-            AddSummary(alive.Count, archived.Count);
-
-            List<Empire> shown = _filter switch
+            _alive = all.Where(empire => !empire.IsArchived()).ToList();
+            _archived = all.Where(empire => empire.IsArchived()).ToList();
+            List<Empire> byFilter = _filter switch
             {
-                Filter.Alive => alive,
-                Filter.Archived => archived,
+                Filter.Alive => _alive,
+                Filter.Archived => _archived,
                 _ => all
             };
-            if (shown.Count == 0)
+            _groups = byFilter.GroupBy(GetEmpireCulture)
+                .OrderByDescending(group => group.Count(empire => !empire.IsArchived()))
+                .ThenByDescending(group => group.Count())
+                .ThenBy(group => GetCultureDisplayName(group.Key)).ToList();
+            if (!string.IsNullOrEmpty(_culture) && _groups.All(group => group.Key != _culture)) _culture = "";
+        }
+
+        // ───────── 左栏 ─────────
+        protected override void DrawRail(AutoVertLayoutGroup rail)
+        {
+            rail.AddRailTitle(LM.Get("empire_list_rail_title"),
+                string.Format(LM.Get("empire_list_rail_summary"), _alive.Count, _archived.Count));
+
+            var filters = rail.BeginRailMenu();
+            filters.AddRailOption(Icon("filter_alive"), LM.Get("empire_list_current"), _alive.Count.ToString(),
+                _filter == Filter.Alive, () => SetFilter(Filter.Alive), 0);
+            filters.AddRailOption(Icon("filter_archived"), LM.Get("empire_list_archived"), _archived.Count.ToString(),
+                _filter == Filter.Archived, () => SetFilter(Filter.Archived), 1);
+            filters.AddRailOption(Icon("filter_all"), LM.Get("empire_list_all"), (_alive.Count + _archived.Count).ToString(),
+                _filter == Filter.All, () => SetFilter(Filter.All), 2);
+
+            if (_groups.Count > 1)
             {
-                AddEmptyState();
-                return;
+                var cultures = rail.BeginRailMenu(LM.Get("empire_list_cultures"));
+                cultures.AddRailOption(null, LM.Get("empire_list_all_cultures"), _groups.Sum(group => group.Count()).ToString(),
+                    string.IsNullOrEmpty(_culture), () => SetCulture(""), 0);
+                int index = 1;
+                foreach (var group in _groups.Take(RailCultureRows))
+                {
+                    string culture = group.Key;
+                    cultures.AddRailOption(CultureIcons.Get(culture), GetCultureDisplayName(culture), group.Count().ToString(),
+                        _culture == culture, () => SetCulture(culture), index++);
+                }
             }
-            foreach (var group in shown.GroupBy(GetEmpireCulture)
-                         .OrderByDescending(group => group.Count(empire => !empire.IsArchived()))
-                         .ThenBy(group => GetCultureDisplayName(group.Key)))
-            {
-                AddCultureHeader(group.Key, group.Count());
-                foreach (Empire empire in group.Where(e => !e.IsArchived()).OrderByDescending(e => e.countCities()))
-                    AddAliveCard(empire);
-                foreach (Empire empire in group.Where(e => e.IsArchived())
-                             .OrderByDescending(e => e.data.timestamp_established_time))
-                    AddArchivedRow(empire);
-            }
-            if (_filter != Filter.Alive && archived.Count > 0)
-            {
-                var toolbar = _top.BeginVertGroup(pSpacing: 2, pAlignment: TextAnchor.MiddleCenter);
-                toolbar.AddButtonIntoVertLayout("purge_recent_100_years", LM.Get("purge_recent_100_years"), () =>
+
+            if (_filter != Filter.Alive && _archived.Count > 0)
+                rail.AddRailButton("purge_recent_100_years", LM.Get("purge_recent_100_years"), () =>
                 {
                     ModClass.EMPIRE_MANAGER.PurgeArchivedOlderThanYears(100);
-                    Rebuild();
-                }, size: new Vector2(80, 14));
-                _rows.Add(toolbar.gameObject);
+                    Refresh();
+                });
+        }
+
+        private void SetFilter(Filter filter)
+        {
+            if (_filter == filter) return;
+            _filter = filter;
+            _culture = "";
+            Refresh(resetScroll: true);
+        }
+
+        private void SetCulture(string culture)
+        {
+            if (_culture == culture) return;
+            _culture = culture;
+            Refresh(resetScroll: true);
+        }
+
+        // ───────── 右栏 ─────────
+        protected override void DrawPage(AutoVertLayoutGroup page)
+        {
+            var groups = string.IsNullOrEmpty(_culture) ? _groups : _groups.Where(group => group.Key == _culture).ToList();
+            List<Empire> shown = groups.SelectMany(group => group).ToList();
+            List<Empire> living = shown.Where(empire => !empire.IsArchived()).ToList();
+            string title = _filter switch
+            {
+                Filter.Alive => LM.Get("empire_list_current"),
+                Filter.Archived => LM.Get("empire_list_archived"),
+                _ => LM.Get("empire_list_window")
+            };
+            if (!string.IsNullOrEmpty(_culture)) title = GetCultureDisplayName(_culture) + " · " + title;
+            page.AddPageHeader(PageWidth, title, string.Format(LM.Get("empire_list_chip_count"), shown.Count));
+
+            if (shown.Count == 0)
+            {
+                bool archivedOnly = _filter == Filter.Archived;
+                page.AddEmptyCard(PageWidth, archivedOnly ? "empire_list_empty_archived" : "empire_list_empty",
+                    archivedOnly ? null : LM.Get("empire_list_empty_hint"));
+                return;
+            }
+            if (living.Count > 0)
+            {
+                Empire oldest = living.OrderByDescending(Years).First();
+                page.AddKpiRow(PageWidth,
+                    (LM.Get("empire_list_kpi_cities"), living.Sum(empire => empire.countCities()).ToString(), WideKit.Green),
+                    (LM.Get("empire_list_kpi_population"),
+                        UIHelper.ShortCount(living.Sum(empire => (double)empire.CountPopulation())), WideKit.Cyan),
+                    (LM.Get("empire_list_kpi_oldest"), $"{Years(oldest)}{LM.Get("Year")}", WideKit.Gold));
+            }
+
+            foreach (var group in groups)
+            {
+                page.AddSectionHeader(PageWidth, $"{GetCultureDisplayName(group.Key)}  ×{group.Count()}", WideKit.Cyan, false,
+                    "ui/icons/cultures/" + group.Key);
+                List<Empire> current = group.Where(empire => !empire.IsArchived())
+                    .OrderByDescending(empire => empire.countCities()).ToList();
+                page.AddCardGrid(PageWidth, current, 2, AddAliveCard);
+                List<Empire> fallen = group.Where(empire => empire.IsArchived())
+                    .OrderByDescending(empire => empire.data.timestamp_established_time).ToList();
+                if (fallen.Count > 0) AddArchivedCard(page, fallen);
             }
         }
 
-        // ───────── 顶部概览与筛选 ─────────
-        private void AddSummary(int aliveCount, int archivedCount)
+        // 现存帝国卡：国色条 → 国号(国色)与政体 → 元首头像、称号姓名、年号在位 → 城/人口/正统/立国
+        private void AddAliveCard(AutoHoriLayoutGroup row, float width, Empire empire)
         {
-            var bar = _top.BeginHoriGroup(pSpacing: 4, pAlignment: TextAnchor.MiddleCenter, pSize: new Vector2(Width, 24));
-            bar.transform.AddStretchBackground("regimeFrame", new Vector2(Width, 24));
-            AddFilterButton(bar, Filter.Alive, "filter_alive", LM.Get("empire_list_current"), aliveCount);
-            AddFilterButton(bar, Filter.Archived, "filter_archived", LM.Get("empire_list_archived"), archivedCount);
-            AddFilterButton(bar, Filter.All, "filter_all", LM.Get("empire_list_all"), aliveCount + archivedCount);
-            _rows.Add(bar.gameObject);
-        }
-
-        private void AddFilterButton(AutoHoriLayoutGroup bar, Filter filter, string icon, string label, int count)
-        {
-            bool active = _filter == filter;
-            var cell = bar.BeginHoriGroup(pSpacing: 1, pAlignment: TextAnchor.MiddleCenter, pSize: new Vector2(62, 20));
-            var button = cell.AddButtonIntoHoriLayout("empire_list_filter_" + icon, "", () =>
-            {
-                _filter = filter;
-                Rebuild();
-            }, SpriteTextureLoader.getSprite(IconPath + icon), size: new Vector2(16, 16));
-            button.Background.enabled = false;
-            var text = cell.AddTextIntoHoriLayout($"{label} {count}".ColorString(pColor: active ? Gold : Muted), true,
-                TextAnchor.MiddleLeft, new Vector2(44, 16));
-            text.UseFixedFontSize(active ? 7 : 6, HorizontalWrapMode.Overflow);
-            bar.AddChild(cell.gameObject);
-        }
-
-        private void AddEmptyState()
-        {
-            var box = _top.BeginVertGroup(pSpacing: 4, pAlignment: TextAnchor.MiddleCenter);
-            var icon = box.AddButtonIntoVertLayout("empire_list_empty", "", null,
-                SpriteTextureLoader.getSprite(IconPath + "filter_alive"), size: new Vector2(40, 40));
-            icon.Background.enabled = false;
-            var title = box.AddTextIntoVertLayout(LM.Get(_filter == Filter.Archived
-                    ? "empire_list_empty_archived" : "empire_list_empty").ColorString(pColor: Gold), true,
-                TextAnchor.MiddleCenter, new Vector2(Width, 16));
-            title.UseFixedFontSize(9, HorizontalWrapMode.Overflow);
-            if (_filter != Filter.Archived)
-            {
-                var hint = box.AddTextIntoVertLayout(LM.Get("empire_list_empty_hint").ColorString(pColor: Muted), true,
-                    TextAnchor.MiddleCenter, new Vector2(Width - 10, 30), mode: HorizontalWrapMode.Wrap);
-                hint.UseFixedFontSize(6, HorizontalWrapMode.Wrap);
-            }
-            _rows.Add(box.gameObject);
-        }
-
-        // ───────── 文化分组标题 ─────────
-        private void AddCultureHeader(string culture, int count)
-        {
-            var header = _top.BeginHoriGroup(pSpacing: 3, pAlignment: TextAnchor.MiddleLeft, pSize: new Vector2(Width, 18));
-            var icon = header.AddButtonIntoHoriLayout("empire_list_culture_" + culture, "", null,
-                CultureIcons.Get(culture), size: new Vector2(16, 16));
-            icon.Background.enabled = false;
-            var text = header.AddTextIntoHoriLayout(
-                $"{GetCultureDisplayName(culture)}".ColorString(pColor: new Color(0.55f, 0.85f, 1f)) +
-                $"  ×{count}".ColorString(pColor: Muted), true, TextAnchor.MiddleLeft, new Vector2(Width - 22, 16));
-            text.UseFixedFontSize(9, HorizontalWrapMode.Overflow);
-            _rows.Add(header.gameObject);
-        }
-
-        // ───────── 现存帝国卡片 ─────────
-        private void AddAliveCard(Empire empire)
-        {
-            var card = _top.BeginHoriGroup(pSpacing: 3, pAlignment: TextAnchor.MiddleLeft, pSize: new Vector2(Width, 46),
-                pPadding: new RectOffset(4, 4, 3, 3));
-            card.transform.AddStretchBackground("FactionFrame_dominate", new Vector2(Width, 46));
-
-            AddColorStrip(card, empire.getColor()?.getColorMain() ?? Color.gray, 38);
-
-            var details = this.BeginVertGroup(new Vector2(150, 40), pSpacing: -1, pAlignment: TextAnchor.MiddleLeft);
-            var name = details.AddTextIntoVertLayout(empire.GetEmpireFullName().ColorString(
-                pColor: empire.getColor()?._color_text ?? Color.white), true, TextAnchor.MiddleLeft, new Vector2(148, 13));
-            name.UseFixedFontSize(9, HorizontalWrapMode.Overflow);
+            var card = row.BeginColumnCard(width);
+            card.AddColorStrip(width, empire.getColor()?.getColorMain() ?? Color.gray);
+            UIHelper.AddCardTitle(card, width, empire.GetEmpireFullName(),
+                WideKit.Hex(empire.getColor()?._color_text ?? Color.white), RegimeLabel(empire), 0f);
 
             bool republic = RepublicSystem.IsRepublic(empire);
-            var headLine = details.BeginHoriGroup(pSpacing: 2, pAlignment: TextAnchor.MiddleLeft, pSize: new Vector2(148, 11));
-            AddIcon(headLine, republic ? "head_republic" : "head_monarch", 10);
-            string headTitle = republic ? RepublicSystem.GetHeadOfStateTitle(empire) : LM.Get("emperor");
-            string headName = empire.Emperor != null && empire.Emperor.isAlive() ? empire.Emperor.getName() : LM.Get("label_none");
-            AddSmallText(headLine, $"{headTitle} {headName}".ColorString(pColor: Gold) + " · " +
-                                   RegimeLabel(empire).ColorString(pColor: Muted), 134);
-            details.AddChild(headLine.gameObject);
-
-            var stats = details.BeginHoriGroup(pSpacing: 1, pAlignment: TextAnchor.MiddleLeft, pSize: new Vector2(148, 11));
-            AddStat(stats, "stat_cities", empire.countCities().ToString());
-            AddStat(stats, "stat_population", Compact(empire.CountPopulation()));
-            AddStat(stats, "stat_mandate", empire.Mandate.ToString());
-            int years = empire.data.timestamp_established_time > 0
-                ? Mathf.Max(1, Date.getYearsSince(empire.data.timestamp_established_time) + 1) : 1;
-            AddStat(stats, "stat_years", years + LM.Get("Year"));
-            details.AddChild(stats.gameObject);
-            details.transform.localPosition = Vector3.zero;
-            card.AddChild(details.gameObject);
-
             Actor head = empire.Emperor;
-            var avatar = UIHelper.CreateAvatarView(head?.data?.id ?? -1L, head == null ? null : () => UIHelper.actorClick(head),
-                pIsAlive: head != null && head.isAlive());
-            avatar.GetComponent<RectTransform>().sizeDelta = new Vector2(30, 30);
-            card.AddChild(avatar.gameObject);
+            bool living = head != null && head.isAlive();
+            string reign = null;
+            if (living)
+            {
+                reign = string.Format(LM.Get("empire_list_reign"), empire.GetEmperorYear());
+                if (!republic && !string.IsNullOrWhiteSpace(empire.data.year_name))
+                    reign = $"{LM.Get("year_name")} {empire.data.year_name} · {reign}";
+            }
+            card.AddPersonRow(width, living ? head : null,
+                republic ? RepublicSystem.GetHeadOfStateTitle(empire) : LM.Get("emperor"),
+                living ? head.getName() : LM.Get("label_none"), reign);
 
-            AddClickLayer(card, () => OpenEmpire(empire));
-            _rows.Add(card.gameObject);
+            int legitimacy = empire.Legitimacy;
+            card.AddMetricRow(width,
+                (LM.Get("empire_list_metric_cities"), empire.countCities().ToString(), WideKit.Green),
+                (LM.Get("empire_list_metric_population"), UIHelper.ShortCount(empire.CountPopulation()), WideKit.Cyan),
+                (LM.Get("empire_list_metric_legitimacy"), legitimacy.ToString(), WideKit.Grade(legitimacy, 70, 40)),
+                (LM.Get("empire_list_metric_years"), $"{Years(empire)}{LM.Get("Year")}", WideKit.Value));
+            UIHelper.MakeClickable(card.gameObject, () => OpenEmpire(empire));
         }
 
-        // ───────── 历史帝国(紧凑一行) ─────────
-        private void AddArchivedRow(Empire empire)
+        // 已亡帝国：一张卡，一行一国，点开史书
+        private void AddArchivedCard(AutoVertLayoutGroup page, List<Empire> fallen)
         {
-            var row = _top.BeginHoriGroup(pSpacing: 3, pAlignment: TextAnchor.MiddleLeft, pSize: new Vector2(Width, 24),
-                pPadding: new RectOffset(4, 4, 2, 2));
-            row.transform.AddStretchBackground("clanFrame", new Vector2(Width, 24));
-            AddIcon(row, "filter_archived", 16);
-            var details = this.BeginVertGroup(new Vector2(168, 20), pSpacing: -2, pAlignment: TextAnchor.MiddleLeft);
-            var name = details.AddTextIntoVertLayout(empire.GetEmpireFullName().ColorString(pColor: Muted), true,
-                TextAnchor.MiddleLeft, new Vector2(166, 11));
-            name.UseFixedFontSize(8, HorizontalWrapMode.Overflow);
-            EmpireCraftHistory last = GetRepresentativeHistory(empire);
-            string founded = empire.data.timestamp_established_time > 0
-                ? HistoryDateFormatter.GetYear(empire.data.timestamp_established_time) : "";
-            string line = $"{founded} · {LM.Get("empire_core_history_duration")} {GetEmpireRecordedDuration(empire)}{LM.Get("Year")}";
-            if (!string.IsNullOrWhiteSpace(last?.emperor))
-                line += $" · {LM.Get("empire_list_last_ruler")} {last.emperor}";
-            var sub = details.AddTextIntoVertLayout(line.ColorString(pColor: new Color(0.55f, 0.58f, 0.6f)), true,
-                TextAnchor.MiddleLeft, new Vector2(166, 9));
-            sub.UseFixedFontSize(6, HorizontalWrapMode.Overflow);
-            details.transform.localPosition = Vector3.zero;
-            row.AddChild(details.gameObject);
-            AddClickLayer(row, () => OpenEmpireHistory(empire));
-            _rows.Add(row.gameObject);
+            var card = page.BeginCard(PageWidth, "empire_list_archived", WideKit.Muted, fallen.Count.ToString(),
+                IconPath + "filter_archived");
+            Sprite tablet = Icon("filter_archived");
+            for (int i = 0; i < fallen.Count; i++)
+            {
+                Empire empire = fallen[i];
+                EmpireCraftHistory last = GetRepresentativeHistory(empire);
+                string founded = empire.data.timestamp_established_time > 0
+                    ? HistoryDateFormatter.GetYear(empire.data.timestamp_established_time) : "";
+                string line = $"{founded} · {LM.Get("empire_core_history_duration")} {GetEmpireRecordedDuration(empire)}{LM.Get("Year")}";
+                if (!string.IsNullOrWhiteSpace(last?.emperor))
+                    line += $" · {LM.Get("empire_list_last_ruler")} {last.emperor}";
+                card.AddListRow(PageWidth, i, tablet, empire.GetEmpireFullName(), line, () => OpenEmpireHistory(empire));
+            }
         }
 
-        // ───────── 小部件 ─────────
-        // NML 的横排组不接管子物体尺寸(childControlWidth/Height = false)，LayoutElement 的尺寸不生效：
-        // 现建的物体必须自己设好 sizeDelta，否则按 RectTransform 默认的 100×100 画出来，盖住整张卡片
-        private static void AddColorStrip(AutoHoriLayoutGroup parent, Color color, float height)
-        {
-            var strip = new GameObject("EmpireColorStrip", typeof(RectTransform), typeof(Image), typeof(LayoutElement));
-            strip.transform.SetParent(parent.transform, false);
-            strip.GetComponent<RectTransform>().sizeDelta = new Vector2(3, height);
-            strip.GetComponent<Image>().color = color;
-            var layout = strip.GetComponent<LayoutElement>();
-            layout.minWidth = layout.preferredWidth = 3;
-            layout.minHeight = layout.preferredHeight = height;
-        }
-
-        private static void AddIcon(AutoHoriLayoutGroup parent, string icon, float size)
-        {
-            var go = new GameObject("Icon", typeof(RectTransform), typeof(Image), typeof(LayoutElement));
-            go.transform.SetParent(parent.transform, false);
-            go.GetComponent<RectTransform>().sizeDelta = new Vector2(size, size);
-            var image = go.GetComponent<Image>();
-            image.sprite = SpriteTextureLoader.getSprite(IconPath + icon);
-            image.preserveAspect = true;
-            var layout = go.GetComponent<LayoutElement>();
-            layout.minWidth = layout.preferredWidth = size;
-            layout.minHeight = layout.preferredHeight = size;
-        }
-
-        private static void AddSmallText(AutoHoriLayoutGroup parent, string text, float width)
-        {
-            var t = parent.AddTextIntoHoriLayout(text, true, TextAnchor.MiddleLeft, new Vector2(width, 10));
-            t.UseFixedFontSize(6, HorizontalWrapMode.Overflow);
-        }
-
-        private static void AddStat(AutoHoriLayoutGroup parent, string icon, string value)
-        {
-            AddIcon(parent, icon, 10);
-            AddSmallText(parent, value, 25);
-        }
-
-        private static string Compact(int value) =>
-            value >= 10000 ? $"{value / 1000f:0.#}k" : value.ToString();
+        private static Sprite Icon(string name) => SpriteTextureLoader.getSprite(IconPath + name);
 
         private static string RegimeLabel(Empire empire)
         {
@@ -277,27 +210,10 @@ namespace EmpireCraft.Scripts.UI.Windows
             return LM.Get("empire_list_regime_monarchy");
         }
 
-        private static void AddClickLayer(AutoHoriLayoutGroup card, UnityEngine.Events.UnityAction action)
-        {
-            var overlay = new GameObject("EmpireListCardClick", typeof(RectTransform), typeof(Image), typeof(Button), typeof(LayoutElement));
-            overlay.transform.SetParent(card.transform, false);
-            var rect = overlay.GetComponent<RectTransform>();
-            rect.anchorMin = Vector2.zero;
-            rect.anchorMax = Vector2.one;
-            rect.offsetMin = Vector2.zero;
-            rect.offsetMax = Vector2.zero;
-            var image = overlay.GetComponent<Image>();
-            image.color = Color.clear;
-            image.raycastTarget = true;
-            overlay.GetComponent<LayoutElement>().ignoreLayout = true;
-            var button = overlay.GetComponent<Button>();
-            button.targetGraphic = image;
-            button.transition = Selectable.Transition.None;
-            button.onClick.AddListener(action);
-            overlay.transform.SetAsLastSibling();
-        }
-
         // ───────── 数据 ─────────
+        private static int Years(Empire empire) => empire.data.timestamp_established_time > 0
+            ? Mathf.Max(1, Date.getYearsSince(empire.data.timestamp_established_time) + 1) : 1;
+
         private static int GetEmpireRecordedDuration(Empire empire)
         {
             int duration = 0;

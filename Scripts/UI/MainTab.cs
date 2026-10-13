@@ -73,8 +73,7 @@ internal static class MainTab
 
     private static void _createWindows()
     {
-        EmpireListWindow.CreateWindow(nameof(EmpireListWindow),
-            nameof(EmpireListWindow) + "Title");
+        EmpireListWindow.CreateAndInit(nameof(EmpireListWindow), new Vector2(480f, 380f));
         CultureSpeciesPairWindow.CreateWindow(nameof(CultureSpeciesPairWindow),
             nameof(CultureSpeciesPairWindow) + "Title");
         // 帝国窗口换宽窗口(标题用 "<窗口id> Title" 约定 key)
@@ -146,6 +145,7 @@ internal static class MainTab
             [nameof(EmpireBeaurauWindow)] = "iconKingdom",
             [nameof(KingdomTitleWindow)] = "iconWorldLaws",
             [nameof(EmpireCoreWindow)] = "iconCity",
+            [nameof(EmpireListWindow)] = "iconKingdomList",
             [nameof(EmpireHistoryWindow)] = "iconClock",
             [nameof(InstitutionWindow)] = "iconKnowledge",
             [nameof(FactionDetailWindow)] = "iconFamily",
