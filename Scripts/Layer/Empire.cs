@@ -4272,10 +4272,15 @@ public class Empire : MetaObject<EmpireData>
                 (title?.data?.name ?? kingdom?.data?.name ?? "") + LM.Get("default_peerages_2"));
             return;
         }
-        new WorldLogMessage(EmpireCraftWorldLogLibrary.empire_enfeoff_log, name)
+        // 改设行政区写"设某某，以某人主政"，封给非宗室写"封某人于某某"
+        string division = kingdom?.GetKingdomFullName() ?? title?.data?.name ?? "";
+        new WorldLogMessage(administrative ? EmpireCraftWorldLogLibrary.empire_division_log
+            : EmpireCraftWorldLogLibrary.empire_fief_grant_log, name, division, ruler?.getName() ?? LM.Get("label_none"))
         {
             location = CoreKingdom.location,
-            color_special1 = CoreKingdom.getColor().getColorText()
+            color_special1 = CoreKingdom.getColor().getColorText(),
+            color_special2 = kingdom?.getColor()?.getColorText() ?? CoreKingdom.getColor().getColorText(),
+            color_special3 = ruler?.getColor()?.getColorText() ?? CoreKingdom.getColor().getColorText()
         }.RecordNationalHistoryIntoEmpire(this, ruler, kingdom);
     }
 

@@ -1060,6 +1060,8 @@
   "fiscal_source_SharedLandTax": "土地税(各城上缴)",
   "fiscal_source_SharedIndustrialTax": "工业税(各城上缴)",
   "fiscal_source_SharedCommercialTax": "商业税(各城上缴)",
+  "empire_division_log": "$empire$ 设 $division$，以 $ruler$ 主政",
+  "empire_fief_grant_log": "$empire$ 封 $ruler$ 于 $division$",
   "capital_loss_restored": "{0}收复旧都{1}，还于旧都，复称{2}。",
   "kingdom_type_xingzai": "行在",
   "Later": "后",

@@ -26,6 +26,9 @@ public static class EmpireCraftWorldLogLibrary
     public static WorldLogAsset empire_new_clan;
     public static WorldLogAsset empire_war;
     public static WorldLogAsset empire_enfeoff_log;
+    // 自动划出一块地：改设行政区 / 封给非宗室的功臣(以前都写成"开始分封天下")
+    public static WorldLogAsset empire_division_log;
+    public static WorldLogAsset empire_fief_grant_log;
     public static WorldLogAsset become_new_empire_log;
     public static WorldLogAsset become_new_empire_west_log;
     public static WorldLogAsset minister_try_aqcuire_empire_log;
@@ -1135,6 +1138,24 @@ public static class EmpireCraftWorldLogLibrary
                 wl.updateText(ref pText, pMessage, "$empire$", 1);
             }
         });
+        foreach (string id in new[] { "empire_division_log", "empire_fief_grant_log" })
+        {
+            WorldLogAsset asset = wl.add(new WorldLogAsset
+            {
+                id = id,
+                group = "emperors",
+                path_icon = "SplitAllUnderHeaven.png",
+                color = Toolbox.color_log_good,
+                text_replacer = delegate (WorldLogMessage pMessage, ref string pText)
+                {
+                    wl.updateText(ref pText, pMessage, "$empire$", 1);
+                    wl.updateText(ref pText, pMessage, "$division$", 2);
+                    wl.updateText(ref pText, pMessage, "$ruler$", 3);
+                }
+            });
+            if (id == "empire_division_log") empire_division_log = asset;
+            else empire_fief_grant_log = asset;
+        }
         history_kingdom_attack_for_title = wl.add(new WorldLogAsset
         {
             id = nameof(history_kingdom_attack_for_title),
