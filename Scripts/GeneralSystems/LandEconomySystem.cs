@@ -631,9 +631,22 @@ public static class LandEconomySystem
     // 城市无地农民占人口的比例(土地买卖未开放时为 0)，供理念传播等使用
     public static float GetLandlessRatio(City city) => CalculateLandlessPopulationRatio(city);
 
+    // 无地比例按城缓存两秒：城市忠诚、稳定、起义判定每帧都要问，逐人算地权不便宜
+    private static readonly Dictionary<long, (float at, float ratio)> LandlessCache = new();
+
     private static float CalculateLandlessPopulationRatio(City city)
     {
         if (city == null || !IsLandMarketOpen(city.kingdom)) return 0f;
+        float now = Time.unscaledTime;
+        if (LandlessCache.TryGetValue(city.data.id, out var cached) && now >= cached.at && now - cached.at < 2f) return cached.ratio;
+        if (LandlessCache.Count > 4000) LandlessCache.Clear();
+        float ratio = ComputeLandlessRatio(city);
+        LandlessCache[city.data.id] = (now, ratio);
+        return ratio;
+    }
+
+    private static float ComputeLandlessRatio(City city)
+    {
         List<Actor> population = city.units?.Where(IsLivingResident).ToList() ?? new List<Actor>();
         float landless = population.Count(actor => IsAgrarianCommoner(actor) &&
                                                    GetHouseholdShare(city, GetHouseholdKey(actor)) <= 0f);

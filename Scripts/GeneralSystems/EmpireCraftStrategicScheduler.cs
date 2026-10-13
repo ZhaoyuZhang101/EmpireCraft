@@ -53,9 +53,9 @@ public static class EmpireCraftStrategicScheduler
         StateSettlementSystem.Tick();
         // 路网规划、修路养路(自己按真实时间与游戏月份限频，见 RoadNetwork、RoadBuildingSystem)
         RoadNetwork.Tick();
-        EmperorTourSystem.Tick();
-        RoyalHouseSystem.Tick();
-        FamineUnrestSystem.Tick();
+        using (FrameProfiler.Measure("皇帝出行")) EmperorTourSystem.Tick();
+        using (FrameProfiler.Measure("宗室·生老病死")) RoyalHouseSystem.Tick();
+        using (FrameProfiler.Measure("饥荒动荡")) FamineUnrestSystem.Tick();
         ExclaveMaintenanceSystem.Tick();
         AdministrativeControlSystem.Tick();
         CityStabilitySystem.Tick();

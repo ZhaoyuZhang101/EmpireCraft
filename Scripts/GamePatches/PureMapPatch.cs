@@ -85,38 +85,50 @@ public class PureMapPatch : GamePatch
     // 夜景灯光：原版按人物与建筑的真实位置点灯，这里人物到处瞬移、建筑不画，灯光会乱飘；
     // 改为只在城市平面图建成的地块上、每座虚拟建筑处点一盏灯——住房越高级越亮，工厂、市场、官署更亮，
     // 现代格局的地块再亮一些，都城地标最亮；成了废墟的街区不亮，战火、野火照旧按燃烧的格子亮
+    private static readonly Dictionary<int, (float at, List<(Vector2 at, float size)> lights)> ZoneLights = new();
+    private static readonly List<(Vector2, float)> NoLights = new();
+
     private static bool BeforeDrawLights()
     {
         if (!PureMapMode.Enabled) return true;
         if (!PlayerConfig.optionBoolEnabled("night_lights") || !World.world.era_manager.shouldShowLights()) return false;
+        using var timing = FrameProfiler.Measure("纯净地图·夜景灯光");
         Color color = QuantumSpriteLibrary.getColorForLight();
         List<TileZone> zones = World.world.zone_camera.getVisibleZones();
         bool fires = WorldBehaviourActionFire.hasFires();
+        float now = Time.unscaledTime;
+        if (ZoneLights.Count > 20000) ZoneLights.Clear();
         foreach (TileZone zone in zones)
         {
             if (fires && WorldBehaviourActionFire.hasFires(zone))
                 foreach (WorldTile tile in zone.tiles)
                     if (tile.isOnFire()) QuantumSpriteLibrary.showLightAt(tile.pos, color, 0.2f);
-            City city = zone.city;
-            if (city?.data == null || city.isRekt()) continue;
-            CityPlan plan = PlanFor(city);
-            if (!plan.built.Contains(zone.id)) continue;
-            int ox = zone.x * Config.CITY_ZONE_SIZE, oy = zone.y * Config.CITY_ZONE_SIZE;
-            if (plan.landmark.Contains(zone.id))
-            {
-                QuantumSpriteLibrary.showLightAt(new Vector2(ox + 4, oy + 4), color, 0.9f);
-                continue;
-            }
-            if (!plan.zones.TryGetValue(zone.id, out Slot[] slots)) continue;
-            bool modern = plan.modern > 0f && Hash01(zone.id) < plan.modern;
-            for (int i = 0; i < slots.Length; i++)
-            {
-                if (!slots[i].used || plan.ruin > 0f && Hash01(zone.id * 4L + i + 7L) < plan.ruin) continue;
-                var at = new Vector2(ox + i % 2 * 4 + 2, oy + i / 2 * 4 + 2);
-                QuantumSpriteLibrary.showLightAt(at, color, LightSize(slots[i].icon) * (modern ? 1.15f : 1f));
-            }
+            if (zone.city == null) continue;
+            if (!ZoneLights.TryGetValue(zone.id, out var cached) || now < cached.at || now - cached.at >= PlanSeconds)
+                ZoneLights[zone.id] = cached = (now, LightsOf(zone));
+            foreach ((Vector2 at, float size) in cached.lights) QuantumSpriteLibrary.showLightAt(at, color, size);
         }
         return false;
+    }
+
+    // 一块地上的灯(按城市平面图，五秒一算)
+    private static List<(Vector2, float)> LightsOf(TileZone zone)
+    {
+        City city = zone.city;
+        if (city?.data == null || city.isRekt()) return NoLights;
+        CityPlan plan = PlanFor(city);
+        if (!plan.built.Contains(zone.id)) return NoLights;
+        int ox = zone.x * Config.CITY_ZONE_SIZE, oy = zone.y * Config.CITY_ZONE_SIZE;
+        if (plan.landmark.Contains(zone.id)) return new List<(Vector2, float)> { (new Vector2(ox + 4, oy + 4), 0.9f) };
+        if (!plan.zones.TryGetValue(zone.id, out Slot[] slots)) return NoLights;
+        bool modern = plan.modern > 0f && Hash01(zone.id) < plan.modern;
+        var lights = new List<(Vector2, float)>(slots.Length);
+        for (int i = 0; i < slots.Length; i++)
+        {
+            if (!slots[i].used || plan.ruin > 0f && Hash01(zone.id * 4L + i + 7L) < plan.ruin) continue;
+            lights.Add((new Vector2(ox + i % 2 * 4 + 2, oy + i / 2 * 4 + 2), LightSize(slots[i].icon) * (modern ? 1.15f : 1f)));
+        }
+        return lights;
     }
 
     private static float LightSize(string icon)

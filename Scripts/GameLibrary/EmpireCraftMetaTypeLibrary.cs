@@ -882,14 +882,32 @@ public static class EmpireCraftMetaTypeLibrary
     }
     // 帝国图层上没被哪个帝国(或同盟视图)画到的王国，按本国颜色补画：同盟视图本来只画帝国与同盟，
     // 独立王国是空的(纯净地图下色块不透明，那里露出底下的地图)
+    // 没画到的城按国家一秒一算(图层每帧都调)
+    private static readonly List<(Kingdom kingdom, List<City> cities)> _uncovered = new();
+    private static float _uncoveredAt = -10f;
+    private static int _uncoveredOption = -1;
+
     private static void drawUncoveredKingdoms(HashSet<City> covered)
     {
-      foreach (Kingdom kingdom in World.world.kingdoms)
+      using var timing = FrameProfiler.Measure("帝国图层·补画王国");
+      float now = UnityEngine.Time.unscaledTime;
+      int option = empire.getZoneOptionState();
+      if (option != _uncoveredOption || now < _uncoveredAt || now - _uncoveredAt >= 1f)
       {
-        if (kingdom == null || kingdom.isRekt() || kingdom.isNeutral() || kingdom.cities == null) continue;
-        List<City> cities = kingdom.cities.Where(city => city != null && !city.isRekt() && !covered.Contains(city)).ToList();
-        if (cities.Count > 0) drawForCities(kingdom.meta_type_asset, cities, getZoneDelegate(kingdom.meta_type_asset));
+        _uncoveredAt = now;
+        _uncoveredOption = option;
+        _uncovered.Clear();
+        foreach (Kingdom kingdom in World.world.kingdoms)
+        {
+          if (kingdom == null || kingdom.isRekt() || kingdom.isNeutral() || kingdom.cities == null) continue;
+          List<City> cities = kingdom.cities.Where(city => city != null && !city.isRekt() && !covered.Contains(city)).ToList();
+          if (cities.Count > 0) _uncovered.Add((kingdom, cities));
+        }
       }
+      foreach ((Kingdom kingdom, List<City> cities) in _uncovered)
+        if (kingdom?.data != null && !kingdom.isRekt())
+          drawForCities(kingdom.meta_type_asset, cities.Where(city => city?.data != null && !city.isRekt() && city.kingdom == kingdom),
+            getZoneDelegate(kingdom.meta_type_asset));
     }
 
     public static void drawDefaultMeta(MetaTypeAsset pMetaTypeAsset)

@@ -20,7 +20,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 每条路线算一次就缓存，过期才重算；每秒只花几毫秒补算(刚进图时几秒内铺满)，不会卡顿。
 public static class RoadNetwork
 {
-    private const float TickSeconds = 1f, StaleSeconds = 180f, PortSeconds = 30f;
+    private const float TickSeconds = 1f, ScanSeconds = 5f, StaleSeconds = 180f, PortSeconds = 30f;
     // 每次 Tick 补算路线最多花几毫秒；寻路最多展开几块
     private const long BudgetMs = 6;
     private const int MaxSearch = 5000;
@@ -48,7 +48,7 @@ public static class RoadNetwork
         BuildingTiles = new();
     private static readonly Dictionary<int, int> TileGrades = new(), ZoneGrades = new();
     private static readonly List<City> PortCities = new();
-    private static float _nextTick, _nextPorts;
+    private static float _nextTick, _nextPorts, _nextScan;
     private static bool _dirty;
     private static object _world;
 
@@ -94,7 +94,7 @@ public static class RoadNetwork
         PortCities.Clear();
         PlansComplete = false;
         RoadBuildingSystem.ResetWorldState();
-        _nextTick = _nextPorts = 0f;
+        _nextTick = _nextPorts = _nextScan = 0f;
         _world = null;
         Version++;
     }
@@ -110,13 +110,19 @@ public static class RoadNetwork
         float now = Time.unscaledTime;
         if (now < _nextTick && _nextTick - now <= TickSeconds) return;
         _nextTick = now + TickSeconds;
+        using var timing = FrameProfiler.Measure("路网·结算");
         try
         {
             var budget = global::System.Diagnostics.Stopwatch.StartNew();
-            RoadBuildingSystem.Refresh();
-            TickRoads(now, budget);
-            TickLanes(now, budget);
-            RoadBuildingSystem.SeedIfOldWorld();
+            // 全量扫描(各城的路、规划、航线)每五秒一次；规划还没算完时每秒接着算
+            if (!PlansComplete || now >= _nextScan || _nextScan - now > ScanSeconds)
+            {
+                _nextScan = now + ScanSeconds;
+                RoadBuildingSystem.Refresh();
+                TickRoads(now, budget);
+                TickLanes(now, budget);
+                RoadBuildingSystem.SeedIfOldWorld();
+            }
             RoadBuildingSystem.Tick();
             if (!_dirty) return;
             _dirty = false;

@@ -8,10 +8,10 @@ namespace EmpireCraft.Scripts.UI.Components;
 // 纯净地图的路网图层(见 RoadNetwork)：修通的路按等级画(土路淡褐、驿道浅黄、官道黄、公路金黄、柏油公路橙)，
 // 在修的路段画成灰色，航线画成浅色虚线，盖在国家色块之上——
 // 海面与无主地在色块里是空的，所以单独用一张与地图等大的贴图画，跟着色块图层一起显示。
-// 城里建成的地块有自己的街格，干道不压上去。路网变了(至少隔三秒)、或每十秒(城在长)重画一次。
+// 城里建成的地块有自己的街格，干道不压上去。路网变了、或城在长，至多每十秒重画一次(整张贴图上传不便宜)。
 public static class RoadOverlay
 {
-    private const float RedrawSeconds = 10f, MinRedrawSeconds = 3f;
+    private const float RedrawSeconds = 20f, MinRedrawSeconds = 10f;
     private static readonly Color32 Lane = new(232, 244, 255, 205), Building = new(170, 170, 170, 150), Clear = new(0, 0, 0, 0);
     private static readonly Color32[] Grades =
     {
@@ -46,7 +46,7 @@ public static class RoadOverlay
         if (!due) return;
         _drawnVersion = RoadNetwork.Version;
         _drawnAt = now;
-        Redraw();
+        using (FrameProfiler.Measure("路网·贴图重画")) Redraw();
     }
 
     private static bool Ensure(ZoneCalculator zones, SpriteRenderer source)
@@ -76,8 +76,11 @@ public static class RoadOverlay
         return true;
     }
 
+    private static readonly Dictionary<int, bool> BuiltZones = new();
+
     private static void Redraw()
     {
+        BuiltZones.Clear();
         foreach (int id in Painted) _pixels[id] = Clear;
         Painted.Clear();
         WorldTile[] tiles = World.world.tiles_list;
@@ -94,7 +97,10 @@ public static class RoadOverlay
     private static bool Outside(WorldTile[] tiles, int id)
     {
         WorldTile tile = tiles != null && id >= 0 && id < tiles.Length ? tiles[id] : null;
-        return tile?.zone != null && !PureMapPatch.Built(tile.zone);
+        if (tile?.zone == null) return false;
+        if (!BuiltZones.TryGetValue(tile.zone.id, out bool built))
+            BuiltZones[tile.zone.id] = built = PureMapPatch.Built(tile.zone);
+        return !built;
     }
 
     private static void Paint(int id, Color32 color)

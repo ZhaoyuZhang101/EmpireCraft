@@ -16,8 +16,11 @@ public class BoatLanePatch : GamePatch
 {
     public ModDeclare declare { get; set; }
 
-    // 起止相隔多少格以上才改道；绕开岸角时最多搜几格
-    private const int MinTiles = 24, BridgeSearch = 800;
+    // 起止相隔多少格以上才改道；绕开岸角时最多搜几格；每帧至多新算几条(其余照原版的路)；海路缓存几秒
+    private const int MinTiles = 24, BridgeSearch = 800, MaxPerFrame = 2;
+    private const float CacheSeconds = 30f;
+    private static readonly Dictionary<(int, int), (float at, List<TileZone> zones)> Cache = new();
+    private static int _frame = -1, _computed;
 
     public void Initialize()
     {
@@ -33,9 +36,10 @@ public class BoatLanePatch : GamePatch
         WorldTile start = pActor.current_tile;
         if (start?.zone == null || pTileTarget?.zone == null || !pTileTarget.isGoodForBoat()) return;
         if (Mathf.Abs(start.x - pTileTarget.x) + Mathf.Abs(start.y - pTileTarget.y) < MinTiles) return;
+        using var timing = FrameProfiler.Measure("航线·船只改道");
         try
         {
-            List<TileZone> zones = RoadNetwork.SeaPath(start.zone, pTileTarget.zone);
+            List<TileZone> zones = Zones(start.zone, pTileTarget.zone);
             if (zones == null || zones.Count < 3) return;
             List<WorldTile> path = Follow(start, pTileTarget, RoadNetwork.Smooth(zones, start, pTileTarget));
             if (path == null || path.Count == 0) return;
@@ -48,6 +52,25 @@ public class BoatLanePatch : GamePatch
         {
             NeoModLoader.services.LogService.LogWarning($"[EmpireCraft][航线] 船只改道失败: {exception.Message}");
         }
+    }
+
+    // 海上路线：同一对地块半分钟内复用；每帧至多新算两条，超出的这次照原版的路
+    private static List<TileZone> Zones(TileZone from, TileZone to)
+    {
+        float now = Time.unscaledTime;
+        var key = (from.id, to.id);
+        if (Cache.TryGetValue(key, out var cached) && now >= cached.at && now - cached.at < CacheSeconds) return cached.zones;
+        if (Time.frameCount != _frame)
+        {
+            _frame = Time.frameCount;
+            _computed = 0;
+        }
+        if (_computed >= MaxPerFrame) return null;
+        _computed++;
+        if (Cache.Count > 2000) Cache.Clear();
+        List<TileZone> zones = RoadNetwork.SeaPath(from, to);
+        Cache[key] = (now, zones);
+        return zones;
     }
 
     // 沿平滑后的折线逐格走；落到岸上的格跳过，前后两段之间就地绕开

@@ -64,6 +64,7 @@ public static class EmperorMarkerRenderer
 
     internal static void HostLateUpdate()
     {
+        using var timing = FrameProfiler.Measure("纯净地图·皇帝标记");
         int used = 0;
         Hits.Clear();
         if (PureMapMode.Enabled && World.world?.camera != null && CanvasMain.instance?.canvas_map_names != null &&
