@@ -85,6 +85,13 @@ public class PureMapPatch : GamePatch
             prefix: new HarmonyMethod(typeof(PureMapPatch), nameof(BeforeDrawLights)));
         harmony.Patch(AccessTools.Method(typeof(QuantumSpriteLibrary), "drawPlotIcon"),
             prefix: new HarmonyMethod(typeof(PureMapPatch), nameof(BeforeDrawPlotIcon)));
+        // 平滑国界：悬停、选中的高亮逐像素画(见 SmoothBorders.Highlight)，不叠整块方片
+        harmony.Patch(AccessTools.Method(typeof(QuantumSpriteLibrary), nameof(QuantumSpriteLibrary.colorZones),
+                new[] { typeof(QuantumSpriteAsset), typeof(List<TileZone>), typeof(Color) }),
+            prefix: new HarmonyMethod(typeof(PureMapPatch), nameof(BeforeColorZonesList)));
+        harmony.Patch(AccessTools.Method(typeof(QuantumSpriteLibrary), nameof(QuantumSpriteLibrary.colorZones),
+                new[] { typeof(QuantumSpriteAsset), typeof(ListPool<TileZone>), typeof(Color) }),
+            prefix: new HarmonyMethod(typeof(PureMapPatch), nameof(BeforeColorZonesPool)));
     }
 
     // 夜景灯光：原版按人物与建筑的真实位置点灯，这里人物到处瞬移、建筑不画，灯光会乱飘；
@@ -944,6 +951,9 @@ public class PureMapPatch : GamePatch
     {
         if (PureMapMode.Enabled) Opaque(ref pColor);
     }
+
+    private static bool BeforeColorZonesList(List<TileZone> pZones) => !SmoothBorders.Highlight(pZones);
+    private static bool BeforeColorZonesPool(ListPool<TileZone> pZones) => !SmoothBorders.Highlight(pZones);
 
     // 谋划图标：人物到处瞬移，图标画在参与者所在城市的城心上方(同一座城的参与者左右错开)，不跟着人跳
     private static bool BeforeDrawPlotIcon(QuantumSpriteAsset pAsset, Plot pPlot)

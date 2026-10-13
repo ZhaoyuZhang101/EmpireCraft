@@ -15,6 +15,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 军团模式下逐格推进中已吃下的格子算推进方的(见 FrontSystem.Smooth)，国界跟着前线走；交战双方相接处的边框涂成战线的朱红
 // (原来沿地块边画的战线在平滑模式下不画，见 CorpsMapRenderer)。
 // 水面不归任何国家：领土只涂陆地，国界贴着海岸走，海岸本身不画边框(以前一块地里的水也算这国的，国界画在离岸几格的水上)。
+// 悬停、选中的高亮：原版给那国的每块地叠一张整块的半透明方片(QuantumSpriteLibrary.colorZones)，平滑后仍是方块；
+// 这里改为上色时把归它的像素提亮，形状与国界一致；高亮对象变了才重画相关的地块。
 // ZoneCalculator.applyMetaColorsToZone 的前缀调用(PureMapPatch)：画好这块地的每个像素后跳过原版。
 public static class SmoothBorders
 {
@@ -192,6 +194,73 @@ public static class SmoothBorders
 
     #endregion
 
+    #region 高亮
+
+    private const float HighlightLift = 0.32f;
+    private static readonly HashSet<IMetaObject> CollectMetas = new(), ActiveMetas = new();
+    private static readonly HashSet<int> CollectZones = new(), ActiveZones = new();
+    private static int _collectFrame = -1;
+
+    // QuantumSpriteLibrary.colorZones 的前缀：记下这一帧要高亮哪些地块(及其归属)，不画方片
+    public static bool Highlight(IEnumerable<TileZone> zones)
+    {
+        if (!Enabled || World.world == null || zones == null) return false;
+        MetaTypeAsset layer = World.world.getCachedMapMetaAsset();
+        if (layer == null || layer.map_mode != MetaType.City && layer.tile_get_metaobject == null) return false;
+        int frame = Time.frameCount;
+        if (_collectFrame != frame)
+        {
+            FinishFrame();
+            _collectFrame = frame;
+        }
+        int option = layer.getZoneOptionState();
+        foreach (TileZone zone in zones)
+        {
+            if (zone == null || !CollectZones.Add(zone.id)) continue;
+            IMetaObject meta = LayerMeta(layer, option, zone);
+            if (meta != null) CollectMetas.Add(meta);
+        }
+        return true;
+    }
+
+    // 每帧(ModClass.Update)：上一帧以来没有高亮调用就熄灭
+    public static void FrameTick()
+    {
+        int frame = Time.frameCount;
+        if (_collectFrame == frame || _collectFrame == frame - 1) return;
+        if (ActiveZones.Count == 0 && CollectZones.Count == 0) return;
+        FinishFrame();
+        _collectFrame = frame;
+    }
+
+    // 收齐一帧：高亮对象变了，新旧地块连同四周重画
+    private static void FinishFrame()
+    {
+        bool same = CollectMetas.SetEquals(ActiveMetas) && CollectZones.SetEquals(ActiveZones);
+        if (!same && World.world?.zone_calculator != null)
+        {
+            ZoneCalculator calc = World.world.zone_calculator;
+            var touched = new HashSet<int>(ActiveZones);
+            touched.UnionWith(CollectZones);
+            foreach (int id in touched)
+            {
+                TileZone zone = calc.getZoneByID(id);
+                if (zone == null) continue;
+                for (int dy = -1; dy <= 1; dy++)
+                for (int dx = -1; dx <= 1; dx++)
+                    calc.getZone(zone.x + dx, zone.y + dy)?.resetRenderHelpers();
+            }
+            ActiveMetas.Clear();
+            ActiveMetas.UnionWith(CollectMetas);
+            ActiveZones.Clear();
+            ActiveZones.UnionWith(CollectZones);
+        }
+        CollectMetas.Clear();
+        CollectZones.Clear();
+    }
+
+    #endregion
+
     #region 上色
 
     // 这块地连外面一圈(10×10 格)的归属，画时查表，不对每格和它的四邻反复计算
@@ -244,6 +313,8 @@ public static class SmoothBorders
             if (!ReferenceEquals(owner, native)) ColorsOf(owner, clearInside, ref colorInside, ref colorOutside);
             Color32 color = edge ? colorOutside : colorInside;
             if (owner == null && !foreign) color = new Color32(0, 0, 0, 0);
+            else if (!edge && owner != null && ActiveMetas.Count > 0 && ActiveMetas.Contains(owner) && color.a > 0)
+                color = Color32.Lerp(color, new Color32(255, 255, 255, color.a), HighlightLift);
             // 战线：边框紧挨着交战敌国的领土
             if (edge && frontLayer && (AtWar(owner, x + 1, y, width, height) || AtWar(owner, x - 1, y, width, height) ||
                                        AtWar(owner, x, y + 1, width, height) || AtWar(owner, x, y - 1, width, height)))
