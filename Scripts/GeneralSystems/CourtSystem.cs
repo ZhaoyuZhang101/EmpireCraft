@@ -430,12 +430,12 @@ public static partial class CourtSystem
         return true;
     }
 
-    // 批红者：成年、未被挟制的皇帝亲批；否则权臣代批，再没有就由议程官代批
+    // 批红者：成年、未被挟制、不怠政(昏聩，见 RulerQualitySystem)的皇帝亲批；否则权臣代批，再没有就由议程官代批
     public static (Actor decider, string role) Decider(Empire empire)
     {
         Actor emperor = empire?.Emperor;
         bool emperorRules = emperor?.data != null && !emperor.isRekt() && emperor.isAlive() && emperor.isAdult() &&
-                            !empire.data.is_been_controlled;
+                            !empire.data.is_been_controlled && !RulerQualitySystem.Neglects(emperor);
         if (emperorRules) return (emperor, "emperor");
         Actor minister = empire?.GetPowerfulMinister();
         if (minister != null) return (minister, "minister");
@@ -501,6 +501,8 @@ public static partial class CourtSystem
         if (emperor.hasTrait("paranoid")) stance += devolution ? -1f : centralise ? 0.5f :
             issue == TemporaryFactionType.整顿吏治 ? 0.5f : 0f;
         stance += devolution ? -0.5f : centralise ? 0.5f : 0f;
+        // 荒淫、暴虐之君偏好加税，不肯赈济、整顿吏治(见 RulerQualitySystem)
+        stance += RulerQualitySystem.Stance(emperor, issue);
         return Mathf.Clamp(stance, -1.5f, 1.5f);
     }
 

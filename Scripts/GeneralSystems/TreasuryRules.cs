@@ -17,7 +17,9 @@ public enum TreasuryCategory
     // 什一税(上缴教廷，见 PapacySystem)
     Tithe,
     // 帝国摊派(帝国议会通过后成员国上缴中央，见 HolyRomanSystem.Diet)
-    ImperialLevy
+    ImperialLevy,
+    // 宫廷开支(荒淫之君，见 RulerQualitySystem)
+    Palace
 }
 
 public sealed class TreasuryReport

@@ -238,6 +238,8 @@ public static class ConstitutionalEconomySystem
         MilitaryCoupSystem.Yearly(empire);
         // 西方：教权、加冕、叙任权、什一税
         PapacySystem.Yearly(empire);
+        // 荒淫之君的宫廷开支
+        RulerQualitySystem.Yearly(empire);
         // 神圣罗马式选帝制：选立储君
         HolyRomanSystem.Yearly(empire);
         EmpireBankruptcySystem.Update(empire, state);

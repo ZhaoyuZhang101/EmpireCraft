@@ -738,6 +738,22 @@ def obj_sun(img):
                           rrect([30, 180, 228, 222], 16)), BONE, bevel=12, grain=0.25))
 
 
+def obj_wine(img):
+    """昏聩：一只歪倒的青铜酒爵，酒洒了出来。"""
+    over(img, shade(poly([(64, 96), (190, 96), (172, 168), (84, 168)]), BRASS, bevel=8, gloss=0.9))
+    over(img, shade(rrect([54, 84, 200, 102], 6), BRASS, bevel=5, gloss=0.9))
+    for x0, x1 in ((96, 82), (128, 128), (160, 174)):
+        over(img, shade(lines([[(x0, 166), (x1, 214)]], 9), BRASS, bevel=3))
+    over(img, shade(ellipse([140, 200, 222, 230]), RED, bevel=4, gloss=0.8))
+
+
+def obj_broken_scepter(img):
+    """庸弱：折成两截的玉圭。"""
+    over(img, shade(poly([(128, 26), (152, 52), (148, 118), (108, 118), (104, 52)]), BONE, bevel=7, gloss=0.8))
+    over(img, shade(rotate(poly([(106, 136), (150, 136), (146, 222), (110, 222)]), 22, 128, 180), BONE, bevel=7,
+                    gloss=0.8))
+
+
 TRAITS = {
     "iconJuren": lambda i: obj_branch(i, BRASS),
     "iconGongshi": lambda i: obj_branch(i, BONE),
@@ -748,6 +764,12 @@ TRAITS = {
     "iconEmpireEliteArmy": lambda i: obj_helmet(i, BRASS, BONE),
     "iconFounderRuler": obj_founder,
     "iconRestorerRuler": obj_sun,
+    # 君主资质(见 RulerQualitySystem)：明君 竹简、庸弱 断圭、昏聩 倾爵、荒淫 白花枝、暴虐 钺
+    "iconWiseRuler": obj_bamboo,
+    "iconWeakRuler": obj_broken_scepter,
+    "iconFatuousRuler": obj_wine,
+    "iconDissoluteRuler": lambda i: obj_branch(i, BONE),
+    "iconTyrantRuler": obj_axe,
     # WarBox 外交性格特质：原包没带图标(只有酗酒与兵种两张)，这里按同一画风补上，由 WarBoxCompatibility 挂接
     "warbox_xenophobe": lambda i: obj_lock(i),
     "warbox_cosmopolite": obj_envoy,

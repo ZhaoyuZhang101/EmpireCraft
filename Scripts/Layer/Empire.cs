@@ -3453,6 +3453,8 @@ public class Empire : MetaObject<EmpireData>
         int monthlyChange = PowerfulMinisterRules.MonthlyChange(isRegent, chiefAndLeader, hasSupport,
             HasStrongEmperor(), IsRegencyEnding(), HasVulnerableNewEmperor(),
             PowerfulMinisterRules.IsMandateCollapsed(Mandate));
+        // 庸弱、昏聩、荒淫之君在位，权臣(外戚)坐大更快(见 RulerQualitySystem)
+        if (monthlyChange > 0) monthlyChange += RulerQualitySystem.MinisterBonus(emperor);
         monthlyChange = PowerfulMinisterRules.ApplyMandate(monthlyChange, Mandate);
         monthlyChange = PowerfulMinisterRules.ApplyEmpressDowagerRate(monthlyChange, isEmpressDowager);
         int previousProgress = data.powerful_minister_progress;

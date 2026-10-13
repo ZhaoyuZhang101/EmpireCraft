@@ -347,6 +347,8 @@ public static class ActorExtension
 
     public class ActorExtraData:ExtraDataBase
     {
+        // 君主资质已定(见 RulerQualitySystem.Assess)
+        public bool ruler_assessed;
         // 爵位  
         [JsonConverter(typeof(StringEnumConverter))]
         public PeeragesLevel peeragesLevel;

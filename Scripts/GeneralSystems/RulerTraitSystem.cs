@@ -39,15 +39,23 @@ public static class RulerTraitSystem
             return;
         }
         CheckRestorer(empire, actor);
+        // 明君、庸主、昏君、暴君(见 RulerQualitySystem)
+        RulerQualitySystem.Assess(empire, actor);
     }
 
-    public static void CheckRestorer(Empire empire) => CheckRestorer(empire, empire?.Emperor);
+    // 每年：中兴之主的判定；旧档在位、还没定资质的君主补定
+    public static void CheckRestorer(Empire empire)
+    {
+        CheckRestorer(empire, empire?.Emperor);
+        if (IsMonarchy(empire) && empire.Emperor != null && empire.Emperor.id != empire.data.dynasty_founder_actor_id)
+            RulerQualitySystem.Assess(empire, empire.Emperor);
+    }
 
     private static void CheckRestorer(Empire empire, Actor actor)
     {
         if (!IsMonarchy(empire) || actor == null || !actor.isAlive() ||
             actor.id == empire.data.dynasty_founder_actor_id ||
-            actor.hasTrait(Founder) || actor.hasTrait(Restorer)) return;
+            actor.hasTrait(Founder) || actor.hasTrait(Restorer) || RulerQualitySystem.IsBad(actor)) return;
         if (actor.stats["stewardship"] < RestorerStewardship) return;
         actor.addTrait(Restorer);
         // 极品：中兴雄主，享有开国雄主的全部特性

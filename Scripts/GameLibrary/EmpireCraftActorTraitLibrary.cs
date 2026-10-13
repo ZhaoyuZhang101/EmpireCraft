@@ -135,6 +135,46 @@ public static class EmpireCraftActorTraitLibrary
         });
         lib.t.base_stats["lifespan"] = 10f;
         lib.t.base_stats["multiplier_lifespan"] = 0.3f;
+
+        // 君主资质(即位时定性，效果见 RulerQualitySystem)：明君为正面特质，其余为负面(计入个人品行)
+        lib.add(new ActorTrait
+        {
+            id = RulerQualitySystem.Wise,
+            path_icon = "ui/icons/actor_traits/iconWiseRuler",
+            group_id = "EmpireOffice",
+            type = TraitType.Positive
+        });
+        lib.add(new ActorTrait
+        {
+            id = RulerQualitySystem.Weak,
+            path_icon = "ui/icons/actor_traits/iconWeakRuler",
+            group_id = "EmpireOffice",
+            type = TraitType.Negative
+        });
+        lib.add(new ActorTrait
+        {
+            id = RulerQualitySystem.Fatuous,
+            path_icon = "ui/icons/actor_traits/iconFatuousRuler",
+            group_id = "EmpireOffice",
+            type = TraitType.Negative
+        });
+        lib.t.base_stats["multiplier_lifespan"] = -0.1f;
+        lib.add(new ActorTrait
+        {
+            id = RulerQualitySystem.Dissolute,
+            path_icon = "ui/icons/actor_traits/iconDissoluteRuler",
+            group_id = "EmpireOffice",
+            type = TraitType.Negative
+        });
+        lib.t.base_stats["lifespan"] = -10f;
+        lib.t.base_stats["multiplier_lifespan"] = -0.25f;
+        lib.add(new ActorTrait
+        {
+            id = RulerQualitySystem.Tyrant,
+            path_icon = "ui/icons/actor_traits/iconTyrantRuler",
+            group_id = "EmpireOffice",
+            type = TraitType.Negative
+        });
     }
     public static bool been_soldier(NanoObject pTarget, BaseAugmentationAsset pTrait)
     {

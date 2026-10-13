@@ -45,6 +45,8 @@ public static class DynasticCycleSystem
         float change = DynasticCycleRules.AnnualChange(GetAge(empire), governanceBurden, bankrupt, atWar,
             corruption, interregnum, RulerTraitSystem.ReignedBy(empire.CoreKingdom, RulerTraitSystem.Restorer),
             empire.InFoundingGrace, state.harsh_other_burden);
+        // 明君拉回、昏君暴君加速衰败(见 RulerQualitySystem)
+        if (!interregnum) change += RulerQualitySystem.StrainDelta(empire.Emperor);
         state.dynastic_strain = DynasticCycleRules.Advance(state.dynastic_strain, change);
         MonarchyLegitimacy.Invalidate(empire);
         if (state.dynastic_strain >= DynasticCycleRules.CrisisPressure && !state.dynastic_crisis_announced)

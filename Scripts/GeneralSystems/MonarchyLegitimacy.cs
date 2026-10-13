@@ -49,7 +49,8 @@ public static class MonarchyLegitimacy
         if (empire?.data == null || empire.CoreKingdom == null) return items;
         items.Add(("mandate_governance_base", MonarchyLegitimacyRules.Base));
         bool ruler = empire.Emperor != null && !empire.Emperor.isRekt() && empire.Emperor.isAlive();
-        items.Add((ruler ? "mandate_ruler_order" : "mandate_interregnum", ruler ? 10 : -20));
+        // 君主在位：按资质(见 RulerQualitySystem)，中主 +10
+        items.Add(ruler ? RulerQualitySystem.LegitimacyItem(empire.Emperor) : ("mandate_interregnum", -20));
         if (empire.InFoundingGrace) items.Add(("mandate_founding_order", 10));
         else if (DynasticCycleSystem.GetAge(empire) >= 10)
             items.Add(("mandate_established_order", 5));

@@ -29,7 +29,8 @@ public static class CorruptionSystem
         if (state.last_corruption_snapshot >= 0d && now >= state.last_corruption_snapshot &&
             Date.getYearsSince(state.last_corruption_snapshot) < 1) return;
         // 核心国不向自己上缴税，不能依赖成员国征税 AI 更新中央吏治。
-        core.AddCorruptionRate(AnnualOfficeChange(core.king, core));
+        // 君主资质：明君整肃、昏君荒怠(见 RulerQualitySystem)
+        core.AddCorruptionRate(AnnualOfficeChange(core.king, core) + RulerQualitySystem.CorruptionDelta(core.king));
         RefreshLocalSnapshot(empire);
         state.last_corruption_snapshot = now;
     }
@@ -134,8 +135,11 @@ public static class CorruptionSystem
         Actor ruler = kingdom.king;
         if (ruler == null || ruler.isRekt() || !ruler.isAlive()) return false;
         bool restorer = RulerTraitSystem.ReignedBy(kingdom, RulerTraitSystem.Restorer);
+        // 昏聩、荒淫之君不整顿吏治；明君更常整顿
+        if (RulerQualitySystem.Indulgent(ruler)) return false;
         if (ruler.CalcCorruptionValue() > 0d && !restorer) return false;
-        if (!restorer && UnityEngine.Random.value >= 0.2f)
+        float chance = RulerQualitySystem.Of(ruler) == RulerQualitySystem.Grade.Wise ? 0.4f : 0.2f;
+        if (!restorer && UnityEngine.Random.value >= chance)
             return false;
         if (!TryCampaign(empire, kingdom)) return false;
         EventRecorder.Record(empire, string.Format(LM.Get("anticorruption_campaign_history"), empire.GetEmpireFullName()));
