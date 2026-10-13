@@ -361,8 +361,10 @@ public class PureMapPatch : GamePatch
         public readonly Dictionary<int, Slot[]> zones = new();
         // 建成的地块(有建筑的，连同城心)、都城地标所占的地块
         public readonly HashSet<int> built = new(), landmark = new();
-        public bool walled, axis, burning;
+        public bool walled, axis, burning, moat;
         public int axisX = int.MinValue, axisY = int.MinValue;
+        // 城心那块地的中线：城门只开在这两条线与城墙相交处(东西南北四门)，钟鼓楼、广场、清真寺在两线交点
+        public int gateX = int.MinValue, gateY = int.MinValue, centerZone = -1;
         // 现代城市规划的过渡进度、残破度(0~1)
         public float modern, ruin;
         // 定型的文化系；改建中的目标文化系与进度(见 CityStyleSystem)
@@ -387,6 +389,12 @@ public class PureMapPatch : GamePatch
         "viking" => new Color32(120, 90, 60, 255),
         _ => null
     };
+
+    private static readonly Color32 Ward = new(160, 148, 128, 255), DrumRoof = new(70, 62, 66, 255),
+        Plaza = new(206, 200, 188, 255);
+
+    // 墩台：城墙颜色压暗
+    private static Color32 TowerOf(Color32 wall) => new((byte)(wall.r * 0.7f), (byte)(wall.g * 0.7f), (byte)(wall.b * 0.7f), 255);
 
     private static Color32? AxisOf(string family) => family switch
     {
@@ -536,9 +544,19 @@ public class PureMapPatch : GamePatch
         if (centerZone != null && centerZone.city == city) plan.built.Add(centerZone.id);
         int planned = city.zones.Count(zone => zone != null && ZonePlanSystem.Get(city, zone) != ZoneUse.None);
         bool camp = Camp(plan.family);
-        plan.walled = WallOf(plan.family) != null && (planned > 0 || plan.family == "viking") && plan.built.Count >= 2;
+        // 有城墙的文化，城一有两块地就筑墙；大城(六块以上)华夏、日本、西欧加护城河
+        plan.walled = WallOf(plan.family) != null && plan.built.Count >= 2;
+        plan.moat = plan.walled && plan.built.Count >= 6 && plan.family is "huaxia" or "japan" or "western";
+        if (centerZone != null)
+        {
+            plan.gateX = centerZone.x * Config.CITY_ZONE_SIZE + 4;
+            plan.gateY = centerZone.y * Config.CITY_ZONE_SIZE + 4;
+            plan.centerZone = centerZone.id;
+        }
         bool grand = centerZone != null && plan.built.Count >= 4 && (camp || planned >= 3);
-        if (grand && AxisOf(plan.family) != null)
+        // 中轴：华夏、罗马的城三块地以上就有纵横两条大街(御道、主街)，阿兹特克的堤道要大城
+        bool axial = centerZone != null && (plan.family is "huaxia" or "roma" ? plan.built.Count >= 3 : grand);
+        if (axial && AxisOf(plan.family) != null)
         {
             plan.axis = true;
             plan.axisX = centerZone.x * Config.CITY_ZONE_SIZE + 4;
@@ -632,19 +650,33 @@ public class PureMapPatch : GamePatch
             bool modern = use != ZoneUse.None && plan.modern > 0f && Hash01(zone.id) < plan.modern;
             // 这个地块的布局按哪一系(改建中逐个地块换)
             string family = plan.target != null && Hash01(zone.id * 31L + 99L) < plan.rebuild ? plan.target : plan.family;
-            // 城墙：现代规划后拆成环路；每段在地块中点开城门
+            // 城墙：现代规划后拆成环路；东西南北四门开在城心两条中线上，门两侧与凸角是墩台
             if (plan.walled && OnEdge(tile, plan.built, plan.city))
-                return lx == 4 || ly == 4 ? Lerp(color, Street, 0.6f)
-                    : modern ? Lerp(color, Ring, 0.7f) : Lerp(color, WallOf(plan.family) ?? Ring, 0.85f);
+            {
+                if (tile.x == plan.gateX || tile.y == plan.gateY) return Lerp(color, Street, 0.6f);
+                if (modern) return Lerp(color, Ring, 0.7f);
+                Color32 wall = WallOf(plan.family) ?? Ring;
+                bool tower = Mathf.Abs(tile.x - plan.gateX) == 1 || Mathf.Abs(tile.y - plan.gateY) == 1 || Corner(tile, plan);
+                return Lerp(color, tower ? TowerOf(wall) : wall, 0.85f);
+            }
             if (plan.landmark.Contains(zone.id)) return Landmark(tile, color, plan, lx, ly);
+            if (!modern && Centerpiece(tile, color, plan, family) is Color32 centerpiece) return centerpiece;
             // 中轴大道(华夏御道、罗马主街、阿兹特克堤道)
             if (plan.axis && (tile.x == plan.axisX || tile.y == plan.axisY)) return Lerp(color, AxisOf(plan.family) ?? Street, 0.8f);
             if (modern) return Grid(color, slots, lx, ly, plan, zone, true);
             if (Camp(family)) return CampLayout(color, slots, lx, ly, plan, zone);
+            // 华夏里坊：每块地一坊，四面坊墙、正中开坊门，坊内十字街
+            if (family == "huaxia" && use != ZoneUse.None) return WardLayout(color, slots, lx, ly, plan, zone);
+            // 西欧：街巷弯曲，从广场通向各城门的大街笔直
+            if (family == "western")
+                return tile.x == plan.gateX || tile.y == plan.gateY ? Lerp(color, Street, 0.6f) : Organic(color, slots, lx, ly, plan, zone);
             if (Maze(family))
                 return use != ZoneUse.None && (lx == 4 || ly == 4) ? Lerp(color, Lane, 0.6f) : Organic(color, slots, lx, ly, plan, zone);
             return use == ZoneUse.None ? Organic(color, slots, lx, ly, plan, zone) : Grid(color, slots, lx, ly, plan, zone, false);
         }
+        // 护城河：贴着城墙外侧一圈，城门处是桥
+        if (plan != null && plan.moat && BesideWall(tile, plan))
+            return tile.x == plan.gateX || tile.y == plan.gateY ? Lerp(color, Street, 0.6f) : Lerp(color, Moat, 0.85f);
         if (use == ZoneUse.Farm)
         {
             // 阿兹特克的水上田园：一垄田一道水渠
@@ -652,6 +684,71 @@ public class PureMapPatch : GamePatch
             return Lerp(color, Crop, tile.y % 2 == 0 ? 0.2f : 0.06f);
         }
         return color;
+    }
+
+    // 城墙的凸角：四邻有两格以上在城外
+    private static bool Corner(WorldTile tile, CityPlan plan)
+    {
+        int outside = 0;
+        foreach (WorldTile next in new[] { tile.tile_up, tile.tile_down, tile.tile_left, tile.tile_right })
+            if (next?.zone == null || next.zone.city != plan.city || !plan.built.Contains(next.zone.id)) outside++;
+        return outside >= 2;
+    }
+
+    // 城墙外侧紧挨着的一格(护城河)
+    private static bool BesideWall(WorldTile tile, CityPlan plan)
+    {
+        if (tile.zone != null && plan.built.Contains(tile.zone.id) && tile.zone.city == plan.city) return false;
+        foreach (WorldTile next in new[] { tile.tile_up, tile.tile_down, tile.tile_left, tile.tile_right })
+            if (next?.zone != null && next.zone.city == plan.city && plan.built.Contains(next.zone.id) &&
+                OnEdge(next, plan.built, plan.city)) return true;
+        return false;
+    }
+
+    // 城心的标志(都城地标另画)：华夏钟鼓楼立在两条大街交口；西欧集市广场、北面一座教堂；罗马广场(北面神庙)；
+    // 阿拉伯清真寺院落。两条中线交点为心
+    private static Color32? Centerpiece(WorldTile tile, Color32 color, CityPlan plan, string family)
+    {
+        if (plan.gateX == int.MinValue || plan.built.Count < 2) return null;
+        int dx = tile.x - plan.gateX, dy = tile.y - plan.gateY;
+        switch (family)
+        {
+            case "huaxia":
+                if (Mathf.Abs(dx) > 1 || Mathf.Abs(dy) > 1) return null;
+                return dx == 0 && dy == 0 ? Lerp(color, DrumRoof, 0.95f) : Lerp(color, PalaceWall, 0.9f);
+            case "western":
+            case "roma":
+            {
+                // 教堂、神庙(3×3 图块)在广场北面
+                if (dy >= 3 && dy <= 5 && Mathf.Abs(dx) <= 1 && Icon(StyleIcon(family, "temple")) is Color32[] temple)
+                {
+                    Color32 pixel = temple[(2 - (dy - 3)) * 3 + dx + 1];
+                    return pixel.a == 0 ? Lerp(color, Plaza, 0.85f) : Lerp(color, pixel, 0.9f);
+                }
+                if (dx * dx + dy * dy <= (family == "roma" ? 8 : 6)) return Lerp(color, Plaza, 0.85f);
+                return null;
+            }
+            case "arab":
+            {
+                // 清真寺：外圈院墙、院中礼拜殿、一角宣礼塔
+                if (Mathf.Abs(dx) > 2 || Mathf.Abs(dy) > 2) return null;
+                if (dx == 2 && dy == 2) return Lerp(color, new Color32(244, 240, 228, 255), 0.95f);
+                if (Mathf.Abs(dx) == 2 || Mathf.Abs(dy) == 2) return Lerp(color, new Color32(238, 230, 210, 255), 0.9f);
+                return Mathf.Abs(dx) <= 1 && dy >= 0 ? Lerp(color, new Color32(90, 140, 120, 255), 0.85f)
+                    : Lerp(color, Plaza, 0.85f);
+            }
+        }
+        return null;
+    }
+
+    // 华夏里坊：西、南两边是坊墙(东、北两边是邻坊的墙)，坊墙正中开坊门，坊内十字街分出四个街区
+    private static Color32 WardLayout(Color32 color, Slot[] slots, int lx, int ly, CityPlan plan, TileZone zone)
+    {
+        if (lx == 0 || ly == 0)
+            return (lx == 0 && ly == 4) || (ly == 0 && lx == 4) ? Lerp(color, Street, 0.6f) : Lerp(color, Ward, 0.6f);
+        if (lx == 4 || ly == 4) return Lerp(color, Street, 0.6f);
+        int index = (ly - 1) / 4 * 2 + (lx - 1) / 4;
+        return Building(color, slots, index, (lx - 1) % 4, (ly - 1) % 4, plan, zone);
     }
 
     // 区域的外缘：四邻有一格不在这片区域(或不归这座城)
