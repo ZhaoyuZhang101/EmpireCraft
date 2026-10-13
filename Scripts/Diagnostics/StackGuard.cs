@@ -10,7 +10,7 @@ namespace EmpireCraft.Scripts.Diagnostics;
 
 // 栈快用完时(深递归，多半是存档数据里有环)：把调用链记一次，再抛异常把这次调用退回去，免得整个游戏原生崩溃。
 // 栈溢出时 Unity 连崩溃日志都写不出，系统事件里只留下 worldbox.exe 在 ntdll.dll 访问冲突(0xc0000005)，
-// 本地 10-08 起反复出现。探针放在模组取扩展数据的公共入口(几乎所有模组逻辑每层都会经过)与计时段里，每 32 次查一次栈
+// 本地 10-08 起反复出现。探针放在模组取扩展数据的公共入口(几乎所有模组逻辑每层都会经过)与计时段里，每 4 次查一次栈(查得太疏，触发时剩的栈不够抛异常与写日志，Unity 自己会崩)
 public static class StackGuard
 {
     private static int _counter;
@@ -19,7 +19,7 @@ public static class StackGuard
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void Probe()
     {
-        if ((++_counter & 31) == 0) Check();
+        if ((++_counter & 3) == 0) Check();
     }
 
     private static void Check()

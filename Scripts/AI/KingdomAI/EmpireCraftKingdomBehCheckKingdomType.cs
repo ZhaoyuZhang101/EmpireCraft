@@ -417,7 +417,7 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
         var regime = kingdom.GetRegime();
         if (regime == null) return KingdomType.LvLing_kingdom;
         // 军府(节度使、都护府)世袭之后仍是藩镇：照旧称"某某军"，不因父死子继改成封国
-        if (IsHereditaryGarrison(kingdom, regime)) return kingdom.GetKingdomType();
+        if (IsHereditaryGarrison(kingdom, regime)) return kingdom.GetOrCreate().kingdomType;
         // A hereditary landed title is a vassal kingdom, never an administrative
         // circuit or military governorship left over from an earlier configuration.
         if (regime.type == RegimeType.LvLing && !kingdom.IsEmpire() && kingdom.HasMainTitle() &&
@@ -443,13 +443,15 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
         }
         return  regime.default_kingdom;
     }
-    // 已是军府、节度使改为世袭(仍有外交与兵权)的藩镇
+    // 已是军府、节度使改为世袭(仍有外交与兵权)的藩镇。
+    // 读存下的类别，不能用 GetKingdomType：存的类别不在当前政体的配置里时，GetKingdomType 会回头调 CalcKingdomType，
+    // CalcKingdomType 又调到这里，无限递归到栈溢出，游戏原生闪退(10-08 起 ntdll 0x4a612 那批闪退就是这个)
     public static bool IsHereditaryGarrison(Kingdom kingdom, Regime regime)
     {
         if (kingdom == null || regime == null || regime.type != RegimeType.LvLing || kingdom.IsEmpire() ||
             !kingdom.IsInEmpire() || regime.GetLeaderSelectMethod() != LeaderSelectMethod.Succession ||
             !regime.IsAllowDiplomacy()) return false;
-        KingdomType current = kingdom.GetKingdomType();
+        KingdomType current = kingdom.GetOrCreate().kingdomType;
         return current == KingdomType.LvLing_jiedushi || current == KingdomType.LvLing_duhufu;
     }
 
