@@ -1,3 +1,4 @@
+using EmpireCraft.Scripts.HelperFunc;
 using System.Collections.Generic;
 using System.Linq;
 using EmpireCraft.Scripts.Data;
@@ -402,7 +403,7 @@ namespace EmpireCraft.Scripts.UI.Windows
                 {
                     titleText += " / ";
                 }
-                titleText += $"{history.empire_name}{LM.Get(history.shihao_name)}{LM.Get("emperor_suffix")}";
+                titleText += PosthumousNameGenerator.ShiTitle(history);
             }
 
             return titleText;

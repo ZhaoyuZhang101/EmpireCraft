@@ -134,6 +134,8 @@ public class EmpireData : MetaObjectData
     public long minister_usurper_id { get; set; } = -1L;
     // 当今权臣是外戚(见 ConsortKinSystem)
     public bool powerful_minister_is_consort_kin { get; set; } = false;
+    // 本朝已施行"增广尊谥"：此后有庙号的先帝都得长谥(见 PosthumousNameGenerator)，改朝换代后重来
+    public bool long_posthumous { get; set; }
     // 朝政积弊：六条弊病各 0~100、上次结算(见 MaladySystem)
     public Dictionary<string, float> maladies { get; set; } = new();
     public double last_malady_update { get; set; } = -1d;
@@ -222,6 +224,8 @@ public class EmpireCraftHistory
     public string empire_full_name { get; set; }
     public string royal_surname { get; set; }
     public bool is_first { get; set; } = false;
+    // 明式长谥(本朝施行"增广尊谥"后，见 PosthumousNameGenerator.LongName)：尊谥各字的本地化键，最后一个是本谥
+    public List<string> shihao_long { get; set; }
     public string year_name { get; set; }
     public string emperor { get; set; }
     public string miaohao_name { get; set; }

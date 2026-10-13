@@ -464,6 +464,7 @@ PLOTS = {
     "kingdom_allow_independent": (obj_broken_chain, "check"),
     "empire_take_back_title": (obj_title, "back"),
     "emperor_posthumous_name": (obj_tablet, "star"),
+    "emperor_extend_posthumous": (obj_tablet, "plus"),
     "king_acquire_title": (lambda i: (obj_title(i), obj_swords(i)), None),
     "kingdom_destroy_title": (obj_title, "cross"),
     "kingdom_get_title": (obj_title, "plus"),

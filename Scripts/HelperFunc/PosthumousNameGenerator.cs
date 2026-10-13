@@ -1,3 +1,5 @@
+using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.System;
 using EmpireCraft.Scripts.Layer;
 using NeoModLoader.General;
 using System;
@@ -205,6 +207,93 @@ namespace EmpireCraft.Scripts.HelperFunc
         }
 
         // 候选字按顺序越靠前越贴切：从前三个未用过的里随机；全用过了就在全部候选里随机
+        #region 明式长谥
+
+        // 本朝施行"增广尊谥"(皇帝谋划 emperor_extend_posthumous)之后，有庙号的先帝得长谥：
+        //   "某天某道" + 十二字美谥(开国之君十六字) + 本谥一字 + "皇帝"，如"启天弘道高明肇运圣武神功纯仁至孝文皇帝"；
+        //   明制本谥之前多为"孝"字。无庙号的(失位、末代、早夭)照旧短谥(原型明建文、崇祯)。
+        //   各字是本地化键 honor_shi_<字>，只在中文下显示长谥，英文仍显示短谥。
+        private static readonly string[] HonorHeads =
+            { "开", "启", "敬", "宪", "法", "继", "建", "承", "钦", "契", "范", "崇", "达", "应", "绍", "体" };
+        private static readonly string[] HonorWays =
+            { "行", "弘", "体", "崇", "立", "凝", "明", "达", "履", "隆", "合", "契", "祥", "运", "纪", "极" };
+        private static readonly string[] HonorVirtues =
+        {
+            "英", "明", "神", "圣", "钦", "文", "昭", "武", "宽", "仁", "纯", "诚", "敬", "睿", "哲", "肃", "敦", "简", "光", "章",
+            "安", "毅", "弘", "广", "洪", "恭", "俭", "庄", "渊", "懿", "显", "达", "至", "德", "功", "中", "正", "俊", "义", "大"
+        };
+
+        public static List<string> LongName(string shiKey, bool founder)
+        {
+            string head = HonorHeads[_rng.Next(HonorHeads.Length)];
+            string way = HonorWays.Where(c => c != head).OrderBy(_ => _rng.Next()).First();
+            var keys = new List<string> { Honor(head), Honor("天"), Honor(way), Honor("道") };
+            string shi = LM.Get(shiKey);
+            List<string> virtues = HonorVirtues.Where(c => c != head && c != way && c != shi).OrderBy(_ => _rng.Next())
+                .Take(founder ? 15 : 11).ToList();
+            keys.AddRange(virtues.Select(Honor));
+            keys.Add(Honor("孝"));
+            keys.Add(shiKey);
+            return keys;
+        }
+
+        private static string Honor(string character) => "honor_shi_" + character;
+
+        private static bool ChineseLocale()
+        {
+            string language = LocalizedTextManager.instance?.language;
+            return language == "cz" || language == "ch";
+        }
+
+        // 谥号的显示：有长谥且在中文下为"……孝某皇帝"，否则"国号某帝"
+        public static string ShiTitle(EmpireCraftHistory history)
+        {
+            if (history == null || string.IsNullOrEmpty(history.shihao_name)) return "";
+            if (history.shihao_long is { Count: > 0 } && ChineseLocale())
+                return string.Concat(history.shihao_long.Select(LM.Get)) + LM.Get("emperor_suffix_long");
+            return history.empire_name + LM.Get(history.shihao_name) + LM.Get("emperor_suffix");
+        }
+
+        // 本朝能否施行"增广尊谥"：华夏律令制的皇帝亲政、本朝已有三位以上定了谥号的先帝、正统 50 以上
+        public static bool CanExtend(Actor actor)
+        {
+            Kingdom kingdom = actor?.kingdom;
+            Empire empire = kingdom?.GetEmpire();
+            if (!actor.isKing() || empire == null || empire.CoreKingdom != kingdom || !empire.AllowsPosthumousNames() ||
+                empire.data.long_posthumous || empire.Mandate < 50 || !actor.isAdult() ||
+                kingdom.GetRegime()?.type != Regimes.RegimeType.LvLing) return false;
+            return CurrentDynasty(empire).Count(history => !string.IsNullOrEmpty(history.shihao_name)) >= 3;
+        }
+
+        public static bool Extend(Empire empire, Actor emperor)
+        {
+            if (empire?.data == null || empire.data.long_posthumous) return false;
+            empire.data.long_posthumous = true;
+            foreach (EmpireCraftHistory history in CurrentDynasty(empire))
+            {
+                if (string.IsNullOrEmpty(history.shihao_name) || string.IsNullOrEmpty(history.miaohao_name) ||
+                    history.shihao_long is { Count: > 0 }) continue;
+                history.shihao_long = LongName(history.shihao_name, history.is_first);
+            }
+            string text = string.Format(LM.Get("history_extend_posthumous"), emperor?.getName() ?? "", empire.GetEmpireFullName());
+            empire.RecordHistory(directContent: text, actorId: emperor?.id ?? -1L);
+            TranslateHelper.LogEventMessage(text, empire.CoreKingdom);
+            return true;
+        }
+
+        // 本朝(与最近一位君主同朝号、同姓)的历代君主
+        private static List<EmpireCraftHistory> CurrentDynasty(Empire empire)
+        {
+            List<EmpireCraftHistory> histories = empire?.data?.history ?? new List<EmpireCraftHistory>();
+            EmpireCraftHistory latest = histories.LastOrDefault(history => history != null && !history.is_republic);
+            if (latest == null) return new List<EmpireCraftHistory>();
+            return histories.Where(history => history != null && !history.is_republic &&
+                                              history.dynasty_name == latest.dynasty_name &&
+                                              history.royal_surname == latest.royal_surname).ToList();
+        }
+
+        #endregion
+
         // 先从这一类的候选里挑本朝没用过的；都用过了从同基调的递补字里挑没用过的；再没有才重复
         private static string Pick(string prefix, Dictionary<string, string> table, string[] chars,
             HashSet<string> usedText, string[] fallback = null)

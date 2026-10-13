@@ -200,7 +200,7 @@ namespace EmpireCraft.Scripts.UI.Windows
                 return (string.IsNullOrWhiteSpace(history.empire_full_name) ? history.empire_name : history.empire_full_name) +
                        (history.office_title ?? "");
             if (string.IsNullOrEmpty(history.shihao_name)) return "";
-            string shi = history.empire_name + LM.Get(history.shihao_name) + LM.Get("emperor_suffix");
+            string shi = PosthumousNameGenerator.ShiTitle(history);
             return string.IsNullOrEmpty(history.miaohao_name)
                 ? shi
                 : history.empire_name + LM.Get(history.miaohao_name) + LM.Get(history.miaohao_suffix) + " · " + shi;

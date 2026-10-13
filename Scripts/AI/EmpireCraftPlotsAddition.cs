@@ -1686,6 +1686,9 @@ namespace EmpireCraft.Scripts.AI
                                 cHistory.shihao_name = names.shi;
                                 cHistory.miaohao_name = names.miao;
                                 cHistory.miaohao_suffix = names.miao_suffix;
+                                // 本朝施行"增广尊谥"后，有庙号的先帝得明式长谥
+                                if (empire.data.long_posthumous && names.HasTemple)
+                                    cHistory.shihao_long = PosthumousNameGenerator.LongName(names.shi, cHistory.is_first);
                                 string template = LM.Get(names.HasTemple
                                     ? "history_name_previous_emperor_reason"
                                     : "history_name_previous_emperor_no_temple");
@@ -1693,7 +1696,9 @@ namespace EmpireCraft.Scripts.AI
                                     .Replace("$actor$", empire.Emperor.data.name)
                                     .Replace("$actor2$", cHistory.emperor)
                                     .Replace("$reason$", LM.Get(names.reason))
-                                    .Replace("$shihao$", LM.Get(cHistory.shihao_name))
+                                    .Replace("$shihao$", cHistory.shihao_long is { Count: > 0 }
+                                        ? PosthumousNameGenerator.ShiTitle(cHistory)
+                                        : LM.Get(cHistory.shihao_name))
                                     .Replace("$miaohao$", names.HasTemple
                                         ? LM.Get(cHistory.miaohao_name) + LM.Get(cHistory.miaohao_suffix)
                                         : ""),
@@ -1704,6 +1709,23 @@ namespace EmpireCraft.Scripts.AI
                         }                    
                     }
                     return true;
+                }
+            });
+            // 增广尊谥(皇帝个人的决议)：本朝此后有庙号的先帝都得明式长谥，并为已有庙号的列祖列宗追加尊谥
+            AssetManager.plots_library.add(new PlotAsset
+            {
+                id = "emperor_extend_posthumous",
+                path_icon = "ui/icons/plots/plot_emperor_extend_posthumous",
+                group_id = "empirecraft_diplomacy",
+                is_basic_plot = true,
+                min_level = 1,
+                progress_needed = 30f,
+                can_be_done_by_king = true,
+                check_is_possible = PosthumousNameGenerator.CanExtend,
+                check_should_continue = PosthumousNameGenerator.CanExtend,
+                action = delegate (Actor pActor)
+                {
+                    return PosthumousNameGenerator.Extend(pActor.kingdom?.GetEmpire(), pActor);
                 }
             });
             AssetManager.plots_library.add(new PlotAsset

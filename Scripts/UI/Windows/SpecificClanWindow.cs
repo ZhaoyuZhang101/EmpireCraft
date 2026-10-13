@@ -714,7 +714,7 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
         if (!string.IsNullOrEmpty(history.miaohao_name))
             return $"{history.empire_name}{LM.Get(history.miaohao_name)}{LM.Get(history.miaohao_suffix)}{era}";
         if (!string.IsNullOrEmpty(history.shihao_name))
-            return $"{history.empire_name}{LM.Get(history.shihao_name)}{LM.Get("emperor_suffix")}{era}";
+            return $"{PosthumousNameGenerator.ShiTitle(history)}{era}";
         return string.IsNullOrWhiteSpace(history.year_name)
             ? fallback
             : $"{history.empire_name}{history.year_name}{LM.Get("emperor")}";
