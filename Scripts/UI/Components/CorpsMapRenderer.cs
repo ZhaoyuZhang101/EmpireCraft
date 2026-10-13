@@ -20,6 +20,8 @@ namespace EmpireCraft.Scripts.UI.Components;
 //     军府为马、义军为兵)，右边兵力与兵力条(绿)、组织度条(青)；有统领实体时跟在统领头顶；
 //     同一地块同一国的几支军合并成一块(标"×N"、兵力相加)，不同国并排；镜头拉远、同一国的兵牌在屏幕上挤在一起时
 //     再折叠成一块(拉近分开后各自显示)，悬停详情与点击打开军事页都包括折进来的全部军；
+//     行军不再一格一格跳：每支军、每支舰队记着自己画在哪，换了地块就在一个游戏秒(一次行军结算)里匀速滑过去，
+//     暂停时不动；途中的兵牌单独画在上层(同路同步的几支并成一块)，到位后再并进所在地块的那一块；
 //   · 交战标记：正在交战的城，朱漆框绛红底，两侧是攻守双方国色，中间是本月攻方胜算；
 //   · 舰队兵牌(见 NavySystem)：画在海上，船形图标按舰种(楼船/帆舰/铁甲/现代)，数字是战舰数(+运输船)，
 //     条是战舰编制与组织度；海战标记同交战标记，写本月胜算；
@@ -100,7 +102,71 @@ public static class CorpsMapRenderer
         public string Task;
         public int Count, Rank;
         public float Strength, Full, Org;
+        // 行军途中(还没滑到所在地块)：不与别的兵牌折叠，不按地块错开
+        public bool Moving;
         public readonly List<int> Zones = new();
+    }
+
+    // 兵牌画在哪：换了目标就定一个速度，在 GlideSeconds 个游戏秒里匀速滑过去
+    private struct Glider
+    {
+        public Vector3 At, Target;
+        public float Speed;
+    }
+
+    // 军团每游戏秒行军一次(见 CorpsSystem.SecondTick)，舰队同样
+    private const float GlideSeconds = 1f;
+    // 慢于这个速度(格/游戏秒)就太拖沓了
+    private const float MinGlideSpeed = 4f;
+    // 一下子挪得太远(新征召、读档、跨海直接到位)就直接放过去，不滑
+    private const float SnapDistance = 160f;
+    // 途中几支军相距这么近(格)就并成一块画
+    private const float MoverMerge = 1.5f;
+
+    private static Dictionary<long, Glider> _corpsGliders = new(), _nextCorpsGliders = new();
+    private static Dictionary<long, Glider> _fleetGliders = new(), _nextFleetGliders = new();
+    private static readonly List<CounterGroup> Movers = new();
+    private static double _lastWorldTime = -1d;
+    private static MapBox _glideWorld;
+
+    private static float WorldDelta()
+    {
+        if (!ReferenceEquals(_glideWorld, World.world))
+        {
+            _glideWorld = World.world;
+            _corpsGliders.Clear();
+            _fleetGliders.Clear();
+            _lastWorldTime = -1d;
+        }
+        double now = World.world.getCurWorldTime();
+        double delta = _lastWorldTime < 0d || now < _lastWorldTime ? 0d : now - _lastWorldTime;
+        _lastWorldTime = now;
+        return (float)Math.Min(delta, 5d);
+    }
+
+    private static Glider Glide(Dictionary<long, Glider> gliders, long id, Vector3 target, float delta)
+    {
+        if (!gliders.TryGetValue(id, out Glider glider) || (target - glider.At).sqrMagnitude > SnapDistance * SnapDistance)
+            return new Glider { At = target, Target = target };
+        if (glider.Target != target)
+        {
+            glider.Target = target;
+            glider.Speed = Mathf.Max(MinGlideSpeed, (target - glider.At).magnitude / GlideSeconds);
+        }
+        glider.At = Vector3.MoveTowards(glider.At, target, glider.Speed * delta);
+        return glider;
+    }
+
+    private static void Add(CounterGroup group, CorpsData corps, TileZone zone)
+    {
+        group.Count++;
+        group.Rank = Mathf.Max(group.Rank, Rank(corps));
+        group.Strength += corps.strength;
+        group.Full += corps.full;
+        group.Org += corps.org;
+        // 进攻优先显示，其次防守
+        if (corps.task == "attack" || corps.task == "defend" && group.Task != "attack") group.Task = corps.task;
+        if (group.Moving && !group.Zones.Contains(zone.id)) group.Zones.Add(zone.id);
     }
 
     // 折叠后每块兵牌包括哪些地块(键：代表地块 + 国)，悬停详情与点击用
@@ -400,31 +466,52 @@ public static class CorpsMapRenderer
         float zoom = Mathf.Clamp(40f / Mathf.Max(1f, camera.orthographicSize), 0.85f, 1.15f);
         Vector3 pixelScale = Vector3.one * (zoom / scale);
 
-        // 兵牌：同一地块同一国的军合并成一块，不同国并排
+        // 兵牌：同一地块同一国、已经到位的军合并成一块，不同国并排；行军途中的按画的位置滑过去
+        float glideDelta = WorldDelta();
         Groups.Clear();
+        Movers.Clear();
+        _nextCorpsGliders.Clear();
         foreach ((Kingdom kingdom, CorpsData corps) in CorpsSystem.All())
         {
             if (!ShowsCorps(kingdom, corps)) continue;
             TileZone zone = CorpsSystem.Zone(corps);
             if (zone?.centerTile == null) continue;
-            var key = (zone.id, kingdom.id);
-            if (!Groups.TryGetValue(key, out CounterGroup group))
-            {
-                group = new CounterGroup { Kingdom = kingdom, Zone = zone, World = zone.centerTile.posV, Task = corps.task };
-                Groups[key] = group;
-            }
-            group.Count++;
-            group.Rank = Mathf.Max(group.Rank, Rank(corps));
-            group.Strength += corps.strength;
-            group.Full += corps.full;
-            group.Org += corps.org;
-            // 进攻优先显示，其次防守
-            if (corps.task == "attack" || corps.task == "defend" && group.Task != "attack") group.Task = corps.task;
+            // 有统领实体时跟在统领头顶
             Actor general = corps.general_id >= 0 ? World.world.units.get(corps.general_id) : null;
-            if (group.Count == 1 && general?.data != null && !general.isRekt() && general.isAlive() &&
-                general.current_tile?.zone != null && CorpsSystem.ZoneDistance(general.current_tile.zone, zone) <= 2f)
-                group.World = (Vector3)general.current_position + new Vector3(0f, 3f);
+            bool follows = general?.data != null && !general.isRekt() && general.isAlive() &&
+                           general.current_tile?.zone != null && CorpsSystem.ZoneDistance(general.current_tile.zone, zone) <= 2f;
+            Vector3 target = follows ? (Vector3)general.current_position + new Vector3(0f, 3f) : zone.centerTile.posV;
+            // 统领实体自己在走，兵牌直接跟着，不再另外滑
+            Glider glider = follows ? new Glider { At = target, Target = target } : Glide(_corpsGliders, corps.id, target, glideDelta);
+            _nextCorpsGliders[corps.id] = glider;
+            CounterGroup group;
+            if (follows || glider.At == target)
+            {
+                var key = (zone.id, kingdom.id);
+                if (!Groups.TryGetValue(key, out group))
+                {
+                    group = new CounterGroup { Kingdom = kingdom, Zone = zone, World = glider.At, Task = corps.task };
+                    Groups[key] = group;
+                }
+            }
+            else
+            {
+                group = null;
+                foreach (CounterGroup mover in Movers)
+                    if (mover.Kingdom == kingdom && (mover.World - glider.At).sqrMagnitude < MoverMerge * MoverMerge)
+                    {
+                        group = mover;
+                        break;
+                    }
+                if (group == null)
+                {
+                    group = new CounterGroup { Kingdom = kingdom, Zone = zone, World = glider.At, Task = corps.task, Moving = true };
+                    Movers.Add(group);
+                }
+            }
+            Add(group, corps, zone);
         }
+        (_corpsGliders, _nextCorpsGliders) = (_nextCorpsGliders, _corpsGliders);
         // 折叠：同一国的兵牌在屏幕上会互相压住时并成一块(先放兵力大的，挨着它的并进去)
         Folded.Clear();
         FoldedZones.Clear();
@@ -457,6 +544,15 @@ public static class CorpsMapRenderer
             into.Zones.Add(group.Zone.id);
         }
         foreach (CounterGroup group in Folded) FoldedZones[(group.Zone.id, group.Kingdom.id)] = group.Zones;
+        // 途中的兵牌画在已到位的上面，不折叠
+        foreach (CounterGroup group in Movers)
+        {
+            group.Screen = camera.WorldToScreenPoint(group.World);
+            if (!OnScreen(group.Screen, 80f)) continue;
+            Folded.Add(group);
+            var key = (group.Zone.id, group.Kingdom.id);
+            if (!FoldedZones.ContainsKey(key)) FoldedZones[key] = group.Zones;
+        }
 
         StackOffsets.Clear();
         foreach (CounterGroup group in Folded)
@@ -487,9 +583,13 @@ public static class CorpsMapRenderer
             Place(counter.Org.rectTransform, Vector2.zero, Vector2.zero, new Vector2(25f, 6f),
                 new Vector2(25f + barLength * org, 8f));
             counter.Org.color = org < 0.3f ? OrgLowColor : OrgColor;
-            // 同一地块的第二国、第三国往右错开
-            StackOffsets.TryGetValue(group.Zone.id, out float offset);
-            StackOffsets[group.Zone.id] = offset + width + 3f;
+            // 同一地块的第二国、第三国往右错开(途中的不错开)
+            float offset = 0f;
+            if (!group.Moving)
+            {
+                StackOffsets.TryGetValue(group.Zone.id, out offset);
+                StackOffsets[group.Zone.id] = offset + width + 3f;
+            }
             Vector3 center = screen + new Vector3(offset * zoom, 0f);
             counter.Root.position = center;
             Hits.Add(new Hit
@@ -530,12 +630,16 @@ public static class CorpsMapRenderer
         }
 
         // 舰队兵牌
+        _nextFleetGliders.Clear();
         foreach ((Kingdom kingdom, FleetData fleet) in NavySystem.All())
         {
             if (fleet.warships + fleet.transports <= 0) continue;
             TileZone zone = CorpsSystem.ZoneById(fleet.zone_id);
             if (zone?.centerTile == null) continue;
-            Vector3 screen = camera.WorldToScreenPoint(zone.centerTile.posV);
+            Glider glider = Glide(_fleetGliders, fleet.id, zone.centerTile.posV, glideDelta);
+            _nextFleetGliders[fleet.id] = glider;
+            bool sailing = glider.At != glider.Target;
+            Vector3 screen = camera.WorldToScreenPoint(glider.At);
             if (!OnScreen(screen, 80f)) continue;
             Counter counter = GetCounter(counterCount++);
             counter.Root.gameObject.SetActive(true);
@@ -561,8 +665,12 @@ public static class CorpsMapRenderer
             Place(counter.Org.rectTransform, Vector2.zero, Vector2.zero, new Vector2(25f, 6f),
                 new Vector2(25f + barLength * org, 8f));
             counter.Org.color = org < 0.3f ? OrgLowColor : OrgColor;
-            StackOffsets.TryGetValue(zone.id, out float offset);
-            StackOffsets[zone.id] = offset + width + 3f;
+            float offset = 0f;
+            if (!sailing)
+            {
+                StackOffsets.TryGetValue(zone.id, out offset);
+                StackOffsets[zone.id] = offset + width + 3f;
+            }
             Vector3 center = screen + new Vector3(offset * zoom, 0f);
             counter.Root.position = center;
             Hits.Add(new Hit
@@ -571,6 +679,8 @@ public static class CorpsMapRenderer
                 Center = center, Half = new Vector2(width, CounterHeight) * (0.5f * zoom)
             });
         }
+
+        (_fleetGliders, _nextFleetGliders) = (_nextFleetGliders, _fleetGliders);
 
         // 海战标记
         foreach (NavySystem.BattleView battle in NavySystem.Battles.Values)
