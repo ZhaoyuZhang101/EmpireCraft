@@ -19,14 +19,18 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     运输船在败方损失最重，船上的登陆部队随之折损；
 //   · 制海权：海区里只剩一方的舰队就归它；三个月没有舰队就失效；
 //   · 运兵(硬限制，见 FrontSystem)：跨海登陆要有一条从本国港口出发、不经过敌方制海海区的航线，
-//     且运输船的总运力(每艘 1500 人 × 舰种)装得下派去登陆的军；
+//     且运输船的总运力装得下派去登陆的军；每艘运力按时代：楼船 200 人、远洋帆船 400、蒸汽运兵船 1500、现代运兵船 3000
+//     (以前每艘 1500 × 舰种倍数，现代两艘就运 1.2 万人)；
 //   · 封锁：港口外的海区被敌方控制，港口的海上商路中断、跨海建城暂停，海外登陆部队断了补给。
 //   · 旗舰：开着「军团统领实体」时每支舰队一艘旗舰(原版运兵船，挂在母港码头)跟着兵牌走；关掉就只有兵牌。
 public static class NavySystem
 {
     private const int MaxRegionsPerMonth = 3;
     private const int ControlMonths = 3;
-    private const float TransportCapacityBase = 1500f;
+    // 每艘运输船载多少人(按舰种，见 ShipCapacity)
+    private const float AncientCapacity = 200f, SailCapacity = 400f, SteamCapacity = 1500f, ModernCapacity = 3000f;
+    // 有跨海登陆的需要时，各港合计至少造够运下本国最大一支军的运输船，每港至多再多造几艘
+    private const int MaxLandingTransportsPerPort = 30;
     private const float RetreatOrg = 25f;
     private const float PortOrg = 15f;
     private const float SeaOrg = 4f;
@@ -101,6 +105,15 @@ public static class NavySystem
     }
 
     // 舰种(战力倍率)：楼船 1 / 远洋帆舰 1.5 / 蒸汽铁甲 2.5 / 现代舰艇 4
+    // 每艘运输船载多少人：楼船 200、远洋帆船 400、蒸汽运兵船 1500、现代运兵船 3000
+    public static float ShipCapacity(Kingdom kingdom) => Tier(kingdom) switch
+    {
+        >= 4f => ModernCapacity,
+        >= 2.5f => SteamCapacity,
+        >= 1.5f => SailCapacity,
+        _ => AncientCapacity
+    };
+
     public static float Tier(Kingdom kingdom)
     {
         string culture = kingdom?.capital == null ? null : TechnologySystem.GetCultureOf(kingdom.capital);
@@ -122,10 +135,10 @@ public static class NavySystem
     public static float TransportCapacity(Kingdom kingdom)
     {
         if (kingdom == null) return 0f;
-        float capacity = Of(kingdom).Sum(fleet => fleet.transports) * TransportCapacityBase * Tier(kingdom);
+        float capacity = Of(kingdom).Sum(fleet => fleet.transports) * ShipCapacity(kingdom);
         Kingdom realm = FrontSystem.Realm(kingdom);
         if (realm != null && realm != kingdom)
-            capacity += Of(realm).Sum(fleet => fleet.transports) * TransportCapacityBase * Tier(realm);
+            capacity += Of(realm).Sum(fleet => fleet.transports) * ShipCapacity(realm);
         return capacity;
     }
 
@@ -307,13 +320,21 @@ public static class NavySystem
         }
     }
 
-    // 造舰：每港定额(太平 战舰 2 + 运输 1；交战或战备 战舰 6 + 运输 4，有跨海登陆的需要再多 4 艘运输)，
+    // 造舰：每港定额(太平 战舰 2 + 运输 1；交战或战备 战舰 6 + 运输 4；有跨海登陆的需要时，各港合计再多造够
+    // 运下本国最大一支军的运输船，按港口数分摊，每港至多再多 MaxLandingTransportsPerPort 艘)，
     // 港口每升一级定额 +50%；每港每月下水 0.5 艘(交战 1 艘)，先造缺得多的；钱从国库出，没钱就停
     private static void Build(Kingdom kingdom, List<City> ports)
     {
         bool war = CorpsSystem.IsAtWar(kingdom);
         bool landing = DesiredLanding.ContainsKey(kingdom.id);
         float tier = Tier(kingdom);
+        int landingExtra = 0;
+        if (landing)
+        {
+            float biggest = CorpsSystem.Of(kingdom).Select(corps => corps.strength).DefaultIfEmpty(0f).Max();
+            int ships = Mathf.CeilToInt(biggest / ShipCapacity(kingdom));
+            landingExtra = Mathf.Clamp(Mathf.CeilToInt(ships / (float)Mathf.Max(1, ports.Count)), 4, MaxLandingTransportsPerPort);
+        }
         foreach (FleetData fleet in Of(kingdom))
         {
             City home = Home(fleet);
@@ -321,7 +342,7 @@ public static class NavySystem
             if (port == null || fleet.task == "retreat" && fleet.region_id != HomeRegion(fleet)?.Id) continue;
             float level = 1f + 0.5f * Mathf.Clamp(port.asset.upgrade_level, 0, 3);
             int wantWar = Mathf.RoundToInt((war ? 6 : 2) * level);
-            int wantTransport = Mathf.RoundToInt(((war ? 4 : 1) + (landing ? 4 : 0)) * level);
+            int wantTransport = Mathf.RoundToInt((war ? 4 : 1) * level) + landingExtra;
             int lackWar = wantWar - fleet.warships, lackTransport = wantTransport - fleet.transports;
             if (lackWar <= 0 && lackTransport <= 0) continue;
             fleet.build_progress += war ? 1f : 0.5f;

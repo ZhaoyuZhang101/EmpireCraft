@@ -1223,7 +1223,7 @@ public static class CorpsMapRenderer
         tooltip.addLineText(LM.Get("navy_tip_tier"), LM.Get(NavySystem.TierKey(kingdom)), "#F3C34A", pPercent: false,
             pLocalize: false, pLimitValue: 40);
         tooltip.addLineText(LM.Get("navy_tip_warships"), fleet.warships.ToString(), "#65D66E", pPercent: false, pLocalize: false);
-        float capacity = fleet.transports * 1500f * NavySystem.Tier(kingdom);
+        float capacity = fleet.transports * NavySystem.ShipCapacity(kingdom);
         tooltip.addLineText(LM.Get("navy_tip_transports"),
             string.Format(LM.Get("navy_tip_capacity"), fleet.transports, CorpsSystem.ShortStrength(capacity)), "#C8C2B4",
             pPercent: false, pLocalize: false, pLimitValue: 40);
