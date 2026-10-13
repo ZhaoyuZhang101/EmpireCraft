@@ -83,6 +83,8 @@ public class PureMapPatch : GamePatch
             prefix: new HarmonyMethod(typeof(PureMapPatch), nameof(BeforeMakeRoad)));
         harmony.Patch(AccessTools.Method(typeof(QuantumSpriteLibrary), "drawLightAreas"),
             prefix: new HarmonyMethod(typeof(PureMapPatch), nameof(BeforeDrawLights)));
+        harmony.Patch(AccessTools.Method(typeof(QuantumSpriteLibrary), "drawPlotIcon"),
+            prefix: new HarmonyMethod(typeof(PureMapPatch), nameof(BeforeDrawPlotIcon)));
     }
 
     // 夜景灯光：原版按人物与建筑的真实位置点灯，这里人物到处瞬移、建筑不画，灯光会乱飘；
@@ -932,6 +934,34 @@ public class PureMapPatch : GamePatch
     private static void BeforeColorZone(ref Color32 pColor)
     {
         if (PureMapMode.Enabled) Opaque(ref pColor);
+    }
+
+    // 谋划图标：人物到处瞬移，图标画在参与者所在城市的城心上方(同一座城的参与者左右错开)，不跟着人跳
+    private static bool BeforeDrawPlotIcon(QuantumSpriteAsset pAsset, Plot pPlot)
+    {
+        if (!PureMapMode.Enabled || pPlot?.units == null) return true;
+        int index = 0;
+        foreach (Actor unit in pPlot.units)
+        {
+            if (unit == null || unit.isRekt() || unit.current_zone == null) continue;
+            City city = unit.city;
+            WorldTile anchor = city?.getTile();
+            Vector3 position = anchor != null ? (Vector3)anchor.posV : unit.current_position;
+            TileZone zone = anchor?.zone ?? unit.current_zone;
+            if (zone == null || !zone.visible) continue;
+            float lift = 5.5f * QuantumSpriteLibrary.getCameraScaleZoomMultiplier(pAsset);
+            if (city != null) lift *= city.mark_scale_effect;
+            position.y += lift;
+            position.x += (index++ - (pPlot.units.Count - 1) * 0.5f) * lift * 0.6f;
+            QuantumSprite sprite = QuantumSpriteLibrary.drawQuantumSprite(pAsset, position, null, null, city, null,
+                pPlot.transition_animation);
+            Sprite icon = pPlot.getSprite();
+            sprite.setSprite(icon);
+            CircleIconShaderMod shader = sprite.GetComponent<CircleIconShaderMod>();
+            shader.sprite_renderer_with_mat.sprite = icon;
+            shader.setShaderVal(pPlot.getProgressMod());
+        }
+        return false;
     }
 
     private static bool BeforeGoTo(Actor pActor, WorldTile pTileTarget, ref ExecuteEvent __result)
