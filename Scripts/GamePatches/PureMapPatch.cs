@@ -25,6 +25,12 @@ namespace EmpireCraft.Scripts.GamePatches;
 //     民居进居住区、工厂矿场进工业区、市场进商业区、兵营进军事区、官署寺庙进城心，没规划的地块从城心往外按圈放，
 //     城越大城心的楼越高，码头放临水的地块；农田地块画淡绿条垄；
 //     城与城之间(同一片陆地、相邻)连黄色干道。本模式下不再实际铺路，地上已有的路格也不画出来。
+//     规划决议有分量：国家规划过(划了用途)的地块横平竖直、有白色街格；没规划的地块自发生长，没有方正的街格，
+//     房子错落、中间是弯曲的土路小巷。规划过的城(至少一块规划地、建成两块以上)四面有城墙，每段在地块中点开城门；
+//     华夏的城规划成片(三块以上规划地、建成四块以上)时穿城心有南北中轴御道与东西大街，都城的城心(大城连北面一块)是宫城——
+//     朱红宫墙、白石广场，殿宇沿中轴对称摆满；研究出"现代城市规划"后约二十年间，规划过的地块逐块转成现代格局：
+//     城墙拆成环路，地块边换成大道，没规划的老城区照旧(城中村)。屠城、战乱后按残破度把一部分街区画成废墟
+//     (新近或正在交战的焦黑带火光，年久的灰色瓦砾，二十年后复原)。
 //     建筑与规划会变，每秒轮流重画一批城的地块，约十秒全图刷新一遍；
 //   · 国家图层下，帝国与外国接壤的陆上边界画成金色，帝国内部各成员之间照旧；海岸、湖泊、无主荒地不描金
 //     (原来连这些也描，整片海岸线和境内每块荒地周围都是金线，看不出哪里才是国界)；
@@ -188,7 +194,7 @@ public class PureMapPatch : GamePatch
             if (border != null && border.border && (up && border.border_up || down && border.border_down ||
                                                     left && border.border_left || right && border.border_right)) continue;
             Color32 shaded = Shade(tile, pixels[id]);
-            pixels[id] = Plan(tile, shaded, use, slots, tile.x - ox, tile.y - oy);
+            pixels[id] = Plan(tile, shaded, use, slots, tile.x - ox, tile.y - oy, plan, zone);
         }
     }
 
@@ -204,8 +210,21 @@ public class PureMapPatch : GamePatch
     private sealed class CityPlan
     {
         public float at;
+        public City city;
         public readonly Dictionary<int, Slot[]> zones = new();
+        // 建成的地块(有建筑的，连同城心)、宫城地块
+        public readonly HashSet<int> built = new(), palace = new();
+        public bool walled, classic, burning;
+        public int axisX = int.MinValue, axisY = int.MinValue;
+        // 现代城市规划的过渡进度、残破度(0~1)
+        public float modern, ruin;
     }
+
+    private const string ModernPlanningTech = "modern_urban_planning";
+    private const float ModernYears = 20f, RuinYears = 20f;
+    private static readonly Color32 Wall = new(124, 112, 100, 255), Ring = new(210, 210, 214, 255),
+        Imperial = new(232, 200, 130, 255), PalaceWall = new(170, 60, 45, 255), Marble = new(244, 240, 230, 255),
+        Lane = new(214, 200, 170, 255);
 
     private const float PlanSeconds = 5f, HighwaySeconds = 30f;
     private static readonly Dictionary<long, CityPlan> Plans = new();
@@ -321,8 +340,57 @@ public class PureMapPatch : GamePatch
             if (ZonePlanSystem.Get(city, zone) == ZoneUse.Farm) continue;
             Fill(plan, zone, queues, order);
         }
+        Layout(plan, city, culture, centerZone);
         return plan;
     }
+
+    // 城池格局：城墙(规划过的城)、华夏的中轴与宫城、现代规划过渡、残破度
+    private static void Layout(CityPlan plan, City city, string culture, TileZone centerZone)
+    {
+        plan.city = city;
+        foreach (int id in plan.zones.Keys) plan.built.Add(id);
+        if (centerZone != null && centerZone.city == city) plan.built.Add(centerZone.id);
+        int planned = city.zones.Count(zone => zone != null && ZonePlanSystem.Get(city, zone) != ZoneUse.None);
+        plan.walled = planned > 0 && plan.built.Count >= 2;
+        plan.classic = culture == "Huaxia" && planned >= 3 && plan.built.Count >= 4 && centerZone != null;
+        if (plan.classic)
+        {
+            plan.axisX = centerZone.x * Config.CITY_ZONE_SIZE + 4;
+            plan.axisY = centerZone.y * Config.CITY_ZONE_SIZE + 4;
+            if (city.isCapitalCity())
+            {
+                plan.palace.Add(centerZone.id);
+                TileZone north = World.world.zone_calculator.getZone(centerZone.x, centerZone.y + 1);
+                if (plan.built.Count >= 9 && north != null && north.city == city)
+                {
+                    plan.palace.Add(north.id);
+                    plan.built.Add(north.id);
+                }
+            }
+        }
+        var tech = TechnologySystem.GetState(culture);
+        if (tech?.timestamps != null && tech.timestamps.TryGetValue("tech:" + ModernPlanningTech, out double since) &&
+            TechnologySystem.HasTech(culture, ModernPlanningTech))
+            plan.modern = Mathf.Clamp01(Date.getYearsSince(since) / ModernYears);
+        // 残破：屠城死难占全城的比例，随年头淡去；正在交战再加一层
+        var data = city.GetOrCreate();
+        float population = CityPopulationSystem.GetBackgroundTotal(city);
+        if (data.massacre_last >= 0d && data.massacre_victims > 0)
+        {
+            float years = Date.getYearsSince(data.massacre_last);
+            float share = data.massacre_victims / Mathf.Max(1f, data.massacre_victims + population);
+            plan.ruin = Mathf.Clamp01(share * 1.5f) * Mathf.Clamp01(1f - years / RuinYears);
+            plan.burning = years < 2f;
+        }
+        if (FrontSystem.Battles.ContainsKey(city.data.id))
+        {
+            plan.ruin = Mathf.Max(plan.ruin, 0.25f);
+            plan.burning = true;
+        }
+    }
+
+    // 0~1 的稳定散列(地块、街区按它决定先后转现代、是否成废墟)
+    private static float Hash01(long value) => (uint)(value * 2654435761L) / 4294967296f;
 
     private static void Fill(CityPlan plan, TileZone zone, Dictionary<Kind, Queue<string>> queues, Kind[] wants)
     {
@@ -355,23 +423,85 @@ public class PureMapPatch : GamePatch
         };
     }
 
-    // 一格：有建筑的地块画街格与街区里的建筑图块；农田画条垄；其余照地形，干道压在上面
-    private static Color32 Plan(WorldTile tile, Color32 color, ZoneUse use, Slot[] slots, int lx, int ly)
+    // 一格：建成的地块按格局画(城墙、宫城、中轴、规划过的街格或自发的小巷、街区里的建筑图块)；农田画条垄；
+    // 其余照地形，干道压在上面
+    private static Color32 Plan(WorldTile tile, Color32 color, ZoneUse use, Slot[] slots, int lx, int ly, CityPlan plan, TileZone zone)
     {
-        if (slots != null && lx >= 0 && lx < 8 && ly >= 0 && ly < 8)
+        if (tile.Type != null && tile.Type.liquid) return color;
+        bool built = plan != null && plan.built.Contains(zone.id);
+        if (built && lx >= 0 && lx < 8 && ly >= 0 && ly < 8)
         {
-            if (lx % 4 == 0 || ly % 4 == 0) return Lerp(color, Street, 0.6f);
-            int px = (lx - 1) % 4, py = (ly - 1) % 4;
-            Slot slot = slots[(ly - 1) / 4 * 2 + (lx - 1) / 4];
-            Color32 baseColor = Lerp(color, Block, 0.3f);
-            Color32[] icon = slot.used ? Icon(slot.icon) : null;
-            if (icon == null) return slot.used ? Lerp(color, Block, 0.55f) : baseColor;
-            Color32 pixel = icon[(2 - py) * 3 + px];
-            return pixel.a == 0 ? baseColor : Lerp(baseColor, pixel, 0.9f);
+            bool modern = use != ZoneUse.None && plan.modern > 0f && Hash01(zone.id) < plan.modern;
+            // 城墙：现代规划后拆成环路；每段在地块中点开城门
+            if (plan.walled && OnEdge(tile, plan.built, plan.city))
+                return lx == 4 || ly == 4 ? Lerp(color, Street, 0.6f) : modern ? Lerp(color, Ring, 0.7f) : Lerp(color, Wall, 0.85f);
+            if (plan.palace.Contains(zone.id)) return Palace(tile, color, plan, lx, ly);
+            // 中轴御道、东西大街
+            if (plan.classic && (tile.x == plan.axisX || tile.y == plan.axisY)) return Lerp(color, Imperial, 0.8f);
+            return use == ZoneUse.None ? Organic(color, slots, lx, ly, plan, zone) : Grid(color, slots, lx, ly, plan, zone, modern);
         }
         if (Highways.Contains(tile.data.tile_id)) return Lerp(color, Highway, 0.7f);
         if (use == ZoneUse.Farm) return Lerp(color, Crop, tile.y % 2 == 0 ? 0.2f : 0.06f);
         return color;
+    }
+
+    // 区域的外缘：四邻有一格不在这片区域(或不归这座城)
+    private static bool OnEdge(WorldTile tile, HashSet<int> region, City city)
+    {
+        return Outside(tile.tile_up) || Outside(tile.tile_down) || Outside(tile.tile_left) || Outside(tile.tile_right);
+        bool Outside(WorldTile next) => next?.zone == null || next.zone.city != city || !region.Contains(next.zone.id);
+    }
+
+    // 规划过的地块：白色街格切出四个街区，建筑图块整齐摆进去；现代格局的地块边换成大道
+    private static Color32 Grid(Color32 color, Slot[] slots, int lx, int ly, CityPlan plan, TileZone zone, bool modern)
+    {
+        if (lx % 4 == 0 || ly % 4 == 0)
+            return modern && (lx == 0 || ly == 0) ? Lerp(color, Ring, 0.75f) : Lerp(color, Street, 0.6f);
+        int index = (ly - 1) / 4 * 2 + (lx - 1) / 4;
+        return Building(color, slots, index, (lx - 1) % 4, (ly - 1) % 4, plan, zone);
+    }
+
+    // 没规划的地块：自发生长，弯曲的土路小巷穿过，房子在四个角落里错落摆放
+    private static Color32 Organic(Color32 color, Slot[] slots, int lx, int ly, CityPlan plan, TileZone zone)
+    {
+        uint hash = (uint)(zone.id * 2654435761L);
+        int laneX = 3 + (int)((hash >> (ly % 8 * 2)) & 1);
+        int laneY = 3 + (int)((hash >> (16 + lx % 8 * 2)) & 1);
+        if (lx == laneX || ly == laneY) return Lerp(color, Lane, 0.45f);
+        int qx = lx < 4 ? 0 : 1, qy = ly < 4 ? 0 : 1;
+        int index = qy * 2 + qx;
+        // 每个角落里的房子错开一格摆
+        int ox = (int)((hash >> (index * 2)) & 1), oy = (int)((hash >> (8 + index * 2)) & 1);
+        int px = lx - qx * 4 - ox, py = ly - qy * 4 - oy;
+        if (px < 0 || px > 2 || py < 0 || py > 2) return Lerp(color, Block, 0.12f);
+        return Building(color, slots, index, px, py, plan, zone);
+    }
+
+    // 街区里的建筑：残破的画废墟，否则画这座建筑的图块；空街区只铺底色
+    private static Color32 Building(Color32 color, Slot[] slots, int index, int px, int py, CityPlan plan, TileZone zone)
+    {
+        Color32 baseColor = Lerp(color, Block, 0.3f);
+        if (slots == null || index < 0 || index >= slots.Length || !slots[index].used) return baseColor;
+        string name = plan.ruin > 0f && Hash01(zone.id * 4L + index + 7L) < plan.ruin
+            ? (plan.burning ? "burning" : "ruin")
+            : slots[index].icon;
+        Color32[] icon = Icon(name);
+        if (icon == null) return Lerp(color, Block, 0.55f);
+        Color32 pixel = icon[(2 - py) * 3 + px];
+        return pixel.a == 0 ? baseColor : Lerp(baseColor, pixel, 0.9f);
+    }
+
+    // 宫城：朱红宫墙(中轴上开门)，白石广场与御道，街区里殿宇沿中轴对称摆满
+    private static Color32 Palace(WorldTile tile, Color32 color, CityPlan plan, int lx, int ly)
+    {
+        if (OnEdge(tile, plan.palace, plan.city))
+            return tile.x == plan.axisX ? Lerp(color, Imperial, 0.85f) : Lerp(color, PalaceWall, 0.9f);
+        if (tile.x == plan.axisX) return Lerp(color, Imperial, 0.85f);
+        if (lx % 4 == 0 || ly % 4 == 0) return Lerp(color, Marble, 0.75f);
+        Color32[] icon = Icon("palace_hall");
+        if (icon == null) return Lerp(color, PalaceWall, 0.5f);
+        Color32 pixel = icon[(2 - (ly - 1) % 4) * 3 + (lx - 1) % 4];
+        return pixel.a == 0 ? Lerp(color, Marble, 0.75f) : Lerp(color, pixel, 0.9f);
     }
 
     // 干道：同一片陆地上相邻的城，城心之间连直线，跨水的不连

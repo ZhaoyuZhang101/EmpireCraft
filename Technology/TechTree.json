@@ -156,6 +156,7 @@
     { "id": "aviation", "branch": "military", "tier": 9, "cost": 1400, "requires_techs": ["motorization", "electricity"], "unlock_buildings": ["light_aircraft_factory"], "unlock_units": ["warbox_helicopter"], "boosts": [{"type": "contact_knows", "value": "", "amount": 1}] },
     { "id": "modern_armor", "branch": "metallurgy", "tier": 9, "cost": 1400, "requires_techs": ["petrochemistry"], "unlock_items": ["modernarmor", "modernhelmet", "modernboots", "medicpack"], "boosts": [{"type": "war_knows", "value": "", "amount": 1}] },
     { "id": "skyscrapers", "branch": "construction", "tier": 9, "cost": 1400, "requires_techs": ["urban_housing", "electricity"], "unlock_buildings": ["9house_*_modernmod", "10house_*_modernmod", "5hall_*_modernmod"], "boosts": [{"type": "population", "value": "", "amount": 3000}] },
+    { "id": "modern_urban_planning", "branch": "construction", "tier": 9, "cost": 1400, "requires_techs": ["urban_housing", "electricity"], "boosts": [{"type": "population", "value": "", "amount": 1500}] },
     { "id": "computing", "branch": "science", "tier": 9, "cost": 1400, "requires_techs": ["electricity"], "research_bonus": 0.5, "boosts": [{"type": "building_type", "value": "type_university", "amount": 3}] },
 
     { "id": "nuclear_fission", "branch": "military", "tier": 10, "cost": 2000, "requires_techs": ["computing", "explosives"], "requires_materials": ["uranium"], "unlock_items": ["mininuke", "bigboy"], "boosts": [{"type": "contact_knows", "value": "", "amount": 1}] },

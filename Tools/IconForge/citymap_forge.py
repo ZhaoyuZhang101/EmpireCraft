@@ -4,7 +4,9 @@
 3×3 像素图块。不依赖原版或兼容模组的建筑贴图，全部在这里画，按时代分代：
   住宅 house_1..8：茅屋、瓦房、院落、楼阁、坊市、近代楼房、摩天楼、生态城(对应科技树的八项住房技术)；
   工业 industry_0..2：作坊、蒸汽工厂、现代工厂；商业 market_0..1：集市、商场；
-  官署 civic_0..1：衙署、现代政府大楼；寺庙 temple、兵营 barracks、码头 docks。
+  官署 civic_0..1：衙署、现代政府大楼；寺庙 temple、兵营 barracks、码头 docks；
+  殿宇 palace_hall：华夏都城的宫城里沿中轴对称摆满，配朱红宫墙、白石广场拼出紫禁城的格局(格局在 PureMapPatch 里排)；
+  废墟 ruin(瓦砾)、burning(焦土火光)。
 每张图块 3×3 像素，"." 为透明(露出街区底色)；行自上而下。
 
 python Tools/IconForge/citymap_forge.py --preview   # 输出 citymap_preview.png(放大)
@@ -37,6 +39,8 @@ PALETTE = {
     "M": (150, 70, 65),     # 营垒
     "N": (110, 160, 215),   # 码头
     "U": (80, 110, 170),    # 蓝顶
+    "E": (220, 90, 40),     # 火光
+    "d": (150, 140, 128),   # 瓦砾
 }
 
 ICONS = {
@@ -58,8 +62,10 @@ ICONS = {
     "temple": [".T.", "TWT", "WDW"],
     "barracks": ["MMM", "M.M", "MMM"],
     "docks": ["NWN", "NWN", "NNN"],
+    "palace_hall": ["TTT", "RTR", "WWW"],  # 殿宇(金瓦、朱柱、白石台基)：宫城里按中轴对称摆满，拼出紫禁城的格局
+    "ruin": ["D.d", "dDd", "d.D"],        # 瓦砾(屠城、战乱后的废墟)
+    "burning": ["E.D", "DEd", "d.E"],     # 焦土火光(新近屠城或正在交战)
 }
-
 
 def tile(rows):
     img = Image.new("RGBA", (3, 3), (0, 0, 0, 0))

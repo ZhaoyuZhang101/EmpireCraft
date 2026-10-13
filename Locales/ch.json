@@ -1497,6 +1497,8 @@
   "lineage_chart_open": "世系圖",
   "lineage_reigning": "今上",
   "lineage_reign_n": "第{0}代",
+  "tech_modern_urban_planning": "現代城市規劃",
+  "tech_modern_urban_planning_desc": "按功能分區重新規劃城市：拆除城牆改建環路，拓寬大道。研究後約二十年間，各城規划過的地塊逐塊轉成現代格局，沒規劃的老城區照舊。",
   "capital_loss_restored": "{0}收復舊都{1}，還於舊都，復稱{2}。",
   "kingdom_type_xingzai": "行在",
   "Later": "後",
