@@ -20,7 +20,7 @@ namespace EmpireCraft.Scripts.UI.Components;
 // 出访、御驾亲征、回銮途中)、储君、天命正统(兵牌悬停时让路)。
 public static class EmperorMarkerRenderer
 {
-    private const float Size = 36f, Lift = 26f, HoverScale = 1.3f, TooltipRefresh = 1f;
+    private const float Size = 43f, Lift = 31f, HoverScale = 1.3f, TooltipRefresh = 1f;
     public const string TooltipType = "empirecraft_emperor_marker";
 
     private sealed class Mark

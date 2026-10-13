@@ -254,6 +254,7 @@ public class PureMapPatch : GamePatch
         CityPlan plan = city != null ? PlanFor(city) : null;
         Slot[] slots = plan != null && plan.zones.TryGetValue(zone.id, out Slot[] found) ? found : null;
         int ox = zone.x * Config.CITY_ZONE_SIZE, oy = zone.y * Config.CITY_ZONE_SIZE;
+        Color32? occupied = OccupierFill(city, zone);
         foreach (WorldTile tile in zone.tiles)
         {
             int id = tile?.data?.tile_id ?? -1;
@@ -261,9 +262,30 @@ public class PureMapPatch : GamePatch
             WorldTileZoneBorder border = tile.world_tile_zone_border;
             if (border != null && border.border && (up && border.border_up || down && border.border_down ||
                                                     left && border.border_left || right && border.border_right)) continue;
+            // 被敌军占着的地块：涂占领方的颜色，留一道道原主颜色的细斜纹
+            if (occupied is Color32 fill && (tile.x + tile.y) % 4 != 0) pixels[id] = fill;
             Color32 shaded = Shade(tile, pixels[id]);
             pixels[id] = Plan(tile, shaded, use, slots, tile.x - ox, tile.y - oy, plan, zone);
         }
+    }
+
+    // 国家、帝国图层上被敌军占着的地块的颜色(占领方的国色，帝国图层下取它所属的帝国)；城池没易主，不然仍是原主的颜色，
+    // 起义军、敌国打下的大片地方看不出归谁。友军、同一阵营的不算
+    private static Color32? OccupierFill(City city, TileZone zone)
+    {
+        if (city?.kingdom == null) return null;
+        MetaType? mode = World.world.getCachedMapMetaAsset()?.map_mode;
+        bool empireLayer = mode == MetaTypeExtension.Empire;
+        if (mode != MetaType.Kingdom && !empireLayer) return null;
+        Kingdom occupier = city.GetTileZoneOccupier(zone);
+        if (occupier?.data == null || occupier.isRekt() || occupier == city.kingdom || occupier.isInWarOnSameSide(city.kingdom))
+            return null;
+        Empire empire = empireLayer && occupier.IsInEmpire() ? occupier.GetEmpire() : null;
+        ColorAsset color = empire != null && !empire.IsArchived() ? empire.getColor() : occupier.getColor();
+        if (color == null) return null;
+        Color32 fill = color.getColorBorderInsideAlpha32();
+        fill.a = byte.MaxValue;
+        return fill;
     }
 
     // ───────── 城市平面图(位置是模拟的) ─────────
