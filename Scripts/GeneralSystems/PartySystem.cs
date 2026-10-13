@@ -149,16 +149,20 @@ public static class PartySystem
 
     // 开放党禁 + 本文化至少解锁了一种理念(理念由制度树"意识形态"车道的节点解锁)。
     // 不必等议会：没有议会时政党像派系一样按中央占比在朝中博弈，开了议会(立宪/共和)才按选举分议席。
+    // 被战胜国强行改造的(见 ConstitutionalEconomySystem.ImposeModernization)不等制度，直接开放党禁。
     public static bool IsActive(Empire empire) =>
-        !TechnologySystem.PremodernLocked &&
-        empire?.CoreKingdom != null && InstitutionSystem.GetFeature(empire, FeaturePartyPolitics) > 0f &&
+        !TechnologySystem.PremodernLocked && empire?.CoreKingdom != null &&
+        (InstitutionSystem.GetFeature(empire, FeaturePartyPolitics) > 0f || ConstitutionalEconomySystem.IsForcedModernized(empire)) &&
         UnlockedIdeologies(empire).Count > 0;
 
     // 民间已接触到理念就能组织政党；理念制度由执政党推进，不能反过来作为建党的前提。
     public static bool IsIdeologyUnlocked(Empire empire, PartyIdeology ideology)
     {
         string culture = InstitutionSystem.GetPrimaryCulture(empire);
-        return IdeologyPopulationSystem.IsIdeaAvailable(culture, ideology);
+        if (IdeologyPopulationSystem.IsIdeaAvailable(culture, ideology)) return true;
+        // 被迫现代化：战胜国带来的理念
+        string imposer = ConstitutionalEconomySystem.IsForcedModernized(empire) ? ConstitutionalEconomySystem.ForcedByCulture(empire) : "";
+        return !string.IsNullOrEmpty(imposer) && IdeologyPopulationSystem.IsIdeaAvailable(imposer, ideology);
     }
 
     #region 理念路线

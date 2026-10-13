@@ -166,6 +166,14 @@ public sealed class ConstitutionalEconomyState
     public float constitutional_reform_progress;
     public int constitutional_reform_stage;
     public bool constitutional_monarchy;
+    // 战败后被战胜国强行改造(见 ConstitutionalEconomySystem.ImposeModernization)：立宪不受分封制与时代门槛限制，
+    // 并开放党禁，战胜国文化里已有的理念也可以组党
+    public bool forced_modernization;
+    public string forced_by_name = "";
+    public string forced_by_culture = "";
+    public double forced_at = -1d;
+    // 上帝模式直接确立的立宪同样不受门槛限制
+    public bool constitution_gate_exempt;
     public double last_deadlock_notice = -1d;
 
     // —— 议会（制宪进入议会阶段后出现，取代原有内阁）——

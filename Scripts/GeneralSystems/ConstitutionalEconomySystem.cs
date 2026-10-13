@@ -198,6 +198,8 @@ public static class ConstitutionalEconomySystem
         RepublicSystem.EnsureHeadOfState(empire);
         // 现代国家的宪法：颁布/废止随国体与共和过渡阶段即时变化，条款同步每年一次
         ConstitutionSystem.Update(empire, state);
+        // 分封制或时代未到的君主国：立宪作废(外力强加或上帝直接确立的除外)
+        RevokeUnfitConstitution(empire, state);
         AdoptCultureConstitution(empire, state);
         // 开放党禁后：派系改组为政党、政党的年度分合(见 PartySystem)。不依赖议会，先于议会更新
         PartySystem.Update(empire, state);
@@ -353,7 +355,7 @@ public static class ConstitutionalEconomySystem
         if (state.constitutional_monarchy && IsMonarchy(empire) && !IsCultureConstitutional(empire))
             MarkCultureConstitutional(empire);
         if (state.constitutional_monarchy || !IsMonarchy(empire) || !IsCultureConstitutional(empire)) return;
-        if (!InstitutionDefinitionRegistry.IsConstitutionEnabled(GetLine(empire))) return;
+        if (!InstitutionDefinitionRegistry.IsConstitutionEnabled(GetLine(empire)) || EraBlocker(empire) != null) return;
         CancelReform(state);
         state.constitutional_monarchy = true;
         CultureInstitutionState culture = GetCultureConstitution(empire);
@@ -376,6 +378,69 @@ public static class ConstitutionalEconomySystem
         EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventMessage(
             string.Format(LM.Get("constitution_culture_established_log"), empire.GetEmpireName(),
                 InstitutionSystem.GetPrimaryCulture(empire).GetCultureTranslate()), empire.CoreKingdom);
+    }
+
+    // 立宪须到火药时代，且不行分封制(诸侯各自为政，君权分在列国，无从由一部宪法统一限制)；
+    // 同文化别国已立宪也一样：不够格的不随之立宪，已经立了的作废。
+    // 例外：战败后被战胜国强行改造(见 ImposeModernization)，或上帝模式直接确立。
+    public const int ConstitutionEraTier = 6;
+
+    public static bool IsForcedModernized(Empire empire) => Ensure(empire)?.forced_modernization == true;
+
+    public static string ForcedByCulture(Empire empire) => Ensure(empire)?.forced_by_culture ?? "";
+
+    // 立宪的时代门槛：不够格返回原因(本地化键)，够格返回 null
+    public static string EraBlocker(Empire empire)
+    {
+        ConstitutionalEconomyState state = Ensure(empire);
+        if (state == null || empire.CoreKingdom == null || state.forced_modernization || state.constitution_gate_exempt)
+            return null;
+        if (empire.CoreKingdom.GetRegime()?.type == RegimeType.ZhouFeudalism) return "constitution_requires_centralization";
+        if (TechnologySystem.GetEraTier(InstitutionSystem.GetPrimaryCulture(empire)) < ConstitutionEraTier)
+            return "constitution_requires_era";
+        return null;
+    }
+
+    private static void RevokeUnfitConstitution(Empire empire, ConstitutionalEconomyState state)
+    {
+        string blocker = EraBlocker(empire);
+        if (blocker == null || !IsMonarchy(empire)) return;
+        CancelReform(state);
+        if (!state.constitutional_monarchy) return;
+        state.constitutional_monarchy = false;
+        Record(empire, blocker == "constitution_requires_centralization"
+            ? "constitution_revoked_feudal_history" : "constitution_revoked_era_history");
+    }
+
+    // 被迫现代化(如战败后被战胜国改造)：大败于立宪、共和或现代国家之手，丢了都城或四分之一以上的城，
+    // 战胜国就强行替它立宪、开放党禁——不受分封制与时代门槛限制，也不算本文化首开立宪
+    public static bool ImposeModernization(Empire loser, Kingdom victor, int lostCities, bool lostCapital)
+    {
+        ConstitutionalEconomyState state = Ensure(loser);
+        if (state == null || World.world == null || loser.CoreKingdom == null || victor?.data == null || victor.isRekt() ||
+            state.constitutional_monarchy || state.forced_modernization || !IsMonarchy(loser) ||
+            !InstitutionDefinitionRegistry.IsConstitutionEnabled(GetLine(loser))) return false;
+        int cities = loser.CoreKingdom.cities?.Count ?? 0;
+        if (!lostCapital && (lostCities <= 0 || lostCities * 4 < cities + lostCities)) return false;
+        Empire master = victor.GetEmpire();
+        Kingdom core = master?.CoreKingdom ?? victor;
+        string culture = master != null ? InstitutionSystem.GetPrimaryCulture(master) : TechnologySystem.GetCultureOf(core);
+        if (TechnologySystem.GetEraTier(culture) < ConstitutionEraTier) return false;
+        bool modern = ModernStability.IsModern(core) ||
+                      master != null && (HasConstitution(master) || RepublicSystem.IsRepublic(master));
+        if (!modern) return false;
+        CancelReform(state);
+        state.constitutional_monarchy = true;
+        state.forced_modernization = true;
+        state.forced_by_name = master?.GetEmpireName() ?? core.GetKingdomName();
+        state.forced_by_culture = culture ?? "";
+        state.forced_at = World.world.getCurWorldTime();
+        ParliamentSystem.Update(loser);
+        loser.RecordHistory(directContent: string.Format(LM.Get("constitution_imposed_history"), state.forced_by_name),
+            actorId: loser.Emperor?.id ?? -1L, kingdomId: loser.CoreKingdom.id);
+        EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventMessage(
+            string.Format(LM.Get("constitution_imposed_log"), state.forced_by_name, loser.GetEmpireName()), loser.CoreKingdom);
+        return true;
     }
 
     private static void CancelReform(ConstitutionalEconomyState state)
@@ -508,6 +573,7 @@ public static class ConstitutionalEconomySystem
         string line = GetLine(empire);
         if (!InstitutionDefinitionRegistry.IsConstitutionEnabled(line)) return false;
         if (state.constitutional_monarchy) { reason = "constitution_already_enacted"; return false; }
+        if (IsMonarchy(empire) && EraBlocker(empire) is string blocker) { reason = blocker; return false; }
         // 本文化已确立君主立宪：下一次更新自动随之确立，不必再走一遍制宪
         if (IsCultureConstitutional(empire)) { reason = "constitution_culture_enacted"; return false; }
         if (state.constitutional_reform_active) { reason = "constitution_reforming"; return false; }
@@ -557,6 +623,7 @@ public static class ConstitutionalEconomySystem
         ConstitutionalEconomyState state = Ensure(empire);
         CancelReform(state);
         state.constitutional_monarchy = true;
+        state.constitution_gate_exempt = true;
         MarkCultureConstitutional(empire);
         ParliamentSystem.Update(empire);
         Record(empire, "constitution_forced_history");

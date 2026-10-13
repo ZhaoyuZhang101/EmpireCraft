@@ -4,6 +4,7 @@ using System.Linq;
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.HelperFunc;
+using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.Regimes;
 using NeoModLoader.General;
 using NeoModLoader.services;
@@ -240,6 +241,8 @@ public static class WarGoalSystem
             {
                 if (goal != WarGoal.劫掠 && !attacker.isRekt()) WarReparationsSystem.Impose(attacker, defender);
             }
+            if (attackersWon) Modernize(war, defender, attacker, war._list_defenders, war._list_attackers);
+            else if (defendersWon) Modernize(war, attacker, defender, war._list_attackers, war._list_defenders);
             else if (!attacker.isRekt() && !defender.isRekt())
             {
                 TranslateHelper.LogEventMessage(string.Format(LM.Get("war_peace_white"), attacker.GetKingdomName(),
@@ -250,6 +253,18 @@ public static class WarGoalSystem
         {
             LogService.LogWarning($"[EmpireCraft][开战目标] 议和结算失败: {exception.Message}");
         }
+    }
+
+    // 被迫现代化：败方是帝国中央或独立君主国，战胜方是立宪、共和或现代国家时，按败方丢城多少决定是否被强行改造
+    private static void Modernize(War war, Kingdom loser, Kingdom victor, IEnumerable<Kingdom> losers, IEnumerable<Kingdom> victors)
+    {
+        if (loser?.data == null || loser.isRekt()) return;
+        Empire empire = loser.GetEmpire();
+        if (empire?.CoreKingdom != loser) return;
+        List<(City city, Kingdom holder)> held = HeldCities(war, new[] { loser }, victors);
+        City capital = loser.capital;
+        bool lostCapital = capital != null && held.Exists(entry => entry.city == capital);
+        ConstitutionalEconomySystem.ImposeModernization(empire, victor, held.Count, lostCapital);
     }
 
     // 割让攻方占了一半以上的城；吞并且对方丢了一半城或都城时，主守方余下的城一并归主攻方(帝国核心不整体吞并，只割城)
