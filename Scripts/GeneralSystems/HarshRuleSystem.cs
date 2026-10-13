@@ -177,6 +177,10 @@ public static class HarshRuleSystem
     private static object _scanWorld;
     private static double _lastKingdomScan = -1d;
 
+    // 到期后把国家排成队，每次至多用 ScanBudgetMs 毫秒，没算完的下一轮接着算(一次全算完一帧几十毫秒，帧数忽高忽低)
+    private const long ScanBudgetMs = 3;
+    private static readonly Queue<Kingdom> ScanQueue = new();
+
     public static void TryYearlyKingdomScan()
     {
         if (World.world?.kingdoms == null || ModClass.IS_CLEAR) return;
@@ -185,12 +189,19 @@ public static class HarshRuleSystem
         {
             _scanWorld = World.world;
             _lastKingdomScan = now;
+            ScanQueue.Clear();
             return;
         }
-        if (Date.getYearsSince(_lastKingdomScan) < 1) return;
-        _lastKingdomScan = now;
-        foreach (Kingdom kingdom in World.world.kingdoms.ToList())
+        if (ScanQueue.Count == 0)
         {
+            if (Date.getYearsSince(_lastKingdomScan) < 1) return;
+            _lastKingdomScan = now;
+            foreach (Kingdom kingdom in World.world.kingdoms.ToList()) ScanQueue.Enqueue(kingdom);
+        }
+        var budget = global::System.Diagnostics.Stopwatch.StartNew();
+        while (ScanQueue.Count > 0 && budget.ElapsedMilliseconds < ScanBudgetMs)
+        {
+            Kingdom kingdom = ScanQueue.Dequeue();
             if (kingdom?.data == null || kingdom.isRekt() || !kingdom.isCiv() || kingdom.IsEmpire() ||
                 kingdom.IsInEmpire() || EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(kingdom))
                 continue;

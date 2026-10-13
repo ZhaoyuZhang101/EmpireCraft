@@ -87,6 +87,7 @@ public class PureMapPatch : GamePatch
     // 现代格局的地块再亮一些，都城地标最亮；成了废墟的街区不亮，战火、野火照旧按燃烧的格子亮
     private static readonly Dictionary<int, (float at, List<(Vector2 at, float size)> lights)> ZoneLights = new();
     private static readonly List<(Vector2, float)> NoLights = new();
+    private const int LightRefreshPerFrame = 40;
 
     private static bool BeforeDrawLights()
     {
@@ -98,14 +99,22 @@ public class PureMapPatch : GamePatch
         bool fires = WorldBehaviourActionFire.hasFires();
         float now = Time.unscaledTime;
         if (ZoneLights.Count > 20000) ZoneLights.Clear();
+        // 每帧至多补算几十块地的灯(灯同时到期一起重算会卡一下)；到期还没轮到的先用旧的
+        int budget = LightRefreshPerFrame;
         foreach (TileZone zone in zones)
         {
             if (fires && WorldBehaviourActionFire.hasFires(zone))
                 foreach (WorldTile tile in zone.tiles)
                     if (tile.isOnFire()) QuantumSpriteLibrary.showLightAt(tile.pos, color, 0.2f);
             if (zone.city == null) continue;
-            if (!ZoneLights.TryGetValue(zone.id, out var cached) || now < cached.at || now - cached.at >= PlanSeconds)
+            bool known = ZoneLights.TryGetValue(zone.id, out var cached);
+            if ((!known || now < cached.at || now - cached.at >= PlanSeconds) && budget > 0)
+            {
+                budget--;
                 ZoneLights[zone.id] = cached = (now, LightsOf(zone));
+                known = true;
+            }
+            if (!known) continue;
             foreach ((Vector2 at, float size) in cached.lights) QuantumSpriteLibrary.showLightAt(at, color, size);
         }
         return false;
@@ -171,29 +180,40 @@ public class PureMapPatch : GamePatch
         UI.Components.EmperorMarkerRenderer.EnsureHost();
     }
 
-    // 城市肌理随建筑、规划变化：每秒让一批城的地块下次重画(原版只在归属、颜色变了才重画)
-    private const float UrbanRefreshSeconds = 1f;
-    private const int UrbanRefreshRounds = 10;
-    private static float _nextUrbanRefresh;
+    // 城市肌理随建筑、规划变化：每帧让几块城里的地块下次重画(原版只在归属、颜色变了才重画)，约十秒全图一轮。
+    // 以前每秒把十分之一的城整城重画，几百块地挤在一帧里逐格画，那一帧几十毫秒，帧数忽高忽低
+    private const float UrbanCycleSeconds = 10f;
+    private static readonly List<TileZone> UrbanQueue = new();
     private static int _urbanCursor;
+    private static float _urbanCredit, _urbanLast = -1f;
 
     private static void RefreshUrbanSlice()
     {
         float now = Time.unscaledTime;
-        if (now < _nextUrbanRefresh && _nextUrbanRefresh - now <= UrbanRefreshSeconds) return;
-        _nextUrbanRefresh = now + UrbanRefreshSeconds;
         var cities = World.world?.cities?.list;
         if (cities == null || cities.Count == 0) return;
-        int slice = Mathf.Max(1, Mathf.CeilToInt(cities.Count / (float)UrbanRefreshRounds));
-        for (int i = 0; i < slice; i++)
+        if (_urbanCursor >= UrbanQueue.Count)
         {
-            City city = cities[(_urbanCursor + i) % cities.Count];
-            if (city?.zones == null || city.isRekt()) continue;
-            // 本模式下不实际铺路
-            city.road_tiles_to_build.Clear();
-            foreach (TileZone zone in city.zones) zone?.resetRenderHelpers();
+            UrbanQueue.Clear();
+            _urbanCursor = 0;
+            foreach (City city in cities)
+            {
+                if (city?.zones == null || city.isRekt()) continue;
+                // 本模式下不实际铺路
+                city.road_tiles_to_build.Clear();
+                UrbanQueue.AddRange(city.zones);
+            }
         }
-        _urbanCursor = (_urbanCursor + slice) % cities.Count;
+        float delta = _urbanLast < 0f ? 0f : Mathf.Clamp(now - _urbanLast, 0f, 0.5f);
+        _urbanLast = now;
+        _urbanCredit += UrbanQueue.Count / UrbanCycleSeconds * delta;
+        int count = Mathf.FloorToInt(_urbanCredit);
+        _urbanCredit -= count;
+        for (int i = 0; i < count && _urbanCursor < UrbanQueue.Count; i++)
+        {
+            TileZone zone = UrbanQueue[_urbanCursor++];
+            if (zone?.city != null) zone.resetRenderHelpers();
+        }
         RoadNetwork.Tick();
     }
 

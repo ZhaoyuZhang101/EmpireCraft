@@ -876,7 +876,7 @@ public static class TechnologySystem
                 citiesByCulture[culture] = list = new List<City>();
             list.Add(city);
         }
-        RebuildContacts(citiesByCulture);
+        using (FrameProfiler.Measure("科技·文化接触")) RebuildContacts(citiesByCulture);
 
         foreach (KeyValuePair<string, List<City>> pair in citiesByCulture)
         {
@@ -891,20 +891,21 @@ public static class TechnologySystem
             }
             // 读档后第一次：城里已有的建筑说明对应技术早就有了(后来新加的门槛，如住房科技，不把旧档打回原形)
             else if (!addResearch) BackfillBuildings(culture, pair.Value);
-            DiscoverMaterials(culture, pair.Value);
+            using (FrameProfiler.Measure("科技·发现材料")) DiscoverMaterials(culture, pair.Value);
             if (state.last_era_tier < 0) state.last_era_tier = GetEraTier(culture);
             if (!addResearch) continue;
 
-            Dictionary<string, float> income = CollectIncome(culture, pair.Value);
+            Dictionary<string, float> income;
+            using (FrameProfiler.Measure("科技·研究点")) income = CollectIncome(culture, pair.Value);
             float points = income.Values.Sum() * (1f + GetResearchBonus(culture));
             state.last_income = income;
             state.last_yearly_points = points;
             state.research_bank += points;
-            CheckBoosts(culture, pair.Value);
+            using (FrameProfiler.Measure("科技·加速事件")) CheckBoosts(culture, pair.Value);
             state.last_unfunded = 0f;
-            if (state.auto_research) SpendBank(culture, pair.Value, null);
-            CheckEra(culture, pair.Value);
-            LandmarkBookSystem.YearlyCheck(culture, pair.Value, state);
+            using (FrameProfiler.Measure("科技·自动研究")) if (state.auto_research) SpendBank(culture, pair.Value, null);
+            using (FrameProfiler.Measure("科技·时代")) CheckEra(culture, pair.Value);
+            using (FrameProfiler.Measure("科技·名著")) LandmarkBookSystem.YearlyCheck(culture, pair.Value, state);
             if (state.modernize_years > 0)
             {
                 state.modernize_years--;

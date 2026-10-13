@@ -300,7 +300,9 @@ public static class FrontSystem
             return;
         }
         // 还在集结的叛乱：先不反攻叛军占的城(见 MusterSystem)
-        List<Sector> sectors = CachedSectors(kingdom).Where(sector => !MusterSystem.Mustering(kingdom, sector.City.kingdom)).ToList();
+        List<Sector> sectors;
+        using (FrameProfiler.Measure("战线·分派·战线段"))
+            sectors = CachedSectors(kingdom).Where(sector => !MusterSystem.Mustering(kingdom, sector.City.kingdom)).ToList();
         foreach (Sector sector in sectors.Where(sector => sector.Landing)) landingSectors[sector.City.id] = true;
         var assigned = new HashSet<CorpsData>();
         // ① 守城：本国受攻的城按攻势分兵(就近)
