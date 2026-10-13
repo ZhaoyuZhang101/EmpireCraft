@@ -49,6 +49,9 @@ public static class WarExtension
         public List<long> legitimacy_defender_kingdom_ids = new List<long>();
         public List<long> legitimacy_defender_city_ids = new List<long>();
         public int legitimacy_initial_zone_count;
+        // 叛乱初起的集结期(月，-1 = 还没掷定)与是否已记"集结完毕"(见 MusterSystem)
+        public int muster_months = -1;
+        public bool muster_done;
         // 制度改革叛乱快照。战争结束时即使政体/派系已经改变，仍能还原叛乱原因。
         // 不奉诏战争：抗命的封国、它自立的嗣君、天子改立的人选。
         public long investiture_vassal_kingdom_id = -1L;

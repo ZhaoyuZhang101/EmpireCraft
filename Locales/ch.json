@@ -1261,6 +1261,8 @@
   "diet_act_charter": "冊立自由城市",
   "diet_act_pawn": "典押自由城市",
   "diet_act_church": "封立主教領",
+  "corps_log_muster_start": "{0}叛亂突起，{1}倉促應戰，大軍需{2}個月才能集結。",
+  "corps_log_muster_done": "{0}大軍集結完畢，開始平定{1}。",
   "capital_loss_restored": "{0}收復舊都{1}，還於舊都，復稱{2}。",
   "kingdom_type_xingzai": "行在",
   "Later": "後",

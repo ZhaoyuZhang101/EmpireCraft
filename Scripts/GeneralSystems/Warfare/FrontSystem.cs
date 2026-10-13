@@ -21,6 +21,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //      守方占优就夺回一块；守军还在时城中最后一块地不会丢；组织度归零的军溃退。
 //      地形(见 TerrainSystem)看攻方要推进的那块地：攻方战力打折、双方额外掉组织度、限制每月推进的块数。
 // 军团须开到战线附近(两块地块以内)才参战。
+// 叛乱初起时被叛方有集结期(见 MusterSystem)：不反攻、只有附近的军能守城、守方战力打折。
 public static class FrontSystem
 {
     private const int ArriveDistance = 2;
@@ -210,6 +211,7 @@ public static class FrontSystem
 
     public static void MonthTick(double now)
     {
+        MusterSystem.MonthTick();
         _atWar = World.world.kingdoms.Where(kingdom => kingdom?.data != null && !kingdom.isRekt() &&
                                                        (kingdom.hasEnemies() || Realm(kingdom).hasEnemies())).ToList();
         DefenseByCity.Clear();
@@ -290,18 +292,26 @@ public static class FrontSystem
             }
             return;
         }
-        List<Sector> sectors = CachedSectors(kingdom);
+        // 还在集结的叛乱：先不反攻叛军占的城(见 MusterSystem)
+        List<Sector> sectors = CachedSectors(kingdom).Where(sector => !MusterSystem.Mustering(kingdom, sector.City.kingdom)).ToList();
         foreach (Sector sector in sectors.Where(sector => sector.Landing)) landingSectors[sector.City.id] = true;
         var assigned = new HashSet<CorpsData>();
         // ① 守城：本国受攻的城按攻势分兵(就近)
         var threatened = (kingdom.cities ?? new List<City>())
             .Where(city => city?.data != null && !city.isRekt() && Threat(city) > 0f)
             .OrderByDescending(Threat).ToList();
+        // 叛乱初起、还在集结：只有附近的军赶得来(见 MusterSystem)
+        bool Surprised(City city) => pressure.TryGetValue(city.id, out var entries) &&
+                                     entries.Where(entry => Hostile(kingdom, entry.attacker))
+                                         .All(entry => MusterSystem.Mustering(kingdom, entry.attacker));
         foreach (City city in threatened)
         {
             float need = Threat(city) * 0.9f, have = 0f;
             TileZone anchor = DefenseZone(kingdom, city);
-            foreach (CorpsData corps in ready.Where(corps => !assigned.Contains(corps))
+            bool surprised = Surprised(city);
+            foreach (CorpsData corps in ready.Where(corps => !assigned.Contains(corps) &&
+                                                             (!surprised || corps.task == "defend" && corps.sector_city_id == city.id ||
+                                                              CorpsSystem.ZoneDistance(CorpsSystem.Zone(corps), anchor) <= MusterSystem.LocalZones))
                          .OrderBy(corps => corps.task == "defend" && corps.sector_city_id == city.id ? -1f
                              : CorpsSystem.ZoneDistance(CorpsSystem.Zone(corps), anchor)).ToList())
             {
@@ -471,9 +481,11 @@ public static class FrontSystem
                                               WarCommandSystem.Factor(entry.kingdom) * LogisticsSystem.AttackFactor(entry.corps) *
                                               PapacySystem.OrderFactor(entry.corps)) *
                        (landing ? 0.7f : 1f) * ground.Attack;
+        // 叛乱初起还在集结的守方仓促应战(见 MusterSystem)
         float defend = holders.Sum(entry => Effective(entry.corps) * Firepower(entry.kingdom) *
                                             WarCommandSystem.Factor(entry.kingdom) * LogisticsSystem.AttackFactor(entry.corps) *
-                                            PapacySystem.OrderFactor(entry.corps) * (DefenderBonus + entry.corps.entrench));
+                                            PapacySystem.OrderFactor(entry.corps) * (DefenderBonus + entry.corps.entrench) *
+                                            MusterSystem.DefenseFactor(entry.kingdom, attacker));
         float militia = holders.Count == 0 ? Militia(city, attacker) : 0f;
         defend += militia;
         float ratio = attack + defend <= 0f ? 0.5f : attack / (attack + defend);
