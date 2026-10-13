@@ -268,6 +268,7 @@ public static class FrontSystem
             // 战备：动员范围里的军开往朝向目标国的边境(离自己最近的一段，见 WarReadinessSystem)；太平：回驻地
             IReadOnlyList<TileZone> border = CityPopulationSystem.IsMobilizing(kingdom)
                 ? CityPopulationSystem.FrontZones(kingdom) : Array.Empty<TileZone>();
+            var borderLoad = new Dictionary<int, int>();
             foreach (CorpsData corps in list)
             {
                 corps.sector_city_id = -1L;
@@ -275,8 +276,9 @@ public static class FrontSystem
                 bool marching = border.Count > 0 && WarScopeSystem.InScope(CorpsSystem.Home(corps));
                 corps.task = marching ? "march" : "reserve";
                 TileZone at = CorpsSystem.Zone(corps);
+                // 在离自己最近的几块边境地块里散开站，不挤在同一块
                 corps.target_zone_id = marching
-                    ? border.OrderBy(zone => CorpsSystem.ZoneDistance(zone, at)).First().id
+                    ? Spread(corps, border.OrderBy(zone => CorpsSystem.ZoneDistance(zone, at)).Take(SpreadNearest).ToList(), borderLoad).id
                     : HomeZone(corps);
             }
             return;
@@ -313,6 +315,8 @@ public static class FrontSystem
         {
             float need = Threat(city) * 0.9f, have = 0f;
             TileZone anchor = DefenseZone(kingdom, city);
+            List<TileZone> line = DefenseLine(kingdom, city);
+            var lineLoad = new Dictionary<int, int>();
             bool surprised = Surprised(city);
             foreach (CorpsData corps in ready.Where(corps => !assigned.Contains(corps) &&
                                                              (!surprised || corps.task == "defend" && corps.sector_city_id == city.id ||
@@ -324,7 +328,8 @@ public static class FrontSystem
                 if (corps.task != "defend" || corps.sector_city_id != city.id) corps.entrench = 0f;
                 corps.task = "defend";
                 corps.sector_city_id = city.id;
-                corps.target_zone_id = anchor?.id ?? HomeZone(corps);
+                // 铺满防线：本城贴着敌占区的地块每块先放一支，放满了再叠
+                corps.target_zone_id = line.Count > 0 ? Spread(corps, line, lineLoad).id : anchor?.id ?? HomeZone(corps);
                 assigned.Add(corps);
                 have += corps.strength;
             }
@@ -333,6 +338,7 @@ public static class FrontSystem
         }
         // ② 进攻：集中在少数几段；跨海登陆的军(还没上岸的)兵力合计不超过运输船运力
         var attackOn = new Dictionary<Sector, float>();
+        var attackLoad = new Dictionary<int, int>();
         float shipping = sectors.Any(sector => sector.Landing) ? NavySystem.TransportCapacity(kingdom) : 0f;
         // 不奉诏的禁军只守城、不出征(见 PalaceArmySystem)
         foreach (CorpsData corps in ready.Where(corps => !assigned.Contains(corps) && !PalaceArmySystem.Refuses(corps))
@@ -353,8 +359,8 @@ public static class FrontSystem
             attackOn[choice] = strength + corps.strength;
             corps.task = "attack";
             corps.sector_city_id = choice.City.id;
-            TileZone current = CorpsSystem.Zone(corps);
-            TileZone target = choice.Targets.OrderBy(zone => CorpsSystem.ZoneDistance(zone, current)).First();
+            // 在这一段的目标地块之间平均分(不挤在离自己最近的同一块)
+            TileZone target = Spread(corps, choice.Targets, attackLoad);
             corps.target_zone_id = target.id;
             corps.entrench = 0f;
             assigned.Add(corps);
@@ -383,6 +389,42 @@ public static class FrontSystem
     }
 
     private static int HomeZone(CorpsData corps) => CorpsSystem.Home(corps)?.getTile()?.zone?.id ?? corps.zone_id;
+
+    // 散开站：在几块候选地块里挑放的军最少的(一样少的取最近的)；原来就在其中一块、那块还没别的军的，留在原地(免得每月换位)
+    private const int SpreadNearest = 6;
+
+    private static TileZone Spread(CorpsData corps, IReadOnlyList<TileZone> candidates, Dictionary<int, int> load)
+    {
+        TileZone current = CorpsSystem.Zone(corps);
+        TileZone best = null;
+        float bestScore = float.MaxValue;
+        foreach (TileZone zone in candidates)
+        {
+            if (zone == null) continue;
+            load.TryGetValue(zone.id, out int used);
+            float score = used * 1000f + CorpsSystem.ZoneDistance(zone, current) - (zone.id == corps.target_zone_id ? 0.5f : 0f);
+            if (score >= bestScore) continue;
+            best = zone;
+            bestScore = score;
+        }
+        if (best == null) return current;
+        load[best.id] = load.TryGetValue(best.id, out int count) ? count + 1 : 1;
+        return best;
+    }
+
+    // 守城的防线：本城与敌控地块相邻的地块(按离城心远近)；没有就空
+    private static List<TileZone> DefenseLine(Kingdom kingdom, City city)
+    {
+        var line = new List<TileZone>();
+        if (city?.zones == null) return line;
+        foreach (TileZone zone in city.zones)
+        {
+            if (zone == null || !Friendly(kingdom, Controller(zone)) || TerrainSystem.Impassable(zone)) continue;
+            if ((zone.neighbours ?? Array.Empty<TileZone>()).Any(neighbour => Hostile(kingdom, Controller(neighbour))))
+                line.Add(zone);
+        }
+        return line;
+    }
 
     // 守城的落脚地块：本城与敌控地块相邻的地块，没有就城中心
     private static TileZone DefenseZone(Kingdom kingdom, City city)

@@ -609,8 +609,14 @@ public static class CorpsMapRenderer
         float zoom = Mathf.Clamp(40f / Mathf.Max(1f, camera.orthographicSize), 0.85f, 1.15f);
         Vector3 pixelScale = Vector3.one * (zoom / scale);
 
-        // 兵牌：同一地块同一国、已经到位的军合并成一块，不同国并排；行军途中的按画的位置滑过去
+        // 兵牌：同一地块同一国、已经到位的军合并成一块，不同国并排；行军途中的按画的位置滑过去。
+        // 拉近(一块地在屏幕上放得下两三块兵牌)：同一地块的军各画一块，上下错开，每支军都看得清
         float glideDelta = WorldDelta();
+        float zonePixels = Mathf.Abs(camera.WorldToScreenPoint(new Vector3(Config.CITY_ZONE_SIZE, 0f)).x -
+                                     camera.WorldToScreenPoint(Vector3.zero).x);
+        bool split = zonePixels >= CounterHeight * zoom * 2.5f;
+        float stepWorld = CounterHeight * zoom * 1.45f * Config.CITY_ZONE_SIZE / Mathf.Max(1f, zonePixels);
+        var stacked = new Dictionary<(int, long), int>();
         Groups.Clear();
         Movers.Clear();
         _nextCorpsGliders.Clear();
@@ -629,7 +635,18 @@ public static class CorpsMapRenderer
             Glider glider = follows ? new Glider { At = target, Target = target } : Glide(_corpsGliders, corps.id, target, glideDelta);
             _nextCorpsGliders[corps.id] = glider;
             CounterGroup group;
-            if (follows || glider.At == target)
+            if ((follows || glider.At == target) && split)
+            {
+                // 拉近：各画一块，绕地块中心上下交替错开(间距大于折叠范围，不会再并回去)
+                var zoneKey = (zone.id, kingdom.id);
+                stacked.TryGetValue(zoneKey, out int index);
+                stacked[zoneKey] = index + 1;
+                float offset = (index + 1) / 2 * (index % 2 == 1 ? 1f : -1f) * stepWorld;
+                group = new CounterGroup
+                    { Kingdom = kingdom, Zone = zone, World = glider.At + new Vector3(0f, offset), Task = corps.task };
+                Groups[(zone.id, -corps.id - 1L)] = group;
+            }
+            else if (follows || glider.At == target)
             {
                 var key = (zone.id, kingdom.id);
                 if (!Groups.TryGetValue(key, out group))
