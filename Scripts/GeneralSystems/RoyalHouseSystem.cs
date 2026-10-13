@@ -161,6 +161,7 @@ public static class RoyalHouseSystem
             SuccessionCouncilSystem.Monthly();
             EmpirePartitionSystem.Monthly();
             CityStateService.EnforceOneCity();
+            RoyalMarriageSystem.Monthly();
             if (++_months % 12 != 0) return;
             if (ModClass.EMPIRE_MANAGER != null)
                 foreach (Empire empire in ModClass.EMPIRE_MANAGER.ToList())
@@ -171,7 +172,6 @@ public static class RoyalHouseSystem
                     EmpirePartitionSystem.Yearly(empire);
                 }
             foreach (Kingdom kingdom in World.world.kingdoms.list.ToList()) Enfeoff(kingdom);
-            RoyalMarriageSystem.Yearly();
         }
         catch (Exception exception)
         {

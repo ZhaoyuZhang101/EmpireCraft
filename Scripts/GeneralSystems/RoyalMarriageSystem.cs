@@ -29,13 +29,18 @@ public static class RoyalMarriageSystem
     public static bool Applies(Kingdom kingdom) =>
         kingdom?.data != null && !kingdom.isRekt() && kingdom.hasKing() && kingdom.GetRegime()?.type == RegimeType.Feudalism;
 
-    #region 每年议婚(RoyalHouseSystem)
+    #region 议婚(RoyalHouseSystem 每月调用；各国按编号分到十二个月里，每国每年一次机会，不在同一帧里全算)
 
-    public static void Yearly()
+    private static int _month;
+
+    public static void Monthly()
     {
         if (World.world?.kingdoms == null) return;
+        int slot = _month++ % 12;
+        using var timing = FrameProfiler.Measure("联姻·议婚");
         foreach (Kingdom kingdom in World.world.kingdoms.list.ToList())
         {
+            if (kingdom?.data == null || (int)(kingdom.id % 12) != slot) continue;
             if (!Applies(kingdom) || UnityEngine.Random.value >= ProposalChance) continue;
             try
             {
@@ -190,14 +195,25 @@ public static class RoyalMarriageSystem
 
     #region 宣称
 
-    // 两国君主是隔 ClaimDistance 代以内的血亲(沿父母、子女走，含外嫁女子的后代)：claimant 对 target 的王位有宣称
+    // 两国君主是隔 ClaimDistance 代以内的血亲(沿父母、子女走，含外嫁女子的后代)：claimant 对 target 的王位有宣称。
+    // 挑开战目标时各国每隔几秒就要对每个邻国查一次：同一对君主一分钟内直接用上次的结果
+    private static readonly Dictionary<(long, long), (bool claim, float at)> ClaimCache = new();
+    private const float ClaimCacheSeconds = 60f;
+
     public static bool HasClaim(Kingdom claimant, Kingdom target)
     {
         Actor a = claimant?.king, b = target?.king;
         if (a?.data == null || b?.data == null || a == b) return false;
-        PersonalClanIdentity from = a.GetPersonalIdentity(), to = b.GetPersonalIdentity();
-        int distance = BloodDistance(from, to, ClaimDistance);
-        return distance > 0 && distance <= ClaimDistance;
+        var key = (a.id, b.id);
+        float now = Time.unscaledTime;
+        if (ClaimCache.TryGetValue(key, out var cached) && now - cached.at < ClaimCacheSeconds && now >= cached.at)
+            return cached.claim;
+        if (ClaimCache.Count > 4000) ClaimCache.Clear();
+        using var timing = FrameProfiler.Measure("联姻·继承宣称");
+        int distance = BloodDistance(a.GetPersonalIdentity(), b.GetPersonalIdentity(), ClaimDistance);
+        bool claim = distance > 0 && distance <= ClaimDistance;
+        ClaimCache[key] = (claim, now);
+        return claim;
     }
 
     // 血缘远近(沿父母、子女走的步数，找不到为 -1)

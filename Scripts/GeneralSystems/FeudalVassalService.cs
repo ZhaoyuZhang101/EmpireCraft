@@ -426,9 +426,24 @@ public static class FeudalVassalService
         foreach (Kingdom child in GetDirectVassals(kingdom)) CollectPower(child, visited, excluded);
     }
 
+    private static readonly Dictionary<(long, bool, long), (double power, float at)> WarPowerCache = new();
+    private const float WarPowerCacheSeconds = 2f;
+
     public static double GetWarPower(Kingdom kingdom, bool defending, Kingdom excluded = null)
     {
         if (kingdom == null || kingdom.isRekt()) return 0d;
+        var key = (kingdom.id, defending, excluded?.id ?? -1L);
+        float now = UnityEngine.Time.unscaledTime;
+        if (WarPowerCache.TryGetValue(key, out var cached) && now - cached.at < WarPowerCacheSeconds && now >= cached.at)
+            return cached.power;
+        if (WarPowerCache.Count > 4000) WarPowerCache.Clear();
+        double power = ComputeWarPower(kingdom, defending, excluded);
+        WarPowerCache[key] = (power, now);
+        return power;
+    }
+
+    private static double ComputeWarPower(Kingdom kingdom, bool defending, Kingdom excluded)
+    {
         Kingdom root = kingdom;
         if (defending)
         {
