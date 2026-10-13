@@ -860,6 +860,7 @@ namespace EmpireCraft.Scripts.UI.Windows
                 realm.operating_balance < 0 ? "#FF6666" : "#65D66E");
 
             AddTreasuryChart(parent, TreasurySystem.MonthlyFlows(core));
+            AddTaxCollection(parent, _empire);
 
             // 构成里列了央地拨款，标题的合计也算上它，和下面的条目对得上
             var columns = parent.BeginColumns(MainWidth);
@@ -963,6 +964,31 @@ namespace EmpireCraft.Scripts.UI.Windows
                 months.Any(month => month.inflow.Keys.Any(key => !inKeys.Contains(key))), null);
             AddChartLegend(card, inner, LM.Get("fiscal_chart_out"), outKeys, OutflowColors,
                 months.Any(month => month.outflow.Keys.Any(key => !outKeys.Contains(key))), LM.Get("fiscal_chart_net_legend"));
+        }
+
+        // 税赋征收(见 TaxErosionSystem)：上一年应征、实收、征收率，各环节的流失
+        private static void AddTaxCollection(AutoVertLayoutGroup parent, Empire empire)
+        {
+            var (assessed, hidden, fraud, stolen, withheld) = TaxErosionSystem.Ledger(empire);
+            if (assessed <= 0) return;
+            long collected = Math.Max(0L, assessed - hidden - fraud - stolen);
+            float rate = collected / (float)assessed;
+            string rateHex = rate >= 0.85f ? "#65D66E" : rate >= 0.6f ? "#F3C34A" : "#FF6666";
+            var card = parent.BeginCard(MainWidth, "fiscal_collection_title", "#F3C34A",
+                string.Format(LM.Get("fiscal_collection_rate"), rate.ToString("P0")), "ui/icons/iconMoney");
+            card.AddMetricRow(MainWidth,
+                (LM.Get("fiscal_collection_assessed"), MoneyDisplay.Format(assessed), "#F2EEE2"),
+                (LM.Get("fiscal_collection_collected"), MoneyDisplay.Format(collected), rateHex),
+                (LM.Get("fiscal_collection_withheld"), MoneyDisplay.Format(withheld), withheld > 0 ? "#E9A85B" : "#8FA0A8"));
+            int index = 0;
+            foreach ((string key, long value) in new[] { ("fiscal_collection_hidden", hidden), ("fiscal_collection_fraud", fraud),
+                         ("fiscal_collection_stolen", stolen) })
+            {
+                if (value <= 0) continue;
+                card.AddListRow(MainWidth, index++, null, LM.Get(key),
+                    $"-{MoneyDisplay.Format(value)}  ({value / (float)assessed:P0})", titleHex: "#E9A85B", titleWidth: 90f);
+            }
+            if (index == 0) card.AddListRow(MainWidth, 0, null, LM.Get("fiscal_collection_clean"), "", titleWidth: 220f);
         }
 
         private static string MonthLabel(TreasuryMonth month) => month.months_ago == 0

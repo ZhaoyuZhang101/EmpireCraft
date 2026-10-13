@@ -144,6 +144,18 @@ public class EmpireData : MetaObjectData
     public string faction_imbalance_id { get; set; } = "";
     public bool faction_imbalance_warned { get; set; }
     public double last_faction_balance_update { get; set; } = -1d;
+    // 税基流失的账目(见 TaxErosionSystem)：本年应征、隐田逃户、胥吏舞弊、城中贪墨、地方截留，满一年结转为上一年
+    public long fiscal_assessed { get; set; }
+    public long fiscal_hidden { get; set; }
+    public long fiscal_fraud { get; set; }
+    public long fiscal_stolen { get; set; }
+    public long fiscal_withheld { get; set; }
+    public long fiscal_last_assessed { get; set; }
+    public long fiscal_last_hidden { get; set; }
+    public long fiscal_last_fraud { get; set; }
+    public long fiscal_last_stolen { get; set; }
+    public long fiscal_last_withheld { get; set; }
+    public double fiscal_year_start { get; set; } = -1d;
 
     public bool archived { get; set; } = false;
     

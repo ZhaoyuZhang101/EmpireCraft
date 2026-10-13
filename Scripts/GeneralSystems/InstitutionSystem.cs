@@ -2186,6 +2186,10 @@ public static class InstitutionSystem
             case "add_mandate":
                 empire.AddMandate(effect.int_value);
                 break;
+            // 财政改革对症减轻朝政积弊(value 为积弊键，见 MaladySystem)：两税法、一条鞭法清丈田亩、均田
+            case "relieve_malady":
+                MaladySystem.Relieve(empire, effect.value, effect.int_value);
+                break;
             case "change_tax_level":
                 if (Enum.TryParse(effect.value, true, out TaxLevel taxLevel))
                     foreach (Kingdom kingdom in EnumerateAffectedKingdoms(empire))

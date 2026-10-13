@@ -40,7 +40,7 @@ public static class InstitutionDefinitionRegistry
     {
         "add_mandate", "change_tax_level", "set_regime_option", "modify_faction_power", "enable_claim",
         "change_regime", "unlock_succession_law", "grant_trait", "abolish_monarchy",
-        "open_private_land_market", "enact_law"
+        "open_private_land_market", "enact_law", "relieve_malady"
     };
 
     // 可以在同文化的其他政权身上幂等重放的"持久状态"效果。

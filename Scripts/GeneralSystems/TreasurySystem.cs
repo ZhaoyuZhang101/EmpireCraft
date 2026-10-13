@@ -241,6 +241,18 @@ public static class TreasurySystem
             data.tax_sharing_relationship = relationship;
             data.tax_city_carry = data.tax_central_carry = data.tax_corruption_carry = 0;
         }
+        // 税基流失：积弊深了，征收前就有隐田逃户、胥吏舞弊(见 TaxErosionSystem)
+        Layer.Empire realm = inEmpire ? empire : null;
+        bool taxed = realm != null && TaxErosionSystem.IsTax(category);
+        if (taxed)
+        {
+            var (hiddenShare, fraudShare) = TaxErosionSystem.Evasion(realm, category);
+            int hidden = Math.Min(amount, TaxErosionSystem.Round(amount * (double)hiddenShare));
+            int fraud = Math.Min(amount - hidden, TaxErosionSystem.Round(amount * (double)fraudShare));
+            TaxErosionSystem.RecordAssessed(realm, amount, hidden, fraud);
+            amount -= hidden + fraud;
+            if (amount <= 0) return;
+        }
         city.AddMoney(amount, category);
         // 城市征收环节的漏损只扣本期款项，并明确记为腐败支出。
         bool hasCollector = city.hasLeader() && city.leader.isAlive() && !city.leader.isRekt();
@@ -252,15 +264,25 @@ public static class TreasurySystem
             city.SubMoney(stolen, TreasuryCategory.Corruption);
             city.leader.addMoney(stolen);
             RecordTaxCorruption(city.leader);
+            if (taxed) TaxErosionSystem.RecordStolen(realm, stolen);
         }
         // 保留原城市征税 AI 的政治拒缴规则；恢复忠诚后只分配新税款，不追抽留存余额。
         if (city.getLoyalty() <= 0 && !CityStabilitySystem.ControlsTax(city)) return;
         var share = TreasuryRules.SplitTax(amount - stolen, cityPercent, centralPercent,
             ref data.tax_city_carry, ref data.tax_central_carry);
-        int paid = share.local + share.central;
+        int localShare = share.local, centralShare = share.central;
+        // 地方截留：吏治坏了，省里把该解送中央的截下一部分(见 TaxErosionSystem)
+        if (taxed && centralShare > 0 && local != central)
+        {
+            int withheld = Math.Min(centralShare, TaxErosionSystem.Round(centralShare * (double)TaxErosionSystem.Withholding(realm)));
+            centralShare -= withheld;
+            localShare += withheld;
+            TaxErosionSystem.RecordWithheld(realm, withheld);
+        }
+        int paid = localShare + centralShare;
         if (paid > 0) city.SubMoney(paid, TreasuryCategory.InternalTransfer);
-        if (share.local > 0) CreditTaxShare(local, share.local, category);
-        if (share.central > 0) CreditTaxShare(central, share.central, category);
+        if (localShare > 0) CreditTaxShare(local, localShare, category);
+        if (centralShare > 0) CreditTaxShare(central, centralShare, category);
     }
 
     private static double Rate(double rate) => double.IsNaN(rate) || double.IsInfinity(rate) ? 0d : Math.Max(0d, Math.Min(1d, rate));

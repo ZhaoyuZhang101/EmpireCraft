@@ -542,6 +542,11 @@
       },
       "effects_on_complete": [
         {
+          "type": "relieve_malady",
+          "value": "annexation",
+          "int_value": 30
+        },
+        {
           "type": "change_tax_level",
           "value": "Medium"
         },
@@ -1021,6 +1026,16 @@
       },
       "effects_on_complete": [
         {
+          "type": "relieve_malady",
+          "value": "annexation",
+          "int_value": 20
+        },
+        {
+          "type": "relieve_malady",
+          "value": "levies",
+          "int_value": 20
+        },
+        {
           "type": "change_tax_level",
           "value": "Medium"
         },
@@ -1076,6 +1091,21 @@
         }
       },
       "effects_on_complete": [
+        {
+          "type": "relieve_malady",
+          "value": "annexation",
+          "int_value": 30
+        },
+        {
+          "type": "relieve_malady",
+          "value": "levies",
+          "int_value": 25
+        },
+        {
+          "type": "relieve_malady",
+          "value": "graft",
+          "int_value": 10
+        },
         {
           "type": "change_tax_level",
           "value": "High"
