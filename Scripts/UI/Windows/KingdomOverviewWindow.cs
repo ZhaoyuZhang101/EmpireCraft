@@ -7,6 +7,7 @@ using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.UI.Components;
 using NeoModLoader.General;
+using NeoModLoader.General.UI.Prefabs;
 using NeoModLoader.General.UI.Window.Layout;
 
 namespace EmpireCraft.Scripts.UI.Windows;
@@ -75,6 +76,14 @@ public class KingdomOverviewWindow : WideScrollWindow<KingdomOverviewWindow>
         stats.AddRailRow(width, LM.Get("kov_alliance"), alliance?.name ?? LM.Get("label_none"),
             alliance == null ? WideKit.Muted : WideKit.Value, row);
 
+        // 自定义地图色(#RRGGBB，留空恢复原版颜色，见 CustomColorSystem)
+        var look = rail.BeginRailCard();
+        TextInput colorInput = null;
+        colorInput = look.AddRailInput(LM.Get("custom_color_label"), CustomColorSystem.Hex(kingdom), text =>
+        {
+            if (!CustomColorSystem.Set(kingdom, text)) colorInput?.input.SetTextWithoutNotify(CustomColorSystem.Hex(kingdom));
+        });
+        colorInput.input.characterLimit = 7;
         rail.AddRailButton("kov_open_military", LM.Get("kingdom_military"), () => KingdomMilitaryWindow.Open(kingdom));
         rail.AddRailButton("kov_open_regime", LM.Get("kov_open_regime"), () =>
         {

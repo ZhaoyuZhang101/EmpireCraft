@@ -143,6 +143,8 @@ public class EmpireData : MetaObjectData
     // 帝国设置的国号前缀：false 为自动(迁都、复国、分裂时系统加的方位词)，true 为手选——prefix_choice 是方位词键
     // (Eastern/Western/Southern/Northern/Former/Later/great)、自己写的字，空为不加
     public bool prefix_manual { get; set; }
+    // 自定义地图色(#RRGGBB，空为原版颜色，见 CustomColorSystem)
+    public string custom_color { get; set; } = "";
     public string prefix_choice { get; set; } = "";
     // 全帝国连荒两年以上的城占几成(见 FamineUnrestSystem，推高王朝积弊)
     public float famine_share { get; set; }

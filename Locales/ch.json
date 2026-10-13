@@ -1581,6 +1581,7 @@
   "plot_emperor_simplify_posthumous": "諡法從簡",
   "plot_emperor_simplify_posthumous_info_base": "詔定諡法從簡，此後先帝只加簡諡，不再增廣尊諡(與增廣尊諡二選一，一個帝國只定一次)",
   "history_simplify_posthumous": "{0}詔定諡法從簡，{1}自此先帝只加簡諡。",
+  "custom_color_label": "自定義地圖色(如 #3A6EA5，留空恢復)",
   "capital_loss_restored": "{0}收復舊都{1}，還於舊都，復稱{2}。",
   "kingdom_type_xingzai": "行在",
   "Later": "後",

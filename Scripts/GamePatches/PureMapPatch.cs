@@ -281,7 +281,8 @@ public class PureMapPatch : GamePatch
         if (occupier?.data == null || occupier.isRekt() || occupier == city.kingdom || occupier.isInWarOnSameSide(city.kingdom))
             return null;
         Empire empire = empireLayer && occupier.IsInEmpire() ? occupier.GetEmpire() : null;
-        ColorAsset color = empire != null && !empire.IsArchived() ? empire.getColor() : occupier.getColor();
+        object meta = empire != null && !empire.IsArchived() ? empire : occupier;
+        ColorAsset color = CustomColorSystem.Of(meta) ?? (meta is Empire owner ? owner.getColor() : occupier.getColor());
         if (color == null) return null;
         Color32 fill = color.getColorBorderInsideAlpha32();
         fill.a = byte.MaxValue;
@@ -850,15 +851,38 @@ public class PureMapPatch : GamePatch
         if (color.a > 0) color.a = byte.MaxValue;
     }
 
-    private static void BeforeApplyColors(ref Color32 pColorInside, ref Color32 pColorOutside)
+    // 国家、帝国定了自定义颜色(见 CustomColorSystem)：这块地的底色、边框换成它(任何模式都生效)
+    private static ColorAsset CustomColor(TileZone zone)
     {
+        if (zone == null || !CustomColorSystem.Any) return null;
+        MetaTypeAsset layer = World.world.getCachedMapMetaAsset();
+        if (layer == null || layer.map_mode != MetaType.Kingdom && layer.map_mode != MetaTypeExtension.Empire) return null;
+        return CustomColorSystem.Of(layer.tile_get_metaobject?.Invoke(zone, layer.getZoneOptionState()));
+    }
+
+    private static Color32 Recolor(Color32 original, Color32 custom)
+    {
+        custom.a = original.a;
+        return custom;
+    }
+
+    private static void BeforeApplyColors(TileZone pZone, ref Color32 pColorInside, ref Color32 pColorOutside)
+    {
+        ColorAsset custom = CustomColor(pZone);
+        if (custom != null)
+        {
+            if (pColorInside.a > 0) pColorInside = Recolor(pColorInside, custom.getColorBorderInsideAlpha32());
+            if (pColorOutside.a > 0) pColorOutside = Recolor(pColorOutside, custom.getColorMainSecond32());
+        }
         if (!PureMapMode.Enabled) return;
         Opaque(ref pColorInside);
         Opaque(ref pColorOutside);
     }
 
-    private static void BeforeApplyColorsFull(ref Color32 pColor)
+    private static void BeforeApplyColorsFull(TileZone pZone, ref Color32 pColor)
     {
+        ColorAsset custom = CustomColor(pZone);
+        if (custom != null && pColor.a > 0) pColor = Recolor(pColor, custom.getColorBorderInsideAlpha32());
         if (PureMapMode.Enabled) Opaque(ref pColor);
     }
 

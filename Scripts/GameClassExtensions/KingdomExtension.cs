@@ -249,6 +249,8 @@ public static class KingdomExtension
         public long succession_note_actor = -1L;
         // 正在闹大饥荒(三成以上的城连荒两年，见 FamineUnrestSystem)
         public bool great_famine;
+        // 自定义地图色(#RRGGBB，空为原版颜色，见 CustomColorSystem)
+        public string custom_color = "";
         public int Level = 2;
         [JsonIgnore]
         public Regime regime;

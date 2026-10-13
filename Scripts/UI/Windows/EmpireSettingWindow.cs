@@ -32,7 +32,7 @@ public class EmpireSettingWindow : AbstractWideWindow<EmpireSettingWindow>
     // 国号前缀：自动、不加、方位词，或自己写
     private static readonly string[] PrefixChoices = { "", "Eastern", "Western", "Southern", "Northern", "Former", "Later", "great" };
     private AutoHoriLayoutGroup _prefixRow, _prefixRow2;
-    private TextInput _prefixInput;
+    private TextInput _prefixInput, _colorInput;
     protected override void Init()
     {
         UIHelper.FixWideWindowScrollArea(BackgroundTransform);
@@ -73,6 +73,24 @@ public class EmpireSettingWindow : AbstractWideWindow<EmpireSettingWindow>
         colorButton.Setup(() => EmpireColorPatch.Open(EmpireCraftMetaTypeLibrary.selected_empire),
             SpriteTextureLoader.getSprite("TabColor"), LM.Get("empire_change_color"), new Vector2(CardWidth - 12f, 18f));
         lookCard.AddChild(colorButton.gameObject);
+
+        // 自定义地图色(#RRGGBB，留空恢复原版颜色，见 CustomColorSystem)
+        lookCard.AddRailText(LM.Get("custom_color_label").ColorString("#8FA0A8"), 6, 10f);
+        _colorInput = Instantiate(TextInput.Prefab, null);
+        _colorInput.Setup("", text =>
+        {
+            _empire = EmpireCraftMetaTypeLibrary.selected_empire;
+            if (!CustomColorSystem.Set(_empire, text)) _colorInput.input.SetTextWithoutNotify(CustomColorSystem.Hex(_empire));
+        });
+        _colorInput.SetSize(new Vector2(CardWidth - 12f, 18f));
+        Text colorText = _colorInput.input.textComponent;
+        if (colorText != null)
+        {
+            colorText.resizeTextMinSize = 6;
+            colorText.resizeTextMaxSize = 10;
+        }
+        _colorInput.input.characterLimit = 7;
+        lookCard.AddChild(_colorInput.gameObject);
 
         // 国号前缀(东汉、西汉、北魏、后唐之类)：自动跟随迁都、复国，或手选、自己写
         lookCard.AddRailText(LM.Get("empire_prefix_label").ColorString("#8FA0A8"), 6, 10f);
@@ -187,6 +205,7 @@ public class EmpireSettingWindow : AbstractWideWindow<EmpireSettingWindow>
             : _empire.data.has_year_name);
         _longNameRow.SetActive(!republic);
         RefreshPrefix();
+        _colorInput?.input.SetTextWithoutNotify(CustomColorSystem.Hex(_empire));
         _longNameButton.Icon.sprite = SpriteTextureLoader.getSprite(_empire.data.show_long_posthumous ? "ui/toggle_open" : "ui/toggle_close");
     }
 
