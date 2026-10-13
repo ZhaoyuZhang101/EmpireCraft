@@ -1,5 +1,4 @@
 using UnityEngine;
-using NeoModLoader.General.Event.Handlers;
 using NeoModLoader.api;
 using System.Text;
 using NeoModLoader.services;
@@ -12,11 +11,9 @@ using System.Reflection.Emit;
 using System.Collections;
 using System.Linq;
 using System.IO;
-using System.Drawing;
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Data;
-using System.Configuration;
 using EmpireCraft.Scripts.GameClassExtensions;
 using System.Runtime.CompilerServices;
 using EmpireCraft.Scripts.Compatibility;

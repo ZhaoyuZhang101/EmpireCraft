@@ -13,7 +13,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO.Ports;
 using System.Linq;
-using System.Numerics;
 using System.Security.Policy;
 using System.Text;
 using System.Threading.Tasks;
