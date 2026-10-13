@@ -663,8 +663,9 @@ public class Empire : MetaObject<EmpireData>
         }
         // 篡位的连带后果（分裂、内战、改国号、清空帝系）牵涉大量外部状态，任何一步抛异常都不能
         // 打断下面的即位登记——否则皇室、年号、历史都停留在上一任，年号会一直累加下去。
+        // 选帝制(神圣罗马式)换了家族是正常换届，不算篡位
         bool usurpation = currentSpecificClan != previousRoyalClan && data.empire_specific_clan != -1L &&
-                          !IsRepublicState;
+                          !IsRepublicState && !HolyRomanSystem.IsElective(this);
         try
         {
             if (usurpation)
@@ -1421,6 +1422,32 @@ public class Empire : MetaObject<EmpireData>
     }
 
     // 返回是否成功由 newKingdom 接续为新帝国（成功时本帝国会被解散）
+    // 选帝制(神圣罗马式)：当选的诸侯带着自家领国成为帝国中央，帝都随之搬迁；原中央降为普通诸侯国、仍归原皇族。
+    // 帝国本身(国号、历史、帝国核心)不变，只换中央与皇族(同中央丢光城池时就地改立中央，见 checkActive)
+    public bool TransferCoreTo(Kingdom newCore)
+    {
+        Kingdom old = CoreKingdom;
+        if (newCore == null || newCore.isRekt() || newCore == old || !kingdoms_hashset.Contains(newCore) ||
+            !newCore.hasCapital() || newCore.king == null) return false;
+        LeaderSelectMethod method = old?.GetRegime()?.GetLeaderSelectMethod() ?? LeaderSelectMethod.Vote;
+        if (old != null && !old.isRekt())
+        {
+            old.GetOrCreate().isEmpire = false;
+            old.GetRegime()?.SetLeaderSelectMethod(LeaderSelectMethod.Succession);
+            old.SetLevel(4);
+        }
+        newCore.GetOrCreate().isEmpire = true;
+        newCore.GetRegime()?.SetLeaderSelectMethod(method);
+        newCore.ai.setTask("do_mod_empire_beh");
+        newCore.SetLevel(0);
+        CoreKingdom = newCore;
+        SyncCoreKingdomReference();
+        data.centerOffice?.Init(CoreKingdom);
+        recalculate();
+        NewEmperor(newCore.king);
+        return true;
+    }
+
     public bool ReplaceEmpire(Kingdom newKingdom)
     {
         if (newKingdom == null || newKingdom.isRekt() || newKingdom.king == null || !newKingdom.hasCapital())

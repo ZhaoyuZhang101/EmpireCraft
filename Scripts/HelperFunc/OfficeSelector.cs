@@ -69,7 +69,9 @@ public static class OfficeSelector
         }
 
         // 前现代父系(母系)文化：选出的人不合择官偏好时，无小人模式先从人口里补一名合偏好的人，补不出才用原人选
-        if (actor != null && method != LeaderSelectMethod.Harem && !IsPreferredOfficeCandidate(actor, pKingdom))
+        // (选帝侯预先选立的储君不换人)
+        if (actor != null && method != LeaderSelectMethod.Harem && !IsPreferredOfficeCandidate(actor, pKingdom) &&
+            actor != HolyRomanSystem.KingOfRomans(pKingdom.GetEmpire()))
             actor = CityPopulationSystem.SpawnForOffice(office, pKingdom, preferredOnly: true) ?? actor;
 
         // 无小人模式：没有合适人选就从人口里生成一人补上(后宫除外)
@@ -143,7 +145,9 @@ public static class OfficeSelector
         {
             return null;
         }
-
+        // 选立的储君直接即位，不再另选
+        Actor designated = HolyRomanSystem.KingOfRomans(pKingdom.GetEmpire());
+        if (designated != null) return designated;
         return RankElectiveCandidates(pKingdom).Select(item => item.candidate).FirstOrDefault();
     }
 

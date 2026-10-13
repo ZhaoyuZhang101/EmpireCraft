@@ -83,6 +83,8 @@ public class EmpirePeacePatch : GamePatch
             member.IsFactionRebelling() || member.IsLocalRebelling()) return false;
         Regime regime = member.GetRegime();
         if (regime == null) return false;
+        // 选帝制下皇帝家族领地薄弱：比皇帝自家领国城多的诸侯不听调遣
+        if (EmpireCraft.Scripts.GeneralSystems.HolyRomanSystem.Defies(empire, member)) return false;
         if (!regime.IsAllowDiplomacy()) return true;
         return member.IsAdministrativeKingdomType() && regime.GetLeaderSelectMethod() != LeaderSelectMethod.Succession;
     }

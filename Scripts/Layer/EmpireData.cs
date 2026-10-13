@@ -33,6 +33,8 @@ public class EmpireData : MetaObjectData
     public ZhouEraState zhou = new();
     // 西方：与教廷的关系(加冕、叙任权、绝罚、什一税，见 PapacySystem)
     public PapalRelationState papal = new();
+    // 神圣罗马式选帝制：选立储君、皇族届数、选举让步(见 HolyRomanSystem)
+    public HolyRomanState holy_roman = new();
     public long Religion { get; set; } = -1L;
     public EmpireHeirLawType heir_type { get; set; }
     public int max_province_city_num { get; set; } = 3;

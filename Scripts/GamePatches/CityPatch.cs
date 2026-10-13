@@ -481,7 +481,9 @@ public class CityPatch : GamePatch
                         TranslateHelper.LogRoyalKingBecomeEmperor(empire, joinAfterCapture.GetMainTitle()??joinAfterCapture.capital.GetTitle(), newEmperor);
                         empire.CoreKingdom.GetOffice().meta_object = empire.CoreKingdom;
                         empire.CoreKingdom.GetOffice().SetActor(newEmperor);
-                        joinAfterCapture.cities.ForEach(c=>c.joinAnotherKingdom(empire.CoreKingdom));
+                        // 选帝制下当选者带着自家领国成为中央(见 HolyRomanSystem)，此时不用再并城
+                        if (joinAfterCapture != empire.CoreKingdom)
+                            joinAfterCapture.cities.ToList().ForEach(c=>c.joinAnotherKingdom(empire.CoreKingdom));
                         ClearResolvedCaptureProgress(__instance);
                         return false;
                     }

@@ -272,6 +272,9 @@ public class OfficeObject
 
     public void SetActor (Actor actor)
     {
+        // 神圣罗马式选帝制：选出别的成员国的君主时，他带着自家领国成为帝国中央，不调进原中央(见 HolyRomanSystem)
+        if (is_local && meta_object is Kingdom electedSeat &&
+            EmpireCraft.Scripts.GeneralSystems.HolyRomanSystem.TryElectHouse(electedSeat, actor)) return;
         if (is_local && meta_object is Kingdom constitutionalCore && constitutionalCore.IsEmpire() &&
             ConstitutionalSuccessionSystem.IsProtected(constitutionalCore.GetEmpire()) &&
             !ConstitutionalSuccessionSystem.CanInherit(constitutionalCore.GetEmpire(), actor)) return;
