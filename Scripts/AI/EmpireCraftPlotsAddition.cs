@@ -1277,8 +1277,9 @@ namespace EmpireCraft.Scripts.AI
                     {
                         Religion religion = kingdom.religion;
                         
+                        // 圣战对象要与本国(或本国所在帝国)接壤：以前只要与任一同教国家接壤就行，会隔着半张地图开战
                         if (World.world.kingdoms.ToList().Any(k =>
-                                !religion.kingdoms.Contains(k)&&religion.kingdoms.Any(k2=>k2.IsNeighbourWith(k)))) return true;
+                                !religion.kingdoms.Contains(k) && HolyWarNeighbour(kingdom, k))) return true;
                     }
                     return false;
                 },
@@ -1295,7 +1296,7 @@ namespace EmpireCraft.Scripts.AI
                         Religion religion = kingdom.religion;
 
                         var target = World.world.kingdoms.ToList().Find(k =>
-                            !religion.kingdoms.Contains(k)&&religion.kingdoms.Any(k2=>k2.IsNeighbourWith(k)));
+                            !religion.kingdoms.Contains(k) && HolyWarNeighbour(kingdom, k));
                         if (target == null) return false;
                         var war = DiplomacyHelpers.wars.newWar(kingdom, target, WarTypeLibrary.normal);
                         war.SetEmpireWarType(EmpireWarType.神圣, pre:religion.name);
@@ -2702,6 +2703,11 @@ namespace EmpireCraft.Scripts.AI
         private static bool IsIndependentWarRealm(Kingdom kingdom) =>
             kingdom != null && UsesVanillaWarPlot(kingdom.IsEmpire(), kingdom.IsInEmpire(),
                 FeudalVassalService.GetOverlord(kingdom) != null);
+
+        // 宗教战争的对象：与发起国(或其所在帝国)接壤的异教国家，不是本帝国的成员
+        private static bool HolyWarNeighbour(Kingdom kingdom, Kingdom target) =>
+            target != null && target != kingdom && !target.isRekt() && !target.IsInSameEmpire(kingdom) &&
+            (kingdom.IsNeighbourWith(target) || kingdom.GetEmpire()?.IsNeighbourWith(target) == true);
 
         internal static bool UsesVanillaWarPlot(bool isEmpire, bool inEmpire, bool hasOverlord) =>
             !isEmpire && !inEmpire && !hasOverlord;

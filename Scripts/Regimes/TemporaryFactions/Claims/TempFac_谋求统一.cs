@@ -52,7 +52,9 @@ public class TempFac_谋求统一 : TemporaryFaction
                 if (selfCore != null && targetCore != null && selfCore.id == targetCore.id)
                 {
                     Empire targetEmpire = kingdom.GetEmpire();
-                    if (targetEmpire != null && empire.countWarriors() >= targetEmpire.countWarriors())
+                    // 同争一个帝国核心的对手帝国也要与本帝国接壤，不隔着别国远征
+                    if (targetEmpire != null && empire.countWarriors() >= targetEmpire.countWarriors() &&
+                        targetEmpire.kingdoms_list.Any(member => member != null && !member.isRekt() && empire.IsNeighbourWith(member)))
                     {
                         SetKingdomTarget(targetEmpire.CoreKingdom);
                         return true;
