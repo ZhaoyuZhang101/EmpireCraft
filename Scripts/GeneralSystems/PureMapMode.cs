@@ -11,7 +11,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     (见 PureMapPatch)；君主、官员、家族、谋划照常作为数据运作。船照常显示、航行，海军旗舰不随统领实体开关撤掉；
 //   · 不画任何建筑(建筑本体、仓库堆货、建筑阴影、城墙)，建筑照常作为数据运作(仓储、住房、岗位、码头、寺庙……)；
 //     雕像、训练木桩、花园、喷泉等纯装饰建筑清掉、不再建造(见 PureMapPatch)，野外粪便一并清掉；
-//   · 国家色块完全不透明，任何缩放都填满(水面、无主地照常显示地形)。
+//   · 国家色块完全不透明，任何缩放都填满(水面、无主地照常显示地形)；
+//   · 实体一次清：读档后、积压时不是名人的普通人当场并回人口(几帧清完)，之后每 10 秒清一次零头，不等月度结算慢慢回收。
 public static class PureMapMode
 {
     public static bool Enabled => ModClass.PURE_MAP_MODE;
@@ -43,6 +44,11 @@ public static class PureMapMode
     private static readonly HashSet<string> DecorIds = new() { "garden", "fountain" };
 
     private const int SweepPerFrame = 400;
+    // 普通人一次清：每帧最多并入这么多人，清完后每隔 PurgeInterval 秒(真实时间)再扫一遍零头
+    private const int PurgePerFrame = 1500;
+    private const float PurgeInterval = 10f;
+    private static float _purgeAt;
+    private static int _purgedTotal;
     private static bool _spritesOff;
     private static Building[] _sweep;
     private static int _cursor;
@@ -58,6 +64,20 @@ public static class PureMapMode
             SyncLaws();
         }
         Sweep();
+        Purge();
+    }
+
+    // 不慢慢回收：读档后、积压时把不是名人的普通人一次并回人口(几帧清完，见 CityPopulationSystem.PurgeCommoners)
+    private static void Purge()
+    {
+        if (Config.paused || UnityEngine.Time.unscaledTime < _purgeAt) return;
+        int folded = CityPopulationSystem.PurgeCommoners(PurgePerFrame, out bool more);
+        _purgedTotal += folded;
+        if (more) return;
+        _purgeAt = UnityEngine.Time.unscaledTime + PurgeInterval;
+        if (_purgedTotal >= 100)
+            LogService.LogInfo($"[EmpireCraft][纯净地图] 一次并入普通人 {_purgedTotal} 人，剩实体 {World.world.units.Count}");
+        _purgedTotal = 0;
     }
 
     public static bool IsDecor(BuildingAsset asset) =>
@@ -135,5 +155,7 @@ public static class PureMapMode
         _sweep = null;
         _cursor = 0;
         _lawCheckAt = 0f;
+        _purgeAt = 0f;
+        _purgedTotal = 0;
     }
 }

@@ -1281,15 +1281,20 @@ public static class CityPopulationSystem
         return false;
     }
 
-    // 纯净地图模式(接近零实体)只留朝堂离不开的人：君主、城主、在任官员、要紧宗室(储君、君主配偶子女、有封号的)、
+    // 纯净地图模式(接近零实体)只留朝堂离不开的人：君主、城主、在任官员、要紧宗室(储君、君主配偶子女、有封号的)、科举考生(进士、贡士、每城两位举人)、
     // 派系成员、谋划中、收藏的；宗族族长、地主、举人进士都并回人口(宗族转为虚拟，需要时再落成)
     private static bool PureNotable(Actor actor)
     {
         if (actor.isKing() || actor.isCityLeader() || actor.isFavorite() || actor.isCameraFollowingUnit() ||
             actor.plot != null || actor.IsOnOffice()) return true;
         if (EmpireCaftActorJudgeClass.IsNoble(actor) && IsImportantNoble(actor)) return true;
-        return actor.GetFaction() != null;
+        if (actor.GetFaction() != null) return true;
+        // 科举要实体考生：乡试从各城的举人里取、会试从贡士里取。进士、贡士全留(全图百来人)，举人每城只留最好的两位
+        if (actor.hasTrait("gongshi") || actor.hasTrait("jingshi")) return true;
+        return actor.hasTrait("juren") && IsKeptJuren(actor, PureKeptJuren);
     }
+
+    private const int PureKeptJuren = 2;
 
     // 月度并入最多重算十二人，由每城游标轮转，未知者等待检查。
     private const int MaxNotableRecomputes = 12;
@@ -1319,9 +1324,9 @@ public static class CityPopulationSystem
 
     private const int MaxKeptJuren = 5;
 
-    private static bool IsKeptJuren(Actor actor)
+    private static bool IsKeptJuren(Actor actor, int limit = MaxKeptJuren)
     {
-        if (PopulationJurenRanking.TryIsKept(actor, out bool kept)) return kept;
+        if (limit == MaxKeptJuren && PopulationJurenRanking.TryIsKept(actor, out bool kept)) return kept;
         City city = actor.city;
         if (city?.units == null) return true;
         double mine = actor.GetIdentity()?.TotalPerformance ?? 0d;
@@ -1331,7 +1336,7 @@ public static class CityPopulationSystem
             if (other == null || other == actor || other.isRekt() || !other.isAlive() || !other.hasTrait("juren")) continue;
             double theirs = other.GetIdentity()?.TotalPerformance ?? 0d;
             if (theirs > mine || theirs == mine && other.id < actor.id) better++;
-            if (better >= MaxKeptJuren) return false;
+            if (better >= limit) return false;
         }
         return true;
     }
@@ -1512,6 +1517,61 @@ public static class CityPopulationSystem
     // 实体并回人口(军团统领卸任、旧制征召兵并入军团时用)
     public static bool DisbandIntoPopulation(Actor actor, City fallback) =>
         actor?.data != null && !actor.isRekt() && actor.isAlive() && fallback != null && FoldIntoPopulation(actor, fallback);
+
+    // 纯净地图模式(见 PureMapMode)：不慢慢回收，城里与流民里不是名人的普通人一次并回人口(每次最多 limit 人，
+    // 几帧清完)；军人照旧由月度结算按兵额处理。返回并入人数，more = 还有没清完的
+    private static readonly List<Actor> PurgeSnapshot = new();
+    private static int _purgeCursor;
+
+    public static int PurgeCommoners(int limit, out bool more)
+    {
+        more = false;
+        if (!AbstractPopulationEnabled || World.world?.units == null) return 0;
+        using var timing = FrameProfiler.Measure("纯净地图·清空普通人");
+        if (_purgeCursor <= 0 || _purgeCursor >= PurgeSnapshot.Count)
+        {
+            PurgeSnapshot.Clear();
+            PurgeSnapshot.AddRange(World.world.units.getSimpleList());
+            _purgeCursor = 0;
+        }
+        var touched = new HashSet<City>();
+        int folded = 0;
+        while (_purgeCursor < PurgeSnapshot.Count && folded < limit)
+        {
+            Actor actor = PurgeSnapshot[_purgeCursor++];
+            if (actor?.data == null || actor.isRekt() || !actor.isAlive() || actor.asset == null || !actor.asset.civ ||
+                IsVehicle(actor) || ImmediatelyProtected(actor) || IsSoldier(actor) ||
+                EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(actor)) continue;
+            Kingdom kingdom = actor.kingdom;
+            if (kingdom?.cities == null || kingdom.wild || kingdom.isRekt() || kingdom.cities.Count == 0 || IsNotable(actor))
+                continue;
+            City home = actor.city?.data != null && !actor.city.isRekt() && actor.city.kingdom == kingdom
+                ? actor.city
+                : DrawKingdomCity(kingdom);
+            if (home == null) continue;
+            try
+            {
+                if (!FoldIntoPopulation(actor, home)) continue;
+                folded++;
+                touched.Add(home);
+            }
+            catch (Exception exception)
+            {
+                LogService.LogWarning($"[EmpireCraft][纯净地图] 并入失败: {exception.Message}");
+            }
+        }
+        more = _purgeCursor < PurgeSnapshot.Count;
+        if (!more)
+        {
+            PurgeSnapshot.Clear();
+            _purgeCursor = 0;
+        }
+        // 实体转背景后当场校准人口数(同月度结算的并入步骤)
+        foreach (City city in touched)
+            if (city?.data != null && !city.isRekt()) Census(city, Get(city), keepBackground: true);
+        if (folded > 0) InvalidateHouseholdCaches();
+        return folded;
+    }
 
     private static bool FoldIntoPopulation(Actor actor, City fallback)
     {
