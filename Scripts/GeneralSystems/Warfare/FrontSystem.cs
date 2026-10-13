@@ -421,6 +421,11 @@ public static class FrontSystem
     // 火力：WarBox 的坦克、装甲车、飞机等载具每辆 +4%，最多 +60%
     private static readonly Dictionary<long, float> FirepowerCache = new();
 
+    // 纯净地图模式：人物、载具都是数据，不靠 WarBox 的实体载具，火力按这支军的兵种(装备)算(见 CorpsArmSystem.Power)；
+    // 其余模式照旧按本国载具数
+    private static float Firepower(Kingdom kingdom, CorpsData corps) =>
+        PureMapMode.Enabled ? CorpsArmSystem.Power(CorpsArmSystem.Of(corps)) : Firepower(kingdom);
+
     private static float Firepower(Kingdom kingdom)
     {
         if (kingdom == null) return 1f;
@@ -486,12 +491,12 @@ public static class FrontSystem
         // 战时统帅按兵略给本国各军加成(见 WarCommandSystem)
         // 补给不足打折(见 LogisticsSystem)
         // 骑士团的军是精锐(见 PapacySystem.Orders)
-        float attack = attackers.Sum(entry => Effective(entry.corps) * Firepower(entry.kingdom) *
+        float attack = attackers.Sum(entry => Effective(entry.corps) * Firepower(entry.kingdom, entry.corps) *
                                               WarCommandSystem.Factor(entry.kingdom) * LogisticsSystem.AttackFactor(entry.corps) *
                                               PapacySystem.OrderFactor(entry.corps)) *
                        (landing ? 0.7f : 1f) * ground.Attack;
         // 叛乱初起还在集结的守方仓促应战(见 MusterSystem)
-        float defend = holders.Sum(entry => Effective(entry.corps) * Firepower(entry.kingdom) *
+        float defend = holders.Sum(entry => Effective(entry.corps) * Firepower(entry.kingdom, entry.corps) *
                                             WarCommandSystem.Factor(entry.kingdom) * LogisticsSystem.AttackFactor(entry.corps) *
                                             PapacySystem.OrderFactor(entry.corps) * (DefenderBonus + entry.corps.entrench) *
                                             MusterSystem.DefenseFactor(entry.kingdom, attacker));

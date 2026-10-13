@@ -123,6 +123,7 @@ public static class CorpsSystem
         GeneralMoves.Clear();
         Paths.Clear();
         PureMapMode.ResetWorldState();
+        CorpsArmSystem.ResetWorldState();
         WarScopeSystem.ResetWorldState();
         FrontSystem.ResetWorldState();
         WarReadinessSystem.ResetWorldState();
@@ -208,13 +209,15 @@ public static class CorpsSystem
             using (FrameProfiler.Measure("军团·后勤")) LogisticsSystem.MonthTick(kingdom);
             Recover(kingdom);
             PayUpkeep(kingdom);
+            // 视财力换装一支(见 CorpsArmSystem)
+            CorpsArmSystem.Monthly(kingdom, kingdom.GetOrCreate().corps);
             AbsorbLegacyLegions(kingdom);
             // 禁军空饷、忠诚、不奉诏
             PalaceArmySystem.Monthly(kingdom);
         }
     }
 
-    // 野战军饷：按人头每月发(见 CityStabilityRules.CorpsAnnual)，本国先付，听命于中央的成员付不起由中央补；
+    // 野战军饷：按人头每月发(见 CityStabilityRules.CorpsAnnual)，按兵种加权(装备越先进越贵，见 CorpsArmSystem)，本国先付，听命于中央的成员付不起由中央补；
     // 饷银发给各军的家乡城(回到民间)。发不出的那部分军心涣散，组织度下降。以前野战军不花一分钱。
     // 另收行军费：每人每走一块地块 MarchCostPerZone，离前线越远的军开过去越贵(所以动员只动就近的军)
     private const float MarchCostPerZone = 0.002f;
@@ -226,7 +229,8 @@ public static class CorpsSystem
         float soldiers = 0f, marching = 0f;
         foreach (CorpsData corps in list)
         {
-            soldiers += Mathf.Max(0f, corps.strength);
+            // 装备越先进军饷越贵(见 CorpsArmSystem.Upkeep)
+            soldiers += Mathf.Max(0f, corps.strength) * CorpsArmSystem.Upkeep(CorpsArmSystem.Of(corps));
             marching += Mathf.Max(0f, corps.strength) * corps.march_zones;
             corps.march_zones = 0;
         }
@@ -243,7 +247,8 @@ public static class CorpsSystem
             paid += Draw(core, bill - paid);
         foreach (CorpsData corps in list)
         {
-            int share = (int)(paid * (double)Mathf.Max(0f, corps.strength) / soldiers);
+            int share = (int)(paid * (double)(Mathf.Max(0f, corps.strength) * CorpsArmSystem.Upkeep(CorpsArmSystem.Of(corps))) /
+                              soldiers);
             if (share > 0 && Home(corps) is City home) EnterpriseSystem.ReturnToLocal(home, share);
         }
         float shortfall = 1f - paid / (float)bill;
@@ -620,8 +625,11 @@ public static class CorpsSystem
             }
             else
             {
-                // 山地、沼泽、丛林行军慢一半
-                corps.march_progress += TerrainSystem.SlowsMarch(Zone(corps)) ? MarchZonesPerSecond * 0.5f : MarchZonesPerSecond;
+                // 兵种定行军速度；山地、沼泽、丛林按兵种减速，飞机不受地形影响(见 CorpsArmSystem)
+                CorpsArmSystem.Arm arm = CorpsArmSystem.Of(corps);
+                float speed = MarchZonesPerSecond * CorpsArmSystem.Speed(arm);
+                if (TerrainSystem.SlowsMarch(Zone(corps))) speed *= CorpsArmSystem.Rough(arm);
+                corps.march_progress += speed;
                 while (corps.march_progress >= 1f)
                 {
                     corps.march_progress -= 1f;
@@ -705,6 +713,14 @@ public static class CorpsSystem
             return;
         }
         if (current == target) return;
+        // 飞机直线飞越高山与海面，不必去港口登船(见 CorpsArmSystem)
+        if (CorpsArmSystem.Flies(corps))
+        {
+            Paths.Remove(corps.id);
+            TileZone hop = FlyStep(current, target);
+            if (hop != null) corps.zone_id = hop.id;
+            return;
+        }
         // 旧存档里不在船上却停在海面的军(以前陆军直接走海面)：直接上岸到目标
         if (SeaRegionSystem.IsSea(current))
         {
@@ -847,6 +863,23 @@ public static class CorpsSystem
         path.RemoveAt(0);
         Paths[corps.id] = (target.id, path);
         return ZoneById(path[0]);
+    }
+
+    // 飞行：八方向里离目标最近的一块，不管地形与海面
+    private static TileZone FlyStep(TileZone current, TileZone target)
+    {
+        TileZone best = null;
+        int bestDistance = int.MaxValue;
+        foreach (TileZone neighbour in current.neighbours_all ?? Array.Empty<TileZone>())
+        {
+            if (neighbour == null) continue;
+            int dx = neighbour.x - target.x, dy = neighbour.y - target.y;
+            int distance = dx * dx + dy * dy;
+            if (distance >= bestDistance) continue;
+            bestDistance = distance;
+            best = neighbour;
+        }
+        return best;
     }
 
     // 广度优先(八方向，与 ZoneDistance 同一度量)；不可通行的地块不进，终点除外

@@ -4,6 +4,7 @@ using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GameLibrary;
 using EmpireCraft.Scripts.GeneralSystems;
+using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.UI.Components;
 using NeoModLoader.General;
@@ -224,12 +225,13 @@ namespace EmpireCraft.Scripts.UI.Windows
         }
 
         // 列宽：番号 | 驻地 | 兵力 | 组织度 | 任务
-        private static readonly float[] CorpsColumns = { 0.16f, 0.18f, 0.27f, 0.17f, 0.22f };
+        // 军号 | 兵种(可换装时带"换装"按钮) | 驻地 | 兵力 | 组织度 | 任务
+        private static readonly float[] CorpsColumns = { 0.15f, 0.19f, 0.13f, 0.21f, 0.13f, 0.19f };
 
         private static void AddCorpsHeader(AutoVertLayoutGroup card, float width)
         {
             var row = card.BeginHoriGroup(new Vector2(width, 10f), TextAnchor.MiddleLeft, 2, new RectOffset(0, 0, 0, 0));
-            string[] keys = { "corps_col_name", "corps_col_home", "corps_col_strength", "corps_col_org", "corps_col_task" };
+            string[] keys = { "corps_col_name", "corps_col_arm", "corps_col_home", "corps_col_strength", "corps_col_org", "corps_col_task" };
             for (int i = 0; i < keys.Length; i++)
                 row.AddTextIntoHoriLayout(LM.Get(keys[i]).ColorString("#8FA0A8"), true, TextAnchor.MiddleLeft,
                     new Vector2(width * CorpsColumns[i] - 2f, 10f)).UseFixedFontSize(6, HorizontalWrapMode.Overflow);
@@ -247,20 +249,46 @@ namespace EmpireCraft.Scripts.UI.Windows
             var nameText = row.AddTextIntoHoriLayout(name, true, TextAnchor.MiddleLeft, new Vector2(W(0), 12f));
             nameText.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
             HoverMarqueeText.Attach(nameText);
+            AddArmCell(row, W(1), corps);
             row.AddTextIntoHoriLayout((CorpsSystem.Home(corps)?.GetCityName() ?? "—").ColorString("#C8C2B4"), true,
-                TextAnchor.MiddleLeft, new Vector2(W(1), 12f)).UseFixedFontSize(6, HorizontalWrapMode.Overflow);
-            var strength = row.BeginHoriGroup(new Vector2(W(2), 12f), TextAnchor.MiddleLeft, 3, new RectOffset(0, 0, 0, 0));
-            UIHelper.AddShareBar(strength.transform, new Vector2(W(2) * 0.45f, 5f),
+                TextAnchor.MiddleLeft, new Vector2(W(2), 12f)).UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+            var strength = row.BeginHoriGroup(new Vector2(W(3), 12f), TextAnchor.MiddleLeft, 3, new RectOffset(0, 0, 0, 0));
+            UIHelper.AddShareBar(strength.transform, new Vector2(W(3) * 0.45f, 5f),
                 corps.full <= 0f ? 0f : corps.strength / corps.full, StrengthColor);
             strength.AddTextIntoHoriLayout($"{CorpsSystem.ShortStrength(corps.strength)}/{CorpsSystem.ShortStrength(corps.full)}",
-                true, TextAnchor.MiddleLeft, new Vector2(W(2) * 0.55f - 3f, 12f)).UseFixedFontSize(6, HorizontalWrapMode.Overflow);
-            var org = row.BeginHoriGroup(new Vector2(W(3), 12f), TextAnchor.MiddleLeft, 3, new RectOffset(0, 0, 0, 0));
-            UIHelper.AddShareBar(org.transform, new Vector2(W(3) * 0.6f, 5f), corps.org / 100f,
+                true, TextAnchor.MiddleLeft, new Vector2(W(3) * 0.55f - 3f, 12f)).UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+            var org = row.BeginHoriGroup(new Vector2(W(4), 12f), TextAnchor.MiddleLeft, 3, new RectOffset(0, 0, 0, 0));
+            UIHelper.AddShareBar(org.transform, new Vector2(W(4) * 0.6f, 5f), corps.org / 100f,
                 corps.org < 30f ? OrgLowColor : OrgColor);
             org.AddTextIntoHoriLayout(Mathf.RoundToInt(corps.org).ToString(), true, TextAnchor.MiddleLeft,
-                new Vector2(W(3) * 0.4f - 3f, 12f)).UseFixedFontSize(6, HorizontalWrapMode.Overflow);
-            row.AddTextIntoHoriLayout(TaskText(corps), true, TextAnchor.MiddleLeft, new Vector2(W(4), 12f))
+                new Vector2(W(4) * 0.4f - 3f, 12f)).UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+            row.AddTextIntoHoriLayout(TaskText(corps), true, TextAnchor.MiddleLeft, new Vector2(W(5), 12f))
                 .UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+        }
+
+        // 兵种格：兵种名；本文化有更新的装备时带"换装"按钮(花本国国库，见 CorpsArmSystem.Refit)，换完就地改字、按钮消失
+        private static void AddArmCell(AutoHoriLayoutGroup row, float width, CorpsData corps)
+        {
+            var cell = row.BeginHoriGroup(new Vector2(width, 12f), TextAnchor.MiddleLeft, 2, new RectOffset(0, 0, 0, 0));
+            bool refit = CorpsArmSystem.CanRefit(corps);
+            float buttonWidth = refit ? 22f : 0f;
+            var text = cell.AddTextIntoHoriLayout(CorpsArmSystem.Name(CorpsArmSystem.Of(corps)).ColorString("#E6DCA8"), true,
+                TextAnchor.MiddleLeft, new Vector2(width - buttonWidth - (refit ? 2f : 0f), 12f));
+            text.UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+            if (!refit) return;
+            Kingdom kingdom = World.world.kingdoms.get(corps.kingdom_id);
+            int cost = CorpsArmSystem.RefitCost(corps);
+            string target = CorpsArmSystem.Name(CorpsArmSystem.UpgradeOf(corps));
+            AdvancedButton button = null;
+            button = cell.AddButtonIntoHoriLayout($"corps_refit_{corps.id}", LM.Get("corps_refit"), () =>
+            {
+                if (!CorpsArmSystem.Refit(kingdom, corps)) return;
+                text.text.text = CorpsArmSystem.Name(CorpsArmSystem.Of(corps)).ColorString("#E6DCA8");
+                if (button != null) button.gameObject.SetActive(false);
+            }, size: new Vector2(buttonWidth, 10f));
+            UIHelper.AttachTextTooltip(button.gameObject, $"corps_refit_{corps.id}", LM.Get("corps_refit"),
+                string.Format(LM.Get("corps_refit_tip"), target, MoneyDisplay.Format(cost),
+                    MoneyDisplay.Format(kingdom?.GetMoney() ?? 0)));
         }
 
         private static string TaskText(CorpsData corps)

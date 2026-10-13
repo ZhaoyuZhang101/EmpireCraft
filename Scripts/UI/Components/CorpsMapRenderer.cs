@@ -105,6 +105,9 @@ public static class CorpsMapRenderer
         public string Task;
         public int Count, Rank;
         public float Strength, Full, Org;
+        // 兵牌图标的兵种：兵力最大那支军的兵种(见 CorpsArmSystem)
+        public CorpsArmSystem.Arm Arm;
+        public float ArmStrength = -1f;
         // 行军途中(还没滑到所在地块)：镜头近时不与别的兵牌折叠，不按地块错开
         public bool Moving;
         public readonly List<int> Zones = new();
@@ -204,6 +207,11 @@ public static class CorpsMapRenderer
     {
         group.Count++;
         group.Rank = Mathf.Max(group.Rank, Rank(corps));
+        if (corps.strength > group.ArmStrength)
+        {
+            group.ArmStrength = corps.strength;
+            group.Arm = CorpsArmSystem.Of(corps);
+        }
         group.Strength += corps.strength;
         group.Full += corps.full;
         group.Org += corps.org;
@@ -259,6 +267,17 @@ public static class CorpsMapRenderer
     {
         rank = Mathf.Clamp(rank, 0, 3);
         return Pieces[rank] ??= SpriteTextureLoader.getSprite("ui/icons/corps/chess_" + PieceNames[rank]) ?? White;
+    }
+
+    // 兵种图标(步兵、骑兵、坦克、战斗机……见 CorpsArmSystem)；缺图时退回编制棋子
+    private static readonly Dictionary<CorpsArmSystem.Arm, Sprite> ArmIcons = new();
+
+    private static Sprite ArmIcon(CorpsArmSystem.Arm arm)
+    {
+        if (ArmIcons.TryGetValue(arm, out Sprite sprite) && sprite != null) return sprite;
+        sprite = SpriteTextureLoader.getSprite(CorpsArmSystem.IconPath(arm)) ?? Piece(0);
+        ArmIcons[arm] = sprite;
+        return sprite;
     }
 
     private static readonly Sprite[] Troopships = new Sprite[4];
@@ -651,6 +670,11 @@ public static class CorpsMapRenderer
             }
             into.Count += group.Count;
             into.Rank = Mathf.Max(into.Rank, group.Rank);
+            if (group.ArmStrength > into.ArmStrength)
+            {
+                into.ArmStrength = group.ArmStrength;
+                into.Arm = group.Arm;
+            }
             into.Strength += group.Strength;
             into.Full += group.Full;
             into.Org += group.Org;
@@ -691,7 +715,7 @@ public static class CorpsMapRenderer
             // 在船上(运兵船)换海青框、棋子站在船上；否则补给断绝换灰边
             SetFrame(counter.Frame, group.Embarked ? Frame("CorpsFrame_sea")
                 : group.MinSupply < 0.25f ? Frame("CorpsFrame_ash") : TaskFrame(group.Task));
-            counter.Piece.sprite = group.Embarked ? Troopship(group.Rank) : Piece(group.Rank);
+            counter.Piece.sprite = group.Embarked ? Troopship(group.Rank) : ArmIcon(group.Arm);
             counter.Plate.color = group.Kingdom.getColor()?.getColorMain() ?? Color.gray;
             string label = group.Count > 1
                 ? $"{CorpsSystem.ShortStrength(group.Strength)}<color=#F3C34A>×{group.Count}</color>"
@@ -1177,8 +1201,8 @@ public static class CorpsMapRenderer
             if (mixed) name = $"{owners[corps].GetKingdomName()} {name}";
             Actor general = corps.general_id >= 0 ? World.world.units.get(corps.general_id) : null;
             if (general?.data != null && !general.isRekt()) name += " · " + general.getName();
-            string value = $"{CorpsSystem.ShortStrength(corps.strength)} · {Mathf.RoundToInt(corps.org)} · " +
-                           LM.Get("corps_task_" + corps.task);
+            string value = $"{CorpsArmSystem.Name(CorpsArmSystem.Of(corps))} · {CorpsSystem.ShortStrength(corps.strength)} · " +
+                           $"{Mathf.RoundToInt(corps.org)} · " + LM.Get("corps_task_" + corps.task);
             tooltip.addLineText(name, value, TaskHex(corps.task), pPercent: false, pLocalize: false, pLimitValue: 40);
         }
         tooltip.addBottomDescription((list.Count > shown
