@@ -87,7 +87,10 @@ public static class WarGoalSystem
         RegimeType? regime = attacker.GetRegime()?.type;
         bool feudal = regime == RegimeType.Feudalism || regime == RegimeType.ZhouFeudalism;
         bool small = theirs <= AnnexSmallCities || theirs * 2 <= ours;
-        data.war_goal = !borders ? OverseasGoal(attacker, defender, strength, small)
+        // 战国诸侯互伐：兵力够就以兼并(对方小)或割地为务，不再只求赔款
+        if (borders && ZhouEraSystem.WarringRivals(attacker, defender) && Claimed(attacker, defender.cities).Count == 0)
+            data.war_goal = strength >= ConquestStrength ? small ? WarGoal.吞并 : WarGoal.割地 : WarGoal.赔款;
+        else data.war_goal = !borders ? OverseasGoal(attacker, defender, strength, small)
             : Claimed(attacker, defender.cities).Count > 0 ? WarGoal.收复
             : strength >= AnnexStrength && small && !feudal ? WarGoal.吞并
             : strength >= VassalStrength && !defender.IsEmpire() && (feudal || strength >= AnnexStrength) ? WarGoal.迫使附庸
@@ -352,8 +355,13 @@ public static class WarGoalSystem
             if (city?.data == null || city.isRekt() || to?.data == null || to.isRekt() || city.kingdom == to) continue;
             try
             {
+                Kingdom from = city.kingdom;
+                bool capital = from?.data != null && from.capital == city;
                 city.joinAnotherKingdom(to);
                 done++;
+                // 周室诸侯的都城在和约中割走，与攻破都城一样灭其国；割走王畿则攻者取而代之
+                if (capital && city.kingdom == to && ZhouEraSystem.SphereOf(from) is Empire sphere)
+                    ZhouEraSystem.QueueCapitalTaken(city, from, to, sphere.CoreKingdom == from);
             }
             catch (Exception exception)
             {

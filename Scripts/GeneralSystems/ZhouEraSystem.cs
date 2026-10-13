@@ -25,7 +25,10 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     · 大国相继称王，霸主与会盟废止，可以攻王畿、灭周；
 //     · 变法：大国推行变法，战时兵额 +25%、赋税每年多收一成，旧贵族怨望；
 //     · 合纵连横：最强一国独大时，其余诸侯合纵，它攻打合纵之国则各国来援；弱小之国可能连横依附于它，彼此不攻；
-//   统一：攻下王畿者取周而代之(接续为新王朝)；天子(或代周者)直辖天下三分之二以上的城即称皇帝，改行郡县律令制。
+//   统一：攻下王畿(或在和约中割得王畿)者取周而代之(接续为新王朝)；天子(或代周者)直辖天下一半的城，
+//         或直辖三分之一且再无一国及其三分之一，即称皇帝，改行郡县律令制。
+//   战国兼并：诸侯互伐以吞并或割地为务(见 WarGoalSystem)；称王、变法之国每年主动伐接壤弱国；一城小国可能举国降于大国；
+//         和约割走诸侯都城同攻破都城，灭其国；合纵之国每场仗只有四成出兵来援。
 // 战国时诸侯不再留在帝国里：各自离开帝国(郡仍归王畿)，成为自由度很高的诸侯——有自己的颜色、国库、官制、军队，
 // 只记着所属周室(KingdomExtraData.zhou_sphere_id，标"某诸侯国")，地图上整个周室(王畿连同诸侯)外围一圈加粗边框；
 // 春秋战国的规则照旧，判断"是不是周室诸侯"一律看 SphereOf(帝国成员或战国离开帝国的诸侯)。统一后诸侯各自独立。
@@ -34,6 +37,13 @@ public static class ZhouEraSystem
     public const int WesternZhou = 0, Spring = 1, Warring = 2, Unified = 3;
     private const int ConferenceYears = 10;
     private const int LogSize = 30;
+    // 合纵之国出兵来援的概率(十分之几)
+    private const int CoalitionAnswer = 4;
+    // 战国兼并：称王或变法之国每年向接壤弱国开战的概率；一个周室每年至多新开几场
+    private const float ConquestChance = 0.25f;
+    private const int ConquestsPerYear = 2;
+    // 一城小国被国力四倍以上的接壤大国举国降服的概率(每年)
+    private const float SubmitChance = 0.06f;
 
     public static bool Applies(Empire empire) =>
         empire != null && !empire.isRekt() && !empire.IsArchived() &&
@@ -64,6 +74,10 @@ public static class ZhouEraSystem
     }
 
     // 战国时离开帝国的周诸侯
+    // 同一周室、已入战国的两国(含王畿)：彼此征伐以兼并为务
+    public static bool WarringRivals(Kingdom a, Kingdom b) =>
+        a != null && b != null && a != b && SphereOf(a) is Empire empire && SphereOf(b) == empire && State(empire).era == Warring;
+
     public static bool IsDetachedVassal(Kingdom kingdom) => kingdom?.GetEmpire() == null && SphereOf(kingdom) != null;
 
     public static IEnumerable<Kingdom> Vassals(Empire empire)
@@ -327,10 +341,15 @@ public static class ZhouEraSystem
                 if (war == null || war.hasEnded() || !war.isAttacker(target)) continue;
                 if (!state.coalition.Contains(war.main_defender?.id ?? -1L)) continue;
                 foreach (long id in state.coalition)
-                    if (World.world.kingdoms.get(id) is Kingdom member && member != war.main_defender)
+                    if (World.world.kingdoms.get(id) is Kingdom member && member != war.main_defender &&
+                        Answers(member, war))
                         JoinSide(war, member, attackerSide: false);
             }
     }
+
+    // 合纵之国各怀心思：每场仗只有四成会出兵来援(按国与这场仗定下，不每月重掷)
+    private static bool Answers(Kingdom member, War war) =>
+        (uint)(member.id * 31 + war.data.id * 17) % 10 < CoalitionAnswer;
 
     // 尊王的诸侯：不是犯上者、不在与天子交战，按国力排序，霸主优先
     private static IEnumerable<Kingdom> Loyalists(Empire empire, ZhouEraState state, Kingdom rebel) =>
@@ -695,6 +714,55 @@ public static class ZhouEraSystem
             }
         }
         UpdateCoalition(empire, state);
+        int wars = 0;
+        foreach (Kingdom vassal in Vassals(empire).OrderByDescending(Power).ToList())
+            if (wars < ConquestsPerYear && TryConquest(empire, state, vassal)) wars++;
+        foreach (Kingdom vassal in Vassals(empire).ToList()) TrySubmit(empire, state, vassal);
+    }
+
+    // 战国兼并：称王或变法之国不在打仗时，每年有一定可能向接壤、国力不到自己三分之二的诸侯(或王畿)开战，以吞并为务
+    private static bool TryConquest(Empire empire, ZhouEraState state, Kingdom vassal)
+    {
+        if (vassal?.data == null || vassal.isRekt() || vassal.hasEnemies() ||
+            !state.kings.Contains(vassal.id) && !state.reforms.Contains(vassal.id) || Random.value > ConquestChance) return false;
+        int power = Power(vassal);
+        Kingdom target = Vassals(empire).Append(empire.CoreKingdom)
+            .Where(kingdom => kingdom?.data != null && !kingdom.isRekt() && kingdom != vassal &&
+                              Power(kingdom) * 3 < power * 2 && IsValidVassalWarTarget(vassal, kingdom, out _))
+            .OrderBy(Power).FirstOrDefault();
+        if (target == null) return false;
+        War war = World.world.diplomacy.startWar(vassal, target, WarTypeLibrary.normal);
+        if (war == null) return false;
+        Log(empire, string.Format(LM.Get("zhou_log_conquest"), vassal.GetKingdomName(), target.GetKingdomName()));
+        return true;
+    }
+
+    // 一城小国：被国力四倍以上、不在交战的接壤大国(称王之国优先)包围，每年有一定可能举国降服
+    private static void TrySubmit(Empire empire, ZhouEraState state, Kingdom small)
+    {
+        if (small?.data == null || small.isRekt() || small == empire.CoreKingdom || (small.cities?.Count ?? 0) != 1 ||
+            small.hasEnemies() || Random.value > SubmitChance) return;
+        int power = Power(small);
+        Kingdom lord = Vassals(empire)
+            .Where(kingdom => kingdom != small && !kingdom.hasEnemies() && kingdom.IsNeighbourWith(small) &&
+                              Power(kingdom) >= power * 4)
+            .OrderByDescending(kingdom => state.kings.Contains(kingdom.id)).ThenByDescending(Power).FirstOrDefault();
+        if (lord == null) return;
+        string name = small.GetKingdomName();
+        _annexing = true;
+        try
+        {
+            foreach (City city in small.cities.ToList())
+                if (city != null && !city.isRekt() && city.kingdom == small) city.joinAnotherKingdom(lord);
+        }
+        finally
+        {
+            _annexing = false;
+        }
+        state.annexed++;
+        state.kings.Remove(small.id);
+        state.reforms.Remove(small.id);
+        Log(empire, string.Format(LM.Get("zhou_log_submit"), name, lord.GetKingdomName()));
     }
 
     private static void UpdateCoalition(Empire empire, ZhouEraState state)
@@ -736,14 +804,17 @@ public static class ZhouEraSystem
             Log(empire, string.Format(LM.Get("zhou_log_coalition"), members.Count, strongest.GetKingdomName()));
     }
 
-    // 天子(或代周者)直辖天下三分之二的城：称皇帝，改行郡县
+    // 天子(或代周者)直辖天下一半的城，或直辖三分之一且再无一国及其三分之一：称皇帝，改行郡县
     private static void TryUnify(Empire empire, ZhouEraState state)
     {
         // 天下 = 王畿、郡与诸侯(含战国离开帝国的)
-        int total = Vassals(empire).Append(empire.CoreKingdom).Distinct().Where(kingdom => kingdom?.cities != null && !kingdom.isRekt())
-            .Sum(kingdom => kingdom.cities.Count);
+        var realms = Vassals(empire).Append(empire.CoreKingdom).Distinct()
+            .Where(kingdom => kingdom?.cities != null && !kingdom.isRekt()).ToList();
+        int total = realms.Sum(kingdom => kingdom.cities.Count);
         int core = empire.CoreKingdom?.cities?.Count ?? 0;
-        if (total <= 0 || core * 3 < total * 2) return;
+        int rival = realms.Where(kingdom => kingdom != empire.CoreKingdom).Select(kingdom => kingdom.cities.Count)
+            .DefaultIfEmpty(0).Max();
+        if (total <= 0 || core * 2 < total && (core * 3 < total || rival * 3 > core)) return;
         Unify(empire, state);
     }
 
