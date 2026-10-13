@@ -6,6 +6,16 @@ using System.Threading.Tasks;
 
 namespace EmpireCraft.Scripts.Enums
 {
+    // 开战目标(见 WarGoalSystem)：None 是旧存档或有自己结局的战争
+    public enum WarGoal
+    {
+        None,
+        吞并,
+        割地,
+        赔款,
+        劫掠
+    }
+
     public enum EmpireWarType
     {
         获取帝国,

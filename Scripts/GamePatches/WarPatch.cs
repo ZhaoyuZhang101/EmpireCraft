@@ -29,6 +29,9 @@ public class WarPatch: GamePatch
     private static readonly HashSet<War> _expandingFeudalWars = new();
     public void Initialize()
     {
+        // 战争窗口显示开战目标与战况(见 WarGoalSystem)
+        new Harmony(nameof(AfterWarStats)).Patch(AccessTools.Method(typeof(WarWindow), "showStatsRows"),
+            postfix: new HarmonyLib.HarmonyMethod(GetType(), nameof(AfterWarStats)));
         new Harmony(nameof(end_war)).Patch(
             AccessTools.Method(typeof(WarManager), nameof(WarManager.endWar)),
             prefix: new HarmonyLib.HarmonyMethod(GetType(), nameof(end_war))
@@ -97,6 +100,7 @@ public class WarPatch: GamePatch
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
         if (__instance.getMainAttacker() == null) return; // 坏战争，前置已经处理
 
+        EmpireCraft.Scripts.GeneralSystems.WarGoalSystem.Ensure(__instance);
         RecordWarDeclared(__instance);
         WorldWarSystem.TryEscalate(__instance);
         if (!__instance.hasEnded() && __instance.GetEmpireWarType() == EmpireWarType.索取法理)
@@ -203,8 +207,8 @@ public class WarPatch: GamePatch
             CaptureWarRoyalHouses(pWar);
             RememberDefeatedWarHouses(pWar, pWinner);
             RecordWarEnded(pWar, pWinner);
-            // 和约赔款(见 WarReparationsSystem)
-            EmpireCraft.Scripts.GeneralSystems.WarReparationsSystem.OnWarEnded(pWar, pWinner);
+            // 按开战目标结算和约(赔款、割地、吞并，见 WarGoalSystem)
+            EmpireCraft.Scripts.GeneralSystems.WarGoalSystem.Settle(pWar, pWinner);
             ReignRecordSystem.OnWarEnded(pWar, pWinner);
             WorldWarSystem.Resolve(pWar, pWinner);
             World.world.game_stats.data.peacesMade++;
@@ -361,6 +365,20 @@ public class WarPatch: GamePatch
         }
         return false;
     }
+    public static void AfterWarStats(WarWindow __instance)
+    {
+        try
+        {
+            War war = SelectedMetas.selected_war;
+            string goal = EmpireCraft.Scripts.GeneralSystems.WarGoalSystem.Describe(war);
+            if (goal != null) __instance.showStatRow("war_goal", goal, "#F3C34A", pIconPath: "iconWar");
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft][开战目标] 战争窗口显示失败: {exception.Message}");
+        }
+    }
+
     public static void new_war(War __result)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__result)) return;

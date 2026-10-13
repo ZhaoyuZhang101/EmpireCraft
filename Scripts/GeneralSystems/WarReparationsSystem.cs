@@ -9,10 +9,9 @@ using NeoModLoader.services;
 
 namespace EmpireCraft.Scripts.GeneralSystems;
 
-// 战争赔款(和约)：有明确胜负的国战结束时，败方主国向胜方主国赔款——
+// 战争赔款(和约)：由开战目标结算决定谁赔给谁(见 WarGoalSystem.Settle)——
 //   立即赔付国库现款的四分之一，另按月经常收入的两成分 36 个月支付(挂在败方 KingdomExtraData.war_reparations)。
 //   付不起的月份顺延(不滚息、不另记违约)；收款方灭亡或双方再度开战(撕毁和约)时终止。
-//   劫掠、游牧扩张、迫使朝贡、藩王索取皇位有各自的结算，叛乱、独立类战争是内战，都不赔款。
 public static class WarReparationsSystem
 {
     private const double ImmediateShare = 0.25d;
@@ -20,23 +19,11 @@ public static class WarReparationsSystem
     private const int Months = 36;
     private static double _lastScan = -1d;
 
-    private static readonly HashSet<EmpireWarType> Excluded = new()
-    {
-        EmpireWarType.劫掠, EmpireWarType.游牧扩张, EmpireWarType.迫使朝贡, EmpireWarType.藩王索取皇位,
-        EmpireWarType.派系叛乱, EmpireWarType.地方叛乱, EmpireWarType.民族叛乱, EmpireWarType.宗教叛乱,
-        EmpireWarType.地方独立, EmpireWarType.附庸独立, EmpireWarType.清君侧
-    };
-
-    // 由 WarPatch.end_war 在战争收尾时调用
-    public static void OnWarEnded(War war, WarWinner winner)
+    // 败方(loser)向胜方(victor)赔款
+    public static void Impose(Kingdom loser, Kingdom victor)
     {
         try
         {
-            if (war?.data == null || winner == WarWinner.Nobody) return;
-            if (Excluded.Contains(war.GetEmpireWarType())) return;
-            if (war.getAsset() == WarTypeLibrary.rebellion) return;
-            Kingdom loser = winner == WarWinner.Attackers ? war.main_defender : war.main_attacker;
-            Kingdom victor = winner == WarWinner.Attackers ? war.main_attacker : war.main_defender;
             if (loser?.data == null || loser.isRekt() || victor?.data == null || victor.isRekt() || loser == victor) return;
             if (!TreasurySystem.Enabled(loser) || !TreasurySystem.Enabled(victor)) return;
             // 立即赔付：败方国库现款的四分之一

@@ -21,6 +21,9 @@ public static class WarExtension
     public class WarExtraData: ExtraDataBase
     {
         public EmpireWarType empireWarType = EmpireWarType.None;
+        // 开战目标与开战时守方的都城(见 WarGoalSystem)
+        public WarGoal war_goal = WarGoal.None;
+        public long war_goal_capital_id = -1L;
         public MetaType metaType = MetaType.None;
         public long metaID = -1L;
         public FixedFaction belongingFaction = null;
