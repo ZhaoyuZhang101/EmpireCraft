@@ -1041,23 +1041,14 @@ public static class TechnologySystem
         foreach (string tech in needed) ForceResearch(culture, tech);
     }
 
+    // 开局补科技：只看城里的建筑与已推行的制度。人物身上的装备、兵种不算——打来的、捡来的精金兵器、
+    // 别处来的坦克不说明这个文明会造(以前有人带着精金装备，就顺着前置把整个文化补到了电气、计算机时代，
+    // 井田制还没废就有了立宪思想、工业化决议与共和革命)
     private static void Bootstrap(string culture, List<City> cities)
     {
         var needed = new HashSet<string>(StringComparer.Ordinal);
         foreach (City city in cities)
         {
-            foreach (Actor actor in city.units)
-            {
-                if (actor == null || !actor.isAlive()) continue;
-                string unitTech = GetRequiredTechForUnit(actor.asset?.id);
-                if (unitTech != null) needed.Add(unitTech);
-                if (actor.equipment == null) continue;
-                foreach (ActorEquipmentSlot slot in actor.equipment)
-                {
-                    string tech = GetRequiredTechForItem(slot?.getItem()?.asset);
-                    if (tech != null) needed.Add(tech);
-                }
-            }
             foreach (Building building in city.buildings)
             {
                 string tech = GetRequiredTechForBuilding(building?.asset?.id);
