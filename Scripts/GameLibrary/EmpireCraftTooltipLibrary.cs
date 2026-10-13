@@ -130,6 +130,13 @@ public static class EmpireCraftTooltipLibrary
             prefab_id = "tooltips/tooltip_normal",
             callback = EmpireCraft.Scripts.Layer.WealthMap.ShowTooltip
         });
+        // 纯净地图皇帝标记的悬停详情(见 EmperorMarkerRenderer)
+        AddOrReplace(tl, new TooltipAsset
+        {
+            id = UI.Components.EmperorMarkerRenderer.TooltipType,
+            prefab_id = "tooltips/tooltip_normal",
+            callback = UI.Components.EmperorMarkerRenderer.ShowTooltip
+        });
         // 地图兵牌与交战标记的悬停详情(见 CorpsMapRenderer)
         AddOrReplace(tl, new TooltipAsset
         {

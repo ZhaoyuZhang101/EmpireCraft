@@ -1,7 +1,12 @@
 using System.Collections.Generic;
+using System.Linq;
+using EmpireCraft.Scripts.Data;
+using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GeneralSystems;
 using EmpireCraft.Scripts.Layer;
+using NeoModLoader.General;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace EmpireCraft.Scripts.UI.Components;
@@ -11,9 +16,12 @@ namespace EmpireCraft.Scripts.UI.Components;
 // (Tools/IconForge/emperor_marker_forge.py，印面单独一层按帝国颜色染色)。不跟着实体走，所以不闪；
 // 微服私访、出访、御驾亲征时标记像兵牌一样沿路走(见 EmperorTourSystem)，换了地块在一秒里匀速滑过去，暂停时不动。
 // 画在地名画布上，按屏幕像素定大小。共和国的元首不画。
+// 鼠标停在标记上：标记放大、置顶，显示皇帝的基本情况——帝国、年龄、在位几年、资质、眼下在做什么(在宫中、微服私访、
+// 出访、御驾亲征、回銮途中)、储君、天命正统(兵牌悬停时让路)。
 public static class EmperorMarkerRenderer
 {
-    private const float Size = 36f, Lift = 26f;
+    private const float Size = 36f, Lift = 26f, HoverScale = 1.3f, TooltipRefresh = 1f;
+    public const string TooltipType = "empirecraft_emperor_marker";
 
     private sealed class Mark
     {
@@ -26,6 +34,16 @@ public static class EmperorMarkerRenderer
     // 各帝国的标记画在哪(世界坐标)，滑向目标
     private static readonly Dictionary<long, Vector3> Drawn = new();
     private static Sprite _field, _overlay;
+    // 本帧画出的标记：屏幕中心与帝国(悬停判定)
+    private static readonly List<(Vector2 center, long empire, Mark mark)> Hits = new();
+    private static long _hover = -1L;
+    private static float _tipAt = float.NegativeInfinity;
+    private static readonly object TipOwner = new();
+    private static PointerEventData _pointer;
+
+    // 悬停皇帝标记时原版地图提示让路(见 CorpsPatch)
+    public static bool Hovering => _hover >= 0;
+    private static readonly List<RaycastResult> RaycastHits = new();
 
     public static void EnsureHost()
     {
@@ -47,6 +65,7 @@ public static class EmperorMarkerRenderer
     internal static void HostLateUpdate()
     {
         int used = 0;
+        Hits.Clear();
         if (PureMapMode.Enabled && World.world?.camera != null && CanvasMain.instance?.canvas_map_names != null &&
             ModClass.EMPIRE_MANAGER != null)
         {
@@ -67,6 +86,8 @@ public static class EmperorMarkerRenderer
                 mark.Root.gameObject.SetActive(true);
                 mark.Root.position = screen + new Vector3(0f, Lift);
                 mark.Root.sizeDelta = new Vector2(Size, Size) / scale;
+                mark.Root.localScale = Vector3.one;
+                Hits.Add((new Vector2(screen.x, screen.y + Lift), empire.data.id, mark));
                 Color color = empire.getColor()?.getColorMain() ?? Color.white;
                 color.a = 1f;
                 mark.Field.color = color;
@@ -74,6 +95,113 @@ public static class EmperorMarkerRenderer
         }
         for (int i = used; i < Marks.Count; i++)
             if (Marks[i].Root.gameObject.activeSelf) Marks[i].Root.gameObject.SetActive(false);
+        UpdateHover();
+    }
+
+    private static void UpdateHover()
+    {
+        long found = -1L;
+        Mark mark = null;
+        if (InputHelpers.mouseSupported && !ScrollWindow.isWindowActive() && !ScrollWindow.isAnimationActive() &&
+            !CorpsMapRenderer.Hovering)
+        {
+            Vector2 mouse = Input.mousePosition;
+            for (int i = Hits.Count - 1; i >= 0; i--)
+            {
+                float radius = Size * 0.5f * (Hits[i].empire == _hover ? HoverScale : 1f);
+                if ((mouse - Hits[i].center).sqrMagnitude > radius * radius) continue;
+                found = Hits[i].empire;
+                mark = Hits[i].mark;
+                break;
+            }
+            if (found >= 0 && PointerOverPanels()) found = -1L;
+        }
+        if (found < 0)
+        {
+            if (_hover < 0) return;
+            _hover = -1L;
+            Tooltip.hideTooltip(null, true, string.Empty);
+            return;
+        }
+        if (found != _hover)
+        {
+            _hover = found;
+            _tipAt = float.NegativeInfinity;
+        }
+        mark.Root.localScale = Vector3.one * HoverScale;
+        mark.Root.SetAsLastSibling();
+        float now = Time.unscaledTime;
+        if (now - _tipAt < TooltipRefresh) return;
+        _tipAt = now;
+        Empire empire = ModClass.EMPIRE_MANAGER?.get(found);
+        Tooltip.show(TipOwner, TooltipType, new TooltipData
+        {
+            kingdom = empire?.CoreKingdom, tooltip_scale = 0.7f, is_sim_tooltip = true, sound_allowed = false
+        });
+    }
+
+    // 鼠标压在界面面板上(地名画布以外的 UI)时不算悬停
+    private static bool PointerOverPanels()
+    {
+        if (EventSystem.current == null) return false;
+        _pointer ??= new PointerEventData(EventSystem.current);
+        _pointer.position = Input.mousePosition;
+        RaycastHits.Clear();
+        EventSystem.current.RaycastAll(_pointer, RaycastHits);
+        Transform names = CanvasMain.instance?.canvas_map_names?.transform;
+        return RaycastHits.Any(hit => hit.gameObject != null && (names == null || !hit.gameObject.transform.IsChildOf(names)));
+    }
+
+    // 悬停详情
+    public static void ShowTooltip(Tooltip tooltip, string type, TooltipData data)
+    {
+        Empire empire = data?.kingdom?.GetEmpire();
+        Actor emperor = empire?.Emperor;
+        if (emperor?.data == null || !emperor.isAlive()) return;
+        tooltip.clear();
+        string colorHex = empire.getColor()?.color_text ?? "#F3C34A";
+        tooltip.setTitle(emperor.getName(), "emperor_tip_subtitle", colorHex);
+        const string Plain = "#D8D2B8";
+        tooltip.addLineText(LM.Get("emperor_tip_empire"), empire.GetEmpireFullName(), colorHex, pPercent: false, pLocalize: false);
+        tooltip.addLineText(LM.Get("emperor_tip_age"), string.Format(LM.Get("emperor_tip_age_value"), emperor.getAge(),
+            empire.GetEmperorYear()), Plain, pPercent: false, pLocalize: false);
+        RulerQualitySystem.Grade grade = RulerQualitySystem.Of(emperor);
+        tooltip.addLineText(LM.Get("emperor_tip_grade"), LM.Get(grade switch
+            {
+                RulerQualitySystem.Grade.Wise => "trait_" + RulerQualitySystem.Wise,
+                RulerQualitySystem.Grade.Weak => "trait_" + RulerQualitySystem.Weak,
+                RulerQualitySystem.Grade.Fatuous => "trait_" + RulerQualitySystem.Fatuous,
+                RulerQualitySystem.Grade.Dissolute => "trait_" + RulerQualitySystem.Dissolute,
+                RulerQualitySystem.Grade.Tyrant => "trait_" + RulerQualitySystem.Tyrant,
+                _ => "emperor_tip_grade_average"
+            }), grade == RulerQualitySystem.Grade.Wise ? "#7CD27C" : grade == RulerQualitySystem.Grade.Average ? Plain : "#E07A5F",
+            pPercent: false, pLocalize: false);
+        tooltip.addLineText(LM.Get("emperor_tip_state"), State(empire), "#9FD0E8", pPercent: false, pLocalize: false);
+        Kingdom core = empire.CoreKingdom;
+        Actor heir = core != null && core.HasHeir() ? core.GetHeir() : null;
+        bool designated = core != null && core.GetOrCreate().designated_heir_id >= 0;
+        tooltip.addLineText(LM.Get("emperor_tip_heir"), heir?.data == null
+                ? LM.Get("emperor_tip_no_heir")
+                : string.Format(LM.Get(designated ? "emperor_tip_heir_designated" : "emperor_tip_heir_law"), heir.getName(), heir.getAge()),
+            heir == null ? "#E07A5F" : Plain, pPercent: false, pLocalize: false);
+        tooltip.addLineText(LM.Get("emperor_tip_mandate"), empire.Mandate.ToString(), "#F3C34A", pPercent: false, pLocalize: false);
+    }
+
+    // 眼下在做什么(见 EmperorTourSystem)
+    private static string State(Empire empire)
+    {
+        var data = empire.data;
+        if (string.IsNullOrEmpty(data.tour_kind))
+            return string.Format(LM.Get("emperor_tip_state_palace"), EmperorTourSystem.Home(empire)?.GetCityName() ?? "");
+        if (data.tour_returning) return LM.Get("emperor_tip_state_returning");
+        if (data.tour_kind == EmperorTourSystem.Campaign)
+        {
+            CorpsData corps = CorpsSystem.Find(empire.CoreKingdom, data.tour_corps);
+            return string.Format(LM.Get("emperor_tip_state_campaign"), corps == null ? "" : CorpsSystem.Name(corps));
+        }
+        City city = World.world.cities.get(data.tour_city);
+        string where = data.tour_kind == EmperorTourSystem.Visit ? city?.kingdom?.data?.name ?? "" : city?.GetCityName() ?? "";
+        return string.Format(LM.Get(data.tour_kind == EmperorTourSystem.Visit ? "emperor_tip_state_visit" : "emperor_tip_state_tour"), where);
     }
 
     // 一个世界秒走一块地：换了位置就匀速滑过去(太远就直接到，如换了皇帝)；暂停时不动

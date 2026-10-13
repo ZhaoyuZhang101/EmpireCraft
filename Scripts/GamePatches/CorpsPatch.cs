@@ -42,7 +42,8 @@ public class CorpsPatch : GamePatch
         return false;
     }
 
-    private static bool BeforeCursorTooltip() => !UI.Components.CorpsMapRenderer.Hovering;
+    private static bool BeforeCursorTooltip() =>
+        !UI.Components.CorpsMapRenderer.Hovering && !UI.Components.EmperorMarkerRenderer.Hovering;
 
     private static void AfterCountWarriors(City __instance, ref int __result)
     {
