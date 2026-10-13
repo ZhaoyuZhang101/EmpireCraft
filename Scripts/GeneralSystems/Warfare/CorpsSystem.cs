@@ -27,7 +27,8 @@ public static class CorpsSystem
     private const float IdleOrg = 8f;
     // 统领开往军团所在地块的间隔(秒)；军团每秒行军几块地块(一个月约十块)
     private const float GeneralMoveInterval = 3f;
-    private const int MarchZonesPerSecond = 2;
+    // 陆上行军每个世界秒走几块地块(一个月 5 秒，约 2.5 块/月；以前每秒 2 块，转眼就从地图这头到那头)
+    private const float MarchZonesPerSecond = 0.5f;
 
     public static bool Enabled => CityPopulationSystem.AbstractPopulationEnabled &&
                                   EmpireCraftWorldLawLibrary.empirecraft_law_switch_occupy_mode?.isEnabled() == true;
@@ -357,16 +358,31 @@ public static class CorpsSystem
         Reinforce(host, corps, amount);
     }
 
-    // 从本国各城的背景人口里征兵(义军只从本城征)；就近动员的军先从动员范围里的城征(见 WarScopeSystem)
+    // 从本国各城的背景人口里征兵(义军只从本城征)：就近补员——先从离这支军最近的几座本国城征，
+    // 离本国城越远补上来的越少(每离 15 块地块打一半)；近处征不够再按动员范围、全国抽(见 WarScopeSystem)
+    private const int NearbySources = 4;
+    private const float ReinforceDistanceHalf = 15f;
+
     private static void Reinforce(Kingdom kingdom, CorpsData corps, float amount, City only = null)
     {
         float need = Mathf.Min(amount, corps.full - corps.strength);
         if (need < 1f) return;
         float taken = 0f;
+        TileZone at = Zone(corps);
+        List<City> nearby = only != null || at == null ? new List<City>()
+            : kingdom.cities.Where(city => city?.data != null && !city.isRekt() && city.getTile()?.zone != null)
+                .OrderBy(city => ZoneDistance(city.getTile().zone, at)).Take(NearbySources).ToList();
+        if (nearby.Count > 0)
+        {
+            float distance = ZoneDistance(nearby[0].getTile().zone, at);
+            need *= ReinforceDistanceHalf / (ReinforceDistanceHalf + distance);
+            if (need < 1f) return;
+        }
         bool near = only == null && WarScopeSystem.InScope(Home(corps) ?? World.world.cities.get(corps.home_city_id));
         for (int attempt = 0; taken < need && attempt < 12; attempt++)
         {
-            City source = only ?? (near ? WarScopeSystem.DrawSource(kingdom) : CityPopulationSystem.DrawKingdomCity(kingdom));
+            City source = only ?? (attempt < nearby.Count ? nearby[attempt]
+                : near ? WarScopeSystem.DrawSource(kingdom) : CityPopulationSystem.DrawKingdomCity(kingdom));
             PopGroup group = source == null ? null
                 : CityPopulationSystem.DrawBackground(source, candidate => candidate.Background >= 1f);
             if (group == null) break;
@@ -594,14 +610,29 @@ public static class CorpsSystem
         {
             if (generals) EnsureGeneral(kingdom, corps);
             else RemoveGeneral(corps);
-            for (int step = 0; step < MarchZonesPerSecond; step++)
+            if (corps.embarked)
             {
-                int before = corps.zone_id;
+                // 在船上按船速走(见 Sail)
                 StepTowardTarget(corps);
-                // 陆上行军记程，月底按路程收行军费(见 PayUpkeep)
-                if (!corps.embarked && corps.zone_id != before) corps.march_zones++;
-                // 山地、沼泽、丛林行军慢一半：进了这类地块，本秒不再前进；在船上按船速走(见 Sail)
-                if (corps.embarked || corps.zone_id == before || TerrainSystem.SlowsMarch(Zone(corps))) break;
+            }
+            else
+            {
+                // 山地、沼泽、丛林行军慢一半
+                corps.march_progress += TerrainSystem.SlowsMarch(Zone(corps)) ? MarchZonesPerSecond * 0.5f : MarchZonesPerSecond;
+                while (corps.march_progress >= 1f)
+                {
+                    corps.march_progress -= 1f;
+                    int before = corps.zone_id;
+                    StepTowardTarget(corps);
+                    // 陆上行军记程，月底按路程收行军费(见 PayUpkeep)
+                    if (!corps.embarked && corps.zone_id != before) corps.march_zones++;
+                    // 到了(或走不动、上了船)就不攒进度
+                    if (corps.embarked || corps.zone_id == before)
+                    {
+                        corps.march_progress = 0f;
+                        break;
+                    }
+                }
             }
             MoveGeneral(corps);
         }

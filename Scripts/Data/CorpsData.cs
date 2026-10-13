@@ -43,6 +43,8 @@ public sealed class CorpsData
     public float supply = 1f;
     // 本月陆上走过的地块数(月底按路程收行军费，见 CorpsSystem.PayUpkeep)
     public int march_zones;
+    // 行军进度(满 1 走一块地块，见 CorpsSystem.SecondTick)
+    public float march_progress;
     public float rations = 1f;
     // 跨海运兵(见 CorpsSystem.Embark/Sail)：在船上、航线(海区 id)、走到第几段、计步
     public bool embarked;

@@ -15,7 +15,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     海外靠海路：回国航线被敌方制海截断为 0，否则最多七成五，超出舰种航程只剩四成；在船上八成；
 //     粮草官按治事加成(每点 +1%，最多 +20%，被围的不加)；就地征粮期间在敌境的军 +35%；
 //   · 军粮：各军按人头每月吃粮(每户每年 1.25 份，与百姓同一尺度；粮草官按治事省一些)，
-//     就地征粮期间在敌城的军先从所在敌城征(那座城每月掉稳定)，其余先从国家粮仓扣，不够再从本国各城口粮线(每户一份)以上的余粮里调；
+//     就地征粮期间在敌城的军先从所在敌城征(那座城每月掉稳定)；其余就近调粮——先从离这支军最近的几座本国城
+//     口粮线(每户一份)以上的余粮里调，再从国家粮仓扣，还不够再从全国各城的余粮里调；
 //     调不够的按缺口比例口粮不足；
 //   · 效果：战力 × (0.6 + 0.4×补给)(见 FrontSystem)；补给不到五成组织度不恢复反而下降，也补不上兵(见 CorpsSystem)；
 //     交战时补给不到三成或口粮不足就减员，每月 3%~8%(越缺越多)；太平时缺粮只掉组织度；
@@ -23,6 +24,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 public static class LogisticsSystem
 {
     private const float RationPerHouseholdYear = 1.25f;
+    // 就近调粮的城数
+    private const int NearbyGranaries = 3;
     private const int FullSupplyDepth = 2;
     private const float SupplyPerZone = 0.12f;
     private const int MaxSupplyDepth = 12;
@@ -138,6 +141,19 @@ public static class LogisticsSystem
                 need = Mathf.Max(0f, need - taken);
             }
             if (need <= 0f) continue;
+            // 就近调粮：离这支军最近的几座本国城的余粮
+            TileZone at = CorpsSystem.Zone(corps);
+            if (at != null && kingdom.cities != null)
+                foreach (City near in kingdom.cities
+                             .Where(item => item?.data != null && !item.isRekt() && item.getTile()?.zone != null)
+                             .OrderBy(item => CorpsSystem.ZoneDistance(item.getTile().zone, at)).Take(NearbyGranaries).ToList())
+                {
+                    float surplus = near.getTotalFood() - CityPopulationSystem.Households(near);
+                    if (surplus < 1f) continue;
+                    need -= PopulationEconomySystem.TakeFood(near, Mathf.FloorToInt(Mathf.Min(surplus, need)));
+                    if (need < 1f) break;
+                }
+            if (need < 1f) continue;
             pending.Add((corps, need));
             remaining += need;
         }
