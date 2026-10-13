@@ -875,6 +875,8 @@
   "corps_log_mobilize_total": "The war is dire: the whole realm mobilizes",
   "corps_log_court_order": "Ordered {0} to send troops",
   "corps_log_obey_order": "Sends troops to aid the court by imperial order",
+  "corps_chip_realms": "{0} and {1} realms",
+  "navy_tip_folded": "{0} fleets are shown merged here; zoom in to separate them",
   "capital_loss_restored": "{0} retakes its old capital {1} and is again known as {2}.",
   "kingdom_type_xingzai": "Temporary Court",
   "Later": "Later",

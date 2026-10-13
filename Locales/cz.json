@@ -878,6 +878,8 @@
   "corps_log_mobilize_total": "战事危急：举国总动员",
   "corps_log_court_order": "诏令{0}发兵赴援",
   "corps_log_obey_order": "奉诏发兵赴援朝廷",
+  "corps_chip_realms": "{0}等{1}国",
+  "navy_tip_folded": "此处合并显示 {0} 支舰队，拉近后分开",
   "capital_loss_restored": "{0}收复旧都{1}，还于旧都，复称{2}。",
   "kingdom_type_xingzai": "行在",
   "Later": "后",
