@@ -107,6 +107,7 @@ public class PureMapPatch : GamePatch
         __instance.sprRnd.color = color;
         RefreshUrbanSlice();
         UI.Components.RoadOverlay.Update();
+        UI.Components.EmperorMarkerRenderer.EnsureHost();
     }
 
     // 城市肌理随建筑、规划变化：每秒让一批城的地块下次重画(原版只在归属、颜色变了才重画)
