@@ -54,6 +54,9 @@ public class PureMapPatch : GamePatch
             prefix: new HarmonyMethod(typeof(PureMapPatch), nameof(BeforeShouldBeClearColor)));
         harmony.Patch(AccessTools.Method(typeof(ZoneCalculator), "applyMetaColorsToZone"),
             prefix: new HarmonyMethod(typeof(PureMapPatch), nameof(BeforeApplyColors)));
+        // 平滑国界(见 SmoothBorders)：颜色定好后逐像素画，跳过原版按地块画
+        harmony.Patch(AccessTools.Method(typeof(ZoneCalculator), "applyMetaColorsToZone"),
+            prefix: new HarmonyMethod(typeof(PureMapPatch), nameof(SmoothPaint)) { priority = Priority.Low });
         harmony.Patch(AccessTools.Method(typeof(ZoneCalculator), "applyMetaColorsToZoneFull"),
             prefix: new HarmonyMethod(typeof(PureMapPatch), nameof(BeforeApplyColorsFull)));
         harmony.Patch(AccessTools.Method(typeof(ZoneCalculator), "colorZone"),
@@ -225,6 +228,8 @@ public class PureMapPatch : GamePatch
     {
         if (pZone?.tiles == null || __instance.pixels == null) return;
         if (PureMapMode.Enabled) ShadeTerrain(__instance.pixels, pZone, pUp, pDown, pLeft, pRight);
+        // 平滑国界：帝国金边已逐像素画好(见 SmoothBorders)
+        if (SmoothBorders.Enabled) return;
         Kingdom kingdom = pZone.city?.kingdom;
         MetaType? mode = World.world.getCachedMapMetaAsset()?.map_mode;
         bool kingdomLayer = mode == MetaType.Kingdom, empireLayer = mode == MetaTypeExtension.Empire;
@@ -275,13 +280,26 @@ public class PureMapPatch : GamePatch
         Slot[] slots = plan != null && plan.zones.TryGetValue(zone.id, out Slot[] found) ? found : null;
         int ox = zone.x * Config.CITY_ZONE_SIZE, oy = zone.y * Config.CITY_ZONE_SIZE;
         Color32? occupied = OccupierFill(city, zone);
+        // 平滑国界：被占的地、逐格推进吃下的格子直接按控制方上色(见 SmoothBorders)，这里不再画占领斜纹
+        bool smooth = SmoothBorders.Enabled;
+        if (smooth) occupied = null;
         foreach (WorldTile tile in zone.tiles)
         {
             int id = tile?.data?.tile_id ?? -1;
             if (id < 0 || id >= pixels.Length || pixels[id].a == 0) continue;
             WorldTileZoneBorder border = tile.world_tile_zone_border;
-            if (border != null && border.border && (up && border.border_up || down && border.border_down ||
-                                                    left && border.border_left || right && border.border_right)) continue;
+            if (smooth)
+            {
+                if (SmoothBorders.IsOutline(id)) continue;
+                // 平滑后归邻国(邻城)的像素：只按地形调色，不画本块的占领纹与城市平面图
+                if (SmoothBorders.IsForeign(id))
+                {
+                    pixels[id] = Shade(tile, pixels[id]);
+                    continue;
+                }
+            }
+            else if (border != null && border.border && (up && border.border_up || down && border.border_down ||
+                                                         left && border.border_left || right && border.border_right)) continue;
             // 被敌军占着的地块：涂占领方的颜色，留一道道原主颜色的细斜纹
             if (occupied is Color32 fill && (tile.x + tile.y) % 4 != 0) pixels[id] = fill;
             Color32 shaded = Shade(tile, pixels[id]);
@@ -900,6 +918,9 @@ public class PureMapPatch : GamePatch
         Opaque(ref pColorInside);
         Opaque(ref pColorOutside);
     }
+
+    private static bool SmoothPaint(ZoneCalculator __instance, TileZone pZone, ref Color32 pColorInside, ref Color32 pColorOutside) =>
+        !SmoothBorders.Paint(__instance, pZone, pColorInside, pColorOutside);
 
     private static void BeforeApplyColorsFull(TileZone pZone, ref Color32 pColor)
     {

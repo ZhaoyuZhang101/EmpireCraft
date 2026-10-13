@@ -24,7 +24,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //      地形(见 TerrainSystem)看攻方要推进的那块地：攻方战力打折、双方额外掉组织度、限制每月推进的块数。
 // 军团须开到战线附近(两块地块以内)才参战。
 // 叛乱初起时被叛方有集结期(见 MusterSystem)：不反攻、只有附近的军能守城、守方战力打折。
-public static class FrontSystem
+public static partial class FrontSystem
 {
     private const int ArriveDistance = 2;
     private const float DefenderBonus = 1.25f;
@@ -56,6 +56,7 @@ public static class FrontSystem
         Battles.Clear();
         Engaged.Clear();
         Logs.Clear();
+        ResetSmooth();
         TerrainSystem.ResetWorldState();
         _contested.Clear();
         _contestedAt = -1;
@@ -496,6 +497,7 @@ public static class FrontSystem
     private static void Resolve(double now, Dictionary<long, bool> landingSectors)
     {
         FirepowerCache.Clear();
+        BeginMonthPushes();
         var bySector = new Dictionary<long, List<(Kingdom kingdom, CorpsData corps)>>();
         foreach ((Kingdom kingdom, CorpsData corps) in CorpsSystem.All())
         {
@@ -511,6 +513,7 @@ public static class FrontSystem
             try { ResolveCity(city, pair.Value, now, landingSectors.ContainsKey(city.id)); }
             catch (Exception exception) { LogService.LogWarning($"[EmpireCraft][战线] {city.data.name} 结算失败: {exception.Message}"); }
         }
+        EndMonthPushes();
     }
 
     private static void ResolveCity(City city, List<(Kingdom kingdom, CorpsData corps)> group, double now, bool landing)
@@ -524,8 +527,15 @@ public static class FrontSystem
             var retakers = holders.Where(entry => entry.corps.task == "attack").ToList();
             if (retakers.Count == 0) return;
             Kingdom lead = retakers.OrderByDescending(entry => entry.corps.strength).First().kingdom;
-            int retaken = Retake(city, lead, 1, retakers.Select(entry => entry.corps));
             foreach (var entry in retakers) Engaged.Add(entry.corps.id);
+            // 平滑国界：逐格收复(见 FrontSystem.Smooth)
+            if (SmoothActive)
+            {
+                SmoothAdvance(city, lead, retakers.Where(entry => entry.kingdom == lead).Select(entry => entry.corps).ToList(),
+                    false, false, retake: true);
+                return;
+            }
+            int retaken = Retake(city, lead, 1, retakers.Select(entry => entry.corps));
             if (retaken > 0) Record(city, lead, owner, 1f, retakers.Sum(entry => entry.corps.strength), 0f, retaken, now);
             return;
         }
@@ -573,7 +583,14 @@ public static class FrontSystem
         }
         bool standing = holders.Any(entry => entry.corps.org > RetreatOrg && entry.corps.strength >= 1f);
         int taken = 0;
-        if (ratio >= 0.55f)
+        if (ratio >= 0.55f && SmoothActive)
+        {
+            // 平滑国界：逐格推进，每月两块地(见 FrontSystem.Smooth)
+            if (ground.MaxAdvance > 0)
+                SmoothAdvance(city, attacker, attackers.Where(entry => entry.kingdom == attacker).Select(entry => entry.corps).ToList(),
+                    standing, landing, retake: false);
+        }
+        else if (ratio >= 0.55f)
         {
             int zones = Mathf.Min(ground.MaxAdvance, 1);
             taken = Advance(city, attacker, zones, standing, landing,
@@ -587,8 +604,12 @@ public static class FrontSystem
         else if (ratio <= 0.4f && standing)
         {
             Kingdom lead = holders.OrderByDescending(entry => entry.corps.strength).First().kingdom;
-            Retake(city, lead, 1, holders.Select(entry => entry.corps));
+            if (SmoothActive)
+                SmoothAdvance(city, lead, holders.Where(entry => entry.kingdom == lead).Select(entry => entry.corps).ToList(),
+                    false, false, retake: true);
+            else Retake(city, lead, 1, holders.Select(entry => entry.corps));
         }
+        else if (SmoothActive) SmoothHold(city);
         Record(city, attacker, owner, ratio, attackStrength, holdStrength + militia, taken, now, terrain);
     }
 

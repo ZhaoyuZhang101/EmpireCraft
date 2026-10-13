@@ -72,6 +72,11 @@ namespace EmpireCraft.Scripts.Data
         {
             ModClass.PERFORMANCE_SKIP_NAMEPLATE_OVERLAP = on;
         }
+        // 平滑国界：逐像素画国界、城界，军团模式下占领逐格推进(见 SmoothBorders、FrontSystem.Smooth)
+        public static void SmoothBordersCallBack(bool on)
+        {
+            EmpireCraft.Scripts.GeneralSystems.SmoothBorders.Set(on);
+        }
         // 稳定帧率：锁每秒 30 帧、关垂直同步(见 StableFrameRate)
         public static void StableFrameRateCallBack(bool on)
         {

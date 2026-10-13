@@ -1658,6 +1658,8 @@
   "lineage_note_fled": "出奔",
   "lineage_note_raised": "強藩擁立",
   "lineage_note_restoration": "宗室起兵",
+  "smooth_borders_toggle": "平滑國界",
+  "smooth_borders_toggle Description": "國界、城界逐個像素判定歸屬，不再沿方格走，拐角變圓、斜邊變順；軍團模式下佔領也逐格推進，每月推兩塊地(比方格模式快一倍)，推滿一塊才真正易手。",
   "capital_loss_restored": "{0}收復舊都{1}，還於舊都，復稱{2}。",
   "kingdom_type_xingzai": "行在",
   "Later": "後",

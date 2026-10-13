@@ -172,6 +172,8 @@ public static class CorpsSystem
             }
             RebuildIndex();
         }
+        // 平滑国界下的逐格占领(见 FrontSystem.Smooth)
+        using (FrameProfiler.Measure("战线·逐格推进")) FrontSystem.SmoothTick();
         // 路网与航线(行军、航行据此寻路；自己按真实时间限频，见 RoadNetwork)
         using (FrameProfiler.Measure("路网")) RoadNetwork.Tick();
         if (_lastSecond < 0d || now < _lastSecond || now - _lastSecond >= 1d)
