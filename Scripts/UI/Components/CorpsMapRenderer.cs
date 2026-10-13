@@ -14,7 +14,7 @@ using UnityEngine.UI;
 namespace EmpireCraft.Scripts.UI.Components;
 
 // 军团在地图上的样子(借鉴钢铁雄心)：
-//   · 战线：交战双方控制区相接的地块边，画成金色粗线；
+//   · 战线：交战双方控制区相接的地块边，画成朱红粗线(金色留给帝国、周室的外围边框)；
 //   · 兵牌：帝国卷册小框(Tools/IconForge/frame_forge.py 的 CorpsFrame_*)，边色表示任务——
 //     进攻朱漆、防守石青、溃退铁灰、驻守橄榄青铜；左边国色印面上一枚棋子(中央禁军为后、军区为车、
 //     军府为马、义军为兵)，右边兵力与兵力条(绿)、组织度条(青)；有统领实体时跟在统领头顶；
@@ -285,7 +285,8 @@ public static class CorpsMapRenderer
     private static readonly Color StrengthColor = new Color32(101, 214, 110, 255);
     private static readonly Color OrgColor = new Color32(127, 216, 234, 255);
     private static readonly Color OrgLowColor = new Color32(232, 88, 79, 255);
-    private static readonly Color FrontColor = new Color32(243, 195, 74, 235);
+    // 战线朱红：帝国、周室外围边框是金色，战线不能同色
+    private static readonly Color FrontColor = new Color32(226, 64, 52, 235);
 
     private static bool ShowsCorps(Kingdom kingdom, CorpsData corps) =>
         corps.task != "reserve" || CorpsSystem.IsAtWar(kingdom);
