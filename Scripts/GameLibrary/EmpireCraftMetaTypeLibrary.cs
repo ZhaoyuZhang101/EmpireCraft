@@ -258,8 +258,8 @@ public static class EmpireCraftMetaTypeLibrary
                 }
                 // drawDefaultMeta() traverses every kingdom. Calling it once per
                 // independent kingdom made this branch quadratic on large worlds.
-                drawForCities(kingdom.meta_type_asset, kingdom.getCities(),
-                  getZoneDelegate(kingdom.meta_type_asset));
+                // 按城池归属取国家(不跟着王国图层切到的那一档：第二、三档按人口流动数据取，无小人模式下多为空，独立王国就没了颜色)
+                drawForCities(kingdom.meta_type_asset, kingdom.getCities(), ZoneKingdom);
               }
               WorldTile mouseTilePosCachedFrame = World.world.getMouseTilePosCachedFrame();
               var kingdomSelect = mouseTilePosCachedFrame?.zone_city?.kingdom;
@@ -907,8 +907,11 @@ public static class EmpireCraftMetaTypeLibrary
       foreach ((Kingdom kingdom, List<City> cities) in _uncovered)
         if (kingdom?.data != null && !kingdom.isRekt())
           drawForCities(kingdom.meta_type_asset, cities.Where(city => city?.data != null && !city.isRekt() && city.kingdom == kingdom),
-            getZoneDelegate(kingdom.meta_type_asset));
+            ZoneKingdom);
     }
+
+    // 地块所属城池的国家
+    private static readonly MetaZoneGetMetaSimple ZoneKingdom = zone => zone?.city?.kingdom;
 
     public static void drawDefaultMeta(MetaTypeAsset pMetaTypeAsset)
     {
