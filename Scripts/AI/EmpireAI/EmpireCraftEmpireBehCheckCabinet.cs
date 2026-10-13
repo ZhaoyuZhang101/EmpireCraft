@@ -138,9 +138,13 @@ public class EmpireCraftEmpireBehCheckCabinet : GameAIEmpireBase
         List<Kingdom> activeKingdoms = empire.kingdoms_list
             .Where(k => k?.data != null && !k.isRekt())
             .ToList();
+        // 被帝国禁令放逐的、自由城市、主教领不占世俗选帝侯席位(主教领占教会席位，见下)
         List<long> normalKingList = activeKingdoms.FindAll(k => k.hasKing() && k.king?.data != null && !k.IsEmpire()
-                && k.GetRegime()?.GetReligionLevel() != ReligionLevel.High)
+                && k.GetRegime()?.GetReligionLevel() != ReligionLevel.High && !HolyRomanSystem.IsBanned(k) &&
+                HolyRomanSystem.Estate(k) == HolyRomanSystem.EstateNone)
             .OrderByDescending(k => k.countTotalWarriors()).Select(k => k.king.id).Take(4).ToList();
+        // 教会席位：主教领的主教优先(见 HolyRomanSystem.ChurchElectors)
+        religionLeaderList.AddRange(HolyRomanSystem.ChurchElectors(empire));
         if (empire.Religion != null && !empire.Religion.isRekt())
         {
             foreach (var kingdom in activeKingdoms)
@@ -157,6 +161,7 @@ public class EmpireCraftEmpireBehCheckCabinet : GameAIEmpireBase
                     select area.leader.id);
             }
         }
+        religionLeaderList = religionLeaderList.Distinct().Take(3).ToList();
         while (religionLeaderList.Count < 3)
         {
             religionLeaderList.Add(-1L);

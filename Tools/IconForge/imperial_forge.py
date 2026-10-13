@@ -541,6 +541,18 @@ def obj_keys(img):
     over(img, shade(lines([[(128, 146), (116, 182)], [(128, 146), (140, 182)]], 7), RED, bevel=3))
 
 
+def obj_diet(img):
+    """帝国议会：展开的决议书(骨白卷面、三行墨字、上下木轴)，右下一枚朱红蜡封垂两条红绶。"""
+    over(img, shade(rrect([62, 66, 194, 204], 6), BONE, bevel=6, grain=0.2))
+    for y in (50, 200):
+        over(img, shade(rrect([46, y, 210, y + 18], 8), WOOD, bevel=5, grain=0.3))
+    for y, right in ((96, 176), (122, 176), (148, 140)):
+        over(img, shade(rrect([82, y, right, y + 9], 3), IRON, bevel=2, flat=True))
+    over(img, shade(lines([[(158, 196), (144, 240)], [(168, 196), (182, 240)]], 9), RED, bevel=3))
+    over(img, shade(ellipse([138, 160, 190, 212]), RED, bevel=7, gloss=1.0))
+    over(img, shade(ellipse([154, 176, 174, 196]), BLOOD, bevel=3))
+
+
 TABS = {
     "TabMilitary": obj_military,
     "TabPapacy": obj_keys,
@@ -550,6 +562,7 @@ TABS = {
     "TabSetting": obj_token,
     "TabConstitution": obj_book,
     "TabInstitutions": obj_bamboo,
+    "TabDiet": obj_diet,
 }
 
 

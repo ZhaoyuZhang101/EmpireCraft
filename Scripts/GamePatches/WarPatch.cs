@@ -211,6 +211,8 @@ public class WarPatch: GamePatch
             EmpireCraft.Scripts.GeneralSystems.WarGoalSystem.Settle(pWar, pWinner);
             // 圣战：圣地交接、教权与正统
             EmpireCraft.Scripts.GeneralSystems.PapacySystem.OnWarEnded(pWar, pWinner);
+            // 帝国战争、执行禁令、宗教战争的结局
+            EmpireCraft.Scripts.GeneralSystems.HolyRomanSystem.OnWarEnded(pWar, pWinner);
             ReignRecordSystem.OnWarEnded(pWar, pWinner);
             WorldWarSystem.Resolve(pWar, pWinner);
             World.world.game_stats.data.peacesMade++;

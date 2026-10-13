@@ -475,7 +475,8 @@
       ],
       "exclusive_with": [
         "western_clerical_supremacy",
-        "western_theocratic_state"
+        "western_theocratic_state",
+        "western_imperial_reform"
       ],
       "research": {
         "mandate_required": 70
@@ -671,6 +672,55 @@
       "features": {
         "constitution_basis_law": 1
       }
+    },
+    {
+      "id": "western_imperial_reform",
+      "name_key": "institution_western_imperial_reform",
+      "description_key": "institution_western_imperial_reform_desc",
+      "branch": "administration",
+      "advancement": 5,
+      "requires": [
+        "western_feudal_contract"
+      ],
+      "exclusive_with": [
+        "western_centralized_monarchy"
+      ],
+      "research": {
+        "mandate_required": 50
+      },
+      "reform": {
+        "base_progress_per_year": 6.5,
+        "minimum_years": 10,
+        "force_radicalism": 22.0
+      },
+      "resistance": {
+        "base_radicalism": 10.0,
+        "vested_interest_radicalism": 16.0,
+        "rebellion_threshold": 72.0,
+        "reason_key": "institution_resistance_reason_imperial_reform"
+      },
+      "politics": {
+        "support_classes": {
+          "Noble": 1.0,
+          "Merchant": 0.8,
+          "Citizen": 0.4
+        },
+        "oppose_classes": {
+          "Army": 0.6
+        },
+        "support_factions": {
+          "自治": 1.2,
+          "中央": 0.4
+        },
+        "oppose_factions": {}
+      },
+      "effects_on_complete": [
+        {
+          "type": "modify_faction_power",
+          "int_value": 3,
+          "faction": "自治"
+        }
+      ]
     },
     {
       "id": "western_parliamentary_taxation",

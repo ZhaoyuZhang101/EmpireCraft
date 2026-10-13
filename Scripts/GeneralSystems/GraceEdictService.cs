@@ -40,7 +40,9 @@ public static class GraceEdictService
             return false;
         bool graceEdict = InstitutionSystem.HasFeature(empire, InstitutionFeatures.GraceEdict);
         bool commanderyKingdom = IsCommanderyKingdomActive(empire);
-        if (!graceEdict && !commanderyKingdom) return false;
+        // 封建制帝国的分割继承(见 HolyRomanSystem.RollPartible)：诸子分城，绝嗣照常继承
+        bool partible = !graceEdict && HolyRomanSystem.RollPartible(empire, fief);
+        if (!graceEdict && !commanderyKingdom && !partible) return false;
         Regime regime = fief.GetRegime();
         if (regime == null || regime.GetLeaderSelectMethod() != LeaderSelectMethod.Succession) return false;
 
@@ -54,6 +56,7 @@ public static class GraceEdictService
 
         if (sons.Count == 0)
         {
+            if (!graceEdict && !commanderyKingdom) return false;
             string fiefName = fief.GetKingdomName();
             Reclaim(empire, fief, lastKing.name, announce: graceEdict);
             if (!graceEdict)
@@ -61,7 +64,7 @@ public static class GraceEdictService
             return true;
         }
         // 只有郡国并行、没有推恩令时，有子嗣就照常继承，不拆分
-        if (!graceEdict) return false;
+        if (!graceEdict && !partible) return false;
 
         List<City> otherCities = (fief.cities ?? new List<City>())
             .Where(city => city != null && !city.isRekt() && city != fief.capital)
@@ -78,7 +81,7 @@ public static class GraceEdictService
         }
         Crown(fief, eldest);
 
-        string content = string.Format(LM.Get("grace_edict_partition_history"), lastKing.name, eldest.getName(),
+        string content = string.Format(LM.Get(partible ? "hre_partible_history" : "grace_edict_partition_history"), lastKing.name, eldest.getName(),
             fief.GetKingdomName(), string.Join("、", granted));
         empire.RecordHistory(directContent: content, actorId: eldest.id, kingdomId: fief.id);
         EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventMessage(content, fief);

@@ -102,7 +102,9 @@ public class EmpirePeacePatch : GamePatch
             ClearMutualOccupation(core, foes);
             foreach (Kingdom member in snapshot.Empire.kingdoms_list.ToList())
             {
-                if (!Obeys(snapshot.Empire, member)) continue;
+                // 听命的成员，以及应议会征召参加帝国战争的诸侯(见 HolyRomanSystem.Diet)
+                if (!Obeys(snapshot.Empire, member) &&
+                    !EmpireCraft.Scripts.GeneralSystems.HolyRomanSystem.InImperialWar(snapshot.Empire, member)) continue;
                 bool left = false;
                 foreach (War war in member.getWars().ToList())
                 {

@@ -53,6 +53,8 @@ public enum KingdomType
     ZhouFeudalism_jun, // 郡国并行下分封制的郡(官员选拔的行政区)；追加在末尾以保持旧存档枚举值稳定
     Feudalism_intendancy, // 中央集权君主制下西方封建制的辖区(官员选拔的行政区)
     Feudalism_diocese, // 神权国家下西方封建制的教区(官员选拔的行政区)
+    Feudalism_free_city, // 封建制帝国的帝国自由城市(市议会推举执政，见 HolyRomanSystem.Members)
+    Feudalism_prince_bishopric, // 封建制帝国的教会诸侯(主教领，主教按叙任权任命)
 }
 
 public enum ArmyOfficialType

@@ -276,6 +276,8 @@ public static class KingdomExtension
         public double admin_pass_at = -1d;
         // 西方帝国成员国的党派：0 无 / 1 教皇党 / 2 皇帝党(见 PapacySystem)
         public int papal_party;
+        // 帝国的特殊成员：0 普通诸侯 / 1 帝国自由城市 / 2 教会诸侯(主教领)(见 HolyRomanSystem.Members)
+        public int hre_estate;
         public float war_food_need;
         public float war_food_short;
         public KingdomType kingdomType = KingdomType.default_country_post;

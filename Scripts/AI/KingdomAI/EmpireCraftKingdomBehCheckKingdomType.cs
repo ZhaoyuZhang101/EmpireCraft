@@ -32,6 +32,7 @@ public enum ConditionType
     empire_institution,
     empire_feature,
     jimi_region,
+    hre_estate,
     None
 }
 public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
@@ -209,6 +210,14 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
                         ? parsed
                         : float.Epsilon;
                     if (InstitutionSystem.GetFeature(empire, featureParts[0]) < minimum) return false;
+                    break;
+                }
+                case ConditionType.hre_estate:
+                {
+                    // 帝国的特殊成员，例："hre_estate:free_city"、"hre_estate:church"(见 HolyRomanSystem.Members)
+                    int estate = val == "free_city" ? HolyRomanSystem.EstateFreeCity
+                        : val == "church" ? HolyRomanSystem.EstateChurch : HolyRomanSystem.EstateNone;
+                    if (empire == null || HolyRomanSystem.Estate(kingdom) != estate) return false;
                     break;
                 }
                 case ConditionType.jimi_region:

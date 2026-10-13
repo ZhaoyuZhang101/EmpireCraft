@@ -15,7 +15,9 @@ public enum TreasuryCategory
     Borrowing, DebtInterest, DebtPrincipal,
     Reparations,
     // 什一税(上缴教廷，见 PapacySystem)
-    Tithe
+    Tithe,
+    // 帝国摊派(帝国议会通过后成员国上缴中央，见 HolyRomanSystem.Diet)
+    ImperialLevy
 }
 
 public sealed class TreasuryReport

@@ -280,8 +280,16 @@ public static partial class PapacySystem
             Crown(empire, state, emperor, self: false, papacy);
             return;
         }
-        if (UnityEngine.Random.value >= CoronationChance) return;
-        if (papacy.isInWarWith(core)) return;
+        // 封建制帝国：皇帝要远征教廷，一年后到达才加冕(见 HolyRomanSystem.Romzug)；到了却与教廷开战就作罢
+        int romzug = HolyRomanSystem.Romzug(empire);
+        if (romzug == HolyRomanSystem.RomzugTravelling) return;
+        if (romzug != HolyRomanSystem.RomzugArrived)
+        {
+            if (UnityEngine.Random.value >= CoronationChance) return;
+            if (papacy.isInWarWith(core)) return;
+            if (HolyRomanSystem.StartRomzug(empire, papacy)) return;
+        }
+        else if (papacy.isInWarWith(core)) return;
         int gift = (int)Math.Min(Math.Max(0L, core.GetMoney()), (long)(StateDebtSystem.AnnualStableIncome(core) * CoronationGift));
         if (gift > 0)
         {

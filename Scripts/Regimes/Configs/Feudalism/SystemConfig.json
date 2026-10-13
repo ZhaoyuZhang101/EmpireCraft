@@ -95,6 +95,33 @@
           "condition": [],
           "city_type": "Feudalism_city"
         },
+        // 帝国自由城市(市长)、教会诸侯(主教领，大主教)：帝国的特殊成员，最先判定(见 HolyRomanSystem.Members)
+        "Feudalism_free_city": {
+          "pre": "",
+          "type": 8,
+          "description": "",
+          "powers": [],
+          "merit": -1,
+          "honorary": -1,
+          "select_from_local": true,
+          "leader_select_method": "Vote",
+          "require_traits": [],
+          "condition": ["empire_center:false", "hre_estate:free_city"],
+          "city_type": "Feudalism_city"
+        },
+        "Feudalism_prince_bishopric": {
+          "pre": "",
+          "type": 2,
+          "description": "",
+          "powers": [],
+          "merit": -1,
+          "honorary": -1,
+          "select_from_local": false,
+          "leader_select_method": "Exam",
+          "require_traits": [],
+          "condition": ["empire_center:false", "hre_estate:church"],
+          "city_type": "Feudalism_city"
+        },
         // 神权国家：由官员治理的教区，要排在辖区之前判定
         "Feudalism_diocese": {
           "pre": "",

@@ -140,8 +140,8 @@ public static partial class PapacySystem
         return null;
     }
 
-    // 讨伐异端的圣战打完：教随国定
-    private static void ReligiousPeace(Religion religion)
+    // 讨伐异端的圣战打完、帝国诸侯订立和约：教随国定
+    public static void ReligiousPeace(Religion religion)
     {
         religion.GetOrCreate().ReligiousPeaceUntil = World.world.getCurWorldTime() + ReligiousPeaceYears * SecondsPerYear;
         TranslateHelper.LogEventMessage(string.Format(LM.Get("papal_religious_peace_log"), religion.name), Papacy(religion));

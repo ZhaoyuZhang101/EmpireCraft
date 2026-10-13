@@ -64,6 +64,8 @@ public class EmpireCraftKingdomBehCheckKing : GameAIKingdomBase
         } 
         // 选举制国家的行政区：省长出缺由本省执政党递补
         if (ProvincialPoliticsSystem.TryFillGovernorVacancy(pKingdom)) return BehResult.Continue;
+        // 主教领：主教不世袭，出缺时按叙任权另派(见 HolyRomanSystem.Members)
+        if (HolyRomanSystem.TryAppointBishop(pKingdom)) return BehResult.Continue;
         OfficeObject office = pKingdom.GetOffice();
         if (office == null) return BehResult.Continue;
         office.is_local = true;
