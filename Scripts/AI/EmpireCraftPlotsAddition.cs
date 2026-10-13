@@ -2792,6 +2792,8 @@ namespace EmpireCraft.Scripts.AI
         {
             // 民族统一战线期间，同一核心的各政府互不宣战(见 NationalSentimentSystem)
             if (NationalSentimentSystem.InSameUnitedFront(initiator, target)) return false;
+            // 遗诏分治的兄弟之国互不征伐(见 EmpirePartitionSystem)
+            if (EmpirePartitionSystem.InAmity(initiator, target)) return false;
             if (initiator?.capital == null || target?.capital == null || initiator == target ||
                 !target.isAlive() ||
                 !target.hasCities() || target.getAge() < SimGlobals.m.minimum_kingdom_age_for_attack ||
@@ -2820,6 +2822,7 @@ namespace EmpireCraft.Scripts.AI
         private static bool IsValidImperialWarTarget(Kingdom initiator, Kingdom target)
         {
             if (NationalSentimentSystem.InSameUnitedFront(initiator, target)) return false;
+            if (EmpirePartitionSystem.InAmity(initiator, target)) return false;
             if (initiator == null || target == null || initiator == target || !initiator.IsEmpire() ||
                 !target.isAlive() || target.IsInSameEmpire(initiator)) return false;
             Empire empire = initiator.GetEmpire();

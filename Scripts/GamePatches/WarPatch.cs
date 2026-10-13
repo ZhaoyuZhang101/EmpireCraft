@@ -435,6 +435,14 @@ public class WarPatch: GamePatch
 
         WarSituation.RecordParticipant(__result, __result.main_attacker);
         WarSituation.RecordParticipant(__result, __result.main_defender);
+        try
+        {
+            EmpirePartitionSystem.OnWarStarted(__result);
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft][分裂] 兄弟之国援助失败: {exception.Message}");
+        }
         // 原版按模板用 kingdom.name 生成战争名，改用地图铭牌上的国名
         if (__result.data != null)
             __result.data.name = WorldLogNamePatch.UseDisplayNames(__result.data.name,

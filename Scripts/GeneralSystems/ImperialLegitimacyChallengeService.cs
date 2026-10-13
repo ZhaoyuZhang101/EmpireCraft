@@ -184,6 +184,24 @@ public static class ImperialLegitimacyChallengeService
 
     private const float RivalryWarChance = 0.1f;
 
+    // 分立的两朝互为正统对手(见 EmpirePartitionSystem)：claimant 是分出来的一朝；war 为真时当即开战
+    public static void DeclareDynasticRivals(Empire claimant, Empire incumbent, bool war)
+    {
+        if (!IsActiveEmpire(claimant) || !IsActiveEmpire(incumbent) || claimant == incumbent) return;
+        MarkRivalry(claimant, incumbent, challengerIsClaimant: true);
+        Kingdom core = claimant.CoreKingdom;
+        Kingdom rivalCore = incumbent.CoreKingdom;
+        if (!war || core.isInWarWith(rivalCore)) return;
+        War started = DiplomacyHelpers.wars.newWar(core, rivalCore, WarTypeLibrary.normal);
+        if (started == null) return;
+        started.SetEmpireWarType(EmpireWarType.去帝号, nanoObject: incumbent);
+        started.InitializeLegitimacyChallenge(claimant, incumbent);
+        foreach (Kingdom member in claimant.kingdoms_list.ToList())
+            if (member != null && member != core && !member.isRekt()) started.joinAttackers(member);
+        foreach (Kingdom member in incumbent.kingdoms_list.ToList())
+            if (member != null && member != rivalCore && !member.isRekt()) started.joinDefenders(member);
+    }
+
     public static bool AreRecognizedRivals(Empire first, Empire second)
     {
         if (!IsActiveEmpire(first) || !IsActiveEmpire(second) || first == second) return false;

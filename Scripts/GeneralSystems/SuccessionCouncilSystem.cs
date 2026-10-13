@@ -25,7 +25,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 public static class SuccessionCouncilSystem
 {
     public const string Elder = "elder", Kin = "kin", Worthy = "worthy", Young = "young",
-        Cadet = "cadet", Minister = "minister", Acclaim = "acclaim", Commoner = "commoner";
+        Cadet = "cadet", Minister = "minister", Acclaim = "acclaim", Commoner = "commoner", Union = "union";
     private const int StageMonths = 1, StaleMonths = 6, MaxAttempts = 3, AdultAge = 18;
 
     public static bool Applies(Kingdom kingdom)
@@ -143,6 +143,13 @@ public static class SuccessionCouncilSystem
             council.outsider = true;
             NominateOutsiders(empire, core, council.candidates);
         }
+        // 分治的另一朝皇帝同出一宗：可迎立他兼承大统，两朝复归一统(见 EmpirePartitionSystem)
+        if (EmpirePartitionSystem.CanUnite(empire, out Empire twin))
+            council.candidates.Insert(0, new CourtSuccessionCandidate
+            {
+                actor = twin.Emperor.id, name = twin.Emperor.getName(), basis = Union, age = twin.Emperor.getAge(),
+                kinship = 4
+            });
         if (council.candidates.Count == 0)
         {
             council.gave_up = true;
@@ -249,7 +256,7 @@ public static class SuccessionCouncilSystem
             float bestScore = float.MinValue;
             for (int i = 0; i < council.candidates.Count; i++)
             {
-                float score = Backing(faction, council.candidates[i], minister);
+                float score = Backing(faction, council.candidates[i], minister, council.outsider);
                 if (score <= bestScore) continue;
                 bestScore = score;
                 best = i;
@@ -265,7 +272,7 @@ public static class SuccessionCouncilSystem
             Publish(empire, state, string.Format(LM.Get("court_succession_debate"), string.Join("，", items)));
     }
 
-    private static float Backing(FixedFaction faction, CourtSuccessionCandidate candidate, Actor minister)
+    private static float Backing(FixedFaction faction, CourtSuccessionCandidate candidate, Actor minister, bool council_outsider)
     {
         Actor actor = CandidateActor(candidate);
         bool legitimist = faction.Type is FactionType.尊王 or FactionType.血脉;
@@ -273,6 +280,9 @@ public static class SuccessionCouncilSystem
         if (actor?.data != null && actor.GetFaction() == faction) score += 25f;
         switch (candidate.basis)
         {
+            case Union:
+                // 另一朝皇帝同出一宗，按从兄弟一支算亲疏；本朝还有近支宗亲时多立近支，只剩远支或无人可立时才兼承大统
+                return score - 4f * (legitimist ? 12f : 6f) + 20f + (council_outsider ? 40f : 0f);
             case Cadet:
                 return score + (legitimist || faction.Type == FactionType.神权 ? 45f : 5f);
             case Commoner:
@@ -342,6 +352,7 @@ public static class SuccessionCouncilSystem
             CourtSuccessionCandidate candidate = council.candidates[index];
             float score = Support(council, index) + Random.Range(0f, 10f);
             bool young = candidate.basis is Kin or Elder or Worthy or Young && candidate.age < AdultAge;
+            if (candidate.basis == Union && role is "dowager" or "minister") score -= 15f;
             switch (role)
             {
                 case "dowager":
@@ -364,6 +375,16 @@ public static class SuccessionCouncilSystem
         foreach (int index in order)
         {
             CourtSuccessionCandidate candidate = council.candidates[index];
+            if (candidate.basis == Union)
+            {
+                if (!EmpirePartitionSystem.CanUnite(empire, out Empire heirEmpire)) continue;
+                string unionText = string.Format(LM.Get("court_succession_decided_" + role), decider?.getName() ?? "",
+                    heirEmpire.Emperor.getName());
+                Publish(empire, state, unionText);
+                state.succession = null;
+                EmpirePartitionSystem.Reunite(empire, heirEmpire);
+                return;
+            }
             Actor actor = Enthrone(empire, core, candidate);
             if (actor?.data == null || actor.isRekt() || !actor.isAlive()) continue;
             council.chosen = index;
@@ -428,7 +449,12 @@ public static class SuccessionCouncilSystem
     {
         string basis = LM.Get("court_succession_basis_" + candidate.basis);
         if (candidate.basis is Cadet or Commoner) return $"{candidate.name}({basis})";
-        string relation = candidate.basis is Minister or Acclaim ? LM.Get("court_succession_kin_outsider") : KinLabel(candidate.kinship);
+        string relation = candidate.basis switch
+        {
+            Minister or Acclaim => LM.Get("court_succession_kin_outsider"),
+            Union => LM.Get("court_succession_kin_union"),
+            _ => KinLabel(candidate.kinship)
+        };
         return string.Format(LM.Get("court_succession_candidate"), candidate.name, basis, relation, candidate.age);
     }
 

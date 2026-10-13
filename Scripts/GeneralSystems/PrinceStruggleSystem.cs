@@ -27,7 +27,9 @@ public static class PrinceStruggleSystem
     private const int PendingMonths = 6;
 
     public const string NoteDeposed = "deposed", NoteCoup = "coup", NoteStrife = "strife", NotePalaceCoup = "palace_coup",
-        NoteUsurp = "usurp", NoteMilitaryCoup = "military_coup", NoteCourtChoice = "court_choice", NoteAcclaimed = "acclaimed";
+        NoteUsurp = "usurp", NoteMilitaryCoup = "military_coup", NoteCourtChoice = "court_choice", NoteAcclaimed = "acclaimed",
+        NotePartition = "partition", NoteEnthroned = "enthroned", NoteFled = "fled", NoteRaised = "raised",
+        NoteRestoration = "restoration";
 
     private static readonly Dictionary<long, (double at, float severity)> Contests = new();
 

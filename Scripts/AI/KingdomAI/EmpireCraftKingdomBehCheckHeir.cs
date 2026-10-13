@@ -288,7 +288,8 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
         foreach (PersonalClanIdentity person in clan)
             if (person != null) people[person.id] = person;
         foreach (PersonalClanIdentity person in people.Values)
-            if (IsEligibleRelative(person, parent, allowFemale)) result.Add((person, Kinship(person, ancestors)));
+            if (IsEligibleRelative(person, parent, allowFemale) && person._actor?.IsEmperor() != true)
+                result.Add((person, Kinship(person, ancestors)));
         return result;
     }
 

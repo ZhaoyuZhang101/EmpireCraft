@@ -159,6 +159,7 @@ public static class RoyalHouseSystem
         {
             PrinceStruggleSystem.Monthly();
             SuccessionCouncilSystem.Monthly();
+            EmpirePartitionSystem.Monthly();
             if (++_months % 12 != 0) return;
             if (ModClass.EMPIRE_MANAGER != null)
                 foreach (Empire empire in ModClass.EMPIRE_MANAGER.ToList())
@@ -166,6 +167,7 @@ public static class RoyalHouseSystem
                     if (empire?.data == null || RepublicSystem.IsRepublic(empire)) continue;
                     Mishap(empire);
                     PrinceStruggleSystem.Yearly(empire);
+                    EmpirePartitionSystem.Yearly(empire);
                 }
             foreach (Kingdom kingdom in World.world.kingdoms.list.ToList()) Enfeoff(kingdom);
         }

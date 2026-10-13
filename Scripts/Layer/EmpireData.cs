@@ -148,6 +148,13 @@ public class EmpireData : MetaObjectData
     public string prefix_choice { get; set; } = "";
     // 全帝国连荒两年以上的城占几成(见 FamineUnrestSystem，推高王朝积弊)
     public float famine_share { get; set; }
+    // 帝国分裂(见 EmpirePartitionSystem)：另一朝的帝国 id、分裂方式(will 遗诏分治 / minister 权臣分立 /
+    // restoration 宗室另立)、时间；amity 兄弟之国(互不征伐)；claimant 为分出来的一朝(日后互争正统时是争正统者)
+    public long partition_twin_id { get; set; } = -1L;
+    public string partition_kind { get; set; } = "";
+    public double partition_time { get; set; } = -1d;
+    public bool partition_amity { get; set; }
+    public bool partition_claimant { get; set; }
     // 皇帝出行(纯净地图的皇帝标记，见 EmperorTourSystem)：出行方式(""=在宫里，tour/visit/campaign)、所在地块、
     // 目的城、随驾的军、出发与到达的时间、是否回銮、出行的皇帝、上次回宫的时间
     public string tour_kind { get; set; } = "";
