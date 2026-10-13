@@ -211,6 +211,16 @@ public static class OfficeSelector
         return null;
     }
 
+    // 已经在别处主政的人(别城城主、别国君主)不调来补地方主官：调走了原处又空缺，下一轮又按同样的分数被调回，
+    // 城主在两座城之间来回跳(无小人模式补位出来的城主不算在任官员，以前挡不住)。中央官职不挪人，不受此限
+    private static bool LeadsElsewhere(Actor unit, OfficeObject office)
+    {
+        if (unit == null || office == null || !office.is_local) return false;
+        object target = office.meta_object;
+        if (unit.isKing()) return !ReferenceEquals(target, unit.kingdom);
+        return unit.isCityLeader() && unit.city != null && unit.city.leader == unit && !ReferenceEquals(target, unit.city);
+    }
+
     private static Actor TryGetExamOfficer(OfficeObject pOffice, Kingdom  pKingdom)
     {
         IEnumerable<Actor> targetPool;
@@ -242,6 +252,7 @@ public static class OfficeSelector
 
         foreach (Actor unit in targetPool)
         {
+            if (LeadsElsewhere(unit, pOffice)) continue;
             if (unit.isUnitFitToRule() && unit.CanServeOffice(pKingdom) && !unit.IsEmperor() && !unit.IsOnOffice() && unit.hasClan()&& (!unit.isKing()||(unit.isKing()&&unit.kingdom.GetRegime().GetLeaderSelectMethod()!=LeaderSelectMethod.Succession)))
             {
                 if (unit.IsSkeleton()) continue;
