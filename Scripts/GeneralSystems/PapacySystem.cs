@@ -23,7 +23,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     登基三年仍未加冕正统 −5；脱离罗马或世俗化之后自行加冕 +3；帝国自己握有圣地的直接加冕；
 //   · 叙任权：教会叙任 / 政教协约 / 君主叙任，按施行的制度定(叙任权之争打赢也会改为君主叙任)；
 //   · 什一税：每年把年度经常收入的 6% 按叙任权档位(全额 / 一半 / 不缴)上缴教廷。
-public static class PapacySystem
+public static partial class PapacySystem
 {
     public const string Line = "Roma";
     public const string NodeClerical = "western_clerical_supremacy";
@@ -160,6 +160,8 @@ public static class PapacySystem
             if (!Applies(empire)) return;
             PapalRelationState state = State(empire);
             state.investiture = Investiture(empire);
+            UpdateParties(empire);
+            Conflict(empire, state, religion);
             Coronation(empire, state, religion);
             Tithe(empire, state, religion);
         }

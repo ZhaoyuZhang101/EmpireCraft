@@ -274,6 +274,8 @@ public static class KingdomExtension
         public double forage_until = -1d;
         // 上次结算行政控制力的时间(见 AdministrativeControlSystem)
         public double admin_pass_at = -1d;
+        // 西方帝国成员国的党派：0 无 / 1 教皇党 / 2 皇帝党(见 PapacySystem)
+        public int papal_party;
         public float war_food_need;
         public float war_food_short;
         public KingdomType kingdomType = KingdomType.default_country_post;

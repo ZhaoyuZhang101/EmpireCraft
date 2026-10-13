@@ -17,6 +17,8 @@ public sealed class PapalRelationState
     public double excommunicated_at = -1d;
     public long excommunicated_ruler_id = -1L;
     public string excommunication_reason = "";
+    // 这次绝罚以来倒戈的教皇党成员国数
+    public int defections;
     // 什一税：上次结算时间与上缴额
     public double last_tithe_at = -1d;
     public long tithe_paid;
