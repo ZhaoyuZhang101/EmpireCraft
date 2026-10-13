@@ -57,6 +57,8 @@ public static partial class PapacySystem
             TryPenance(empire, state, religion, papacy);
             return;
         }
+        // 教宗受挟：与挟持者交战的遭绝罚
+        if (CaptorBan(empire, state, religion)) return;
         // 与教廷交战
         if (papacy.isInWarWith(core) && UnityEngine.Random.value < authority / 100f)
         {

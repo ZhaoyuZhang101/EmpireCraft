@@ -34,6 +34,9 @@ public sealed class PapalRelationState
     public string excommunication_reason = "";
     // 这次绝罚以来倒戈的教皇党成员国数
     public int defections;
+    // 宗教改革另立的国教会(-1 = 没有)；圣座帝国已改国号
+    public long national_church_id = -1L;
+    public bool holy_see_named;
     // 什一税：上次结算时间与上缴额
     public double last_tithe_at = -1d;
     public long tithe_paid;

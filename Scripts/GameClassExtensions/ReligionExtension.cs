@@ -21,6 +21,13 @@ public static class ReligionExtension
         public int CrusadeLosses;
         // 本宗教的骑士团(含已解散的)
         public List<KnightOrderData> Orders = new();
+        // 教廷之囚的起始时间(-1 = 没有)、大分裂(对立教宗)
+        public double CaptiveSince = -1d;
+        public bool Schism;
+        // 宗教改革分出来的国教会：母宗教与分出时间；"教随国定"到何时(母宗教此前不再讨伐异端)
+        public long ParentReligionId = -1L;
+        public double SplitAt = -1d;
+        public double ReligiousPeaceUntil = -1d;
     }
     public static ReligionExtraData GetOrCreate(this Religion a, bool isSave = false)
     {

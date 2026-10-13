@@ -126,6 +126,13 @@ public static partial class PapacySystem
     {
         if (!Applies(empire)) yield break;
         PapalRelationState state = State(empire);
+        // 圣座帝国：教宗即皇帝，正统按教权计
+        if (IsHolySee(empire))
+        {
+            int holy = Mathf.RoundToInt((Authority(ReligionOf(empire)) - 50f) / 2f);
+            if (holy != 0) yield return ("mandate_holy_see", holy);
+            yield break;
+        }
         if (IsExcommunicated(empire))
         {
             yield return ("mandate_excommunicated", ExcommunicatedLegitimacy);
@@ -199,8 +206,11 @@ public static partial class PapacySystem
         {
             Religion religion = ReligionOf(empire);
             if (religion != null) UpdateReligion(religion);
+            TryBreakWithRome(empire);
+            religion = ReligionOf(empire);
             if (!Applies(empire)) return;
             PapalRelationState state = State(empire);
+            NameHolySee(empire, state);
             state.investiture = Investiture(empire);
             UpdateParties(empire);
             Conflict(empire, state, religion);
@@ -220,6 +230,7 @@ public static partial class PapacySystem
         double now = World.world.getCurWorldTime();
         if (data.PapalUpdatedAt >= 0d && now >= data.PapalUpdatedAt && Date.getYearsSince(data.PapalUpdatedAt) < 1) return;
         data.PapalUpdatedAt = now;
+        UpdateCaptivity(religion);
         Kingdom papacy = Papacy(religion);
         if (papacy == null)
         {
@@ -244,6 +255,7 @@ public static partial class PapacySystem
         }
         target += Mathf.Clamp(stance, -20f, 20f);
         if (IsCaptive(religion)) target -= CaptivityPenalty;
+        if (data.Schism) target -= SchismPenalty;
         data.PapalAuthority = Mathf.Clamp(data.PapalAuthority + (target - data.PapalAuthority) * AuthorityDrift, 0f, 100f);
         // 圣战：西方(与阿拉伯的吉哈德)才有
         string line = InstitutionSystem.GetCultureLine(CultureService.GetRealmCulture(papacy));

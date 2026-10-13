@@ -123,6 +123,7 @@ public static partial class PapacySystem
 
     private static void UpdateOrder(Religion religion, KnightOrderData order)
     {
+        if (SecularizeOrderState(order)) return;
         Kingdom host = Host(order);
         if (host == null || host.religion != religion)
         {

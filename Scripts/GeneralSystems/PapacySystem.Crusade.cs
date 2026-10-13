@@ -61,6 +61,8 @@ public static partial class PapacySystem
         if (authority >= 30f && holy?.data != null && !holy.isRekt() && holy.kingdom != null && !holy.kingdom.wild &&
             holy.kingdom.religion != religion)
             return (Realm(holy.kingdom), CrusadeHolyLand);
+        // 讨伐异端：宗教改革分出去的国教会
+        if (authority >= 40f && HereticTarget(religion) is Kingdom heretic) return (heretic, CrusadeHeretic);
         if (authority < 50f) return (null, 0);
         foreach (War war in World.world.wars)
         {
@@ -180,6 +182,8 @@ public static partial class PapacySystem
             data.CrusadeWarId = -1L;
             data.CrusadeCooldownUntil = World.world.getCurWorldTime() + CrusadeCooldownYears * SecondsPerYear;
             (int attackerGain, int defenderGain) = WarGoalSystem.Gains(war);
+            // 讨伐异端打完：教随国定
+            if (snapshot.crusade_kind == CrusadeHeretic) ReligiousPeace(religion);
             bool won = winner == WarWinner.Attackers || winner == WarWinner.Peace && attackerGain >= defenderGain + 1;
             Kingdom caller = war.main_attacker;
             if (won)
