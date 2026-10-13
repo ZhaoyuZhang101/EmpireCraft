@@ -1125,6 +1125,16 @@ public static class CorpsMapRenderer
         if (rations < 0.99f)
             tooltip.addLineText(LM.Get("corps_tip_rations"), $"{Mathf.RoundToInt(rations * 100f)}%", "#E8584F",
                 pPercent: false, pLocalize: false);
+        // 禁军的忠诚与空饷(见 PalaceArmySystem)
+        List<CorpsData> palace = list.Where(corps => owners.TryGetValue(corps, out Kingdom owner) &&
+                                                     PalaceArmySystem.IsPalace(owner, corps)).ToList();
+        if (palace.Count > 0)
+        {
+            float loyalty = palace.Average(corps => corps.loyalty);
+            tooltip.addLineText(LM.Get("corps_tip_palace"), string.Format(LM.Get("corps_tip_palace_format"),
+                    Mathf.RoundToInt(loyalty), Mathf.RoundToInt(palace.Average(corps => corps.phantom) * 100f)),
+                loyalty < 40f ? "#E8584F" : loyalty < 70f ? "#E8C35A" : "#9BD27A", pPercent: false, pLocalize: false);
+        }
         CorpsData sailing = list.FirstOrDefault(corps => corps.embarked && corps.sea_route != null);
         if (sailing != null)
             tooltip.addLineText(LM.Get("corps_tip_at_sea"), string.Format(LM.Get("corps_tip_at_sea_format"),

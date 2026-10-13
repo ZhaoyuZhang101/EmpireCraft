@@ -209,6 +209,8 @@ public static class CorpsSystem
             Recover(kingdom);
             PayUpkeep(kingdom);
             AbsorbLegacyLegions(kingdom);
+            // 禁军空饷、忠诚、不奉诏
+            PalaceArmySystem.Monthly(kingdom);
         }
     }
 
@@ -245,6 +247,7 @@ public static class CorpsSystem
             if (share > 0 && Home(corps) is City home) EnterpriseSystem.ReturnToLocal(home, share);
         }
         float shortfall = 1f - paid / (float)bill;
+        data.corps_pay_shortfall = Mathf.Max(0f, shortfall);
         if (shortfall <= 0f) return;
         foreach (CorpsData corps in list) corps.org = Mathf.Max(0f, corps.org - 20f * shortfall);
     }

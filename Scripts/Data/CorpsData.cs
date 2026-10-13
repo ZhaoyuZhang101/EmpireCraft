@@ -45,6 +45,12 @@ public sealed class CorpsData
     public int march_zones;
     // 行军进度(满 1 走一块地块，见 CorpsSystem.SecondTick)
     public float march_progress;
+    // 禁军(见 PalaceArmySystem)：空饷比例、忠诚、本月是否不奉诏、现任统领与上任时间
+    public float phantom;
+    public float loyalty = 100f;
+    public bool refusing;
+    public long commander_seen = -1L;
+    public double commander_since = -1d;
     public float rations = 1f;
     // 跨海运兵(见 CorpsSystem.Embark/Sail)：在船上、航线(海区 id)、走到第几段、计步
     public bool embarked;

@@ -278,6 +278,9 @@ public static class KingdomExtension
         public int papal_party;
         // 帝国的特殊成员：0 普通诸侯 / 1 帝国自由城市 / 2 教会诸侯(主教领)(见 HolyRomanSystem.Members)
         public int hre_estate;
+        // 上月军饷欠发的比例、禁军不奉诏是否已记(见 PalaceArmySystem)
+        public float corps_pay_shortfall;
+        public bool palace_refusal_logged;
         public float war_food_need;
         public float war_food_short;
         public KingdomType kingdomType = KingdomType.default_country_post;

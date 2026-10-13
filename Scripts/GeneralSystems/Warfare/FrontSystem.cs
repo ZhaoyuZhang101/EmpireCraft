@@ -333,7 +333,9 @@ public static class FrontSystem
         // ② 进攻：集中在少数几段；跨海登陆的军(还没上岸的)兵力合计不超过运输船运力
         var attackOn = new Dictionary<Sector, float>();
         float shipping = sectors.Any(sector => sector.Landing) ? NavySystem.TransportCapacity(kingdom) : 0f;
-        foreach (CorpsData corps in ready.Where(corps => !assigned.Contains(corps)).OrderByDescending(corps => corps.strength))
+        // 不奉诏的禁军只守城、不出征(见 PalaceArmySystem)
+        foreach (CorpsData corps in ready.Where(corps => !assigned.Contains(corps) && !PalaceArmySystem.Refuses(corps))
+                     .OrderByDescending(corps => corps.strength))
         {
             if (sectors.Count == 0) break;
             Sector keep = corps.task == "attack" ? sectors.FirstOrDefault(sector => sector.City.id == corps.sector_city_id) : null;
@@ -411,7 +413,9 @@ public static class FrontSystem
         return zone != null && target != null && CorpsSystem.ZoneDistance(zone, target) <= ArriveDistance;
     }
 
-    private static float Effective(CorpsData corps) => corps.strength * (0.25f + 0.75f * Mathf.Clamp01(corps.org / 100f));
+    // 禁军的空饷不打仗(见 PalaceArmySystem)
+    private static float Effective(CorpsData corps) =>
+        corps.strength * PalaceArmySystem.RealShare(corps) * (0.25f + 0.75f * Mathf.Clamp01(corps.org / 100f));
 
     // 火力：WarBox 的坦克、装甲车、飞机等载具每辆 +4%，最多 +60%
     private static readonly Dictionary<long, float> FirepowerCache = new();

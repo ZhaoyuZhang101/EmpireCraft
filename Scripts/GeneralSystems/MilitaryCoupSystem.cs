@@ -61,6 +61,13 @@ public static class MilitaryCoupSystem
         }
     }
 
+    // 宫廷政变而宗室无人可立：禁军统领自立(见 PalaceArmySystem)
+    internal static void PalaceSeize(Empire empire, ConstitutionalEconomyState state, Actor general, City seat)
+    {
+        if (!Applies(empire) || general?.data == null || !Eligible(empire, general)) return;
+        Execute(empire, state, general, seat);
+    }
+
     private static bool Eligible(Empire empire, Actor actor) =>
         actor?.data != null && !actor.isRekt() && actor.isAlive() && actor.isAdult() && !actor.isKing() &&
         actor.kingdom == empire.CoreKingdom &&
