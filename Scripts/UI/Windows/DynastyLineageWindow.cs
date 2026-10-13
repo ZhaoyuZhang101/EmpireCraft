@@ -26,7 +26,8 @@ namespace EmpireCraft.Scripts.UI.Windows;
 public class DynastyLineageWindow : AbstractWideWindow<DynastyLineageWindow>
 {
     private const float PanelWidth = 460f, GraphHeight = 318f;
-    private const float NodeWidth = 58f, NodeHeight = 26f, ColGap = 8f, RowGap = 20f;
+    // 方框至少 36 高，边框九宫格才不压扁(见 UIHelper.SlicedFrame)
+    private const float NodeWidth = 64f, NodeHeight = 36f, ColGap = 8f, RowGap = 18f;
     private const int AncestorsAboveFounder = 3;
     private static readonly Vector2 NodeHalf = new(NodeWidth / 2f, NodeHeight / 2f);
     private static readonly Color EdgeColor = new(0.78f, 0.74f, 0.62f, 1f);
@@ -282,10 +283,10 @@ public class DynastyLineageWindow : AbstractWideWindow<DynastyLineageWindow>
         rect.sizeDelta = new Vector2(NodeWidth, NodeHeight);
         rect.anchoredPosition = position;
         Image frame = nodeObject.GetComponent<Image>();
-        frame.sprite = SpriteTextureLoader.getSprite(ruler ? "ui/FactionFrame_dominate" : "ui/FactionFrame");
+        frame.sprite = UIHelper.SlicedFrame(ruler ? "FactionFrame_dominate" : "FactionFrame");
         frame.type = Image.Type.Sliced;
         frame.raycastTarget = true;
-        Label(rect, Title(node).ColorString(ruler ? "#F3C34A" : "#A8B8BE"), 5f, 6, FontStyle.Bold);
+        Label(rect, Title(node).ColorString(ruler ? "#F3C34A" : "#A8B8BE"), 6f, 6, FontStyle.Bold);
         Label(rect, (node.identity?.name ?? node.history?.emperor ?? "?").ColorString("#F2EEE2"), -5f, 6, FontStyle.Normal);
         if (node.identity == null) return;
         PersonalClanIdentity identity = node.identity;

@@ -348,17 +348,23 @@ public static class UIHelper
     // 本地化 key 或现成文本(国名、宪法名这类直接显示)
     public static string LocalizeOrRaw(string text) => !string.IsNullOrEmpty(text) && LM.Has(text) ? LM.Get(text) : text;
 
+    // 像素框(FactionFrame 一类 36×36 的框)切好九宫格的精灵：角不拉伸，只拉中间；方框至少 36 高才不压扁边
+    public static Sprite SlicedFrame(string frame)
+    {
+        if (CardFrames.TryGetValue(frame, out Sprite sliced) && sliced != null) return sliced;
+        var source = SpriteTextureLoader.getSprite($"ui/{frame}");
+        if (source == null) return null;
+        sliced = Sprite.Create(source.texture, source.rect, new Vector2(0.5f, 0.5f),
+            source.pixelsPerUnit, 0, SpriteMeshType.FullRect, new Vector4(11, 11, 24, 24));
+        CardFrames[frame] = sliced;
+        return sliced;
+    }
+
     // 卡片像素框：铺满父级的九宫格(自动高的卡片用；定高面板仍用 AddStretchBackground)
     public static void AddCardFrame(Transform panel, string frame = "FactionFrame")
     {
-        if (!CardFrames.TryGetValue(frame, out Sprite sliced) || sliced == null)
-        {
-            var source = SpriteTextureLoader.getSprite($"ui/{frame}");
-            if (source == null) return;
-            sliced = Sprite.Create(source.texture, source.rect, new Vector2(0.5f, 0.5f),
-                source.pixelsPerUnit, 0, SpriteMeshType.FullRect, new Vector4(11, 11, 24, 24));
-            CardFrames[frame] = sliced;
-        }
+        Sprite sliced = SlicedFrame(frame);
+        if (sliced == null) return;
         var frameObject = new GameObject("CardFrame", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image),
             typeof(LayoutElement));
         var rect = frameObject.GetComponent<RectTransform>();
