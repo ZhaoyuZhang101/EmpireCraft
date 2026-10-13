@@ -877,6 +877,8 @@ public static class TechnologySystem
                 Bootstrap(culture, pair.Value);
                 LandmarkBookSystem.MarkExisting(culture, state);
             }
+            // 读档后第一次：城里已有的建筑说明对应技术早就有了(后来新加的门槛，如住房科技，不把旧档打回原形)
+            else if (!addResearch) BackfillBuildings(culture, pair.Value);
             DiscoverMaterials(culture, pair.Value);
             if (state.last_era_tier < 0) state.last_era_tier = GetEraTier(culture);
             if (!addResearch) continue;
@@ -1014,6 +1016,18 @@ public static class TechnologySystem
     #endregion
 
     // 本文化的人已经拿在手里的装备、城里已经立着的建筑，说明这门手艺早就会了：直接记为已掌握(连同前置)
+    private static void BackfillBuildings(string culture, List<City> cities)
+    {
+        var needed = new HashSet<string>(StringComparer.Ordinal);
+        foreach (City city in cities)
+            foreach (Building building in city.buildings)
+            {
+                string tech = GetRequiredTechForBuilding(building?.asset?.id);
+                if (tech != null && !HasTech(culture, tech)) needed.Add(tech);
+            }
+        foreach (string tech in needed) ForceResearch(culture, tech);
+    }
+
     private static void Bootstrap(string culture, List<City> cities)
     {
         var needed = new HashSet<string>(StringComparer.Ordinal);
