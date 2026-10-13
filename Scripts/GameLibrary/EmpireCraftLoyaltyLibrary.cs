@@ -107,5 +107,16 @@ public static class EmpireCraftLoyaltyLibrary
                 return level switch { 2 => -15, 3 => -30, _ => 0 };
             }
         });
+        // 每一项忠诚的计算都包上计时(城市忠诚检查是卡顿大头，看是哪一项重，见 FrameProfiler)
+        foreach (LoyaltyAsset asset in lib.list)
+        {
+            LoyaltyDelegateCalc original = asset.calc;
+            if (original == null) continue;
+            string label = "忠诚·" + asset.id;
+            asset.calc = pCity =>
+            {
+                using (FrameProfiler.Measure(label)) return original(pCity);
+            };
+        }
     }
 }

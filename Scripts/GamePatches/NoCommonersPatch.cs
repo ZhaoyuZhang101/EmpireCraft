@@ -209,6 +209,7 @@ public class NoCommonersPatch : GamePatch
     // 民居上限 × (1 + 富庶度)：最富的城可以盖到两倍的民居
     public static void AfterRecalculateMaxHouses(City __instance)
     {
+        using var timing = FrameProfiler.Measure("建造钩子·房屋上限加成");
         if (!CityPopulationSystem.AbstractPopulationEnabled || __instance?.status == null ||
             EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
         __instance.status.houses_max = Mathf.RoundToInt(__instance.status.houses_max *

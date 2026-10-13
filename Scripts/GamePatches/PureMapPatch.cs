@@ -350,11 +350,13 @@ public class PureMapPatch : GamePatch
     private static readonly Color32 Block = new(236, 232, 224, 255), Street = new(255, 255, 255, 255),
         Crop = new(228, 238, 200, 255);
 
-    // 城里建成的地块(有自己的街格，路网图层的干道不压上去)
+    // 城里建成的地块(有自己的街格，路网图层的干道不压上去)：只看已经算好的平面图，不为此重算
+    // (重算一座城的平面图不便宜，路网重画时顺带重算几十座城会卡一下)
     internal static bool Built(TileZone zone)
     {
         City city = zone?.city;
-        return city?.data != null && !city.isRekt() && PlanFor(city)?.built.Contains(zone.id) == true;
+        return city?.data != null && !city.isRekt() && Plans.TryGetValue(city.data.id, out CityPlan plan) &&
+               plan.built.Contains(zone.id);
     }
 
     // 住房技术(科技树里的八项)，研究到第几项住宅就画到第几代

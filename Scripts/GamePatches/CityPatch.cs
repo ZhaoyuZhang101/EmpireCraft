@@ -206,6 +206,7 @@ public class CityPatch : GamePatch
     }
     public static bool CanUseBuildAsset(CityBehBuild __instance, BuildOrder pBuildAsset, City pCity, ref bool __result)
     {
+        using var timing = FrameProfiler.Measure("建造钩子·能否建造");
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(pCity)) return true;
         // 科技树：本文化还没研究出来的建筑等级不能建/升
         if (!TechnologyPatch.CanUseBuildOrder(pBuildAsset, pCity))
@@ -281,6 +282,7 @@ public class CityPatch : GamePatch
     } 
     private static bool RecalculateMaxHouses(City __instance)
     {
+        using var timing = FrameProfiler.Measure("建造钩子·房屋上限");
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return true;
         if (__instance.buildings.Any(b => b.asset.id.Contains("city_")))
         {

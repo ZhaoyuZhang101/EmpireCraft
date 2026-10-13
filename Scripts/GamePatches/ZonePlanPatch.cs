@@ -124,6 +124,7 @@ public class ZonePlanPatch : GamePatch
 
     public static void AfterLimitOfBuildingsType(City __instance, BuildOrder pElement, ref int __result)
     {
+        using var timing = FrameProfiler.Measure("建造钩子·类型配额");
         if (__result <= 0 || pElement == null) return;
         BuildingAsset asset = pElement.getBuildingAsset(__instance);
         // 矿场的额外配额只给有模组矿藏的城(没矿的城保留原版的那一座就够，免得白建一排矿场)
