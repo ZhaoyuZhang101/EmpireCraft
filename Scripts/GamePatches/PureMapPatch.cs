@@ -31,6 +31,10 @@ namespace EmpireCraft.Scripts.GamePatches;
 //     朱红宫墙、白石广场，殿宇沿中轴对称摆满；研究出"现代城市规划"后约二十年间，规划过的地块逐块转成现代格局：
 //     城墙拆成环路，地块边换成大道，没规划的老城区照旧(城中村)。屠城、战乱后按残破度把一部分街区画成废墟
 //     (新近或正在交战的焦黑带火光，年久的灰色瓦砾，二十年后复原)。
+//     各文化系有自己的布局与风味建筑(见 CityStyleSystem.Family)：华夏中轴宫城、日本天守与护城河、西欧木筋红瓦与城堡、
+//     罗马主街与广场柱廊、维京长屋木栅、阿拉伯白屋迷巷与大清真寺、波斯土坯穹顶与百柱殿、埃及土坯屋与城外金字塔、
+//     印度彩屋与门塔神庙、阿兹特克堤道、阶梯金字塔与水上田园、游牧蒙古包营地与汗帐、林地棚屋与议事长屋；
+//     近代以后各系建筑一样。城市按定型的风格画，文化变了照旧，走"改建城池"决议后才逐年拆旧建新(见 CityStyleSystem)。
 //     建筑与规划会变，每秒轮流重画一批城的地块，约十秒全图刷新一遍；
 //   · 国家图层下，帝国与外国接壤的陆上边界画成金色，帝国内部各成员之间照旧；海岸、湖泊、无主荒地不描金
 //     (原来连这些也描，整片海岸线和境内每块荒地周围都是金线，看不出哪里才是国界)；
@@ -212,19 +216,46 @@ public class PureMapPatch : GamePatch
         public float at;
         public City city;
         public readonly Dictionary<int, Slot[]> zones = new();
-        // 建成的地块(有建筑的，连同城心)、宫城地块
-        public readonly HashSet<int> built = new(), palace = new();
-        public bool walled, classic, burning;
+        // 建成的地块(有建筑的，连同城心)、都城地标所占的地块
+        public readonly HashSet<int> built = new(), landmark = new();
+        public bool walled, axis, burning;
         public int axisX = int.MinValue, axisY = int.MinValue;
         // 现代城市规划的过渡进度、残破度(0~1)
         public float modern, ruin;
+        // 定型的文化系；改建中的目标文化系与进度(见 CityStyleSystem)
+        public string family = "huaxia", target;
+        public float rebuild;
     }
 
     private const string ModernPlanningTech = "modern_urban_planning";
     private const float ModernYears = 20f, RuinYears = 20f;
-    private static readonly Color32 Wall = new(124, 112, 100, 255), Ring = new(210, 210, 214, 255),
-        Imperial = new(232, 200, 130, 255), PalaceWall = new(170, 60, 45, 255), Marble = new(244, 240, 230, 255),
-        Lane = new(214, 200, 170, 255);
+    // 改建时一个街区拆旧到建成新式之间算工地的那一段进度
+    private const float ConstructionBand = 0.12f;
+    private static readonly Color32 Ring = new(210, 210, 214, 255), Imperial = new(232, 200, 130, 255),
+        PalaceWall = new(170, 60, 45, 255), Marble = new(244, 240, 230, 255), Lane = new(214, 200, 170, 255),
+        Moat = new(110, 160, 215, 255), Chinampa = new(90, 160, 200, 255);
+
+    // 各文化系的城墙(没有的为 null)、中轴大道、地标拼块与广场地面
+    private static Color32? WallOf(string family) => family switch
+    {
+        "huaxia" => new Color32(124, 112, 100, 255),
+        "western" or "roma" or "persia" or "india" => new Color32(150, 145, 135, 255),
+        "arab" or "egypt" => new Color32(190, 165, 120, 255),
+        "viking" => new Color32(120, 90, 60, 255),
+        _ => null
+    };
+
+    private static Color32? AxisOf(string family) => family switch
+    {
+        "huaxia" => Imperial,
+        "roma" => new Color32(200, 190, 170, 255),
+        "aztec" => new Color32(235, 230, 220, 255),
+        _ => null
+    };
+
+    private static bool Camp(string family) => family is "nomad" or "woodland";
+
+    private static bool Maze(string family) => family is "arab" or "viking";
 
     private const float PlanSeconds = 5f, HighwaySeconds = 30f;
     private static readonly Dictionary<long, CityPlan> Plans = new();
@@ -344,26 +375,43 @@ public class PureMapPatch : GamePatch
         return plan;
     }
 
-    // 城池格局：城墙(规划过的城)、华夏的中轴与宫城、现代规划过渡、残破度
+    // 城池格局：定型的文化系、改建进度；城墙(规划过的城，游牧、林地、日本、阿兹特克不筑)、中轴(华夏、罗马、阿兹特克)、
+    // 都城地标；现代规划过渡、残破度
     private static void Layout(CityPlan plan, City city, string culture, TileZone centerZone)
     {
         plan.city = city;
+        plan.family = CityStyleSystem.Established(city);
+        (plan.target, plan.rebuild) = CityStyleSystem.Rebuild(city);
         foreach (int id in plan.zones.Keys) plan.built.Add(id);
         if (centerZone != null && centerZone.city == city) plan.built.Add(centerZone.id);
         int planned = city.zones.Count(zone => zone != null && ZonePlanSystem.Get(city, zone) != ZoneUse.None);
-        plan.walled = planned > 0 && plan.built.Count >= 2;
-        plan.classic = culture == "Huaxia" && planned >= 3 && plan.built.Count >= 4 && centerZone != null;
-        if (plan.classic)
+        bool camp = Camp(plan.family);
+        plan.walled = WallOf(plan.family) != null && (planned > 0 || plan.family == "viking") && plan.built.Count >= 2;
+        bool grand = centerZone != null && plan.built.Count >= 4 && (camp || planned >= 3);
+        if (grand && AxisOf(plan.family) != null)
         {
+            plan.axis = true;
             plan.axisX = centerZone.x * Config.CITY_ZONE_SIZE + 4;
             plan.axisY = centerZone.y * Config.CITY_ZONE_SIZE + 4;
-            if (city.isCapitalCity())
+        }
+        if (grand && city.isCapitalCity())
+        {
+            // 埃及的金字塔在城外(城里第一块没建成的地块)，其余在城心；拼块式的地标大城连北面一块
+            if (plan.family == "egypt")
             {
-                plan.palace.Add(centerZone.id);
+                TileZone outside = city.zones.Where(zone => zone != null && !plan.built.Contains(zone.id))
+                    .OrderBy(zone => (zone.x - centerZone.x) * (zone.x - centerZone.x) + (zone.y - centerZone.y) * (zone.y - centerZone.y))
+                    .FirstOrDefault();
+                plan.landmark.Add((outside ?? centerZone).id);
+                plan.built.Add((outside ?? centerZone).id);
+            }
+            else
+            {
+                plan.landmark.Add(centerZone.id);
                 TileZone north = World.world.zone_calculator.getZone(centerZone.x, centerZone.y + 1);
-                if (plan.built.Count >= 9 && north != null && north.city == city)
+                if (Arranged(plan.family) && plan.built.Count >= 9 && north != null && north.city == city)
                 {
-                    plan.palace.Add(north.id);
+                    plan.landmark.Add(north.id);
                     plan.built.Add(north.id);
                 }
             }
@@ -423,8 +471,8 @@ public class PureMapPatch : GamePatch
         };
     }
 
-    // 一格：建成的地块按格局画(城墙、宫城、中轴、规划过的街格或自发的小巷、街区里的建筑图块)；农田画条垄；
-    // 其余照地形，干道压在上面
+    // 一格：建成的地块按格局画(城墙、都城地标、中轴、规划过的街格或自发的小巷、营地、街区里的建筑图块)；
+    // 农田画条垄(阿兹特克是水上田园)；其余照地形，干道压在上面
     private static Color32 Plan(WorldTile tile, Color32 color, ZoneUse use, Slot[] slots, int lx, int ly, CityPlan plan, TileZone zone)
     {
         if (tile.Type != null && tile.Type.liquid) return color;
@@ -432,16 +480,28 @@ public class PureMapPatch : GamePatch
         if (built && lx >= 0 && lx < 8 && ly >= 0 && ly < 8)
         {
             bool modern = use != ZoneUse.None && plan.modern > 0f && Hash01(zone.id) < plan.modern;
+            // 这个地块的布局按哪一系(改建中逐个地块换)
+            string family = plan.target != null && Hash01(zone.id * 31L + 99L) < plan.rebuild ? plan.target : plan.family;
             // 城墙：现代规划后拆成环路；每段在地块中点开城门
             if (plan.walled && OnEdge(tile, plan.built, plan.city))
-                return lx == 4 || ly == 4 ? Lerp(color, Street, 0.6f) : modern ? Lerp(color, Ring, 0.7f) : Lerp(color, Wall, 0.85f);
-            if (plan.palace.Contains(zone.id)) return Palace(tile, color, plan, lx, ly);
-            // 中轴御道、东西大街
-            if (plan.classic && (tile.x == plan.axisX || tile.y == plan.axisY)) return Lerp(color, Imperial, 0.8f);
-            return use == ZoneUse.None ? Organic(color, slots, lx, ly, plan, zone) : Grid(color, slots, lx, ly, plan, zone, modern);
+                return lx == 4 || ly == 4 ? Lerp(color, Street, 0.6f)
+                    : modern ? Lerp(color, Ring, 0.7f) : Lerp(color, WallOf(plan.family) ?? Ring, 0.85f);
+            if (plan.landmark.Contains(zone.id)) return Landmark(tile, color, plan, lx, ly);
+            // 中轴大道(华夏御道、罗马主街、阿兹特克堤道)
+            if (plan.axis && (tile.x == plan.axisX || tile.y == plan.axisY)) return Lerp(color, AxisOf(plan.family) ?? Street, 0.8f);
+            if (modern) return Grid(color, slots, lx, ly, plan, zone, true);
+            if (Camp(family)) return CampLayout(color, slots, lx, ly, plan, zone);
+            if (Maze(family))
+                return use != ZoneUse.None && (lx == 4 || ly == 4) ? Lerp(color, Lane, 0.6f) : Organic(color, slots, lx, ly, plan, zone);
+            return use == ZoneUse.None ? Organic(color, slots, lx, ly, plan, zone) : Grid(color, slots, lx, ly, plan, zone, false);
         }
         if (Highways.Contains(tile.data.tile_id)) return Lerp(color, Highway, 0.7f);
-        if (use == ZoneUse.Farm) return Lerp(color, Crop, tile.y % 2 == 0 ? 0.2f : 0.06f);
+        if (use == ZoneUse.Farm)
+        {
+            // 阿兹特克的水上田园：一垄田一道水渠
+            if (plan?.family == "aztec") return tile.y % 3 == 0 ? Lerp(color, Chinampa, 0.5f) : Lerp(color, Crop, 0.25f);
+            return Lerp(color, Crop, tile.y % 2 == 0 ? 0.2f : 0.06f);
+        }
         return color;
     }
 
@@ -461,47 +521,154 @@ public class PureMapPatch : GamePatch
         return Building(color, slots, index, (lx - 1) % 4, (ly - 1) % 4, plan, zone);
     }
 
-    // 没规划的地块：自发生长，弯曲的土路小巷穿过，房子在四个角落里错落摆放
+    // 没规划的地块(阿拉伯、维京整城都这样)：自发生长，弯曲的土路小巷穿过，房子在四个角落里错落摆放
     private static Color32 Organic(Color32 color, Slot[] slots, int lx, int ly, CityPlan plan, TileZone zone)
     {
         uint hash = (uint)(zone.id * 2654435761L);
         int laneX = 3 + (int)((hash >> (ly % 8 * 2)) & 1);
         int laneY = 3 + (int)((hash >> (16 + lx % 8 * 2)) & 1);
         if (lx == laneX || ly == laneY) return Lerp(color, Lane, 0.45f);
+        return Scattered(color, slots, lx, ly, plan, zone, hash);
+    }
+
+    // 营地(游牧、林地)：没有街巷，帐篷、棚屋在草地上错落围成一圈
+    private static Color32 CampLayout(Color32 color, Slot[] slots, int lx, int ly, CityPlan plan, TileZone zone) =>
+        Scattered(color, slots, lx, ly, plan, zone, (uint)(zone.id * 2654435761L));
+
+    // 四个角落里各一座，错开一格摆
+    private static Color32 Scattered(Color32 color, Slot[] slots, int lx, int ly, CityPlan plan, TileZone zone, uint hash)
+    {
         int qx = lx < 4 ? 0 : 1, qy = ly < 4 ? 0 : 1;
         int index = qy * 2 + qx;
-        // 每个角落里的房子错开一格摆
         int ox = (int)((hash >> (index * 2)) & 1), oy = (int)((hash >> (8 + index * 2)) & 1);
         int px = lx - qx * 4 - ox, py = ly - qy * 4 - oy;
         if (px < 0 || px > 2 || py < 0 || py > 2) return Lerp(color, Block, 0.12f);
         return Building(color, slots, index, px, py, plan, zone);
     }
 
-    // 街区里的建筑：残破的画废墟，否则画这座建筑的图块；空街区只铺底色
+    // 街区里的建筑：残破的画废墟；改建中先拆旧起工地、再建成新式；否则按这座城定型的文化系画这座建筑的图块
     private static Color32 Building(Color32 color, Slot[] slots, int index, int px, int py, CityPlan plan, TileZone zone)
     {
         Color32 baseColor = Lerp(color, Block, 0.3f);
         if (slots == null || index < 0 || index >= slots.Length || !slots[index].used) return baseColor;
-        string name = plan.ruin > 0f && Hash01(zone.id * 4L + index + 7L) < plan.ruin
-            ? (plan.burning ? "burning" : "ruin")
-            : slots[index].icon;
-        Color32[] icon = Icon(name);
+        string name;
+        if (plan.ruin > 0f && Hash01(zone.id * 4L + index + 7L) < plan.ruin) name = plan.burning ? "burning" : "ruin";
+        else
+        {
+            string family = plan.family;
+            if (plan.target != null)
+            {
+                float turn = Hash01(zone.id * 4L + index + 13L);
+                if (turn < plan.rebuild) family = plan.target;
+                else if (turn < plan.rebuild + ConstructionBand) family = null;
+            }
+            name = family == null ? "construction" : StyleIcon(family, slots[index].icon);
+        }
+        Color32[] icon = Icon(name) ?? Icon(slots[index].icon);
         if (icon == null) return Lerp(color, Block, 0.55f);
         Color32 pixel = icon[(2 - py) * 3 + px];
         return pixel.a == 0 ? baseColor : Lerp(baseColor, pixel, 0.9f);
     }
 
-    // 宫城：朱红宫墙(中轴上开门)，白石广场与御道，街区里殿宇沿中轴对称摆满
-    private static Color32 Palace(WorldTile tile, Color32 color, CityPlan plan, int lx, int ly)
+    // 通用图块换成这一系的风味图块(古代民居分低中高三档、寺庙、官署、集市)；近代以后各系一样；没有风味图块用通用的
+    private static string StyleIcon(string family, string icon)
     {
-        if (OnEdge(tile, plan.palace, plan.city))
-            return tile.x == plan.axisX ? Lerp(color, Imperial, 0.85f) : Lerp(color, PalaceWall, 0.9f);
-        if (tile.x == plan.axisX) return Lerp(color, Imperial, 0.85f);
-        if (lx % 4 == 0 || ly % 4 == 0) return Lerp(color, Marble, 0.75f);
-        Color32[] icon = Icon("palace_hall");
-        if (icon == null) return Lerp(color, PalaceWall, 0.5f);
+        if (family == "huaxia" || string.IsNullOrEmpty(icon)) return icon;
+        string variant = icon switch
+        {
+            "house_1" or "house_2" => "house_a",
+            "house_3" or "house_4" => "house_b",
+            "house_5" => "house_c",
+            "temple" => "temple",
+            "civic_0" => "civic",
+            _ => null
+        };
+        if (variant == null) return icon;
+        string name = family + "_" + variant;
+        if (Icon(name) != null) return name;
+        return variant == "house_c" && Icon(family + "_house_b") != null ? family + "_house_b" : icon;
+    }
+
+    // 拼块式地标(其余是整块画的：埃及金字塔、阿兹特克阶梯金字塔、游牧汗帐)
+    private static bool Arranged(string family) => family is not ("egypt" or "aztec" or "nomad");
+
+    // 都城地标：华夏宫城、日本天守(护城河)、西欧城堡、罗马广场、维京大殿、阿拉伯大清真寺、波斯百柱殿、印度门塔神庙、
+    // 林地议事长屋——外缘围墙(罗马、林地开敞)，中轴开门，地面是广场，街区里摆满这一系的地标拼块；
+    // 埃及金字塔、阿兹特克阶梯金字塔、游牧汗帐整块画
+    private static Color32 Landmark(WorldTile tile, Color32 color, CityPlan plan, int lx, int ly)
+    {
+        string family = plan.family;
+        switch (family)
+        {
+            case "egypt": return Pyramid(color, lx, ly);
+            case "aztec": return SteppedPyramid(color, lx, ly);
+            case "nomad": return GreatTent(color, lx, ly);
+        }
+        (string piece, Color32? wall, Color32 floor) = family switch
+        {
+            "huaxia" => ("palace_hall", (Color32?)PalaceWall, Marble),
+            "japan" => ("japan_landmark", new Color32(150, 145, 135, 255), new Color32(200, 196, 186, 255)),
+            "western" => ("western_landmark", new Color32(150, 145, 135, 255), new Color32(180, 176, 168, 255)),
+            "roma" => ("roma_landmark", null, Marble),
+            "viking" => ("viking_landmark", new Color32(120, 90, 60, 255), new Color32(170, 150, 120, 255)),
+            "arab" => ("arab_landmark", new Color32(238, 230, 210, 255), new Color32(244, 240, 228, 255)),
+            "persia" => ("persia_landmark", new Color32(150, 145, 135, 255), new Color32(200, 190, 170, 255)),
+            "india" => ("india_landmark", new Color32(200, 150, 90, 255), new Color32(214, 200, 176, 255)),
+            "woodland" => ("woodland_landmark", null, new Color32(170, 150, 120, 255)),
+            _ => ("palace_hall", (Color32?)PalaceWall, Marble)
+        };
+        bool gateColumn = plan.axis ? tile.x == plan.axisX : lx == 4;
+        if (OnEdge(tile, plan.landmark, plan.city))
+        {
+            // 日本天守外有护城河
+            if (family == "japan") return Lerp(color, Moat, 0.85f);
+            if (wall != null && !gateColumn) return Lerp(color, wall.Value, 0.9f);
+            return Lerp(color, plan.axis ? AxisOf(family) ?? floor : floor, 0.8f);
+        }
+        if (family == "japan" && wall != null && NextToEdge(tile, plan)) return Lerp(color, wall.Value, 0.9f);
+        if (plan.axis && tile.x == plan.axisX) return Lerp(color, AxisOf(family) ?? floor, 0.85f);
+        if (lx % 4 == 0 || ly % 4 == 0) return Lerp(color, floor, 0.75f);
+        Color32[] icon = Icon(piece) ?? Icon("palace_hall");
+        if (icon == null) return Lerp(color, floor, 0.75f);
         Color32 pixel = icon[(2 - (ly - 1) % 4) * 3 + (lx - 1) % 4];
-        return pixel.a == 0 ? Lerp(color, Marble, 0.75f) : Lerp(color, pixel, 0.9f);
+        return pixel.a == 0 ? Lerp(color, floor, 0.75f) : Lerp(color, pixel, 0.9f);
+    }
+
+    private static bool NextToEdge(WorldTile tile, CityPlan plan) =>
+        new[] { tile.tile_up, tile.tile_down, tile.tile_left, tile.tile_right }
+            .Any(next => next != null && plan.landmark.Contains(next.zone?.id ?? -1) && OnEdge(next, plan.landmark, plan.city));
+
+    // 金字塔(俯视)：北、东两面受光，南、西两面背阴，塔尖最亮
+    private static Color32 Pyramid(Color32 color, int lx, int ly)
+    {
+        float dx = lx - 3.5f, dy = ly - 3.5f;
+        float d = Mathf.Max(Mathf.Abs(dx), Mathf.Abs(dy));
+        if (d > 3.5f) return Lerp(color, new Color32(220, 196, 140, 255), 0.4f);
+        if (d < 1f) return Lerp(color, new Color32(246, 228, 176, 255), 0.95f);
+        bool lit = Mathf.Abs(dx) >= Mathf.Abs(dy) ? dx > 0 : dy > 0;
+        return Lerp(color, lit ? new Color32(232, 206, 142, 255) : new Color32(176, 146, 92, 255), 0.95f);
+    }
+
+    // 阶梯金字塔(俯视)：一层层台阶，顶上并立红、蓝两座神庙，南面一道台阶
+    private static Color32 SteppedPyramid(Color32 color, int lx, int ly)
+    {
+        float dx = lx - 3.5f, dy = ly - 3.5f;
+        float d = Mathf.Max(Mathf.Abs(dx), Mathf.Abs(dy));
+        if (d < 1f) return Lerp(color, lx < 4 ? new Color32(190, 60, 50, 255) : new Color32(70, 110, 180, 255), 0.95f);
+        if (dy < 0 && (lx == 3 || lx == 4)) return Lerp(color, new Color32(222, 214, 196, 255), 0.95f);
+        return Lerp(color, (int)(d * 2f) % 2 == 0 ? new Color32(196, 186, 166, 255) : new Color32(160, 150, 130, 255), 0.95f);
+    }
+
+    // 汗帐(俯视)：大圆毡顶，金边，中间天窗，四条接缝
+    private static Color32 GreatTent(Color32 color, int lx, int ly)
+    {
+        float dx = lx - 3.5f, dy = ly - 3.5f;
+        float r = Mathf.Sqrt(dx * dx + dy * dy);
+        if (r > 3.7f) return Lerp(color, Block, 0.12f);
+        if (r < 0.9f) return Lerp(color, new Color32(90, 80, 70, 255), 0.95f);
+        if (r > 2.9f) return Lerp(color, new Color32(225, 190, 90, 255), 0.95f);
+        return Lerp(color, Mathf.Abs(dx) < 0.6f || Mathf.Abs(dy) < 0.6f ? new Color32(225, 220, 210, 255)
+            : new Color32(246, 244, 236, 255), 0.95f);
     }
 
     // 干道：同一片陆地上相邻的城，城心之间连直线，跨水的不连

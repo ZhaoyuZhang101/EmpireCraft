@@ -1077,6 +1077,21 @@ namespace EmpireCraft.Scripts.AI
                 check_should_continue = CultureReformSystem.CanReform,
                 action = CultureReformSystem.Enact
             });
+            // 改建城池：文化变了，城市照旧按原风格建；君主下令出钱，各城才按现文化风格逐年拆旧建新(见 CityStyleSystem)
+            AssetManager.plots_library.add(new PlotAsset
+            {
+                id = CityStyleSystem.Plot,
+                path_icon = "ui/icons/plots/plot_" + CityStyleSystem.Plot,
+                group_id = "empirecraft_diplomacy",
+                is_basic_plot = true,
+                min_level = 1,
+                progress_needed = 30f,
+                can_be_done_by_king = true,
+                check_is_possible = CityStyleSystem.CanRebuild,
+                check_can_be_forced = CityStyleSystem.CanRebuild,
+                check_should_continue = CityStyleSystem.CanRebuild,
+                action = CityStyleSystem.Enact
+            });
             // 成员向中央求援、驰援邻近成员(见 MemberWarAid)：中央与别的成员不再自动插手成员的仗
             AssetManager.plots_library.add(new PlotAsset
             {

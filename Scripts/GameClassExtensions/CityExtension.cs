@@ -86,6 +86,10 @@ public static class CityExtension
         public double corruption_rate = 0.0f;
         // 屠城之恨(见 MassacreSystem)：哪国军队屠戮了本城平民、死难人数、最后一次屠戮的时间
         public long massacre_by_kingdom_id = -1L;
+        // 城市风格(纯净地图平面图，见 CityStyleSystem)：定型的文化系、改建的目标文化系与开工时间
+        public string map_style = "";
+        public string map_style_target = "";
+        public double map_style_since = -1d;
         public int massacre_victims;
         public double massacre_last = -1d;
         // 战时中央代管(见 WartimeCustodySystem)：打下本城的成员国、原属国、所在战争；-1 = 不在代管中
