@@ -29,7 +29,7 @@ public static class SmoothBorders
     // 本次画过的像素：边框(地形浮雕、占领条纹不覆盖)、归别人的(城市平面图不画在上面)
     private static bool[] _outline = Array.Empty<bool>(), _foreign = Array.Empty<bool>();
     // 每块地上次画时的归属：变了就让周围八块也重画(斜对角的块原版不会因此重画)
-    private static readonly Dictionary<int, object> LastMeta = new();
+    private static readonly Dictionary<int, (object meta, int color)> LastMeta = new();
 
     public static void Set(bool on)
     {
@@ -56,6 +56,10 @@ public static class SmoothBorders
     {
         if (zone == null) return null;
         IMetaObject meta = layer.map_mode == MetaType.City ? (IMetaObject)zone.city : layer.tile_get_metaobject?.Invoke(zone, option);
+        // 帝国图层上没被哪个帝国(或同盟视图)覆盖的王国：模组按本国颜色补画(见 EmpireCraftMetaTypeLibrary)，这里也按本国归属
+        if ((meta == null || !meta.isAlive()) && layer.map_mode == MetaTypeExtension.Empire &&
+            zone.city?.kingdom is Kingdom kingdom && kingdom.isAlive() && !kingdom.wild)
+            meta = kingdom;
         return meta != null && meta.isAlive() ? meta : null;
     }
 
@@ -392,12 +396,13 @@ public static class SmoothBorders
                     zone?.resetRenderHelpers();
     }
 
-    // 这块地的归属变了：周围八块(连斜对角)也重画，平滑的边要跟着变
+    // 这块地的归属或颜色变了：周围八块(连斜对角)也重画，平滑的边要跟着变
     private static void Remember(TileZone zone, IMetaObject meta)
     {
-        if (LastMeta.TryGetValue(zone.id, out object last) && ReferenceEquals(last, meta)) return;
+        int color = meta == null ? -1 : (CustomColorSystem.Of(meta) ?? meta.getColor())?.index_id ?? -1;
+        if (LastMeta.TryGetValue(zone.id, out var last) && ReferenceEquals(last.meta, meta) && last.color == color) return;
         bool first = !LastMeta.ContainsKey(zone.id);
-        LastMeta[zone.id] = meta;
+        LastMeta[zone.id] = (meta, color);
         if (first) return;
         ZoneCalculator calc = World.world.zone_calculator;
         for (int dy = -1; dy <= 1; dy++)
