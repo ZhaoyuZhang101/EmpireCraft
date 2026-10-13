@@ -11,7 +11,8 @@ namespace EmpireCraft.Scripts.GamePatches;
 // 纯净地图模式(见 PureMapMode)：
 //   · 国家色块完全不透明：原版近看时国家内部画成透明、只留边框，内部颜色也是半透明的；
 //     这里任何缩放都填满，颜色不透明(透明的清除色不动，否则空白处会变成白块)；
-//     没选地图图层时默认显示国家图层、关了"地图图层"也照样显示；图层不随地图不透明度设置变淡(夜色、云照旧)；
+//     没选地图图层时默认显示国家图层、关了"地图图层"也照样显示；图层不随地图不透明度设置变淡
+//     (入夜也不变淡、不被夜色压暗，见 NightMapLayerPatch；云照旧)；
 //   · 国家图层下，帝国对外的边(对面不是本帝国的国家或无主地)画成金色，帝国内部各成员之间照旧；
 //   · 人物要去哪里直接到位、不走路(地图上也不画人物)：原版的行为照常完成(回家、上任、相会生子)，不再寻路；
 //     鼠标附近只认得船，悬停与点击都落到城市、国家上；除船以外的人物逐帧设为不可见；
@@ -67,7 +68,7 @@ public class PureMapPatch : GamePatch
         return false;
     }
 
-    // 图层不随地图不透明度设置变淡(亮度、夜色照原版)
+    // 图层不随地图不透明度设置变淡(亮度照原版；夜色见 NightMapLayerPatch)
     private static void AfterZoneAnimations(ZoneCalculator __instance)
     {
         if (!PureMapMode.Enabled || __instance.sprRnd == null) return;
