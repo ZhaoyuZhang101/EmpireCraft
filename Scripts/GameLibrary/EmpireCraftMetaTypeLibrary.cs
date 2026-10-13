@@ -698,12 +698,22 @@ public static class EmpireCraftMetaTypeLibrary
       if (target is Kingdom kingdom)
       {
         if (kingdom.isRekt() || kingdom.isNeutral()) return false;
-        MetaType.Kingdom.getAsset().selectAndInspect(kingdom);
+        // 不属于帝国、也没被帝国覆盖的国家：打开国情窗口(实力、经济、科技、战事)，原版王国界面从那里再进
+        KingdomOverviewWindow.Open(kingdom);
         return true;
       }
       if (!(target is Empire pEmpire) || pEmpire.isRekt() || pEmpire.IsArchived()) return false;
       pEmpire.SelectAndInspect();
       return true;
+    }
+
+    // 帝国图层上这国显示为自己(不属于帝国、也没被帝国覆盖)：点它打开国情窗口(见 KingdomOverviewPatch)
+    public static bool ShowsAsKingdom(Kingdom kingdom)
+    {
+      if (kingdom?.data == null || kingdom.isRekt()) return false;
+      City city = kingdom.capital ?? kingdom.cities?.FirstOrDefault();
+      TileZone zone = city?.zones?.FirstOrDefault();
+      return zone != null && getEmpireLayerMetaObject(zone, empire.getZoneOptionState()) == kingdom;
     }
 
     private static IMetaObject getEmpireLayerMetaObject(TileZone pZone, int pZoneOption)

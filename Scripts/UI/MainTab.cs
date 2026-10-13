@@ -131,6 +131,8 @@ internal static class MainTab
         TechWindow.CreateAndInit(nameof(TechWindow), new Vector2(480f, 380f));
         // 一国的军事(不属于帝国的王国点地图兵牌时、原版王国窗口"军事"页签打开)
         KingdomMilitaryWindow.CreateAndInit(nameof(KingdomMilitaryWindow), new Vector2(480f, 380f));
+        // 国情(帝国图层上点不属于帝国的国家时打开)
+        KingdomOverviewWindow.CreateAndInit(nameof(KingdomOverviewWindow), new Vector2(480f, 380f));
         CultureBooksWindow.CreateAndInit(nameof(CultureBooksWindow), new Vector2(480f, 380f));
         SetWindowIcons();
     }
@@ -151,6 +153,7 @@ internal static class MainTab
             [nameof(FactionDetailWindow)] = "iconFamily",
             [nameof(RegimeWindow)] = "iconBooks",
             [nameof(KingdomMilitaryWindow)] = "iconWar",
+            [nameof(KingdomOverviewWindow)] = "iconKingdom",
         };
         foreach (KeyValuePair<string, string> pair in icons)
         {
