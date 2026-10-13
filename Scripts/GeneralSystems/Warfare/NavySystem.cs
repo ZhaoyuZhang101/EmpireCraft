@@ -11,6 +11,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 
 // 海军(借鉴钢铁雄心)：与军团同在无小人模式 + 帝国占领模式下运行，每月结算(先于陆上战线)。
 //   · 舰队：每个港口城(有码头)一支，战舰、运输船都只是数字；母港每月造舰，花国库，按港口数与战备定额；
+//     铁器时代(文化科技 4 级)以前没有水师——不建舰队、不造舰(也就不能跨海登陆)，已有的舰队无港可归逐月折损；
 //     舰种随科技：楼船 → 远洋帆舰(远洋航海) → 蒸汽铁甲(工业化) → 现代舰艇(电力或机动化)，战力 1 / 1.5 / 2.5 / 4；
 //   · 任务：太平驻港；交战时最强的舰队为本国登陆护航(打通航线)，其余去封锁最近的敌港，组织度太低回港休整；
 //     舰队每月沿海区航行至多 3 个海区；
@@ -89,6 +90,15 @@ public static class NavySystem
         (kingdom?.cities ?? new List<City>()).Where(city => city?.data != null && !city.isRekt() && Port(city) != null);
 
     public static bool IsFlagship(Actor actor) => actor?.data != null && FlagshipIndex.ContainsKey(actor.id);
+
+    // 有水师的时代：本国文化到了铁器时代(科技 4 级)
+    public const int NavyEraTier = 4;
+
+    public static bool NavyEra(Kingdom kingdom)
+    {
+        string culture = TechnologySystem.GetCultureOf(kingdom);
+        return culture != null && TechnologySystem.GetEraTier(culture) >= NavyEraTier;
+    }
 
     // 舰种(战力倍率)：楼船 1 / 远洋帆舰 1.5 / 蒸汽铁甲 2.5 / 现代舰艇 4
     public static float Tier(Kingdom kingdom)
@@ -225,7 +235,8 @@ public static class NavySystem
         {
             if (kingdom?.data == null || kingdom.isRekt() || kingdom.isNeutral() ||
                 Compatibility.AncientWarfareCompatibility.OwnsObject(kingdom)) continue;
-            List<City> ports = Ports(kingdom).ToList();
+            // 铁器时代以前没有水师
+            List<City> ports = NavyEra(kingdom) ? Ports(kingdom).ToList() : new List<City>();
             List<FleetData> list = kingdom.GetOrCreate().fleets;
             if (ports.Count == 0 && (list == null || list.Count == 0)) continue;
             try

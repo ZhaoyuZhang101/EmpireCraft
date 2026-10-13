@@ -5,8 +5,17 @@ using NeoModLoader.services;
 
 namespace EmpireCraft.Scripts.AI.CityAI;
 
+// 造船：沿用原版码头造船(渔船、商船、运输船)，但运输船要本城文化研究了远洋航海才造，之前改造渔船——
+// 早期不能乘运输船跨海殖民(群友反馈"铜器时代跨州殖民")
 public class EmpireCraftBehCheckBoat: GameAICityBase
 {
+    private static bool OceanGoing(City city)
+    {
+        string culture = EmpireCraft.Scripts.GeneralSystems.TechnologySystem.GetCultureOf(city);
+        return culture != null && EmpireCraft.Scripts.GeneralSystems.TechnologySystem.HasTech(culture,
+            EmpireCraft.Scripts.GeneralSystems.SettlementSeaSearch.OceanNavigationTech);
+    }
+
     public override Type OriginalBeh => typeof(CityBehProduceBoat);
     public override BehResult execute(City pCity)
     {
@@ -47,6 +56,12 @@ public class EmpireCraftBehCheckBoat: GameAICityBase
         }
         if (boatAssetToBuild == null)
             return (Actor) null;
+        // 运输船(载人跨海建城、运兵)要研究远洋航海；之前码头只造渔船
+        if (boatAssetToBuild.boat_type == "boat_type_transport" && !OceanGoing(pCity))
+        {
+            boatAssetToBuild = AssetManager.actor_library.get(dock.building.asset.boat_type_fishing);
+            if (boatAssetToBuild == null) return (Actor) null;
+        }
         if (dock.countBoatTypes(boatAssetToBuild.boat_type) >= 1)
             return (Actor) null;
         if (!pCity.hasEnoughResourcesFor(boatAssetToBuild.cost))
