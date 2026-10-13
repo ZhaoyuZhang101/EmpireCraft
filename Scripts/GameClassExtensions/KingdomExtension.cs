@@ -263,6 +263,9 @@ public static class KingdomExtension
         public int war_mobilization_level;
         public int war_calm_months;
         public List<long> expedition_wars;
+        // 战时统帅(见 WarCommandSystem)：人与官名的本地化键(拜将时按时代、文化、战争性质定下)
+        public long war_commander_id = -1L;
+        public string war_commander_title = "";
         public KingdomType kingdomType = KingdomType.default_country_post;
         public string core_name = "";
         public string core_name_source = "";

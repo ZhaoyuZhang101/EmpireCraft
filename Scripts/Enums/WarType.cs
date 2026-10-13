@@ -13,7 +13,9 @@ namespace EmpireCraft.Scripts.Enums
         吞并,
         割地,
         赔款,
-        劫掠
+        劫掠,
+        收复,
+        迫使附庸
     }
 
     public enum EmpireWarType

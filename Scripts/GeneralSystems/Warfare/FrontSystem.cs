@@ -462,10 +462,11 @@ public static class FrontSystem
         FrontTerrain terrain = TerrainSystem.OfBattle(city, FrontZone(city, attacker, landing));
         TerrainEffect ground = TerrainSystem.Effect(terrain);
         // 跨海登陆的头一个月攻方吃亏
-        float attack = attackers.Sum(entry => Effective(entry.corps) * Firepower(entry.kingdom)) * (landing ? 0.7f : 1f) *
-                       ground.Attack;
+        // 战时统帅按兵略给本国各军加成(见 WarCommandSystem)
+        float attack = attackers.Sum(entry => Effective(entry.corps) * Firepower(entry.kingdom) *
+                                              WarCommandSystem.Factor(entry.kingdom)) * (landing ? 0.7f : 1f) * ground.Attack;
         float defend = holders.Sum(entry => Effective(entry.corps) * Firepower(entry.kingdom) *
-                                            (DefenderBonus + entry.corps.entrench));
+                                            WarCommandSystem.Factor(entry.kingdom) * (DefenderBonus + entry.corps.entrench));
         float militia = holders.Count == 0 ? Militia(city, attacker) : 0f;
         defend += militia;
         float ratio = attack + defend <= 0f ? 0.5f : attack / (attack + defend);

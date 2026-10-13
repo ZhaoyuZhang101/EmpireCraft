@@ -197,6 +197,7 @@ public static class CorpsSystem
             if (kingdom?.data == null || kingdom.isRekt() || kingdom.isNeutral() ||
                 Compatibility.AncientWarfareCompatibility.OwnsObject(kingdom)) continue;
             WarScopeSystem.MonthTick(kingdom);
+            WarCommandSystem.MonthTick(kingdom);
             List<CorpsData> list = kingdom.GetOrCreate().corps;
             bool posts = kingdom.cities?.Any(city => city != null && !city.isRekt() &&
                 CityPopulationSystem.PostOf(city, CityPopulationSystem.DoctrineOf(kingdom)) != CityPopulationSystem.ArmyPost.None) == true;

@@ -4,6 +4,7 @@ using System.Linq;
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.HelperFunc;
+using EmpireCraft.Scripts.Regimes;
 using NeoModLoader.General;
 using NeoModLoader.services;
 
@@ -13,9 +14,13 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 吞并：攻方兵力两倍以上、与对方接壤、对方是小国；
 //   · 割地(局部入侵)：接壤、兵力相当；
 //   · 赔款：不接壤(跨海)或攻方兵力不如对方；
-//   · 劫掠：原有的劫掠战争(洗劫第一座城即收兵，见 CityPatch)。
+//   · 劫掠：原有的劫掠战争(洗劫第一座城即收兵，见 CityPatch)；
+//   · 收复：对方手里有我方法理(法理主国是我方)的城，且接壤——优先于其他目标；
+//   · 迫使附庸：攻方兵力一倍半以上、对方不是帝国，攻方行分封(封建、分封制)或对方大到吞不下。
+// 战争窗口里点"战争目标"一行可以轮换目标(劫掠除外)。
 // 议和时按这场仗里双方各丢了多少城(含被对方占了一半以上地块的城)判胜负，相差不到一城就是白和——不赔不割：
 //   攻方胜：赔款 → 对方赔款；割地 → 被攻方占了一半以上的城割给占领者；吞并 → 同割地，对方丢了一半城或都城时余下的城一并吞并；
+//           收复 → 我方法理的城中占了一半以上的归还占领者，占了法理城的一半以上时全部归还；迫使附庸 → 对方成为攻方的附庸；
 //   守方胜：攻方赔款(劫掠的不赔，打退就是)。
 // 以前不论怎么收场都按"有胜负"处理，议和(原版最常见的结局)也让攻方赔款，几乎每场仗打完都赔款。
 // 叛乱、独立、索取法理、去帝号这类有自己结局的战争不在此列，照旧各按各的规则。
@@ -26,6 +31,10 @@ public static class WarGoalSystem
     private const int AnnexSmallCities = 3;
     // 割地：攻方兵力至少是对方几成
     private const float ConquestStrength = 0.8f;
+    // 迫使附庸：攻方兵力至少是对方几倍
+    private const float VassalStrength = 1.5f;
+    // 战争窗口里轮换的顺序(劫掠不参与)
+    private static readonly WarGoal[] Cycle = { WarGoal.吞并, WarGoal.割地, WarGoal.收复, WarGoal.迫使附庸, WarGoal.赔款 };
     // 占了一座城一半以上的地块才算到手
     private const float HeldShare = 0.5f;
     // 每帧最多易主几座城(易主有原版开销)
@@ -40,8 +49,13 @@ public static class WarGoalSystem
     };
 
     private static readonly List<(long city, long to)> PendingCessions = new();
+    private static readonly List<(long lord, long subject)> PendingVassals = new();
 
-    public static void ResetWorldState() => PendingCessions.Clear();
+    public static void ResetWorldState()
+    {
+        PendingCessions.Clear();
+        PendingVassals.Clear();
+    }
 
     private static bool Applies(War war) =>
         war?.data != null && war.getAsset() != WarTypeLibrary.rebellion && !OwnEnding.Contains(war.GetEmpireWarType());
@@ -69,13 +83,56 @@ public static class WarGoalSystem
         float strength = WarSituation.StrengthRatio(defender, attacker);
         int theirs = WarSituation.SideCities(defender), ours = WarSituation.SideCities(attacker);
         bool borders = attacker.IsNeighbourWith(defender);
+        RegimeType? regime = attacker.GetRegime()?.type;
+        bool feudal = regime == RegimeType.Feudalism || regime == RegimeType.ZhouFeudalism;
+        bool small = theirs <= AnnexSmallCities || theirs * 2 <= ours;
         data.war_goal = !borders ? WarGoal.赔款
-            : strength >= AnnexStrength && (theirs <= AnnexSmallCities || theirs * 2 <= ours) ? WarGoal.吞并
+            : Claimed(attacker, defender.cities).Count > 0 ? WarGoal.收复
+            : strength >= AnnexStrength && small && !feudal ? WarGoal.吞并
+            : strength >= VassalStrength && !defender.IsEmpire() && (feudal || strength >= AnnexStrength) ? WarGoal.迫使附庸
             : strength >= ConquestStrength ? WarGoal.割地
             : WarGoal.赔款;
         data.war_goal_capital_id = defender.capital?.data != null ? defender.capital.id : -1L;
         TranslateHelper.LogEventMessage(string.Format(LM.Get("war_goal_declared"), attacker.GetKingdomName(),
             defender.GetKingdomName(), Name(data.war_goal)), attacker);
+        // 开打即拜统帅(谋划开战时已拜的不变，见 WarCommandSystem)
+        WarCommandSystem.MonthTick(FrontSystem.Realm(attacker));
+        WarCommandSystem.MonthTick(FrontSystem.Realm(defender));
+    }
+
+    // 窗口里能不能轮换目标：定了目标、还没打完、不是劫掠
+    public static bool Switchable(War war)
+    {
+        WarGoal goal = Get(war);
+        return goal != WarGoal.None && goal != WarGoal.劫掠 && war?.data != null && !war.hasEnded();
+    }
+
+    public static void Next(War war)
+    {
+        if (!Switchable(war)) return;
+        var data = war.GetOrCreate();
+        int index = Array.IndexOf(Cycle, data.war_goal);
+        data.war_goal = Cycle[(index + 1) % Cycle.Length];
+        if (data.war_goal_capital_id < 0 && war.main_defender?.capital?.data != null)
+            data.war_goal_capital_id = war.main_defender.capital.id;
+    }
+
+    // cities 里法理主国(或法理持有人所在国)是攻方一方(帝国按整个帝国算)的城
+    private static List<City> Claimed(Kingdom claimant, IEnumerable<City> cities)
+    {
+        var result = new List<City>();
+        Kingdom realm = FrontSystem.Realm(claimant);
+        if (cities == null || realm == null) return result;
+        foreach (City city in cities)
+        {
+            if (city?.data == null || city.isRekt()) continue;
+            var title = city.GetTitle();
+            if (title == null || title.isRekt()) continue;
+            Kingdom holder = title.main_kingdom ?? title.owner?.kingdom;
+            if (holder?.data != null && !holder.isRekt() && holder != city.kingdom && FrontSystem.Realm(holder) == realm)
+                result.Add(city);
+        }
+        return result;
     }
 
     public static string Name(WarGoal goal) => LM.Get("war_goal_" + goal);
@@ -158,6 +215,14 @@ public static class WarGoalSystem
                     case WarGoal.吞并:
                         Cede(war, attacker, defender, annex: true);
                         break;
+                    case WarGoal.收复:
+                        Reclaim(war, attacker, defender);
+                        break;
+                    case WarGoal.迫使附庸:
+                        // 帝国不会整个沦为附庸，退回赔款
+                        if (defender.IsEmpire()) WarReparationsSystem.Impose(defender, attacker);
+                        else PendingVassals.Add((attacker.id, defender.id));
+                        break;
                 }
             }
             else if (defendersWon)
@@ -204,10 +269,53 @@ public static class WarGoalSystem
                 defender.GetKingdomName(), ceded), attacker);
     }
 
-    // 战争结束后几帧内逐城易主(不在原版结束战争的同一帧里改归属)
+    // 收复：我方法理的城里占了一半以上的归还占领者；占了法理城的一半以上时全部归还主攻方。对方手里没有我方法理的城时按割地
+    private static void Reclaim(War war, Kingdom attacker, Kingdom defender)
+    {
+        List<City> claimed = Claimed(attacker, war._list_defenders.Where(kingdom => kingdom?.cities != null)
+            .SelectMany(kingdom => kingdom.cities).ToList());
+        if (claimed.Count == 0)
+        {
+            Cede(war, attacker, defender, annex: false);
+            return;
+        }
+        var claimedSet = new HashSet<City>(claimed);
+        List<(City city, Kingdom holder)> held = HeldCities(war, war._list_defenders, war._list_attackers)
+            .Where(entry => claimedSet.Contains(entry.city)).ToList();
+        var queued = new HashSet<long>();
+        foreach ((City city, Kingdom holder) in held)
+            if (queued.Add(city.id)) PendingCessions.Add((city.id, holder.id));
+        if (held.Count * 2 >= claimed.Count)
+            foreach (City city in claimed)
+                if (queued.Add(city.id)) PendingCessions.Add((city.id, attacker.id));
+        if (queued.Count > 0)
+            TranslateHelper.LogEventMessage(string.Format(LM.Get("war_peace_reclaimed"), attacker.GetKingdomName(),
+                defender.GetKingdomName(), queued.Count), attacker);
+    }
+
+    // 战争结束后几帧内逐城易主、立附庸(不在原版结束战争的同一帧里改归属)
     public static void Tick()
     {
-        if (PendingCessions.Count == 0 || World.world == null) return;
+        if (World.world == null) return;
+        while (PendingVassals.Count > 0)
+        {
+            (long lordId, long subjectId) = PendingVassals[0];
+            PendingVassals.RemoveAt(0);
+            Kingdom lord = World.world.kingdoms.get(lordId), subject = World.world.kingdoms.get(subjectId);
+            if (lord?.data == null || subject?.data == null || lord.isRekt() || subject.isRekt()) continue;
+            try
+            {
+                if (FeudalVassalService.ForceBind(lord, subject))
+                    TranslateHelper.LogEventMessage(string.Format(LM.Get("war_peace_vassalized"), subject.GetKingdomName(),
+                        lord.GetKingdomName()), lord);
+                else WarReparationsSystem.Impose(subject, lord);
+            }
+            catch (Exception exception)
+            {
+                LogService.LogWarning($"[EmpireCraft][开战目标] 立附庸失败: {exception.Message}");
+            }
+        }
+        if (PendingCessions.Count == 0) return;
         int done = 0;
         while (PendingCessions.Count > 0 && done < CessionsPerFrame)
         {

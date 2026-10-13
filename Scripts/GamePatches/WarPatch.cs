@@ -371,7 +371,29 @@ public class WarPatch: GamePatch
         {
             War war = SelectedMetas.selected_war;
             string goal = EmpireCraft.Scripts.GeneralSystems.WarGoalSystem.Describe(war);
-            if (goal != null) __instance.showStatRow("war_goal", goal, "#F3C34A", pIconPath: "iconWar");
+            if (goal != null)
+            {
+                bool switchable = EmpireCraft.Scripts.GeneralSystems.WarGoalSystem.Switchable(war);
+                string hint = switchable ? NeoModLoader.General.LM.Get("war_goal_switch_hint") : "";
+                KeyValueField row = __instance.showStatRow("war_goal", goal + hint, "#F3C34A", pIconPath: "iconWar");
+                // 点一下换一个目标(行从对象池复用，原版每次显示都会清掉 on_click_value)
+                if (switchable && row != null)
+                    row.on_click_value = () =>
+                    {
+                        EmpireCraft.Scripts.GeneralSystems.WarGoalSystem.Next(war);
+                        row.value.text = EmpireCraft.Scripts.GeneralSystems.WarGoalSystem.Describe(war) +
+                                         NeoModLoader.General.LM.Get("war_goal_switch_hint");
+                    };
+            }
+            // 双方战时统帅(见 WarCommandSystem)
+            foreach ((string id, Kingdom side) in new[] { ("war_commander_attackers", war?.main_attacker),
+                         ("war_commander_defenders", war?.main_defender) })
+            {
+                Actor commander = EmpireCraft.Scripts.GeneralSystems.WarCommandSystem.Commander(side);
+                if (commander != null && war != null && !war.hasEnded())
+                    __instance.showStatRow(id, $"{EmpireCraft.Scripts.GeneralSystems.WarCommandSystem.TitleOf(side)} {commander.getName()}",
+                        "#D9B36A", pIconPath: "iconWar");
+            }
         }
         catch (Exception exception)
         {
