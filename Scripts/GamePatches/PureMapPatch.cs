@@ -248,6 +248,8 @@ public class PureMapPatch : GamePatch
         {
             WorldTileZoneBorder border = tile?.world_tile_zone_border;
             if (border == null || !border.border) continue;
+            // 纯净地图下水面不涂国色，金边也不描在水上(见 ShadeTerrain)
+            if (PureMapMode.Enabled && tile.Type is TileTypeBase ground && (ground.ocean || ground.liquid && !ground.lava)) continue;
             bool onUp = up && border.border_up, onDown = down && border.border_down;
             bool onLeft = left && border.border_left, onRight = right && border.border_right;
             if (!onUp && !onDown && !onLeft && !onRight) continue;
@@ -289,6 +291,13 @@ public class PureMapPatch : GamePatch
         {
             int id = tile?.data?.tile_id ?? -1;
             if (id < 0 || id >= pixels.Length || pixels[id].a == 0) continue;
+            // 水面不涂国色(连地块边框也不画在水上)：领土只到海岸，国界贴着海岸走
+            TileTypeBase ground = tile.Type;
+            if (ground != null && (ground.ocean || ground.liquid && !ground.lava))
+            {
+                pixels[id] = new Color32(0, 0, 0, 0);
+                continue;
+            }
             WorldTileZoneBorder border = tile.world_tile_zone_border;
             if (smooth)
             {

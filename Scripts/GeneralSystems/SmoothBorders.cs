@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GamePatches;
 using EmpireCraft.Scripts.Layer;
@@ -11,13 +12,15 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 每格按周围 3×3 块地的归属做二次 B 样条加权(块心权重最大，越靠边越接近一半一半)，再叠一层按国家散列的
 // 低频噪声，拐角变圆、斜边变顺、直边微微起伏；归属不同的相邻像素画边框。逻辑上的归属仍按地块(建城、
 // 征税、占领都按块)，这里只改画法。国家、帝国图层按实际控制方画：被敌军占着的地直接涂占领方的颜色(不画斜纹)，
-// 军团模式下逐格推进中已吃下的格子算推进方的(见 FrontSystem.Smooth)，国界跟着前线走。
+// 军团模式下逐格推进中已吃下的格子算推进方的(见 FrontSystem.Smooth)，国界跟着前线走；交战双方相接处的边框涂成战线的朱红
+// (原来沿地块边画的战线在平滑模式下不画，见 CorpsMapRenderer)。
+// 水面不归任何国家：领土只涂陆地，国界贴着海岸走，海岸本身不画边框(以前一块地里的水也算这国的，国界画在离岸几格的水上)。
 // ZoneCalculator.applyMetaColorsToZone 的前缀调用(PureMapPatch)：画好这块地的每个像素后跳过原版。
 public static class SmoothBorders
 {
     private const int ZoneSize = Config.CITY_ZONE_SIZE;
     private const float NoiseAmplitude = 0.28f, NoiseCell = 6f;
-    private static readonly Color32 EmpireGold = new(232, 184, 64, 255);
+    private static readonly Color32 EmpireGold = new(232, 184, 64, 255), FrontRed = new(226, 64, 52, 255);
 
     public static bool Enabled { get; private set; }
 
@@ -110,6 +113,7 @@ public static class SmoothBorders
     // 再加按国家散列的低频噪声，取最大
     private static IMetaObject OwnerAt(int x, int y)
     {
+        if (IsWater(x, y)) return null;
         int zx = Mathf.FloorToInt((float)x / ZoneSize), zy = Mathf.FloorToInt((float)y / ZoneSize);
         int hx = zx - _cx + 2, hy = zy - _cy + 2;
         if (hx is >= 0 and < 5 && hy is >= 0 and < 5)
@@ -151,6 +155,13 @@ public static class SmoothBorders
             best = Candidates[k];
         }
         return best;
+    }
+
+    private static bool IsWater(int x, int y)
+    {
+        WorldTile tile = World.world.GetTile(x, y);
+        TileTypeBase type = tile?.Type;
+        return type != null && (type.ocean || type.liquid && !type.lava);
     }
 
     // 逐格占领推进线边缘的起伏(见 FrontSystem.Smooth)
@@ -216,6 +227,8 @@ public static class SmoothBorders
         Remember(zone, own);
         bool clearInside = inside.a == 0;
         bool goldLayer = layer.map_mode == MetaType.Kingdom;
+        bool frontLayer = CorpsSystem.Enabled && (layer.map_mode == MetaType.Kingdom || layer.map_mode == MetaTypeExtension.Empire);
+        Hostility.Clear();
         int width = MapBox.width, height = MapBox.height;
         foreach (WorldTile tile in zone.tiles)
         {
@@ -230,6 +243,14 @@ public static class SmoothBorders
             Color32 colorInside = inside, colorOutside = outside;
             if (!ReferenceEquals(owner, native)) ColorsOf(owner, clearInside, ref colorInside, ref colorOutside);
             Color32 color = edge ? colorOutside : colorInside;
+            if (owner == null && !foreign) color = new Color32(0, 0, 0, 0);
+            // 战线：边框紧挨着交战敌国的领土
+            if (edge && frontLayer && (AtWar(owner, x + 1, y, width, height) || AtWar(owner, x - 1, y, width, height) ||
+                                       AtWar(owner, x, y + 1, width, height) || AtWar(owner, x, y - 1, width, height)))
+            {
+                pixels[id] = FrontRed;
+                continue;
+            }
             // 纯净地图的国家图层：帝国与外界的边界描金(原版只沿地块边描，见 PureMapPatch.AfterApplyColors)
             if (edge && goldLayer && EmpireOf(owner) is Empire empire &&
                 (EmpireDiffers(empire, x + 1, y, width, height) || EmpireDiffers(empire, x - 1, y, width, height) ||
@@ -241,8 +262,25 @@ public static class SmoothBorders
         return true;
     }
 
+    // 相邻像素归属不同(水面不算：海岸本身不画边框)
     private static bool Differs(IMetaObject owner, int x, int y, int width, int height) =>
-        x >= 0 && y >= 0 && x < width && y < height && !ReferenceEquals(OwnerCached(x, y), owner);
+        x >= 0 && y >= 0 && x < width && y < height && !IsWater(x, y) && !ReferenceEquals(OwnerCached(x, y), owner);
+
+    // 一次上色里两国是否交战(按国家或帝国核心算，结果在这块地里缓存)
+    private static readonly Dictionary<(IMetaObject, IMetaObject), bool> Hostility = new();
+
+    private static bool AtWar(IMetaObject owner, int x, int y, int width, int height)
+    {
+        if (owner == null || x < 0 || y < 0 || x >= width || y >= height || IsWater(x, y)) return false;
+        IMetaObject other = OwnerCached(x, y);
+        if (other == null || ReferenceEquals(other, owner)) return false;
+        if (Hostility.TryGetValue((owner, other), out bool hostile)) return hostile;
+        Kingdom a = owner is Kingdom ka ? ka : (owner as Empire)?.CoreKingdom;
+        Kingdom b = other is Kingdom kb ? kb : (other as Empire)?.CoreKingdom;
+        hostile = a != null && b != null && FrontSystem.Hostile(a, b);
+        Hostility[(owner, other)] = hostile;
+        return hostile;
+    }
 
     // 描金的范围(同 PureMapPatch.AfterApplyColors)：战国时的周室势力圈(加粗的那种)；纯净地图下所属的帝国
     private static Empire EmpireOf(IMetaObject meta)
@@ -271,6 +309,16 @@ public static class SmoothBorders
         if (!PureMapMode.Enabled) return;
         if (inside.a > 0) inside.a = byte.MaxValue;
         if (outside.a > 0) outside.a = byte.MaxValue;
+    }
+
+    // 宣战、议和后战线(边框朱红)要变：双方各城的地块重画(WarPatch)
+    public static void RefreshWar(War war)
+    {
+        if (!Enabled || war == null) return;
+        foreach (Kingdom kingdom in war.getAttackers().Concat(war.getDefenders()))
+            foreach (City city in kingdom?.cities ?? new List<City>())
+                foreach (TileZone zone in city?.zones ?? new List<TileZone>())
+                    zone?.resetRenderHelpers();
     }
 
     // 这块地的归属变了：周围八块(连斜对角)也重画，平滑的边要跟着变

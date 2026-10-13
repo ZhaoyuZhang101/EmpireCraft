@@ -547,9 +547,10 @@ public static class CorpsMapRenderer
         counterCount = lineCount = markerCount = 0;
         Hits.Clear();
 
-        // 战线
+        // 战线(平滑国界下战线逐像素画在国界上，见 SmoothBorders，这里不再沿地块边画)
         const int zoneSize = Config.CITY_ZONE_SIZE;
-        foreach ((TileZone a, TileZone b) in FrontSystem.ContestedEdges())
+        foreach ((TileZone a, TileZone b) in SmoothBorders.Enabled
+                     ? Array.Empty<(TileZone, TileZone)>() : FrontSystem.ContestedEdges())
         {
             Vector3 from, to;
             if (b == a.zone_right)

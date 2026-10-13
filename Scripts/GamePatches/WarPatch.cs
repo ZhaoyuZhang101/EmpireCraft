@@ -190,6 +190,7 @@ public class WarPatch: GamePatch
     public static bool end_war(WarManager __instance, War pWar, WarWinner pWinner = WarWinner.Nobody)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(pWar)) return true;
+        SmoothBorders.RefreshWar(pWar);
         if (pWinner == WarWinner.Attackers && pWar.GetEmpireWarType() == EmpireWarType.索取法理 &&
             !pWar.IsMainDefenderEliminated() &&
             !pWar.AreAllDeJureTitleZonesControlledByAttackers(pWar.GetTitleTarget()))
@@ -439,6 +440,7 @@ public class WarPatch: GamePatch
         {
             EmpirePartitionSystem.OnWarStarted(__result);
             RoyalMarriageSystem.OnWarStarted(__result);
+            SmoothBorders.RefreshWar(__result);
         }
         catch (Exception exception)
         {
