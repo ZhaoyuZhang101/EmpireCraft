@@ -1389,6 +1389,8 @@ public static class KingdomExtension
         if (k.HasRebelledAgainst(empire) || !RealmDiplomacySystem.CanChooseOverlord(k)) return;
         // 没施行朝贡体系类制度的帝国一律不收朝贡国(强制也不行)
         if (!FeudalConquestService.HasTributeInstitution(empire)) return;
+        // 战国的周诸侯仍奉王室，不做任何帝国的朝贡国(强制也不行)
+        if (ZhouEraSystem.IsDetachedVassal(k)) return;
         // 废除君主制后朝贡体系随之废除，改用附庸国(见 TributaryAbolitionService)
         if (RepublicSystem.IsRepublic(empire)) return;
         if (!pForce && (!empire.CanAcceptVoluntarySubmission() ||

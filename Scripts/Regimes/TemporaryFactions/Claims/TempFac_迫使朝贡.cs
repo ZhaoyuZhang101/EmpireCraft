@@ -40,6 +40,8 @@ public class TempFac_迫使朝贡 : TemporaryFaction
         foreach (var kingdom in World.world.kingdoms)
         {
             if (kingdom.IsInEmpire()) continue;
+            // 战国的周诸侯仍奉王室，不能迫其朝贡
+            if (ZhouEraSystem.IsDetachedVassal(kingdom)) continue;
             if (empire.taken_Kingdoms.Contains(kingdom)) continue;
             if (kingdom.countTotalWarriors()>=empire.countWarriors()) continue;
             if (!empire.IsNeighbourWith(kingdom)) continue;

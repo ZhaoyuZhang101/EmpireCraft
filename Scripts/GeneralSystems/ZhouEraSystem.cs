@@ -333,6 +333,9 @@ public static class ZhouEraSystem
         if (state.era == Warring) Detach(empire);
         // 同一周室同一色系(含战国离开帝国的诸侯)
         KingdomColorService.ApplySphereFamily(empire);
+        // 诸侯奉王室，不做别的帝国的朝贡国(旧档里已经朝贡的解除)
+        foreach (Kingdom vassal in DetachedVassals(empire))
+            if (vassal.HasTakenAlliance()) vassal.RemoveTakenAlliance();
         Kingdom core = empire.CoreKingdom;
         // 尊王：诸侯犯天子，霸主与诸侯共讨(加入天子一方)
         foreach (War war in core.getWars().ToList())
