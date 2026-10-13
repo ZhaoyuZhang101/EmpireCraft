@@ -38,7 +38,7 @@ public static class PureMapMode
         "draw_parabolic_unload", "draw_unit_highlight_effect", "unit_banners", "selected_units",
         "unit_metas", "happiness_icons", "task_icons", "family_species_icons", "status_effects",
         "draw_buildings", "draw_building_stockpiles", "shadows_buildings", "draw_walls", "draw_light_walls_light_blobs",
-        "kings", "leaders", "favorites_map", "plots", "armies", "socialize", "magnet_units"
+        "kings", "leaders", "favorites_map", "plots", "armies", "socialize", "magnet_units", "buildings_light_windows"
     };
 
     // 纯装饰建筑(按类型或资源 id)
