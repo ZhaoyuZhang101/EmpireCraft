@@ -128,7 +128,7 @@ public static class ZhouPanel
                 new Vector2(inner, 10f)).UseFixedFontSize(6, HorizontalWrapMode.Wrap);
     }
 
-    private static string Rank(Kingdom kingdom)
+    public static string Rank(Kingdom kingdom)
     {
         var office = kingdom.GetOffice();
         return office == null ? "—" : LM.Get(DynastyNaming.RankKey(office.regimeType, office.officeType, kingdom));

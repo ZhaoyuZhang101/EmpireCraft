@@ -1419,6 +1419,8 @@ public static class EmpireCraftNamePlateLibrary
             string label = string.Format(LM.Get("label_feudal_vassal_of"), GetSafeKingdomName(lord));
             return $"{name}\n<size=70><color=#FF5555>{label}</color></size>";
         }
+        // 战国离开帝国的周诸侯：名字下面一行金字"某诸侯国"
+        if (ZhouVassalTag(kingdom) is string zhou) return $"{name}\n<size=70><color=#E8B840>{zhou}</color></size>";
         if (!kingdom.HasTakenAlliance()) return name;
         Empire overlord = kingdom.GetTakenAllianceEmpire();
         if (!IsRenderableEmpire(overlord)) return name;
@@ -1464,11 +1466,19 @@ public static class EmpireCraftNamePlateLibrary
         }
     }
 
+    private static string ZhouVassalTag(Kingdom kingdom) =>
+        ZhouEraSystem.IsDetachedVassal(kingdom) && ZhouEraSystem.SphereOf(kingdom) is Empire sphere
+            ? string.Format(LM.Get("zhou_vassal_tag"), sphere.GetEmpireName())
+            : null;
+
     private static string AppendFeudalLordLabel(NameplateText plate, Kingdom subject, string text)
     {
         Kingdom lord = FeudalVassalService.GetOverlord(subject);
-        if (lord == null) return text;
         int fontSize = Mathf.Max(1, Mathf.RoundToInt(plate._text_name.fontSize * 0.55f));
+        if (lord == null)
+            return ZhouVassalTag(subject) is string zhou
+                ? $"{text}\n<size={fontSize}><color=#E8B840>{zhou}</color></size>"
+                : text;
         string label = string.Format(LM.Get("label_feudal_vassal_of"), GetSafeKingdomName(lord));
         return $"{text}\n<size={fontSize}><color=#FF5555>{label}</color></size>";
     }

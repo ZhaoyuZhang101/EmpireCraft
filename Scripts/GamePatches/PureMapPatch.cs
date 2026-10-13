@@ -78,16 +78,18 @@ public class PureMapPatch : GamePatch
 
     private static readonly Color32 EmpireGold = new(232, 184, 64, 255);
 
-    // 帝国对外的边画成金色(纯净地图模式)：原版画完这块地后，把对面不是本帝国的那几条边重新涂一遍。
-    // 战国的周室(王畿连同离开帝国的诸侯)在任何地图模式都画，而且加粗一格，用来看出是不是同一个势力
+    // 帝国对外的边画成金色(纯净地图模式，国家图层)：原版画完这块地后，把对面不是本帝国的那几条边重新涂一遍。
+    // 战国的周室(王畿连同离开帝国的诸侯)在国家图层和帝国图层都画，而且加粗一格，用来看出是不是同一个势力
     private static void AfterApplyColors(ZoneCalculator __instance, TileZone pZone, bool pUp, bool pDown, bool pLeft, bool pRight)
     {
         if (pZone?.tiles == null || __instance.pixels == null) return;
         Kingdom kingdom = pZone.city?.kingdom;
-        if (kingdom == null || World.world.getCachedMapMetaAsset()?.map_mode != MetaType.Kingdom) return;
+        MetaType? mode = World.world.getCachedMapMetaAsset()?.map_mode;
+        bool kingdomLayer = mode == MetaType.Kingdom, empireLayer = mode == MetaTypeExtension.Empire;
+        if (kingdom == null || !kingdomLayer && !empireLayer) return;
         Empire sphere = ZhouEraSystem.SphereOf(kingdom);
         bool bold = sphere != null && ZhouEraSystem.Era(sphere) >= ZhouEraSystem.Warring;
-        Empire empire = bold ? sphere : PureMapMode.Enabled ? kingdom.GetEmpire() : null;
+        Empire empire = bold ? sphere : PureMapMode.Enabled && kingdomLayer ? kingdom.GetEmpire() : null;
         if (empire == null) return;
         bool up = pUp && Outside(pZone.zone_up, empire), down = pDown && Outside(pZone.zone_down, empire);
         bool left = pLeft && Outside(pZone.zone_left, empire), right = pRight && Outside(pZone.zone_right, empire);

@@ -1,5 +1,9 @@
+using System.Collections.Generic;
+using System.Linq;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.Compatibility;
+using EmpireCraft.Scripts.Layer;
+using UnityEngine;
 
 namespace EmpireCraft.Scripts.GeneralSystems;
 
@@ -17,6 +21,12 @@ public static class KingdomColorService
     public static void EnsureDistinctInZhou(Kingdom member)
     {
         if (!KeepsOwnColor(member) || AncientWarfareCompatibility.Owns(member)) return;
+        // 周室：整个周室同一色系(见 ApplySphereFamily)；不是周室的分封帝国才走下面的"各不相同"
+        if (ZhouEraSystem.Applies(member.GetEmpire()))
+        {
+            ApplySphereFamily(member.GetEmpire());
+            return;
+        }
         var empire = member.GetEmpire();
         Kingdom core = empire.CoreKingdom;
         ColorAsset current = member.getColor();
@@ -61,6 +71,71 @@ public static class KingdomColorService
         member.data.setColorID(nextId);
         member.updateColor(next);
         World.world?.zone_calculator?.dirtyAndClear();
+    }
+
+    private const float GraySaturation = 0.18f, DarkValue = 0.22f;
+
+    // 同一周室同一色系(内部同一大色系、细微差别，像暖色系、冷色系，一眼看出是一家)：
+    //   以天子的颜色为基准，诸侯(含战国离开帝国的)按色相离基准由近到远，依次取色板里还没被占用的颜色——
+    //   诸侯少时都挤在基准色附近，多了才往两侧铺开；灰白与很暗的颜色看不出色相，除非天子本身是这类颜色，否则排到最后；
+    //   别的周室(王畿与诸侯)在用的颜色不取，免得两个周室混成一片。
+    //   已经在本色系里的诸侯不动，只给新来的、或色系外的换色，不会每月闪色。
+    public static void ApplySphereFamily(Empire sphere)
+    {
+        Kingdom core = sphere?.CoreKingdom;
+        if (core?.data == null || core.isRekt() || AncientWarfareCompatibility.Owns(core) || !ZhouEraSystem.Applies(sphere))
+            return;
+        List<Kingdom> vassals = ZhouEraSystem.Vassals(sphere)
+            .Where(kingdom => kingdom?.data != null && !kingdom.isRekt() && !AncientWarfareCompatibility.Owns(kingdom))
+            .OrderBy(kingdom => kingdom.id).ToList();
+        if (vassals.Count == 0) return;
+        List<ColorAsset> colors = core.getColorLibrary()?.list;
+        ColorAsset royal = sphere.getColor() ?? core.getColor();
+        if (colors == null || colors.Count == 0 || royal == null) return;
+        Color.RGBToHSV(royal.getColorMain(), out float hue, out float saturation, out float value);
+        bool grayBase = saturation < GraySaturation || value < DarkValue;
+        var excluded = new HashSet<ColorAsset> { royal, core.getColor() };
+        foreach (Empire other in ModClass.EMPIRE_MANAGER?.ToList() ?? new List<Empire>())
+        {
+            if (other == sphere || other?.CoreKingdom == null || !ZhouEraSystem.Applies(other)) continue;
+            excluded.Add(other.getColor());
+            excluded.Add(other.CoreKingdom.getColor());
+            foreach (Kingdom kingdom in ZhouEraSystem.Vassals(other)) excluded.Add(kingdom.getColor());
+        }
+        List<ColorAsset> family = colors.Where(color => color != null && !excluded.Contains(color))
+            .OrderBy(color => Distance(color, hue, grayBase)).Take(vassals.Count).ToList();
+        var palette = new HashSet<ColorAsset>(family);
+        var kept = new HashSet<ColorAsset>();
+        var pending = new List<Kingdom>();
+        foreach (Kingdom vassal in vassals)
+        {
+            ColorAsset current = vassal.getColor();
+            if (current != null && palette.Contains(current) && kept.Add(current)) continue;
+            pending.Add(vassal);
+        }
+        bool changed = false;
+        foreach (Kingdom vassal in pending)
+        {
+            ColorAsset next = family.FirstOrDefault(color => !kept.Contains(color));
+            if (next == null) break;
+            kept.Add(next);
+            vassal._cached_color = null;
+            vassal.data.setColorID(colors.IndexOf(next));
+            vassal.updateColor(next);
+            changed = true;
+        }
+        if (changed) World.world?.zone_calculator?.dirtyAndClear();
+    }
+
+    // 与基准色相的距离(0~0.5，按色环取近的一侧)；灰白黑排在最后(天子是灰色系时反过来)
+    private static float Distance(ColorAsset color, float hue, bool grayBase)
+    {
+        Color.RGBToHSV(color.getColorMain(), out float h, out float s, out float v);
+        bool gray = s < GraySaturation || v < DarkValue;
+        if (grayBase) return gray ? s : 1f + s;
+        if (gray) return 2f;
+        float d = Mathf.Abs(h - hue);
+        return Mathf.Min(d, 1f - d);
     }
 
     // Native generateColor changes data.color_id without clearing _cached_color.

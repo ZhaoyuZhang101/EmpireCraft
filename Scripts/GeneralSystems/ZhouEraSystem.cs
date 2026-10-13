@@ -109,8 +109,12 @@ public static class ZhouEraSystem
         }
         if (count == 0) return;
         empire.recalculate();
+        RedrawMap();
         Log(empire, string.Format(LM.Get("zhou_log_detached"), count));
     }
+
+    // 周室归属变了：整图重画，外框跟着变(原版只在地块所属国或邻接变化时重画)
+    private static void RedrawMap() => World.world?.zone_calculator?.dirtyAndClear();
 
     public static int Power(Kingdom kingdom) =>
         kingdom?.data == null || kingdom.isRekt() ? 0 : (kingdom.cities?.Count ?? 0) * 4 + kingdom.countTotalWarriors();
@@ -263,6 +267,7 @@ public static class ZhouEraSystem
         foreach (Kingdom kingdom in World.world.kingdoms)
             if (kingdom?.data != null && kingdom.GetOrCreate().zhou_sphere_id == oldId) kingdom.GetOrCreate().zhou_sphere_id = successor.id;
         successor.data.zhou = carried;
+        RedrawMap();
         carried.hegemon_id = -1L;
         carried.royal_capital_id = winner.capital?.id ?? -1L;
         carried.coalition.Clear();
@@ -310,6 +315,8 @@ public static class ZhouEraSystem
         if (state.era < Spring) return;
         // 战国：诸侯离开帝国(读档、新并入的诸侯也是)
         if (state.era == Warring) Detach(empire);
+        // 同一周室同一色系(含战国离开帝国的诸侯)
+        KingdomColorService.ApplySphereFamily(empire);
         Kingdom core = empire.CoreKingdom;
         // 尊王：诸侯犯天子，霸主与诸侯共讨(加入天子一方)
         foreach (War war in core.getWars().ToList())
@@ -825,6 +832,7 @@ public static class ZhouEraSystem
         foreach (Kingdom kingdom in Vassals(empire).Where(IsDetachedVassal).ToList())
             kingdom.GetOrCreate().zhou_sphere_id = -1L;
         state.era = Unified;
+        RedrawMap();
         state.era_since = World.world.getCurWorldTime();
         foreach (Kingdom kingdom in empire.kingdoms_list.ToList())
         {

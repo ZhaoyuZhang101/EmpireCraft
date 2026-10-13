@@ -1007,10 +1007,31 @@ namespace EmpireCraft.Scripts.UI.Windows
             var vassals = core != null && !core.isRekt()
                 ? FeudalVassalService.GetDirectVassals(core).ToList() : new List<Kingdom>();
             long totalTribute = tributaries.Sum(TributeEstimate) + vassals.Sum(FeudalVassalService.YearlyTribute);
+            // 春秋战国：周室诸侯(战国时已离开帝国、仍奉王室)单列，按国力排
+            List<Kingdom> zhou = ZhouEraSystem.Era(_empire) >= ZhouEraSystem.Spring
+                ? ZhouEraSystem.Vassals(_empire).OrderByDescending(ZhouEraSystem.Power).ToList()
+                : new List<Kingdom>();
             var parent = BeginPage("empire_dependencies",
+                zhou.Count > 0 ? string.Format(LM.Get("dependency_chip_zhou"), zhou.Count) : null,
                 string.Format(LM.Get("dependency_chip_tributaries"), tributaries.Count),
                 string.Format(LM.Get("dependency_chip_vassals"), vassals.Count),
                 string.Format(LM.Get("dependency_chip_total"), MoneyDisplay.Format(totalTribute)));
+            EmpireCraftStatsRow zhouRows = null;
+            if (zhou.Count > 0)
+            {
+                var zhouCard = parent.BeginCard(MainWidth, "zhou_vassal_states", "#F3C34A", LM.Get("zhou_vassal_sort"),
+                    "ui/icons/iconKingdom");
+                zhouRows = zhouCard.AddComponent<EmpireCraftStatsRow>();
+                zhouRows.WideLayout = true;
+                foreach (Kingdom state in zhou)
+                {
+                    string value = string.Format(LM.Get("zhou_vassal_value"), ZhouPanel.Rank(state),
+                        state.cities?.Count ?? 0, state.countTotalWarriors());
+                    if (ZhouEraSystem.IsKing(state)) value += " " + LM.Get("zhou_tag_king");
+                    if (ZhouEraSystem.IsReformed(state)) value += " " + LM.Get("zhou_tag_reform");
+                    AddDependencyRow(zhouRows, state, value);
+                }
+            }
             // 横屏排版：朝贡国与封建附庸左右并排对照，标题条右侧给排序口径
             var columns = parent.BeginColumns(MainWidth);
             var tributaryCard = columns.BeginColumnCard(HalfWidth, "empire_tributaries", "#7FD8EA",
@@ -1029,7 +1050,7 @@ namespace EmpireCraft.Scripts.UI.Windows
             int shown = 0;
             foreach (Kingdom vassal in vassals) shown += AddVassalRows(vassalRows, vassal, 0);
             if (shown == 0) AddCardEmptyNote(vassalCard, HalfWidth);
-            StartCoroutine(ShowCardRows(tributaryRows, vassalRows));
+            StartCoroutine(ShowCardRows(zhouRows, tributaryRows, vassalRows));
         }
 
         private static void AddCardEmptyNote(AutoVertLayoutGroup card, float width)
