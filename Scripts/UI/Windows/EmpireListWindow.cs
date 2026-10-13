@@ -228,10 +228,13 @@ namespace EmpireCraft.Scripts.UI.Windows
         }
 
         // ───────── 小部件 ─────────
+        // NML 的横排组不接管子物体尺寸(childControlWidth/Height = false)，LayoutElement 的尺寸不生效：
+        // 现建的物体必须自己设好 sizeDelta，否则按 RectTransform 默认的 100×100 画出来，盖住整张卡片
         private static void AddColorStrip(AutoHoriLayoutGroup parent, Color color, float height)
         {
             var strip = new GameObject("EmpireColorStrip", typeof(RectTransform), typeof(Image), typeof(LayoutElement));
             strip.transform.SetParent(parent.transform, false);
+            strip.GetComponent<RectTransform>().sizeDelta = new Vector2(3, height);
             strip.GetComponent<Image>().color = color;
             var layout = strip.GetComponent<LayoutElement>();
             layout.minWidth = layout.preferredWidth = 3;
@@ -242,6 +245,7 @@ namespace EmpireCraft.Scripts.UI.Windows
         {
             var go = new GameObject("Icon", typeof(RectTransform), typeof(Image), typeof(LayoutElement));
             go.transform.SetParent(parent.transform, false);
+            go.GetComponent<RectTransform>().sizeDelta = new Vector2(size, size);
             var image = go.GetComponent<Image>();
             image.sprite = SpriteTextureLoader.getSprite(IconPath + icon);
             image.preserveAspect = true;
