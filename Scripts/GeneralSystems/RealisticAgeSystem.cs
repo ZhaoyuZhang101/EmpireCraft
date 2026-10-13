@@ -25,12 +25,16 @@ public static class RealisticAgeSystem
             EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(actor)) return true;
         result = false;
         if (!OldAgeEnabled || !actor.isAlive() || actor.hasTrait("immortal")) return false;
-        int limit = HumanDeathAge(actor.id, actor.GetPersonalIdentity()?.virtual_death_age ?? -1);
-        if (actor.getAge() < limit) return false;
+        if (actor.getAge() < DeathAge(actor)) return false;
         actor.getHitFullHealth(AttackType.Age);
         result = true;
         return false;
     }
+
+    // 君主、储君按古代的天年(见 RoyalHouseSystem.RoyalDeathAge)，其余六十到八十
+    public static int DeathAge(Actor actor) => RoyalHouseSystem.IsRoyal(actor)
+        ? RoyalHouseSystem.RoyalDeathAge(actor)
+        : HumanDeathAge(actor.id, actor.GetPersonalIdentity()?.virtual_death_age ?? -1);
 
     public static void CaptureNativeLifetime(Actor actor, PersonalClanIdentity person)
     {

@@ -73,6 +73,7 @@ public class BabyHelperPatch : GamePatch
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(pParent1)) return;
         if (__result == null) return;
+        EmpireCraft.Scripts.GeneralSystems.RoyalHouseSystem.NoteBirth(pParent1, pParent2);
         City birthCity = __result.city ?? pParent1?.city ?? pParent2?.city;
         float localCultureChance = CultureService.GetNewbornLocalCultureChance(birthCity);
         if (birthCity != null && UnityEngine.Random.value < localCultureChance)
@@ -224,6 +225,12 @@ public class BabyHelperPatch : GamePatch
             }
         }
         if (pActor.hasReachedOffspringLimit())
+        {
+            __result = false;
+            return false;
+        }
+        // 君主、储君一年半至多添一个孩子，不育的不能生(见 RoyalHouseSystem)
+        if (!EmpireCraft.Scripts.GeneralSystems.RoyalHouseSystem.CanBirth(pActor))
         {
             __result = false;
             return false;

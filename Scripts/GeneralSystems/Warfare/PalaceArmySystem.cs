@@ -135,6 +135,7 @@ public static class PalaceArmySystem
         if (successor != null)
         {
             state.last_coup_at = World.world.getCurWorldTime();
+            PrinceStruggleSystem.Note(core, successor, PrinceStruggleSystem.NotePalaceCoup);
             core.removeKing();
             OfficeObject office = core.GetOffice();
             if (office != null)

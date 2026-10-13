@@ -22,6 +22,8 @@ public class EmpireCraftActorCheckEmperorBaby: GameAIActorBase
         if (sc == null || pc==null) return BehResult.Continue;
         pc.is_main = true;
         if (sc.GetChildren(pc).Any(c => c.Item2.CanHeir(pc))) return BehResult.Continue;
+        // 一年半至多一个、不育的生不了(见 RoyalHouseSystem)：不再保证代代有子
+        if (!EmpireCraft.Scripts.GeneralSystems.RoyalHouseSystem.CanBirth(pActor)) return BehResult.Continue;
         var lover = pActor.lover;
         var lsc = lover.GetPersonalIdentity();
         if (lsc == null) return BehResult.Continue;

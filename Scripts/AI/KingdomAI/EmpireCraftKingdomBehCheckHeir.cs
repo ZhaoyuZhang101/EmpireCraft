@@ -204,6 +204,21 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
         {
             case EmpireHeirLawType.eldest_child:
             case EmpireHeirLawType.smallest_child:
+                // 嫡长子继承：嫡长子早逝而身后有子，嫡长孙承重，先于诸叔
+                if (selection == EmpireHeirLawType.eldest_child && law == SuccessionLawType.嫡长子继承法)
+                {
+                    PersonalClanIdentity first = ChildrenOf(parent).Where(person => person.IsHeirPriority() && !person.is_concubine)
+                        .OrderByDescending(person => IsBornOfPrimarySpouse(parent, person)).ThenBy(BirthKey).FirstOrDefault();
+                    if (first != null && !first.is_alive)
+                    {
+                        var grandsons = ChildrenOf(first).Where(person => IsEligibleRelative(person, first, allowFemale))
+                            .OrderByDescending(person => person.IsHeirPriority())
+                            .ThenByDescending(person => IsBornOfPrimarySpouse(first, person)).ThenBy(BirthKey);
+                        Actor grandson = Pick(kingdom, grandsons, parent, out _);
+                        if (grandson != null)
+                            return (grandson, LM.Get("heir_relation_eldest_grandson").ColorString(pColor: new Color(0.9f, 0.3f, 0.2f)));
+                    }
+                }
                 var children = ChildrenOf(parent).Where(person => IsEligibleRelative(person, parent, allowFemale));
                 // 嫡子优先，嫡系没有合适儿子时仍在自己的子嗣中接续，不提前跳到叔伯。
                 var ordered = children.OrderByDescending(person => person.IsHeirPriority())
@@ -228,9 +243,13 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
             case EmpireHeirLawType.random:
                 if (kingdom.IsEmpire() && ConstitutionalSuccessionSystem.IsProtected(kingdom.GetEmpire()))
                     return (ConstitutionalSuccessionSystem.SelectRoyalHeir(kingdom.GetEmpire()), ConstitutionalSuccessionSystem.SelectionRelation(kingdom.GetEmpire()));
+                // 绝嗣：从宗室里按亲疏找人入继(隔几代找到共同的祖先)，同样亲疏的取十五岁上下的(常立年幼的，引出太后、权臣)
                 candidates = parent._specificClan?.SnapshotPeople() ?? Enumerable.Empty<PersonalClanIdentity>();
+                Dictionary<long, int> ancestors = Ancestors(parent);
                 candidates = candidates.Where(person => IsEligibleRelative(person, parent, allowFemale))
-                    .OrderByDescending(person => person.age).ThenBy(person => person.id);
+                    .OrderBy(person => Kinship(person, ancestors)).ThenBy(person => Math.Abs(person.age - 15))
+                    .ThenBy(person => person.id);
+                relation = LM.Get("heir_relation_collateral");
                 break;
             case EmpireHeirLawType.officer:
                 if (kingdom.IsEmpire()) return (null, relation);
@@ -239,6 +258,39 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
             default: return (null, relation);
         }
         return (Pick(kingdom, candidates, parent, out _), relation.ColorString(pColor: new Color(0.3f, 0.3f, 0.9f)));
+    }
+
+    // 出生先后(生日"11,062年5月20日")；解析不了按编号
+    private static long BirthKey(PersonalClanIdentity person)
+    {
+        var match = global::System.Text.RegularExpressions.Regex.Match(person?.birthday ?? "", @"([\d,]+)年(\d+)月(\d+)日");
+        if (!match.Success || !long.TryParse(match.Groups[1].Value.Replace(",", ""), out long year)) return long.MaxValue / 2 + (person?.id ?? 0) % 1000000;
+        return year * 10000 + int.Parse(match.Groups[2].Value) * 100 + int.Parse(match.Groups[3].Value);
+    }
+
+    // 往上八代的祖先 → 隔几代
+    private static Dictionary<long, int> Ancestors(PersonalClanIdentity person)
+    {
+        var result = new Dictionary<long, int>();
+        PersonalClanIdentity current = person;
+        for (int generation = 0; current != null && generation <= 8; generation++)
+        {
+            result[current.id] = generation;
+            current = current.father > 0 ? SpecificClanManager.getPerson(current.father) : null;
+        }
+        return result;
+    }
+
+    // 亲疏：两人各自往上几代到共同的祖先，合起来的代数(找不到算很远)
+    private static int Kinship(PersonalClanIdentity person, Dictionary<long, int> ancestors)
+    {
+        PersonalClanIdentity current = person;
+        for (int up = 0; current != null && up <= 8; up++)
+        {
+            if (ancestors.TryGetValue(current.id, out int down)) return up + down;
+            current = current.father > 0 ? SpecificClanManager.getPerson(current.father) : null;
+        }
+        return 99;
     }
 
     private static bool IsBornOfPrimarySpouse(PersonalClanIdentity parent, PersonalClanIdentity child)

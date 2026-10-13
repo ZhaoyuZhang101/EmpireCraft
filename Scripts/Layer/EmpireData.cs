@@ -283,6 +283,8 @@ public class EmpireCraftHistory
     // 君主资质(RulerQualitySystem.Grade 的名字)与在位期间是否被权臣、外戚挟制，谥号用
     public string ruler_grade { get; set; } = "";
     public bool was_controlled { get; set; }
+    // 怎么继的位：废立(deposed)、兵变夺位(coup)、诸王争位(strife)、宫廷政变(palace_coup)；空为照常继位(世系图标出，见 DynastyLineageWindow)
+    public string succession_note { get; set; } = "";
 
     public List<string> initial_cities = new List<string>();
     public List<HistoryDescription> descriptions =  new List<HistoryDescription>();

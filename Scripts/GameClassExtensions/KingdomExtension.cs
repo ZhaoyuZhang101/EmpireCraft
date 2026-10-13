@@ -244,6 +244,9 @@ public static class KingdomExtension
         public int fleet_serial;
         // 钦定储君(见册立储君)：仍在世、可继位、还是先君子嗣时越过继承法次序
         public long designated_heir_id = -1L;
+        // 下一位君主怎么继的位(废立、兵变、争位，见 PrinceStruggleSystem.Note)：新君即位时写进纪年
+        public string succession_note = "";
+        public long succession_note_actor = -1L;
         public int Level = 2;
         [JsonIgnore]
         public Regime regime;

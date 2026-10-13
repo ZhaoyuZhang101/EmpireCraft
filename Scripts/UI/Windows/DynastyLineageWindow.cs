@@ -20,7 +20,9 @@ namespace EmpireCraft.Scripts.UI.Windows;
 // 世系图(宽窗口)：一个王朝的历代君主连同把他们连起来的祖先，画成自上而下的方框连线图(像史书后附的"某朝世系图")。
 //   · 取本帝国史书里这一朝(按朝代名分)的历代君主，在宗族里沿父系往上找，直到接上已画的人；只画君主和连接他们的祖先，
 //     开国之君之上至多留三代(追尊的祖先)；不同宗族(篡位、易姓)的君主各成一棵树并排；
-//   · 方框上行是庙号(没有庙号写谥号，在位的写"今上"，非君主的祖先写其封号、官职)，下行是名字；君主金框，祖先灰框；
+//   · 方框上行是庙号(没有庙号写谥号，在位的写"今上"，非君主的祖先写其封号、官职)，中行是名字，
+//     君主下行写怎么继的位——对上一位君主是长子、第几子、孙、兄弟、侄、旁支入继、易姓，废立、兵变、争位、宫变上台的
+//     另标红字(见 PrinceStruggleSystem)；君主金框，祖先灰框；
 //   · 可拖拽、滚轮缩放；点方框打开这个人的族谱树(见 SpecificClanTreeWindow)；顶上一排按钮切换朝代。
 // 从历代君主窗口(EmpireHistoryWindow)左栏的"世系图"按钮打开。
 public class DynastyLineageWindow : AbstractWideWindow<DynastyLineageWindow>
@@ -42,6 +44,7 @@ public class DynastyLineageWindow : AbstractWideWindow<DynastyLineageWindow>
     {
         public PersonalClanIdentity identity;
         public EmpireCraftHistory history;
+        public string relation = "";
         public int reign = int.MaxValue;
         public Node parent;
         public readonly List<Node> children = new();
@@ -152,18 +155,21 @@ public class DynastyLineageWindow : AbstractWideWindow<DynastyLineageWindow>
         }
         var nodes = new Dictionary<long, Node>();
         var loose = new List<Node>();
+        PersonalClanIdentity previous = null;
         for (int i = 0; i < reigns.Count; i++)
         {
             EmpireCraftHistory history = reigns[i];
             PersonalClanIdentity identity = history.id > 0 && byActor.TryGetValue(history.id, out var found) ? found
                 : !string.IsNullOrWhiteSpace(history.emperor) && byName.TryGetValue(history.emperor, out found) ? found : null;
+            string relation = Relation(previous, identity, history);
+            previous = identity;
             if (identity == null)
             {
-                loose.Add(new Node { history = history, reign = i });
+                loose.Add(new Node { history = history, reign = i, relation = relation });
                 continue;
             }
             Node node = Get(nodes, identity);
-            if (node.history == null) { node.history = history; node.reign = i; }
+            if (node.history == null) { node.history = history; node.reign = i; node.relation = relation; }
             // 沿父系往上，接上已画的人为止
             Node child = node;
             for (int step = 0; step < 40 && child.parent == null && child.identity.father > 0; step++)
@@ -286,13 +292,68 @@ public class DynastyLineageWindow : AbstractWideWindow<DynastyLineageWindow>
         frame.sprite = UIHelper.SlicedFrame(ruler ? "FactionFrame_dominate" : "FactionFrame");
         frame.type = Image.Type.Sliced;
         frame.raycastTarget = true;
-        Label(rect, Title(node).ColorString(ruler ? "#F3C34A" : "#A8B8BE"), 6f, 6, FontStyle.Bold);
-        Label(rect, (node.identity?.name ?? node.history?.emperor ?? "?").ColorString("#F2EEE2"), -5f, 6, FontStyle.Normal);
+        Label(rect, Title(node).ColorString(ruler ? "#F3C34A" : "#A8B8BE"), ruler ? 9f : 6f, 6, FontStyle.Bold);
+        Label(rect, (node.identity?.name ?? node.history?.emperor ?? "?").ColorString("#F2EEE2"), ruler ? -1f : -5f, 6, FontStyle.Normal);
+        if (ruler && !string.IsNullOrEmpty(node.relation))
+            Label(rect, node.relation.ColorString(string.IsNullOrEmpty(node.history?.succession_note) ? "#9FB4BE" : "#E0705A"),
+                -10f, 5, FontStyle.Normal);
         if (node.identity == null) return;
         PersonalClanIdentity identity = node.identity;
         Button button = nodeObject.AddComponent<Button>();
         button.transition = Selectable.Transition.None;
         button.onClick.AddListener(() => SpecificClanTreeWindow.ShowFor(identity));
+    }
+
+    // 怎么继的位：对上一位君主的亲属关系，废立、兵变、争位、宫变另标
+    private static string Relation(PersonalClanIdentity previous, PersonalClanIdentity current, EmpireCraftHistory history)
+    {
+        string relation;
+        if (history.is_first) relation = LM.Get("lineage_rel_founder");
+        else if (previous == null || current == null) relation = "";
+        else if (current.specific_clan_id != previous.specific_clan_id) relation = LM.Get("lineage_rel_other_clan");
+        else if (current.father == previous.id || current.mother == previous.id) relation = ChildOrder(previous, current);
+        else if (Father(current)?.father == previous.id) relation = LM.Get("lineage_rel_grandson");
+        else if (current.father > 0 && current.father == previous.father)
+            relation = LM.Get(Birth(current) < Birth(previous) ? "lineage_rel_elder_brother" : "lineage_rel_brother");
+        else if (Father(current) is { father: > 0 } father && father.father == previous.father) relation = LM.Get("lineage_rel_nephew");
+        else relation = LM.Get("lineage_rel_collateral");
+        string note = history.succession_note;
+        if (string.IsNullOrEmpty(note)) return relation;
+        string mark = LM.Get("lineage_note_" + note);
+        return string.IsNullOrEmpty(relation) ? mark : relation + "·" + mark;
+    }
+
+    private static PersonalClanIdentity Father(PersonalClanIdentity person) =>
+        person?.father > 0 ? SpecificClanManager.getPerson(person.father) : null;
+
+    // 第几子(按出生先后，同性别排)
+    private static string ChildOrder(PersonalClanIdentity parent, PersonalClanIdentity child)
+    {
+        int order = SpecificClanManager.getChildren(parent).Select(pair => pair.Item2)
+            .Where(person => person != null && person.sex == child.sex)
+            .OrderBy(Birth).ThenBy(person => person.id).ToList().FindIndex(person => person.id == child.id) + 1;
+        bool daughter = child.sex == ActorSex.Female;
+        if (order == 1) return LM.Get(daughter ? "lineage_rel_daughter_first" : "lineage_rel_son_first");
+        if (order <= 0) return LM.Get(daughter ? "lineage_rel_daughter" : "lineage_rel_son");
+        return string.Format(LM.Get(daughter ? "lineage_rel_daughter_n" : "lineage_rel_son_n"), Numeral(order));
+    }
+
+    private static readonly string[] Digits = { "", "一", "二", "三", "四", "五", "六", "七", "八", "九" };
+
+    private static string Numeral(int n)
+    {
+        string language = LocalizedTextManager.instance?.language;
+        if (language != "cz" && language != "ch" || n >= 100) return n.ToString();
+        if (n < 10) return Digits[n];
+        return (n / 10 == 1 ? "" : Digits[n / 10]) + "十" + Digits[n % 10];
+    }
+
+    private static long Birth(PersonalClanIdentity person)
+    {
+        var match = global::System.Text.RegularExpressions.Regex.Match(person?.birthday ?? "", @"([\d,]+)年(\d+)月(\d+)日");
+        if (!match.Success || !long.TryParse(match.Groups[1].Value.Replace(",", ""), out long year))
+            return long.MaxValue / 2 + (person?.id ?? 0) % 1000000;
+        return year * 10000 + int.Parse(match.Groups[2].Value) * 100 + int.Parse(match.Groups[3].Value);
     }
 
     // 方框上行：君主写庙号(没有庙号写谥号，在位的写今上)，祖先写封号、官职

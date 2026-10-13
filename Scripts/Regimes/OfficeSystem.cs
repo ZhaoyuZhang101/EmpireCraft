@@ -208,7 +208,7 @@ public class OfficeObject
                     var kingdom = (Kingdom) meta_object;
                     if (kingdom != null)
                     {
-                        if (OverallHelperFunc.HasChangeToGiveBirth(officer, kingdom.king))
+                        if (OverallHelperFunc.HasChangeToGiveBirth(officer, kingdom.king) && RoyalHouseSystem.CanBirth(kingdom.king))
                         {
                             BabyMaker.makeBaby(kingdom.king, officer); 
                         } 

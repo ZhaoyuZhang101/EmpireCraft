@@ -349,6 +349,8 @@ public static class ActorExtension
     {
         // 君主资质已定(见 RulerQualitySystem.Assess)
         public bool ruler_assessed;
+        // 君主、储君上次添孩子的时间(见 RoyalHouseSystem.CanBirth)
+        public double last_royal_birth = -1d;
         // 爵位  
         [JsonConverter(typeof(StringEnumConverter))]
         public PeeragesLevel peeragesLevel;

@@ -34,7 +34,8 @@ public class EmpireCraftActorAddLover:GameAIActorBase
                 var cActor = cIdentity._actor;
                 if (cActor != null)
                 {
-                    if (OverallHelperFunc.HasChangeToGiveBirth(cActor, pActor)&&cActor.IsNeedToGiveBirth())
+                    if (OverallHelperFunc.HasChangeToGiveBirth(cActor, pActor)&&cActor.IsNeedToGiveBirth()&&
+                        EmpireCraft.Scripts.GeneralSystems.RoyalHouseSystem.CanBirth(pActor))
                     {
                         BabyMaker.makeBaby(pActor, cActor); 
                         cActor.RecordGiveBirthTime();

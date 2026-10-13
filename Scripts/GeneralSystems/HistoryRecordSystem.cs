@@ -215,6 +215,15 @@ public static class HistoryRecordSystem
             is_republic = RepublicSystem.IsRepublic(empire),
             office_title = RepublicSystem.IsRepublic(empire) ? RepublicSystem.GetHeadOfStateTitle(empire) : ""
         };
+        // 废立、兵变、争位上台的，记下怎么继的位(见 PrinceStruggleSystem.Note)
+        var coreData = empire.CoreKingdom?.GetOrCreate();
+        if (coreData != null)
+        {
+            if (coreData.succession_note_actor == empire.Emperor.data.id)
+                empire.data.currentHistory.succession_note = coreData.succession_note ?? "";
+            coreData.succession_note = "";
+            coreData.succession_note_actor = -1L;
+        }
         ReignRecordSystem.OnReignStart(empire);
         if (RepublicSystem.IsRepublic(empire)) return;
         if (empire.data.has_year_name)

@@ -46,6 +46,7 @@ public static class HaremSuccessionSystem
             if (favourite == null || consort == null) return;
             core.GetOrCreate().designated_heir_id = favourite.id;
             core.SetHeir(favourite);
+            PrinceStruggleSystem.Note(core, favourite, PrinceStruggleSystem.NoteDeposed);
             string text = string.Format(LM.Get("harem_heir_history"), consort.getName(), emperor.getName(),
                 favourite.getName(), passedOver.getName());
             Record(empire, emperor, text);
