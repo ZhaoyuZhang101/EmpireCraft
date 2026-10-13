@@ -138,6 +138,27 @@ public static class FrontSystem
 
     private static List<Kingdom> _atWar = new();
 
+    // 一个月内敌对国一样的国家(同一帝国的成员通常如此)共用一份陆上战线段。以前帝国每个成员都把全部敌城的地块扫一遍，
+    // 几十个成员时月度结算一次卡几百毫秒。跨海登陆点按各国的都城与航线算，不共用
+    private static readonly Dictionary<string, List<Sector>> SectorCache = new();
+
+    private static List<Sector> CachedSectors(Kingdom side)
+    {
+        var key = new global::System.Text.StringBuilder();
+        key.Append(Realm(side).id).Append(':');
+        foreach (Kingdom other in _atWar)
+            if (Hostile(side, other)) key.Append(other.id).Append(',');
+        string signature = key.ToString();
+        if (SectorCache.TryGetValue(signature, out List<Sector> shared))
+        {
+            NavySystem.DesiredLanding.Remove(side.id);
+            return shared;
+        }
+        List<Sector> sectors = Sectors(side);
+        if (!sectors.Any(sector => sector.Landing)) SectorCache[signature] = sectors;
+        return sectors;
+    }
+
     private static List<Sector> Sectors(Kingdom side)
     {
         NavySystem.DesiredLanding.Remove(side.id);
@@ -208,14 +229,17 @@ public static class FrontSystem
                 list.Add((attacker, corps.strength));
             }
         var landingSectors = new Dictionary<long, bool>();
-        foreach (Kingdom kingdom in World.world.kingdoms.ToList())
-        {
-            List<CorpsData> list = kingdom?.data == null || kingdom.isRekt() ? null : kingdom.GetOrCreate().corps;
-            if (list == null || list.Count == 0) continue;
-            Assign(kingdom, list, pressure, landingSectors);
-        }
+        SectorCache.Clear();
+        using (FrameProfiler.Measure("战线·分派"))
+            foreach (Kingdom kingdom in World.world.kingdoms.ToList())
+            {
+                List<CorpsData> list = kingdom?.data == null || kingdom.isRekt() ? null : kingdom.GetOrCreate().corps;
+                if (list == null || list.Count == 0) continue;
+                Assign(kingdom, list, pressure, landingSectors);
+            }
+        SectorCache.Clear();
         Engaged.Clear();
-        Resolve(now, landingSectors);
+        using (FrameProfiler.Measure("战线·交战结算")) Resolve(now, landingSectors);
         foreach (long id in Battles.Where(pair => Date.getMonthsSince(pair.Value.time) > 1).Select(pair => pair.Key).ToList())
             Battles.Remove(id);
     }
@@ -248,12 +272,26 @@ public static class FrontSystem
             }
             return;
         }
-        List<Sector> sectors = Sectors(kingdom);
+        float Threat(City city) => pressure.TryGetValue(city.id, out var entries)
+            ? entries.Where(entry => Hostile(kingdom, entry.attacker)).Sum(entry => entry.strength) : 0f;
+        if (ready.Count == 0)
+        {
+            // 没有能上阵的军(远处留守、都在溃退休整)：不必算战线段；有城受攻就算吃紧(下月扩大动员)
+            if (kingdom.cities?.Any(city => city?.data != null && !city.isRekt() && Threat(city) > 0f) == true)
+                WarScopeSystem.ReportShortfall(kingdom);
+            foreach (CorpsData corps in list)
+            {
+                if (corps.task == "retreat") continue;
+                corps.task = "reserve";
+                corps.sector_city_id = -1L;
+                corps.target_zone_id = HomeZone(corps);
+            }
+            return;
+        }
+        List<Sector> sectors = CachedSectors(kingdom);
         foreach (Sector sector in sectors.Where(sector => sector.Landing)) landingSectors[sector.City.id] = true;
         var assigned = new HashSet<CorpsData>();
         // ① 守城：本国受攻的城按攻势分兵(就近)
-        float Threat(City city) => pressure.TryGetValue(city.id, out var entries)
-            ? entries.Where(entry => Hostile(kingdom, entry.attacker)).Sum(entry => entry.strength) : 0f;
         var threatened = (kingdom.cities ?? new List<City>())
             .Where(city => city?.data != null && !city.isRekt() && Threat(city) > 0f)
             .OrderByDescending(Threat).ToList();

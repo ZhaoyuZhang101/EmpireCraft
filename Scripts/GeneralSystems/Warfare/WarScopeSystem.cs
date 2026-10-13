@@ -97,6 +97,7 @@ public static class WarScopeSystem
 
     private static void Rebuild()
     {
+        using var timing = FrameProfiler.Measure("就近动员·重算");
         Scope.Clear();
         var warring = new List<Kingdom>();
         foreach (Kingdom kingdom in World.world.kingdoms)

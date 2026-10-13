@@ -156,10 +156,10 @@ public static class CorpsSystem
             _lastMonth = now;
             try
             {
-                MonthTick(now);
+                using (FrameProfiler.Measure("军团·月度征召")) MonthTick(now);
                 // 海军先结算：制海权决定这个月的跨海登陆能不能成行(见 FrontSystem)
-                if (!first) NavySystem.MonthTick(now);
-                if (!first) FrontSystem.MonthTick(now);
+                if (!first) using (FrameProfiler.Measure("军团·海军月度")) NavySystem.MonthTick(now);
+                if (!first) using (FrameProfiler.Measure("军团·战线月度")) FrontSystem.MonthTick(now);
             }
             catch (Exception exception)
             {
@@ -170,9 +170,9 @@ public static class CorpsSystem
         if (_lastSecond < 0d || now < _lastSecond || now - _lastSecond >= 1d)
         {
             _lastSecond = now;
-            try { SecondTick(); }
+            try { using (FrameProfiler.Measure("军团·行军")) SecondTick(); }
             catch (Exception exception) { LogService.LogWarning($"[EmpireCraft][军团] 行军失败: {exception.Message}"); }
-            try { NavySystem.SecondTick(); }
+            try { using (FrameProfiler.Measure("军团·航行")) NavySystem.SecondTick(); }
             catch (Exception exception) { LogService.LogWarning($"[EmpireCraft][海军] 航行失败: {exception.Message}"); }
         }
     }
