@@ -158,6 +158,7 @@ public static class RoyalHouseSystem
         try
         {
             PrinceStruggleSystem.Monthly();
+            SuccessionCouncilSystem.Monthly();
             if (++_months % 12 != 0) return;
             if (ModClass.EMPIRE_MANAGER != null)
                 foreach (Empire empire in ModClass.EMPIRE_MANAGER.ToList())

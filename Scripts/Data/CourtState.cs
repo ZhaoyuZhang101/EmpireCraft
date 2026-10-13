@@ -15,6 +15,43 @@ public sealed class CourtState
     // 律令制中央官制所处阶段(han 三公九卿 / tang 三省六部)，变了就重建中央机构
     public string bureau_stage = "";
     public double last_year = -1d;
+    // 议立新君(见 SuccessionCouncilSystem)：皇位空缺、身后无子孙时朝廷议立的进程
+    public CourtSuccession succession;
+}
+
+public sealed class CourtSuccession
+{
+    // 先君的族谱身份
+    public long predecessor = -1L;
+    // -1 待开列 0 已开列人选 1 廷议已毕 2 已定策(待登基)
+    public int stage = -1;
+    public double stage_time = -1d;
+    // 皇族无人可继，改为劝进外姓
+    public bool outsider;
+    public List<CourtSuccessionCandidate> candidates = new();
+    // 派系 id → 拥立的人选序号；派系 id → 廷议权重
+    public Dictionary<string, int> backing = new();
+    public Dictionary<string, float> weights = new();
+    public int chosen = -1;
+    public long chosen_actor = -1L;
+    public string decider = "";
+    public string decider_role = "";
+    public int attempts;
+    // 屡次迎立不成：作罢，照继承法递补
+    public bool gave_up;
+}
+
+public sealed class CourtSuccessionCandidate
+{
+    // 宗室：族谱身份；外姓：单位
+    public long identity = -1L;
+    public long actor = -1L;
+    public string name = "";
+    // elder 立长 / kin 立亲 / worthy 立贤 / young 立幼 / cadet 宗室远支 / minister 权臣 / acclaim 重臣 / commoner 布衣
+    public string basis = "";
+    public int age;
+    // 与先君隔几代(各自往上到共同祖先的代数之和)
+    public int kinship;
 }
 
 public sealed class CourtFactionState

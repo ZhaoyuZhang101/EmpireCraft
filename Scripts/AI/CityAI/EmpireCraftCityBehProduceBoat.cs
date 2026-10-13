@@ -59,7 +59,9 @@ public class EmpireCraftBehCheckBoat: GameAICityBase
         // 运输船(载人跨海建城、运兵)要研究远洋航海；之前码头只造渔船
         if (boatAssetToBuild.boat_type == "boat_type_transport" && !OceanGoing(pCity))
         {
-            boatAssetToBuild = AssetManager.actor_library.get(dock.building.asset.boat_type_fishing);
+            // 有的码头(如部分文化的)没有渔船类型：直接不造(以前拿空键查表，每次抛异常刷日志)
+            string fishing = dock.building.asset.boat_type_fishing;
+            boatAssetToBuild = string.IsNullOrEmpty(fishing) ? null : AssetManager.actor_library.get(fishing);
             if (boatAssetToBuild == null) return (Actor) null;
         }
         if (dock.countBoatTypes(boatAssetToBuild.boat_type) >= 1)

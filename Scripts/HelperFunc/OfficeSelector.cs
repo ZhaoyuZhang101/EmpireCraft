@@ -257,7 +257,7 @@ public static class OfficeSelector
         foreach (Actor unit in targetPool)
         {
             if (LeadsElsewhere(unit, pOffice)) continue;
-            if (unit.isUnitFitToRule() && unit.CanServeOffice(pKingdom) && !unit.IsEmperor() && !unit.IsOnOffice() && unit.hasClan()&& (!unit.isKing()||(unit.isKing()&&unit.kingdom.GetRegime().GetLeaderSelectMethod()!=LeaderSelectMethod.Succession)))
+            if (unit.isUnitFitToRule() && unit.isAdult() && unit.CanServeOffice(pKingdom) && !unit.IsEmperor() && !unit.IsOnOffice() && unit.hasClan()&& (!unit.isKing()||(unit.isKing()&&unit.kingdom.GetRegime().GetLeaderSelectMethod()!=LeaderSelectMethod.Succession)))
             {
                 if (unit.IsSkeleton()) continue;
                 if (unit.HasOfficeIdentity()&&unit.isActor()&&unit.hasCulture())
@@ -302,7 +302,7 @@ public static class OfficeSelector
                 continue;
             }
 
-            if (unit.isKing() || unit.isCityLeader() || unit.IsOnOffice() || !unit.CanServeOffice(pKingdom) || unit.IsSkeleton())
+            if (unit.isKing() || unit.isCityLeader() || unit.IsOnOffice() || !unit.isAdult() || !unit.CanServeOffice(pKingdom) || unit.IsSkeleton())
             {
                 continue;
             }
@@ -344,7 +344,7 @@ public static class OfficeSelector
         {
             foreach (Actor unit in city.units)
             {
-                if (unit.isUnitFitToRule() && unit.CanServeOffice(pKingdom) && !unit.isKing() && !unit.isCityLeader() && unit.hasClan()&&!unit.IsOnOffice() && !unit.IsSkeleton())
+                if (unit.isUnitFitToRule() && unit.isAdult() && unit.CanServeOffice(pKingdom) && !unit.isKing() && !unit.isCityLeader() && unit.hasClan()&&!unit.IsOnOffice() && !unit.IsSkeleton())
                 {
                     if (clan != null && unit.clan == clan)
                     {

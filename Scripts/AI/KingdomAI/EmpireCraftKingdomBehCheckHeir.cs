@@ -94,6 +94,17 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
         if (!allowFallback && start == EmpireHeirLawType.siblings) return (null, "");
         var result = CheckHeir(kingdom, start, law, parent);
         if (result.actor != null || !allowFallback) return result;
+        // 帝国皇位：先君的孙辈仍是直系；子孙都没有、生前又未立储的，交群臣议立(见 SuccessionCouncilSystem)
+        if (SuccessionCouncilSystem.Applies(kingdom))
+        {
+            if (start != EmpireHeirLawType.grand_child_generation)
+            {
+                result = CheckHeir(kingdom, EmpireHeirLawType.grand_child_generation, law, parent);
+                if (result.actor != null) return result;
+            }
+            var council = SuccessionCouncilSystem.Resolve(kingdom, parent);
+            if (council.handled) return (council.actor, council.relation);
+        }
         foreach (EmpireHeirLawType step in new[] { EmpireHeirLawType.siblings, EmpireHeirLawType.grand_child_generation,
                      EmpireHeirLawType.random, EmpireHeirLawType.officer })
         {
@@ -243,12 +254,13 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
             case EmpireHeirLawType.random:
                 if (kingdom.IsEmpire() && ConstitutionalSuccessionSystem.IsProtected(kingdom.GetEmpire()))
                     return (ConstitutionalSuccessionSystem.SelectRoyalHeir(kingdom.GetEmpire()), ConstitutionalSuccessionSystem.SelectionRelation(kingdom.GetEmpire()));
-                // 绝嗣：从宗室里按亲疏找人入继(隔几代找到共同的祖先)，同样亲疏的取十五岁上下的(常立年幼的，引出太后、权臣)
+                // 绝嗣：从宗室里按亲疏找人入继(隔几代找到共同的祖先)，同样亲疏的先立成年的、三十岁上下的
+                // (帝国皇位另由群臣议立，见 SuccessionCouncilSystem)
                 candidates = parent._specificClan?.SnapshotPeople() ?? Enumerable.Empty<PersonalClanIdentity>();
                 Dictionary<long, int> ancestors = Ancestors(parent);
                 candidates = candidates.Where(person => IsEligibleRelative(person, parent, allowFemale))
-                    .OrderBy(person => Kinship(person, ancestors)).ThenBy(person => Math.Abs(person.age - 15))
-                    .ThenBy(person => person.id);
+                    .OrderBy(person => Kinship(person, ancestors)).ThenByDescending(person => person.age >= 18)
+                    .ThenBy(person => Math.Abs(person.age - 30)).ThenBy(person => person.id);
                 relation = LM.Get("heir_relation_collateral");
                 break;
             case EmpireHeirLawType.officer:
@@ -258,6 +270,26 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
             default: return (null, relation);
         }
         return (Pick(kingdom, candidates, parent, out _), relation.ColorString(pColor: new Color(0.3f, 0.3f, 0.9f)));
+    }
+
+    // 议立新君的宗室人选池：先君以外、可以继位的宗亲(兄弟、叔侄、族人)，附亲疏(隔几代)
+    public static List<(PersonalClanIdentity person, int kinship)> CollateralPool(Kingdom kingdom, PersonalClanIdentity parent)
+    {
+        var result = new List<(PersonalClanIdentity, int)>();
+        if (kingdom == null || parent == null) return result;
+        bool allowFemale = PersonalUnionService.AllowsFemaleSuccession(kingdom);
+        Dictionary<long, int> ancestors = Ancestors(parent);
+        var people = new Dictionary<long, PersonalClanIdentity>();
+        foreach (var pair in SpecificClanManager.GetSiblingsWithRelation(parent))
+            if (pair.Item2 != null) people[pair.Item2.id] = pair.Item2;
+        IEnumerable<PersonalClanIdentity> clan = parent._specificClan?.SnapshotPeople() ?? Enumerable.Empty<PersonalClanIdentity>();
+        SpecificClan royal = kingdom.IsEmpire() ? kingdom.GetEmpire()?.EmpireSpecificClan : null;
+        if (royal != null && royal != parent._specificClan) clan = clan.Concat(royal.SnapshotPeople());
+        foreach (PersonalClanIdentity person in clan)
+            if (person != null) people[person.id] = person;
+        foreach (PersonalClanIdentity person in people.Values)
+            if (IsEligibleRelative(person, parent, allowFemale)) result.Add((person, Kinship(person, ancestors)));
+        return result;
     }
 
     // 出生先后(生日"11,062年5月20日")；解析不了按编号

@@ -2082,6 +2082,7 @@ public static class KingdomExtension
             ed.saved_regime_options = null;
         }
         k.SetRegime(regime);
+        if (k.IsEmpire()) k.EnsureHereditaryThrone();
         if (k.IsEmpire())
         {
             var empire = k.GetEmpire();
@@ -2130,6 +2131,20 @@ public static class KingdomExtension
         loaded.SetAllowDiplomacy(diplomacy);
         if (method != LeaderSelectMethod.Default) loaded.SetLeaderSelectMethod(method);
         return true;
+    }
+
+    // 帝国核心的君主世袭：律令制模板的"科举选任"是给州郡长官的，周制改律令制等重载政体模板时核心也被套上，
+    // 皇帝驾崩后就跳过宗室继承、像选官一样从官员里挑人(常常挑到外姓、孩子)，一代换一个姓。君主制政体本身
+    // 规定世袭的，核心的选任方式是科举时改回世袭；选举、举能等别的方式不动
+    private static readonly HashSet<long> RepairedThrones = new();
+    public static void EnsureHereditaryThrone(this Kingdom k)
+    {
+        Regime regime = k?.GetRegime();
+        if (regime?.options == null || regime.leader_select_method != LeaderSelectMethod.Succession ||
+            !RegimeManager.IsMonarchy(regime.type) || regime.GetLeaderSelectMethod() != LeaderSelectMethod.Exam) return;
+        regime.SetLeaderSelectMethod(LeaderSelectMethod.Succession);
+        if (RepairedThrones.Add(k.id))
+            NeoModLoader.services.LogService.LogInfo($"[EmpireCraft][继承] {k.name} 的君主选任方式被误设为科举，已改回世袭");
     }
 
     // 旧存档(没存过政体选项)：读档时政体已按模板重建，州郡、封国被判成了军府。按封号还原：

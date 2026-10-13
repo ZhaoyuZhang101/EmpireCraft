@@ -166,7 +166,7 @@ public static class MarketSystem
         data.siege_famine_months = 0;
         city.joinAnotherKingdom(besieger, true);
         if (city.kingdom == oldOwner) return;
-        EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventMessage(
+        EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventOnly(
             string.Format(NeoModLoader.General.LM.Get("siege_famine_surrender"), cityName, besieger.GetKingdomName()),
             besieger);
     }

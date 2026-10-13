@@ -59,12 +59,15 @@ public static class EmperorMarkerRenderer
         _root.anchorMax = Vector2.one;
         _root.offsetMin = Vector2.zero;
         _root.offsetMax = Vector2.zero;
-        _root.SetAsFirstSibling();
+        _root.SetAsLastSibling();
     }
 
     internal static void HostLateUpdate()
     {
         using var timing = FrameProfiler.Measure("纯净地图·皇帝标记");
+        // 铭牌是后来加进地名画布的：保持皇帝标记在最上层，画在铭牌上面
+        if (_root != null && _root.parent != null && _root.GetSiblingIndex() != _root.parent.childCount - 1)
+            _root.SetAsLastSibling();
         int used = 0;
         Hits.Clear();
         if (PureMapMode.Enabled && World.world?.camera != null && CanvasMain.instance?.canvas_map_names != null &&

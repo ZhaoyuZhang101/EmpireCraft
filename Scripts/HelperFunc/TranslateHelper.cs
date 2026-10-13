@@ -221,7 +221,17 @@ namespace EmpireCraft.Scripts.HelperFunc
         }
         // 系统事件：发一条世界消息（不再弹屏幕中央提示）。记入史书由调用方负责——大部分调用点
         // 在此之前已经 RecordHistory 过了，这里不重复记录。
+        // 世界日志里的事件也写进这国所属帝国的史书(已经写过同一句的不重复写；独立王国没有史书)
         public static void LogEventMessage(string content, Kingdom kingdom = null)
+        {
+            LogEventOnly(content, kingdom);
+            if (string.IsNullOrWhiteSpace(content) || kingdom?.data == null || kingdom.isRekt()) return;
+            EmpireCraft.Scripts.Layer.Empire empire = kingdom.GetEmpire();
+            if (empire?.data != null && !empire.isRekt()) empire.RecordHistory(directContent: content);
+        }
+
+        // 只进世界日志、不进史书：太频繁的事(市场缺货、发现矿藏、借国债、任命统帅、理念传播之类)
+        public static void LogEventOnly(string content, Kingdom kingdom = null)
         {
             if (string.IsNullOrWhiteSpace(content)) return;
             new WorldLogMessage(EmpireCraftWorldLogLibrary.empirecraft_event_log, content)

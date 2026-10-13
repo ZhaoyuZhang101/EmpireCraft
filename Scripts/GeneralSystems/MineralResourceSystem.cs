@@ -288,7 +288,7 @@ public static class MineralResourceSystem
             data.deposit_depleted_at[id] = World.world.getCurWorldTime();
             try
             {
-                EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventMessage(
+                EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventOnly(
                     string.Format(NeoModLoader.General.LM.Get("deposit_depleted"), city.GetCityName(),
                         NeoModLoader.General.LM.Get(id), Reserves(id).cooldown), city.kingdom);
             }

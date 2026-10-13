@@ -26,7 +26,8 @@ public static class PrinceStruggleSystem
     private const float DeposeChance = 0.03f, CoupChance = 0.015f, ContestChance = 0.35f;
     private const int PendingMonths = 6;
 
-    public const string NoteDeposed = "deposed", NoteCoup = "coup", NoteStrife = "strife", NotePalaceCoup = "palace_coup";
+    public const string NoteDeposed = "deposed", NoteCoup = "coup", NoteStrife = "strife", NotePalaceCoup = "palace_coup",
+        NoteUsurp = "usurp", NoteMilitaryCoup = "military_coup", NoteCourtChoice = "court_choice", NoteAcclaimed = "acclaimed";
 
     private static readonly Dictionary<long, (double at, float severity)> Contests = new();
 

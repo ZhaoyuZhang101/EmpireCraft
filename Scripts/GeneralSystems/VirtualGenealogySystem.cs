@@ -318,6 +318,22 @@ public static class VirtualGenealogySystem
         {
             LogService.LogWarning($"[EmpireCraft][虚拟族谱] 同步年龄失败: {exception.Message}");
         }
+        finally
+        {
+            RefreshAgeState(actor);
+        }
+    }
+
+    public static void RefreshAgeState(Actor actor)
+    {
+        try
+        {
+            if (actor?.data != null && !actor.isRekt()) actor.calcAgeStates();
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft][虚拟族谱] 刷新成年状态失败: {exception.Message}");
+        }
     }
 
     private static Actor RealActor(long identityId)
@@ -565,9 +581,14 @@ public static class VirtualGenealogySystem
         if (heir == null && clan != null) heir = PickHeir(clan.SnapshotPeople(), null);
         Actor actor = heir?.Realize();
         if (actor != null || clan == null || kingdom.capital == null) return actor;
+        return SpawnCadet(kingdom, clan);
+    }
 
-        // 宗室旁支入继
-        actor = CityPopulationSystem.SpawnOfficial(kingdom.capital, kingdom);
+    // 宗室旁支入继：从都城人口中认一位宗室远支，编入皇族、改用皇族的姓
+    public static Actor SpawnCadet(Kingdom kingdom, SpecificClan clan)
+    {
+        if (kingdom?.capital == null || clan == null) return null;
+        Actor actor = CityPopulationSystem.SpawnOfficial(kingdom.capital, kingdom);
         if (actor == null) return null;
         try
         {

@@ -2020,6 +2020,7 @@ public static class CityPopulationSystem
             VirtualGenealogySystem.SetAge(actor, age);
             for (int guard = 0; !actor.isAdult() && guard < 20; guard++)
                 VirtualGenealogySystem.SetAge(actor, ++age);
+            VirtualGenealogySystem.RefreshAgeState(actor);
         }
         catch (Exception exception)
         {

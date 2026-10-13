@@ -141,7 +141,7 @@ public static class StateDebtSystem
         if (borrowed <= 0L) return;
         AddKingdomMoney(kingdom, borrowed, TreasuryCategory.Borrowing);
         FiscalDiagnostics.Count("国家举债");
-        TranslateHelper.LogEventMessage(string.Format(LM.Get("state_debt_borrowed"), kingdom.GetKingdomName(),
+        TranslateHelper.LogEventOnly(string.Format(LM.Get("state_debt_borrowed"), kingdom.GetKingdomName(),
             MoneyDisplay.Format(borrowed), rate), kingdom);
     }
 

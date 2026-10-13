@@ -150,7 +150,7 @@ public static class WarCommandSystem
 
     private static void Announce(Kingdom kingdom, Actor actor, string title, string logKey)
     {
-        TranslateHelper.LogEventMessage(string.Format(LM.Get(logKey), kingdom.GetKingdomName(), actor.getName(), title), kingdom);
+        TranslateHelper.LogEventOnly(string.Format(LM.Get(logKey), kingdom.GetKingdomName(), actor.getName(), title), kingdom);
         actor.RecordPersonalHistory(string.Format(LM.Get("personal_history_war_commander"), kingdom.GetKingdomName(), title));
     }
 

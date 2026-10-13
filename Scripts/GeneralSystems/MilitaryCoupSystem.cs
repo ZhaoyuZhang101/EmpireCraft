@@ -127,6 +127,7 @@ public static class MilitaryCoupSystem
         string newName = seat != null && seat.hasTitle() ? seat.GetTitle()?.data?.name : null;
         string place = (seat ?? general.city ?? capital).GetCityName();
         state.last_coup_at = World.world.getCurWorldTime();
+        PrinceStruggleSystem.Note(core, general, PrinceStruggleSystem.NoteMilitaryCoup);
         if (former != null && former.id != general.id) core.removeKing();
         general.joinCity(capital);
         general.setKingdom(core);

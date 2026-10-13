@@ -23,6 +23,7 @@ public static class CourtPanel
         if (parent == null || !CourtSystem.Applies(empire)) return;
         CourtState state = CourtSystem.State(empire);
         List<FixedFaction> factions = CourtSystem.Factions(empire);
+        RenderSuccession(parent, empire, state, factions, width, refresh);
         RenderMemorial(parent, empire, state, factions, width, refresh);
         RenderFactions(parent, empire, state, factions, width);
     }
@@ -33,6 +34,55 @@ public static class CourtPanel
         color.a = 1f;
         return color;
     }
+
+    #region 议立新君
+
+    // 皇位空缺、群臣议立期间：人选(立亲/立长/立贤/立幼或劝进)、各派拥立与廷议支持、定策者，每位人选一个钦定按钮
+    private static void RenderSuccession(AutoVertLayoutGroup parent, Empire empire, CourtState state,
+        List<FixedFaction> factions, float width, Action refresh)
+    {
+        CourtSuccession council = state.succession;
+        if (council == null || council.gave_up || council.stage < 0 || council.candidates == null) return;
+        float inner = width - 12f;
+        string header = string.Format(LM.Get(council.outsider ? "court_succession_header_acclaim" : "court_succession_header"),
+            LM.Get("court_succession_stage_" + council.stage));
+        var card = parent.BeginCard(width, LM.Get("court_succession_title"), "#E05A4F", header, "ui/icons/iconKings");
+        for (int i = 0; i < council.candidates.Count; i++)
+        {
+            CourtSuccessionCandidate candidate = council.candidates[i];
+            bool chosen = council.stage >= 2 && council.chosen == i;
+            var row = card.BeginHoriGroup(new Vector2(inner, 12f), TextAnchor.MiddleLeft, 3, new RectOffset(0, 0, 0, 0));
+            string name = SuccessionCouncilSystem.Describe(candidate);
+            if (chosen) name = name.ColorString("#F3C34A");
+            float textWidth = council.stage < 2 ? inner - 40f : inner;
+            SimpleText text = row.AddTextIntoHoriLayout(name, true, TextAnchor.MiddleLeft, new Vector2(textWidth, 12f));
+            text.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
+            HoverMarqueeText.Attach(text);
+            if (council.stage < 2)
+            {
+                int index = i;
+                row.AddButtonIntoHoriLayout($"court_succession_god_{i}", LM.Get("court_succession_god"), () =>
+                {
+                    if (SuccessionCouncilSystem.GodChoose(empire, index)) refresh?.Invoke();
+                }, size: new Vector2(36f, 11f));
+            }
+            if (council.stage < 1) continue;
+            var backers = factions.Where(faction => council.backing.TryGetValue(faction.GetID(), out int backed) && backed == i)
+                .Select(faction => faction.Name.ColorString(pColor: FactionColor(faction))).ToList();
+            string line = backers.Count == 0 ? LM.Get("court_succession_nobody")
+                : string.Format(LM.Get("court_succession_backers"), string.Join("、", backers),
+                    Mathf.RoundToInt(SuccessionCouncilSystem.Support(council, i)));
+            AddLine(card, inner, "    " + line.ColorString("#C8C2B4"), 6);
+        }
+        (Actor decider, string role) = council.stage >= 2
+            ? (null, council.decider_role)
+            : SuccessionCouncilSystem.Decider(empire);
+        string deciderName = council.stage >= 2 ? council.decider : decider?.getName() ?? "";
+        AddLine(card, inner, string.Format(LM.Get("court_succession_decider"),
+            LM.Get("court_succession_decider_" + role), deciderName).ColorString("#8FA0A8"), 6);
+    }
+
+    #endregion
 
     #region 当前奏议
 

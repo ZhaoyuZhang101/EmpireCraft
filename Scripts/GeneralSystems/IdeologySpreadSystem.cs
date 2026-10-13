@@ -128,7 +128,7 @@ public static class IdeologySpreadSystem
         int changed = IdeologyPopulationSystem.IntroduceToCulture(culture, ideology);
         if (changed <= 0) return; // 暂无读者或未说服任何人时，接触度保留在门槛，下一次继续。
         state.ideology_exposure[key] = -1f;
-        TranslateHelper.LogEventMessage(string.Format(LM.Get("ideology_spread_log"),
+        TranslateHelper.LogEventOnly(string.Format(LM.Get("ideology_spread_log"),
             PartySystem.GetIdeologyName(ideology), culture.GetCultureTranslate()));
     }
 }

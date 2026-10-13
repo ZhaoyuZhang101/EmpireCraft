@@ -3207,6 +3207,9 @@ public class Empire : MetaObject<EmpireData>
         return IsValidRegencyCandidate(wife) && wife.isSexFemale() ? wife : null;
     }
 
+    // 议立新君的定策者：皇位空缺时先帝的皇后即太后(见 SuccessionCouncilSystem)
+    public Actor GetEmpressDowagerForCouncil() => GetPreviousEmperorWife();
+
     private Actor GetPreferredEmpressDowager(out bool isFormerEmpress)
     {
         Actor formerEmpress = GetPreviousEmperorWife();
@@ -3851,6 +3854,7 @@ public class Empire : MetaObject<EmpireData>
         actor.setKingdom(coreKingdom);
         // This path has its own influence-based opposition, not the generic dynasty-change rebellion.
         _completingMinisterUsurpation = true;
+        EmpireCraft.Scripts.GeneralSystems.PrinceStruggleSystem.Note(coreKingdom, actor, EmpireCraft.Scripts.GeneralSystems.PrinceStruggleSystem.NoteUsurp);
         try { coreKingdom.setKing(actor); }
         finally { _completingMinisterUsurpation = false; }
         data.directPre = "";

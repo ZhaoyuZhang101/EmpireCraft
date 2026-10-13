@@ -46,7 +46,7 @@ public class EmpireCraftKingdomBehCheckKing : GameAIKingdomBase
         {
             EmpireCraftKingdomBehCheckHeir.PrepareForSuccession(pKingdom);
             // 无小人模式：实体族人里没有继承人时，从虚拟族谱里落成一位(见 VirtualGenealogySystem.RealizeHeir)
-            if (!pKingdom.HasHeir())
+            if (!pKingdom.HasHeir() && !SuccessionCouncilSystem.InSession(pKingdom))
             {
                 Actor virtualHeir = VirtualGenealogySystem.RealizeHeir(pKingdom);
                 if (virtualHeir != null) pKingdom.SetHeir(virtualHeir);
@@ -83,6 +83,8 @@ public class EmpireCraftKingdomBehCheckKing : GameAIKingdomBase
     public static bool NeedSuccession(Kingdom pKingdom)
     {
         if (pKingdom.IsEmpire() && ConstitutionalSuccessionSystem.IsProtected(pKingdom.GetEmpire())) return true;
+        // 帝国核心的君主世袭(旧档改制时被重置成"科举选任"的修回来，见 EnsureHereditaryThrone)
+        if (pKingdom.IsEmpire()) pKingdom.EnsureHereditaryThrone();
         Regime regime = pKingdom.GetRegime();
         if (regime == null) return false;
         var method = regime.GetLeaderSelectMethod();
