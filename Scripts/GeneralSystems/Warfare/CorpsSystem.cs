@@ -409,8 +409,10 @@ public static class CorpsSystem
         bool near = only == null && WarScopeSystem.InScope(Home(corps) ?? World.world.cities.get(corps.home_city_id));
         for (int attempt = 0; taken < need && attempt < 12; attempt++)
         {
+            // 就近的几座城抽完了：只从动员范围里的城再抽；举国总动员、奉诏出征才从全国抽(不再远距离征召)
             City source = only ?? (attempt < nearby.Count ? nearby[attempt]
-                : near ? WarScopeSystem.DrawSource(kingdom) : CityPopulationSystem.DrawKingdomCity(kingdom));
+                : near ? CityPopulationSystem.DrawKingdomCity(kingdom, WarScopeSystem.InScope)
+                : WarScopeSystem.Unbounded(kingdom) ? CityPopulationSystem.DrawKingdomCity(kingdom) : null);
             PopGroup group = source == null ? null
                 : CityPopulationSystem.DrawBackground(source, candidate => candidate.Background >= 1f);
             if (group == null) break;

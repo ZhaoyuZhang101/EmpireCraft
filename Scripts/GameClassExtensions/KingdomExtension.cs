@@ -269,6 +269,8 @@ public static class KingdomExtension
         // 就近动员(见 WarScopeSystem)：吃紧升级(0 就近、1 扩大、2 举国)、连续没吃紧的月数、为哪几场仗出征
         public int war_mobilization_level;
         public int war_calm_months;
+        // 战事吃紧了几个月(吃紧加一、缓和减一，见 WarScopeSystem.MonthTick)
+        public int war_pressure_months;
         public List<long> expedition_wars;
         // 战时统帅(见 WarCommandSystem)：人与官名的本地化键(拜将时按时代、文化、战争性质定下)
         public long war_commander_id = -1L;

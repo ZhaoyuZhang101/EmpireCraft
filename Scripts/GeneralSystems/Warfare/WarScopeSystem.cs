@@ -13,8 +13,10 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 只有离敌境近的城(城心到最近的敌城不超过 NearDistance 格，或城里有地块被敌军占着)按战时兵额征兵，
 //     兵员也先从这些城抽；远处的城照太平时的常备兵额，那里的军留守驻地，不开赴前线；
 //     与敌国不接壤(跨海)时，从离敌城最近的一座城出兵；谋划开战时只有谋划的国家在朝向目标国的一侧集结；
-//   · 打不过了逐级扩大：本国有城被敌军占着，或受攻的城分不出足够守军，每月升一级——
-//     一级：范围翻倍，京师禁军出征；二级：举国总动员。连续三个月没吃紧降一级，太平时归零；
+//   · 打不过了逐级扩大：本国有城被敌军占着，或受攻的城分不出足够守军，算吃紧(吃紧一个月加一、缓和一个月减一)——
+//     一级：吃紧满四个月，范围翻倍，京师禁军出征；二级：吃紧满一年、而且确实危急(都城被占，或三成以上的城有地块被占)，
+//     举国总动员。连续三个月没吃紧降一级，太平时归零(以前吃紧一个月就升一级，打仗总有地块被占，第二个月就举国总动员、
+//     远方的军开往前线)；
 //   · 远方的援军走决议或中央命令："出征"的国家(求援、驰援邻省、发兵勤王决议通过，或奉中央诏令)至少按一级动员，
 //     军队可以开往任何战线；中央吃紧(一级以上)时诏令听命于中央、随中央参战的成员出征。
 public static class WarScopeSystem
@@ -22,6 +24,9 @@ public static class WarScopeSystem
     private const float NearDistance = 75f;
     public const int Wider = 1, Total = 2;
     private const int CalmMonthsToEase = 3;
+    // 吃紧几个月扩大一级、几个月才举国总动员；总动员还要确实危急(三成以上的城有地块被占，或都城被占)
+    private const int WiderMonths = 4, TotalMonths = 12;
+    private const float SevereShare = 0.3f;
 
     private static readonly HashSet<long> Scope = new();
     private static readonly HashSet<long> Shortfall = new();
@@ -83,10 +88,6 @@ public static class WarScopeSystem
         }
         return Scope.Contains(city.id);
     }
-
-    // 征兵先从就近动员的城抽，抽不到再从全国抽
-    public static City DrawSource(Kingdom kingdom) =>
-        CityPopulationSystem.DrawKingdomCity(kingdom, InScope) ?? CityPopulationSystem.DrawKingdomCity(kingdom);
 
     private static War Alive(War war) => war?.data != null && war.isAlive() && !war.hasEnded() ? war : null;
 
@@ -171,6 +172,7 @@ public static class WarScopeSystem
         {
             data.war_mobilization_level = 0;
             data.war_calm_months = 0;
+            data.war_pressure_months = 0;
             data.expedition_wars?.Clear();
             Shortfall.Remove(kingdom.id);
             return;
@@ -181,12 +183,22 @@ public static class WarScopeSystem
         if (losing)
         {
             data.war_calm_months = 0;
-            data.war_mobilization_level = Math.Min(Total, before + 1);
+            data.war_pressure_months++;
+            int cities = kingdom.cities?.Count ?? 0;
+            bool severe = Occupied(kingdom.capital) ||
+                          cities > 0 && kingdom.cities.Count(Occupied) >= Math.Max(2, Mathf.CeilToInt(cities * SevereShare));
+            int target = data.war_pressure_months >= TotalMonths && severe ? Total
+                : data.war_pressure_months >= WiderMonths ? Wider : 0;
+            data.war_mobilization_level = Math.Max(before, target);
         }
-        else if (before > 0 && ++data.war_calm_months >= CalmMonthsToEase)
+        else
         {
-            data.war_calm_months = 0;
-            data.war_mobilization_level = before - 1;
+            data.war_pressure_months = Math.Max(0, data.war_pressure_months - 1);
+            if (before > 0 && ++data.war_calm_months >= CalmMonthsToEase)
+            {
+                data.war_calm_months = 0;
+                data.war_mobilization_level = before - 1;
+            }
         }
         if (data.war_mobilization_level != before)
         {
