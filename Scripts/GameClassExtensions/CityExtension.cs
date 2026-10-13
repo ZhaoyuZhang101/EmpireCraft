@@ -196,6 +196,8 @@ public static class CityExtension
     {
         if (!EmpireCraft.Scripts.GameLibrary.EmpireCraftWorldLawLibrary.empirecraft_law_switch_occupy_mode.isEnabled())
             return;
+        // 虚拟部队(军团)模式：战线只随军团一格一格推进，占领区不自行扩散(见 FrontSystem)
+        if (EmpireCraft.Scripts.GeneralSystems.CorpsSystem.Enabled) return;
         if (city?.data == null || city.isRekt() || city.kingdom == null || city.kingdom.isRekt()) return;
         CityExtraData data = city.GetOrCreate();
         if (data.OccupiedStatus == null || data.OccupiedStatus.All(pair => pair.Value == null || pair.Value.Count == 0))
@@ -291,6 +293,9 @@ public static class CityExtension
         {
             return;
         }
+
+        // 虚拟部队(军团)模式：不连片扩张，也不整城归降(民心归附只是不派团练抵抗，见 FrontSystem.Militia)
+        if (EmpireCraft.Scripts.GeneralSystems.CorpsSystem.Enabled) return;
 
         Kingdom defender = city.kingdom;
         bool defenderKingDead = city.IsOccupationKingDeathAdvantage(defender);

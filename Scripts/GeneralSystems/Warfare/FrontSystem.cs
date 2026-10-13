@@ -17,8 +17,10 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //      登陆头一个月攻方战力 ×0.7；
 //   ② 分派：各国先按上月敌军的攻势分兵守城，余下的军集中攻打一两段；组织度太低的军回乡休整；
 //   ③ 交战：攻方(兵力×组织度×火力) 对 守方(兵力×组织度×火力×(1.25+堑壕)，无军驻守时由团练抵抗)，
-//      双方按战况伤亡、掉组织度；攻方占优就沿战线连片占领 1~4 块地块(沿用地块占领模式，满城即陷落)，
-//      守方占优就夺回一块；守军还在时城中最后一块地不会丢；组织度归零的军溃退。
+//      双方按战况伤亡、掉组织度；攻方占优就占领一块紧挨着进攻军团的地块，离它最近的进攻军团随即进驻
+//      (一格一格推进，部队没到的地方战线不动；沿用地块占领模式，满城即陷落)，守方占优就夺回守军身边的一块；
+//      守军还在时城中最后一块地不会丢；组织度归零的军溃退。占领区的年度扩散、正统扩张在军团模式下都不生效
+//      (见 CityExtension.TryYearlyOccupationSpread、TrySpreadOccupiedZonesByMandate)。
 //      地形(见 TerrainSystem)看攻方要推进的那块地：攻方战力打折、双方额外掉组织度、限制每月推进的块数。
 // 军团须开到战线附近(两块地块以内)才参战。
 // 叛乱初起时被叛方有集结期(见 MusterSystem)：不反攻、只有附近的军能守城、守方战力打折。
@@ -522,7 +524,7 @@ public static class FrontSystem
             var retakers = holders.Where(entry => entry.corps.task == "attack").ToList();
             if (retakers.Count == 0) return;
             Kingdom lead = retakers.OrderByDescending(entry => entry.corps.strength).First().kingdom;
-            int retaken = Retake(city, lead, 2);
+            int retaken = Retake(city, lead, 1, retakers.Select(entry => entry.corps));
             foreach (var entry in retakers) Engaged.Add(entry.corps.id);
             if (retaken > 0) Record(city, lead, owner, 1f, retakers.Sum(entry => entry.corps.strength), 0f, retaken, now);
             return;
@@ -573,8 +575,9 @@ public static class FrontSystem
         int taken = 0;
         if (ratio >= 0.55f)
         {
-            int zones = Mathf.Min(ground.MaxAdvance, ratio >= 0.9f ? 4 : ratio >= 0.75f ? 3 : ratio >= 0.65f ? 2 : 1);
-            taken = Advance(city, attacker, zones, standing, landing);
+            int zones = Mathf.Min(ground.MaxAdvance, 1);
+            taken = Advance(city, attacker, zones, standing, landing,
+                attackers.Where(entry => entry.kingdom == attacker).Select(entry => entry.corps).ToList());
             if (city.kingdom != owner)
             {
                 Log(attacker, string.Format(LM.Get("corps_log_city_taken"), city.GetCityName(), attacker.GetKingdomName()));
@@ -584,7 +587,7 @@ public static class FrontSystem
         else if (ratio <= 0.4f && standing)
         {
             Kingdom lead = holders.OrderByDescending(entry => entry.corps.strength).First().kingdom;
-            Retake(city, lead, 1);
+            Retake(city, lead, 1, holders.Select(entry => entry.corps));
         }
         Record(city, attacker, owner, ratio, attackStrength, holdStrength + militia, taken, now, terrain);
     }
@@ -600,8 +603,9 @@ public static class FrontSystem
                 .Count(neighbour => Friendly(attacker, Controller(neighbour)))).FirstOrDefault() ?? center;
     }
 
-    // 攻方沿战线占领地块；守军还在时留下城中最后一块
-    private static int Advance(City city, Kingdom attacker, int count, bool defended, bool landing)
+    // 攻方占领紧挨着进攻军团的地块(部队没到的地方不推进)；占下后离它最近的进攻军团进驻。守军还在时留下城中最后一块
+    private static int Advance(City city, Kingdom attacker, int count, bool defended, bool landing,
+        List<CorpsData> spearheads)
     {
         Kingdom owner = city.kingdom;
         int taken = 0;
@@ -609,6 +613,7 @@ public static class FrontSystem
         {
             List<TileZone> targets = TargetZones(attacker, city);
             if (targets.Count == 0 && landing) targets = LandingZones(city).Where(zone => Hostile(attacker, Controller(zone))).ToList();
+            targets = targets.Where(candidate => Beside(spearheads, candidate)).ToList();
             if (targets.Count == 0) break;
             int remaining = city.zones.Count(zone => zone != null && !Friendly(attacker, Controller(zone)) &&
                                                      !TerrainSystem.Impassable(zone));
@@ -623,10 +628,22 @@ public static class FrontSystem
             bool ok = city.AddOccupiedTileZone(occupier, zone, landing: true);
             if (!ok) break;
             taken++;
+            CorpsData lead = spearheads.Where(corps => CorpsSystem.ZoneDistance(CorpsSystem.Zone(corps), zone) <= 1f)
+                .OrderBy(corps => CorpsSystem.ZoneDistance(CorpsSystem.Zone(corps), zone))
+                .ThenByDescending(corps => corps.strength).FirstOrDefault();
+            if (lead != null)
+            {
+                lead.zone_id = zone.id;
+                lead.march_progress = 0f;
+            }
         }
         SweepImpassable(city, attacker, owner);
         return taken;
     }
+
+    // 地块紧挨着(或就是)其中一支军团的所在地
+    private static bool Beside(IEnumerable<CorpsData> corps, TileZone zone) =>
+        zone != null && corps != null && corps.Any(entry => CorpsSystem.ZoneDistance(CorpsSystem.Zone(entry), zone) <= 1f);
 
     // 城里能走到的地都占了，剩下的高山随城陷落(军团进不去，否则这座城永远打不下)
     private static void SweepImpassable(City city, Kingdom attacker, Kingdom owner)
@@ -644,14 +661,16 @@ public static class FrontSystem
         }
     }
 
-    // 守方(或收复的一方)夺回本城被敌军占去、与己方相连的地块
-    private static int Retake(City city, Kingdom side, int count)
+    // 守方(或收复的一方)夺回本城被敌军占去、与己方相连、紧挨着己方军团的地块
+    private static int Retake(City city, Kingdom side, int count, IEnumerable<CorpsData> near)
     {
         int retaken = 0;
+        List<CorpsData> troops = near?.ToList() ?? new List<CorpsData>();
         for (int i = 0; i < count; i++)
         {
             TileZone zone = city.zones?.FirstOrDefault(candidate => candidate != null &&
                 city.GetTileZoneOccupier(candidate) is Kingdom occupier && Hostile(side, occupier) &&
+                Beside(troops, candidate) &&
                 (candidate.neighbours ?? Array.Empty<TileZone>()).Any(neighbour => Friendly(side, Controller(neighbour))));
             if (zone == null) break;
             if (!city.RemoveOccupiedTileZone(city.GetTileZoneOccupier(zone), zone)) break;
