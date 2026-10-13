@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Threading;
 
 namespace EmpireCraft.Scripts.GeneralSystems;
 
@@ -9,10 +10,15 @@ public static class NativeVegetationScheduler
 {
     private static readonly HashSet<Building> Sleeping = new();
     private static object _world;
+    // 只在主线程改休眠表与原版组件列表(原版并行建筑作业打开时，果实生长的回调会跑在工作线程上)
+    private static int _mainThread = -1;
     public static int SleepingCount => Sleeping.Count;
+
+    private static bool OffMainThread => _mainThread >= 0 && Thread.CurrentThread.ManagedThreadId != _mainThread;
 
     public static void Tick()
     {
+        _mainThread = Thread.CurrentThread.ManagedThreadId;
         if (!ReferenceEquals(_world, World.world))
         {
             Sleeping.Clear();
@@ -23,6 +29,7 @@ public static class NativeVegetationScheduler
 
     public static void Reconcile(Building building)
     {
+        if (OffMainThread) return;
         if (!CityPopulationSystem.AbstractPopulationEnabled && Sleeping.Count == 0) return;
         if (!ReferenceEquals(_world, World.world))
         {
@@ -56,7 +63,10 @@ public static class NativeVegetationScheduler
         }
     }
 
-    public static void Forget(Building building) => Sleeping.Remove(building);
+    public static void Forget(Building building)
+    {
+        if (!OffMainThread) Sleeping.Remove(building);
+    }
 
     public static void Restore()
     {

@@ -192,9 +192,10 @@ public class NativeWorldOptimizationPatch : GamePatch
         BuildingThreads.Clear();
         _mainThread = Thread.CurrentThread.ManagedThreadId;
         _recordBuildingThreads = true;
-        // 只启用原版建筑作业已有的 Parallel 分支；Post 阶段的生长、扩散、地图写回仍在主线程。
-        Config.parallel_jobs_updater = true;
-        BuildingParallelFrames++;
+        // 不再强开原版的并行建筑作业(原版调试选项，默认关)：强开后挂在建筑更新上的补丁(本模组的植物休眠、
+        // WarBox 等别的模组的)都跑在工作线程上，多线程同时改同一个集合会损坏内存，玩一段时间后原生崩溃
+        // (worldbox.exe 在 ntdll.dll 访问冲突 0xc0000005)。按原版设置走
+        if (Config.parallel_jobs_updater) BuildingParallelFrames++;
     }
     public static void AfterBuildings(BuildingScope __state)
     {
