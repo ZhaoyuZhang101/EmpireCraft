@@ -13,7 +13,7 @@ namespace EmpireCraft.Scripts.UI.Components;
 // 画在地名画布上，按屏幕像素定大小。共和国的元首不画。
 public static class EmperorMarkerRenderer
 {
-    private const float Size = 22f, Lift = 18f;
+    private const float Size = 36f, Lift = 26f;
 
     private sealed class Mark
     {
