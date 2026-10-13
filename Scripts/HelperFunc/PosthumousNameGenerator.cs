@@ -28,7 +28,9 @@ namespace EmpireCraft.Scripts.HelperFunc
             ["英"] = "ying", ["神"] = "shen", ["宪"] = "xian", ["肃"] = "su", ["成"] = "cheng", ["穆"] = "mu",
             ["懿"] = "yi", ["德"] = "de", ["宁"] = "ning", ["顺"] = "shun", ["睿"] = "rui", ["定"] = "ding",
             ["庆"] = "qing", ["嘉"] = "jia", ["孝"] = "xiao", ["明"] = "ming", ["徽"] = "hui", ["哲"] = "zhe",
-            ["熙"] = "xi"
+            ["熙"] = "xi", ["章"] = "zhang", ["和"] = "he", ["平"] = "ping", ["显"] = "xian2", ["隆"] = "long",
+            ["敬"] = "jing2", ["襄"] = "xiang", ["惠"] = "hui2", ["简"] = "jian", ["安"] = "an", ["光"] = "guang",
+            ["元"] = "yuan", ["贞"] = "zhen", ["永"] = "yong", ["恭"] = "gong"
         };
 
         private static readonly Dictionary<string, string> ShiKeys = new()
@@ -39,8 +41,34 @@ namespace EmpireCraft.Scripts.HelperFunc
             ["穆"] = "mu", ["简"] = "jian", ["懿"] = "yi", ["成"] = "cheng", ["献"] = "xian", ["末"] = "mo",
             ["哀"] = "ai", ["思"] = "si", ["愍"] = "min", ["殇"] = "shang", ["冲"] = "chong", ["悼"] = "dao",
             ["怀"] = "huai", ["炀"] = "yang", ["幽"] = "you", ["灵"] = "ling", ["厉"] = "li", ["荒"] = "huang",
-            ["戾"] = "li2"
+            ["戾"] = "li2", ["章"] = "zhang", ["和"] = "he", ["平"] = "ping", ["襄"] = "xiang", ["定"] = "ding",
+            ["贞"] = "zhen", ["敬"] = "jing2", ["德"] = "de", ["显"] = "xian2", ["元"] = "yuan", ["肃"] = "su",
+            ["宁"] = "ning", ["僖"] = "xi"
         };
+
+        // 递补用字：某一类的候选在本朝都用过了，就从同一基调里挑本朝没用过的字(一朝之内庙号、谥号尽量不重复)
+        // 庙号：除"高""太"(开国、二世专用)外都可递补
+        private static readonly string[] MiaoFallback = MiaoKeysExceptFounders();
+        private static readonly string[] GoodShi =
+            { "武", "文", "桓", "威", "烈", "庄", "景", "康", "仁", "孝", "明", "宣", "光", "昭", "章", "和", "襄", "定", "贞", "敬", "德", "显", "元", "肃" };
+        private static readonly string[] SteadyShi = { "恭", "惠", "顺", "安", "穆", "简", "懿", "成", "平", "宁", "僖" };
+        private static readonly string[] BadShi = { "炀", "幽", "灵", "厉", "荒", "戾" };
+        private static readonly string[] SadShi = { "哀", "思", "愍", "殇", "冲", "悼", "怀", "献", "末" };
+
+        private static string[] MiaoKeysExceptFounders() =>
+            new[] { "世", "中", "文", "武", "宣", "仁", "圣", "康", "景", "昭", "英", "神", "宪", "肃", "成", "穆", "懿", "德",
+                "宁", "顺", "睿", "定", "庆", "嘉", "孝", "明", "徽", "哲", "熙", "章", "和", "平", "显", "隆", "敬", "襄", "惠",
+                "简", "安", "光", "元", "贞", "永", "恭" };
+
+        // 按首选字的基调取递补字：美谥先美后平、平谥先平后美、恶谥先恶后哀、哀谥先哀后恶
+        private static string[] ShiFallback(string[] chars)
+        {
+            string first = chars.FirstOrDefault() ?? "";
+            if (BadShi.Contains(first)) return BadShi.Concat(SadShi).ToArray();
+            if (SadShi.Contains(first)) return SadShi.Concat(BadShi).ToArray();
+            if (SteadyShi.Contains(first)) return SteadyShi.Concat(GoodShi).ToArray();
+            return GoodShi.Concat(SteadyShi).ToArray();
+        }
 
         private static readonly Random _rng = new();
 
@@ -81,15 +109,17 @@ namespace EmpireCraft.Scripts.HelperFunc
             var result = new Result();
             Result Temple(string suffix, string[] miao, string[] shi, string reason)
             {
-                result.miao = Pick("rule_miaohaoprefixes_", MiaoKeys, miao, usedMiao);
+                // 开国称祖的"高""太"不递补到别的字
+                string[] miaoFallback = miao.Any(c => c is "高" or "太") ? null : MiaoFallback;
+                result.miao = Pick("rule_miaohaoprefixes_", MiaoKeys, miao, usedMiao, miaoFallback);
                 result.miao_suffix = suffix;
-                result.shi = Pick("rule_shihao_", ShiKeys, shi, usedShi);
+                result.shi = Pick("rule_shihao_", ShiKeys, shi, usedShi, ShiFallback(shi));
                 result.reason = reason;
                 return result;
             }
             Result NoTemple(string[] shi, string reason)
             {
-                result.shi = Pick("rule_shihao_", ShiKeys, shi, usedShi);
+                result.shi = Pick("rule_shihao_", ShiKeys, shi, usedShi, ShiFallback(shi));
                 result.reason = reason;
                 return result;
             }
@@ -175,11 +205,16 @@ namespace EmpireCraft.Scripts.HelperFunc
         }
 
         // 候选字按顺序越靠前越贴切：从前三个未用过的里随机；全用过了就在全部候选里随机
+        // 先从这一类的候选里挑本朝没用过的；都用过了从同基调的递补字里挑没用过的；再没有才重复
         private static string Pick(string prefix, Dictionary<string, string> table, string[] chars,
-            HashSet<string> usedText)
+            HashSet<string> usedText, string[] fallback = null)
         {
-            List<string> keys = chars.Where(table.ContainsKey).Select(c => prefix + table[c]).ToList();
+            List<string> Keys(IEnumerable<string> list) =>
+                list.Where(table.ContainsKey).Select(c => prefix + table[c]).Distinct().ToList();
+            List<string> keys = Keys(chars);
             List<string> free = keys.Where(key => !usedText.Contains(LM.Get(key))).Take(3).ToList();
+            if (free.Count == 0 && fallback != null)
+                free = Keys(fallback).Where(key => !usedText.Contains(LM.Get(key))).ToList();
             List<string> pool = free.Count > 0 ? free : keys;
             string chosen = pool[_rng.Next(pool.Count)];
             usedText.Add(LM.Get(chosen));

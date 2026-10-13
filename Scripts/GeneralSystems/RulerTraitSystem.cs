@@ -11,7 +11,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //              对本帝国核心内割据政权的统一战争不受战争年限强制停战(IsFounderUnificationWar)；
 //              控制核心过半后，接壤的割据政权每年可能望风归附(WarlordEraSystem.FounderBandwagon)；
 //              帝国境内不发生叛乱(ModernStability.PassRebellionGate、KingdomExtension.StartLocalRebelling)。
-//   中兴之主 —— 后继皇帝在位时管理(stewardship)达到 RestorerStewardship 即获得(即位时与每年各查一次)。
+//   中兴之主 —— 后继皇帝在位时管理(stewardship)达到 RestorerStewardship、且王朝积弊(周期压力)不低于 RestorerStrain
+//              (先有衰败才谈得上中兴)即获得(即位时与每年各查一次)。
 //              在位期间帝国各城、各国的腐败增长减半(CityExtension/KingdomExtension.AddCorruptionRate)。
 //   中兴雄主 —— 获得中兴之主时有 GreatRestorerChance 的概率同时获得(极品)：在保留中兴之主效果的同时，
 //              享有开国雄主的全部特性(长寿、忠诚、开国气象、统一战争打到底、望风归附、境内无叛乱)。
@@ -23,6 +24,7 @@ public static class RulerTraitSystem
     public const string GreatRestorer = "greatRestorerRuler";
     public const float GreatRestorerChance = 0.2f;
     public const float RestorerStewardship = 12f;
+    public const float RestorerStrain = 35f;
     public const int FounderLoyalty = 20;
     public const double RestorerCorruptionFactor = 0.5;
 
@@ -57,6 +59,8 @@ public static class RulerTraitSystem
             actor.id == empire.data.dynasty_founder_actor_id ||
             actor.hasTrait(Founder) || actor.hasTrait(Restorer) || RulerQualitySystem.IsBad(actor)) return;
         if (actor.stats["stewardship"] < RestorerStewardship) return;
+        // 中兴要先有衰败：王朝积弊(周期压力)不到 RestorerStrain 的只是守成，不算中兴
+        if (DynasticCycleSystem.GetPressure(empire) < RestorerStrain) return;
         actor.addTrait(Restorer);
         // 极品：中兴雄主，享有开国雄主的全部特性
         if (UnityEngine.Random.value < GreatRestorerChance) actor.addTrait(GreatRestorer);
