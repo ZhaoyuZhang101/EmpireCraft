@@ -28,6 +28,10 @@ public class ZonePlanPatch : GamePatch
                 postfix: new HarmonyMethod(typeof(ZonePlanPatch), nameof(AfterIsGoodTile)));
             harmony.Patch(AccessTools.Method(typeof(CityBehBuild), nameof(CityBehBuild.tryToBuildInZones)),
                 prefix: new HarmonyMethod(typeof(ZonePlanPatch), nameof(BeforeTryToBuildInZones)));
+            // 一次建造(选址)期间缓存各城各用途的区块数(见 ZonePlanSystem.Count)
+            harmony.Patch(AccessTools.Method(typeof(CityBehBuild), nameof(CityBehBuild.tryToBuild)),
+                prefix: new HarmonyMethod(typeof(ZonePlanPatch), nameof(BeginBuildSearch)) { priority = Priority.First },
+                finalizer: new HarmonyMethod(typeof(ZonePlanPatch), nameof(EndBuildSearch)) { priority = Priority.Last });
             harmony.Patch(AccessTools.Method(typeof(CityBehBuild), nameof(CityBehBuild.upgradeBuilding)),
                 prefix: new HarmonyMethod(typeof(ZonePlanPatch), nameof(BeforeUpgradeBuilding)));
             harmony.Patch(AccessTools.Method(typeof(City), nameof(City.getLimitOfBuildingsType)),
@@ -38,6 +42,9 @@ public class ZonePlanPatch : GamePatch
             LogService.LogWarning($"[EmpireCraft] 城市规划补丁未生效: {exception.Message}");
         }
     }
+
+    public static void BeginBuildSearch() => ZonePlanSystem.BeginCountCache();
+    public static void EndBuildSearch() => ZonePlanSystem.EndCountCache();
 
     public static void AfterIsGoodTile(WorldTile pTile, BuildingAsset pAsset, City pCity, ref bool __result)
     {

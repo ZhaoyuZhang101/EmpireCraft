@@ -195,12 +195,31 @@ public static partial class ZonePlanSystem
         return cleared;
     }
 
+    // 建造 AI 选址期间(见 ZonePlanPatch)：各城各用途的区块数只数一次。选址要对每个候选地块(连同地基下的每一格)
+    // 问"这城有没有工业区/住宅区"，以前每问一次都把全城区块数一遍，一次选址几十万次查表，建造 AI 单次卡到 100~200 ms。
+    // 选址过程中不改区块用途(扩区只记请求)，缓存不会过期
+    private static readonly Dictionary<(long city, ZoneUse use), int> CountCache = new();
+    private static int _countScope;
+
+    public static void BeginCountCache()
+    {
+        if (_countScope++ == 0) CountCache.Clear();
+    }
+
+    public static void EndCountCache()
+    {
+        if (_countScope > 0 && --_countScope == 0) CountCache.Clear();
+    }
+
     public static int Count(City city, ZoneUse use)
     {
         if (city?.zones == null) return 0;
+        bool cached = _countScope > 0 && city.data != null;
+        if (cached && CountCache.TryGetValue((city.data.id, use), out int hit)) return hit;
         int count = 0;
         foreach (TileZone zone in city.zones)
             if (zone != null && Get(city, zone) == use) count++;
+        if (cached) CountCache[(city.data.id, use)] = count;
         return count;
     }
 

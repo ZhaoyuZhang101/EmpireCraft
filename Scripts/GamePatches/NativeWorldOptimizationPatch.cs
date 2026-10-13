@@ -72,6 +72,9 @@ public class NativeWorldOptimizationPatch : GamePatch
         Profile(harmony, typeof(BatchActors), "u4_deadCheck");
         Profile(harmony, typeof(BatchActors), "u10_checkSmoothMovement");
         // 原版·updateCities 偶有几百毫秒的尖峰：城市自身的几步与城市 AI 各行为(原版与模组的)分别计时，尖峰帧里直接点名
+        harmony.Patch(AccessTools.Method(typeof(MapBox), "Update"),
+            prefix: new HarmonyMethod(typeof(NativeWorldOptimizationPatch), nameof(BeforeMainLoop)) { priority = Priority.First },
+            finalizer: new HarmonyMethod(typeof(NativeWorldOptimizationPatch), nameof(AfterProfile)) { priority = Priority.Last });
         Profile(harmony, typeof(City), "updateCityStatus");
         Profile(harmony, typeof(City), "updateCitizens");
         Profile(harmony, typeof(City), "updateCapture");
@@ -207,6 +210,10 @@ public class NativeWorldOptimizationPatch : GamePatch
         __state = Profiling
             ? FrameProfiler.Measure("原版·" + __originalMethod.Name) : null;
     public static void AfterProfile(FrameProfiler.Scope? __state) => __state?.Dispose();
+
+    // 整个原版主循环(含上面各分项)：帧耗时减去它就是主循环外(渲染提交、别的模组、GC)
+    public static void BeforeMainLoop(out FrameProfiler.Scope? __state) =>
+        __state = Profiling ? FrameProfiler.Measure(FrameProfiler.MainLoopLabel) : null;
 
     // 城市 AI 行为都叫 execute：按类名记(标签缓存，免得每次拼字符串)
     private static readonly Dictionary<MethodBase, string> BehaviourLabels = new();

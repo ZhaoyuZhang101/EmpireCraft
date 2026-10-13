@@ -26,9 +26,12 @@ public static class SimulationFrameBudget
     public static double LastP95Milliseconds { get; private set; }
     public static double LastP99Milliseconds { get; private set; }
 
+    // 慢帧(上一帧超过 25 ms)：按上一帧的 4% 给(1~4 ms)。以前一律 0.5 ms，帧越慢后台越排不上——
+    // 并入普通人这类本来能减负的活也被饿着，实体越积越多，帧更慢(实测 3~10 fps 时一座城几分钟才轮到一次月度结算)
     public static double ResolveMilliseconds(double previousFrameMilliseconds) =>
-        previousFrameMilliseconds >= 33d ? 0.5d : previousFrameMilliseconds >= TargetFrameMilliseconds ? 0.75d :
-        Math.Max(1d, Math.Min(4d, (TargetFrameMilliseconds - previousFrameMilliseconds) * 0.5d));
+        previousFrameMilliseconds >= TargetFrameMilliseconds
+            ? Math.Max(1d, Math.Min(4d, previousFrameMilliseconds * 0.04d))
+            : Math.Max(1d, Math.Min(4d, (TargetFrameMilliseconds - previousFrameMilliseconds) * 0.5d));
 
     public static void BeginFrame()
     {

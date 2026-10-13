@@ -460,7 +460,8 @@ public static class CityPopulationSystem
         if (SimulationFrameBudget.HasTime) VirtualGenealogySystem.Tick();
         if (AbstractPopulationEnabled)
         {
-            if (!_foldsFirst && SimulationFrameBudget.HasTime) TickFolds(world, now);
+            // 预算用完也照样推进(TickFolds 里每帧至少一步)：并入普通人是减负的活，不能被慢帧饿着
+            if (!_foldsFirst) TickFolds(world, now);
         }
         else { PendingFolds.Clear(); _foldCity = null; _foldOwner = null; }
         if (enabled && SimulationFrameBudget.HasTime) TickHomeless();
@@ -1138,8 +1139,12 @@ public static class CityPopulationSystem
         PopulationJurenRanking.Prewarm(PendingFolds);
         PopulationParallelSystem.PrewarmWorkforce(PendingFolds, now);
         Stopwatch watch = Stopwatch.StartNew();
-        while ((_foldCity != null || PendingFolds.Count > 0) && watch.Elapsed.TotalMilliseconds < SliceBudgetMs &&
-               SimulationFrameBudget.HasTime)
+        // 每帧至少推进一步；纯净地图模式(要接近零实体)只看本段时间片，不看全局帧预算
+        int steps = 0;
+        bool pure = PureMapMode.Enabled;
+        while ((_foldCity != null || PendingFolds.Count > 0) &&
+               (steps++ == 0 || watch.Elapsed.TotalMilliseconds < (pure ? SliceBudgetMs * 2d : SliceBudgetMs) &&
+                   (pure || SimulationFrameBudget.HasTime)))
         {
             if (_foldCity == null)
             {
@@ -1369,7 +1374,7 @@ public static class CityPopulationSystem
             if (cache.TryGet(actor.id, now, Date.getMonthsSince, out _)) return false;
             cache.Set(actor.id, now, IsNotable(actor));
             return true;
-        }, () => SimulationFrameBudget.HasTime);
+        }, () => PureMapMode.Enabled || SimulationFrameBudget.HasTime);
         foreach (Actor actor in city.units)
         {
             if (actor?.data == null || actor.isRekt() || !actor.isAlive() || actor.city != city) continue;
@@ -1442,7 +1447,8 @@ public static class CityPopulationSystem
         int reviewed = 0;
         foreach (Actor actor in toFold)
         {
-            if (reviewed++ > 0 && !SimulationFrameBudget.HasTime) break;
+            // 纯净地图模式要接近零实体：并入只受每次上限约束，不看帧预算
+            if (reviewed++ > 0 && !PureMapMode.Enabled && !SimulationFrameBudget.HasTime) break;
             // 缓存期间可能升官、获封或被收藏。真正并入前实时复核，不能把新名人误删。
             if (actor?.data == null || actor.isRekt() || !actor.isAlive() || actor.city != city) continue;
             bool notable = IsNotable(actor);

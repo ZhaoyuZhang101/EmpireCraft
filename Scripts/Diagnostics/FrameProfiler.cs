@@ -67,6 +67,9 @@ public static class FrameProfiler
 
     public static Scope Measure(string label) => new(label);
 
+    // 原版主循环总耗时(MapBox.Update，包含各"原版·"分项，不参与分项相加)
+    public const string MainLoopLabel = "总·原版主循环";
+
     // 每帧由 ModClass.Update 最先调用：结算刚结束的那一帧
     public static void FrameTick()
     {
@@ -114,9 +117,15 @@ public static class FrameProfiler
         SpikeDetail.Append($"\n[EmpireCraft][尖峰帧] {frameMs:0.0} ms：");
         double accounted = 0d;
         int listed = 0;
+        double mainLoop = -1d;
         foreach (KeyValuePair<string, long> pair in ordered)
         {
             double ms = pair.Value * 1000d / Stopwatch.Frequency;
+            if (pair.Key == MainLoopLabel)
+            {
+                mainLoop = ms;
+                continue;
+            }
             accounted += ms;
             if (ms < 1d || listed >= 4) continue;
             listed++;
@@ -126,6 +135,8 @@ public static class FrameProfiler
         double outside = System.Math.Max(0d, frameMs - accounted);
         SpikeDetail.Append(listed == 0 ? $"模组计时段合计 <1 ms，几乎全部在计时段外(原版或 GC)"
             : $"计时段外约 {outside:0.0} ms");
+        if (mainLoop >= 0d)
+            SpikeDetail.Append($"；原版主循环 {mainLoop:0.0} ms，主循环外(渲染、别的模组、GC)约 {System.Math.Max(0d, frameMs - mainLoop):0.0} ms");
     }
 
     public static void Reset()
