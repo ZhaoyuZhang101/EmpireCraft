@@ -241,8 +241,9 @@ public static class ConstitutionalEconomySystem
         // 荒淫之君的宫廷开支；诛外戚
         RulerQualitySystem.Yearly(empire);
         ConsortKinSystem.Yearly(empire);
-        // 禁军宫廷政变
+        // 禁军宫廷政变；后宫争储
         PalaceArmySystem.Yearly(empire);
+        HaremSuccessionSystem.Yearly(empire);
         // 神圣罗马式选帝制：选立储君
         HolyRomanSystem.Yearly(empire);
         EmpireBankruptcySystem.Update(empire, state);

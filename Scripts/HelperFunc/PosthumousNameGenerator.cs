@@ -107,6 +107,18 @@ namespace EmpireCraft.Scripts.HelperFunc
             if (young) return NoTemple(new[] { "殇", "冲" }, "posthumous_reason_young");
             if (reign.ended_alive) return NoTemple(new[] { "哀", "愍", "怀" }, "posthumous_reason_deposed");
             if (years < 2) return NoTemple(new[] { "悼", "怀" }, "posthumous_reason_short");
+            // 君主资质(见 RulerQualitySystem)：暴虐、荒淫、昏聩得恶谥；庸弱而被权臣外戚挟制的得献、哀
+            switch (reign.ruler_grade)
+            {
+                case "Tyrant":
+                    return NoTemple(new[] { "厉", "炀" }, "posthumous_reason_tyrant");
+                case "Dissolute":
+                    return NoTemple(new[] { "炀", "荒", "灵" }, "posthumous_reason_dissolute");
+                case "Fatuous":
+                    return NoTemple(new[] { "灵", "幽", "荒" }, "posthumous_reason_fatuous");
+                case "Weak" when reign.was_controlled:
+                    return NoTemple(new[] { "献", "哀", "愍" }, "posthumous_reason_puppet");
+            }
             if (restorer)
                 return Temple(SuffixZong, new[] { "中", "宪", "世", "宣", "肃" }, new[] { "宣", "光", "昭", "明" },
                     "posthumous_reason_restorer");

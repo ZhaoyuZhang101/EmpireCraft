@@ -243,6 +243,9 @@ public class EmpireCraftHistory
     public bool ended_alive { get; set; }
     public bool ended_dynasty { get; set; }
     public bool restorer { get; set; }
+    // 君主资质(RulerQualitySystem.Grade 的名字)与在位期间是否被权臣、外戚挟制，谥号用
+    public string ruler_grade { get; set; } = "";
+    public bool was_controlled { get; set; }
 
     public List<string> initial_cities = new List<string>();
     public List<HistoryDescription> descriptions =  new List<HistoryDescription>();

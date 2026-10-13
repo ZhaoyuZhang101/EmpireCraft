@@ -15,9 +15,11 @@ using UnityEngine;
 namespace EmpireCraft.Scripts.GeneralSystems;
 
 // 土崩瓦解：帝国内忧深重时，一省首义，各省陆续响应。
-//   · 内忧(0~1)：正统 50 以下、王朝积弊 40 以上、国库亏空或欠饷、阶层怨气 60 以上，取最重的一项再加其余的四分之一；
+//   · 内忧(0~1)：正统 50 以下、王朝积弊 40 以上、国库亏空或欠饷、阶层怨气 60 以上、篡位之君在位(十年内 0.5)，
+//     取最重的一项再加其余的四分之一；
 //   · 首义(每年)：概率 = 内忧 × 0.5；离心最重、离心度不低于 0.5 的一省宣布独立。
-//     离心度 = (1 − 行政控制力) + 都城稳定不足 70 的部分/70，近代再看革新理念，异文化再加 0.3，正自顾打仗的减 0.2；
+//     离心度 = (1 − 行政控制力) + 都城稳定不足 70 的部分/70，近代再看革新理念，异文化再加 0.3，
+//     手握重兵的藩镇(节度使、都护府)再加 0.3(军阀割据)，正自顾打仗的减 0.2；
 //     开国雄主登基头 15 年、上次瓦解结束后 15 年内不发生；周制春秋战国另有规则，不在此列；
 //   · 响应(此后两年，每月)：各省按 0.06 × 内忧(至少 0.35) × 离心度 检定，与已独立之省接壤的再乘 1.6，单月最多 35%；
 //   · 近代(本文化可废君主，或已入工业时代)：各省合组革命同盟与朝廷开战，沿用地方共和同盟的结局(见 RepublicSystem)：
@@ -58,8 +60,12 @@ public static class ProvincialCollapseSystem
         float strain = Mathf.Clamp01((DynasticCycleSystem.GetPressure(empire) - 40f) / 40f);
         float fiscal = EmpireBankruptcySystem.IsBankrupt(empire) ? 0.6f : 0f;
         float grievance = Mathf.Clamp01((InstitutionSystem.GetClassGrievances(empire).Values.DefaultIfEmpty(0f).Max() - 60f) / 40f);
-        float top = Mathf.Max(Mathf.Max(legitimacy, strain), Mathf.Max(fiscal, grievance));
-        return Mathf.Clamp01(top + 0.25f * (legitimacy + strain + fiscal + grievance - top));
+        // 权臣、外戚篡位登基，十年内人心未附
+        float usurped = empire.Emperor != null && empire.data.minister_usurper_id == empire.Emperor.id &&
+                        empire.data.newEmperor_timestamp >= 0d && Date.getYearsSince(empire.data.newEmperor_timestamp) < 10
+            ? 0.5f : 0f;
+        float top = Mathf.Max(Mathf.Max(Mathf.Max(legitimacy, strain), Mathf.Max(fiscal, grievance)), usurped);
+        return Mathf.Clamp01(top + 0.25f * (legitimacy + strain + fiscal + grievance + usurped - top));
     }
 
     private static List<Kingdom> Provinces(Empire empire) =>
@@ -78,6 +84,8 @@ public static class ProvincialCollapseSystem
         string ruling = CompositeEmpireService.GetRulingCulture(empire);
         string local = CultureService.GetMainCulture(capital);
         if (CultureService.IsValidCulture(local) && !string.Equals(local, ruling, StringComparison.Ordinal)) value += 0.3f;
+        // 军阀割据：手握重兵的藩镇
+        if (province.GetKingdomType() is KingdomType.LvLing_jiedushi or KingdomType.LvLing_duhufu) value += 0.3f;
         if (province.getWars().Any(war => war != null && !war.hasEnded())) value -= 0.2f;
         return Mathf.Max(0f, value);
     }

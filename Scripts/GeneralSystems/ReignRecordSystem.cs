@@ -26,6 +26,7 @@ public static class ReignRecordSystem
         EmpireCraftHistory reign = empire?.data?.currentHistory;
         if (reign == null || reign.start_cities < 0) return;
         reign.max_cities = Math.Max(reign.max_cities, empire.countCities());
+        if (empire.data.is_been_controlled) reign.was_controlled = true;
     }
 
     public static void OnReignEnd(Empire empire, Actor emperor)
@@ -38,6 +39,8 @@ public static class ReignRecordSystem
         reign.ended_alive = emperor.isAlive();
         reign.age_at_end = emperor.getAge();
         reign.restorer = emperor.hasTrait(RulerTraitSystem.Restorer);
+        reign.ruler_grade = RulerQualitySystem.Of(emperor).ToString();
+        if (empire.data.is_been_controlled) reign.was_controlled = true;
     }
 
     public static void OnDynastyChanged(Empire empire, Actor newEmperor)
