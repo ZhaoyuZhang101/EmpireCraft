@@ -656,28 +656,15 @@ public static class EmpireCraftNamePlateLibrary
         AssetManager.nameplates_library.map_modes_nameplates[assetNation.map_mode] = assetNation;
         AssetManager.nameplates_library.dict["Nation"] = assetNation;
 
-        // 财富图层：城市铭牌只写城市国库数额(按富庶档位上色)，不再是全名、人口、腐败一长串
+        // 财富图层不画任何铭牌(用户要求，只看色块；城市富庶度与国库见悬停提示，见 WealthMap.ShowTooltip)
         NameplateAsset assetWealth = new NameplateAsset
         {
             id = "plate_wealth",
             path_sprite = "ui/nameplates/nameplate_city",
             map_mode = MetaTypeExtension.Wealth,
-            padding_left = 6,
-            padding_right = 7,
-            padding_top = -2,
             action_main = (manager, asset) =>
             {
-                if (!IsNameplateReady) return;
-                TerritoryLabelRenderer.HideAll();
-                int count = 0;
-                foreach (City city in World.world.cities)
-                {
-                    if (count >= asset.max_nameplate_count) break;
-                    if (city?.data == null || city.isRekt() || city.kingdom == null || !isWithinCamera(city.city_center))
-                        continue;
-                    showTextCityWealth(manager.prepareNext(asset, city), city);
-                    count++;
-                }
+                if (IsNameplateReady) TerritoryLabelRenderer.HideAll();
             }
         };
         AssetManager.nameplates_library.map_modes_nameplates[assetWealth.map_mode] = assetWealth;
@@ -1714,18 +1701,6 @@ public static class EmpireCraftNamePlateLibrary
         pPosition = vector;
         return true;
     }
-    // 财富图层的城市铭牌：只写城市国库
-    private static void showTextCityWealth(NameplateText npt, City city)
-    {
-        npt.setupMeta(city.data, city.kingdom.getColor());
-        npt.setNameplateSprite(city.isCapitalCity() ? "ui/nameplates/nameplate_city_capital" : "ui/nameplates/nameplate_city");
-        string amount = MoneyDisplay.Format(city.GetMoney());
-        setTextIfChanged(npt, $"<color={EmpireCraft.Scripts.Layer.WealthMap.Hex(city)}>{amount}</color>", city.city_center);
-        // 纯净地图模式：城市性质徽记(见 CityDevelopment)
-        if (PureMapMode.Enabled && EmpireCraft.Scripts.Layer.CityDevelopment.Emblem(city) is Sprite emblem)
-            npt.showSpecies(emblem);
-    }
-
     public static void showTextCity(NameplateText npt, City pMetaObject, Vector2 pPosition)
     {
         if (AncientWarfareCompatibility.OwnsObject(pMetaObject))
