@@ -114,6 +114,9 @@ namespace EmpireCraft.Scripts.UI.Windows
             int start = _page * PageSize;
             int end = Mathf.Min(_histories.Count, start + PageSize);
             for (int i = start; i < end; i++) AddRulerRow(list, _histories[i], i - start);
+            // 世系图：历代君主连同祖先画成方框连线图(见 DynastyLineageWindow)
+            Empire empire = _empire;
+            _rail.AddRailButton("lineage_chart_open", LM.Get("lineage_chart_open"), () => DynastyLineageWindow.Open(empire));
             if (pages <= 1) return;
             float inner = UIHelper.RailWidth - 8f;
             var pager = list.BeginHoriGroup(new Vector2(inner, 14f), TextAnchor.MiddleCenter, 2, new RectOffset(0, 0, 0, 0));
