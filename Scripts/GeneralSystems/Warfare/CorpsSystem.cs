@@ -25,10 +25,10 @@ public static class CorpsSystem
     // 不在交战的军每月恢复的组织度
     private const float RestOrg = 15f;
     private const float IdleOrg = 8f;
-    // 统领开往军团所在地块的间隔(秒)；军团每秒行军几块地块(一个月约十块)
+    // 统领开往军团所在地块的间隔(秒)
     private const float GeneralMoveInterval = 3f;
-    // 陆上行军每个世界秒走几块地块(一个月 5 秒，约 2.5 块/月；以前每秒 2 块，转眼就从地图这头到那头)
-    private const float MarchZonesPerSecond = 0.25f;
+    // 陆上行军每个世界秒走几块地块：一个月 5 秒，步兵每月 0.2 块(各兵种再乘倍数，见 CorpsArmSystem.Speed)
+    private const float MarchZonesPerSecond = 0.04f;
 
     public static bool Enabled => CityPopulationSystem.AbstractPopulationEnabled &&
                                   EmpireCraftWorldLawLibrary.empirecraft_law_switch_occupy_mode?.isEnabled() == true;
