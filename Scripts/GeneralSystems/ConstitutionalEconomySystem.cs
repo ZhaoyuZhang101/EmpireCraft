@@ -236,6 +236,8 @@ public static class ConstitutionalEconomySystem
         // 内忧深重时一省首义；武官势大、正统低落时兵变
         ProvincialCollapseSystem.Yearly(empire);
         MilitaryCoupSystem.Yearly(empire);
+        // 西方：教权、加冕、叙任权、什一税
+        PapacySystem.Yearly(empire);
         EmpireBankruptcySystem.Update(empire, state);
         ModernTitleCentralization.Update(empire);
         UpdateBudding(empire, state);

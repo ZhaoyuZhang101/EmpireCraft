@@ -8,6 +8,9 @@ public static class ReligionExtension
         public long LeaderID = -1L;
         //圣地
         public long CityID = -1L;
+        // 教权(0~100，见 PapacySystem)与上次结算时间
+        public float PapalAuthority = 60f;
+        public double PapalUpdatedAt = -1d;
     }
     public static ReligionExtraData GetOrCreate(this Religion a, bool isSave = false)
     {

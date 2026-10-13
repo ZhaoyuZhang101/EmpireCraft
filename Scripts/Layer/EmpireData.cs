@@ -31,6 +31,8 @@ public class EmpireData : MetaObjectData
     public CourtState court = new();
     // 周制的天下大势：西周、春秋、战国(见 ZhouEraSystem)
     public ZhouEraState zhou = new();
+    // 西方：与教廷的关系(加冕、叙任权、绝罚、什一税，见 PapacySystem)
+    public PapalRelationState papal = new();
     public long Religion { get; set; } = -1L;
     public EmpireHeirLawType heir_type { get; set; }
     public int max_province_city_num { get; set; } = 3;

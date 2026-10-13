@@ -65,6 +65,8 @@ public static class MonarchyLegitimacy
         if (dynasty != 0) items.Add(("mandate_dynastic_events", dynasty));
         int strain = DynasticCycleRules.LegitimacyPenalty(DynasticCycleSystem.GetPressure(empire));
         if (strain != 0) items.Add(("mandate_dynastic_strain", strain));
+        // 西方：教宗加冕、未加冕、绝罚(见 PapacySystem)
+        items.AddRange(PapacySystem.LegitimacyItems(empire));
         // 以下读取年度快照(InstitutionSystem.UpdateSocialUnrest)，不在这里扫描城市
         var institutions = empire.data.institution_state;
         if (institutions != null)

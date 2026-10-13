@@ -13,7 +13,9 @@ public enum TreasuryCategory
     GovernanceArrears, GarrisonArrears, MilitaryArrears,
     PublicEnterprise,
     Borrowing, DebtInterest, DebtPrincipal,
-    Reparations
+    Reparations,
+    // 什一税(上缴教廷，见 PapacySystem)
+    Tithe
 }
 
 public sealed class TreasuryReport
