@@ -134,8 +134,10 @@ public class EmpireData : MetaObjectData
     public long minister_usurper_id { get; set; } = -1L;
     // 当今权臣是外戚(见 ConsortKinSystem)
     public bool powerful_minister_is_consort_kin { get; set; } = false;
-    // 本朝已施行"增广尊谥"：此后有庙号的先帝都得长谥(见 PosthumousNameGenerator)，改朝换代后重来
+    // 已施行"增广尊谥"：此后有庙号的先帝都得长谥(见 PosthumousNameGenerator)
     public bool long_posthumous { get; set; }
+    // 谥法已由皇帝定过(增广尊谥或谥法从简)：一个帝国只定一次，改朝换代也不重来
+    public bool posthumous_decided { get; set; }
     // 帝国设置"开启长谥号"：打开后本朝有庙号的先帝都显示长谥，关着(默认)显示短谥"国号某帝"
     public bool show_long_posthumous { get; set; }
     // 帝国设置的国号前缀：false 为自动(迁都、复国、分裂时系统加的方位词)，true 为手选——prefix_choice 是方位词键

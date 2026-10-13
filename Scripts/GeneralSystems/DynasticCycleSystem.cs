@@ -74,10 +74,9 @@ public static class DynasticCycleSystem
         ConstitutionalEconomyState state = empire.data.constitutional_economy ??= new ConstitutionalEconomyState();
         state.dynastic_since = World.world.getCurWorldTime();
         state.last_dynastic_update = state.dynastic_since;
-        // 改朝换代，旧弊一扫而空；"增广尊谥"由新朝自己再行
+        // 改朝换代，旧弊一扫而空(谥法一个帝国只由皇帝定一次，不随改朝换代重来，见 PosthumousNameGenerator)
         MaladySystem.OnDynastyChanged(empire);
         FactionBalanceSystem.OnDynastyChanged(empire);
-        empire.data.long_posthumous = false;
         state.last_dynastic_uprising_attempt = -1d;
         int previousBurden = DynasticCycleRules.HarshBurden(state.dynastic_strain);
         state.dynastic_strain = Math.Min(20f, DynasticCycleRules.Advance(state.dynastic_strain, 0f) * 0.25f);

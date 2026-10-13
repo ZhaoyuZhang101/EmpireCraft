@@ -1745,6 +1745,23 @@ namespace EmpireCraft.Scripts.AI
                     return PosthumousNameGenerator.Extend(pActor.kingdom?.GetEmpire(), pActor);
                 }
             });
+            // 谥法从简(皇帝个人的决议)：此后先帝只用简谥；与增广尊谥二选一，一个帝国只定一次
+            AssetManager.plots_library.add(new PlotAsset
+            {
+                id = "emperor_simplify_posthumous",
+                path_icon = "ui/icons/plots/plot_emperor_simplify_posthumous",
+                group_id = "empirecraft_diplomacy",
+                is_basic_plot = true,
+                min_level = 1,
+                progress_needed = 30f,
+                can_be_done_by_king = true,
+                check_is_possible = PosthumousNameGenerator.CanSimplify,
+                check_should_continue = PosthumousNameGenerator.CanSimplify,
+                action = delegate (Actor pActor)
+                {
+                    return PosthumousNameGenerator.Simplify(pActor.kingdom?.GetEmpire(), pActor);
+                }
+            });
             AssetManager.plots_library.add(new PlotAsset
             {
                 id = "king_acquire_title",

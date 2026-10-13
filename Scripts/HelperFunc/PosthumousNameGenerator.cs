@@ -276,20 +276,42 @@ namespace EmpireCraft.Scripts.HelperFunc
             }
         }
 
-        // 本朝能否施行"增广尊谥"：华夏律令制的皇帝亲政、本朝已有三位以上定了谥号的先帝、正统 50 以上
-        public static bool CanExtend(Actor actor)
+        // 谥法由皇帝定：增广尊谥(长谥)或谥法从简(简谥)，一个帝国只定一次(EmpireData.posthumous_decided)。
+        // 条件：华夏律令制的皇帝亲政、本朝已有三位以上定了谥号的先帝、正统 50 以上；
+        // 荒淫、昏聩、暴虐之君好排场，只会增广尊谥；其余两样都可能
+        private static bool CanDecide(Actor actor, out Empire empire)
         {
             Kingdom kingdom = actor?.kingdom;
-            Empire empire = kingdom?.GetEmpire();
-            if (!actor.isKing() || empire == null || empire.CoreKingdom != kingdom || !empire.AllowsPosthumousNames() ||
-                empire.data.long_posthumous || empire.Mandate < 50 || !actor.isAdult() ||
+            empire = kingdom?.GetEmpire();
+            if (actor == null || !actor.isKing() || empire == null || empire.CoreKingdom != kingdom || !empire.AllowsPosthumousNames() ||
+                empire.data.posthumous_decided || empire.data.long_posthumous || empire.Mandate < 50 || !actor.isAdult() ||
                 kingdom.GetRegime()?.type != Regimes.RegimeType.LvLing) return false;
             return CurrentDynasty(empire).Count(history => !string.IsNullOrEmpty(history.shihao_name)) >= 3;
         }
 
+        public static bool CanExtend(Actor actor) => CanDecide(actor, out _);
+
+        public static bool CanSimplify(Actor actor) => CanDecide(actor, out _) &&
+            GeneralSystems.RulerQualitySystem.Of(actor) is not (GeneralSystems.RulerQualitySystem.Grade.Dissolute or
+                GeneralSystems.RulerQualitySystem.Grade.Fatuous or GeneralSystems.RulerQualitySystem.Grade.Tyrant);
+
+        // 谥法从简：此后先帝只用简谥，帝国设置的长谥号随之关上(仍可在设置里打开)
+        public static bool Simplify(Empire empire, Actor emperor)
+        {
+            if (empire?.data == null || empire.data.posthumous_decided) return false;
+            empire.data.posthumous_decided = true;
+            empire.data.long_posthumous = false;
+            empire.data.show_long_posthumous = false;
+            string text = string.Format(LM.Get("history_simplify_posthumous"), emperor?.getName() ?? "", empire.GetEmpireFullName());
+            empire.RecordHistory(directContent: text, actorId: emperor?.id ?? -1L);
+            TranslateHelper.LogEventMessage(text, empire.CoreKingdom);
+            return true;
+        }
+
         public static bool Extend(Empire empire, Actor emperor)
         {
-            if (empire?.data == null || empire.data.long_posthumous) return false;
+            if (empire?.data == null || empire.data.long_posthumous || empire.data.posthumous_decided) return false;
+            empire.data.posthumous_decided = true;
             empire.data.long_posthumous = true;
             empire.data.show_long_posthumous = true;
             foreach (EmpireCraftHistory history in CurrentDynasty(empire))
