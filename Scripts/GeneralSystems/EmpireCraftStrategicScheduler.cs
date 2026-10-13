@@ -53,6 +53,7 @@ public static class EmpireCraftStrategicScheduler
         StateSettlementSystem.Tick();
         // 路网规划、修路养路(自己按真实时间与游戏月份限频，见 RoadNetwork、RoadBuildingSystem)
         RoadNetwork.Tick();
+        EmperorTourSystem.Tick();
         ExclaveMaintenanceSystem.Tick();
         AdministrativeControlSystem.Tick();
         CityStabilitySystem.Tick();

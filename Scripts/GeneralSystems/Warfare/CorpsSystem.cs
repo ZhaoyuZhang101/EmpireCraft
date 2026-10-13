@@ -1015,6 +1015,10 @@ public static class CorpsSystem
         return top;
     }
 
+    // 别的系统借用军团的寻路(按兵种代价，优先走路，见 FindPath)，如皇帝出行(EmperorTourSystem)
+    public static List<int> PathFor(TileZone from, TileZone to, CorpsArmSystem.Arm arm = CorpsArmSystem.Arm.Cavalry) =>
+        from == null || to == null ? null : FindPath(from, to, arm);
+
     private static TileZone Nearer(TileZone current, TileZone target)
     {
         TileZone best = null;
