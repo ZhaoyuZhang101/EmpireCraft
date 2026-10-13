@@ -52,6 +52,7 @@ public static class EmpireCraftStrategicScheduler
         if (!ReferenceEquals(_boundWorld, currentWorld)) Reset(currentWorld);
         StateSettlementSystem.Tick();
         ExclaveMaintenanceSystem.Tick();
+        AdministrativeControlSystem.Tick();
         CityStabilitySystem.Tick();
         AdministrationReorganizationSystem.Tick();
 

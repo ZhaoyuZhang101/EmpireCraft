@@ -223,8 +223,14 @@ public static class CityStabilitySystem
     {
         CityStabilityInput input = CaptureInput(city);
         detail = Pressure(input);
-        return CityStabilityRules.Natural(input.Loyalty, input.Legitimacy, input.Corruption, input.Sentiment,
+        float natural = CityStabilityRules.Natural(input.Loyalty, input.Legitimacy, input.Corruption, input.Sentiment,
             input.Landless, input.Famine, input.Grievance);
+        // 鞭长莫及：行政控制力低的城自然稳定度下降
+        float remote = AdministrativeControlSystem.StabilityLoss(city);
+        if (remote < 1f) return natural;
+        string cause = string.Format(LM.Get("stability_admin_detail"), AdministrativeControlSystem.Get(city) * 100f);
+        detail = string.IsNullOrEmpty(detail) ? cause : detail + " / " + cause;
+        return CityStabilityRules.Clamp(natural - remote);
     }
 
     public static float Effective(City city)

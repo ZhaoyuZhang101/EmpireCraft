@@ -189,6 +189,7 @@ public class SaveManagerPatch : GamePatch
         EmpireCraftActorCheckWarriorMove.ClearRuntimeState();
         EmpireCraftActorCheckWarriorMoveAdvanced.ClearRuntimeState();
         EmpireCraft.Scripts.GeneralSystems.WarGoalSystem.ResetWorldState();
+        EmpireCraft.Scripts.GeneralSystems.AdministrativeControlSystem.ResetWorldState();
     }
 
     private static void ClearPersistentWorldState()

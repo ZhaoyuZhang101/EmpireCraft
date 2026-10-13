@@ -63,6 +63,11 @@ public static class CityExtension
     {
         // 关闭军团统领实体时，WarBox 载具只记在城里的账面上(见 WarBoxVehicles)
         public int virtual_vehicles;
+        // 行政控制力(见 AdministrativeControlSystem)：-1 = 还没算过；离治所几块地，陆路不通的飞地按直线折算
+        public float admin_control = -1f;
+        public int admin_distance;
+        public bool admin_exclave;
+        public bool admin_overseas;
         public string kingdom_names = "";
         public long title_id = -1L;
         public long empire_core_id = -1L;

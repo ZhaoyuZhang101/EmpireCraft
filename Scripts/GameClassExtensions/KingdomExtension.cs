@@ -272,6 +272,8 @@ public static class KingdomExtension
         public long war_quartermaster_id = -1L;
         public string war_quartermaster_title = "";
         public double forage_until = -1d;
+        // 上次结算行政控制力的时间(见 AdministrativeControlSystem)
+        public double admin_pass_at = -1d;
         public float war_food_need;
         public float war_food_short;
         public KingdomType kingdomType = KingdomType.default_country_post;

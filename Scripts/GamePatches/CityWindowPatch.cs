@@ -85,6 +85,8 @@ public class CityWindowPatch : GamePatch
                 foreach (string line in RebellionSystem.DetailLines(stability.pressure_detail))
                     __instance.showStatRow("city_stability_pressure", line, "#E6A166", pIconPath: "iconKings");
         }
+        if (EmpireCraft.Scripts.GeneralSystems.AdministrativeControlSystem.Describe(metaObject) is string control)
+            __instance.showStatRow("admin_control", control, "#7FD8EA", pIconPath: "iconKings");
         CityValueSnapshot cityValue = metaObject.GetCityStrategicValue();
         string cityValueText = $"{cityValue.Total}/100" +
                                (cityValue.IsIsolated ? $" ({LM.Get("city_value_isolated")})" : "");
