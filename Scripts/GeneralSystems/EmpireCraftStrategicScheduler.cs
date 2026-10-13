@@ -55,6 +55,7 @@ public static class EmpireCraftStrategicScheduler
         RoadNetwork.Tick();
         EmperorTourSystem.Tick();
         RoyalHouseSystem.Tick();
+        FamineUnrestSystem.Tick();
         ExclaveMaintenanceSystem.Tick();
         AdministrativeControlSystem.Tick();
         CityStabilitySystem.Tick();

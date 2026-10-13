@@ -138,6 +138,8 @@ public class EmpireData : MetaObjectData
     public bool long_posthumous { get; set; }
     // 帝国设置"开启长谥号"：打开后本朝有庙号的先帝都显示长谥，关着(默认)显示短谥"国号某帝"
     public bool show_long_posthumous { get; set; }
+    // 全帝国连荒两年以上的城占几成(见 FamineUnrestSystem，推高王朝积弊)
+    public float famine_share { get; set; }
     // 皇帝出行(纯净地图的皇帝标记，见 EmperorTourSystem)：出行方式(""=在宫里，tour/visit/campaign)、所在地块、
     // 目的城、随驾的军、出发与到达的时间、是否回銮、出行的皇帝、上次回宫的时间
     public string tour_kind { get; set; } = "";

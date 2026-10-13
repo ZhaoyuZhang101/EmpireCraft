@@ -884,6 +884,49 @@ public static class LandEconomySystem
         return true;
     }
 
+    // 饥民起义(连年饥荒，见 FamineUnrestSystem)：照农民起义的流程，但不看无地比例，打仗时照样会起
+    public static bool TryStartFamineRebellion(City city, int years)
+    {
+        if (city == null || city.isRekt() || city.kingdom == null || city.kingdom.isRekt() || city == city.kingdom.capital ||
+            !RebellionSystem.CanAttempt(city.kingdom) || !CityStabilitySystem.CanRise(city)) return false;
+        if (!ModernStability.PassRebellionGate(city.kingdom)) return false;
+        CityExtension.CityExtraData data = EnsureData(city);
+        if (data.last_land_rebellion_timestamp >= 0d &&
+            Date.getYearsSince(data.last_land_rebellion_timestamp) < RebellionCooldownYears) return false;
+        Actor leader = city.units?.Where(actor => IsLivingResident(actor) && IsAgrarianCommoner(actor) &&
+                                                  actor.CanFoundCivKingdom())
+            .OrderByDescending(actor => actor.data?.renown ?? 0).FirstOrDefault();
+        leader ??= CityPopulationSystem.SpawnRebelLeader(city);
+        if (leader == null) return false;
+        Kingdom origin = city.kingdom;
+        string cause = string.Format(LM.Get("famine_rebellion_cause"), city.GetCityName(), years);
+        RebellionCauseData rebellionCause = RebellionSystem.Capture(origin, city, "rebellion_reason_famine", cause);
+        Kingdom rebel = city.makeOwnKingdom(leader, pRebellion: true);
+        if (rebel == null) return false;
+        if (!rebel.StartLocalRebelling(EmpireWarType.地方叛乱))
+        {
+            RebellionStartupService.RollbackCitySplit(city, origin, rebel);
+            return false;
+        }
+        rebel.data.name = string.Format(LM.Get("famine_rebel_kingdom_name"), city.GetCityName());
+        War war = World.world.diplomacy.startWar(rebel, origin, WarTypeLibrary.rebellion);
+        if (war == null)
+        {
+            RebellionStartupService.RollbackCitySplit(city, origin, rebel);
+            return false;
+        }
+        war.SetEmpireWarType(EmpireWarType.地方叛乱);
+        war.data.name = LM.Get("famine_rebellion_war_name");
+        float ratio = CalculateLandlessPopulationRatio(city);
+        MarkPeasantSocialRebellion(war, rebel, origin, city, ratio, cause);
+        RebellionSystem.Record(rebel, war, rebellionCause);
+        RebellionStartupService.RaiseUprisingMilitia(rebel, Mathf.Max(ratio, 0.2f + 0.05f * years));
+        data.last_land_rebellion_timestamp = World.world.getCurWorldTime();
+        RecordRebellionHistory(origin, cause, leader);
+        EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventMessage(cause, origin);
+        return true;
+    }
+
     private static bool TryJoinAdjacentPeasantRebellion(City city, float ratio)
     {
         if (city == null || ratio < ContagionLandlessThreshold || city.neighbours_cities == null ||

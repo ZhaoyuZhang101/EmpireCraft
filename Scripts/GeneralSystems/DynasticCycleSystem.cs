@@ -51,6 +51,8 @@ public static class DynasticCycleSystem
         change += MaladySystem.StrainDelta(empire);
         // 派系失衡(见 FactionBalanceSystem)
         change += FactionBalanceSystem.StrainDelta(empire);
+        // 连年饥荒(见 FamineUnrestSystem)
+        change += FamineUnrestSystem.StrainDelta(empire);
         state.dynastic_strain = DynasticCycleRules.Advance(state.dynastic_strain, change);
         MonarchyLegitimacy.Invalidate(empire);
         if (state.dynastic_strain >= DynasticCycleRules.CrisisPressure && !state.dynastic_crisis_announced)

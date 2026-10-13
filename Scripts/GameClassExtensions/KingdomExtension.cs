@@ -247,6 +247,8 @@ public static class KingdomExtension
         // 下一位君主怎么继的位(废立、兵变、争位，见 PrinceStruggleSystem.Note)：新君即位时写进纪年
         public string succession_note = "";
         public long succession_note_actor = -1L;
+        // 正在闹大饥荒(三成以上的城连荒两年，见 FamineUnrestSystem)
+        public bool great_famine;
         public int Level = 2;
         [JsonIgnore]
         public Regime regime;
