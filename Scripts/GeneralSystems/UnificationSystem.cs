@@ -17,7 +17,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 统一战争：一家占到三成，或国力是第二名的两倍(且至少占 8%)——天命所归，目标二十年内打完：
 //       - 统一者每月挑最近的一家开战(目标吞并)，同时可打四场，不必休战，不受三十年强制停战；
 //       - 把对方正规军(军团；没有军团时看士兵与可征之兵)打光、连续两个月没缓过来，就举国吞并，不等和约；
-//       - 实力不到统一者三分之一的每年有几率望风归附，统一十年后几率加倍；
+//       - 望风归附(用户 2026-10-14："兵力没有达到绝对碾压之前、主力还没打完就望风而降")：统一者正规军是对方五倍以上，
+//         而且对方主力已被打垮(正规军剩不到满编三成，或不到统一者十分之一)，才每年有几率举国归附，统一十年后几率加倍；
 //       - 战线推进加快一半，十年后加倍(见 FrontSystem.PushFactor)；
 //       - 统一者处在开国气象里(见 InGrace)：积弊不涨、不起事、不分裂；
 //   · 统一完成(占到九成，或天下再没有别的独立势力)：开国气象延续三十年；之后积弊按王朝年岁慢慢沉积(见 MaladySystem.Pace)，
@@ -29,7 +30,8 @@ public static class UnificationSystem
     private const float ContenderShare = 0.3f, PowerLead = 2f, PowerLeadMinShare = 0.08f, UnifiedShare = 0.9f,
         LostShare = 0.2f, CollapsedShare = 0.06f;
     private const int GraceYears = 30, MaxWars = 4, LateYears = 10, MinCities = 3;
-    private const float SubmitRatio = 1f / 3f, SubmitChance = 0.08f, SubmitCap = 0.35f;
+    // 望风归附：兵力碾压(对方正规军不到五分之一)、对方主力已垮(剩不到满编三成，或不到十分之一)
+    private const float CrushRatio = 0.2f, BrokenShare = 0.3f, RoutRatio = 0.1f, SubmitChance = 0.1f, SubmitCap = 0.35f;
     private const float PushBonus = 1.5f, LatePushBonus = 2f;
     // 正规军打光：连续几个月(月度检查)没有正规军才吞并(打光后下个月又征起来的不算)
     private const int WipeMonths = 2;
@@ -261,22 +263,36 @@ public static class UnificationSystem
             .ToList();
     }
 
-    // 望风归附：实力不到统一者三分之一的，每年几率随实力差增加，统一十年后加倍
+    // 望风归附：兵力被碾压、主力已被打垮的，每年有几率举国归附，统一十年后几率加倍(帝国不归附，要打)
     private static void Submissions(Kingdom unifier)
     {
         if (!Rivals.TryGetValue(unifier.id, out List<Kingdom> rivals)) return;
-        double power = WarSituation.Power(unifier);
-        if (power <= 0d) return;
+        float ours = Army(unifier).strength;
+        if (ours <= 0f) return;
         bool late = UnifyYears(unifier) >= LateYears;
         foreach (Kingdom rival in rivals.ToList())
         {
             if (!Alive(rival) || rival.IsEmpire()) continue;
-            float ratio = (float)(WarSituation.Power(rival) / power);
-            if (ratio >= SubmitRatio) continue;
-            float chance = Mathf.Min(SubmitCap, SubmitChance * (1f - ratio / SubmitRatio) * (late ? 2f : 1f) * 2f);
+            (float strength, float full) = Army(rival);
+            if (strength > ours * CrushRatio) continue;
+            bool broken = full > 0f && strength <= full * BrokenShare || strength <= ours * RoutRatio;
+            if (!broken) continue;
+            float chance = Mathf.Min(SubmitCap, SubmitChance * (late ? 2f : 1f));
             if (UnityEngine.Random.value >= chance) continue;
             Annex(unifier, rival, null, "unify_submit_history");
         }
+    }
+
+    // 一家的正规军(帝国连同各成员国)：现有兵力与满编；没有军团制时按士兵与历来最多的士兵
+    private static (float strength, float full) Army(Kingdom sovereign)
+    {
+        IEnumerable<Kingdom> members = sovereign.GetEmpire()?.kingdoms_list?.Where(Alive) ?? new[] { sovereign };
+        if (CorpsSystem.Enabled)
+        {
+            var regular = members.SelectMany(member => CorpsSystem.Of(member)).Where(corps => !corps.militia && corps.order_id < 0).ToList();
+            return (regular.Sum(corps => Mathf.Max(0f, corps.strength)), regular.Sum(corps => Mathf.Max(0f, corps.full)));
+        }
+        return (members.Sum(member => member.countTotalWarriors()), members.Sum(member => member.GetOrCreate().peak_warriors));
     }
 
     private static void Monthly()
