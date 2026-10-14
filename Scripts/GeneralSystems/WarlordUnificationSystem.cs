@@ -13,6 +13,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 军阀时期的统一进程(参照北伐、解放战争)，每年随 UpdateCore 结算一次：
 //   1. 内战打到底：同一法统内部的战争(IsCivilWar)不受"战争年限强制停战"和原版议和限制(见 WarPatch、attacker_stop_war)；
 //   2. 中央主动统一：中央每年可对接壤的法统内对手发动统一战争，不受开战间隔限制，最多同时 MaxCivilWars 场；
+//      与中央交战的一方地盘被中央占得越多越可能举国归附(每月，见 FounderCapitulation)；
+//      地方武装之间(都不是中央)的混战打满四年各自罢兵(SettleWarlordFeuds)；
 //   3. 民心所向：城市主流理念占比过半、统治者却是别的理念时，倒向代表该理念的政府——
 //      接壤就起义归附，不接壤就揭竿而起成为该理念的地方武装(之后由同理念政府吸引归附)；
 //   4. 民心即正统：政府的正统每年向"本理念在法统内的支持率"靠拢；
@@ -21,8 +23,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 民族统一战线期间(NationalSentimentSystem)不打内战，2、3、6 暂停。
 public static partial class WarlordEraSystem
 {
-    private const int MaxCivilWars = 2;
-    private const float UnifyWarChance = 0.5f;
+    private const int MaxCivilWars = 3;
+    private const float UnifyWarChance = 0.8f;
     private const float ShiftMinShare = 0.5f;
     private const float ShiftBaseChance = 0.06f;
     private const float ShiftMaxExtraChance = 0.24f;
@@ -30,10 +32,10 @@ public static partial class WarlordEraSystem
     private const int MaxShiftsPerYear = 4;
     private const int MandateBase = 20;
     private const int MandateStep = 5;
-    private const float BandwagonShare = 0.5f;
-    private const float CollapseShare = 0.2f;
-    private const float CollapseChance = 0.15f;
-    private const int MaxCollapsePerYear = 6;
+    private const float BandwagonShare = 0.4f;
+    private const float CollapseShare = 0.3f;
+    private const float CollapseChance = 0.25f;
+    private const int MaxCollapsePerYear = 10;
 
     public static bool IsCivilWar(War war)
     {
@@ -183,7 +185,7 @@ public static partial class WarlordEraSystem
         if (centralKingdom == null || !held.TryGetValue(centralKingdom, out int centralHeld)) return;
         float share = centralHeld / (float)total;
         if (share < BandwagonShare) return;
-        float chance = Mathf.Clamp(0.10f + (share - BandwagonShare) * 1.25f, 0f, 0.5f);
+        float chance = Mathf.Clamp(0.15f + (share - BandwagonShare) * 1.5f, 0f, 0.6f);
         foreach (Kingdom holder in held.Keys.ToList())
         {
             if (holder == centralKingdom || !IsLocalHolder(core, holder) || Government(holder) != null ||
@@ -268,14 +270,27 @@ public static partial class WarlordEraSystem
 
     // 每月：开国雄主的统一战争里，被讨伐的割据政权按丢掉的地盘(被雄主一方占着的地块比例)、都城是否失陷，
     // 有一定概率举国归附(战争以雄主获胜结束，归附方式同"望风归附")
+    // 军阀时期的内战同样：与中央交战的一方地盘被中央占得越多越可能举国归附
     public static void FounderCapitulation()
     {
         if (World.world?.wars == null) return;
         foreach (War war in World.world.wars.list.ToList())
         {
-            if (war == null || war.hasEnded() || !RulerTraitSystem.IsFounderUnificationWar(war)) continue;
+            if (war == null || war.hasEnded()) continue;
             Kingdom attacker = war.getMainAttacker(), defender = war.getMainDefender();
-            bool attackerFounder = attacker?.GetEmpire()?.CoreKingdom == attacker && RulerTraitSystem.FounderReigns(attacker);
+            bool founderWar = RulerTraitSystem.IsFounderUnificationWar(war);
+            bool attackerFounder;
+            if (founderWar)
+                attackerFounder = attacker?.GetEmpire()?.CoreKingdom == attacker && RulerTraitSystem.FounderReigns(attacker);
+            else if (IsCivilWar(war))
+            {
+                EmpireCore lawful = LawfulCoreOf(attacker);
+                Empire centralGovernment = lawful == null ? null : ModClass.EMPIRE_MANAGER?.get(lawful.central_empire_id);
+                Kingdom centralKingdom = centralGovernment?.CoreKingdom;
+                if (centralKingdom == null || attacker != centralKingdom && defender != centralKingdom) continue;
+                attackerFounder = attacker == centralKingdom;
+            }
+            else continue;
             Kingdom founderKingdom = attackerFounder ? attacker : defender, rival = attackerFounder ? defender : attacker;
             Empire founder = founderKingdom?.GetEmpire();
             if (founder == null || rival == null || rival.isRekt() || rival.cities == null || rival.cities.Count == 0) continue;
@@ -301,9 +316,13 @@ public static partial class WarlordEraSystem
             if (!AbsorbDefector(founder, rival)) continue;
             EmpireCore core = rival.capital?.GetEmpireCore();
             if (core != null) EmpireCoreControl.Invalidate(core);
-            EventRecorder.Record(founderKingdom, string.Format(LM.Get("founder_capitulation_history"),
-                rival.GetKingdomFullName(), founder.GetBaseEmpireFullName(), RulerTraitSystem.FounderTitle(founder.Emperor),
-                founder.Emperor?.getName() ?? ""));
+            if (founderWar)
+                EventRecorder.Record(founderKingdom, string.Format(LM.Get("founder_capitulation_history"),
+                    rival.GetKingdomFullName(), founder.GetBaseEmpireFullName(), RulerTraitSystem.FounderTitle(founder.Emperor),
+                    founder.Emperor?.getName() ?? ""));
+            else
+                EventRecorder.Record(founderKingdom, string.Format(LM.Get("warlord_capitulation_history"),
+                    HolderName(rival), founder.GetBaseEmpireFullName()));
         }
     }
 

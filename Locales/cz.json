@@ -1679,6 +1679,7 @@
   "ui_zone_mode_CityView_0": "城市",
   "founder_unify_war_history": "{0}{1}{2}志在一统，兴兵讨伐{3}",
   "founder_capitulation_history": "{0}不敌{1}{2}{3}，举国归附",
+  "warlord_capitulation_history": "{0}兵败地失，归附{1}",
   "capital_loss_restored": "{0}收复旧都{1}，还于旧都，复称{2}。",
   "kingdom_type_xingzai": "行在",
   "Later": "后",

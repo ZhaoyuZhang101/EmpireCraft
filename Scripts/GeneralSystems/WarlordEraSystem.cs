@@ -27,19 +27,19 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 与中央理念截然不同(光谱距离 ≥ 90)的异见势力也可联合另立政府并向中央开战(TryFormCoalition)；
 //   · 地方武装：其余尚未组建政府的现代势力，不论有无法理都按理念命名(中间派军阀、社会主义人民武装等)。
 //     法理只提供日后组建政府的资格，不会把所有地方势力强行显示成军阀。
-//   · 再次统一(80%)结束军阀时期；分裂满模组设置里的年数(默认 200，0 = 永远不分家)后承认分治，各国恢复正常国号。
+//   · 再次统一(70%)结束军阀时期；分裂满模组设置里的年数(默认 200，0 = 永远不分家)后承认分治，各国恢复正常国号。
 // 每年全图扫描一次，结果缓存成"帝国 → 身份"，国号查询只查缓存。
 public static partial class WarlordEraSystem
 {
     private enum Role { Central, Provisional, Warlord }
 
-    private const float UnifyShare = 0.8f;
+    private const float UnifyShare = 0.7f;
     private const float OppositeIdeologyDistance = 90f;
     private const float CoalitionStrengthShare = 0.6f;
     private const float SoloRivalShare = 0.5f;
     private const float CoalitionChance = 0.2f;
     // 同理念势力每年易帜归附的最高概率(中央相对实力越强越接近这个值)，调低以免中央不战而统一
-    private const float AttractionChance = 0.1f;
+    private const float AttractionChance = 0.15f;
 
     private static readonly Dictionary<long, (EmpireCore core, Role role)> Roles = new();
     private static object _world;
@@ -477,10 +477,39 @@ public static partial class WarlordEraSystem
             Roles[government.id] = (core, role);
         }
         DemoteWarlordGovernments(core, held, strongUnification);
+        SettleWarlordFeuds(core, central);
+        LogCore(core, held, total, central, representatives.Count);
         foreach (Empire representative in representatives)
             if (!representative.isRekt() && !representative.IsArchived())
                 AttractSameIdeology(core, held, representative);
         UpdateUnification(core, held, total, central, representatives);
+    }
+
+    // 地方武装之间的混战(双方都不是中央)打满 FeudYears 年还分不出胜负就各自罢兵——统一靠中央，不靠无休止的内耗
+    private const float FeudYears = 4f;
+
+    private static void SettleWarlordFeuds(EmpireCore core, Empire central)
+    {
+        Kingdom centralKingdom = central?.CoreKingdom;
+        foreach (War war in World.world.wars.list.ToList())
+        {
+            if (war == null || war.hasEnded() || war.getAge() < FeudYears) continue;
+            Kingdom attacker = war.getMainAttacker(), defender = war.getMainDefender();
+            if (attacker == null || defender == null || attacker == centralKingdom || defender == centralKingdom) continue;
+            if (!IsLocalHolder(core, attacker) || !IsLocalHolder(core, defender)) continue;
+            World.world.wars.endWar(war, WarWinner.Peace);
+        }
+    }
+
+    // 诊断：每年每个军阀时期的核心记一行(中央占多少、几个政府、几个地方武装、几场内战)
+    private static void LogCore(EmpireCore core, Dictionary<Kingdom, int> held, int total, Empire central, int governments)
+    {
+        int centralHeld = central?.CoreKingdom != null && held.TryGetValue(central.CoreKingdom, out int count) ? count : 0;
+        int locals = held.Keys.Count(holder => IsLocalHolder(core, holder) && Government(holder) == null);
+        int wars = World.world.wars.list.Count(war => war != null && !war.hasEnded() && IsCivilWar(war));
+        NeoModLoader.services.LogService.LogInfo(
+            $"[EmpireCraft][军阀] {EmpireCoreManager.GetDisplayName(core)}：中央{central?.GetBaseEmpireFullName() ?? "无"}占 " +
+            $"{centralHeld}/{total} 城({(total > 0 ? centralHeld * 100 / total : 0)}%)，政府 {governments}，地方武装 {locals}，内战 {wars}");
     }
 
     private static IOrderedEnumerable<KeyValuePair<Kingdom, int>> RankLocalHolders(
