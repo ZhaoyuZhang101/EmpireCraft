@@ -28,6 +28,11 @@ public static class SmoothBorders
 
     // 本次画过的像素：边框(地形浮雕、占领条纹不覆盖)、归别人的(城市平面图不画在上面)
     private static bool[] _outline = Array.Empty<bool>(), _foreign = Array.Empty<bool>();
+    // 每格上次画的归属与不带高亮的底色(高亮开关时直接改这几格的颜色，不必重画地块)
+    private static IMetaObject[] _owner = Array.Empty<IMetaObject>();
+    private static Color32[] _base = Array.Empty<Color32>();
+    private static bool[] _hasBase = Array.Empty<bool>();
+    private static int _paintedZone = -1;
     // 每块地上次画时的归属：变了就让周围八块也重画(斜对角的块原版不会因此重画)
     private static readonly Dictionary<int, (object meta, int color)> LastMeta = new();
 
@@ -246,18 +251,34 @@ public static class SmoothBorders
             ZoneCalculator calc = World.world.zone_calculator;
             var touched = new HashSet<int>(ActiveZones);
             touched.UnionWith(CollectZones);
-            foreach (int id in touched)
-            {
-                TileZone zone = calc.getZoneByID(id);
-                if (zone == null) continue;
-                for (int dy = -1; dy <= 1; dy++)
-                for (int dx = -1; dx <= 1; dx++)
-                    calc.getZone(zone.x + dx, zone.y + dy)?.resetRenderHelpers();
-            }
             ActiveMetas.Clear();
             ActiveMetas.UnionWith(CollectMetas);
             ActiveZones.Clear();
             ActiveZones.UnionWith(CollectZones);
+            // 高亮只是把底色提亮：相关地块(连同四周，平滑的边会伸进邻块)直接改色，当帧就变，不必重画
+            Color32[] pixels = calc.pixels;
+            var done = new HashSet<int>();
+            bool changed = false;
+            if (pixels != null && pixels.Length == _base.Length)
+                foreach (int id in touched)
+                {
+                    TileZone zone = calc.getZoneByID(id);
+                    if (zone == null) continue;
+                    for (int dy = -1; dy <= 1; dy++)
+                    for (int dx = -1; dx <= 1; dx++)
+                    {
+                        TileZone near = calc.getZone(zone.x + dx, zone.y + dy);
+                        if (near?.tiles == null || !done.Add(near.id)) continue;
+                        foreach (WorldTile tile in near.tiles)
+                        {
+                            int pixel = tile.data.tile_id;
+                            if (!_hasBase[pixel] || pixels[pixel].a == 0) continue;
+                            pixels[pixel] = Lifted(pixel);
+                            changed = true;
+                        }
+                    }
+                }
+            if (changed) calc.setDirty();
         }
         CollectMetas.Clear();
         CollectZones.Clear();
@@ -305,6 +326,9 @@ public static class SmoothBorders
         {
             _outline = new bool[pixels.Length];
             _foreign = new bool[pixels.Length];
+            _owner = new IMetaObject[pixels.Length];
+            _base = new Color32[pixels.Length];
+            _hasBase = new bool[pixels.Length];
         }
         IMetaObject own = Metas[12];
         IMetaObject native = LayerMeta(layer, layer.getZoneOptionState(), zone);
@@ -325,12 +349,11 @@ public static class SmoothBorders
                          Differs(owner, x, y + 1, width, height) || Differs(owner, x, y - 1, width, height));
             _foreign[id] = foreign;
             _outline[id] = edge;
+            _owner[id] = owner;
             Color32 colorInside = inside, colorOutside = outside;
             if (!ReferenceEquals(owner, native)) ColorsOf(owner, clearInside, ref colorInside, ref colorOutside);
             Color32 color = edge ? colorOutside : colorInside;
             if (owner == null && !foreign) color = new Color32(0, 0, 0, 0);
-            else if (!edge && owner != null && ActiveMetas.Count > 0 && ActiveMetas.Contains(owner) && color.a > 0)
-                color = Color32.Lerp(color, new Color32(255, 255, 255, color.a), HighlightLift);
             // 战线：边框紧挨着交战敌国的领土
             if (edge && frontLayer && (AtWar(owner, x + 1, y, width, height) || AtWar(owner, x - 1, y, width, height) ||
                                        AtWar(owner, x, y + 1, width, height) || AtWar(owner, x, y - 1, width, height)))
@@ -345,8 +368,40 @@ public static class SmoothBorders
                 color = EmpireGold;
             pixels[id] = color;
         }
+        _paintedZone = zone.id;
         calc.setDirty();
         return true;
+    }
+
+    // 这块地画完(地形调色、城市平面图之后)：记下底色，再按当前高亮提亮；不是这里逐像素画的(原版画的)就作废底色
+    public static void Finish(Color32[] pixels, TileZone zone)
+    {
+        if (zone?.tiles == null || pixels == null || pixels.Length != _base.Length) return;
+        if (!Enabled || _paintedZone != zone.id)
+        {
+            foreach (WorldTile tile in zone.tiles) _hasBase[tile.data.tile_id] = false;
+            return;
+        }
+        _paintedZone = -1;
+        foreach (WorldTile tile in zone.tiles)
+        {
+            int id = tile.data.tile_id;
+            _base[id] = pixels[id];
+            _hasBase[id] = true;
+            pixels[id] = Lifted(id);
+        }
+    }
+
+    private static Color32 Lifted(int id)
+    {
+        Color32 color = _base[id];
+        IMetaObject owner = _owner[id];
+        if (_outline[id] || owner == null || color.a == 0) return color;
+        // 悬停的、选中的(原版选中后边框一闪一闪，这里改成常亮；选中变了原版会整图重画)
+        ZoneCalculator calc = World.world?.zone_calculator;
+        bool lit = ActiveMetas.Count > 0 && ActiveMetas.Contains(owner) ||
+                   calc != null && calc._cached_check_animation && calc.shouldShowSelectionFor(owner);
+        return lit ? Color32.Lerp(color, new Color32(255, 255, 255, color.a), HighlightLift) : color;
     }
 
     // 相邻像素归属不同(水面不算：海岸本身不画边框)

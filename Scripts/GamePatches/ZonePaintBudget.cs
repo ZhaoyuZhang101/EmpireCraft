@@ -39,6 +39,8 @@ public class ZonePaintBudget : GamePatch
             postfix: new HarmonyMethod(typeof(ZonePaintBudget), nameof(EndPaint)) { priority = Priority.Last });
         harmony.Patch(AccessTools.Method(typeof(ZoneCalculator), nameof(ZoneCalculator.dirtyAndClear)),
             prefix: new HarmonyMethod(typeof(ZonePaintBudget), nameof(BeforeDirtyAndClear)));
+        harmony.Patch(AccessTools.Method(typeof(ZoneCalculator), "checkFadeAndSelectionColors"),
+            prefix: new HarmonyMethod(typeof(ZonePaintBudget), nameof(BeforeSelectionColors)));
     }
 
     private static void NewFrame()
@@ -94,6 +96,35 @@ public class ZonePaintBudget : GamePatch
                     if (visible != null) Visible.Add(visible.id);
         }
         return Visible.Contains(zone.id);
+    }
+
+    // 选中的对象：原版让它的地块每帧重画、边框一闪一闪(呼吸动画)，这里上色贵，每帧重画整个国家拖得一帧一帧的。
+    // 照原版定颜色(没选中的淡一些)，但不做呼吸动画、不每帧重画；选中、悬停的提亮见 SmoothBorders 的高亮
+    private static bool BeforeSelectionColors(ZoneCalculator __instance, ref Color32 pColorBorderInside, ref Color32 pColorBorderOut,
+        IMetaObject pMetaObjectToDraw, MetaTypeAsset pMetaTypeAsset, bool pFavorite, ref bool __result)
+    {
+        if (!Active) return true;
+        bool selected = false;
+        if (__instance._cached_check_animation)
+        {
+            if (__instance.shouldShowSelectionFor(pMetaObjectToDraw)) selected = true;
+            else if (!__instance._selected_nano_object.isRekt())
+            {
+                pColorBorderInside.a = (byte)(pColorBorderInside.a * 0.6f);
+                pColorBorderOut.a = (byte)(pColorBorderOut.a * 0.6f);
+            }
+        }
+        bool shown = selected || (!SelectedUnit.isSet()
+            ? __instance.checkShouldDrawObject(pFavorite)
+            : SelectedUnit.unit.getMetaObjectOfType(pMetaTypeAsset.map_mode) == pMetaObjectToDraw);
+        if (!shown)
+        {
+            pColorBorderInside.a = (byte)(pColorBorderInside.a * 0.5f);
+            pColorBorderOut.a = (byte)(pColorBorderOut.a * 0.5f);
+            if (__instance._cached_should_be_clear_color) pColorBorderInside = __instance._color_clear;
+        }
+        __result = false;
+        return false;
     }
 
     // 全图重画：只让各地块下一轮重画，不先清成透明

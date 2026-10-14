@@ -281,6 +281,7 @@ public class PureMapPatch : GamePatch
     {
         if (pZone?.tiles == null || __instance.pixels == null) return;
         if (PureMapMode.Enabled) ShadeTerrain(__instance.pixels, pZone, pUp, pDown, pLeft, pRight);
+        SmoothBorders.Finish(__instance.pixels, pZone);
         // 平滑国界：帝国金边已逐像素画好(见 SmoothBorders)；规划时整张图是灰的，不描金边
         if (SmoothBorders.Enabled || ZonePlanSystem.SteadyOverlay) return;
         Kingdom kingdom = pZone.city?.kingdom;
@@ -316,6 +317,7 @@ public class PureMapPatch : GamePatch
 
     private static void AfterApplyColorsFull(ZoneCalculator __instance, TileZone pZone)
     {
+        SmoothBorders.Finish(__instance.pixels, pZone);
         if (PureMapMode.Enabled && pZone?.tiles != null && __instance.pixels != null)
             ShadeTerrain(__instance.pixels, pZone, false, false, false, false);
     }
