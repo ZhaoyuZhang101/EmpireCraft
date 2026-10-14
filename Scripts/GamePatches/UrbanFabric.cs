@@ -126,6 +126,14 @@ public static class UrbanFabric
 
     private static Color32 Mix(Color32 a, Color32 b, float t) => Color32.Lerp(a, b, t);
 
+    // 画在国色上：国色始终占上风(城是本国颜色里浅一些、带纹理的一片，不涂成灰色)；空地只把国色提亮
+    private const float Strength = 0.5f;
+
+    private static Color32 Paint(Color32 color, Color32 over, float t) =>
+        over.r == Ground.r && over.g == Ground.g && over.b == Ground.b
+            ? Color32.Lerp(color, White, 0.16f)
+            : Color32.Lerp(color, over, t * Strength);
+
     #endregion
 
     #region 每座城的格局(随平面图每五秒重算)
@@ -179,7 +187,7 @@ public static class UrbanFabric
             float a = (i + 0.5f) / EdgeBins * TwoPi;
             float lobe = Noise(10f + 3f * Mathf.Cos(a), 10f + 3f * Mathf.Sin(a), 1.6f, seed + 3);
             float jitter = 0.92f + 0.16f * Noise(20f + 6f * Mathf.Cos(a), 20f + 6f * Mathf.Sin(a), 1.3f, seed + 4);
-            g.Edge[i] = smooth[i] * jitter * (1f + Mathf.Min(g.Progress, 3f) * 0.18f * (0.3f + 1.4f * lobe));
+            g.Edge[i] = smooth[i] * jitter * (1f + Mathf.Min(g.Progress, 3f) * 0.08f * (0.3f + 1.4f * lobe));
             g.MaxEdge = Mathf.Max(g.MaxEdge, g.Edge[i]);
         }
         // 干道：先按种子定几条(古代三条，工业化后四到七条)，再补上实际通往邻城、方向没重复的路
@@ -205,7 +213,7 @@ public static class UrbanFabric
         // 沿每条路往外长出的一溜房子有多长
         g.RibbonLength = new float[g.Rays.Length];
         for (int k = 0; k < g.Rays.Length; k++)
-            g.RibbonLength[k] = (2f + 9f * H(seed, (long)(g.Rays[k] * 100f), 53)) * (0.4f + 0.3f * Mathf.Min(g.Progress, 2f));
+            g.RibbonLength[k] = (1.5f + 4f * H(seed, (long)(g.Rays[k] * 100f), 53)) * (0.4f + 0.3f * Mathf.Min(g.Progress, 2f));
         // 片区：按种子分四到七片，各片街网朝向、开发先后不同(与干道无关，修了新路片区不变)
         g.Sectors = 4 + (int)(H(seed, 7) * 4);
         g.SectorOffset = H(seed, 8) * TwoPi;
@@ -351,7 +359,7 @@ public static class UrbanFabric
         if (!g.Modern)
         {
             if (built) return false;
-            if (r > g.OldRadius && r < edge + 30f && ray < 0.5f) { result = Mix(color, Dirt, 0.8f); return true; }
+            if (r > g.OldRadius && r < edge + 3f && ray < 0.5f) { result = Paint(color, Dirt, 0.8f); return true; }
             if (use == ZoneUse.Reserve || Rough(tile)) return false;
             if (Ribbon(g, tile, color, r, edge, ray, nearest, out result)) return true;
             if (Village(g, tile, color, out result)) return true;
@@ -359,20 +367,20 @@ public static class UrbanFabric
             return true;
         }
         // 工业化以后：环路、干道、铁路
-        if (OnRing(g, r, edge) || r > g.OldRadius - 1f && r < edge + 30f && ray < 0.6f)
+        if (OnRing(g, r, edge) || r > g.OldRadius - 1f && r < edge + 1f && ray < 0.6f)
         {
-            result = Mix(color, r > edge + 2f && g.Progress < 0.6f ? Dirt : Asphalt, 0.9f);
+            result = Paint(color, Asphalt, 0.9f);
             return true;
         }
         if (g.Progress >= 0.4f)
         {
             float rail = Mathf.Abs(Mathf.DeltaAngle(angle * Mathf.Rad2Deg, g.RailDir * Mathf.Rad2Deg)) * Mathf.Deg2Rad * r;
-            if (rail < 0.5f && r > g.OldRadius + 1f && r < edge + 8f)
+            if (rail < 0.5f && r > g.OldRadius + 1f && r < edge)
             {
-                result = Mix(color, (tile.x + tile.y) % 2 == 0 ? Tie : Rail, 0.9f);
+                result = Paint(color, (tile.x + tile.y) % 2 == 0 ? Tie : Rail, 0.9f);
                 return true;
             }
-            if (rail < 2f && r > g.OldRadius + 1f && r < g.OldRadius + 4f) { result = Mix(color, Station, 0.9f); return true; }
+            if (rail < 2f && r > g.OldRadius + 1f && r < g.OldRadius + 4f) { result = Paint(color, Station, 0.9f); return true; }
         }
         if (Rough(tile)) return false;
         // 旧城：现代城市规划后逐块起高楼，其余照原来的画法(城墙已拆)
@@ -396,7 +404,7 @@ public static class UrbanFabric
             if (g.Progress >= 1f && fringe < 4f && use != ZoneUse.Farm &&
                 H(g.Seed, tile.x / 3, tile.y / 3, 8) > 0.45f + fringe * 0.12f && tile.x % 3 != 0 && tile.y % 3 != 0)
             {
-                result = Mix(color, HouseRoof[(int)(H(g.Seed, tile.x, tile.y, 9) * 4) % 4], 0.85f);
+                result = Paint(color, HouseRoof[(int)(H(g.Seed, tile.x, tile.y, 9) * 4) % 4], 0.85f);
                 return true;
             }
             if (Ribbon(g, tile, color, r, edge, ray, nearest, out result)) return true;
@@ -446,7 +454,7 @@ public static class UrbanFabric
             result = Field(g, tile, color, r, edge, use);
             return true;
         }
-        if (fu < 1f || fv < 1f) { result = Mix(color, Local, 0.85f); return true; }
+        if (fu < 1f || fv < 1f) { result = Paint(color, Local, 0.85f); return true; }
         float lu = fu - 1f, lv = fv - 1f, n = size - 1;
         // 街心公园(少数街区)
         if (kind != "industry" && kind != "military" && H(g.Seed, bu, bv, 77) < 0.07f)
@@ -467,14 +475,14 @@ public static class UrbanFabric
                 return true;
             case "market":
                 result = (int)lu % 2 == 0 && lv >= 0.5f && lv < n - 0.5f
-                    ? Mix(color, HouseRoof[(int)(seed * 4) % 4], 0.85f) : Mix(color, Market, 0.7f);
+                    ? Paint(color, HouseRoof[(int)(seed * 4) % 4], 0.85f) : Paint(color, Market, 0.7f);
                 return true;
         }
         // 体育场(少数大街区)
         if (H(g.Seed, bu, bv, 88) > 0.985f && r > g.OldRadius + 4f)
         {
             float e = (lu - n / 2f) * (lu - n / 2f) / (n * n / 4f) + (lv - n / 2f) * (lv - n / 2f) / (n * n / 7f);
-            result = Mix(color, e < 0.25f ? Pitch : e < 0.5f ? Stand : e < 1f ? Track : Ground, 0.9f);
+            result = Paint(color, e < 0.25f ? Pitch : e < 0.5f ? Stand : e < 1f ? Track : Ground, 0.9f);
             return true;
         }
         // 住宅：内圈板楼小区(西欧围合街坊)，外圈低层住宅
@@ -486,19 +494,19 @@ public static class UrbanFabric
                 Color32 wall = seed < 0.6f
                     ? HouseRoof[(int)(H(g.Seed, bu, bv, (int)lu / 2 * 7 + (int)lv / 2) * 4) % 4]
                     : Slab[(int)(seed * 4) % 4];
-                result = ring ? Mix(color, wall, 0.88f) : Mix(color, seed > 0.5f ? Park : Ground, 0.85f);
+                result = ring ? Paint(color, wall, 0.88f) : Paint(color, seed > 0.5f ? Park : Ground, 0.85f);
                 return true;
             }
             result = (int)lv % 2 == 0 && lu >= 0.5f && lu < n - 0.5f
-                ? Mix(color, Slab[(int)(seed * 4) % 4], 0.88f)
-                : Mix(color, H(g.Seed, bu, bv, (int)lv) < 0.4f ? Park : Ground, 0.85f);
+                ? Paint(color, Slab[(int)(seed * 4) % 4], 0.88f)
+                : Paint(color, H(g.Seed, bu, bv, (int)lv) < 0.4f ? Park : Ground, 0.85f);
             return true;
         }
         int hx = (int)(lu / 2.5f), hy = (int)(lv / 2.5f);
         float q = H(g.Seed, bu * 31 + hx, bv * 17 + hy, 6);
         if (q < 0.75f && lu % 2.5f < 1.6f && lv % 2.5f < 1.6f)
-            result = Mix(color, q < 0.45f ? HouseRoof[(int)(q * 13) % 4] : Slab[(int)(q * 7) % 4], 0.88f);
-        else result = Mix(color, Mix(Ground, Park, 0.4f), 0.8f);
+            result = Paint(color, q < 0.45f ? HouseRoof[(int)(q * 13) % 4] : Slab[(int)(q * 7) % 4], 0.88f);
+        else result = Paint(color, Mix(Ground, Park, 0.4f), 0.8f);
         return true;
     }
 
@@ -508,7 +516,7 @@ public static class UrbanFabric
         const int size = 5;
         int bu = Mathf.FloorToInt((tile.x + 1000) / (float)size), bv = Mathf.FloorToInt((tile.y + 1000) / (float)size);
         int lu = (tile.x + 1000) % size, lv = (tile.y + 1000) % size;
-        if (lu == 0 || lv == 0) return Mix(color, Local, 0.85f);
+        if (lu == 0 || lv == 0) return Paint(color, Local, 0.85f);
         float seed = H(g.Seed, bu, bv, 31);
         int n = size - 1, shape = (int)(seed * 5);
         int w = 1 + (int)(H(g.Seed, bu, bv, 1) * n), h = 1 + (int)(H(g.Seed, bu, bv, 2) * n);
@@ -520,10 +528,10 @@ public static class UrbanFabric
             inside = (lu - 2f) * (lu - 2f) + (lv - 2f) * (lv - 2f) <= 1.6f;
         }
         Color32 roof = seed > 0.35f ? Glass[(int)(H(g.Seed, bu, bv, 4) * 4) % 4] : Concrete[(int)(H(g.Seed, bu, bv, 4) * 4) % 4];
-        if (inside) return Mix(color, lu == 1 ? Mix(roof, White, 0.2f) : roof, 0.92f);
+        if (inside) return Paint(color, lu == 1 ? Mix(roof, White, 0.2f) : roof, 0.92f);
         int tall = seed > 0.6f ? 2 : 1;
-        if (lu >= 2 && lu <= w + tall && lv >= 1 - tall && lv <= h - 1) return Mix(color, Shadow, 0.85f);
-        return Mix(color, Ground, 0.85f);
+        if (lu >= 2 && lu <= w + tall && lv >= 1 - tall && lv <= h - 1) return Paint(color, Shadow, 0.85f);
+        return Paint(color, Ground, 0.85f);
     }
 
     private static Color32 IndustryTile(Color32 color, float lu, float lv, float n, float seed)
@@ -531,27 +539,27 @@ public static class UrbanFabric
         if (seed > 0.75f)
         {
             float e = (lu - n / 2f) * (lu - n / 2f) + (lv - n / 2f) * (lv - n / 2f);
-            return Mix(color, e < n * n / 5.8f ? Tank : Ground, 0.88f);
+            return Paint(color, e < n * n / 5.8f ? Tank : Ground, 0.88f);
         }
         if (lu >= 0.5f && lu < n - 0.5f && lv >= 0.5f && lv < n - 1.5f)
         {
-            if ((int)lu == 1 && (int)lv == (int)(n - 2)) return Mix(color, Chimney, 0.95f);
+            if ((int)lu == 1 && (int)lv == (int)(n - 2)) return Paint(color, Chimney, 0.95f);
             Color32 roof = Factory[(int)(seed * 10) % 4];
-            return Mix(color, (int)lu % 2 == 0 ? Mix(roof, White, 0.15f) : roof, 0.9f);
+            return Paint(color, (int)lu % 2 == 0 ? Mix(roof, White, 0.15f) : roof, 0.9f);
         }
-        return Mix(color, Ground, 0.85f);
+        return Paint(color, Ground, 0.85f);
     }
 
     // 营区：围栏、操场、一排排营房
     private static Color32 MilitaryTile(Color32 color, float lu, float lv, float n)
     {
-        if (lu < 0.5f || lv < 0.5f || lu >= n - 0.5f || lv >= n - 0.5f) return Mix(color, Fence, 0.8f);
-        if (lu < n / 2f) return Mix(color, Parade, 0.8f);
-        return Mix(color, (int)lv % 2 == 0 ? Barrack : Ground, 0.85f);
+        if (lu < 0.5f || lv < 0.5f || lu >= n - 0.5f || lv >= n - 0.5f) return Paint(color, Fence, 0.8f);
+        if (lu < n / 2f) return Paint(color, Parade, 0.8f);
+        return Paint(color, (int)lv % 2 == 0 ? Barrack : Ground, 0.85f);
     }
 
     private static Color32 Green(Geometry g, WorldTile tile, Color32 color) =>
-        Mix(color, H(g.Seed, tile.x, tile.y, 11) < 0.35f ? Tree : Park, 0.85f);
+        Paint(color, H(g.Seed, tile.x, tile.y, 11) < 0.35f ? Tree : Park, 0.85f);
 
     // 沿路的一溜房子：出城的干道两旁，离城越远越稀，每条路长出去的长短不一
     private static bool Ribbon(Geometry g, WorldTile tile, Color32 color, float r, float edge, float ray, int nearest, out Color32 result)
@@ -560,7 +568,7 @@ public static class UrbanFabric
         if (nearest < 0 || ray < 0.7f || ray > 2.4f) return false;
         float reach = (r - edge) / Mathf.Max(0.1f, g.RibbonLength[nearest]);
         if (reach < 0f || reach > 1f || H(g.Seed, tile.x, tile.y, 16) < 0.35f + reach * 0.55f) return false;
-        result = Mix(color, g.Progress < 1f || H(g.Seed, tile.x, tile.y, 17) < 0.7f
+        result = Paint(color, g.Progress < 1f || H(g.Seed, tile.x, tile.y, 17) < 0.7f
             ? HouseRoof[(int)(H(g.Seed, tile.x, tile.y, 18) * 4) % 4]
             : Slab[(int)(H(g.Seed, tile.x, tile.y, 19) * 4) % 4], 0.85f);
         return true;
@@ -575,7 +583,7 @@ public static class UrbanFabric
         float fx = tile.x + 4f * Noise(tile.x, tile.y, 13f, g.Seed + 1), fy = tile.y + 4f * Noise(tile.x, tile.y, 13f, g.Seed + 2);
         int by = Mathf.FloorToInt(fy / 6f);
         int bx = Mathf.FloorToInt(fx / (5f + (int)(H(g.Seed, by) * 4)));
-        return Mix(color, Crops[(int)(H(g.Seed, bx, by, 5) * 5) % 5], strength);
+        return Paint(color, Crops[(int)(H(g.Seed, bx, by, 5) * 5) % 5], strength);
     }
 
     // 村镇：零散的屋舍与院落；乡镇有十字街与小集市
@@ -589,17 +597,17 @@ public static class UrbanFabric
             if (d > size + 0.5f) continue;
             if (town && (Mathf.RoundToInt(dx) == 0 || Mathf.RoundToInt(dy) == 0))
             {
-                result = Mix(color, d < 1.2f ? Market : TownStreet, 0.85f);
+                result = Paint(color, d < 1.2f ? Market : TownStreet, 0.85f);
                 return true;
             }
             if (H(g.Seed, tile.x, tile.y, 12) < (town ? 0.6f : 0.45f))
             {
-                result = Mix(color, g.Progress < 1f || H(g.Seed, tile.x, tile.y, 13) < 0.6f
+                result = Paint(color, g.Progress < 1f || H(g.Seed, tile.x, tile.y, 13) < 0.6f
                     ? HouseRoof[(int)(H(g.Seed, tile.x, tile.y, 14) * 4) % 4]
                     : Slab[(int)(H(g.Seed, tile.x, tile.y, 15) * 4) % 4], 0.88f);
                 return true;
             }
-            result = Mix(color, Yard, 0.5f);
+            result = Paint(color, Yard, 0.5f);
             return true;
         }
         return false;
