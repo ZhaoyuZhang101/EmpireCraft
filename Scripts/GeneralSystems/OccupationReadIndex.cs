@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using EmpireCraft.Scripts.GameClassExtensions;
 using UnityEngine;
@@ -37,7 +38,9 @@ public static class OccupationReadIndex
     }
 
     // 占领变了，地块下一轮重画：原版只在归属、边框变化时重画，纯净地图的占领斜纹、平滑国界按占领方上的色不会跟着变
-    // (被占、收复、战后清掉占领后一直留着旧样子)。知道是哪块就只重画那块，不知道就重画全城
+    // (被占、收复、战后清掉占领后一直留着旧样子)。知道是哪块就只重画那块；不知道就重画全城——但只在这座城确实
+    // 有占领时(各处"清空占领"是在改动前调这里的)：太平城市的 AI 会定时清空(本来就空的)占领，以前每次都整城重画，
+    // 几十座城一起把每帧的上色预算吃光，切图层后整图迟迟画不完
     private static void Repaint(City city, TileZone zone)
     {
         if (!PureMapMode.Enabled && !SmoothBorders.Enabled) return;
@@ -46,7 +49,7 @@ public static class OccupationReadIndex
             zone.resetRenderHelpers();
             return;
         }
-        if (city.zones == null) return;
+        if (city.zones == null || city.GetOrCreate().OccupiedStatus?.Any(pair => pair.Value?.Count > 0) != true) return;
         foreach (TileZone each in city.zones) each?.resetRenderHelpers();
     }
 

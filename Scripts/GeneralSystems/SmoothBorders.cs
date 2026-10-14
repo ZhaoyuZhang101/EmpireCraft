@@ -543,6 +543,8 @@ public static class SmoothBorders
             _sweepLayer = layer;
             _sweepOption = option;
             ResetTransitions();
+            // 换图层整图都要重画：不再因为"本块归属变了"让四周八块跟着重画，否则每块要多画好几遍
+            LastMeta.Clear();
         }
         int realKey = ColorKey(SafeColor(real));
         if (Shown.TryGetValue(zone.id, out ShownState shown) && ReferenceEquals(shown.meta, real) && shown.colorKey == realKey)
