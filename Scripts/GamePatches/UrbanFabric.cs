@@ -461,14 +461,14 @@ public static class UrbanFabric
         return Paint(color, Trampled, 0.3f);
     }
 
-    // 城郊的路遇到山(山、高峰)就到此为止，丘陵照走
+    // 城郊的路遇到山(山、高峰)或原版城墙就到此为止，丘陵照走
     private static int Clip(Road road)
     {
         for (int d = 0; d <= road.Length; d++)
         {
             (int x, int y) = Point(road, d);
             WorldTile tile = World.world.GetTile(x, y);
-            if (tile?.Type == null || tile.Type.mountains || tile.Type.block) return Mathf.Max(0, d - 1);
+            if (tile?.Type == null || tile.Type.mountains || tile.Type.block || tile.Type.wall) return Mathf.Max(0, d - 1);
         }
         return road.Length;
     }

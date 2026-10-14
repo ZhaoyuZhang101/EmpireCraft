@@ -11,8 +11,9 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //       - 先按地块寻路定走廊：绕开高山(六成以上是山的地块不走)与海面，山地、沼泽、丛林代价高，过河代价更高(架桥)，
 //         已有的路代价低——所以路沿平地、谷地走，彼此并成干线网；地形代价是直线距离几倍(RoadPlan.terrain / straight)
 //         决定要什么等级才修得通；
-//       - 再在走廊(路线经过的地块及其一圈)里按格子寻路：山、高峰的格子一律不走，丘陵可以走(代价加倍)，
-//         过河过湖算架桥(代价高，画成桥)，已有的路便宜；走廊里绕不过山的不修；
+//       - 再在走廊(路线经过的地块及其一圈)里按格子寻路：山、高峰、原版城墙的格子一律不走，丘陵可以走(代价加倍)，
+//         过河过湖算架桥(代价高，画成桥)，已有的路便宜；城墙是一格宽的线，横在走廊里绕不过去时把走廊放宽到三圈再找，
+//         还绕不过(山挡住、城被墙围死)的不修；
 //     规划好的路要各国出钱修、每年出钱养(见 RoadBuildingSystem)，修通的路才画出来、才能走；
 //     行军(见 CorpsSystem)：寻路时路上的地块代价低、路外按兵种加价，路外行军按兵种打折(见 CorpsArmSystem.OffRoad)；城心也算有路。
 //   · 海路：港口城之间的航线——每座港口连最近的两座港口，另连一座别的陆地上最近的港口。按地块在海面上寻路，
@@ -33,6 +34,8 @@ public static class RoadNetwork
     private const float HillTileCost = 2f, BridgeTileCost = 6f;
     private const int MaxTileSearch = 40000, MaxPull = 16;
     private const float MountainZoneShare = 0.6f;
+    // 走廊绕不过去(城墙横在中间)时放宽到几圈地块
+    private const int WideCorridor = 3;
     // 港口连几座最近的港口；航线最长几个地块；绕得比直线远太多(隔着整片大陆)的不连
     private const int LaneNeighbours = 2, LaneMaxZones = 72;
     private const float LaneDetour = 2.5f;
@@ -276,7 +279,7 @@ public static class RoadNetwork
         route.straight = Mathf.Max(1f, Distance(from.zone, goal));
         if (route.terrain > route.straight * RoadBuildingSystem.DetourLimit(RoadBuildingSystem.MaxGrade)) return route;
         // 格子一级：走廊里绕不过山的不修
-        List<WorldTile> tiles = FindTiles(from, to, Corridor(path));
+        List<WorldTile> tiles = FindTiles(from, to, Corridor(path, 1)) ?? FindTiles(from, to, Corridor(path, WideCorridor));
         if (tiles == null) return new RoadPlan { at = now };
         foreach (WorldTile tile in tiles)
             if (tile.zone != null && (route.zones.Count == 0 || route.zones[route.zones.Count - 1] != tile.zone.id) &&
@@ -302,15 +305,15 @@ public static class RoadNetwork
         {
             if (tile?.Type == null) continue;
             total++;
-            if (Mountain(tile)) mountains++;
+            if (Mountain(tile) && !tile.Type.wall) mountains++;
         }
         share = total == 0 ? 0f : mountains / (float)total;
         MountainShares[zone.id] = share;
         return share;
     }
 
-    // 山、高峰(原版的阻挡层)：路不走；丘陵可以
-    private static bool Mountain(WorldTile tile) => tile.Type != null && (tile.Type.mountains || tile.Type.block);
+    // 山、高峰、原版城墙(原版的阻挡层)：路不走；丘陵可以。城墙不算进地块的山地占比(一格宽的线，绕过去就行)
+    private static bool Mountain(WorldTile tile) => tile.Type != null && (tile.Type.mountains || tile.Type.block || tile.Type.wall);
 
     // 走进这一格的代价：山不走，丘陵加倍，水面是桥，已有的路便宜
     private static float TileStep(WorldTile tile)
@@ -320,16 +323,15 @@ public static class RoadNetwork
         return RoadTiles.Contains(tile.data.tile_id) ? cost * RoadCost : cost;
     }
 
-    // 走廊：地块路线经过的地块及其一圈
-    private static HashSet<int> Corridor(List<TileZone> path)
+    // 走廊：地块路线经过的地块及其周围 ring 圈
+    private static HashSet<int> Corridor(List<TileZone> path, int ring)
     {
         var corridor = new HashSet<int>();
+        ZoneCalculator zones = World.world.zone_calculator;
         foreach (TileZone zone in path)
-        {
-            corridor.Add(zone.id);
-            foreach (TileZone next in zone.neighbours_all ?? Array.Empty<TileZone>())
-                if (next != null) corridor.Add(next.id);
-        }
+            for (int dx = -ring; dx <= ring; dx++)
+                for (int dy = -ring; dy <= ring; dy++)
+                    if (zones.getZone(zone.x + dx, zone.y + dy) is TileZone next) corridor.Add(next.id);
         return corridor;
     }
 
