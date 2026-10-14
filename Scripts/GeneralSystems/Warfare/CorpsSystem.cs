@@ -300,7 +300,15 @@ public static class CorpsSystem
             corps.march_zones = 0;
             if (corps.task is "attack" or "defend" && FrontSystem.Battles.ContainsKey(corps.sector_city_id)) engaged += weighted;
         }
-        if (soldiers < 1f || !TreasurySystem.Enabled(kingdom)) return;
+        if (soldiers < 1f)
+        {
+            // 没有兵就不欠饷：清掉欠饷状态。以前军团解散后欠饷标记一直留着，这个国家再也征不了兵、开不了仗
+            var idle = kingdom.GetOrCreate();
+            idle.corps_pay_shortfall = 0f;
+            idle.corps_unpaid_months = 0;
+            return;
+        }
+        if (!TreasurySystem.Enabled(kingdom)) return;
         var data = kingdom.GetOrCreate();
         double peace = CityStabilityRules.CorpsAnnual(soldiers, false);
         int baseBill = CityStabilityRules.Invoice(peace, ref data.corps_upkeep_carry);
@@ -432,8 +440,12 @@ public static class CorpsSystem
         legionSize = Mathf.Max(1f, legionSize * budget);
         foreach (City city in cities)
         {
-            if (CityPopulationSystem.PostOf(city, doctrine) == CityPopulationSystem.ArmyPost.None) continue;
-            int legions = Mathf.Max(0, CityPopulationSystem.LevyTarget(city) - CityStabilitySystem.FundedSlots(city));
+            CityPopulationSystem.ArmyPost post = CityPopulationSystem.PostOf(city, doctrine);
+            if (post == CityPopulationSystem.ArmyPost.None) continue;
+            // 平时首都至少留一个军团("平时只留一名将领"，见 CityPopulationSystem.LevyTarget)：城防卫兵另算，
+            // 不再占掉这一个名额——以前新开局的小国平时一个军团都没有，几十年不打仗就一直没兵
+            int legions = Mathf.Max(post == CityPopulationSystem.ArmyPost.Central ? 1 : 0,
+                CityPopulationSystem.LevyTarget(city) - CityStabilitySystem.FundedSlots(city));
             int wanted = legions <= 0 ? 0 : Mathf.CeilToInt(legions / (float)LegionsPerCorps);
             var here = list.Where(corps => corps.home_city_id == city.id && !corps.militia && corps.order_id < 0).ToList();
             // 每支军分到的旧制军团数
