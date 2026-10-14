@@ -47,6 +47,7 @@ public static class TerritoryLabelRenderer
     private static readonly Dictionary<string, RuntimeLabel> _labels = new Dictionary<string, RuntimeLabel>();
     private static readonly List<RuntimeLabel> _render_order = new List<RuntimeLabel>();
     private static readonly List<ScreenLabelBounds> _occupied_label_bounds = new List<ScreenLabelBounds>();
+    private static int _bakedLogs;
     private static TerritoryLabelRendererHost _host;
     private static RectTransform _root;
     private static Text _text_template;
@@ -914,11 +915,19 @@ public static class TerritoryLabelRenderer
                 _text.cachedTextGeneratorForLayout.Invalidate();
                 _reference_width = Mathf.Max(1f, _text.preferredWidth);
                 _reference_height = Mathf.Max(1f, _text.preferredHeight);
-                // 字形包字体的行高、宽 Unity 量不准，按字形包的上伸加下伸、各字步进算(量小了铭牌避让就失灵，叠在一起)
+                // 字形包字体的行高 Unity 量不出来，按字形包的上伸加下伸算
                 if (baked != null)
                 {
+                    float measured = _reference_width, measuredHeight = _reference_height;
                     _reference_height = Mathf.Max(_reference_height, baked.LineHeight);
-                    _reference_width = Mathf.Max(_reference_width, baked.Width(trimmedValue));
+                    // 诊断：前几次记下 Unity 量的宽高与按字形算的宽高，核对字形包字体的大小
+                    if (_bakedLogs < 8)
+                    {
+                        _bakedLogs++;
+                        NeoModLoader.services.LogService.LogInfo(
+                            $"[EmpireCraft][铭牌字形包] {_text.font.name} \"{trimmedValue}\" Unity宽={measured:0} 字形宽={baked.Width(trimmedValue):0} " +
+                            $"Unity高={measuredHeight:0} 行高={baked.LineHeight:0} 画布缩放={_text.canvas?.scaleFactor ?? 0:0.00} 每单位像素={_text.pixelsPerUnit:0.00}");
+                    }
                 }
                 rect.sizeDelta = new Vector2(_reference_width + 2f, _reference_height + 2f);
                 _metrics_text = trimmedValue;

@@ -11,3 +11,6 @@ SHA-256 `644e0cae9b40f0b10ab729a01bd32032e3973bac22be3dccae01bf6ae7fde969`。
 所以繁体国号也能整句用这款行书显示；简繁都没有的字按 `Homophones.txt` 换成字体里有的同音字
 (python3 Tools/FontBake/build_homophones.py Assets/Fonts/ZhiMangXing/ZhiMangXing.glyphs Assets/Fonts/ZhiMangXing/Homophones.txt，需要 pypinyin)。
 重新生成：python3 Tools/FontBake/bake_seal_glyphs.py ZhiMangXing-Regular.ttf Assets/Fonts/ZhiMangXing/ZhiMangXing.glyphs 128 16
+
+原字体文件 `ZhiMangXing-Regular.ttf` 也一并放在这里：双击它安装到系统(Windows 选"安装")、重启游戏后，模组会自动改用系统里的这款字体
+(和本机的隶书、行楷一样是动态字体，按需要的字号现画，任何缩放都清楚、大小与其它字体一致)；没安装就用上面的字形包。
