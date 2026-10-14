@@ -1001,6 +1001,10 @@ public class EmpireCraftActorCheckWarriorMoveAdvanced : GameAIActorBase
             return;
         }
 
+        // 虚拟部队(军团)模式：地块只随战线推进易手(见 FrontSystem)，统领等实体走进去不当场占领、夺回——
+        // 以前统领先走到前线目标地块就把它占了，占领跑到推进线前面，和战线对不上
+        if (EmpireCraft.Scripts.GeneralSystems.CorpsSystem.Enabled) return;
+
         Kingdom occupier = city.GetTileZoneOccupier(zone);
 
         // 2. 如果这是自己的城市，并且 zone 被敌军占领，但现在没有敌军，则夺回
