@@ -235,7 +235,11 @@ public static class MarketSystem
         }
         try
         {
-            int capacity = Capacity(buyer);
+            // 买卖额度是每月的：按距上次买卖过了几个月放大(每城的结算常常隔一年多才轮到一次，最多补 24 个月)
+            double now = World.world.getCurWorldTime();
+            int months = data.last_market < 0d || now < data.last_market ? 1 : Mathf.Clamp(Date.getMonthsSince(data.last_market), 1, 24);
+            data.last_market = now;
+            int capacity = Capacity(buyer) * months;
             float bought = 0f;
             // 本月已经用民间存款买粮花掉的钱
             float foodSpent = 0f;
@@ -264,7 +268,7 @@ public static class MarketSystem
                         : Mathf.Max(0, buyer.GetMoney());
                     int affordable = price <= 0f ? 0 : Mathf.FloorToInt(purse / price);
                     int amount = Mathf.Min(Mathf.FloorToInt(Mathf.Min(need, surplus)), Mathf.Min(capacity, affordable));
-                    amount = Mathf.Min(amount, Capacity(seller));
+                    amount = Mathf.Min(amount, Capacity(seller) * months);
                     if (amount <= 0) continue;
                     int moved;
                     using (PopulationEconomySystem.PrivateUse()) moved = Move(seller, buyer, good, amount);

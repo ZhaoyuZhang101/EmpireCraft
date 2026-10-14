@@ -31,7 +31,7 @@ public static class GoodsLedger
             float.IsInfinity(amount) || World.world == null) return;
         CityPopulationData data = CityPopulationSystem.Get(city);
         if (data == null) return;
-        Roll(data);
+        if (data.goods_since < 0d) data.goods_since = World.world.getCurWorldTime();
         Dictionary<string, float> acc = kind switch
         {
             0 => data.goods_made_acc ??= new Dictionary<string, float>(),
@@ -42,9 +42,11 @@ public static class GoodsLedger
         acc[resource] = previous + amount;
     }
 
-    // 满一年：本年累计按整一年折算存为上一年，重新开始累计
-    private static void Roll(CityPopulationData data)
+    // 满一年：本年累计按整一年折算存为上一年，重新开始累计。只在经济结算时调用(见 PopulationEconomySystem.Settle)，
+    // 不在记账时翻页——不然一年里只记到一两次结算，年账时有时无
+    public static void Roll(CityPopulationData data)
     {
+        if (data == null || World.world == null) return;
         double now = World.world.getCurWorldTime();
         if (data.goods_since < 0d || now < data.goods_since)
         {

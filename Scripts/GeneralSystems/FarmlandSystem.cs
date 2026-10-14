@@ -224,7 +224,7 @@ public static class FarmlandSystem
                 foreach (TileZone zone in PlannedZones(city)) ZonePlanSystem.ClearHousing(city, zone, ZoneUse.Farm);
                 break;
             case 1: CityBehCheckFarms.check(city); EnsureRedLine(city, data); break;
-            case 2: return Harvest(city);
+            case 2: return Harvest(city, data);
             case 3: Plant(city); break;
             case 4:
                 foreach (TileZone zone in PlannedZones(city)) CultivateZone(city, zone, MaxTilesPerSettle);
@@ -255,9 +255,16 @@ public static class FarmlandSystem
         return result;
     }
 
-    private static float Harvest(City city)
+    private static float Harvest(City city, CityPopulationData data)
     {
-        if (PureMapMode.Enabled) return VirtualHarvest(city);
+        // 纯净地图：按种植位折算的是一个月的收成，乘上距上次经济结算过了几个月(吃粮也是这样按月数补算的；
+        // 每座城的结算常常隔一年多才轮到一次，以前只算一个月，田实际只出了设计产量的二十分之一左右)
+        if (PureMapMode.Enabled)
+        {
+            int months = data == null || data.last_economy < 0d ? 1
+                : Mathf.Clamp(Date.getMonthsSince(data.last_economy), 1, 24);
+            return VirtualHarvest(city) * months;
+        }
         float food = 0f;
         int count = 0;
         foreach (KeyValuePair<TileZone, List<WorldTile>> pair in FieldsByZone(city))

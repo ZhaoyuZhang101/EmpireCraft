@@ -74,6 +74,7 @@ public static class PopulationEconomySystem
         int months = Mathf.Clamp(Date.getMonthsSince(data.last_economy), 0, 24);
         if (months <= 0) return;
         data.last_economy = now;
+        GoodsLedger.Roll(data);
         EmpireCraft.Scripts.AI.ActorAI.EmpireCraftActorCheckTax.SettleVirtualCity(city);
         float years = months / 12f;
         ResolveReflection();
@@ -154,16 +155,16 @@ public static class PopulationEconomySystem
         float consumption = eaten * UnitValue(city, _foodId ?? "wheat") + data.last_leather_used * UnitValue(city, "leather");
         AddSavings(city, data, -consumption);
         data.last_consumption = years > 0f ? consumption / years : 0f;
-        // 饥荒：国家粮仓开仓赈灾，调来的粮食补上缺口
+        // 饥荒：国家粮仓开仓赈灾，调来的粮食直接补上缺口(不再先存进仓库再吃：没有仓库的城存不进去，粮就丢了)
         if (shortage > 0f)
         {
             float relief = GranarySystem.Relieve(city, shortage);
             if (relief > 0f)
             {
-                Deposit(city, data, _foodId ?? "wheat", relief, income: false, made: false);
-                float served = EatFood(city, data, Mathf.Floor(Mathf.Min(shortage, relief)), out _);
+                float served = Mathf.Min(shortage, relief);
                 eaten += served;
                 shortage = Mathf.Max(0f, shortage - served);
+                GoodsLedger.Used(city, _foodId ?? "wheat", served);
             }
         }
 
@@ -228,9 +229,9 @@ public static class PopulationEconomySystem
         if (rawHarvest <= 0f) return 0f;
         ResolveReflection();
         float harvested = GranarySystem.Collect(city, rawHarvest);
-        // 产出记收割的全部(交国家粮仓的那份也是本城种出来的)
-        GoodsLedger.Made(city, _foodId ?? "wheat", rawHarvest);
-        if (harvested > 0f) Deposit(city, data, _foodId ?? "wheat", harvested, made: false);
+        // 产出：交国家粮仓的那份(也是本城种出来的)，加上实际存进本城的(见 Deposit)
+        GoodsLedger.Made(city, _foodId ?? "wheat", rawHarvest - harvested);
+        if (harvested > 0f) Deposit(city, data, _foodId ?? "wheat", harvested);
         return harvested;
     }
 
@@ -506,7 +507,6 @@ public static class PopulationEconomySystem
     {
         if (city?.data == null || data == null || string.IsNullOrEmpty(resource) ||
             amount <= 0f || float.IsNaN(amount) || float.IsInfinity(amount)) return;
-        if (made) GoodsLedger.Made(city, resource, amount);
         data.output_carry ??= new Dictionary<string, float>();
         data.output_carry.TryGetValue(resource, out float carry);
         if (float.IsNaN(carry) || float.IsInfinity(carry) || carry < 0f) carry = 0f;
@@ -538,6 +538,8 @@ public static class PopulationEconomySystem
             LogService.LogWarning($"[EmpireCraft][人口经济] 存入 {resource} 失败: {exception.Message}");
         }
         int delivered = ResourceDelta(before, city.getResourcesAmount(resource), requested);
+        // 物资账只记真正存进去的(仓库满了存不进的不算产出)
+        if (made) GoodsLedger.Made(city, resource, delivered);
         if (delivered <= 0 || taxableShare <= 0d) return;
         float value = (float)(delivered * taxableShare) * UnitValue(city, resource);
         data.produced_value += value;

@@ -114,7 +114,14 @@ public class StateSettlementPatch : GamePatch
         var supplies = Supplies(__instance);
         // 原版返回仓库的新余额，不是本次入库量。没有可用仓库才接管，
         // 建好仓库以后仍遵守原版容量限制。
-        if (supplies == null || pAmount <= 0 || __result != 0 || __instance.getRandomStockpile() != null) return;
+        if (pAmount <= 0 || __result != 0 || __instance?.data == null || __instance.getRandomStockpile() != null) return;
+        // 无小人模式：没有仓库的城也要存得住(以前只有新建的城有临时货，其余城产的粮进门就没了)
+        if (supplies == null && CityPopulationSystem.AbstractPopulationEnabled)
+        {
+            var population = __instance.GetOrCreate().population;
+            if (population != null) supplies = population.settlement_supplies = new Dictionary<string, int>();
+        }
+        if (supplies == null) return;
         supplies.TryGetValue(pResourceID, out int have);
         supplies[pResourceID] = have + pAmount;
         __result = have + pAmount;

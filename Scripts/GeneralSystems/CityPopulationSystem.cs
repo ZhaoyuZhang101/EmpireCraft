@@ -1138,7 +1138,7 @@ public static class CityPopulationSystem
         float satisfaction = PopulationSettlementRules.FoodSatisfaction(data);
         // 吃饱率未知(还没扣过整份粮)时：本城有粮食产出就不算饥荒，没有产出才看存粮
         bool famine = households >= 1f && (satisfaction >= 0f
-            ? satisfaction < 0.8f
+            ? satisfaction < 0.8f && (data == null || data.last_food_shortage >= MinFamineShortage)
             : foodPerCapita < FamineFoodPerCapita && (data == null || data.last_food_output <= 0f));
         bool war = city.GetOrCreate().OccupiedStatus?.Count > 0;
 
@@ -2013,6 +2013,9 @@ public static class CityPopulationSystem
             LogService.LogWarning($"[EmpireCraft] 无小人模式征召兵配发装备失败: {exception.Message}");
         }
     }
+
+    // 算饥荒至少一年缺几份口粮(一户人的小城差一份，吃饱率就掉到零)
+    private const float MinFamineShortage = 2f;
 
     private static void AssignAdultAge(Actor actor, int min, int max)
     {

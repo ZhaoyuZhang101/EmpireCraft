@@ -119,6 +119,8 @@ public class CityPopulationData
     public float tax_carry;
     // 市场(见 MarketSystem)：上个月买进的总价值；上个月卖出的总价值(当月累计中)
     public float last_market_bought;
+    // 上次市场买卖的世界时间(买卖额度按间隔月数放大，见 MarketSystem.Settle)
+    public double last_market = -1d;
     // 牧群头数与上月畜牧产肉(见 AnimalHusbandrySystem)
     public float herd;
     // 矿藏储量(资源 id → 已采出的量)与枯竭时间(资源 id → 枯竭时的世界时间)，见 MineralResourceSystem

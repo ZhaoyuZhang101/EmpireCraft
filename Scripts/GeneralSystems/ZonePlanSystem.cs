@@ -262,6 +262,9 @@ public static partial class ZonePlanSystem
         if (use == ZoneUse.None || asset == null) return true;
         if (use == ZoneUse.Reserve) return false;
         string type = asset.type ?? "";
+        // 仓库是一座城的根本：哪种区都能建(以前只许建在工业区、商业区，没划这两种区的城永远没有仓库，
+        // 产的粮、买来的粮、赈济的粮进门就没了，连荒十几年闹饥民军)
+        if (type == "type_stockpile") return true;
         switch (use)
         {
             case ZoneUse.Farm:
