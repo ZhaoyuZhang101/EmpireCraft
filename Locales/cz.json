@@ -1694,6 +1694,7 @@
   "fiscal_debt_hint": "付不起的利息滚进本金；债务超过三年经常收入就废债重组，削到一年收入并记一次违约。一年内违约过的借不到新债；平时国库不到安全储备的四分之一才举债。",
   "corps_log_desertion": "欠饷，{0} 人逃散回乡",
   "corps_log_unpaid_peace": "粮饷不继，与{0}议和",
+  "court_log_outbid": "{0}以人脉与重金压过{1}，抢先上奏「{2}」",
   "capital_loss_restored": "{0}收复旧都{1}，还于旧都，复称{2}。",
   "kingdom_type_xingzai": "行在",
   "Later": "后",

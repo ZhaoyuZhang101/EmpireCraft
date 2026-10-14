@@ -23,12 +23,16 @@ public enum CourtCouncilKind { None, Cabinet, Electors, Senate, ThreeDepartments
 //   ④ 批红：皇帝按赞成率、圣眷、自己的立场与性格、方略裁决准奏/驳回/留中；幼主、傀儡由权臣或议程官代批；
 //   ⑤ 施行：准奏后照原诉求逐月推进，议事会里支持的越多越快，反对派可以掣肘拖慢。
 // 同一时间只办一件奏议。挑战皇权的诉求(索取皇位)、民间运动(开放党禁)、地方推动不走这条路。
+// 争奏：各派同时各递一条自己最想办的(如武官派请求对外用兵、文官派请求减赋)，占比与最大派系相差不超过 ContestGap 的
+// 都能争这一回上奏，按各派肯花的政治资本、首领肯花的钱(打点)抽签，不再总是大派系、受宠的一派抢到；
+// 这样的派系廷议赞成不足也不当场否决，交皇帝裁决，花得多的更易准奏。
 // 有议会的帝国走议会与政党(ParliamentSystem)，不适用本系统。
 public static partial class CourtSystem
 {
     public const float ProposalCost = 15f;
     public const float LobbyCost = 10f;
     public const float DebateThreshold = 35f;
+    private const float ContestGap = 40f, MaxCapitalBid = 30f, MoneyPerPoint = 20f, MaxMoneyShare = 0.2f;
     private const int LogSize = 8;
     private const int StageMonths = 1;
     private const int ShelveMonths = 6;
@@ -231,20 +235,62 @@ public static partial class CourtSystem
                 candidates.Add((faction, claim, score));
             }
         }
+        // 每派各出最想办、眼下办得成的一条
+        var picks = new List<(FixedFaction faction, TemporaryFaction claim)>();
         foreach ((FixedFaction faction, TemporaryFaction claim, float _) in candidates.OrderByDescending(item => item.score))
         {
+            if (picks.Any(pick => pick.faction == faction)) continue;
             if (!claim.CheckCondition() || !claim.CheckTarget()) continue;
             if (CourtIssues.Stance(faction, claim) < CourtIssues.SupportThreshold) continue;
-            CourtFactionState data = FactionState(empire, faction);
-            data.capital -= ProposalCost;
-            state.memorial = new CourtMemorial
-            {
-                claim = claim.type.ToString(), proposer = faction.GetID(), stage = 0, stage_time = now
-            };
-            Log(state, "court_log_propose", faction.Name, IssueName(claim.type));
-            return;
+            picks.Add((faction, claim));
         }
+        if (picks.Count == 0) return;
+        // 争奏：占比与最大派系相差不超过 ContestGap 的都能争；按肯花的政治资本、首领肯花的钱抽签
+        int top = Factions(empire).Select(faction => faction.CentralRatio).DefaultIfEmpty(0).Max();
+        var entrants = new List<(FixedFaction faction, TemporaryFaction claim, float capital, int money, float weight)>();
+        foreach ((FixedFaction faction, TemporaryFaction claim) in picks)
+        {
+            if (faction.CentralRatio < top - ContestGap) continue;
+            CourtFactionState data = FactionState(empire, faction);
+            float capital = Mathf.Min(MaxCapitalBid, Mathf.Max(0f, data.capital - ProposalCost)) * Random.Range(0.5f, 1f);
+            Actor leader = faction.GetLeader();
+            int money = leader?.data == null || leader.isRekt() ? 0
+                : Mathf.Max(0, Mathf.FloorToInt(leader.money * MaxMoneyShare * Random.Range(0.3f, 1f)));
+            float weight = 5f + capital + money / MoneyPerPoint + Mathf.Max(0f, data.favor - 50f) / 5f + faction.CentralRatio * 0.2f;
+            entrants.Add((faction, claim, capital, money, weight));
+        }
+        if (entrants.Count == 0)
+        {
+            (FixedFaction faction, TemporaryFaction claim) = picks[0];
+            entrants.Add((faction, claim, 0f, 0, 1f));
+        }
+        float roll = Random.value * entrants.Sum(entry => entry.weight);
+        var winner = entrants[entrants.Count - 1];
+        foreach (var entry in entrants)
+        {
+            roll -= entry.weight;
+            if (roll > 0f) continue;
+            winner = entry;
+            break;
+        }
+        CourtFactionState winnerData = FactionState(empire, winner.faction);
+        winnerData.capital -= ProposalCost + winner.capital;
+        if (winner.money > 0) winner.faction.GetLeader()?.addMoney(-winner.money);
+        state.memorial = new CourtMemorial
+        {
+            claim = winner.claim.type.ToString(), proposer = winner.faction.GetID(), stage = 0, stage_time = now,
+            bid = winner.capital + winner.money / MoneyPerPoint
+        };
+        var rival = entrants.Where(entry => entry.faction != winner.faction).OrderByDescending(entry => entry.weight).FirstOrDefault();
+        if (rival.faction != null)
+            Log(state, "court_log_outbid", winner.faction.Name, rival.faction.Name, IssueName(winner.claim.type));
+        else
+            Log(state, "court_log_propose", winner.faction.Name, IssueName(winner.claim.type));
     }
+
+    // 上奏一派与最大派系的占比相差不超过 ContestGap：廷议不当场否决，交皇帝裁决
+    private static bool Contender(Empire empire, FixedFaction faction) =>
+        faction != null && faction.CentralRatio >= Factions(empire).Select(other => other.CentralRatio).DefaultIfEmpty(0).Max() - ContestGap;
 
     // ② 票拟
     private static void Draft(Empire empire, CourtState state, CourtMemorial memorial, TemporaryFaction claim,
@@ -307,7 +353,7 @@ public static partial class CourtSystem
             else if (stance < 0) opposition += weights[faction];
         }
         memorial.support = support + opposition <= 0f ? 50f : 100f * support / (support + opposition);
-        if (memorial.support < DebateThreshold)
+        if (memorial.support < DebateThreshold && !Contender(empire, proposer))
         {
             Reject(empire, state, memorial, proposer, "court_log_debate_failed", 5f, 2,
                 memorial.support.ToString("0"));
@@ -455,7 +501,7 @@ public static partial class CourtSystem
             FixedFaction deciderFaction = decider?.GetFaction();
             float own = deciderFaction == proposer ? 0.35f
                 : deciderFaction == null ? 0f : CourtIssues.StanceLevel(deciderFaction, issue) * 0.2f;
-            return Mathf.Clamp(0.2f + support * 0.5f + own - MaladySystem.ApprovalMalus(empire), 0.05f, 0.95f);
+            return Mathf.Clamp(0.2f + support * 0.5f + own + Lobbying(memorial) - MaladySystem.ApprovalMalus(empire), 0.05f, 0.95f);
         }
         float authority = Mathf.Clamp01(empire.Legitimacy / 100f);
         float chance = 0.1f + (0.75f - 0.35f * authority) * support + (data.favor - 50f) / 150f +
@@ -481,8 +527,12 @@ public static partial class CourtSystem
         }
         // 党争(见 MaladySystem)
         chance -= MaladySystem.ApprovalMalus(empire);
+        chance += Lobbying(memorial);
         return Mathf.Clamp(chance, 0.05f, 0.95f);
     }
+
+    // 争奏时投入的影响力与打点：至多加三成
+    private static float Lobbying(CourtMemorial memorial) => Mathf.Min(0.3f, Mathf.Max(0f, memorial?.bid ?? 0f) / 100f);
 
     // 皇帝本人的立场：所属派系的立场，加上性格(好大喜功、贪财、多疑……)
     public static float EmperorStance(Actor emperor, TemporaryFactionType issue)

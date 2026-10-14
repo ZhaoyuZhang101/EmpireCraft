@@ -89,6 +89,8 @@ public sealed class CourtMemorial
     // 三省六部：门下省是否已审核过(封驳只有一次)
     public bool reviewed;
     public bool drafted_by_ally;
+    // 争奏时上奏一派投入的影响力(政治资本 + 首领的钱折算)，批红时加分(见 CourtSystem.TryPropose)
+    public float bid;
 }
 
 public sealed class CourtLogEntry
