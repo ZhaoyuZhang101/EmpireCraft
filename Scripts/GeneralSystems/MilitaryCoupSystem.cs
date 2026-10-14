@@ -15,8 +15,10 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 
 // 兵变(陈桥驿式)：武官势大而正统低落时，众将拥立大将、黄袍加身，旧君禅位。
 //   · 兵权：本国(帝国按中央)各军团兵力里，某员大将(成年、非宗室、不是君主)统领的占比；身为战时统帅的至少按四成五算；
-//   · 每年检定：正统不到 50、兵权四成以上时，概率 = (50 − 正统)/50 × (兵权 − 0.3) × 1.5，
-//     幼主在位加倍，大将有野心或奸恶再加五成；开国雄主登基头 15 年、上次兵变后 20 年内不发生；
+//   · 每年检定：正统不到 50、兵权四成以上，且有由头(幼主在位、军饷欠发、大将威望高过君主，至少一条)时，
+//     概率 = (50 − 正统)/50 × (兵权 − 0.4)/0.6 × BaseChance，幼主在位加倍，大将有野心或奸恶再加五成；
+//     开国雄主登基头 15 年、上次兵变后 20 年内不发生。
+//     以前没有由头也行、基数大：两三座城的小国一员大将统领全军(兵权 1)，正统 30 就每年四成概率兵变；
 //   · 发动：大将入主都城登基(照常走易姓的后果：旧宗室诸侯起兵、新朝开国)，
 //     以大将驻地(所统最大军团的驻城)的法理名号为新国号，没有就沿用旧号。
 public static class MilitaryCoupSystem
@@ -25,6 +27,7 @@ public static class MilitaryCoupSystem
     private const float PowerLine = 0.4f;
     private const float CommanderShare = 0.45f;
     private const int CooldownYears = 20;
+    private const float BaseChance = 0.25f;
 
     private static bool Applies(Empire empire)
     {
@@ -48,9 +51,14 @@ public static class MilitaryCoupSystem
             if (legitimacy >= LegitimacyLine || !RebellionSystem.CanAttempt(empire.CoreKingdom)) return;
             (Actor general, float share, City seat) = Strongest(empire);
             if (general == null || share < PowerLine) return;
-            float chance = (LegitimacyLine - legitimacy) / (float)LegitimacyLine * (share - 0.3f) * 1.5f;
             Actor emperor = empire.Emperor;
-            if (emperor != null && !emperor.isAdult()) chance *= 2f;
+            bool minor = emperor != null && !emperor.isAdult();
+            // 由头：主少国疑、欠饷军心浮动、将领功高震主
+            bool pretext = minor || !CorpsSystem.WellPaid(empire.CoreKingdom) ||
+                           emperor == null || general.renown > emperor.renown;
+            if (!pretext) return;
+            float chance = (LegitimacyLine - legitimacy) / (float)LegitimacyLine * (share - PowerLine) / (1f - PowerLine) * BaseChance;
+            if (minor) chance *= 2f;
             if (general.hasTrait("ambitious") || general.hasTrait("evil")) chance *= 1.5f;
             if (UnityEngine.Random.value >= chance) return;
             Execute(empire, state, general, seat);
