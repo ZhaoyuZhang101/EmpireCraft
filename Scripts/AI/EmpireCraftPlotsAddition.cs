@@ -2847,9 +2847,15 @@ namespace EmpireCraft.Scripts.AI
             if (kingdom.data.timestamp_last_war != -1d &&
                 Date.getYearsSince(kingdom.data.timestamp_last_war) <= SimGlobals.m.diplomacy_years_war_timeout)
                 return false;
-            // 帝国本身(核心)没在打仗就可以对外开战；成员国各自的战事不再拖住整个帝国
-            if (World.world.wars.hasWars(kingdom)) return false;
-            return empire.countWarriors() > SimGlobals.m.diplomacy_years_war_min_warriors;
+            // 帝国本身(核心)手上不到两场仗、没被全面侵略就可以对外开战(以前在打任何一场仗——平叛也算——都不行)；
+            // 成员国各自的战事不再拖住整个帝国
+            if (WarSituation.TooBusyForWar(kingdom)) return false;
+            // 兵力按战时能动员的算(帝国连同各成员国)：军团模式下兵都在军团里，原版数实体士兵总是零，帝国从不谋划开战
+            int warriors = empire.countWarriors();
+            if (CityPopulationSystem.AbstractPopulationEnabled && empire.kingdoms_list != null)
+                warriors = Math.Max(warriors, empire.kingdoms_list.Where(member => member != null && !member.isRekt())
+                    .Sum(member => CityPopulationSystem.WarPotential(member)));
+            return warriors > SimGlobals.m.diplomacy_years_war_min_warriors;
         }
 
     }
