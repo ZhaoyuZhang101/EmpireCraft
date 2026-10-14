@@ -231,6 +231,41 @@ public static partial class WarlordEraSystem
         }
     }
 
+    // 开国雄主志在一统(古代王朝，不限军阀时期)：开国雄主在位的帝国每年几乎必定对接壤的本核心割据政权(不在帝国里、
+    // 不是自己的附庸，含同核心的对立王朝)兴兵讨伐，同时至多 MaxFounderWars 场；不看兵力对比(雄主不等时机)，
+    // 只是不打同盟。这类战争不受战争年限强制停战(见 RulerTraitSystem.IsFounderUnificationWar)
+    private const int MaxFounderWars = 2;
+    private const float FounderWarChance = 0.9f;
+
+    private static void FounderDrive(EmpireCore core, Dictionary<Kingdom, int> held)
+    {
+        if (NationalSentimentSystem.InUnitedFront(core)) return;
+        Kingdom founderKingdom = held.Keys
+            .Where(kingdom => kingdom != null && !kingdom.isRekt() && kingdom.IsEmpire() && kingdom.hasKing() &&
+                              kingdom.GetEmpire()?.CoreKingdom == kingdom && RulerTraitSystem.FounderReigns(kingdom) &&
+                              IsLocalHolder(core, kingdom))
+            .OrderByDescending(kingdom => held[kingdom]).FirstOrDefault();
+        if (founderKingdom == null) return;
+        Empire founder = founderKingdom.GetEmpire();
+        int wars = founderKingdom.getWars().Count(RulerTraitSystem.IsFounderUnificationWar);
+        foreach (Kingdom target in held.Keys
+                     .Where(holder => holder != null && holder != founderKingdom && !holder.isRekt() && holder.hasKing() &&
+                                      IsLocalHolder(core, holder) && holder.GetEmpire() != founder &&
+                                      FeudalVassalService.GetOverlord(holder) != founderKingdom &&
+                                      !holder.isEnemy(founderKingdom) && Borders(holder, founder) &&
+                                      (founderKingdom.getAlliance() == null || holder.getAlliance() != founderKingdom.getAlliance()))
+                     .OrderBy(holder => held[holder]).ToList())
+        {
+            if (wars >= MaxFounderWars || Random.value >= FounderWarChance) break;
+            War war = World.world.diplomacy.startWar(founderKingdom, target, WarTypeLibrary.normal);
+            if (war == null) continue;
+            wars++;
+            EventRecorder.Record(founderKingdom, string.Format(LM.Get("founder_unify_war_history"),
+                founder.GetBaseEmpireFullName(), RulerTraitSystem.FounderTitle(founder.Emperor),
+                founder.Emperor?.getName() ?? "", target.GetKingdomFullName()));
+        }
+    }
+
     // 与这个帝国接壤：本国有城市与帝国的城市相邻
     private static bool Borders(Kingdom kingdom, Empire empire) =>
         kingdom?.cities != null && kingdom.cities.Any(city =>

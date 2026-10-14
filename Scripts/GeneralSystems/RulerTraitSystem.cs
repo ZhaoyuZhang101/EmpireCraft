@@ -10,6 +10,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //              开国气象(攻城加速、正统损失减半)一直有效，不限立国头十年(Empire.InFoundingGrace)；
 //              对本帝国核心内割据政权的统一战争不受战争年限强制停战(IsFounderUnificationWar)；
 //              控制核心过半后，接壤的割据政权每年可能望风归附(WarlordEraSystem.FounderBandwagon)；
+//              志在一统：每年几乎必定对接壤的本核心割据政权兴兵，同时至多两场(WarlordEraSystem.FounderDrive)；
 //              帝国境内不发生叛乱(ModernStability.PassRebellionGate、KingdomExtension.StartLocalRebelling)。
 //   中兴之主 —— 后继皇帝在位时管理(stewardship)达到 RestorerStewardship、且王朝积弊(周期压力)不低于 RestorerStrain
 //              (先有衰败才谈得上中兴)即获得(即位时与每年各查一次)。
