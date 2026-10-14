@@ -344,6 +344,8 @@ public static class UrbanFabric
                 Length = Mathf.RoundToInt((14 + 8 * tier) * (0.7f + 0.5f * H(g.Seed, k, 83))),
                 Amp = 1f + 3f * H(g.Seed, k, 81), Freq = 0.05f + 0.13f * H(g.Seed, k, 82), Phase = H(g.Seed, k, 84) * TwoPi
             };
+            road.Length = Clip(road);
+            if (road.Length < 4) continue;
             g.Roads.Add(road);
             gates.Add(road);
         }
@@ -355,12 +357,14 @@ public static class UrbanFabric
             (int px, int py) = Point(parent, from);
             float turn = (H(g.Seed, b, 88) < 0.5f ? -1f : 1f) * (0.6f + 0.45f * H(g.Seed, b, 89));
             float angle = Mathf.Atan2(parent.Dy, parent.Dx) + turn;
-            g.Roads.Add(new Road
+            var branch = new Road
             {
                 X = px, Y = py, Dx = Mathf.Cos(angle), Dy = Mathf.Sin(angle),
                 Length = 10 + (int)(H(g.Seed, b, 90) * (6 + 4 * tier)),
                 Amp = 0.8f + 2f * H(g.Seed, b, 91), Freq = 0.06f + 0.12f * H(g.Seed, b, 92), Phase = H(g.Seed, b, 93) * TwoPi
-            });
+            };
+            branch.Length = Clip(branch);
+            if (branch.Length >= 4) g.Roads.Add(branch);
         }
         // 镇：落在路上(大路出城十格以外、岔路五格以外)
         int towns = tier switch { 2 => 1, 3 => 2 + (H(g.Seed, 61) < 0.5f ? 1 : 0), 4 => 3 + (H(g.Seed, 61) < 0.5f ? 1 : 0), _ => 0 };
@@ -404,6 +408,18 @@ public static class UrbanFabric
             g.Paths.Add((true, x, y, by));
             if (bx != x) g.Paths.Add((false, by, x, bx));
         }
+    }
+
+    // 城郊的路遇到山(山、高峰)就到此为止，丘陵照走
+    private static int Clip(Road road)
+    {
+        for (int d = 0; d <= road.Length; d++)
+        {
+            (int x, int y) = Point(road, d);
+            WorldTile tile = World.world.GetTile(x, y);
+            if (tile?.Type == null || tile.Type.mountains || tile.Type.block) return Mathf.Max(0, d - 1);
+        }
+        return road.Length;
     }
 
     private static bool Open(Geometry g, int x, int y)

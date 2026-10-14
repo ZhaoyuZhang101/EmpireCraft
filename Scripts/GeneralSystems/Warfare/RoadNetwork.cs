@@ -8,15 +8,19 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 路网与航线(模拟的，不实际铺在地上)。
 //   · 陆路规划：同一片陆地上相邻的城之间规划干道，但不是两两都通——
 //       - 两城之间另有一座城比它们彼此都近(A 到 C、C 到 B 都比 A 到 B 近)，就经那座城走，不另规划直路；
-//       - 按地块寻路，绕开高山与海面，山地、沼泽、丛林代价高，过河代价更高(架桥)，已有的路代价低——
-//         所以路沿平地、谷地走，彼此并成干线网；地形代价是直线距离几倍(RoadPlan.terrain / straight)决定要什么等级才修得通；
+//       - 先按地块寻路定走廊：绕开高山(六成以上是山的地块不走)与海面，山地、沼泽、丛林代价高，过河代价更高(架桥)，
+//         已有的路代价低——所以路沿平地、谷地走，彼此并成干线网；地形代价是直线距离几倍(RoadPlan.terrain / straight)
+//         决定要什么等级才修得通；
+//       - 再在走廊(路线经过的地块及其一圈)里按格子寻路：山、高峰的格子一律不走，丘陵可以走(代价加倍)，
+//         过河过湖算架桥(代价高，画成桥)，已有的路便宜；走廊里绕不过山的不修；
 //     规划好的路要各国出钱修、每年出钱养(见 RoadBuildingSystem)，修通的路才画出来、才能走；
 //     行军(见 CorpsSystem)：寻路时路上的地块代价低、路外按兵种加价，路外行军按兵种打折(见 CorpsArmSystem.OffRoad)；城心也算有路。
 //   · 海路：港口城之间的航线——每座港口连最近的两座港口，另连一座别的陆地上最近的港口。按地块在海面上寻路，
 //     绕开陆地，近岸与海峡代价高，已有的航线代价低，彼此并成航线网；
 //     运兵船与舰队出海都按同样的代价寻路(见 SeaPath)，所以尽量沿航线走。
-//   · 画出来：路线经过的地块中心各偏开一两格(按地块散列，路线稳定)，再削角平滑两遍成弯曲的线，落到格子上；
-//     陆路是实线，海路隔几格断开成虚线(纯净地图见 RoadOverlay；运兵的航线见 CorpsMapRenderer)。
+//   · 画出来：陆路把格子路线拉直成几段(拉直的线不能压到山、不能比原路贵)，再削角平滑两遍，平滑后压到山格就不平滑；
+//     海路是航线经过的地块中心各偏开一两格(按地块散列，路线稳定)再削角平滑；
+//     陆路是实线(过水处是桥)，海路隔几格断开成虚线(纯净地图见 RoadOverlay；运兵的航线见 CorpsMapRenderer)。
 // 每条路线算一次就缓存，过期才重算；每秒只花几毫秒补算(刚进图时几秒内铺满)，不会卡顿。
 public static class RoadNetwork
 {
@@ -25,6 +29,10 @@ public static class RoadNetwork
     private const long BudgetMs = 6;
     private const int MaxSearch = 5000;
     private const float RoadCost = 0.6f, RoughCost = 3f, RiverCost = 4f, CoastCost = 3f, HarbourCost = 2f;
+    // 格子寻路：丘陵、过水(桥)每格的代价；最多展开几格；拉直时一段最长几格；地块里山格占几成以上整块不走
+    private const float HillTileCost = 2f, BridgeTileCost = 6f;
+    private const int MaxTileSearch = 40000, MaxPull = 16;
+    private const float MountainZoneShare = 0.6f;
     // 港口连几座最近的港口；航线最长几个地块；绕得比直线远太多(隔着整片大陆)的不连
     private const int LaneNeighbours = 2, LaneMaxZones = 72;
     private const float LaneDetour = 2.5f;
@@ -47,6 +55,7 @@ public static class RoadNetwork
     private static readonly HashSet<int> RoadZones = new(), RoadTiles = new(), LaneZones = new(), LaneTiles = new(),
         BuildingTiles = new();
     private static readonly Dictionary<int, int> TileGrades = new(), ZoneGrades = new();
+    private static readonly Dictionary<int, float> MountainShares = new();
     private static readonly List<City> PortCities = new();
     private static float _nextTick, _nextPorts, _nextScan;
     private static bool _dirty;
@@ -91,6 +100,7 @@ public static class RoadNetwork
         BuildingTiles.Clear();
         TileGrades.Clear();
         ZoneGrades.Clear();
+        MountainShares.Clear();
         PortCities.Clear();
         PlansComplete = false;
         RoadBuildingSystem.ResetWorldState();
@@ -262,15 +272,222 @@ public static class RoadNetwork
         route.terrain = Mathf.Max(1f, terrain);
         route.straight = Mathf.Max(1f, Distance(from.zone, goal));
         if (route.terrain > route.straight * RoadBuildingSystem.DetourLimit(RoadBuildingSystem.MaxGrade)) return route;
-        route.zones.AddRange(path.Select(zone => zone.id));
-        Draw(Smooth(path, from, to), route.tiles, liquid: false, dashed: false);
+        // 格子一级：走廊里绕不过山的不修
+        List<WorldTile> tiles = FindTiles(from, to, Corridor(path));
+        if (tiles == null) return new RoadPlan { at = now };
+        foreach (WorldTile tile in tiles)
+            if (tile.zone != null && (route.zones.Count == 0 || route.zones[route.zones.Count - 1] != tile.zone.id) &&
+                !route.zones.Contains(tile.zone.id))
+                route.zones.Add(tile.zone.id);
+        DrawRoad(tiles, route.tiles);
         return route;
     }
 
     private static float RoadStep(TileZone zone, TileZone goal)
     {
-        if (zone != goal && (TerrainSystem.Impassable(zone) || SeaRegionSystem.IsSea(zone))) return -1f;
+        if (zone != goal && (TerrainSystem.Impassable(zone) || SeaRegionSystem.IsSea(zone) ||
+                             MountainShare(zone) >= MountainZoneShare)) return -1f;
         return (RoadZones.Contains(zone.id) ? RoadCost : 1f) * Terrain(zone);
+    }
+
+    // 地块里山、高峰格子占几成(地形少变，算一次记下)
+    private static float MountainShare(TileZone zone)
+    {
+        if (MountainShares.TryGetValue(zone.id, out float share)) return share;
+        int mountains = 0, total = 0;
+        foreach (WorldTile tile in zone.tiles ?? Array.Empty<WorldTile>())
+        {
+            if (tile?.Type == null) continue;
+            total++;
+            if (Mountain(tile)) mountains++;
+        }
+        share = total == 0 ? 0f : mountains / (float)total;
+        MountainShares[zone.id] = share;
+        return share;
+    }
+
+    // 山、高峰(原版的阻挡层)：路不走；丘陵可以
+    private static bool Mountain(WorldTile tile) => tile.Type != null && (tile.Type.mountains || tile.Type.block);
+
+    // 走进这一格的代价：山不走，丘陵加倍，水面是桥，已有的路便宜
+    private static float TileStep(WorldTile tile)
+    {
+        if (tile?.Type == null || Mountain(tile) || tile.Type.lava) return -1f;
+        float cost = tile.Type.liquid ? BridgeTileCost : tile.Type.rocks ? HillTileCost : 1f;
+        return RoadTiles.Contains(tile.data.tile_id) ? cost * RoadCost : cost;
+    }
+
+    // 走廊：地块路线经过的地块及其一圈
+    private static HashSet<int> Corridor(List<TileZone> path)
+    {
+        var corridor = new HashSet<int>();
+        foreach (TileZone zone in path)
+        {
+            corridor.Add(zone.id);
+            foreach (TileZone next in zone.neighbours_all ?? Array.Empty<TileZone>())
+                if (next != null) corridor.Add(next.id);
+        }
+        return corridor;
+    }
+
+    // 格子一级的 A*(八方向，斜走乘 1.41)，只走走廊里的格子；两端是城心
+    private static List<WorldTile> FindTiles(WorldTile from, WorldTile to, HashSet<int> corridor)
+    {
+        if (from == null || to == null) return null;
+        int start = from.data.tile_id, goal = to.data.tile_id;
+        var cost = new Dictionary<int, float> { [start] = 0f };
+        var previous = new Dictionary<int, WorldTile>();
+        var closed = new HashSet<int>();
+        var open = new List<(float key, WorldTile tile)> { (0f, from) };
+        while (open.Count > 0 && closed.Count < MaxTileSearch)
+        {
+            WorldTile tile = PopTile(open);
+            int id = tile.data.tile_id;
+            if (id == goal) break;
+            if (!closed.Add(id)) continue;
+            float here = cost[id];
+            foreach (WorldTile next in tile.neighboursAll ?? Array.Empty<WorldTile>())
+            {
+                if (next?.zone == null || closed.Contains(next.data.tile_id) || !corridor.Contains(next.zone.id)) continue;
+                float enter = next.data.tile_id == goal ? 1f : TileStep(next);
+                if (enter < 0f) continue;
+                if (next.x != tile.x && next.y != tile.y) enter *= 1.41f;
+                float total = here + enter;
+                if (cost.TryGetValue(next.data.tile_id, out float known) && known <= total) continue;
+                cost[next.data.tile_id] = total;
+                previous[next.data.tile_id] = tile;
+                float dx = next.x - to.x, dy = next.y - to.y;
+                PushTile(open, (total + Mathf.Sqrt(dx * dx + dy * dy) * RoadCost, next));
+            }
+        }
+        if (!previous.ContainsKey(goal)) return null;
+        var path = new List<WorldTile>();
+        for (WorldTile tile = to; tile != null; tile = previous.TryGetValue(tile.data.tile_id, out WorldTile back) ? back : null)
+        {
+            path.Add(tile);
+            if (tile.data.tile_id == start) break;
+        }
+        path.Reverse();
+        return path;
+    }
+
+    private static void PushTile(List<(float key, WorldTile tile)> heap, (float key, WorldTile tile) item)
+    {
+        heap.Add(item);
+        int i = heap.Count - 1;
+        while (i > 0)
+        {
+            int parent = (i - 1) / 2;
+            if (heap[parent].key <= heap[i].key) break;
+            (heap[parent], heap[i]) = (heap[i], heap[parent]);
+            i = parent;
+        }
+    }
+
+    private static WorldTile PopTile(List<(float key, WorldTile tile)> heap)
+    {
+        WorldTile top = heap[0].tile;
+        int last = heap.Count - 1;
+        heap[0] = heap[last];
+        heap.RemoveAt(last);
+        int i = 0;
+        while (true)
+        {
+            int left = 2 * i + 1, right = left + 1, smallest = i;
+            if (left < heap.Count && heap[left].key < heap[smallest].key) smallest = left;
+            if (right < heap.Count && heap[right].key < heap[smallest].key) smallest = right;
+            if (smallest == i) break;
+            (heap[smallest], heap[i]) = (heap[i], heap[smallest]);
+            i = smallest;
+        }
+        return top;
+    }
+
+    // 格子路线落成路：拉直成几段(拉直的线不压山、不比原路贵)，削角平滑两遍；平滑后压到山就用拉直的线，
+    // 再不行用原路。过水处照画(桥)
+    private static void DrawRoad(List<WorldTile> path, List<int> tiles)
+    {
+        var prefix = new float[path.Count];
+        for (int i = 1; i < path.Count; i++)
+        {
+            float step = Mathf.Max(0f, TileStep(path[i]));
+            if (path[i].x != path[i - 1].x && path[i].y != path[i - 1].y) step *= 1.41f;
+            prefix[i] = prefix[i - 1] + step;
+        }
+        var pulled = new List<Vector2> { new(path[0].x, path[0].y) };
+        int anchor = 0;
+        while (anchor < path.Count - 1)
+        {
+            int best = anchor + 1;
+            for (int j = anchor + 2; j < path.Count && j - anchor <= MaxPull; j++)
+            {
+                float line = LineCost(path[anchor], path[j]);
+                if (line >= 0f && line <= (prefix[j] - prefix[anchor]) * 1.1f + 0.5f) best = j;
+            }
+            pulled.Add(new Vector2(path[best].x, path[best].y));
+            anchor = best;
+        }
+        List<WorldTile> drawn = Raster(Chaikin(Chaikin(pulled))) ?? Raster(pulled) ?? path;
+        int last = -1;
+        foreach (WorldTile tile in drawn)
+        {
+            int id = tile.data.tile_id;
+            if (id == last) continue;
+            tiles.Add(id);
+            last = id;
+        }
+    }
+
+    // 两格之间的直线(不含起点)的代价；压到山返回 -1
+    private static float LineCost(WorldTile a, WorldTile b)
+    {
+        float total = 0f;
+        int x0 = a.x, y0 = a.y, x1 = b.x, y1 = b.y;
+        int dx = Math.Abs(x1 - x0), dy = -Math.Abs(y1 - y0), sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1, err = dx + dy;
+        int px = x0, py = y0;
+        for (int guard = 0; guard < 512 && (x0 != x1 || y0 != y1); guard++)
+        {
+            int e2 = 2 * err;
+            if (e2 >= dy) { err += dy; x0 += sx; }
+            if (e2 <= dx) { err += dx; y0 += sy; }
+            WorldTile tile = World.world.GetTile(x0, y0);
+            float step = tile == b ? 1f : TileStep(tile);
+            if (step < 0f) return -1f;
+            total += x0 != px && y0 != py ? step * 1.41f : step;
+            px = x0;
+            py = y0;
+        }
+        return total;
+    }
+
+    // 折线落到格子上(不分水陆)；压到山返回 null
+    private static List<WorldTile> Raster(List<Vector2> points)
+    {
+        var result = new List<WorldTile>();
+        if (points.Count == 0) return result;
+        WorldTile first = World.world.GetTile(Mathf.RoundToInt(points[0].x), Mathf.RoundToInt(points[0].y));
+        WorldTile end = World.world.GetTile(Mathf.RoundToInt(points[points.Count - 1].x), Mathf.RoundToInt(points[points.Count - 1].y));
+        for (int i = 0; i + 1 < points.Count; i++)
+        {
+            int x0 = Mathf.RoundToInt(points[i].x), y0 = Mathf.RoundToInt(points[i].y);
+            int x1 = Mathf.RoundToInt(points[i + 1].x), y1 = Mathf.RoundToInt(points[i + 1].y);
+            int dx = Math.Abs(x1 - x0), dy = -Math.Abs(y1 - y0), sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1, err = dx + dy;
+            for (int guard = 0; guard < 4096; guard++)
+            {
+                WorldTile tile = World.world.GetTile(x0, y0);
+                if (tile == null) return null;
+                if (result.Count == 0 || result[result.Count - 1] != tile)
+                {
+                    if (Mountain(tile) && tile != first && tile != end) return null;
+                    result.Add(tile);
+                }
+                if (x0 == x1 && y0 == y1) break;
+                int e2 = 2 * err;
+                if (e2 >= dy) { err += dy; x0 += sx; }
+                if (e2 <= dx) { err += dx; y0 += sy; }
+            }
+        }
+        return result;
     }
 
     // 地形代价：平地 1，山地沼泽丛林乘 RoughCost，多水的地块(大河、湖)乘 RiverCost
