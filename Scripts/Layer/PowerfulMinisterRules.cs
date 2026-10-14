@@ -7,16 +7,17 @@ namespace EmpireCraft.Scripts.Layer
     {
         public const int EntryInfluence = 300;
         public const int MonthlyCost = 10;
-        // 掌控朝廷 → 封公 → 九锡 → 篡位，每一步至少隔三年(以前六个月，一年半就能篡位；
-        // 君主天年变短后幼帝多了、辅政常见，一朝往往只传一代)
-        public const int StageIntervalMonths = 36;
+        // 掌控朝廷 → 封公 → 九锡 → 篡位，每一步至少隔六年，从掌控朝廷到篡位至少十八年(王莽、曹氏代汉都是十几二十年)。
+        // 以前六个月、后来三年，不到十年就篡位，一个王朝动辄被权臣夺走
+        public const int StageIntervalMonths = 72;
         public const int RegencyRecoveryMonths = 12;
         public const int ReleaseControlBelow = 80;
         public const int VulnerableEmperorInfluence = 100;
         public const int EarlyReignMonths = 36;
         // 正统低于此值视为正统崩溃：权臣不再需要野心/中枢支持等"意愿"条件，
         // 但控制朝廷 → 封公 → 九锡 → 篡位 的流程和阶段间隔照走。
-        public const int MandateCollapseThreshold = 30;
+        // (以前 30：正统一般的衰世也算崩溃，权臣不看意愿条件就能一路推进)
+        public const int MandateCollapseThreshold = 20;
 
         public static bool IsMandateCollapsed(int mandate) => mandate < MandateCollapseThreshold;
 
