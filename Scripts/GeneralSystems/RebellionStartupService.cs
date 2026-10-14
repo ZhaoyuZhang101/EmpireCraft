@@ -19,6 +19,8 @@ public static class RebellionStartupService
     {
         if (rebel == null || rebel.isRekt() || rebel.cities == null) return 0;
         float share = MinMilitiaShare + (MaxMilitiaShare - MinMilitiaShare) * Math.Max(0f, Math.Min(1f, fervor));
+        // 分封制下的小乱：义军减半(见 PettyRebellion)
+        if (PettyRebellion.IsPetty(rebel)) share *= 0.5f;
         int raised = 0;
         foreach (City city in rebel.cities.ToList())
         {

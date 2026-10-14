@@ -95,6 +95,8 @@ public class EmpireCraftKingdomBehCheckPlots : GameAIKingdomBase
         var faction = war.GetEmpireFaction();
         var rebelData = pKingdom.GetOrCreate();
         if (TryEndExclaveRebellionWar(pKingdom, war, rebelData)) return;
+        // 分封制下的小乱：别的诸侯不来投(见 PettyRebellion)
+        if (EmpireCraft.Scripts.GeneralSystems.PettyRebellion.IsPetty(pKingdom)) return;
         if (rebelData.rebellion_auto_expand_remaining < 0)
         {
             rebelData.rebellion_auto_expand_remaining = (int)Math.Ceiling(pKingdom.getMaxCities() * 1.5d);

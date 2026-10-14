@@ -348,6 +348,12 @@ public class CityPatch : GamePatch
         Empire targetEmpire = oldKingdom.GetEmpire();
         if (World.world.cities.isLocked())
             return false;
+        // 分封制下的小乱攻不下原主都城、至多两座城(见 PettyRebellion)
+        if (EmpireCraft.Scripts.GeneralSystems.PettyRebellion.Blocks(pNewKingdom, __instance))
+        {
+            __instance.clearCapture();
+            return false;
+        }
 
         using (ListPool<War> pWars = new ListPool<War>(pNewKingdom.getWars()))
         {
@@ -924,6 +930,8 @@ public class CityPatch : GamePatch
         {
             return false;
         }
+        // 分封制下的小乱：割让、倒戈投靠同样至多两座城、拿不到原主都城(见 PettyRebellion)
+        if (EmpireCraft.Scripts.GeneralSystems.PettyRebellion.Blocks(pNewSetKingdom, __instance)) return false;
         
         __instance.SetCorruptionRate(0.0f);
         string pHappinessEvent = null;
@@ -1082,6 +1090,8 @@ public class CityPatch : GamePatch
         kingdom.setCityMetas(__instance);
         kingdom.RememberRebellionOrigin(rebellionOrigin);
         if (pRebellion) kingdom.SetRebellionOriginCityValue(rebellionOriginValue);
+        // 分封制的诸侯国里起事：一城一邑的小乱(见 PettyRebellion)
+        if (pRebellion) EmpireCraft.Scripts.GeneralSystems.PettyRebellion.Mark(kingdom, pKingdom);
         kingdom.InvalidateCityValueContext();
         __instance.InvalidateCityStrategicValue();
         __result = kingdom;
