@@ -633,6 +633,8 @@ public static partial class ZonePlanSystem
     }
 
     // ---- 地图显示：选中城市规划类神力时，屏幕内划了用途的区块按颜色高亮 ----
+    // 纯净地图下不用一闪一闪的高亮：划了用途的区块直接在色块上叠一层用途色(见 PureMapPatch.ShadeTerrain)，
+    // 选中/放下规划神力时重画这些区块
     public static readonly HashSet<string> PlanningPowers = new()
     {
         "farm_planning", "zone_industry", "zone_residential", "zone_commerce", "zone_military", "zone_reserve"
@@ -651,6 +653,28 @@ public static partial class ZonePlanSystem
 
     private static readonly Dictionary<TileZone, ZoneFlash> Flashes = new();
     private static float _overlayTimer;
+    private static bool _steady;
+
+    // 纯净地图下正在叠用途色(选中了规划神力)
+    public static bool SteadyOverlay => _steady;
+
+    // 划定、取消用途后在地图上标出来：纯净地图重画这块地(用途色常亮)，否则闪一下
+    public static void ShowChange(TileZone zone, ZoneUse use)
+    {
+        if (zone == null) return;
+        if (PureMapMode.Enabled) zone.resetRenderHelpers();
+        else KingdomFrontLineHelper.HighlightZones(zone, ColorOf(use));
+    }
+
+    private static void RedrawPlanned()
+    {
+        foreach (City city in World.world.cities)
+        {
+            if (city?.zones == null || city.isRekt()) continue;
+            foreach (TileZone zone in city.zones)
+                if (zone != null && Get(city, zone) != ZoneUse.None) zone.resetRenderHelpers();
+        }
+    }
     private const float OverlayInterval = 1f;
     private const int MaxOverlayZones = 300;
 
@@ -659,7 +683,14 @@ public static partial class ZonePlanSystem
         MapBox world = World.world;
         if (world == null || !Config.game_loaded) return;
         GodPower power = world.selected_power;
-        if (power == null || !PlanningPowers.Contains(power.id))
+        bool planning = power != null && PlanningPowers.Contains(power.id);
+        bool steady = planning && PureMapMode.Enabled;
+        if (steady != _steady)
+        {
+            _steady = steady;
+            RedrawPlanned();
+        }
+        if (!planning || steady)
         {
             if (Flashes.Count > 0) Flashes.Clear();
             return;

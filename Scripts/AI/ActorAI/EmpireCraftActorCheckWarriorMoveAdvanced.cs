@@ -148,7 +148,8 @@ public class EmpireCraftActorCheckWarriorMoveAdvanced : GameAIActorBase
             pActor.army._prev_captain_position = targetTile;
         }
         pActor.goTo(targetTile);
-        ((ZoneFlash)EffectsLibrary.spawn("fx_zone_highlight", targetTile, null, null, 0.8f)).start(Color.blue, 0.8f);
+        if (!EmpireCraft.Scripts.GeneralSystems.PureMapMode.Enabled)
+            ((ZoneFlash)EffectsLibrary.spawn("fx_zone_highlight", targetTile, null, null, 0.8f)).start(Color.blue, 0.8f);
         return BehResult.Continue;
     }
     private static void EnsureZoneWarriorCache()

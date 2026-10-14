@@ -40,11 +40,11 @@ public static class FarmPlanningButton
         if (planned)
         {
             if (CityPopulationSystem.AbstractPopulationEnabled) FarmlandSystem.CultivateZone(city, zone, FieldsOnPlan);
-            KingdomFrontLineHelper.HighlightZones(zone, new Color(0.45f, 0.85f, 0.35f));
+            ZonePlanSystem.ShowChange(zone, ZoneUse.Farm);
         }
         else
         {
-            KingdomFrontLineHelper.HighlightZones(zone, new Color(0.6f, 0.6f, 0.6f));
+            ZonePlanSystem.ShowChange(zone, ZoneUse.None);
         }
         WorldTip.showNow(string.Format(LM.Get(planned ? "farm_planning_added" : "farm_planning_removed"),
             city.GetCityName()), false, "top", 3f);

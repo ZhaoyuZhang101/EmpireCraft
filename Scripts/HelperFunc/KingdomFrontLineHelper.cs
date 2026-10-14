@@ -874,6 +874,8 @@ public static class KingdomFrontLineHelper
             return;
         }
 
+        // 纯净地图下不画一闪一闪的区块高亮
+        if (EmpireCraft.Scripts.GeneralSystems.PureMapMode.Enabled) return;
         ((ZoneFlash)EffectsLibrary.spawn("fx_zone_highlight", zone.centerTile, null, null, pAlpha)).start(pColor, pAlpha);
     }
 }

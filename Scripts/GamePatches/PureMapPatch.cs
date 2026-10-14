@@ -294,6 +294,8 @@ public class PureMapPatch : GamePatch
         // 平滑国界：被占的地、逐格推进吃下的格子直接按控制方上色(见 SmoothBorders)，这里不再画占领斜纹
         bool smooth = SmoothBorders.Enabled;
         if (smooth) occupied = null;
+        // 选中规划神力时划了用途的区块叠一层用途色(常亮，不闪)
+        Color32? planned = ZonePlanSystem.SteadyOverlay && use != ZoneUse.None ? (Color32)ZonePlanSystem.ColorOf(use) : null;
         foreach (WorldTile tile in zone.tiles)
         {
             int id = tile?.data?.tile_id ?? -1;
@@ -324,6 +326,7 @@ public class PureMapPatch : GamePatch
             if (occupied is Color32 fill && (tile.x + tile.y) % 4 != 0) pixels[id] = fill;
             Color32 shaded = Shade(tile, pixels[id]);
             pixels[id] = Plan(tile, shaded, use, slots, tile.x - ox, tile.y - oy, plan, zone);
+            if (planned is Color32 tint) pixels[id] = Lerp(pixels[id], tint, 0.45f);
         }
     }
 
