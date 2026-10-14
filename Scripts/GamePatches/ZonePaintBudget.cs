@@ -11,13 +11,15 @@ namespace EmpireCraft.Scripts.GamePatches;
 //   · 原版"全图重画"(dirtyAndClear：国家换色、帝国变动、分封等都会触发)把五千多块地挤在同一帧上色，卡半秒多；
 //   · 这里每帧上色到预算用完为止，余下的地块留到下一轮(原版每帧巡一遍要重画的地块，没画的下一轮还会画)；
 //     屏幕里的地块预算宽一些，先画看得见的；
+//   · 只有还留着旧颜色的地块才分帧；切换图层、选中东西时原版先把色块清空了，空着的地块当帧全部画上，
+//     不会一块一块地冒出来；
 //   · 全图重画时不先把色块清成透明(原版先清空再重画，分帧画会露出一块块空白)，旧颜色留到新颜色画上为止，
 //     不再归任何对象的地块照原版在下一轮清掉。
 // 只在纯净地图或平滑国界开着时生效；每帧上色耗时记在帧率体检里(纯净地图·地块上色)。
 public class ZonePaintBudget : GamePatch
 {
     public ModDeclare declare { get; set; }
-    private const double BudgetMs = 4d, VisibleBudgetMs = 10d;
+    private const double BudgetMs = 6d, VisibleBudgetMs = 14d;
     private const int MinZonesPerFrame = 6;
     private static readonly double TicksPerMs = Stopwatch.Frequency / 1000d;
 
@@ -54,6 +56,8 @@ public class ZonePaintBudget : GamePatch
         if (!__result || !Active) return;
         NewFrame();
         if (_painted < MinZonesPerFrame) return;
+        // 已经清空的地块(不在"已画"名单里)：当帧画上
+        if (World.world?.zone_calculator == null || !World.world.zone_calculator._current_drawn_zones.Contains(__instance)) return;
         double spent = _spent / TicksPerMs;
         if (spent < BudgetMs || spent < VisibleBudgetMs && IsVisible(__instance)) return;
         __result = false;
