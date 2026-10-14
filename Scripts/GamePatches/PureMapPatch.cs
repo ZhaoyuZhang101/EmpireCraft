@@ -861,8 +861,13 @@ public class PureMapPatch : GamePatch
         // 城外：村镇、田块；工业化以后的新城区(见 UrbanFabric)
         if (!built && fabric != null && UrbanFabric.Tile(tile, color, fabric, false, use, out Color32 outside))
             return outside;
-        // 农耕区平常不画：AI 缺粮时会把各城至多一半的地块划成农田，画出田块来满地是浅色方块、像城区，城外又花了。
-        // 选中规划神力时规划视图照常用用途色显示(见 ShadeTerrain)
+        // 农耕区：垄沟条纹(见 UrbanFabric.Farmland)，不画成浅色田块——AI 缺粮时会把各城至多一半的地块划成农田，
+        // 浅色田块加白田埂满地像城区；阿兹特克的水上田园每三行一道水渠
+        if (use == ZoneUse.Farm)
+        {
+            if (plan?.family == "aztec") return tile.y % 3 == 0 ? Lerp(color, Chinampa, 0.5f) : color;
+            if (fabric != null) return UrbanFabric.Farmland(fabric, tile, color);
+        }
         return color;
     }
 

@@ -157,6 +157,9 @@ public static class UrbanFabric
     // 画在国色上：国色始终占上风
     private static Color32 Paint(Color32 color, Color32 over, float t) => Color32.Lerp(color, over, t * Strength);
 
+    private static Color32 Darken(Color32 color, float k) =>
+        new((byte)(color.r * k), (byte)(color.g * k), (byte)(color.b * k), color.a);
+
     // 空地：街区底色
     private static Color32 Lot(Color32 color) => Color32.Lerp(color, LotGrey, 0.72f);
 
@@ -854,10 +857,17 @@ public static class UrbanFabric
         float width = 4f + 5f * H(g.Seed, row, 34);
         int column = Mathf.FloorToInt((fx + row * 2.3f) / width);
         float inRow = fy - row * rowHeight, inColumn = fx + row * 2.3f - column * width;
-        // 田埂白色细线；田块平涂(高德式不画垄沟)
-        if (inRow < 0.8f || inColumn < 0.8f) return Mix(color, Lane, 0.75f);
-        float seed = H(g.Seed, column, row, 35);
-        return Mix(color, Crops[(int)(seed * 5) % 5], 0.5f);
+        // 垄沟条纹(用户 2026-10-14 选定)：只把国色压暗成细条纹，每块田一个朝向(横、竖、两种斜)，田块之间不画线——
+        // 不掺别的颜色，任何国色上都不脏，也和城区(浅色街区、白色街)一眼分得开
+        int furrow = (int)(H(g.Seed, column, row, 36) * 4);
+        bool line = furrow switch
+        {
+            0 => tile.y % 2 == 0,
+            1 => tile.x % 2 == 0,
+            2 => (tile.x + tile.y) % 3 == 0,
+            _ => ((tile.x - tile.y) % 3 + 3) % 3 == 0
+        };
+        return Darken(color, line ? 0.84f : 0.97f);
     }
 
     private static bool IsFarm(Geometry g, int zx, int zy)
