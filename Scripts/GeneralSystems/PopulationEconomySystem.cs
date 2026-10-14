@@ -393,6 +393,8 @@ public static class PopulationEconomySystem
     {
         if (!CityPopulationSystem.AbstractPopulationEnabled || city == null || amount <= 0 || InPrivateUse) return;
         if (string.IsNullOrEmpty(resource) || IsFood(resource)) return;
+        // 物资账：公家用料(原版造建筑、造船、打造装备等)记作消耗(见 GoodsLedger)
+        GoodsLedger.Used(city, resource, amount);
         CityPopulationData data = CityPopulationSystem.Get(city);
         if (data == null) return;
         int fromPeople = amount - TakePublicStock(city, resource, amount);
