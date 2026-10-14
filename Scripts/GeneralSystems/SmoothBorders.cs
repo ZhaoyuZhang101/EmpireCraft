@@ -44,6 +44,9 @@ public static class SmoothBorders
         Shown.Clear();
         PendingSweep.Clear();
         Sweeps.Clear();
+        NativeShown.Clear();
+        NativeColors.Clear();
+        Ripples.Clear();
         World.world?.zone_calculator?.dirtyAndClear();
     }
 
@@ -314,7 +317,9 @@ public static class SmoothBorders
         MetaTypeAsset layer = World.world.getCachedMapMetaAsset();
         if (layer == null || !Fill(layer, zone)) return false;
         // 同样的上色输入画过：直接拷回(见"上色缓存")
-        long key = KeyOf(layer, zone, inside, outside);
+        IMetaObject nativeMeta = LayerMeta(layer, layer.getZoneOptionState(), zone);
+        Ripple ripple = TrackNative(zone, nativeMeta, inside, outside);
+        long key = ripple != null ? 0L : KeyOf(layer, zone, inside, outside);
         if (key != 0L && Restore(calc.pixels, zone, key)) return true;
         _pendingKey = key;
         _ox = zone.x * ZoneSize - 1;
@@ -369,6 +374,12 @@ public static class SmoothBorders
                                     (SweepAt[shownIndex] == null || !SweepCovers(SweepAt[shownIndex], Zones[shownIndex], x, y))
                 ? ShownColors[shownIndex] : null;
             if (shownColor != null) ColorsFrom(shownColor, clearInside, ref colorInside, ref colorOutside);
+            // 悬停换色的波纹还没到这格：照换色前的颜色
+            else if (ripple != null && ReferenceEquals(owner, native) && !RippleCovers(ripple, x, y))
+            {
+                colorInside = ripple.oldInside;
+                colorOutside = ripple.oldOutside;
+            }
             else if (!ReferenceEquals(owner, native)) ColorsOf(owner, clearInside, ref colorInside, ref colorOutside);
             Color32 color = edge ? colorOutside : colorInside;
             if (owner == null && !foreign) color = new Color32(0, 0, 0, 0);
@@ -539,6 +550,7 @@ public static class SmoothBorders
     private static void SweepTick()
     {
         if (!Enabled || World.world?.zone_calculator == null) return;
+        RippleTick();
         if (PendingSweep.Count > 0) PlanSweeps();
         if (Sweeps.Count == 0) return;
         float now = Time.unscaledTime;
@@ -675,6 +687,114 @@ public static class SmoothBorders
     {
         Kingdom kingdom = meta as Kingdom ?? (meta as Empire)?.CoreKingdom;
         return kingdom?.capital?.getTile()?.zone;
+    }
+
+    // ---- 悬停换色波纹 ----
+    // 归属没变、只是这块地被要求换一种颜色画(帝国图层悬停某省时显示本省颜色，移开又换回)：
+    // 不一下子整片换，从鼠标处像波纹一样一圈圈填过去(边缘略参差)，每秒 RippleSpeed 格
+    private const float RippleSpeed = 90f, RippleGroupSeconds = 0.15f;
+
+    private sealed class Ripple
+    {
+        public Color32 oldInside, oldOutside;
+        public float start;
+        public int originX, originY;
+    }
+
+    private static readonly Dictionary<int, (int inside, int outside, int meta)> NativeShown = new();
+    private static readonly Dictionary<int, Ripple> Ripples = new();
+    private static float _rippleStart = -10f;
+    private static int _rippleX, _rippleY;
+    private static readonly Dictionary<int, (Color32 inside, Color32 outside)> NativeColors = new();
+
+    private static int Rgb(Color32 color) => (color.r << 16) | (color.g << 8) | color.b;
+
+    // 记下这块地这次画的本色；本色变了而归属的颜色没变(=临时换色)就起一圈波纹
+    private static Ripple TrackNative(TileZone zone, IMetaObject meta, Color32 inside, Color32 outside)
+    {
+        int metaKey = ColorKey(SafeColor(meta)) ^ (meta == null ? 0 : global::System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(meta));
+        var now = (Rgb(inside), Rgb(outside), metaKey);
+        float time = Time.unscaledTime;
+        bool known = NativeShown.TryGetValue(zone.id, out var last);
+        NativeShown[zone.id] = now;
+        Color32 oldInside = NativeColors.TryGetValue(zone.id, out var oldColors) ? oldColors.inside : inside;
+        Color32 oldOutside = known ? oldColors.outside : outside;
+        NativeColors[zone.id] = (inside, outside);
+        if (Ripples.TryGetValue(zone.id, out Ripple running))
+        {
+            if (known && (last.inside != now.Item1 || last.outside != now.Item2))
+            {
+                Ripples.Remove(zone.id);
+                running = null;
+            }
+            else if ((time - running.start) * RippleSpeed < RippleFarthest(zone, running) + 4f) return running;
+            else
+            {
+                Ripples.Remove(zone.id);
+                return null;
+            }
+        }
+        if (!known || last.meta != metaKey || last.inside == now.Item1 && last.outside == now.Item2) return null;
+        if (time - _rippleStart > RippleGroupSeconds)
+        {
+            WorldTile mouse = World.world?.getMouseTilePosCachedFrame();
+            _rippleStart = time;
+            _rippleX = mouse?.x ?? zone.x * ZoneSize + ZoneSize / 2;
+            _rippleY = mouse?.y ?? zone.y * ZoneSize + ZoneSize / 2;
+        }
+        var ripple = new Ripple
+        {
+            oldInside = oldInside, oldOutside = oldOutside, start = _rippleStart, originX = _rippleX, originY = _rippleY
+        };
+        Ripples[zone.id] = ripple;
+        return ripple;
+    }
+
+    private static bool RippleCovers(Ripple ripple, int x, int y)
+    {
+        float dx = x - ripple.originX, dy = y - ripple.originY;
+        return (Time.unscaledTime - ripple.start) * RippleSpeed >= Mathf.Sqrt(dx * dx + dy * dy) + (FrontNoise(x, y) - 0.5f) * 6f;
+    }
+
+    private static float RippleFarthest(TileZone zone, Ripple ripple)
+    {
+        float far = 0f;
+        foreach ((int cx, int cy) in new[] { (0, 0), (ZoneSize, 0), (0, ZoneSize), (ZoneSize, ZoneSize) })
+        {
+            float dx = zone.x * ZoneSize + cx - ripple.originX, dy = zone.y * ZoneSize + cy - ripple.originY;
+            far = Mathf.Max(far, Mathf.Sqrt(dx * dx + dy * dy));
+        }
+        return far;
+    }
+
+    private static float RippleNearest(TileZone zone, Ripple ripple)
+    {
+        float nx = Mathf.Clamp(ripple.originX, zone.x * ZoneSize, zone.x * ZoneSize + ZoneSize);
+        float ny = Mathf.Clamp(ripple.originY, zone.y * ZoneSize, zone.y * ZoneSize + ZoneSize);
+        return Mathf.Sqrt((nx - ripple.originX) * (nx - ripple.originX) + (ny - ripple.originY) * (ny - ripple.originY));
+    }
+
+    // 每帧：波纹正扫过的块重画，扫完的收掉(再画一次成最终颜色)
+    private static void RippleTick()
+    {
+        if (Ripples.Count == 0) return;
+        ZoneCalculator calc = World.world.zone_calculator;
+        float now = Time.unscaledTime;
+        List<int> done = null;
+        foreach (KeyValuePair<int, Ripple> pair in Ripples)
+        {
+            TileZone zone = calc.getZoneByID(pair.Key);
+            if (zone == null)
+            {
+                (done ??= new List<int>()).Add(pair.Key);
+                continue;
+            }
+            float radius = (now - pair.Value.start) * RippleSpeed;
+            if (radius > RippleFarthest(zone, pair.Value) + 4f) (done ??= new List<int>()).Add(pair.Key);
+            if (radius >= RippleNearest(zone, pair.Value) - 4f) zone.resetRenderHelpers();
+        }
+        if (done == null) return;
+        foreach (int id in done) Ripples.Remove(id);
     }
 
     #endregion
