@@ -170,6 +170,8 @@ public static class EmpireCraftQuantumSpriteLibrary
     }
     private static void DrawCapturingZones(QuantumSpriteAsset pAsset)
     {
+        // 平滑国界：被占的地已按占领方上色、国界跟着战线走(见 SmoothBorders)，不再叠占领斜杠
+        if (EmpireCraft.Scripts.GeneralSystems.SmoothBorders.Enabled) return;
         if (!Zones.showKingdomZones() && 
             !Zones.showCityZones() && 
             !Zones.showAllianceZones() && 
