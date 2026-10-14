@@ -237,8 +237,8 @@ public class PureMapPatch : GamePatch
     {
         if (pZone?.tiles == null || __instance.pixels == null) return;
         if (PureMapMode.Enabled) ShadeTerrain(__instance.pixels, pZone, pUp, pDown, pLeft, pRight);
-        // 平滑国界：帝国金边已逐像素画好(见 SmoothBorders)
-        if (SmoothBorders.Enabled) return;
+        // 平滑国界：帝国金边已逐像素画好(见 SmoothBorders)；规划时整张图是灰的，不描金边
+        if (SmoothBorders.Enabled || ZonePlanSystem.SteadyOverlay) return;
         Kingdom kingdom = pZone.city?.kingdom;
         MetaType? mode = World.world.getCachedMapMetaAsset()?.map_mode;
         bool kingdomLayer = mode == MetaType.Kingdom, empireLayer = mode == MetaTypeExtension.Empire;
@@ -294,8 +294,9 @@ public class PureMapPatch : GamePatch
         // 平滑国界：被占的地、逐格推进吃下的格子直接按控制方上色(见 SmoothBorders)，这里不再画占领斜纹
         bool smooth = SmoothBorders.Enabled;
         if (smooth) occupied = null;
-        // 选中规划神力时划了用途的区块叠一层用途色(常亮，不闪)
-        Color32? planned = ZonePlanSystem.SteadyOverlay && use != ZoneUse.None ? (Color32)ZonePlanSystem.ColorOf(use) : null;
+        // 选中规划神力时整张图压成近黑、只留一点地形，城区画成浅灰显出城市轮廓，划了用途的区块叠用途色(常亮，不闪)
+        bool grey = ZonePlanSystem.SteadyOverlay;
+        Color32? planned = grey && use != ZoneUse.None ? (Color32)ZonePlanSystem.ColorOf(use) : null;
         foreach (WorldTile tile in zone.tiles)
         {
             int id = tile?.data?.tile_id ?? -1;
@@ -310,24 +311,55 @@ public class PureMapPatch : GamePatch
             }
             if (pixels[id].a == 0) continue;
             WorldTileZoneBorder border = tile.world_tile_zone_border;
+            bool edge;
             if (smooth)
             {
-                if (SmoothBorders.IsOutline(id)) continue;
+                edge = SmoothBorders.IsOutline(id);
                 // 平滑后归邻国(邻城)的像素：只按地形调色，不画本块的占领纹与城市平面图
-                if (SmoothBorders.IsForeign(id))
+                if (!edge && SmoothBorders.IsForeign(id))
                 {
-                    pixels[id] = Shade(tile, pixels[id]);
+                    pixels[id] = grey ? Dark(tile) : Shade(tile, pixels[id]);
                     continue;
                 }
             }
-            else if (border != null && border.border && (up && border.border_up || down && border.border_down ||
-                                                         left && border.border_left || right && border.border_right)) continue;
+            else edge = border != null && border.border && (up && border.border_up || down && border.border_down ||
+                                                            left && border.border_left || right && border.border_right);
+            if (edge)
+            {
+                if (grey) pixels[id] = Dim(pixels[id]);
+                continue;
+            }
             // 被敌军占着的地块：涂占领方的颜色，留一道道原主颜色的细斜纹
             if (occupied is Color32 fill && (tile.x + tile.y) % 4 != 0) pixels[id] = fill;
             Color32 shaded = Shade(tile, pixels[id]);
             pixels[id] = Plan(tile, shaded, use, slots, tile.x - ox, tile.y - oy, plan, zone);
-            if (planned is Color32 tint) pixels[id] = Lerp(pixels[id], tint, 0.45f);
+            if (!grey) continue;
+            // 城区：建成的地块，工业化以后连同新城区(见 UrbanFabric.Inside)
+            bool urban = plan != null && (plan.built.Contains(zone.id) || UrbanFabric.Inside(plan.fabric, tile));
+            Color32 basis = urban ? Greyed(pixels[id]) : Dark(tile);
+            pixels[id] = planned is Color32 tint ? Lerp(basis, tint, urban ? 0.55f : 0.7f) : basis;
         }
+    }
+
+    // 规划时的底色：城区褪成浅灰(街巷、建筑的明暗仍看得出)；城外近黑、只带一点地形本色与浮雕；国界、城界暗灰细线
+    private static Color32 Greyed(Color32 color)
+    {
+        byte value = (byte)Mathf.Clamp(70f + 0.7f * (color.r * 0.3f + color.g * 0.59f + color.b * 0.11f), 0f, 255f);
+        return new Color32(value, value, value, color.a);
+    }
+
+    private static Color32 Dark(WorldTile tile)
+    {
+        TileTypeBase type = tile.Type;
+        TileTypeBase surface = type == null || type.road ? null : tile.top_type != null ? tile.top_type : type;
+        Color32 tone = surface != null ? Lerp(new Color32(14, 14, 16, 255), surface.color, 0.22f) : new Color32(24, 24, 26, 255);
+        return Shade(tile, tone);
+    }
+
+    private static Color32 Dim(Color32 color)
+    {
+        byte value = (byte)Mathf.Clamp(40f + 0.25f * (color.r * 0.3f + color.g * 0.59f + color.b * 0.11f), 0f, 255f);
+        return new Color32(value, value, value, color.a);
     }
 
     // 国家、帝国图层上被敌军占着的地块的颜色(占领方的国色，帝国图层下取它所属的帝国)；城池没易主，不然仍是原主的颜色，

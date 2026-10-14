@@ -332,6 +332,14 @@ public static class UrbanFabric
 
     public static Color32 BridgeColor => BridgeDeck;
 
+    // 在工业化以后的城区范围里(规划时画城市轮廓用)
+    public static bool Inside(Geometry g, WorldTile tile)
+    {
+        if (g == null || !g.Modern || tile == null) return false;
+        float dx = tile.x - g.Cx, dy = tile.y - g.Cy, edge = EdgeAt(g, Angle(dx, dy));
+        return dx * dx + dy * dy < edge * edge;
+    }
+
     // 这一格画什么；返回 false 时照原来的画法(古代城区、还没换代的建成地块、都城地标、山地)
     public static bool Tile(WorldTile tile, Color32 color, Geometry g, bool built, ZoneUse use, out Color32 result)
     {

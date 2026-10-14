@@ -633,8 +633,8 @@ public static partial class ZonePlanSystem
     }
 
     // ---- 地图显示：选中城市规划类神力时，屏幕内划了用途的区块按颜色高亮 ----
-    // 纯净地图下不用一闪一闪的高亮：划了用途的区块直接在色块上叠一层用途色(见 PureMapPatch.ShadeTerrain)，
-    // 选中/放下规划神力时重画这些区块
+    // 纯净地图下不用一闪一闪的高亮：选中规划神力时整张图褪成灰色，划了用途的区块叠一层用途色
+    // (见 PureMapPatch.ShadeTerrain)，选中/放下规划神力时整张图重画
     public static readonly HashSet<string> PlanningPowers = new()
     {
         "farm_planning", "zone_industry", "zone_residential", "zone_commerce", "zone_military", "zone_reserve"
@@ -666,15 +666,7 @@ public static partial class ZonePlanSystem
         else KingdomFrontLineHelper.HighlightZones(zone, ColorOf(use));
     }
 
-    private static void RedrawPlanned()
-    {
-        foreach (City city in World.world.cities)
-        {
-            if (city?.zones == null || city.isRekt()) continue;
-            foreach (TileZone zone in city.zones)
-                if (zone != null && Get(city, zone) != ZoneUse.None) zone.resetRenderHelpers();
-        }
-    }
+    private static void RedrawAll() => World.world.zone_calculator?.dirtyAndClear();
     private const float OverlayInterval = 1f;
     private const int MaxOverlayZones = 300;
 
@@ -688,7 +680,7 @@ public static partial class ZonePlanSystem
         if (steady != _steady)
         {
             _steady = steady;
-            RedrawPlanned();
+            RedrawAll();
         }
         if (!planning || steady)
         {
