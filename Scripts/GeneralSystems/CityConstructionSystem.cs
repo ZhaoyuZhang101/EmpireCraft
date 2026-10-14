@@ -77,7 +77,8 @@ public static class CityConstructionSystem
         StateSettlementPatch.FlushSupplies(city);
         float rate = Mathf.Min(MaxPointsPerSecond,
             (BasePointsPerSecond + CityPopulationSystem.Households(city) * PointsPerHousehold) * (1f + Wealth(city)) *
-            (1f + SeatBonus(city)) * CityGeographySystem.Factor(city) * DevelopmentPace);
+            (1f + SeatBonus(city)) * CityGeographySystem.Factor(city) * EconomicCircleSystem.ConstructionFactor(city) *
+            DevelopmentPace);
         Kingdom kingdom = city.kingdom;
         bool funded = kingdom != null && !kingdom.wild && StateSettlementSystem.DiscretionaryFunds(kingdom) >= FundingThreshold;
         // 国家不拨款时，民间投资池充裕也能出资加快施工

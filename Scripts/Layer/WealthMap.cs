@@ -155,6 +155,12 @@ public static class WealthMap
             geography >= 1.1f ? "#7CD27C" : geography <= 0.8f ? "#E07A5F" : "#D8D2B8", pPercent: false, pLocalize: false);
         tooltip.addLineText(LM.Get("fiscal_cash_balance"),
             HelperFunc.MoneyDisplay.Format(city.GetTreasuryBalance()), "#F3C34A", pPercent: false, pLocalize: false);
+        City core = EconomicCircleSystem.CoreOf(city);
+        if (core != null)
+            tooltip.addLineText(LM.Get("economic_circle_label"), core == city
+                    ? string.Format(LM.Get("economic_circle_core"), city.GetCityName(), EconomicCircleSystem.Members(city))
+                    : string.Format(LM.Get("economic_circle_member"), core.GetCityName()),
+                core == city ? "#F3C34A" : "#D8D2B8", pPercent: false, pLocalize: false);
         CityPopulationData population = CityPopulationSystem.Get(city);
         if (CityPopulationSystem.AbstractPopulationEnabled && population != null)
         {

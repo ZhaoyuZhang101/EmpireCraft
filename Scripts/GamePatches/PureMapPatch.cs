@@ -658,7 +658,7 @@ public class PureMapPatch : GamePatch
             plan.ruin = Mathf.Max(plan.ruin, 0.25f);
             plan.burning = true;
         }
-        plan.fabric = UrbanFabric.Build(city, plan.built, plan.landmark, plan.family, culture);
+        plan.fabric = UrbanFabric.Build(city, plan.built, plan.landmark, plan.family, culture, plan.gateX, plan.gateY);
     }
 
     // 0~1 的稳定散列(地块、街区按它决定先后转现代、是否成废墟)

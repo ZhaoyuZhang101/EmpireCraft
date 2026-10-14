@@ -12,8 +12,14 @@ namespace EmpireCraft.Scripts.GamePatches;
 //   · 一切都淡淡地画在国色上，城是本国颜色里浅一些、带纹理的一片。
 // 每座城有自己的随机种子(默认是城的编号，「另起格局」神力可以换一个)：干道几条、朝哪、城区往哪边蔓延、
 // 市中心偏在哪、工业区在哪一侧、各方向开发先后、村镇落在哪都随它。
+// 城郊按本城在经济圈里的档位(见 EconomicCircleSystem)：
+//   · 主城(一方经济中心，古代多半是首都或临河临海的城)是都会：四门各一条出城大路，门外关厢一溜人家，
+//     大路上两三个镇(十字街、小集市，富庶的有一圈矮墙)，大路之间散着村子，各有小路通到大路，田野林子围着；
+//   · 卫星城与一般的城是县城：两三条或四条出城的路，一两个镇，几处村子；赤贫的城只有一两处村子；
+//   · 田块离城镇村越远越淡，只画在能种地的平地上；
+//   · 档位变化慢(几年才升降一档)，城的格局不会忽大忽小。
 // 时代：
-//   · 古代：城区照原来的画法(城墙、里坊、街格，见 PureMapPatch.Plan)；城外几处整齐的小村，少数长成乡镇；
+//   · 古代：城区照原来的画法(城墙、里坊、街格，见 PureMapPatch.Plan)，城外如上；
 //   · 工业化(本文化研究出工业化后逐年推进)：拆城墙，修放射干道、铁路车站，工业区起厂房；
 //   · 电气：城区往外长，住宅区一块块建起——内圈板楼(西欧、罗马、维京是围合街坊)，外圈低层住宅；城大了修二环；
 //   · 现代城市规划：市中心与商业区一块块起塔楼(大小、玻璃或石材各异，带投影)，修三环。
@@ -38,7 +44,15 @@ public static class UrbanFabric
         public float IndustryDir, RailDir;
         public int CbdX, CbdY;
         public bool Perimeter;
-        public readonly List<(float x, float y, int size, bool town)> Villages = new();
+        // 城郊：档位、城门(城心两条中线)、四条出城大路(东北西南)是否修了、从城门到城外的距离、路长、关厢长
+        public int Tier, GateX, GateY;
+        public readonly bool[] Roads = new bool[4];
+        public readonly int[] WallDist = new int[4];
+        public int RoadLength, Suburb;
+        public readonly List<(int x, int y, int size, bool walled)> Towns = new();
+        // 村子与通到大路的小路(竖着走为 vertical：x 固定，y 从 from 到 to；否则 y 固定)
+        public readonly List<(int x, int y)> Villages = new();
+        public readonly List<(bool vertical, int fixedAt, int from, int to)> Paths = new();
         public City City;
         public HashSet<int> Built, Landmark;
         // 各地块画成什么、开发了没有(按地块算一次)
@@ -58,7 +72,14 @@ public static class UrbanFabric
         Station = new(180, 90, 70, 255), Park = new(96, 162, 86, 255), Tree = new(56, 116, 58, 255),
         Shadow = new(96, 98, 104, 255), Yard = new(176, 190, 132, 255), Market = new(196, 160, 90, 255),
         TownStreet = new(226, 220, 206, 255), Chimney = new(60, 55, 55, 255), Parade = new(186, 176, 150, 255),
-        Barrack = new(120, 130, 100, 255), White = new(255, 255, 255, 255);
+        Barrack = new(120, 130, 100, 255), White = new(255, 255, 255, 255), Dirt = new(196, 176, 136, 255),
+        Lane = new(206, 190, 150, 255), TownWall = new(124, 112, 100, 255), Grove = new(80, 140, 70, 255);
+    private static readonly Color32[] Crops =
+    {
+        new(160, 182, 104, 255), new(142, 170, 92, 255), new(178, 186, 110, 255), new(130, 160, 96, 255),
+        new(190, 178, 112, 255)
+    };
+    private static readonly int[] AxisX = { 1, 0, -1, 0 }, AxisY = { 0, 1, 0, -1 };
     private static readonly Color32[] Glass =
         { new(92, 130, 170, 255), new(120, 160, 196, 255), new(70, 96, 128, 255), new(150, 182, 210, 255) };
     private static readonly Color32[] Concrete =
@@ -130,7 +151,8 @@ public static class UrbanFabric
 
     #region 每座城的格局(随平面图每五秒重算)
 
-    public static Geometry Build(City city, HashSet<int> built, HashSet<int> landmark, string family, string culture)
+    public static Geometry Build(City city, HashSet<int> built, HashSet<int> landmark, string family, string culture,
+        int gateX, int gateY)
     {
         WorldTile center = city?.getTile();
         if (center == null || city.zones == null) return null;
@@ -209,7 +231,23 @@ public static class UrbanFabric
         g.IndustryDir = H(seed, 3) * TwoPi;
         g.CbdX = g.Cx + (int)((H(seed, 5) - 0.5f) * 6f);
         g.CbdY = g.Cy + (int)((H(seed, 6) - 0.5f) * 6f);
-        PlaceVillages(g);
+        // 城郊档位：跟着经济圈的档位走，几年才升降一档
+        CityExtension.CityExtraData extra = city.GetOrCreate();
+        int wanted = EconomicCircleSystem.RegionTier(city);
+        if (extra.urban_tier < 0 || extra.urban_tier_at < 0d)
+        {
+            extra.urban_tier = wanted;
+            extra.urban_tier_at = World.world.getCurWorldTime();
+        }
+        else if (wanted != extra.urban_tier && Date.getYearsSince(extra.urban_tier_at) >= TierYears)
+        {
+            extra.urban_tier += wanted > extra.urban_tier ? 1 : -1;
+            extra.urban_tier_at = World.world.getCurWorldTime();
+        }
+        g.Tier = Mathf.Clamp(extra.urban_tier, 0, 4);
+        g.GateX = gateX == int.MinValue ? g.Cx : gateX;
+        g.GateY = gateY == int.MinValue ? g.Cy : gateY;
+        PlaceCountryside(g);
         return g;
     }
 
@@ -233,25 +271,85 @@ public static class UrbanFabric
         return Mathf.Max(0.01f, Mathf.Clamp01(industrial / 25f));
     }
 
-    // 村镇：几处，多在干道方向上，离城心十二到三十五格，只落在本城没建成的平地上；少数长成乡镇
-    private static void PlaceVillages(Geometry g)
+    private const float TierYears = 3f;
+
+    // 城郊：出城大路(档位 0 没有、1 两条、2 起四条)、关厢、镇、村与小路。都只落在本城没建成的平地上
+    private static void PlaceCountryside(Geometry g)
     {
-        int count = 1 + (int)(H(g.Seed, 30) * 3) + g.City.zones.Count / 20;
-        for (int attempt = 0; attempt < count * 4 && g.Villages.Count < count; attempt++)
+        int tier = g.Tier;
+        g.RoadLength = 14 + 8 * tier;
+        g.Suburb = tier >= 2 ? 4 * (tier - 1) : 0;
+        int first = (int)(H(g.Seed, 60) * 4);
+        for (int k = 0; k < 4; k++)
         {
-            float a = g.Rays.Length > 0 && H(g.Seed, attempt, 45) < 0.75f
-                ? g.Rays[(int)(H(g.Seed, attempt, 40) * g.Rays.Length) % g.Rays.Length] + (H(g.Seed, attempt, 42) - 0.5f) * 0.3f
-                : H(g.Seed, attempt, 46) * TwoPi;
-            float dist = 12f + H(g.Seed, attempt, 41) * 23f;
-            float vx = Mathf.Round(g.Cx + dist * Mathf.Cos(a)), vy = Mathf.Round(g.Cy + dist * Mathf.Sin(a));
-            WorldTile tile = World.world.GetTile((int)vx, (int)vy);
-            if (tile?.zone == null || tile.zone.city != g.City || g.Built.Contains(tile.zone.id) ||
-                tile.Type == null || tile.Type.liquid || Rough(tile)) continue;
-            if (g.Villages.Exists(v => Mathf.Abs(v.x - vx) + Mathf.Abs(v.y - vy) < 10f)) continue;
-            bool town = H(g.Seed, attempt, 43) < 0.1f + 0.1f * g.Progress;
-            g.Villages.Add((vx, vy, town ? 3 : 2, town));
+            g.Roads[k] = tier >= 2 || tier == 1 && (k == first || k == (first + 2) % 4);
+            // 城门到城外：顺着这个方向走出建成的地块
+            int step = 0;
+            while (step < 80)
+            {
+                WorldTile tile = World.world.GetTile(g.GateX + AxisX[k] * step, g.GateY + AxisY[k] * step);
+                if (tile?.zone == null || tile.zone.city != g.City || !g.Built.Contains(tile.zone.id)) break;
+                step++;
+            }
+            g.WallDist[k] = step;
+        }
+        // 镇：沿大路，出城十到二十六格
+        int towns = tier switch { 2 => 1, 3 => 2 + (H(g.Seed, 61) < 0.5f ? 1 : 0), 4 => 3 + (H(g.Seed, 61) < 0.5f ? 1 : 0), _ => 0 };
+        for (int attempt = 0; attempt < 12 && g.Towns.Count < towns; attempt++)
+        {
+            int k = (first + attempt) % 4;
+            if (!g.Roads[k]) continue;
+            int d = g.WallDist[k] + 10 + (int)(H(g.Seed, attempt, 62) * Mathf.Min(16, g.RoadLength - 12));
+            (int x, int y) = RoadPoint(g, k, d);
+            int size = tier >= 3 ? (H(g.Seed, attempt, 63) < 0.5f ? 4 : 5) : 3;
+            if (!Open(g, x, y) || g.Towns.Exists(t => Mathf.Abs(t.x - x) + Mathf.Abs(t.y - y) < t.size + size + 6)) continue;
+            g.Towns.Add((x, y, size, tier >= 3 && H(g.Seed, attempt, 64) < 0.45f));
+        }
+        // 村：散在大路之间，各有一条小路通到最近的大路(最远十四格)
+        int villages = tier switch { 0 => 1, 1 => 2, 2 => 4, 3 => 6, _ => 8 } + (int)(H(g.Seed, 65) * (tier >= 4 ? 4 : 3));
+        for (int attempt = 0; attempt < villages * 5 && g.Villages.Count < villages; attempt++)
+        {
+            float a = H(g.Seed, attempt, 66) * TwoPi;
+            float dist = 12f + H(g.Seed, attempt, 67) * (g.RoadLength - 2f);
+            int x = Mathf.RoundToInt(g.GateX + dist * Mathf.Cos(a)), y = Mathf.RoundToInt(g.GateY + dist * Mathf.Sin(a));
+            if (!Open(g, x, y) || Mathf.Min(Mathf.Abs(x - g.GateX), Mathf.Abs(y - g.GateY)) < 4) continue;
+            if (g.Towns.Exists(t => Mathf.Abs(t.x - x) + Mathf.Abs(t.y - y) < t.size + 8)) continue;
+            if (g.Villages.Exists(v => Mathf.Abs(v.x - x) + Mathf.Abs(v.y - y) < 9)) continue;
+            g.Villages.Add((x, y));
+            int bestLength = 15;
+            (bool vertical, int fixedAt, int from, int to) path = default;
+            for (int k = 0; k < 4; k++)
+            {
+                if (!g.Roads[k]) continue;
+                int along = (x - g.GateX) * AxisX[k] + (y - g.GateY) * AxisY[k];
+                if (along <= g.WallDist[k] + 2 || along > g.WallDist[k] + g.RoadLength) continue;
+                (int rx, int ry) = RoadPoint(g, k, along);
+                int length = Mathf.Abs(rx - x) + Mathf.Abs(ry - y);
+                if (length >= bestLength) continue;
+                bestLength = length;
+                // 东西向的大路：小路竖着走；南北向的：横着走
+                path = AxisX[k] != 0 ? (true, x, y, ry) : (false, y, x, rx);
+            }
+            if (bestLength < 15) g.Paths.Add(path);
         }
     }
+
+    private static bool Open(Geometry g, int x, int y)
+    {
+        WorldTile tile = World.world.GetTile(x, y);
+        return tile?.zone != null && tile.zone.city == g.City && !g.Built.Contains(tile.zone.id) && tile.Type != null &&
+               !tile.Type.liquid && !Rough(tile);
+    }
+
+    // 大路上离城门 d 格的那一格：出城后慢慢弯起来
+    private static (int x, int y) RoadPoint(Geometry g, int k, int d)
+    {
+        int offset = Wobble(g, k, d);
+        return (g.GateX + AxisX[k] * d - AxisY[k] * offset, g.GateY + AxisY[k] * d + AxisX[k] * offset);
+    }
+
+    private static int Wobble(Geometry g, int k, int d) =>
+        Mathf.RoundToInt(2.2f * Mathf.Sin(d * 0.12f + k * 1.3f + g.Seed % 7) * Mathf.Clamp01((d - g.WallDist[k]) / 8f));
 
     #endregion
 
@@ -375,7 +473,7 @@ public static class UrbanFabric
     {
         result = color;
         if (g == null || tile?.zone == null || g.Landmark.Contains(tile.zone.id)) return false;
-        if (!g.Modern) return !built && use == ZoneUse.None && Village(g, tile, color, out result);
+        if (!g.Modern) return !built && use != ZoneUse.Farm && use != ZoneUse.Reserve && Countryside(g, tile, color, out result);
         float dx = tile.x - g.Cx, dy = tile.y - g.Cy;
         float r = Mathf.Sqrt(dx * dx + dy * dy), angle = Angle(dx, dy), edge = EdgeAt(g, angle);
         bool inEdge = r < edge;
@@ -412,7 +510,7 @@ public static class UrbanFabric
             return true;
         }
         if (built) return false;
-        return use == ZoneUse.None && !inEdge && Village(g, tile, color, out result);
+        return Countryside(g, tile, color, out result);
     }
 
     // 一块地(8×8)：四边是街、正中一纵一横小巷，切出四个 3×3 的街区；街区按用途画，同一块地一个样子
@@ -460,30 +558,93 @@ public static class UrbanFabric
         return cx != 1 && cy != 1 ? Paint(color, HouseRoof[(int)(H(g.Seed, tile.x >> 1, tile.y >> 1, 9) * 4) % 4], 0.88f) : Lot(color);
     }
 
-    // 村子：几户人家隔一格排开，院落围着；乡镇有十字街、中间小集市
-    private static bool Village(Geometry g, WorldTile tile, Color32 color, out Color32 result)
+    // 城郊一格：出城大路 > 关厢 > 镇 > 村 > 小路 > 林子 > 田块；其余照原样
+    private static bool Countryside(Geometry g, WorldTile tile, Color32 color, out Color32 result)
     {
         result = color;
-        foreach ((float x, float y, int size, bool town) in g.Villages)
+        int rx = tile.x - g.GateX, ry = tile.y - g.GateY;
+        for (int k = 0; k < 4; k++)
         {
-            int dx = tile.x - (int)x, dy = tile.y - (int)y;
+            if (!g.Roads[k]) continue;
+            int along = rx * AxisX[k] + ry * AxisY[k];
+            if (along < g.WallDist[k] || along > g.WallDist[k] + g.RoadLength) continue;
+            int side = -rx * AxisY[k] + ry * AxisX[k] - Wobble(g, k, along);
+            if (side == 0)
+            {
+                result = Paint(color, g.Modern ? Local : Dirt, 0.85f);
+                return true;
+            }
+            // 关厢：门外大路两旁一户一户排开，后面是院子
+            if (g.Suburb > 0 && Mathf.Abs(side) <= 2 && along >= g.WallDist[k] + 2 && along <= g.WallDist[k] + 1 + g.Suburb &&
+                along % 3 != 0)
+            {
+                result = Mathf.Abs(side) == 1 ? Paint(color, Roof(g, tile), 0.9f) : Paint(color, Yard, 0.4f);
+                return true;
+            }
+        }
+        foreach ((int x, int y, int size, bool walled) in g.Towns)
+        {
+            int dx = tile.x - x, dy = tile.y - y;
             if (Mathf.Abs(dx) > size || Mathf.Abs(dy) > size) continue;
-            if (town && (dx == 0 || dy == 0))
-            {
-                result = Paint(color, dx == 0 && dy == 0 ? Market : TownStreet, 0.85f);
-                return true;
-            }
-            if ((dx & 1) != 0 && (dy & 1) != 0)
-            {
-                result = Paint(color, g.Progress < 1f ? HouseRoof[(int)(H(g.Seed, tile.x, tile.y, 14) * 4) % 4]
-                    : Slab[(int)(H(g.Seed, tile.x, tile.y, 15) * 4) % 4], 0.88f);
-                return true;
-            }
-            result = Paint(color, Yard, 0.4f);
+            result = TownTile(g, tile, color, dx, dy, size, walled);
             return true;
         }
-        return false;
+        foreach ((int x, int y) in g.Villages)
+        {
+            int dx = tile.x - x, dy = tile.y - y;
+            if (Mathf.Abs(dx) > 2 || Mathf.Abs(dy) > 2) continue;
+            // 几户人家隔一格排开，院落围着
+            result = (dx & 1) != 0 && (dy & 1) != 0 ? Paint(color, Roof(g, tile), 0.9f) : Paint(color, Yard, 0.5f);
+            return true;
+        }
+        foreach ((bool vertical, int fixedAt, int from, int to) in g.Paths)
+        {
+            int at = vertical ? tile.x : tile.y, run = vertical ? tile.y : tile.x;
+            if (at != fixedAt || run < Mathf.Min(from, to) || run > Mathf.Max(from, to)) continue;
+            result = Paint(color, Lane, 0.6f);
+            return true;
+        }
+        if (Rough(tile)) return false;
+        // 林子：一小片一小片
+        if (Noise(tile.x, tile.y, 7f, g.Seed + 20) > 0.76f)
+        {
+            result = Paint(color, H(g.Seed, tile.x, tile.y, 21) < 0.3f ? Tree : Grove, 0.55f);
+            return true;
+        }
+        // 田块：大小不一，每块一种作物色，围着城镇村，越远越淡；越富的地方田越多
+        if (tile.Type == null || !tile.Type.can_be_farm && !tile.Type.farm_field) return false;
+        float dxc = tile.x - g.Cx, dyc = tile.y - g.Cy;
+        float near = Mathf.Sqrt(dxc * dxc + dyc * dyc) - EdgeAt(g, Angle(dxc, dyc));
+        foreach ((int x, int y, int size, _) in g.Towns)
+            near = Mathf.Min(near, Mathf.Sqrt((tile.x - x) * (tile.x - x) + (tile.y - y) * (tile.y - y)) - size);
+        foreach ((int x, int y) in g.Villages)
+            near = Mathf.Min(near, Mathf.Sqrt((tile.x - x) * (tile.x - x) + (tile.y - y) * (tile.y - y)) - 2f);
+        float strength = 0.35f * Mathf.Clamp01(1.3f - near / 14f) * (0.6f + 0.1f * g.Tier);
+        if (strength <= 0.01f) return false;
+        float fx = tile.x + 4f * Noise(tile.x, tile.y, 13f, g.Seed + 1), fy = tile.y + 4f * Noise(tile.x, tile.y, 13f, g.Seed + 2);
+        int by = Mathf.FloorToInt(fy / 6f);
+        int bx = Mathf.FloorToInt(fx / (5f + (int)(H(g.Seed, by) * 4)));
+        result = Paint(color, Crops[(int)(H(g.Seed, bx, by, 5) * 5) % 5], strength);
+        return true;
     }
+
+    // 镇：十字街、中间小集市，四角屋舍两排一组；富庶的镇有一圈矮墙，四面开门
+    private static Color32 TownTile(Geometry g, WorldTile tile, Color32 color, int dx, int dy, int size, bool walled)
+    {
+        if (walled && (Mathf.Abs(dx) == size || Mathf.Abs(dy) == size))
+            return dx == 0 || dy == 0 ? Paint(color, TownStreet, 0.8f) : Paint(color, TownWall, 0.85f);
+        if (dx == 0 || dy == 0) return Paint(color, Mathf.Abs(dx) + Mathf.Abs(dy) <= 1 ? Market : TownStreet, 0.85f);
+        if (Mathf.Abs(dx) == 1 && Mathf.Abs(dy) == 1) return Paint(color, Market, 0.6f);
+        if ((Mathf.Abs(dx) + (dx > 0 ? 1 : 0)) % 3 == 0 || (Mathf.Abs(dy) + (dy > 0 ? 1 : 0)) % 3 == 0)
+            return Paint(color, Yard, 0.4f);
+        return Paint(color, Roof(g, tile), 0.9f);
+    }
+
+    // 屋顶：工业化以前是瓦房，之后多是楼房
+    private static Color32 Roof(Geometry g, WorldTile tile) =>
+        g.Progress >= 1f && H(g.Seed, tile.x, tile.y, 13) < 0.6f
+            ? Slab[(int)(H(g.Seed, tile.x, tile.y, 15) * 4) % 4]
+            : HouseRoof[(int)(H(g.Seed, tile.x >> 1, tile.y >> 1, 14) * 4) % 4];
 
     #endregion
 }

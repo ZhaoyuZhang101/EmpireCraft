@@ -97,6 +97,9 @@ public static class CityExtension
         // 城市肌理(纯净地图，见 UrbanFabric)：格局的随机种子(0 = 用城的编号)、工业化那时的旧城半径
         public long urban_seed;
         public float urban_old_radius;
+        // 城郊档位(见 EconomicCircleSystem.RegionTier；-1 = 还没定)与上次升降的时间
+        public int urban_tier = -1;
+        public double urban_tier_at = -1d;
         public int massacre_victims;
         public double massacre_last = -1d;
         // 战时中央代管(见 WartimeCustodySystem)：打下本城的成员国、原属国、所在战争；-1 = 不在代管中

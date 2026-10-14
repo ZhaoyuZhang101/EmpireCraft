@@ -825,6 +825,10 @@ public static class CityPopulationSystem
         if (CityDissolution.TryAbandon(city)) return;
         KingdomExtension.KingdomExtraData kingdomData = city.kingdom.GetOrCreate();
         if (kingdomData.fugitive_household_law_enacted || EmpireCraft.Scripts.GeneralSystems.EmpireLaw.EmpireLawSystem.HasLaw(city.kingdom, EmpireCraft.Scripts.GeneralSystems.EmpireLaw.LawType.逃人法)) return;
+        // 经济圈虹吸：卫星城每月有一部分人口迁往主城(见 EconomicCircleSystem)
+        City core = EconomicCircleSystem.CoreOf(city);
+        CityPopulationData coreData = core != null && core != city ? Get(core) : null;
+        if (coreData != null) EconomicCircleSystem.Siphon(city, Pull(core, coreData));
         float push = Push(city, data);
         if (push <= 0.05f) return;
         City destination = null;
