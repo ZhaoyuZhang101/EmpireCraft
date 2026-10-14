@@ -1,4 +1,5 @@
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.GamePatches;
 using EmpireCraft.Scripts.GeneralSystems;
 using EmpireCraft.Scripts.HelperFunc;
 using NeoModLoader.General;
@@ -37,6 +38,13 @@ public static class ZonePlanningButtons
             name = "plan_policy",
             click_action = CyclePolicy
         });
+        // 另起格局：点一座城，城市肌理换一个随机种子(干道、片区街网、市中心、工业区、村镇、开发先后重新随机)
+        AssetManager.powers.add(new GodPower
+        {
+            id = "urban_reseed",
+            name = "urban_reseed",
+            click_action = Reseed
+        });
         // 羁縻规划：点帝国内的地方政区，在 自动 → 羁縻 → 直辖 之间切换
         AssetManager.powers.add(new GodPower
         {
@@ -73,6 +81,20 @@ public static class ZonePlanningButtons
         KingdomFrontLineHelper.HighlightZones(zone, ZonePlanSystem.ColorOf(clear ? ZoneUse.None : use));
         WorldTip.showNow(string.Format(LM.Get(clear ? "zone_planning_removed" : "zone_planning_added"),
             city.GetCityName(), ZonePlanSystem.UseName(use)), false, "top", 3f);
+        return true;
+    }
+
+    private static bool Reseed(WorldTile pTile, string pPower)
+    {
+        City city = pTile?.zone?.city;
+        if (city == null || city.isRekt() || city.isNeutral())
+        {
+            WorldTip.showNow(LM.Get("farm_planning_no_city"), false, "top", 3f);
+            return false;
+        }
+        UrbanFabric.Reseed(city);
+        PureMapPatch.Redraw(city);
+        WorldTip.showNow(string.Format(LM.Get("urban_reseed_done"), city.GetCityName()), false, "top", 3f);
         return true;
     }
 

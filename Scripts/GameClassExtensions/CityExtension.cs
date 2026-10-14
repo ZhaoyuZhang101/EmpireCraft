@@ -94,6 +94,9 @@ public static class CityExtension
         public List<RoadLink> road_links;
         // 连荒了几年(见 FamineUnrestSystem)
         public int famine_years;
+        // 城市肌理(纯净地图，见 UrbanFabric)：格局的随机种子(0 = 用城的编号)、工业化那时的旧城半径
+        public long urban_seed;
+        public float urban_old_radius;
         public int massacre_victims;
         public double massacre_last = -1d;
         // 战时中央代管(见 WartimeCustodySystem)：打下本城的成员国、原属国、所在战争；-1 = 不在代管中

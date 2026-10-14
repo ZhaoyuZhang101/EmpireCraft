@@ -297,14 +297,16 @@ public class PureMapPatch : GamePatch
         foreach (WorldTile tile in zone.tiles)
         {
             int id = tile?.data?.tile_id ?? -1;
-            if (id < 0 || id >= pixels.Length || pixels[id].a == 0) continue;
-            // 水面不涂国色(连地块边框也不画在水上)：领土只到海岸，国界贴着海岸走
+            if (id < 0 || id >= pixels.Length) continue;
+            // 水面不涂国色(连地块边框也不画在水上)：领土只到海岸，国界贴着海岸走；城里干道、环路过河处是桥
             TileTypeBase ground = tile.Type;
             if (ground != null && (ground.ocean || ground.liquid && !ground.lava))
             {
-                pixels[id] = new Color32(0, 0, 0, 0);
+                if (pixels[id].a == 0 && !smooth) continue;
+                pixels[id] = UrbanFabric.Bridge(plan?.fabric, tile) ? UrbanFabric.BridgeColor : new Color32(0, 0, 0, 0);
                 continue;
             }
+            if (pixels[id].a == 0) continue;
             WorldTileZoneBorder border = tile.world_tile_zone_border;
             if (smooth)
             {
@@ -370,6 +372,8 @@ public class PureMapPatch : GamePatch
         // 定型的文化系；改建中的目标文化系与进度(见 CityStyleSystem)
         public string family = "huaxia", target;
         public float rebuild;
+        // 城市肌理：工业化以后的新城区、城外村镇农田(见 UrbanFabric)
+        public UrbanFabric.Geometry fabric;
     }
 
     private const string ModernPlanningTech = "modern_urban_planning";
@@ -413,6 +417,14 @@ public class PureMapPatch : GamePatch
 
     private static readonly Color32 Block = new(236, 232, 224, 255), Street = new(255, 255, 255, 255),
         Crop = new(228, 238, 200, 255);
+
+    // 城市格局换了(换种子)：丢掉缓存的平面图，重画本城各地块
+    internal static void Redraw(City city)
+    {
+        if (city?.data == null) return;
+        Plans.Remove(city.data.id);
+        foreach (TileZone zone in city.zones ?? new List<TileZone>()) zone?.resetRenderHelpers();
+    }
 
     // 城里建成的地块(有自己的街格，路网图层的干道不压上去)：只看已经算好的平面图，不为此重算
     // (重算一座城的平面图不便宜，路网重画时顺带重算几十座城会卡一下)
@@ -603,6 +615,7 @@ public class PureMapPatch : GamePatch
             plan.ruin = Mathf.Max(plan.ruin, 0.25f);
             plan.burning = true;
         }
+        plan.fabric = UrbanFabric.Build(city, plan.built, plan.landmark, plan.family, culture);
     }
 
     // 0~1 的稳定散列(地块、街区按它决定先后转现代、是否成废墟)
@@ -645,13 +658,19 @@ public class PureMapPatch : GamePatch
     {
         if (tile.Type != null && tile.Type.liquid) return color;
         bool built = plan != null && plan.built.Contains(zone.id);
+        UrbanFabric.Geometry fabric = plan?.fabric;
+        bool wallsDown = fabric != null && fabric.WallsDown;
+        // 阿兹特克的水上田园照旧
+        bool chinampa = use == ZoneUse.Farm && plan?.family == "aztec";
+        if (built && fabric != null && fabric.Modern && UrbanFabric.Tile(tile, color, fabric, true, use, out Color32 urban))
+            return urban;
         if (built && lx >= 0 && lx < 8 && ly >= 0 && ly < 8)
         {
             bool modern = use != ZoneUse.None && plan.modern > 0f && Hash01(zone.id) < plan.modern;
             // 这个地块的布局按哪一系(改建中逐个地块换)
             string family = plan.target != null && Hash01(zone.id * 31L + 99L) < plan.rebuild ? plan.target : plan.family;
             // 城墙：现代规划后拆成环路；东西南北四门开在城心两条中线上，门两侧与凸角是墩台
-            if (plan.walled && OnEdge(tile, plan.built, plan.city))
+            if (plan.walled && !wallsDown && OnEdge(tile, plan.built, plan.city))
             {
                 if (tile.x == plan.gateX || tile.y == plan.gateY) return Lerp(color, Street, 0.6f);
                 if (modern) return Lerp(color, Ring, 0.7f);
@@ -675,8 +694,11 @@ public class PureMapPatch : GamePatch
             return use == ZoneUse.None ? Organic(color, slots, lx, ly, plan, zone) : Grid(color, slots, lx, ly, plan, zone, false);
         }
         // 护城河：贴着城墙外侧一圈，城门处是桥
-        if (plan != null && plan.moat && BesideWall(tile, plan))
+        if (plan != null && plan.moat && !wallsDown && BesideWall(tile, plan))
             return tile.x == plan.gateX || tile.y == plan.gateY ? Lerp(color, Street, 0.6f) : Lerp(color, Moat, 0.85f);
+        // 城外：村镇、田块；工业化以后的新城区(见 UrbanFabric)
+        if (!built && !chinampa && fabric != null && UrbanFabric.Tile(tile, color, fabric, false, use, out Color32 outside))
+            return outside;
         if (use == ZoneUse.Farm)
         {
             // 阿兹特克的水上田园：一垄田一道水渠

@@ -1144,6 +1144,7 @@ GODPOWERS = {
     "zone_military": (obj_tower, None),
     "zone_reserve": (obj_pine, None),
     "plan_policy": (obj_blueprint, None),
+    "urban_reseed": (obj_blueprint, "swap"),
     "jimi_policy": (obj_bridle, None),
     "wealth_layer": (obj_coins, None),
     "force_vassal": (obj_chain, None),
