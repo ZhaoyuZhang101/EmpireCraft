@@ -384,9 +384,14 @@ public class PureMapPatch : GamePatch
             if (grey)
             {
                 int lx = tile.x - ox, ly = tile.y - oy;
-                // 城区浅灰(主干道深灰)，城外近黑带地形；规划色半透明叠上去，城区里更淡，城的轮廓透得出来
+                // 城里照常画出城市平面图(城墙、街巷、建筑、新城区)，褪成浅灰；城外近黑带地形，出城的路、关厢、镇、村
+                // 也褪成灰色画在黑底上；规划色半透明叠上去，城区里更淡
                 bool urban = plan != null && (Urban(tile, plan) || UrbanFabric.Inside(plan.fabric, tile));
-                Color32 basis = urban ? UrbanFabric.Primary(plan.fabric, tile) ? PlanningRoad : PlanningCity : Dark(tile);
+                Color32 basis;
+                if (urban) basis = Greyed(Plan(tile, Shade(tile, PlanningCity), use, slots, lx, ly, plan, zone));
+                else if (plan?.fabric != null && UrbanFabric.Feature(plan.fabric, tile))
+                    basis = Lerp(Dark(tile), Greyed(Plan(tile, Shade(tile, PlanningCity), use, slots, lx, ly, plan, zone)), 0.7f);
+                else basis = Dark(tile);
                 if (planned is Color32 tint)
                     pixels[id] = lx == 0 && outlineLeft || lx == Config.CITY_ZONE_SIZE - 1 && outlineRight ||
                                  ly == 0 && outlineDown || ly == Config.CITY_ZONE_SIZE - 1 && outlineUp
@@ -402,9 +407,15 @@ public class PureMapPatch : GamePatch
         }
     }
 
-    // 规划视图的底色：城外近黑、只带一点地形本色与浮雕；城区浅灰、主干道深灰；国界、城界暗灰细线
-    private static readonly Color32 PlanningCity = new(170, 170, 170, 255),
-        PlanningRoad = new(95, 95, 100, 255);
+    // 规划视图：城市平面图画在中性灰上再褪成灰阶(街巷、建筑的明暗都在)；城外近黑、只带一点地形本色与浮雕；
+    // 国界、城界暗灰细线
+    private static Color32 Greyed(Color32 color)
+    {
+        byte value = (byte)Mathf.Clamp(40f + 0.8f * (color.r * 0.3f + color.g * 0.59f + color.b * 0.11f), 0f, 255f);
+        return new Color32(value, value, value, color.a);
+    }
+
+    private static readonly Color32 PlanningCity = new(170, 170, 170, 255);
 
     private static Color32 Dark(WorldTile tile)
     {

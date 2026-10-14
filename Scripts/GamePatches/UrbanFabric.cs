@@ -680,7 +680,16 @@ public static class UrbanFabric
         return rural;
     }
 
-    private static bool Countryside(Geometry g, WorldTile tile, Color32 color, out Color32 result)
+    // 城郊的路、关厢、镇、村、小路(规划视图画在黑底上；田块、林子不算)
+    public static bool Feature(Geometry g, WorldTile tile)
+    {
+        if (g == null || tile?.zone == null || g.Built.Contains(tile.zone.id) && InTown(g, tile)) return false;
+        Rural rural = RuralOf(g, tile.zone);
+        if (rural.Roads.Count == 0 && rural.Towns.Count == 0 && rural.Villages.Count == 0 && rural.Paths.Count == 0) return false;
+        return Countryside(g, tile, new Color32(128, 128, 128, 255), out _, true);
+    }
+
+    private static bool Countryside(Geometry g, WorldTile tile, Color32 color, out Color32 result, bool featuresOnly = false)
     {
         result = color;
         Rural rural = RuralOf(g, tile.zone);
@@ -731,7 +740,7 @@ public static class UrbanFabric
             result = Paint(color, Lane, 0.6f);
             return true;
         }
-        if (rural.Near > WoodReach || Rough(tile)) return false;
+        if (featuresOnly || rural.Near > WoodReach || Rough(tile)) return false;
         // 林子：一小片一小片，围在城镇村近处
         if (Noise(tile.x, tile.y, 7f, g.Seed + 20) > 0.76f)
         {
