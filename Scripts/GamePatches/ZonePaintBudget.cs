@@ -41,6 +41,8 @@ public class ZonePaintBudget : GamePatch
             prefix: new HarmonyMethod(typeof(ZonePaintBudget), nameof(BeforeDirtyAndClear)));
         harmony.Patch(AccessTools.Method(typeof(ZoneCalculator), "checkFadeAndSelectionColors"),
             prefix: new HarmonyMethod(typeof(ZonePaintBudget), nameof(BeforeSelectionColors)));
+        harmony.Patch(AccessTools.Method(typeof(ZoneCalculator), "checkClearAllZonesToRedraw"),
+            prefix: new HarmonyMethod(typeof(ZonePaintBudget), nameof(BeforeClearAll)));
     }
 
     private static void NewFrame()
@@ -124,6 +126,28 @@ public class ZonePaintBudget : GamePatch
             if (__instance._cached_should_be_clear_color) pColorBorderInside = __instance._color_clear;
         }
         __result = false;
+        return false;
+    }
+
+    // 鼠标移到另一个国家(城市、帝国……)上、选中的东西变了：原版把整张图清空重画——原版只是平涂，重画不费事，
+    // 它要让没悬停的对象变淡、悬停的边框呼吸；纯净地图下色块不透明，变淡本来就看不出来，呼吸也改成了常亮，
+    // 整图重画(这里一次几百毫秒)白白卡一下。纯净地图下这种情况只把新旧悬停、选中对象的格子重新提亮或还原(约一毫秒)；
+    // 切换图层选项、清色设置变了照原版重画
+    private static NanoObject _lastCursor, _lastSelected;
+
+    private static bool BeforeClearAll(ZoneCalculator __instance)
+    {
+        NanoObject cursor = __instance._cursor_nano_object, selected = __instance._selected_nano_object;
+        NanoObject oldCursor = _lastCursor, oldSelected = _lastSelected;
+        _lastCursor = cursor;
+        _lastSelected = selected;
+        if (!PureMapMode.Enabled) return true;
+        int state = World.world?.getCachedMapMetaAsset()?.getZoneOptionState() ?? -1;
+        if (state != -1 && state != __instance._last_zone_state ||
+            __instance._last_should_be_clear_color != __instance._cached_should_be_clear_color) return true;
+        if (!__instance._selection_changed_dirty) return false;
+        __instance._selection_changed_dirty = false;
+        SmoothBorders.Retint(oldCursor, oldSelected, cursor, selected);
         return false;
     }
 

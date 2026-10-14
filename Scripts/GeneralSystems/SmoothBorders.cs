@@ -398,6 +398,31 @@ public static class SmoothBorders
         _pendingKey = 0L;
     }
 
+    // 悬停、选中的对象变了：属于新旧对象的格子按记下的底色重新提亮或还原
+    public static void Retint(params object[] metas)
+    {
+        ZoneCalculator calc = World.world?.zone_calculator;
+        Color32[] pixels = calc?.pixels;
+        if (!Enabled || pixels == null || pixels.Length != _base.Length) return;
+        bool changed = false;
+        for (int id = 0; id < pixels.Length; id++)
+        {
+            IMetaObject owner = _owner[id];
+            if (owner == null || !_hasBase[id] || pixels[id].a == 0) continue;
+            bool hit = false;
+            foreach (object meta in metas)
+                if (meta != null && ReferenceEquals(meta, owner))
+                {
+                    hit = true;
+                    break;
+                }
+            if (!hit) continue;
+            pixels[id] = Lifted(id);
+            changed = true;
+        }
+        if (changed) calc.setDirty();
+    }
+
     #region 上色缓存
 
     // 帝国图层上悬停帝国里的成员国时，它的地块换成本国颜色、移开又换回帝国颜色；平滑国界下邻块跟着变，
