@@ -19,7 +19,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 效果：控制力低的城自然稳定度下降(满控不减，最低扣 20)；
 //     领土不在这里变动：扩张、边界侵蚀都按原版(侵蚀受原版"边界侵蚀"开关管、只在交战双方之间，见 CityExpansionPatch)。
 //     以前这里的"边地易手"(太平时互相侵蚀)、"被围空地并入"(把山地、隔水的地并进来)不守原版规矩，已删；
-//     旧存档里因此并进来、城心走不到的地块，每座城放回无主一次；
+//     旧存档里因此留下的山地、隔水地和飞地，读档后交给原版的"断开的地放弃"清掉(见 CityExpansionPatch.CheckAbandonOnLoad)；
 //     飞地易帜：陆路不通的飞地城(不是都城)控制力不到 0.45 时，每年有概率改投接壤最长的邻国(双方都不在打仗)。
 public static class AdministrativeControlSystem
 {
@@ -76,6 +76,7 @@ public static class AdministrativeControlSystem
     public static void Tick()
     {
         if (World.world?.kingdoms == null || ModClass.IS_CLEAR) return;
+        if (Config.game_loaded && !SmoothLoader.isLoading()) EmpireCraft.Scripts.GamePatches.CityExpansionPatch.CheckAbandonOnLoad();
         if (!SimulationFrameBudget.HasTime) return;
         if (Pending.Count == 0) Refill();
         if (Pending.Count == 0) return;
@@ -91,11 +92,7 @@ public static class AdministrativeControlSystem
                 data.admin_pass_at = World.world.getCurWorldTime();
                 List<City> cities = Cities(realm);
                 Compute(realm, cities);
-                if (!realm.hasEnemies())
-                {
-                    Defect(realm, cities);
-                    ReleaseUnreachable(cities);
-                }
+                if (!realm.hasEnemies()) Defect(realm, cities);
             }
         }
         catch (Exception error)
@@ -227,30 +224,6 @@ public static class AdministrativeControlSystem
             float cap = overseas ? modern ? ModernOverseasCap : OverseasCap : ExclaveCap;
             data.admin_control = Mathf.Min(cap, Control(far, reach));
         }
-    }
-
-    #endregion
-
-    #region 走不到的地放回无主(读档修正，每城一次)
-
-    private static void ReleaseUnreachable(List<City> cities)
-    {
-        int released = 0;
-        foreach (City city in cities)
-        {
-            if (!Valid(city)) continue;
-            var data = city.GetOrCreate();
-            if (data.unreachable_released) continue;
-            data.unreachable_released = true;
-            if (city.zones.Count <= 1) continue;
-            foreach (TileZone zone in city.zones.ToList())
-            {
-                if (!EmpireCraft.Scripts.GamePatches.CityExpansionPatch.Unreachable(city, zone)) continue;
-                city.removeZone(zone);
-                released++;
-            }
-        }
-        if (released > 0) LogService.LogInfo($"[EmpireCraft][行政控制力] 放回无主的走不到的地块 {released} 块");
     }
 
     #endregion

@@ -67,8 +67,6 @@ public static class CityExtension
         public float admin_control = -1f;
         public int admin_distance;
         public bool admin_exclave;
-        // 走不到的地块已经放回无主过一次(见 AdministrativeControlSystem.ReleaseUnreachable)
-        public bool unreachable_released;
         public bool admin_overseas;
         public string kingdom_names = "";
         public long title_id = -1L;

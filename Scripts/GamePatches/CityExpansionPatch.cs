@@ -128,10 +128,18 @@ public class CityExpansionPatch : GamePatch
         }
     }
 
-    // 读档修正一次(见 AdministrativeControlSystem.ReleaseUnreachable)：以前模组自己的"被围空地并入""边地易手"
-    // 不守原版规矩，把山地、隔水的地并了进来；这些走不到的地块放回无主。城心、有建筑、划了用途、被占领的不动
-    public static bool Unreachable(City city, TileZone zone) =>
-        zone != null && zone.city == city && !Reachable(zone, city) && zone != city.getTile()?.zone &&
-        !zone.hasAnyBuildingsInSet(BuildingList.Civs) && ZonePlanSystem.Get(city, zone) == ZoneUse.None &&
-        city.GetTileZoneOccupier(zone) == null;
+    // 原版的"断开的地放弃"(CityZoneAbandon)：从城里各建筑沿陆路连得到的地块才算本城，连不上的(隔水、翻山)放弃，
+    // 断成几片的只留最大的一片。原版只在城失去地块时查一次；读档后每座城都查一次，
+    // 清掉以前模组自己的"被围空地并入""边地易手"留下的山地、隔水地和飞地
+    private static object _abandonCheckedWorld;
+
+    public static void CheckAbandonOnLoad()
+    {
+        MapBox world = World.world;
+        if (world?.cities == null || ReferenceEquals(_abandonCheckedWorld, world)) return;
+        _abandonCheckedWorld = world;
+        foreach (City city in world.cities)
+            if (city?.data != null && !city.isRekt() && !AncientWarfareCompatibility.OwnsObject(city))
+                city.setAbandonedZonesDirty();
+    }
 }
