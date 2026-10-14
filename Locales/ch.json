@@ -1717,7 +1717,7 @@
   "unify_lost_history": "{0}失地過半，統一大業中輟",
   "harem_power_title": "後宮幹政",
   "terrain_relief": "地形浮雕",
-  "terrain_relief_description": "國色上疊地形明暗(山地壓暗、高差打光)；關掉是純平的國色，城市與道路照常顯示",
+  "terrain_relief_description": "開著時國色上疊地形明暗(山地壓暗、高差打光)，並畫出城市與道路；關掉只剩純平的國色(城市圖層照常顯示城市與道路)",
   "capital_loss_restored": "{0}收復舊都{1}，還於舊都，復稱{2}。",
   "kingdom_type_xingzai": "行在",
   "Later": "後",

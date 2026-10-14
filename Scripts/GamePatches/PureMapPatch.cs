@@ -234,8 +234,8 @@ public class PureMapPatch : GamePatch
         _urbanCredit += UrbanQueue.Count / UrbanCycleSeconds * delta;
         int count = Mathf.FloorToInt(_urbanCredit);
         _urbanCredit -= count;
-        // 远景不画城市(见 DetailShown)：不必算平面图、不必为它重画；拉近时原版整张重画
-        bool detail = DetailShown;
+        // 不画城市时(见 CitiesShown)：不必算平面图、不必为它重画；打开时整张重画
+        bool detail = CitiesShown;
         for (int i = 0; i < count && _urbanCursor < UrbanQueue.Count; i++)
         {
             City city = UrbanQueue[_urbanCursor++];
@@ -333,11 +333,15 @@ public class PureMapPatch : GamePatch
             ShadeTerrain(__instance.pixels, pZone, false, false, false, false);
     }
 
-    // ───────── 城市与道路一直显示(用户 2026-10-15 改：不再按远近隐藏) ─────────
-    // 以前拉远到原版远景时只画国色与地形，拉近才画城市；用户要城市和道路永久显示，地形浮雕改由神力开关管(见 Relief)
-    public static bool DetailShown => true;
+    // ───────── 城市与道路不按远近隐藏，跟着地形浮雕开关走 ─────────
+    // 以前拉远到原版远景时只画国色与地形，拉近才画城市；用户 2026-10-15 改成不论远近都显示，
+    // 同日又定"地形浮雕要连城市和道路也隐藏"：开关关掉时只剩纯平国色(见 Relief)
+    public static bool DetailShown => Relief;
 
-    // 地形浮雕(见 SwitchTerrainReliefButton)：关掉时国色上不叠地形明暗，纯平国色
+    // 城市图层、规划视图专看城市，不管开关
+    public static bool CitiesShown => DetailShown || Layer.CityViewMap.Active || ZonePlanSystem.SteadyOverlay;
+
+    // 地形浮雕(见 SwitchTerrainReliefButton)：关掉时国色上不叠地形明暗、不画城市与道路，纯平国色
     public static bool Relief = true;
 
     // ───────── 地形浮雕 ─────────
@@ -351,7 +355,7 @@ public class PureMapPatch : GamePatch
     {
         City city = zone.city != null && !zone.city.isRekt() ? zone.city : null;
         ZoneUse use = city != null ? ZonePlanSystem.Get(city, zone) : ZoneUse.None;
-        bool detail = DetailShown || Layer.CityViewMap.Active;
+        bool detail = CitiesShown;
         CityPlan plan = city != null && detail ? PlanFor(city) : null;
         Slot[] slots = plan != null && plan.zones.TryGetValue(zone.id, out Slot[] found) ? found : null;
         int ox = zone.x * Config.CITY_ZONE_SIZE, oy = zone.y * Config.CITY_ZONE_SIZE;

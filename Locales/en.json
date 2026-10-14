@@ -1715,7 +1715,7 @@
   "unify_lost_history": "{0} loses most of its land; its war of unification falters",
   "harem_power_title": "Harem Power",
   "terrain_relief": "Terrain Relief",
-  "terrain_relief_description": "Shade the realm colours with terrain (darker mountains, slope lighting); turn off for flat colours. Cities and roads stay visible",
+  "terrain_relief_description": "Shade the realm colours with terrain (darker mountains, slope lighting) and draw cities and roads; turn off for flat colours only (the city layer still shows cities and roads)",
   "capital_loss_restored": "{0} retakes its old capital {1} and is again known as {2}.",
   "kingdom_type_xingzai": "Temporary Court",
   "Later": "Later",

@@ -12,7 +12,7 @@ namespace EmpireCraft.Scripts.UI.Components;
 // 高德式(2026-10-14 用户选定)：土路浅灰、驿道白、官道浅黄、公路黄、柏油公路橙；驿道以上两侧描一道深色细边，
 // 任何国色上都看得清；
 // 换了地图图层(底色全变)半秒后重画一次。
-// 城市与道路一直显示(用户 2026-10-15 改，不再按远近隐藏)；城市图层也画(不要求纯净地图)。
+// 城市与道路不按远近隐藏，跟着地形浮雕开关走(关掉就不画，见 PureMapPatch.CitiesShown)；城市图层也画(不要求纯净地图)。
 public static class RoadOverlay
 {
     private const float RedrawSeconds = 20f, MinRedrawSeconds = 10f;
@@ -71,8 +71,8 @@ public static class RoadOverlay
 
     private static float ZoomAlpha()
     {
-        // 城市与道路一直显示(用户 2026-10-15 改：不再按远近淡入淡出)
-        return 1f;
+        // 不按远近淡入淡出；地形浮雕关掉时不画(城市图层、规划视图照画)
+        return PureMapPatch.CitiesShown ? 1f : 0f;
     }
 
     private static bool Ensure(ZoneCalculator zones, SpriteRenderer source)
