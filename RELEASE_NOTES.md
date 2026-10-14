@@ -1,7 +1,15 @@
 # 更新内容 (Update Features)
 
-2026-10-12 · 0.4.5Beta1
+2026-10-14 · 0.4.6
 
-修复周制春秋战国时期中央仍能回收诸侯土地的问题：王室衰微后，削藩、收回法理、按法理整合、战时代管、收复旧都等不再生效，诸侯打下的地归自己。
+新增城市模拟、经济圈与城市图层。
+平滑国界渐变换色，战线占领同步。
+重做国债军饷，养兵量入为出。
+宗室虚拟子嗣，修复读档政体重置。
+朝堂争奏，兵变称帝更严，统一更积极。
 
-Fixed the Zhou court still reclaiming vassal land in the Spring and Autumn and Warring States periods: once royal power declines, fief reductions, title revocation, de jure reorganization, wartime custody and capital restoration no longer apply, and vassals keep what they conquer.
+Added city simulation, economic circles and a city map layer.
+Smooth borders now fade colour changes; fronts and occupation stay in sync.
+Reworked state debt and army pay; armies are sized to what the treasury can afford.
+Royal heirs are kept as virtual offspring; fixed regime settings resetting on load.
+Court factions compete to submit memorials; coups and self-proclaimed emperors are harder, and empires pursue unification more actively.
