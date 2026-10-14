@@ -899,14 +899,19 @@ namespace EmpireCraft.Scripts.UI.Windows
             StartCoroutine(RefreshFinanceLater(pArg0, _renderGeneration));
         }
 
-        // 财政页开着时每隔几秒按最新账目重画(以前打开时算一次就不变，和悬停提示里的实时国库对不上)；滚动位置不动
+        // 财政页开着时，游戏时间走了(没暂停)才按最新账目重画；打开窗口游戏多半暂停着，账目不变就不重画。滚动位置不动
         private const float FinanceRefreshSeconds = 3f;
         private bool _financeKeepScroll;
 
         private IEnumerator RefreshFinanceLater(WindowMetaTab tab, int generation)
         {
-            yield return new WaitForSecondsRealtime(FinanceRefreshSeconds);
-            if (generation != _renderGeneration || !gameObject.activeInHierarchy) yield break;
+            double drawnAt = World.world?.getCurWorldTime() ?? 0d;
+            while (true)
+            {
+                yield return new WaitForSecondsRealtime(FinanceRefreshSeconds);
+                if (generation != _renderGeneration || !gameObject.activeInHierarchy) yield break;
+                if ((World.world?.getCurWorldTime() ?? drawnAt) != drawnAt) break;
+            }
             _financeKeepScroll = true;
             ShowFinance(tab);
         }
