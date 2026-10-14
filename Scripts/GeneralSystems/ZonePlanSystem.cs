@@ -666,7 +666,8 @@ public static partial class ZonePlanSystem
         else KingdomFrontLineHelper.HighlightZones(zone, ColorOf(use));
     }
 
-    private static void RedrawAll() => World.world.zone_calculator?.dirtyAndClear();
+    // 进出规划视图：整图清空当帧重画(不分帧，免得一块一块地变)
+    private static void RedrawAll() => World.world.zone_calculator?.clearCurrentDrawnZones();
     private const float OverlayInterval = 1f;
     private const int MaxOverlayZones = 300;
 
