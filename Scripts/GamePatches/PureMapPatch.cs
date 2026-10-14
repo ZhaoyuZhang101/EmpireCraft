@@ -824,8 +824,6 @@ public class PureMapPatch : GamePatch
         bool built = plan != null && Urban(tile, plan);
         UrbanFabric.Geometry fabric = plan?.fabric;
         bool wallsDown = fabric != null && fabric.WallsDown;
-        // 阿兹特克的水上田园照旧
-        bool chinampa = use == ZoneUse.Farm && plan?.family == "aztec";
         if (built && fabric != null && fabric.Modern && UrbanFabric.Tile(tile, color, fabric, true, use, out Color32 urban))
             return urban;
         if (built && lx >= 0 && lx < 8 && ly >= 0 && ly < 8)
@@ -861,16 +859,10 @@ public class PureMapPatch : GamePatch
         if (plan != null && plan.moat && !wallsDown && BesideWall(tile, plan))
             return tile.x == plan.gateX || tile.y == plan.gateY ? Lerp(color, Arterial, StreetShare) : Lerp(color, Moat, 0.9f);
         // 城外：村镇、田块；工业化以后的新城区(见 UrbanFabric)
-        if (!built && !chinampa && fabric != null && UrbanFabric.Tile(tile, color, fabric, false, use, out Color32 outside))
+        if (!built && fabric != null && UrbanFabric.Tile(tile, color, fabric, false, use, out Color32 outside))
             return outside;
-        if (use == ZoneUse.Farm)
-        {
-            // 阿兹特克的水上田园：一垄田一道水渠
-            if (plan?.family == "aztec") return tile.y % 3 == 0 ? Lerp(color, Chinampa, 0.6f) : Lerp(color, Crop, 0.4f);
-            // 其余：大小不一、垄向各异的田块拼起来(见 UrbanFabric.Farmland)
-            if (plan?.fabric != null) return UrbanFabric.Farmland(plan.fabric, tile, color);
-            return Lerp(color, Crop, 0.4f);
-        }
+        // 农耕区平常不画：AI 缺粮时会把各城至多一半的地块划成农田，画出田块来满地是浅色方块、像城区，城外又花了。
+        // 选中规划神力时规划视图照常用用途色显示(见 ShadeTerrain)
         return color;
     }
 
@@ -931,9 +923,9 @@ public class PureMapPatch : GamePatch
     // 华夏里坊：西、南两边是坊墙(东、北两边是邻坊的墙)，坊墙正中开坊门，坊内十字街分出四个街区
     private static Color32 WardLayout(Color32 color, Slot[] slots, int lx, int ly, CityPlan plan, TileZone zone)
     {
-        if (lx == 0 || ly == 0)
-            return (lx == 0 && ly == 4) || (ly == 0 && lx == 4) ? Lerp(color, Street, StreetShare) : Lerp(color, Ward, 0.85f);
-        if (lx == 4 || ly == 4) return Lerp(color, Street, StreetShare);
+        // 地块之间是白色的街(坊墙不另画，免得每四格一道亮线、满城格子)；坊内十字只是淡淡的巷
+        if (lx == 0 || ly == 0) return Lerp(color, Street, StreetShare);
+        if (lx == 4 || ly == 4) return Lerp(color, Lane, 0.85f);
         int index = (ly - 1) / 4 * 2 + (lx - 1) / 4;
         return Building(color, slots, index, (lx - 1) % 4, (ly - 1) % 4, plan, zone);
     }
@@ -957,8 +949,9 @@ public class PureMapPatch : GamePatch
     // 规划过的地块：白色街格切出四个街区，建筑图块整齐摆进去；现代格局的地块边换成大道
     private static Color32 Grid(Color32 color, Slot[] slots, int lx, int ly, CityPlan plan, TileZone zone, bool modern)
     {
-        if (lx % 4 == 0 || ly % 4 == 0)
-            return modern && (lx == 0 || ly == 0) ? Lerp(color, Ring, StreetShare) : Lerp(color, Street, StreetShare);
+        // 地块之间是白色的街(现代格局是大道)，地块里的十字只是淡淡的巷
+        if (lx == 0 || ly == 0) return Lerp(color, modern ? Ring : Street, StreetShare);
+        if (lx == 4 || ly == 4) return Lerp(color, Lane, 0.85f);
         int index = (ly - 1) / 4 * 2 + (lx - 1) / 4;
         return Building(color, slots, index, (lx - 1) % 4, (ly - 1) % 4, plan, zone);
     }

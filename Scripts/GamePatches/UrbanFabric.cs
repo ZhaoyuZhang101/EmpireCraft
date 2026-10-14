@@ -613,7 +613,8 @@ public static class UrbanFabric
     {
         result = color;
         if (g == null || tile?.zone == null || g.Landmark.Contains(tile.zone.id)) return false;
-        if (!g.Modern) return !built && use != ZoneUse.Farm && use != ZoneUse.Reserve && Countryside(g, tile, color, out result);
+        // 农耕区平常不画田块(见 PureMapPatch.Plan)，出城的路、镇照常画过去，不然路一过农田就断
+        if (!g.Modern) return !built && use != ZoneUse.Reserve && Countryside(g, tile, color, out result);
         float dx = tile.x - g.Cx, dy = tile.y - g.Cy;
         float r = Mathf.Sqrt(dx * dx + dy * dy), angle = Angle(dx, dy), edge = EdgeAt(g, angle);
         bool inEdge = r < edge;
@@ -635,7 +636,7 @@ public static class UrbanFabric
         }
         if (Rough(tile)) return false;
         (Kind kind, bool developed) = ZoneOf(g, tile.zone);
-        if (kind == Kind.Farm) return false;
+        if (kind == Kind.Farm) return !built && Countryside(g, tile, color, out result);
         // 公园(保护区)：城里是公园，城外留原野
         if (kind == Kind.Park)
         {
@@ -805,10 +806,8 @@ public static class UrbanFabric
                 result = YurtCamp(g, tile, color, dx, dy, x, y);
                 return true;
             }
-            // 村：浅灰一小片(高德式不画屋顶院落、不画村道)
-            if (dx * dx + dy * dy > 4) continue;
-            result = Mix(color, Settlement, 0.65f);
-            return true;
+            // 村不画(每座城外好几处，满地小点，看着乱)
+            continue;
         }
         // 高德式：城外不画田块、林子(以前每座城一大圈，远看是噪点)；游牧城外是草场
         if (featuresOnly || g.Nomad || rural.Near > WoodReach || Rough(tile) || !FieldsAndGroves) return false;
@@ -868,14 +867,11 @@ public static class UrbanFabric
     }
 
     // 镇：圆圆的一片，十字街、中间小集市，屋舍错落；富庶的镇有一圈矮墙，四面开门
-    // 高德式：浅灰一片，白色十字街，正中一点集市(黄)；有矮墙的描一圈灰线
+    // 高德式：浅灰一片，正中一点集市(黄)；不画十字街、矮墙(城外只留这一点，不花)
     private static Color32 TownTile(Geometry g, WorldTile tile, Color32 color, int dx, int dy, float d, float reach, bool walled)
     {
-        if (walled && d > reach - 1f)
-            return dx == 0 || dy == 0 ? Mix(color, TownStreet, 0.9f) : Mix(color, TownWall, 0.7f);
         if (dx == 0 && dy == 0) return Mix(color, Arterial, 0.9f);
-        if (dx == 0 || dy == 0) return Mix(color, TownStreet, 0.9f);
-        return Mix(color, Settlement, 0.72f);
+        return Mix(color, Settlement, 0.6f);
     }
 
     // 屋顶：工业化以前是瓦房，之后多是楼房
