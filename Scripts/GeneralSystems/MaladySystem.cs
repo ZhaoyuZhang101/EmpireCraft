@@ -15,6 +15,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     权臣外戚挟制 +1.5、开国气象 -2；各条另看实情：
 //       吏治 +中央腐败×8(荒淫 +1)；兼并 +无地农民比例×10(荒淫 +1)；冗费 +王朝年岁/100×2(最多 3，庸弱昏聩 +1)；
 //       武备 +禁军空饷×6(昏聩荒淫 +1)；党争 +各派最大怨望/25(庸弱 +2、被挟制 +1)；苛捐 暴虐 +4、荒淫 +2、国库亏空 +3；
+//   · 历史周期律(用户 2026-10-14)：积弊随王朝年岁慢慢沉积——立国头 50 年只按四分之一的速度滋生，50~100 年六成，
+//     百年后才全速；开国气象(统一战争期间、统一后 30 年，见 Empire.InFoundingGrace)里不滋生；消退照常；
 //   · 革除：明君、中兴之主在位逐年消退；整顿吏治告成 吏治 -15；改朝换代旧弊一扫而空(各留两成)；
 //   · 效果(轻重 s = 积弊/100)：
 //       吏治——帝国各城、各成员国腐败每年 +1.2%×s；兼并——有地农民卖地的速度 ×(1+s)；
@@ -110,14 +112,28 @@ public static class MaladySystem
         float phantom = PalaceArmySystem.Palace(core).Select(corps => corps.phantom).DefaultIfEmpty(0f).Max();
         // 盛世(明君、中兴)时各条按同一速度消退，实情只在滋生时加码
         float Extra(float value) => common > 0f ? value : 0f;
-        Add(empire, Graft, common + Extra((float)CorruptionSystem.GetRate(empire) * 8f + (dissolute ? 1f : 0f)));
-        Add(empire, Annexation, common + Extra(LandEconomySystem.GetRealmLandlessRatio(core) * 10f + (dissolute ? 1f : 0f)));
-        Add(empire, Bloat, common + Extra(Mathf.Min(3f, DynasticCycleSystem.GetAge(empire) / 100f * 2f) + (weak ? 1f : 0f)));
-        Add(empire, Military, common + Extra(phantom * 6f + (neglect ? 1f : 0f)));
-        Add(empire, Factionalism, common + Extra(grievance / 25f + (grade == RulerQualitySystem.Grade.Weak ? 2f : 0f) +
-                                                 (controlled ? 1f : 0f)));
-        Add(empire, Levies, common + Extra((grade == RulerQualitySystem.Grade.Tyrant ? 4f : 0f) + (dissolute ? 2f : 0f) +
-                                           (EmpireBankruptcySystem.IsBankrupt(empire) ? 3f : 0f)));
+        // 滋生的快慢按王朝年岁(见 Pace)；消退不打折
+        float pace = Pace(empire);
+        void Grow1(string key, float delta) => Add(empire, key, delta > 0f ? delta * pace : delta);
+        Grow1(Graft, common + Extra((float)CorruptionSystem.GetRate(empire) * 8f + (dissolute ? 1f : 0f)));
+        Grow1(Annexation, common + Extra(LandEconomySystem.GetRealmLandlessRatio(core) * 10f + (dissolute ? 1f : 0f)));
+        Grow1(Bloat, common + Extra(Mathf.Min(3f, DynasticCycleSystem.GetAge(empire) / 100f * 2f) + (weak ? 1f : 0f)));
+        Grow1(Military, common + Extra(phantom * 6f + (neglect ? 1f : 0f)));
+        Grow1(Factionalism, common + Extra(grievance / 25f + (grade == RulerQualitySystem.Grade.Weak ? 2f : 0f) +
+                                           (controlled ? 1f : 0f)));
+        Grow1(Levies, common + Extra((grade == RulerQualitySystem.Grade.Tyrant ? 4f : 0f) + (dissolute ? 2f : 0f) +
+                                     (EmpireBankruptcySystem.IsBankrupt(empire) ? 3f : 0f)));
+    }
+
+    // 积弊滋生的快慢(历史周期律)：开国气象里不滋生；立国头 50 年四分之一，50~100 年六成，百年后全速
+    private const int EarlyYears = 50, MiddleYears = 100;
+    private const float EarlyPace = 0.25f, MiddlePace = 0.6f;
+
+    public static float Pace(Empire empire)
+    {
+        if (empire.InFoundingGrace) return 0f;
+        int age = DynasticCycleSystem.GetAge(empire);
+        return age < EarlyYears ? EarlyPace : age < MiddleYears ? MiddlePace : 1f;
     }
 
     // 每年才结算的效果：吏治(各城腐败)、冗费(行政开支)、党争(各派怨望)
