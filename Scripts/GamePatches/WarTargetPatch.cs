@@ -23,8 +23,8 @@ public class WarTargetPatch : GamePatch
     {
         if (pInitiatorKingdom == null) return;
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(pInitiatorKingdom)) return;
-        // 发不出军饷的不主动开战(见 CorpsSystem.Unpaid)
-        if (GeneralSystems.CorpsSystem.Unpaid(pInitiatorKingdom))
+        // 打不起仗的不主动开战(见 CorpsSystem.CannotFundWar)
+        if (GeneralSystems.CorpsSystem.CannotFundWar(pInitiatorKingdom))
         {
             __result = null;
             return;

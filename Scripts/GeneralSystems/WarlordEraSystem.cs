@@ -716,7 +716,7 @@ public static partial class WarlordEraSystem
         PartyIdeology centralIdeology = IdeologyFamilies.StateIdeology(centralKingdom);
         List<Kingdom> members = held.Keys.Where(holder => holder != centralKingdom &&
                 IsLocalHolder(core, holder) && holder.hasKing() && !holder.hasAlliance() &&
-                Government(holder) == null && !holder.IsInEmpire() &&
+                Government(holder) == null && !holder.IsInEmpire() && !CorpsSystem.CannotFundWar(holder) &&
                 FeudalVassalService.GetOverlord(holder) == null &&
                 holder.GetRegime()?.type == RegimeType.Modern &&
                 PartySystem.IdeologyDistance(IdeologyFamilies.StateIdeology(holder), centralIdeology) >= OppositeIdeologyDistance)

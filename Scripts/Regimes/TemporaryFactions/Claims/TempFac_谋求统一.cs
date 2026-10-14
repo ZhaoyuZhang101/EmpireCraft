@@ -42,7 +42,7 @@ public class TempFac_谋求统一 : TemporaryFaction
     {
         Empire empire = GetEmpire();
         if (empire?.CoreKingdom?.hasEnemies()??true) return false;
-        if (CorpsSystem.Unpaid(empire.CoreKingdom)) return false;   // 发不出军饷不开新仗
+        if (CorpsSystem.CannotFundWar(empire.CoreKingdom)) return false;   // 发不出军饷不开新仗
         // 周制没有统一战争：天下只有一个共主，同文化而不在周室之内的国家就是不服王化，
         // 天子兴师讨伐，攻下其都城即迫其称臣、受封为诸侯；周室之内的诸侯(含战国离开帝国的)不在此列
         if (ZhouEraSystem.Applies(empire))

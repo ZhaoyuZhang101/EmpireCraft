@@ -256,16 +256,19 @@ public static partial class FrontSystem
         Dictionary<long, List<(Kingdom attacker, float strength)>> pressure, Dictionary<long, bool> landingSectors)
     {
         bool war = _atWar.Contains(kingdom);
+        // 起义军没有进攻门槛：组织度再低也上阵，不退下去休整(见 CorpsSystem.Insurgent)
+        bool insurgent = CorpsSystem.Insurgent(kingdom);
         foreach (CorpsData corps in list)
         {
-            if (corps.org <= RetreatOrg && corps.task != "retreat") Retreat(kingdom, corps);
+            if (corps.org <= RetreatOrg && corps.task != "retreat" && !insurgent) Retreat(kingdom, corps);
         }
         // 就近动员(见 WarScopeSystem)：驻地在动员范围里的军、已经在打的军、义军才上前线；
         // 出征(决议或奉诏)与举国总动员时全军可以开往任何战线；其余留守驻地
         bool unbounded = WarScopeSystem.Unbounded(kingdom);
         bool Eligible(CorpsData corps) => unbounded || corps.militia || corps.task is "attack" or "defend" ||
                                           WarScopeSystem.InScope(CorpsSystem.Home(corps));
-        var ready = list.Where(corps => corps.task != "retreat" && corps.org >= ReadyOrg && corps.strength >= 1f && Eligible(corps)).ToList();
+        var ready = list.Where(corps => (insurgent || corps.task != "retreat" && corps.org >= ReadyOrg) && corps.strength >= 1f &&
+                                        Eligible(corps)).ToList();
         if (!war)
         {
             // 战备：动员范围里的军开往朝向目标国的边境(离自己最近的一段，见 WarReadinessSystem)；太平：回驻地
@@ -461,9 +464,9 @@ public static partial class FrontSystem
         return zone != null && target != null && CorpsSystem.ZoneDistance(zone, target) <= ArriveDistance;
     }
 
-    // 禁军的空饷不打仗(见 PalaceArmySystem)；武备废弛打折(见 MaladySystem)
+    // 禁军的空饷不打仗(见 PalaceArmySystem)；武备废弛打折(见 MaladySystem)；起义军打折(见 CorpsSystem.Insurgent)
     private static float Effective(CorpsData corps) =>
-        corps.strength * PalaceArmySystem.RealShare(corps) * MaladySystem.MilitaryFactor(corps) *
+        corps.strength * PalaceArmySystem.RealShare(corps) * MaladySystem.MilitaryFactor(corps) * CorpsSystem.InsurgentFactor(corps) *
         (0.25f + 0.75f * Mathf.Clamp01(corps.org / 100f));
 
     // 火力：WarBox 的坦克、装甲车、飞机等载具每辆 +4%，最多 +60%

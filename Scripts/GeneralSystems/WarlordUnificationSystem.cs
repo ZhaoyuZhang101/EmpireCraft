@@ -88,7 +88,7 @@ public static partial class WarlordEraSystem
         HashSet<Empire> representatives)
     {
         Kingdom centralKingdom = central.CoreKingdom;
-        if (centralKingdom == null || !centralKingdom.hasKing() || CorpsSystem.Unpaid(centralKingdom) ||
+        if (centralKingdom == null || !centralKingdom.hasKing() || CorpsSystem.CannotFundWar(centralKingdom) ||
             Random.value >= UnifyWarChance) return;
         if (centralKingdom.getWars().Count(IsCivilWar) >= MaxCivilWars) return;
         Kingdom target = held.Keys
@@ -249,7 +249,7 @@ public static partial class WarlordEraSystem
                               kingdom.GetEmpire()?.CoreKingdom == kingdom && RulerTraitSystem.FounderReigns(kingdom) &&
                               IsLocalHolder(core, kingdom))
             .OrderByDescending(kingdom => held[kingdom]).FirstOrDefault();
-        if (founderKingdom == null || CorpsSystem.Unpaid(founderKingdom)) return;
+        if (founderKingdom == null || CorpsSystem.CannotFundWar(founderKingdom)) return;
         Empire founder = founderKingdom.GetEmpire();
         int wars = founderKingdom.getWars().Count(RulerTraitSystem.IsFounderUnificationWar);
         foreach (Kingdom target in held.Keys

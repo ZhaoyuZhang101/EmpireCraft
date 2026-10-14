@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using EmpireCraft.Scripts.Data;
+using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GameLibrary;
 using NeoModLoader.General;
@@ -238,9 +239,48 @@ public static class CorpsSystem
     private const float UnpaidShortfall = 0.15f, UnpaidOrgCap = 60f, UnpaidOrg = 10f, DesertShare = 0.05f, SuePeaceChance = 0.35f;
     private const int SuePeaceMonths = 3;
 
-    // 军饷欠发中：不补员、不新编，也不主动开战
+    // 军饷欠发中：不补员、不新编(起义军不算)
     public static bool Unpaid(Kingdom kingdom) =>
-        Enabled && kingdom?.data != null && !kingdom.isRekt() && kingdom.GetOrCreate().corps_pay_shortfall >= UnpaidShortfall;
+        Enabled && kingdom?.data != null && !kingdom.isRekt() && kingdom.GetOrCreate().corps_pay_shortfall >= UnpaidShortfall &&
+        !Insurgent(kingdom);
+
+    // 叛军、民变等起义军(在打叛乱一类的仗、是攻方)：以战养战，边打边掠——欠饷不罚、照样补员，也没有进攻门槛
+    // (组织度再低也上阵、不退下去休整，见 FrontSystem.Assign)，只是战斗力打个折(InsurgentPower，见 FrontSystem.Effective)
+    public const float InsurgentPower = 0.7f;
+    private static readonly HashSet<EmpireWarType> UprisingTypes = new()
+        { EmpireWarType.地方叛乱, EmpireWarType.民族叛乱, EmpireWarType.宗教叛乱, EmpireWarType.派系叛乱, EmpireWarType.清君侧 };
+    private static readonly Dictionary<long, (double at, bool value)> InsurgentCache = new();
+
+    public static bool Insurgent(Kingdom kingdom)
+    {
+        if (kingdom?.data == null || kingdom.isRekt() || World.world == null) return false;
+        double now = World.world.getCurWorldTime();
+        if (InsurgentCache.TryGetValue(kingdom.id, out var cached) && now >= cached.at && now - cached.at < 5d) return cached.value;
+        bool value = false;
+        foreach (War war in kingdom.getWars())
+        {
+            if (war?.data == null || war.hasEnded() || !war.isAttacker(kingdom)) continue;
+            if (war.getAsset() != WarTypeLibrary.rebellion && !UprisingTypes.Contains(war.GetEmpireWarType())) continue;
+            value = true;
+            break;
+        }
+        InsurgentCache[kingdom.id] = (now, value);
+        return value;
+    }
+
+    public static float InsurgentFactor(CorpsData corps) =>
+        corps != null && Insurgent(World.world?.kingdoms?.get(corps.kingdom_id)) ? InsurgentPower : 1f;
+
+    // 打不起仗，不主动开战(含军阀联合另立政府)：军饷欠发；或没有野战军算不出欠饷的(多是小军阀)，
+    // 国库不到安全储备的四分之一、经常收支还在亏
+    public static bool CannotFundWar(Kingdom kingdom)
+    {
+        if (Unpaid(kingdom)) return true;
+        if (kingdom?.data == null || kingdom.isRekt() || !TreasurySystem.Enabled(kingdom) || Insurgent(kingdom)) return false;
+        if (kingdom.GetTreasuryBalance() >= TreasurySystem.SafetyReserve(kingdom) / 4) return false;
+        TreasuryReport report = TreasurySystem.Report(kingdom);
+        return report.months >= 3 && report.operating_balance < 0;
+    }
 
     private static void PayUpkeep(Kingdom kingdom)
     {
@@ -285,8 +325,10 @@ public static class CorpsSystem
         }
         float shortfall = Mathf.Max(0f, 1f - paid / (float)bill);
         data.corps_pay_shortfall = shortfall;
-        data.corps_unpaid_months = shortfall >= UnpaidShortfall ? Math.Min(120, data.corps_unpaid_months + 1) : 0;
-        if (shortfall <= 0f) return;
+        // 起义军以战养战，欠饷不罚
+        bool insurgent = Insurgent(kingdom);
+        data.corps_unpaid_months = shortfall >= UnpaidShortfall && !insurgent ? Math.Min(120, data.corps_unpaid_months + 1) : 0;
+        if (shortfall <= 0f || insurgent) return;
         bool survival = WarGoalSystem.FightingForSurvival(kingdom);
         float ceiling = 100f - UnpaidOrgCap * shortfall, deserted = 0f;
         foreach (CorpsData corps in list)

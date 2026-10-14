@@ -1835,7 +1835,7 @@ namespace EmpireCraft.Scripts.AI
                     List<KingdomTitle> titles = pActor.getAcquireTitle();
                     var finalTitle = titles.FirstOrDefault(title => !title.isRekt() &&
                         kingdom.CanDeclareDeJureTitleWar(targetKingdom, title));
-                    if (finalTitle == null || CorpsSystem.Unpaid(kingdom)) return false;
+                    if (finalTitle == null || CorpsSystem.CannotFundWar(kingdom)) return false;
                     War war = World.world.diplomacy.startWar(kingdom, targetKingdom, WarTypeLibrary.normal);
                     if (war == null) return false;
                     war.SetEmpireWarType(EmpireWarType.索取法理, nanoObject:finalTitle);
@@ -2757,7 +2757,7 @@ namespace EmpireCraft.Scripts.AI
         {
             Kingdom kingdom = actor?.kingdom;
             Kingdom target = actor?.plot?.target_kingdom;
-            if (kingdom == null || target == null || !IsWarNeededForPlot(kingdom) || CorpsSystem.Unpaid(kingdom) ||
+            if (kingdom == null || target == null || !IsWarNeededForPlot(kingdom) || CorpsSystem.CannotFundWar(kingdom) ||
                 !IsValidModWarTarget(kingdom, target) || World.world?.diplomacy == null) return false;
             War war = World.world.diplomacy.startWar(kingdom, target, WarTypeLibrary.normal);
             return war != null;
