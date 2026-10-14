@@ -473,7 +473,7 @@ public static class SmoothBorders
     // 逐格推进吃下的地(FrontSystem.Smooth)本身就是渐变，直接显示；换图层时不做渐变
     // 每格从旧样子换到新样子的时刻在起扫时一次算好(Arrive)，之后每帧只按时刻混色、跳过没轮到和变完的块
     private const float SweepStep = 0.18f, MaxSweepSeconds = 4f, RippleSpeed = 150f, RippleGroupSeconds = 0.15f,
-        StaleSeconds = 6f, SweepSoft = 0.3f, RippleSoft = 5f, MaxPlanWait = 0.15f;
+        StaleSeconds = 6f, SweepSoft = 0.3f, RippleSoft = 5f, MaxPlanWait = 0.4f;
 
     private sealed class ShownState
     {
@@ -571,8 +571,8 @@ public static class SmoothBorders
 
     // 换色的单位是整个国家、整个帝国(并入帝国、成了附庸、国家换颜色……)：一块地换了，同一国(涉及帝国就是整个帝国)
     // 其余要变的地块也当场记下原样、排进同一道扫描，整片从新主人那边一次扫过去。以前要等原版一块块画到才各自排进来，
-    // 画得晚的城只能就地接上，看起来一座城一座城地变。同一国 0.5 秒内只查一次
-    private const float ExpandCooldown = 0.5f;
+    // 画得晚的城只能就地接上，看起来一座城一座城地变。同一国 0.15 秒内只查一次
+    private const float ExpandCooldown = 0.15f;
     private static readonly Dictionary<long, float> ExpandedUnits = new();
 
     private static void ExpandUnit(MetaTypeAsset layer, int option, TileZone zone, IMetaObject before, IMetaObject after)
@@ -782,7 +782,9 @@ public static class SmoothBorders
     {
         if (!Enabled || World.world?.zone_calculator == null) return;
         float now = Time.unscaledTime;
-        if (PendingSweep.Count > 0 && (!GamePatches.ZonePaintBudget.Backlogged || now - _pendingSince >= MaxPlanWait)) PlanSweeps();
+        // 这次换色的地块都画好新样子(或等满 MaxPlanWait)再统一起扫：没画好的地块上色时优先(见 Awaiting)，
+        // 起扫前仍显示旧样子，整片一起扫过去，不剩几块等一下才变
+        if (PendingSweep.Count > 0 && (!PendingUnpainted() || now - _pendingSince >= MaxPlanWait)) PlanSweeps();
         if (Plans.Count > 0)
             foreach ((IMetaObject, int) key in Plans.Where(pair => now > pair.Value.end).Select(pair => pair.Key).ToList())
                 Plans.Remove(key);
@@ -825,6 +827,17 @@ public static class SmoothBorders
         if (wrote) calc.setDirty();
         FrameProfiler.Record("平滑国界·换色渐变", global::System.Diagnostics.Stopwatch.GetTimestamp() - started);
     }
+
+    private static bool PendingUnpainted()
+    {
+        foreach (int id in PendingSweep)
+            if (Transitions.TryGetValue(id, out Transition transition) && transition.newPixels == null) return true;
+        return false;
+    }
+
+    // 这块地正在换色、还没画出新样子：上色时优先(见 ZonePaintBudget)
+    public static bool Awaiting(TileZone zone) =>
+        zone != null && Transitions.TryGetValue(zone.id, out Transition transition) && transition.newPixels == null;
 
     private static void PlanSweeps()
     {
@@ -895,21 +908,47 @@ public static class SmoothBorders
                     : zones.OrderBy(zone => (zone.x - seat.x) * (zone.x - seat.x) + (zone.y - seat.y) * (zone.y - seat.y)).First();
                 Offer(first, floor, 0f, 0f);
             }
+            var seeds = best.Select(pair => (zone: calc.getZoneByID(pair.Key), pair.Value.distance))
+                .Where(entry => entry.zone != null).ToList();
             // 由近及远一圈圈排(起点圈数不一，按圈数从小到大展开)
-            while (open.Count > 0)
+            void Spread()
             {
-                int distance = open.Keys.First();
-                List<TileZone> ring = open[distance];
-                open.Remove(distance);
-                foreach (TileZone zone in ring)
+                while (open.Count > 0)
                 {
-                    if (best[zone.id].distance != distance) continue;
-                    foreach ((int dx, int dy) in Sides)
+                    int distance = open.Keys.First();
+                    List<TileZone> ring = open[distance];
+                    open.Remove(distance);
+                    foreach (TileZone zone in ring)
                     {
-                        TileZone neighbour = calc.getZone(zone.x + dx, zone.y + dy);
-                        if (neighbour != null && members.Contains(neighbour.id)) Offer(neighbour, distance + 1, dx, dy);
+                        if (best[zone.id].distance != distance) continue;
+                        foreach ((int dx, int dy) in Sides)
+                        {
+                            TileZone neighbour = calc.getZone(zone.x + dx, zone.y + dy);
+                            if (neighbour != null && members.Contains(neighbour.id)) Offer(neighbour, distance + 1, dx, dy);
+                        }
                     }
                 }
+            }
+            Spread();
+            // 不连着的几片(海岛、飞地、被别国隔开的)：按离最近起点的直线距离接着排，隔多远就晚几圈，
+            // 和主体一起扫完(以前排在整道扫描最后，主体变完了还剩几块等一下才变)
+            if (best.Count < members.Count && seeds.Count > 0)
+            {
+                foreach (TileZone zone in zones)
+                {
+                    if (best.ContainsKey(zone.id)) continue;
+                    float nearest = float.MaxValue, dirX = 0f, dirY = 0f;
+                    foreach ((TileZone seed, int distance) in seeds)
+                    {
+                        float dx = zone.x - seed.x, dy = zone.y - seed.y, length = Mathf.Sqrt(dx * dx + dy * dy);
+                        if (distance + length >= nearest) continue;
+                        nearest = distance + length;
+                        dirX = length > 0f ? dx / length : 0f;
+                        dirY = length > 0f ? dy / length : 0f;
+                    }
+                    Offer(zone, Mathf.Max(floor, Mathf.RoundToInt(nearest)), dirX, dirY);
+                }
+                Spread();
             }
             int farthest = best.Count == 0 ? floor : best.Values.Max(entry => entry.distance);
             if (!extend) plan.step = Mathf.Min(SweepStep, MaxSweepSeconds / Mathf.Max(1, farthest + 1));
