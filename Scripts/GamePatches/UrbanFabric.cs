@@ -45,6 +45,8 @@ public static class UrbanFabric
         public float SectorOffset;
         public float[] SectorPace = new float[0];
         public float IndustryDir, RailDir;
+        // 游牧：蒙古包营地，不修路、不起楼、没有田(城外只散着营地)
+        public bool Nomad;
         public int CbdX, CbdY;
         public bool Perimeter;
         // 城郊：档位、城门(城心两条中线)、四条出城大路(东北西南)是否修了、从城门到城外的距离、路长、关厢长
@@ -168,12 +170,14 @@ public static class UrbanFabric
         {
             Seed = seed, Cx = gateX == int.MinValue ? center.x : gateX, Cy = gateY == int.MinValue ? center.y : gateY,
             City = city, Built = built, Landmark = landmark,
-            Perimeter = family is "western" or "roma" or "viking"
+            Perimeter = family is "western" or "roma" or "viking",
+            Nomad = family == "nomad"
         };
         // 发展快慢：种子定一个底(0.7~1.3 倍)，城大的、都城快些
         float pace = (0.7f + 0.6f * H(seed, 50)) * (0.85f + 0.3f * Mathf.Clamp01(built.Count / 12f)) *
                      (city.isCapitalCity() ? 1.15f : 1f);
-        g.Progress = ProgressOf(culture, pace);
+        // 游牧的城一直是营地：不拆墙修环路、不起楼、不通铁路
+        g.Progress = g.Nomad ? 0f : ProgressOf(culture, pace);
         // 城的轮廓：面积是建成地块的一半(建筑挤在一起，城外留给田野)；建成地块之外的部分不算城里。
         // 种子定城的样子：长宽比(约 0.7~1.4)、往哪边偏(城区中心离城门中线至多四成半径)、边缘起伏多大；
         // 华夏、日本的城是方城(圆角，横平竖直)，其余是起伏的一团，还可以斜着长、起伏的疏密也不同
@@ -328,6 +332,11 @@ public static class UrbanFabric
     private static void PlaceCountryside(Geometry g)
     {
         int tier = g.Tier;
+        if (g.Nomad)
+        {
+            PlaceCamps(g);
+            return;
+        }
         g.Suburb = tier >= 2 ? 4 * (tier - 1) : 0;
         int first = (int)(H(g.Seed, 60) * 4);
         var gates = new List<Road>();
@@ -408,6 +417,35 @@ public static class UrbanFabric
             g.Paths.Add((true, x, y, by));
             if (bx != x) g.Paths.Add((false, by, x, bx));
         }
+    }
+
+    // 游牧城外：不修路，一处处蒙古包营地散在草场上，档位越高营地越多、散得越远
+    private static void PlaceCamps(Geometry g)
+    {
+        int tier = g.Tier;
+        g.Suburb = 0;
+        int camps = tier switch { 0 => 2, 1 => 3, 2 => 5, 3 => 7, _ => 9 } + (int)(H(g.Seed, 65) * 3);
+        int range = 14 + 8 * tier;
+        for (int attempt = 0; attempt < camps * 6 && g.Villages.Count < camps; attempt++)
+        {
+            float a = H(g.Seed, attempt, 66) * TwoPi;
+            float dist = 8f + H(g.Seed, attempt, 67) * (range - 2f);
+            int x = Mathf.RoundToInt(g.GateX + dist * Mathf.Cos(a)), y = Mathf.RoundToInt(g.GateY + dist * Mathf.Sin(a));
+            if (!Open(g, x, y)) continue;
+            if (g.Villages.Exists(v => Mathf.Abs(v.x - x) + Mathf.Abs(v.y - y) < 7)) continue;
+            g.Villages.Add((x, y));
+        }
+    }
+
+    private static readonly Color32 Felt = new(240, 234, 218, 255), Trampled = new(196, 186, 140, 255);
+
+    // 一处营地：几顶蒙古包围成一圈，正中一顶大的，地上踩出一片
+    private static Color32 YurtCamp(Geometry g, WorldTile tile, Color32 color, int dx, int dy, int cx, int cy)
+    {
+        if (dx == 0 && dy == 0) return Paint(color, Felt, 1f);
+        bool ring = Mathf.Abs(dx) + Mathf.Abs(dy) == 2 && (dx == 0 || dy == 0 || Mathf.Abs(dx) == 1);
+        if (ring && H(g.Seed, cx * 7 + dx, cy * 7 + dy, 24) < 0.7f) return Paint(color, Felt, 0.9f);
+        return Paint(color, Trampled, 0.3f);
     }
 
     // 城郊的路遇到山(山、高峰)就到此为止，丘陵照走
@@ -746,6 +784,11 @@ public static class UrbanFabric
             (int x, int y) = g.Villages[index];
             int dx = tile.x - x, dy = tile.y - y;
             if (dx * dx + dy * dy > 6) continue;
+            if (g.Nomad)
+            {
+                result = YurtCamp(g, tile, color, dx, dy, x, y);
+                return true;
+            }
             // 几户人家错落着，院落围着
             result = H(g.Seed, tile.x, tile.y, 22) < 0.4f ? Paint(color, Roof(g, tile), 0.9f) : Paint(color, Yard, 0.5f);
             return true;
@@ -758,7 +801,8 @@ public static class UrbanFabric
             result = Paint(color, Lane, 0.6f);
             return true;
         }
-        if (featuresOnly || rural.Near > WoodReach || Rough(tile)) return false;
+        // 游牧：城外是草场，不画田块、林子
+        if (featuresOnly || g.Nomad || rural.Near > WoodReach || Rough(tile)) return false;
         // 林子：一小片一小片，围在城镇村近处
         if (Noise(tile.x, tile.y, 7f, g.Seed + 20) > 0.76f)
         {

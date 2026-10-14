@@ -90,6 +90,8 @@ public static class CityExtension
         public string map_style = "";
         public string map_style_target = "";
         public double map_style_since = -1d;
+        // 游牧城旧档改正过一次(见 CityStyleSystem.Established)
+        public bool map_style_nomad_checked;
         // 从本城通往 id 更大的邻城的路(见 RoadBuildingSystem)
         public List<RoadLink> road_links;
         // 连荒了几年(见 FamineUnrestSystem)

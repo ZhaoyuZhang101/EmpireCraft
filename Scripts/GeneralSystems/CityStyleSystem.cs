@@ -13,7 +13,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 本国君主走"改建城池"决议(每座要改的城花国库 CostPerCity)，各城才按现文化风格逐年翻新——
 //     先拆旧、起工地，再建成新式，新旧混杂，约 RebuildYears 年改完(布局逐个地块改，城墙与都城地标改完才换)。
 // 文化系：华夏(华夏、中国、山海)、日本、西欧(西方、法兰克、日耳曼、斯拉夫、精灵)、罗马、维京、阿拉伯(阿拉伯、犹太)、
-//   波斯、埃及、印度、阿兹特克、游牧、林地(奥吉布瓦)；其余按华夏的通用图块画。
+//   波斯、埃及、印度、阿兹特克、游牧(游牧文化，及制度线属游牧的各文化)、林地(奥吉布瓦)；其余按华夏的通用图块画。
+// 游牧的城是蒙古包营地，不修路(见 UrbanFabric、RoadNetwork)。
 public static class CityStyleSystem
 {
     public const string Plot = "rebuild_city_style";
@@ -34,8 +35,23 @@ public static class CityStyleSystem
         "Aztec" => "aztec",
         "Youmu" => "nomad",
         "Ojibwe" => "woodland",
-        _ => "huaxia"
+        _ => NomadLine(culture) ? "nomad" : "huaxia"
     };
+
+    private static bool NomadLine(string culture)
+    {
+        if (string.IsNullOrEmpty(culture)) return false;
+        try
+        {
+            return InstitutionSystem.GetCultureLine(culture) == "Youmu";
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    public static bool Nomad(City city) => city?.data != null && !city.isRekt() && Established(city) == "nomad";
 
     public static string CurrentFamily(City city) => Family(TechnologySystem.GetCultureOf(city) ?? "");
 
@@ -44,6 +60,13 @@ public static class CityStyleSystem
     {
         var data = city.GetOrCreate();
         if (string.IsNullOrEmpty(data.map_style)) data.map_style = CurrentFamily(city);
+        // 旧档：以前只认游牧文化本身，制度线属游牧的文化被定成了华夏城池，改回来一次
+        if (!data.map_style_nomad_checked)
+        {
+            data.map_style_nomad_checked = true;
+            if (data.map_style == "huaxia" && string.IsNullOrEmpty(data.map_style_target) && CurrentFamily(city) == "nomad")
+                data.map_style = "nomad";
+        }
         return data.map_style;
     }
 
