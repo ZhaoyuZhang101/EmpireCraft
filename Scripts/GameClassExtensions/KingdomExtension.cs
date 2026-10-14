@@ -1870,8 +1870,10 @@ public static class KingdomExtension
         => SubMoney(k, money, TreasuryCategory.Other);
     public static void SubMoney(this Kingdom k, int money, TreasuryCategory category)
     {
+        long before = k.GetOrCreate().Money;
         long change = TreasuryRules.ChangeBalance(ref k.GetOrCreate().Money, -(long)money);
         TreasurySystem.Record(k, change, category);
+        FiscalDiagnostics.LargeDrain(k, before, money, category);
     }
     
     public static double GetLastTaxTime(this Kingdom k)

@@ -12,11 +12,13 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 战争赔款(和约)：由开战目标结算决定谁赔给谁(见 WarGoalSystem.Settle)——
 //   立即赔付国库现款的四分之一，另按月经常收入的两成分 36 个月支付(挂在败方 KingdomExtraData.war_reparations)。
 //   付不起的月份顺延(不滚息、不另记违约)；收款方灭亡或双方再度开战(撕毁和约)时终止。
+//   输了几场仗、几份和约叠在一起：每月合计最多付月经常收入的 MaxIncomeShare，超出的那几份这个月顺延，不至于赔到国库见底。
 public static class WarReparationsSystem
 {
     private const double ImmediateShare = 0.25d;
     private const double MonthlyIncomeShare = 0.2d;
     private const int Months = 36;
+    private const double MaxIncomeShare = 0.3d;
     private static double _lastScan = -1d;
 
     // 败方(loser)向胜方(victor)赔款
@@ -71,7 +73,9 @@ public static class WarReparationsSystem
 
     private static void Service(Kingdom debtor, List<WarReparation> reparations)
     {
-        for (int i = reparations.Count - 1; i >= 0; i--)
+        long room = Math.Max(1L, (long)(StateDebtSystem.AnnualStableIncome(debtor) / 12d * MaxIncomeShare));
+        // 先签的先付(列表按签约先后排)
+        for (int i = 0; i < reparations.Count; i++)
         {
             WarReparation item = reparations[i];
             Kingdom creditor = World.world.kingdoms.get(item.creditor_kingdom_id);
@@ -79,14 +83,16 @@ public static class WarReparationsSystem
             if (item.months_left <= 0 || creditor == null || creditor.isRekt() ||
                 debtor.isInWarWith(creditor))
             {
-                reparations.RemoveAt(i);
+                reparations.RemoveAt(i--);
                 continue;
             }
-            long paid = Math.Min(item.monthly, Math.Max(0L, debtor.GetTreasuryBalance()));
+            long due = Math.Min(item.monthly, room);
+            long paid = Math.Min(due, Math.Max(0L, debtor.GetTreasuryBalance()));
+            room -= paid;
             if (paid > 0L) MoveMoney(debtor, creditor, paid);
-            // 全额付清这个月才消一期，付不起顺延
-            if (paid >= item.monthly) item.months_left--;
-            if (item.months_left <= 0) reparations.RemoveAt(i);
+            // 这个月该付的(额度内)付足了才消一期(超出额度的部分免了)；付不起、额度被先签的用完了就顺延
+            if (due > 0L && paid >= due) item.months_left--;
+            if (item.months_left <= 0) reparations.RemoveAt(i--);
         }
     }
 

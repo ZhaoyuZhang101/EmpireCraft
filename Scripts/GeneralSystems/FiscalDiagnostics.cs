@@ -17,6 +17,22 @@ public static class FiscalDiagnostics
     // ---- 事件统计 ----
     private static readonly Dictionary<string, int> Events = new();
 
+    // 诊断：一笔支出把国库扣掉九成以上(原有 300 以上)：记下国家、类别和调用处(每国每类两年一次)，查"一有钱就变成 0"
+    private static readonly Dictionary<(long, TreasuryCategory), double> DrainLogged = new();
+
+    public static void LargeDrain(Kingdom kingdom, long before, int amount, TreasuryCategory category)
+    {
+        if (kingdom?.data == null || World.world == null || before < 300L || amount < before * 0.9d) return;
+        double now = World.world.getCurWorldTime();
+        var key = (kingdom.id, category);
+        if (DrainLogged.TryGetValue(key, out double at) && now >= at && Date.getYearsSince(at) < 2) return;
+        DrainLogged[key] = now;
+        var frames = new global::System.Diagnostics.StackTrace(2, false).GetFrames() ?? new global::System.Diagnostics.StackFrame[0];
+        string callers = string.Join(" <- ", frames.Take(4).Select(frame => frame.GetMethod())
+            .Where(method => method != null).Select(method => $"{method.DeclaringType?.Name}.{method.Name}"));
+        LogService.LogInfo($"[EmpireCraft][大额支出] {kingdom.name} 国库 {before} 一次付出 {amount}({category})：{callers}");
+    }
+
     public static void Count(string key, int amount = 1)
     {
         if (string.IsNullOrEmpty(key) || amount <= 0) return;
