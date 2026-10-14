@@ -1157,7 +1157,7 @@ public class PersonalClanIdentity
         name = a.getName();
         given_name = a.GetModName()?.firstName ?? "";
         surname = a.GetModName()?.familyName ?? "";
-        birthday = a.getBirthday();
+        birthday = a.TrueBirthday();
         sex = a.data.sex;
         recordedAge = a.getAge();
         species = a.asset.id;

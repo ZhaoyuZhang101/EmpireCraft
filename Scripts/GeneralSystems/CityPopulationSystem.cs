@@ -2028,6 +2028,9 @@ public static class CityPopulationSystem
             for (int guard = 0; !actor.isAdult() && guard < 20; guard++)
                 VirtualGenealogySystem.SetAge(actor, ++age);
             VirtualGenealogySystem.RefreshAgeState(actor);
+            // 已经入了族谱的，生日跟着年龄往前推
+            EmpireCraft.Scripts.System.PersonalClanIdentity person = actor.GetPersonalIdentity();
+            if (person != null && person.actor_id == actor.id && !person.is_virtual) person.birthday = actor.TrueBirthday();
         }
         catch (Exception exception)
         {

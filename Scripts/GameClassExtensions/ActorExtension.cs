@@ -1060,6 +1060,14 @@ public static class ActorExtension
         ed.personal_identity = -1L;
     }
 
+    // 实际出生时间：原版成年落地(神力造人、自动文明)和无小人模式从人口落成的成年人，年龄记在"额外年龄"
+    // (age_overgrowth)里，created_time 是落地那天，原版 getBirthday() 就把落地日当生日——族谱上一位四十岁的皇帝
+    // 只比长子大几个月，像是五岁生子。按额外年龄往前推(原版新生儿额外年龄为 1，一年 60 秒)
+    public static double TrueBirthTime(this Actor a) =>
+        a?.data == null ? 0d : a.data.created_time - Math.Max(0, a.data.age_overgrowth - 1) * 60d;
+
+    public static string TrueBirthday(this Actor a) => Date.getDate(a.TrueBirthTime());
+
     public static PersonalClanIdentity InitialPersonalIdentity(this Actor a, SpecificClan clan)
     {
         if (a == null) return null;

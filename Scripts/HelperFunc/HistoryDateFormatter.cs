@@ -34,6 +34,39 @@ public static class HistoryDateFormatter
         return SplitText(date, LM.Get("Year"));
     }
 
+    private static readonly Regex ChineseFullDate = new Regex(@"([\d,]+)\s*年\s*(\d+)\s*月\s*(\d+)\s*日", RegexOptions.Compiled);
+    private static readonly Regex EnglishFullDate = new Regex(@"(\d+)\D*?\s+of\s+(.+?),\s*([\d,]+)", RegexOptions.Compiled);
+
+    // 原版 Date.getDate 写出的日期("8,682年6月30日"、"30th of June, 8,682")换回世界时间(一年 60 秒、一月 5 秒、
+    // 一月 30 天)；别的语言的格式认不出返回 false
+    public static bool TryParseTime(string date, out double time)
+    {
+        time = 0d;
+        if (string.IsNullOrWhiteSpace(date)) return false;
+        int year, month, day;
+        Match match = ChineseFullDate.Match(date);
+        if (match.Success)
+        {
+            if (!int.TryParse(match.Groups[1].Value.Replace(",", ""), out year) ||
+                !int.TryParse(match.Groups[2].Value, out month) || !int.TryParse(match.Groups[3].Value, out day)) return false;
+        }
+        else
+        {
+            match = EnglishFullDate.Match(date);
+            if (!match.Success || !int.TryParse(match.Groups[1].Value, out day) ||
+                !int.TryParse(match.Groups[3].Value.Replace(",", ""), out year)) return false;
+            string name = match.Groups[2].Value.Trim();
+            month = 0;
+            for (int candidate = 1; candidate <= 12 && month == 0; candidate++)
+                if (string.Equals(LocalizedTextManager.getText("month_" + candidate), name, StringComparison.OrdinalIgnoreCase))
+                    month = candidate;
+            if (month == 0) return false;
+        }
+        if (month < 1 || month > 12 || day < 1 || day > 31) return false;
+        time = (year - 1) * 60d + (month - 1) * 5d + (day - 0.5d) * 5d / 30d;
+        return true;
+    }
+
     internal static HistoryDateParts SplitText(string date, string localizedYearLabel)
     {
         date = date?.Trim() ?? "";

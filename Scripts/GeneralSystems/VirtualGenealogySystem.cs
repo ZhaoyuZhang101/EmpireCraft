@@ -45,8 +45,39 @@ public static class VirtualGenealogySystem
         if (ReferenceEquals(_world, World.world)) return;
         _world = World.world;
         VirtualIds.Clear();
+        int repaired = 0;
         foreach (PersonalClanIdentity person in SpecificClanManager._globalPersonLookup.Values)
-            if (person != null && person.is_alive && person.is_virtual) VirtualIds.Add(person.id);
+        {
+            if (person == null) continue;
+            if (person.is_alive && person.is_virtual) VirtualIds.Add(person.id);
+            if (RepairBirthday(person)) repaired++;
+        }
+        if (repaired > 0) LogService.LogInfo($"[EmpireCraft][虚拟族谱] 校正生日 {repaired} 人(成年落地的人以前把落地日记成生日)");
+    }
+
+    // 读档校正旧存档的生日：成年落地的人以前把落地日记成生日(见 ActorExtension.TrueBirthTime)，族谱上父母只比子女大
+    // 几个月。按年龄倒推出生时间：在世有实体的看实体，虚拟族人看族谱年龄，已故的看卒年减享年；比倒推的晚一年半以上
+    // 才改(虚拟族人出生时记零岁，与原版差一岁不算)。认不出的日期格式不动
+    private static bool RepairBirthday(PersonalClanIdentity person)
+    {
+        if (!HistoryDateFormatter.TryParseTime(person.birthday, out double born)) return false;
+        double expected;
+        Actor actor = person.is_alive && !person.is_virtual ? person._actor : null;
+        if (actor?.data != null && person.actor_id == actor.id)
+            expected = actor.TrueBirthTime();
+        else if (person.is_alive)
+        {
+            if (person.age <= 1) return false;
+            expected = World.world.getCurWorldTime() - (person.age - 1) * 60d;
+        }
+        else
+        {
+            if (person.recordedAge <= 1 || !HistoryDateFormatter.TryParseTime(person.deathday, out double died)) return false;
+            expected = died - (person.recordedAge - 1) * 60d;
+        }
+        if (born - expected <= 90d) return false;
+        person.birthday = Date.getDate(expected);
+        return true;
     }
 
     public static int Count
