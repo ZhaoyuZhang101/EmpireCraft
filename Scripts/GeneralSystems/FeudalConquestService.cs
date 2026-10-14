@@ -133,6 +133,12 @@ public static class FeudalConquestService
     {
         var pending = empire?.data?.pending_conquest_enfeoff_kingdom_ids;
         if (pending == null || pending.Count == 0 || empire.HasTerritorialWar()) return;
+        // 原始政体不分封(见 EnfeoffmentHelper.RegimeForbids)
+        if (EmpireCraft.Scripts.HelperFunc.EnfeoffmentHelper.RegimeForbids(empire))
+        {
+            pending.Clear();
+            return;
+        }
         long id = pending[0];
         pending.RemoveAt(0);
         Kingdom member = empire.kingdoms_list.FirstOrDefault(kingdom => kingdom?.id == id);

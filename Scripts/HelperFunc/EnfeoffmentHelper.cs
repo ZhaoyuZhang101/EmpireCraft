@@ -24,10 +24,14 @@ public static class EnfeoffmentHelper
     // 以及跟帝国同名的头衔留给天子。之前是挑一座城，并且跳过帝国核心法理内的所有城市；而帝国
     // 建立时会把当时控制的全部法理都登记为核心，结果一般帝国一座可封的城都找不到，分封从不发生。
     // 城多的头衔排在前面，年长的兄弟先挑。
+    // 原始政体没有封爵分土的制度，一律不分封(玩家反馈：原始体制能分封)
+    public static bool RegimeForbids(Empire empire) => empire?.CoreKingdom?.GetRegime()?.type == RegimeType.Origin;
+
     public static List<KingdomTitle> FindEnfeoffableTitles(Empire empire)
     {
         Kingdom coreKingdom = empire?.CoreKingdom;
-        if (coreKingdom?.capital == null || ModClass.KINGDOM_TITLE_MANAGER == null) return new List<KingdomTitle>();
+        if (coreKingdom?.capital == null || ModClass.KINGDOM_TITLE_MANAGER == null || RegimeForbids(empire))
+            return new List<KingdomTitle>();
         KingdomTitle capitalTitle = coreKingdom.capital.GetTitle();
         string empireName = empire.GetEmpireName();
         return ModClass.KINGDOM_TITLE_MANAGER
@@ -97,7 +101,7 @@ public static class EnfeoffmentHelper
     // 这里只重新做一次城池/政体防御性检查(跟 TempFac_分封.Execute 完全一致)。
     public static bool TryEnfeoffActor(Empire empire, Actor actor, int mandateReward = 10)
     {
-        if (empire == null || empire.HasTerritorialWar()) return false;
+        if (empire == null || empire.HasTerritorialWar() || RegimeForbids(empire)) return false;
         Kingdom coreKingdom = empire?.CoreKingdom;
         Regime empireRegime = coreKingdom?.GetRegime();
         KingdomTitle fief = FindEnfeoffableTitle(empire);
