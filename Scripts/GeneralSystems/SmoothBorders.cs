@@ -305,6 +305,10 @@ public static class SmoothBorders
         if (!Enabled || zone?.tiles == null || calc?.pixels == null || World.world == null) return false;
         MetaTypeAsset layer = World.world.getCachedMapMetaAsset();
         if (layer == null || !Fill(layer, zone)) return false;
+        // 同样的上色输入画过：直接拷回(见"上色缓存")
+        long key = KeyOf(layer, zone, inside, outside);
+        if (key != 0L && Restore(calc.pixels, zone, key)) return true;
+        _pendingKey = key;
         _ox = zone.x * ZoneSize - 1;
         _oy = zone.y * ZoneSize - 1;
         // 内陆地块(周围 3×3 块同属一方、没有逐格推进)：平滑不会改变任何一格(隔两块的地权重不到百分之一，
@@ -390,7 +394,127 @@ public static class SmoothBorders
             _hasBase[id] = true;
             pixels[id] = Lifted(id);
         }
+        if (_pendingKey != 0L) Store(zone, _pendingKey);
+        _pendingKey = 0L;
     }
+
+    #region 上色缓存
+
+    // 帝国图层上悬停帝国里的成员国时，它的地块换成本国颜色、移开又换回帝国颜色；平滑国界下邻块跟着变，
+    // 每次都要整块重画(逐格平滑、地形、城市平面图)，大国一换就是几百块地，鼠标一动卡一下。
+    // 同样的输入画出同样的像素：每块地记下最近画过的两版，再遇到同样的输入直接拷回，当帧就好、几乎不花时间，画面不变。
+    // 输入：两种颜色、周围 5×5 块的归属及其颜色与所属帝国、图层与选项、战线开关、宣战议和、本城平面图的指纹、纯净地图与规划视图；
+    // 周围有逐格推进的地块不缓存；缓存三十秒过期(地形之类没算进去的变化至多三十秒后补上)
+    private const float CacheSeconds = 30f;
+    private const int MaxCached = 12000;
+
+    private sealed class Snapshot
+    {
+        public long key;
+        public float at;
+        public Color32[] pixels;
+        public IMetaObject[] owners;
+        public bool[] outline, foreign;
+    }
+
+    private static readonly Dictionary<int, Snapshot[]> Snapshots = new();
+    private static long _pendingKey;
+    private static int _restoredZone = -1;
+    // 宣战、议和的次数(战线朱红边要变)
+    private static int _warEpoch;
+
+    // 这块地刚从缓存拷回(地形调色、城市平面图已经在里面了，PureMapPatch 不再画)
+    public static bool Restored(TileZone zone)
+    {
+        if (zone == null || _restoredZone != zone.id) return false;
+        _restoredZone = -1;
+        return true;
+    }
+
+    private static long KeyOf(MetaTypeAsset layer, TileZone zone, Color32 inside, Color32 outside)
+    {
+        unchecked
+        {
+            long key = -3750763034362895579L;
+            void Add(long value) => key = (key ^ value) * 1099511628211L;
+            Add(zone.id);
+            Add(inside.r | inside.g << 8 | inside.b << 16 | inside.a << 24);
+            Add(outside.r | outside.g << 8 | outside.b << 16 | outside.a << 24);
+            Add(layer.GetHashCode());
+            Add(layer.getZoneOptionState());
+            for (int i = 0; i < 25; i++)
+            {
+                if (PushMetas[i] != null) return 0L;
+                IMetaObject meta = Metas[i];
+                Add(meta == null ? 0 : global::System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(meta));
+                Add(meta == null ? -1 : (CustomColorSystem.Of(meta) ?? meta.getColor())?.index_id ?? -1);
+                // 帝国金边看各国属于哪个帝国
+                if (meta is Kingdom kingdom) Add(kingdom.GetEmpireID());
+            }
+            Add((CorpsSystem.Enabled ? 1 : 0) | (PureMapMode.Enabled ? 2 : 0) | (ZonePlanSystem.SteadyOverlay ? 4 : 0));
+            Add(_warEpoch);
+            Add(PureMapPatch.StampOf(zone.city));
+            return key == 0L ? 1L : key;
+        }
+    }
+
+    private static bool Restore(Color32[] pixels, TileZone zone, long key)
+    {
+        if (!Snapshots.TryGetValue(zone.id, out Snapshot[] slots) || pixels.Length != _base.Length) return false;
+        float now = Time.unscaledTime;
+        foreach (Snapshot shot in slots)
+        {
+            if (shot == null || shot.key != key || now - shot.at > CacheSeconds || now < shot.at ||
+                shot.pixels.Length != zone.tiles.Length) continue;
+            for (int i = 0; i < zone.tiles.Length; i++)
+            {
+                int id = zone.tiles[i].data.tile_id;
+                _owner[id] = shot.owners[i];
+                _outline[id] = shot.outline[i];
+                _foreign[id] = shot.foreign[i];
+                _base[id] = shot.pixels[i];
+                _hasBase[id] = true;
+                pixels[id] = Lifted(id);
+            }
+            Remember(zone, Metas[12]);
+            _restoredZone = zone.id;
+            World.world.zone_calculator.setDirty();
+            return true;
+        }
+        return false;
+    }
+
+    private static void Store(TileZone zone, long key)
+    {
+        if (Snapshots.Count > MaxCached) Snapshots.Clear();
+        if (!Snapshots.TryGetValue(zone.id, out Snapshot[] slots)) Snapshots[zone.id] = slots = new Snapshot[2];
+        // 换掉同样输入的旧版，否则换掉较旧的一版
+        int slot = slots[0] == null || slots[0].key == key ? 0 : slots[1] == null || slots[1].key == key ? 1 :
+            slots[0].at <= slots[1].at ? 0 : 1;
+        Snapshot shot = slots[slot] ??= new Snapshot();
+        int count = zone.tiles.Length;
+        if (shot.pixels == null || shot.pixels.Length != count)
+        {
+            shot.pixels = new Color32[count];
+            shot.owners = new IMetaObject[count];
+            shot.outline = new bool[count];
+            shot.foreign = new bool[count];
+        }
+        shot.key = key;
+        shot.at = Time.unscaledTime;
+        for (int i = 0; i < count; i++)
+        {
+            int id = zone.tiles[i].data.tile_id;
+            shot.pixels[i] = _base[id];
+            shot.owners[i] = _owner[id];
+            shot.outline[i] = _outline[id];
+            shot.foreign[i] = _foreign[id];
+        }
+    }
+
+    public static void ClearCache() => Snapshots.Clear();
+
+    #endregion
 
     private static Color32 Lifted(int id)
     {
@@ -456,6 +580,7 @@ public static class SmoothBorders
     // 宣战、议和后战线(边框朱红)要变：双方各城的地块重画(WarPatch)
     public static void RefreshWar(War war)
     {
+        _warEpoch++;
         if (!Enabled || war == null) return;
         foreach (Kingdom kingdom in war.getAttackers().Concat(war.getDefenders()))
             foreach (City city in kingdom?.cities ?? new List<City>())

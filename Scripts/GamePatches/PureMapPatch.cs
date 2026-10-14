@@ -280,6 +280,8 @@ public class PureMapPatch : GamePatch
     private static void AfterApplyColors(ZoneCalculator __instance, TileZone pZone, bool pUp, bool pDown, bool pLeft, bool pRight)
     {
         if (pZone?.tiles == null || __instance.pixels == null) return;
+        // 平滑国界从缓存拷回的：地形调色、城市平面图已经在里面
+        if (SmoothBorders.Restored(pZone)) return;
         if (PureMapMode.Enabled) ShadeTerrain(__instance.pixels, pZone, pUp, pDown, pLeft, pRight);
         SmoothBorders.Finish(__instance.pixels, pZone);
         // 平滑国界：帝国金边已逐像素画好(见 SmoothBorders)；规划时整张图是灰的，不描金边
@@ -465,6 +467,17 @@ public class PureMapPatch : GamePatch
         public float rebuild;
         // 城市肌理：工业化以后的新城区、城外村镇农田(见 UrbanFabric)
         public UrbanFabric.Geometry fabric;
+        // 平面图的指纹(见 Stamp；平滑国界的上色缓存用)
+        public int stamp = int.MinValue;
+    }
+
+    // 本城平面图的指纹(没有城为 0)
+    internal static int StampOf(City city)
+    {
+        if (city?.data == null || city.isRekt() || !PureMapMode.Enabled) return 0;
+        CityPlan plan = PlanFor(city);
+        if (plan.stamp == int.MinValue) plan.stamp = Stamp(city, plan);
+        return plan.stamp;
     }
 
     private const string ModernPlanningTech = "modern_urban_planning";
