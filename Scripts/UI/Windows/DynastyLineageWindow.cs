@@ -191,6 +191,9 @@ public class DynastyLineageWindow : AbstractWideWindow<DynastyLineageWindow>
                 child = parent;
             }
         }
+        // 前后两代君主不在同一棵树上：沿父母两边溯源到共同祖先接起来
+        for (int i = 1; i < reignNodes.Count; i++)
+            if (RootOf(reignNodes[i - 1]) != RootOf(reignNodes[i])) Connect(reignNodes[i - 1], reignNodes[i], nodes);
         // 树根：开国之君之上至多留几代
         var roots = nodes.Values.Where(node => node.parent == null).ToList();
         for (int i = 0; i < roots.Count; i++)
@@ -211,6 +214,77 @@ public class DynastyLineageWindow : AbstractWideWindow<DynastyLineageWindow>
         for (int i = 1; i < reignNodes.Count; i++)
             if (RootOf(reignNodes[i - 1]) != RootOf(reignNodes[i])) _succession.Add((reignNodes[i - 1], reignNodes[i]));
         Layout(roots);
+    }
+
+    // 两代君主隔得远(堂亲、叔侄、宗室入继)：从两人沿父母两边往上找最近的共同祖先(至多 MaxTraceGenerations 代)，
+    // 把两条路上的人都画成卡片接上(用户 2026-10-15："把他们之间有关系的所有角色卡片都放上去直到连上")
+    private const int MaxTraceGenerations = 12;
+
+    private static void Connect(Node a, Node b, Dictionary<long, Node> nodes)
+    {
+        if (a?.identity == null || b?.identity == null) return;
+        (Dictionary<long, int> distA, Dictionary<long, long> downA) = Ancestry(a.identity);
+        (Dictionary<long, int> distB, Dictionary<long, long> downB) = Ancestry(b.identity);
+        long best = -1L;
+        int bestDistance = int.MaxValue;
+        foreach (var pair in distA)
+            if (distB.TryGetValue(pair.Key, out int other) && pair.Value + other < bestDistance)
+            {
+                best = pair.Key;
+                bestDistance = pair.Value + other;
+            }
+        if (best < 0) return;
+        Link(b, best, downB, nodes);
+        Link(a, best, downA, nodes);
+    }
+
+    // 往上的祖先：到本人隔几代，以及路上往下一步是谁(还原路径用)
+    private static (Dictionary<long, int> distance, Dictionary<long, long> down) Ancestry(PersonalClanIdentity start)
+    {
+        var distance = new Dictionary<long, int> { [start.id] = 0 };
+        var down = new Dictionary<long, long>();
+        var queue = new Queue<PersonalClanIdentity>();
+        queue.Enqueue(start);
+        while (queue.Count > 0)
+        {
+            PersonalClanIdentity person = queue.Dequeue();
+            int depth = distance[person.id];
+            if (depth >= MaxTraceGenerations) continue;
+            foreach (long parentId in new[] { person.father, person.mother })
+            {
+                if (parentId <= 0 || distance.ContainsKey(parentId)) continue;
+                PersonalClanIdentity parent = SpecificClanManager.getPerson(parentId);
+                if (parent == null) continue;
+                distance[parentId] = depth + 1;
+                down[parentId] = person.id;
+                queue.Enqueue(parent);
+            }
+        }
+        return (distance, down);
+    }
+
+    // 从共同祖先一路往下接到这位君主(路上已画的人换到这条线上)
+    private static void Link(Node start, long ancestorId, Dictionary<long, long> down, Dictionary<long, Node> nodes)
+    {
+        var path = new List<long>();
+        for (long id = ancestorId; ; id = down[id])
+        {
+            path.Add(id);
+            if (id == start.identity.id || !down.ContainsKey(id) || path.Count > MaxTraceGenerations + 2) break;
+        }
+        if (path[path.Count - 1] != start.identity.id) return;
+        for (int i = 1; i < path.Count; i++)
+        {
+            PersonalClanIdentity upper = SpecificClanManager.getPerson(path[i - 1]), lower = SpecificClanManager.getPerson(path[i]);
+            if (upper == null || lower == null) return;
+            Node parent = Get(nodes, upper), child = Get(nodes, lower);
+            if (child.parent == parent) continue;
+            // 防环：要接上的上一代不能是这人自己的后代
+            if (Contains(child, node => node == parent)) return;
+            child.parent?.children.Remove(child);
+            child.parent = parent;
+            if (!parent.children.Contains(child)) parent.children.Add(child);
+        }
     }
 
     private static Node RootOf(Node node)
