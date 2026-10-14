@@ -1349,18 +1349,21 @@ public static class CityPopulationSystem
     private static bool ImmediatelyProtected(Actor actor) => actor.isKing() || actor.isCityLeader() ||
         actor.isFavorite() || actor.isCameraFollowingUnit() || actor.plot != null || CorpsSystem.IsGeneral(actor);
 
-    // 要紧的贵族：君主、继承人、君主的配偶与子女、有封地或爵位的人。其余宗室并入虚拟族谱，需要时再落成
+    // 要紧的贵族：君主、继承人、君主与储君的配偶和子女、有封地或爵位的人。其余宗室并入虚拟族谱，需要时再落成。
+    // 储君的配偶、子女(皇孙)以前不算，会被并回人口，储君一即位就无妻无子
     private static bool IsImportantNoble(Actor actor)
     {
         if (actor.isKing()) return true;
         Kingdom kingdom = actor.kingdom;
         if (kingdom != null && kingdom.GetHeir() == actor) return true;
-        if (actor.lover != null && !actor.lover.isRekt() && actor.lover.isKing()) return true;
+        if (actor.lover != null && !actor.lover.isRekt() && IsRoyalLine(actor.lover)) return true;
         foreach (Actor parent in actor.getParents())
-            if (parent != null && !parent.isRekt() && parent.isKing()) return true;
+            if (parent != null && !parent.isRekt() && IsRoyalLine(parent)) return true;
         if (actor.GetOwnedTitle()?.Count > 0) return true;
         return actor.HasHonoraryPeerage() || actor.HasVirtualEnfeoff();
     }
+
+    private static bool IsRoyalLine(Actor actor) => actor.isKing() || actor.kingdom != null && actor.kingdom.GetHeir() == actor;
 
     private const int MaxKeptJuren = 5;
 

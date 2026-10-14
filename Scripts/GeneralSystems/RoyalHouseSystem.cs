@@ -25,7 +25,12 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     新君年幼、生前没有册立储君、无人可继时更重；没有册立储君的还可能诸王争位(见 PrinceStruggleSystem)；
 //   · 诸王就藩：君主成年、不是储君、不在朝任职的儿子不住都城，去自己的封地(没有封地就分到本国别的大城)——
 //     都城出事不会一次把宗室死光；
-//   · 补姓：在宗族里却没有姓的人(偶有起名漏了姓)，每年过生日时补上宗族的姓。
+//   · 补姓：在宗族里却没有姓的人(偶有起名漏了姓)，每年过生日时补上宗族的姓；
+//   · 婚配与添丁(无小人、纯净地图模式)：原版人物的日常(找配偶、怀孕)在这两种模式下几乎不跑——实测一个世界四百多年、
+//     三十多位皇帝只记到两次宗室生育，代代无嗣、群臣议立、换姓，一个朝代撑不过一百五十年。每年替原版办一次：
+//     君主、储君成年(西方封建制留给议婚，到 RoyalMarryLateAge 才在国内找)还没配偶的，从本国人物里挑一位异性
+//     (同种族、成年未婚、非近亲，名望高的优先)，没有就从都城人口里落成一位；有配偶、生母不过 RoyalBirthAgeMax 岁的，
+//     按 RoyalBirthChance 添一个孩子(不育、一年半一胎、子女上限照旧，见 CanBirth)。
 public static class RoyalHouseSystem
 {
     private const float BirthIntervalYears = 1.5f;
@@ -116,6 +121,81 @@ public static class RoyalHouseSystem
 
     #region 生育
 
+    #region 婚配与添丁(无小人、纯净地图模式)
+
+    private const int RoyalMarryAge = 16, RoyalMarryLateAge = 22, RoyalMarryMaxAge = 55, ConsortMaxAge = 40, RoyalBirthAgeMax = 45;
+    private const float RoyalBirthChance = 0.45f;
+
+    private static void RoyalFamily(Kingdom kingdom)
+    {
+        if (kingdom?.data == null || kingdom.isRekt() || !kingdom.hasKing() ||
+            !EmpireCraft.Scripts.Regimes.RegimeManager.IsMonarchy(kingdom.GetRegime()?.type)) return;
+        Tend(kingdom, kingdom.king);
+        Actor heir = kingdom.HasHeir() ? kingdom.GetHeir() : null;
+        if (heir != null && heir != kingdom.king) Tend(kingdom, heir);
+    }
+
+    private static void Tend(Kingdom kingdom, Actor royal)
+    {
+        if (royal?.data == null || royal.isRekt() || !royal.isAlive() || !royal.isSapient()) return;
+        int age = royal.getAge();
+        Actor lover = royal.lover;
+        if (lover?.data == null || lover.isRekt() || !lover.isAlive())
+        {
+            int from = RoyalMarriageSystem.Applies(kingdom) ? RoyalMarryLateAge : RoyalMarryAge;
+            if (age < from || age > RoyalMarryMaxAge) return;
+            Actor consort = FindConsort(kingdom, royal) ?? SpawnConsort(royal);
+            if (consort != null) royal.becomeLoversWith(consort);
+            return;
+        }
+        if (age < RoyalMarryAge || lover.getAge() < RoyalMarryAge) return;
+        Actor mother = royal.data.sex == ActorSex.Female ? royal : lover;
+        if (mother.data.sex != ActorSex.Female || mother.getAge() > RoyalBirthAgeMax) return;
+        if (!CanBirth(royal) || !CanBirth(lover) || UnityEngine.Random.value >= RoyalBirthChance) return;
+        BabyMaker.makeBaby(royal, lover, ActorSex.None, false, 0, null, pAddToFamily: true);
+    }
+
+    // 本国在世的人物里挑配偶：异性、同种族、成年未婚、非近亲，名望高的优先
+    private static Actor FindConsort(Kingdom kingdom, Actor royal)
+    {
+        Actor best = null;
+        if (kingdom.units == null) return null;
+        foreach (Actor candidate in kingdom.units)
+        {
+            if (candidate?.data == null || candidate == royal || candidate.isRekt() || !candidate.isAlive() ||
+                candidate.isKing() || candidate.lover != null && !candidate.lover.isRekt() && candidate.lover.isAlive() ||
+                candidate.data.sex == royal.data.sex || candidate.asset != royal.asset ||
+                candidate.getAge() < RoyalMarryAge || candidate.getAge() > ConsortMaxAge || Kin(royal, candidate)) continue;
+            if (best == null || candidate.renown > best.renown) best = candidate;
+        }
+        return best;
+    }
+
+    // 都城人口里落成一位配偶(无小人模式)；性别、种族、年龄不合的并回人口，至多试六次
+    private static Actor SpawnConsort(Actor royal)
+    {
+        City city = royal.city ?? royal.kingdom?.capital;
+        if (!CityPopulationSystem.AbstractPopulationEnabled || city?.data == null || city.isRekt()) return null;
+        for (int attempt = 0; attempt < 6; attempt++)
+        {
+            Actor actor = CityPopulationSystem.SpawnCivilian(city);
+            if (actor == null) return null;
+            if (actor.data.sex != royal.data.sex && actor.asset == royal.asset &&
+                actor.getAge() >= RoyalMarryAge && actor.getAge() <= ConsortMaxAge) return actor;
+            CityPopulationSystem.DisbandIntoPopulation(actor, city);
+        }
+        return null;
+    }
+
+    private static bool Kin(Actor a, Actor b)
+    {
+        List<Actor> parentsA = a.getParents()?.Where(parent => parent != null).ToList() ?? new List<Actor>();
+        List<Actor> parentsB = b.getParents()?.Where(parent => parent != null).ToList() ?? new List<Actor>();
+        return parentsA.Contains(b) || parentsB.Contains(a) || parentsA.Any(parentsB.Contains);
+    }
+
+    #endregion
+
     // 君主、储君还能不能添孩子：不育的不能，一年半内添过的不能，在世子女满了不能
     public static bool CanBirth(Actor parent)
     {
@@ -173,6 +253,8 @@ public static class RoyalHouseSystem
                     EmpirePartitionSystem.Yearly(empire);
                 }
             foreach (Kingdom kingdom in World.world.kingdoms.list.ToList()) Enfeoff(kingdom);
+            if (CityPopulationSystem.AbstractPopulationEnabled || PureMapMode.Enabled)
+                foreach (Kingdom kingdom in World.world.kingdoms.list.ToList()) RoyalFamily(kingdom);
         }
         catch (Exception exception)
         {
