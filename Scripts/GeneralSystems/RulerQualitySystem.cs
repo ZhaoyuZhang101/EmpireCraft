@@ -107,6 +107,8 @@ public static class RulerQualitySystem
         return Grade.Tyrant;
     }
 
+    private const int EarlyGenerationYears = 60;
+
     // 深宫之弊：王朝开国后出生的(生在深宫)按王朝年岁与周期压力变差；开国前后出生的头几代偏好
     private static float PalaceDecay(Empire empire, Actor ruler)
     {
@@ -114,7 +116,10 @@ public static class RulerQualitySystem
         int ruleAge = Math.Max(0, (int)Math.Round((double)ruler.getAge()));
         bool palaceRaised = dynastyAge > ruleAge;
         if (!palaceRaised) return -0.3f;
-        return Mathf.Min(1.5f, 0.3f + dynastyAge / 100f + DynasticCycleSystem.GetPressure(empire) / 150f);
+        // 历史周期律：立国头 60 年里长大的二三代还带着开国的家风(文景、贞观之后)，小有加成；之后随年岁、积弊变差
+        float pressure = DynasticCycleSystem.GetPressure(empire) / 150f;
+        if (dynastyAge < EarlyGenerationYears) return -0.1f + pressure;
+        return Mathf.Min(1.5f, 0.1f + (dynastyAge - EarlyGenerationYears) / 100f + pressure);
     }
 
     #endregion
