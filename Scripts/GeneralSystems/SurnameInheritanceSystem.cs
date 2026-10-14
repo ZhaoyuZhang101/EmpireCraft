@@ -13,8 +13,19 @@ public static class SurnameInheritanceSystem
             !string.IsNullOrWhiteSpace(parent.GetModName()?.familyName))
         .Distinct().OrderByDescending(ParentPriority).ThenBy(parent => parent.getID()).FirstOrDefault();
 
+    // 在位的君主、储君(女主也一样)：配偶嫁入或入赘皇族，子女随君主姓、入皇族宗族，帝系不断
+    public static bool Reigns(Actor actor)
+    {
+        if (actor?.data == null || actor.isRekt()) return false;
+        if (actor.isKing()) return true;
+        Kingdom kingdom = actor.kingdom;
+        return kingdom?.data != null && !kingdom.isRekt() && kingdom.GetOrCreate().HeirID == actor.getID();
+    }
+
     private static int ParentPriority(Actor parent)
     {
+        // 君主、储君的子女随君主姓(女帝与皇夫所生的也是皇族，以前跟了皇夫的姓，帝系断开、姓氏跳来跳去)
+        if (Reigns(parent)) return 1000 + (parent.isSexMale() ? 10 : 0);
         var identity = parent.GetPersonalIdentity();
         // Respect the existing marriage/concubinage and maternal/paternal clan rules.
         int priority = identity == null ? 0 : !identity.is_main ? -100

@@ -278,9 +278,32 @@ public class SpecificClan
         return true;
     }
 
+    // 华夏一系(制度线属华夏的文化)宗法父系，只传男(用户 2026-10-14："不会存在女帝，尤其是华夏，至少继承法不会支持")：
+    // 不论原版文化有没有长出"母系"特质(原版特质随机，以前华夏宗族也会成了女性优先，女儿即位成了女帝、儿子反倒不能继承)。
+    // 按始祖(没有就按任一族人)的文化认，算一次记下；旧档里已是女性优先的华夏宗族读档后同样按父系
     public bool isMalePriority()
     {
+        if (Patrilineal()) return true;
         return clan_sex_priority == SpecificClanType.MalePriority;
+    }
+
+    [JsonIgnore] private bool? _patrilineal;
+
+    private bool Patrilineal()
+    {
+        if (_patrilineal.HasValue) return _patrilineal.Value;
+        string culture = SpecificClanManager.getPerson(founder)?.culture;
+        if (string.IsNullOrEmpty(culture)) culture = LivingPeople?.FirstOrDefault(person => !string.IsNullOrEmpty(person?.culture))?.culture;
+        if (string.IsNullOrEmpty(culture)) return false;
+        try
+        {
+            _patrilineal = InstitutionSystem.GetCultureLine(culture) == "Huaxia";
+        }
+        catch
+        {
+            _patrilineal = false;
+        }
+        return _patrilineal.Value;
     }
     public void addActor(Actor actor, bool is_concubines= false)
     {
@@ -1260,12 +1283,17 @@ public class PersonalClanIdentity
         if (!lpci.IsFreeToMarry(id)) return;
         lpci.lover.specific_clan = specific_clan_id;
         lpci.lover.identity = id;
-        lpci.is_main = !IsHeirPriority();
+        // 谁为主(娶、招亲)：按宗族男女优先；在位的君主、储君成婚，君主一方为主(配偶嫁入或入赘皇族)，
+        // 女主大婚时子女随君主姓、入皇族宗族，帝系不断(见 SurnameInheritanceSystem.Reigns)
+        bool selfMain = IsHeirPriority();
+        bool selfReigns = SurnameInheritanceSystem.Reigns(_actor), otherReigns = SurnameInheritanceSystem.Reigns(actor);
+        if (selfReigns != otherReigns) selfMain = selfReigns;
+        lpci.is_main = !selfMain;
         if (!isCus)
         {
             lover.specific_clan = lpci.specific_clan_id;
             lover.identity = lpci.id;
-            is_main = IsHeirPriority();
+            is_main = selfMain;
             if (recordHistory)
             {
                 string partnerName = actor.getName();
