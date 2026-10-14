@@ -186,7 +186,13 @@ public class PureMapPatch : GamePatch
     // 图层不随地图不透明度设置变淡(亮度照原版；夜色见 NightMapLayerPatch)
     private static void AfterZoneAnimations(ZoneCalculator __instance)
     {
-        if (!PureMapMode.Enabled || __instance.sprRnd == null) return;
+        if (__instance.sprRnd == null) return;
+        // 城市图层不论纯净地图开没开都画路网
+        if (!PureMapMode.Enabled)
+        {
+            UI.Components.RoadOverlay.Update();
+            return;
+        }
         Color color = __instance.sprRnd.color;
         color.a = 1f;
         __instance.sprRnd.color = color;

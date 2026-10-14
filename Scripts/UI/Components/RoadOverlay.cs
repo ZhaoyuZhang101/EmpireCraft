@@ -13,6 +13,7 @@ namespace EmpireCraft.Scripts.UI.Components;
 // 任何国色上都看得清；
 // 换了地图图层(底色全变)半秒后重画一次。
 // 远近分层：拉远到原版远景不画路(只剩国色与地形，见 PureMapPatch.DetailShown)；切到近景时路淡淡出现，越拉近越清楚。
+// 城市图层不论远近都画(也不要求纯净地图)。
 public static class RoadOverlay
 {
     private const float RedrawSeconds = 20f, MinRedrawSeconds = 10f;
@@ -39,7 +40,8 @@ public static class RoadOverlay
     {
         ZoneCalculator zones = World.world?.zone_calculator;
         SpriteRenderer source = zones?.sprRnd;
-        if (!PureMapMode.Enabled || source?.sprite == null)
+        // 纯净地图，或城市图层(不论纯净地图开没开)
+        if (!PureMapMode.Enabled && !EmpireCraft.Scripts.Layer.CityViewMap.Active || source?.sprite == null)
         {
             if (_renderer != null) _renderer.enabled = false;
             return;
@@ -75,6 +77,8 @@ public static class RoadOverlay
     {
         QualityChanger quality = World.world?.quality_changer;
         if (quality == null) return 1f;
+        // 城市图层专看城市与路网：不论远近都全显
+        if (EmpireCraft.Scripts.Layer.CityViewMap.Active) return 1f;
         if (!PureMapPatch.DetailShown) return 0f;
         float bound = quality.getZoomRateBoundLow();
         Camera camera = Camera.main;
