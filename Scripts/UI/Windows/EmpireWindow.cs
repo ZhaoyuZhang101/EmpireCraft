@@ -885,15 +885,30 @@ namespace EmpireCraft.Scripts.UI.Windows
             UIHelper.AddMetricCell(cells, cellWidth, LM.Get("fiscal_source_War"), MoneyDisplay.Format(realm.war),
                 realm.war > 0 ? "#FF6666" : "#8FA0A8");
 
-            // 小字：可支配、安全储备、现金结余、税收转移与记账说明
-            string footnote = $"{LM.Get("fiscal_available")} {MoneyDisplay.Format(StateSettlementSystem.DiscretionaryBalance(core))}  ·  " +
+            // 小字：国库(与悬停提示里的一致)、可支配(国库扣除预留)、安全储备、现金结余、税收转移与记账说明
+            string footnote = $"{LM.Get("label_treasury")} {MoneyDisplay.Format(core.GetTreasuryBalance())}  ·  " +
+                              $"{LM.Get("fiscal_available")} {MoneyDisplay.Format(StateSettlementSystem.DiscretionaryBalance(core))}  ·  " +
                               $"{LM.Get("fiscal_safety_reserve")} {MoneyDisplay.Format(TreasurySystem.SafetyReserve(core))}  ·  " +
                               $"{LM.Get("fiscal_cash_balance")} {MoneyDisplay.Format(report.cash_balance)}\n" +
                               $"{TreasurySystem.TransferText(report)}\n{LM.Get("fiscal_account_hint")}";
             var hint = parent.AddTextIntoVertLayout(footnote.ColorString("#8FA0A8"), true, TextAnchor.UpperLeft,
                 new Vector2(MainWidth - 4f, 30f));
             hint.UseFixedFontSize(6, HorizontalWrapMode.Wrap);
-            StartCoroutine(RefreshScrollLayout(resetToTop: true));
+            StartCoroutine(RefreshScrollLayout(resetToTop: !_financeKeepScroll));
+            _financeKeepScroll = false;
+            StartCoroutine(RefreshFinanceLater(pArg0, _renderGeneration));
+        }
+
+        // 财政页开着时每隔几秒按最新账目重画(以前打开时算一次就不变，和悬停提示里的实时国库对不上)；滚动位置不动
+        private const float FinanceRefreshSeconds = 3f;
+        private bool _financeKeepScroll;
+
+        private IEnumerator RefreshFinanceLater(WindowMetaTab tab, int generation)
+        {
+            yield return new WaitForSecondsRealtime(FinanceRefreshSeconds);
+            if (generation != _renderGeneration || !gameObject.activeInHierarchy) yield break;
+            _financeKeepScroll = true;
+            ShowFinance(tab);
         }
 
         // 近 12 个月收支图：流入、流出各取一年合计最大的四类上色，其余并为"其他"；悬停某月看当月明细
