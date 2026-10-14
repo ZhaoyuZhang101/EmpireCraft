@@ -364,6 +364,38 @@ public static class CorpsSystem
         return paid;
     }
 
+    // 量入为出养兵：兵额按养得起多少封顶——平时军饷不超过经常收入的 PeaceBudgetShare，战时(连粮秣军械)不超过
+    // WarBudgetShare(被全面侵略时倾国而战，SurvivalBudgetShare)，国库存银另按 ReserveYears 年花掉；养不起就各军按比例缩编，
+    // 多出来的兵逐月裁撤(战时也裁)。以前兵额只看人口、战时只增不减，全世界近四成人口在当兵，一开战军饷就是收入的
+    // 一到两倍，几个月打空国库、欠饷溃散，谁也打不赢谁，大一统无从谈起。大国收入多养兵多，才压得住小国。
+    // 起义军以战养战不受此限；没有几个月账目的新国家也不限
+    private const float PeaceBudgetShare = 0.35f, WarBudgetShare = 0.7f, SurvivalBudgetShare = 1f, ReserveYears = 3f;
+    private const float PeaceCostPerSoldier = 0.1f, WarCostPerSoldier = 0.4f;
+
+    private static float BudgetFactor(Kingdom kingdom, bool war, float wanted)
+    {
+        if (wanted < 1f || Insurgent(kingdom) || !TreasurySystem.Enabled(kingdom)) return 1f;
+        if (TreasurySystem.Report(kingdom).months < 3) return 1f;
+        float share = !war ? PeaceBudgetShare : WarGoalSystem.FightingForSurvival(kingdom) ? SurvivalBudgetShare : WarBudgetShare;
+        double budget = StateDebtSystem.AnnualStableIncome(kingdom) * (double)share +
+                        Math.Max(0L, kingdom.GetTreasuryBalance()) / (double)ReserveYears;
+        float perSoldier = (war ? WarCostPerSoldier : PeaceCostPerSoldier) * AverageUpkeep(kingdom);
+        return Mathf.Clamp01((float)(budget / Math.Max(0.01f, perSoldier)) / wanted);
+    }
+
+    // 本国各军按兵种的平均饷银倍数(装备越先进越贵，见 CorpsArmSystem.Upkeep)
+    private static float AverageUpkeep(Kingdom kingdom)
+    {
+        float men = 0f, weighted = 0f;
+        foreach (CorpsData corps in Of(kingdom))
+        {
+            if (corps.order_id >= 0 || corps.strength <= 0f) continue;
+            men += corps.strength;
+            weighted += corps.strength * CorpsArmSystem.Upkeep(CorpsArmSystem.Of(corps));
+        }
+        return men > 0f ? weighted / men : 1f;
+    }
+
     // 各军镇应有几支军、每支多少人；缺的当场征召，多的和平时退伍
     private static void Mobilize(Kingdom kingdom, double now)
     {
@@ -386,6 +418,14 @@ public static class CorpsSystem
         foreach (City city in cities) totalSlots += Mathf.Max(0, CityPopulationSystem.LevyTarget(city));
         float pool = CityPopulationSystem.KingdomBackground(kingdom) * doctrine.LevyShare;
         float legionSize = Mathf.Clamp(pool / Mathf.Max(1, totalSlots), 1f, CityPopulationSystem.PeoplePerLegion);
+        // 量入为出：按人口该有的兵额超出养得起的，每个军团按比例缩编
+        float levied = 0f;
+        foreach (City city in cities)
+            if (CityPopulationSystem.PostOf(city, doctrine) != CityPopulationSystem.ArmyPost.None)
+                levied += Mathf.Max(0, CityPopulationSystem.LevyTarget(city) - CityStabilitySystem.FundedSlots(city)) * legionSize;
+        float budget = BudgetFactor(kingdom, war, levied);
+        bool limited = budget < 0.999f;
+        legionSize = Mathf.Max(1f, legionSize * budget);
         foreach (City city in cities)
         {
             if (CityPopulationSystem.PostOf(city, doctrine) == CityPopulationSystem.ArmyPost.None) continue;
@@ -407,7 +447,8 @@ public static class CorpsSystem
                 CorpsData corps = here[i];
                 corps.legions = Mathf.Max(share, war ? corps.legions : 0);
                 float full = corps.legions * legionSize;
-                if (war) corps.full = Mathf.Max(corps.full, full);
+                // 战时满编只增不减，除非养不起了
+                if (war && !limited) corps.full = Mathf.Max(corps.full, full);
                 else corps.full = full;
                 if (corps.full <= 0f)
                 {
@@ -417,7 +458,7 @@ public static class CorpsSystem
                 // 补给不到五成(海外断了航线、孤军深入、被围)补不上兵；在船上的也补不了
                 if (corps.strength < corps.full && corps.supply >= 0.5f && !corps.embarked && !unpaid)
                     Reinforce(kingdom, corps, corps.full * ReinforceShare * corps.supply);
-                else if (!war && corps.strength > corps.full)
+                else if ((!war || limited) && corps.strength > corps.full)
                     Demobilize(kingdom, corps, Mathf.Min(corps.strength - corps.full, corps.full * DemobilizeShare + 1f));
             }
         }
