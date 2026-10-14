@@ -1,6 +1,8 @@
 """把篆书字体预先画成字形包(.glyphs)，游戏里直接拼图显示，不依赖 Unity 读字体文件。
 
-用法：python3 bake_seal_glyphs.py <字体.ttf> <输出.glyphs> [字号=64]
+用法：python3 bake_seal_glyphs.py <字体.ttf> <输出.glyphs> [字号=128] [灰阶=16]
+  字号与铭牌的参考字号(TerritoryLabelProjection.ReferenceFontSize = 128)一致才不会放大发糊；
+  灰阶把 0~255 归到几级(边缘照样平滑，压缩后小得多)，256 为不归并
 
 格式(小端)：
   'ECSG' int版本=1 int字号 int上伸 int下伸 int字数
@@ -59,7 +61,10 @@ def codepoints(path):
 
 def main():
     src, dst = sys.argv[1], sys.argv[2]
-    size = int(sys.argv[3]) if len(sys.argv) > 3 else 64
+    size = int(sys.argv[3]) if len(sys.argv) > 3 else 128
+    levels = int(sys.argv[4]) if len(sys.argv) > 4 else 16
+    step = 255 / (levels - 1)
+    quantize = bytes(min(255, int(round(round(v / step) * step))) for v in range(256))
     font = ImageFont.truetype(src, size)
     ascent, descent = font.getmetrics()
     entries, blobs, offset = [], [], 0
@@ -74,7 +79,7 @@ def main():
             continue
         image = Image.new('L', (w, h), 0)
         ImageDraw.Draw(image).text((-x0, -y0), ch, font=font, fill=255, anchor='ls')
-        pixels = image.tobytes()
+        pixels = image.tobytes().translate(quantize)
         if max(pixels) == 0:
             continue
         compressor = zlib.compressobj(9, zlib.DEFLATED, -15)

@@ -8,9 +8,10 @@ using UnityEngine;
 
 namespace EmpireCraft.Scripts.UI.Components;
 
-// 随模组分发的篆书字体(见 Assets/Fonts 下各目录的 README)：
+// 随模组分发的字体(见 Assets/Fonts 下各目录的 README)：
 //   全字库说文解字(小篆，6745 字，按繁体编码，显示前把简体转成繁体再查字)；
-//   敬峰中山王篆(战国中山国铜器文字，归大篆，3060 字，简繁都有)。
+//   敬峰中山王篆(战国中山国铜器文字，归大篆，3060 字，简繁都有)；
+//   钟齐志莽行(行书，7012 字，简体全收；缺的繁体字换成对应的简体字形，繁体国号也能整句显示)。
 // 加载：本机装了同名字体就用系统字体；有预先画好的字形包(.glyphs)就用字形包(不靠 Unity 读字体文件，见 BakedGlyphFont)；
 // 都没有才直接读模组里的字体文件(游戏里常常画不出字)。
 // 缺字检查一律读字体文件的 cmap 表(从文件建的 Unity 字体 HasCharacter 不可靠)。
@@ -159,7 +160,13 @@ public sealed class BundledFont
                 if (shown == '\0' && Supports(character)) shown = character;
                 if (shown == '\0') return false;
             }
-            else if (!Supports(character)) return false;
+            else if (!Supports(character))
+            {
+                // 简体字体缺繁体字：换成对应的简体字形(同一款字体整句显示，不掉到兜底字体)
+                char simple = BundledTerritoryFonts.Simplified(character);
+                if (simple == '\0' || !Supports(simple)) return false;
+                shown = simple;
+            }
             builder.Append(shown);
         }
         adapted = builder.ToString();
@@ -172,13 +179,17 @@ public static class BundledTerritoryFonts
     // 字体设置里用的名字(保持旧的 Seal 名字不变，旧设置文件仍然有效)
     public const string Seal = "Jingfeng_ZSKSS";
     public const string ShuoWen = "QuanZiKu_ShuoWen";
+    public const string ZhiMangXing = "ZhiMangXing";
 
     public static readonly BundledFont ShuoWenFont = new(ShuoWen, "全字库说文解字", "font_style_seal_small", true,
         "QuanZiKuShuoWen", "QuanZiKuShuoWen.ttf", "ShuoWen.glyphs", "全字庫說文解字", "EBAS");
     public static readonly BundledFont JingfengFont = new(Seal, "敬峰中山王篆", "font_style_seal_large", false,
         "JFZSKSealScript", "JFZSKSealScript_V3.ttf", null, "Jingfeng_ZSKSS", "大学论语敬峰中山王篆", "敬峰中山王篆", "JFZSKSealScript");
 
-    public static readonly BundledFont[] All = { ShuoWenFont, JingfengFont };
+    public static readonly BundledFont ZhiMangXingFont = new(ZhiMangXing, "钟齐志莽行", "font_style_running", false,
+        "ZhiMangXing", "ZhiMangXing-Regular.ttf", "ZhiMangXing.glyphs", "Zhi Mang Xing", "ZhiMangXing");
+
+    public static readonly BundledFont[] All = { ShuoWenFont, JingfengFont, ZhiMangXingFont };
     // 华夏国号用篆书：只用说文小篆(中山王篆是战国铜器文字，笔画细长，不像通常的篆书国号)，缺字走兜底
     public static readonly BundledFont[] SealChain = { ShuoWenFont };
 
@@ -208,6 +219,21 @@ public static class BundledTerritoryFonts
 
     // ---- 简繁对照(OpenCC STCharacters.txt) ----
     private static Dictionary<char, char[]> _traditional;
+    private static Dictionary<char, char> _simplified;
+
+    // 繁体字对应的简体字(同一张表反查)；不是繁体字返回 '\0'
+    public static char Simplified(char character)
+    {
+        if (_simplified == null)
+        {
+            if (_traditional == null) LoadTraditional();
+            _simplified = new Dictionary<char, char>();
+            foreach (KeyValuePair<char, char[]> pair in _traditional)
+                foreach (char traditional in pair.Value)
+                    if (traditional != pair.Key && !_simplified.ContainsKey(traditional)) _simplified[traditional] = pair.Key;
+        }
+        return _simplified.TryGetValue(character, out char simple) ? simple : '\0';
+    }
 
     public static IEnumerable<char> Traditionals(char character)
     {

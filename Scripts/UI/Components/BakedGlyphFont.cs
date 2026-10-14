@@ -13,7 +13,8 @@ namespace EmpireCraft.Scripts.UI.Components;
 // 字形按 ReferenceSize(铭牌的参考字号)排版；非动态字体不认字号，用的地方把 Text.fontSize 设 0。
 public sealed class BakedGlyphFont
 {
-    private const int AtlasSize = 2048;
+    // 只存透明度(Alpha8，和原版动态字体的贴图一样)：4096 见方也只占 16MB，128 号字能放下千来个
+    private const int AtlasSize = 4096;
     private const int Padding = 2;
     public const int ReferenceSize = TerritoryLabelProjection.ReferenceFontSize;
 
@@ -65,13 +66,11 @@ public sealed class BakedGlyphFont
             };
         }
         _dataStart = at;
-        _atlas = new Texture2D(AtlasSize, AtlasSize, TextureFormat.RGBA32, false)
+        _atlas = new Texture2D(AtlasSize, AtlasSize, TextureFormat.Alpha8, false)
         {
             name = name + "_atlas", filterMode = FilterMode.Bilinear, wrapMode = TextureWrapMode.Clamp
         };
-        var clear = new Color32[AtlasSize * AtlasSize];
-        for (int i = 0; i < clear.Length; i++) clear[i] = new Color32(255, 255, 255, 0);
-        _atlas.SetPixels32(clear);
+        _atlas.LoadRawTextureData(new byte[AtlasSize * AtlasSize]);
         _atlas.Apply(false);
         Font = new Font(name);
         Shader shader = Shader.Find("UI/Default");
@@ -138,12 +137,13 @@ public sealed class BakedGlyphFont
         }
         byte[] pixels = Inflate(entry);
         if (pixels == null || pixels.Length < width * height) return false;
-        // 字形数据从上到下逐行，贴图从下往上：翻过来写
-        var colors = new Color32[width * height];
+        // 字形数据从上到下逐行，贴图从下往上：翻过来写进贴图的原始数据(一个字节一个像素)
+        var raw = _atlas.GetRawTextureData<byte>();
         for (int row = 0; row < height; row++)
-        for (int column = 0; column < width; column++)
-            colors[(height - 1 - row) * width + column] = new Color32(255, 255, 255, pixels[row * width + column]);
-        _atlas.SetPixels32(_penX, _penY, width, height, colors);
+        {
+            int target = (_penY + height - 1 - row) * AtlasSize + _penX, source = row * width;
+            for (int column = 0; column < width; column++) raw[target + column] = pixels[source + column];
+        }
 
         float scale = Scale;
         // 字身(上伸到下伸)的中线放在基线上，单行铭牌上下居中
