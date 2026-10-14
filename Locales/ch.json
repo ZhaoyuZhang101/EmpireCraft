@@ -4546,7 +4546,7 @@
   "empirecraft_law_tech_tree_title": "文明科技樹",
   "empirecraft_law_tech_tree_description": "開啟（預設）：各文化需先發現材料、研究技術，才能打造和裝備對應的武器、生產載具、把建築升到更高等級；modernmod、ModernBox、WarBox 的內容都受限制。關閉：全部放開。",
   "empirecraft_law_combine_houses_title": "民居合併為城池",
-  "empirecraft_law_combine_houses_description": "開啟（預設）：城市人口超過 80 後拆除民居，建成一座文化城池。裝了 modernmod 想保留 6~11 級民居請關閉；已有 modernmod 高級民居的城市不會合併。",
+  "empirecraft_law_combine_houses_description": "預設關閉。開啟後：城市人口超過 80 後拆除民居，建成一座文化城池。裝了 modernmod 想保留 6~11 級民居就不要開；已有 modernmod 高級民居的城市不會合併。",
   "tech_era_primitive": "原始時代",
   "tech_era_stone": "石器時代",
   "tech_era_copper": "銅石並用時代",

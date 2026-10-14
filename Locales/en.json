@@ -4546,7 +4546,7 @@
   "empirecraft_law_tech_tree_title": "Civilization Tech Tree",
   "empirecraft_law_tech_tree_description": "On (default): each culture must discover materials and research technologies before it can craft or equip the matching weapons, produce vehicles, or upgrade buildings; applies to modernmod, ModernBox and WarBox content too. Off: everything is unlocked.",
   "empirecraft_law_combine_houses_title": "Merge Houses into City",
-  "empirecraft_law_combine_houses_description": "On (default): once a city passes 80 people its houses are replaced by one cultural city building. Turn off to keep modernmod's tier 6-11 houses; cities that already have modernmod houses are never merged.",
+  "empirecraft_law_combine_houses_description": "Off by default. When on: once a city passes 80 people its houses are replaced by one cultural city building. Leave it off to keep modernmod's tier 6-11 houses; cities that already have modernmod houses are never merged.",
   "tech_era_primitive": "Primitive Age",
   "tech_era_stone": "Stone Age",
   "tech_era_copper": "Chalcolithic Age",
