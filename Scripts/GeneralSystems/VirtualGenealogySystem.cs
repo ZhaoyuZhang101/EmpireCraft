@@ -873,6 +873,53 @@ public static class VirtualGenealogySystem
         VirtualIds.Add(child.id);
     }
 
+    // 宗室添丁(无小人、纯净地图模式，见 RoyalHouseSystem)：在位君主、储君的子女直接记入族谱为虚拟子嗣，不生出实体；
+    // 继位、分封等需要时再落成(见 RealizeHeir、EmpireCraftKingdomBehCheckHeir)。不受宗族在世人数上限限制
+    public static bool AddRoyalChild(Actor royal, Actor consort)
+    {
+        PersonalClanIdentity parent = royal?.GetPersonalIdentity();
+        SpecificClan clan = parent?._specificClan;
+        if (parent == null || clan == null || World.world == null) return false;
+        EnsureIndex();
+        double now = World.world.getCurWorldTime();
+        City city = royal.city ?? royal.kingdom?.capital;
+        var child = new PersonalClanIdentity
+        {
+            id = OverallHelperFunc.IdGenerator.NextId(),
+            specific_clan_id = clan.id,
+            actor_id = -1L,
+            is_alive = true,
+            is_virtual = true,
+            virtual_since = now,
+            virtual_city_id = city?.data?.id ?? -1L,
+            recordedAge = 0,
+            birthday = Date.getDate(now),
+            sex = UnityEngine.Random.value < 0.5f ? ActorSex.Male : ActorSex.Female,
+            species = !string.IsNullOrEmpty(parent.species) ? parent.species : royal.asset?.id,
+            culture = parent.culture,
+            generation = parent.generation + 1,
+            is_main = true
+        };
+        PersonalClanIdentity other = consort?.GetPersonalIdentity();
+        if (royal.data.sex == ActorSex.Female)
+        {
+            child.mother = parent.id;
+            if (other != null) child.father = other.id;
+        }
+        else
+        {
+            child.father = parent.id;
+            if (other != null) child.mother = other.id;
+        }
+        child.name = ChildName(clan, child, parent);
+        clan.Upsert(child);
+        SpecificClanManager._globalPersonLookup[child.id] = child;
+        parent.children.Add(child.id);
+        if (other != null && other != parent) other.children.Add(child.id);
+        VirtualIds.Add(child.id);
+        return true;
+    }
+
     private static string ChildName(SpecificClan clan, PersonalClanIdentity child, PersonalClanIdentity parent)
     {
         string generated = CultureService.GenerateCulturalName(MetaType.Unit, child.id, parent.culture);
