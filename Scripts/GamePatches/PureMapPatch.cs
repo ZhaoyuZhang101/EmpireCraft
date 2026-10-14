@@ -227,10 +227,12 @@ public class PureMapPatch : GamePatch
         _urbanCredit += UrbanQueue.Count / UrbanCycleSeconds * delta;
         int count = Mathf.FloorToInt(_urbanCredit);
         _urbanCredit -= count;
+        // 远景不画城市(见 DetailShown)：不必算平面图、不必为它重画；拉近时原版整张重画
+        bool detail = DetailShown;
         for (int i = 0; i < count && _urbanCursor < UrbanQueue.Count; i++)
         {
             City city = UrbanQueue[_urbanCursor++];
-            if (city?.data == null || city.isRekt() || city.zones == null) continue;
+            if (!detail || city?.data == null || city.isRekt() || city.zones == null) continue;
             int stamp = Stamp(city, PlanFor(city));
             bool seen = PlanStamps.TryGetValue(city.data.id, out int last);
             if (seen && last == stamp) continue;
@@ -324,6 +326,12 @@ public class PureMapPatch : GamePatch
             ShadeTerrain(__instance.pixels, pZone, false, false, false, false);
     }
 
+    // ───────── 远近分层 ─────────
+    // 地图拉远(原版切到远景，isRenderMiniMap)时色块只画国色与地形浮雕，城市平面图、城郊镇村、田块、林子、城里的桥都不画，
+    // 整体看是干净的色块与地形；拉近(原版近景)才画出来。原版远近切换时本来就整张重画(clearCurrentDrawnZones)，
+    // 这里跟着它切，不另外多重画一次；远景少画城市，反而更省。规划视图(选中规划神力)、城市图层照常画
+    public static bool DetailShown => ZonePlanSystem.SteadyOverlay || World.world == null || !MapBox.isRenderMiniMap();
+
     // ───────── 地形浮雕 ─────────
     // 掺地表本色的比例；块里的水掺水色的比例；高差打光的强度与上限
     private const float TerrainTint = 0.1f, WaterTint = 0.85f, SlopeLight = 0.003f, SlopeCap = 0.06f;
@@ -335,7 +343,8 @@ public class PureMapPatch : GamePatch
     {
         City city = zone.city != null && !zone.city.isRekt() ? zone.city : null;
         ZoneUse use = city != null ? ZonePlanSystem.Get(city, zone) : ZoneUse.None;
-        CityPlan plan = city != null ? PlanFor(city) : null;
+        bool detail = DetailShown || Layer.CityViewMap.Active;
+        CityPlan plan = city != null && detail ? PlanFor(city) : null;
         Slot[] slots = plan != null && plan.zones.TryGetValue(zone.id, out Slot[] found) ? found : null;
         int ox = zone.x * Config.CITY_ZONE_SIZE, oy = zone.y * Config.CITY_ZONE_SIZE;
         Color32? occupied = OccupierFill(city, zone);
@@ -385,7 +394,7 @@ public class PureMapPatch : GamePatch
             if (ground != null && (ground.ocean || ground.liquid && !ground.lava))
             {
                 if (pixels[id].a == 0 && !smooth) continue;
-                pixels[id] = UrbanFabric.Bridge(plan?.fabric, tile) ? UrbanFabric.BridgeColor : new Color32(0, 0, 0, 0);
+                pixels[id] = detail && UrbanFabric.Bridge(plan?.fabric, tile) ? UrbanFabric.BridgeColor : new Color32(0, 0, 0, 0);
                 continue;
             }
             if (pixels[id].a == 0) continue;
@@ -430,7 +439,7 @@ public class PureMapPatch : GamePatch
             // 被敌军占着的地块：涂占领方的颜色，留一道道原主颜色的细斜纹
             if (occupied is Color32 fill && (tile.x + tile.y) % 4 != 0) pixels[id] = fill;
             Color32 shaded = Shade(tile, pixels[id]);
-            pixels[id] = Plan(tile, shaded, use, slots, tile.x - ox, tile.y - oy, plan, zone);
+            pixels[id] = detail ? Plan(tile, shaded, use, slots, tile.x - ox, tile.y - oy, plan, zone) : shaded;
         }
     }
 

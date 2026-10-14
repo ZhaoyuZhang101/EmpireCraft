@@ -11,6 +11,7 @@ namespace EmpireCraft.Scripts.UI.Components;
 // 城里建成的地块有自己的街格，干道不压上去。路网变了、或城在长，至多每十秒重画一次(整张贴图上传不便宜)。
 // 路的颜色随底色换：底下的国色亮(黄、白、浅绿)就画深褐的路，暗就画黄橙的路，任何国色上都看得清；
 // 换了地图图层(底色全变)半秒后重画一次。
+// 远近分层：拉远到原版远景不画路(只剩国色与地形，见 PureMapPatch.DetailShown)；切到近景时路淡淡出现，越拉近越清楚。
 public static class RoadOverlay
 {
     private const float RedrawSeconds = 20f, MinRedrawSeconds = 10f;
@@ -48,7 +49,9 @@ public static class RoadOverlay
             return;
         }
         if (!Ensure(zones, source)) return;
-        _renderer.enabled = source.enabled;
+        float alpha = ZoomAlpha();
+        _renderer.enabled = source.enabled && alpha > 0.01f;
+        _renderer.color = new Color(1f, 1f, 1f, alpha);
         _renderer.sortingLayerID = source.sortingLayerID;
         _renderer.sortingOrder = source.sortingOrder + 1;
         float now = Time.unscaledTime;
@@ -67,6 +70,20 @@ public static class RoadOverlay
         _drawnVersion = RoadNetwork.Version;
         _drawnAt = now;
         using (FrameProfiler.Measure("路网·贴图重画")) Redraw();
+    }
+
+    // 刚切进近景时四成半，拉近到远景界线的一半多时全显
+    private const float NearAlpha = 0.45f, FullAt = 0.55f;
+
+    private static float ZoomAlpha()
+    {
+        QualityChanger quality = World.world?.quality_changer;
+        if (quality == null) return 1f;
+        if (!PureMapPatch.DetailShown) return 0f;
+        float bound = quality.getZoomRateBoundLow();
+        Camera camera = Camera.main;
+        float zoom = camera != null ? camera.orthographicSize : bound;
+        return Mathf.Lerp(NearAlpha, 1f, Mathf.InverseLerp(bound, bound * FullAt, zoom));
     }
 
     private static bool Ensure(ZoneCalculator zones, SpriteRenderer source)
