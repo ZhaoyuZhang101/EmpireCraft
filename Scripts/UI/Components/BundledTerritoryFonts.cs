@@ -12,6 +12,8 @@ namespace EmpireCraft.Scripts.UI.Components;
 //   全字库说文解字(小篆，6745 字，按繁体编码，显示前把简体转成繁体再查字)；
 //   敬峰中山王篆(战国中山国铜器文字，归大篆，3060 字，简繁都有)；
 //   钟齐志莽行(行书，7012 字，简体全收；缺的繁体字换成对应的简体字形，繁体国号也能整句显示)。
+// 字体里没有的字依次试简繁对应的字、同音字(各目录的 Homophones.txt，Tools/FontBake/build_homophones.py 生成)，
+// 都没有才用兜底字体。
 // 加载：本机装了同名字体就用系统字体；有预先画好的字形包(.glyphs)就用字形包(不靠 Unity 读字体文件，见 BakedGlyphFont)；
 // 都没有才直接读模组里的字体文件(游戏里常常画不出字)。
 // 缺字检查一律读字体文件的 cmap 表(从文件建的 Unity 字体 HasCharacter 不可靠)。
@@ -121,6 +123,52 @@ public sealed class BundledFont
         return _font;
     }
 
+    // 这个字在本字体里怎么显示：本字 → 简繁对应的字(繁体字体先试繁体) → 同音字(见同目录 Homophones.txt)；
+    // 都没有返回 '\0'
+    private char Pick(char character)
+    {
+        char simple = BundledTerritoryFonts.Simplified(character);
+        if (Traditional)
+            foreach (char candidate in BundledTerritoryFonts.Traditionals(character))
+                if (Supports(candidate)) return candidate;
+        if (Supports(character)) return character;
+        if (simple != '\0')
+        {
+            if (Supports(simple)) return simple;
+            foreach (char candidate in BundledTerritoryFonts.Traditionals(simple))
+                if (Supports(candidate)) return candidate;
+        }
+        if (!Traditional)
+            foreach (char candidate in BundledTerritoryFonts.Traditionals(character))
+                if (Supports(candidate)) return candidate;
+        char homophone = Homophone(character);
+        if (homophone == '\0' && simple != '\0') homophone = Homophone(simple);
+        if (homophone != '\0' && Supports(homophone)) return homophone;
+        return '\0';
+    }
+
+    private Dictionary<char, char> _homophones;
+
+    private char Homophone(char character)
+    {
+        if (_homophones == null)
+        {
+            _homophones = new Dictionary<char, char>();
+            string path = Path.Combine(ModClass._declare.FolderPath, "Assets", "Fonts", _folder, "Homophones.txt");
+            try
+            {
+                if (File.Exists(path))
+                    foreach (string line in File.ReadAllLines(path, Encoding.UTF8))
+                        if (line.Length >= 3 && line[0] != '#' && line[1] == '\t') _homophones[line[0]] = line[2];
+            }
+            catch (Exception exception)
+            {
+                LogService.LogWarning($"[EmpireCraft] 读取同音换字表失败 {path}: {exception.Message}");
+            }
+        }
+        return _homophones.TryGetValue(character, out char value) ? value : '\0';
+    }
+
     public void Reset()
     {
         if (_font == null) _loaded = false;
@@ -150,23 +198,8 @@ public sealed class BundledFont
                 builder.Append(character);
                 continue;
             }
-            char shown = character;
-            if (Traditional)
-            {
-                // 一简对多繁时取字体里有的第一个；都没有就看原字
-                shown = '\0';
-                foreach (char candidate in BundledTerritoryFonts.Traditionals(character))
-                    if (Supports(candidate)) { shown = candidate; break; }
-                if (shown == '\0' && Supports(character)) shown = character;
-                if (shown == '\0') return false;
-            }
-            else if (!Supports(character))
-            {
-                // 简体字体缺繁体字：换成对应的简体字形(同一款字体整句显示，不掉到兜底字体)
-                char simple = BundledTerritoryFonts.Simplified(character);
-                if (simple == '\0' || !Supports(simple)) return false;
-                shown = simple;
-            }
+            char shown = Pick(character);
+            if (shown == '\0') return false;
             builder.Append(shown);
         }
         adapted = builder.ToString();

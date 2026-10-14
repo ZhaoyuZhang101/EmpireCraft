@@ -8,5 +8,6 @@ SHA-256 `644e0cae9b40f0b10ab729a01bd32032e3973bac22be3dccae01bf6ae7fde969`。
 模组里放的是 `ZhiMangXing.glyphs`：用 Tools/FontBake/bake_seal_glyphs.py 把上面的字体按 128 号字逐字画好的字形包
 （128 号字、16 级灰阶，7012 字：GB2312 简体全收，Big5 常用繁体约六成）。游戏里直接拼这些字形显示，不靠 Unity 读字体文件。
 字体里没有的繁体字，显示前用 OpenCC 的简繁对照表（../OpenCC/STCharacters.txt，反查）换成对应的简体字形，
-所以繁体国号也能整句用这款行书显示。
+所以繁体国号也能整句用这款行书显示；简繁都没有的字按 `Homophones.txt` 换成字体里有的同音字
+(python3 Tools/FontBake/build_homophones.py Assets/Fonts/ZhiMangXing/ZhiMangXing.glyphs Assets/Fonts/ZhiMangXing/Homophones.txt，需要 pypinyin)。
 重新生成：python3 Tools/FontBake/bake_seal_glyphs.py ZhiMangXing-Regular.ttf Assets/Fonts/ZhiMangXing/ZhiMangXing.glyphs 128 16

@@ -6,7 +6,8 @@
 SHA-256 `e8501dc9747190936a222576c9b0b6f918ff335afa5696c3fda3acba1a9574e2`。
 许可：政府资料开放授权条款－第 1 版（Open Government Data License, version 1.0），可免费商用、可再分发，须注明出处。
 
-模组里放的是 `ShuoWen.glyphs`：用 Tools/FontBake/bake_seal_glyphs.py 把上面的字体按 64 号字逐字画好的字形包
-（6729 字，按繁体编码）。游戏里直接拼这些字形显示，不靠 Unity 读字体文件（直接读字体文件在游戏里常常显示成空白）。
-显示前用 OpenCC 的简繁对照表（../OpenCC/STCharacters.txt）把简体名字转成繁体再查字。
-重新生成：python3 Tools/FontBake/bake_seal_glyphs.py 全字庫說文解字.ttf Assets/Fonts/QuanZiKuShuoWen/ShuoWen.glyphs 64
+模组里放的是 `ShuoWen.glyphs`：用 Tools/FontBake/bake_seal_glyphs.py 把上面的字体按 128 号字(铭牌的参考字号，不放大不发糊)、
+16 级灰阶逐字画好的字形包（6729 字，按繁体编码）。游戏里直接拼这些字形显示，不靠 Unity 读字体文件（直接读字体文件在游戏里常常显示成空白）。
+显示前用 OpenCC 的简繁对照表（../OpenCC/STCharacters.txt）简繁互查；简繁都没有的字按 `Homophones.txt` 换成字体里有的同音字。
+重新生成：python3 Tools/FontBake/bake_seal_glyphs.py 全字庫說文解字.ttf Assets/Fonts/QuanZiKuShuoWen/ShuoWen.glyphs 128 16
+同音换字表：python3 Tools/FontBake/build_homophones.py Assets/Fonts/QuanZiKuShuoWen/ShuoWen.glyphs Assets/Fonts/QuanZiKuShuoWen/Homophones.txt(需要 pypinyin)
