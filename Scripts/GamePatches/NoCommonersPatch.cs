@@ -176,6 +176,9 @@ public class NoCommonersPatch : GamePatch
         {
             harmony.Patch(AccessTools.Method(typeof(Kingdom), nameof(Kingdom.countTotalWarriors)),
                 postfix: new HarmonyMethod(typeof(NoCommonersPatch), nameof(AfterCountTotalWarriors)));
+            harmony.Patch(AccessTools.Method(typeof(DiplomacyHelpers), "isWarNeeded"),
+                prefix: new HarmonyMethod(typeof(NoCommonersPatch), nameof(BeforeIsWarNeeded)),
+                finalizer: new HarmonyMethod(typeof(NoCommonersPatch), nameof(AfterIsWarNeeded)));
         }
         catch (Exception exception)
         {
@@ -252,6 +255,26 @@ public class NoCommonersPatch : GamePatch
             EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
         Actor civilian = CityPopulationSystem.SpawnOfficial(__instance);
         if (civilian != null) pActor = civilian;
+    }
+
+    // 小国开战门槛(用户 2026-10-14 要求放宽)：原版要本国士兵超过 10 人(diplomacy_years_war_min_warriors)；
+    // 无小人模式按战时能动员的军团数算(见 WarPotential)，新开局一城之国都城只有 5 个军团，要等人口涨到三千多才过得了，
+    // 几十年不打仗。原版一百来人的村子就有十几个兵、能开战，这里改成都城能出兵(5 个军团起)就够；
+    // 原版其余条件照旧(已在打仗不开新仗、不到四城要住满六成)
+    private const int AbstractMinWarriors = 4;
+
+    public static void BeforeIsWarNeeded(out int __state)
+    {
+        __state = -1;
+        if (!CityPopulationSystem.AbstractPopulationEnabled || SimGlobals.m == null) return;
+        __state = SimGlobals.m.diplomacy_years_war_min_warriors;
+        SimGlobals.m.diplomacy_years_war_min_warriors = Math.Min(__state, AbstractMinWarriors);
+    }
+
+    public static Exception AfterIsWarNeeded(Exception __exception, int __state)
+    {
+        if (__state >= 0 && SimGlobals.m != null) SimGlobals.m.diplomacy_years_war_min_warriors = __state;
+        return __exception;
     }
 
     public static void AfterCountTotalWarriors(Kingdom __instance, ref int __result)
