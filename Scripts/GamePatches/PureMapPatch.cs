@@ -192,6 +192,7 @@ public class PureMapPatch : GamePatch
         __instance.sprRnd.color = color;
         RefreshUrbanSlice();
         UI.Components.RoadOverlay.Update();
+        UI.Components.MapWallOverlay.Update();
         UI.Components.EmperorMarkerRenderer.EnsureHost();
     }
 

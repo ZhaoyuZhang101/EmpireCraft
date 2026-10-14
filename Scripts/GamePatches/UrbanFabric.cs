@@ -468,7 +468,8 @@ public static class UrbanFabric
         {
             (int x, int y) = Point(road, d);
             WorldTile tile = World.world.GetTile(x, y);
-            if (tile?.Type == null || tile.Type.mountains || tile.Type.block || tile.Type.wall) return Mathf.Max(0, d - 1);
+            if (tile?.Type == null || tile.Type.mountains || tile.Type.block || tile.Type.wall || MapWallSystem.Contains(tile))
+                return Mathf.Max(0, d - 1);
         }
         return road.Length;
     }
@@ -477,7 +478,7 @@ public static class UrbanFabric
     {
         WorldTile tile = World.world.GetTile(x, y);
         return tile?.zone != null && tile.zone.city == g.City && !g.Built.Contains(tile.zone.id) && tile.Type != null &&
-               !tile.Type.liquid && !Rough(tile);
+               !tile.Type.liquid && !Rough(tile) && !MapWallSystem.Contains(tile);
     }
 
     // 路上第 d 格：起点后慢慢弯起来

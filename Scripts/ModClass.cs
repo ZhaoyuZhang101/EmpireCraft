@@ -98,6 +98,7 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
         EmpireCraft.Scripts.GeneralSystems.SmoothBorders.FrameTick();
         using (FrameProfiler.Measure("后台·原生植被")) EmpireCraft.Scripts.GeneralSystems.NativeVegetationScheduler.Tick();
         using (FrameProfiler.Measure("后台·纯净地图")) EmpireCraft.Scripts.GeneralSystems.PureMapMode.Tick();
+        EmpireCraft.Scripts.GeneralSystems.MapWallSystem.Tick();
         using (FrameProfiler.Measure("后台·官职清理")) EmpireCraft.Scripts.Regimes.OfficeManager.Tick();
         using (FrameProfiler.Measure("后台·和约割城")) EmpireCraft.Scripts.GeneralSystems.WarGoalSystem.Tick();
         EmpireCraft.Scripts.GeneralSystems.PopulationRuntimeDiagnostics.Tick();

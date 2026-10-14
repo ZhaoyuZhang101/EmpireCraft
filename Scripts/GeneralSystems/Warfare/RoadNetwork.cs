@@ -80,6 +80,15 @@ public static class RoadNetwork
 
     public static void MarkDirty() => _dirty = true;
 
+    // 地形变了(图层城墙转换、还原)：路线全部重算(修了的路照旧保留，只是重新找路)
+    public static void Replan()
+    {
+        Roads.Clear();
+        PlansComplete = false;
+        _nextScan = 0f;
+        _dirty = true;
+    }
+
     // 有路的地块：干道经过的，以及城心
     public static bool IsRoad(TileZone zone) =>
         zone != null && (RoadZones.Contains(zone.id) || zone.city?.data != null && zone.city.getTile()?.zone == zone);
@@ -305,15 +314,16 @@ public static class RoadNetwork
         {
             if (tile?.Type == null) continue;
             total++;
-            if (Mountain(tile) && !tile.Type.wall) mountains++;
+            if (Mountain(tile) && !tile.Type.wall && !MapWallSystem.Contains(tile)) mountains++;
         }
         share = total == 0 ? 0f : mountains / (float)total;
         MountainShares[zone.id] = share;
         return share;
     }
 
-    // 山、高峰、原版城墙(原版的阻挡层)：路不走；丘陵可以。城墙不算进地块的山地占比(一格宽的线，绕过去就行)
-    private static bool Mountain(WorldTile tile) => tile.Type != null && (tile.Type.mountains || tile.Type.block || tile.Type.wall);
+    // 山、高峰、原版城墙与图层城墙(见 MapWallSystem)：路不走；丘陵可以。城墙不算进地块的山地占比(一格宽的线，绕过去就行)
+    private static bool Mountain(WorldTile tile) => tile.Type != null &&
+        (tile.Type.mountains || tile.Type.block || tile.Type.wall || MapWallSystem.Contains(tile));
 
     // 走进这一格的代价：山不走，丘陵加倍，水面是桥，已有的路便宜
     private static float TileStep(WorldTile tile)

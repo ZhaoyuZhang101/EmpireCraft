@@ -39,6 +39,7 @@ public static class DataManager
         InstitutionSystem.ResetWorldState();
         TechnologySystem.ResetWorldState();
         CityPopulationSystem.ResetWorldState();
+        MapWallSystem.ResetWorldState();
         string loadPath = Path.Combine(loadRootPath, EmpireCraftSaveFileName);
         CurrentSaveDataPath = loadPath;
         NormalizeLoadedNameSeparators();
@@ -275,6 +276,7 @@ public static class DataManager
         ModClass.CULTURE_NO_EMPIRE_SINCE = saveData.culture_no_empire_since ?? new Dictionary<string, double>();
         ModClass.FEUDAL_EMPIRE_LINEAGE = saveData.feudal_empire_lineage ?? new Dictionary<string, List<long>>();
         ModClass.MOD_ALLIANCE_IDS = new HashSet<long>(saveData.mod_alliance_ids ?? new List<long>());
+        MapWallSystem.Load(saveData.map_walls);
         if (PlayerConfig.dict.TryGetValue("switch_real_num", out PlayerOptionData realNumOption))
         {
             realNumOption.boolVal = saveData.switch_real_num;
@@ -442,6 +444,7 @@ public static class DataManager
         saveData.culture_no_empire_since = ModClass.CULTURE_NO_EMPIRE_SINCE;
         saveData.feudal_empire_lineage = ModClass.FEUDAL_EMPIRE_LINEAGE;
         saveData.mod_alliance_ids = ModClass.MOD_ALLIANCE_IDS.ToList();
+        saveData.map_walls = MapWallSystem.Save();
         saveData.specificClans = SpecificClanManager._specificClans;
         saveData.switch_real_num = ModClass.REAL_NUM_SWITCH;
         saveData.switch_simple_nameplate = ModClass.SIMPLE_NAMEPLATE_SWITCH;

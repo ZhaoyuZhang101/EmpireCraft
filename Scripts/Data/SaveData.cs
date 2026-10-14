@@ -39,6 +39,8 @@ public class SaveData
     public Dictionary<string, double> culture_no_empire_since = new Dictionary<string, double>();
     public Dictionary<string, List<long>> feudal_empire_lineage = new Dictionary<string, List<long>>();
     public List<long> mod_alliance_ids = new List<long>();
+    // 图层城墙(纯净地图把原版城墙转成的数据，格编号 → 城墙种类，见 MapWallSystem)
+    public Dictionary<int, string> map_walls = new Dictionary<int, string>();
     public bool switch_real_num = false;
     public bool switch_simple_nameplate = false;
     public bool switch_empire_show_alliance = false;
