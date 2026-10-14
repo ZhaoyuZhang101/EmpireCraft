@@ -204,7 +204,9 @@ public static class UnificationSystem
     {
         Rivals.Clear();
         double now = World.world.getCurWorldTime();
-        foreach (Realm realm in Survey())
+        List<Realm> realms = Survey();
+        Diagnose(realms);
+        foreach (Realm realm in realms)
         {
             List<Kingdom> powers = realm.held.Keys.ToList();
             Kingdom unifier = powers.FirstOrDefault(holder => holder.GetOrCreate().unify_since >= 0d && Belongs(holder, realm));
@@ -345,6 +347,26 @@ public static class UnificationSystem
         IEnumerable<Kingdom> members = foe.GetEmpire()?.kingdoms_list?.Where(Alive).ToList() ?? (IEnumerable<Kingdom>)new[] { foe };
         int cities = members.Sum(member => WarGoalSystem.QueueAnnex(member, unifier));
         if (cities > 0) Record(unifier, historyKey, name, unifier.GetKingdomName());
+    }
+
+    // 每年一行诊断(看周期律对不对)：各天下的阶段、前三家占比、统一者第几年；各王朝的年岁、积弊、弊病、正统、开国气象
+    private static void Diagnose(List<Realm> realms)
+    {
+        foreach (Realm realm in realms.OrderByDescending(realm => realm.total).Take(4))
+        {
+            var top = realm.held.OrderByDescending(pair => pair.Value).Take(3)
+                .Select(pair => $"{pair.Key.GetKingdomName()} {pair.Value / (float)realm.total:P0}");
+            Kingdom unifier = realm.held.Keys.FirstOrDefault(holder => holder.GetOrCreate().unify_since >= 0d && Belongs(holder, realm));
+            string phase = unifier != null ? $"统一战争 {unifier.GetKingdomName()} 第{UnifyYears(unifier)}年"
+                : realm.held.Keys.Any(holder => InGrace(holder) && Belongs(holder, realm)) ? "治世(开国气象)" : "乱世/常态";
+            LogService.LogInfo($"[EmpireCraft][天下大势] {realm.line} {realm.total}城 {realm.held.Count}家：{phase}；{string.Join("、", top)}");
+        }
+        var dynasties = World.world.kingdoms.list.Select(kingdom => kingdom?.GetEmpire()).Where(empire => empire != null &&
+                !empire.isRekt() && !empire.IsArchived() && empire.data != null).Distinct()
+            .Select(empire => $"{empire.GetEmpireName()} {DynasticCycleSystem.GetAge(empire)}年 积弊{DynasticCycleSystem.GetPressure(empire):0} " +
+                              $"弊病{MaladySystem.Average(empire):0} 正统{empire.Legitimacy}{(empire.InFoundingGrace ? " 开国气象" : "")}")
+            .ToList();
+        if (dynasties.Count > 0) LogService.LogInfo($"[EmpireCraft][王朝周期] {string.Join("；", dynasties)}");
     }
 
     private static void Record(Kingdom kingdom, string key, params object[] args)
