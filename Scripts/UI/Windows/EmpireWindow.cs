@@ -271,8 +271,9 @@ namespace EmpireCraft.Scripts.UI.Windows
                 }
                 else
                 {
-                    string role = LM.Get(_empire.data.powerful_minister_is_empress_dowager
-                        ? "empress_dowager_title" : "powerful_minister_title");
+                    // 太后、后宫干政(女子掌权)、权臣
+                    string role = LM.Get(_empire.data.powerful_minister_is_empress_dowager ? "empress_dowager_title"
+                        : _empire.IsHaremPower(_empire.GetPowerfulMinister()) ? "harem_power_title" : "powerful_minister_title");
                     string status = _empire.GetPowerfulMinisterStatusText();
                     if (!string.IsNullOrWhiteSpace(status)) role += " · " + status;
                     if (AddPersonRow(people, _empire.GetPowerfulMinister(), role, "#FF8C1A")) peopleRows++;

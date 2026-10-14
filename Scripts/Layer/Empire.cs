@@ -3480,17 +3480,46 @@ public class Empire : MetaObject<EmpireData>
             .ThenBy(child => child.id).FirstOrDefault();
     }
 
+    // 后宫干政(用户 2026-10-15："为什么会存在妃子篡位""她们无法篡位，唯一能做的就是废立皇帝")：
+    // 掌权的是女子(皇后、妃嫔、太后)。华夏一系里她们不能封公、加九锡、篡位，权势到顶只能废立——
+    // 废掉当今皇帝，另立皇族的人(先立亲子，没有就挑宗室里的成年男子)
+    public bool IsHaremPower(Actor actor) => actor?.data != null && actor.isSexFemale();
+
+    private bool HaremBarred(Actor actor)
+    {
+        if (!IsHaremPower(actor) || CoreKingdom == null) return false;
+        try
+        {
+            return InstitutionSystem.GetCultureLine(CultureService.GetRealmCulture(CoreKingdom)) == "Huaxia";
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    // 废立另立的人：先亲子，没有就挑宗室里年长的成年男子(不是当今皇帝)
+    private Actor GetDepositionHeir(Actor actor)
+    {
+        Actor son = GetEmpressDowagerPreferredSon(actor);
+        if (son != null || !HaremBarred(actor)) return son;
+        return getUnits().Where(unit => unit != null && !unit.isRekt() && unit.isAlive() && unit.isSexMale() && unit.isAdult() &&
+                                        unit.id != (Emperor?.id ?? -1L) && unit.kingdom?.GetEmpire() == this &&
+                                        SpecificClanManager.SameLineage(unit.GetSpecificClan(), EmpireSpecificClan))
+            .OrderByDescending(unit => unit.getAge()).ThenBy(unit => unit.id).FirstOrDefault();
+    }
+
     public bool CanEmpressDowagerInstallSon(Actor actor)
     {
-        return data.powerful_minister_is_former_empress && IsEmpressDowager(actor) &&
+        return (data.powerful_minister_is_former_empress && IsEmpressDowager(actor) || HaremBarred(actor)) &&
             data.powerful_minister_stage == PowerfulMinisterStageDominant &&
-            CanAdvanceMinisterPlot(actor) && GetEmpressDowagerPreferredSon(actor) != null;
+            CanAdvanceMinisterPlot(actor) && GetDepositionHeir(actor) != null;
     }
 
     public bool CompleteEmpressDowagerInstallSon(Actor dowager)
     {
         if (!CanEmpressDowagerInstallSon(dowager)) return false;
-        Actor son = GetEmpressDowagerPreferredSon(dowager);
+        Actor son = GetDepositionHeir(dowager);
         Actor deposedEmperor = Emperor;
         Kingdom coreKingdom = CoreKingdom;
         City capital = coreKingdom?.capital;
@@ -3525,7 +3554,7 @@ public class Empire : MetaObject<EmpireData>
 
     public bool CanPowerfulMinisterSeekDukedom(Actor actor)
     {
-        return !data.powerful_minister_is_former_empress && CanAdvanceMinisterPlot(actor) &&
+        return !data.powerful_minister_is_former_empress && !HaremBarred(actor) && CanAdvanceMinisterPlot(actor) &&
             data.powerful_minister_stage == PowerfulMinisterStageDominant && !actor.HasVirtualEnfeoff(this) &&
             FindMinisterDukedomTarget() != null;
     }
@@ -3611,7 +3640,7 @@ public class Empire : MetaObject<EmpireData>
 
     public bool CanPowerfulMinisterReceiveNineBestowments(Actor actor)
     {
-        return !data.powerful_minister_is_former_empress && CanAdvanceMinisterPlot(actor) &&
+        return !data.powerful_minister_is_former_empress && !HaremBarred(actor) && CanAdvanceMinisterPlot(actor) &&
             data.powerful_minister_stage == PowerfulMinisterStageDuke &&
             actor.HasVirtualEnfeoff(this) && actor.GetOrCreate().virtual_enfeoff_title_id == data.powerful_minister_title_id;
     }
@@ -3645,7 +3674,7 @@ public class Empire : MetaObject<EmpireData>
     {
         // 开国气象(统一战争期间、统一后三十年)权臣不篡位(见 UnificationSystem)
         if (EmpireCraft.Scripts.GeneralSystems.UnificationSystem.InGrace(CoreKingdom)) return false;
-        if (data.powerful_minister_is_former_empress || !CanAdvanceMinisterPlot(actor) ||
+        if (data.powerful_minister_is_former_empress || HaremBarred(actor) || !CanAdvanceMinisterPlot(actor) ||
             data.powerful_minister_stage != PowerfulMinisterStageKing ||
             data.powerful_minister_title_id <= 0) return false;
         return actor.HasVirtualEnfeoff(this) &&
