@@ -33,6 +33,9 @@ public class DynastyLineageWindow : AbstractWideWindow<DynastyLineageWindow>
     private const int AncestorsAboveFounder = 3;
     private static readonly Vector2 NodeHalf = new(NodeWidth / 2f, NodeHeight / 2f);
     private static readonly Color EdgeColor = new(0.78f, 0.74f, 0.62f, 1f);
+    // 继位线：前后两代君主查不到血缘(外姓入继、篡位、族谱缺人)时也连起来，淡一些
+    private static readonly Color SuccessionColor = new(0.78f, 0.74f, 0.62f, 0.35f);
+    private readonly List<(Node from, Node to)> _succession = new();
 
     private static Empire _pendingEmpire;
     private Empire _empire;
@@ -155,6 +158,7 @@ public class DynastyLineageWindow : AbstractWideWindow<DynastyLineageWindow>
         }
         var nodes = new Dictionary<long, Node>();
         var loose = new List<Node>();
+        var reignNodes = new List<Node>();
         PersonalClanIdentity previous = null;
         for (int i = 0; i < reigns.Count; i++)
         {
@@ -165,16 +169,19 @@ public class DynastyLineageWindow : AbstractWideWindow<DynastyLineageWindow>
             previous = identity;
             if (identity == null)
             {
-                loose.Add(new Node { history = history, reign = i, relation = relation });
+                var looseNode = new Node { history = history, reign = i, relation = relation };
+                loose.Add(looseNode);
+                reignNodes.Add(looseNode);
                 continue;
             }
             Node node = Get(nodes, identity);
             if (node.history == null) { node.history = history; node.reign = i; node.relation = relation; }
-            // 沿父系往上，接上已画的人为止
+            reignNodes.Add(node);
+            // 沿帝系往上(一般是父亲；母亲是已画的君主、或与本人同宗时接母亲)，接上已画的人为止
             Node child = node;
-            for (int step = 0; step < 40 && child.parent == null && child.identity.father > 0; step++)
+            for (int step = 0; step < 40 && child.parent == null; step++)
             {
-                PersonalClanIdentity father = SpecificClanManager.getPerson(child.identity.father);
+                PersonalClanIdentity father = LineageParent(child.identity, nodes);
                 if (father == null) break;
                 bool existed = nodes.ContainsKey(father.id);
                 Node parent = Get(nodes, father);
@@ -199,7 +206,31 @@ public class DynastyLineageWindow : AbstractWideWindow<DynastyLineageWindow>
         }
         roots = roots.Distinct().Where(root => Contains(root, node => node.history != null)).OrderBy(MinReign).ToList();
         foreach (Node node in loose) roots.Add(node);
+        // 前后两代君主不在同一棵树上(查不到血缘)：画一条继位线，继位顺序一路追得下去
+        _succession.Clear();
+        for (int i = 1; i < reignNodes.Count; i++)
+            if (RootOf(reignNodes[i - 1]) != RootOf(reignNodes[i])) _succession.Add((reignNodes[i - 1], reignNodes[i]));
         Layout(roots);
+    }
+
+    private static Node RootOf(Node node)
+    {
+        for (int guard = 0; guard < 200 && node?.parent != null; guard++) node = node.parent;
+        return node;
+    }
+
+    // 帝系那一边的父母：一般是父亲；母亲是已画在树上的君主(父亲不是)，或与本人同宗而父亲不同宗时接母亲
+    // (允许女主的文化里女君所生的子女是皇族，以前沿父亲接到配偶身上，与先帝断开)
+    private static PersonalClanIdentity LineageParent(PersonalClanIdentity person, Dictionary<long, Node> nodes)
+    {
+        PersonalClanIdentity father = person.father > 0 ? SpecificClanManager.getPerson(person.father) : null;
+        PersonalClanIdentity mother = person.mother > 0 ? SpecificClanManager.getPerson(person.mother) : null;
+        if (mother == null) return father;
+        if (father == null) return null;
+        bool motherDrawn = nodes.ContainsKey(mother.id), fatherDrawn = nodes.ContainsKey(father.id);
+        if (motherDrawn != fatherDrawn) return motherDrawn ? mother : father;
+        return mother.specific_clan_id == person.specific_clan_id && father.specific_clan_id != person.specific_clan_id
+            ? mother : father;
     }
 
     private static Node Get(Dictionary<long, Node> nodes, PersonalClanIdentity identity)
@@ -249,6 +280,8 @@ public class DynastyLineageWindow : AbstractWideWindow<DynastyLineageWindow>
             height / 2f - NodeHeight / 2f - node.depth * (NodeHeight + RowGap));
         foreach (Node node in all)
             if (node.parent != null) _graph.CreateElbow(Position(node.parent), Position(node), NodeHalf, EdgeColor, 1.5f);
+        foreach ((Node from, Node to) in _succession)
+            if (all.Contains(from) && all.Contains(to)) _graph.CreateElbow(Position(from), Position(to), NodeHalf, SuccessionColor, 1f);
         foreach (Node node in all) DrawNode(node, Position(node));
         Vector2 content = new(width + NodeWidth, height + NodeHeight);
         float scale = Mathf.Clamp(Mathf.Min(PanelWidth / content.x, 1f), 0.35f, 1f);

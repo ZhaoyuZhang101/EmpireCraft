@@ -53,6 +53,8 @@ public static class VirtualGenealogySystem
             if (RepairBirthday(person)) repaired++;
         }
         if (repaired > 0) LogService.LogInfo($"[EmpireCraft][虚拟族谱] 校正生日 {repaired} 人(成年落地的人以前把落地日记成生日)");
+        int surnames = SurnameInheritanceSystem.RepairPatrilineal(SpecificClanManager._globalPersonLookup.Values);
+        if (surnames > 0) LogService.LogInfo($"[EmpireCraft][虚拟族谱] 华夏宗族随错姓的改回父姓 {surnames} 人");
     }
 
     // 读档校正旧存档的生日：成年落地的人以前把落地日记成生日(见 ActorExtension.TrueBirthTime)，族谱上父母只比子女大

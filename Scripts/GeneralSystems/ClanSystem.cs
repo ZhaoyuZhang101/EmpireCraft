@@ -289,7 +289,8 @@ public class SpecificClan
 
     [JsonIgnore] private bool? _patrilineal;
 
-    private bool Patrilineal()
+    // 华夏一系宗法父系(见 isMalePriority、SurnameInheritanceSystem)
+    public bool Patrilineal()
     {
         if (_patrilineal.HasValue) return _patrilineal.Value;
         string culture = SpecificClanManager.getPerson(founder)?.culture;
