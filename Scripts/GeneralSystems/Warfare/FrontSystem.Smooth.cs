@@ -229,6 +229,7 @@ public static partial class FrontSystem
         {
             Kingdom occupier = city.GetTileZoneOccupier(zone);
             if (occupier != null) city.RemoveOccupiedTileZone(occupier, zone);
+            SmoothBorders.Settle(zone);
         }
         else
         {
@@ -245,6 +246,7 @@ public static partial class FrontSystem
             Kingdom current = city.GetTileZoneOccupier(zone);
             if (current != null && current != owner) city.RemoveOccupiedTileZone(current, zone);
             city.AddOccupiedTileZone(occupier, zone, landing: true);
+            SmoothBorders.Settle(zone);
             SweepImpassable(city, side, owner);
             if (city.kingdom != owner)
             {

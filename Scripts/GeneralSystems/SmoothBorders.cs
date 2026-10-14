@@ -41,6 +41,9 @@ public static class SmoothBorders
         if (on == Enabled) return;
         Enabled = on;
         LastMeta.Clear();
+        Shown.Clear();
+        PendingSweep.Clear();
+        RevealAt.Clear();
         World.world?.zone_calculator?.dirtyAndClear();
     }
 
@@ -81,7 +84,7 @@ public static class SmoothBorders
     }
 
     // 实际控制方：国家、帝国图层上被敌军占着的地算占领方的
-    private static IMetaObject MetaOf(MetaTypeAsset layer, int option, TileZone zone)
+    private static IMetaObject RealMetaOf(MetaTypeAsset layer, int option, TileZone zone)
     {
         IMetaObject meta = LayerMeta(layer, option, zone);
         if (!ControlLayer(layer) || zone?.city?.kingdom == null) return meta;
@@ -111,7 +114,7 @@ public static class SmoothBorders
             int index = (dy + 2) * 5 + dx + 2;
             TileZone zone = calc.getZone(_cx + dx, _cy + dy);
             Zones[index] = zone;
-            Metas[index] = MetaOf(layer, option, zone);
+            Metas[index] = MetaOf(layer, option, zone, out ShownColors[index]);
             PushMetas[index] = PushMetaOf(layer, zone);
         }
         return true;
@@ -235,6 +238,7 @@ public static class SmoothBorders
     // 每帧(ModClass.Update)：上一帧以来没有高亮调用就熄灭
     public static void FrameTick()
     {
+        SweepTick();
         int frame = Time.frameCount;
         if (_collectFrame == frame || _collectFrame == frame - 1) return;
         if (ActiveZones.Count == 0 && CollectZones.Count == 0) return;
@@ -355,7 +359,11 @@ public static class SmoothBorders
             _outline[id] = edge;
             _owner[id] = owner;
             Color32 colorInside = inside, colorOutside = outside;
-            if (!ReferenceEquals(owner, native)) ColorsOf(owner, clearInside, ref colorInside, ref colorOutside);
+            // 这格所在的块还在换色渐变里(显示旧的归属或旧颜色)：归这块的格子照旧颜色画
+            int shownIndex = (Mathf.FloorToInt((float)y / ZoneSize) - _cy + 2) * 5 + Mathf.FloorToInt((float)x / ZoneSize) - _cx + 2;
+            ColorAsset shownColor = shownIndex is >= 0 and < 25 && ReferenceEquals(owner, Metas[shownIndex]) ? ShownColors[shownIndex] : null;
+            if (shownColor != null) ColorsFrom(shownColor, clearInside, ref colorInside, ref colorOutside);
+            else if (!ReferenceEquals(owner, native)) ColorsOf(owner, clearInside, ref colorInside, ref colorOutside);
             Color32 color = edge ? colorOutside : colorInside;
             if (owner == null && !foreign) color = new Color32(0, 0, 0, 0);
             // 战线：边框紧挨着交战敌国的领土
@@ -423,6 +431,207 @@ public static class SmoothBorders
         if (changed) calc.setDirty();
     }
 
+    #region 换色渐变
+
+    // 一片地一下子换了主(归降、被占、并入帝国、成了附庸换了颜色)：不一次全变，先照旧显示，
+    // 再从新主人那边(入侵方向、宗主方向；接不上就从都城)一块一块变过去，每往里一块晚 SweepStep 秒；
+    // 重画也就分散到这几秒里，不挤在一帧。逐格推进吃下的地(FrontSystem.Smooth)本身就是渐变，不再排队
+    private const float SweepStep = 0.12f, SweepJitter = 0.06f, MaxSweepSeconds = 4f;
+
+    private sealed class ShownState
+    {
+        public IMetaObject meta;
+        public ColorAsset color;
+        public int colorKey;
+    }
+
+    private static readonly ColorAsset[] ShownColors = new ColorAsset[25];
+    private static readonly Dictionary<int, ShownState> Shown = new();
+    private static readonly HashSet<int> PendingSweep = new();
+    private static readonly Dictionary<int, float> RevealAt = new();
+    private static MetaTypeAsset _sweepLayer;
+    private static int _sweepOption = int.MinValue;
+
+    private static int ColorKey(ColorAsset color)
+    {
+        if (color == null) return 0;
+        Color32 a = color.getColorBorderInsideAlpha32(), b = color.getColorMainSecond32();
+        unchecked
+        {
+            return ((a.r << 24) | (a.g << 16) | (a.b << 8) | a.a) * 31 + ((b.r << 24) | (b.g << 16) | (b.b << 8) | b.a);
+        }
+    }
+
+    // 显示中的归属：变了的块先照旧(shownColor 是要用的旧颜色，没在渐变里为 null)
+    private static IMetaObject MetaOf(MetaTypeAsset layer, int option, TileZone zone, out ColorAsset shownColor)
+    {
+        shownColor = null;
+        IMetaObject real = RealMetaOf(layer, option, zone);
+        if (zone == null || !Enabled) return real;
+        if (!ReferenceEquals(layer, _sweepLayer) || option != _sweepOption)
+        {
+            // 换了图层：重新记，不做渐变
+            _sweepLayer = layer;
+            _sweepOption = option;
+            Shown.Clear();
+            PendingSweep.Clear();
+            RevealAt.Clear();
+        }
+        ColorAsset realColor = SafeColor(real);
+        int realKey = ColorKey(realColor);
+        if (!Shown.TryGetValue(zone.id, out ShownState shown))
+        {
+            Shown[zone.id] = new ShownState { meta = real, color = realColor, colorKey = realKey };
+            return real;
+        }
+        if (ReferenceEquals(shown.meta, real) && shown.colorKey == realKey)
+        {
+            PendingSweep.Remove(zone.id);
+            RevealAt.Remove(zone.id);
+            return real;
+        }
+        if (!RevealAt.ContainsKey(zone.id)) PendingSweep.Add(zone.id);
+        shownColor = shown.color;
+        return shown.meta;
+    }
+
+    // 逐格推进吃下的块：推进本身已经是渐变，换主时直接显示
+    public static void Settle(TileZone zone)
+    {
+        if (zone == null) return;
+        Shown.Remove(zone.id);
+        PendingSweep.Remove(zone.id);
+        RevealAt.Remove(zone.id);
+    }
+
+    // 每帧：给新变的块排好变色时间；到点的块换成新主人并重画(连同四周)
+    private static void SweepTick()
+    {
+        if (!Enabled || World.world?.zone_calculator == null) return;
+        if (PendingSweep.Count > 0) PlanSweeps();
+        if (RevealAt.Count == 0) return;
+        float now = Time.unscaledTime;
+        List<int> due = null;
+        foreach (KeyValuePair<int, float> pair in RevealAt)
+            if (pair.Value <= now) (due ??= new List<int>()).Add(pair.Key);
+        if (due == null) return;
+        ZoneCalculator calc = World.world.zone_calculator;
+        foreach (int id in due)
+        {
+            RevealAt.Remove(id);
+            Shown.Remove(id);
+            TileZone zone = calc.getZoneByID(id);
+            if (zone == null) continue;
+            for (int dy = -1; dy <= 1; dy++)
+            for (int dx = -1; dx <= 1; dx++)
+                calc.getZone(zone.x + dx, zone.y + dy)?.resetRenderHelpers();
+        }
+    }
+
+    private static void PlanSweeps()
+    {
+        ZoneCalculator calc = World.world.zone_calculator;
+        MetaTypeAsset layer = _sweepLayer;
+        if (layer == null)
+        {
+            PendingSweep.Clear();
+            return;
+        }
+        // 按变成谁(新主人、新颜色)分组，各组从挨着新主人的块起一圈圈往里排
+        var groups = new Dictionary<(IMetaObject meta, int color), List<TileZone>>();
+        foreach (int id in PendingSweep)
+        {
+            TileZone zone = calc.getZoneByID(id);
+            if (zone == null) continue;
+            IMetaObject real = RealMetaOf(layer, _sweepOption, zone);
+            var key = (real, ColorKey(SafeColor(real)));
+            if (!groups.TryGetValue(key, out List<TileZone> list)) groups[key] = list = new List<TileZone>();
+            list.Add(zone);
+        }
+        PendingSweep.Clear();
+        float now = Time.unscaledTime;
+        foreach (KeyValuePair<(IMetaObject meta, int color), List<TileZone>> group in groups)
+        {
+            List<TileZone> zones = group.Value;
+            var members = new HashSet<int>(zones.Select(zone => zone.id));
+            var distance = new Dictionary<int, int>();
+            var queue = new Queue<TileZone>();
+            // 起点：挨着已经显示成新主人(同色)的块；没有就挨着新主人的宗主、同一帝国的块；再没有就是离都城最近的块
+            foreach (TileZone zone in zones)
+                if (Touches(calc, zone, members, shown => ReferenceEquals(shown.meta, group.Key.meta) && shown.colorKey == group.Key.color))
+                {
+                    distance[zone.id] = 0;
+                    queue.Enqueue(zone);
+                }
+            if (queue.Count == 0)
+                foreach (TileZone zone in zones)
+                    if (Touches(calc, zone, members, shown => Related(shown.meta, group.Key.meta)))
+                    {
+                        distance[zone.id] = 0;
+                        queue.Enqueue(zone);
+                    }
+            if (queue.Count == 0)
+            {
+                TileZone seat = SeatOf(group.Key.meta);
+                TileZone start = seat == null ? zones[0]
+                    : zones.OrderBy(zone => (zone.x - seat.x) * (zone.x - seat.x) + (zone.y - seat.y) * (zone.y - seat.y)).First();
+                distance[start.id] = 0;
+                queue.Enqueue(start);
+            }
+            while (queue.Count > 0)
+            {
+                TileZone zone = queue.Dequeue();
+                int next = distance[zone.id] + 1;
+                foreach ((int dx, int dy) in new[] { (1, 0), (-1, 0), (0, 1), (0, -1) })
+                {
+                    TileZone neighbour = calc.getZone(zone.x + dx, zone.y + dy);
+                    if (neighbour == null || !members.Contains(neighbour.id) || distance.ContainsKey(neighbour.id)) continue;
+                    distance[neighbour.id] = next;
+                    queue.Enqueue(neighbour);
+                }
+            }
+            int farthest = distance.Count == 0 ? 0 : distance.Values.Max();
+            float step = farthest <= 0 ? SweepStep : Mathf.Min(SweepStep, MaxSweepSeconds / farthest);
+            foreach (TileZone zone in zones)
+            {
+                int d = distance.TryGetValue(zone.id, out int value) ? value : farthest + 1;
+                RevealAt[zone.id] = now + d * step + UnityEngine.Random.value * SweepJitter;
+            }
+        }
+    }
+
+    private static bool Touches(ZoneCalculator calc, TileZone zone, HashSet<int> members, Func<ShownState, bool> test)
+    {
+        for (int dy = -1; dy <= 1; dy++)
+        for (int dx = -1; dx <= 1; dx++)
+        {
+            if (dx == 0 && dy == 0) continue;
+            TileZone neighbour = calc.getZone(zone.x + dx, zone.y + dy);
+            if (neighbour == null || members.Contains(neighbour.id) || !Shown.TryGetValue(neighbour.id, out ShownState shown)) continue;
+            if (test(shown)) return true;
+        }
+        return false;
+    }
+
+    // 宗主、附庸、同一帝国
+    private static bool Related(IMetaObject shown, IMetaObject target)
+    {
+        if (shown == null || target == null) return false;
+        Kingdom a = shown as Kingdom ?? (shown as Empire)?.CoreKingdom, b = target as Kingdom ?? (target as Empire)?.CoreKingdom;
+        if (a == null || b == null || a.isRekt() || b.isRekt()) return false;
+        if (FeudalVassalService.GetOverlord(b) == a || FeudalVassalService.GetOverlord(a) == b) return true;
+        Empire empire = a.GetEmpire();
+        return empire != null && empire == b.GetEmpire();
+    }
+
+    private static TileZone SeatOf(IMetaObject meta)
+    {
+        Kingdom kingdom = meta as Kingdom ?? (meta as Empire)?.CoreKingdom;
+        return kingdom?.capital?.getTile()?.zone;
+    }
+
+    #endregion
+
     #region 上色缓存
 
     // 帝国图层上悬停帝国里的成员国时，它的地块换成本国颜色、移开又换回帝国颜色；平滑国界下邻块跟着变，
@@ -473,6 +682,7 @@ public static class SmoothBorders
                 IMetaObject meta = Metas[i];
                 Add(meta == null ? 0 : global::System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(meta));
                 Add(ColorIndex(meta));
+                Add(ShownColors[i] == null ? 0 : ColorKey(ShownColors[i]));
                 // 帝国金边看各国属于哪个帝国
                 if (meta is Kingdom kingdom) Add(kingdom.GetEmpireID());
             }
@@ -607,15 +817,24 @@ public static class SmoothBorders
             inside = outside = new Color32(0, 0, 0, 0);
             return;
         }
-        ColorAsset color;
+        ColorsFrom(SafeColor(owner), clearInside, ref inside, ref outside);
+    }
+
+    private static ColorAsset SafeColor(IMetaObject meta)
+    {
+        if (meta == null) return null;
         try
         {
-            color = CustomColorSystem.Of(owner) ?? owner.getColor();
+            return CustomColorSystem.Of(meta) ?? meta.getColor();
         }
         catch
         {
-            color = null;
+            return null;
         }
+    }
+
+    private static void ColorsFrom(ColorAsset color, bool clearInside, ref Color32 inside, ref Color32 outside)
+    {
         if (color == null) return;
         inside = clearInside ? new Color32(0, 0, 0, 0) : color.getColorBorderInsideAlpha32();
         outside = color.getColorMainSecond32();
