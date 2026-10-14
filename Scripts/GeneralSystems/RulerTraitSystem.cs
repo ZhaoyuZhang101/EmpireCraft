@@ -90,6 +90,9 @@ public static class RulerTraitSystem
     // 开国雄主或中兴雄主(享有开国雄主全部特性)是否在位(kingdom 为帝国的任一成员国均可)
     public static bool FounderReigns(Kingdom kingdom) => ReignedBy(kingdom, Founder) || ReignedBy(kingdom, GreatRestorer);
 
+    // 开国或中兴之君在位(开国雄主、中兴雄主、中兴之主)：正统高时打一般国家推进加快(见 FrontSystem.PushFactor)
+    public static bool HeroicReign(Kingdom kingdom) => FounderReigns(kingdom) || ReignedBy(kingdom, Restorer);
+
     // 在位雄主的称号(开国雄主 / 中兴雄主)，史书措辞用
     public static string FounderTitle(Actor ruler) =>
         NeoModLoader.General.LM.Get(ruler != null && ruler.hasTrait(GreatRestorer) && !ruler.hasTrait(Founder)

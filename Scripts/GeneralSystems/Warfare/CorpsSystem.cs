@@ -271,6 +271,10 @@ public static class CorpsSystem
     public static float InsurgentFactor(CorpsData corps) =>
         corps != null && Insurgent(World.world?.kingdoms?.get(corps.kingdom_id)) ? InsurgentPower : 1f;
 
+    // 军饷发足了(欠饷不到一成半)
+    public static bool WellPaid(Kingdom kingdom) =>
+        kingdom?.data != null && !kingdom.isRekt() && kingdom.GetOrCreate().corps_pay_shortfall < UnpaidShortfall;
+
     // 打不起仗，不主动开战(含军阀联合另立政府)：军饷欠发；或没有野战军算不出欠饷的(多是小军阀)，
     // 国库不到安全储备的四分之一、经常收支还在亏
     public static bool CannotFundWar(Kingdom kingdom)

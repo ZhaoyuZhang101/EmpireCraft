@@ -597,8 +597,9 @@ public static partial class FrontSystem
         }
         else if (ratio >= 0.55f)
         {
-            // 开国雄主一月可下两块地
-            int zones = Mathf.Min(ground.MaxAdvance, RulerTraitSystem.FounderReigns(attacker) ? 2 : 1);
+            // 开国雄主、正统高的帝国打一般国家，一月可多下几块地(见 PushFactor)
+            float pace = PushFactor(attacker, owner);
+            int zones = Mathf.Min(ground.MaxAdvance, Mathf.FloorToInt(pace) + (UnityEngine.Random.value < pace - Mathf.Floor(pace) ? 1 : 0));
             taken = Advance(city, attacker, zones, standing, landing,
                 attackers.Where(entry => entry.kingdom == attacker).Select(entry => entry.corps).ToList());
             if (city.kingdom != owner)
@@ -620,6 +621,20 @@ public static partial class FrontSystem
     }
 
     // 攻方下一块要推进的地(与 Advance 的挑法一致)：交战地形按它
+    // 推进加速：开国雄主(含中兴雄主) ×2；开国、中兴之君在位的帝国(核心或成员)打不属于任何帝国的一般国家，
+    // 正统越高推得越快——正统 50 起算，100 时三倍，前提是军饷发足(欠饷一成半以上不算)。两者取大，最快三倍
+    private const float ImperialPushMax = 3f, ImperialPushFloor = 50f;
+
+    private static float PushFactor(Kingdom side, Kingdom opponent)
+    {
+        float factor = RulerTraitSystem.FounderReigns(side) ? 2f : 1f;
+        EmpireCraft.Scripts.Layer.Empire empire = side?.GetEmpire();
+        if (empire == null || empire.isRekt() || empire.IsArchived() || opponent?.data == null || opponent.isRekt() ||
+            opponent.IsInEmpire() || !RulerTraitSystem.HeroicReign(side) || !CorpsSystem.WellPaid(side)) return factor;
+        float rise = Mathf.Clamp01((empire.Legitimacy - ImperialPushFloor) / (100f - ImperialPushFloor));
+        return Mathf.Max(factor, 1f + (ImperialPushMax - 1f) * rise);
+    }
+
     private static TileZone FrontZone(City city, Kingdom attacker, bool landing)
     {
         List<TileZone> targets = TargetZones(attacker, city);

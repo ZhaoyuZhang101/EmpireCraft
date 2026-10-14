@@ -204,8 +204,9 @@ public static partial class FrontSystem
             Remove(push);
             return;
         }
-        // 开国雄主推进加倍
-        push.Progress += push.Direction * SmoothZonesPerMonth * months * (RulerTraitSystem.FounderReigns(side) ? 2f : 1f);
+        // 开国雄主、正统高的帝国打一般国家推得更快(见 PushFactor)；被推回时按原速
+        float pace = push.Direction > 0 ? PushFactor(side, push.Retake ? Controller(zone) : city.kingdom) : 1f;
+        push.Progress += push.Direction * SmoothZonesPerMonth * months * pace;
         if (push.Progress <= 0f && push.Direction < 0)
         {
             Remove(push);
