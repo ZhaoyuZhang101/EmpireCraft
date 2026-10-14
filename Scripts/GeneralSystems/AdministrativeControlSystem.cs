@@ -17,8 +17,9 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     时代越新管得越远(满控半径 10 + 2×时代 块地，律令制再远一成五，分封、封建近一成)，超出部分每多走半径的两倍降到一成；
 //     陆路不通的飞地按直线距离的 1.4 倍再加 8 块计，最多八成，隔海最多六成五(工业时代起八成)；
 //   · 效果：控制力低的城自然稳定度下降(满控不减，最低扣 20)；
-//     边地易手：两国太平时，交界处没有建筑、没划用途的边地归"控制力×离城心近"更强的一方(要强出两成五，山地要强出六成)，
-//       每国每年每城最多得失 3 块，不把城切成两截；被一座城三面以上围住的无主空地(多是山地)并进这座城；
+//     领土不在这里变动：扩张、边界侵蚀都按原版(侵蚀受原版"边界侵蚀"开关管、只在交战双方之间，见 CityExpansionPatch)。
+//     以前这里的"边地易手"(太平时互相侵蚀)、"被围空地并入"(把山地、隔水的地并进来)不守原版规矩，已删；
+//     旧存档里因此并进来、城心走不到的地块，每座城放回无主一次；
 //     飞地易帜：陆路不通的飞地城(不是都城)控制力不到 0.45 时，每年有概率改投接壤最长的邻国(双方都不在打仗)。
 public static class AdministrativeControlSystem
 {
@@ -28,11 +29,6 @@ public static class AdministrativeControlSystem
     private const float ExclaveCap = 0.8f, OverseasCap = 0.65f, ModernOverseasCap = 0.8f;
     private const float MinControl = 0.1f;
     private const float StabilityPenalty = 20f;
-    private const float PullScale = 6f;
-    private const float DriftMargin = 1.25f, RoughDriftMargin = 1.6f;
-    private const int DriftPerCity = 3;
-    private const int DriftPerPass = 60;
-    private const int HolesPerCity = 4;
     private const float DefectThreshold = 0.45f;
     private const float DefectChance = 0.5f;
 
@@ -95,8 +91,11 @@ public static class AdministrativeControlSystem
                 data.admin_pass_at = World.world.getCurWorldTime();
                 List<City> cities = Cities(realm);
                 Compute(realm, cities);
-                if (!realm.hasEnemies()) Defect(realm, cities);
-                Drift(realm, cities);
+                if (!realm.hasEnemies())
+                {
+                    Defect(realm, cities);
+                    ReleaseUnreachable(cities);
+                }
             }
         }
         catch (Exception error)
@@ -232,97 +231,26 @@ public static class AdministrativeControlSystem
 
     #endregion
 
-    #region 边地易手
+    #region 走不到的地放回无主(读档修正，每城一次)
 
-    private static float Pull(City city, TileZone zone)
+    private static void ReleaseUnreachable(List<City> cities)
     {
-        if (zone.centerTile == null) return 0f;
-        float dx = (zone.centerTile.x - city.city_center.x) / 8f, dy = (zone.centerTile.y - city.city_center.y + 2f) / 8f;
-        return Get(city) / (1f + Mathf.Sqrt(dx * dx + dy * dy) / PullScale);
-    }
-
-    private static void Drift(Kingdom realm, List<City> cities)
-    {
-        var gained = new Dictionary<City, int>();
-        var lost = new Dictionary<City, int>();
-        int moved = 0;
+        int released = 0;
         foreach (City city in cities)
         {
-            if (moved >= DriftPerPass) break;
             if (!Valid(city)) continue;
-            int holes = 0;
-            foreach (TileZone border in city.border_zones.ToList())
+            var data = city.GetOrCreate();
+            if (data.unreachable_released) continue;
+            data.unreachable_released = true;
+            if (city.zones.Count <= 1) continue;
+            foreach (TileZone zone in city.zones.ToList())
             {
-                if (border?.city != city) continue;
-                foreach (TileZone zone in border.neighbours ?? Array.Empty<TileZone>())
-                {
-                    if (zone == null || zone.city == city) continue;
-                    if (zone.city == null)
-                    {
-                        if (holes < HolesPerCity && FillHole(city, zone)) holes++;
-                        continue;
-                    }
-                    gained.TryGetValue(city, out int got);
-                    if (got >= DriftPerCity) break;
-                    City other = zone.city;
-                    lost.TryGetValue(other, out int gone);
-                    if (gone >= DriftPerCity || !CanTake(city, other, zone)) continue;
-                    city.addZone(zone);
-                    if (zone.city != city) continue;
-                    gained[city] = got + 1;
-                    lost[other] = gone + 1;
-                    moved++;
-                }
+                if (!EmpireCraft.Scripts.GamePatches.CityExpansionPatch.Unreachable(city, zone)) continue;
+                city.removeZone(zone);
+                released++;
             }
         }
-    }
-
-    private static bool CanTake(City city, City other, TileZone zone)
-    {
-        if (!Valid(other) || Realm(other.kingdom) == Realm(city.kingdom) ||
-            FrontSystem.Hostile(city.kingdom, other.kingdom)) return false;
-        if (CityExpansionPatchAtLimit(city) || other.zones.Count <= 3 || zone.tiles_with_ground <= 0) return false;
-        if (zone.hasAnyBuildingsInSet(BuildingList.Civs) || CenterZone(other) == zone) return false;
-        if (ZonePlanSystem.Get(other, zone) != ZoneUse.None) return false;
-        if (other.GetTileZoneOccupier(zone) != null || city.GetTileZoneOccupier(zone) != null) return false;
-        float margin = EmpireCraft.Scripts.GamePatches.CityExpansionPatch.Passable(zone) ? DriftMargin : RoughDriftMargin;
-        if (Pull(city, zone) < Pull(other, zone) * margin) return false;
-        return StaysWhole(other, zone);
-    }
-
-    private static bool CityExpansionPatchAtLimit(City city) => EmpireCraft.Scripts.GamePatches.CityExpansionPatch.AtLimit(city);
-
-    // 拿走这块后原城的其余地块仍连成一片
-    private static bool StaysWhole(City city, TileZone removed)
-    {
-        var touching = (removed.neighbours ?? Array.Empty<TileZone>()).Where(zone => zone?.city == city).ToList();
-        if (touching.Count <= 1) return true;
-        var seen = new HashSet<TileZone> { removed, touching[0] };
-        var stack = new Stack<TileZone>();
-        stack.Push(touching[0]);
-        while (stack.Count > 0)
-        {
-            TileZone zone = stack.Pop();
-            foreach (TileZone next in zone.neighbours ?? Array.Empty<TileZone>())
-                if (next != null && next.city == city && seen.Add(next)) stack.Push(next);
-        }
-        return touching.All(seen.Contains);
-    }
-
-    // 被这座城三面以上围住、其余是本国或无主的空地并进来
-    private static bool FillHole(City city, TileZone zone)
-    {
-        if (zone.tiles_with_ground <= 0 || zone.neighbours == null) return false;
-        int own = 0;
-        Kingdom realm = Realm(city.kingdom);
-        foreach (TileZone next in zone.neighbours)
-        {
-            if (next?.city == city) own++;
-            else if (next?.city != null && Realm(next.city.kingdom) != realm) return false;
-        }
-        if (own < 3) return false;
-        city.addZone(zone);
-        return zone.city == city;
+        if (released > 0) LogService.LogInfo($"[EmpireCraft][行政控制力] 放回无主的走不到的地块 {released} 块");
     }
 
     #endregion

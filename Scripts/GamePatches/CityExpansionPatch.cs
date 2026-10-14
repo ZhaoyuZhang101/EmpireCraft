@@ -1,10 +1,15 @@
+using System.Linq;
 using EmpireCraft.Scripts.Compatibility;
+using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GeneralSystems;
 using HarmonyLib;
 using NeoModLoader.api;
 
 namespace EmpireCraft.Scripts.GamePatches;
 
+// 城市扩张守原版的规矩：原版选地(CityZoneGrowth.getZoneToClaim)、能不能领(canBeClaimedByCity：地貌能否定居、
+// 别国的地要开着原版"边界侵蚀"且两国交战)、与本城接壤；原版还要小人走到那块地里去领，走不到(隔水、翻山)就领不到。
+// 模组只加了每城地块上限(模组设置)，以及无小人模式下由虚拟居民代领时按"走得到"核对(见 Reachable)。
 public class CityExpansionPatch : GamePatch
 {
     public ModDeclare declare { get; set; }
@@ -34,22 +39,19 @@ public class CityExpansionPatch : GamePatch
     {
         // 到达目标前再次核对，防止多个扩张者和 expansionists 连续领取越过上限。
         AfterCanGrowZones(__instance, ref __result);
-        // 不跨山越水：大半是山地、水面的区块不领
-        if (__result && !AncientWarfareCompatibility.OwnsObject(__instance) && !Passable(pZone)) __result = false;
     }
 
-    // 区块里至少三成是可住的平地(非山、非水、非障碍)才算能扩张进去
-    public static bool Passable(TileZone zone)
+    // 走得到：原版是小人走到那块地里去领(BehActorCheckZoneTarget 在区块里找一格与自己同岛的地)，
+    // 山地是阻挡层、水面是液体层，都不在地面单位的"岛"里，所以隔水、翻山的地原版领不到。
+    // 无小人模式没有人走这一趟，按同一条核对：区块里至少有一格与城心同岛
+    public static bool Reachable(TileZone zone, City city)
     {
-        if (zone?.tiles == null) return false;
-        int usable = 0, total = 0;
+        WorldTile origin = city?.getTile();
+        if (zone?.tiles == null || origin?.region == null) return false;
+        if (zone.centerTile?.region != null && zone.centerTile.isSameIsland(origin)) return true;
         foreach (WorldTile tile in zone.tiles)
-        {
-            if (tile?.Type == null) continue;
-            total++;
-            if (tile.Type.ground && !tile.Type.mountains && !tile.Type.block && !tile.Type.liquid) usable++;
-        }
-        return total == 0 || usable * 10 >= total * 3;
+            if (tile?.region != null && tile.isSameIsland(origin)) return true;
+        return false;
     }
 
     public static bool BeforeGetZoneToClaim(City pCity, bool pDebug, ref TileZone __result)
@@ -66,13 +68,14 @@ public class CityExpansionPatch : GamePatch
             AncientWarfareCompatibility.OwnsObject(pCity) || !pCity.canGrowZones()) return;
         // 原版随机选中一条受阻边界时，检查本次波搜索已经证明连通的其它区域。
         // 不保存“无法扩张”状态，每次请求都按当前地形重算；不会跨水域/山脉硬抢地。
-        WorldTile origin = pActor?.current_tile ?? pCity.getTile();
+        // 起点用城心(纯净地图里人物到处瞬移，所在格不一定在本城)
+        WorldTile origin = pCity.getTile();
         if (origin == null) return;
         foreach (ZoneConnection connection in __instance._zones_checked)
         {
             TileZone candidate = connection.zone;
             if (candidate == null || candidate.city != null || candidate.tiles_with_ground == 0 ||
-                !candidate.canBeClaimedByCity(pCity) || !Passable(candidate) ||
+                !candidate.canBeClaimedByCity(pCity) ||
                 (pActor?.subspecies != null && !candidate.checkCanSettleInThisBiomes(pActor.subspecies))) continue;
             bool adjacent = false;
             foreach (TileZone neighbour in candidate.neighbours)
@@ -90,23 +93,45 @@ public class CityExpansionPatch : GamePatch
         // 波搜索可能提早停在第一个空区，再尝试原版完整的边界邻接检查。
         TileZone fallback = __instance.getRandomZone(pCity);
         if (fallback?.city == null && fallback?.centerTile != null &&
-            fallback.centerTile.isSameIsland(origin) && Passable(fallback) &&
+            fallback.centerTile.isSameIsland(origin) &&
             (pActor?.subspecies == null || fallback.checkCanSettleInThisBiomes(pActor.subspecies)))
             __result = fallback;
     }
+
+    // 无小人模式：虚拟居民每月替原版的"领地人"领一块地(BehClaimZoneForCityActorBorder)。原版选地照旧，
+    // 再按原版那一趟路核对：走得到(Reachable)、原版的 isZoneToClaimStillGood(能领、地貌能定居、与本城接壤)。
+    // 原版任何居民都能去领，不必等城主在城里(没有城主时按原版 canBeClaimedByCity 与接壤核对)；
+    // 选中的地走不到时再选，至多三次(原版有好几个领地人轮流去)
+    private const int VirtualClaimTries = 3;
 
     public static void GrowVirtualCity(City city)
     {
         if (!CityPopulationSystem.AbstractPopulationEnabled || ModClass.IS_CLEAR ||
             city?.data == null || city.isRekt() || AncientWarfareCompatibility.OwnsObject(city) ||
             !WorldLawLibrary.world_law_kingdom_expansion.isEnabled() || !city.canGrowZones() || AtLimit(city)) return;
-        Actor actor = city.leader;
-        if (actor?.data == null || actor.isRekt() || actor.city != city) return;
+        WorldTile origin = city.getTile();
         CityZoneGrowth growth = World.world?.city_zone_helper?.city_growth;
-        if (growth == null) return;
-        TileZone target = growth.getZoneToClaim(actor, city);
-        if (target?.city != null || target == null || !city.isZoneToClaimStillGood(actor, target, city.getTile())) return;
-        // 此时虚拟居民代表执行原版的领取工作；只领取一块空地，下一月再重算。
-        city.addZone(target);
+        if (origin == null || growth == null) return;
+        Actor actor = city.leader;
+        if (actor?.data == null || actor.isRekt() || !actor.isAlive()) actor = null;
+        for (int attempt = 0; attempt < VirtualClaimTries; attempt++)
+        {
+            TileZone target = growth.getZoneToClaim(actor, city);
+            if (target == null) return;
+            if (target.city == city || !Reachable(target, city)) continue;
+            bool good = actor != null
+                ? city.isZoneToClaimStillGood(actor, target, origin)
+                : target.canBeClaimedByCity(city) && target.neighbours.Any(neighbour => neighbour?.city == city);
+            if (!good) continue;
+            city.addZone(target);
+            return;
+        }
     }
+
+    // 读档修正一次(见 AdministrativeControlSystem.ReleaseUnreachable)：以前模组自己的"被围空地并入""边地易手"
+    // 不守原版规矩，把山地、隔水的地并了进来；这些走不到的地块放回无主。城心、有建筑、划了用途、被占领的不动
+    public static bool Unreachable(City city, TileZone zone) =>
+        zone != null && zone.city == city && !Reachable(zone, city) && zone != city.getTile()?.zone &&
+        !zone.hasAnyBuildingsInSet(BuildingList.Civs) && ZonePlanSystem.Get(city, zone) == ZoneUse.None &&
+        city.GetTileZoneOccupier(zone) == null;
 }
