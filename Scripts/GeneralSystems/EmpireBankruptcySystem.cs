@@ -103,6 +103,8 @@ public static class EmpireBankruptcySystem
         // 新财政逐城评估欠款、稳定恢复和撤军，普通州郡不再随机拆分；
         // 但拥兵的节度使、藩镇照样趁朝廷发不出饷拥兵自立(以前新财政下整段跳过，节度使从来不反)
         bool cityLevel = TreasurySystem.Enabled(core);
+        // 开国气象(统一战争期间、统一后三十年)财政再难也不解体(见 UnificationSystem)
+        if (UnificationSystem.InGrace(core)) return;
         float chance = Mathf.Min(MaxChance, BaseChance + ChancePerYear * years);
         List<Kingdom> rebels = RebellionSnowballSystem.FindRebels(empire, core).ToList();
         List<Kingdom> members = empire.kingdoms_list.Where(kingdom => kingdom != null && !kingdom.isRekt() &&

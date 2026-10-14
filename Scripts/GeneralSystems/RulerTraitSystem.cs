@@ -102,6 +102,8 @@ public static class RulerTraitSystem
     public static bool IsFounderUnificationWar(War war)
     {
         if (war == null || war.hasEnded()) return false;
+        // 天下大势的统一战争同样打到底(见 UnificationSystem)
+        if (UnificationSystem.IsUnificationWar(war)) return true;
         Kingdom attacker = war.getMainAttacker();
         Kingdom defender = war.getMainDefender();
         return IsFounderAgainstLocalRival(attacker, defender) || IsFounderAgainstLocalRival(defender, attacker);

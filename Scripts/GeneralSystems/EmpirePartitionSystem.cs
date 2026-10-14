@@ -59,6 +59,8 @@ public static class EmpirePartitionSystem
     {
         Kingdom core = empire?.CoreKingdom;
         if (core == null || core.isRekt() || core.capital == null || !SuccessionCouncilSystem.Applies(core)) return false;
+        // 开国气象(统一战争期间、统一后三十年)不分治、不分立(见 UnificationSystem)
+        if (UnificationSystem.InGrace(core)) return false;
         if (Twin(empire) != null) return false;
         double since = empire.data.partition_time;
         return since < 0d || Date.getYearsSince(since) >= CooldownYears;
@@ -540,6 +542,7 @@ public static class EmpirePartitionSystem
     {
         if (usurper?.data == null || usurper.isRekt() || usurper.IsArchived() || Twin(usurper) != null) return;
         Kingdom core = usurper.CoreKingdom;
+        if (UnificationSystem.InGrace(core)) return;
         City capital = core?.capital;
         SpecificClan clan = SpecificClanManager.Get(clanId);
         if (capital == null || clan == null || SpecificClanManager.SameLineage(usurper.EmpireSpecificClan, clan)) return;

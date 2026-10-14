@@ -21,8 +21,9 @@ public static class RebellionSystem
     }
 
     // 只在自动起事入口、改动归属之前调用。已拆出的叛军没有原帝国信息，不能据它重新判断。
+    // 统一战争期间、统一天下后三十年(开国气象)不起事(见 UnificationSystem.InGrace)
     public static bool CanAttempt(Kingdom kingdom) => kingdom != null && !kingdom.isRekt() &&
-        GraceYearsRemaining(kingdom) == 0 && !RulerTraitSystem.FounderShield(kingdom);
+        GraceYearsRemaining(kingdom) == 0 && !RulerTraitSystem.FounderShield(kingdom) && !UnificationSystem.InGrace(kingdom);
 
     public static float ChanceFactor(Kingdom kingdom)
     {

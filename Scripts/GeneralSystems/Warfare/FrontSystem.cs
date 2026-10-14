@@ -627,7 +627,8 @@ public static partial class FrontSystem
 
     private static float PushFactor(Kingdom side, Kingdom opponent)
     {
-        float factor = RulerTraitSystem.FounderReigns(side) ? 2f : 1f;
+        // 统一者打天下里的别家：快一半，统一十年后加倍(见 UnificationSystem)
+        float factor = (RulerTraitSystem.FounderReigns(side) ? 2f : 1f) * UnificationSystem.PushFactor(side, opponent);
         EmpireCraft.Scripts.Layer.Empire empire = side?.GetEmpire();
         if (empire == null || empire.isRekt() || empire.IsArchived() || opponent?.data == null || opponent.isRekt() ||
             opponent.IsInEmpire() || !RulerTraitSystem.HeroicReign(side) || !CorpsSystem.WellPaid(side)) return factor;

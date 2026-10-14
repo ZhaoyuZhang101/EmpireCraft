@@ -2429,6 +2429,7 @@ namespace EmpireCraft.Scripts.AI
             {
                 var stopWarContinue = stopWar.check_should_continue;
                 stopWar.check_should_continue = actor => !WarlordEraSystem.IsCivilWar(actor?.plot?.target_war) &&
+                                                         !UnificationSystem.IsUnificationWar(actor?.plot?.target_war) &&
                                                          (stopWarContinue?.Invoke(actor) ?? true);
             }
             PlotAsset vanillaWar = AssetManager.plots_library.get("new_war") ?? PlotsLibrary.new_war;

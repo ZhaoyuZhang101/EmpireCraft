@@ -199,6 +199,7 @@ public class SaveManagerPatch : GamePatch
         EmpireCraft.Scripts.GeneralSystems.ZonePlanSystem.ResetWorldState();
         EmpireCraft.Scripts.GeneralSystems.AnimalHusbandrySystem.ResetWorldState();
         EmpireCraft.Scripts.GeneralSystems.MapWallSystem.ResetWorldState();
+        EmpireCraft.Scripts.GeneralSystems.UnificationSystem.ResetWorldState();
         ModClass.EMPIRE_MANAGER = new EmpireManager();
         ModClass.KINGDOM_TITLE_MANAGER = new KingdomTitleManager();
         ModClass.ALL_HISTORY_DATA = new Dictionary<long, List<EmpireCraftHistory>>();

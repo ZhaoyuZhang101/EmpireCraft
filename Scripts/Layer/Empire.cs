@@ -120,9 +120,11 @@ public class Empire : MetaObject<EmpireData>
     // 免得新帝国刚称帝就被战争、罢工、民怨磨到叛乱门槛以下，永远统一不了；开国雄主在位期间一直有效
     public const int FoundingGraceYears = 10;
 
+    // 统一战争期间、统一天下后三十年同样是开国气象(历史周期律，见 UnificationSystem)
     public bool InFoundingGrace => data != null &&
                                    (data.created_time > 0d && Date.getYearsSince(data.created_time) < FoundingGraceYears ||
-                                    RulerTraitSystem.FounderReigns(CoreKingdom));
+                                    RulerTraitSystem.FounderReigns(CoreKingdom) ||
+                                    EmpireCraft.Scripts.GeneralSystems.UnificationSystem.InGrace(CoreKingdom));
 
     public void AddMandate(int change)
     {
@@ -3641,6 +3643,8 @@ public class Empire : MetaObject<EmpireData>
 
     public bool CanPowerfulMinisterUsurp(Actor actor)
     {
+        // 开国气象(统一战争期间、统一后三十年)权臣不篡位(见 UnificationSystem)
+        if (EmpireCraft.Scripts.GeneralSystems.UnificationSystem.InGrace(CoreKingdom)) return false;
         if (data.powerful_minister_is_former_empress || !CanAdvanceMinisterPlot(actor) ||
             data.powerful_minister_stage != PowerfulMinisterStageKing ||
             data.powerful_minister_title_id <= 0) return false;
@@ -3678,6 +3682,7 @@ public class Empire : MetaObject<EmpireData>
 
     private void ResolveMinisterOpposition(Actor minister, int? influence = null)
     {
+        if (EmpireCraft.Scripts.GeneralSystems.UnificationSystem.InGrace(CoreKingdom)) return;
         int ministerInfluence = influence ?? minister.renown;
         if (!PowerfulMinisterRules.ShouldRiseAgainstMinister(ministerInfluence, 501, true)) return;
         // Snapshot before creating kingdoms: each successful revolt changes empire membership.

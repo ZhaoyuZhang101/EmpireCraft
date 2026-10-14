@@ -542,6 +542,8 @@ public static class FeudalVassalService
         Kingdom lord = GetOverlord(subject);
         double defectedAt = subject?.data == null ? -1d : subject.GetOrCreate().feudal_defected_at;
         if (defectedAt >= 0d && Date.getYearsSince(defectedAt) < DefectorLoyaltyYears) return false;
+        // 开国气象(统一战争期间、统一后三十年)附庸不独立(见 UnificationSystem)
+        if (lord != null && UnificationSystem.InGrace(lord)) return false;
         return lord != null && subject.king != null && subject.king.isAlive() &&
                !subject.getWars().Any(war => war != null && !war.hasEnded()) &&
                GetWarPower(subject, false) > GetWarPower(lord, false, subject);

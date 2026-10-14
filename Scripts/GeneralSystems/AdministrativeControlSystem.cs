@@ -237,7 +237,8 @@ public static class AdministrativeControlSystem
             if (!Valid(city)) continue;
             var data = city.GetOrCreate();
             if (!data.admin_exclave || data.admin_control >= DefectThreshold || city.kingdom.capital == city ||
-                city.kingdom.hasEnemies() || city.GetOrCreate().OccupiedStatus?.Count > 0) continue;
+                city.kingdom.hasEnemies() || city.GetOrCreate().OccupiedStatus?.Count > 0 ||
+                UnificationSystem.InGrace(city.kingdom)) continue;
             if (UnityEngine.Random.value >= (DefectThreshold - data.admin_control) * DefectChance) continue;
             Kingdom receiver = Neighbour(city, realm);
             if (receiver == null) continue;

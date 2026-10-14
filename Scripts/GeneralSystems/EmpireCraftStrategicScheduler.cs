@@ -56,6 +56,7 @@ public static class EmpireCraftStrategicScheduler
         using (FrameProfiler.Measure("皇帝出行")) EmperorTourSystem.Tick();
         using (FrameProfiler.Measure("宗室·生老病死")) RoyalHouseSystem.Tick();
         using (FrameProfiler.Measure("饥荒动荡")) FamineUnrestSystem.Tick();
+        using (FrameProfiler.Measure("天下大势")) UnificationSystem.Tick();
         ExclaveMaintenanceSystem.Tick();
         AdministrativeControlSystem.Tick();
         CityStabilitySystem.Tick();

@@ -497,7 +497,7 @@ public static class CityStabilitySystem
         Empire empire = origin.GetEmpire();
         Kingdom authority = empire?.CoreKingdom ?? origin;
         if (city == authority.capital || origin.hasEnemies() || authority.hasEnemies() ||
-            RebellionSystem.GraceYearsRemaining(origin) > 0) return;
+            RebellionSystem.GraceYearsRemaining(origin) > 0 || UnificationSystem.InGrace(origin)) return;
         if (state.unfunded_months < CityStabilityRules.WithdrawalMonths ||
             state.stability >= CityStabilityRules.RebellionThreshold || state.last_change > 0f) return;
         TreasuryReport fiscal = TreasurySystem.FundingReport(city);

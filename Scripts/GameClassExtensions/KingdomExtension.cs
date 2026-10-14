@@ -375,6 +375,9 @@ public static class KingdomExtension
         // 称帝筹备：所走的正统路线、开始时间、开始时同文化比自己强的国家数(用于判定"被超过")。
         public EmpireFormationRoute empire_formation_route = EmpireFormationRoute.None;
         public double empire_formation_started_timestamp = -1d;
+        // 天下大势(见 UnificationSystem)：开始统一战争的时间、统一完成的时间(-1 没有)
+        public double unify_since = -1d;
+        public double unified_at = -1d;
         public int empire_formation_stronger_rivals = 0;
         // 最近一次称帝失败的时间(十年冷却)与最近一次战败的时间(筹备期间战败即失败)。
         public double empire_formation_failed_timestamp = -1d;
