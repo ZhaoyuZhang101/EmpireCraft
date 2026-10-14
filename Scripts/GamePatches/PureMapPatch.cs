@@ -294,9 +294,13 @@ public class PureMapPatch : GamePatch
         // 平滑国界：被占的地、逐格推进吃下的格子直接按控制方上色(见 SmoothBorders)，这里不再画占领斜纹
         bool smooth = SmoothBorders.Enabled;
         if (smooth) occupied = null;
-        // 选中规划神力时整张图压成近黑、只留一点地形，城区画成浅灰显出城市轮廓，划了用途的区块叠用途色(常亮，不闪)
+        // 规划视图(选中规划神力时，常亮不闪)：整张图压成近黑、只留一点地形；城区平涂浅灰、只留主干道，显出城市轮廓；
+        // 划了用途的区块平涂用途色，与用途不同的邻块之间描一道深色边
         bool grey = ZonePlanSystem.SteadyOverlay;
         Color32? planned = grey && use != ZoneUse.None ? (Color32)ZonePlanSystem.ColorOf(use) : null;
+        bool OtherUse(int dx, int dy) => ZonePlanSystem.Get(city, World.world.zone_calculator.getZone(zone.x + dx, zone.y + dy)) != use;
+        bool outlineLeft = planned != null && OtherUse(-1, 0), outlineRight = planned != null && OtherUse(1, 0);
+        bool outlineDown = planned != null && OtherUse(0, -1), outlineUp = planned != null && OtherUse(0, 1);
         foreach (WorldTile tile in zone.tiles)
         {
             int id = tile?.data?.tile_id ?? -1;
@@ -329,24 +333,28 @@ public class PureMapPatch : GamePatch
                 if (grey) pixels[id] = Dim(pixels[id]);
                 continue;
             }
+            if (grey)
+            {
+                int lx = tile.x - ox, ly = tile.y - oy;
+                if (planned is Color32 tint)
+                    pixels[id] = lx == 0 && outlineLeft || lx == Config.CITY_ZONE_SIZE - 1 && outlineRight ||
+                                 ly == 0 && outlineDown || ly == Config.CITY_ZONE_SIZE - 1 && outlineUp
+                        ? Lerp(tint, new Color32(0, 0, 0, 255), 0.45f) : Lerp(PlanningGround, tint, 0.85f);
+                else if (plan != null && (plan.built.Contains(zone.id) || UrbanFabric.Inside(plan.fabric, tile)))
+                    pixels[id] = UrbanFabric.Primary(plan.fabric, tile) ? PlanningRoad : PlanningCity;
+                else pixels[id] = Dark(tile);
+                continue;
+            }
             // 被敌军占着的地块：涂占领方的颜色，留一道道原主颜色的细斜纹
             if (occupied is Color32 fill && (tile.x + tile.y) % 4 != 0) pixels[id] = fill;
             Color32 shaded = Shade(tile, pixels[id]);
             pixels[id] = Plan(tile, shaded, use, slots, tile.x - ox, tile.y - oy, plan, zone);
-            if (!grey) continue;
-            // 城区：建成的地块，工业化以后连同新城区(见 UrbanFabric.Inside)
-            bool urban = plan != null && (plan.built.Contains(zone.id) || UrbanFabric.Inside(plan.fabric, tile));
-            Color32 basis = urban ? Greyed(pixels[id]) : Dark(tile);
-            pixels[id] = planned is Color32 tint ? Lerp(basis, tint, urban ? 0.55f : 0.7f) : basis;
         }
     }
 
-    // 规划时的底色：城区褪成浅灰(街巷、建筑的明暗仍看得出)；城外近黑、只带一点地形本色与浮雕；国界、城界暗灰细线
-    private static Color32 Greyed(Color32 color)
-    {
-        byte value = (byte)Mathf.Clamp(70f + 0.7f * (color.r * 0.3f + color.g * 0.59f + color.b * 0.11f), 0f, 255f);
-        return new Color32(value, value, value, color.a);
-    }
+    // 规划视图的底色：城外近黑、只带一点地形本色与浮雕；城区浅灰、主干道深灰；国界、城界暗灰细线
+    private static readonly Color32 PlanningGround = new(30, 30, 32, 255), PlanningCity = new(150, 150, 150, 255),
+        PlanningRoad = new(95, 95, 100, 255);
 
     private static Color32 Dark(WorldTile tile)
     {
