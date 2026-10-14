@@ -35,7 +35,7 @@ public class TempFac_对外扩张 : TemporaryFaction
     {
         Empire empire = GetEmpire();
         if (empire == null) return false;
-        if (empire.CoreKingdom?.hasEnemies()??true) return false;
+        if (empire.CoreKingdom == null || GeneralSystems.WarSituation.TooBusyForWar(empire.CoreKingdom)) return false;
         if (GeneralSystems.CorpsSystem.CannotFundWar(empire.CoreKingdom)) return false;   // 发不出军饷不开新仗
         foreach (var kingdom in World.world.kingdoms)
         {
@@ -51,7 +51,7 @@ public class TempFac_对外扩张 : TemporaryFaction
                     if (!kingdom.isInWarWith(empire.CoreKingdom) &&
                         !EmpireCraft.Scripts.Compatibility.NuclearDoctrineSystem.IsDeterred(empire.CoreKingdom, kingdom))
                     {
-                        if (empire.countWarriors() > kingdom.countTotalWarriors())
+                        if (GeneralSystems.WarSituation.Power(empire) > GeneralSystems.WarSituation.Power(kingdom))
                         {
                             SetKingdomTarget(kingdom);
                             return true;

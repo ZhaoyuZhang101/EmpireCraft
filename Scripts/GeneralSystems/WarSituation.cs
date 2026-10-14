@@ -25,12 +25,35 @@ public static class WarSituation
         return kingdom?.cities?.Count ?? 0;
     }
 
+    // 一方的兵力：原版士兵数，军团模式再加各军团兵力(兵在军团里只是数据，原版数不到)；帝国算中央连同各成员国
     public static int SideWarriors(Kingdom kingdom)
     {
         Empire empire = kingdom?.GetEmpire();
-        if (empire != null && !empire.isRekt()) return empire.countWarriors();
-        return kingdom?.countTotalWarriors() ?? 0;
+        if (empire != null && !empire.isRekt())
+            return empire.countWarriors() + (empire.kingdoms_list?.Sum(member => CorpsSoldiers(member)) ?? 0);
+        return (kingdom?.countTotalWarriors() ?? 0) + CorpsSoldiers(kingdom);
     }
+
+    private static int CorpsSoldiers(Kingdom kingdom) =>
+        !CorpsSystem.Enabled || kingdom?.data == null || kingdom.isRekt() ? 0
+            : UnityEngine.Mathf.RoundToInt(CorpsSystem.Of(kingdom).Sum(corps => UnityEngine.Mathf.Max(0f, corps.strength)));
+
+    // 主动开战比的实力：国力(人口、财力、军力综合，见 GetNationalPower)，平时军团只留常备兵、按兵数比不出谁强谁弱；
+    // 帝国算中央连同各成员国
+    public static double Power(Kingdom kingdom)
+    {
+        if (kingdom?.data == null || kingdom.isRekt()) return 0d;
+        Empire empire = kingdom.GetEmpire();
+        return empire != null && !empire.isRekt() ? Power(empire) : kingdom.GetNationalPower();
+    }
+
+    public static double Power(Empire empire) =>
+        empire?.kingdoms_list?.Where(member => member != null && !member.isRekt()).Sum(member => member.GetNationalPower()) ?? 0d;
+
+    // 忙不过来，不再开新仗：手上已有两场仗，或正被全面侵略(以前只要在打任何一场仗——平叛、边境冲突——就不提对外用兵)
+    public static bool TooBusyForWar(Kingdom kingdom) =>
+        kingdom?.data == null || kingdom.isRekt() ||
+        kingdom.getWars().Count(war => war?.data != null && !war.hasEnded()) >= 2 || WarGoalSystem.FightingForSurvival(kingdom);
 
     public static void RecordParticipant(War war, Kingdom kingdom)
     {

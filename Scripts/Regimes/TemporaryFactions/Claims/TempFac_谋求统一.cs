@@ -41,7 +41,7 @@ public class TempFac_谋求统一 : TemporaryFaction
     public override bool CheckCondition()
     {
         Empire empire = GetEmpire();
-        if (empire?.CoreKingdom?.hasEnemies()??true) return false;
+        if (empire?.CoreKingdom == null || WarSituation.TooBusyForWar(empire.CoreKingdom)) return false;
         if (CorpsSystem.CannotFundWar(empire.CoreKingdom)) return false;   // 发不出军饷不开新仗
         // 周制没有统一战争：天下只有一个共主，同文化而不在周室之内的国家就是不服王化，
         // 天子兴师讨伐，攻下其都城即迫其称臣、受封为诸侯；周室之内的诸侯(含战国离开帝国的)不在此列
@@ -66,7 +66,7 @@ public class TempFac_谋求统一 : TemporaryFaction
                 {
                     Empire targetEmpire = kingdom.GetEmpire();
                     // 同争一个帝国核心的对手帝国也要与本帝国接壤，不隔着别国远征
-                    if (targetEmpire != null && empire.countWarriors() >= targetEmpire.countWarriors() &&
+                    if (targetEmpire != null && WarSituation.Power(empire) >= WarSituation.Power(targetEmpire) &&
                         targetEmpire.kingdoms_list.Any(member => member != null && !member.isRekt() && empire.IsNeighbourWith(member)))
                     {
                         SetKingdomTarget(targetEmpire.CoreKingdom);
@@ -77,7 +77,7 @@ public class TempFac_谋求统一 : TemporaryFaction
             if (empire.GetKingdomNeighbours().Any(k => k.IsInEmpire() && k == kingdom && k.getSpecies()==empire.CoreKingdom.getSpecies()))
             {
                 var targetEmpire = kingdom.GetEmpire();
-                if (empire.countWarriors() > targetEmpire.countWarriors())
+                if (WarSituation.Power(empire) > WarSituation.Power(targetEmpire))
                 {
                     SetKingdomTarget(targetEmpire.CoreKingdom);
                     return true;
@@ -91,7 +91,7 @@ public class TempFac_谋求统一 : TemporaryFaction
                 {
                     if (!kingdom.isInWarWith(empire.CoreKingdom))
                     {
-                        if (empire.countWarriors() > kingdom.countTotalWarriors())
+                        if (WarSituation.Power(empire) > WarSituation.Power(kingdom))
                         {
                             SetKingdomTarget(kingdom);
                             return true;
