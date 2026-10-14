@@ -147,7 +147,10 @@ public class PureMapPatch : GamePatch
         for (int i = 0; i < slots.Length; i++)
         {
             if (!slots[i].used || plan.ruin > 0f && Hash01(zone.id * 4L + i + 7L) < plan.ruin) continue;
-            lights.Add((new Vector2(ox + i % 2 * 4 + 2, oy + i / 2 * 4 + 2), LightSize(slots[i].icon) * (modern ? 1.15f : 1f)));
+            int x = ox + i % 2 * 4 + 2, y = oy + i / 2 * 4 + 2;
+            WorldTile at = World.world.GetTile(x, y);
+            if (at != null && !UrbanFabric.InTown(plan.fabric, at)) continue;
+            lights.Add((new Vector2(x, y), LightSize(slots[i].icon) * (modern ? 1.15f : 1f)));
         }
         return lights;
     }
@@ -192,10 +195,12 @@ public class PureMapPatch : GamePatch
         UI.Components.EmperorMarkerRenderer.EnsureHost();
     }
 
-    // 城市肌理随建筑、规划变化：每帧让几块城里的地块下次重画(原版只在归属、颜色变了才重画)，约十秒全图一轮。
-    // 以前每秒把十分之一的城整城重画，几百块地挤在一帧里逐格画，那一帧几十毫秒，帧数忽高忽低
+    // 城市肌理随建筑、规划、时代变化(原版只在归属、颜色变了才重画)：约十秒把各城看一轮，
+    // 平面图有变化(建成地块、建筑、规划用途、城墙、时代进度、城郊档位、种子)的城才让它的地块重画——
+    // 以前不论变没变都整城重画，纯净地图、平滑国界下上色贵，白白占掉不少帧
     private const float UrbanCycleSeconds = 10f;
-    private static readonly List<TileZone> UrbanQueue = new();
+    private static readonly List<City> UrbanQueue = new();
+    private static readonly Dictionary<long, int> PlanStamps = new();
     private static int _urbanCursor;
     private static float _urbanCredit, _urbanLast = -1f;
 
@@ -208,12 +213,13 @@ public class PureMapPatch : GamePatch
         {
             UrbanQueue.Clear();
             _urbanCursor = 0;
+            if (PlanStamps.Count > 4000) PlanStamps.Clear();
             foreach (City city in cities)
             {
                 if (city?.zones == null || city.isRekt()) continue;
                 // 本模式下不实际铺路
                 city.road_tiles_to_build.Clear();
-                UrbanQueue.AddRange(city.zones);
+                UrbanQueue.Add(city);
             }
         }
         float delta = _urbanLast < 0f ? 0f : Mathf.Clamp(now - _urbanLast, 0f, 0.5f);
@@ -223,10 +229,48 @@ public class PureMapPatch : GamePatch
         _urbanCredit -= count;
         for (int i = 0; i < count && _urbanCursor < UrbanQueue.Count; i++)
         {
-            TileZone zone = UrbanQueue[_urbanCursor++];
-            if (zone?.city != null) zone.resetRenderHelpers();
+            City city = UrbanQueue[_urbanCursor++];
+            if (city?.data == null || city.isRekt() || city.zones == null) continue;
+            int stamp = Stamp(city, PlanFor(city));
+            bool seen = PlanStamps.TryGetValue(city.data.id, out int last);
+            if (seen && last == stamp) continue;
+            PlanStamps[city.data.id] = stamp;
+            if (!seen) continue;
+            foreach (TileZone zone in city.zones) zone?.resetRenderHelpers();
         }
         RoadNetwork.Tick();
+    }
+
+    // 平面图的指纹：画出来的样子会变的东西都算进去
+    private static int Stamp(City city, CityPlan plan)
+    {
+        unchecked
+        {
+            int hash = 17;
+            void Add(int value) => hash = hash * 31 + value;
+            foreach (int id in plan.built) Add(id * 7919);
+            foreach (int id in plan.landmark) Add(id * 104729);
+            foreach (KeyValuePair<int, Slot[]> pair in plan.zones)
+                foreach (Slot slot in pair.Value)
+                    Add(pair.Key ^ (slot.icon?.GetHashCode() ?? 0));
+            foreach (TileZone zone in city.zones)
+                if (zone != null && ZonePlanSystem.Get(city, zone) is var use && use != ZoneUse.None) Add(zone.id * 13 + (int)use);
+            Add(plan.family?.GetHashCode() ?? 0);
+            Add(plan.target?.GetHashCode() ?? 0);
+            Add(Mathf.RoundToInt(plan.rebuild * 20f));
+            Add(Mathf.RoundToInt(plan.modern * 20f));
+            Add(Mathf.RoundToInt(plan.ruin * 20f));
+            Add((plan.walled ? 1 : 0) + (plan.moat ? 2 : 0) + (plan.axis ? 4 : 0) + (plan.burning ? 8 : 0));
+            if (plan.fabric != null)
+            {
+                Add(Mathf.RoundToInt(plan.fabric.Progress * 20f));
+                Add(plan.fabric.Tier);
+                Add(plan.fabric.Seed.GetHashCode());
+                Add(plan.fabric.Rays.Length);
+                Add(plan.fabric.Towns.Count * 16 + plan.fabric.Villages.Count);
+            }
+            return hash;
+        }
     }
 
     private static readonly Color32 EmpireGold = new(232, 184, 64, 255);
@@ -336,13 +380,15 @@ public class PureMapPatch : GamePatch
             if (grey)
             {
                 int lx = tile.x - ox, ly = tile.y - oy;
+                // 城区浅灰(主干道深灰)，城外近黑带地形；规划色半透明叠上去，城区里更淡，城的轮廓透得出来
+                bool urban = plan != null && (Urban(tile, plan) || UrbanFabric.Inside(plan.fabric, tile));
+                Color32 basis = urban ? UrbanFabric.Primary(plan.fabric, tile) ? PlanningRoad : PlanningCity : Dark(tile);
                 if (planned is Color32 tint)
                     pixels[id] = lx == 0 && outlineLeft || lx == Config.CITY_ZONE_SIZE - 1 && outlineRight ||
                                  ly == 0 && outlineDown || ly == Config.CITY_ZONE_SIZE - 1 && outlineUp
-                        ? Lerp(tint, new Color32(0, 0, 0, 255), 0.45f) : Lerp(PlanningGround, tint, 0.85f);
-                else if (plan != null && (plan.built.Contains(zone.id) || UrbanFabric.Inside(plan.fabric, tile)))
-                    pixels[id] = UrbanFabric.Primary(plan.fabric, tile) ? PlanningRoad : PlanningCity;
-                else pixels[id] = Dark(tile);
+                        ? Lerp(basis, Lerp(tint, new Color32(0, 0, 0, 255), 0.25f), 0.8f)
+                        : Lerp(basis, tint, urban ? 0.3f : 0.45f);
+                else pixels[id] = basis;
                 continue;
             }
             // 被敌军占着的地块：涂占领方的颜色，留一道道原主颜色的细斜纹
@@ -353,7 +399,7 @@ public class PureMapPatch : GamePatch
     }
 
     // 规划视图的底色：城外近黑、只带一点地形本色与浮雕；城区浅灰、主干道深灰；国界、城界暗灰细线
-    private static readonly Color32 PlanningGround = new(30, 30, 32, 255), PlanningCity = new(150, 150, 150, 255),
+    private static readonly Color32 PlanningCity = new(170, 170, 170, 255),
         PlanningRoad = new(95, 95, 100, 255);
 
     private static Color32 Dark(WorldTile tile)
@@ -700,7 +746,7 @@ public class PureMapPatch : GamePatch
     private static Color32 Plan(WorldTile tile, Color32 color, ZoneUse use, Slot[] slots, int lx, int ly, CityPlan plan, TileZone zone)
     {
         if (tile.Type != null && tile.Type.liquid) return color;
-        bool built = plan != null && plan.built.Contains(zone.id);
+        bool built = plan != null && Urban(tile, plan);
         UrbanFabric.Geometry fabric = plan?.fabric;
         bool wallsDown = fabric != null && fabric.WallsDown;
         // 阿兹特克的水上田园照旧
@@ -713,7 +759,7 @@ public class PureMapPatch : GamePatch
             // 这个地块的布局按哪一系(改建中逐个地块换)
             string family = plan.target != null && Hash01(zone.id * 31L + 99L) < plan.rebuild ? plan.target : plan.family;
             // 城墙：现代规划后拆成环路；东西南北四门开在城心两条中线上，门两侧与凸角是墩台
-            if (plan.walled && !wallsDown && OnEdge(tile, plan.built, plan.city))
+            if (plan.walled && !wallsDown && UrbanEdge(tile, plan))
             {
                 if (tile.x == plan.gateX || tile.y == plan.gateY) return Lerp(color, Street, 0.6f);
                 if (modern) return Lerp(color, Ring, 0.7f);
@@ -756,17 +802,16 @@ public class PureMapPatch : GamePatch
     {
         int outside = 0;
         foreach (WorldTile next in new[] { tile.tile_up, tile.tile_down, tile.tile_left, tile.tile_right })
-            if (next?.zone == null || next.zone.city != plan.city || !plan.built.Contains(next.zone.id)) outside++;
+            if (!Urban(next, plan)) outside++;
         return outside >= 2;
     }
 
     // 城墙外侧紧挨着的一格(护城河)
     private static bool BesideWall(WorldTile tile, CityPlan plan)
     {
-        if (tile.zone != null && plan.built.Contains(tile.zone.id) && tile.zone.city == plan.city) return false;
+        if (!UrbanFabric.NearOutline(plan.fabric, tile) || Urban(tile, plan)) return false;
         foreach (WorldTile next in new[] { tile.tile_up, tile.tile_down, tile.tile_left, tile.tile_right })
-            if (next?.zone != null && next.zone.city == plan.city && plan.built.Contains(next.zone.id) &&
-                OnEdge(next, plan.built, plan.city)) return true;
+            if (Urban(next, plan) && UrbanEdge(next, plan)) return true;
         return false;
     }
 
@@ -815,6 +860,15 @@ public class PureMapPatch : GamePatch
         int index = (ly - 1) / 4 * 2 + (lx - 1) / 4;
         return Building(color, slots, index, (lx - 1) % 4, (ly - 1) % 4, plan, zone);
     }
+
+    // 城里的一格：建成的地块落在城的轮廓里(见 UrbanFabric.InTown)；都城地标整块算
+    private static bool Urban(WorldTile tile, CityPlan plan) =>
+        tile?.zone != null && tile.zone.city == plan.city && plan.built.Contains(tile.zone.id) &&
+        (plan.landmark.Contains(tile.zone.id) || UrbanFabric.InTown(plan.fabric, tile));
+
+    // 城的外缘(城墙一线)
+    private static bool UrbanEdge(WorldTile tile, CityPlan plan) =>
+        !Urban(tile.tile_up, plan) || !Urban(tile.tile_down, plan) || !Urban(tile.tile_left, plan) || !Urban(tile.tile_right, plan);
 
     // 区域的外缘：四邻有一格不在这片区域(或不归这座城)
     private static bool OnEdge(WorldTile tile, HashSet<int> region, City city)

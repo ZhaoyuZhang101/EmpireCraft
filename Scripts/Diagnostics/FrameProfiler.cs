@@ -68,6 +68,19 @@ public static class FrameProfiler
 
     public static Scope Measure(string label) => new(label);
 
+    // 记一段在别处量好的耗时(跨前缀、后缀量的，比如地块上色)
+    public static void Record(string label, long elapsed)
+    {
+        EnsureFrame();
+        Ticks.TryGetValue(label, out Sample sample);
+        sample.Ticks += elapsed;
+        sample.Peak = System.Math.Max(sample.Peak, elapsed);
+        sample.Calls++;
+        Ticks[label] = sample;
+        FrameTicks.TryGetValue(label, out long frameTicks);
+        FrameTicks[label] = frameTicks + elapsed;
+    }
+
     // 原版主循环总耗时(MapBox.Update，包含各"原版·"分项，不参与分项相加)
     public const string MainLoopLabel = "总·原版主循环";
 

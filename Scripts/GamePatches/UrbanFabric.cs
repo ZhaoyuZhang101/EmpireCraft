@@ -37,6 +37,9 @@ public static class UrbanFabric
         public float Progress;
         public float OldRadius, MaxEdge;
         public readonly float[] Edge = new float[EdgeBins];
+        // 城的轮廓(古代的城墙一线)：各方向的半径；最近、最远处
+        public readonly float[] Foot = new float[EdgeBins];
+        public float FootMin, FootMax;
         public float[] Rays = new float[0];
         public int Sectors;
         public float SectorOffset;
@@ -53,6 +56,8 @@ public static class UrbanFabric
         // 村子与通到大路的小路(竖着走为 vertical：x 固定，y 从 from 到 to；否则 y 固定)
         public readonly List<(int x, int y)> Villages = new();
         public readonly List<(bool vertical, int fixedAt, int from, int to)> Paths = new();
+        // 各地块上有哪些城郊景物(按地块算一次，逐格上色时只查这几样)
+        internal readonly Dictionary<int, Rural> Rurals = new();
         public City City;
         public HashSet<int> Built, Landmark;
         // 各地块画成什么、开发了没有(按地块算一次)
@@ -159,39 +164,40 @@ public static class UrbanFabric
         long seed = SeedOf(city);
         var g = new Geometry
         {
-            Seed = seed, Cx = center.x, Cy = center.y, City = city, Built = built, Landmark = landmark,
+            Seed = seed, Cx = gateX == int.MinValue ? center.x : gateX, Cy = gateY == int.MinValue ? center.y : gateY,
+            City = city, Built = built, Landmark = landmark,
             Perimeter = family is "western" or "roma" or "viking"
         };
         // 发展快慢：种子定一个底(0.7~1.3 倍)，城大的、都城快些
         float pace = (0.7f + 0.6f * H(seed, 50)) * (0.85f + 0.3f * Mathf.Clamp01(built.Count / 12f)) *
                      (city.isCapitalCity() ? 1.15f : 1f);
         g.Progress = ProgressOf(culture, pace);
-        // 城区外缘：各方向上建成地块的最远处，空的方向取两边，再平滑
-        var raw = new float[EdgeBins];
-        foreach (TileZone zone in city.zones)
-        {
-            if (zone == null || !built.Contains(zone.id)) continue;
-            float dx = zone.x * Config.CITY_ZONE_SIZE + 4f - g.Cx, dy = zone.y * Config.CITY_ZONE_SIZE + 4f - g.Cy;
-            float d = Mathf.Sqrt(dx * dx + dy * dy) + 5f;
-            int bin = Bin(Angle(dx, dy));
-            for (int k = -2; k <= 2; k++)
-            {
-                int b = (bin + k + EdgeBins) % EdgeBins;
-                raw[b] = Mathf.Max(raw[b], d - Mathf.Abs(k) * 1.5f);
-            }
-        }
+        // 城的轮廓：面积是建成地块的一半(建筑挤在一起，城外留给田野)，以城心为中心；
+        // 华夏、日本的城近方而圆角，其余是起伏的圆，都按种子微微走样；建成地块之外的部分不算城里
+        float baseRadius = Mathf.Sqrt(Mathf.Max(1, built.Count) * Config.CITY_ZONE_SIZE * Config.CITY_ZONE_SIZE * TownDensity / Mathf.PI);
+        bool squarish = family is "huaxia" or "japan";
         float sum = 0f;
-        var smooth = new float[EdgeBins];
+        g.FootMin = float.MaxValue;
         for (int i = 0; i < EdgeBins; i++)
         {
-            smooth[i] = Mathf.Max(5f, (raw[(i + EdgeBins - 1) % EdgeBins] + raw[i] * 2f + raw[(i + 1) % EdgeBins]) / 4f);
-            sum += smooth[i];
+            float a = (i + 0.5f) / EdgeBins * TwoPi;
+            float shape = 1f;
+            if (squarish)
+            {
+                float c = Mathf.Abs(Mathf.Cos(a)), s = Mathf.Abs(Mathf.Sin(a));
+                shape = 0.9f / Mathf.Pow(Mathf.Pow(c, 3.5f) + Mathf.Pow(s, 3.5f), 1f / 3.5f);
+            }
+            float wobble = Noise(30f + 2.5f * Mathf.Cos(a), 30f + 2.5f * Mathf.Sin(a), 1.2f, seed + 5);
+            g.Foot[i] = Mathf.Max(4f, baseRadius * shape * ((squarish ? 0.94f : 0.82f) + (squarish ? 0.12f : 0.36f) * wobble));
+            g.FootMin = Mathf.Min(g.FootMin, g.Foot[i]);
+            g.FootMax = Mathf.Max(g.FootMax, g.Foot[i]);
+            sum += g.Foot[i];
         }
         // 旧城：工业化那时的城区(记在城里，之后不再变)
         CityExtension.CityExtraData data = city.GetOrCreate();
         if (g.Modern)
         {
-            if (data.urban_old_radius <= 0f) data.urban_old_radius = Mathf.Max(5f, sum / EdgeBins * 0.8f);
+            if (data.urban_old_radius <= 0f) data.urban_old_radius = Mathf.Max(5f, sum / EdgeBins * 0.9f);
             g.OldRadius = data.urban_old_radius;
         }
         else g.OldRadius = sum / EdgeBins;
@@ -201,7 +207,7 @@ public static class UrbanFabric
             float a = (i + 0.5f) / EdgeBins * TwoPi;
             float lobe = Noise(10f + 3f * Mathf.Cos(a), 10f + 3f * Mathf.Sin(a), 1.6f, seed + 3);
             float jitter = 0.92f + 0.16f * Noise(20f + 6f * Mathf.Cos(a), 20f + 6f * Mathf.Sin(a), 1.3f, seed + 4);
-            g.Edge[i] = smooth[i] * jitter * (1f + Mathf.Min(g.Progress, 3f) * 0.12f * (0.3f + 1.4f * lobe));
+            g.Edge[i] = (g.Foot[i] + 2f) * jitter * (1f + Mathf.Min(g.Progress, 3f) * 0.15f * (0.3f + 1.4f * lobe));
             g.MaxEdge = Mathf.Max(g.MaxEdge, g.Edge[i]);
         }
         // 干道：按种子定四到六条，再补上实际通往邻城、方向没重复的路
@@ -272,6 +278,34 @@ public static class UrbanFabric
     }
 
     private const float TierYears = 3f;
+    // 城的轮廓占建成地块面积的比例
+    private const float TownDensity = 0.5f;
+
+    // 在城的轮廓里(建成地块里落在轮廓外的格子画成城郊)；没有城市肌理时整块算
+    public static bool InTown(Geometry g, WorldTile tile)
+    {
+        if (g == null) return true;
+        float dx = tile.x - g.Cx, dy = tile.y - g.Cy, d2 = dx * dx + dy * dy;
+        if (d2 <= g.FootMin * g.FootMin) return true;
+        if (d2 > g.FootMax * g.FootMax) return false;
+        float f = Angle(dx, dy) / TwoPi * EdgeBins - 0.5f;
+        if (f < 0f) f += EdgeBins;
+        int a = Mathf.FloorToInt(f) % EdgeBins, b = (a + 1) % EdgeBins;
+        float foot = Mathf.Lerp(g.Foot[a], g.Foot[b], f - Mathf.Floor(f));
+        return d2 <= foot * foot;
+    }
+
+    // 在城的轮廓线附近(护城河只在这一圈里找)
+    public static bool NearOutline(Geometry g, WorldTile tile)
+    {
+        if (g == null) return true;
+        float dx = tile.x - g.Cx, dy = tile.y - g.Cy, d2 = dx * dx + dy * dy, lo = Mathf.Max(0f, g.FootMin - 2f), hi = g.FootMax + 2f;
+        return d2 >= lo * lo && d2 <= hi * hi;
+    }
+
+    private static bool Urban(Geometry g, WorldTile tile) =>
+        tile?.zone != null && tile.zone.city == g.City && g.Built.Contains(tile.zone.id) &&
+        (g.Landmark.Contains(tile.zone.id) || InTown(g, tile));
 
     // 城郊：出城大路(档位 0 没有、1 两条、2 起四条)、关厢、镇、村与小路。都只落在本城没建成的平地上
     private static void PlaceCountryside(Geometry g)
@@ -288,7 +322,7 @@ public static class UrbanFabric
             while (step < 80)
             {
                 WorldTile tile = World.world.GetTile(g.GateX + AxisX[k] * step, g.GateY + AxisY[k] * step);
-                if (tile?.zone == null || tile.zone.city != g.City || !g.Built.Contains(tile.zone.id)) break;
+                if (!Urban(g, tile)) break;
                 step++;
             }
             g.WallDist[k] = step;
@@ -361,8 +395,6 @@ public static class UrbanFabric
         return a < 0f ? a + TwoPi : a;
     }
 
-    private static int Bin(float angle) => Mathf.Clamp((int)(angle / TwoPi * EdgeBins), 0, EdgeBins - 1);
-
     private static float EdgeAt(Geometry g, float angle)
     {
         float f = angle / TwoPi * EdgeBins - 0.5f;
@@ -418,10 +450,13 @@ public static class UrbanFabric
     public static bool Inside(Geometry g, WorldTile tile)
     {
         if (g == null || tile?.zone == null) return false;
-        if (g.Built.Contains(tile.zone.id)) return true;
+        if (Urban(g, tile)) return true;
         if (!g.Modern) return false;
         (Kind kind, bool developed) = ZoneOf(g, tile.zone);
-        return developed && kind != Kind.Farm && (InEdge(g, tile) || ZonePlanSystem.Get(g.City, tile.zone) != ZoneUse.None);
+        if (!developed || kind == Kind.Farm) return false;
+        if (InEdge(g, tile)) return true;
+        float dx = tile.x - g.Cx, dy = tile.y - g.Cy, edge = EdgeAt(g, Angle(dx, dy)) * 1.25f;
+        return ZonePlanSystem.Get(g.City, tile.zone) != ZoneUse.None && dx * dx + dy * dy < edge * edge;
     }
 
     private static bool InEdge(Geometry g, WorldTile tile)
@@ -503,8 +538,8 @@ public static class UrbanFabric
             result = Paint(color, H(g.Seed, tile.x, tile.y, 11) < 0.3f ? Tree : Park, 0.85f);
             return true;
         }
-        // 开发了的地块：规划过的整块都画，没规划的只画城区范围里的部分
-        if (developed && (inEdge || use != ZoneUse.None))
+        // 开发了的地块：画城区范围里的部分；规划过的可以稍稍越出城区
+        if (developed && (inEdge || use != ZoneUse.None && r < edge * 1.25f))
         {
             result = Block(g, tile, color, kind, r, edge);
             return true;
@@ -559,11 +594,63 @@ public static class UrbanFabric
     }
 
     // 城郊一格：出城大路 > 关厢 > 镇 > 村 > 小路 > 林子 > 田块；其余照原样
+    internal sealed class Rural
+    {
+        public bool Roads;
+        public readonly List<int> Towns = new(), Villages = new(), Paths = new();
+        // 地块里离主城、镇、村最近的距离(格)：远了既没有田也没有林子
+        public float Near;
+    }
+
+    private const float FieldReach = 18.2f, WoodReach = 24f;
+
+    private static Rural RuralOf(Geometry g, TileZone zone)
+    {
+        if (g.Rurals.TryGetValue(zone.id, out Rural rural)) return rural;
+        rural = new Rural();
+        int size = Config.CITY_ZONE_SIZE;
+        int x0 = zone.x * size, y0 = zone.y * size, x1 = x0 + size - 1, y1 = y0 + size - 1;
+        bool Overlaps(int ax0, int ay0, int ax1, int ay1) => ax0 <= x1 && ax1 >= x0 && ay0 <= y1 && ay1 >= y0;
+        for (int k = 0; k < 4 && !rural.Roads; k++)
+        {
+            if (!g.Roads[k]) continue;
+            // 大路连两旁关厢占的范围(路会弯两格，两旁各再留几格)
+            int a0 = g.WallDist[k], a1 = g.WallDist[k] + g.RoadLength;
+            int px0 = g.GateX + AxisX[k] * a0, py0 = g.GateY + AxisY[k] * a0;
+            int px1 = g.GateX + AxisX[k] * a1, py1 = g.GateY + AxisY[k] * a1;
+            rural.Roads = Overlaps(Mathf.Min(px0, px1) - 5, Mathf.Min(py0, py1) - 5, Mathf.Max(px0, px1) + 5, Mathf.Max(py0, py1) + 5);
+        }
+        for (int i = 0; i < g.Towns.Count; i++)
+        {
+            (int x, int y, int s, _) = g.Towns[i];
+            if (Overlaps(x - s, y - s, x + s, y + s)) rural.Towns.Add(i);
+        }
+        for (int i = 0; i < g.Villages.Count; i++)
+        {
+            (int x, int y) = g.Villages[i];
+            if (Overlaps(x - 2, y - 2, x + 2, y + 2)) rural.Villages.Add(i);
+        }
+        for (int i = 0; i < g.Paths.Count; i++)
+        {
+            (bool vertical, int at, int from, int to) = g.Paths[i];
+            int lo = Mathf.Min(from, to), hi = Mathf.Max(from, to);
+            if (vertical ? Overlaps(at, lo, at, hi) : Overlaps(lo, at, hi, at)) rural.Paths.Add(i);
+        }
+        float cx = x0 + size / 2f - 0.5f, cy = y0 + size / 2f - 0.5f, dx = cx - g.Cx, dy = cy - g.Cy;
+        float near = Mathf.Sqrt(dx * dx + dy * dy) - EdgeAt(g, Angle(dx, dy));
+        foreach ((int x, int y, int s, _) in g.Towns) near = Mathf.Min(near, Mathf.Sqrt((cx - x) * (cx - x) + (cy - y) * (cy - y)) - s);
+        foreach ((int x, int y) in g.Villages) near = Mathf.Min(near, Mathf.Sqrt((cx - x) * (cx - x) + (cy - y) * (cy - y)) - 2f);
+        rural.Near = near - size * 0.71f;
+        g.Rurals[zone.id] = rural;
+        return rural;
+    }
+
     private static bool Countryside(Geometry g, WorldTile tile, Color32 color, out Color32 result)
     {
         result = color;
+        Rural rural = RuralOf(g, tile.zone);
         int rx = tile.x - g.GateX, ry = tile.y - g.GateY;
-        for (int k = 0; k < 4; k++)
+        for (int k = 0; k < 4 && rural.Roads; k++)
         {
             if (!g.Roads[k]) continue;
             int along = rx * AxisX[k] + ry * AxisY[k];
@@ -582,44 +669,48 @@ public static class UrbanFabric
                 return true;
             }
         }
-        foreach ((int x, int y, int size, bool walled) in g.Towns)
+        foreach (int index in rural.Towns)
         {
+            (int x, int y, int size, bool walled) = g.Towns[index];
             int dx = tile.x - x, dy = tile.y - y;
-            if (Mathf.Abs(dx) > size || Mathf.Abs(dy) > size) continue;
-            result = TownTile(g, tile, color, dx, dy, size, walled);
+            float d = Mathf.Sqrt(dx * dx + dy * dy), reach = size + 0.4f + 0.8f * (H(g.Seed, x, y, (int)(Angle(dx, dy) * 2f)) - 0.5f);
+            if (d > reach) continue;
+            result = TownTile(g, tile, color, dx, dy, d, reach, walled);
             return true;
         }
-        foreach ((int x, int y) in g.Villages)
+        foreach (int index in rural.Villages)
         {
+            (int x, int y) = g.Villages[index];
             int dx = tile.x - x, dy = tile.y - y;
-            if (Mathf.Abs(dx) > 2 || Mathf.Abs(dy) > 2) continue;
-            // 几户人家隔一格排开，院落围着
-            result = (dx & 1) != 0 && (dy & 1) != 0 ? Paint(color, Roof(g, tile), 0.9f) : Paint(color, Yard, 0.5f);
+            if (dx * dx + dy * dy > 6) continue;
+            // 几户人家错落着，院落围着
+            result = H(g.Seed, tile.x, tile.y, 22) < 0.4f ? Paint(color, Roof(g, tile), 0.9f) : Paint(color, Yard, 0.5f);
             return true;
         }
-        foreach ((bool vertical, int fixedAt, int from, int to) in g.Paths)
+        foreach (int index in rural.Paths)
         {
+            (bool vertical, int fixedAt, int from, int to) = g.Paths[index];
             int at = vertical ? tile.x : tile.y, run = vertical ? tile.y : tile.x;
             if (at != fixedAt || run < Mathf.Min(from, to) || run > Mathf.Max(from, to)) continue;
             result = Paint(color, Lane, 0.6f);
             return true;
         }
-        if (Rough(tile)) return false;
-        // 林子：一小片一小片
+        if (rural.Near > WoodReach || Rough(tile)) return false;
+        // 林子：一小片一小片，围在城镇村近处
         if (Noise(tile.x, tile.y, 7f, g.Seed + 20) > 0.76f)
         {
             result = Paint(color, H(g.Seed, tile.x, tile.y, 21) < 0.3f ? Tree : Grove, 0.55f);
             return true;
         }
         // 田块：大小不一，每块一种作物色，围着城镇村，越远越淡；越富的地方田越多
-        if (tile.Type == null || !tile.Type.can_be_farm && !tile.Type.farm_field) return false;
+        if (rural.Near > FieldReach || tile.Type == null || !tile.Type.can_be_farm && !tile.Type.farm_field) return false;
         float dxc = tile.x - g.Cx, dyc = tile.y - g.Cy;
         float near = Mathf.Sqrt(dxc * dxc + dyc * dyc) - EdgeAt(g, Angle(dxc, dyc));
         foreach ((int x, int y, int size, _) in g.Towns)
             near = Mathf.Min(near, Mathf.Sqrt((tile.x - x) * (tile.x - x) + (tile.y - y) * (tile.y - y)) - size);
         foreach ((int x, int y) in g.Villages)
             near = Mathf.Min(near, Mathf.Sqrt((tile.x - x) * (tile.x - x) + (tile.y - y) * (tile.y - y)) - 2f);
-        float strength = 0.35f * Mathf.Clamp01(1.3f - near / 14f) * (0.6f + 0.1f * g.Tier);
+        float strength = 0.35f * Mathf.Clamp01((FieldReach - near) / 14f) * (0.6f + 0.1f * g.Tier);
         if (strength <= 0.01f) return false;
         float fx = tile.x + 4f * Noise(tile.x, tile.y, 13f, g.Seed + 1), fy = tile.y + 4f * Noise(tile.x, tile.y, 13f, g.Seed + 2);
         int by = Mathf.FloorToInt(fy / 6f);
@@ -628,16 +719,14 @@ public static class UrbanFabric
         return true;
     }
 
-    // 镇：十字街、中间小集市，四角屋舍两排一组；富庶的镇有一圈矮墙，四面开门
-    private static Color32 TownTile(Geometry g, WorldTile tile, Color32 color, int dx, int dy, int size, bool walled)
+    // 镇：圆圆的一片，十字街、中间小集市，屋舍错落；富庶的镇有一圈矮墙，四面开门
+    private static Color32 TownTile(Geometry g, WorldTile tile, Color32 color, int dx, int dy, float d, float reach, bool walled)
     {
-        if (walled && (Mathf.Abs(dx) == size || Mathf.Abs(dy) == size))
+        if (walled && d > reach - 1f)
             return dx == 0 || dy == 0 ? Paint(color, TownStreet, 0.8f) : Paint(color, TownWall, 0.85f);
         if (dx == 0 || dy == 0) return Paint(color, Mathf.Abs(dx) + Mathf.Abs(dy) <= 1 ? Market : TownStreet, 0.85f);
         if (Mathf.Abs(dx) == 1 && Mathf.Abs(dy) == 1) return Paint(color, Market, 0.6f);
-        if ((Mathf.Abs(dx) + (dx > 0 ? 1 : 0)) % 3 == 0 || (Mathf.Abs(dy) + (dy > 0 ? 1 : 0)) % 3 == 0)
-            return Paint(color, Yard, 0.4f);
-        return Paint(color, Roof(g, tile), 0.9f);
+        return H(g.Seed, tile.x, tile.y, 23) < 0.62f ? Paint(color, Roof(g, tile), 0.9f) : Paint(color, Yard, 0.4f);
     }
 
     // 屋顶：工业化以前是瓦房，之后多是楼房

@@ -286,9 +286,20 @@ public static class SmoothBorders
         if (layer == null || !Fill(layer, zone)) return false;
         _ox = zone.x * ZoneSize - 1;
         _oy = zone.y * ZoneSize - 1;
+        // 内陆地块(周围 3×3 块同属一方、没有逐格推进)：平滑不会改变任何一格(隔两块的地权重不到百分之一，
+        // 噪声翻不过来)，也画不出边框——不逐格算 B 样条与四邻
+        bool uniform = true;
+        for (int dy = 1; dy <= 3 && uniform; dy++)
+        for (int dx = 1; dx <= 3; dx++)
+        {
+            int index = dy * 5 + dx;
+            if (ReferenceEquals(Metas[index], Metas[12]) && PushMetas[index] == null) continue;
+            uniform = false;
+            break;
+        }
         for (int gy = 0; gy < Window; gy++)
         for (int gx = 0; gx < Window; gx++)
-            Owners[gy * Window + gx] = OwnerAt(_ox + gx, _oy + gy);
+            Owners[gy * Window + gx] = uniform ? IsWater(_ox + gx, _oy + gy) ? null : Metas[12] : OwnerAt(_ox + gx, _oy + gy);
         Color32[] pixels = calc.pixels;
         if (_outline.Length != pixels.Length)
         {
@@ -309,8 +320,9 @@ public static class SmoothBorders
             int x = tile.x, y = tile.y;
             IMetaObject owner = OwnerCached(x, y);
             bool foreign = !ReferenceEquals(owner, own);
-            bool edge = owner != null && (Differs(owner, x + 1, y, width, height) || Differs(owner, x - 1, y, width, height) ||
-                                          Differs(owner, x, y + 1, width, height) || Differs(owner, x, y - 1, width, height));
+            bool edge = !uniform && owner != null &&
+                        (Differs(owner, x + 1, y, width, height) || Differs(owner, x - 1, y, width, height) ||
+                         Differs(owner, x, y + 1, width, height) || Differs(owner, x, y - 1, width, height));
             _foreign[id] = foreign;
             _outline[id] = edge;
             Color32 colorInside = inside, colorOutside = outside;
