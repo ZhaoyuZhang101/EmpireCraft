@@ -47,7 +47,6 @@ public static class TerritoryLabelRenderer
     private static readonly Dictionary<string, RuntimeLabel> _labels = new Dictionary<string, RuntimeLabel>();
     private static readonly List<RuntimeLabel> _render_order = new List<RuntimeLabel>();
     private static readonly List<ScreenLabelBounds> _occupied_label_bounds = new List<ScreenLabelBounds>();
-    private static int _bakedLogs;
     private static TerritoryLabelRendererHost _host;
     private static RectTransform _root;
     private static Text _text_template;
@@ -660,6 +659,10 @@ public static class TerritoryLabelRenderer
         private readonly Dictionary<int, bool> _small_gap_cache = new Dictionary<int, bool>();
         private TerritoryPlacement _placement;
         private Text _text;
+        // 字形包字体的第二行小字(宗主、周诸侯金字)：字形包字体不认 <size>、量不出行高，两行会叠在一起，拆出来另画在名字下面
+        private Text _sub_text;
+        private Outline _sub_outline;
+        private const float SubLineScale = 70f / 128f;
         private Image _culture_lock_badge;
         private Image _leading_icon;
         private TerritoryLabelGoldGradient _gold_gradient;
@@ -768,6 +771,47 @@ public static class TerritoryLabelRenderer
                 _next_geometry_refresh = Time.unscaledTime + GeometryRefreshInterval;
             }
             QueueRender(text, style, fullyOpaque);
+        }
+
+        private static string StripTags(string text) =>
+            global::System.Text.RegularExpressions.Regex.Replace(text ?? "", "<[^>]*>", "");
+
+        // 第二行小字：名字下面另起一个小一号的字，随铭牌一起旋转、缩放
+        private void UpdateSubLine(string subLine, BakedGlyphFont baked)
+        {
+            if (subLine == null || baked == null)
+            {
+                _text.rectTransform.pivot = new Vector2(0.5f, 0.5f);
+                if (_sub_text != null && _sub_text.gameObject.activeSelf) _sub_text.gameObject.SetActive(false);
+                return;
+            }
+            if (_sub_text == null)
+            {
+                var child = new GameObject("SubLine", typeof(RectTransform), typeof(Text));
+                child.transform.SetParent(_text.transform, false);
+                _sub_text = child.GetComponent<Text>();
+                _sub_text.alignment = TextAnchor.MiddleCenter;
+                _sub_text.horizontalOverflow = HorizontalWrapMode.Overflow;
+                _sub_text.verticalOverflow = VerticalWrapMode.Overflow;
+                _sub_text.resizeTextForBestFit = false;
+                _sub_text.supportRichText = true;
+                _sub_text.raycastTarget = false;
+                _sub_outline = child.AddComponent<Outline>();
+                RectTransform childRect = _sub_text.rectTransform;
+                childRect.anchorMin = childRect.anchorMax = childRect.pivot = new Vector2(0.5f, 0.5f);
+            }
+            _sub_text.font = _text.font;
+            _sub_text.fontSize = 0;
+            _sub_text.text = subLine;
+            RectTransform rect = _sub_text.rectTransform;
+            rect.sizeDelta = new Vector2(_reference_width / SubLineScale + 2f, baked.LineHeight + 2f);
+            rect.localScale = new Vector3(SubLineScale, SubLineScale, 1f);
+            // 名字一行在上、小字一行在下，两行合起来居中(字形包的字以基线为中线，名字行在铭牌框的正中：
+            // 把框的支点往下挪半个小字行，名字行就上移半个小字行；小字行相对支点再往下半个名字行)
+            float total = baked.LineHeight * (1f + SubLineScale);
+            rect.localPosition = new Vector3(0f, -total * 0.5f + baked.LineHeight * SubLineScale * 0.5f, 0f);
+            _text.rectTransform.pivot = new Vector2(0.5f, 0.5f - baked.LineHeight * SubLineScale * 0.5f / Mathf.Max(1f, total));
+            if (!_sub_text.gameObject.activeSelf) _sub_text.gameObject.SetActive(true);
         }
 
         public void Hide()
@@ -904,31 +948,40 @@ public static class TerritoryLabelRenderer
             FontStyle effectiveFontStyle = containsLatin ? FontStyle.Bold : style.font_style;
             if (_metrics_text != trimmedValue || _metrics_style != effectiveFontStyle || _metrics_font != _text.font)
             {
-                _text.text = trimmedValue;
                 // 字形包字体不是动态字体：不认字号和字形样式(设了会报警告)，字形已按参考字号排好
                 BakedGlyphFont baked = BundledTerritoryFonts.BakedOf(_text.font);
+                string mainLine = trimmedValue, subLine = null;
+                if (baked != null)
+                {
+                    int newline = trimmedValue.IndexOf('\n');
+                    if (newline >= 0)
+                    {
+                        mainLine = trimmedValue.Substring(0, newline);
+                        subLine = global::System.Text.RegularExpressions.Regex.Replace(trimmedValue.Substring(newline + 1),
+                            "</?size[^>]*>", "");
+                    }
+                }
+                _text.text = mainLine;
                 _text.fontSize = baked != null ? 0 : TerritoryLabelProjection.ReferenceFontSize;
                 _text.fontStyle = baked != null ? FontStyle.Normal : effectiveFontStyle;
-                if (baked != null) baked.Ensure(trimmedValue);
+                // 富文本标签不是字：去掉标签再拼字形(不然拼到 < 就停了，后面的字缺)
+                if (baked != null) baked.Ensure(StripTags(mainLine + (subLine ?? "")));
                 else _text.font?.RequestCharactersInTexture(trimmedValue, _text.fontSize, effectiveFontStyle);
                 _text.cachedTextGenerator.Invalidate();
                 _text.cachedTextGeneratorForLayout.Invalidate();
                 _reference_width = Mathf.Max(1f, _text.preferredWidth);
                 _reference_height = Mathf.Max(1f, _text.preferredHeight);
-                // 字形包字体的行高 Unity 量不出来，按字形包的上伸加下伸算
+                // 字形包字体的行高 Unity 量不出来，按字形包的上伸加下伸算；有第二行小字再加一行小字高
                 if (baked != null)
                 {
-                    float measured = _reference_width, measuredHeight = _reference_height;
                     _reference_height = Mathf.Max(_reference_height, baked.LineHeight);
-                    // 诊断：前几次记下 Unity 量的宽高与按字形算的宽高，核对字形包字体的大小
-                    if (_bakedLogs < 8)
+                    if (subLine != null)
                     {
-                        _bakedLogs++;
-                        NeoModLoader.services.LogService.LogInfo(
-                            $"[EmpireCraft][铭牌字形包] {_text.font.name} \"{trimmedValue}\" Unity宽={measured:0} 字形宽={baked.Width(trimmedValue):0} " +
-                            $"Unity高={measuredHeight:0} 行高={baked.LineHeight:0} 画布缩放={_text.canvas?.scaleFactor ?? 0:0.00} 每单位像素={_text.pixelsPerUnit:0.00}");
+                        _reference_width = Mathf.Max(_reference_width, baked.Width(StripTags(subLine)) * SubLineScale);
+                        _reference_height += baked.LineHeight * SubLineScale;
                     }
                 }
+                UpdateSubLine(subLine, baked);
                 rect.sizeDelta = new Vector2(_reference_width + 2f, _reference_height + 2f);
                 _metrics_text = trimmedValue;
                 _metrics_style = effectiveFontStyle;
@@ -969,6 +1022,12 @@ public static class TerritoryLabelRenderer
             outlineColor.a *= visibility;
             _outline.effectColor = outlineColor;
             _outline.effectDistance = new Vector2(outlineDistance, -outlineDistance);
+            if (_sub_text != null && _sub_text.gameObject.activeSelf)
+            {
+                _sub_text.color = new Color(1f, 1f, 1f, textAlpha);
+                _sub_outline.effectColor = outlineColor;
+                _sub_outline.effectDistance = _outline.effectDistance;
+            }
 
             float rotation = Mathf.Atan2(alongDelta.y, alongDelta.x) * Mathf.Rad2Deg;
             float arcHeight = Mathf.Abs(_placement.curvature) * _reference_width * scale * canvasScale;
