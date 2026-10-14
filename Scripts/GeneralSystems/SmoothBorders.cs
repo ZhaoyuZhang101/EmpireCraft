@@ -106,6 +106,7 @@ public static class SmoothBorders
         int option = layer.getZoneOptionState();
         _cx = center.x;
         _cy = center.y;
+        _hover = HoveredProvince(layer, option);
         for (int dy = -2; dy <= 2; dy++)
         for (int dx = -2; dx <= 2; dx++)
         {
@@ -113,9 +114,32 @@ public static class SmoothBorders
             TileZone zone = calc.getZone(_cx + dx, _cy + dy);
             Zones[index] = zone;
             Metas[index] = MetaOf(layer, option, zone);
+            Shades[index] = ShadeOf(zone, Metas[index]);
             PushMetas[index] = PushMetaOf(layer, zone);
         }
         return true;
+    }
+
+    // 帝国图层悬停某省：原版把这个省的地块整块换成本省颜色(见 EmpireCraftMetaTypeLibrary)，而各省都算同一个帝国，
+    // 平滑时分不出省界，颜色按地块一块块换，边上是锯齿、弯进弯出的格子颜色不对。悬停时把这个省当作单独的一方(Shades)：
+    // 省界和国界一样按 B 样条加噪声平滑，相邻地块里划进来的格子一起换色
+    private static readonly IMetaObject[] Shades = new IMetaObject[25];
+    private static Kingdom _hover;
+    private static IMetaObject _hoverRealm;
+
+    private static Kingdom HoveredProvince(MetaTypeAsset layer, int option)
+    {
+        if (layer.map_mode != MetaTypeExtension.Empire || option != 0) return null;
+        Kingdom kingdom = World.world.getMouseTilePosCachedFrame()?.zone_city?.kingdom;
+        return kingdom != null && kingdom.isAlive() && kingdom.IsInEmpire() ? kingdom : null;
+    }
+
+    private static IMetaObject ShadeOf(TileZone zone, IMetaObject real)
+    {
+        if (_hover == null || real == null || zone?.city?.kingdom != _hover || !(real is Empire empire) ||
+            _hover.GetEmpire() != empire) return real;
+        _hoverRealm = real;
+        return _hover;
     }
 
     private static readonly IMetaObject[] Candidates = new IMetaObject[9];
@@ -143,7 +167,7 @@ public static class SmoothBorders
             for (int i = -1; i <= 1; i++)
             {
                 int gx = zx + i - _cx + 2, gy = zy + j - _cy + 2;
-                IMetaObject meta = gx is >= 0 and < 5 && gy is >= 0 and < 5 ? Metas[gy * 5 + gx] : null;
+                IMetaObject meta = gx is >= 0 and < 5 && gy is >= 0 and < 5 ? Shades[gy * 5 + gx] : null;
                 float w = wy * (i < 0 ? ax0 : i == 0 ? ax1 : ax2);
                 int k = 0;
                 while (k < count && !ReferenceEquals(Candidates[k], meta)) k++;
@@ -257,6 +281,7 @@ public static class SmoothBorders
             ActiveMetas.UnionWith(CollectMetas);
             ActiveZones.Clear();
             ActiveZones.UnionWith(CollectZones);
+            LitCache.Clear();
             // 高亮只是把底色提亮：相关地块(连同四周，平滑的边会伸进邻块)直接改色，当帧就变，不必重画
             Color32[] pixels = calc.pixels;
             var done = new HashSet<int>();
@@ -308,7 +333,7 @@ public static class SmoothBorders
         MetaTypeAsset layer = World.world.getCachedMapMetaAsset();
         if (layer == null || !Fill(layer, zone)) return false;
         // 同样的上色输入画过：直接拷回(见"上色缓存")
-        TrackNative(zone, LayerMeta(layer, layer.getZoneOptionState(), zone), inside, outside);
+        TrackNative(zone, LayerMeta(layer, layer.getZoneOptionState(), zone), inside, outside, ShadeKey());
         long key = KeyOf(layer, zone, inside, outside);
         if (key != 0L && Restore(calc.pixels, zone, key))
         {
@@ -325,13 +350,13 @@ public static class SmoothBorders
         for (int dx = 1; dx <= 3; dx++)
         {
             int index = dy * 5 + dx;
-            if (ReferenceEquals(Metas[index], Metas[12]) && PushMetas[index] == null) continue;
+            if (ReferenceEquals(Shades[index], Shades[12]) && PushMetas[index] == null) continue;
             uniform = false;
             break;
         }
         for (int gy = 0; gy < Window; gy++)
         for (int gx = 0; gx < Window; gx++)
-            Owners[gy * Window + gx] = uniform ? IsWater(_ox + gx, _oy + gy) ? null : Metas[12] : OwnerAt(_ox + gx, _oy + gy);
+            Owners[gy * Window + gx] = uniform ? IsWater(_ox + gx, _oy + gy) ? null : Shades[12] : OwnerAt(_ox + gx, _oy + gy);
         Color32[] pixels = calc.pixels;
         if (_outline.Length != pixels.Length)
         {
@@ -341,8 +366,9 @@ public static class SmoothBorders
             _base = new Color32[pixels.Length];
             _hasBase = new bool[pixels.Length];
         }
-        IMetaObject own = Metas[12];
-        IMetaObject native = LayerMeta(layer, layer.getZoneOptionState(), zone);
+        // 本块的归属、原版这次给本块的颜色是按谁画的(悬停的省按本省)
+        IMetaObject own = Shades[12];
+        IMetaObject native = ShadeOf(zone, LayerMeta(layer, layer.getZoneOptionState(), zone));
         Remember(zone, own);
         bool clearInside = inside.a == 0;
         bool goldLayer = layer.map_mode == MetaType.Kingdom;
@@ -354,7 +380,8 @@ public static class SmoothBorders
             int id = tile.data.tile_id;
             int x = tile.x, y = tile.y;
             IMetaObject owner = OwnerCached(x, y);
-            bool foreign = !ReferenceEquals(owner, own);
+            bool foreign = !ReferenceEquals(owner, own) && !(ReferenceEquals(owner, _hover) && ReferenceEquals(Metas[12], _hoverRealm)) &&
+                           !(ReferenceEquals(own, _hover) && ReferenceEquals(owner, _hoverRealm));
             bool edge = !uniform && owner != null &&
                         (Differs(owner, x + 1, y, width, height) || Differs(owner, x - 1, y, width, height) ||
                          Differs(owner, x, y + 1, width, height) || Differs(owner, x, y - 1, width, height));
@@ -412,14 +439,16 @@ public static class SmoothBorders
         ZoneCalculator calc = World.world?.zone_calculator;
         Color32[] pixels = calc?.pixels;
         if (!Enabled || pixels == null || pixels.Length != _base.Length) return;
+        LitCache.Clear();
         bool changed = false;
         for (int id = 0; id < pixels.Length; id++)
         {
             IMetaObject owner = _owner[id];
             if (owner == null || !_hasBase[id] || pixels[id].a == 0) continue;
+            IMetaObject realm = ReferenceEquals(owner, _hover) && _hoverRealm != null ? _hoverRealm : owner;
             bool hit = false;
             foreach (object meta in metas)
-                if (meta != null && ReferenceEquals(meta, owner))
+                if (meta != null && (ReferenceEquals(meta, owner) || ReferenceEquals(meta, realm)))
                 {
                     hit = true;
                     break;
@@ -442,8 +471,9 @@ public static class SmoothBorders
     // 一次换主的地块要分好几帧才画完(上色分帧，见 ZonePaintBudget)：等这批画完(至多 MaxPlanWait 秒)再统一排一道扫描，
     // 之后才画到的块接着这道扫描往下排，不再每帧另起一小段，扫描不会一截一截地跳。
     // 逐格推进吃下的地(FrontSystem.Smooth)本身就是渐变，直接显示；换图层时不做渐变
-    private const float SweepStep = 0.18f, MaxSweepSeconds = 4f, RippleSpeed = 90f, RippleGroupSeconds = 0.15f,
-        StaleSeconds = 6f, SweepSoft = 0.3f, RippleSoft = 5f, MaxPlanWait = 0.6f;
+    // 每格从旧样子换到新样子的时刻在起扫时一次算好(Arrive)，之后每帧只按时刻混色、跳过没轮到和变完的块
+    private const float SweepStep = 0.18f, MaxSweepSeconds = 4f, RippleSpeed = 150f, RippleGroupSeconds = 0.15f,
+        StaleSeconds = 6f, SweepSoft = 0.3f, RippleSoft = 5f, MaxPlanWait = 0.15f;
 
     private sealed class ShownState
     {
@@ -457,10 +487,13 @@ public static class SmoothBorders
         public bool ripple, planned;
         public float start, step, dirX, dirY, created;
         public int distance, originX, originY;
+        // 各格开始变色的时刻、过渡带用时(秒)；最早、最晚开始的一格
+        public float[] arrive;
+        public float soft, first, last;
     }
 
     private static readonly Dictionary<int, ShownState> Shown = new();
-    private static readonly Dictionary<int, (int inside, int outside, int meta)> NativeShown = new();
+    private static readonly Dictionary<int, (int inside, int outside, int meta, int shade)> NativeShown = new();
     private static readonly HashSet<int> PendingSweep = new();
     private static readonly Dictionary<int, Transition> Transitions = new();
 
@@ -525,13 +558,13 @@ public static class SmoothBorders
     }
 
     // 本色变了而归属的颜色没变(=临时换色，如悬停某省)：从鼠标处起一圈波纹
-    private static void TrackNative(TileZone zone, IMetaObject meta, Color32 inside, Color32 outside)
+    private static void TrackNative(TileZone zone, IMetaObject meta, Color32 inside, Color32 outside, int shade)
     {
         int metaKey = ColorKey(SafeColor(meta)) ^ (meta == null ? 0 : global::System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(meta));
-        var now = (Rgb(inside), Rgb(outside), metaKey);
+        var now = (Rgb(inside), Rgb(outside), metaKey, shade);
         bool known = NativeShown.TryGetValue(zone.id, out var last);
         NativeShown[zone.id] = now;
-        if (!known || last.meta != metaKey || last.inside == now.Item1 && last.outside == now.Item2) return;
+        if (!known || last.meta != metaKey || last.inside == now.Item1 && last.outside == now.Item2 && last.shade == shade) return;
         Transition transition = Capture(zone);
         if (transition == null) return;
         float time = Time.unscaledTime;
@@ -549,6 +582,22 @@ public static class SmoothBorders
         transition.originY = _rippleY;
         Transitions[zone.id] = transition;
         PendingSweep.Remove(zone.id);
+    }
+
+    // 周围 3×3 块显示成谁(悬停的省)
+    private static int ShadeKey()
+    {
+        unchecked
+        {
+            int key = 17;
+            for (int dy = 1; dy <= 3; dy++)
+            for (int dx = 1; dx <= 3; dx++)
+            {
+                IMetaObject meta = Shades[dy * 5 + dx];
+                key = key * 31 + (meta == null ? 0 : global::System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(meta));
+            }
+            return key;
+        }
     }
 
     // 记下这块地眼下画着的样子(还没画过的块不做渐变)
@@ -587,39 +636,49 @@ public static class SmoothBorders
         calc.setDirty();
     }
 
-    // 这一格换到哪了：0 = 还是旧样子，1 = 已是新样子，中间是前沿的过渡带
-    private static float Mix(Transition transition, TileZone zone, int x, int y, float now)
+    // 排好扫描(或起了波纹)后，一次算出各格开始变色的时刻：波纹按离鼠标的距离，扫描按第几圈、在块里的前后
+    private static void Arrive(Transition transition, TileZone zone)
     {
-        if (!transition.planned) return 0f;
-        if (transition.ripple)
-        {
-            float dx = x - transition.originX, dy = y - transition.originY;
-            float reach = (now - transition.start) * RippleSpeed - Mathf.Sqrt(dx * dx + dy * dy) - (FrontNoise(x, y) - 0.5f) * 6f;
-            return Mathf.Clamp01(reach / RippleSoft);
-        }
-        float progress = (now - transition.start) / transition.step;
-        if (progress < transition.distance - 0.5f) return 0f;
-        if (progress >= transition.distance + 1.5f) return 1f;
+        int count = zone.tiles.Length;
+        if (transition.arrive == null || transition.arrive.Length != count) transition.arrive = new float[count];
+        transition.soft = transition.ripple ? RippleSoft / RippleSpeed : SweepSoft * transition.step;
         float cx = zone.x * ZoneSize + ZoneSize * 0.5f - 0.5f, cy = zone.y * ZoneSize + ZoneSize * 0.5f - 0.5f;
-        float along = transition.dirX == 0f && transition.dirY == 0f
-            ? Mathf.Sqrt((x - cx) * (x - cx) + (y - cy) * (y - cy)) / (ZoneSize * 0.75f)
-            : ((x - cx) * transition.dirX + (y - cy) * transition.dirY) / ZoneSize + 0.5f;
-        float threshold = transition.distance + Mathf.Clamp01(along) + (FrontNoise(x, y) - 0.5f) * 0.35f;
-        return Mathf.Clamp01((progress - threshold) / SweepSoft);
+        float first = float.MaxValue, last = float.MinValue;
+        for (int i = 0; i < count; i++)
+        {
+            WorldTile tile = zone.tiles[i];
+            int x = tile.x, y = tile.y;
+            float at;
+            if (transition.ripple)
+            {
+                float dx = x - transition.originX, dy = y - transition.originY;
+                at = transition.start + (Mathf.Sqrt(dx * dx + dy * dy) + (FrontNoise(x, y) - 0.5f) * 6f) / RippleSpeed;
+            }
+            else
+            {
+                float along = transition.dirX == 0f && transition.dirY == 0f
+                    ? Mathf.Sqrt((x - cx) * (x - cx) + (y - cy) * (y - cy)) / (ZoneSize * 0.75f)
+                    : ((x - cx) * transition.dirX + (y - cy) * transition.dirY) / ZoneSize + 0.5f;
+                at = transition.start + (transition.distance + Mathf.Clamp01(along) + (FrontNoise(x, y) - 0.5f) * 0.35f) *
+                    transition.step;
+            }
+            transition.arrive[i] = at;
+            first = Mathf.Min(first, at);
+            last = Mathf.Max(last, at);
+        }
+        transition.first = first;
+        transition.last = last;
     }
 
-    private static bool Finished(Transition transition, TileZone zone, float now)
+    private static bool Ready(Transition transition, TileZone zone)
     {
-        if (!transition.planned) return false;
-        if (!transition.ripple) return (now - transition.start) / transition.step >= transition.distance + 1.5f;
-        float far = 0f;
-        foreach ((int cx, int cy) in new[] { (0, 0), (ZoneSize, 0), (0, ZoneSize), (ZoneSize, ZoneSize) })
-        {
-            float dx = zone.x * ZoneSize + cx - transition.originX, dy = zone.y * ZoneSize + cy - transition.originY;
-            far = Mathf.Max(far, Mathf.Sqrt(dx * dx + dy * dy));
-        }
-        return (now - transition.start) * RippleSpeed > far + 3f + RippleSoft + 1f;
+        if (!transition.planned || transition.newPixels == null || zone?.tiles == null ||
+            transition.newPixels.Length != zone.tiles.Length) return false;
+        if (transition.arrive == null || transition.arrive.Length != zone.tiles.Length) Arrive(transition, zone);
+        return true;
     }
+
+    private static bool Finished(Transition transition, float now) => now >= transition.last + transition.soft;
 
     // 这块地刚画好新样子：记下来，再按扫到没有逐格选新旧
     private static void ApplyTransition(Color32[] pixels, TileZone zone)
@@ -633,11 +692,11 @@ public static class SmoothBorders
 
     private static void WriteMix(Color32[] pixels, TileZone zone, Transition transition, float now)
     {
+        bool ready = Ready(transition, zone);
         for (int i = 0; i < zone.tiles.Length; i++)
         {
-            WorldTile tile = zone.tiles[i];
-            int id = tile.data.tile_id;
-            float mix = Mix(transition, zone, tile.x, tile.y, now);
+            int id = zone.tiles[i].data.tile_id;
+            float mix = ready ? (now - transition.arrive[i]) / transition.soft : 0f;
             _base[id] = mix <= 0f ? transition.oldPixels[i] : mix >= 1f ? transition.newPixels[i]
                 : Color32.Lerp(transition.oldPixels[i], transition.newPixels[i], mix);
             pixels[id] = Lifted(id);
@@ -669,8 +728,8 @@ public static class SmoothBorders
                 (done ??= new List<int>()).Add(pair.Key);
                 continue;
             }
-            if (transition.newPixels == null || transition.newPixels.Length != zone.tiles.Length) continue;
-            if (Finished(transition, zone, now))
+            if (!Ready(transition, zone) || now < transition.first) continue;
+            if (Finished(transition, now))
             {
                 for (int i = 0; i < zone.tiles.Length; i++)
                 {
@@ -682,8 +741,6 @@ public static class SmoothBorders
                 (done ??= new List<int>()).Add(pair.Key);
                 continue;
             }
-            if (!transition.planned || !transition.ripple && (now - transition.start) / transition.step < transition.distance - 0.5f)
-                continue;
             WriteMix(pixels, zone, transition, now);
             wrote = true;
         }
@@ -790,6 +847,7 @@ public static class SmoothBorders
                 transition.start = plan.start;
                 transition.step = plan.step;
                 transition.planned = true;
+                transition.arrive = null;
                 plan.distances[zone.id] = distance;
             }
             plan.end = Mathf.Max(plan.end, plan.start + plan.step * (farthest + 3f));
@@ -886,7 +944,7 @@ public static class SmoothBorders
             for (int i = 0; i < 25; i++)
             {
                 if (PushMetas[i] != null) return 0L;
-                IMetaObject meta = Metas[i];
+                IMetaObject meta = Shades[i];
                 Add(meta == null ? 0 : global::System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(meta));
                 Add(ColorIndex(meta));
                 // 帝国金边看各国属于哪个帝国
@@ -976,11 +1034,28 @@ public static class SmoothBorders
         Color32 color = _base[id];
         IMetaObject owner = _owner[id];
         if (_outline[id] || owner == null || color.a == 0) return color;
-        // 悬停的、选中的(原版选中后边框一闪一闪，这里改成常亮；选中变了原版会整图重画)
+        return Lit(owner) ? Color32.Lerp(color, new Color32(255, 255, 255, color.a), HighlightLift) : color;
+    }
+
+    // 悬停的、选中的(原版选中后边框一闪一闪，这里改成常亮；选中变了原版会整图重画)。每帧按归属记一次，不逐格查；
+    // 悬停时单独显示本省颜色的那个省算它所属的帝国
+    private static readonly Dictionary<IMetaObject, bool> LitCache = new();
+    private static int _litFrame = -1;
+
+    private static bool Lit(IMetaObject owner)
+    {
+        if (_litFrame != Time.frameCount)
+        {
+            _litFrame = Time.frameCount;
+            LitCache.Clear();
+        }
+        if (LitCache.TryGetValue(owner, out bool lit)) return lit;
+        IMetaObject realm = ReferenceEquals(owner, _hover) && _hoverRealm != null ? _hoverRealm : owner;
         ZoneCalculator calc = World.world?.zone_calculator;
-        bool lit = ActiveMetas.Count > 0 && ActiveMetas.Contains(owner) ||
-                   calc != null && calc._cached_check_animation && calc.shouldShowSelectionFor(owner);
-        return lit ? Color32.Lerp(color, new Color32(255, 255, 255, color.a), HighlightLift) : color;
+        lit = ActiveMetas.Count > 0 && (ActiveMetas.Contains(owner) || ActiveMetas.Contains(realm)) ||
+              calc != null && calc._cached_check_animation && calc.shouldShowSelectionFor(realm);
+        LitCache[owner] = lit;
+        return lit;
     }
 
     // 相邻像素归属不同(水面不算：海岸本身不画边框)
