@@ -11,11 +11,13 @@ using UnityEngine;
 namespace EmpireCraft.Scripts.GeneralSystems;
 
 // 国债(无小人模式；参考维多利亚3“有偿债能力的借贷”)：
-//   借：国库低于安全储备，或正对一般地方限额拨款(FiscalBudgetPlanner)时，向本国各城百姓的民间现金借钱——
+//   借：国库不到安全储备的四分之一，或正对一般地方限额拨款(FiscalBudgetPlanner)时，向本国各城百姓的民间现金借钱——
 //       只借每户日用底线以上的部分，每城最多借出一半；借款不超过缺口，总债务不超过年经常收入的 2 倍。
-//       没掌握“数学”的文明不会举债。借来的是真钱(百姓现金 → 国库)，记“举债所得”，不算经常收入。
+//       没掌握“数学”的文明不会举债；一年内违约过的，没人肯借。借来的是真钱(百姓现金 → 国库)，记“举债所得”，不算经常收入。
 //   息：年利率 4%，未掌握“银行”+3%，正统越低越贵(最多 +4%)，有欠饷 +2%，限 3%~12%；每月付给债权城的民间现金。
 //       付不起就把利息滚进本金，记一次违约。
+//   废债：债务超过年经常收入的 3 倍(多是利息滚进本金滚出来的)，各笔按比例削到合计 1 年收入，记一次违约。
+//       以前没有这一步，旧档里有欠到几万亿、每月把国库全付了利息的国家
 //   还：国库宽裕(可用资金为正)且没有限额拨款时，先还最早的一笔，最多拿出可用资金的一半。
 //   债权城被毁：这笔债无人可还，作废并记违约。城易主仍照付(债权人是那里的百姓)。
 //   正统：债务超过年经常收入、或一年内违约过，都损正统(见 MonarchyLegitimacy)。
@@ -86,12 +88,10 @@ public static class StateDebtSystem
 
     private static void TryBorrow(Kingdom kingdom)
     {
-        if (!TechnologySystem.HasTech(TechnologySystem.GetCultureOf(kingdom), "mathematics")) return;
-        long balance = kingdom.GetTreasuryBalance();
-        long reserve = TreasurySystem.SafetyReserve(kingdom);
-        bool rationing = FiscalBudgetPlanner.NormalRatio(kingdom) < 0.999d;
-        if (balance >= reserve && !rationing) return;
-        long need = Math.Max(reserve - balance, rationing ? Math.Max(1L, reserve / 4) : 0L);
+        if (!TechnologySystem.HasTech(TechnologySystem.GetCultureOf(kingdom), "mathematics") || DefaultedRecently(kingdom)) return;
+        long need = StateDebtRules.BorrowNeed(kingdom.GetTreasuryBalance(), TreasurySystem.SafetyReserve(kingdom),
+            FiscalBudgetPlanner.NormalRatio(kingdom) < 0.999d);
+        if (need <= 0L) return;
         long room = StateDebtRules.BorrowRoom(AnnualStableIncome(kingdom), Outstanding(kingdom));
         long target = Math.Min(need, room);
         if (target < MinimumLoan || kingdom.cities == null) return;
@@ -148,7 +148,7 @@ public static class StateDebtSystem
     {
         List<StateBond> bonds = Bonds(kingdom);
         if (bonds == null || bonds.Count == 0) return;
-        bool defaulted = false;
+        bool defaulted = Restructure(kingdom, bonds);
         for (int i = bonds.Count - 1; i >= 0; i--)
         {
             StateBond bond = bonds[i];
@@ -199,6 +199,25 @@ public static class StateDebtSystem
             spare -= repay;
         }
         bonds.RemoveAll(bond => bond.principal <= 0L);
+    }
+
+    private static bool Restructure(Kingdom kingdom, List<StateBond> bonds)
+    {
+        if (TreasurySystem.Report(kingdom).months < 3) return false;
+        long outstanding = Outstanding(kingdom);
+        long income = AnnualStableIncome(kingdom);
+        double keep = StateDebtRules.RestructureKeep(income, outstanding);
+        if (keep >= 1d) return false;
+        foreach (StateBond bond in bonds)
+        {
+            bond.principal = (long)Math.Floor(bond.principal * keep);
+            bond.interest_carry = 0d;
+        }
+        bonds.RemoveAll(bond => bond.principal <= 0L);
+        FiscalDiagnostics.Count("国债废债重组");
+        LogService.LogInfo($"[EmpireCraft][国债] {kingdom.name} 债务 {outstanding} 超过年经常收入 {income} 的 " +
+                           $"{StateDebtRules.MaxDebtYears} 倍，废债重组为 {Outstanding(kingdom)}");
+        return true;
     }
 
     private static void AddKingdomMoney(Kingdom kingdom, long amount, TreasuryCategory category)

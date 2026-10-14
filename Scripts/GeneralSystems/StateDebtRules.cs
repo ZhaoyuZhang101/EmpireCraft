@@ -7,6 +7,9 @@ public static class StateDebtRules
 {
     public const double DebtCapYears = 2d;
     public const double LendShare = 0.5d;
+    // 债台高筑：付不起的利息滚进本金，债会越滚越大；超过年经常收入的 3 倍就废债重组，削到 1 年收入
+    public const double MaxDebtYears = 3d;
+    public const double RestructuredDebtYears = 1d;
 
     // 年利率：4% 起，未掌握银行 +3%，正统越低越贵(最多 +4%)，有欠饷 +2%；限 3%~12%
     public static float AnnualRate(bool hasBanking, int legitimacy, bool hasArrears)
@@ -34,6 +37,23 @@ public static class StateDebtRules
     // 还能借多少：年经常收入 × 上限倍数 − 现有债务
     public static long BorrowRoom(long annualStableIncome, long outstanding) =>
         Math.Max(0L, (long)(Math.Max(0L, annualStableIncome) * DebtCapYears) - Math.Max(0L, outstanding));
+
+    // 废债重组后各笔本金的保留比例(1 = 不动)
+    public static double RestructureKeep(long annualStableIncome, long outstanding)
+    {
+        double income = Math.Max(0L, annualStableIncome);
+        if (outstanding <= 0L || outstanding <= income * MaxDebtYears) return 1d;
+        return Math.Max(0d, Math.Min(1d, income * RestructuredDebtYears / outstanding));
+    }
+
+    // 什么时候才借：一般地方限额拨款，或国库不到安全储备的四分之一(约三个月的必要开支)。
+    // 不为凑满储备借钱——借来放在库里还要付利息
+    public static long BorrowNeed(long balance, long reserve, bool rationing)
+    {
+        long floor = Math.Max(0L, reserve) / 4;
+        if (balance >= floor && !rationing) return 0L;
+        return Math.Max(floor - balance, rationing ? Math.Max(1L, floor) : 0L);
+    }
 
     // 一座城可借出：现金超出日用底线部分的一半，加投资池的一半
     public static long Lendable(long cash, long reserve, long investmentPool) =>

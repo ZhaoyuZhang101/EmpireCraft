@@ -859,8 +859,10 @@ namespace EmpireCraft.Scripts.UI.Windows
             UIHelper.AddKpiTile(kpis, kpiWidth, LM.Get("fiscal_realm_operating_balance"), MoneyDisplay.Format(realm.operating_balance),
                 realm.operating_balance < 0 ? "#FF6666" : "#65D66E");
 
+            AddReconciliation(parent, core, report);
             AddTreasuryChart(parent, TreasurySystem.MonthlyFlows(core));
             AddTaxCollection(parent, _empire);
+            AddStateDebt(parent, core);
 
             // 构成里列了央地拨款，标题的合计也算上它，和下面的条目对得上
             var columns = parent.BeginColumns(MainWidth);
@@ -984,6 +986,42 @@ namespace EmpireCraft.Scripts.UI.Windows
                 months.Any(month => month.inflow.Keys.Any(key => !inKeys.Contains(key))), null);
             AddChartLegend(card, inner, LM.Get("fiscal_chart_out"), outKeys, OutflowColors,
                 months.Any(month => month.outflow.Keys.Any(key => !outKeys.Contains(key))), LM.Get("fiscal_chart_net_legend"));
+        }
+
+        // 国库对账：账期初的国库 + 其间全部收入(含央地拨款、举债) − 全部支出(含还本付息) = 现在的国库。
+        // 每笔进出都记了账，所以这一行总是对得上；"经常收支"不含举债、还本、建设等，和国库变动本来就不相等
+        private static void AddReconciliation(AutoVertLayoutGroup parent, Kingdom core, TreasuryReport report)
+        {
+            long balance = core.GetTreasuryBalance();
+            long inflow = report.income + report.transfer_in, outflow = report.expense + report.transfer_out;
+            var card = parent.BeginCard(MainWidth, "fiscal_reconcile_title", "#F3C34A",
+                string.Format(LM.Get("fiscal_chip_months"), report.months), "ui/icons/iconMoney");
+            card.AddMetricRow(MainWidth,
+                (LM.Get("fiscal_reconcile_opening"), MoneyDisplay.Format(balance - report.cash_balance), "#F2EEE2"),
+                (LM.Get("fiscal_reconcile_in"), "+" + MoneyDisplay.Format(inflow), "#65D66E"),
+                (LM.Get("fiscal_reconcile_out"), "-" + MoneyDisplay.Format(outflow), "#E9A85B"),
+                (LM.Get("fiscal_reconcile_closing"), MoneyDisplay.Format(balance), "#F3C34A"));
+        }
+
+        // 国债(见 StateDebtSystem)：本金、平均年息、一年的利息、相当于几年经常收入；一年内违约过标红
+        private static void AddStateDebt(AutoVertLayoutGroup parent, Kingdom core)
+        {
+            long debt = StateDebtSystem.Outstanding(core);
+            if (debt <= 0L) return;
+            float rate = StateDebtSystem.AverageRate(core);
+            long income = StateDebtSystem.AnnualStableIncome(core);
+            bool defaulted = StateDebtSystem.DefaultedRecently(core);
+            var card = parent.BeginCard(MainWidth, "state_debt", defaulted ? "#E66B66" : "#E9A85B",
+                LM.Get(defaulted ? "fiscal_debt_defaulted" : "fiscal_debt_servicing"), "ui/icons/iconMoney");
+            card.AddMetricRow(MainWidth,
+                (LM.Get("fiscal_debt_principal"), MoneyDisplay.Format(debt), "#E9A85B"),
+                (LM.Get("fiscal_debt_rate"), rate.ToString("0.0%"), "#F2EEE2"),
+                (LM.Get("fiscal_debt_interest"), MoneyDisplay.Format((long)(debt * (double)rate)), "#E9A85B"),
+                (LM.Get("fiscal_debt_years"), income > 0 ? (debt / (double)income).ToString("0.0") : "-",
+                    debt > income * 2 ? "#FF6666" : "#F2EEE2"));
+            var note = card.AddTextIntoVertLayout(LM.Get("fiscal_debt_hint").ColorString("#8FA0A8"), true, TextAnchor.UpperLeft,
+                new Vector2(MainWidth - 16f, 16f));
+            note.UseFixedFontSize(6, HorizontalWrapMode.Wrap);
         }
 
         // 税赋征收(见 TaxErosionSystem)：上一年应征、实收、征收率，各环节的流失
