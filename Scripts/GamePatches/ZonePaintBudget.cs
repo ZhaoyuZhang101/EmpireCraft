@@ -46,7 +46,12 @@ public class ZonePaintBudget : GamePatch
             prefix: new HarmonyMethod(typeof(ZonePaintBudget), nameof(BeforeSelectionColors)));
         harmony.Patch(AccessTools.Method(typeof(ZoneCalculator), "checkClearAllZonesToRedraw"),
             prefix: new HarmonyMethod(typeof(ZonePaintBudget), nameof(BeforeClearAll)));
+        harmony.Patch(AccessTools.Method(typeof(ZoneCalculator), "drawZoneClear"),
+            postfix: new HarmonyMethod(typeof(ZonePaintBudget), nameof(AfterZoneClear)));
     }
+
+    // 原版清空了一块地：平滑国界忘掉它记下的底色、渐变(见 SmoothBorders.Cleared)
+    private static void AfterZoneClear(TileZone pZone) => SmoothBorders.Cleared(pZone);
 
     private static void NewFrame()
     {

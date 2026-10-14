@@ -530,6 +530,7 @@ public static class SmoothBorders
         PendingSweep.Clear();
         Transitions.Clear();
         Plans.Clear();
+        ExpandedUnits.Clear();
     }
 
     // 真实归属；顺带看这块地换主了没有，换了就记下它原来的样子、排进扫描
@@ -549,12 +550,83 @@ public static class SmoothBorders
         bool known = shown != null;
         Shown[zone.id] = new ShownState { meta = real, colorKey = realKey };
         if (!known) return real;
+        Queue(zone, zone.x != _cx || zone.y != _cy);
+        ExpandUnit(layer, option, zone, shown.meta, real);
+        return real;
+    }
+
+    // 记下这块地原来的样子、排进扫描。不是正在画的这块(画邻块时顺带发现它变了)：让原版下一轮重画它，
+    // 否则它等不到新样子，渐变作废后一直留着旧颜色
+    private static void Queue(TileZone zone, bool repaint)
+    {
         Transition transition = Capture(zone);
-        if (transition == null) return real;
+        if (transition == null) return;
         Transitions[zone.id] = transition;
         if (PendingSweep.Count == 0) _pendingSince = Time.unscaledTime;
         PendingSweep.Add(zone.id);
-        return real;
+        if (repaint) zone.resetRenderHelpers();
+    }
+
+    // 换色的单位是整个国家、整个帝国(并入帝国、成了附庸、国家换颜色……)：一块地换了，同一国(涉及帝国就是整个帝国)
+    // 其余要变的地块也当场记下原样、排进同一道扫描，整片从新主人那边一次扫过去。以前要等原版一块块画到才各自排进来，
+    // 画得晚的城只能就地接上，看起来一座城一座城地变。同一国 0.5 秒内只查一次
+    private const float ExpandCooldown = 0.5f;
+    private static readonly Dictionary<long, float> ExpandedUnits = new();
+
+    private static void ExpandUnit(MetaTypeAsset layer, int option, TileZone zone, IMetaObject before, IMetaObject after)
+    {
+        float now = Time.unscaledTime;
+        var kingdoms = new List<Kingdom>();
+        void Add(Kingdom kingdom)
+        {
+            if (kingdom?.cities == null || kingdom.isRekt()) return;
+            if (ExpandedUnits.TryGetValue(kingdom.id, out float at) && now >= at && now - at < ExpandCooldown) return;
+            ExpandedUnits[kingdom.id] = now;
+            kingdoms.Add(kingdom);
+        }
+        void AddRealm(IMetaObject meta)
+        {
+            if (meta is Kingdom kingdom) Add(kingdom);
+            else if (meta is Empire empire && !empire.isRekt() && empire.kingdoms_list != null)
+                foreach (Kingdom member in empire.kingdoms_list) Add(member);
+        }
+        Add(zone.city?.kingdom);
+        AddRealm(before);
+        AddRealm(after);
+        foreach (Kingdom kingdom in kingdoms)
+        foreach (City city in kingdom.cities)
+        {
+            if (city?.zones == null) continue;
+            foreach (TileZone other in city.zones)
+            {
+                if (other == null || other == zone || PendingSweep.Contains(other.id) ||
+                    !Shown.TryGetValue(other.id, out ShownState shown)) continue;
+                IMetaObject real = RealMetaOf(layer, option, other);
+                int key = ColorKey(SafeColor(real));
+                if (ReferenceEquals(shown.meta, real) && shown.colorKey == key) continue;
+                Shown[other.id] = new ShownState { meta = real, colorKey = key };
+                Queue(other, true);
+            }
+        }
+    }
+
+    // 原版把这块地清空了(不再归任何对象，如城没了)：忘掉记下的底色、渐变与缓存，免得之后高亮、渐变又把旧颜色写回去
+    public static void Cleared(TileZone zone)
+    {
+        if (zone?.tiles == null) return;
+        foreach (WorldTile tile in zone.tiles)
+        {
+            int id = tile.data.tile_id;
+            if (id < 0 || id >= _hasBase.Length) continue;
+            _hasBase[id] = false;
+            _owner[id] = null;
+        }
+        Transitions.Remove(zone.id);
+        PendingSweep.Remove(zone.id);
+        Shown.Remove(zone.id);
+        NativeShown.Remove(zone.id);
+        LastMeta.Remove(zone.id);
+        Snapshots.Remove(zone.id);
     }
 
     // 本色变了而归属的颜色没变(=临时换色，如悬停某省)：从鼠标处起一圈波纹
@@ -725,6 +797,8 @@ public static class SmoothBorders
             TileZone zone = calc.getZoneByID(pair.Key);
             if (zone?.tiles == null || transition.newPixels == null && now - transition.created > StaleSeconds)
             {
+                // 一直没画到：作废，并让原版重画它(直接显示新样子)，不留旧颜色
+                zone?.resetRenderHelpers();
                 (done ??= new List<int>()).Add(pair.Key);
                 continue;
             }
