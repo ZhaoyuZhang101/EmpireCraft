@@ -2000,7 +2000,12 @@ public static class CityPopulationSystem
                 if (budget <= 0) continue;
                 int saved = actor.data.money;
                 actor.data.money = budget;
+                // 打造用掉的料记入物资账(见 GoodsLedger)：按打造前后仓库的差
+                Dictionary<string, int> before = GearStock(city);
                 bool made = ItemCrafting.craftItem(actor, maker, type, Mathf.Max(1, actor.asset.item_making_skill), city);
+                if (made)
+                    foreach (var pair in before)
+                        GoodsLedger.Used(city, pair.Key, pair.Value - city.getResourcesAmount(pair.Key));
                 int spent = Mathf.Max(0, budget - actor.data.money);
                 actor.data.money = saved;
                 if (made && spent > 0) treasury.SubMoney(spent, TreasuryCategory.Military);
@@ -2011,6 +2016,16 @@ public static class CityPopulationSystem
         {
             LogService.LogWarning($"[EmpireCraft] 无小人模式征召兵配发装备失败: {exception.Message}");
         }
+    }
+
+    private static readonly string[] GearMaterials = { "wood", "common_metals", "leather", "bones", "silver", "gold", "mythril", "adamantine" };
+
+    private static Dictionary<string, int> GearStock(City city)
+    {
+        var stock = new Dictionary<string, int>();
+        foreach (string id in GearMaterials)
+            if (AssetManager.resources?.get(id) != null) stock[id] = city.getResourcesAmount(id);
+        return stock;
     }
 
     private static void AssignAdultAge(Actor actor, int min, int max)

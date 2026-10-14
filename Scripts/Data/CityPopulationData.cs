@@ -74,6 +74,10 @@ public class CityPopulationData
     public float last_leather_used;
     public float last_leather_shortage;
     public float leather_need_carry;
+    // 物资账(见 GoodsLedger)：本年累计的产出/消耗/缺口(资源 id → 数量)与开始累计的时间，上一年的年产/年耗/缺口
+    public Dictionary<string, float> goods_made_acc, goods_used_acc, goods_short_acc;
+    public double goods_since = -1d;
+    public Dictionary<string, float> goods_made, goods_used, goods_short;
     // 背景人口生产估值：不是实际销售现金；由旧抽象生产税使用，见 PopulationEconomySystem.Deposit。
     public float produced_value;
     public Dictionary<string, float> produced_sector_values = new();

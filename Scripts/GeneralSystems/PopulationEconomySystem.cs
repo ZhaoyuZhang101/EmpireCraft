@@ -160,13 +160,14 @@ public static class PopulationEconomySystem
             float relief = GranarySystem.Relieve(city, shortage);
             if (relief > 0f)
             {
-                Deposit(city, data, _foodId ?? "wheat", relief, income: false);
+                Deposit(city, data, _foodId ?? "wheat", relief, income: false, made: false);
                 float served = EatFood(city, data, Mathf.Floor(Mathf.Min(shortage, relief)), out _);
                 eaten += served;
                 shortage = Mathf.Max(0f, shortage - served);
             }
         }
 
+        GoodsLedger.Short(city, GoodsLedger.FoodKey, shortage);
         data.last_jobs = jobs;
         data.last_workforce = workforce;
         data.last_food_output = years > 0f ? food / years : 0f;
@@ -227,7 +228,9 @@ public static class PopulationEconomySystem
         if (rawHarvest <= 0f) return 0f;
         ResolveReflection();
         float harvested = GranarySystem.Collect(city, rawHarvest);
-        if (harvested > 0f) Deposit(city, data, _foodId ?? "wheat", harvested);
+        // 产出记收割的全部(交国家粮仓的那份也是本城种出来的)
+        GoodsLedger.Made(city, _foodId ?? "wheat", rawHarvest);
+        if (harvested > 0f) Deposit(city, data, _foodId ?? "wheat", harvested, made: false);
         return harvested;
     }
 
@@ -496,10 +499,12 @@ public static class PopulationEconomySystem
 
     // 产出攒满整数再入库；旧生产税只估值实际收到的应税产出。
     // 仓库满或入库失败的整份产出没有实现，不能产生财政收入。
-    public static void Deposit(City city, CityPopulationData data, string resource, float amount, bool income = true)
+    // made：是不是本城的产出(记入物资账，见 GoodsLedger)；赈灾调粮这类调拨传 false
+    public static void Deposit(City city, CityPopulationData data, string resource, float amount, bool income = true, bool made = true)
     {
         if (city?.data == null || data == null || string.IsNullOrEmpty(resource) ||
             amount <= 0f || float.IsNaN(amount) || float.IsInfinity(amount)) return;
+        if (made) GoodsLedger.Made(city, resource, amount);
         data.output_carry ??= new Dictionary<string, float>();
         data.output_carry.TryGetValue(resource, out float carry);
         if (float.IsNaN(carry) || float.IsInfinity(carry) || carry < 0f) carry = 0f;
@@ -558,7 +563,9 @@ public static class PopulationEconomySystem
         {
             LogService.LogWarning($"[EmpireCraft][人口经济] 扣 {resource} 失败: {exception.Message}");
         }
-        return ResourceDelta(city.getResourcesAmount(resource), before, take);
+        int taken = ResourceDelta(city.getResourcesAmount(resource), before, take);
+        GoodsLedger.Used(city, resource, taken);
+        return taken;
     }
 
     // 军粮(见 LogisticsSystem)：从城市仓库按粮食种类整批取走 portions 份，返回实际取到的
@@ -610,6 +617,7 @@ public static class PopulationEconomySystem
         int take = ConsumeStoredResource(city, "leather", whole);
         data.last_leather_used = take;
         data.last_leather_shortage = whole - take;
+        GoodsLedger.Short(city, "leather", whole - take);
     }
 
     // 工人去工地：按攒下的施工点数推进城里在建的建筑

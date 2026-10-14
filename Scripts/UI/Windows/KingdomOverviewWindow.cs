@@ -16,7 +16,8 @@ namespace EmpireCraft.Scripts.UI.Windows;
 // 只放看一国时最常看的模组信息，详细的再跳到各自的窗口：
 //   · 左栏(固定)：国名、国家类别、身份(独立 / 某朝诸侯 / 某帝国朝贡国 / 某国附庸) → 君主、首都、政体、文化、宗教、同盟
 //     → 军事、政体、科技树、原版王国界面；
-//   · 右栏：页头(身份 · 战事) → 主指标(国力与排名、城池、人口、兵力) → 实力 | 经济 两栏 → 科技 → 战事(一场一行，点开战争详情)。
+//   · 右栏：页头(身份 · 战事) → 主指标(国力与排名、城池、人口、兵力) → 实力 | 经济 两栏 → 物资产需(见 GoodsCard) → 科技
+//     → 战事(一场一行，点开战争详情)。
 public class KingdomOverviewWindow : WideScrollWindow<KingdomOverviewWindow>
 {
     private const float HalfWidth = UIHelper.PageColumnWidth;
@@ -140,6 +141,7 @@ public class KingdomOverviewWindow : WideScrollWindow<KingdomOverviewWindow>
         var columns = page.BeginColumns(PageWidth);
         DrawStrength(columns.BeginColumnCard(HalfWidth, "kov_strength", WideKit.Orange, null, "ui/icons/iconWar"), kingdom);
         DrawEconomy(columns.BeginColumnCard(HalfWidth, "kov_economy", WideKit.Green, null, "ui/icons/iconMoney"), kingdom);
+        GoodsCard.Draw(page, PageWidth, kingdom.cities, GranarySystem.Stock(kingdom));
         DrawTech(page, kingdom);
         DrawWars(page, kingdom);
     }

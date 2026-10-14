@@ -172,6 +172,9 @@ public static class CityConstructionSystem
                 if (need.stone > 0) city.takeResource("stone", need.stone);
                 if (need.metal > 0) city.takeResource("common_metals", need.metal);
             }
+            GoodsLedger.Used(city, "wood", need.wood);
+            GoodsLedger.Used(city, "stone", need.stone);
+            GoodsLedger.Used(city, "common_metals", need.metal);
             EnterpriseSystem.PayPrivateFirst(city, cost);
             limit--;
         }

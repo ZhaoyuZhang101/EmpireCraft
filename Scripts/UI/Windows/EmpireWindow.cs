@@ -843,7 +843,7 @@ namespace EmpireCraft.Scripts.UI.Windows
             Kingdom core = _empire?.CoreKingdom;
             if (!TreasurySystem.Enabled(core))
             {
-                BeginPage("empire_finance");
+                AddGoods(BeginPage("empire_finance"), _empire);
                 return;
             }
             TreasuryReport report = TreasurySystem.Report(core);
@@ -886,6 +886,7 @@ namespace EmpireCraft.Scripts.UI.Windows
             // 全境的战争开支(各省自付的也算，见 TreasuryCategory.War)
             UIHelper.AddMetricCell(cells, cellWidth, LM.Get("fiscal_source_War"), MoneyDisplay.Format(realm.war),
                 realm.war > 0 ? "#FF6666" : "#8FA0A8");
+            AddGoods(parent, _empire);
 
             // 小字：国库(与悬停提示里的一致)、可支配(国库扣除预留)、安全储备、现金结余、税收转移与记账说明
             string footnote = $"{LM.Get("label_treasury")} {MoneyDisplay.Format(core.GetTreasuryBalance())}  ·  " +
@@ -986,6 +987,15 @@ namespace EmpireCraft.Scripts.UI.Windows
                 months.Any(month => month.inflow.Keys.Any(key => !inKeys.Contains(key))), null);
             AddChartLegend(card, inner, LM.Get("fiscal_chart_out"), outKeys, OutflowColors,
                 months.Any(month => month.outflow.Keys.Any(key => !outKeys.Contains(key))), LM.Get("fiscal_chart_net_legend"));
+        }
+
+        // 物资产需(见 GoodsCard)：全境各成员国的城，存粮连同各国的国家粮仓
+        private static void AddGoods(AutoVertLayoutGroup parent, Empire empire)
+        {
+            List<Kingdom> members = empire?.kingdoms_list?.Where(kingdom => kingdom?.data != null && !kingdom.isRekt()).ToList()
+                                    ?? new List<Kingdom>();
+            GoodsCard.Draw(parent, MainWidth, members.SelectMany(kingdom => kingdom.cities),
+                members.Sum(kingdom => GranarySystem.Stock(kingdom)));
         }
 
         // 国库对账：账期初的国库 + 其间全部收入(含央地拨款、举债) − 全部支出(含还本付息) = 现在的国库。

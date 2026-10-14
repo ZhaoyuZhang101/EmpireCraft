@@ -32,6 +32,8 @@ namespace EmpireCraft.Scripts.UI.Components;
 //   var list = page.BeginCard(PageWidth, "已亡帝国", WideKit.Muted, "3");
 //   list.AddListRow(PageWidth, 0, icon, "某朝", "延续 120 年 · 末代 某某", () => OpenHistory());
 //   card.AddButtonRow(PageWidth, ("act_a", "加冕", () => {...}), ("act_b", "绝罚", () => {...}));
+//   card.AddTableRow(PageWidth, -1, null, "物资", 80f, ("年产", null), ("年需", null));          // 表头
+//   card.AddTableRow(PageWidth, 0, icon, "粮食", 80f, ("1.2万", WideKit.Value), ("1.5万", WideKit.Red));
 public static class WideKit
 {
     public const string Gold = "#F3C34A", Cyan = "#7FD8EA", Muted = "#8FA0A8", Green = "#65D66E",
@@ -231,6 +233,35 @@ public static class WideKit
             HoverMarqueeText.Attach(text);
         }
         if (action != null) UIHelper.MakeClickable(row.gameObject, action);
+        return row;
+    }
+
+    // 表格行：图标 + 名称(定宽) + 其余各列等分、右对齐；index 为 -1 是表头(灰色小字、不垫底)，否则隔行垫底
+    public static AutoHoriLayoutGroup AddTableRow(this AutoVertLayoutGroup card, float cardWidth, int index, Sprite icon,
+        string name, float nameWidth, params (string text, string hex)[] cells)
+    {
+        bool header = index < 0;
+        float inner = cardWidth - CardPadding;
+        var row = card.BeginHoriGroup(new Vector2(inner, header ? 11f : 14f), TextAnchor.MiddleLeft, 2, new RectOffset(3, 3, 0, 0));
+        if (!header && index % 2 == 0) UIHelper.AddInsetBackground(row, new Vector2(inner, 14f));
+        float iconSpace = 0f;
+        if (icon != null)
+        {
+            UIHelper.AddLayoutIcon(row.transform, icon, 9f);
+            iconSpace = 11f;
+        }
+        var label = row.AddTextIntoHoriLayout((name ?? "").ColorString(header ? Muted : Soft), true, TextAnchor.MiddleLeft,
+            new Vector2(Mathf.Max(10f, nameWidth - iconSpace), 12f));
+        label.UseFixedFontSize(header ? 6 : 7, HorizontalWrapMode.Overflow);
+        HoverMarqueeText.Attach(label);
+        if (cells.Length == 0) return row;
+        float cell = Mathf.Max(10f, (inner - 6f - nameWidth - 2f * cells.Length) / cells.Length);
+        foreach ((string text, string hex) in cells)
+        {
+            var value = row.AddTextIntoHoriLayout((text ?? "").ColorString(header ? Muted : string.IsNullOrEmpty(hex) ? Value : hex),
+                true, TextAnchor.MiddleRight, new Vector2(cell, 12f));
+            value.UseFixedFontSize(header ? 6 : 7, HorizontalWrapMode.Overflow);
+        }
         return row;
     }
 
