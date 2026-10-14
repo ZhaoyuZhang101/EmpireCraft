@@ -12,8 +12,7 @@ namespace EmpireCraft.Scripts.UI.Components;
 // 高德式(2026-10-14 用户选定)：土路浅灰、驿道白、官道浅黄、公路黄、柏油公路橙；驿道以上两侧描一道深色细边，
 // 任何国色上都看得清；
 // 换了地图图层(底色全变)半秒后重画一次。
-// 远近分层：拉远到原版远景不画路(只剩国色与地形，见 PureMapPatch.DetailShown)；切到近景时路淡淡出现，越拉近越清楚。
-// 城市图层不论远近都画(也不要求纯净地图)。
+// 城市与道路一直显示(用户 2026-10-15 改，不再按远近隐藏)；城市图层也画(不要求纯净地图)。
 public static class RoadOverlay
 {
     private const float RedrawSeconds = 20f, MinRedrawSeconds = 10f;
@@ -70,20 +69,10 @@ public static class RoadOverlay
         using (FrameProfiler.Measure("路网·贴图重画")) Redraw();
     }
 
-    // 刚切进近景时四成半，拉近到远景界线的一半多时全显
-    private const float NearAlpha = 0.45f, FullAt = 0.55f;
-
     private static float ZoomAlpha()
     {
-        QualityChanger quality = World.world?.quality_changer;
-        if (quality == null) return 1f;
-        // 城市图层专看城市与路网：不论远近都全显
-        if (EmpireCraft.Scripts.Layer.CityViewMap.Active) return 1f;
-        if (!PureMapPatch.DetailShown) return 0f;
-        float bound = quality.getZoomRateBoundLow();
-        Camera camera = Camera.main;
-        float zoom = camera != null ? camera.orthographicSize : bound;
-        return Mathf.Lerp(NearAlpha, 1f, Mathf.InverseLerp(bound, bound * FullAt, zoom));
+        // 城市与道路一直显示(用户 2026-10-15 改：不再按远近淡入淡出)
+        return 1f;
     }
 
     private static bool Ensure(ZoneCalculator zones, SpriteRenderer source)

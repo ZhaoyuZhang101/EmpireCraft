@@ -333,11 +333,12 @@ public class PureMapPatch : GamePatch
             ShadeTerrain(__instance.pixels, pZone, false, false, false, false);
     }
 
-    // ───────── 远近分层 ─────────
-    // 地图拉远(原版切到远景，isRenderMiniMap)时色块只画国色与地形浮雕，城市平面图、城郊镇村、田块、林子、城里的桥都不画，
-    // 整体看是干净的色块与地形；拉近(原版近景)才画出来。原版远近切换时本来就整张重画(clearCurrentDrawnZones)，
-    // 这里跟着它切，不另外多重画一次；远景少画城市，反而更省。规划视图(选中规划神力)、城市图层照常画
-    public static bool DetailShown => ZonePlanSystem.SteadyOverlay || World.world == null || !MapBox.isRenderMiniMap();
+    // ───────── 城市与道路一直显示(用户 2026-10-15 改：不再按远近隐藏) ─────────
+    // 以前拉远到原版远景时只画国色与地形，拉近才画城市；用户要城市和道路永久显示，地形浮雕改由神力开关管(见 Relief)
+    public static bool DetailShown => true;
+
+    // 地形浮雕(见 SwitchTerrainReliefButton)：关掉时国色上不叠地形明暗，纯平国色
+    public static bool Relief = true;
 
     // ───────── 地形浮雕 ─────────
     // 掺地表本色的比例；块里的水掺水色的比例；高差打光的强度与上限
@@ -1128,6 +1129,7 @@ public class PureMapPatch : GamePatch
         if (type == null) return color;
         if (type.lava) return Lerp(color, type.color, WaterTint);
         if (type.liquid) return Lerp(color, Water, WaterTint);
+        if (!Relief) return color;
         // 路格(以前实际铺下的路)当普通地面，不掺路的颜色
         TileTypeBase surface = type.road ? null : tile.top_type != null ? tile.top_type : type;
         float light = Light(type);

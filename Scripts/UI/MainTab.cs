@@ -401,6 +401,12 @@ internal static class MainTab
             SpriteTextureLoader.getSprite("ui/icons/iconHideUI"));
         AddButton(DISPLAY_GROUP, simpleNameplateButton);
 
+        // 地形浮雕：国色上叠不叠地形明暗
+        SwitchTerrainReliefButton.init();
+        PowerButton reliefButton = PowerButtonCreator.CreateToggleButton("terrain_relief",
+            SpriteTextureLoader.getSprite("ui/icons/godpowers/terrain_relief"));
+        AddButton(DISPLAY_GROUP, reliefButton);
+
         // 领土铭牌字体：自动(传统书体优先) / 游戏字体 / 本机任一字体
         var territoryFontButton = PowerButtonCreator.CreateWindowButton("territory_font_button",
             nameof(TerritoryFontWindow), SpriteTextureLoader.getSprite("ui/icons/godpowers/territory_font"));

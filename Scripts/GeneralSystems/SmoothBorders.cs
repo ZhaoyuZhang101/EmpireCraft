@@ -1066,7 +1066,7 @@ public static class SmoothBorders
                 if (meta is Kingdom kingdom) Add(kingdom.GetEmpireID());
             }
             Add((CorpsSystem.Enabled ? 1 : 0) | (PureMapMode.Enabled ? 2 : 0) | (ZonePlanSystem.SteadyOverlay ? 4 : 0) |
-                (PureMapPatch.DetailShown ? 8 : 0));
+                (PureMapPatch.DetailShown ? 8 : 0) | (PureMapPatch.Relief ? 16 : 0));
             Add(_warEpoch);
             Add(PureMapPatch.StampOf(zone.city));
             return key == 0L ? 1L : key;
