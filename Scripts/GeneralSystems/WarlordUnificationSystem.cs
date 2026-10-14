@@ -92,7 +92,8 @@ public static partial class WarlordEraSystem
         if (centralKingdom.getWars().Count(IsCivilWar) >= MaxCivilWars) return;
         Kingdom target = held.Keys
             .Where(holder => holder != centralKingdom && IsLocalHolder(core, holder) && !InRealm(holder, central) &&
-                             !holder.isEnemy(centralKingdom) && central.IsNeighbourWith(holder) &&
+                             !holder.isEnemy(centralKingdom) && !InTruce(centralKingdom, holder, central) &&
+                             central.IsNeighbourWith(holder) &&
                              FeudalVassalService.CanDeclareExternalWar(centralKingdom, holder))
             .OrderByDescending(holder => Government(holder) != null && representatives.Contains(Government(holder)))
             .ThenBy(holder => held[holder]).FirstOrDefault();
@@ -254,7 +255,8 @@ public static partial class WarlordEraSystem
                      .Where(holder => holder != null && holder != founderKingdom && !holder.isRekt() && holder.hasKing() &&
                                       IsLocalHolder(core, holder) && holder.GetEmpire() != founder &&
                                       FeudalVassalService.GetOverlord(holder) != founderKingdom &&
-                                      !holder.isEnemy(founderKingdom) && Borders(holder, founder) &&
+                                      !holder.isEnemy(founderKingdom) && !InTruce(founderKingdom, holder, founder) &&
+                                      Borders(holder, founder) &&
                                       (founderKingdom.getAlliance() == null || holder.getAlliance() != founderKingdom.getAlliance()))
                      .OrderBy(holder => held[holder]).ToList())
         {
@@ -325,6 +327,13 @@ public static partial class WarlordEraSystem
                     HolderName(rival), founder.GetBaseEmpireFullName()));
         }
     }
+
+    // 刚议和的(各守旧土、岁币求和)停战期内不再兴兵，岁币照付的对象也不打——以前中央、开国雄主每年挑最弱的割据政权开战，
+    // 刚和完第二年又打同一家，看上去反复投降反复进攻。停战年限同原版挑战争目标(minimum_years_between_wars)
+    private static bool InTruce(Kingdom kingdom, Kingdom target, Empire government) =>
+        government?.given_Kingdoms != null && government.given_Kingdoms.Contains(target) ||
+        Date.getYearsSince(World.world.diplomacy.getRelation(kingdom, target).data.timestamp_last_war_ended) <
+        SimGlobals.m.minimum_years_between_wars;
 
     // 与这个帝国接壤：本国有城市与帝国的城市相邻
     private static bool Borders(Kingdom kingdom, Empire empire) =>

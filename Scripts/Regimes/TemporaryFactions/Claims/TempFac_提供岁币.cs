@@ -11,7 +11,7 @@ namespace EmpireCraft.Scripts.Regimes.TemporaryFactions.Claims;
 //   · 战争已打满一年，国库有钱可付；
 //   · 战局不利或久拖不决：这场仗丢了城且敌强于我(兵力 ≥ 1.2 倍)，或敌兵力 ≥ 1.8 倍，
 //     或敌兵力 ≥ 1.5 倍且已打满三年(相持太久，劳民伤财)；旧存档开打的战争只看兵力与年数。
-// 打赢了、或敌我相当时不会提出。
+// 打赢了、或敌我相当时不会提出；开国雄主在位不纳贡求和(雄主志在一统，见 RulerTraitSystem)。
 public class TempFac_提供岁币 : TemporaryFaction
 {
     public override TemporaryFaction Clone(FixedFaction faction)
@@ -51,7 +51,7 @@ public class TempFac_提供岁币 : TemporaryFaction
     {
         Empire empire = GetEmpire();
         Kingdom core = empire?.CoreKingdom;
-        if (core == null || core.HasGivenAlliance() || core.GetMoney() <= 0) return false;
+        if (core == null || core.HasGivenAlliance() || core.GetMoney() <= 0 || RulerTraitSystem.FounderReigns(core)) return false;
         foreach (Kingdom enemy in core.getEnemiesKingdoms())
         {
             if (enemy == null || enemy.isRekt() || empire.given_Kingdoms.Contains(enemy) ||
