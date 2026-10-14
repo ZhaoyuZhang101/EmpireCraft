@@ -438,9 +438,12 @@ public static class SmoothBorders
     //   · 换主(归降、被占、城市归降、并入帝国、成了附庸换颜色)：像扫描线一样从新主人那边(入侵方向、宗主或
     //     同一帝国那边；接不上就从都城由里往外)逐格扫过去，每块约 SweepStep 秒，整片至多 MaxSweepSeconds 秒；
     //   · 临时换色(帝国图层悬停某省显示本省颜色、移开换回)：从鼠标处像波纹一样一圈圈填过去，每秒 RippleSpeed 格。
+    // 扫描、波纹的前沿是几格宽的过渡带(新旧颜色按比例混)，不是一格一格硬换。
+    // 一次换主的地块要分好几帧才画完(上色分帧，见 ZonePaintBudget)：等这批画完(至多 MaxPlanWait 秒)再统一排一道扫描，
+    // 之后才画到的块接着这道扫描往下排，不再每帧另起一小段，扫描不会一截一截地跳。
     // 逐格推进吃下的地(FrontSystem.Smooth)本身就是渐变，直接显示；换图层时不做渐变
     private const float SweepStep = 0.18f, MaxSweepSeconds = 4f, RippleSpeed = 90f, RippleGroupSeconds = 0.15f,
-        StaleSeconds = 6f;
+        StaleSeconds = 6f, SweepSoft = 0.3f, RippleSoft = 5f, MaxPlanWait = 0.6f;
 
     private sealed class ShownState
     {
@@ -460,6 +463,16 @@ public static class SmoothBorders
     private static readonly Dictionary<int, (int inside, int outside, int meta)> NativeShown = new();
     private static readonly HashSet<int> PendingSweep = new();
     private static readonly Dictionary<int, Transition> Transitions = new();
+
+    // 正在扫的一道扫描(按变成谁分)：起扫时刻、每块用时、各块排第几圈
+    private sealed class SweepPlan
+    {
+        public float start, step, end;
+        public readonly Dictionary<int, int> distances = new();
+    }
+
+    private static readonly Dictionary<(IMetaObject meta, int color), SweepPlan> Plans = new();
+    private static float _pendingSince;
     private static MetaTypeAsset _sweepLayer;
     private static int _sweepOption = int.MinValue;
     private static float _rippleStart = -10f;
@@ -483,6 +496,7 @@ public static class SmoothBorders
         NativeShown.Clear();
         PendingSweep.Clear();
         Transitions.Clear();
+        Plans.Clear();
     }
 
     // 真实归属；顺带看这块地换主了没有，换了就记下它原来的样子、排进扫描
@@ -505,6 +519,7 @@ public static class SmoothBorders
         Transition transition = Capture(zone);
         if (transition == null) return real;
         Transitions[zone.id] = transition;
+        if (PendingSweep.Count == 0) _pendingSince = Time.unscaledTime;
         PendingSweep.Add(zone.id);
         return real;
     }
@@ -559,22 +574,25 @@ public static class SmoothBorders
         Transitions.Remove(zone.id);
     }
 
-    private static bool Covers(Transition transition, TileZone zone, int x, int y, float now)
+    // 这一格换到哪了：0 = 还是旧样子，1 = 已是新样子，中间是前沿的过渡带
+    private static float Mix(Transition transition, TileZone zone, int x, int y, float now)
     {
-        if (!transition.planned) return false;
+        if (!transition.planned) return 0f;
         if (transition.ripple)
         {
             float dx = x - transition.originX, dy = y - transition.originY;
-            return (now - transition.start) * RippleSpeed >= Mathf.Sqrt(dx * dx + dy * dy) + (FrontNoise(x, y) - 0.5f) * 6f;
+            float reach = (now - transition.start) * RippleSpeed - Mathf.Sqrt(dx * dx + dy * dy) - (FrontNoise(x, y) - 0.5f) * 6f;
+            return Mathf.Clamp01(reach / RippleSoft);
         }
         float progress = (now - transition.start) / transition.step;
-        if (progress < transition.distance - 0.5f) return false;
-        if (progress >= transition.distance + 1.5f) return true;
+        if (progress < transition.distance - 0.5f) return 0f;
+        if (progress >= transition.distance + 1.5f) return 1f;
         float cx = zone.x * ZoneSize + ZoneSize * 0.5f - 0.5f, cy = zone.y * ZoneSize + ZoneSize * 0.5f - 0.5f;
         float along = transition.dirX == 0f && transition.dirY == 0f
             ? Mathf.Sqrt((x - cx) * (x - cx) + (y - cy) * (y - cy)) / (ZoneSize * 0.75f)
             : ((x - cx) * transition.dirX + (y - cy) * transition.dirY) / ZoneSize + 0.5f;
-        return progress >= transition.distance + Mathf.Clamp01(along) + (FrontNoise(x, y) - 0.5f) * 0.35f;
+        float threshold = transition.distance + Mathf.Clamp01(along) + (FrontNoise(x, y) - 0.5f) * 0.35f;
+        return Mathf.Clamp01((progress - threshold) / SweepSoft);
     }
 
     private static bool Finished(Transition transition, TileZone zone, float now)
@@ -587,7 +605,7 @@ public static class SmoothBorders
             float dx = zone.x * ZoneSize + cx - transition.originX, dy = zone.y * ZoneSize + cy - transition.originY;
             far = Mathf.Max(far, Mathf.Sqrt(dx * dx + dy * dy));
         }
-        return (now - transition.start) * RippleSpeed > far + 4f;
+        return (now - transition.start) * RippleSpeed > far + 3f + RippleSoft + 1f;
     }
 
     // 这块地刚画好新样子：记下来，再按扫到没有逐格选新旧
@@ -606,7 +624,9 @@ public static class SmoothBorders
         {
             WorldTile tile = zone.tiles[i];
             int id = tile.data.tile_id;
-            _base[id] = Covers(transition, zone, tile.x, tile.y, now) ? transition.newPixels[i] : transition.oldPixels[i];
+            float mix = Mix(transition, zone, tile.x, tile.y, now);
+            _base[id] = mix <= 0f ? transition.oldPixels[i] : mix >= 1f ? transition.newPixels[i]
+                : Color32.Lerp(transition.oldPixels[i], transition.newPixels[i], mix);
             pixels[id] = Lifted(id);
         }
     }
@@ -615,12 +635,16 @@ public static class SmoothBorders
     private static void SweepTick()
     {
         if (!Enabled || World.world?.zone_calculator == null) return;
-        if (PendingSweep.Count > 0) PlanSweeps();
+        float now = Time.unscaledTime;
+        if (PendingSweep.Count > 0 && (!GamePatches.ZonePaintBudget.Backlogged || now - _pendingSince >= MaxPlanWait)) PlanSweeps();
+        if (Plans.Count > 0)
+            foreach ((IMetaObject, int) key in Plans.Where(pair => now > pair.Value.end).Select(pair => pair.Key).ToList())
+                Plans.Remove(key);
         if (Transitions.Count == 0) return;
         ZoneCalculator calc = World.world.zone_calculator;
         Color32[] pixels = calc.pixels;
         if (pixels == null || pixels.Length != _base.Length) return;
-        float now = Time.unscaledTime;
+        long started = global::System.Diagnostics.Stopwatch.GetTimestamp();
         List<int> done = null;
         bool wrote = false;
         foreach (KeyValuePair<int, Transition> pair in Transitions)
@@ -653,6 +677,7 @@ public static class SmoothBorders
         if (done != null)
             foreach (int id in done) Transitions.Remove(id);
         if (wrote) calc.setDirty();
+        FrameProfiler.Record("平滑国界·换色渐变", global::System.Diagnostics.Stopwatch.GetTimestamp() - started);
     }
 
     private static void PlanSweeps()
@@ -681,59 +706,85 @@ public static class SmoothBorders
         {
             List<TileZone> zones = group.Value;
             var members = new HashSet<int>(zones.Select(zone => zone.id));
-            var planned = new Dictionary<int, (int distance, float dirX, float dirY)>();
-            var queue = new Queue<TileZone>();
-            // 起点：挨着本来就归新主人(同色)的块；没有就挨着新主人的宗主、同一帝国的块；再没有就是离都城最近的块(从块心往外扫)
-            foreach (Func<ShownState, bool> test in new Func<ShownState, bool>[]
-                     {
-                         shown => ReferenceEquals(shown.meta, group.Key.meta) && shown.colorKey == group.Key.color,
-                         shown => Related(shown.meta, group.Key.meta)
-                     })
+            // 同一次换主、晚几帧才画到的块：接着正在扫的那道往下排(扫过了的从眼下的前沿起)
+            bool extend = Plans.TryGetValue(group.Key, out SweepPlan plan) && now <= plan.end;
+            if (!extend) plan = new SweepPlan { start = now, step = SweepStep };
+            int floor = extend ? Mathf.Max(0, Mathf.CeilToInt((now - plan.start) / plan.step)) : 0;
+            var best = new Dictionary<int, (int distance, float dirX, float dirY)>();
+            var open = new SortedDictionary<int, List<TileZone>>();
+            void Offer(TileZone zone, int distance, float dirX, float dirY)
             {
-                foreach (TileZone zone in zones)
-                {
-                    (float dirX, float dirY, bool touches) = Facing(calc, zone, members, test);
-                    if (!touches) continue;
-                    planned[zone.id] = (0, dirX, dirY);
-                    queue.Enqueue(zone);
-                }
-                if (queue.Count > 0) break;
+                if (best.TryGetValue(zone.id, out var known) && known.distance <= distance) return;
+                best[zone.id] = (distance, dirX, dirY);
+                if (!open.TryGetValue(distance, out List<TileZone> list)) open[distance] = list = new List<TileZone>();
+                list.Add(zone);
             }
-            if (queue.Count == 0)
+            if (extend)
+                foreach (TileZone zone in zones)
+                foreach ((int dx, int dy) in Sides)
+                {
+                    TileZone from = calc.getZone(zone.x - dx, zone.y - dy);
+                    if (from != null && plan.distances.TryGetValue(from.id, out int distance))
+                        Offer(zone, Mathf.Max(floor, distance + 1), dx, dy);
+                }
+            // 起点：挨着本来就归新主人(同色)的块；没有就挨着新主人的宗主、同一帝国的块；再没有就是离都城最近的块(从块心往外扫)
+            if (best.Count == 0)
+                foreach (Func<ShownState, bool> test in new Func<ShownState, bool>[]
+                         {
+                             shown => ReferenceEquals(shown.meta, group.Key.meta) && shown.colorKey == group.Key.color,
+                             shown => Related(shown.meta, group.Key.meta)
+                         })
+                {
+                    foreach (TileZone zone in zones)
+                    {
+                        (float dirX, float dirY, bool touches) = Facing(calc, zone, members, test);
+                        if (touches) Offer(zone, floor, dirX, dirY);
+                    }
+                    if (best.Count > 0) break;
+                }
+            if (best.Count == 0)
             {
                 TileZone seat = SeatOf(group.Key.meta);
                 TileZone first = seat == null ? zones[0]
                     : zones.OrderBy(zone => (zone.x - seat.x) * (zone.x - seat.x) + (zone.y - seat.y) * (zone.y - seat.y)).First();
-                planned[first.id] = (0, 0f, 0f);
-                queue.Enqueue(first);
+                Offer(first, floor, 0f, 0f);
             }
-            while (queue.Count > 0)
+            // 由近及远一圈圈排(起点圈数不一，按圈数从小到大展开)
+            while (open.Count > 0)
             {
-                TileZone zone = queue.Dequeue();
-                int next = planned[zone.id].distance + 1;
-                foreach ((int dx, int dy) in new[] { (1, 0), (-1, 0), (0, 1), (0, -1) })
+                int distance = open.Keys.First();
+                List<TileZone> ring = open[distance];
+                open.Remove(distance);
+                foreach (TileZone zone in ring)
                 {
-                    TileZone neighbour = calc.getZone(zone.x + dx, zone.y + dy);
-                    if (neighbour == null || !members.Contains(neighbour.id) || planned.ContainsKey(neighbour.id)) continue;
-                    planned[neighbour.id] = (next, dx, dy);
-                    queue.Enqueue(neighbour);
+                    if (best[zone.id].distance != distance) continue;
+                    foreach ((int dx, int dy) in Sides)
+                    {
+                        TileZone neighbour = calc.getZone(zone.x + dx, zone.y + dy);
+                        if (neighbour != null && members.Contains(neighbour.id)) Offer(neighbour, distance + 1, dx, dy);
+                    }
                 }
             }
-            int farthest = planned.Count == 0 ? 0 : planned.Values.Max(entry => entry.distance);
-            float step = Mathf.Min(SweepStep, MaxSweepSeconds / Mathf.Max(1, farthest + 1));
+            int farthest = best.Count == 0 ? floor : best.Values.Max(entry => entry.distance);
+            if (!extend) plan.step = Mathf.Min(SweepStep, MaxSweepSeconds / Mathf.Max(1, farthest + 1));
             foreach (TileZone zone in zones)
             {
                 if (!Transitions.TryGetValue(zone.id, out Transition transition)) continue;
-                (int distance, float dirX, float dirY) = planned.TryGetValue(zone.id, out var entry) ? entry : (farthest + 1, 0f, 0f);
+                (int distance, float dirX, float dirY) = best.TryGetValue(zone.id, out var entry) ? entry : (farthest + 1, 0f, 0f);
                 transition.distance = distance;
                 transition.dirX = dirX;
                 transition.dirY = dirY;
-                transition.start = now;
-                transition.step = step;
+                transition.start = plan.start;
+                transition.step = plan.step;
                 transition.planned = true;
+                plan.distances[zone.id] = distance;
             }
+            plan.end = Mathf.Max(plan.end, plan.start + plan.step * (farthest + 3f));
+            Plans[group.Key] = plan;
         }
     }
+
+    private static readonly (int dx, int dy)[] Sides = { (1, 0), (-1, 0), (0, 1), (0, -1) };
 
     // 这块挨着的新主人那边在哪个方向(扫描从那边来)
     private static (float dirX, float dirY, bool touches) Facing(ZoneCalculator calc, TileZone zone, HashSet<int> members,

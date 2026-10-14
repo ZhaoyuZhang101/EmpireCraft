@@ -23,11 +23,14 @@ public class ZonePaintBudget : GamePatch
     private const int MinZonesPerFrame = 6;
     private static readonly double TicksPerMs = Stopwatch.Frequency / 1000d;
 
-    private static int _frame = -1, _painted, _visibleFrame = -1;
+    private static int _frame = -1, _painted, _visibleFrame = -1, _deferredFrame = -10;
     private static long _spent, _started;
     private static readonly HashSet<int> Visible = new();
 
     private static bool Active => PureMapMode.Enabled || SmoothBorders.Enabled;
+
+    // 这一两帧里有地块因为预算没画、留到下一轮(换色渐变等这批画完再统一起扫描，见 SmoothBorders)
+    public static bool Backlogged => Time.frameCount - _deferredFrame <= 1;
 
     public void Initialize()
     {
@@ -65,6 +68,7 @@ public class ZonePaintBudget : GamePatch
         double spent = _spent / TicksPerMs;
         if (spent < BudgetMs || spent < VisibleBudgetMs && IsVisible(__instance)) return;
         __result = false;
+        _deferredFrame = Time.frameCount;
         __instance.resetRenderHelpers();
     }
 
