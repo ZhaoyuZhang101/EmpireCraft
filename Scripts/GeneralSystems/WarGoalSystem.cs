@@ -258,6 +258,49 @@ public static class WarGoalSystem
         }
     }
 
+    // 发不出军饷的一方求和(见 CorpsSystem.SueForPeace)：攻方罢兵(判和，按双方所得结算，占不到便宜的反赔)；
+    // 守方只要条件不过分就认输(按攻方的开战目标结算)。叛乱、独立、争位这类有自己收场的仗、全面战争不在此列
+    public static bool TrySueForPeace(War war, Kingdom broke)
+    {
+        if (war?.data == null || war.hasEnded() || broke == null || war.isTotalWar()) return false;
+        if (!Applies(war) && war.GetEmpireWarType() != EmpireWarType.劫掠) return false;
+        Kingdom attacker = war.main_attacker, defender = war.main_defender;
+        if (attacker?.data == null || defender?.data == null || attacker == defender) return false;
+        if (broke == attacker)
+        {
+            World.world.wars.endWar(war, WarWinner.Peace);
+            return true;
+        }
+        if (broke != defender || Excessive(war, defender)) return false;
+        World.world.wars.endWar(war, WarWinner.Attackers);
+        return true;
+    }
+
+    // 守方认输的代价太大：要吞并、要逼成附庸(帝国不会整个沦为附庸，只赔款)、割地要拿走都城或一半以上的城
+    private static bool Excessive(War war, Kingdom defender)
+    {
+        WarGoal goal = Get(war);
+        if (goal == WarGoal.吞并 || goal == WarGoal.迫使附庸 && !defender.IsEmpire()) return true;
+        if (goal != WarGoal.割地) return false;
+        List<(City city, Kingdom holder)> held = HeldCities(war, new[] { defender }, war._list_attackers);
+        int cities = defender.cities?.Count ?? 0;
+        return held.Exists(entry => entry.city == defender.capital) || held.Count * 2 >= Math.Max(1, cities);
+    }
+
+    // 正被全面侵略：作为主守方的仗求不了和(对方条件过分，或是叛乱、独立、争位这类)，或在打全面战争。欠饷也困兽犹斗
+    public static bool FightingForSurvival(Kingdom kingdom)
+    {
+        if (kingdom == null) return false;
+        foreach (War war in kingdom.getWars())
+        {
+            if (war?.data == null || war.hasEnded() || !war.isDefender(kingdom)) continue;
+            if (war.isTotalWar()) return true;
+            if (war.main_defender != kingdom) continue;
+            if (!Applies(war) && war.GetEmpireWarType() != EmpireWarType.劫掠 || Excessive(war, kingdom)) return true;
+        }
+        return false;
+    }
+
     // 被迫现代化：败方是帝国中央或独立君主国，战胜方是立宪、共和或现代国家时，按败方丢城多少决定是否被强行改造
     private static void Modernize(War war, Kingdom loser, Kingdom victor, IEnumerable<Kingdom> losers, IEnumerable<Kingdom> victors)
     {

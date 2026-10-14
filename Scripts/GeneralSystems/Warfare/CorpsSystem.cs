@@ -224,12 +224,23 @@ public static class CorpsSystem
     }
 
     // 野战军饷：按人头每月发(见 CityStabilityRules.CorpsAnnual)，按兵种加权(装备越先进越贵，见 CorpsArmSystem)，本国先付，听命于中央的成员付不起由中央补；
-    // 饷银发给各军的家乡城(回到民间)。发不出的那部分军心涣散，组织度下降。以前野战军不花一分钱。
+    // 饷银发给各军的家乡城(回到民间)。发不出就军心涣散、兵丁逃散，久欠求和(见下方欠饷)。以前野战军不花一分钱。
     // 另收行军费：每人每走一块地块 MarchCostPerZone，离前线越远的军开过去越贵(所以动员只动就近的军)
     // 打仗的花销单记"战争开支"(TreasuryCategory.War，帝国收支里单列)：战时比平时多出来的军饷、行军费，
     // 以及在前线交战的军每月的粮秣军械损耗(每人 BattleCostPerSoldier，按兵种加权)；平时的军饷照旧记"野战军费"
     private const float MarchCostPerZone = 0.002f;
     private const float BattleCostPerSoldier = 0.01f;
+
+    // 欠饷(全欠时)：组织度上限压到 100-UnpaidOrgCap(低状态，休整也回不满)；每月再扣 UnpaidOrg、逃散 DesertShare 的兵(回乡，
+    // 军费随之降下来，直到发得起)，欠饷期间不补员、不新编；连着 SuePeaceMonths 个月欠饷就求和(WarGoalSystem.TrySueForPeace)。
+    // 被全面侵略(要吞并、要逼成附庸、要拿都城或一半城、全面战争、叛乱独立这类谈不拢的仗)时不求和，困兽犹斗：
+    // 不额外扣组织度、逃散减半，压低了的组织度照样能守。以前欠饷每月扣 20 组织度，休整只回 15，全军永远溃退休整
+    private const float UnpaidShortfall = 0.15f, UnpaidOrgCap = 60f, UnpaidOrg = 10f, DesertShare = 0.05f, SuePeaceChance = 0.35f;
+    private const int SuePeaceMonths = 3;
+
+    // 军饷欠发中：不补员、不新编，也不主动开战
+    public static bool Unpaid(Kingdom kingdom) =>
+        Enabled && kingdom?.data != null && !kingdom.isRekt() && kingdom.GetOrCreate().corps_pay_shortfall >= UnpaidShortfall;
 
     private static void PayUpkeep(Kingdom kingdom)
     {
@@ -272,10 +283,35 @@ public static class CorpsSystem
                               soldiers);
             if (share > 0 && Home(corps) is City home) EnterpriseSystem.ReturnToLocal(home, share);
         }
-        float shortfall = 1f - paid / (float)bill;
-        data.corps_pay_shortfall = Mathf.Max(0f, shortfall);
+        float shortfall = Mathf.Max(0f, 1f - paid / (float)bill);
+        data.corps_pay_shortfall = shortfall;
+        data.corps_unpaid_months = shortfall >= UnpaidShortfall ? Math.Min(120, data.corps_unpaid_months + 1) : 0;
         if (shortfall <= 0f) return;
-        foreach (CorpsData corps in list) corps.org = Mathf.Max(0f, corps.org - 20f * shortfall);
+        bool survival = WarGoalSystem.FightingForSurvival(kingdom);
+        float ceiling = 100f - UnpaidOrgCap * shortfall, deserted = 0f;
+        foreach (CorpsData corps in list)
+        {
+            corps.org = Mathf.Min(corps.org, ceiling);
+            if (!survival) corps.org = Mathf.Max(0f, corps.org - UnpaidOrg * shortfall);
+            float deserters = corps.strength * DesertShare * shortfall * (survival ? 0.5f : 1f);
+            if (deserters < 1f) continue;
+            Demobilize(kingdom, corps, deserters);
+            deserted += deserters;
+        }
+        if (deserted >= 1f) FrontSystem.Log(kingdom, string.Format(LM.Get("corps_log_desertion"), Mathf.RoundToInt(deserted)));
+        if (data.corps_unpaid_months >= SuePeaceMonths) SueForPeace(kingdom);
+    }
+
+    // 粮饷不继，仗打不下去：能和就先和(对方条件过分的照打，见 WarGoalSystem.TrySueForPeace)
+    private static void SueForPeace(Kingdom kingdom)
+    {
+        foreach (War war in kingdom.getWars().ToList())
+        {
+            if (war?.data == null || war.hasEnded() || UnityEngine.Random.value >= SuePeaceChance) continue;
+            Kingdom foe = war.main_attacker == kingdom ? war.main_defender : war.main_attacker;
+            if (WarGoalSystem.TrySueForPeace(war, kingdom))
+                FrontSystem.Log(kingdom, string.Format(LM.Get("corps_log_unpaid_peace"), foe?.GetKingdomName() ?? ""));
+        }
     }
 
     private static int Draw(Kingdom payer, int amount, TreasuryCategory category)
@@ -301,6 +337,7 @@ public static class CorpsSystem
         foreach (CorpsData empty in list.Where(corps => corps.strength < 1f && corps.task != "attack" && corps.task != "defend").ToList())
             Disband(kingdom, empty);
         bool war = IsAtWar(kingdom);
+        bool unpaid = Unpaid(kingdom);
         CityPopulationSystem.ArmyDoctrine doctrine = CityPopulationSystem.DoctrineOf(kingdom);
         var cities = kingdom.cities.Where(city => city != null && !city.isRekt()).ToList();
         int totalSlots = 0;
@@ -319,7 +356,7 @@ public static class CorpsSystem
                 int share = i < wanted ? Mathf.Min(LegionsPerCorps, legions - i * LegionsPerCorps) : 0;
                 if (i >= here.Count)
                 {
-                    if (share <= 0) break;
+                    if (share <= 0 || unpaid) break;
                     CorpsData raised = Raise(kingdom, city, share, share * legionSize, now);
                     if (raised == null) break;
                     here.Add(raised);
@@ -336,7 +373,7 @@ public static class CorpsSystem
                     continue;
                 }
                 // 补给不到五成(海外断了航线、孤军深入、被围)补不上兵；在船上的也补不了
-                if (corps.strength < corps.full && corps.supply >= 0.5f && !corps.embarked)
+                if (corps.strength < corps.full && corps.supply >= 0.5f && !corps.embarked && !unpaid)
                     Reinforce(kingdom, corps, corps.full * ReinforceShare * corps.supply);
                 else if (!war && corps.strength > corps.full)
                     Demobilize(kingdom, corps, Mathf.Min(corps.strength - corps.full, corps.full * DemobilizeShare + 1f));
@@ -471,6 +508,8 @@ public static class CorpsSystem
 
     private static void Recover(Kingdom kingdom)
     {
+        // 欠饷时组织度回不满(见 PayUpkeep)：溃退的军回到上限附近就归建，不会永远卡在溃退休整
+        float regroup = Mathf.Min(50f, 100f - UnpaidOrgCap * kingdom.GetOrCreate().corps_pay_shortfall - 5f);
         foreach (CorpsData corps in Of(kingdom))
         {
             // 补给不到五成：组织度不恢复，反而下降(断绝时每月 -5)
@@ -481,7 +520,7 @@ public static class CorpsSystem
             }
             bool fighting = corps.task is "attack" or "defend" && FrontSystem.EngagedLastMonth(corps);
             if (!fighting) corps.org = Mathf.Min(100f, corps.org + (corps.task is "reserve" or "retreat" ? RestOrg : IdleOrg));
-            if (corps.task == "retreat" && corps.org >= 50f) corps.task = "reserve";
+            if (corps.task == "retreat" && corps.org >= regroup) corps.task = "reserve";
             if (corps.task == "defend" && fighting) corps.entrench = Mathf.Min(0.3f, corps.entrench + 0.05f);
             else if (corps.task != "defend") corps.entrench = 0f;
         }

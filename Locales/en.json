@@ -1689,6 +1689,8 @@
   "fiscal_debt_interest": "Interest per year",
   "fiscal_debt_years": "Years of regular income",
   "fiscal_debt_hint": "Unpaid interest is added to the principal. Debt above three years of regular income is restructured down to one year and counts as a default. A state that defaulted within the last year cannot borrow; otherwise it borrows only when the treasury falls below a quarter of its safety reserve.",
+  "corps_log_desertion": "Unpaid, {0} soldiers desert and go home",
+  "corps_log_unpaid_peace": "Unable to pay the troops, makes peace with {0}",
   "capital_loss_restored": "{0} retakes its old capital {1} and is again known as {2}.",
   "kingdom_type_xingzai": "Temporary Court",
   "Later": "Later",

@@ -36,6 +36,7 @@ public class TempFac_对外扩张 : TemporaryFaction
         Empire empire = GetEmpire();
         if (empire == null) return false;
         if (empire.CoreKingdom?.hasEnemies()??true) return false;
+        if (GeneralSystems.CorpsSystem.Unpaid(empire.CoreKingdom)) return false;   // 发不出军饷不开新仗
         foreach (var kingdom in World.world.kingdoms)
         {
             if (empire.given_Kingdoms.Contains(kingdom)) continue;

@@ -291,6 +291,8 @@ public static class KingdomExtension
         public int hre_estate;
         // 上月军饷欠发的比例、禁军不奉诏是否已记(见 PalaceArmySystem)
         public float corps_pay_shortfall;
+        // 连着几个月军饷欠发(欠一成半以上)；见 CorpsSystem.PayUpkeep
+        public int corps_unpaid_months;
         public bool palace_refusal_logged;
         public float war_food_need;
         public float war_food_short;
