@@ -30,7 +30,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     三十多位皇帝只记到两次宗室生育，代代无嗣、群臣议立、换姓，一个朝代撑不过一百五十年(虚拟族谱的生育只管已转为
 //     虚拟的族人，在位的君主、储君是实体，轮不到)。每年替原版办一次：君主、储君成年(西方封建制留给议婚，到
 //     RoyalMarryLateAge 才在国内找)还没配偶的，从本国现有人物里挑一位异性(同种族、成年未婚、非近亲，名望高的优先；
-//     不另落成新人)；成年、生母不过 RoyalBirthAgeMax 岁的，按 RoyalBirthChance 添一名子女——直接记入族谱为虚拟子嗣，
+//     不另落成新人)；成年、生母不过 RoyalBirthAgeMax 岁的，每年按 RoyalBirthChance 添一胎，按古代幼儿夭折(ChildhoodDeath)
+//     掷过活下来的记入族谱为虚拟子嗣——平均成年子女四五个，
 //     不生出实体，继位、分封要用时再落成(见 VirtualGenealogySystem.AddRoyalChild、RealizeHeir)；没有配偶的生母不入谱。
 //     不育、一年半一胎、子女上限照旧(见 CanBirth，虚拟子女也算)。
 public static class RoyalHouseSystem
@@ -127,7 +128,9 @@ public static class RoyalHouseSystem
 
     private const int RoyalMarryAge = 16, RoyalMarryLateAge = 22, RoyalMarryMaxAge = 55, ConsortMaxAge = 40, RoyalBirthAgeMax = 45,
         RoyalFatherAgeMax = 60;
-    private const float RoyalBirthChance = 0.45f;
+    // 每年添丁的机会；虚拟子嗣只有老死一种死法，出生时就按古代幼儿夭折掷一次(约三分之一活不到成年，
+    // 工业化、电气、计算机逐级降低，同 InfantMortality)：一位君主平均成年子女四五个
+    private const float RoyalBirthChance = 0.25f, ChildhoodDeath = 0.34f;
 
     private static void RoyalFamily(Kingdom kingdom)
     {
@@ -157,7 +160,14 @@ public static class RoyalHouseSystem
         bool queen = royal.data.sex == ActorSex.Female;
         if (queen ? age > RoyalBirthAgeMax : lover != null ? lover.getAge() > RoyalBirthAgeMax : age > RoyalFatherAgeMax) return;
         if (!CanBirth(royal) || lover != null && !CanBirth(lover) || UnityEngine.Random.value >= RoyalBirthChance) return;
-        if (VirtualGenealogySystem.AddRoyalChild(royal, lover)) NoteBirth(royal, lover);
+        // 这一胎算数(一年半内不再添丁)；夭折的不入谱
+        NoteBirth(royal, lover);
+        float death = ChildhoodDeath;
+        if (Has(royal, "industrialization")) death *= 0.6f;
+        if (Has(royal, "electricity")) death *= 0.6f;
+        if (Has(royal, "computing")) death *= 0.5f;
+        if (UnityEngine.Random.value < death) return;
+        VirtualGenealogySystem.AddRoyalChild(royal, lover);
     }
 
     // 本国在世的人物里挑配偶：异性、同种族、成年未婚、非近亲，名望高的优先
