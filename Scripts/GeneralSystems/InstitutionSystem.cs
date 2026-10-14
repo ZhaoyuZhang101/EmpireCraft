@@ -1179,6 +1179,8 @@ public static class InstitutionSystem
         return max;
     }
 
+    private const int BasicsSlack = 2;
+
     private static void TryStartAiReform(Empire empire)
     {
         if (!InstitutionDefinitionRegistry.Global.ai_enabled) return;
@@ -1191,22 +1193,28 @@ public static class InstitutionSystem
 
         // 全人口只扫一遍，所有候选节点共用这份阶级构成
         Dictionary<SocialClass, float> shares = BuildClassShares(empire);
-        InstitutionNodeConfig selected = null;
-        float bestScore = float.MinValue;
+        // 先推基础的：能推、也有足够支持的候选里，只在先进程度最低的那一档(+BasicsSlack)里按支持度挑。
+        // 以前分数里先进程度乘 2 加分，越先进越优先——察举、科举、府兵这些古代制度牵动世家地主、反对多，
+        // 一直排在后面，城市生产(商人、工匠、市民都支持)倒先推到了工场生产
+        // 比本文化技术时代落后三档以上的老制度(大势所趋)：支持不少于反对就推，不再要求多出 5
+        int era = TechnologySystem.GetEraTier(primaryCulture);
+        var candidates = new List<(InstitutionNodeConfig node, float score)>();
         foreach (InstitutionNodeConfig node in InstitutionDefinitionRegistry.GetForLine(
                      GetCultureLine(GetPrimaryCulture(empire))))
         {
             InstitutionPoliticalBalance balance = CalculatePoliticalBalance(empire, node, shares);
             if (!CanStartReform(empire, node, out _, false, balance)) continue;
-            if (balance.Support < balance.Opposition + 5f) continue;
-            float score = balance.Support - balance.Opposition + node.advancement * 2f +
+            if (balance.Support < balance.Opposition + (era - node.advancement >= 3 ? 0f : 5f)) continue;
+            float score = balance.Support - balance.Opposition +
                           TechnologySystem.GetInstitutionPush(GetPrimaryCulture(empire), node) * 40f +
                           PapacySystem.ReformBias(empire, node);
-            if (score <= bestScore) continue;
-            bestScore = score;
-            selected = node;
+            candidates.Add((node, score));
         }
-        if (selected != null) StartReform(empire, selected.id);
+        if (candidates.Count == 0) return;
+        int basic = candidates.Min(entry => entry.node.advancement) + BasicsSlack;
+        InstitutionNodeConfig selected = candidates.Where(entry => entry.node.advancement <= basic)
+            .OrderByDescending(entry => entry.score).First().node;
+        StartReform(empire, selected.id);
     }
 
     #endregion

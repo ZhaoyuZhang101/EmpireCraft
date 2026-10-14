@@ -20,7 +20,7 @@
     "per_book_read": 0.2,
     "per_warrior_at_war": 0.02,
     "war_penalty": 0.25,
-    "cost_multiplier": 6.0,
+    "cost_multiplier": 12.0,
     "stagnation_threshold": 1.0,
     "gold_per_point": 3.0,
     "landmark_book_multiplier": 2.0,
