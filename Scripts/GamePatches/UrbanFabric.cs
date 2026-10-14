@@ -766,6 +766,47 @@ public static class UrbanFabric
         return true;
     }
 
+    // 农耕区(城市规划划的农田)：不是整块地齐刷刷的横条，而是大小不一的田块拼起来——每块一种作物色、
+    // 垄沟横、竖、斜或是草场，田块之间有田埂；挨着不是农田的地方边缘参差，留出几格原野
+    public static Color32 Farmland(Geometry g, WorldTile tile, Color32 color)
+    {
+        TileZone zone = tile.zone;
+        if (zone == null) return color;
+        int size = Config.CITY_ZONE_SIZE, lx = tile.x - zone.x * size, ly = tile.y - zone.y * size;
+        float edge = float.MaxValue;
+        if (!IsFarm(g, zone.x - 1, zone.y)) edge = Mathf.Min(edge, lx);
+        if (!IsFarm(g, zone.x + 1, zone.y)) edge = Mathf.Min(edge, size - 1 - lx);
+        if (!IsFarm(g, zone.x, zone.y - 1)) edge = Mathf.Min(edge, ly);
+        if (!IsFarm(g, zone.x, zone.y + 1)) edge = Mathf.Min(edge, size - 1 - ly);
+        if (edge < 3f * Noise(tile.x, tile.y, 4f, g.Seed + 30) - 0.5f) return color;
+        // 田块：先把坐标扭一扭，再按行切、每行按不同宽度切
+        float fx = tile.x + 3f * Noise(tile.x, tile.y, 11f, g.Seed + 31), fy = tile.y + 3f * Noise(tile.x, tile.y, 11f, g.Seed + 32);
+        float rowHeight = 4f + 3f * H(g.Seed, Mathf.FloorToInt(fx / 16f), 33);
+        int row = Mathf.FloorToInt(fy / rowHeight);
+        float width = 4f + 5f * H(g.Seed, row, 34);
+        int column = Mathf.FloorToInt((fx + row * 2.3f) / width);
+        float inRow = fy - row * rowHeight, inColumn = fx + row * 2.3f - column * width;
+        // 田埂
+        if (inRow < 0.8f || inColumn < 0.8f) return Mix(color, Lane, 0.3f);
+        float seed = H(g.Seed, column, row, 35);
+        Color32 crop = Crops[(int)(seed * 5) % 5];
+        int furrow = (int)(H(g.Seed, column, row, 36) * 4);
+        bool line = furrow switch
+        {
+            0 => tile.y % 2 == 0,
+            1 => tile.x % 2 == 0,
+            2 => (tile.x + tile.y) % 3 == 0,
+            _ => false
+        };
+        return Mix(color, line ? Mix(crop, new Color32(90, 80, 60, 255), 0.35f) : crop, line ? 0.42f : 0.3f);
+    }
+
+    private static bool IsFarm(Geometry g, int zx, int zy)
+    {
+        TileZone zone = World.world.zone_calculator.getZone(zx, zy);
+        return zone != null && zone.city == g.City && ZonePlanSystem.Get(g.City, zone) == ZoneUse.Farm;
+    }
+
     // 镇：圆圆的一片，十字街、中间小集市，屋舍错落；富庶的镇有一圈矮墙，四面开门
     private static Color32 TownTile(Geometry g, WorldTile tile, Color32 color, int dx, int dy, float d, float reach, bool walled)
     {

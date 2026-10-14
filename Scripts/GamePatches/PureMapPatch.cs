@@ -853,6 +853,8 @@ public class PureMapPatch : GamePatch
         {
             // 阿兹特克的水上田园：一垄田一道水渠
             if (plan?.family == "aztec") return tile.y % 3 == 0 ? Lerp(color, Chinampa, 0.5f) : Lerp(color, Crop, 0.25f);
+            // 其余：大小不一、垄向各异的田块拼起来(见 UrbanFabric.Farmland)
+            if (plan?.fabric != null) return UrbanFabric.Farmland(plan.fabric, tile, color);
             return Lerp(color, Crop, tile.y % 2 == 0 ? 0.2f : 0.06f);
         }
         return color;
