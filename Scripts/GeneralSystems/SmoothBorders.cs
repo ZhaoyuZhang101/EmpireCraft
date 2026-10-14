@@ -43,7 +43,7 @@ public static class SmoothBorders
         LastMeta.Clear();
         Shown.Clear();
         PendingSweep.Clear();
-        RevealAt.Clear();
+        Sweeps.Clear();
         World.world?.zone_calculator?.dirtyAndClear();
     }
 
@@ -114,7 +114,9 @@ public static class SmoothBorders
             int index = (dy + 2) * 5 + dx + 2;
             TileZone zone = calc.getZone(_cx + dx, _cy + dy);
             Zones[index] = zone;
-            Metas[index] = MetaOf(layer, option, zone, out ShownColors[index]);
+            Metas[index] = MetaOf(layer, option, zone, out ShownColors[index], out IMetaObject real);
+            SweepAt[index] = zone != null && Sweeps.TryGetValue(zone.id, out Sweep sweep) ? sweep : null;
+            SweepMetas[index] = SweepAt[index] != null ? real : null;
             PushMetas[index] = PushMetaOf(layer, zone);
         }
         return true;
@@ -134,6 +136,8 @@ public static class SmoothBorders
         {
             int here = hy * 5 + hx;
             if (PushMetas[here] != null && FrontSystem.SmoothCovers(Zones[here], x, y)) return PushMetas[here];
+            // 换色渐变扫过的格子归新主人
+            if (SweepAt[here] != null && SweepCovers(SweepAt[here], Zones[here], x, y)) return SweepMetas[here];
         }
         float tx = (x + 0.5f) / ZoneSize - zx - 0.5f, ty = (y + 0.5f) / ZoneSize - zy - 0.5f;
         float ax0 = 0.5f * (0.5f - tx) * (0.5f - tx), ax1 = 0.75f - tx * tx, ax2 = 0.5f * (0.5f + tx) * (0.5f + tx);
@@ -322,7 +326,7 @@ public static class SmoothBorders
         for (int dx = 1; dx <= 3; dx++)
         {
             int index = dy * 5 + dx;
-            if (ReferenceEquals(Metas[index], Metas[12]) && PushMetas[index] == null) continue;
+            if (ReferenceEquals(Metas[index], Metas[12]) && PushMetas[index] == null && SweepAt[index] == null) continue;
             uniform = false;
             break;
         }
@@ -361,7 +365,9 @@ public static class SmoothBorders
             Color32 colorInside = inside, colorOutside = outside;
             // 这格所在的块还在换色渐变里(显示旧的归属或旧颜色)：归这块的格子照旧颜色画
             int shownIndex = (Mathf.FloorToInt((float)y / ZoneSize) - _cy + 2) * 5 + Mathf.FloorToInt((float)x / ZoneSize) - _cx + 2;
-            ColorAsset shownColor = shownIndex is >= 0 and < 25 && ReferenceEquals(owner, Metas[shownIndex]) ? ShownColors[shownIndex] : null;
+            ColorAsset shownColor = shownIndex is >= 0 and < 25 && ReferenceEquals(owner, Metas[shownIndex]) &&
+                                    (SweepAt[shownIndex] == null || !SweepCovers(SweepAt[shownIndex], Zones[shownIndex], x, y))
+                ? ShownColors[shownIndex] : null;
             if (shownColor != null) ColorsFrom(shownColor, clearInside, ref colorInside, ref colorOutside);
             else if (!ReferenceEquals(owner, native)) ColorsOf(owner, clearInside, ref colorInside, ref colorOutside);
             Color32 color = edge ? colorOutside : colorInside;
@@ -433,10 +439,12 @@ public static class SmoothBorders
 
     #region 换色渐变
 
-    // 一片地一下子换了主(归降、被占、并入帝国、成了附庸换了颜色)：不一次全变，先照旧显示，
-    // 再从新主人那边(入侵方向、宗主方向；接不上就从都城)一块一块变过去，每往里一块晚 SweepStep 秒；
-    // 重画也就分散到这几秒里，不挤在一帧。逐格推进吃下的地(FrontSystem.Smooth)本身就是渐变，不再排队
-    private const float SweepStep = 0.12f, SweepJitter = 0.06f, MaxSweepSeconds = 4f;
+    // 一片地一下子换了主(归降、被占、城市归降、并入帝国、成了附庸换了颜色)：不一次全变，先照旧显示，
+    // 再从新主人那边(入侵方向、宗主方向；接不上就从都城)像扫描线一样逐格扫过去：每块地里的分界从挨着新主人的一边
+    // 往对边推，边缘按噪声参差，一块扫完接着下一块(每块约 SweepStep 秒，整片至多 MaxSweepSeconds 秒)；
+    // 扫过的格子当帧就是新主人的颜色，重画分散在这几秒里，不挤在一帧。
+    // 逐格推进吃下的地(FrontSystem.Smooth)本身就是渐变，直接显示
+    private const float SweepStep = 0.18f, MaxSweepSeconds = 4f;
 
     private sealed class ShownState
     {
@@ -445,10 +453,19 @@ public static class SmoothBorders
         public int colorKey;
     }
 
+    // 一块地的扫描：从什么时候起、每块几秒、离起点几块、扫的方向(全零为从块心往外)
+    private sealed class Sweep
+    {
+        public float start, step, dirX, dirY;
+        public int distance;
+    }
+
     private static readonly ColorAsset[] ShownColors = new ColorAsset[25];
+    private static readonly IMetaObject[] SweepMetas = new IMetaObject[25];
+    private static readonly Sweep[] SweepAt = new Sweep[25];
     private static readonly Dictionary<int, ShownState> Shown = new();
     private static readonly HashSet<int> PendingSweep = new();
-    private static readonly Dictionary<int, float> RevealAt = new();
+    private static readonly Dictionary<int, Sweep> Sweeps = new();
     private static MetaTypeAsset _sweepLayer;
     private static int _sweepOption = int.MinValue;
 
@@ -462,11 +479,12 @@ public static class SmoothBorders
         }
     }
 
-    // 显示中的归属：变了的块先照旧(shownColor 是要用的旧颜色，没在渐变里为 null)
-    private static IMetaObject MetaOf(MetaTypeAsset layer, int option, TileZone zone, out ColorAsset shownColor)
+    // 显示中的归属：变了的块先照旧(shownColor 是要用的旧颜色，没在渐变里为 null；real 是真实归属)
+    private static IMetaObject MetaOf(MetaTypeAsset layer, int option, TileZone zone, out ColorAsset shownColor,
+        out IMetaObject real)
     {
         shownColor = null;
-        IMetaObject real = RealMetaOf(layer, option, zone);
+        real = RealMetaOf(layer, option, zone);
         if (zone == null || !Enabled) return real;
         if (!ReferenceEquals(layer, _sweepLayer) || option != _sweepOption)
         {
@@ -475,7 +493,7 @@ public static class SmoothBorders
             _sweepOption = option;
             Shown.Clear();
             PendingSweep.Clear();
-            RevealAt.Clear();
+            Sweeps.Clear();
         }
         ColorAsset realColor = SafeColor(real);
         int realKey = ColorKey(realColor);
@@ -487,12 +505,25 @@ public static class SmoothBorders
         if (ReferenceEquals(shown.meta, real) && shown.colorKey == realKey)
         {
             PendingSweep.Remove(zone.id);
-            RevealAt.Remove(zone.id);
+            Sweeps.Remove(zone.id);
             return real;
         }
-        if (!RevealAt.ContainsKey(zone.id)) PendingSweep.Add(zone.id);
+        if (!Sweeps.ContainsKey(zone.id)) PendingSweep.Add(zone.id);
         shownColor = shown.color;
         return shown.meta;
+    }
+
+    // 这一格扫过了没有
+    private static bool SweepCovers(Sweep sweep, TileZone zone, int x, int y)
+    {
+        float progress = (Time.unscaledTime - sweep.start) / sweep.step;
+        if (progress < sweep.distance - 0.5f) return false;
+        if (progress >= sweep.distance + 1.5f) return true;
+        float cx = zone.x * ZoneSize + ZoneSize * 0.5f - 0.5f, cy = zone.y * ZoneSize + ZoneSize * 0.5f - 0.5f;
+        float along = sweep.dirX == 0f && sweep.dirY == 0f
+            ? Mathf.Sqrt((x - cx) * (x - cx) + (y - cy) * (y - cy)) / (ZoneSize * 0.75f)
+            : ((x - cx) * sweep.dirX + (y - cy) * sweep.dirY) / ZoneSize + 0.5f;
+        return progress >= sweep.distance + Mathf.Clamp01(along) + (FrontNoise(x, y) - 0.5f) * 0.35f;
     }
 
     // 逐格推进吃下的块：推进本身已经是渐变，换主时直接显示
@@ -501,24 +532,28 @@ public static class SmoothBorders
         if (zone == null) return;
         Shown.Remove(zone.id);
         PendingSweep.Remove(zone.id);
-        RevealAt.Remove(zone.id);
+        Sweeps.Remove(zone.id);
     }
 
-    // 每帧：给新变的块排好变色时间；到点的块换成新主人并重画(连同四周)
+    // 每帧：给新变的块排好扫描；正在扫的块重画，扫完的换成新主人并重画四周
     private static void SweepTick()
     {
         if (!Enabled || World.world?.zone_calculator == null) return;
         if (PendingSweep.Count > 0) PlanSweeps();
-        if (RevealAt.Count == 0) return;
+        if (Sweeps.Count == 0) return;
         float now = Time.unscaledTime;
-        List<int> due = null;
-        foreach (KeyValuePair<int, float> pair in RevealAt)
-            if (pair.Value <= now) (due ??= new List<int>()).Add(pair.Key);
-        if (due == null) return;
         ZoneCalculator calc = World.world.zone_calculator;
-        foreach (int id in due)
+        List<int> done = null;
+        foreach (KeyValuePair<int, Sweep> pair in Sweeps)
         {
-            RevealAt.Remove(id);
+            float progress = (now - pair.Value.start) / pair.Value.step;
+            if (progress >= pair.Value.distance + 1.5f) (done ??= new List<int>()).Add(pair.Key);
+            else if (progress >= pair.Value.distance - 0.5f) calc.getZoneByID(pair.Key)?.resetRenderHelpers();
+        }
+        if (done == null) return;
+        foreach (int id in done)
+        {
+            Sweeps.Remove(id);
             Shown.Remove(id);
             TileZone zone = calc.getZoneByID(id);
             if (zone == null) continue;
@@ -537,7 +572,7 @@ public static class SmoothBorders
             PendingSweep.Clear();
             return;
         }
-        // 按变成谁(新主人、新颜色)分组，各组从挨着新主人的块起一圈圈往里排
+        // 按变成谁(新主人、新颜色)分组，各组从挨着新主人的块起一圈圈往里扫
         var groups = new Dictionary<(IMetaObject meta, int color), List<TileZone>>();
         foreach (int id in PendingSweep)
         {
@@ -554,63 +589,75 @@ public static class SmoothBorders
         {
             List<TileZone> zones = group.Value;
             var members = new HashSet<int>(zones.Select(zone => zone.id));
-            var distance = new Dictionary<int, int>();
+            var planned = new Dictionary<int, Sweep>();
             var queue = new Queue<TileZone>();
-            // 起点：挨着已经显示成新主人(同色)的块；没有就挨着新主人的宗主、同一帝国的块；再没有就是离都城最近的块
-            foreach (TileZone zone in zones)
-                if (Touches(calc, zone, members, shown => ReferenceEquals(shown.meta, group.Key.meta) && shown.colorKey == group.Key.color))
+            // 起点：挨着已经显示成新主人(同色)的块；没有就挨着新主人的宗主、同一帝国的块；再没有就是离都城最近的块(从块心往外扫)
+            foreach (Func<ShownState, bool> test in new Func<ShownState, bool>[]
+                     {
+                         shown => ReferenceEquals(shown.meta, group.Key.meta) && shown.colorKey == group.Key.color,
+                         shown => Related(shown.meta, group.Key.meta)
+                     })
+            {
+                foreach (TileZone zone in zones)
                 {
-                    distance[zone.id] = 0;
+                    (float dirX, float dirY, bool touches) = Facing(calc, zone, members, test);
+                    if (!touches) continue;
+                    planned[zone.id] = new Sweep { distance = 0, dirX = dirX, dirY = dirY };
                     queue.Enqueue(zone);
                 }
-            if (queue.Count == 0)
-                foreach (TileZone zone in zones)
-                    if (Touches(calc, zone, members, shown => Related(shown.meta, group.Key.meta)))
-                    {
-                        distance[zone.id] = 0;
-                        queue.Enqueue(zone);
-                    }
+                if (queue.Count > 0) break;
+            }
             if (queue.Count == 0)
             {
                 TileZone seat = SeatOf(group.Key.meta);
-                TileZone start = seat == null ? zones[0]
+                TileZone first = seat == null ? zones[0]
                     : zones.OrderBy(zone => (zone.x - seat.x) * (zone.x - seat.x) + (zone.y - seat.y) * (zone.y - seat.y)).First();
-                distance[start.id] = 0;
-                queue.Enqueue(start);
+                planned[first.id] = new Sweep { distance = 0 };
+                queue.Enqueue(first);
             }
             while (queue.Count > 0)
             {
                 TileZone zone = queue.Dequeue();
-                int next = distance[zone.id] + 1;
+                int next = planned[zone.id].distance + 1;
                 foreach ((int dx, int dy) in new[] { (1, 0), (-1, 0), (0, 1), (0, -1) })
                 {
                     TileZone neighbour = calc.getZone(zone.x + dx, zone.y + dy);
-                    if (neighbour == null || !members.Contains(neighbour.id) || distance.ContainsKey(neighbour.id)) continue;
-                    distance[neighbour.id] = next;
+                    if (neighbour == null || !members.Contains(neighbour.id) || planned.ContainsKey(neighbour.id)) continue;
+                    planned[neighbour.id] = new Sweep { distance = next, dirX = dx, dirY = dy };
                     queue.Enqueue(neighbour);
                 }
             }
-            int farthest = distance.Count == 0 ? 0 : distance.Values.Max();
-            float step = farthest <= 0 ? SweepStep : Mathf.Min(SweepStep, MaxSweepSeconds / farthest);
+            int farthest = planned.Count == 0 ? 0 : planned.Values.Max(sweep => sweep.distance);
+            float step = Mathf.Min(SweepStep, MaxSweepSeconds / Mathf.Max(1, farthest + 1));
             foreach (TileZone zone in zones)
             {
-                int d = distance.TryGetValue(zone.id, out int value) ? value : farthest + 1;
-                RevealAt[zone.id] = now + d * step + UnityEngine.Random.value * SweepJitter;
+                if (!planned.TryGetValue(zone.id, out Sweep sweep)) sweep = new Sweep { distance = farthest + 1 };
+                sweep.start = now;
+                sweep.step = step;
+                Sweeps[zone.id] = sweep;
             }
         }
     }
 
-    private static bool Touches(ZoneCalculator calc, TileZone zone, HashSet<int> members, Func<ShownState, bool> test)
+    // 这块挨着的新主人那边在哪个方向(扫描从那边来)
+    private static (float dirX, float dirY, bool touches) Facing(ZoneCalculator calc, TileZone zone, HashSet<int> members,
+        Func<ShownState, bool> test)
     {
+        float sumX = 0f, sumY = 0f;
+        bool touches = false;
         for (int dy = -1; dy <= 1; dy++)
         for (int dx = -1; dx <= 1; dx++)
         {
             if (dx == 0 && dy == 0) continue;
             TileZone neighbour = calc.getZone(zone.x + dx, zone.y + dy);
-            if (neighbour == null || members.Contains(neighbour.id) || !Shown.TryGetValue(neighbour.id, out ShownState shown)) continue;
-            if (test(shown)) return true;
+            if (neighbour == null || members.Contains(neighbour.id) || !Shown.TryGetValue(neighbour.id, out ShownState shown) ||
+                !test(shown)) continue;
+            touches = true;
+            sumX -= dx;
+            sumY -= dy;
         }
-        return false;
+        float length = Mathf.Sqrt(sumX * sumX + sumY * sumY);
+        return length < 0.01f ? (0f, 0f, touches) : (sumX / length, sumY / length, touches);
     }
 
     // 宗主、附庸、同一帝国
@@ -678,7 +725,7 @@ public static class SmoothBorders
             Add(layer.getZoneOptionState());
             for (int i = 0; i < 25; i++)
             {
-                if (PushMetas[i] != null) return 0L;
+                if (PushMetas[i] != null || SweepAt[i] != null) return 0L;
                 IMetaObject meta = Metas[i];
                 Add(meta == null ? 0 : global::System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(meta));
                 Add(ColorIndex(meta));
