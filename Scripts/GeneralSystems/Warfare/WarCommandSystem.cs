@@ -148,8 +148,14 @@ public static class WarCommandSystem
         return pick;
     }
 
+    // 同一个人再被拜同一职(战事停了又起、罢了又拜)不再报
+    private static readonly Dictionary<(long, string), long> Announced = new();
+
     private static void Announce(Kingdom kingdom, Actor actor, string title, string logKey)
     {
+        if (Announced.TryGetValue((kingdom.id, logKey), out long last) && last == actor.id) return;
+        if (Announced.Count > 2000) Announced.Clear();
+        Announced[(kingdom.id, logKey)] = actor.id;
         TranslateHelper.LogEventOnly(string.Format(LM.Get(logKey), kingdom.GetKingdomName(), actor.getName(), title), kingdom);
         actor.RecordPersonalHistory(string.Format(LM.Get("personal_history_war_commander"), kingdom.GetKingdomName(), title));
     }

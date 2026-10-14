@@ -140,9 +140,8 @@ public static class StateDebtSystem
         }
         if (borrowed <= 0L) return;
         AddKingdomMoney(kingdom, borrowed, TreasuryCategory.Borrowing);
+        // 向百姓举债是例行的事，不报世界提示(国债见国家窗口)
         FiscalDiagnostics.Count("国家举债");
-        TranslateHelper.LogEventOnly(string.Format(LM.Get("state_debt_borrowed"), kingdom.GetKingdomName(),
-            MoneyDisplay.Format(borrowed), rate), kingdom);
     }
 
     private static void Service(Kingdom kingdom)

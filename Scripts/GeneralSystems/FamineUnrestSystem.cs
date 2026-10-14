@@ -115,13 +115,14 @@ public static class FamineUnrestSystem
         else if (share < RecoveredShare && data.great_famine)
         {
             data.great_famine = false;
-            Record(kingdom, empire, string.Format(LM.Get("great_famine_end_history"), name));
+            Record(kingdom, empire, string.Format(LM.Get("great_famine_end_history"), name), false);
         }
     }
 
-    private static void Record(Kingdom kingdom, Empire empire, string text)
+    // 大饥荒报世界提示；饥荒退去只记入史书
+    private static void Record(Kingdom kingdom, Empire empire, string text, bool announce = true)
     {
         if (empire?.data != null) empire.RecordHistory(directContent: text);
-        TranslateHelper.LogEventMessage(text, kingdom);
+        if (announce) TranslateHelper.LogEventOnly(text, kingdom);
     }
 }

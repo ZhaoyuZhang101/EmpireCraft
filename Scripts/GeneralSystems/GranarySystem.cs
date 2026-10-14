@@ -96,9 +96,9 @@ public static class GranarySystem
         ReliefThisYear.Remove(realm);
         string text = string.Format(LM.Get("granary_relief_history"), realm.GetKingdomName(), relief.cities,
             Mathf.RoundToInt(relief.amount));
+        // 开仓赈灾是例行的事：只记入帝国史书，不报世界提示
         Empire empire = realm.GetEmpire();
-        if (empire != null) EventRecorder.Record(empire, text);
-        else EventRecorder.Record(realm, text);
+        if (empire?.data != null && !empire.isRekt()) EmpireCraft.Scripts.System.HistoryRecordSystem.RecordHistory(empire, directContent: text);
     }
 
     public static void ResetWorldState() => ReliefThisYear.Clear();

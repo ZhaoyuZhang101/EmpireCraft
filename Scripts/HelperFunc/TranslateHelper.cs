@@ -166,9 +166,10 @@ namespace EmpireCraft.Scripts.HelperFunc
             }.RecordIntoEmpire(attacker);
         }
         
+        // 选定接班人：只报帝国与五城以上的大国(小国换来换去刷屏)
         public static void LogKingChooseHeir(Kingdom kingdom,string relation, Actor pActor)
         {
-            if (kingdom != null&&pActor!=null)
+            if (kingdom != null && pActor != null && (kingdom.IsEmpire() || kingdom.countCities() >= 5))
                 new WorldLogMessage(EmpireCraftWorldLogLibrary.king_choose_heir_log,
                     (kingdom.GetKingdomName() ?? "") + (kingdom.GetOffice()?.GetName() ?? ""),
                     relation,
@@ -230,10 +231,18 @@ namespace EmpireCraft.Scripts.HelperFunc
             if (empire?.data != null && !empire.isRekt()) empire.RecordHistory(directContent: content);
         }
 
-        // 只进世界日志、不进史书：太频繁的事(市场缺货、发现矿藏、借国债、任命统帅、理念传播之类)
+        // 只进世界日志、不进史书：太频繁的事(市场缺货、发现矿藏、任命统帅、理念传播之类)。
+        // 同一句话三年内只报一次(世界提示刷屏的多是同一件事反复报)
+        private const float RepeatYears = 3f;
+        private static readonly Dictionary<string, double> LastLogged = new();
+
         public static void LogEventOnly(string content, Kingdom kingdom = null)
         {
             if (string.IsNullOrWhiteSpace(content)) return;
+            double now = World.world.getCurWorldTime();
+            if (LastLogged.TryGetValue(content, out double last) && now >= last && Date.getYearsSince(last) < RepeatYears) return;
+            if (LastLogged.Count > 2000) LastLogged.Clear();
+            LastLogged[content] = now;
             new WorldLogMessage(EmpireCraftWorldLogLibrary.empirecraft_event_log, content)
             {
                 color_special1 = kingdom != null && !kingdom.isRekt()
