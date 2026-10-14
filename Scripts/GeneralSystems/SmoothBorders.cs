@@ -565,13 +565,26 @@ public static class SmoothBorders
         return new Transition { oldPixels = old, created = Time.unscaledTime };
     }
 
-    // 逐格推进吃下的块：推进本身已经是渐变，换主时直接显示
+    // 逐格推进吃下的块：推进本身已经是渐变，换主时直接显示。已经画好新样子、还在按旧样子显示的(等着扫描)，
+    // 当场换成新样子——以前直接丢掉渐变，这块地就一直留着旧颜色(它已经画过，原版不会再重画)
     public static void Settle(TileZone zone)
     {
         if (zone == null) return;
         Shown.Remove(zone.id);
         PendingSweep.Remove(zone.id);
+        if (!Transitions.TryGetValue(zone.id, out Transition transition)) return;
         Transitions.Remove(zone.id);
+        ZoneCalculator calc = World.world?.zone_calculator;
+        Color32[] pixels = calc?.pixels;
+        if (transition.newPixels == null || zone.tiles == null || pixels == null || pixels.Length != _base.Length ||
+            transition.newPixels.Length != zone.tiles.Length) return;
+        for (int i = 0; i < zone.tiles.Length; i++)
+        {
+            int id = zone.tiles[i].data.tile_id;
+            _base[id] = transition.newPixels[i];
+            pixels[id] = Lifted(id);
+        }
+        calc.setDirty();
     }
 
     // 这一格换到哪了：0 = 还是旧样子，1 = 已是新样子，中间是前沿的过渡带

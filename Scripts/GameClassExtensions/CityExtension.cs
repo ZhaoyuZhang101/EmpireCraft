@@ -684,7 +684,7 @@ public static class CityExtension
 
         zones.Add(tileZoneId);
         city.GetOccupiedZoneOwnerMap()[tileZoneId] = occupier.id;
-        OccupationReadIndex.Invalidate(city);
+        OccupationReadIndex.Invalidate(city, tileZone);
         if (city.TryTriggerOccupationCaptureEvent(occupier, tileZone, zoneOccupationMode:true))
         {
             return true;
@@ -760,7 +760,7 @@ public static class CityExtension
 
         zones.Add(tileZoneId);
         city.GetOccupiedZoneOwnerMap()[tileZoneId] = occupierId;
-        OccupationReadIndex.Invalidate(city);
+        OccupationReadIndex.Invalidate(city, tileZone);
 
         // 高正统占领自动扩张：只在手动/士兵占领成功后触发
         city.TrySpreadOccupiedZonesByMandate(occupier, tileZone);
@@ -809,7 +809,7 @@ public static class CityExtension
         {
             occupiedStatus.Remove(occupierId);
         }
-        OccupationReadIndex.Invalidate(city);
+        OccupationReadIndex.Invalidate(city, tileZone);
         return removed;
     }
     public static bool TransferOccupiedTileZone(this City city, Kingdom toKingdom, TileZone tileZone)

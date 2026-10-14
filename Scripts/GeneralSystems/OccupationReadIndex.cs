@@ -27,12 +27,27 @@ public static class OccupationReadIndex
     public static long Hits { get; private set; }
     private static bool _active;
 
-    public static void Invalidate(City city)
+    public static void Invalidate(City city, TileZone zone = null)
     {
         if (city == null) return;
+        Repaint(city, zone);
         if (!CityPopulationSystem.AbstractPopulationEnabled) { if (_active) Reset(); return; }
         city.GetOrCreate().occupation_revision++;
         Revision++;
+    }
+
+    // 占领变了，地块下一轮重画：原版只在归属、边框变化时重画，纯净地图的占领斜纹、平滑国界按占领方上的色不会跟着变
+    // (被占、收复、战后清掉占领后一直留着旧样子)。知道是哪块就只重画那块，不知道就重画全城
+    private static void Repaint(City city, TileZone zone)
+    {
+        if (!PureMapMode.Enabled && !SmoothBorders.Enabled) return;
+        if (zone != null)
+        {
+            zone.resetRenderHelpers();
+            return;
+        }
+        if (city.zones == null) return;
+        foreach (TileZone each in city.zones) each?.resetRenderHelpers();
     }
 
     public static void Reset()

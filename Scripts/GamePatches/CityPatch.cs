@@ -994,7 +994,7 @@ public class CityPatch : GamePatch
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return true;
         if (!CityTerritoryProtection.CanRemoveZone(__instance, pZone)) return false;
         ZonePlanSystem.InvalidatePlanning(__instance);
-        OccupationReadIndex.Invalidate(__instance);
+        OccupationReadIndex.Invalidate(__instance, pZone);
         return true;
     }
     public static bool addZone(City __instance, TileZone pZone)
@@ -1003,7 +1003,7 @@ public class CityPatch : GamePatch
         if (!__instance.zones.Contains(pZone))
         {
             ZonePlanSystem.InvalidatePlanning(__instance);
-            OccupationReadIndex.Invalidate(__instance);
+            OccupationReadIndex.Invalidate(__instance, pZone);
             if (pZone.city != null)
             {
                 if (!CityTerritoryProtection.CanRemoveZone(pZone.city, pZone)) return false;
