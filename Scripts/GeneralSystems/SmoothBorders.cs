@@ -472,7 +472,7 @@ public static class SmoothBorders
                 if (PushMetas[i] != null) return 0L;
                 IMetaObject meta = Metas[i];
                 Add(meta == null ? 0 : global::System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(meta));
-                Add(meta == null ? -1 : (CustomColorSystem.Of(meta) ?? meta.getColor())?.index_id ?? -1);
+                Add(ColorIndex(meta));
                 // 帝国金边看各国属于哪个帝国
                 if (meta is Kingdom kingdom) Add(kingdom.GetEmpireID());
             }
@@ -480,6 +480,20 @@ public static class SmoothBorders
             Add(_warEpoch);
             Add(PureMapPatch.StampOf(zone.city));
             return key == 0L ? 1L : key;
+        }
+    }
+
+    // 颜色编号：颜色表里找不到(编号失效，原版 getColor 会抛异常)的记 -2，不能让一块地因此画不出来
+    private static int ColorIndex(IMetaObject meta)
+    {
+        if (meta == null) return -1;
+        try
+        {
+            return (CustomColorSystem.Of(meta) ?? meta.getColor())?.index_id ?? -1;
+        }
+        catch
+        {
+            return -2;
         }
     }
 
@@ -593,7 +607,15 @@ public static class SmoothBorders
             inside = outside = new Color32(0, 0, 0, 0);
             return;
         }
-        ColorAsset color = CustomColorSystem.Of(owner) ?? owner.getColor();
+        ColorAsset color;
+        try
+        {
+            color = CustomColorSystem.Of(owner) ?? owner.getColor();
+        }
+        catch
+        {
+            color = null;
+        }
         if (color == null) return;
         inside = clearInside ? new Color32(0, 0, 0, 0) : color.getColorBorderInsideAlpha32();
         outside = color.getColorMainSecond32();
@@ -616,7 +638,7 @@ public static class SmoothBorders
     // 这块地的归属或颜色变了：周围八块(连斜对角)也重画，平滑的边要跟着变
     private static void Remember(TileZone zone, IMetaObject meta)
     {
-        int color = meta == null ? -1 : (CustomColorSystem.Of(meta) ?? meta.getColor())?.index_id ?? -1;
+        int color = ColorIndex(meta);
         if (LastMeta.TryGetValue(zone.id, out var last) && ReferenceEquals(last.meta, meta) && last.color == color) return;
         bool first = !LastMeta.ContainsKey(zone.id);
         LastMeta[zone.id] = (meta, color);

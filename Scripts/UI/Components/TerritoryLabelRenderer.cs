@@ -914,8 +914,12 @@ public static class TerritoryLabelRenderer
                 _text.cachedTextGeneratorForLayout.Invalidate();
                 _reference_width = Mathf.Max(1f, _text.preferredWidth);
                 _reference_height = Mathf.Max(1f, _text.preferredHeight);
-                // 字形包字体的行高 Unity 量不出来，按字形包的上伸加下伸算
-                if (baked != null) _reference_height = Mathf.Max(_reference_height, baked.LineHeight);
+                // 字形包字体的行高、宽 Unity 量不准，按字形包的上伸加下伸、各字步进算(量小了铭牌避让就失灵，叠在一起)
+                if (baked != null)
+                {
+                    _reference_height = Mathf.Max(_reference_height, baked.LineHeight);
+                    _reference_width = Mathf.Max(_reference_width, baked.Width(trimmedValue));
+                }
                 rect.sizeDelta = new Vector2(_reference_width + 2f, _reference_height + 2f);
                 _metrics_text = trimmedValue;
                 _metrics_style = effectiveFontStyle;

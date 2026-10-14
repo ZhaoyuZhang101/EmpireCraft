@@ -96,6 +96,18 @@ public sealed class BakedGlyphFont
 
     public bool Supports(int codepoint) => _index.ContainsKey(codepoint);
 
+    // 一行字的宽(参考字号下，按各字的步进相加)：Unity 量不准字形包字体的宽，铭牌避让要用这个
+    public float Width(string text)
+    {
+        float width = 0f;
+        foreach (char character in text ?? "")
+        {
+            if (_index.TryGetValue(character, out Entry entry)) width += entry.advance * Scale;
+            else if (char.IsWhiteSpace(character)) width += ReferenceSize * 0.3f;
+        }
+        return width;
+    }
+
     // 确保这些字都已拼进贴图；有字不在包里或贴图满了返回 false(调用方改用兜底字体)
     public bool Ensure(string text)
     {

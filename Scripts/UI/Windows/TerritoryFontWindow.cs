@@ -124,6 +124,12 @@ public class TerritoryFontWindow : AutoLayoutWindow<TerritoryFontWindow>
                 {
                     text.text = shown;
                     text.font = font;
+                    // 字形包字体不是动态字体，不认字号(设了每次排版都报警告)
+                    if (BundledTerritoryFonts.BakedOf(font) != null)
+                    {
+                        text.resizeTextForBestFit = false;
+                        text.fontSize = 0;
+                    }
                 }
                 else
                 {
