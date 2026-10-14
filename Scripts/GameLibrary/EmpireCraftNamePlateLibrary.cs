@@ -686,6 +686,10 @@ public static class EmpireCraftNamePlateLibrary
         };
         AssetManager.nameplates_library.map_modes_nameplates[assetMineral.map_mode] = assetMineral;
         AssetManager.nameplates_library.dict["Mineral"] = assetMineral;
+
+        // 城市图层用城市铭牌
+        if (AssetManager.nameplates_library.map_modes_nameplates.TryGetValue(MetaType.City, out NameplateAsset cityPlate))
+            AssetManager.nameplates_library.map_modes_nameplates[MetaTypeExtension.CityView] = cityPlate;
     }
 
     private static IdeologyMapColor GetIdeologyColor(PartyIdeology ideology)

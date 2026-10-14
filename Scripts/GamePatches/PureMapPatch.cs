@@ -282,7 +282,7 @@ public class PureMapPatch : GamePatch
         if (pZone?.tiles == null || __instance.pixels == null) return;
         // 平滑国界从缓存拷回的：地形调色、城市平面图已经在里面
         if (SmoothBorders.Restored(pZone)) return;
-        if (PureMapMode.Enabled) ShadeTerrain(__instance.pixels, pZone, pUp, pDown, pLeft, pRight);
+        if (PureMapMode.Enabled || Layer.CityViewMap.Active) ShadeTerrain(__instance.pixels, pZone, pUp, pDown, pLeft, pRight);
         SmoothBorders.Finish(__instance.pixels, pZone);
         // 平滑国界：帝国金边已逐像素画好(见 SmoothBorders)；规划时整张图是灰的，不描金边
         if (SmoothBorders.Enabled || ZonePlanSystem.SteadyOverlay) return;
@@ -346,6 +346,33 @@ public class PureMapPatch : GamePatch
         // 划了用途的区块平涂用途色，与用途不同的邻块之间描一道深色边
         bool grey = ZonePlanSystem.SteadyOverlay;
         Color32? planned = grey && use != ZoneUse.None ? (Color32)ZonePlanSystem.ColorOf(use) : null;
+        // 城市图层：不涂国色，地形露出来，只把模拟的城市(城、路、镇村、田块、林子)照各自的颜色画在地形上
+        if (Layer.CityViewMap.Active)
+        {
+            UrbanFabric.Vivid = true;
+            try
+            {
+                foreach (WorldTile tile in zone.tiles)
+                {
+                    int id = tile?.data?.tile_id ?? -1;
+                    if (id < 0 || id >= pixels.Length) continue;
+                    TileTypeBase ground = tile.Type;
+                    if (ground != null && (ground.ocean || ground.liquid && !ground.lava))
+                    {
+                        pixels[id] = UrbanFabric.Bridge(plan?.fabric, tile) ? UrbanFabric.BridgeColor : new Color32(0, 0, 0, 0);
+                        continue;
+                    }
+                    Color32 terrain = Terrain(tile);
+                    Color32 drawn = Plan(tile, terrain, use, slots, tile.x - ox, tile.y - oy, plan, zone);
+                    pixels[id] = drawn.r == terrain.r && drawn.g == terrain.g && drawn.b == terrain.b ? new Color32(0, 0, 0, 0) : drawn;
+                }
+            }
+            finally
+            {
+                UrbanFabric.Vivid = false;
+            }
+            return;
+        }
         bool OtherUse(int dx, int dy) => ZonePlanSystem.Get(city, World.world.zone_calculator.getZone(zone.x + dx, zone.y + dy)) != use;
         bool outlineLeft = planned != null && OtherUse(-1, 0), outlineRight = planned != null && OtherUse(1, 0);
         bool outlineDown = planned != null && OtherUse(0, -1), outlineUp = planned != null && OtherUse(0, 1);
@@ -416,6 +443,14 @@ public class PureMapPatch : GamePatch
     }
 
     private static readonly Color32 PlanningCity = new(170, 170, 170, 255);
+
+    // 地形本色(城市图层的底：画在上面的城市和地形融在一起)
+    private static Color32 Terrain(WorldTile tile)
+    {
+        TileTypeBase type = tile.Type;
+        TileTypeBase surface = type == null || type.road ? null : tile.top_type != null ? tile.top_type : type;
+        return Shade(tile, surface != null ? surface.color : new Color32(110, 150, 90, 255));
+    }
 
     private static Color32 Dark(WorldTile tile)
     {

@@ -25,6 +25,7 @@ public static class EmpireCraftMetaTypeLibrary
       AddNationMeta();
       AddWealthMeta();
       AddMineralMeta();
+      AddCityViewMeta();
       AssetManager.meta_type_library.linkAssets();
     }
 
@@ -33,6 +34,40 @@ public static class EmpireCraftMetaTypeLibrary
     public static MetaTypeAsset nation;
     public static MetaTypeAsset wealth;
     public static MetaTypeAsset mineral;
+    public static MetaTypeAsset cityView;
+
+    // 城市图层：只显示模拟的城市，不涂国家颜色(见 Layer/CityViewMap.cs)
+    public static void AddCityViewMeta()
+    {
+        var asset = new MetaTypeAsset
+        {
+            id = "cityview",
+            ranks = MetaTypeLibrary.generateExponentialRanks(100.0, 1.5),
+            window_name = "IdeologyInfoWindow",
+            power_tab_id = "selected_empire",
+            force_zone_when_selected = false,
+            set_icon_for_cancel_button = true,
+            icon_list = "iconReligionList",
+            icon_single_path = "ui/icons/godpowers/city_view",
+            has_dynamic_zones = false,
+            reports = new string[0],
+            map_mode = MetaTypeExtension.CityView,
+            option_id = "map_CityView_layer",
+            power_option_zone_id = "CityView_layer"
+        };
+        asset.window_action_clear = (MetaTypeAction) (() => { });
+        asset.window_history_action_update = (MetaTypeHistoryAction) ((ref WindowHistoryData pHistoryData) => { });
+        asset.window_history_action_restore = (MetaTypeHistoryAction) ((ref WindowHistoryData pHistoryData) => { });
+        asset.get_list = (MetaTypeListAction) (() => Enumerable.Empty<NanoObject>());
+        asset.has_any = (MetaTypeListHasAction) (() => false);
+        asset.get_selected = (MetaSelectedGetter) (() => null);
+        asset.set_selected = (MetaSelectedSetter) (_ => { });
+        asset.get = (MetaGetter) (_ => null);
+        asset.check_unit_has_meta = (MetaCheckUnitWindowAction) (_ => false);
+        asset.set_unit_set_meta_for_meta_for_window = (MetaUnitSetMetaForWindow) (_ => { });
+        EmpireCraft.Scripts.Layer.CityViewMap.Configure(asset);
+        cityView = AssetManager.meta_type_library.add(asset);
+    }
 
     // 矿产图层：地块按城描边、有矿藏的城淡淡上色，城上方并排显示矿藏图标(见 Layer/MineralMap.cs)
     public static void AddMineralMeta()

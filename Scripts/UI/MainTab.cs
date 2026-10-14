@@ -330,6 +330,11 @@ internal static class MainTab
                  SpriteTextureLoader.getSprite("ui/icons/resources/iconRes_coal"));
         AddButton(CULTURE_GROUP, mineralLayer);
 
+        // 城市图层：只显示模拟的城市(纯净地图)
+        PowerButton cityViewLayer = FixFunctions.CreateLayerButton(MetaTypeExtension.CityView,
+                 SpriteTextureLoader.getSprite("ui/icons/godpowers/city_view"), maxOption: 1);
+        AddButton(CULTURE_GROUP, cityViewLayer);
+
         var cultureConfigButton = PowerButtonCreator.CreateWindowButton("culture_list", nameof(CultureSpeciesPairWindow),
             SpriteTextureLoader.getSprite("ui/icons/iconCulture"));
         AddButton(CULTURE_GROUP, cultureConfigButton);

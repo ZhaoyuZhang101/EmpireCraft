@@ -70,7 +70,9 @@ public static class UrbanFabric
 
     private const int EdgeBins = 48, MaxSeededRays = 6;
     private const float TwoPi = Mathf.PI * 2f;
-    private const float Strength = 0.5f;
+    // 平常淡淡地画在国色上；城市图层画在地形上，浓一些
+    private static float Strength => Vivid ? 0.9f : 0.5f;
+    public static bool Vivid;
 
     private static readonly Color32 Asphalt = new(80, 84, 94, 255), BridgeDeck = new(150, 150, 156, 255),
         Local = new(176, 178, 180, 255), Rail = new(66, 58, 54, 255), Tie = new(165, 145, 118, 255),

@@ -110,6 +110,11 @@ public class ZonesPatch:GamePatch
             __result = MetaTypeExtension.Mineral;
             return false;
         }
+        if (EmpireCraftMetaTypeLibrary.cityView?.isActive(pCheckOnlyOption) == true)
+        {
+            __result = MetaTypeExtension.CityView;
+            return false;
+        }
         __result = MetaType.City;
         return false;
     }

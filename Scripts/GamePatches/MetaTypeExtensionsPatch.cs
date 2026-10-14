@@ -89,6 +89,9 @@ public class MetaTypeExtensionsPatch:GamePatch
             case MetaTypeExtension.Mineral:
                 __result = "mineral";
                 return false;
+            case MetaTypeExtension.CityView:
+                __result = "cityview";
+                return false;
             default:
                 Debug.LogError((object) ("MetaTypeExtensions.AsString missing option for : " + pType.ToString()));
                 __result = pType.ToString().ToLower();
