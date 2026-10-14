@@ -83,6 +83,10 @@ public class PureMapPatch : GamePatch
             prefix: new HarmonyMethod(typeof(PureMapPatch), nameof(BeforeMakeRoad)));
         harmony.Patch(AccessTools.Method(typeof(QuantumSpriteLibrary), "drawLightAreas"),
             prefix: new HarmonyMethod(typeof(PureMapPatch), nameof(BeforeDrawLights)));
+        harmony.Patch(AccessTools.Method(typeof(QuantumSpriteLibrary), "drawFires"),
+            prefix: new HarmonyMethod(typeof(PureMapPatch), nameof(BeforeDrawFires)));
+        harmony.Patch(AccessTools.Method(typeof(FireLayer), "checkAutoDisable"),
+            postfix: new HarmonyMethod(typeof(PureMapPatch), nameof(AfterFireLayerCheck)));
         harmony.Patch(AccessTools.Method(typeof(QuantumSpriteLibrary), "drawPlotIcon"),
             prefix: new HarmonyMethod(typeof(PureMapPatch), nameof(BeforeDrawPlotIcon)));
         // 平滑国界：悬停、选中的高亮逐像素画(见 SmoothBorders.Highlight)，不叠整块方片
@@ -94,9 +98,18 @@ public class PureMapPatch : GamePatch
             prefix: new HarmonyMethod(typeof(PureMapPatch), nameof(BeforeColorZonesPool)));
     }
 
+    // 火焰不画(用户 2026-10-15："这个火焰取消掉")：近处的火苗动画、远景的红色火点、着火处的夜光都不画；
+    // 火照原版蔓延、烧东西，只是看不见——和人物建筑一样留在数据里
+    private static bool BeforeDrawFires() => !PureMapMode.Enabled;
+
+    private static void AfterFireLayerCheck(FireLayer __instance)
+    {
+        if (PureMapMode.Enabled && __instance.sprRnd != null && __instance.sprRnd.enabled) __instance.sprRnd.enabled = false;
+    }
+
     // 夜景灯光：原版按人物与建筑的真实位置点灯，这里人物到处瞬移、建筑不画，灯光会乱飘；
     // 改为只在城市平面图建成的地块上、每座虚拟建筑处点一盏灯——住房越高级越亮，工厂、市场、官署更亮，
-    // 现代格局的地块再亮一些，都城地标最亮；成了废墟的街区不亮，战火、野火照旧按燃烧的格子亮
+    // 现代格局的地块再亮一些，都城地标最亮；成了废墟的街区不亮；火焰不画，着火处也不亮
     private static readonly Dictionary<int, (float at, List<(Vector2 at, float size)> lights)> ZoneLights = new();
     private static readonly List<(Vector2, float)> NoLights = new();
     private const int LightRefreshPerFrame = 40;
@@ -108,16 +121,12 @@ public class PureMapPatch : GamePatch
         using var timing = FrameProfiler.Measure("纯净地图·夜景灯光");
         Color color = QuantumSpriteLibrary.getColorForLight();
         List<TileZone> zones = World.world.zone_camera.getVisibleZones();
-        bool fires = WorldBehaviourActionFire.hasFires();
         float now = Time.unscaledTime;
         if (ZoneLights.Count > 20000) ZoneLights.Clear();
         // 每帧至多补算几十块地的灯(灯同时到期一起重算会卡一下)；到期还没轮到的先用旧的
         int budget = LightRefreshPerFrame;
         foreach (TileZone zone in zones)
         {
-            if (fires && WorldBehaviourActionFire.hasFires(zone))
-                foreach (WorldTile tile in zone.tiles)
-                    if (tile.isOnFire()) QuantumSpriteLibrary.showLightAt(tile.pos, color, 0.2f);
             if (zone.city == null) continue;
             bool known = ZoneLights.TryGetValue(zone.id, out var cached);
             if ((!known || now < cached.at || now - cached.at >= PlanSeconds) && budget > 0)
