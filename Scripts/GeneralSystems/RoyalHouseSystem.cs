@@ -162,6 +162,7 @@ public static class RoyalHouseSystem
             EmpirePartitionSystem.Monthly();
             CityStateService.EnforceOneCity();
             RoyalMarriageSystem.Monthly();
+            WarlordEraSystem.FounderCapitulation();
             if (++_months % 12 != 0) return;
             if (ModClass.EMPIRE_MANAGER != null)
                 foreach (Empire empire in ModClass.EMPIRE_MANAGER.ToList())

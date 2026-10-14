@@ -11,6 +11,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //              对本帝国核心内割据政权的统一战争不受战争年限强制停战(IsFounderUnificationWar)；
 //              控制核心过半后，接壤的割据政权每年可能望风归附(WarlordEraSystem.FounderBandwagon)；
 //              志在一统：每年几乎必定对接壤的本核心割据政权兴兵，同时至多两场(WarlordEraSystem.FounderDrive)；
+//              兵锋所向：本国各军战力 ×FounderCombatFactor，战线一月可下两块地(平滑国界下推进加倍)；
+//              被讨伐的割据政权地盘被占得越多越可能举国归附，战争很快结束(WarlordEraSystem.FounderCapitulation，每月)；
 //              帝国境内不发生叛乱(ModernStability.PassRebellionGate、KingdomExtension.StartLocalRebelling)。
 //   中兴之主 —— 后继皇帝在位时管理(stewardship)达到 RestorerStewardship、且王朝积弊(周期压力)不低于 RestorerStrain
 //              (先有衰败才谈得上中兴)即获得(即位时与每年各查一次)。
@@ -111,6 +113,11 @@ public static class RulerTraitSystem
         EmpireCore target = rival.capital?.GetEmpireCore();
         return core != null && target != null && (target == core || target.warlord_parent_core_id == core.id);
     }
+
+    // 开国雄主(中兴雄主)在位时本国各军的战力
+    public const float FounderCombatFactor = 1.3f;
+
+    public static float FounderCombat(Kingdom kingdom) => FounderReigns(kingdom) ? FounderCombatFactor : 1f;
 
     // 腐败增长(正数)在中兴之主治下减半；腐败下降不受影响
     public static double ScaleCorruptionGain(Kingdom kingdom, double addition) =>

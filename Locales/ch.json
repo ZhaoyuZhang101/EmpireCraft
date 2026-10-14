@@ -1677,6 +1677,7 @@
   "CityView_layer_description": "只顯示模擬的城市：不塗國家顏色，在地形上畫出各城的城牆、街巷、建築、新城區與城外的路、鎮、村、田野(純淨地圖)",
   "ui_zone_mode_CityView_0": "城市",
   "founder_unify_war_history": "{0}{1}{2}志在一統，興兵討伐{3}",
+  "founder_capitulation_history": "{0}不敵{1}{2}{3}，舉國歸附",
   "capital_loss_restored": "{0}收復舊都{1}，還於舊都，復稱{2}。",
   "kingdom_type_xingzai": "行在",
   "Later": "後",

@@ -204,7 +204,8 @@ public static partial class FrontSystem
             Remove(push);
             return;
         }
-        push.Progress += push.Direction * SmoothZonesPerMonth * months;
+        // 开国雄主推进加倍
+        push.Progress += push.Direction * SmoothZonesPerMonth * months * (RulerTraitSystem.FounderReigns(side) ? 2f : 1f);
         if (push.Progress <= 0f && push.Direction < 0)
         {
             Remove(push);

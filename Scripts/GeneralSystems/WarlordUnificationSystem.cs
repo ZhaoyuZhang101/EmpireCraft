@@ -266,6 +266,47 @@ public static partial class WarlordEraSystem
         }
     }
 
+    // 每月：开国雄主的统一战争里，被讨伐的割据政权按丢掉的地盘(被雄主一方占着的地块比例)、都城是否失陷，
+    // 有一定概率举国归附(战争以雄主获胜结束，归附方式同"望风归附")
+    public static void FounderCapitulation()
+    {
+        if (World.world?.wars == null) return;
+        foreach (War war in World.world.wars.list.ToList())
+        {
+            if (war == null || war.hasEnded() || !RulerTraitSystem.IsFounderUnificationWar(war)) continue;
+            Kingdom attacker = war.getMainAttacker(), defender = war.getMainDefender();
+            bool attackerFounder = attacker?.GetEmpire()?.CoreKingdom == attacker && RulerTraitSystem.FounderReigns(attacker);
+            Kingdom founderKingdom = attackerFounder ? attacker : defender, rival = attackerFounder ? defender : attacker;
+            Empire founder = founderKingdom?.GetEmpire();
+            if (founder == null || rival == null || rival.isRekt() || rival.cities == null || rival.cities.Count == 0) continue;
+            int zones = 0, lost = 0;
+            foreach (City city in rival.cities)
+            {
+                if (city?.zones == null) continue;
+                foreach (TileZone zone in city.zones)
+                {
+                    if (zone == null) continue;
+                    zones++;
+                    Kingdom occupier = city.GetTileZoneOccupier(zone);
+                    if (occupier != null && (occupier == founderKingdom || occupier.GetEmpire() == founder)) lost++;
+                }
+            }
+            float share = zones == 0 ? 0f : lost / (float)zones;
+            TileZone seat = rival.capital?.getTile()?.zone;
+            Kingdom seatHolder = seat == null ? null : rival.capital.GetTileZoneOccupier(seat);
+            bool capitalFallen = rival.capital == null || seatHolder != null && (seatHolder == founderKingdom || seatHolder.GetEmpire() == founder);
+            float chance = 0.04f + 0.6f * share + (capitalFallen ? 0.3f : 0f);
+            if (lost == 0 && !capitalFallen || Random.value >= chance) continue;
+            World.world.wars.endWar(war, attackerFounder ? WarWinner.Attackers : WarWinner.Defenders);
+            if (!AbsorbDefector(founder, rival)) continue;
+            EmpireCore core = rival.capital?.GetEmpireCore();
+            if (core != null) EmpireCoreControl.Invalidate(core);
+            EventRecorder.Record(founderKingdom, string.Format(LM.Get("founder_capitulation_history"),
+                rival.GetKingdomFullName(), founder.GetBaseEmpireFullName(), RulerTraitSystem.FounderTitle(founder.Emperor),
+                founder.Emperor?.getName() ?? ""));
+        }
+    }
+
     // 与这个帝国接壤：本国有城市与帝国的城市相邻
     private static bool Borders(Kingdom kingdom, Empire empire) =>
         kingdom?.cities != null && kingdom.cities.Any(city =>

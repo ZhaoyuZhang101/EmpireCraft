@@ -548,14 +548,16 @@ public static partial class FrontSystem
         // 战时统帅按兵略给本国各军加成(见 WarCommandSystem)
         // 补给不足打折(见 LogisticsSystem)
         // 骑士团的军是精锐(见 PapacySystem.Orders)
+        // 开国雄主的军队锐不可当(见 RulerTraitSystem.FounderCombat)
         float attack = attackers.Sum(entry => Effective(entry.corps) * Firepower(entry.kingdom, entry.corps) *
                                               WarCommandSystem.Factor(entry.kingdom) * LogisticsSystem.AttackFactor(entry.corps) *
-                                              PapacySystem.OrderFactor(entry.corps)) *
+                                              PapacySystem.OrderFactor(entry.corps) * RulerTraitSystem.FounderCombat(entry.kingdom)) *
                        (landing ? 0.7f : 1f) * ground.Attack;
         // 叛乱初起还在集结的守方仓促应战(见 MusterSystem)
         float defend = holders.Sum(entry => Effective(entry.corps) * Firepower(entry.kingdom, entry.corps) *
                                             WarCommandSystem.Factor(entry.kingdom) * LogisticsSystem.AttackFactor(entry.corps) *
-                                            PapacySystem.OrderFactor(entry.corps) * (DefenderBonus + entry.corps.entrench) *
+                                            PapacySystem.OrderFactor(entry.corps) * RulerTraitSystem.FounderCombat(entry.kingdom) *
+                                            (DefenderBonus + entry.corps.entrench) *
                                             MusterSystem.DefenseFactor(entry.kingdom, attacker));
         float militia = holders.Count == 0 ? Militia(city, attacker) : 0f;
         defend += militia;
@@ -592,7 +594,8 @@ public static partial class FrontSystem
         }
         else if (ratio >= 0.55f)
         {
-            int zones = Mathf.Min(ground.MaxAdvance, 1);
+            // 开国雄主一月可下两块地
+            int zones = Mathf.Min(ground.MaxAdvance, RulerTraitSystem.FounderReigns(attacker) ? 2 : 1);
             taken = Advance(city, attacker, zones, standing, landing,
                 attackers.Where(entry => entry.kingdom == attacker).Select(entry => entry.corps).ToList());
             if (city.kingdom != owner)
