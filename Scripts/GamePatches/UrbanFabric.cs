@@ -49,9 +49,9 @@ public static class UrbanFabric
         public bool Perimeter;
         // 城郊：档位、城门(城心两条中线)、四条出城大路(东北西南)是否修了、从城门到城外的距离、路长、关厢长
         public int Tier, GateX, GateY;
-        public readonly bool[] Roads = new bool[4];
-        public readonly int[] WallDist = new int[4];
-        public int RoadLength, Suburb;
+        // 城郊的路：出城大路(从城门出去)与岔路(从大路上分出去)
+        public readonly List<Road> Roads = new();
+        public int Suburb;
         public readonly List<(int x, int y, int size, bool walled)> Towns = new();
         // 村子与通到大路的小路(竖着走为 vertical：x 固定，y 从 from 到 to；否则 y 固定)
         public readonly List<(int x, int y)> Villages = new();
@@ -172,23 +172,27 @@ public static class UrbanFabric
         float pace = (0.7f + 0.6f * H(seed, 50)) * (0.85f + 0.3f * Mathf.Clamp01(built.Count / 12f)) *
                      (city.isCapitalCity() ? 1.15f : 1f);
         g.Progress = ProgressOf(culture, pace);
-        // 城的轮廓：面积是建成地块的一半(建筑挤在一起，城外留给田野)，以城心为中心；
-        // 华夏、日本的城近方而圆角，其余是起伏的圆，都按种子微微走样；建成地块之外的部分不算城里
+        // 城的轮廓：面积是建成地块的一半(建筑挤在一起，城外留给田野)；建成地块之外的部分不算城里。
+        // 种子定城的样子：长宽比(约 0.7~1.4)、往哪边偏(城区中心离城门中线至多四成半径)、边缘起伏多大；
+        // 华夏、日本的城是方城(圆角，横平竖直)，其余是起伏的一团，还可以斜着长、起伏的疏密也不同
         float baseRadius = Mathf.Sqrt(Mathf.Max(1, built.Count) * Config.CITY_ZONE_SIZE * Config.CITY_ZONE_SIZE * TownDensity / Mathf.PI);
         bool squarish = family is "huaxia" or "japan";
+        float aspect = Mathf.Sqrt(0.5f + 1.5f * H(seed, 70)), turn = squarish ? 0f : H(seed, 71) * Mathf.PI;
+        float lean = 0.4f * H(seed, 72) * baseRadius, leanDir = H(seed, 73) * TwoPi;
+        g.Cx += Mathf.RoundToInt(lean * Mathf.Cos(leanDir));
+        g.Cy += Mathf.RoundToInt(lean * Mathf.Sin(leanDir));
+        float rough = squarish ? 0.1f + 0.12f * H(seed, 74) : 0.25f + 0.45f * H(seed, 74);
+        float lumps = squarish ? 0.9f + 0.6f * H(seed, 75) : 0.7f + 0.8f * H(seed, 75);
+        float power = squarish ? 3.5f : 2f;
         float sum = 0f;
         g.FootMin = float.MaxValue;
         for (int i = 0; i < EdgeBins; i++)
         {
             float a = (i + 0.5f) / EdgeBins * TwoPi;
-            float shape = 1f;
-            if (squarish)
-            {
-                float c = Mathf.Abs(Mathf.Cos(a)), s = Mathf.Abs(Mathf.Sin(a));
-                shape = 0.9f / Mathf.Pow(Mathf.Pow(c, 3.5f) + Mathf.Pow(s, 3.5f), 1f / 3.5f);
-            }
-            float wobble = Noise(30f + 2.5f * Mathf.Cos(a), 30f + 2.5f * Mathf.Sin(a), 1.2f, seed + 5);
-            g.Foot[i] = Mathf.Max(4f, baseRadius * shape * ((squarish ? 0.94f : 0.82f) + (squarish ? 0.12f : 0.36f) * wobble));
+            float c = Mathf.Abs(Mathf.Cos(a - turn)) / aspect, s = Mathf.Abs(Mathf.Sin(a - turn)) * aspect;
+            float shape = (squarish ? 0.9f : 1f) / Mathf.Pow(Mathf.Pow(c, power) + Mathf.Pow(s, power), 1f / power);
+            float wobble = Noise(30f + 2.5f * Mathf.Cos(a), 30f + 2.5f * Mathf.Sin(a), lumps, seed + 5);
+            g.Foot[i] = Mathf.Max(4f, baseRadius * shape * (1f - rough / 2f + rough * wobble));
             g.FootMin = Mathf.Min(g.FootMin, g.Foot[i]);
             g.FootMax = Mathf.Max(g.FootMax, g.Foot[i]);
             sum += g.Foot[i];
@@ -307,64 +311,96 @@ public static class UrbanFabric
         tile?.zone != null && tile.zone.city == g.City && g.Built.Contains(tile.zone.id) &&
         (g.Landmark.Contains(tile.zone.id) || InTown(g, tile));
 
-    // 城郊：出城大路(档位 0 没有、1 两条、2 起四条)、关厢、镇、村与小路。都只落在本城没建成的平地上
+    // 一条城郊的路：起点、方向(单位向量)、长度、弯的幅度与疏密；出城大路(Gate)两旁有关厢
+    public sealed class Road
+    {
+        public float X, Y, Dx, Dy, Amp, Freq, Phase;
+        public int Length;
+        public bool Gate;
+    }
+
+    // 城郊：路、关厢、镇、村与小路，都只落在本城没建成的平地上。种子定：
+    //   · 出城大路：四门里哪几门有(档位 0 没有、1 两门相对、2 起多数城门有)，各多长、弯得多大多密；
+    //   · 岔路：从大路出城几格处分出去，斜着走，档位越高越多；
+    //   · 镇落在大路、岔路上，村散在路网之间、各有一条小路(先竖后横)通到最近的路
     private static void PlaceCountryside(Geometry g)
     {
         int tier = g.Tier;
-        g.RoadLength = 14 + 8 * tier;
         g.Suburb = tier >= 2 ? 4 * (tier - 1) : 0;
         int first = (int)(H(g.Seed, 60) * 4);
+        var gates = new List<Road>();
         for (int k = 0; k < 4; k++)
         {
-            g.Roads[k] = tier >= 2 || tier == 1 && (k == first || k == (first + 2) % 4);
-            // 城门到城外：顺着这个方向走出建成的地块
+            bool open = tier >= 2 ? k == first || H(g.Seed, k, 80) < 0.78f : tier == 1 && (k == first || k == (first + 2) % 4);
+            if (!open) continue;
+            // 城门到城外：顺着这个方向走出城的轮廓
             int step = 0;
-            while (step < 80)
+            while (step < 80 && Urban(g, World.world.GetTile(g.GateX + AxisX[k] * step, g.GateY + AxisY[k] * step))) step++;
+            var road = new Road
             {
-                WorldTile tile = World.world.GetTile(g.GateX + AxisX[k] * step, g.GateY + AxisY[k] * step);
-                if (!Urban(g, tile)) break;
-                step++;
-            }
-            g.WallDist[k] = step;
+                X = g.GateX + AxisX[k] * step, Y = g.GateY + AxisY[k] * step, Dx = AxisX[k], Dy = AxisY[k], Gate = true,
+                Length = Mathf.RoundToInt((14 + 8 * tier) * (0.7f + 0.5f * H(g.Seed, k, 83))),
+                Amp = 1f + 3f * H(g.Seed, k, 81), Freq = 0.05f + 0.13f * H(g.Seed, k, 82), Phase = H(g.Seed, k, 84) * TwoPi
+            };
+            g.Roads.Add(road);
+            gates.Add(road);
         }
-        // 镇：沿大路，出城十到二十六格
-        int towns = tier switch { 2 => 1, 3 => 2 + (H(g.Seed, 61) < 0.5f ? 1 : 0), 4 => 3 + (H(g.Seed, 61) < 0.5f ? 1 : 0), _ => 0 };
-        for (int attempt = 0; attempt < 12 && g.Towns.Count < towns; attempt++)
+        int branches = gates.Count == 0 ? 0 : tier switch { 2 => (int)(H(g.Seed, 85) * 2f), 3 => 1 + (int)(H(g.Seed, 85) * 2f), 4 => 1 + (int)(H(g.Seed, 85) * 3f), _ => 0 };
+        for (int b = 0; b < branches; b++)
         {
-            int k = (first + attempt) % 4;
-            if (!g.Roads[k]) continue;
-            int d = g.WallDist[k] + 10 + (int)(H(g.Seed, attempt, 62) * Mathf.Min(16, g.RoadLength - 12));
-            (int x, int y) = RoadPoint(g, k, d);
+            Road parent = gates[(int)(H(g.Seed, b, 86) * gates.Count) % gates.Count];
+            int from = 4 + (int)(H(g.Seed, b, 87) * Mathf.Max(1, Mathf.Min(12, parent.Length - 6)));
+            (int px, int py) = Point(parent, from);
+            float turn = (H(g.Seed, b, 88) < 0.5f ? -1f : 1f) * (0.6f + 0.45f * H(g.Seed, b, 89));
+            float angle = Mathf.Atan2(parent.Dy, parent.Dx) + turn;
+            g.Roads.Add(new Road
+            {
+                X = px, Y = py, Dx = Mathf.Cos(angle), Dy = Mathf.Sin(angle),
+                Length = 10 + (int)(H(g.Seed, b, 90) * (6 + 4 * tier)),
+                Amp = 0.8f + 2f * H(g.Seed, b, 91), Freq = 0.06f + 0.12f * H(g.Seed, b, 92), Phase = H(g.Seed, b, 93) * TwoPi
+            });
+        }
+        // 镇：落在路上(大路出城十格以外、岔路五格以外)
+        int towns = tier switch { 2 => 1, 3 => 2 + (H(g.Seed, 61) < 0.5f ? 1 : 0), 4 => 3 + (H(g.Seed, 61) < 0.5f ? 1 : 0), _ => 0 };
+        for (int attempt = 0; attempt < 16 && g.Towns.Count < towns && g.Roads.Count > 0; attempt++)
+        {
+            Road road = g.Roads[(first + attempt) % g.Roads.Count];
+            int start = road.Gate ? 10 : 5;
+            if (road.Length <= start) continue;
+            (int x, int y) = Point(road, start + (int)(H(g.Seed, attempt, 62) * (road.Length - start)));
             int size = tier >= 3 ? (H(g.Seed, attempt, 63) < 0.5f ? 4 : 5) : 3;
             if (!Open(g, x, y) || g.Towns.Exists(t => Mathf.Abs(t.x - x) + Mathf.Abs(t.y - y) < t.size + size + 6)) continue;
             g.Towns.Add((x, y, size, tier >= 3 && H(g.Seed, attempt, 64) < 0.45f));
         }
-        // 村：散在大路之间，各有一条小路通到最近的大路(最远十四格)
+        // 村：散在路网之间，离城心十二格以外
+        int reach = 14 + 8 * tier;
         int villages = tier switch { 0 => 1, 1 => 2, 2 => 4, 3 => 6, _ => 8 } + (int)(H(g.Seed, 65) * (tier >= 4 ? 4 : 3));
         for (int attempt = 0; attempt < villages * 5 && g.Villages.Count < villages; attempt++)
         {
             float a = H(g.Seed, attempt, 66) * TwoPi;
-            float dist = 12f + H(g.Seed, attempt, 67) * (g.RoadLength - 2f);
+            float dist = 12f + H(g.Seed, attempt, 67) * (reach - 2f);
             int x = Mathf.RoundToInt(g.GateX + dist * Mathf.Cos(a)), y = Mathf.RoundToInt(g.GateY + dist * Mathf.Sin(a));
-            if (!Open(g, x, y) || Mathf.Min(Mathf.Abs(x - g.GateX), Mathf.Abs(y - g.GateY)) < 4) continue;
+            if (!Open(g, x, y)) continue;
             if (g.Towns.Exists(t => Mathf.Abs(t.x - x) + Mathf.Abs(t.y - y) < t.size + 8)) continue;
             if (g.Villages.Exists(v => Mathf.Abs(v.x - x) + Mathf.Abs(v.y - y) < 9)) continue;
+            // 离路太近的不要(会压在路上)
+            int best = 15, bx = 0, by = 0;
+            foreach (Road road in g.Roads)
+                for (int d = 0; d <= road.Length; d++)
+                {
+                    (int rx, int ry) = Point(road, d);
+                    int length = Mathf.Abs(rx - x) + Mathf.Abs(ry - y);
+                    if (length >= best) continue;
+                    best = length;
+                    bx = rx;
+                    by = ry;
+                }
+            if (best < 3) continue;
             g.Villages.Add((x, y));
-            int bestLength = 15;
-            (bool vertical, int fixedAt, int from, int to) path = default;
-            for (int k = 0; k < 4; k++)
-            {
-                if (!g.Roads[k]) continue;
-                int along = (x - g.GateX) * AxisX[k] + (y - g.GateY) * AxisY[k];
-                if (along <= g.WallDist[k] + 2 || along > g.WallDist[k] + g.RoadLength) continue;
-                (int rx, int ry) = RoadPoint(g, k, along);
-                int length = Mathf.Abs(rx - x) + Mathf.Abs(ry - y);
-                if (length >= bestLength) continue;
-                bestLength = length;
-                // 东西向的大路：小路竖着走；南北向的：横着走
-                path = AxisX[k] != 0 ? (true, x, y, ry) : (false, y, x, rx);
-            }
-            if (bestLength < 15) g.Paths.Add(path);
+            if (best >= 15) continue;
+            // 小路：先竖着走到路的那一行，再横着走过去
+            g.Paths.Add((true, x, y, by));
+            if (bx != x) g.Paths.Add((false, by, x, bx));
         }
     }
 
@@ -375,15 +411,14 @@ public static class UrbanFabric
                !tile.Type.liquid && !Rough(tile);
     }
 
-    // 大路上离城门 d 格的那一格：出城后慢慢弯起来
-    private static (int x, int y) RoadPoint(Geometry g, int k, int d)
-    {
-        int offset = Wobble(g, k, d);
-        return (g.GateX + AxisX[k] * d - AxisY[k] * offset, g.GateY + AxisY[k] * d + AxisX[k] * offset);
-    }
+    // 路上第 d 格：起点后慢慢弯起来
+    private static float Wobble(Road road, float d) => road.Amp * Mathf.Sin(d * road.Freq + road.Phase) * Mathf.Clamp01(d / 8f);
 
-    private static int Wobble(Geometry g, int k, int d) =>
-        Mathf.RoundToInt(2.2f * Mathf.Sin(d * 0.12f + k * 1.3f + g.Seed % 7) * Mathf.Clamp01((d - g.WallDist[k]) / 8f));
+    private static (int x, int y) Point(Road road, int d)
+    {
+        float w = Wobble(road, d);
+        return (Mathf.RoundToInt(road.X + road.Dx * d - road.Dy * w), Mathf.RoundToInt(road.Y + road.Dy * d + road.Dx * w));
+    }
 
     #endregion
 
@@ -596,8 +631,7 @@ public static class UrbanFabric
     // 城郊一格：出城大路 > 关厢 > 镇 > 村 > 小路 > 林子 > 田块；其余照原样
     internal sealed class Rural
     {
-        public bool Roads;
-        public readonly List<int> Towns = new(), Villages = new(), Paths = new();
+        public readonly List<int> Roads = new(), Towns = new(), Villages = new(), Paths = new();
         // 地块里离主城、镇、村最近的距离(格)：远了既没有田也没有林子
         public float Near;
     }
@@ -611,14 +645,15 @@ public static class UrbanFabric
         int size = Config.CITY_ZONE_SIZE;
         int x0 = zone.x * size, y0 = zone.y * size, x1 = x0 + size - 1, y1 = y0 + size - 1;
         bool Overlaps(int ax0, int ay0, int ax1, int ay1) => ax0 <= x1 && ax1 >= x0 && ay0 <= y1 && ay1 >= y0;
-        for (int k = 0; k < 4 && !rural.Roads; k++)
+        for (int i = 0; i < g.Roads.Count; i++)
         {
-            if (!g.Roads[k]) continue;
-            // 大路连两旁关厢占的范围(路会弯两格，两旁各再留几格)
-            int a0 = g.WallDist[k], a1 = g.WallDist[k] + g.RoadLength;
-            int px0 = g.GateX + AxisX[k] * a0, py0 = g.GateY + AxisY[k] * a0;
-            int px1 = g.GateX + AxisX[k] * a1, py1 = g.GateY + AxisY[k] * a1;
-            rural.Roads = Overlaps(Mathf.Min(px0, px1) - 5, Mathf.Min(py0, py1) - 5, Mathf.Max(px0, px1) + 5, Mathf.Max(py0, py1) + 5);
+            // 路连两旁关厢占的范围(路会弯，两旁各再留几格)
+            Road road = g.Roads[i];
+            float ex = road.X + road.Dx * road.Length, ey = road.Y + road.Dy * road.Length;
+            int margin = Mathf.CeilToInt(road.Amp) + 3;
+            if (Overlaps(Mathf.FloorToInt(Mathf.Min(road.X, ex)) - margin, Mathf.FloorToInt(Mathf.Min(road.Y, ey)) - margin,
+                    Mathf.CeilToInt(Mathf.Max(road.X, ex)) + margin, Mathf.CeilToInt(Mathf.Max(road.Y, ey)) + margin))
+                rural.Roads.Add(i);
         }
         for (int i = 0; i < g.Towns.Count; i++)
         {
@@ -649,23 +684,24 @@ public static class UrbanFabric
     {
         result = color;
         Rural rural = RuralOf(g, tile.zone);
-        int rx = tile.x - g.GateX, ry = tile.y - g.GateY;
-        for (int k = 0; k < 4 && rural.Roads; k++)
+        foreach (int index in rural.Roads)
         {
-            if (!g.Roads[k]) continue;
-            int along = rx * AxisX[k] + ry * AxisY[k];
-            if (along < g.WallDist[k] || along > g.WallDist[k] + g.RoadLength) continue;
-            int side = -rx * AxisY[k] + ry * AxisX[k] - Wobble(g, k, along);
-            if (side == 0)
+            Road road = g.Roads[index];
+            float rx = tile.x - road.X, ry = tile.y - road.Y;
+            float along = rx * road.Dx + ry * road.Dy;
+            if (along < -0.5f || along > road.Length + 0.5f) continue;
+            float side = -rx * road.Dy + ry * road.Dx - Wobble(road, along);
+            // 一格宽：横平竖直的路正好一格，斜的路连成斜线
+            if (Mathf.Abs(side) < 0.5f * Mathf.Max(Mathf.Abs(road.Dx), Mathf.Abs(road.Dy)) + 0.15f)
             {
                 result = Paint(color, g.Modern ? Local : Dirt, 0.85f);
                 return true;
             }
             // 关厢：门外大路两旁一户一户排开，后面是院子
-            if (g.Suburb > 0 && Mathf.Abs(side) <= 2 && along >= g.WallDist[k] + 2 && along <= g.WallDist[k] + 1 + g.Suburb &&
-                along % 3 != 0)
+            int offset = Mathf.Abs(Mathf.RoundToInt(side)), step = Mathf.RoundToInt(along);
+            if (road.Gate && g.Suburb > 0 && offset <= 2 && step >= 2 && step <= 1 + g.Suburb && step % 3 != 0)
             {
-                result = Mathf.Abs(side) == 1 ? Paint(color, Roof(g, tile), 0.9f) : Paint(color, Yard, 0.4f);
+                result = offset == 1 ? Paint(color, Roof(g, tile), 0.9f) : Paint(color, Yard, 0.4f);
                 return true;
             }
         }
