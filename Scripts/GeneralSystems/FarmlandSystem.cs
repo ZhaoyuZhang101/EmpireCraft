@@ -18,6 +18,9 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     严守红线目标为 25%；目标受风车可耕范围限制。不设红线只在缺粮时规划，住房仍须为规划农田让位。
 //     有红线时规划农田区受保护，城市不在上面盖建筑(见 NoCommonersPatch.AfterPlanAllowsBuilding)。
 // 农业生产力：古代 1，现代 3。
+// 纯净地图模式：农田只在规划的农业区里，不看风车——农业区里的可耕地就能开田、算收成；不再按原版风车算出的耕地开田；
+// 缺粮时 AI 补划农业区的上限放宽到城市区块的一半(这个模式没有庄稼建筑，不必为实体数量设限)。
+// 以前照样要风车：没有风车的城一块田都开不出来，到处闹饥荒
 public static class FarmlandSystem
 {
     private const float RedLineBase = 0.25f;
@@ -74,7 +77,9 @@ public static class FarmlandSystem
 
     private static bool InRange(City city, WorldTile tile, WorldTile windmill)
     {
-        if (city == null || tile?.zone?.city != city || windmill == null) return false;
+        if (city == null || tile?.zone?.city != city) return false;
+        if (PureMapMode.Enabled) return true;
+        if (windmill == null) return false;
         int dx = tile.x - windmill.x, dy = tile.y - windmill.y;
         return dx * dx + dy * dy <= RangeSquared(city);
     }
@@ -361,6 +366,7 @@ public static class FarmlandSystem
     // 原版算好的可耕地也再次核对范围，避免风车拆掉后使用过期缓存。
     private static void MakeVanillaFields(City city)
     {
+        if (PureMapMode.Enabled) return;
         int count = 0;
         WorldTile windmill = city.getBuildingOfType("type_windmill")?.current_tile;
         foreach (WorldTile tile in city.calculated_place_for_farms)
@@ -391,8 +397,9 @@ public static class FarmlandSystem
     private static IEnumerable<WorldTile> FarmTiles(City city)
     {
         WorldTile windmill = city.getBuildingOfType("type_windmill")?.current_tile;
-        foreach (WorldTile tile in city.calculated_farm_fields)
-            if (InRange(city, tile, windmill) && CanFarmZone(city, tile.zone) && tile.Type?.farm_field == true) yield return tile;
+        if (!PureMapMode.Enabled)
+            foreach (WorldTile tile in city.calculated_farm_fields)
+                if (InRange(city, tile, windmill) && CanFarmZone(city, tile.zone) && tile.Type?.farm_field == true) yield return tile;
         foreach (TileZone zone in PlannedZones(city))
         {
             if (zone.tiles == null) continue;
@@ -408,14 +415,15 @@ public static class FarmlandSystem
         int planned = 0;
         foreach (TileZone zone in PlannedZones(city))
             if (HasFarmArea(city, zone)) planned++;
-        int required = Mathf.Min(MaxAutoPlannedZones, Mathf.CeilToInt(city.zones.Count * RedLineShare(city)));
+        int cap = PureMapMode.Enabled ? Mathf.Max(MaxAutoPlannedZones, city.zones.Count / 2) : MaxAutoPlannedZones;
+        int required = Mathf.Min(cap, Mathf.CeilToInt(city.zones.Count * RedLineShare(city)));
         bool hungry = data != null && data.last_food_shortage > 0f;
-        if (planned >= required && !(hungry && planned < MaxAutoPlannedZones && planned * 2 < city.zones.Count)) return;
+        if (planned >= required && !(hungry && planned < cap && planned * 2 < city.zones.Count)) return;
         TileZone best = null;
         int bestScore = MinFarmableTilesInZone - 1;
         WorldTile center = city.getTile();
         WorldTile windmill = city.getBuildingOfType("type_windmill")?.current_tile;
-        if (windmill == null) return;
+        if (windmill == null && !PureMapMode.Enabled) return;
         foreach (TileZone zone in city.zones)
         {
             if (zone?.tiles == null || !CanFarmZone(city, zone) || IsPlanned(city, zone) || IsRetired(city, zone) ||
