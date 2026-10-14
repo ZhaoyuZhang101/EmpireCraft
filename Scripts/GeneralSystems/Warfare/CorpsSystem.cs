@@ -28,8 +28,8 @@ public static class CorpsSystem
     private const float IdleOrg = 8f;
     // 统领开往军团所在地块的间隔(秒)
     private const float GeneralMoveInterval = 3f;
-    // 陆上行军每个世界秒走几块地块：一个月 5 秒，步兵每月 0.2 块(各兵种再乘倍数，见 CorpsArmSystem.Speed)
-    private const float MarchZonesPerSecond = 0.04f;
+    // 陆上行军每个世界秒走几块地块：一个月 5 秒，步兵每月 0.5 块(各兵种再乘倍数，见 CorpsArmSystem.Speed)
+    private const float MarchZonesPerSecond = 0.1f;
 
     public static bool Enabled => CityPopulationSystem.AbstractPopulationEnabled &&
                                   EmpireCraftWorldLawLibrary.empirecraft_law_switch_occupy_mode?.isEnabled() == true;
