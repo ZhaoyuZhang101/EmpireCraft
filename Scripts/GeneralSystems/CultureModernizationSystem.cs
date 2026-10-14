@@ -153,10 +153,12 @@ public static class CultureModernizationSystem
         WarlordEraSystem.UpdateWorld(force: changed);
     }
 
+    // 本文化进入现代政治：先得有政党政治(开放党禁，要先立宪)，再有国家主理念或可废君主。
+    // 以前有了国家主理念就算——制度还没立宪，一次共和就让同文化所有独立国家每年被改成现代政体
     private static bool HasEnteredModernPolitics(string culture)
     {
-        if (IdeologySpreadSystem.TryGetStateIdeology(culture, out _)) return true;
-        return InstitutionSystem.GetFeature(culture, PartySystem.FeaturePartyPolitics) > 0f &&
+        if (InstitutionSystem.GetFeature(culture, PartySystem.FeaturePartyPolitics) <= 0f) return false;
+        return IdeologySpreadSystem.TryGetStateIdeology(culture, out _) ||
                InstitutionSystem.GetFeature(culture, RepublicSystem.FeatureAbolishMonarchy) > 0f;
     }
 

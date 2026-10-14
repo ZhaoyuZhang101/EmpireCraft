@@ -22,7 +22,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     手握重兵的藩镇(节度使、都护府)再加 0.3(军阀割据)，正自顾打仗的减 0.2；
 //     开国雄主登基头 15 年、上次瓦解结束后 15 年内不发生；周制春秋战国另有规则，不在此列；
 //   · 响应(此后两年，每月)：各省按 0.06 × 内忧(至少 0.35) × 离心度 检定，与已独立之省接壤的再乘 1.6，单月最多 35%；
-//   · 近代(本文化可废君主，或已入工业时代)：各省合组革命同盟与朝廷开战，沿用地方共和同盟的结局(见 RepublicSystem)：
+//   · 近代(本文化可废君主，或已入工业时代且开放了党禁——先要立宪)：各省合组革命同盟与朝廷开战，沿用地方共和同盟的结局(见 RepublicSystem)：
 //       独立各省的城过半即逼皇帝退位、帝国改行共和；打赢同样退位；议和且三省以上则联合建立共和国；打输各省回归；
 //   · 古代：各省各自宣布独立、与朝廷开战(地方独立)，群雄割据。
 public static class ProvincialCollapseSystem
@@ -49,9 +49,11 @@ public static class ProvincialCollapseSystem
         RegimeManager.IsMonarchy(empire.CoreKingdom.GetRegime()?.type) && !ZhouEraSystem.RoyalReclaimBlocked(empire) &&
         !AncientWarfareCompatibility.Owns(empire.CoreKingdom);
 
+    // 以前只看技术进了工业时代：制度还停在三省六部、没立宪的帝国，一次土崩瓦解就成了共和革命，全文化跟着进入现代
     private static bool Modern(Empire empire) =>
         !TechnologySystem.PremodernLocked && (RepublicSystem.CanAbolish(empire) ||
-                                              TechnologySystem.GetEraTier(InstitutionSystem.GetPrimaryCulture(empire)) >= ModernEraTier);
+                                              TechnologySystem.GetEraTier(InstitutionSystem.GetPrimaryCulture(empire)) >= ModernEraTier &&
+                                              InstitutionSystem.GetFeature(InstitutionSystem.GetPrimaryCulture(empire), PartySystem.FeaturePartyPolitics) > 0f);
 
     public static float Crisis(Empire empire)
     {
