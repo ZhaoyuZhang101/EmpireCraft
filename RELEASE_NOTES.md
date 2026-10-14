@@ -1,15 +1,15 @@
 # 更新内容 (Update Features)
 
-2026-10-14 · 0.4.6
+2026-10-15 · 0.4.7Beta1
 
-新增城市模拟、经济圈与城市图层。
-平滑国界渐变换色，战线占领同步。
-重做国债军饷，养兵量入为出。
-宗室虚拟子嗣，修复读档政体重置。
-朝堂争奏，兵变称帝更严，统一更积极。
+修复连年饥荒、帝国不开战等问题。
+新增天下大势：统一战争与王朝周期。
+新增物资产需面板，族谱可溯源。
+高德式城市，道路绕山，图层长城。
+扩张守原版规则，后宫只能废立。
 
-Added city simulation, economic circles and a city map layer.
-Smooth borders now fade colour changes; fronts and occupation stay in sync.
-Reworked state debt and army pay; armies are sized to what the treasury can afford.
-Royal heirs are kept as virtual offspring; fixed regime settings resetting on load.
-Court factions compete to submit memorials; coups and self-proclaimed emperors are harder, and empires pursue unification more actively.
+Fixed chronic famines and empires that never declared war.
+Added the dynastic cycle: wars of unification, and the rise and decline of dynasties.
+Added a goods supply-and-demand panel; dynasty trees now trace kinship back to common ancestors.
+City maps restyled like a modern street map; roads avoid mountains; map walls are drawn as a Great Wall; terrain relief can be toggled.
+Territorial expansion follows vanilla rules; consorts in power can depose emperors but not usurp the throne.
