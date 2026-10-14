@@ -23,7 +23,8 @@ public enum EmpireFormationRoute
 }
 
 // 称帝逻辑：
-//   · 资格 = 基础条件(独立、有君、有主法理、国库不负、共主领地人口≥200、至少三城、不在冷却期；同文化已有帝国也可称帝)
+//   · 资格 = 基础条件(独立、有君、有主法理、国库不负、共主领地人口≥200、至少三城、不在冷却期；同文化已有帝国也可称帝，
+//     但国力要超过那个帝国的总国力——中央连同各成员国，不是只比中央)
 //     主法理在别国帝国核心里的称帝为"僭越"：天命在路线初始值上扣 10(不低于 50)，与该帝国并立并互为正统对手，之后任一方都可发起正统之争
 //            + 至少满足一条称帝路线；
 //   · 筹备期(称帝剧情进行中)打了败仗、国库转负、被同文化别国超过、或不再满足路线，称帝即失败，
@@ -72,6 +73,7 @@ public static class EmpireFormationService
         string culture = CultureService.GetRealmCulture(kingdom);
         if (!CultureService.IsValidCulture(culture)) return EmpireFormationRoute.None;
         if (!IsAllianceRepresentative(kingdom, culture)) return EmpireFormationRoute.None;
+        if (OutmatchedByEmpire(kingdom, culture)) return EmpireFormationRoute.None;
         if (MeetsLegitimacy(kingdom)) return EmpireFormationRoute.Legitimacy;
         if (MeetsRestoration(kingdom)) return EmpireFormationRoute.Restoration;
         List<Kingdom> rivals = GetSameCultureIndependents(kingdom, culture);
@@ -81,6 +83,24 @@ public static class EmpireFormationService
             return EmpireFormationRoute.Fallback;
         if (kingdom.IsStrongestEmpireCandidateOfCulture()) return EmpireFormationRoute.SelfProclamation;
         return EmpireFormationRoute.None;
+    }
+
+    // 同文化已有帝国：要比整个帝国(中央连同各成员国)都强才能称帝。以前只和同文化的独立国家比，帝国不算在内，
+    // 天下已有大帝国，只占两三省的国家也能自立为帝
+    private static bool OutmatchedByEmpire(Kingdom kingdom, string culture)
+    {
+        if (ModClass.EMPIRE_MANAGER == null) return false;
+        double power = GetBlocPower(kingdom);
+        foreach (Empire empire in ModClass.EMPIRE_MANAGER)
+        {
+            if (empire == null || empire.isRekt() || empire.IsArchived() || empire.CoreKingdom == null ||
+                empire.CoreKingdom == kingdom || kingdom.GetEmpire() == empire) continue;
+            if (!string.Equals(CultureService.GetRealmCulture(empire.CoreKingdom), culture, StringComparison.Ordinal)) continue;
+            double total = empire.kingdoms_list?.Where(member => member != null && !member.isRekt())
+                .Sum(member => member.GetNationalPower()) ?? 0d;
+            if (power <= total) return true;
+        }
+        return false;
     }
 
     // 承续法统：沿用帝国核心已有的"崛起所需头衔数"，并且都城要在核心法理之内
