@@ -72,33 +72,37 @@ public static class UrbanFabric
 
     private const int EdgeBins = 48, MaxSeededRays = 6;
     private const float TwoPi = Mathf.PI * 2f;
-    // 平常淡淡地画在国色上；城市图层画在地形上，浓一些
-    private static float Strength => Vivid ? 0.9f : 0.5f;
+    // 高德式平面图：城区清楚地浮在国色上(仍带一点国色)；城市图层画在地形上，再浓一些
+    private static float Strength => Vivid ? 0.9f : 0.85f;
     public static bool Vivid;
 
-    private static readonly Color32 Asphalt = new(80, 84, 94, 255), BridgeDeck = new(150, 150, 156, 255),
-        Local = new(176, 178, 180, 255), Rail = new(66, 58, 54, 255), Tie = new(165, 145, 118, 255),
-        Station = new(180, 90, 70, 255), Park = new(96, 162, 86, 255), Tree = new(56, 116, 58, 255),
-        Shadow = new(96, 98, 104, 255), Yard = new(176, 190, 132, 255), Market = new(196, 160, 90, 255),
-        TownStreet = new(226, 220, 206, 255), Chimney = new(60, 55, 55, 255), Parade = new(186, 176, 150, 255),
-        Barrack = new(120, 130, 100, 255), White = new(255, 255, 255, 255), Dirt = new(196, 176, 136, 255),
-        Lane = new(206, 190, 150, 255), TownWall = new(124, 112, 100, 255), Grove = new(80, 140, 70, 255);
+    // 高德式配色(2026-10-14 用户选定)：环路放射干道橙黄、街道白、街区浅灰、楼是灰色占地块、公园浅绿、水浅蓝；
+    // 城外只留村镇(浅灰小片)与出城大路(白)，不画田块林子
+    private static readonly Color32 Asphalt = new(255, 190, 96, 255), BridgeDeck = new(236, 236, 238, 255),
+        Local = new(255, 255, 255, 255), Rail = new(150, 150, 156, 255), Tie = new(232, 232, 234, 255),
+        Station = new(220, 120, 100, 255), Park = new(196, 228, 180, 255), Tree = new(170, 212, 152, 255),
+        Shadow = new(196, 196, 200, 255), Yard = new(222, 234, 206, 255), Market = new(250, 224, 196, 255),
+        TownStreet = new(255, 255, 255, 255), Chimney = new(150, 146, 146, 255), Parade = new(226, 230, 214, 255),
+        Barrack = new(208, 216, 198, 255), White = new(255, 255, 255, 255), Dirt = new(255, 255, 255, 255),
+        Lane = new(250, 249, 246, 255), TownWall = new(170, 160, 150, 255), Grove = new(170, 212, 152, 255),
+        Settlement = new(238, 236, 231, 255), Arterial = new(255, 222, 128, 255), LotGrey = new(243, 241, 237, 255);
+    // 规划农田：浅米色田块(绿色叠在红、紫的国色上会混成脏土色)，田埂白
     private static readonly Color32[] Crops =
     {
-        new(160, 182, 104, 255), new(142, 170, 92, 255), new(178, 186, 110, 255), new(130, 160, 96, 255),
-        new(190, 178, 112, 255)
+        new(236, 238, 222, 255), new(230, 236, 214, 255), new(240, 240, 228, 255), new(232, 238, 218, 255),
+        new(238, 236, 220, 255)
     };
     private static readonly int[] AxisX = { 1, 0, -1, 0 }, AxisY = { 0, 1, 0, -1 };
     private static readonly Color32[] Glass =
-        { new(92, 130, 170, 255), new(120, 160, 196, 255), new(70, 96, 128, 255), new(150, 182, 210, 255) };
+        { new(176, 190, 206, 255), new(190, 202, 214, 255), new(166, 180, 196, 255), new(200, 210, 222, 255) };
     private static readonly Color32[] Concrete =
         { new(214, 210, 200, 255), new(190, 186, 178, 255), new(226, 222, 214, 255), new(170, 168, 164, 255) };
     private static readonly Color32[] Slab =
-        { new(200, 196, 188, 255), new(178, 172, 164, 255), new(220, 214, 200, 255), new(190, 170, 150, 255) };
+        { new(214, 212, 208, 255), new(206, 204, 200, 255), new(222, 220, 216, 255), new(210, 206, 200, 255) };
     private static readonly Color32[] HouseRoof =
-        { new(176, 82, 64, 255), new(150, 92, 70, 255), new(120, 110, 104, 255), new(190, 120, 80, 255) };
+        { new(226, 222, 216, 255), new(218, 214, 208, 255), new(232, 228, 222, 255), new(222, 216, 206, 255) };
     private static readonly Color32[] Factory =
-        { new(206, 210, 214, 255), new(172, 180, 190, 255), new(110, 140, 170, 255), new(200, 200, 196, 255) };
+        { new(226, 224, 232, 255), new(216, 216, 226, 255), new(206, 210, 222, 255), new(230, 228, 236, 255) };
 
     #region 种子
 
@@ -153,8 +157,8 @@ public static class UrbanFabric
     // 画在国色上：国色始终占上风
     private static Color32 Paint(Color32 color, Color32 over, float t) => Color32.Lerp(color, over, t * Strength);
 
-    // 空地：只把国色提亮
-    private static Color32 Lot(Color32 color) => Color32.Lerp(color, White, 0.16f);
+    // 空地：街区底色
+    private static Color32 Lot(Color32 color) => Color32.Lerp(color, LotGrey, 0.72f);
 
     #endregion
 
@@ -340,10 +344,19 @@ public static class UrbanFabric
         g.Suburb = tier >= 2 ? 4 * (tier - 1) : 0;
         int first = (int)(H(g.Seed, 60) * 4);
         var gates = new List<Road>();
+        // 路网的路从哪几个方向出城(修通的、在修的)：这些方向不再另画出城大路，免得两条路并排走
+        var linked = new List<float>();
+        foreach (KeyValuePair<(long, long), RoadLink> pair in RoadBuildingSystem.All)
+        {
+            if (pair.Value == null || pair.Value.grade <= 0 && pair.Value.building <= 0) continue;
+            long other = pair.Key.Item1 == g.City.data.id ? pair.Key.Item2 : pair.Key.Item2 == g.City.data.id ? pair.Key.Item1 : -1L;
+            WorldTile there = other < 0 ? null : World.world.cities.get(other)?.getTile();
+            if (there != null) linked.Add(Angle(there.x - g.GateX, there.y - g.GateY));
+        }
         for (int k = 0; k < 4; k++)
         {
             bool open = tier >= 2 ? k == first || H(g.Seed, k, 80) < 0.78f : tier == 1 && (k == first || k == (first + 2) % 4);
-            if (!open) continue;
+            if (!open || Near(linked, Angle(AxisX[k], AxisY[k]), 45f)) continue;
             // 城门到城外：顺着这个方向走出城的轮廓
             int step = 0;
             while (step < 80 && Urban(g, World.world.GetTile(g.GateX + AxisX[k] * step, g.GateY + AxisY[k] * step))) step++;
@@ -693,6 +706,8 @@ public static class UrbanFabric
     }
 
     private const float FieldReach = 18.2f, WoodReach = 24f;
+    // 城外画不画田块林子(高德式不画)
+    private const bool FieldsAndGroves = false;
 
     private static Rural RuralOf(Geometry g, TileZone zone)
     {
@@ -759,14 +774,14 @@ public static class UrbanFabric
             // 一格宽：横平竖直的路正好一格，斜的路连成斜线
             if (Mathf.Abs(side) < 0.5f * Mathf.Max(Mathf.Abs(road.Dx), Mathf.Abs(road.Dy)) + 0.15f)
             {
-                result = Paint(color, g.Modern ? Local : Dirt, 0.85f);
+                result = Mix(color, White, road.Gate ? 0.9f : 0.72f);
                 return true;
             }
-            // 关厢：门外大路两旁一户一户排开，后面是院子
+            // 关厢：门外大路两旁一条浅灰的街市
             int offset = Mathf.Abs(Mathf.RoundToInt(side)), step = Mathf.RoundToInt(along);
-            if (road.Gate && g.Suburb > 0 && offset <= 2 && step >= 2 && step <= 1 + g.Suburb && step % 3 != 0)
+            if (road.Gate && g.Suburb > 0 && offset <= 2 && step >= 2 && step <= 1 + g.Suburb)
             {
-                result = offset == 1 ? Paint(color, Roof(g, tile), 0.9f) : Paint(color, Yard, 0.4f);
+                result = Mix(color, Settlement, 0.72f);
                 return true;
             }
         }
@@ -783,26 +798,19 @@ public static class UrbanFabric
         {
             (int x, int y) = g.Villages[index];
             int dx = tile.x - x, dy = tile.y - y;
-            if (dx * dx + dy * dy > 6) continue;
             if (g.Nomad)
             {
+                if (dx * dx + dy * dy > 6) continue;
                 result = YurtCamp(g, tile, color, dx, dy, x, y);
                 return true;
             }
-            // 几户人家错落着，院落围着
-            result = H(g.Seed, tile.x, tile.y, 22) < 0.4f ? Paint(color, Roof(g, tile), 0.9f) : Paint(color, Yard, 0.5f);
+            // 村：浅灰一小片(高德式不画屋顶院落、不画村道)
+            if (dx * dx + dy * dy > 4) continue;
+            result = Mix(color, Settlement, 0.65f);
             return true;
         }
-        foreach (int index in rural.Paths)
-        {
-            (bool vertical, int fixedAt, int from, int to) = g.Paths[index];
-            int at = vertical ? tile.x : tile.y, run = vertical ? tile.y : tile.x;
-            if (at != fixedAt || run < Mathf.Min(from, to) || run > Mathf.Max(from, to)) continue;
-            result = Paint(color, Lane, 0.6f);
-            return true;
-        }
-        // 游牧：城外是草场，不画田块、林子
-        if (featuresOnly || g.Nomad || rural.Near > WoodReach || Rough(tile)) return false;
+        // 高德式：城外不画田块、林子(以前每座城一大圈，远看是噪点)；游牧城外是草场
+        if (featuresOnly || g.Nomad || rural.Near > WoodReach || Rough(tile) || !FieldsAndGroves) return false;
         // 林子：一小片一小片，围在城镇村近处
         if (Noise(tile.x, tile.y, 7f, g.Seed + 20) > 0.76f)
         {
@@ -846,19 +854,10 @@ public static class UrbanFabric
         float width = 4f + 5f * H(g.Seed, row, 34);
         int column = Mathf.FloorToInt((fx + row * 2.3f) / width);
         float inRow = fy - row * rowHeight, inColumn = fx + row * 2.3f - column * width;
-        // 田埂
-        if (inRow < 0.8f || inColumn < 0.8f) return Mix(color, Lane, 0.3f);
+        // 田埂白色细线；田块平涂(高德式不画垄沟)
+        if (inRow < 0.8f || inColumn < 0.8f) return Mix(color, Lane, 0.75f);
         float seed = H(g.Seed, column, row, 35);
-        Color32 crop = Crops[(int)(seed * 5) % 5];
-        int furrow = (int)(H(g.Seed, column, row, 36) * 4);
-        bool line = furrow switch
-        {
-            0 => tile.y % 2 == 0,
-            1 => tile.x % 2 == 0,
-            2 => (tile.x + tile.y) % 3 == 0,
-            _ => false
-        };
-        return Mix(color, line ? Mix(crop, new Color32(90, 80, 60, 255), 0.35f) : crop, line ? 0.42f : 0.3f);
+        return Mix(color, Crops[(int)(seed * 5) % 5], 0.5f);
     }
 
     private static bool IsFarm(Geometry g, int zx, int zy)
@@ -868,13 +867,14 @@ public static class UrbanFabric
     }
 
     // 镇：圆圆的一片，十字街、中间小集市，屋舍错落；富庶的镇有一圈矮墙，四面开门
+    // 高德式：浅灰一片，白色十字街，正中一点集市(黄)；有矮墙的描一圈灰线
     private static Color32 TownTile(Geometry g, WorldTile tile, Color32 color, int dx, int dy, float d, float reach, bool walled)
     {
         if (walled && d > reach - 1f)
-            return dx == 0 || dy == 0 ? Paint(color, TownStreet, 0.8f) : Paint(color, TownWall, 0.85f);
-        if (dx == 0 || dy == 0) return Paint(color, Mathf.Abs(dx) + Mathf.Abs(dy) <= 1 ? Market : TownStreet, 0.85f);
-        if (Mathf.Abs(dx) == 1 && Mathf.Abs(dy) == 1) return Paint(color, Market, 0.6f);
-        return H(g.Seed, tile.x, tile.y, 23) < 0.62f ? Paint(color, Roof(g, tile), 0.9f) : Paint(color, Yard, 0.4f);
+            return dx == 0 || dy == 0 ? Mix(color, TownStreet, 0.9f) : Mix(color, TownWall, 0.7f);
+        if (dx == 0 && dy == 0) return Mix(color, Arterial, 0.9f);
+        if (dx == 0 || dy == 0) return Mix(color, TownStreet, 0.9f);
+        return Mix(color, Settlement, 0.72f);
     }
 
     // 屋顶：工业化以前是瓦房，之后多是楼房

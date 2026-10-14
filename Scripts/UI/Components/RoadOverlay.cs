@@ -9,7 +9,8 @@ namespace EmpireCraft.Scripts.UI.Components;
 // 在修的路段画成灰色，航线画成浅色虚线，盖在国家色块之上——
 // 海面与无主地在色块里是空的，所以单独用一张与地图等大的贴图画，跟着色块图层一起显示。
 // 城里建成的地块有自己的街格，干道不压上去。路网变了、或城在长，至多每十秒重画一次(整张贴图上传不便宜)。
-// 路的颜色随底色换：底下的国色亮(黄、白、浅绿)就画深褐的路，暗就画黄橙的路，任何国色上都看得清；
+// 高德式(2026-10-14 用户选定)：土路浅灰、驿道白、官道浅黄、公路黄、柏油公路橙；驿道以上两侧描一道深色细边，
+// 任何国色上都看得清；
 // 换了地图图层(底色全变)半秒后重画一次。
 // 远近分层：拉远到原版远景不画路(只剩国色与地形，见 PureMapPatch.DetailShown)；切到近景时路淡淡出现，越拉近越清楚。
 public static class RoadOverlay
@@ -18,16 +19,11 @@ public static class RoadOverlay
     private static readonly Color32 Lane = new(232, 244, 255, 205), Building = new(170, 170, 170, 150), Clear = new(0, 0, 0, 0);
     private static readonly Color32[] Grades =
     {
-        new(0, 0, 0, 0), new(190, 165, 120, 170), new(225, 198, 135, 195), new(245, 208, 115, 215),
-        new(255, 200, 90, 225), new(255, 165, 60, 235)
+        new(0, 0, 0, 0), new(238, 232, 220, 170), new(255, 255, 255, 215), new(255, 240, 170, 235),
+        new(255, 216, 110, 245), new(255, 176, 70, 250)
     };
-    // 亮底色上用的深色路(同样按等级由浅到深)
-    private static readonly Color32[] DarkGrades =
-    {
-        new(0, 0, 0, 0), new(120, 95, 70, 190), new(100, 75, 50, 210), new(85, 60, 40, 225),
-        new(70, 45, 30, 235), new(55, 35, 25, 240)
-    };
-    private const float BrightBackground = 0.55f;
+    // 描边(驿道以上)
+    private static readonly Color32 Casing = new(110, 92, 74, 120);
     private static object _layer;
     private static int _layerOption = -1;
 
@@ -124,24 +120,27 @@ public static class RoadOverlay
         foreach (int id in RoadNetwork.LaneTileIds) Paint(id, Lane);
         foreach (int id in RoadNetwork.BuildingTileIds)
             if (Outside(tiles, id)) Paint(id, Building);
-        Color32[] background = World.world.zone_calculator?.pixels;
-        foreach (var pair in RoadNetwork.RoadTileGrades)
+        // 先描边(路两侧不是路的格)，再画路面，路面压在描边上
+        var roads = RoadNetwork.RoadTileGrades;
+        foreach (var pair in roads)
+        {
+            if (pair.Value < 2 || !Outside(tiles, pair.Key)) continue;
+            WorldTile tile = tiles[pair.Key];
+            foreach (WorldTile next in tile.neighbours ?? global::System.Array.Empty<WorldTile>())
+            {
+                int id = next?.data?.tile_id ?? -1;
+                if (id < 0 || roads.ContainsKey(id) || _pixels[id].a > 0 || !Outside(tiles, id)) continue;
+                Paint(id, Casing);
+            }
+        }
+        foreach (var pair in roads)
         {
             if (!Outside(tiles, pair.Key)) continue;
             int grade = Mathf.Clamp(pair.Value, 1, Grades.Length - 1);
-            Paint(pair.Key, Bright(background, pair.Key) ? DarkGrades[grade] : Grades[grade]);
+            Paint(pair.Key, Grades[grade]);
         }
         _texture.SetPixels32(_pixels);
         _texture.Apply(false);
-    }
-
-    // 这一格底下的国色亮不亮(亮的上面画深色的路)
-    private static bool Bright(Color32[] background, int id)
-    {
-        if (background == null || id < 0 || id >= background.Length) return false;
-        Color32 color = background[id];
-        if (color.a == 0) return false;
-        return (0.299f * color.r + 0.587f * color.g + 0.114f * color.b) / 255f >= BrightBackground;
     }
 
     // 城里建成的地块有自己的街格，路不压上去

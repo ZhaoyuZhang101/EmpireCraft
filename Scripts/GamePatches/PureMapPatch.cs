@@ -539,9 +539,13 @@ public class PureMapPatch : GamePatch
     private const float ModernYears = 20f, RuinYears = 20f;
     // 改建时一个街区拆旧到建成新式之间算工地的那一段进度
     private const float ConstructionBand = 0.12f;
-    private static readonly Color32 Ring = new(210, 210, 214, 255), Imperial = new(232, 200, 130, 255),
-        PalaceWall = new(170, 60, 45, 255), Marble = new(244, 240, 230, 255), Lane = new(214, 200, 170, 255),
-        Moat = new(110, 160, 215, 255), Chinampa = new(90, 160, 200, 255);
+    // 高德式平面图(2026-10-14 用户选定)：城区是一片浅灰街区(带一点国色)，建筑是灰色占地块；
+    // 路分三级——中轴、出城大街是黄色干道，现代环路橙色，地块之间的街白色，地块里的小巷只比街区亮一点；城墙、地标是重点
+    private static readonly Color32 Ring = new(255, 178, 80, 255), Imperial = new(255, 222, 128, 255),
+        PalaceWall = new(170, 60, 45, 255), Marble = new(244, 240, 230, 255), Lane = new(250, 249, 246, 255),
+        Moat = new(164, 206, 244, 255), Chinampa = new(150, 200, 236, 255), Arterial = new(255, 222, 128, 255),
+        Footprint = new(214, 210, 204, 255);
+    private const float BlockShare = 0.72f, StreetShare = 0.95f;
 
     // 各文化系的城墙(没有的为 null)、中轴大道、地标拼块与广场地面
     private static Color32? WallOf(string family) => family switch
@@ -553,8 +557,8 @@ public class PureMapPatch : GamePatch
         _ => null
     };
 
-    private static readonly Color32 Ward = new(160, 148, 128, 255), DrumRoof = new(70, 62, 66, 255),
-        Plaza = new(206, 200, 188, 255);
+    private static readonly Color32 Ward = new(226, 222, 214, 255), DrumRoof = new(70, 62, 66, 255),
+        Plaza = new(236, 232, 224, 255);
 
     // 墩台：城墙颜色压暗
     private static Color32 TowerOf(Color32 wall) => new((byte)(wall.r * 0.7f), (byte)(wall.g * 0.7f), (byte)(wall.b * 0.7f), 255);
@@ -574,8 +578,8 @@ public class PureMapPatch : GamePatch
     private const float PlanSeconds = 5f;
     private static readonly Dictionary<long, CityPlan> Plans = new();
 
-    private static readonly Color32 Block = new(236, 232, 224, 255), Street = new(255, 255, 255, 255),
-        Crop = new(228, 238, 200, 255);
+    private static readonly Color32 Block = new(243, 241, 237, 255), Street = new(255, 255, 255, 255),
+        Crop = new(214, 232, 186, 255);
 
     // 城市格局换了(换种子)：丢掉缓存的平面图，重画本城各地块
     internal static void Redraw(City city)
@@ -831,8 +835,8 @@ public class PureMapPatch : GamePatch
             // 城墙：现代规划后拆成环路；东西南北四门开在城心两条中线上，门两侧与凸角是墩台
             if (plan.walled && !wallsDown && UrbanEdge(tile, plan))
             {
-                if (tile.x == plan.gateX || tile.y == plan.gateY) return Lerp(color, Street, 0.6f);
-                if (modern) return Lerp(color, Ring, 0.7f);
+                if (tile.x == plan.gateX || tile.y == plan.gateY) return Lerp(color, Arterial, StreetShare);
+                if (modern) return Lerp(color, Ring, StreetShare);
                 Color32 wall = WallOf(plan.family) ?? Ring;
                 bool tower = Mathf.Abs(tile.x - plan.gateX) == 1 || Mathf.Abs(tile.y - plan.gateY) == 1 || Corner(tile, plan);
                 return Lerp(color, tower ? TowerOf(wall) : wall, 0.85f);
@@ -840,31 +844,31 @@ public class PureMapPatch : GamePatch
             if (plan.landmark.Contains(zone.id)) return Landmark(tile, color, plan, lx, ly);
             if (!modern && Centerpiece(tile, color, plan, family) is Color32 centerpiece) return centerpiece;
             // 中轴大道(华夏御道、罗马主街、阿兹特克堤道)
-            if (plan.axis && (tile.x == plan.axisX || tile.y == plan.axisY)) return Lerp(color, AxisOf(plan.family) ?? Street, 0.8f);
+            if (plan.axis && (tile.x == plan.axisX || tile.y == plan.axisY)) return Lerp(color, AxisOf(plan.family) ?? Arterial, StreetShare);
             if (modern) return Grid(color, slots, lx, ly, plan, zone, true);
             if (Camp(family)) return CampLayout(color, slots, lx, ly, plan, zone);
             // 华夏里坊：每块地一坊，四面坊墙、正中开坊门，坊内十字街
             if (family == "huaxia" && use != ZoneUse.None) return WardLayout(color, slots, lx, ly, plan, zone);
             // 西欧：街巷弯曲，从广场通向各城门的大街笔直
             if (family == "western")
-                return tile.x == plan.gateX || tile.y == plan.gateY ? Lerp(color, Street, 0.6f) : Organic(color, slots, lx, ly, plan, zone);
+                return tile.x == plan.gateX || tile.y == plan.gateY ? Lerp(color, Arterial, StreetShare) : Organic(color, slots, lx, ly, plan, zone);
             if (Maze(family))
                 return use != ZoneUse.None && (lx == 4 || ly == 4) ? Lerp(color, Lane, 0.6f) : Organic(color, slots, lx, ly, plan, zone);
             return use == ZoneUse.None ? Organic(color, slots, lx, ly, plan, zone) : Grid(color, slots, lx, ly, plan, zone, false);
         }
         // 护城河：贴着城墙外侧一圈，城门处是桥
         if (plan != null && plan.moat && !wallsDown && BesideWall(tile, plan))
-            return tile.x == plan.gateX || tile.y == plan.gateY ? Lerp(color, Street, 0.6f) : Lerp(color, Moat, 0.85f);
+            return tile.x == plan.gateX || tile.y == plan.gateY ? Lerp(color, Arterial, StreetShare) : Lerp(color, Moat, 0.9f);
         // 城外：村镇、田块；工业化以后的新城区(见 UrbanFabric)
         if (!built && !chinampa && fabric != null && UrbanFabric.Tile(tile, color, fabric, false, use, out Color32 outside))
             return outside;
         if (use == ZoneUse.Farm)
         {
             // 阿兹特克的水上田园：一垄田一道水渠
-            if (plan?.family == "aztec") return tile.y % 3 == 0 ? Lerp(color, Chinampa, 0.5f) : Lerp(color, Crop, 0.25f);
+            if (plan?.family == "aztec") return tile.y % 3 == 0 ? Lerp(color, Chinampa, 0.6f) : Lerp(color, Crop, 0.4f);
             // 其余：大小不一、垄向各异的田块拼起来(见 UrbanFabric.Farmland)
             if (plan?.fabric != null) return UrbanFabric.Farmland(plan.fabric, tile, color);
-            return Lerp(color, Crop, tile.y % 2 == 0 ? 0.2f : 0.06f);
+            return Lerp(color, Crop, 0.4f);
         }
         return color;
     }
@@ -927,8 +931,8 @@ public class PureMapPatch : GamePatch
     private static Color32 WardLayout(Color32 color, Slot[] slots, int lx, int ly, CityPlan plan, TileZone zone)
     {
         if (lx == 0 || ly == 0)
-            return (lx == 0 && ly == 4) || (ly == 0 && lx == 4) ? Lerp(color, Street, 0.6f) : Lerp(color, Ward, 0.6f);
-        if (lx == 4 || ly == 4) return Lerp(color, Street, 0.6f);
+            return (lx == 0 && ly == 4) || (ly == 0 && lx == 4) ? Lerp(color, Street, StreetShare) : Lerp(color, Ward, 0.85f);
+        if (lx == 4 || ly == 4) return Lerp(color, Street, StreetShare);
         int index = (ly - 1) / 4 * 2 + (lx - 1) / 4;
         return Building(color, slots, index, (lx - 1) % 4, (ly - 1) % 4, plan, zone);
     }
@@ -953,7 +957,7 @@ public class PureMapPatch : GamePatch
     private static Color32 Grid(Color32 color, Slot[] slots, int lx, int ly, CityPlan plan, TileZone zone, bool modern)
     {
         if (lx % 4 == 0 || ly % 4 == 0)
-            return modern && (lx == 0 || ly == 0) ? Lerp(color, Ring, 0.75f) : Lerp(color, Street, 0.6f);
+            return modern && (lx == 0 || ly == 0) ? Lerp(color, Ring, StreetShare) : Lerp(color, Street, StreetShare);
         int index = (ly - 1) / 4 * 2 + (lx - 1) / 4;
         return Building(color, slots, index, (lx - 1) % 4, (ly - 1) % 4, plan, zone);
     }
@@ -964,29 +968,30 @@ public class PureMapPatch : GamePatch
         uint hash = (uint)(zone.id * 2654435761L);
         int laneX = 3 + (int)((hash >> (ly % 8 * 2)) & 1);
         int laneY = 3 + (int)((hash >> (16 + lx % 8 * 2)) & 1);
-        if (lx == laneX || ly == laneY) return Lerp(color, Lane, 0.45f);
-        return Scattered(color, slots, lx, ly, plan, zone, hash);
+        if (lx == laneX || ly == laneY) return Lerp(color, Lane, 0.85f);
+        return Scattered(color, slots, lx, ly, plan, zone, hash, BlockShare);
     }
 
     // 营地(游牧、林地)：没有街巷，帐篷、棚屋在草地上错落围成一圈
     private static Color32 CampLayout(Color32 color, Slot[] slots, int lx, int ly, CityPlan plan, TileZone zone) =>
-        Scattered(color, slots, lx, ly, plan, zone, (uint)(zone.id * 2654435761L));
+        Scattered(color, slots, lx, ly, plan, zone, (uint)(zone.id * 2654435761L), 0.25f);
 
-    // 四个角落里各一座，错开一格摆
-    private static Color32 Scattered(Color32 color, Slot[] slots, int lx, int ly, CityPlan plan, TileZone zone, uint hash)
+    // 四个角落里各一座，错开一格摆；空地按 ground 提亮(城里是街区底色，营地是踩出来的草地)
+    private static Color32 Scattered(Color32 color, Slot[] slots, int lx, int ly, CityPlan plan, TileZone zone, uint hash,
+        float ground)
     {
         int qx = lx < 4 ? 0 : 1, qy = ly < 4 ? 0 : 1;
         int index = qy * 2 + qx;
         int ox = (int)((hash >> (index * 2)) & 1), oy = (int)((hash >> (8 + index * 2)) & 1);
         int px = lx - qx * 4 - ox, py = ly - qy * 4 - oy;
-        if (px < 0 || px > 2 || py < 0 || py > 2) return Lerp(color, Block, 0.12f);
+        if (px < 0 || px > 2 || py < 0 || py > 2) return Lerp(color, Block, ground);
         return Building(color, slots, index, px, py, plan, zone);
     }
 
     // 街区里的建筑：残破的画废墟；改建中先拆旧起工地、再建成新式；否则按这座城定型的文化系画这座建筑的图块
     private static Color32 Building(Color32 color, Slot[] slots, int index, int px, int py, CityPlan plan, TileZone zone)
     {
-        Color32 baseColor = Lerp(color, Block, 0.3f);
+        Color32 baseColor = Lerp(color, Block, BlockShare);
         if (slots == null || index < 0 || index >= slots.Length || !slots[index].used) return baseColor;
         string name;
         if (plan.ruin > 0f && Hash01(zone.id * 4L + index + 7L) < plan.ruin) name = plan.burning ? "burning" : "ruin";
@@ -1002,9 +1007,10 @@ public class PureMapPatch : GamePatch
             name = family == null ? "construction" : StyleIcon(family, slots[index].icon);
         }
         Color32[] icon = Icon(name) ?? Icon(slots[index].icon);
-        if (icon == null) return Lerp(color, Block, 0.55f);
+        if (icon == null) return Lerp(baseColor, Footprint, 0.85f);
         Color32 pixel = icon[(2 - py) * 3 + px];
-        return pixel.a == 0 ? baseColor : Lerp(baseColor, pixel, 0.9f);
+        // 建筑是灰色占地块，只留一点屋顶本色
+        return pixel.a == 0 ? baseColor : Lerp(baseColor, Lerp(pixel, Footprint, 0.6f), 0.85f);
     }
 
     // 通用图块换成这一系的风味图块(古代民居分低中高三档、寺庙、官署、集市)；近代以后各系一样；没有风味图块用通用的
