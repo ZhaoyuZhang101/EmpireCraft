@@ -687,9 +687,19 @@ public static class EmpireCraftNamePlateLibrary
         AssetManager.nameplates_library.map_modes_nameplates[assetMineral.map_mode] = assetMineral;
         AssetManager.nameplates_library.dict["Mineral"] = assetMineral;
 
-        // 城市图层用城市铭牌
-        if (AssetManager.nameplates_library.map_modes_nameplates.TryGetValue(MetaType.City, out NameplateAsset cityPlate))
-            AssetManager.nameplates_library.map_modes_nameplates[MetaTypeExtension.CityView] = cityPlate;
+        // 城市图层只看模拟的城市，不画任何铭牌
+        NameplateAsset assetCityView = new NameplateAsset
+        {
+            id = "plate_cityview",
+            path_sprite = "ui/nameplates/nameplate_city",
+            map_mode = MetaTypeExtension.CityView,
+            action_main = (manager, asset) =>
+            {
+                if (IsNameplateReady) TerritoryLabelRenderer.HideAll();
+            }
+        };
+        AssetManager.nameplates_library.map_modes_nameplates[assetCityView.map_mode] = assetCityView;
+        AssetManager.nameplates_library.dict["CityView"] = assetCityView;
     }
 
     private static IdeologyMapColor GetIdeologyColor(PartyIdeology ideology)

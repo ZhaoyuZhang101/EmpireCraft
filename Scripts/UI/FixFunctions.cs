@@ -111,9 +111,16 @@ public static class FixFunctions
         obj.open_window_id = null;
         obj.type = PowerButtonType.Special;
         obj.transform.Find("ToggleIcon").GetComponent<ToggleIcon>()?.updateIcon(option.boolVal);
-        for(int i=0; i<maxOption; i++) {
-            obj.transform.Find($"toggle_{(i+1>=maxOption?0:i+1)}").GetComponent<ToggleIcon>()?.updateIconMultiToggle(true, option.intVal==i);
+        // 只有一种显示模式的图层：按钮下面那排模式小圆点(克隆来的预制体自带三个)全部藏起来
+        if (maxOption <= 1)
+        {
+            foreach (string toggle in new[] { "toggle_0", "toggle_1", "toggle_2" })
+                obj.transform.Find(toggle)?.gameObject.SetActive(false);
         }
+        else
+            for(int i=0; i<maxOption; i++) {
+                obj.transform.Find($"toggle_{(i+1>=maxOption?0:i+1)}").GetComponent<ToggleIcon>()?.updateIconMultiToggle(true, option.intVal==i);
+            }
         
         var transform = obj.transform;
         power.toggle_action = (PowerToggleAction) Delegate.Combine(power.toggle_action, new PowerToggleAction(p=>ChangeIcon(p, obj)));
@@ -131,6 +138,7 @@ public static class FixFunctions
     private static void ChangeIcon(string pPower, PowerButton obj)
     {
         OptionAsset option = AssetManager.powers.get(pPower).option_asset;
+        if (option.max_value <= 0) return;
         if (option.isActive())
         {
             for (int i = 0; i < option.max_value+1; i++)
