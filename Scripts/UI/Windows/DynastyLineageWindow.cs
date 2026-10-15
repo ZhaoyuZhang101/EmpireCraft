@@ -401,6 +401,8 @@ public class DynastyLineageWindow : AbstractWideWindow<DynastyLineageWindow>
         frame.raycastTarget = true;
         Label(rect, Title(node).ColorString(ruler ? "#F3C34A" : "#A8B8BE"), ruler ? 9f : 6f, 6, FontStyle.Bold);
         Label(rect, (node.identity?.name ?? node.history?.emperor ?? "?").ColorString("#F2EEE2"), ruler ? -1f : -5f, 6, FontStyle.Normal);
+        // 左上角：本朝第几位君主(按在位先后)，图上分支多时看得出继位顺序
+        if (ruler && node.reign != int.MaxValue) Order(rect, node.reign + 1);
         if (ruler && !string.IsNullOrEmpty(node.relation))
             Label(rect, node.relation.ColorString(string.IsNullOrEmpty(node.history?.succession_note) ? "#9FB4BE" : "#E0705A"),
                 -10f, 5, FontStyle.Normal);
@@ -481,6 +483,35 @@ public class DynastyLineageWindow : AbstractWideWindow<DynastyLineageWindow>
         PersonalClanIdentity identity = node.identity;
         return identity?.ownedTitleNames?.FirstOrDefault(name => !string.IsNullOrWhiteSpace(name)) ??
                (!string.IsNullOrWhiteSpace(identity?.officeName) ? identity.officeName : "");
+    }
+
+    private static void Order(RectTransform parent, int order)
+    {
+        var badge = new GameObject("Order", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        var rect = badge.GetComponent<RectTransform>();
+        rect.SetParent(parent, false);
+        rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0.5f, 0.5f);
+        string text = Numeral(order);
+        rect.sizeDelta = new Vector2(Mathf.Max(9f, 4f + 4.5f * text.Length), 8f);
+        rect.anchoredPosition = new Vector2(-NodeWidth / 2f + rect.sizeDelta.x / 2f + 1.5f, NodeHeight / 2f - 5.5f);
+        Image image = badge.GetComponent<Image>();
+        image.color = new Color(0.55f, 0.36f, 0.12f, 0.95f);
+        image.raycastTarget = false;
+        var textObject = new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
+        var textRect = textObject.GetComponent<RectTransform>();
+        textRect.SetParent(rect, false);
+        textRect.anchorMin = Vector2.zero;
+        textRect.anchorMax = Vector2.one;
+        textRect.offsetMin = textRect.offsetMax = Vector2.zero;
+        Text label = textObject.GetComponent<Text>();
+        label.font = LocalizedTextManager.current_font;
+        label.fontSize = 5;
+        label.alignment = TextAnchor.MiddleCenter;
+        label.horizontalOverflow = HorizontalWrapMode.Overflow;
+        label.verticalOverflow = VerticalWrapMode.Overflow;
+        label.raycastTarget = false;
+        label.color = new Color(1f, 0.93f, 0.75f, 1f);
+        label.text = text;
     }
 
     private static void Label(RectTransform parent, string text, float y, int fontSize, FontStyle style)
