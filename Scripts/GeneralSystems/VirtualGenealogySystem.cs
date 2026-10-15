@@ -1047,6 +1047,8 @@ public static class VirtualGenealogySystem
         person.is_alive = false;
         person.is_virtual = false;
         person.deathday = Date.getDate(World.world.getCurWorldTime());
+        // 虚拟族人里的藩王身后定谥(遇刺算死于非命)
+        PrinceLineage.OnPrinceDied(person, cause == "assassinated");
         if (!person.death_history_recorded)
         {
             person.death_history_recorded = true;

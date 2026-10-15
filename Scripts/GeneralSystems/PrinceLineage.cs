@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.System;
 using NeoModLoader.General;
@@ -84,6 +85,121 @@ public static class PrinceLineage
         string title = person?.prince_title;
         if (string.IsNullOrWhiteSpace(title)) return kin;
         return string.IsNullOrEmpty(kin) ? title : kin + "·" + title;
+    }
+
+    // 皇子不论当不当官都封王(用户 2026-10-16)：华夏一系帝国每年一轮，在位皇帝的儿子(储君除外)还没有王号的封王。
+    // 以前王爵只封给地图上有实体的人，而且要有空着的法理头衔——无小人、纯净地图下皇子多是虚拟族人，法理头衔又有限，
+    // 许多皇子到死也没封王，绝嗣时藩王一系就轮不到他们。王号取本国还没有在世藩王用的法理头衔名，没有就取本国城名；
+    // 有空着的法理王爵、本人又在地图上的，以后照原来的法理分封改授实封(见 Empire.ProcessLegalPeerageSuccession)
+    public static void GrantPrinces(Empire empire)
+    {
+        Actor emperor = empire?.Emperor;
+        Kingdom core = empire?.CoreKingdom;
+        PersonalClanIdentity father = emperor?.GetPersonalIdentity();
+        if (father == null || core == null || EnfeoffmentHelper.RegimeForbids(empire) ||
+            !EmpireCraft.Scripts.AI.KingdomAI.EmpireCraftKingdomBehCheckHeir.MaleOnlyThrone(core)) return;
+        long heir = core.HasHeir() ? core.GetHeir()?.GetPersonalIdentity()?.id ?? -1L : -1L;
+        List<PersonalClanIdentity> sons = SpecificClanManager.getChildren(father).Select(pair => pair.Item2)
+            .Where(son => son != null && son.is_alive && son.is_main && son.sex == ActorSex.Male && son.id != heir && !IsPrince(son) &&
+                          son._actor?.isKing() != true)
+            .OrderBy(son => son.id).ToList();
+        if (sons.Count == 0) return;
+        HashSet<string> used = UsedTitles(empire);
+        foreach (PersonalClanIdentity son in sons)
+        {
+            string place = NextPlace(empire, used);
+            if (place == null) return;
+            used.Add(place);
+            Grant(empire, son, place + KingSuffix);
+        }
+    }
+
+    private static void Grant(Empire empire, PersonalClanIdentity son, string title)
+    {
+        son.prince_title = title;
+        Actor actor = son.is_alive && !son.is_virtual ? son._actor : null;
+        if (actor?.data != null && !actor.isRekt())
+        {
+            actor.SetPeeragesLevel(PeeragesLevel.peerages_2);
+            TranslateHelper.LogPeerageGranted(actor, empire, title);
+            return;
+        }
+        // 虚拟族人：只记在族谱的个人经历里(不报世界提示，免得年年一串)
+        son.personal_history ??= new List<PersonalHistoryRecord>();
+        son.personal_history.Add(new PersonalHistoryRecord
+        {
+            timestamp = World.world.getCurWorldTime(),
+            date = Date.getDate(World.world.getCurWorldTime()),
+            content = string.Format(LM.Get("personal_history_peerage_granted"), empire.GetEmpireFullName(), title),
+            kingdom_name = empire.CoreKingdom?.GetKingdomName() ?? "",
+            empire_id = empire.id,
+            owner_personal_identity_id = son.id
+        });
+    }
+
+    // 本朝在世藩王已用的地名(王号去掉"王")
+    private static HashSet<string> UsedTitles(Empire empire)
+    {
+        var used = new HashSet<string>();
+        foreach (SpecificClan clan in SpecificClanManager.LineageClans(empire.EmpireSpecificClan))
+        foreach (PersonalClanIdentity person in clan.SnapshotPeople())
+            if (person != null && person.is_alive && !string.IsNullOrWhiteSpace(person.prince_title))
+                used.Add(person.prince_title.EndsWith(KingSuffix) ? person.prince_title.Substring(0, person.prince_title.Length - KingSuffix.Length) : person.prince_title);
+        used.Add(empire.GetEmpireName() ?? "");
+        return used;
+    }
+
+    // 下一个王号用的地名：本国的法理头衔(城多的先)，再是本国的城(大的先)；都城那块留给天子
+    private static string NextPlace(Empire empire, HashSet<string> used)
+    {
+        Kingdom core = empire.CoreKingdom;
+        string capitalTitle = core?.capital?.GetTitle()?.data?.name;
+        if (ModClass.KINGDOM_TITLE_MANAGER != null)
+            foreach (KingdomTitle title in ModClass.KINGDOM_TITLE_MANAGER
+                         .Where(title => title?.data != null && !title.isRekt() && title.title_capital?.kingdom?.GetEmpire() == empire)
+                         .OrderByDescending(title => title.getCities().Count()).ThenBy(title => title.id))
+            {
+                string name = title.data.name;
+                if (!string.IsNullOrWhiteSpace(name) && name != capitalTitle && !used.Contains(name)) return name;
+            }
+        foreach (City city in empire.getCities().Where(city => city?.data != null && !city.isRekt() && city != core?.capital)
+                     .OrderByDescending(city => CityPopulationSystem.GetBackgroundTotal(city)))
+        {
+            string name = city.GetCityName();
+            if (!string.IsNullOrWhiteSpace(name) && !used.Contains(name)) return name;
+        }
+        return null;
+    }
+
+    // 藩王身后定谥(用户 2026-10-16："藩王去世后也有谥号的")：王号里的地名 + 单字谥 + 王，如"湘献王"；
+    // 用字同封国国君(见 PosthumousNameGenerator.DecideVassal：早夭殇、冲、悼，死于非命烈、愍、庄，其余孝、恭、惠……)，
+    // 同一王号先前的藩王用过的谥加"后"区别。在位的帝王、封国国君另有谥法，不走这里
+    public static void OnPrinceDied(PersonalClanIdentity person, bool killed)
+    {
+        if (person == null || string.IsNullOrWhiteSpace(person.prince_title) || !string.IsNullOrWhiteSpace(person.posthumous_name)) return;
+        if (person._specificClan?.Patrilineal() != true) return;
+        string title = person.prince_title;
+        string place = title.EndsWith(KingSuffix) ? title.Substring(0, title.Length - KingSuffix.Length) : title;
+        if (string.IsNullOrWhiteSpace(place)) return;
+        // 同一王号先前的藩王用过的谥字
+        var used = new HashSet<string>();
+        foreach (SpecificClan clan in SpecificClanManager.LineageClans(person._specificClan))
+        foreach (PersonalClanIdentity other in clan.SnapshotPeople())
+        {
+            string name = other?.posthumous_name;
+            if (other == person || string.IsNullOrEmpty(name) || !name.StartsWith(place) || !name.EndsWith(KingSuffix)) continue;
+            string middle = name.Substring(place.Length, name.Length - place.Length - KingSuffix.Length);
+            string later = LM.Get("posthumous_later_prefix") ?? "";
+            if (!string.IsNullOrEmpty(later) && middle.StartsWith(later)) middle = middle.Substring(later.Length);
+            used.Add(middle);
+        }
+        int age = person.recordedAge > 0 ? person.recordedAge : person.age;
+        var decision = PosthumousNameGenerator.DecideVassal(-1, age, killed, 0, used);
+        string shi = LM.Get(decision.shi);
+        if (string.IsNullOrWhiteSpace(shi)) return;
+        string posthumous = place + (used.Contains(shi) ? LM.Get("posthumous_later_prefix") ?? "" : "") + shi + KingSuffix;
+        person.posthumous_name = posthumous;
+        person.RecordPersonalHistory(string.Format(LM.Get("feudal_posthumous_history"), posthumous, LM.Get(decision.reason)));
     }
 
     // 读档：旧档没记王号的，按个人经历里最近一次"获授某王"补上

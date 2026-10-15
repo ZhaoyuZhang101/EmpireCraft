@@ -256,6 +256,7 @@ public static class RoyalHouseSystem
                     Mishap(empire);
                     PrinceStruggleSystem.Yearly(empire);
                     EmpirePartitionSystem.Yearly(empire);
+                    PrinceLineage.GrantPrinces(empire);
                 }
             foreach (Kingdom kingdom in World.world.kingdoms.list.ToList()) Enfeoff(kingdom);
             if (CityPopulationSystem.AbstractPopulationEnabled || PureMapMode.Enabled)

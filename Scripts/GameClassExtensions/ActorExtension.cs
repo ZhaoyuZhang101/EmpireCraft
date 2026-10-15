@@ -1887,6 +1887,10 @@ public static class ActorExtension
         if (!string.IsNullOrWhiteSpace(realmRank)) return realmRank;
 
         bool honorary = a.HasHonoraryPeerage();
+        // 封了王却没有实封法理的皇子(见 PrinceLineage.GrantPrinces)：爵位就是族谱记的王号
+        if (!honorary && !a.HasVirtualEnfeoff() && data.peeragesLevel == PeeragesLevel.peerages_2 &&
+            a.GetPersonalIdentity()?.prince_title is string princeTitle && !string.IsNullOrWhiteSpace(princeTitle))
+            return princeTitle;
         string peerageKey = honorary ? data.honorary_peerage_key : data.virtual_enfeoff_peerage_key;
         if (a.HasVirtualEnfeoff() && string.IsNullOrWhiteSpace(peerageKey))
         {

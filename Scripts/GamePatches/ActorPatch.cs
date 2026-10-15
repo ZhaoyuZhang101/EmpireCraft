@@ -349,6 +349,9 @@ public class ActorPatch : GamePatch
             // 封国国君身后定谥(湘文侯)
             FeudalPosthumousSystem.OnRulerDied(__instance, rulingKingdom, pType);
         }
+        // 不在位的藩王身后定谥(湘献王)；在位的帝王、封国国君另有谥法
+        if (rulingKingdom == null || !rulingKingdom.IsEmpire() && rulingKingdom.IsInEmpire())
+            PrinceLineage.OnPrinceDied(__instance.GetPersonalIdentity(), pType is AttackType.Weapon or AttackType.Explosion or AttackType.Poison);
         // 共主去世：城邦跟随盟主新君，封建王国按长幼分给子女
         if (rulingKingdom != null) PersonalUnionService.OnRulerDying(__instance);
         rulingKingdom?.SyncRealmTitlesFromRuler(__instance);
