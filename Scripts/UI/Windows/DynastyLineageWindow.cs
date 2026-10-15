@@ -165,7 +165,7 @@ public class DynastyLineageWindow : AbstractWideWindow<DynastyLineageWindow>
             EmpireCraftHistory history = reigns[i];
             PersonalClanIdentity identity = history.id > 0 && byActor.TryGetValue(history.id, out var found) ? found
                 : !string.IsNullOrWhiteSpace(history.emperor) && byName.TryGetValue(history.emperor, out found) ? found : null;
-            string relation = Relation(previous, identity, history);
+            string relation = Relation(previous, identity, history, i > 0 ? Designation(reigns[i - 1]) : null);
             previous = identity;
             if (identity == null)
             {
@@ -418,7 +418,19 @@ public class DynastyLineageWindow : AbstractWideWindow<DynastyLineageWindow>
     }
 
     // 怎么继的位：对上一位君主的亲属关系，废立、兵变、争位、宫变另标
-    private static string Relation(PersonalClanIdentity previous, PersonalClanIdentity current, EmpireCraftHistory history)
+    // 先帝怎么称呼：庙号；没有庙号写谥号(单字谥 + 帝)；都没有写名字
+    private static string Designation(EmpireCraftHistory history)
+    {
+        if (history == null) return null;
+        if (!string.IsNullOrEmpty(history.miaohao_name)) return LM.Get(history.miaohao_name) + LM.Get(history.miaohao_suffix);
+        if (!string.IsNullOrEmpty(history.shihao_name)) return history.empire_name + LM.Get(history.shihao_name) + LM.Get("emperor_suffix");
+        return history.emperor;
+    }
+
+    // 继位关系是对上一位君主说的(图上的连线按父子画，两者对不上时容易看糊涂)：称谓前写上一位的庙号，
+    // 如"睿宗兄·蒙古王""懿宗第四子"(用户 2026-10-16："把上一位庙号写进去")
+    private static string Relation(PersonalClanIdentity previous, PersonalClanIdentity current, EmpireCraftHistory history,
+        string predecessor)
     {
         string relation;
         if (history.is_first) relation = LM.Get("lineage_rel_founder");
@@ -433,6 +445,7 @@ public class DynastyLineageWindow : AbstractWideWindow<DynastyLineageWindow>
             relation = current.father == previous.id || current.mother == previous.id
                 ? ChildOrder(previous, current)
                 : LineageKinship.Term(previous, current);
+            if (!string.IsNullOrWhiteSpace(predecessor)) relation = predecessor + relation;
             if (!string.IsNullOrWhiteSpace(current.prince_title)) relation += "·" + current.prince_title;
         }
         string note = history.succession_note;
