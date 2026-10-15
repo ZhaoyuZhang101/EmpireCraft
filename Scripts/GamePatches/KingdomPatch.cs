@@ -159,7 +159,12 @@ public class KingdomPatch : GamePatch
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
         if (pActor == null || pActor.IsWarMachine()) return; // 被 before_new_emperor 拒绝的船只
         if (__instance.king != pActor) return; // 被宪制拒绝的即位不能继续转移宗族和法理头衔
-        if (!pFromLoad && !ModClass.IS_CLEAR && __instance.IsEmpire()) LogEmperorChange(__instance, pActor, __state);
+        if (!pFromLoad && !ModClass.IS_CLEAR && __instance.IsEmpire())
+        {
+            LogEmperorChange(__instance, pActor, __state);
+            // 宗室远支入继、族谱缺人：补上中间几代祖先，世系图能一路连到本朝先君(见 LineageGraftSystem)
+            LineageGraftSystem.EnsureLinked(__instance.GetEmpire(), pActor);
+        }
         if (!ModClass.IS_CLEAR)
         {
             pActor.CheckSpecificClan();

@@ -114,6 +114,8 @@ public class DynastyLineageWindow : AbstractWideWindow<DynastyLineageWindow>
         var space = _root.BeginVertGroup(pSpacing: 2, pAlignment: TextAnchor.UpperCenter);
         DrawHeader(space, dynasties);
         List<EmpireCraftHistory> reigns = all.Where(history => DynastyOf(history) == _dynasty).ToList();
+        // 本朝历代里和先君连不上的(宗室远支入继、族谱缺人)补上中间几代祖先(见 LineageGraftSystem)
+        LineageGraftSystem.RepairDynasty(_empire, reigns);
         _graph = GraphView.Create(space.transform, new Vector2(PanelWidth, GraphHeight), GraphOrientation.Vertical,
             objectName: "DynastyLineageViewport");
         _graph.SetClampMargin(NodeHalf);
