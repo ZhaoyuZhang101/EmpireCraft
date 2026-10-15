@@ -218,13 +218,16 @@ public static class UrbanFabric
             g.OldRadius = data.urban_old_radius;
         }
         else g.OldRadius = sum / EdgeBins;
-        // 蔓延：工业化以后城区往外长，种子定哪几个方向长得远(沿一圈连续起伏，没有接缝)
+        // 蔓延：工业化以后城区往外长，种子定哪几个方向长得远(沿一圈连续起伏，没有接缝)。
+        // 长多远照演示版(工业化满了约一倍半，电气约一倍八，现代约两倍二)；以前只长到一倍一到一倍四，城小得放不下新城区
+        float grow = 0.45f * Mathf.Clamp01(g.Progress) + 0.4f * Mathf.Clamp01(g.Progress - 1f) +
+                     0.35f * Mathf.Clamp01(g.Progress - 2f);
         for (int i = 0; i < EdgeBins; i++)
         {
             float a = (i + 0.5f) / EdgeBins * TwoPi;
             float lobe = Noise(10f + 3f * Mathf.Cos(a), 10f + 3f * Mathf.Sin(a), 1.6f, seed + 3);
             float jitter = 0.92f + 0.16f * Noise(20f + 6f * Mathf.Cos(a), 20f + 6f * Mathf.Sin(a), 1.3f, seed + 4);
-            g.Edge[i] = (g.Foot[i] + 2f) * jitter * (1f + Mathf.Min(g.Progress, 3f) * 0.15f * (0.3f + 1.4f * lobe));
+            g.Edge[i] = (g.Foot[i] + 2f) * jitter * (1f + grow * (0.3f + 1.4f * lobe));
             g.MaxEdge = Mathf.Max(g.MaxEdge, g.Edge[i]);
         }
         // 干道：按种子定四到六条，再补上实际通往邻城、方向没重复的路
@@ -609,7 +612,11 @@ public static class UrbanFabric
         };
         float need = start + 0.6f * Mathf.Min(1.2f, r / Mathf.Max(1f, edge)) + g.SectorPace[SectorOf(g, angle)] +
                      0.1f * H(g.Seed, zone.id, 7) - (use != ZoneUse.None ? 0.3f : 0f);
-        var result = (kind, g.Modern && g.Progress >= need);
+        // 老城外、轮廓里的本城地块是新长出来的城区：一进工业化就整片开发，田地也盖上房子(照演示版)。
+        // 以前按用途分先后——工厂先起、住宅要到电气以后、田地永远不盖，城里东一块厂房西一块空地，露出底下的国色
+        bool newTown = g.Modern && !g.Built.Contains(zone.id) && r < edge;
+        if (newTown && kind == Kind.Farm) kind = industrySide ? Kind.Industry : Kind.Housing;
+        var result = (kind, g.Modern && (newTown && kind != Kind.Tower || g.Progress >= need));
         g.Zones[zone.id] = result;
         return result;
     }
