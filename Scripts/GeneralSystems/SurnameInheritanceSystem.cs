@@ -12,9 +12,16 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 public static class SurnameInheritanceSystem
 {
     public static Actor SelectParent(IEnumerable<Actor> parents) => parents?
-        .Where(parent => parent?.data != null &&
-            !string.IsNullOrWhiteSpace(parent.GetModName()?.familyName))
+        .Where(parent => parent?.data != null && !string.IsNullOrWhiteSpace(FamilyNameOf(parent)))
         .Distinct().OrderByDescending(ParentPriority).ThenBy(parent => parent.getID()).FirstOrDefault();
+
+    // 父母的姓：人物名字上的姓；名字上没有(旧档的族谱只记了全名)取族谱的姓。以前名字上没姓的父亲不算，
+    // 孩子随了母亲的姓(聂郁民之子成了步鲸)
+    public static string FamilyNameOf(Actor actor)
+    {
+        string family = actor?.GetModName()?.familyName;
+        return !string.IsNullOrWhiteSpace(family) ? family : SurnameOf(actor?.GetPersonalIdentity());
+    }
 
     // 在位的君主、储君(女主也一样)：配偶嫁入或入赘皇族，子女随君主姓、入皇族宗族，帝系不断
     public static bool Reigns(Actor actor)
@@ -120,6 +127,56 @@ public static class SurnameInheritanceSystem
         return repaired;
     }
 
+    // 华夏一系宗法父系：本宗主位族人(生在这一族的，不含嫁入的、妾)一律姓这一族的姓。以前有几处随了母亲、
+    // 落成时随手起的、旧档里记错的姓(女帝之子崔辉、聂郁民之子步鲸都在聂氏一族却不姓聂)，世系上看着是改了姓
+    public static string ClanSurname(SpecificClan clan)
+    {
+        string name = clan?.name?.Trim();
+        if (string.IsNullOrEmpty(name) || name.Length > 4 || name.Any(char.IsWhiteSpace) || name.Contains('\u200a')) return null;
+        return clan.Patrilineal() ? name : null;
+    }
+
+    // 这个人该姓宗族的姓却没姓(族谱记的姓、全名、人物名字上的姓有一处不对)：改过来(活着的；史书里的旧名不动)。返回是否改了
+    public static bool EnforceClanSurname(PersonalClanIdentity person)
+    {
+        if (person == null || !person.is_alive || !person.is_main || person.is_concubine) return false;
+        string surname = ClanSurname(person._specificClan);
+        if (surname == null) return false;
+        Actor actor = person.is_virtual ? null : person._actor;
+        bool hasActor = actor?.data != null && !actor.isRekt() && actor.GetModName() != null;
+        string named = NameSurname(person);
+        bool actorWrong = hasActor && actor.GetModName().familyName != surname;
+        if (person.surname == surname && (named == null || named == surname) && !actorWrong) return false;
+        if (person.surname != surname)
+        {
+            ApplySurname(person, surname);
+            return true;
+        }
+        // 族谱的姓本来就对、只是全名或人物名字上不对的：跟着改
+        if (hasActor)
+        {
+            actor.SetFamilyName(surname);
+            actor.GetModName().SetName(actor);
+            person.name = actor.getName();
+        }
+        else if (!string.IsNullOrWhiteSpace(person.given_name))
+        {
+            bool invert = OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(person.culture ?? "", out var rule) && rule?.Unit?.is_invert == true;
+            person.name = invert ? OverallHelperFunc.JoinNameParts(person.given_name, surname)
+                : OverallHelperFunc.JoinNameParts(surname, person.given_name);
+        }
+        return true;
+    }
+
+    // 读档修正：华夏宗族里在世的主位族人姓不是本族姓的，改回本族姓
+    public static int RepairClanSurnames(IEnumerable<PersonalClanIdentity> people)
+    {
+        int repaired = 0;
+        foreach (PersonalClanIdentity person in people.Where(person => person != null).ToList())
+            if (EnforceClanSurname(person)) repaired++;
+        return repaired;
+    }
+
     // 做过一朝皇族的宗族
     private static bool Dynastic(SpecificClan clan) =>
         clan != null && (clan.HasHistoryEmpire() || !string.IsNullOrEmpty(clan.empire_name));
@@ -130,14 +187,17 @@ public static class SurnameInheritanceSystem
     {
         if (person == null) return null;
         if (!string.IsNullOrWhiteSpace(person.surname)) return person.surname;
-        string[] parts = (person.name ?? "").SplitNameParts();
-        if (parts.Length >= 2)
-        {
-            bool invert = OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(person.culture ?? "", out var rule) && rule?.Unit?.is_invert == true;
-            string part = invert ? parts[parts.Length - 1] : parts[0];
-            if (!string.IsNullOrWhiteSpace(part)) return part;
-        }
-        return person._specificClan?.name;
+        return NameSurname(person) ?? person._specificClan?.name;
+    }
+
+    // 族谱全名里的姓(拆不出来为 null)
+    private static string NameSurname(PersonalClanIdentity person)
+    {
+        string[] parts = (person?.name ?? "").SplitNameParts();
+        if (parts.Length < 2) return null;
+        bool invert = OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(person.culture ?? "", out var rule) && rule?.Unit?.is_invert == true;
+        string part = invert ? parts[parts.Length - 1] : parts[0];
+        return string.IsNullOrWhiteSpace(part) ? null : part;
     }
 
     public static bool TryInheritSurname(Actor child, bool overwrite = false)
@@ -147,7 +207,7 @@ public static class SurnameInheritanceSystem
         if (name == null || !overwrite && name.hasFamilyName(child)) return false;
         Actor parent = SelectParent(child.getParents());
         if (parent == null) return false;
-        child.SetFamilyName(parent.GetModName().familyName);
+        child.SetFamilyName(FamilyNameOf(parent));
         return true;
     }
 }

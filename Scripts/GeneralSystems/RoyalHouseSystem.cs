@@ -112,6 +112,8 @@ public static class RoyalHouseSystem
 
     private static void RepairSurname(Actor actor)
     {
+        // 华夏宗族的本宗族人姓本族的姓(见 SurnameInheritanceSystem.EnforceClanSurname)
+        if (SurnameInheritanceSystem.EnforceClanSurname(actor.GetPersonalIdentity())) return;
         string clan = actor.GetPersonalIdentity()?._specificClan?.name;
         if (string.IsNullOrWhiteSpace(clan)) return;
         Name name = actor.GetModName();

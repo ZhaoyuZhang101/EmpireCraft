@@ -159,6 +159,12 @@ public class KingdomPatch : GamePatch
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
         if (pActor == null || pActor.IsWarMachine()) return; // 被 before_new_emperor 拒绝的船只
         if (__instance.king != pActor) return; // 被宪制拒绝的即位不能继续转移宗族和法理头衔
+        if (!ModClass.IS_CLEAR)
+        {
+            // 即位时姓本族的姓(华夏宗族)，世系、年号诏书上不会写成随错的姓
+            pActor.CheckSpecificClan(false);
+            SurnameInheritanceSystem.EnforceClanSurname(pActor.GetPersonalIdentity());
+        }
         if (!pFromLoad && !ModClass.IS_CLEAR && __instance.IsEmpire()) LogEmperorChange(__instance, pActor, __state);
         if (!ModClass.IS_CLEAR)
         {
