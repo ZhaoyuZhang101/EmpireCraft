@@ -324,7 +324,7 @@ internal static class MainTab
 
         // 财富图层(红到绿：最穷到最富)
         PowerButton wealthLayer = FixFunctions.CreateLayerButton(MetaTypeExtension.Wealth,
-                 SpriteTextureLoader.getSprite("ui/icons/godpowers/wealth_layer"));
+                 SpriteTextureLoader.getSprite("ui/icons/godpowers/wealth_layer"), maxOption: 2);
         AddButton(CULTURE_GROUP, wealthLayer);
 
         // 教化图层(四方文化教化所及)、政令图层(行政控制力，鞭长莫及)

@@ -447,6 +447,9 @@ public static class SmoothBorders
     // 这块地画完(地形调色、城市平面图之后)：记下底色，再按当前高亮提亮；不是这里逐像素画的(原版画的)就作废底色
     public static void Finish(Color32[] pixels, TileZone zone)
     {
+        if (Enabled && zone?.tiles != null && pixels != null && _paintedZone != zone.id &&
+            Transitions.TryGetValue(zone.id, out Transition raw) && raw.raw)
+            ApplyRaw(pixels, zone, raw);
         if (zone?.tiles == null || pixels == null || pixels.Length != _base.Length) return;
         if (!Enabled || _paintedZone != zone.id)
         {
@@ -549,6 +552,8 @@ public static class SmoothBorders
         public bool vertical;
         // 画到哪一步：0 旧样子，1 翻前半(底下压暗的旧样子)，2 翻后半(底下压暗的新样子)，3 翻完
         public int phase = -1;
+        // 这块地是原版画的(没有平滑国界的底色)：翻的时候直接写色块
+        public bool raw;
     }
 
     private static readonly Dictionary<int, ShownState> Shown = new();
@@ -598,16 +603,7 @@ public static class SmoothBorders
     {
         IMetaObject real = RealMetaOf(layer, option, zone);
         if (zone == null || !Enabled) return real;
-        if (!ReferenceEquals(layer, _sweepLayer) || option != _sweepOption)
-        {
-            bool first = _sweepLayer == null;
-            _sweepLayer = layer;
-            _sweepOption = option;
-            ResetTransitions();
-            // 换图层整图都要重画：不再因为"本块归属变了"让四周八块跟着重画，否则每块要多画好几遍
-            LastMeta.Clear();
-            if (!first) StartLayerFlip();
-        }
+        CheckLayer(layer, option);
         int realKey = ColorKey(SafeColor(real));
         if (Shown.TryGetValue(zone.id, out ShownState shown) && ReferenceEquals(shown.meta, real) && shown.colorKey == realKey)
             return real;
@@ -618,6 +614,30 @@ public static class SmoothBorders
         Queue(zone, zone.x != _cx || zone.y != _cy, ReferenceEquals(shown.owner, state.owner));
         ExpandUnit(layer, option, zone, shown.meta, real);
         return real;
+    }
+
+    // 换了图层(或图层选项)：之前的换色作废，整张图翻牌换成新图层
+    private static void CheckLayer(MetaTypeAsset layer, int option)
+    {
+        if (ReferenceEquals(layer, _sweepLayer) && option == _sweepOption) return;
+        bool first = _sweepLayer == null;
+        _sweepLayer = layer;
+        _sweepOption = option;
+        ResetTransitions();
+        // 换图层整图都要重画：不再因为"本块归属变了"让四周八块跟着重画，否则每块要多画好几遍
+        LastMeta.Clear();
+        if (!first) StartLayerFlip();
+    }
+
+    // 原版画法的图层(没有逐格归属的，如教化、政令这类热力图层)：上色前记下旧样子，画完(Finish)再翻
+    public static void CaptureRaw(TileZone zone)
+    {
+        if (!Enabled || zone?.tiles == null || World.world == null) return;
+        MetaTypeAsset layer = World.world.getCachedMapMetaAsset();
+        if (layer == null) return;
+        CheckLayer(layer, layer.getZoneOptionState());
+        Transition transition = CaptureLayerFlip(zone, NoOwner);
+        if (transition != null) transition.raw = true;
     }
 
     // 记下这块地原来的样子、排进扫描。不是正在画的这块(画邻块时顺带发现它变了)：让原版下一轮重画它，
@@ -745,19 +765,21 @@ public static class SmoothBorders
     // 记下这块地眼下画着的样子(还没画过的块不做渐变)
     private static Transition Capture(TileZone zone)
     {
-        if (zone?.tiles == null || _base.Length == 0) return null;
+        if (zone?.tiles == null) return null;
         if (Transitions.TryGetValue(zone.id, out Transition running) && running.oldPixels?.Length == zone.tiles.Length)
         {
             // 正在翻(或等着翻)的块又要变：旧样子是眼下看到的那一面，不是底下压暗的缝
             Color32[] face = running.phase >= 2 && running.newPixels != null ? running.newPixels : running.oldPixels;
             return new Transition { oldPixels = (Color32[])face.Clone(), created = Time.unscaledTime };
         }
+        Color32[] shown = World.world?.zone_calculator?.pixels;
         var old = new Color32[zone.tiles.Length];
         for (int i = 0; i < zone.tiles.Length; i++)
         {
             int id = zone.tiles[i].data.tile_id;
-            if (id < 0 || id >= _base.Length || !_hasBase[id]) return null;
-            old[i] = _base[id];
+            if (id >= 0 && id < _base.Length && _hasBase[id]) old[i] = _base[id];
+            else if (shown != null && id >= 0 && id < shown.Length) old[i] = shown[id];
+            else return null;
         }
         return new Transition { oldPixels = old, created = Time.unscaledTime };
     }
@@ -800,6 +822,29 @@ public static class SmoothBorders
     private static Color32 Slot(Color32 color) =>
         new((byte)(color.r * SlotShade), (byte)(color.g * SlotShade), (byte)(color.b * SlotShade), color.a);
 
+    // 原版画法的块刚画好：新样子取色块上的颜色
+    private static void ApplyRaw(Color32[] pixels, TileZone zone, Transition transition)
+    {
+        var fresh = new Color32[zone.tiles.Length];
+        bool same = transition.oldPixels.Length == fresh.Length;
+        for (int i = 0; i < zone.tiles.Length; i++)
+        {
+            int id = zone.tiles[i].data.tile_id;
+            fresh[i] = id >= 0 && id < pixels.Length ? pixels[id] : default;
+            if (!same) continue;
+            Color32 a = fresh[i], b = transition.oldPixels[i];
+            same = a.r == b.r && a.g == b.g && a.b == b.b && a.a == b.a;
+        }
+        if (same)
+        {
+            Transitions.Remove(zone.id);
+            return;
+        }
+        transition.newPixels = fresh;
+        transition.phase = -1;
+        WriteFlip(pixels, zone, transition, Time.unscaledTime);
+    }
+
     // 这块地刚画好新样子：记下来；新旧一样就不翻
     private static void ApplyTransition(Color32[] pixels, TileZone zone)
     {
@@ -838,6 +883,12 @@ public static class SmoothBorders
         for (int i = 0; i < zone.tiles.Length && i < source.Length; i++)
         {
             int id = zone.tiles[i].data.tile_id;
+            if (id < 0 || id >= pixels.Length) continue;
+            if (transition.raw || id >= _base.Length)
+            {
+                pixels[id] = slot ? Slot(source[i]) : source[i];
+                continue;
+            }
             _base[id] = slot ? Slot(source[i]) : source[i];
             pixels[id] = Lifted(id);
         }
@@ -845,10 +896,10 @@ public static class SmoothBorders
     }
 
     // 换图层：从镜头中心往外一圈圈翻(这次重画的地块各翻一次)
-    // 换图层：一方(国家、帝国图层上整个帝国、文化、宗教……)一起翻——原版按国家、城一块块重画，以前画好一块翻一块，
-    // 看着是一座城一座城地翻(用户 2026-10-16："翻转是以城市为单位而不是国家或者行政区本身，如果是帝国也不是帝国整体")。
-    // 现在这一方在镜头里的地块都画好了(一阵子没有新块画进来，或等够了)才一起翻，从这一方(镜头里那部分)的中间往外
-    private const float LayerGroupQuiet = 0.12f, LayerGroupWait = 0.8f, LayerRegionSeconds = 0.45f;
+    // 换图层：全图一起翻(用户 2026-10-16："我切换图层的时候不能用全图翻转吗")——原版按国家、城一块块重画，
+    // 以前画好一块翻一块，看着是一座城一座城地翻。现在镜头里的地块都画好了(一阵子没有新块画进来，或等够了)才一起翻，
+    // 从镜头中心很快地一圈圈翻开(约 LayerRegionSeconds 秒翻到镜头边上)；教化、政令这类原版画法的图层也一样
+    private const float LayerGroupQuiet = 0.12f, LayerGroupWait = 1.5f, LayerRegionSeconds = 0.25f;
     private static readonly object NoOwner = new();
 
     private sealed class LayerGroup
@@ -879,33 +930,35 @@ public static class SmoothBorders
         };
     }
 
-    // 换图层后这块地头一次重画：记下旧样子，归到新图层里它属于的那一方，等这一方画齐再一起翻；镜头外的不翻
-    private static void CaptureLayerFlip(TileZone zone)
+    // 换图层后这块地头一次重画：记下旧样子，等镜头里的都画齐再全图一起翻；镜头外的不翻
+    private static Transition CaptureLayerFlip(TileZone zone, object key = null)
     {
         LayerFlip flip = _layerFlip;
-        if (flip == null) return;
+        if (flip == null) return null;
         float now = Time.unscaledTime;
         if (now - flip.start > LayerFlipSeconds)
         {
             _layerFlip = null;
-            return;
+            return null;
         }
-        if (!flip.seen.Add(zone.id) || Transitions.ContainsKey(zone.id)) return;
+        if (!flip.seen.Add(zone.id) || Transitions.ContainsKey(zone.id)) return null;
         float cx = zone.x * ZoneSize + ZoneSize / 2f, cy = zone.y * ZoneSize + ZoneSize / 2f;
-        if (!flip.view.Contains(new Vector2(cx, cy))) return;
+        if (!flip.view.Contains(new Vector2(cx, cy))) return null;
         Transition transition = Capture(zone);
-        if (transition == null) return;
+        if (transition == null) return null;
         Transitions[zone.id] = transition;
-        object key = (object)Shades[12] ?? NoOwner;
+        // 全图一组(不再按国家分)
+        key = NoOwner;
         // 这一方已经起翻了：接着它的波往下排
         if (flip.planned.TryGetValue(key, out var wave))
         {
             Schedule(transition, zone, wave.x, wave.y, wave.at, wave.speed, now);
-            return;
+            return transition;
         }
         if (!flip.groups.TryGetValue(key, out LayerGroup group)) flip.groups[key] = group = new LayerGroup { first = now };
         group.last = now;
         group.zones.Add(zone.id);
+        return transition;
     }
 
     private static void Schedule(Transition transition, TileZone zone, float cx, float cy, float at, float speed, float now)
@@ -941,7 +994,8 @@ public static class SmoothBorders
                 sumY += zone.y * ZoneSize + ZoneSize / 2f;
             }
             if (members.Count == 0) continue;
-            float cx = sumX / members.Count, cy = sumY / members.Count, radius = 0f;
+            // 全图一起翻：从镜头中心起
+            float cx = flip.view.center.x, cy = flip.view.center.y, radius = 0f;
             foreach ((TileZone zone, _) in members)
             {
                 float dx = zone.x * ZoneSize + ZoneSize / 2f - cx, dy = zone.y * ZoneSize + ZoneSize / 2f - cy;

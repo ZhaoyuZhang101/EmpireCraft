@@ -339,9 +339,10 @@ public partial class PureMapPatch : GamePatch
 
     private static void AfterApplyColorsFull(ZoneCalculator __instance, TileZone pZone)
     {
-        SmoothBorders.Finish(__instance.pixels, pZone);
+        // 先调地形色再交给平滑国界：换图层翻牌记下的新样子要是画好的样子
         if (PureMapMode.Enabled && pZone?.tiles != null && __instance.pixels != null)
             ShadeTerrain(__instance.pixels, pZone, false, false, false, false);
+        SmoothBorders.Finish(__instance.pixels, pZone);
     }
 
     // ───────── 城市与道路不按远近隐藏，跟着地形浮雕开关走 ─────────
@@ -1253,11 +1254,17 @@ public partial class PureMapPatch : GamePatch
         Opaque(ref pColorOutside);
     }
 
-    private static bool SmoothPaint(ZoneCalculator __instance, TileZone pZone, ref Color32 pColorInside, ref Color32 pColorOutside) =>
-        !SmoothBorders.Paint(__instance, pZone, pColorInside, pColorOutside);
+    private static bool SmoothPaint(ZoneCalculator __instance, TileZone pZone, ref Color32 pColorInside, ref Color32 pColorOutside)
+    {
+        if (SmoothBorders.Paint(__instance, pZone, pColorInside, pColorOutside)) return false;
+        // 原版画法的图层(教化、政令这类)：换图层时也翻牌(见 SmoothBorders.CaptureRaw)
+        SmoothBorders.CaptureRaw(pZone);
+        return true;
+    }
 
     private static void BeforeApplyColorsFull(TileZone pZone, ref Color32 pColor)
     {
+        SmoothBorders.CaptureRaw(pZone);
         ColorAsset custom = CustomColor(pZone);
         if (custom != null && pColor.a > 0) pColor = Recolor(pColor, custom.getColorBorderInsideAlpha32());
         if (PureMapMode.Enabled) Opaque(ref pColor);

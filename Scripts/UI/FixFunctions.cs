@@ -118,9 +118,13 @@ public static class FixFunctions
                 obj.transform.Find(toggle)?.gameObject.SetActive(false);
         }
         else
+        {
             for(int i=0; i<maxOption; i++) {
                 obj.transform.Find($"toggle_{(i+1>=maxOption?0:i+1)}").GetComponent<ToggleIcon>()?.updateIconMultiToggle(true, option.intVal==i);
             }
+            // 两种模式的图层(教化、政令、财富)：用的是 toggle_0、toggle_1，克隆来的第三个小圆点藏起来(以前一直显示着、从不更新)
+            for (int k = maxOption; k < 3; k++) obj.transform.Find($"toggle_{k}")?.gameObject.SetActive(false);
+        }
         
         var transform = obj.transform;
         power.toggle_action = (PowerToggleAction) Delegate.Combine(power.toggle_action, new PowerToggleAction(p=>ChangeIcon(p, obj)));
