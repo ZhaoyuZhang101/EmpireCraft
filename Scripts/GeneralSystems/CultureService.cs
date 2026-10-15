@@ -838,6 +838,35 @@ public static class CultureService
         return true;
     }
 
+    // 神力易俗(见 GodPowers/CityCulturePower)：这座城当即改从某文化——城里的人物、背景人口、文化比例、地名一并改过来，
+    // 不看法理文化锁定、不走城市文化转换的谋划
+    public static bool ForceCityCulture(City city, string culture)
+    {
+        if (city?.data == null || city.isRekt() || !IsValidCulture(culture)) return false;
+        CityExtension.CityExtraData data = city.GetOrCreate();
+        string previousCulture = GetMainCulture(city);
+        Actor template = city.leader ?? city.kingdom?.king ?? city.units?.FirstOrDefault(actor =>
+            actor != null && !actor.isRekt() && actor.isAlive());
+        Culture nativeCulture = ResolveNativeCulture(culture, template, createIfMissing: true);
+        if (nativeCulture != null)
+            foreach (Actor resident in city.units?.Where(actor => actor?.data != null && !actor.isRekt() && actor.isAlive()).ToList() ??
+                                       new List<Actor>())
+                if (!string.Equals(GetActorCulture(resident), culture, StringComparison.Ordinal))
+                    resident.setCulture(nativeCulture);
+        CityPopulationSystem.ConvertBackgroundCulture(city, culture);
+        data.culture_shares ??= new Dictionary<string, float>();
+        data.culture_shares.Clear();
+        data.culture_shares[culture] = 100f;
+        data.main_culture = culture;
+        data.culture_shift_candidate = "";
+        data.culture_shift_candidate_since = -1d;
+        data.occupation_pressure_culture = "";
+        data.last_culture_share_sync_timestamp = World.world?.getCurWorldTime() ?? -1d;
+        if (!string.Equals(previousCulture, culture, StringComparison.Ordinal)) ApplyCulturalCityRename(city, previousCulture, culture);
+        EmpireCraftNamePlateLibrary.RequestRefresh();
+        return true;
+    }
+
     public static bool RestoreCityCulture(City city, Kingdom controller)
     {
         if (!FindCultureRestorationCandidate(city, controller, out string culture)) return false;

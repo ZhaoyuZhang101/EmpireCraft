@@ -75,17 +75,36 @@ public static class CultureReformSystem
     {
         Kingdom kingdom = king?.kingdom;
         if (kingdom?.king != king || !FindCandidate(kingdom, out string target, out string previous)) return false;
+        return Apply(kingdom, king, target, previous, false);
+    }
+
+    // 神力易俗(见 GodPowers/CityCulturePower)：本国最后一座城改了文化，国家连同政体、制度当即改从新俗——不看条件，
+    // 法理文化锁定、固定法理文化也照改
+    public static bool Force(Kingdom kingdom, string target)
+    {
+        if (kingdom?.data == null || kingdom.isRekt() || !CultureService.IsValidCulture(target)) return false;
+        Empire empire = kingdom.GetEmpire();
+        bool core = empire?.data != null && empire.CoreKingdom == kingdom && !empire.IsArchived() && !empire.isRekt();
+        string previous = core && CompositeEmpireService.IsComposite(empire)
+            ? CompositeEmpireService.GetRulingCulture(empire) : CultureService.GetRealmCulture(kingdom);
+        if (string.Equals(previous, target, StringComparison.Ordinal)) return false;
+        Actor king = kingdom.king != null && !kingdom.king.isRekt() && kingdom.king.isAlive() ? kingdom.king : null;
+        return Apply(kingdom, king, target, previous, true);
+    }
+
+    private static bool Apply(Kingdom kingdom, Actor king, string target, string previous, bool force)
+    {
         Empire empire = kingdom.GetEmpire();
         bool core = empire?.data != null && empire.CoreKingdom == kingdom;
         bool composite = core && CompositeEmpireService.IsComposite(empire);
         RegimeType? before = kingdom.GetRegime()?.type;
 
         // 王族的宗族出身要在改俗之前看(改完君主本人就是新文化了)
-        SpecificClan royal = king.GetSpecificClan();
-        bool renameRoyal = ForeignOrigin(royal, CultureService.GetActorCulture(king), target);
+        SpecificClan royal = king?.GetSpecificClan();
+        bool renameRoyal = king != null && ForeignOrigin(royal, CultureService.GetActorCulture(king), target);
 
         KingdomTitle title = kingdom.GetMainTitle();
-        if (title?.data != null && !title.data.culture_locked && !CultureService.IsFixedDeJureCultureEnabled())
+        if (title?.data != null && (force || !title.data.culture_locked && !CultureService.IsFixedDeJureCultureEnabled()))
             CultureService.ConvertTitleCulture(title, target);
         if (composite) CompositeEmpireService.CompleteByReform(empire);
         // 帝国不再按开国族群的文化算征服王朝(否则"采用中原制度"会把统治文化改回去)
@@ -101,7 +120,7 @@ public static class CultureReformSystem
         string royalSurname = null;
         if (royal != null && renameRoyal) royalSurname = RenameLineage(royal, target, native, taken, king.getID());
         else if (royal != null) Convert(royal, target, native, null);
-        else Convert(king, target, native, null);
+        else if (king != null) Convert(king, target, native, null);
         ConvertOfficials(kingdom, previous, target, native, taken, royal);
 
         foreach (City city in kingdom.cities ?? new List<City>())
