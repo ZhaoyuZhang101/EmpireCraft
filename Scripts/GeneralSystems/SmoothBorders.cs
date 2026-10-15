@@ -505,11 +505,11 @@ public static class SmoothBorders
     //   · 临时换色(帝国图层悬停某省显示本省颜色、移开换回)：要跟手——从鼠标处很快地翻过去(每秒 RippleSpeed 格，
     //     每张牌 HoverFlipSeconds 秒)，这个省连同四周的地块上色时优先；没翻完就移开，从眼下看到的那一面翻回去；
     //   · 换图层(国家、文化、宗教……或图层选项)：旧图留着，各地块照常分帧重画(镜头里的先画，见 ZonePaintBudget)，
-    //     画好一块翻一块，从镜头中心往外一圈圈翻，约 LayerWaveSeconds 秒翻到镜头边上；镜头外的直接换。
+    //     一方(国家，帝国图层上是整个帝国)在镜头里的地块都画好了才一起翻，从这一方的中间往外；镜头外的直接换。
     // 一次换主的地块要分好几帧才画完(上色分帧，见 ZonePaintBudget)：等这批画完(至多 MaxPlanWait 秒)再统一排一道，
     // 之后才画到的块接着这道往下排。逐格推进吃下的地(FrontSystem.Smooth)本身就是渐变，直接显示。新旧一样的块不翻。
     private const float SweepStep = 0.18f, MaxSweepSeconds = 4f, RippleSpeed = 600f, RippleGroupSeconds = 0.15f, HoverFlipSeconds = 0.18f,
-        StaleSeconds = 6f, MaxPlanWait = 0.4f, FlipSeconds = 0.32f, LayerWaveSeconds = 0.9f, LayerFlipSeconds = 6f,
+        StaleSeconds = 6f, MaxPlanWait = 0.4f, FlipSeconds = 0.32f, LayerFlipSeconds = 6f,
         SlotShade = 0.55f;
 
     private sealed class ShownState
@@ -821,11 +821,26 @@ public static class SmoothBorders
     }
 
     // 换图层：从镜头中心往外一圈圈翻(这次重画的地块各翻一次)
+    // 换图层：一方(国家、帝国图层上整个帝国、文化、宗教……)一起翻——原版按国家、城一块块重画，以前画好一块翻一块，
+    // 看着是一座城一座城地翻(用户 2026-10-16："翻转是以城市为单位而不是国家或者行政区本身，如果是帝国也不是帝国整体")。
+    // 现在这一方在镜头里的地块都画好了(一阵子没有新块画进来，或等够了)才一起翻，从这一方(镜头里那部分)的中间往外
+    private const float LayerGroupQuiet = 0.12f, LayerGroupWait = 0.8f, LayerRegionSeconds = 0.45f;
+    private static readonly object NoOwner = new();
+
+    private sealed class LayerGroup
+    {
+        public float first, last;
+        public readonly List<int> zones = new();
+    }
+
     private sealed class LayerFlip
     {
-        public float start, speed, originX, originY;
+        public float start;
         public Rect view;
         public readonly HashSet<int> seen = new();
+        // 正在等画齐的各方；已经起翻的各方(晚画到的块接着这一方的波往下排)：中心、起翻时刻、每秒几格
+        public readonly Dictionary<object, LayerGroup> groups = new();
+        public readonly Dictionary<object, (float x, float y, float at, float speed)> planned = new();
     }
 
     private static LayerFlip _layerFlip;
@@ -833,15 +848,14 @@ public static class SmoothBorders
     private static void StartLayerFlip()
     {
         Rect view = ZoneFlipOverlay.CameraView();
-        float half = Mathf.Sqrt(view.width * view.width + view.height * view.height) / 2f;
         _layerFlip = new LayerFlip
         {
-            start = Time.unscaledTime, speed = Mathf.Max(40f, half / LayerWaveSeconds), originX = view.center.x, originY = view.center.y,
+            start = Time.unscaledTime,
             view = Rect.MinMaxRect(view.xMin - ZoneSize, view.yMin - ZoneSize, view.xMax + ZoneSize, view.yMax + ZoneSize)
         };
     }
 
-    // 换图层后这块地头一次重画：记下旧样子，排好何时翻(画晚了的当场翻)；镜头外的不翻
+    // 换图层后这块地头一次重画：记下旧样子，归到新图层里它属于的那一方，等这一方画齐再一起翻；镜头外的不翻
     private static void CaptureLayerFlip(TileZone zone)
     {
         LayerFlip flip = _layerFlip;
@@ -857,11 +871,62 @@ public static class SmoothBorders
         if (!flip.view.Contains(new Vector2(cx, cy))) return;
         Transition transition = Capture(zone);
         if (transition == null) return;
-        float dx = cx - flip.originX, dy = cy - flip.originY;
-        transition.planned = true;
-        transition.flipAt = Mathf.Max(now, flip.start + Mathf.Sqrt(dx * dx + dy * dy) / flip.speed + (FrontNoise(zone.x * 7, zone.y * 7) - 0.5f) * 0.08f);
-        Orient(transition, dx, dy, zone);
         Transitions[zone.id] = transition;
+        object key = (object)Shades[12] ?? NoOwner;
+        // 这一方已经起翻了：接着它的波往下排
+        if (flip.planned.TryGetValue(key, out var wave))
+        {
+            Schedule(transition, zone, wave.x, wave.y, wave.at, wave.speed, now);
+            return;
+        }
+        if (!flip.groups.TryGetValue(key, out LayerGroup group)) flip.groups[key] = group = new LayerGroup { first = now };
+        group.last = now;
+        group.zones.Add(zone.id);
+    }
+
+    private static void Schedule(Transition transition, TileZone zone, float cx, float cy, float at, float speed, float now)
+    {
+        float dx = zone.x * ZoneSize + ZoneSize / 2f - cx, dy = zone.y * ZoneSize + ZoneSize / 2f - cy;
+        transition.planned = true;
+        transition.flipAt = Mathf.Max(now, at + Mathf.Sqrt(dx * dx + dy * dy) / speed + (FrontNoise(zone.x * 7, zone.y * 7) - 0.5f) * 0.06f);
+        Orient(transition, dx, dy, zone);
+    }
+
+    // 画齐了的各方起翻：从这一方(镜头里那部分)的中间往外，一方约 LayerRegionSeconds 秒翻到边上
+    private static void PlanLayerFlips(float now)
+    {
+        LayerFlip flip = _layerFlip;
+        if (flip == null || flip.groups.Count == 0) return;
+        ZoneCalculator calc = World.world.zone_calculator;
+        List<object> ready = null;
+        foreach (KeyValuePair<object, LayerGroup> pair in flip.groups)
+            if (now - pair.Value.last >= LayerGroupQuiet || now - pair.Value.first >= LayerGroupWait) (ready ??= new List<object>()).Add(pair.Key);
+        if (ready == null) return;
+        foreach (object key in ready)
+        {
+            LayerGroup group = flip.groups[key];
+            flip.groups.Remove(key);
+            var members = new List<(TileZone zone, Transition transition)>();
+            float sumX = 0f, sumY = 0f;
+            foreach (int id in group.zones)
+            {
+                TileZone zone = calc.getZoneByID(id);
+                if (zone == null || !Transitions.TryGetValue(id, out Transition transition) || transition.planned) continue;
+                members.Add((zone, transition));
+                sumX += zone.x * ZoneSize + ZoneSize / 2f;
+                sumY += zone.y * ZoneSize + ZoneSize / 2f;
+            }
+            if (members.Count == 0) continue;
+            float cx = sumX / members.Count, cy = sumY / members.Count, radius = 0f;
+            foreach ((TileZone zone, _) in members)
+            {
+                float dx = zone.x * ZoneSize + ZoneSize / 2f - cx, dy = zone.y * ZoneSize + ZoneSize / 2f - cy;
+                radius = Mathf.Max(radius, Mathf.Sqrt(dx * dx + dy * dy));
+            }
+            float speed = Mathf.Max(40f, radius / LayerRegionSeconds);
+            flip.planned[key] = (cx, cy, now, speed);
+            foreach ((TileZone zone, Transition transition) in members) Schedule(transition, zone, cx, cy, now, speed, now);
+        }
     }
 
     // 每帧：给新换主的块排好何时翻；正在翻的块画成牌、底下压暗，翻完的收掉
@@ -876,6 +941,7 @@ public static class SmoothBorders
         // 这次换色的地块都画好新样子(或等满 MaxPlanWait)再统一排：没画好的地块上色时优先(见 Awaiting)，
         // 排好前仍显示旧样子，整片一起翻过去，不剩几块等一下才变
         if (PendingSweep.Count > 0 && (!PendingUnpainted() || now - _pendingSince >= MaxPlanWait)) PlanSweeps();
+        PlanLayerFlips(now);
         if (Plans.Count > 0)
             foreach ((IMetaObject, int) key in Plans.Where(pair => now > pair.Value.end).Select(pair => pair.Key).ToList())
                 Plans.Remove(key);
@@ -901,6 +967,12 @@ public static class SmoothBorders
                 zone?.resetRenderHelpers();
                 (done ??= new List<int>()).Add(pair.Key);
                 continue;
+            }
+            // 画好了新样子却一直没排上翻(那一方没等到起翻就换了图层之类)：当场翻，不留旧样子
+            if (!transition.planned && transition.newPixels != null && now - transition.created > StaleSeconds)
+            {
+                transition.planned = true;
+                transition.flipAt = now;
             }
             if (WriteFlip(pixels, zone, transition, now)) wrote = true;
             if (transition.phase == 3)
