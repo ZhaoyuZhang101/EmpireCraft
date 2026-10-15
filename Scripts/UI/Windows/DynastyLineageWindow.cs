@@ -29,7 +29,7 @@ public class DynastyLineageWindow : AbstractWideWindow<DynastyLineageWindow>
 {
     private const float PanelWidth = 460f, GraphHeight = 318f;
     // 方框至少 36 高，边框九宫格才不压扁(见 UIHelper.SlicedFrame)
-    private const float NodeWidth = 64f, NodeHeight = 36f, ColGap = 8f, RowGap = 18f;
+    private const float NodeWidth = 64f, NodeHeight = 42f, ColGap = 8f, RowGap = 18f;
     private const int AncestorsAboveFounder = 3;
     private static readonly Vector2 NodeHalf = new(NodeWidth / 2f, NodeHeight / 2f);
     private static readonly Color EdgeColor = new(0.78f, 0.74f, 0.62f, 1f);
@@ -399,13 +399,17 @@ public class DynastyLineageWindow : AbstractWideWindow<DynastyLineageWindow>
         frame.sprite = UIHelper.SlicedFrame(ruler ? "FactionFrame_dominate" : "FactionFrame");
         frame.type = Image.Type.Sliced;
         frame.raycastTarget = true;
-        Label(rect, Title(node).ColorString(ruler ? "#F3C34A" : "#A8B8BE"), ruler ? 9f : 6f, 6, FontStyle.Bold);
-        Label(rect, (node.identity?.name ?? node.history?.emperor ?? "?").ColorString("#F2EEE2"), ruler ? -1f : -5f, 6, FontStyle.Normal);
+        // 有庙号的君主：庙号下面再写一行谥号(以前只写庙号，谥号看不到)
+        string posthumous = ruler ? Posthumous(node.history) : null;
+        bool four = !string.IsNullOrEmpty(posthumous);
+        Label(rect, Title(node).ColorString(ruler ? "#F3C34A" : "#A8B8BE"), four ? 13f : ruler ? 10f : 7f, 6, FontStyle.Bold);
+        if (four) Label(rect, posthumous.ColorString("#D9B86A"), 4.5f, 5, FontStyle.Normal);
+        Label(rect, (node.identity?.name ?? node.history?.emperor ?? "?").ColorString("#F2EEE2"), four ? -4f : ruler ? 0f : -5f, 6, FontStyle.Normal);
         // 左上角：本朝第几位君主(按在位先后)，图上分支多时看得出继位顺序
         if (ruler && node.reign != int.MaxValue) Order(rect, node.reign + 1);
         if (ruler && !string.IsNullOrEmpty(node.relation))
             Label(rect, node.relation.ColorString(string.IsNullOrEmpty(node.history?.succession_note) ? "#9FB4BE" : "#E0705A"),
-                -10f, 5, FontStyle.Normal);
+                four ? -13f : -11f, 5, FontStyle.Normal);
         if (node.identity == null) return;
         PersonalClanIdentity identity = node.identity;
         Button button = nodeObject.AddComponent<Button>();
@@ -470,7 +474,15 @@ public class DynastyLineageWindow : AbstractWideWindow<DynastyLineageWindow>
         return year * 10000 + int.Parse(match.Groups[2].Value) * 100 + int.Parse(match.Groups[3].Value);
     }
 
-    // 方框上行：君主写庙号(没有庙号写谥号，在位的写今上)，祖先写封号、官职
+    // 有庙号又有谥号的君主：谥号(太长的只写单字谥 + 帝)
+    private string Posthumous(EmpireCraftHistory history)
+    {
+        if (history == null || string.IsNullOrEmpty(history.miaohao_name) || string.IsNullOrEmpty(history.shihao_name)) return null;
+        string full = PosthumousNameGenerator.ShiTitle(history, _empire);
+        return full.Length <= 8 ? full : history.empire_name + LM.Get(history.shihao_name) + LM.Get("emperor_suffix");
+    }
+
+    // 方框上行：君主写庙号(没有庙号写谥号，在位的写今上)，祖先写谥号、王号、封号、官职
     private string Title(Node node)
     {
         EmpireCraftHistory history = node.history;
@@ -483,6 +495,8 @@ public class DynastyLineageWindow : AbstractWideWindow<DynastyLineageWindow>
             return string.Format(LM.Get("lineage_reign_n"), node.reign + 1);
         }
         PersonalClanIdentity identity = node.identity;
+        if (!string.IsNullOrWhiteSpace(identity?.posthumous_name)) return identity.posthumous_name;
+        if (!string.IsNullOrWhiteSpace(identity?.prince_title)) return identity.prince_title;
         return identity?.ownedTitleNames?.FirstOrDefault(name => !string.IsNullOrWhiteSpace(name)) ??
                (!string.IsNullOrWhiteSpace(identity?.officeName) ? identity.officeName : "");
     }
