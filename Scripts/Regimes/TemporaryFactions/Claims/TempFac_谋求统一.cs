@@ -31,7 +31,8 @@ public class TempFac_谋求统一 : TemporaryFaction
             if (war != null)
             {
                 if (ZhouEraSystem.Applies(empire)) ZhouEraSystem.MarkSubdueWar(war, empire, kingdom);
-                else war.SetEmpireWarType(EmpireWarType.统一);
+                // 天下大势里的统一者打天下里的别家才叫统一战争(见 UnificationSystem)；其余是寻常扩张
+                else war.SetEmpireWarType(UnificationSystem.Contends(empire.CoreKingdom, kingdom) ? EmpireWarType.统一 : EmpireWarType.帝国扩张);
             }
         }
         CountDown = 5;
@@ -55,6 +56,8 @@ public class TempFac_谋求统一 : TemporaryFaction
         EmpireCore selfCore = EmpireCoreManager.Get(empire);
         foreach (var kingdom in World.world.kingdoms)
         {
+            // 统一只统一同一文化圈的(用户 2026-10-15："有的甚至还跨文化跨地域打")
+            if (!UnificationSystem.SameSphere(empire.CoreKingdom, kingdom)) continue;
             if (empire.given_Kingdoms.Contains(kingdom)) continue;
             if (empire.taken_Kingdoms.Contains(kingdom)) continue;
             if (kingdom.IsLocalRebelling()) continue;

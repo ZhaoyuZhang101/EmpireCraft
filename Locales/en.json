@@ -815,7 +815,7 @@
   "navy_tip_odds": "Odds of the first side",
   "navy_tip_battle_hint": "Resolved monthly: the winner takes control of this sea; the loser's transports suffer most",
   "navy_card_title": "Navy",
-  "navy_card_header": "{0} fleets · {1} warships · {2} transports · {3} seas held",
+  "navy_card_header": "{0} fleets · {1} warships · {2} transports · {3} seas held · reach {4} tiles",
   "navy_col_fleet": "Fleet",
   "navy_col_tier": "Class",
   "navy_col_ships": "War + transport",

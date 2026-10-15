@@ -99,6 +99,8 @@ public static partial class PapacySystem
 
     private static void Declare(Religion religion, Kingdom caller, Kingdom target, int kind)
     {
+        // 远距离不开战：发起国(帝国按全体成员)与目标接壤或隔海相望才发(见 StraitReach.Within)
+        if (!StraitReach.Within(caller, target)) return;
         War war = World.world.diplomacy.startWar(caller, target, WarTypeLibrary.normal);
         if (war == null) return;
         var data = religion.GetOrCreate();

@@ -22,6 +22,9 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //      守军还在时城中最后一块地不会丢；组织度归零的军溃退。占领区的年度扩散、正统扩张在军团模式下都不生效
 //      (见 CityExtension.TryYearlyOccupationSpread、TrySpreadOccupiedZonesByMandate)。
 //      地形(见 TerrainSystem)看攻方要推进的那块地：攻方战力打折、双方额外掉组织度、限制每月推进的块数。
+// 远距离不交战(用户 2026-10-15："能不能阻止远距离交战，但是很近的海岛却可以")：只打本方(连同所在帝国)够得着的敌城——
+//   与本方的城接壤、同一块陆地上离本方某座城不过 LandReachTiles 格，或隔海不远(离本方水师港口不过 StraitReach 的距离)；
+//   远方的盟友不再千里驰援，远洋登陆打不了，够不着的仗只是名义上开着。
 // 军团须开到战线附近(两块地块以内)才参战。
 // 叛乱初起时被叛方有集结期(见 MusterSystem)：不反攻、只有附近的军能守城、守方战力打折。
 public static partial class FrontSystem
@@ -32,6 +35,7 @@ public static partial class FrontSystem
     private const float RetreatOrg = 10f;
     private const float ReadyOrg = 25f;
     private const int MaxOffensives = 3;
+    private const float LandReachTiles = 80f;
 
     public sealed class BattleView
     {
@@ -163,13 +167,45 @@ public static partial class FrontSystem
         return sectors;
     }
 
+    // 本方(连同所在帝国各成员国)的城
+    private static HashSet<City> HomeCities(Kingdom side)
+    {
+        var home = new HashSet<City>();
+        IEnumerable<Kingdom> members = side.GetEmpire() is Layer.Empire empire && !empire.isRekt() && !empire.IsArchived()
+            ? empire.kingdoms_list.Append(side) : new[] { side };
+        foreach (Kingdom member in members)
+        {
+            if (member?.cities == null || member.isRekt()) continue;
+            foreach (City city in member.cities)
+                if (city?.data != null && !city.isRekt()) home.Add(city);
+        }
+        return home;
+    }
+
+    // 够得着这座城：本方的城、与本方的城接壤、同一块陆地上离本方某座城不远，或隔海不远
+    private static bool InReach(Kingdom side, City city, HashSet<City> home)
+    {
+        if (home.Contains(city)) return true;
+        if (city.neighbours_cities != null && city.neighbours_cities.Any(home.Contains)) return true;
+        WorldTile tile = city.getTile();
+        if (tile == null) return false;
+        float limit = LandReachTiles * LandReachTiles;
+        foreach (City own in home)
+        {
+            WorldTile at = own.getTile();
+            if (at != null && at.isSameIsland(tile) && Toolbox.SquaredDistTile(at, tile) <= limit) return true;
+        }
+        return StraitReach.Reaches(side, city);
+    }
+
     private static List<Sector> Sectors(Kingdom side)
     {
         NavySystem.DesiredLanding.Remove(side.id);
         var sectors = new Dictionary<City, Sector>();
+        HashSet<City> home = HomeCities(side);
         void Collect(City city)
         {
-            if (city?.data == null || city.isRekt() || sectors.ContainsKey(city)) return;
+            if (city?.data == null || city.isRekt() || sectors.ContainsKey(city) || !InReach(side, city, home)) return;
             List<TileZone> targets = TargetZones(side, city);
             if (targets.Count == 0) return;
             var sector = new Sector { City = city };
@@ -185,11 +221,12 @@ public static partial class FrontSystem
             foreach (City city in friend.cities ?? new List<City>())
                 if (city?.GetOrCreate().OccupiedStatus?.Count > 0) Collect(city);
         if (sectors.Count > 0 || hostiles.Count == 0) return sectors.Values.ToList();
-        // 与敌国不接壤：从离本国首都最近的敌城登陆
+        // 与敌国不接壤：从离本国首都最近的敌城登陆(只挑够得着的)
         WorldTile origin = side.capital?.getTile();
         City nearest = origin == null ? null : hostiles.SelectMany(hostile => hostile.cities ?? new List<City>())
-            .Where(city => city?.data != null && !city.isRekt() && city.getTile() != null)
+            .Where(city => city?.data != null && !city.isRekt() && city.getTile() != null && InReach(side, city, home))
             .OrderBy(city => Toolbox.SquaredDistTile(city.getTile(), origin)).FirstOrDefault();
+        if (nearest == null) return new List<Sector>();
         List<TileZone> landing = LandingZones(nearest);
         if (landing.Count == 0) return new List<Sector>();
         // 跨海：记下想登陆的城(舰队据此护航)；没有航线(没有港口、或被敌方制海截断)就登不了陆

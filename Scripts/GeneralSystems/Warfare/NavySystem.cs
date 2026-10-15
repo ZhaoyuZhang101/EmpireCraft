@@ -161,6 +161,53 @@ public static class NavySystem
         return controller != null && FrontSystem.Hostile(side, controller);
     }
 
+    // 水师辐射半径(格，用户 2026-10-15："能攻打隔海相望的目标需要海军的力量能辐射到""按照海军的战斗力和辐射能力来"
+    // "距离港口多少距离为半径""通过海军军事科技的升级提高这个半径")：以本国(连同所在帝国各成员国)的港口为圆心——
+    //   最远多少由科技定：有水师(铁器时代)起 ReachBase 格，航海、船体、动力、远程投送的科技每研究一项加一截(见 ReachTechs)；
+    //   战舰的战力(战舰 × 舰种 × 组织度，各舰队合计)定能到最远的几成：满 FullReachWarships 艘满组织度的到最远，越少越近，最少一半；
+    //   一艘战舰也没有就过不了海。
+    private const float ReachBase = 48f;
+    private const float FullReachWarships = 12f;
+    private static readonly (string tech, float tiles)[] ReachTechs =
+    {
+        ("ocean_navigation", 64f),   // 远洋航海：远洋帆舰
+        ("steelmaking", 16f),        // 炼钢：大船
+        ("industrialization", 128f), // 工业化：蒸汽铁甲
+        ("electricity", 64f),        // 电力：无线电
+        ("petrochemistry", 64f),     // 石油化工：燃油舰
+        ("motorization", 64f),       // 机动化：内燃机
+        ("aviation", 96f),           // 航空：舰载机
+        ("computing", 64f)           // 计算机：雷达、导航
+    };
+
+    // 本国科技给的最远辐射(格)；没到有水师的时代为 0
+    public static float FarthestReach(Kingdom kingdom)
+    {
+        if (!NavyEra(kingdom)) return 0f;
+        string culture = kingdom?.capital == null ? null : TechnologySystem.GetCultureOf(kingdom.capital);
+        float reach = ReachBase;
+        if (culture == null) return reach;
+        foreach ((string tech, float tiles) in ReachTechs)
+            if (TechnologySystem.HasTech(culture, tech)) reach += tiles;
+        return reach;
+    }
+
+    public static float ReachRadius(IEnumerable<Kingdom> members)
+    {
+        float farthest = 0f, tier = 0f, power = 0f;
+        foreach (Kingdom member in members)
+        {
+            if (member?.data == null || member.isRekt() || !NavyEra(member)) continue;
+            float own = Tier(member);
+            tier = Mathf.Max(tier, own);
+            farthest = Mathf.Max(farthest, FarthestReach(member));
+            foreach (FleetData fleet in Of(member))
+                power += fleet.warships * own * (0.3f + 0.7f * Mathf.Clamp01(fleet.org / 100f));
+        }
+        if (power <= 0f || tier <= 0f) return 0f;
+        return farthest * (0.5f + 0.5f * Mathf.Clamp01(power / (FullReachWarships * tier)));
+    }
+
     // 远洋航程(登陆航线最多经过几个海区)：楼船只能近海，远洋帆舰起才能远航，现代舰艇不限
     public static int MaxRange(Kingdom kingdom) => Tier(kingdom) switch
     {

@@ -22,6 +22,8 @@ public static class SeaRegionSystem
         public readonly List<TileZone> Zones = new();
         public readonly HashSet<int> Neighbours = new();
         public TileZone Center;
+        // 所在水域(连通的海区同一个编号)：隔着大陆的两片海到不了
+        public int Basin = -1;
         // 制海权：最近一次海战胜出(或独自在场)的一方，及其时间
         public long ControllerId = -1L;
         public double ControlledAt = -1d;
@@ -122,6 +124,22 @@ public static class SeaRegionSystem
                 foreach (TileZone next in zone.neighbours ?? Array.Empty<TileZone>())
                     if (next != null && RegionByZone.TryGetValue(next.id, out int other) && other != region.Id)
                         region.Neighbours.Add(other);
+        int basins = 0;
+        foreach (Region seed in Regions)
+        {
+            if (seed.Basin >= 0) continue;
+            seed.Basin = basins;
+            var open = new Stack<Region>();
+            open.Push(seed);
+            while (open.Count > 0)
+                foreach (int next in open.Pop().Neighbours)
+                    if (Regions[next].Basin < 0)
+                    {
+                        Regions[next].Basin = basins;
+                        open.Push(Regions[next]);
+                    }
+            basins++;
+        }
         foreach (Region region in Regions)
             if (region.Center != null && oldControl.TryGetValue(region.Center.id, out var control))
                 (region.ControllerId, region.ControlledAt) = control;

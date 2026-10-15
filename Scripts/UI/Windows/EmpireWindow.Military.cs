@@ -163,7 +163,8 @@ namespace EmpireCraft.Scripts.UI.Windows
                                                                  realms.Contains(owner));
             var card = parent.BeginCard(width, "navy_card_title", "#7FD8EA",
                 string.Format(LM.Get("navy_card_header"), fleets.Count, fleets.Sum(entry => entry.fleet.warships),
-                    fleets.Sum(entry => entry.fleet.transports), controlled), "ui/icons/iconBoat");
+                    fleets.Sum(entry => entry.fleet.transports), controlled,
+                    realms.Count > 0 ? Mathf.RoundToInt(StraitReach.Radius(realms[0])) : 0), "ui/icons/iconBoat");
             float inner = width - 12f;
             float W(int i) => inner * NavyColumns[i] - 2f;
             var header = card.BeginHoriGroup(new Vector2(inner, 10f), TextAnchor.MiddleLeft, 2, new RectOffset(0, 0, 0, 0));

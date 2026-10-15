@@ -818,7 +818,7 @@
   "navy_tip_odds": "先列一方胜算",
   "navy_tip_battle_hint": "每月结算一次：胜方取得该海区的制海权，败方的运输船损失最重",
   "navy_card_title": "海军",
-  "navy_card_header": "{0} 支舰队 · 战舰 {1} · 运输 {2} · 制海 {3} 区",
+  "navy_card_header": "{0} 支舰队 · 战舰 {1} · 运输 {2} · 制海 {3} 区 · 辐射 {4} 格",
   "navy_col_fleet": "舰队",
   "navy_col_tier": "舰种",
   "navy_col_ships": "战舰+运输",
