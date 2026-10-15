@@ -821,6 +821,12 @@ public class Empire : MetaObject<EmpireData>
             if (actor.clan != previousEmpireClan) actor.setClan(previousEmpireClan);
             previousEmpireClan.SetSpecificClan(previousRoyalClan);
         }
+        // 归回皇族也随皇族的姓(以前只改了宗族，名字还是母亲的姓)
+        string royalSurname = previousRoyalClan.AllAliveMembers.Where(member => member != actor)
+            .Select(member => member.GetPersonalIdentity()?.surname).FirstOrDefault(name => !string.IsNullOrWhiteSpace(name));
+        royalSurname ??= SpecificClanManager.getPerson(identity?.father ?? -1L)?.surname;
+        if (string.IsNullOrWhiteSpace(royalSurname)) royalSurname = previousRoyalClan.name;
+        if (previousRoyalClan.Patrilineal()) SurnameInheritanceSystem.ApplySurname(identity, royalSurname);
         return previousRoyalClan;
     }
     public bool IsNeedToChooseLovers()

@@ -387,6 +387,102 @@ public static class SpecificClanManager
     public static Dictionary<long, PersonalClanIdentity> _globalPersonLookup = new Dictionary<long, PersonalClanIdentity>();
     public static Dictionary<long, PersonalClanIdentity> _actorToPersonLookup = new Dictionary<long, PersonalClanIdentity>();
 
+    // ---- 原版记下的父母 ----
+    // 原版单位身上记着父母的单位 id(parent_id_1/2)，父母死了、转成虚拟族人(实体已移除)也还在。
+    // 以前入谱只认 getParents() 找得到的在世实体父母：无小人模式下父母常已转为虚拟族人或过世，
+    // 孩子就记不上父亲，从此和祖上断开(皇子、藩王的后代也一样)。这里按记下的 id 去族谱里找(含已故的人)
+    private static global::System.Reflection.FieldInfo _parentId1, _parentId2;
+    private static bool _parentFieldsResolved;
+    private static readonly Dictionary<long, PersonalClanIdentity> _anyActorLookup = new();
+    private static int _anyActorLookupCount = -1;
+
+    public static PersonalClanIdentity PersonByActorId(long actorId)
+    {
+        if (actorId <= 0) return null;
+        if (_actorToPersonLookup.TryGetValue(actorId, out PersonalClanIdentity person) && person != null) return person;
+        if (_anyActorLookupCount != _globalPersonLookup.Count)
+        {
+            _anyActorLookup.Clear();
+            foreach (PersonalClanIdentity identity in _globalPersonLookup.Values)
+                if (identity != null && identity.actor_id > 0 && !_anyActorLookup.ContainsKey(identity.actor_id))
+                    _anyActorLookup[identity.actor_id] = identity;
+            _anyActorLookupCount = _globalPersonLookup.Count;
+        }
+        return _anyActorLookup.TryGetValue(actorId, out person) ? person : null;
+    }
+
+    // 这个单位的父母在族谱里的身份(在世实体父母优先，其次按原版记下的父母 id 找，含已故、虚拟的)
+    public static List<PersonalClanIdentity> RecordedParents(Actor actor)
+    {
+        var result = new List<PersonalClanIdentity>();
+        if (actor?.data == null) return result;
+        try
+        {
+            foreach (Actor parent in actor.getParents())
+            {
+                PersonalClanIdentity identity = parent?.GetPersonalIdentity();
+                if (identity != null && !result.Contains(identity)) result.Add(identity);
+            }
+        }
+        catch
+        {
+            // 原版找父母失败就只看记下的 id
+        }
+        if (!_parentFieldsResolved)
+        {
+            _parentFieldsResolved = true;
+            _parentId1 = HarmonyLib.AccessTools.Field(actor.data.GetType(), "parent_id_1");
+            _parentId2 = HarmonyLib.AccessTools.Field(actor.data.GetType(), "parent_id_2");
+            LogService.LogInfo($"[EmpireCraft][族谱] 原版父母记录={(_parentId1 != null ? "可用" : "不可用")}");
+        }
+        foreach (var field in new[] { _parentId1, _parentId2 })
+        {
+            if (field == null) continue;
+            long id;
+            try
+            {
+                id = Convert.ToInt64(field.GetValue(actor.data));
+            }
+            catch
+            {
+                continue;
+            }
+            PersonalClanIdentity identity = PersonByActorId(id);
+            if (identity != null && identity.actor_id != actor.getID() && !result.Contains(identity)) result.Add(identity);
+        }
+        return result;
+    }
+
+    // 把人挪到另一个宗族(族谱身份不变)，有实体的原版氏族也跟过去(找这一族里有实体的人的氏族)
+    public static void MoveToClan(PersonalClanIdentity person, SpecificClan target)
+    {
+        if (person == null || target == null || person.specific_clan_id == target.id) return;
+        person._specificClan?.TakePerson(person.id);
+        person.specific_clan_id = target.id;
+        target.Upsert(person);
+        Actor actor = person.is_alive && !person.is_virtual ? person._actor : null;
+        if (actor?.data == null || actor.isRekt()) return;
+        actor.SetPersonalIdentity(person);
+        Clan vanilla = target.AllAliveMembers.Where(member => member != actor).Select(member => member.clan)
+            .FirstOrDefault(clan => clan != null);
+        if (vanilla != null && actor.clan != vanilla) actor.setClan(vanilla);
+    }
+
+    // 把记下的父母接回族谱(父亲、母亲各接一位；已有的不动)，返回是否接上了
+    public static bool LinkRecordedParents(Actor actor, PersonalClanIdentity child)
+    {
+        if (actor == null || child == null) return false;
+        bool linked = false;
+        foreach (PersonalClanIdentity parent in RecordedParents(actor))
+        {
+            if (parent == null || parent.id == child.id) continue;
+            if (parent.sex == ActorSex.Male ? child.father > 0 : child.mother > 0) continue;
+            child.setParent(parent, recordHistory: false);
+            linked = true;
+        }
+        return linked;
+    }
+
     public static void RebuildCache()
     {
         lock (_clansLock)
@@ -1002,23 +1098,42 @@ public static class SpecificClanManager
             return;
         }
 
+        // 先按宗法定入哪一族：在位君主、储君一方，华夏一系随父，其余婚姻为主的一方。
+        // 以前先看原版分给孩子的氏族——原版常把孩子分在母亲的氏族，皇子就随母姓、入了母亲那一族
+        List<PersonalClanIdentity> recordedParents = RecordedParents(actor);
+        PersonalClanIdentity clanParent = SurnameInheritanceSystem.ClanParent(recordedParents);
+        if (clanParent?._specificClan != null)
+        {
+            clanParent._specificClan.addActor(actor);
+            PersonalClanIdentity created = actor.GetPersonalIdentity();
+            if (created != null)
+            {
+                LinkRecordedParents(actor, created);
+                Actor parentActor = clanParent.is_alive && !clanParent.is_virtual ? clanParent._actor : null;
+                Clan vanilla = parentActor?.clan ?? clanParent._specificClan.AllAliveMembers
+                    .Where(member => member != actor).Select(member => member.clan).FirstOrDefault(clan => clan != null);
+                if (vanilla != null && actor.clan != vanilla) actor.setClan(vanilla);
+                if (clanParent._specificClan.Patrilineal() || SurnameInheritanceSystem.Reigns(parentActor))
+                    SurnameInheritanceSystem.ApplySurname(created,
+                        !string.IsNullOrWhiteSpace(clanParent.surname) ? clanParent.surname : clanParent._specificClan.name);
+                return;
+            }
+        }
+
         SpecificClan actorClan = actor.clan?.GetSpecificClan();
         if (actorClan != null)
         {
             actorClan.addActor(actor);
-            var clanParent = actor.getParents().ToList().Find(a => a.GetPersonalIdentity()?.is_main ?? false);
-            if (clanParent != null)
-            {
-                actor.GetPersonalIdentity()?.setParent(clanParent.GetPersonalIdentity(), recordHistory: false);
-            }
+            // 父母(含已故、已转为虚拟族人的)都接上，不只认在世的实体父母
+            LinkRecordedParents(actor, actor.GetPersonalIdentity());
             return;
         }
 
-        var parent = actor.getParents().ToList().Find(a => a.GetPersonalIdentity()?.is_main ?? false);
-        if (parent != null)
+        PersonalClanIdentity parentIdentity = RecordedParents(actor).Find(identity => identity.is_main);
+        if (parentIdentity?._specificClan != null)
         {
-            parent.GetSpecificClan()?.addActor(actor);
-            actor.GetPersonalIdentity()?.setParent(parent.GetPersonalIdentity(), recordHistory: false);
+            parentIdentity._specificClan.addActor(actor);
+            LinkRecordedParents(actor, actor.GetPersonalIdentity());
             if (actor.GetPersonalIdentity() != null) return;
         }
 
@@ -1027,6 +1142,18 @@ public static class SpecificClanManager
 
     // "是不是同一家"：同一个宗族，或者同出一个始祖宗族的分支(别子为祖的王子、迁居他乡的一支仍是宗室)。
     // 两边都为空时跟原来的 == 一样算相同。
+    // 同一世系的所有宗族(始祖宗族和它分出的各支，含本宗)
+    public static List<SpecificClan> LineageClans(SpecificClan clan)
+    {
+        var result = new List<SpecificClan>();
+        if (clan == null) return result;
+        SpecificClan root = clan.GetRootClan();
+        foreach (SpecificClan other in _specificClans.ToList())
+            if (other != null && (other == clan || other.GetRootClan() == root)) result.Add(other);
+        if (!result.Contains(clan)) result.Add(clan);
+        return result;
+    }
+
     public static bool SameLineage(SpecificClan a, SpecificClan b)
     {
         if (a == b) return true;

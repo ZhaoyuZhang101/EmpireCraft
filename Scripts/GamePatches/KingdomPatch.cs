@@ -159,6 +159,7 @@ public class KingdomPatch : GamePatch
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
         if (pActor == null || pActor.IsWarMachine()) return; // 被 before_new_emperor 拒绝的船只
         if (__instance.king != pActor) return; // 被宪制拒绝的即位不能继续转移宗族和法理头衔
+        if (!pFromLoad && !ModClass.IS_CLEAR && __instance.IsEmpire()) LogEmperorChange(__instance, pActor, __state);
         if (!ModClass.IS_CLEAR)
         {
             pActor.CheckSpecificClan();
@@ -227,6 +228,34 @@ public class KingdomPatch : GamePatch
                 return;
             }
             __instance.RemoveHeir();
+        }
+    }
+
+    // 诊断：帝位每次更替记一行——先帝与新帝的姓名、宗族、年龄，是谁(哪段代码)把新帝扶上去的，
+    // 用来查"皇帝一直换姓、年纪都很小"
+    private static void LogEmperorChange(Kingdom kingdom, Actor emperor, Actor previous)
+    {
+        try
+        {
+            PersonalClanIdentity before = previous?.GetPersonalIdentity() ??
+                                          SpecificClanManager.getPerson(kingdom.GetOrCreate().last_ruler_identity_id);
+            string Describe(string name, string clan, int age) => $"{name}(宗族={clan ?? "无"},{age}岁)";
+            string oldText = before == null ? "无"
+                : Describe(before.name ?? before._actor?.getName(), before._specificClan?.name, before.age);
+            emperor.CheckSpecificClan(false);
+            string newText = Describe(emperor.getName(), emperor.GetSpecificClan()?.name, emperor.getAge());
+            bool sameClan = before?._specificClan != null && before._specificClan == emperor.GetSpecificClan();
+            var frames = new global::System.Diagnostics.StackTrace(1, false).GetFrames() ?? Array.Empty<global::System.Diagnostics.StackFrame>();
+            string source = string.Join(" ← ", frames.Select(frame => frame.GetMethod())
+                .Where(method => method?.DeclaringType?.Namespace?.StartsWith("EmpireCraft") == true &&
+                                 method.Name != nameof(LogEmperorChange) && method.Name != nameof(new_emperor))
+                .Select(method => method.DeclaringType.Name + "." + method.Name).Distinct().Take(5));
+            LogService.LogInfo($"[EmpireCraft][帝位更替] {kingdom.GetKingdomName()}：{oldText} → {newText} " +
+                               $"{(sameClan ? "同宗" : "换宗族")} 来源={source}");
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft][帝位更替] 记录失败: {exception.Message}");
         }
     }
 
