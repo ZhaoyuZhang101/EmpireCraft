@@ -75,6 +75,8 @@ public class EmpireCraftKingdomBehCheckKing : GameAIKingdomBase
         if (!pKingdom.hasKing() && CityPopulationSystem.AbstractPopulationEnabled && pKingdom.capital != null)
         {
             Actor ruler = CityPopulationSystem.SpawnOfficial(pKingdom.capital, pKingdom);
+            // 华夏一系不立女主：落成的是女子就改成男子(刚从人口里落成，还没有家室)
+            if (EmpireCraftKingdomBehCheckHeir.BarredBySex(pKingdom, ruler)) ruler.data.sex = ActorSex.Male;
             if (ruler != null) office.SetActor(ruler);
         }
         return BehResult.Continue;
@@ -106,7 +108,9 @@ public class EmpireCraftKingdomBehCheckKing : GameAIKingdomBase
 
         // 继承人已是别国君主而按规矩不该入继(华夏，或是别的帝国的皇帝，见 EmpireCraftKingdomBehCheckHeir.ForeignRuler)：
         // 不即位、不并国，重新择立继承人
-        if (lastKingdom != null && EmpireCraftKingdomBehCheckHeir.ForeignRuler(pKingdom, heir))
+        // 华夏一系的继承人是女子(不该有，见 EmpireCraftKingdomBehCheckHeir.BarredBySex)：不即位，重新择立
+        if (lastKingdom != null && EmpireCraftKingdomBehCheckHeir.ForeignRuler(pKingdom, heir) ||
+            EmpireCraftKingdomBehCheckHeir.BarredBySex(pKingdom, heir))
         {
             pKingdom.RemoveHeir();
             pKingdom.StartToChooseHeir();

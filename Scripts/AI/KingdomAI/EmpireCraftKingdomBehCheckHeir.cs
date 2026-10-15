@@ -218,6 +218,25 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
         }
     }
 
+    // 华夏一系不立女主(用户 2026-10-14："不会存在女帝，尤其是华夏，至少继承法不会支持")：宗室继承本就只传男，
+    // 群臣劝进的权臣重臣、从都城人口里落成的人、已定下的继承人也照此。以前皇族无人可继时劝进的重臣是女子，
+    // 女帝与皇夫所生的子女读档时被挪进皇夫一族，帝系就改了姓(聂高日之后成了崔氏)
+    public static bool MaleOnlyThrone(Kingdom kingdom)
+    {
+        if (kingdom?.data == null) return false;
+        try
+        {
+            return InstitutionSystem.GetCultureLine(CultureService.GetRealmCulture(kingdom)) == "Huaxia";
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    public static bool BarredBySex(Kingdom kingdom, Actor actor) =>
+        actor?.data != null && actor.data.sex != ActorSex.Male && MaleOnlyThrone(kingdom);
+
     private static Actor Pick(Kingdom kingdom, IEnumerable<PersonalClanIdentity> candidates, PersonalClanIdentity parent,
         out PersonalClanIdentity selected)
     {

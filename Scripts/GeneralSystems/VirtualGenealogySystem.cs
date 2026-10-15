@@ -224,6 +224,8 @@ public static class VirtualGenealogySystem
         Actor actor = CityPopulationSystem.SpawnPerson(city, person.species, person.culture);
         if (actor?.data == null) return null;
         if (!string.IsNullOrWhiteSpace(person.given_name)) actor.SetFirstName(person.given_name);
+        // 族谱没记姓的(旧档)：按名字里的姓、宗族名补上，不留落成时随手起的姓
+        if (string.IsNullOrWhiteSpace(person.surname)) person.surname = SurnameInheritanceSystem.SurnameOf(person);
         if (!string.IsNullOrWhiteSpace(person.surname)) actor.SetFamilyName(person.surname);
         if (!string.IsNullOrWhiteSpace(person.name)) actor.data.name = person.name;
         actor.data.sex = person.sex;
@@ -628,18 +630,20 @@ public static class VirtualGenealogySystem
         PersonalClanIdentity last = SpecificClanManager.getPerson(kingdom.GetOrCreate().last_ruler_identity_id);
         SpecificClan clan = (kingdom.IsEmpire() ? kingdom.GetEmpire()?.EmpireSpecificClan : null) ?? last?._specificClan;
         PersonalClanIdentity heir = null;
+        // 华夏一系不立女主(见 EmpireCraftKingdomBehCheckHeir.BarredBySex)：宗族不是男子优先的也只挑男子，不然挑出来又被退回、一直空着
+        bool maleOnly = EmpireCraft.Scripts.AI.KingdomAI.EmpireCraftKingdomBehCheckHeir.MaleOnlyThrone(kingdom);
         if (last != null)
         {
             List<(ClanRelation rel, PersonalClanIdentity id)> relations = SpecificClanManager.FindAllRelations(last);
             foreach (ClanRelation[] group in HeirPriority)
             {
-                heir = PickHeir(relations.Where(pair => group.Contains(pair.rel)).Select(pair => pair.id), last);
+                heir = PickHeir(relations.Where(pair => group.Contains(pair.rel)).Select(pair => pair.id), last, maleOnly);
                 if (heir != null) break;
             }
-            heir ??= PickHeir(relations.Select(pair => pair.id), last);
+            heir ??= PickHeir(relations.Select(pair => pair.id), last, maleOnly);
         }
         if (heir == null && clan != null)
-            heir = PickHeir(SpecificClanManager.LineageClans(clan).SelectMany(member => member.SnapshotPeople()), null);
+            heir = PickHeir(SpecificClanManager.LineageClans(clan).SelectMany(member => member.SnapshotPeople()), null, maleOnly);
         return heir?.Realize();
     }
 
@@ -669,8 +673,9 @@ public static class VirtualGenealogySystem
         return actor;
     }
 
-    private static PersonalClanIdentity PickHeir(IEnumerable<PersonalClanIdentity> people, PersonalClanIdentity last) =>
-        people.Where(person => person != null && person.is_alive && person.is_virtual && person.CanHeir(last))
+    private static PersonalClanIdentity PickHeir(IEnumerable<PersonalClanIdentity> people, PersonalClanIdentity last, bool maleOnly) =>
+        people.Where(person => person != null && person.is_alive && person.is_virtual && person.CanHeir(last) &&
+                               (!maleOnly || person.sex == ActorSex.Male))
             .OrderByDescending(person => person.age >= HeadMinAge)
             .ThenByDescending(person => person.age)
             .FirstOrDefault();
@@ -1014,8 +1019,7 @@ public static class VirtualGenealogySystem
         string given = parts.Length > 0 ? parts[parts.Length - 1] : "";
         if (string.IsNullOrWhiteSpace(given)) given = generated ?? "";
         child.given_name = given;
-        child.surname = !string.IsNullOrWhiteSpace(parent.surname) ? parent.surname
-            : parent._actor?.GetModName()?.familyName;
+        child.surname = SurnameInheritanceSystem.SurnameOf(parent);
         if (string.IsNullOrWhiteSpace(child.surname)) child.surname = clan.name;
         return string.IsNullOrWhiteSpace(child.surname) ? given
             : OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(parent.culture ?? "", out var rule) &&

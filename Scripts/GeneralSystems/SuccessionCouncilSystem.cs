@@ -210,7 +210,8 @@ public static class SuccessionCouncilSystem
         var used = new HashSet<long>();
         void Add(Actor actor, string basis)
         {
-            if (actor?.data == null || actor.isRekt() || !actor.isAlive() || !actor.isAdult() || !used.Add(actor.id)) return;
+            if (actor?.data == null || actor.isRekt() || !actor.isAlive() || !actor.isAdult() ||
+                EmpireCraftKingdomBehCheckHeir.BarredBySex(core, actor) || !used.Add(actor.id)) return;
             result.Add(new CourtSuccessionCandidate
             {
                 actor = actor.id, name = actor.getName(), basis = basis, age = actor.getAge(), kinship = 99
@@ -409,7 +410,11 @@ public static class SuccessionCouncilSystem
             case Cadet:
                 return VirtualGenealogySystem.SpawnCadet(core, empire.EmpireSpecificClan);
             case Commoner:
-                return core.capital == null ? null : CityPopulationSystem.SpawnOfficial(core.capital, core);
+            {
+                Actor official = core.capital == null ? null : CityPopulationSystem.SpawnOfficial(core.capital, core);
+                if (EmpireCraftKingdomBehCheckHeir.BarredBySex(core, official)) official.data.sex = ActorSex.Male;
+                return official;
+            }
         }
         return CandidateActor(candidate, realize: true);
     }

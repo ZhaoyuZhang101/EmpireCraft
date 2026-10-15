@@ -108,12 +108,36 @@ public static class SurnameInheritanceSystem
             SpecificClan fatherClan = father?._specificClan;
             if (fatherClan == null || !father.is_main || !fatherClan.Patrilineal() || person.specific_clan_id == fatherClan.id) continue;
             if (SpecificClanManager.SameLineage(person._specificClan, fatherClan)) continue;
+            // 女主(女帝、女王)所生、入了她那一族(皇族)的：配偶是嫁入、入赘皇族的，不往配偶那一族挪，否则帝系改姓
+            PersonalClanIdentity mother = person.mother > 0 ? SpecificClanManager.getPerson(person.mother) : null;
+            if (mother != null && mother.is_main && mother.specific_clan_id == person.specific_clan_id && Dynastic(person._specificClan))
+                continue;
             moved?.Add(person.id, person.specific_clan_id);
             SpecificClanManager.MoveToClan(person, fatherClan);
             ApplySurname(person, !string.IsNullOrWhiteSpace(father.surname) ? father.surname : fatherClan.name);
             repaired++;
         }
         return repaired;
+    }
+
+    // 做过一朝皇族的宗族
+    private static bool Dynastic(SpecificClan clan) =>
+        clan != null && (clan.HasHistoryEmpire() || !string.IsNullOrEmpty(clan.empire_name));
+
+    // 一个人的姓：族谱记的姓；没记(旧档里很多)就取族谱名字里的姓，再没有取宗族名。
+    // 不取有实体时的原版名字——落成时随手起了一个姓，子女跟着它就改了姓(崔周彬之子成了怀山)
+    public static string SurnameOf(PersonalClanIdentity person)
+    {
+        if (person == null) return null;
+        if (!string.IsNullOrWhiteSpace(person.surname)) return person.surname;
+        string[] parts = (person.name ?? "").SplitNameParts();
+        if (parts.Length >= 2)
+        {
+            bool invert = OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(person.culture ?? "", out var rule) && rule?.Unit?.is_invert == true;
+            string part = invert ? parts[parts.Length - 1] : parts[0];
+            if (!string.IsNullOrWhiteSpace(part)) return part;
+        }
+        return person._specificClan?.name;
     }
 
     public static bool TryInheritSurname(Actor child, bool overwrite = false)
