@@ -251,13 +251,14 @@ public class KingdomPatch : GamePatch
             emperor.CheckSpecificClan(false);
             string newText = Describe(emperor.getName(), emperor.GetSpecificClan()?.name, emperor.getAge());
             bool sameClan = before?._specificClan != null && before._specificClan == emperor.GetSpecificClan();
+            bool branch = !sameClan && SpecificClanManager.SameLineage(before?._specificClan, emperor.GetSpecificClan());
             var frames = new global::System.Diagnostics.StackTrace(1, false).GetFrames() ?? Array.Empty<global::System.Diagnostics.StackFrame>();
             string source = string.Join(" ← ", frames.Select(frame => frame.GetMethod())
                 .Where(method => method?.DeclaringType?.Namespace?.StartsWith("EmpireCraft") == true &&
                                  method.Name != nameof(LogEmperorChange) && method.Name != nameof(new_emperor))
                 .Select(method => method.DeclaringType.Name + "." + method.Name).Distinct().Take(5));
             LogService.LogInfo($"[EmpireCraft][帝位更替] {kingdom.GetKingdomName()}：{oldText} → {newText} " +
-                               $"{(sameClan ? "同宗" : "换宗族")} 来源={source}");
+                               $"{(sameClan ? "同宗" : branch ? "同宗支系" : "换宗族")} 来源={source}");
         }
         catch (Exception exception)
         {

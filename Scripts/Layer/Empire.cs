@@ -778,11 +778,22 @@ public class Empire : MetaObject<EmpireData>
     {
         if (actor == null || previousRoyalClan == null) return false;
         if (actor.GetSpecificClan() == previousRoyalClan) return true;
-        if (ConstitutionalSuccessionSystem.IsProtected(this) &&
-            SpecificClanManager.SameLineage(actor.GetSpecificClan(), previousRoyalClan)) return true;
+        // 皇族分封出去的支系(某某支)仍是宗室：以前只有立宪保护时才认，先帝之孙因父亲受封分了支，
+        // 即位被当成篡位，律令制下随机改了国号，前朝宗室还另立朝廷
+        if (SpecificClanManager.SameLineage(actor.GetSpecificClan(), previousRoyalClan)) return true;
         if (previousEmpireClan != null && actor.clan == previousEmpireClan) return true;
 
         PersonalClanIdentity successorIdentity = actor.GetPersonalIdentity();
+        // 父系往上数代出自皇族的(先帝之孙、曾孙，或族谱分户后不在皇族宗族里的宗室)
+        PersonalClanIdentity ancestor = successorIdentity;
+        for (int generation = 0; generation < 8 && ancestor != null; generation++)
+        {
+            ancestor = ancestor.father > 0 ? SpecificClanManager.getPerson(ancestor.father) : null;
+            if (ancestor == null) break;
+            SpecificClan ancestorClan = SpecificClanManager.Get(ancestor.specific_clan_id);
+            if (ancestorClan == previousRoyalClan || SpecificClanManager.SameLineage(ancestorClan, previousRoyalClan))
+                return true;
+        }
         EmpireCraftHistory previousReign = data.history?.LastOrDefault(history => history != null && history.id > 0);
         if (previousReign == null) return false;
         SpecificClanManager._actorToPersonLookup.TryGetValue(previousReign.id, out var previousIdentity);
