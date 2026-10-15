@@ -26,13 +26,18 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //       - 统一者处在开国气象里(见 InGrace)：积弊不涨、不起事、不分裂；
 //   · 统一完成(占到九成，或天下再没有别的独立势力)：开国气象延续三十年；之后积弊按王朝年岁慢慢沉积(见 MaladySystem.Pace)，
 //     末世崩溃，天下重回乱世，再出新的统一者。一个王朝只统一一次(改朝换代才能再来，见 OnDynastyChanged)；
-//   · 天命已失、统一中辍：地盘跌到 6% 以下，或不到两成、而且已不是天下国力最强的一家。
+//   · 天命已失、统一中辍：地盘跌到 6% 以下，或不到两成、而且已不是天下国力最强的一家；天下里有别家的地盘比统一者还大；
+//     或打满三十年还没统一(玩家日志 2026-10-16：有的统一战争打了一百七十多年，一直处在开国气象里，不起事、不分裂)——
+//     打满三十年时地盘过半算统一了(能统一的都统一了)，不到一半就中辍。
 // 周室分封(ZhouEraSystem)的天下另有一套春秋战国，不在这里管。
 public static class UnificationSystem
 {
     private const float ContenderShare = 0.3f, PowerLead = 2f, PowerLeadMinShare = 0.08f, UnifiedShare = 0.9f,
         LostShare = 0.2f, CollapsedShare = 0.06f;
     private const int GraceYears = 30, MaxWars = 4, LateYears = 10, MinCities = 8, MinContenders = 3;
+    // 统一战争最多打这么多年；到期地盘过半算统一了，不到就中辍
+    private const int MaxUnifyYears = 30;
+    private const float LateUnifiedShare = 0.5f;
     // 同一文化圈的两座城领地接壤，或同在一块陆地上、城心相距不过这么多格，就连成一片
     private const int LinkTiles = 48;
     // 望风归附：兵力碾压(对方正规军不到五分之一)、对方主力已垮(剩不到满编三成，或不到十分之一)
@@ -303,7 +308,16 @@ public static class UnificationSystem
                 }
                 double strongest = powers.Where(holder => holder != unifier)
                     .Select(holder => WarSituation.Power(holder)).DefaultIfEmpty(0d).Max();
-                if (share < CollapsedShare || share < LostShare && WarSituation.Power(unifier) < strongest)
+                if (UnifyYears(unifier) >= MaxUnifyYears && share >= LateUnifiedShare)
+                {
+                    data.unify_since = -1d;
+                    data.unified_at = now;
+                    Record(unifier, "unify_done_history", unifier.GetKingdomName());
+                    continue;
+                }
+                bool overtaken = powers.Any(holder => holder != unifier && realm.held[holder] > realm.held[unifier]);
+                if (share < CollapsedShare || share < LostShare && WarSituation.Power(unifier) < strongest || overtaken ||
+                    UnifyYears(unifier) >= MaxUnifyYears)
                 {
                     data.unify_since = -1d;
                     Record(unifier, "unify_lost_history", unifier.GetKingdomName());

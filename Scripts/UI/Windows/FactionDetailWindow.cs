@@ -634,7 +634,7 @@ public class FactionDetailWindow : AbstractWideWindow<FactionDetailWindow>
             pFaction.CountDown > 0 ? "agenda_status_cooldown" :
             !agenda.CanPropose ? "agenda_status_blocked" : "agenda_status_eligible";
         string status = LM.Get(statusKey);
-        if (!agenda.CanPropose) status += $": {LM.Get(agenda.Blocker)}";
+        if (!agenda.CanPropose) status += $": {(LM.Has(agenda.Blocker) ? LM.Get(agenda.Blocker) : agenda.Blocker)}";
         card.AddTextIntoVertLayout(status.ColorString(agenda.CanPropose ? "#65D6C4" : "#D98C8C"), true,
             TextAnchor.MiddleLeft, new Vector2(ContentWidth - 8f, 14));
         card.AddTextIntoVertLayout(string.Format(LM.Get("agenda_support_line"), agenda.Support,

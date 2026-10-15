@@ -323,6 +323,16 @@ public static class TerritoryLabelRenderer
         return font;
     }
 
+    // 本机字体(动态字体)的字形图集最大 4096×4096，按 128 号字只装得下九百来个字；大地图上各城、各国的名字用字太多就装不下，
+    // Unity 每拼一次字报一次错(玩家日志 2026-10-16：隶书刷了上百条)，装不下的字显示成空白。认得这些字却拼不进图集，
+    // 就记下这个字体两分钟内先不用，这期间新铭牌改用兜底字体，已经画好的铭牌照旧
+    private const float ExhaustedSeconds = 120f;
+    private static readonly Dictionary<Font, float> _exhausted_fonts = new();
+
+    private static bool Exhausted(Font font) =>
+        font != null && _exhausted_fonts.TryGetValue(font, out float at) && Time.unscaledTime - at < ExhaustedSeconds &&
+        Time.unscaledTime >= at;
+
     private static Font ResolveTerritoryFontUncached(Font fallback, string text, bool richText, bool sealFont,
         out string display)
     {
@@ -348,6 +358,7 @@ public static class TerritoryLabelRenderer
             selected = fontName == null ? fallback : GetOsFont(fontName) ?? fallback;
         }
         if (selected == null || selected == fallback) return fallback;
+        if (Exhausted(selected)) return ClericalFallback(text, richText, out display, selected) ?? fallback;
         // 展示字体字库较小；名字缺字时回退，不能让整张铭牌变成空白
         BundledFont chosen = BundledTerritoryFonts.Of(selected);
         if (chosen != null)
@@ -382,7 +393,7 @@ public static class TerritoryLabelRenderer
         foreach (string name in TerritoryFontSettings.FallbackCandidates())
         {
             Font font = GetOsFont(name);
-            if (font == null || font == except) continue;
+            if (font == null || font == except || Exhausted(font)) continue;
             // 兜底选了内置篆书：按它的字表查字(繁体篆书先转繁体)
             BundledFont bundled = BundledTerritoryFonts.Find(name);
             string shown = text;
@@ -416,12 +427,21 @@ public static class TerritoryLabelRenderer
             // 字形包：把字拼进贴图，拼得进就画得出
             BakedGlyphFont baked = BundledTerritoryFonts.BakedOf(font);
             if (baked != null) return baked.Ensure(glyphs);
+            if (Exhausted(font)) return false;
             int size = TerritoryLabelProjection.ReferenceFontSize;
             font.RequestCharactersInTexture(glyphs, size, FontStyle.Normal);
             foreach (char character in glyphs)
                 if (!font.GetCharacterInfo(character, out CharacterInfo info, size, FontStyle.Normal) ||
                     info.glyphWidth <= 0 || info.glyphHeight <= 0)
+                {
+                    // 字体里有这个字却拼不出来：图集满了
+                    if (font.dynamic && font.HasCharacter(character))
+                    {
+                        _exhausted_fonts[font] = Time.unscaledTime;
+                        _resolve_cache.Clear();
+                    }
                     return false;
+                }
             return font.material != null && font.material.mainTexture != null;
         }
         catch
