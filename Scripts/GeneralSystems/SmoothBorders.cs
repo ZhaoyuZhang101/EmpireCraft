@@ -4,6 +4,7 @@ using System.Linq;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GamePatches;
 using EmpireCraft.Scripts.Layer;
+using EmpireCraft.Scripts.UI.Components;
 using UnityEngine;
 
 namespace EmpireCraft.Scripts.GeneralSystems;
@@ -42,6 +43,8 @@ public static class SmoothBorders
         Enabled = on;
         LastMeta.Clear();
         ResetTransitions();
+        _layerFlip = null;
+        ZoneFlipOverlay.Hide();
         World.world?.zone_calculator?.dirtyAndClear();
     }
 
@@ -334,6 +337,7 @@ public static class SmoothBorders
         if (layer == null || !Fill(layer, zone)) return false;
         // 同样的上色输入画过：直接拷回(见"上色缓存")
         TrackNative(zone, LayerMeta(layer, layer.getZoneOptionState(), zone), inside, outside, ShadeKey());
+        CaptureLayerFlip(zone);
         long key = KeyOf(layer, zone, inside, outside);
         if (key != 0L && Restore(calc.pixels, zone, key))
         {
@@ -462,18 +466,21 @@ public static class SmoothBorders
 
     #region 换色渐变
 
-    // 一块地的样子一下子变了：不当帧整块换，先记下它原来的样子，新样子照常画一次，之后每帧只按"扫到没有"
-    // 逐格从旧样子换成新样子(纯拷像素，不再每帧重画)，所以渐变本身几乎不花时间。两种：
-    //   · 换主(归降、被占、城市归降、并入帝国、成了附庸换颜色)：像扫描线一样从新主人那边(入侵方向、宗主或
-    //     同一帝国那边；接不上就从都城由里往外)逐格扫过去，每块约 SweepStep 秒，整片至多 MaxSweepSeconds 秒；
-    //   · 临时换色(帝国图层悬停某省显示本省颜色、移开换回)：从鼠标处像波纹一样一圈圈填过去，每秒 RippleSpeed 格。
-    // 扫描、波纹的前沿是几格宽的过渡带(新旧颜色按比例混)，不是一格一格硬换。
-    // 一次换主的地块要分好几帧才画完(上色分帧，见 ZonePaintBudget)：等这批画完(至多 MaxPlanWait 秒)再统一排一道扫描，
-    // 之后才画到的块接着这道扫描往下排，不再每帧另起一小段，扫描不会一截一截地跳。
-    // 逐格推进吃下的地(FrontSystem.Smooth)本身就是渐变，直接显示；换图层时不做渐变
-    // 每格从旧样子换到新样子的时刻在起扫时一次算好(Arrive)，之后每帧只按时刻混色、跳过没轮到和变完的块
+    // 一块地的样子一下子变了：不当帧整块换，先记下它原来的样子，新样子照常画一次，然后这块地像一张牌一样原地翻过去
+    // (用户 2026-10-16 看过演示版定下："翻转方向从即将要转移的势力那边延伸，如果是自己变就从中间")：
+    // 翻到一半之前牌面是旧样子，过了一半是新样子；牌画在色块上面一层(见 ZoneFlipOverlay)，翻的时候底下的色块压暗(牌翘起来的缝)。
+    // 何时翻、朝哪边翻：
+    //   · 换主(归降、被占、城市归降、并入帝国)：从新主人那边(入侵方向、宗主或同一帝国那边)一圈圈翻过来，
+    //     每块牌挨着新主人的那一边先翘起来，每圈约 SweepStep 秒，整片至多 MaxSweepSeconds 秒；
+    //   · 自己变(归属没换、只是颜色变了，如国家换颜色、成了附庸换色)，或换主时接不上新主人：从都城那块地往外一圈圈翻；
+    //   · 临时换色(帝国图层悬停某省显示本省颜色、移开换回)：从鼠标处往外翻，每秒 RippleSpeed 格；
+    //   · 换图层(国家、文化、宗教……或图层选项)：旧图留着，各地块照常分帧重画(镜头里的先画，见 ZonePaintBudget)，
+    //     画好一块翻一块，从镜头中心往外一圈圈翻，约 LayerWaveSeconds 秒翻到镜头边上；镜头外的直接换。
+    // 一次换主的地块要分好几帧才画完(上色分帧，见 ZonePaintBudget)：等这批画完(至多 MaxPlanWait 秒)再统一排一道，
+    // 之后才画到的块接着这道往下排。逐格推进吃下的地(FrontSystem.Smooth)本身就是渐变，直接显示。新旧一样的块不翻。
     private const float SweepStep = 0.18f, MaxSweepSeconds = 4f, RippleSpeed = 150f, RippleGroupSeconds = 0.15f,
-        StaleSeconds = 6f, SweepSoft = 0.3f, RippleSoft = 5f, MaxPlanWait = 0.4f;
+        StaleSeconds = 6f, MaxPlanWait = 0.4f, FlipSeconds = 0.32f, LayerWaveSeconds = 0.9f, LayerFlipSeconds = 6f,
+        SlotShade = 0.55f;
 
     private sealed class ShownState
     {
@@ -484,12 +491,14 @@ public static class SmoothBorders
     private sealed class Transition
     {
         public Color32[] oldPixels, newPixels;
-        public bool ripple, planned;
-        public float start, step, dirX, dirY, created;
-        public int distance, originX, originY;
-        // 各格开始变色的时刻、过渡带用时(秒)；最早、最晚开始的一格
-        public float[] arrive;
-        public float soft, first, last;
+        // 排好了何时翻；归属没换、只是颜色变了(自己变)
+        public bool planned, self;
+        public float created;
+        // 何时开始翻；绕哪条轴(上下翻)；哪一边先翘起来(+1 坐标大的那边)
+        public float flipAt, lift = 1f;
+        public bool vertical;
+        // 画到哪一步：0 旧样子，1 翻前半(底下压暗的旧样子)，2 翻后半(底下压暗的新样子)，3 翻完
+        public int phase = -1;
     }
 
     private static readonly Dictionary<int, ShownState> Shown = new();
@@ -531,6 +540,7 @@ public static class SmoothBorders
         Transitions.Clear();
         Plans.Clear();
         ExpandedUnits.Clear();
+        _layerFlip = null;
     }
 
     // 真实归属；顺带看这块地换主了没有，换了就记下它原来的样子、排进扫描
@@ -540,11 +550,13 @@ public static class SmoothBorders
         if (zone == null || !Enabled) return real;
         if (!ReferenceEquals(layer, _sweepLayer) || option != _sweepOption)
         {
+            bool first = _sweepLayer == null;
             _sweepLayer = layer;
             _sweepOption = option;
             ResetTransitions();
             // 换图层整图都要重画：不再因为"本块归属变了"让四周八块跟着重画，否则每块要多画好几遍
             LastMeta.Clear();
+            if (!first) StartLayerFlip();
         }
         int realKey = ColorKey(SafeColor(real));
         if (Shown.TryGetValue(zone.id, out ShownState shown) && ReferenceEquals(shown.meta, real) && shown.colorKey == realKey)
@@ -552,17 +564,18 @@ public static class SmoothBorders
         bool known = shown != null;
         Shown[zone.id] = new ShownState { meta = real, colorKey = realKey };
         if (!known) return real;
-        Queue(zone, zone.x != _cx || zone.y != _cy);
+        Queue(zone, zone.x != _cx || zone.y != _cy, ReferenceEquals(shown.meta, real));
         ExpandUnit(layer, option, zone, shown.meta, real);
         return real;
     }
 
     // 记下这块地原来的样子、排进扫描。不是正在画的这块(画邻块时顺带发现它变了)：让原版下一轮重画它，
     // 否则它等不到新样子，渐变作废后一直留着旧颜色
-    private static void Queue(TileZone zone, bool repaint)
+    private static void Queue(TileZone zone, bool repaint, bool self)
     {
         Transition transition = Capture(zone);
         if (transition == null) return;
+        transition.self = self;
         Transitions[zone.id] = transition;
         if (PendingSweep.Count == 0) _pendingSince = Time.unscaledTime;
         PendingSweep.Add(zone.id);
@@ -607,7 +620,7 @@ public static class SmoothBorders
                 int key = ColorKey(SafeColor(real));
                 if (ReferenceEquals(shown.meta, real) && shown.colorKey == key) continue;
                 Shown[other.id] = new ShownState { meta = real, colorKey = key };
-                Queue(other, true);
+                Queue(other, true, ReferenceEquals(shown.meta, real));
             }
         }
     }
@@ -625,6 +638,7 @@ public static class SmoothBorders
         }
         Transitions.Remove(zone.id);
         PendingSweep.Remove(zone.id);
+        _layerFlip?.seen.Remove(zone.id);
         Shown.Remove(zone.id);
         NativeShown.Remove(zone.id);
         LastMeta.Remove(zone.id);
@@ -649,11 +663,10 @@ public static class SmoothBorders
             _rippleX = mouse?.x ?? zone.x * ZoneSize + ZoneSize / 2;
             _rippleY = mouse?.y ?? zone.y * ZoneSize + ZoneSize / 2;
         }
-        transition.ripple = true;
+        float dx = zone.x * ZoneSize + ZoneSize / 2f - _rippleX, dy = zone.y * ZoneSize + ZoneSize / 2f - _rippleY;
         transition.planned = true;
-        transition.start = _rippleStart;
-        transition.originX = _rippleX;
-        transition.originY = _rippleY;
+        transition.flipAt = _rippleStart + Mathf.Sqrt(dx * dx + dy * dy) / RippleSpeed;
+        Orient(transition, dx, dy, zone);
         Transitions[zone.id] = transition;
         PendingSweep.Remove(zone.id);
     }
@@ -710,91 +723,137 @@ public static class SmoothBorders
         calc.setDirty();
     }
 
-    // 排好扫描(或起了波纹)后，一次算出各格开始变色的时刻：波纹按离鼠标的距离，扫描按第几圈、在块里的前后
-    private static void Arrive(Transition transition, TileZone zone)
+    // 朝哪边翻：绕和来向垂直的轴翻，挨着来向的那一边先翘起来；没有来向(从块心起)随块定
+    private static void Orient(Transition transition, float dirX, float dirY, TileZone zone)
     {
-        int count = zone.tiles.Length;
-        if (transition.arrive == null || transition.arrive.Length != count) transition.arrive = new float[count];
-        transition.soft = transition.ripple ? RippleSoft / RippleSpeed : SweepSoft * transition.step;
-        float cx = zone.x * ZoneSize + ZoneSize * 0.5f - 0.5f, cy = zone.y * ZoneSize + ZoneSize * 0.5f - 0.5f;
-        float first = float.MaxValue, last = float.MinValue;
-        for (int i = 0; i < count; i++)
+        if (Mathf.Abs(dirX) < 0.01f && Mathf.Abs(dirY) < 0.01f)
         {
-            WorldTile tile = zone.tiles[i];
-            int x = tile.x, y = tile.y;
-            float at;
-            if (transition.ripple)
-            {
-                float dx = x - transition.originX, dy = y - transition.originY;
-                at = transition.start + (Mathf.Sqrt(dx * dx + dy * dy) + (FrontNoise(x, y) - 0.5f) * 6f) / RippleSpeed;
-            }
-            else
-            {
-                float along = transition.dirX == 0f && transition.dirY == 0f
-                    ? Mathf.Sqrt((x - cx) * (x - cx) + (y - cy) * (y - cy)) / (ZoneSize * 0.75f)
-                    : ((x - cx) * transition.dirX + (y - cy) * transition.dirY) / ZoneSize + 0.5f;
-                at = transition.start + (transition.distance + Mathf.Clamp01(along) + (FrontNoise(x, y) - 0.5f) * 0.35f) *
-                    transition.step;
-            }
-            transition.arrive[i] = at;
-            first = Mathf.Min(first, at);
-            last = Mathf.Max(last, at);
+            transition.vertical = (zone.x + zone.y) % 2 == 0;
+            transition.lift = zone.x % 2 == 0 ? 1f : -1f;
+            return;
         }
-        transition.first = first;
-        transition.last = last;
+        transition.vertical = Mathf.Abs(dirY) > Mathf.Abs(dirX);
+        transition.lift = -Mathf.Sign(transition.vertical ? dirY : dirX);
     }
 
-    private static bool Ready(Transition transition, TileZone zone)
-    {
-        if (!transition.planned || transition.newPixels == null || zone?.tiles == null ||
-            transition.newPixels.Length != zone.tiles.Length) return false;
-        if (transition.arrive == null || transition.arrive.Length != zone.tiles.Length) Arrive(transition, zone);
-        return true;
-    }
+    private static Color32 Slot(Color32 color) =>
+        new((byte)(color.r * SlotShade), (byte)(color.g * SlotShade), (byte)(color.b * SlotShade), color.a);
 
-    private static bool Finished(Transition transition, float now) => now >= transition.last + transition.soft;
-
-    // 这块地刚画好新样子：记下来，再按扫到没有逐格选新旧
+    // 这块地刚画好新样子：记下来；新旧一样就不翻
     private static void ApplyTransition(Color32[] pixels, TileZone zone)
     {
         if (!Transitions.TryGetValue(zone.id, out Transition transition)) return;
         var fresh = new Color32[zone.tiles.Length];
-        for (int i = 0; i < zone.tiles.Length; i++) fresh[i] = _base[zone.tiles[i].data.tile_id];
-        transition.newPixels = fresh;
-        WriteMix(pixels, zone, transition, Time.unscaledTime);
-    }
-
-    private static void WriteMix(Color32[] pixels, TileZone zone, Transition transition, float now)
-    {
-        bool ready = Ready(transition, zone);
+        bool same = transition.oldPixels.Length == fresh.Length;
         for (int i = 0; i < zone.tiles.Length; i++)
         {
-            int id = zone.tiles[i].data.tile_id;
-            float mix = ready ? (now - transition.arrive[i]) / transition.soft : 0f;
-            _base[id] = mix <= 0f ? transition.oldPixels[i] : mix >= 1f ? transition.newPixels[i]
-                : Color32.Lerp(transition.oldPixels[i], transition.newPixels[i], mix);
-            pixels[id] = Lifted(id);
+            fresh[i] = _base[zone.tiles[i].data.tile_id];
+            if (same)
+            {
+                Color32 a = fresh[i], b = transition.oldPixels[i];
+                same = a.r == b.r && a.g == b.g && a.b == b.b && a.a == b.a;
+            }
         }
+        if (same)
+        {
+            Transitions.Remove(zone.id);
+            PendingSweep.Remove(zone.id);
+            return;
+        }
+        transition.newPixels = fresh;
+        transition.phase = -1;
+        WriteFlip(pixels, zone, transition, Time.unscaledTime);
     }
 
-    // 每帧：给新换主的块排好扫描；正在变的块按进度拷像素，变完的收掉
+    // 按翻到哪一步写底下的色块：没翻是旧样子，翻着是压暗的旧(前半)、新(后半)样子，翻完是新样子；步子变了才写
+    private static bool WriteFlip(Color32[] pixels, TileZone zone, Transition transition, float now)
+    {
+        int phase = !transition.planned || transition.newPixels == null || now < transition.flipAt ? 0
+            : now >= transition.flipAt + FlipSeconds ? 3 : now < transition.flipAt + FlipSeconds / 2f ? 1 : 2;
+        if (phase == transition.phase) return false;
+        transition.phase = phase;
+        Color32[] source = phase <= 1 ? transition.oldPixels : transition.newPixels;
+        bool slot = phase is 1 or 2;
+        for (int i = 0; i < zone.tiles.Length && i < source.Length; i++)
+        {
+            int id = zone.tiles[i].data.tile_id;
+            _base[id] = slot ? Slot(source[i]) : source[i];
+            pixels[id] = Lifted(id);
+        }
+        return true;
+    }
+
+    // 换图层：从镜头中心往外一圈圈翻(这次重画的地块各翻一次)
+    private sealed class LayerFlip
+    {
+        public float start, speed, originX, originY;
+        public Rect view;
+        public readonly HashSet<int> seen = new();
+    }
+
+    private static LayerFlip _layerFlip;
+
+    private static void StartLayerFlip()
+    {
+        Rect view = ZoneFlipOverlay.CameraView();
+        float half = Mathf.Sqrt(view.width * view.width + view.height * view.height) / 2f;
+        _layerFlip = new LayerFlip
+        {
+            start = Time.unscaledTime, speed = Mathf.Max(40f, half / LayerWaveSeconds), originX = view.center.x, originY = view.center.y,
+            view = Rect.MinMaxRect(view.xMin - ZoneSize, view.yMin - ZoneSize, view.xMax + ZoneSize, view.yMax + ZoneSize)
+        };
+    }
+
+    // 换图层后这块地头一次重画：记下旧样子，排好何时翻(画晚了的当场翻)；镜头外的不翻
+    private static void CaptureLayerFlip(TileZone zone)
+    {
+        LayerFlip flip = _layerFlip;
+        if (flip == null) return;
+        float now = Time.unscaledTime;
+        if (now - flip.start > LayerFlipSeconds)
+        {
+            _layerFlip = null;
+            return;
+        }
+        if (!flip.seen.Add(zone.id) || Transitions.ContainsKey(zone.id)) return;
+        float cx = zone.x * ZoneSize + ZoneSize / 2f, cy = zone.y * ZoneSize + ZoneSize / 2f;
+        if (!flip.view.Contains(new Vector2(cx, cy))) return;
+        Transition transition = Capture(zone);
+        if (transition == null) return;
+        float dx = cx - flip.originX, dy = cy - flip.originY;
+        transition.planned = true;
+        transition.flipAt = Mathf.Max(now, flip.start + Mathf.Sqrt(dx * dx + dy * dy) / flip.speed + (FrontNoise(zone.x * 7, zone.y * 7) - 0.5f) * 0.08f);
+        Orient(transition, dx, dy, zone);
+        Transitions[zone.id] = transition;
+    }
+
+    // 每帧：给新换主的块排好何时翻；正在翻的块画成牌、底下压暗，翻完的收掉
     private static void SweepTick()
     {
-        if (!Enabled || World.world?.zone_calculator == null) return;
+        if (!Enabled || World.world?.zone_calculator == null)
+        {
+            ZoneFlipOverlay.Hide();
+            return;
+        }
         float now = Time.unscaledTime;
-        // 这次换色的地块都画好新样子(或等满 MaxPlanWait)再统一起扫：没画好的地块上色时优先(见 Awaiting)，
-        // 起扫前仍显示旧样子，整片一起扫过去，不剩几块等一下才变
+        // 这次换色的地块都画好新样子(或等满 MaxPlanWait)再统一排：没画好的地块上色时优先(见 Awaiting)，
+        // 排好前仍显示旧样子，整片一起翻过去，不剩几块等一下才变
         if (PendingSweep.Count > 0 && (!PendingUnpainted() || now - _pendingSince >= MaxPlanWait)) PlanSweeps();
         if (Plans.Count > 0)
             foreach ((IMetaObject, int) key in Plans.Where(pair => now > pair.Value.end).Select(pair => pair.Key).ToList())
                 Plans.Remove(key);
-        if (Transitions.Count == 0) return;
+        if (Transitions.Count == 0)
+        {
+            ZoneFlipOverlay.Hide(false);
+            return;
+        }
         ZoneCalculator calc = World.world.zone_calculator;
         Color32[] pixels = calc.pixels;
         if (pixels == null || pixels.Length != _base.Length) return;
         long started = global::System.Diagnostics.Stopwatch.GetTimestamp();
         List<int> done = null;
         bool wrote = false;
+        ZoneFlipOverlay.Begin();
         foreach (KeyValuePair<int, Transition> pair in Transitions)
         {
             Transition transition = pair.Value;
@@ -806,26 +865,21 @@ public static class SmoothBorders
                 (done ??= new List<int>()).Add(pair.Key);
                 continue;
             }
-            if (!Ready(transition, zone) || now < transition.first) continue;
-            if (Finished(transition, now))
+            if (WriteFlip(pixels, zone, transition, now)) wrote = true;
+            if (transition.phase == 3)
             {
-                for (int i = 0; i < zone.tiles.Length; i++)
-                {
-                    int id = zone.tiles[i].data.tile_id;
-                    _base[id] = transition.newPixels[i];
-                    pixels[id] = Lifted(id);
-                }
-                wrote = true;
                 (done ??= new List<int>()).Add(pair.Key);
                 continue;
             }
-            WriteMix(pixels, zone, transition, now);
-            wrote = true;
+            if (transition.phase is 1 or 2)
+                ZoneFlipOverlay.Card(zone, transition.oldPixels, transition.newPixels, (now - transition.flipAt) / FlipSeconds,
+                    transition.vertical, transition.lift);
         }
+        ZoneFlipOverlay.End();
         if (done != null)
             foreach (int id in done) Transitions.Remove(id);
         if (wrote) calc.setDirty();
-        FrameProfiler.Record("平滑国界·换色渐变", global::System.Diagnostics.Stopwatch.GetTimestamp() - started);
+        FrameProfiler.Record("平滑国界·换色翻牌", global::System.Diagnostics.Stopwatch.GetTimestamp() - started);
     }
 
     private static bool PendingUnpainted()
@@ -848,8 +902,9 @@ public static class SmoothBorders
             PendingSweep.Clear();
             return;
         }
-        // 按变成谁(新主人、新颜色)分组，各组从挨着新主人的块起一圈圈往里扫
+        // 按变成谁(新主人、新颜色)分组，各组从挨着新主人的块起一圈圈往里翻；整组都是自己变的从都城那块往外
         var groups = new Dictionary<(IMetaObject meta, int color), List<TileZone>>();
+        var others = new HashSet<(IMetaObject meta, int color)>();
         foreach (int id in PendingSweep)
         {
             TileZone zone = calc.getZoneByID(id);
@@ -858,6 +913,7 @@ public static class SmoothBorders
             var key = (real, ColorKey(SafeColor(real)));
             if (!groups.TryGetValue(key, out List<TileZone> list)) groups[key] = list = new List<TileZone>();
             list.Add(zone);
+            if (!Transitions[id].self) others.Add(key);
         }
         PendingSweep.Clear();
         float now = Time.unscaledTime;
@@ -886,8 +942,8 @@ public static class SmoothBorders
                     if (from != null && plan.distances.TryGetValue(from.id, out int distance))
                         Offer(zone, Mathf.Max(floor, distance + 1), dx, dy);
                 }
-            // 起点：挨着本来就归新主人(同色)的块；没有就挨着新主人的宗主、同一帝国的块；再没有就是离都城最近的块(从块心往外扫)
-            if (best.Count == 0)
+            // 起点：挨着本来就归新主人(同色)的块；没有就挨着新主人的宗主、同一帝国的块；再没有(或是自己变)就是离都城最近的块(从块心往外)
+            if (best.Count == 0 && others.Contains(group.Key))
                 foreach (Func<ShownState, bool> test in new Func<ShownState, bool>[]
                          {
                              shown => ReferenceEquals(shown.meta, group.Key.meta) && shown.colorKey == group.Key.color,
@@ -956,13 +1012,9 @@ public static class SmoothBorders
             {
                 if (!Transitions.TryGetValue(zone.id, out Transition transition)) continue;
                 (int distance, float dirX, float dirY) = best.TryGetValue(zone.id, out var entry) ? entry : (farthest + 1, 0f, 0f);
-                transition.distance = distance;
-                transition.dirX = dirX;
-                transition.dirY = dirY;
-                transition.start = plan.start;
-                transition.step = plan.step;
+                transition.flipAt = plan.start + (distance + 0.3f * (FrontNoise(zone.x * 5, zone.y * 5) - 0.5f)) * plan.step;
+                Orient(transition, dirX, dirY, zone);
                 transition.planned = true;
-                transition.arrive = null;
                 plan.distances[zone.id] = distance;
             }
             plan.end = Mathf.Max(plan.end, plan.start + plan.step * (farthest + 3f));

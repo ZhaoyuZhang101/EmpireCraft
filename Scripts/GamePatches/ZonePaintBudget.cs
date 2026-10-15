@@ -142,8 +142,8 @@ public class ZonePaintBudget : GamePatch
 
     // 鼠标移到另一个国家(城市、帝国……)上、选中的东西变了：原版把整张图清空重画——原版只是平涂，重画不费事，
     // 它要让没悬停的对象变淡、悬停的边框呼吸；纯净地图下色块不透明，变淡本来就看不出来，呼吸也改成了常亮，
-    // 整图重画(这里一次几百毫秒)白白卡一下。纯净地图下这种情况只把新旧悬停、选中对象的格子重新提亮或还原(约一毫秒)；
-    // 切换图层选项、清色设置变了照原版重画
+    // 整图重画(这里一次几百毫秒)白白卡一下。纯净地图下这种情况只把新旧悬停、选中对象的格子重新提亮或还原(约一毫秒)，
+    // 平滑国界下只是鼠标移到别的对象上也这样；平滑国界下切换图层选项不清空，分帧重画、翻牌；清色设置变了照原版重画
     private static NanoObject _lastCursor, _lastSelected;
 
     private static bool BeforeClearAll(ZoneCalculator __instance)
@@ -152,11 +152,25 @@ public class ZonePaintBudget : GamePatch
         NanoObject oldCursor = _lastCursor, oldSelected = _lastSelected;
         _lastCursor = cursor;
         _lastSelected = selected;
-        if (!PureMapMode.Enabled) return true;
+        bool smooth = SmoothBorders.Enabled;
+        if (!PureMapMode.Enabled && !smooth) return true;
         int state = World.world?.getCachedMapMetaAsset()?.getZoneOptionState() ?? -1;
-        if (state != -1 && state != __instance._last_zone_state ||
-            __instance._last_should_be_clear_color != __instance._cached_should_be_clear_color) return true;
+        bool option = state != -1 && state != __instance._last_zone_state;
+        bool clearColor = __instance._last_should_be_clear_color != __instance._cached_should_be_clear_color;
+        // 平滑国界下换图层选项：不清空(原版清空后当帧重画整张图，平滑国界下一次五百多毫秒)，旧图留着，
+        // 各地块照常分帧重画，画好一块翻一块(见 SmoothBorders 的翻牌)
+        if (option && !clearColor && smooth)
+        {
+            __instance._selection_changed_dirty = false;
+            __instance.setDrawnZonesDirty();
+            foreach (TileZone zone in __instance._current_drawn_zones) zone.resetRenderHelpers();
+            __instance.clearAllRedrawTimers();
+            return false;
+        }
+        if (option || clearColor) return true;
         if (!__instance._selection_changed_dirty) return false;
+        // 没开纯净地图时选中的对象变了：原版要让别的对象变淡，照原版重画；只是鼠标移到别的对象上，只重新提亮
+        if (!PureMapMode.Enabled && selected != oldSelected) return true;
         __instance._selection_changed_dirty = false;
         SmoothBorders.Retint(oldCursor, oldSelected, cursor, selected);
         return false;
