@@ -98,7 +98,7 @@ public class ChangeUnitWindow : AutoLayoutWindow<ChangeUnitWindow>
                     educationLevel = (actor.hasTrait("jingshi") ? "trait_jingshi" : "") +"/" +(actor.hasTrait("gongshi") ? "trait_gongshi" : "") +"/"+ (actor.hasTrait("juren")?"trait_juren":"");
                     educationLevel += string.Join("/", educationLevel.Split('/').Select(c=>LM.Get(c)));
                     PeeragesLevel = string.Join("_", culture, actor.GetPeeragesLevel().ToString());
-                    PeeragesLevel += LM.Get(PeeragesLevel);
+                    PeeragesLevel += TranslateHelper.PeerageName(PeeragesLevel);
                     name = actor.getName();
                     age = actor.getAge();
                     List<string> searchContent = new List<string>()

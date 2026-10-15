@@ -493,7 +493,7 @@ namespace EmpireCraft.Scripts.HelperFunc
                     educationLevel = (actor.hasTrait("jingshi") ? "trait_jingshi" : "") +"/" +(actor.hasTrait("gongshi") ? "trait_gongshi" : "") +"/"+ (actor.hasTrait("juren")?"trait_juren":"");
                     educationLevel += string.Join("/", educationLevel.Split('/').Select(c=>LM.Get(c)));
                     PeeragesLevel = string.Join("_", culture, actor.GetPeeragesLevel().ToString());
-                    PeeragesLevel += LM.Get(PeeragesLevel);
+                    PeeragesLevel += TranslateHelper.PeerageName(PeeragesLevel);
                     name = actor.getName();
                     age = actor.getAge();
                     List<string> searchContent = new List<string>()
@@ -563,13 +563,13 @@ namespace EmpireCraft.Scripts.HelperFunc
                     educationLevel += string.Join("/", educationLevel.Split('/').Select(c=>LM.Get(c)));
                     PeeragesLevel = string.Join("_", culture, actor.GetPeeragesLevel().ToString());
                     officeName = actor.GetOffice()?.GetOfficeName()??"";
-                    PeeragesLevel += LM.Get(PeeragesLevel);
+                    PeeragesLevel += TranslateHelper.PeerageName(PeeragesLevel);
                 }
                 else
                 {
                     merit = cIdentity.Item2.merit + LM.Get(cIdentity.Item2.merit);
                     honoraryOfficial = cIdentity.Item2.honoraryOfficial + LM.Get(cIdentity.Item2.honoraryOfficial);
-                    PeeragesLevel = cIdentity.Item2.PeeragesLevel + LM.Get(cIdentity.Item2.PeeragesLevel);
+                    PeeragesLevel = cIdentity.Item2.PeeragesLevel + TranslateHelper.PeerageName(cIdentity.Item2.PeeragesLevel);
                     officialLevel = cIdentity.Item2.officialLevel + LM.Get(cIdentity.Item2.officialLevel);
                     kingdomName = cIdentity.Item2.kingdomName;
                     cityName = cIdentity.Item2.cityName;

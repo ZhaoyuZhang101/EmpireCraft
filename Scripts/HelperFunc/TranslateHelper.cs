@@ -262,6 +262,16 @@ namespace EmpireCraft.Scripts.HelperFunc
             empire?.RecordHistory(directContent: worldLog.GetEmpireHistoryFormatedText(),
                 actorId: actor?.id ?? -1L, kingdomId: kingdom?.id ?? -1L);
         }
+        // 爵位名：人物身上记的是"文化_peerages_N"，没有这个文化专门叫法的退回默认叫法(default_peerages_N)；
+        // 以前直接取，没有的就在日志里报缺字(Huaxia_peerages_6)
+        public static string PeerageName(string key)
+        {
+            if (string.IsNullOrWhiteSpace(key)) return "";
+            if (LM.Has(key)) return LM.Get(key);
+            int at = key.LastIndexOf("peerages_", StringComparison.Ordinal);
+            string fallback = at >= 0 ? "default_" + key.Substring(at) : null;
+            return fallback != null && LM.Has(fallback) ? LM.Get(fallback) : "";
+        }
         public static void LogHonoraryPeerageGranted(Actor actor, Empire empire, string peerageKey)
         {
             LogPeerageGranted(actor, empire, LM.Get(peerageKey));

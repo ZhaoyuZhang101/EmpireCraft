@@ -1040,7 +1040,7 @@ public static class EmpireCraftTooltipLibrary
             if (!string.IsNullOrWhiteSpace(peerage)) return peerage;
         }
         if (string.IsNullOrWhiteSpace(identity?.PeeragesLevel)) return "";
-        return LM.Get(identity.PeeragesLevel) ?? identity.PeeragesLevel;
+        return TranslateHelper.PeerageName(identity.PeeragesLevel);
     }
 
     private static string GetParentNames(PersonalClanIdentity identity)
