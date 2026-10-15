@@ -656,6 +656,23 @@ public static class EmpireCraftNamePlateLibrary
         AssetManager.nameplates_library.map_modes_nameplates[assetNation.map_mode] = assetNation;
         AssetManager.nameplates_library.dict["Nation"] = assetNation;
 
+        // 教化图层、政令图层也只看色块与悬停提示，不画铭牌(没登记原版每帧抛异常，见上)
+        foreach ((MetaType mode, string id) in new[] { (MetaTypeExtension.Edification, "Edification"), (MetaTypeExtension.Governance, "Governance") })
+        {
+            var plate = new NameplateAsset
+            {
+                id = "plate_" + id.ToLowerInvariant(),
+                path_sprite = "ui/nameplates/nameplate_city",
+                map_mode = mode,
+                action_main = (manager, asset) =>
+                {
+                    if (IsNameplateReady) TerritoryLabelRenderer.HideAll();
+                }
+            };
+            AssetManager.nameplates_library.map_modes_nameplates[plate.map_mode] = plate;
+            AssetManager.nameplates_library.dict[id] = plate;
+        }
+
         // 财富图层不画任何铭牌(用户要求，只看色块；城市富庶度与国库见悬停提示，见 WealthMap.ShowTooltip)
         NameplateAsset assetWealth = new NameplateAsset
         {

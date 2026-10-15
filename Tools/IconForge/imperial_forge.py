@@ -1134,8 +1134,33 @@ def obj_relief(img):
     over(img, shade(poly([(28, 196), (84, 160), (146, 182), (228, 194), (228, 210), (28, 210)]), JADE, bevel=10, gloss=0.4, grain=0.3))
 
 
+def obj_edification(img):
+    """教化图层：摊开的骨白书卷(暗红封皮)，上方三道由近及远、由浓到淡的旧铜弧——教化四方远播。"""
+    for k, (r, w) in enumerate(((60, 16), (92, 14), (122, 12))):
+        ring = sub(ellipse([128 - r, 150 - r, 128 + r, 150 + r]), ellipse([128 - r + w, 150 - r + w, 128 + r - w, 150 + r - w]))
+        arc = sub(ring, rrect([0, 132, 256, 256], 0))
+        over(img, shade(arc, BRASS if k < 2 else STEEL, bevel=6, gloss=0.8 - 0.2 * k, grain=0.2))
+    over(img, shade(poly([(30, 170), (128, 150), (226, 170), (226, 230), (128, 212), (30, 230)]), RED, bevel=8, grain=0.3))
+    over(img, shade(poly([(40, 164), (124, 148), (124, 206), (40, 222)]), PARCH, bevel=8, grain=0.4))
+    over(img, shade(poly([(132, 148), (216, 164), (216, 222), (132, 206)]), PARCH, bevel=8, grain=0.4))
+    over(img, shade(lines([[(56, 176), (108, 166)], [(56, 192), (108, 182)], [(148, 166), (200, 176)], [(148, 182), (200, 192)]], 5), WOOD, bevel=2, flat=True))
+
+
+def obj_governance(img):
+    """政令图层：朱红官印居中(旧铜印钮、骨白印文框)，外面两道黑铁环由近及远——政令所及。"""
+    for r, w in ((116, 12), (90, 10)):
+        over(img, shade(sub(ellipse([128 - r, 128 - r, 128 + r, 128 + r]), ellipse([128 - r + w, 128 - r + w, 128 + r - w, 128 + r - w])),
+                        IRON if r > 100 else STEEL, bevel=6, gloss=0.7, grain=0.2))
+    over(img, shade(union(ellipse([106, 54, 150, 92]), rrect([112, 80, 144, 104], 6)), BRASS, bevel=10, gloss=0.9))
+    over(img, shade(rrect([76, 98, 180, 186], 8), RED, bevel=12, gloss=0.6, grain=0.3))
+    over(img, shade(sub(rrect([90, 112, 166, 172], 4), rrect([100, 122, 156, 162], 3)), BONE, bevel=3))
+    over(img, shade(rrect([122, 128, 134, 158], 2), BONE, bevel=2))
+
+
 GODPOWERS = {
     "terrain_relief": (obj_relief, None),
+    "edification_layer": (obj_edification, None),
+    "governance_layer": (obj_governance, None),
     "zhou_conference": (obj_banners, "plus"),
     "zhou_bestow": (obj_ding, "up"),
     "zhou_advance": (obj_calendar, "arrow"),

@@ -59,6 +59,7 @@ public static class EmpireCraftStrategicScheduler
         using (FrameProfiler.Measure("天下大势")) UnificationSystem.Tick();
         ExclaveMaintenanceSystem.Tick();
         AdministrativeControlSystem.Tick();
+        CultureRadiation.Tick();
         CityStabilitySystem.Tick();
         AdministrationReorganizationSystem.Tick();
 

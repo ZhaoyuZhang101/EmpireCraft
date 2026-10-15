@@ -228,6 +228,12 @@ public static class TreasurySystem
     {
         if (amount <= 0 || city?.data == null || city.isRekt()) return;
         if (!Enabled(city)) { city.AddMoney(amount); return; }
+        // 鞭长莫及：控制力低的城赋税收不齐(满控全收，最低一半，见 AdministrativeControlSystem.Yield)
+        if (TaxErosionSystem.IsTax(category))
+        {
+            amount = (int)Math.Round(amount * (double)AdministrativeControlSystem.Yield(city));
+            if (amount <= 0) return;
+        }
         var local = city.kingdom;
         var empire = local.GetEmpire();
         var central = empire?.CoreKingdom;

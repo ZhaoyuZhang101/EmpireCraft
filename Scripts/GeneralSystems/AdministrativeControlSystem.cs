@@ -13,10 +13,14 @@ using UnityEngine;
 namespace EmpireCraft.Scripts.GeneralSystems;
 
 // 行政控制力(每国每年一次，分帧轮到哪国算哪国)：
-//   · 控制力(0~1)：城离最近的治所(本国都城；帝国还有各成员国的都城，算远 4 块地)沿本国陆地走几块地。
-//     时代越新管得越远(满控半径 10 + 2×时代 块地，律令制再远一成五，分封、封建近一成)，超出部分每多走半径的两倍降到一成；
-//     陆路不通的飞地按直线距离的 1.4 倍再加 8 块计，最多八成，隔海最多六成五(工业时代起八成)；
-//   · 效果：控制力低的城自然稳定度下降(满控不减，最低扣 20)；
+//   · 控制力(0~1)：城离最近的治所(本国都城；帝国还有各成员国的都城，起步算 4)沿本国领土走过去的路程。
+//     路程按地形阻力算(用户 2026-10-16："按照地形和距离来判断辐射范围"，见 TerrainResistance)：平原一块地算 1，
+//     山地 4、过河 +2、翻长城 +6，有路减半——山后、长城外的城鞭长莫及，驿道通到的地方管得远；
+//     港口之间在本国水师辐射内(见 StraitReach)可走海路(上船 2，航程每 16 格 +1)，隔海的城最多六成五(工业时代起八成)。
+//     时代越新管得越远(满控路程 10 + 2×时代，律令制再远一成五，分封、封建近一成)，超出部分每多走满控路程的两倍降到一成；
+//     陆路海路都不通的飞地按直线距离的 1.4 倍再加 8 计，最多八成；
+//   · 效果：控制力低的城自然稳定度下降(满控不减，最低扣 20)；赋税收不齐(满控全收，最低收一半，见 TreasurySystem)；
+//     征兵也少从这样的城里抽(见 CorpsSystem.Mobilize、CityPopulationSystem.DrawKingdomCity)；地图上见政令图层；
 //     领土不在这里变动：扩张、边界侵蚀都按原版(侵蚀受原版"边界侵蚀"开关管、只在交战双方之间，见 CityExpansionPatch)。
 //     以前这里的"边地易手"(太平时互相侵蚀)、"被围空地并入"(把山地、隔水的地并进来)不守原版规矩，已删；
 //     旧存档里因此留下的山地、隔水地和飞地，读档后交给原版的"断开的地放弃"清掉(见 CityExpansionPatch.CheckAbandonOnLoad)；
@@ -31,6 +35,12 @@ public static class AdministrativeControlSystem
     private const float StabilityPenalty = 20f;
     private const float DefectThreshold = 0.45f;
     private const float DefectChance = 0.5f;
+    // 海路：上船 2，航程每 16 格 +1
+    private const float SeaEmbark = 2f, SeaTilesPerCost = 16f;
+    // 地块阻力算不出(城里的水面)时按过河算
+    private const float WaterStep = 1f + TerrainResistance.RiverCrossing;
+    // 鞭长莫及：赋税、征兵按 0.5 + 0.5 × 控制力
+    private const float MinYield = 0.5f;
 
     private static readonly Queue<long> Pending = new();
     private static int _cursor;
@@ -61,6 +71,9 @@ public static class AdministrativeControlSystem
     public static bool Known(City city) => city?.data != null && city.GetOrCreate().admin_control >= 0f;
 
     public static float StabilityLoss(City city) => Known(city) ? (1f - Get(city)) * StabilityPenalty : 0f;
+
+    // 赋税、征兵能收上来几成(满控全收，最低一半)
+    public static float Yield(City city) => Known(city) ? MinYield + (1f - MinYield) * Get(city) : 1f;
 
     public static string Describe(City city)
     {
@@ -167,30 +180,39 @@ public static class AdministrativeControlSystem
         foreach (City city in cities)
             foreach (TileZone zone in city.zones)
                 if (zone != null) zones.Add(zone);
-        // 多源最短路：治所按起步距离排好，逐层外推(都城从 0 起、成员国都城从 4 起)
-        var distance = new Dictionary<TileZone, int>();
-        var buckets = new SortedDictionary<int, List<TileZone>>();
-        foreach ((TileZone zone, int offset) in seats)
-        {
-            if (!buckets.TryGetValue(offset, out var bucket)) buckets[offset] = bucket = new List<TileZone>();
-            bucket.Add(zone);
-        }
-        while (buckets.Count > 0)
-        {
-            int depth = buckets.Keys.First();
-            List<TileZone> layer = buckets[depth];
-            buckets.Remove(depth);
-            var next = new List<TileZone>();
-            foreach (TileZone zone in layer)
+        // 港口(本国水师辐射内互通海路)：城心块 → 港口城、所在水域
+        float radius = StraitReach.Radius(realm);
+        var ports = new Dictionary<TileZone, (City city, HashSet<int> basins)>();
+        if (radius > 0f)
+            foreach (City city in cities)
             {
-                if (distance.ContainsKey(zone)) continue;
-                distance[zone] = depth;
-                foreach (TileZone neighbour in zone.neighbours ?? Array.Empty<TileZone>())
-                    if (neighbour != null && zones.Contains(neighbour) && !distance.ContainsKey(neighbour)) next.Add(neighbour);
+                if (NavySystem.Port(city) == null) continue;
+                TileZone zone = CenterZone(city);
+                var basins = new HashSet<int>(SeaRegionSystem.RegionsAround(city).Select(region => region.Basin));
+                if (zone != null && basins.Count > 0) ports[zone] = (city, basins);
             }
-            if (next.Count == 0) continue;
-            if (buckets.TryGetValue(depth + 1, out var existing)) existing.AddRange(next);
-            else buckets[depth + 1] = next;
+        // 多源最短路(按地形阻力)：都城从 0 起、成员国都城从 4 起；记下路上有没有走过海路
+        var distance = new Dictionary<TileZone, (float cost, bool sea)>();
+        var heap = new MinHeap<(TileZone zone, bool sea)>();
+        foreach ((TileZone zone, int offset) in seats) heap.Push(offset, (zone, false));
+        while (heap.Count > 0)
+        {
+            (float cost, (TileZone zone, bool sea)) = heap.Pop();
+            if (distance.ContainsKey(zone)) continue;
+            distance[zone] = (cost, sea);
+            foreach (TileZone neighbour in zone.neighbours ?? Array.Empty<TileZone>())
+            {
+                if (neighbour == null || !zones.Contains(neighbour) || distance.ContainsKey(neighbour)) continue;
+                float step = TerrainResistance.Step(neighbour);
+                heap.Push(cost + (step < 0f ? WaterStep : step), (neighbour, sea));
+            }
+            if (!ports.TryGetValue(zone, out var from)) continue;
+            foreach (KeyValuePair<TileZone, (City city, HashSet<int> basins)> to in ports)
+            {
+                if (to.Key == zone || distance.ContainsKey(to.Key) || !from.basins.Overlaps(to.Value.basins)) continue;
+                float span = (from.city.city_center - to.Value.city.city_center).magnitude;
+                if (span <= radius) heap.Push(cost + SeaEmbark + span / SeaTilesPerCost, (to.Key, true));
+            }
         }
         float reach = Reach(realm);
         bool modern = TechnologySystem.GetEraTier(TechnologySystem.GetCultureOf(realm)) >= 7;
@@ -199,12 +221,16 @@ public static class AdministrativeControlSystem
             var data = city.GetOrCreate();
             TileZone center = CenterZone(city);
             if (center == null) continue;
-            if (distance.TryGetValue(center, out int steps))
+            if (distance.TryGetValue(center, out var reached))
             {
-                data.admin_distance = steps;
+                // 走海路才到、又与各治所不在同一块陆地上的，是隔海的城
+                bool across = reached.sea && !seats.Any(seat => seat.zone.centerTile != null && center.centerTile != null &&
+                                                                  seat.zone.centerTile.isSameIsland(center.centerTile));
+                data.admin_distance = Mathf.RoundToInt(reached.cost);
                 data.admin_exclave = false;
-                data.admin_overseas = false;
-                data.admin_control = Control(steps, reach);
+                data.admin_overseas = across;
+                float control = Control(reached.cost, reach);
+                data.admin_control = across ? Mathf.Min(modern ? ModernOverseasCap : OverseasCap, control) : control;
                 continue;
             }
             // 陆路不通：按到最近治所的直线距离折算

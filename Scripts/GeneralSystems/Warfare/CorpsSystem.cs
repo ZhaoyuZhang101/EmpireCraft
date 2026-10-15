@@ -450,7 +450,10 @@ public static class CorpsSystem
         // (以前按含守兵的兵额平分，平时京师那一个军团只分到兵源的几分之一，大国平时也只有一千来人)。
         // 平时只征兵源的一部分(有常备军的多些)，战时全征
         float peace = doctrine.CentralStanding || doctrine.DistrictStanding ? StandingPoolShare : PeacePoolShare;
-        float pool = CityPopulationSystem.KingdomBackground(kingdom) * doctrine.LevyShare * (war ? 1f : peace);
+        // 鞭长莫及：控制力低的城征不齐(见 AdministrativeControlSystem.Yield)
+        float background = 0f;
+        foreach (City city in cities) background += CityPopulationSystem.GetBackgroundTotal(city) * AdministrativeControlSystem.Yield(city);
+        float pool = background * doctrine.LevyShare * (war ? 1f : peace);
         float legionSize = Mathf.Clamp(pool / Mathf.Max(1, totalSlots), 1f, CityPopulationSystem.PeoplePerLegion);
         // 量入为出：按人口该有的兵额超出养得起的，每个军团按比例缩编
         float budget = BudgetFactor(kingdom, war, totalSlots * legionSize);

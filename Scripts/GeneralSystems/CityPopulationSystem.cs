@@ -365,7 +365,8 @@ public static class CityPopulationSystem
         foreach (City city in kingdom.cities)
         {
             if (city == null || city.isRekt() || filter != null && !filter(city)) continue;
-            float weight = GetBackgroundTotal(city);
+            // 鞭长莫及：控制力低的城少抽(见 AdministrativeControlSystem.Yield)
+            float weight = GetBackgroundTotal(city) * AdministrativeControlSystem.Yield(city);
             if (weight <= 0f) continue;
             total += weight;
             if (UnityEngine.Random.value * total < weight) chosen = city;
@@ -1068,11 +1069,13 @@ public static class CityPopulationSystem
     {
         string main = CultureService.GetMainCulture(city, initialize: false);
         if (!CultureService.IsValidCulture(main) || data?.groups == null) return;
+        // 主流文化在本城的教化越盛同化越快(0.4~1.6 倍，见 CultureRadiation)
+        float rate = AssimilationRate * CultureRadiation.AssimilationFactor(city, main);
         var moves = new List<(PopGroup from, float amount)>();
         foreach (PopGroup group in data.groups)
         {
             if (string.Equals(group.culture, main, StringComparison.Ordinal)) continue;
-            float amount = group.Background * Mathf.Clamp01(AssimilationRate * years);
+            float amount = group.Background * Mathf.Clamp01(rate * years);
             if (amount > 0f) moves.Add((group, amount));
         }
         foreach ((PopGroup from, float amount) in moves)

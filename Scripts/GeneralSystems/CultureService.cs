@@ -470,6 +470,19 @@ public static class CultureService
         Dictionary<string, float> targetShares = new Dictionary<string, float>();
         foreach (KeyValuePair<string, int> pair in counts)
             targetShares[pair.Key] = pair.Value * 100f / recognizedPopulation;
+        // 教化(见 CultureRadiation)：目标三成看四方各文化教化到本城的比例，七成看本城人口——
+        // 腹地本文化教化最盛，边地、山后、长城外受邻近文化浸染
+        IReadOnlyDictionary<string, float> radiance = CultureRadiation.SharesOf(city);
+        if (radiance != null && radiance.Count > 0)
+        {
+            foreach (string key in targetShares.Keys.ToList()) targetShares[key] *= 1f - CultureRadiation.PressureWeight;
+            foreach (KeyValuePair<string, float> pair in radiance)
+            {
+                if (!IsValidCulture(pair.Key)) continue;
+                targetShares.TryGetValue(pair.Key, out float value);
+                targetShares[pair.Key] = value + pair.Value * 100f * CultureRadiation.PressureWeight;
+            }
+        }
 
         string officialCulture = data.main_culture;
         if (!IsValidCulture(officialCulture))
@@ -1382,7 +1395,9 @@ public static class CultureService
     {
         if (!FindCulturalAssimilationDutyCandidate(city, out string assignedTarget) ||
             !string.Equals(assignedTarget, targetCulture, StringComparison.Ordinal)) return false;
-        if (!ApplyAssimilation(city, targetCulture, CulturalAssimilationDutyPush)) return false;
+        // 教化不到的地方(山后、长城外、远离文化中心)推得慢(见 CultureRadiation.AssimilationFactor)
+        if (!ApplyAssimilation(city, targetCulture,
+                CulturalAssimilationDutyPush * CultureRadiation.AssimilationFactor(city, targetCulture))) return false;
         city.GetOrCreate().last_cultural_assimilation_push_timestamp =
             World.world?.getCurWorldTime() ?? -1d;
         return true;

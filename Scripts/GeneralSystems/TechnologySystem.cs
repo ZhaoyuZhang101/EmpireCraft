@@ -999,6 +999,15 @@ public static class TechnologySystem
                     Link(WarContacts, other, pair.Key);
                 }
             }
+            // 教化：四方文化教化到本城一成五以上，也算接触过(见 CultureRadiation)
+            IReadOnlyDictionary<string, float> radiance = CultureRadiation.SharesOf(city);
+            if (radiance != null)
+                foreach (KeyValuePair<string, float> influence in radiance)
+                {
+                    if (influence.Value < CultureRadiation.ContactShare || !CultureService.IsValidCulture(influence.Key)) continue;
+                    Link(Contacts, pair.Key, influence.Key);
+                    Link(Contacts, influence.Key, pair.Key);
+                }
             long empireId = city.kingdom?.GetEmpireID() ?? -1L;
             if (empireId < 0) continue;
             if (!empireCultures.TryGetValue(empireId, out HashSet<string> cultures))

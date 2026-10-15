@@ -24,6 +24,8 @@ public static class EmpireCraftMetaTypeLibrary
       AddIdeologyMeta();
       AddNationMeta();
       AddWealthMeta();
+      AddEdificationMeta();
+      AddGovernanceMeta();
       AddMineralMeta();
       AddCityViewMeta();
       AssetManager.meta_type_library.linkAssets();
@@ -33,6 +35,8 @@ public static class EmpireCraftMetaTypeLibrary
     public static MetaTypeAsset ideology;
     public static MetaTypeAsset nation;
     public static MetaTypeAsset wealth;
+    public static MetaTypeAsset edification;
+    public static MetaTypeAsset governance;
     public static MetaTypeAsset mineral;
     public static MetaTypeAsset cityView;
 
@@ -166,6 +170,52 @@ public static class EmpireCraftMetaTypeLibrary
         asset.set_unit_set_meta_for_meta_for_window = (MetaUnitSetMetaForWindow) (_ => { });
         EmpireCraft.Scripts.Layer.WealthMap.Configure(asset);
         wealth = AssetManager.meta_type_library.add(asset);
+    }
+
+    // 教化图层、政令图层：结构与财富图层一致(见 Layer/RadianceMap.cs)
+    private static MetaTypeAsset AddRadianceMeta(string id, string icon, MetaType mode, string name)
+    {
+        var asset = new MetaTypeAsset
+        {
+            id = id,
+            ranks = MetaTypeLibrary.generateExponentialRanks(100.0, 1.5),
+            window_name = "IdeologyInfoWindow",
+            power_tab_id = "selected_empire",
+            force_zone_when_selected = false,
+            set_icon_for_cancel_button = true,
+            icon_list = "iconReligionList",
+            icon_single_path = icon,
+            has_dynamic_zones = false,
+            reports = new string[0],
+            map_mode = mode,
+            option_id = $"map_{name}_layer",
+            power_option_zone_id = $"{name}_layer"
+        };
+        asset.window_action_clear = (MetaTypeAction) (() => { });
+        asset.window_history_action_update = (MetaTypeHistoryAction) ((ref WindowHistoryData pHistoryData) => { });
+        asset.window_history_action_restore = (MetaTypeHistoryAction) ((ref WindowHistoryData pHistoryData) => { });
+        asset.get_list = (MetaTypeListAction) (() => Enumerable.Empty<NanoObject>());
+        asset.has_any = (MetaTypeListHasAction) (() => false);
+        asset.get_selected = (MetaSelectedGetter) (() => null);
+        asset.set_selected = (MetaSelectedSetter) (_ => { });
+        asset.get = (MetaGetter) (_ => null);
+        asset.check_unit_has_meta = (MetaCheckUnitWindowAction) (_ => false);
+        asset.set_unit_set_meta_for_meta_for_window = (MetaUnitSetMetaForWindow) (_ => { });
+        return asset;
+    }
+
+    public static void AddEdificationMeta()
+    {
+        MetaTypeAsset asset = AddRadianceMeta("edification", "ui/icons/godpowers/edification_layer", MetaTypeExtension.Edification, "Edification");
+        EmpireCraft.Scripts.Layer.EdificationMap.Configure(asset);
+        edification = AssetManager.meta_type_library.add(asset);
+    }
+
+    public static void AddGovernanceMeta()
+    {
+        MetaTypeAsset asset = AddRadianceMeta("governance", "ui/icons/godpowers/governance_layer", MetaTypeExtension.Governance, "Governance");
+        EmpireCraft.Scripts.Layer.GovernanceMap.Configure(asset);
+        governance = AssetManager.meta_type_library.add(asset);
     }
 
     public static void AddIdeologyMeta()

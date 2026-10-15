@@ -325,6 +325,14 @@ internal static class MainTab
                  SpriteTextureLoader.getSprite("ui/icons/godpowers/wealth_layer"));
         AddButton(CULTURE_GROUP, wealthLayer);
 
+        // 教化图层(四方文化教化所及)、政令图层(行政控制力，鞭长莫及)
+        PowerButton edificationLayer = FixFunctions.CreateLayerButton(MetaTypeExtension.Edification,
+                 SpriteTextureLoader.getSprite("ui/icons/godpowers/edification_layer"), maxOption: 2);
+        AddButton(CULTURE_GROUP, edificationLayer);
+        PowerButton governanceLayer = FixFunctions.CreateLayerButton(MetaTypeExtension.Governance,
+                 SpriteTextureLoader.getSprite("ui/icons/godpowers/governance_layer"), maxOption: 2);
+        AddButton(CULTURE_GROUP, governanceLayer);
+
         // 矿产图层(图标用现成的资源图标)
         PowerButton mineralLayer = FixFunctions.CreateLayerButton(MetaTypeExtension.Mineral,
                  SpriteTextureLoader.getSprite("ui/icons/resources/iconRes_coal"));

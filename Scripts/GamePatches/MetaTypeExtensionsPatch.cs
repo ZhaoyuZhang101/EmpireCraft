@@ -92,6 +92,12 @@ public class MetaTypeExtensionsPatch:GamePatch
             case MetaTypeExtension.CityView:
                 __result = "cityview";
                 return false;
+            case MetaTypeExtension.Edification:
+                __result = "edification";
+                return false;
+            case MetaTypeExtension.Governance:
+                __result = "governance";
+                return false;
             default:
                 Debug.LogError((object) ("MetaTypeExtensions.AsString missing option for : " + pType.ToString()));
                 __result = pType.ToString().ToLower();

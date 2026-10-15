@@ -14,6 +14,9 @@ public static class MetaTypeExtension
     public const MetaType Wealth = (MetaType)105;
     // 城市图层：只显示模拟的城市(见 Layer/CityViewMap.cs)
     public const MetaType CityView = (MetaType)106;
+    // 教化图层、政令图层(见 Layer/RadianceMap.cs)
+    public const MetaType Edification = (MetaType)107;
+    public const MetaType Governance = (MetaType)108;
     
     public static string ToMetaString(this MetaType type)
     {
@@ -33,6 +36,10 @@ public static class MetaTypeExtension
                 return "Wealth";
             case (MetaType)106:
                 return "CityView";
+            case (MetaType)107:
+                return "Edification";
+            case (MetaType)108:
+                return "Governance";
             default:
                 return type.ToString();
         }
