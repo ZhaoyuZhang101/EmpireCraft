@@ -9,13 +9,14 @@ namespace EmpireCraft.Scripts.GamePatches;
 // "太规整了，没有一般城市的随意中带着一丝规划""周边还要生成随机小村镇")：
 // 拉近时给镜头里最近的几座城单独画一张一格 4×4 像素的图，盖在一格一像素的平面图上(见 UI/Components/CityDetailOverlay)。
 // 用的是同一份平面图(城的轮廓、城墙、四门与中轴、各坊用途与建筑、城外的路与村镇)，只是画得细：
-//   · 骨架规划：城墙(外沿垛口、内侧马道、敌楼、城门楼)、护城河、通城门的大街与中轴、城心钟鼓楼，笔直规整；
-//   · 肌理自然：次级街道大致沿地块边，但位置错开、略有弯折、宽窄不一，有的只修半截(丁字路口)，有的没修(街坊连成一片)；
-//     街坊里一刀刀切出大小不一的宅基地，大的留胡同；宅子临街开门——小户一字平房、中户三合院、大户两进四合院，
-//     夹着菜园、空地、树；坊里有什么建筑(见 Fill)决定画宅子、铺面、衙署、庙、营房还是作坊，坊里建筑少就多空地；
-//   · 城外：城门外沿大路一溜关厢人家；镇(十字街、集市摊棚、沿街房子、小庙，富的围一圈矮墙)；
-//     村(打谷场、十几户人家、树、池塘、菜园，小路通到大路)；村镇周围的田块(压暗的垄沟)。
-// 第一步只画古代的华夏城；别的文化系与近代以后的城照旧(见 DetailEligible)。
+//   · 骨架规划：城墙、护城河、通城门的大街与中轴、城心的标志性建筑，规整；
+//   · 肌理自然：街巷错位、弯折，宅基地一刀刀切得大小不一，留胡同，宅子临街开门，夹着菜园、空地、树；
+//     坊里有什么建筑(见 Fill)决定画宅子、铺面、衙署、庙、营房还是作坊，坊里建筑少就多空地；
+//   · 城外：关厢、镇(十字街、集市、沿街房子、小庙、矮墙)、村(打谷场、人家、池塘、菜园、小路)、格子田。
+// 各文化系各有画法(第二步，用户 2026-10-16 看过演示版定下)：街(方格 / 放射弯街 / 迷宫 / 水渠 / 营地)、
+// 房子(华夏宅院、日本町家、西欧尖顶排屋、罗马公寓、维京长屋、阿拉伯与波斯平顶天井、埃及泥砖房、印度大宅)、
+// 城心(钟鼓楼、寺社、教堂广场、罗马广场、议事大厅、清真寺、神庙、塔庙、阶梯金字塔)、城墙塔楼(方塔、圆塔、木栅)。
+// 近代以后的城照旧(第三步再做，见 DetailEligible)。
 public partial class PureMapPatch
 {
     internal const int DetailScale = 4;
@@ -24,18 +25,83 @@ public partial class PureMapPatch
 
     // 像素种类
     private const byte KEmpty = 0, KGround = 1, KStreet = 2, KAlley = 3, KBuilding = 4, KWall = 5, KWater = 6, KPath = 7,
-        KPlaza = 8, KAvenue = 9, KFixed = 10, KOff = 255;
+        KPlaza = 8, KAvenue = 9, KFixed = 10, KCenter = 11, KOff = 255;
 
-    private static readonly Color32 Clear = new(0, 0, 0, 0), Court = new(222, 214, 196, 255), Door = new(150, 60, 50, 255),
-        TreeDark = new(92, 146, 80, 255), TreeLight = new(128, 178, 106, 255), Dirt = new(214, 196, 160, 255),
-        Thatch = new(156, 132, 92, 255), Threshing = new(232, 220, 190, 255), Stall = new(200, 120, 70, 255),
-        StallLight = new(220, 150, 90, 255), TempleRoof = new(82, 70, 64, 255), TempleYard = new(226, 216, 196, 255),
-        Garden = new(170, 196, 130, 255), Workshop = new(132, 110, 90, 255), Furrow = new(0, 0, 0, 46),
-        WaterBlue = new(140, 185, 235, 255);
-    private static readonly Color32[] SlateRoofs =
+    private static Color32 Rgb(int r, int g, int b) => new((byte)r, (byte)g, (byte)b, 255);
+
+    private static readonly Color32 Clear = new(0, 0, 0, 0), Court = Rgb(222, 214, 196), Door = Rgb(150, 60, 50),
+        TreeDark = Rgb(92, 146, 80), TreeLight = Rgb(128, 178, 106), Palm = Rgb(86, 140, 70), Dirt = Rgb(214, 196, 160),
+        Thatch = Rgb(156, 132, 92), Threshing = Rgb(232, 220, 190), Stall = Rgb(200, 120, 70), StallLight = Rgb(220, 150, 90),
+        TempleRoof = Rgb(82, 70, 64), TempleYard = Rgb(226, 216, 196), Garden = Rgb(170, 196, 130), Workshop = Rgb(132, 110, 90),
+        Furrow = new(0, 0, 0, 52), FieldTint = new(255, 240, 180, 18), WaterBlue = Rgb(140, 185, 235), Ripple = Rgb(176, 210, 240),
+        White = Rgb(255, 255, 255), Fence = Rgb(124, 96, 64);
+    private static readonly Color32[] SlateRoofs = { Rgb(96, 98, 108), Rgb(104, 102, 108), Rgb(90, 94, 104), Rgb(110, 106, 100), Rgb(98, 92, 96) };
+
+    // 各文化系的画法
+    private sealed class DetailStyle
     {
-        new(96, 98, 108, 255), new(104, 102, 108, 255), new(90, 94, 104, 255), new(110, 106, 100, 255), new(98, 92, 96, 255)
+        public string Layout = "grid", House = "courtyard", Center = "drum", Temple = "compound", Market = "shops", Tower = "square";
+        public float Jitter = 2.2f, Skip = 0.18f, Half = 0.35f, AlleyP = 0.45f;
+        public Color32[] Roofs = SlateRoofs;
+        public Color32 Dome = Rgb(90, 140, 120);
+        public bool Gardens, Palms;
+        public bool FlatRoofs => House is "flat" or "mudbrick" or "haveli";
+        public bool Camp => Layout is "yurt" or "hut";
+    }
+
+    private static readonly Dictionary<string, DetailStyle> Styles = new()
+    {
+        ["huaxia"] = new DetailStyle(),
+        ["japan"] = new DetailStyle
+        {
+            Jitter = 0.8f, Skip = 0.06f, Half = 0.15f, AlleyP = 0.6f, House = "machiya", Center = "shrine", Temple = "shrine",
+            Roofs = new[] { Rgb(70, 72, 80), Rgb(84, 84, 92), Rgb(64, 66, 74), Rgb(92, 88, 84) }
+        },
+        ["western"] = new DetailStyle
+        {
+            Layout = "organic", House = "gabled", Center = "church", Temple = "chapel", Tower = "round",
+            Roofs = new[] { Rgb(172, 92, 72), Rgb(152, 82, 66), Rgb(186, 114, 86), Rgb(110, 106, 114), Rgb(160, 100, 80) }
+        },
+        ["roma"] = new DetailStyle
+        {
+            Jitter = 0.5f, Skip = 0.04f, Half = 0.08f, AlleyP = 0.25f, House = "insula", Center = "forum", Temple = "roman_temple",
+            Roofs = new[] { Rgb(192, 112, 82), Rgb(202, 126, 94), Rgb(178, 102, 76) }
+        },
+        ["viking"] = new DetailStyle
+        {
+            Layout = "organic", House = "longhouse", Center = "hall", Temple = "longhall", Market = "stalls", Tower = "palisade",
+            Roofs = new[] { Rgb(110, 120, 80), Rgb(124, 116, 82), Rgb(96, 104, 70) }
+        },
+        ["arab"] = new DetailStyle
+        {
+            Layout = "maze", House = "flat", Center = "mosque", Temple = "small_mosque", Market = "souk",
+            Roofs = new[] { Rgb(226, 210, 176), Rgb(216, 198, 162), Rgb(232, 218, 188) }, Dome = Rgb(90, 140, 120)
+        },
+        ["persia"] = new DetailStyle
+        {
+            Layout = "maze", House = "flat", Center = "dome_mosque", Temple = "small_mosque", Market = "souk", Tower = "round",
+            Roofs = new[] { Rgb(220, 204, 172), Rgb(208, 192, 160), Rgb(226, 212, 182) }, Dome = Rgb(64, 116, 176), Gardens = true
+        },
+        ["egypt"] = new DetailStyle
+        {
+            Jitter = 2.5f, Skip = 0.2f, Half = 0.3f, AlleyP = 0.5f, House = "mudbrick", Center = "pylon", Temple = "pylon_small",
+            Market = "stalls", Palms = true, Roofs = new[] { Rgb(206, 186, 146), Rgb(196, 174, 134), Rgb(214, 196, 158) }
+        },
+        ["india"] = new DetailStyle
+        {
+            Layout = "organic", House = "haveli", Center = "shikhara", Temple = "shikhara_small", Market = "stalls", Tower = "round",
+            Roofs = new[] { Rgb(214, 152, 122), Rgb(222, 182, 132), Rgb(202, 124, 112), Rgb(232, 202, 162), Rgb(196, 160, 190) }
+        },
+        ["aztec"] = new DetailStyle
+        {
+            Layout = "canal", House = "flat", Center = "pyramid", Temple = "pyramid_small", Market = "stalls",
+            Roofs = new[] { Rgb(238, 234, 224), Rgb(228, 222, 208), Rgb(220, 214, 200) }
+        },
+        ["nomad"] = new DetailStyle { Layout = "yurt" },
+        ["woodland"] = new DetailStyle { Layout = "hut" }
     };
+
+    private static DetailStyle StyleOf(string family) => family != null && Styles.TryGetValue(family, out DetailStyle style) ? style : null;
 
     internal sealed class DetailImage
     {
@@ -43,14 +109,14 @@ public partial class PureMapPatch
         public Color32[] Pixels;
     }
 
-    // 画这座城的精细图吗：纯净地图画城市时、古代的华夏城
+    // 画这座城的精细图吗：纯净地图画城市时、古代的城(近代以后的城与改建中的城照旧)
     internal static bool DetailEligible(City city)
     {
         if (city?.data == null || city.isRekt() || !PureMapMode.Enabled || !DetailShown || Layer.CityViewMap.Active ||
             ZonePlanSystem.SteadyOverlay) return false;
         CityPlan plan = PlanFor(city);
         UrbanFabric.Geometry g = plan.fabric;
-        return g != null && !g.Nomad && !g.Modern && plan.family == "huaxia" && plan.target == null && plan.built.Count > 0;
+        return g != null && !g.Modern && StyleOf(plan.family) != null && plan.target == null && plan.built.Count > 0;
     }
 
     // 精细图的指纹：平面图变了、底色(图层)变了就重画
@@ -85,6 +151,7 @@ public partial class PureMapPatch
         public readonly Color32[] Pixels;
         public readonly byte[] Kinds;
         public readonly City City;
+        public Color32 Block, Street;
 
         public Canvas(City city, int x0, int y0, int w, int h)
         {
@@ -103,15 +170,23 @@ public partial class PureMapPatch
 
         public byte Kind(int px, int py) => In(px, py) ? Kinds[py * PW + px] : KOff;
 
+        // 不透明的颜色直接写；半透明的(田垄、影子)与已有的颜色叠起来
         public void Put(int px, int py, Color32 color, byte kind)
         {
             if (!In(px, py)) return;
             int i = py * PW + px;
+            if (color.a < 255 && color.a > 0 && Pixels[i].a > 0)
+            {
+                float t = color.a / 255f;
+                Color32 under = Pixels[i];
+                color = new Color32((byte)(under.r + (color.r - under.r) * t), (byte)(under.g + (color.g - under.g) * t),
+                    (byte)(under.b + (color.b - under.b) * t), under.a);
+            }
             Pixels[i] = color;
             Kinds[i] = kind;
         }
 
-        public WorldTile Tile(int px, int py) => World.world.GetTile(X0 + px / DetailScale, Y0 + py / DetailScale);
+        public WorldTile Tile(int px, int py) => World.world.GetTile(X0 + Mathf.FloorToInt(px / (float)DetailScale), Y0 + Mathf.FloorToInt(py / (float)DetailScale));
 
         // 这一像素落在能盖房子的地上(不是水、山，属于本城或无主)
         public bool Land(int px, int py)
@@ -149,6 +224,11 @@ public partial class PureMapPatch
     private static Color32 Darker(Color32 color, float k) =>
         new((byte)Mathf.Clamp(color.r * k, 0f, 255f), (byte)Mathf.Clamp(color.g * k, 0f, 255f), (byte)Mathf.Clamp(color.b * k, 0f, 255f), 255);
 
+    private static Color32 Pick(Color32[] colors, float r) => colors[Mathf.Clamp((int)(r * colors.Length), 0, colors.Length - 1)];
+
+    // 城心建筑能压在哪些像素上(不压城墙、水、地标)
+    private static bool Paintable(byte kind) => kind is KGround or KStreet or KAvenue or KAlley or KPlaza or KBuilding or KCenter;
+
     #endregion
 
     // 画一座城的精细图(连同城外的关厢、镇、村)
@@ -156,7 +236,8 @@ public partial class PureMapPatch
     {
         CityPlan plan = PlanFor(city);
         UrbanFabric.Geometry g = plan.fabric;
-        if (g == null) return null;
+        DetailStyle style = StyleOf(plan.family);
+        if (g == null || style == null) return null;
         int size = Config.CITY_ZONE_SIZE;
         int x0 = int.MaxValue, y0 = int.MaxValue, x1 = int.MinValue, y1 = int.MinValue;
         void Grow(int x, int y, int r)
@@ -173,8 +254,8 @@ public partial class PureMapPatch
             Grow(zone.x * size + size - 1, zone.y * size + size - 1, 3);
         }
         if (x0 == int.MaxValue) return null;
-        foreach ((int x, int y) in g.Villages) Grow(x, y, 7);
-        foreach ((int x, int y, int townSize, _) in g.Towns) Grow(x, y, townSize + 3);
+        foreach ((int x, int y) in g.Villages) Grow(x, y, 8);
+        foreach ((int x, int y, int townSize, _) in g.Towns) Grow(x, y, townSize + 4);
         if (g.Suburb > 0)
             foreach (UrbanFabric.Road road in g.Roads)
                 if (road.Gate)
@@ -185,33 +266,37 @@ public partial class PureMapPatch
                     }
         // 太大就以城心为中心截一块
         int cx = g.Cx, cy = g.Cy;
-        x0 = Mathf.Max(x0, cx - MaxDetailTiles / 2);
-        y0 = Mathf.Max(y0, cy - MaxDetailTiles / 2);
-        x1 = Mathf.Min(x1, cx + MaxDetailTiles / 2 - 1);
-        y1 = Mathf.Min(y1, cy + MaxDetailTiles / 2 - 1);
-        x0 = Mathf.Max(0, x0);
-        y0 = Mathf.Max(0, y0);
-        x1 = Mathf.Min(MapBox.width - 1, x1);
-        y1 = Mathf.Min(MapBox.height - 1, y1);
+        x0 = Mathf.Max(Mathf.Max(x0, cx - MaxDetailTiles / 2), 0);
+        y0 = Mathf.Max(Mathf.Max(y0, cy - MaxDetailTiles / 2), 0);
+        x1 = Mathf.Min(Mathf.Min(x1, cx + MaxDetailTiles / 2 - 1), MapBox.width - 1);
+        y1 = Mathf.Min(Mathf.Min(y1, cy + MaxDetailTiles / 2 - 1), MapBox.height - 1);
         if (x1 < x0 || y1 < y0) return null;
         var c = new Canvas(city, x0, y0, x1 - x0 + 1, y1 - y0 + 1);
         long seed = UrbanFabric.SeedOf(city);
-        DrawUrban(c, plan, tint, seed);
-        DrawCountryside(c, plan, g, tint, seed);
+        if (style.Camp) DrawCamp(c, plan, g, style, tint, seed);
+        else
+        {
+            DrawUrban(c, plan, style, tint, seed);
+            DrawCountryside(c, g, style, tint, seed);
+        }
         return new DetailImage { X0 = x0, Y0 = y0, W = c.W, H = c.H, Pixels = c.Pixels, Key = DetailKey(city, tint) };
     }
 
     #region 城里
 
-    private static void DrawUrban(Canvas c, CityPlan plan, Color32 tint, long seed)
+    private static void DrawUrban(Canvas c, CityPlan plan, DetailStyle style, Color32 tint, long seed)
     {
         int s = DetailScale;
         Color32 block = Lerp(tint, Block, BlockShare), avenue = Lerp(tint, Arterial, StreetShare),
-            avenueEdge = Lerp(avenue, new Color32(150, 120, 70, 255), 0.35f),
-            axis = Lerp(tint, AxisOf(plan.family) ?? Arterial, StreetShare), moat = Lerp(tint, Moat, 0.9f);
-        Color32 wall = WallOf(plan.family) ?? new Color32(124, 112, 100, 255), tower = TowerOf(wall);
-        bool wallsUp = plan.walled && !(plan.fabric?.WallsDown ?? false);
-        // ① 逐格铺底：城里的地、地标(照一格一像素的画法放大)、护城河；城墙、钟鼓楼最后画
+            axis = Lerp(tint, AxisOf(plan.family) ?? Arterial, StreetShare), moat = Lerp(tint, Moat, 0.9f),
+            street = Lerp(tint, Street, StreetShare);
+        c.Block = block;
+        c.Street = street;
+        Color32? wallColor = WallOf(plan.family);
+        bool wallsUp = wallColor != null && plan.walled && !(plan.fabric?.WallsDown ?? false);
+        bool maze = style.Layout == "maze", canal = style.Layout == "canal";
+        int size = Config.CITY_ZONE_SIZE;
+        // ① 逐格铺底：城里的地、地标(照一格一像素的画法放大)、护城河、水渠、大街；城墙、城心建筑后画
         for (int ty = 0; ty < c.H; ty++)
         for (int tx = 0; tx < c.W; tx++)
         {
@@ -222,8 +307,7 @@ public partial class PureMapPatch
                 Fill(c, tx, ty, Clear, KWater);
                 continue;
             }
-            bool urban = Urban(tile, plan);
-            if (!urban)
+            if (!Urban(tile, plan))
             {
                 if (plan.moat && wallsUp && BesideWall(tile, plan))
                 {
@@ -232,9 +316,9 @@ public partial class PureMapPatch
                     for (int sx = 0; sx < s; sx++)
                     {
                         int px = tx * s + sx, py = ty * s + sy;
-                        Color32 color = bridge ? (sx == 0 || sx == s - 1) && tile.x == plan.gateX || (sy == 0 || sy == s - 1) && tile.y == plan.gateY
-                                ? new Color32(120, 104, 88, 255) : avenue
-                            : (px + 2 * py) % 8 == 0 ? Lerp(moat, new Color32(255, 255, 255, 255), 0.35f) : moat;
+                        bool rail = tile.x == plan.gateX ? sx == 0 || sx == s - 1 : sy == 0 || sy == s - 1;
+                        Color32 color = bridge ? rail ? Rgb(120, 104, 88) : avenue
+                            : (px + 2 * py) % 8 == 0 ? Lerp(moat, White, 0.35f) : moat;
                         c.Put(px, py, color, bridge ? KAvenue : KWater);
                     }
                 }
@@ -244,18 +328,31 @@ public partial class PureMapPatch
             {
                 Slot[] slots = plan.zones.TryGetValue(tile.zone.id, out Slot[] found) ? found : null;
                 Color32 coarse = Plan(tile, tint, ZonePlanSystem.Get(c.City, tile.zone), slots,
-                    tile.x - tile.zone.x * Config.CITY_ZONE_SIZE, tile.y - tile.zone.y * Config.CITY_ZONE_SIZE, plan, tile.zone);
+                    tile.x - tile.zone.x * size, tile.y - tile.zone.y * size, plan, tile.zone);
                 Fill(c, tx, ty, coarse, KFixed);
                 continue;
             }
             if (wallsUp && UrbanEdge(tile, plan))
             {
-                Fill(c, tx, ty, wall, KWall);
+                Fill(c, tx, ty, wallColor.Value, KWall);
                 continue;
             }
             bool onAxis = plan.axis && (tile.x == plan.axisX || tile.y == plan.axisY);
             bool onGate = tile.x == plan.gateX || tile.y == plan.gateY;
-            if (onAxis || onGate)
+            int lx = tile.x - tile.zone.x * size, ly = tile.y - tile.zone.y * size;
+            // 阿兹特克：地块之间是水渠(堤道、中轴除外)
+            if (canal && (lx == 0 || ly == 0) && !onGate && !onAxis)
+            {
+                for (int sy = 0; sy < s; sy++)
+                for (int sx = 0; sx < s; sx++)
+                {
+                    int px = tx * s + sx, py = ty * s + sy;
+                    c.Put(px, py, (px + py) % 7 == 0 ? Ripple : WaterBlue, KWater);
+                }
+                continue;
+            }
+            // 迷宫式的城没有笔直的大街(主街另画成弯的)
+            if (onAxis || onGate && !maze)
             {
                 bool vertical = onAxis ? tile.x == plan.axisX : tile.x == plan.gateX;
                 Color32 road = onAxis ? axis : avenue;
@@ -263,55 +360,44 @@ public partial class PureMapPatch
                 for (int sx = 0; sx < s; sx++)
                 {
                     bool edge = vertical ? sx == 0 || sx == s - 1 : sy == 0 || sy == s - 1;
-                    c.Put(tx * s + sx, ty * s + sy, edge ? Lerp(road, new Color32(150, 120, 70, 255), 0.35f) : road, KAvenue);
+                    c.Put(tx * s + sx, ty * s + sy, edge ? Lerp(road, Rgb(150, 120, 70), 0.35f) : road, KAvenue);
                 }
                 continue;
             }
             Fill(c, tx, ty, block, KGround);
         }
-        // ② 次级街道：大致沿地块边，错位、微弯、宽窄不一；有的只修半截，有的不修
-        Color32 street = Lerp(tint, Street, StreetShare);
-        int size = Config.CITY_ZONE_SIZE;
-        for (int line = (c.X0 / size) + 1; line <= (c.X0 + c.W) / size; line++) StreetLine(c, true, line * size - c.X0, plan, seed, line, street);
-        for (int line = (c.Y0 / size) + 1; line <= (c.Y0 + c.H) / size; line++) StreetLine(c, false, line * size - c.Y0, plan, seed, line, street);
-        // 斜街一条(顺着旧河道、旧路)
-        if (DetailHash(seed, 7) < 0.45f)
+        // ② 街：方格(沿地块边错位微弯)、放射弯街、迷宫主街；阿兹特克靠水渠
+        switch (style.Layout)
         {
-            int ax = (int)(c.PW * (0.2f + 0.3f * DetailHash(seed, 8))), ay = (int)(c.PH * (0.25f + 0.3f * DetailHash(seed, 9)));
-            int length = (int)(Mathf.Min(c.PW, c.PH) * 0.35f);
-            float slope = 0.35f + 0.5f * DetailHash(seed, 10);
-            for (int t = 0; t < length; t++)
-            {
-                int px = ax + t, py = ay + (int)(t * slope + 2f * Mathf.Sin(t / 9f));
-                for (int d = 0; d < 2; d++)
-                    if (c.Kind(px, py + d) == KGround) c.Put(px, py + d, street, KStreet);
-            }
+            case "grid":
+                for (int line = c.X0 / size + 1; line <= (c.X0 + c.W) / size; line++) StreetLine(c, true, line * size - c.X0, plan, style, seed, line, street);
+                for (int line = c.Y0 / size + 1; line <= (c.Y0 + c.H) / size; line++) StreetLine(c, false, line * size - c.Y0, plan, style, seed, line, street);
+                if (DetailHash(seed, 7) < 0.4f) Diagonal(c, seed, street);
+                break;
+            case "organic":
+                OrganicStreets(c, plan, style, seed, street);
+                break;
+            case "maze":
+                MazeStreets(c, plan, seed, street);
+                break;
         }
-        // ③ 街坊：被街围出的一片片，逐片切宅基地、盖房子
-        Blocks(c, plan, tint, block, seed);
-        // ④ 行道树
-        for (int py = 0; py < c.PH; py++)
-        for (int px = 0; px < c.PW; px++)
-        {
-            if (c.Kind(px, py) != KGround || DetailHash(seed, px, py, 77) >= 0.05f) continue;
-            if (c.Kind(px + 1, py) is KStreet or KAvenue || c.Kind(px - 1, py) is KStreet or KAvenue ||
-                c.Kind(px, py + 1) is KStreet or KAvenue || c.Kind(px, py - 1) is KStreet or KAvenue)
-                c.Put(px, py, TreeDark, KGround);
-        }
-        // ⑤ 城心钟鼓楼(两条中线交口，3×3 格)：红墙台基、黑瓦重檐
+        // ③ 城心的标志性建筑(两条中线交口)
         if (plan.gateX != int.MinValue && plan.built.Count >= 2)
-        {
-            int ox = (plan.gateX - c.X0) * s + s / 2, oy = (plan.gateY - c.Y0) * s + s / 2;
-            for (int py = oy - 6; py < oy + 6; py++)
-            for (int px = ox - 6; px < ox + 6; px++)
+            DrawCenter(c, style, wallColor, tint, (plan.gateX - c.X0) * s + s / 2, (plan.gateY - c.Y0) * s + s / 2, seed);
+        // ④ 街坊：被街围出的一片片，逐片切宅基地、盖房子
+        Blocks(c, plan, style, seed);
+        // ⑤ 行道树(迷宫式的窄巷没有)
+        if (!maze)
+            for (int py = 0; py < c.PH; py++)
+            for (int px = 0; px < c.PW; px++)
             {
-                float d = Mathf.Max(Mathf.Abs(px - ox + 0.5f), Mathf.Abs(py - oy + 0.5f));
-                Color32 color = d > 4.6f ? PalaceWall : d > 2.2f ? DrumRoof : d > 0.9f ? new Color32(120, 108, 112, 255) : new Color32(156, 146, 126, 255);
-                if (c.Kind(px, py) != KOff && c.Kind(px, py) != KWater) c.Put(px, py, color, KFixed);
+                if (c.Kind(px, py) != KGround || DetailHash(seed, px, py, 77) >= 0.05f) continue;
+                if (c.Kind(px + 1, py) is KStreet or KAvenue || c.Kind(px - 1, py) is KStreet or KAvenue ||
+                    c.Kind(px, py + 1) is KStreet or KAvenue || c.Kind(px, py - 1) is KStreet or KAvenue)
+                    c.Put(px, py, TreeDark, KGround);
             }
-        }
-        // ⑥ 城墙：外沿垛口一明一暗，内侧马道；四角、门两侧与每隔几格一座敌楼；城门楼红墙黑瓦
-        if (wallsUp) Walls(c, plan, wall, tower);
+        // ⑥ 城墙
+        if (wallsUp) Walls(c, plan, style, wallColor.Value);
     }
 
     private static void Fill(Canvas c, int tx, int ty, Color32 color, byte kind)
@@ -321,26 +407,26 @@ public partial class PureMapPatch
             c.Put(tx * DetailScale + sx, ty * DetailScale + sy, color, kind);
     }
 
-    // 一条次级街道(格坐标 at 处的地块边)：不修 18%，只修半截(到中线为止) 35%，错开 ±3 像素，宽 2(偶尔 3)，沿途微弯
-    private static void StreetLine(Canvas c, bool vertical, int at, CityPlan plan, long seed, int line, Color32 street)
+    // 一条次级街道(格坐标 at 处的地块边)：不修、只修半截(到中线为止)、错位、宽 2(偶尔 3)、沿途微弯——各系比例不同
+    private static void StreetLine(Canvas c, bool vertical, int at, CityPlan plan, DetailStyle style, long seed, int line, Color32 street)
     {
         long id = seed * 7 + (vertical ? 1000 : 2000) + line;
-        if (DetailHash(id, 1) < 0.18f) return;
+        if (DetailHash(id, 1) < style.Skip) return;
         int s = DetailScale;
         int length = vertical ? c.PH : c.PW;
         int from = 0, to = length - 1;
         int gate = vertical ? plan.gateY : plan.gateX;
-        if (gate != int.MinValue && DetailHash(id, 2) < 0.35f)
+        if (gate != int.MinValue && DetailHash(id, 2) < style.Half)
         {
             int middle = Mathf.Clamp((gate - (vertical ? c.Y0 : c.X0)) * s, 0, length - 1);
             if (DetailHash(id, 3) < 0.5f) to = middle;
             else from = middle;
         }
-        int offset = Mathf.RoundToInt((DetailHash(id, 4) - 0.5f) * 6f);
+        int offset = Mathf.RoundToInt((DetailHash(id, 4) - 0.5f) * 6f * style.Jitter / 2.2f);
         int width = DetailHash(id, 5) < 0.75f ? 2 : 3;
         for (int t = from; t <= to; t++)
         {
-            int wob = Mathf.RoundToInt(2.2f * (DetailNoise(t, 26f, id) - 0.5f)) + offset;
+            int wob = Mathf.RoundToInt(style.Jitter * (DetailNoise(t, 26f, id) - 0.5f)) + offset;
             for (int d = 0; d < width; d++)
             {
                 int px = vertical ? at * s + wob + d - 1 : t, py = vertical ? t : at * s + wob + d - 1;
@@ -349,11 +435,356 @@ public partial class PureMapPatch
         }
     }
 
-    private static void Blocks(Canvas c, CityPlan plan, Color32 tint, Color32 block, long seed)
+    // 斜街一条(顺着旧河道、旧路)
+    private static void Diagonal(Canvas c, long seed, Color32 street)
+    {
+        int ax = (int)(c.PW * (0.2f + 0.3f * DetailHash(seed, 8))), ay = (int)(c.PH * (0.25f + 0.3f * DetailHash(seed, 9)));
+        int length = (int)(Mathf.Min(c.PW, c.PH) * 0.35f);
+        float slope = 0.35f + 0.5f * DetailHash(seed, 10);
+        for (int t = 0; t < length; t++)
+        {
+            int px = ax + t, py = ay + (int)(t * slope + 2f * Mathf.Sin(t / 9f));
+            for (int d = 0; d < 2; d++)
+                if (c.Kind(px, py + d) == KGround) c.Put(px, py + d, street, KStreet);
+        }
+    }
+
+    // 弯曲的路：从 (x, y) 朝 angle 走，围着这个方向左右摆(不累积，不会绕回来)；半像素一步、方笔连续画，
+    // 只画在街坊空地上，出城几步就停。drift 是摆幅(1 约 ±25°)
+    private static void Wander(Canvas c, float x, float y, float angle, float steps, int width, Color32 color, long seed, float drift)
+    {
+        int outside = 0;
+        for (int i = 0; i < steps * 2; i++)
+        {
+            float a = angle + (DetailNoise(i, 44f, seed) - 0.5f) * drift * 0.9f;
+            x += Mathf.Cos(a) * 0.5f;
+            y += Mathf.Sin(a) * 0.5f;
+            bool inside = false;
+            for (int dy = 0; dy < width; dy++)
+            for (int dx = 0; dx < width; dx++)
+            {
+                int px = Mathf.FloorToInt(x) + dx, py = Mathf.FloorToInt(y) + dy;
+                byte k = c.Kind(px, py);
+                if (k == KGround)
+                {
+                    c.Put(px, py, color, KStreet);
+                    inside = true;
+                }
+                else if (k is KStreet or KAvenue or KAlley) inside = true;
+            }
+            outside = inside ? 0 : outside + 1;
+            if (outside > 6 && i > 16) return;
+        }
+    }
+
+    // 弧街：以城心为圆心的一段弧，半径随噪声起伏
+    private static void Arc(Canvas c, float cx, float cy, float r0, float a0, float span, Color32 color, long seed)
+    {
+        int n = Mathf.CeilToInt(r0 * span * 2f);
+        for (int t = 0; t <= n; t++)
+        {
+            float a = a0 + span * t / n, rr = r0 * (1f + 0.1f * (DetailNoise(t, 50f, seed) - 0.5f));
+            float x = cx + Mathf.Cos(a) * rr, y = cy + Mathf.Sin(a) * rr;
+            for (int dy = 0; dy < 2; dy++)
+            for (int dx = 0; dx < 2; dx++)
+            {
+                int px = Mathf.FloorToInt(x) + dx, py = Mathf.FloorToInt(y) + dy;
+                if (c.Kind(px, py) == KGround) c.Put(px, py, color, KStreet);
+            }
+        }
+    }
+
+    // 城的大致半径(像素)：建成地块数折成圆
+    private static float UrbanRadius(CityPlan plan) =>
+        Mathf.Sqrt(plan.built.Count * Config.CITY_ZONE_SIZE * Config.CITY_ZONE_SIZE / Mathf.PI) * DetailScale;
+
+    // 西欧、印度：从城心放射出去的弯街，外圈几段弧街，再岔出几条短街；维京只有几条一像素的木板小路
+    private static void OrganicStreets(Canvas c, CityPlan plan, DetailStyle style, long seed, Color32 street)
+    {
+        if (plan.gateX == int.MinValue) return;
+        float cx = (plan.gateX - c.X0) * DetailScale + 2f, cy = (plan.gateY - c.Y0) * DetailScale + 2f, R = UrbanRadius(plan);
+        bool viking = style.House == "longhouse";
+        int n = viking ? 4 : 4 + (int)(DetailHash(seed, 30) * 3), width = viking ? 1 : 2;
+        Color32 path = viking ? Lerp(c.Block, Rgb(176, 140, 96), 0.7f) : street;
+        for (int i = 0; i < n; i++)
+        {
+            float a = (i + 0.5f + (DetailHash(seed, i, 31) - 0.5f) * 0.5f) / n * Mathf.PI * 2f;
+            Wander(c, cx + Mathf.Cos(a) * 10f, cy + Mathf.Sin(a) * 10f, a, R * 1.2f, width, path, seed + i * 17, 1f);
+        }
+        if (viking) return;
+        foreach (float f in new[] { 0.45f, 0.75f })
+        {
+            int pieces = 2 + (int)(DetailHash(seed, (long)(f * 100), 32) * 2);
+            for (int k = 0; k < pieces; k++)
+                Arc(c, cx, cy, R * f, (k + DetailHash(seed, (long)(f * 100), k, 33)) / pieces * Mathf.PI * 2f,
+                    0.6f + 0.6f * DetailHash(seed, (long)(f * 100), k, 34), street, seed + (long)(f * 1000) + k);
+        }
+        for (int i = 0; i < 3; i++)
+        {
+            float a = DetailHash(seed, i, 35) * Mathf.PI * 2f, r = R * (0.3f + 0.55f * DetailHash(seed, i, 36));
+            Wander(c, cx + Mathf.Cos(a) * r, cy + Mathf.Sin(a) * r, a + Mathf.PI / 2f * (DetailHash(seed, i, 37) < 0.5f ? 1f : -1f),
+                18f + DetailHash(seed, i, 38) * 24f, 2, street, seed + 500 + i, 1.5f);
+        }
+    }
+
+    // 阿拉伯、波斯：几条弯曲的土路主街从城心通四门，其余是切宅基地切出的窄巷、死胡同
+    private static void MazeStreets(Canvas c, CityPlan plan, long seed, Color32 street)
+    {
+        if (plan.gateX == int.MinValue) return;
+        float cx = (plan.gateX - c.X0) * DetailScale + 2f, cy = (plan.gateY - c.Y0) * DetailScale + 2f, R = UrbanRadius(plan);
+        Color32 dusty = Lerp(street, Dirt, 0.35f);
+        for (int k = 0; k < 4; k++)
+        {
+            float a = k * Mathf.PI / 2f;
+            Wander(c, cx + Mathf.Cos(a) * 12f, cy + Mathf.Sin(a) * 12f, a, R * 1.3f, 2, dusty, seed + 40 + k, 2.2f);
+        }
+        for (int i = 0; i < 5; i++)
+        {
+            float a = DetailHash(seed, i, 41) * Mathf.PI * 2f, r = R * (0.25f + 0.5f * DetailHash(seed, i, 42));
+            Wander(c, cx + Mathf.Cos(a) * r, cy + Mathf.Sin(a) * r, a + 1.4f, 16f + DetailHash(seed, i, 43) * 24f, 1, dusty, seed + 600 + i, 3f);
+        }
+    }
+
+    #region 画屋顶、地面的小工具
+
+    // 一块地面(城心建筑用)：只压在街坊、街、地标以外的地方
+    private static void Area(Canvas c, int x0, int y0, int x1, int y1, Color32 color, byte kind = KCenter)
+    {
+        for (int py = Mathf.Min(y0, y1); py <= Mathf.Max(y0, y1); py++)
+        for (int px = Mathf.Min(x0, x1); px <= Mathf.Max(x0, x1); px++)
+            if (Paintable(c.Kind(px, py))) c.Put(px, py, color, kind);
+    }
+
+    private static void Disc(Canvas c, float cx, float cy, float r, Color32 color, byte kind)
+    {
+        for (int py = Mathf.FloorToInt(cy - r); py <= cy + r; py++)
+        for (int px = Mathf.FloorToInt(cx - r); px <= cx + r; px++)
+            if ((px - cx) * (px - cx) + (py - cy) * (py - cy) <= r * r && c.Kind(px, py) is KGround or KStreet or KAvenue)
+                c.Put(px, py, color, kind);
+    }
+
+    // 只在还是街坊空地的像素上画(切出来的宅基地可能越出不规则的街坊)
+    private static void Paint(Canvas c, int px, int py, Color32 color, byte kind = KBuilding)
+    {
+        byte k = c.Kind(px, py);
+        if (k == KGround || k == KBuilding && kind == KBuilding) c.Put(px, py, color, kind);
+    }
+
+    private static bool CanRoof(byte k, bool force) => force ? Paintable(k) : k is KGround or KBuilding or KPlaza;
+
+    // 有屋脊的屋顶：屋脊一道亮线、檐口暗
+    private static void Roof(Canvas c, int x0, int y0, int x1, int y1, bool horizontal, Color32 roof, byte kind = KBuilding, bool force = false)
+    {
+        Color32 high = Darker(roof, 1.32f), low = Darker(roof, 0.72f);
+        for (int py = y0; py <= y1; py++)
+        for (int px = x0; px <= x1; px++)
+        {
+            if (!CanRoof(c.Kind(px, py), force)) continue;
+            float m = horizontal ? (y0 + y1) / 2f : (x0 + x1) / 2f, at = horizontal ? py : px;
+            bool rim = horizontal ? py == y0 || py == y1 : px == x0 || px == x1;
+            c.Put(px, py, Mathf.Abs(at - m) < 0.6f ? high : rim ? low : roof, kind);
+        }
+    }
+
+    // 平顶：一圈矮墙(女儿墙)暗一点
+    private static void Flat(Canvas c, int x0, int y0, int x1, int y1, Color32 roof, byte kind = KBuilding, bool force = false)
+    {
+        Color32 low = Darker(roof, 0.84f);
+        for (int py = y0; py <= y1; py++)
+        for (int px = x0; px <= x1; px++)
+        {
+            if (!CanRoof(c.Kind(px, py), force)) continue;
+            c.Put(px, py, px == x0 || px == x1 || py == y0 || py == y1 ? low : roof, kind);
+        }
+    }
+
+    // 穹顶：受光的一侧亮、边上暗
+    private static void Dome(Canvas c, float cx, float cy, float r, Color32 color, byte kind = KCenter)
+    {
+        for (int py = Mathf.FloorToInt(cy - r); py <= cy + r; py++)
+        for (int px = Mathf.FloorToInt(cx - r); px <= cx + r; px++)
+        {
+            float d = Mathf.Sqrt((px - cx) * (px - cx) + (py - cy) * (py - cy));
+            if (d > r || !Paintable(c.Kind(px, py))) continue;
+            float light = px - cx - (py - cy) < -r * 0.3f ? 1.3f : d > r - 1f ? 0.75f : 1f;
+            c.Put(px, py, Darker(color, light), kind);
+        }
+    }
+
+    // 东南一侧落一道影子
+    private static void Shadow(Canvas c, int x0, int y0, int x1, int y1)
+    {
+        Color32 shade = Darker(c.Block, 0.84f);
+        for (int px = x0 + 1; px <= x1 + 1; px++)
+            if (c.Kind(px, y0 - 1) == KGround) c.Put(px, y0 - 1, shade, KGround);
+        for (int py = y0 - 1; py < y1; py++)
+            if (c.Kind(x1 + 1, py) == KGround) c.Put(x1 + 1, py, shade, KGround);
+    }
+
+    // 宅基地哪一边临街(门朝那边)：0 南 1 北 2 西 3 东
+    private static int StreetSide(Canvas c, int x0, int y0, int x1, int y1)
+    {
+        int[] counts = new int[4];
+        for (int px = x0; px <= x1; px++)
+        {
+            if (c.Kind(px, y0 - 2) is KStreet or KAlley or KAvenue or KPlaza) counts[0]++;
+            if (c.Kind(px, y1 + 2) is KStreet or KAlley or KAvenue or KPlaza) counts[1]++;
+        }
+        for (int py = y0; py <= y1; py++)
+        {
+            if (c.Kind(x0 - 2, py) is KStreet or KAlley or KAvenue or KPlaza) counts[2]++;
+            if (c.Kind(x1 + 2, py) is KStreet or KAlley or KAvenue or KPlaza) counts[3]++;
+        }
+        int side = 0;
+        for (int i = 1; i < 4; i++)
+            if (counts[i] > counts[side]) side = i;
+        return side;
+    }
+
+    private static void DoorAt(Canvas c, int side, int x0, int y0, int x1, int y1)
+    {
+        switch (side)
+        {
+            case 0: Paint(c, (x0 + x1) / 2, y0, Door); break;
+            case 1: Paint(c, (x0 + x1) / 2, y1, Door); break;
+            case 2: Paint(c, x0, (y0 + y1) / 2, Door); break;
+            default: Paint(c, x1, (y0 + y1) / 2, Door); break;
+        }
+    }
+
+    #endregion
+
+    #region 城心
+
+    private static void DrawCenter(Canvas c, DetailStyle style, Color32? wallColor, Color32 tint, int cx, int cy, long seed)
+    {
+        Color32 paving = Lerp(tint, Rgb(236, 232, 224), 0.88f), marble = Rgb(244, 240, 230);
+        switch (style.Center)
+        {
+            case "drum":
+                // 钟鼓楼(3×3 格)：红墙台基、黑瓦重檐
+                for (int py = cy - 6; py < cy + 6; py++)
+                for (int px = cx - 6; px < cx + 6; px++)
+                {
+                    float d = Mathf.Max(Mathf.Abs(px - cx + 0.5f), Mathf.Abs(py - cy + 0.5f));
+                    Area(c, px, py, px, py, d > 4.6f ? PalaceWall : d > 2.2f ? DrumRoof : d > 0.9f ? Rgb(120, 108, 112) : Rgb(156, 146, 126));
+                }
+                break;
+            case "shrine":
+                // 寺社：一片庭园，池子，黑瓦大殿，朱红鸟居
+                Area(c, cx - 9, cy - 9, cx + 9, cy + 9, Rgb(120, 160, 100));
+                for (int py = cy - 9; py <= cy + 9; py++)
+                for (int px = cx - 9; px <= cx + 9; px++)
+                    if (DetailHash(seed, px, py, 90) < 0.3f) Area(c, px, py, px, py, Rgb(92, 140, 84));
+                for (int py = cy - 6; py <= cy - 2; py++)
+                for (int px = cx - 7; px <= cx - 2; px++)
+                    if ((px - cx + 4.5f) * (px - cx + 4.5f) / 7f + (py - cy + 4f) * (py - cy + 4f) / 4f <= 1f) Area(c, px, py, px, py, WaterBlue);
+                Roof(c, cx - 6, cy + 1, cx + 7, cy + 7, true, Rgb(56, 58, 64), KCenter, true);
+                Area(c, cx, cy - 8, cx + 1, cy - 8, Rgb(190, 60, 40));
+                break;
+            case "church":
+                // 集市广场，北面十字形教堂(带钟楼)，广场上散着摊子
+                Disc(c, cx, cy, 13f, paving, KPlaza);
+                Roof(c, cx - 3, cy + 6, cx + 3, cy + 20, false, Rgb(96, 98, 112), KCenter, true);
+                Roof(c, cx - 8, cy + 12, cx + 8, cy + 15, true, Rgb(96, 98, 112), KCenter, true);
+                Area(c, cx - 3, cy + 3, cx + 3, cy + 6, Rgb(130, 126, 120));
+                Area(c, cx - 1, cy + 4, cx + 1, cy + 5, Rgb(96, 98, 112));
+                for (int i = 0; i < 10; i++)
+                {
+                    float a = DetailHash(seed, i, 91) * Mathf.PI * 2f, r = 6f + DetailHash(seed, i, 92) * 5f;
+                    int px = Mathf.RoundToInt(cx + Mathf.Cos(a) * r), py = Mathf.RoundToInt(cy - 4 + Mathf.Sin(a) * r * 0.5f);
+                    if (c.Kind(px, py) == KPlaza) c.Put(px, py, DetailHash(seed, i, 93) < 0.5f ? Stall : StallLight, KPlaza);
+                }
+                break;
+            case "forum":
+                // 大理石铺地的广场，四周柱廊，一端神庙
+                Area(c, cx - 10, cy - 12, cx + 10, cy + 16, marble);
+                for (int py = cy - 12; py <= cy + 16; py += 2)
+                {
+                    Area(c, cx - 9, py, cx - 9, py, Rgb(200, 196, 186));
+                    Area(c, cx + 9, py, cx + 9, py, Rgb(200, 196, 186));
+                }
+                for (int px = cx - 9; px <= cx + 9; px += 2) Area(c, px, cy - 11, px, cy - 11, Rgb(200, 196, 186));
+                Area(c, cx - 5, cy + 6, cx + 5, cy + 15, Rgb(234, 228, 214));
+                Roof(c, cx - 4, cy + 8, cx + 4, cy + 14, false, Rgb(192, 112, 82), KCenter, true);
+                break;
+            case "hall":
+                // 议事大厅：一圈栅栏围的场子，当中一座大长屋
+                Area(c, cx - 12, cy - 9, cx + 12, cy + 9, Lerp(tint, Rgb(200, 186, 140), 0.6f), KPlaza);
+                Roof(c, cx - 10, cy - 3, cx + 10, cy + 3, true, Rgb(104, 112, 74), KCenter, true);
+                for (int px = cx - 12; px <= cx + 12; px += 2)
+                {
+                    Area(c, px, cy - 9, px, cy - 9, Rgb(120, 90, 60));
+                    Area(c, px, cy + 9, px, cy + 9, Rgb(120, 90, 60));
+                }
+                break;
+            case "mosque":
+            case "dome_mosque":
+            {
+                // 清真寺：一圈院墙，礼拜殿(穹顶)，院中水池，一角宣礼塔
+                Color32 rim = Darker(wallColor ?? Rgb(200, 180, 140), 0.9f);
+                Area(c, cx - 11, cy - 11, cx + 11, cy + 11, Rgb(232, 222, 196));
+                Area(c, cx - 11, cy - 11, cx + 11, cy - 11, rim);
+                Area(c, cx - 11, cy + 11, cx + 11, cy + 11, rim);
+                Area(c, cx - 11, cy - 11, cx - 11, cy + 11, rim);
+                Area(c, cx + 11, cy - 11, cx + 11, cy + 11, rim);
+                Flat(c, cx - 10, cy + 2, cx + 10, cy + 10, Rgb(214, 200, 168), KCenter, true);
+                Dome(c, cx, cy + 6, style.Center == "dome_mosque" ? 5f : 4f, style.Dome);
+                if (style.Center == "dome_mosque")
+                {
+                    Dome(c, cx - 7, cy + 6, 2f, style.Dome);
+                    Dome(c, cx + 7, cy + 6, 2f, style.Dome);
+                }
+                Area(c, cx, cy - 5, cx + 1, cy - 5, Rgb(120, 170, 220));
+                Area(c, cx + 9, cy - 11, cx + 11, cy - 9, Rgb(244, 238, 222));
+                Area(c, cx + 10, cy - 10, cx + 10, cy - 10, Rgb(200, 180, 140));
+                break;
+            }
+            case "pylon":
+                // 神庙：塔门、柱厅、圣所
+                Area(c, cx - 9, cy - 10, cx + 9, cy + 14, Rgb(222, 206, 170));
+                Flat(c, cx - 9, cy - 10, cx - 2, cy - 7, Rgb(200, 176, 128), KCenter, true);
+                Flat(c, cx + 2, cy - 10, cx + 9, cy - 7, Rgb(200, 176, 128), KCenter, true);
+                for (int py = cy - 3; py <= cy + 4; py += 2)
+                for (int px = cx - 6; px <= cx + 6; px += 2)
+                    Area(c, px, py, px, py, Rgb(180, 156, 112));
+                Flat(c, cx - 4, cy + 7, cx + 4, cy + 13, Rgb(206, 184, 140), KCenter, true);
+                break;
+            case "shikhara":
+                // 塔庙：层层收进的塔，旁边一方阶梯水池
+                for (int sq = 9; sq >= 1; sq -= 2) Area(c, cx - sq, cy - sq, cx + sq, cy + sq, Darker(Rgb(226, 182, 140), 0.8f + (9 - sq) * 0.05f));
+                Area(c, cx, cy, cx, cy, Rgb(250, 230, 180));
+                Area(c, cx + 12, cy - 4, cx + 24, cy + 8, Rgb(176, 160, 130));
+                for (int sq = 5; sq >= 1; sq--)
+                    Area(c, cx + 18 - sq, cy + 2 - sq, cx + 18 + sq, cy + 2 + sq, sq == 1 ? WaterBlue : Darker(Rgb(176, 160, 130), 0.85f + sq * 0.03f));
+                break;
+            case "pyramid":
+                // 神庙区：一圈白墙，当中阶梯金字塔，顶上神殿，一道台阶
+                Area(c, cx - 14, cy - 14, cx + 14, cy + 14, Rgb(236, 232, 222));
+                for (int t = -14; t <= 14; t++)
+                {
+                    Area(c, cx + t, cy - 14, cx + t, cy - 14, Rgb(200, 196, 180));
+                    Area(c, cx + t, cy + 14, cx + t, cy + 14, Rgb(200, 196, 180));
+                    Area(c, cx - 14, cy + t, cx - 14, cy + t, Rgb(200, 196, 180));
+                    Area(c, cx + 14, cy + t, cx + 14, cy + t, Rgb(200, 196, 180));
+                }
+                for (int sq = 9; sq >= 2; sq--) Area(c, cx - sq, cy - sq, cx + sq, cy + sq, sq % 2 == 1 ? Rgb(190, 180, 160) : Rgb(214, 206, 186));
+                Area(c, cx - 2, cy - 2, cx + 2, cy + 2, Rgb(170, 70, 50));
+                Area(c, cx, cy - 9, cx, cy - 2, Rgb(240, 236, 228));
+                break;
+        }
+    }
+
+    #endregion
+
+    #region 街坊与宅基地
+
+    private static void Blocks(Canvas c, CityPlan plan, DetailStyle style, long seed)
     {
         var seen = new bool[c.PW * c.PH];
         var stack = new Stack<int>();
         int index = 0;
+        int pad = style.Layout == "maze" || style.House == "flat" ? 0 : 1;
         for (int start = 0; start < seen.Length; start++)
         {
             if (seen[start] || c.Kinds[start] != KGround) continue;
@@ -383,61 +814,55 @@ public partial class PureMapPatch
                 Visit(px, py - 1);
             }
             if (count < 20) continue;
-            // 街坊外沿留一像素(人行道)，里面再切
-            Subdivide(c, plan, block, minX + 1, minY + 1, maxX - 1, maxY - 1, 0, seed * 131 + index++);
+            // 街坊外沿留一像素(人行道；平顶房挤着街盖，不留)，里面再切
+            Subdivide(c, plan, style, minX + pad, minY + pad, maxX - pad, maxY - pad, 0, seed * 131 + index++);
         }
     }
 
-    // 一刀刀切：沿长边在 35%~65% 处切开，大块偶尔留一条胡同；够小或随机停下就盖房
-    private static void Subdivide(Canvas c, CityPlan plan, Color32 block, int x0, int y0, int x1, int y1, int depth, long seed)
+    // 一刀刀切：沿长边在 35%~65% 处切开，大块偶尔留一条胡同(迷宫式的城胡同多、常常是死胡同)；够小或随机停下就盖房
+    private static void Subdivide(Canvas c, CityPlan plan, DetailStyle style, int x0, int y0, int x1, int y1, int depth, long seed)
     {
         int w = x1 - x0 + 1, h = y1 - y0 + 1;
         if (w < 3 || h < 3) return;
         int area = w * h;
-        if (area <= 90 || area <= 200 && DetailHash(seed, depth, 1) < 0.45f || depth > 8)
+        bool maze = style.Layout == "maze";
+        if (area <= (maze ? 60 : 90) || area <= 200 && DetailHash(seed, depth, 1) < 0.45f || depth > 9)
         {
-            Lot(c, plan, block, x0, y0, x1, y1, seed);
+            Lot(c, plan, style, x0, y0, x1, y1, seed);
             return;
         }
-        bool alley = area > 260 && DetailHash(seed, depth, 2) < 0.45f;
+        bool alley = area > (maze ? 140 : 260) && DetailHash(seed, depth, 2) < (maze ? 0.85f : style.AlleyP);
+        bool deadEnd = maze && DetailHash(seed, depth, 4) < 0.5f;
         float cut = 0.35f + 0.3f * DetailHash(seed, depth, 3);
-        Color32 alleyColor = Lerp(block, new Color32(255, 255, 255, 255), 0.45f);
+        Color32 alleyColor = Lerp(c.Block, White, maze ? 0.55f : 0.45f);
         if (w >= h)
         {
             int m = x0 + (int)(w * cut);
             if (alley)
             {
-                for (int py = y0; py <= y1; py++)
+                int end = deadEnd ? y0 + (int)(h * (0.4f + 0.4f * DetailHash(seed, depth, 5))) : y1;
+                for (int py = y0; py <= end; py++)
                     if (c.Kind(m, py) == KGround) c.Put(m, py, alleyColor, KAlley);
-                Subdivide(c, plan, block, x0, y0, m - 1, y1, depth + 1, seed * 3 + 1);
-                Subdivide(c, plan, block, m + 1, y0, x1, y1, depth + 1, seed * 3 + 2);
             }
-            else
-            {
-                Subdivide(c, plan, block, x0, y0, m, y1, depth + 1, seed * 3 + 1);
-                Subdivide(c, plan, block, m + 1, y0, x1, y1, depth + 1, seed * 3 + 2);
-            }
+            Subdivide(c, plan, style, x0, y0, alley ? m - 1 : m, y1, depth + 1, seed * 3 + 1);
+            Subdivide(c, plan, style, m + 1, y0, x1, y1, depth + 1, seed * 3 + 2);
         }
         else
         {
             int m = y0 + (int)(h * cut);
             if (alley)
             {
-                for (int px = x0; px <= x1; px++)
+                int end = deadEnd ? x0 + (int)(w * (0.4f + 0.4f * DetailHash(seed, depth, 5))) : x1;
+                for (int px = x0; px <= end; px++)
                     if (c.Kind(px, m) == KGround) c.Put(px, m, alleyColor, KAlley);
-                Subdivide(c, plan, block, x0, y0, x1, m - 1, depth + 1, seed * 3 + 1);
-                Subdivide(c, plan, block, x0, m + 1, x1, y1, depth + 1, seed * 3 + 2);
             }
-            else
-            {
-                Subdivide(c, plan, block, x0, y0, x1, m, depth + 1, seed * 3 + 1);
-                Subdivide(c, plan, block, x0, m + 1, x1, y1, depth + 1, seed * 3 + 2);
-            }
+            Subdivide(c, plan, style, x0, y0, x1, alley ? m - 1 : m, depth + 1, seed * 3 + 1);
+            Subdivide(c, plan, style, x0, m + 1, x1, y1, depth + 1, seed * 3 + 2);
         }
     }
 
     // 这块宅基地盖什么：看它落在哪个地块、哪一角，那一角排的是什么建筑(见 Fill)；没排建筑的多半空着
-    private static void Lot(Canvas c, CityPlan plan, Color32 block, int x0, int y0, int x1, int y1, long seed)
+    private static void Lot(Canvas c, CityPlan plan, DetailStyle style, int x0, int y0, int x1, int y1, long seed)
     {
         int w = x1 - x0 + 1, h = y1 - y0 + 1;
         if (w < 4 || h < 4) return;
@@ -445,118 +870,68 @@ public partial class PureMapPatch
         TileZone zone = tile?.zone;
         if (zone == null) return;
         ZoneUse use = ZonePlanSystem.Get(c.City, zone);
-        int lx = tile.x - zone.x * Config.CITY_ZONE_SIZE, ly = tile.y - zone.y * Config.CITY_ZONE_SIZE;
-        int quarter = (ly >= Config.CITY_ZONE_SIZE / 2 ? 2 : 0) + (lx >= Config.CITY_ZONE_SIZE / 2 ? 1 : 0);
+        int size = Config.CITY_ZONE_SIZE, lx = tile.x - zone.x * size, ly = tile.y - zone.y * size;
+        int quarter = (ly >= size / 2 ? 2 : 0) + (lx >= size / 2 ? 1 : 0);
         Slot[] slots = plan.zones.TryGetValue(zone.id, out Slot[] found) ? found : null;
         string icon = slots != null && quarter < slots.Length && slots[quarter].used ? slots[quarter].icon : null;
         float r = DetailHash(seed, 11);
         if (use == ZoneUse.Reserve || icon == null && r < 0.3f)
         {
-            Trees(c, x0, y0, x1, y1, seed);
+            if (style.Gardens && w >= 9 && h >= 9) Charbagh(c, x0, y0, x1, y1);
+            else Trees(c, style, x0, y0, x1, y1, seed);
             return;
         }
         if (use == ZoneUse.Farm || icon == null && r < 0.55f)
         {
-            Plots(c, block, x0, y0, x1, y1, w > h);
+            Plots(c, x0, y0, x1, y1, w > h);
             return;
         }
         if (plan.ruin > 0f && DetailHash(seed, 12) < plan.ruin)
         {
-            Ruin(c, block, x0, y0, x1, y1, seed);
+            Ruin(c, x0, y0, x1, y1, seed);
             return;
         }
-        Color32 roof = SlateRoofs[(int)(DetailHash(seed, 13) * SlateRoofs.Length) % SlateRoofs.Length];
+        Color32 roof = Pick(style.Roofs, DetailHash(seed, 13));
         string kind = icon ?? "house_1";
         if ((kind == "temple" || kind.StartsWith("civic")) && w >= 10 && h >= 10)
         {
-            Compound(c, block, x0, y0, x1, y1, kind == "temple" ? PalaceWall : new Color32(150, 60, 50, 255), seed);
+            TempleLot(c, style, x0, y0, x1, y1, kind == "temple");
             return;
         }
         if (kind.StartsWith("market"))
         {
-            Shops(c, block, x0, y0, x1, y1, roof, seed);
+            if (style.Market == "souk") Souk(c, style, x0, y0, x1, y1);
+            else Shops(c, style, x0, y0, x1, y1, roof, seed);
             return;
         }
         if (kind == "barracks" || kind.StartsWith("industry") || kind == "docks")
         {
-            Halls(c, block, x0, y0, x1, y1, kind == "barracks" ? roof : Workshop, seed);
+            Halls(c, x0, y0, x1, y1, kind == "barracks" ? roof : Workshop);
             return;
         }
         int tier = 1;
         if (kind.StartsWith("house_") && int.TryParse(kind.Substring(6), out int parsed)) tier = parsed;
-        House(c, block, x0, y0, x1, y1, tier, roof, seed);
-    }
-
-    // 只在还是街坊空地的像素上画(切出来的宅基地可能越出不规则的街坊)
-    private static void Paint(Canvas c, int px, int py, Color32 color, byte kind = KBuilding)
-    {
-        byte k = c.Kind(px, py);
-        if (k == KGround || k == KBuilding && kind == KBuilding) c.Put(px, py, color, kind);
-    }
-
-    private static void Roof(Canvas c, int x0, int y0, int x1, int y1, bool horizontal, Color32 roof)
-    {
-        Color32 high = Darker(roof, 1.32f), low = Darker(roof, 0.72f);
-        for (int py = y0; py <= y1; py++)
-        for (int px = x0; px <= x1; px++)
+        switch (style.House)
         {
-            Color32 color;
-            if (horizontal)
-            {
-                float m = (y0 + y1) / 2f;
-                color = Mathf.Abs(py - m) < 0.6f ? high : py == y0 || py == y1 ? low : roof;
-            }
-            else
-            {
-                float m = (x0 + x1) / 2f;
-                color = Mathf.Abs(px - m) < 0.6f ? high : px == x0 || px == x1 ? low : roof;
-            }
-            Paint(c, px, py, color);
+            case "machiya": RowHouses(c, style, x0, y0, x1, y1, seed, 3, 4, 8, true); break;
+            case "gabled": RowHouses(c, style, x0, y0, x1, y1, seed, 3, 5, 6, false); break;
+            case "insula": Insula(c, x0, y0, x1, y1, roof); break;
+            case "longhouse": Longhouse(c, x0, y0, x1, y1, roof, seed); break;
+            case "flat": FlatHouse(c, x0, y0, x1, y1, roof, seed); break;
+            case "mudbrick": Mudbrick(c, x0, y0, x1, y1, roof, seed); break;
+            case "haveli": Haveli(c, style, x0, y0, x1, y1, tier, seed); break;
+            default: Courtyard(c, x0, y0, x1, y1, tier, roof, seed); break;
         }
     }
 
-    // 东南一侧落一道影子
-    private static void Shadow(Canvas c, Color32 block, int x0, int y0, int x1, int y1)
-    {
-        Color32 shade = Darker(block, 0.84f);
-        for (int px = x0 + 1; px <= x1 + 1; px++)
-            if (c.Kind(px, y0 - 1) == KGround) c.Put(px, y0 - 1, shade, KGround);
-        for (int py = y0 - 1; py < y1; py++)
-            if (c.Kind(x1 + 1, py) == KGround) c.Put(x1 + 1, py, shade, KGround);
-    }
-
-    // 宅基地哪一边临街(门朝那边)：0 南 1 北 2 西 3 东
-    private static int StreetSide(Canvas c, int x0, int y0, int x1, int y1)
-    {
-        int best = -1, side = 0;
-        int[] counts = new int[4];
-        for (int px = x0; px <= x1; px++)
-        {
-            if (c.Kind(px, y0 - 2) is KStreet or KAlley or KAvenue) counts[0]++;
-            if (c.Kind(px, y1 + 2) is KStreet or KAlley or KAvenue) counts[1]++;
-        }
-        for (int py = y0; py <= y1; py++)
-        {
-            if (c.Kind(x0 - 2, py) is KStreet or KAlley or KAvenue) counts[2]++;
-            if (c.Kind(x1 + 2, py) is KStreet or KAlley or KAvenue) counts[3]++;
-        }
-        for (int i = 0; i < 4; i++)
-            if (counts[i] > best)
-            {
-                best = counts[i];
-                side = i;
-            }
-        return side;
-    }
-
-    // 宅子：小户两排(或一排)平房，中户三合院(背街正房、两侧厢房)，大户两进四合院；临街开门
-    private static void House(Canvas c, Color32 block, int x0, int y0, int x1, int y1, int tier, Color32 roof, long seed)
+    // 华夏宅子：小户两排(或一排)平房，中户三合院(背街正房、两侧厢房)，大户两进四合院；临街开门
+    private static void Courtyard(Canvas c, int x0, int y0, int x1, int y1, int tier, Color32 roof, long seed)
     {
         int ax0 = x0 + (DetailHash(seed, 21) < 0.5f ? 1 : 0), ay0 = y0 + (DetailHash(seed, 22) < 0.5f ? 1 : 0);
         int ax1 = x1 - (DetailHash(seed, 23) < 0.4f ? 1 : 0), ay1 = y1 - (DetailHash(seed, 24) < 0.4f ? 1 : 0);
         int w = ax1 - ax0 + 1, h = ay1 - ay0 + 1;
         if (w < 4 || h < 4) return;
-        Shadow(c, block, ax0, ay0, ax1, ay1);
+        Shadow(c, ax0, ay0, ax1, ay1);
         int side = StreetSide(c, ax0, ay0, ax1, ay1);
         bool horizontal = side <= 1;
         if (tier >= 5 && w >= 9 && h >= 9 || tier >= 3 && w >= 11 && h >= 11)
@@ -598,7 +973,6 @@ public partial class PureMapPatch
         }
         else if (Mathf.Min(w, h) >= 7)
         {
-            // 小户：两排平房，中间一条小院
             if (horizontal)
             {
                 Roof(c, ax0, ay0, ax1, ay0 + 2, true, roof);
@@ -617,36 +991,213 @@ public partial class PureMapPatch
             }
         }
         else Roof(c, ax0, ay0, ax1, ay1, w >= h, roof);
-        // 临街开门
-        switch (side)
+        DoorAt(c, side, ax0, ay0, ax1, ay1);
+    }
+
+    // 日本町家、西欧尖顶排屋：沿街一户挨一户，门面窄、进深长，屋后一点园子(町家屋脊与街平行，排屋山墙朝街)
+    private static void RowHouses(Canvas c, DetailStyle style, int x0, int y0, int x1, int y1, long seed, int minW, int maxW, int maxDepth, bool ridgeAlong)
+    {
+        int side = StreetSide(c, x0, y0, x1, y1);
+        bool horizontal = side <= 1;
+        int length = horizontal ? x1 - x0 + 1 : y1 - y0 + 1, deep = horizontal ? y1 - y0 + 1 : x1 - x0 + 1;
+        int depth = Mathf.Min(deep, maxDepth);
+        for (int t = 0, k = 0; t < length; k++)
         {
-            case 0: Paint(c, (ax0 + ax1) / 2, ay0, Door); break;
-            case 1: Paint(c, (ax0 + ax1) / 2, ay1, Door); break;
-            case 2: Paint(c, ax0, (ay0 + ay1) / 2, Door); break;
-            default: Paint(c, ax1, (ay0 + ay1) / 2, Door); break;
+            int width = minW + (int)(DetailHash(seed, k, 1) * (maxW - minW + 1));
+            int a = (horizontal ? x0 : y0) + t, b = Mathf.Min(a + width - 1, horizontal ? x1 : y1);
+            Color32 roof = Pick(style.Roofs, DetailHash(seed, k, 2));
+            int ax0, ay0, ax1, ay1;
+            if (horizontal)
+            {
+                ax0 = a;
+                ax1 = b;
+                if (side == 0) { ay0 = y0; ay1 = y0 + depth - 1; }
+                else { ay1 = y1; ay0 = y1 - depth + 1; }
+            }
+            else
+            {
+                ay0 = a;
+                ay1 = b;
+                if (side == 2) { ax0 = x0; ax1 = x0 + depth - 1; }
+                else { ax1 = x1; ax0 = x1 - depth + 1; }
+            }
+            Roof(c, ax0, ay0, ax1, ay1, ridgeAlong ? horizontal : !horizontal, roof);
+            if (DetailHash(seed, k, 3) < 0.5f)
+            {
+                int gx = horizontal ? (ax0 + ax1) / 2 : side == 2 ? ax1 + 2 : ax0 - 2;
+                int gy = horizontal ? side == 0 ? ay1 + 2 : ay0 - 2 : (ay0 + ay1) / 2;
+                Paint(c, gx, gy, TreeDark, KGround);
+            }
+            t += width;
         }
     }
 
-    // 庙、衙署：一圈红墙(或朱墙)，院里铺地，正殿大屋顶
-    private static void Compound(Canvas c, Color32 block, int x0, int y0, int x1, int y1, Color32 wall, long seed)
+    // 罗马公寓街区：一圈陶红瓦房围着中庭(大的中庭里有绿地、水池)
+    private static void Insula(Canvas c, int x0, int y0, int x1, int y1, Color32 roof)
     {
-        Shadow(c, block, x0, y0, x1, y1);
+        int w = x1 - x0 + 1, h = y1 - y0 + 1;
+        Shadow(c, x0, y0, x1, y1);
+        if (w >= 9 && h >= 9)
+        {
+            int d = w >= 14 && h >= 14 ? 3 : 2;
+            Roof(c, x0, y0, x1, y0 + d - 1, true, roof);
+            Roof(c, x0, y1 - d + 1, x1, y1, true, roof);
+            Roof(c, x0, y0 + d, x0 + d - 1, y1 - d, false, roof);
+            Roof(c, x1 - d + 1, y0 + d, x1, y1 - d, false, roof);
+            for (int py = y0 + d; py <= y1 - d; py++)
+            for (int px = x0 + d; px <= x1 - d; px++)
+                Paint(c, px, py, w >= 14 && (px + py) % 3 == 0 ? Rgb(120, 170, 100) : Rgb(236, 230, 216));
+            if (w >= 12 && h >= 12)
+            {
+                int mx = (x0 + x1) / 2, my = (y0 + y1) / 2;
+                Paint(c, mx, my, Rgb(130, 180, 225));
+                Paint(c, mx + 1, my, Rgb(130, 180, 225));
+            }
+        }
+        else Roof(c, x0, y0, x1, y1, w >= h, roof);
+    }
+
+    // 维京长屋：两头圆、草皮顶；大院子围一圈篱笆
+    private static void Longhouse(Canvas c, int x0, int y0, int x1, int y1, Color32 roof, long seed)
+    {
+        int w = x1 - x0 + 1, h = y1 - y0 + 1;
+        bool horizontal = w >= h;
+        if (w >= 10 && h >= 10)
+        {
+            for (int px = x0; px <= x1; px += 2)
+            {
+                Paint(c, px, y0, Fence, KGround);
+                Paint(c, px, y1, Fence, KGround);
+            }
+            for (int py = y0; py <= y1; py += 2)
+            {
+                Paint(c, x0, py, Fence, KGround);
+                Paint(c, x1, py, Fence, KGround);
+            }
+        }
+        int length = Mathf.Max(5, (horizontal ? w : h) - 4), width = Mathf.Min(4, (horizontal ? h : w) - 3);
+        if (width < 2) return;
+        int cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+        int ax0 = horizontal ? cx - length / 2 : cx - width / 2, ay0 = horizontal ? cy - width / 2 : cy - length / 2;
+        int ax1 = horizontal ? ax0 + length - 1 : ax0 + width - 1, ay1 = horizontal ? ay0 + width - 1 : ay0 + length - 1;
+        Roof(c, ax0, ay0, ax1, ay1, horizontal, roof);
+        foreach ((int px, int py) in new[] { (ax0, ay0), (ax1, ay0), (ax0, ay1), (ax1, ay1) })
+            if (c.Kind(px, py) == KBuilding) c.Put(px, py, c.Block, KGround);
+        if (DetailHash(seed, 26) < 0.5f)
+        {
+            int sx = horizontal ? ax1 + 2 : ax0, sy = horizontal ? ay0 : ay1 + 2;
+            Roof(c, sx, sy, sx + 1, sy + 1, true, Darker(roof, 1.1f));
+        }
+    }
+
+    // 平顶房(阿拉伯、波斯、阿兹特克)：一家挨一家，各有小天井
+    private static void FlatHouse(Canvas c, int x0, int y0, int x1, int y1, Color32 roof, long seed)
+    {
+        int w = x1 - x0 + 1, h = y1 - y0 + 1;
+        Color32 tone = Darker(roof, 0.94f + 0.1f * DetailHash(seed, 27));
+        Flat(c, x0, y0, x1, y1, tone);
+        if (w >= 7 && h >= 7)
+        {
+            int cw = Mathf.Max(2, w / 3), ch = Mathf.Max(2, h / 3);
+            int cx0 = x0 + (w - cw) / 2 + Mathf.RoundToInt((DetailHash(seed, 28) - 0.5f) * 2f), cy0 = y0 + (h - ch) / 2;
+            for (int py = cy0; py < cy0 + ch; py++)
+            for (int px = cx0; px < cx0 + cw; px++)
+                Paint(c, px, py, Darker(tone, 0.8f));
+            if (DetailHash(seed, 29) < 0.5f) Paint(c, cx0, cy0, TreeDark);
+        }
+        if (w >= 10 && h >= 4) Paint(c, x0 + (int)(w * DetailHash(seed, 30)), y0 + 1, Darker(tone, 0.7f));
+    }
+
+    // 埃及泥砖房：平顶，院里椰枣树
+    private static void Mudbrick(Canvas c, int x0, int y0, int x1, int y1, Color32 roof, long seed)
+    {
+        int w = x1 - x0 + 1, h = y1 - y0 + 1;
+        Shadow(c, x0 + 1, y0 + 1, x1 - 1, y1 - 1);
+        if (w >= 8 && h >= 7)
+        {
+            Flat(c, x0 + 1, y0 + 1, x1 - 1, y0 + h / 2, Darker(roof, 0.95f + 0.1f * DetailHash(seed, 27)));
+            for (int py = y0 + h / 2 + 1; py < y1; py++)
+            for (int px = x0 + 1; px < x1; px++)
+                Paint(c, px, py, Rgb(226, 210, 172));
+            Paint(c, x0 + 2, y1 - 2, Palm);
+            Paint(c, x1 - 3, y1 - 2, Palm);
+        }
+        else Flat(c, x0 + 1, y0 + 1, x1 - 1, y1 - 1, roof);
+    }
+
+    // 印度大宅：彩色平顶围方院，房顶四角小亭
+    private static void Haveli(Canvas c, DetailStyle style, int x0, int y0, int x1, int y1, int tier, long seed)
+    {
+        int w = x1 - x0 + 1, h = y1 - y0 + 1;
+        Color32 tone = Pick(style.Roofs, DetailHash(seed, 27));
+        Shadow(c, x0, y0, x1, y1);
+        Flat(c, x0, y0, x1, y1, tone);
+        if (w < 8 || h < 8) return;
+        for (int py = y0 + 3; py <= y1 - 3; py++)
+        for (int px = x0 + 3; px <= x1 - 3; px++)
+            Paint(c, px, py, Rgb(236, 224, 200));
+        foreach ((int px, int py) in new[] { (x0 + 1, y0 + 1), (x1 - 1, y0 + 1), (x0 + 1, y1 - 1), (x1 - 1, y1 - 1) })
+            Paint(c, px, py, Darker(tone, 1.3f));
+        if (tier >= 4) Paint(c, (x0 + x1) / 2, (y0 + y1) / 2, TreeDark);
+    }
+
+    // 庙、衙署：一圈墙，院里铺地，各系的殿
+    private static void TempleLot(Canvas c, DetailStyle style, int x0, int y0, int x1, int y1, bool temple)
+    {
+        int w = x1 - x0 + 1, h = y1 - y0 + 1, cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+        Color32 wall = style.FlatRoofs ? Darker(style.Roofs[0], 0.82f) : temple ? PalaceWall : Rgb(150, 60, 50);
+        Shadow(c, x0, y0, x1, y1);
         for (int py = y0; py <= y1; py++)
         for (int px = x0; px <= x1; px++)
             Paint(c, px, py, px == x0 || px == x1 || py == y0 || py == y1 ? wall : TempleYard);
-        int w = x1 - x0 + 1, h = y1 - y0 + 1;
-        Roof(c, x0 + 2, y0 + h / 2, x1 - 2, y1 - 2, true, TempleRoof);
-        if (h >= 12) Roof(c, x0 + 3, y0 + 2, x1 - 3, y0 + 3, true, TempleRoof);
-        Paint(c, (x0 + x1) / 2, y0, Door);
-        if (DetailHash(seed, 31) < 0.7f)
+        switch (style.Temple)
         {
-            Paint(c, x0 + 2, y0 + 2, TreeDark);
-            Paint(c, x1 - 2, y0 + 2, TreeDark);
+            case "chapel":
+                Roof(c, cx - 2, y0 + 2, cx + 2, y1 - 2, false, Rgb(100, 100, 112));
+                for (int py = y0 + 1; py <= y0 + 3; py++)
+                for (int px = cx - 2; px <= cx + 2; px++)
+                    if (c.Kind(px, py) == KBuilding) c.Put(px, py, Rgb(130, 126, 120), KBuilding);
+                break;
+            case "roman_temple":
+                Roof(c, cx - 3, y0 + 3, cx + 3, y1 - 2, false, Rgb(192, 112, 82));
+                for (int px = cx - 3; px <= cx + 3; px += 2) Paint(c, px, y0 + 2, Rgb(244, 240, 230));
+                break;
+            case "longhall":
+                Roof(c, x0 + 2, cy - 2, x1 - 2, cy + 2, true, Rgb(104, 112, 74));
+                break;
+            case "small_mosque":
+                Flat(c, x0 + 1, cy, x1 - 1, y1 - 1, Darker(style.Roofs[0], 0.95f));
+                Dome(c, cx, (cy + y1) / 2f, 3f, style.Dome, KBuilding);
+                if (c.Kind(x1 - 1, y0 + 1) == KBuilding) c.Put(x1 - 1, y0 + 1, Rgb(244, 238, 222), KBuilding);
+                break;
+            case "pylon_small":
+                Flat(c, x0 + 1, y0 + 1, cx - 1, y0 + 3, Rgb(200, 176, 128));
+                Flat(c, cx + 1, y0 + 1, x1 - 1, y0 + 3, Rgb(200, 176, 128));
+                Flat(c, cx - 3, cy, cx + 3, y1 - 2, Rgb(206, 184, 140));
+                break;
+            case "shikhara_small":
+                for (int sq = Mathf.Min(w, h) / 2 - 2; sq >= 1; sq -= 2)
+                for (int py = cy - sq; py <= cy + sq; py++)
+                for (int px = cx - sq; px <= cx + sq; px++)
+                    if (c.Kind(px, py) == KBuilding) c.Put(px, py, Darker(Rgb(226, 182, 140), 0.85f + sq * 0.02f), KBuilding);
+                break;
+            case "pyramid_small":
+                for (int sq = Mathf.Min(w, h) / 2 - 1; sq >= 1; sq--)
+                for (int py = cy - sq; py <= cy + sq; py++)
+                for (int px = cx - sq; px <= cx + sq; px++)
+                    if (c.Kind(px, py) == KBuilding) c.Put(px, py, sq % 2 == 1 ? Rgb(190, 180, 160) : Rgb(214, 206, 186), KBuilding);
+                if (c.Kind(cx, cy) == KBuilding) c.Put(cx, cy, Rgb(170, 70, 50), KBuilding);
+                break;
+            default:
+                Roof(c, x0 + 2, cy + 1, x1 - 2, y1 - 2, true, TempleRoof);
+                if (h >= 12) Roof(c, x0 + 3, y0 + 2, x1 - 3, y0 + 3, true, TempleRoof);
+                break;
         }
+        DoorAt(c, StreetSide(c, x0, y0, x1, y1), x0, y0, x1, y1);
     }
 
-    // 铺面：一排排窄门面临街，门前支着摊棚
-    private static void Shops(Canvas c, Color32 block, int x0, int y0, int x1, int y1, Color32 roof, long seed)
+    // 铺面：一排窄门面临街，门前支着摊棚
+    private static void Shops(Canvas c, DetailStyle style, int x0, int y0, int x1, int y1, Color32 roof, long seed)
     {
         int side = StreetSide(c, x0, y0, x1, y1);
         bool horizontal = side <= 1;
@@ -656,9 +1207,13 @@ public partial class PureMapPatch
             int width = 3 + (int)(DetailHash(seed, k, 41) * 2);
             int a = (horizontal ? x0 : y0) + t, b = Mathf.Min(a + width - 1, horizontal ? x1 : y1);
             Color32 tone = Darker(roof, 0.9f + 0.25f * DetailHash(seed, k, 42));
-            if (horizontal) Roof(c, a, y0 + 1, b, y1 - 1, false, tone);
+            if (style.FlatRoofs)
+            {
+                if (horizontal) Flat(c, a, y0 + 1, b, y1 - 1, tone);
+                else Flat(c, x0 + 1, a, x1 - 1, b, tone);
+            }
+            else if (horizontal) Roof(c, a, y0 + 1, b, y1 - 1, false, tone);
             else Roof(c, x0 + 1, a, x1 - 1, b, true, tone);
-            // 摊棚(临街一侧)
             int stall = (a + b) / 2;
             Color32 awning = DetailHash(seed, k, 43) < 0.5f ? Stall : StallLight;
             switch (side)
@@ -672,10 +1227,25 @@ public partial class PureMapPatch
         }
     }
 
-    // 营房、作坊、仓库：一院几排长屋
-    private static void Halls(Canvas c, Color32 block, int x0, int y0, int x1, int y1, Color32 roof, long seed)
+    // 巴扎：有顶的长条集市，两侧一格格摊位
+    private static void Souk(Canvas c, DetailStyle style, int x0, int y0, int x1, int y1)
     {
-        Shadow(c, block, x0, y0, x1, y1);
+        bool horizontal = x1 - x0 >= y1 - y0;
+        int middle = horizontal ? (y0 + y1) / 2 : (x0 + x1) / 2;
+        Color32 tone = Darker(style.Roofs[0], 0.95f);
+        for (int py = y0; py <= y1; py++)
+        for (int px = x0; px <= x1; px++)
+        {
+            int along = horizontal ? px : py, across = horizontal ? py : px;
+            bool covered = Mathf.Abs(across - middle) <= 1;
+            Paint(c, px, py, covered ? along % 4 == 0 ? Rgb(196, 170, 120) : Rgb(214, 192, 146) : along % 3 == 0 ? Stall : tone);
+        }
+    }
+
+    // 营房、作坊、仓库：一院几排长屋
+    private static void Halls(Canvas c, int x0, int y0, int x1, int y1, Color32 roof)
+    {
+        Shadow(c, x0, y0, x1, y1);
         bool horizontal = x1 - x0 >= y1 - y0;
         int span = horizontal ? y1 - y0 + 1 : x1 - x0 + 1;
         for (int t = 1; t + 2 < span; t += 4)
@@ -685,30 +1255,43 @@ public partial class PureMapPatch
         }
     }
 
-    private static void Trees(Canvas c, int x0, int y0, int x1, int y1, long seed)
+    private static void Trees(Canvas c, DetailStyle style, int x0, int y0, int x1, int y1, long seed)
     {
         for (int py = y0; py <= y1; py++)
         for (int px = x0; px <= x1; px++)
         {
             float r = DetailHash(seed, px, py, 51);
-            if (r < 0.35f) Paint(c, px, py, TreeDark, KGround);
+            if (style.Palms && r < 0.12f) Paint(c, px, py, Palm, KGround);
+            else if (r < 0.35f) Paint(c, px, py, TreeDark, KGround);
             else if (r < 0.5f) Paint(c, px, py, TreeLight, KGround);
         }
     }
 
-    // 菜园：一畦一畦
-    private static void Plots(Canvas c, Color32 block, int x0, int y0, int x1, int y1, bool horizontal)
+    // 波斯园林：十字水渠把园子分成四块
+    private static void Charbagh(Canvas c, int x0, int y0, int x1, int y1)
     {
-        Color32 dark = Lerp(block, new Color32(150, 180, 110, 255), 0.6f), light = Lerp(block, Garden, 0.7f);
+        int mx = (x0 + x1) / 2, my = (y0 + y1) / 2;
+        for (int py = y0; py <= y1; py++)
+        for (int px = x0; px <= x1; px++)
+        {
+            bool water = px == mx || py == my, rim = px == x0 || px == x1 || py == y0 || py == y1;
+            Paint(c, px, py, water ? Rgb(120, 170, 220) : rim ? Rgb(200, 186, 150) : (px + py) % 3 != 0 ? Rgb(110, 160, 90) : Rgb(140, 186, 110), KGround);
+        }
+    }
+
+    // 菜园：一畦一畦
+    private static void Plots(Canvas c, int x0, int y0, int x1, int y1, bool horizontal)
+    {
+        Color32 dark = Lerp(c.Block, Rgb(150, 180, 110), 0.6f), light = Lerp(c.Block, Garden, 0.7f);
         for (int py = y0 + 1; py < y1; py++)
         for (int px = x0 + 1; px < x1; px++)
             Paint(c, px, py, ((horizontal ? py : px) & 1) == 0 ? dark : light, KGround);
     }
 
     // 废墟：残墙断瓦
-    private static void Ruin(Canvas c, Color32 block, int x0, int y0, int x1, int y1, long seed)
+    private static void Ruin(Canvas c, int x0, int y0, int x1, int y1, long seed)
     {
-        Color32 rubble = new(120, 108, 96, 255), burnt = new(70, 62, 58, 255);
+        Color32 rubble = Rgb(120, 108, 96), burnt = Rgb(70, 62, 58);
         for (int py = y0 + 1; py < y1; py++)
         for (int px = x0 + 1; px < x1; px++)
         {
@@ -719,11 +1302,18 @@ public partial class PureMapPatch
         }
     }
 
-    private static void Walls(Canvas c, CityPlan plan, Color32 wall, Color32 tower)
+    #endregion
+
+    #region 城墙
+
+    // 方塔(华夏、罗马、阿拉伯、埃及)：外沿垛口一明一暗、内侧马道，四角、门两侧与每隔几格一座敌楼，城门楼红墙黑瓦；
+    // 圆塔(西欧、波斯、印度)：墙身同上，四角与每隔几格一座圆塔；木栅(维京)：只占靠外两像素，尖桩一明一暗
+    private static void Walls(Canvas c, CityPlan plan, DetailStyle style, Color32 wall)
     {
         int s = DetailScale;
-        Color32 light = Lerp(wall, new Color32(255, 255, 255, 255), 0.28f), dark = Darker(wall, 0.74f),
-            walk = Lerp(wall, new Color32(255, 255, 255, 255), 0.4f), towerTop = Darker(tower, 1.2f);
+        Color32 light = Lerp(wall, White, 0.28f), shade = Darker(wall, 0.74f), walk = Lerp(wall, White, 0.4f),
+            tower = TowerOf(wall), towerTop = Darker(tower, 1.2f);
+        var rounds = new List<(int x, int y)>();
         for (int ty = 0; ty < c.H; ty++)
         for (int tx = 0; tx < c.W; tx++)
         {
@@ -731,38 +1321,60 @@ public partial class PureMapPatch
             WorldTile tile = World.world.GetTile(c.X0 + tx, c.Y0 + ty);
             if (tile == null) continue;
             bool gate = tile.x == plan.gateX || tile.y == plan.gateY;
-            bool towerTile = Mathf.Abs(tile.x - plan.gateX) == 1 || Mathf.Abs(tile.y - plan.gateY) == 1 || Corner(tile, plan) ||
-                             (tile.x + tile.y * 3) % 7 == 0;
+            bool corner = Corner(tile, plan);
+            bool squareTower = style.Tower == "square" &&
+                               (Mathf.Abs(tile.x - plan.gateX) == 1 || Mathf.Abs(tile.y - plan.gateY) == 1 || corner || (tile.x + tile.y * 3) % 7 == 0);
+            if (style.Tower == "round" && !gate && (corner || (tile.x + tile.y * 3) % 6 == 0)) rounds.Add((tx * s + 2, ty * s + 2));
             bool outUp = !Urban(tile.tile_up, plan), outDown = !Urban(tile.tile_down, plan),
                 outLeft = !Urban(tile.tile_left, plan), outRight = !Urban(tile.tile_right, plan);
             for (int sy = 0; sy < s; sy++)
             for (int sx = 0; sx < s; sx++)
             {
                 int px = tx * s + sx, py = ty * s + sy;
-                Color32 color;
                 if (gate)
-                    color = sx == 0 || sx == s - 1 || sy == 0 || sy == s - 1 ? new Color32(180, 70, 55, 255) : new Color32(60, 54, 58, 255);
-                else if (towerTile)
-                    color = sx > 0 && sx < s - 1 && sy > 0 && sy < s - 1 ? towerTop : tower;
+                {
+                    c.Put(px, py, style.Tower == "palisade" ? Rgb(150, 120, 84)
+                        : sx == 0 || sx == s - 1 || sy == 0 || sy == s - 1 ? Rgb(180, 70, 55) : Rgb(60, 54, 58), KWall);
+                    continue;
+                }
+                bool outer = outLeft && sx == 0 || outRight && sx == s - 1 || outDown && sy == 0 || outUp && sy == s - 1;
+                if (style.Tower == "palisade")
+                {
+                    bool stake = outLeft && sx <= 1 || outRight && sx >= s - 2 || outDown && sy <= 1 || outUp && sy >= s - 2;
+                    if (stake) c.Put(px, py, (px + py) % 2 == 1 ? Rgb(150, 116, 76) : Rgb(108, 82, 54), KWall);
+                    else c.Put(px, py, c.Block, KGround);
+                    continue;
+                }
+                Color32 color;
+                if (squareTower) color = sx > 0 && sx < s - 1 && sy > 0 && sy < s - 1 ? towerTop : tower;
                 else
                 {
-                    bool outer = outLeft && sx == 0 || outRight && sx == s - 1 || outDown && sy == 0 || outUp && sy == s - 1;
                     bool inner = !outLeft && sx == 0 || !outRight && sx == s - 1 || !outDown && sy == 0 || !outUp && sy == s - 1;
-                    color = outer ? ((px + py) % 2 == 0 ? light : dark) : inner ? walk : wall;
+                    color = outer ? (px + py) % 2 == 0 ? light : shade : inner ? walk : wall;
                 }
                 c.Put(px, py, color, KWall);
             }
         }
+        foreach ((int x, int y) in rounds)
+            for (int dy = -3; dy <= 3; dy++)
+            for (int dx = -3; dx <= 3; dx++)
+            {
+                float d = Mathf.Sqrt(dx * dx + dy * dy);
+                if (d > 3.2f || c.Kind(x + dx, y + dy) == KOff) continue;
+                c.Put(x + dx, y + dy, d > 2.2f ? tower : towerTop, KWall);
+            }
     }
+
+    #endregion
 
     #endregion
 
     #region 城外
 
-    private static void DrawCountryside(Canvas c, CityPlan plan, UrbanFabric.Geometry g, Color32 tint, long seed)
+    private static void DrawCountryside(Canvas c, UrbanFabric.Geometry g, DetailStyle style, Color32 tint, long seed)
     {
         int s = DetailScale;
-        Color32 dirt = Lerp(tint, Dirt, 0.8f), ground = Lerp(tint, Threshing, 0.85f), town = Lerp(tint, new Color32(238, 228, 200, 255), 0.85f);
+        Color32 dirt = Lerp(tint, Dirt, 0.8f), ground = Lerp(tint, Threshing, 0.85f), townGround = Lerp(tint, Rgb(238, 228, 200), 0.85f);
         // 村子的小路(先竖后横走到大路)
         foreach ((bool vertical, int fixedAt, int from, int to) in g.Paths)
         {
@@ -783,44 +1395,59 @@ public partial class PureMapPatch
                 for (int d = 2; d <= 1 + g.Suburb && d <= road.Length; d++)
                 {
                     (int rx, int ry) = UrbanFabric.RoadPoint(road, d);
-                    for (int sideSign = -1; sideSign <= 1; sideSign += 2)
+                    for (int sign = -1; sign <= 1; sign += 2)
                     for (int k = 0; k < 2; k++)
                     {
-                        if (DetailHash(seed, d * 4 + k, sideSign, 71) > 0.85f - d * 0.04f) continue;
+                        if (DetailHash(seed, d * 4 + k, sign, 71) > 0.85f - d * 0.04f) continue;
                         float offset = 2.4f + DetailHash(seed, d, k, 72) * 1.2f;
-                        int px = Mathf.RoundToInt((rx - c.X0 + 0.5f - road.Dy * sideSign * offset) * s + (road.Dx * k * 2f));
-                        int py = Mathf.RoundToInt((ry - c.Y0 + 0.5f + road.Dx * sideSign * offset) * s + (road.Dy * k * 2f));
-                        SmallHouse(c, tint, px - 2, py - 1, seed + d * 10 + k + (sideSign > 0 ? 5 : 0), DetailHash(seed, d, k, 73) < 0.3f);
+                        int px = Mathf.RoundToInt((rx - c.X0 + 0.5f - road.Dy * sign * offset) * s + road.Dx * k * 2f);
+                        int py = Mathf.RoundToInt((ry - c.Y0 + 0.5f + road.Dx * sign * offset) * s + road.Dy * k * 2f);
+                        SmallHouse(c, style, px - 2, py - 1, seed + d * 10 + k + (sign > 0 ? 5 : 0), DetailHash(seed, d, k, 73) < 0.3f);
                     }
                 }
             }
-        // 镇
         int index = 0;
-        foreach ((int x, int y, int townSize, bool walled) in g.Towns) Town(c, tint, (x - c.X0) * s + s / 2, (y - c.Y0) * s + s / 2, townSize, walled, dirt, town, seed + 1000 * ++index);
-        // 村
+        foreach ((int x, int y, int townSize, bool walled) in g.Towns)
+            Town(c, style, (x - c.X0) * s + s / 2, (y - c.Y0) * s + s / 2, townSize, walled, dirt, townGround, seed + 1000 * ++index);
         index = 0;
-        foreach ((int x, int y) in g.Villages) Village(c, tint, (x - c.X0) * s + s / 2, (y - c.Y0) * s + s / 2, dirt, ground, seed + 3000 * ++index);
-        // 村镇周围的田块：压暗的垄沟(半透明，底下的国色透出来)，每块一种垄向
+        foreach ((int x, int y) in g.Villages)
+            Village(c, style, tint, (x - c.X0) * s + s / 2, (y - c.Y0) * s + s / 2, dirt, ground, seed + 3000 * ++index);
+        // 田块：大小不一的格子田拼成一片，田块中心离村镇不远就整块画；田块之间留一像素田埂(阿兹特克是水上浮田)
         var centers = new List<(int x, int y, int r)>();
-        foreach ((int x, int y) in g.Villages) centers.Add(((x - c.X0) * s, (y - c.Y0) * s, 7 * s));
-        foreach ((int x, int y, int townSize, _) in g.Towns) centers.Add(((x - c.X0) * s, (y - c.Y0) * s, (townSize + 6) * s));
+        foreach ((int x, int y) in g.Villages) centers.Add(((x - c.X0) * s + 2, (y - c.Y0) * s + 2, 6 * s));
+        foreach ((int x, int y, int townSize, _) in g.Towns) centers.Add(((x - c.X0) * s + 2, (y - c.Y0) * s + 2, (townSize + 5) * s));
         foreach ((int x, int y, int r) in centers)
-        for (int py = Mathf.Max(0, y - r); py <= Mathf.Min(c.PH - 1, y + r); py++)
-        for (int px = Mathf.Max(0, x - r); px <= Mathf.Min(c.PW - 1, x + r); px++)
+        for (int py = Mathf.Max(0, y - r - 16); py <= Mathf.Min(c.PH - 1, y + r + 16); py++)
+        for (int px = Mathf.Max(0, x - r - 16); px <= Mathf.Min(c.PW - 1, x + r + 16); px++)
         {
-            if (c.Kind(px, py) != KEmpty || (px - x) * (px - x) + (py - y) * (py - y) > r * r) continue;
+            if (c.Kind(px, py) != KEmpty) continue;
+            int row = py / 18, colW = 14 + (int)(DetailHash(seed, row, 85) * 12), shift = (int)(DetailHash(seed, row, 86) * colW);
+            int col = (px + shift) / colW, inRow = py - row * 18, inCol = px + shift - col * colW;
+            if (inRow == 0 || inCol == 0) continue;
+            float pcx = col * colW - shift + colW / 2f, pcy = row * 18 + 9f;
+            bool near = false;
+            foreach ((int vx, int vy, int vr) in centers)
+                if ((pcx - vx) * (pcx - vx) + (pcy - vy) * (pcy - vy) <= vr * vr)
+                {
+                    near = true;
+                    break;
+                }
+            if (!near || DetailHash(seed, col, row, 81) < 0.25f) continue;
             WorldTile tile = c.Tile(px, py);
             if (tile?.Type == null || !tile.Type.can_be_farm && !tile.Type.farm_field || tile.zone?.city != c.City) continue;
-            int fx = (int)((px + 9f * DetailNoise(py, 17f, seed + 3)) / 22f), fy = (int)((py + 9f * DetailNoise(px, 19f, seed + 4)) / 18f);
-            if (DetailHash(seed, fx, fy, 81) < 0.3f) continue;
-            int orientation = (int)(DetailHash(seed, fx, fy, 82) * 3);
+            if (style.Layout == "canal")
+            {
+                if (py % 4 == 0) c.Put(px, py, new Color32(140, 185, 235, 160), KEmpty);
+                continue;
+            }
+            int orientation = (int)(DetailHash(seed, col, row, 82) * 3);
             bool line = orientation switch { 0 => py % 3 == 0, 1 => px % 3 == 0, _ => (px + py) % 4 == 0 };
-            if (line) c.Put(px, py, Furrow, KEmpty);
+            c.Put(px, py, line ? Furrow : FieldTint, KEmpty);
         }
     }
 
-    // 一户人家：瓦顶或草顶，宽 3~5、进深 2~3；只盖在空地上，四周不贴着别的房子
-    private static bool SmallHouse(Canvas c, Color32 tint, int x, int y, long seed, bool thatch, int w = 0, int h = 0)
+    // 一户人家：草顶或本系的屋顶(平顶的系是平顶)，只盖在空地上，四周不贴着别的房子
+    private static bool SmallHouse(Canvas c, DetailStyle style, int x, int y, long seed, bool thatch, int w = 0, int h = 0)
     {
         if (w <= 0)
         {
@@ -836,104 +1463,69 @@ public partial class PureMapPatch
             if (footprint && (k != KEmpty && k != KPlaza || !c.Land(px, py))) return false;
             if (!footprint && (k == KBuilding || k == KWall || k == KOff)) return false;
         }
-        Color32 roof = thatch ? Thatch : SlateRoofs[(int)(DetailHash(seed, 4) * SlateRoofs.Length) % SlateRoofs.Length];
-        Color32 high = Darker(roof, 1.3f), low = Darker(roof, 0.72f);
-        bool horizontal = w >= h;
-        for (int py = y; py < y + h; py++)
-        for (int px = x; px < x + w; px++)
+        Color32 roof = thatch && !style.FlatRoofs ? Thatch : Pick(style.Roofs, DetailHash(seed, 4));
+        if (style.FlatRoofs) Flat(c, x, y, x + w - 1, y + h - 1, roof, KBuilding, true);
+        else
         {
-            float m = horizontal ? y + (h - 1) / 2f : x + (w - 1) / 2f;
-            float at = horizontal ? py : px;
-            bool rim = horizontal ? py == y || py == y + h - 1 : px == x || px == x + w - 1;
-            c.Put(px, py, Mathf.Abs(at - m) < 0.6f ? high : rim ? low : roof, KBuilding);
+            Color32 high = Darker(roof, 1.3f), low = Darker(roof, 0.72f);
+            bool horizontal = w >= h;
+            for (int py = y; py < y + h; py++)
+            for (int px = x; px < x + w; px++)
+            {
+                float m = horizontal ? y + (h - 1) / 2f : x + (w - 1) / 2f, at = horizontal ? py : px;
+                bool rim = horizontal ? py == y || py == y + h - 1 : px == x || px == x + w - 1;
+                c.Put(px, py, Mathf.Abs(at - m) < 0.6f ? high : rim ? low : roof, KBuilding);
+            }
         }
-        Color32 shade = Darker(Lerp(tint, Threshing, 0.5f), 0.7f);
         for (int px = x + 1; px <= x + w; px++)
-            if (c.Kind(px, y - 1) == KEmpty && c.Land(px, y - 1)) c.Put(px, y - 1, new Color32(shade.r, shade.g, shade.b, 150), KEmpty);
+            if (c.Kind(px, y - 1) == KEmpty && c.Land(px, y - 1)) c.Put(px, y - 1, new Color32(0, 0, 0, 60), KEmpty);
         return true;
     }
 
-    // 镇：一片地面，十字街、街口集市(摊棚)、沿街房子一户挨一户、背街再一排、小庙；富的镇围一圈矮墙
-    private static void Town(Canvas c, Color32 tint, int cx, int cy, int townSize, bool walled, Color32 dirt, Color32 ground, long seed)
+    // 镇：一片地面，十字街、街口集市(摊棚)、沿街房子一户挨一户、背街再几户；富的镇围一圈矮墙
+    private static void Town(Canvas c, DetailStyle style, int cx, int cy, int townSize, bool walled, Color32 dirt, Color32 ground, long seed)
     {
         int r = townSize * DetailScale + 2;
-        for (int py = cy - r; py <= cy + r; py++)
-        for (int px = cx - r; px <= cx + r; px++)
+        for (int py = cy - r - 2; py <= cy + r + 2; py++)
+        for (int px = cx - r - 2; px <= cx + r + 2; px++)
         {
-            float edge = r + 2.5f * (DetailNoise(Mathf.Atan2(py - cy, px - cx) * 20f, 3f, seed) - 0.5f);
+            float edge = r + 2.5f * (DetailNoise(Mathf.Atan2(py - cy, px - cx) * 20f + 20f, 3f, seed) - 0.5f);
             if ((px - cx) * (px - cx) + (py - cy) * (py - cy) > edge * edge || c.Kind(px, py) != KEmpty || !c.Land(px, py)) continue;
             c.Put(px, py, ground, KPlaza);
         }
-        // 十字街
         for (int t = -r; t <= r; t++)
         for (int d = 0; d < 2; d++)
         {
             if (c.Kind(cx + t, cy + d) == KPlaza) c.Put(cx + t, cy + d, dirt, KPath);
             if (c.Kind(cx + d, cy + t) == KPlaza) c.Put(cx + d, cy + t, dirt, KPath);
         }
-        // 集市：街口一片，摊棚错落
         for (int py = cy - 4; py <= cy + 5; py++)
         for (int px = cx - 4; px <= cx + 5; px++)
-            if (c.Kind(px, py) is KPlaza or KPath) c.Put(px, py, Lerp(ground, new Color32(255, 240, 200, 255), 0.4f), KPlaza);
+            if (c.Kind(px, py) is KPlaza or KPath) c.Put(px, py, Lerp(ground, Rgb(255, 240, 200), 0.4f), KPlaza);
         for (int k = 0; k < 12; k++)
         {
             int px = cx - 3 + (int)(DetailHash(seed, k, 1) * 8), py = cy - 3 + (int)(DetailHash(seed, k, 2) * 8);
             if (Mathf.Abs(px - cx) <= 1 || Mathf.Abs(py - cy) <= 1) continue;
             c.Put(px, py, DetailHash(seed, k, 3) < 0.5f ? Stall : StallLight, KBuilding);
         }
-        // 沿十字街两侧一户挨一户
         for (int dir = 0; dir < 4; dir++)
-        for (int sideSign = -1; sideSign <= 1; sideSign += 2)
+        for (int sign = -1; sign <= 1; sign += 2)
+        for (int t = 7, k = 0; t < r - 2; k++)
         {
-            for (int t = 7, k = 0; t < r - 2; k++)
-            {
-                int w = 3 + (int)(DetailHash(seed, dir * 50 + k, sideSign, 4) * 3);
-                int depth = 3 + (int)(DetailHash(seed, dir * 50 + k, sideSign, 5) * 2);
-                int along = dir < 2 ? (dir == 0 ? t : -t - w + 1) : (dir == 2 ? t : -t - w + 1);
-                int px, py, hw, hh;
-                if (dir < 2)
-                {
-                    px = cx + along;
-                    py = sideSign > 0 ? cy + 3 : cy - 1 - depth;
-                    hw = w;
-                    hh = depth;
-                }
-                else
-                {
-                    py = cy + along;
-                    px = sideSign > 0 ? cx + 3 : cx - 1 - depth;
-                    hw = depth;
-                    hh = w;
-                }
-                SmallHouse(c, tint, px, py, seed + dir * 1000 + k * 7 + sideSign, DetailHash(seed, k, dir, 6) < 0.2f, hw, hh);
-                t += w + (DetailHash(seed, dir, k, 7) < 0.25f ? 2 : 1);
-            }
+            int w = 3 + (int)(DetailHash(seed, dir * 50 + k, sign, 4) * 3), depth = 3 + (int)(DetailHash(seed, dir * 50 + k, sign, 5) * 2);
+            int along = dir % 2 == 0 ? t : -t - w + 1;
+            bool thatch = DetailHash(seed, k, dir, 6) < 0.2f;
+            if (dir < 2) SmallHouse(c, style, cx + along, sign > 0 ? cy + 3 : cy - 1 - depth, seed + dir * 1000 + k * 7 + sign, thatch, w, depth);
+            else SmallHouse(c, style, sign > 0 ? cx + 3 : cx - 1 - depth, cy + along, seed + dir * 1000 + k * 7 + sign, thatch, depth, w);
+            t += w + (DetailHash(seed, dir, k, 7) < 0.25f ? 2 : 1);
         }
-        // 背街的人家
         for (int k = 0; k < townSize * 14; k++)
         {
             int px = cx + (int)((DetailHash(seed, k, 8) - 0.5f) * 2f * (r - 3)), py = cy + (int)((DetailHash(seed, k, 9) - 0.5f) * 2f * (r - 3));
-            SmallHouse(c, tint, px, py, seed + 5000 + k, DetailHash(seed, k, 10) < 0.35f);
+            SmallHouse(c, style, px, py, seed + 5000 + k, DetailHash(seed, k, 10) < 0.35f);
         }
-        // 小庙(一角)
-        int qx = DetailHash(seed, 11) < 0.5f ? 1 : -1, qy = DetailHash(seed, 12) < 0.5f ? 1 : -1;
-        int tx0 = cx + qx * 6 - (qx < 0 ? 9 : 0), ty0 = cy + qy * 6 - (qy < 0 ? 7 : 0);
-        bool free = true;
-        for (int py = ty0; py < ty0 + 8 && free; py++)
-        for (int px = tx0; px < tx0 + 10; px++)
-            if (c.Kind(px, py) != KPlaza) { free = false; break; }
-        if (free)
-        {
-            for (int py = ty0; py < ty0 + 8; py++)
-            for (int px = tx0; px < tx0 + 10; px++)
-                c.Put(px, py, px == tx0 || px == tx0 + 9 || py == ty0 || py == ty0 + 7 ? PalaceWall : TempleYard, KBuilding);
-            for (int py = ty0 + 3; py <= ty0 + 5; py++)
-            for (int px = tx0 + 2; px <= tx0 + 7; px++)
-                c.Put(px, py, py == ty0 + 4 ? Darker(TempleRoof, 1.3f) : TempleRoof, KBuilding);
-        }
-        // 矮墙(夯土)一圈，街口留门
         if (!walled) return;
-        Color32 rammed = Lerp(new Color32(124, 112, 100, 255), new Color32(210, 190, 150, 255), 0.5f);
+        Color32 rammed = Lerp(Rgb(124, 112, 100), Rgb(210, 190, 150), 0.5f);
         for (int deg = 0; deg < 360; deg++)
         {
             float a = deg * Mathf.Deg2Rad, rr = r + 1 + 1.5f * Mathf.Sin(a * 3f);
@@ -943,16 +1535,14 @@ public partial class PureMapPatch
         }
     }
 
-    // 村：打谷场居中，十几户人家沿村里一条弯路、围着打谷场挤在一起；树、池塘、菜园
-    private static void Village(Canvas c, Color32 tint, int cx, int cy, Color32 dirt, Color32 ground, long seed)
+    // 村：打谷场居中，十几户人家沿村里一条弯路、围着打谷场挤在一起(维京是小长屋)；树、池塘、菜园
+    private static void Village(Canvas c, DetailStyle style, Color32 tint, int cx, int cy, Color32 dirt, Color32 ground, long seed)
     {
         if (!c.In(cx, cy) || !c.Land(cx, cy)) return;
-        // 打谷场
         for (int py = cy - 3; py <= cy + 3; py++)
         for (int px = cx - 3; px <= cx + 3; px++)
             if ((px - cx) * (px - cx) + (py - cy) * (py - cy) <= 7 && c.Kind(px, py) is KEmpty or KPath && c.Land(px, py))
                 c.Put(px, py, ground, KPlaza);
-        // 村里一条弯路
         float angle = DetailHash(seed, 1) * Mathf.PI;
         var along = new List<(int x, int y)>();
         for (int t = -16; t <= 16; t++)
@@ -963,34 +1553,34 @@ public partial class PureMapPatch
             along.Add((px, py));
             if (c.Kind(px, py) == KEmpty && c.Land(px, py)) c.Put(px, py, dirt, KPath);
         }
-        // 池塘
         if (DetailHash(seed, 2) < 0.6f)
         {
             int ox = cx + (DetailHash(seed, 3) < 0.5f ? 9 : -10), oy = cy + (DetailHash(seed, 4) < 0.5f ? 6 : -7);
             for (int py = oy - 2; py <= oy + 2; py++)
             for (int px = ox - 3; px <= ox + 3; px++)
                 if ((px - ox) * (px - ox) / 10f + (py - oy) * (py - oy) / 4f <= 1f && c.Kind(px, py) == KEmpty && c.Land(px, py))
-                    c.Put(px, py, (px + py) % 5 == 0 ? Lerp(WaterBlue, new Color32(255, 255, 255, 255), 0.35f) : WaterBlue, KWater);
+                    c.Put(px, py, (px + py) % 5 == 0 ? Ripple : WaterBlue, KWater);
         }
-        // 人家：沿弯路两侧、围着打谷场
         int want = 10 + (int)(DetailHash(seed, 5) * 10), placed = 0;
-        bool horizontalRoad = Mathf.Abs(Mathf.Cos(angle)) > 0.5f;
+        bool horizontalRoad = Mathf.Abs(Mathf.Cos(angle)) > 0.5f, longhouse = style.House == "longhouse";
         for (int k = 0; k < want * 10 && placed < want; k++)
         {
             (int ax, int ay) = along[(int)(DetailHash(seed, k, 6) * along.Count) % along.Count];
-            int sideSign = DetailHash(seed, k, 7) < 0.5f ? 1 : -1;
-            int offset = 2 + (int)(DetailHash(seed, k, 8) * 3);
+            int sign = DetailHash(seed, k, 7) < 0.5f ? 1 : -1, offset = 2 + (int)(DetailHash(seed, k, 8) * 3);
             int jitter = (int)((DetailHash(seed, k, 9) - 0.5f) * 3f);
-            int px = horizontalRoad ? ax + jitter : ax + sideSign * offset - (sideSign < 0 ? 3 : 0);
-            int py = horizontalRoad ? ay + sideSign * offset - (sideSign < 0 ? 2 : 0) : ay + jitter;
-            if (SmallHouse(c, tint, px, py, seed + 100 + k, DetailHash(seed, k, 10) < 0.55f)) placed++;
+            int px = horizontalRoad ? ax + jitter : ax + sign * offset - (sign < 0 ? 3 : 0);
+            int py = horizontalRoad ? ay + sign * offset - (sign < 0 ? 2 : 0) : ay + jitter;
+            bool ok = longhouse
+                ? SmallHouse(c, style, px, py, seed + 100 + k, true, horizontalRoad ? 6 : 3, horizontalRoad ? 3 : 6)
+                : SmallHouse(c, style, px, py, seed + 100 + k, DetailHash(seed, k, 10) < 0.55f);
+            if (ok) placed++;
         }
-        // 树、菜园
         for (int k = 0; k < 18; k++)
         {
             float a = DetailHash(seed, k, 11) * Mathf.PI * 2f, rr = 6f + DetailHash(seed, k, 12) * 14f;
             int px = cx + Mathf.RoundToInt(Mathf.Cos(a) * rr), py = cy + Mathf.RoundToInt(Mathf.Sin(a) * rr * 0.8f);
-            if (c.Kind(px, py) == KEmpty && c.Land(px, py)) c.Put(px, py, DetailHash(seed, k, 13) < 0.6f ? TreeDark : TreeLight, KBuilding);
+            if (c.Kind(px, py) == KEmpty && c.Land(px, py))
+                c.Put(px, py, style.Palms && k % 3 == 0 ? Palm : DetailHash(seed, k, 13) < 0.6f ? TreeDark : TreeLight, KBuilding);
         }
         for (int k = 0; k < 3; k++)
         {
@@ -998,7 +1588,124 @@ public partial class PureMapPatch
             for (int py = oy; py < oy + 4; py++)
             for (int px = ox; px < ox + 5; px++)
                 if (c.Kind(px, py) == KEmpty && c.Land(px, py))
-                    c.Put(px, py, px % 2 == 0 ? Lerp(tint, new Color32(150, 196, 110, 255), 0.7f) : Lerp(tint, new Color32(120, 160, 90, 255), 0.6f), KPlaza);
+                    c.Put(px, py, px % 2 == 0 ? Lerp(tint, Rgb(150, 196, 110), 0.7f) : Lerp(tint, Rgb(120, 160, 90), 0.6f), KPlaza);
+        }
+    }
+
+    #endregion
+
+    #region 营地(游牧、林地)
+
+    // 游牧：不修街、不筑城，蒙古包一圈圈围着正中的大汗帐，畜栏里散着羊群；城外营地也是一圈蒙古包。
+    // 林地：林间空地上的圆形树皮屋、议事长屋，木栅围一圈，空地四周是树林；城外一处处小营地
+    private static void DrawCamp(Canvas c, CityPlan plan, UrbanFabric.Geometry g, DetailStyle style, Color32 tint, long seed)
+    {
+        int s = DetailScale;
+        bool yurt = style.Layout == "yurt";
+        Color32 trampled = Lerp(tint, Rgb(196, 186, 140), 0.6f);
+        c.Block = trampled;
+        for (int ty = 0; ty < c.H; ty++)
+        for (int tx = 0; tx < c.W; tx++)
+        {
+            WorldTile tile = World.world.GetTile(c.X0 + tx, c.Y0 + ty);
+            if (tile?.Type == null || tile.zone == null) continue;
+            if (tile.Type.liquid)
+            {
+                Fill(c, tx, ty, Clear, KWater);
+                continue;
+            }
+            if (!Urban(tile, plan)) continue;
+            for (int sy = 0; sy < s; sy++)
+            for (int sx = 0; sx < s; sx++)
+            {
+                int px = tx * s + sx, py = ty * s + sy;
+                c.Put(px, py, DetailHash(seed, px, py, 5) < 0.06f ? Darker(trampled, 0.92f) : trampled, KGround);
+            }
+        }
+        if (plan.gateX == int.MinValue) return;
+        float cx = (plan.gateX - c.X0) * s + 2f, cy = (plan.gateY - c.Y0) * s + 2f, R = UrbanRadius(plan);
+        if (!yurt)
+        {
+            // 空地四周一圈树林，越往外越稀；一圈木栅
+            for (int py = 0; py < c.PH; py++)
+            for (int px = 0; px < c.PW; px++)
+            {
+                float d = Mathf.Sqrt((px - cx) * (px - cx) + (py - cy) * (py - cy));
+                if (d < R * 0.95f || d > R * 1.22f || c.Kind(px, py) != KEmpty || !c.Land(px, py)) continue;
+                if (DetailHash(seed, px, py, 6) < 0.5f - (d - R * 0.95f) / (R * 0.27f) * 0.3f)
+                    c.Put(px, py, DetailHash(seed, px, py, 7) < 0.5f ? Rgb(72, 120, 64) : Rgb(96, 146, 80), KBuilding);
+            }
+            for (int t = 0; t < 1440; t++)
+            {
+                float a = t / 1440f * Mathf.PI * 2f;
+                int px = Mathf.RoundToInt(cx + Mathf.Cos(a) * R * 0.9f), py = Mathf.RoundToInt(cy + Mathf.Sin(a) * R * 0.9f);
+                if (c.Kind(px, py) == KGround) c.Put(px, py, t % 2 == 1 ? Rgb(150, 116, 76) : Rgb(108, 82, 54), KWall);
+            }
+        }
+        void Tent(float x, float y, int r, bool main)
+        {
+            for (int dy = -r; dy <= r; dy++)
+            for (int dx = -r; dx <= r; dx++)
+            {
+                float d = Mathf.Sqrt(dx * dx + dy * dy);
+                int px = Mathf.RoundToInt(x) + dx, py = Mathf.RoundToInt(y) + dy;
+                if (d > r + 0.3f || c.Kind(px, py) is not (KGround or KEmpty)) continue;
+                if (c.Kind(px, py) == KEmpty && !c.Land(px, py)) continue;
+                Color32 color = yurt
+                    ? d > r - 0.8f ? Rgb(200, 192, 172) : d < 0.8f ? Rgb(150, 130, 100) : Rgb(240, 234, 218)
+                    : d > r - 0.8f ? Rgb(96, 72, 50) : d < 0.8f ? Rgb(70, 52, 38) : Rgb(140, 108, 74);
+                c.Put(px, py, color, KBuilding);
+            }
+            if (main && yurt) c.Put(Mathf.RoundToInt(x), Mathf.RoundToInt(y) - r, Rgb(190, 60, 40), KBuilding);
+        }
+        Tent(cx, cy, yurt ? 5 : 4, true);
+        if (!yurt) Roof(c, (int)cx - 14, (int)cy - 12, (int)cx + 2, (int)cy - 9, true, Rgb(130, 100, 70), KBuilding, true);
+        for (int ring = 1; ring * 9 < R * 0.9f; ring++)
+        {
+            float rr = ring * 9 + DetailHash(seed, ring, 1) * 3f;
+            int n = Mathf.FloorToInt(rr * Mathf.PI * 2f / 8f);
+            for (int i = 0; i < n; i++)
+            {
+                if (DetailHash(seed, ring, i, 2) < 0.25f) continue;
+                float a = (i + DetailHash(seed, ring, 3)) / n * Mathf.PI * 2f;
+                float x = cx + Mathf.Cos(a) * rr, y = cy + Mathf.Sin(a) * rr;
+                WorldTile tile = c.Tile(Mathf.RoundToInt(x), Mathf.RoundToInt(y));
+                if (tile == null || !Urban(tile, plan)) continue;
+                Tent(x, y, 2, false);
+            }
+        }
+        // 畜栏与羊群(游牧)
+        if (yurt)
+            for (int k = 0; k < 5; k++)
+            {
+                float a = DetailHash(seed, k, 20) * Mathf.PI * 2f, rr = R * (0.6f + 0.5f * DetailHash(seed, k, 21));
+                int x = Mathf.RoundToInt(cx + Mathf.Cos(a) * rr), y = Mathf.RoundToInt(cy + Mathf.Sin(a) * rr);
+                for (int dy = 0; dy < 8; dy++)
+                for (int dx = 0; dx < 10; dx++)
+                {
+                    byte k0 = c.Kind(x + dx, y + dy);
+                    if (k0 != KGround && (k0 != KEmpty || !c.Land(x + dx, y + dy))) continue;
+                    bool rim = dx == 0 || dy == 0 || dx == 9 || dy == 7;
+                    if (rim && (dx + dy) % 2 == 0) c.Put(x + dx, y + dy, Fence, KBuilding);
+                    else if (!rim && DetailHash(seed, k, dx * 16 + dy, 22) < 0.3f) c.Put(x + dx, y + dy, Rgb(244, 240, 228), KBuilding);
+                }
+            }
+        // 城外营地(游牧的营地、林地的村子都画成一小圈)
+        int index = 0;
+        foreach ((int vx, int vy) in g.Villages)
+        {
+            index++;
+            float x0 = (vx - c.X0) * s + 2f, y0 = (vy - c.Y0) * s + 2f;
+            for (int py = (int)y0 - 7; py <= y0 + 7; py++)
+            for (int px = (int)x0 - 7; px <= x0 + 7; px++)
+                if ((px - x0) * (px - x0) + (py - y0) * (py - y0) <= 49f && c.Kind(px, py) == KEmpty && c.Land(px, py))
+                    c.Put(px, py, trampled, KGround);
+            Tent(x0, y0, 3, true);
+            for (int j = 0; j < 6; j++)
+            {
+                float a = j / 6f * Mathf.PI * 2f + DetailHash(seed, index, 30);
+                Tent(x0 + Mathf.Cos(a) * 6f, y0 + Mathf.Sin(a) * 6f, 2, false);
+            }
         }
     }
 
