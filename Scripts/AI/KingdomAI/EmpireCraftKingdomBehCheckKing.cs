@@ -104,6 +104,15 @@ public class EmpireCraftKingdomBehCheckKing : GameAIKingdomBase
             lastKingdom = heir.kingdom;
         }
 
+        // 继承人已是别国君主而按规矩不该入继(华夏，或是别的帝国的皇帝，见 EmpireCraftKingdomBehCheckHeir.ForeignRuler)：
+        // 不即位、不并国，重新择立继承人
+        if (lastKingdom != null && EmpireCraftKingdomBehCheckHeir.ForeignRuler(pKingdom, heir))
+        {
+            pKingdom.RemoveHeir();
+            pKingdom.StartToChooseHeir();
+            return;
+        }
+
         // 西方封建制/古典共和：继承人本就是别国君主时由他兼领(共主联盟)，不把两国合并
         if (lastKingdom != null && !pKingdom.IsEmpire() && PersonalUnionService.IsUnionRegime(lastKingdom) &&
             PersonalUnionService.IsUnionRegime(pKingdom))

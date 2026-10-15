@@ -44,7 +44,7 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
     private static void InstallHeir(Kingdom kingdom, (Actor actor, string relation) heir)
     {
         kingdom.RecoverToDefaultHeir();
-        if (!IsFitCandidate(heir.actor, null))
+        if (!IsFitCandidate(heir.actor, null) || ForeignRuler(kingdom, heir.actor))
         {
             kingdom.RemoveHeir();
             kingdom.StartToChooseHeir();
@@ -176,7 +176,7 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
         Actor actor = World.world.units.get(data.designated_heir_id);
         actor?.CheckSpecificClan(false);
         PersonalClanIdentity identity = actor?.GetPersonalIdentity();
-        bool valid = identity != null && actor != kingdom.king && IsFitCandidate(actor, parent) &&
+        bool valid = identity != null && actor != kingdom.king && IsFitCandidate(actor, parent) && !ForeignRuler(kingdom, actor) &&
                      ChildrenOf(parent).Any(child => child.id == identity.id) &&
                      (!kingdom.IsEmpire() || !ConstitutionalSuccessionSystem.IsProtected(kingdom.GetEmpire()) ||
                       ConstitutionalSuccessionSystem.CanInherit(kingdom.GetEmpire(), actor));
@@ -190,11 +190,33 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
         PersonalClanIdentity parent = PredecessorOf(kingdom);
         if (parent == null) return new List<Actor>();
         return ChildrenOf(parent).Select(person => person._actor)
-            .Where(actor => IsFitCandidate(actor, parent) && actor != kingdom.king).Distinct().ToList();
+            .Where(actor => IsFitCandidate(actor, parent) && actor != kingdom.king && !ForeignRuler(kingdom, actor)).Distinct().ToList();
     }
 
     private static bool IsFitCandidate(Actor actor, PersonalClanIdentity parent) =>
         actor != null && actor != parent?._actor && !actor.isRekt() && actor.isAlive() && actor.isUnitFitToRule();
+
+    // 已经是别国君主的人不按继承法入继(用户 2026-10-16："明明南北朝了，两边的皇帝有时候还会通过继承法同时继承给一个人，
+    // 这是华夏又不是西方")：
+    //   · 华夏：本帝国以外的君主一概不入继(本帝国的藩王入继大统照旧)；
+    //   · 任何文化：别的帝国的皇帝不入继——两朝、两个帝国不因继承法合到一人身上。
+    // 一朝绝嗣、群臣迎立另一朝皇帝兼承大统另走廷议(见 SuccessionCouncilSystem、EmpirePartitionSystem.Reunite)；
+    // 西方封建、古典共和王国之间的共主联盟不受此限(见 PersonalUnionService)
+    public static bool ForeignRuler(Kingdom kingdom, Actor actor)
+    {
+        if (kingdom == null || actor?.data == null || !actor.isKing() || actor.kingdom == null || actor.kingdom == kingdom) return false;
+        Empire empire = kingdom.GetEmpire();
+        if (empire != null && actor.kingdom.GetEmpire() == empire) return false;
+        if (actor.kingdom.IsEmpire() && kingdom.IsEmpire()) return true;
+        try
+        {
+            return InstitutionSystem.GetCultureLine(CultureService.GetRealmCulture(kingdom)) == "Huaxia";
+        }
+        catch
+        {
+            return false;
+        }
+    }
 
     private static Actor Pick(Kingdom kingdom, IEnumerable<PersonalClanIdentity> candidates, PersonalClanIdentity parent,
         out PersonalClanIdentity selected)
@@ -203,7 +225,8 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
         foreach (PersonalClanIdentity person in candidates)
         {
             Actor actor = person.Realize();
-            if (!IsFitCandidate(actor, parent) || protectedDynasty && !ConstitutionalSuccessionSystem.CanInherit(kingdom.GetEmpire(), actor)) continue;
+            if (!IsFitCandidate(actor, parent) || ForeignRuler(kingdom, actor) ||
+                protectedDynasty && !ConstitutionalSuccessionSystem.CanInherit(kingdom.GetEmpire(), actor)) continue;
             selected = person;
             return actor;
         }
@@ -289,7 +312,7 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
             if (person.is_virtual && realized >= 6) continue;
             if (person.is_virtual) realized++;
             Actor actor = person.Realize();
-            if (!IsFitCandidate(actor, parent) || actor.IsEmperor() ||
+            if (!IsFitCandidate(actor, parent) || actor.IsEmperor() || ForeignRuler(kingdom, actor) ||
                 protectedDynasty && !ConstitutionalSuccessionSystem.CanInherit(kingdom.GetEmpire(), actor)) continue;
             return (actor, LM.Get("heir_relation_cognatic").ColorString(pColor: new Color(0.3f, 0.6f, 0.9f)));
         }
@@ -314,7 +337,8 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
         foreach (PersonalClanIdentity person in clan)
             if (person != null) people[person.id] = person;
         foreach (PersonalClanIdentity person in people.Values)
-            if (IsEligibleRelative(person, parent, allowFemale) && person._actor?.IsEmperor() != true)
+            if (IsEligibleRelative(person, parent, allowFemale) && person._actor?.IsEmperor() != true &&
+                !ForeignRuler(kingdom, person._actor))
                 result.Add((person, Kinship(person, ancestors)));
         return result;
     }
