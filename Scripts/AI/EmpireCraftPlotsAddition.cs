@@ -2267,6 +2267,8 @@ namespace EmpireCraft.Scripts.AI
 				    // 现代国家治理能力：大部分叛乱图谋起不来(见 ModernStability)
 				    if (!ModernStability.PassRebellionGate(kingdom)) return false;
 				    City city = pActor.city;
+				    // 不在任何城里的人(流民、行军在外)起不了事
+				    if (city?.data == null || city.isRekt() || city.kingdom == null) return false;
 				    if (city.isCapitalCity()&&!city.kingdom.IsInEmpire())
 				    {
 					    return false;
