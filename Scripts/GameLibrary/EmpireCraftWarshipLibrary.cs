@@ -18,7 +18,15 @@ public static class EmpireCraftWarshipLibrary
         for (int i = 0; i < Ids.Length; i++)
         {
             if (library.dict.ContainsKey(Ids[i])) continue;
+            ActorAsset source = library.dict[template];
             ActorAsset asset = library.clone(Ids[i], template);
+            // 原版复制不带不序列化的字段，"自带画法"等标记要等原版初始化收尾时才算；战船在那之后才复制，照运兵船补上，
+            // 不然预加载按人物贴图去找(报 texture_path_main doesn't exist … heads_male)，船身也按人物贴图画不出来
+            asset.has_override_sprite = asset.get_override_sprite != null;
+            asset.has_override_avatar_frames = asset.get_override_avatar_frames != null;
+            asset.has_avatar_prefab = !string.IsNullOrEmpty(asset.avatar_prefab);
+            asset.color = source.color;
+            asset.architecture_asset = source.architecture_asset;
             asset.name_locale = Ids[i];
             asset.boat_type = "boat_type_warship";
             asset.is_boat_transport = false;
