@@ -487,6 +487,9 @@ public static class UrbanFabric
     // 路上第 d 格：起点后慢慢弯起来
     private static float Wobble(Road road, float d) => road.Amp * Mathf.Sin(d * road.Freq + road.Phase) * Mathf.Clamp01(d / 8f);
 
+    // 城市精细层用(见 PureMapPatch.Detail)：路上第 d 格
+    internal static (int x, int y) RoadPoint(Road road, int d) => Point(road, d);
+
     private static (int x, int y) Point(Road road, int d)
     {
         float w = Wobble(road, d);

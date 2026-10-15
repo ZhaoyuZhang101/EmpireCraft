@@ -50,7 +50,8 @@ public static class RoadOverlay
         _renderer.enabled = source.enabled && alpha > 0.01f;
         _renderer.color = new Color(1f, 1f, 1f, alpha);
         _renderer.sortingLayerID = source.sortingLayerID;
-        _renderer.sortingOrder = source.sortingOrder + 1;
+        // 城市精细层(+1，见 CityDetailOverlay)之上
+        _renderer.sortingOrder = source.sortingOrder + 2;
         float now = Time.unscaledTime;
         // 换了地图图层：底色全变，半秒后(色块重画完)重画路
         MetaTypeAsset layer = World.world.getCachedMapMetaAsset();

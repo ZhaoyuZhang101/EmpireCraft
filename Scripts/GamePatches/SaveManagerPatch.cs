@@ -192,6 +192,7 @@ public class SaveManagerPatch : GamePatch
         EmpireCraft.Scripts.GeneralSystems.AdministrativeControlSystem.ResetWorldState();
         EmpireCraft.Scripts.GeneralSystems.CultureRadiation.ResetWorldState();
         EmpireCraft.Scripts.GeneralSystems.TerrainResistance.ResetWorldState();
+        EmpireCraft.Scripts.UI.Components.CityDetailOverlay.ResetWorldState();
     }
 
     private static void ClearPersistentWorldState()

@@ -43,7 +43,7 @@ namespace EmpireCraft.Scripts.GamePatches;
 //     鼠标附近只认得船，悬停与点击都落到城市、国家上；除船以外的人物逐帧设为不可见；
 //   · 纯装饰建筑(雕像、训练木桩、花园、喷泉)建造上限为 0，城市不再建；
 //   · 建筑不画，城市铭牌上的种族头像换成城市性质徽记、文字后写民居等级(见 CityDevelopment)
-public class PureMapPatch : GamePatch
+public partial class PureMapPatch : GamePatch
 {
     public ModDeclare declare { get; set; }
 
@@ -200,12 +200,14 @@ public class PureMapPatch : GamePatch
         if (!PureMapMode.Enabled)
         {
             UI.Components.RoadOverlay.Update();
+            UI.Components.CityDetailOverlay.Update();
             return;
         }
         Color color = __instance.sprRnd.color;
         color.a = 1f;
         __instance.sprRnd.color = color;
         RefreshUrbanSlice();
+        UI.Components.CityDetailOverlay.Update();
         UI.Components.RoadOverlay.Update();
         UI.Components.MapWallOverlay.Update();
         UI.Components.EmperorMarkerRenderer.EnsureHost();

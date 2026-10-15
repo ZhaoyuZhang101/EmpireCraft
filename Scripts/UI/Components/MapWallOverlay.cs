@@ -34,7 +34,7 @@ public static class MapWallOverlay
         if (!Ensure(zones, source)) return;
         _renderer.enabled = source.enabled;
         _renderer.sortingLayerID = source.sortingLayerID;
-        _renderer.sortingOrder = source.sortingOrder + 2;
+        _renderer.sortingOrder = source.sortingOrder + 3;
         if (_drawnVersion == MapWallSystem.Version) return;
         _drawnVersion = MapWallSystem.Version;
         using (FrameProfiler.Measure("图层城墙·贴图重画")) Redraw();
