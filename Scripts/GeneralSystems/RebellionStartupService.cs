@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using EmpireCraft.Scripts.AI.CityAI;
 using EmpireCraft.Scripts.GameClassExtensions;
@@ -15,16 +16,17 @@ public static class RebellionStartupService
     // 原版规则下没有守军的城市，任何一个敌兵进城十来秒就被收复，起义等于一冒头就被扑灭。
     // 起事时按民怨烈度(0~1)就地武装一部分成年居民为义军，并立刻组建军队。
     // 规模是守住本城、跟小股官军周旋的量级，真正的正规军压境仍然打不过。
-    public static int RaiseUprisingMilitia(Kingdom rebel, float fervor)
+    // cities：只在这些城征(叛军新得的城)；不给就是叛军的全部城
+    public static int RaiseUprisingMilitia(Kingdom rebel, float fervor, IEnumerable<City> cities = null)
     {
         if (rebel == null || rebel.isRekt() || rebel.cities == null) return 0;
         float share = MinMilitiaShare + (MaxMilitiaShare - MinMilitiaShare) * Math.Max(0f, Math.Min(1f, fervor));
         // 分封制下的小乱：义军减半(见 PettyRebellion)
         if (PettyRebellion.IsPetty(rebel)) share *= 0.5f;
         int raised = 0;
-        foreach (City city in rebel.cities.ToList())
+        foreach (City city in (cities ?? rebel.cities).ToList())
         {
-            if (city == null || city.isRekt() || city.units == null) continue;
+            if (city == null || city.isRekt() || city.units == null || city.kingdom != rebel) continue;
             // 无小人模式：城里几乎没有平民实体，从背景人口里武装义军(每个兵代表一支义军)
             if (CityPopulationSystem.AbstractPopulationEnabled)
             {

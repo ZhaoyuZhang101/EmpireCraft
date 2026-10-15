@@ -56,6 +56,9 @@ public static class CityPopulationSystem
     // 征召兵：一个实体士兵代表一个军团，最多 PeoplePerLegion 人；交战时最多征召背景人口的 MaxLevyShare
     public const float PeoplePerLegion = 10000f;
     private const float MaxLevyShare = 0.1f;
+    // 义军应征：起事时民怨烈度给出的比例(见 RebellionStartupService，一到三成半)里，真拿起刀枪的只有这么多——
+    // 背景人口连老弱妇孺都算在内，一城人口的三成半都当了兵，比举国总动员还多
+    public const float MilitiaTurnout = 0.3f;
     #region 军制(无小人模式)：军队驻在哪里、平时养多少、战时征多少
 
     // 不是每座城都有兵。军队只驻在"军镇"，兵源从全国(本王国各城)的人口里按人口多少分摊：
@@ -1786,7 +1789,8 @@ public static class CityPopulationSystem
             return 0;
         float background = GetBackgroundTotal(city);
         if (background < 1f) return 0;
-        float legion = Mathf.Clamp(background * Mathf.Clamp01(share) / count, 1f, PeoplePerLegion);
+        // 城市守兵按治安出的钱(share 是钱能养的人数占比)；义军按应征比例打折
+        float legion = Mathf.Clamp(background * Mathf.Clamp01(share) * (garrison ? 1f : MilitiaTurnout) / count, 1f, PeoplePerLegion);
         int raised = 0;
         for (int i = 0; i < count; i++)
         {

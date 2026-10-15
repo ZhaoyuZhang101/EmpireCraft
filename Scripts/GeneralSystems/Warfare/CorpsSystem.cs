@@ -383,10 +383,16 @@ public static class CorpsSystem
     // 起义军以战养战不受此限；没有几个月账目的新国家也不限
     private const float PeaceBudgetShare = 0.35f, WarBudgetShare = 0.7f, SurvivalBudgetShare = 1f, ReserveYears = 3f;
     private const float PeaceCostPerSoldier = 0.1f, WarCostPerSoldier = 0.4f;
+    // 平时军镇只征兵源(背景人口 × 军制征兵比例)的这一成数(有常备军的军制用 StandingPoolShare)，战时全征
+    private const float PeacePoolShare = 0.3f, StandingPoolShare = 0.5f;
+    // 起义军的正规军只征兵源的一半：仓促成军，一大半人编在义军里(见 RaiseMilitia)
+    private const float InsurgentLevy = 0.5f;
 
     private static float BudgetFactor(Kingdom kingdom, bool war, float wanted)
     {
-        if (wanted < 1f || Insurgent(kingdom) || !TreasurySystem.Enabled(kingdom)) return 1f;
+        if (wanted < 1f) return 1f;
+        if (Insurgent(kingdom)) return InsurgentLevy;
+        if (!TreasurySystem.Enabled(kingdom)) return 1f;
         if (TreasurySystem.Report(kingdom).months < 3) return 1f;
         float share = !war ? PeaceBudgetShare : WarGoalSystem.FightingForSurvival(kingdom) ? SurvivalBudgetShare : WarBudgetShare;
         double budget = StateDebtSystem.AnnualStableIncome(kingdom) * (double)share +
@@ -426,26 +432,33 @@ public static class CorpsSystem
         bool unpaid = Unpaid(kingdom);
         CityPopulationSystem.ArmyDoctrine doctrine = CityPopulationSystem.DoctrineOf(kingdom);
         var cities = kingdom.cities.Where(city => city != null && !city.isRekt()).ToList();
+        // 各军镇的兵额(旧制军团数)。平时首都、军区首都(帝国里的各藩属王国)至少留一个军团("平时只留一名将领"，
+        // 见 CityPopulationSystem.LevyTarget)：城防卫兵另算，不占这一个名额——以前新开局的小国平时一个军团都没有，
+        // 几十年不打仗就一直没兵；帝国里各藩属王国平时也一兵没有，全帝国只有京师一支军
+        var posts = new Dictionary<City, int>();
         int totalSlots = 0;
-        foreach (City city in cities) totalSlots += Mathf.Max(0, CityPopulationSystem.LevyTarget(city));
-        float pool = CityPopulationSystem.KingdomBackground(kingdom) * doctrine.LevyShare;
-        float legionSize = Mathf.Clamp(pool / Mathf.Max(1, totalSlots), 1f, CityPopulationSystem.PeoplePerLegion);
-        // 量入为出：按人口该有的兵额超出养得起的，每个军团按比例缩编
-        float levied = 0f;
-        foreach (City city in cities)
-            if (CityPopulationSystem.PostOf(city, doctrine) != CityPopulationSystem.ArmyPost.None)
-                levied += Mathf.Max(0, CityPopulationSystem.LevyTarget(city) - CityStabilitySystem.FundedSlots(city)) * legionSize;
-        float budget = BudgetFactor(kingdom, war, levied);
-        bool limited = budget < 0.999f;
-        legionSize = Mathf.Max(1f, legionSize * budget);
         foreach (City city in cities)
         {
             CityPopulationSystem.ArmyPost post = CityPopulationSystem.PostOf(city, doctrine);
             if (post == CityPopulationSystem.ArmyPost.None) continue;
-            // 平时首都至少留一个军团("平时只留一名将领"，见 CityPopulationSystem.LevyTarget)：城防卫兵另算，
-            // 不再占掉这一个名额——以前新开局的小国平时一个军团都没有，几十年不打仗就一直没兵
-            int legions = Mathf.Max(post == CityPopulationSystem.ArmyPost.Central ? 1 : 0,
+            int legions = Mathf.Max(post is CityPopulationSystem.ArmyPost.Central or CityPopulationSystem.ArmyPost.District ? 1 : 0,
                 CityPopulationSystem.LevyTarget(city) - CityStabilitySystem.FundedSlots(city));
+            posts[city] = legions;
+            totalSlots += legions;
+        }
+        // 兵源只分给军镇的兵额：城防守兵由城市治安另出钱从本城征(见 CityStabilitySystem)，不再把军团摊薄
+        // (以前按含守兵的兵额平分，平时京师那一个军团只分到兵源的几分之一，大国平时也只有一千来人)。
+        // 平时只征兵源的一部分(有常备军的多些)，战时全征
+        float peace = doctrine.CentralStanding || doctrine.DistrictStanding ? StandingPoolShare : PeacePoolShare;
+        float pool = CityPopulationSystem.KingdomBackground(kingdom) * doctrine.LevyShare * (war ? 1f : peace);
+        float legionSize = Mathf.Clamp(pool / Mathf.Max(1, totalSlots), 1f, CityPopulationSystem.PeoplePerLegion);
+        // 量入为出：按人口该有的兵额超出养得起的，每个军团按比例缩编
+        float budget = BudgetFactor(kingdom, war, totalSlots * legionSize);
+        bool limited = budget < 0.999f;
+        legionSize = Mathf.Max(1f, legionSize * budget);
+        foreach (City city in cities)
+        {
+            if (!posts.TryGetValue(city, out int legions)) continue;
             int wanted = legions <= 0 ? 0 : Mathf.CeilToInt(legions / (float)LegionsPerCorps);
             var here = list.Where(corps => corps.home_city_id == city.id && !corps.militia && corps.order_id < 0).ToList();
             // 每支军分到的旧制军团数
@@ -752,8 +765,20 @@ public static class CorpsSystem
     public static int RaiseMilitia(City city, int count, float share)
     {
         if (city?.kingdom == null || city.isRekt() || count <= 0) return 0;
-        float people = CityPopulationSystem.GetBackgroundTotal(city) * Mathf.Clamp01(share);
+        float people = Mathf.Min(CityPopulationSystem.GetBackgroundTotal(city) * Mathf.Clamp01(share) * CityPopulationSystem.MilitiaTurnout,
+            count * CityPopulationSystem.PeoplePerLegion);
         if (people < 1f) return 0;
+        // 本城已有义军(叛军又得了新城、又一次起事)：补足到这次的规模，不再另编一支——
+        // 以前每次都把各城再征一遍，几座城的叛军滚上几年就有二十万义军
+        CorpsData existing = Of(city.kingdom).FirstOrDefault(corps => corps.militia && corps.home_city_id == city.id);
+        if (existing != null)
+        {
+            existing.legions = Mathf.Max(existing.legions, count);
+            existing.full = Mathf.Max(existing.full, people);
+            Reinforce(city.kingdom, existing, people, city);
+            RebuildIndex();
+            return count;
+        }
         CorpsData corps = Raise(city.kingdom, city, Mathf.Max(1, count), people, World.world.getCurWorldTime(), militia: true);
         if (corps == null) return 0;
         corps.task = "reserve";

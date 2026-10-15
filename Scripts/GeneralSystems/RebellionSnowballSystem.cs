@@ -68,6 +68,7 @@ public static class RebellionSnowballSystem
                            CityStabilitySystem.CanRise(city))
             .Distinct().OrderBy(_ => UnityEngine.Random.value).ToList();
         var defected = new List<string>();
+        var joined = new List<City>();
         foreach (City city in frontier)
         {
             if (defected.Count >= budget) break;
@@ -77,11 +78,12 @@ public static class RebellionSnowballSystem
             city.joinAnotherKingdom(rebel, pCaptured: true, pRebellion: true);
             if (city.kingdom != rebel) continue;
             defected.Add(name);
+            joined.Add(city);
             empire.AddMandate(-1);
         }
         if (defected.Count > 0)
         {
-            RebellionStartupService.RaiseUprisingMilitia(rebel, intensity);
+            RebellionStartupService.RaiseUprisingMilitia(rebel, intensity, joined);
             EventRecorder.Record(empire, actor: rebel.king, logKingdom: rebel, text: string.Format(LM.Get("rebellion_snowball_history"), string.Join("、", defected),
                 rebel.GetKingdomFullName(), empire.GetEmpireFullName()));
         }
