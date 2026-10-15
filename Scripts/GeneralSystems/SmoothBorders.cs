@@ -137,6 +137,34 @@ public static class SmoothBorders
         return kingdom != null && kingdom.isAlive() && kingdom.IsInEmpire() ? kingdom : null;
     }
 
+    // 悬停的省、刚移开的省：它们的地块(连同四周，平滑的边伸进邻块)上色优先，鼠标一动就跟上(见 ZonePaintBudget)
+    private static Kingdom _hoverNow, _hoverBefore;
+    private static float _hoverChangedAt = -10f;
+    private const float HoverUrgentSeconds = 1f;
+
+    private static void TrackHover()
+    {
+        if (!Enabled || World.world == null) return;
+        MetaTypeAsset layer = World.world.getCachedMapMetaAsset();
+        Kingdom hover = layer == null ? null : HoveredProvince(layer, layer.getZoneOptionState());
+        if (hover == _hoverNow) return;
+        _hoverBefore = _hoverNow;
+        _hoverNow = hover;
+        _hoverChangedAt = Time.unscaledTime;
+    }
+
+    public static bool HoverUrgent(TileZone zone)
+    {
+        if (!Enabled || zone == null || Time.unscaledTime - _hoverChangedAt > HoverUrgentSeconds) return false;
+        for (int dy = -1; dy <= 1; dy++)
+        for (int dx = -1; dx <= 1; dx++)
+        {
+            Kingdom kingdom = (dx == 0 && dy == 0 ? zone : World.world.zone_calculator.getZone(zone.x + dx, zone.y + dy))?.city?.kingdom;
+            if (kingdom != null && (kingdom == _hoverNow || kingdom == _hoverBefore)) return true;
+        }
+        return false;
+    }
+
     private static IMetaObject ShadeOf(TileZone zone, IMetaObject real)
     {
         if (_hover == null || real == null || zone?.city?.kingdom != _hover || !(real is Empire empire) ||
@@ -263,6 +291,7 @@ public static class SmoothBorders
     // 每帧(ModClass.Update)：上一帧以来没有高亮调用就熄灭
     public static void FrameTick()
     {
+        TrackHover();
         SweepTick();
         int frame = Time.frameCount;
         if (_collectFrame == frame || _collectFrame == frame - 1) return;
@@ -473,12 +502,13 @@ public static class SmoothBorders
     //   · 换主(归降、被占、城市归降、并入帝国)：从新主人那边(入侵方向、宗主或同一帝国那边)一圈圈翻过来，
     //     每块牌挨着新主人的那一边先翘起来，每圈约 SweepStep 秒，整片至多 MaxSweepSeconds 秒；
     //   · 自己变(归属没换、只是颜色变了，如国家换颜色、成了附庸换色)，或换主时接不上新主人：从都城那块地往外一圈圈翻；
-    //   · 临时换色(帝国图层悬停某省显示本省颜色、移开换回)：从鼠标处往外翻，每秒 RippleSpeed 格；
+    //   · 临时换色(帝国图层悬停某省显示本省颜色、移开换回)：要跟手——从鼠标处很快地翻过去(每秒 RippleSpeed 格，
+    //     每张牌 HoverFlipSeconds 秒)，这个省连同四周的地块上色时优先；没翻完就移开，从眼下看到的那一面翻回去；
     //   · 换图层(国家、文化、宗教……或图层选项)：旧图留着，各地块照常分帧重画(镜头里的先画，见 ZonePaintBudget)，
     //     画好一块翻一块，从镜头中心往外一圈圈翻，约 LayerWaveSeconds 秒翻到镜头边上；镜头外的直接换。
     // 一次换主的地块要分好几帧才画完(上色分帧，见 ZonePaintBudget)：等这批画完(至多 MaxPlanWait 秒)再统一排一道，
     // 之后才画到的块接着这道往下排。逐格推进吃下的地(FrontSystem.Smooth)本身就是渐变，直接显示。新旧一样的块不翻。
-    private const float SweepStep = 0.18f, MaxSweepSeconds = 4f, RippleSpeed = 150f, RippleGroupSeconds = 0.15f,
+    private const float SweepStep = 0.18f, MaxSweepSeconds = 4f, RippleSpeed = 600f, RippleGroupSeconds = 0.15f, HoverFlipSeconds = 0.18f,
         StaleSeconds = 6f, MaxPlanWait = 0.4f, FlipSeconds = 0.32f, LayerWaveSeconds = 0.9f, LayerFlipSeconds = 6f,
         SlotShade = 0.55f;
 
@@ -494,8 +524,8 @@ public static class SmoothBorders
         // 排好了何时翻；归属没换、只是颜色变了(自己变)
         public bool planned, self;
         public float created;
-        // 何时开始翻；绕哪条轴(上下翻)；哪一边先翘起来(+1 坐标大的那边)
-        public float flipAt, lift = 1f;
+        // 何时开始翻、翻多久；绕哪条轴(上下翻)；哪一边先翘起来(+1 坐标大的那边)
+        public float flipAt, lift = 1f, duration = FlipSeconds;
         public bool vertical;
         // 画到哪一步：0 旧样子，1 翻前半(底下压暗的旧样子)，2 翻后半(底下压暗的新样子)，3 翻完
         public int phase = -1;
@@ -666,6 +696,7 @@ public static class SmoothBorders
         float dx = zone.x * ZoneSize + ZoneSize / 2f - _rippleX, dy = zone.y * ZoneSize + ZoneSize / 2f - _rippleY;
         transition.planned = true;
         transition.flipAt = _rippleStart + Mathf.Sqrt(dx * dx + dy * dy) / RippleSpeed;
+        transition.duration = HoverFlipSeconds;
         Orient(transition, dx, dy, zone);
         Transitions[zone.id] = transition;
         PendingSweep.Remove(zone.id);
@@ -691,6 +722,12 @@ public static class SmoothBorders
     private static Transition Capture(TileZone zone)
     {
         if (zone?.tiles == null || _base.Length == 0) return null;
+        if (Transitions.TryGetValue(zone.id, out Transition running) && running.oldPixels?.Length == zone.tiles.Length)
+        {
+            // 正在翻(或等着翻)的块又要变：旧样子是眼下看到的那一面，不是底下压暗的缝
+            Color32[] face = running.phase >= 2 && running.newPixels != null ? running.newPixels : running.oldPixels;
+            return new Transition { oldPixels = (Color32[])face.Clone(), created = Time.unscaledTime };
+        }
         var old = new Color32[zone.tiles.Length];
         for (int i = 0; i < zone.tiles.Length; i++)
         {
@@ -769,7 +806,7 @@ public static class SmoothBorders
     private static bool WriteFlip(Color32[] pixels, TileZone zone, Transition transition, float now)
     {
         int phase = !transition.planned || transition.newPixels == null || now < transition.flipAt ? 0
-            : now >= transition.flipAt + FlipSeconds ? 3 : now < transition.flipAt + FlipSeconds / 2f ? 1 : 2;
+            : now >= transition.flipAt + transition.duration ? 3 : now < transition.flipAt + transition.duration / 2f ? 1 : 2;
         if (phase == transition.phase) return false;
         transition.phase = phase;
         Color32[] source = phase <= 1 ? transition.oldPixels : transition.newPixels;
@@ -872,7 +909,7 @@ public static class SmoothBorders
                 continue;
             }
             if (transition.phase is 1 or 2)
-                ZoneFlipOverlay.Card(zone, transition.oldPixels, transition.newPixels, (now - transition.flipAt) / FlipSeconds,
+                ZoneFlipOverlay.Card(zone, transition.oldPixels, transition.newPixels, (now - transition.flipAt) / transition.duration,
                     transition.vertical, transition.lift);
         }
         ZoneFlipOverlay.End();

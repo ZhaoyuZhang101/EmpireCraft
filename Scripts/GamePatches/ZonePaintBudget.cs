@@ -19,7 +19,8 @@ namespace EmpireCraft.Scripts.GamePatches;
 public class ZonePaintBudget : GamePatch
 {
     public ModDeclare declare { get; set; }
-    // 正在换色、等着画新样子的地块(见 SmoothBorders.Awaiting)预算放宽到 UrgentBudgetMs，整片换色尽快画齐、一起扫
+    // 正在换色、等着画新样子的地块(见 SmoothBorders.Awaiting)与悬停、刚移开的省(SmoothBorders.HoverUrgent)预算放宽到
+    // UrgentBudgetMs，整片换色尽快画齐、一起翻，悬停跟手
     private const double BudgetMs = 6d, VisibleBudgetMs = 14d, UrgentBudgetMs = 30d;
     private const int MinZonesPerFrame = 6;
     private static readonly double TicksPerMs = Stopwatch.Frequency / 1000d;
@@ -73,7 +74,7 @@ public class ZonePaintBudget : GamePatch
         if (World.world?.zone_calculator == null || !World.world.zone_calculator._current_drawn_zones.Contains(__instance)) return;
         double spent = _spent / TicksPerMs;
         if (spent < BudgetMs || spent < VisibleBudgetMs && IsVisible(__instance) ||
-            spent < UrgentBudgetMs && SmoothBorders.Awaiting(__instance)) return;
+            spent < UrgentBudgetMs && (SmoothBorders.Awaiting(__instance) || SmoothBorders.HoverUrgent(__instance))) return;
         __result = false;
         _deferredFrame = Time.frameCount;
         __instance.resetRenderHelpers();
