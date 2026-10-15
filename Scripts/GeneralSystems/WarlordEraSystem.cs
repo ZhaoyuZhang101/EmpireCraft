@@ -497,6 +497,8 @@ public static partial class WarlordEraSystem
             Kingdom attacker = war.getMainAttacker(), defender = war.getMainDefender();
             if (attacker == null || defender == null || attacker == centralKingdom || defender == centralKingdom) continue;
             if (!IsLocalHolder(core, attacker) || !IsLocalHolder(core, defender)) continue;
+            // 开国雄主的统一之战打到底，不算地方混战
+            if (RulerTraitSystem.IsFounderUnificationWar(war)) continue;
             World.world.wars.endWar(war, WarWinner.Peace);
         }
     }

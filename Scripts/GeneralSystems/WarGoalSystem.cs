@@ -266,6 +266,8 @@ public static class WarGoalSystem
         if (!Applies(war) && war.GetEmpireWarType() != EmpireWarType.劫掠) return false;
         Kingdom attacker = war.main_attacker, defender = war.main_defender;
         if (attacker?.data == null || defender?.data == null || attacker == defender) return false;
+        // 开国雄主、天下统一的仗：欠饷只逃散减员，不罢兵(以前开战当月军饷掏空国库，三个月后攻方就"各守旧土")
+        if (broke == attacker && RulerTraitSystem.IsFounderUnificationWar(war)) return false;
         if (broke == attacker)
         {
             World.world.wars.endWar(war, WarWinner.Peace);

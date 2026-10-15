@@ -114,9 +114,14 @@ public static class RulerTraitSystem
         Empire empire = founderSide?.GetEmpire();
         if (empire == null || rival == null || empire.CoreKingdom != founderSide || !FounderReigns(founderSide)) return false;
         if (rival.GetEmpire() == empire) return false;
-        EmpireCore core = EmpireCoreManager.Get(empire);
         EmpireCore target = rival.capital?.GetEmpireCore();
-        return core != null && target != null && (target == core || target.warlord_parent_core_id == core.id);
+        if (target == null) return false;
+        // 帝国自己的核心，或雄主都城所在的核心：自立、僭越称帝的王朝另建了一个核心(多半一座城也没有)，
+        // 讨伐却是按都城所在的核心挑的(见 WarlordUnificationSystem.FounderDrive)。以前只认前者，雄主之战几乎都认不出来——
+        // 不举国归附、同时两场的上限失效、也躲不过战争年限强制停战
+        foreach (EmpireCore core in new[] { EmpireCoreManager.Get(empire), founderSide.capital?.GetEmpireCore() })
+            if (core != null && (target == core || target.warlord_parent_core_id == core.id)) return true;
+        return false;
     }
 
     // 开国雄主(中兴雄主)在位时本国各军的战力

@@ -418,7 +418,7 @@ public static class UnificationSystem
                 Kingdom attacker = Sovereign(war.getMainAttacker());
                 Kingdom foe = attacker == unifier ? Sovereign(war.getMainDefender()) : attacker;
                 if (!Alive(foe) || foe == unifier) continue;
-                if (!ArmyWiped(foe))
+                if (!ArmyWiped(foe, unifier))
                 {
                     Wiped.Remove(foe.id);
                     continue;
@@ -433,15 +433,25 @@ public static class UnificationSystem
         }
     }
 
-    // 正规军打光：军团制看各成员国的正规军团(不算民兵、骑士团)；否则看士兵连同可征之兵
-    private static bool ArmyWiped(Kingdom sovereign)
+    // 正规军打光：军团制看各成员国的正规军团(不算民兵、骑士团)；否则看士兵连同可征之兵。
+    // 以前要连着两个月一兵不剩，可每月都会补征，从来没吞并成过；现在剩不到满编的一成半，或不到统一者的一成就算打光
+    private const float WipedShareOfFull = 0.15f, WipedShareOfUnifier = 0.1f;
+
+    private static bool ArmyWiped(Kingdom sovereign, Kingdom unifier)
     {
-        IEnumerable<Kingdom> members = sovereign.GetEmpire()?.kingdoms_list?.Where(Alive) ?? new[] { sovereign };
+        IEnumerable<Kingdom> Members(Kingdom kingdom) => kingdom.GetEmpire()?.kingdoms_list?.Where(Alive) ?? new[] { kingdom };
         if (CorpsSystem.Enabled)
-            return members.SelectMany(member => CorpsSystem.Of(member))
-                .Where(corps => !corps.militia && corps.order_id < 0).Sum(corps => Mathf.Max(0f, corps.strength)) < 1f;
-        int warriors = members.Sum(member => member.countTotalWarriors() + CityPopulationSystem.MobilizableReserve(member));
-        return warriors <= WipedWarriors;
+        {
+            var regulars = Members(sovereign).SelectMany(member => CorpsSystem.Of(member))
+                .Where(corps => !corps.militia && corps.order_id < 0).ToList();
+            float strength = regulars.Sum(corps => Mathf.Max(0f, corps.strength)), full = regulars.Sum(corps => Mathf.Max(0f, corps.full));
+            float theirs = Members(unifier).SelectMany(member => CorpsSystem.Of(member))
+                .Where(corps => !corps.militia && corps.order_id < 0).Sum(corps => Mathf.Max(0f, corps.strength));
+            return strength < 1f || strength < full * WipedShareOfFull || strength < theirs * WipedShareOfUnifier;
+        }
+        int warriors = Members(sovereign).Sum(member => member.countTotalWarriors() + CityPopulationSystem.MobilizableReserve(member));
+        int unifierWarriors = Members(unifier).Sum(member => member.countTotalWarriors());
+        return warriors <= WipedWarriors || warriors < unifierWarriors * WipedShareOfUnifier;
     }
 
     // 开战：手上的统一战争不到四场、养得起兵，就挑接壤(或隔海相望)的一家开战(目标吞并)，每月至多一场；不隔着别国远征

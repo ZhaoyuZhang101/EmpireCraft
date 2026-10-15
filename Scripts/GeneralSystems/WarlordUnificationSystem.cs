@@ -264,6 +264,10 @@ public static partial class WarlordEraSystem
             if (wars >= MaxFounderWars || Random.value >= FounderWarChance) break;
             War war = World.world.diplomacy.startWar(founderKingdom, target, WarTypeLibrary.normal);
             if (war == null) continue;
+            // 雄主之战志在一统：目标吞并(以前交给 WarGoalSystem.Ensure 按兵力、接壤定，多半成了赔款、割地，一赔就停战三年)
+            var goal = war.GetOrCreate();
+            goal.war_goal = WarGoal.吞并;
+            goal.war_goal_capital_id = target.capital?.data != null ? target.capital.id : -1L;
             wars++;
             EventRecorder.Record(founderKingdom, string.Format(LM.Get("founder_unify_war_history"),
                 founder.GetBaseEmpireFullName(), RulerTraitSystem.FounderTitle(founder.Emperor),
