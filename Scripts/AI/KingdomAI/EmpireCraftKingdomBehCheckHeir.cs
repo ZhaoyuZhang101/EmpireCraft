@@ -262,7 +262,8 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
                     return (ConstitutionalSuccessionSystem.SelectRoyalHeir(kingdom.GetEmpire()), ConstitutionalSuccessionSystem.SelectionRelation(kingdom.GetEmpire()));
                 // 绝嗣：从宗室里按亲疏找人入继(隔几代找到共同的祖先)，同样亲疏的先立成年的、三十岁上下的
                 // (帝国皇位另由群臣议立，见 SuccessionCouncilSystem)
-                candidates = parent._specificClan?.SnapshotPeople() ?? Enumerable.Empty<PersonalClanIdentity>();
+                // 整个世系：本宗和分出去的各支(受封诸王一系)
+                candidates = SpecificClanManager.LineageClans(parent._specificClan).SelectMany(clan => clan.SnapshotPeople());
                 Dictionary<long, int> ancestors = Ancestors(parent);
                 candidates = candidates.Where(person => IsEligibleRelative(person, parent, allowFemale))
                     .OrderBy(person => Kinship(person, ancestors)).ThenByDescending(person => person.age >= 18)
@@ -305,9 +306,11 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
         var people = new Dictionary<long, PersonalClanIdentity>();
         foreach (var pair in SpecificClanManager.GetSiblingsWithRelation(parent))
             if (pair.Item2 != null) people[pair.Item2.id] = pair.Item2;
-        IEnumerable<PersonalClanIdentity> clan = parent._specificClan?.SnapshotPeople() ?? Enumerable.Empty<PersonalClanIdentity>();
+        // 本宗与分出去的各支(受封诸王一系仍是宗室，见 ClanBranchSystem)，皇族世系也算
+        var clans = SpecificClanManager.LineageClans(parent._specificClan);
         SpecificClan royal = kingdom.IsEmpire() ? kingdom.GetEmpire()?.EmpireSpecificClan : null;
-        if (royal != null && royal != parent._specificClan) clan = clan.Concat(royal.SnapshotPeople());
+        if (royal != null) foreach (SpecificClan member in SpecificClanManager.LineageClans(royal)) if (!clans.Contains(member)) clans.Add(member);
+        IEnumerable<PersonalClanIdentity> clan = clans.SelectMany(member => member.SnapshotPeople());
         foreach (PersonalClanIdentity person in clan)
             if (person != null) people[person.id] = person;
         foreach (PersonalClanIdentity person in people.Values)

@@ -587,8 +587,8 @@ public static class VirtualGenealogySystem
     #region 继承人(无小人模式)
 
     // 王位空缺、实体族人里找不到继承人时(皇族多半已成了虚拟族人)：按继承顺序——子女 → 孙辈 → 其他族人——
-    // 在虚拟族人里挑一位能继承的(优先成年人)，当场落成实体。皇族连可继承的虚拟族人也没有时，
-    // 从都城人口中生成一位宗室旁支编入皇族、改用皇族的姓，入继大统——封建王朝很少真正绝嗣
+    // 在虚拟族人里挑一位能继承的(优先成年人)，当场落成实体。先君的子女、兄弟，再到整个世系(本宗和分出去的各支，
+    // 如受封的诸王一系)里的族人。都没有就是真的绝嗣(不再从百姓里认一位宗室远支，世系图上的人都要真有来历)
     private static readonly ClanRelation[][] HeirPriority =
     {
         new[] { ClanRelation.CHILD },
@@ -611,10 +611,9 @@ public static class VirtualGenealogySystem
             }
             heir ??= PickHeir(relations.Select(pair => pair.id), last);
         }
-        if (heir == null && clan != null) heir = PickHeir(clan.SnapshotPeople(), null);
-        Actor actor = heir?.Realize();
-        if (actor != null || clan == null || kingdom.capital == null) return actor;
-        return SpawnCadet(kingdom, clan);
+        if (heir == null && clan != null)
+            heir = PickHeir(SpecificClanManager.LineageClans(clan).SelectMany(member => member.SnapshotPeople()), null);
+        return heir?.Realize();
     }
 
     // 宗室旁支入继：从都城人口中认一位宗室远支，编入皇族、改用皇族的姓
@@ -648,6 +647,29 @@ public static class VirtualGenealogySystem
             .OrderByDescending(person => person.age >= HeadMinAge)
             .ThenByDescending(person => person.age)
             .FirstOrDefault();
+
+    // 和正在统治的宗族同一世系(分出去的诸王各支)：不销户、添丁不受宗族人数上限，皇统绝嗣时从这些真实支脉里找人
+    private static readonly HashSet<long> RulingRoots = new();
+    private static float _rulingRootsAt = -100f;
+
+    private static bool IsRulingLineage(SpecificClan clan)
+    {
+        if (clan == null || World.world?.kingdoms == null) return false;
+        // 统治宗族的始祖宗族：几秒重算一次(逐个宗族检查时不必每次都扫一遍所有国家)
+        if (UnityEngine.Time.realtimeSinceStartup - _rulingRootsAt > 5f)
+        {
+            _rulingRootsAt = UnityEngine.Time.realtimeSinceStartup;
+            RulingRoots.Clear();
+            foreach (Kingdom kingdom in World.world.kingdoms)
+            {
+                if (kingdom?.data == null || kingdom.isRekt()) continue;
+                SpecificClan ruling = kingdom.IsEmpire() ? kingdom.GetEmpire()?.EmpireSpecificClan : null;
+                ruling ??= kingdom.king != null && !kingdom.king.isRekt() ? kingdom.king.GetSpecificClan() : null;
+                if (ruling != null) RulingRoots.Add(ruling.GetRootClan().id);
+            }
+        }
+        return RulingRoots.Contains(clan.GetRootClan().id);
+    }
 
     // 正在统治某个王国或帝国的宗族(永不销户)
     private static bool IsRulingClan(SpecificClan clan)
@@ -791,8 +813,9 @@ public static class VirtualGenealogySystem
         }
         List<PersonalClanIdentity> virtuals = people.Where(person => person.is_alive && person.is_virtual).ToList();
         if (virtuals.Count == 0) return;
-        // 统治家族永不销户
-        if (clan.head_lost_to_calamity && !ruling)
+        // 统治家族(连同它分出去的诸王各支)永不销户
+        bool rulingLineage = ruling || IsRulingLineage(clan);
+        if (clan.head_lost_to_calamity && !rulingLineage)
         {
             Disperse(clan, virtuals);
             return;
@@ -800,6 +823,7 @@ public static class VirtualGenealogySystem
         // 平民宗族：不落成族长；整族虚拟沉寂太久就销户(族人编入所在城的普通百姓)。地方豪强照常落成族长
         if (!ruling && !IsMagnate(clan))
         {
+            if (rulingLineage) return;
             double now = World.world.getCurWorldTime();
             if (clan.virtual_since < 0d || now < clan.virtual_since) clan.virtual_since = now;
             else if (Date.getYearsSince(clan.virtual_since) >= DormantYears) Disperse(clan, virtuals, dormant: true);
@@ -868,6 +892,8 @@ public static class VirtualGenealogySystem
     private const int MaxChildren = 4;
     // 宗族在世人数(含虚拟族人)达到这个数就不再添丁，免得一代代按指数增长
     private const int MaxClanAlive = 30;
+    // 统治世系的宗族(皇族本宗与诸王各支)上限放宽，支脉才能一代代传下去
+    private const int MaxRulingClanAlive = 80;
 
     private static void TryBirth(PersonalClanIdentity parent)
     {
@@ -878,7 +904,8 @@ public static class VirtualGenealogySystem
         if (clan == null) return;
         int living = parent.children.Count(id => SpecificClanManager.getPerson(id)?.is_alive == true);
         if (living >= MaxChildren) return;
-        if (clan.SnapshotPeople().Count(person => person.is_alive) >= MaxClanAlive) return;
+        int alive = clan.SnapshotPeople().Count(person => person.is_alive);
+        if (alive >= MaxRulingClanAlive || alive >= MaxClanAlive && !IsRulingLineage(clan)) return;
         double now = World.world.getCurWorldTime();
         var child = new PersonalClanIdentity
         {

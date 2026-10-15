@@ -224,13 +224,7 @@ public static class SuccessionCouncilSystem
             if (result.Count(candidate => candidate.basis == Acclaim) >= 2) break;
             Add(actor, Acclaim);
         }
-        bool cadet = (empire.EmpireSpecificClan != null || !string.IsNullOrEmpty(empire.data.currentHistory?.royal_surname)) &&
-                     core.capital != null;
-        if (cadet && empire.EmpireSpecificClan != null)
-            result.Add(new CourtSuccessionCandidate
-            {
-                name = LM.Get("court_succession_cadet_name"), basis = Cadet, age = 0, kinship = 98
-            });
+        // 不再从都城百姓里认一位"宗室远支"：宗室人选只从世系里真实的支脉开列(见 Nominate)，那里都没人就是真的绝嗣
         if (result.Count == 0 && core.capital != null)
             result.Add(new CourtSuccessionCandidate
             {

@@ -1027,6 +1027,18 @@ public static class SpecificClanManager
 
     // "是不是同一家"：同一个宗族，或者同出一个始祖宗族的分支(别子为祖的王子、迁居他乡的一支仍是宗室)。
     // 两边都为空时跟原来的 == 一样算相同。
+    // 同一世系的所有宗族(始祖宗族和它分出的各支，含本宗)
+    public static List<SpecificClan> LineageClans(SpecificClan clan)
+    {
+        var result = new List<SpecificClan>();
+        if (clan == null) return result;
+        SpecificClan root = clan.GetRootClan();
+        foreach (SpecificClan other in _specificClans.ToList())
+            if (other != null && (other == clan || other.GetRootClan() == root)) result.Add(other);
+        if (!result.Contains(clan)) result.Add(clan);
+        return result;
+    }
+
     public static bool SameLineage(SpecificClan a, SpecificClan b)
     {
         if (a == b) return true;
