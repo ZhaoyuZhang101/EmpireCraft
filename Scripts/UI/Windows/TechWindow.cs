@@ -473,6 +473,7 @@ public class TechWindow : AbstractWideWindow<TechWindow>
         }
         if (tech.research_bonus > 0f)
             unlocks.Add(string.Format(LM.Get("tech_research_bonus"), (tech.research_bonus * 100f).ToString("0")));
+        unlocks.AddRange(TechnologySystem.DescribeNaval(tech).Select(line => line.ColorString("#7FD8EA")));
         if (unlocks.Count > 0) lines.Add(LM.Get("tech_unlocks") + "\n" + string.Join("\n", unlocks));
         return (title, string.Join("\n", lines));
     }

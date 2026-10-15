@@ -78,7 +78,7 @@
     "employment_cap_bonus": { "industrialization": 0.1, "electricity": 0.05, "computing": 0.05 },
     "capitalist_budding_techs": ["printing"]
   },
-  "branches": ["material", "metallurgy", "military", "construction", "science"],
+  "branches": ["material", "metallurgy", "military", "construction", "science", "naval"],
   "eras": [
     { "tier": 1, "key": "tech_era_stone" },
     { "tier": 2, "key": "tech_era_copper" },
@@ -133,7 +133,8 @@
     { "id": "steelmaking", "branch": "metallurgy", "tier": 5, "cost": 260, "requires_techs": ["ironworking"], "requires_materials": ["coal"], "unlock_materials": ["steel"], "unlock_buildings": ["ec_mine_3", "ec_lumber_3"], "boosts": [{"type": "building_type", "value": "type_mine", "amount": 5}] },
     { "id": "alchemy", "branch": "science", "tier": 5, "cost": 260, "requires_techs": ["mathematics"], "requires_materials": ["gold"], "research_bonus": 0.1, "boosts": [{"type": "resource", "value": "gold", "amount": 20}] },
     { "id": "printing", "branch": "science", "tier": 5, "cost": 260, "requires_techs": ["mathematics"], "research_bonus": 0.2, "unlock_buildings": ["university"], "boosts": [{"type": "building_type", "value": "type_library", "amount": 2}] },
-    { "id": "ocean_navigation", "branch": "science", "tier": 5, "cost": 260, "requires_techs": ["mathematics", "carpentry"], "boosts": [{"type": "building_type", "value": "type_docks", "amount": 1}] },
+    { "id": "coastal_pilotage", "branch": "naval", "tier": 4, "cost": 150, "requires_techs": ["carpentry", "ironworking"], "boosts": [{"type": "building_type", "value": "type_docks", "amount": 1}], "naval_reach": 32 },
+    { "id": "ocean_navigation", "branch": "naval", "tier": 5, "cost": 260, "requires_techs": ["mathematics", "carpentry", "coastal_pilotage"], "boosts": [{"type": "building_type", "value": "type_docks", "amount": 1}], "naval_reach": 64, "naval_hull": 1.5 },
 
     { "id": "gunpowder", "branch": "military", "tier": 6, "cost": 420, "requires_techs": ["alchemy"], "requires_materials": ["saltpeter", "coal"], "unlock_buildings": ["gunpowder_mill"], "boosts": [{"type": "resource", "value": "gunpowder", "amount": 1}, {"type": "war_knows", "value": "", "amount": 1}] },
     { "id": "matchlock", "branch": "military", "tier": 6, "cost": 420, "requires_techs": ["gunpowder", "steelmaking"], "unlock_items": ["Musket", "Flintlock", "musket"], "boosts": [{"type": "war_knows", "value": "", "amount": 1}] },
@@ -165,6 +166,13 @@
     { "id": "arcology", "branch": "construction", "tier": 10, "cost": 2000, "requires_techs": ["skyscrapers", "computing"], "unlock_buildings": ["11house_*_modernmod", "6hall_*_modernmod"], "boosts": [{"type": "population", "value": "", "amount": 6000}] },
 
     { "id": "icbm", "branch": "military", "tier": 11, "cost": 3000, "requires_techs": ["nuclear_fission"], "unlock_items": ["BudgetMIRV", "DecentMIRV", "MIRV", "MIRVBomb", "STRONGMIRV"], "boosts": [{"type": "war_knows", "value": "", "amount": 1}] },
-    { "id": "energy_weapons", "branch": "military", "tier": 11, "cost": 3000, "requires_techs": ["computing", "assault_rifles"], "requires_materials": ["adamantine"], "unlock_items": ["greenblaster", "greenheavyblaster", "vrifle", "grifle", "gauss"], "boosts": [{"type": "contact_knows", "value": "", "amount": 1}] }
+    { "id": "energy_weapons", "branch": "military", "tier": 11, "cost": 3000, "requires_techs": ["computing", "assault_rifles"], "requires_materials": ["adamantine"], "unlock_items": ["greenblaster", "greenheavyblaster", "vrifle", "grifle", "gauss"], "boosts": [{"type": "contact_knows", "value": "", "amount": 1}] },
+    { "id": "naval_artillery", "branch": "naval", "tier": 6, "cost": 420, "requires_techs": ["gunpowder", "ocean_navigation"], "boosts": [{"type": "war_knows", "value": "", "amount": 1}], "naval_reach": 16, "naval_power": 0.25 },
+    { "id": "steam_ironclads", "branch": "naval", "tier": 7, "cost": 650, "requires_techs": ["industrialization", "naval_artillery"], "boosts": [{"type": "war_knows", "value": "", "amount": 1}], "naval_reach": 128, "naval_hull": 2.5 },
+    { "id": "coaling_stations", "branch": "naval", "tier": 8, "cost": 950, "requires_techs": ["steam_ironclads", "banking"], "boosts": [{"type": "building_type", "value": "type_docks", "amount": 5}], "naval_reach": 96 },
+    { "id": "modern_warships", "branch": "naval", "tier": 8, "cost": 950, "requires_techs": ["steam_ironclads", "electricity"], "boosts": [{"type": "war_knows", "value": "", "amount": 1}], "naval_reach": 32, "naval_hull": 4 },
+    { "id": "naval_aviation", "branch": "naval", "tier": 9, "cost": 1400, "requires_techs": ["modern_warships", "aviation"], "boosts": [{"type": "war_knows", "value": "", "amount": 1}], "naval_reach": 128, "naval_power": 0.5 },
+    { "id": "naval_radar", "branch": "naval", "tier": 9, "cost": 1400, "requires_techs": ["modern_warships", "computing"], "boosts": [{"type": "contact_knows", "value": "", "amount": 1}], "naval_reach": 64, "naval_power": 0.25 },
+    { "id": "nuclear_navy", "branch": "naval", "tier": 10, "cost": 2000, "requires_techs": ["naval_aviation", "nuclear_fission"], "boosts": [{"type": "contact_knows", "value": "", "amount": 1}], "naval_reach": 192, "naval_power": 0.25 }
   ]
 }

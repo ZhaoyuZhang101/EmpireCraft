@@ -117,6 +117,10 @@ public sealed class TechNodeConfig
     public List<string> unlock_units = new();
     public float research_bonus;
     public List<TechBoostConfig> boosts = new();
+    // 海军科技线(branch = naval，见 NavySystem)：水师辐射 +格数、舰船战力 +比例、舰种(战力倍率 1.5/2.5/4，取已研究的最高)
+    public float naval_reach;
+    public float naval_power;
+    public float naval_hull;
 }
 
 // 别的模组里"能不能做某事"的布尔方法：本文化没研究对应技术时直接返回 false。
@@ -204,6 +208,7 @@ public static class TechnologySystem
 {
     public const string FolderName = "Technology";
     public const string MaterialBranch = "material";
+    public const string NavalBranch = "naval";
 
     private static TechTreeConfig _config = new();
     private static Dictionary<string, TechNodeConfig> _techs = new(StringComparer.Ordinal);
@@ -612,6 +617,59 @@ public static class TechnologySystem
 
     public static string GetTechName(string id) => LM.Get($"tech_{id}");
     public static string GetTechDescription(string id) => LM.Get($"tech_{id}_desc");
+
+    // 海军科技线(用户 2026-10-15："可以加海军科技线""通过海军军事科技的升级提高这个半径")
+    public static float NavalReach(string culture) => SumNaval(culture, tech => tech.naval_reach);
+
+    public static float NavalPower(string culture) => SumNaval(culture, tech => tech.naval_power);
+
+    // 舰种：已研究的海军科技里最高的(没有就是楼船 1)
+    public static float NavalHull(string culture)
+    {
+        float hull = 1f;
+        if (string.IsNullOrEmpty(culture)) return hull;
+        foreach (string id in Researched(culture))
+            if (_techs.TryGetValue(id, out TechNodeConfig tech) && tech.naval_hull > hull) hull = tech.naval_hull;
+        return hull;
+    }
+
+    private static float SumNaval(string culture, Func<TechNodeConfig, float> field)
+    {
+        if (string.IsNullOrEmpty(culture)) return 0f;
+        float total = 0f;
+        foreach (string id in Researched(culture))
+            if (_techs.TryGetValue(id, out TechNodeConfig tech)) total += field(tech);
+        return total;
+    }
+
+    // 科技卡上的海军效果
+    public static IEnumerable<string> DescribeNaval(TechNodeConfig tech)
+    {
+        if (tech.naval_hull > 0f)
+            yield return string.Format(LM.Get("tech_naval_hull"), LM.Get(tech.naval_hull >= 4f ? "navy_tier_3"
+                : tech.naval_hull >= 2.5f ? "navy_tier_2" : tech.naval_hull >= 1.5f ? "navy_tier_1" : "navy_tier_0"));
+        if (tech.naval_reach > 0f) yield return string.Format(LM.Get("tech_naval_reach"), tech.naval_reach.ToString("0"));
+        if (tech.naval_power > 0f) yield return string.Format(LM.Get("tech_naval_power"), (tech.naval_power * 100f).ToString("0"));
+    }
+
+    // 旧存档：海军科技线是后加的，已经走到后面时代的文化把早该有的海军科技补上——前置都有，且本文化已经走过这一时代
+    // (或已有对应的旧技术：蒸汽铁甲 ← 工业化，现代舰艇 ← 电力/机动化)；不补的就照常研究
+    private static readonly Dictionary<string, string[]> NavalLegacy = new()
+    {
+        ["steam_ironclads"] = new[] { "industrialization" },
+        ["modern_warships"] = new[] { "electricity", "motorization" }
+    };
+
+    private static void BackfillNavalLine(string culture)
+    {
+        int era = GetEraTier(culture);
+        foreach (TechNodeConfig tech in Config.techs.Where(tech => tech.branch == NavalBranch).OrderBy(tech => tech.tier))
+        {
+            if (HasTech(culture, tech.id) || !tech.requires_techs.All(id => HasTech(culture, id))) continue;
+            bool legacy = NavalLegacy.TryGetValue(tech.id, out string[] old) && old.Any(id => HasTech(culture, id));
+            if (era > tech.tier || legacy) CompleteTech(culture, tech.id);
+        }
+    }
     public static string GetMaterialName(string id) => LM.Get($"tech_mat_{id}");
 
     public static string GetBranchName(string branch)
@@ -891,6 +949,11 @@ public static class TechnologySystem
             }
             // 读档后第一次：城里已有的建筑说明对应技术早就有了(后来新加的门槛，如住房科技，不把旧档打回原形)
             else if (!addResearch) BackfillBuildings(culture, pair.Value);
+            if (!state.naval_line)
+            {
+                state.naval_line = true;
+                BackfillNavalLine(culture);
+            }
             using (FrameProfiler.Measure("科技·发现材料")) DiscoverMaterials(culture, pair.Value);
             if (state.last_era_tier < 0) state.last_era_tier = GetEraTier(culture);
             if (!addResearch) continue;
@@ -1405,7 +1468,12 @@ public static class TechnologySystem
         if (!string.IsNullOrEmpty(state.current_tech) && _techs.TryGetValue(state.current_tech, out TechNodeConfig current) &&
             !HasTech(culture, current.id) && ArePrerequisitesMet(culture, current))
             return current;
-        return Config.techs.Where(tech => !HasTech(culture, tech.id) && ArePrerequisitesMet(culture, tech))
+        List<TechNodeConfig> open = Config.techs.Where(tech => !HasTech(culture, tech.id) && ArePrerequisitesMet(culture, tech)).ToList();
+        // 没有港口的文化不研究海军科技(别的都研究完了才轮到)
+        if (open.Any(tech => tech.branch == NavalBranch) && open.Any(tech => tech.branch != NavalBranch) &&
+            !CitiesOf(culture).Any(city => city.countBuildingsType("type_docks") > 0))
+            open = open.Where(tech => tech.branch != NavalBranch).ToList();
+        return open
             .OrderBy(tech => GetCost(culture, tech) / (tech.research_bonus > 0f ? 1.3f : 1f))
             .ThenBy(tech => tech.id, StringComparer.Ordinal)
             .FirstOrDefault();

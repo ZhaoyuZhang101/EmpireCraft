@@ -18,6 +18,8 @@ public sealed class CultureTechState
     public float last_yearly_points;
     // 第一次结算时按本文化已有的装备和建筑补齐对应技术(旧存档/开局前就存在的装备不会凭空"失传")
     public bool bootstrapped;
+    // 海军科技线已按本文化的时代补齐过(旧存档读档后补一次，见 TechnologySystem.BackfillNavalLine)
+    public bool naval_line;
     // 每项技术各自的已投入研究点(加速事件可以给还没开始研究的技术预存进度)；
     // 上面的 progress 是旧存档字段，读档时并入这里
     public Dictionary<string, float> tech_progress = new();

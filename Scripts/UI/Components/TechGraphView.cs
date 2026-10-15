@@ -285,6 +285,7 @@ public class TechGraphView
         "military" => Icon("ui/icons/iconArmy", "ui/icons/iconSoldier", "ui/icons/iconWar"),
         "construction" => Icon("ui/icons/iconHoused", "ui/icons/iconBuildings", "ui/icons/iconCity"),
         "science" => Icon("ui/icons/iconBooks", "ui/icons/iconKnowledge"),
+        "naval" => Icon("ui/icons/iconBoat", "ui/icons/iconShip", "ui/icons/iconKnowledge"),
         _ => Icon("ui/icons/iconKnowledge")
     };
 
