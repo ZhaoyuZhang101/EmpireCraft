@@ -660,6 +660,81 @@ public static class UrbanFabric
         return Countryside(g, tile, color, out result);
     }
 
+    #region 城市精细层用(见 PureMapPatch.Modern)
+
+    // 近代以后这一格是新城区的什么：主干道(环路、放射干道)、铁路、车站、开发了的街区；都不是为 None(照古城或城外画)。
+    // 与 Tile 的判定一致，拉近拉远看到的是同一座城
+    internal enum Part { None, Road, Rail, Station, Block }
+
+    internal static Part PartAt(Geometry g, WorldTile tile, ZoneUse use, out Kind kind)
+    {
+        kind = Kind.Housing;
+        if (g == null || !g.Modern || tile?.zone == null || tile.zone.city != g.City || g.Landmark.Contains(tile.zone.id))
+            return Part.None;
+        float dx = tile.x - g.Cx, dy = tile.y - g.Cy;
+        float r = Mathf.Sqrt(dx * dx + dy * dy), angle = Angle(dx, dy), edge = EdgeAt(g, angle);
+        if (OnRing(g, r, edge) || r > g.OldRadius - 1f && r < edge + 1f && RayDistance(g, angle, r) < 0.6f) return Part.Road;
+        if (g.Progress >= 0.4f)
+        {
+            float rail = Mathf.Abs(Mathf.DeltaAngle(angle * Mathf.Rad2Deg, g.RailDir * Mathf.Rad2Deg)) * Mathf.Deg2Rad * r;
+            if (rail < 0.5f && r > g.OldRadius + 1f && r < edge) return Part.Rail;
+            if (rail < 2f && r > g.OldRadius + 1f && r < g.OldRadius + 4f) return Part.Station;
+        }
+        if (Rough(tile)) return Part.None;
+        (Kind zoneKind, bool developed) = ZoneOf(g, tile.zone);
+        kind = zoneKind;
+        if (kind == Kind.Farm) return Part.None;
+        bool inEdge = r < edge;
+        if (kind == Kind.Park) return inEdge ? Part.Block : Part.None;
+        return developed && (inEdge || use != ZoneUse.None && r < edge * 1.25f) ? Part.Block : Part.None;
+    }
+
+    // 这块地开发成新城区了(精细图按它定画多大)
+    internal static bool ModernZone(Geometry g, TileZone zone)
+    {
+        if (g == null || !g.Modern || zone == null || g.Landmark.Contains(zone.id)) return false;
+        (Kind kind, bool developed) = ZoneOf(g, zone);
+        if (kind == Kind.Farm || !developed && kind != Kind.Park) return false;
+        float dx = zone.x * Config.CITY_ZONE_SIZE + 4f - g.Cx, dy = zone.y * Config.CITY_ZONE_SIZE + 4f - g.Cy;
+        float edge = EdgeAt(g, Angle(dx, dy)) * 1.25f + 8f;
+        return dx * dx + dy * dy < edge * edge;
+    }
+
+    // 连续坐标(格)处城区的外缘半径
+    internal static float EdgeOf(Geometry g, float x, float y) => EdgeAt(g, Angle(x - g.Cx, y - g.Cy));
+
+    // 连续坐标(格)离环路、放射干道中线多远(格)；along 是沿路走的长度(画中线虚线用)
+    internal static float RoadDistance(Geometry g, float x, float y, out float along)
+    {
+        float dx = x - g.Cx, dy = y - g.Cy;
+        float r = Mathf.Sqrt(dx * dx + dy * dy), angle = Angle(dx, dy), edge = EdgeAt(g, angle);
+        float best = float.MaxValue;
+        along = r;
+        if (r > g.OldRadius - 1f && r < edge + 1f && g.Rays.Length > 0) best = RayDistance(g, angle, r);
+        float ring = float.MaxValue;
+        if (g.Progress >= 1.4f && g.MaxEdge > 18f && edge * 0.62f > g.OldRadius + 3f) ring = Mathf.Abs(r - edge * 0.62f);
+        if (g.Progress >= 2.5f) ring = Mathf.Min(ring, Mathf.Abs(r - edge * 0.9f));
+        if (ring < best)
+        {
+            best = ring;
+            along = angle * r;
+        }
+        return best;
+    }
+
+    // 连续坐标(格)在铁路线上的位置：across 离中线(带符号)、along 离城心沿线多远；还没修铁路为 false
+    internal static bool RailAt(Geometry g, float x, float y, out float across, out float along)
+    {
+        across = along = 0f;
+        if (g == null || g.Progress < 0.4f) return false;
+        float dx = x - g.Cx, dy = y - g.Cy, c = Mathf.Cos(g.RailDir), s = Mathf.Sin(g.RailDir);
+        along = dx * c + dy * s;
+        across = -dx * s + dy * c;
+        return along > 0f;
+    }
+
+    #endregion
+
     // 一块地(8×8)：四边是街、正中一纵一横小巷，切出四个 3×3 的街区；街区按用途画，同一块地一个样子
     private static Color32 Block(Geometry g, WorldTile tile, Color32 color, Kind kind, float r, float edge)
     {

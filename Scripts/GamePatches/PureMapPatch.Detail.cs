@@ -16,7 +16,7 @@ namespace EmpireCraft.Scripts.GamePatches;
 // 各文化系各有画法(第二步，用户 2026-10-16 看过演示版定下)：街(方格 / 放射弯街 / 迷宫 / 水渠 / 营地)、
 // 房子(华夏宅院、日本町家、西欧尖顶排屋、罗马公寓、维京长屋、阿拉伯与波斯平顶天井、埃及泥砖房、印度大宅)、
 // 城心(钟鼓楼、寺社、教堂广场、罗马广场、议事大厅、清真寺、神庙、塔庙、阶梯金字塔)、城墙塔楼(方塔、圆塔、木栅)。
-// 近代以后的城照旧(第三步再做，见 DetailEligible)。
+// 近代以后的新城区(工厂、铁路车站、环路、板楼、高楼大厦)见 PureMapPatch.Modern(第三步)。
 public partial class PureMapPatch
 {
     internal const int DetailScale = 4;
@@ -109,14 +109,14 @@ public partial class PureMapPatch
         public Color32[] Pixels;
     }
 
-    // 画这座城的精细图吗：纯净地图画城市时、古代的城(近代以后的城与改建中的城照旧)
+    // 画这座城的精细图吗：纯净地图画城市时(改建中的城照旧)
     internal static bool DetailEligible(City city)
     {
         if (city?.data == null || city.isRekt() || !PureMapMode.Enabled || !DetailShown || Layer.CityViewMap.Active ||
             ZonePlanSystem.SteadyOverlay) return false;
         CityPlan plan = PlanFor(city);
         UrbanFabric.Geometry g = plan.fabric;
-        return g != null && !g.Modern && StyleOf(plan.family) != null && plan.target == null && plan.built.Count > 0;
+        return g != null && StyleOf(plan.family) != null && plan.target == null && plan.built.Count > 0;
     }
 
     // 精细图的指纹：平面图变了、底色(图层)变了就重画
@@ -254,6 +254,13 @@ public partial class PureMapPatch
             Grow(zone.x * size + size - 1, zone.y * size + size - 1, 3);
         }
         if (x0 == int.MaxValue) return null;
+        if (g.Modern)
+            foreach (TileZone zone in city.zones)
+                if (zone != null && UrbanFabric.ModernZone(g, zone))
+                {
+                    Grow(zone.x * size, zone.y * size, 1);
+                    Grow(zone.x * size + size - 1, zone.y * size + size - 1, 1);
+                }
         foreach ((int x, int y) in g.Villages) Grow(x, y, 8);
         foreach ((int x, int y, int townSize, _) in g.Towns) Grow(x, y, townSize + 4);
         if (g.Suburb > 0)
@@ -277,6 +284,7 @@ public partial class PureMapPatch
         else
         {
             DrawUrban(c, plan, style, tint, seed);
+            if (g.Modern) DrawModern(c, plan, g, style, tint, seed);
             DrawCountryside(c, g, style, tint, seed);
         }
         return new DetailImage { X0 = x0, Y0 = y0, W = c.W, H = c.H, Pixels = c.Pixels, Key = DetailKey(city, tint) };
@@ -295,6 +303,8 @@ public partial class PureMapPatch
         Color32? wallColor = WallOf(plan.family);
         bool wallsUp = wallColor != null && plan.walled && !(plan.fabric?.WallsDown ?? false);
         bool maze = style.Layout == "maze", canal = style.Layout == "canal";
+        UrbanFabric.Geometry fabric = plan.fabric;
+        bool modern = fabric != null && fabric.Modern;
         int size = Config.CITY_ZONE_SIZE;
         // ① 逐格铺底：城里的地、地标(照一格一像素的画法放大)、护城河、水渠、大街；城墙、城心建筑后画
         for (int ty = 0; ty < c.H; ty++)
@@ -331,6 +341,16 @@ public partial class PureMapPatch
                     tile.x - tile.zone.x * size, tile.y - tile.zone.y * size, plan, tile.zone);
                 Fill(c, tx, ty, coarse, KFixed);
                 continue;
+            }
+            if (modern)
+            {
+                // 近代：有城墙的城拆了城墙，原址修成柏油环路；开发了的地块、干道、铁路留给新城区的画法(见 DrawModern)
+                if (plan.walled && fabric.WallsDown && UrbanEdge(tile, plan) && plan.gateX != int.MinValue)
+                {
+                    AsphaltTile(c, tx, ty, Mathf.Abs(tile.x - plan.gateX) > Mathf.Abs(tile.y - plan.gateY));
+                    continue;
+                }
+                if (UrbanFabric.PartAt(fabric, tile, ZonePlanSystem.Get(c.City, tile.zone), out _) != UrbanFabric.Part.None) continue;
             }
             if (wallsUp && UrbanEdge(tile, plan))
             {
@@ -382,7 +402,8 @@ public partial class PureMapPatch
                 break;
         }
         // ③ 城心的标志性建筑(两条中线交口)
-        if (plan.gateX != int.MinValue && plan.built.Count >= 2)
+        if (plan.gateX != int.MinValue && plan.built.Count >= 2 && !(modern && World.world.GetTile(plan.gateX, plan.gateY) is WorldTile center &&
+                UrbanFabric.PartAt(fabric, center, ZonePlanSystem.Get(c.City, center.zone), out _) != UrbanFabric.Part.None))
             DrawCenter(c, style, wallColor, tint, (plan.gateX - c.X0) * s + s / 2, (plan.gateY - c.Y0) * s + s / 2, seed);
         // ④ 街坊：被街围出的一片片，逐片切宅基地、盖房子
         Blocks(c, plan, style, seed);
@@ -1407,11 +1428,20 @@ public partial class PureMapPatch
                 }
             }
         int index = 0;
+        bool Swallowed(int px, int py) => g.Modern && c.Kind(px, py) is not (KEmpty or KPath);
         foreach ((int x, int y, int townSize, bool walled) in g.Towns)
-            Town(c, style, (x - c.X0) * s + s / 2, (y - c.Y0) * s + s / 2, townSize, walled, dirt, townGround, seed + 1000 * ++index);
+        {
+            int px = (x - c.X0) * s + s / 2, py = (y - c.Y0) * s + s / 2;
+            index++;
+            if (!Swallowed(px, py)) Town(c, style, px, py, townSize, walled, dirt, townGround, seed + 1000 * index);
+        }
         index = 0;
         foreach ((int x, int y) in g.Villages)
-            Village(c, style, tint, (x - c.X0) * s + s / 2, (y - c.Y0) * s + s / 2, dirt, ground, seed + 3000 * ++index);
+        {
+            int px = (x - c.X0) * s + s / 2, py = (y - c.Y0) * s + s / 2;
+            index++;
+            if (!Swallowed(px, py)) Village(c, style, tint, px, py, dirt, ground, seed + 3000 * index);
+        }
         // 田块：大小不一的格子田拼成一片，田块中心离村镇不远就整块画；田块之间留一像素田埂(阿兹特克是水上浮田)
         var centers = new List<(int x, int y, int r)>();
         foreach ((int x, int y) in g.Villages) centers.Add(((x - c.X0) * s + 2, (y - c.Y0) * s + 2, 6 * s));
