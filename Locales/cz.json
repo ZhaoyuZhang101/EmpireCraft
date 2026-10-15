@@ -5242,7 +5242,5 @@
   "lineage_next": "下一页",
   "lineage_page": "第 {0}/{1} 页 · 共 {2} 位君主",
   "history_event_page": "记事第 {0}/{1} 页 · 共 {2} 条",
-  "EmpireHistoryWindow Title": "君主世系",
-  "lineage_graft_prince": "{0}{1}王",
-  "lineage_graft_marquis": "{0}侯"
+  "EmpireHistoryWindow Title": "君主世系"
 }
