@@ -417,7 +417,10 @@ public class DynastyLineageWindow : AbstractWideWindow<DynastyLineageWindow>
         string relation;
         if (history.is_first) relation = LM.Get("lineage_rel_founder");
         else if (previous == null || current == null) relation = "";
-        else if (current.specific_clan_id != previous.specific_clan_id) relation = LM.Get("lineage_rel_other_clan");
+        // 同一世系(分出去的诸王各支)不算易姓
+        else if (current.specific_clan_id != previous.specific_clan_id &&
+                 !SpecificClanManager.SameLineage(current._specificClan, previous._specificClan))
+            relation = LM.Get("lineage_rel_other_clan");
         else if (current.father == previous.id || current.mother == previous.id) relation = ChildOrder(previous, current);
         else if (Father(current)?.father == previous.id) relation = LM.Get("lineage_rel_grandson");
         else if (current.father > 0 && current.father == previous.father)

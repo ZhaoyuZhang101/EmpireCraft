@@ -53,6 +53,16 @@ public static class VirtualGenealogySystem
             if (RepairBirthday(person)) repaired++;
         }
         if (repaired > 0) LogService.LogInfo($"[EmpireCraft][虚拟族谱] 校正生日 {repaired} 人(成年落地的人以前把落地日记成生日)");
+        // 族谱断开的修补：在世的实体族人没记父母、原版却记着的，接回去(以前入谱只认在世的实体父母)
+        int relinked = 0;
+        foreach (PersonalClanIdentity person in SpecificClanManager._globalPersonLookup.Values.ToList())
+        {
+            if (person == null || !person.is_alive || person.is_virtual || person.father > 0 && person.mother > 0) continue;
+            Actor actor = person._actor;
+            if (actor?.data == null || actor.isRekt()) continue;
+            if (SpecificClanManager.LinkRecordedParents(actor, person)) relinked++;
+        }
+        if (relinked > 0) LogService.LogInfo($"[EmpireCraft][虚拟族谱] 族谱接回父母 {relinked} 人(原版记着父母、族谱里断开的)");
         int surnames = SurnameInheritanceSystem.RepairPatrilineal(SpecificClanManager._globalPersonLookup.Values);
         if (surnames > 0) LogService.LogInfo($"[EmpireCraft][虚拟族谱] 华夏宗族随错姓的改回父姓 {surnames} 人");
     }

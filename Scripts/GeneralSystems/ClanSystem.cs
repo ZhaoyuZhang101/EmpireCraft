@@ -387,6 +387,87 @@ public static class SpecificClanManager
     public static Dictionary<long, PersonalClanIdentity> _globalPersonLookup = new Dictionary<long, PersonalClanIdentity>();
     public static Dictionary<long, PersonalClanIdentity> _actorToPersonLookup = new Dictionary<long, PersonalClanIdentity>();
 
+    // ---- 原版记下的父母 ----
+    // 原版单位身上记着父母的单位 id(parent_id_1/2)，父母死了、转成虚拟族人(实体已移除)也还在。
+    // 以前入谱只认 getParents() 找得到的在世实体父母：无小人模式下父母常已转为虚拟族人或过世，
+    // 孩子就记不上父亲，从此和祖上断开(皇子、藩王的后代也一样)。这里按记下的 id 去族谱里找(含已故的人)
+    private static global::System.Reflection.FieldInfo _parentId1, _parentId2;
+    private static bool _parentFieldsResolved;
+    private static readonly Dictionary<long, PersonalClanIdentity> _anyActorLookup = new();
+    private static int _anyActorLookupCount = -1;
+
+    public static PersonalClanIdentity PersonByActorId(long actorId)
+    {
+        if (actorId <= 0) return null;
+        if (_actorToPersonLookup.TryGetValue(actorId, out PersonalClanIdentity person) && person != null) return person;
+        if (_anyActorLookupCount != _globalPersonLookup.Count)
+        {
+            _anyActorLookup.Clear();
+            foreach (PersonalClanIdentity identity in _globalPersonLookup.Values)
+                if (identity != null && identity.actor_id > 0 && !_anyActorLookup.ContainsKey(identity.actor_id))
+                    _anyActorLookup[identity.actor_id] = identity;
+            _anyActorLookupCount = _globalPersonLookup.Count;
+        }
+        return _anyActorLookup.TryGetValue(actorId, out person) ? person : null;
+    }
+
+    // 这个单位的父母在族谱里的身份(在世实体父母优先，其次按原版记下的父母 id 找，含已故、虚拟的)
+    public static List<PersonalClanIdentity> RecordedParents(Actor actor)
+    {
+        var result = new List<PersonalClanIdentity>();
+        if (actor?.data == null) return result;
+        try
+        {
+            foreach (Actor parent in actor.getParents())
+            {
+                PersonalClanIdentity identity = parent?.GetPersonalIdentity();
+                if (identity != null && !result.Contains(identity)) result.Add(identity);
+            }
+        }
+        catch
+        {
+            // 原版找父母失败就只看记下的 id
+        }
+        if (!_parentFieldsResolved)
+        {
+            _parentFieldsResolved = true;
+            _parentId1 = HarmonyLib.AccessTools.Field(actor.data.GetType(), "parent_id_1");
+            _parentId2 = HarmonyLib.AccessTools.Field(actor.data.GetType(), "parent_id_2");
+            LogService.LogInfo($"[EmpireCraft][族谱] 原版父母记录={(_parentId1 != null ? "可用" : "不可用")}");
+        }
+        foreach (var field in new[] { _parentId1, _parentId2 })
+        {
+            if (field == null) continue;
+            long id;
+            try
+            {
+                id = Convert.ToInt64(field.GetValue(actor.data));
+            }
+            catch
+            {
+                continue;
+            }
+            PersonalClanIdentity identity = PersonByActorId(id);
+            if (identity != null && identity.actor_id != actor.getID() && !result.Contains(identity)) result.Add(identity);
+        }
+        return result;
+    }
+
+    // 把记下的父母接回族谱(父亲、母亲各接一位；已有的不动)，返回是否接上了
+    public static bool LinkRecordedParents(Actor actor, PersonalClanIdentity child)
+    {
+        if (actor == null || child == null) return false;
+        bool linked = false;
+        foreach (PersonalClanIdentity parent in RecordedParents(actor))
+        {
+            if (parent == null || parent.id == child.id) continue;
+            if (parent.sex == ActorSex.Male ? child.father > 0 : child.mother > 0) continue;
+            child.setParent(parent, recordHistory: false);
+            linked = true;
+        }
+        return linked;
+    }
+
     public static void RebuildCache()
     {
         lock (_clansLock)
@@ -1006,19 +1087,16 @@ public static class SpecificClanManager
         if (actorClan != null)
         {
             actorClan.addActor(actor);
-            var clanParent = actor.getParents().ToList().Find(a => a.GetPersonalIdentity()?.is_main ?? false);
-            if (clanParent != null)
-            {
-                actor.GetPersonalIdentity()?.setParent(clanParent.GetPersonalIdentity(), recordHistory: false);
-            }
+            // 父母(含已故、已转为虚拟族人的)都接上，不只认在世的实体父母
+            LinkRecordedParents(actor, actor.GetPersonalIdentity());
             return;
         }
 
-        var parent = actor.getParents().ToList().Find(a => a.GetPersonalIdentity()?.is_main ?? false);
-        if (parent != null)
+        PersonalClanIdentity parentIdentity = RecordedParents(actor).Find(identity => identity.is_main);
+        if (parentIdentity?._specificClan != null)
         {
-            parent.GetSpecificClan()?.addActor(actor);
-            actor.GetPersonalIdentity()?.setParent(parent.GetPersonalIdentity(), recordHistory: false);
+            parentIdentity._specificClan.addActor(actor);
+            LinkRecordedParents(actor, actor.GetPersonalIdentity());
             if (actor.GetPersonalIdentity() != null) return;
         }
 
