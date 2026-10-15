@@ -391,8 +391,6 @@ public static class SpecificClanManager
     // 原版单位身上记着父母的单位 id(parent_id_1/2)，父母死了、转成虚拟族人(实体已移除)也还在。
     // 以前入谱只认 getParents() 找得到的在世实体父母：无小人模式下父母常已转为虚拟族人或过世，
     // 孩子就记不上父亲，从此和祖上断开(皇子、藩王的后代也一样)。这里按记下的 id 去族谱里找(含已故的人)
-    private static global::System.Reflection.FieldInfo _parentId1, _parentId2;
-    private static bool _parentFieldsResolved;
     private static readonly Dictionary<long, PersonalClanIdentity> _anyActorLookup = new();
     private static int _anyActorLookupCount = -1;
 
@@ -428,25 +426,10 @@ public static class SpecificClanManager
         {
             // 原版找父母失败就只看记下的 id
         }
-        if (!_parentFieldsResolved)
+        // 原版记下的父母(属性，以前按字段名反射找不到)
+        foreach (long id in new[] { actor.data.parent_id_1, actor.data.parent_id_2 })
         {
-            _parentFieldsResolved = true;
-            _parentId1 = HarmonyLib.AccessTools.Field(actor.data.GetType(), "parent_id_1");
-            _parentId2 = HarmonyLib.AccessTools.Field(actor.data.GetType(), "parent_id_2");
-            LogService.LogInfo($"[EmpireCraft][族谱] 原版父母记录={(_parentId1 != null ? "可用" : "不可用")}");
-        }
-        foreach (var field in new[] { _parentId1, _parentId2 })
-        {
-            if (field == null) continue;
-            long id;
-            try
-            {
-                id = Convert.ToInt64(field.GetValue(actor.data));
-            }
-            catch
-            {
-                continue;
-            }
+            if (id <= 0) continue;
             PersonalClanIdentity identity = PersonByActorId(id);
             if (identity != null && identity.actor_id != actor.getID() && !result.Contains(identity)) result.Add(identity);
         }

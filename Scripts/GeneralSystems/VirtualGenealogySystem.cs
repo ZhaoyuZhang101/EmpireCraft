@@ -53,6 +53,21 @@ public static class VirtualGenealogySystem
             if (RepairBirthday(person)) repaired++;
         }
         if (repaired > 0) LogService.LogInfo($"[EmpireCraft][虚拟族谱] 校正生日 {repaired} 人(成年落地的人以前把落地日记成生日)");
+        // 落成时年龄没设上的(以前一律从零岁算起，见 SetAge)：实体比族谱生日算出的年纪小两岁以上的，按生日改回
+        int aged = 0;
+        double today = World.world.getCurWorldTime();
+        foreach (PersonalClanIdentity person in SpecificClanManager._globalPersonLookup.Values.ToList())
+        {
+            if (person == null || !person.is_alive || person.is_virtual) continue;
+            Actor actor = person._actor;
+            if (actor?.data == null || actor.isRekt() || !HistoryDateFormatter.TryParseTime(person.birthday, out double born) || born > today)
+                continue;
+            int years = Date.getYearsSince(born);
+            if (years - actor.getAge() < 2) continue;
+            SetAge(actor, years);
+            aged++;
+        }
+        if (aged > 0) LogService.LogInfo($"[EmpireCraft][虚拟族谱] 落成时年龄没设上的按生日改回 {aged} 人");
         // 族谱断开的修补：在世的实体族人没记父母、原版却记着的，接回去(以前入谱只认在世的实体父母)
         int relinked = 0;
         foreach (PersonalClanIdentity person in SpecificClanManager._globalPersonLookup.Values.ToList())
@@ -311,13 +326,12 @@ public static class VirtualGenealogySystem
             population.civilian_wallet_reserve ??= new WalletReserve());
     }
 
-    #region 落成后的年龄与家庭关系(原版字段/方法用反射查找，找不到的部分跳过)
+    #region 落成后的年龄与家庭关系
+    // 年龄(created_time、age_overgrowth)与父母(parent_id_1/2)在原版是属性：以前按字段名反射找不到，落成的人一律从零岁算起
+    // (成年的皇子落成后五岁就有子女，继位的新君记成一岁、被当成幼帝设辅政)，也没接上父母。改为直接读写属性；
+    // 原版的家庭、配偶方法仍按反射找，找不到的部分跳过
 
     private static bool _vanillaResolved;
-    private static global::System.Reflection.FieldInfo _createdTime;
-    private static global::System.Reflection.FieldInfo _ageOvergrowth;
-    private static global::System.Reflection.FieldInfo _parent1;
-    private static global::System.Reflection.FieldInfo _parent2;
     private static global::System.Reflection.MethodInfo _setFamily;
     private static global::System.Reflection.MethodInfo _setLover;
 
@@ -325,11 +339,6 @@ public static class VirtualGenealogySystem
     {
         if (_vanillaResolved) return;
         _vanillaResolved = true;
-        Type dataType = actor.data.GetType();
-        _createdTime = HarmonyLib.AccessTools.Field(dataType, "created_time");
-        _ageOvergrowth = HarmonyLib.AccessTools.Field(dataType, "age_overgrowth");
-        _parent1 = HarmonyLib.AccessTools.Field(dataType, "parent_id_1");
-        _parent2 = HarmonyLib.AccessTools.Field(dataType, "parent_id_2");
         _setFamily = HarmonyLib.AccessTools.GetDeclaredMethods(typeof(Actor))
             .FirstOrDefault(method => method.Name == "setFamily" && method.GetParameters().Length >= 1 &&
                                       method.GetParameters()[0].ParameterType == typeof(Family) &&
@@ -338,8 +347,7 @@ public static class VirtualGenealogySystem
             .FirstOrDefault(method => method.Name == "setLover" && method.GetParameters().Length >= 1 &&
                                       method.GetParameters()[0].ParameterType == typeof(Actor) &&
                                       method.GetParameters().Skip(1).All(parameter => parameter.HasDefaultValue));
-        LogService.LogInfo($"[EmpireCraft][虚拟族谱] 同步年龄={(_ageOvergrowth != null || _createdTime != null ? "可用" : "不可用")} " +
-                           $"亲子={(_parent1 != null ? "可用" : "不可用")} 家庭={(_setFamily != null ? "可用" : "不可用")} " +
+        LogService.LogInfo($"[EmpireCraft][虚拟族谱] 家庭={(_setFamily != null ? "可用" : "不可用")} " +
                            $"配偶={(_setLover != null ? "可用" : "不可用")}");
     }
 
@@ -350,33 +358,29 @@ public static class VirtualGenealogySystem
     public static void SetAge(Actor actor, int target)
     {
         if (actor?.data == null || target <= 0) return;
-        ResolveVanilla(actor);
         try
         {
-            if (_ageOvergrowth != null && _ageOvergrowth.FieldType == typeof(int))
-            {
-                _ageOvergrowth.SetValue(actor.data, (int)_ageOvergrowth.GetValue(actor.data) + target - actor.getAge());
-                if (actor.getAge() == target) return;
-            }
-            if (_createdTime == null || _createdTime.FieldType != typeof(double)) return;
-            double born = (double)_createdTime.GetValue(actor.data);
+            // 原版年龄 = 出生至今的年数 + 额外年龄
+            actor.data.age_overgrowth += target - actor.getAge();
+            if (actor.getAge() == target) return;
+            double born = actor.data.created_time;
             double step = 1d;
             int guard = 0;
-            _createdTime.SetValue(actor.data, born - step);
+            actor.data.created_time = born - step;
             while (actor.getAge() < target && guard++ < 60)
             {
                 step *= 2d;
-                _createdTime.SetValue(actor.data, born - step);
+                actor.data.created_time = born - step;
             }
             double low = 0d, high = step;
             for (int i = 0; i < 50; i++)
             {
                 double mid = (low + high) / 2d;
-                _createdTime.SetValue(actor.data, born - mid);
+                actor.data.created_time = born - mid;
                 if (actor.getAge() >= target) high = mid;
                 else low = mid;
             }
-            _createdTime.SetValue(actor.data, born - high);
+            actor.data.created_time = born - high;
         }
         catch (Exception exception)
         {
@@ -422,15 +426,13 @@ public static class VirtualGenealogySystem
             // 亲子：新单位记上父母(父母已不在世也按原来的单位 id 记，族谱照样能查到)；子女那边原来指向旧单位的改指新单位
             long fatherId = SpecificClanManager.getPerson(person.father)?.actor_id ?? -1L;
             long motherId = SpecificClanManager.getPerson(person.mother)?.actor_id ?? -1L;
-            if (_parent1 != null && _parent1.FieldType == typeof(long) && fatherId > 0) _parent1.SetValue(actor.data, fatherId);
-            if (_parent2 != null && _parent2.FieldType == typeof(long) && motherId > 0) _parent2.SetValue(actor.data, motherId);
+            if (fatherId > 0) actor.data.parent_id_1 = fatherId;
+            if (motherId > 0) actor.data.parent_id_2 = motherId;
             if (previousActorId > 0)
                 foreach (Actor child in children)
                 {
-                    if (_parent1 != null && _parent1.FieldType == typeof(long) &&
-                        (long)_parent1.GetValue(child.data) == previousActorId) _parent1.SetValue(child.data, actor.id);
-                    if (_parent2 != null && _parent2.FieldType == typeof(long) &&
-                        (long)_parent2.GetValue(child.data) == previousActorId) _parent2.SetValue(child.data, actor.id);
+                    if (child.data.parent_id_1 == previousActorId) child.data.parent_id_1 = actor.id;
+                    if (child.data.parent_id_2 == previousActorId) child.data.parent_id_2 = actor.id;
                 }
 
             // 氏族：随父亲；父亲不在了随本宗族里有实体的族人(以前接着就随了在世的母亲，皇子落成后进了母亲的氏族)，

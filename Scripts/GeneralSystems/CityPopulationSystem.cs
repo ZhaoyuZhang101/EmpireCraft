@@ -1677,39 +1677,24 @@ public static class CityPopulationSystem
         return true;
     }
 
-    private static bool _careResolved;
-    private static FieldInfo _nutritionField;
-    private static MethodInfo _maxNutrition;
-    private static MethodInfo _finishStatus;
-
-    // 饥饿值补满并结束睡眠。原版字段/方法名用反射查找(不同版本可能不同)，找不到的部分跳过
+    // 饥饿值补满并结束睡眠。饥饿值(nutrition)在原版是属性：以前按字段名反射找不到，一直没补上
     public static void KeepFedAndAwake(Actor actor)
     {
-        if (!_careResolved)
-        {
-            _careResolved = true;
-            _nutritionField = AccessTools.Field(actor.data.GetType(), "nutrition");
-            _maxNutrition = AccessTools.Method(typeof(Actor), "getMaxNutrition", Type.EmptyTypes);
-            _finishStatus = AccessTools.Method(typeof(Actor), "finishStatusEffect", new[] { typeof(string) });
-            LogService.LogInfo($"[EmpireCraft][无小人模式] 补满饥饿={(_nutritionField != null ? "可用" : "不可用")} 叫醒={(_finishStatus != null ? "可用" : "不可用")}");
-        }
         try
         {
-            if (_nutritionField != null && _nutritionField.FieldType == typeof(int))
-            {
-                int max = _maxNutrition != null ? Convert.ToInt32(_maxNutrition.Invoke(actor, null)) : 100;
-                if (max > 0) _nutritionField.SetValue(actor.data, max);
-            }
-            if (_finishStatus != null && actor.hasStatus("sleeping"))
-                _finishStatus.Invoke(actor, new object[] { "sleeping" });
+            int max = actor.getMaxNutrition();
+            if (max > 0) actor.data.nutrition = max;
+            if (actor.hasStatus("sleeping")) actor.finishStatusEffect("sleeping");
         }
         catch (Exception exception)
         {
-            LogService.LogWarning($"[EmpireCraft][无小人模式] 补满饥饿/叫醒失败，停用: {exception.Message}");
-            _nutritionField = null;
-            _finishStatus = null;
+            if (_careFailed) return;
+            _careFailed = true;
+            LogService.LogWarning($"[EmpireCraft][无小人模式] 补满饥饿/叫醒失败: {exception.Message}");
         }
     }
+
+    private static bool _careFailed;
 
     private static int GeneralRank(Actor actor) =>
         (actor.is_army_captain ? 4 : 0) + (actor.army != null ? 2 : 0) + (actor.isAdult() ? 1 : 0);
