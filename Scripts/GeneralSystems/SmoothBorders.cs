@@ -499,7 +499,7 @@ public static class SmoothBorders
     // (用户 2026-10-16 看过演示版定下："翻转方向从即将要转移的势力那边延伸，如果是自己变就从中间")：
     // 翻到一半之前牌面是旧样子，过了一半是新样子；牌画在色块上面一层(见 ZoneFlipOverlay)，翻的时候底下的色块压暗(牌翘起来的缝)。
     // 何时翻、朝哪边翻：
-    //   · 换主(归降、被占、城市归降、并入帝国)：从新主人那边(入侵方向、宗主或同一帝国那边)一圈圈翻过来，
+    //   · 换主(城换了主人、城市归降、并入帝国)：从新主人那边(宗主或同一帝国那边)一圈圈翻过来，
     //     每块牌挨着新主人的那一边先翘起来，每圈约 SweepStep 秒，整片至多 MaxSweepSeconds 秒；
     //   · 自己变(归属没换、只是颜色变了，如国家换颜色、成了附庸换色)，或换主时接不上新主人：从都城那块地往外一圈圈翻；
     //   · 临时换色(帝国图层悬停某省显示本省颜色、移开换回)：要跟手——从鼠标处很快地翻过去(每秒 RippleSpeed 格，
@@ -507,7 +507,8 @@ public static class SmoothBorders
     //   · 换图层(国家、文化、宗教……或图层选项)：旧图留着，各地块照常分帧重画(镜头里的先画，见 ZonePaintBudget)，
     //     一方(国家，帝国图层上是整个帝国)在镜头里的地块都画好了才一起翻，从这一方的中间往外；镜头外的直接换。
     // 一次换主的地块要分好几帧才画完(上色分帧，见 ZonePaintBudget)：等这批画完(至多 MaxPlanWait 秒)再统一排一道，
-    // 之后才画到的块接着这道往下排。逐格推进吃下的地(FrontSystem.Smooth)本身就是渐变，直接显示。新旧一样的块不翻。
+    // 之后才画到的块接着这道往下排。战线不翻：被敌军占着、收复(只是谁占着变了)直接换，逐格推进吃下的地(FrontSystem.Smooth)
+    // 本身就是渐变，也直接显示。新旧一样的块不翻。
     private const float SweepStep = 0.18f, MaxSweepSeconds = 4f, RippleSpeed = 600f, RippleGroupSeconds = 0.15f, HoverFlipSeconds = 0.18f,
         StaleSeconds = 6f, MaxPlanWait = 0.4f, FlipSeconds = 0.32f, LayerFlipSeconds = 6f,
         SlotShade = 0.55f;
@@ -516,7 +517,26 @@ public static class SmoothBorders
     {
         public IMetaObject meta;
         public int colorKey;
+        // 不算占领的归属(城属于谁、并入哪个帝国)与它的颜色：只有这个变了才翻牌，战线上被占、收复直接换
+        public IMetaObject owner;
+        public int ownerKey;
     }
+
+    // 这块地眼下的样子(实际控制方)与不算占领的归属
+    private static ShownState StateOf(MetaTypeAsset layer, int option, TileZone zone, IMetaObject real)
+    {
+        IMetaObject owner = LayerMeta(layer, option, zone);
+        return new ShownState
+        {
+            meta = real, colorKey = ColorKey(SafeColor(real)), owner = owner,
+            ownerKey = ReferenceEquals(owner, real) ? ColorKey(SafeColor(real)) : ColorKey(SafeColor(owner))
+        };
+    }
+
+    // 纯粹的政权变更、整体变色(城换了主、并入帝国、国家换颜色……)：不算占领的归属或它的颜色变了。
+    // 战线上被占、收复只是谁占着变了，不翻牌(用户 2026-10-16："只有帝国变色和城市归属等纯粹的政权变更和整体变色才有翻转动画，而战线没有")
+    private static bool PoliticalChange(ShownState before, ShownState after) =>
+        !ReferenceEquals(before.owner, after.owner) || before.ownerKey != after.ownerKey;
 
     private sealed class Transition
     {
@@ -592,9 +612,10 @@ public static class SmoothBorders
         if (Shown.TryGetValue(zone.id, out ShownState shown) && ReferenceEquals(shown.meta, real) && shown.colorKey == realKey)
             return real;
         bool known = shown != null;
-        Shown[zone.id] = new ShownState { meta = real, colorKey = realKey };
-        if (!known) return real;
-        Queue(zone, zone.x != _cx || zone.y != _cy, ReferenceEquals(shown.meta, real));
+        ShownState state = StateOf(layer, option, zone, real);
+        Shown[zone.id] = state;
+        if (!known || !PoliticalChange(shown, state)) return real;
+        Queue(zone, zone.x != _cx || zone.y != _cy, ReferenceEquals(shown.owner, state.owner));
         ExpandUnit(layer, option, zone, shown.meta, real);
         return real;
     }
@@ -649,8 +670,11 @@ public static class SmoothBorders
                 IMetaObject real = RealMetaOf(layer, option, other);
                 int key = ColorKey(SafeColor(real));
                 if (ReferenceEquals(shown.meta, real) && shown.colorKey == key) continue;
-                Shown[other.id] = new ShownState { meta = real, colorKey = key };
-                Queue(other, true, ReferenceEquals(shown.meta, real));
+                ShownState state = StateOf(layer, option, other, real);
+                Shown[other.id] = state;
+                // 只是战线上被占、收复：不翻，原版重画时直接换
+                if (!PoliticalChange(shown, state)) continue;
+                Queue(other, true, ReferenceEquals(shown.owner, state.owner));
             }
         }
     }
