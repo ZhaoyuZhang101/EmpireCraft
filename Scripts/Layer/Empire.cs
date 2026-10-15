@@ -1539,6 +1539,30 @@ public class Empire : MetaObject<EmpireData>
         return AssetManager.kingdom_colors_library;
     }
 
+    // 颜色编号越界(原版 updateColor 记的是颜色在色库里的位置，给的颜色不在色库里就记成 -1)：原版取色下标越界，
+    // 附庸独立、同步帝国颜色等处一路报错(玩家日志 2026-10-16)。国家那边见 VanillaGuardPatch，这里是帝国：
+    // 越界时用核心王国的颜色，并把编号修回色库里
+    public override ColorAsset getColor()
+    {
+        if (_cached_color != null) return _cached_color;
+        var colors = getColorLibrary()?.list;
+        if (data == null || colors == null || colors.Count == 0) return null;
+        if (data.color_id >= 0 && data.color_id < colors.Count) return base.getColor();
+        Kingdom core = CoreKingdom;
+        ColorAsset coreColor = core?.data != null && !core.isRekt() ? core.getColor() : null;
+        int index = coreColor != null ? colors.IndexOf(coreColor) : -1;
+        if (index < 0 && coreColor != null)
+        {
+            _cached_color = coreColor;
+            return coreColor;
+        }
+        if (index < 0) index = global::System.Math.Abs(data.color_id) % colors.Count;
+        LogService.LogWarning($"[EmpireCraft] 帝国 {data.name}({data.id}) 的颜色编号 {data.color_id} 超出颜色库(共 {colors.Count} 种)，改用第 {index} 种");
+        data.setColorID(index);
+        if (data.original_color_id < 0 || data.original_color_id >= colors.Count) data.original_color_id = index;
+        return base.getColor();
+    }
+
     public override void generateBanner()
     {
         Sprite[] tBgs = World.world.alliances.getBackgroundsList();
