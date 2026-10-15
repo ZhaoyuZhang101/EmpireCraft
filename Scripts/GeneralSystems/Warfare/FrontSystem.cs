@@ -285,7 +285,15 @@ public static partial class FrontSystem
         SectorCache.Clear();
         Engaged.Clear();
         using (FrameProfiler.Measure("战线·交战结算")) Resolve(now, landingSectors);
-        foreach (long id in Battles.Where(pair => Date.getMonthsSince(pair.Value.time) > 1).Select(pair => pair.Key).ToList())
+        PruneBattles(now);
+    }
+
+    // 过期的交战：一个多月没再打、时间倒退(读了更早的存档)、城已不在了
+    private static void PruneBattles(double now)
+    {
+        foreach (long id in Battles.Where(pair => now < pair.Value.time || Date.getMonthsSince(pair.Value.time) > 1 ||
+                                                  World.world.cities.get(pair.Key) is not City city || city.isRekt())
+                     .Select(pair => pair.Key).ToList())
             Battles.Remove(id);
     }
 

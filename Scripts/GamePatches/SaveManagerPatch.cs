@@ -190,6 +190,9 @@ public class SaveManagerPatch : GamePatch
         EmpireCraftActorCheckWarriorMoveAdvanced.ClearRuntimeState();
         EmpireCraft.Scripts.GeneralSystems.WarGoalSystem.ResetWorldState();
         EmpireCraft.Scripts.GeneralSystems.AdministrativeControlSystem.ResetWorldState();
+        // 读档时世界对象不换(MapBox 还是同一个)，军团、战线、海军的运行记录要在这里清
+        // (群友 2026-10-16："换了好几个档这个交战居然还在追我")
+        EmpireCraft.Scripts.GeneralSystems.CorpsSystem.ResetWorldState();
         EmpireCraft.Scripts.GeneralSystems.CultureRadiation.ResetWorldState();
         EmpireCraft.Scripts.GeneralSystems.TerrainResistance.ResetWorldState();
         EmpireCraft.Scripts.UI.Components.CityDetailOverlay.ResetWorldState();
