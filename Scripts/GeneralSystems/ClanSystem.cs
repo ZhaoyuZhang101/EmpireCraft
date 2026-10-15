@@ -1223,6 +1223,8 @@ public class PersonalClanIdentity
     public string fullOfficeName = "";
     // 封国国君身后的谥号(湘文侯)，见 FeudalPosthumousSystem
     public string posthumous_name = "";
+    // 受封过的王号(藩王，如"湘王")：人没了、转为虚拟族人后也留着，宗室入继按它找藩王一系(见 PrinceLineage)
+    public string prince_title = "";
     public string clanName = "";
     public string familyName = "";
     public string factionName = "";

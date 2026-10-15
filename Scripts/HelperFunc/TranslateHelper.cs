@@ -278,6 +278,7 @@ namespace EmpireCraft.Scripts.HelperFunc
             }.RecordNationalHistoryIntoEmpire(empire, actor);
             actor.RecordPersonalHistory(string.Format(LM.Get("personal_history_peerage_granted"),
                 empire.GetEmpireFullName(), titleName), relatedActorId: empire.Emperor?.id ?? -1L);
+            EmpireCraft.Scripts.GeneralSystems.PrinceLineage.NoteGrant(actor, titleName);
         }
         public static void LogHonoraryPeerageInherited(Actor heir, Actor predecessor, Empire empire, string peerageKey)
         {

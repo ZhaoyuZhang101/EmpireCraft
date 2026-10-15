@@ -423,12 +423,14 @@ public class DynastyLineageWindow : AbstractWideWindow<DynastyLineageWindow>
         else if (current.specific_clan_id != previous.specific_clan_id &&
                  !SpecificClanManager.SameLineage(current._specificClan, previous._specificClan))
             relation = LM.Get("lineage_rel_other_clan");
-        else if (current.father == previous.id || current.mother == previous.id) relation = ChildOrder(previous, current);
-        else if (Father(current)?.father == previous.id) relation = LM.Get("lineage_rel_grandson");
-        else if (current.father > 0 && current.father == previous.father)
-            relation = LM.Get(Birth(current) < Birth(previous) ? "lineage_rel_elder_brother" : "lineage_rel_brother");
-        else if (Father(current) is { father: > 0 } father && father.father == previous.father) relation = LM.Get("lineage_rel_nephew");
-        else relation = LM.Get("lineage_rel_collateral");
+        // 对先君的亲属称谓(父母两边都算，见 LineageKinship)；子女写第几子；受封过王的写上王号
+        else
+        {
+            relation = current.father == previous.id || current.mother == previous.id
+                ? ChildOrder(previous, current)
+                : LineageKinship.Term(previous, current);
+            if (!string.IsNullOrWhiteSpace(current.prince_title)) relation += "·" + current.prince_title;
+        }
         string note = history.succession_note;
         if (string.IsNullOrEmpty(note)) return relation;
         string mark = LM.Get("lineage_note_" + note);

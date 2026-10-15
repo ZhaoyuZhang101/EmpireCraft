@@ -80,6 +80,8 @@ public static class VirtualGenealogySystem
         }
         int surnames = SurnameInheritanceSystem.RepairPatrilineal(SpecificClanManager._globalPersonLookup.Values);
         if (surnames > 0) LogService.LogInfo($"[EmpireCraft][虚拟族谱] 华夏宗族随错姓的改回父姓 {surnames} 人");
+        int princes = PrinceLineage.Backfill(SpecificClanManager._globalPersonLookup.Values);
+        if (princes > 0) LogService.LogInfo($"[EmpireCraft][虚拟族谱] 按个人经历补记藩王王号 {princes} 人");
         int clanSurnames = SurnameInheritanceSystem.RepairClanSurnames(SpecificClanManager._globalPersonLookup.Values);
         if (clanSurnames > 0) LogService.LogInfo($"[EmpireCraft][虚拟族谱] 华夏宗族里不姓本族姓的改回 {clanSurnames} 人");
     }
@@ -644,8 +646,12 @@ public static class VirtualGenealogySystem
             }
             heir ??= PickHeir(relations.Select(pair => pair.id), last, maleOnly);
         }
+        // 整个世系里找：藩王一系优先(见 PrinceLineage)
         if (heir == null && clan != null)
-            heir = PickHeir(SpecificClanManager.LineageClans(clan).SelectMany(member => member.SnapshotPeople()), null, maleOnly);
+        {
+            List<PersonalClanIdentity> lineage = SpecificClanManager.LineageClans(clan).SelectMany(member => member.SnapshotPeople()).ToList();
+            heir = PickHeir(lineage.Where(PrinceLineage.InLine), null, maleOnly) ?? PickHeir(lineage, null, maleOnly);
+        }
         return heir?.Realize();
     }
 

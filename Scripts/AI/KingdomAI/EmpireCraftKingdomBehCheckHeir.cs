@@ -102,6 +102,9 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
                 result = CheckHeir(kingdom, EmpireHeirLawType.grand_child_generation, law, parent);
                 if (result.actor != null) return result;
             }
+            // 有藩王一系的：最近的藩王直接即位，不交群臣议立(见 PrinceLineage.DirectPrince)
+            var prince = PrinceLineage.DirectPrince(kingdom, parent);
+            if (prince.actor != null) return prince;
             var council = SuccessionCouncilSystem.Resolve(kingdom, parent);
             if (council.handled) return (council.actor, council.relation);
         }
@@ -359,7 +362,10 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
             if (IsEligibleRelative(person, parent, allowFemale) && person._actor?.IsEmperor() != true &&
                 !ForeignRuler(kingdom, person._actor))
                 result.Add((person, Kinship(person, ancestors)));
-        return result;
+        // 先君的子孙不算旁支，照常；旁支入继先从藩王一系里找(见 PrinceLineage)
+        var direct = result.Where(item => item.Item1.father == parent.id || item.Item1.mother == parent.id).ToList();
+        if (direct.Count > 0) return result;
+        return PrinceLineage.PreferPrinces(result, item => item.Item1);
     }
 
     // 出生先后(生日"11,062年5月20日")；解析不了按编号
