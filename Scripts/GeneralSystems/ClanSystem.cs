@@ -453,6 +453,21 @@ public static class SpecificClanManager
         return result;
     }
 
+    // 把人挪到另一个宗族(族谱身份不变)，有实体的原版氏族也跟过去(找这一族里有实体的人的氏族)
+    public static void MoveToClan(PersonalClanIdentity person, SpecificClan target)
+    {
+        if (person == null || target == null || person.specific_clan_id == target.id) return;
+        person._specificClan?.TakePerson(person.id);
+        person.specific_clan_id = target.id;
+        target.Upsert(person);
+        Actor actor = person.is_alive && !person.is_virtual ? person._actor : null;
+        if (actor?.data == null || actor.isRekt()) return;
+        actor.SetPersonalIdentity(person);
+        Clan vanilla = target.AllAliveMembers.Where(member => member != actor).Select(member => member.clan)
+            .FirstOrDefault(clan => clan != null);
+        if (vanilla != null && actor.clan != vanilla) actor.setClan(vanilla);
+    }
+
     // 把记下的父母接回族谱(父亲、母亲各接一位；已有的不动)，返回是否接上了
     public static bool LinkRecordedParents(Actor actor, PersonalClanIdentity child)
     {
@@ -1081,6 +1096,28 @@ public static class SpecificClanManager
         {
             actor.SetPersonalIdentity(existingPci);
             return;
+        }
+
+        // 先按宗法定入哪一族：在位君主、储君一方，华夏一系随父，其余婚姻为主的一方。
+        // 以前先看原版分给孩子的氏族——原版常把孩子分在母亲的氏族，皇子就随母姓、入了母亲那一族
+        List<PersonalClanIdentity> recordedParents = RecordedParents(actor);
+        PersonalClanIdentity clanParent = SurnameInheritanceSystem.ClanParent(recordedParents);
+        if (clanParent?._specificClan != null)
+        {
+            clanParent._specificClan.addActor(actor);
+            PersonalClanIdentity created = actor.GetPersonalIdentity();
+            if (created != null)
+            {
+                LinkRecordedParents(actor, created);
+                Actor parentActor = clanParent.is_alive && !clanParent.is_virtual ? clanParent._actor : null;
+                Clan vanilla = parentActor?.clan ?? clanParent._specificClan.AllAliveMembers
+                    .Where(member => member != actor).Select(member => member.clan).FirstOrDefault(clan => clan != null);
+                if (vanilla != null && actor.clan != vanilla) actor.setClan(vanilla);
+                if (clanParent._specificClan.Patrilineal() || SurnameInheritanceSystem.Reigns(parentActor))
+                    SurnameInheritanceSystem.ApplySurname(created,
+                        !string.IsNullOrWhiteSpace(clanParent.surname) ? clanParent.surname : clanParent._specificClan.name);
+                return;
+            }
         }
 
         SpecificClan actorClan = actor.clan?.GetSpecificClan();

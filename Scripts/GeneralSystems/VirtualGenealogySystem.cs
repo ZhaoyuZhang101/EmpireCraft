@@ -63,6 +63,21 @@ public static class VirtualGenealogySystem
             if (SpecificClanManager.LinkRecordedParents(actor, person)) relinked++;
         }
         if (relinked > 0) LogService.LogInfo($"[EmpireCraft][虚拟族谱] 族谱接回父母 {relinked} 人(原版记着父母、族谱里断开的)");
+        var moved = new Dictionary<long, long>();
+        int maternal = SurnameInheritanceSystem.RepairMaternalClan(SpecificClanManager._globalPersonLookup.Values, moved);
+        if (maternal > 0)
+        {
+            LogService.LogInfo($"[EmpireCraft][虚拟族谱] 华夏宗族误入母亲氏族的改回父族 {maternal} 人");
+            // 在位君主挪了族：国家与帝国记下的皇族跟着改，免得下次继位被当成篡位
+            foreach (Kingdom kingdom in World.world.kingdoms)
+            {
+                PersonalClanIdentity king = kingdom?.king?.GetPersonalIdentity();
+                if (king == null || !moved.TryGetValue(king.id, out long oldClan)) continue;
+                kingdom.SetSpecificClan(king._specificClan);
+                Layer.Empire empire = kingdom.IsEmpire() ? kingdom.GetEmpire() : null;
+                if (empire?.data != null && empire.data.empire_specific_clan == oldClan) empire.data.empire_specific_clan = king.specific_clan_id;
+            }
+        }
         int surnames = SurnameInheritanceSystem.RepairPatrilineal(SpecificClanManager._globalPersonLookup.Values);
         if (surnames > 0) LogService.LogInfo($"[EmpireCraft][虚拟族谱] 华夏宗族随错姓的改回父姓 {surnames} 人");
     }
@@ -412,11 +427,13 @@ public static class VirtualGenealogySystem
                         (long)_parent2.GetValue(child.data) == previousActorId) _parent2.SetValue(child.data, actor.id);
                 }
 
-            // 氏族：随有实体的父母/配偶/子女，否则随本宗族里有实体的族人
-            Clan clan = father?.clan ?? mother?.clan ?? (person.is_main ? null : spouse?.clan) ??
+            // 氏族：随父亲；父亲不在了随本宗族里有实体的族人(以前接着就随了在世的母亲，皇子落成后进了母亲的氏族)，
+            // 再其次子女、配偶(嫁入的)、母亲
+            Clan clan = father?.clan ??
+                        person._specificClan?.AllAliveMembers.Where(member => member != actor).Select(member => member.clan)
+                            .FirstOrDefault(found => found != null) ??
                         children.Select(child => child.clan).FirstOrDefault(found => found != null) ??
-                        person._specificClan?.AllAliveMembers.Select(member => member.clan)
-                            .FirstOrDefault(found => found != null);
+                        (person.is_main ? null : spouse?.clan) ?? mother?.clan;
             if (clan != null && actor.clan != clan) actor.setClan(clan);
 
             // 配偶：对方有实体、还没有别的伴侣时重新结为伴侣，并进入对方的家庭

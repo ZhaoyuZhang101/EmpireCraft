@@ -55,19 +55,62 @@ public static class SurnameInheritanceSystem
             if (father == null || father.specific_clan_id != person.specific_clan_id || string.IsNullOrWhiteSpace(father.surname) ||
                 string.IsNullOrWhiteSpace(person.surname) || person.surname == father.surname || string.IsNullOrWhiteSpace(person.given_name))
                 continue;
-            person.surname = father.surname;
-            Actor actor = person.is_alive && !person.is_virtual ? person._actor : null;
-            if (actor?.data != null && actor.GetModName() != null)
-            {
-                actor.SetFamilyName(father.surname);
-                actor.GetModName().SetName(actor);
-            }
-            else
-            {
-                bool invert = OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(person.culture ?? "", out var rule) && rule?.Unit?.is_invert == true;
-                person.name = invert ? OverallHelperFunc.JoinNameParts(person.given_name, person.surname)
-                    : OverallHelperFunc.JoinNameParts(person.surname, person.given_name);
-            }
+            ApplySurname(person, father.surname);
+            repaired++;
+        }
+        return repaired;
+    }
+
+    // 改姓：族谱记录和(有实体的)人物名字一起改，史书里的旧名不动
+    public static void ApplySurname(PersonalClanIdentity person, string surname)
+    {
+        if (person == null || string.IsNullOrWhiteSpace(surname) || person.surname == surname) return;
+        person.surname = surname;
+        Actor actor = person.is_alive && !person.is_virtual ? person._actor : null;
+        if (actor?.data != null && actor.GetModName() != null)
+        {
+            actor.SetFamilyName(surname);
+            actor.GetModName().SetName(actor);
+            person.name = actor.getName();
+        }
+        else if (!string.IsNullOrWhiteSpace(person.given_name))
+        {
+            bool invert = OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(person.culture ?? "", out var rule) && rule?.Unit?.is_invert == true;
+            person.name = invert ? OverallHelperFunc.JoinNameParts(person.given_name, person.surname)
+                : OverallHelperFunc.JoinNameParts(person.surname, person.given_name);
+        }
+    }
+
+    // 孩子入哪一族、随谁的姓：在位君主、储君一方；华夏一系宗法父系随父(入赘的除外)；
+    // 其余是婚姻里为主、又是本宗继承性别的一方。都不是返回 null(按原版的氏族)
+    public static PersonalClanIdentity ClanParent(IEnumerable<PersonalClanIdentity> parents)
+    {
+        List<PersonalClanIdentity> list = parents?.Where(parent => parent?._specificClan != null).ToList() ??
+                                          new List<PersonalClanIdentity>();
+        PersonalClanIdentity reigning = list.FirstOrDefault(parent => parent.is_alive && !parent.is_virtual && Reigns(parent._actor));
+        if (reigning != null) return reigning;
+        PersonalClanIdentity father = list.FirstOrDefault(parent => parent.sex == ActorSex.Male && parent.is_main &&
+                                                                     parent._specificClan.Patrilineal());
+        if (father != null) return father;
+        return list.FirstOrDefault(parent => parent.is_main && parent.IsHeirPriority());
+    }
+
+    // 读档修正一次：华夏一系里父亲是本宗主位、本人却不在父亲那一族(以前入谱时跟了原版分给他的母亲的氏族)的，
+    // 改回父亲的宗族、随父姓。父亲先改，儿子跟着改；分出去的诸王各支(同一世系)不动
+    // moved：挪过族的人 → 原来的宗族 id(在位君主挪了族，国家、帝国记的皇族要跟着改)
+    public static int RepairMaternalClan(IEnumerable<PersonalClanIdentity> people, Dictionary<long, long> moved = null)
+    {
+        int repaired = 0;
+        foreach (PersonalClanIdentity person in people.Where(person => person != null).OrderBy(person => person.id).ToList())
+        {
+            if (!person.is_alive || !person.is_main || person.is_concubine || person.father <= 0) continue;
+            PersonalClanIdentity father = SpecificClanManager.getPerson(person.father);
+            SpecificClan fatherClan = father?._specificClan;
+            if (fatherClan == null || !father.is_main || !fatherClan.Patrilineal() || person.specific_clan_id == fatherClan.id) continue;
+            if (SpecificClanManager.SameLineage(person._specificClan, fatherClan)) continue;
+            moved?.Add(person.id, person.specific_clan_id);
+            SpecificClanManager.MoveToClan(person, fatherClan);
+            ApplySurname(person, !string.IsNullOrWhiteSpace(father.surname) ? father.surname : fatherClan.name);
             repaired++;
         }
         return repaired;
