@@ -54,6 +54,9 @@ public sealed class CultureInstitutionState
     public List<string> discovered_ideologies = new();
     // 理念路线(保守/自由/中间/左翼，见 PartySystem.IdeologyRoute)：同一时间只有一条路线生效，玩家可在制度窗口手动切换
     public string active_ideology_route = "";
+    // 传国玉玺(绝嗣裂土后才有，见 InterregnumSystem)：持有的帝国、它的都城
+    public long imperial_seal_empire_id = -1L;
+    public long imperial_seal_city_id = -1L;
 }
 
 // 帝国只持有"正在推进的这一次改革"和"本政权已经落地过哪些节点的持久效果"。

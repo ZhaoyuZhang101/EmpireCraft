@@ -8,6 +8,7 @@ using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
 using NeoModLoader.General;
+using NeoModLoader.services;
 using UnityEngine;
 
 namespace EmpireCraft.Scripts.GeneralSystems;
@@ -20,13 +21,14 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //      本派的人优先；
 //   ③ 定策：太后降懿旨，没有太后由权臣、再没有由议程官拍板，多半从廷议多数，也会偏向对自己有利的人；
 //   ④ 迎立：定下的人入继大统(继承人就位，下一次王位检查登基)。
-// 皇族已无可立之人：群臣劝进——权臣、重臣，或由尊王、血脉派拥立一位宗室远支，劝进外姓即改朝换代。
+// 皇族已无可立之人：疆域大、有强藩的帝国裂土，群雄并起各自称帝(见 InterregnumSystem)；
+// 不裂土的群臣劝进——权臣、重臣，或由尊王、血脉派拥立一位宗室远支，劝进外姓即改朝换代，定策后直接即位。
 // 每步隔一个月，空位约两个月。有议会、共和、选帝制、宪制保护皇位的帝国不走这条路，照继承法递补。
 public static class SuccessionCouncilSystem
 {
     public const string Elder = "elder", Kin = "kin", Worthy = "worthy", Young = "young",
         Cadet = "cadet", Minister = "minister", Acclaim = "acclaim", Commoner = "commoner", Union = "union";
-    private const int StageMonths = 1, StaleMonths = 6, MaxAttempts = 3, AdultAge = 18;
+    private const int StageMonths = 1, StaleMonths = 6, MaxAttempts = 3, AdultAge = 18, EnthroneMonths = 2;
 
     public static bool Applies(Kingdom kingdom)
     {
@@ -103,6 +105,15 @@ public static class SuccessionCouncilSystem
             }
             if (council.stage >= 2)
             {
+                // 定了人两个月还没登基(玩家截图：迎立外姓重臣入继大统，却一直没有皇帝上位)：直接扶上去
+                Actor chosen = World.world.units.get(council.chosen_actor);
+                if (Date.getMonthsSince(council.stage_time) >= EnthroneMonths && chosen?.data != null && chosen.isAlive() &&
+                    !chosen.isRekt() && empire.InstallHeadOfState(chosen))
+                {
+                    LogService.LogInfo($"[EmpireCraft][议立] {empire.GetEmpireFullName()} 定策后迟迟未登基，直接扶 {chosen.getName()} 即位");
+                    state.succession = null;
+                    continue;
+                }
                 // 定了人却迟迟没能登基：作罢，照原来的继承顺序递补
                 if (Date.getMonthsSince(council.stage_time) >= StaleMonths) council.gave_up = true;
                 continue;
@@ -142,6 +153,14 @@ public static class SuccessionCouncilSystem
         {
             council.outsider = true;
             NominateOutsiders(empire, core, council.candidates);
+            // 皇族绝嗣、天下无主：京城由权臣重臣即位，强藩各自称帝(见 InterregnumSystem)
+            CourtSuccessionCandidate first = council.candidates.FirstOrDefault(candidate => candidate.basis != Commoner);
+            Actor strongman = first == null ? null : CandidateActor(first);
+            if (InterregnumSystem.TryFracture(empire, predecessor, strongman))
+            {
+                state.succession = null;
+                return;
+            }
         }
         // 分治的另一朝皇帝同出一宗：可迎立他兼承大统，两朝复归一统(见 EmpirePartitionSystem)
         if (EmpirePartitionSystem.CanUnite(empire, out Empire twin))
@@ -393,6 +412,12 @@ public static class SuccessionCouncilSystem
                 ? PrinceStruggleSystem.NoteAcclaimed : PrinceStruggleSystem.NoteCourtChoice);
             string text = string.Format(LM.Get("court_succession_decided_" + role), council.decider, actor.getName());
             Publish(empire, state, text);
+            // 劝进外姓：直接即位(以前立为继承人等王位检查，外姓重臣常常登不了基，皇位一直空着)
+            if (council.outsider && candidate.basis != Cadet && empire.InstallHeadOfState(actor))
+            {
+                state.succession = null;
+                return;
+            }
             // 继承人就位，下一次王位检查即登基
             core.SetHeir(actor);
             return;

@@ -21,6 +21,7 @@ public class EmpireCraftEmpireBehCheckMandate : GameAIEmpireBase
         ReignRecordSystem.OnYear(empire);
         RitesSystem.Yearly(empire);
         GuoyeSystem.Yearly(empire);
+        InterregnumSystem.Yearly(empire);
         if (empire.Emperor != null && empire.IsNeedToIncreaseMandate())
         {
             empire.AddMandate(1);
