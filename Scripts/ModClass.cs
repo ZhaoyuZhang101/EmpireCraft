@@ -248,6 +248,9 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
         EmpireCraftBuildingLibrary.init();
         EmpireCraftWarshipLibrary.init();
         RegimeManager.init();
+        // 政体的国家类别、官名文本(各政体目录下的 OfficialType.csv，如"侯国""公国""国")在 RegimeManager.init 里才读，
+        // 上面那次 ApplyLocale 之后读的文本要再应用一次，否则国名后缀显示成 ZhouFeudalism_hou 这样的键名
+        LM.ApplyLocale();
         FactionManager.init();
         EMPIRE_MANAGER = new EmpireManager();
         KINGDOM_TITLE_MANAGER = new KingdomTitleManager();
