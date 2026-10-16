@@ -1444,7 +1444,7 @@ public static class SmoothBorders
         if (Hostility.TryGetValue((owner, other), out bool hostile)) return hostile;
         Kingdom a = owner is Kingdom ka ? ka : (owner as Empire)?.CoreKingdom;
         Kingdom b = other is Kingdom kb ? kb : (other as Empire)?.CoreKingdom;
-        hostile = a != null && b != null && FrontSystem.Hostile(a, b);
+        hostile = a != null && b != null && FrontSystem.Hostile(a, b) && FrontSystem.HasFront(a, b);
         Hostility[(owner, other)] = hostile;
         return hostile;
     }
@@ -1504,6 +1504,20 @@ public static class SmoothBorders
             foreach (City city in kingdom?.cities ?? new List<City>())
                 foreach (TileZone zone in city?.zones ?? new List<TileZone>())
                     zone?.resetRenderHelpers();
+    }
+
+    // 本月真打起来的两方变了(见 FrontSystem.HasFront)：涉及的国家(连同所在帝国的成员)各城重画
+    public static void RefreshFronts(ICollection<long> realms)
+    {
+        _warEpoch++;
+        if (!Enabled || realms == null || realms.Count == 0 || World.world?.kingdoms == null) return;
+        foreach (Kingdom kingdom in World.world.kingdoms)
+        {
+            if (kingdom?.data == null || kingdom.isRekt() || !realms.Contains(FrontSystem.Realm(kingdom).id)) continue;
+            foreach (City city in kingdom.cities ?? new List<City>())
+                foreach (TileZone zone in city?.zones ?? new List<TileZone>())
+                    zone?.resetRenderHelpers();
+        }
     }
 
     // 这块地的归属或颜色变了：周围八块(连斜对角)也重画，平滑的边要跟着变

@@ -99,6 +99,37 @@ public static partial class FrontSystem
         return ra.isInWarWith(rb) || ra.isInWarWith(b) || a.isInWarWith(rb);
     }
 
+    // 真打起来的两方(各取所在帝国的核心)：本月有战线段的(见 Assign)。地图上的战线朱红只画在这几对之间
+    // (用户 2026-10-17 "明明没大仗还有战线"，选"真打起来的地方才画"：以前只看两国交没交战，宣了战却够不着、没接上火的也画)
+    private static HashSet<(long, long)> _fronts = new(), _frontsNext = new();
+
+    public static bool HasFront(Kingdom a, Kingdom b)
+    {
+        Kingdom ra = Realm(a), rb = Realm(b);
+        return ra?.data != null && rb?.data != null && _fronts.Contains((ra.id, rb.id));
+    }
+
+    private static void NoteFront(Kingdom side, Kingdom enemy)
+    {
+        Kingdom ra = Realm(side), rb = Realm(enemy);
+        if (ra?.data == null || rb?.data == null || ra == rb) return;
+        _frontsNext.Add((ra.id, rb.id));
+        _frontsNext.Add((rb.id, ra.id));
+    }
+
+    // 本月的名单换上；变了的几方各城重画
+    private static void SwapFronts()
+    {
+        var changed = new HashSet<long>();
+        foreach ((long a, long b) in _fronts)
+            if (!_frontsNext.Contains((a, b))) { changed.Add(a); changed.Add(b); }
+        foreach ((long a, long b) in _frontsNext)
+            if (!_fronts.Contains((a, b))) { changed.Add(a); changed.Add(b); }
+        (_fronts, _frontsNext) = (_frontsNext, _fronts);
+        _frontsNext.Clear();
+        if (changed.Count > 0) SmoothBorders.RefreshFronts(changed);
+    }
+
     public static bool Friendly(Kingdom a, Kingdom b) =>
         a?.data != null && b?.data != null && (a == b || !Hostile(a, b) && (Realm(a) == Realm(b) || a.isInWarOnSameSide(b)));
 
@@ -384,14 +415,25 @@ public static partial class FrontSystem
             }
         var landingSectors = new Dictionary<long, bool>();
         SectorCache.Clear();
+        _frontsNext.Clear();
         using (FrameProfiler.Measure("战线·分派"))
             foreach (Kingdom kingdom in World.world.kingdoms.ToList())
             {
                 List<CorpsData> list = kingdom?.data == null || kingdom.isRekt() ? null : kingdom.GetOrCreate().corps;
                 if (list == null || list.Count == 0) continue;
-                Assign(kingdom, list, pressure, landingSectors);
+                // 一国分派出错只跳过这一国：以前异常直接抛出 MonthTick，后面的交战结算整月不跑——
+                // 没有交战提示、战线不结算，军团照旧推着上月的目标，国界来回翻(玩家日志 2026-10-17 连续三百多次)
+                try
+                {
+                    Assign(kingdom, list, pressure, landingSectors);
+                }
+                catch (Exception exception)
+                {
+                    LogService.LogWarning($"[EmpireCraft][军团] {kingdom.GetKingdomName()} 分派失败: {exception}");
+                }
             }
         SectorCache.Clear();
+        SwapFronts();
         Engaged.Clear();
         using (FrameProfiler.Measure("战线·交战结算")) Resolve(now, landingSectors);
         PruneBattles(now);
@@ -451,6 +493,8 @@ public static partial class FrontSystem
         List<Sector> sectors;
         using (FrameProfiler.Measure("战线·分派·战线段"))
             sectors = CachedSectors(kingdom).Where(sector => !MusterSystem.Mustering(kingdom, sector.City.kingdom)).ToList();
+        foreach (Sector sector in sectors)
+            if (sector.City?.kingdom != null) NoteFront(kingdom, sector.City.kingdom);
         // 跨海登陆的军(还没上岸的)兵力合计不超过运输船运力
         float shipping = sectors.Any(sector => sector.Landing) ? NavySystem.TransportCapacity(kingdom) : 0f;
         if (sectors.Any(sector => sector.Landing)) SeaLandingDiagnostics.Deployable(kingdom, ready, shipping);
