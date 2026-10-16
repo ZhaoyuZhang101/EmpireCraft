@@ -139,6 +139,15 @@ public static class InstitutionSystem
         {
             state = new CultureInstitutionState();
             _cultureStates[culture] = state;
+            // 文化配置的开局阶段(start_institution)：这个节点及其前置开局即已施行
+            if (OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(culture, out Setting setting) &&
+                !string.IsNullOrWhiteSpace(setting?.start_institution) &&
+                InstitutionDefinitionRegistry.Get(setting.start_institution) is InstitutionNodeConfig start &&
+                IsSameLine(start.line, GetCultureLine(culture)))
+            {
+                InstitutionStateNormalizer.Normalize(state);
+                ForceEnactChain(state, start, new List<InstitutionNodeConfig>());
+            }
         }
         InstitutionStateNormalizer.Normalize(state);
         // 开局即初始状态：只给本线的根节点（无效果），其余一律自己研究或从别的线吸收。

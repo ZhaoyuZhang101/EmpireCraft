@@ -5,6 +5,10 @@
     "setting": {
         "regime": "Modern",
         "institution_line": "Huaxia",
+        // 开局阶段：写华夏线的一个制度节点(如 "huaxia_patriarchal_clan" 从宗法开局)，留空从原始群起步
+        "start_institution": "",
+        // 姓氏演变：原始群无姓 → 母系有姓 → 贵族分氏 → 周制男子称氏、女子称姓、平民无氏 → 郡县后姓氏合一
+        "surname_evolution": true,
         // 宪法：名称词库(name_group / provisional_name_group)与本文化的制宪倾向(clauses，覆盖各党主张)
         "Constitution": {
             "clauses": { "territory": "Unitary" }

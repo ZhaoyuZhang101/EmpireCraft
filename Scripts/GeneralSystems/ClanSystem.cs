@@ -662,10 +662,13 @@ public static class SpecificClanManager
         }
         specificClan.founder = actor.GetPersonalIdentity().id;
         // 原始群、母系氏族阶段新立的氏族取带女字旁的古姓，始祖随之改姓(见 PrehistoricClanSystem)
-        if (PrehistoricClanSystem.AncientNaming(TechnologySystem.GetCultureOf(actor)))
+        string clanCulture = TechnologySystem.GetCultureOf(actor);
+        if (PrehistoricClanSystem.AncientNaming(clanCulture) &&
+            PrehistoricClanSystem.PickAncientSurname(clanCulture) is string ancient)
         {
-            specificClan.name = PrehistoricClanSystem.PickAncientSurname();
+            specificClan.name = ancient;
             SurnameInheritanceSystem.ApplySurname(actor.GetPersonalIdentity(), specificClan.name);
+            if (actor.clan?.data != null) actor.clan.data.name = JoinNameParts(ancient, LM.Get("Clan"));
         }
         if (show_log)
         {

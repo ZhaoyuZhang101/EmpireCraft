@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GameClassExtensions;
 using UnityEngine;
 
@@ -30,9 +31,23 @@ public static class PrehistoricClanSystem
 
     public enum SurnameEra { None, Xing, ShiEmerging, ZhouShi, Merged }
 
-    // 带女字旁的上古之姓
-    private static readonly string[] AncientSurnames =
-        { "姬", "姜", "姒", "嬴", "妘", "妫", "姞", "姚", "嫘", "妊", "媿", "嫚", "姺", "婤", "姮", "嬉" };
+    private static readonly Dictionary<string, List<string>> AncientPools = new();
+
+    // 本文化的古姓词库(文化配置 Clan.ancient_group，华夏是姬姜姒嬴这类女字旁古姓)；没配为空
+    private static List<string> AncientPool(string culture)
+    {
+        if (string.IsNullOrEmpty(culture)) return new List<string>();
+        if (AncientPools.TryGetValue(culture, out List<string> cached)) return cached;
+        string group = OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(culture, out Setting setting) ? setting?.Clan?.ancient_group : null;
+        List<string> pool = string.IsNullOrWhiteSpace(group) ? new List<string>() : PartySystem.GetCultureWordPool(culture, group);
+        AncientPools[culture] = pool;
+        return pool;
+    }
+
+    // 这个文化是否走姓氏演变：华夏线、且文化配置开了 surname_evolution
+    private static bool Evolves(string culture) =>
+        InstitutionSystem.GetCultureLine(culture) == "Huaxia" &&
+        OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(culture, out Setting setting) && setting?.surname_evolution == true;
 
     public static bool IsMatrilineal(string culture)
     {
@@ -67,7 +82,7 @@ public static class PrehistoricClanSystem
         SurnameEra era;
         try
         {
-            era = !CultureService.IsValidCulture(culture) || InstitutionSystem.GetCultureLine(culture) != "Huaxia" ||
+            era = !CultureService.IsValidCulture(culture) || !Evolves(culture) ||
                   InstitutionSystem.GetFeature(culture, SurnameMergedFeature) > 0f ? SurnameEra.Merged
                 : InstitutionSystem.IsEnacted(culture, "huaxia_patriarchal_clan") ? SurnameEra.ZhouShi
                 : InstitutionSystem.GetFeature(culture, NoSurnameFeature) > 0f ? SurnameEra.None
@@ -82,8 +97,9 @@ public static class PrehistoricClanSystem
         return era;
     }
 
-    // 新立的氏族取古姓：原始群、母系氏族阶段
-    public static bool AncientNaming(string culture) => EraOf(culture) is SurnameEra.None or SurnameEra.Xing;
+    // 新立的氏族取古姓：原始群、母系氏族阶段，且本文化配了古姓词库
+    public static bool AncientNaming(string culture) =>
+        EraOf(culture) is SurnameEra.None or SurnameEra.Xing && AncientPool(culture).Count > 0;
 
     // 分支的氏还能不能新起(姓氏合一以后，分支沿用宗族的姓)
     public static bool ShiForming(string culture) => EraOf(culture) is SurnameEra.ShiEmerging or SurnameEra.ZhouShi;
@@ -165,12 +181,14 @@ public static class PrehistoricClanSystem
             NeoModLoader.services.LogService.LogInfo($"[EmpireCraft][姓氏演变] {culture} 进入 {era}，重新起名 {renamed} 人");
     }
 
-    // 新氏族的古姓：优先取还没被用掉的
-    public static string PickAncientSurname()
+    // 新氏族的古姓：从本文化的古姓词库里取，优先取还没被用掉的
+    public static string PickAncientSurname(string culture)
     {
+        List<string> all = AncientPool(culture);
+        if (all.Count == 0) return null;
         HashSet<string> used = SpecificClanManager.ClanNames();
-        List<string> free = AncientSurnames.Where(name => !used.Contains(name)).ToList();
-        IList<string> pool = free.Count > 0 ? free : AncientSurnames;
+        List<string> free = all.Where(name => !used.Contains(name)).ToList();
+        List<string> pool = free.Count > 0 ? free : all;
         return pool[Random.Range(0, pool.Count)];
     }
 }

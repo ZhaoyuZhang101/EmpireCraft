@@ -40,6 +40,12 @@ public class Setting
     // 会把周制改成律令制），但文化所属的线终身不变。
     // 留空或写了个目录里不存在的 id，会退化成 InstitutionTrees/Settings.json 里的 default_line。
     public string institution_line = "";
+    // 开局阶段：写本线的一个制度节点，文化开局时这个节点及其全部前置都已施行(被它取代的不算)；
+    // 留空从本线的根节点起步(华夏线是原始群)
+    public string start_institution = "";
+    // 姓氏演变(只对华夏线有效，见 PrehistoricClanSystem)：原始群无姓、宗法时男子称氏女子称姓、平民无氏，郡县后姓氏合一；
+    // false 时一直正常称姓
+    public bool surname_evolution;
     public CitySetting City;
     public KingdomSetting Kingdom;
     public ClanSetting Clan;
@@ -104,6 +110,9 @@ public class ClanSetting
     public int name_pos;
     public bool has_sex_post;
     public bool use_local_as_lastname;
+    // 古姓词库(本文件夹 <文化><词库名>.csv，可写"别的文化:词库名")：原始群、母系氏族阶段新立的氏族从这里取姓
+    // (华夏是姬、姜、姒、嬴这类女字旁古姓)；不配就照常起姓
+    public string ancient_group = "";
     public string[] sex_post_Male;
     public string[] sex_post_Female;
 }
