@@ -1694,14 +1694,14 @@ public partial class PureMapPatch
         {
             int px = (x - c.X0) * s + s / 2, py = (y - c.Y0) * s + s / 2;
             index++;
-            if (!Swallowed(px, py)) Town(c, style, px, py, townSize, walled, dirt, townGround, seed + 1000 * index);
+            if (!Swallowed(px, py)) Town(c, style, px, py, townSize, walled, dirt, townGround, UrbanFabric.PosKey(x, y) + 1000);
         }
         index = 0;
         foreach ((int x, int y) in g.Villages)
         {
             int px = (x - c.X0) * s + s / 2, py = (y - c.Y0) * s + s / 2;
             index++;
-            if (!Swallowed(px, py)) Village(c, style, tint, px, py, dirt, ground, seed + 3000 * index);
+            if (!Swallowed(px, py)) Village(c, style, tint, px, py, dirt, ground, UrbanFabric.PosKey(x, y) + 3000);
         }
         // 田块：村镇四周散着几块条田(见 FieldColor)，一块八到十三像素宽、六到九像素高，块与块之间至少留三像素空地；
         // 只种在本城能耕的空地上，一块里能种的不到七成就换个地方(阿兹特克是水上浮田)
@@ -1747,14 +1747,15 @@ public partial class PureMapPatch
         foreach ((int x, int y) in g.Villages)
         {
             index++;
-            Fields((x - c.X0) * s + 2, (y - c.Y0) * s + 2, 4 + (int)(DetailHash(seed, index, 626) * 3), 7f * s, seed + 7000 + index * 37L);
+            long key = UrbanFabric.PosKey(x, y);
+            Fields((x - c.X0) * s + 2, (y - c.Y0) * s + 2, 4 + (int)(DetailHash(key, 626) * 3), 7f * s, key + 7000);
         }
         index = 0;
         foreach ((int x, int y, int townSize, _) in g.Towns)
         {
             index++;
-            Fields((x - c.X0) * s + 2, (y - c.Y0) * s + 2, 6 + (int)(DetailHash(seed, index, 627) * 4), (townSize + 6) * s,
-                seed + 9000 + index * 41L);
+            long key = UrbanFabric.PosKey(x, y);
+            Fields((x - c.X0) * s + 2, (y - c.Y0) * s + 2, 6 + (int)(DetailHash(key, 627) * 4), (townSize + 6) * s, key + 9000);
         }
     }
 

@@ -43,6 +43,8 @@ public class SaveData
     public Dictionary<int, string> map_walls = new Dictionary<int, string>();
     // 按格的城市规划(格编号 → 低四位用途、高四位设施，见 TilePlanSystem)
     public Dictionary<int, int> tile_plans = new Dictionary<int, int>();
+    // 城郊的镇村(钉在地图上，见 RuralSettlementSystem)
+    public List<RuralSettlement> rural_settlements = new List<RuralSettlement>();
     public bool switch_real_num = false;
     public bool switch_simple_nameplate = false;
     public bool switch_empire_show_alliance = false;

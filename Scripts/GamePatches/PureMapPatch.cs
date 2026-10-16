@@ -292,6 +292,7 @@ public partial class PureMapPatch : GamePatch
                 Add(plan.fabric.Seed.GetHashCode());
                 Add(plan.fabric.Rays.Length);
                 Add(plan.fabric.Towns.Count * 16 + plan.fabric.Villages.Count);
+                Add(plan.fabric.SettlementHash);
             }
             return hash;
         }

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GeneralSystems;
 using UnityEngine;
@@ -59,6 +60,9 @@ public static class UrbanFabric
         public readonly List<(int x, int y)> Villages = new();
         // 村镇的小路：一条条弯弯曲曲的折线(格坐标，见 PlaceTrails)
         public readonly List<Vector2[]> Paths = new();
+        // 毁于兵火的镇村(见 RuralSettlementSystem)；镇村的指纹(平面图的指纹里算进去)
+        public readonly List<(int x, int y, bool town)> Ruins = new();
+        public int SettlementHash;
         // 各地块上有哪些城郊景物(按地块算一次，逐格上色时只查这几样)
         internal readonly Dictionary<int, Rural> Rurals = new();
         public City City;
@@ -353,28 +357,50 @@ public static class UrbanFabric
         int first = (int)(H(g.Seed, 60) * 4);
         // 路网的路从哪几个方向出城(修通的、在修的)：这些方向不再另画出城大路，免得两条路并排走
         var linked = new List<float>();
-        var networked = new HashSet<(long, long)>();
         foreach (KeyValuePair<(long, long), RoadLink> pair in RoadBuildingSystem.All)
         {
             if (pair.Value == null || pair.Value.grade <= 0 && pair.Value.building <= 0) continue;
-            networked.Add(PairKey(pair.Key.Item1, pair.Key.Item2));
             long other = pair.Key.Item1 == g.City.data.id ? pair.Key.Item2 : pair.Key.Item2 == g.City.data.id ? pair.Key.Item1 : -1L;
             WorldTile there = other < 0 ? null : World.world.cities.get(other)?.getTile();
             if (there != null) linked.Add(Angle(there.x - g.GateX, there.y - g.GateY));
         }
         // 镇、村的落点照旧按原来的出城大路、岔路定(官道是后加的，村镇不因此挪地方)；画出来的路在后面另算
         GateRoads(g, linked, false);
-        // 镇：落在路上(大路出城十格以外、岔路五格以外)；离路口多远只看种子，不随路的长短(档位)变，城长大了镇不挪地方
+        // 镇村是固定的地方(见 RuralSettlementSystem)：先摆上存档里落在本城地上的；被城区盖住的不画、不算数，
+        // 毁于兵火的画成废墟、照样算数；不够数才照下面原来的选址办法新建，建了就记进存档
+        int townCount = 0, villageCount = 0;
+        unchecked
+        {
+            foreach (RuralSettlement settlement in RuralSettlementSystem.InCity(g.City))
+            {
+                if (!Open(g, settlement.x, settlement.y)) continue;
+                g.SettlementHash = g.SettlementHash * 31 + settlement.id * 7 + (settlement.ruined_at >= 0d ? 3 : 1);
+                if (settlement.town) townCount++;
+                else villageCount++;
+                if (settlement.ruined_at >= 0d) g.Ruins.Add((settlement.x, settlement.y, settlement.town));
+                else if (settlement.town) g.Towns.Add((settlement.x, settlement.y, settlement.size, settlement.walled));
+                else g.Villages.Add((settlement.x, settlement.y));
+            }
+        }
+        bool Taken(int x, int y, int room) =>
+            g.Towns.Exists(t => Mathf.Abs(t.x - x) + Mathf.Abs(t.y - y) < t.size + room) ||
+            g.Villages.Exists(v => Mathf.Abs(v.x - x) + Mathf.Abs(v.y - y) < room) ||
+            g.Ruins.Exists(r => Mathf.Abs(r.x - x) + Mathf.Abs(r.y - y) < room);
+        // 镇：落在路上(大路出城十格以外、岔路五格以外)；离路口多远只看种子，不随路的长短(档位)变
         int towns = tier switch { 2 => 1, 3 => 2 + (H(g.Seed, 61) < 0.5f ? 1 : 0), 4 => 3 + (H(g.Seed, 61) < 0.5f ? 1 : 0), _ => 0 };
-        for (int attempt = 0; attempt < 16 && g.Towns.Count < towns && g.Roads.Count > 0; attempt++)
+        for (int attempt = 0; attempt < 16 && townCount < towns && g.Roads.Count > 0; attempt++)
         {
             Road road = g.Roads[(first + attempt) % g.Roads.Count];
             int start = road.Gate ? 10 : 5, at = start + (int)(H(g.Seed, attempt, 62) * 30f);
             if (at > road.Length) continue;
             (int x, int y) = Point(road, at);
             int size = tier >= 3 ? (H(g.Seed, attempt, 63) < 0.5f ? 4 : 5) : 3;
-            if (!Open(g, x, y) || g.Towns.Exists(t => Mathf.Abs(t.x - x) + Mathf.Abs(t.y - y) < t.size + size + 6)) continue;
-            g.Towns.Add((x, y, size, tier >= 3 && H(g.Seed, attempt, 64) < 0.45f));
+            if (!Open(g, x, y) || g.Towns.Exists(t => Mathf.Abs(t.x - x) + Mathf.Abs(t.y - y) < t.size + size + 6) ||
+                Taken(x, y, size + 4)) continue;
+            bool walled = tier >= 3 && H(g.Seed, attempt, 64) < 0.45f;
+            g.Towns.Add((x, y, size, walled));
+            townCount++;
+            RuralSettlementSystem.Add(x, y, true, size, walled);
         }
         // 村：散在路网之间，离城心十二格以外。村址是固定的一处处(每 11×11 格一处，随机偏一点，约四分之三有村)，
         // 取本城没建成的平地上、够得着的，由近及远取够数——城长大了、档位变了，原有的村不挪地方，只是近处的被城吞进去、
@@ -397,10 +423,11 @@ public static class UrbanFabric
         sites.Sort((p, q) => p.d.CompareTo(q.d));
         foreach ((int x, int y, _) in sites)
         {
-            if (g.Villages.Count >= villages) break;
+            if (villageCount >= villages) break;
             if (!Open(g, x, y)) continue;
             if (g.Towns.Exists(t => Mathf.Abs(t.x - x) + Mathf.Abs(t.y - y) < t.size + 8)) continue;
             if (g.Villages.Exists(v => Mathf.Abs(v.x - x) + Mathf.Abs(v.y - y) < 9)) continue;
+            if (g.Ruins.Exists(r => Mathf.Abs(r.x - x) + Mathf.Abs(r.y - y) < 9)) continue;
             // 离路太近的不要(会压在路上)
             int best = 15, bx = 0, by = 0;
             foreach (Road road in g.Roads)
@@ -415,9 +442,11 @@ public static class UrbanFabric
                 }
             if (best < 3) continue;
             g.Villages.Add((x, y));
+            villageCount++;
+            RuralSettlementSystem.Add(x, y, false, 0, false);
         }
         // 画出来的路：两城之间的官道(见 Links)；通往邻城有官道的方向不再另画出城大路，出城大路、岔路走到本城地界以前收住
-        List<(Road road, City other)> links = Links(g, networked);
+        List<(Road road, City other)> links = Links(g);
         var drawn = new List<float>(linked);
         foreach ((Road _, City other) in links)
             if (other?.getTile() is WorldTile there) drawn.Add(Angle(there.x - g.GateX, there.y - g.GateY));
@@ -527,15 +556,18 @@ public static class UrbanFabric
                 if (!float.IsNaN(last.x) && Vector2.Distance(last, to) < 6f) continue;
                 last = to;
                 tried++;
-                if (AddTrail(g, from, to, i * 31L + 1 + tried * 7L)) break;
+                if (AddTrail(g, from, to, PosKey(x, y) * 31L + 1 + tried * 7L)) break;
             }
             // 近处的村：约一半连一条(每对只连一次)
             for (int j = i + 1; j < g.Villages.Count; j++)
             {
                 (int ox, int oy) = g.Villages[j];
                 var other = new Vector2(ox, oy);
-                if (Vector2.Distance(from, other) > NeighbourTrail || H(g.Seed, i, j, 95) >= 0.5f) continue;
-                AddTrail(g, from, other, i * 977L + j);
+                // 按两村的位置定(镇村从存档读出来的先后会变，按序号定的话小路会换)
+                long ka = PosKey(x, y), kb = PosKey(ox, oy);
+                if (ka > kb) (ka, kb) = (kb, ka);
+                if (Vector2.Distance(from, other) > NeighbourTrail || H(g.Seed, ka, kb, 95) >= 0.5f) continue;
+                AddTrail(g, from, other, ka * 977L + kb);
             }
         }
     }
@@ -627,53 +659,80 @@ public static class UrbanFabric
 
     private static (long, long) PairKey(long a, long b) => a < b ? (a, b) : (b, a);
 
-    // 经过本城地块的官道；other 为官道另一头的城(本城是一头时)，穿城而过的为 null
-    private static List<(Road road, City other)> Links(Geometry g, HashSet<(long, long)> networked)
+    // 一处镇村的位置键(画法、小路的种子按位置定，与先后、归哪座城无关)
+    internal static long PosKey(int x, int y) => x * 73856093L ^ y * 19349663L;
+
+    // 全图的官道(城市平面图每几秒就重算一次，官道只按城心、地形、路网定，缓存起来，城数变了或过半分钟再算)
+    private sealed class CachedLink
     {
-        var result = new List<(Road, City)>();
-        City self = g.City;
-        WorldTile home = self?.getTile();
-        if (home == null || self.zones == null || self.zones.Count == 0) return result;
-        int size = Config.CITY_ZONE_SIZE;
-        int bx0 = int.MaxValue, by0 = int.MaxValue, bx1 = int.MinValue, by1 = int.MinValue;
-        foreach (TileZone zone in self.zones)
-        {
-            bx0 = Mathf.Min(bx0, zone.x * size);
-            by0 = Mathf.Min(by0, zone.y * size);
-            bx1 = Mathf.Max(bx1, zone.x * size + size - 1);
-            by1 = Mathf.Max(by1, zone.y * size + size - 1);
-        }
+        public Road Road;
+        public long A, B;
+        public int X0, Y0, X1, Y1;
+    }
+
+    private static List<CachedLink> _links;
+    private static float _linksAt = -1000f;
+    private static long _linksKey;
+    private const float LinkRefreshSeconds = 30f;
+
+    private static List<CachedLink> AllLinks()
+    {
+        float now = Time.unscaledTime;
         var centers = new List<(City city, int x, int y)>();
-        foreach (City city in World.world.cities)
+        long key = 17;
+        unchecked
         {
-            if (city?.data == null || city.isRekt()) continue;
-            WorldTile tile = city.getTile();
-            if (tile != null) centers.Add((city, tile.x, tile.y));
+            foreach (City city in World.world.cities)
+            {
+                if (city?.data == null || city.isRekt()) continue;
+                WorldTile tile = city.getTile();
+                if (tile == null) continue;
+                centers.Add((city, tile.x, tile.y));
+                key = key * 31 + city.data.id * 7 + tile.x * 3 + tile.y;
+            }
         }
-        // 两头都在本城地界外扩 LinkReach 格以内的城才可能有官道经过本城
-        var near = new List<(City city, int x, int y)>();
-        foreach (var c in centers)
-            if (c.x >= bx0 - LinkReach && c.x <= bx1 + LinkReach && c.y >= by0 - LinkReach && c.y <= by1 + LinkReach) near.Add(c);
-        for (int i = 0; i < near.Count; i++)
-        for (int j = i + 1; j < near.Count; j++)
+        if (_links != null && key == _linksKey && now >= _linksAt && now - _linksAt < LinkRefreshSeconds) return _links;
+        _linksKey = key;
+        _linksAt = now;
+        var networked = new HashSet<(long, long)>();
+        foreach (KeyValuePair<(long, long), RoadLink> pair in RoadBuildingSystem.All)
+            if (pair.Value != null && (pair.Value.grade > 0 || pair.Value.building > 0))
+                networked.Add(PairKey(pair.Key.Item1, pair.Key.Item2));
+        // 按 LinkReach 分格，只比相邻九格里的城
+        var buckets = new Dictionary<(int, int), List<int>>();
+        for (int i = 0; i < centers.Count; i++)
         {
-            var (ca, ax, ay) = near[i];
-            var (cb, bx, by) = near[j];
+            var cell = (Mathf.FloorToInt(centers[i].x / (float)LinkReach), Mathf.FloorToInt(centers[i].y / (float)LinkReach));
+            if (!buckets.TryGetValue(cell, out List<int> list)) buckets[cell] = list = new List<int>();
+            list.Add(i);
+        }
+        IEnumerable<int> Around(int x, int y)
+        {
+            int cx = Mathf.FloorToInt(x / (float)LinkReach), cy = Mathf.FloorToInt(y / (float)LinkReach);
+            for (int dy = -1; dy <= 1; dy++)
+            for (int dx = -1; dx <= 1; dx++)
+                if (buckets.TryGetValue((cx + dx, cy + dy), out List<int> list))
+                    foreach (int index in list) yield return index;
+        }
+        var result = new List<CachedLink>();
+        for (int i = 0; i < centers.Count; i++)
+        foreach (int j in Around(centers[i].x, centers[i].y))
+        {
+            if (j <= i) continue;
+            var (ca, ax, ay) = centers[i];
+            var (cb, bx, by) = centers[j];
             if (ca.data.id > cb.data.id)
             {
                 (ca, cb) = (cb, ca);
                 (ax, ay, bx, by) = (bx, by, ax, ay);
             }
             float dx = bx - ax, dy = by - ay, d2 = dx * dx + dy * dy;
-            if (d2 > LinkReach * LinkReach || d2 < 36f) continue;
-            // 路(连弯的幅度)碰不到本城的地界就不必算
-            if (Mathf.Max(ax, bx) + 4 < bx0 || Mathf.Min(ax, bx) - 4 > bx1 || Mathf.Max(ay, by) + 4 < by0 || Mathf.Min(ay, by) - 4 > by1)
-                continue;
-            if (networked.Contains(PairKey(ca.data.id, cb.data.id))) continue;
+            if (d2 > LinkReach * LinkReach || d2 < 36f || networked.Contains(PairKey(ca.data.id, cb.data.id))) continue;
             // 相对邻近：有第三座城离两头都更近，两城就经由它相连
             bool between = false;
-            foreach ((City cx, int xx, int xy) in centers)
+            foreach (int k in Around(ax, ay))
             {
+                var (cx, xx, xy) = centers[k];
                 if (cx == ca || cx == cb) continue;
                 float da = (xx - ax) * (xx - ax) + (xy - ay) * (xy - ay), db = (xx - bx) * (xx - bx) + (xy - by) * (xy - by);
                 if (da < d2 && db < d2)
@@ -690,7 +749,7 @@ public static class UrbanFabric
                 X = ax, Y = ay, Dx = dx / length, Dy = dy / length, Length = Mathf.RoundToInt(length), Link = true,
                 Amp = 0.8f + 2.2f * H(sa, sb, 301), Freq = 0.04f + 0.08f * H(sa, sb, 302), Phase = H(sa, sb, 303) * TwoPi
             };
-            bool mine = ca == self || cb == self, clear = true;
+            bool clear = true;
             int water = 0;
             for (int d = 0; d <= road.Length && clear; d++)
             {
@@ -700,10 +759,47 @@ public static class UrbanFabric
                     clear = false;
                 else if (tile.Type.liquid) clear = ++water <= LinkFord;
                 else water = 0;
-                if (tile?.zone?.city == self) mine = true;
             }
-            if (!clear || !mine) continue;
-            result.Add((road, ca == self ? cb : cb == self ? ca : null));
+            if (!clear) continue;
+            int margin = Mathf.CeilToInt(road.Amp) + 1;
+            result.Add(new CachedLink
+            {
+                Road = road, A = ca.data.id, B = cb.data.id, X0 = Mathf.Min(ax, bx) - margin, Y0 = Mathf.Min(ay, by) - margin,
+                X1 = Mathf.Max(ax, bx) + margin, Y1 = Mathf.Max(ay, by) + margin
+            });
+        }
+        _links = result;
+        return result;
+    }
+
+    // 经过本城地块的官道；other 为官道另一头的城(本城是一头时)，穿城而过的为 null
+    private static List<(Road road, City other)> Links(Geometry g)
+    {
+        var result = new List<(Road, City)>();
+        City self = g.City;
+        if (self?.getTile() == null || self.zones == null || self.zones.Count == 0) return result;
+        int size = Config.CITY_ZONE_SIZE;
+        int bx0 = int.MaxValue, by0 = int.MaxValue, bx1 = int.MinValue, by1 = int.MinValue;
+        foreach (TileZone zone in self.zones)
+        {
+            bx0 = Mathf.Min(bx0, zone.x * size);
+            by0 = Mathf.Min(by0, zone.y * size);
+            bx1 = Mathf.Max(bx1, zone.x * size + size - 1);
+            by1 = Mathf.Max(by1, zone.y * size + size - 1);
+        }
+        long id = self.data.id;
+        foreach (CachedLink link in AllLinks())
+        {
+            if (link.X1 < bx0 || link.X0 > bx1 || link.Y1 < by0 || link.Y0 > by1) continue;
+            bool end = link.A == id || link.B == id, mine = end;
+            for (int d = 0; d <= link.Road.Length && !mine; d++)
+            {
+                (int x, int y) = Point(link.Road, d);
+                if (World.world.GetTile(x, y)?.zone?.city == self) mine = true;
+            }
+            if (!mine) continue;
+            City other = end ? World.world.cities.get(link.A == id ? link.B : link.A) : null;
+            result.Add((link.Road, other));
         }
         return result;
     }

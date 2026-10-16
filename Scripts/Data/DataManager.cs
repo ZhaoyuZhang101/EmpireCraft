@@ -278,6 +278,7 @@ public static class DataManager
         ModClass.MOD_ALLIANCE_IDS = new HashSet<long>(saveData.mod_alliance_ids ?? new List<long>());
         MapWallSystem.Load(saveData.map_walls);
         TilePlanSystem.Load(saveData.tile_plans);
+        RuralSettlementSystem.Load(saveData.rural_settlements);
         if (PlayerConfig.dict.TryGetValue("switch_real_num", out PlayerOptionData realNumOption))
         {
             realNumOption.boolVal = saveData.switch_real_num;
@@ -447,6 +448,7 @@ public static class DataManager
         saveData.mod_alliance_ids = ModClass.MOD_ALLIANCE_IDS.ToList();
         saveData.map_walls = MapWallSystem.Save();
         saveData.tile_plans = TilePlanSystem.Save();
+        saveData.rural_settlements = RuralSettlementSystem.Save();
         saveData.specificClans = SpecificClanManager._specificClans;
         saveData.switch_real_num = ModClass.REAL_NUM_SWITCH;
         saveData.switch_simple_nameplate = ModClass.SIMPLE_NAMEPLATE_SWITCH;
