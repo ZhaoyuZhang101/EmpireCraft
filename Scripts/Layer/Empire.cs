@@ -3644,6 +3644,36 @@ public class Empire : MetaObject<EmpireData>
         return true;
     }
 
+    // 逼宫废立(朝堂兵谏没有成员国可起兵时，见 CourtSystem.Escalate)：派系在都城逼今上退位，另立宗室里年长的成年男子
+    // (先挑本派的)；宗室里没人就作罢。宫廷内部易位，不走篡位叛乱那一套；返回新君
+    public Actor CompleteFactionDeposition(FixedFaction faction)
+    {
+        Actor deposed = Emperor;
+        Kingdom core = CoreKingdom;
+        City capital = core?.capital;
+        if (deposed == null || core == null || capital == null || faction == null) return null;
+        Actor heir = getUnits().Where(unit => unit != null && !unit.isRekt() && unit.isAlive() && unit.isSexMale() &&
+                                              unit.isAdult() && unit.id != deposed.id && unit.kingdom?.GetEmpire() == this &&
+                                              SpecificClanManager.SameLineage(unit.GetSpecificClan(), EmpireSpecificClan))
+            .OrderByDescending(unit => unit.GetFaction() == faction)
+            .ThenByDescending(unit => unit.getAge()).ThenBy(unit => unit.id).FirstOrDefault();
+        if (heir == null) return null;
+        string content = string.Format(LM.Get("court_history_palace_coup"), faction.Name, deposed.getName(), heir.getName());
+        TranslateHelper.LogEventOnly(content, core);
+        this.RecordHistory(directContent: content, actorId: heir.id);
+        deposed.RecordPersonalHistory(content, relatedActorId: heir.id);
+        heir.RecordPersonalHistory(content, relatedActorId: deposed.id);
+        Kingdom formerKingdom = heir.kingdom;
+        if (heir.isKing() && formerKingdom != core) formerKingdom.removeKing();
+        if (core.king?.id == deposed.id) core.removeKing();
+        heir.joinCity(capital);
+        heir.setKingdom(core);
+        _completingMinisterUsurpation = true;
+        try { core.setKing(heir); }
+        finally { _completingMinisterUsurpation = false; }
+        return Emperor?.id == heir.id ? heir : null;
+    }
+
     public bool CanPowerfulMinisterSeekDukedom(Actor actor)
     {
         return !data.powerful_minister_is_former_empress && !HaremBarred(actor) && CanAdvanceMinisterPlot(actor) &&

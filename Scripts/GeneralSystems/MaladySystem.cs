@@ -33,7 +33,9 @@ public static class MaladySystem
     public static readonly string[] All = { Graft, Annexation, Bloat, Military, Factionalism, Levies };
 
     private const float GraftCorruption = 0.012f, BloatCost = 0.12f, MilitaryPenalty = 0.25f, PhantomShare = 0.2f;
-    private const float ApprovalPenalty = 0.15f, FactionGrievance = 8f, LeviesBurden = 15f, StrainShare = 0.6f;
+    // 党争给各派怨望的年增：不超过每年自然回落的 4(见 CourtSystem.Income)，否则党争与怨望互相推高、各派永远罢朝
+    // (用户 2026-10-17 "全罢朝了是什么意思"，选"拆掉，党争只推怨望不超过每年回落")
+    private const float ApprovalPenalty = 0.15f, FactionGrievance = 3f, LeviesBurden = 15f, StrainShare = 0.6f;
 
     public static bool Applies(Empire empire) => empire?.data != null && DynasticCycleSystem.Applies(empire);
 

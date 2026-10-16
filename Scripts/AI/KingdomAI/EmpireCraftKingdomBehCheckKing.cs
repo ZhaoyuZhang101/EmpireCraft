@@ -8,6 +8,7 @@ using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
+using NeoModLoader.General;
 using NeoModLoader.services;
 
 namespace EmpireCraft.Scripts.AI.KingdomAI;
@@ -15,6 +16,21 @@ namespace EmpireCraft.Scripts.AI.KingdomAI;
 public class EmpireCraftKingdomBehCheckKing : GameAIKingdomBase
 {
     public override Type OriginalBeh => typeof(KingdomBehCheckKing);
+
+    // 帝国核心帝位虚悬起始的时间(不存档：读档后重新计满一年)
+    private static readonly global::System.Collections.Generic.Dictionary<long, double> VacantSince = new();
+    private const double VacantYears = 1d;
+
+    private static bool VacantLongEnough(Kingdom kingdom)
+    {
+        double now = World.world.getCurWorldTime();
+        if (!VacantSince.TryGetValue(kingdom.id, out double since) || now < since)
+        {
+            VacantSince[kingdom.id] = now;
+            return false;
+        }
+        return Date.getYearsSince(since) >= VacantYears;
+    }
     public override BehResult execute(Kingdom pKingdom)
     {
         if (pKingdom.data.timer_new_king > 0f)
@@ -23,6 +39,7 @@ public class EmpireCraftKingdomBehCheckKing : GameAIKingdomBase
         }
         if (pKingdom.hasKing())
         {
+            VacantSince.Remove(pKingdom.id);
             Actor king = pKingdom.king;
             if (king.isAlive())
             {
@@ -59,7 +76,15 @@ public class EmpireCraftKingdomBehCheckKing : GameAIKingdomBase
 
             if (pKingdom.IsEmpire())
             {
-                return BehResult.Continue;
+                // 帝位虚悬满一年、又不在议立(继承会议已放弃或无从议立)：无人可立，帝国降为王国，
+                // 之后照普通王国从官员里选、从人口里落成一位国君(用户 2026-10-17 "无皇帝都多少年了"，选"无人可立就降为王国")
+                if (!VacantLongEnough(pKingdom) || SuccessionCouncilSystem.InSession(pKingdom)) return BehResult.Continue;
+                Empire empire = pKingdom.GetEmpire();
+                string content = string.Format(LM.Get("empire_vacant_demoted"), empire.GetEmpireName(), pKingdom.GetKingdomName());
+                empire.RecordHistory(directContent: content, kingdomId: pKingdom.id);
+                TranslateHelper.LogEventOnly(content, pKingdom);
+                ModClass.EMPIRE_MANAGER.dissolveEmpire(empire);
+                VacantSince.Remove(pKingdom.id);
             }
         } 
         // 选举制国家的行政区：省长出缺由本省执政党递补

@@ -22,6 +22,9 @@ public static partial class CourtSystem
     private const float FavorCost = 10f;
     private const float AllyCost = 8f;
     private const float RecruitCost = 15f;
+    // 罢朝每年失圣眷(用户 2026-10-17 "既然怨气大为什么不造反"，选"罢朝逐年失圣眷，终至兵谏造反")：
+    // 以前罢朝的派系不出招，圣眷停在 50、永远够不着兵谏的 25；现在约六年降到 25 以下
+    private const float BoycottFavorLoss = 6f;
 
     private static void YearlyIfDue(Empire empire, CourtState state, double now)
     {
@@ -36,6 +39,8 @@ public static partial class CourtSystem
 
         List<Actor> council = Council(empire);
         foreach (FixedFaction faction in factions) Income(empire, faction, council);
+        // 帝位虚悬：没有可罢的朝、可邀的宠，各派不出招(虚悬久了无人可立就降为王国，见 EmpireCraftKingdomBehCheckKing)
+        if (empire.Emperor == null) return;
         UpdateStrategy(empire, state, factions);
         if (CouncilKind(empire) == CourtCouncilKind.Cabinet) ReshuffleCabinet(empire, state);
         foreach (FixedFaction faction in factions.OrderBy(_ => Random.value))
@@ -128,6 +133,7 @@ public static partial class CourtSystem
         CourtFactionState data = FactionState(empire, faction);
         if (IsBoycotting(data))
         {
+            data.favor = Mathf.Max(0f, data.favor - BoycottFavorLoss);
             Act(data, "boycott", "");
             Log(state, "court_log_boycott", faction.Name);
             return;
@@ -275,7 +281,8 @@ public static partial class CourtSystem
         return agreement == null ? classes : classes * 0.5f + agreement.Value * 0.5f;
     }
 
-    // 兵谏：怨望极高、圣眷尽失、又有成员国君主做本钱的派系起兵(派系叛乱)；每年最多一起
+    // 兵谏：怨望极高、圣眷尽失、又有成员国君主做本钱的派系起兵(派系叛乱)；每年最多一起。
+    // 没有成员国可起兵(只剩京畿)的：在都城逼宫，废今上、另立宗室(见 Empire.CompleteFactionDeposition)
     private static void Escalate(Empire empire, CourtState state, List<FixedFaction> factions)
     {
         Kingdom core = empire.CoreKingdom;
@@ -290,7 +297,15 @@ public static partial class CourtSystem
                                   kingdom.capital != null && CityStabilitySystem.CanRise(kingdom.capital) &&
                                   !kingdom.IsFactionRebelling() && !kingdom.getWars().Any())
                 .OrderByDescending(kingdom => kingdom.countTotalWarriors()).FirstOrDefault();
-            if (rebel == null) continue;
+            if (rebel == null)
+            {
+                Actor installed = empire.CompleteFactionDeposition(faction);
+                if (installed == null) continue;
+                data.grievance = 50f;
+                data.favor = 60f;
+                Log(state, "court_log_palace_coup", faction.Name);
+                return;
+            }
             RebellionCauseData cause = RebellionSystem.Capture(rebel, rebel.capital, "rebellion_reason_court", faction.Name);
             rebel.StartFactionRebelling(faction);
             War war = World.world.diplomacy.startWar(rebel, core, WarTypeLibrary.normal);
