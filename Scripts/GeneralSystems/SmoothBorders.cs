@@ -48,6 +48,16 @@ public static class SmoothBorders
         World.world?.zone_calculator?.dirtyAndClear();
     }
 
+    // 图层诊断用(见 LayerDiagnostics)：这一格上次画时记下的归属、边框、是否归别人，这块地是否正在翻牌
+    internal static string Describe(int tileId, int zoneId)
+    {
+        if (!Enabled || tileId < 0 || tileId >= _owner.Length) return "平滑国界关";
+        IMetaObject owner = _owner[tileId];
+        string name = owner is Kingdom kingdom ? kingdom.name : owner is City city ? city.name : owner?.GetType().Name ?? "无";
+        return $"记下归属 {name}，边框 {_outline[tileId]}，归别人 {_foreign[tileId]}，有底色 {_hasBase[tileId]}，" +
+               $"翻牌中 {Transitions.ContainsKey(zoneId)}，有快照 {Snapshots.ContainsKey(zoneId)}";
+    }
+
     public static bool IsOutline(int tileId) => Enabled && tileId >= 0 && tileId < _outline.Length && _outline[tileId];
     public static bool IsForeign(int tileId) => Enabled && tileId >= 0 && tileId < _foreign.Length && _foreign[tileId];
 
