@@ -171,8 +171,8 @@ public static class PartySystem
         { PartyIdeology.YinYang, FactionType.神权 },
         { PartyIdeology.ImperialPower, FactionType.尊王 },
         { PartyIdeology.GreatClans, FactionType.诸侯 },
-        { PartyIdeology.ConsortKin, FactionType.血脉 },
-        { PartyIdeology.Eunuchs, FactionType.中央 },
+        { PartyIdeology.ConsortKin, FactionType.外戚 },
+        { PartyIdeology.Eunuchs, FactionType.宦官 },
         { PartyIdeology.Animism, FactionType.原始 }
     };
 
@@ -266,6 +266,9 @@ public static class PartySystem
     };
 
     public static IdeologyRoute RouteOf(PartyIdeology ideology) => Routes[ideology];
+
+    // 理念对应的派系类型(政党、朋党都用)
+    public static FactionType FactionTypeOf(PartyIdeology ideology) => IdeologyFactionTypes[ideology];
 
     // 理念在光谱上的坐标：x 经济(-100 左 ~ 100 右)，y 权力(100 自由 ~ -100 极权)
     public static Vector2 GetPosition(PartyIdeology ideology) => IdeologyPositions[ideology];
@@ -456,7 +459,7 @@ public static class PartySystem
     public static PartyIdeology LeaningOf(FixedFaction faction)
     {
         if (faction == null) return PartyIdeology.Centrism;
-        if (faction.IsParty) return faction.Ideology;
+        if (faction.IsParty || faction.IsClique) return faction.Ideology;
         if (faction.ClassAffinities == null || faction.ClassAffinities.Count == 0) FactionClassSystem.EnsureProfile(faction);
         Vector2 weighted = Vector2.zero;
         float total = 0f;
@@ -472,6 +475,7 @@ public static class PartySystem
     private static void ConvertToParty(Empire empire, FixedFaction faction, PartyIdeology ideology, string name)
     {
         faction.IsParty = true;
+        faction.IsClique = false;
         faction.Ideology = ideology;
         faction.Name = name;
         faction.Type = IdeologyFactionTypes[ideology];

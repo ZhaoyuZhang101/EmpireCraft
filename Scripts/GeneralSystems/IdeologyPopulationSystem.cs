@@ -429,6 +429,8 @@ public static partial class IdeologyPopulationSystem
             bool classChanged = !string.IsNullOrEmpty(data.last_ideology_social_class) &&
                                 data.last_ideology_social_class != socialClass.ToString();
             data.last_ideology_social_class = socialClass.ToString();
+            // 外戚、宦官的立场只在朝堂里，不随民间交往改变(见 CliqueSystem)
+            if (IdeologyFamilies.IsCourtOnly(Get(actor))) continue;
             if (Decide(socialClass, Get(actor), actor.getAge(), classChanged, out PartyIdeology target))
                 Set(actor, target);
         }

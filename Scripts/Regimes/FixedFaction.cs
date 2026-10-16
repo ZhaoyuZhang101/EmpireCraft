@@ -151,6 +151,24 @@ public static class FactionManager
                     TemporaryFactionType.宗教同化, TemporaryFactionType.游牧化, TemporaryFactionType.劫掠,
                     TemporaryFactionType.游牧扩张, TemporaryFactionType.对外扩张, TemporaryFactionType.索取皇位
                 }
+            },
+            {
+                // 后党(见 CliqueSystem)
+                FactionType.外戚,
+                new List<TemporaryFactionType>
+                {
+                    TemporaryFactionType.太后临朝, TemporaryFactionType.封赏后族, TemporaryFactionType.册立储君,
+                    TemporaryFactionType.转世袭, TemporaryFactionType.索取皇位
+                }
+            },
+            {
+                // 阉党
+                FactionType.宦官,
+                new List<TemporaryFactionType>
+                {
+                    TemporaryFactionType.宦官掌兵, TemporaryFactionType.恢复世袭皇权, TemporaryFactionType.颁布帝国治安令,
+                    TemporaryFactionType.提高赋税
+                }
             }
         };
 
@@ -295,7 +313,9 @@ public enum FactionType
     融入,  //融入帝国中最大的文明
     同化,  //同化掉其他地区的文明
     共产,  //社会主义
-    无
+    无,
+    外戚,  //后党(朋党，见 CliqueSystem)；追加在末尾
+    宦官   //阉党
 }
 public class FixedFaction
 {
@@ -315,6 +335,9 @@ public class FixedFaction
     public long PartyFounderId { get; set; } = -1L;
     public double PartyFoundedAt { get; set; } = -1d;
     public int ZeroSeatElections { get; set; }
+    // —— 朋党(党禁前的华夏朝堂派系像政党一样兴衰，见 CliqueSystem)：理念记在 Ideology ——
+    public bool IsClique { get; set; }
+    public double CliqueFoundedAt { get; set; } = -1d;
     public string Name { set; get; }
     public long EmpireId { get; set; } = -1L;
     public bool Hide { get; set; } = false;
@@ -406,7 +429,9 @@ public class FixedFaction
             Ideology = Ideology,
             OriginFactionName = OriginFactionName,
             PartyFounderId = PartyFounderId,
-            PartyFoundedAt = PartyFoundedAt
+            PartyFoundedAt = PartyFoundedAt,
+            IsClique = IsClique,
+            CliqueFoundedAt = CliqueFoundedAt
         };
         TemporaryFactionTypesRecord = new List<TemporaryFactionType>(GetClaimCatalog());
         newFaction.TemporaryFactions = newFaction.ConvertToObjectFromFactionType();
@@ -438,7 +463,9 @@ public class FixedFaction
             Ideology = Ideology,
             OriginFactionName = OriginFactionName,
             PartyFounderId = PartyFounderId,
-            PartyFoundedAt = PartyFoundedAt
+            PartyFoundedAt = PartyFoundedAt,
+            IsClique = IsClique,
+            CliqueFoundedAt = CliqueFoundedAt
         };
         newFaction.TemporaryFactions = newFaction.ConvertToObjectFromFactionType();
         newFaction.TemporaryFactions.ForEach(tf=>tf.Init(newFaction));

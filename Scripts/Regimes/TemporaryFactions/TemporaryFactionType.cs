@@ -97,5 +97,11 @@ public enum TemporaryFactionType
     [Description("清查中央与地方吏治，惩治贪墨")]
     整顿吏治,
     [Description("开仓放粮、蠲免钱粮，赈济闹饥荒的城市")]
-    赈济灾荒
+    赈济灾荒,
+    [Description("后党请幼主、庸弱之君在位时太后临朝称制")]
+    太后临朝,
+    [Description("后党请封外戚首领为公侯")]
+    封赏后族,
+    [Description("阉党首领请掌京师禁军")]
+    宦官掌兵
 }

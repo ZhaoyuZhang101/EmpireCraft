@@ -335,6 +335,9 @@ public static class FactionClassSystem
                 (SocialClass.Merchant, -80)),
             FactionType.原始 => Affinities((SocialClass.Peasant, 45), (SocialClass.Noble, 20), (SocialClass.SlaveOwner, 30),
                 (SocialClass.Guoren, 35), (SocialClass.Yeren, 35)),
+            // 后党靠后族与贵戚，阉党没有阶层根基(靠君主宠信)
+            FactionType.外戚 => Affinities((SocialClass.Noble, 70), (SocialClass.Landlord, 30), (SocialClass.Officer, -25)),
+            FactionType.宦官 => Affinities((SocialClass.Army, 15), (SocialClass.Officer, -40), (SocialClass.Noble, -30)),
             _ => new Dictionary<SocialClass, float>()
         };
         return profile.TryGetValue(socialClass, out float affinity) ? affinity : 0f;

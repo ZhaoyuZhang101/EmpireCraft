@@ -81,6 +81,8 @@ public static partial class IdeologyPopulationSystem
         foreach(Actor actor in city.units)
         {
             if(actor?.data==null||actor.isRekt()||!actor.isAlive()||!actor.isAdult())continue;
+            // 外戚、宦官的立场只在朝堂里，不随民间交往改变(见 CliqueSystem)
+            if(IdeologyFamilies.IsCourtOnly(Get(actor)))continue;
             var extra=actor.GetOrCreate();SocialClass socialClass=extra.socialClass;
             subjects.Add(new ContactSubject((int)socialClass,(int)Get(actor),actor.getAge(),
                 !string.IsNullOrEmpty(extra.last_ideology_social_class)&&extra.last_ideology_social_class!=socialClass.ToString()));

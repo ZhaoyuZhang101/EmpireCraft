@@ -23,7 +23,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 文臣专权(绥靖)：派系首领做权臣更快(权臣 → 挟制天子成傀儡 → 封公封王 → 篡位，见 Empire.UpdatePowerfulMinister)，
 //     吏治败坏、冗官冗费、土地兼并、武备废弛的积弊滋长；
 //   · 武人跋扈(攘夷、僭主)：禁军忠诚下降(宫廷政变、废立，见 PalaceArmySystem)，加税养兵(苛捐杂税)，各省离心(藩镇割据)；
-//   · 外戚干政(尊王、血脉、中央)：外戚随时有撑腰、可以专权(见 ConsortKinSystem.Backed)，外戚与本派首领做权臣更快，吏治败坏；
+//   · 近幸专权(宦官，或尊王、中央这类君权派)：吏治败坏、党争，禁军也不稳；
+//   · 外戚干政(外戚、血脉)：外戚随时有撑腰、可以专权(见 ConsortKinSystem.Backed)，外戚与本派首领做权臣更快，吏治败坏；
 //   · 诸侯坐大(诸侯、自治)：土地兼并，各省离心；
 //   · 教权干政(神权)：苛捐杂税(什一税)、党争；
 //   · 其余：吏治败坏、党争。
@@ -32,7 +33,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 失衡度过 40 记一笔"一家独大"，回落到 20 以下记"复归平衡"。帝国主页"朝政积弊"卡里有一行派系失衡。
 public static class FactionBalanceSystem
 {
-    public enum Direction { None, Civil, Military, Consort, Regional, Clergy, Generic }
+    // Eunuch：近幸专权(宦官阉党，或尊王、中央这类君权派独大，宦官近臣弄权)
+    public enum Direction { None, Civil, Military, Consort, Regional, Clergy, Generic, Eunuch }
 
     private const float DominantShare = 60f, BalancedShare = 50f;
     private const float GrowthDivisor = 3f, MildDecay = 3f, BalancedDecay = 12f;
@@ -56,7 +58,9 @@ public static class FactionBalanceSystem
         null => Direction.None,
         FactionType.绥靖 => Direction.Civil,
         FactionType.攘夷 or FactionType.僭主 => Direction.Military,
-        FactionType.尊王 or FactionType.血脉 or FactionType.中央 => Direction.Consort,
+        // 外戚干政只算外戚与血脉(重血统的贵戚)；君权派独大则近幸专权(用户问"为什么外戚是血脉")
+        FactionType.外戚 or FactionType.血脉 => Direction.Consort,
+        FactionType.宦官 or FactionType.尊王 or FactionType.中央 => Direction.Eunuch,
         FactionType.诸侯 or FactionType.自治 => Direction.Regional,
         FactionType.神权 => Direction.Clergy,
         _ => Direction.Generic
@@ -172,6 +176,10 @@ public static class FactionBalanceSystem
                 MaladySystem.Aggravate(empire, MaladySystem.Levies, 3f * s);
                 MaladySystem.Aggravate(empire, MaladySystem.Factionalism, 2f * s);
                 break;
+            case Direction.Eunuch:
+                MaladySystem.Aggravate(empire, MaladySystem.Graft, 3f * s);
+                MaladySystem.Aggravate(empire, MaladySystem.Factionalism, 2f * s);
+                break;
             default:
                 MaladySystem.Aggravate(empire, MaladySystem.Graft, 2f * s);
                 MaladySystem.Aggravate(empire, MaladySystem.Factionalism, 2f * s);
@@ -217,7 +225,13 @@ public static class FactionBalanceSystem
     public static bool BacksConsortKin(Empire empire) => Current(empire) == Direction.Consort && Imbalance(empire) >= WarnAt;
 
     // 武人跋扈：禁军忠诚的目标值往下压(见 PalaceArmySystem)
-    public static float PalaceUnrest(Empire empire) => Current(empire) == Direction.Military ? 30f * Severity(empire) : 0f;
+    public static float PalaceUnrest(Empire empire) => Current(empire) switch
+    {
+        Direction.Military => 30f * Severity(empire),
+        // 近幸专权：宦官近臣插手禁军
+        Direction.Eunuch => 15f * Severity(empire),
+        _ => 0f
+    };
 
     // 各省离心(见 ProvincialCollapseSystem.Crisis)：武人跋扈(藩镇)、诸侯坐大
     public static float CollapseFactor(Empire empire) => Current(empire) switch

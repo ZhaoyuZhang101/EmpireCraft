@@ -952,6 +952,23 @@ public static class CorpsSystem
         GeneralsByCity[home.id] = count + 1;
     }
 
+    // 改由某人统领这支军(宦官掌兵等，见 TempFac_宦官掌兵)：原统领卸任
+    public static bool AssignGeneral(Kingdom kingdom, CorpsData corps, Actor general)
+    {
+        if (kingdom == null || corps == null || general?.data == null || general.isRekt() || !general.isAlive() ||
+            general.kingdom != kingdom || IsGeneral(general)) return false;
+        RemoveGeneral(corps);
+        corps.general_id = general.id;
+        GeneralIndex[general.id] = (kingdom.id, corps.id);
+        City home = Home(corps);
+        if (home != null)
+        {
+            GeneralsByCity.TryGetValue(home.id, out int count);
+            GeneralsByCity[home.id] = count + 1;
+        }
+        return true;
+    }
+
     private static void RemoveGeneral(CorpsData corps)
     {
         if (corps.general_id < 0) return;

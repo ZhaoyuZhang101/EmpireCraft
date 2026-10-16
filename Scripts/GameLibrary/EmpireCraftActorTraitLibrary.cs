@@ -25,6 +25,13 @@ public static class EmpireCraftActorTraitLibrary
                 action_on_augmentation_add = IdeologyPopulationSystem.OnTraitAdded
             });
         IdeologyPopulationSystem.SetTraitsReady();
+        // 宦官(阉党，见 CliqueSystem)
+        lib.add(new ActorTrait
+        {
+            id = CliqueSystem.EunuchTrait,
+            path_icon = IdeologyTraitIcons.Path(PartyIdeology.Eunuchs),
+            group_id = "EmpireIdeology"
+        });
         lib.add(new ActorTrait
         {
             id = "jingshi",
