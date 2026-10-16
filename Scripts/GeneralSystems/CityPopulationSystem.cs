@@ -1297,9 +1297,35 @@ public static class CityPopulationSystem
         return "普通(待并入)";
     }
 
+    // 进行中的谋划所针对的人物(几秒重算一次)
+    private static readonly HashSet<long> PlotTargets = new();
+    private static float _plotTargetsAt = -100f;
+
+    public static bool IsPlotTarget(Actor actor)
+    {
+        if (actor?.data == null || World.world?.plots == null) return false;
+        if (UnityEngine.Time.realtimeSinceStartup - _plotTargetsAt > 3f)
+        {
+            _plotTargetsAt = UnityEngine.Time.realtimeSinceStartup;
+            PlotTargets.Clear();
+            try
+            {
+                foreach (Plot plot in World.world.plots)
+                    if (plot?.data != null && plot.target_actor?.data != null) PlotTargets.Add(plot.target_actor.id);
+            }
+            catch
+            {
+                // 遍历时谋划列表变了：这次按没有算
+            }
+        }
+        return PlotTargets.Contains(actor.id);
+    }
+
     public static bool IsNotable(Actor actor, bool includeClanHead)
     {
         if (actor?.data == null || actor.isRekt()) return true;
+        // 谋划的目标(要刺杀、废立的人)也留着：并入人口后谋划还指着这个已回收的单位，存档时原版空引用
+        if (IsPlotTarget(actor)) return true;
         if (PureMapMode.Enabled) return PureNotable(actor);
         if (actor.isKing() || actor.isCityLeader()) return true;
         if (actor.isFavorite() || actor.isCameraFollowingUnit()) return true;
