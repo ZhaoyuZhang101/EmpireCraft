@@ -1414,6 +1414,20 @@ public static class SmoothBorders
 
     public static void ClearCache() => Snapshots.Clear();
 
+    // 残留的边框(见 LayerDiagnostics)：丢掉这块地的上色缓存，连同四邻重画
+    public static void Repaint(TileZone zone)
+    {
+        if (zone == null) return;
+        Snapshots.Remove(zone.id);
+        zone.resetRenderHelpers();
+        foreach (TileZone next in zone.neighbours_all ?? Array.Empty<TileZone>())
+        {
+            if (next == null) continue;
+            Snapshots.Remove(next.id);
+            next.resetRenderHelpers();
+        }
+    }
+
     #endregion
 
     private static Color32 Lifted(int id)
