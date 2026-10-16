@@ -33,6 +33,8 @@ public sealed class CorpsData
     // 统领实体(开关打开时才有)
     public long general_id = -1L;
     public double raised_at = -1d;
+    // 手动组建的军(军事页"组建新军"，见 CorpsSystem.RaiseManual)：不按军制兵额自动增减、裁撤，照常补员，可手动解散
+    public bool manual;
     // 兵员来源：退伍时按来源还回人口，阵亡按比例扣减
     public List<LegionPopulationContribution> population = new();
     // 义军：起义、革命时临时武装，仗打完就地解散

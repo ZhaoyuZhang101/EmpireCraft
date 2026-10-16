@@ -114,6 +114,8 @@ namespace EmpireCraft.Scripts.UI.Windows
                              .ThenBy(corps => corps.militia).ThenBy(corps => corps.serial))
                     AddCorpsRow(table, inner, corps, focusCorps?.Contains(corps.id) == true);
             }
+            // 组建新军(见 CorpsSystem.RaiseManual)：每国一行，点驻地就在那里组建一军
+            foreach (Kingdom kingdom in realms) AddRaiseRow(table, inner, kingdom, realms.Count > 1);
             if (all.Count == 0)
                 table.AddTextIntoVertLayout(LM.Get("corps_none").ColorString("#8FA0A8"), true, TextAnchor.MiddleLeft,
                     new Vector2(inner, 12f)).UseFixedFontSize(6, HorizontalWrapMode.Wrap);
@@ -263,8 +265,60 @@ namespace EmpireCraft.Scripts.UI.Windows
                 corps.org < 30f ? OrgLowColor : OrgColor);
             org.AddTextIntoHoriLayout(Mathf.RoundToInt(corps.org).ToString(), true, TextAnchor.MiddleLeft,
                 new Vector2(W(4) * 0.4f - 3f, 12f)).UseFixedFontSize(6, HorizontalWrapMode.Overflow);
-            row.AddTextIntoHoriLayout(TaskText(corps), true, TextAnchor.MiddleLeft, new Vector2(W(5), 12f))
+            if (!corps.manual)
+            {
+                row.AddTextIntoHoriLayout(TaskText(corps), true, TextAnchor.MiddleLeft, new Vector2(W(5), 12f))
+                    .UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+                return;
+            }
+            // 手动组建的军：任务后带"解散"按钮(交战中的不能解散)
+            const float DisbandWidth = 22f;
+            var cell = row.BeginHoriGroup(new Vector2(W(5), 12f), TextAnchor.MiddleLeft, 2, new RectOffset(0, 0, 0, 0));
+            var task = cell.AddTextIntoHoriLayout(TaskText(corps), true, TextAnchor.MiddleLeft, new Vector2(W(5) - DisbandWidth - 2f, 12f));
+            task.UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+            Kingdom owner = World.world.kingdoms.get(corps.kingdom_id);
+            AdvancedButton disband = null;
+            disband = cell.AddButtonIntoHoriLayout($"corps_disband_{corps.id}", LM.Get("corps_manual_disband"), () =>
+            {
+                if (!CorpsSystem.DisbandManual(owner, corps) || disband == null) return;
+                task.text.text = LM.Get("corps_manual_disbanded").ColorString("#8FA0A8");
+                disband.gameObject.SetActive(false);
+            }, size: new Vector2(DisbandWidth, 10f));
+            if (corps.task is "attack" or "defend") disband.Button.interactable = false;
+        }
+
+        private const int RaiseSeats = 5;
+
+        // 组建新军一行：国名(多国时)、几座兵源最多的城做按钮；组建后按钮改字、不再可点
+        private static void AddRaiseRow(AutoVertLayoutGroup card, float width, Kingdom kingdom, bool named)
+        {
+            List<City> seats = CorpsSystem.ManualSeats(kingdom, RaiseSeats);
+            if (seats.Count == 0) return;
+            var row = card.BeginHoriGroup(new Vector2(width, 12f), TextAnchor.MiddleLeft, 3, new RectOffset(0, 0, 2, 0));
+            string label = string.Format(LM.Get(named ? "corps_manual_row_named" : "corps_manual_row"), kingdom.GetKingdomName(),
+                CorpsSystem.ManualCount(kingdom), CorpsSystem.ManualLimit(kingdom));
+            row.AddTextIntoHoriLayout(label.ColorString("#E6DCA8"), true, TextAnchor.MiddleLeft, new Vector2(width * 0.3f, 12f))
                 .UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+            float buttonWidth = Mathf.Min(64f, (width * 0.7f - 3f * seats.Count) / seats.Count);
+            foreach (City city in seats)
+            {
+                City seat = city;
+                string blocker = CorpsSystem.ManualBlocker(kingdom, seat);
+                AdvancedButton button = null;
+                button = row.AddButtonIntoHoriLayout($"corps_raise_{kingdom.id}_{seat.id}", seat.GetCityName(), () =>
+                {
+                    CorpsData raised = CorpsSystem.RaiseManual(kingdom, seat);
+                    if (raised == null || button == null) return;
+                    button.Text.text = string.Format(LM.Get("corps_manual_done"), CorpsSystem.Name(raised));
+                    button.Button.interactable = false;
+                }, size: new Vector2(buttonWidth, 10f));
+                if (blocker != null) button.Button.interactable = false;
+                UIHelper.AttachTextTooltip(button.gameObject, $"corps_raise_{kingdom.id}_{seat.id}", LM.Get("corps_manual_title"),
+                    string.Format(LM.Get("corps_manual_tip"), seat.GetCityName(),
+                        CorpsSystem.ShortStrength(CorpsSystem.ManualSize(kingdom, seat)),
+                        MoneyDisplay.Format(CorpsSystem.ManualCost(kingdom, seat)), MoneyDisplay.Format(kingdom.GetMoney())) +
+                    (blocker == null ? "" : "\n" + LM.Get(blocker).ColorString("#E8584F")));
+            }
         }
 
         // 兵种格：兵种名；本文化有更新的装备时带"换装"按钮(花本国国库，见 CorpsArmSystem.Refit)，换完就地改字、按钮消失

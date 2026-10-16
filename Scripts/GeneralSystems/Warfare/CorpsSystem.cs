@@ -495,7 +495,7 @@ public static class CorpsSystem
             if (!posts.TryGetValue(city, out int legions)) continue;
             int wanted = legions <= 0 ? 0 : Mathf.CeilToInt(legions / (float)LegionsPerCorps);
             var here = list.Where(corps => corps.home_city_id == city.id && !corps.militia && corps.order_id < 0 &&
-                                           corps.parent_id < 0).ToList();
+                                           corps.parent_id < 0 && !corps.manual).ToList();
             // 每支军分到的旧制军团数
             for (int i = 0; i < Mathf.Max(wanted, here.Count); i++)
             {
@@ -528,10 +528,79 @@ public static class CorpsSystem
                     Demobilize(kingdom, corps, Mathf.Min(corps.strength + away - corps.full, corps.full * DemobilizeShare + 1f));
             }
         }
+        // 手动组建的军：只补员，不随兵额增减
+        if (!unpaid)
+            foreach (CorpsData corps in list.Where(corps => corps.manual && !corps.embarked && corps.supply >= 0.5f &&
+                                                            corps.strength < corps.full).ToList())
+                Reinforce(kingdom, corps, corps.full * ReinforceShare * corps.supply);
         // 义军：仗打完就地解散
         if (!war)
             foreach (CorpsData corps in list.Where(corps => corps.militia).ToList()) Disband(kingdom, corps);
     }
+
+    #region 手动组建(军事页"组建新军"，玩家反馈"在这两个界面里，弄一个添加……"，选"手动组建军团")
+
+    // 一支新军的满编：本国现有正规军的平均满编，没有就取驻地背景人口的二十分之一(五十到两千)；
+    // 每人一次性花一成国库(折合)；一国手动组建的军至多 1 + 城数/4 支
+    private const float ManualShareOfCity = 0.05f, ManualMin = 50f, ManualMax = 2000f, ManualCostPerPerson = 0.1f;
+
+    public static int ManualLimit(Kingdom kingdom) => 1 + (kingdom?.cities?.Count ?? 0) / 4;
+
+    public static int ManualCount(Kingdom kingdom) => Of(kingdom).Count(corps => corps.manual);
+
+    public static float ManualSize(Kingdom kingdom, City home)
+    {
+        List<CorpsData> regular = Of(kingdom).Where(corps => !corps.militia && corps.order_id < 0 && corps.parent_id < 0 &&
+                                                             corps.full > 0f).ToList();
+        float size = regular.Count > 0 ? regular.Average(corps => corps.full)
+            : CityPopulationSystem.GetBackgroundTotal(home) * ManualShareOfCity;
+        return Mathf.Clamp(size, ManualMin, ManualMax);
+    }
+
+    public static int ManualCost(Kingdom kingdom, City home) => Mathf.CeilToInt(ManualSize(kingdom, home) * ManualCostPerPerson);
+
+    // 可以组建的驻地：本国背景人口最多的几座城
+    public static List<City> ManualSeats(Kingdom kingdom, int count) =>
+        kingdom?.cities == null ? new List<City>()
+            : kingdom.cities.Where(city => city?.data != null && !city.isRekt())
+                .OrderByDescending(CityPopulationSystem.GetBackgroundTotal).Take(count).ToList();
+
+    // 不能组建的原因(本地化键)，能组建返回空
+    public static string ManualBlocker(Kingdom kingdom, City home)
+    {
+        if (!Enabled || kingdom?.data == null || kingdom.isRekt() || home?.data == null || home.kingdom != kingdom)
+            return "corps_manual_unavailable";
+        if (ManualCount(kingdom) >= ManualLimit(kingdom)) return "corps_manual_limit";
+        if (kingdom.GetMoney() < ManualCost(kingdom, home)) return "corps_manual_no_money";
+        if (CityPopulationSystem.GetBackgroundTotal(home) < ManualMin) return "corps_manual_no_people";
+        return null;
+    }
+
+    public static CorpsData RaiseManual(Kingdom kingdom, City home)
+    {
+        if (ManualBlocker(kingdom, home) != null) return null;
+        float size = ManualSize(kingdom, home);
+        int cost = ManualCost(kingdom, home);
+        if (!TreasurySystem.TrySpend(kingdom, cost, TreasuryCategory.Military)) return null;
+        CorpsData corps = Raise(kingdom, home, LegionsPerCorps, size, World.world.getCurWorldTime());
+        if (corps == null) return null;
+        corps.manual = true;
+        FrontSystem.Log(kingdom, string.Format(LM.Get("corps_log_manual_raised"), Name(corps), home.GetCityName(),
+            ShortStrength(corps.strength)));
+        return corps;
+    }
+
+    // 手动解散(交战中的不能解散)
+    public static bool DisbandManual(Kingdom kingdom, CorpsData corps)
+    {
+        if (kingdom == null || corps == null || !corps.manual || corps.task is "attack" or "defend") return false;
+        string name = Name(corps);
+        Disband(kingdom, corps);
+        FrontSystem.Log(kingdom, string.Format(LM.Get("corps_log_manual_disbanded"), name));
+        return true;
+    }
+
+    #endregion
 
     public static bool IsAtWar(Kingdom kingdom) =>
         kingdom != null && (kingdom.hasEnemies() || CityPopulationSystem.IsMobilizing(kingdom) ||
