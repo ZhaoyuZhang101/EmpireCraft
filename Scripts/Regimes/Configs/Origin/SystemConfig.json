@@ -86,7 +86,7 @@
           "require_traits": [],
           "condition": [],
           "city_type": "Origin_city",
-          "city_suffix_keys_by_culture": { "Huaxia": "city_suffix_county", "China": "city_suffix_county" }
+          "city_suffix_keys_by_culture": { "Huaxia": "city_suffix_county", "China": "city_suffix_county", "Japan": "city_suffix_mura" }
         },
         "Origin_centre": {
           "pre": "",
@@ -108,7 +108,7 @@
             "empire_center:true"
           ],
           "city_type": "Origin_city",
-          "city_suffix_keys_by_culture": { "Huaxia": "city_suffix_county", "China": "city_suffix_county" }
+          "city_suffix_keys_by_culture": { "Huaxia": "city_suffix_county", "China": "city_suffix_county", "Japan": "city_suffix_mura" }
         },
         "Origin_kingdom": {
           "pre": "",
@@ -125,7 +125,7 @@
             "empire_center:false"
           ],
           "city_type": "Origin_city",
-          "city_suffix_keys_by_culture": { "Huaxia": "city_suffix_county", "China": "city_suffix_county" }
+          "city_suffix_keys_by_culture": { "Huaxia": "city_suffix_county", "China": "city_suffix_county", "Japan": "city_suffix_mura" }
         }
       },
       "cities": {

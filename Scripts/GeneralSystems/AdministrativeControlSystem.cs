@@ -109,6 +109,8 @@ public static class AdministrativeControlSystem
         if (JimiSystem.IsJimiAdministration(kingdom) || JimiSystem.IsJimiRegion(kingdom, empire)) return true;
         RegimeType? regime = empire.CoreKingdom?.GetRegime()?.type;
         // 原始政体的部落联盟：各部落、方国自治
+        // 幕府：世袭大名的藩自治，天领由奉行直辖
+        if (regime == RegimeType.Bakufu) return kingdom.GetKingdomType() != KingdomType.Bakufu_tenryo;
         return regime == RegimeType.Feudalism || regime == RegimeType.Origin ||
                regime == RegimeType.ZhouFeudalism && kingdom.GetKingdomType() != KingdomType.ZhouFeudalism_jun;
     }
@@ -254,7 +256,7 @@ public static class AdministrativeControlSystem
         reach *= realm.GetRegime()?.type switch
         {
             RegimeType.LvLing => 1.15f,
-            RegimeType.Feudalism or RegimeType.ZhouFeudalism => 0.9f,
+            RegimeType.Feudalism or RegimeType.ZhouFeudalism or RegimeType.Bakufu => 0.9f,
             _ => 1f
         };
         return reach * RulerFactor(realm);
@@ -464,7 +466,7 @@ public static class AdministrativeControlSystem
     private static string Subordinate(Kingdom realm, Kingdom local)
     {
         Empire empire = realm.IsEmpire() ? realm.GetEmpire() : null;
-        if (empire != null && (realm.GetRegime()?.type is RegimeType.ZhouFeudalism or RegimeType.Origin ||
+        if (empire != null && (realm.GetRegime()?.type is RegimeType.ZhouFeudalism or RegimeType.Origin or RegimeType.Bakufu ||
                                TechnologySystem.GetEraTier(TechnologySystem.GetCultureOf(realm)) <= EarlyEraTier))
         {
             if (local.hasAlliance()) local.getAlliance().leave(local);

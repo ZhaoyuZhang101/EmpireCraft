@@ -57,10 +57,12 @@ public static class MediaSystem
     public static float MassFactor(Kingdom kingdom, PartyIdeology ideology) =>
         IsMassIdeology(ideology) ? MassFactors[PrintLevel(kingdom)] : 1f;
 
-    // 开放国家：言论没有严格审查(没有宪法按"一般"算，也是开放的)
+    // 开放国家：言论没有严格审查(没有宪法按"一般"算，也是开放的)，也没有锁国(制度特性 closed_country，如日本锁国令)
     public static bool IsOpen(Kingdom kingdom)
     {
         if (kingdom == null || kingdom.isRekt()) return false;
+        string culture = CultureService.GetRealmCulture(kingdom);
+        if (CultureService.IsValidCulture(culture) && InstitutionSystem.GetFeature(culture, "closed_country") > 0f) return false;
         Empire empire = kingdom.IsInEmpire() ? kingdom.GetEmpire() : null;
         return empire == null || ConstitutionSystem.GetSpeech(empire) != ConstitutionSpeech.Strict;
     }

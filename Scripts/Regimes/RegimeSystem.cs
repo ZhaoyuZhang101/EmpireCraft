@@ -55,6 +55,9 @@ public enum KingdomType
     Feudalism_diocese, // 神权国家下西方封建制的教区(官员选拔的行政区)
     Feudalism_free_city, // 封建制帝国的帝国自由城市(市议会推举执政，见 HolyRomanSystem.Members)
     Feudalism_prince_bishopric, // 封建制帝国的教会诸侯(主教领，主教按叙任权任命)
+    Bakufu_shogunate, // 幕府：将军的直辖(见 BakufuSystem)；以下追加在末尾以保持旧存档枚举值稳定
+    Bakufu_han,       // 藩：世袭大名的领国
+    Bakufu_tenryo,    // 天领：幕府派奉行治理的直辖地
 }
 
 public enum ArmyOfficialType
@@ -77,6 +80,7 @@ public enum CityType
     YouMu_city,
     ZhouFeudalism_city,
     ClassicalRepublic_city,
+    Bakufu_city, // 城下町；追加在末尾以保持旧存档枚举值稳定
 }
 public enum TaxLevel
 {
@@ -107,7 +111,8 @@ public enum RegimeType
     YouMu,         //游牧政体   - 蒙古汗国
     Republic,
     Origin,
-    ClassicalRepublic //古典城邦共和；追加在末尾以保持旧存档枚举值稳定
+    ClassicalRepublic, //古典城邦共和；追加在末尾以保持旧存档枚举值稳定
+    Bakufu //幕府：天皇为虚君、征夷大将军掌实权、大名世袭各藩(日本)
 }
 
 public enum ReligionLevel

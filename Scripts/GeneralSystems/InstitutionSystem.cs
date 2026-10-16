@@ -150,6 +150,7 @@ public static class InstitutionSystem
             }
         }
         InstitutionStateNormalizer.Normalize(state);
+        MigrateLine(culture, state);
         // 开局即初始状态：只给本线的根节点（无效果），其余一律自己研究或从别的线吸收。
         // 根节点已被后来的制度取代(如华夏母系氏族被父系、宗法取代)就不再补回
         foreach (string rootId in InstitutionDefinitionRegistry.GetRootNodes(GetCultureLine(culture)))
@@ -159,6 +160,45 @@ public static class InstitutionSystem
                 state.enacted_node_ids.Add(rootId);
         }
         return state;
+    }
+
+    // 文化换了制度线(如日本从华夏线分出自己的线)：旧线上已施行的制度折算到新线，旧档不退回原始阶段——
+    // 同一公共模板的实例直接对上；另按 LineMigrations 把旧线的阶段节点对到新线的阶段节点(连同前置一起施行)
+    private static readonly Dictionary<string, string> LineMigrations = new()
+    {
+        { "huaxia_patriarchal_clan", "japan_yamato_kingship" },
+        { "zhou_enfeoffment", "japan_kabane_ranks" },
+        { "huaxia_prefecture_county_bureaucracy", "japan_ritsuryo_state" },
+        { "huaxia_three_departments", "japan_ritsuryo_state" },
+        { "huaxia_land_equalization", "japan_handen" },
+        { "huaxia_military_garrison", "japan_samurai_bands" },
+        { "huaxia_constitutional_preparation", "japan_meiji_restoration" },
+    };
+
+    private static void MigrateLine(string culture, CultureInstitutionState state)
+    {
+        string line = GetCultureLine(culture);
+        if (string.IsNullOrEmpty(line) || state.line_id == line) return;
+        bool firstSeen = string.IsNullOrEmpty(state.line_id);
+        state.line_id = line;
+        List<InstitutionNodeConfig> foreign = state.enacted_node_ids.Select(InstitutionDefinitionRegistry.Get)
+            .Where(node => node != null && !IsSameLine(node.line, line) && !state.absorbed_node_ids.Contains(node.id)).ToList();
+        // 新开的文化、或一直就在这条线上的旧档：没有旧线成果可折算
+        if (foreign.Count == 0 || firstSeen && foreign.Count < 3) return;
+        List<InstitutionNodeConfig> lineNodes = InstitutionDefinitionRegistry.GetForLine(line).ToList();
+        var added = new List<InstitutionNodeConfig>();
+        foreach (InstitutionNodeConfig old in foreign)
+        {
+            InstitutionNodeConfig target = LineMigrations.TryGetValue(old.id, out string mapped)
+                ? InstitutionDefinitionRegistry.Get(mapped)
+                : lineNodes.FirstOrDefault(node => node.equivalence_key == old.equivalence_key && node.id != old.id);
+            if (target != null && IsSameLine(target.line, line)) ForceEnactChain(state, target, added);
+        }
+        // 旧线的节点不再算本文化自研，记作吸收来的(还在已掌握里，特性照旧生效)
+        foreach (InstitutionNodeConfig old in foreign)
+            if (!state.absorbed_node_ids.Contains(old.id)) state.absorbed_node_ids.Add(old.id);
+        if (added.Count > 0)
+            LogService.LogInfo($"[EmpireCraft][制度] {culture} 改用 {line} 线，旧线成果折算为 {string.Join("、", added.Select(node => node.id))}");
     }
 
     public static bool IsEnacted(string culture, string nodeId)
@@ -565,10 +605,10 @@ public static class InstitutionSystem
 
         SyncForeignRegime(empire);
         RetryPendingRegime(empire, state);
-        // 华夏原始阶段进入家天下：帝号的类别由"部落联盟"改称"朝"
-        if (DynastyNaming.HuaxiaOrigin(empire.CoreKingdom) &&
+        // 原始阶段的帝号类别随阶段改称(华夏部落联盟→朝，日本部族连合→王权)
+        if (empire.CoreKingdom.GetRegime() is Regime originRegime && originRegime.type == RegimeType.Origin &&
             !string.IsNullOrEmpty(empire.data.empire_type_key) && empire.data.empire_type_key.StartsWith("Origin_empire") &&
-            empire.data.empire_type_key != DynastyNaming.HuaxiaOriginEmpireKey(empire.CoreKingdom))
+            empire.data.empire_type_key != OverallHelperFunc.ResolveEmpireTypeKey(originRegime, empire.CoreKingdom))
             empire.data.empire_type_key = "";
         // 同文化的其他政权研究出来的制度，在这里把持久效果补到本政权身上
         SyncSharedEffects(empire);
@@ -2422,6 +2462,20 @@ public static class InstitutionSystem
         type == RegimeType.LvLing || type == RegimeType.ZhouFeudalism;
 
     private static void ApplyRegimeChange(Empire empire, RegimeType regimeType)
+    {
+        RegimeType? previousCore = empire?.CoreKingdom?.GetRegime()?.type;
+        try
+        {
+            ApplyRegimeChangeCore(empire, regimeType);
+        }
+        finally
+        {
+            // 开幕府 / 大政奉还(见 BakufuSystem)
+            BakufuSystem.OnRegimeChanged(empire, previousCore, regimeType);
+        }
+    }
+
+    private static void ApplyRegimeChangeCore(Empire empire, RegimeType regimeType)
     {
         List<Kingdom> affected = EnumerateAffectedKingdoms(empire);
         foreach (Kingdom kingdom in affected)

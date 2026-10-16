@@ -1,0 +1,251 @@
+{
+  "Bakufu": {
+    "description": "日本武家政权：天皇居于京都为虚君，征夷大将军开幕府掌实权，各藩大名世袭领国、负军役，幕府直辖天领派奉行治理",
+    "icon_url": "",
+    "era_name": true,
+    "has_cabinet": true,
+    "is_monarchy": true,
+    "allows_landlord_class": true,
+    "cabinet_is_electoral_college": false,
+    "cabinet_number": 3,
+    "leader_select_method": "Succession",
+    "default_kingdom": "Bakufu_han",
+    "centre_empire_separate": true,
+    "laws": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      16,
+      17,
+      19,
+      20,
+      21,
+      22,
+      24,
+      27,
+      28,
+      29,
+      30,
+      31,
+      32,
+      33,
+      34,
+      35,
+      36,
+      37,
+      38,
+      39,
+      40,
+      41,
+      46,
+      47,
+      48,
+      50,
+      51,
+      52,
+      53,
+      54,
+      55
+    ],
+    "Factions": [
+      {
+        "_id": "6a1f0c5e-3b8d-4f6a-9c21-7d5e4b2a1f01",
+        "Type": "中央",
+        "Ban": false,
+        "_requiredTraits": [],
+        "only_king": false,
+        "Name": "幕府派",
+        "EmpireId": -1,
+        "Members": [],
+        "TotalPower": 0,
+        "Leader": -1
+      },
+      {
+        "_id": "6a1f0c5e-3b8d-4f6a-9c21-7d5e4b2a1f02",
+        "Type": "自治",
+        "Ban": false,
+        "_requiredTraits": [],
+        "only_king": false,
+        "Name": "大名派",
+        "EmpireId": -1,
+        "Members": [],
+        "TotalPower": 0,
+        "Leader": -1
+      },
+      {
+        "_id": "6a1f0c5e-3b8d-4f6a-9c21-7d5e4b2a1f03",
+        "Type": "尊王",
+        "Ban": false,
+        "_requiredTraits": [],
+        "only_king": false,
+        "Name": "尊王派",
+        "EmpireId": -1,
+        "Members": [],
+        "TotalPower": 0,
+        "Leader": -1
+      }
+    ],
+    "options": {
+      "toggle_allow_diplomacy": [
+        0
+      ],
+      "toggle_allow_army": [
+        1
+      ],
+      "toggle_support_army_to_center": [
+        1
+      ],
+      "option_tax_level": [
+        1,
+        4
+      ],
+      "option_leader_select_method": [
+        0,
+        3
+      ],
+      "option_religion_type": [
+        2,
+        4
+      ],
+      "option_succession_law": [
+        0,
+        5
+      ]
+    },
+    "bureau_config": {
+      "cores": [
+        {
+          "pre": "",
+          "type": 1,
+          "description": "",
+          "powers": [
+            "拟定"
+          ],
+          "merit": -1,
+          "honorary": -1,
+          "require_traits": []
+        },
+        {
+          "pre": "",
+          "type": 2,
+          "description": "",
+          "powers": [
+            "审核"
+          ],
+          "merit": -1,
+          "honorary": -1,
+          "require_traits": []
+        },
+        {
+          "pre": "",
+          "type": 3,
+          "description": "",
+          "powers": [
+            "执行"
+          ],
+          "merit": -1,
+          "honorary": -1,
+          "require_traits": []
+        }
+      ],
+      "division": [],
+      "harems": [
+        {
+          "pre": "",
+          "type": 13,
+          "description": "",
+          "powers": [
+            "生育"
+          ],
+          "merit": -1,
+          "honorary": -1,
+          "peerageType": "Civil",
+          "select_from_local": false,
+          "leader_select_method": "Harem",
+          "require_traits": [],
+          "condition": []
+        }
+      ],
+      "kingdoms": {
+        "Bakufu_tenryo": {
+          "pre": "",
+          "type": 7,
+          "description": "",
+          "powers": [],
+          "merit": -1,
+          "honorary": -1,
+          "select_from_local": false,
+          "leader_select_method": "Exam",
+          "require_traits": [],
+          "condition": [
+            "empire_center:false",
+            "succession:false",
+            "allow_diplomacy:false"
+          ],
+          "city_type": "Bakufu_city"
+        },
+        "Bakufu_han": {
+          "pre": "",
+          "type": 5,
+          "description": "",
+          "powers": [],
+          "merit": -1,
+          "honorary": -1,
+          "select_from_local": false,
+          "leader_select_method": "Default",
+          "require_traits": [],
+          "condition": [
+            "empire_center:false"
+          ],
+          "city_type": "Bakufu_city"
+        },
+        "Bakufu_shogunate": {
+          "pre": "",
+          "type": 0,
+          "description": "",
+          "powers": [
+            "拟定",
+            "审核",
+            "执行"
+          ],
+          "merit": -1,
+          "honorary": -1,
+          "select_from_local": false,
+          "leader_select_method": "Default",
+          "require_traits": [],
+          "condition": [
+            "empire_center:true"
+          ],
+          "city_type": "Bakufu_city"
+        }
+      },
+      "armies": {},
+      "cities": {
+        "Bakufu_city": {
+          "pre": "",
+          "type": 8,
+          "description": "",
+          "powers": [],
+          "merit": -1,
+          "honorary": -1,
+          "select_from_local": false,
+          "leader_select_method": "Default",
+          "require_traits": [],
+          "condition": []
+        }
+      }
+    }
+  }
+}

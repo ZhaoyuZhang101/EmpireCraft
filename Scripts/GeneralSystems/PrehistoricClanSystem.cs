@@ -19,6 +19,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 宗法(周制)：男子称氏、女子称姓；没有氏的平民(贵族、官吏、君主、城主以外)只称名；
 //   · 郡县(郡国并行或郡县官僚，制度特性 surname_merged)：姓氏合一，氏就成了姓，百姓皆有姓。
 // 只改人物显示的名字，族谱里的姓(宗族)不变；时代变了每年把本文化在世的人重新起一次名。
+// 别的制度线按制度特性走(如日本)：no_surname 无姓只称名；noble_surname_only 贵族、官吏、武士有氏(苗字)、平民只称名；
+//   surname_merged 百姓皆有姓。上古人名、国号词库在声明了 primordial_naming 的阶段使用。
 public static class PrehistoricClanSystem
 {
     public const string MatrilinealFeature = "matrilineal_descent";
@@ -29,7 +31,9 @@ public static class PrehistoricClanSystem
     private static readonly Dictionary<string, (float until, SurnameEra era)> EraCache = new();
     private static readonly Dictionary<string, SurnameEra> LastEra = new();
 
-    public enum SurnameEra { None, Xing, ShiEmerging, ZhouShi, Merged }
+    public enum SurnameEra { None, Xing, ShiEmerging, ZhouShi, Merged, EliteOnly }
+    public const string NobleSurnameOnlyFeature = "noble_surname_only";
+    public const string PrimordialNamingFeature = "primordial_naming";
 
     private static readonly Dictionary<string, List<string>> AncientPools = new();
 
@@ -65,7 +69,9 @@ public static class PrehistoricClanSystem
     {
         try
         {
-            return CultureService.IsValidCulture(culture) && InstitutionSystem.GetCultureLine(culture) == "Huaxia" &&
+            if (!CultureService.IsValidCulture(culture)) return false;
+            if (InstitutionSystem.GetFeature(culture, PrimordialNamingFeature) > 0f) return true;
+            return InstitutionSystem.GetCultureLine(culture) == "Huaxia" &&
                    !InstitutionSystem.IsEnacted(culture, "huaxia_patriarchal_clan") &&
                    InstitutionSystem.GetFeature(culture, SurnameMergedFeature) <= 0f;
         }
@@ -97,12 +103,11 @@ public static class PrehistoricClanSystem
         if (founder?.data != null && !Noble(founder) && Random.value < 0.3f &&
             Pick(WordPool(culture, clan?.shi_craft_group)) is string craft)
             return craft;
-        return ShiFrom(source);
+        return ShiFrom(source, culture);
     }
 
     // 这个文化是否走姓氏演变：华夏线、且文化配置开了 surname_evolution
     private static bool Evolves(string culture) =>
-        InstitutionSystem.GetCultureLine(culture) == "Huaxia" &&
         OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(culture, out Setting setting) && setting?.surname_evolution == true;
 
     public static bool IsMatrilineal(string culture)
@@ -140,12 +145,15 @@ public static class PrehistoricClanSystem
         SurnameEra era;
         try
         {
+            bool huaxia = InstitutionSystem.GetCultureLine(culture) == "Huaxia";
             era = !CultureService.IsValidCulture(culture) || !Evolves(culture) ||
                   InstitutionSystem.GetFeature(culture, SurnameMergedFeature) > 0f ? SurnameEra.Merged
-                : InstitutionSystem.IsEnacted(culture, "huaxia_patriarchal_clan") ? SurnameEra.ZhouShi
+                : huaxia && InstitutionSystem.IsEnacted(culture, "huaxia_patriarchal_clan") ? SurnameEra.ZhouShi
                 : InstitutionSystem.GetFeature(culture, NoSurnameFeature) > 0f ? SurnameEra.None
-                : InstitutionSystem.GetFeature(culture, MatrilinealFeature) > 0f ? SurnameEra.Xing
-                : SurnameEra.ShiEmerging;
+                : huaxia && InstitutionSystem.GetFeature(culture, MatrilinealFeature) > 0f ? SurnameEra.Xing
+                : huaxia ? SurnameEra.ShiEmerging
+                : InstitutionSystem.GetFeature(culture, NobleSurnameOnlyFeature) > 0f ? SurnameEra.EliteOnly
+                : SurnameEra.Merged;
         }
         catch
         {
@@ -160,14 +168,23 @@ public static class PrehistoricClanSystem
         EraOf(culture) is SurnameEra.None or SurnameEra.Xing && AncientPool(culture).Count > 0;
 
     // 分支的氏还能不能新起(姓氏合一以后，分支沿用宗族的姓)
-    public static bool ShiForming(string culture) => EraOf(culture) is SurnameEra.ShiEmerging or SurnameEra.ZhouShi;
+    public static bool ShiForming(string culture) =>
+        EraOf(culture) is SurnameEra.ShiEmerging or SurnameEra.ZhouShi or SurnameEra.EliteOnly;
 
-    // 由分支的来历取氏：受封的国名、所居的城名、房祖的名，取首字
-    public static string ShiFrom(string source)
+    // 由分支的来历取氏：受封的国名、所居的城名、房祖的名，取首字；日本的苗字取前两字(足利、德川)
+    public static string ShiFrom(string source, string culture = null)
     {
         if (string.IsNullOrWhiteSpace(source)) return "";
         string trimmed = source.Trim();
-        return char.IsSurrogate(trimmed[0]) && trimmed.Length > 1 ? trimmed.Substring(0, 2) : trimmed.Substring(0, 1);
+        int length = !string.IsNullOrEmpty(culture) && InstitutionSystem.GetCultureLine(culture) == "Japan" ? 2 : 1;
+        var result = new global::System.Text.StringBuilder();
+        for (int i = 0; i < trimmed.Length && length > 0; i++)
+        {
+            result.Append(trimmed[i]);
+            if (char.IsHighSurrogate(trimmed[i]) && i + 1 < trimmed.Length) result.Append(trimmed[++i]);
+            length--;
+        }
+        return result.ToString();
     }
 
     // 族谱修正用：名字上显示的不是族谱的姓，是不是姓氏演变造成的(称氏、无姓)，是就不算错
@@ -187,11 +204,11 @@ public static class PrehistoricClanSystem
         return null;
     }
 
-    private static bool Noble(Actor actor)
+    private static bool Noble(Actor actor, bool warriors = false)
     {
         if (actor.isKing() || actor.isCityLeader()) return true;
         SocialClass socialClass = actor.GetOrCreate().socialClass;
-        return socialClass is SocialClass.Noble or SocialClass.Officer;
+        return socialClass is SocialClass.Noble or SocialClass.Officer || warriors && socialClass == SocialClass.Army;
     }
 
     // 名字上显示的姓(或氏)；返回空串表示只称名
@@ -209,6 +226,9 @@ public static class PrehistoricClanSystem
             case SurnameEra.ZhouShi:
                 if (actor.isSexMale() && ShiOf(actor) is string shi) return shi;
                 return !actor.isSexMale() || Noble(actor) ? surname : "";
+            case SurnameEra.EliteOnly:
+                // 贵族、官吏、武士称氏(苗字)，平民无姓
+                return Noble(actor, true) ? ShiOf(actor) ?? surname : "";
             default:
                 return ShiOf(actor) ?? surname;
         }

@@ -308,6 +308,9 @@ namespace EmpireCraft.Scripts.UI.Windows
                 Stat(LM.Get("empire_clan"), _empire.EmpireSpecificClan?.name ?? LM.Get("label_none"),
                     _empire.EmpireSpecificClan?.color ?? "#FFFFFF");
             }
+            // 幕府：天皇居于朝廷为虚君(见 BakufuSystem)
+            if (BakufuSystem.IsBakufu(_empire) && BakufuSystem.Emperor(_empire) is Actor courtEmperor)
+                Stat(LM.Get("bakufu_emperor"), courtEmperor.getName(), "#E8B840");
             Stat(LM.Get("i_population"), $"{ShortCount(_empire.CountPopulation())}/{ShortCount(_empire.countMaxPopulation())}", "#F2EEE2");
             // 战国周室：连同离开帝国的诸侯的"天下"城与人口
             if (ZhouEraSystem.DetachedVassals(_empire).Count > 0)

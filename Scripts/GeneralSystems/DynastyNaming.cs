@@ -42,6 +42,13 @@ public static class DynastyNaming
         kingdom?.data != null && !kingdom.isRekt() && kingdom.GetRegime()?.type == RegimeType.Origin &&
         InstitutionSystem.GetCultureLine(CultureService.GetRealmCulture(kingdom)) == "Huaxia";
 
+    // 制度线专属称谓：日本线的国家类别、官名在文本键后加 "_japan"(天皇、国司、大名、国……见各政体 OfficialType.csv)
+    public static string LineSuffix(Kingdom kingdom)
+    {
+        if (kingdom?.data == null || kingdom.isRekt()) return null;
+        return InstitutionSystem.GetCultureLine(CultureService.GetRealmCulture(kingdom)) == "Japan" ? "_japan" : null;
+    }
+
     // 帝国名的类别：部落联盟；进入家天下后称"朝"(夏、商)
     public static string HuaxiaOriginEmpireKey(Kingdom core) =>
         InstitutionSystem.IsEnacted(CultureService.GetRealmCulture(core), "huaxia_hereditary_kingship")
@@ -50,6 +57,7 @@ public static class DynastyNaming
 
     public static string KingdomTypeKey(Kingdom kingdom, KingdomType type)
     {
+        if (LineSuffix(kingdom) is string lineSuffix && LM.Has(type + lineSuffix)) return type + lineSuffix;
         if (type is KingdomType.Origin_centre or KingdomType.Origin_kingdom && HuaxiaOrigin(kingdom) &&
             LM.Has(type + "_huaxia"))
             return type + "_huaxia";
@@ -79,11 +87,10 @@ public static class DynastyNaming
     public static string RankKey(RegimeType regime, int officeType, NanoObject meta)
     {
         string key = $"{regime}_officiallevel_{officeType}";
+        Kingdom owner = meta switch { Kingdom k => k, City town => town.kingdom, Army army => army.getKingdom(), _ => null };
+        if (LineSuffix(owner) is string lineSuffix && LM.Has(key + lineSuffix)) return key + lineSuffix;
         if (regime == RegimeType.Origin)
-        {
-            Kingdom realm = meta switch { Kingdom k => k, City town => town.kingdom, Army army => army.getKingdom(), _ => null };
-            return realm != null && HuaxiaOrigin(realm) && LM.Has(key + "_huaxia") ? key + "_huaxia" : key;
-        }
+            return owner != null && HuaxiaOrigin(owner) && LM.Has(key + "_huaxia") ? key + "_huaxia" : key;
         if (regime == RegimeType.ZhouFeudalism)
         {
             // 春秋僭越、战国相王：诸侯国君改称王
