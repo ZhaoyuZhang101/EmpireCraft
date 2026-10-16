@@ -1464,7 +1464,7 @@ public static class EmpireCraftNamePlateLibrary
             string label = string.Format(LM.Get("label_feudal_vassal_of"), GetSafeKingdomName(lord));
             return $"{name}\n<size=70><color=#FF5555>{label}</color></size>";
         }
-        // 战国离开帝国的周诸侯：名字下面一行金字"某诸侯国"
+        // 战国离开帝国的周诸侯：名字下面一行金字"某诸侯国"(霸主、羁縻地区同理，见 ZhouVassalTag)
         if (ZhouVassalTag(kingdom) is string zhou) return $"{name}\n<size=70><color=#E8B840>{zhou}</color></size>";
         if (!kingdom.HasTakenAlliance()) return name;
         Empire overlord = kingdom.GetTakenAllianceEmpire();
@@ -1512,13 +1512,19 @@ public static class EmpireCraftNamePlateLibrary
         }
     }
 
-    // 战国离开帝国的周诸侯：铭牌下标"某某诸侯国"；奉部落联盟为共主的部落(见 TribalFissionService)：标"共事某某"
-    private static string ZhouVassalTag(Kingdom kingdom) =>
-        ZhouEraSystem.IsDetachedVassal(kingdom) && ZhouEraSystem.SphereOf(kingdom) is Empire sphere
-            ? string.Format(LM.Get("zhou_vassal_tag"), sphere.GetEmpireName())
-            : TribalFissionService.OverlordOf(kingdom) is Empire overlord
-                ? string.Format(LM.Get("tribal_vassal_tag"), TribalFissionService.OverlordName(overlord))
-                : null;
+    // 铭牌第二行小字：春秋霸主标"霸主"；战国离开帝国的周诸侯标"某某诸侯国"；羁縻地区(都护府、羁縻州)标青字"羁縻 · 某帝国"
+    // (用户 2026-10-17 选"地图标记")；奉部落联盟为共主的部落(见 TribalFissionService)：标"共事某某"
+    private static string ZhouVassalTag(Kingdom kingdom)
+    {
+        if (ZhouEraSystem.IsHegemon(kingdom)) return LM.Get("zhou_plate_hegemon");
+        if (ZhouEraSystem.IsDetachedVassal(kingdom) && ZhouEraSystem.SphereOf(kingdom) is Empire sphere)
+            return string.Format(LM.Get("zhou_vassal_tag"), sphere.GetEmpireName());
+        if (JimiSystem.IsJimiAdministration(kingdom) && kingdom.GetEmpire() is Empire jimi && !jimi.isRekt())
+            return $"<color=#7FD8C8>{string.Format(LM.Get("jimi_plate_tag"), jimi.GetEmpireName())}</color>";
+        return TribalFissionService.OverlordOf(kingdom) is Empire overlord
+            ? string.Format(LM.Get("tribal_vassal_tag"), TribalFissionService.OverlordName(overlord))
+            : null;
+    }
 
     private static string AppendFeudalLordLabel(NameplateText plate, Kingdom subject, string text)
     {
