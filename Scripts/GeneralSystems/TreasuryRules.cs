@@ -21,7 +21,9 @@ public enum TreasuryCategory
     // 宫廷开支(荒淫之君，见 RulerQualitySystem)
     Palace,
     // 战争开支：战时多出来的军饷、行军费、前线交战的粮秣军械损耗(见 CorpsSystem.PayUpkeep)
-    War
+    War,
+    // 岁祭(见 RitesSystem)
+    Rites
 }
 
 public sealed class TreasuryReport

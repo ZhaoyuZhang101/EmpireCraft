@@ -439,6 +439,8 @@ public class WarPatch: GamePatch
         try
         {
             EmpirePartitionSystem.OnWarStarted(__result);
+            // 施行祭祀的攻方战前先卜(见 RitesSystem)
+            RitesSystem.OnWarDeclared(__result);
             RoyalMarriageSystem.OnWarStarted(__result);
             SmoothBorders.RefreshWar(__result);
         }
