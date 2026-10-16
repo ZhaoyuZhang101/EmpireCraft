@@ -887,7 +887,8 @@ public partial class PureMapPatch : GamePatch
                 return tile.x == plan.gateX || tile.y == plan.gateY ? Lerp(color, Arterial, StreetShare) : Organic(color, slots, lx, ly, plan, zone);
             if (Maze(family))
                 return lx == 4 || ly == 4 ? Lerp(color, Lane, 0.6f) : Organic(color, slots, lx, ly, plan, zone);
-            return Grid(color, slots, lx, ly, plan, zone, false);
+            return StyleOf(family)?.Layout is "organic" ? Organic(color, slots, lx, ly, plan, zone)
+                : Grid(color, slots, lx, ly, plan, zone, false);
         }
         // 护城河：贴着城墙外侧一圈，城门处是桥
         if (plan != null && plan.moat && !wallsDown && BesideWall(tile, plan))

@@ -24,13 +24,9 @@ public static class ShanrangSystem
     // 各部落联盟上次见到的共主(人、名字；崩了以后人可能已经不在，史册要写他的名字)
     private static readonly Dictionary<long, (long id, string name)> LastRuler = new();
 
-    // 旧存档清过待推举那几任的部落联盟
-    private static readonly HashSet<long> Cleaned = new();
-
     public static void ResetWorldState()
     {
         LastRuler.Clear();
-        Cleaned.Clear();
     }
 
     // 共主推举而不是父子相传(华夏原始政体，还没施行世袭王权)
@@ -45,7 +41,11 @@ public static class ShanrangSystem
         foreach (Empire empire in ModClass.EMPIRE_MANAGER.ToList())
         {
             if (empire?.data == null || empire.isRekt() || empire.IsArchived() || !Elective(empire)) continue;
-            if (Cleaned.Add(empire.id)) DropInterimReigns(empire);
+            if (!empire.data.shanrang_cleaned)
+            {
+                empire.data.shanrang_cleaned = true;
+                DropInterimReigns(empire);
+            }
             Actor ruler = empire.Emperor;
             if (ruler?.data == null || ruler.isRekt() || !ruler.isAlive()) continue;
             bool known = LastRuler.TryGetValue(empire.id, out var last);
@@ -93,9 +93,16 @@ public static class ShanrangSystem
     {
         List<EmpireCraftHistory> history = empire.data.history;
         if (history == null) return;
-        int removed = history.RemoveAll(reign => reign != null && !reign.is_republic && reign.total_time <= 0 &&
-                                                 reign.ended_alive && reign.age_at_end >= 0 &&
-                                                 string.IsNullOrEmpty(reign.shihao_name) && !reign.is_first);
+        List<EmpireCraftHistory> interim = history.Where(reign => reign != null && !reign.is_republic && reign.total_time <= 0 &&
+                                                                  reign.ended_alive && reign.age_at_end >= 0 && reign.age_at_end < 70 &&
+                                                                  string.IsNullOrEmpty(reign.shihao_name) && !reign.is_first).ToList();
+        foreach (EmpireCraftHistory reign in interim)
+        {
+            history.Remove(reign);
+            int named = empire.data.history_emperrors?.LastIndexOf(reign.emperor) ?? -1;
+            if (named >= 0) empire.data.history_emperrors.RemoveAt(named);
+        }
+        int removed = interim.Count;
         if (removed > 0) LogService.LogInfo($"[EmpireCraft][禅让] {empire.GetEmpireName()} 世系去掉 {removed} 位待推举的");
     }
 

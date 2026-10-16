@@ -179,7 +179,21 @@ public static class EnterpriseSystem
     {
         if (kingdom == null || kingdom.wild) return false;
         Empire empire = kingdom.GetEmpire();
-        return empire != null && InstitutionSystem.GetFeature(empire, StateEnterpriseFeature) > 0f;
+        if (empire != null && InstitutionSystem.GetFeature(empire, StateEnterpriseFeature) > 0f) return true;
+        // 没有国企制度：照原来规划决议的默认(重农、工业化时国家先出资)——缺粮的城占三成以上、工业时代国库充裕、
+        // 时代档 4 以下(城市规划撤掉后规划决议没了，见 Scripts 历史 203ab90)
+        int cities = 0, hungry = 0;
+        foreach (City city in kingdom.getCities())
+        {
+            if (city?.data == null) continue;
+            cities++;
+            if (CityPopulationSystem.Get(city)?.last_food_shortage > 0f) hungry++;
+        }
+        if (cities > 0 && hungry * 3 >= cities) return true;
+        string culture = TechnologySystem.GetCultureOf(kingdom);
+        int era = TechnologySystem.GetEraTier(culture);
+        if ((ModernStability.IsModern(kingdom) || era >= 7) && kingdom.GetMoney() >= 300) return true;
+        return era < 4;
     }
 
     public static int EnterpriseCost(BuildingAsset asset) => BaseEnterpriseCost + Math.Max(0, asset.construction_progress_needed) / 2;

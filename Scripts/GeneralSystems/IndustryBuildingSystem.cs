@@ -10,8 +10,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   伐木场：1 伐木营 → 2 锯木坊 → 3 水力锯木厂 → 4 蒸汽锯木厂 → 5 现代木材加工厂。
 // 升级按科技解锁(见 Technology/TechTree.json 的 unlock_buildings)，由城市按升级订单自动升级
 // (无小人模式下由 CityConstructionSystem 出钱升级)；第 3 级起本城要有工厂(见 FactorySystem)。
-// 产出：矿场每年固定产石头、金属、金子，伐木场每年固定产木头，都按等级倍增，在工业区再加成。
-// 每块工业区让本城多建一座矿场、一座伐木场(最多多 3 座)。
+// 产出：矿场每年固定产石头、金属、金子，伐木场每年固定产木头，都按等级倍增，本城有工厂再加成。
+// 每座厂区让本城多建一座矿场、一座伐木场(最多多 3 座，见 ExtraLimit)。
 // 兼容 Modern Mod：它的 2mine_modernmod 视为矿场第 2 级，接到第 3 级上。
 public static class IndustryBuildingSystem
 {
@@ -203,9 +203,9 @@ public static class IndustryBuildingSystem
         foreach (CityBuildOrderAsset template in AssetManager.city_build_orders.list)
         {
             if (template?.list == null) continue;
-            // 伐木场：每城一座起(树林越多、工业区越多可以越多，见 ForestExtraLimit/ExtraLimit)，人口 8、建筑 4 座以后就建
+            // 伐木场：每城一座起(树林越多、厂区越多可以越多，见 ForestExtraLimit/ExtraLimit)，人口 8、建筑 4 座以后就建
             Neutral(template.addBuilding("order_ec_lumber_1", 1, 8, 4));
-            // 牧场每城一座(游牧国家可多建两座)，屠宰场每城一座(工业区越多可以越多)
+            // 牧场每城一座(游牧国家可多建两座)，屠宰场每城一座(厂区越多可以越多)
             Neutral(template.addBuilding("order_ec_pasture", 1, 10, 5));
             Neutral(template.addBuilding("order_ec_slaughterhouse", 1, 20, 8));
             foreach (string order in new[] { "order_mine", "order_ec_mine_2", "order_ec_mine_3", "order_ec_mine_4",
@@ -231,6 +231,8 @@ public static class IndustryBuildingSystem
     {
         BuildingAsset target = AssetManager.buildings.get(building?.asset?.upgrade_to ?? "");
         if (target == null || !Tiers.TryGetValue(target.id, out int tier) || tier < IndustryZoneTier) return true;
+        // 造不了厂区的(不是纯净地图、固定城乡格局、本城还没解锁任何工厂门类)不卡：否则火药以前、关着纯净地图时永远升不上去
+        if (!PureMapMode.Enabled || RuralSettlementSystem.Fixed || FactorySystem.Unlocked(city).Count == 0) return true;
         return FactorySystem.Count(city) > 0;
     }
 
@@ -254,7 +256,7 @@ public static class IndustryBuildingSystem
     public static float WoodPerYear(City city) => LumberOutputFactor(city) * WoodPerLumberYear;
 
     // ---- 伐木：伐木场真的砍本城领地里的树 ----
-    // 每座伐木场(按等级、工业区折算的产出倍数)每年砍 TreesPerLumberYear 棵，每棵出 WoodPerTree 份木头；
+    // 每座伐木场(按等级、有无工厂折算的产出倍数)每年砍 TreesPerLumberYear 棵，每棵出 WoodPerTree 份木头；
     // 保护区里的树不砍。领地里没树了就只剩一点枯枝杂木(两成)，木头就得从别处买了。
     // 树倒下有原版的倒树动画，砍掉的地方原版的树会慢慢再长回来
     private const float TreesPerLumberYear = 8f;

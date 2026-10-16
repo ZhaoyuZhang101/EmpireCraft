@@ -9,16 +9,17 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 开关平滑国界也还在)：纯净地图下每分钟分帧扫一遍色块贴图，记两类不该有的像素，写进日志 [图层诊断]：
 //   · 水面上色：不归任何城的块里，水面的格子却不透明(水面本该空着，露出底下的水)；
 //   · 无主陆地上色：不归任何城、图层也查不到归属的块里，陆地格子不透明；
-//   · 多余的边框：这块地连同周围八块在图层上都归同一家，块里却还有边框像素(国界早该没了)。
+//   · 多余的边框：块里有边框像素，四邻陆地格记下的归属却都同它一样(国界早该没了)。
 // 多余的边框查到就修(用户 2026-10-17 "这里的方块边界的残留又出现了"，确认"两边是同一国，不该有线")：
-// 丢掉这块地连同四邻的上色缓存、重画(见 SmoothBorders.Repaint)；挨着水的也修(海岸本来就不画边框，这里的边框一样是残留)，
-// 扫描由每分钟一轮改为每十五秒一轮，残线至多停留十几秒。
+// 丢掉这块地连同四邻的上色缓存、重画(见 SmoothBorders.Repaint)，扫描由每分钟一轮改为每十五秒一轮，残线至多停留十几秒；
+// 修过一回下一轮还在的记进日志、不再修(那是画法本身的问题)。
 // 每类记前几块的坐标、像素颜色、平滑国界记下的状态；数目没变就不重复写。
 public static class LayerDiagnostics
 {
     private const float IntervalSeconds = 15f, FirstDelaySeconds = 15f;
-    // 本轮修了几块(写进日志)
+    // 本轮修了几块(写进日志)；修过一回下一轮还在的不再修(是真的画法问题，不是残留，免得每十五秒重画一回)
     private static int _repaired;
+    private static readonly HashSet<int> RepairedOnce = new(), GaveUp = new();
     private const int ZonesPerFrame = 400, Examples = 4;
 
     private static float _next = -1f;
@@ -36,6 +37,8 @@ public static class LayerDiagnostics
         {
             _world = world;
             _cursor = -1;
+            RepairedOnce.Clear();
+            GaveUp.Clear();
             _next = Time.unscaledTime + FirstDelaySeconds;
             _lastSummary = null;
         }
@@ -111,21 +114,27 @@ public static class LayerDiagnostics
         }
         if (waterHit != null && _water++ < Examples) WaterExamples.Add(Example(zone, waterHit, pixels, meta));
         if (landHit != null && _land++ < Examples) LandExamples.Add(Example(zone, landHit, pixels, meta));
-        if (outlineHit == null || meta == null) return;
-        // 周围八块都归同一家(地图边上的不算)：块里的边框是多余的，查到就修
-        bool wet = false;
-        for (int dy = -1; dy <= 1; dy++)
-        for (int dx = -1; dx <= 1; dx++)
+        // 逐格判残留(这一格记为边框，四邻陆地格的归属都同它一样)：真的国界、占领、逐格推进、悬停的省界都不算
+        WorldTile stale = null;
+        if (outlineHit != null)
+            foreach (WorldTile tile in zone.tiles)
+                if (SmoothBorders.StaleOutline(tile)) { stale = tile; break; }
+        if (stale == null)
         {
-            if (dx == 0 && dy == 0) continue;
-            TileZone next = calc.getZone(zone.x + dx, zone.y + dy);
-            if (next == null || next.world_edge || !ReferenceEquals(MetaOf(layer, next), meta)) return;
-            foreach (WorldTile tile in next.tiles)
-                if (tile?.Type != null && (tile.Type.ocean || tile.Type.liquid)) wet = true;
+            // 干净了：以后再出残留照样修
+            RepairedOnce.Remove(zone.id);
+            GaveUp.Remove(zone.id);
+            return;
+        }
+        if (GaveUp.Contains(zone.id)) return;
+        if (!RepairedOnce.Add(zone.id))
+        {
+            GaveUp.Add(zone.id);
+            if (_outline++ < Examples) OutlineExamples.Add(Example(zone, stale, pixels, meta) + "(修过仍在，不再修)");
+            return;
         }
         SmoothBorders.Repaint(zone);
         _repaired++;
-        if (!wet && _outline++ < Examples) OutlineExamples.Add(Example(zone, outlineHit, pixels, meta));
     }
 
     private static string Example(TileZone zone, WorldTile tile, Color32[] pixels, IMetaObject meta)

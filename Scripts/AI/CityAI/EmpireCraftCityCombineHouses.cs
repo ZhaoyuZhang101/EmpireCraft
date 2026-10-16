@@ -92,13 +92,13 @@ public class EmpireCraftCityCombineHouses: GameAICityBase
         }
     }
 
-    // 从城中心往外找：只放在没划用途或划作居住区的区块(放进农田、工业区会被规划当成民居拆掉)
+    // 从城中心往外找：不放进规划农田(见 FarmlandSystem，风车范围里不盖民居)
     private static Building Place(City city, BuildingAsset asset)
     {
         if (city.zones == null) return null;
         Vector2 center = city.city_center;
         foreach (TileZone zone in city.zones.ToList()
-                     .Where(zone => zone?.tiles != null && zone.city == city)
+                     .Where(zone => zone?.tiles != null && zone.city == city && !FarmlandSystem.IsPlanned(city, zone))
                      .OrderBy(zone => Vector2.SqrMagnitude(new Vector2(zone.centerTile.x, zone.centerTile.y) - center)))
         {
             foreach (WorldTile tile in zone.tiles)

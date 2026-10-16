@@ -209,6 +209,8 @@ public static class WarGoalSystem
     // 战争收尾时(WarPatch.end_war，清掉占领之前)：判胜负、按目标结算
     public static void Settle(War war, WarWinner winner)
     {
+        // 部落之间破城求和已经了结(见 TribalWarSystem)
+        if (TribalWarSystem.Settling(war)) return;
         try
         {
             if (war?.data == null || winner == WarWinner.Nobody || winner == WarWinner.Merged || !Applies(war) &&

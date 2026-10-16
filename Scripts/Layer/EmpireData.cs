@@ -118,6 +118,10 @@ public class EmpireData : MetaObjectData
     public double timestamp_given_time;
     public CenterOffice centerOffice { get; set; }
     public double newEmperor_timestamp { get; set; }
+    // 一部自立的部落(见 TribalFissionService.FormTribes)：走出原始阶段时若没有并入别的国就撤掉帝国；有了共事的部落改为 false
+    public bool formed_as_tribe { get; set; }
+    // 禅让旧档清理做过了(见 ShanrangSystem.DropInterimReigns)
+    public bool shanrang_cleaned { get; set; }
     public double center_loss_timestamp { get; set; } = -1L;
     public bool is_center_lost { get; set; } = false;
 

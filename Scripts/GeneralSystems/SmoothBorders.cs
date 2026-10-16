@@ -1414,6 +1414,23 @@ public static class SmoothBorders
 
     public static void ClearCache() => Snapshots.Clear();
 
+    // 这一格记为边框，四邻的陆地格记下的归属却都同它一样：残留的边框(国界早该没了，见 LayerDiagnostics)
+    public static bool StaleOutline(WorldTile tile)
+    {
+        int id = tile?.data?.tile_id ?? -1;
+        if (!Enabled || id < 0 || id >= _outline.Length || !_outline[id] || !_hasBase[id]) return false;
+        IMetaObject owner = _owner[id];
+        if (owner == null) return false;
+        foreach (WorldTile next in new[] { tile.tile_up, tile.tile_down, tile.tile_left, tile.tile_right })
+        {
+            if (next?.data == null) return false;
+            int other = next.data.tile_id;
+            if (IsWater(next.x, next.y)) continue;
+            if (other < 0 || other >= _owner.Length || !ReferenceEquals(_owner[other], owner)) return false;
+        }
+        return true;
+    }
+
     // 残留的边框(见 LayerDiagnostics)：丢掉这块地的上色缓存，连同四邻重画
     public static void Repaint(TileZone zone)
     {
@@ -1537,16 +1554,25 @@ public static class SmoothBorders
     }
 
     // 本月真打起来的两方变了(见 FrontSystem.HasFront)：涉及的国家(连同所在帝国的成员)各城重画
+    // (只重画挨着别国的地块并丢掉它们的上色缓存，不让全图缓存作废)
     public static void RefreshFronts(ICollection<long> realms)
     {
-        _warEpoch++;
         if (!Enabled || realms == null || realms.Count == 0 || World.world?.kingdoms == null) return;
         foreach (Kingdom kingdom in World.world.kingdoms)
         {
-            if (kingdom?.data == null || kingdom.isRekt() || !realms.Contains(FrontSystem.Realm(kingdom).id)) continue;
+            if (kingdom?.data == null || kingdom.isRekt() ||
+                !realms.Contains(kingdom.id) && !realms.Contains(FrontSystem.Realm(kingdom).id)) continue;
             foreach (City city in kingdom.cities ?? new List<City>())
                 foreach (TileZone zone in city?.zones ?? new List<TileZone>())
-                    zone?.resetRenderHelpers();
+                {
+                    if (zone?.neighbours_all == null) continue;
+                    bool border = false;
+                    foreach (TileZone next in zone.neighbours_all)
+                        if (next?.city?.kingdom != null && next.city.kingdom != kingdom) { border = true; break; }
+                    if (!border) continue;
+                    Snapshots.Remove(zone.id);
+                    zone.resetRenderHelpers();
+                }
         }
     }
 

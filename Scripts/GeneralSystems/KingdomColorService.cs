@@ -88,23 +88,41 @@ public static class KingdomColorService
         ApplyFamily(sphere, ZhouEraSystem.Vassals(sphere));
     }
 
-    // 每月(TribalFissionService.EnforceOneCity)：各部落联盟
+    // 每月(TribalFissionService.EnforceOneCity)：各有共事部落的部落联盟
+    // 这一轮配色里各家只算一遍(见 Families；轮外不缓存)
+    private static List<(Empire head, IEnumerable<Kingdom> members)> _families;
+
     public static void ApplyTribalFamilies()
     {
-        foreach (Empire confederation in TribalFissionService.Confederations())
-            ApplyFamily(confederation, TribalFissionService.VassalsOf(confederation));
+        _families = BuildFamilies();
+        try
+        {
+            var confederations = new HashSet<Empire>(TribalFissionService.Confederations());
+            foreach ((Empire head, IEnumerable<Kingdom> members) in _families.ToList())
+                if (confederations.Contains(head)) ApplyFamily(head, members);
+        }
+        finally
+        {
+            _families = null;
+        }
     }
 
-    // 一家(周室或部落联盟)：基准帝国与它的诸侯、共事的部落
-    private static IEnumerable<(Empire head, IEnumerable<Kingdom> members)> Families()
+    // 一家(周室或有共事部落的部落联盟)：基准帝国与它的诸侯、共事的部落(一部自立、没有共事部落的不算一家)
+    private static List<(Empire head, IEnumerable<Kingdom> members)> Families() => _families ?? BuildFamilies();
+
+    private static List<(Empire head, IEnumerable<Kingdom> members)> BuildFamilies()
     {
+        var result = new List<(Empire head, IEnumerable<Kingdom> members)>();
         foreach (Empire empire in ModClass.EMPIRE_MANAGER?.ToList() ?? new List<Empire>())
         {
             if (empire?.CoreKingdom == null) continue;
-            if (ZhouEraSystem.Applies(empire)) yield return (empire, ZhouEraSystem.Vassals(empire));
+            if (ZhouEraSystem.Applies(empire)) result.Add((empire, ZhouEraSystem.Vassals(empire)));
         }
+        Dictionary<long, List<Kingdom>> vassals = TribalFissionService.VassalMap();
         foreach (Empire confederation in TribalFissionService.Confederations())
-            yield return (confederation, TribalFissionService.VassalsOf(confederation));
+            if (vassals.TryGetValue(confederation.id, out List<Kingdom> members) && members.Count > 0)
+                result.Add((confederation, members));
+        return result;
     }
 
     private static void ApplyFamily(Empire sphere, IEnumerable<Kingdom> members)

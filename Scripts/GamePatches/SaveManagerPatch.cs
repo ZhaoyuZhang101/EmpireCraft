@@ -206,6 +206,7 @@ public class SaveManagerPatch : GamePatch
         EmpireCraft.Scripts.GeneralSystems.MapWallSystem.ResetWorldState();
         EmpireCraft.Scripts.GeneralSystems.RuralSettlementSystem.ResetWorldState();
         EmpireCraft.Scripts.GeneralSystems.FactorySystem.ResetWorldState();
+        EmpireCraft.Scripts.AI.KingdomAI.EmpireCraftKingdomBehCheckKing.ResetWorldState();
         EmpireCraft.Scripts.GeneralSystems.RoadTreatySystem.ResetWorldState();
         EmpireCraft.Scripts.GeneralSystems.CorpsCommandSystem.ResetWorldState();
         EmpireCraft.Scripts.GeneralSystems.ShanrangSystem.ResetWorldState();

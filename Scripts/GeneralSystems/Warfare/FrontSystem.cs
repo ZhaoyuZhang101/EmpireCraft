@@ -83,6 +83,8 @@ public static partial class FrontSystem
         SeaLandingDiagnostics.ResetWorldState();
         _contested.Clear();
         _contestedAt = -1;
+        _fronts.Clear();
+        _frontsNext.Clear();
     }
 
     #region 敌我
@@ -105,12 +107,18 @@ public static partial class FrontSystem
 
     public static bool HasFront(Kingdom a, Kingdom b)
     {
+        if (a?.data == null || b?.data == null) return false;
+        if (_fronts.Contains((a.id, b.id))) return true;
         Kingdom ra = Realm(a), rb = Realm(b);
         return ra?.data != null && rb?.data != null && _fronts.Contains((ra.id, rb.id));
     }
 
+    // 记两国本身(同一帝国的成员互相打时只有这一对)，再记各自帝国的核心
     private static void NoteFront(Kingdom side, Kingdom enemy)
     {
+        if (side?.data == null || enemy?.data == null || side == enemy) return;
+        _frontsNext.Add((side.id, enemy.id));
+        _frontsNext.Add((enemy.id, side.id));
         Kingdom ra = Realm(side), rb = Realm(enemy);
         if (ra?.data == null || rb?.data == null || ra == rb) return;
         _frontsNext.Add((ra.id, rb.id));

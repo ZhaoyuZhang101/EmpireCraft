@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.Layer;
@@ -31,6 +32,11 @@ public static class TribalWarSystem
         };
     }
 
+    // 正在由本系统了结的战争(战争目标不再结算一遍，见 WarGoalSystem.Settle)
+    private static readonly HashSet<long> Settled = new();
+
+    public static bool Settling(War war) => war?.data != null && Settled.Contains(war.data.id);
+
     // 破城时调用：是部落之间的仗就按上面的规矩了结，返回 true(城不易主)
     public static bool TrySubmit(City city, Kingdom winner)
     {
@@ -43,29 +49,64 @@ public static class TribalWarSystem
         if (war == null) return false;
         try
         {
-            string loserName = loser.GetKingdomName(), winnerName = winner.GetKingdomName();
-            int tribute = (int)(loser.GetMoney() * TributeShare);
-            if (tribute > 0)
+            Concede(loser, winner);
+            ReturnLand(loser, winner);
+            // 败者退出这场仗(是主角就整场了结，原版 endWar 当场结算)；这一下了结的不再按战争目标结算一遍
+            // (赔款、纳为共事已在 Concede 里办了)。没了结的(还有别家在打)照旧，日后了结时正常结算
+            Settled.Add(war.data.id);
+            try
             {
-                loser.SubMoney(tribute, TreasuryCategory.Reparations);
-                winner.AddMoney(tribute, TreasuryCategory.Tribute);
+                war.lostWar(loser);
+                if (!war.hasEnded() && (war.isAttacker(loser) || war.isDefender(loser))) war.leaveWar(loser);
             }
-            bool incorporated = Unified(winner) && TribalFissionService.Incorporate(winner, loser);
-            string content = string.Format(LM.Get(incorporated ? "tribal_war_incorporated" : "tribal_war_tribute"),
-                loserName, winnerName, tribute);
-            // 占的地全数退还(破城那座由 CityPatch 清掉)，战事了结
-            foreach (City own in loser.cities?.ToList() ?? new global::System.Collections.Generic.List<City>())
-                own?.ClearOccupiedStatus();
-            if (!war.hasEnded())
-                World.world.wars.endWar(war, war.isAttacker(winner) ? WarWinner.Attackers : WarWinner.Defenders);
-            HelperFunc.TranslateHelper.LogEventOnly(content, winner);
-            (TribalFissionService.OverlordOf(loser) ?? winner.GetEmpire())?.RecordHistory(directContent: content, kingdomId: loser.id);
-            LogService.LogInfo("[EmpireCraft][部落之战] " + content);
+            finally
+            {
+                Settled.Remove(war.data.id);
+            }
         }
         catch (global::System.Exception exception)
         {
             LogService.LogWarning($"[EmpireCraft][部落之战] {loser.GetKingdomName()} 求和结算失败: {exception.Message}");
         }
         return true;
+    }
+
+    // 败者服输：赔款(国库三成)；施行了部落联合的奉胜者为共主(见 TribalFissionService.Incorporate)。统一战争收服部落也走这里
+    public static void Concede(Kingdom loser, Kingdom winner)
+    {
+        string loserName = loser.GetKingdomName(), winnerName = winner.GetKingdomName();
+        int tribute = global::System.Math.Max(0, (int)(loser.GetMoney() * TributeShare));
+        if (tribute > 0)
+        {
+            loser.SubMoney(tribute, TreasuryCategory.Reparations);
+            winner.AddMoney(tribute, TreasuryCategory.Tribute);
+        }
+        bool incorporated = Unified(winner) && TribalFissionService.Incorporate(winner, loser);
+        string key = incorporated ? "tribal_war_incorporated" : "tribal_war_tribute";
+        if (tribute <= 0) key += "_none";
+        string content = string.Format(LM.Get(key), loserName, winnerName, tribute);
+        HelperFunc.TranslateHelper.LogEventOnly(content, winner);
+        (TribalFissionService.OverlordOf(loser) ?? winner.GetEmpire())?.RecordHistory(directContent: content, kingdomId: loser.id);
+        LogService.LogInfo("[EmpireCraft][部落之战] " + content);
+    }
+
+    // 退还胜者一方(胜者与它的友军)在败者各城占的地；不相干的第三方照旧
+    private static void ReturnLand(Kingdom loser, Kingdom winner)
+    {
+        foreach (City own in loser.cities?.ToList() ?? new List<City>())
+        {
+            Dictionary<long, List<int>> status = own?.GetOrCreate().OccupiedStatus;
+            if (status == null || status.Count == 0) continue;
+            foreach (long occupierId in status.Keys.ToList())
+            {
+                Kingdom occupier = World.world.kingdoms.get(occupierId);
+                if (occupier == null || occupier != winner && !FrontSystem.Friendly(winner, occupier)) continue;
+                foreach (int zoneId in status[occupierId]?.ToList() ?? new List<int>())
+                {
+                    TileZone zone = own.zones?.FirstOrDefault(candidate => candidate != null && candidate.id == zoneId);
+                    if (zone != null) own.RemoveOccupiedTileZone(occupier, zone);
+                }
+            }
+        }
     }
 }

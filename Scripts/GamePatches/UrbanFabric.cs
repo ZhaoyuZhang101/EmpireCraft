@@ -1147,18 +1147,6 @@ public static class UrbanFabric
 
     public static Color32 BridgeColor => BridgeDeck;
 
-    // 在城区里：建成的地块，或开发了的地块落在城区范围里的部分
-    public static bool Inside(Geometry g, WorldTile tile)
-    {
-        if (g == null || tile?.zone == null) return false;
-        if (Urban(g, tile)) return true;
-        if (!g.Modern) return false;
-        (Kind kind, bool developed) = ZoneOf(g, tile.zone);
-        if (!developed || kind == Kind.Farm) return false;
-        if (InEdge(g, tile)) return true;
-        return false;
-    }
-
     private static bool InEdge(Geometry g, WorldTile tile)
     {
         float dx = tile.x - g.Cx, dy = tile.y - g.Cy, edge = EdgeAt(g, Angle(dx, dy));

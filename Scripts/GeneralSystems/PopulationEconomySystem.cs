@@ -130,7 +130,7 @@ public static class PopulationEconomySystem
         }
         // 自给口粮自己吃掉，不是收入
         Deposit(city, data, _foodId ?? "berries", numeric.Production?.Subsistence ?? background * SubsistenceFoodPerYear * years, income: false);
-        // 矿场、伐木场固定产出：每座建成的每年产出固定数量，按等级倍增、在工业区再加成，不看岗位和人口
+        // 矿场、伐木场固定产出：每座建成的每年产出固定数量，按等级倍增、本城有工厂再加成，不看岗位和人口
         // (见 IndustryBuildingSystem)
         float mines = plan == null ? IndustryBuildingSystem.MineOutputFactor(city) : 0f;
         if(plan != null)

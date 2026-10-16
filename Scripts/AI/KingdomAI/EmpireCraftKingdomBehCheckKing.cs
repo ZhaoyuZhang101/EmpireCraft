@@ -17,8 +17,10 @@ public class EmpireCraftKingdomBehCheckKing : GameAIKingdomBase
 {
     public override Type OriginalBeh => typeof(KingdomBehCheckKing);
 
-    // 帝国核心帝位虚悬起始的时间(不存档：读档后重新计满一年)
+    // 帝国核心帝位虚悬起始的时间(不存档：读档、换世界时清掉重新计满一年，见 ResetWorldState)
     private static readonly global::System.Collections.Generic.Dictionary<long, double> VacantSince = new();
+
+    public static void ResetWorldState() => VacantSince.Clear();
     private const double VacantYears = 1d;
 
     private static bool VacantLongEnough(Kingdom kingdom)
@@ -80,10 +82,14 @@ public class EmpireCraftKingdomBehCheckKing : GameAIKingdomBase
                 // 之后照普通王国从官员里选、从人口里落成一位国君(用户 2026-10-17 "无皇帝都多少年了"，选"无人可立就降为王国")
                 if (!VacantLongEnough(pKingdom) || SuccessionCouncilSystem.InSession(pKingdom)) return BehResult.Continue;
                 Empire empire = pKingdom.GetEmpire();
+                // 还有成员国(郡县、藩国)的大帝国：撤了帝号各国就散了——照普通王国从官员、人口里落成一位，不撤
+                if (empire.kingdoms_list?.Any(member => member != null && member != pKingdom && !member.isRekt()) != true)
+                {
                 string content = string.Format(LM.Get("empire_vacant_demoted"), empire.GetEmpireName(), pKingdom.GetKingdomName());
                 empire.RecordHistory(directContent: content, kingdomId: pKingdom.id);
                 TranslateHelper.LogEventOnly(content, pKingdom);
                 ModClass.EMPIRE_MANAGER.dissolveEmpire(empire);
+                }
                 VacantSince.Remove(pKingdom.id);
             }
         } 

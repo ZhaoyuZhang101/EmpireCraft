@@ -851,7 +851,8 @@ namespace EmpireCraft.Scripts.UI.Windows
             }
             string title = history.empire_name + (_empire.data.has_year_name ? history.year_name : "") + LM.Get(DynastyNaming.Term(_empire, "emperor"));
             // 定了谥号就显示庙号谥号，不论开没开年号(用户 2026-10-17 "这里怎么只显示皇帝了我的庙号和谥号呢"：以前关了年号的朝代一律写"某皇帝")
-            if (!string.IsNullOrEmpty(history.shihao_name))
+            string line = InstitutionSystem.GetCultureLine(CultureService.GetRealmCulture(_empire.CoreKingdom));
+            if (!string.IsNullOrEmpty(history.shihao_name) && (_empire.data.has_year_name || line is "Huaxia" or "Japan"))
             {
                 string shi = PosthumousNameGenerator.ShiTitle(history, _empire);
                 title = string.IsNullOrEmpty(history.miaohao_name)

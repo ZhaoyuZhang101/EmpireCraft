@@ -544,6 +544,12 @@ public static class UnificationSystem
             if (!against) continue;
             World.world.wars.endWar(between, between.isAttacker(unifier) ? WarWinner.Attackers : WarWinner.Defenders);
         }
+        // 部落之间不吞并：赔款，施行了部落联合的纳为共事部落(见 TribalWarSystem)
+        if (TribalFissionService.IsTribal(foe) && TribalFissionService.IsTribal(unifier))
+        {
+            TribalWarSystem.Concede(foe, unifier);
+            return;
+        }
         IEnumerable<Kingdom> members = foe.GetEmpire()?.kingdoms_list?.Where(Alive).ToList() ?? (IEnumerable<Kingdom>)new[] { foe };
         int cities = members.Sum(member => WarGoalSystem.QueueAnnex(member, unifier));
         if (cities > 0) Record(unifier, historyKey, name, unifier.GetKingdomName());

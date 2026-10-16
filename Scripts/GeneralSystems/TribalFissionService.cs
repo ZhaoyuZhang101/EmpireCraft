@@ -83,6 +83,21 @@ public static class TribalFissionService
     public static List<Empire> Confederations() =>
         ModClass.EMPIRE_MANAGER?.Where(IsConfederation).ToList() ?? new List<Empire>();
 
+    // 各共主名下共事的部落(一遍扫完，配色用，见 KingdomColorService)
+    public static Dictionary<long, List<Kingdom>> VassalMap()
+    {
+        var map = new Dictionary<long, List<Kingdom>>();
+        if (World.world?.kingdoms == null) return map;
+        foreach (Kingdom kingdom in World.world.kingdoms.list)
+        {
+            Empire overlord = OverlordOf(kingdom);
+            if (overlord == null) continue;
+            if (!map.TryGetValue(overlord.id, out List<Kingdom> list)) map[overlord.id] = list = new List<Kingdom>();
+            list.Add(kingdom);
+        }
+        return map;
+    }
+
     // 共事 overlord 的部落
     public static List<Kingdom> VassalsOf(Empire overlord) =>
         overlord == null || World.world?.kingdoms == null ? new List<Kingdom>()
@@ -148,6 +163,7 @@ public static class TribalFissionService
             Migrate();
             ShanrangSystem.Monthly();
             DetachMembers();
+            DissolveSettledTribes();
             FormTribes();
             Enfeoff();
             Breakaway();
@@ -200,13 +216,20 @@ public static class TribalFissionService
         tribe.GetRegime()?.SetAllowDiplomacy(true);
     }
 
-    // 结成部落联盟(head 为共主，帝国里只有它自己)；原来同盟里同文化的部落奉它为共主
-    private static Empire Confederation(Kingdom head)
+    // 结成部落(联盟)(head 为共主，帝国里只有它自己)。foldAllies：原来同盟里同文化的部落奉它为共主；
+    // 一部自立(FormTribes)时不并盟友，只退出同盟(帝国与同盟不兼容)，记为自立的部落、不刷开国的世界提示
+    private static Empire Confederation(Kingdom head, bool foldAllies = true)
     {
         if (head.IsInEmpire() || ModClass.EMPIRE_MANAGER == null) return null;
         Alliance alliance = head.hasAlliance() ? head.getAlliance() : null;
-        Empire empire = ModClass.EMPIRE_MANAGER.NewEmpire(head, allowCultureRival: true);
+        if (!foldAllies && alliance != null)
+        {
+            alliance.leave(head);
+            alliance = null;
+        }
+        Empire empire = ModClass.EMPIRE_MANAGER.NewEmpire(head, allowCultureRival: true, suppressFoundingLog: !foldAllies);
         if (empire == null || empire.isRekt()) return null;
+        if (!foldAllies) empire.data.formed_as_tribe = true;
         empire.data.Mandate = EmpireFormationService.GetInitialMandate(EmpireFormationRoute.Acclamation);
         head.GetOrCreate().tribal_overlord_id = -1L;
         string culture = CultureService.GetRealmCulture(head);
@@ -264,7 +287,44 @@ public static class TribalFissionService
             if (!IsTribal(kingdom) || kingdom.IsInEmpire() || OverlordOf(kingdom) != null || kingdom.king == null ||
                 kingdom.king.isRekt() || kingdom.capital == null ||
                 EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(kingdom)) continue;
-            Confederation(kingdom);
+            try
+            {
+                Confederation(kingdom, foldAllies: false);
+            }
+            catch (global::System.Exception exception)
+            {
+                LogService.LogWarning($"[EmpireCraft][部落分迁] {kingdom.GetKingdomName()} 自立为部落失败: {exception.Message}");
+            }
+        }
+    }
+
+    // 一部自立、没有共事部落的(称"部落"，不刷继位提示，见 Empire.NewEmperor)
+    public static bool IsLoneTribe(Empire empire) =>
+        empire?.data != null && empire.data.formed_as_tribe && IsConfederation(empire) && VassalsOf(empire).Count == 0;
+
+    // 自立的部落走出了原始阶段、又没有并入别的国(帝国里只有自己)：撤掉帝国，回到普通的国——只有共事部落、诸侯的才留作帝国
+    // (否则进了宗法分封，每个小部落都成了一个一城的周室)
+    private static void DissolveSettledTribes()
+    {
+        if (ModClass.EMPIRE_MANAGER == null) return;
+        foreach (Empire empire in ModClass.EMPIRE_MANAGER.ToList())
+        {
+            if (empire?.data == null || !empire.data.formed_as_tribe || empire.isRekt() || empire.IsArchived()) continue;
+            Kingdom core = empire.CoreKingdom;
+            if (core == null || IsTribal(core)) continue;
+            if (empire.kingdoms_list?.Any(member => member != null && member != core) == true)
+            {
+                empire.data.formed_as_tribe = false;
+                continue;
+            }
+            try
+            {
+                ModClass.EMPIRE_MANAGER.dissolveEmpire(empire);
+            }
+            catch (global::System.Exception exception)
+            {
+                LogService.LogWarning($"[EmpireCraft][部落分迁] {core.GetKingdomName()} 撤去部落帝号失败: {exception.Message}");
+            }
         }
     }
 
@@ -293,8 +353,9 @@ public static class TribalFissionService
             follower.GetOrCreate().tribal_overlord_id = -1L;
             if (follower != overlord.CoreKingdom && CanHold(overlord, follower)) Submit(follower, overlord);
         }
-        // 有了共事的部落：称号由"部落"改称"部落联盟"(见 DynastyNaming.HuaxiaOriginEmpireKey)
+        // 有了共事的部落：称号由"部落"改称"部落联盟"(见 DynastyNaming.HuaxiaOriginEmpireKey)，不再算一部自立
         overlord.data.empire_type_key = "";
+        overlord.data.formed_as_tribe = false;
         Redraw();
         return true;
     }

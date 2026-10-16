@@ -762,6 +762,11 @@ public class Empire : MetaObject<EmpireData>
             data.year_name = "";
             data.newEmperor_timestamp = World.world.getCurWorldTime();
         }
+        else if (TribalFissionService.IsLoneTribe(this))
+        {
+            // 一部自立的部落换首领：不刷继位的世界提示(部落很多，见 TribalFissionService.FormTribes)
+            create_year_name();
+        }
         else if (data.has_year_name)
         {
             create_year_name();
@@ -3658,6 +3663,8 @@ public class Empire : MetaObject<EmpireData>
             .OrderByDescending(unit => unit.GetFaction() == faction)
             .ThenByDescending(unit => unit.getAge()).ThenBy(unit => unit.id).FirstOrDefault();
         if (heir == null) return null;
+        // 宪政继承受保护的、新君过不了继承规矩的不废(否则废了立不上，皇位落空)
+        if (ConstitutionalSuccessionSystem.IsProtected(this) && !ConstitutionalSuccessionSystem.CanInherit(this, heir)) return null;
         string content = string.Format(LM.Get("court_history_palace_coup"), faction.Name, deposed.getName(), heir.getName());
         TranslateHelper.LogEventOnly(content, core);
         this.RecordHistory(directContent: content, actorId: heir.id);

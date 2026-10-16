@@ -358,7 +358,6 @@ public class CityPatch : GamePatch
         if (EmpireCraft.Scripts.GeneralSystems.TribalWarSystem.TrySubmit(__instance, pNewKingdom))
         {
             __instance.clearCapture();
-            __instance.ClearOccupiedStatus();
             return false;
         }
 

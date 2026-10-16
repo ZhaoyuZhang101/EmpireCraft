@@ -299,6 +299,8 @@ public static partial class CourtSystem
                 .OrderByDescending(kingdom => kingdom.countTotalWarriors()).FirstOrDefault();
             if (rebel == null)
             {
+                // 只剩京畿(没有成员国)才在都城逼宫；有成员国只是眼下起不了兵的，等以后
+                if (empire.kingdoms_list.Any(kingdom => kingdom != null && !kingdom.isRekt() && kingdom != core)) continue;
                 Actor installed = empire.CompleteFactionDeposition(faction);
                 if (installed == null) continue;
                 data.grievance = 50f;

@@ -59,9 +59,10 @@ public static class DynastyNaming
 
     // 帝国名的类别：一部自立称部落，有了共事的部落称部落联盟(见 TribalFissionService.Incorporate)；进入家天下后称"朝"(夏、商)
     public static string HuaxiaOriginEmpireKey(Kingdom core) =>
-        InstitutionSystem.IsEnacted(CultureService.GetRealmCulture(core), "huaxia_hereditary_kingship")
+        TribalFissionService.VassalsOf(core?.GetEmpire()).Count == 0 ? "Origin_empire_huaxia_tribe"
+        : InstitutionSystem.IsEnacted(CultureService.GetRealmCulture(core), "huaxia_hereditary_kingship")
             ? "Origin_empire_huaxia_dynasty"
-            : TribalFissionService.VassalsOf(core?.GetEmpire()).Count > 0 ? "Origin_empire_huaxia" : "Origin_empire_huaxia_tribe";
+            : "Origin_empire_huaxia";
 
     public static string KingdomTypeKey(Kingdom kingdom, KingdomType type)
     {
