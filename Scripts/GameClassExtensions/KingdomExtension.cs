@@ -232,6 +232,8 @@ public static class KingdomExtension
     public static readonly SemaphoreSlim _sem = new SemaphoreSlim(Environment.ProcessorCount);
     public class KingdomExtraData: ExtraDataBase
     {
+        // 不在帝国里的国家对本文化科技的采纳(见 TechnologySystem.RealmHasTech)
+        public EmpireCraft.Scripts.Data.RealmTechState realm_tech;
         public long EmpireID = -1L;
         public double TimestampEmpire = -1L;
         public double TimestampBeFeifed = -1L;

@@ -545,9 +545,10 @@ public static class ConstitutionalEconomySystem
     public static List<string> GetMissingTechs(Empire empire)
     {
         string culture = InstitutionSystem.GetPrimaryCulture(empire);
-        if (!TechnologySystem.IsActiveFor(culture)) return new List<string>();
-        return InstitutionDefinitionRegistry.GetConstitutionRequiredTechs(GetLine(empire))
-            .Where(tech => !TechnologySystem.HasTech(culture, tech)).ToList();
+        if (!TechnologySystem.IsActiveFor(culture) || empire?.CoreKingdom == null) return new List<string>();
+        // 本文化发明、本国也采纳了才算
+        return TechnologySystem.RealmMissingTechs(empire.CoreKingdom,
+            InstitutionDefinitionRegistry.GetConstitutionRequiredTechs(GetLine(empire)));
     }
 
     // 缺失特性的显示文本：列出本线能提供该特性的节点名；本线没有的话显示特性本身的名称

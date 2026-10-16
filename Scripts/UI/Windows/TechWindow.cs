@@ -27,6 +27,9 @@ public class TechWindow : AbstractWideWindow<TechWindow>
     private const int MaterialsPerRow = 7;
 
     private static string _pendingCulture = "";
+    // 从某个国家打开时显示这个国家(在帝国里就是帝国)的科技采纳情况
+    private static Kingdom _pendingKingdom;
+    private Kingdom _kingdom;
 
     private readonly List<GameObject> _content = new();
     private AutoVertLayoutGroup _root;
@@ -39,13 +42,18 @@ public class TechWindow : AbstractWideWindow<TechWindow>
     {
         if (!CultureService.IsValidCulture(culture)) return;
         _pendingCulture = culture;
+        _pendingKingdom = null;
         ScrollWindow.showWindow(nameof(TechWindow));
     }
 
     public static void Open(Kingdom kingdom)
     {
         if (kingdom == null || kingdom.isRekt()) return;
-        Open(CultureService.GetRealmCulture(kingdom));
+        string culture = CultureService.GetRealmCulture(kingdom);
+        if (!CultureService.IsValidCulture(culture)) return;
+        _pendingCulture = culture;
+        _pendingKingdom = kingdom;
+        ScrollWindow.showWindow(nameof(TechWindow));
     }
 
     protected override void Init()
@@ -60,6 +68,8 @@ public class TechWindow : AbstractWideWindow<TechWindow>
         UIHelper.FixWideWindowScrollArea(BackgroundTransform);
         if (!string.Equals(_culture, _pendingCulture, StringComparison.Ordinal)) _selectedId = "";
         _culture = _pendingCulture;
+        _kingdom = _pendingKingdom != null && !_pendingKingdom.isRekt() &&
+                   CultureService.GetRealmCulture(_pendingKingdom) == _culture ? _pendingKingdom : null;
         Rebuild();
         StartCoroutine(UIHelper.StabilizeWideWindowScrollArea(BackgroundTransform));
     }
@@ -141,6 +151,21 @@ public class TechWindow : AbstractWideWindow<TechWindow>
 
         AddLine(panel, string.Format(LM.Get("tech_overview_counts"),
             state.researched_techs.Count, techCount, state.discovered_materials.Count, materialCount));
+        // 文化发明、国家采纳：本国还没采纳的科技
+        if (_kingdom != null)
+        {
+            var pending = state.researched_techs.Where(id => !TechnologySystem.RealmHasTech(_kingdom, id))
+                .OrderByDescending(id => TechnologySystem.GetRealmAdoption(_kingdom, id)).ToList();
+            Layer.Empire realmEmpire = _kingdom.IsInEmpire() ? _kingdom.GetEmpire() : null;
+            string realmName = realmEmpire != null ? realmEmpire.GetEmpireName() : _kingdom.name;
+            string adoptLine = string.Format(LM.Get("tech_realm_adoption"), realmName,
+                state.researched_techs.Count - pending.Count, state.researched_techs.Count);
+            if (pending.Count > 0)
+                adoptLine += "  " + string.Format(LM.Get("tech_realm_adopting"), string.Join("、", pending.Take(4).Select(id =>
+                    $"{TechnologySystem.GetTechName(id)}({TechnologySystem.GetRealmAdoption(_kingdom, id) * 100f:0}%)")) +
+                    (pending.Count > 4 ? "…" : "")).ColorString("#E9A85B");
+            AddLine(panel, adoptLine);
+        }
 
         // 科技点储备与来源明细；年产太低就是停滞
         string Income(string key) => (state.last_income != null && state.last_income.TryGetValue(key, out float v)
@@ -425,6 +450,9 @@ public class TechWindow : AbstractWideWindow<TechWindow>
         string costLine = $"{LM.Get("tech_cost")} {cost:0}";
         float stored = TechnologySystem.GetProgress(_culture, tech.id);
         if (stored > 0f && status != TechNodeStatus.Researched) costLine += $"  ({LM.Get("tech_progress_stored")} {stored:0})";
+        if (_kingdom != null && status == TechNodeStatus.Researched && !TechnologySystem.RealmHasTech(_kingdom, tech.id))
+            costLine += "  " + string.Format(LM.Get("tech_realm_not_adopted"),
+                (TechnologySystem.GetRealmAdoption(_kingdom, tech.id) * 100f).ToString("0")).ColorString("#E9A85B");
         float size = TechnologySystem.GetSizeCostFactor(_culture) - 1f;
         if (size > 0.005f)
             costLine += "  " + string.Format(LM.Get("tech_cost_size"), (size * 100f).ToString("0")).ColorString("#D98C8C");

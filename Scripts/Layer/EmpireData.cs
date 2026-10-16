@@ -228,6 +228,8 @@ public class EmpireData : MetaObjectData
     public string composite_cultural_name_source { get; set; } = "";
     public double composite_cultural_name_adopted_timestamp { get; set; } = -1L;
     public InstitutionEmpireState institution_state { get; set; } = new InstitutionEmpireState();
+    // 帝国对本文化科技的采纳(帝国成员共用，见 TechnologySystem.RealmHasTech)
+    public EmpireCraft.Scripts.Data.RealmTechState realm_tech { get; set; }
     public ConstitutionalEconomyState constitutional_economy { get; set; } = new ConstitutionalEconomyState();
 }
 

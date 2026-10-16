@@ -337,6 +337,17 @@ public static class InstitutionSystem
         return core.HasValue && RegimeManager.IsMonarchy(core) ? core.Value : regime;
     }
 
+    // 这个国家能否过渡到本文化的某个体制：本文化制度线上声明这个政体的节点所需的科技，本国都已采纳
+    public static bool RealmCanAdoptRegime(Kingdom kingdom, RegimeType regime)
+    {
+        string culture = CultureService.GetRealmCulture(kingdom);
+        if (!CultureService.IsValidCulture(culture)) return true;
+        InstitutionNodeConfig node = InstitutionDefinitionRegistry.GetForLine(GetCultureLine(culture))
+            .FirstOrDefault(candidate => InstitutionDefinitionRegistry.TryGetNodeRegime(candidate, out RegimeType declared) &&
+                                         declared == regime);
+        return node == null || TechnologySystem.AreRealmInstitutionTechsMet(kingdom, node, out _);
+    }
+
     public static bool TryResolveCultureRegime(string culture, out RegimeType regime)
     {
         regime = default;
@@ -396,6 +407,8 @@ public static class InstitutionSystem
             !member.isRekt() && CultureService.GetRealmCulture(member) == culture &&
             member.GetRegime()?.type == RegimeType.Feudalism) == true;
         if (!feudalSubjects && Date.getYearsSince(enactedAt) < 2 + kingdom.id % 4) return;
+        // 本国还没采纳封建化所需的科技：等采纳了再改
+        if (!RealmCanAdoptRegime(kingdom, RegimeType.Feudalism)) return;
 
         if (empire != null)
         {
@@ -456,6 +469,26 @@ public static class InstitutionSystem
         }
         RulingMajority[empire.data.id] = (result, now);
         return result;
+    }
+
+    // 之前因为本国没采纳科技而没跟上本文化的新体制：科技采纳齐了就过渡过去
+    private static void RetryPendingRegime(Empire empire, InstitutionEmpireState state)
+    {
+        if (state == null || !state.pending_culture_regime) return;
+        Kingdom core = empire.CoreKingdom;
+        Regime current = core?.GetRegime();
+        string culture = GetPrimaryCulture(empire);
+        if (current == null || CompositeEmpireService.IsComposite(empire) || RepublicSystem.IsRegimeLocked(core) ||
+            core.GetOrCreate().regime_manually_selected || !TryResolveCultureRegime(culture, out RegimeType regime) ||
+            current.type == regime)
+        {
+            state.pending_culture_regime = false;
+            return;
+        }
+        if (!RealmCanAdoptRegime(core, regime)) return;
+        state.pending_culture_regime = false;
+        LogService.LogInfo($"[EmpireCraft][制度] {empire.GetEmpireName()} 已采纳所需科技，政体由 {current.type} 过渡到 {regime}");
+        ChangeRegime(empire, regime);
     }
 
     // 帝国核心的政体根本不属于制度文化那条线(如华夏制度线上没有游牧政体)：改成本文化已施行到的政体，
@@ -520,6 +553,7 @@ public static class InstitutionSystem
         }
 
         SyncForeignRegime(empire);
+        RetryPendingRegime(empire, state);
         // 同文化的其他政权研究出来的制度，在这里把持久效果补到本政权身上
         SyncSharedEffects(empire);
         SyncGrantedTraits(empire);
@@ -625,8 +659,9 @@ public static class InstitutionSystem
             reason = "institution_reform_premodern";
             return false;
         }
-        // 技术是制度的物质基础：没有对应技术，这项制度推不动(强制也不行，只有上帝模式直接点亮)
-        if (!TechnologySystem.AreInstitutionTechsMet(culture, node, out _))
+        // 技术是制度的物质基础：没有对应技术，这项制度推不动(强制也不行，只有上帝模式直接点亮)。
+        // 本文化发明了还不够，本国也要采纳了(见 TechnologySystem.RealmHasTech)
+        if (!TechnologySystem.AreRealmInstitutionTechsMet(empire.CoreKingdom, node, out _))
         {
             reason = "institution_reform_missing_tech";
             return false;
@@ -1049,9 +1084,13 @@ public static class InstitutionSystem
             if (empireState?.active_reform != null && (IsEnacted(culture, empireState.active_reform.node_id) ||
                                                        IsSuperseded(culture, empireState.active_reform.node_id)))
                 empireState.active_reform = null;
+            // 本国还没采纳新体制所需的科技：政体暂不过渡
             if (TryResolveCultureRegime(culture, out RegimeType regime) &&
                 empire.CoreKingdom.GetRegime()?.type != regime)
-                ChangeRegime(empire, regime);
+            {
+                if (RealmCanAdoptRegime(empire.CoreKingdom, regime)) ChangeRegime(empire, regime);
+                else if (empireState != null) empireState.pending_culture_regime = true;
+            }
             SyncSharedEffects(empire);
             empire.RecordHistory(directContent: content, kingdomId: empire.CoreKingdom.id);
             messageKingdom ??= empire.CoreKingdom;

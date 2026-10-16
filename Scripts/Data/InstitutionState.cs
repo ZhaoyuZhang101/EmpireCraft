@@ -62,6 +62,8 @@ public sealed class CultureInstitutionState
 public sealed class InstitutionEmpireState
 {
     public InstitutionReformState active_reform;
+    // 本文化已过渡到新体制，但本国还没采纳所需科技、暂时没跟上；采纳后每年重试(见 InstitutionSystem.RetryPendingRegime)
+    public bool pending_culture_regime;
     public List<string> applied_node_ids = new();
     // 阶层怨气是帝国政治状态，不随文化共享。键是阶层，值为 0~100。
     public Dictionary<SocialClass, float> class_grievances = new();
