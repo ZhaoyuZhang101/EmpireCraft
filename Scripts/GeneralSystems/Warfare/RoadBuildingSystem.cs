@@ -88,8 +88,10 @@ public static class RoadBuildingSystem
             if (city?.data == null || city.isRekt()) continue;
             List<RoadLink> list = city.GetOrCreate().road_links;
             if (list == null || list.Count == 0) continue;
+            // 不修路的城(游牧、林地、阿兹特克，见 CityStyleSystem.Roadless)的旧路随之废弃，不再养护
             list.RemoveAll(link => link == null || link.grade <= 0 && link.building <= 0 ||
-                                   !(World.world.cities.get(link.to) is City other) || other.isRekt());
+                                   !(World.world.cities.get(link.to) is City other) || other.isRekt() ||
+                                   CityStyleSystem.Roadless(city) || CityStyleSystem.Roadless(other));
             foreach (RoadLink link in list) Links[(city.data.id, link.to)] = link;
         }
     }

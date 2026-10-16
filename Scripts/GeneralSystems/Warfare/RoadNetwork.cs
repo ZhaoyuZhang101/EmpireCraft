@@ -6,7 +6,7 @@ using UnityEngine;
 namespace EmpireCraft.Scripts.GeneralSystems;
 
 // 路网与航线(模拟的，不实际铺在地上)。
-//   · 陆路规划：同一片陆地上相邻的城之间规划干道(游牧的城不修路，见 CityStyleSystem.Nomad)，但不是两两都通——
+//   · 陆路规划：同一片陆地上相邻的城之间规划干道(游牧、林地、阿兹特克的城不修路，见 CityStyleSystem.Roadless)，但不是两两都通——
 //       - 两城之间另有一座城比它们彼此都近(A 到 C、C 到 B 都比 A 到 B 近)，就经那座城走，不另规划直路；
 //       - 先按地块寻路定走廊：绕开高山(六成以上是山的地块不走)与海面，山地、沼泽、丛林代价高，过河代价更高(架桥)，
 //         已有的路代价低——所以路沿平地、谷地走，彼此并成干线网；地形代价是直线距离几倍(RoadPlan.terrain / straight)
@@ -223,12 +223,12 @@ public static class RoadNetwork
         foreach (City city in World.world.cities.list)
         {
             WorldTile from = city?.getTile();
-            if (from == null || city.isRekt() || CityStyleSystem.Nomad(city)) continue;
+            if (from == null || city.isRekt() || CityStyleSystem.Roadless(city)) continue;
             foreach (City other in city.neighbours_cities)
             {
                 WorldTile to = other?.getTile();
                 if (to == null || other.isRekt() || other.data.id <= city.data.id || !from.isSameIsland(to) ||
-                    CityStyleSystem.Nomad(other)) continue;
+                    CityStyleSystem.Roadless(other)) continue;
                 if (Bypassed(city, other, from, to)) continue;
                 pending |= Plan((city.data.id, other.data.id), from, to, now, budget, wanted);
             }
@@ -238,7 +238,7 @@ public static class RoadNetwork
         {
             if (wanted.Contains(key)) continue;
             City first = World.world.cities.get(key.Item1), second = World.world.cities.get(key.Item2);
-            if (CityStyleSystem.Nomad(first) || CityStyleSystem.Nomad(second)) continue;
+            if (CityStyleSystem.Roadless(first) || CityStyleSystem.Roadless(second)) continue;
             WorldTile from = first?.getTile(), to = second?.getTile();
             if (from != null && to != null) pending |= Plan(key, from, to, now, budget, wanted);
         }

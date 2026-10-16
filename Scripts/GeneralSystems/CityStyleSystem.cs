@@ -14,7 +14,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     先拆旧、起工地，再建成新式，新旧混杂，约 RebuildYears 年改完(布局逐个地块改，城墙与都城地标改完才换)。
 // 文化系：华夏(华夏、中国、山海)、日本、西欧(西方、法兰克、日耳曼、斯拉夫、精灵)、罗马、维京、阿拉伯(阿拉伯、犹太)、
 //   波斯、埃及、印度、阿兹特克、游牧(游牧文化，及制度线属游牧的各文化)、林地(奥吉布瓦)；其余按华夏的通用图块画。
-// 游牧的城是蒙古包营地，不修路(见 UrbanFabric、RoadNetwork)。
+// 游牧的城是蒙古包营地，不修路(见 UrbanFabric、RoadNetwork)；林地(奥吉布瓦)、阿兹特克这类部落制的文化也不修路
+// (用户转玩家 2026-10-17 "不止游牧，像奥吉布瓦以及阿兹特克这种明显部落制的，也没必要画路")，城外的村镇照旧有，只用小路连着。
 public static class CityStyleSystem
 {
     public const string Plot = "rebuild_city_style";
@@ -52,6 +53,10 @@ public static class CityStyleSystem
     }
 
     public static bool Nomad(City city) => city?.data != null && !city.isRekt() && Established(city) == "nomad";
+
+    // 不修路的城：游牧、林地、阿兹特克
+    public static bool Roadless(City city) =>
+        city?.data != null && !city.isRekt() && Established(city) is "nomad" or "woodland" or "aztec";
 
     public static string CurrentFamily(City city) => Family(TechnologySystem.GetCultureOf(city) ?? "");
 

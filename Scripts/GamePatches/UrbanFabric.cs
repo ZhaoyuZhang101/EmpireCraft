@@ -454,11 +454,15 @@ public static class UrbanFabric
         foreach ((Road _, City other) in links)
             if (other?.getTile() is WorldTile there) drawn.Add(Angle(there.x - g.GateX, there.y - g.GateY));
         g.Roads.Clear();
-        GateRoads(g, drawn, true);
-        foreach ((Road road, City other) in links)
+        // 部落制的城(林地、阿兹特克，见 CityStyleSystem.Roadless)：不画出城大路、岔路、官道，村镇只用小路连着
+        if (!CityStyleSystem.Roadless(g.City))
         {
-            g.Roads.Add(road);
-            if (other != null) AddLinkSpur(g, road);
+            GateRoads(g, drawn, true);
+            foreach ((Road road, City other) in links)
+            {
+                g.Roads.Add(road);
+                if (other != null) AddLinkSpur(g, road);
+            }
         }
         PlaceTrails(g);
     }
@@ -693,6 +697,7 @@ public static class UrbanFabric
                 WorldTile tile = city.getTile();
                 if (tile == null) continue;
                 centers.Add((city, tile.x, tile.y));
+                key = key * 7 + (CityStyleSystem.Roadless(city) ? 1 : 0);
                 key = key * 31 + city.data.id * 7 + tile.x * 3 + tile.y;
             }
         }
@@ -733,6 +738,8 @@ public static class UrbanFabric
             }
             float dx = bx - ax, dy = by - ay, d2 = dx * dx + dy * dy;
             if (d2 > LinkReach * LinkReach || d2 < 36f || networked.Contains(PairKey(ca.data.id, cb.data.id))) continue;
+            // 不修路的城(游牧、林地、阿兹特克)不通官道
+            if (CityStyleSystem.Roadless(ca) || CityStyleSystem.Roadless(cb)) continue;
             // 相对邻近：有第三座城离两头都更近，两城就经由它相连
             bool between = false;
             foreach (int k in Around(ax, ay))
