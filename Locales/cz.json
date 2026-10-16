@@ -1965,6 +1965,7 @@
   "plan_wall_description": "按住在城市领地上拖动画城墙，大小随笔刷。一座城画了城墙就照画的修，不再沿城边自动修墙、挖护城河；城门处留出空缺即可。",
   "plan_erase": "擦除规划",
   "plan_erase_description": "按住拖动擦掉刷过的用途和设施，大小随笔刷。一块地的规划擦得一格不剩，这块地的功能区随之取消。",
+  "empire_core_name": "法理名称",
   "capital_loss_restored": "{0}收复旧都{1}，还于旧都，复称{2}。",
   "kingdom_type_xingzai": "行在",
   "Later": "后",

@@ -27,7 +27,6 @@ namespace EmpireCraft.Scripts.UI.Windows
         private readonly Dictionary<long, bool> _historyExpandedStates = new Dictionary<long, bool>();
         private readonly Dictionary<long, int> _historyPages = new();
         private const int HistoryPageSize = 12;
-        private TextInput _nameInput;
         private EmpireCore _core;
         private AutoVertLayoutGroup _topPart;
         // 横屏骨架：左栏核心档案固定不随滚动，右侧滚动区放帝国、法理与历代
@@ -39,15 +38,6 @@ namespace EmpireCraft.Scripts.UI.Windows
             UIHelper.FixWideWindowScrollArea(BackgroundTransform);
             _root = UIHelper.SetupWideWindowContentRoot(ContentTransform, 3f, new RectOffset(3, 3, 3, 3));
             _rail = UIHelper.CreateWideWindowRail(BackgroundTransform, UIHelper.RailWidth, UIHelper.RailInset);
-            // 宽窗口脚本挂在窗口根上：输入框挂窗口根，随窗口显示/隐藏(同 EmpireWindow 的修复)。
-            // 脱离窗口根布局并锚点居中，否则被拉成贯穿窗口的细长条
-            _nameInput = Object.Instantiate(TextInput.Prefab, this.transform);
-            var coreInputElement = _nameInput.gameObject.GetComponent<UnityEngine.UI.LayoutElement>()
-                                   ?? _nameInput.gameObject.AddComponent<UnityEngine.UI.LayoutElement>();
-            coreInputElement.ignoreLayout = true;
-            var coreInputRect = (RectTransform)_nameInput.transform;
-            coreInputRect.anchorMin = coreInputRect.anchorMax = coreInputRect.pivot = new Vector2(0.5f, 0.5f);
-            _nameInput.Setup("", ChangeName);
         }
 
         public void Clear()
@@ -76,15 +66,7 @@ namespace EmpireCraft.Scripts.UI.Windows
             _core = EmpireCraftMetaTypeLibrary.selected_empireCore;
             Clear();
             if (_core == null) return;
-            InitialTextInput();
             ShowOverview();
-        }
-
-        private void InitialTextInput()
-        {
-            string text = EmpireCoreManager.GetDisplayName(_core);
-            // 宽窗口(380 高)：改名输入框放在标题栏上方
-            this.transform.GenerateTextInput(offset: new Vector2(0, 218), default_text: text, input: _nameInput);
         }
 
         private AutoVertLayoutGroup CommonInitial(string titleName)
@@ -158,6 +140,8 @@ namespace EmpireCraft.Scripts.UI.Windows
             Empire legitimate = EmpireCoreManager.GetLegitimateEmpire(_core);
             if (legitimate != null)
                 identity.AddRailText($"{LM.Get("empire_core_legitimate_empire")}: {legitimate.GetEmpireFullName()}".ColorString("#FF8A7A"), 6, 9f);
+            // 改名框放在左栏档案里(同法理窗口)：以前浮在标题栏上方，改成横屏骨架后被盖住，改不了名
+            identity.AddRailInput(LM.Get("empire_core_name"), EmpireCoreManager.GetDisplayName(_core), ChangeName);
 
             var stats = _rail.BeginRailCard();
             float rowWidth = UIHelper.RailWidth - 8f;
@@ -413,7 +397,6 @@ namespace EmpireCraft.Scripts.UI.Windows
         {
             Clear();
             if (_core == null) return;
-            InitialTextInput();
             ShowOverview();
         }
 
