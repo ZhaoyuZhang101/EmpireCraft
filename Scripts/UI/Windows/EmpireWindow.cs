@@ -744,15 +744,19 @@ namespace EmpireCraft.Scripts.UI.Windows
             Actor ruler = _empire.Emperor;
             currentRow.transform.localPosition = Vector3.zero;
             currentRow.AddActorViewIntoHoriLayout(ruler?.data != null && !ruler.isRekt() ? ruler : null);
-            var rulerText = currentRow.BeginVertGroup(new Vector2(MainWidth - 12f - 36f - 60f, 30f), pSpacing: 0,
+            var rulerText = currentRow.BeginVertGroup(new Vector2(MainWidth - 12f - 36f - 60f - 60f, 30f), pSpacing: 0,
                 pAlignment: TextAnchor.MiddleLeft, pPadding: new RectOffset(0, 0, 0, 0));
             rulerText.transform.localPosition = Vector3.zero;
             rulerText.AddTextIntoVertLayout((ruler?.getName() ?? LM.Get("label_none")).ColorString("#F2EEE2"), true,
-                TextAnchor.MiddleLeft, new Vector2(MainWidth - 108f, 16f)).UseFixedFontSize(11, HorizontalWrapMode.Overflow);
+                TextAnchor.MiddleLeft, new Vector2(MainWidth - 168f, 16f)).UseFixedFontSize(11, HorizontalWrapMode.Overflow);
             rulerText.AddTextIntoVertLayout(string.Format(LM.Get("lineage_current_tenure"), _empire.GetEmperorYear()).ColorString("#8FA0A8"),
-                true, TextAnchor.MiddleLeft, new Vector2(MainWidth - 108f, 10f)).UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+                true, TextAnchor.MiddleLeft, new Vector2(MainWidth - 168f, 10f)).UseFixedFontSize(6, HorizontalWrapMode.Overflow);
             currentRow.AddButtonIntoHoriLayout("lineage_personal_history", LM.Get("lineage_personal_history"),
                 () => OpenHistoryWindow(_empire.data.currentHistory), size: new Vector2(54f, 14f));
+            // 世系图：历代君主连同祖先画成方框连线图(见 DynastyLineageWindow；以前放在皇帝个人史里)
+            Empire lineageEmpire = _empire;
+            currentRow.AddButtonIntoHoriLayout("lineage_chart_open", LM.Get("lineage_chart_open"),
+                () => DynastyLineageWindow.Open(lineageEmpire), size: new Vector2(54f, 14f));
 
             // 翻页
             var navigation = parent.BeginHoriGroup(new Vector2(MainWidth, 16f), TextAnchor.MiddleCenter, 8f, new RectOffset(0, 0, 0, 0));
