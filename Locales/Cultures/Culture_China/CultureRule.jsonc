@@ -5,6 +5,8 @@
     "setting": {
         "regime": "Modern",
         "institution_line": "Huaxia",
+        // 天下标识：同一标识的文化同属一个天下(相邻的帝国法理自动并成一个天下)；留空 = 本文化自成一个天下
+        "tianxia": "Huaxia",
         // 开局阶段：写华夏线的一个制度节点(如 "huaxia_patriarchal_clan" 从宗法开局)，留空从原始群起步
         "start_institution": "",
         // 姓氏演变：原始群无姓 → 母系有姓 → 贵族分氏 → 周制男子称氏、女子称姓、平民无氏 → 郡县后姓氏合一

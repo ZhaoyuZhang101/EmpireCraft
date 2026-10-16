@@ -139,8 +139,10 @@ public static class ClaimAgendaSystem
         }
         else if (claim.type == TemporaryFactionType.提高福利)
         {
-            view.TechnologyName = $"{PartySystem.GetIdeologyName(faction.Ideology)} · " +
-                                  LM.Get($"ideology_{faction.Ideology}_stage_2");
+            // 纲领阶段只有近代政党有；朋党(古代理念)只写理念名，不去取不存在的纲领文本
+            view.TechnologyName = faction.IsParty
+                ? $"{PartySystem.GetIdeologyName(faction.Ideology)} · " + LM.Get($"ideology_{faction.Ideology}_stage_2")
+                : PartySystem.GetIdeologyName(faction.Ideology);
             if (!faction.IsParty || view.IdeologyStage < 2)
                 view.Blocker = "agenda_requires_policy_program";
             else if (empire.data.constitutional_economy?.welfare_level >= 3)
@@ -194,6 +196,15 @@ public static class ClaimAgendaSystem
             TemporaryFactionType.赈济灾荒 => 20f + Peasantry() * 0.2f,
             // 看全帝国(中央、各州、各城)的腐败，以前只看中央王国自己，州县贪到顶朝廷也不急
             TemporaryFactionType.整顿吏治 => (float)CorruptionSystem.GetRate(empire) * 60f,
+            // 朝堂议题(诛宦官、党锢……)：有事可办就有几分紧迫
+            TemporaryFactionType.诛宦官 or TemporaryFactionType.党锢 => 15f,
+            TemporaryFactionType.兴修水利 or TemporaryFactionType.屯田实边 => 8f + Peasantry() * 0.1f,
+            TemporaryFactionType.盐铁专营 or TemporaryFactionType.裁省用度 => EmpireBankruptcySystem.IsBankrupt(empire) ? 15f : 5f,
+            // 天命动摇时方士、清流急着封禅、大赦以挽天命
+            TemporaryFactionType.封禅 or TemporaryFactionType.大赦天下 =>
+                TianxiaSystem.PhaseOf(empire.CoreKingdom) == TianxiaSystem.Unrest ? 15f : 5f,
+            TemporaryFactionType.重定律令 or TemporaryFactionType.重农抑商 => 5f,
+            TemporaryFactionType.独尊官学 => 12f,
             TemporaryFactionType.册立储君 => empire.Emperor == null ? 0f
                 : Mathf.Clamp((empire.Emperor.getAge() - 30) * 0.5f, 0f, 20f),
             _ => 0f

@@ -62,7 +62,8 @@ public static class IdeologyInstitutionPaths
         [PartyIdeology.GreatClans] = new(SocialClass.Noble, SocialClass.Peasant, 1.00f, 1.10f, 0.06f, 1.10f, 1.8f, 1.6f),
         [PartyIdeology.ConsortKin] = new(SocialClass.Noble, SocialClass.Officer, 1.00f, 1.00f, 0.05f, 1.00f, 1.5f, 1.5f),
         [PartyIdeology.Eunuchs] = new(SocialClass.Officer, SocialClass.Noble, 1.00f, 1.00f, 0.05f, 1.00f, 1.5f, 1.8f),
-        [PartyIdeology.Animism] = new(SocialClass.Peasant, SocialClass.Officer, 1.00f, 1.00f, 0.03f, 1.00f, 1.5f, 1.0f)
+        [PartyIdeology.Animism] = new(SocialClass.Peasant, SocialClass.Officer, 1.00f, 1.00f, 0.03f, 1.00f, 1.5f, 1.0f),
+        [PartyIdeology.RoyalKin] = new(SocialClass.Noble, SocialClass.Landlord, 1.00f, 1.00f, 0.05f, 1.00f, 1.5f, 1.5f)
     };
 
     public static Profile GetProfile(PartyIdeology ideology) => Profiles[ideology];

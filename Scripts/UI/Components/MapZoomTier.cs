@@ -5,13 +5,15 @@ namespace EmpireCraft.Scripts.UI.Components;
 // 电子地图式的分级显示(用户 2026-10-16："放大后……有颜色但是地形细节会有，再大点就是交通网络，再放大是更细的交通网络，
 // 最后变成(街区)这个样子"，选定四级)。按一格占多少屏幕像素分级，各图层只调透明度(不重画底图)，切换不卡：
 //   ① 远景(一格不到 1 像素)：国色半透明盖在地形上——林地绿、荒漠米黄、雪山白，国界清楚(见 TerrainOverlay)；
-//   ② 中景(1~2.5)：出现干线(官道、公路、柏油公路，见 RoadOverlay)；
-//   ③ 近景(2.5~6)：全部道路到土路、驿道，城市精细层(街巷、建筑，见 CityDetailOverlay)；
-//   ④ 街区(6 以上)：街道名、建筑名、小区名标注(见 MapLabelOverlay)。
+//   ② 中景(1~4.5)：出现干线(官道、公路、柏油公路，见 RoadOverlay)；城市只是色块，不画街巷房屋；
+//   ③ 近景(4.5~8)：全部道路到土路、驿道，城市精细层(街巷、建筑，见 CityDetailOverlay)；
+//   ④ 街区(8 以上)：街道名、建筑名、小区名标注(见 MapLabelOverlay)。
 // 交界处约两成的范围里渐变，不会一下子跳。
 public static class MapZoomTier
 {
-    public const float Mid = 1f, Near = 2.5f, Street = 6f;
+    // 近景、街区门槛原为 2.5、6：常用的缩放(一格两三个像素)城市细节就全冒出来，只有拉到最远才是简图
+    // (用户 2026-10-17 "为什么只有我放到最大才省略显示城市，就不能正常大小下就省略细节吗")，调高到 4.5、8
+    public const float Mid = 1f, Near = 4.5f, Street = 8f;
 
     public static float PixelsPerTile(Camera camera) =>
         camera == null || camera.orthographicSize <= 0f ? 0f : Screen.height / (2f * camera.orthographicSize);

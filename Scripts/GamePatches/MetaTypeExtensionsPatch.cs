@@ -98,6 +98,9 @@ public class MetaTypeExtensionsPatch:GamePatch
             case MetaTypeExtension.Governance:
                 __result = "governance";
                 return false;
+            case MetaTypeExtension.Tianxia:
+                __result = "tianxia";
+                return false;
             default:
                 Debug.LogError((object) ("MetaTypeExtensions.AsString missing option for : " + pType.ToString()));
                 __result = pType.ToString().ToLower();

@@ -25,7 +25,10 @@ public static class ClaimTuning
             TemporaryFactionType.国_打击贪腐 or TemporaryFactionType.整顿吏治 or TemporaryFactionType.赈济灾荒 or
             TemporaryFactionType.册立储君 or TemporaryFactionType.开科取士 or TemporaryFactionType.推行三省六部 or
             TemporaryFactionType.设立内阁 or TemporaryFactionType.转天朝制度 or TemporaryFactionType.推行普选 or
-            TemporaryFactionType.开放党禁 or TemporaryFactionType.索取皇位 => LightMonths,
+            TemporaryFactionType.开放党禁 or TemporaryFactionType.索取皇位 or TemporaryFactionType.诛宦官 or
+            TemporaryFactionType.党锢 or TemporaryFactionType.大赦天下 or TemporaryFactionType.盐铁专营 or
+            TemporaryFactionType.重农抑商 or TemporaryFactionType.封禅 or TemporaryFactionType.裁省用度 or
+            TemporaryFactionType.独尊官学 => LightMonths,
         TemporaryFactionType.土地改革 or TemporaryFactionType.游牧化 or TemporaryFactionType.颁布金玺诏书 or
             TemporaryFactionType.恢复世袭皇权 or TemporaryFactionType.建立共和 or TemporaryFactionType.复辟帝制 or
             TemporaryFactionType.转周制 => HeavyMonths,
@@ -38,7 +41,9 @@ public static class ClaimTuning
         TemporaryFactionType.对外扩张 or TemporaryFactionType.谋求统一 => 4f,
         TemporaryFactionType.迫使朝贡 or TemporaryFactionType.提供岁币 or TemporaryFactionType.推行三省六部 or
             TemporaryFactionType.转天朝制度 or TemporaryFactionType.土地改革 or TemporaryFactionType.赈济灾荒 or
-            TemporaryFactionType.恢复圣地 or TemporaryFactionType.复辟帝制 => 3f,
+            TemporaryFactionType.恢复圣地 or TemporaryFactionType.复辟帝制 or TemporaryFactionType.兴修水利 or
+            TemporaryFactionType.封禅 => 3f,
+        TemporaryFactionType.屯田实边 => 2f,
         TemporaryFactionType.游牧扩张 or TemporaryFactionType.扩张地盘 or TemporaryFactionType.收回地盘 or
             TemporaryFactionType.开科取士 or TemporaryFactionType.设立内阁 or TemporaryFactionType.推行普选 or
             TemporaryFactionType.供养宗室 or TemporaryFactionType.整顿吏治 or TemporaryFactionType.国_打击贪腐 or

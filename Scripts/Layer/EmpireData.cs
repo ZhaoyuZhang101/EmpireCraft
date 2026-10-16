@@ -52,6 +52,8 @@ public class EmpireData : MetaObjectData
     // 上次修氏族志、抑豪强的时间(见 GentrySystem)
     public double gentry_register_at = -1d;
     public double gentry_curbed_at = -1d;
+    // 诉求上回施行的时间(见 TemporaryFaction.CooldownYears)
+    public Dictionary<string, double> claim_done_at = new();
     // 羁縻朝贡(见 JimiTributeSystem)：各羁縻政区受册封的首领(负数 = 新首领还没册封)、上回入朝、加恩安抚的时间；
     // 叛去的羁縻政区与叛去的时间
     public Dictionary<long, long> jimi_chiefs = new();

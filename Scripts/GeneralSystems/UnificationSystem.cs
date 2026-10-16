@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.HelperFunc;
@@ -12,7 +13,9 @@ using UnityEngine;
 namespace EmpireCraft.Scripts.GeneralSystems;
 
 // 天下大势(历史周期律，用户 2026-10-14 定)：
-// 天下 = 同一文化圈(城市主文化所属的制度线)里连成一片的城(领地接壤，或同一块陆地上相距不远)；隔着别的文化、隔得远的是另一个天下。
+// 天下 = 帝国核心(或玩家并成的联合天下，见 TianxiaSystem)的法理城市，至少五座(用户 2026-10-17："一个帝国法理一个天下，
+// 玩家也可以设置多个帝国法理的联合天下")；还没有帝国核心的地方 = 同一天下标识的文化(见 LineOf)里连成一片的城
+// (领地接壤，或同一块陆地上相距不远)，隔着别的文化、隔得远的是另一个天下。
 // 一家 = 一个独立国家连同它的附庸；帝国连同各成员国、附庸算一家。都城在这片里的才是天下的一家
 // (用户 2026-10-15："到处都是统一战争，有的甚至跨文化跨地域打")：别的文化的国家占着几座城，不算天下的人，不是统一的对象。
 //   · 乱世：天下至少八座城、三家以上，没有哪家占到三成——群雄互伐，饥荒、民变照常；
@@ -114,7 +117,7 @@ public static class UnificationSystem
                Rivals.TryGetValue(sovereign.id, out List<Kingdom> rivals) && rivals.Contains(foe);
     }
 
-    // 同一文化圈(本国文化所属的制度线相同)
+    // 同一文化圈(本国文化的天下标识相同，见 LineOf)
     public static bool SameSphere(Kingdom a, Kingdom b)
     {
         if (a?.data == null || b?.data == null) return false;
@@ -144,16 +147,20 @@ public static class UnificationSystem
 
     #region 天下
 
+    // 文化圈：按城市实际的文化分，不按制度线——制度线是借用的科技树，一条线下有好几种文化
+    // (游牧线有游牧、阿兹特克、奥吉布瓦，罗马线有维京、斯拉夫、法兰克……)。玩家反馈 2026-10-17：
+    // 汗国把周围一城一国的别的文化当成同一个天下打统一战争——跨文化的扩张走游牧扩张、寻常战争。
+    // 文化配置里标了同一天下标识的(华夏、中国、山海都标 Huaxia)合在一起
     private static string LineOf(string culture)
     {
         if (string.IsNullOrEmpty(culture)) return null;
         try
         {
-            return InstitutionSystem.GetCultureLine(culture);
+            return culture.GetTianxiaId();
         }
         catch
         {
-            return null;
+            return culture;
         }
     }
 
@@ -163,18 +170,32 @@ public static class UnificationSystem
     private sealed class Realm
     {
         public string line;
+        // 按天下(帝国核心)划的：主核心；按文化连片的为空
+        public EmpireCore lead;
         public int total;
         public readonly Dictionary<Kingdom, int> held = new();
         public readonly HashSet<City> cities = new();
         public readonly HashSet<Kingdom> members = new();
     }
 
+    // 天下(见 TianxiaSystem)：有帝国核心的城按核心所在的天下归拢(法理，不论文化、不论连不连片)；
+    // 还没有帝国核心的城照旧按文化连片
+    private const int MinCoreCities = 5;
+
     private static List<Realm> Survey()
     {
         var byLine = new Dictionary<string, List<City>>();
+        var byLead = new Dictionary<EmpireCore, List<City>>();
         foreach (City city in World.world.cities.list)
         {
             if (city?.data == null || city.isRekt() || city.kingdom == null || city.kingdom.wild) continue;
+            EmpireCore lead = TianxiaSystem.LeadOf(city);
+            if (lead != null)
+            {
+                if (!byLead.TryGetValue(lead, out List<City> cored)) byLead[lead] = cored = new List<City>();
+                cored.Add(city);
+                continue;
+            }
             if (IslandOf(city.getTile()) == null) continue;
             string line = LineOf(CultureService.GetMainCulture(city, false));
             if (line == null) continue;
@@ -182,6 +203,15 @@ public static class UnificationSystem
             list.Add(city);
         }
         var realms = new List<Realm>();
+        foreach (KeyValuePair<EmpireCore, List<City>> pair in byLead)
+        {
+            var realm = new Realm { line = TianxiaSystem.Name(pair.Key), lead = pair.Key };
+            foreach (City city in pair.Value) realm.cities.Add(city);
+            Tally(realm);
+            // 太小的天下不打统一战争，天命照样结算
+            if (pair.Value.Count >= MinCoreCities) realms.Add(realm);
+            else TianxiaSystem.Settle(realm.lead, realm.held, realm.total, realm.line);
+        }
         var queue = new Queue<City>();
         foreach (KeyValuePair<string, List<City>> pair in byLine)
         {
@@ -206,28 +236,35 @@ public static class UnificationSystem
                     }
                 }
                 if (realm.cities.Count < MinCities) continue;
-                realm.total = realm.cities.Count;
-                foreach (City city in realm.cities)
-                {
-                    Kingdom holder = Sovereign(city.kingdom);
-                    if (!Alive(holder)) continue;
-                    realm.held.TryGetValue(holder, out int count);
-                    realm.held[holder] = count + 1;
-                }
-                foreach (Kingdom holder in realm.held.Keys)
-                    if (holder.capital != null && realm.cities.Contains(holder.capital)) realm.members.Add(holder);
+                Tally(realm);
                 realms.Add(realm);
             }
         }
         return realms;
     }
 
+    private static void Tally(Realm realm)
+    {
+        realm.total = realm.cities.Count;
+        foreach (City city in realm.cities)
+        {
+            Kingdom holder = Sovereign(city.kingdom);
+            if (!Alive(holder)) continue;
+            realm.held.TryGetValue(holder, out int count);
+            realm.held[holder] = count + 1;
+        }
+        foreach (Kingdom holder in realm.held.Keys)
+            if (holder.capital != null && realm.cities.Contains(holder.capital)) realm.members.Add(holder);
+    }
+
     // 两座城连成一片：领地接壤，或同一块陆地上城心相距不远
     private static bool Linked(City a, City b)
     {
-        if (a.neighbours_cities != null && a.neighbours_cities.Contains(b)) return true;
+        // 不跨海(用户："跨大陆跨海洋就算了")：隔海接壤的也不连
         WorldTile ta = a.getTile(), tb = b.getTile();
-        return ta != null && tb != null && IslandOf(ta) == IslandOf(tb) && Toolbox.SquaredDistTile(ta, tb) <= LinkTiles * LinkTiles;
+        if (ta == null || tb == null || IslandOf(ta) != IslandOf(tb)) return false;
+        if (a.neighbours_cities != null && a.neighbours_cities.Contains(b)) return true;
+        return Toolbox.SquaredDistTile(ta, tb) <= LinkTiles * LinkTiles;
     }
 
     // 这一家是这个天下的人(都城在这片里)：只有它们能做统一者、是统一的对象
@@ -288,11 +325,15 @@ public static class UnificationSystem
         FormationDiagnostics.Yearly();
         Rivals.Clear();
         double now = World.world.getCurWorldTime();
+        // 天下自动并分(按文化配置的天下标识，见 TianxiaSystem.AutoArrange)
+        TianxiaSystem.AutoArrange();
         List<Realm> realms = Survey();
         Diagnose(realms);
         var tracked = new HashSet<Kingdom>();
         foreach (Realm realm in realms)
         {
+            // 天命：据有天下七成五受天命，跌破一半失天命(天下无主，朝廷不解体)
+            if (realm.lead != null) TianxiaSystem.Settle(realm.lead, realm.held, realm.total, realm.line);
             List<Kingdom> powers = realm.members.ToList();
             Kingdom unifier = powers.FirstOrDefault(holder => holder.GetOrCreate().unify_since >= 0d);
             if (unifier != null)
@@ -352,6 +393,8 @@ public static class UnificationSystem
             double second = ranked.Skip(1).Select(holder => WarSituation.Power(holder)).DefaultIfEmpty(0d).Max();
             bool leads = topShare >= ContenderShare || topShare >= PowerLeadMinShare && topPower >= second * PowerLead;
             if (!leads) continue;
+            // 天下有主(治世、动荡)：别家不能问鼎，只有乱世才有统一战争(见 TianxiaSystem 天命周期)
+            if (realm.lead != null && TianxiaSystem.BarsContender(realm.lead, top)) continue;
             top.GetOrCreate().unify_since = now;
             tracked.Add(top);
             Record(top, "unify_start_history", top.GetKingdomName(), $"{topShare:P0}");
@@ -363,6 +406,21 @@ public static class UnificationSystem
             if (!Alive(kingdom) || tracked.Contains(kingdom)) continue;
             var data = kingdom.GetOrCreate();
             if (data.unify_since >= 0d) data.unify_since = -1d;
+        }
+        RetagStaleWars();
+    }
+
+    // 已不在同一天下的"统一战争"(旧存档跨文化开的、天下散了的)改名：游牧政权为游牧扩张，别的为帝国扩张
+    private static void RetagStaleWars()
+    {
+        foreach (War war in World.world.wars.list.ToList())
+        {
+            if (war?.data == null || war.hasEnded() || war.GetEmpireWarType() != EmpireWarType.统一 || IsUnificationWar(war))
+                continue;
+            Kingdom attacker = war.getMainAttacker();
+            if (attacker == null) continue;
+            bool nomad = attacker.GetRegime()?.type == EmpireCraft.Scripts.Regimes.RegimeType.YouMu;
+            war.SetEmpireWarType(nomad ? EmpireWarType.游牧扩张 : EmpireWarType.帝国扩张);
         }
     }
 

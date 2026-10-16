@@ -28,6 +28,7 @@ public static class EmpireCraftMetaTypeLibrary
       AddGovernanceMeta();
       AddMineralMeta();
       AddCityViewMeta();
+      AddTianxiaMeta();
       AssetManager.meta_type_library.linkAssets();
     }
 
@@ -39,6 +40,40 @@ public static class EmpireCraftMetaTypeLibrary
     public static MetaTypeAsset governance;
     public static MetaTypeAsset mineral;
     public static MetaTypeAsset cityView;
+    public static MetaTypeAsset tianxia;
+
+    // 天下图层：按天下给城上色(见 Layer/TianxiaMap.cs)
+    public static void AddTianxiaMeta()
+    {
+        var asset = new MetaTypeAsset
+        {
+            id = "tianxia",
+            ranks = MetaTypeLibrary.generateExponentialRanks(100.0, 1.5),
+            window_name = nameof(TianxiaWindow),
+            power_tab_id = "selected_empire",
+            force_zone_when_selected = false,
+            set_icon_for_cancel_button = true,
+            icon_list = "iconReligionList",
+            icon_single_path = "ui/icons/godpowers/tianxia_layer",
+            has_dynamic_zones = false,
+            reports = new string[0],
+            map_mode = MetaTypeExtension.Tianxia,
+            option_id = "map_Tianxia_layer",
+            power_option_zone_id = "Tianxia_layer"
+        };
+        asset.window_action_clear = (MetaTypeAction) (() => { });
+        asset.window_history_action_update = (MetaTypeHistoryAction) ((ref WindowHistoryData pHistoryData) => { });
+        asset.window_history_action_restore = (MetaTypeHistoryAction) ((ref WindowHistoryData pHistoryData) => { });
+        asset.get_list = (MetaTypeListAction) (() => Enumerable.Empty<NanoObject>());
+        asset.has_any = (MetaTypeListHasAction) (() => false);
+        asset.get_selected = (MetaSelectedGetter) (() => null);
+        asset.set_selected = (MetaSelectedSetter) (_ => { });
+        asset.get = (MetaGetter) (_ => null);
+        asset.check_unit_has_meta = (MetaCheckUnitWindowAction) (_ => false);
+        asset.set_unit_set_meta_for_meta_for_window = (MetaUnitSetMetaForWindow) (_ => { });
+        EmpireCraft.Scripts.Layer.TianxiaMap.Configure(asset);
+        tianxia = AssetManager.meta_type_library.add(asset);
+    }
 
     // 城市图层：只显示模拟的城市，不涂国家颜色(见 Layer/CityViewMap.cs)
     public static void AddCityViewMeta()

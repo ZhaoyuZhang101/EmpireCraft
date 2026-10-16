@@ -70,6 +70,8 @@ public static class MonarchyLegitimacy
         items.AddRange(PapacySystem.LegitimacyItems(empire));
         // 神圣罗马式选帝制：家族领地的厚薄(见 HolyRomanSystem)
         items.AddRange(HolyRomanSystem.LegitimacyItems(empire));
+        // 天下共主 / 失了天命(见 TianxiaSystem)
+        items.AddRange(TianxiaSystem.LegitimacyItems(empire));
         // 以下读取年度快照(InstitutionSystem.UpdateSocialUnrest)，不在这里扫描城市
         var institutions = empire.data.institution_state;
         if (institutions != null)

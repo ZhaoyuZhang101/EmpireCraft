@@ -276,7 +276,7 @@ public static class CompositeEmpireService
         return CultureService.GetRealmCulture(empire?.CoreKingdom);
     }
 
-    private static bool IsNomadicCulture(string culture)
+    public static bool IsNomadicCulture(string culture)
     {
         return CultureService.IsValidCulture(culture) &&
                OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(culture, out Setting setting) &&

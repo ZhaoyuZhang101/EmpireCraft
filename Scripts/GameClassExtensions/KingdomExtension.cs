@@ -238,6 +238,8 @@ public static class KingdomExtension
         public double TimestampEmpire = -1L;
         public double TimestampBeFeifed = -1L;
         public long HeirID = -1L;
+        // 上次记入日志的接班人(族谱身份编号)：同一人反复复查不再重复记"已选定接班人"
+        public long logged_heir_identity = -1L;
         // 军团(见 CorpsSystem)与番号计数
         public List<EmpireCraft.Scripts.Data.CorpsData> corps;
         public int corps_serial;
@@ -246,6 +248,8 @@ public static class KingdomExtension
         public int fleet_serial;
         // 钦定储君(见册立储君)：仍在世、可继位、还是先君子嗣时越过继承法次序
         public long designated_heir_id = -1L;
+        // 天下朝贡(见 TianxiaSystem.Tribute)：仰慕哪个天下的共主而来朝(主核心编号)；-1 = 不是
+        public long tianxia_tributary_lead = -1L;
         // 下一位君主怎么继的位(废立、兵变、争位，见 PrinceStruggleSystem.Note)：新君即位时写进纪年
         public string succession_note = "";
         public long succession_note_actor = -1L;

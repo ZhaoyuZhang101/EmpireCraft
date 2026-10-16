@@ -150,6 +150,32 @@ namespace EmpireCraft.Scripts.UI.Windows
             stats.AddRailRow(rowWidth, LM.Get("empire_core_current_empires"), empires.Count.ToString(), "#FFB852", 2);
             stats.AddRailRow(rowWidth, LM.Get("empire_core_history_collection"), (_core.empire_history_ids?.Distinct().Count() ?? 0).ToString(), "#F2EEE2", 3);
 
+            // 天下(见 TianxiaSystem)：名号、构成、天命；可改名、退出联合天下
+            EmpireCore lead = TianxiaSystem.Lead(_core);
+            List<EmpireCore> members = TianxiaSystem.Members(lead);
+            var tianxia = _rail.BeginRailCard();
+            tianxia.AddRailText($"{LM.Get("tianxia_label")}: {TianxiaSystem.Name(lead)}".ColorString("#E8C66A"), 7, 10f);
+            string tianxiaId = TianxiaSystem.TianxiaId(lead);
+            if (tianxiaId != "")
+                tianxia.AddRailText(string.Format(LM.Get("tianxia_id_label"), tianxiaId).ColorString("#8FA0A8"), 6, 9f);
+            if (members.Count > 1)
+                tianxia.AddRailText(string.Format(LM.Get("tianxia_members"),
+                    string.Join("、", members.Select(EmpireCoreManager.GetDisplayName))).ColorString("#C8C2B4"), 6, 9f);
+            tianxia.AddRailText(TianxiaSystem.MandateText(lead).ColorString("#FF8A7A"), 6, 9f);
+            tianxia.AddRailInput(LM.Get("tianxia_name_input"), TianxiaSystem.Name(lead), value =>
+            {
+                TianxiaSystem.Rename(_core, value);
+                RefreshWindow();
+            });
+            tianxia.AddButtonIntoVertLayout("tianxia_open_button", LM.Get("tianxia_open"), () => TianxiaWindow.Open(_core),
+                SpriteTextureLoader.getSprite("ui/icons/godpowers/tianxia_layer"), size: new Vector2(UIHelper.RailWidth - 8f, 14), showTip: false);
+            if (members.Count > 1)
+                tianxia.AddButtonIntoVertLayout("tianxia_leave_button", LM.Get("tianxia_leave"), () =>
+                {
+                    TianxiaSystem.Leave(_core);
+                    RefreshWindow();
+                }, SpriteTextureLoader.getSprite("ui/icons/iconToolTianxiaLeave"), size: new Vector2(UIHelper.RailWidth - 8f, 14), showTip: false);
+
             string culture = _core.default_culture;
             if (!CultureService.IsValidCulture(culture))
             {

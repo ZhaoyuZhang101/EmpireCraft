@@ -60,6 +60,8 @@ public sealed class CultureInstitutionState
     public long imperial_seal_item_id = -1L;
     public bool imperial_seal_made;
     public double imperial_seal_lost_since = -1d;
+    // 持有玉玺的王国(还没称帝的华夏独立国家，见 ImperialSealSystem.GiveKingdom)；-1 = 不在王国手里
+    public long imperial_seal_kingdom_id = -1L;
     // 百家争鸣与定于一尊(华夏，见 AncientSchoolsSystem)：争鸣开始的时间、正统学说、定于一尊的时间、已经兴起的各家
     public double hundred_schools_since = -1d;
     public string orthodox_school = "";

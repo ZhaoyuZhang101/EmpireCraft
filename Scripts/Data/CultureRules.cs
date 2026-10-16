@@ -40,6 +40,9 @@ public class Setting
     // 会把周制改成律令制），但文化所属的线终身不变。
     // 留空或写了个目录里不存在的 id，会退化成 InstitutionTrees/Settings.json 里的 default_line。
     public string institution_line = "";
+    // 天下标识(见 TianxiaSystem)：写了同一个标识的文化同属一个天下——相邻的帝国法理自动并成一个天下，
+    // 还没有帝国法理的地方也按它连片。留空 = 本文化自成一个天下
+    public string tianxia = "";
     // 开局阶段：写本线的一个制度节点，文化开局时这个节点及其全部前置都已施行(被它取代的不算)；
     // 留空从本线的根节点起步(华夏线是原始群)
     public string start_institution = "";
@@ -238,6 +241,15 @@ public static class OnomasticsRule
                !string.IsNullOrWhiteSpace(setting?.institution_line)
             ? setting.institution_line.Trim()
             : "";
+    }
+
+    // 文化所属的天下标识；没写就是文化自己
+    public static string GetTianxiaId(this string culture)
+    {
+        if (string.IsNullOrEmpty(culture)) return "";
+        return ALL_CULTURE_RULE.TryGetValue(culture, out Setting setting) && !string.IsNullOrWhiteSpace(setting?.tianxia)
+            ? setting.tianxia.Trim()
+            : culture;
     }
 
     public static bool HasPoliticalTrait(this string culture, string trait)

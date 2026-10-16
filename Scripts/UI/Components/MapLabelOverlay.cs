@@ -222,7 +222,7 @@ public static class MapLabelOverlay
             {
                 if (!houses) continue;
                 if (!residences.TryGetValue(slot.Zone, out string estate))
-                    residences[slot.Zone] = estate = Pick(EstateWords, city.id * 7919L + slot.Zone) +
+                    residences[slot.Zone] = estate = Pick(EstateWords(modern), city.id * 7919L + slot.Zone) +
                                                      (modern ? Pick(EstateSuffixModern, slot.Zone) : Pick(EstateSuffixOld, slot.Zone));
                 // 古代一块住宅地标一次坊名；近代每栋标楼号
                 if (!modern)
@@ -258,7 +258,7 @@ public static class MapLabelOverlay
                 string[] suffixes = label.Icon == "avenue" ? modern ? AvenueSuffixModern : AvenueSuffixOld
                     : label.Vertical ? modern ? StreetSuffixModernColumn : StreetSuffixOldColumn(city)
                     : modern ? StreetSuffixModernRow : StreetSuffixOldRow;
-                string name = StreetName(city.id * 131L + label.Key, usedNames, suffixes);
+                string name = StreetName(city.id * 131L + label.Key, usedNames, suffixes, modern);
                 specs.Add(new Spec(label.Tile, name, StreetColor, label.Icon == "avenue" ? StreetSize * 1.15f : StreetSize,
                     label.Vertical && Chinese, 0));
                 continue;
@@ -268,7 +268,7 @@ public static class MapLabelOverlay
             {
                 if (!houses) continue;
                 if (!residences.TryGetValue(zone, out string estate))
-                    residences[zone] = estate = Pick(EstateWords, city.id * 7919L + zone) +
+                    residences[zone] = estate = Pick(EstateWords(modern), city.id * 7919L + zone) +
                                                 (modern ? Pick(EstateSuffixModern, zone) : Pick(EstateSuffixOld, zone));
                 specs.Add(new Spec(label.Tile, modern ? estate + (++houseNumber % 30 + 1) + Building() : estate, HouseColor,
                     HouseSize, false, 3));
@@ -383,7 +383,7 @@ public static class MapLabelOverlay
         {
             int x0 = row.Min(zone => zone.x), x1 = row.Max(zone => zone.x);
             if (x1 - x0 < 1 && row.Count() < 2) continue;
-            string name = StreetName(city.id * 131L + row.Key, usedNames, modern ? StreetSuffixModernRow : StreetSuffixOldRow);
+            string name = StreetName(city.id * 131L + row.Key, usedNames, modern ? StreetSuffixModernRow : StreetSuffixOldRow, modern);
             specs.Add(new Spec(new Vector2((x0 + x1 + 1) * size / 2f, row.Key * size), name, StreetColor, StreetSize, false, 0));
         }
         foreach (var column in columns)
@@ -391,20 +391,21 @@ public static class MapLabelOverlay
             int y0 = column.Min(zone => zone.y), y1 = column.Max(zone => zone.y);
             if (y1 - y0 < 1 && column.Count() < 2) continue;
             string name = StreetName(city.id * 137L + column.Key + 7919L, usedNames,
-                modern ? StreetSuffixModernColumn : StreetSuffixOldColumn(city));
+                modern ? StreetSuffixModernColumn : StreetSuffixOldColumn(city), modern);
             specs.Add(new Spec(new Vector2(column.Key * size, (y0 + y1 + 1) * size / 2f), name, StreetColor, StreetSize,
                 Chinese, 0));
         }
     }
 
-    private static string StreetName(long seed, HashSet<string> used, string[] suffixes)
+    private static string StreetName(long seed, HashSet<string> used, string[] suffixes, bool modern)
     {
+        string[] words = StreetWords(modern);
         for (int attempt = 0; attempt < 8; attempt++)
         {
-            string name = Pick(StreetWords, seed + attempt * 104729L) + Pick(suffixes, seed);
+            string name = Pick(words, seed + attempt * 104729L) + Pick(suffixes, seed);
             if (used.Add(name)) return name;
         }
-        return Pick(StreetWords, seed) + Pick(suffixes, seed + 1);
+        return Pick(words, seed) + Pick(suffixes, seed + 1);
     }
 
     private static (string text, Color color) BuildingName(string icon, bool modern, string cityName, long seed)
@@ -419,12 +420,13 @@ public static class MapLabelOverlay
                 return (name.StartsWith("·") ? cityName + name.Substring(1) : name, CivicColor);
             }
             case "market":
-                return (Pick(Elegant, seed) + Pick(modern ? MarketModern : MarketOld, seed + 3), MarketColor);
+                return (Pick(Elegant(modern), seed) + Pick(modern ? MarketModern : MarketOld, seed + 3), MarketColor);
             case "industry":
-                return (Pick(Elegant, seed) + Pick(modern || icon.EndsWith("1") || icon.EndsWith("2") ? FactoryModern : FactoryOld, seed + 5),
+                bool modernWorks = modern || icon.EndsWith("1") || icon.EndsWith("2");
+                return (Pick(Elegant(modernWorks), seed) + Pick(modernWorks ? FactoryModern : FactoryOld, seed + 5),
                     IndustryColor);
             case "temple":
-                return (Pick(Elegant, seed) + Pick(TempleNames, seed + 7), TempleColor);
+                return (Pick(Elegant(false), seed) + Pick(TempleNames, seed + 7), TempleColor);
             case "barracks":
                 return (cityName + Pick(modern ? BarracksModern : BarracksOld, seed), MilitaryColor);
             case "docks":
@@ -471,7 +473,8 @@ public static class MapLabelOverlay
     }
 
     // ───────── 词库(中文界面用汉字，其余语言用英文) ─────────
-    private static string[] StreetWords => Chinese ? StreetZh : StreetEn;
+    // 街名、坊名按时代分(用户 2026-10-17 "这个街道名称也太现代了"：古城里出了人民大街、胜利大街)
+    private static string[] StreetWords(bool modern) => Chinese ? modern ? StreetZh.Concat(StreetModernZh).ToArray() : StreetZh : StreetEn;
     private static string[] StreetSuffixOldRow => Chinese ? new[] { "街", "大街", "街" } : new[] { " Street", " Lane" };
     // 不叫胡同(用户 2026-10-17 "把地方城池和小镇的胡同这种词汇删了""都城也没有胡同")
     private static string[] StreetSuffixOldColumn(City city) => Chinese ? new[] { "巷" } : new[] { " Alley", " Lane" };
@@ -480,10 +483,10 @@ public static class MapLabelOverlay
     // 通城门的大道
     private static string[] AvenueSuffixOld => Chinese ? new[] { "大街" } : new[] { " High Street" };
     private static string[] AvenueSuffixModern => Chinese ? new[] { "大道" } : new[] { " Avenue" };
-    private static string[] EstateWords => Chinese ? EstateZh : EstateEn;
+    private static string[] EstateWords(bool modern) => Chinese ? modern ? EstateModernZh : EstateZh : EstateEn;
     private static string[] EstateSuffixOld => Chinese ? new[] { "坊", "里", "坊" } : new[] { " Ward", " Quarter" };
     private static string[] EstateSuffixModern => Chinese ? new[] { "花园", "小区", "家园", "新村", "公寓" } : new[] { " Gardens ", " Court ", " Heights " };
-    private static string[] Elegant => Chinese ? EstateZh : EstateEn;
+    private static string[] Elegant(bool modern) => EstateWords(modern);
     private static string[] CivicOld => Chinese
         ? new[] { "·县衙", "·府衙", "学宫", "书院", "驿站", "官仓", "·察院", "·文庙" }
         : new[] { "Magistrate", "Academy", "Post Station", "Granary", "Court House" };
@@ -524,11 +527,20 @@ public static class MapLabelOverlay
         "郑", "梁", "谢", "宋", "唐", "许", "韩", "冯", "邓", "曹"
     };
 
+    // 古今通用的雅名(古城只用这些)
     private static readonly string[] StreetZh =
     {
-        "建安", "平安", "雅云", "安邻", "学邻", "文治", "兴华", "长乐", "永宁", "通济", "崇文", "宣武", "光明", "和平", "人民",
-        "新华", "朝阳", "东风", "胜利", "团结", "太平", "清平", "泰和", "广济", "惠民", "仁和", "德胜", "安定", "延寿", "永安",
-        "崇仁", "怀德", "保宁", "宣化", "富春", "望江", "临河", "迎宾", "解放", "青年", "东大", "西大", "南门", "北门", "中山"
+        "建安", "平安", "雅云", "安邻", "学邻", "文治", "长乐", "永宁", "通济", "崇文", "宣武", "太平", "清平", "泰和", "广济",
+        "惠民", "仁和", "德胜", "安定", "延寿", "永安", "崇仁", "怀德", "保宁", "宣化", "富春", "望江", "临河", "迎宾", "南门",
+        "北门", "东门", "西门", "鼓楼", "钟楼", "县前", "府前", "仓前", "察院", "学前", "马市", "骡马", "米市", "盐市", "花市",
+        "铁匠", "布政", "按察", "大功", "积善", "宣平", "靖安", "兴化", "怀远", "通化", "安业", "光德", "延福", "永昌", "丰乐"
+    };
+
+    // 只有近代以后才有的街名
+    private static readonly string[] StreetModernZh =
+    {
+        "光明", "和平", "人民", "新华", "朝阳", "东风", "胜利", "团结", "解放", "青年", "中山", "兴华", "建设", "文化", "工农",
+        "友谊", "前进", "红旗", "民主", "复兴", "东大", "西大"
     };
 
     private static readonly string[] StreetEn =
@@ -537,10 +549,18 @@ public static class MapLabelOverlay
         "Park", "Hill", "Garden", "Castle", "Harbor", "Victoria", "Union", "Liberty", "Spring", "Water", "Grove"
     };
 
+    // 古代坊里、店铺、寺庙的雅名
     private static readonly string[] EstateZh =
     {
-        "雪香", "风华", "金百合", "桃花", "石榴", "月亮湾", "枇杷", "都市桃源", "南湖", "锦绣", "翠苑", "丽景", "金桂", "碧水",
-        "阳光", "幸福", "康乐", "平康", "安仁", "永和", "长寿", "怡和", "春晖", "紫荆", "梧桐", "海棠", "牡丹", "清风", "明月", "嘉禾"
+        "桃花", "石榴", "枇杷", "南湖", "锦绣", "金桂", "碧水", "康乐", "平康", "安仁", "永和", "长寿", "怡和", "春晖", "梧桐",
+        "海棠", "牡丹", "清风", "明月", "嘉禾", "崇义", "宣阳", "常乐", "延康", "怀贞", "归义", "敦化", "修德", "积庆", "兴道"
+    };
+
+    // 近代小区名
+    private static readonly string[] EstateModernZh =
+    {
+        "雪香", "风华", "金百合", "桃花", "石榴", "月亮湾", "都市桃源", "南湖", "锦绣", "翠苑", "丽景", "金桂", "碧水", "阳光",
+        "幸福", "康乐", "怡和", "春晖", "紫荆", "梧桐", "海棠", "清风", "明月", "嘉禾", "滨江", "御景", "名都", "世纪"
     };
 
     private static readonly string[] EstateEn =

@@ -481,7 +481,7 @@ public static partial class FrontSystem
                 TileZone at = CorpsSystem.Zone(corps);
                 // 在离自己最近的几块边境地块里散开站，不挤在同一块
                 corps.target_zone_id = marching
-                    ? Spread(corps, border.OrderBy(zone => CorpsSystem.ZoneDistance(zone, at)).Take(SpreadNearest).ToList(), borderLoad).id
+                    ? Spread(corps, border.OrderBy(zone => CorpsSystem.ZoneDistance(zone, at)).Take(SpreadNearest).ToList(), borderLoad)?.id ?? HomeZone(corps)
                     : StationZone(corps, stations);
             }
             return;
@@ -552,7 +552,7 @@ public static partial class FrontSystem
                 corps.task = "defend";
                 corps.sector_city_id = city.id;
                 // 铺满防线：本城贴着敌占区的地块每块先放一支，放满了再叠
-                corps.target_zone_id = line.Count > 0 ? Spread(corps, line, lineLoad).id : anchor?.id ?? HomeZone(corps);
+                corps.target_zone_id = (line.Count > 0 ? Spread(corps, line, lineLoad)?.id : anchor?.id) ?? HomeZone(corps);
                 assigned.Add(corps);
                 have += corps.strength;
             }
@@ -607,8 +607,9 @@ public static partial class FrontSystem
             corps.task = "attack";
             corps.sector_city_id = choice.City.id;
             // 在这一段的目标地块之间平均分(不挤在离自己最近的同一块)
+            // 这一段没有可推进的地块、军团又不在任何地块上时 Spread 返回空(玩家日志 2026-10-17 军团月度结算空引用)：回驻地
             TileZone target = Spread(corps, choice.Targets, attackLoad);
-            corps.target_zone_id = target.id;
+            corps.target_zone_id = target?.id ?? HomeZone(corps);
             corps.entrench = 0f;
             assigned.Add(corps);
         }
@@ -688,6 +689,7 @@ public static partial class FrontSystem
     // 散开站：在几块候选地块里挑放的军最少的(一样少的取最近的)；原来就在其中一块、那块还没别的军的，留在原地(免得每月换位)
     private const int SpreadNearest = 6;
 
+    // 候选都空、军团又不在任何地块上时返回 null，调用处要兜底
     private static TileZone Spread(CorpsData corps, IReadOnlyList<TileZone> candidates, Dictionary<int, int> load)
     {
         TileZone current = CorpsSystem.Zone(corps);
@@ -943,6 +945,12 @@ public static partial class FrontSystem
         }
         else if (SmoothActive) SmoothHold(city);
         Record(city, attacker, owner, ratio, attackStrength, holdStrength + militia, taken, now, terrain);
+        // 名将名臣：赢的一方的军团统领、战争统帅记战功(见 FamousTalentSystem)
+        if (ratio >= 0.55f)
+            FamousTalentSystem.OnBattle(attackers.Where(entry => entry.kingdom == attacker), city.GetCityName(),
+                attackStrength, holdStrength + militia, city.kingdom != owner, false);
+        else if (ratio <= 0.4f && standing)
+            FamousTalentSystem.OnBattle(holders, city.GetCityName(), holdStrength, attackStrength, false, true);
     }
 
     // 攻方下一块要推进的地(与 Advance 的挑法一致)：交战地形按它

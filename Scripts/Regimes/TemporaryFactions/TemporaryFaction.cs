@@ -90,6 +90,27 @@ public abstract class TemporaryFaction
     {
         ExecutedThisRun = true;
         Execute();
+        if (CooldownYears > 0) MarkDone();
+    }
+
+    // 施行后隔几年才能再提(0 = 不限)；各议题自己声明，CheckCondition 里用 OffCooldown 判断
+    [JsonIgnore]
+    public virtual int CooldownYears => 0;
+
+    public bool OffCooldown()
+    {
+        Empire empire = GetEmpire();
+        if (CooldownYears <= 0 || empire?.data?.claim_done_at == null || World.world == null) return true;
+        return !empire.data.claim_done_at.TryGetValue(type.ToString(), out double at) || at > World.world.getCurWorldTime() ||
+               Date.getYearsSince(at) >= CooldownYears;
+    }
+
+    private void MarkDone()
+    {
+        Empire empire = GetEmpire();
+        if (empire?.data == null || World.world == null) return;
+        empire.data.claim_done_at ??= new Dictionary<string, double>();
+        empire.data.claim_done_at[type.ToString()] = World.world.getCurWorldTime();
     }
     public virtual float RequireRenownMultiplier => 1f;
 

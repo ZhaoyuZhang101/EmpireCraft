@@ -471,6 +471,8 @@ public static class EmpireCoreManager
     public static bool TryAbsorbTitle(Empire empire, KingdomTitle title)
     {
         if (empire?.CoreKingdom == null || title == null || title.isRekt()) return false;
+        // 固定法理(模组设置)：帝国法理也一并固定，不再自动吸收王国法理(玩家用神力照常可改)
+        if (ModClass.KINGDOM_TITLE_FREEZE) return false;
         EmpireCore core = Get(empire) ?? newEmpireCore(empire);
         if (ContainsTitle(core, title)) return false;
         if (EmpireCores.Values.Any(other => other != null && other.id != core.id && ContainsTitle(other, title))) return false;
@@ -480,6 +482,11 @@ public static class EmpireCoreManager
         string titleCulture = CultureService.GetEffectiveTitleCulture(title);
         if (CultureService.IsValidCulture(empireCulture) && CultureService.IsValidCulture(titleCulture) &&
             !string.Equals(empireCulture, titleCulture, StringComparison.Ordinal)) return false;
+        // 不跨大陆(用户 2026-10-17："哪怕我不开固定，也不应该形成横跨好几个大陆好几个文化和核心的超级大国")：
+        // 王国法理的治所要和帝国法理的治所在同一块陆地上(标了天下标识的文化也不跨海)
+        object home = core.GetCoreCapital()?.getTile()?.region?.island ?? empire.CoreKingdom.capital?.getTile()?.region?.island;
+        object there = title.title_capital?.getTile()?.region?.island;
+        if (home != null && there != null && !ReferenceEquals(home, there)) return false;
         int cost = GetAssimilationCost(empire, title);
         if (!TreasurySystem.TrySpend(empire.CoreKingdom, cost, TreasuryCategory.Policy)) return false;
         bool result = AddTitleToCore(core, title);

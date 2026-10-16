@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.HelperFunc;
@@ -18,9 +19,13 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     严守红线目标为 25%；目标受风车可耕范围限制。不设红线只在缺粮时规划，住房仍须为规划农田让位。
 //     有红线时规划农田区受保护，城市不在上面盖建筑(见 NoCommonersPatch.AfterPlanAllowsBuilding)。
 // 农业生产力：古代 1，现代 3。
-// 纯净地图模式：农田只在规划的农业区里，不看风车——农业区里的可耕地就能开田、算收成；不再按原版风车算出的耕地开田；
-// 缺粮时 AI 补划农业区的上限放宽到城市区块的一半(这个模式没有庄稼建筑，不必为实体数量设限)。
-// 以前照样要风车：没有风车的城一块田都开不出来，到处闹饥荒
+// 纯净地图模式(用户 2026-10-17："农田要少，至少和村镇的数量保持一定比例且在周围""农田产出的系统可以改一改，不用按照原版的来")：
+//   · 田是村镇的田：城外每个村、镇都在四周种着几块条田(画法见 PureMapPatch.Detail 的 Fields、UrbanFabric)，
+//     AI 不再划农耕区开田——以前缺粮时把一城至多一半的地块划成农耕区，粗图上一片片大条田，拉近看着像放大了的贴图；
+//     旧存档里划的农耕区逐月退掉；
+//   · 产粮看种田的人：本城背景户数里住在城外镇村的那几份(村 1、镇 3，见 RuralSettlementSystem)，加上城里约四分之一的人
+//     在城郊种地，每户每年产 RuralYield × 农业生产力；毁于兵火的镇村不种田；不宜耕作的时代减半；
+//     城刚建、还没有镇村时只靠城郊田与自给口粮，镇村多起来粮就宽裕。
 public static class FarmlandSystem
 {
     private const float RedLineBase = 0.25f;
@@ -41,6 +46,9 @@ public static class FarmlandSystem
     private const int MaxRetiredFieldsPerSettle = 64;
     // 一个区块至少有这么多可耕地才值得划为农田
     private const int MinFarmableTilesInZone = 8;
+    // 纯净地图：种田的每户每年产粮(户数尺度；每户每年吃 1、自给 0.5)、城里种城郊田的份数、玩家刷的农田每格每年产粮
+    private const float RuralYield = 1.2f, CitySuburbFarmShare = 0.25f;
+    private const int MaxRetiredZonesPerSettle = 2;
 
     public static float Productivity(City city) => ModernStability.IsModern(city?.kingdom) ? 3f : 1f;
 
@@ -56,7 +64,7 @@ public static class FarmlandSystem
     {
         ConstitutionFarmland.None => 0f,
         ConstitutionFarmland.Strict => RedLineBase,
-        _ => RedLineBase / Productivity(city) * ZonePlanSystem.FarmFactor(city?.kingdom)
+        _ => RedLineBase / Productivity(city)
     };
 
     public static bool IsProtected(City city) => city != null && Policy(city.kingdom) != ConstitutionFarmland.None;
@@ -118,7 +126,7 @@ public static class FarmlandSystem
         if (!HasFarmArea(city, zone)) return false;
         zones.Add(zone.id);
         RetiredZones(city).Remove(zone.id);
-        ZonePlanSystem.OnFarmPlanned(city, zone);
+        ClearHousing(city, zone);
         return true;
     }
 
@@ -221,8 +229,9 @@ public static class FarmlandSystem
         switch (phase)
         {
             case 0:
+                if (PureMapMode.Enabled) RetireAutoPlannedZones(city);
                 ConstrainPlannedFields(city);
-                foreach (TileZone zone in PlannedZones(city)) ZonePlanSystem.ClearHousing(city, zone, ZoneUse.Farm);
+                foreach (TileZone zone in PlannedZones(city)) ClearHousing(city, zone);
                 break;
             case 1: CityBehCheckFarms.check(city); EnsureRedLine(city, data); break;
             case 2: return Harvest(city, data);
@@ -264,7 +273,7 @@ public static class FarmlandSystem
         {
             int months = data == null || data.last_economy < 0d ? 1
                 : Mathf.Clamp(Date.getMonthsSince(data.last_economy), 1, 24);
-            return VirtualHarvest(city) * months;
+            return RuralHarvest(city) * months;
         }
         float food = 0f;
         int count = 0;
@@ -298,6 +307,32 @@ public static class FarmlandSystem
             }
         }
         return food;
+    }
+
+    // 纯净地图：一个月的收成——住在完好镇村里的农户、城郊种地的城里人
+    private static float RuralHarvest(City city)
+    {
+        (float living, float ruined) = RuralSettlementSystem.Weights(city);
+        const float cityWeight = 6f;
+        float households = CityPopulationSystem.BackgroundHouseholds(city);
+        float farmers = households * (living + cityWeight * CitySuburbFarmShare) / (cityWeight + living + ruined);
+        CityPopulationData population = CityPopulationSystem.Get(city);
+        if (population != null) population.farm_jobs = farmers * 0.6f;
+        float food = farmers * RuralYield * Productivity(city);
+        if (World.world_era != null && !World.world_era.flag_crops_grow) food *= 0.5f;
+        return food / 12f;
+    }
+
+    // 旧存档里 AI 缺粮时划的农耕区每月退掉两块(纯净地图的田是村镇的田)
+    private static void RetireAutoPlannedZones(City city)
+    {
+        int retired = 0;
+        foreach (TileZone zone in PlannedZones(city).ToList())
+        {
+            if (retired >= MaxRetiredZonesPerSettle) break;
+            TogglePlanned(city, zone);
+            retired++;
+        }
     }
 
     // 纯净地图模式没有庄稼：按田里的种植位折算，每个种植位一轮成熟收 FoodPerCrop 份，
@@ -398,12 +433,37 @@ public static class FarmlandSystem
 
     // 规划时住房可以让位；真正开田仍要等原版拆除释放地块。
     private static bool CanPlanField(WorldTile tile) => CanMakeField(tile) ||
-        tile?.Type != null && tile.Type.can_be_farm && ZonePlanSystem.IsHousing(tile.building?.asset);
+        tile?.Type != null && tile.Type.can_be_farm && IsHousing(tile.building?.asset);
 
-    private static bool CanFarmZone(City city, TileZone zone)
+    // 功能区规划已撤(只剩耕地)：本城的地块都能耕
+    private static bool CanFarmZone(City city, TileZone zone) => zone != null && zone.city == city;
+
+    private static bool IsHousing(BuildingAsset asset) => asset != null && (asset.type == "type_house" || asset.hasHousingSlots());
+
+    // 规划农田区里风车范围内的民居让位给田(只拆到剩下的住房仍够住为止；不拆城心与外国建筑)
+    private static int ClearHousing(City city, TileZone zone)
     {
-        ZoneUse use = ZonePlanSystem.Get(city, zone);
-        return use == ZoneUse.None || use == ZoneUse.Farm || use == ZoneUse.Residential;
+        if (zone?.city != city || zone.tiles == null || city?.status == null) return 0;
+        int spare = city.status.housing_total - CityPopulationSystem.Households(city);
+        if (spare <= 0) return 0;
+        var houses = new HashSet<Building>();
+        foreach (WorldTile tile in zone.tiles)
+        {
+            Building building = tile?.building;
+            if (building?.asset == null || building.city != city || building.isOnRemove() || !IsHousing(building.asset) ||
+                building.asset.id.StartsWith("city_")) continue;
+            if (!IsWithinWindmillRange(city, tile) || tile.Type == null || !tile.Type.can_be_farm && !tile.Type.farm_field) continue;
+            houses.Add(building);
+        }
+        int cleared = 0;
+        foreach (Building house in houses)
+        {
+            if (spare - house.asset.housing_slots < 0) continue;
+            spare -= house.asset.housing_slots;
+            house.startDestroyBuilding();
+            cleared++;
+        }
+        return cleared;
     }
 
     // 无论农田来自原版还是规划，都核对风车范围和归属。
@@ -424,7 +484,8 @@ public static class FarmlandSystem
     // 红线或缺粮每月最多补划一块，候选区仍严格受风车范围限制。
     private static void EnsureRedLine(City city, CityPopulationData data)
     {
-        if (city.zones == null || city.zones.Count == 0) return;
+        // 纯净地图：田是村镇的田，AI 不划农耕区
+        if (PureMapMode.Enabled || city.zones == null || city.zones.Count == 0) return;
         int planned = 0;
         foreach (TileZone zone in PlannedZones(city))
             if (HasFarmArea(city, zone)) planned++;

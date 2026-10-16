@@ -50,10 +50,15 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
             kingdom.StartToChooseHeir();
             return;
         }
-        bool changed = kingdom.GetHeir() != heir.actor;
         kingdom.SetHeir(heir.actor);
         kingdom.ChooseHeirFinished();
-        if (changed) TranslateHelper.LogKingChooseHeir(kingdom, heir.relation, heir.actor);
+        // 按族谱身份比较：背景人口里的子孙每次复查可能被重新落成新的单位，单位编号会变，人还是那个人
+        heir.actor.CheckSpecificClan(false);
+        long identity = heir.actor.GetPersonalIdentity()?.id ?? -heir.actor.getID() - 2;
+        var data = kingdom.GetOrCreate();
+        if (data.logged_heir_identity == identity) return;
+        data.logged_heir_identity = identity;
+        TranslateHelper.LogKingChooseHeir(kingdom, heir.relation, heir.actor);
     }
 
     // 死亡、退位和真正的王位空缺才允许兄弟→孙辈→宗族→官员的原有兜底。

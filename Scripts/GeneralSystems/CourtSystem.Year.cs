@@ -236,7 +236,7 @@ public static partial class CourtSystem
         return true;
     }
 
-    // 结盟：找立场相近(各阶层亲和度方向一致)的派系，都不能一家独大
+    // 结盟：找立场相近(各阶层亲和度方向一致；朋党还看利义议题，见 CourtDoctrine)的派系，都不能一家独大
     private static bool TryAlly(Empire empire, CourtState state, FixedFaction faction, CourtFactionState data,
         List<FixedFaction> factions)
     {
@@ -269,7 +269,10 @@ public static partial class CourtSystem
             na += x * x;
             nb += y * y;
         }
-        return na <= 0f || nb <= 0f ? 0f : dot / Mathf.Sqrt(na * nb);
+        float classes = na <= 0f || nb <= 0f ? 0f : dot / Mathf.Sqrt(na * nb);
+        // 朋党：一半看阶层亲疏，一半看利义议题上是否同进退(变法派与天子派同主削藩、清流与阉党势同水火)
+        float? agreement = CourtDoctrine.Agreement(a, b);
+        return agreement == null ? classes : classes * 0.5f + agreement.Value * 0.5f;
     }
 
     // 兵谏：怨望极高、圣眷尽失、又有成员国君主做本钱的派系起兵(派系叛乱)；每年最多一起

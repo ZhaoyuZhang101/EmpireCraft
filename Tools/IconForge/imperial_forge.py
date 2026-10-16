@@ -807,6 +807,13 @@ TRAITS = {
     "iconFatuousRuler": obj_wine,
     "iconDissoluteRuler": lambda i: obj_branch(i, BONE),
     "iconTyrantRuler": obj_axe,
+    # 名将名臣(见 FamousTalentSystem)：名将 良才单剑、名双剑、国柱军旗；名臣 良才毛笔、名笏板、国柱官印
+    "iconTalentGeneralFine": obj_sword,
+    "iconTalentGeneralFamous": obj_swords,
+    "iconTalentGeneralPillar": obj_banners,
+    "iconTalentMinisterFine": obj_brush,
+    "iconTalentMinisterFamous": obj_tablet,
+    "iconTalentMinisterPillar": obj_seal,
     # WarBox 外交性格特质：原包没带图标(只有酗酒与兵种两张)，这里按同一画风补上，由 WarBoxCompatibility 挂接
     "warbox_xenophobe": lambda i: obj_lock(i),
     "warbox_cosmopolite": obj_envoy,
@@ -1265,6 +1272,9 @@ TOOLS = {
     "iconToolCoreAddTitle": (obj_seal, "arrow"),
     "iconToolCoreRemoveTitle": (obj_seal, "minus"),
     "iconToolCoreDestroy": (obj_seal, "cross"),
+    # 天下(帝国核心之上，见 TianxiaSystem)：并入、退出联合天下
+    "iconToolTianxiaJoin": (obj_ding, "arrow"),
+    "iconToolTianxiaLeave": (obj_ding, "minus"),
     "iconNationLayer": (obj_heat_flag, None),
 }
 
@@ -1528,7 +1538,7 @@ ANCIENT_IDEOLOGIES = {
     "Mohism": (obj_compass, LACQ), "Agrarianism": (obj_wheat, WOOD), "Strategists": (obj_swords, RED),
     "Diplomatists": (obj_envoy, VIOLET), "YinYang": (obj_taiji, STEEL), "ImperialPower": (obj_crown, AMBER),
     "GreatClans": (obj_tablet, TEAL), "ConsortKin": (obj_phoenix, RED), "Eunuchs": (obj_whisk, VIOLET),
-    "Animism": (obj_totem, MOSS),
+    "Animism": (obj_totem, MOSS), "RoyalKin": (obj_imperial_seal_lesser, AMBER),
 }
 
 
@@ -1577,6 +1587,14 @@ def obj_wall(img):
 PLOTS.update({
     "empirecraft_road_treaty": (obj_street, "plus"),
 })
+# 军令(列国征伐页)：军旗加箭头
+GODPOWERS.update({
+    "corps_command": (obj_banners, "arrow"),
+})
+# 天下图层：鼎
+GODPOWERS.update({
+    "tianxia_layer": (obj_ding, None),
+})
 # 营建(城乡营建组)：立村、设镇、毁弃、改隶
 GODPOWERS.update({
     "place_village": (obj_houses, "plus"),
@@ -1600,10 +1618,10 @@ GODPOWERS.update({
     "plan_plaza": (obj_plaza, None),
     "plan_wall": (obj_wall, None),
     "plan_erase": (obj_blueprint, "cross"),
-})
-# 军令(列国征伐页)：军旗加箭头
-GODPOWERS.update({
-    "corps_command": (obj_banners, "arrow"),
+    # 名臣名将窗口按钮
+    "famous_talents": (obj_swords, "crown"),
+    "bestow_famous_general": (obj_sword, "up"),
+    "bestow_famous_minister": (obj_brush, "up"),
 })
 
 

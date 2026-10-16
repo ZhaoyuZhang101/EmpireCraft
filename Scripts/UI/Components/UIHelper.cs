@@ -1178,20 +1178,38 @@ public static class UIHelper
         float tileWidth = (gridWidth - CardGap) / 2f;
         var grid = body.BeginVertGroup(pSpacing: CardGap, pAlignment: TextAnchor.UpperLeft, pPadding: new RectOffset(0, 0, 0, 0));
         FixPanelWidth(grid.transform, gridWidth);
-        var cells = new List<Action<AutoHoriLayoutGroup>>();
-        foreach (FixedFaction faction in factions)
+        // 华夏朋党：阶级派系(帝国的骨架)与学说朋党分两组，各带小标题
+        bool cliqueMode = factions.Any(faction => faction.IsClique);
+        var groups = cliqueMode
+            ? new List<(string header, List<FixedFaction> members)>
+            {
+                (LM.Get("faction_group_class"), factions.Where(CliqueSystem.IsClassClique).ToList()),
+                (LM.Get("faction_group_school"), factions.Where(faction => !CliqueSystem.IsClassClique(faction)).ToList())
+            }
+            : new List<(string header, List<FixedFaction> members)> { (null, factions) };
+        foreach ((string header, List<FixedFaction> members) in groups)
         {
-            FixedFaction tileFaction = faction;
-            cells.Add(row => AddFactionTile(row, tileFaction, kingdom, tileWidth, Refresh));
-        }
-        if (!partyMode && factions.Count < 3)
-            cells.Add(row => AddFactionSlot(row, kingdom, new Vector2(tileWidth, FactionTileHeight)));
-        for (int index = 0; index < cells.Count; index += 2)
-        {
-            var row = grid.BeginHoriGroup(new Vector2(gridWidth, FactionTileHeight), TextAnchor.UpperLeft, CardGap,
-                new RectOffset(0, 0, 0, 0));
-            cells[index](row);
-            if (index + 1 < cells.Count) cells[index + 1](row);
+            if (header != null)
+                grid.AddTextIntoVertLayout(header.ColorString("#C9B57A"), true, TextAnchor.MiddleLeft, new Vector2(gridWidth, 9f))
+                    .UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+            var cells = new List<Action<AutoHoriLayoutGroup>>();
+            foreach (FixedFaction faction in members)
+            {
+                FixedFaction tileFaction = faction;
+                cells.Add(row => AddFactionTile(row, tileFaction, kingdom, tileWidth, Refresh));
+            }
+            if (!partyMode && !cliqueMode && factions.Count < 3)
+                cells.Add(row => AddFactionSlot(row, kingdom, new Vector2(tileWidth, FactionTileHeight)));
+            if (header != null && cells.Count == 0)
+                grid.AddTextIntoVertLayout(LM.Get("faction_group_empty").ColorString("#8FA0A8"), true, TextAnchor.MiddleLeft,
+                    new Vector2(gridWidth, 9f)).UseFixedFontSize(5, HorizontalWrapMode.Overflow);
+            for (int index = 0; index < cells.Count; index += 2)
+            {
+                var row = grid.BeginHoriGroup(new Vector2(gridWidth, FactionTileHeight), TextAnchor.UpperLeft, CardGap,
+                    new RectOffset(0, 0, 0, 0));
+                cells[index](row);
+                if (index + 1 < cells.Count) cells[index + 1](row);
+            }
         }
         if (foundable.Count > 0) AddFoundPartyStrip(card, inner, empire, foundable, Refresh);
     }
@@ -1253,8 +1271,23 @@ public static class UIHelper
             state = (string.IsNullOrEmpty(state) ? "" : state + " ") + LM.Get("party_consultative_short").ColorString("#7FD8EA");
         string ideologyLabel = (faction.IsParty
                 ? PartySystem.GetIdeologyName(ideology)
-                : string.Format(LM.Get("faction_ideology_leaning"), PartySystem.GetIdeologyName(ideology)))
+                : IdeologyFamilies.FactionLeaning(ideology))
             .ColorString(pColor: Color.Lerp(ideologyColor, Color.white, 0.35f));
+        // 朋党：阶级派系没人领头时"蛰伏"；学说朋党标出投靠哪个阶级派系
+        if (faction.IsClique && empire != null)
+        {
+            if (CliqueSystem.IsClassClique(faction) && faction.GetLeader() == null)
+                ideologyLabel += " · " + LM.Get("faction_dormant").ColorString("#8FA0A8");
+            else if (!CliqueSystem.IsClassClique(faction))
+            {
+                if (CliqueSystem.OfficialSchool(empire) == faction.Ideology)
+                    ideologyLabel += " · " + LM.Get("faction_official_school").ColorString("#F3C34A");
+                FixedFaction patron = CliqueSystem.Patron(empire, faction);
+                string patronText = patron == null ? LM.Get("faction_patron_none")
+                    : string.Format(LM.Get("faction_patron"), patron.Name);
+                ideologyLabel += " · " + patronText.ColorString(patron == null ? "#8FA0A8" : "#F2C66D");
+            }
+        }
         var stateLine = info.AddTextIntoVertLayout(string.IsNullOrEmpty(state) ? ideologyLabel : $"{state} · {ideologyLabel}",
             true, TextAnchor.MiddleLeft, new Vector2(inner, 9f));
         stateLine.UseFixedFontSize(5, HorizontalWrapMode.Overflow);
@@ -1262,7 +1295,8 @@ public static class UIHelper
         // 第三行：制度立场 + 锁定 / 提升占比 / 合并 / 移除
         var bottom = info.BeginHoriGroup(new Vector2(inner, 10f), TextAnchor.MiddleLeft, 1, new RectOffset(0, 0, 0, 0));
         FixedFaction mergePartner = faction.IsParty ? PartySystem.FindMergePartner(empire, faction) : null;
-        float buttonsWidth = (mergePartner != null ? 4 : 3) * 10f;
+        bool canRealign = faction.IsClique && empire != null && !CliqueSystem.IsClassClique(faction);
+        float buttonsWidth = (mergePartner != null || canRealign ? 4 : 3) * 10f;
         bottom.AddTextIntoHoriLayout(string.Format(LM.Get("faction_tile_stance"), supports.Count, opposes.Count)
                 .ColorString("#A8B8BE"), true, TextAnchor.MiddleLeft, new Vector2(inner - buttonsWidth - 2f, 9f))
             .UseFixedFontSize(5, HorizontalWrapMode.Overflow);
@@ -1281,6 +1315,17 @@ public static class UIHelper
         }, faction.Force, isOption: true, size: new Vector2(9, 9));
         faction.LockButton = lockButton;
         AddFactionRatioUpButton(bottom, faction, kingdom, refresh);
+        // 学说朋党改投：自动 → 各阶级派系 → 不投靠 → 自动
+        if (canRealign)
+        {
+            var realign = bottom.AddButtonIntoHoriLayout("faction_realign", "", () =>
+            {
+                CliqueSystem.CyclePatron(empire, faction);
+                refresh?.Invoke();
+            }, SpriteTextureLoader.getSprite("ui/changeOfficer"), size: new Vector2(9, 9));
+            AttachTextTooltip(realign.gameObject, $"faction_realign_{faction.GetID()}", LM.Get("faction_realign"),
+                CliqueSystem.PatronLocked(empire, faction) ? LM.Get("faction_realign_locked") : LM.Get("faction_realign_auto"));
+        }
         if (mergePartner != null)
         {
             var mergeButton = bottom.AddButtonIntoHoriLayout("merge_party", "", () =>
@@ -1411,7 +1456,7 @@ public static class UIHelper
         // 第二行：理念(党禁前的派系标"倾向")，政党再标民族色彩
         string ideologyLabel = faction.IsParty
             ? PartySystem.GetIdeologyName(ideology)
-            : string.Format(LM.Get("faction_ideology_leaning"), PartySystem.GetIdeologyName(ideology));
+            : IdeologyFamilies.FactionLeaning(ideology);
         string ideologyLine = ideologyLabel.ColorString(pColor: Color.Lerp(ideologyColor, Color.white, 0.35f));
         if (faction.IsParty && faction.Empire != null)
             ideologyLine += (" · " + LM.Get(EmpireCraft.Scripts.GeneralSystems.NationalSentimentSystem.ColorKey(
@@ -1803,9 +1848,8 @@ public static class UIHelper
     }
 
     // 朋党名后注明所主的理念(见 CliqueSystem)，如"清流(儒家)"
-    private static string CliqueTitle(FixedFaction faction) =>
-        faction.IsClique ? string.Format(LM.Get("clique_title_with_ideology"), faction.Name, PartySystem.GetIdeologyName(faction.Ideology))
-            : faction.Name;
+    // 卡片第二行已写明代表谁、宗哪一家，标题只留名字
+    private static string CliqueTitle(FixedFaction faction) => faction.Name;
 
     private static string FormatClassContributions(Dictionary<SocialClass, float> classes, Empire empire,
         Dictionary<SocialClass, float> classShares)

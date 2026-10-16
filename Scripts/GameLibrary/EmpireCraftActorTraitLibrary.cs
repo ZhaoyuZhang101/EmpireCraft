@@ -185,6 +185,37 @@ public static class EmpireCraftActorTraitLibrary
             group_id = "EmpireOffice",
             type = TraitType.Negative
         });
+
+        // 名将名臣(成名时按档位发一条，晋档换掉旧的，见 FamousTalentSystem)：名将重攻防兵略，名臣重治事智力外交，
+        // 都带寿数加成；兵略会直接抬高战时统帅给全军的加成(见 WarCommandSystem.Factor)
+        AddTalentTrait(lib, FamousTalentSystem.GeneralFine, "iconTalentGeneralFine",
+            ("warfare", 4f), ("damage", 25f), ("health", 150f), ("armor", 20f), ("speed", 10f),
+            ("critical_chance", 0.1f), ("multiplier_lifespan", 0.1f));
+        AddTalentTrait(lib, FamousTalentSystem.GeneralFamous, "iconTalentGeneralFamous",
+            ("warfare", 8f), ("damage", 50f), ("health", 400f), ("armor", 35f), ("speed", 20f),
+            ("critical_chance", 0.2f), ("critical_damage_multiplier", 0.3f), ("multiplier_lifespan", 0.15f));
+        AddTalentTrait(lib, FamousTalentSystem.GeneralPillar, "iconTalentGeneralPillar",
+            ("warfare", 14f), ("damage", 90f), ("health", 900f), ("armor", 50f), ("speed", 30f),
+            ("critical_chance", 0.3f), ("critical_damage_multiplier", 0.5f), ("multiplier_lifespan", 0.25f));
+        AddTalentTrait(lib, FamousTalentSystem.MinisterFine, "iconTalentMinisterFine",
+            ("stewardship", 4f), ("intelligence", 2f), ("diplomacy", 2f), ("lifespan", 10f), ("multiplier_lifespan", 0.1f));
+        AddTalentTrait(lib, FamousTalentSystem.MinisterFamous, "iconTalentMinisterFamous",
+            ("stewardship", 8f), ("intelligence", 4f), ("diplomacy", 4f), ("lifespan", 15f), ("multiplier_lifespan", 0.15f));
+        AddTalentTrait(lib, FamousTalentSystem.MinisterPillar, "iconTalentMinisterPillar",
+            ("stewardship", 14f), ("intelligence", 8f), ("diplomacy", 8f), ("lifespan", 25f), ("multiplier_lifespan", 0.2f));
+    }
+
+    private static void AddTalentTrait(ActorTraitLibrary lib, string id, string icon,
+        params (string stat, float value)[] stats)
+    {
+        lib.add(new ActorTrait
+        {
+            id = id,
+            path_icon = "ui/icons/actor_traits/" + icon,
+            group_id = "EmpireOffice",
+            type = TraitType.Positive
+        });
+        foreach ((string stat, float value) in stats) lib.t.base_stats[stat] = value;
     }
     public static bool been_soldier(NanoObject pTarget, BaseAugmentationAsset pTrait)
     {

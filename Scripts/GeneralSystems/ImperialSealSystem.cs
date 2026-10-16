@@ -24,6 +24,14 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 受命宝：玉玺遗落十年以上、或在别的帝国手里，没有玉玺也没有受命宝的皇帝国库有一百五十以上，每年一成机会另刻
 //     "某某受命宝"(铜金印)，佩着每年法统 +1；后来得了传国玉玺，受命宝就不再用；
 //   · 绝嗣裂土时，玉玺一半留在京城，一半流落到某家强藩手里(见 InterregnumSystem)。
+// 玉玺与称帝、天命(用户 2026-10-17："我的玉玺装备呢""这个可以影响称帝的逻辑的")：
+//   · 受了天命(见 TianxiaSystem)或处在开国气象里的帝国，本文化还没有玉玺就当年琢玉为玺，不必等国库——以前要国库三百，
+//     穷困的朝廷(国库常年为零、国债违约)一直造不出来；
+//   · 王国也能怀玺：佩玺的人被还没称帝的华夏独立国家的人杀了、或玉玺遗落在这样的国家的城里，就归这个国家
+//     ("某国得传国玉玺")，由其君主佩着；它称了帝玉玺随之归帝国；
+//   · 怀玺受命：怀玺的王国可以凭玉玺称帝(称帝路线 Seal，开国天命 75，见 EmpireFormationService)；
+//   · 无玺称帝：华夏有别家怀着玉玺时称帝，开国天命 -10；
+//   · 天命：怀玺的帝国据有天下六成即受天命(别家要七成五，见 TianxiaSystem.Settle)。
 public static class ImperialSealSystem
 {
     public const string GenuineId = "imperial_seal", LesserId = "imperial_seal_lesser";
@@ -93,6 +101,35 @@ public static class ImperialSealSystem
         return state != null && empire?.data != null && state.imperial_seal_empire_id == empire.data.id;
     }
 
+    // 还没称帝的华夏王国怀着玉玺
+    public static bool HeldByKingdom(Kingdom kingdom)
+    {
+        if (kingdom?.data == null || kingdom.isRekt()) return false;
+        string culture = CultureService.GetRealmCulture(kingdom);
+        if (!Huaxia(culture)) return false;
+        CultureInstitutionState state = InstitutionSystem.GetOrCreateCultureState(culture);
+        return state != null && state.imperial_seal_empire_id <= 0 && state.imperial_seal_kingdom_id == kingdom.id;
+    }
+
+    // 怀玺(帝国或王国)：称帝、受天命时看这个
+    public static bool Holds(Kingdom kingdom)
+    {
+        if (kingdom == null) return false;
+        Empire empire = kingdom.IsEmpire() ? kingdom.GetEmpire() : null;
+        return empire != null ? HeldBy(empire) : HeldByKingdom(kingdom);
+    }
+
+    // 开国天命的增减：怀玺称帝不另加(路线已给)，别家怀着玉玺时无玺称帝 -10
+    public static int FoundingMandateAdjustment(Kingdom founder)
+    {
+        string culture = CultureService.GetRealmCulture(founder);
+        if (!Huaxia(culture)) return 0;
+        CultureInstitutionState state = InstitutionSystem.GetOrCreateCultureState(culture);
+        if (state == null || Holds(founder)) return 0;
+        bool another = state.imperial_seal_empire_id > 0 || state.imperial_seal_kingdom_id >= 0 && state.imperial_seal_kingdom_id != founder.id;
+        return another ? -10 : 0;
+    }
+
     private static Item ItemOf(long id) => id > 0 ? World.world.items.get(id) : null;
 
     private static Empire RealmOf(Kingdom kingdom) =>
@@ -141,6 +178,7 @@ public static class ImperialSealSystem
         if (item == null) return;
         state.imperial_seal_item_id = item.getID();
         state.imperial_seal_empire_id = empire.data.id;
+        state.imperial_seal_kingdom_id = -1L;
         state.imperial_seal_city_id = empire.CoreKingdom?.capital?.data?.id ?? state.imperial_seal_city_id;
         state.imperial_seal_lost_since = -1d;
         // 得了传国玉玺，受命宝不再用
@@ -150,10 +188,36 @@ public static class ImperialSealSystem
         if (announce) Announce(empire, string.Format(LM.Get(key), empire.GetEmpireFullName(), place));
     }
 
-    // 玉玺遗落在某城
+    // 玉玺归一个还没称帝的华夏王国，由其君主佩着
+    private static bool GiveKingdom(CultureInstitutionState state, Kingdom kingdom, bool announce)
+    {
+        if (kingdom?.data == null || kingdom.isRekt() || kingdom.wild || kingdom.IsEmpire() || kingdom.IsInEmpire() ||
+            !Huaxia(CultureService.GetRealmCulture(kingdom))) return false;
+        Actor king = kingdom.king;
+        if (king?.data == null || !king.isAlive()) return false;
+        Item item = Wear(king, ItemOf(state.imperial_seal_item_id), GenuineId, LM.Get(GenuineId));
+        if (item == null) return false;
+        bool changed = state.imperial_seal_kingdom_id != kingdom.id;
+        state.imperial_seal_item_id = item.getID();
+        state.imperial_seal_empire_id = -1L;
+        state.imperial_seal_kingdom_id = kingdom.id;
+        state.imperial_seal_city_id = kingdom.capital?.data?.id ?? state.imperial_seal_city_id;
+        state.imperial_seal_lost_since = -1d;
+        if (announce && changed)
+        {
+            string content = string.Format(LM.Get("imperial_seal_taken_history"), kingdom.GetKingdomName());
+            LogService.LogInfo("[EmpireCraft][传国玉玺] " + content);
+            TranslateHelper.LogEventMessage(content, kingdom);
+        }
+        return true;
+    }
+
+    // 玉玺遗落在某城(那城归一个还没称帝的华夏王国的，就归这个王国)
     private static void Lose(CultureInstitutionState state, City city, Empire former)
     {
         state.imperial_seal_empire_id = -1L;
+        if (city?.kingdom != null && GiveKingdom(state, city.kingdom, announce: true)) return;
+        state.imperial_seal_kingdom_id = -1L;
         if (city?.data != null) state.imperial_seal_city_id = city.data.id;
         if (state.imperial_seal_lost_since >= 0d) return;
         state.imperial_seal_lost_since = World.world.getCurWorldTime();
@@ -190,10 +254,11 @@ public static class ImperialSealSystem
         }
         if (!Imperial(empire)) return;
         Kingdom core = empire.CoreKingdom;
-        // 本文化还没有玉玺：命良工琢玉为玺
+        // 本文化还没有玉玺：命良工琢玉为玺。受了天命的当年就造，不看国库；否则国库三百、每年约四分之一机会
         if (state.imperial_seal_item_id <= 0 && !state.imperial_seal_made)
         {
-            if (UnityEngine.Random.value < CraftChance && TreasurySystem.TrySpend(core, CraftCost, TreasuryCategory.Rites))
+            bool mandate = TianxiaSystem.MandateOf(core) != null || UnificationSystem.InGrace(core);
+            if (mandate || UnityEngine.Random.value < CraftChance && TreasurySystem.TrySpend(core, CraftCost, TreasuryCategory.Rites))
             {
                 state.imperial_seal_made = true;
                 Give(empire, announce: true, "imperial_seal_crafted_history");
@@ -281,7 +346,10 @@ public static class ImperialSealSystem
         if (Alive(realm) && Huaxia(CultureService.GetEmpireDefaultCulture(realm)) && realm.Emperor?.data != null &&
             realm.Emperor.isAlive())
             Give(realm, announce: realm != holder);
-        else Lose(state, place, holder);
+        // 佩着它的人、存着它的城归一个还没称帝的华夏王国
+        else if (!GiveKingdom(state, owner?.data != null && owner.isAlive() ? owner.kingdom : place?.kingdom,
+                     announce: true))
+            Lose(state, place, holder);
     }
 
     #endregion

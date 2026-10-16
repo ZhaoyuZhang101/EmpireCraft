@@ -17,6 +17,8 @@ public static class MetaTypeExtension
     // 教化图层、政令图层(见 Layer/RadianceMap.cs)
     public const MetaType Edification = (MetaType)107;
     public const MetaType Governance = (MetaType)108;
+    // 天下图层(见 Layer/TianxiaMap.cs)
+    public const MetaType Tianxia = (MetaType)109;
     
     public static string ToMetaString(this MetaType type)
     {
@@ -40,6 +42,8 @@ public static class MetaTypeExtension
                 return "Edification";
             case (MetaType)108:
                 return "Governance";
+            case (MetaType)109:
+                return "Tianxia";
             default:
                 return type.ToString();
         }

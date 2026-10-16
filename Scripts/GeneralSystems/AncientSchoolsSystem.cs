@@ -18,6 +18,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 百家争鸣：本文化同时流传三家以上学说、还没定于一尊时开启，各家学说传播快一半(见 SpreadFactor)；
 //   · 定于一尊(华夏制度树，郡国并行之后、需律令)：施行后以本朝官员里信者最多的一家为正统(官员里没人信学说就看全国人口)，
 //     史册记"定于一尊，独尊某学，罢黜百家"；此后正统传播快八成、别家学说慢四成，百家争鸣到此为止；本朝主正统的朋党占比 +8。
+//   · 与天命挂钩(见 TianxiaSystem)：受天命的治世里学说朋党可请"独尊官学"改尊本家(TempFac_独尊官学，见 SetOrthodox)；
+//     本朝所在的天下无主(乱世)时正统每年两成机会废弛，重开百家争鸣("百家复起")，乱世里不再自动定于一尊。
 public static class AncientSchoolsSystem
 {
     public const string OrthodoxyNode = "huaxia_orthodoxy";
@@ -112,8 +114,44 @@ public static class AncientSchoolsSystem
             state.hundred_schools_since = World.world.getCurWorldTime();
             Record(empire, LM.Get("hundred_schools_history"));
         }
-        if (string.IsNullOrEmpty(state.orthodox_school) && InstitutionSystem.IsEnacted(culture, OrthodoxyNode))
+        bool chaos = TianxiaSystem.PhaseOf(empire.CoreKingdom) == TianxiaSystem.Chaos;
+        if (!string.IsNullOrEmpty(state.orthodox_school) && chaos && UnityEngine.Random.value < LapseChance)
+        {
+            string name = Enum.TryParse(state.orthodox_school, out PartyIdeology lapsed) ? PartySystem.GetIdeologyName(lapsed) : state.orthodox_school;
+            state.orthodox_school = "";
+            state.orthodox_since = -1d;
+            state.hundred_schools_since = World.world.getCurWorldTime();
+            Record(empire, string.Format(LM.Get("clique_school_lapsed_history"), name), log: true);
+            return;
+        }
+        if (string.IsNullOrEmpty(state.orthodox_school) && !chaos && InstitutionSystem.IsEnacted(culture, OrthodoxyNode))
             Establish(empire, state, available);
+    }
+
+    private const float LapseChance = 0.2f;
+
+    // 改尊一家为正统(独尊官学，见 TempFac_独尊官学)：主这一家的朋党占比 +8
+    public static bool SetOrthodox(Empire empire, PartyIdeology school)
+    {
+        string culture = InstitutionSystem.GetPrimaryCulture(empire);
+        CultureInstitutionState state = State(culture);
+        if (state == null || !IdeologyFamilies.IsSchool(school) || state.orthodox_school == school.ToString()) return false;
+        state.orthodox_school = school.ToString();
+        state.orthodox_since = World.world.getCurWorldTime();
+        state.hundred_schools_since = -1d;
+        foreach (FixedFaction clique in empire.CoreKingdom.GetRegime()?.GetPlayerFactions()
+                     ?.Where(faction => faction != null && faction.IsClique && !faction.Ban && faction.Ideology == school)
+                     .ToList() ?? new List<FixedFaction>())
+            empire.CoreKingdom.TryIncreaseFactionRatio(clique, OrthodoxCliqueRatio);
+        Record(empire, string.Format(LM.Get("orthodoxy_history"), PartySystem.GetIdeologyName(school)), log: true);
+        return true;
+    }
+
+    // 本朝定了于一尊的制度(独尊官学的前提)
+    public static bool OrthodoxyEnacted(Empire empire)
+    {
+        string culture = InstitutionSystem.GetPrimaryCulture(empire);
+        return State(culture) != null && InstitutionSystem.IsEnacted(culture, OrthodoxyNode);
     }
 
     // 定于一尊：本朝官员里信者最多的一家；官员里没人信学说就看全国人口

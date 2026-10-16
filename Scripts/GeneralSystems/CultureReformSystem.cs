@@ -22,6 +22,9 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     (帝国核心由制度系统重算)；征服王朝融合一步到位；
 //   · 王族与旧俗出身的在任官员改从新俗；宗族本非这个文化的，整支改用新文化的姓氏(改姓)；
 //   · 旧俗为主的城市一时不安。
+// 只有游牧(国家文化、征服王朝的统治族群文化是游牧政体的文化)走这条决议(玩家："那么大一个游牧汗国直接变成法兰克了"
+// "能不能让别的文化不要参与改朝换代"；用户 2026-10-17："除了游牧，游牧的改朝换代是决议不是自动的")；
+// 别的文化不易俗，治下百姓的文化由同化、教化慢慢改。神力强制改俗(Force)不受此限。
 public static class CultureReformSystem
 {
     public const string Plot = "kingdom_culture_reform";
@@ -43,6 +46,7 @@ public static class CultureReformSystem
         bool core = empire?.data != null && empire.CoreKingdom == kingdom && !empire.IsArchived() && !empire.isRekt();
         bool composite = core && CompositeEmpireService.IsComposite(empire);
         previous = composite ? CompositeEmpireService.GetRulingCulture(empire) : CultureService.GetRealmCulture(kingdom);
+        if (!CompositeEmpireService.IsNomadicCulture(previous)) return false;
         City capital = kingdom.king.city ?? kingdom.capital;
         if (capital?.data == null || capital.isRekt() || capital.kingdom != kingdom) return false;
         string local = CultureService.GetMainCulture(capital);

@@ -136,6 +136,7 @@ internal static class MainTab
         // 世系图(历代君主窗口左栏打开)
         DynastyLineageWindow.CreateAndInit(nameof(DynastyLineageWindow), new Vector2(480f, 380f));
         EmpireCoreWindow.CreateAndInit(nameof(EmpireCoreWindow), new Vector2(480f, 380f));
+        TianxiaWindow.CreateAndInit(nameof(TianxiaWindow), new Vector2(480f, 380f));
         BugReportWindow.CreateWindow(nameof(BugReportWindow),
             "bug_report_window_title");
         PureMapNoticeWindow.CreateWindow(nameof(PureMapNoticeWindow), "pure_map_notice_title");
@@ -158,6 +159,8 @@ internal static class MainTab
         // 国情(帝国图层上点不属于帝国的国家时打开)
         KingdomOverviewWindow.CreateAndInit(nameof(KingdomOverviewWindow), new Vector2(480f, 380f));
         CultureBooksWindow.CreateAndInit(nameof(CultureBooksWindow), new Vector2(480f, 380f));
+        // 名臣名将名册(见 FamousTalentSystem)
+        FamousTalentWindow.CreateAndInit(nameof(FamousTalentWindow), new Vector2(480f, 380f));
         SetWindowIcons();
     }
 
@@ -179,6 +182,7 @@ internal static class MainTab
             [nameof(RegimeWindow)] = "iconBooks",
             [nameof(KingdomMilitaryWindow)] = "iconWar",
             [nameof(KingdomOverviewWindow)] = "iconKingdom",
+            [nameof(FamousTalentWindow)] = "iconKings",
         };
         foreach (KeyValuePair<string, string> pair in icons)
         {
@@ -231,6 +235,9 @@ internal static class MainTab
 
         // ---- 帝国核心 ----
         CreateEmpireCoreButton.init();
+        // 天下图层：按天下给城上色(模式二按各家据有着色)，点城打开天下窗口(见 TianxiaMap)
+        AddButton(EMPIRE_CORE_GROUP, FixFunctions.CreateLayerButton(MetaTypeExtension.Tianxia,
+            SpriteTextureLoader.getSprite("ui/icons/godpowers/tianxia_layer"), maxOption: 2));
         AddButton(EMPIRE_CORE_GROUP,
             PowerButtonCreator.CreateGodPowerButton("create_empire_core",
                 SpriteTextureLoader.getSprite("ui/icons/iconToolCoreCreate.png")));
@@ -249,7 +256,16 @@ internal static class MainTab
         AddButton(EMPIRE_CORE_GROUP,
             PowerButtonCreator.CreateGodPowerButton("destroy_empire_core",
                 SpriteTextureLoader.getSprite("ui/icons/iconToolCoreDestroy.png")));
-        
+
+        // 天下：几个帝国核心并成联合天下、退出(见 TianxiaSystem；图层按钮在本组开头)
+        TianxiaPowers.init();
+        AddButton(EMPIRE_CORE_GROUP,
+            PowerButtonCreator.CreateGodPowerButton("tianxia_join",
+                SpriteTextureLoader.getSprite("ui/icons/iconToolTianxiaJoin.png")));
+        AddButton(EMPIRE_CORE_GROUP,
+            PowerButtonCreator.CreateGodPowerButton("tianxia_leave",
+                SpriteTextureLoader.getSprite("ui/icons/iconToolTianxiaLeave.png")));
+
         // ---- 帝国：图层、称帝与解散、分封、列表、人物建国 ----
         PowerButton pb = FixFunctions.CreateLayerButton(MetaTypeExtension.Empire,
                  SpriteTextureLoader.getSprite("ui/icons/godpowers/empire_layer"));
@@ -310,7 +326,27 @@ internal static class MainTab
             });
         });
         empireListButon._button.OnHoverOut(Tooltip.hideTooltip);
-        
+
+        // 名臣名将名册
+        var famousTalentsButton = PowerButtonCreator.CreateWindowButton("famous_talents", nameof(FamousTalentWindow),
+            SpriteTextureLoader.getSprite("ui/icons/godpowers/famous_talents"));
+        AddButton(EMPIRE_GROUP, famousTalentsButton);
+        famousTalentsButton._button.OnHover(() =>
+        {
+            Tooltip.show(famousTalentsButton, "normal", new TooltipData()
+            {
+                tip_name = "show_famous_talents",
+                tip_description = "show_famous_talents_description"
+            });
+        });
+        famousTalentsButton._button.OnHoverOut(Tooltip.hideTooltip);
+        // 册封名将、册封名臣(点人物直接封，再点晋一档)
+        FamousTalentPowers.init();
+        AddButton(EMPIRE_GROUP, PowerButtonCreator.CreateGodPowerButton(FamousTalentPowers.BestowGeneral,
+            SpriteTextureLoader.getSprite("ui/icons/godpowers/" + FamousTalentPowers.BestowGeneral)));
+        AddButton(EMPIRE_GROUP, PowerButtonCreator.CreateGodPowerButton(FamousTalentPowers.BestowMinister,
+            SpriteTextureLoader.getSprite("ui/icons/godpowers/" + FamousTalentPowers.BestowMinister)));
+
         //宗族列表
         var specificClanListButton = PowerButtonCreator.CreateWindowButton("specific_clan_list",
             nameof(SpecificClanListWindow),
@@ -442,8 +478,8 @@ internal static class MainTab
         IdeologySeedPower.Init();
         foreach (GeneralSystems.PartyIdeology ideology in Enum.GetValues(typeof(GeneralSystems.PartyIdeology)))
         {
-            // 只在朝堂里的理念(外戚、宦官等，见 IdeologyFamilies.IsCourtOnly)不在百姓里流传，撒种子没有意义
-            if (GeneralSystems.IdeologyFamilies.IsCourtOnly(ideology)) continue;
+            // 只按身份归属、不在民间流传的理念(皇权、门阀、外戚、宦官、宗亲，见 IdeologyFamilies.IsIdentityStance)，撒种子没有意义
+            if (GeneralSystems.IdeologyFamilies.IsIdentityStance(ideology)) continue;
             string powerId = IdeologySeedPower.Id(ideology);
             PowerButton seedButton = PowerButtonCreator.CreateGodPowerButton(powerId,
                 SpriteTextureLoader.getSprite(IdeologyTraitIcons.Path(ideology)));

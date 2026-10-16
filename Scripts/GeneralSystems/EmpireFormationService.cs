@@ -19,7 +19,8 @@ public enum EmpireFormationRoute
     Acclamation = 3, // 诸侯推戴：同一帝国法理内至少四个独立法理国家拥戴，且国力最强
     Hegemony = 4,    // 武力霸权：国力达到同文化第二强的两倍
     Fallback = 5,    // 兜底：本文化五十年无帝国，由最强者称帝
-    SelfProclamation = 6 // 自立为帝：本文化最强的独立国家自行称帝
+    SelfProclamation = 6, // 自立为帝：本文化最强的独立国家自行称帝
+    Seal = 7             // 怀玺受命：华夏王国怀着传国玉玺(见 ImperialSealSystem)，排在宗室复国之后
 }
 
 // 称帝逻辑：
@@ -50,6 +51,7 @@ public static class EmpireFormationService
         EmpireFormationRoute.Legitimacy => 80,
         // 都在叛乱滚雪球(40)之上留出余量：开国之君再弱也不至于一登基就崩
         EmpireFormationRoute.Restoration => 75,
+        EmpireFormationRoute.Seal => 75,
         EmpireFormationRoute.Acclamation => 70,
         EmpireFormationRoute.Hegemony => 55,
         EmpireFormationRoute.Fallback => 50,
@@ -76,6 +78,7 @@ public static class EmpireFormationService
         if (OutmatchedByEmpire(kingdom, culture)) return EmpireFormationRoute.None;
         if (MeetsLegitimacy(kingdom)) return EmpireFormationRoute.Legitimacy;
         if (MeetsRestoration(kingdom)) return EmpireFormationRoute.Restoration;
+        if (ImperialSealSystem.HeldByKingdom(kingdom)) return EmpireFormationRoute.Seal;
         List<Kingdom> rivals = GetSameCultureIndependents(kingdom, culture);
         if (MeetsAcclamation(kingdom)) return EmpireFormationRoute.Acclamation;
         if (MeetsHegemony(kingdom, rivals)) return EmpireFormationRoute.Hegemony;
@@ -431,7 +434,8 @@ public static class EmpireFormationService
         data.empire_formation_started_timestamp = -1d;
         if (empire == null) return;
 
-        empire.data.Mandate = GetInitialMandate(route);
+        // 华夏有别家怀着传国玉玺时称帝，开国天命 -10(见 ImperialSealSystem)
+        empire.data.Mandate = Math.Max(40, GetInitialMandate(route) + ImperialSealSystem.FoundingMandateAdjustment(founder));
         string content = string.Format(LM.Get("empire_formation_route_history"), founder.king?.getName() ?? "",
             GetRouteName(route), empire.GetEmpireName());
         empire.RecordHistory(directContent: content, actorId: founder.king?.id ?? -1L, kingdomId: founder.id);

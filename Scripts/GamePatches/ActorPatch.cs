@@ -337,6 +337,8 @@ public class ActorPatch : GamePatch
         // 无小人模式：征召兵战死，他代表的军团一并从人口里扣掉
         CityPopulationSystem.OnSoldierDied(__instance);
         CorpsSystem.OnGeneralDied(__instance);
+        // 名将名臣：已成名的转入青史，候选清掉(见 FamousTalentSystem)
+        FamousTalentSystem.OnActorDied(__instance, pType);
         VirtualGenealogySystem.OnActorDied(__instance, pType);
         Kingdom rulingKingdom = __instance.isKing() ? __instance.kingdom : null;
         if (rulingKingdom != null)

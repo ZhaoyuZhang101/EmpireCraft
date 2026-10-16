@@ -656,6 +656,23 @@ public static class EmpireCraftNamePlateLibrary
         AssetManager.nameplates_library.map_modes_nameplates[assetNation.map_mode] = assetNation;
         AssetManager.nameplates_library.dict["Nation"] = assetNation;
 
+        // 天下图层：每个天下一枚铭牌(天下名·共主，见 TianxiaMap.SubmitLabels)
+        NameplateAsset assetTianxia = new NameplateAsset
+        {
+            id = "plate_tianxia",
+            path_sprite = "ui/nameplates/nameplate_kingdom",
+            map_mode = MetaTypeExtension.Tianxia,
+            action_main = (manager, asset) =>
+            {
+                if (!IsNameplateReady) return;
+                TerritoryLabelRenderer.BeginFrame(MetaTypeExtension.Tianxia);
+                EmpireCraft.Scripts.Layer.TianxiaMap.SubmitLabels();
+                TerritoryLabelRenderer.EndFrame();
+            }
+        };
+        AssetManager.nameplates_library.map_modes_nameplates[assetTianxia.map_mode] = assetTianxia;
+        AssetManager.nameplates_library.dict["Tianxia"] = assetTianxia;
+
         // 教化图层、政令图层也只看色块与悬停提示，不画铭牌(没登记原版每帧抛异常，见上)
         foreach ((MetaType mode, string id) in new[] { (MetaTypeExtension.Edification, "Edification"), (MetaTypeExtension.Governance, "Governance") })
         {

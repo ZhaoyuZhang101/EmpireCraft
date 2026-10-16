@@ -288,6 +288,16 @@ public static class FactionClassSystem
             TemporaryFactionType.册立储君 => Effects((SocialClass.Noble, 6), (SocialClass.Officer, 6)),
             TemporaryFactionType.赈济灾荒 => Effects((SocialClass.Peasant, 16), (SocialClass.Labour, 8),
                 (SocialClass.Landlord, -6), (SocialClass.Merchant, -4)),
+            TemporaryFactionType.兴修水利 => Effects((SocialClass.Peasant, 12), (SocialClass.Landlord, 4)),
+            TemporaryFactionType.盐铁专营 => Effects((SocialClass.Merchant, -12), (SocialClass.Officer, 6), (SocialClass.Peasant, -3)),
+            TemporaryFactionType.屯田实边 => Effects((SocialClass.Army, 10), (SocialClass.Peasant, -3)),
+            TemporaryFactionType.封禅 => Effects((SocialClass.Noble, 3), (SocialClass.Peasant, -4)),
+            TemporaryFactionType.裁省用度 => Effects((SocialClass.Peasant, 6), (SocialClass.Noble, -6)),
+            TemporaryFactionType.大赦天下 => Effects((SocialClass.Peasant, 4), (SocialClass.Slave, 4), (SocialClass.Officer, -2)),
+            TemporaryFactionType.重定律令 => Effects((SocialClass.Officer, 6), (SocialClass.Noble, -4), (SocialClass.Landlord, -2)),
+            TemporaryFactionType.重农抑商 => Effects((SocialClass.Peasant, 8), (SocialClass.Merchant, -14), (SocialClass.Landlord, 4)),
+            TemporaryFactionType.诛宦官 => Effects((SocialClass.Officer, 6)),
+            TemporaryFactionType.党锢 => Effects((SocialClass.Officer, -6)),
             _ => new Dictionary<SocialClass, float>()
         };
     }

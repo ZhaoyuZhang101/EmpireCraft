@@ -36,9 +36,22 @@ public static class IdeologyFamilies
     public static bool IsSchool(PartyIdeology ideology) =>
         ideology is >= PartyIdeology.Confucianism and <= PartyIdeology.YinYang;
 
+    // 身份立场(用户 2026-10-17："要不要把皇权和诸侯派信的东西改一改，应该是他们本身代表这些阶级")：
+    // 皇权(宗室与寒门近臣)、门阀(贵族与世家)、外戚、宦官——不是民间流传的学说，派系按人的身份招人(见 CliqueSystem.IdentityStance)
+    public static bool IsIdentityStance(PartyIdeology ideology) =>
+        ideology is PartyIdeology.ImperialPower or PartyIdeology.GreatClans || IsCourtOnly(ideology);
+
+    // 派系卡片第二行：身份立场写"代表某某"，诸子百家写"宗某之学"(学说渊源)，其余写"倾向某理念"
+    public static string FactionLeaning(PartyIdeology ideology)
+    {
+        if (IsIdentityStance(ideology)) return NeoModLoader.General.LM.Get("faction_represents_" + ideology);
+        string key = IsSchool(ideology) ? "faction_school_doctrine" : "faction_ideology_leaning";
+        return string.Format(NeoModLoader.General.LM.Get(key), PartySystem.GetIdeologyName(ideology));
+    }
+
     // 只在朝堂里的立场(外戚、宦官)：不在民间流传
     public static bool IsCourtOnly(PartyIdeology ideology) =>
-        ideology is PartyIdeology.ConsortKin or PartyIdeology.Eunuchs;
+        ideology is PartyIdeology.ConsortKin or PartyIdeology.Eunuchs or PartyIdeology.RoyalKin;
 
     // 传统理念：繁荣城市里式微；古代理念都算传统(不靠印行的书报传播)
     public static bool IsTraditional(PartyIdeology ideology) => ideology is PartyIdeology.Conservatism or

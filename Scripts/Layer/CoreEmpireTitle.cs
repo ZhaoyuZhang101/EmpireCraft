@@ -34,6 +34,26 @@ public class EmpireCore
     // 民族统一战线(见 NationalSentimentSystem)：开始时间(-1 = 没有)、最近一次仍有外敌的时间
     public double united_front_since { get; set; } = -1d;
     public double united_front_last_threat { get; set; } = -1d;
+    // —— 天下(见 TianxiaSystem)：帝国核心之上的一层 ——
+    // 并入的联合天下的主核心；-1 = 自成一个天下(本核心就是主核心)。以下天下的名号与天命只记在主核心上
+    public long tianxia_lead_id { get; set; } = -1L;
+    // 玩家给天下起的名字；空 = 按主核心名称("某天下")
+    public string tianxia_name { get; set; } = "";
+    // 玩家用神力并入、退出过天下：自动并分不再动它
+    public bool tianxia_locked { get; set; }
+    // 天下共主(受天命的国家)；-1 = 未有天命或天下无主
+    public long mandate_kingdom_id { get; set; } = -1L;
+    public double mandate_at { get; set; } = -1d;
+    public string mandate_holder_name { get; set; } = "";
+    // 天命去后天下无主的起点；-1 = 从未失过天命或已有新主
+    public double mandate_lost_at { get; set; } = -1d;
+    // 失天命的那一国(无主期间它正统 -5)
+    public long mandate_former_kingdom_id { get; set; } = -1L;
+    // 天命周期(见 TianxiaSystem.Phase)：0 治世、1 动荡、2 乱世；-1 = 还没结算过
+    public int tianxia_phase { get; set; } = -1;
+    public double tianxia_phase_since { get; set; } = -1d;
+    // 历代受天命者(天下窗口"历代共主")
+    public List<MandateRecord> mandate_history { get; set; }
 
     public bool SetCoreCapital(City city)
     {
@@ -61,4 +81,14 @@ public class EmpireCore
         titlesRecord.RemoveAll(c => c.titleId == title.id);
         return true;
     }
+}
+
+// 一代天下共主：哪一国、哪一姓、何时受天命、何时失天命(-1 = 至今)
+public class MandateRecord
+{
+    public long kingdom_id { get; set; } = -1L;
+    public string kingdom_name { get; set; } = "";
+    public string dynasty { get; set; } = "";
+    public double claimed_at { get; set; } = -1d;
+    public double lost_at { get; set; } = -1d;
 }

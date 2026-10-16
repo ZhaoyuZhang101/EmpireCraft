@@ -11,7 +11,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 公共议题：赋税、战和、取士这类国是，每个派系都可以上奏，也都有立场；
 //   · 独特议题：派系类型自带的诉求(削藩、分封、确立国教……)，只有本派能上奏，其他派系照样表态；
 //   · 直接行动：索取皇位这类挑战皇权的诉求不经朝议，照旧由派系直接发动。
-// 立场 = Σ(本派对各阶层的亲和度 × 议题对该阶层的利弊) ＋ 本派清单上有此议题 ＋ 本派清单上有相反议题(减)。
+// 立场 = Σ(本派对各阶层的亲和度 × 议题对该阶层的利弊) ＋ 本派清单上有此议题 ＋ 本派清单上有相反议题(减)；
+// 华夏朋党另按利(阶级派系)或义(学说朋党)表态，见 CourtDoctrine。
 public static class CourtIssues
 {
     public static readonly TemporaryFactionType[] PublicIssues =
@@ -55,7 +56,11 @@ public static class CourtIssues
         (TemporaryFactionType.开放党禁, TemporaryFactionType.禁党),
         (TemporaryFactionType.土地改革, TemporaryFactionType.分封),
         (TemporaryFactionType.劫掠, TemporaryFactionType.制度融入),
-        (TemporaryFactionType.提高赋税, TemporaryFactionType.赈济灾荒)
+        (TemporaryFactionType.提高赋税, TemporaryFactionType.赈济灾荒),
+        (TemporaryFactionType.诛宦官, TemporaryFactionType.宦官掌兵),
+        (TemporaryFactionType.党锢, TemporaryFactionType.大赦天下),
+        (TemporaryFactionType.封禅, TemporaryFactionType.裁省用度),
+        (TemporaryFactionType.供养宗室, TemporaryFactionType.裁省用度)
     };
 
     public const float SupportThreshold = 5f;
@@ -91,6 +96,9 @@ public static class CourtIssues
         float score = 0f;
         foreach (KeyValuePair<SocialClass, float> pair in faction.ClassAffinities)
             score += pair.Value / 100f * FactionClassSystem.GetClaimClassEffect(issue, pair.Key);
+        // 朋党：阶级派系按利、学说朋党按义(见 CourtDoctrine)，各阶层亲疏退居其次
+        int? weigh = CourtDoctrine.Weigh(faction, issue);
+        if (weigh != null) score = score * 0.5f + weigh.Value * 1.5f;
         if (Holds(faction, issue) && (!IsPublic(issue) || faction.TemporaryFactionTypes?.Contains(issue) == true))
             score += 12f;
         if (OppositesOf(issue).Any(opposite => faction.TemporaryFactionTypes?.Contains(opposite) == true))

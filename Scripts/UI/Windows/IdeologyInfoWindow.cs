@@ -225,7 +225,7 @@ public class IdeologyInfoWindow : AbstractWideWindow<IdeologyInfoWindow>
     {
         if (!IdeologyFamilies.IsAncient(ideology)) return "";
         if (ideology == PartyIdeology.Animism) return LM.Get("ideology_scope_animism");
-        if (IdeologyFamilies.IsCourtOnly(ideology)) return LM.Get("ideology_scope_court");
+        if (IdeologyFamilies.IsIdentityStance(ideology)) return LM.Get("ideology_scope_court");
         if (!IdeologyFamilies.IsSchool(ideology)) return LM.Get("ideology_scope_stance");
         List<string> techs = AncientSchoolsSystem.Requirements(ideology);
         return techs.Count == 0 ? LM.Get("ideology_scope_school")

@@ -120,6 +120,12 @@ public static class EmpireCraftTooltipLibrary
         });
         AddOrReplace(tl, new TooltipAsset
         {
+            id = EmpireCraft.Scripts.Layer.TianxiaMap.TooltipType,
+            prefab_id = "tooltips/tooltip_normal",
+            callback = EmpireCraft.Scripts.Layer.TianxiaMap.ShowTooltip
+        });
+        AddOrReplace(tl, new TooltipAsset
+        {
             id = EmpireCraft.Scripts.Layer.NationMap.TooltipType,
             prefab_id = "tooltips/tooltip_normal",
             callback = EmpireCraft.Scripts.Layer.NationMap.ShowTooltip

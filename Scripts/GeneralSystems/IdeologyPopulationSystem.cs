@@ -763,7 +763,8 @@ public static partial class IdeologyPopulationSystem
     //   · 华夏：诸子百家按科技陆续出现(阴阳家要礼制，儒家要文字礼制、法家律令、墨家营造、农家户籍、兵家兵籍、纵横家货币、
     //     黄老文字，见 TechTree.json 的 ideology:<理念>)；本文化有了印刷术，保守主义等四种基本现代理念也开始流传；
     //   · 别的文化：有了文字以后沿用四种基本现代理念；
-    //   · 皇权、门阀各文化都有；外戚、宦官只在朝堂里，不在民间流传。
+    //   · 皇权、门阀、外戚、宦官是身份立场，不在民间流传(派系按身份招人，见 CliqueSystem.IdentityStance)；
+    //     旧存档里信皇权、门阀的人照"本地已不流传"的规则逐年改信。
     // 本文化不按科技走(科技系统关闭)时，当作文字、印刷术都已具备。
     private static void AddPremodern(string culture, HashSet<PartyIdeology> choices)
     {
@@ -779,8 +780,6 @@ public static partial class IdeologyPopulationSystem
         bool Has(string tech) => !TechnologySystem.IsActiveFor(culture) || TechnologySystem.HasTech(culture, tech);
         bool literate = Has("writing");
         if (!literate) choices.Add(PartyIdeology.Animism);
-        choices.Add(PartyIdeology.ImperialPower);
-        choices.Add(PartyIdeology.GreatClans);
         if (!huaxia)
         {
             if (literate)

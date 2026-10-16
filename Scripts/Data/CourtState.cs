@@ -65,6 +65,9 @@ public sealed class CourtFactionState
     // 本年掣肘力度(0~0.6)：拖慢正在施行的奏议
     public float obstruction;
     public string ally = "";
+    // 学说朋党投靠的阶级派系(见 CliqueSystem.Patron)：廷议时互相声援；patron_locked 为玩家手动指定，不再自动改投
+    public string patron = "";
+    public bool patron_locked;
     public string last_action = "";
     public string last_action_detail = "";
     // 议题冷却：议题名 → 可再次上奏的时间

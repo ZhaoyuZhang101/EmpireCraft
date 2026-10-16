@@ -23,6 +23,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 名字按史书习惯：头一个用这一家的称号——儒家清流、法家变法派、黄老派、墨者、农家、兵家将门、纵横之士、阴阳方士、
 //     泛灵论巫祝、皇权帝党、门阀世族、外戚后党、宦官阉党；同一家再有就以领袖之姓称"某党"，姓也重了以籍贯首字称"某党"；
 //   · 归属：官员每年按自己的理念转投那一家的朋党(党魁不走，每年至多四人、各三成五机会)；
+//     天子派、诸侯派不靠信什么，代表的是身份(用户 2026-10-17)：宗室、寒门阁臣归天子派，贵族、世家归诸侯派(见 IdentityStance)；
 //   · 合并：势弱(中央占比不到八)、立党满三年的朋党并入同理念(必定)或理念相近的大党(三成)；
 //   · 分裂：中央占比四成以上、六人以上的大党里，籍贯与党魁不同的一乡三人以上，每年一成机会别立"某党"；
 //   · 消亡：党员走光就散；朝中至少留两个朋党；
@@ -30,12 +31,18 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 阉党：庸弱、昏聩、荒淫之君在位，每年两成机会京城有得宠的宦官倡立阉党(宦官带"宦官"特质，见 IsEunuch)；
 //     明君亲政，每年三成机会诛宦官、散阉党；
 //   · 开放党禁以后，朋党照常改组为近代政党(见 PartySystem.Reorganize)。
+// 阶级派系是骨架(用户 2026-10-17："无论如何这些阶级党派都是永远存在并且他们才是真正决定帝国兴衰的")：
+//   天子派(皇权)、宗室派(宗亲)、诸侯派(门阀)、后党(外戚)永远都在——不合并、不分裂、不消散，没人时只是势力微弱、蛰伏；
+//   宦官天然是天子派(玩家建议、用户 2026-10-17 选"阉党保留为天子派里的一支")：平时宦官归天子派；
+//   昏君在位、宦官得宠时从天子派里分出阉党(带走天子派的宦官和三分之一的势力)，专权弄政；
+//   明君诛宦官后阉党余众并回天子派、阉党蛰伏，日后昏君在位又会分出来。上面的倡立、合并、分裂、消亡只对学说朋党，
+//   学说朋党至多四个，是附着在阶级派系之上、来来去去的思潮。
 public static class CliqueSystem
 {
     public const string EunuchTrait = "eunuch";
     private const float FoundShare = 0.15f, SwitchChance = 0.35f, MergeRatio = 8f, MergeChance = 0.3f, MergeDistance = 70f,
         SplitRatio = 40f, SplitChance = 0.1f, EunuchRiseChance = 0.2f, EunuchPurgeChance = 0.3f;
-    private const int FoundMinMembers = 3, MinOfficials = 4, MaxCliques = 6, MinCliques = 2, FoundRecruits = 6,
+    private const int FoundMinMembers = 3, MinOfficials = 4, MinCliques = 2, FoundRecruits = 6,
         MaxSwitchesPerYear = 4, MinYearsBeforeMerge = 3, FoundRatio = 10, SplitMinGroup = 3, SplitMinMembers = 6,
         EunuchFoundRatio = 8;
 
@@ -58,6 +65,24 @@ public static class CliqueSystem
         }
     }
 
+    // 身份立场：寒门阁臣、宦官 → 天子派(皇权；阉党分出时宦官归阉党)；宗室 → 宗室派；
+    // 贵族(受封诸侯、世袭王族)、世家 → 诸侯派(门阀)；后党(外戚宗族)另有专门的归入规则(见 Consorts)。其余官员按自己信的学说归属
+    public static PartyIdeology? IdentityStance(Empire empire, Actor actor)
+    {
+        if (empire == null || actor?.data == null || actor.isRekt()) return null;
+        if (IsEunuch(actor)) return EunuchFactionRisen(empire) ? PartyIdeology.Eunuchs : PartyIdeology.ImperialPower;
+        if (empire.EmpireSpecificClan != null && SpecificClanManager.SameLineage(actor.GetSpecificClan(), empire.EmpireSpecificClan))
+            return PartyIdeology.RoyalKin;
+        if (actor.isKing() || GentrySystem.IsGentry(actor) || EmpireCraft.Scripts.AI.ActorAI.EmpireCaftActorJudgeClass.IsNoble(actor))
+            return PartyIdeology.GreatClans;
+        if (empire.GetCabinetMembers().Contains(actor)) return PartyIdeology.ImperialPower;
+        return null;
+    }
+
+    // 派系里按什么归属：身份立场优先，否则按信的学说
+    private static PartyIdeology Stance(Empire empire, Actor actor) =>
+        IdentityStance(empire, actor) ?? IdeologyPopulationSystem.Get(actor);
+
     // 派系类型 → 起点理念
     private static PartyIdeology? TypeIdeology(FactionType type) => type switch
     {
@@ -74,8 +99,27 @@ public static class CliqueSystem
         _ => null
     };
 
+    private const int MaxSchoolCliques = 4;
+    private static readonly PartyIdeology[] ClassStances =
+        { PartyIdeology.ImperialPower, PartyIdeology.RoyalKin, PartyIdeology.GreatClans, PartyIdeology.ConsortKin, PartyIdeology.Eunuchs };
+
     private static List<FixedFaction> Cliques(Regime regime) =>
         regime.GetPlayerFactions().Where(faction => faction != null && faction.IsClique && !faction.Ban).ToList();
+
+    public static bool IsClassClique(FixedFaction faction) => faction != null && IdeologyFamilies.IsIdentityStance(faction.Ideology);
+
+    // 学说朋党(会倡立、合并、分裂、消亡的那些)
+    private static List<FixedFaction> Schools(Regime regime) => Cliques(regime).Where(clique => !IsClassClique(clique)).ToList();
+
+    private static FixedFaction ClassClique(Regime regime, PartyIdeology stance) =>
+        Cliques(regime).FirstOrDefault(clique => clique.Ideology == stance);
+
+    // 阉党已从天子派里分出(有人领头)
+    private static bool EunuchFactionRisen(Empire empire)
+    {
+        Regime regime = empire?.CoreKingdom?.GetRegime();
+        return regime != null && ClassClique(regime, PartyIdeology.Eunuchs)?.GetLeader() != null;
+    }
 
     private static float Ratio(Empire empire, FixedFaction faction) => empire.CoreKingdom.GetFactionRatioValue(faction);
 
@@ -89,14 +133,19 @@ public static class CliqueSystem
         Regime regime = empire.CoreKingdom.GetRegime();
         try
         {
+            RenameSchoolLabels(regime);
             Convert(empire, regime);
+            EnsureIssues(regime);
             List<Actor> officials = Officials(empire);
+            EnsureClassCliques(empire, regime, officials);
             Eunuchs(empire, regime);
             Consorts(empire, regime, officials);
             TryMerge(empire, regime);
             TryDissolve(empire, regime);
             TryFound(empire, regime, officials);
-            Drift(regime, officials);
+            Drift(empire, regime, officials);
+            AssignPatrons(empire, regime);
+            MandateCourt(empire, regime, officials);
             TrySplit(empire, regime);
         }
         catch (Exception exception)
@@ -127,6 +176,18 @@ public static class CliqueSystem
         }
     }
 
+    // 四个阶级派系缺哪个补哪个：有这身份的官员就由名望最高的人领头，没有就先蛰伏(势力为零)
+    private static void EnsureClassCliques(Empire empire, Regime regime, List<Actor> officials)
+    {
+        foreach (PartyIdeology stance in ClassStances)
+        {
+            if (ClassClique(regime, stance) != null) continue;
+            Actor leader = stance is PartyIdeology.ConsortKin or PartyIdeology.Eunuchs ? null
+                : officials.Where(actor => IdentityStance(empire, actor) == stance).OrderByDescending(actor => actor.renown).FirstOrDefault();
+            Create(empire, regime, stance, leader, 0);
+        }
+    }
+
     // 以前新建的朋党诉求清单是空的(一条本类型的诉求都没有)：补上本类型的诉求；手动删过的不再补回
     private static void EnsureCatalog(FixedFaction faction)
     {
@@ -149,16 +210,17 @@ public static class CliqueSystem
     private static void TryFound(Empire empire, Regime regime, List<Actor> officials)
     {
         List<FixedFaction> cliques = Cliques(regime);
-        if (cliques.Count >= MaxCliques || officials.Count < MinOfficials) return;
+        bool contention = HundredSchools(empire);
+        if (Schools(regime).Count >= MaxSchoolCliques + (contention ? 1 : 0) || officials.Count < MinOfficials) return;
         var represented = new HashSet<PartyIdeology>(cliques.Select(clique => clique.Ideology));
         var leaders = new HashSet<long>(cliques.Select(clique => clique.Leader));
         foreach (IGrouping<PartyIdeology, Actor> group in officials
-                     .GroupBy(IdeologyPopulationSystem.Get)
-                     .Where(group => IdeologyFamilies.IsAncient(group.Key) && !IdeologyFamilies.IsCourtOnly(group.Key) &&
+                     .GroupBy(actor => Stance(empire, actor))
+                     .Where(group => IdeologyFamilies.IsAncient(group.Key) && !IdeologyFamilies.IsIdentityStance(group.Key) &&
                                      !represented.Contains(group.Key))
                      .OrderByDescending(group => group.Count()))
         {
-            if (group.Count() < Mathf.Max(FoundMinMembers, Mathf.CeilToInt(officials.Count * FoundShare))) break;
+            if (group.Count() < Mathf.Max(FoundMinMembers, Mathf.CeilToInt(officials.Count * (contention ? ContentionFoundShare : FoundShare)))) break;
             Actor founder = group.Where(actor => !leaders.Contains(actor.id)).OrderByDescending(actor => actor.renown).FirstOrDefault();
             if (founder == null) continue;
             FixedFaction clique = Create(empire, regime, group.Key, founder, FoundRatio);
@@ -205,6 +267,23 @@ public static class CliqueSystem
         return clique;
     }
 
+    // 旧称号用诸子百家的名字，玩家看不出是干什么的(用户 2026-10-17："不要用诸子百家的名字只按功能来就行，
+    // 至少玩家一看就知道干嘛的")：旧存档里还叫这些名字的朋党改成按功能的新称号
+    private static readonly Dictionary<string, string> OldSchoolLabels = new()
+    {
+        ["农家"] = "Agrarianism", ["農家"] = "Agrarianism", ["Tillers"] = "Agrarianism",
+        ["黄老派"] = "HuangLao", ["黃老派"] = "HuangLao", ["Huang-Lao Circle"] = "HuangLao",
+        ["墨者"] = "Mohism", ["Mohists"] = "Mohism",
+        ["纵横之士"] = "Diplomatists", ["縱橫之士"] = "Diplomatists", ["Persuaders"] = "Diplomatists",
+    };
+
+    private static void RenameSchoolLabels(Regime regime)
+    {
+        foreach (FixedFaction faction in regime.GetPlayerFactions())
+            if (faction?.Name != null && OldSchoolLabels.TryGetValue(faction.Name, out string key))
+                faction.Name = LM.Get("clique_label_" + key);
+    }
+
     // 史书习惯的名字：这一家的称号；重了称领袖之姓"某党"；再重了称籍贯首字"某党"
     private static string NameFor(Regime regime, PartyIdeology ideology, Actor leader)
     {
@@ -243,7 +322,7 @@ public static class CliqueSystem
 
     #region 归属、合并、分裂、消亡
 
-    private static void Drift(Regime regime, List<Actor> officials)
+    private static void Drift(Empire empire, Regime regime, List<Actor> officials)
     {
         List<FixedFaction> cliques = Cliques(regime);
         if (cliques.Count < 2) return;
@@ -254,7 +333,7 @@ public static class CliqueSystem
         foreach (Actor actor in officials.OrderBy(_ => Random.value))
         {
             if (switches >= MaxSwitchesPerYear) break;
-            if (leaders.Contains(actor.id) || !byIdeology.TryGetValue(IdeologyPopulationSystem.Get(actor), out FixedFaction home)) continue;
+            if (leaders.Contains(actor.id) || !byIdeology.TryGetValue(Stance(empire, actor), out FixedFaction home)) continue;
             FixedFaction current = cliques.FirstOrDefault(clique => clique.Members.Contains(actor.id));
             if (current == home || current != null && current.Ideology == home.Ideology || Random.value > SwitchChance) continue;
             actor.SetFaction(home);
@@ -264,8 +343,8 @@ public static class CliqueSystem
 
     private static void TryMerge(Empire empire, Regime regime)
     {
-        List<FixedFaction> cliques = Cliques(regime);
-        if (cliques.Count <= MinCliques) return;
+        List<FixedFaction> cliques = Schools(regime);
+        if (cliques.Count < MinCliques) return;
         foreach (FixedFaction small in cliques.OrderBy(clique => Ratio(empire, clique)).ThenBy(clique => clique.Count))
         {
             if (Ratio(empire, small) >= MergeRatio || !Settled(small)) continue;
@@ -302,8 +381,7 @@ public static class CliqueSystem
 
     private static void TryDissolve(Empire empire, Regime regime)
     {
-        List<FixedFaction> cliques = Cliques(regime);
-        if (cliques.Count <= MinCliques) return;
+        List<FixedFaction> cliques = Schools(regime);
         FixedFaction empty = cliques.FirstOrDefault(clique => clique.CliqueFoundedAt >= 0d && clique.AllMembers.Count == 0);
         if (empty == null) return;
         string name = empty.Name;
@@ -313,8 +391,8 @@ public static class CliqueSystem
 
     private static void TrySplit(Empire empire, Regime regime)
     {
-        List<FixedFaction> cliques = Cliques(regime);
-        if (cliques.Count >= MaxCliques || Random.value > SplitChance) return;
+        List<FixedFaction> cliques = Schools(regime);
+        if (cliques.Count >= MaxSchoolCliques || Random.value > SplitChance) return;
         FixedFaction big = cliques.Where(clique => Ratio(empire, clique) >= SplitRatio && clique.Count >= SplitMinMembers)
             .OrderByDescending(clique => Ratio(empire, clique)).FirstOrDefault();
         Actor boss = big?.GetLeader();
@@ -342,6 +420,205 @@ public static class CliqueSystem
 
     #endregion
 
+    #region 天命与朝堂
+
+    // 天命与朝堂(用户 2026-10-17 选"天命与朝堂挂钩")：
+    //   · 官学 = 本文化定于一尊的正统(见 AncientSchoolsSystem)；受天命的治世里学说朋党可请"独尊官学"改尊本家
+    //     (TempFac_独尊官学)；有正统时每年至多三名官员各两成机会改宗；
+    //   · 天命动摇(动荡)：方士得势，方士一派每年势力 +2；
+    //   · 失天命、天下无主(乱世)：正统逐年废弛(见 AncientSchoolsSystem)；乱世或百家争鸣时学说朋党倡立的门槛从一成五降到一成，名额多一个。
+    private const float ContentionFoundShare = 0.1f, OfficialConvertChance = 0.2f;
+    private const int OfficialConvertsPerYear = 3, DiviningRise = 2;
+
+    public static PartyIdeology? OfficialSchool(Empire empire) =>
+        empire?.data == null ? null : AncientSchoolsSystem.Orthodox(InstitutionSystem.GetPrimaryCulture(empire));
+
+    // 百家争鸣：本朝所在的天下无主，或本文化正值百家争鸣
+    private static bool HundredSchools(Empire empire) => TianxiaSystem.PhaseOf(empire.CoreKingdom) == TianxiaSystem.Chaos ||
+                                                         AncientSchoolsSystem.Contending(InstitutionSystem.GetPrimaryCulture(empire));
+
+    private static void MandateCourt(Empire empire, Regime regime, List<Actor> officials)
+    {
+        int phase = TianxiaSystem.PhaseOf(empire.CoreKingdom);
+        PartyIdeology? school = OfficialSchool(empire);
+        if (school != null)
+        {
+            int converts = 0;
+            foreach (Actor actor in officials.OrderBy(_ => Random.value))
+            {
+                if (converts >= OfficialConvertsPerYear) break;
+                PartyIdeology own = IdeologyPopulationSystem.Get(actor);
+                if (own == school.Value || IdeologyFamilies.IsIdentityStance(own) || IdentityStance(empire, actor) != null ||
+                    Random.value >= OfficialConvertChance) continue;
+                IdeologyPopulationSystem.Set(actor, school.Value);
+                converts++;
+            }
+        }
+        if (phase == TianxiaSystem.Unrest)
+        {
+            FixedFaction diviners = Schools(regime).FirstOrDefault(clique => clique.Ideology == PartyIdeology.YinYang);
+            if (diviners != null) empire.CoreKingdom.TryIncreaseFactionRatio(diviners, DiviningRise);
+        }
+    }
+
+    #endregion
+
+    #region 议题
+
+    // 朋党各自能上奏的朝堂议题(派系类型自带的之外；各议题的效果写在 Claims/TempFac_*)
+    private static readonly Dictionary<PartyIdeology, TemporaryFactionType[]> CliqueIssues = new()
+    {
+        [PartyIdeology.Confucianism] = new[] { TemporaryFactionType.诛宦官, TemporaryFactionType.大赦天下, TemporaryFactionType.兴修水利,
+            TemporaryFactionType.重农抑商, TemporaryFactionType.裁省用度, TemporaryFactionType.独尊官学 },
+        [PartyIdeology.Legalism] = new[] { TemporaryFactionType.盐铁专营, TemporaryFactionType.重定律令, TemporaryFactionType.屯田实边,
+            TemporaryFactionType.抑豪强, TemporaryFactionType.独尊官学 },
+        [PartyIdeology.HuangLao] = new[] { TemporaryFactionType.大赦天下, TemporaryFactionType.裁省用度, TemporaryFactionType.独尊官学 },
+        [PartyIdeology.Mohism] = new[] { TemporaryFactionType.裁省用度, TemporaryFactionType.兴修水利, TemporaryFactionType.独尊官学 },
+        [PartyIdeology.Agrarianism] = new[] { TemporaryFactionType.兴修水利, TemporaryFactionType.重农抑商, TemporaryFactionType.独尊官学 },
+        [PartyIdeology.Strategists] = new[] { TemporaryFactionType.屯田实边, TemporaryFactionType.独尊官学 },
+        [PartyIdeology.Diplomatists] = new[] { TemporaryFactionType.独尊官学 },
+        [PartyIdeology.YinYang] = new[] { TemporaryFactionType.封禅, TemporaryFactionType.独尊官学 },
+        [PartyIdeology.Animism] = new[] { TemporaryFactionType.封禅 },
+        [PartyIdeology.ImperialPower] = new[] { TemporaryFactionType.封禅, TemporaryFactionType.盐铁专营, TemporaryFactionType.重定律令,
+            TemporaryFactionType.修氏族志, TemporaryFactionType.抑豪强 },
+        [PartyIdeology.RoyalKin] = new[] { TemporaryFactionType.供养宗室, TemporaryFactionType.分封, TemporaryFactionType.封禅 },
+        [PartyIdeology.GreatClans] = new[] { TemporaryFactionType.诛宦官 },
+        [PartyIdeology.ConsortKin] = new[] { TemporaryFactionType.诛宦官, TemporaryFactionType.大赦天下 },
+        [PartyIdeology.Eunuchs] = new[] { TemporaryFactionType.党锢 }
+    };
+
+    private static void EnsureIssues(Regime regime)
+    {
+        foreach (FixedFaction clique in Cliques(regime))
+        {
+            if (!CliqueIssues.TryGetValue(clique.Ideology, out TemporaryFactionType[] issues)) continue;
+            clique.TemporaryFactionTypesRecord ??= new List<TemporaryFactionType>();
+            List<TemporaryFactionType> missing = issues.Where(issue => !clique.TemporaryFactionTypesRecord.Contains(issue)).ToList();
+            if (missing.Count == 0) continue;
+            clique.TemporaryFactionTypesRecord.AddRange(missing);
+            clique.TemporaryFactions = clique.ConvertToObjectFromFactionType();
+            foreach (TemporaryFaction claim in clique.TemporaryFactions) claim?.Init(clique);
+            clique.FixMissedTemporaryFactions();
+        }
+    }
+
+    // 诛宦官：阉党有人领头时才能诛
+    public static bool CanPurgeEunuchs(Empire empire)
+    {
+        Regime regime = empire?.CoreKingdom?.GetRegime();
+        return regime != null && empire.Emperor?.data != null && ClassClique(regime, PartyIdeology.Eunuchs)?.GetLeader() != null;
+    }
+
+    public static string PurgeEunuchs(Empire empire)
+    {
+        if (!CanPurgeEunuchs(empire)) return null;
+        Regime regime = empire.CoreKingdom.GetRegime();
+        FixedFaction party = ClassClique(regime, PartyIdeology.Eunuchs);
+        string name = party.Name;
+        Purge(empire, regime, party, empire.Emperor);
+        return name;
+    }
+
+    // 党锢：禁锢朝中势力最大、又不投靠上奏一派的学说朋党(至少占一成)
+    public static FixedFaction ProscriptionTarget(Empire empire, string proposerId)
+    {
+        Regime regime = empire?.CoreKingdom?.GetRegime();
+        if (regime == null) return null;
+        FixedFaction proposer = CourtSystem.FindFaction(empire, proposerId);
+        return Schools(regime).Where(school => school != proposer && Ratio(empire, school) >= 10f && Patron(empire, school) != proposer)
+            .OrderByDescending(school => Ratio(empire, school)).FirstOrDefault();
+    }
+
+    public static string Proscribe(Empire empire, string proposerId)
+    {
+        FixedFaction target = ProscriptionTarget(empire, proposerId);
+        if (target == null) return null;
+        Regime regime = empire.CoreKingdom.GetRegime();
+        FixedFaction proposer = CourtSystem.FindFaction(empire, proposerId);
+        string name = target.Name;
+        foreach (Actor member in target.AllMembers.ToList()) member.RemoveFaction();
+        target.Members.Clear();
+        target.Leader = -1L;
+        Dictionary<FixedFaction, int> ratios = empire.CoreKingdom.GetOrCreate().FactionRatio;
+        if (ratios != null && ratios.TryGetValue(target, out int power) && power > 0)
+        {
+            int moved = power * 2 / 3;
+            ratios[target] = power - moved;
+            if (proposer != null) ratios[proposer] = (ratios.TryGetValue(proposer, out int current) ? current : 0) + moved;
+        }
+        empire.AddMandate(-3);
+        Record(empire, string.Format(LM.Get("clique_proscribed_history"), proposer?.Name ?? "", name), proposer?.GetLeader());
+        return name;
+    }
+
+    #endregion
+
+    #region 投靠
+
+    // 学说朋党投靠利义最合得来的阶级派系(一致程度至少 0.15，否则不投靠任何一方)；玩家指定过的不动
+    private const float PatronAgreement = 0.15f;
+
+    private static void AssignPatrons(Empire empire, Regime regime)
+    {
+        List<FixedFaction> classes = Cliques(regime).Where(IsClassClique).ToList();
+        foreach (FixedFaction school in Schools(regime))
+        {
+            CourtFactionState data = CourtSystem.FactionState(empire, school);
+            if (data.patron_locked && (data.patron == "" || classes.Any(clique => clique.GetID() == data.patron))) continue;
+            data.patron_locked = false;
+            FixedFaction best = classes.Select(clique => (clique, agreement: CourtDoctrine.Agreement(school, clique) ?? 0f))
+                .Where(item => item.agreement >= PatronAgreement)
+                .OrderByDescending(item => item.agreement).Select(item => item.clique).FirstOrDefault();
+            data.patron = best?.GetID() ?? "";
+        }
+    }
+
+    public static FixedFaction Patron(Empire empire, FixedFaction school)
+    {
+        if (empire == null || school == null || !school.IsClique || IsClassClique(school)) return null;
+        CourtFactionState data = CourtSystem.FactionState(empire, school);
+        // 还没结算过(新朋党、旧存档)：当场按利义算一次
+        if (!data.patron_locked && string.IsNullOrEmpty(data.patron) && empire.CoreKingdom?.GetRegime() is Regime regime)
+            data.patron = Cliques(regime).Where(IsClassClique)
+                .Select(clique => (clique, agreement: CourtDoctrine.Agreement(school, clique) ?? 0f))
+                .Where(item => item.agreement >= PatronAgreement).OrderByDescending(item => item.agreement)
+                .Select(item => item.clique.GetID()).FirstOrDefault() ?? "";
+        string id = data.patron;
+        return string.IsNullOrEmpty(id) ? null : CourtSystem.FindFaction(empire, id);
+    }
+
+    public static bool PatronLocked(Empire empire, FixedFaction school) =>
+        empire != null && school != null && CourtSystem.FactionState(empire, school).patron_locked;
+
+    // 两派互为投靠关系(学说朋党与它投靠的阶级派系)
+    public static bool Patronage(Empire empire, FixedFaction a, FixedFaction b) =>
+        a != null && b != null && (Patron(empire, a) == b || Patron(empire, b) == a);
+
+    // 手动改投(神力)：按 自动 → 各阶级派系 → 不投靠 → 自动 轮换
+    public static void CyclePatron(Empire empire, FixedFaction school)
+    {
+        Regime regime = empire?.CoreKingdom?.GetRegime();
+        if (regime == null || school == null || IsClassClique(school)) return;
+        CourtFactionState data = CourtSystem.FactionState(empire, school);
+        List<FixedFaction> classes = Cliques(regime).Where(IsClassClique).ToList();
+        if (!data.patron_locked)
+        {
+            data.patron_locked = true;
+            data.patron = classes.FirstOrDefault()?.GetID() ?? "";
+            return;
+        }
+        int index = classes.FindIndex(clique => clique.GetID() == data.patron);
+        if (index >= 0 && index + 1 < classes.Count) data.patron = classes[index + 1].GetID();
+        else if (index >= 0) data.patron = "";
+        else
+        {
+            data.patron_locked = false;
+            AssignPatrons(empire, regime);
+        }
+    }
+
+    #endregion
+
     #region 后党、阉党
 
     private static void Consorts(Empire empire, Regime regime, List<Actor> officials)
@@ -350,11 +627,14 @@ public static class CliqueSystem
         List<FixedFaction> cliques = Cliques(regime);
         FixedFaction party = cliques.FirstOrDefault(clique => clique.Ideology == PartyIdeology.ConsortKin);
         bool ascendant = chief?.data != null && (ConsortKinSystem.Backed(empire) || empire.GetPowerfulMinister() == chief);
-        if (party == null)
+        if (party == null) return;
+        // 蛰伏的后党：外戚首领得势时复起
+        if (ascendant && party.GetLeader() == null)
         {
-            if (!ascendant || cliques.Count >= MaxCliques) return;
             IdeologyPopulationSystem.Set(chief, PartyIdeology.ConsortKin);
-            party = Create(empire, regime, PartyIdeology.ConsortKin, chief, FoundRatio);
+            chief.SetFaction(party);
+            party.SetLeader(chief);
+            empire.CoreKingdom.TryIncreaseFactionRatio(party, FoundRatio);
             Record(empire, string.Format(LM.Get("clique_consort_history"), chief.getName(), party.Name), chief);
         }
         // 外戚宗族的官员都归入后党
@@ -371,8 +651,9 @@ public static class CliqueSystem
         if (emperor?.data == null || !emperor.isAlive()) return;
         List<FixedFaction> cliques = Cliques(regime);
         FixedFaction party = cliques.FirstOrDefault(clique => clique.Ideology == PartyIdeology.Eunuchs);
+        if (party == null) return;
         RulerQualitySystem.Grade grade = RulerQualitySystem.Of(emperor);
-        if (party != null)
+        if (party.GetLeader() != null)
         {
             // 明君亲政：诛宦官、散阉党
             if (grade == RulerQualitySystem.Grade.Wise && emperor.isAdult() && !empire.data.is_been_controlled &&
@@ -381,7 +662,7 @@ public static class CliqueSystem
             return;
         }
         if (grade is not (RulerQualitySystem.Grade.Weak or RulerQualitySystem.Grade.Fatuous or RulerQualitySystem.Grade.Dissolute) ||
-            cliques.Count >= MaxCliques || Random.value >= EunuchRiseChance) return;
+            Random.value >= EunuchRiseChance) return;
         City capital = empire.CoreKingdom.capital;
         Actor eunuch = capital == null ? null : CityPopulationSystem.SpawnOfficial(capital, empire.CoreKingdom);
         if (eunuch?.data == null) return;
@@ -389,7 +670,20 @@ public static class CliqueSystem
         eunuch.addTrait(EunuchTrait);
         eunuch.editRenown(60);
         IdeologyPopulationSystem.Set(eunuch, PartyIdeology.Eunuchs);
-        party = Create(empire, regime, PartyIdeology.Eunuchs, eunuch, EunuchFoundRatio);
+        // 从天子派里分出阉党：得宠的宦官领头，天子派里的宦官都跟过来，带走天子派三分之一的势力
+        eunuch.SetFaction(party);
+        party.SetLeader(eunuch);
+        FixedFaction crown = ClassClique(regime, PartyIdeology.ImperialPower);
+        if (crown != null)
+            foreach (Actor member in crown.AllMembers.Where(IsEunuch).ToList()) member.SetFaction(party);
+        Dictionary<FixedFaction, int> ratios = empire.CoreKingdom.GetOrCreate().FactionRatio;
+        if (crown != null && ratios != null && ratios.TryGetValue(crown, out int crownPower) && crownPower >= 3)
+        {
+            int moved = crownPower / 3;
+            ratios[crown] = crownPower - moved;
+            ratios[party] = (ratios.TryGetValue(party, out int current) ? current : 0) + moved;
+        }
+        else empire.CoreKingdom.TryIncreaseFactionRatio(party, EunuchFoundRatio);
         Record(empire, string.Format(LM.Get("clique_eunuch_history"), emperor.getName(), eunuch.getName(), party.Name), eunuch);
     }
 
@@ -399,7 +693,21 @@ public static class CliqueSystem
         Actor leader = party.GetLeader();
         string leaderName = leader?.getName() ?? "";
         List<Actor> eunuchs = party.AllMembers.Where(IsEunuch).ToList();
-        Remove(empire, regime, party);
+        // 阉党不消失，只是打回蛰伏：首恶伏诛，余众与势力并回天子派
+        FixedFaction crown = ClassClique(regime, PartyIdeology.ImperialPower);
+        foreach (Actor member in party.AllMembers.ToList())
+        {
+            if (crown != null && !IsEunuch(member)) member.SetFaction(crown);
+            else member.RemoveFaction();
+        }
+        party.Members.Clear();
+        party.Leader = -1L;
+        Dictionary<FixedFaction, int> ratios = empire.CoreKingdom.GetOrCreate().FactionRatio;
+        if (ratios != null && ratios.TryGetValue(party, out int power) && power > 0)
+        {
+            ratios[party] = 0;
+            if (crown != null) ratios[crown] = (ratios.TryGetValue(crown, out int current) ? current : 0) + power;
+        }
         foreach (Actor eunuch in eunuchs) eunuch.die(true, AttackType.Other, false, false);
         empire.AddMandate(5);
         Record(empire, string.Format(LM.Get("clique_eunuch_purged_history"), emperor.getName(), leaderName, name), emperor);

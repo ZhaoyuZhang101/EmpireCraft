@@ -346,6 +346,8 @@ public static partial class CourtSystem
             CourtFactionState data = FactionState(empire, faction);
             int stance = faction == proposer ? 1 : CourtIssues.StanceLevel(faction, claim);
             if (faction != proposer && faction.GetID() == proposerData.ally && stance == 0) stance = 1;
+            // 学说朋党与它投靠的阶级派系互相声援(见 CliqueSystem.Patron)
+            if (faction != proposer && stance == 0 && CliqueSystem.Patronage(empire, faction, proposer)) stance = 1;
             if (faction != proposer && IsBoycotting(data)) stance = -1;
             memorial.stances[faction.GetID()] = stance;
             memorial.weights[faction.GetID()] = weights[faction];

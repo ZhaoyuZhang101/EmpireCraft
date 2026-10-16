@@ -107,5 +107,27 @@ public enum TemporaryFactionType
     [Description("以当朝官爵重定世家门第")]
     修氏族志,
     [Description("抄没门第最高的世家一半田产")]
-    抑豪强
+    抑豪强,
+    [Description("清流与外戚请诛宦官、散阉党")]
+    诛宦官,
+    [Description("阉党请禁锢与之作对的学说朋党，党人不得为官")]
+    党锢,
+    [Description("开渠灌田，增各大城的粮储")]
+    兴修水利,
+    [Description("盐铁收归官营，其利入国库")]
+    盐铁专营,
+    [Description("边城屯田积粮，以实边防")]
+    屯田实边,
+    [Description("天子封禅告成于天")]
+    封禅,
+    [Description("罢宫室、减宗室后宫用度")]
+    裁省用度,
+    [Description("大赦天下，与民更始")]
+    大赦天下,
+    [Description("重修律令，以法治国")]
+    重定律令,
+    [Description("重农抑商，限制商贾")]
+    重农抑商,
+    [Description("受天命的治世，学说朋党请以本家学说为官学")]
+    独尊官学
 }
