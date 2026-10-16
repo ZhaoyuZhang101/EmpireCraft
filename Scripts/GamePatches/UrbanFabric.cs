@@ -371,7 +371,10 @@ public static class UrbanFabric
         int townCount = 0, villageCount = 0;
         unchecked
         {
-            foreach (RuralSettlement settlement in RuralSettlementSystem.InCity(g.City))
+            // 按生成先后排(本城原有的镇村先后与原来一样，标注起名、画法都对得上)
+            var stored = RuralSettlementSystem.InCity(g.City);
+            stored.Sort((a, b) => a.id.CompareTo(b.id));
+            foreach (RuralSettlement settlement in stored)
             {
                 if (!Open(g, settlement.x, settlement.y)) continue;
                 g.SettlementHash = g.SettlementHash * 31 + settlement.id * 7 + (settlement.ruined_at >= 0d ? 3 : 1);

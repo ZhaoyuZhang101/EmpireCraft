@@ -22,6 +22,10 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 镇村完好时产粮、交税照旧；毁了的那几份不产粮、不交税：本城岗位的粮食产出与赋税按
 //     1 - 0.6 × 毁了的份数 / 总份数 打折(城外全毁约剩六成，见 OutputFactor、PopulationEconomySystem)；
 //   · 毁的时候住在那里的人一半死伤逃散(按它的份数从本城各阶层的背景人口里扣)。
+// 第四期：有名字、可以点开(用户选"有名字、可以点开")——
+//   · 名字头一回标注时按位置起(华夏的村多是姓氏加家庄、村、屯，其余雅字加村、庄；镇是雅字或方位加镇，同城不重名，
+//     见 MapLabelOverlay)，记进存档，从此不随先后、归属变；废墟标"某某·废墟"；
+//   · 拉近到标注街名的程度，没选神力时点一下镇村：底部提示栏写它是镇是村、约多少人、属哪座城哪国，废墟写毁了几年。
 public static class RuralSettlementSystem
 {
     private const float VillageWeight = 1f, TownWeight = 3f, CityWeight = 6f, RuinedOutputLoss = 0.6f, BurnPopulationLoss = 0.5f;
@@ -111,6 +115,34 @@ public static class RuralSettlementSystem
     }
 
     public static void Touch() => Revision++;
+
+    // 正好落在 (x, y) 这一格的镇村
+    public static RuralSettlement At(int x, int y)
+    {
+        TileZone zone = World.world?.GetTile(x, y)?.zone;
+        return zone == null ? null : InZone(zone).Find(settlement => settlement.x == x && settlement.y == y);
+    }
+
+    // 点到的镇村：这一格及四邻地块里离得最近、点在它范围里的(镇按大小、村两格半)
+    public static RuralSettlement Near(WorldTile tile)
+    {
+        TileZone zone = tile?.zone;
+        if (zone == null || All.Count == 0) return null;
+        RuralSettlement best = null;
+        float bestDistance = float.MaxValue;
+        var zones = new List<TileZone> { zone };
+        if (zone.neighbours_all != null) zones.AddRange(zone.neighbours_all);
+        foreach (TileZone around in zones)
+            foreach (RuralSettlement settlement in InZone(around))
+            {
+                float dx = settlement.x - tile.x, dy = settlement.y - tile.y, d = dx * dx + dy * dy;
+                float reach = settlement.town ? settlement.size + 1.5f : 2.5f;
+                if (d > reach * reach || d >= bestDistance) continue;
+                best = settlement;
+                bestDistance = d;
+            }
+        return best;
+    }
 
     #region 住人、产粮交税
 

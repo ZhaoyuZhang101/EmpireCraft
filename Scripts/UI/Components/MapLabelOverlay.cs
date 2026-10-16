@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GamePatches;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GeneralSystems;
@@ -61,7 +62,7 @@ public static class MapLabelOverlay
     private static readonly Color StreetColor = new(0.36f, 0.38f, 0.42f), CivicColor = new(0.16f, 0.36f, 0.66f),
         MarketColor = new(0.86f, 0.42f, 0.10f), IndustryColor = new(0.45f, 0.36f, 0.30f), TempleColor = new(0.52f, 0.30f, 0.62f),
         MilitaryColor = new(0.40f, 0.46f, 0.30f), DockColor = new(0.10f, 0.50f, 0.66f), HouseColor = new(0.42f, 0.42f, 0.44f),
-        CityColor = new(0.16f, 0.16f, 0.20f), SettlementColor = new(0.36f, 0.30f, 0.22f);
+        CityColor = new(0.16f, 0.16f, 0.20f), SettlementColor = new(0.36f, 0.30f, 0.22f), RuinColor = new(0.42f, 0.36f, 0.32f);
 
     public static void Update()
     {
@@ -81,6 +82,7 @@ public static class MapLabelOverlay
             HideAll();
             return;
         }
+        HandleClick();
         bool houses = ppt >= HouseZoom;
         Rect view = ViewInTiles(camera, source);
         var cities = new List<(City city, float distance)>();
@@ -278,28 +280,82 @@ public static class MapLabelOverlay
         return specs;
     }
 
-    // 城名(用户 2026-10-16 "周边的村子还有中间的城似乎也没名字")：城北沿上方标城名；城外的镇、村按城与编号起名，
-    // 华夏的村多是姓氏加家庄、村、屯，其余是雅字加村、庄；镇是雅字或方位加镇。同城不重名，每次一样
+    // 城名(用户 2026-10-16 "周边的村子还有中间的城似乎也没名字")：城北沿上方标城名；城外的镇、村
+    // 华夏的村多是姓氏加家庄、村、屯，其余是雅字加村、庄；镇是雅字或方位加镇。同城不重名。
+    // 镇村的名字头一回标注时按位置起，记进存档(见 RuralSettlementSystem)，从此不随先后、归属变；废墟标"某某·废墟"
     private static void Settlements(City city, PureMapPatch.LabelPlan plan, List<Spec> specs)
     {
         if (plan == null) return;
         if (!float.IsNaN(plan.NameAt.x)) specs.Add(new Spec(plan.NameAt, city.GetCityName() ?? "", CityColor, CitySize, false, 0));
-        var used = new HashSet<string>();
+        var used = new HashSet<string>(RuralSettlementSystem.InCity(city).Select(settlement => settlement.name)
+            .Where(name => !string.IsNullOrEmpty(name)));
         bool huaxia = plan.Family == "huaxia";
         for (int i = 0; i < plan.Towns.Count; i++)
         {
-            long seed = city.id * 7349L + i * 131L + 17L;
-            string name = SettlementName(seed, used, TownWords, TownSuffix);
+            string name = NameOf(RuralSettlementSystem.At(plan.TownTiles[i].x, plan.TownTiles[i].y), true, huaxia, used,
+                city.id * 7349L + i * 131L + 17L);
             specs.Add(new Spec(plan.Towns[i].at, name, SettlementColor, TownSize, false, 1));
         }
         for (int i = 0; i < plan.Villages.Count; i++)
         {
-            long seed = city.id * 9973L + i * 257L + 29L;
-            string name = Chinese && huaxia && Pick(VillageKind, seed) == "姓"
-                ? SettlementName(seed, used, SurnameZh, VillageSuffixClan)
-                : SettlementName(seed, used, VillageWords, VillageSuffix);
+            string name = NameOf(RuralSettlementSystem.At(plan.VillageTiles[i].x, plan.VillageTiles[i].y), false, huaxia, used,
+                city.id * 9973L + i * 257L + 29L);
             specs.Add(new Spec(plan.Villages[i], name, SettlementColor, VillageSize, false, 2));
         }
+        foreach ((Vector2 at, int x, int y) in plan.Ruins)
+        {
+            RuralSettlement settlement = RuralSettlementSystem.At(x, y);
+            if (settlement == null) continue;
+            string name = NameOf(settlement, settlement.town, huaxia, used, 0L);
+            specs.Add(new Spec(at, string.Format(NeoModLoader.General.LM.Get("settlement_ruin_label"), name), RuinColor,
+                settlement.town ? TownSize : VillageSize, false, 2));
+        }
+    }
+
+    // 镇村的名字：存档里有就用，没有就起一个记下——按原来的"城与编号"种子起(镇村按生成先后排，旧存档头一回标出来的名字
+    // 与原来一样)，没有编号的(废墟、点开的)按位置起
+    private static string NameOf(RuralSettlement settlement, bool town, bool huaxia, HashSet<string> used, long fallback)
+    {
+        if (!string.IsNullOrEmpty(settlement?.name)) return settlement.name;
+        long seed = fallback != 0L || settlement == null ? fallback : UrbanFabric.PosKey(settlement.x, settlement.y) + 29L;
+        string name = town ? SettlementName(seed, used, TownWords, TownSuffix)
+            : Chinese && huaxia && Pick(VillageKind, seed) == "姓"
+                ? SettlementName(seed, used, SurnameZh, VillageSuffixClan)
+                : SettlementName(seed, used, VillageWords, VillageSuffix);
+        if (settlement != null) settlement.name = name;
+        return name;
+    }
+
+    // 点开镇村(没选神力时点一下；拖动地图不算)：底部提示栏写镇或村、约多少人、属哪座城哪国，废墟写毁了几年
+    private static Vector3 _pressedAt;
+    private static bool _pressed;
+
+    private static void HandleClick()
+    {
+        if (Input.GetMouseButtonDown(0))
+        {
+            _pressedAt = Input.mousePosition;
+            _pressed = !World.world.isOverUI();
+            return;
+        }
+        if (!Input.GetMouseButtonUp(0) || !_pressed) return;
+        _pressed = false;
+        if ((Input.mousePosition - _pressedAt).sqrMagnitude > 64f || World.world.isOverUI() || World.world.isAnyPowerSelected()) return;
+        RuralSettlement settlement = RuralSettlementSystem.Near(World.world.getMouseTilePos());
+        if (settlement == null) return;
+        City city = World.world.GetTile(settlement.x, settlement.y)?.zone?.city;
+        bool huaxia = city != null && PureMapPatch.LabelsOf(city)?.Family == "huaxia";
+        var used = new HashSet<string>(city == null ? Enumerable.Empty<string>()
+            : RuralSettlementSystem.InCity(city).Select(other => other.name).Where(name => !string.IsNullOrEmpty(name)));
+        string name = NameOf(settlement, settlement.town, huaxia, used, 0L);
+        string kind = NeoModLoader.General.LM.Get(settlement.town ? "settlement_kind_town" : "settlement_kind_village");
+        string owner = city == null ? NeoModLoader.General.LM.Get("settlement_unowned")
+            : string.Format(NeoModLoader.General.LM.Get("settlement_owner"), city.GetCityName(), city.kingdom?.GetKingdomName() ?? "");
+        string description = settlement.ruined_at >= 0d
+            ? string.Format(NeoModLoader.General.LM.Get("settlement_info_ruin"), kind, Mathf.Max(0, Date.getYearsSince(settlement.ruined_at)), owner)
+            : string.Format(NeoModLoader.General.LM.Get("settlement_info"), kind,
+                Mathf.RoundToInt(RuralSettlementSystem.PeopleOf(settlement, city)), owner);
+        WorldTip.instance?.showToolbarText(name, description);
     }
 
     private static string SettlementName(long seed, HashSet<string> used, string[] words, string[] suffixes)

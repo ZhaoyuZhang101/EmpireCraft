@@ -32,6 +32,9 @@ public partial class PureMapPatch
         public Vector2 NameAt = new(float.NaN, float.NaN);
         public readonly List<(Vector2 at, int size)> Towns = new();
         public readonly List<Vector2> Villages = new();
+        // 各处镇村所在的那一格(名字记在存档里，见 RuralSettlementSystem)；废墟(标注处、所在格)
+        public readonly List<(int x, int y)> TownTiles = new(), VillageTiles = new();
+        public readonly List<(Vector2 at, int x, int y)> Ruins = new();
     }
 
     // 这座城平面图上能标注的东西(纯净地图画城市时)
@@ -65,8 +68,18 @@ public partial class PureMapPatch
         }
         if (plan.fabric != null)
         {
-            foreach ((int x, int y, int townSize, _) in plan.fabric.Towns) result.Towns.Add((new Vector2(x + 0.5f, y + townSize + 2.5f), townSize));
-            foreach ((int x, int y) in plan.fabric.Villages) result.Villages.Add(new Vector2(x + 0.5f, y + 3f));
+            foreach ((int x, int y, int townSize, _) in plan.fabric.Towns)
+            {
+                result.Towns.Add((new Vector2(x + 0.5f, y + townSize + 2.5f), townSize));
+                result.TownTiles.Add((x, y));
+            }
+            foreach ((int x, int y) in plan.fabric.Villages)
+            {
+                result.Villages.Add(new Vector2(x + 0.5f, y + 3f));
+                result.VillageTiles.Add((x, y));
+            }
+            foreach ((int x, int y, bool town) in plan.fabric.Ruins)
+                result.Ruins.Add((new Vector2(x + 0.5f, y + (town ? 5.5f : 3f)), x, y));
         }
         return result;
     }
