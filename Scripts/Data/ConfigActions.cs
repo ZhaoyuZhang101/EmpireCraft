@@ -42,6 +42,10 @@ namespace EmpireCraft.Scripts.Data
         {
             ModClass.FEUDAL_UNION_REALM_LIMIT = int.TryParse(count, out int value) ? Math.Max(1, value) : 3;
         }
+        public static void SameCultureEmpireLimitCallBack(string count)
+        {
+            ModClass.SAME_CULTURE_EMPIRE_LIMIT = int.TryParse(count, out int value) ? Math.Max(1, value) : 2;
+        }
         public static void WarEndYearCallBack(string time)
         {
             ModClass.WAR_END_YEAR = int.Parse(time);

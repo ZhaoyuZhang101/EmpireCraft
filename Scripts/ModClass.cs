@@ -60,6 +60,8 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
     public static int SETTLEMENT_PREPARATION_MONTHS = 6;
     public static int SETTLEMENT_COOLDOWN_MONTHS = 36;
     public static int FEUDAL_UNION_REALM_LIMIT = 3;
+    // 同一文化最多几个帝国并立(僭越称帝争正统，见 ImperialLegitimacyChallengeService)；玩家要求做成设置，默认 2
+    public static int SAME_CULTURE_EMPIRE_LIMIT = 2;
     public static bool PERFORMANCE_HIGH_POPULATION_MODE = true;
     public static bool PERFORMANCE_ADAPTIVE_THROUGHPUT_MODE = true;
     public static bool PERFORMANCE_SKIP_HIDDEN_VISUALS = true;

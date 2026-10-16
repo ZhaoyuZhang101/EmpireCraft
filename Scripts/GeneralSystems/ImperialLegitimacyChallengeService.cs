@@ -39,16 +39,20 @@ public static class ImperialLegitimacyChallengeService
                              string.Equals(CultureService.GetEmpireDefaultCulture(empire), culture,
                                  StringComparison.Ordinal))
             .ToList();
-        if (sameCultureEmpires.Count != 1) return false;
+        // 本文化已有的帝国到了上限(模组设置，默认两个)就不能再僭越称帝
+        if (sameCultureEmpires.Count < 1 || sameCultureEmpires.Count >= Math.Max(1, ModClass.SAME_CULTURE_EMPIRE_LIMIT)) return false;
 
-        Empire incumbent = sameCultureEmpires[0];
-        // 帝国正在打仗也可以趁机发起
-        if (incumbent.data.legitimacy_rivalry_recognized) return false;
-        bool sharesLandBorder = SharesLandBorder(kingdom, incumbent);
-        if (!ImperialLegitimacyRules.CanChallenge(kingdom.GetNationalPower(), incumbent.GetNationalPower(),
-                sameCultureEmpires.Count, !kingdom.IsInEmpire(), sharesLandBorder)) return false;
-        target = incumbent;
-        return true;
+        // 几个帝国并立时，挑接壤、国力不如自己、没在别的正统之争里的那个里最强的(帝国正在打仗也可以趁机发起)
+        double power = kingdom.GetNationalPower();
+        foreach (Empire incumbent in sameCultureEmpires.OrderByDescending(empire => empire.GetNationalPower()))
+        {
+            if (incumbent.data.legitimacy_rivalry_recognized) continue;
+            if (!ImperialLegitimacyRules.CanChallenge(power, incumbent.GetNationalPower(), sameCultureEmpires.Count,
+                    !kingdom.IsInEmpire(), SharesLandBorder(kingdom, incumbent))) continue;
+            target = incumbent;
+            return true;
+        }
+        return false;
     }
 
     private static bool SharesLandBorder(Kingdom challenger, Empire incumbent)

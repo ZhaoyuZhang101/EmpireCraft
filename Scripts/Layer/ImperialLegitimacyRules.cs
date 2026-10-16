@@ -7,7 +7,7 @@ public static class ImperialLegitimacyRules
     public static bool CanChallenge(double kingdomPower, double empirePower,
         int sameCultureEmpireCount, bool isIndependent, bool sharesLandBorder)
     {
-        return isIndependent && sameCultureEmpireCount == 1 && sharesLandBorder && kingdomPower > empirePower;
+        return isIndependent && sameCultureEmpireCount >= 1 && sharesLandBorder && kingdomPower > empirePower;
     }
 
     public static int RequiredOccupiedZones(int totalZones)
