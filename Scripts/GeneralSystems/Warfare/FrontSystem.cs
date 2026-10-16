@@ -891,8 +891,12 @@ public static partial class FrontSystem
                                             MusterSystem.DefenseFactor(entry.kingdom, attacker)) * remnant;
         float militia = holders.Count == 0 ? Militia(city, attacker) * (breach ? BreachedMilitia : 1f) : 0f;
         defend += militia;
-        // 关城守御：攻的那一片里有关城，守方按等级加成；红夷大炮破城时只剩一半(见 RuralSettlementSystem.FortFactor)
-        float fort = RuralSettlementSystem.FortFactor(city, FrontZone(city, attacker, landing));
+        // 关城守御：攻方军团够得着的地(同 Advance 挑的)里有关城那一片的，守方按等级加成；红夷大炮破城时只剩一半
+        // (见 RuralSettlementSystem.FortFactor)
+        float fort = 1f;
+        List<CorpsData> spearheads = attackers.Select(entry => entry.corps).ToList();
+        foreach (TileZone target in TargetZones(attacker, city))
+            if (Beside(spearheads, target)) fort = Mathf.Max(fort, RuralSettlementSystem.FortFactor(city, target));
         if (fort > 1f) defend *= breach ? 1f + (fort - 1f) * 0.5f : fort;
         float ratio = attack + defend <= 0f ? 0.5f : attack / (attack + defend);
         // 伤亡与组织度
@@ -1054,12 +1058,13 @@ public static partial class FrontSystem
         }
     }
 
-    // 收复一块地：它那一片里被敌军占着的一并收回
-    private static void RetakeDistrict(City city, Kingdom side, TileZone retaken)
+    // 收复一块地：它那一片里被敌军占着的一并收回；free(没有攻方来争、不打仗收复)时攻方军团看守着的不收(见 Guarded)
+    private static void RetakeDistrict(City city, Kingdom side, TileZone retaken, bool free = false)
     {
         foreach (TileZone part in CityDistricts.ZonesOf(city, retaken))
         {
             if (part == retaken || !(city.GetTileZoneOccupier(part) is Kingdom occupier) || !Hostile(side, occupier)) continue;
+            if (free && Guarded(side, part)) continue;
             if (city.RemoveOccupiedTileZone(occupier, part) && SmoothActive) SmoothBorders.Settle(part);
         }
     }
@@ -1121,7 +1126,7 @@ public static partial class FrontSystem
             if (!city.RemoveOccupiedTileZone(city.GetTileZoneOccupier(zone), zone)) break;
             retaken++;
             // 这一片一并收回
-            RetakeDistrict(city, side, zone);
+            RetakeDistrict(city, side, zone, free);
         }
         return retaken;
     }

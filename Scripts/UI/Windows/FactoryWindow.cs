@@ -99,14 +99,14 @@ public class FactoryWindow : AbstractWideWindow<FactoryWindow>
             sizeRow.AddButtonIntoHoriLayout("factory_expand", LM.Get("factory_expand"), () =>
             {
                 FactorySite now = FactorySystem.ById(_selected);
-                Tip(FactorySystem.Resize(now, now.size + 1));
+                if (now != null) Tip(FactorySystem.Resize(now, now.size + 1));
                 Draw();
             }, size: new Vector2(36f, 14f));
         if (site.size > 1)
             sizeRow.AddButtonIntoHoriLayout("factory_shrink", LM.Get("factory_shrink"), () =>
             {
                 FactorySite now = FactorySystem.ById(_selected);
-                Tip(FactorySystem.Resize(now, now.size - 1));
+                if (now != null) Tip(FactorySystem.Resize(now, now.size - 1));
                 Draw();
             }, size: new Vector2(36f, 14f));
         int jobs = site.units.Sum(FactorySystem.JobsOf);

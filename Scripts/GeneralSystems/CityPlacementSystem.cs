@@ -49,6 +49,9 @@ public static class CityPlacementSystem
         if (owner == null || owner.wild || owner.isRekt()) return LM.Get("city_place_no_kingdom");
         if (host != null && (zone == host.getTile()?.zone || PureMapPatch.BuiltZones(host)?.Contains(zone.id) == true))
             return string.Format(LM.Get("settlement_place_urban"), host.GetCityName());
+        // 不压厂区；敌军占着的地不建(占领记在原城名下，建了城就对不上)
+        if (FactorySystem.Near(tile.x, tile.y, 4)) return LM.Get("factory_place_no_room");
+        if (host != null && host.GetTileZoneOccupier(zone) != null) return LM.Get("city_place_occupied");
         foreach (City other in World.world.cities)
         {
             WorldTile center = other?.getTile();
@@ -79,6 +82,7 @@ public static class CityPlacementSystem
             Placing = false;
         }
         if (city == null) return LM.Get("city_place_no_land");
+        city.GetOrCreate().placed_by_hand = true;
         CultureService.SetCityMainCulture(city, CultureService.GetMainCulture(source));
         CityPopulationSystem.TransferBackground(source, city, 0.1f);
         string content = string.Format(LM.Get("city_placed"), owner.GetKingdomName(), city.GetCityName());

@@ -101,6 +101,8 @@ public static class CityExtension
         public int famine_years;
         // 城市肌理(纯净地图，见 UrbanFabric)：格局的随机种子(0 = 用城的编号)、工业化那时的旧城半径
         public long urban_seed;
+        // 营建页「建城」手动建的(见 CityPlacementSystem)：部落、城邦的"一城"规矩不把它分出去
+        public bool placed_by_hand;
         public float urban_old_radius;
         // 城郊档位(见 EconomicCircleSystem.RegionTier；-1 = 还没定)与上次升降的时间
         public int urban_tier = -1;

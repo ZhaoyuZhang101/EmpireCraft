@@ -235,7 +235,7 @@ public static partial class FrontSystem
             if (occupier != null) city.RemoveOccupiedTileZone(occupier, zone);
             SmoothBorders.Settle(zone);
             // 这一片一并收回(见 CityDistricts)
-            RetakeDistrict(city, side, zone);
+            RetakeDistrict(city, side, zone, push.Free);
         }
         else
         {

@@ -168,11 +168,12 @@ public static class UrbanEmploymentSystem
         return Math.Min(demand, Math.Max(1, (int)Math.Ceiling(adults * populationCap)));
     }
 
-    // 实际的工厂建筑，加上纯净地图模式下没装工厂模组时按技术与城市规模折算的虚拟工厂(见 VirtualIndustrySystem)
+    // 实际的工厂建筑，加上纯净地图模式下没装工厂模组时按技术与城市规模折算的虚拟工厂(见 VirtualIndustrySystem)，
+    // 再加上工厂区里的厂(按等级，见 FactorySystem.Units)
     public static int CountFactories(City city) =>
         (city.buildings?.Count(building => building != null && !building.isUnderConstruction() &&
                                            TechnologySystem.IsFactory(building.asset)) ?? 0) +
-        VirtualIndustrySystem.Factories(city);
+        VirtualIndustrySystem.Factories(city) + FactorySystem.Units(city);
 
     private static int GetRecentVoyages(City city)
     {

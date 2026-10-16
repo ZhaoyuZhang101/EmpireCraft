@@ -134,7 +134,8 @@ public static class TribalFissionService
             if (!IsTribal(mother) || mother.capital == null || mother.cities == null || mother.cities.Count <= 1 ||
                 EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(mother)) continue;
             WorldTile seat = mother.capital.getTile();
-            City city = mother.cities.Where(candidate => candidate?.data != null && !candidate.isRekt() && candidate != mother.capital)
+            City city = mother.cities.Where(candidate => candidate?.data != null && !candidate.isRekt() && candidate != mother.capital &&
+                                                         !candidate.GetOrCreate().placed_by_hand)
                 .OrderByDescending(candidate => seat == null || candidate.getTile() == null ? 0f : Toolbox.SquaredDistTile(candidate.getTile(), seat))
                 .FirstOrDefault();
             if (city == null) continue;

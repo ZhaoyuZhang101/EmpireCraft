@@ -392,7 +392,7 @@ public static class UrbanFabric
             g.Villages.Exists(v => Mathf.Abs(v.x - x) + Mathf.Abs(v.y - y) < room) ||
             g.Ruins.Exists(r => Mathf.Abs(r.x - x) + Mathf.Abs(r.y - y) < room) ||
             g.Forts.Exists(f => Mathf.Abs(f.x - x) + Mathf.Abs(f.y - y) < room + 4) ||
-            RuralSettlementSystem.ClearedNear(x, y, room);
+            RuralSettlementSystem.ClearedNear(x, y, room) || FactorySystem.Near(x, y, 3);
         int reach = 14 + 8 * tier;
         float far = 12f + reach - 2f;
         // 本城地上没地方时，城外紧挨着本城、离城心 far 格以内的无主空地上也可以新建一处，建了就把四周划进本城
@@ -446,6 +446,7 @@ public static class UrbanFabric
             if (g.Ruins.Exists(r => Mathf.Abs(r.x - x) + Mathf.Abs(r.y - y) < 9)) return false;
             if (RuralSettlementSystem.ClearedNear(x, y, 9)) return false;
             if (g.Forts.Exists(f => Mathf.Abs(f.x - x) + Mathf.Abs(f.y - y) < 13)) return false;
+            if (FactorySystem.Near(x, y, 3)) return false;
             // 离路太近的不要(会压在路上)
             int best = 15;
             foreach (Road road in g.Roads)
@@ -632,10 +633,31 @@ public static class UrbanFabric
     // 按格寻路(八方向)绕开水面、高山与城墙，碎石地多费些力；路线再揉顺一点。终点离得太远、找不到路就不修
     private const int TerrainReach = 90, TerrainMargin = 16, TerrainSearch = 20000;
 
+    // 寻路结果(找不到路的记 null)：平面图每几秒重算一次，同样的两头不必每次都寻一遍；两分钟后重寻(地形可能变了)
+    private const float TrailCacheSeconds = 120f;
+    private static readonly Dictionary<(int, int, int, int), (float at, Vector2[] path)> TrailCache = new();
+
     private static bool TerrainTrail(Geometry g, Vector2 a, Vector2 b)
     {
         int ax = Mathf.RoundToInt(a.x), ay = Mathf.RoundToInt(a.y), bx = Mathf.RoundToInt(b.x), by = Mathf.RoundToInt(b.y);
         if (Mathf.Abs(ax - bx) + Mathf.Abs(ay - by) < 2 || Vector2.Distance(a, b) > TerrainReach) return false;
+        float now = Time.unscaledTime;
+        if (TrailCache.TryGetValue((ax, ay, bx, by), out var cached) && now >= cached.at && now - cached.at < TrailCacheSeconds)
+        {
+            if (cached.path == null) return false;
+            g.Paths.Add(cached.path);
+            return true;
+        }
+        if (TrailCache.Count > 4000) TrailCache.Clear();
+        Vector2[] found = FindTerrainTrail(ax, ay, bx, by);
+        TrailCache[(ax, ay, bx, by)] = (now, found);
+        if (found == null) return false;
+        g.Paths.Add(found);
+        return true;
+    }
+
+    private static Vector2[] FindTerrainTrail(int ax, int ay, int bx, int by)
+    {
         int x0 = Mathf.Min(ax, bx) - TerrainMargin, y0 = Mathf.Min(ay, by) - TerrainMargin;
         int w = Mathf.Abs(ax - bx) + 2 * TerrainMargin + 1, h = Mathf.Abs(ay - by) + 2 * TerrainMargin + 1;
         var cost = new float[w * h];
@@ -710,7 +732,7 @@ public static class UrbanFabric
                 Push(total + Guess(next), next);
             }
         }
-        if (!found) return false;
+        if (!found) return null;
         var points = new List<Vector2>();
         for (int at = goal; at >= 0; at = from[at]) points.Add(new Vector2(at % w + x0, at / w + y0));
         points.Reverse();
@@ -721,8 +743,7 @@ public static class UrbanFabric
                 Vector2 smooth = (points[i - 1] + points[i] + points[i + 1]) / 3f;
                 if (Step(Mathf.RoundToInt(smooth.x), Mathf.RoundToInt(smooth.y)) > 0f) points[i] = smooth;
             }
-        g.Paths.Add(points.ToArray());
-        return true;
+        return points.ToArray();
     }
 
     private static readonly int[] AroundX = { 1, -1, 0, 0, 1, 1, -1, -1 }, AroundY = { 0, 0, 1, -1, 1, -1, 1, -1 };

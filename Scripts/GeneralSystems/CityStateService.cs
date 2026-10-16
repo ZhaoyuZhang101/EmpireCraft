@@ -79,7 +79,7 @@ public static class CityStateService
             if (!IsCityState(mother) || mother.capital == null || mother.cities == null || mother.cities.Count <= 1 ||
                 EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(mother)) continue;
             City city = mother.cities.Where(candidate => candidate?.data != null && !candidate.isRekt() &&
-                                                         candidate != mother.capital)
+                                                         candidate != mother.capital && !candidate.GetOrCreate().placed_by_hand)
                 .OrderBy(candidate => candidate.id).FirstOrDefault();
             if (city == null) continue;
             if (!city.hasLeader()) CityPopulationSystem.EnsureLeader(city);

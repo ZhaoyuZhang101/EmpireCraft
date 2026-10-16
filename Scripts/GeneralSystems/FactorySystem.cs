@@ -53,7 +53,6 @@ public static class FactorySystem
         All.Clear();
         _byZone = null;
         _nextId = 1;
-        LastGrown.Clear();
         _lastMonth = -1d;
         Revision++;
     }
@@ -115,10 +114,28 @@ public static class FactorySystem
         return (site.x - side / 2, site.y - side / 2, side);
     }
 
-    public static bool Covers(FactorySite site, int x, int y)
+    public static bool Covers(FactorySite site, int x, int y, int margin = 0)
     {
         (int x0, int y0, int side) = Footprint(site);
-        return x >= x0 && y >= y0 && x < x0 + side && y < y0 + side;
+        return x >= x0 - margin && y >= y0 - margin && x < x0 + side + margin && y < y0 + side + margin;
+    }
+
+    // (x, y) 落在哪片厂区(连同四周 margin 格)里：村镇选址、立村、建城避开(见 UrbanFabric、RuralSettlementSystem、CityPlacementSystem)
+    public static bool Near(int x, int y, int margin)
+    {
+        if (All.Count == 0) return false;
+        TileZone zone = World.world?.GetTile(x, y)?.zone;
+        if (zone == null) return false;
+        Dictionary<int, List<FactorySite>> index = ByZone();
+        var seen = new HashSet<TileZone> { zone };
+        foreach (TileZone around in Around(zone))
+        {
+            if (index.TryGetValue(around.id, out List<FactorySite> list) && list.Exists(site => Covers(site, x, y, margin))) return true;
+            foreach (TileZone far in around.neighbours_all ?? Array.Empty<TileZone>())
+                if (far != null && seen.Add(far) && index.TryGetValue(far.id, out List<FactorySite> more) &&
+                    more.Exists(site => Covers(site, x, y, margin))) return true;
+        }
+        return false;
     }
 
     // 这一格落在哪片厂区里
@@ -210,11 +227,10 @@ public static class FactorySystem
 
     #region AI 自建
 
-    private const double GrowYears = 1d;
-    private static readonly Dictionary<long, double> LastGrown = new();
     private static double _lastMonth = -1d;
 
-    // 每月(见 PureMapPatch.RefreshUrbanSlice)：轮到满一年的城各做一件事
+    // 每月(见 PureMapPatch.RefreshUrbanSlice)：每城每月十二分之一的机会做一件事(平均一年一件，各城错开在不同的月份，
+    // 免得全图同一个月一起改、一起重画)
     public static void Tick()
     {
         MapBox world = World.world;
@@ -226,8 +242,7 @@ public static class FactorySystem
         {
             if (city?.data == null || city.isRekt() || city.kingdom == null || city.kingdom.wild || city.kingdom.hasEnemies() ||
                 EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(city)) continue;
-            if (LastGrown.TryGetValue(city.data.id, out double last) && now >= last && Date.getYearsSince(last) < GrowYears) continue;
-            LastGrown[city.data.id] = now;
+            if (UnityEngine.Random.value >= 1f / 12f) continue;
             try
             {
                 Grow(city);
@@ -306,25 +321,8 @@ public static class FactorySystem
         if (city?.data == null || city.isRekt()) return LM.Get("factory_place_no_city");
         List<string> unlocked = Unlocked(city);
         if (unlocked.Count == 0) return string.Format(LM.Get("factory_place_no_tech"), city.GetCityName());
-        var probe = new FactorySite { x = tile.x, y = tile.y, size = size };
-        (int x0, int y0, int side) = Footprint(probe);
-        HashSet<int> built = PureMapPatch.BuiltZones(city);
-        TileZone center = city.getTile()?.zone;
-        int land = 0;
-        for (int y = y0; y < y0 + side; y++)
-        for (int x = x0; x < x0 + side; x++)
-        {
-            WorldTile at = World.world.GetTile(x, y);
-            if (at?.zone == null) return LM.Get("factory_place_no_room");
-            if (at.zone == center || built != null && built.Contains(at.zone.id))
-                return string.Format(LM.Get("settlement_place_urban"), city.GetCityName());
-            if (MapWallSystem.Contains(at) || At(at) != null) return LM.Get("factory_place_no_room");
-            if (at.zone.city == city && at.Type != null && !at.Type.liquid && !at.Type.mountains) land++;
-        }
-        if (land * 10 < side * side * 7) return LM.Get("factory_place_no_room");
-        foreach (RuralSettlement settlement in RuralSettlementSystem.InCity(city))
-            if (settlement.x >= x0 - 2 && settlement.x < x0 + side + 2 && settlement.y >= y0 - 2 && settlement.y < y0 + side + 2)
-                return string.Format(LM.Get("settlement_place_crowded"), RuralSettlementSystem.Label(settlement));
+        string refusal = CheckFootprint(city, tile.x, tile.y, size, null);
+        if (refusal != null) return refusal;
         placed = new FactorySite { id = _nextId++, x = tile.x, y = tile.y, size = Math.Max(1, Math.Min(MaxSize, size)),
             founded = World.world.getCurWorldTime() };
         // 一整片成品：从已解锁的门类里随机挑满，尽量不重样
@@ -345,6 +343,32 @@ public static class FactorySystem
         }
         Changed(placed);
         return string.Format(LM.Get("factory_placed"), city.GetCityName(), LM.Get("factory_size_" + placed.size));
+    }
+
+    // 厂区占地能不能用：都在本城的地上、七成是平地；不压城区、城心、城墙、别的厂区，四周两格内没有镇村；不成返回提示
+    private static string CheckFootprint(City city, int cx, int cy, int size, FactorySite self)
+    {
+        var probe = new FactorySite { x = cx, y = cy, size = size };
+        (int x0, int y0, int side) = Footprint(probe);
+        HashSet<int> built = PureMapPatch.BuiltZones(city);
+        TileZone center = city.getTile()?.zone;
+        int land = 0;
+        for (int y = y0; y < y0 + side; y++)
+        for (int x = x0; x < x0 + side; x++)
+        {
+            WorldTile at = World.world.GetTile(x, y);
+            if (at?.zone == null) return LM.Get("factory_place_no_room");
+            if (at.zone == center || built != null && built.Contains(at.zone.id))
+                return string.Format(LM.Get("settlement_place_urban"), city.GetCityName());
+            FactorySite other = At(at);
+            if (MapWallSystem.Contains(at) || other != null && other != self) return LM.Get("factory_place_no_room");
+            if (at.zone.city == city && at.Type != null && !at.Type.liquid && !at.Type.mountains) land++;
+        }
+        if (land * 10 < side * side * 7) return LM.Get("factory_place_no_room");
+        foreach (RuralSettlement settlement in RuralSettlementSystem.InCity(city))
+            if (settlement.x >= x0 - 2 && settlement.x < x0 + side + 2 && settlement.y >= y0 - 2 && settlement.y < y0 + side + 2)
+                return string.Format(LM.Get("settlement_place_crowded"), RuralSettlementSystem.Label(settlement));
+        return null;
     }
 
     public static string Remove(FactorySite site)
@@ -385,17 +409,10 @@ public static class FactorySystem
         if (size == site.size) return null;
         if (size > site.size)
         {
-            var probe = new FactorySite { x = site.x, y = site.y, size = size };
-            (int x0, int y0, int side) = Footprint(probe);
             City city = CityOf(site);
-            for (int y = y0; y < y0 + side; y++)
-            for (int x = x0; x < x0 + side; x++)
-            {
-                WorldTile at = World.world.GetTile(x, y);
-                if (at?.zone == null || at.zone.city != city || MapWallSystem.Contains(at)) return LM.Get("factory_place_no_room");
-                FactorySite other = At(at);
-                if (other != null && other != site) return LM.Get("factory_place_no_room");
-            }
+            if (city == null) return LM.Get("factory_place_no_room");
+            string refusal = CheckFootprint(city, site.x, site.y, size, site);
+            if (refusal != null) return refusal;
         }
         site.size = size;
         int capacity = Capacity(size);

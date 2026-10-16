@@ -40,12 +40,13 @@ public class CityExpansionPatch : GamePatch
     public static bool Settled(City city, TileZone zone)
     {
         if (!PureMapMode.Enabled || zone == null || zone.city != null || city?.zones == null) return true;
+        // 这座城的平面图还没算过(关着地形浮雕、不画城市时不算，村镇也不会新建)：照原版领地，不限在村镇附近
+        HashSet<int> built = PureMapPatch.BuiltZones(city);
+        if (built == null) return true;
         bool Near(TileZone anchor) => anchor != null && global::System.Math.Abs(anchor.x - zone.x) <= SettledReach &&
                                       global::System.Math.Abs(anchor.y - zone.y) <= SettledReach;
         if (Near(city.getTile()?.zone)) return true;
-        HashSet<int> built = PureMapPatch.BuiltZones(city);
-        if (built != null)
-            foreach (TileZone own in city.zones)
+        foreach (TileZone own in city.zones)
                 if (own != null && built.Contains(own.id) && Near(own)) return true;
         foreach (RuralSettlement settlement in RuralSettlementSystem.InCity(city))
             if (Near(World.world.GetTile(settlement.x, settlement.y)?.zone)) return true;

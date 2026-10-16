@@ -282,7 +282,12 @@ public partial class PureMapPatch : GamePatch
                 if (zone != null && FarmlandSystem.IsPlanned(city, zone)) Add(zone.id * 13 + 1);
             Add(plan.family?.GetHashCode() ?? 0);
             Add(plan.target?.GetHashCode() ?? 0);
-            Add(FactorySystem.Revision * 92821);
+            // 本城的厂区(只算本城的，别处的厂区变了不必重画)
+            foreach (FactorySite site in plan.factories)
+            {
+                Add(site.id * 92821 + site.size * 31 + (int)site.seed);
+                foreach (FactoryUnit unit in site.units) Add((unit.type?.GetHashCode() ?? 0) + unit.level * 7);
+            }
             Add(plan.tribal * 7 + 3);
             Add(Mathf.RoundToInt(plan.rebuild * 20f));
             Add(Mathf.RoundToInt(plan.modern * 20f));

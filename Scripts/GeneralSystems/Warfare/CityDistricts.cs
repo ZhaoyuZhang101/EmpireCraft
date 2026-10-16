@@ -20,8 +20,16 @@ public static class CityDistricts
 
     public static void Reset() => Cache.Clear();
 
-    private static int Stamp(City city) =>
-        unchecked(city.zones.Count * 7919 + RuralSettlementSystem.Revision * 31 + (PureMapPatch.BuiltZones(city)?.Count ?? 0));
+    private static int Stamp(City city)
+    {
+        unchecked
+        {
+            int hash = city.zones.Count * 7919 + RuralSettlementSystem.Revision * 31 + (PureMapPatch.BuiltZones(city)?.Count ?? 0);
+            foreach (TileZone zone in city.zones)
+                if (zone != null) hash ^= zone.id * 92821;
+            return hash;
+        }
+    }
 
     private static Dictionary<int, int> Keys(City city)
     {

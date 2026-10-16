@@ -223,6 +223,13 @@ public static class RuralSettlementSystem
     {
         TileZone zone = tile?.zone;
         if (zone == null || All.Count == 0) return null;
+        // 被城区盖住、没画出来的不算(见 UrbanFabric.PlaceCountryside)
+        bool Hidden(RuralSettlement settlement)
+        {
+            TileZone seat = World.world.GetTile(settlement.x, settlement.y)?.zone;
+            City owner = seat?.city;
+            return owner != null && (seat == owner.getTile()?.zone || PureMapPatch.BuiltZones(owner)?.Contains(seat.id) == true);
+        }
         RuralSettlement best = null;
         float bestDistance = float.MaxValue;
         var zones = new List<TileZone> { zone };
@@ -232,7 +239,7 @@ public static class RuralSettlementSystem
             {
                 float dx = settlement.x - tile.x, dy = settlement.y - tile.y, d = dx * dx + dy * dy;
                 float reach = settlement.fort ? settlement.size + 3.5f : settlement.town ? settlement.size + 1.5f : 2.5f;
-                if (d > reach * reach || d >= bestDistance) continue;
+                if (d > reach * reach || d >= bestDistance || Hidden(settlement)) continue;
                 best = settlement;
                 bestDistance = d;
             }
@@ -434,6 +441,7 @@ public static class RuralSettlementSystem
         if (zone == city.getTile()?.zone || built != null && built.Contains(zone.id))
             return string.Format(LM.Get("settlement_place_urban"), cityName);
         int room = town || fort ? 9 : 6;
+        if (FactorySystem.Near(tile.x, tile.y, 3)) return LM.Get("factory_place_no_room");
         foreach (TileZone around in Around(zone))
             foreach (RuralSettlement other in InZone(around))
                 if (Math.Abs(other.x - tile.x) + Math.Abs(other.y - tile.y) < room + (other.town ? other.size : 0))
@@ -506,6 +514,9 @@ public static class RuralSettlementSystem
         if (!zones.Contains(seat)) zones.Add(seat);
         TileZone center = source?.getTile()?.zone;
         if (center != null) zones.Remove(center);
+        HashSet<int> core = source == null ? null : PureMapPatch.BuiltZones(source);
+        if (core != null) zones.RemoveAll(zone => core.Contains(zone.id));
+        if (zones.Count == 0) return string.Format(LM.Get("settlement_place_urban"), source?.GetCityName() ?? "");
         if (source != null && zones.Exists(zone => source.GetTileZoneOccupier(zone) != null))
             return string.Format(LM.Get("settlement_assign_occupied"), name);
         var set = new HashSet<TileZone>(zones);
@@ -559,7 +570,7 @@ public static class RuralSettlementSystem
         _lastMonth = now;
         foreach (RuralSettlement settlement in All.Values)
         {
-            if (settlement.cleared || settlement.ruined_at < 0d ||
+            if (settlement.cleared || settlement.fort || settlement.ruined_at < 0d ||
                 now >= settlement.ruined_at && Date.getYearsSince(settlement.ruined_at) < RebuildYears) continue;
             TileZone zone = World.world.GetTile(settlement.x, settlement.y)?.zone;
             City city = zone?.city;
