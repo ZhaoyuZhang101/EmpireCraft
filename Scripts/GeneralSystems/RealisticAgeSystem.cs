@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GameLibrary;
 using EmpireCraft.Scripts.System;
@@ -51,10 +53,46 @@ public static class RealisticAgeSystem
             person.virtual_death_age = HumanDeathAge(person.id, person.virtual_death_age);
             return person.age >= person.virtual_death_age;
         }
-        // Old snapshots have no native lifetime; resolve their species once.
-        float lifespan = person.virtual_native_lifespan ??=
-            AssetManager.actor_library.get(person.species)?.base_stats?["lifespan"] ?? 0f;
-        return NativeDeathChance(person.age, lifespan) > UnityEngine.Random.value;
+        // 旧存档、虚拟出生的子女没记下寿命：按物种补上。以前读物种资产上的 lifespan，原版寿命其实写在亚种基因里、
+        // 物种资产上是 0，按原版 0 即不老死，关了真实年龄时这些虚拟族人活到两三百岁还在议立新君的名单里
+        if (!(person.virtual_native_lifespan > 0f)) person.virtual_native_lifespan = SpeciesLifespan(person.species);
+        return NativeDeathChance(person.age, person.virtual_native_lifespan ?? 0f) > UnityEngine.Random.value;
+    }
+
+    private const float FallbackLifespan = 100f;
+    private static readonly Dictionary<string, float> LifespanBySpecies = new();
+    private static object _lifespanWorld;
+
+    // 物种的天年：先看一个在世的同物种单位(含亚种基因、特质)，没有就看物种基因里的寿命，再没有按一百年
+    public static float SpeciesLifespan(string species)
+    {
+        if (!ReferenceEquals(_lifespanWorld, World.world))
+        {
+            _lifespanWorld = World.world;
+            LifespanBySpecies.Clear();
+        }
+        string key = species ?? "";
+        if (LifespanBySpecies.TryGetValue(key, out float known)) return known;
+        float lifespan = 0f;
+        try
+        {
+            foreach (Actor actor in World.world?.units ?? Enumerable.Empty<Actor>())
+            {
+                if (actor?.data == null || actor.asset?.id != key || !actor.isAlive()) continue;
+                lifespan = actor.stats?["lifespan"] ?? 0f;
+                if (lifespan > 0f) break;
+            }
+        }
+        catch
+        {
+            // 遍历时单位列表变了：按物种基因算
+        }
+        if (!(lifespan > 0f))
+            foreach (GenomePart part in AssetManager.actor_library.get(key)?.genome_parts ?? new HashSet<GenomePart>())
+                if (string.Equals(part.id, "lifespan", StringComparison.OrdinalIgnoreCase)) lifespan = part.value;
+        if (!(lifespan > 0f) || float.IsNaN(lifespan)) lifespan = FallbackLifespan;
+        LifespanBySpecies[key] = lifespan;
+        return lifespan;
     }
 
     public static float NativeDeathChance(int age, float lifespan)
