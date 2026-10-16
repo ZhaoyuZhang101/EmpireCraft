@@ -725,7 +725,7 @@ public static class LandEconomySystem
     {
         float peasants = 0f;
         foreach (PopGroup group in data.groups)
-            if (group.social_class == SocialClass.Peasant) peasants += group.Background;
+            if (group.social_class.IsPeasantry()) peasants += group.Background;
         return peasants;
     }
 

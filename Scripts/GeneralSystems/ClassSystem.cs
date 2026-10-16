@@ -13,7 +13,9 @@ public enum SocialClass
     Landlord,   //地主
     Citizen,    //市民；追加在末尾以保持旧存档枚举值稳定
     Slave,      //奴隶(见 SlaverySystem)
-    SlaveOwner  //奴隶主
+    SlaveOwner, //奴隶主
+    Guoren,     //国人(见 GuoyeSystem)
+    Yeren       //野人
 }
 public static class ClassSystem
 {
@@ -21,4 +23,8 @@ public static class ClassSystem
     {
         return LM.Get("class_"+socialClass.ToString().ToLower());
     }
+
+    // 种地的庶民：农民，以及国野之制下的国人、野人(见 GuoyeSystem)
+    public static bool IsPeasantry(this SocialClass socialClass) =>
+        socialClass is SocialClass.Peasant or SocialClass.Guoren or SocialClass.Yeren;
 }

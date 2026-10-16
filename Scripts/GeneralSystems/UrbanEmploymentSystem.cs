@@ -47,7 +47,9 @@ public static class UrbanEmploymentSystem
             Dictionary<SocialClass, float> classes = BackgroundAdults(city);
             classes.TryGetValue(SocialClass.Merchant, out float merchants);
             classes.TryGetValue(SocialClass.Labour, out float labour);
-            classes.TryGetValue(SocialClass.Peasant, out float peasants);
+            float peasants = 0f;
+            foreach (KeyValuePair<SocialClass, float> pair in classes)
+                if (pair.Key.IsPeasantry()) peasants += pair.Value;
             classes.TryGetValue(SocialClass.Citizen, out float citizens);
             report.Merchants += (int)merchants;
             report.Capacity = HouseholdCapacity(city) * perSlot;

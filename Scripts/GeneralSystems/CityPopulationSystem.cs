@@ -918,6 +918,7 @@ public static class CityPopulationSystem
         if (years <= 0f) return;
         data.last_growth = now;
         AssimilateBackground(city, data, years);
+        GuoyeSystem.Settle(city, data);
         SlaverySystem.Settle(city, data, years);
         DriftClasses(city, data, years);
 
@@ -1008,6 +1009,13 @@ public static class CityPopulationSystem
         float others = 0f;
         foreach (float share in shares.Values) others += share;
         shares[SocialClass.Peasant] = Mathf.Max(0.1f, 1f - others);
+        // 国野之制：庶民那一份记为国人(国都)或野人(见 GuoyeSystem)
+        SocialClass commoner = GuoyeSystem.CommonerOf(city);
+        if (commoner != SocialClass.Peasant)
+        {
+            shares[commoner] = shares[SocialClass.Peasant];
+            shares[SocialClass.Peasant] = 0f;
+        }
         return shares;
     }
 
@@ -2070,7 +2078,7 @@ public static class CityPopulationSystem
         if (!AbstractPopulationEnabled || city?.data == null || city.isRekt() || city.kingdom == null) return null;
         PopGroup group = DrawBackground(city, candidate => candidate.Background >= 1f &&
                                                            !string.IsNullOrEmpty(candidate.species) &&
-                                                           candidate.social_class == SocialClass.Peasant)
+                                                           candidate.social_class.IsPeasantry())
                          ?? DrawBackground(city, candidate => candidate.Background >= 1f &&
                                                               !string.IsNullOrEmpty(candidate.species));
         if (group == null) return null;

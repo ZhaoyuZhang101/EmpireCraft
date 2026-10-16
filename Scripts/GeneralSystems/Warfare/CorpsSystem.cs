@@ -480,7 +480,7 @@ public static class CorpsSystem
         float peace = doctrine.CentralStanding || doctrine.DistrictStanding ? StandingPoolShare : PeacePoolShare;
         // 鞭长莫及：控制力低的城征不齐(见 AdministrativeControlSystem.Yield)
         float background = 0f;
-        // 奴隶不征为兵(见 SlaverySystem)
+        // 奴隶不征为兵、野人大半不征(见 SlaverySystem、GuoyeSystem)
         foreach (City city in cities)
             background += Mathf.Max(0f, CityPopulationSystem.GetBackgroundTotal(city) - SlaverySystem.Unfree(city)) *
                           AdministrativeControlSystem.Yield(city);

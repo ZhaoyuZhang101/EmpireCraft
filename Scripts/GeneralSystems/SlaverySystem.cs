@@ -37,8 +37,8 @@ public static class SlaverySystem
 
     public static float Slaves(City city) => CityPopulationSystem.BackgroundOfClass(city, SocialClass.Slave);
 
-    // 不能征为兵的人(奴隶)
-    public static float Unfree(City city) => Slaves(city);
+    // 不能征为兵的人(奴隶；野人大半不征，见 GuoyeSystem)
+    public static float Unfree(City city) => Slaves(city) + GuoyeSystem.Exempt(city);
 
     // 奴隶主在本城自由民里应占的比例：奴隶越多奴隶主越多
     public static float OwnerShare(City city)
@@ -72,13 +72,13 @@ public static class SlaverySystem
         if (total < 1f) return;
         bool practices = Practices(city.kingdom);
         if (slaves > 0f)
-            slaves -= Convert(city, data, SocialClass.Slave, SocialClass.Peasant,
+            slaves -= Convert(city, data, SocialClass.Slave, GuoyeSystem.CommonerOf(city),
                 slaves * Mathf.Clamp01((practices ? ManumitRate : FreeRate) * years));
         if (!practices) return;
         float bonded = Mathf.Max(0f, total * BaseShare - slaves) * Mathf.Clamp01(BondageCatchUp * years);
         if (data.last_food_shortage > 0f) bonded += total * DebtRate * years;
         bonded = Mathf.Min(bonded, total * MaxShare - slaves);
-        if (bonded > 0f) Convert(city, data, SocialClass.Peasant, SocialClass.Slave, bonded);
+        if (bonded > 0f) Convert(city, data, GuoyeSystem.CommonerOf(city), SocialClass.Slave, bonded);
     }
 
     // 城破(ScorchedEarthSystem.OnCityCaptured)：施行奴隶制的一方俘其民为奴，押回都城

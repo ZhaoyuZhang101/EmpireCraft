@@ -45,6 +45,8 @@ public class EmpireData : MetaObjectData
     // 上次岁祭、上次记"岁祭不举"的时间(见 RitesSystem)
     public double last_sacrifice_at = -1d;
     public double last_sacrifice_lapse_at = -1d;
+    // 上次国人暴动的时间(见 GuoyeSystem)
+    public double last_guoren_riot_at = -1d;
     public bool original_royal_been_changed { get; set; } = false;
     public bool feed_royal = false;
     public double original_royal_been_changed_timestamp { get; set; }

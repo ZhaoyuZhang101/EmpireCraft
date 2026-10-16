@@ -1511,7 +1511,7 @@ public static class InstitutionSystem
                 strongestCause = material.Cause;
             }
             if (empire.data?.constitutional_economy?.welfare_funded == true &&
-                socialClass is SocialClass.Labour or SocialClass.Peasant)
+                (socialClass == SocialClass.Labour || socialClass.IsPeasantry()))
                 target = InstitutionRules.Clamp100(target -
                     8f * empire.data.constitutional_economy.welfare_level);
             float current = state.class_grievances[socialClass];
@@ -1545,8 +1545,9 @@ public static class InstitutionSystem
             SocialCrisisSystem.UpdateMobilization(state, socialClass,
                 state.class_grievances.TryGetValue(socialClass, out float classGrievance) ? classGrievance : 0f,
                 empire.Legitimacy, state.social_suppression);
+        // 国人不起兵割据，怨气大了在国都暴动、逐君(见 GuoyeSystem)
         KeyValuePair<SocialClass, float> mostAngry = state.class_grievances
-            .Where(pair => classShares.TryGetValue(pair.Key, out float share) && share >= 0.03f)
+            .Where(pair => pair.Key != SocialClass.Guoren && classShares.TryGetValue(pair.Key, out float share) && share >= 0.03f)
             .OrderByDescending(pair => pair.Value).FirstOrDefault();
         state.social_quiet_reason = "";
         if (mostAngry.Value < config.rebellion_threshold) return;

@@ -37,6 +37,8 @@ public static class SocialCrisisSystem
     public sealed class Snapshot
     {
         public float Tax, Famine, Landless, Poverty, Governance, Suppression, Stability = -1f, ArrearsMonths;
+        // 君主暴虐、昏聩荒淫：国人谤议(见 GuoyeSystem)
+        public float Tyranny;
     }
 
     // 每年每个帝国算一次全境快照(抽样不超过 SampleCities 座城)
@@ -46,6 +48,12 @@ public static class SocialCrisisSystem
         Kingdom core = empire?.CoreKingdom;
         if (core == null || core.isRekt()) return snapshot;
         snapshot.Tax = Mathf.Clamp(((float)core.GetTaxRate() - 0.25f) * 100f, -10f, 50f);
+        snapshot.Tyranny = RulerQualitySystem.Of(empire.Emperor) switch
+        {
+            RulerQualitySystem.Grade.Tyrant => 30f,
+            RulerQualitySystem.Grade.Fatuous or RulerQualitySystem.Grade.Dissolute => 12f,
+            _ => 0f
+        };
         snapshot.Landless = Mathf.Min(1f, LandEconomySystem.GetRealmLandlessRatio(core));
         var cities = new List<City>();
         foreach (Kingdom kingdom in empire.kingdoms_list)
@@ -90,15 +98,19 @@ public static class SocialCrisisSystem
 
     public static Material For(Snapshot s, SocialClass socialClass)
     {
-        bool commoner = socialClass is SocialClass.Peasant or SocialClass.Labour or SocialClass.Slave;
+        bool commoner = socialClass.IsPeasantry() || socialClass is SocialClass.Labour or SocialClass.Slave;
         // 奴隶不纳税(产出归奴隶主，见 SlaverySystem)
         bool taxed = commoner && socialClass != SocialClass.Slave || socialClass is SocialClass.Merchant or SocialClass.Citizen;
         var items = new List<(string key, float value)>();
         // 奴隶终年劳苦，怨气常高
         if (socialClass == SocialClass.Slave) items.Add(("bondage", 35f));
-        if (taxed && s.Tax > 0f) items.Add(("tax", s.Tax * 0.5f));
+        // 国人国中赋税轻、野人重(见 GuoyeSystem)
+        float taxWeight = socialClass == SocialClass.Guoren ? 0.4f : socialClass == SocialClass.Yeren ? 0.6f : 0.5f;
+        if (taxed && s.Tax > 0f) items.Add(("tax", s.Tax * taxWeight));
+        // 国人对君主有发言权：暴虐、昏聩荒淫之君在位，国人谤议
+        if (socialClass == SocialClass.Guoren && s.Tyranny > 0f) items.Add(("tyranny", s.Tyranny));
         if (commoner && s.Famine > 0.05f) items.Add(("famine", 30f * s.Famine));
-        if (socialClass == SocialClass.Peasant && s.Landless > 0.1f) items.Add(("landless", 40f * (s.Landless - 0.1f)));
+        if (socialClass.IsPeasantry() && s.Landless > 0.1f) items.Add(("landless", 40f * (s.Landless - 0.1f)));
         if (commoner && s.Poverty > 0.1f) items.Add(("poverty", 20f * s.Poverty));
         float pressure = items.Sum(item => item.value);
         float relief = 0f;

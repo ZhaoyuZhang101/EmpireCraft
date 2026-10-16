@@ -175,10 +175,13 @@ public static class ClaimAgendaSystem
             context.Grievances.TryGetValue(socialClass, out float value) ? value : 0f;
         float Share(SocialClass socialClass) => context.ClassShares != null &&
             context.ClassShares.TryGetValue(socialClass, out float value) ? value : 0f;
+        // 种地的庶民里怨气最大的(国野之制下是国人、野人，见 GuoyeSystem)
+        float Peasantry() => Mathf.Max(Grievance(SocialClass.Peasant),
+            Mathf.Max(Grievance(SocialClass.Guoren), Grievance(SocialClass.Yeren)));
         return type switch
         {
             TemporaryFactionType.提高福利 =>
-                (Grievance(SocialClass.Labour) + Grievance(SocialClass.Peasant)) * 0.18f,
+                (Grievance(SocialClass.Labour) + Peasantry()) * 0.18f,
             TemporaryFactionType.土地改革 => GetLandlessUrgency(empire),
             TemporaryFactionType.降低赋税 => (empire.data?.TaxRate ?? 0f) * 25f,
             TemporaryFactionType.提高赋税 => TaxRaiseUrgency(empire),
@@ -188,7 +191,7 @@ public static class ClaimAgendaSystem
                 Mathf.Max(0f, (Share(SocialClass.Labour) + Share(SocialClass.Peasant) - 0.40f) * 100f),
             TemporaryFactionType.开放党禁 => PartySystem.IsActive(empire) ? 0f : 15f,
             // 饥荒人命关天；腐败越重越该整顿；皇帝年纪越大，立储越急
-            TemporaryFactionType.赈济灾荒 => 20f + Grievance(SocialClass.Peasant) * 0.2f,
+            TemporaryFactionType.赈济灾荒 => 20f + Peasantry() * 0.2f,
             // 看全帝国(中央、各州、各城)的腐败，以前只看中央王国自己，州县贪到顶朝廷也不急
             TemporaryFactionType.整顿吏治 => (float)CorruptionSystem.GetRate(empire) * 60f,
             TemporaryFactionType.册立储君 => empire.Emperor == null ? 0f

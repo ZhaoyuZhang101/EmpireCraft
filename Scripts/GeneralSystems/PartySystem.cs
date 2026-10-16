@@ -105,7 +105,9 @@ public static class PartySystem
         { SocialClass.Officer, new Vector2(0f, -20f) },
         { SocialClass.Citizen, new Vector2(0f, 25f) },
         { SocialClass.Slave, new Vector2(-75f, -15f) },
-        { SocialClass.SlaveOwner, new Vector2(70f, -60f) }
+        { SocialClass.SlaveOwner, new Vector2(70f, -60f) },
+        { SocialClass.Guoren, new Vector2(-20f, -20f) },
+        { SocialClass.Yeren, new Vector2(-50f, -15f) }
     };
 
     // 政党沿用派系类型(制度立场、立宪态度按类型算)，理念 → 最接近的派系类型
