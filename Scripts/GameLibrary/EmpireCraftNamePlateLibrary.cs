@@ -1512,10 +1512,13 @@ public static class EmpireCraftNamePlateLibrary
         }
     }
 
+    // 战国离开帝国的周诸侯、奉部落联盟为共主的部落(见 TribalFissionService)：铭牌下标"某某诸侯国"
     private static string ZhouVassalTag(Kingdom kingdom) =>
         ZhouEraSystem.IsDetachedVassal(kingdom) && ZhouEraSystem.SphereOf(kingdom) is Empire sphere
             ? string.Format(LM.Get("zhou_vassal_tag"), sphere.GetEmpireName())
-            : null;
+            : TribalFissionService.OverlordOf(kingdom) is Empire overlord
+                ? string.Format(LM.Get("tribal_vassal_tag"), overlord.GetEmpireName())
+                : null;
 
     private static string AppendFeudalLordLabel(NameplateText plate, Kingdom subject, string text)
     {
