@@ -44,6 +44,62 @@ public static class PrehistoricClanSystem
         return pool;
     }
 
+    private static readonly Dictionary<(string, string), List<string>> WordPools = new();
+
+    private static List<string> WordPool(string culture, string group)
+    {
+        if (string.IsNullOrEmpty(culture) || string.IsNullOrWhiteSpace(group)) return new List<string>();
+        if (WordPools.TryGetValue((culture, group), out List<string> cached)) return cached;
+        List<string> pool = PartySystem.GetCultureWordPool(culture, group);
+        WordPools[(culture, group)] = pool;
+        return pool;
+    }
+
+    private static string Pick(List<string> pool) => pool.Count == 0 ? null : pool[Random.Range(0, pool.Count)];
+
+    private static Setting SettingOf(string culture) =>
+        !string.IsNullOrEmpty(culture) && OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(culture, out Setting setting) ? setting : null;
+
+    // 华夏线还在原始阶段(宗法以前)：上古人名、部落方国国号的词库只在这时用
+    public static bool Primordial(string culture)
+    {
+        try
+        {
+            return CultureService.IsValidCulture(culture) && InstitutionSystem.GetCultureLine(culture) == "Huaxia" &&
+                   !InstitutionSystem.IsEnacted(culture, "huaxia_patriarchal_clan") &&
+                   InstitutionSystem.GetFeature(culture, SurnameMergedFeature) <= 0f;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    // 原始阶段新生儿的上古名字(文化配置 Unit.ancient_male_group / ancient_female_group)；不在原始阶段或没配返回 null
+    public static string AncientGivenName(string culture, bool male)
+    {
+        if (!Primordial(culture)) return null;
+        UnitSetting unit = SettingOf(culture)?.Unit;
+        return Pick(WordPool(culture, male ? unit?.ancient_male_group : unit?.ancient_female_group));
+    }
+
+    // 原始阶段新立之国的部落、方国国号(文化配置 Kingdom.ancient_group)
+    public static string AncientKingdomName(string culture) =>
+        Primordial(culture) ? Pick(WordPool(culture, SettingOf(culture)?.Kingdom?.ancient_group)) : null;
+
+    // 支脉起氏：做官的族人一半以官为氏，没有身份的平民三成以职业为氏，其余以国、邑、祖名的首字为氏
+    public static string PickShi(string culture, Actor founder, string source)
+    {
+        ClanSetting clan = SettingOf(culture)?.Clan;
+        if (founder?.data != null && founder.HasOfficeIdentity() && founder.GetIdentity()?.officialLevel >= 0 &&
+            Random.value < 0.5f && Pick(WordPool(culture, clan?.shi_office_group)) is string office)
+            return office;
+        if (founder?.data != null && !Noble(founder) && Random.value < 0.3f &&
+            Pick(WordPool(culture, clan?.shi_craft_group)) is string craft)
+            return craft;
+        return ShiFrom(source);
+    }
+
     // 这个文化是否走姓氏演变：华夏线、且文化配置开了 surname_evolution
     private static bool Evolves(string culture) =>
         InstitutionSystem.GetCultureLine(culture) == "Huaxia" &&
@@ -72,6 +128,8 @@ public static class PrehistoricClanSystem
         Cache.Clear();
         EraCache.Clear();
         LastEra.Clear();
+        AncientPools.Clear();
+        WordPools.Clear();
     }
 
     public static SurnameEra EraOf(string culture)

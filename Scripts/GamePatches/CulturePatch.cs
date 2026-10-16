@@ -52,8 +52,9 @@ public class CulturePatch : GamePatch
             OnomasticsData cityNames = GetOnomasticDataSafe(__instance.culture, MetaType.City);
             if (kingdomNames == null || cityNames == null) return;
             var beforeKingdomName = __instance.kingdom.data.name;
-            __instance.kingdom.data.name = kingdomNames.generateName()
-                .UseLocalizedNameSeparator();
+            // 原始阶段的部落、方国国号(见 PrehistoricClanSystem)
+            __instance.kingdom.data.name = PrehistoricClanSystem.AncientKingdomName(realmCulture) ??
+                                           kingdomNames.generateName().UseLocalizedNameSeparator();
             __instance.kingdom.RememberInitialRandomKingdomName(__instance.kingdom.data.name, overwrite: true);
             __instance.kingdom.GetOrCreate().core_name = "";
             __instance.kingdom.GetOrCreate().core_name_source = "";

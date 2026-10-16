@@ -92,6 +92,9 @@ public class UnitSetting
     public OnomasticsType[] rule;
     public int name_pos;
     public bool is_invert;
+    // 上古人名词库(男、女)：本文化还在原始阶段(宗法以前)时，新生儿取这里的古朴名字(弃、契、禹、嫄)；不配照常起名
+    public string ancient_male_group = "";
+    public string ancient_female_group = "";
 }
 
 public class FamilySetting
@@ -113,6 +116,9 @@ public class ClanSetting
     // 古姓词库(本文件夹 <文化><词库名>.csv，可写"别的文化:词库名")：原始群、母系氏族阶段新立的氏族从这里取姓
     // (华夏是姬、姜、姒、嬴这类女字旁古姓)；不配就照常起姓
     public string ancient_group = "";
+    // 氏的词库：分出支脉起氏时，做官的族人可能以官为氏(司马、司徒)，平民可能以职业为氏(陶、巫、匠)；不配只按国、邑、祖名取
+    public string shi_office_group = "";
+    public string shi_craft_group = "";
     public string[] sex_post_Male;
     public string[] sex_post_Female;
 }
@@ -123,6 +129,8 @@ public class KingdomSetting
     public OnomasticsType[] rule;
     public int name_pos;
     public bool english_type_prefix = true;
+    // 部落、方国国号词库：本文化还在原始阶段(宗法以前)时，新立的国取这里的国号(有熊、有虞、陶唐、鬼方)；不配照常起名
+    public string ancient_group = "";
 }
 
 public class CitySetting

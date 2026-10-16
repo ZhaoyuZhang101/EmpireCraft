@@ -100,6 +100,8 @@
             "has_sex_post": false, //是否存在姓名后缀，有些文化的姓氏存在阴阳词性，在这里设置为true，并且在Locales/Cultures/NameSexPost.csv中配置好后，人物的姓名就会显示词性
             "use_local_as_lastname": false, //是否将名称放在前面，姓氏放在后面。
             "ancient_group": "AncientSurnames", //古姓词库：原始群、母系氏族阶段新立的氏族从这里取姓(HuaxiaAncientSurnames.csv)，不配就照常起姓
+            "shi_office_group": "ShiOffice", //以官为氏：分支起氏时做官的族人可能取司马、司徒这类
+            "shi_craft_group": "ShiCraft", //以职业为氏：平民分支可能取陶、巫、匠这类
             //名称性别后缀从左往右分别是: 中(简), 英, 中(繁),
             "sex_post_Male": ["", "", ""], //男性后缀
             "sex_post_Female": ["", "", ""] //女性后缀
@@ -139,7 +141,10 @@
                 // 只添加了几个常用的，比如sex_male,sex_female的性别过滤器和coin_flip概率发生器等。
             ],
             "name_pos": 1,
-            "is_invert": false
+            "is_invert": false,
+            // 上古人名：宗法以前新生儿取弃、契、禹、嫄这类古朴名字(HuaxiaAncientMaleNames.csv / HuaxiaAncientFemaleNames.csv)
+            "ancient_male_group": "AncientMaleNames",
+            "ancient_female_group": "AncientFemaleNames"
         },
         "Kingdom": {
             "groups": {
@@ -148,7 +153,9 @@
             "rule": [ "group_1" ],
             "name_pos": 0,
             // 英文界面是否使用 The {国家类别} of {国名}；false 为 {国名} {国家类别}
-            "english_type_prefix": false
+            "english_type_prefix": false,
+            // 部落、方国国号：宗法以前新立的国取有熊、有虞、陶唐、鬼方这类国号(HuaxiaAncientTribes.csv)
+            "ancient_group": "AncientTribes"
         }
     }
 }

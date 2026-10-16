@@ -272,7 +272,9 @@ public static class ClanBranchSystem
             branch_reason = reason,
             founder = founder.id,
             // 姓氏合一以前：以国、以邑、以王父之名为氏(见 PrehistoricClanSystem)
-            shi = PrehistoricClanSystem.ShiForming(founder.culture) ? PrehistoricClanSystem.ShiFrom(shiSource) : ""
+            shi = PrehistoricClanSystem.ShiForming(founder.culture)
+                ? PrehistoricClanSystem.PickShi(founder.culture, founder._actor ?? founderActor, shiSource)
+                : ""
         };
         branch.RecordAncestralCity(seat ?? founderActor.city);
         vanillaClan.SetSpecificClan(branch);

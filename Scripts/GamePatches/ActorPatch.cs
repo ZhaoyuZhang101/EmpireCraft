@@ -510,7 +510,9 @@ public class ActorPatch : GamePatch
         if (childName == null || parent?.culture == null || childName.hasFirstName(child)) return;
         OnomasticsData unitNames = CulturePatch.GetOnomasticDataSafe(parent.culture, MetaType.Unit);
         if (unitNames == null) return;
-        string firstName = unitNames.generateName(child.isSexMale() ? ActorSex.Male : ActorSex.Female);
+        // 原始阶段取上古名字(见 PrehistoricClanSystem)
+        string firstName = PrehistoricClanSystem.AncientGivenName(TechnologySystem.GetCultureOf(parent), child.isSexMale()) ??
+                           unitNames.generateName(child.isSexMale() ? ActorSex.Male : ActorSex.Female);
         child.SetFirstName(firstName);
         childName.SetName(child);
     }
@@ -671,7 +673,8 @@ public class ActorPatch : GamePatch
         OnomasticsData unitNames = CulturePatch.GetOnomasticDataSafe(pCulture, MetaType.Unit);
         if (!modName.hasFirstName(__instance) && unitNames != null)
         {
-            string firstName = unitNames.generateName(__instance.isSexMale() ? ActorSex.Male : ActorSex.Female);
+            string firstName = PrehistoricClanSystem.AncientGivenName(TechnologySystem.GetCultureOf(__instance), __instance.isSexMale()) ??
+                               unitNames.generateName(__instance.isSexMale() ? ActorSex.Male : ActorSex.Female);
             __instance.SetFirstName(firstName);
         }
         bool flag = false;
