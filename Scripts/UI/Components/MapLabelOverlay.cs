@@ -20,7 +20,7 @@ public static class MapLabelOverlay
     private const int MaxCities = 4, MaxLabels = 160;
     private const float HouseZoom = 10f;
     // 字高(格)
-    private const float StreetSize = 0.9f, BuildingSize = 0.75f, HouseSize = 0.6f;
+    private const float StreetSize = 0.9f, BuildingSize = 0.75f, HouseSize = 0.6f, CitySize = 1.4f, TownSize = 1f, VillageSize = 0.8f;
     // 字高封顶(屏幕像素，按 1080 行的屏幕算；用户 2026-10-16 "字太大了")：拉近时字不再跟着地图一起放大，
     // 像电子地图一样街名约 11 像素高，建筑、住宅名按比例小一些(至少 9 像素)；拉远到不足这个高度时照旧按格算
     private const float StreetPixels = 11f, MinPixels = 9f;
@@ -60,7 +60,8 @@ public static class MapLabelOverlay
 
     private static readonly Color StreetColor = new(0.36f, 0.38f, 0.42f), CivicColor = new(0.16f, 0.36f, 0.66f),
         MarketColor = new(0.86f, 0.42f, 0.10f), IndustryColor = new(0.45f, 0.36f, 0.30f), TempleColor = new(0.52f, 0.30f, 0.62f),
-        MilitaryColor = new(0.40f, 0.46f, 0.30f), DockColor = new(0.10f, 0.50f, 0.66f), HouseColor = new(0.42f, 0.42f, 0.44f);
+        MilitaryColor = new(0.40f, 0.46f, 0.30f), DockColor = new(0.10f, 0.50f, 0.66f), HouseColor = new(0.42f, 0.42f, 0.44f),
+        CityColor = new(0.16f, 0.16f, 0.20f), SettlementColor = new(0.36f, 0.30f, 0.22f);
 
     public static void Update()
     {
@@ -197,6 +198,7 @@ public static class MapLabelOverlay
         if (drawn != null)
         {
             List<Spec> fromDrawing = SpecsOfDrawing(city, drawn, houses);
+            Settlements(city, PureMapPatch.LabelsOf(city), fromDrawing);
             Cache[city.id] = (stamp, houses, true, fromDrawing);
             if (Cache.Count > 64) Cache.Remove(Cache.Keys.First());
             return fromDrawing;
@@ -232,6 +234,7 @@ public static class MapLabelOverlay
             (string text, Color color) = BuildingName(icon, modern, cityName, seed);
             if (!string.IsNullOrEmpty(text)) specs.Add(new Spec(slot.Tile, text, color, BuildingSize, false, 1));
         }
+        Settlements(city, plan, specs);
         Cache[city.id] = (plan.Stamp, houses, false, specs);
         if (Cache.Count > 64) Cache.Remove(Cache.Keys.First());
         return specs;
@@ -273,6 +276,40 @@ public static class MapLabelOverlay
             if (!string.IsNullOrEmpty(text)) specs.Add(new Spec(label.Tile, text, color, BuildingSize, false, 1));
         }
         return specs;
+    }
+
+    // 城名(用户 2026-10-16 "周边的村子还有中间的城似乎也没名字")：城北沿上方标城名；城外的镇、村按城与编号起名，
+    // 华夏的村多是姓氏加家庄、村、屯，其余是雅字加村、庄；镇是雅字或方位加镇。同城不重名，每次一样
+    private static void Settlements(City city, PureMapPatch.LabelPlan plan, List<Spec> specs)
+    {
+        if (plan == null) return;
+        if (!float.IsNaN(plan.NameAt.x)) specs.Add(new Spec(plan.NameAt, city.GetCityName() ?? "", CityColor, CitySize, false, 0));
+        var used = new HashSet<string>();
+        bool huaxia = plan.Family == "huaxia";
+        for (int i = 0; i < plan.Towns.Count; i++)
+        {
+            long seed = city.id * 7349L + i * 131L + 17L;
+            string name = SettlementName(seed, used, TownWords, TownSuffix);
+            specs.Add(new Spec(plan.Towns[i].at, name, SettlementColor, TownSize, false, 1));
+        }
+        for (int i = 0; i < plan.Villages.Count; i++)
+        {
+            long seed = city.id * 9973L + i * 257L + 29L;
+            string name = Chinese && huaxia && Pick(VillageKind, seed) == "姓"
+                ? SettlementName(seed, used, SurnameZh, VillageSuffixClan)
+                : SettlementName(seed, used, VillageWords, VillageSuffix);
+            specs.Add(new Spec(plan.Villages[i], name, SettlementColor, VillageSize, false, 2));
+        }
+    }
+
+    private static string SettlementName(long seed, HashSet<string> used, string[] words, string[] suffixes)
+    {
+        for (int attempt = 0; attempt < 8; attempt++)
+        {
+            string name = Pick(words, seed + attempt * 7919L) + Pick(suffixes, seed + attempt);
+            if (used.Add(name)) return name;
+        }
+        return Pick(words, seed) + Pick(suffixes, seed + 3);
     }
 
     private static int FirstHouse(PureMapPatch.LabelPlan plan, int zone) =>
@@ -407,6 +444,28 @@ public static class MapLabelOverlay
     private static string[] BarracksModern => Chinese ? new[] { "军营", "武装部" } : new[] { " Barracks", " Armory" };
     private static string[] DocksOld => Chinese ? new[] { "码头", "渡口" } : new[] { " Wharf", " Ferry" };
     private static string[] DocksModern => Chinese ? new[] { "港", "客运码头" } : new[] { " Port", " Terminal" };
+    // 城外的镇、村
+    private static readonly string[] VillageKind = { "姓", "姓", "雅" };
+    private static string[] TownWords => Chinese ? TownZh : StreetEn;
+    private static string[] TownSuffix => Chinese ? new[] { "镇" } : new[] { "ton", "bury", "ford" };
+    private static string[] VillageWords => Chinese ? VillageZh : StreetEn;
+    private static string[] VillageSuffix => Chinese ? new[] { "村", "庄", "村", "湾", "坪" } : new[] { "by", "ham", "wick", "field" };
+    private static string[] VillageSuffixClan => new[] { "家庄", "村", "家村", "屯", "家寨", "家集" };
+    private static readonly string[] TownZh =
+    {
+        "清河", "白沙", "柳林", "石桥", "青山", "安乐", "长兴", "龙泉", "双溪", "临江", "永丰", "太平", "新安", "古城", "黄土",
+        "东关", "西关", "南关", "北关", "三河", "平原", "桃源", "梅岭", "松林", "高桥"
+    };
+    private static readonly string[] VillageZh =
+    {
+        "桃花", "杏花", "柳树", "槐树", "枣林", "榆树", "前河", "后河", "东湾", "西坡", "南岗", "北塘", "大柳", "小桥", "石门",
+        "上坪", "下坪", "芦苇", "荷塘", "水井", "菜园", "果园", "麦地", "牛栏", "羊坊"
+    };
+    private static readonly string[] SurnameZh =
+    {
+        "张", "王", "李", "赵", "刘", "陈", "杨", "黄", "周", "吴", "徐", "孙", "马", "胡", "朱", "郭", "何", "林", "高", "罗",
+        "郑", "梁", "谢", "宋", "唐", "许", "韩", "冯", "邓", "曹"
+    };
 
     private static readonly string[] StreetZh =
     {

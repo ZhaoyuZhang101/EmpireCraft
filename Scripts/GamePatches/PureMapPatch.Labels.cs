@@ -28,6 +28,10 @@ public partial class PureMapPatch
         public float Modern;
         public string Family = "huaxia";
         public int Stamp;
+        // 城名标在城北沿上方(格坐标)；城外的镇(中心、大小)、村(中心)，见 UrbanFabric
+        public Vector2 NameAt = new(float.NaN, float.NaN);
+        public readonly List<(Vector2 at, int size)> Towns = new();
+        public readonly List<Vector2> Villages = new();
     }
 
     // 这座城平面图上能标注的东西(纯净地图画城市时)
@@ -50,6 +54,19 @@ public partial class PureMapPatch
                 result.Slots.Add(new LabelSlot(new Vector2(ox + i % 2 * half + half / 2f, oy + i / 2 * half + half / 2f),
                     slots[i].icon, zone.id, i));
             }
+        }
+        // 城名：城心那一列上、建成地块北沿再往上两格
+        if (result.Built.Count > 0)
+        {
+            int top = int.MinValue;
+            foreach (TileZone zone in result.Built) top = Mathf.Max(top, zone.y * size + size);
+            float x = plan.gateX != int.MinValue ? plan.gateX + 0.5f : city.getTile()?.x ?? result.Built[0].x * size + half;
+            result.NameAt = new Vector2(x, top + 2f);
+        }
+        if (plan.fabric != null)
+        {
+            foreach ((int x, int y, int townSize, _) in plan.fabric.Towns) result.Towns.Add((new Vector2(x + 0.5f, y + townSize + 2.5f), townSize));
+            foreach ((int x, int y) in plan.fabric.Villages) result.Villages.Add(new Vector2(x + 0.5f, y + 3f));
         }
         return result;
     }
