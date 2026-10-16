@@ -289,7 +289,8 @@ public partial class PureMapPatch
         }
         foreach (TileZone zone in city.zones)
         {
-            if (zone == null || !plan.built.Contains(zone.id)) continue;
+            // 刷过规划的地块(见 TilePlanSystem)也画进来：刷了城区用途的格并入城区，城外刷的农田绿地照画
+            if (zone == null || !plan.built.Contains(zone.id) && !TilePlanSystem.Planned(city, zone)) continue;
             // 城郊过渡带伸出城边七格(见 PureMapPatch.Fringe)，图要画到那里，否则过渡带在图边上被齐齐切断
             Grow(zone.x * size, zone.y * size, FringeReach + 1);
             Grow(zone.x * size + size - 1, zone.y * size + size - 1, FringeReach + 1);
@@ -329,6 +330,7 @@ public partial class PureMapPatch
             // 城郊过渡带(见 PureMapPatch.Fringe)：画在村镇、田块、小路之前
             DrawFringe(c, style, tint, seed);
             DrawCountryside(c, g, style, tint, seed);
+            DrawPlanCountryside(c, plan, tint, seed);
         }
         List<DetailLabel> labels = ReduceLabels(c.Labels);
         DrawnLabels[city.data.id] = (StampOf(city), labels);
@@ -364,6 +366,13 @@ public partial class PureMapPatch
             if (tile.Type.liquid)
             {
                 Fill(c, tx, ty, Clear, KWater);
+                continue;
+            }
+            // 按格规划画的街道、广场、城墙(见 TilePlanSystem)，城里城外都照画
+            if (TilePlanSystem.Any && tile.zone.city == c.City && TilePlanSystem.FeatureAt(tile) is var feature &&
+                feature != PlanFeature.None)
+            {
+                PlanFeatureTile(c, tile, tx, ty, feature, street, wallColor ?? PlanWall);
                 continue;
             }
             if (!Urban(tile, plan))
@@ -482,6 +491,83 @@ public partial class PureMapPatch
         if (palace) DrawPalace(c, plan, tint, seed);
         // ⑦ 城墙
         if (wallsUp) Walls(c, plan, style, wallColor.Value);
+    }
+
+    // 一格设施：街道是白色的街，广场铺石板，城墙按本文化的墙色、墙沿一圈明暗相间的垛口
+    private static void PlanFeatureTile(Canvas c, WorldTile tile, int tx, int ty, PlanFeature feature, Color32 street, Color32 wall)
+    {
+        int s = DetailScale;
+        bool WallAt(WorldTile next) => next != null && TilePlanSystem.FeatureAt(next) == PlanFeature.Wall;
+        bool edgeN = !WallAt(tile.tile_up), edgeS = !WallAt(tile.tile_down), edgeW = !WallAt(tile.tile_left), edgeE = !WallAt(tile.tile_right);
+        for (int sy = 0; sy < s; sy++)
+        for (int sx = 0; sx < s; sx++)
+        {
+            int px = tx * s + sx, py = ty * s + sy;
+            switch (feature)
+            {
+                case PlanFeature.Street:
+                    c.Put(px, py, street, KStreet);
+                    break;
+                case PlanFeature.Plaza:
+                    c.Put(px, py, (px + py) % 4 == 0 ? Rgb(204, 196, 178) : Rgb(222, 214, 196), KPlaza);
+                    break;
+                default:
+                {
+                    // 画布的行往北增：北沿是 sy == s - 1
+                    bool rim = edgeN && sy == s - 1 || edgeS && sy == 0 || edgeW && sx == 0 || edgeE && sx == s - 1;
+                    c.Put(px, py, rim ? (px + py) % 2 == 1 ? Darker(wall, 1.15f) : Darker(wall, 0.85f) : wall, KWall);
+                    break;
+                }
+            }
+        }
+    }
+
+    // 城外刷的农田、绿地、保护区(见 TilePlanSystem)：画在城郊过渡带、村镇小路之上，村镇的房子不动
+    private static void DrawPlanCountryside(Canvas c, CityPlan plan, Color32 tint, long seed)
+    {
+        if (!TilePlanSystem.Any) return;
+        int s = DetailScale;
+        Color32 furrow = Lerp(tint, Rgb(150, 128, 84), 0.85f), crop = Lerp(tint, Rgb(186, 196, 110), 0.85f),
+            lawn = Lerp(tint, ParkLawn, 0.85f), tree = Lerp(tint, ParkTree, 0.9f), wood = Lerp(tint, KeepWood, 0.9f),
+            woodLit = Lerp(tint, Rgb(84, 140, 72), 0.9f);
+        for (int ty = 0; ty < c.H; ty++)
+        for (int tx = 0; tx < c.W; tx++)
+        {
+            WorldTile tile = World.world.GetTile(c.X0 + tx, c.Y0 + ty);
+            if (tile?.zone?.city != c.City || Urban(tile, plan)) continue;
+            PlanUse use = TilePlanSystem.UseAt(tile);
+            if (use is not (PlanUse.Farm or PlanUse.Park or PlanUse.Keep)) continue;
+            for (int sy = 0; sy < s; sy++)
+            for (int sx = 0; sx < s; sx++)
+            {
+                int px = tx * s + sx, py = ty * s + sy;
+                if (c.Kind(px, py) is not (KEmpty or KPath)) continue;
+                Color32 color = use switch
+                {
+                    PlanUse.Farm => py % 3 == 0 ? furrow : crop,
+                    PlanUse.Park => DetailHash(seed, px, py, 503) < 0.25f ? tree : lawn,
+                    _ => DetailHash(seed, px, py, 504) < 0.6f ? wood : woodLit
+                };
+                c.Put(px, py, color, KEmpty);
+            }
+        }
+    }
+
+    // 绿地的草坪(树另种)
+    private static void PlanLawn(Canvas c, int x0, int y0, int x1, int y1, Color32 color)
+    {
+        for (int py = y0; py <= y1; py++)
+        for (int px = x0; px <= x1; px++)
+            Paint(c, px, py, color, KGround);
+    }
+
+    // 刷了住宅的宅基地盖第几代房子：城心是研究到的最高代，往外一圈低一代、再外低两代
+    private static int PlannedTier(CityPlan plan, Canvas c, int x0, int y0, int x1, int y1)
+    {
+        if (plan.gateX == int.MinValue) return plan.housing;
+        Vector2 at = c.TileAt((x0 + x1) / 2f, (y0 + y1) / 2f);
+        float d = Vector2.Distance(at, new Vector2(plan.gateX, plan.gateY)) * DetailScale, r = Mathf.Max(1f, UrbanRadius(plan));
+        return Mathf.Clamp(plan.housing - (d > r * 0.5f ? 1 : 0) - (d > r ? 1 : 0), 1, Mathf.Max(1, plan.housing));
     }
 
     private static void Fill(Canvas c, int tx, int ty, Color32 color, byte kind)
@@ -1003,13 +1089,47 @@ public partial class PureMapPatch
         Slot[] slots = plan.zones.TryGetValue(zone.id, out Slot[] found) ? found : null;
         string icon = slots != null && quarter < slots.Length && slots[quarter].used ? slots[quarter].icon : null;
         float r = DetailHash(seed, 11);
-        if (use == ZoneUse.Reserve || icon == null && r < 0.3f)
+        // 刷了规划的宅基地照刷的用途盖(见 TilePlanSystem)：绿地是草坪和树、保护区是树林、农田开成菜畦，其余照用途盖房
+        PlanUse planned = zone.city == c.City ? TilePlanSystem.UseAt(tile) : PlanUse.None;
+        switch (planned)
+        {
+            case PlanUse.Park:
+                if (style.Gardens && w >= 9 && h >= 9) Charbagh(c, x0, y0, x1, y1);
+                else
+                {
+                    PlanLawn(c, x0, y0, x1, y1, Lerp(c.Block, ParkLawn, 0.7f));
+                    Trees(c, style, x0, y0, x1, y1, seed);
+                }
+                return;
+            case PlanUse.Keep:
+                PlanLawn(c, x0, y0, x1, y1, Lerp(c.Block, KeepWood, 0.6f));
+                Trees(c, style, x0, y0, x1, y1, seed);
+                Trees(c, style, x0, y0, x1, y1, seed + 1);
+                return;
+            case PlanUse.Farm:
+                Plots(c, x0, y0, x1, y1, w > h);
+                return;
+            case PlanUse.None:
+                break;
+            default:
+                icon = planned switch
+                {
+                    PlanUse.Commerce => "market_" + (plan.modern > 0.5f ? 1 : 0),
+                    PlanUse.Industry => "industry_0",
+                    PlanUse.Military => "barracks",
+                    PlanUse.Civic => "civic_" + (plan.modern > 0.5f ? 1 : 0),
+                    PlanUse.Temple => "temple",
+                    _ => "house_" + PlannedTier(plan, c, x0, y0, x1, y1)
+                };
+                break;
+        }
+        if (planned == PlanUse.None && (use == ZoneUse.Reserve || icon == null && r < 0.3f))
         {
             if (style.Gardens && w >= 9 && h >= 9) Charbagh(c, x0, y0, x1, y1);
             else Trees(c, style, x0, y0, x1, y1, seed);
             return;
         }
-        if (use == ZoneUse.Farm || icon == null && r < 0.55f)
+        if (planned == PlanUse.None && (use == ZoneUse.Farm || icon == null && r < 0.55f))
         {
             Plots(c, x0, y0, x1, y1, w > h);
             return;
@@ -1029,6 +1149,12 @@ public partial class PureMapPatch
         if ((kind == "temple" || kind.StartsWith("civic")) && w >= 10 && h >= 10)
         {
             TempleLot(c, style, x0, y0, x1, y1, kind == "temple");
+            return;
+        }
+        // 小块宅基地上的官署：一排公廨
+        if (kind.StartsWith("civic"))
+        {
+            Halls(c, x0, y0, x1, y1, roof);
             return;
         }
         if (kind.StartsWith("market"))

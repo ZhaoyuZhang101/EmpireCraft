@@ -671,6 +671,21 @@ public static class UrbanFabric
             ZoneUse.Residential => g.Progress >= 2f && cbd ? Kind.Tower : Kind.Housing,
             _ => g.Progress >= 2f && cbd ? Kind.Tower : industrySide ? Kind.Industry : Kind.Housing
         };
+        // 按格刷的规划：一块地刷得最多的用途(至少四分之一块)定这块地(见 TilePlanSystem)
+        PlanUse painted = TilePlanSystem.Majority(zone, 16);
+        if (painted != PlanUse.None)
+        {
+            kind = painted switch
+            {
+                PlanUse.Industry => Kind.Industry,
+                PlanUse.Commerce or PlanUse.Civic => g.Progress >= 2f ? Kind.Tower : Kind.Market,
+                PlanUse.Military => Kind.Military,
+                PlanUse.Park or PlanUse.Keep => Kind.Park,
+                PlanUse.Farm => Kind.Farm,
+                _ => g.Progress >= 2.2f && cbd ? Kind.Tower : Kind.Housing
+            };
+            if (use == ZoneUse.None) use = TilePlanSystem.ZoneUseOf(painted);
+        }
         float start = kind switch
         {
             Kind.Industry => 0.2f,

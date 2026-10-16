@@ -41,6 +41,8 @@ public class SaveData
     public List<long> mod_alliance_ids = new List<long>();
     // 图层城墙(纯净地图把原版城墙转成的数据，格编号 → 城墙种类，见 MapWallSystem)
     public Dictionary<int, string> map_walls = new Dictionary<int, string>();
+    // 按格的城市规划(格编号 → 低四位用途、高四位设施，见 TilePlanSystem)
+    public Dictionary<int, int> tile_plans = new Dictionary<int, int>();
     public bool switch_real_num = false;
     public bool switch_simple_nameplate = false;
     public bool switch_empire_show_alliance = false;

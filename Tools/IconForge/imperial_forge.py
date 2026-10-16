@@ -1369,12 +1369,61 @@ RESOURCES = {
 }
 
 
+def obj_park(img):
+    """绿地：一圈骨白石子小径围着草坪(暗翠)，坪上一株圆冠大树，路边一盏旧铜石灯。"""
+    over(img, shade(sub(ellipse([18, 128, 238, 238]), ellipse([40, 144, 216, 222])), BONE, bevel=5, grain=0.3))
+    over(img, shade(ellipse([40, 144, 216, 222]), JADE, bevel=8, grain=0.5))
+    over(img, shade(rrect([118, 120, 138, 196], 4), WOOD, bevel=5, grain=0.3))
+    over(img, shade(union(ellipse([60, 34, 160, 128]), ellipse([108, 22, 200, 118]), ellipse([82, 70, 186, 150])), JADE,
+                    bevel=16, gloss=0.6, grain=0.35))
+    over(img, shade(rrect([206, 160, 222, 214], 3), BRASS, bevel=4, gloss=0.8))
+    over(img, shade(rrect([200, 148, 228, 166], 3), BRASS, bevel=4, gloss=0.9))
+
+
+def obj_street(img):
+    """街道：一段透视的石板大道(枪灰)，旧铜路肩，中线一道道骨白虚线。"""
+    over(img, shade(poly([(98, 22), (158, 22), (238, 236), (18, 236)]), STEEL, bevel=10, grain=0.35))
+    over(img, shade(lines([[(98, 22), (18, 236)], [(158, 22), (238, 236)]], 9), BRASS, bevel=3, gloss=0.7))
+    for y0, y1, w in ((36, 64, 6), (90, 128, 8), (156, 214, 11)):
+        over(img, shade(lines([[(128, y0), (128, y1)]], w), BONE, bevel=2, flat=True))
+
+
+def obj_plaza(img):
+    """广场：俯视斜放的一方石板广场(骨白，枪灰石缝)，正中一座旧铜方尖碑。"""
+    over(img, shade(poly([(128, 92), (236, 156), (128, 220), (20, 156)]), BONE, bevel=10, grain=0.3))
+    seams = lines([[(56, 135), (164, 199)], [(92, 113), (200, 177)], [(164, 113), (56, 177)], [(200, 135), (92, 199)]], 4)
+    over(img, shade(seams, STEEL, bevel=1, flat=True))
+    over(img, shade(poly([(112, 166), (144, 166), (136, 50), (120, 50)]), BRASS, bevel=8, gloss=0.9))
+    over(img, shade(poly([(120, 50), (136, 50), (128, 26)]), GOLD, bevel=4, gloss=1.0))
+    over(img, shade(rrect([102, 162, 154, 178], 3), STEEL, bevel=4))
+
+
+def obj_wall(img):
+    """城墙：一段枪灰城墙，上有一排雉堞，墙身砖缝，正中拱门(黑漆)。"""
+    over(img, shade(rrect([16, 108, 240, 218], 4), STEEL, bevel=12, grain=0.4))
+    for x in range(16, 236, 32):
+        over(img, shade(rrect([x, 80, x + 20, 110], 2), STEEL, bevel=5, grain=0.3))
+    seams = [[(16, 144), (240, 144)], [(16, 180), (240, 180)]]
+    seams += [[(x, 110), (x, 144)] for x in range(48, 240, 48)] + [[(x, 144), (x, 180)] for x in range(24, 240, 48)]
+    seams += [[(x, 180), (x, 218)] for x in range(48, 240, 48)]
+    over(img, shade(lines(seams, 3), IRON, bevel=1, flat=True))
+    over(img, shade(union(rrect([104, 166, 152, 218], 4), ellipse([104, 144, 152, 190])), LACQ, bevel=6))
+
+
 # ═════════════ 生成 ═════════════
 # 人口、矿藏笔刷(这几个对象定义在 GODPOWERS 之后，这里补进去)
 GODPOWERS.update({
     "population_add": (obj_people, "plus"),
     "population_remove": (obj_people, "minus"),
     "deposit_clear": (obj_res_copper, "cross"),
+    # 城市规划笔刷(按格刷)：官署、寺庙、绿地三种用途，街道、广场、城墙三种设施，擦除
+    "zone_civic": (obj_palace, None),
+    "zone_temple": (obj_temple, None),
+    "zone_park": (obj_park, None),
+    "plan_street": (obj_street, None),
+    "plan_plaza": (obj_plaza, None),
+    "plan_wall": (obj_wall, None),
+    "plan_erase": (obj_blueprint, "cross"),
 })
 
 

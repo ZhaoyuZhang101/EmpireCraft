@@ -640,7 +640,8 @@ public static partial class ZonePlanSystem
     // (见 PureMapPatch.ShadeTerrain)，选中/放下规划神力时整张图重画
     public static readonly HashSet<string> PlanningPowers = new()
     {
-        "farm_planning", "zone_industry", "zone_residential", "zone_commerce", "zone_military", "zone_reserve"
+        "farm_planning", "zone_industry", "zone_residential", "zone_commerce", "zone_military", "zone_reserve",
+        "zone_civic", "zone_temple", "zone_park", "plan_street", "plan_plaza", "plan_wall", "plan_erase"
     };
 
     public static Color ColorOf(ZoneUse use) => use switch

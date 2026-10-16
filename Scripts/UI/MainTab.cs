@@ -361,15 +361,12 @@ internal static class MainTab
         });
         cultureConfigButton._button.OnHoverOut(Tooltip.hideTooltip);
 
-        // ---- 城市规划：农田红线、五类功能区与规划决议 ----
-        FarmPlanningButton.init();
-        AddButton(PLANNING_GROUP,
-            PowerButtonCreator.CreateGodPowerButton("farm_planning",
-                SpriteTextureLoader.getSprite("ui/icons/godpowers/farm_planning")));
-        ZonePlanningButtons.init();
-        foreach ((string id, _) in ZonePlanningButtons.Powers)
+        // ---- 城市规划：按格刷的用途、设施笔刷(见 PlanBrushPowers)，规划决议、另起格局 ----
+        PlanBrushPowers.Init();
+        foreach ((string id, _, _) in PlanBrushPowers.Brushes)
             AddButton(PLANNING_GROUP,
                 PowerButtonCreator.CreateGodPowerButton(id, SpriteTextureLoader.getSprite("ui/icons/godpowers/" + id)));
+        ZonePlanningButtons.init();
         AddButton(PLANNING_GROUP,
             PowerButtonCreator.CreateGodPowerButton("plan_policy",
                 SpriteTextureLoader.getSprite("ui/icons/godpowers/plan_policy")));
