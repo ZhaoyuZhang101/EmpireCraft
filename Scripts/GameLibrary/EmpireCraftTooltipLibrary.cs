@@ -927,23 +927,14 @@ public static class EmpireCraftTooltipLibrary
         if (actor != null) AddActorIdeology(pTooltip, actor);
 
         pTooltip.addLineBreak();
-        // 宗族是整个世系(始祖宗族)；氏族当作宗族下的分支：本宗写"某氏(本宗)"，分出去的写"某氏·越国支"
+        // 宗族与氏族合为一行"姓氏"：华夏合一前"姬姓·鲁氏"，合一后"鲁氏(出自姬姓)"(见 SpecificClan.SurnameLine)
         SpecificClan ownClan = actor?.GetSpecificClan() ?? identity?._specificClan;
-        AddTooltipLine(pTooltip, "empirecraft_actor_specific_clan", ownClan?.GetRootClan()?.name ?? ownClan?.name, "#5CFFAF");
-        AddTooltipLine(pTooltip, "empirecraft_actor_clan", ownClan != null ? BranchName(ownClan)
-            : actor?.hasClan() == true ? actor.clan.data.name : identity?.clanName, "#8CE1FF");
+        AddTooltipLine(pTooltip, "empirecraft_actor_surname", ownClan != null ? ownClan.SurnameLine()
+            : actor?.hasClan() == true ? actor.clan.data.name : identity?.clanName, "#5CFFAF");
         AddTooltipLine(pTooltip, "empirecraft_actor_family",
             actor?.hasFamily() == true ? actor.family.data.name : identity?.familyName, "#8CE1FF");
         AddTooltipLine(pTooltip, "empirecraft_actor_parents", GetParentNames(identity), "#F1F1F1");
         AddTooltipLine(pTooltip, "empirecraft_actor_spouse", GetSpouseName(identity), "#FF9CB9");
-    }
-
-    private static string BranchName(SpecificClan clan)
-    {
-        string surname = clan.GetRootClan()?.name ?? clan.name ?? "";
-        return clan.parent_clan_id < 0 || string.IsNullOrWhiteSpace(clan.branch_label)
-            ? string.Format(LM.Get("empirecraft_actor_clan_main"), surname)
-            : string.Format(LM.Get("empirecraft_actor_clan_branch"), surname, clan.branch_label);
     }
 
     private static PersonalClanIdentity FindIdentityByActorId(long actorId)

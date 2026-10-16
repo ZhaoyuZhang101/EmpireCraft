@@ -105,9 +105,79 @@ public class SpecificClan
     // 族人在各城最早定居的时间，用来判定"迁徙开基"
     public Dictionary<long, double> city_settle_since { get; set; } = new();
 
-    // 显示名：始祖宗族是"谈宗族"，分支是"谈宗族·越国支"
+    // 姓氏体系(华夏，用户 2026-10-16 选定"姓—氏两层")：始祖宗族是"姓"(姬姓)，支脉是"氏"(鲁氏)，原版氏族是每个氏的实体；
+    // 姓氏合一(郡县)以后，有氏的支脉升为新的姓(鲁氏宗族，出自姬姓)，再往下分的是郡望、房支。见 PrehistoricClanSystem
+    private bool SurnameMerged() => PrehistoricClanSystem.EraOf(_lineCulture) == PrehistoricClanSystem.SurnameEra.Merged;
+
+    // 离本支最近的"氏"(含本支，不含始祖宗族)；没有返回 null
+    private string NearestShi()
+    {
+        SpecificClan current = this;
+        var visited = new HashSet<long>();
+        while (current != null && current.parent_clan_id >= 0 && visited.Add(current.id))
+        {
+            if (!string.IsNullOrEmpty(current.shi)) return current.shi;
+            current = SpecificClanManager.Get(current.parent_clan_id);
+        }
+        return null;
+    }
+
+    // 作为"姓"的那一层：姓氏合一前是始祖宗族；合一后是离本支最近的有氏的支脉(没有就是始祖宗族)
+    public SpecificClan SurnameRoot()
+    {
+        SpecificClan root = GetRootClan();
+        if (!HuaxiaLine() || !SurnameMerged()) return root;
+        SpecificClan current = this;
+        var visited = new HashSet<long>();
+        while (current != null && current != root && visited.Add(current.id))
+        {
+            if (!string.IsNullOrEmpty(current.shi)) return current;
+            current = current.parent_clan_id >= 0 ? SpecificClanManager.Get(current.parent_clan_id) : null;
+        }
+        return root;
+    }
+
+    private static string SurnameOfRoot(SpecificClan root) => !string.IsNullOrEmpty(root.shi) ? root.shi : root.name;
+
+    // 人物档案的"姓氏"一行：合一前"姬姓·鲁氏"，合一后"鲁氏(出自姬姓)"；非华夏照旧"谈氏(本宗)""谈氏·越国支"
+    public string SurnameLine()
+    {
+        SpecificClan top = GetRootClan();
+        if (!HuaxiaLine())
+            return parent_clan_id < 0 || string.IsNullOrWhiteSpace(branch_label)
+                ? string.Format(LM.Get("empirecraft_actor_clan_main"), top.name)
+                : string.Format(LM.Get("empirecraft_actor_clan_branch"), top.name, branch_label);
+        if (!SurnameMerged()) return PremergeName(top);
+        SpecificClan root = SurnameRoot();
+        string line = root != top
+            ? string.Format(LM.Get("clan_surname_origin"), SurnameOfRoot(root), top.name)
+            : string.Format(LM.Get("clan_surname_shi"), SurnameOfRoot(root));
+        return root == this || string.IsNullOrWhiteSpace(branch_label)
+            ? line
+            : string.Format(LM.Get("clan_branch_display"), line, branch_label);
+    }
+
+    private string PremergeName(SpecificClan top)
+    {
+        if (this == top || parent_clan_id < 0) return string.Format(LM.Get("clan_xing"), top.name);
+        return NearestShi() is string shiName
+            ? string.Format(LM.Get("clan_xing_shi"), top.name, shiName)
+            : string.Format(LM.Get("clan_xing_branch"), top.name, branch_label);
+    }
+
+    // 显示名：始祖宗族是"谈宗族"，分支是"谈宗族·越国支"；华夏合一前"姬姓·鲁氏"，合一后"鲁宗族·清河支"
     public string GetDisplayName()
     {
+        if (HuaxiaLine())
+        {
+            SpecificClan top = GetRootClan();
+            if (!SurnameMerged()) return PremergeName(top);
+            SpecificClan root = SurnameRoot();
+            string rootName = JoinNameParts(SurnameOfRoot(root), LM.Get("specific_clan"));
+            return root == this || string.IsNullOrWhiteSpace(branch_label)
+                ? rootName
+                : string.Format(LM.Get("clan_branch_display"), rootName, branch_label);
+        }
         string clanName = JoinNameParts(name, LM.Get("specific_clan"));
         return parent_clan_id < 0 || string.IsNullOrWhiteSpace(branch_label)
             ? clanName

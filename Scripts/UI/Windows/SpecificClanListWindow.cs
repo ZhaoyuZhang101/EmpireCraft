@@ -116,20 +116,47 @@ public class SpecificClanListWindow : AutoLayoutWindow<SpecificClanListWindow>
         var title = _content.AddTextIntoVertLayout(search?LM.Get("title_search_result"):$"{LM.Get(speciesName)}宗族", anchor:TextAnchor.MiddleCenter, size:new Vector2(60, 20), hideBackground:true);
         _groups.Add(title.gameObject);
         yield return CoroutineHelper.wait_for_next_frame;
-        AutoGridLayoutGroup specificClanGrid = _content.BeginGridGroup(4, pCellSize: new Vector2(55, 90), pSpacing:new Vector2(0, 0));
-        _groups.Add(specificClanGrid.gameObject);
-        yield return CoroutineHelper.wait_for_next_frame;
         var list = specificClans ?? SpecificClanManager._specificClans.ToList().FindAll(s => IsSpecies(s, "human"));
         // 实体宗族在前，整族虚拟的宗族排在后面
         list = list.Where(s => s != null && s.LivingPeople.Count > 0)
             .OrderByDescending(s => s.AllAliveMembers.Count > 0).ToList();
-        foreach (var sc in list)
+        // 按姓归类(见 SpecificClan.SurnameRoot)：分出了氏、支的姓各占一组(本宗在前)，其余单独的宗族放在最后一组
+        var groups = list.GroupBy(s => s.SurnameRoot()?.id ?? s.id).Select(group => group.ToList()).ToList();
+        var multi = groups.Where(group => group.Count > 1)
+            .OrderByDescending(group => group.Sum(s => s.LivingPeople.Count)).ToList();
+        var singles = groups.Where(group => group.Count == 1).SelectMany(group => group).ToList();
+        foreach (var group in multi)
+        {
+            SpecificClan root = group[0].SurnameRoot() ?? group[0];
+            var ordered = group.OrderBy(s => s == root ? 0 : 1).ThenBy(s => s.established_timestamp).ToList();
+            var header = _content.AddTextIntoVertLayout(string.Format(LM.Get("clan_group_header"), root.GetDisplayName(), group.Count),
+                anchor:TextAnchor.MiddleCenter, size:new Vector2(120, 12), hideBackground:true);
+            _groups.Add(header.gameObject);
+            yield return StartCoroutine(ShowClanGrid(ordered));
+        }
+        if (singles.Count > 0)
+        {
+            if (multi.Count > 0)
+            {
+                var header = _content.AddTextIntoVertLayout(LM.Get("clan_group_others"), anchor:TextAnchor.MiddleCenter,
+                    size:new Vector2(120, 12), hideBackground:true);
+                _groups.Add(header.gameObject);
+            }
+            yield return StartCoroutine(ShowClanGrid(singles));
+        }
+    }
+
+    private IEnumerator ShowClanGrid(List<SpecificClan> clans)
+    {
+        AutoGridLayoutGroup specificClanGrid = _content.BeginGridGroup(4, pCellSize: new Vector2(55, 90), pSpacing:new Vector2(0, 0));
+        _groups.Add(specificClanGrid.gameObject);
+        yield return CoroutineHelper.wait_for_next_frame;
+        foreach (var sc in clans)
         {
             ShowSpecificClan(sc, specificClanGrid);
             yield return CoroutineHelper.wait_for_next_frame;
         }
-
-        var res = 4 - list.Count % 4;
+        var res = 4 - clans.Count % 4;
         if (res != 4)
         {
             for (var i = 0; i < res; i++)
