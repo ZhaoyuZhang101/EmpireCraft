@@ -31,6 +31,13 @@ public static class EmpireCraftOpinionAddition
             translation_key_negative = "opinion_nuclear_superiority",
             calc = EmpireCraft.Scripts.Compatibility.NuclearDoctrineSystem.DeterrenceOpinion
         });
+        // 受胙：天子赐胙之国十年内对王室好感 +40(见 ZhouEraSystem.GrantZuo)
+        opl.add(new OpinionAsset
+        {
+            id = "opinion_zhou_zuo",
+            translation_key = "opinion_zhou_zuo",
+            calc = EmpireCraft.Scripts.GeneralSystems.ZhouEraSystem.ZuoOpinionOf
+        });
         opl.add(new OpinionAsset
         {
             id = "opinion_false_empire_core",

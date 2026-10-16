@@ -35,6 +35,11 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   西周有了冶铁，天命低于 70 即入春秋；春秋有了炼钢，天命低于 40 或诸侯并到九国及以下即入战国。神力推进不受限。
 // 看得见(用户 2026-10-17)：春秋战国之始、会盟赐胙、霸主讨伐、攘夷勤王、称王变法、灭国合纵等大事弹世界提示(见 Announce)；
 //   夷狄来犯、天子出兵的那场仗改名"尊王攘夷"。
+// 天子主动(用户 2026-10-17 选"天子主动按钮"，见天下大势面板)：
+//   · 赐胙：西周、春秋时天子花国库赐胙于一个诸侯，十年内该国尊王——对王室好感 +40、霸主纳贡不因交恶而不朝、
+//     春秋不僭越称王、勤王时优先出兵；天命 +1。天子自己每年也有一成二的机会赐胙于霸主或最强的诸侯(国库要留三倍)；
+//   · 号召攘夷：夷狄正在侵犯诸侯或王畿，天子、霸主与接壤夷狄的尊王诸侯(至多三国)一齐出兵来援，天命 +2；
+//     夷狄只是与天下接壤，天子兴师讨之(战名"尊王攘夷·某国讨某国")，霸主与诸侯从征，天命 +1，五年一次。
 // 战国时诸侯不再留在帝国里：各自离开帝国(郡仍归王畿)，成为自由度很高的诸侯——有自己的颜色、国库、官制、军队，
 // 只记着所属周室(KingdomExtraData.zhou_sphere_id，标"某诸侯国")，地图上整个周室(王畿连同诸侯)外围一圈加粗边框；
 // 春秋战国的规则照旧，判断"是不是周室诸侯"一律看 SphereOf(帝国成员或战国离开帝国的诸侯)。统一后诸侯各自独立。
@@ -464,11 +469,12 @@ public static class ZhouEraSystem
     private static bool Answers(Kingdom member, War war) =>
         (uint)(member.id * 31 + war.data.id * 17) % 10 < CoalitionAnswer;
 
-    // 尊王的诸侯：不是犯上者、不在与天子交战，按国力排序，霸主优先
+    // 尊王的诸侯：不是犯上者、不在与天子交战，按国力排序，霸主优先，受胙之国其次
     private static IEnumerable<Kingdom> Loyalists(Empire empire, ZhouEraState state, Kingdom rebel) =>
         Vassals(empire).Where(kingdom => kingdom != rebel && !kingdom.isInWarWith(empire.CoreKingdom) &&
                                          !state.kings.Contains(kingdom.id))
-            .OrderByDescending(kingdom => kingdom.id == state.hegemon_id).ThenByDescending(Power);
+            .OrderByDescending(kingdom => kingdom.id == state.hegemon_id).ThenByDescending(kingdom => HasZuo(state, kingdom))
+            .ThenByDescending(Power);
 
     private static void JoinSide(War war, Kingdom kingdom, bool attackerSide)
     {
@@ -499,6 +505,7 @@ public static class ZhouEraSystem
                     vassal.GetRegime()?.SetAllowDiplomacy(true);
         state.kings.RemoveAll(id => SphereOf(World.world.kingdoms.get(id)) != empire);
         state.reforms.RemoveAll(id => SphereOf(World.world.kingdoms.get(id)) != empire);
+        AutoZuo(empire, state);
         switch (state.era)
         {
             case WesternZhou:
@@ -647,7 +654,7 @@ public static class ZhouEraSystem
         foreach (Kingdom vassal in Vassals(empire).Where(vassal => vassal != hegemon))
         {
             if (vassal.isInWarWith(hegemon) || state.kings.Contains(vassal.id) ||
-                (World.world.diplomacy?.getOpinion(vassal, hegemon)?.total ?? 0) < -20)
+                !HasZuo(state, vassal) && (World.world.diplomacy?.getOpinion(vassal, hegemon)?.total ?? 0) < -20)
             {
                 state.defiant.Add(vassal.id);
                 continue;
@@ -791,7 +798,7 @@ public static class ZhouEraSystem
         if (state.kings.Contains(vassal.id) || vassal.GetKingdomType() == KingdomType.ZhouFeudalism_jun) return;
         if (spring)
         {
-            if (vassal.GetKingdomType() != KingdomType.ZhouFeudalism_zi) return;
+            if (vassal.GetKingdomType() != KingdomType.ZhouFeudalism_zi || HasZuo(state, vassal)) return;
             int strongest = Vassals(empire).Select(Power).DefaultIfEmpty(0).Max();
             if (Power(vassal) < 0.6f * strongest || Random.value > 0.03f) return;
             ProclaimKing(empire, state, vassal, usurp: true);
@@ -968,6 +975,138 @@ public static class ZhouEraSystem
         empire.RecordHistory(directContent: string.Format(LM.Get("zhou_history_unified"), core.GetKingdomName(),
             empire.GetEmpireName()), kingdomId: core.id);
     }
+
+    #endregion
+
+    #region 天子：赐胙、号召攘夷
+
+    public const int ZuoYears = 10, ZuoOpinion = 40, RepelCooldownYears = 5;
+    private const float AutoZuoChance = 0.12f;
+
+    public static bool HasZuo(ZhouEraState state, Kingdom vassal) =>
+        state?.zuo != null && vassal != null && state.zuo.TryGetValue(vassal.id, out double at) &&
+        World.world != null && Date.getYearsSince(at) < ZuoYears;
+
+    // 一年赋税的二十分之一，至少 30
+    public static int ZuoCost(Empire empire) => Math.Max(30, YearlyRevenue(empire.CoreKingdom) / 20);
+
+    public static bool CanGrantZuo(Empire empire, Kingdom vassal)
+    {
+        if (!Applies(empire) || vassal?.data == null || vassal.isRekt()) return false;
+        ZhouEraState state = State(empire);
+        Kingdom core = empire.CoreKingdom;
+        return state.era <= Spring && vassal != core && SphereOf(vassal) == empire && !HasZuo(state, vassal) &&
+               !state.kings.Contains(vassal.id) && !vassal.isInWarWith(core) && core.GetMoney() >= ZuoCost(empire);
+    }
+
+    public static bool GrantZuo(Empire empire, Kingdom vassal)
+    {
+        if (!CanGrantZuo(empire, vassal)) return false;
+        Kingdom core = empire.CoreKingdom;
+        if (!TreasurySystem.TrySpend(core, ZuoCost(empire), TreasuryCategory.Rites, discretionary: false)) return false;
+        ZhouEraState state = State(empire);
+        state.zuo ??= new Dictionary<long, double>();
+        state.zuo.Keys.Where(id => SphereOf(World.world.kingdoms.get(id)) != empire).ToList().ForEach(id => state.zuo.Remove(id));
+        state.zuo[vassal.id] = World.world.getCurWorldTime();
+        state.defiant.Remove(vassal.id);
+        empire.AddMandate(1);
+        Announce(empire, string.Format(LM.Get("zhou_log_zuo"), core.GetKingdomName(), vassal.GetKingdomName()), vassal,
+            history: true);
+        return true;
+    }
+
+    // 天子每年有一成二的机会赐胙于霸主或最强的诸侯(国库至少留三倍)
+    private static void AutoZuo(Empire empire, ZhouEraState state)
+    {
+        if (state.era > Spring || Random.value > AutoZuoChance) return;
+        Kingdom pick = Vassals(empire)
+            .Where(vassal => vassal.GetKingdomType() != KingdomType.ZhouFeudalism_jun && CanGrantZuo(empire, vassal))
+            .OrderByDescending(vassal => vassal.id == state.hegemon_id).ThenByDescending(Power).FirstOrDefault();
+        if (pick != null && empire.CoreKingdom.GetMoney() >= ZuoCost(empire) * 3) GrantZuo(empire, pick);
+    }
+
+    // 受胙之国对王室的好感(见 EmpireCraftOpinionAddition)
+    public static int ZuoOpinionOf(Kingdom main, Kingdom target)
+    {
+        if (main?.data == null || target?.data == null || main == target) return 0;
+        Empire empire = SphereOf(main);
+        return empire != null && target == empire.CoreKingdom && HasZuo(State(empire), main) ? ZuoOpinion : 0;
+    }
+
+    // 天下大势面板的"四夷"：正在侵犯诸侯或王畿的夷狄(victim 为被犯之国)在前，与天下接壤的夷狄在后
+    public static List<(Kingdom barbarian, Kingdom victim)> RepelTargets(Empire empire)
+    {
+        var result = new List<(Kingdom, Kingdom)>();
+        if (!Applies(empire) || State(empire).era > Spring) return result;
+        var seen = new HashSet<long>();
+        foreach (Kingdom member in Vassals(empire).Append(empire.CoreKingdom).ToList())
+            foreach (War war in member?.getWars()?.ToList() ?? new List<War>())
+            {
+                if (war == null || war.hasEnded() || !war.isDefender(member)) continue;
+                Kingdom attacker = war.main_attacker;
+                if (!IsBarbarian(empire, attacker) || !seen.Add(attacker.id)) continue;
+                result.Add((attacker, member));
+            }
+        foreach (Kingdom kingdom in World.world.kingdoms.list.Where(kingdom => kingdom?.data != null && !kingdom.isRekt() &&
+                     kingdom.isCiv() && !seen.Contains(kingdom.id) && IsBarbarian(empire, kingdom) &&
+                     empire.IsNeighbourWith(kingdom)).OrderByDescending(Power).ToList())
+            result.Add((kingdom, null));
+        return result;
+    }
+
+    // 兴师讨伐接壤的夷狄五年一次(援救被犯之国不限)
+    public static int RepelCooldown(Empire empire)
+    {
+        ZhouEraState state = State(empire);
+        return state == null || state.repel_called_at < 0d ? 0
+            : Math.Max(0, RepelCooldownYears - Date.getYearsSince(state.repel_called_at));
+    }
+
+    public static bool CallToRepel(Empire empire, Kingdom barbarian)
+    {
+        if (!Applies(empire) || !IsBarbarian(empire, barbarian)) return false;
+        ZhouEraState state = State(empire);
+        if (state.era > Spring) return false;
+        Kingdom core = empire.CoreKingdom;
+        var helpers = Loyalists(empire, state, barbarian).Where(kingdom => kingdom.IsNeighbourWith(barbarian)).Take(3).ToList();
+        if (World.world.kingdoms.get(state.hegemon_id) is Kingdom hegemon && !hegemon.isRekt() && SphereOf(hegemon) == empire &&
+            !helpers.Contains(hegemon) && !hegemon.isInWarWith(core))
+            helpers.Insert(0, hegemon);
+        var wars = Vassals(empire).Append(core).SelectMany(member => member.getWars())
+            .Where(war => war != null && !war.hasEnded() && war.main_attacker == barbarian && SphereOf(war.main_defender) == empire)
+            .Distinct().ToList();
+        if (wars.Count > 0)
+        {
+            var victims = new List<string>();
+            foreach (War war in wars)
+            {
+                JoinSide(war, core, attackerSide: false);
+                foreach (Kingdom helper in helpers)
+                    if (helper != war.main_defender) JoinSide(war, helper, attackerSide: false);
+                war.data.name = string.Format(LM.Get("zhou_repel_war_name"), war.main_defender.GetKingdomName(),
+                    barbarian.GetKingdomName());
+                victims.Add(war.main_defender.GetKingdomName());
+            }
+            empire.AddMandate(2);
+            Announce(empire, string.Format(LM.Get("zhou_log_call_repel"), core.GetKingdomName(), Helpers(helpers),
+                string.Join("、", victims.Distinct()), barbarian.GetKingdomName()), core, history: true);
+            return true;
+        }
+        if (RepelCooldown(empire) > 0 || core.isInWarWith(barbarian) || !empire.IsNeighbourWith(barbarian)) return false;
+        War campaign = World.world.diplomacy.startWar(core, barbarian, WarTypeLibrary.normal);
+        if (campaign == null) return false;
+        campaign.SetEmpireWarType(EmpireWarType.攘夷);
+        campaign.data.name = string.Format(LM.Get("zhou_campaign_war_name"), core.GetKingdomName(), barbarian.GetKingdomName());
+        foreach (Kingdom helper in helpers) JoinSide(campaign, helper, attackerSide: true);
+        state.repel_called_at = World.world.getCurWorldTime();
+        empire.AddMandate(1);
+        Announce(empire, string.Format(LM.Get("zhou_log_campaign"), core.GetKingdomName(), Helpers(helpers),
+            barbarian.GetKingdomName()), core, history: true);
+        return true;
+    }
+
+    private static string Helpers(List<Kingdom> helpers) =>
+        helpers.Count == 0 ? LM.Get("zhou_helpers_none") : string.Join("、", helpers.Select(kingdom => kingdom.GetKingdomName()));
 
     #endregion
 

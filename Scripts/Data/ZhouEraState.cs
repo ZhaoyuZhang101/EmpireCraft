@@ -32,4 +32,7 @@ public sealed class ZhouEraState
     public double last_year = -1d;
     public double last_month = -1d;
     public List<CourtLogEntry> log = new();
+    // 受胙的诸侯(国 id → 赐胙的时间)；天子上回兴师讨伐夷狄的时间(见 ZhouEraSystem.GrantZuo、CallToRepel)
+    public Dictionary<long, double> zuo = new();
+    public double repel_called_at = -1d;
 }

@@ -13,7 +13,7 @@ using UnityEngine;
 namespace EmpireCraft.Scripts.UI.Components;
 
 // 帝国主页的"天下大势"(周制，见 ZhouEraSystem)：时代、霸主、诸侯数、天命；列国国力与爵位、与周室的关系；
-// 神力按钮(标题条右端召集会盟、推进时代，列国表每行赐胙立霸主)；列国纪事
+// 神力按钮(标题条右端召集会盟、推进时代，列国表每行立霸主、赐胙)；四夷(号召攘夷)；列国纪事
 public static class ZhouPanel
 {
     private const int MaxRows = 12;
@@ -67,8 +67,8 @@ public static class ZhouPanel
         UIHelper.AddKpiTile(kpis, kpi, LM.Get("zhou_kpi_mandate"), empire.Mandate.ToString(),
             empire.Mandate < 30 ? "#E8584F" : empire.Mandate < 60 ? "#E9A85B" : "#65D66E");
 
-        // 列国表：诸侯 | 爵 | 国力 | 城·兵 | 与周室 | (赐胙)
-        float[] columns = { 0.17f, 0.07f, 0.2f, 0.16f, 0.28f, 0.12f };
+        // 列国表：诸侯 | 爵 | 国力 | 城·兵 | 与周室 | (立霸、赐胙)
+        float[] columns = { 0.17f, 0.07f, 0.18f, 0.15f, 0.24f, 0.19f };
         float W(int i) => inner * columns[i] - 2f;
         var header = card.BeginHoriGroup(new Vector2(inner, 10f), TextAnchor.MiddleLeft, 2, new RectOffset(0, 0, 0, 0));
         string[] keys = { "zhou_col_state", "zhou_col_rank", "zhou_col_power", "zhou_col_size", "zhou_col_relation", "" };
@@ -95,19 +95,32 @@ public static class ZhouPanel
                 .UseFixedFontSize(6, HorizontalWrapMode.Overflow);
             row.AddTextIntoHoriLayout(Relation(empire, state, vassal), true, TextAnchor.MiddleLeft, new Vector2(W(4), 12f))
                 .UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+            Kingdom target = vassal;
+            float half = (W(5) - 2f) / 2f;
             if (state.era == ZhouEraSystem.Spring && state.hegemon_id != vassal.id)
-            {
-                Kingdom target = vassal;
-                row.AddButtonIntoHoriLayout($"zhou_bestow_{vassal.id}", LM.Get("zhou_god_bestow"), () =>
+                row.AddButtonIntoHoriLayout($"zhou_hegemon_{vassal.id}", LM.Get("zhou_god_make_hegemon"), () =>
                 {
                     ZhouEraSystem.HoldConference(empire, state, target);
                     refresh?.Invoke();
-                }, size: new Vector2(W(5), 10f));
-            }
+                }, size: new Vector2(half, 10f));
+            if (ZhouEraSystem.CanGrantZuo(empire, vassal))
+                row.AddButtonIntoHoriLayout($"zhou_bestow_{vassal.id}", LM.Get("zhou_god_bestow"), () =>
+                {
+                    ZhouEraSystem.GrantZuo(empire, target);
+                    refresh?.Invoke();
+                }, size: new Vector2(half, 10f));
         }
         if (vassals.Count > MaxRows)
             card.AddTextIntoVertLayout(string.Format(LM.Get("zhou_more"), vassals.Count - MaxRows).ColorString("#8FA0A8"),
                 true, TextAnchor.MiddleLeft, new Vector2(inner, 10f)).UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+
+        if (state.era <= ZhouEraSystem.Spring)
+        {
+            string zuoHint = string.Format(LM.Get("zhou_zuo_hint"), EmpireCraft.Scripts.HelperFunc.MoneyDisplay.Format(ZhouEraSystem.ZuoCost(empire)));
+            card.AddTextIntoVertLayout(zuoHint.ColorString("#E6C27A"), true, TextAnchor.UpperLeft, new Vector2(inner, 10f))
+                .UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+            RenderRepel(card, empire, inner, refresh);
+        }
 
         // 规则说明按字数估行数给高，折行多了也不溢出卡片
         string rule = LM.Get("zhou_rule_" + state.era);
@@ -139,6 +152,40 @@ public static class ZhouPanel
                 new Vector2(inner, 10f)).UseFixedFontSize(6, HorizontalWrapMode.Wrap);
     }
 
+    // 四夷：正在侵犯诸侯的夷狄可号召攘夷、共援被犯之国；与天下接壤的夷狄可兴师讨之(五年一次)
+    private static void RenderRepel(AutoVertLayoutGroup card, Empire empire, float inner, Action refresh)
+    {
+        var targets = ZhouEraSystem.RepelTargets(empire);
+        if (targets.Count == 0) return;
+        card.AddTextIntoVertLayout(LM.Get("zhou_repel_header").ColorString("#E9A85B"), true, TextAnchor.MiddleLeft,
+            new Vector2(inner, 10f)).UseFixedFontSize(7, HorizontalWrapMode.Overflow);
+        int cooldown = ZhouEraSystem.RepelCooldown(empire);
+        const float buttonWidth = 48f;
+        foreach ((Kingdom barbarian, Kingdom victim) in targets.Take(4))
+        {
+            var row = card.BeginHoriGroup(new Vector2(inner, 12f), TextAnchor.MiddleLeft, 2, new RectOffset(0, 0, 0, 0));
+            string what = victim != null
+                ? string.Format(LM.Get("zhou_repel_invading"), barbarian.GetKingdomName(), victim.GetKingdomName()).ColorString("#FFB3A8")
+                : string.Format(LM.Get("zhou_repel_bordering"), barbarian.GetKingdomName()).ColorString("#C8C2B4");
+            var text = row.AddTextIntoHoriLayout(what, true, TextAnchor.MiddleLeft, new Vector2(inner - buttonWidth - 4f, 12f));
+            text.UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+            HoverMarqueeText.Attach(text);
+            if (victim == null && cooldown > 0)
+            {
+                row.AddTextIntoHoriLayout(string.Format(LM.Get("zhou_repel_cooldown"), cooldown).ColorString("#8FA0A8"), true,
+                    TextAnchor.MiddleRight, new Vector2(buttonWidth, 12f)).UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+                continue;
+            }
+            Kingdom target = barbarian;
+            row.AddButtonIntoHoriLayout($"zhou_repel_{barbarian.id}", LM.Get(victim != null ? "zhou_god_repel" : "zhou_god_campaign"),
+                () =>
+                {
+                    ZhouEraSystem.CallToRepel(empire, target);
+                    refresh?.Invoke();
+                }, size: new Vector2(buttonWidth, 10f));
+        }
+    }
+
     public static string Rank(Kingdom kingdom)
     {
         var office = kingdom.GetOffice();
@@ -152,6 +199,7 @@ public static class ZhouPanel
         if (state.hegemon_id == vassal.id) tags.Add(LM.Get("zhou_tag_hegemon").ColorString("#F3C34A"));
         if (state.kings.Contains(vassal.id))
             tags.Add(LM.Get(state.era == ZhouEraSystem.Spring ? "zhou_tag_usurper" : "zhou_tag_king").ColorString("#E8584F"));
+        if (ZhouEraSystem.HasZuo(state, vassal)) tags.Add(LM.Get("zhou_tag_zuo").ColorString("#F3C34A"));
         if (state.reforms.Contains(vassal.id)) tags.Add(LM.Get("zhou_tag_reform").ColorString("#65D66E"));
         if (state.coalition_target == vassal.id) tags.Add(LM.Get("zhou_tag_dominant").ColorString("#E8584F"));
         else if (state.coalition.Contains(vassal.id)) tags.Add(LM.Get("zhou_tag_coalition").ColorString("#7FA8E8"));
