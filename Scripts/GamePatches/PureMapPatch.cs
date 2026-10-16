@@ -211,6 +211,7 @@ public partial class PureMapPatch : GamePatch
         UI.Components.CityDetailOverlay.Update();
         UI.Components.RoadOverlay.Update();
         UI.Components.MapWallOverlay.Update();
+        UI.Components.MapLabelOverlay.Update();
         UI.Components.EmperorMarkerRenderer.EnsureHost();
     }
 
