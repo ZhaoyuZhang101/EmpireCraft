@@ -1028,6 +1028,7 @@
   "admin_overreach_vassal_history": "{0}鞭长莫及，新征服的{2}城由当地首领立国{1}，受封为{0}的附庸诸侯",
   "admin_overreach_tributary_history": "{0}鞭长莫及，新征服的{2}城由当地首领立国{1}，奉{0}为宗主、称臣纳贡",
   "admin_overreach_jimi_history": "{0}鞭长莫及，新征服的{2}城由当地首领自治，设为羁縻州{1}",
+  "admin_overreach_enfeoff_history": "{0}鞭长莫及，新征服的{2}城分封给当地首领，立为诸侯{1}",
   "admin_overextended": "过度扩张 {0:0}%：远方失稳、新征服之地易转间接统治、开战只求称臣",
   "admin_capacity_line": "直辖 {0}/{1} 城",
   "admin_capacity": "直辖容量",

@@ -1025,6 +1025,7 @@
   "admin_overreach_vassal_history": "{0} cannot govern {2} newly conquered cities; local chiefs found {1} as a vassal of {0}",
   "admin_overreach_tributary_history": "{0} cannot govern {2} newly conquered cities; local chiefs found {1}, which pays tribute to {0}",
   "admin_overreach_jimi_history": "{0} cannot govern {2} newly conquered cities; local chiefs rule them as the loose-rein prefecture {1}",
+  "admin_overreach_enfeoff_history": "{0} cannot govern {2} newly conquered cities and enfeoffs a local chief as the lord of {1}",
   "admin_overextended": "Overextended {0:0}%: distant unrest, new conquests slip into indirect rule, wars seek only submission",
   "admin_capacity_line": "{0}/{1} cities directly ruled",
   "admin_capacity": "Direct rule",

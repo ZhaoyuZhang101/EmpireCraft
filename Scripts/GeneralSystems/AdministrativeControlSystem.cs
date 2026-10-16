@@ -32,8 +32,11 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 硬限：30 年内新打下(含割让)的城，控制力不到三成(过度扩张时门槛更高)且没在打仗的，由当地首领自立，
 //     按政体文化转为间接统治——施行羁縻的帝国设羁縻州(仍在帝国内，自治、少纳税)；封建、分封或不是帝国的立为附庸诸侯；
 //     其余帝国收为朝贡国(如朝鲜之于明)。每国每年至多放出一片(最多 6 城)；
-//   · 软限：直辖容量 = 10 + 4×时代 + 制度科技(官僚文书、驿传、考选取士、电报、计算机)，按政体、君主折算；
-//     羁縻地区不算直辖。直辖城数超过容量即过度扩张：远方城市稳定度再降，硬限门槛提高，
+//   · 早期生产力只够这样统治(用户 2026-10-16："早期之所以是周朝制度是因为生产力只能允许这么统治")：
+//     直辖容量起点很低，青铜时代只能直辖十几城，再大就只能分封——周制、封建帝国里的诸侯(周制的郡除外)
+//     不算直辖，也不因路远失稳；青铜时代及以前，或周制天下，管不到的新征服之地封为诸侯(帝国成员)；
+//   · 软限：直辖容量 = 4 + 4×时代 + 制度科技(官僚文书、驿传、考选取士、电报、计算机)，按政体、君主折算；
+//     羁縻地区、分封诸侯不算直辖。直辖城数超过容量即过度扩张：远方城市稳定度再降，硬限门槛提高，
 //     开战不再谋割地吞并、只迫其称臣(见 WarGoalSystem.Ensure)。
 public static class AdministrativeControlSystem
 {
@@ -98,11 +101,19 @@ public static class AdministrativeControlSystem
         return loss + over * OverextensionPenalty * (1.2f - control);
     }
 
+    // 间接统治：羁縻地区；周制、封建帝国里的诸侯(周制直辖的郡、帝国核心除外)
     private static bool IsIndirect(Kingdom kingdom)
     {
         Empire empire = kingdom?.GetEmpire();
-        return empire != null && (JimiSystem.IsJimiAdministration(kingdom) || JimiSystem.IsJimiRegion(kingdom, empire));
+        if (empire == null || kingdom == empire.CoreKingdom) return false;
+        if (JimiSystem.IsJimiAdministration(kingdom) || JimiSystem.IsJimiRegion(kingdom, empire)) return true;
+        RegimeType? regime = empire.CoreKingdom?.GetRegime()?.type;
+        return regime == RegimeType.Feudalism ||
+               regime == RegimeType.ZhouFeudalism && kingdom.GetKingdomType() != KingdomType.ZhouFeudalism_jun;
     }
+
+    // 青铜时代及以前(时代 ≤ 3)
+    private const int EarlyEraTier = 3;
 
     // 城易主时记下(CityPatch 攻城结算、WarGoalSystem 割地调用)
     public static void MarkConquered(City city, Kingdom receiver)
@@ -251,15 +262,11 @@ public static class AdministrativeControlSystem
     public static int Capacity(Kingdom realm)
     {
         int tier = TechnologySystem.GetEraTier(TechnologySystem.GetCultureOf(realm));
-        float capacity = 10f + 4f * tier;
+        float capacity = 4f + 4f * tier;
         foreach ((string tech, float bonus) in CapacityTechs)
             if (TechnologySystem.RealmHasTech(realm, tech)) capacity += bonus;
-        capacity *= realm.GetRegime()?.type switch
-        {
-            RegimeType.LvLing => 1.2f,
-            RegimeType.Feudalism or RegimeType.ZhouFeudalism => 0.8f,
-            _ => 1f
-        };
+        // 分封、封建不缩容量：诸侯本就不算直辖，是生产力不够时的统治办法
+        if (realm.GetRegime()?.type == RegimeType.LvLing) capacity *= 1.2f;
         return Mathf.Max(3, Mathf.RoundToInt(capacity * RulerFactor(realm)));
     }
 
@@ -451,10 +458,23 @@ public static class AdministrativeControlSystem
             .ThenByDescending(actor => actor.data?.renown ?? 0).FirstOrDefault();
     }
 
-    // 施行羁縻的帝国 → 羁縻州；封建、分封政体或不是帝国 → 附庸诸侯；其余帝国 → 朝贡国
+    // 周制天下或青铜时代及以前的帝国 → 分封诸侯(帝国成员)；施行羁縻的帝国 → 羁縻州；
+    // 封建政体或不是帝国 → 附庸诸侯；其余帝国 → 朝贡国
     private static string Subordinate(Kingdom realm, Kingdom local)
     {
         Empire empire = realm.IsEmpire() ? realm.GetEmpire() : null;
+        if (empire != null && (realm.GetRegime()?.type == RegimeType.ZhouFeudalism ||
+                               TechnologySystem.GetEraTier(TechnologySystem.GetCultureOf(realm)) <= EarlyEraTier))
+        {
+            if (local.hasAlliance()) local.getAlliance().leave(local);
+            empire.join(local, pForce: true);
+            if (local.GetEmpire() == empire)
+            {
+                local.GetOrCreate().last_kingdom_status_ts = -1d;
+                EmpireCraft.Scripts.AI.KingdomAI.EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(local);
+                return "enfeoff";
+            }
+        }
         if (empire != null && JimiSystem.Enacted(empire))
         {
             if (local.hasAlliance()) local.getAlliance().leave(local);
