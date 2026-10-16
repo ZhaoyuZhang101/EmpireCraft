@@ -74,13 +74,29 @@ public static class SmoothBorders
     private static IMetaObject LayerMeta(MetaTypeAsset layer, int option, TileZone zone)
     {
         if (zone == null) return null;
-        IMetaObject meta = layer.map_mode == MetaType.City ? (IMetaObject)zone.city : layer.tile_get_metaobject?.Invoke(zone, option);
+        IMetaObject meta = layer.map_mode == MetaType.City ? zone.city
+            : layer.map_mode == MetaType.Alliance ? AllianceMeta(zone, option)
+            : layer.tile_get_metaobject?.Invoke(zone, option);
         // 帝国图层上没被哪个帝国(或同盟视图)覆盖的王国：模组按本国颜色补画(见 EmpireCraftMetaTypeLibrary)，这里也按本国归属
         if ((meta == null || !meta.isAlive()) && layer.map_mode == MetaTypeExtension.Empire &&
             zone.city?.kingdom is Kingdom kingdom && kingdom.isAlive() && !kingdom.wild)
             meta = kingdom;
         return meta != null && meta.isAlive() ? meta : null;
     }
+
+    // 联盟图层(原版没有按地块取归属的函数，结盟的国家按联盟画、没结盟的按城画，见 MetaTypeLibrary.alliance.draw_zones)：
+    // 同样的规则逐格平滑(用户 2026-10-17 "明明是平滑地图模式我选择联盟图层居然还是原版的")
+    private static IMetaObject AllianceMeta(TileZone zone, int option)
+    {
+        City city = zone.city;
+        if (city?.data == null || city.isRekt()) return null;
+        Alliance alliance = zone.getAllianceOnZone(option);
+        return alliance != null && alliance.isAlive() ? alliance : city;
+    }
+
+    // 平滑国界接手的图层：城市、联盟，以及原版按地块取归属的图层
+    private static bool Smoothable(MetaTypeAsset layer) =>
+        layer != null && (layer.map_mode == MetaType.City || layer.map_mode == MetaType.Alliance || layer.tile_get_metaobject != null);
 
     private static bool ControlLayer(MetaTypeAsset layer) =>
         layer.map_mode == MetaType.Kingdom || layer.map_mode == MetaTypeExtension.Empire;
@@ -114,7 +130,7 @@ public static class SmoothBorders
 
     private static bool Fill(MetaTypeAsset layer, TileZone center)
     {
-        if (layer.map_mode != MetaType.City && layer.tile_get_metaobject == null) return false;
+        if (!Smoothable(layer)) return false;
         ZoneCalculator calc = World.world.zone_calculator;
         int option = layer.getZoneOptionState();
         _cx = center.x;
@@ -281,7 +297,7 @@ public static class SmoothBorders
     {
         if (!Enabled || World.world == null || zones == null) return false;
         MetaTypeAsset layer = World.world.getCachedMapMetaAsset();
-        if (layer == null || layer.map_mode != MetaType.City && layer.tile_get_metaobject == null) return false;
+        if (!Smoothable(layer)) return false;
         int frame = Time.frameCount;
         if (_collectFrame != frame)
         {
