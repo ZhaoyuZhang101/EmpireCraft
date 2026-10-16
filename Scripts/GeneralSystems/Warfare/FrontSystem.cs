@@ -835,13 +835,23 @@ public static partial class FrontSystem
     {
         if (city?.zones == null || city.kingdom != owner) return;
         Kingdom occupier = Belligerent(attacker, owner);
-        foreach (TileZone zone in city.zones.Where(zone => zone != null && !Friendly(attacker, Controller(zone))).ToList())
+        // 举城投降：城外的镇村不遭兵火
+        bool sparing = RuralSettlementSystem.Sparing;
+        RuralSettlementSystem.Sparing = true;
+        try
         {
-            if (city.kingdom != owner) break;
-            Kingdom current = city.GetTileZoneOccupier(zone);
-            if (current != null && current != owner) city.RemoveOccupiedTileZone(current, zone);
-            if (!city.AddOccupiedTileZone(occupier, zone, landing: true)) break;
-            if (SmoothActive) SmoothBorders.Settle(zone);
+            foreach (TileZone zone in city.zones.Where(zone => zone != null && !Friendly(attacker, Controller(zone))).ToList())
+            {
+                if (city.kingdom != owner) break;
+                Kingdom current = city.GetTileZoneOccupier(zone);
+                if (current != null && current != owner) city.RemoveOccupiedTileZone(current, zone);
+                if (!city.AddOccupiedTileZone(occupier, zone, landing: true)) break;
+                if (SmoothActive) SmoothBorders.Settle(zone);
+            }
+        }
+        finally
+        {
+            RuralSettlementSystem.Sparing = sparing;
         }
     }
 

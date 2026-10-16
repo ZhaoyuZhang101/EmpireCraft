@@ -1703,6 +1703,9 @@ public partial class PureMapPatch
             index++;
             if (!Swallowed(px, py)) Village(c, style, tint, px, py, dirt, ground, UrbanFabric.PosKey(x, y) + 3000);
         }
+        // 毁于兵火的镇村(见 RuralSettlementSystem)：一片焦土，残垣断瓦
+        foreach ((int x, int y, bool town) in g.Ruins)
+            RuralRuin(c, (x - c.X0) * s + s / 2, (y - c.Y0) * s + s / 2, town ? 16f : 7f, UrbanFabric.PosKey(x, y) + 5000, tint);
         // 田块：村镇四周散着几块条田(见 FieldColor)，一块八到十三像素宽、六到九像素高，块与块之间至少留三像素空地；
         // 只种在本城能耕的空地上，一块里能种的不到七成就换个地方(阿兹特克是水上浮田)
         var fields = new List<(int x0, int y0, int x1, int y1)>();
@@ -1819,6 +1822,28 @@ public partial class PureMapPatch
                 ? d > 1f ? AsphaltEdge : d < 0.3f && Mathf.FloorToInt(along) % 10 < 4 ? LaneMark : Asphalt
                 : d > 1f ? rim : core;
             c.Put(px, py, color, KAvenue);
+        }
+    }
+
+    // 城外的废墟：焦土一圈，残墙一段段(断开)，碎瓦、焦黑点点
+    private static void RuralRuin(Canvas c, int cx, int cy, float r, long seed, Color32 tint)
+    {
+        Color32 scorched = Lerp(tint, Rgb(112, 100, 84), 0.6f), rubble = Rgb(132, 118, 102), burnt = Rgb(66, 58, 54),
+            wall = Rgb(150, 138, 120);
+        int reach = Mathf.CeilToInt(r);
+        for (int py = cy - reach; py <= cy + reach; py++)
+        for (int px = cx - reach; px <= cx + reach; px++)
+        {
+            float d = Mathf.Sqrt((px - cx) * (px - cx) + (py - cy) * (py - cy)) /
+                      (r * (0.85f + 0.3f * DetailHash(seed, px - cx, py - cy, 1)));
+            if (d > 1f || c.Kind(px, py) != KEmpty || !c.Land(px, py)) continue;
+            float h = DetailHash(seed, px, py, 2);
+            Color32 color = h < 0.16f ? burnt : h < 0.34f ? rubble : scorched;
+            // 残墙：几段方方的墙基，断断续续
+            int lx = px - cx + reach, ly = py - cy + reach, cell = Mathf.Max(4, reach / 2);
+            bool edgeX = lx % cell == 0, edgeY = ly % cell == 0;
+            if ((edgeX || edgeY) && d < 0.8f && DetailHash(seed, lx / cell, ly / cell, edgeX ? 3 : 4) < 0.45f) color = wall;
+            c.Put(px, py, color, KEmpty);
         }
     }
 

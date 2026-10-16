@@ -261,6 +261,7 @@ public partial class PureMapPatch : GamePatch
             foreach (TileZone zone in city.zones) zone?.resetRenderHelpers();
         }
         RoadNetwork.Tick();
+        RuralSettlementSystem.Tick();
     }
 
     // 平面图的指纹：画出来的样子会变的东西都算进去

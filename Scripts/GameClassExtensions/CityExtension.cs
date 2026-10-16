@@ -766,9 +766,20 @@ public static class CityExtension
         zones.Add(tileZoneId);
         city.GetOccupiedZoneOwnerMap()[tileZoneId] = occupierId;
         OccupationReadIndex.Invalidate(city, tileZone);
+        // 地上的镇村可能毁于兵火(见 RuralSettlementSystem)
+        RuralSettlementSystem.OnZoneOccupied(city, occupier, tileZone);
 
-        // 高正统占领自动扩张：只在手动/士兵占领成功后触发
-        city.TrySpreadOccupiedZonesByMandate(occupier, tileZone);
+        // 高正统占领自动扩张：只在手动/士兵占领成功后触发(望风归附的地不毁镇村)
+        bool sparing = RuralSettlementSystem.Sparing;
+        RuralSettlementSystem.Sparing = true;
+        try
+        {
+            city.TrySpreadOccupiedZonesByMandate(occupier, tileZone);
+        }
+        finally
+        {
+            RuralSettlementSystem.Sparing = sparing;
+        }
 
         // 检查是否完成占领
         city.CheckFinishedCapture(occupier);

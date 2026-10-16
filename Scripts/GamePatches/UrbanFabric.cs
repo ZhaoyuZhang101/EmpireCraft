@@ -659,6 +659,8 @@ public static class UrbanFabric
 
     private static (long, long) PairKey(long a, long b) => a < b ? (a, b) : (b, a);
 
+    private static readonly Color32 RuinRubble = new(120, 108, 96, 255), RuinBurnt = new(70, 62, 58, 255);
+
     // 一处镇村的位置键(画法、小路的种子按位置定，与先后、归哪座城无关)
     internal static long PosKey(int x, int y) => x * 73856093L ^ y * 19349663L;
 
@@ -1185,7 +1187,7 @@ public static class UrbanFabric
     // 城郊一格：出城大路 > 关厢 > 镇 > 村 > 小路 > 林子 > 田块；其余照原样
     internal sealed class Rural
     {
-        public readonly List<int> Roads = new(), Towns = new(), Villages = new(), Paths = new();
+        public readonly List<int> Roads = new(), Towns = new(), Villages = new(), Paths = new(), Ruins = new();
         // 地块里离主城、镇、村最近的距离(格)：远了既没有田也没有林子
         public float Near;
     }
@@ -1221,6 +1223,12 @@ public static class UrbanFabric
             (int x, int y) = g.Villages[i];
             if (Overlaps(x - 2, y - 2, x + 2, y + 2)) rural.Villages.Add(i);
         }
+        for (int i = 0; i < g.Ruins.Count; i++)
+        {
+            (int x, int y, bool town) = g.Ruins[i];
+            int r = town ? 5 : 2;
+            if (Overlaps(x - r, y - r, x + r, y + r)) rural.Ruins.Add(i);
+        }
         for (int i = 0; i < g.Paths.Count; i++)
         {
             Vector2[] trail = g.Paths[i];
@@ -1248,7 +1256,8 @@ public static class UrbanFabric
     {
         if (g == null || tile?.zone == null || g.Built.Contains(tile.zone.id) && InTown(g, tile)) return false;
         Rural rural = RuralOf(g, tile.zone);
-        if (rural.Roads.Count == 0 && rural.Towns.Count == 0 && rural.Villages.Count == 0 && rural.Paths.Count == 0) return false;
+        if (rural.Roads.Count == 0 && rural.Towns.Count == 0 && rural.Villages.Count == 0 && rural.Paths.Count == 0 &&
+            rural.Ruins.Count == 0) return false;
         return Countryside(g, tile, new Color32(128, 128, 128, 255), out _, true);
     }
 
@@ -1284,6 +1293,16 @@ public static class UrbanFabric
             float d = Mathf.Sqrt(dx * dx + dy * dy), reach = size + 0.4f + 0.8f * (H(g.Seed, x, y, (int)(Angle(dx, dy) * 2f)) - 0.5f);
             if (d > reach) continue;
             result = TownTile(g, tile, color, dx, dy, d, reach, walled);
+            return true;
+        }
+        // 镇的废墟：一片暗土色，焦黑点点(村的废墟同村一样粗图不画)
+        foreach (int index in rural.Ruins)
+        {
+            (int x, int y, bool town) = g.Ruins[index];
+            if (!town) continue;
+            int dx = tile.x - x, dy = tile.y - y;
+            if (dx * dx + dy * dy > 10) continue;
+            result = Mix(color, H(g.Seed, tile.x, tile.y, 310) < 0.3f ? RuinBurnt : RuinRubble, 0.6f);
             return true;
         }
         foreach (int index in rural.Villages)
