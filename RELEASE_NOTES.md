@@ -1,7 +1,7 @@
 # 更新内容 (Update Features)
 
-2026-10-16 · 0.4.6Beta5
+2026-10-16 · 0.4.6Beta6
 
-修同一皇族即位被当成篡位：皇子受封后分出的支系、先帝之孙或藩王一系继位时，以前会随机改国号、前朝宗室另立朝廷、扣正统；现在算作本朝宗室继位，国号不变。
+开国雄主的统一战争能打到底了：讨伐以吞并为目标，割据者会举国归附，欠饷不再罢兵，开战后兵源逐月征满；开国之君族谱里补记成年子孙，不再身后无嗣。华夏都城宫城画成精细版，近代城区整片发展，高楼光影方向修正；修帝国取色报错。
 
-Fixed legitimate successions being treated as usurpations: when a grandson of the late emperor or a prince from an enfeoffed cadet branch took the throne, the dynasty used to get a random new name, lose legitimacy and see a rival court set up. Such heirs now count as members of the ruling house and the dynasty name stays.
+Founding emperors can now finish their unification wars: campaigns aim to annex, rivals may submit outright, unpaid troops no longer force peace, and levies ramp up over the first months of war. Founders now start with adult sons on record. Huaxia capitals get a detailed palace, modern districts grow as a whole, high-rise lighting is fixed, and an empire color error is fixed.
