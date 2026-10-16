@@ -33,7 +33,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 public static class TribalFissionService
 {
     public static bool IsTribal(Kingdom kingdom) =>
-        kingdom?.data != null && !kingdom.isRekt() && !kingdom.wild && kingdom.GetRegime()?.type == RegimeType.Origin;
+        kingdom?.data != null && !kingdom.isRekt() && !kingdom.wild && RegimeManager.IsPrimitive(kingdom.GetRegime()?.type);
 
     // 原始政体的部落联盟(共主是原始政体的帝国)
     private static bool IsConfederation(Empire empire) =>
@@ -54,7 +54,7 @@ public static class TribalFissionService
     {
         if (!CultureService.IsValidCulture(culture)) return 0;
         List<string> nodes = InstitutionDefinitionRegistry.GetForLine(InstitutionSystem.GetCultureLine(culture))
-            .Where(node => node?.regime == "Origin").Select(node => node.id).ToList();
+            .Where(node => node?.regime is "Origin" or "HuaxiaOrigin").Select(node => node.id).ToList();
         int best = -1;
         for (int i = 0; i < nodes.Count; i++)
             if (InstitutionSystem.IsEnacted(culture, nodes[i])) best = i;
@@ -134,6 +134,7 @@ public static class TribalFissionService
         }
         try
         {
+            Migrate();
             DetachMembers();
             FoldAlliances();
             Enfeoff();
@@ -157,9 +158,11 @@ public static class TribalFissionService
             string motherName = mother.GetKingdomName();
             Kingdom tribe = city.makeOwnKingdom(leader);
             if (tribe == null || tribe.isRekt()) return;
-            if (tribe.GetRegime()?.type != RegimeType.Origin)
+            // 新部落照母部落的政体(各文化的原始政体，或华夏原始政体)
+            RegimeType primitive = mother.GetRegime()?.type == RegimeType.HuaxiaOrigin ? RegimeType.HuaxiaOrigin : RegimeType.Origin;
+            if (tribe.GetRegime()?.type != primitive)
             {
-                tribe.SetRegimeType(RegimeType.Origin);
+                tribe.SetRegimeType(primitive);
                 tribe.LoadRegime();
                 tribe.SystemChange();
             }
@@ -308,6 +311,12 @@ public static class TribalFissionService
             if (empire.CoreKingdom?.GetRegime()?.type == RegimeType.ZhouFeudalism)
             {
                 empire.join(kingdom, pForce: true);
+                if (kingdom.GetRegime()?.type != RegimeType.ZhouFeudalism)
+                {
+                    kingdom.SetRegimeType(RegimeType.ZhouFeudalism);
+                    kingdom.LoadRegimeKeepingRole();
+                    kingdom.SystemChange();
+                }
                 string content = string.Format(LM.Get("tribal_enfeoffed_history"), kingdom.GetKingdomName(), empire.GetEmpireName());
                 LogService.LogInfo("[EmpireCraft][部落分迁] " + content);
                 empire.RecordHistory(directContent: content, kingdomId: kingdom.id);
@@ -336,6 +345,42 @@ public static class TribalFissionService
             LogService.LogInfo("[EmpireCraft][部落分迁] " + content);
             overlord.RecordHistory(directContent: content, kingdomId: kingdom.id);
             Redraw();
+        }
+    }
+
+    // 政体跟着文化走(每月)：华夏的部落以前用各文化共用的原始政体，改用华夏原始政体(旧存档、新立的国)；
+    // 本文化已经走出原始阶段(施行宗法分封)的，帝国之外还是原始政体的部落一并改过去(帝国由制度系统改，见 InstitutionSystem)
+    private static void Migrate()
+    {
+        foreach (Kingdom kingdom in World.world.kingdoms.list.ToList())
+        {
+            if (!IsTribal(kingdom) || EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(kingdom)) continue;
+            Empire empire = kingdom.GetEmpire();
+            if (empire != null && empire.CoreKingdom != kingdom) continue;
+            string culture = CultureService.GetRealmCulture(kingdom);
+            RegimeType current = kingdom.GetRegime().type, target = current;
+            if (InstitutionSystem.TryResolveCultureRegime(culture, out RegimeType resolved))
+                target = resolved;
+            else if (current == RegimeType.Origin && InstitutionSystem.GetCultureLine(culture) == "Huaxia")
+                target = RegimeType.HuaxiaOrigin;
+            // 别的文化线没有自己的原始节点：照旧用共用的原始政体，不因为解析不出来就改
+            if (target == current || !RegimeManager.IsPrimitive(target) && current == RegimeType.Origin &&
+                InstitutionSystem.GetCultureLine(culture) != "Huaxia") continue;
+            try
+            {
+                if (empire != null) InstitutionSystem.ChangeRegimeForTransition(empire, target);
+                else
+                {
+                    kingdom.SetRegimeType(target);
+                    kingdom.LoadRegimeKeepingRole();
+                    kingdom.SystemChange();
+                }
+                LogService.LogInfo($"[EmpireCraft][部落分迁] {kingdom.GetKingdomName()} 政体 {current} 改为 {target}");
+            }
+            catch (global::System.Exception exception)
+            {
+                LogService.LogWarning($"[EmpireCraft][部落分迁] {kingdom.GetKingdomName()} 改政体失败: {exception.Message}");
+            }
         }
     }
 

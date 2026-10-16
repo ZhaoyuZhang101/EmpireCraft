@@ -39,8 +39,8 @@ public static class DynastyNaming
     // 国家类别后缀的文本键：律令制的直隶(京畿)与行政区按阶段改称
     // 华夏原始阶段(母系氏族至家天下，用原始政体)：称谓换成本土的部落联盟、邦、方国、共主、方伯、巫祝、族长，城称邑
     public static bool HuaxiaOrigin(Kingdom kingdom) =>
-        kingdom?.data != null && !kingdom.isRekt() && kingdom.GetRegime()?.type == RegimeType.Origin &&
-        InstitutionSystem.GetCultureLine(CultureService.GetRealmCulture(kingdom)) == "Huaxia";
+        kingdom?.data != null && !kingdom.isRekt() && (kingdom.GetRegime()?.type == RegimeType.HuaxiaOrigin ||
+        kingdom.GetRegime()?.type == RegimeType.Origin && InstitutionSystem.GetCultureLine(CultureService.GetRealmCulture(kingdom)) == "Huaxia");
 
     // 制度线专属称谓：日本线的国家类别、官名在文本键后加 "_japan"(天皇、国司、大名、国……见各政体 OfficialType.csv)
     public static string LineSuffix(Kingdom kingdom)

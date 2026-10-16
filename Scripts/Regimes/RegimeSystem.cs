@@ -112,7 +112,8 @@ public enum RegimeType
     Republic,
     Origin,
     ClassicalRepublic, //古典城邦共和；追加在末尾以保持旧存档枚举值稳定
-    Bakufu //幕府：天皇为虚君、征夷大将军掌实权、大名世袭各藩(日本)
+    Bakufu, //幕府：天皇为虚君、征夷大将军掌实权、大名世袭各藩(日本)
+    HuaxiaOrigin //华夏原始政体：诸部议事、推举共主、禅让传贤(见 ShanrangSystem)，世袭王权以后家天下；追加在末尾
 }
 
 public enum ReligionLevel
@@ -348,6 +349,9 @@ public static class RegimeManager
         type.HasValue && regimes != null && regimes.TryGetValue(type.Value, out Regime regime) ? regime : null;
 
     public static bool IsMonarchy(RegimeType? type) => GetTemplate(type)?.is_monarchy == true;
+
+    // 原始政体(各文化共用的原始政体与华夏原始政体)
+    public static bool IsPrimitive(RegimeType? type) => type is RegimeType.Origin or RegimeType.HuaxiaOrigin;
 
     public static bool AllowsLandlordClass(RegimeType? type) => GetTemplate(type)?.allows_landlord_class ?? true;
 

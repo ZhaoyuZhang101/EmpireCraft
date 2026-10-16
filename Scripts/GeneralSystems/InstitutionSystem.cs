@@ -608,7 +608,7 @@ public static class InstitutionSystem
         // 现代同文化小国并入接壤大国(见 NationalUnificationSystem)
         NationalUnificationSystem.Consider(empire);
         // 原始阶段的帝号类别随阶段改称(华夏部落联盟→朝，日本部族连合→王权)
-        if (empire.CoreKingdom.GetRegime() is Regime originRegime && originRegime.type == RegimeType.Origin &&
+        if (empire.CoreKingdom.GetRegime() is Regime originRegime && RegimeManager.IsPrimitive(originRegime.type) &&
             !string.IsNullOrEmpty(empire.data.empire_type_key) && empire.data.empire_type_key.StartsWith("Origin_empire") &&
             empire.data.empire_type_key != OverallHelperFunc.ResolveEmpireTypeKey(originRegime, empire.CoreKingdom))
             empire.data.empire_type_key = "";

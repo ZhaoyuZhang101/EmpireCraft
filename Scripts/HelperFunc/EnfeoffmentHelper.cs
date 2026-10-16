@@ -25,7 +25,7 @@ public static class EnfeoffmentHelper
     // 建立时会把当时控制的全部法理都登记为核心，结果一般帝国一座可封的城都找不到，分封从不发生。
     // 城多的头衔排在前面，年长的兄弟先挑。
     // 原始政体没有封爵分土的制度，一律不分封(玩家反馈：原始体制能分封)
-    public static bool RegimeForbids(Empire empire) => empire?.CoreKingdom?.GetRegime()?.type == RegimeType.Origin;
+    public static bool RegimeForbids(Empire empire) => RegimeManager.IsPrimitive(empire?.CoreKingdom?.GetRegime()?.type);
 
     public static List<KingdomTitle> FindEnfeoffableTitles(Empire empire)
     {

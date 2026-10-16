@@ -59,6 +59,7 @@ public class EmpireCraftEmpireBehCheckCabinet : GameAIEmpireBase
             case RegimeType.YouMu:
             case RegimeType.Modern:
             case RegimeType.Origin:
+            case RegimeType.HuaxiaOrigin:
                 break;
             default:
                 throw new ArgumentOutOfRangeException();

@@ -1,6 +1,6 @@
 {
   "Origin": {
-    "description": "非洲原始部落",
+    "description": "原始部落",
     "icon_url": "",
     "era_name": false,
     "has_cabinet": false,
@@ -10,7 +10,31 @@
     "leader_select_method": "Succession",
     "default_kingdom": "Origin_kingdom",
     "centre_empire_separate": true,
-    "laws": [0,1,13,14,16,17,18,20,21,27,28,29,32,33,36,37,38,39,42,43,50,51,54],
+    "laws": [
+      0,
+      1,
+      13,
+      14,
+      16,
+      17,
+      18,
+      20,
+      21,
+      27,
+      28,
+      29,
+      32,
+      33,
+      36,
+      37,
+      38,
+      39,
+      42,
+      43,
+      50,
+      51,
+      54
+    ],
     "Factions": [
       {
         "_id": "3e703ecd-a604-46c1-8b0a-d18350da25e1",
@@ -86,7 +110,11 @@
           "require_traits": [],
           "condition": [],
           "city_type": "Origin_city",
-          "city_suffix_keys_by_culture": { "Huaxia": "city_suffix_county", "China": "city_suffix_county", "Japan": "city_suffix_mura" }
+          "city_suffix_keys_by_culture": {
+            "Huaxia": "city_suffix_county",
+            "China": "city_suffix_county",
+            "Japan": "city_suffix_mura"
+          }
         },
         "Origin_centre": {
           "pre": "",
@@ -108,7 +136,11 @@
             "empire_center:true"
           ],
           "city_type": "Origin_city",
-          "city_suffix_keys_by_culture": { "Huaxia": "city_suffix_county", "China": "city_suffix_county", "Japan": "city_suffix_mura" }
+          "city_suffix_keys_by_culture": {
+            "Huaxia": "city_suffix_county",
+            "China": "city_suffix_county",
+            "Japan": "city_suffix_mura"
+          }
         },
         "Origin_kingdom": {
           "pre": "",
@@ -125,7 +157,11 @@
             "empire_center:false"
           ],
           "city_type": "Origin_city",
-          "city_suffix_keys_by_culture": { "Huaxia": "city_suffix_county", "China": "city_suffix_county", "Japan": "city_suffix_mura" }
+          "city_suffix_keys_by_culture": {
+            "Huaxia": "city_suffix_county",
+            "China": "city_suffix_county",
+            "Japan": "city_suffix_mura"
+          }
         }
       },
       "cities": {
