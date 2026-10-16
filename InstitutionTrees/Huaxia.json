@@ -288,6 +288,7 @@
         "grace_edict": 1
       }
     },
+    {"id": "huaxia_orthodoxy", "name_key": "institution_huaxia_orthodoxy", "description_key": "institution_huaxia_orthodoxy_desc", "branch": "society", "advancement": 4, "requires": ["huaxia_commandery_kingdom"], "requires_techs": ["law_code"], "reform": {"base_progress_per_year": 8.0, "minimum_years": 8, "force_radicalism": 20.0}, "resistance": {"base_radicalism": 5.0, "vested_interest_radicalism": 8.0, "rebellion_threshold": 78.0}, "politics": {"support_classes": {"Officer": 0.8, "Noble": 0.2}, "oppose_classes": {"Merchant": 0.3}}, "features": {"orthodoxy": 1}, "absorb": {"enabled": false}},
     {
       "id": "huaxia_commandery_kingdom", "requires_techs": ["bureaucracy"],
       "name_key": "institution_huaxia_commandery_kingdom",

@@ -376,6 +376,12 @@ namespace EmpireCraft.Scripts.UI.Windows
             if (tributaries + vassals > 0)
                 stateItems.Add((LM.Get("empire_rail_dependencies"),
                     string.Format(LM.Get("empire_rail_dependencies_value"), tributaries, vassals), "#F2EEE2"));
+            // 华夏：定于一尊的正统学说，或百家争鸣(见 AncientSchoolsSystem)
+            string schoolCulture = InstitutionSystem.GetPrimaryCulture(_empire);
+            if (AncientSchoolsSystem.Orthodox(schoolCulture) is PartyIdeology orthodox)
+                stateItems.Add((LM.Get("empire_rail_orthodoxy"), PartySystem.GetIdeologyName(orthodox), "#E6C27A"));
+            else if (AncientSchoolsSystem.Contending(schoolCulture))
+                stateItems.Add((LM.Get("empire_rail_orthodoxy"), LM.Get("empire_rail_hundred_schools"), "#E6C27A"));
             if (republic)
             {
                 stateItems.Add((LM.Get("empire_rail_ideology"),

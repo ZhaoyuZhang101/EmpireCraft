@@ -1240,7 +1240,7 @@ public static class UIHelper
         // 第一行：理念徽章 + 名称 + 中央占比
         var top = info.BeginHoriGroup(new Vector2(inner, 11f), TextAnchor.MiddleLeft, 2, new RectOffset(0, 0, 0, 0));
         AddLayoutIcon(top.transform, SpriteTextureLoader.getSprite(EmpireCraft.Scripts.GameLibrary.IdeologyTraitIcons.Path(ideology)), 10f);
-        var name = top.AddTextIntoHoriLayout(faction.Name.ColorString(isDominate ? "#FFE9A8" : "#F2EEE2"), true,
+        var name = top.AddTextIntoHoriLayout(CliqueTitle(faction).ColorString(isDominate ? "#FFE9A8" : "#F2EEE2"), true,
             TextAnchor.MiddleLeft, new Vector2(inner - 38f, 10f));
         name.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
         HoverMarqueeText.Attach(name);
@@ -1403,7 +1403,7 @@ public static class UIHelper
             state = (string.IsNullOrEmpty(state) ? "" : state + " ") +
                     LM.Get("party_consultative_short").ColorString("#7FD8EA");
         // 第一行：名称(主导派系标金色"主导")
-        string title = faction.Name.ColorString(isDominate ? "#FFE9A8" : "#F2EEE2");
+        string title = CliqueTitle(faction).ColorString(isDominate ? "#FFE9A8" : "#F2EEE2");
         var name = details.AddTextIntoVertLayout(string.IsNullOrEmpty(state) ? title : $"{title} {state}", true,
             TextAnchor.MiddleLeft, new Vector2(infoWidth, 8.5f));
         name.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
@@ -1801,6 +1801,11 @@ public static class UIHelper
         tip.hoverAction = tip.showTooltipDefault;
         tip.enabled = true;
     }
+
+    // 朋党名后注明所主的理念(见 CliqueSystem)，如"清流(儒家)"
+    private static string CliqueTitle(FixedFaction faction) =>
+        faction.IsClique ? string.Format(LM.Get("clique_title_with_ideology"), faction.Name, PartySystem.GetIdeologyName(faction.Ideology))
+            : faction.Name;
 
     private static string FormatClassContributions(Dictionary<SocialClass, float> classes, Empire empire,
         Dictionary<SocialClass, float> classShares)

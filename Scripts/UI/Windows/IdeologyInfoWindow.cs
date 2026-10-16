@@ -175,7 +175,8 @@ public class IdeologyInfoWindow : AbstractWideWindow<IdeologyInfoWindow>
         List<(SocialClass socialClass, float affinity)> affinities = Enum.GetValues(typeof(SocialClass))
             .Cast<SocialClass>().Select(socialClass => (socialClass, PartySystem.GetAffinity(_selected, socialClass)))
             .OrderByDescending(pair => pair.Item2).ToList();
-        const float height = 74f;
+        string scope = AncientScope(_selected);
+        float height = string.IsNullOrEmpty(scope) ? 74f : 86f;
         var card = Card(new Vector2(PanelWidth, height), "FactionFrame_dominate");
 
         var head = card.BeginHoriGroup(new Vector2(PanelWidth - 12f, 20f), TextAnchor.MiddleLeft, 4);
@@ -189,6 +190,9 @@ public class IdeologyInfoWindow : AbstractWideWindow<IdeologyInfoWindow>
         var description = card.AddTextIntoVertLayout(Description(_selected).ColorString("#D8D2C0"), true,
             TextAnchor.MiddleCenter, new Vector2(PanelWidth - 16f, 18f));
         description.UseFixedFontSize(7, HorizontalWrapMode.Wrap);
+        if (!string.IsNullOrEmpty(scope))
+            card.AddTextIntoVertLayout(scope.ColorString("#E6C27A"), true, TextAnchor.MiddleCenter,
+                new Vector2(PanelWidth - 16f, 10f)).UseFixedFontSize(6, HorizontalWrapMode.Overflow);
 
         AddClassRow(card, LM.Get("ideology_window_attracts"), affinities.Where(pair => pair.affinity >= 30f).Take(4),
             "#65D66E");
@@ -214,6 +218,18 @@ public class IdeologyInfoWindow : AbstractWideWindow<IdeologyInfoWindow>
             Label(chip, $"{LM.Get($"class_{socialClass}")} {affinity:+0;-0}".ColorString(hex), 80f, 7,
                 TextAnchor.MiddleCenter);
         }
+    }
+
+    // 古代理念在哪里流传、要什么科技(见 IdeologyPopulationSystem.AddPremodern、AncientSchoolsSystem)
+    private static string AncientScope(PartyIdeology ideology)
+    {
+        if (!IdeologyFamilies.IsAncient(ideology)) return "";
+        if (ideology == PartyIdeology.Animism) return LM.Get("ideology_scope_animism");
+        if (IdeologyFamilies.IsCourtOnly(ideology)) return LM.Get("ideology_scope_court");
+        if (!IdeologyFamilies.IsSchool(ideology)) return LM.Get("ideology_scope_stance");
+        List<string> techs = AncientSchoolsSystem.Requirements(ideology);
+        return techs.Count == 0 ? LM.Get("ideology_scope_school")
+            : string.Format(LM.Get("ideology_scope_school_techs"), string.Join("、", techs));
     }
 
     private static string EconomicLabel(float x) =>

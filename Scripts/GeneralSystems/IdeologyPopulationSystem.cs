@@ -480,6 +480,8 @@ public static partial class IdeologyPopulationSystem
             if (!string.IsNullOrEmpty(culture) && InstitutionSystem.GetFeature(culture,
                     IdeologyInstitutionPaths.StageFeature(target, 1)) > 0f)
                 chance *= IdeologyInstitutionPaths.GetProfile(target).MovementMultiplier;
+            // 百家争鸣、定于一尊(见 AncientSchoolsSystem)
+            chance *= AncientSchoolsSystem.SpreadFactor(culture, target);
             // 压力越大越容易被说服(最多翻倍)
             if (pressured.HasValue && target == pressured.Value)
                 chance *= 1f + Mathf.Min(1f, PublicOpinionSystem.GetPressure(empire, target) / 50f);

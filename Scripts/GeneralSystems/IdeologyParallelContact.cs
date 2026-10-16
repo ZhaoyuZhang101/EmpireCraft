@@ -67,6 +67,8 @@ public static partial class IdeologyPopulationSystem
             float movement=available.Contains(idea)&&!string.IsNullOrEmpty(culture)&&InstitutionSystem.GetFeature(culture,
                 IdeologyInstitutionPaths.StageFeature(idea,1))>0f?IdeologyInstitutionPaths.GetProfile(idea).MovementMultiplier:1f;
             if(MediaSystem.IsMassIdeology(idea))movement*=massFactor;
+            // 百家争鸣、定于一尊(见 AncientSchoolsSystem)
+            movement*=AncientSchoolsSystem.SpreadFactor(culture,idea);
             options[i]=new ContactOption((int)idea,flags,count,organized,movement);
         }
         var classes=(SocialClass[])Enum.GetValues(typeof(SocialClass));

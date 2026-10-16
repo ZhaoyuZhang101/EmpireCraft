@@ -60,6 +60,12 @@ public sealed class CultureInstitutionState
     public long imperial_seal_item_id = -1L;
     public bool imperial_seal_made;
     public double imperial_seal_lost_since = -1d;
+    // 百家争鸣与定于一尊(华夏，见 AncientSchoolsSystem)：争鸣开始的时间、正统学说、定于一尊的时间、已经兴起的各家
+    public double hundred_schools_since = -1d;
+    public string orthodox_school = "";
+    public double orthodox_since = -1d;
+    public List<string> schools_seen = new();
+    public bool schools_initialized;
 }
 
 // 帝国只持有"正在推进的这一次改革"和"本政权已经落地过哪些节点的持久效果"。
