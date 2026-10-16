@@ -435,6 +435,8 @@ internal static class MainTab
         IdeologySeedPower.Init();
         foreach (GeneralSystems.PartyIdeology ideology in Enum.GetValues(typeof(GeneralSystems.PartyIdeology)))
         {
+            // 只在朝堂里的理念(外戚、宦官等，见 IdeologyFamilies.IsCourtOnly)不在百姓里流传，撒种子没有意义
+            if (GeneralSystems.IdeologyFamilies.IsCourtOnly(ideology)) continue;
             string powerId = IdeologySeedPower.Id(ideology);
             PowerButton seedButton = PowerButtonCreator.CreateGodPowerButton(powerId,
                 SpriteTextureLoader.getSprite(IdeologyTraitIcons.Path(ideology)));
