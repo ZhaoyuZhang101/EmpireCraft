@@ -1,5 +1,7 @@
+using System.Collections.Generic;
 using System.Linq;
 using EmpireCraft.Scripts.Compatibility;
+using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GeneralSystems;
 using HarmonyLib;
@@ -10,6 +12,9 @@ namespace EmpireCraft.Scripts.GamePatches;
 // 城市扩张守原版的规矩：原版选地(CityZoneGrowth.getZoneToClaim)、能不能领(canBeClaimedByCity：地貌能否定居、
 // 别国的地要开着原版"边界侵蚀"且两国交战)、与本城接壤；原版还要小人走到那块地里去领，走不到(隔水、翻山)就领不到。
 // 模组只加了每城地块上限(模组设置)，以及无小人模式下由虚拟居民代领时按"走得到"核对(见 Reachable)。
+// 城的地按村镇拓展(用户 2026-10-17 选"新建村镇就划进它一片"、限制"按离城远近")：纯净地图下，无主之地只领城区(城心、
+// 建成地块)或本城村镇两块地以内的(见 Settled)；再往外靠城外新建村镇划地(见 RuralSettlementSystem.Found)。
+// 别国的地(原版"边界侵蚀")不受这一条限制。
 public class CityExpansionPatch : GamePatch
 {
     public ModDeclare declare { get; set; }
@@ -29,6 +34,24 @@ public class CityExpansionPatch : GamePatch
     public static bool AtLimit(City city) => city?.zones != null &&
         ModClass.CITY_MAX_ZONES > 0 && city.zones.Count >= ModClass.CITY_MAX_ZONES;
 
+    // 城区或本城村镇几块地以内
+    public const int SettledReach = 2;
+
+    public static bool Settled(City city, TileZone zone)
+    {
+        if (!PureMapMode.Enabled || zone == null || zone.city != null || city?.zones == null) return true;
+        bool Near(TileZone anchor) => anchor != null && global::System.Math.Abs(anchor.x - zone.x) <= SettledReach &&
+                                      global::System.Math.Abs(anchor.y - zone.y) <= SettledReach;
+        if (Near(city.getTile()?.zone)) return true;
+        HashSet<int> built = PureMapPatch.BuiltZones(city);
+        if (built != null)
+            foreach (TileZone own in city.zones)
+                if (own != null && built.Contains(own.id) && Near(own)) return true;
+        foreach (RuralSettlement settlement in RuralSettlementSystem.InCity(city))
+            if (Near(World.world.GetTile(settlement.x, settlement.y)?.zone)) return true;
+        return false;
+    }
+
     public static void AfterCanGrowZones(City __instance, ref bool __result)
     {
         if (__result && !AncientWarfareCompatibility.OwnsObject(__instance) && AtLimit(__instance))
@@ -39,6 +62,7 @@ public class CityExpansionPatch : GamePatch
     {
         // 到达目标前再次核对，防止多个扩张者和 expansionists 连续领取越过上限。
         AfterCanGrowZones(__instance, ref __result);
+        if (__result && !AncientWarfareCompatibility.OwnsObject(__instance) && !Settled(__instance, pZone)) __result = false;
     }
 
     // 走得到：原版是小人走到那块地里去领(BehActorCheckZoneTarget 在区块里找一格与自己同岛的地)，
@@ -64,8 +88,15 @@ public class CityExpansionPatch : GamePatch
     public static void AfterGetZoneToClaim(CityZoneGrowth __instance, Actor pActor, City pCity,
         bool pDebug, ref TileZone __result)
     {
-        if (pDebug || __result != null || pCity?.data == null || pCity.isRekt() || AtLimit(pCity) ||
-            AncientWarfareCompatibility.OwnsObject(pCity) || !pCity.canGrowZones()) return;
+        if (pDebug || pCity?.data == null || pCity.isRekt() || AtLimit(pCity) ||
+            AncientWarfareCompatibility.OwnsObject(pCity)) return;
+        // 无主之地只领城区、村镇附近的(见 Settled)
+        if (__result != null)
+        {
+            if (Settled(pCity, __result)) return;
+            __result = null;
+        }
+        if (!pCity.canGrowZones()) return;
         // 原版随机选中一条受阻边界时，检查本次波搜索已经证明连通的其它区域。
         // 不保存“无法扩张”状态，每次请求都按当前地形重算；不会跨水域/山脉硬抢地。
         // 起点用城心(纯净地图里人物到处瞬移，所在格不一定在本城)
@@ -75,7 +106,7 @@ public class CityExpansionPatch : GamePatch
         {
             TileZone candidate = connection.zone;
             if (candidate == null || candidate.city != null || candidate.tiles_with_ground == 0 ||
-                !candidate.canBeClaimedByCity(pCity) ||
+                !candidate.canBeClaimedByCity(pCity) || !Settled(pCity, candidate) ||
                 (pActor?.subspecies != null && !candidate.checkCanSettleInThisBiomes(pActor.subspecies))) continue;
             bool adjacent = false;
             foreach (TileZone neighbour in candidate.neighbours)
@@ -93,7 +124,7 @@ public class CityExpansionPatch : GamePatch
         // 波搜索可能提早停在第一个空区，再尝试原版完整的边界邻接检查。
         TileZone fallback = __instance.getRandomZone(pCity);
         if (fallback?.city == null && fallback?.centerTile != null &&
-            fallback.centerTile.isSameIsland(origin) &&
+            fallback.centerTile.isSameIsland(origin) && Settled(pCity, fallback) &&
             (pActor?.subspecies == null || fallback.checkCanSettleInThisBiomes(pActor.subspecies)))
             __result = fallback;
     }

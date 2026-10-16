@@ -389,6 +389,13 @@ public static class UrbanFabric
             g.Towns.Exists(t => Mathf.Abs(t.x - x) + Mathf.Abs(t.y - y) < t.size + room) ||
             g.Villages.Exists(v => Mathf.Abs(v.x - x) + Mathf.Abs(v.y - y) < room) ||
             g.Ruins.Exists(r => Mathf.Abs(r.x - x) + Mathf.Abs(r.y - y) < room);
+        int reach = 14 + 8 * tier;
+        float far = 12f + reach - 2f;
+        // 本城地上没地方时，城外紧挨着本城、离城心 far 格以内的无主空地上也可以新建一处，建了就把四周划进本城
+        // (每城一年至多一处，见 RuralSettlementSystem.Found)
+        bool frontier = RuralSettlementSystem.MayFound(g.City);
+        bool Edge(int x, int y) => frontier && (x - g.GateX) * (x - g.GateX) + (y - g.GateY) * (y - g.GateY) <= far * far &&
+                                   Frontier(g, x, y);
         // 镇：落在路上(大路出城十格以外、岔路五格以外)；离路口多远只看种子，不随路的长短(档位)变
         int towns = tier switch { 2 => 1, 3 => 2 + (H(g.Seed, 61) < 0.5f ? 1 : 0), 4 => 3 + (H(g.Seed, 61) < 0.5f ? 1 : 0), _ => 0 };
         for (int attempt = 0; attempt < 16 && townCount < towns && g.Roads.Count > 0; attempt++)
@@ -398,21 +405,23 @@ public static class UrbanFabric
             if (at > road.Length) continue;
             (int x, int y) = Point(road, at);
             int size = tier >= 3 ? (H(g.Seed, attempt, 63) < 0.5f ? 4 : 5) : 3;
-            if (!Open(g, x, y) || g.Towns.Exists(t => Mathf.Abs(t.x - x) + Mathf.Abs(t.y - y) < t.size + size + 6) ||
+            bool edge = !Open(g, x, y) && Edge(x, y);
+            if (!Open(g, x, y) && !edge || g.Towns.Exists(t => Mathf.Abs(t.x - x) + Mathf.Abs(t.y - y) < t.size + size + 6) ||
                 Taken(x, y, size + 4)) continue;
             bool walled = tier >= 3 && H(g.Seed, attempt, 64) < 0.45f;
             g.Towns.Add((x, y, size, walled));
             townCount++;
-            RuralSettlementSystem.Add(x, y, true, size, walled);
+            RuralSettlement town = RuralSettlementSystem.Add(x, y, true, size, walled);
+            if (!edge) continue;
+            RuralSettlementSystem.Found(g.City, town, g.GateX, g.GateY, far);
+            frontier = false;
         }
         // 村：散在路网之间，离城心十二格以外。村址是固定的一处处(每 11×11 格一处，随机偏一点，约四分之三有村)，
         // 取本城没建成的平地上、够得着的，由近及远取够数——城长大了、档位变了，原有的村不挪地方，只是近处的被城吞进去、
         // 远处的多出来几座(用户 2026-10-16 "为什么每次更新城市后这些村子的位置会变"：以前按随机方位一个个试，
         // 城的轮廓、建成地块、档位一变，前面试中的不一样，整组村子都换了地方)
-        int reach = 14 + 8 * tier;
         int villages = tier switch { 0 => 1, 1 => 2, 2 => 4, 3 => 6, _ => 8 } + (int)(H(g.Seed, 65) * (tier >= 4 ? 4 : 3));
         const int SiteCell = 11;
-        float far = 12f + reach - 2f;
         var sites = new List<(int x, int y, float d)>();
         for (int cy = Mathf.FloorToInt((g.GateY - far) / SiteCell); cy <= Mathf.FloorToInt((g.GateY + far) / SiteCell); cy++)
         for (int cx = Mathf.FloorToInt((g.GateX - far) / SiteCell); cx <= Mathf.FloorToInt((g.GateX + far) / SiteCell); cx++)
@@ -424,30 +433,39 @@ public static class UrbanFabric
             if (d >= 12f && d <= far) sites.Add((sx, sy, d));
         }
         sites.Sort((p, q) => p.d.CompareTo(q.d));
-        foreach ((int x, int y, _) in sites)
+        bool Spaced(int x, int y)
         {
-            if (villageCount >= villages) break;
-            if (!Open(g, x, y)) continue;
-            if (g.Towns.Exists(t => Mathf.Abs(t.x - x) + Mathf.Abs(t.y - y) < t.size + 8)) continue;
-            if (g.Villages.Exists(v => Mathf.Abs(v.x - x) + Mathf.Abs(v.y - y) < 9)) continue;
-            if (g.Ruins.Exists(r => Mathf.Abs(r.x - x) + Mathf.Abs(r.y - y) < 9)) continue;
+            if (g.Towns.Exists(t => Mathf.Abs(t.x - x) + Mathf.Abs(t.y - y) < t.size + 8)) return false;
+            if (g.Villages.Exists(v => Mathf.Abs(v.x - x) + Mathf.Abs(v.y - y) < 9)) return false;
+            if (g.Ruins.Exists(r => Mathf.Abs(r.x - x) + Mathf.Abs(r.y - y) < 9)) return false;
             // 离路太近的不要(会压在路上)
-            int best = 15, bx = 0, by = 0;
+            int best = 15;
             foreach (Road road in g.Roads)
                 for (int d = 0; d <= road.Length; d++)
                 {
                     (int rx, int ry) = Point(road, d);
-                    int length = Mathf.Abs(rx - x) + Mathf.Abs(ry - y);
-                    if (length >= best) continue;
-                    best = length;
-                    bx = rx;
-                    by = ry;
+                    best = Mathf.Min(best, Mathf.Abs(rx - x) + Mathf.Abs(ry - y));
                 }
-            if (best < 3) continue;
+            return best >= 3;
+        }
+        foreach ((int x, int y, _) in sites)
+        {
+            if (villageCount >= villages) break;
+            if (!Open(g, x, y) || !Spaced(x, y)) continue;
             g.Villages.Add((x, y));
             villageCount++;
             RuralSettlementSystem.Add(x, y, false, 0, false);
         }
+        // 本城地上不够数：城外最近的一处村址(见上面的 frontier)
+        if (villageCount < villages)
+            foreach ((int x, int y, _) in sites)
+            {
+                if (!Edge(x, y) || !Spaced(x, y)) continue;
+                g.Villages.Add((x, y));
+                villageCount++;
+                RuralSettlementSystem.Found(g.City, RuralSettlementSystem.Add(x, y, false, 0, false), g.GateX, g.GateY, far);
+                break;
+            }
         // 画出来的路：两城之间的官道(见 Links)；通往邻城有官道的方向不再另画出城大路，出城大路、岔路走到本城地界以前收住
         List<(Road road, City other)> links = Links(g);
         var drawn = new List<float>(linked);
@@ -853,6 +871,23 @@ public static class UrbanFabric
     }
 
     #endregion
+
+    // 城外紧挨着本城的无主空地(城外新建村镇用，见 PlaceCountryside)
+    private static bool Frontier(Geometry g, int x, int y)
+    {
+        WorldTile tile = World.world.GetTile(x, y);
+        TileZone zone = tile?.zone;
+        if (zone == null || zone.city != null || tile.Type == null || tile.Type.liquid || Rough(tile) ||
+            MapWallSystem.Contains(tile) || zone.neighbours_all == null) return false;
+        bool beside = false;
+        foreach (TileZone neighbour in zone.neighbours_all)
+            if (neighbour?.city == g.City)
+            {
+                beside = true;
+                break;
+            }
+        return beside && RuralSettlementSystem.CanClaim(g.City, zone);
+    }
 
     private static bool Open(Geometry g, int x, int y)
     {

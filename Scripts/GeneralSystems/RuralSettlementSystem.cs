@@ -26,6 +26,11 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 名字头一回标注时按位置起(华夏的村多是姓氏加家庄、村、屯，其余雅字加村、庄；镇是雅字或方位加镇，同城不重名，
 //     见 MapLabelOverlay)，记进存档，从此不随先后、归属变；废墟标"某某·废墟"；
 //   · 拉近到标注街名的程度，没选神力时点一下镇村：底部提示栏写它是镇是村、约多少人、属哪座城哪国，废墟写毁了几年。
+// 城的地按村镇拓展(用户 2026-10-17 "城市的面积也按照村镇多少来拓展""但是会有个限制"，选"新建村镇就划进它一片"、限制"按离城远近")：
+//   · 城长大要添村镇、本城地上没地方时，在城外紧挨着本城、离城心不太远(与选村址同一个距离，随城的档位放宽)的无主空地上建，
+//     每城一年至多一处；建了就把它那块地和四周离城心同样不太远的无主之地划进本城(见 Found、ClaimPending)；
+//   · 原版一块块往外领地，只领城区或本城村镇两块地以内的无主之地(见 CityExpansionPatch.Settled)，再往外要靠新建村镇。
+//   领地照原版的规矩：开着原版"王国扩张"、地貌能定居、走得到(CityExpansionPatch.Reachable)、不超过每城地块上限。
 public static class RuralSettlementSystem
 {
     private const float VillageWeight = 1f, TownWeight = 3f, CityWeight = 6f, RuinedOutputLoss = 0.6f, BurnPopulationLoss = 0.5f;
@@ -48,6 +53,8 @@ public static class RuralSettlementSystem
         _byZone = null;
         _nextId = 1;
         _lastMonth = -1d;
+        LastFounded.Clear();
+        Pending.Clear();
         Revision++;
     }
 
@@ -115,6 +122,63 @@ public static class RuralSettlementSystem
     }
 
     public static void Touch() => Revision++;
+
+    #region 新建村镇划地
+
+    private const double FoundYears = 1d;
+    // 各城上一回在城外新建村镇的时间(不存档，读档后头一回不限)
+    private static readonly Dictionary<long, double> LastFounded = new();
+    // 等着划地的：(城, 镇村, 城心, 离城心多远以内)；城市平面图里只记下，每次刷新城郊时划(见 ClaimPending)
+    private static readonly List<(long city, int settlement, int gateX, int gateY, float far)> Pending = new();
+
+    // 这座城这会儿能不能在城外新建村镇
+    public static bool MayFound(City city)
+    {
+        if (city?.data == null || city.isRekt() || city.kingdom == null || ModClass.IS_CLEAR ||
+            !WorldLawLibrary.world_law_kingdom_expansion.isEnabled() ||
+            Compatibility.AncientWarfareCompatibility.OwnsObject(city) || GamePatches.CityExpansionPatch.AtLimit(city))
+            return false;
+        return !LastFounded.TryGetValue(city.data.id, out double last) || Date.getYearsSince(last) >= FoundYears;
+    }
+
+    // 这块无主之地本城领不领得到(原版的规矩)
+    public static bool CanClaim(City city, TileZone zone) =>
+        zone != null && zone.city == null && zone.tiles_with_ground > 0 && zone.canBeClaimedByCity(city) &&
+        GamePatches.CityExpansionPatch.Reachable(zone, city) && !GamePatches.CityExpansionPatch.AtLimit(city);
+
+    // 在城外新建了一处镇村：记下，等着划地
+    public static void Found(City city, RuralSettlement settlement, int gateX, int gateY, float far)
+    {
+        if (city?.data == null || settlement == null) return;
+        LastFounded[city.data.id] = World.world.getCurWorldTime();
+        Pending.Add((city.data.id, settlement.id, gateX, gateY, far));
+    }
+
+    // 划地：镇村那块地，和四周离城心 far 格以内的无主之地
+    public static void ClaimPending()
+    {
+        if (Pending.Count == 0 || World.world?.cities == null) return;
+        var pending = new List<(long city, int settlement, int gateX, int gateY, float far)>(Pending);
+        Pending.Clear();
+        foreach ((long cityId, int settlementId, int gateX, int gateY, float far) in pending)
+        {
+            City city = World.world.cities.get(cityId);
+            if (city?.data == null || city.isRekt() || !All.TryGetValue(settlementId, out RuralSettlement settlement)) continue;
+            TileZone seat = World.world.GetTile(settlement.x, settlement.y)?.zone;
+            if (seat == null) continue;
+            if (seat.city == null && CanClaim(city, seat)) city.addZone(seat);
+            if (seat.city != city || seat.neighbours_all == null) continue;
+            foreach (TileZone zone in seat.neighbours_all)
+            {
+                if (zone?.centerTile == null || !CanClaim(city, zone)) continue;
+                float dx = zone.centerTile.x - gateX, dy = zone.centerTile.y - gateY;
+                if (dx * dx + dy * dy <= far * far) city.addZone(zone);
+            }
+            Revision++;
+        }
+    }
+
+    #endregion
 
     // 正好落在 (x, y) 这一格的镇村
     public static RuralSettlement At(int x, int y)
@@ -215,9 +279,10 @@ public static class RuralSettlementSystem
         }
     }
 
-    // 每月：在原址重建(见 PureMapPatch.RefreshUrbanSlice)
+    // 每月：在原址重建(见 PureMapPatch.RefreshUrbanSlice)；新建村镇的划地每次都办
     public static void Tick()
     {
+        ClaimPending();
         if (World.world == null || All.Count == 0) return;
         double now = World.world.getCurWorldTime();
         if (_lastMonth >= 0d && now >= _lastMonth && Date.getMonthsSince(_lastMonth) < 1) return;
