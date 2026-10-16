@@ -30,6 +30,11 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //         或直辖三分之一且再无一国及其三分之一，即称皇帝，改行郡县律令制。
 //   战国兼并：诸侯互伐以吞并或割地为务(见 WarGoalSystem)；称王、变法之国每年主动伐接壤弱国；一城小国可能举国降于大国；
 //         和约割走诸侯都城同攻破都城，灭其国；合纵之国每场仗只有四成出兵来援。
+// 科技推时代(用户 2026-10-17 选"科技推时代")：春秋要先有青铜铸造、战国要先有冶铁(科技树关着不限)，没有这门科技，
+//   王室再弱也停在原来的时代(王畿失陷照样东迁，等科技到了再入春秋)；有了下一时代的科技，衰落门槛放宽：
+//   西周有了冶铁，天命低于 70 即入春秋；春秋有了炼钢，天命低于 40 或诸侯并到九国及以下即入战国。神力推进不受限。
+// 看得见(用户 2026-10-17)：春秋战国之始、会盟赐胙、霸主讨伐、攘夷勤王、称王变法、灭国合纵等大事弹世界提示(见 Announce)；
+//   夷狄来犯、天子出兵的那场仗改名"尊王攘夷"。
 // 战国时诸侯不再留在帝国里：各自离开帝国(郡仍归王畿)，成为自由度很高的诸侯——有自己的颜色、国库、官制、军队，
 // 只记着所属周室(KingdomExtraData.zhou_sphere_id，标"某诸侯国")，地图上整个周室(王畿连同诸侯)外围一圈加粗边框；
 // 春秋战国的规则照旧，判断"是不是周室诸侯"一律看 SphereOf(帝国成员或战国离开帝国的诸侯)。统一后诸侯各自独立。
@@ -57,6 +62,20 @@ public static class ZhouEraSystem
     }
 
     public static int Era(Empire empire) => Applies(empire) ? State(empire).era : -1;
+
+    // 科技推时代：进入下一时代须先有的科技(西周→春秋青铜铸造，春秋→战国冶铁)；有了再下一门，衰落门槛放宽
+    public const string SpringTech = "bronze_casting", WarringTech = "ironworking", LateWarringTech = "steelmaking";
+
+    public static string GateTech(int era) => era == WesternZhou ? SpringTech : era == Spring ? WarringTech : null;
+
+    private static bool Knows(Empire empire, string tech) =>
+        TechnologySystem.IsEnabled && TechnologySystem.HasTech(InstitutionSystem.GetPrimaryCulture(empire), tech);
+
+    public static bool TechReady(Empire empire, int era)
+    {
+        string tech = GateTech(era);
+        return tech == null || !TechnologySystem.IsEnabled || Knows(empire, tech);
+    }
 
     // 春秋、战国王室衰微：天子不能再从诸侯手里收地。削藩、收回法理、按法理整合与划界、
     // 战时代管、收复旧都、绝嗣收归都不再发生；诸侯打下的地归自己(尽有其地)，王畿只靠自己的兵守土开疆
@@ -303,7 +322,7 @@ public static class ZhouEraSystem
             state.annexed++;
             state.kings.Remove(loser.id);
             state.reforms.Remove(loser.id);
-            Log(empire, string.Format(LM.Get("zhou_log_annexed"), winner.GetKingdomName(), loserName));
+            Announce(empire, string.Format(LM.Get("zhou_log_annexed"), winner.GetKingdomName(), loserName), winner, history: true);
         }
         catch (Exception exception)
         {
@@ -322,7 +341,7 @@ public static class ZhouEraSystem
         if (!Applies(empire) || empire.CoreKingdom != royal || winner?.data == null || SphereOf(winner) != empire ||
             State(empire).era < Warring) return;
         string zhou = empire.GetEmpireName();
-        Log(empire, string.Format(LM.Get("zhou_log_zhou_fell"), winner.GetKingdomName(), zhou));
+        Announce(empire, string.Format(LM.Get("zhou_log_zhou_fell"), winner.GetKingdomName(), zhou), winner);
         ZhouEraState carried = State(empire);
         long oldId = empire.id;
         if (!empire.ReplaceEmpire(winner)) return;
@@ -395,8 +414,16 @@ public static class ZhouEraSystem
             Kingdom foe = coreAttacker ? war.main_defender : war.main_attacker;
             if (foe == null || SphereOf(foe) != empire) continue;
             if (state.era >= Warring) continue;
+            var rallied = new List<string>();
             foreach (Kingdom loyal in Loyalists(empire, state, foe).Take(3))
+            {
+                bool before = war.isAttacker(loyal) || war.isDefender(loyal);
                 JoinSide(war, loyal, coreAttacker);
+                if (!before && (war.isAttacker(loyal) || war.isDefender(loyal))) rallied.Add(loyal.GetKingdomName());
+            }
+            if (rallied.Count > 0)
+                Announce(empire, string.Format(LM.Get("zhou_log_rally"), foe.GetKingdomName(), string.Join("、", rallied)), core,
+                    history: true);
         }
         // 攘夷：夷狄攻打诸侯，天子与霸主出兵来援(只在春秋；战国不再尊王攘夷)
         if (state.era == Spring)
@@ -406,9 +433,19 @@ public static class ZhouEraSystem
                 if (war == null || war.hasEnded() || !war.isDefender(vassal)) continue;
                 Kingdom attacker = war.main_attacker;
                 if (!IsBarbarian(empire, attacker)) continue;
+                bool already = war.isDefender(core);
                 JoinSide(war, core, attackerSide: false);
-                if (state.era == Spring && World.world.kingdoms.get(state.hegemon_id) is Kingdom hegemon &&
-                    hegemon != vassal) JoinSide(war, hegemon, attackerSide: false);
+                Kingdom hegemon = World.world.kingdoms.get(state.hegemon_id);
+                if (hegemon != null && hegemon != vassal && !hegemon.isRekt()) JoinSide(war, hegemon, attackerSide: false);
+                else hegemon = null;
+                if (already || !war.isDefender(core)) continue;
+                war.data.name = string.Format(LM.Get("zhou_repel_war_name"), vassal.GetKingdomName(), attacker.GetKingdomName());
+                bool withHegemon = hegemon != null && war.isDefender(hegemon);
+                Announce(empire, withHegemon
+                        ? string.Format(LM.Get("zhou_log_repel_hegemon"), core.GetKingdomName(), hegemon.GetKingdomName(),
+                            vassal.GetKingdomName(), attacker.GetKingdomName())
+                        : string.Format(LM.Get("zhou_log_repel"), core.GetKingdomName(), vassal.GetKingdomName(),
+                            attacker.GetKingdomName()), core, history: true);
             }
         // 合纵：所抗之国攻打合纵之国，各国来援
         if (state.era >= Warring && World.world.kingdoms.get(state.coalition_target) is Kingdom target)
@@ -465,12 +502,17 @@ public static class ZhouEraSystem
         switch (state.era)
         {
             case WesternZhou:
-                if (EastwardMove(empire, state) || WeakRoyalty(empire)) EnterSpring(empire, state);
+                // 王畿失陷照样东迁；没有青铜铸造就停在西周，科技到了再入春秋
+                bool moved = EastwardMove(empire, state);
+                if (TechReady(empire, WesternZhou) && (moved || state.eastward_at >= 0d || WeakRoyalty(empire)))
+                    EnterSpring(empire, state);
                 break;
             case Spring:
                 SpringYear(empire, state);
+                if (!TechReady(empire, Spring)) break;
+                bool late = Knows(empire, LateWarringTech);
                 int vassals = Vassals(empire).Count();
-                if (state.partitioned || empire.Mandate < 30 || vassals <= 7 && state.annexed >= 1)
+                if (state.partitioned || empire.Mandate < (late ? 40 : 30) || vassals <= (late ? 9 : 7) && state.annexed >= 1)
                     EnterWarring(empire, state);
                 break;
             case Warring:
@@ -486,17 +528,18 @@ public static class ZhouEraSystem
         City old = World.world.cities.get(state.royal_capital_id);
         Kingdom core = empire.CoreKingdom;
         if (old == null || old.isRekt() || old.kingdom == core || core.capital == null) return false;
-        Log(empire, string.Format(LM.Get("zhou_log_eastward"), old.GetCityName(), core.capital.GetCityName()));
+        Announce(empire, string.Format(LM.Get("zhou_log_eastward"), old.GetCityName(), core.capital.GetCityName()), history: true);
         state.royal_capital_id = core.capital.id;
         state.eastward_at = World.world.getCurWorldTime();
         return true;
     }
 
-    // 王畿兵力不及最强诸侯(只比兵力)，或天命低于 60
+    // 王畿兵力不及最强诸侯(只比兵力)，或天命低于 60(有了冶铁 70)
     private static bool WeakRoyalty(Empire empire)
     {
         int royal = empire.CoreKingdom.countTotalWarriors();
-        return empire.Mandate < 60 || Vassals(empire).Any(vassal => vassal.countTotalWarriors() > royal);
+        return empire.Mandate < (Knows(empire, WarringTech) ? 70 : 60) ||
+               Vassals(empire).Any(vassal => vassal.countTotalWarriors() > royal);
     }
 
     public static void EnterSpring(Empire empire, ZhouEraState state)
@@ -510,8 +553,9 @@ public static class ZhouEraSystem
             if (vassal.GetKingdomType() != KingdomType.ZhouFeudalism_jun)
                 vassal.GetRegime()?.SetAllowDiplomacy(true);
         Log(empire, LM.Get("zhou_log_spring"));
-        empire.RecordHistory(directContent: string.Format(LM.Get("zhou_history_spring"), empire.GetEmpireName()),
-            kingdomId: empire.CoreKingdom.id);
+        string spring = string.Format(LM.Get("zhou_history_spring"), empire.GetEmpireName());
+        empire.RecordHistory(directContent: spring, kingdomId: empire.CoreKingdom.id);
+        EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventOnly(spring, empire.CoreKingdom);
         HoldConference(empire, state, null);
     }
 
@@ -524,8 +568,9 @@ public static class ZhouEraSystem
         if (state.hegemon_id >= 0) Log(empire, LM.Get("zhou_log_hegemony_ends"));
         state.hegemon_id = -1L;
         Log(empire, LM.Get("zhou_log_warring"));
-        empire.RecordHistory(directContent: string.Format(LM.Get("zhou_history_warring"), empire.GetEmpireName()),
-            kingdomId: empire.CoreKingdom.id);
+        string warring = string.Format(LM.Get("zhou_history_warring"), empire.GetEmpireName());
+        empire.RecordHistory(directContent: warring, kingdomId: empire.CoreKingdom.id);
+        EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventOnly(warring, empire.CoreKingdom);
     }
 
     #endregion
@@ -540,7 +585,7 @@ public static class ZhouEraSystem
                      Power(hegemon) >= 0.7f * Vassals(empire).Where(other => other != hegemon).Select(Power).DefaultIfEmpty(0).Max();
         if (!valid)
         {
-            if (hegemon != null) Log(empire, string.Format(LM.Get("zhou_log_hegemon_lost"), hegemon.GetKingdomName()));
+            if (hegemon != null) Announce(empire, string.Format(LM.Get("zhou_log_hegemon_lost"), hegemon.GetKingdomName()), hegemon);
             state.hegemon_id = -1L;
             HoldConference(empire, state, null);
         }
@@ -577,8 +622,8 @@ public static class ZhouEraSystem
         state.hegemon_since = World.world.getCurWorldTime();
         empire.AddMandate(3);
         string place = hegemon.capital?.GetCityName() ?? hegemon.GetKingdomName();
-        Log(empire, string.Format(LM.Get(renewed ? "zhou_log_conference_renew" : "zhou_log_conference"),
-            hegemon.GetKingdomName(), place));
+        Announce(empire, string.Format(LM.Get(renewed ? "zhou_log_conference_renew" : "zhou_log_conference"),
+            hegemon.GetKingdomName(), place), hegemon);
         if (!renewed)
             empire.RecordHistory(directContent: string.Format(LM.Get("zhou_history_hegemon"), hegemon.GetKingdomName(), place),
                 kingdomId: hegemon.id);
@@ -631,7 +676,8 @@ public static class ZhouEraSystem
                 continue;
             War war = World.world.diplomacy.startWar(hegemon, defiant, WarTypeLibrary.normal);
             if (war == null) continue;
-            Log(empire, string.Format(LM.Get("zhou_log_punish_defiant"), hegemon.GetKingdomName(), defiant.GetKingdomName()));
+            Announce(empire, string.Format(LM.Get("zhou_log_punish_defiant"), hegemon.GetKingdomName(), defiant.GetKingdomName()),
+                hegemon, history: true);
             return;
         }
     }
@@ -649,8 +695,8 @@ public static class ZhouEraSystem
                 float chance = Power(victim) * 2 < Power(vassal) ? 0.5f : 0.25f;
                 if (Random.value > chance) continue;
                 vassal.EndWarWith(victim);
-                Log(empire, string.Format(LM.Get("zhou_log_arbitrate"), hegemon.GetKingdomName(), vassal.GetKingdomName(),
-                    victim.GetKingdomName()));
+                Announce(empire, string.Format(LM.Get("zhou_log_arbitrate"), hegemon.GetKingdomName(), vassal.GetKingdomName(),
+                    victim.GetKingdomName()), hegemon);
             }
     }
 
@@ -665,7 +711,9 @@ public static class ZhouEraSystem
             War war = World.world.diplomacy.startWar(hegemon, usurper, WarTypeLibrary.normal);
             if (war == null) continue;
             war.SetEmpireWarType(EmpireCraft.Scripts.Enums.EmpireWarType.攘夷);
-            Log(empire, string.Format(LM.Get("zhou_log_punish"), hegemon.GetKingdomName(), usurper.GetKingdomName()));
+            war.data.name = string.Format(LM.Get("zhou_punish_war_name"), hegemon.GetKingdomName(), usurper.GetKingdomName());
+            Announce(empire, string.Format(LM.Get("zhou_log_punish"), hegemon.GetKingdomName(), usurper.GetKingdomName()),
+                hegemon, history: true);
             return;
         }
     }
@@ -715,7 +763,7 @@ public static class ZhouEraSystem
         }
         if (heirs.Count == 0) return false;
         state.partitioned = true;
-        Log(empire, string.Format(LM.Get("zhou_log_partition"), name, string.Join("、", heirs)));
+        Announce(empire, string.Format(LM.Get("zhou_log_partition"), name, string.Join("、", heirs)), vassal);
         empire.RecordHistory(directContent: string.Format(LM.Get("zhou_history_partition"), name, string.Join("、", heirs)),
             kingdomId: vassal.id);
         return true;
@@ -734,7 +782,7 @@ public static class ZhouEraSystem
         seat.removeLeader();
         vassal.setKing(usurper);
         usurper.setCity(vassal.capital);
-        Log(empire, string.Format(LM.Get("zhou_log_usurp"), usurper.getName(), vassal.GetKingdomName()));
+        Announce(empire, string.Format(LM.Get("zhou_log_usurp"), usurper.getName(), vassal.GetKingdomName()), vassal, history: true);
     }
 
     // 称王：春秋时子爵的夷狄大国僭越称王；战国时三城以上的大国相继称王
@@ -760,8 +808,8 @@ public static class ZhouEraSystem
         if (state.kings.Contains(vassal.id)) return;
         state.kings.Add(vassal.id);
         if (usurp) empire.AddMandate(-10);
-        Log(empire, string.Format(LM.Get(usurp ? "zhou_log_usurp_king" : "zhou_log_proclaim_king"),
-            vassal.GetKingdomName()));
+        Announce(empire, string.Format(LM.Get(usurp ? "zhou_log_usurp_king" : "zhou_log_proclaim_king"),
+            vassal.GetKingdomName()), vassal, history: true);
         if (state.hegemon_id == vassal.id) state.hegemon_id = -1L;
     }
 
@@ -780,7 +828,7 @@ public static class ZhouEraSystem
                 empire.AddMandate(-1);
                 // 旧贵族怨望
                 ClaimPolicySystem.AddGrievance(empire, SocialClass.Noble, 5f);
-                Log(empire, string.Format(LM.Get("zhou_log_reform"), vassal.GetKingdomName()));
+                Announce(empire, string.Format(LM.Get("zhou_log_reform"), vassal.GetKingdomName()), vassal, history: true);
             }
             // 变法之国赋税每年多收一成
             if (state.reforms.Contains(vassal.id))
@@ -838,7 +886,7 @@ public static class ZhouEraSystem
         state.annexed++;
         state.kings.Remove(small.id);
         state.reforms.Remove(small.id);
-        Log(empire, string.Format(LM.Get("zhou_log_submit"), name, lord.GetKingdomName()));
+        Announce(empire, string.Format(LM.Get("zhou_log_submit"), name, lord.GetKingdomName()), lord, history: true);
     }
 
     private static void UpdateCoalition(Empire empire, ZhouEraState state)
@@ -850,7 +898,7 @@ public static class ZhouEraSystem
         bool dominant = strongest != null && total > 0 && Power(strongest) >= 0.3f * total && Power(strongest) >= 1.5f * second;
         if (!dominant)
         {
-            if (state.coalition_target >= 0) Log(empire, LM.Get("zhou_log_coalition_ends"));
+            if (state.coalition_target >= 0) Announce(empire, LM.Get("zhou_log_coalition_ends"));
             state.coalition_target = -1L;
             state.coalition.Clear();
             state.horizontal.Clear();
@@ -868,7 +916,7 @@ public static class ZhouEraSystem
         {
             if (Random.value > 0.1f) continue;
             state.horizontal.Add(weak.id);
-            Log(empire, string.Format(LM.Get("zhou_log_horizontal"), weak.GetKingdomName(), strongest.GetKingdomName()));
+            Announce(empire, string.Format(LM.Get("zhou_log_horizontal"), weak.GetKingdomName(), strongest.GetKingdomName()), weak);
         }
         var members = realms.Where(kingdom => kingdom != strongest && !state.horizontal.Contains(kingdom.id) &&
                                               Power(kingdom) >= 0.1f * Power(strongest))
@@ -877,7 +925,8 @@ public static class ZhouEraSystem
         state.coalition_target = strongest.id;
         state.coalition = members;
         if (formed)
-            Log(empire, string.Format(LM.Get("zhou_log_coalition"), members.Count, strongest.GetKingdomName()));
+            Announce(empire, string.Format(LM.Get("zhou_log_coalition"), members.Count, strongest.GetKingdomName()), strongest,
+                history: true);
     }
 
     // 天子(或代周者)直辖天下一半的城，或直辖三分之一且再无一国及其三分之一：称皇帝，改行郡县
@@ -915,7 +964,7 @@ public static class ZhouEraSystem
         InstitutionSystem.SyncEnactedNodeForRegime(empire, RegimeType.LvLing);
         empire.data.centerOffice?.Init(core);
         core.SystemChange();
-        Log(empire, string.Format(LM.Get("zhou_log_unified"), core.GetKingdomName()));
+        Announce(empire, string.Format(LM.Get("zhou_log_unified"), core.GetKingdomName()), core);
         empire.RecordHistory(directContent: string.Format(LM.Get("zhou_history_unified"), core.GetKingdomName(),
             empire.GetEmpireName()), kingdomId: core.id);
     }
@@ -952,6 +1001,15 @@ public static class ZhouEraSystem
     }
 
     #endregion
+
+    // 大事：记进列国纪事，并弹世界提示；history 为真时连史册一起记(史册另有写法的只弹提示)
+    private static void Announce(Empire empire, string text, Kingdom kingdom = null, bool history = false)
+    {
+        Log(empire, text);
+        kingdom ??= empire?.CoreKingdom;
+        if (history) EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventMessage(text, kingdom);
+        else EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventOnly(text, kingdom);
+    }
 
     public static void Log(Empire empire, string text)
     {

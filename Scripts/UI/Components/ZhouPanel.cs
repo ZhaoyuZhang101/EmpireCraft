@@ -114,6 +114,15 @@ public static class ZhouPanel
         int lines = Mathf.Max(1, Mathf.CeilToInt(UIHelper.EstimateTextWidth(rule, 6) / (inner - 6f)));
         card.AddTextIntoVertLayout(rule.ColorString("#7FD8EA"), true, TextAnchor.UpperLeft,
             new Vector2(inner, lines * 8f + 2f)).UseFixedFontSize(6, HorizontalWrapMode.Wrap);
+        // 科技推时代：进入下一时代须先有的科技
+        if (ZhouEraSystem.GateTech(state.era) is string gate && TechnologySystem.IsEnabled)
+        {
+            bool ready = ZhouEraSystem.TechReady(empire, state.era);
+            string gateText = string.Format(LM.Get(ready ? "zhou_tech_gate_ready" : "zhou_tech_gate"),
+                LM.Get("zhou_era_" + (state.era + 1)), TechnologySystem.GetTechName(gate));
+            card.AddTextIntoVertLayout(gateText.ColorString(ready ? "#9FD39A" : "#E6C27A"), true, TextAnchor.UpperLeft,
+                new Vector2(inner, 10f)).UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+        }
 
 
         // 列国纪事
