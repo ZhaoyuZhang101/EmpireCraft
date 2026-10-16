@@ -174,7 +174,7 @@ namespace EmpireCraft.Scripts.UI.Windows
                     reign = $"{LM.Get("year_name")} {empire.data.year_name} · {reign}";
             }
             card.AddPersonRow(width, living ? head : null,
-                republic ? RepublicSystem.GetHeadOfStateTitle(empire) : LM.Get("emperor"),
+                republic ? RepublicSystem.GetHeadOfStateTitle(empire) : LM.Get(DynastyNaming.Term(empire, "emperor")),
                 living ? head.getName() : LM.Get("label_none"), reign);
 
             int legitimacy = empire.Legitimacy;

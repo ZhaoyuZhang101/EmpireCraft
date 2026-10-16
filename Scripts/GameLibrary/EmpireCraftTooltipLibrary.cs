@@ -387,16 +387,16 @@ public static class EmpireCraftTooltipLibrary
         if (republic)
             pTooltip.addLineText(RepublicSystem.GetHeadOfStateTitle(pEmpire), pValue, "#FE9900", false, false, 21);
         else
-            pTooltip.addLineText("emperor", pValue, "#FE9900", false, true, 21);
+            pTooltip.addLineText(DynastyNaming.Term(pEmpire, "emperor"), pValue, "#FE9900", false, true, 21);
         if (!republic && pEmpire.EmpireClan != null)
         {
             if (pEmpire.EmpireClan.isAlive())
             {
-                pTooltip.addLineText("empire_clan", pEmpire.EmpireClan.data.name, pEmpire.EmpireClan.getColor().color_text, false, true, 21);
+                pTooltip.addLineText(DynastyNaming.Term(pEmpire, "empire_clan"), pEmpire.EmpireClan.data.name, pEmpire.EmpireClan.getColor().color_text, false, true, 21);
             }
         }
         // 帝国首府显示首都城市(还于旧都等迁都后这里要能看出变化)；帝国名就是核心王国名，再显示王国全名没有信息量
-        pTooltip.addLineText("empire_capital", pEmpire.CoreKingdom.capital?.GetCityName() ?? pEmpire.CoreKingdom.GetKingdomFullName(), "#CC6CE7", false, true, 21);
+        pTooltip.addLineText(DynastyNaming.Term(pEmpire, "empire_capital"), pEmpire.CoreKingdom.capital?.GetCityName() ?? pEmpire.CoreKingdom.GetKingdomFullName(), "#CC6CE7", false, true, 21);
         Regime regime = pEmpire.CoreKingdom.GetRegime();
         if (republic)
         {

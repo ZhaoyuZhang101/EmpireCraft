@@ -499,6 +499,13 @@ namespace EmpireCraft.Scripts.HelperFunc
             };
         }
 
+        // 按帝国换称呼的诉求名(华夏原始政体：索取皇位 → 争为共主，见 DynastyNaming.Term)
+        public static string GetTemporaryFactionClaimText(TemporaryFactionType claimType, Empire empire)
+        {
+            string key = EmpireCraft.Scripts.GeneralSystems.DynastyNaming.Term(empire, $"temporary_faction_claim_{(int)claimType}");
+            return key.EndsWith("_huaxia_origin", StringComparison.Ordinal) ? LM.Get(key) : GetTemporaryFactionClaimText(claimType);
+        }
+
         public static string GetTemporaryFactionClaimText(TemporaryFactionType claimType)
         {
             string fallback = claimType.ToString();

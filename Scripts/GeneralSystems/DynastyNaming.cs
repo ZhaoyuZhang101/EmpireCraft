@@ -42,6 +42,14 @@ public static class DynastyNaming
         kingdom?.data != null && !kingdom.isRekt() && (kingdom.GetRegime()?.type == RegimeType.HuaxiaOrigin ||
         kingdom.GetRegime()?.type == RegimeType.Origin && InstitutionSystem.GetCultureLine(CultureService.GetRealmCulture(kingdom)) == "Huaxia");
 
+    // 华夏原始政体的部落联盟(见 RegimeType.HuaxiaOrigin)：称呼换成共主——皇帝→共主、皇室→共主氏族、帝国首府→共主都邑、
+    // 索取皇位→争为共主(用户 2026-10-16 选"称呼改成共主")；有 "_huaxia_origin" 译文的键才换
+    public static bool HuaxiaOriginEmpire(Empire empire) =>
+        empire?.CoreKingdom?.GetRegime()?.type == RegimeType.HuaxiaOrigin;
+
+    public static string Term(Empire empire, string key) =>
+        HuaxiaOriginEmpire(empire) && LM.Has(key + "_huaxia_origin") ? key + "_huaxia_origin" : key;
+
     // 制度线专属称谓：日本线的国家类别、官名在文本键后加 "_japan"(天皇、国司、大名、国……见各政体 OfficialType.csv)
     public static string LineSuffix(Kingdom kingdom)
     {

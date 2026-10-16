@@ -305,7 +305,7 @@ namespace EmpireCraft.Scripts.UI.Windows
             }
             else
             {
-                Stat(LM.Get("empire_clan"), _empire.EmpireSpecificClan?.name ?? LM.Get("label_none"),
+                Stat(LM.Get(DynastyNaming.Term(_empire, "empire_clan")), _empire.EmpireSpecificClan?.name ?? LM.Get("label_none"),
                     _empire.EmpireSpecificClan?.color ?? "#FFFFFF");
             }
             // 幕府：天皇居于朝廷为虚君(见 BakufuSystem)
@@ -737,8 +737,8 @@ namespace EmpireCraft.Scripts.UI.Windows
             bool republicNow = RepublicSystem.IsRepublic(_empire);
             string reignTitle = republicNow
                 ? _empire.GetEmpireFullName() + RepublicSystem.GetHeadOfStateTitle(_empire)
-                : _empire.GetEmpireName() + (_empire.data.has_year_name ? _empire.data.year_name : "") + LM.Get("emperor");
-            var current = parent.BeginCard(MainWidth, republicNow ? "current_head_of_state" : "current_emperor", "#F3C34A",
+                : _empire.GetEmpireName() + (_empire.data.has_year_name ? _empire.data.year_name : "") + LM.Get(DynastyNaming.Term(_empire, "emperor"));
+            var current = parent.BeginCard(MainWidth, republicNow ? "current_head_of_state" : DynastyNaming.Term(_empire, "current_emperor"), "#F3C34A",
                 _empire.Emperor != null ? reignTitle : null, "ui/icons/iconKings");
             var currentRow = current.BeginHoriGroup(new Vector2(MainWidth - 12f, 32f), TextAnchor.MiddleLeft, 6, new RectOffset(0, 0, 0, 0));
             Actor ruler = _empire.Emperor;
@@ -837,7 +837,7 @@ namespace EmpireCraft.Scripts.UI.Windows
                 string fullName = string.IsNullOrWhiteSpace(history.empire_full_name) ? history.empire_name : history.empire_full_name;
                 return (string.Format(LM.Get("lineage_term_years"), history.total_time), fullName + OfficeTitle(history));
             }
-            string title = history.empire_name + (_empire.data.has_year_name ? history.year_name : "") + LM.Get("emperor");
+            string title = history.empire_name + (_empire.data.has_year_name ? history.year_name : "") + LM.Get(DynastyNaming.Term(_empire, "emperor"));
             if (_empire.data.has_year_name)
             {
                 if (!string.IsNullOrEmpty(history.shihao_name))
@@ -1381,7 +1381,7 @@ namespace EmpireCraft.Scripts.UI.Windows
             var reignCard = parent.BeginHoriGroup(pSpacing: 2, pAlignment: TextAnchor.MiddleCenter,
                 pSize: new Vector2(MainWidth, 34));
             AddReignInfoColumn(reignCard, LM.Get("year_name"), eraName, new Color(1f, 0.78f, 0.2f), new Vector2(80, 30), 9);
-            AddReignInfoColumn(reignCard, IsRepublicRecord(currentHistory) ? OfficeTitle(currentHistory) : LM.Get("emperor"),
+            AddReignInfoColumn(reignCard, IsRepublicRecord(currentHistory) ? OfficeTitle(currentHistory) : LM.Get(DynastyNaming.Term(_empire, "emperor")),
                 emperorName, _empire.getColor()._color_text, new Vector2(140, 30), 11);
             AddReignInfoColumn(reignCard, LM.Get("empire_reign_duration"), $"{reignYears}{LM.Get("Year")}",
                 new Color(0.25f, 0.9f, 0.8f), new Vector2(80, 30), 9);

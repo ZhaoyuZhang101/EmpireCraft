@@ -2197,10 +2197,10 @@ public static class EmpireCraftNamePlateLibrary
                                     : new Color(0.9f, 0.55f, 0.25f))
                             : "";
                         text =
-                            $"\n{(empire.EmpireClan?.name ?? LM.Get("label_no_royal_clan")).ColorString(pColor: Color.yellow)} | {LM.Get("label_dominant_faction")}: {faction.Name}" +
+                            $"\n{(empire.EmpireClan?.name ?? LM.Get(DynastyNaming.Term(empire, "label_no_royal_clan"))).ColorString(pColor: Color.yellow)} | {LM.Get("label_dominant_faction")}: {faction.Name}" +
                             moneyText + "\n"+ $"{LM.Get(empire.LegitimacyLabelKey)}:{empire.Legitimacy}" + "\n" +
                             text +
-                            $"\n{LM.Get("label_claim")}:{(tf!=null ? TranslateHelper.GetTemporaryFactionClaimText(tf.type) : LM.Get("label_none"))}".ColorString(
+                            $"\n{LM.Get("label_claim")}:{(tf!=null ? TranslateHelper.GetTemporaryFactionClaimText(tf.type, empire) : LM.Get("label_none"))}".ColorString(
                                 pColor: new Color(0.5f, 0.9f, 0.5f)) +
                             (tf!=null?tf.ShowAsPlot?$"({LM.Get("tf_starting")})"
                                 : $"({(int)(tf.progress / tf.progressMax * 100)}/100)"
