@@ -181,6 +181,22 @@ public partial class PureMapPatch
             long zseed = seed * 977 + zone.id * 131L;
             float zx = zone.x * size + 4f, zy = zone.y * size + 4f, edge = UrbanFabric.EdgeOf(g, zx, zy);
             float r = Mathf.Sqrt((zx - g.Cx) * (zx - g.Cx) + (zy - g.Cy) * (zy - g.Cy));
+            // 新城区地块的标注落点(地块中心)：工厂、商场、营区、写字楼；住宅按小区标
+            string labelIcon = kind switch
+            {
+                UrbanFabric.Kind.Industry => "industry_1",
+                UrbanFabric.Kind.Market => "market_1",
+                UrbanFabric.Kind.Military => "barracks",
+                UrbanFabric.Kind.Tower => "civic_1",
+                UrbanFabric.Kind.Park => null,
+                _ => "house_3"
+            };
+            if (labelIcon != null)
+                c.Labels.Add(new DetailLabel
+                {
+                    Tile = c.TileAt((x0 + x1) / 2f, (y0 + y1) / 2f), Icon = labelIcon, Key = zone.id * 4L,
+                    Weight = (x1 - x0) * (y1 - y0)
+                });
             switch (kind)
             {
                 case UrbanFabric.Kind.Industry: FactoryLot(c, x0, y0, x1, y1, zseed, g.Progress); break;

@@ -154,6 +154,11 @@ public partial class PureMapPatch
         var p = new PalaceBrush { C = c, A0 = (axisX - c.X0) * s, Top = top, H2 = top - bottom + 1, Tint = tint, Seed = seed };
         int h = p.H2;
         bool big = h >= 64;
+        // 标注落点：宫城正中
+        c.Labels.Add(new DetailLabel
+        {
+            Tile = c.TileAt(p.A0 + 1.5f, top - h / 2f), Icon = "palace", Key = zx0 * 7919L + zy0, Weight = h
+        });
 
         // ① 宫城左边空出来的那几像素(城心那块地比宫城宽)：宫墙外一条街，一行树
         for (int y = 0; y < h; y++)

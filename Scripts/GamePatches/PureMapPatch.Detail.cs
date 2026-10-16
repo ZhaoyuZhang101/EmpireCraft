@@ -107,6 +107,42 @@ public partial class PureMapPatch
     {
         public int X0, Y0, W, H, Key;
         public Color32[] Pixels;
+        public List<DetailLabel> Labels;
+    }
+
+    // 街区级标注的落点(见 UI/Components/MapLabelOverlay)：精细图画到哪里就记到哪里——街取实际画出来的最长一段，
+    // 大街取城门大道被宫城、水面隔开的各段，建筑取实际盖了房的宅基地(同一街区同一种只留最大的一块)。
+    // 以前标注按平面图的地块边、街区角摆，精细图里那条街没修、错了位，那块地是宫城、是河，字照样标上去，对不上
+    internal sealed class DetailLabel
+    {
+        public Vector2 Tile;     // 世界格坐标
+        public string Icon;      // "street"、"avenue"，或平面图里的建筑种类(house_N、market_N、civic_N、temple……)
+        public bool Vertical;
+        public long Key;         // 起名用的种子(同一处每次一样)
+        public float Weight;     // 长度或面积：同一处只留最大的
+    }
+
+    // 各城最近一次画出来的标注落点(按平面图指纹对得上才用)
+    private static readonly Dictionary<long, (int stamp, List<DetailLabel> labels)> DrawnLabels = new();
+
+    internal static List<DetailLabel> DrawnLabelsOf(City city)
+    {
+        if (city?.data == null || !DrawnLabels.TryGetValue(city.data.id, out var entry)) return null;
+        return entry.stamp == StampOf(city) ? entry.labels : null;
+    }
+
+    // 同一街区同一种建筑只留最大的一块，住宅每个地块只留一处
+    private static List<DetailLabel> ReduceLabels(List<DetailLabel> labels)
+    {
+        var best = new Dictionary<string, DetailLabel>();
+        foreach (DetailLabel label in labels)
+        {
+            string key = label.Icon is "street" or "avenue" ? label.Icon + label.Key
+                : label.Icon.StartsWith("house_") ? "house" + label.Key / 4
+                : label.Icon.Split('_')[0] + label.Key;
+            if (!best.TryGetValue(key, out DetailLabel kept) || label.Weight > kept.Weight) best[key] = label;
+        }
+        return new List<DetailLabel>(best.Values);
     }
 
     // 画这座城的精细图吗：纯净地图画城市时(改建中的城照旧)
@@ -152,6 +188,10 @@ public partial class PureMapPatch
         public readonly byte[] Kinds;
         public readonly City City;
         public Color32 Block, Street;
+        public readonly List<DetailLabel> Labels = new();
+
+        // 画布像素 → 世界格坐标
+        public Vector2 TileAt(float px, float py) => new(X0 + (px + 0.5f) / DetailScale, Y0 + (py + 0.5f) / DetailScale);
 
         public Canvas(City city, int x0, int y0, int w, int h)
         {
@@ -287,7 +327,12 @@ public partial class PureMapPatch
             if (g.Modern) DrawModern(c, plan, g, style, tint, seed);
             DrawCountryside(c, g, style, tint, seed);
         }
-        return new DetailImage { X0 = x0, Y0 = y0, W = c.W, H = c.H, Pixels = c.Pixels, Key = DetailKey(city, tint) };
+        List<DetailLabel> labels = ReduceLabels(c.Labels);
+        DrawnLabels[city.data.id] = (StampOf(city), labels);
+        if (DrawnLabels.Count > 64)
+            foreach (long stale in new List<long>(DrawnLabels.Keys))
+                if (World.world.cities.get(stale) == null) DrawnLabels.Remove(stale);
+        return new DetailImage { X0 = x0, Y0 = y0, W = c.W, H = c.H, Pixels = c.Pixels, Key = DetailKey(city, tint), Labels = labels };
     }
 
     #region 城里
@@ -393,6 +438,12 @@ public partial class PureMapPatch
             }
             Fill(c, tx, ty, block, KGround);
         }
+        // 城门大道的标注落点：通城门的那一列、一行上连成一段的大道(被宫城、水面隔开就各算一段)
+        if (plan.gateX != int.MinValue)
+        {
+            AvenueLabels(c, true, plan.gateX - c.X0);
+            AvenueLabels(c, false, plan.gateY - c.Y0);
+        }
         // ② 街：方格(沿地块边错位微弯)、放射弯街、迷宫主街；阿兹特克靠水渠
         switch (style.Layout)
         {
@@ -454,14 +505,58 @@ public partial class PureMapPatch
         }
         int offset = Mathf.RoundToInt((DetailHash(id, 4) - 0.5f) * 6f * style.Jitter / 2.2f);
         int width = DetailHash(id, 5) < 0.75f ? 2 : 3;
+        // 标注落在实际修出来的最长一段的中间
+        int run = 0, bestLength = 0, bestEnd = -1;
         for (int t = from; t <= to; t++)
         {
             int wob = Mathf.RoundToInt(style.Jitter * (DetailNoise(t, 26f, id) - 0.5f)) + offset;
+            bool drawn = false;
             for (int d = 0; d < width; d++)
             {
                 int px = vertical ? at * s + wob + d - 1 : t, py = vertical ? t : at * s + wob + d - 1;
-                if (c.Kind(px, py) == KGround) c.Put(px, py, street, KStreet);
+                if (c.Kind(px, py) != KGround) continue;
+                c.Put(px, py, street, KStreet);
+                drawn = true;
             }
+            run = drawn ? run + 1 : 0;
+            if (run > bestLength)
+            {
+                bestLength = run;
+                bestEnd = t;
+            }
+        }
+        if (bestLength < 3 * s) return;
+        float labelAt = bestEnd - bestLength / 2f, across = at * s + offset;
+        c.Labels.Add(new DetailLabel
+        {
+            Tile = vertical ? c.TileAt(across, labelAt) : c.TileAt(labelAt, across), Icon = "street", Vertical = vertical,
+            Key = id, Weight = bestLength
+        });
+    }
+
+    // 城门大道上连成一段(至少三格)的各段，各记一个标注落点
+    private static void AvenueLabels(Canvas c, bool vertical, int line)
+    {
+        int s = DetailScale, length = vertical ? c.H : c.W;
+        if (line < 0 || line >= (vertical ? c.W : c.H)) return;
+        int start = -1;
+        for (int t = 0; t <= length; t++)
+        {
+            bool on = t < length && c.Kind(vertical ? line * s + 1 : t * s + 1, vertical ? t * s + 1 : line * s + 1) == KAvenue;
+            if (on && start < 0) start = t;
+            if (on || start < 0) continue;
+            if (t - start >= 3)
+            {
+                float middle = (start + t) / 2f * s, across = line * s + s / 2f;
+                c.Labels.Add(new DetailLabel
+                {
+                    Tile = vertical ? c.TileAt(across, middle) : c.TileAt(middle, across), Icon = "avenue", Vertical = vertical,
+                    Key = (vertical ? 1L : 2L) * 1000003L + (vertical ? c.X0 + line : c.Y0 + line) * 7919L +
+                          (vertical ? c.Y0 : c.X0) + start,
+                    Weight = t - start
+                });
+            }
+            start = -1;
         }
     }
 
@@ -923,6 +1018,11 @@ public partial class PureMapPatch
         }
         Color32 roof = Pick(style.Roofs, DetailHash(seed, 13));
         string kind = icon ?? "house_1";
+        // 下面各分支都盖房：记标注落点(街区编号 = 地块×4 + 哪一角)
+        c.Labels.Add(new DetailLabel
+        {
+            Tile = c.TileAt((x0 + x1) / 2f, (y0 + y1) / 2f), Icon = kind, Key = zone.id * 4L + quarter, Weight = w * h
+        });
         if ((kind == "temple" || kind.StartsWith("civic")) && w >= 10 && h >= 10)
         {
             TempleLot(c, style, x0, y0, x1, y1, kind == "temple");
