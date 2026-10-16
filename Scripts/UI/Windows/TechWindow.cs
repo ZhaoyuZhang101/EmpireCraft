@@ -177,6 +177,9 @@ public class TechWindow : AbstractWideWindow<TechWindow>
                 LM.Get($"media_print_{MediaSystem.PrintLevel(_kingdom)}"),
                 LM.Get($"media_comm_{MediaSystem.CommLevel(_kingdom)}"),
                 LM.Get(MediaSystem.IsOpen(_kingdom) ? "tech_media_open" : "tech_media_closed")).ColorString("#9FD0C8"));
+            // 直辖容量(治理科技、政体、君主决定，见 AdministrativeControlSystem)
+            if (AdministrativeControlSystem.DescribeCapacity(_kingdom) is string capacity)
+                AddLine(panel, (LM.Get("admin_capacity") + "：" + capacity).ColorString("#9FD0C8"));
         }
 
         // 科技点储备与来源明细；年产太低就是停滞

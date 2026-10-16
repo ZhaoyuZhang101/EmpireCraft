@@ -96,6 +96,10 @@ public static class WarGoalSystem
             : strength >= VassalStrength && !defender.IsEmpire() && (feudal || strength >= AnnexStrength) ? WarGoal.迫使附庸
             : strength >= ConquestStrength ? WarGoal.割地
             : WarGoal.赔款;
+        // 扩张上限：已经过度扩张，或对方都城远在本国控制范围之外，不谋土地，改为迫其称臣(帝国则求赔款)
+        if ((data.war_goal == WarGoal.吞并 || data.war_goal == WarGoal.割地) &&
+            AdministrativeControlSystem.BeyondReach(attacker, defender.capital))
+            data.war_goal = defender.IsEmpire() ? WarGoal.赔款 : WarGoal.迫使附庸;
         data.war_goal_capital_id = defender.capital?.data != null ? defender.capital.id : -1L;
         TranslateHelper.LogEventMessage(string.Format(LM.Get("war_goal_declared"), attacker.GetKingdomName(),
             defender.GetKingdomName(), Name(data.war_goal)), attacker);
@@ -416,6 +420,7 @@ public static class WarGoalSystem
             {
                 Kingdom from = city.kingdom;
                 bool capital = from?.data != null && from.capital == city;
+                AdministrativeControlSystem.MarkConquered(city, to);
                 city.joinAnotherKingdom(to);
                 done++;
                 // 周室诸侯的都城在和约中割走，与攻破都城一样灭其国；割走王畿则攻者取而代之

@@ -87,6 +87,8 @@ public class CityWindowPatch : GamePatch
         }
         if (EmpireCraft.Scripts.GeneralSystems.AdministrativeControlSystem.Describe(metaObject) is string control)
             __instance.showStatRow("admin_control", control, "#7FD8EA", pIconPath: "iconKings");
+        if (EmpireCraft.Scripts.GeneralSystems.AdministrativeControlSystem.DescribeCapacity(metaObject.kingdom) is string capacity)
+            __instance.showStatRow("admin_capacity", capacity, "#7FD8EA", pIconPath: "iconKings");
         CityValueSnapshot cityValue = metaObject.GetCityStrategicValue();
         string cityValueText = $"{cityValue.Total}/100" +
                                (cityValue.IsIsolated ? $" ({LM.Get("city_value_isolated")})" : "");
