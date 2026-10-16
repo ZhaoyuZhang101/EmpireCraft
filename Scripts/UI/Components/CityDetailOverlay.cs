@@ -13,7 +13,7 @@ namespace EmpireCraft.Scripts.UI.Components;
 // 盖在国色色块之上、路网与图层长城之下(见 RoadOverlay、MapWallOverlay)。
 public static class CityDetailOverlay
 {
-    private const float MinPixelsPerTile = 2.5f;
+    private const float MinPixelsPerTile = MapZoomTier.Near;
     private const int MaxShown = 4, MaxCached = 8;
     // 估计一座城连同城外村镇的范围时，城的地块外再放宽几格
     private const int CountrysideMargin = 24;
@@ -103,7 +103,7 @@ public static class CityDetailOverlay
             if (entry.Renderer.enabled != on) entry.Renderer.enabled = on;
             if (!on) continue;
             entry.Renderer.sortingLayerID = source.sortingLayerID;
-            entry.Renderer.sortingOrder = source.sortingOrder + 1;
+            entry.Renderer.sortingOrder = source.sortingOrder + 2;
         }
         Trim(shown);
     }

@@ -98,7 +98,7 @@
     { "id": "hide", "tier": 1, "resources": [{ "id": "leather", "amount": 1 }, { "id": "bones", "amount": 3 }] },
     { "id": "copper", "tier": 2, "resources": [{"id": "copper", "amount": 2}, { "id": "common_metals", "amount": 3 }] },
     { "id": "silver", "tier": 3, "resources": [{ "id": "silver", "amount": 1 }] },
-    { "id": "gold", "tier": 3, "resources": [{ "id": "gold", "amount": 5 }] },
+    { "id": "gold", "tier": 3, "resources": [{ "id": "gold", "amount": 5 }, { "id": "silver", "amount": 8 }, { "id": "gems", "amount": 4 }] },
     { "id": "iron", "tier": 4, "resources": [{ "id": "common_metals", "amount": 15 }], "requires_techs": ["deep_mining"] },
     { "id": "coal", "tier": 5, "resources": [{"id": "coal", "amount": 3}, { "id": "stone", "amount": 30 }], "requires_techs": ["deep_mining"] },
     { "id": "saltpeter", "tier": 6, "resources": [{"id": "saltpeter", "amount": 2}, { "id": "gunpowder", "amount": 1 }, { "id": "crystal_salt", "amount": 3 }, { "id": "fertilizer", "amount": 3 }, { "id": "bones", "amount": 20 }], "requires_techs": ["alchemy"] },
