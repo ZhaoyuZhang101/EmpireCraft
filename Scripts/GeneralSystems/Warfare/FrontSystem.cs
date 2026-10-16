@@ -17,6 +17,10 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //      出发、不经过敌方制海海区、在舰种航程内(见 SeaLanding、NavySystem)；装得上运输船的兵力才能派去，整军装不下就按
 //      剩下的运力分出先遣军(见 CorpsSystem.Detach)；登陆头一个月攻方战力 ×0.7；
 //   ② 分派：各国先按上月敌军的攻势分兵守城，余下的军集中攻打一两段；组织度太低的军回乡休整；
+//      (用户转玩家 2026-10-17 "十座城，五个军团全部决定守首都，太怪了")攻势按敌军离那座城的远近打折(四块地以内全算、
+//      十块以内算一半、更远算四分之一，免得远在千里的敌军一把首都定为目标就把全军拉回去)；守军不够分时按各城攻势比例分，
+//      不让攻势最大的一座城把军全拿走；没派到的预备军不再全挤在驻地(中央军的驻地都在首都)，分驻本国各城——
+//      先驻都城与边境大城(见 Stations)；
 //   ③ 交战：攻方(兵力×组织度×火力) 对 守方(兵力×组织度×火力×(1.25+堑壕)，无军驻守时由团练抵抗)，
 //      双方按战况伤亡、掉组织度；攻方占优就占领一块紧挨着进攻军团的地块，离它最近的进攻军团随即进驻
 //      (一格一格推进，部队没到的地方战线不动；沿用地块占领模式，满城即陷落)，守方占优就夺回守军身边的一块；
@@ -322,7 +326,10 @@ public static partial class FrontSystem
             {
                 if (!pressure.TryGetValue(corps.sector_city_id, out var list))
                     pressure[corps.sector_city_id] = list = new List<(Kingdom, float)>();
-                list.Add((attacker, corps.strength));
+                // 离那座城越远，攻势越虚：四块地以内全算、十块以内算一半、更远算四分之一
+                TileZone target = World.world.cities.get(corps.sector_city_id)?.getTile()?.zone;
+                float distance = target == null ? 0f : CorpsSystem.ZoneDistance(CorpsSystem.Zone(corps), target);
+                list.Add((attacker, corps.strength * (distance <= 4f ? 1f : distance <= 10f ? 0.5f : 0.25f)));
             }
         var landingSectors = new Dictionary<long, bool>();
         SectorCache.Clear();
@@ -371,6 +378,7 @@ public static partial class FrontSystem
             IReadOnlyList<TileZone> border = CityPopulationSystem.IsMobilizing(kingdom)
                 ? CityPopulationSystem.FrontZones(kingdom) : Array.Empty<TileZone>();
             var borderLoad = new Dictionary<int, int>();
+            Dictionary<long, int> stations = Stations(kingdom, list);
             foreach (CorpsData corps in list)
             {
                 corps.sector_city_id = -1L;
@@ -381,7 +389,7 @@ public static partial class FrontSystem
                 // 在离自己最近的几块边境地块里散开站，不挤在同一块
                 corps.target_zone_id = marching
                     ? Spread(corps, border.OrderBy(zone => CorpsSystem.ZoneDistance(zone, at)).Take(SpreadNearest).ToList(), borderLoad).id
-                    : HomeZone(corps);
+                    : StationZone(corps, stations);
             }
             return;
         }
@@ -419,9 +427,12 @@ public static partial class FrontSystem
         bool Surprised(City city) => pressure.TryGetValue(city.id, out var entries) &&
                                      entries.Where(entry => Hostile(kingdom, entry.attacker))
                                          .All(entry => MusterSystem.Mustering(kingdom, entry.attacker));
+        // 守军不够分：按各城攻势比例分，不让攻势最大的一座城把军全拿走
+        float totalThreat = threatened.Sum(Threat) * 0.9f, available = ready.Sum(corps => corps.strength);
+        float shareOfNeed = totalThreat > available && totalThreat > 0f ? available / totalThreat : 1f;
         foreach (City city in threatened)
         {
-            float need = Threat(city) * 0.9f, have = 0f;
+            float need = Threat(city) * 0.9f * shareOfNeed, have = 0f;
             TileZone anchor = DefenseZone(kingdom, city);
             List<TileZone> line = DefenseLine(kingdom, city);
             var lineLoad = new Dictionary<int, int>();
@@ -487,12 +498,13 @@ public static partial class FrontSystem
             corps.entrench = 0f;
             assigned.Add(corps);
         }
-        // ③ 其余：预备(回驻地休整)
+        // ③ 其余：预备，分驻本国各城(见 Stations)
+        Dictionary<long, int> reserveStations = Stations(kingdom, list.Where(corps => !assigned.Contains(corps)).ToList());
         foreach (CorpsData corps in list.Where(corps => !assigned.Contains(corps) && corps.task != "retreat"))
         {
             corps.task = "reserve";
             corps.sector_city_id = -1L;
-            corps.target_zone_id = HomeZone(corps);
+            corps.target_zone_id = StationZone(corps, reserveStations);
         }
     }
 
@@ -531,6 +543,27 @@ public static partial class FrontSystem
     }
 
     private static int HomeZone(CorpsData corps) => CorpsSystem.Home(corps)?.getTile()?.zone?.id ?? corps.zone_id;
+
+    // 预备军分驻本国各城：都城与边境的城在前(与外国接壤的城先、人多的先)，各军按编号依次轮着分，
+    // 一城驻满一支才轮到下一城；义军留在本城。返回 军号 → 驻防地块
+    private static Dictionary<long, int> Stations(Kingdom kingdom, List<CorpsData> corps)
+    {
+        var result = new Dictionary<long, int>();
+        List<City> cities = kingdom.cities?.Where(city => city?.data != null && !city.isRekt() && city.getTile()?.zone != null)
+            .ToList() ?? new List<City>();
+        if (cities.Count <= 1) return result;
+        bool Frontier(City city) => city.zones.Any(zone => (zone?.neighbours_all ?? Array.Empty<TileZone>())
+            .Any(next => next?.city?.kingdom != null && next.city.kingdom != kingdom));
+        List<City> order = cities.OrderByDescending(city => city == kingdom.capital)
+            .ThenByDescending(Frontier).ThenByDescending(city => CityPopulationSystem.GetBackgroundTotal(city)).ToList();
+        int index = 0;
+        foreach (CorpsData entry in corps.Where(entry => !entry.militia).OrderBy(entry => entry.id))
+            result[entry.id] = order[index++ % order.Count].getTile().zone.id;
+        return result;
+    }
+
+    private static int StationZone(CorpsData corps, Dictionary<long, int> stations) =>
+        stations.TryGetValue(corps.id, out int zone) ? zone : HomeZone(corps);
 
     // 散开站：在几块候选地块里挑放的军最少的(一样少的取最近的)；原来就在其中一块、那块还没别的军的，留在原地(免得每月换位)
     private const int SpreadNearest = 6;
