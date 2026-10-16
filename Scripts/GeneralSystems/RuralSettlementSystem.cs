@@ -4,6 +4,8 @@ using System.Linq;
 using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.GamePatches;
+using NeoModLoader.General;
 
 namespace EmpireCraft.Scripts.GeneralSystems;
 
@@ -31,6 +33,11 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     每城一年至多一处；建了就把它那块地和四周离城心同样不太远的无主之地划进本城(见 Found、ClaimPending)；
 //   · 原版一块块往外领地，只领城区或本城村镇两块地以内的无主之地(见 CityExpansionPatch.Settled)，再往外要靠新建村镇。
 //   领地照原版的规矩：开着原版"王国扩张"、地貌能定居、走得到(CityExpansionPatch.Reachable)、不超过每城地块上限。
+// 手动营建(用户 2026-10-17 "手动把村子划入城市势力范围""手动放置村/镇……和销毁他们"，见 SettlementPowers)：
+//   · 立村、设镇：点在城的地上归这座城；点在紧挨城界的无主之地上，划给挨着的城里离得最近的那座，连同四周无主之地；
+//     小路顺着地势自动连上(见 UrbanFabric.PlaceTrails)；
+//   · 毁弃：完好的毁为废墟(同兵火，住的人一半逃散，太平年月会重建)；对废墟再点一下彻底抹去，城郊不再在原处另建；
+//   · 改隶：一处村镇连同它那一片地(见 CityDistricts)改归一座接壤的城。
 public static class RuralSettlementSystem
 {
     private const float VillageWeight = 1f, TownWeight = 3f, CityWeight = 6f, RuinedOutputLoss = 0.6f, BurnPopulationLoss = 0.5f;
@@ -40,8 +47,8 @@ public static class RuralSettlementSystem
     private static double _lastMonth = -1d;
 
     private static readonly Dictionary<int, RuralSettlement> All = new();
-    // 地块 → 落在这块地上的镇村(读档后头一次用到时建)
-    private static Dictionary<int, List<RuralSettlement>> _byZone;
+    // 地块 → 落在这块地上的镇村(读档后头一次用到时建)；彻底抹去的另记一份(只用来占住原处)
+    private static Dictionary<int, List<RuralSettlement>> _byZone, _clearedByZone;
     private static int _nextId = 1;
 
     // 镇村有增减、毁建就加一(城市平面图的指纹里算进去，见 PureMapPatch.Stamp)
@@ -50,7 +57,7 @@ public static class RuralSettlementSystem
     public static void ResetWorldState()
     {
         All.Clear();
-        _byZone = null;
+        _byZone = _clearedByZone = null;
         _nextId = 1;
         _lastMonth = -1d;
         LastFounded.Clear();
@@ -77,15 +84,18 @@ public static class RuralSettlementSystem
     {
         if (_byZone != null) return _byZone;
         var index = new Dictionary<int, List<RuralSettlement>>();
+        var cleared = new Dictionary<int, List<RuralSettlement>>();
         if (World.world == null) return index;
         foreach (RuralSettlement settlement in All.Values)
         {
             TileZone zone = World.world.GetTile(settlement.x, settlement.y)?.zone;
             if (zone == null) continue;
-            if (!index.TryGetValue(zone.id, out List<RuralSettlement> list)) index[zone.id] = list = new List<RuralSettlement>();
+            Dictionary<int, List<RuralSettlement>> target = settlement.cleared ? cleared : index;
+            if (!target.TryGetValue(zone.id, out List<RuralSettlement> list)) target[zone.id] = list = new List<RuralSettlement>();
             list.Add(settlement);
         }
         _byZone = index;
+        _clearedByZone = cleared;
         return index;
     }
 
@@ -131,10 +141,16 @@ public static class RuralSettlementSystem
     // 等着划地的：(城, 镇村, 城心, 离城心多远以内)；城市平面图里只记下，每次刷新城郊时划(见 ClaimPending)
     private static readonly List<(long city, int settlement, int gateX, int gateY, float far)> Pending = new();
 
+    // 这座城这会儿能不能新建村镇：打仗时不建(地块在交战双方之间易手，丢了地的城数目一少就补，
+    // 收回来又多出一份，用户 2026-10-17 "每次战线变化的时候就重复刷新消失和生成新的村镇")
+    public static bool MayGrow(City city) =>
+        city?.data != null && !city.isRekt() && (city.kingdom == null || !city.kingdom.hasEnemies()) &&
+        !FrontSystem.Battles.ContainsKey(city.data.id);
+
     // 这座城这会儿能不能在城外新建村镇
     public static bool MayFound(City city)
     {
-        if (city?.data == null || city.isRekt() || city.kingdom == null || ModClass.IS_CLEAR ||
+        if (!MayGrow(city) || city.kingdom == null || ModClass.IS_CLEAR ||
             !WorldLawLibrary.world_law_kingdom_expansion.isEnabled() ||
             Compatibility.AncientWarfareCompatibility.OwnsObject(city) || GamePatches.CityExpansionPatch.AtLimit(city))
             return false;
@@ -164,18 +180,24 @@ public static class RuralSettlementSystem
         {
             City city = World.world.cities.get(cityId);
             if (city?.data == null || city.isRekt() || !All.TryGetValue(settlementId, out RuralSettlement settlement)) continue;
-            TileZone seat = World.world.GetTile(settlement.x, settlement.y)?.zone;
-            if (seat == null) continue;
-            if (seat.city == null && CanClaim(city, seat)) city.addZone(seat);
-            if (seat.city != city || seat.neighbours_all == null) continue;
-            foreach (TileZone zone in seat.neighbours_all)
-            {
-                if (zone?.centerTile == null || !CanClaim(city, zone)) continue;
-                float dx = zone.centerTile.x - gateX, dy = zone.centerTile.y - gateY;
-                if (dx * dx + dy * dy <= far * far) city.addZone(zone);
-            }
-            Revision++;
+            ClaimAround(city, settlement, gateX, gateY, far);
         }
+    }
+
+    // 镇村那块地，和四周离城心 far 格以内的无主之地划进本城
+    private static void ClaimAround(City city, RuralSettlement settlement, int gateX, int gateY, float far)
+    {
+        TileZone seat = World.world.GetTile(settlement.x, settlement.y)?.zone;
+        if (seat == null) return;
+        if (seat.city == null && CanClaim(city, seat)) city.addZone(seat);
+        if (seat.city != city || seat.neighbours_all == null) return;
+        foreach (TileZone zone in seat.neighbours_all)
+        {
+            if (zone?.centerTile == null || !CanClaim(city, zone)) continue;
+            float dx = zone.centerTile.x - gateX, dy = zone.centerTile.y - gateY;
+            if (dx * dx + dy * dy <= far * far) city.addZone(zone);
+        }
+        Revision++;
     }
 
     #endregion
@@ -252,6 +274,153 @@ public static class RuralSettlementSystem
 
     #endregion
 
+    #region 手动营建
+
+    // 彻底抹去的镇村占着原处：(x, y) 曼哈顿距离 room 以内有没有(城郊自动选址时跳过，见 UrbanFabric.PlaceCountryside)
+    public static bool ClearedNear(int x, int y, int room)
+    {
+        TileZone zone = World.world?.GetTile(x, y)?.zone;
+        if (zone == null || All.Count == 0) return false;
+        ByZone();
+        if (_clearedByZone == null || _clearedByZone.Count == 0) return false;
+        foreach (TileZone around in Around(zone))
+            if (_clearedByZone.TryGetValue(around.id, out List<RuralSettlement> list) &&
+                list.Exists(settlement => Math.Abs(settlement.x - x) + Math.Abs(settlement.y - y) < room)) return true;
+        return false;
+    }
+
+    private static IEnumerable<TileZone> Around(TileZone zone)
+    {
+        yield return zone;
+        if (zone.neighbours_all == null) yield break;
+        foreach (TileZone neighbour in zone.neighbours_all)
+            if (neighbour != null) yield return neighbour;
+    }
+
+    public static RuralSettlement ById(int id) =>
+        All.TryGetValue(id, out RuralSettlement settlement) && !settlement.cleared ? settlement : null;
+
+    // 名字(还没标注过、没起名的写"村""镇")
+    public static string Label(RuralSettlement settlement) =>
+        !string.IsNullOrEmpty(settlement?.name) ? settlement.name
+            : LM.Get(settlement?.town == true ? "settlement_kind_town" : "settlement_kind_village");
+
+    // 立村、设镇：返回提示文字
+    public static string Place(WorldTile tile, bool town)
+    {
+        if (!PureMapMode.Enabled) return LM.Get("settlement_need_pure_map");
+        if (!UrbanFabric.Buildable(tile)) return LM.Get("settlement_place_no_land");
+        TileZone zone = tile.zone;
+        City city = zone.city;
+        bool claim = city == null;
+        if (claim)
+        {
+            // 紧挨城界的无主之地：挨着的城里离得最近、领得到这块地的那座
+            float best = float.MaxValue;
+            foreach (TileZone neighbour in zone.neighbours_all ?? Array.Empty<TileZone>())
+            {
+                City other = neighbour?.city;
+                WorldTile center = other?.getTile();
+                if (center == null || other.isRekt() || !CanClaim(other, zone)) continue;
+                float d = Toolbox.SquaredDistTile(center, tile);
+                if (d >= best) continue;
+                best = d;
+                city = other;
+            }
+        }
+        if (city?.data == null || city.isRekt()) return LM.Get("settlement_place_no_city");
+        string cityName = city.GetCityName();
+        if (CityStyleSystem.Established(city) == "nomad") return string.Format(LM.Get("settlement_place_nomad"), cityName);
+        HashSet<int> built = PureMapPatch.BuiltZones(city);
+        if (zone == city.getTile()?.zone || built != null && built.Contains(zone.id))
+            return string.Format(LM.Get("settlement_place_urban"), cityName);
+        int room = town ? 9 : 6;
+        foreach (TileZone around in Around(zone))
+            foreach (RuralSettlement other in InZone(around))
+                if (Math.Abs(other.x - tile.x) + Math.Abs(other.y - tile.y) < room + (other.town ? other.size : 0))
+                    return string.Format(LM.Get("settlement_place_crowded"), Label(other));
+        // 原处抹去的占位让出来
+        if (_clearedByZone != null)
+            foreach (TileZone around in Around(zone))
+                if (_clearedByZone.TryGetValue(around.id, out List<RuralSettlement> list))
+                    foreach (RuralSettlement gone in list.FindAll(gone => Math.Abs(gone.x - tile.x) + Math.Abs(gone.y - tile.y) < room))
+                    {
+                        list.Remove(gone);
+                        All.Remove(gone.id);
+                    }
+        int size = town ? (city.GetOrCreate().urban_tier >= 3 ? 4 : 3) : 0;
+        RuralSettlement settlement = Add(tile.x, tile.y, town, size, false);
+        if (claim)
+        {
+            WorldTile center = city.getTile();
+            ClaimAround(city, settlement, center?.x ?? tile.x, center?.y ?? tile.y, float.MaxValue);
+        }
+        PureMapPatch.Redraw(city);
+        return string.Format(LM.Get(town ? "settlement_placed_town" : "settlement_placed_village"), cityName);
+    }
+
+    // 毁弃：完好的毁为废墟，废墟彻底抹去；这里没有镇村时返回 null
+    public static string Raze(WorldTile tile)
+    {
+        RuralSettlement settlement = Near(tile);
+        if (settlement == null) return null;
+        City city = World.world.GetTile(settlement.x, settlement.y)?.zone?.city;
+        string name = Label(settlement);
+        if (settlement.ruined_at < 0d)
+        {
+            if (city != null) Displace(city, settlement);
+            settlement.ruined_at = World.world.getCurWorldTime();
+            Revision++;
+            if (city != null) PureMapPatch.Redraw(city);
+            return string.Format(LM.Get("settlement_razed"), name);
+        }
+        Erase(settlement);
+        if (city != null) PureMapPatch.Redraw(city);
+        return string.Format(LM.Get("settlement_erased"), name);
+    }
+
+    private static void Erase(RuralSettlement settlement)
+    {
+        settlement.cleared = true;
+        TileZone zone = World.world.GetTile(settlement.x, settlement.y)?.zone;
+        ByZone();
+        if (zone != null)
+        {
+            if (_byZone.TryGetValue(zone.id, out List<RuralSettlement> list)) list.Remove(settlement);
+            if (!_clearedByZone.TryGetValue(zone.id, out List<RuralSettlement> gone)) _clearedByZone[zone.id] = gone = new List<RuralSettlement>();
+            gone.Add(settlement);
+        }
+        Revision++;
+    }
+
+    // 改隶：这处村镇连同它那一片地改归 target(须与那一片接壤)
+    public static string Assign(RuralSettlement settlement, City target)
+    {
+        TileZone seat = settlement == null ? null : World.world.GetTile(settlement.x, settlement.y)?.zone;
+        City source = seat?.city;
+        if (seat == null || target?.data == null || target.isRekt()) return LM.Get("settlement_place_no_city");
+        string name = Label(settlement), targetName = target.GetCityName();
+        if (source == target) return string.Format(LM.Get("settlement_assign_same"), name, targetName);
+        List<TileZone> zones = source == null ? new List<TileZone> { seat } : CityDistricts.ZonesOfSettlement(source, settlement);
+        if (!zones.Contains(seat)) zones.Add(seat);
+        TileZone center = source?.getTile()?.zone;
+        if (center != null) zones.Remove(center);
+        if (source != null && zones.Exists(zone => source.GetTileZoneOccupier(zone) != null))
+            return string.Format(LM.Get("settlement_assign_occupied"), name);
+        var set = new HashSet<TileZone>(zones);
+        bool beside = zones.Exists(zone => zone.neighbours_all != null &&
+                                           Array.Exists(zone.neighbours_all, neighbour => neighbour?.city == target && !set.Contains(neighbour)));
+        if (!beside) return string.Format(LM.Get("settlement_assign_far"), name, targetName);
+        foreach (TileZone zone in zones) target.addZone(zone);
+        Revision++;
+        CityDistricts.Reset();
+        PureMapPatch.Redraw(target);
+        if (source != null) PureMapPatch.Redraw(source);
+        return string.Format(LM.Get("settlement_assign_done"), name, targetName);
+    }
+
+    #endregion
+
     #region 兵火与重建
 
     // 举城投降、望风归附时成片易手的地不烧(见 FrontSystem.Surrender、CityExtension.AddOccupiedTileZone)
@@ -289,7 +458,8 @@ public static class RuralSettlementSystem
         _lastMonth = now;
         foreach (RuralSettlement settlement in All.Values)
         {
-            if (settlement.ruined_at < 0d || now >= settlement.ruined_at && Date.getYearsSince(settlement.ruined_at) < RebuildYears) continue;
+            if (settlement.cleared || settlement.ruined_at < 0d ||
+                now >= settlement.ruined_at && Date.getYearsSince(settlement.ruined_at) < RebuildYears) continue;
             TileZone zone = World.world.GetTile(settlement.x, settlement.y)?.zone;
             City city = zone?.city;
             if (city?.kingdom == null || city.isRekt() || city.kingdom.hasEnemies() || city.GetTileZoneOccupier(zone) != null) continue;

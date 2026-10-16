@@ -385,20 +385,24 @@ public static class UrbanFabric
                 else g.Villages.Add((settlement.x, settlement.y));
             }
         }
+        // 彻底抹去的镇村占着原处(见 RuralSettlementSystem.Erase)，不在那里另建
         bool Taken(int x, int y, int room) =>
             g.Towns.Exists(t => Mathf.Abs(t.x - x) + Mathf.Abs(t.y - y) < t.size + room) ||
             g.Villages.Exists(v => Mathf.Abs(v.x - x) + Mathf.Abs(v.y - y) < room) ||
-            g.Ruins.Exists(r => Mathf.Abs(r.x - x) + Mathf.Abs(r.y - y) < room);
+            g.Ruins.Exists(r => Mathf.Abs(r.x - x) + Mathf.Abs(r.y - y) < room) ||
+            RuralSettlementSystem.ClearedNear(x, y, room);
         int reach = 14 + 8 * tier;
         float far = 12f + reach - 2f;
         // 本城地上没地方时，城外紧挨着本城、离城心 far 格以内的无主空地上也可以新建一处，建了就把四周划进本城
         // (每城一年至多一处，见 RuralSettlementSystem.Found)
         bool frontier = RuralSettlementSystem.MayFound(g.City);
+        // 打仗时不新建(地块易手，丢了地的城不补数，见 RuralSettlementSystem.MayGrow)
+        bool grow = RuralSettlementSystem.MayGrow(g.City);
         bool Edge(int x, int y) => frontier && (x - g.GateX) * (x - g.GateX) + (y - g.GateY) * (y - g.GateY) <= far * far &&
                                    Frontier(g, x, y);
         // 镇：落在路上(大路出城十格以外、岔路五格以外)；离路口多远只看种子，不随路的长短(档位)变
         int towns = tier switch { 2 => 1, 3 => 2 + (H(g.Seed, 61) < 0.5f ? 1 : 0), 4 => 3 + (H(g.Seed, 61) < 0.5f ? 1 : 0), _ => 0 };
-        for (int attempt = 0; attempt < 16 && townCount < towns && g.Roads.Count > 0; attempt++)
+        for (int attempt = 0; attempt < 16 && grow && townCount < towns && g.Roads.Count > 0; attempt++)
         {
             Road road = g.Roads[(first + attempt) % g.Roads.Count];
             int start = road.Gate ? 10 : 5, at = start + (int)(H(g.Seed, attempt, 62) * 30f);
@@ -438,6 +442,7 @@ public static class UrbanFabric
             if (g.Towns.Exists(t => Mathf.Abs(t.x - x) + Mathf.Abs(t.y - y) < t.size + 8)) return false;
             if (g.Villages.Exists(v => Mathf.Abs(v.x - x) + Mathf.Abs(v.y - y) < 9)) return false;
             if (g.Ruins.Exists(r => Mathf.Abs(r.x - x) + Mathf.Abs(r.y - y) < 9)) return false;
+            if (RuralSettlementSystem.ClearedNear(x, y, 9)) return false;
             // 离路太近的不要(会压在路上)
             int best = 15;
             foreach (Road road in g.Roads)
@@ -450,14 +455,14 @@ public static class UrbanFabric
         }
         foreach ((int x, int y, _) in sites)
         {
-            if (villageCount >= villages) break;
+            if (!grow || villageCount >= villages) break;
             if (!Open(g, x, y) || !Spaced(x, y)) continue;
             g.Villages.Add((x, y));
             villageCount++;
             RuralSettlementSystem.Add(x, y, false, 0, false);
         }
         // 本城地上不够数：城外最近的一处村址(见上面的 frontier)
-        if (villageCount < villages)
+        if (grow && villageCount < villages)
             foreach ((int x, int y, _) in sites)
             {
                 if (!Edge(x, y) || !Spaced(x, y)) continue;
@@ -559,7 +564,7 @@ public static class UrbanFabric
                 best = d;
                 to = point;
             }
-            if (best > size + 2f && best <= TrailReach) AddTrail(g, at, to, 5003L + t * 13L);
+            if (best > size + 2f && !(best <= TrailReach && AddTrail(g, at, to, 5003L + t * 13L))) TerrainTrail(g, at, to);
         }
         foreach ((int tx, int ty, int size, _) in g.Towns) roadPoints.Add(new Vector2(tx, ty));
         for (int i = 0; i < g.Villages.Count; i++)
@@ -572,17 +577,26 @@ public static class UrbanFabric
             foreach (Vector2 point in roadPoints) targets.Add((point, Vector2.Distance(from, point)));
             targets.Sort((p, q) => p.d.CompareTo(q.d));
             int tried = 0;
+            bool linked = false;
             Vector2 last = new Vector2(float.NaN, float.NaN);
             foreach ((Vector2 to, float d) in targets)
             {
                 if (d > TrailReach || tried >= 4) break;
-                if (d < 2f) break;
+                if (d < 2f)
+                {
+                    linked = true;
+                    break;
+                }
                 // 同一条路上挨着的点算一处
                 if (!float.IsNaN(last.x) && Vector2.Distance(last, to) < 6f) continue;
                 last = to;
                 tried++;
-                if (AddTrail(g, from, to, PosKey(x, y) * 31L + 1 + tried * 7L)) break;
+                if (!AddTrail(g, from, to, PosKey(x, y) * 31L + 1 + tried * 7L)) continue;
+                linked = true;
+                break;
             }
+            // 都绕不过去(或太远)：顺着地势寻路通到最近的那处
+            if (!linked) TerrainTrail(g, from, targets[0].at);
             // 近处的村：约一半连一条(每对只连一次)
             for (int j = i + 1; j < g.Villages.Count; j++)
             {
@@ -596,6 +610,105 @@ public static class UrbanFabric
             }
         }
     }
+
+    // 顺着地势的小路(用户 2026-10-17 "路的话放置的时候就自动按照地势连上")：直着走、左右绕都过不去，或者离得太远时，
+    // 按格寻路(八方向)绕开水面、高山与城墙，碎石地多费些力；路线再揉顺一点。终点离得太远、找不到路就不修
+    private const int TerrainReach = 90, TerrainMargin = 16, TerrainSearch = 20000;
+
+    private static bool TerrainTrail(Geometry g, Vector2 a, Vector2 b)
+    {
+        int ax = Mathf.RoundToInt(a.x), ay = Mathf.RoundToInt(a.y), bx = Mathf.RoundToInt(b.x), by = Mathf.RoundToInt(b.y);
+        if (Mathf.Abs(ax - bx) + Mathf.Abs(ay - by) < 2 || Vector2.Distance(a, b) > TerrainReach) return false;
+        int x0 = Mathf.Min(ax, bx) - TerrainMargin, y0 = Mathf.Min(ay, by) - TerrainMargin;
+        int w = Mathf.Abs(ax - bx) + 2 * TerrainMargin + 1, h = Mathf.Abs(ay - by) + 2 * TerrainMargin + 1;
+        var cost = new float[w * h];
+        var from = new int[w * h];
+        for (int i = 0; i < cost.Length; i++) cost[i] = float.MaxValue;
+        int start = (ay - y0) * w + (ax - x0), goal = (by - y0) * w + (bx - x0);
+        float Step(int x, int y)
+        {
+            WorldTile tile = World.world.GetTile(x, y);
+            if (tile?.Type == null || tile.Type.liquid || tile.Type.mountains || MapWallSystem.Contains(tile)) return -1f;
+            return tile.Type.rocks || tile.Type.block ? 4f : 1f;
+        }
+        float Guess(int index)
+        {
+            int dx = Mathf.Abs(index % w - (bx - x0)), dy = Mathf.Abs(index / w - (by - y0));
+            return Mathf.Max(dx, dy) + 0.41f * Mathf.Min(dx, dy);
+        }
+        var open = new List<(float f, int index)>();
+        void Push(float f, int index)
+        {
+            open.Add((f, index));
+            for (int c = open.Count - 1; c > 0;)
+            {
+                int p = (c - 1) / 2;
+                if (open[p].f <= open[c].f) break;
+                (open[p], open[c]) = (open[c], open[p]);
+                c = p;
+            }
+        }
+        (float f, int index) Pop()
+        {
+            (float f, int index) top = open[0];
+            open[0] = open[open.Count - 1];
+            open.RemoveAt(open.Count - 1);
+            for (int c = 0;;)
+            {
+                int l = c * 2 + 1, r = l + 1, m = c;
+                if (l < open.Count && open[l].f < open[m].f) m = l;
+                if (r < open.Count && open[r].f < open[m].f) m = r;
+                if (m == c) break;
+                (open[m], open[c]) = (open[c], open[m]);
+                c = m;
+            }
+            return top;
+        }
+        cost[start] = 0f;
+        from[start] = -1;
+        Push(Guess(start), start);
+        int expanded = 0;
+        bool found = false;
+        while (open.Count > 0 && expanded++ < TerrainSearch)
+        {
+            (float f, int index) = Pop();
+            if (index == goal)
+            {
+                found = true;
+                break;
+            }
+            int cx = index % w, cy = index / w;
+            if (f - Guess(index) > cost[index] + 0.01f) continue;
+            for (int k = 0; k < 8; k++)
+            {
+                int nx = cx + AroundX[k], ny = cy + AroundY[k];
+                if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+                int next = ny * w + nx;
+                float step = next == goal ? 1f : Step(nx + x0, ny + y0);
+                if (step < 0f) continue;
+                float total = cost[index] + step * (k >= 4 ? 1.41f : 1f);
+                if (total >= cost[next]) continue;
+                cost[next] = total;
+                from[next] = index;
+                Push(total + Guess(next), next);
+            }
+        }
+        if (!found) return false;
+        var points = new List<Vector2>();
+        for (int at = goal; at >= 0; at = from[at]) points.Add(new Vector2(at % w + x0, at / w + y0));
+        points.Reverse();
+        // 揉顺：每点取前后三点的平均(两头不动)，揉过去落到水里、山上的点照旧
+        for (int pass = 0; pass < 2; pass++)
+            for (int i = 1; i + 1 < points.Count; i++)
+            {
+                Vector2 smooth = (points[i - 1] + points[i] + points[i + 1]) / 3f;
+                if (Step(Mathf.RoundToInt(smooth.x), Mathf.RoundToInt(smooth.y)) > 0f) points[i] = smooth;
+            }
+        g.Paths.Add(points.ToArray());
+        return true;
+    }
+
+    private static readonly int[] AroundX = { 1, -1, 0, 0, 1, 1, -1, -1 }, AroundY = { 0, 0, 1, -1, 1, -1, 1, -1 };
 
     // 一条小路：从 a 走到 b，路线围着直线左右起伏(一大一小两段起伏)；整条有三成以上落在水里、山上就换一边绕，还不行就不修
     private static bool AddTrail(Geometry g, Vector2 a, Vector2 b, long key)
@@ -871,6 +984,10 @@ public static class UrbanFabric
     }
 
     #endregion
+
+    // 能立村镇的格：陆地、不是山地碎石、没有城墙(手动立村设镇用，见 RuralSettlementSystem.Place)
+    internal static bool Buildable(WorldTile tile) =>
+        tile?.zone != null && tile.Type != null && !tile.Type.liquid && !Rough(tile) && !MapWallSystem.Contains(tile);
 
     // 城外紧挨着本城的无主空地(城外新建村镇用，见 PlaceCountryside)
     private static bool Frontier(Geometry g, int x, int y)

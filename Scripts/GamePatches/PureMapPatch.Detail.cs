@@ -228,6 +228,9 @@ public partial class PureMapPatch
 
         public WorldTile Tile(int px, int py) => World.world.GetTile(X0 + Mathf.FloorToInt(px / (float)DetailScale), Y0 + Mathf.FloorToInt(py / (float)DetailScale));
 
+        // 画村镇、小路、废墟时不看归属(见 DrawCountryside)
+        public bool Spill;
+
         // 这一像素落在能盖房子的地上(不是水、山，属于本城或无主)
         public bool Land(int px, int py)
         {
@@ -235,7 +238,7 @@ public partial class PureMapPatch
             if (tile?.Type == null || tile.Type.liquid || tile.Type.mountains || tile.Type.block || MapWallSystem.Contains(tile))
                 return false;
             City owner = tile.zone?.city;
-            return owner == null || owner == City;
+            return Spill || owner == null || owner == City;
         }
     }
 
@@ -1656,6 +1659,8 @@ public partial class PureMapPatch
         int s = DetailScale;
         Color32 dirt = Lerp(tint, Dirt, 0.8f), ground = Lerp(tint, Threshing, 0.85f), townGround = Lerp(tint, Rgb(238, 228, 200), 0.85f);
         DrawRoads(c, g, tint);
+        // 村镇、小路、废墟画全：压到邻城地块上的那一截照画，不在城界上截掉(用户 2026-10-17 "而且村镇会被截掉")；田块照旧只种在本城地上
+        c.Spill = true;
         // 村镇的小路：沿折线一像素宽的土路(弯法见 UrbanFabric.PlaceTrails)，只铺在空地上，过水、过房子就断开
         foreach (Vector2[] trail in g.Paths)
             for (int k = 0; k + 1 < trail.Length; k++)
@@ -1706,6 +1711,7 @@ public partial class PureMapPatch
         // 毁于兵火的镇村(见 RuralSettlementSystem)：一片焦土，残垣断瓦
         foreach ((int x, int y, bool town) in g.Ruins)
             RuralRuin(c, (x - c.X0) * s + s / 2, (y - c.Y0) * s + s / 2, town ? 16f : 7f, UrbanFabric.PosKey(x, y) + 5000, tint);
+        c.Spill = false;
         // 田块：村镇四周散着几块条田(见 FieldColor)，一块八到十三像素宽、六到九像素高，块与块之间至少留三像素空地；
         // 只种在本城能耕的空地上，一块里能种的不到七成就换个地方(阿兹特克是水上浮田)
         var fields = new List<(int x0, int y0, int x1, int y1)>();

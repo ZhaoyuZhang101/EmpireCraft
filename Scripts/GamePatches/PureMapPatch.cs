@@ -433,10 +433,13 @@ public partial class PureMapPatch : GamePatch
             if (smooth)
             {
                 edge = SmoothBorders.IsOutline(id);
-                // 平滑后归邻国(邻城)的像素：只按地形调色，不画本块的占领纹与城市平面图
+                // 平滑后归邻国(邻城)的像素：只按地形调色，不画本块的占领纹与城市平面图；城郊的镇、路、小路照画——
+                // 被敌军占着、战线逐格吃下的地还是本城的，上面的镇和路不因此消失(用户 2026-10-17 "每次战线变化的时候就重复刷新消失")
                 if (!edge && SmoothBorders.IsForeign(id))
                 {
-                    pixels[id] = grey ? Dark(tile) : Shade(tile, pixels[id]);
+                    pixels[id] = !grey && detail && plan?.fabric != null && UrbanFabric.Feature(plan.fabric, tile)
+                        ? Plan(tile, Shade(tile, pixels[id]), use, slots, tile.x - ox, tile.y - oy, plan, zone)
+                        : grey ? Dark(tile) : Shade(tile, pixels[id]);
                     continue;
                 }
             }

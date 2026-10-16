@@ -14,7 +14,9 @@ namespace EmpireCraft.Scripts.UI.Components;
 public static class CityDetailOverlay
 {
     private const float MinPixelsPerTile = MapZoomTier.Near;
-    private const int MaxShown = 4, MaxCached = 8;
+    // 镜头里同时出精细图的城(以前四座，城一多，第五座起的村镇就看不见；战线一动城的范围变了，入选的几座换来换去，
+    // 看着像村镇反复消失又冒出来——用户 2026-10-17 "为什么这些村镇会在每次战线变化的时候就重复刷新消失和生成新的村镇")
+    private const int MaxShown = 12, MaxCached = 16;
     // 估计一座城连同城外村镇的范围时，城的地块外再放宽几格
     private const int CountrysideMargin = 24;
 

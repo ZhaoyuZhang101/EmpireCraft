@@ -13,4 +13,6 @@ public sealed class RuralSettlement
     public double founded = -1d;
     // 毁于兵火的时间(-1 = 完好)
     public double ruined_at = -1d;
+    // 彻底抹去了(见 RuralSettlementSystem.Erase)：不画、不算数、不重建，只留着占住原处，城郊不再在这里另建
+    public bool cleared;
 }

@@ -1577,6 +1577,13 @@ def obj_wall(img):
 PLOTS.update({
     "empirecraft_road_treaty": (obj_street, "plus"),
 })
+# 营建(城乡营建组)：立村、设镇、毁弃、改隶
+GODPOWERS.update({
+    "place_village": (obj_houses, "plus"),
+    "place_town": (obj_market, "plus"),
+    "raze_settlement": (obj_houses, "cross"),
+    "assign_settlement": (obj_houses, "arrow"),
+})
 
 
 # ═════════════ 生成 ═════════════
