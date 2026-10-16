@@ -277,6 +277,7 @@ public static class ClanBranchSystem
         branch.RecordAncestralCity(seat ?? founderActor.city);
         vanillaClan.SetSpecificClan(branch);
         SpecificClanManager.AddClan(branch);
+        SpecificClanManager.SyncVanillaClanName(vanillaClan);
 
         foreach (PersonalClanIdentity identity in members)
         {

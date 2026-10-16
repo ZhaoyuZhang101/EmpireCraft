@@ -694,7 +694,7 @@ public class ActorPatch : GamePatch
                     if (__instance.hasFamily())
                     {
                         __instance.family.data.name = OverallHelperFunc.JoinNameParts(
-                            __instance.city?.data?.name ?? "", __instance.clan?.GetClanName(), LM.Get("Family"));
+                            __instance.city?.data?.name ?? "", __instance.clan?.GetMemberSurname(), LM.Get("Family"));
                         __instance.family.SetFamilyCityPre();
                     }
                 }
@@ -703,7 +703,7 @@ public class ActorPatch : GamePatch
                     LogService.LogError($"设置姓名失败: {e}");
                 }
 
-                __instance.SetFamilyName(__instance.clan.GetClanName());
+                __instance.SetFamilyName(__instance.clan.GetMemberSurname());
             } else
             {
                 if (!flag&&__instance.hasFamily())
@@ -749,7 +749,7 @@ public class ActorPatch : GamePatch
         if (__instance.hasFamily())
         {
 
-            string clanName = pObject.GetClanName();
+            string clanName = pObject.GetMemberSurname();
             string familyEnd = LM.Get("Family");
             if (__instance.city != null)
             {
@@ -778,12 +778,12 @@ public class ActorPatch : GamePatch
                 if (clanNames != null)
                 {
                     pObject.data.name = clanNames.generateName().UseLocalizedNameSeparator();
-                    __instance.SetFamilyName(pObject.GetClanName());
+                    __instance.SetFamilyName(pObject.GetMemberSurname());
                 }
             }
         } else
         {
-            __instance.SetFamilyName(pObject.GetClanName());
+            __instance.SetFamilyName(pObject.GetMemberSurname());
         }
         __instance.initializeActorName();
         __instance.GetModName().SetName(__instance);
@@ -817,7 +817,7 @@ public class ActorPatch : GamePatch
             if (!SurnameInheritanceSystem.TryInheritSurname(__instance))
             {
                 if (__instance.hasClan())
-                    __instance.SetFamilyName(__instance.clan.GetClanName());
+                    __instance.SetFamilyName(__instance.clan.GetMemberSurname());
                 else if (__instance.hasCulture())
                 {
                     if (!pObject.HasBeenSetBefored())

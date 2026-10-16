@@ -107,6 +107,8 @@ public static class VirtualGenealogySystem
         if (princes > 0) LogService.LogInfo($"[EmpireCraft][虚拟族谱] 按个人经历补记藩王王号 {princes} 人");
         int clanSurnames = SurnameInheritanceSystem.RepairClanSurnames(SpecificClanManager._globalPersonLookup.Values);
         if (clanSurnames > 0) LogService.LogInfo($"[EmpireCraft][虚拟族谱] 华夏宗族里不姓本族姓的改回 {clanSurnames} 人");
+        int vanillaNames = SpecificClanManager.SyncAllVanillaClanNames();
+        if (vanillaNames > 0) LogService.LogInfo($"[EmpireCraft][虚拟族谱] 原版氏族名跟随宗族、支脉改名 {vanillaNames} 个");
     }
 
     // 读档校正旧存档的生日：成年落地的人以前把落地日记成生日(见 ActorExtension.TrueBirthTime)，族谱上父母只比子女大

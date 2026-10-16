@@ -46,6 +46,16 @@ public static class ClanExtension
         a.GetOrCreate().specific_clan_id = -1L;
     }
 
+    // 这个氏族的族人该姓什么(给新生儿、入族的人起姓用)：有对应宗族的取宗族记的姓(族谱的姓)，
+    // 不从原版氏族名里拆——原版氏族名现在显示的是"氏"(如华夏姬姓分出的"鲁氏"，见 SpecificClan.VanillaClanName)；
+    // 没有对应宗族的照旧从氏族名里取
+    public static string GetMemberSurname(this Clan clan)
+    {
+        if (clan?.data == null) return "";
+        string surname = clan.GetSpecificClan()?.name;
+        return !string.IsNullOrWhiteSpace(surname) ? surname : clan.GetClanName();
+    }
+
     public static string GetClanName(this Clan clan, ActorSex sex = ActorSex.None, bool hasSexPost = false)
     {
         if (clan?.data == null || string.IsNullOrWhiteSpace(clan.name)) return "";

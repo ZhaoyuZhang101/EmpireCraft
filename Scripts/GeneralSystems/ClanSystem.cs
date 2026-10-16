@@ -165,6 +165,10 @@ public class SpecificClan
             : string.Format(LM.Get("clan_xing_branch"), top.name, branch_label);
     }
 
+    // 原版氏族显示的名字(不带"氏"字)：华夏有氏的支脉(及其再分的郡望、房支)写氏，其余写宗族的姓。
+    // 族人的姓不从这里取(见 ClanExtension.GetMemberSurname)
+    public string VanillaClanName() => HuaxiaLine() && NearestShi() is string shiName ? shiName : name;
+
     // 显示名：始祖宗族是"谈宗族"，分支是"谈宗族·越国支"；华夏合一前"姬姓·鲁氏"，合一后"鲁宗族·清河支"
     public string GetDisplayName()
     {
@@ -326,7 +330,7 @@ public class SpecificClan
         _cache = new Dictionary<long, PersonalClanIdentity>();
         Clan clan = actor.clan;
         id = IdGenerator.NextId();
-        name = clan.GetClanName();
+        name = clan.GetMemberSurname();
         established_timestamp = World.world.getCurWorldTime();
         clan_sex_priority = judgeMalePriority(actor) ? SpecificClanType.MalePriority : SpecificClanType.FemalePriority;
         clan.SetSpecificClan(this);
@@ -543,6 +547,7 @@ public static class SpecificClanManager
                 target = World.world.clans.newClan(actor, true);
                 if (target == null) return;
                 target.SetSpecificClan(specific);
+                SpecificClanManager.SyncVanillaClanName(target);
                 if (cache != null) cache[specific.id] = target;
             }
             if (actor.clan != target) actor.setClan(target);
@@ -1137,6 +1142,29 @@ public static class SpecificClanManager
     }
     
     // 写：所有对 _specificClans 的 Add/Remove/Clear 必须同一把锁保护
+    // 原版氏族的名字跟着宗族、支脉走：华夏姬姓分出的鲁氏，原版氏族就叫"鲁氏"
+    public static void SyncVanillaClanName(Clan clan)
+    {
+        SpecificClan specific = clan?.data == null ? null : clan.GetSpecificClan();
+        string shown = specific?.VanillaClanName();
+        if (string.IsNullOrWhiteSpace(shown)) return;
+        string expected = JoinNameParts(shown, LM.Get("Clan"));
+        if (clan.data.name != expected) clan.data.name = expected;
+    }
+
+    public static int SyncAllVanillaClanNames()
+    {
+        if (World.world?.clans?.list == null) return 0;
+        int changed = 0;
+        foreach (Clan clan in World.world.clans.list.ToList())
+        {
+            string before = clan?.data?.name;
+            SyncVanillaClanName(clan);
+            if (clan?.data != null && clan.data.name != before) changed++;
+        }
+        return changed;
+    }
+
     // 现有各氏族的名字(取古姓时避开已用的)
     public static HashSet<string> ClanNames()
     {

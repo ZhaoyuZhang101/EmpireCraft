@@ -51,7 +51,7 @@ public class ClanPatch : GamePatch
             __instance.data.name = OverallHelperFunc.JoinNameParts(pFounder.GetModName().familyName, LM.Get("Clan"));
             if (pFounder.hasFamily())
             {
-                string clanName = __instance.GetClanName();
+                string clanName = __instance.GetMemberSurname();
                 string familyEnd = LM.Get("Family");
                 if (pFounder.city != null)
                 {
@@ -74,10 +74,10 @@ public class ClanPatch : GamePatch
             {
                 __instance.data.name = pFounder.culture.getOnomasticData(MetaType.Clan).generateName()
                     .UseLocalizedNameSeparator();
-                pFounder.SetFamilyName(__instance.GetClanName());
+                pFounder.SetFamilyName(__instance.GetMemberSurname());
                 if (pFounder.hasFamily())
                 {
-                    string clanName = __instance.GetClanName();
+                    string clanName = __instance.GetMemberSurname();
                     string familyEnd = LM.Get("Family");
                     if (pFounder.city != null)
                     {
