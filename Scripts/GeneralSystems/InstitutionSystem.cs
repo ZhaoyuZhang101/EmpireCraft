@@ -2098,6 +2098,8 @@ public static class InstitutionSystem
                 state.last_exposure_timestamp.Remove(nodeId);
                 continue;
             }
+            // 外来制度也要本文化先研究出它要求的科技，否则接触度留着、暂不吸收
+            if (!TechnologySystem.AreInstitutionTechsMet(culture, node, out _)) continue;
             if (!InstitutionRules.IsTierAbsorbable(node.advancement, level, rule.max_tier_gap)) continue;
             float requiredExposure = node.absorb.minimum_exposure >= 0f
                 ? node.absorb.minimum_exposure

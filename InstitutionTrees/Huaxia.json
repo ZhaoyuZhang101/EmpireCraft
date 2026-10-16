@@ -28,7 +28,7 @@
       "regime": "ZhouFeudalism"
     },
     {
-      "id": "huaxia_recommendation",
+      "id": "huaxia_recommendation", "requires_techs": ["paper"],
       "name_key": "institution_huaxia_recommendation",
       "description_key": "institution_huaxia_recommendation_desc",
       "branch": "society",
@@ -76,7 +76,7 @@
       ]
     },
     {
-      "id": "zhou_enfeoffment",
+      "id": "zhou_enfeoffment", "requires_techs": ["ritual_rites"],
       "name_key": "institution_zhou_enfeoffment",
       "description_key": "institution_zhou_enfeoffment_desc",
       "branch": "administration",
@@ -123,7 +123,7 @@
       }
     },
     {
-      "id": "huaxia_well_field",
+      "id": "huaxia_well_field", "requires_techs": ["census"],
       "name_key": "institution_huaxia_well_field",
       "description_key": "institution_huaxia_well_field_desc",
       "branch": "finance",
@@ -163,7 +163,7 @@
       ]
     },
     {
-      "id": "zhou_vassal_self_succession",
+      "id": "zhou_vassal_self_succession", "requires_techs": ["law_code"],
       "name_key": "institution_zhou_vassal_self_succession",
       "description_key": "institution_zhou_vassal_self_succession_desc",
       "branch": "administration",
@@ -220,7 +220,7 @@
       }
     },
     {
-      "id": "huaxia_grace_edict",
+      "id": "huaxia_grace_edict", "requires_techs": ["law_code"],
       "name_key": "institution_huaxia_grace_edict",
       "description_key": "institution_huaxia_grace_edict_desc",
       "branch": "administration",
@@ -269,7 +269,7 @@
       }
     },
     {
-      "id": "huaxia_commandery_kingdom",
+      "id": "huaxia_commandery_kingdom", "requires_techs": ["bureaucracy"],
       "name_key": "institution_huaxia_commandery_kingdom",
       "description_key": "institution_huaxia_commandery_kingdom_desc",
       "branch": "administration",
@@ -312,7 +312,7 @@
       }
     },
     {
-      "id": "zhou_forbid_private_wars",
+      "id": "zhou_forbid_private_wars", "requires_techs": ["military_register"],
       "name_key": "institution_zhou_forbid_private_wars",
       "description_key": "institution_zhou_forbid_private_wars_desc",
       "branch": "military",
@@ -364,7 +364,7 @@
       }
     },
     {
-      "id": "huaxia_merit_ranks",
+      "id": "huaxia_merit_ranks", "requires_techs": ["military_register"],
       "name_key": "institution_huaxia_merit_ranks",
       "description_key": "institution_huaxia_merit_ranks_desc",
       "branch": "military",
@@ -419,7 +419,7 @@
       }
     },
     {
-      "id": "huaxia_tributary_system",
+      "id": "huaxia_tributary_system", "requires_techs": ["ritual_rites"],
       "name_key": "institution_huaxia_tributary_system",
       "description_key": "institution_huaxia_tributary_system_desc",
       "branch": "administration",
@@ -462,7 +462,7 @@
       ]
     },
     {
-      "id": "huaxia_jimi_system",
+      "id": "huaxia_jimi_system", "requires_techs": ["postal_roads"],
       "name_key": "institution_huaxia_jimi_system",
       "description_key": "institution_huaxia_jimi_system_desc",
       "branch": "administration",
@@ -505,7 +505,7 @@
       }
     },
     {
-      "id": "huaxia_land_equalization",
+      "id": "huaxia_land_equalization", "requires_techs": ["taxation"],
       "name_key": "institution_huaxia_land_equalization",
       "description_key": "institution_huaxia_land_equalization_desc",
       "branch": "finance",
@@ -557,7 +557,7 @@
       ]
     },
     {
-      "id": "zhou_reduce_vassals",
+      "id": "zhou_reduce_vassals", "requires_techs": ["bureaucracy"],
       "name_key": "institution_zhou_reduce_vassals",
       "description_key": "institution_zhou_reduce_vassals_desc",
       "branch": "administration",
@@ -616,7 +616,7 @@
       }
     },
     {
-      "id": "huaxia_salt_iron_monopoly",
+      "id": "huaxia_salt_iron_monopoly", "requires_techs": ["taxation"],
       "name_key": "institution_huaxia_salt_iron_monopoly",
       "description_key": "institution_huaxia_salt_iron_monopoly_desc",
       "branch": "finance",
@@ -665,7 +665,7 @@
       }
     },
     {
-      "id": "huaxia_military_garrison",
+      "id": "huaxia_military_garrison", "requires_techs": ["standing_army"],
       "features": {
         "army_prefecture": 1
       },
@@ -717,7 +717,7 @@
       ]
     },
     {
-      "id": "huaxia_prefecture_county_bureaucracy",
+      "id": "huaxia_prefecture_county_bureaucracy", "requires_techs": ["bureaucracy", "postal_roads"],
       "name_key": "institution_huaxia_prefecture_county_bureaucracy",
       "description_key": "institution_huaxia_prefecture_county_bureaucracy_desc",
       "branch": "administration",
@@ -773,7 +773,7 @@
       }
     },
     {
-      "id": "huaxia_three_departments",
+      "id": "huaxia_three_departments", "requires_techs": ["bureaucracy", "paper"],
       "name_key": "institution_huaxia_three_departments",
       "description_key": "institution_huaxia_three_departments_desc",
       "branch": "administration",
@@ -821,7 +821,7 @@
       }
     },
     {
-      "id": "huaxia_examination_officialdom",
+      "id": "huaxia_examination_officialdom", "requires_techs": ["civil_examination"],
       "name_key": "institution_huaxia_examination_officialdom",
       "description_key": "institution_huaxia_examination_officialdom_desc",
       "branch": "society",
@@ -878,7 +878,7 @@
       ]
     },
     {
-      "id": "huaxia_grand_secretariat",
+      "id": "huaxia_grand_secretariat", "requires_techs": ["civil_examination", "printing"],
       "name_key": "institution_huaxia_grand_secretariat",
       "description_key": "institution_huaxia_grand_secretariat_desc",
       "branch": "administration",
@@ -927,7 +927,7 @@
       }
     },
     {
-      "id": "huaxia_warlord_succession",
+      "id": "huaxia_warlord_succession", "requires_techs": ["standing_army"],
       "features": {
         "army_regional": 1
       },
@@ -984,7 +984,7 @@
       ]
     },
     {
-      "id": "huaxia_two_tax_law",
+      "id": "huaxia_two_tax_law", "requires_techs": ["taxation", "paper"],
       "name_key": "institution_huaxia_two_tax_law",
       "description_key": "institution_huaxia_two_tax_law_desc",
       "branch": "finance",
@@ -1050,7 +1050,7 @@
       ]
     },
     {
-      "id": "huaxia_single_whip_reform",
+      "id": "huaxia_single_whip_reform", "requires_techs": ["fiscal_reform"],
       "name_key": "institution_huaxia_single_whip_reform",
       "description_key": "institution_huaxia_single_whip_reform_desc",
       "branch": "finance",
@@ -1125,7 +1125,7 @@
       }
     },
     {
-      "id": "huaxia_constitutional_preparation",
+      "id": "huaxia_constitutional_preparation", "requires_techs": ["constitutionalism"],
       "name_key": "institution_huaxia_constitutional_preparation",
       "description_key": "institution_huaxia_constitutional_preparation_desc",
       "branch": "administration",
@@ -1177,7 +1177,7 @@
       }
     },
     {
-      "id": "huaxia_recruited_army",
+      "id": "huaxia_recruited_army", "requires_techs": ["standing_army"],
       "features": {
         "army_standing": 1
       },
@@ -1242,7 +1242,7 @@
       ]
     },
     {
-      "id": "huaxia_land_sale_decree",
+      "id": "huaxia_land_sale_decree", "requires_techs": ["currency"],
       "name_key": "institution_huaxia_abolish_well_field",
       "description_key": "institution_huaxia_abolish_well_field_desc",
       "branch": "finance",

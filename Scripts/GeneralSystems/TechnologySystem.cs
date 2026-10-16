@@ -660,6 +660,19 @@ public static class TechnologySystem
         ["modern_warships"] = new[] { "electricity", "motorization" }
     };
 
+    // 制度后来加了专门的科技前提(典章线)：已经推行的制度说明这些科技早就有了，直接补上，不把旧档打回原形
+    private static void BackfillCivicsLine(string culture)
+    {
+        CultureInstitutionState institutions = InstitutionSystem.GetOrCreateCultureState(culture);
+        if (institutions?.enacted_node_ids == null) return;
+        foreach (string nodeId in institutions.enacted_node_ids.ToList())
+        {
+            InstitutionNodeConfig node = InstitutionDefinitionRegistry.Get(nodeId);
+            if (node?.requires_techs == null) continue;
+            foreach (string tech in node.requires_techs) ForceResearch(culture, tech);
+        }
+    }
+
     private static void BackfillNavalLine(string culture)
     {
         int era = GetEraTier(culture);
@@ -804,8 +817,14 @@ public static class TechnologySystem
                 yield return link;
     }
 
+    // 制度要求的科技：节点自己写的专门科技(requires_techs) + 按特性挂的科技(institution_links)
     public static List<string> GetInstitutionRequiredTechs(InstitutionNodeConfig node) =>
-        LinksFor(node).SelectMany(link => link.requires_techs).Distinct().ToList();
+        (node?.requires_techs ?? Enumerable.Empty<string>())
+        .Concat(LinksFor(node).SelectMany(link => link.requires_techs)).Distinct().ToList();
+
+    // 以这项科技为专门前提的制度节点(科技窗口里列出"可研究制度：某某")
+    public static IEnumerable<InstitutionNodeConfig> InstitutionsRequiring(string techId) =>
+        InstitutionDefinitionRegistry.All.Where(node => node.requires_techs != null && node.requires_techs.Contains(techId));
 
     public static bool AreInstitutionTechsMet(string culture, InstitutionNodeConfig node, out List<string> missing)
     {
@@ -953,6 +972,11 @@ public static class TechnologySystem
             {
                 state.naval_line = true;
                 BackfillNavalLine(culture);
+            }
+            if (!state.civics_line)
+            {
+                state.civics_line = true;
+                BackfillCivicsLine(culture);
             }
             using (FrameProfiler.Measure("科技·发现材料")) DiscoverMaterials(culture, pair.Value);
             if (state.last_era_tier < 0) state.last_era_tier = GetEraTier(culture);

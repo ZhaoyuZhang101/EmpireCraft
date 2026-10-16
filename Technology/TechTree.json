@@ -78,7 +78,7 @@
     "employment_cap_bonus": { "industrialization": 0.1, "electricity": 0.05, "computing": 0.05 },
     "capitalist_budding_techs": ["printing"]
   },
-  "branches": ["material", "metallurgy", "military", "construction", "science", "naval"],
+  "branches": ["material", "metallurgy", "military", "construction", "science", "naval", "civics"],
   "eras": [
     { "tier": 1, "key": "tech_era_stone" },
     { "tier": 2, "key": "tech_era_copper" },
@@ -173,6 +173,28 @@
     { "id": "modern_warships", "branch": "naval", "tier": 8, "cost": 950, "requires_techs": ["steam_ironclads", "electricity"], "boosts": [{"type": "war_knows", "value": "", "amount": 1}], "naval_reach": 32, "naval_hull": 4 },
     { "id": "naval_aviation", "branch": "naval", "tier": 9, "cost": 1400, "requires_techs": ["modern_warships", "aviation"], "boosts": [{"type": "war_knows", "value": "", "amount": 1}], "naval_reach": 128, "naval_power": 0.5 },
     { "id": "naval_radar", "branch": "naval", "tier": 9, "cost": 1400, "requires_techs": ["modern_warships", "computing"], "boosts": [{"type": "contact_knows", "value": "", "amount": 1}], "naval_reach": 64, "naval_power": 0.25 },
-    { "id": "nuclear_navy", "branch": "naval", "tier": 10, "cost": 2000, "requires_techs": ["naval_aviation", "nuclear_fission"], "boosts": [{"type": "contact_knows", "value": "", "amount": 1}], "naval_reach": 192, "naval_power": 0.25 }
+    { "id": "nuclear_navy", "branch": "naval", "tier": 10, "cost": 2000, "requires_techs": ["naval_aviation", "nuclear_fission"], "boosts": [{"type": "contact_knows", "value": "", "amount": 1}], "naval_reach": 192, "naval_power": 0.25 },
+    { "id": "law_code", "branch": "civics", "tier": 2, "cost": 45, "requires_techs": ["writing"] },
+    { "id": "census", "branch": "civics", "tier": 2, "cost": 45, "requires_techs": ["writing"] },
+    { "id": "ritual_rites", "branch": "civics", "tier": 2, "cost": 45, "requires_techs": ["writing"] },
+    { "id": "currency", "branch": "civics", "tier": 2, "cost": 45, "requires_techs": ["copper_smelting"] },
+    { "id": "military_register", "branch": "civics", "tier": 2, "cost": 45, "requires_techs": ["copper_smelting"] },
+    { "id": "bureaucracy", "branch": "civics", "tier": 3, "cost": 85, "requires_techs": ["census"] },
+    { "id": "taxation", "branch": "civics", "tier": 3, "cost": 85, "requires_techs": ["census", "currency"] },
+    { "id": "paper", "branch": "civics", "tier": 3, "cost": 85, "requires_techs": ["writing"] },
+    { "id": "canon_law", "branch": "civics", "tier": 4, "cost": 155, "requires_techs": ["law_code"] },
+    { "id": "postal_roads", "branch": "civics", "tier": 4, "cost": 155, "requires_techs": ["bureaucracy", "masonry"] },
+    { "id": "charter_towns", "branch": "civics", "tier": 4, "cost": 155, "requires_techs": ["currency", "masonry"] },
+    { "id": "standing_army", "branch": "civics", "tier": 4, "cost": 155, "requires_techs": ["military_register", "bronze_casting"] },
+    { "id": "civil_examination", "branch": "civics", "tier": 5, "cost": 260, "requires_techs": ["paper", "bureaucracy"] },
+    { "id": "estates_assembly", "branch": "civics", "tier": 5, "cost": 260, "requires_techs": ["law_code", "charter_towns"] },
+    { "id": "fiscal_reform", "branch": "civics", "tier": 6, "cost": 420, "requires_techs": ["taxation", "printing"] },
+    { "id": "secular_philosophy", "branch": "civics", "tier": 6, "cost": 420, "requires_techs": ["printing"] },
+    { "id": "constitutionalism", "branch": "civics", "tier": 7, "cost": 650, "requires_techs": ["printing", "law_code"] },
+    { "id": "political_economy", "branch": "civics", "tier": 7, "cost": 650, "requires_techs": ["printing", "mathematics"] },
+    { "id": "republicanism", "branch": "civics", "tier": 7, "cost": 650, "requires_techs": ["secular_philosophy"] },
+    { "id": "mass_politics", "branch": "civics", "tier": 8, "cost": 950, "requires_techs": ["constitutionalism", "industrialization"] },
+    { "id": "social_theory", "branch": "civics", "tier": 8, "cost": 950, "requires_techs": ["industrialization", "political_economy"] },
+    { "id": "nationalism", "branch": "civics", "tier": 8, "cost": 950, "requires_techs": ["printing", "industrialization"] }
   ]
 }

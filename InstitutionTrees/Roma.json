@@ -29,7 +29,7 @@
       "regime": "ClassicalRepublic"
     },
     {
-      "id": "western_civic_legion",
+      "id": "western_civic_legion", "requires_techs": ["military_register"],
       "features": {"army_mobilization": 0.15},
       "name_key": "institution_western_civic_legion",
       "description_key": "institution_western_civic_legion_desc",
@@ -75,7 +75,7 @@
       ]
     },
     {
-      "id": "western_senate",
+      "id": "western_senate", "requires_techs": ["law_code"],
       "name_key": "institution_western_senate",
       "description_key": "institution_western_senate_desc",
       "branch": "society",
@@ -114,7 +114,7 @@
       }
     },
     {
-      "id": "western_roman_law",
+      "id": "western_roman_law", "requires_techs": ["law_code"],
       "name_key": "institution_western_roman_law",
       "description_key": "institution_western_roman_law_desc",
       "branch": "society",
@@ -151,7 +151,7 @@
       ]
     },
     {
-      "id": "western_manorial_economy",
+      "id": "western_manorial_economy", "requires_techs": ["taxation"],
       "name_key": "institution_western_manorial_economy",
       "description_key": "institution_western_manorial_economy_desc",
       "branch": "finance",
@@ -194,7 +194,7 @@
       ]
     },
     {
-      "id": "western_feudalization",
+      "id": "western_feudalization", "requires_techs": ["military_register"],
       "name_key": "institution_western_feudalization",
       "description_key": "institution_western_feudalization_desc",
       "branch": "administration",
@@ -248,7 +248,7 @@
       "regime": "Feudalism"
     },
     {
-      "id": "western_feudal_contract",
+      "id": "western_feudal_contract", "requires_techs": ["law_code"],
       "name_key": "institution_western_feudal_contract",
       "description_key": "institution_western_feudal_contract_desc",
       "branch": "administration",
@@ -296,7 +296,7 @@
       ]
     },
     {
-      "id": "western_burgher_charters",
+      "id": "western_burgher_charters", "requires_techs": ["charter_towns"],
       "name_key": "institution_western_burgher_charters",
       "description_key": "institution_western_burgher_charters_desc",
       "branch": "finance",
@@ -344,7 +344,7 @@
       ]
     },
     {
-      "id": "western_secular_estates",
+      "id": "western_secular_estates", "requires_techs": ["estates_assembly"],
       "name_key": "institution_western_secular_estates",
       "description_key": "institution_western_secular_estates_desc",
       "branch": "society",
@@ -399,7 +399,7 @@
       ]
     },
     {
-      "id": "western_clerical_supremacy",
+      "id": "western_clerical_supremacy", "requires_techs": ["canon_law"],
       "name_key": "institution_western_clerical_supremacy",
       "description_key": "institution_western_clerical_supremacy_desc",
       "branch": "society",
@@ -459,7 +459,7 @@
       ]
     },
     {
-      "id": "western_centralized_monarchy",
+      "id": "western_centralized_monarchy", "requires_techs": ["bureaucracy", "standing_army"],
       "name_key": "institution_western_centralized_monarchy",
       "description_key": "institution_western_centralized_monarchy_desc",
       "branch": "administration",
@@ -539,7 +539,7 @@
       }
     },
     {
-      "id": "western_theocratic_state",
+      "id": "western_theocratic_state", "requires_techs": ["canon_law"],
       "name_key": "institution_western_theocratic_state",
       "description_key": "institution_western_theocratic_state_desc",
       "branch": "administration",
@@ -615,7 +615,7 @@
       }
     },
     {
-      "id": "western_great_charter",
+      "id": "western_great_charter", "requires_techs": ["estates_assembly"],
       "name_key": "institution_western_great_charter",
       "description_key": "institution_western_great_charter_desc",
       "branch": "administration",
@@ -675,7 +675,7 @@
       }
     },
     {
-      "id": "western_imperial_reform",
+      "id": "western_imperial_reform", "requires_techs": ["estates_assembly"],
       "name_key": "institution_western_imperial_reform",
       "description_key": "institution_western_imperial_reform_desc",
       "branch": "administration",
@@ -724,7 +724,7 @@
       ]
     },
     {
-      "id": "western_parliamentary_taxation",
+      "id": "western_parliamentary_taxation", "requires_techs": ["estates_assembly", "charter_towns"],
       "name_key": "institution_western_parliamentary_taxation",
       "description_key": "institution_western_parliamentary_taxation_desc",
       "branch": "finance",
@@ -788,7 +788,7 @@
       }
     },
     {
-      "id": "western_reformation",
+      "id": "western_reformation", "requires_techs": ["printing"],
       "name_key": "institution_western_reformation",
       "description_key": "institution_western_reformation_desc",
       "branch": "society",
@@ -856,7 +856,7 @@
       ]
     },
     {
-      "id": "western_concordat",
+      "id": "western_concordat", "requires_techs": ["canon_law"],
       "name_key": "institution_western_concordat",
       "description_key": "institution_western_concordat_desc",
       "branch": "society",
@@ -911,7 +911,7 @@
       ]
     },
     {
-      "id": "western_secularization",
+      "id": "western_secularization", "requires_techs": ["secular_philosophy"],
       "name_key": "institution_western_secularization",
       "description_key": "institution_western_secularization_desc",
       "branch": "society",

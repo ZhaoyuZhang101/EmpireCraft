@@ -1,7 +1,7 @@
 {
   "templates": [
     {
-      "id": "tactical_drilling",
+      "id": "tactical_drilling", "requires_techs": ["standing_army"],
       "name_key": "institution_huaxia_tactical_drilling",
       "description_key": "institution_huaxia_tactical_drilling_desc",
       "research": {
@@ -37,7 +37,7 @@
       ]
     },
     {
-      "id": "land_sale_decree",
+      "id": "land_sale_decree", "requires_techs": ["currency"],
       "name_key": "institution_huaxia_land_sale_decree",
       "description_key": "institution_huaxia_land_sale_decree_desc",
       "research": {
@@ -83,7 +83,7 @@
       ]
     },
     {
-      "id": "lift_party_ban",
+      "id": "lift_party_ban", "requires_techs": ["constitutionalism"],
       "name_key": "institution_lift_party_ban",
       "description_key": "institution_lift_party_ban_desc",
       "research": {
@@ -136,7 +136,7 @@
       }
     },
     {
-      "id": "universal_suffrage",
+      "id": "universal_suffrage", "requires_techs": ["mass_politics"],
       "name_key": "institution_universal_suffrage",
       "description_key": "institution_universal_suffrage_desc",
       "research": {
@@ -187,7 +187,7 @@
       }
     },
     {
-      "id": "ideology_anarchism",
+      "id": "ideology_anarchism", "requires_techs": ["social_theory"],
       "name_key": "institution_ideology_anarchism",
       "description_key": "institution_ideology_anarchism_desc",
       "research": {
@@ -226,7 +226,7 @@
       }
     },
     {
-      "id": "ideology_social_democracy",
+      "id": "ideology_social_democracy", "requires_techs": ["social_theory"],
       "name_key": "institution_ideology_social_democracy",
       "description_key": "institution_ideology_social_democracy_desc",
       "research": {
@@ -264,7 +264,7 @@
       }
     },
     {
-      "id": "ideology_libertarianism",
+      "id": "ideology_libertarianism", "requires_techs": ["political_economy"],
       "name_key": "institution_ideology_libertarianism",
       "description_key": "institution_ideology_libertarianism_desc",
       "research": {
@@ -300,7 +300,7 @@
       }
     },
     {
-      "id": "ideology_capitalism",
+      "id": "ideology_capitalism", "requires_techs": ["political_economy"],
       "name_key": "institution_ideology_capitalism",
       "description_key": "institution_ideology_capitalism_desc",
       "research": {
@@ -338,7 +338,7 @@
       }
     },
     {
-      "id": "ideology_socialism",
+      "id": "ideology_socialism", "requires_techs": ["social_theory"],
       "name_key": "institution_ideology_socialism",
       "description_key": "institution_ideology_socialism_desc",
       "research": {
@@ -375,7 +375,7 @@
       }
     },
     {
-      "id": "ideology_communism",
+      "id": "ideology_communism", "requires_techs": ["social_theory"],
       "name_key": "institution_ideology_communism",
       "description_key": "institution_ideology_communism_desc",
       "research": {
@@ -410,7 +410,7 @@
       }
     },
     {
-      "id": "ideology_religious_democracy",
+      "id": "ideology_religious_democracy", "requires_techs": ["mass_politics"],
       "name_key": "institution_ideology_religious_democracy",
       "description_key": "institution_ideology_religious_democracy_desc",
       "research": {
@@ -447,7 +447,7 @@
       }
     },
     {
-      "id": "ideology_authoritarianism",
+      "id": "ideology_authoritarianism", "requires_techs": ["nationalism"],
       "name_key": "institution_ideology_authoritarianism",
       "description_key": "institution_ideology_authoritarianism_desc",
       "research": {
@@ -484,7 +484,7 @@
       }
     },
     {
-      "id": "ideology_fascism",
+      "id": "ideology_fascism", "requires_techs": ["nationalism"],
       "name_key": "institution_ideology_fascism",
       "description_key": "institution_ideology_fascism_desc",
       "research": {
@@ -522,7 +522,7 @@
       }
     },
     {
-      "id": "abolish_monarchy",
+      "id": "abolish_monarchy", "requires_techs": ["republicanism"],
       "name_key": "institution_abolish_monarchy",
       "description_key": "institution_abolish_monarchy_desc",
       "research": {
