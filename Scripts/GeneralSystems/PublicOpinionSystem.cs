@@ -400,7 +400,7 @@ public static class PublicOpinionSystem
 
     private static void Announce(Empire empire, string text)
     {
-        TranslateHelper.LogEventMessage(text, empire.CoreKingdom);
+        if (EventRecorder.ShowRoutine(empire)) TranslateHelper.LogEventMessage(text, empire.CoreKingdom);
         EmpireCraft.Scripts.System.HistoryRecordSystem.RecordHistory(empire, directContent: text,
             kingdomId: empire.CoreKingdom?.id ?? -1L);
     }

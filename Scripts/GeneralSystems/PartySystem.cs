@@ -1022,7 +1022,7 @@ public static class PartySystem
         empire.RecordHistory(directContent: content, actorId: actor?.id ?? empire.Emperor?.id ?? -1L,
             kingdomId: empire.CoreKingdom.id);
         actor?.RecordPersonalHistory(content, "party_politics");
-        TranslateHelper.LogEventMessage(content, empire.CoreKingdom);
+        if (EventRecorder.ShowRoutine(empire)) TranslateHelper.LogEventMessage(content, empire.CoreKingdom);
     }
 
     // 党名：本文化给这个理念配的词库 → 通用词库 → 理念名+党；已被占用的名字不重复用
