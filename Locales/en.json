@@ -1963,7 +1963,6 @@
   "plan_erase": "Erase Plan",
   "plan_erase_description": "Hold and drag to erase painted uses and features; the size follows the brush. When a zone's plan is fully erased, its district is cancelled.",
   "empire_core_name": "Core Name",
-  "tribal_fission_empire_history": "Kin of {0} settled {1} and branched off as {2}, within the same tribal confederation.",
   "tribal_fission_history": "Kin of {0} settled {1} and branched off as {2}, allied with their mother tribe.",
   "tribal_confederation_history": "{0} and the clans that branched off from it formed {1}, with {0} as overlord and the rest as vassal tribes.",
   "tribal_vassal_tag": "Serves {0}",
