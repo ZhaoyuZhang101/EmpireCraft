@@ -177,9 +177,9 @@ public class CityWindowPatch : GamePatch
             foreach ((string id, bool minable, float remaining, int cooldown) in deposits)
             {
                 if (cooldown > 0)
-                    names.Add($"<color=#E66B66>{string.Format(LM.Get("deposit_cooldown"), LM.Get(id), cooldown)}</color>");
-                else if (minable) names.Add($"{LM.Get(id)} {remaining:P0}");
-                else names.Add($"<color=#8A8A8A>{LM.Get(id)}</color>");
+                    names.Add($"<color=#E66B66>{string.Format(LM.Get("deposit_cooldown"), MineralResourceSystem.NameOf(id), cooldown)}</color>");
+                else if (minable) names.Add($"{MineralResourceSystem.NameOf(id)} {remaining:P0}");
+                else names.Add($"<color=#8A8A8A>{MineralResourceSystem.NameOf(id)}</color>");
             }
             window.showStatRow("city_deposits", string.Join(" ", names), "#E6C27A", pIconPath: "iconMoney");
         }

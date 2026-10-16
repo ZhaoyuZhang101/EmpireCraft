@@ -2009,6 +2009,7 @@
   "institution_huaxia_registered_households": "Registered Households",
   "institution_huaxia_abolish_slavery_desc": "Slaves are freed as commoners, registered and given land to till; the sale of persons and bondage are forbidden. Replaces Slavery: within a year every slave becomes a commoner and slaveholders become landlords (or nobles where land cannot be bought). Slave labour output and the enslavement of captives end. Slaveholders and nobles bitterly oppose it, and the reform readily provokes revolt.",
   "institution_huaxia_abolish_slavery": "Abolition of Slavery",
+  "mineral_name_silver": "Silver",
   "capital_loss_restored": "{0} retakes its old capital {1} and is again known as {2}.",
   "kingdom_type_xingzai": "Temporary Court",
   "Later": "Later",

@@ -115,7 +115,7 @@ public static class PopulationEconomySystem
             if (job == null) continue;
             int slots = city.jobs.countCurrentJobs(job);
             if (slots <= 0) continue;
-            foreach ((string resource, float amount) in outputs)
+            foreach ((string resource, float amount) in OutputsFor(city, job, outputs))
             {
                 float produced = slots * amount * years;
                 if (IsFood(resource)) food += produced;
@@ -207,7 +207,7 @@ public static class PopulationEconomySystem
         {
             if(pair.Item1==null)continue;
             int slots=city.jobs.countCurrentJobs(pair.Item1);if(slots<=0)continue;
-            foreach(var output in pair.Item2)
+            foreach(var output in OutputsFor(city,pair.Item1,pair.Item2))
             {resources.Add(output.Item1);outputs.Add(new ProductionOutput(slots,output.Item2,IsFood(output.Item1)));}
         }
         int jobs=outputs.Count;float mines=IndustryBuildingSystem.MineOutputFactor(city);
@@ -264,6 +264,50 @@ public static class PopulationEconomySystem
             _jobOutputs[_jobOutputs.FindIndex(item => item.Item1 == job)] = (job, valid);
         }
         return _jobOutputs;
+    }
+
+    // 采矿岗位的产出按本城领地里实际有的原版矿石(石头、金属、银、金、宝石、秘银……，各按原版矿石的资源表)：
+    // 每个岗位每年采 OreExtractionsPerSlotYear 次，每次得到本城矿石"平均一块"的资源。以前一律只出石头和普通金属，
+    // 无小人模式没有矿工实体，银矿、金矿、宝石矿挖不出东西(用户转述"整个地图都没有黄金和白银")。
+    // 本城一块矿石都没有时照旧表。每座城一年重算一次
+    private const float OreExtractionsPerSlotYear = 0.6f;
+    private static readonly Dictionary<City, (double at, (string, float)[] outputs)> OreOutputs = new();
+    private static object _oreWorld;
+
+    private static (string, float)[] OutputsFor(City city, CitizenJobAsset job, (string, float)[] outputs)
+    {
+        if (job != CitizenJobLibrary.miner_deposit || city?.zones == null) return outputs;
+        if (!ReferenceEquals(_oreWorld, World.world))
+        {
+            _oreWorld = World.world;
+            OreOutputs.Clear();
+        }
+        double now = World.world.getCurWorldTime();
+        if (OreOutputs.TryGetValue(city, out var cached) && now >= cached.at && Date.getYearsSince(cached.at) < 1)
+            return cached.outputs;
+        var sums = new Dictionary<string, float>();
+        int ores = 0;
+        foreach (TileZone zone in city.zones)
+        {
+            HashSet<Building> minerals = zone?.getHashset(BuildingList.Minerals);
+            if (minerals == null) continue;
+            foreach (Building building in minerals)
+            {
+                List<ResourceContainer> given = building?.asset?.resources_given;
+                if (given == null || given.Count == 0 || building.isRekt()) continue;
+                ores++;
+                foreach (ResourceContainer resource in given)
+                {
+                    if (string.IsNullOrEmpty(resource.id) || AssetManager.resources?.get(resource.id) == null) continue;
+                    sums.TryGetValue(resource.id, out float sum);
+                    sums[resource.id] = sum + resource.amount;
+                }
+            }
+        }
+        (string, float)[] result = ores == 0 || sums.Count == 0 ? outputs
+            : sums.Select(pair => (pair.Key, pair.Value / ores * OreExtractionsPerSlotYear)).ToArray();
+        OreOutputs[city] = (now, result);
+        return result;
     }
 
     // 每座矿场每年的固定产出

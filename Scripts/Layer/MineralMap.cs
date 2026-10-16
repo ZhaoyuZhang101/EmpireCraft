@@ -114,7 +114,7 @@ public static class MineralMap
         int tier = MineralResourceSystem.MineTier(city);
         foreach ((string id, bool minable, float remaining, int cooldown) in MineralResourceSystem.Deposits(city))
         {
-            string name = NeoModLoader.General.LM.Get(id);
+            string name = MineralResourceSystem.NameOf(id);
             float reserve = MineralResourceSystem.ReserveOf(id);
             string value;
             string color;

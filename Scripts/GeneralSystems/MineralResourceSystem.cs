@@ -7,11 +7,11 @@ using UnityEngine;
 
 namespace EmpireCraft.Scripts.GeneralSystems;
 
-// 战略矿产：铜、煤、硝石、硫磺、石油、铝土、稀土、铀。
-//   - 矿场按等级开采：1 级起铜，2 级(矿井)起煤，3 级(水力矿场)起硝石、硫磺，4 级(蒸汽煤矿)起石油，
+// 战略矿产：铜、黄金、白银、煤、硝石、硫磺、石油、铝土、稀土、铀。
+//   - 矿场按等级开采：1 级起铜、黄金、白银，2 级(矿井)起煤，3 级(水力矿场)起硝石、硫磺，4 级(蒸汽煤矿)起石油，
 //     5 级(现代矿业工厂)起铝土、稀土、铀；产量乘矿场的产出倍数(等级、工业区，见 IndustryBuildingSystem)；
 //   - 矿藏因城而异，按地形定概率、按城市编号固定地取舍(同一座城每次结果一样，地形大变才会变)：
-//     山地(岩石、山脉、丘陵)多铜、铝土、稀土、铀、硫磺；荒漠草原多硝石、石油；沼泽丛林多煤、石油、铝土；
+//     山地(岩石、山脉、丘陵)多铜、黄金、白银、铝土、稀土、铀、硫磺；荒漠、沿海(沙金)也有黄金，沼泽丛林也有白银；荒漠草原多硝石、石油；沼泽丛林多煤、石油、铝土；
 //     山林茂密多煤；沿海多石油；地狱地貌多硫磺。没有的城要靠市场从别处买，或者干脆用不上；
 //   - 矿藏会枯竭：每处矿藏有储量(Reserves)，采完就枯竭，进入冷却(各矿的冷却年数见 Reserves)，
 //     冷却期间不能开采；冷却结束视为找到新矿脉，储量恢复。等级越高的矿场采得越快、越早枯竭；
@@ -22,6 +22,11 @@ public static class MineralResourceSystem
     public static readonly (string id, int tier, float perYear, float chance)[] Minerals =
     {
         ("copper", 1, 3f, 0.6f),
+        // 黄金(用户："城市为什么黄金概率这么低，到底什么地貌才会刷出黄金"：原版地图不会自然长出金矿石，
+        // 城里的金子只有矿场的固定产出和税收)
+        ("gold", 1, 2f, 0.3f),
+        // 白银(用户转述"整个地图都没有黄金和白银")
+        ("silver", 1, 3f, 0.3f),
         ("coal", 2, 5f, 0.55f),
         ("saltpeter", 3, 2f, 0.35f),
         ("sulfur", 3, 2f, 0.35f),
@@ -35,6 +40,8 @@ public static class MineralResourceSystem
     private static (float reserve, int cooldown) Reserves(string id) => id switch
     {
         "copper" => (300f, 20),
+        "gold" => (150f, 30),
+        "silver" => (200f, 25),
         "coal" => (500f, 30),
         "saltpeter" => (150f, 10),
         "sulfur" => (150f, 15),
@@ -52,6 +59,22 @@ public static class MineralResourceSystem
         int left = Reserves(id).cooldown - Date.getYearsSince(at);
         return Mathf.Max(0, left);
     }
+
+    // 矿名(黄金、白银用自己的叫法：原版 gold 一词译作钱)
+    public static string NameOf(string id) => NeoModLoader.General.LM.Get(id switch
+    {
+        "gold" => "tech_mat_gold",
+        "silver" => "mineral_name_silver",
+        _ => id
+    });
+
+    // 图标路径(黄金、白银用原版图标)
+    public static string IconOf(string id) => id switch
+    {
+        "gold" => "ui/Icons/iconResGold",
+        "silver" => "ui/Icons/iconResSilver",
+        _ => "ui/icons/resources/iconRes_" + id
+    };
 
     // 查询(界面用)：总储量、枯竭后的冷却年数、开采所需矿场等级、剩余储量
     public static float ReserveOf(string id) => Reserves(id).reserve;
@@ -167,6 +190,8 @@ public static class MineralResourceSystem
         float chance = id switch
         {
             "copper" => 0.3f + 0.6f * t.Rocky,
+            "gold" => 0.1f + 0.4f * t.Rocky + 0.15f * t.Desert + 0.1f * t.Coast,
+            "silver" => 0.1f + 0.45f * t.Rocky + 0.15f * t.Wet,
             "coal" => 0.25f + 0.4f * t.Wet + 0.35f * t.Forest + 0.25f * t.Rocky,
             "saltpeter" => 0.1f + 0.7f * t.Desert,
             "sulfur" => 0.1f + 0.4f * t.Rocky + 0.7f * t.Infernal,
@@ -292,7 +317,7 @@ public static class MineralResourceSystem
             {
                 EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventOnly(
                     string.Format(NeoModLoader.General.LM.Get("deposit_depleted"), city.GetCityName(),
-                        NeoModLoader.General.LM.Get(id), Reserves(id).cooldown), city.kingdom);
+                        NameOf(id), Reserves(id).cooldown), city.kingdom);
             }
             catch (Exception exception)
             {

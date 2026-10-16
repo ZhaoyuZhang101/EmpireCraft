@@ -38,10 +38,10 @@ public static class CityResourcePowers
             string id = DepositId(mineral);
             Minerals[id] = mineral;
             // 名称、说明随矿名拼出来
-            string name = LM.Get(mineral);
+            string name = MineralResourceSystem.NameOf(mineral);
             LM.AddToCurrentLocale(id, string.Format(LM.Get("deposit_power_name"), name));
             LM.AddToCurrentLocale(id + "_description", string.Format(LM.Get("deposit_power_description"), name));
-            result.Add((id, "ui/icons/resources/iconRes_" + mineral));
+            result.Add((id, MineralResourceSystem.IconOf(mineral)));
         }
         result.Add((DepositClear, "ui/icons/godpowers/" + DepositClear));
         foreach ((string id, _) in result)
