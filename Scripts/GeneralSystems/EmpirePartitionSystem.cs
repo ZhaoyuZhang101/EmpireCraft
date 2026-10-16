@@ -25,11 +25,15 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   ③ 宗室另立(篡位后)：外姓篡位时，先朝宗室有一定可能(看原来的法统)在离篡位者都城最远的那一半起兵称帝，
 //      延续旧国号加方位；已经叛离篡位者的宗室诸王归附。互争正统、开战。下个月起事。
 // 划分：以两朝都城为两极，成员国按自己的都城离哪边近整国划走，京畿(核心王国)的城逐城划分。
+// 玩家反馈(2026-10-16)："并立的概率调低点，下调大概一半""并立之后很容易分不清""分裂出来的那个就全靠他一个人，
+//   按理来说会有一部分宗室追随他……很容易断代，然后直接被吞并"：三种分立的概率都减半；另一朝换一个和原朝相差最大的颜色；
+//   宗室随新君而去(见 Followers)——新君的妻妾子孙全随行，兄弟一家各一半，留在原朝京城的宗室三成投奔，
+//   在新朝疆域里的宗室本就归新朝。
 public static class EmpirePartitionSystem
 {
     public const string KindWill = "will", KindMinister = "minister", KindRestoration = "restoration";
     private const int AmityYears = 40, CooldownYears = 30, WillMinCities = 14, WillMinAge = 50, PendingMonths = 1;
-    private const float WillBaseChance = 0.02f, MinisterChance = 0.12f, WillSpanShare = 0.3f, StrongmanDistanceShare = 0.3f,
+    private const float WillBaseChance = 0.01f, MinisterChance = 0.06f, WillSpanShare = 0.3f, StrongmanDistanceShare = 0.3f,
         StrongmanMightShare = 0.15f;
 
     // 篡位后待起事的先朝宗室(帝国 id → 先朝宗族、旧国号、篡位时间)
@@ -233,10 +237,88 @@ public static class EmpirePartitionSystem
         twin.data.partition_time = source.data.partition_time = now;
         twin.data.partition_claimant = true;
         source.data.partition_claimant = false;
+        DistinctColor(source, twin);
+        Followers(source, twin, ruler, seat);
         twin.recalculate();
         source.recalculate();
         World.world.zone_calculator?.dirtyAndClear();
         return twin;
+    }
+
+    // 另一朝换一个和原朝相差最大的颜色(以前新朝多半沿用受封王国的颜色，跟原朝同一色系，地图上分不清)
+    private static void DistinctColor(Empire source, Empire twin)
+    {
+        try
+        {
+            List<ColorAsset> colors = AssetManager.kingdom_colors_library?.list;
+            ColorAsset own = source.getColor();
+            Kingdom core = twin.CoreKingdom;
+            if (colors == null || colors.Count == 0 || own == null || core == null) return;
+            Color main = own.getColorMain();
+            var taken = new HashSet<ColorAsset>(ModClass.EMPIRE_MANAGER.Where(empire => empire?.data != null && empire != twin &&
+                !empire.isRekt()).Select(empire => empire.getColor()).Where(color => color != null));
+            float Distance(ColorAsset color)
+            {
+                Color other = color.getColorMain();
+                return Mathf.Abs(other.r - main.r) + Mathf.Abs(other.g - main.g) + Mathf.Abs(other.b - main.b);
+            }
+            ColorAsset best = colors.Where(color => color != null && !taken.Contains(color)).OrderByDescending(Distance)
+                .FirstOrDefault() ?? colors.Where(color => color != null).OrderByDescending(Distance).First();
+            core.updateColor(best);
+            twin.updateColor(best);
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft][分裂] 换色失败: {exception.Message}");
+        }
+    }
+
+    private const float SiblingFollowShare = 0.5f, CourtFollowShare = 0.3f;
+
+    // 宗室随新君而去：妻妾子孙全随行，兄弟一家各一半，留在原朝京城的宗室三成；在新朝疆域里的本就归新朝
+    private static void Followers(Empire source, Empire twin, Actor ruler, City seat)
+    {
+        PersonalClanIdentity self = ruler?.GetPersonalIdentity();
+        SpecificClan clan = ruler?.GetSpecificClan() ?? source.EmpireSpecificClan;
+        if (self == null || clan == null || seat?.data == null) return;
+        Kingdom newCore = twin.CoreKingdom;
+        City court = source.CoreKingdom?.capital;
+        var family = new HashSet<long>();
+        void AddLine(PersonalClanIdentity person, int depth)
+        {
+            if (person == null || depth > 3 || !family.Add(person.id)) return;
+            foreach (long child in person.children ?? new List<long>()) AddLine(SpecificClanManager.getPerson(child), depth + 1);
+        }
+        AddLine(self, 0);
+        if (self.lover.identity > 0) family.Add(self.lover.identity);
+        foreach ((long _, long concubine) in self.concubines ?? new List<(long, long)>()) family.Add(concubine);
+        int moved = 0;
+        foreach (PersonalClanIdentity person in clan.SnapshotPeople())
+        {
+            if (person == null || !person.is_alive || person.id == self.id) continue;
+            Actor actor = person.is_virtual ? null : person._actor;
+            if (actor != null && (actor.isKing() || actor.IsEmperor() || actor.isCityLeader() || actor.IsOnOffice())) continue;
+            bool sibling = self.father > 0 && person.father == self.father || self.mother > 0 && person.mother == self.mother;
+            long cityId = actor?.city?.data?.id ?? person.virtual_city_id;
+            bool atCourt = court?.data != null && cityId == court.data.id;
+            bool follows = family.Contains(person.id) ||
+                           sibling && UnityEngine.Random.value < SiblingFollowShare ||
+                           atCourt && UnityEngine.Random.value < CourtFollowShare;
+            if (!follows) continue;
+            if (sibling)
+                foreach (long child in person.children ?? new List<long>()) family.Add(child);
+            if (actor != null)
+            {
+                actor.joinCity(seat);
+                actor.setKingdom(newCore);
+            }
+            else person.virtual_city_id = seat.data.id;
+            moved++;
+        }
+        if (moved <= 0) return;
+        string text = string.Format(LM.Get("partition_followers_history"), moved, ruler.getName(), seat.GetCityName());
+        twin.RecordHistory(directContent: text, actorId: ruler.id);
+        LogService.LogInfo("[EmpireCraft][分裂] " + text);
     }
 
     // 新朝承袭：史书、王号序数、制度、税率、国教、开国之君、法统
@@ -533,7 +615,7 @@ public static class EmpirePartitionSystem
         bool ministerUsurpation)
     {
         if (empire?.data == null || previousClan == null || World.world == null) return;
-        float chance = Mathf.Clamp01((mandate - 30f) / 60f) * 0.85f * (ministerUsurpation ? 0.5f : 1f);
+        float chance = Mathf.Clamp01((mandate - 30f) / 60f) * 0.425f * (ministerUsurpation ? 0.5f : 1f);
         if (UnityEngine.Random.value >= chance) return;
         Restorations[empire.data.id] = (previousClan.id, previousName ?? "", World.world.getCurWorldTime());
     }
