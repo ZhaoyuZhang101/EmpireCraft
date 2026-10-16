@@ -1594,6 +1594,8 @@ GODPOWERS.update({
     "raze_settlement": (obj_houses, "cross"),
     "assign_settlement": (obj_houses, "arrow"),
     "place_fort": (obj_wall, "plus"),
+    "place_city": (obj_city, "plus"),
+    "build_palace": (obj_palace, "up"),
     # 小、中、大厂区
     "factory_small": (obj_factory, "plus"),
     "factory_medium": (obj_factory, "up"),

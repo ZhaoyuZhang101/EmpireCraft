@@ -742,7 +742,8 @@ public partial class PureMapPatch : GamePatch
             plan.axisX = centerZone.x * Config.CITY_ZONE_SIZE + 4;
             plan.axisY = centerZone.y * Config.CITY_ZONE_SIZE + 4;
         }
-        if (grand && city.isCapitalCity())
+        // 都城地标(宫城)：大城的都城；帝国核心的默认首都即皇宫，不论大小都有(见 CityPlacementSystem.BuildPalace)
+        if ((grand || IsPalace(city)) && centerZone != null && city.isCapitalCity())
         {
             // 埃及的金字塔在城外(城里第一块没建成的地块)，其余在城心；拼块式的地标大城连北面一块
             if (plan.family == "egypt")
@@ -791,6 +792,14 @@ public partial class PureMapPatch : GamePatch
             plan.landmark.Clear();
         }
         plan.fabric = UrbanFabric.Build(city, plan.built, plan.landmark, plan.family, culture, plan.gateX, plan.gateY);
+    }
+
+    // 皇宫：帝国核心记的默认首都(一个帝国只有一座)
+    private static bool IsPalace(City city)
+    {
+        Empire empire = city?.kingdom?.GetEmpire();
+        return empire != null && !empire.isRekt() && empire.CoreKingdom == city.kingdom &&
+               EmpireCoreManager.Get(empire)?.GetCoreCapital() == city;
     }
 
     // 0~1 的稳定散列(地块、街区按它决定先后转现代、是否成废墟)

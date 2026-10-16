@@ -1739,6 +1739,7 @@ public class CityPatch : GamePatch
     public static void CityBuilt(City __result, Actor pActor)
     {
         if (StateSettlementSystem.CreatingCity) return; // 国家移民安置完毕后再处理城邦独立。
+        if (CityPlacementSystem.Placing) return; // 营建页「建城」：新城归所点地方的国家，不独立、不分部落
         if (__result == null || EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__result)) return;
         CityStateService.OnCityBuilt(__result, pActor);
         // 部落、方国的族人新建的城分出去成为新部落(见 TribalFissionService)
