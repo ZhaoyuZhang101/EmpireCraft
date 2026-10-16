@@ -70,23 +70,26 @@ public static class DynasticCycleSystem
     }
 
     // 只在真正改朝换代时调用。普通继位、改国号、读档不重置王朝年龄。
-    public static void OnDynastyChanged(Empire empire)
+    // inheritCourt：权臣篡位、外戚代立、太后另立、复辟——朝廷还是那个朝廷，王朝年岁从头算，积弊、王朝积弊、派系失衡、
+    // 苛政原样留下(玩家建议"权臣篡位不改变朝廷积弊数值，如司马故事")；打进京城、外藩入继这类才一扫而空
+    public static void OnDynastyChanged(Empire empire, bool inheritCourt = false)
     {
         if (empire?.data == null || World.world == null) return;
         ConstitutionalEconomyState state = empire.data.constitutional_economy ??= new ConstitutionalEconomyState();
         state.dynastic_since = World.world.getCurWorldTime();
         state.last_dynastic_update = state.dynastic_since;
+        UnificationSystem.OnDynastyChanged(empire);
+        state.last_dynastic_uprising_attempt = -1d;
+        MonarchyLegitimacy.Invalidate(empire);
+        if (inheritCourt) return;
         // 改朝换代，旧弊一扫而空(谥法一个帝国只由皇帝定一次，不随改朝换代重来，见 PosthumousNameGenerator)
         MaladySystem.OnDynastyChanged(empire);
         FactionBalanceSystem.OnDynastyChanged(empire);
-        UnificationSystem.OnDynastyChanged(empire);
-        state.last_dynastic_uprising_attempt = -1d;
         int previousBurden = DynasticCycleRules.HarshBurden(state.dynastic_strain);
         state.dynastic_strain = Math.Min(20f, DynasticCycleRules.Advance(state.dynastic_strain, 0f) * 0.25f);
         state.harsh_burden = Math.Max(0f, state.harsh_burden - previousBurden);
         if (state.harsh_main_cause == HarshSource) state.harsh_main_cause = "";
         state.dynastic_crisis_announced = false;
-        MonarchyLegitimacy.Invalidate(empire);
     }
 
     private static double FindDynastyStart(Empire empire, double now)

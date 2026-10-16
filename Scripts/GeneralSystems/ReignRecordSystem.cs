@@ -43,9 +43,10 @@ public static class ReignRecordSystem
         if (empire.data.is_been_controlled) reign.was_controlled = true;
     }
 
-    public static void OnDynastyChanged(Empire empire, Actor newEmperor)
+    // inheritCourt：朝廷里的易代(权臣篡位、外戚代立等)，积弊原样留下(见 DynasticCycleSystem.OnDynastyChanged)
+    public static void OnDynastyChanged(Empire empire, Actor newEmperor, bool inheritCourt = false)
     {
-        DynasticCycleSystem.OnDynastyChanged(empire);
+        DynasticCycleSystem.OnDynastyChanged(empire, inheritCourt);
         EmpireCraftHistory last = empire?.data?.history?.LastOrDefault(reign => reign != null && !reign.is_republic);
         if (last != null && last.id != newEmperor?.data?.id) last.ended_dynasty = true;
     }

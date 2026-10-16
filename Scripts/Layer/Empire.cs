@@ -737,8 +737,9 @@ public class Empire : MetaObject<EmpireData>
         if (isNew)
         {
             data.dynasty_founder_actor_id = actor.id;
-            // 改朝换代：前朝最后一位皇帝即末代之君(谥法另论，见 PosthumousNameGenerator)
-            if (!IsRepublicState) ReignRecordSystem.OnDynastyChanged(this, actor);
+            // 改朝换代：前朝最后一位皇帝即末代之君(谥法另论，见 PosthumousNameGenerator)。
+            // 权臣篡位、外戚代立、太后另立、复辟是朝廷里的易代：朝政积弊原样留下(如司马代魏)
+            if (!IsRepublicState) ReignRecordSystem.OnDynastyChanged(this, actor, _completingMinisterUsurpation);
         }
         EmpireClan = actor.clan;
         CoreKingdom?.SetSpecificClan(currentSpecificClan);
