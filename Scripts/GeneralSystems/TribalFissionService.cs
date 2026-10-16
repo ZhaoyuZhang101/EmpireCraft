@@ -31,6 +31,11 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     早期城址 7 部；离共主都城 60 格以外(每进一段再远 20 格)的不共事。新分出的部落遇上共主已满或太远就自立；
 //     已经超出的每月放走离得最远的一部(见 Overflow)。
 // 推进原始改革要有帝国(见 InstitutionSystem)：共主的部落联盟推进，制度按文化施行，各部落一样跟着改。
+// 2026-10-17 改(用户："可以先一开始每个城邦都可以称帝, 后缀就是单纯的部落(不要方国这个称呼了)""之后发起战争赢了纳入另一个部落之后
+// 才叫部落联合"；问答选"各自独立成部落""成为共事的成员部落")：
+//   · 分出去的新部落各自独立，不再自动共事母部落；每个独立的部落自立为"某某部落"(帝国，见 FormTribes)，能推进原始改革；
+//   · 部落之间不再因结盟、分迁就结成部落联盟(去掉 FoldAlliances、OverlordFor)；要本文化施行「部落联合」以后打赢，
+//     败者才奉胜者为共主(见 TribalWarSystem、Incorporate)，胜者这才称部落联盟；没有共事的部落时只称部落。
 public static class TribalFissionService
 {
     public static bool IsTribal(Kingdom kingdom) =>
@@ -142,7 +147,7 @@ public static class TribalFissionService
             Migrate();
             ShanrangSystem.Monthly();
             DetachMembers();
-            FoldAlliances();
+            FormTribes();
             Enfeoff();
             Breakaway();
             Overflow();
@@ -174,34 +179,15 @@ public static class TribalFissionService
                 tribe.LoadRegime();
                 tribe.SystemChange();
             }
-            Empire overlord = OverlordFor(mother);
-            // 共主已满、或离得太远：自立一方
-            bool free = overlord != null && !CanHold(overlord, tribe);
-            if (overlord != null && !free) Submit(tribe, overlord);
-            // 结不成部落联盟(母部落没有首领之类)：先与母部落结盟，下个月再整理(见 FoldAlliances)
-            else if (overlord == null) PersonalUnionService.JoinAlliance(mother, tribe);
-            string content = free
-                ? string.Format(LM.Get("tribal_fission_free_history"), motherName, city.GetCityName(), tribe.GetKingdomName(),
-                    OverlordName(overlord))
-                : overlord != null
-                ? string.Format(LM.Get("tribal_fission_vassal_history"), motherName, city.GetCityName(), tribe.GetKingdomName(),
-                    overlord.GetEmpireName())
-                : string.Format(LM.Get("tribal_fission_history"), motherName, city.GetCityName(), tribe.GetKingdomName());
+            // 分出去的新部落各自独立(要打赢才能纳入，见 TribalWarSystem)
+            string content = string.Format(LM.Get("tribal_fission_history"), motherName, city.GetCityName(), tribe.GetKingdomName());
             LogService.LogInfo("[EmpireCraft][部落分迁] " + content);
-            overlord?.RecordHistory(directContent: content, kingdomId: tribe.id);
+            (mother.GetEmpire() ?? OverlordOf(mother))?.RecordHistory(directContent: content, kingdomId: tribe.id);
         }
         catch (global::System.Exception exception)
         {
             LogService.LogWarning($"[EmpireCraft][部落分迁] {mother.GetKingdomName()} 分出新部落失败: {exception.Message}");
         }
-    }
-
-    // 分出去的新部落奉谁为共主：母部落是共主就奉母部落，母部落奉谁就奉谁；都不是，母部落就此结成部落联盟、自为共主
-    private static Empire OverlordFor(Kingdom mother)
-    {
-        Empire own = mother.GetEmpire();
-        if (own != null) return IsConfederation(own) ? own : null;
-        return OverlordOf(mother) ?? Confederation(mother);
     }
 
     // 奉 overlord 为共主：退出同盟、不进帝国，记下共主
@@ -234,7 +220,8 @@ public static class TribalFissionService
             World.world.alliances.dissolveAlliance(alliance);
         }
         foreach (Kingdom member in joined) Submit(member, empire);
-        string content = string.Format(LM.Get("tribal_confederation_history"), head.GetKingdomName(), empire.GetEmpireName());
+        string content = string.Format(LM.Get(joined.Count > 0 ? "tribal_confederation_history" : "tribal_tribe_formed_history"),
+            head.GetKingdomName(), empire.GetEmpireName());
         LogService.LogInfo("[EmpireCraft][部落分迁] " + content + (joined.Count > 0 ? $"(原同盟 {joined.Count} 家奉为共主)" : ""));
         empire.RecordHistory(directContent: content, kingdomId: head.id);
         Redraw();
@@ -268,32 +255,47 @@ public static class TribalFissionService
         if (changed) Redraw();
     }
 
-    // 只结了同盟、没有共主的部落：同盟里最强的那一家结成部落联盟，其余奉它为共主
-    private static void FoldAlliances()
+    // 独立的部落自立为"某某部落"(帝国，能推进原始改革)：不在帝国里、不共事谁、有首领的(每月，见 EnforceOneCity)
+    private static void FormTribes()
     {
-        var done = new HashSet<Alliance>();
         foreach (Kingdom kingdom in World.world.kingdoms.list.ToList())
         {
-            if (!IsTribal(kingdom) || kingdom.IsInEmpire() || !kingdom.hasAlliance()) continue;
-            Alliance alliance = kingdom.getAlliance();
-            if (alliance == null || !alliance.isAlive() || !done.Add(alliance)) continue;
-            string culture = CultureService.GetRealmCulture(kingdom);
-            List<Kingdom> tribes = alliance.kingdoms_hashset.Where(member => IsTribal(member) && !member.IsInEmpire() &&
-                    string.Equals(CultureService.GetRealmCulture(member), culture, global::System.StringComparison.Ordinal))
-                .ToList();
-            if (tribes.Count < 2) continue;
-            Kingdom head = tribes.OrderByDescending(member => member.GetNationalPower()).First();
-            if (head.king == null || head.king.isRekt()) continue;
-            // 盟主本就奉某共主：其余盟友也奉那个共主
-            Empire overlord = OverlordOf(head);
-            if (overlord != null)
-            {
-                World.world.alliances.dissolveAlliance(alliance);
-                foreach (Kingdom member in tribes) Submit(member, overlord);
-                continue;
-            }
-            Confederation(head);
+            if (!IsTribal(kingdom) || kingdom.IsInEmpire() || OverlordOf(kingdom) != null || kingdom.king == null ||
+                kingdom.king.isRekt() || kingdom.capital == null ||
+                EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(kingdom)) continue;
+            Confederation(kingdom);
         }
+    }
+
+    // 部落联合以后打赢(见 TribalWarSystem)：败者奉胜者(或胜者所共事的共主)为共主。胜者还不是部落就先立；
+    // 败者原来的部落撤掉，共事它的部落改奉新共主(管不过来、太远的自立)。共主已满、太远就不纳入(只拿赔款)
+    public static bool Incorporate(Kingdom winner, Kingdom loser)
+    {
+        if (!IsTribal(winner) || !IsTribal(loser) || ModClass.EMPIRE_MANAGER == null) return false;
+        Empire overlord = OverlordOf(winner);
+        if (overlord == null)
+        {
+            Empire own = winner.GetEmpire();
+            overlord = IsConfederation(own) && own.CoreKingdom == winner ? own : Confederation(winner);
+        }
+        if (overlord == null || overlord.CoreKingdom == loser || !CanHold(overlord, loser)) return false;
+        Empire previous = loser.GetEmpire();
+        List<Kingdom> followers = IsConfederation(previous) && previous.CoreKingdom == loser ? VassalsOf(previous) : new List<Kingdom>();
+        if (previous != null)
+        {
+            if (previous.CoreKingdom == loser) ModClass.EMPIRE_MANAGER.dissolveEmpire(previous);
+            else previous.leave(loser);
+        }
+        Submit(loser, overlord);
+        foreach (Kingdom follower in followers)
+        {
+            follower.GetOrCreate().tribal_overlord_id = -1L;
+            if (follower != overlord.CoreKingdom && CanHold(overlord, follower)) Submit(follower, overlord);
+        }
+        // 有了共事的部落：称号由"部落"改称"部落联盟"(见 DynastyNaming.HuaxiaOriginEmpireKey)
+        overlord.data.empire_type_key = "";
+        Redraw();
+        return true;
     }
 
     // 共主改行宗法分封、或已不在：奉它的部落并入为分封的诸侯，或各自独立

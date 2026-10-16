@@ -11,9 +11,10 @@ Origin_officiallevel_3,酋长,Chieftain,酋長
 Origin_city,部落,Tribe,部落
 
 Origin_empire_huaxia,部落联盟,Tribal Alliance,部落聯盟
+Origin_empire_huaxia_tribe,部落,Tribe,部落
 Origin_empire_huaxia_dynasty,朝,Dynasty,朝
-Origin_centre_huaxia,邦,Polity,邦
-Origin_kingdom_huaxia,方国,Fangguo,方國
+Origin_centre_huaxia,部落,Tribe,部落
+Origin_kingdom_huaxia,部落,Tribe,部落
 Origin_officiallevel_0_huaxia,共主,Common Lord,共主
 Origin_officiallevel_1_huaxia,方伯,Regional Lord,方伯
 Origin_officiallevel_2_huaxia,巫祝,Shaman-Priest,巫祝

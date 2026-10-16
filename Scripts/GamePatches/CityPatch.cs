@@ -354,6 +354,13 @@ public class CityPatch : GamePatch
             __instance.clearCapture();
             return false;
         }
+        // 部落之间破城不易主：部落联合以前赔款求和，以后奉胜者为共主，占的地全数退还(见 TribalWarSystem)
+        if (EmpireCraft.Scripts.GeneralSystems.TribalWarSystem.TrySubmit(__instance, pNewKingdom))
+        {
+            __instance.clearCapture();
+            __instance.ClearOccupiedStatus();
+            return false;
+        }
 
         using (ListPool<War> pWars = new ListPool<War>(pNewKingdom.getWars()))
         {
