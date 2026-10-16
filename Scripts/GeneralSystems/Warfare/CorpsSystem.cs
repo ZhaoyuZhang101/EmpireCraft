@@ -385,6 +385,21 @@ public static class CorpsSystem
     private const float PeaceCostPerSoldier = 0.1f, WarCostPerSoldier = 0.4f;
     // 平时军镇只征兵源(背景人口 × 军制征兵比例)的这一成数(有常备军的军制用 StandingPoolShare)，战时全征
     private const float PeacePoolShare = 0.3f, StandingPoolShare = 0.5f;
+    // 开战后兵源逐月征满：从平时的成数起，WarLevyMonths 个月涨到全征。以前开战当月一步全征，军饷当月就掏空国库，
+    // 连欠三个月就罢兵求和(开国雄主的仗也一样)。按本国(连同所属帝国的核心王国)打得最久的那场仗算
+    private const float WarLevyMonths = 9f;
+
+    private static float WarLevyShare(Kingdom kingdom, float peace)
+    {
+        int months = 0;
+        foreach (Kingdom side in new[] { kingdom, FrontSystem.Realm(kingdom) })
+        {
+            if (side?.data == null || side.isRekt()) continue;
+            foreach (War war in side.getWars())
+                if (war?.data != null && !war.hasEnded()) months = Mathf.Max(months, Date.getMonthsSince(war.data.created_time));
+        }
+        return Mathf.Lerp(peace, 1f, Mathf.Clamp01((months + 1) / WarLevyMonths));
+    }
     // 起义军的正规军只征兵源的一半：仓促成军，一大半人编在义军里(见 RaiseMilitia)
     private const float InsurgentLevy = 0.5f;
 
@@ -453,7 +468,7 @@ public static class CorpsSystem
         // 鞭长莫及：控制力低的城征不齐(见 AdministrativeControlSystem.Yield)
         float background = 0f;
         foreach (City city in cities) background += CityPopulationSystem.GetBackgroundTotal(city) * AdministrativeControlSystem.Yield(city);
-        float pool = background * doctrine.LevyShare * (war ? 1f : peace);
+        float pool = background * doctrine.LevyShare * (war ? WarLevyShare(kingdom, peace) : peace);
         float legionSize = Mathf.Clamp(pool / Mathf.Max(1, totalSlots), 1f, CityPopulationSystem.PeoplePerLegion);
         // 量入为出：按人口该有的兵额超出养得起的，每个军团按比例缩编
         float budget = BudgetFactor(kingdom, war, totalSlots * legionSize);
