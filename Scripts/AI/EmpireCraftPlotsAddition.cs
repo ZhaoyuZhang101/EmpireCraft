@@ -978,6 +978,29 @@ namespace EmpireCraft.Scripts.AI
                     return CultureService.RestoreCityCulture(city, pActor.kingdom);
                 }
             });
+            // 通路之约(见 RoadTreatySystem)：与有过友好时期的邻国议定修通两国之间的道路，造价各出一半
+            AssetManager.plots_library.add(new PlotAsset
+            {
+                id = "empirecraft_road_treaty",
+                path_icon = "ui/icons/plots/plot_empirecraft_road_treaty",
+                group_id = "empirecraft_diplomacy",
+                is_basic_plot = true,
+                min_level = 1,
+                progress_needed = 15f,
+                can_be_done_by_king = true,
+                check_is_possible = delegate (Actor pActor)
+                {
+                    return pActor.isKing() && RoadTreatySystem.Partner(pActor.kingdom) != null;
+                },
+                check_should_continue = delegate (Actor pActor)
+                {
+                    return pActor.isKing() && RoadTreatySystem.Partner(pActor.kingdom) != null;
+                },
+                action = delegate (Actor pActor)
+                {
+                    return pActor.isKing() && RoadTreatySystem.Sign(pActor.kingdom);
+                }
+            });
             // 行政区（道/军/都护府，见 KingdomExtension.GetAdministrativeTitle）长官
             // 无法走"文治"派系的法理文化转化决议，但如果"文化同化"决议已经指定本行政区
             // 承担同化职责（cultural_assimilation_duty），长官可以自行发起这条决议。

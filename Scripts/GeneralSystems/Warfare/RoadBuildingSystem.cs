@@ -26,6 +26,10 @@ public sealed class RoadLink
 //   · 养路(每年)：造价的 5% 由路一头所在的国家出(维护)，付不起路况变差，三年失修降一等，土路失修就荒了；
 //     两头有战事的路每月受损；
 //   · 旧存档(世界已过三十年、还没有任何路)：路网规划算完后按各国现有科技一次铺好，之后照常养护、升级。
+//   · 跨国的路：两国议定通路之约(决议，见 RoadTreatySystem)才修，哪一国开工都行，造价两国各出一半(对方出不起由开工的一方垫上)；
+//   · 统一了的帝国(用户 2026-10-17 "统一了也能使用国库的钱来修路和维护道路""把不连通的联通")：帝国核心也出钱修境内
+//     任意两城之间的路，工程数按全帝国的城数算；地方出不起养路钱的由中央国库代付；春秋、战国的周室不算统一。
+//   · 把不连通的连通：挑新工程时，一头已通到本国(帝国)都城的路网、一头还没通的路最优先。
 // 路的走向见 RoadNetwork(路网规划)，画法见 RoadOverlay，行军走路见 CorpsSystem。
 public static class RoadBuildingSystem
 {
@@ -152,7 +156,10 @@ public static class RoadBuildingSystem
             if (kingdom?.data == null || kingdom.isRekt() || kingdom.wild || kingdom.cities == null || kingdom.cities.Count == 0) continue;
             var projects = Links.Where(pair => pair.Value.building > 0 && pair.Value.payer == kingdom.id).ToList();
             foreach (var project in projects) changed |= Advance(kingdom, project.Key, project.Value);
-            int slots = 1 + kingdom.cities.Count / CitiesPerProject;
+            // 统一了的帝国：中央的工程数按全帝国的城数算
+            int cities = CenterOf(kingdom) is Layer.Empire center
+                ? center.kingdoms_list.Sum(member => member?.cities?.Count ?? 0) : kingdom.cities.Count;
+            int slots = 1 + cities / CitiesPerProject;
             if (projects.Count(project => project.Value.building > 0) < slots) changed |= StartProject(kingdom);
         }
         if (changed) RoadNetwork.MarkDirty();
@@ -170,8 +177,12 @@ public static class RoadBuildingSystem
         }
         float step = Mathf.Min(Speed[link.building], plan.terrain - link.progress);
         int cost = Mathf.CeilToInt(step * (Cost[link.building] - Cost[link.grade]));
-        if (cost > 0 && kingdom.GetMoney() < cost) return false;
-        if (cost > 0) kingdom.SubMoney(cost, TreasuryCategory.Construction);
+        // 通路之约的路：对方出一半(出不起由本国垫上)
+        Kingdom partner = TreatyPartner(kingdom, key);
+        int share = partner != null && partner.GetMoney() >= cost / 2 ? cost / 2 : 0;
+        if (cost - share > 0 && kingdom.GetMoney() < cost - share) return false;
+        if (cost - share > 0) kingdom.SubMoney(cost - share, TreasuryCategory.Construction);
+        if (share > 0) partner.SubMoney(share, TreasuryCategory.Construction);
         link.progress += step;
         if (link.progress < plan.terrain - 0.01f) return true;
         link.grade = link.building;
@@ -186,6 +197,8 @@ public static class RoadBuildingSystem
     {
         int target = GradeFor(kingdom);
         City capital = kingdom.capital;
+        // 把不连通的连通：已经由修通的路连到都城的城(帝国用帝国核心的都城)
+        HashSet<long> reached = Reached(kingdom.GetEmpire()?.CoreKingdom?.capital ?? capital);
         (long, long) best = default;
         float bestScore = float.MinValue;
         foreach (var pair in RoadNetwork.Plans)
@@ -195,7 +208,8 @@ public static class RoadBuildingSystem
             RoadLink link = Get(pair.Key);
             if (link != null && (link.building > 0 || link.grade >= target)) continue;
             City a = World.world.cities.get(pair.Key.Item1), b = World.world.cities.get(pair.Key.Item2);
-            float score = (a == capital || b == capital ? 1000f : 0f) +
+            bool joins = reached.Contains(pair.Key.Item1) != reached.Contains(pair.Key.Item2);
+            float score = (joins ? 1500f : 0f) + (a == capital || b == capital ? 1000f : 0f) +
                           (CityPopulationSystem.GetBackgroundTotal(a) + CityPopulationSystem.GetBackgroundTotal(b)) / 100f -
                           plan.terrain * 2f - (link?.grade ?? 0) * 50f;
             if (score <= bestScore) continue;
@@ -214,20 +228,66 @@ public static class RoadBuildingSystem
         return true;
     }
 
-    // 本国能修这条路：一头是本国的城，另一头是本国或同一帝国的城
+    // 本国能修这条路：一头是本国的城，另一头是本国或同一帝国的城，或与本国议定了通路之约的邻国的城；
+    // 统一了的帝国的核心：境内任意两城之间
     private static bool Owns(Kingdom kingdom, (long, long) key)
     {
         Kingdom a = World.world.cities.get(key.Item1)?.kingdom, b = World.world.cities.get(key.Item2)?.kingdom;
-        if (a != kingdom && b != kingdom) return false;
+        if (a != kingdom && b != kingdom)
+            return CenterOf(kingdom) is Layer.Empire center && a != null && b != null && a.GetEmpire() == center &&
+                   b.GetEmpire() == center;
         Kingdom other = a == kingdom ? b : a;
         if (other == kingdom) return true;
         var empire = kingdom.GetEmpire();
-        return empire != null && other != null && other.GetEmpire() == empire;
+        if (empire != null && other != null && other.GetEmpire() == empire) return true;
+        return RoadTreatySystem.Has(kingdom, other);
+    }
+
+    // 通路之约的路：另一头是议定了通路之约、不在同一帝国的邻国
+    private static Kingdom TreatyPartner(Kingdom kingdom, (long, long) key)
+    {
+        Kingdom a = World.world.cities.get(key.Item1)?.kingdom, b = World.world.cities.get(key.Item2)?.kingdom;
+        Kingdom other = a == kingdom ? b : b == kingdom ? a : null;
+        if (other == null || other == kingdom || kingdom.GetEmpire() != null && other.GetEmpire() == kingdom.GetEmpire()) return null;
+        return RoadTreatySystem.Has(kingdom, other) ? other : null;
+    }
+
+    // 统一了的帝国：本国是帝国核心(春秋、战国的周室不算)
+    private static Layer.Empire CenterOf(Kingdom kingdom)
+    {
+        Layer.Empire empire = kingdom?.GetEmpire();
+        if (empire?.data == null || empire.isRekt() || empire.IsArchived() || empire.CoreKingdom != kingdom) return null;
+        return ZhouEraSystem.Era(empire) >= ZhouEraSystem.Spring ? null : empire;
+    }
+
+    // 由修通的路(任何等级)连到 from 的城
+    private static HashSet<long> Reached(City from)
+    {
+        var reached = new HashSet<long>();
+        if (from?.data == null) return reached;
+        var next = new Dictionary<long, List<long>>();
+        foreach (var pair in Links)
+        {
+            if (pair.Value.grade <= 0) continue;
+            if (!next.TryGetValue(pair.Key.Item1, out List<long> a)) next[pair.Key.Item1] = a = new List<long>();
+            if (!next.TryGetValue(pair.Key.Item2, out List<long> b)) next[pair.Key.Item2] = b = new List<long>();
+            a.Add(pair.Key.Item2);
+            b.Add(pair.Key.Item1);
+        }
+        var queue = new Queue<long>();
+        reached.Add(from.data.id);
+        queue.Enqueue(from.data.id);
+        while (queue.Count > 0)
+            if (next.TryGetValue(queue.Dequeue(), out List<long> list))
+                foreach (long id in list)
+                    if (reached.Add(id)) queue.Enqueue(id);
+        return reached;
     }
 
     // 养路：造价的 5% 由路一头所在的国家出，付不起路况变差
     private static void YearTick()
     {
+        RoadTreatySystem.Yearly();
         bool changed = false;
         foreach (var pair in Links.ToList())
         {
@@ -239,6 +299,14 @@ public static class RoadBuildingSystem
             if (payer?.data != null && !payer.isRekt() && !payer.wild && payer.GetMoney() >= upkeep)
             {
                 if (upkeep > 0) payer.SubMoney(upkeep, TreasuryCategory.Maintenance);
+                link.condition = Mathf.Min(1f, link.condition + 0.25f);
+                continue;
+            }
+            // 统一了的帝国：地方出不起，中央国库代付
+            Kingdom core = payer?.GetEmpire()?.CoreKingdom;
+            if (core != null && core != payer && CenterOf(core) != null && core.GetMoney() >= upkeep)
+            {
+                if (upkeep > 0) core.SubMoney(upkeep, TreasuryCategory.Maintenance);
                 link.condition = Mathf.Min(1f, link.condition + 0.25f);
                 continue;
             }

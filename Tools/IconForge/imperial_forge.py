@@ -1554,6 +1554,12 @@ def obj_wall(img):
     over(img, shade(union(rrect([104, 166, 152, 218], 4), ellipse([104, 144, 152, 190])), LACQ, bevel=6))
 
 
+# 通路之约(决议)：大道加一个加号
+PLOTS.update({
+    "empirecraft_road_treaty": (obj_street, "plus"),
+})
+
+
 # ═════════════ 生成 ═════════════
 # 人口、矿藏笔刷(这几个对象定义在 GODPOWERS 之后，这里补进去)
 GODPOWERS.update({

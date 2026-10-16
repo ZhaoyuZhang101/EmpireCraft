@@ -45,6 +45,8 @@ public class SaveData
     public Dictionary<int, int> tile_plans = new Dictionary<int, int>();
     // 城郊的镇村(钉在地图上，见 RuralSettlementSystem)
     public List<RuralSettlement> rural_settlements = new List<RuralSettlement>();
+    // 通路之约：两国交好的年数、有过友好时期的、议定的(见 RoadTreatySystem)
+    public RoadTreatyData road_treaties = new RoadTreatyData();
     public bool switch_real_num = false;
     public bool switch_simple_nameplate = false;
     public bool switch_empire_show_alliance = false;

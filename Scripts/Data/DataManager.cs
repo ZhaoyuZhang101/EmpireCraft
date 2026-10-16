@@ -279,6 +279,7 @@ public static class DataManager
         MapWallSystem.Load(saveData.map_walls);
         TilePlanSystem.Load(saveData.tile_plans);
         RuralSettlementSystem.Load(saveData.rural_settlements);
+        RoadTreatySystem.Load(saveData.road_treaties);
         if (PlayerConfig.dict.TryGetValue("switch_real_num", out PlayerOptionData realNumOption))
         {
             realNumOption.boolVal = saveData.switch_real_num;
@@ -449,6 +450,7 @@ public static class DataManager
         saveData.map_walls = MapWallSystem.Save();
         saveData.tile_plans = TilePlanSystem.Save();
         saveData.rural_settlements = RuralSettlementSystem.Save();
+        saveData.road_treaties = RoadTreatySystem.Save();
         saveData.specificClans = SpecificClanManager._specificClans;
         saveData.switch_real_num = ModClass.REAL_NUM_SWITCH;
         saveData.switch_simple_nameplate = ModClass.SIMPLE_NAMEPLATE_SWITCH;
