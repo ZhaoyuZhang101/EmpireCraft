@@ -31,14 +31,7 @@ public partial class PureMapPatch
     private static int TribalStageOf(City city, string culture)
     {
         if (!TribalFissionService.IsTribal(city?.kingdom) || !CultureService.IsValidCulture(culture)) return -1;
-        List<string> nodes = InstitutionDefinitionRegistry.GetForLine(InstitutionSystem.GetCultureLine(culture))
-            .Where(node => node?.regime == "Origin").Select(node => node.id).ToList();
-        int best = -1;
-        for (int i = 0; i < nodes.Count; i++)
-            if (InstitutionSystem.IsEnacted(culture, nodes[i])) best = i;
-        if (nodes.Count <= 1 || best <= 0) return 0;
-        float share = best / (float)(nodes.Count - 1);
-        return share < 0.4f ? 0 : share < 0.9f ? 1 : 2;
+        return TribalFissionService.Stage(culture);
     }
 
     // 聚落的半径(像素)：按建成地块折成圆，至少五格半

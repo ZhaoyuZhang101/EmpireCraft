@@ -1970,6 +1970,8 @@
   "tribal_enfeoffed_history": "{1} adopted enfeoffment and {0} was enfeoffed as its vassal.",
   "tribal_fission_vassal_history": "Kin of {0} settled {1} and branched off as {2}, acknowledging {3} as overlord.",
   "tribal_breakaway_history": "{0} no longer serves {1} and stands on its own.",
+  "tribal_overflow_history": "{1} held more tribes than it could reach; {0} no longer serves it and stands on its own.",
+  "tribal_fission_free_history": "Kin of {0} settled {1} as {2}; {3} already held too many tribes or was too far away, so {2} stood on its own.",
   "capital_loss_restored": "{0} retakes its old capital {1} and is again known as {2}.",
   "kingdom_type_xingzai": "Temporary Court",
   "Later": "Later",

@@ -1972,6 +1972,8 @@
   "tribal_enfeoffed_history": "{1}改行分封，{0}受封為諸侯。",
   "tribal_fission_vassal_history": "{0}的族人在{1}另立一支，號{2}，奉{3}為共主。",
   "tribal_breakaway_history": "{0}不再共事{1}，自立一方。",
+  "tribal_overflow_history": "{1}共事的部落太多、鞭長莫及，{0}不再共事，自立一方。",
+  "tribal_fission_free_history": "{0}的族人在{1}另立一支，號{2}；{3}共事的部落已多、或相隔太遠，管不過來，{2}自立一方。",
   "capital_loss_restored": "{0}收復舊都{1}，還於舊都，復稱{2}。",
   "kingdom_type_xingzai": "行在",
   "Later": "後",

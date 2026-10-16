@@ -25,7 +25,10 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 共主改行宗法分封(政体不再是原始政体)：奉它为共主的部落并入帝国，成为分封的诸侯(西周)；共主亡了就各自独立；
 //   · 共主不打共事它的部落，部落也不打共主(用户："怎么主国家就可以打下面的小弟了，这也不合理……应该只打不服的或者脱离联盟的")，
 //     共主只征伐不服的、脱离的；部落之间照样可以互相攻伐(见 Bound)；铭牌标"共事某某"；
-//   · 脱离：国力到了共主六成以上、或对共主怨恨极深的部落，每年约有一成二的机会不再共事、自立一方(见 Breakaway)。
+//   · 脱离：国力到了共主六成以上、或对共主怨恨极深的部落，每年约有一成二的机会不再共事、自立一方(见 Breakaway)；
+//   · 上限(用户："另外共主联盟部落也可以存在上限")：共主管得过来的部落数按原始改革的阶段，环壕聚落 3 部、部落中心 5 部、
+//     早期城址 7 部；离共主都城 60 格以外(每进一段再远 20 格)的不共事。新分出的部落遇上共主已满或太远就自立；
+//     已经超出的每月放走离得最远的一部(见 Overflow)。
 // 推进原始改革要有帝国(见 InstitutionSystem)：共主的部落联盟推进，制度按文化施行，各部落一样跟着改。
 public static class TribalFissionService
 {
@@ -45,6 +48,46 @@ public static class TribalFissionService
         Empire empire = ModClass.EMPIRE_MANAGER.get(id);
         return IsConfederation(empire) && empire.CoreKingdom != kingdom ? empire : null;
     }
+
+    // 原始改革的阶段：0 环壕聚落、1 部落中心、2 早期城址(本文化原始政体的节点走到几成；城市精细图也按它画，见 PureMapPatch.Tribal)
+    public static int Stage(string culture)
+    {
+        if (!CultureService.IsValidCulture(culture)) return 0;
+        List<string> nodes = InstitutionDefinitionRegistry.GetForLine(InstitutionSystem.GetCultureLine(culture))
+            .Where(node => node?.regime == "Origin").Select(node => node.id).ToList();
+        int best = -1;
+        for (int i = 0; i < nodes.Count; i++)
+            if (InstitutionSystem.IsEnacted(culture, nodes[i])) best = i;
+        if (nodes.Count <= 1 || best <= 0) return 0;
+        float share = best / (float)(nodes.Count - 1);
+        return share < 0.4f ? 0 : share < 0.9f ? 1 : 2;
+    }
+
+    private const int CapacityBase = 3, CapacityPerStage = 2;
+    private const float ReachBase = 60f, ReachPerStage = 20f;
+
+    private static int StageOf(Empire overlord) => Stage(CultureService.GetRealmCulture(overlord?.CoreKingdom));
+
+    // 共主管得过来几部、多远以内
+    public static int Capacity(Empire overlord) => CapacityBase + CapacityPerStage * StageOf(overlord);
+
+    public static float Reach(Empire overlord) => ReachBase + ReachPerStage * StageOf(overlord);
+
+    // 共事 overlord 的部落
+    public static List<Kingdom> VassalsOf(Empire overlord) =>
+        overlord == null || World.world?.kingdoms == null ? new List<Kingdom>()
+            : World.world.kingdoms.list.Where(kingdom => OverlordOf(kingdom) == overlord).ToList();
+
+    // 离共主都城多远(格)
+    private static float DistanceTo(Empire overlord, Kingdom kingdom)
+    {
+        WorldTile seat = overlord?.CoreKingdom?.capital?.getTile(), there = kingdom?.capital?.getTile();
+        return seat == null || there == null ? 0f : UnityEngine.Mathf.Sqrt(Toolbox.SquaredDistTile(seat, there));
+    }
+
+    // 共主还收不收得下这一部(已满、太远就不收)
+    private static bool CanHold(Empire overlord, Kingdom tribe) =>
+        overlord != null && VassalsOf(overlord).Count < Capacity(overlord) && DistanceTo(overlord, tribe) <= Reach(overlord);
 
     // 共主与共事它的部落(部落之间不算)：彼此不宣战
     public static bool Bound(Kingdom a, Kingdom b) =>
@@ -95,6 +138,7 @@ public static class TribalFissionService
             FoldAlliances();
             Enfeoff();
             Breakaway();
+            Overflow();
         }
         catch (global::System.Exception exception)
         {
@@ -120,10 +164,15 @@ public static class TribalFissionService
                 tribe.SystemChange();
             }
             Empire overlord = OverlordFor(mother);
-            if (overlord != null) Submit(tribe, overlord);
+            // 共主已满、或离得太远：自立一方
+            bool free = overlord != null && !CanHold(overlord, tribe);
+            if (overlord != null && !free) Submit(tribe, overlord);
             // 结不成部落联盟(母部落没有首领之类)：先与母部落结盟，下个月再整理(见 FoldAlliances)
-            else PersonalUnionService.JoinAlliance(mother, tribe);
-            string content = overlord != null
+            else if (overlord == null) PersonalUnionService.JoinAlliance(mother, tribe);
+            string content = free
+                ? string.Format(LM.Get("tribal_fission_free_history"), motherName, city.GetCityName(), tribe.GetKingdomName(),
+                    OverlordName(overlord))
+                : overlord != null
                 ? string.Format(LM.Get("tribal_fission_vassal_history"), motherName, city.GetCityName(), tribe.GetKingdomName(),
                     overlord.GetEmpireName())
                 : string.Format(LM.Get("tribal_fission_history"), motherName, city.GetCityName(), tribe.GetKingdomName());
@@ -286,6 +335,26 @@ public static class TribalFissionService
             string content = string.Format(LM.Get("tribal_breakaway_history"), kingdom.GetKingdomName(), OverlordName(overlord));
             LogService.LogInfo("[EmpireCraft][部落分迁] " + content);
             overlord.RecordHistory(directContent: content, kingdomId: kingdom.id);
+            Redraw();
+        }
+    }
+
+    // 超出上限的共主每月放走一部：先放离得最远的(超出路程的先放)
+    private static void Overflow()
+    {
+        if (ModClass.EMPIRE_MANAGER == null) return;
+        foreach (Empire empire in ModClass.EMPIRE_MANAGER.ToList())
+        {
+            if (!IsConfederation(empire)) continue;
+            List<Kingdom> vassals = VassalsOf(empire);
+            if (vassals.Count == 0) continue;
+            float reach = Reach(empire);
+            Kingdom farthest = vassals.OrderByDescending(kingdom => DistanceTo(empire, kingdom)).First();
+            if (vassals.Count <= Capacity(empire) && DistanceTo(empire, farthest) <= reach) continue;
+            farthest.GetOrCreate().tribal_overlord_id = -1L;
+            string content = string.Format(LM.Get("tribal_overflow_history"), farthest.GetKingdomName(), OverlordName(empire));
+            LogService.LogInfo("[EmpireCraft][部落分迁] " + content + $"(共事 {vassals.Count} 部，上限 {Capacity(empire)}、{reach:0} 格)");
+            empire.RecordHistory(directContent: content, kingdomId: farthest.id);
             Redraw();
         }
     }
