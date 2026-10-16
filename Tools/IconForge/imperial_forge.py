@@ -1405,6 +1405,84 @@ def obj_imperial_seal_lesser(img):
 ITEMS = {"icon_imperial_seal": obj_imperial_seal, "icon_imperial_seal_lesser": obj_imperial_seal_lesser}
 
 
+# 古代理念徽章(见 Scripts/GeneralSystems/PartySystem.cs 的诸子百家与立场)：旧铜环、各家底色、中间一件器物
+NAVY = ((84, 98, 128), (30, 40, 64), (6, 8, 18))
+OCHRE = ((190, 150, 92), (120, 84, 40), (34, 22, 8))
+VIOLET = ((132, 102, 140), (66, 44, 78), (14, 8, 20))
+FOREST = ((96, 128, 96), (36, 60, 40), (8, 18, 10))
+SLATE = ((128, 134, 142), (56, 62, 70), (10, 12, 16))
+TEAL = ((92, 132, 132), (32, 64, 66), (6, 16, 18))
+GILT = ((226, 200, 132), (150, 112, 48), (44, 30, 8))
+AMBER = ((150, 104, 34), (86, 52, 8), (22, 10, 0))
+
+
+def obj_wheat(img):
+    """农家：一支大麦穗，麦粒左右交错，芒向上。"""
+    over(img, shade(lines([[(128, 222), (128, 40)]], 8), BRASS, bevel=2))
+    for k in range(6):
+        y = 52 + k * 24
+        over(img, shade(ellipse([96, y, 128, y + 26]), GILT, bevel=6, gloss=1.0))
+        over(img, shade(ellipse([128, y + 10, 160, y + 36]), GILT, bevel=6, gloss=1.0))
+    over(img, shade(lines([[(112, 54), (96, 24)], [(144, 64), (162, 32)], [(128, 42), (128, 14)]], 4), GILT, bevel=1))
+
+
+def obj_gourd(img):
+    """黄老：系着红绳的葫芦。"""
+    over(img, shade(union(ellipse([92, 112, 176, 200]), ellipse([108, 62, 160, 120])), OCHRE, bevel=14, gloss=0.9))
+    over(img, shade(rrect([122, 44, 140, 66], 4), WOOD, bevel=4))
+    over(img, shade(lines([[(114, 116), (154, 116)]], 8), RED, bevel=3))
+    over(img, shade(lines([[(150, 118), (170, 150)]], 6), RED, bevel=2))
+
+
+def obj_compass(img):
+    """墨家：规与矩。"""
+    over(img, shade(poly([(60, 70), (84, 70), (84, 178), (196, 178), (196, 202), (60, 202)]), BONE, bevel=6))
+    over(img, shade(lines([[(150, 50), (112, 196)], [(150, 50), (192, 196)]], 10), BRASS, bevel=4, gloss=0.9))
+    over(img, shade(ellipse([140, 40, 160, 60]), BRASS, bevel=4, gloss=1.0))
+
+
+def obj_taiji(img):
+    """阴阳：太极。"""
+    over(img, shade(ellipse([52, 52, 204, 204]), BONE, bevel=10, gloss=0.6))
+    dark = union(of_half_disc(), ellipse([90, 128, 166, 204]))
+    over(img, shade(dark, LACQ, bevel=4, flat=True))
+    over(img, shade(ellipse([90, 52, 166, 128]), BONE, bevel=2, flat=True))
+    over(img, shade(ellipse([118, 80, 138, 100]), LACQ, bevel=2, flat=True))
+    over(img, shade(ellipse([118, 156, 138, 176]), BONE, bevel=2, flat=True))
+
+
+def of_half_disc():
+    m = of.blank(); d = ImageDraw.Draw(m)
+    d.pieslice([52, 52, 204, 204], 90, 270, fill=255)
+    return m
+
+
+def obj_whisk(img):
+    """宦官：拂尘。"""
+    over(img, shade(lines([[(78, 200), (150, 110)]], 12), LACQ, bevel=4, gloss=0.8))
+    over(img, shade(rrect([140, 96, 162, 118], 6), BRASS, bevel=4, gloss=1.0))
+    tail = [[(152, 108), (150 + dx, 40 + abs(dx) // 2)] for dx in range(-36, 40, 8)]
+    over(img, shade(lines(tail, 7), BONE, bevel=3, gloss=0.5))
+
+
+def make_ideology(obj, field):
+    img = canvas()
+    over(img, ef.shade(ef.ring(124, 106), ef.GOLD, bevel=9))
+    over(img, ef.shade(ef.disc(105), field, bevel=30, gloss=0.25))
+    layer = canvas()
+    obj(layer)
+    img = over(img, inset(layer, 0.72))
+    return pixelize(img)
+
+
+ANCIENT_IDEOLOGIES = {
+    "Confucianism": (obj_bamboo, NAVY), "Legalism": (obj_edict, SLATE), "HuangLao": (obj_gourd, FOREST),
+    "Mohism": (obj_compass, LACQ), "Agrarianism": (obj_wheat, WOOD), "Strategists": (obj_swords, RED),
+    "Diplomatists": (obj_envoy, VIOLET), "YinYang": (obj_taiji, STEEL), "ImperialPower": (obj_crown, AMBER),
+    "GreatClans": (obj_tablet, TEAL), "ConsortKin": (obj_phoenix, RED), "Eunuchs": (obj_whisk, VIOLET),
+}
+
+
 def obj_park(img):
     """绿地：一圈骨白石子小径围着草坪(暗翠)，坪上一株圆冠大树，路边一盏旧铜石灯。"""
     over(img, shade(sub(ellipse([18, 128, 238, 238]), ellipse([40, 144, 216, 222])), BONE, bevel=5, grain=0.3))
@@ -1485,6 +1563,8 @@ def build():
         out[f"GameResources/ui/icons/resources/iconRes_{name}.png"] = make_plot(obj, None)
     for name, obj in ITEMS.items():
         out[f"GameResources/ui/icons/items/{name}.png"] = make_plot(obj, None)
+    for name, (obj, field) in ANCIENT_IDEOLOGIES.items():
+        out[f"GameResources/ui/icons/actor_traits/ideology_{name}.png"] = make_ideology(obj, field)
     for name, (obj, badge) in TOOLS.items():
         out[f"GameResources/ui/icons/{name}.png"] = make_plot(obj, badge)
     src = os.path.join(HERE, "source")

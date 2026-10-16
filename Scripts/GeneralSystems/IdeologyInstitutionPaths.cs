@@ -49,7 +49,19 @@ public static class IdeologyInstitutionPaths
         [PartyIdeology.ReligiousDemocracy] = new(SocialClass.Peasant, SocialClass.Merchant, 1.20f, 1.13f, 0.04f, 1.05f, 2.3f, 1.4f),
         [PartyIdeology.Authoritarianism] = new(SocialClass.Officer, SocialClass.Merchant, 1.12f, 1.05f, 0.10f, 1.20f, 2.3f, 2.0f),
         [PartyIdeology.Conservatism] = new(SocialClass.Noble, SocialClass.Labour, 1.08f, 1.14f, 0.08f, 1.10f, 2.0f, 1.4f),
-        [PartyIdeology.Fascism] = new(SocialClass.Army, SocialClass.Merchant, 1.28f, 1.04f, 0.12f, 1.30f, 2.5f, 2.8f)
+        [PartyIdeology.Fascism] = new(SocialClass.Army, SocialClass.Merchant, 1.28f, 1.04f, 0.12f, 1.30f, 2.5f, 2.8f),
+        [PartyIdeology.Confucianism] = new(SocialClass.Officer, SocialClass.Merchant, 1.05f, 1.10f, 0.02f, 1.00f, 2.0f, 1.2f),
+        [PartyIdeology.Legalism] = new(SocialClass.Officer, SocialClass.Noble, 1.10f, 1.00f, 0.05f, 1.10f, 2.0f, 1.8f),
+        [PartyIdeology.HuangLao] = new(SocialClass.Peasant, SocialClass.Officer, 1.05f, 1.10f, 0.02f, 1.00f, 2.2f, 1.0f),
+        [PartyIdeology.Mohism] = new(SocialClass.Labour, SocialClass.Noble, 1.10f, 1.05f, 0.03f, 1.05f, 2.2f, 1.4f),
+        [PartyIdeology.Agrarianism] = new(SocialClass.Peasant, SocialClass.Landlord, 1.15f, 1.10f, 0.04f, 1.10f, 2.5f, 1.6f),
+        [PartyIdeology.Strategists] = new(SocialClass.Army, SocialClass.Merchant, 1.10f, 1.00f, 0.08f, 1.25f, 2.0f, 1.8f),
+        [PartyIdeology.Diplomatists] = new(SocialClass.Merchant, SocialClass.Army, 1.05f, 1.05f, 0.03f, 1.00f, 1.8f, 1.2f),
+        [PartyIdeology.YinYang] = new(SocialClass.Peasant, SocialClass.Officer, 1.05f, 1.05f, 0.04f, 1.05f, 2.0f, 1.2f),
+        [PartyIdeology.ImperialPower] = new(SocialClass.Officer, SocialClass.Noble, 1.00f, 1.00f, 0.06f, 1.10f, 1.8f, 1.6f),
+        [PartyIdeology.GreatClans] = new(SocialClass.Noble, SocialClass.Peasant, 1.00f, 1.10f, 0.06f, 1.10f, 1.8f, 1.6f),
+        [PartyIdeology.ConsortKin] = new(SocialClass.Noble, SocialClass.Officer, 1.00f, 1.00f, 0.05f, 1.00f, 1.5f, 1.5f),
+        [PartyIdeology.Eunuchs] = new(SocialClass.Officer, SocialClass.Noble, 1.00f, 1.00f, 0.05f, 1.00f, 1.5f, 1.8f)
     };
 
     public static Profile GetProfile(PartyIdeology ideology) => Profiles[ideology];

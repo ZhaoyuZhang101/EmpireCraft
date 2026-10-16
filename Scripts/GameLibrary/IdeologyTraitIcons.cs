@@ -47,9 +47,9 @@ public static class IdeologyTraitIcons
         foreach (PartyIdeology ideology in Enum.GetValues(typeof(PartyIdeology)))
         {
             if (global::System.IO.File.Exists(global::System.IO.Path.Combine(folder, $"ideology_{ideology}.png"))) continue;
-            int index = (int)ideology;
+            int index = (int)ideology % Marks.Length;
             var pixels = new Color32[Size * Size];
-            Color32 ink = Colors[index];
+            Color32 ink = Colors[index % Colors.Length];
             Color32 shadow = new(29, 37, 42, 255);
             for (int y = 0; y < Size; y++)
             for (int x = 0; x < Size; x++)

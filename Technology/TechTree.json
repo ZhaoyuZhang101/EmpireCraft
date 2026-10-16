@@ -70,7 +70,14 @@
     { "feature": "ideology:Communism", "requires_techs": ["industrialization"], "drivers": { "electricity": 0.2, "steelmaking": 0.1 } },
     { "feature": "ideology:Anarchism", "requires_techs": ["industrialization"], "drivers": { "printing": 0.1 } },
     { "feature": "ideology:Authoritarianism", "requires_techs": ["industrialization"], "drivers": { "electricity": 0.2 } },
-    { "feature": "ideology:Fascism", "requires_techs": ["industrialization", "electricity"], "drivers": { "motorization": 0.2 } }
+    { "feature": "ideology:Fascism", "requires_techs": ["industrialization", "electricity"], "drivers": { "motorization": 0.2 } },
+    { "feature": "ideology:Confucianism", "requires_techs": ["writing", "ritual_rites"], "drivers": {} },
+    { "feature": "ideology:Legalism", "requires_techs": ["writing", "law_code"], "drivers": {} },
+    { "feature": "ideology:HuangLao", "requires_techs": ["writing"], "drivers": {} },
+    { "feature": "ideology:Mohism", "requires_techs": ["writing", "masonry"], "drivers": {} },
+    { "feature": "ideology:Agrarianism", "requires_techs": ["writing", "census"], "drivers": {} },
+    { "feature": "ideology:Strategists", "requires_techs": ["writing", "military_register"], "drivers": {} },
+    { "feature": "ideology:Diplomatists", "requires_techs": ["writing", "currency"], "drivers": {} }
   ],
   "industry": {
     "factory_types": ["type_lightfactory", "type_heavyfactory", "type_lightaircraftfactory", "type_heavyaircraftfactory", "type_lightshipyard", "type_heavyshipyard", "type_steel_mill", "type_gunpowder_mill"],

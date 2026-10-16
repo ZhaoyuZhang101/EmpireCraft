@@ -29,13 +29,25 @@ public static class IdeologyFamilies
     public static bool IsLiberal(PartyIdeology ideology) => ideology is PartyIdeology.SocialLiberalism or
         PartyIdeology.ConservativeLiberalism or PartyIdeology.Libertarianism or PartyIdeology.Capitalism;
 
-    // 传统理念：繁荣城市里式微
+    // 古代理念(诸子百家与古代政治立场，见 PartySystem.PartyIdeology)
+    public static bool IsAncient(PartyIdeology ideology) => ideology >= PartyIdeology.Confucianism;
+
+    // 诸子百家(只有华夏有)
+    public static bool IsSchool(PartyIdeology ideology) =>
+        ideology is >= PartyIdeology.Confucianism and <= PartyIdeology.YinYang;
+
+    // 只在朝堂里的立场(外戚、宦官)：不在民间流传
+    public static bool IsCourtOnly(PartyIdeology ideology) =>
+        ideology is PartyIdeology.ConsortKin or PartyIdeology.Eunuchs;
+
+    // 传统理念：繁荣城市里式微；古代理念都算传统(不靠印行的书报传播)
     public static bool IsTraditional(PartyIdeology ideology) => ideology is PartyIdeology.Conservatism or
-        PartyIdeology.ReligiousDemocracy or PartyIdeology.Authoritarianism;
+        PartyIdeology.ReligiousDemocracy or PartyIdeology.Authoritarianism || IsAncient(ideology);
 
     // 乡土传统：有地小农守着的理念
     public static bool IsAgrarianTraditional(PartyIdeology ideology) =>
-        ideology is PartyIdeology.Conservatism or PartyIdeology.ReligiousDemocracy;
+        ideology is PartyIdeology.Conservatism or PartyIdeology.ReligiousDemocracy or PartyIdeology.Agrarianism or
+            PartyIdeology.HuangLao;
 
     // 威权：占满议席即一党专政
     public static bool IsAuthoritarian(PartyIdeology ideology) =>

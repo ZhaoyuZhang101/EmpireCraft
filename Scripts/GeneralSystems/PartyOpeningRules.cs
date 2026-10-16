@@ -26,6 +26,8 @@ public static class PartyOpeningRules
             if (pair.Value <= 0) continue;
             result.Population += pair.Value;
             if (pair.Key == government) result.GovernmentPeople = pair.Value;
+            // 古代理念不来争开放党禁，挑战者只看近代理念
+            else if (IdeologyFamilies.IsAncient(pair.Key)) continue;
             else if (pair.Value > result.ChallengerPeople ||
                      pair.Value == result.ChallengerPeople && (int)pair.Key < (int)result.Challenger.GetValueOrDefault())
             {

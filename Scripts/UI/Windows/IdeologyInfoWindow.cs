@@ -134,14 +134,23 @@ public class IdeologyInfoWindow : AbstractWideWindow<IdeologyInfoWindow>
     private void AddSelector()
     {
         IdeologyRoute[] routes = Enum.GetValues(typeof(IdeologyRoute)).Cast<IdeologyRoute>().ToArray();
-        float height = 6f + routes.Length * 15f;
-        var card = Card(new Vector2(PanelWidth, height), "FactionFrame");
+        // 一行最多四个(诸子百家有八家，分两行)
+        const int PerRow = 4;
+        var lines = new List<(IdeologyRoute route, bool first, List<PartyIdeology> items)>();
         foreach (IdeologyRoute route in routes)
         {
+            List<PartyIdeology> all = Enum.GetValues(typeof(PartyIdeology)).Cast<PartyIdeology>()
+                .Where(ideology => PartySystem.RouteOf(ideology) == route).ToList();
+            for (int start = 0; start < all.Count; start += PerRow)
+                lines.Add((route, start == 0, all.Skip(start).Take(PerRow).ToList()));
+        }
+        float height = 6f + lines.Count * 15f;
+        var card = Card(new Vector2(PanelWidth, height), "FactionFrame");
+        foreach ((IdeologyRoute route, bool first, List<PartyIdeology> items) in lines)
+        {
             var row = card.BeginHoriGroup(new Vector2(PanelWidth - 10f, 14f), TextAnchor.MiddleLeft, 3);
-            Label(row, PartySystem.GetRouteName(route).ColorString("#7FD8EA"), 34f, 7, TextAnchor.MiddleRight);
-            foreach (PartyIdeology ideology in Enum.GetValues(typeof(PartyIdeology)).Cast<PartyIdeology>()
-                         .Where(ideology => PartySystem.RouteOf(ideology) == route))
+            Label(row, first ? PartySystem.GetRouteName(route).ColorString("#7FD8EA") : "", 34f, 7, TextAnchor.MiddleRight);
+            foreach (PartyIdeology ideology in items)
             {
                 PartyIdeology target = ideology;
                 bool selected = ideology == _selected;

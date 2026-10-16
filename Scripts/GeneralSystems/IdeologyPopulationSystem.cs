@@ -14,6 +14,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 public static partial class IdeologyPopulationSystem
 {
     public const float PartyFoundingShare = 0.10f;
+    // 本地已不流传的理念每年改信的机会下限(见 ContactCity)
+    public const float UnavailableSwitchChance = 0.2f;
     private const string TraitPrefix = "empire_ideology_";
     private static double _lastContactScan = -1d;
     private static object _cachedWorld;
@@ -501,6 +503,8 @@ public static partial class IdeologyPopulationSystem
             chance *= EconomyFactor(target, economy);
             if (!IdeologyFamilies.IsLiberal(target)) chance *= 1f + PluralismBoost * pluralism;
             if (MediaSystem.IsMassIdeology(target)) chance *= massFactor;
+            // 手上的理念在本地已不流传(古代理念进了近代、近代理念回到古代)：很快改信
+            if (!available.Contains(current)) chance = Mathf.Max(chance, UnavailableSwitchChance);
             return UnityEngine.Random.value < chance;
         }
     }
@@ -734,18 +738,51 @@ public static partial class IdeologyPopulationSystem
         bool includeEmerging = false)
     {
         var choices = new HashSet<PartyIdeology>();
-        if (CultureService.IsValidCulture(culture) &&
-            InstitutionSystem.GetFeature(culture, PartySystem.FeaturePartyPolitics) > 0f)
+        bool valid = CultureService.IsValidCulture(culture);
+        if (valid && InstitutionSystem.GetFeature(culture, PartySystem.FeaturePartyPolitics) > 0f)
         {
             bool emergence = includeEmerging || IdeologyDynamicsSystem.GetLiberation(empire) > 0f;
             foreach (PartyIdeology ideology in Enum.GetValues(typeof(PartyIdeology)))
-                if ((emergence && HasIdeaBook(culture, ideology) || IsIdeaAvailable(culture, ideology)) &&
+                if (!IdeologyFamilies.IsAncient(ideology) &&
+                    (emergence && HasIdeaBook(culture, ideology) || IsIdeaAvailable(culture, ideology)) &&
                     TechnologySystem.AreFeatureTechsMet(culture, IdeologySpreadSystem.FeatureKey(ideology)))
                     choices.Add(ideology);
         }
+        else if (valid) AddPremodern(culture, choices);
         if (choices.Count == 0)
             foreach (PartyIdeology ideology in PartySystem.BaseIdeologies) choices.Add(ideology);
         return choices;
+    }
+
+    // 开放党禁以前民间流传的理念(用户 2026-10-16："古代理念也要改革不能全是保守，需要细分")：
+    //   · 华夏：阴阳(上古就有)，诸子百家按科技陆续出现(儒家要文字礼制、法家律令、墨家营造、农家户籍、兵家兵籍、纵横家货币、
+    //     黄老文字，见 TechTree.json 的 ideology:<理念>)；本文化有了印刷术，保守主义等四种基本现代理念也开始流传；
+    //   · 别的文化：沿用四种基本现代理念；
+    //   · 皇权、门阀各文化都有；外戚、宦官只在朝堂里，不在民间流传。
+    private static void AddPremodern(string culture, HashSet<PartyIdeology> choices)
+    {
+        bool huaxia;
+        try
+        {
+            huaxia = InstitutionSystem.GetCultureLine(culture) == "Huaxia";
+        }
+        catch
+        {
+            huaxia = false;
+        }
+        choices.Add(PartyIdeology.ImperialPower);
+        choices.Add(PartyIdeology.GreatClans);
+        if (!huaxia)
+        {
+            foreach (PartyIdeology ideology in PartySystem.BaseIdeologies) choices.Add(ideology);
+            return;
+        }
+        foreach (PartyIdeology ideology in Enum.GetValues(typeof(PartyIdeology)))
+            if (IdeologyFamilies.IsSchool(ideology) &&
+                TechnologySystem.AreFeatureTechsMet(culture, IdeologySpreadSystem.FeatureKey(ideology)))
+                choices.Add(ideology);
+        foreach (PartyIdeology ideology in PartySystem.BaseIdeologies)
+            if (TechnologySystem.HasTech(culture, "printing")) choices.Add(ideology);
     }
 
     // 解锁节点只给尚无人信奉的新思想补充传播起点，不再次改写已经出现过的思想分布。

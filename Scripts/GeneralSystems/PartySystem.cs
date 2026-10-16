@@ -22,7 +22,9 @@ public enum IdeologyRoute
     Conservative, // 保守：保守主义 → 教派民主主义
     Liberal,      // 自由：保守自由主义 → 资本主义 → 自由意志主义
     Center,       // 中间：社会自由主义 / 中间派 → 权威主义 → 法西斯主义
-    Left          // 左翼：社会民主主义 / 社会主义 → 共产主义 / 无政府主义
+    Left,         // 左翼：社会民主主义 / 社会主义 → 共产主义 / 无政府主义
+    Schools,      // 诸子百家(古代学说，见 IdeologyFamilies.IsSchool)
+    Stances       // 古代政治立场：皇权、门阀、外戚、宦官
 }
 
 // 政党意识形态，按政治光谱(经济 左—右 × 权力 自由—极权)排布
@@ -40,7 +42,22 @@ public enum PartyIdeology
     ReligiousDemocracy,     // 教派民主主义      中·威权
     Authoritarianism,       // 权威主义          中·极权
     Conservatism,           // 保守主义          中右·威权
-    Fascism                 // 法西斯主义        极右·极权
+    Fascism,                // 法西斯主义        极右·极权
+    // ---- 古代理念(用户 2026-10-16："古代理念也要改革不能全是保守，需要细分……还有诸子百家等也是理念")；追加在末尾 ----
+    // 诸子百家(只有华夏有，按科技陆续出现，见 TechTree.json 的 ideology:<理念>)
+    Confucianism,           // 儒家      官僚、地主
+    Legalism,               // 法家      官僚、军人
+    HuangLao,               // 黄老      农民、国人
+    Mohism,                 // 墨家      工匠、国人
+    Agrarianism,            // 农家      农民、野人
+    Strategists,            // 兵家      军人
+    Diplomatists,           // 纵横家    商人、士
+    YinYang,                // 阴阳家    巫祝(上古就有)
+    // 政治立场(皇权、门阀各文化都有；外戚、宦官只在朝堂里，不在民间流传)
+    ImperialPower,          // 皇权      帝党
+    GreatClans,             // 门阀      世族
+    ConsortKin,             // 外戚      后党
+    Eunuchs                 // 宦官      阉党
 }
 
 // 政党。开放党禁(制度特性 party_politics)且议会已召开后：
@@ -90,7 +107,19 @@ public static class PartySystem
         { PartyIdeology.ReligiousDemocracy, new Vector2(0f, -30f) },
         { PartyIdeology.Authoritarianism, new Vector2(0f, -70f) },
         { PartyIdeology.Conservatism, new Vector2(45f, -30f) },
-        { PartyIdeology.Fascism, new Vector2(85f, -80f) }
+        { PartyIdeology.Fascism, new Vector2(85f, -80f) },
+        { PartyIdeology.Confucianism, new Vector2(30f, -35f) },
+        { PartyIdeology.Legalism, new Vector2(10f, -75f) },
+        { PartyIdeology.HuangLao, new Vector2(-30f, 30f) },
+        { PartyIdeology.Mohism, new Vector2(-60f, 10f) },
+        { PartyIdeology.Agrarianism, new Vector2(-55f, -10f) },
+        { PartyIdeology.Strategists, new Vector2(25f, -60f) },
+        { PartyIdeology.Diplomatists, new Vector2(55f, 50f) },
+        { PartyIdeology.YinYang, new Vector2(-35f, -55f) },
+        { PartyIdeology.ImperialPower, new Vector2(0f, -88f) },
+        { PartyIdeology.GreatClans, new Vector2(60f, -50f) },
+        { PartyIdeology.ConsortKin, new Vector2(45f, -68f) },
+        { PartyIdeology.Eunuchs, new Vector2(-15f, -92f) }
     };
 
     // 各阶层在光谱上的立场
@@ -125,7 +154,20 @@ public static class PartySystem
         { PartyIdeology.ReligiousDemocracy, FactionType.神权 },
         { PartyIdeology.Authoritarianism, FactionType.中央 },
         { PartyIdeology.Conservatism, FactionType.尊王 },
-        { PartyIdeology.Fascism, FactionType.攘夷 }
+        { PartyIdeology.Fascism, FactionType.攘夷 },
+        // 古代理念 → 派系类型(沿用各类型的诉求与阶层倾向)：儒家文官、法家中央、兵家武官、门阀诸侯、外戚血脉、阴阳神权……
+        { PartyIdeology.Confucianism, FactionType.绥靖 },
+        { PartyIdeology.Legalism, FactionType.中央 },
+        { PartyIdeology.HuangLao, FactionType.民主 },
+        { PartyIdeology.Mohism, FactionType.绥靖 },
+        { PartyIdeology.Agrarianism, FactionType.民主 },
+        { PartyIdeology.Strategists, FactionType.攘夷 },
+        { PartyIdeology.Diplomatists, FactionType.自治 },
+        { PartyIdeology.YinYang, FactionType.神权 },
+        { PartyIdeology.ImperialPower, FactionType.尊王 },
+        { PartyIdeology.GreatClans, FactionType.诸侯 },
+        { PartyIdeology.ConsortKin, FactionType.血脉 },
+        { PartyIdeology.Eunuchs, FactionType.中央 }
     };
 
     // 各理念的诉求：沿用原派系诉求，另加推行普选/土地改革
@@ -143,7 +185,20 @@ public static class PartySystem
         { PartyIdeology.ReligiousDemocracy, new[] { TemporaryFactionType.建立共和, TemporaryFactionType.确立国教, TemporaryFactionType.提高福利, TemporaryFactionType.神授君权 } },
         { PartyIdeology.Authoritarianism, new[] { TemporaryFactionType.建立共和, TemporaryFactionType.削藩, TemporaryFactionType.夺取诸侯开战权, TemporaryFactionType.颁布帝国治安令, TemporaryFactionType.谋求统一 } },
         { PartyIdeology.Conservatism, new[] { TemporaryFactionType.复辟帝制, TemporaryFactionType.恢复世袭皇权, TemporaryFactionType.确立国教, TemporaryFactionType.清除移民 } },
-        { PartyIdeology.Fascism, new[] { TemporaryFactionType.建立共和, TemporaryFactionType.对外扩张, TemporaryFactionType.文化同化, TemporaryFactionType.迫使朝贡, TemporaryFactionType.清除移民, TemporaryFactionType.禁党 } }
+        { PartyIdeology.Fascism, new[] { TemporaryFactionType.建立共和, TemporaryFactionType.对外扩张, TemporaryFactionType.文化同化, TemporaryFactionType.迫使朝贡, TemporaryFactionType.清除移民, TemporaryFactionType.禁党 } },
+        // 古代理念的诉求(朋党用，见 FixedFaction.IsClique)
+        { PartyIdeology.Confucianism, new[] { TemporaryFactionType.开科取士, TemporaryFactionType.设置行政区, TemporaryFactionType.推行三省六部, TemporaryFactionType.设立内阁, TemporaryFactionType.降低赋税, TemporaryFactionType.赈济灾荒 } },
+        { PartyIdeology.Legalism, new[] { TemporaryFactionType.削藩, TemporaryFactionType.夺取诸侯开战权, TemporaryFactionType.颁布帝国治安令, TemporaryFactionType.谋求统一, TemporaryFactionType.提高赋税, TemporaryFactionType.整顿吏治 } },
+        { PartyIdeology.HuangLao, new[] { TemporaryFactionType.降低赋税, TemporaryFactionType.撤销军府, TemporaryFactionType.提供岁币, TemporaryFactionType.赈济灾荒 } },
+        { PartyIdeology.Mohism, new[] { TemporaryFactionType.提供岁币, TemporaryFactionType.赈济灾荒, TemporaryFactionType.降低赋税, TemporaryFactionType.开科取士 } },
+        { PartyIdeology.Agrarianism, new[] { TemporaryFactionType.降低赋税, TemporaryFactionType.赈济灾荒, TemporaryFactionType.土地改革 } },
+        { PartyIdeology.Strategists, new[] { TemporaryFactionType.对外扩张, TemporaryFactionType.转军府, TemporaryFactionType.谋求统一, TemporaryFactionType.迫使朝贡 } },
+        { PartyIdeology.Diplomatists, new[] { TemporaryFactionType.迫使朝贡, TemporaryFactionType.提供岁币, TemporaryFactionType.对外扩张 } },
+        { PartyIdeology.YinYang, new[] { TemporaryFactionType.确立国教, TemporaryFactionType.神授君权, TemporaryFactionType.加强神权 } },
+        { PartyIdeology.ImperialPower, new[] { TemporaryFactionType.削藩, TemporaryFactionType.恢复世袭皇权, TemporaryFactionType.谋求统一, TemporaryFactionType.颁布帝国治安令 } },
+        { PartyIdeology.GreatClans, new[] { TemporaryFactionType.分封, TemporaryFactionType.确认诸侯特权, TemporaryFactionType.允许诸侯自由开战 } },
+        { PartyIdeology.ConsortKin, new[] { TemporaryFactionType.册立储君, TemporaryFactionType.转世袭, TemporaryFactionType.神授君权 } },
+        { PartyIdeology.Eunuchs, new[] { TemporaryFactionType.恢复世袭皇权, TemporaryFactionType.颁布帝国治安令, TemporaryFactionType.整顿吏治 } }
     };
 
     private static readonly SocialClass[] RestrictedFranchise =
@@ -162,6 +217,8 @@ public static class PartySystem
     // 民间已接触到理念就能组织政党；理念制度由执政党推进，不能反过来作为建党的前提。
     public static bool IsIdeologyUnlocked(Empire empire, PartyIdeology ideology)
     {
+        // 古代理念不组现代政党
+        if (IdeologyFamilies.IsAncient(ideology)) return false;
         string culture = InstitutionSystem.GetPrimaryCulture(empire);
         if (IdeologyPopulationSystem.IsIdeaAvailable(culture, ideology)) return true;
         // 被迫现代化：战胜国带来的理念
@@ -185,7 +242,19 @@ public static class PartySystem
         { PartyIdeology.SocialDemocracy, IdeologyRoute.Left },
         { PartyIdeology.Socialism, IdeologyRoute.Left },
         { PartyIdeology.Communism, IdeologyRoute.Left },
-        { PartyIdeology.Anarchism, IdeologyRoute.Left }
+        { PartyIdeology.Anarchism, IdeologyRoute.Left },
+        { PartyIdeology.Confucianism, IdeologyRoute.Schools },
+        { PartyIdeology.Legalism, IdeologyRoute.Schools },
+        { PartyIdeology.HuangLao, IdeologyRoute.Schools },
+        { PartyIdeology.Mohism, IdeologyRoute.Schools },
+        { PartyIdeology.Agrarianism, IdeologyRoute.Schools },
+        { PartyIdeology.Strategists, IdeologyRoute.Schools },
+        { PartyIdeology.Diplomatists, IdeologyRoute.Schools },
+        { PartyIdeology.YinYang, IdeologyRoute.Schools },
+        { PartyIdeology.ImperialPower, IdeologyRoute.Stances },
+        { PartyIdeology.GreatClans, IdeologyRoute.Stances },
+        { PartyIdeology.ConsortKin, IdeologyRoute.Stances },
+        { PartyIdeology.Eunuchs, IdeologyRoute.Stances }
     };
 
     public static IdeologyRoute RouteOf(PartyIdeology ideology) => Routes[ideology];
@@ -388,7 +457,8 @@ public static class PartySystem
             weighted += ClassPositions[pair.Key] * pair.Value;
             total += pair.Value;
         }
-        return NearestIdeology(total > 0f ? weighted / total : Vector2.zero);
+        // 党禁前的派系是古代朝堂的派系：只落到古代理念上
+        return NearestIdeology(total > 0f ? weighted / total : Vector2.zero, IdeologyFamilies.IsAncient);
     }
 
     private static void ConvertToParty(Empire empire, FixedFaction faction, PartyIdeology ideology, string name)

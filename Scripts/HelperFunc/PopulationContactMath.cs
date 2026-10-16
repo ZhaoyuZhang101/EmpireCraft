@@ -173,6 +173,8 @@ public static class PopulationContactMath
             if(option.Has(ContactOption.AgrarianRadical))factor*=1f+1.5f*s.Landless;
             chance*=factor;
             if(!option.Has(ContactOption.Liberal))chance*=1f+s.Pluralism;
+            // 手上的理念在本地已不流传：很快改信(与 IdeologyPopulationSystem.ContactCity 同一规则)
+            if(!Available(current))chance=Math.Max(chance,.2f);
             return random.Value()<chance?target:current;
         }
     }

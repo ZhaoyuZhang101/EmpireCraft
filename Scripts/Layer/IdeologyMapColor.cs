@@ -1,3 +1,4 @@
+using System;
 using EmpireCraft.Scripts.GeneralSystems;
 
 namespace EmpireCraft.Scripts.Layer;
@@ -17,7 +18,11 @@ public sealed class IdeologyMapColor : MetaObject<IdeologyMapColorData>
         int count = AssetManager.culture_colors_library.list.Count;
         var color = new IdeologyMapColor();
         var data = new IdeologyMapColorData { name = ideology.ToString() };
-        data.setColorID(count == 0 ? 0 : (int)ideology * count / 13 % count);
+        // 近代十三种照旧均分色板；古代理念插在它们之间(避免同色)
+        int modern = (int)PartyIdeology.Confucianism, ancient = Enum.GetValues(typeof(PartyIdeology)).Length - modern;
+        int index = (int)ideology < modern ? (int)ideology * count / modern
+            : ((int)ideology - modern) * count / Math.Max(1, ancient) + count / (2 * modern);
+        data.setColorID(count == 0 ? 0 : index % count);
         color.loadData(data);
         return color;
     }
