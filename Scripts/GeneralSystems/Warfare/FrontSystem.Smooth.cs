@@ -26,8 +26,8 @@ public static partial class FrontSystem
     {
         public long City, Side;
         public int Zone;
-        // 收复(守方把被占的地块夺回)
-        public bool Retake;
+        // 收复(守方把被占的地块夺回)；Free：没有攻方来争、不打仗的收复(攻方看守着的地不收)
+        public bool Retake, Free;
         public float Progress;
         // +1 推进 / -1 被推回 / 0 停住
         public int Direction;
@@ -64,7 +64,7 @@ public static partial class FrontSystem
 
     // side 本月在 city 占优：继续(或开始)推进；城里有对方推进中的地块就先把它推回去
     private static void SmoothAdvance(City city, Kingdom side, List<CorpsData> spearheads, bool defended, bool landing,
-        bool retake)
+        bool retake, bool free = false)
     {
         if (Pushes.TryGetValue(city.id, out Push push))
         {
@@ -77,14 +77,15 @@ public static partial class FrontSystem
             push.Direction = 1;
             push.Defended = defended;
             push.Landing = landing;
+            push.Free = free;
             SetCorps(push, spearheads);
             return;
         }
-        TileZone zone = retake ? RetakeTarget(city, side, spearheads) : AdvanceTarget(city, side, spearheads, defended, landing);
+        TileZone zone = retake ? RetakeTarget(city, side, spearheads, free) : AdvanceTarget(city, side, spearheads, defended, landing);
         if (zone == null) return;
         push = new Push
         {
-            City = city.id, Side = side.id, Zone = zone.id, Retake = retake, Direction = 1, Defended = defended,
+            City = city.id, Side = side.id, Zone = zone.id, Retake = retake, Free = free, Direction = 1, Defended = defended,
             Landing = landing, Confirmed = true, Last = World.world.getCurWorldTime()
         };
         SetCorps(push, spearheads);
@@ -126,11 +127,11 @@ public static partial class FrontSystem
                 .Count(neighbour => Friendly(side, Controller(neighbour)))).First();
     }
 
-    // 收复的目标：本城被敌军占去、与己方相连、紧挨着己方军团的地块
-    private static TileZone RetakeTarget(City city, Kingdom side, List<CorpsData> troops) =>
+    // 收复的目标：本城被敌军占去、与己方相连、紧挨着己方军团的地块；没有攻方来争时，攻方军团看守着的地不收(见 Guarded)
+    private static TileZone RetakeTarget(City city, Kingdom side, List<CorpsData> troops, bool free = false) =>
         city.zones?.FirstOrDefault(candidate => candidate != null &&
                                                 city.GetTileZoneOccupier(candidate) is Kingdom occupier && Hostile(side, occupier) &&
-                                                Beside(troops, candidate) &&
+                                                Beside(troops, candidate) && (!free || !Guarded(side, candidate)) &&
                                                 (candidate.neighbours ?? Array.Empty<TileZone>())
                                                 .Any(neighbour => Friendly(side, Controller(neighbour))));
 
@@ -267,7 +268,7 @@ public static partial class FrontSystem
         }
         Remove(push);
         if (city.isRekt() || city.kingdom != owner) return;
-        TileZone next = push.Retake ? RetakeTarget(city, side, corps) : AdvanceTarget(city, side, corps, push.Defended, push.Landing);
+        TileZone next = push.Retake ? RetakeTarget(city, side, corps, push.Free) : AdvanceTarget(city, side, corps, push.Defended, push.Landing);
         if (next == null) return;
         var chained = new Push
         {

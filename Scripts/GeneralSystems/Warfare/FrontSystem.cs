@@ -27,7 +27,10 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //      (一格一格推进，部队没到的地方战线不动；沿用地块占领模式，满城即陷落)，守方占优就夺回守军身边的一块；
 //      守军还在时城中最后一块地不会丢；组织度归零的军溃退。
 //      主城池(城心那块地)陷落即整城投降(用户 2026-10-17 "军队推进攻下主城池那么城市会直接投降")：守军还在时据城死守、
-//      城池放到最后打；守军溃散后先取城池，城池一破，余下的地块一并归攻方(见 Surrender)。占领区的年度扩散、正统扩张在军团模式下都不生效
+//      城池放到最后打；守军溃散后先取城池，城池一破，余下的地块一并归攻方(见 Surrender)。
+//      困守一隅(用户 2026-10-17 "攻打一个地方就只剩这么一丝地盘也能不停的反攻回来")：守方只剩不到三分之一的地时，
+//      守军战力按剩下的比例打折(最低五成)；团练只从守方还占着的那部分城里抽；攻方军团在上面或紧挨着看守的地，
+//      守方不打赢就收不回来(以前攻方一退下休整，守方就一块块白白收回，看着像不停反攻)。占领区的年度扩散、正统扩张在军团模式下都不生效
 //      (见 CityExtension.TryYearlyOccupationSpread、TrySpreadOccupiedZonesByMandate)。
 //      地形(见 TerrainSystem)看攻方要推进的那块地：攻方战力打折、双方额外掉组织度、限制每月推进的块数。
 // 远距离不交战(用户 2026-10-15："能不能阻止远距离交战，但是很近的海岛却可以")：只打本方(连同所在帝国)够得着的敌城——
@@ -687,7 +690,40 @@ public static partial class FrontSystem
     {
         if (city?.kingdom == null || attacker == null || Friendly(attacker, city.kingdom)) return 0f;
         if (LandEconomySystem.WouldSurrenderTo(city, attacker, out _)) return 0f;
-        return CityPopulationSystem.GetBackgroundTotal(city) * 0.02f * 0.6f;
+        // 团练只从守方还占着的那部分城里抽
+        return CityPopulationSystem.GetBackgroundTotal(city) * 0.02f * 0.6f * HeldShare(city);
+    }
+
+    // 城里还归守方(城主一方)控制的地块占几成(高山不算)
+    private static float HeldShare(City city)
+    {
+        if (city?.zones == null || city.kingdom == null) return 1f;
+        int total = 0, held = 0;
+        foreach (TileZone zone in city.zones)
+        {
+            if (zone == null || TerrainSystem.Impassable(zone)) continue;
+            total++;
+            if (Friendly(city.kingdom, Controller(zone))) held++;
+        }
+        return total == 0 ? 1f : held / (float)total;
+    }
+
+    // 困守一隅：守方只剩不到三分之一的地时，守军战力按剩下的比例打折，最低五成
+    private const float RemnantShare = 1f / 3f, RemnantFloor = 0.5f;
+
+    private static float RemnantFactor(City city)
+    {
+        float share = HeldShare(city);
+        return share >= RemnantShare ? 1f : Mathf.Lerp(RemnantFloor, 1f, share / RemnantShare);
+    }
+
+    // 攻方(与 side 交战的一方)有军团在这块地上或紧挨着看守：不打赢收不回来
+    private static bool Guarded(Kingdom side, TileZone zone)
+    {
+        foreach ((Kingdom kingdom, CorpsData corps) in CorpsSystem.All())
+            if (corps.strength >= 1f && Hostile(side, kingdom) && CorpsSystem.ZoneDistance(CorpsSystem.Zone(corps), zone) <= 1f)
+                return true;
+        return false;
     }
 
     private static void Resolve(double now, Dictionary<long, bool> landingSectors)
@@ -728,10 +764,10 @@ public static partial class FrontSystem
             if (SmoothActive)
             {
                 SmoothAdvance(city, lead, retakers.Where(entry => entry.kingdom == lead).Select(entry => entry.corps).ToList(),
-                    false, false, retake: true);
+                    false, false, retake: true, free: true);
                 return;
             }
-            int retaken = Retake(city, lead, 1, retakers.Select(entry => entry.corps));
+            int retaken = Retake(city, lead, 1, retakers.Select(entry => entry.corps), free: true);
             if (retaken > 0) Record(city, lead, owner, 1f, retakers.Sum(entry => entry.corps.strength), 0f, retaken, now);
             return;
         }
@@ -752,12 +788,14 @@ public static partial class FrontSystem
         // 叛乱初起还在集结的守方仓促应战(见 MusterSystem)
         // 红夷大炮破城：攻方有重炮营，城池守势减弱、堑壕只剩一半、团练抵抗剩七成
         bool breach = attackers.Any(entry => CorpsArmSystem.Breaches(entry.corps));
+        // 困守一隅的守军战力打折(见 RemnantFactor)
+        float remnant = RemnantFactor(city);
         float defend = holders.Sum(entry => Effective(entry.corps) * Firepower(entry.kingdom, entry.corps) *
                                             WarCommandSystem.Factor(entry.kingdom) * LogisticsSystem.AttackFactor(entry.corps) *
                                             PapacySystem.OrderFactor(entry.corps) * RulerTraitSystem.FounderCombat(entry.kingdom) *
                                             (breach ? BreachedDefenderBonus + entry.corps.entrench * BreachedEntrench
                                                 : DefenderBonus + entry.corps.entrench) *
-                                            MusterSystem.DefenseFactor(entry.kingdom, attacker));
+                                            MusterSystem.DefenseFactor(entry.kingdom, attacker)) * remnant;
         float militia = holders.Count == 0 ? Militia(city, attacker) * (breach ? BreachedMilitia : 1f) : 0f;
         defend += militia;
         float ratio = attack + defend <= 0f ? 0.5f : attack / (attack + defend);
@@ -931,7 +969,8 @@ public static partial class FrontSystem
     }
 
     // 守方(或收复的一方)夺回本城被敌军占去、与己方相连、紧挨着己方军团的地块
-    private static int Retake(City city, Kingdom side, int count, IEnumerable<CorpsData> near)
+    // free：没有攻方来争、不打仗收复(攻方军团看守着的地不收，见 Guarded)
+    private static int Retake(City city, Kingdom side, int count, IEnumerable<CorpsData> near, bool free = false)
     {
         int retaken = 0;
         List<CorpsData> troops = near?.ToList() ?? new List<CorpsData>();
@@ -939,7 +978,7 @@ public static partial class FrontSystem
         {
             TileZone zone = city.zones?.FirstOrDefault(candidate => candidate != null &&
                 city.GetTileZoneOccupier(candidate) is Kingdom occupier && Hostile(side, occupier) &&
-                Beside(troops, candidate) &&
+                Beside(troops, candidate) && (!free || !Guarded(side, candidate)) &&
                 (candidate.neighbours ?? Array.Empty<TileZone>()).Any(neighbour => Friendly(side, Controller(neighbour))));
             if (zone == null) break;
             if (!city.RemoveOccupiedTileZone(city.GetTileZoneOccupier(zone), zone)) break;
