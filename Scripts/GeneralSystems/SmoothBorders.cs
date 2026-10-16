@@ -899,7 +899,13 @@ public static class SmoothBorders
     // 换图层：全图一起翻(用户 2026-10-16："我切换图层的时候不能用全图翻转吗")——原版按国家、城一块块重画，
     // 以前画好一块翻一块，看着是一座城一座城地翻。现在镜头里的地块都画好了(一阵子没有新块画进来，或等够了)才一起翻，
     // 从镜头中心很快地一圈圈翻开(约 LayerRegionSeconds 秒翻到镜头边上)；教化、政令这类原版画法的图层也一样
-    private const float LayerGroupQuiet = 0.12f, LayerGroupWait = 1.5f, LayerRegionSeconds = 0.25f;
+    // 用户 2026-10-16 嫌切换图层"将近一秒钟的延迟"：以前要等镜头里的地块都画齐(静 0.12 秒，至多等 1.5 秒)才起翻，
+    // 上色分帧画不完就一直等到 1.5 秒。现在至多等 0.3 秒就从镜头中心起翻，晚画到的块接着波往下排；
+    // 换图层的头一秒镜头里的地块按"急着画"的预算上色(见 ZonePaintBudget)，画得也快
+    private const float LayerGroupQuiet = 0.05f, LayerGroupWait = 0.3f, LayerRegionSeconds = 0.2f, LayerUrgentSeconds = 1f;
+
+    // 刚换了图层：镜头里的地块急着画(见 ZonePaintBudget)
+    public static bool LayerFlipPending => _layerFlip != null && Time.unscaledTime - _layerFlip.start < LayerUrgentSeconds;
     private static readonly object NoOwner = new();
 
     private sealed class LayerGroup

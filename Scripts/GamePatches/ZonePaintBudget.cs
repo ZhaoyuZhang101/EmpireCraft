@@ -74,7 +74,8 @@ public class ZonePaintBudget : GamePatch
         if (World.world?.zone_calculator == null || !World.world.zone_calculator._current_drawn_zones.Contains(__instance)) return;
         double spent = _spent / TicksPerMs;
         if (spent < BudgetMs || spent < VisibleBudgetMs && IsVisible(__instance) ||
-            spent < UrgentBudgetMs && (SmoothBorders.Awaiting(__instance) || SmoothBorders.HoverUrgent(__instance))) return;
+            spent < UrgentBudgetMs && (SmoothBorders.Awaiting(__instance) || SmoothBorders.HoverUrgent(__instance) ||
+                                       SmoothBorders.LayerFlipPending && IsVisible(__instance))) return;
         __result = false;
         _deferredFrame = Time.frameCount;
         __instance.resetRenderHelpers();
