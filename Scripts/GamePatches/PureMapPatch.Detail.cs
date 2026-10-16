@@ -1505,18 +1505,19 @@ public partial class PureMapPatch
     {
         int s = DetailScale;
         Color32 dirt = Lerp(tint, Dirt, 0.8f), ground = Lerp(tint, Threshing, 0.85f), townGround = Lerp(tint, Rgb(238, 228, 200), 0.85f);
-        // 村子的小路(先竖后横走到大路)
-        foreach ((bool vertical, int fixedAt, int from, int to) in g.Paths)
-        {
-            int a = Mathf.Min(from, to), b = Mathf.Max(from, to);
-            for (int t = a * s; t <= b * s + s - 1; t++)
+        // 村镇的小路：沿折线一像素宽的土路(弯法见 UrbanFabric.PlaceTrails)，只铺在空地上，过水、过房子就断开
+        foreach (Vector2[] trail in g.Paths)
+            for (int k = 0; k + 1 < trail.Length; k++)
             {
-                int sway = Mathf.RoundToInt(1.5f * (DetailNoise(t, 18f, seed + fixedAt) - 0.5f));
-                int px = vertical ? (fixedAt - c.X0) * s + s / 2 + sway : t - c.X0 * s;
-                int py = vertical ? t - c.Y0 * s : (fixedAt - c.Y0) * s + s / 2 + sway;
-                if (c.Kind(px, py) == KEmpty && c.Land(px, py)) c.Put(px, py, dirt, KPath);
+                Vector2 a = trail[k], b = trail[k + 1];
+                int n = Mathf.Max(1, Mathf.CeilToInt(Vector2.Distance(a, b) * s * 1.5f));
+                for (int i = 0; i <= n; i++)
+                {
+                    Vector2 p = Vector2.Lerp(a, b, i / (float)n);
+                    int px = Mathf.RoundToInt((p.x - c.X0 + 0.5f) * s), py = Mathf.RoundToInt((p.y - c.Y0 + 0.5f) * s);
+                    if (c.Kind(px, py) == KEmpty && c.Land(px, py)) c.Put(px, py, dirt, KPath);
+                }
             }
-        }
         // 关厢：城门外沿大路两旁一户挨一户，越远越稀
         if (g.Suburb > 0)
             foreach (UrbanFabric.Road road in g.Roads)

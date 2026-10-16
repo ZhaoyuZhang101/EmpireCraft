@@ -57,7 +57,8 @@ public static class UrbanFabric
         public readonly List<(int x, int y, int size, bool walled)> Towns = new();
         // 村子与通到大路的小路(竖着走为 vertical：x 固定，y 从 from 到 to；否则 y 固定)
         public readonly List<(int x, int y)> Villages = new();
-        public readonly List<(bool vertical, int fixedAt, int from, int to)> Paths = new();
+        // 村镇的小路：一条条弯弯曲曲的折线(格坐标，见 PlaceTrails)
+        public readonly List<Vector2[]> Paths = new();
         // 各地块上有哪些城郊景物(按地块算一次，逐格上色时只查这几样)
         internal readonly Dictionary<int, Rural> Rurals = new();
         public City City;
@@ -338,7 +339,7 @@ public static class UrbanFabric
     // 城郊：路、关厢、镇、村与小路，都只落在本城没建成的平地上。种子定：
     //   · 出城大路：四门里哪几门有(档位 0 没有、1 两门相对、2 起多数城门有)，各多长、弯得多大多密；
     //   · 岔路：从大路出城几格处分出去，斜着走，档位越高越多；
-    //   · 镇落在大路、岔路上，村散在路网之间、各有一条小路(先竖后横)通到最近的路
+    //   · 镇落在大路、岔路上，村散在路网之间，小路弯弯曲曲通到最近的路、镇或城门，近处的村彼此也有小路(见 PlaceTrails)
     private static void PlaceCountryside(Geometry g)
     {
         int tier = g.Tier;
@@ -431,10 +432,78 @@ public static class UrbanFabric
                 }
             if (best < 3) continue;
             g.Villages.Add((x, y));
-            if (best >= 15) continue;
-            // 小路：先竖着走到路的那一行，再横着走过去
-            g.Paths.Add((true, x, y, by));
-            if (bx != x) g.Paths.Add((false, by, x, bx));
+        }
+        PlaceTrails(g);
+    }
+
+    // 小路(用户 2026-10-16："城市和小镇之间也没有细道路相连，也没有很自然")：以前只有离路十五格以内的村有路，
+    // 而且先竖后横走成直角。现在每个村通到最近的路(大路、岔路)、镇或城门(四十格以内)，路弯弯曲曲(两段起伏叠在一起，
+    // 遇水换个方向绕)；相距不远的村两两之间约一半也连一条
+    private const int TrailReach = 40, NeighbourTrail = 16;
+
+    private static void PlaceTrails(Geometry g)
+    {
+        var roadPoints = new List<Vector2>();
+        foreach (Road road in g.Roads)
+            for (int d = 0; d <= road.Length; d += 2)
+            {
+                (int rx, int ry) = Point(road, d);
+                roadPoints.Add(new Vector2(rx, ry));
+            }
+        foreach ((int tx, int ty, int size, _) in g.Towns) roadPoints.Add(new Vector2(tx, ty));
+        for (int i = 0; i < g.Villages.Count; i++)
+        {
+            (int x, int y) = g.Villages[i];
+            var from = new Vector2(x, y);
+            Vector2 to = new Vector2(g.GateX, g.GateY);
+            float best = Vector2.Distance(from, to);
+            foreach (Vector2 point in roadPoints)
+            {
+                float d = Vector2.Distance(from, point);
+                if (d < best)
+                {
+                    best = d;
+                    to = point;
+                }
+            }
+            if (best >= 2f && best <= TrailReach) AddTrail(g, from, to, i * 31L + 1);
+            // 近处的村：约一半连一条(每对只连一次)
+            for (int j = i + 1; j < g.Villages.Count; j++)
+            {
+                (int ox, int oy) = g.Villages[j];
+                var other = new Vector2(ox, oy);
+                if (Vector2.Distance(from, other) > NeighbourTrail || H(g.Seed, i, j, 95) >= 0.5f) continue;
+                AddTrail(g, from, other, i * 977L + j);
+            }
+        }
+    }
+
+    // 一条小路：从 a 走到 b，路线围着直线左右起伏(一大一小两段起伏)；整条有三成以上落在水里、山上就换一边绕，还不行就不修
+    private static void AddTrail(Geometry g, Vector2 a, Vector2 b, long key)
+    {
+        float length = Vector2.Distance(a, b);
+        if (length < 1.5f) return;
+        Vector2 dir = (b - a) / length, normal = new Vector2(-dir.y, dir.x);
+        int steps = Mathf.Max(2, Mathf.CeilToInt(length * 2f));
+        for (int attempt = 0; attempt < 2; attempt++)
+        {
+            float sign = (H(g.Seed, key, 96) < 0.5f ? -1f : 1f) * (attempt == 0 ? 1f : -1f);
+            float bend = sign * Mathf.Min(4f, length * (0.08f + 0.12f * H(g.Seed, key, 97)));
+            float wiggle = 0.6f + 0.6f * H(g.Seed, key, 98), freq = 2f + Mathf.Floor(H(g.Seed, key, 99) * 3f);
+            var points = new Vector2[steps + 1];
+            int blocked = 0;
+            for (int k = 0; k <= steps; k++)
+            {
+                float t = k / (float)steps, taper = Mathf.Sin(t * Mathf.PI);
+                float offset = bend * taper + wiggle * taper * Mathf.Sin(t * freq * Mathf.PI + key % 7);
+                Vector2 p = a + dir * (length * t) + normal * offset;
+                points[k] = p;
+                WorldTile tile = World.world.GetTile(Mathf.RoundToInt(p.x), Mathf.RoundToInt(p.y));
+                if (tile?.Type == null || tile.Type.liquid || tile.Type.mountains) blocked++;
+            }
+            if (blocked * 10 > steps * 3) continue;
+            g.Paths.Add(points);
+            return;
         }
     }
 
@@ -828,9 +897,16 @@ public static class UrbanFabric
         }
         for (int i = 0; i < g.Paths.Count; i++)
         {
-            (bool vertical, int at, int from, int to) = g.Paths[i];
-            int lo = Mathf.Min(from, to), hi = Mathf.Max(from, to);
-            if (vertical ? Overlaps(at, lo, at, hi) : Overlaps(lo, at, hi, at)) rural.Paths.Add(i);
+            Vector2[] trail = g.Paths[i];
+            float lx = float.MaxValue, ly = float.MaxValue, hx = float.MinValue, hy = float.MinValue;
+            foreach (Vector2 p in trail)
+            {
+                lx = Mathf.Min(lx, p.x);
+                ly = Mathf.Min(ly, p.y);
+                hx = Mathf.Max(hx, p.x);
+                hy = Mathf.Max(hy, p.y);
+            }
+            if (Overlaps(Mathf.FloorToInt(lx), Mathf.FloorToInt(ly), Mathf.CeilToInt(hx), Mathf.CeilToInt(hy))) rural.Paths.Add(i);
         }
         float cx = x0 + size / 2f - 0.5f, cy = y0 + size / 2f - 0.5f, dx = cx - g.Cx, dy = cy - g.Cy;
         float near = Mathf.Sqrt(dx * dx + dy * dy) - EdgeAt(g, Angle(dx, dy));
