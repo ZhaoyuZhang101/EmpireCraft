@@ -3,6 +3,7 @@ using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
+using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
 using NeoModLoader.General;
 using NeoModLoader.services;
@@ -18,10 +19,12 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 奴隶劳作：那一份产值按一倍半算，归奴隶主、不计税(见 PopulationEconomySystem)；不征为兵(见 CorpsSystem)；
 //   · 奴隶主：有奴隶的城按奴隶多少出一批奴隶主(见 CityPopulationSystem.TargetClassShares)；
 //   · 奴隶终年劳苦，怨气常高(见 SocialCrisisSystem.For)，聚众起事就是阶层起义里的奴隶起义。
+// 废除奴隶制(用户："废除奴隶制"；取代奴隶制，奴隶主激烈反对)：施行后一年之内境内奴隶尽数免为庶民，
+//   奴隶主改为地主(未开土地买卖、不许有地主的政体改为贵族)。
 // 奴隶只在背景人口里(无小人模式)；实体单位不分奴隶。
 public static class SlaverySystem
 {
-    public const string Feature = "slavery";
+    public const string Feature = "slavery", AbolishedFeature = "slavery_abolished";
     // 奴隶那一份劳作产值的倍数
     public const float OutputFactor = 1.5f;
     private const float CaptiveRate = 0.12f, BaseShare = 0.04f, MaxShare = 0.4f, BondageCatchUp = 0.2f, DebtRate = 0.01f,
@@ -33,6 +36,13 @@ public static class SlaverySystem
         if (kingdom?.data == null || kingdom.isRekt() || kingdom.wild) return false;
         string culture = CultureService.GetRealmCulture(kingdom);
         return CultureService.IsValidCulture(culture) && InstitutionSystem.GetFeature(culture, Feature) > 0f;
+    }
+
+    public static bool Abolished(Kingdom kingdom)
+    {
+        if (kingdom?.data == null || kingdom.isRekt() || kingdom.wild) return false;
+        string culture = CultureService.GetRealmCulture(kingdom);
+        return CultureService.IsValidCulture(culture) && InstitutionSystem.GetFeature(culture, AbolishedFeature) > 0f;
     }
 
     public static float Slaves(City city) => CityPopulationSystem.BackgroundOfClass(city, SocialClass.Slave);
@@ -70,6 +80,14 @@ public static class SlaverySystem
             if (group.social_class == SocialClass.Slave) slaves += group.Background;
         }
         if (total < 1f) return;
+        if (Abolished(city.kingdom))
+        {
+            if (slaves > 0f) Convert(city, data, SocialClass.Slave, GuoyeSystem.CommonerOf(city), float.MaxValue);
+            Kingdom kingdom = city.kingdom;
+            bool landlords = LandEconomySystem.IsLandMarketOpen(kingdom) && RegimeManager.AllowsLandlordClass(kingdom.GetRegime()?.type);
+            Convert(city, data, SocialClass.SlaveOwner, landlords ? SocialClass.Landlord : SocialClass.Noble, float.MaxValue);
+            return;
+        }
         bool practices = Practices(city.kingdom);
         if (slaves > 0f)
             slaves -= Convert(city, data, SocialClass.Slave, GuoyeSystem.CommonerOf(city),
