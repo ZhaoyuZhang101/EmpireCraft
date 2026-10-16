@@ -850,17 +850,15 @@ namespace EmpireCraft.Scripts.UI.Windows
                 return (string.Format(LM.Get("lineage_term_years"), history.total_time), fullName + OfficeTitle(history));
             }
             string title = history.empire_name + (_empire.data.has_year_name ? history.year_name : "") + LM.Get(DynastyNaming.Term(_empire, "emperor"));
-            if (_empire.data.has_year_name)
+            // 定了谥号就显示庙号谥号，不论开没开年号(用户 2026-10-17 "这里怎么只显示皇帝了我的庙号和谥号呢"：以前关了年号的朝代一律写"某皇帝")
+            if (!string.IsNullOrEmpty(history.shihao_name))
             {
-                if (!string.IsNullOrEmpty(history.shihao_name))
-                {
-                    string shi = PosthumousNameGenerator.ShiTitle(history, _empire);
-                    title = string.IsNullOrEmpty(history.miaohao_name)
-                        ? shi
-                        : history.empire_name + LM.Get(history.miaohao_name) + LM.Get(history.miaohao_suffix) + "-" + shi;
-                }
-                else title = LM.Get("waiting_for_naming");
+                string shi = PosthumousNameGenerator.ShiTitle(history, _empire);
+                title = string.IsNullOrEmpty(history.miaohao_name)
+                    ? shi
+                    : history.empire_name + LM.Get(history.miaohao_name) + LM.Get(history.miaohao_suffix) + "-" + shi;
             }
+            else if (_empire.data.has_year_name && _empire.AllowsPosthumousNames()) title = LM.Get("waiting_for_naming");
             return (string.Format(LM.Get("lineage_reign_years"), history.total_time), title);
         }
 
