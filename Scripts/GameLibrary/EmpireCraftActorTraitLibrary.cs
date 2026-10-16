@@ -16,12 +16,15 @@ public static class EmpireCraftActorTraitLibrary
     {
         ActorTraitLibrary lib = AssetManager.traits;
         IdeologyTraitIcons.Register();
+        // 理念特质的说明用理念图鉴里的说明(institution_ideology_<理念>_desc；用户 2026-10-17 "理念都没用本地化还有说明")
         foreach (PartyIdeology ideology in Enum.GetValues(typeof(PartyIdeology)))
             lib.add(new ActorTrait
             {
                 id = IdeologyPopulationSystem.TraitId(ideology),
                 path_icon = IdeologyTraitIcons.Path(ideology),
                 group_id = "EmpireIdeology",
+                special_locale_description = "institution_ideology_" + string.Concat(ideology.ToString().Select((ch, index) =>
+                    index > 0 && char.IsUpper(ch) ? "_" + char.ToLowerInvariant(ch) : char.ToLowerInvariant(ch).ToString())) + "_desc",
                 action_on_augmentation_add = IdeologyPopulationSystem.OnTraitAdded
             });
         IdeologyPopulationSystem.SetTraitsReady();
