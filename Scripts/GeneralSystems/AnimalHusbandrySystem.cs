@@ -228,7 +228,7 @@ public static class AnimalHusbandrySystem
             if (owner == null) return;
             // 无小人模式没有农民赶虫：农田(田地、规划农耕区)上的害虫由城市每月清除
             if (_pestControl && IsPest(actor.asset) &&
-                (tile.Type != null && tile.Type.farm_field || ZonePlanSystem.Get(owner, tile.zone) == ZoneUse.Farm))
+                (tile.Type != null && tile.Type.farm_field || FarmlandSystem.IsPlanned(owner, tile.zone)))
             {
                 if (!PestsByCity.TryGetValue(owner, out List<Actor> pests)) PestsByCity[owner] = pests = new List<Actor>();
                 if (pests.Count < PestsPerCity) pests.Add(actor);

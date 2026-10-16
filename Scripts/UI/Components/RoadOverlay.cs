@@ -14,7 +14,7 @@ namespace EmpireCraft.Scripts.UI.Components;
 // 换了地图图层(底色全变)半秒后重画一次。
 // 地形浮雕关掉就不画(见 PureMapPatch.CitiesShown)；城市图层也画(不要求纯净地图)。
 // 分级显示(见 MapZoomTier)：干线(官道、公路、柏油公路)一张图，中景起出现；支线(土路、驿道)与城外的巷子、零散房屋另一张图，
-// 近景起出现。城市图层、规划视图不分级，一直全显示。
+// 近景起出现。城市图层不分级，一直全显示。
 public static class RoadOverlay
 {
     private const float RedrawSeconds = 20f, MinRedrawSeconds = 10f;
@@ -57,8 +57,8 @@ public static class RoadOverlay
         }
         if (!Ensure(zones, source)) return;
         float shown = PureMapPatch.CitiesShown ? 1f : 0f;
-        // 城市图层、规划视图不分级
-        bool tiered = !EmpireCraft.Scripts.Layer.CityViewMap.Active && !ZonePlanSystem.SteadyOverlay;
+        // 城市图层不分级
+        bool tiered = !EmpireCraft.Scripts.Layer.CityViewMap.Active;
         Show(_major, source, shown * (tiered ? MapZoomTier.Past(MapZoomTier.Mid) : 1f), 3);
         Show(_minor, source, shown * (tiered ? MapZoomTier.Past(MapZoomTier.Near) : 1f), 3);
         float now = Time.unscaledTime;

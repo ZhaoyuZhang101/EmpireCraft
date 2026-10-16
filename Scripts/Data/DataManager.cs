@@ -279,8 +279,8 @@ public static class DataManager
         ModClass.FEUDAL_EMPIRE_LINEAGE = saveData.feudal_empire_lineage ?? new Dictionary<string, List<long>>();
         ModClass.MOD_ALLIANCE_IDS = new HashSet<long>(saveData.mod_alliance_ids ?? new List<long>());
         MapWallSystem.Load(saveData.map_walls);
-        TilePlanSystem.Load(saveData.tile_plans);
         RuralSettlementSystem.Load(saveData.rural_settlements);
+        FactorySystem.Load(saveData.factories);
         RoadTreatySystem.Load(saveData.road_treaties);
         if (PlayerConfig.dict.TryGetValue("switch_real_num", out PlayerOptionData realNumOption))
         {
@@ -451,8 +451,8 @@ public static class DataManager
         saveData.feudal_empire_lineage = ModClass.FEUDAL_EMPIRE_LINEAGE;
         saveData.mod_alliance_ids = ModClass.MOD_ALLIANCE_IDS.ToList();
         saveData.map_walls = MapWallSystem.Save();
-        saveData.tile_plans = TilePlanSystem.Save();
         saveData.rural_settlements = RuralSettlementSystem.Save();
+        saveData.factories = FactorySystem.Save();
         saveData.road_treaties = RoadTreatySystem.Save();
         saveData.specificClans = SpecificClanManager._specificClans;
         saveData.switch_real_num = ModClass.REAL_NUM_SWITCH;

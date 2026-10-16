@@ -101,8 +101,6 @@ public class EmpireCraftCityCombineHouses: GameAICityBase
                      .Where(zone => zone?.tiles != null && zone.city == city)
                      .OrderBy(zone => Vector2.SqrMagnitude(new Vector2(zone.centerTile.x, zone.centerTile.y) - center)))
         {
-            ZoneUse use = ZonePlanSystem.Get(city, zone);
-            if (use != ZoneUse.None && use != ZoneUse.Residential) continue;
             foreach (WorldTile tile in zone.tiles)
                 if (World.world.buildings.canBuildFrom(tile, asset, city))
                     return World.world.buildings.addBuilding(asset, tile);

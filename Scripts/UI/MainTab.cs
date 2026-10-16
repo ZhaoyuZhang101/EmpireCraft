@@ -25,7 +25,6 @@ internal static class MainTab
     public const string EMPIRE_CORE_GROUP = "empire_core_group";
     public const string EMPIRE_GROUP = "empire_layer_group";
     public const string CULTURE_GROUP = "culture_ideology_group";
-    public const string PLANNING_GROUP = "city_planning_group";
     public const string BUILD_GROUP = "city_building_group";
     public const string IDEOLOGY_SEED_GROUP = "ideology_seed_group";
     public const string CULTURE_BRUSH_GROUP = "culture_brush_group";
@@ -62,7 +61,6 @@ internal static class MainTab
         cultureTab.SetLayout(new List<string>()
         {
             CULTURE_GROUP,
-            PLANNING_GROUP,
             BUILD_GROUP,
             IDEOLOGY_SEED_GROUP,
             CULTURE_BRUSH_GROUP,
@@ -229,6 +227,7 @@ internal static class MainTab
             PowerButtonCreator.CreateGodPowerButton("remove_province",
                 SpriteTextureLoader.getSprite("ui/icons/iconToolProvinceRemove.png")));
 
+        JimiPolicyPower.Init();
         AddButton(TITLE_GROUP,
             PowerButtonCreator.CreateGodPowerButton("jimi_policy",
                 SpriteTextureLoader.getSprite("ui/icons/godpowers/jimi_policy")));
@@ -420,28 +419,15 @@ internal static class MainTab
         });
         cultureConfigButton._button.OnHoverOut(Tooltip.hideTooltip);
 
-        // ---- 城市规划：按格刷的用途、设施笔刷(见 PlanBrushPowers)，规划决议、另起格局 ----
-        PlanBrushPowers.Init();
-        foreach ((string id, _, _) in PlanBrushPowers.Brushes)
-            AddButton(PLANNING_GROUP,
-                PowerButtonCreator.CreateGodPowerButton(id, SpriteTextureLoader.getSprite("ui/icons/godpowers/" + id)));
-        ZonePlanningButtons.init();
-        AddButton(PLANNING_GROUP,
-            PowerButtonCreator.CreateGodPowerButton("plan_policy",
-                SpriteTextureLoader.getSprite("ui/icons/godpowers/plan_policy")));
-        AddButton(PLANNING_GROUP,
-            PowerButtonCreator.CreateGodPowerButton("urban_reseed",
-                SpriteTextureLoader.getSprite("ui/icons/godpowers/urban_reseed")));
-        // 撤城：点一座城，百姓迁往本国最近的城，城市废弃
-        CityDissolutionPower.init();
-        AddButton(PLANNING_GROUP,
-            PowerButtonCreator.CreateGodPowerButton("dissolve_city",
-                SpriteTextureLoader.getSprite("ui/icons/godpowers/dissolve_city")));
-
-        // ---- 营建：立村、设镇、毁弃、改隶(见 SettlementPowers) ----
+        // ---- 营建：立村、设镇、毁弃、改隶(见 SettlementPowers)；撤城 ----
         SettlementPowers.Init();
         foreach (string id in SettlementPowers.Ids)
             AddButton(BUILD_GROUP, PowerButtonCreator.CreateGodPowerButton(id, SpriteTextureLoader.getSprite("ui/icons/godpowers/" + id)));
+        // 撤城：点一座城，百姓迁往本国最近的城，城市废弃
+        CityDissolutionPower.init();
+        AddButton(BUILD_GROUP,
+            PowerButtonCreator.CreateGodPowerButton("dissolve_city",
+                SpriteTextureLoader.getSprite("ui/icons/godpowers/dissolve_city")));
 
         // ---- 易俗：点城一键改换文化，本国最后一座城连国家制度一并改(见 CityCulturePower) ----
         foreach ((string powerId, string culture) in CityCulturePower.Init())
@@ -581,7 +567,7 @@ internal static class MainTab
 
     private static void AddButton(string group, PowerButton button)
     {
-        bool cultureSide = group is CULTURE_GROUP or PLANNING_GROUP or BUILD_GROUP or IDEOLOGY_SEED_GROUP or CULTURE_BRUSH_GROUP;
+        bool cultureSide = group is CULTURE_GROUP or BUILD_GROUP or IDEOLOGY_SEED_GROUP or CULTURE_BRUSH_GROUP;
         bool warSide = group is WAR_GROUP or VASSAL_GROUP or ZHOU_GROUP;
         (warSide ? warTab : cultureSide ? cultureTab : tab).AddPowerButton(group, button);
         if (button != null) _buttonsInOrder.Add(new KeyValuePair<string, PowerButton>(group, button));

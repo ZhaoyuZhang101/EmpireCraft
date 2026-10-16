@@ -95,7 +95,7 @@ public partial class PureMapPatch
             WorldTile tile = World.world.GetTile(c.X0 + tx, c.Y0 + ty);
             if (tile?.Type == null || tile.zone == null || tile.zone.city != c.City || tile.Type.liquid) continue;
             if (c.Kind(tx * s, ty * s) != KEmpty) continue;
-            UrbanFabric.Part part = UrbanFabric.PartAt(g, tile, ZonePlanSystem.Get(c.City, tile.zone), out UrbanFabric.Kind kind);
+            UrbanFabric.Part part = UrbanFabric.PartAt(g, tile, out UrbanFabric.Kind kind);
             if (part == UrbanFabric.Part.None) continue;
             modern[ty * c.W + tx] = true;
             int lx = tile.x - tile.zone.x * size, ly = tile.y - tile.zone.y * size;

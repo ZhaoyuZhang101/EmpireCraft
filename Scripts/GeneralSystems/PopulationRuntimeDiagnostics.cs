@@ -88,7 +88,7 @@ public static class PopulationRuntimeDiagnostics
             $"财政预算后台命中/重算 {CityStabilitySystem.WorkerResults}/{CityStabilitySystem.FallbackResults}；" +
             $"财政待办城市 {CityStabilitySystem.PendingCities}/16；" +
             $"撤军待办城市 {CityStabilitySystem.PendingRetirements}；" +
-            $"规划续跑步数 {ZonePlanSystem.PlanningSteps}；占领视图命中/重建 {OccupationReadIndex.Hits}/{OccupationReadIndex.Builds}；" +
+            $"占领视图命中/重建 {OccupationReadIndex.Hits}/{OccupationReadIndex.Builds}；" +
             $"战争统计命中/重算 {OccupationReadIndex.ControlHits}/{OccupationReadIndex.ControlBuilds}；" +
             $"官员名单命中/重建 {OfficeCandidateRoster.Hits}/{OfficeCandidateRoster.Builds}；" +
             $"军团统计命中/重建 {LegionStatisticsReadCache.Hits}/{LegionStatisticsReadCache.Builds}；" +

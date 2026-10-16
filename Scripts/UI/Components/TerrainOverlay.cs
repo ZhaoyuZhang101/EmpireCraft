@@ -33,7 +33,7 @@ public static class TerrainOverlay
         ZoneCalculator zones = World.world?.zone_calculator;
         SpriteRenderer source = zones?.sprRnd;
         if (!PureMapMode.Enabled || !PureMapPatch.DetailShown || EmpireCraft.Scripts.Layer.CityViewMap.Active ||
-            ZonePlanSystem.SteadyOverlay || source?.sprite == null)
+            source?.sprite == null)
         {
             if (_renderer != null) _renderer.enabled = false;
             return;

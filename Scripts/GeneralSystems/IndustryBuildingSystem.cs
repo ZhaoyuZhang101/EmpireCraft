@@ -9,7 +9,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   矿场：1 矿坑(原版 mine) → 2 矿井 → 3 水力矿场 → 4 蒸汽煤矿 → 5 现代矿业工厂；
 //   伐木场：1 伐木营 → 2 锯木坊 → 3 水力锯木厂 → 4 蒸汽锯木厂 → 5 现代木材加工厂。
 // 升级按科技解锁(见 Technology/TechTree.json 的 unlock_buildings)，由城市按升级订单自动升级
-// (无小人模式下由 CityConstructionSystem 出钱升级)；第 3 级起必须建在工业区(见 ZonePlanSystem)。
+// (无小人模式下由 CityConstructionSystem 出钱升级)；第 3 级起本城要有工厂(见 FactorySystem)。
 // 产出：矿场每年固定产石头、金属、金子，伐木场每年固定产木头，都按等级倍增，在工业区再加成。
 // 每块工业区让本城多建一座矿场、一座伐木场(最多多 3 座)。
 // 兼容 Modern Mod：它的 2mine_modernmod 视为矿场第 2 级，接到第 3 级上。
@@ -226,15 +226,16 @@ public static class IndustryBuildingSystem
     }
 
     // ---- 规则 ----
-    // 第 3 级起必须在工业区才能升上去
+    // 第 3 级起本城要有工厂才能升上去(原来要建在工业区；用户 2026-10-17 撤城市规划时选"改由新工厂提供")
     public static bool CanUpgradeHere(Building building, City city)
     {
         BuildingAsset target = AssetManager.buildings.get(building?.asset?.upgrade_to ?? "");
         if (target == null || !Tiers.TryGetValue(target.id, out int tier) || tier < IndustryZoneTier) return true;
-        return ZonePlanSystem.Get(city, building.current_tile?.zone) == ZoneUse.Industry;
+        return FactorySystem.Count(city) > 0;
     }
 
-    public static int ExtraLimit(City city) => Mathf.Min(3, ZonePlanSystem.Count(city, ZoneUse.Industry));
+    // 每座工厂多许建一座矿场、伐木场、屠宰场，至多三座
+    public static int ExtraLimit(City city) => Mathf.Min(3, FactorySystem.Count(city));
 
 
     public static int CountIndustry(City city)
@@ -278,7 +279,7 @@ public static class IndustryBuildingSystem
             var zones = new List<(TileZone zone, int trees)>();
             foreach (TileZone zone in city.zones)
             {
-                if (zone == null || ZonePlanSystem.Get(city, zone) == ZoneUse.Reserve) continue;
+                if (zone == null) continue;
                 int count = zone.getHashset(BuildingList.Trees)?.Count ?? 0;
                 if (count > 0) zones.Add((zone, count));
             }
@@ -362,22 +363,21 @@ public static class IndustryBuildingSystem
         if (city?.zones == null) return 0;
         int trees = 0;
         foreach (TileZone zone in city.zones)
-            if (zone != null && ZonePlanSystem.Get(city, zone) != ZoneUse.Reserve)
-                trees += zone.getHashset(BuildingList.Trees)?.Count ?? 0;
+            if (zone != null) trees += zone.getHashset(BuildingList.Trees)?.Count ?? 0;
         return Mathf.Min(4, trees / 40);
     }
 
+    // 本城有工厂时矿场、伐木场产出多两成五(以前是建在工业区里的)
     private static float OutputFactor(City city, Func<BuildingAsset, bool> kind)
     {
         float total = 0f;
+        float bonus = FactorySystem.Count(city) > 0 ? IndustryZoneBonus : 1f;
         if (city?.buildings == null) return 0f;
         foreach (Building building in city.buildings)
         {
             if (building?.asset == null || !kind(building.asset) || building.isUnderConstruction()) continue;
             int tier = Mathf.Clamp(Tier(building.asset), 1, TierOutput.Length);
-            float factor = TierOutput[tier - 1];
-            if (ZonePlanSystem.Get(city, building.current_tile?.zone) == ZoneUse.Industry) factor *= IndustryZoneBonus;
-            total += factor;
+            total += TierOutput[tier - 1] * bonus;
         }
         return total;
     }

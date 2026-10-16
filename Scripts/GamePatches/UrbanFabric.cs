@@ -118,16 +118,6 @@ public static class UrbanFabric
         return data.urban_seed != 0L ? data.urban_seed : city.data.id;
     }
 
-    // 换一个随机种子(「另起格局」神力)；旧城范围是历史，不变
-    public static void Reseed(City city)
-    {
-        CityExtension.CityExtraData data = city.GetOrCreate();
-        long seed;
-        do seed = ((long)Random.Range(1, int.MaxValue) << 20) ^ Random.Range(0, 1 << 20);
-        while (seed == 0L || seed == data.urban_seed);
-        data.urban_seed = seed;
-    }
-
     #endregion
 
     #region 随机与上色
@@ -1104,7 +1094,7 @@ public static class UrbanFabric
 
     public static Color32 BridgeColor => BridgeDeck;
 
-    // 在城区里(规划视图画城市轮廓用)：建成的地块，或开发了的地块落在城区范围里的部分
+    // 在城区里：建成的地块，或开发了的地块落在城区范围里的部分
     public static bool Inside(Geometry g, WorldTile tile)
     {
         if (g == null || tile?.zone == null) return false;
@@ -1113,8 +1103,7 @@ public static class UrbanFabric
         (Kind kind, bool developed) = ZoneOf(g, tile.zone);
         if (!developed || kind == Kind.Farm) return false;
         if (InEdge(g, tile)) return true;
-        float dx = tile.x - g.Cx, dy = tile.y - g.Cy, edge = EdgeAt(g, Angle(dx, dy)) * 1.25f;
-        return ZonePlanSystem.Get(g.City, tile.zone) != ZoneUse.None && dx * dx + dy * dy < edge * edge;
+        return false;
     }
 
     private static bool InEdge(Geometry g, WorldTile tile)
@@ -1123,8 +1112,8 @@ public static class UrbanFabric
         return dx * dx + dy * dy < edge * edge;
     }
 
-    // 一块地画成什么、开发了没有：规划用途优先；没规划的，离市中心近的现代是塔楼，工业那一侧是厂房，其余住宅。
-    // 开发门槛 = 用途的起点 + 离城心越远越晚 + 各方向先后 + 一点随机；规划过的早一些
+    // 一块地画成什么、开发了没有：农耕区是田；其余离市中心近的现代是塔楼，工业那一侧是厂房，其余住宅。
+    // 开发门槛 = 用途的起点 + 离城心越远越晚 + 各方向先后 + 一点随机
     // 近代以后城区边缘以内开发了的地块(路网图层不压上去，见 PureMapPatch.UrbanTile)
     internal static bool DevelopedUrban(Geometry g, WorldTile tile)
     {
@@ -1138,7 +1127,7 @@ public static class UrbanFabric
     private static (Kind kind, bool developed) ZoneOf(Geometry g, TileZone zone)
     {
         if (g.Zones.TryGetValue(zone.id, out var cached)) return cached;
-        ZoneUse use = ZonePlanSystem.Get(g.City, zone);
+        bool farm = zone.city == g.City && FarmlandSystem.IsPlanned(g.City, zone);
         float zx = zone.x * Config.CITY_ZONE_SIZE + 4f, zy = zone.y * Config.CITY_ZONE_SIZE + 4f;
         float dx = zx - g.Cx, dy = zy - g.Cy;
         float r = Mathf.Sqrt(dx * dx + dy * dy), angle = Angle(dx, dy), edge = EdgeAt(g, angle);
@@ -1146,31 +1135,7 @@ public static class UrbanFabric
         bool cbd = Mathf.Sqrt(cbdX * cbdX + cbdY * cbdY) < Mathf.Max(8f, edge * 0.36f);
         bool industrySide = Mathf.Abs(Mathf.DeltaAngle(angle * Mathf.Rad2Deg, g.IndustryDir * Mathf.Rad2Deg)) < 35f &&
                             r > g.OldRadius + 3f;
-        Kind kind = use switch
-        {
-            ZoneUse.Industry => Kind.Industry,
-            ZoneUse.Commerce => g.Progress >= 2f ? Kind.Tower : Kind.Market,
-            ZoneUse.Military => Kind.Military,
-            ZoneUse.Reserve => Kind.Park,
-            ZoneUse.Farm => Kind.Farm,
-            ZoneUse.Residential => g.Progress >= 2f && cbd ? Kind.Tower : Kind.Housing,
-            _ => g.Progress >= 2f && cbd ? Kind.Tower : industrySide ? Kind.Industry : Kind.Housing
-        };
-        // 按格刷的规划：一块地刷得最多的用途(至少四分之一块)定这块地(见 TilePlanSystem)
-        PlanUse painted = TilePlanSystem.Majority(zone, 16);
-        if (painted != PlanUse.None)
-        {
-            kind = painted switch
-            {
-                PlanUse.Industry => Kind.Industry,
-                PlanUse.Commerce or PlanUse.Civic => g.Progress >= 2f ? Kind.Tower : Kind.Market,
-                PlanUse.Military => Kind.Military,
-                PlanUse.Park or PlanUse.Keep => Kind.Park,
-                PlanUse.Farm => Kind.Farm,
-                _ => g.Progress >= 2.2f && cbd ? Kind.Tower : Kind.Housing
-            };
-            if (use == ZoneUse.None) use = TilePlanSystem.ZoneUseOf(painted);
-        }
+        Kind kind = farm ? Kind.Farm : g.Progress >= 2f && cbd ? Kind.Tower : industrySide ? Kind.Industry : Kind.Housing;
         float start = kind switch
         {
             Kind.Industry => 0.2f,
@@ -1180,7 +1145,7 @@ public static class UrbanFabric
             _ => 0.9f
         };
         float need = start + 0.6f * Mathf.Min(1.2f, r / Mathf.Max(1f, edge)) + g.SectorPace[SectorOf(g, angle)] +
-                     0.1f * H(g.Seed, zone.id, 7) - (use != ZoneUse.None ? 0.3f : 0f);
+                     0.1f * H(g.Seed, zone.id, 7);
         // 老城外、轮廓里的本城地块是新长出来的城区：一进工业化就整片开发，田地也盖上房子(照演示版)。
         // 以前按用途分先后——工厂先起、住宅要到电气以后、田地永远不盖，城里东一块厂房西一块空地，露出底下的国色
         bool newTown = g.Modern && !g.Built.Contains(zone.id) && r < edge;
@@ -1191,12 +1156,12 @@ public static class UrbanFabric
     }
 
     // 这一格画什么；返回 false 时照原来的画法(古代城区、还没开发的建成地块、都城地标、农田、山地)
-    public static bool Tile(WorldTile tile, Color32 color, Geometry g, bool built, ZoneUse use, out Color32 result)
+    public static bool Tile(WorldTile tile, Color32 color, Geometry g, bool built, out Color32 result)
     {
         result = color;
         if (g == null || tile?.zone == null || g.Landmark.Contains(tile.zone.id)) return false;
         // 农耕区平常不画田块(见 PureMapPatch.Plan)，出城的路、镇照常画过去，不然路一过农田就断
-        if (!g.Modern) return !built && use != ZoneUse.Reserve && Countryside(g, tile, color, out result);
+        if (!g.Modern) return !built && Countryside(g, tile, color, out result);
         float dx = tile.x - g.Cx, dy = tile.y - g.Cy;
         float r = Mathf.Sqrt(dx * dx + dy * dy), angle = Angle(dx, dy), edge = EdgeAt(g, angle);
         bool inEdge = r < edge;
@@ -1226,8 +1191,8 @@ public static class UrbanFabric
             result = Paint(color, H(g.Seed, tile.x, tile.y, 11) < 0.3f ? Tree : Park, 0.85f);
             return true;
         }
-        // 开发了的地块：画城区范围里的部分；规划过的可以稍稍越出城区
-        if (developed && (inEdge || use != ZoneUse.None && r < edge * 1.25f))
+        // 开发了的地块：画城区范围里的部分
+        if (developed && inEdge)
         {
             result = Block(g, tile, color, kind, r, edge);
             return true;
@@ -1242,7 +1207,7 @@ public static class UrbanFabric
     // 与 Tile 的判定一致，拉近拉远看到的是同一座城
     internal enum Part { None, Road, Rail, Station, Block }
 
-    internal static Part PartAt(Geometry g, WorldTile tile, ZoneUse use, out Kind kind)
+    internal static Part PartAt(Geometry g, WorldTile tile, out Kind kind)
     {
         kind = Kind.Housing;
         if (g == null || !g.Modern || tile?.zone == null || tile.zone.city != g.City || g.Landmark.Contains(tile.zone.id))
@@ -1262,7 +1227,7 @@ public static class UrbanFabric
         if (kind == Kind.Farm) return Part.None;
         bool inEdge = r < edge;
         if (kind == Kind.Park) return inEdge ? Part.Block : Part.None;
-        return developed && (inEdge || use != ZoneUse.None && r < edge * 1.25f) ? Part.Block : Part.None;
+        return developed && inEdge ? Part.Block : Part.None;
     }
 
     // 这块地开发成新城区了(精细图按它定画多大)
@@ -1423,7 +1388,7 @@ public static class UrbanFabric
         return rural;
     }
 
-    // 城郊的路、关厢、镇、村、小路(规划视图画在黑底上；田块、林子不算)
+    // 城郊的路、关厢、镇、村、小路(田块、林子不算)
     public static bool Feature(Geometry g, WorldTile tile)
     {
         if (g == null || tile?.zone == null || g.Built.Contains(tile.zone.id) && InTown(g, tile)) return false;
@@ -1544,7 +1509,7 @@ public static class UrbanFabric
     private static bool IsFarm(Geometry g, int zx, int zy)
     {
         TileZone zone = World.world.zone_calculator.getZone(zx, zy);
-        return zone != null && zone.city == g.City && ZonePlanSystem.Get(g.City, zone) == ZoneUse.Farm;
+        return zone != null && zone.city == g.City && FarmlandSystem.IsPlanned(g.City, zone);
     }
 
     // 镇：圆圆的一片，十字街、中间小集市，屋舍错落；富庶的镇有一圈矮墙，四面开门

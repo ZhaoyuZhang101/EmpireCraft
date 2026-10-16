@@ -202,11 +202,10 @@ public class SaveManagerPatch : GamePatch
     {
         DataManager.ResetCurrentSaveDataPath();
         CulturePatch.ResetWorldState();
-        EmpireCraft.Scripts.GeneralSystems.ZonePlanSystem.ResetWorldState();
         EmpireCraft.Scripts.GeneralSystems.AnimalHusbandrySystem.ResetWorldState();
         EmpireCraft.Scripts.GeneralSystems.MapWallSystem.ResetWorldState();
-        EmpireCraft.Scripts.GeneralSystems.TilePlanSystem.ResetWorldState();
         EmpireCraft.Scripts.GeneralSystems.RuralSettlementSystem.ResetWorldState();
+        EmpireCraft.Scripts.GeneralSystems.FactorySystem.ResetWorldState();
         EmpireCraft.Scripts.GeneralSystems.RoadTreatySystem.ResetWorldState();
         EmpireCraft.Scripts.GeneralSystems.CorpsCommandSystem.ResetWorldState();
         EmpireCraft.Scripts.GeneralSystems.ShanrangSystem.ResetWorldState();

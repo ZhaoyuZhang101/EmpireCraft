@@ -101,7 +101,6 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
         using (FrameProfiler.Measure("后台·原生植被")) EmpireCraft.Scripts.GeneralSystems.NativeVegetationScheduler.Tick();
         using (FrameProfiler.Measure("后台·纯净地图")) EmpireCraft.Scripts.GeneralSystems.PureMapMode.Tick();
         EmpireCraft.Scripts.GeneralSystems.MapWallSystem.Tick();
-        EmpireCraft.Scripts.GeneralSystems.TilePlanSystem.Tick();
         EmpireCraft.Scripts.GeneralSystems.LayerDiagnostics.Tick();
         EmpireCraft.Scripts.GeneralSystems.EnclaveFill.Tick();
         using (FrameProfiler.Measure("后台·官职清理")) EmpireCraft.Scripts.Regimes.OfficeManager.Tick();
@@ -113,8 +112,6 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
             EmpireCraft.Scripts.HelperFunc.SimulationFrameBudget.Reset();
             EmpireCraftStrategicScheduler.Tick();
             EmpireCraft.Scripts.GeneralSystems.CityPopulationSystem.Tick();
-            EmpireCraft.Scripts.GeneralSystems.ZonePlanSystem.Tick();
-            EmpireCraft.Scripts.GeneralSystems.ZonePlanSystem.TickOverlay();
             EmpireCraft.Scripts.GeneralSystems.AnimalHusbandrySystem.Tick();
             EmpireCraft.Scripts.GamePatches.NoCommonersPatch.CullExcessWild();
             return;
@@ -122,22 +119,20 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
         if (World.world == null || !Config.game_loaded || Config.paused || SmoothLoader.isLoading()) return;
         EmpireCraft.Scripts.HelperFunc.SimulationFrameBudget.BeginFrame();
         using var frameWork = EmpireCraft.Scripts.HelperFunc.SimulationFrameBudget.Measure();
-        // 每帧轮换先运行的系统，避免月度人口队列长期挤掉规划或外交。
-        for (int i = 0; i < 6 && EmpireCraft.Scripts.HelperFunc.SimulationFrameBudget.HasTime; i++)
+        // 每帧轮换先运行的系统，避免月度人口队列长期挤掉外交。
+        for (int i = 0; i < 5 && EmpireCraft.Scripts.HelperFunc.SimulationFrameBudget.HasTime; i++)
         {
-            switch ((_backgroundCursor + i) % 6)
+            switch ((_backgroundCursor + i) % 5)
             {
                 case 0: using (FrameProfiler.Measure("后台·战略调度")) EmpireCraftStrategicScheduler.Tick(); break;
                 case 1: using (FrameProfiler.Measure("后台·人口")) EmpireCraft.Scripts.GeneralSystems.CityPopulationSystem.Tick(); break;
-                case 2: using (FrameProfiler.Measure("后台·规划")) EmpireCraft.Scripts.GeneralSystems.ZonePlanSystem.Tick(); break;
-                case 3: using (FrameProfiler.Measure("后台·牧业")) EmpireCraft.Scripts.GeneralSystems.AnimalHusbandrySystem.Tick(); break;
-                case 4: using (FrameProfiler.Measure("后台·野生清理")) EmpireCraft.Scripts.GamePatches.NoCommonersPatch.CullExcessWild(); break;
-                case 5: using (FrameProfiler.Measure("后台·理念接触")) EmpireCraft.Scripts.GeneralSystems.IdeologyPopulationSystem.TickContact(); break;
+                case 2: using (FrameProfiler.Measure("后台·牧业")) EmpireCraft.Scripts.GeneralSystems.AnimalHusbandrySystem.Tick(); break;
+                case 3: using (FrameProfiler.Measure("后台·野生清理")) EmpireCraft.Scripts.GamePatches.NoCommonersPatch.CullExcessWild(); break;
+                case 4: using (FrameProfiler.Measure("后台·理念接触")) EmpireCraft.Scripts.GeneralSystems.IdeologyPopulationSystem.TickContact(); break;
             }
         }
-        _backgroundCursor = (_backgroundCursor + 1) % 6;
+        _backgroundCursor = (_backgroundCursor + 1) % 5;
         using (FrameProfiler.Measure("后台·军团战线")) EmpireCraft.Scripts.GeneralSystems.CorpsSystem.Update();
-        using (FrameProfiler.Measure("后台·规划覆盖层")) EmpireCraft.Scripts.GeneralSystems.ZonePlanSystem.TickOverlay();
     }
 
     public GameObject GetGameObject()

@@ -179,9 +179,7 @@ public static class EnterpriseSystem
     {
         if (kingdom == null || kingdom.wild) return false;
         Empire empire = kingdom.GetEmpire();
-        if (empire != null && InstitutionSystem.GetFeature(empire, StateEnterpriseFeature) > 0f) return true;
-        PlanPolicy policy = ZonePlanSystem.PolicyOf(kingdom);
-        return policy == PlanPolicy.Industrial || policy == PlanPolicy.Agrarian;
+        return empire != null && InstitutionSystem.GetFeature(empire, StateEnterpriseFeature) > 0f;
     }
 
     public static int EnterpriseCost(BuildingAsset asset) => BaseEnterpriseCost + Math.Max(0, asset.construction_progress_needed) / 2;

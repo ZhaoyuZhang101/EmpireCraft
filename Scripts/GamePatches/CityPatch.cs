@@ -1002,7 +1002,6 @@ public class CityPatch : GamePatch
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return true;
         if (!CityTerritoryProtection.CanRemoveZone(__instance, pZone)) return false;
-        ZonePlanSystem.InvalidatePlanning(__instance);
         OccupationReadIndex.Invalidate(__instance, pZone);
         return true;
     }
@@ -1011,7 +1010,6 @@ public class CityPatch : GamePatch
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return true;
         if (!__instance.zones.Contains(pZone))
         {
-            ZonePlanSystem.InvalidatePlanning(__instance);
             OccupationReadIndex.Invalidate(__instance, pZone);
             if (pZone.city != null)
             {
@@ -1729,7 +1727,6 @@ public class CityPatch : GamePatch
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
         if (__instance.kingdom?.GetRegime() != null) __instance.RefreshCityDisplayName();
-        ZonePlanSystem.InvalidatePlanning(__instance);
         OccupationReadIndex.Invalidate(__instance);
         if (__instance.hasTitle())
         {
@@ -1805,7 +1802,6 @@ public class CityPatch : GamePatch
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
         OccupationReadIndex.Invalidate(__instance);
-        ZonePlanSystem.InvalidatePlanning(__instance);
         __instance.RemoveExtraData<City, CityExtraData>();
         _imperialArrivalSurrenderCooldown.Remove(__instance);
     }

@@ -277,10 +277,10 @@ public partial class PureMapPatch : GamePatch
                 foreach (Slot slot in pair.Value)
                     Add(pair.Key ^ (slot.icon?.GetHashCode() ?? 0));
             foreach (TileZone zone in city.zones)
-                if (zone != null && ZonePlanSystem.Get(city, zone) is var use && use != ZoneUse.None) Add(zone.id * 13 + (int)use);
+                if (zone != null && FarmlandSystem.IsPlanned(city, zone)) Add(zone.id * 13 + 1);
             Add(plan.family?.GetHashCode() ?? 0);
             Add(plan.target?.GetHashCode() ?? 0);
-            Add(TilePlanSystem.Revision(city) * 92821);
+            Add(FactorySystem.Revision * 92821);
             Add(plan.tribal * 7 + 3);
             Add(Mathf.RoundToInt(plan.rebuild * 20f));
             Add(Mathf.RoundToInt(plan.modern * 20f));
@@ -311,7 +311,7 @@ public partial class PureMapPatch : GamePatch
         if (PureMapMode.Enabled || Layer.CityViewMap.Active) ShadeTerrain(__instance.pixels, pZone, pUp, pDown, pLeft, pRight);
         SmoothBorders.Finish(__instance.pixels, pZone);
         // 平滑国界：帝国金边已逐像素画好(见 SmoothBorders)；规划时整张图是灰的，不描金边
-        if (SmoothBorders.Enabled || ZonePlanSystem.SteadyOverlay) return;
+        if (SmoothBorders.Enabled) return;
         Kingdom kingdom = pZone.city?.kingdom;
         MetaType? mode = World.world.getCachedMapMetaAsset()?.map_mode;
         bool kingdomLayer = mode == MetaType.Kingdom, empireLayer = mode == MetaTypeExtension.Empire;
@@ -356,8 +356,8 @@ public partial class PureMapPatch : GamePatch
     // 同日又定"地形浮雕要连城市和道路也隐藏"：开关关掉时只剩纯平国色(见 Relief)
     public static bool DetailShown => Relief;
 
-    // 城市图层、规划视图专看城市，不管开关
-    public static bool CitiesShown => DetailShown || Layer.CityViewMap.Active || ZonePlanSystem.SteadyOverlay;
+    // 城市图层专看城市，不管开关
+    public static bool CitiesShown => DetailShown || Layer.CityViewMap.Active;
 
     // 地形浮雕(见 SwitchTerrainReliefButton)：关掉时国色上不叠地形明暗、不画城市与道路，纯平国色
     public static bool Relief = true;
@@ -372,7 +372,7 @@ public partial class PureMapPatch : GamePatch
     private static void ShadeTerrain(Color32[] pixels, TileZone zone, bool up, bool down, bool left, bool right)
     {
         City city = zone.city != null && !zone.city.isRekt() ? zone.city : null;
-        ZoneUse use = city != null ? ZonePlanSystem.Get(city, zone) : ZoneUse.None;
+        bool farm = city != null && FarmlandSystem.IsPlanned(city, zone);
         bool detail = CitiesShown;
         CityPlan plan = city != null && detail ? PlanFor(city) : null;
         Slot[] slots = plan != null && plan.zones.TryGetValue(zone.id, out Slot[] found) ? found : null;
@@ -381,10 +381,6 @@ public partial class PureMapPatch : GamePatch
         // 平滑国界：被占的地、逐格推进吃下的格子直接按控制方上色(见 SmoothBorders)，这里不再画占领斜纹
         bool smooth = SmoothBorders.Enabled;
         if (smooth) occupied = null;
-        // 规划视图(选中规划神力时，常亮不闪)：整张图压成近黑、只留一点地形；城区平涂浅灰、只留主干道，显出城市轮廓；
-        // 划了用途的区块平涂用途色，与用途不同的邻块之间描一道深色边
-        bool grey = ZonePlanSystem.SteadyOverlay;
-        Color32? planned = grey && use != ZoneUse.None ? (Color32)ZonePlanSystem.ColorOf(use) : null;
         // 城市图层：不涂国色，地形露出来，只把模拟的城市(城、路、镇村、田块、林子)照各自的颜色画在地形上
         if (Layer.CityViewMap.Active)
         {
@@ -402,7 +398,7 @@ public partial class PureMapPatch : GamePatch
                         continue;
                     }
                     Color32 terrain = Terrain(tile);
-                    Color32 drawn = Plan(tile, terrain, use, slots, tile.x - ox, tile.y - oy, plan, zone);
+                    Color32 drawn = Plan(tile, terrain, farm, slots, tile.x - ox, tile.y - oy, plan, zone);
                     pixels[id] = drawn.r == terrain.r && drawn.g == terrain.g && drawn.b == terrain.b ? new Color32(0, 0, 0, 0) : drawn;
                 }
             }
@@ -412,9 +408,6 @@ public partial class PureMapPatch : GamePatch
             }
             return;
         }
-        bool OtherUse(int dx, int dy) => ZonePlanSystem.Get(city, World.world.zone_calculator.getZone(zone.x + dx, zone.y + dy)) != use;
-        bool outlineLeft = planned != null && OtherUse(-1, 0), outlineRight = planned != null && OtherUse(1, 0);
-        bool outlineDown = planned != null && OtherUse(0, -1), outlineUp = planned != null && OtherUse(0, 1);
         foreach (WorldTile tile in zone.tiles)
         {
             int id = tile?.data?.tile_id ?? -1;
@@ -437,62 +430,21 @@ public partial class PureMapPatch : GamePatch
                 // 被敌军占着、战线逐格吃下的地还是本城的，上面的镇和路不因此消失(用户 2026-10-17 "每次战线变化的时候就重复刷新消失")
                 if (!edge && SmoothBorders.IsForeign(id))
                 {
-                    pixels[id] = !grey && detail && plan?.fabric != null && UrbanFabric.Feature(plan.fabric, tile)
-                        ? Plan(tile, Shade(tile, pixels[id]), use, slots, tile.x - ox, tile.y - oy, plan, zone)
-                        : grey ? Dark(tile) : Shade(tile, pixels[id]);
+                    pixels[id] = detail && plan?.fabric != null && UrbanFabric.Feature(plan.fabric, tile)
+                        ? Plan(tile, Shade(tile, pixels[id]), farm, slots, tile.x - ox, tile.y - oy, plan, zone)
+                        : Shade(tile, pixels[id]);
                     continue;
                 }
             }
             else edge = border != null && border.border && (up && border.border_up || down && border.border_down ||
                                                             left && border.border_left || right && border.border_right);
-            if (edge)
-            {
-                if (grey) pixels[id] = Dim(pixels[id]);
-                continue;
-            }
-            if (grey)
-            {
-                int lx = tile.x - ox, ly = tile.y - oy;
-                // 城里照常画出城市平面图(城墙、街巷、建筑、新城区)，褪成浅灰；城外近黑带地形，出城的路、关厢、镇、村
-                // 也褪成灰色画在黑底上；规划色半透明叠上去，城区里更淡
-                bool urban = plan != null && (Urban(tile, plan) || UrbanFabric.Inside(plan.fabric, tile));
-                Color32 basis;
-                if (urban) basis = Greyed(Plan(tile, Shade(tile, PlanningCity), use, slots, lx, ly, plan, zone));
-                else if (plan?.fabric != null && UrbanFabric.Feature(plan.fabric, tile))
-                    basis = Lerp(Dark(tile), Greyed(Plan(tile, Shade(tile, PlanningCity), use, slots, lx, ly, plan, zone)), 0.7f);
-                else basis = Dark(tile);
-                if (planned is Color32 tint)
-                    basis = lx == 0 && outlineLeft || lx == Config.CITY_ZONE_SIZE - 1 && outlineRight ||
-                            ly == 0 && outlineDown || ly == Config.CITY_ZONE_SIZE - 1 && outlineUp
-                        ? Lerp(basis, Lerp(tint, new Color32(0, 0, 0, 255), 0.25f), 0.8f)
-                        : Lerp(basis, tint, urban ? 0.3f : 0.45f);
-                // 按格刷的规划(见 TilePlanSystem)：刷了的格用途色浓，设施描成白、米、灰色
-                if (city != null && TilePlanSystem.Any)
-                {
-                    PlanUse painted = TilePlanSystem.UseAt(tile);
-                    PlanFeature feature = TilePlanSystem.FeatureAt(tile);
-                    if (painted != PlanUse.None) basis = Lerp(basis, TilePlanSystem.ColorOf(painted), 0.78f);
-                    if (feature != PlanFeature.None) basis = Lerp(basis, TilePlanSystem.ColorOf(feature), 0.85f);
-                }
-                pixels[id] = basis;
-                continue;
-            }
+            if (edge) continue;
             // 被敌军占着的地块：涂占领方的颜色，留一道道原主颜色的细斜纹
             if (occupied is Color32 fill && (tile.x + tile.y) % 4 != 0) pixels[id] = fill;
             Color32 shaded = Shade(tile, pixels[id]);
-            pixels[id] = detail ? Plan(tile, shaded, use, slots, tile.x - ox, tile.y - oy, plan, zone) : shaded;
+            pixels[id] = detail ? Plan(tile, shaded, farm, slots, tile.x - ox, tile.y - oy, plan, zone) : shaded;
         }
     }
-
-    // 规划视图：城市平面图画在中性灰上再褪成灰阶(街巷、建筑的明暗都在)；城外近黑、只带一点地形本色与浮雕；
-    // 国界、城界暗灰细线
-    private static Color32 Greyed(Color32 color)
-    {
-        byte value = (byte)Mathf.Clamp(40f + 0.8f * (color.r * 0.3f + color.g * 0.59f + color.b * 0.11f), 0f, 255f);
-        return new Color32(value, value, value, color.a);
-    }
-
-    private static readonly Color32 PlanningCity = new(170, 170, 170, 255);
 
     // 地形本色(城市图层的底：画在上面的城市和地形融在一起)
     private static Color32 Terrain(WorldTile tile)
@@ -500,20 +452,6 @@ public partial class PureMapPatch : GamePatch
         TileTypeBase type = tile.Type;
         TileTypeBase surface = type == null || type.road ? null : tile.top_type != null ? tile.top_type : type;
         return Shade(tile, surface != null ? surface.color : new Color32(110, 150, 90, 255));
-    }
-
-    private static Color32 Dark(WorldTile tile)
-    {
-        TileTypeBase type = tile.Type;
-        TileTypeBase surface = type == null || type.road ? null : tile.top_type != null ? tile.top_type : type;
-        Color32 tone = surface != null ? Lerp(new Color32(14, 14, 16, 255), surface.color, 0.22f) : new Color32(24, 24, 26, 255);
-        return Shade(tile, tone);
-    }
-
-    private static Color32 Dim(Color32 color)
-    {
-        byte value = (byte)Mathf.Clamp(40f + 0.25f * (color.r * 0.3f + color.g * 0.59f + color.b * 0.11f), 0f, 255f);
-        return new Color32(value, value, value, color.a);
     }
 
     // 国家、帝国图层上被敌军占着的地块的颜色(占领方的国色，帝国图层下取它所属的帝国)；城池没易主，不然仍是原主的颜色，
@@ -563,9 +501,7 @@ public partial class PureMapPatch : GamePatch
         public float rebuild;
         // 城市肌理：工业化以后的新城区、城外村镇农田(见 UrbanFabric)
         public UrbanFabric.Geometry fabric;
-        // 按格规划里画了城墙：照画的修，不再沿城边自动修墙、挖护城河(见 TilePlanSystem)
-        public bool customWalls;
-        // 住房研究到第几代(刷了住宅的宅基地按它盖，见 PureMapPatch.Detail 的 Lot)
+        // 住房研究到第几代
         public int housing = 1;
         // 原始聚落的阶段(见 PureMapPatch.Tribal)：-1 = 不是原始政体的城
         public int tribal = -1;
@@ -606,9 +542,6 @@ public partial class PureMapPatch : GamePatch
 
     private static readonly Color32 Ward = new(226, 222, 214, 255), DrumRoof = new(70, 62, 66, 255),
         Plaza = new(236, 232, 224, 255);
-    // 按格规划：没有城墙的文化画的城墙、绿地草坪、树、保护区树林
-    private static readonly Color32 PlanWall = new(150, 145, 135, 255), ParkLawn = new(132, 184, 104, 255),
-        ParkTree = new(72, 128, 66, 255), KeepWood = new(56, 104, 58, 255);
 
     // 墩台：城墙颜色压暗
     private static Color32 TowerOf(Color32 wall) => new((byte)(wall.r * 0.7f), (byte)(wall.g * 0.7f), (byte)(wall.b * 0.7f), 255);
@@ -639,7 +572,7 @@ public partial class PureMapPatch : GamePatch
         foreach (TileZone zone in city.zones ?? new List<TileZone>()) zone?.resetRenderHelpers();
     }
 
-    // 画成城区的格(城墙以内、地标、刷了城区用途的；近代以后城区边缘以内开发了的地块)：有自己的街格，路网图层的干道不压上去。
+    // 画成城区的格(城墙以内、地标；近代以后城区边缘以内开发了的地块)：有自己的街格，路网图层的干道不压上去。
     // 用户 2026-10-17 "这个主干路有时候没法连在一起"：以前按整块建成地块不画，古代城的城区只占建成地块的一半，
     // 城墙外那一圈画成田野，干道就在田里提前断了。只看已经算好的平面图，不为此重算
     // (重算一座城的平面图不便宜，路网重画时顺带重算几十座城会卡一下)
@@ -739,52 +672,30 @@ public partial class PureMapPatch : GamePatch
         string established = CityStyleSystem.Established(city);
         bool grid = StyleOf(established)?.Layout is "grid" or "canal";
         int span = Mathf.Max(1, Mathf.CeilToInt(Mathf.Sqrt(counts.Values.Sum() / 4f)));
-        // 第一轮：各地块按规划先放对口的建筑(按格刷的规划、功能区，都没有的按自动规划)；码头先放临水的地块
+        // 第一轮：各地块按自动规划先放对口的建筑(农耕区不放)；码头先放临水的地块
         foreach (TileZone zone in zones)
         {
-            ZoneUse use = ZonePlanSystem.Get(city, zone);
-            if (use == ZoneUse.Farm) continue;
-            PlanUse painted = TilePlanSystem.Majority(zone, 16);
-            if (painted is PlanUse.Park or PlanUse.Keep or PlanUse.Farm) continue;
+            if (FarmlandSystem.IsPlanned(city, zone)) continue;
             bool water = zone.tiles.Any(tile => tile?.Type?.liquid == true);
             Kind[] wants = zone == centerZone ? grid ? new[] { Kind.Civic, Kind.Temple, Kind.Market, Kind.House }
                     : new[] { Kind.Market, Kind.Temple, Kind.Civic, Kind.House }
                 : water ? new[] { Kind.Docks }
-                : painted switch
-                {
-                    PlanUse.Residential => new[] { Kind.House },
-                    PlanUse.Commerce => new[] { Kind.Market },
-                    PlanUse.Industry => new[] { Kind.Industry },
-                    PlanUse.Military => new[] { Kind.Barracks },
-                    PlanUse.Civic => new[] { Kind.Civic },
-                    PlanUse.Temple => new[] { Kind.Temple },
-                    _ => use switch
-                    {
-                        ZoneUse.Residential => new[] { Kind.House },
-                        ZoneUse.Industry => new[] { Kind.Industry },
-                        ZoneUse.Commerce => new[] { Kind.Market, Kind.Civic },
-                        ZoneUse.Military => new[] { Kind.Barracks },
-                        ZoneUse.Reserve => Array.Empty<Kind>(),
-                        _ => centerZone != null && !Camp(established) ? AutoWants(zone, centerZone, grid, span)
-                            : Array.Empty<Kind>()
-                    }
-                };
+                : centerZone != null && !Camp(established) ? AutoWants(zone, centerZone, grid, span) : Array.Empty<Kind>();
             Fill(plan, zone, queues, wants);
         }
-        // 第二轮：剩下的从城心往外按圈放进空着的街区(农田、刷成绿地保护区农田的除外)，民居优先
+        // 第二轮：剩下的从城心往外按圈放进空着的街区(农耕区除外)，民居优先
         Kind[] order = { Kind.House, Kind.Civic, Kind.Market, Kind.Temple, Kind.Industry, Kind.Barracks, Kind.Docks };
         foreach (TileZone zone in zones)
         {
             if (queues.Values.All(queue => queue.Count == 0)) break;
-            if (ZonePlanSystem.Get(city, zone) == ZoneUse.Farm ||
-                TilePlanSystem.Majority(zone, 16) is PlanUse.Park or PlanUse.Keep or PlanUse.Farm) continue;
+            if (FarmlandSystem.IsPlanned(city, zone)) continue;
             Fill(plan, zone, queues, order);
         }
         Layout(plan, city, culture, centerZone);
         return plan;
     }
 
-    // 自动规划(没刷规划、没划功能区的地块；见 PlanFor)：
+    // 自动规划(见 PlanFor)：
     //   · 方格城(华夏、日本、罗马、阿兹特克)是坊市制——城心官署，城心东西各一市，西北、东南两处寺庙，城南校场，其余是坊(民居)；
     //   · 自然生长、迷宫式的城城心是集市，东北一处寺庙，城南一处兵营，其余民居。
     // span：城大致几块地见方(按建筑数折算，每块地四座)
@@ -808,24 +719,17 @@ public partial class PureMapPatch : GamePatch
         (plan.target, plan.rebuild) = CityStyleSystem.Rebuild(city);
         foreach (int id in plan.zones.Keys) plan.built.Add(id);
         if (centerZone != null && centerZone.city == city) plan.built.Add(centerZone.id);
-        int planned = city.zones.Count(zone => zone != null && ZonePlanSystem.Get(city, zone) != ZoneUse.None);
         bool camp = Camp(plan.family);
         // 有城墙的文化，城一有两块地就筑墙；大城(六块以上)华夏、日本、西欧加护城河
         plan.walled = WallOf(plan.family) != null && plan.built.Count >= 2;
         plan.moat = plan.walled && plan.built.Count >= 6 && plan.family is "huaxia" or "japan" or "western";
-        // 按格规划里画了城墙：照画的修，不再沿城边自动修墙、挖护城河
-        if (TilePlanSystem.HasWalls(city))
-        {
-            plan.walled = plan.moat = false;
-            plan.customWalls = true;
-        }
         if (centerZone != null)
         {
             plan.gateX = centerZone.x * Config.CITY_ZONE_SIZE + 4;
             plan.gateY = centerZone.y * Config.CITY_ZONE_SIZE + 4;
             plan.centerZone = centerZone.id;
         }
-        bool grand = centerZone != null && plan.built.Count >= 4 && (camp || planned >= 3);
+        bool grand = centerZone != null && plan.built.Count >= 4;
         // 中轴：华夏、罗马的城三块地以上就有纵横两条大街(御道、主街)，阿兹特克的堤道要大城
         bool axial = centerZone != null && (plan.family is "huaxia" or "roma" ? plan.built.Count >= 3 : grand);
         if (axial && AxisOf(plan.family) != null)
@@ -921,39 +825,23 @@ public partial class PureMapPatch : GamePatch
 
     // 一格：建成的地块按格局画(城墙、都城地标、中轴、规划过的街格或自发的小巷、营地、街区里的建筑图块)；
     // 农田画条垄(阿兹特克是水上田园)；其余照地形(干道画在路网图层上，见 RoadOverlay)
-    private static Color32 Plan(WorldTile tile, Color32 color, ZoneUse use, Slot[] slots, int lx, int ly, CityPlan plan, TileZone zone)
+    private static Color32 Plan(WorldTile tile, Color32 color, bool farm, Slot[] slots, int lx, int ly, CityPlan plan, TileZone zone)
     {
         if (tile.Type != null && tile.Type.liquid) return color;
-        // 按格规划的设施(街道、广场、城墙)照画；刷成绿地、保护区的格是草坪、树林，农田是垄沟(城里城外一样，见 TilePlanSystem)
-        if (plan != null && TilePlanSystem.Any && tile.zone?.city == plan.city)
-        {
-            switch (TilePlanSystem.FeatureAt(tile))
-            {
-                case PlanFeature.Street: return Lerp(color, Street, StreetShare);
-                case PlanFeature.Plaza: return Lerp(color, Plaza, 0.85f);
-                case PlanFeature.Wall: return Lerp(color, WallOf(plan.family) ?? PlanWall, 0.85f);
-            }
-            switch (TilePlanSystem.UseAt(tile))
-            {
-                case PlanUse.Park: return Lerp(color, (tile.x * 7 + tile.y * 3) % 5 == 0 ? ParkTree : ParkLawn, 0.6f);
-                case PlanUse.Keep: return Lerp(color, (tile.x + tile.y) % 3 == 0 ? ParkTree : KeepWood, 0.65f);
-                case PlanUse.Farm: return Lerp(color, tile.y % 3 == 0 ? UrbanFabric.FieldFurrow : UrbanFabric.FieldCrop, 0.85f);
-            }
-        }
         // 原始聚落：环壕或围垣、小屋点、广场；城外不画路、镇(那时还没有)，划了农田的照画垄沟
         if (plan != null && plan.tribal >= 0)
         {
             if (TribalCoarse(tile, color, plan) is Color32 tribe) return tribe;
-            return use == ZoneUse.Farm && plan.fabric != null ? UrbanFabric.Farmland(plan.fabric, tile, color) : color;
+            return farm && plan.fabric != null ? UrbanFabric.Farmland(plan.fabric, tile, color) : color;
         }
         bool built = plan != null && Urban(tile, plan);
         UrbanFabric.Geometry fabric = plan?.fabric;
         bool wallsDown = fabric != null && fabric.WallsDown;
-        if (built && fabric != null && fabric.Modern && UrbanFabric.Tile(tile, color, fabric, true, use, out Color32 urban))
+        if (built && fabric != null && fabric.Modern && UrbanFabric.Tile(tile, color, fabric, true, out Color32 urban))
             return urban;
         if (built && lx >= 0 && lx < 8 && ly >= 0 && ly < 8)
         {
-            bool modern = use != ZoneUse.None && plan.modern > 0f && Hash01(zone.id) < plan.modern;
+            bool modern = plan.modern > 0f && Hash01(zone.id) < plan.modern;
             // 这个地块的布局按哪一系(改建中逐个地块换)
             string family = plan.target != null && Hash01(zone.id * 31L + 99L) < plan.rebuild ? plan.target : plan.family;
             // 城墙：现代规划后拆成环路；东西南北四门开在城心两条中线上，门两侧与凸角是墩台
@@ -972,23 +860,23 @@ public partial class PureMapPatch : GamePatch
             if (modern) return Grid(color, slots, lx, ly, plan, zone, true);
             if (Camp(family)) return CampLayout(color, slots, lx, ly, plan, zone);
             // 华夏里坊：每块地一坊，四面坊墙、正中开坊门，坊内十字街
-            if (family == "huaxia" && use != ZoneUse.None) return WardLayout(color, slots, lx, ly, plan, zone);
+            if (family == "huaxia") return WardLayout(color, slots, lx, ly, plan, zone);
             // 西欧：街巷弯曲，从广场通向各城门的大街笔直
             if (family == "western")
                 return tile.x == plan.gateX || tile.y == plan.gateY ? Lerp(color, Arterial, StreetShare) : Organic(color, slots, lx, ly, plan, zone);
             if (Maze(family))
-                return use != ZoneUse.None && (lx == 4 || ly == 4) ? Lerp(color, Lane, 0.6f) : Organic(color, slots, lx, ly, plan, zone);
-            return use == ZoneUse.None ? Organic(color, slots, lx, ly, plan, zone) : Grid(color, slots, lx, ly, plan, zone, false);
+                return lx == 4 || ly == 4 ? Lerp(color, Lane, 0.6f) : Organic(color, slots, lx, ly, plan, zone);
+            return Grid(color, slots, lx, ly, plan, zone, false);
         }
         // 护城河：贴着城墙外侧一圈，城门处是桥
         if (plan != null && plan.moat && !wallsDown && BesideWall(tile, plan))
             return tile.x == plan.gateX || tile.y == plan.gateY ? Lerp(color, Arterial, StreetShare) : Lerp(color, Moat, 0.9f);
         // 城外：村镇、田块；工业化以后的新城区(见 UrbanFabric)
-        if (!built && fabric != null && UrbanFabric.Tile(tile, color, fabric, false, use, out Color32 outside))
+        if (!built && fabric != null && UrbanFabric.Tile(tile, color, fabric, false, out Color32 outside))
             return outside;
         // 农耕区：一小块一小块的条田(见 UrbanFabric.Farmland)，块间留空地——AI 缺粮时会把各城至多一半的地块划成农田，
         // 整片涂满就成了大片；阿兹特克的水上田园每三行一道水渠
-        if (use == ZoneUse.Farm)
+        if (farm)
         {
             if (plan?.family == "aztec") return tile.y % 3 == 0 ? Lerp(color, Chinampa, 0.5f) : color;
             if (fabric != null) return UrbanFabric.Farmland(fabric, tile, color);
@@ -1061,10 +949,9 @@ public partial class PureMapPatch : GamePatch
     }
 
     // 城里的一格：建成的地块落在城的轮廓里(见 UrbanFabric.InTown)；都城地标整块算
-    // 按格规划刷了城区用途的格(住宅、商业、工业、军事、官署、寺庙)也并入城区(见 TilePlanSystem)
     private static bool Urban(WorldTile tile, CityPlan plan) =>
         tile?.zone != null && tile.zone.city == plan.city && (plan.built.Contains(tile.zone.id) &&
-        (plan.landmark.Contains(tile.zone.id) || UrbanFabric.InTown(plan.fabric, tile)) || TilePlanSystem.UrbanAt(tile, plan.city));
+        (plan.landmark.Contains(tile.zone.id) || UrbanFabric.InTown(plan.fabric, tile)));
 
     // 城的外缘(城墙一线)
     private static bool UrbanEdge(WorldTile tile, CityPlan plan) =>

@@ -136,18 +136,9 @@ public class CityWindowPatch : GamePatch
         }
         return false;
     }
-    // 城市规划：各用途的区块数，以及矿场、伐木场的最高等级
+    // 矿场、伐木场的最高等级
     private static void ShowZoneRows(CityWindow window, City city)
     {
-        var parts = new global::System.Collections.Generic.List<string>();
-        foreach (ZoneUse use in new[] { ZoneUse.Farm, ZoneUse.Industry, ZoneUse.Residential, ZoneUse.Commerce,
-                     ZoneUse.Military, ZoneUse.Reserve })
-        {
-            int count = ZonePlanSystem.Count(city, use);
-            if (count > 0) parts.Add($"{ZonePlanSystem.UseName(use)} {count}");
-        }
-        if (parts.Count > 0)
-            window.showStatRow("city_zone_plan", string.Join(" / ", parts), "#B8C6CC", pIconPath: "iconCity");
         int mine = 0, lumber = 0;
         if (city.buildings != null)
             foreach (Building building in city.buildings)

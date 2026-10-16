@@ -77,7 +77,7 @@ public static class MapLabelOverlay
         Camera camera = world?.camera;
         float ppt = MapZoomTier.PixelsPerTile(camera);
         if (source?.sprite == null || camera == null || !source.enabled || !PureMapMode.Enabled || !PureMapPatch.DetailShown ||
-            EmpireCraft.Scripts.Layer.CityViewMap.Active || ZonePlanSystem.SteadyOverlay || ppt < MapZoomTier.Street)
+            EmpireCraft.Scripts.Layer.CityViewMap.Active || ppt < MapZoomTier.Street)
         {
             HideAll();
             return;

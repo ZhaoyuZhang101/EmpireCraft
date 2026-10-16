@@ -35,7 +35,7 @@ public static class VirtualIndustrySystem
         // 工厂要水运与平地：按地利的工业系数(见 CityGeographySystem)
         int capacity = Mathf.FloorToInt(CityPopulationSystem.Households(city) / (float)HouseholdsPerFactory *
                                         CityGeographySystem.Industry(city)) +
-                       ZonePlanSystem.Count(city, ZoneUse.Industry);
+                       FactorySystem.Count(city);
         return Mathf.Clamp(capacity, 0, all);
     }
 
