@@ -17,8 +17,14 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 敌军占下一块地(战线推进、原版占领都走 CityExtension.AddOccupiedTileZone)，地上的村三成五、镇两成五毁于兵火；
 //     劫掠之战七成、五成。毁了的在原地留一片废墟(精细图残垣断瓦、焦土；粗图上镇的废墟是一片暗土色)；
 //   · 重建：废墟所在的城不在打仗、那块地没被敌军占着，毁了五年以后每年约两成机会在原址重建(每月查一次，见 Tick)。
+// 第三期：住人、产粮交税(用户选"住人、产粮交税")——
+//   · 城的背景人口有一部分住在城外镇村：村算 1 份、镇算 3 份、城里算 6 份，按份数分(点开镇村看到的人口即此，见 PeopleOf)；
+//   · 镇村完好时产粮、交税照旧；毁了的那几份不产粮、不交税：本城岗位的粮食产出与赋税按
+//     1 - 0.6 × 毁了的份数 / 总份数 打折(城外全毁约剩六成，见 OutputFactor、PopulationEconomySystem)；
+//   · 毁的时候住在那里的人一半死伤逃散(按它的份数从本城各阶层的背景人口里扣)。
 public static class RuralSettlementSystem
 {
+    private const float VillageWeight = 1f, TownWeight = 3f, CityWeight = 6f, RuinedOutputLoss = 0.6f, BurnPopulationLoss = 0.5f;
     private const float VillageBurn = 0.35f, TownBurn = 0.25f, RaidVillageBurn = 0.7f, RaidTownBurn = 0.5f;
     private const int RebuildYears = 5;
     private const float RebuildChancePerYear = 0.2f;
@@ -106,6 +112,50 @@ public static class RuralSettlementSystem
 
     public static void Touch() => Revision++;
 
+    #region 住人、产粮交税
+
+    private static float Weight(RuralSettlement settlement) => settlement.town ? TownWeight : VillageWeight;
+
+    // 本城城外镇村的份数：完好的、毁了的
+    public static (float living, float ruined) Weights(City city)
+    {
+        float living = 0f, ruined = 0f;
+        if (All.Count == 0) return (0f, 0f);
+        foreach (RuralSettlement settlement in InCity(city))
+        {
+            if (settlement.ruined_at >= 0d) ruined += Weight(settlement);
+            else living += Weight(settlement);
+        }
+        return (living, ruined);
+    }
+
+    // 粮食产出与赋税的折扣(城外镇村都完好时为 1)
+    public static float OutputFactor(City city)
+    {
+        (float living, float ruined) = Weights(city);
+        return ruined <= 0f ? 1f : 1f - RuinedOutputLoss * ruined / (CityWeight + living + ruined);
+    }
+
+    // 住在这处镇村的人(背景人口按份数分；废墟里没人)
+    public static float PeopleOf(RuralSettlement settlement, City city)
+    {
+        if (settlement == null || city == null || settlement.ruined_at >= 0d) return 0f;
+        (float living, float ruined) = Weights(city);
+        return CityPopulationSystem.GetBackgroundTotal(city) * Weight(settlement) / (CityWeight + living + ruined);
+    }
+
+    // 毁的时候住在那里的人一半死伤逃散
+    private static void Displace(City city, RuralSettlement settlement)
+    {
+        CityPopulationData data = CityPopulationSystem.Get(city);
+        if (data?.groups == null) return;
+        (float living, float ruined) = Weights(city);
+        float rate = BurnPopulationLoss * Weight(settlement) / (CityWeight + living + ruined);
+        foreach (PopGroup group in data.groups) CityPopulationSystem.RemoveBackground(group, group.Background * rate);
+    }
+
+    #endregion
+
     #region 兵火与重建
 
     // 举城投降、望风归附时成片易手的地不烧(见 FrontSystem.Surrender、CityExtension.AddOccupiedTileZone)
@@ -127,6 +177,7 @@ public static class RuralSettlementSystem
             if (settlement.ruined_at >= 0d) continue;
             float chance = settlement.town ? raid ? RaidTownBurn : TownBurn : raid ? RaidVillageBurn : VillageBurn;
             if (UnityEngine.Random.value >= chance) continue;
+            Displace(city, settlement);
             settlement.ruined_at = now;
             Revision++;
         }

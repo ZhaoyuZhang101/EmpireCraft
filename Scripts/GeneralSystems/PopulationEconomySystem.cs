@@ -101,12 +101,14 @@ public static class PopulationEconomySystem
         // 生产不看工人：原版按城里的建筑与周围地形给每座城算好了岗位(有风车才有农田岗位、有矿场才有矿工、
         // 树木灌木矿脉的多少决定樵夫采集采矿的岗位)，每个岗位按种类自动产出。另有自给口粮与商业收入
         float food = background * SubsistenceFoodPerYear * years + harvested;
+        // 城外镇村毁于兵火，那几份不产粮(见 RuralSettlementSystem)
+        float rural = RuralSettlementSystem.OutputFactor(city);
         if (plan != null)
         {
             for (int i=0;i<plan.JobCount;i++)
             {
                 float produced=numeric.Production.Outputs[i];
-                if(plan.Input.Outputs[i].Food)food+=produced;
+                if(plan.Input.Outputs[i].Food){produced*=rural;food+=produced;}
                 Deposit(city,data,plan.Resources[i],produced);
             }
         }
@@ -118,7 +120,11 @@ public static class PopulationEconomySystem
             foreach ((string resource, float amount) in OutputsFor(city, job, outputs))
             {
                 float produced = slots * amount * years;
-                if (IsFood(resource)) food += produced;
+                if (IsFood(resource))
+                {
+                    produced *= rural;
+                    food += produced;
+                }
                 Deposit(city, data, resource, produced);
             }
         }
@@ -331,8 +337,9 @@ public static class PopulationEconomySystem
         data.produced_sector_values ??= new();
         data.sector_tax_carry ??= new();
         // 国野之制：国中赋税轻、野人重(见 GuoyeSystem)
-        // 世家荫户少收(见 GentrySystem)
-        double baseRate = city.kingdom.GetTaxRate() * GuoyeSystem.TaxFactor(city) * GentrySystem.TaxFactor(city);
+        // 世家荫户少收(见 GentrySystem)；城外镇村毁于兵火，那几份不交税(见 RuralSettlementSystem)
+        double baseRate = city.kingdom.GetTaxRate() * GuoyeSystem.TaxFactor(city) * GentrySystem.TaxFactor(city) *
+                          RuralSettlementSystem.OutputFactor(city);
         float remaining = income, due = 0f;
         long wholeTotal = 0;
         // 税先从民间现金里交(每月最多现金盈余的一半)，不够的部分才按产值估值折算(旧模型)；
