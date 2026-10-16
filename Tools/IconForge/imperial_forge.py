@@ -1593,7 +1593,105 @@ GODPOWERS.update({
     "place_town": (obj_market, "plus"),
     "raze_settlement": (obj_houses, "cross"),
     "assign_settlement": (obj_houses, "arrow"),
+    # 小、中、大厂区
+    "factory_small": (obj_factory, "plus"),
+    "factory_medium": (obj_factory, "up"),
+    "factory_large": (obj_factory, "star"),
 })
+
+
+# 工厂区里的八类厂(见 FactorySystem)：输出到 GameResources/ui/icons/factories/<门类>.png
+def obj_powder_barrel(img):
+    """火药厂：一只箍铁的火药桶，引信上一点火星。"""
+    over(img, shade(rrect([70, 70, 186, 214], 34), OCHRE, bevel=10, grain=0.4))
+    for y in (98, 178):
+        over(img, shade(rrect([64, y, 192, y + 14], 5), IRON, bevel=4, gloss=0.6))
+    over(img, shade(lines([[(128, 70), (140, 44), (168, 30)]], 6), BRASS, bevel=2, flat=True))
+    over(img, shade(ellipse([160, 14, 196, 50]), AMBER, bevel=6, gloss=1.0))
+
+
+def obj_furnace(img):
+    """钢铁厂：梯形高炉，炉口通红，铁水淌进一块金色铁锭。"""
+    over(img, shade(poly([(64, 222), (88, 58), (152, 58), (176, 222)]), STEEL, bevel=10, grain=0.3))
+    over(img, shade(ellipse([92, 40, 148, 76]), AMBER, bevel=6, gloss=1.0))
+    over(img, shade(rrect([96, 120, 144, 132], 3), IRON, bevel=3))
+    over(img, shade(lines([[(176, 150), (206, 176), (210, 196)]], 10), GILT, bevel=3, gloss=1.0))
+    over(img, shade(rrect([170, 196, 238, 226], 5), GILT, bevel=6, gloss=0.9))
+
+
+def obj_loom(img):
+    """轻工厂：一卷红布绕在铜齿轮前。"""
+    gear = sub(ellipse([60, 40, 196, 176]), ellipse([104, 84, 152, 132]))
+    for k in range(10):
+        a = k * math.pi / 5
+        cx, cy = 128 + 70 * math.cos(a), 108 + 70 * math.sin(a)
+        gear = union(gear, rrect([cx - 12, cy - 12, cx + 12, cy + 12], 3))
+    over(img, shade(sub(gear, ellipse([104, 84, 152, 132])), BRASS, bevel=8, gloss=0.9))
+    over(img, shade(rrect([40, 170, 216, 220], 22), RED, bevel=10, gloss=0.6))
+    over(img, shade(ellipse([186, 170, 236, 220]), RED, bevel=8, gloss=0.8))
+
+
+def obj_sailboat(img):
+    """轻型船厂：木船体、一面帆。"""
+    over(img, shade(rrect([122, 30, 134, 176], 3), WOOD, bevel=3))
+    over(img, shade(poly([(138, 40), (138, 160), (214, 160)]), BONE, bevel=8, gloss=0.5))
+    over(img, shade(poly([(118, 60), (118, 160), (60, 160)]), BONE, bevel=6, gloss=0.5))
+    over(img, shade(poly([(28, 172), (228, 172), (196, 222), (60, 222)]), OCHRE, bevel=10, grain=0.4))
+
+
+def obj_heavy_works(img):
+    """重工厂：铁齿轮前一把大铁锤。"""
+    gear = sub(ellipse([96, 24, 236, 164]), ellipse([140, 68, 192, 120]))
+    for k in range(8):
+        a = k * math.pi / 4
+        cx, cy = 166 + 72 * math.cos(a), 94 + 72 * math.sin(a)
+        gear = union(gear, rrect([cx - 13, cy - 13, cx + 13, cy + 13], 3))
+    over(img, shade(sub(gear, ellipse([140, 68, 192, 120])), IRON, bevel=8, gloss=0.6))
+    over(img, shade(rotate(rrect([52, 100, 72, 236], 6), -35, 62, 168), WOOD, bevel=5))
+    over(img, shade(rotate(rrect([20, 92, 124, 136], 8), -35, 72, 114), STEEL, bevel=10, gloss=0.9))
+
+
+def obj_steamship(img):
+    """重型船厂：钢壳轮船、白色上层建筑、一根红烟囱。"""
+    over(img, shade(rrect([150, 50, 182, 120], 4), RED, bevel=6, gloss=0.7))
+    over(img, shade(rrect([150, 44, 182, 60], 3), LACQ, bevel=3))
+    over(img, shade(rrect([84, 104, 206, 150], 6), BONE, bevel=8, gloss=0.5))
+    over(img, shade(poly([(20, 146), (236, 146), (210, 218), (52, 218)]), STEEL, bevel=12, gloss=0.6))
+    for x in (100, 136, 172):
+        over(img, shade(ellipse([x, 118, x + 14, 132]), LACQ, bevel=2))
+
+
+def obj_biplane(img):
+    """轻型飞机厂：一架双翼机(侧面)。"""
+    over(img, shade(rrect([24, 64, 232, 88], 10), OCHRE, bevel=6, gloss=0.6))
+    over(img, shade(rrect([40, 150, 216, 172], 10), OCHRE, bevel=6, gloss=0.6))
+    for x in (64, 192):
+        over(img, shade(rrect([x, 84, x + 8, 154], 2), WOOD, bevel=2))
+    over(img, shade(rrect([40, 100, 214, 140], 20), STEEL, bevel=8, gloss=0.7))
+    over(img, shade(rrect([214, 84, 226, 156], 4), IRON, bevel=3))
+    over(img, shade(poly([(40, 100), (16, 74), (28, 130)]), STEEL, bevel=5))
+
+
+def obj_bomber(img):
+    """重型飞机厂：一架四发轰炸机(俯视)。"""
+    over(img, shade(poly([(16, 128), (240, 128), (240, 150), (16, 150)]), STEEL, bevel=6, gloss=0.6))
+    for x in (40, 84, 164, 208):
+        over(img, shade(ellipse([x - 12, 110, x + 12, 152]), IRON, bevel=5, gloss=0.7))
+    over(img, shade(rrect([112, 24, 144, 232], 16), STEEL, bevel=10, gloss=0.8))
+    over(img, shade(rrect([76, 204, 180, 222], 6), STEEL, bevel=5, gloss=0.6))
+    over(img, shade(ellipse([116, 28, 140, 52]), NAVY, bevel=4, gloss=1.0))
+
+
+FACTORY_TYPES = {
+    "gunpowder_mill": obj_powder_barrel,
+    "steel_mill": obj_furnace,
+    "light_factory": obj_loom,
+    "light_shipyard": obj_sailboat,
+    "heavy_factory": obj_heavy_works,
+    "heavy_shipyard": obj_steamship,
+    "light_aircraft_factory": obj_biplane,
+    "heavy_aircraft_factory": obj_bomber,
+}
 
 
 # ═════════════ 生成 ═════════════
@@ -1633,6 +1731,8 @@ def build():
         out[f"GameResources/ui/icons/items/{name}.png"] = make_plot(obj, None)
     for name, (obj, field) in ANCIENT_IDEOLOGIES.items():
         out[f"GameResources/ui/icons/actor_traits/ideology_{name}.png"] = make_ideology(obj, field)
+    for name, obj in FACTORY_TYPES.items():
+        out[f"GameResources/ui/icons/factories/{name}.png"] = make_plot(obj, None)
     for name, (obj, badge) in TOOLS.items():
         out[f"GameResources/ui/icons/{name}.png"] = make_plot(obj, badge)
     src = os.path.join(HERE, "source")

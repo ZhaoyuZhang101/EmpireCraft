@@ -8,11 +8,13 @@ namespace EmpireCraft.Scripts.GodPowers;
 // 营建神力(用户 2026-10-17 "手动把村子划入城市势力范围""手动放置村/镇……和销毁他们"，见 RuralSettlementSystem)：
 //   立村、设镇：点城郊平地放一处，小路顺着地势自动连上；
 //   毁弃：点一处村镇，完好的毁为废墟，对废墟再点一下彻底抹去；
-//   改隶：先点一处村镇，再点一座接壤的城，村镇连同它那一片地改归那座城(点别处取消，半分钟不点也取消)。
+//   改隶：先点一处村镇，再点一座接壤的城，村镇连同它那一片地改归那座城(点别处取消，半分钟不点也取消)；
+//   小、中、大厂区：点城的地放下一整片成品厂区(见 FactorySystem.Place)；毁弃也能拆厂区。
 public static class SettlementPowers
 {
     public const string Village = "place_village", Town = "place_town", Raze = "raze_settlement", Assign = "assign_settlement";
-    public static readonly string[] Ids = { Village, Town, Raze, Assign };
+    public const string FactorySmall = "factory_small", FactoryMedium = "factory_medium", FactoryLarge = "factory_large";
+    public static readonly string[] Ids = { Village, Town, FactorySmall, FactoryMedium, FactoryLarge, Raze, Assign };
     private const float PickSeconds = 30f;
     private static int _picked = -1;
     private static float _pickedAt = -100f;
@@ -25,8 +27,15 @@ public static class SettlementPowers
         AssetManager.powers.add(new GodPower
         {
             id = Raze, name = Raze,
-            click_action = (tile, _) => Tip(RuralSettlementSystem.Raze(tile) ?? LM.Get("settlement_none"))
+            click_action = (tile, _) => Tip(RuralSettlementSystem.Raze(tile) ?? FactorySystem.Remove(FactorySystem.At(tile)) ??
+                                             LM.Get("settlement_none"))
         });
+        foreach ((string id, int size) in new[] { (FactorySmall, 1), (FactoryMedium, 2), (FactoryLarge, 3) })
+            AssetManager.powers.add(new GodPower
+            {
+                id = id, name = id,
+                click_action = (tile, power) => Tip(FactorySystem.Place(tile, size, out _))
+            });
         AssetManager.powers.add(new GodPower { id = Assign, name = Assign, click_action = ClickAssign });
     }
 

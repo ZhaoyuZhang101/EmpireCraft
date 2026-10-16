@@ -140,6 +140,8 @@ public static class PopulationEconomySystem
                 if (AssetManager.resources?.get(resource) != null) Deposit(city, data, resource, mines * amount * years);
         // 战略矿产(铜、煤、硝石……)按矿场等级和本城矿藏开采，见 MineralResourceSystem
         MineralResourceSystem.Produce(city, data, years);
+        // 工厂区里的厂按门类、等级出产值(见 FactorySystem)
+        FactorySystem.Produce(city, data, years);
         // 伐木场砍本城领地里的树出木头(见 IndustryBuildingSystem.HarvestTrees)
         float wood = IndustryBuildingSystem.HarvestTrees(city, years) / Mathf.Max(0.0001f, years);
         if (wood > 0f && AssetManager.resources?.get("wood") != null) Deposit(city, data, "wood", wood * years);

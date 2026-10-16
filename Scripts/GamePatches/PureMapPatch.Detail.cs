@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GeneralSystems;
 using UnityEngine;
 
@@ -312,6 +313,7 @@ public partial class PureMapPatch
             Grow(Mathf.RoundToInt(at.x), Mathf.RoundToInt(at.y), Mathf.CeilToInt(TribalRadius(plan) / DetailScale) + 14);
         }
         foreach ((int x, int y, int townSize, _) in g.Towns) Grow(x, y, townSize + 4);
+        foreach (FactorySite site in plan.factories) Grow(site.x, site.y, FactorySystem.Side(site.size) / 2 + 2);
         // 出城的大路、岔路一直画到路的尽头(连同关厢)，不在图边上从精细的路断成粗图上一格一格的路
         foreach (UrbanFabric.Road road in g.Roads)
             for (int d = 0; d <= road.Length; d += 2)
@@ -337,6 +339,7 @@ public partial class PureMapPatch
             // 城郊过渡带(见 PureMapPatch.Fringe)：画在村镇、田块、小路之前
             DrawFringe(c, style, tint, seed);
             DrawCountryside(c, g, style, tint, seed);
+            DrawFactories(c, plan);
         }
         List<DetailLabel> labels = ReduceLabels(c.Labels);
         DrawnLabels[city.data.id] = (StampOf(city), labels);

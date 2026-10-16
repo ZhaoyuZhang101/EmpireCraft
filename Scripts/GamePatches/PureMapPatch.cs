@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using ai;
+using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GeneralSystems;
 using EmpireCraft.Scripts.Layer;
@@ -490,6 +491,8 @@ public partial class PureMapPatch : GamePatch
         public readonly Dictionary<int, Slot[]> zones = new();
         // 建成的地块(有建筑的，连同城心)、都城地标所占的地块
         public readonly HashSet<int> built = new(), landmark = new();
+        // 本城的工厂区(见 FactorySystem、PureMapPatch.Factory)
+        public readonly List<FactorySite> factories = new();
         public bool walled, axis, burning, moat;
         public int axisX = int.MinValue, axisY = int.MinValue;
         // 城心那块地的中线：城门只开在这两条线与城墙相交处(东西南北四门)，钟鼓楼、广场、清真寺在两线交点
@@ -718,6 +721,7 @@ public partial class PureMapPatch : GamePatch
         plan.family = CityStyleSystem.Established(city);
         (plan.target, plan.rebuild) = CityStyleSystem.Rebuild(city);
         foreach (int id in plan.zones.Keys) plan.built.Add(id);
+        plan.factories.AddRange(FactorySystem.InCity(city));
         if (centerZone != null && centerZone.city == city) plan.built.Add(centerZone.id);
         bool camp = Camp(plan.family);
         // 有城墙的文化，城一有两块地就筑墙；大城(六块以上)华夏、日本、西欧加护城河
@@ -828,6 +832,8 @@ public partial class PureMapPatch : GamePatch
     private static Color32 Plan(WorldTile tile, Color32 color, bool farm, Slot[] slots, int lx, int ly, CityPlan plan, TileZone zone)
     {
         if (tile.Type != null && tile.Type.liquid) return color;
+        // 工厂区：一整片厂房(见 PureMapPatch.Factory)
+        if (plan != null && plan.factories.Count > 0 && FactoryCoarse(tile, color, plan) is Color32 works) return works;
         // 原始聚落：环壕或围垣、小屋点、广场；城外不画路、镇(那时还没有)，划了农田的照画垄沟
         if (plan != null && plan.tribal >= 0)
         {

@@ -341,7 +341,15 @@ public static class MapLabelOverlay
         if (!Input.GetMouseButtonUp(0) || !_pressed) return;
         _pressed = false;
         if ((Input.mousePosition - _pressedAt).sqrMagnitude > 64f || World.world.isOverUI() || World.world.isAnyPowerSelected()) return;
-        RuralSettlement settlement = RuralSettlementSystem.Near(World.world.getMouseTilePos());
+        WorldTile clicked = World.world.getMouseTilePos();
+        // 点到厂区：打开厂区小窗口(见 FactoryWindow)
+        FactorySite factory = FactorySystem.At(clicked);
+        if (factory != null)
+        {
+            EmpireCraft.Scripts.UI.Windows.FactoryWindow.Open(factory);
+            return;
+        }
+        RuralSettlement settlement = RuralSettlementSystem.Near(clicked);
         if (settlement == null) return;
         // 名字头一回标注以前就点开的：先按标注的规矩起好(见 NameOf)
         City city = World.world.GetTile(settlement.x, settlement.y)?.zone?.city;

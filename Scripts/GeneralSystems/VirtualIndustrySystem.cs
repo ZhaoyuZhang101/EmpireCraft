@@ -9,7 +9,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // (见 UrbanEmploymentSystem.CountFactories，影响城市工场岗位、工人阶层与研究)：
 //   · 火药 → 火药厂，工业化 → 钢铁厂，摩托化 → 轻工厂与轻型船厂，装甲战 → 重工厂与重型船厂，
 //     航空 → 轻型飞机厂，战略航空 → 重型飞机厂；每样算一类，船厂要有码头；
-//   · 每 HouseholdsPerFactory 户能开一类，城市规划里每块工业区再多一类，至多开齐已解锁的类数；
+//   · 每 HouseholdsPerFactory 户能开一类，至多开齐已解锁的类数；工厂区里的厂另按等级算(见 FactorySystem.Units)；
 //   · 资产在(装了模组)的那几类照旧按实际建筑数，不重复折算。
 public static class VirtualIndustrySystem
 {
@@ -34,9 +34,8 @@ public static class VirtualIndustrySystem
         if (all <= 0) return 0;
         // 工厂要水运与平地：按地利的工业系数(见 CityGeographySystem)
         int capacity = Mathf.FloorToInt(CityPopulationSystem.Households(city) / (float)HouseholdsPerFactory *
-                                        CityGeographySystem.Industry(city)) +
-                       FactorySystem.Count(city);
-        return Mathf.Clamp(capacity, 0, all);
+                                        CityGeographySystem.Industry(city));
+        return Mathf.Clamp(capacity, 0, all) + FactorySystem.Units(city);
     }
 
     private static (float, int, int) Count(string culture)
