@@ -256,7 +256,7 @@ public static class MapLabelOverlay
             if (label.Icon is "street" or "avenue")
             {
                 string[] suffixes = label.Icon == "avenue" ? modern ? AvenueSuffixModern : AvenueSuffixOld
-                    : label.Vertical ? modern ? StreetSuffixModernColumn : StreetSuffixOldColumn
+                    : label.Vertical ? modern ? StreetSuffixModernColumn : StreetSuffixOldColumn(city)
                     : modern ? StreetSuffixModernRow : StreetSuffixOldRow;
                 string name = StreetName(city.id * 131L + label.Key, usedNames, suffixes);
                 specs.Add(new Spec(label.Tile, name, StreetColor, label.Icon == "avenue" ? StreetSize * 1.15f : StreetSize,
@@ -391,7 +391,7 @@ public static class MapLabelOverlay
             int y0 = column.Min(zone => zone.y), y1 = column.Max(zone => zone.y);
             if (y1 - y0 < 1 && column.Count() < 2) continue;
             string name = StreetName(city.id * 137L + column.Key + 7919L, usedNames,
-                modern ? StreetSuffixModernColumn : StreetSuffixOldColumn);
+                modern ? StreetSuffixModernColumn : StreetSuffixOldColumn(city));
             specs.Add(new Spec(new Vector2(column.Key * size, (y0 + y1 + 1) * size / 2f), name, StreetColor, StreetSize,
                 Chinese, 0));
         }
@@ -473,7 +473,9 @@ public static class MapLabelOverlay
     // ───────── 词库(中文界面用汉字，其余语言用英文) ─────────
     private static string[] StreetWords => Chinese ? StreetZh : StreetEn;
     private static string[] StreetSuffixOldRow => Chinese ? new[] { "街", "大街", "街" } : new[] { " Street", " Lane" };
-    private static string[] StreetSuffixOldColumn => Chinese ? new[] { "巷", "胡同", "巷" } : new[] { " Alley", " Lane" };
+    // 胡同只有都城叫(用户 2026-10-17 "把地方城池和小镇的胡同这种词汇删了")，地方城池、小镇一律叫巷
+    private static string[] StreetSuffixOldColumn(City city) =>
+        Chinese ? city != null && city.isCapitalCity() ? new[] { "巷", "胡同", "巷" } : new[] { "巷" } : new[] { " Alley", " Lane" };
     private static string[] StreetSuffixModernRow => Chinese ? new[] { "路", "大道", "路" } : new[] { " Road", " Avenue" };
     private static string[] StreetSuffixModernColumn => Chinese ? new[] { "街", "路", "大街" } : new[] { " Street", " Boulevard" };
     // 通城门的大道
