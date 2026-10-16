@@ -115,6 +115,8 @@ public static class InterregnumSystem
             scattered++;
         }
         if (scattered > 0) texts.Add(string.Format(LM.Get("interregnum_scatter_history"), scattered));
+        // 京畿的甲等世家据城自守(见 GentrySystem)
+        GentrySystem.OnFracture(empire);
         foreach ((Kingdom _, Empire realm) in claimants)
             realm?.recalculate();
         World.world.zone_calculator?.dirtyAndClear();

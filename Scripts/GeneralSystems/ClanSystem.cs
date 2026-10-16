@@ -110,6 +110,8 @@ public class SpecificClan
     public double gentry_since { get; set; } = -1d;
     public long gentry_seat_city_id { get; set; } = -1L;
     public bool gentry_assessed { get; set; }
+    // 上次聚部曲守城的时间(见 GentrySystem)
+    public double gentry_retainers_at { get; set; } = -1d;
 
     // 姓氏体系(华夏，用户 2026-10-16 选定"姓—氏两层")：始祖宗族是"姓"(姬姓)，支脉是"氏"(鲁氏)，原版氏族是每个氏的实体；
     // 姓氏合一(郡县)以后，有氏的支脉升为新的姓(鲁氏宗族，出自姬姓)，再往下分的是郡望、房支。见 PrehistoricClanSystem

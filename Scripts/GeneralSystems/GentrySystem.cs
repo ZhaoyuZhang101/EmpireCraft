@@ -25,6 +25,12 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 官缺由世家子弟补上的机会：施行九品中正 七成五，施行察举 四成，二者都没有(世卿世禄) 两成五，施行科举以后不再优先；
 //     从本帝国郡望在册的世家里按门第挑一家，取那家在本国的成年族人(实体优先，没有就把虚拟族人落成实体)；
 //   · 九品中正期间门第固化：门第跌得慢一半。
+// 第三步——庄园部曲：
+//   · 荫户：世家在城里的田产荫庇佃户，那座城的税少收(每家：占地份额 × 2 × 门第/100)，一城至多少收两成五，
+//     施行均田以后减半；荫户也不服兵役(见 CorpsSystem 的兵源)；
+//   · 部曲：郡望之城有敌军占地或交战时，世家聚部曲成一支义军守城(按门第抽本城人口的百分之二到八)，三年至多一次，仗打完就散；
+//   · 据城自守：甲、乙等世家的郡望不是国都，所在国正在打仗、朝廷衰弱(法统二十以下或皇位空缺)，每年百分之四的机会
+//     由族中名望最高的人据城自立；天下裂土时，郡望在京畿的甲等世家各有一半机会据城自守(见 InterregnumSystem)。
 // 宗族成千上万，按帧分批算(见 Tick)。
 public static class GentrySystem
 {
@@ -33,6 +39,10 @@ public static class GentrySystem
         ExamNode = "huaxia_examination_officialdom";
     private const float NineRankMonopoly = 0.75f, RecommendationMonopoly = 0.4f, HereditaryMonopoly = 0.25f;
     private const int CandidateClans = 12, CandidateTries = 3;
+    private const float ShelterPerShare = 2f, ShelterCap = 0.25f, RetainerMin = 0.02f, RetainerMax = 0.08f,
+        AutonomyChance = 0.04f, FractureAutonomyChance = 0.5f;
+    private const int RetainerCooldownYears = 3, AutonomyMandate = 20, FractureAutonomyMax = 2;
+    public const string EqualFieldNode = "huaxia_land_equalization";
     private const float RiseRate = 0.15f, FallRate = 0.05f, OfficeCap = 60f;
     private const int MaxRecordsPerEmpire = 3;
 
@@ -41,11 +51,18 @@ public static class GentrySystem
     private static readonly Dictionary<long, (float share, long city)> Land = new();
     private static readonly HashSet<SpecificClan> Ruling = new();
     private static readonly Dictionary<long, int> Recorded = new();
+    // 各城被世家荫庇的份额(上一轮结算时算)；在册世家(上一轮)
+    private static readonly Dictionary<long, float> Sheltered = new();
+    private static readonly List<long> GentryIds = new();
+    private static double _lastMonth = -1d;
 
     public static void ResetWorldState()
     {
         Queue.Cancel();
         _lastPass = -1d;
+        _lastMonth = -1d;
+        Sheltered.Clear();
+        GentryIds.Clear();
         Land.Clear();
         Ruling.Clear();
         Recorded.Clear();
@@ -193,12 +210,108 @@ public static class GentrySystem
 
     #endregion
 
+    #region 庄园部曲
+
+    private static float ShelterShare(City city)
+    {
+        if (city?.data == null || !Sheltered.TryGetValue(city.data.id, out float share) || share <= 0f) return 0f;
+        share = Mathf.Min(ShelterCap, share);
+        string culture = CultureService.GetMainCulture(city, initialize: false);
+        return CultureService.IsValidCulture(culture) && InstitutionSystem.IsEnacted(culture, EqualFieldNode) ? share * 0.5f : share;
+    }
+
+    // 荫户少收的税(乘在税率上，见 PopulationEconomySystem.PayTaxes)
+    public static float TaxFactor(City city) => 1f - ShelterShare(city);
+
+    // 荫户不服兵役(见 CorpsSystem)
+    public static float ShelteredPeople(City city) => CityPopulationSystem.GetBackgroundTotal(city) * ShelterShare(city);
+
+    // 每月：郡望之城告急，世家聚部曲守城
+    private static void Monthly()
+    {
+        double now = World.world.getCurWorldTime();
+        if (_lastMonth >= 0d && now >= _lastMonth && Date.getMonthsSince(_lastMonth) < 1) return;
+        _lastMonth = now;
+        if (!CorpsSystem.Enabled) return;
+        foreach (long id in GentryIds)
+        {
+            SpecificClan clan = SpecificClanManager.Get(id);
+            City seat = Seat(clan);
+            if (clan == null || !clan.gentry || seat?.kingdom == null || !Threatened(seat)) continue;
+            if (clan.gentry_retainers_at >= 0d && now >= clan.gentry_retainers_at &&
+                Date.getYearsSince(clan.gentry_retainers_at) < RetainerCooldownYears) continue;
+            float share = Mathf.Clamp(clan.gentry_pedigree / 1000f, RetainerMin, RetainerMax);
+            float before = CityPopulationSystem.GetBackgroundTotal(seat);
+            if (CorpsSystem.RaiseMilitia(seat, 1, share) <= 0) continue;
+            clan.gentry_retainers_at = now;
+            int raised = Mathf.Max(0, Mathf.RoundToInt(before - CityPopulationSystem.GetBackgroundTotal(seat)));
+            Record(seat, string.Format(LM.Get("gentry_retainers_history"), JunWang(clan), raised, seat.GetCityName()), force: true);
+        }
+    }
+
+    private static bool Threatened(City city)
+    {
+        if (FrontSystem.Battles.Values.Any(battle => battle.city_id == city.data.id)) return true;
+        Dictionary<int, long> occupied = ScorchedEarthSystem.OccupiedZones(city);
+        return occupied != null && occupied.Values.Any(owner => World.world.kingdoms.get(owner) is Kingdom enemy &&
+                                                                 enemy.isEnemy(city.kingdom));
+    }
+
+    // 据城自守：族中名望最高的人(实体优先，没有把郡望之城的虚拟族人落成实体)据郡望之城自立
+    private static bool Autonomy(SpecificClan clan, City seat, string key)
+    {
+        if (seat?.kingdom == null || seat.kingdom.capital == seat) return false;
+        Kingdom former = seat.kingdom;
+        List<PersonalClanIdentity> living = clan.LivingPeople;
+        Actor head = living.Where(person => !person.is_virtual).Select(person => person._actor)
+            .Where(actor => actor?.data != null && !actor.isRekt() && actor.isAlive() && actor.isAdult() && actor.city == seat &&
+                            !actor.isKing())
+            .OrderByDescending(actor => actor.renown).FirstOrDefault()
+            ?? living.FirstOrDefault(person => person.is_virtual && person.age >= 18 && person.virtual_city_id == seat.data.id)?.Realize();
+        if (head?.data == null || head.isKing()) return false;
+        if (head.isCityLeader() && head.city != null && head.city != seat) head.city.removeLeader();
+        Kingdom own = seat.makeOwnKingdom(head);
+        if (own == null) return false;
+        Record(seat, string.Format(LM.Get(key), JunWang(clan), seat.GetCityName(), former.GetKingdomName()), force: true);
+        return true;
+    }
+
+    // 乱世里的强宗：每年(Assess)
+    private static void TryAutonomy(SpecificClan clan, City seat)
+    {
+        if (Grade(clan.gentry_pedigree) > 2 || seat?.kingdom == null || seat.kingdom.capital == seat || !seat.kingdom.hasEnemies())
+            return;
+        Empire realm = RealmOf(seat);
+        bool weak = realm == null ? seat.kingdom.king == null
+            : realm.Mandate <= AutonomyMandate || realm.Emperor == null || realm.Emperor.isRekt();
+        if (!weak || UnityEngine.Random.value >= AutonomyChance) return;
+        Autonomy(clan, seat, "gentry_autonomy_history");
+    }
+
+    // 天下裂土(InterregnumSystem.TryFracture)：郡望在京畿的甲等世家各有一半机会据城自守
+    public static void OnFracture(Empire empire)
+    {
+        Kingdom core = empire?.CoreKingdom;
+        if (core == null) return;
+        int count = 0;
+        foreach (SpecificClan clan in Of(empire).Where(clan => Grade(clan.gentry_pedigree) == 1).ToList())
+        {
+            if (count >= FractureAutonomyMax) break;
+            City seat = Seat(clan);
+            if (seat?.kingdom != core || UnityEngine.Random.value >= FractureAutonomyChance) continue;
+            if (Autonomy(clan, seat, "gentry_fracture_autonomy_history")) count++;
+        }
+    }
+
+    #endregion
+
     #region 每年分批结算
 
     // 每帧(CityPopulationSystem 里跟着虚拟族谱一起推进)：一年一轮
     public static void Tick()
     {
         if (World.world == null) return;
+        Monthly();
         if (Queue.Active)
         {
             Queue.Tick();
@@ -208,6 +321,8 @@ public static class GentrySystem
         if (_lastPass >= 0d && now >= _lastPass && Date.getYearsSince(_lastPass) < 1) return;
         if (SpecificClanManager._specificClans.Count == 0) return;
         _lastPass = now;
+        GentryIds.Clear();
+        GentryIds.AddRange(SpecificClanManager._specificClans.Where(clan => clan != null && clan.gentry).Select(clan => clan.id));
         BuildLand();
         BuildRuling();
         Recorded.Clear();
@@ -220,6 +335,7 @@ public static class GentrySystem
     private static void BuildLand()
     {
         Land.Clear();
+        Sheltered.Clear();
         foreach (City city in World.world.cities.list)
         {
             if (city?.data == null || city.isRekt()) continue;
@@ -229,6 +345,13 @@ public static class GentrySystem
             {
                 if (pair.Value <= 0f || !pair.Key.StartsWith("s:", StringComparison.Ordinal) ||
                     !long.TryParse(pair.Key.Substring(2), out long clanId)) continue;
+                // 荫户：世家在这座城的田产(份额是百分数)
+                SpecificClan owner = SpecificClanManager.Get(clanId);
+                if (owner != null && owner.gentry)
+                {
+                    Sheltered.TryGetValue(city.data.id, out float sheltered);
+                    Sheltered[city.data.id] = sheltered + pair.Value / 100f * ShelterPerShare * owner.gentry_pedigree / 100f;
+                }
                 Land.TryGetValue(clanId, out var held);
                 float best = held.city > 0 && World.world.cities.get(held.city) is City bestCity &&
                              bestCity.GetOrCreate().household_land_shares.TryGetValue(pair.Key, out float bestShare)
@@ -285,6 +408,7 @@ public static class GentrySystem
             Record(seat, string.Format(LM.Get("gentry_rise_history"), JunWang(clan), GradeName(clan)));
         }
         else if (clan.gentry && clan.gentry_pedigree < LeaveAt) Decline(clan, extinct: false);
+        if (clan.gentry) TryAutonomy(clan, seat);
     }
 
     private static void Decline(SpecificClan clan, bool extinct)
@@ -343,15 +467,16 @@ public static class GentrySystem
         return Mathf.Clamp(score, 0f, 100f);
     }
 
-    private static void Record(City seat, string content)
+    private static void Record(City seat, string content, bool force = false)
     {
         LogService.LogInfo("[EmpireCraft][世家] " + content);
         Empire empire = RealmOf(seat);
         if (empire == null) return;
         Recorded.TryGetValue(empire.data.id, out int count);
-        if (count >= MaxRecordsPerEmpire) return;
+        if (!force && count >= MaxRecordsPerEmpire) return;
         Recorded[empire.data.id] = count + 1;
         empire.RecordHistory(directContent: content);
+        if (force) TranslateHelper.LogEventMessage(content, seat?.kingdom);
     }
 
     #endregion

@@ -47,8 +47,8 @@ public static class SlaverySystem
 
     public static float Slaves(City city) => CityPopulationSystem.BackgroundOfClass(city, SocialClass.Slave);
 
-    // 不能征为兵的人(奴隶；野人大半不征，见 GuoyeSystem)
-    public static float Unfree(City city) => Slaves(city) + GuoyeSystem.Exempt(city);
+    // 不能征为兵的人(奴隶；野人大半不征，见 GuoyeSystem；世家荫户，见 GentrySystem)
+    public static float Unfree(City city) => Slaves(city) + GuoyeSystem.Exempt(city) + GentrySystem.ShelteredPeople(city);
 
     // 奴隶主在本城自由民里应占的比例：奴隶越多奴隶主越多
     public static float OwnerShare(City city)
