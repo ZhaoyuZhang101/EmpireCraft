@@ -304,6 +304,12 @@ public partial class PureMapPatch
                     Grow(zone.x * size + size - 1, zone.y * size + size - 1, FringeReach + 1);
                 }
         foreach ((int x, int y) in g.Villages) Grow(x, y, 8);
+        // 原始聚落连同城外的田、墓地、陶窑(见 PureMapPatch.Tribal)
+        if (plan.tribal >= 0)
+        {
+            Vector2 at = TribalCenter(plan);
+            Grow(Mathf.RoundToInt(at.x), Mathf.RoundToInt(at.y), Mathf.CeilToInt(TribalRadius(plan) / DetailScale) + 14);
+        }
         foreach ((int x, int y, int townSize, _) in g.Towns) Grow(x, y, townSize + 4);
         // 出城的大路、岔路一直画到路的尽头(连同关厢)，不在图边上从精细的路断成粗图上一格一格的路
         foreach (UrbanFabric.Road road in g.Roads)
@@ -322,6 +328,7 @@ public partial class PureMapPatch
         var c = new Canvas(city, x0, y0, x1 - x0 + 1, y1 - y0 + 1);
         long seed = UrbanFabric.SeedOf(city);
         if (style.Camp) DrawCamp(c, plan, g, style, tint, seed);
+        else if (plan.tribal >= 0) DrawTribal(c, plan, g, style, tint, seed);
         else
         {
             DrawUrban(c, plan, style, tint, seed);

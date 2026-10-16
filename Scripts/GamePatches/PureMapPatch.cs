@@ -280,6 +280,7 @@ public partial class PureMapPatch : GamePatch
             Add(plan.family?.GetHashCode() ?? 0);
             Add(plan.target?.GetHashCode() ?? 0);
             Add(TilePlanSystem.Revision(city) * 92821);
+            Add(plan.tribal * 7 + 3);
             Add(Mathf.RoundToInt(plan.rebuild * 20f));
             Add(Mathf.RoundToInt(plan.modern * 20f));
             Add(Mathf.RoundToInt(plan.ruin * 20f));
@@ -561,6 +562,8 @@ public partial class PureMapPatch : GamePatch
         public bool customWalls;
         // 住房研究到第几代(刷了住宅的宅基地按它盖，见 PureMapPatch.Detail 的 Lot)
         public int housing = 1;
+        // 原始聚落的阶段(见 PureMapPatch.Tribal)：-1 = 不是原始政体的城
+        public int tribal = -1;
         // 平面图的指纹(见 Stamp；平滑国界的上色缓存用)
         public int stamp = int.MinValue;
     }
@@ -861,6 +864,13 @@ public partial class PureMapPatch : GamePatch
             plan.ruin = Mathf.Max(plan.ruin, 0.25f);
             plan.burning = true;
         }
+        // 原始政体的城画成原始聚落(见 PureMapPatch.Tribal)：不筑城墙、不挖护城河、没有中轴大街和都城地标
+        plan.tribal = Camp(plan.family) ? -1 : TribalStageOf(city, culture);
+        if (plan.tribal >= 0)
+        {
+            plan.walled = plan.moat = plan.axis = false;
+            plan.landmark.Clear();
+        }
         plan.fabric = UrbanFabric.Build(city, plan.built, plan.landmark, plan.family, culture, plan.gateX, plan.gateY);
     }
 
@@ -918,6 +928,12 @@ public partial class PureMapPatch : GamePatch
                 case PlanUse.Keep: return Lerp(color, (tile.x + tile.y) % 3 == 0 ? ParkTree : KeepWood, 0.65f);
                 case PlanUse.Farm: return Scale(color, tile.y % 2 == 0 ? 0.84f : 0.97f);
             }
+        }
+        // 原始聚落：环壕或围垣、小屋点、广场；城外不画路、镇(那时还没有)，划了农田的照画垄沟
+        if (plan != null && plan.tribal >= 0)
+        {
+            if (TribalCoarse(tile, color, plan) is Color32 tribe) return tribe;
+            return use == ZoneUse.Farm && plan.fabric != null ? UrbanFabric.Farmland(plan.fabric, tile, color) : color;
         }
         bool built = plan != null && Urban(tile, plan);
         UrbanFabric.Geometry fabric = plan?.fabric;
