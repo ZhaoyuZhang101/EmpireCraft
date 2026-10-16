@@ -48,7 +48,10 @@ public static class OfficeSelector
                 actor = TryGetExamOfficer(office, pKingdom)??TryGetClanOfficer(pKingdom)??TryGetProfessionOfficer(pKingdom);
                 break;
             case LeaderSelectMethod.Succession:
-                actor = TryGetClanOfficer(pKingdom)??TryGetProfessionOfficer(pKingdom);
+                // 世家子弟入仕(九品中正、察举、世卿世禄，见 GentrySystem)
+                actor = GentrySystem.Candidate(pKingdom, unit => unit.isUnitFitToRule() && unit.CanServeOffice(pKingdom) &&
+                                                                 IsPreferredOfficeCandidate(unit, pKingdom))
+                        ?? TryGetClanOfficer(pKingdom)??TryGetProfessionOfficer(pKingdom);
                 break;
             case LeaderSelectMethod.Vote:
                 actor = TryGetFeudalElectiveRuler(office, pKingdom) ?? TryGetProfessionOfficer(pKingdom);

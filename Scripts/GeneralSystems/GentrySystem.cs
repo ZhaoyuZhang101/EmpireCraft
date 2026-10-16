@@ -21,10 +21,18 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 门第到三十列为世家，跌到二十二以下不再是世家；七十以上甲等、五十五乙等、四十丙等，其余丁等；
 //   · 郡望：田产最多的城，没有田产按祖籍，再没有按族人最多的城；称"某城某氏"；
 //   · 头一次算(旧存档、新开局)直接到位、不记史；此后列为世家、门第衰微记入郡望所在帝国的史册(每国每年至多三条)。
+// 第二步——仕途垄断：
+//   · 官缺由世家子弟补上的机会：施行九品中正 七成五，施行察举 四成，二者都没有(世卿世禄) 两成五，施行科举以后不再优先；
+//     从本帝国郡望在册的世家里按门第挑一家，取那家在本国的成年族人(实体优先，没有就把虚拟族人落成实体)；
+//   · 九品中正期间门第固化：门第跌得慢一半。
 // 宗族成千上万，按帧分批算(见 Tick)。
 public static class GentrySystem
 {
     public const float EnterAt = 30f, LeaveAt = 22f;
+    public const string NineRankNode = "huaxia_nine_rank", RecommendationNode = "huaxia_recommendation",
+        ExamNode = "huaxia_examination_officialdom";
+    private const float NineRankMonopoly = 0.75f, RecommendationMonopoly = 0.4f, HereditaryMonopoly = 0.25f;
+    private const int CandidateClans = 12, CandidateTries = 3;
     private const float RiseRate = 0.15f, FallRate = 0.05f, OfficeCap = 60f;
     private const int MaxRecordsPerEmpire = 3;
 
@@ -41,6 +49,7 @@ public static class GentrySystem
         Land.Clear();
         Ruling.Clear();
         Recorded.Clear();
+        Registry.Clear();
     }
 
     #region 查询
@@ -99,6 +108,87 @@ public static class GentrySystem
         {
             return false;
         }
+    }
+
+    #endregion
+
+    #region 仕途
+
+    // 官缺由世家子弟补上的机会
+    public static float Monopoly(Kingdom kingdom)
+    {
+        string culture = CultureService.GetRealmCulture(kingdom);
+        if (!CultureService.IsValidCulture(culture)) return 0f;
+        try
+        {
+            if (InstitutionSystem.GetCultureLine(culture) != "Huaxia") return 0f;
+        }
+        catch
+        {
+            return 0f;
+        }
+        if (InstitutionSystem.IsEnacted(culture, ExamNode)) return 0f;
+        if (InstitutionSystem.IsEnacted(culture, NineRankNode)) return NineRankMonopoly;
+        return InstitutionSystem.IsEnacted(culture, RecommendationNode) ? RecommendationMonopoly : HereditaryMonopoly;
+    }
+
+    private static readonly Dictionary<long, (double at, List<long> clans)> Registry = new();
+
+    // 本帝国郡望在册的世家(门第从高到低，一年一更)
+    private static List<SpecificClan> Registered(Empire empire)
+    {
+        double now = World.world.getCurWorldTime();
+        if (!Registry.TryGetValue(empire.data.id, out var cached) || now < cached.at || Date.getYearsSince(cached.at) >= 1)
+        {
+            cached = (now, Of(empire).Take(CandidateClans).Select(clan => clan.id).ToList());
+            Registry[empire.data.id] = cached;
+        }
+        return cached.clans.Select(SpecificClanManager.Get).Where(clan => clan != null && clan.gentry).ToList();
+    }
+
+    // 官缺补人(OfficeSelector.Select)：按机会挑一位世家子弟，没挑上返回空
+    public static Actor Candidate(Kingdom kingdom, Func<Actor, bool> fit)
+    {
+        Empire empire = kingdom?.GetEmpire();
+        if (empire?.data == null || UnityEngine.Random.value >= Monopoly(kingdom)) return null;
+        List<SpecificClan> clans = Registered(empire);
+        if (clans.Count == 0) return null;
+        for (int attempt = 0; attempt < CandidateTries; attempt++)
+        {
+            SpecificClan clan = Weighted(clans);
+            Actor member = Member(clan, kingdom, fit);
+            if (member != null) return member;
+        }
+        return null;
+    }
+
+    private static SpecificClan Weighted(List<SpecificClan> clans)
+    {
+        float total = clans.Sum(clan => clan.gentry_pedigree * clan.gentry_pedigree);
+        float roll = UnityEngine.Random.value * total;
+        foreach (SpecificClan clan in clans)
+            if ((roll -= clan.gentry_pedigree * clan.gentry_pedigree) <= 0f) return clan;
+        return clans[clans.Count - 1];
+    }
+
+    // 那家在本国的成年族人：实体优先，没有就把虚拟族人落成实体
+    private static Actor Member(SpecificClan clan, Kingdom kingdom, Func<Actor, bool> fit)
+    {
+        PersonalClanIdentity candidate = null;
+        foreach (PersonalClanIdentity person in clan.LivingPeople.OrderBy(_ => UnityEngine.Random.value))
+        {
+            if (!person.is_virtual)
+            {
+                Actor actor = person._actor;
+                if (actor?.data != null && !actor.isRekt() && actor.isAlive() && actor.isAdult() && actor.kingdom == kingdom &&
+                    !actor.IsOnOffice() && !actor.isKing() && !actor.isCityLeader() && fit(actor)) return actor;
+                continue;
+            }
+            if (candidate == null && person.age >= 18 && World.world.cities.get(person.virtual_city_id)?.kingdom == kingdom)
+                candidate = person;
+        }
+        Actor realized = candidate?.Realize();
+        return realized?.data != null && fit(realized) ? realized : null;
     }
 
     #endregion
@@ -184,7 +274,9 @@ public static class GentrySystem
             return;
         }
         float pedigree = clan.gentry_pedigree;
-        pedigree += (target - pedigree) * (target > pedigree ? RiseRate : FallRate);
+        // 九品中正：门第固化，跌得慢一半
+        float fall = FallRate * (InstitutionSystem.IsEnacted(CultureService.GetMainCulture(seat, initialize: false), NineRankNode) ? 0.5f : 1f);
+        pedigree += (target - pedigree) * (target > pedigree ? RiseRate : fall);
         clan.gentry_pedigree = Mathf.Clamp(pedigree, 0f, 100f);
         if (!clan.gentry && clan.gentry_pedigree >= EnterAt)
         {
