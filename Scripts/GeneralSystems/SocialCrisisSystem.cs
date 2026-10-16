@@ -90,9 +90,12 @@ public static class SocialCrisisSystem
 
     public static Material For(Snapshot s, SocialClass socialClass)
     {
-        bool commoner = socialClass is SocialClass.Peasant or SocialClass.Labour;
-        bool taxed = commoner || socialClass is SocialClass.Merchant or SocialClass.Citizen;
+        bool commoner = socialClass is SocialClass.Peasant or SocialClass.Labour or SocialClass.Slave;
+        // 奴隶不纳税(产出归奴隶主，见 SlaverySystem)
+        bool taxed = commoner && socialClass != SocialClass.Slave || socialClass is SocialClass.Merchant or SocialClass.Citizen;
         var items = new List<(string key, float value)>();
+        // 奴隶终年劳苦，怨气常高
+        if (socialClass == SocialClass.Slave) items.Add(("bondage", 35f));
         if (taxed && s.Tax > 0f) items.Add(("tax", s.Tax * 0.5f));
         if (commoner && s.Famine > 0.05f) items.Add(("famine", 30f * s.Famine));
         if (socialClass == SocialClass.Peasant && s.Landless > 0.1f) items.Add(("landless", 40f * (s.Landless - 0.1f)));

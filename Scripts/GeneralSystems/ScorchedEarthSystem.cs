@@ -72,6 +72,8 @@ public static class ScorchedEarthSystem
             int killed = Kill(city, SackDeathRate + (scorch ? SackScorchDeathRate : 0f));
             if (scorch && killed > 0) MassacreSystem.RecordBackgroundMassacre(city, conqueror, killed);
             Plunder(city, scorch ? 0.6f : 0.3f);
+            // 施行奴隶制的一方俘其民为奴(见 SlaverySystem)
+            SlaverySystem.OnCityCaptured(city, conqueror);
 
             float refugees = RefugeeRate + (foreign ? ForeignRefugeeRate : 0f) + (scorch ? ScorchRefugeeRate : 0f);
             City refuge = null;

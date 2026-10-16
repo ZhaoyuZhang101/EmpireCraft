@@ -918,6 +918,7 @@ public static class CityPopulationSystem
         if (years <= 0f) return;
         data.last_growth = now;
         AssimilateBackground(city, data, years);
+        SlaverySystem.Settle(city, data, years);
         DriftClasses(city, data, years);
 
         PopulationParallelSystem.StartGrowth(city, data, now, years);
@@ -1002,6 +1003,8 @@ public static class CityPopulationSystem
         if (shares[SocialClass.Merchant] > 0f || seat > 0f) shares[SocialClass.Merchant] += 0.02f * seat + 0.02f * treasury;
         shares[SocialClass.Citizen] += 0.03f * treasury;
         shares[SocialClass.Army] = 0f;
+        // 奴隶主：按本城奴隶多少(见 SlaverySystem)
+        shares[SocialClass.SlaveOwner] = SlaverySystem.OwnerShare(city);
         float others = 0f;
         foreach (float share in shares.Values) others += share;
         shares[SocialClass.Peasant] = Mathf.Max(0.1f, 1f - others);
@@ -1016,7 +1019,8 @@ public static class CityPopulationSystem
         foreach (PopGroup group in data.groups)
         {
             float amount = group.Background;
-            if (amount <= 0f) continue;
+            // 奴隶世代为奴，不随阶层流动(进出奴籍见 SlaverySystem)
+            if (amount <= 0f || group.social_class == SocialClass.Slave) continue;
             total += amount;
             current.TryGetValue(group.social_class, out float sum);
             current[group.social_class] = sum + amount;

@@ -11,7 +11,9 @@ public enum SocialClass
     Officer,    //官僚
     Noble,      //贵族
     Landlord,   //地主
-    Citizen     //市民；追加在末尾以保持旧存档枚举值稳定
+    Citizen,    //市民；追加在末尾以保持旧存档枚举值稳定
+    Slave,      //奴隶(见 SlaverySystem)
+    SlaveOwner  //奴隶主
 }
 public static class ClassSystem
 {

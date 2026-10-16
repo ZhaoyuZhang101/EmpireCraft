@@ -480,7 +480,10 @@ public static class CorpsSystem
         float peace = doctrine.CentralStanding || doctrine.DistrictStanding ? StandingPoolShare : PeacePoolShare;
         // 鞭长莫及：控制力低的城征不齐(见 AdministrativeControlSystem.Yield)
         float background = 0f;
-        foreach (City city in cities) background += CityPopulationSystem.GetBackgroundTotal(city) * AdministrativeControlSystem.Yield(city);
+        // 奴隶不征为兵(见 SlaverySystem)
+        foreach (City city in cities)
+            background += Mathf.Max(0f, CityPopulationSystem.GetBackgroundTotal(city) - SlaverySystem.Unfree(city)) *
+                          AdministrativeControlSystem.Yield(city);
         float pool = background * doctrine.LevyShare * (war ? WarLevyShare(kingdom, peace) : peace);
         float legionSize = Mathf.Clamp(pool / Mathf.Max(1, totalSlots), 1f, CityPopulationSystem.PeoplePerLegion);
         // 量入为出：按人口该有的兵额超出养得起的，每个军团按比例缩编

@@ -142,9 +142,14 @@ public static class PopulationEconomySystem
         // 本地存档里 6.6 万人的京城一年产值才一百来金，全国背景人口的税连各城治理费都付不起
         float laborIncome = workforce * perSlot / CityPopulationSystem.FiscalPeoplePerHousehold * productivity *
                             LaborIncomePerHouseholdYear * years;
+        // 奴隶劳作(见 SlaverySystem)：奴隶那一份按一倍半算，归奴隶主、不计税
+        float slaveShare = SlaverySystem.WorkforceShare(workforceByClass);
+        float slaveIncome = laborIncome * slaveShare * SlaverySystem.OutputFactor;
+        laborIncome *= 1f - slaveShare;
         if (laborIncome > 0f && !float.IsNaN(laborIncome) && !float.IsInfinity(laborIncome))
             data.produced_value += laborIncome;
         PayTaxes(city, data, years);
+        if (slaveIncome > 0f && !float.IsNaN(slaveIncome) && !float.IsInfinity(slaveIncome)) AddSavings(city, data, slaveIncome);
         float settledIncome = data.last_income * years;
         float settledTax = data.last_tax_income * years + data.other_background_tax;
         data.other_background_tax = 0f;

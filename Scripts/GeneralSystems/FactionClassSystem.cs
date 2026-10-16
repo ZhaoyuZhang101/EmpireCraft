@@ -185,9 +185,9 @@ public static class FactionClassSystem
 
     public static string GetStratumKey(SocialClass socialClass) => socialClass switch
     {
-        SocialClass.Peasant or SocialClass.Labour => "faction_class_group_common",
+        SocialClass.Peasant or SocialClass.Labour or SocialClass.Slave => "faction_class_group_common",
         SocialClass.Merchant or SocialClass.Officer or SocialClass.Citizen => "faction_class_group_middle",
-        SocialClass.Noble or SocialClass.Landlord => "faction_class_group_elite",
+        SocialClass.Noble or SocialClass.Landlord or SocialClass.SlaveOwner => "faction_class_group_elite",
         SocialClass.Army => "faction_class_group_military",
         _ => "faction_class_group_common"
     };
@@ -301,7 +301,7 @@ public static class FactionClassSystem
             FactionType.尊王 => Affinities((SocialClass.Officer, 85), (SocialClass.Peasant, 25),
                 (SocialClass.Noble, -25)),
             FactionType.诸侯 => Affinities((SocialClass.Noble, 95), (SocialClass.Army, 45),
-                (SocialClass.Landlord, 70), (SocialClass.Officer, -45), (SocialClass.Peasant, -25)),
+                (SocialClass.Landlord, 70), (SocialClass.SlaveOwner, 70), (SocialClass.Officer, -45), (SocialClass.Peasant, -25)),
             // 君主是农民对抗领主与教会的靠山：中央派系也亲农民
             FactionType.中央 => Affinities((SocialClass.Officer, 90), (SocialClass.Army, 45),
                 (SocialClass.Merchant, 30), (SocialClass.Peasant, 25), (SocialClass.Noble, -55)),
@@ -311,8 +311,8 @@ public static class FactionClassSystem
                 (SocialClass.Peasant, 20), (SocialClass.Merchant, -35)),
             FactionType.绥靖 => Affinities((SocialClass.Officer, 80), (SocialClass.Merchant, 65),
                 (SocialClass.Peasant, 25), (SocialClass.Army, -50)),
-            FactionType.血脉 => Affinities((SocialClass.Noble, 100), (SocialClass.Officer, 20)),
-            FactionType.僭主 => Affinities((SocialClass.Army, 90), (SocialClass.Labour, 30),
+            FactionType.血脉 => Affinities((SocialClass.Noble, 100), (SocialClass.SlaveOwner, 50), (SocialClass.Officer, 20)),
+            FactionType.僭主 => Affinities((SocialClass.Army, 90), (SocialClass.Labour, 30), (SocialClass.Slave, 40),
                 (SocialClass.Noble, -35)),
             // 以前农民 60、贵族 55、官员 45，样样都亲，神权派系天然比别的派系长得快(世俗永远打不过教会)
             FactionType.神权 => Affinities((SocialClass.Peasant, 45), (SocialClass.Noble, 35),
@@ -331,7 +331,7 @@ public static class FactionClassSystem
             FactionType.共产 => Affinities((SocialClass.Labour, 100), (SocialClass.Peasant, 90),
                 (SocialClass.Officer, 30), (SocialClass.Noble, -100), (SocialClass.Landlord, -100),
                 (SocialClass.Merchant, -80)),
-            FactionType.原始 => Affinities((SocialClass.Peasant, 45), (SocialClass.Noble, 20)),
+            FactionType.原始 => Affinities((SocialClass.Peasant, 45), (SocialClass.Noble, 20), (SocialClass.SlaveOwner, 30)),
             _ => new Dictionary<SocialClass, float>()
         };
         return profile.TryGetValue(socialClass, out float affinity) ? affinity : 0f;
