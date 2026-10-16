@@ -60,6 +60,8 @@ public static class PureMapMode
     public static void Tick()
     {
         if (!Enabled || World.world == null || !Config.game_loaded || SmoothLoader.isLoading()) return;
+        // 开局提示：建筑、植物、小人不见了是纯净地图模式(见 PureMapNoticeWindow)
+        EmpireCraft.Scripts.UI.Windows.PureMapNoticeWindow.TryShow();
         if (!_spritesOff) TurnOffSprites();
         if (UnityEngine.Time.unscaledTime >= _lawCheckAt)
         {
