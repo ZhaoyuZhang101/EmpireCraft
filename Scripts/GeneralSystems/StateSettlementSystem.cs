@@ -711,14 +711,19 @@ public static class StateSettlementSystem
                 CityPopulationSystem.Census(city, population, keepBackground: true, preserveSmallGroups: true);
                 CityPopulationSystem.EnsureLeader(city);
                 CityPopulationSystem.Census(city, population, keepBackground: true, preserveSmallGroups: true);
-                if (CityStateService.IsCityState(city.kingdom) && city.kingdom.cities.Count > 1 &&
+                if ((CityStateService.IsCityState(city.kingdom) || TribalFissionService.IsTribal(city.kingdom)) &&
+                    city.kingdom.cities.Count > 1 &&
                     (city.leader == null || !city.leader.isAdult() || !city.leader.isUnitFitToRule()))
                 { state.status = "recovery"; return; }
                 if (project.create_fief)
                 {
                     if (!FinishFief(payer, project, city)) { state.status = "recovery"; return; }
                 }
-                else CityStateService.OnCityBuilt(city, city.leader);
+                else
+                {
+                    CityStateService.OnCityBuilt(city, city.leader);
+                    TribalFissionService.OnCityBuilt(city, city.leader);
+                }
                 project.politics_done = true;
             }
             // 启动现有正常建设：资源由公共库存支付，仍遵守住房/风车规划和科技。

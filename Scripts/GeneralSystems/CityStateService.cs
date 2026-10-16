@@ -152,7 +152,7 @@ public static class CityStateService
     }
 
     // 本地领袖：优先贵族阶层，其次城中其他成年人，按威望取最高者
-    private static Actor FindLocalLeader(City city, Actor exclude)
+    internal static Actor FindLocalLeader(City city, Actor exclude)
     {
         List<Actor> locals = (city.units ?? new List<Actor>()).ToList()
             .Where(actor => actor != null && actor != exclude && !actor.isRekt() && actor.isAlive() &&

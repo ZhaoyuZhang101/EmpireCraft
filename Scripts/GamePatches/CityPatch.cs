@@ -1743,6 +1743,8 @@ public class CityPatch : GamePatch
         if (StateSettlementSystem.CreatingCity) return; // 国家移民安置完毕后再处理城邦独立。
         if (__result == null || EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__result)) return;
         CityStateService.OnCityBuilt(__result, pActor);
+        // 部落、方国的族人新建的城分出去成为新部落(见 TribalFissionService)
+        TribalFissionService.OnCityBuilt(__result, pActor);
     }
 
     public static void newCity(City __instance, Actor pActor)

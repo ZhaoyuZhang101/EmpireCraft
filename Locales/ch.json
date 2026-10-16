@@ -1965,6 +1965,8 @@
   "plan_erase": "擦除規劃",
   "plan_erase_description": "按住拖動擦掉刷過的用途和設施，大小隨筆刷。一塊地的規劃擦得一格不剩，這塊地的功能區隨之取消。",
   "empire_core_name": "法理名稱",
+  "tribal_fission_empire_history": "{0}的族人在{1}另立一支，號{2}，同屬部落聯盟。",
+  "tribal_fission_history": "{0}的族人在{1}另立一支，號{2}，與母部落結盟。",
   "capital_loss_restored": "{0}收復舊都{1}，還於舊都，復稱{2}。",
   "kingdom_type_xingzai": "行在",
   "Later": "後",
