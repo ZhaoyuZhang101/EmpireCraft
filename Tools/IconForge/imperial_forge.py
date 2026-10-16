@@ -1370,6 +1370,14 @@ RESOURCES = {
 
 
 # ═════════════ 生成 ═════════════
+# 人口、矿藏笔刷(这几个对象定义在 GODPOWERS 之后，这里补进去)
+GODPOWERS.update({
+    "population_add": (obj_people, "plus"),
+    "population_remove": (obj_people, "minus"),
+    "deposit_clear": (obj_res_copper, "cross"),
+})
+
+
 def build():
     out = {}
     for name, obj in TABS.items():

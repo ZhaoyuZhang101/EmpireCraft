@@ -28,6 +28,7 @@ internal static class MainTab
     public const string PLANNING_GROUP = "city_planning_group";
     public const string IDEOLOGY_SEED_GROUP = "ideology_seed_group";
     public const string CULTURE_BRUSH_GROUP = "culture_brush_group";
+    public const string RESOURCE_BRUSH_GROUP = "resource_brush_group";
     public const string DISPLAY_GROUP = "display_tool_group";
     public const string EMPIRE_FUNCTIONS = "empire_function_group";
     public const string PROVINCE_GROUP = "province_group";
@@ -58,6 +59,7 @@ internal static class MainTab
             PLANNING_GROUP,
             IDEOLOGY_SEED_GROUP,
             CULTURE_BRUSH_GROUP,
+            RESOURCE_BRUSH_GROUP,
         });
         // Add buttons to the tab.
         // 向标签页添加按钮.
@@ -393,6 +395,21 @@ internal static class MainTab
                 brushTip.type = "normal";
             }
             AddButton(CULTURE_BRUSH_GROUP, brush);
+        }
+
+        // ---- 人口、矿藏笔刷(见 CityResourcePowers) ----
+        foreach ((string powerId, string icon) in CityResourcePowers.Init())
+        {
+            PowerButton brush = PowerButtonCreator.CreateGodPowerButton(powerId, SpriteTextureLoader.getSprite(icon));
+            TipButton brushTip = brush?.GetComponent<TipButton>();
+            if (brushTip != null)
+            {
+                brushTip.textOnClick = powerId;
+                brushTip.textOnClickDescription = powerId + "_description";
+                brushTip.text_description_2 = "";
+                brushTip.type = "normal";
+            }
+            AddButton(RESOURCE_BRUSH_GROUP, brush);
         }
 
         // ---- 理念种子 ----
