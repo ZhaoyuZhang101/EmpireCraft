@@ -1707,49 +1707,10 @@ namespace EmpireCraft.Scripts.AI
                     if (!kingdom.GetEmpire().AllowsPosthumousNames()) return false;
                     return true;
                 },
-                action = delegate(Actor pActor) 
+                action = delegate(Actor pActor)
                 {
-                    Kingdom kingdom = pActor.kingdom;
-                    foreach (EmpireCraftHistory cHistory in kingdom.GetEmpire().data.history)
-                    {
-                        Actor actor =  World.world.units.get(cHistory.id);
-                        if (!string.IsNullOrEmpty(cHistory.emperor))
-                        {
-                            if (actor != null)
-                            {
-                                if (actor.isAlive()) continue;
-                            }
-                            if (string.IsNullOrEmpty(cHistory.shihao_name))
-                            {
-                                Empire empire = kingdom.GetEmpire();
-                                if (empire.IsFoundingEmperorHistory(cHistory)) cHistory.is_first = true;
-                                // 谥法：按先帝生平定庙号谥号，见 PosthumousNameGenerator
-                                var names = PosthumousNameGenerator.Decide(empire, cHistory);
-                                cHistory.shihao_name = names.shi;
-                                cHistory.miaohao_name = names.miao;
-                                cHistory.miaohao_suffix = names.miao_suffix;
-                                // 本朝施行"增广尊谥"后(或帝国设置开了长谥号)，有庙号的先帝得明式长谥
-                                if ((empire.data.long_posthumous || empire.data.show_long_posthumous) && names.HasTemple)
-                                    cHistory.shihao_long = PosthumousNameGenerator.LongName(names.shi, cHistory.is_first);
-                                string template = LM.Get(names.HasTemple
-                                    ? "history_name_previous_emperor_reason"
-                                    : "history_name_previous_emperor_no_temple");
-                                empire.RecordHistory(directContent: template
-                                    .Replace("$actor$", empire.Emperor.data.name)
-                                    .Replace("$actor2$", cHistory.emperor)
-                                    .Replace("$reason$", LM.Get(names.reason))
-                                    .Replace("$shihao$", cHistory.shihao_long is { Count: > 0 }
-                                        ? PosthumousNameGenerator.ShiTitle(cHistory, empire)
-                                        : LM.Get(cHistory.shihao_name))
-                                    .Replace("$miaohao$", names.HasTemple
-                                        ? LM.Get(cHistory.miaohao_name) + LM.Get(cHistory.miaohao_suffix)
-                                        : ""),
-                                    actorId: empire.Emperor.data.id);
-                                TranslateHelper.LogEmpeorNamingPreviousEmperor(pActor, cHistory.emperor);
-                            }
-                            //追封
-                        }                    
-                    }
+                    // 谥法：按先帝生平定庙号谥号(见 Empire.ConferPosthumousNames、PosthumousNameGenerator)
+                    pActor.kingdom.GetEmpire().ConferPosthumousNames(pActor, announceAll: true);
                     return true;
                 }
             });

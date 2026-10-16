@@ -930,6 +930,51 @@ public class Empire : MetaObject<EmpireData>
     public bool AllowsPosthumousNames() =>
         !RepublicSystem.IsRepublic(this) && CoreKingdom?.GetRegime()?.type != RegimeType.Modern;
 
+    // 为本朝还没定谥的先帝定谥号、庙号(谥法见 PosthumousNameGenerator)，conferrer 为定谥的今上；返回定了几位。
+    // 用户 2026-10-17 "藩王都是有谥号的""皇帝也要显示一样的"：以前只有今上发起"追封"决议才定，无小人时这条决议
+    // 几乎没人发起，历代先帝都没有谥号；现在每年由今上自动为先帝定谥(见 EmpireCraftEmpireBehCheckMandate，决议照旧可用)。
+    // 自动定谥一次补了好几位(旧存档)时只为最近的一位弹提示，史册照记每一位
+    public int ConferPosthumousNames(Actor conferrer, bool announceAll = false)
+    {
+        if (conferrer?.data == null || !AllowsPosthumousNames()) return 0;
+        var pending = new List<EmpireCraftHistory>();
+        foreach (EmpireCraftHistory cHistory in data.history)
+        {
+            if (string.IsNullOrEmpty(cHistory.emperor) || !string.IsNullOrEmpty(cHistory.shihao_name)) continue;
+            Actor actor = World.world.units.get(cHistory.id);
+            if (actor != null && actor.isAlive()) continue;
+            pending.Add(cHistory);
+        }
+        foreach (EmpireCraftHistory cHistory in pending)
+        {
+            if (IsFoundingEmperorHistory(cHistory)) cHistory.is_first = true;
+            var names = PosthumousNameGenerator.Decide(this, cHistory);
+            cHistory.shihao_name = names.shi;
+            cHistory.miaohao_name = names.miao;
+            cHistory.miaohao_suffix = names.miao_suffix;
+            // 本朝施行"增广尊谥"后(或帝国设置开了长谥号)，有庙号的先帝得明式长谥
+            if ((data.long_posthumous || data.show_long_posthumous) && names.HasTemple)
+                cHistory.shihao_long = PosthumousNameGenerator.LongName(names.shi, cHistory.is_first);
+            string template = LM.Get(names.HasTemple
+                ? "history_name_previous_emperor_reason"
+                : "history_name_previous_emperor_no_temple");
+            this.RecordHistory(directContent: template
+                    .Replace("$actor$", conferrer.data.name)
+                    .Replace("$actor2$", cHistory.emperor)
+                    .Replace("$reason$", LM.Get(names.reason))
+                    .Replace("$shihao$", cHistory.shihao_long is { Count: > 0 }
+                        ? PosthumousNameGenerator.ShiTitle(cHistory, this)
+                        : LM.Get(cHistory.shihao_name))
+                    .Replace("$miaohao$", names.HasTemple
+                        ? LM.Get(cHistory.miaohao_name) + LM.Get(cHistory.miaohao_suffix)
+                        : ""),
+                actorId: conferrer.data.id);
+            if (announceAll || cHistory == pending[pending.Count - 1])
+                TranslateHelper.LogEmpeorNamingPreviousEmperor(conferrer, cHistory.emperor);
+        }
+        return pending.Count;
+    }
+
     public bool IsNeedToSetPosthumous()
     {
         if (!AllowsPosthumousNames()) return false;

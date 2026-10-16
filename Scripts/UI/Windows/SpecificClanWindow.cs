@@ -684,10 +684,14 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
     // 非空 parent，行为完全不变。卡片本身的搭法(头像+信息栏+clanFrame 边框)一个字没动。
     // 当过皇帝的人，官职栏换成帝号：在位的显示"国号+年号+皇帝"(明永乐皇帝)；
     // 已故且被追封了庙号的显示"国号+庙号(年号)"(明成祖(永乐))，只有谥号的用"国号+谥号+帝"。
+    // 已故的封国国君、藩王有谥号的(湘文侯、湘献王，见 FeudalPosthumousSystem、PrinceLineage)显示谥号
+    // (用户 2026-10-17 "不是说这种藩王都是有谥号的怎么没显示")；
     // 其余情况(没当过皇帝、被废黜仍在世、已故但还没追封又没有年号)照旧显示记录的官职。
     private static string GetDisplayOfficeName(PersonalClanIdentity identity)
     {
-        string fallback = string.IsNullOrEmpty(identity?.officeName) ? "无" : identity.officeName;
+        string fallback = identity != null && !identity.is_alive && !string.IsNullOrWhiteSpace(identity.posthumous_name)
+            ? identity.posthumous_name
+            : string.IsNullOrEmpty(identity?.officeName) ? "无" : identity.officeName;
         if (identity == null || identity.actor_id <= 0 || ModClass.EMPIRE_MANAGER == null) return fallback;
 
         foreach (Empire empire in ModClass.EMPIRE_MANAGER)

@@ -25,6 +25,8 @@ public class EmpireCraftEmpireBehCheckMandate : GameAIEmpireBase
         CliqueSystem.Yearly(empire);
         AncientSchoolsSystem.Yearly(empire);
         JimiTributeSystem.Yearly(empire);
+        // 今上为还没定谥的先帝定谥号、庙号(见 Empire.ConferPosthumousNames)
+        if (empire.Emperor != null && empire.IsNeedToSetPosthumous()) empire.ConferPosthumousNames(empire.Emperor);
         if (empire.Emperor != null && empire.IsNeedToIncreaseMandate())
         {
             empire.AddMandate(1);
