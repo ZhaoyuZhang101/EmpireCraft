@@ -24,6 +24,7 @@ public class EmpireCraftEmpireBehCheckMandate : GameAIEmpireBase
         ImperialSealSystem.Yearly(empire);
         CliqueSystem.Yearly(empire);
         AncientSchoolsSystem.Yearly(empire);
+        JimiTributeSystem.Yearly(empire);
         if (empire.Emperor != null && empire.IsNeedToIncreaseMandate())
         {
             empire.AddMandate(1);

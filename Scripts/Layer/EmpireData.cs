@@ -52,6 +52,12 @@ public class EmpireData : MetaObjectData
     // 上次修氏族志、抑豪强的时间(见 GentrySystem)
     public double gentry_register_at = -1d;
     public double gentry_curbed_at = -1d;
+    // 羁縻朝贡(见 JimiTributeSystem)：各羁縻政区受册封的首领(负数 = 新首领还没册封)、上回入朝、加恩安抚的时间；
+    // 叛去的羁縻政区与叛去的时间
+    public Dictionary<long, long> jimi_chiefs = new();
+    public Dictionary<long, double> jimi_tribute_at = new();
+    public Dictionary<long, double> jimi_favor_at = new();
+    public Dictionary<long, double> jimi_rebels = new();
     public bool original_royal_been_changed { get; set; } = false;
     public bool feed_royal = false;
     public double original_royal_been_changed_timestamp { get; set; }
