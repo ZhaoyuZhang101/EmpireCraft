@@ -32,8 +32,13 @@ internal static class MainTab
     public const string DISPLAY_GROUP = "display_tool_group";
     public const string EMPIRE_FUNCTIONS = "empire_function_group";
     public const string PROVINCE_GROUP = "province_group";
+    // 列国征伐页(用户 2026-10-17 "感觉可以再分一页了")：军令、附庸、春秋战国
+    public const string WAR_GROUP = "war_command_group";
+    public const string VASSAL_GROUP = "vassal_group";
+    public const string ZHOU_GROUP = "zhou_era_group";
     public static PowersTab tab;
     public static PowersTab cultureTab;
+    public static PowersTab warTab;
 
     public static void Init()
     {
@@ -61,6 +66,14 @@ internal static class MainTab
             CULTURE_BRUSH_GROUP,
             RESOURCE_BRUSH_GROUP,
         });
+        warTab = TabManager.CreateTab("EmpireWarTab", "empire_war_tab_name", "empire_war_tab_description",
+            SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/GameResources/TabWarfare.png"));
+        warTab.SetLayout(new List<string>()
+        {
+            WAR_GROUP,
+            VASSAL_GROUP,
+            ZHOU_GROUP,
+        });
         // Add buttons to the tab.
         // 向标签页添加按钮.
         _addButtons();
@@ -69,10 +82,12 @@ internal static class MainTab
         // 更新标签页的布局.
         tab.UpdateLayout();
         cultureTab.UpdateLayout();
+        warTab.UpdateLayout();
         // 当前加载器版本的 UpdateLayout 把所有按钮排成一整列，不分组也不画分隔线：
         // 在它排好的基础上按组重新排，组与组之间留空并画分隔线(同原版标签页)
         ApplyGroupedLayout(tab);
         ApplyGroupedLayout(cultureTab);
+        ApplyGroupedLayout(warTab);
     }
 
     private static void _createWindows()
@@ -258,20 +273,26 @@ internal static class MainTab
         AddButton(EMPIRE_GROUP, PowerButtonCreator.CreateGodPowerButton("empire_enfeoff",
                 SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/GameResources/SplitAllUnderHeaven.png")));
 
+        // ---- 列国征伐页：军令、附庸、春秋战国 ----
+        // 军令：先点一国的城，再点目标城(本国的城固守，交战敌国的城集中攻打，见 CorpsCommandSystem)
+        CorpsCommandPower.init();
+        AddButton(WAR_GROUP, PowerButtonCreator.CreateGodPowerButton(CorpsCommandPower.Id,
+            SpriteTextureLoader.getSprite("ui/icons/godpowers/" + CorpsCommandPower.Id)));
+
         // 附庸：强制附庸(先点宗主再点目标)与解除附庸
         VassalPowerButtons.init();
-        AddButton(EMPIRE_GROUP, PowerButtonCreator.CreateGodPowerButton("force_vassal",
+        AddButton(VASSAL_GROUP, PowerButtonCreator.CreateGodPowerButton("force_vassal",
             SpriteTextureLoader.getSprite("ui/icons/godpowers/force_vassal")));
-        AddButton(EMPIRE_GROUP, PowerButtonCreator.CreateGodPowerButton("release_vassal",
+        AddButton(VASSAL_GROUP, PowerButtonCreator.CreateGodPowerButton("release_vassal",
             SpriteTextureLoader.getSprite("ui/icons/godpowers/release_vassal")));
 
         // 春秋战国(周制)：召集会盟、赐胙立霸主、推进时代
         ZhouEraPowers.init();
-        AddButton(EMPIRE_GROUP, PowerButtonCreator.CreateGodPowerButton("zhou_conference",
+        AddButton(ZHOU_GROUP, PowerButtonCreator.CreateGodPowerButton("zhou_conference",
             SpriteTextureLoader.getSprite("ui/icons/godpowers/zhou_conference")));
-        AddButton(EMPIRE_GROUP, PowerButtonCreator.CreateGodPowerButton("zhou_bestow",
+        AddButton(ZHOU_GROUP, PowerButtonCreator.CreateGodPowerButton("zhou_bestow",
             SpriteTextureLoader.getSprite("ui/icons/godpowers/zhou_bestow")));
-        AddButton(EMPIRE_GROUP, PowerButtonCreator.CreateGodPowerButton("zhou_advance",
+        AddButton(ZHOU_GROUP, PowerButtonCreator.CreateGodPowerButton("zhou_advance",
             SpriteTextureLoader.getSprite("ui/icons/godpowers/zhou_advance")));
 
         //帝国势力列表
@@ -516,7 +537,8 @@ internal static class MainTab
     private static void AddButton(string group, PowerButton button)
     {
         bool cultureSide = group is CULTURE_GROUP or PLANNING_GROUP or IDEOLOGY_SEED_GROUP or CULTURE_BRUSH_GROUP;
-        (cultureSide ? cultureTab : tab).AddPowerButton(group, button);
+        bool warSide = group is WAR_GROUP or VASSAL_GROUP or ZHOU_GROUP;
+        (warSide ? warTab : cultureSide ? cultureTab : tab).AddPowerButton(group, button);
         if (button != null) _buttonsInOrder.Add(new KeyValuePair<string, PowerButton>(group, button));
     }
 
@@ -559,7 +581,7 @@ internal static class MainTab
     {
         foreach (PowersTab other in Resources.FindObjectsOfTypeAll<PowersTab>())
         {
-            if (other == null || other == tab || other == cultureTab || other == target) continue;
+            if (other == null || other == tab || other == cultureTab || other == warTab || other == target) continue;
             foreach (Transform child in other.transform)
                 if (child.name.StartsWith("_line")) return child.gameObject;
         }

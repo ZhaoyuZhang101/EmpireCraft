@@ -357,6 +357,8 @@ namespace EmpireCraft.Scripts.UI.Windows
                 _ => "#C9E6A8"
             };
             string text = LM.Get("corps_task_" + corps.task);
+            // 奉军令固守、攻打的(见 CorpsCommandSystem)
+            if (CorpsCommandSystem.Ordered(World.world.kingdoms.get(corps.kingdom_id), corps)) text = LM.Get("corps_task_ordered") + text;
             City sector = corps.sector_city_id >= 0 ? World.world.cities.get(corps.sector_city_id) : null;
             if (sector?.data != null && !sector.isRekt()) text += " · " + sector.GetCityName();
             return text.ColorString(hex);

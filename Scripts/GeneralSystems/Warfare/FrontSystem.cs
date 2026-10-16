@@ -21,6 +21,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //      十块以内算一半、更远算四分之一，免得远在千里的敌军一把首都定为目标就把全军拉回去)；守军不够分时按各城攻势比例分，
 //      不让攻势最大的一座城把军全拿走；没派到的预备军不再全挤在驻地(中央军的驻地都在首都)，分驻本国各城——
 //      先驻都城与边境大城(见 Stations)；
+//      军令(见 CorpsCommandSystem)：固守的城排第一、至少拿六成兵力；攻打的城所在(或离它最近)的一段，出征的军都投那里；
 //   ③ 交战：攻方(兵力×组织度×火力) 对 守方(兵力×组织度×火力×(1.25+堑壕)，无军驻守时由团练抵抗)，
 //      双方按战况伤亡、掉组织度；攻方占优就占领一块紧挨着进攻军团的地块，离它最近的进攻军团随即进驻
 //      (一格一格推进，部队没到的地方战线不动；沿用地块占领模式，满城即陷落)，守方占优就夺回守军身边的一块；
@@ -427,12 +428,21 @@ public static partial class FrontSystem
         bool Surprised(City city) => pressure.TryGetValue(city.id, out var entries) &&
                                      entries.Where(entry => Hostile(kingdom, entry.attacker))
                                          .All(entry => MusterSystem.Mustering(kingdom, entry.attacker));
+        // 军令：集中固守的城排第一，至少拿六成能上阵的兵力(攻势更大就按攻势)
+        float available = ready.Sum(corps => corps.strength);
+        City hold = CorpsCommandSystem.HoldCity(kingdom);
+        if (hold != null)
+        {
+            threatened.Remove(hold);
+            threatened.Insert(0, hold);
+        }
+        float holdNeed = hold == null ? 0f : Mathf.Min(available, Mathf.Max(Threat(hold) * 0.9f, CorpsCommandSystem.HoldShare * available));
         // 守军不够分：按各城攻势比例分，不让攻势最大的一座城把军全拿走
-        float totalThreat = threatened.Sum(Threat) * 0.9f, available = ready.Sum(corps => corps.strength);
-        float shareOfNeed = totalThreat > available && totalThreat > 0f ? available / totalThreat : 1f;
+        float totalThreat = threatened.Where(city => city != hold).Sum(Threat) * 0.9f, rest = Mathf.Max(0f, available - holdNeed);
+        float shareOfNeed = totalThreat > rest && totalThreat > 0f ? rest / totalThreat : 1f;
         foreach (City city in threatened)
         {
-            float need = Threat(city) * 0.9f * shareOfNeed, have = 0f;
+            float need = city == hold ? holdNeed : Threat(city) * 0.9f * shareOfNeed, have = 0f;
             TileZone anchor = DefenseZone(kingdom, city);
             List<TileZone> line = DefenseLine(kingdom, city);
             var lineLoad = new Dictionary<int, int>();
@@ -456,6 +466,16 @@ public static partial class FrontSystem
             if (have < need) WarScopeSystem.ReportShortfall(kingdom);
         }
         // ② 进攻：集中在少数几段；跨海登陆的军(还没上岸的)兵力合计不超过运输船运力，整军装不下就分出先遣军
+        // 军令：集中攻打——出征的军都投那座城所在的一段；城在敌境深处、还不是战线的，投离它最近的一段
+        City strike = CorpsCommandSystem.AttackCity(kingdom);
+        Sector focus = null;
+        if (strike != null && sectors.Count > 0)
+        {
+            TileZone goal = strike.getTile()?.zone;
+            focus = sectors.FirstOrDefault(sector => sector.City == strike) ?? sectors.OrderBy(sector =>
+                goal == null || sector.City.getTile()?.zone == null ? 0f : CorpsSystem.ZoneDistance(sector.City.getTile().zone, goal)).First();
+        }
+        FocusSectors[kingdom.id] = focus?.City?.data?.id ?? -1L;
         var attackOn = new Dictionary<Sector, float>();
         var attackLoad = new Dictionary<int, int>();
         // 不奉诏的禁军只守城、不出征(见 PalaceArmySystem)
@@ -467,8 +487,8 @@ public static partial class FrontSystem
             Sector keep = corps.task == "attack" ? sectors.FirstOrDefault(sector => sector.City.id == corps.sector_city_id) : null;
             // 船不够、也分不出先遣军的登陆战线不去(已在船上的照旧开过去)；登陆战线按装得上船的兵力估胜算
             bool Boardable(Sector sector) => Ashore(corps, sector) || corps.embarked || Shippable(corps, shipping) > 0f;
-            if (keep != null && !Boardable(keep)) keep = null;
-            Sector choice = keep ?? sectors
+            if (keep != null && (!Boardable(keep) || focus != null && keep != focus)) keep = null;
+            Sector choice = keep ?? (focus != null && Boardable(focus) ? focus : null) ?? sectors
                 .Where(sector => (attackOn.ContainsKey(sector) || attackOn.Count < MaxOffensives) && Boardable(sector))
                 .OrderByDescending(sector => Score(kingdom, corps, sector, attackOn,
                     Ashore(corps, sector) ? corps.strength : Mathf.Max(Shippable(corps, shipping), corps.embarked ? corps.strength : 0f)))
@@ -543,6 +563,12 @@ public static partial class FrontSystem
     }
 
     private static int HomeZone(CorpsData corps) => CorpsSystem.Home(corps)?.getTile()?.zone?.id ?? corps.zone_id;
+
+    // 军令集中攻打时这个月投的那一段(城 id，没有为 -1)
+    private static readonly Dictionary<long, long> FocusSectors = new();
+
+    public static long FocusSector(Kingdom kingdom) =>
+        kingdom != null && FocusSectors.TryGetValue(kingdom.id, out long id) ? id : -1L;
 
     // 预备军分驻本国各城：都城与边境的城在前(与外国接壤的城先、人多的先)，各军按编号依次轮着分，
     // 一城驻满一支才轮到下一城；义军留在本城。返回 军号 → 驻防地块
