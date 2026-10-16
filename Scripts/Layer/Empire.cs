@@ -742,6 +742,8 @@ public class Empire : MetaObject<EmpireData>
         }
         EmpireClan = actor.clan;
         CoreKingdom?.SetSpecificClan(currentSpecificClan);
+        // 开国之君族里没有成年男丁的，补记已成年的子孙(见 VirtualGenealogySystem.EnsureFounderHouse)
+        if (isNew && !IsRepublicState) VirtualGenealogySystem.EnsureFounderHouse(actor);
         //设定天子身份并移居首都
         if (actor.isOfficer())
         {

@@ -1022,6 +1022,76 @@ public static class VirtualGenealogySystem
         return true;
     }
 
+    // 开国之君的家室(无小人、纯净地图模式)：改朝换代的第一位皇帝多半是年过半百的权臣、宿将，族谱里却往往只有他一人
+    // (从人口里落成，或宗族刚为他新立)——身后"皇族已无可立之人"，群臣议立外姓，又换一朝(玩家日志里一百七十年换了
+    // 三十五次宗族，开国雄主的统一大业也跟着断)。开国时族里没有两个成年男丁的，按他的年纪补记几个已成年的儿子
+    // (年长的儿子膝下再补孙辈)，虚拟入谱，继位、分封时再落成
+    private const int FounderHeirMinAge = 36;
+
+    public static int EnsureFounderHouse(Actor founder)
+    {
+        if (!CityPopulationSystem.AbstractPopulationEnabled || founder?.data == null || World.world == null) return 0;
+        PersonalClanIdentity self = founder.GetPersonalIdentity();
+        SpecificClan clan = self?._specificClan;
+        int age = founder.getAge();
+        if (self == null || clan == null || age < FounderHeirMinAge) return 0;
+        EnsureIndex();
+        int adults = clan.SnapshotPeople().Count(person => person != self && person.is_alive && person.isMale() && person.age >= 16);
+        if (adults >= 2) return 0;
+        double now = World.world.getCurWorldTime();
+        City city = founder.city ?? founder.kingdom?.capital;
+        string species = !string.IsNullOrEmpty(self.species) ? self.species : founder.asset?.id;
+        int sons = age >= 50 ? 3 : 2, added = 0;
+        int fatherAge = 19 + UnityEngine.Random.Range(0, 8);
+        for (int i = 0; i < sons && fatherAge <= age - 16; i++)
+        {
+            int sonAge = age - fatherAge;
+            PersonalClanIdentity son = AddGrownChild(clan, self, sonAge, city, species, now);
+            added++;
+            int at = 20 + UnityEngine.Random.Range(0, 6);
+            for (int j = 0; j < 2 && sonAge >= 38 && at <= sonAge - 16; j++)
+            {
+                AddGrownChild(clan, son, sonAge - at, city, species, now);
+                added++;
+                at += 3 + UnityEngine.Random.Range(0, 4);
+            }
+            fatherAge += 2 + UnityEngine.Random.Range(0, 5);
+        }
+        if (added > 0) LogService.LogInfo($"[EmpireCraft][开国补嗣] {founder.getName()}({age}岁) 族谱里没有成年男丁，补记子孙 {added} 人");
+        return added;
+    }
+
+    private static PersonalClanIdentity AddGrownChild(SpecificClan clan, PersonalClanIdentity parent, int years, City city,
+        string species, double now)
+    {
+        var child = new PersonalClanIdentity
+        {
+            id = OverallHelperFunc.IdGenerator.NextId(),
+            specific_clan_id = clan.id,
+            actor_id = -1L,
+            is_alive = true,
+            is_virtual = true,
+            virtual_since = now,
+            virtual_city_id = city?.data?.id ?? parent.virtual_city_id,
+            recordedAge = years,
+            // 一年 60 秒、一月 5 秒；生日落在 years 年前再往前几个月
+            birthday = Date.getDate(now - years * 60d - UnityEngine.Random.Range(0, 12) * 5d),
+            sex = ActorSex.Male,
+            species = species,
+            culture = parent.culture,
+            generation = parent.generation + 1,
+            is_main = true
+        };
+        if (parent.isMale()) child.father = parent.id;
+        else child.mother = parent.id;
+        child.name = ChildName(clan, child, parent);
+        clan.Upsert(child);
+        SpecificClanManager._globalPersonLookup[child.id] = child;
+        parent.children.Add(child.id);
+        VirtualIds.Add(child.id);
+        return child;
+    }
+
     private static string ChildName(SpecificClan clan, PersonalClanIdentity child, PersonalClanIdentity parent)
     {
         string generated = CultureService.GenerateCulturalName(MetaType.Unit, child.id, parent.culture);
