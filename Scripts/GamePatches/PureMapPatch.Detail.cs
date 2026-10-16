@@ -1753,7 +1753,8 @@ public partial class PureMapPatch
         var best = new Dictionary<int, (float d, float along)>();
         foreach (UrbanFabric.Road road in g.Roads)
         {
-            float half = g.Modern ? road.Gate ? 1.9f : 1.4f : road.Gate ? 1.1f : 0.8f, reach = half + 0.8f;
+            bool wide = road.Gate || road.Link;
+            float half = g.Modern ? wide ? 1.9f : 1.4f : wide ? 1.1f : 0.8f, reach = half + 0.8f;
             int steps = Mathf.Max(1, road.Length * s * 2);
             for (int k = 0; k <= steps; k++)
             {

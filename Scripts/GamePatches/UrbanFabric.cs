@@ -328,12 +328,13 @@ public static class UrbanFabric
         tile?.zone != null && tile.zone.city == g.City && g.Built.Contains(tile.zone.id) &&
         (g.Landmark.Contains(tile.zone.id) || InTown(g, tile));
 
-    // 一条城郊的路：起点、方向(单位向量)、长度、弯的幅度与疏密；出城大路(Gate)两旁有关厢
+    // 一条城郊的路：起点、方向(单位向量)、长度、弯的幅度与疏密；出城大路(Gate)两旁有关厢；
+    // 官道(Link，两城之间共用的路，见 Links)与出城大路一样宽，两头都不弯
     public sealed class Road
     {
         public float X, Y, Dx, Dy, Amp, Freq, Phase;
         public int Length;
-        public bool Gate;
+        public bool Gate, Link;
     }
 
     // 城郊：路、关厢、镇、村与小路，都只落在本城没建成的平地上。种子定：
@@ -350,51 +351,19 @@ public static class UrbanFabric
         }
         g.Suburb = tier >= 2 ? 4 * (tier - 1) : 0;
         int first = (int)(H(g.Seed, 60) * 4);
-        var gates = new List<Road>();
         // 路网的路从哪几个方向出城(修通的、在修的)：这些方向不再另画出城大路，免得两条路并排走
         var linked = new List<float>();
+        var networked = new HashSet<(long, long)>();
         foreach (KeyValuePair<(long, long), RoadLink> pair in RoadBuildingSystem.All)
         {
             if (pair.Value == null || pair.Value.grade <= 0 && pair.Value.building <= 0) continue;
+            networked.Add(PairKey(pair.Key.Item1, pair.Key.Item2));
             long other = pair.Key.Item1 == g.City.data.id ? pair.Key.Item2 : pair.Key.Item2 == g.City.data.id ? pair.Key.Item1 : -1L;
             WorldTile there = other < 0 ? null : World.world.cities.get(other)?.getTile();
             if (there != null) linked.Add(Angle(there.x - g.GateX, there.y - g.GateY));
         }
-        for (int k = 0; k < 4; k++)
-        {
-            bool open = tier >= 2 ? k == first || H(g.Seed, k, 80) < 0.78f : tier == 1 && (k == first || k == (first + 2) % 4);
-            if (!open || Near(linked, Angle(AxisX[k], AxisY[k]), 45f)) continue;
-            // 城门到城外：顺着这个方向走出城的轮廓
-            int step = 0;
-            while (step < 80 && Urban(g, World.world.GetTile(g.GateX + AxisX[k] * step, g.GateY + AxisY[k] * step))) step++;
-            var road = new Road
-            {
-                X = g.GateX + AxisX[k] * step, Y = g.GateY + AxisY[k] * step, Dx = AxisX[k], Dy = AxisY[k], Gate = true,
-                Length = Mathf.RoundToInt((14 + 8 * tier) * (0.7f + 0.5f * H(g.Seed, k, 83))),
-                Amp = 1f + 3f * H(g.Seed, k, 81), Freq = 0.05f + 0.13f * H(g.Seed, k, 82), Phase = H(g.Seed, k, 84) * TwoPi
-            };
-            road.Length = Clip(road);
-            if (road.Length < 4) continue;
-            g.Roads.Add(road);
-            gates.Add(road);
-        }
-        int branches = gates.Count == 0 ? 0 : tier switch { 2 => (int)(H(g.Seed, 85) * 2f), 3 => 1 + (int)(H(g.Seed, 85) * 2f), 4 => 1 + (int)(H(g.Seed, 85) * 3f), _ => 0 };
-        for (int b = 0; b < branches; b++)
-        {
-            Road parent = gates[(int)(H(g.Seed, b, 86) * gates.Count) % gates.Count];
-            int from = 4 + (int)(H(g.Seed, b, 87) * Mathf.Max(1, Mathf.Min(12, parent.Length - 6)));
-            (int px, int py) = Point(parent, from);
-            float turn = (H(g.Seed, b, 88) < 0.5f ? -1f : 1f) * (0.6f + 0.45f * H(g.Seed, b, 89));
-            float angle = Mathf.Atan2(parent.Dy, parent.Dx) + turn;
-            var branch = new Road
-            {
-                X = px, Y = py, Dx = Mathf.Cos(angle), Dy = Mathf.Sin(angle),
-                Length = 10 + (int)(H(g.Seed, b, 90) * (6 + 4 * tier)),
-                Amp = 0.8f + 2f * H(g.Seed, b, 91), Freq = 0.06f + 0.12f * H(g.Seed, b, 92), Phase = H(g.Seed, b, 93) * TwoPi
-            };
-            branch.Length = Clip(branch);
-            if (branch.Length >= 4) g.Roads.Add(branch);
-        }
+        // 镇、村的落点照旧按原来的出城大路、岔路定(官道是后加的，村镇不因此挪地方)；画出来的路在后面另算
+        GateRoads(g, linked, false);
         // 镇：落在路上(大路出城十格以外、岔路五格以外)；离路口多远只看种子，不随路的长短(档位)变，城长大了镇不挪地方
         int towns = tier switch { 2 => 1, 3 => 2 + (H(g.Seed, 61) < 0.5f ? 1 : 0), 4 => 3 + (H(g.Seed, 61) < 0.5f ? 1 : 0), _ => 0 };
         for (int attempt = 0; attempt < 16 && g.Towns.Count < towns && g.Roads.Count > 0; attempt++)
@@ -447,7 +416,62 @@ public static class UrbanFabric
             if (best < 3) continue;
             g.Villages.Add((x, y));
         }
+        // 画出来的路：两城之间的官道(见 Links)；通往邻城有官道的方向不再另画出城大路，出城大路、岔路走到本城地界以前收住
+        List<(Road road, City other)> links = Links(g, networked);
+        var drawn = new List<float>(linked);
+        foreach ((Road _, City other) in links)
+            if (other?.getTile() is WorldTile there) drawn.Add(Angle(there.x - g.GateX, there.y - g.GateY));
+        g.Roads.Clear();
+        GateRoads(g, drawn, true);
+        foreach ((Road road, City other) in links)
+        {
+            g.Roads.Add(road);
+            if (other != null) AddLinkSpur(g, road);
+        }
         PlaceTrails(g);
+    }
+
+    // 出城大路与岔路：linked 方向上不出大路；ownLand 为真时走到本城地界以前收住(画出来的路)，否则只遇山、城墙收住(定村镇落点用)
+    private static void GateRoads(Geometry g, List<float> linked, bool ownLand)
+    {
+        int tier = g.Tier;
+        int first = (int)(H(g.Seed, 60) * 4);
+        var gates = new List<Road>();
+        for (int k = 0; k < 4; k++)
+        {
+            bool open = tier >= 2 ? k == first || H(g.Seed, k, 80) < 0.78f : tier == 1 && (k == first || k == (first + 2) % 4);
+            if (!open || Near(linked, Angle(AxisX[k], AxisY[k]), 45f)) continue;
+            // 城门到城外：顺着这个方向走出城的轮廓
+            int step = 0;
+            while (step < 80 && Urban(g, World.world.GetTile(g.GateX + AxisX[k] * step, g.GateY + AxisY[k] * step))) step++;
+            var road = new Road
+            {
+                X = g.GateX + AxisX[k] * step, Y = g.GateY + AxisY[k] * step, Dx = AxisX[k], Dy = AxisY[k], Gate = true,
+                Length = Mathf.RoundToInt((14 + 8 * tier) * (0.7f + 0.5f * H(g.Seed, k, 83))),
+                Amp = 1f + 3f * H(g.Seed, k, 81), Freq = 0.05f + 0.13f * H(g.Seed, k, 82), Phase = H(g.Seed, k, 84) * TwoPi
+            };
+            road.Length = Clip(g, road, ownLand);
+            if (road.Length < 4) continue;
+            g.Roads.Add(road);
+            gates.Add(road);
+        }
+        int branches = gates.Count == 0 ? 0 : tier switch { 2 => (int)(H(g.Seed, 85) * 2f), 3 => 1 + (int)(H(g.Seed, 85) * 2f), 4 => 1 + (int)(H(g.Seed, 85) * 3f), _ => 0 };
+        for (int b = 0; b < branches; b++)
+        {
+            Road parent = gates[(int)(H(g.Seed, b, 86) * gates.Count) % gates.Count];
+            int from = 4 + (int)(H(g.Seed, b, 87) * Mathf.Max(1, Mathf.Min(12, parent.Length - 6)));
+            (int px, int py) = Point(parent, from);
+            float turn = (H(g.Seed, b, 88) < 0.5f ? -1f : 1f) * (0.6f + 0.45f * H(g.Seed, b, 89));
+            float angle = Mathf.Atan2(parent.Dy, parent.Dx) + turn;
+            var branch = new Road
+            {
+                X = px, Y = py, Dx = Mathf.Cos(angle), Dy = Mathf.Sin(angle),
+                Length = 10 + (int)(H(g.Seed, b, 90) * (6 + 4 * tier)),
+                Amp = 0.8f + 2f * H(g.Seed, b, 91), Freq = 0.06f + 0.12f * H(g.Seed, b, 92), Phase = H(g.Seed, b, 93) * TwoPi
+            };
+            branch.Length = Clip(g, branch, ownLand);
+            if (branch.Length >= 4) g.Roads.Add(branch);
+        }
     }
 
     // 小路(用户 2026-10-16："城市和小镇之间也没有细道路相连，也没有很自然")：以前只有离路十五格以内的村有路，
@@ -462,10 +486,28 @@ public static class UrbanFabric
             for (int d = 0; d <= road.Length; d += 2)
             {
                 (int rx, int ry) = Point(road, d);
+                // 官道穿过别城的那几段不算(小路通过去就出了本城的地，画不出来)
+                if (road.Link && World.world.GetTile(rx, ry)?.zone?.city != g.City) continue;
                 roadPoints.Add(new Vector2(rx, ry));
             }
-        foreach ((int tx, int ty, int size, _) in g.Towns) roadPoints.Add(new Vector2(tx, ty));
         var gate = new Vector2(g.GateX, g.GateY);
+        // 镇：原来落脚的出城大路不画了(通往邻城改走官道)的，修一条小路通到最近的路或城门
+        for (int t = 0; t < g.Towns.Count; t++)
+        {
+            (int tx, int ty, int size, _) = g.Towns[t];
+            var at = new Vector2(tx, ty);
+            Vector2 to = gate;
+            float best = Vector2.Distance(at, gate);
+            foreach (Vector2 point in roadPoints)
+            {
+                float d = Vector2.Distance(at, point);
+                if (d >= best) continue;
+                best = d;
+                to = point;
+            }
+            if (best > size + 2f && best <= TrailReach) AddTrail(g, at, to, 5003L + t * 13L);
+        }
+        foreach ((int tx, int ty, int size, _) in g.Towns) roadPoints.Add(new Vector2(tx, ty));
         for (int i = 0; i < g.Villages.Count; i++)
         {
             (int x, int y) = g.Villages[i];
@@ -558,7 +600,8 @@ public static class UrbanFabric
     }
 
     // 城郊的路遇到山(山、高峰)或原版城墙就到此为止，丘陵照走
-    private static int Clip(Road road)
+    // 出城大路、岔路：遇山、城墙为止；画出来的路走出本城的地以前就收住(离地界留一格)，不再一头撞断在地界上
+    private static int Clip(Geometry g, Road road, bool ownLand)
     {
         for (int d = 0; d <= road.Length; d++)
         {
@@ -566,9 +609,142 @@ public static class UrbanFabric
             WorldTile tile = World.world.GetTile(x, y);
             if (tile?.Type == null || tile.Type.mountains || tile.Type.block || tile.Type.wall || MapWallSystem.Contains(tile))
                 return Mathf.Max(0, d - 1);
+            if (ownLand && tile.zone?.city != g.City) return Mathf.Max(0, d - 2);
         }
         return road.Length;
     }
+
+    #region 官道
+
+    // 两城之间的官道(用户 2026-10-17 "为什么这些线跨过城市边界就连不上了"：以前城郊的路只是各城按自己的种子朝城门方向
+    // 随手伸一段，又只画在本城的地上，出了地界就断，邻城之间并不相连)：
+    //   · 哪两座城之间有官道只看全图的城心：相距不过 LinkReach 格，且没有第三座城离两头都比它们彼此更近(相对邻近图：
+    //     近邻相连、不绕远、不叠成一团)；不过山、不穿长城，过水至多 LinkFord 格(渡口)；路网已修通或在修的两城不另画；
+    //   · 路的几何(从编号小的城心到编号大的城心，弯法按两城的种子)与哪座城来算无关；每座城把经过自己地块的官道都收进来，
+    //     谁的地谁画，地界两边是同一条线，正好接上；
+    //   · 两头：从离官道出城处最近的城门拉一段到官道上(见 AddLinkSpur)。
+    private const int LinkReach = 56, LinkFord = 3;
+
+    private static (long, long) PairKey(long a, long b) => a < b ? (a, b) : (b, a);
+
+    // 经过本城地块的官道；other 为官道另一头的城(本城是一头时)，穿城而过的为 null
+    private static List<(Road road, City other)> Links(Geometry g, HashSet<(long, long)> networked)
+    {
+        var result = new List<(Road, City)>();
+        City self = g.City;
+        WorldTile home = self?.getTile();
+        if (home == null || self.zones == null || self.zones.Count == 0) return result;
+        int size = Config.CITY_ZONE_SIZE;
+        int bx0 = int.MaxValue, by0 = int.MaxValue, bx1 = int.MinValue, by1 = int.MinValue;
+        foreach (TileZone zone in self.zones)
+        {
+            bx0 = Mathf.Min(bx0, zone.x * size);
+            by0 = Mathf.Min(by0, zone.y * size);
+            bx1 = Mathf.Max(bx1, zone.x * size + size - 1);
+            by1 = Mathf.Max(by1, zone.y * size + size - 1);
+        }
+        var centers = new List<(City city, int x, int y)>();
+        foreach (City city in World.world.cities)
+        {
+            if (city?.data == null || city.isRekt()) continue;
+            WorldTile tile = city.getTile();
+            if (tile != null) centers.Add((city, tile.x, tile.y));
+        }
+        // 两头都在本城地界外扩 LinkReach 格以内的城才可能有官道经过本城
+        var near = new List<(City city, int x, int y)>();
+        foreach (var c in centers)
+            if (c.x >= bx0 - LinkReach && c.x <= bx1 + LinkReach && c.y >= by0 - LinkReach && c.y <= by1 + LinkReach) near.Add(c);
+        for (int i = 0; i < near.Count; i++)
+        for (int j = i + 1; j < near.Count; j++)
+        {
+            var (ca, ax, ay) = near[i];
+            var (cb, bx, by) = near[j];
+            if (ca.data.id > cb.data.id)
+            {
+                (ca, cb) = (cb, ca);
+                (ax, ay, bx, by) = (bx, by, ax, ay);
+            }
+            float dx = bx - ax, dy = by - ay, d2 = dx * dx + dy * dy;
+            if (d2 > LinkReach * LinkReach || d2 < 36f) continue;
+            // 路(连弯的幅度)碰不到本城的地界就不必算
+            if (Mathf.Max(ax, bx) + 4 < bx0 || Mathf.Min(ax, bx) - 4 > bx1 || Mathf.Max(ay, by) + 4 < by0 || Mathf.Min(ay, by) - 4 > by1)
+                continue;
+            if (networked.Contains(PairKey(ca.data.id, cb.data.id))) continue;
+            // 相对邻近：有第三座城离两头都更近，两城就经由它相连
+            bool between = false;
+            foreach ((City cx, int xx, int xy) in centers)
+            {
+                if (cx == ca || cx == cb) continue;
+                float da = (xx - ax) * (xx - ax) + (xy - ay) * (xy - ay), db = (xx - bx) * (xx - bx) + (xy - by) * (xy - by);
+                if (da < d2 && db < d2)
+                {
+                    between = true;
+                    break;
+                }
+            }
+            if (between) continue;
+            float length = Mathf.Sqrt(d2);
+            long sa = SeedOf(ca), sb = SeedOf(cb);
+            var road = new Road
+            {
+                X = ax, Y = ay, Dx = dx / length, Dy = dy / length, Length = Mathf.RoundToInt(length), Link = true,
+                Amp = 0.8f + 2.2f * H(sa, sb, 301), Freq = 0.04f + 0.08f * H(sa, sb, 302), Phase = H(sa, sb, 303) * TwoPi
+            };
+            bool mine = ca == self || cb == self, clear = true;
+            int water = 0;
+            for (int d = 0; d <= road.Length && clear; d++)
+            {
+                (int x, int y) = Point(road, d);
+                WorldTile tile = World.world.GetTile(x, y);
+                if (tile?.Type == null || tile.Type.mountains || tile.Type.block || tile.Type.wall || MapWallSystem.Contains(tile))
+                    clear = false;
+                else if (tile.Type.liquid) clear = ++water <= LinkFord;
+                else water = 0;
+                if (tile?.zone?.city == self) mine = true;
+            }
+            if (!clear || !mine) continue;
+            result.Add((road, ca == self ? cb : cb == self ? ca : null));
+        }
+        return result;
+    }
+
+    // 官道的一头在本城：从城心沿官道走出城的轮廓，那里离哪座城门近就从那座城门拉一段过去(城门就在出城处的不必拉)
+    private static void AddLinkSpur(Geometry g, Road link)
+    {
+        bool fromStart = Mathf.RoundToInt(link.X) == g.City.getTile()?.x && Mathf.RoundToInt(link.Y) == g.City.getTile()?.y;
+        int exitX = int.MinValue, exitY = 0;
+        for (int k = 0; k <= link.Length; k++)
+        {
+            (int x, int y) = Point(link, fromStart ? k : link.Length - k);
+            if (Urban(g, World.world.GetTile(x, y))) continue;
+            exitX = x;
+            exitY = y;
+            break;
+        }
+        if (exitX == int.MinValue) return;
+        float best = float.MaxValue;
+        int gx = g.GateX, gy = g.GateY;
+        for (int k = 0; k < 4; k++)
+        {
+            int step = 0;
+            while (step < 80 && Urban(g, World.world.GetTile(g.GateX + AxisX[k] * step, g.GateY + AxisY[k] * step))) step++;
+            int x = g.GateX + AxisX[k] * step, y = g.GateY + AxisY[k] * step;
+            float d = (x - exitX) * (x - exitX) + (y - exitY) * (y - exitY);
+            if (d >= best) continue;
+            best = d;
+            gx = x;
+            gy = y;
+        }
+        float length = Mathf.Sqrt(best);
+        if (length < 2.5f) return;
+        g.Roads.Add(new Road
+        {
+            X = gx, Y = gy, Dx = (exitX - gx) / length, Dy = (exitY - gy) / length, Length = Mathf.RoundToInt(length), Link = true,
+            Amp = 0.6f, Freq = 0.1f, Phase = H(g.Seed, link.Length, 304) * TwoPi
+        });
+    }
+
+    #endregion
 
     private static bool Open(Geometry g, int x, int y)
     {
@@ -578,7 +754,8 @@ public static class UrbanFabric
     }
 
     // 路上第 d 格：起点后慢慢弯起来
-    private static float Wobble(Road road, float d) => road.Amp * Mathf.Sin(d * road.Freq + road.Phase) * Mathf.Clamp01(d / 8f);
+    private static float Wobble(Road road, float d) => road.Amp * Mathf.Sin(d * road.Freq + road.Phase) * Mathf.Clamp01(d / 8f) *
+                                                       (road.Link ? Mathf.Clamp01((road.Length - d) / 8f) : 1f);
 
     // 城市精细层用(见 PureMapPatch.Detail)：路上第 d 格
     internal static (int x, int y) RoadPoint(Road road, int d) => Point(road, d);
@@ -993,7 +1170,7 @@ public static class UrbanFabric
             // 一格宽：横平竖直的路正好一格，斜的路连成斜线
             if (Mathf.Abs(side) < 0.5f * Mathf.Max(Mathf.Abs(road.Dx), Mathf.Abs(road.Dy)) + 0.15f)
             {
-                result = Mix(color, White, road.Gate ? 0.9f : 0.72f);
+                result = Mix(color, White, road.Gate || road.Link ? 0.9f : 0.72f);
                 return true;
             }
             // 关厢：门外大路两旁一条浅灰的街市
