@@ -38,6 +38,9 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     小路顺着地势自动连上(见 UrbanFabric.PlaceTrails)；
 //   · 毁弃：完好的毁为废墟(同兵火，住的人一半逃散，太平年月会重建)；对废墟再点一下彻底抹去，城郊不再在原处另建；
 //   · 改隶：一处村镇连同它那一片地(见 CityDistricts)改归一座接壤的城。
+// 新城市规划(用户 2026-10-17 问答)：规划的单位是一处处村镇，位置、档位、名字由人定，里面的布局按各自的种子随机——
+//   · 点开村镇的小窗口(见 SettlementWindow)：改名、升降级(村 → 镇 → 有墙大镇)、换个样子(只换这一处的种子)、毁弃或重建；
+//   · 世界法则「固定城乡格局」：开了以后 AI 不新建村镇、兵火不烧、废墟不自己重建，只听手动(用来摆符合史实的地图)。
 public static class RuralSettlementSystem
 {
     private const float VillageWeight = 1f, TownWeight = 3f, CityWeight = 6f, RuinedOutputLoss = 0.6f, BurnPopulationLoss = 0.5f;
@@ -141,10 +144,13 @@ public static class RuralSettlementSystem
     // 等着划地的：(城, 镇村, 城心, 离城心多远以内)；城市平面图里只记下，每次刷新城郊时划(见 ClaimPending)
     private static readonly List<(long city, int settlement, int gateX, int gateY, float far)> Pending = new();
 
-    // 这座城这会儿能不能新建村镇：打仗时不建(地块在交战双方之间易手，丢了地的城数目一少就补，
+    // 固定城乡格局(世界法则)：村镇只听手动
+    public static bool Fixed => GameLibrary.EmpireCraftWorldLawLibrary.empirecraft_law_fixed_settlements?.isEnabled() == true;
+
+    // 这座城这会儿能不能新建村镇：固定城乡格局时不建；打仗时不建(地块在交战双方之间易手，丢了地的城数目一少就补，
     // 收回来又多出一份，用户 2026-10-17 "每次战线变化的时候就重复刷新消失和生成新的村镇")
     public static bool MayGrow(City city) =>
-        city?.data != null && !city.isRekt() && (city.kingdom == null || !city.kingdom.hasEnemies()) &&
+        !Fixed && city?.data != null && !city.isRekt() && (city.kingdom == null || !city.kingdom.hasEnemies()) &&
         !FrontSystem.Battles.ContainsKey(city.data.id);
 
     // 这座城这会儿能不能在城外新建村镇
@@ -300,6 +306,74 @@ public static class RuralSettlementSystem
     public static RuralSettlement ById(int id) =>
         All.TryGetValue(id, out RuralSettlement settlement) && !settlement.cleared ? settlement : null;
 
+    // 落在谁的地上
+    public static City CityOf(RuralSettlement settlement) =>
+        settlement == null ? null : World.world?.GetTile(settlement.x, settlement.y)?.zone?.city;
+
+    // 档位：0 村、1 镇、2 有墙大镇
+    public const int MaxTier = 2;
+
+    public static int Tier(RuralSettlement settlement) => settlement == null ? 0 : !settlement.town ? 0 : settlement.walled ? 2 : 1;
+
+    public static string TierName(int tier) =>
+        LM.Get(tier switch { 0 => "settlement_kind_village", 1 => "settlement_kind_town", _ => "settlement_kind_walled_town" });
+
+    // 改档位(窗口里的升级、降级)：镇三格见方，有墙大镇四格(城大的五格)
+    public static void SetTier(RuralSettlement settlement, int tier)
+    {
+        if (settlement == null || settlement.cleared) return;
+        tier = Math.Max(0, Math.Min(MaxTier, tier));
+        if (tier == Tier(settlement)) return;
+        City city = CityOf(settlement);
+        settlement.town = tier >= 1;
+        settlement.walled = tier >= 2;
+        settlement.size = tier switch
+        {
+            0 => 0,
+            1 => 3,
+            _ => city != null && city.GetOrCreate().urban_tier >= 3 ? 5 : 4
+        };
+        Revision++;
+        if (city != null) PureMapPatch.Redraw(city);
+    }
+
+    public static void Rename(RuralSettlement settlement, string name)
+    {
+        string value = (name ?? "").Trim();
+        if (settlement == null || value.Length == 0 || value == settlement.name) return;
+        settlement.name = value.Length > 8 ? value.Substring(0, 8) : value;
+        Revision++;
+        City city = CityOf(settlement);
+        if (city != null) PureMapPatch.Redraw(city);
+    }
+
+    // 换个样子：只换这一处的布局种子，位置、档位、名字都不变
+    public static void Reroll(RuralSettlement settlement)
+    {
+        if (settlement == null) return;
+        long seed;
+        do seed = ((long)UnityEngine.Random.Range(1, int.MaxValue) << 16) ^ UnityEngine.Random.Range(0, 1 << 16);
+        while (seed == 0L || seed == settlement.seed);
+        settlement.seed = seed;
+        Revision++;
+        City city = CityOf(settlement);
+        if (city != null) PureMapPatch.Redraw(city);
+    }
+
+    // 手动重建废墟
+    public static void Rebuild(RuralSettlement settlement)
+    {
+        if (settlement == null || settlement.ruined_at < 0d) return;
+        settlement.ruined_at = -1d;
+        settlement.founded = World.world.getCurWorldTime();
+        Revision++;
+        City city = CityOf(settlement);
+        if (city != null) PureMapPatch.Redraw(city);
+    }
+
+    // 画法用的种子：按位置，换过样子的再加上它自己的种子(见 UrbanFabric.SettlementKey)
+    public static long SeedAt(int x, int y) => At(x, y)?.seed ?? 0L;
+
     // 名字(还没标注过、没起名的写"村""镇")
     public static string Label(RuralSettlement settlement) =>
         !string.IsNullOrEmpty(settlement?.name) ? settlement.name
@@ -360,9 +434,10 @@ public static class RuralSettlementSystem
     }
 
     // 毁弃：完好的毁为废墟，废墟彻底抹去；这里没有镇村时返回 null
-    public static string Raze(WorldTile tile)
+    public static string Raze(WorldTile tile) => Raze(Near(tile));
+
+    public static string Raze(RuralSettlement settlement)
     {
-        RuralSettlement settlement = Near(tile);
         if (settlement == null) return null;
         City city = World.world.GetTile(settlement.x, settlement.y)?.zone?.city;
         string name = Label(settlement);
@@ -429,7 +504,7 @@ public static class RuralSettlementSystem
     // 敌军占下一块地(CityExtension.AddOccupiedTileZone)
     public static void OnZoneOccupied(City city, Kingdom occupier, TileZone zone)
     {
-        if (Sparing || All.Count == 0 || city?.kingdom == null || occupier == null || occupier == city.kingdom) return;
+        if (Sparing || Fixed || All.Count == 0 || city?.kingdom == null || occupier == null || occupier == city.kingdom) return;
         List<RuralSettlement> list = InZone(zone);
         if (list.Count == 0) return;
         Kingdom owner = city.kingdom;
@@ -452,7 +527,7 @@ public static class RuralSettlementSystem
     public static void Tick()
     {
         ClaimPending();
-        if (World.world == null || All.Count == 0) return;
+        if (World.world == null || All.Count == 0 || Fixed) return;
         double now = World.world.getCurWorldTime();
         if (_lastMonth >= 0d && now >= _lastMonth && Date.getMonthsSince(_lastMonth) < 1) return;
         _lastMonth = now;

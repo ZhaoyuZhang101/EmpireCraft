@@ -13,6 +13,8 @@ public sealed class RuralSettlement
     public double founded = -1d;
     // 毁于兵火的时间(-1 = 完好)
     public double ruined_at = -1d;
+    // 布局种子(0 = 按位置；「换个样子」换一个，见 SettlementWindow)
+    public long seed;
     // 彻底抹去了(见 RuralSettlementSystem.Erase)：不画、不算数、不重建，只留着占住原处，城郊不再在这里另建
     public bool cleared;
 }

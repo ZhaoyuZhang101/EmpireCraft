@@ -117,6 +117,8 @@ internal static class MainTab
             nameof(SpecificClanWindow) + "Title");
         // 设置窗口换宽窗口(标题用 "<窗口id> Title" 约定 key)，内容只有两张卡，窗口矮一些
         EmpireSettingWindow.CreateAndInit(nameof(EmpireSettingWindow), new Vector2(480f, 180f));
+        // 村镇小窗口(点地图上的镇村打开)
+        SettlementWindow.CreateAndInit(nameof(SettlementWindow), new Vector2(480f, 180f));
         MetaColorWindow.CreateWindow(nameof(MetaColorWindow),
             nameof(MetaColorWindow) + "Title");
         // 政体、派系详情改宽窗口(标题用 "<窗口id> Title" 约定 key)
@@ -169,6 +171,7 @@ internal static class MainTab
         {
             [nameof(EmpireWindow)] = "iconKings",
             [nameof(EmpireSettingWindow)] = "iconOptions",
+            [nameof(SettlementWindow)] = "iconCity",
             [nameof(EmpireBeaurauWindow)] = "iconKingdom",
             [nameof(KingdomTitleWindow)] = "iconWorldLaws",
             [nameof(EmpireCoreWindow)] = "iconCity",

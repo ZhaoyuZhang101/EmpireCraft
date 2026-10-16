@@ -367,7 +367,9 @@ public static class UrbanFabric
             foreach (RuralSettlement settlement in stored)
             {
                 if (!Open(g, settlement.x, settlement.y)) continue;
-                g.SettlementHash = g.SettlementHash * 31 + settlement.id * 7 + (settlement.ruined_at >= 0d ? 3 : 1);
+                g.SettlementHash = g.SettlementHash * 31 + settlement.id * 7 + (settlement.ruined_at >= 0d ? 3 : 1) +
+                                   (int)settlement.seed * 13 + RuralSettlementSystem.Tier(settlement) * 5 +
+                                   (settlement.name?.GetHashCode() ?? 0);
                 if (settlement.town) townCount++;
                 else villageCount++;
                 if (settlement.ruined_at >= 0d) g.Ruins.Add((settlement.x, settlement.y, settlement.town));
@@ -791,6 +793,9 @@ public static class UrbanFabric
 
     // 一处镇村的位置键(画法、小路的种子按位置定，与先后、归哪座城无关)
     internal static long PosKey(int x, int y) => x * 73856093L ^ y * 19349663L;
+
+    // 一处镇村画法的种子：按位置，换过样子的(见 RuralSettlementSystem.Reroll)再加上它自己的种子
+    internal static long SettlementKey(int x, int y) => PosKey(x, y) + RuralSettlementSystem.SeedAt(x, y);
 
     // 全图的官道(城市平面图每几秒就重算一次，官道只按城心、地形、路网定，缓存起来，城数变了或过半分钟再算)
     private sealed class CachedLink

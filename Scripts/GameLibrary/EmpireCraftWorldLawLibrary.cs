@@ -27,6 +27,7 @@ public static class EmpireCraftWorldLawLibrary
     public static WorldLawAsset empirecraft_law_combine_houses;
     public static WorldLawAsset empirecraft_law_premodern;
     public static WorldLawAsset empirecraft_law_no_commoners;
+    public static WorldLawAsset empirecraft_law_fixed_settlements;
     public static void init()
     {
         LogService.LogInfo("加载帝国世界规则");
@@ -193,6 +194,14 @@ public static class EmpireCraftWorldLawLibrary
             group_id = "EmpireCraftCommonSetting",
             icon_path = "ui/icons/iconPopulation",
             default_state = true
+        });
+        // 固定城乡格局(默认关闭)：开了以后 AI 不新建村镇、兵火不烧、废墟不自己重建，只听手动(见 RuralSettlementSystem.Fixed)
+        AssetManager.world_laws_library.add(empirecraft_law_fixed_settlements = new WorldLawAsset()
+        {
+            id = nameof(empirecraft_law_fixed_settlements),
+            group_id = "EmpireCraftCommonSetting",
+            icon_path = "ui/icons/godpowers/place_village",
+            default_state = false
         });
         
     }

@@ -326,7 +326,7 @@ public static class MapLabelOverlay
         return name;
     }
 
-    // 点开镇村(没选神力时点一下；拖动地图不算)：底部提示栏写镇或村、约多少人、属哪座城哪国，废墟写毁了几年
+    // 点开镇村(没选神力时点一下；拖动地图不算)：打开村镇小窗口(改名、升降级、换个样子、毁弃，见 SettlementWindow)
     private static Vector3 _pressedAt;
     private static bool _pressed;
 
@@ -343,19 +343,14 @@ public static class MapLabelOverlay
         if ((Input.mousePosition - _pressedAt).sqrMagnitude > 64f || World.world.isOverUI() || World.world.isAnyPowerSelected()) return;
         RuralSettlement settlement = RuralSettlementSystem.Near(World.world.getMouseTilePos());
         if (settlement == null) return;
+        // 名字头一回标注以前就点开的：先按标注的规矩起好(见 NameOf)
         City city = World.world.GetTile(settlement.x, settlement.y)?.zone?.city;
         bool huaxia = city != null && PureMapPatch.LabelsOf(city)?.Family == "huaxia";
         var used = new HashSet<string>(city == null ? Enumerable.Empty<string>()
             : RuralSettlementSystem.InCity(city).Select(other => other.name).Where(name => !string.IsNullOrEmpty(name)));
-        string name = NameOf(settlement, settlement.town, huaxia, used, 0L);
-        string kind = NeoModLoader.General.LM.Get(settlement.town ? "settlement_kind_town" : "settlement_kind_village");
-        string owner = city == null ? NeoModLoader.General.LM.Get("settlement_unowned")
-            : string.Format(NeoModLoader.General.LM.Get("settlement_owner"), city.GetCityName(), city.kingdom?.GetKingdomName() ?? "");
-        string description = settlement.ruined_at >= 0d
-            ? string.Format(NeoModLoader.General.LM.Get("settlement_info_ruin"), kind, Mathf.Max(0, Date.getYearsSince(settlement.ruined_at)), owner)
-            : string.Format(NeoModLoader.General.LM.Get("settlement_info"), kind,
-                Mathf.RoundToInt(RuralSettlementSystem.PeopleOf(settlement, city)), owner);
-        WorldTip.instance?.showToolbarText(name, description);
+        NameOf(settlement, settlement.town, huaxia, used, 0L);
+        // 打开村镇小窗口(见 SettlementWindow)
+        EmpireCraft.Scripts.UI.Windows.SettlementWindow.Open(settlement);
     }
 
     private static string SettlementName(long seed, HashSet<string> used, string[] words, string[] suffixes)

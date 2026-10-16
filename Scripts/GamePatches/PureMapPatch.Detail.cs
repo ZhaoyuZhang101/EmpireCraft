@@ -1578,18 +1578,18 @@ public partial class PureMapPatch
         {
             int px = (x - c.X0) * s + s / 2, py = (y - c.Y0) * s + s / 2;
             index++;
-            if (!Swallowed(px, py)) Town(c, style, px, py, townSize, walled, dirt, townGround, UrbanFabric.PosKey(x, y) + 1000);
+            if (!Swallowed(px, py)) Town(c, style, px, py, townSize, walled, dirt, townGround, UrbanFabric.SettlementKey(x, y) + 1000);
         }
         index = 0;
         foreach ((int x, int y) in g.Villages)
         {
             int px = (x - c.X0) * s + s / 2, py = (y - c.Y0) * s + s / 2;
             index++;
-            if (!Swallowed(px, py)) Village(c, style, tint, px, py, dirt, ground, UrbanFabric.PosKey(x, y) + 3000);
+            if (!Swallowed(px, py)) Village(c, style, tint, px, py, dirt, ground, UrbanFabric.SettlementKey(x, y) + 3000);
         }
         // 毁于兵火的镇村(见 RuralSettlementSystem)：一片焦土，残垣断瓦
         foreach ((int x, int y, bool town) in g.Ruins)
-            RuralRuin(c, (x - c.X0) * s + s / 2, (y - c.Y0) * s + s / 2, town ? 16f : 7f, UrbanFabric.PosKey(x, y) + 5000, tint);
+            RuralRuin(c, (x - c.X0) * s + s / 2, (y - c.Y0) * s + s / 2, town ? 16f : 7f, UrbanFabric.SettlementKey(x, y) + 5000, tint);
         c.Spill = false;
         // 田块：村镇四周散着几块条田(见 FieldColor)，一块八到十三像素宽、六到九像素高，块与块之间至少留三像素空地；
         // 只种在本城能耕的空地上，一块里能种的不到七成就换个地方(阿兹特克是水上浮田)
@@ -1635,14 +1635,14 @@ public partial class PureMapPatch
         foreach ((int x, int y) in g.Villages)
         {
             index++;
-            long key = UrbanFabric.PosKey(x, y);
+            long key = UrbanFabric.SettlementKey(x, y);
             Fields((x - c.X0) * s + 2, (y - c.Y0) * s + 2, 4 + (int)(DetailHash(key, 626) * 3), 7f * s, key + 7000);
         }
         index = 0;
         foreach ((int x, int y, int townSize, _) in g.Towns)
         {
             index++;
-            long key = UrbanFabric.PosKey(x, y);
+            long key = UrbanFabric.SettlementKey(x, y);
             Fields((x - c.X0) * s + 2, (y - c.Y0) * s + 2, 6 + (int)(DetailHash(key, 627) * 4), (townSize + 6) * s, key + 9000);
         }
     }
