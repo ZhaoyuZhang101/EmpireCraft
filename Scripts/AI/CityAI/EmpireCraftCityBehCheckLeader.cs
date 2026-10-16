@@ -29,6 +29,8 @@ public class EmpireCraftCityBehCheckLeader : GameAICityBase
 
     private void CheckLeaderClan(City pCity)
     {
+        // 城主不能是小孩：已经在任的卸任，下面另选成年人(君主可以是幼主，但君主不兼城主)
+        if (pCity.hasLeader() && !pCity.leader.isAdult() && !pCity.leader.isKing()) pCity.removeLeader();
         if (pCity.hasLeader())
         {
             pCity.EndChoosingHeir();

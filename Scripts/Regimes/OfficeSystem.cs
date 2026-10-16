@@ -279,6 +279,8 @@ public class OfficeObject
             ConstitutionalSuccessionSystem.IsProtected(constitutionalCore.GetEmpire()) &&
             !ConstitutionalSuccessionSystem.CanInherit(constitutionalCore.GetEmpire(), actor)) return;
         if (actor == null || !actor.CanServeOffice(GetOfficeKingdom(actor))) return;
+        // 君主之位以外的官职(城主、朝官)只任成年人；君主可以是幼主(用户 2026-10-17 选"国君可以是幼主，城主不行")
+        if (!actor.isAdult() && !(meta_object is Kingdom ruler && ruler.GetOffice() == this)) return;
         // 后宫以外的官职不任用妃嫔与在位君主的配偶；君主之位(本国的君主官职)不受影响
         if (leader_select_method != LeaderSelectMethod.Harem && !(meta_object is Kingdom ruled && ruled.GetOffice() == this) &&
             actor.IsHaremOrConsort()) return;
