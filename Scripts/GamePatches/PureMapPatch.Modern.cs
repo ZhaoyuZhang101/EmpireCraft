@@ -681,7 +681,7 @@ public partial class PureMapPatch
             for (int py = y0; py <= y1; py++)
             for (int px = x0; px <= x1; px++)
                 if (Own(px, py))
-                    c.Put(px, py, px == x0 || py == y0 ? Rgb(226, 224, 220) : px == x1 || py == y1 ? Rgb(160, 158, 154)
+                    c.Put(px, py, px == x0 || py == y1 ? Rgb(226, 224, 220) : px == x1 || py == y0 ? Rgb(160, 158, 154)
                         : (px * 5 + py * 3) % 11 == 0 ? Rgb(150, 150, 156) : Rgb(198, 196, 192), KBuilding);
         }
         Color32 tone = Pick(b.Home ? HomeTones : b.Glass ? GlassTones : StoneTones, b.Tone);
@@ -690,7 +690,8 @@ public partial class PureMapPatch
         {
             if (!TowerCovers(b, px, py) || !Own(px, py)) continue;
             int lx = px - b.X, ly = py - b.Y;
-            bool lit = !TowerCovers(b, px - 1, py) || !TowerCovers(b, px, py - 1), shaded = !TowerCovers(b, px + 1, py) || !TowerCovers(b, px, py + 1);
+            // 画布的行往北增：西沿、北沿受光，东沿、南沿背阴(以前照演示版的行往南增，成了西南受光)
+            bool lit = !TowerCovers(b, px - 1, py) || !TowerCovers(b, px, py + 1), shaded = !TowerCovers(b, px + 1, py) || !TowerCovers(b, px, py - 1);
             Color32 color = tone;
             if (lit) color = Darker(tone, 1.22f);
             else if (shaded) color = Darker(tone, 0.68f);
@@ -769,7 +770,8 @@ public partial class PureMapPatch
                 if (!TowerCovers(b, px, py)) continue;
                 for (int d = 1; d <= height; d++)
                 {
-                    int x = px + d, y = py + Mathf.RoundToInt(d * 0.7f);
+                    // 影子往东南拖(画布的行往北增，往南是减)
+                    int x = px + d, y = py - Mathf.RoundToInt(d * 0.7f);
                     if (c.In(x, y) && top[y * c.PW + x] < height - d) shade[y * c.PW + x] = true;
                 }
             }

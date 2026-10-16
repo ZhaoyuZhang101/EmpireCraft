@@ -305,6 +305,7 @@ public partial class PureMapPatch
         bool maze = style.Layout == "maze", canal = style.Layout == "canal";
         UrbanFabric.Geometry fabric = plan.fabric;
         bool modern = fabric != null && fabric.Modern;
+        bool palace = DetailedPalace(plan);
         int size = Config.CITY_ZONE_SIZE;
         // ① 逐格铺底：城里的地、地标(照一格一像素的画法放大)、护城河、水渠、大街；城墙、城心建筑后画
         for (int ty = 0; ty < c.H; ty++)
@@ -336,6 +337,12 @@ public partial class PureMapPatch
             }
             if (plan.landmark.Contains(tile.zone.id))
             {
+                // 华夏都城宫城画精细版(见 PureMapPatch.Palace)，先占住
+                if (palace)
+                {
+                    Fill(c, tx, ty, block, KFixed);
+                    continue;
+                }
                 Slot[] slots = plan.zones.TryGetValue(tile.zone.id, out Slot[] found) ? found : null;
                 Color32 coarse = Plan(tile, tint, ZonePlanSystem.Get(c.City, tile.zone), slots,
                     tile.x - tile.zone.x * size, tile.y - tile.zone.y * size, plan, tile.zone);
@@ -417,7 +424,9 @@ public partial class PureMapPatch
                     c.Kind(px, py + 1) is KStreet or KAvenue || c.Kind(px, py - 1) is KStreet or KAvenue)
                     c.Put(px, py, TreeDark, KGround);
             }
-        // ⑥ 城墙
+        // ⑥ 都城宫城
+        if (palace) DrawPalace(c, plan, tint, seed);
+        // ⑦ 城墙
         if (wallsUp) Walls(c, plan, style, wallColor.Value);
     }
 
