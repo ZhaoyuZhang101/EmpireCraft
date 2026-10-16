@@ -146,6 +146,13 @@ namespace EmpireCraft.Scripts.UI.Windows
                 institutionTab.Setup("empire_institutions", this.TabsWindow,
                     action: OpenInstitutionWindow, sprite: SpriteTextureLoader.getSprite("TabInstitutions"));
             }
+            // 科技：显示本文化的科技树和整个帝国的采纳进度、传播媒介
+            if (TabsWindow.tabs._tabs.All(p => p.name != "empire_technology"))
+            {
+                var techTab = GameObject.Instantiate(SimpleWindowTab.Prefab);
+                techTab.Setup("empire_technology", this.TabsWindow, action: _ => TechWindow.Open(_empire),
+                    sprite: SpriteTextureLoader.getSprite("ui/icons/iconKnowledge"));
+            }
         }
 
         private void ShowKingdomListHelp(WindowMetaTab pArg0)

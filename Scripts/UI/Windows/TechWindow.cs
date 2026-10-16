@@ -46,6 +46,13 @@ public class TechWindow : AbstractWideWindow<TechWindow>
         ScrollWindow.showWindow(nameof(TechWindow));
     }
 
+    // 帝国：按帝国核心打开，采纳进度按整个帝国算(见 TechnologySystem.GetRealmState)
+    public static void Open(Layer.Empire empire)
+    {
+        if (empire?.CoreKingdom == null || empire.isRekt()) return;
+        Open(empire.CoreKingdom);
+    }
+
     public static void Open(Kingdom kingdom)
     {
         if (kingdom == null || kingdom.isRekt()) return;

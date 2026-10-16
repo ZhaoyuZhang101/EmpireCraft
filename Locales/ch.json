@@ -3607,6 +3607,8 @@
   "empire_ordinal_10": "第十",
   "empire_ordinal_generic": "第{0}",
   "empire_institutions": "文明制度",
+  "empire_technology": "帝國科技",
+  "empire_technology_description": "查看帝國文化的科技樹，以及整個帝國的科技採納進度和傳播媒介",
   "empire_institutions_description": "查看帝國文化的制度科技樹與目前改革進度",
   "add_faction": "添加派系",
   "add_faction_description": "為該國家選擇並添加一個派系",

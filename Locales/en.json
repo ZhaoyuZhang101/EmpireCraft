@@ -3607,6 +3607,8 @@
   "empire_ordinal_10": "Tenth ",
   "empire_ordinal_generic": "{0}th ",
   "empire_institutions": "Institutions",
+  "empire_technology": "Empire Technology",
+  "empire_technology_description": "View the culture's technology tree, the empire's adoption progress and its media",
   "empire_institutions_description": "View the institution tree of the empire's culture and the current reform progress",
   "add_faction": "Add Faction",
   "add_faction_description": "Choose and add a faction to this kingdom",
