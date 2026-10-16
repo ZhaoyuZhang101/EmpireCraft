@@ -80,13 +80,39 @@ public static class KingdomColorService
     //   诸侯少时都挤在基准色附近，多了才往两侧铺开；灰白与很暗的颜色看不出色相，除非天子本身是这类颜色，否则排到最后；
     //   别的周室(王畿与诸侯)在用的颜色不取，免得两个周室混成一片。
     //   已经在本色系里的诸侯不动，只给新来的、或色系外的换色，不会每月闪色。
+    // 部落联盟(用户 2026-10-17 "共事的时候应该和诸侯国一样用统一色系")：共事同一共主的部落照此以共主的颜色为基准取同一色系；
+    //   别的周室、别的部落联盟在用的颜色都不取。
     public static void ApplySphereFamily(Empire sphere)
     {
+        if (!ZhouEraSystem.Applies(sphere)) return;
+        ApplyFamily(sphere, ZhouEraSystem.Vassals(sphere));
+    }
+
+    // 每月(TribalFissionService.EnforceOneCity)：各部落联盟
+    public static void ApplyTribalFamilies()
+    {
+        foreach (Empire confederation in TribalFissionService.Confederations())
+            ApplyFamily(confederation, TribalFissionService.VassalsOf(confederation));
+    }
+
+    // 一家(周室或部落联盟)：基准帝国与它的诸侯、共事的部落
+    private static IEnumerable<(Empire head, IEnumerable<Kingdom> members)> Families()
+    {
+        foreach (Empire empire in ModClass.EMPIRE_MANAGER?.ToList() ?? new List<Empire>())
+        {
+            if (empire?.CoreKingdom == null) continue;
+            if (ZhouEraSystem.Applies(empire)) yield return (empire, ZhouEraSystem.Vassals(empire));
+        }
+        foreach (Empire confederation in TribalFissionService.Confederations())
+            yield return (confederation, TribalFissionService.VassalsOf(confederation));
+    }
+
+    private static void ApplyFamily(Empire sphere, IEnumerable<Kingdom> members)
+    {
         Kingdom core = sphere?.CoreKingdom;
-        if (core?.data == null || core.isRekt() || AncientWarfareCompatibility.Owns(core) || !ZhouEraSystem.Applies(sphere))
-            return;
-        List<Kingdom> vassals = ZhouEraSystem.Vassals(sphere)
-            .Where(kingdom => kingdom?.data != null && !kingdom.isRekt() && !AncientWarfareCompatibility.Owns(kingdom))
+        if (core?.data == null || core.isRekt() || AncientWarfareCompatibility.Owns(core)) return;
+        List<Kingdom> vassals = members
+            .Where(kingdom => kingdom?.data != null && !kingdom.isRekt() && kingdom != core && !AncientWarfareCompatibility.Owns(kingdom))
             .OrderBy(kingdom => kingdom.id).ToList();
         if (vassals.Count == 0) return;
         List<ColorAsset> colors = core.getColorLibrary()?.list;
@@ -95,12 +121,12 @@ public static class KingdomColorService
         Color.RGBToHSV(royal.getColorMain(), out float hue, out float saturation, out float value);
         bool grayBase = saturation < GraySaturation || value < DarkValue;
         var excluded = new HashSet<ColorAsset> { royal, core.getColor() };
-        foreach (Empire other in ModClass.EMPIRE_MANAGER?.ToList() ?? new List<Empire>())
+        foreach ((Empire other, IEnumerable<Kingdom> otherMembers) in Families())
         {
-            if (other == sphere || other?.CoreKingdom == null || !ZhouEraSystem.Applies(other)) continue;
+            if (other == sphere) continue;
             excluded.Add(other.getColor());
             excluded.Add(other.CoreKingdom.getColor());
-            foreach (Kingdom kingdom in ZhouEraSystem.Vassals(other)) excluded.Add(kingdom.getColor());
+            foreach (Kingdom kingdom in otherMembers) excluded.Add(kingdom?.getColor());
         }
         List<ColorAsset> family = colors.Where(color => color != null && !excluded.Contains(color))
             .OrderBy(color => Distance(color, hue, grayBase)).Take(vassals.Count).ToList();

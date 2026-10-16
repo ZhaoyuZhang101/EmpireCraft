@@ -23,6 +23,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 部落联盟名下原有的成员(称帝时并入的、以前分出去并入的)每月离开帝国，改为奉它为共主；只结了同盟的部落，
 //     由同盟里最强的一家结成部落联盟，其余奉它为共主；
 //   · 共主改行宗法分封(政体不再是原始政体)：奉它为共主的部落并入帝国，成为分封的诸侯(西周)；共主亡了就各自独立；
+//   · 共事同一共主的部落与共主同一色系(像周室诸侯，见 KingdomColorService.ApplyTribalFamilies)；
 //   · 共主不打共事它的部落，部落也不打共主(用户："怎么主国家就可以打下面的小弟了，这也不合理……应该只打不服的或者脱离联盟的")，
 //     共主只征伐不服的、脱离的；部落之间照样可以互相攻伐(见 Bound)；铭牌标"共事某某"；
 //   · 脱离：国力到了共主六成以上、或对共主怨恨极深的部落，每年约有一成二的机会不再共事、自立一方(见 Breakaway)；
@@ -72,6 +73,10 @@ public static class TribalFissionService
     public static int Capacity(Empire overlord) => CapacityBase + CapacityPerStage * StageOf(overlord);
 
     public static float Reach(Empire overlord) => ReachBase + ReachPerStage * StageOf(overlord);
+
+    // 各部落联盟(共主)
+    public static List<Empire> Confederations() =>
+        ModClass.EMPIRE_MANAGER?.Where(IsConfederation).ToList() ?? new List<Empire>();
 
     // 共事 overlord 的部落
     public static List<Kingdom> VassalsOf(Empire overlord) =>
@@ -141,6 +146,8 @@ public static class TribalFissionService
             Enfeoff();
             Breakaway();
             Overflow();
+            // 共事同一共主的部落同一色系(见 KingdomColorService.ApplyTribalFamilies)
+            KingdomColorService.ApplyTribalFamilies();
         }
         catch (global::System.Exception exception)
         {
