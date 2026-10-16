@@ -773,7 +773,7 @@
       }
     },
     {
-      "id": "huaxia_three_departments", "requires_techs": ["bureaucracy", "paper"],
+      "id": "huaxia_three_departments", "requires_techs": ["bureaucracy", "paper", "printing"],
       "name_key": "institution_huaxia_three_departments",
       "description_key": "institution_huaxia_three_departments_desc",
       "branch": "administration",
