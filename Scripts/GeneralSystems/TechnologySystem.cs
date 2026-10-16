@@ -1290,6 +1290,10 @@ public static class TechnologySystem
             if (!material.requires_techs.All(id => HasTech(culture, id))) continue;
             bool found = material.resources.Count == 0 || material.resources.Any(requirement =>
                 cities.Any(city => city.getResourcesAmount(requirement.id) >= requirement.amount));
+            // 本地没有这种资源(没有金矿、煤矿……)：有往来的文化已经掌握，就能经贸易得到，不让整条科技链永远卡死
+            if (!found && Contacts.TryGetValue(culture, out HashSet<string> contacts))
+                found = contacts.Any(other => _states.TryGetValue(other, out CultureTechState known) &&
+                                              known.discovered_materials.Contains(material.id));
             if (!found) continue;
             state.discovered_materials.Add(material.id);
             state.timestamps[$"mat:{material.id}"] = World.world.getCurWorldTime();

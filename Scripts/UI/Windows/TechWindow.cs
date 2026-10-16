@@ -505,6 +505,8 @@ public class TechWindow : AbstractWideWindow<TechWindow>
             TechnologySystem.DescribeFeature(new TechInstitutionLink
                 { feature = requirement.feature, min_value = requirement.min_value })));
         if (requires.Count > 0) lines.Add(LM.Get("tech_requires") + string.Join("  ", requires));
+        // 还没满足时顺着前置往回找，列出真正卡住的地方：现在就能研究的前置科技、缺的材料(及发现条件)、文明等级与制度
+        if (status == TechNodeStatus.Locked && MissingChain(tech) is string chain) lines.Add(chain);
         var unlocks = TechnologySystem.DescribeAvailableUnlocks(tech);
         // 以这项科技为专门前提的制度(同一个模板在各线的节点只列一次)
         List<string> institutions = TechnologySystem.InstitutionsRequiring(tech.id)
@@ -523,8 +525,53 @@ public class TechWindow : AbstractWideWindow<TechWindow>
         if (tech.research_bonus > 0f)
             unlocks.Add(string.Format(LM.Get("tech_research_bonus"), (tech.research_bonus * 100f).ToString("0")));
         unlocks.AddRange(TechnologySystem.DescribeNaval(tech).Select(line => line.ColorString("#7FD8EA")));
-        if (unlocks.Count > 0) lines.Add(LM.Get("tech_unlocks") + "\n" + string.Join("\n", unlocks));
+        // 解锁内容并成一两行，详情框放得下(以前一项一行，长的科技溢出框外)
+        if (unlocks.Count > 0) lines.Add(LM.Get("tech_unlocks") + string.Join("；", unlocks));
         return (title, string.Join("\n", lines));
+    }
+
+    // 卡住这项科技的根源(只看没研究的前置链，至多列 6 项)
+    private string MissingChain(TechNodeConfig tech)
+    {
+        var researchable = new List<string>();
+        var materials = new List<string>();
+        var blocked = new List<string>();
+        var seen = new HashSet<string>();
+        var queue = new Queue<TechNodeConfig>();
+        queue.Enqueue(tech);
+        while (queue.Count > 0 && seen.Count < 64)
+        {
+            TechNodeConfig current = queue.Dequeue();
+            if (!seen.Add(current.id)) continue;
+            foreach (string material in current.requires_materials)
+            {
+                if (TechnologySystem.HasMaterial(_culture, material) || materials.Contains(material)) continue;
+                materials.Add(material);
+            }
+            if (current != tech && current.requires_techs.All(id => TechnologySystem.HasTech(_culture, id)))
+            {
+                if (TechnologySystem.ArePrerequisitesMet(_culture, current)) researchable.Add(TechnologySystem.GetTechName(current.id));
+                else if (!TechnologySystem.AreCultureRequirementsMet(_culture, current))
+                    blocked.Add(TechnologySystem.GetTechName(current.id));
+            }
+            foreach (string id in current.requires_techs)
+                if (!TechnologySystem.HasTech(_culture, id) && TechnologySystem.TryGetTech(id, out TechNodeConfig next))
+                    queue.Enqueue(next);
+        }
+        var parts = new List<string>();
+        if (researchable.Count > 0)
+            parts.Add(string.Format(LM.Get("tech_chain_researchable"), string.Join("、", researchable.Take(6))).ColorString("#9EF29E"));
+        foreach (string id in materials.Take(3))
+        {
+            string condition = TechnologySystem.TryGetMaterial(id, out TechMaterialConfig material)
+                ? TechnologySystem.DescribeMaterialCondition(material).Replace("\n", " ")
+                : "";
+            parts.Add(string.Format(LM.Get("tech_chain_material"), TechnologySystem.GetMaterialName(id), condition)
+                .ColorString("#E9A85B"));
+        }
+        if (blocked.Count > 0)
+            parts.Add(string.Format(LM.Get("tech_chain_blocked"), string.Join("、", blocked.Take(4))).ColorString("#FF8A7A"));
+        return parts.Count == 0 ? null : string.Join("\n", parts);
     }
 
     private static string Mark(bool ok) => ok ? "✔".ColorString("#9EF29E") : "✘".ColorString("#FF8A7A");
