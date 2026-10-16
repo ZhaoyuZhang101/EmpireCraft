@@ -119,6 +119,7 @@ internal static class MainTab
         EmpireCoreWindow.CreateAndInit(nameof(EmpireCoreWindow), new Vector2(480f, 380f));
         BugReportWindow.CreateWindow(nameof(BugReportWindow),
             "bug_report_window_title");
+        PureMapNoticeWindow.CreateWindow(nameof(PureMapNoticeWindow), "pure_map_notice_title");
         TerritoryFontWindow.CreateWindow(nameof(TerritoryFontWindow),
             "territory_font_window_title");
         OnlineUpdateWindow.CreateWindow(nameof(OnlineUpdateWindow),
