@@ -636,7 +636,17 @@ public partial class PureMapPatch : GamePatch
         foreach (TileZone zone in city.zones ?? new List<TileZone>()) zone?.resetRenderHelpers();
     }
 
-    // 城里建成的地块(有自己的街格，路网图层的干道不压上去)：只看已经算好的平面图，不为此重算
+    // 画成城区的格(城墙以内、地标、刷了城区用途的；近代以后城区边缘以内开发了的地块)：有自己的街格，路网图层的干道不压上去。
+    // 用户 2026-10-17 "这个主干路有时候没法连在一起"：以前按整块建成地块不画，古代城的城区只占建成地块的一半，
+    // 城墙外那一圈画成田野，干道就在田里提前断了。只看已经算好的平面图，不为此重算
+    internal static bool UrbanTile(WorldTile tile)
+    {
+        City city = tile?.zone?.city;
+        if (city?.data == null || city.isRekt() || !Plans.TryGetValue(city.data.id, out CityPlan plan) || plan.city != city) return false;
+        return Urban(tile, plan) || UrbanFabric.DevelopedUrban(plan.fabric, tile);
+    }
+
+    // 城里建成的地块：只看已经算好的平面图，不为此重算
     // (重算一座城的平面图不便宜，路网重画时顺带重算几十座城会卡一下)
     internal static bool Built(TileZone zone)
     {

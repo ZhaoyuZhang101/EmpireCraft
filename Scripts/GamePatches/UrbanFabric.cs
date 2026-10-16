@@ -966,6 +966,16 @@ public static class UrbanFabric
 
     // 一块地画成什么、开发了没有：规划用途优先；没规划的，离市中心近的现代是塔楼，工业那一侧是厂房，其余住宅。
     // 开发门槛 = 用途的起点 + 离城心越远越晚 + 各方向先后 + 一点随机；规划过的早一些
+    // 近代以后城区边缘以内开发了的地块(路网图层不压上去，见 PureMapPatch.UrbanTile)
+    internal static bool DevelopedUrban(Geometry g, WorldTile tile)
+    {
+        if (g == null || !g.Modern || tile?.zone == null) return false;
+        (Kind kind, bool developed) = ZoneOf(g, tile.zone);
+        if (!developed || kind is Kind.Farm or Kind.Park) return false;
+        float dx = tile.x - g.Cx, dy = tile.y - g.Cy;
+        return Mathf.Sqrt(dx * dx + dy * dy) < EdgeAt(g, Angle(dx, dy));
+    }
+
     private static (Kind kind, bool developed) ZoneOf(Geometry g, TileZone zone)
     {
         if (g.Zones.TryGetValue(zone.id, out var cached)) return cached;

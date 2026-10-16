@@ -8,7 +8,7 @@ namespace EmpireCraft.Scripts.UI.Components;
 // 纯净地图的路网图层(见 RoadNetwork)：修通的路按等级画(土路淡褐、驿道浅黄、官道黄、公路金黄、柏油公路橙)，
 // 在修的路段画成灰色，航线画成浅色虚线，盖在国家色块之上——
 // 海面与无主地在色块里是空的，所以单独用一张与地图等大的贴图画，跟着色块图层一起显示。
-// 城里建成的地块有自己的街格，干道不压上去。路网变了、或城在长，至多每十秒重画一次(整张贴图上传不便宜)。
+// 画成城区的格(城墙以内等，见 PureMapPatch.UrbanTile)有自己的街格，干道不压上去，一直通到城墙下。路网变了、或城在长，至多每十秒重画一次(整张贴图上传不便宜)。
 // 高德式(2026-10-14 用户选定)：土路浅灰、驿道白、官道浅黄、公路黄、柏油公路橙；驿道以上两侧描一道深色细边，
 // 任何国色上都看得清；
 // 换了地图图层(底色全变)半秒后重画一次。
@@ -124,11 +124,8 @@ public static class RoadOverlay
         return sheet;
     }
 
-    private static readonly Dictionary<int, bool> BuiltZones = new();
-
     private static void Redraw()
     {
-        BuiltZones.Clear();
         Clean(_major);
         Clean(_minor);
         WorldTile[] tiles = World.world.tiles_list;
@@ -171,14 +168,11 @@ public static class RoadOverlay
         sheet.Texture.Apply(false);
     }
 
-    // 城里建成的地块有自己的街格，路不压上去
+    // 画成城区的格有自己的街格，路不压上去(按格看，不按整块建成地块，见 PureMapPatch.UrbanTile)
     private static bool Outside(WorldTile[] tiles, int id)
     {
         WorldTile tile = tiles != null && id >= 0 && id < tiles.Length ? tiles[id] : null;
-        if (tile?.zone == null) return false;
-        if (!BuiltZones.TryGetValue(tile.zone.id, out bool built))
-            BuiltZones[tile.zone.id] = built = PureMapPatch.Built(tile.zone);
-        return !built;
+        return tile?.zone != null && !PureMapPatch.UrbanTile(tile);
     }
 
     private static void Paint(Sheet sheet, int id, Color32 color)
