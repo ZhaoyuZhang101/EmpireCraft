@@ -1967,6 +1967,7 @@
   "empire_core_name": "法理名稱",
   "tribal_fission_empire_history": "{0}的族人在{1}另立一支，號{2}，同屬部落聯盟。",
   "tribal_fission_history": "{0}的族人在{1}另立一支，號{2}，與母部落結盟。",
+  "tribal_confederation_history": "{0}與分出去的族人結成{1}，{0}為共主，各部為諸侯。",
   "capital_loss_restored": "{0}收復舊都{1}，還於舊都，復稱{2}。",
   "kingdom_type_xingzai": "行在",
   "Later": "後",
