@@ -62,6 +62,7 @@ public static class NavySystem
         FlagshipIndex.Clear();
         DesiredLanding.Clear();
         SeaRegionSystem.ResetWorldState();
+        SeaLanding.ResetWorldState();
     }
 
     #region 查询
@@ -173,6 +174,9 @@ public static class NavySystem
     //   越少越近，最少一半；一艘战舰也没有就过不了海。
     private const float ReachBase = 48f;
     private const float FullReachWarships = 12f;
+    // 水师余威：战舰一时打光(海战全没、刚开战还没造)，最近一次有战舰时的辐射十年内照算(玩家反馈"两个隔海的国家一千五百年没打下来"：
+    // 以前战舰一沉光，隔海的敌城就全"够不着"，战线段一个都没有，仗只是名义上开着)
+    private const float ReachGraceYears = 10f;
 
     // 本国科技给的最远辐射(格)；没到有水师的时代为 0
     public static float FarthestReach(Kingdom kingdom)
@@ -184,7 +188,8 @@ public static class NavySystem
 
     public static float ReachRadius(IEnumerable<Kingdom> members)
     {
-        float farthest = 0f, full = 0f, power = 0f;
+        float farthest = 0f, full = 0f, power = 0f, remembered = 0f;
+        double now = World.world?.getCurWorldTime() ?? 0d;
         foreach (Kingdom member in members)
         {
             if (member?.data == null || member.isRekt() || !NavyEra(member)) continue;
@@ -192,8 +197,21 @@ public static class NavySystem
             full = Mathf.Max(full, FullReachWarships * own);
             farthest = Mathf.Max(farthest, FarthestReach(member));
             foreach (FleetData fleet in Of(member))
-                power += fleet.warships * own * (0.3f + 0.7f * Mathf.Clamp01(fleet.org / 100f));
+            {
+                float live = fleet.warships * own * (0.3f + 0.7f * Mathf.Clamp01(fleet.org / 100f));
+                if (live > 0f)
+                {
+                    // 记下这支舰队最近一次有战舰时的战力(随存档保存)，战舰一时打光时按它算余威
+                    fleet.reach_power = live;
+                    fleet.reach_power_at = now;
+                }
+                else if (fleet.reach_power > 0f && fleet.reach_power_at >= 0d && now >= fleet.reach_power_at &&
+                         Date.getYearsSince(fleet.reach_power_at) <= ReachGraceYears)
+                    remembered += fleet.reach_power;
+                power += live;
+            }
         }
+        if (power <= 0f) power = remembered;
         if (power <= 0f || full <= 0f) return 0f;
         return farthest * (0.5f + 0.5f * Mathf.Clamp01(power / full));
     }
@@ -236,7 +254,7 @@ public static class NavySystem
     }
 
     // 本国(连同宗主中央)可用的出海口
-    private static List<SeaRegionSystem.Region> HomeWaters(Kingdom kingdom)
+    public static List<SeaRegionSystem.Region> HomeWaters(Kingdom kingdom)
     {
         var result = new List<SeaRegionSystem.Region>();
         Kingdom realm = FrontSystem.Realm(kingdom);
@@ -246,33 +264,39 @@ public static class NavySystem
         return result.Distinct().ToList();
     }
 
-    // 跨海登陆的航线：从本国港口出发、不经过敌方制海海区到目标城外的海区；没有港口或航线被截断返回 null
+    // 跨海登陆的航线：从本国港口出发、不经过敌方制海海区到目标城外的海区；没有港口或航线被截断返回 null。
+    // 内陆的城(城外不靠海)改按它那片陆地上最近、能靠岸的海滩算(见 SeaLanding.Beachhead)——以前内陆的城一律求不出航线
     public static List<SeaRegionSystem.Region> LandingRoute(Kingdom side, City target)
     {
         if (side == null || target == null) return null;
         List<SeaRegionSystem.Region> start = HomeWaters(side);
         if (start.Count == 0) return null;
         List<SeaRegionSystem.Region> goal = SeaRegionSystem.RegionsAround(target);
-        if (goal.Count == 0) return null;
+        if (goal.Count == 0) return SeaLanding.Beachhead(side, target.getTile()?.zone, start).route;
         return SeaRegionSystem.Route(start, goal, region => HostileControl(side, region));
     }
 
-    // 海外的军(与驻地不在同一块陆地上)回国的航线被敌方制海截断：断了补给
+    // 海外的军(与驻地不在同一块陆地上)断了海路：所在那片陆地上沿陆路找得到的岸边，外面的海区本国的船都到不了
+    // (被敌方制海截断)。以前只看军脚下那座城临不临海，站进内陆城的地块就算断了补给
     public static bool IsCutOff(Kingdom kingdom, CorpsData corps)
     {
-        if (!CorpsSystem.Enabled || kingdom == null || corps == null) return false;
+        if (!CorpsSystem.Enabled || kingdom == null || corps == null || corps.embarked) return false;
         TileZone zone = CorpsSystem.Zone(corps);
-        WorldTile home = CorpsSystem.Home(corps)?.getTile();
-        if (zone?.centerTile == null || home == null || zone.city == null || SeaRegionSystem.IsSea(zone)) return false;
-        if (zone.centerTile.isSameIsland(home)) return false;
-        return LandingRoute(kingdom, zone.city) == null;
+        City home = CorpsSystem.Home(corps);
+        if (zone == null || home == null || SeaRegionSystem.IsSea(zone) || CorpsSystem.SameLand(zone, home.getTile()?.zone))
+            return false;
+        Dictionary<int, int> reach = SeaLanding.Reachable(kingdom);
+        return !SeaLanding.Shores(zone).Take(12).Any(shore => SeaLanding.Waters(shore).Any(region => reach.ContainsKey(region.Id)));
     }
 
-    // 不论敌方制海、只看海路通不通(护航舰队找要打通的海区用)
+    // 不论敌方制海、只看海路通不通(护航舰队找要打通的海区用)；内陆的城按那片陆地最近的岸边
     private static List<SeaRegionSystem.Region> AnyRoute(Kingdom side, City target)
     {
         List<SeaRegionSystem.Region> start = HomeWaters(side);
         List<SeaRegionSystem.Region> goal = SeaRegionSystem.RegionsAround(target);
+        if (goal.Count == 0)
+            goal = SeaLanding.Shores(target?.getTile()?.zone).Select(SeaLanding.Waters).FirstOrDefault(waters => waters.Count > 0) ??
+                   new List<SeaRegionSystem.Region>();
         return start.Count == 0 || goal.Count == 0 ? null : SeaRegionSystem.Route(start, goal);
     }
 

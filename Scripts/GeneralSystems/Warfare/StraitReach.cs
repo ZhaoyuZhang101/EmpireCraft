@@ -15,7 +15,8 @@ public static class StraitReach
 {
     // 各国(帝国按核心)的水师港口与辐射半径，缓存一秒(真实时间)：宣战、诉求挑目标时要对每个国家问一遍
     private const float CacheSeconds = 1f;
-    private static readonly Dictionary<long, (float at, List<(City port, HashSet<int> basins)> ports, float radius)> PortCache = new();
+    // 港口：圆心取码头所在的格(没有就取城心)，及港外海区所在的水域
+    private static readonly Dictionary<long, (float at, List<(Vector2 port, HashSet<int> basins)> ports, float radius)> PortCache = new();
 
     public static bool Across(Kingdom initiator, Kingdom target)
     {
@@ -30,7 +31,7 @@ public static class StraitReach
     // 本国(或所在帝国)的水师辐射半径(格)
     public static float Radius(Kingdom side) => side?.data == null || side.isRekt() ? 0f : Navy(side).radius;
 
-    private static (List<(City port, HashSet<int> basins)> ports, float radius) Navy(Kingdom initiator)
+    private static (List<(Vector2 port, HashSet<int> basins)> ports, float radius) Navy(Kingdom initiator)
     {
         Empire empire = initiator.GetEmpire();
         bool imperial = empire != null && !empire.isRekt() && !empire.IsArchived();
@@ -41,29 +42,34 @@ public static class StraitReach
         List<Kingdom> realm = imperial ? empire.kingdoms_list.ToList() : new List<Kingdom> { initiator };
         if (!realm.Contains(initiator)) realm.Add(initiator);
         float radius = NavySystem.ReachRadius(realm);
-        var ports = radius <= 0f ? new List<(City, HashSet<int>)>()
+        var ports = radius <= 0f ? new List<(Vector2, HashSet<int>)>()
             : realm.Where(kingdom => kingdom?.data != null && !kingdom.isRekt() && NavySystem.NavyEra(kingdom))
                 .SelectMany(NavySystem.Ports).Where(city => city?.data != null && !city.isRekt())
-                .Select(city => (city, new HashSet<int>(SeaRegionSystem.RegionsAround(city).Select(region => region.Basin))))
+                .Select(city => (PortAt(city), new HashSet<int>(SeaRegionSystem.RegionsAround(city).Select(region => region.Basin))))
                 .Where(entry => entry.Item2.Count > 0).ToList();
         if (PortCache.Count > 512) PortCache.Clear();
         PortCache[key] = (now, ports, radius);
         return (ports, radius);
     }
 
-    // 这座临海城在本国(或所在帝国)水师的辐射范围里：离某个水师港口不过辐射半径、同一片水域(见 FrontSystem.InReach)
+    private static Vector2 PortAt(City city) =>
+        NavySystem.Port(city)?.current_tile is WorldTile tile ? new Vector2(tile.x, tile.y) : city.city_center;
+
+    // 这座临海城在本国(或所在帝国)水师的辐射范围里：本城某处海岸离某个水师港口(码头)不过辐射半径、同一片水域
+    // (见 FrontSystem.InReach)。以前量城心到城心，城心在内陆的城隔着窄海也够不着
     public static bool Reaches(Kingdom side, City target)
     {
         if (side?.data == null || side.isRekt() || target?.data == null || target.isRekt()) return false;
         var (ports, radius) = Navy(side);
         if (ports.Count == 0 || radius <= 0f) return false;
-        float limit = radius * radius;
-        HashSet<int> waters = null;
+        SeaRegionSystem.Shore shore = SeaRegionSystem.ShoreOf(target);
+        if (shore.Points.Count == 0) return false;
+        float limit = radius * radius, rough = (radius + shore.Offset) * (radius + shore.Offset);
         foreach (var (port, basins) in ports)
         {
-            if ((port.city_center - target.city_center).sqrMagnitude > limit) continue;
-            waters ??= new HashSet<int>(SeaRegionSystem.RegionsAround(target).Select(region => region.Basin));
-            if (waters.Overlaps(basins)) return true;
+            if ((port - target.city_center).sqrMagnitude > rough) continue;
+            foreach (var (at, basin) in shore.Points)
+                if (basins.Contains(basin) && (port - at).sqrMagnitude <= limit) return true;
         }
         return false;
     }

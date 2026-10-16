@@ -13,7 +13,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 补给线(0~1)：从军所在的地块往后方找一条运粮的路，到最近的己方(含友军)城为止，沿途每块地折损一点——
 //     有路的地块折损小(路越好越小)，路外大，山地、丛林、沼泽、沙漠、雪原的路外再加重；己方控制区折损最小、无主地次之；
 //     敌军控制的地块只有阵地前沿两块能穿过；找不到这样的路(被围、孤军深入、后路被截断)就是补给线被切断，补给为 0；
-//     海外靠海路：回国航线被敌方制海截断为 0，否则补给线可以到沿岸(从海上卸粮)，最多七成五，超出舰种航程只剩四成；在船上八成；
+//     海外靠海路：补给线可以到这片陆地上本国船到得了的岸边(己方控制、无主地或军脚下的海滩，从海上卸粮，见 SeaLanding)，
+//     最多七成五，超出舰种航程只剩四成；岸外海区都被敌方制海截断、或走不到岸边为 0；在船上八成；
 //     粮草官按治事加成(每点 +1%，最多 +20%，被围的不加)；就地征粮期间在敌境的军 +35%；
 //   · 军粮：各军按人头每月吃粮(每户每年 1.25 份，与百姓同一尺度；粮草官按治事省一些)，
 //     就地征粮期间在敌城的军先从所在敌城征(那座城每月掉稳定)；其余就近调粮——先从离这支军最近的几座本国城
@@ -75,16 +76,12 @@ public static class LogisticsSystem
         if (corps.embarked) return AtSea;
         TileZone zone = CorpsSystem.Zone(corps);
         if (zone == null) return 1f;
-        // 海外：补给走海路，可以从沿岸卸粮
+        // 海外：补给走海路，从这片陆地上本国船到得了的岸边卸粮(见 SupplyLine、SeaLanding.Reachable)。
+        // 以前看军脚下那座城临不临海，海外的军一进内陆城的地块就算断了补给(玩家反馈"殖民地要等陆地连上了才打得动")
         City home = CorpsSystem.Home(corps);
-        float seaCap = -1f;
-        if (home != null && !CorpsSystem.SameLand(zone, home.getTile()?.zone))
-        {
-            if (NavySystem.IsCutOff(kingdom, corps)) return 0f;
-            List<SeaRegionSystem.Region> route = zone.city != null ? NavySystem.LandingRoute(kingdom, zone.city) : null;
-            seaCap = route != null && route.Count > NavySystem.MaxRange(kingdom) ? OutOfRange : OverseasCap;
-        }
-        float supply = SupplyLine(kingdom, zone, seaCap);
+        Dictionary<int, int> sea = null;
+        if (home != null && !CorpsSystem.SameLand(zone, home.getTile()?.zone)) sea = SeaLanding.Reachable(kingdom);
+        float supply = SupplyLine(kingdom, zone, sea, NavySystem.MaxRange(kingdom));
         Kingdom controller = FrontSystem.Controller(zone);
         if (foraging && supply > 0f && controller != null && FrontSystem.Hostile(kingdom, controller))
             supply = Mathf.Min(1f, supply + ForageBonus);
@@ -92,16 +89,22 @@ public static class LogisticsSystem
     }
 
     // 补给线：从军所在的地块往后方找折损最小的运粮路线，到最近的己方(含友军)城为止(海外还可以到沿岸，按海路封顶)；
-    // 返回沿途剩下的几成，找不到为 0(被切断)。按每块折损取对数做最短路
-    private static float SupplyLine(Kingdom kingdom, TileZone start, float seaCap)
+    // 返回沿途剩下的几成，找不到为 0(被切断)。按每块折损取对数做最短路。
+    // 海外(sea 不为空：本国的船能到的海区 → 航线经过几个海区)：卸粮的岸边要是己方控制、无主地，或军脚下的那片海滩，
+    // 外面的海区本国的船到得了；航线在舰种航程内七成五，超出只剩四成
+    private static float SupplyLine(Kingdom kingdom, TileZone start, Dictionary<int, int> sea, int range)
     {
         float Source(TileZone zone)
         {
             City city = zone.city;
             if (city?.data != null && !city.isRekt() && city.getTile()?.zone == zone && FrontSystem.Friendly(kingdom, city.kingdom))
                 return 1f;
-            if (seaCap > 0f && zone.neighbours_all != null && zone.neighbours_all.Any(SeaRegionSystem.IsSea)) return seaCap;
-            return 0f;
+            if (sea == null || sea.Count == 0) return 0f;
+            if (zone != start && FrontSystem.Controller(zone) is Kingdom holder && !FrontSystem.Friendly(kingdom, holder)) return 0f;
+            int hops = int.MaxValue;
+            foreach (SeaRegionSystem.Region region in SeaLanding.Waters(zone))
+                if (sea.TryGetValue(region.Id, out int count) && count < hops) hops = count;
+            return hops == int.MaxValue ? 0f : hops <= range ? OverseasCap : OutOfRange;
         }
         float here = Source(start);
         if (here >= 1f) return 1f;

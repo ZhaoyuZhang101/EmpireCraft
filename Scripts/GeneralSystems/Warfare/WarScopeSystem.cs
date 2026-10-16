@@ -12,7 +12,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 就近动员：打仗不再全国征兵——
 //   · 只有离敌境近的城(城心到最近的敌城不超过 NearDistance 格，或城里有地块被敌军占着)按战时兵额征兵，
 //     兵员也先从这些城抽；远处的城照太平时的常备兵额，那里的军留守驻地，不开赴前线；
-//     与敌国不接壤(跨海)时，从离敌城最近的一座城出兵；谋划开战时只有谋划的国家在朝向目标国的一侧集结；
+//     范围里没有驻军的军镇(与敌国不接壤、跨海，或边境只有不驻军的小城)时，从离敌城最近的一座军镇出兵；
+//     谋划开战时只有谋划的国家在朝向目标国的一侧集结；
 //   · 打不过了逐级扩大：本国有城被敌军占着，或受攻的城分不出足够守军，算吃紧(吃紧一个月加一、缓和一个月减一)——
 //     一级：吃紧满四个月，范围翻倍，京师禁军出征；二级：吃紧满一年、而且确实危急(都城被占，或三成以上的城有地块被占)，
 //     举国总动员。连续三个月没吃紧降一级，太平时归零(以前吃紧一个月就升一级，打仗总有地块被占，第二个月就举国总动员、
@@ -118,7 +119,10 @@ public static class WarScopeSystem
             }
             else AddCenters(CityPopulationSystem.EnemyOf(kingdom));
             float radius = NearDistance * (level >= Wider ? 2f : 1f);
-            bool any = false;
+            // 军团只驻在军镇(都城、军区首都、州郡，见 CityPopulationSystem.PostOf)：范围里得有军镇才有兵可出
+            CityPopulationSystem.ArmyDoctrine doctrine = CityPopulationSystem.DoctrineOf(kingdom);
+            bool Post(City city) => CityPopulationSystem.PostOf(city, doctrine) != CityPopulationSystem.ArmyPost.None;
+            bool garrisoned = false;
             City staging = null;
             float stagingDistance = float.MaxValue;
             foreach (City city in kingdom.cities)
@@ -128,17 +132,23 @@ public static class WarScopeSystem
                 if (level >= Total || nearest <= radius * radius || Occupied(city))
                 {
                     Scope.Add(city.id);
-                    any = true;
+                    garrisoned |= Post(city);
                 }
-                else if (nearest < stagingDistance)
+                else if (nearest < stagingDistance && Post(city))
                 {
                     staging = city;
                     stagingDistance = nearest;
                 }
             }
-            if (level >= Wider && kingdom.capital?.data != null && !kingdom.capital.isRekt()) Scope.Add(kingdom.capital.id);
-            // 与敌国不接壤(跨海)：交战的主方从离敌城最近的城出兵；随宗主参战的远方成员不出
-            if (!any && staging != null && (!war || LeadsWar(kingdom))) Scope.Add(staging.id);
+            if (level >= Wider && kingdom.capital?.data != null && !kingdom.capital.isRekt())
+            {
+                Scope.Add(kingdom.capital.id);
+                garrisoned = true;
+            }
+            // 范围里没有驻军的军镇(跨海、或边境只有不驻军的小城)：交战的主方从离敌城最近的军镇出兵；随宗主参战的远方成员不出。
+            // 以前挑离敌城最近的任意一座城，多半是不驻军的港口小城，一兵也出不了；本国又没吃紧、动员不会扩大，
+            // 隔海的仗就永远没人去打(玩家反馈"两个隔海的国家一千五百年没打下来")
+            if (!garrisoned && staging != null && (!war || LeadsWar(kingdom))) Scope.Add(staging.id);
         }
     }
 

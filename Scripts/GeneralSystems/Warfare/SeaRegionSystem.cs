@@ -47,8 +47,45 @@ public static class SeaRegionSystem
     {
         Regions.Clear();
         RegionByZone.Clear();
+        ShoreCache.Clear();
         _world = null;
         _builtAt = -1d;
+    }
+
+    // 城的海岸：本城临海的陆上地块(中心格坐标)及外面海区所在的水域；Offset 是离城心最远的一处(按距离粗筛用)。
+    // 水师辐射量到对方最近的海岸，不量城心(玩家反馈"两个隔海的国家一千五百年没打下来"：城心在内陆几十格的城，
+    // 隔着窄海也"够不着")。按城缓存，一个月或城的地块数变了重算
+    public sealed class Shore
+    {
+        public readonly List<(Vector2 at, int basin)> Points = new();
+        public float Offset;
+    }
+
+    private static readonly Dictionary<long, (double at, int zones, Shore shore)> ShoreCache = new();
+
+    public static Shore ShoreOf(City city)
+    {
+        var empty = new Shore();
+        if (city?.zones == null || city.data == null || World.world == null) return empty;
+        EnsureBuilt();
+        double now = World.world.getCurWorldTime();
+        if (ShoreCache.TryGetValue(city.id, out var cached) && cached.zones == city.zones.Count && now >= cached.at &&
+            Date.getMonthsSince(cached.at) < 1)
+            return cached.shore;
+        var shore = new Shore();
+        foreach (TileZone zone in city.zones)
+        {
+            if (zone?.centerTile == null || IsSea(zone)) continue;
+            var at = new Vector2(zone.centerTile.x, zone.centerTile.y);
+            var basins = new HashSet<int>();
+            foreach (TileZone next in zone.neighbours_all ?? Array.Empty<TileZone>())
+                if (next != null && RegionByZone.TryGetValue(next.id, out int id) && basins.Add(Regions[id].Basin))
+                    shore.Points.Add((at, Regions[id].Basin));
+            if (basins.Count > 0) shore.Offset = Mathf.Max(shore.Offset, (at - city.city_center).magnitude);
+        }
+        if (ShoreCache.Count > 4096) ShoreCache.Clear();
+        ShoreCache[city.id] = (now, city.zones.Count, shore);
+        return shore;
     }
 
     public static bool IsSea(TileZone zone) =>
@@ -88,6 +125,7 @@ public static class SeaRegionSystem
                 oldControl[region.Center.id] = (region.ControllerId, region.ControlledAt);
         Regions.Clear();
         RegionByZone.Clear();
+        ShoreCache.Clear();
         List<TileZone> zones = World.world.zone_calculator.zones;
         foreach (TileZone seed in zones.OrderBy(zone => zone.y).ThenBy(zone => zone.x))
         {

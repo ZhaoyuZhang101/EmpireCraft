@@ -61,4 +61,9 @@ public sealed class CorpsData
     public int sea_tick;
     // 船走的海上路线(地块 id，第一块是所在地块；见 RoadNetwork.SeaPath)：尽量沿航线走；空表示寻不到，按海区走
     public List<int> sea_path;
+    // 船靠岸的地块(目标所在那片陆地上最近的海滩，见 SeaLanding.Beachhead)，上岸后走陆路开往目标；-1 = 没有，直接到目标
+    public int landing_zone_id = -1;
+    // 渡海先遣军(见 FrontSystem.Assign、CorpsSystem.Detach)：整军装不下运输船时按运力分出的一支，记原军 id；-1 = 不是。
+    // 不补员、不另占兵额，原军补员时把它算在内；仗打完或回到驻地就并回原军
+    public long parent_id = -1L;
 }

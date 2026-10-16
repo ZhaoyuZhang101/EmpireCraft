@@ -24,4 +24,7 @@ public sealed class FleetData
     public float build_progress;
     // 旗舰实体(开关打开时才有)
     public long flagship_id = -1L;
+    // 水师余威(见 NavySystem.ReachRadius)：最近一次有战舰时的战力与时间；战舰一时打光，十年内辐射照这个算
+    public float reach_power;
+    public double reach_power_at = -1d;
 }

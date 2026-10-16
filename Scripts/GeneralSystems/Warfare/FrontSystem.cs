@@ -12,9 +12,10 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 
 // 战线(借鉴钢铁雄心)：每月结算一次。
 //   ① 战线段：一座敌城里，与己方控制的地块相邻的敌控地块(己方城市被敌军占去的地块同理，可收复)；
-//      与敌国完全不接壤(隔海、隔荒野)时，挑离本国首都最近的敌城，从其外缘地块登陆——跨海登陆是硬限制：
-//      要有一条从本国港口出发、不经过敌方制海海区的航线，运输船总运力装得下的军才能派去(见 NavySystem)，
-//      登陆头一个月攻方战力 ×0.7；
+//      与本方没有陆上接触的敌国(隔海、隔荒野)，就算别处还有陆上战线，也各开一路登陆(每月至多两路)：按离本国首都
+//      由近及远挑够得着的敌城，从其外缘地块登陆——跨海登陆是硬限制：目标那片陆地上要有一处能靠岸的海滩，航线从本国港口
+//      出发、不经过敌方制海海区、在舰种航程内(见 SeaLanding、NavySystem)；装得上运输船的兵力才能派去，整军装不下就按
+//      剩下的运力分出先遣军(见 CorpsSystem.Detach)；登陆头一个月攻方战力 ×0.7；
 //   ② 分派：各国先按上月敌军的攻势分兵守城，余下的军集中攻打一两段；组织度太低的军回乡休整；
 //   ③ 交战：攻方(兵力×组织度×火力) 对 守方(兵力×组织度×火力×(1.25+堑壕)，无军驻守时由团练抵抗)，
 //      双方按战况伤亡、掉组织度；攻方占优就占领一块紧挨着进攻军团的地块，离它最近的进攻军团随即进驻
@@ -62,6 +63,7 @@ public static partial class FrontSystem
         Logs.Clear();
         ResetSmooth();
         TerrainSystem.ResetWorldState();
+        SeaLandingDiagnostics.ResetWorldState();
         _contested.Clear();
         _contestedAt = -1;
     }
@@ -220,26 +222,70 @@ public static partial class FrontSystem
         foreach (Kingdom friend in _atWar.Where(other => Friendly(side, other)))
             foreach (City city in friend.cities ?? new List<City>())
                 if (city?.GetOrCreate().OccupiedStatus?.Count > 0) Collect(city);
-        if (sectors.Count > 0 || hostiles.Count == 0) return sectors.Values.ToList();
-        // 与敌国不接壤：从离本国首都最近的敌城登陆(只挑够得着的)
         WorldTile origin = side.capital?.getTile();
-        City nearest = origin == null ? null : hostiles.SelectMany(hostile => hostile.cities ?? new List<City>())
-            .Where(city => city?.data != null && !city.isRekt() && city.getTile() != null && InReach(side, city, home))
-            .OrderBy(city => Toolbox.SquaredDistTile(city.getTile(), origin)).FirstOrDefault();
-        if (nearest == null) return new List<Sector>();
-        List<TileZone> landing = LandingZones(nearest);
-        if (landing.Count == 0) return new List<Sector>();
-        // 跨海：记下想登陆的城(舰队据此护航)；没有航线(没有港口、或被敌方制海截断)就登不了陆
-        if (nearest.getTile() != null && origin != null && !nearest.getTile().isSameIsland(origin))
+        if (hostiles.Count == 0 || origin == null) return sectors.Values.ToList();
+        // 与本方没有陆上接触的敌国(隔海、隔着荒野)：各开一路登陆，就算别处还有陆上战线。
+        // 玩家反馈"远洋打仗还是有问题，两个隔海的国家一千五百年没打下来"：以前本方只要还有一条陆上战线(连同帝国别处的仗、
+        // 要收复的盟城)就不登陆，而且只试离都城最近的一座城，那座城航线不通就整个放弃
+        var contact = new HashSet<long>();
+        foreach (Sector sector in sectors.Values)
         {
-            NavySystem.DesiredLanding[side.id] = nearest.id;
-            // 超出舰种航程(楼船只能近海)的远洋登陆打不了
-            List<SeaRegionSystem.Region> route = NavySystem.LandingRoute(side, nearest);
-            if (route == null || route.Count > NavySystem.MaxRange(side)) return new List<Sector>();
+            if (sector.City.kingdom is Kingdom owner && Hostile(side, owner)) contact.Add(owner.id);
+            else if (sector.City.GetOrCreate().OccupiedStatus is { } occupied)
+                foreach (var pair in occupied)
+                    if (pair.Value?.Count > 0) contact.Add(pair.Key);
         }
-        var beachhead = new Sector { City = nearest, Landing = true };
-        beachhead.Targets.AddRange(landing);
-        return new List<Sector> { beachhead };
+        int fronts = 0;
+        foreach (Kingdom hostile in hostiles.Where(hostile => !contact.Contains(hostile.id))
+                     .OrderBy(hostile => hostile.capital?.getTile() is WorldTile at ? Toolbox.SquaredDistTile(at, origin) : float.MaxValue))
+        {
+            if (fronts >= MaxLandingFronts) break;
+            Sector beachhead = LandingSector(side, hostile, home, origin, out City wanted, out int route);
+            // 跨海：记下想登陆的城(舰队据此多造运输船、去打通航线)；航线不通也记下最近的那座
+            City desired = beachhead != null && !beachhead.City.getTile().isSameIsland(origin) ? beachhead.City : wanted;
+            if (desired != null && !NavySystem.DesiredLanding.ContainsKey(side.id)) NavySystem.DesiredLanding[side.id] = desired.id;
+            SeaLandingDiagnostics.Pair(side, hostile, beachhead?.City, wanted, route);
+            if (beachhead == null || sectors.ContainsKey(beachhead.City)) continue;
+            sectors[beachhead.City] = beachhead;
+            fronts++;
+        }
+        return sectors.Values.ToList();
+    }
+
+    // 每月至多另开几路登陆；每个敌国至多试几座跨海的城
+    private const int MaxLandingFronts = 2, MaxLandingTries = 8;
+
+    // 登陆战线：敌国够得着的城里，按离本国都城由近及远试，挑第一座有登陆点、跨海时有能靠岸的海滩(航线不经敌方制海、
+    // 在舰种航程内，见 SeaLanding.Beachhead)的城；跨海的登陆点挑临海的地块。
+    // wanted：第一座够得着的跨海的城(航线不通也算，舰队据此去打通航线)；route：选中那座城的航线经过几个海区(不跨海为 0)
+    private static Sector LandingSector(Kingdom side, Kingdom hostile, HashSet<City> home, WorldTile origin, out City wanted,
+        out int route)
+    {
+        wanted = null;
+        route = 0;
+        int tries = 0;
+        foreach (City city in (hostile.cities ?? new List<City>())
+                     .Where(city => city?.data != null && !city.isRekt() && city.getTile() != null)
+                     .OrderBy(city => Toolbox.SquaredDistTile(city.getTile(), origin)).ToList())
+        {
+            if (!InReach(side, city, home)) continue;
+            List<TileZone> landing = LandingZones(city);
+            if (landing.Count == 0) continue;
+            if (!city.getTile().isSameIsland(origin))
+            {
+                wanted ??= city;
+                if (++tries > MaxLandingTries) break;
+                var (shore, path) = SeaLanding.Beachhead(side, city.getTile().zone);
+                if (shore == null) continue;
+                route = path.Count;
+                List<TileZone> coastal = landing.Where(zone => SeaLanding.Waters(zone).Count > 0).ToList();
+                if (coastal.Count > 0) landing = coastal;
+            }
+            var sector = new Sector { City = city, Landing = true };
+            sector.Targets.AddRange(landing);
+            return sector;
+        }
+        return null;
     }
 
     #endregion
@@ -251,6 +297,7 @@ public static partial class FrontSystem
 
     public static void MonthTick(double now)
     {
+        SeaLandingDiagnostics.MonthTick();
         MusterSystem.MonthTick();
         FactionPurgeSystem.MonthTick();
         _atWar = World.world.kingdoms.Where(kingdom => kingdom?.data != null && !kingdom.isRekt() &&
@@ -336,9 +383,17 @@ public static partial class FrontSystem
         }
         float Threat(City city) => pressure.TryGetValue(city.id, out var entries)
             ? entries.Where(entry => Hostile(kingdom, entry.attacker)).Sum(entry => entry.strength) : 0f;
+        // 战线段先算，眼下没有能上阵的军也算：跨海要先记下登陆点，舰队才会多造运输船、出海打通航线(见 NavySystem.Build/Assign)。
+        // 以前没有能上阵的军就直接返回，登陆点一直没记下，隔海的仗永远开不了头。还在集结的叛乱：先不反攻叛军占的城(见 MusterSystem)
+        List<Sector> sectors;
+        using (FrameProfiler.Measure("战线·分派·战线段"))
+            sectors = CachedSectors(kingdom).Where(sector => !MusterSystem.Mustering(kingdom, sector.City.kingdom)).ToList();
+        // 跨海登陆的军(还没上岸的)兵力合计不超过运输船运力
+        float shipping = sectors.Any(sector => sector.Landing) ? NavySystem.TransportCapacity(kingdom) : 0f;
+        if (sectors.Any(sector => sector.Landing)) SeaLandingDiagnostics.Deployable(kingdom, ready, shipping);
         if (ready.Count == 0)
         {
-            // 没有能上阵的军(远处留守、都在溃退休整)：不必算战线段；有城受攻就算吃紧(下月扩大动员)
+            // 没有能上阵的军(远处留守、都在溃退休整)：有城受攻就算吃紧(下月扩大动员)
             if (kingdom.cities?.Any(city => city?.data != null && !city.isRekt() && Threat(city) > 0f) == true)
                 WarScopeSystem.ReportShortfall(kingdom);
             foreach (CorpsData corps in list)
@@ -350,10 +405,6 @@ public static partial class FrontSystem
             }
             return;
         }
-        // 还在集结的叛乱：先不反攻叛军占的城(见 MusterSystem)
-        List<Sector> sectors;
-        using (FrameProfiler.Measure("战线·分派·战线段"))
-            sectors = CachedSectors(kingdom).Where(sector => !MusterSystem.Mustering(kingdom, sector.City.kingdom)).ToList();
         foreach (Sector sector in sectors.Where(sector => sector.Landing)) landingSectors[sector.City.id] = true;
         var assigned = new HashSet<CorpsData>();
         // ① 守城：本国受攻的城按攻势分兵(就近)
@@ -389,23 +440,37 @@ public static partial class FrontSystem
             // 分不出足够的守军：打不过了，下个月扩大动员
             if (have < need) WarScopeSystem.ReportShortfall(kingdom);
         }
-        // ② 进攻：集中在少数几段；跨海登陆的军(还没上岸的)兵力合计不超过运输船运力
+        // ② 进攻：集中在少数几段；跨海登陆的军(还没上岸的)兵力合计不超过运输船运力，整军装不下就分出先遣军
         var attackOn = new Dictionary<Sector, float>();
         var attackLoad = new Dictionary<int, int>();
-        float shipping = sectors.Any(sector => sector.Landing) ? NavySystem.TransportCapacity(kingdom) : 0f;
         // 不奉诏的禁军只守城、不出征(见 PalaceArmySystem)
-        foreach (CorpsData corps in ready.Where(corps => !assigned.Contains(corps) && !PalaceArmySystem.Refuses(corps))
+        foreach (CorpsData whole in ready.Where(corps => !assigned.Contains(corps) && !PalaceArmySystem.Refuses(corps))
                      .OrderByDescending(corps => corps.strength))
         {
             if (sectors.Count == 0) break;
+            CorpsData corps = whole;
             Sector keep = corps.task == "attack" ? sectors.FirstOrDefault(sector => sector.City.id == corps.sector_city_id) : null;
+            // 船不够、也分不出先遣军的登陆战线不去(已在船上的照旧开过去)；登陆战线按装得上船的兵力估胜算
+            bool Boardable(Sector sector) => Ashore(corps, sector) || corps.embarked || Shippable(corps, shipping) > 0f;
+            if (keep != null && !Boardable(keep)) keep = null;
             Sector choice = keep ?? sectors
-                .Where(sector => attackOn.ContainsKey(sector) || attackOn.Count < MaxOffensives)
-                .OrderByDescending(sector => Score(kingdom, corps, sector, attackOn)).FirstOrDefault();
-            if (choice == null) break;
-            if (choice.Landing && CorpsSystem.Zone(corps)?.city != choice.City)
+                .Where(sector => (attackOn.ContainsKey(sector) || attackOn.Count < MaxOffensives) && Boardable(sector))
+                .OrderByDescending(sector => Score(kingdom, corps, sector, attackOn,
+                    Ashore(corps, sector) ? corps.strength : Mathf.Max(Shippable(corps, shipping), corps.embarked ? corps.strength : 0f)))
+                .FirstOrDefault();
+            if (choice == null) continue;
+            if (!Ashore(corps, choice))
             {
-                if (corps.strength > shipping) continue;
+                if (corps.strength > shipping && !corps.embarked)
+                {
+                    // 整军装不下：按剩下的运力分出一支先遣军渡海，本军留守(见 CorpsSystem.Detach)。以前整军装不下就不派——
+                    // 战时一军一两万到几万人，蒸汽时代以前一两个港口的运力只有几千，大军永远过不了海
+                    if (Shippable(corps, shipping) <= 0f) continue;
+                    CorpsData vanguard = CorpsSystem.Detach(kingdom, corps, shipping);
+                    if (vanguard == null) continue;
+                    SeaLandingDiagnostics.Vanguard(kingdom);
+                    corps = vanguard;
+                }
                 shipping -= corps.strength;
             }
             attackOn.TryGetValue(choice, out float strength);
@@ -427,18 +492,38 @@ public static partial class FrontSystem
         }
     }
 
-    private static float Score(Kingdom kingdom, CorpsData corps, Sector sector, Dictionary<Sector, float> attackOn)
+    // strength：这支军能投到这一段的兵力(跨海时按装得上船的算，见 Shippable)
+    private static float Score(Kingdom kingdom, CorpsData corps, Sector sector, Dictionary<Sector, float> attackOn, float strength)
     {
         attackOn.TryGetValue(sector, out float committed);
         DefenseByCity.TryGetValue(sector.City.id, out float garrison);
         float defense = garrison * DefenderBonus + Militia(sector.City, kingdom);
         float distance = sector.Targets.Count == 0 ? 50f
             : sector.Targets.Min(zone => CorpsSystem.ZoneDistance(zone, CorpsSystem.Zone(corps)));
-        float odds = (committed + corps.strength) / (defense + 1f);
+        float odds = (committed + strength) / (defense + 1f);
         float capital = sector.City.isCapitalCity() ? 0.3f : 0f;
         float concentrate = committed > 0f ? 0.4f : 0f;
         float recapture = Friendly(kingdom, sector.City.kingdom) ? 0.6f : 0f;
         return Mathf.Min(odds, 3f) + capital + concentrate + recapture - distance * 0.03f;
+    }
+
+    // 已在登陆战线所在的那片陆地上(不必上船)；不是登陆战线也算
+    private static bool Ashore(CorpsData corps, Sector sector)
+    {
+        if (!sector.Landing) return true;
+        TileZone zone = CorpsSystem.Zone(corps);
+        return !corps.embarked && zone != null && !SeaRegionSystem.IsSea(zone) &&
+               CorpsSystem.SameLand(zone, sector.City.getTile()?.zone);
+    }
+
+    // 先遣军至少多少人：一千人，小军按半数
+    private const float MinVanguard = 1000f;
+
+    // 这支军能装上船渡海的兵力：整军装得下就是全军；装不下、剩下的运力够一支先遣军(见 CorpsSystem.Detach)就是剩下的运力；否则 0
+    private static float Shippable(CorpsData corps, float shipping)
+    {
+        if (corps.strength <= shipping) return corps.strength;
+        return CorpsSystem.CanDetach(corps) && shipping >= Mathf.Min(MinVanguard, corps.strength * 0.5f) ? shipping : 0f;
     }
 
     private static int HomeZone(CorpsData corps) => CorpsSystem.Home(corps)?.getTile()?.zone?.id ?? corps.zone_id;

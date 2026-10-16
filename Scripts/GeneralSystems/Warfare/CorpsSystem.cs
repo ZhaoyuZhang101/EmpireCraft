@@ -123,6 +123,7 @@ public static class CorpsSystem
         _lastSecond = _lastMonth = -1d;
         GeneralMoves.Clear();
         Paths.Clear();
+        EmbarkRetry.Clear();
         RoadNetwork.ResetWorldState();
         PureMapMode.ResetWorldState();
         CorpsArmSystem.ResetWorldState();
@@ -445,6 +446,18 @@ public static class CorpsSystem
             Disband(kingdom, empty);
         bool war = IsAtWar(kingdom);
         bool unpaid = Unpaid(kingdom);
+        // 渡海先遣军(见 Detach)：仗打完、或回到驻地待命，并回原军；原军没了就自成一军
+        foreach (CorpsData part in list.Where(corps => corps.parent_id >= 0).ToList())
+        {
+            CorpsData parent = list.FirstOrDefault(corps => corps.id == part.parent_id && corps.parent_id < 0);
+            if (parent == null)
+            {
+                part.parent_id = -1L;
+                continue;
+            }
+            bool back = part.task == "reserve" && !part.embarked && Zone(part) is TileZone at && at == Home(part)?.getTile()?.zone;
+            if (back || !war && part.task is not ("attack" or "defend")) Rejoin(kingdom, parent, part);
+        }
         CityPopulationSystem.ArmyDoctrine doctrine = CityPopulationSystem.DoctrineOf(kingdom);
         var cities = kingdom.cities.Where(city => city != null && !city.isRekt()).ToList();
         // 各军镇的兵额(旧制军团数)。平时首都、军区首都(帝国里的各藩属王国)至少留一个军团("平时只留一名将领"，
@@ -478,7 +491,8 @@ public static class CorpsSystem
         {
             if (!posts.TryGetValue(city, out int legions)) continue;
             int wanted = legions <= 0 ? 0 : Mathf.CeilToInt(legions / (float)LegionsPerCorps);
-            var here = list.Where(corps => corps.home_city_id == city.id && !corps.militia && corps.order_id < 0).ToList();
+            var here = list.Where(corps => corps.home_city_id == city.id && !corps.militia && corps.order_id < 0 &&
+                                           corps.parent_id < 0).ToList();
             // 每支军分到的旧制军团数
             for (int i = 0; i < Mathf.Max(wanted, here.Count); i++)
             {
@@ -502,11 +516,13 @@ public static class CorpsSystem
                     if (!war && corps.task != "attack" && corps.task != "defend") Disband(kingdom, corps);
                     continue;
                 }
-                // 补给不到五成(海外断了航线、孤军深入、被围)补不上兵；在船上的也补不了
-                if (corps.strength < corps.full && corps.supply >= 0.5f && !corps.embarked && !unpaid)
-                    Reinforce(kingdom, corps, corps.full * ReinforceShare * corps.supply);
-                else if ((!war || limited) && corps.strength > corps.full)
-                    Demobilize(kingdom, corps, Mathf.Min(corps.strength - corps.full, corps.full * DemobilizeShare + 1f));
+                // 补给不到五成(海外断了航线、孤军深入、被围)补不上兵；在船上的也补不了。
+                // 分出去的渡海先遣军算在本军名下(补员、裁撤按两者合计)，免得一边分兵一边补满、兵越分越多
+                float away = list.Where(other => other.parent_id == corps.id).Sum(other => other.strength);
+                if (corps.strength + away < corps.full && corps.supply >= 0.5f && !corps.embarked && !unpaid)
+                    Reinforce(kingdom, corps, Mathf.Min(corps.full * ReinforceShare * corps.supply, corps.full - away - corps.strength));
+                else if ((!war || limited) && corps.strength + away > corps.full)
+                    Demobilize(kingdom, corps, Mathf.Min(corps.strength + away - corps.full, corps.full * DemobilizeShare + 1f));
             }
         }
         // 义军：仗打完就地解散
@@ -618,6 +634,61 @@ public static class CorpsSystem
         }
         corps.strength = Mathf.Max(0f, corps.strength - amount);
         CityPopulationSystem.InvalidateHouseholdCaches();
+    }
+
+    // 能不能分出渡海先遣军：义军、骑士团的军、先遣军自己、已在船上的不分
+    public static bool CanDetach(CorpsData corps) =>
+        corps != null && !corps.militia && corps.order_id < 0 && corps.parent_id < 0 && !corps.embarked && corps.strength > 1f;
+
+    // 渡海先遣军(见 FrontSystem.Assign)：整军装不下运输船时，按剩下的运力从本军分出一支先渡海，本军留守。
+    // 玩家反馈"远洋打仗还是有问题，两个隔海的国家一千五百年没打下来"：以前整军装不下就不派，战时一军一两万到几万人，
+    // 蒸汽时代以前一两个港口的运力只有几千。兵员来源按比例分过去；先遣军不补员、不另占兵额，仗打完或回到驻地就并回原军
+    public static CorpsData Detach(Kingdom kingdom, CorpsData parent, float amount)
+    {
+        if (kingdom?.data == null || !CanDetach(parent)) return null;
+        amount = Mathf.Floor(Mathf.Min(amount, parent.strength - 1f));
+        if (amount < 1f) return null;
+        float share = amount / parent.strength;
+        var part = new CorpsData
+        {
+            id = HelperFunc.OverallHelperFunc.IdGenerator.NextId(), serial = NextSerial(kingdom), kingdom_id = kingdom.id,
+            home_city_id = parent.home_city_id, post = parent.post, legions = Mathf.Max(1, Mathf.RoundToInt(parent.legions * share)),
+            full = amount, strength = amount, org = parent.org, task = parent.task, sector_city_id = parent.sector_city_id,
+            zone_id = parent.zone_id, target_zone_id = parent.target_zone_id, raised_at = World.world.getCurWorldTime(),
+            arm = parent.arm, supply = parent.supply, rations = parent.rations, phantom = parent.phantom, loyalty = parent.loyalty,
+            parent_id = parent.id
+        };
+        foreach (LegionPopulationContribution origin in parent.population)
+        {
+            if (origin == null || origin.size <= 0f) continue;
+            float moved = origin.size * share;
+            origin.size -= moved;
+            part.population.Add(new LegionPopulationContribution
+            {
+                city_id = origin.city_id, social_class = origin.social_class, culture = origin.culture,
+                species = origin.species, ideology = origin.ideology, size = moved
+            });
+        }
+        parent.population.RemoveAll(origin => origin == null || origin.size <= 0.01f);
+        parent.strength -= amount;
+        Of(kingdom).Add(part);
+        return part;
+    }
+
+    // 先遣军并回原军：兵员来源并回去，组织度按兵力加权
+    private static void Rejoin(Kingdom kingdom, CorpsData parent, CorpsData part)
+    {
+        float total = parent.strength + part.strength;
+        if (total > 0f) parent.org = (parent.org * parent.strength + part.org * part.strength) / total;
+        parent.strength = total;
+        foreach (LegionPopulationContribution origin in part.population)
+            if (origin != null && origin.size > 0f) parent.AddContribution(origin);
+        part.population.Clear();
+        part.strength = 0f;
+        RemoveGeneral(part);
+        Paths.Remove(part.id);
+        EmbarkRetry.Remove(part.id);
+        Of(kingdom).Remove(part);
     }
 
     public static void Disband(Kingdom kingdom, CorpsData corps)
@@ -934,19 +1005,35 @@ public static class CorpsSystem
             corps.zone_id = target.id;
             return;
         }
-        // 目标在另一片陆地上：先开到本国港口，在港口上船(见 Embark、Sail)
+        // 目标在另一片陆地上：先开到本国港口，在港口上船(见 Embark、Sail)；
+        // 已在海外(不在驻地那片陆地上)、这片陆地上又没有本国港口(登陆上岸的军要回国、转战别处)：就近找一处岸边上船，
+        // 不再困在海外。本土没有港口的照旧出不了海
         if (!SeaRegionSystem.IsSea(current) && !SameLand(current, target))
         {
             Kingdom kingdom = World.world.kingdoms.get(corps.kingdom_id);
             City port = PortFor(kingdom, current);
             TileZone portZone = port?.getTile()?.zone;
-            if (portZone == null) return;
-            if (current == portZone || current.city == port)
+            if (portZone != null)
             {
-                Embark(kingdom, corps, target);
-                return;
+                if (current == portZone || current.city == port)
+                {
+                    Embark(kingdom, corps, target, SeaRegionSystem.RegionsAround(port));
+                    return;
+                }
+                target = portZone;
             }
-            target = portZone;
+            else
+            {
+                if (SameLand(current, Home(corps)?.getTile()?.zone)) return;
+                TileZone shore = SeaLanding.Shores(current).FirstOrDefault();
+                if (shore == null) return;
+                if (current == shore)
+                {
+                    Embark(kingdom, corps, target, SeaLanding.Waters(shore));
+                    return;
+                }
+                target = shore;
+            }
         }
         TileZone next = NextStep(corps, current, target);
         if (next != null) corps.zone_id = next.id;
@@ -987,18 +1074,34 @@ public static class CorpsSystem
         return best;
     }
 
-    // 在港口上船：按登陆航线出海(航线不经敌方制海、在舰种航程内；走不了就在港口等)
-    private static void Embark(Kingdom kingdom, CorpsData corps, TileZone target)
+    // 上船失败(没有能靠岸的海滩、航线被截断)后隔几秒(真实时间)再试
+    private const float EmbarkRetrySeconds = 5f;
+    private static readonly Dictionary<long, float> EmbarkRetry = new();
+
+    // 在港口(或岸边)上船：船开往目标所在那片陆地上沿陆路离目标最近、能靠岸的海滩(见 SeaLanding.Beachhead)，
+    // 上岸后走陆路开往目标；航线不经敌方制海、在舰种航程内。从这里出海走不了就按本国别的出海口算，再不行就原地等。
+    // 以前船只开到目标城外的海区，内陆的城求不出航线，军在港口等一辈子(玩家反馈殖民地"要等陆地连上了才打得动")
+    private static void Embark(Kingdom kingdom, CorpsData corps, TileZone target, List<SeaRegionSystem.Region> start)
     {
-        City destination = target.city ?? World.world.cities.get(corps.sector_city_id);
-        if (kingdom == null || destination?.data == null) return;
-        List<SeaRegionSystem.Region> route = NavySystem.LandingRoute(kingdom, destination);
-        if (route == null || route.Count == 0 || route.Count > NavySystem.MaxRange(kingdom)) return;
+        if (kingdom == null || target == null) return;
+        float clock = Time.unscaledTime;
+        if (EmbarkRetry.TryGetValue(corps.id, out float retryAt) && clock < retryAt) return;
+        TileZone shore = null;
+        List<SeaRegionSystem.Region> route = null;
+        if (start != null && start.Count > 0) (shore, route) = SeaLanding.Beachhead(kingdom, target, start);
+        if (shore == null) (shore, route) = SeaLanding.Beachhead(kingdom, target);
+        if (shore == null || route == null || route.Count == 0)
+        {
+            EmbarkRetry[corps.id] = clock + EmbarkRetrySeconds;
+            return;
+        }
+        EmbarkRetry.Remove(corps.id);
         corps.embarked = true;
+        corps.landing_zone_id = shore.id;
         corps.sea_route = route.Select(region => region.Id).ToList();
         corps.sea_step = 0;
         corps.sea_tick = 0;
-        corps.sea_path = Voyage(corps, Zone(corps), target);
+        corps.sea_path = Voyage(corps, Zone(corps), shore);
         // 寻不到海上路线：照旧从第一个海区出发，按海区走
         if (corps.sea_path.Count == 0 && route[0].Center != null) corps.zone_id = route[0].Center.id;
         Paths.Remove(corps.id);
@@ -1025,7 +1128,7 @@ public static class CorpsSystem
             Disembark(corps);
             return;
         }
-        corps.sea_path ??= Voyage(corps, Zone(corps),
+        corps.sea_path ??= Voyage(corps, Zone(corps), ZoneById(corps.landing_zone_id) ??
             FrontSystem.TargetZone(corps) ?? World.world.cities.get(corps.sector_city_id)?.getTile()?.zone);
         if (corps.sea_path.Count > 0)
         {
@@ -1073,10 +1176,17 @@ public static class CorpsSystem
         corps.sea_route = null;
         corps.sea_step = 0;
         corps.sea_tick = 0;
-        TileZone landing = FrontSystem.TargetZone(corps);
+        // 在上船时选好的海滩靠岸，上岸后走陆路开往目标；船还在海上时目标改到了别的陆地(仗打完回驻地等)就直接到目标
+        TileZone target = FrontSystem.TargetZone(corps);
+        TileZone landing = ZoneById(corps.landing_zone_id);
+        corps.landing_zone_id = -1;
+        if (landing == null || SeaRegionSystem.IsSea(landing) ||
+            target != null && !SeaRegionSystem.IsSea(target) && !SameLand(landing, target))
+            landing = target;
         if (landing == null || SeaRegionSystem.IsSea(landing))
             landing = World.world.cities.get(corps.sector_city_id)?.getTile()?.zone;
         if (landing != null) corps.zone_id = landing.id;
+        SeaLandingDiagnostics.Landed(corps.kingdom_id);
     }
 
     // 船队驶入敌方制海的海区遭截击：没有护航折损一成五，有护航减半；组织度 -15
