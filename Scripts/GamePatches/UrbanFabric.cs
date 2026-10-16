@@ -62,6 +62,8 @@ public static class UrbanFabric
         public readonly List<Vector2[]> Paths = new();
         // 毁于兵火的镇村(见 RuralSettlementSystem)；镇村的指纹(平面图的指纹里算进去)
         public readonly List<(int x, int y, bool town)> Ruins = new();
+        // 关城(中心、等级，见 RuralSettlementSystem)
+        public readonly List<(int x, int y, int level)> Forts = new();
         public int SettlementHash;
         // 各地块上有哪些城郊景物(按地块算一次，逐格上色时只查这几样)
         internal readonly Dictionary<int, Rural> Rurals = new();
@@ -369,7 +371,14 @@ public static class UrbanFabric
                 if (!Open(g, settlement.x, settlement.y)) continue;
                 g.SettlementHash = g.SettlementHash * 31 + settlement.id * 7 + (settlement.ruined_at >= 0d ? 3 : 1) +
                                    (int)settlement.seed * 13 + RuralSettlementSystem.Tier(settlement) * 5 +
-                                   (settlement.name?.GetHashCode() ?? 0);
+                                   (settlement.name?.GetHashCode() ?? 0) + (settlement.fort ? 11 : 0);
+                // 关城：不算村镇数
+                if (settlement.fort)
+                {
+                    if (settlement.ruined_at >= 0d) g.Ruins.Add((settlement.x, settlement.y, true));
+                    else g.Forts.Add((settlement.x, settlement.y, Mathf.Clamp(settlement.size, 1, 3)));
+                    continue;
+                }
                 if (settlement.town) townCount++;
                 else villageCount++;
                 if (settlement.ruined_at >= 0d) g.Ruins.Add((settlement.x, settlement.y, settlement.town));
@@ -382,6 +391,7 @@ public static class UrbanFabric
             g.Towns.Exists(t => Mathf.Abs(t.x - x) + Mathf.Abs(t.y - y) < t.size + room) ||
             g.Villages.Exists(v => Mathf.Abs(v.x - x) + Mathf.Abs(v.y - y) < room) ||
             g.Ruins.Exists(r => Mathf.Abs(r.x - x) + Mathf.Abs(r.y - y) < room) ||
+            g.Forts.Exists(f => Mathf.Abs(f.x - x) + Mathf.Abs(f.y - y) < room + 4) ||
             RuralSettlementSystem.ClearedNear(x, y, room);
         int reach = 14 + 8 * tier;
         float far = 12f + reach - 2f;
@@ -435,6 +445,7 @@ public static class UrbanFabric
             if (g.Villages.Exists(v => Mathf.Abs(v.x - x) + Mathf.Abs(v.y - y) < 9)) return false;
             if (g.Ruins.Exists(r => Mathf.Abs(r.x - x) + Mathf.Abs(r.y - y) < 9)) return false;
             if (RuralSettlementSystem.ClearedNear(x, y, 9)) return false;
+            if (g.Forts.Exists(f => Mathf.Abs(f.x - x) + Mathf.Abs(f.y - y) < 13)) return false;
             // 离路太近的不要(会压在路上)
             int best = 15;
             foreach (Road road in g.Roads)
@@ -557,6 +568,20 @@ public static class UrbanFabric
                 to = point;
             }
             if (best > size + 2f && !(best <= TrailReach && AddTrail(g, at, to, 5003L + t * 13L))) TerrainTrail(g, at, to);
+        }
+        foreach ((int fx, int fy, int level) in g.Forts)
+        {
+            var at = new Vector2(fx, fy);
+            Vector2 to = gate;
+            float best = Vector2.Distance(at, gate);
+            foreach (Vector2 point in roadPoints)
+            {
+                float d = Vector2.Distance(at, point);
+                if (d >= best) continue;
+                best = d;
+                to = point;
+            }
+            if (best > level + 4f && !(best <= TrailReach && AddTrail(g, at, to, PosKey(fx, fy) * 17L + 7L))) TerrainTrail(g, at, to);
         }
         foreach ((int tx, int ty, int size, _) in g.Towns) roadPoints.Add(new Vector2(tx, ty));
         for (int i = 0; i < g.Villages.Count; i++)
@@ -751,6 +776,8 @@ public static class UrbanFabric
     }
 
     private static readonly Color32 Felt = new(240, 234, 218, 255), Trampled = new(196, 186, 140, 255);
+    private static readonly Color32 FortWall = new(150, 140, 124, 255), FortTower = new(110, 102, 90, 255),
+        FortYard = new(198, 186, 158, 255), FortBarracks = new(96, 88, 84, 255);
 
     // 一处营地：几顶蒙古包围成一圈，正中一顶大的，地上踩出一片
     private static Color32 YurtCamp(Geometry g, WorldTile tile, Color32 color, int dx, int dy, int cx, int cy)
@@ -1329,7 +1356,7 @@ public static class UrbanFabric
     // 城郊一格：出城大路 > 关厢 > 镇 > 村 > 小路 > 林子 > 田块；其余照原样
     internal sealed class Rural
     {
-        public readonly List<int> Roads = new(), Towns = new(), Villages = new(), Paths = new(), Ruins = new();
+        public readonly List<int> Roads = new(), Towns = new(), Villages = new(), Paths = new(), Ruins = new(), Forts = new();
         // 地块里离主城、镇、村最近的距离(格)：远了既没有田也没有林子
         public float Near;
     }
@@ -1371,6 +1398,12 @@ public static class UrbanFabric
             int r = town ? 5 : 2;
             if (Overlaps(x - r, y - r, x + r, y + r)) rural.Ruins.Add(i);
         }
+        for (int i = 0; i < g.Forts.Count; i++)
+        {
+            (int x, int y, int level) = g.Forts[i];
+            int r = 2 + level;
+            if (Overlaps(x - r, y - r, x + r, y + r)) rural.Forts.Add(i);
+        }
         for (int i = 0; i < g.Paths.Count; i++)
         {
             Vector2[] trail = g.Paths[i];
@@ -1399,7 +1432,7 @@ public static class UrbanFabric
         if (g == null || tile?.zone == null || g.Built.Contains(tile.zone.id) && InTown(g, tile)) return false;
         Rural rural = RuralOf(g, tile.zone);
         if (rural.Roads.Count == 0 && rural.Towns.Count == 0 && rural.Villages.Count == 0 && rural.Paths.Count == 0 &&
-            rural.Ruins.Count == 0) return false;
+            rural.Ruins.Count == 0 && rural.Forts.Count == 0) return false;
         return Countryside(g, tile, new Color32(128, 128, 128, 255), out _, true);
     }
 
@@ -1435,6 +1468,17 @@ public static class UrbanFabric
             float d = Mathf.Sqrt(dx * dx + dy * dy), reach = size + 0.4f + 0.8f * (H(g.Seed, x, y, (int)(Angle(dx, dy) * 2f)) - 0.5f);
             if (d > reach) continue;
             result = TownTile(g, tile, color, dx, dy, d, reach, walled);
+            return true;
+        }
+        // 关城：方方正正一圈城墙，四角墩台，里面是营房校场
+        foreach (int index in rural.Forts)
+        {
+            (int x, int y, int level) = g.Forts[index];
+            int dx = tile.x - x, dy = tile.y - y, r = 2 + level, d = Mathf.Max(Mathf.Abs(dx), Mathf.Abs(dy));
+            if (d > r) continue;
+            bool corner = Mathf.Abs(dx) == r && Mathf.Abs(dy) == r;
+            result = d == r ? Mix(color, corner ? FortTower : FortWall, 0.9f)
+                : Mix(color, (dx + dy) % 2 == 0 && d <= r - 2 ? FortBarracks : FortYard, 0.75f);
             return true;
         }
         // 镇的废墟：一片暗土色，焦黑点点(村的废墟同村一样粗图不画)

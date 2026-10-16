@@ -85,7 +85,7 @@ public class SettlementWindow : AbstractWideWindow<SettlementWindow>
         nameInput.input.characterLimit = 8;
         info.AddChild(nameInput.gameObject);
         var tierRow = info.BeginHoriGroup(new Vector2(RowWidth, 16f), TextAnchor.MiddleLeft, 3, new RectOffset(0, 0, 0, 0));
-        tierRow.AddTextIntoHoriLayout(RuralSettlementSystem.TierName(tier).ColorString("#F2EEE2"), true, TextAnchor.MiddleLeft,
+        tierRow.AddTextIntoHoriLayout(RuralSettlementSystem.TierName(settlement).ColorString("#F2EEE2"), true, TextAnchor.MiddleLeft,
             new Vector2(RowWidth - 80f, 14f)).UseFixedFontSize(8, HorizontalWrapMode.Overflow);
         if (!ruined)
         {
@@ -96,7 +96,9 @@ public class SettlementWindow : AbstractWideWindow<SettlementWindow>
         }
         Line(info, (ruined
             ? string.Format(LM.Get("settlement_window_ruined"), Mathf.Max(0, Date.getYearsSince(settlement.ruined_at)))
-            : string.Format(LM.Get("settlement_window_people"), Mathf.RoundToInt(RuralSettlementSystem.PeopleOf(settlement, city))))
+            : settlement.fort
+                ? string.Format(LM.Get("fort_window_defense"), (tier + 1) * 30)
+                : string.Format(LM.Get("settlement_window_people"), Mathf.RoundToInt(RuralSettlementSystem.PeopleOf(settlement, city))))
             .ColorString(ruined ? "#E9A85B" : "#65D66E"));
         Line(info, (city == null
             ? LM.Get("settlement_unowned")

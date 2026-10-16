@@ -313,6 +313,7 @@ public partial class PureMapPatch
             Grow(Mathf.RoundToInt(at.x), Mathf.RoundToInt(at.y), Mathf.CeilToInt(TribalRadius(plan) / DetailScale) + 14);
         }
         foreach ((int x, int y, int townSize, _) in g.Towns) Grow(x, y, townSize + 4);
+        foreach ((int x, int y, int level) in g.Forts) Grow(x, y, level + 5);
         foreach (FactorySite site in plan.factories) Grow(site.x, site.y, FactorySystem.Side(site.size) / 2 + 2);
         // 出城的大路、岔路一直画到路的尽头(连同关厢)，不在图边上从精细的路断成粗图上一格一格的路
         foreach (UrbanFabric.Road road in g.Roads)
@@ -1590,6 +1591,9 @@ public partial class PureMapPatch
             index++;
             if (!Swallowed(px, py)) Village(c, style, tint, px, py, dirt, ground, UrbanFabric.SettlementKey(x, y) + 3000);
         }
+        // 关城(见 RuralSettlementSystem)：一圈城墙、四角墩台、南门，里面营房校场、一杆旗
+        foreach ((int x, int y, int level) in g.Forts)
+            Fort(c, (x - c.X0) * s + s / 2, (y - c.Y0) * s + s / 2, level, UrbanFabric.SettlementKey(x, y) + 7000);
         // 毁于兵火的镇村(见 RuralSettlementSystem)：一片焦土，残垣断瓦
         foreach ((int x, int y, bool town) in g.Ruins)
             RuralRuin(c, (x - c.X0) * s + s / 2, (y - c.Y0) * s + s / 2, town ? 16f : 7f, UrbanFabric.SettlementKey(x, y) + 5000, tint);
@@ -1772,6 +1776,49 @@ public partial class PureMapPatch
     }
 
     // 镇：一片地面，十字街、街口集市(摊棚)、沿街房子一户挨一户、背街再几户；富的镇围一圈矮墙
+    // 关城：方城一圈(画布的行往北增，南门在 cy - r)，四角墩台；城里两三排营房，正中校场、一杆红旗
+    private static void Fort(Canvas c, int cx, int cy, int level, long seed)
+    {
+        int r = (2 + level) * DetailScale;
+        Color32 wall = Rgb(150, 140, 124), tower = Rgb(108, 100, 88), yard = Rgb(200, 188, 160), roof = Rgb(92, 84, 80);
+        for (int py = cy - r; py <= cy + r; py++)
+        for (int px = cx - r; px <= cx + r; px++)
+        {
+            if (!c.In(px, py) || !c.Land(px, py)) continue;
+            int dx = px - cx, dy = py - cy, d = Mathf.Max(Mathf.Abs(dx), Mathf.Abs(dy));
+            bool corner = Mathf.Abs(dx) >= r - 2 && Mathf.Abs(dy) >= r - 2;
+            if (d >= r - 1)
+            {
+                // 南门
+                if (dy <= -r + 1 && Mathf.Abs(dx) <= 1) c.Put(px, py, yard, KPlaza);
+                else c.Put(px, py, corner ? tower : (px + py) % 2 == 0 ? wall : Darker(wall, 0.9f), KWall);
+                continue;
+            }
+            if (corner) { c.Put(px, py, tower, KWall); continue; }
+            c.Put(px, py, yard, KPlaza);
+        }
+        // 营房：东西两侧各几排长屋，正中留校场
+        int rows = 1 + level;
+        for (int k = 0; k < rows; k++)
+        {
+            int py0 = cy - r + 4 + k * 4;
+            if (py0 + 1 >= cy + r - 2) break;
+            for (int side = -1; side <= 1; side += 2)
+            {
+                int x0 = side < 0 ? cx - r + 3 : cx + 3, x1 = side < 0 ? cx - 3 : cx + r - 3;
+                for (int py = py0; py <= py0 + 1; py++)
+                for (int px = x0; px <= x1; px++)
+                    if (c.In(px, py) && c.Kind(px, py) == KPlaza) c.Put(px, py, py == py0 + 1 ? Darker(roof, 1.15f) : roof, KBuilding);
+            }
+        }
+        // 旗杆、红旗
+        for (int k = 0; k < 5; k++)
+            if (c.In(cx, cy + k)) c.Put(cx, cy + k, Rgb(70, 60, 50), KBuilding);
+        if (c.In(cx + 1, cy + 4)) c.Put(cx + 1, cy + 4, Rgb(196, 52, 44), KBuilding);
+        if (c.In(cx + 2, cy + 4)) c.Put(cx + 2, cy + 4, Rgb(196, 52, 44), KBuilding);
+        if (c.In(cx + 1, cy + 3)) c.Put(cx + 1, cy + 3, Rgb(176, 44, 38), KBuilding);
+    }
+
     private static void Town(Canvas c, DetailStyle style, int cx, int cy, int townSize, bool walled, Color32 dirt, Color32 ground, long seed)
     {
         int r = townSize * DetailScale + 2;

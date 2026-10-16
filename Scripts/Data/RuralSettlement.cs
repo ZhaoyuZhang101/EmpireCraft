@@ -6,8 +6,10 @@ public sealed class RuralSettlement
     public int id;
     public int x, y;
     public bool town;
-    // 镇的大小(格)、有没有矮墙；村不用
+    // 镇的大小(格)、有没有矮墙；村不用；关城的等级(1~3)
     public int size;
+    // 关城、军城(用户 2026-10-17 "城=关城/军城"：只有城墙、驻军，不住百姓，见 RuralSettlementSystem.FortFactor)
+    public bool fort;
     public bool walled;
     public string name = "";
     public double founded = -1d;

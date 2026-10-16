@@ -41,6 +41,9 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 新城市规划(用户 2026-10-17 问答)：规划的单位是一处处村镇，位置、档位、名字由人定，里面的布局按各自的种子随机——
 //   · 点开村镇的小窗口(见 SettlementWindow)：改名、升降级(村 → 镇 → 有墙大镇)、换个样子(只换这一处的种子)、毁弃或重建；
 //   · 世界法则「固定城乡格局」：开了以后 AI 不新建村镇、兵火不烧、废墟不自己重建，只听手动(用来摆符合史实的地图)。
+// 关城、军城(用户 2026-10-17 "城=关城/军城")：只有城墙、驻军，不住百姓、不算村镇数，只能手动筑(营建页「筑关」)；
+//   三级(关隘、关城、雄关)；打仗时敌军攻它那一片(见 CityDistricts)，守方战力按等级多三成、六成、九成(见 FortFactor)；
+//   不毁于兵火，可以毁弃。
 public static class RuralSettlementSystem
 {
     private const float VillageWeight = 1f, TownWeight = 3f, CityWeight = 6f, RuinedOutputLoss = 0.6f, BurnPopulationLoss = 0.5f;
@@ -228,7 +231,7 @@ public static class RuralSettlementSystem
             foreach (RuralSettlement settlement in InZone(around))
             {
                 float dx = settlement.x - tile.x, dy = settlement.y - tile.y, d = dx * dx + dy * dy;
-                float reach = settlement.town ? settlement.size + 1.5f : 2.5f;
+                float reach = settlement.fort ? settlement.size + 3.5f : settlement.town ? settlement.size + 1.5f : 2.5f;
                 if (d > reach * reach || d >= bestDistance) continue;
                 best = settlement;
                 bestDistance = d;
@@ -238,7 +241,7 @@ public static class RuralSettlementSystem
 
     #region 住人、产粮交税
 
-    private static float Weight(RuralSettlement settlement) => settlement.town ? TownWeight : VillageWeight;
+    private static float Weight(RuralSettlement settlement) => settlement.fort ? 0f : settlement.town ? TownWeight : VillageWeight;
 
     // 本城城外镇村的份数：完好的、毁了的
     public static (float living, float ruined) Weights(City city)
@@ -313,10 +316,27 @@ public static class RuralSettlementSystem
     // 档位：0 村、1 镇、2 有墙大镇
     public const int MaxTier = 2;
 
-    public static int Tier(RuralSettlement settlement) => settlement == null ? 0 : !settlement.town ? 0 : settlement.walled ? 2 : 1;
+    public static int Tier(RuralSettlement settlement) => settlement == null ? 0
+        : settlement.fort ? Math.Max(1, Math.Min(3, settlement.size)) - 1
+        : !settlement.town ? 0 : settlement.walled ? 2 : 1;
 
     public static string TierName(int tier) =>
         LM.Get(tier switch { 0 => "settlement_kind_village", 1 => "settlement_kind_town", _ => "settlement_kind_walled_town" });
+
+    // 关城按等级叫关隘、关城、雄关
+    public static string TierName(RuralSettlement settlement) =>
+        settlement?.fort == true ? LM.Get("fort_level_" + Tier(settlement)) : TierName(Tier(settlement));
+
+    // 关城守御：敌军攻的那块地所在的一片(见 CityDistricts)里有完好的关城，守方战力按等级多三成、六成、九成
+    public static float FortFactor(City city, TileZone zone)
+    {
+        if (All.Count == 0 || city?.zones == null || zone == null) return 1f;
+        int best = 0;
+        foreach (TileZone part in CityDistricts.ZonesOf(city, zone))
+            foreach (RuralSettlement settlement in InZone(part))
+                if (settlement.fort && settlement.ruined_at < 0d) best = Math.Max(best, Math.Max(1, Math.Min(3, settlement.size)));
+        return 1f + 0.3f * best;
+    }
 
     // 改档位(窗口里的升级、降级)：镇三格见方，有墙大镇四格(城大的五格)
     public static void SetTier(RuralSettlement settlement, int tier)
@@ -325,14 +345,18 @@ public static class RuralSettlementSystem
         tier = Math.Max(0, Math.Min(MaxTier, tier));
         if (tier == Tier(settlement)) return;
         City city = CityOf(settlement);
-        settlement.town = tier >= 1;
-        settlement.walled = tier >= 2;
-        settlement.size = tier switch
+        if (settlement.fort) settlement.size = tier + 1;
+        else
         {
-            0 => 0,
-            1 => 3,
-            _ => city != null && city.GetOrCreate().urban_tier >= 3 ? 5 : 4
-        };
+            settlement.town = tier >= 1;
+            settlement.walled = tier >= 2;
+            settlement.size = tier switch
+            {
+                0 => 0,
+                1 => 3,
+                _ => city != null && city.GetOrCreate().urban_tier >= 3 ? 5 : 4
+            };
+        }
         Revision++;
         if (city != null) PureMapPatch.Redraw(city);
     }
@@ -377,10 +401,11 @@ public static class RuralSettlementSystem
     // 名字(还没标注过、没起名的写"村""镇")
     public static string Label(RuralSettlement settlement) =>
         !string.IsNullOrEmpty(settlement?.name) ? settlement.name
-            : LM.Get(settlement?.town == true ? "settlement_kind_town" : "settlement_kind_village");
+            : LM.Get(settlement?.fort == true ? "settlement_kind_fort"
+                : settlement?.town == true ? "settlement_kind_town" : "settlement_kind_village");
 
-    // 立村、设镇：返回提示文字
-    public static string Place(WorldTile tile, bool town)
+    // 立村、设镇、筑关：返回提示文字
+    public static string Place(WorldTile tile, bool town, bool fort = false)
     {
         if (!PureMapMode.Enabled) return LM.Get("settlement_need_pure_map");
         if (!UrbanFabric.Buildable(tile)) return LM.Get("settlement_place_no_land");
@@ -408,7 +433,7 @@ public static class RuralSettlementSystem
         HashSet<int> built = PureMapPatch.BuiltZones(city);
         if (zone == city.getTile()?.zone || built != null && built.Contains(zone.id))
             return string.Format(LM.Get("settlement_place_urban"), cityName);
-        int room = town ? 9 : 6;
+        int room = town || fort ? 9 : 6;
         foreach (TileZone around in Around(zone))
             foreach (RuralSettlement other in InZone(around))
                 if (Math.Abs(other.x - tile.x) + Math.Abs(other.y - tile.y) < room + (other.town ? other.size : 0))
@@ -422,15 +447,16 @@ public static class RuralSettlementSystem
                         list.Remove(gone);
                         All.Remove(gone.id);
                     }
-        int size = town ? (city.GetOrCreate().urban_tier >= 3 ? 4 : 3) : 0;
-        RuralSettlement settlement = Add(tile.x, tile.y, town, size, false);
+        int size = fort ? 1 : town ? (city.GetOrCreate().urban_tier >= 3 ? 4 : 3) : 0;
+        RuralSettlement settlement = Add(tile.x, tile.y, town && !fort, size, false);
+        settlement.fort = fort;
         if (claim)
         {
             WorldTile center = city.getTile();
             ClaimAround(city, settlement, center?.x ?? tile.x, center?.y ?? tile.y, float.MaxValue);
         }
         PureMapPatch.Redraw(city);
-        return string.Format(LM.Get(town ? "settlement_placed_town" : "settlement_placed_village"), cityName);
+        return string.Format(LM.Get(fort ? "settlement_placed_fort" : town ? "settlement_placed_town" : "settlement_placed_village"), cityName);
     }
 
     // 毁弃：完好的毁为废墟，废墟彻底抹去；这里没有镇村时返回 null
@@ -514,7 +540,7 @@ public static class RuralSettlementSystem
         double now = World.world.getCurWorldTime();
         foreach (RuralSettlement settlement in list)
         {
-            if (settlement.ruined_at >= 0d) continue;
+            if (settlement.ruined_at >= 0d || settlement.fort) continue;
             float chance = settlement.town ? raid ? RaidTownBurn : TownBurn : raid ? RaidVillageBurn : VillageBurn;
             if (UnityEngine.Random.value >= chance) continue;
             Displace(city, settlement);

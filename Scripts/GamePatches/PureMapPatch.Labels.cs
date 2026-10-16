@@ -34,6 +34,8 @@ public partial class PureMapPatch
         public readonly List<Vector2> Villages = new();
         // 各处镇村所在的那一格(名字记在存档里，见 RuralSettlementSystem)；废墟(标注处、所在格)
         public readonly List<(int x, int y)> TownTiles = new(), VillageTiles = new();
+        // 关城(标注处、所在格)
+        public readonly List<(Vector2 at, int x, int y)> Forts = new();
         public readonly List<(Vector2 at, int x, int y)> Ruins = new();
     }
 
@@ -78,6 +80,8 @@ public partial class PureMapPatch
                 result.Villages.Add(new Vector2(x + 0.5f, y + 3f));
                 result.VillageTiles.Add((x, y));
             }
+            foreach ((int x, int y, int level) in plan.fabric.Forts)
+                result.Forts.Add((new Vector2(x + 0.5f, y + level + 4.5f), x, y));
             foreach ((int x, int y, bool town) in plan.fabric.Ruins)
                 result.Ruins.Add((new Vector2(x + 0.5f, y + (town ? 5.5f : 3f)), x, y));
         }

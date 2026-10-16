@@ -302,6 +302,12 @@ public static class MapLabelOverlay
                 city.id * 9973L + i * 257L + 29L);
             specs.Add(new Spec(plan.Villages[i], name, SettlementColor, VillageSize, false, 2));
         }
+        foreach ((Vector2 at, int x, int y) in plan.Forts)
+        {
+            RuralSettlement settlement = RuralSettlementSystem.At(x, y);
+            if (settlement == null) continue;
+            specs.Add(new Spec(at, NameOf(settlement, settlement.town, huaxia, used, 0L), SettlementColor, TownSize, false, 1));
+        }
         foreach ((Vector2 at, int x, int y) in plan.Ruins)
         {
             RuralSettlement settlement = RuralSettlementSystem.At(x, y);
@@ -318,7 +324,8 @@ public static class MapLabelOverlay
     {
         if (!string.IsNullOrEmpty(settlement?.name)) return settlement.name;
         long seed = fallback != 0L || settlement == null ? fallback : UrbanFabric.PosKey(settlement.x, settlement.y) + 29L;
-        string name = town ? SettlementName(seed, used, TownWords, TownSuffix)
+        string name = settlement?.fort == true ? SettlementName(seed, used, TownWords, FortSuffix)
+            : town ? SettlementName(seed, used, TownWords, TownSuffix)
             : Chinese && huaxia && Pick(VillageKind, seed) == "姓"
                 ? SettlementName(seed, used, SurnameZh, VillageSuffixClan)
                 : SettlementName(seed, used, VillageWords, VillageSuffix);
@@ -511,6 +518,7 @@ public static class MapLabelOverlay
     private static readonly string[] VillageKind = { "姓", "姓", "雅" };
     private static string[] TownWords => Chinese ? TownZh : StreetEn;
     private static string[] TownSuffix => Chinese ? new[] { "镇" } : new[] { "ton", "bury", "ford" };
+    private static string[] FortSuffix => Chinese ? new[] { "关" } : new[] { "gate", "hold", "watch" };
     private static string[] VillageWords => Chinese ? VillageZh : StreetEn;
     private static string[] VillageSuffix => Chinese ? new[] { "村", "庄", "村", "湾", "坪" } : new[] { "by", "ham", "wick", "field" };
     private static string[] VillageSuffixClan => new[] { "家庄", "村", "家村", "屯", "家寨", "家集" };

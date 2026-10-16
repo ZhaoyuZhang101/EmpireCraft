@@ -891,6 +891,9 @@ public static partial class FrontSystem
                                             MusterSystem.DefenseFactor(entry.kingdom, attacker)) * remnant;
         float militia = holders.Count == 0 ? Militia(city, attacker) * (breach ? BreachedMilitia : 1f) : 0f;
         defend += militia;
+        // 关城守御：攻的那一片里有关城，守方按等级加成；红夷大炮破城时只剩一半(见 RuralSettlementSystem.FortFactor)
+        float fort = RuralSettlementSystem.FortFactor(city, FrontZone(city, attacker, landing));
+        if (fort > 1f) defend *= breach ? 1f + (fort - 1f) * 0.5f : fort;
         float ratio = attack + defend <= 0f ? 0.5f : attack / (attack + defend);
         // 伤亡与组织度
         float attackStrength = attackers.Sum(entry => entry.corps.strength);
