@@ -284,6 +284,8 @@ public static class UnificationSystem
 
     private static void Yearly()
     {
+        // 称帝、开战卡在哪一关(诊断，只记日志)
+        FormationDiagnostics.Yearly();
         Rivals.Clear();
         double now = World.world.getCurWorldTime();
         List<Realm> realms = Survey();

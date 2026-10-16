@@ -350,6 +350,36 @@ public static class EmpireFormationService
     public static bool MeetsBaseRequirements(Kingdom kingdom) =>
         MeetsBaseRequirements(kingdom, requireNonNegativeTreasury: true);
 
+    // 诊断(见 FormationDiagnostics)：这个国家卡在称帝的哪一关，按称帝检查的先后逐条说
+    public static string Diagnose(Kingdom kingdom)
+    {
+        if (kingdom?.data == null || kingdom.isRekt()) return "国家已灭";
+        if (!kingdom.hasKing() || kingdom.king == null || kingdom.king.isRekt()) return "没有君主";
+        if (kingdom.GetRegime()?.type == EmpireCraft.Scripts.Regimes.RegimeType.Modern) return "现代政体(不称帝，走组建政府)";
+        if (ZhouEraSystem.BlocksRivalEmpire(kingdom)) return "周制：本文化已有周王朝";
+        if (kingdom.king.kingdom != kingdom) return "君主兼领、本国另在别处";
+        if (Compatibility.AncientWarfareCompatibility.BlocksEmpireFormation(kingdom)) return "古战兼容不许称帝";
+        if (ZhouEraSystem.IsDetachedVassal(kingdom)) return "战国周诸侯(只称王)";
+        if (EmpireCraftWorldLawLibrary.empirecraft_law_ban_empire.isEnabled()) return "世界法则禁止称帝";
+        if (kingdom.GetMoney() < 0) return $"国库为负({kingdom.GetMoney()})";
+        if (FeudalVassalService.GetOverlord(kingdom) != null) return "是别国的附庸";
+        string culture = CultureService.GetRealmCulture(kingdom);
+        if (!kingdom.HasMainTitle() && !CityStateService.IsCityState(kingdom)) return "没有主法理";
+        List<Kingdom> bloc = GetBlocMembers(kingdom).ToList();
+        int population = bloc.Sum(member => member.countUnits()), cities = bloc.Sum(member => member.cities?.Count ?? 0);
+        float years = GetYearsWithoutEmpire(culture);
+        if (!MeetsBaseRequirements(kingdom))
+            return $"人口 {population}、城 {cities} 不够(要人口 {MinimumPopulation}、城 {MinimumCities}；无帝国满 {FallbackYears} 年后人口 160、城 2；" +
+                   $"满 {FallbackYears * 2} 年后人口 250、城 1；孤立城邦要先结盟)";
+        if (IsInFailureCooldown(kingdom)) return "上次称帝失败，冷却中";
+        if (!IsAllianceRepresentative(kingdom, culture)) return "同盟里轮不到它称帝";
+        if (OutmatchedByEmpire(kingdom, culture)) return "比不过同文化已有的帝国";
+        EmpireFormationRoute route = GetBestRoute(kingdom);
+        if (route == EmpireFormationRoute.None) return "没有称帝路线(不是本文化最强的候选)";
+        if (kingdom.king.plot?.isActive() == true) return $"君主正忙别的剧情({kingdom.king.plot.getAsset()?.id})，路线 {route}";
+        return $"条件都满足(路线 {route})，等称帝剧情";
+    }
+
     private static bool MeetsBaseRequirements(Kingdom kingdom, bool requireNonNegativeTreasury)
     {
         if (kingdom == null || kingdom.isRekt()) return false;
