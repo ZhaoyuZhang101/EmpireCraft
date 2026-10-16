@@ -46,7 +46,7 @@ public static class FactionManager
                 {
                     TemporaryFactionType.削藩, TemporaryFactionType.夺取诸侯开战权, TemporaryFactionType.扩张地盘,
                     TemporaryFactionType.转天朝制度, TemporaryFactionType.索取皇位, TemporaryFactionType.谋求统一,
-                    TemporaryFactionType.复辟帝制
+                    TemporaryFactionType.复辟帝制, TemporaryFactionType.修氏族志, TemporaryFactionType.抑豪强
                 }
             },
             {
@@ -61,7 +61,7 @@ public static class FactionManager
                     TemporaryFactionType.削藩, TemporaryFactionType.夺取诸侯开战权, TemporaryFactionType.扩张地盘,
                     TemporaryFactionType.索取皇位, TemporaryFactionType.谋求统一,
                     TemporaryFactionType.恢复世袭皇权, TemporaryFactionType.颁布帝国治安令,
-                    TemporaryFactionType.争夺主教叙任权
+                    TemporaryFactionType.争夺主教叙任权, TemporaryFactionType.抑豪强
                 }
             },
             {
@@ -88,7 +88,7 @@ public static class FactionManager
                     TemporaryFactionType.撤销军府, TemporaryFactionType.提供岁币, TemporaryFactionType.割让城池,
                     TemporaryFactionType.削藩, TemporaryFactionType.设置行政区, TemporaryFactionType.开科取士,
                     TemporaryFactionType.推行三省六部, TemporaryFactionType.设立内阁,
-                    TemporaryFactionType.索取皇位, TemporaryFactionType.开放党禁
+                    TemporaryFactionType.索取皇位, TemporaryFactionType.开放党禁, TemporaryFactionType.修氏族志
                 }
             },
             {
@@ -320,7 +320,8 @@ public enum FactionType
 public class FixedFaction
 {
     // 2：派系诉求重新分配(血脉、攘夷、绥靖、尊王、民主、融入、同化)
-    public const int CurrentClaimCatalogVersion = 2;
+    // 3：加修氏族志(尊王、绥靖)、抑豪强(尊王、中央)，旧存档的派系按新清单重建一次
+    public const int CurrentClaimCatalogVersion = 3;
     public string _id;
     public bool only_king;
     //特质需求（拥有该特质的人会更加倾向于加入此派系）
@@ -493,6 +494,7 @@ public class FixedFaction
         if (ClaimCatalogVersion < CurrentClaimCatalogVersion && Empire?.CoreKingdom != null)
         {
             if (ClaimCatalogVersion < 2 && !IsParty) catalogChanged |= MigrateClaimCatalogV2();
+            if (ClaimCatalogVersion < 3 && !IsParty) catalogChanged |= MigrateClaimCatalogV3();
             if (Empire.CoreKingdom.GetRegime()?.type == RegimeType.Feudalism)
                 catalogChanged |= MigrateFeudalClaimCatalog();
             ClaimCatalogVersion = CurrentClaimCatalogVersion;
@@ -539,6 +541,27 @@ public class FixedFaction
             if (TemporaryFactions?.Any(tf => tf != null && tf.type == claim && tf.IsStarted()) == true) continue;
             changed |= TemporaryFactionTypesRecord.Remove(claim);
         }
+        foreach (TemporaryFactionType claim in add)
+        {
+            if (TemporaryFactionTypesRecord.Contains(claim)) continue;
+            TemporaryFactionTypesRecord.Add(claim);
+            changed = true;
+        }
+        return changed;
+    }
+
+    // 版本 3：世家(见 GentrySystem)——尊王加修氏族志、抑豪强，绥靖加修氏族志，中央加抑豪强
+    private bool MigrateClaimCatalogV3()
+    {
+        TemporaryFactionTypesRecord ??= new List<TemporaryFactionType>();
+        TemporaryFactionType[] add = Type switch
+        {
+            FactionType.尊王 => new[] { TemporaryFactionType.修氏族志, TemporaryFactionType.抑豪强 },
+            FactionType.绥靖 => new[] { TemporaryFactionType.修氏族志 },
+            FactionType.中央 => new[] { TemporaryFactionType.抑豪强 },
+            _ => Array.Empty<TemporaryFactionType>()
+        };
+        bool changed = false;
         foreach (TemporaryFactionType claim in add)
         {
             if (TemporaryFactionTypesRecord.Contains(claim)) continue;

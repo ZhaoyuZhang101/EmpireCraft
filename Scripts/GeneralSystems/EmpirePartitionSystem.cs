@@ -244,6 +244,8 @@ public static class EmpirePartitionSystem
         source.data.partition_claimant = false;
         DistinctColor(source, twin);
         Followers(source, twin, ruler, seat);
+        // 世家择主(见 GentrySystem)
+        GentrySystem.ChooseSides(new[] { source, twin });
         twin.recalculate();
         source.recalculate();
         World.world.zone_calculator?.dirtyAndClear();

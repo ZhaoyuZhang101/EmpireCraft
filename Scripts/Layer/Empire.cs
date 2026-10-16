@@ -682,6 +682,8 @@ public class Empire : MetaObject<EmpireData>
                     EmpirePartitionSystem.QueueRestoration(this, previousRoyalClan, data.core_name, Mandate,
                         _completingMinisterUsurpation);
                 AddMandate(-30);
+                // 世家：篡位者出自世家则多附之，起于寒门则耻之(见 GentrySystem)
+                GentrySystem.OnUsurpation(this, actor);
                 foreach (var k in kingdoms_list.ToList())
                 {
                     if (_completingMinisterUsurpation) break;

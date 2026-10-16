@@ -49,6 +49,9 @@ public class EmpireData : MetaObjectData
     public double last_guoren_riot_at = -1d;
     // 本朝另刻的受命宝(装备，见 ImperialSealSystem)
     public long imperial_seal_lesser_item_id = -1L;
+    // 上次修氏族志、抑豪强的时间(见 GentrySystem)
+    public double gentry_register_at = -1d;
+    public double gentry_curbed_at = -1d;
     public bool original_royal_been_changed { get; set; } = false;
     public bool feed_royal = false;
     public double original_royal_been_changed_timestamp { get; set; }

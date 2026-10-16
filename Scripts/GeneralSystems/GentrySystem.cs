@@ -31,6 +31,12 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 部曲：郡望之城有敌军占地或交战时，世家聚部曲成一支义军守城(按门第抽本城人口的百分之二到八)，三年至多一次，仗打完就散；
 //   · 据城自守：甲、乙等世家的郡望不是国都，所在国正在打仗、朝廷衰弱(法统二十以下或皇位空缺)，每年百分之四的机会
 //     由族中名望最高的人据城自立；天下裂土时，郡望在京畿的甲等世家各有一半机会据城自守(见 InterregnumSystem)。
+// 第四步——兴衰与站队：
+//   · 择主：两朝并立、天下裂土时，世家依附郡望所在的那一朝；附的世家门第合计每 40 得法统 1(至多 10)，
+//     史册记"某氏、某氏等若干家附某朝"(见 ChooseSides)；
+//   · 篡位：篡位者出自世家，诸世家多附之(法统 +5)；起于寒门，甲乙等世家耻之(每家 -2，至多 -8)；
+//   · 皇权压门阀：帝党、文官可请"修氏族志"(以当朝官爵重定门第：族中有人在朝的升、没人出仕的降，法统 +3，三十年一次)；
+//     法家、帝党可请"抑豪强"(抄没门第最高三家一半田产、家财入国库，这几家门第 -10，贵族地主怨、农民喜，二十年一次)。
 // 宗族成千上万，按帧分批算(见 Tick)。
 public static class GentrySystem
 {
@@ -301,6 +307,116 @@ public static class GentrySystem
             if (seat?.kingdom != core || UnityEngine.Random.value >= FractureAutonomyChance) continue;
             if (Autonomy(clan, seat, "gentry_fracture_autonomy_history")) count++;
         }
+    }
+
+    #endregion
+
+    #region 兴衰与站队
+
+    private const int RegisterYears = 30, CurbYears = 20, CurbClans = 3, CurbMoneyPerClan = 150, SidesMandatePer = 40,
+        SidesMandateMax = 10, UsurperGentryMandate = 5, UsurperDisdainPer = 2, UsurperDisdainMax = 8;
+
+    // 两朝并立、天下裂土：世家依附郡望所在的那一朝
+    public static void ChooseSides(IEnumerable<Empire> realms)
+    {
+        foreach (Empire realm in realms.Where(realm => realm?.data != null && !realm.isRekt()).Distinct().ToList())
+        {
+            List<SpecificClan> clans = Of(realm);
+            if (clans.Count == 0) continue;
+            foreach (SpecificClan clan in clans) clan.gentry_patron_empire_id = realm.data.id;
+            int bonus = Mathf.Min(SidesMandateMax, Mathf.RoundToInt(clans.Sum(clan => clan.gentry_pedigree) / SidesMandatePer));
+            if (bonus > 0) realm.AddMandate(bonus);
+            string names = string.Join("、", clans.Take(2).Select(JunWang));
+            string content = string.Format(LM.Get("gentry_sides_history"), names, clans.Count, realm.GetEmpireFullName());
+            LogService.LogInfo("[EmpireCraft][世家] " + content);
+            realm.RecordHistory(directContent: content);
+        }
+    }
+
+    // 篡位(Empire.NewEmperor)：出自世家的诸世家多附之，起于寒门的诸世家耻之
+    public static void OnUsurpation(Empire empire, Actor usurper)
+    {
+        if (empire?.data == null || usurper?.data == null) return;
+        SpecificClan clan = usurper.GetSpecificClan();
+        string content;
+        if (clan != null && clan.gentry)
+        {
+            empire.AddMandate(UsurperGentryMandate);
+            content = string.Format(LM.Get("gentry_usurper_history"), JunWang(clan), usurper.getName());
+        }
+        else
+        {
+            int proud = Of(empire).Count(other => Grade(other.gentry_pedigree) <= 2);
+            if (proud == 0) return;
+            empire.AddMandate(-Mathf.Min(UsurperDisdainMax, proud * UsurperDisdainPer));
+            content = string.Format(LM.Get("gentry_upstart_history"), usurper.getName());
+        }
+        LogService.LogInfo("[EmpireCraft][世家] " + content);
+        empire.RecordHistory(directContent: content, actorId: usurper.id);
+    }
+
+    private static bool Due(double at, int years) =>
+        at < 0d || World.world.getCurWorldTime() < at || Date.getYearsSince(at) >= years;
+
+    public static bool CanReviseRegister(Empire empire) =>
+        empire?.data != null && Due(empire.data.gentry_register_at, RegisterYears) && Of(empire).Count >= 3;
+
+    // 修氏族志：族中有人在朝的世家门第上升(每人 5，至多 15)，没人出仕的降 15；返回升、降的家数
+    public static (int raised, int lowered) ReviseRegister(Empire empire)
+    {
+        if (empire?.data == null) return (0, 0);
+        empire.data.gentry_register_at = World.world.getCurWorldTime();
+        int raised = 0, lowered = 0;
+        foreach (SpecificClan clan in Of(empire))
+        {
+            int office = clan.LivingPeople.Count(person => !person.is_virtual && person._actor?.data != null &&
+                                                            !person._actor.isRekt() && (person._actor.IsOnOffice() || person._actor.isCityLeader()));
+            if (office > 0)
+            {
+                clan.gentry_pedigree = Mathf.Min(100f, clan.gentry_pedigree + 5f * Mathf.Min(3, office));
+                raised++;
+            }
+            else
+            {
+                clan.gentry_pedigree = Mathf.Max(0f, clan.gentry_pedigree - 15f);
+                lowered++;
+            }
+        }
+        empire.AddMandate(3);
+        empire.RecordHistory(directContent: string.Format(LM.Get("gentry_register_history"), empire.GetEmpireFullName(), raised, lowered));
+        return (raised, lowered);
+    }
+
+    public static bool CanCurbMagnates(Empire empire) =>
+        empire?.data != null && Due(empire.data.gentry_curbed_at, CurbYears) &&
+        Of(empire).Any(clan => Grade(clan.gentry_pedigree) <= 2);
+
+    // 抑豪强：门第最高三家的田产减半(空出的田归民田)、家财入国库、门第 -10；返回家数、入库钱数
+    public static (int clans, int money) CurbMagnates(Empire empire)
+    {
+        if (empire?.data == null || empire.CoreKingdom == null) return (0, 0);
+        empire.data.gentry_curbed_at = World.world.getCurWorldTime();
+        List<SpecificClan> targets = Of(empire).Take(CurbClans).ToList();
+        foreach (SpecificClan clan in targets)
+        {
+            string key = $"s:{clan.id}";
+            foreach (City city in World.world.cities.list)
+            {
+                if (city?.data == null || city.isRekt()) continue;
+                Dictionary<string, float> shares = city.GetOrCreate().household_land_shares;
+                if (shares != null && shares.TryGetValue(key, out float share) && share > 0f) shares[key] = share * 0.5f;
+            }
+            clan.gentry_pedigree = Mathf.Max(0f, clan.gentry_pedigree - 10f);
+        }
+        int money = targets.Count * CurbMoneyPerClan;
+        if (money > 0) empire.CoreKingdom.AddMoney(money, TreasuryCategory.RecoveredFunds);
+        ClaimPolicySystem.AddGrievance(empire, SocialClass.Noble, 6f);
+        ClaimPolicySystem.AddGrievance(empire, SocialClass.Landlord, 6f);
+        ClaimPolicySystem.AddGrievance(empire, SocialClass.Peasant, -4f);
+        if (targets.Count > 0)
+            empire.RecordHistory(directContent: string.Format(LM.Get("gentry_curb_history"), empire.GetEmpireFullName(),
+                string.Join("、", targets.Select(JunWang))));
+        return (targets.Count, money);
     }
 
     #endregion

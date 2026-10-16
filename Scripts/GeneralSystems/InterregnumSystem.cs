@@ -115,8 +115,9 @@ public static class InterregnumSystem
             scattered++;
         }
         if (scattered > 0) texts.Add(string.Format(LM.Get("interregnum_scatter_history"), scattered));
-        // 京畿的甲等世家据城自守(见 GentrySystem)
+        // 京畿的甲等世家据城自守，其余世家各附郡望所在的一方(见 GentrySystem)
         GentrySystem.OnFracture(empire);
+        GentrySystem.ChooseSides(claimants.Select(claimant => claimant.realm));
         foreach ((Kingdom _, Empire realm) in claimants)
             realm?.recalculate();
         World.world.zone_calculator?.dirtyAndClear();

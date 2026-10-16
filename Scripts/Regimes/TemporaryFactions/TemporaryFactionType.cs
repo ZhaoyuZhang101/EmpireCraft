@@ -103,5 +103,9 @@ public enum TemporaryFactionType
     [Description("后党请封外戚首领为公侯")]
     封赏后族,
     [Description("阉党首领请掌京师禁军")]
-    宦官掌兵
+    宦官掌兵,
+    [Description("以当朝官爵重定世家门第")]
+    修氏族志,
+    [Description("抄没门第最高的世家一半田产")]
+    抑豪强
 }

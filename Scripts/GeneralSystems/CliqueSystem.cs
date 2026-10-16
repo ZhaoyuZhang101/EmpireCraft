@@ -117,6 +117,7 @@ public static class CliqueSystem
     {
         foreach (FixedFaction faction in regime.GetPlayerFactions())
         {
+            if (faction != null && faction.IsClique) EnsureCatalog(faction);
             if (faction == null || faction.IsClique || faction.IsParty || faction.only_king) continue;
             PartyIdeology ideology = TypeIdeology(faction.Type) ?? PartySystem.LeaningOf(faction);
             faction.IsClique = true;
@@ -124,6 +125,21 @@ public static class CliqueSystem
             faction.CliqueFoundedAt = -1d;
             faction.EmpireId = empire.getID();
         }
+    }
+
+    // 以前新建的朋党诉求清单是空的(一条本类型的诉求都没有)：补上本类型的诉求；手动删过的不再补回
+    private static void EnsureCatalog(FixedFaction faction)
+    {
+        if (faction.CliqueFoundedAt < 0d || !FactionManager.FactionConfig.TryGetValue(faction.Type, out List<TemporaryFactionType> catalog))
+            return;
+        faction.TemporaryFactionTypesRecord ??= new List<TemporaryFactionType>();
+        if (catalog.Any(claim => faction.TemporaryFactionTypesRecord.Contains(claim))) return;
+        List<TemporaryFactionType> missing = catalog.ToList();
+        if (missing.Count == 0) return;
+        faction.TemporaryFactionTypesRecord.AddRange(missing);
+        faction.TemporaryFactions = faction.ConvertToObjectFromFactionType();
+        foreach (TemporaryFaction claim in faction.TemporaryFactions) claim?.Init(faction);
+        faction.FixMissedTemporaryFactions();
     }
 
     #endregion
@@ -164,7 +180,9 @@ public static class CliqueSystem
             EmpireId = empire.getID(),
             Members = new List<long>(),
             TemporaryFactions = new List<TemporaryFaction>(),
-            TemporaryFactionTypesRecord = new List<TemporaryFactionType>(),
+            // 诉求清单照派系类型(后党有太后临朝、阉党有宦官掌兵……)
+            TemporaryFactionTypesRecord = FactionManager.FactionConfig.TryGetValue(PartySystem.FactionTypeOf(ideology), out var catalog)
+                ? new List<TemporaryFactionType>(catalog) : new List<TemporaryFactionType>(),
             ClaimCatalogVersion = FixedFaction.CurrentClaimCatalogVersion,
             Type = PartySystem.FactionTypeOf(ideology),
             IsClique = true,
