@@ -451,22 +451,28 @@ public static class UrbanFabric
                 roadPoints.Add(new Vector2(rx, ry));
             }
         foreach ((int tx, int ty, int size, _) in g.Towns) roadPoints.Add(new Vector2(tx, ty));
+        var gate = new Vector2(g.GateX, g.GateY);
         for (int i = 0; i < g.Villages.Count; i++)
         {
             (int x, int y) = g.Villages[i];
             var from = new Vector2(x, y);
-            Vector2 to = new Vector2(g.GateX, g.GateY);
-            float best = Vector2.Distance(from, to);
-            foreach (Vector2 point in roadPoints)
+            // 通到最近的路、镇或城门；最近的那处走不通(三成以上落在水里、山上)就换下一处，最多试四处
+            // (用户 2026-10-16 "都城到村庄没有小路"：以前只试最近的一处，绕不过去就不修)
+            var targets = new List<(Vector2 at, float d)> { (gate, Vector2.Distance(from, gate)) };
+            foreach (Vector2 point in roadPoints) targets.Add((point, Vector2.Distance(from, point)));
+            targets.Sort((p, q) => p.d.CompareTo(q.d));
+            int tried = 0;
+            Vector2 last = new Vector2(float.NaN, float.NaN);
+            foreach ((Vector2 to, float d) in targets)
             {
-                float d = Vector2.Distance(from, point);
-                if (d < best)
-                {
-                    best = d;
-                    to = point;
-                }
+                if (d > TrailReach || tried >= 4) break;
+                if (d < 2f) break;
+                // 同一条路上挨着的点算一处
+                if (!float.IsNaN(last.x) && Vector2.Distance(last, to) < 6f) continue;
+                last = to;
+                tried++;
+                if (AddTrail(g, from, to, i * 31L + 1 + tried * 7L)) break;
             }
-            if (best >= 2f && best <= TrailReach) AddTrail(g, from, to, i * 31L + 1);
             // 近处的村：约一半连一条(每对只连一次)
             for (int j = i + 1; j < g.Villages.Count; j++)
             {
@@ -479,10 +485,10 @@ public static class UrbanFabric
     }
 
     // 一条小路：从 a 走到 b，路线围着直线左右起伏(一大一小两段起伏)；整条有三成以上落在水里、山上就换一边绕，还不行就不修
-    private static void AddTrail(Geometry g, Vector2 a, Vector2 b, long key)
+    private static bool AddTrail(Geometry g, Vector2 a, Vector2 b, long key)
     {
         float length = Vector2.Distance(a, b);
-        if (length < 1.5f) return;
+        if (length < 1.5f) return false;
         Vector2 dir = (b - a) / length, normal = new Vector2(-dir.y, dir.x);
         int steps = Mathf.Max(2, Mathf.CeilToInt(length * 2f));
         for (int attempt = 0; attempt < 2; attempt++)
@@ -503,8 +509,9 @@ public static class UrbanFabric
             }
             if (blocked * 10 > steps * 3) continue;
             g.Paths.Add(points);
-            return;
+            return true;
         }
+        return false;
     }
 
     // 游牧城外：不修路，一处处蒙古包营地散在草场上，档位越高营地越多、散得越远
@@ -561,6 +568,23 @@ public static class UrbanFabric
 
     // 城市精细层用(见 PureMapPatch.Detail)：路上第 d 格
     internal static (int x, int y) RoadPoint(Road road, int d) => Point(road, d);
+
+    // 粗图把这一格画成这条路(一格宽，与 Countryside 同一个判定；精细图先把这些格还成地面，再画连续的路)
+    internal static bool OnRoadTile(Road road, int x, int y)
+    {
+        float rx = x - road.X, ry = y - road.Y;
+        float along = rx * road.Dx + ry * road.Dy;
+        if (along < -0.5f || along > road.Length + 0.5f) return false;
+        float side = -rx * road.Dy + ry * road.Dx - Wobble(road, along);
+        return Mathf.Abs(side) < 0.5f * Mathf.Max(Mathf.Abs(road.Dx), Mathf.Abs(road.Dy)) + 0.15f;
+    }
+
+    // 路上第 d 格的连续坐标(不取整，精细图沿它画连续的路)
+    internal static Vector2 RoadPointF(Road road, float d)
+    {
+        float w = Wobble(road, d);
+        return new Vector2(road.X + road.Dx * d - road.Dy * w, road.Y + road.Dy * d + road.Dx * w);
+    }
 
     private static (int x, int y) Point(Road road, int d)
     {

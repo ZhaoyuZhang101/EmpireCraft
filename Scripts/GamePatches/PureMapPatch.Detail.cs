@@ -305,14 +305,13 @@ public partial class PureMapPatch
                 }
         foreach ((int x, int y) in g.Villages) Grow(x, y, 8);
         foreach ((int x, int y, int townSize, _) in g.Towns) Grow(x, y, townSize + 4);
-        if (g.Suburb > 0)
-            foreach (UrbanFabric.Road road in g.Roads)
-                if (road.Gate)
-                    for (int d = 0; d <= 2 + g.Suburb && d <= road.Length; d++)
-                    {
-                        (int rx, int ry) = UrbanFabric.RoadPoint(road, d);
-                        Grow(rx, ry, 4);
-                    }
+        // 出城的大路、岔路一直画到路的尽头(连同关厢)，不在图边上从精细的路断成粗图上一格一格的路
+        foreach (UrbanFabric.Road road in g.Roads)
+            for (int d = 0; d <= road.Length; d += 2)
+            {
+                (int rx, int ry) = UrbanFabric.RoadPoint(road, d);
+                Grow(rx, ry, road.Gate && d <= 2 + g.Suburb ? 4 : 3);
+            }
         // 太大就以城心为中心截一块
         int cx = g.Cx, cy = g.Cy;
         x0 = Mathf.Max(Mathf.Max(x0, cx - MaxDetailTiles / 2), 0);
@@ -1634,6 +1633,7 @@ public partial class PureMapPatch
     {
         int s = DetailScale;
         Color32 dirt = Lerp(tint, Dirt, 0.8f), ground = Lerp(tint, Threshing, 0.85f), townGround = Lerp(tint, Rgb(238, 228, 200), 0.85f);
+        DrawRoads(c, g, tint);
         // 村镇的小路：沿折线一像素宽的土路(弯法见 UrbanFabric.PlaceTrails)，只铺在空地上，过水、过房子就断开
         foreach (Vector2[] trail in g.Paths)
             for (int k = 0; k + 1 < trail.Length; k++)
@@ -1712,6 +1712,68 @@ public partial class PureMapPatch
             int orientation = (int)(DetailHash(seed, col, row, 82) * 3);
             bool line = orientation switch { 0 => py % 3 == 0, 1 => px % 3 == 0, _ => (px + py) % 4 == 0 };
             c.Put(px, py, line ? Furrow : FieldTint, KEmpty);
+        }
+    }
+
+    // 出城的大路、岔路(粗图上一格一像素的白路，见 UrbanFabric.Countryside)：照同一条线画成连续的路——古代是浅色土路、
+    // 两侧一道暗边，近代以后是柏油路(路肩暗、中线黄虚线)；只铺在空地、小路上，城里的街和房子不压。
+    // 用户 2026-10-16 "这个马路也是到了边缘就没有过渡了"：以前精细图不画城外的路，出了城就是粗图上一格一格的路
+    private static void DrawRoads(Canvas c, UrbanFabric.Geometry g, Color32 tint)
+    {
+        int s = DetailScale;
+        Color32 core = Lerp(tint, Rgb(244, 238, 222), 0.85f), rim = Lerp(tint, Rgb(186, 170, 136), 0.7f);
+        // 粗图上这条路一格宽的那些格先还成地面(按地形调过的国色)，免得连续的路两旁露出一格一格的白边
+        foreach (UrbanFabric.Road road in g.Roads)
+            for (int d = 0; d <= road.Length; d++)
+            {
+                (int rx, int ry) = UrbanFabric.RoadPoint(road, d);
+                for (int oy = -1; oy <= 1; oy++)
+                for (int ox = -1; ox <= 1; ox++)
+                {
+                    int x = rx + ox, y = ry + oy, tx = x - c.X0, ty = y - c.Y0;
+                    if (tx < 0 || ty < 0 || tx >= c.W || ty >= c.H || !UrbanFabric.OnRoadTile(road, x, y)) continue;
+                    WorldTile tile = World.world.GetTile(x, y);
+                    if (tile?.Type == null || tile.Type.liquid) continue;
+                    Color32 ground = Shade(tile, tint);
+                    for (int sy = 0; sy < s; sy++)
+                    for (int sx = 0; sx < s; sx++)
+                    {
+                        int px = tx * s + sx, py = ty * s + sy;
+                        if (c.Kind(px, py) == KEmpty && c.Pixels[py * c.PW + px].a == 0 && c.Land(px, py)) c.Put(px, py, ground, KEmpty);
+                    }
+                }
+            }
+        var best = new Dictionary<int, (float d, float along)>();
+        foreach (UrbanFabric.Road road in g.Roads)
+        {
+            float half = g.Modern ? road.Gate ? 1.9f : 1.4f : road.Gate ? 1.1f : 0.8f, reach = half + 0.8f;
+            int steps = Mathf.Max(1, road.Length * s * 2);
+            for (int k = 0; k <= steps; k++)
+            {
+                float t = k / (float)steps * road.Length;
+                Vector2 p = UrbanFabric.RoadPointF(road, t);
+                float fx = (p.x - c.X0 + 0.5f) * s, fy = (p.y - c.Y0 + 0.5f) * s;
+                int r = Mathf.CeilToInt(reach);
+                for (int py = Mathf.FloorToInt(fy) - r; py <= Mathf.CeilToInt(fy) + r; py++)
+                for (int px = Mathf.FloorToInt(fx) - r; px <= Mathf.CeilToInt(fx) + r; px++)
+                {
+                    if (!c.In(px, py)) continue;
+                    float d = Mathf.Sqrt((px + 0.5f - fx) * (px + 0.5f - fx) + (py + 0.5f - fy) * (py + 0.5f - fy)) / half;
+                    if (d > reach / half) continue;
+                    int i = py * c.PW + px;
+                    if (!best.TryGetValue(i, out var old) || d < old.d) best[i] = (d, t * s);
+                }
+            }
+        }
+        foreach (KeyValuePair<int, (float d, float along)> pair in best)
+        {
+            int px = pair.Key % c.PW, py = pair.Key / c.PW;
+            if (c.Kind(px, py) is not (KEmpty or KPath) || !c.Land(px, py)) continue;
+            (float d, float along) = pair.Value;
+            Color32 color = g.Modern
+                ? d > 1f ? AsphaltEdge : d < 0.3f && Mathf.FloorToInt(along) % 10 < 4 ? LaneMark : Asphalt
+                : d > 1f ? rim : core;
+            c.Put(px, py, color, KAvenue);
         }
     }
 
