@@ -119,10 +119,12 @@ public static partial class FrontSystem
         if (targets.Count == 0 && landing) targets = LandingZones(city).Where(zone => Hostile(side, Controller(zone))).ToList();
         targets = targets.Where(candidate => Beside(spearheads, candidate)).ToList();
         if (targets.Count == 0) return null;
-        int remaining = city.zones.Count(zone => zone != null && !Friendly(side, Controller(zone)) && !TerrainSystem.Impassable(zone));
+        int remaining = CityDistricts.Count(city, zone => !Friendly(side, Controller(zone)) && !TerrainSystem.Impassable(zone));
         if (defended && remaining <= 1) return null;
         TileZone center = city.getTile()?.zone;
-        return targets.OrderBy(candidate => CenterOrder(candidate, center, defended))
+        targets = Outskirts(city, side, targets, center, defended);
+        if (targets.Count == 0) return null;
+        return targets.OrderBy(candidate => CenterOrder(city, candidate, center, defended))
             .ThenByDescending(candidate => (candidate.neighbours ?? Array.Empty<TileZone>())
                 .Count(neighbour => Friendly(side, Controller(neighbour)))).First();
     }
@@ -232,11 +234,13 @@ public static partial class FrontSystem
             Kingdom occupier = city.GetTileZoneOccupier(zone);
             if (occupier != null) city.RemoveOccupiedTileZone(occupier, zone);
             SmoothBorders.Settle(zone);
+            // 这一片一并收回(见 CityDistricts)
+            RetakeDistrict(city, side, zone);
         }
         else
         {
-            int remaining = city.zones.Count(candidate => candidate != null && !Friendly(side, Controller(candidate)) &&
-                                                          !TerrainSystem.Impassable(candidate));
+            int remaining = CityDistricts.Count(city, candidate => !Friendly(side, Controller(candidate)) &&
+                                                                   !TerrainSystem.Impassable(candidate));
             if (push.Defended && remaining <= 1)
             {
                 push.Progress = 0.98f;
@@ -249,8 +253,9 @@ public static partial class FrontSystem
             if (current != null && current != owner) city.RemoveOccupiedTileZone(current, zone);
             city.AddOccupiedTileZone(occupier, zone, landing: true);
             SmoothBorders.Settle(zone);
-            // 主城池陷落：整城投降
-            if (zone == city.getTile()?.zone) Surrender(city, side, owner);
+            // 这一片(村镇四周或城区)一并到手；城区那片就是主城池，陷落即整城投降
+            OccupyDistrict(city, side, owner, zone);
+            if (CityDistricts.SameDistrict(city, zone, city.getTile()?.zone)) Surrender(city, side, owner);
             SweepImpassable(city, side, owner);
             if (city.kingdom != owner)
             {

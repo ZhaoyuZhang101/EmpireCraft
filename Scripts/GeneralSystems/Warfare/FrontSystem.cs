@@ -30,7 +30,9 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //      城池放到最后打；守军溃散后先取城池，城池一破，余下的地块一并归攻方(见 Surrender)。
 //      困守一隅(用户 2026-10-17 "攻打一个地方就只剩这么一丝地盘也能不停的反攻回来")：守方只剩不到三分之一的地时，
 //      守军战力按剩下的比例打折(最低五成)；团练只从守方还占着的那部分城里抽；攻方军团在上面或紧挨着看守的地，
-//      守方不打赢就收不回来(以前攻方一退下休整，守方就一块块白白收回，看着像不停反攻)。占领区的年度扩散、正统扩张在军团模式下都不生效
+//      守方不打赢就收不回来(以前攻方一退下休整，守方就一块块白白收回，看着像不停反攻)。
+//      辖区按村镇划(用户 2026-10-17 选"城的辖区按村镇划"，见 CityDistricts)：城区一片、其余每块地归最近的村镇，
+//      推进与收复都按片——拿下一片里紧挨着军团的一块地，那一片就一并到手；城区那片就是主城池；守军还在时城中最后一片不丢。占领区的年度扩散、正统扩张在军团模式下都不生效
 //      (见 CityExtension.TryYearlyOccupationSpread、TrySpreadOccupiedZonesByMandate)。
 //      地形(见 TerrainSystem)看攻方要推进的那块地：攻方战力打折、双方额外掉组织度、限制每月推进的块数。
 // 远距离不交战(用户 2026-10-15："能不能阻止远距离交战，但是很近的海岛却可以")：只打本方(连同所在帝国)够得着的敌城——
@@ -359,6 +361,7 @@ public static partial class FrontSystem
                                                        (kingdom.hasEnemies() || Realm(kingdom).hasEnemies())).ToList();
         DefenseByCity.Clear();
         LandRoutes.Clear();
+        CityDistricts.Reset();
         foreach ((Kingdom owner, CorpsData corps) in CorpsSystem.All())
         {
             if (corps.sector_city_id < 0 || corps.task is not ("defend" or "attack")) continue;
@@ -936,11 +939,12 @@ public static partial class FrontSystem
             if (targets.Count == 0 && landing) targets = LandingZones(city).Where(zone => Hostile(attacker, Controller(zone))).ToList();
             targets = targets.Where(candidate => Beside(spearheads, candidate)).ToList();
             if (targets.Count == 0) break;
-            int remaining = city.zones.Count(zone => zone != null && !Friendly(attacker, Controller(zone)) &&
-                                                     !TerrainSystem.Impassable(zone));
+            int remaining = CityDistricts.Count(city, zone => !Friendly(attacker, Controller(zone)) && !TerrainSystem.Impassable(zone));
             if (defended && remaining <= 1) break;
             TileZone center = city.getTile()?.zone;
-            TileZone zone = targets.OrderBy(candidate => CenterOrder(candidate, center, defended))
+            targets = Outskirts(city, attacker, targets, center, defended);
+            if (targets.Count == 0) break;
+            TileZone zone = targets.OrderBy(candidate => CenterOrder(city, candidate, center, defended))
                 .ThenByDescending(candidate => (candidate.neighbours ?? Array.Empty<TileZone>())
                     .Count(neighbour => Friendly(attacker, Controller(neighbour)))).First();
             Kingdom occupier = Belligerent(attacker, owner);
@@ -949,7 +953,9 @@ public static partial class FrontSystem
             bool ok = city.AddOccupiedTileZone(occupier, zone, landing: true);
             if (!ok) break;
             taken++;
-            if (zone == center) Surrender(city, attacker, owner);
+            // 这一片(村镇四周或城区)一并到手
+            OccupyDistrict(city, attacker, owner, zone);
+            if (CityDistricts.SameDistrict(city, zone, center)) Surrender(city, attacker, owner);
             CorpsData lead = spearheads.Where(corps => CorpsSystem.ZoneDistance(CorpsSystem.Zone(corps), zone) <= 1f)
                 .OrderBy(corps => CorpsSystem.ZoneDistance(CorpsSystem.Zone(corps), zone))
                 .ThenByDescending(corps => corps.strength).FirstOrDefault();
@@ -967,9 +973,41 @@ public static partial class FrontSystem
     private static bool Beside(IEnumerable<CorpsData> corps, TileZone zone) =>
         zone != null && corps != null && corps.Any(entry => CorpsSystem.ZoneDistance(CorpsSystem.Zone(entry), zone) <= 1f);
 
-    // 挑推进的地块：守军还在时城池放到最后，守军溃散后先取城池
-    private static int CenterOrder(TileZone candidate, TileZone center, bool defended) =>
-        candidate != center ? 1 : defended ? 2 : 0;
+    // 挑推进的地块：守军还在时城池(城区那片)放到最后，守军溃散后先取城池
+    private static int CenterOrder(City city, TileZone candidate, TileZone center, bool defended) =>
+        !CityDistricts.SameDistrict(city, candidate, center) ? 1 : defended ? 2 : 0;
+
+    // 守军还在、城外还有别的片没打下：城区那片(主城池)先不打，只打城外
+    private static List<TileZone> Outskirts(City city, Kingdom attacker, List<TileZone> targets, TileZone center, bool defended)
+    {
+        if (!defended || center == null) return targets;
+        bool outsideLeft = city.zones.Any(zone => zone != null && !Friendly(attacker, Controller(zone)) &&
+                                                  !TerrainSystem.Impassable(zone) && !CityDistricts.SameDistrict(city, zone, center));
+        return outsideLeft ? targets.Where(zone => !CityDistricts.SameDistrict(city, zone, center)).ToList() : targets;
+    }
+
+    // 拿下一块地：它那一片里还不归攻方的地块一并占下(平滑国界下直接翻过去)
+    private static void OccupyDistrict(City city, Kingdom attacker, Kingdom owner, TileZone taken)
+    {
+        Kingdom occupier = Belligerent(attacker, owner);
+        foreach (TileZone part in CityDistricts.ZonesOf(city, taken))
+        {
+            if (part == taken || city.kingdom != owner || Friendly(attacker, Controller(part))) continue;
+            Kingdom current = city.GetTileZoneOccupier(part);
+            if (current != null && current != owner) city.RemoveOccupiedTileZone(current, part);
+            if (city.AddOccupiedTileZone(occupier, part, landing: true) && SmoothActive) SmoothBorders.Settle(part);
+        }
+    }
+
+    // 收复一块地：它那一片里被敌军占着的一并收回
+    private static void RetakeDistrict(City city, Kingdom side, TileZone retaken)
+    {
+        foreach (TileZone part in CityDistricts.ZonesOf(city, retaken))
+        {
+            if (part == retaken || !(city.GetTileZoneOccupier(part) is Kingdom occupier) || !Hostile(side, occupier)) continue;
+            if (city.RemoveOccupiedTileZone(occupier, part) && SmoothActive) SmoothBorders.Settle(part);
+        }
+    }
 
     // 主城池陷落：整城投降，余下的地块一并归攻方(平滑国界下各块直接翻过去)
     private static void Surrender(City city, Kingdom attacker, Kingdom owner)
@@ -1027,6 +1065,8 @@ public static partial class FrontSystem
             if (zone == null) break;
             if (!city.RemoveOccupiedTileZone(city.GetTileZoneOccupier(zone), zone)) break;
             retaken++;
+            // 这一片一并收回
+            RetakeDistrict(city, side, zone);
         }
         return retaken;
     }

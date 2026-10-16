@@ -640,6 +640,10 @@ public partial class PureMapPatch : GamePatch
     // 用户 2026-10-17 "这个主干路有时候没法连在一起"：以前按整块建成地块不画，古代城的城区只占建成地块的一半，
     // 城墙外那一圈画成田野，干道就在田里提前断了。只看已经算好的平面图，不为此重算
     // (重算一座城的平面图不便宜，路网重画时顺带重算几十座城会卡一下)
+    // 城市平面图里建成的地块(城区)；平面图还没算过的为 null(只读缓存，不为此重算，见 CityDistricts)
+    internal static HashSet<int> BuiltZones(City city) =>
+        city?.data != null && Plans.TryGetValue(city.data.id, out CityPlan plan) && plan.city == city ? plan.built : null;
+
     internal static bool UrbanTile(WorldTile tile)
     {
         City city = tile?.zone?.city;
