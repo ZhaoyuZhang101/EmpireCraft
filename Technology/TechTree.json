@@ -151,6 +151,7 @@
 
     { "id": "gunpowder", "branch": "military", "tier": 6, "cost": 420, "requires_techs": ["alchemy"], "requires_materials": ["saltpeter", "coal"], "unlock_buildings": ["gunpowder_mill"], "boosts": [{"type": "resource", "value": "gunpowder", "amount": 1}, {"type": "war_knows", "value": "", "amount": 1}] },
     { "id": "matchlock", "branch": "military", "tier": 6, "cost": 420, "requires_techs": ["gunpowder", "steelmaking"], "unlock_items": ["Musket", "Flintlock", "musket"], "boosts": [{"type": "war_knows", "value": "", "amount": 1}] },
+    { "id": "hongyi_cannon", "branch": "military", "tier": 6, "cost": 480, "requires_techs": ["matchlock", "steelmaking"], "boosts": [{"type": "war_knows", "value": "", "amount": 1}] },
     { "id": "urban_housing", "branch": "construction", "tier": 6, "cost": 420, "requires_techs": ["architecture", "steelmaking", "ward_housing"], "unlock_buildings": ["6house_*_modernmod", "7house_*_modernmod", "4hall_*_modernmod", "house_human_7"], "boosts": [{"type": "population", "value": "", "amount": 1000}] },
     { "id": "mythril_forging", "branch": "metallurgy", "tier": 6, "cost": 420, "requires_techs": ["steelmaking"], "requires_materials": ["mythril"], "unlock_materials": ["mythril"], "boosts": [{"type": "resource", "value": "mythril", "amount": 5}] },
 

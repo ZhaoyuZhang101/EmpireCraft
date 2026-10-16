@@ -12,6 +12,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 兵种：每支军成军时按本文化的科技定一个兵种(存档 CorpsData.arm)，决定兵牌图标、行军方式、军饷与(纯净地图下的)战力。
 //   成军时的编成：古代步兵、弓兵，青铜铸造后有车兵，冶铁后改出骑兵；火绳枪后出火枪兵，火药后有炮兵，膛线后出步枪兵；
 //   摩托化后出装甲车，装甲战出坦克，航空出直升机，战略航空出战斗机、轰炸机；义军一律是民兵。
+//   红夷大炮(用户 2026-10-17 选"加红夷大炮")：研究后炮兵改出重炮营——攻城强(守方堑壕只剩一半、城池守势减弱、
+//   城中团练抵抗剩七成，见 FrontSystem.ResolveCity)，行军更慢、军饷更高；旧炮兵可以换装成重炮营。
 //   同一时代各兵种按权重分配(按军号散列，固定不变)，一国几支军自然有步有骑有炮。
 // 换装：研究出新装备后旧军不会自动换装——步兵、弓兵 → 火枪兵 → 步枪兵；车兵 → 骑兵 → 装甲车；直升机 → 战斗机。
 //   换装费 = 换装后一年的军饷，从本国国库出；各国每月视财力换一支(国库至少留两倍费用)，前线的军优先；
@@ -27,7 +29,10 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 战力(纯净地图模式，见 FrontSystem.Firepower)：人物、载具都是数据，不靠 WarBox 的实体载具，按兵种定火力倍数。
 public static class CorpsArmSystem
 {
-    public enum Arm { Infantry, Archer, Chariot, Cavalry, Musket, Rifle, Artillery, Mechanized, Tank, Helicopter, Fighter, Bomber, Militia }
+    // 追加在末尾，保持存档里的兵种编号不变
+    public enum Arm { Infantry, Archer, Chariot, Cavalry, Musket, Rifle, Artillery, Mechanized, Tank, Helicopter, Fighter, Bomber, Militia, HeavyArtillery }
+
+    public const string HeavyCannonTech = "hongyi_cannon";
 
     private readonly struct Spec
     {
@@ -59,6 +64,7 @@ public static class CorpsArmSystem
         [Arm.Fighter] = new Spec(3.2f, 1f, 1f, 4f, 2.6f, true),
         [Arm.Bomber] = new Spec(2.8f, 1f, 1f, 4.5f, 3f, true),
         [Arm.Militia] = new Spec(0.8f, 0.5f, 0.9f, 0.6f, 0.8f),
+        [Arm.HeavyArtillery] = new Spec(0.6f, 0.25f, 0.55f, 2.2f, 2f),
     };
 
     // 换装费 = 换装后几年的军饷；换装后组织度损失；国库至少留几倍费用才换
@@ -114,7 +120,8 @@ public static class CorpsArmSystem
         if (Has(culture, "motorization")) mix.Add((Arm.Mechanized, 20));
         else if (Has(culture, "ironworking")) mix.Add((Arm.Cavalry, 20));
         else if (Has(culture, "bronze_casting")) mix.Add((Arm.Chariot, 15));
-        if (Has(culture, "gunpowder")) mix.Add((Arm.Artillery, 12));
+        if (Has(culture, HeavyCannonTech)) mix.Add((Arm.HeavyArtillery, 12));
+        else if (Has(culture, "gunpowder")) mix.Add((Arm.Artillery, 12));
         if (Has(culture, "armored_warfare")) mix.Add((Arm.Tank, 20));
         if (Has(culture, "strategic_aviation"))
         {
@@ -144,6 +151,8 @@ public static class CorpsArmSystem
                 return arm == Arm.Chariot && Has(culture, "ironworking") ? Arm.Cavalry : arm;
             case Arm.Helicopter:
                 return Has(culture, "strategic_aviation") ? Arm.Fighter : arm;
+            case Arm.Artillery:
+                return Has(culture, HeavyCannonTech) ? Arm.HeavyArtillery : arm;
             default:
                 return arm;
         }
@@ -188,6 +197,9 @@ public static class CorpsArmSystem
 
     public static float Speed(Arm arm) => Specs[arm].Speed;
 
+    // 破城：重炮营(红夷大炮)攻城
+    public static bool Breaches(CorpsData corps) => corps != null && !corps.militia && Of(corps) == Arm.HeavyArtillery;
+
     // 山地、沼泽、丛林里剩几成速度
     public static float Rough(Arm arm) => Specs[arm].Rough;
 
@@ -219,6 +231,7 @@ public static class CorpsArmSystem
             case "matchlock": yield return Arm.Musket; break;
             case "rifling": yield return Arm.Rifle; break;
             case "gunpowder": yield return Arm.Artillery; break;
+            case HeavyCannonTech: yield return Arm.HeavyArtillery; break;
             case "motorization": yield return Arm.Mechanized; break;
             case "armored_warfare": yield return Arm.Tank; break;
             case "aviation": yield return Arm.Helicopter; break;

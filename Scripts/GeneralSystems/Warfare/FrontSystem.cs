@@ -32,6 +32,8 @@ public static partial class FrontSystem
 {
     private const int ArriveDistance = 2;
     private const float DefenderBonus = 1.25f;
+    // 红夷大炮破城：攻方有重炮营时守方城池守势降到这么多，堑壕只剩一半、团练抵抗剩七成(见 CorpsArmSystem.Breaches)
+    private const float BreachedDefenderBonus = 1.1f, BreachedEntrench = 0.5f, BreachedMilitia = 0.7f;
     private const float CasualtyRate = 0.16f;
     private const float RetreatOrg = 10f;
     private const float ReadyOrg = 25f;
@@ -687,12 +689,15 @@ public static partial class FrontSystem
                                               PapacySystem.OrderFactor(entry.corps) * RulerTraitSystem.FounderCombat(entry.kingdom)) *
                        (landing ? 0.7f : 1f) * ground.Attack;
         // 叛乱初起还在集结的守方仓促应战(见 MusterSystem)
+        // 红夷大炮破城：攻方有重炮营，城池守势减弱、堑壕只剩一半、团练抵抗剩七成
+        bool breach = attackers.Any(entry => CorpsArmSystem.Breaches(entry.corps));
         float defend = holders.Sum(entry => Effective(entry.corps) * Firepower(entry.kingdom, entry.corps) *
                                             WarCommandSystem.Factor(entry.kingdom) * LogisticsSystem.AttackFactor(entry.corps) *
                                             PapacySystem.OrderFactor(entry.corps) * RulerTraitSystem.FounderCombat(entry.kingdom) *
-                                            (DefenderBonus + entry.corps.entrench) *
+                                            (breach ? BreachedDefenderBonus + entry.corps.entrench * BreachedEntrench
+                                                : DefenderBonus + entry.corps.entrench) *
                                             MusterSystem.DefenseFactor(entry.kingdom, attacker));
-        float militia = holders.Count == 0 ? Militia(city, attacker) : 0f;
+        float militia = holders.Count == 0 ? Militia(city, attacker) * (breach ? BreachedMilitia : 1f) : 0f;
         defend += militia;
         float ratio = attack + defend <= 0f ? 0.5f : attack / (attack + defend);
         // 伤亡与组织度
