@@ -1465,6 +1465,20 @@ def obj_whisk(img):
     over(img, shade(lines(tail, 7), BONE, bevel=3, gloss=0.5))
 
 
+MOSS = ((128, 136, 82), (60, 68, 30), (14, 16, 4))
+
+
+def obj_totem(img):
+    """泛灵论：木刻图腾柱，上有展翅，下叠两张兽面。"""
+    over(img, shade(poly([(28, 84), (128, 44), (228, 84), (128, 104)]), BONE, bevel=6, gloss=0.6))
+    over(img, shade(rrect([92, 76, 164, 236], 10), WOOD, bevel=10, gloss=0.5, grain=0.2))
+    for y in (100, 168):
+        over(img, shade(rrect([78, y, 178, y + 58], 16), GILT, bevel=8, gloss=0.8))
+        over(img, shade(ellipse([94, y + 14, 118, y + 32]), LACQ, bevel=2, flat=True))
+        over(img, shade(ellipse([138, y + 14, 162, y + 32]), LACQ, bevel=2, flat=True))
+        over(img, shade(rrect([110, y + 40, 146, y + 50], 4), RED, bevel=2))
+
+
 def make_ideology(obj, field):
     img = canvas()
     over(img, ef.shade(ef.ring(124, 106), ef.GOLD, bevel=9))
@@ -1480,6 +1494,7 @@ ANCIENT_IDEOLOGIES = {
     "Mohism": (obj_compass, LACQ), "Agrarianism": (obj_wheat, WOOD), "Strategists": (obj_swords, RED),
     "Diplomatists": (obj_envoy, VIOLET), "YinYang": (obj_taiji, STEEL), "ImperialPower": (obj_crown, AMBER),
     "GreatClans": (obj_tablet, TEAL), "ConsortKin": (obj_phoenix, RED), "Eunuchs": (obj_whisk, VIOLET),
+    "Animism": (obj_totem, MOSS),
 }
 
 

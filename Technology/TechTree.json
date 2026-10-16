@@ -77,7 +77,8 @@
     { "feature": "ideology:Mohism", "requires_techs": ["writing", "masonry"], "drivers": {} },
     { "feature": "ideology:Agrarianism", "requires_techs": ["writing", "census"], "drivers": {} },
     { "feature": "ideology:Strategists", "requires_techs": ["writing", "military_register"], "drivers": {} },
-    { "feature": "ideology:Diplomatists", "requires_techs": ["writing", "currency"], "drivers": {} }
+    { "feature": "ideology:Diplomatists", "requires_techs": ["writing", "currency"], "drivers": {} },
+    { "feature": "ideology:YinYang", "requires_techs": ["ritual_rites"], "drivers": {} }
   ],
   "industry": {
     "factory_types": ["type_lightfactory", "type_heavyfactory", "type_lightaircraftfactory", "type_heavyaircraftfactory", "type_lightshipyard", "type_heavyshipyard", "type_steel_mill", "type_gunpowder_mill"],

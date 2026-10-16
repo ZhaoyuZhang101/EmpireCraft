@@ -24,7 +24,8 @@ public enum IdeologyRoute
     Center,       // 中间：社会自由主义 / 中间派 → 权威主义 → 法西斯主义
     Left,         // 左翼：社会民主主义 / 社会主义 → 共产主义 / 无政府主义
     Schools,      // 诸子百家(古代学说，见 IdeologyFamilies.IsSchool)
-    Stances       // 古代政治立场：皇权、门阀、外戚、宦官
+    Stances,      // 古代政治立场：皇权、门阀、外戚、宦官
+    Primordial    // 上古：泛灵论
 }
 
 // 政党意识形态，按政治光谱(经济 左—右 × 权力 自由—极权)排布
@@ -52,12 +53,15 @@ public enum PartyIdeology
     Agrarianism,            // 农家      农民、野人
     Strategists,            // 兵家      军人
     Diplomatists,           // 纵横家    商人、士
-    YinYang,                // 阴阳家    巫祝(上古就有)
+    YinYang,                // 阴阳家    巫祝(有了礼制，由巫祝之术分出)
     // 政治立场(皇权、门阀各文化都有；外戚、宦官只在朝堂里，不在民间流传)
     ImperialPower,          // 皇权      帝党
     GreatClans,             // 门阀      世族
     ConsortKin,             // 外戚      后党
-    Eunuchs                 // 宦官      阉党
+    Eunuchs,                // 宦官      阉党
+    // 泛灵论(玩家建议："搞个最早的理念，比如泛灵论、原始宗教之类的，然后后面再开始根据各自的文化进行分支")：
+    // 各文化有文字以前人人信的上古信仰，有了文字就分化为本文化的学说、教门
+    Animism                 // 泛灵论    农民、奴隶
 }
 
 // 政党。开放党禁(制度特性 party_politics)且议会已召开后：
@@ -119,7 +123,8 @@ public static class PartySystem
         { PartyIdeology.ImperialPower, new Vector2(0f, -88f) },
         { PartyIdeology.GreatClans, new Vector2(60f, -50f) },
         { PartyIdeology.ConsortKin, new Vector2(45f, -68f) },
-        { PartyIdeology.Eunuchs, new Vector2(-15f, -92f) }
+        { PartyIdeology.Eunuchs, new Vector2(-15f, -92f) },
+        { PartyIdeology.Animism, new Vector2(-40f, -30f) }
     };
 
     // 各阶层在光谱上的立场
@@ -167,7 +172,8 @@ public static class PartySystem
         { PartyIdeology.ImperialPower, FactionType.尊王 },
         { PartyIdeology.GreatClans, FactionType.诸侯 },
         { PartyIdeology.ConsortKin, FactionType.血脉 },
-        { PartyIdeology.Eunuchs, FactionType.中央 }
+        { PartyIdeology.Eunuchs, FactionType.中央 },
+        { PartyIdeology.Animism, FactionType.原始 }
     };
 
     // 各理念的诉求：沿用原派系诉求，另加推行普选/土地改革
@@ -198,7 +204,8 @@ public static class PartySystem
         { PartyIdeology.ImperialPower, new[] { TemporaryFactionType.削藩, TemporaryFactionType.恢复世袭皇权, TemporaryFactionType.谋求统一, TemporaryFactionType.颁布帝国治安令 } },
         { PartyIdeology.GreatClans, new[] { TemporaryFactionType.分封, TemporaryFactionType.确认诸侯特权, TemporaryFactionType.允许诸侯自由开战 } },
         { PartyIdeology.ConsortKin, new[] { TemporaryFactionType.册立储君, TemporaryFactionType.转世袭, TemporaryFactionType.神授君权 } },
-        { PartyIdeology.Eunuchs, new[] { TemporaryFactionType.恢复世袭皇权, TemporaryFactionType.颁布帝国治安令, TemporaryFactionType.整顿吏治 } }
+        { PartyIdeology.Eunuchs, new[] { TemporaryFactionType.恢复世袭皇权, TemporaryFactionType.颁布帝国治安令, TemporaryFactionType.整顿吏治 } },
+        { PartyIdeology.Animism, new[] { TemporaryFactionType.加强神权, TemporaryFactionType.扩张地盘, TemporaryFactionType.分封 } }
     };
 
     private static readonly SocialClass[] RestrictedFranchise =
@@ -254,7 +261,8 @@ public static class PartySystem
         { PartyIdeology.ImperialPower, IdeologyRoute.Stances },
         { PartyIdeology.GreatClans, IdeologyRoute.Stances },
         { PartyIdeology.ConsortKin, IdeologyRoute.Stances },
-        { PartyIdeology.Eunuchs, IdeologyRoute.Stances }
+        { PartyIdeology.Eunuchs, IdeologyRoute.Stances },
+        { PartyIdeology.Animism, IdeologyRoute.Primordial }
     };
 
     public static IdeologyRoute RouteOf(PartyIdeology ideology) => Routes[ideology];
