@@ -556,8 +556,23 @@ def obj_diet(img):
     over(img, shade(ellipse([154, 176, 174, 196]), BLOOD, bevel=3))
 
 
+def obj_gentry(img):
+    """世家页签：门前牌坊(阀阅)——深色木柱，起翘的瓦顶，两道额枋，中悬金匾。"""
+    for x in (58, 176):
+        over(img, shade(rrect([x, 96, x + 22, 228], 5), WOOD, bevel=8, gloss=0.5, grain=0.2))
+        over(img, shade(rrect([x - 8, 218, x + 30, 234], 3), IRON, bevel=4))
+    over(img, shade(rrect([50, 108, 206, 120], 3), RED, bevel=4))
+    over(img, shade(rrect([50, 150, 206, 160], 3), RED, bevel=4))
+    # 瓦顶：两端起翘
+    over(img, shade(poly([(20, 92), (40, 66), (216, 66), (236, 92), (200, 82), (56, 82)]), IRON, bevel=6, gloss=0.6))
+    over(img, shade(rrect([96, 44, 160, 68], 6), IRON, bevel=6, gloss=0.6))
+    over(img, shade(rrect([100, 120, 156, 150], 4), GOLD, bevel=6, gloss=1.0))
+    over(img, shade(rrect([106, 126, 150, 144], 3), RED, bevel=2, flat=True))
+
+
 TABS = {
     "TabMilitary": obj_military,
+    "TabGentry": obj_gentry,
     "TabPapacy": obj_keys,
     "TabDynasty": obj_tablet,
     "TabDependencies": obj_banners,

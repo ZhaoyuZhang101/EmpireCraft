@@ -168,6 +168,11 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
         AddOverviewRow(space, LM.Get("clan_overview_generations"), generations.ToString(), "#7FD8EA");
         AddOverviewRow(space, LM.Get("clan_overview_ancestral_city"),
             ancestral == null || ancestral.isRekt() ? LM.Get("label_none") : ancestral.GetCityName(), "#F3C34A");
+        // 世家(见 GentrySystem)：郡望、门第等第
+        AddOverviewRow(space, LM.Get("clan_overview_gentry"), GentrySystem.IsGentry(_sc)
+            ? string.Format(LM.Get("clan_overview_gentry_value"), GentrySystem.JunWang(_sc), GentrySystem.GradeName(_sc),
+                Mathf.RoundToInt(GentrySystem.Pedigree(_sc)))
+            : string.Format(LM.Get("clan_overview_gentry_none"), Mathf.RoundToInt(GentrySystem.Pedigree(_sc))), "#E6C27A");
         AddOverviewRow(space, LM.Get("clan_overview_officials"),
             $"{living.Count(person => person._actor.IsOnOffice())}  ·  {LM.Get("clan_overview_rulers")} " +
             $"{living.Count(person => person._actor.isKing())}", "#65D6C4");

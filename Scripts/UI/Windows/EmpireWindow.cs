@@ -112,6 +112,12 @@ namespace EmpireCraft.Scripts.UI.Windows
                 dietTab.Setup("empire_diet", this.TabsWindow, action: ShowDiet,
                     sprite: SpriteTextureLoader.getSprite("TabDiet"));
             }
+            if (TabsWindow.tabs._tabs.All(p => p.name != "empire_gentry"))
+            {
+                var gentryTab = GameObject.Instantiate(SimpleWindowTab.Prefab);
+                gentryTab.Setup("empire_gentry", this.TabsWindow, action: ShowGentry,
+                    sprite: SpriteTextureLoader.getSprite("TabGentry"));
+            }
             if (TabsWindow.tabs._tabs.All(p => p.name != "past_emperors"))
             {
                 var pastEmperorsWindowTab = GameObject.Instantiate(SimpleWindowTab.Prefab);

@@ -440,6 +440,7 @@ public static class CityPopulationSystem
         _homelessRemaining = _homelessCursor = _homelessFolded = 0;
         EmpireCraft.Scripts.GamePatches.NoCommonersPatch.ResetPopulationIndex();
         VirtualGenealogySystem.ResetWorldState();
+        GentrySystem.ResetWorldState();
         _passMilliseconds = 0d;
         _passCities = 0;
     }
@@ -497,6 +498,7 @@ public static class CityPopulationSystem
         _foldsFirst = !_foldsFirst;
         if (AbstractPopulationEnabled && _foldsFirst) TickFolds(world, now);
         if (SimulationFrameBudget.HasTime) VirtualGenealogySystem.Tick();
+        if (SimulationFrameBudget.HasTime) GentrySystem.Tick();
         if (AbstractPopulationEnabled)
         {
             // 预算用完也照样推进(TickFolds 里每帧至少一步)：并入普通人是减负的活，不能被慢帧饿着

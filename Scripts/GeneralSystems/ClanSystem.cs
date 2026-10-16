@@ -104,6 +104,12 @@ public class SpecificClan
     public double last_branch_timestamp { get; set; } = -1d;
     // 族人在各城最早定居的时间，用来判定"迁徙开基"
     public Dictionary<long, double> city_settle_since { get; set; } = new();
+    // —— 世家(华夏，见 GentrySystem)：门第(0~100)、是否列为世家、列为世家的时间、郡望之城、是否算过 ——
+    public float gentry_pedigree { get; set; }
+    public bool gentry { get; set; }
+    public double gentry_since { get; set; } = -1d;
+    public long gentry_seat_city_id { get; set; } = -1L;
+    public bool gentry_assessed { get; set; }
 
     // 姓氏体系(华夏，用户 2026-10-16 选定"姓—氏两层")：始祖宗族是"姓"(姬姓)，支脉是"氏"(鲁氏)，原版氏族是每个氏的实体；
     // 姓氏合一(郡县)以后，有氏的支脉升为新的姓(鲁氏宗族，出自姬姓)，再往下分的是郡望、房支。见 PrehistoricClanSystem
