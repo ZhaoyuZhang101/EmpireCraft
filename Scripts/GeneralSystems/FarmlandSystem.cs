@@ -391,8 +391,9 @@ public static class FarmlandSystem
         }
     }
 
+    // 图层城墙下的格不开田(见 MapWallSystem)
     private static bool CanMakeField(WorldTile tile) =>
-        tile?.Type != null && tile.Type.can_be_farm && !tile.Type.farm_field &&
+        tile?.Type != null && tile.Type.can_be_farm && !tile.Type.farm_field && !MapWallSystem.Contains(tile) &&
         (!tile.hasBuilding() || tile.building.canRemoveForFarms());
 
     // 规划时住房可以让位；真正开田仍要等原版拆除释放地块。

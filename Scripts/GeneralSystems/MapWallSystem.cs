@@ -14,7 +14,7 @@ public static class MapWallSystem
     private static Dictionary<int, string> _walls = new();
     private static readonly Queue<WorldTile> Pending = new();
     private static object _world;
-    private static bool _synced, _converting;
+    private static bool _synced, _converting, _dirty;
 
     // 城墙每变一次加一(MapWallOverlay 据此重画)
     public static int Version { get; private set; }
@@ -63,11 +63,30 @@ public static class MapWallSystem
             else RestoreAll();
             return;
         }
+        if (_dirty)
+        {
+            _dirty = false;
+            Changed();
+        }
         if (!PureMapMode.Enabled || Pending.Count == 0) return;
         int converted = 0;
         while (Pending.Count > 0)
             if (Convert(Pending.Dequeue())) converted++;
         if (converted > 0) Changed();
+    }
+
+    // 图层城墙被毁(玩家反馈"我手绘的城墙在国家城市图层上生成相应的图像的时候，我又城墙摧毁，但是国家城市图层上的城墙不会销毁")：
+    // 纯净地图下原版的城墙格早已清掉，炸弹、地震、擦除、画别的地形、灌水灌岩浆落在这一格时，原版找不到城墙可毁，
+    // 这里跟着把图层城墙去掉(见 MapWallPatch)。草木自己长回来不算；神力再画城墙照常转换。一帧里毁掉的一起重画
+    public static void OnTerraform(WorldTile tile, TileType main, TopTileType top, TerraformOptions options)
+    {
+        if (_converting || _walls.Count == 0 || tile?.data == null || !_walls.ContainsKey(tile.data.tile_id)) return;
+        if (top != null && top.wall) return;
+        bool destroy = options != null && (options.destroy_buildings || options.remove_top_tile || options.explode_tile ||
+                                           options.damage_buildings || options.transform_to_wasteland || options.id == "draw");
+        if (!destroy && !(main != null && (main.liquid || main.lava))) return;
+        _walls.Remove(tile.data.tile_id);
+        _dirty = true;
     }
 
     // 神力新画的城墙：原版设好顶层格之后排队，下一帧转换(不在原版设格的过程中改格子)
