@@ -20,7 +20,9 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   ③ 交战：攻方(兵力×组织度×火力) 对 守方(兵力×组织度×火力×(1.25+堑壕)，无军驻守时由团练抵抗)，
 //      双方按战况伤亡、掉组织度；攻方占优就占领一块紧挨着进攻军团的地块，离它最近的进攻军团随即进驻
 //      (一格一格推进，部队没到的地方战线不动；沿用地块占领模式，满城即陷落)，守方占优就夺回守军身边的一块；
-//      守军还在时城中最后一块地不会丢；组织度归零的军溃退。占领区的年度扩散、正统扩张在军团模式下都不生效
+//      守军还在时城中最后一块地不会丢；组织度归零的军溃退。
+//      主城池(城心那块地)陷落即整城投降(用户 2026-10-17 "军队推进攻下主城池那么城市会直接投降")：守军还在时据城死守、
+//      城池放到最后打；守军溃散后先取城池，城池一破，余下的地块一并归攻方(见 Surrender)。占领区的年度扩散、正统扩张在军团模式下都不生效
 //      (见 CityExtension.TryYearlyOccupationSpread、TrySpreadOccupiedZonesByMandate)。
 //      地形(见 TerrainSystem)看攻方要推进的那块地：攻方战力打折、双方额外掉组织度、限制每月推进的块数。
 // 远距离不交战(用户 2026-10-15："能不能阻止远距离交战，但是很近的海岛却可以")：只打本方(连同所在帝国)够得着的敌城——
@@ -797,7 +799,7 @@ public static partial class FrontSystem
                                                      !TerrainSystem.Impassable(zone));
             if (defended && remaining <= 1) break;
             TileZone center = city.getTile()?.zone;
-            TileZone zone = targets.OrderBy(candidate => candidate == center ? 1 : 0)
+            TileZone zone = targets.OrderBy(candidate => CenterOrder(candidate, center, defended))
                 .ThenByDescending(candidate => (candidate.neighbours ?? Array.Empty<TileZone>())
                     .Count(neighbour => Friendly(attacker, Controller(neighbour)))).First();
             Kingdom occupier = Belligerent(attacker, owner);
@@ -806,6 +808,7 @@ public static partial class FrontSystem
             bool ok = city.AddOccupiedTileZone(occupier, zone, landing: true);
             if (!ok) break;
             taken++;
+            if (zone == center) Surrender(city, attacker, owner);
             CorpsData lead = spearheads.Where(corps => CorpsSystem.ZoneDistance(CorpsSystem.Zone(corps), zone) <= 1f)
                 .OrderBy(corps => CorpsSystem.ZoneDistance(CorpsSystem.Zone(corps), zone))
                 .ThenByDescending(corps => corps.strength).FirstOrDefault();
@@ -822,6 +825,25 @@ public static partial class FrontSystem
     // 地块紧挨着(或就是)其中一支军团的所在地
     private static bool Beside(IEnumerable<CorpsData> corps, TileZone zone) =>
         zone != null && corps != null && corps.Any(entry => CorpsSystem.ZoneDistance(CorpsSystem.Zone(entry), zone) <= 1f);
+
+    // 挑推进的地块：守军还在时城池放到最后，守军溃散后先取城池
+    private static int CenterOrder(TileZone candidate, TileZone center, bool defended) =>
+        candidate != center ? 1 : defended ? 2 : 0;
+
+    // 主城池陷落：整城投降，余下的地块一并归攻方(平滑国界下各块直接翻过去)
+    private static void Surrender(City city, Kingdom attacker, Kingdom owner)
+    {
+        if (city?.zones == null || city.kingdom != owner) return;
+        Kingdom occupier = Belligerent(attacker, owner);
+        foreach (TileZone zone in city.zones.Where(zone => zone != null && !Friendly(attacker, Controller(zone))).ToList())
+        {
+            if (city.kingdom != owner) break;
+            Kingdom current = city.GetTileZoneOccupier(zone);
+            if (current != null && current != owner) city.RemoveOccupiedTileZone(current, zone);
+            if (!city.AddOccupiedTileZone(occupier, zone, landing: true)) break;
+            if (SmoothActive) SmoothBorders.Settle(zone);
+        }
+    }
 
     // 城里能走到的地都占了，剩下的高山随城陷落(军团进不去，否则这座城永远打不下)
     private static void SweepImpassable(City city, Kingdom attacker, Kingdom owner)

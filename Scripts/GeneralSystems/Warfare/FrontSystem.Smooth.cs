@@ -111,7 +111,7 @@ public static partial class FrontSystem
         push.Corps.Select(pair => CorpsSystem.Find(World.world.kingdoms.get(pair.kingdom), pair.corps))
             .Where(corps => corps != null).ToList();
 
-    // 推进的目标：紧挨着进攻军团、敌方控制的地块(挑法同 Advance)；守军还在时不拿城中最后一块
+    // 推进的目标：紧挨着进攻军团、敌方控制的地块(挑法同 Advance)；守军还在时不拿城中最后一块、城池放到最后，溃散后先取城池
     private static TileZone AdvanceTarget(City city, Kingdom side, List<CorpsData> spearheads, bool defended, bool landing)
     {
         List<TileZone> targets = TargetZones(side, city);
@@ -121,7 +121,7 @@ public static partial class FrontSystem
         int remaining = city.zones.Count(zone => zone != null && !Friendly(side, Controller(zone)) && !TerrainSystem.Impassable(zone));
         if (defended && remaining <= 1) return null;
         TileZone center = city.getTile()?.zone;
-        return targets.OrderBy(candidate => candidate == center ? 1 : 0)
+        return targets.OrderBy(candidate => CenterOrder(candidate, center, defended))
             .ThenByDescending(candidate => (candidate.neighbours ?? Array.Empty<TileZone>())
                 .Count(neighbour => Friendly(side, Controller(neighbour)))).First();
     }
@@ -248,6 +248,8 @@ public static partial class FrontSystem
             if (current != null && current != owner) city.RemoveOccupiedTileZone(current, zone);
             city.AddOccupiedTileZone(occupier, zone, landing: true);
             SmoothBorders.Settle(zone);
+            // 主城池陷落：整城投降
+            if (zone == city.getTile()?.zone) Surrender(city, side, owner);
             SweepImpassable(city, side, owner);
             if (city.kingdom != owner)
             {
