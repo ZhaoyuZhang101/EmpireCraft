@@ -153,8 +153,9 @@ public static class FarmlandSystem
                         best = top;
                     }
                 }
-            if (best != null) MapAction.terraformTop(tile, best);
-            else MapAction.terraformTile(tile, tile.main_type, null);
+            // 不闪白点(见 QuietTerraform)
+            if (best != null) MapAction.terraformTop(tile, best, QuietTerraform);
+            else MapAction.terraformTile(tile, tile.main_type, null, QuietTerraform);
             count++;
         }
         return count;
@@ -353,6 +354,10 @@ public static class FarmlandSystem
     // 隔行播种，保持原有每株折算两格田的产量；不缓存可被原版复用的 TileZone。
     private static bool IsCropSpot(WorldTile tile, TileZone zone) => (tile.y & 1) == 1;
 
+    // 开田、退耕不闪白点：原版 terraformTop 默认按"闪一下"处理，每格变地表都闪一个白点；每月结算各城一齐开几百格田，
+    // 满地农田一片白点(用户 2026-10-16 "有时候整个地图都会出现这个白色雪花""他们只出现在农田")
+    private static TerraformOptions QuietTerraform => TerraformLibrary.nothing;
+
     // 规划区也只能在原版风车范围内开田。
     public static int CultivateZone(City city, TileZone zone, int limit)
     {
@@ -364,7 +369,7 @@ public static class FarmlandSystem
         {
             if (count >= limit) break;
             if (!InRange(city, tile, windmill) || !CanMakeField(tile)) continue;
-            MapAction.terraformTop(tile, TopTileLibrary.field);
+            MapAction.terraformTop(tile, TopTileLibrary.field, QuietTerraform);
             count++;
         }
         return count;
@@ -381,7 +386,7 @@ public static class FarmlandSystem
             if (count >= MaxFieldsPerSettle) break;
             if (!InRange(city, tile, windmill) || !CanFarmZone(city, tile.zone) || !CanMakeField(tile) || IsRetired(city, tile.zone) ||
                 ScorchedEarthSystem.IsOccupiedZone(city, tile.zone)) continue;
-            MapAction.terraformTop(tile, TopTileLibrary.field);
+            MapAction.terraformTop(tile, TopTileLibrary.field, QuietTerraform);
             count++;
         }
     }
