@@ -96,7 +96,7 @@ public static class ClanBranchSystem
             if (string.IsNullOrWhiteSpace(fief)) fief = actor.kingdom.capital?.GetCityName();
             if (string.IsNullOrWhiteSpace(fief)) fief = actor.kingdom.GetKingdomName();
             SpecificClan branch = Split(clan, identity, identity, members, ReasonEnfeoff,
-                string.Format(LM.Get("clan_branch_label_fief"), fief), actor.kingdom.capital);
+                string.Format(LM.Get("clan_branch_label_fief"), fief), actor.kingdom.capital, fief);
             if (branch == null) continue;
             Announce(branch, actor.kingdom, string.Format(LM.Get("clan_branch_enfeoff_history"),
                 identity.name, fief, clan.GetDisplayName(), branch.GetDisplayName()), actor);
@@ -145,7 +145,7 @@ public static class ClanBranchSystem
             PersonalClanIdentity founder = settlers.OrderBy(identity => identity.generation)
                 .ThenByDescending(identity => identity._actor?.getAge() ?? 0).First();
             SpecificClan branch = Split(clan, founder, founder, members, ReasonMigration,
-                string.Format(LM.Get("clan_branch_label_place"), city.GetCityName()), city);
+                string.Format(LM.Get("clan_branch_label_place"), city.GetCityName()), city, city.GetCityName());
             if (branch == null) continue;
             Announce(branch, city.kingdom, string.Format(LM.Get("clan_branch_migration_history"),
                 founder.name, city.GetCityName(), (int)Date.getYearsSince(since), clan.GetDisplayName(),
@@ -203,7 +203,8 @@ public static class ClanBranchSystem
                 .Where(city => city != null && !city.isRekt())
                 .GroupBy(city => city).OrderByDescending(group => group.Count()).FirstOrDefault()?.Key;
             SpecificClan branch = Split(clan, houseFounder, eldest, members, ReasonMourning,
-                string.Format(LM.Get("clan_branch_label_house"), houseFounder.name), seat);
+                string.Format(LM.Get("clan_branch_label_house"), houseFounder.name), seat,
+                string.IsNullOrWhiteSpace(houseFounder.given_name) ? houseFounder.name : houseFounder.given_name);
             if (branch == null) continue;
             Announce(branch, eldest._actor?.kingdom, string.Format(LM.Get("clan_branch_mourning_history"),
                 houseFounder.name, clan.GetDisplayName(), branch.GetDisplayName()), eldest._actor);
@@ -231,7 +232,7 @@ public static class ClanBranchSystem
     // founder 记为分支创始人(可以是已故的房祖)；vanillaFounder 必须在世，用来建原版氏族
     private static SpecificClan Split(SpecificClan parent, PersonalClanIdentity founder,
         PersonalClanIdentity vanillaFounder, List<PersonalClanIdentity> members, string reason, string label,
-        City seat)
+        City seat, string shiSource = null)
     {
         Actor founderActor = vanillaFounder?._actor;
         if (founderActor == null || founderActor.isRekt() || members.Count == 0) return null;
@@ -269,7 +270,9 @@ public static class ClanBranchSystem
             parent_clan_id = parent.id,
             branch_label = label,
             branch_reason = reason,
-            founder = founder.id
+            founder = founder.id,
+            // 姓氏合一以前：以国、以邑、以王父之名为氏(见 PrehistoricClanSystem)
+            shi = PrehistoricClanSystem.ShiForming(founder.culture) ? PrehistoricClanSystem.ShiFrom(shiSource) : ""
         };
         branch.RecordAncestralCity(seat ?? founderActor.city);
         vanillaClan.SetSpecificClan(branch);

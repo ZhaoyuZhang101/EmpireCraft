@@ -1113,6 +1113,7 @@ public static class TechnologySystem
             using (FrameProfiler.Measure("科技·时代")) CheckEra(culture, pair.Value);
             using (FrameProfiler.Measure("科技·名著")) LandmarkBookSystem.YearlyCheck(culture, pair.Value, state);
             using (FrameProfiler.Measure("科技·国家采纳")) AdoptRealms(culture, pair.Value);
+            PrehistoricClanSystem.YearlyCheck(culture);
             if (state.modernize_years > 0)
             {
                 state.modernize_years--;

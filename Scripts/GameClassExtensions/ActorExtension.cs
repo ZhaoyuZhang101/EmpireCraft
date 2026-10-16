@@ -141,9 +141,12 @@ public class Name
                     real_family_name += post;
                 }
             }
-            actor.data.name = is_invert
-                ? OverallHelperFunc.JoinNameParts(firstName, real_family_name)
-                : OverallHelperFunc.JoinNameParts(real_family_name, firstName);
+            // 华夏早期姓氏演变：无姓只称名、男子称氏、平民无氏(见 PrehistoricClanSystem)；族谱里的姓不变
+            string shown = PrehistoricClanSystem.DisplaySurname(actor, real_family_name);
+            actor.data.name = string.IsNullOrEmpty(shown) ? firstName ?? ""
+                : is_invert
+                    ? OverallHelperFunc.JoinNameParts(firstName, shown)
+                    : OverallHelperFunc.JoinNameParts(shown, firstName);
             if (actor.HasSpecificClan())
             {
                 PersonalClanIdentity identity = actor.GetPersonalIdentity();

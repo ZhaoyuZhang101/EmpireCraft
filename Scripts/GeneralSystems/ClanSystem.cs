@@ -98,6 +98,8 @@ public class SpecificClan
     public long parent_clan_id { get; set; } = -1L;
     // 分支的称号，如"越国支"/"苏城支"/"谈华房"
     public string branch_label { get; set; } = "";
+    // 华夏姓氏合一以前分出的支脉的"氏"(见 PrehistoricClanSystem)；空 = 没有氏，称宗族的姓
+    public string shi { get; set; } = "";
     public string branch_reason { get; set; } = "";
     public double last_branch_timestamp { get; set; } = -1d;
     // 族人在各城最早定居的时间，用来判定"迁徙开基"
@@ -584,8 +586,8 @@ public static class SpecificClanManager
             }
         }
         specificClan.founder = actor.GetPersonalIdentity().id;
-        // 母系氏族阶段新立的氏族取带女字旁的古姓，始祖随之改姓(见 PrehistoricClanSystem)
-        if (specificClan.Matrilineal())
+        // 原始群、母系氏族阶段新立的氏族取带女字旁的古姓，始祖随之改姓(见 PrehistoricClanSystem)
+        if (PrehistoricClanSystem.AncientNaming(TechnologySystem.GetCultureOf(actor)))
         {
             specificClan.name = PrehistoricClanSystem.PickAncientSurname();
             SurnameInheritanceSystem.ApplySurname(actor.GetPersonalIdentity(), specificClan.name);

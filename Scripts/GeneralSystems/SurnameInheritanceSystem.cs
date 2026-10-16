@@ -151,6 +151,8 @@ public static class SurnameInheritanceSystem
         Actor actor = person.is_virtual ? null : person._actor;
         bool hasActor = actor?.data != null && !actor.isRekt() && actor.GetModName() != null;
         string named = NameSurname(person);
+        // 华夏早期称氏、无姓(见 PrehistoricClanSystem)：名字上不是族谱的姓不算错
+        if (named != null && named != surname && PrehistoricClanSystem.ShownByEra(person, named)) named = null;
         bool actorWrong = hasActor && actor.GetModName().familyName != surname;
         if (person.surname == surname && (named == null || named == surname) && !actorWrong) return false;
         if (person.surname != surname)
