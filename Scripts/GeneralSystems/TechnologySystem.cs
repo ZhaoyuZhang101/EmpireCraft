@@ -366,6 +366,7 @@ public static class TechnologySystem
 
     public static void ResetWorldState()
     {
+        _loadedFromSave = false;
         _states = new Dictionary<string, CultureTechState>(StringComparer.Ordinal);
         ResearchedCache.Clear();
         Contacts.Clear();
@@ -373,9 +374,13 @@ public static class TechnologySystem
         _lastScan = -1d;
     }
 
+    // 这个世界是读档读进来的(不是新开的)：读档后各文化按现行政体补记一次制度与科技(见 BackfillRegimes)
+    private static bool _loadedFromSave;
+
     public static void ImportStates(Dictionary<string, CultureTechState> states)
     {
         ResetWorldState();
+        _loadedFromSave = true;
         if (states == null) return;
         foreach (KeyValuePair<string, CultureTechState> pair in states)
         {
@@ -769,6 +774,40 @@ public static class TechnologySystem
         }
     }
 
+    // 旧存档(没有科技、或制度还没跟政体挂钩的版本)读进来(用户 2026-10-16："旧版本有国家是律令，就默认那个文化
+    // 已经解锁了对应的科技，自动匹配解锁")：本文化各国现行的政体，在这条文化线上声明了该政体的制度连同前置链补记成
+    // 已施行，再把已施行的制度需要的科技(连同前置科技、材料)补上。以前旧档的律令制国家科技为零，制度树和政体对不上
+    private static void BackfillRegimes(string culture)
+    {
+        var regimes = new HashSet<EmpireCraft.Scripts.Regimes.RegimeType>();
+        foreach (Kingdom kingdom in World.world.kingdoms.list)
+        {
+            if (kingdom?.data == null || kingdom.isRekt() ||
+                !string.Equals(CultureService.GetRealmCulture(kingdom), culture, StringComparison.Ordinal)) continue;
+            EmpireCraft.Scripts.Regimes.Regime regime = kingdom.GetRegime();
+            if (regime != null) regimes.Add(regime.type);
+        }
+        int nodes = InstitutionSystem.EnactRegimeNodes(culture, regimes);
+        int before = Researched(culture).Count;
+        CultureInstitutionState institutions = InstitutionSystem.GetOrCreateCultureState(culture);
+        if (institutions?.enacted_node_ids != null)
+            foreach (string nodeId in institutions.enacted_node_ids.ToList())
+                foreach (string tech in GetInstitutionRequiredTechs(InstitutionDefinitionRegistry.Get(nodeId)))
+                    ForceResearch(culture, tech);
+        int techs = Researched(culture).Count - before;
+        // 各国的采纳记录可能在补记之前就建好了(只记了当时的科技)：旧档里这些国家本来就在用，直接算采纳
+        foreach (Kingdom kingdom in World.world.kingdoms.list)
+        {
+            if (kingdom?.data == null || kingdom.isRekt() ||
+                !string.Equals(CultureService.GetRealmCulture(kingdom), culture, StringComparison.Ordinal)) continue;
+            RealmTechState realm = GetRealmState(kingdom);
+            if (realm == null) continue;
+            foreach (string tech in Researched(culture).ToList()) realm.Adopt(tech);
+        }
+        if (nodes > 0 || techs > 0)
+            LogService.LogInfo($"[EmpireCraft][科技] 旧档 {culture} 按现行政体({string.Join("、", regimes)})补记制度 {nodes} 项、科技 {techs} 项");
+    }
+
     // 传播媒介科技是后加的：旧档里已经有后续科技(或时代已过)的文化直接补上，不让书报一下子退回手抄
     private static readonly (string tech, string legacy)[] MediaLegacy =
     {
@@ -1082,6 +1121,12 @@ public static class TechnologySystem
             }
             // 读档后第一次：城里已有的建筑说明对应技术早就有了(后来新加的门槛，如住房科技，不把旧档打回原形)
             else if (!addResearch) BackfillBuildings(culture, pair.Value);
+            // 读进来的旧档：各国现行政体说明对应的制度、科技早就有了(新开的世界只记一下，照常从头研究)
+            if (!state.regime_line)
+            {
+                state.regime_line = true;
+                if (_loadedFromSave) BackfillRegimes(culture);
+            }
             if (!state.naval_line)
             {
                 state.naval_line = true;

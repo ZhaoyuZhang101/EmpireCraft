@@ -977,6 +977,22 @@ public static class InstitutionSystem
         if (node != null) EnactNodeChain(state, node);
     }
 
+    // 读档补记(见 TechnologySystem.BackfillRegimes)：这条文化线上声明了这些政体的制度，连同前置链记成已施行；返回新记的项数
+    public static int EnactRegimeNodes(string culture, IEnumerable<RegimeType> regimes)
+    {
+        CultureInstitutionState state = GetOrCreateCultureState(culture);
+        if (state == null || regimes == null) return 0;
+        int before = state.enacted_node_ids.Count;
+        List<InstitutionNodeConfig> line = InstitutionDefinitionRegistry.GetForLine(GetCultureLine(culture)).ToList();
+        foreach (RegimeType regime in regimes)
+        {
+            InstitutionNodeConfig node = line.FirstOrDefault(candidate =>
+                InstitutionDefinitionRegistry.TryGetNodeRegime(candidate, out RegimeType declared) && declared == regime);
+            if (node != null) EnactNodeChain(state, node);
+        }
+        return state.enacted_node_ids.Count - before;
+    }
+
     private static void EnactNodeChain(CultureInstitutionState state, InstitutionNodeConfig node)
     {
         if (node == null || state.enacted_node_ids.Contains(node.id)) return;

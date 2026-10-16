@@ -25,6 +25,8 @@ public sealed class CultureTechState
     public bool civics_line;
     // 传播媒介科技(活字、机械印刷、电报、广播、互联网)已为旧存档补过
     public bool media_line;
+    // 读档后按本文化各国现行政体补记过制度与科技(见 TechnologySystem.BackfillRegimes)
+    public bool regime_line;
     // 每项技术各自的已投入研究点(加速事件可以给还没开始研究的技术预存进度)；
     // 上面的 progress 是旧存档字段，读档时并入这里
     public Dictionary<string, float> tech_progress = new();
