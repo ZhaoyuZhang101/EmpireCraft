@@ -290,16 +290,17 @@ public partial class PureMapPatch
         foreach (TileZone zone in city.zones)
         {
             if (zone == null || !plan.built.Contains(zone.id)) continue;
-            Grow(zone.x * size, zone.y * size, 3);
-            Grow(zone.x * size + size - 1, zone.y * size + size - 1, 3);
+            // 城郊过渡带伸出城边七格(见 PureMapPatch.Fringe)，图要画到那里，否则过渡带在图边上被齐齐切断
+            Grow(zone.x * size, zone.y * size, FringeReach + 1);
+            Grow(zone.x * size + size - 1, zone.y * size + size - 1, FringeReach + 1);
         }
         if (x0 == int.MaxValue) return null;
         if (g.Modern)
             foreach (TileZone zone in city.zones)
                 if (zone != null && UrbanFabric.ModernZone(g, zone))
                 {
-                    Grow(zone.x * size, zone.y * size, 1);
-                    Grow(zone.x * size + size - 1, zone.y * size + size - 1, 1);
+                    Grow(zone.x * size, zone.y * size, FringeReach + 1);
+                    Grow(zone.x * size + size - 1, zone.y * size + size - 1, FringeReach + 1);
                 }
         foreach ((int x, int y) in g.Villages) Grow(x, y, 8);
         foreach ((int x, int y, int townSize, _) in g.Towns) Grow(x, y, townSize + 4);
@@ -325,6 +326,8 @@ public partial class PureMapPatch
         {
             DrawUrban(c, plan, style, tint, seed);
             if (g.Modern) DrawModern(c, plan, g, style, tint, seed);
+            // 城郊过渡带(见 PureMapPatch.Fringe)：画在村镇、田块、小路之前
+            DrawFringe(c, style, tint, seed);
             DrawCountryside(c, g, style, tint, seed);
         }
         List<DetailLabel> labels = ReduceLabels(c.Labels);
