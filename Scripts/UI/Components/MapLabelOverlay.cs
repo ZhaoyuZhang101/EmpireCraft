@@ -21,6 +21,9 @@ public static class MapLabelOverlay
     private const float HouseZoom = 10f;
     // 字高(格)
     private const float StreetSize = 0.9f, BuildingSize = 0.75f, HouseSize = 0.6f;
+    // 字高封顶(屏幕像素，按 1080 行的屏幕算；用户 2026-10-16 "字太大了")：拉近时字不再跟着地图一起放大，
+    // 像电子地图一样街名约 11 像素高，建筑、住宅名按比例小一些(至少 9 像素)；拉远到不足这个高度时照旧按格算
+    private const float StreetPixels = 11f, MinPixels = 9f;
 
     private sealed class Label
     {
@@ -99,6 +102,7 @@ public static class MapLabelOverlay
         Font font = LabelFont();
         Sprite reference = source.sprite;
         float ppu = reference.pixelsPerUnit, tileWorld = 1f / ppu;
+        float screenScale = Mathf.Max(0.75f, Screen.height / 1080f);
         int used = 0;
         foreach (Spec spec in specs)
         {
@@ -114,7 +118,8 @@ public static class MapLabelOverlay
             label.Text.color = spec.Color;
             label.Object.transform.localPosition = new Vector3((spec.Tile.x - reference.pivot.x) / ppu,
                 (spec.Tile.y - reference.pivot.y) / ppu, 0f);
-            label.Object.transform.localScale = Vector3.one * (tileWorld * spec.Size);
+            float cap = Mathf.Max(MinPixels, StreetPixels * spec.Size / StreetSize) * screenScale / Mathf.Max(1f, ppt);
+            label.Object.transform.localScale = Vector3.one * (tileWorld * Mathf.Min(spec.Size, cap));
             label.Renderer.sortingLayerID = source.sortingLayerID;
             label.Renderer.sortingOrder = source.sortingOrder + 6;
             if (!label.Object.activeSelf) label.Object.SetActive(true);
