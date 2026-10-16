@@ -94,6 +94,7 @@ public class TechWindow : AbstractWideWindow<TechWindow>
         _content.Clear();
         _graph = null;
         _detailText = null;
+        _detailPanel = null;
     }
 
     private void Rebuild()
@@ -386,10 +387,9 @@ public class TechWindow : AbstractWideWindow<TechWindow>
     // ── 详情 ──
     private void AddDetail()
     {
-        var panel = BeginSection(96f, "FactionFrame");
-        _detailText = panel.AddTextIntoVertLayout("", true, TextAnchor.UpperCenter, new Vector2(PanelWidth - 10f, 78),
-            mode: HorizontalWrapMode.Wrap);
-        _detailText.UseFixedFontSize(7, HorizontalWrapMode.Wrap);
+        var panel = BeginSection(DetailMinHeight, "FactionFrame");
+        _detailPanel = panel;
+        // 按钮放在说明上面：说明长了框跟着变高(见 FitDetail)，按钮不会被挤到框外
         var buttons = panel.BeginHoriGroup(new Vector2(PanelWidth - 10f, 13), TextAnchor.MiddleCenter, 4);
         buttons.AddButtonIntoHoriLayout("tech_invest", LM.Get("tech_invest"), () =>
         {
@@ -419,7 +419,33 @@ public class TechWindow : AbstractWideWindow<TechWindow>
             if (count <= 0) WorldTip.showNow(LM.Get("tech_force_revoke_nothing"), false, "top", 3f);
             Rebuild();
         }, size: new Vector2(186, 11));
+        _detailText = panel.AddTextIntoVertLayout("", true, TextAnchor.UpperCenter, new Vector2(PanelWidth - 10f, 78),
+            mode: HorizontalWrapMode.Wrap);
+        _detailText.UseFixedFontSize(7, HorizontalWrapMode.Wrap);
         RefreshDetail();
+    }
+
+    private const float DetailMinHeight = 96f, DetailChrome = 36f;
+    private AutoVertLayoutGroup _detailPanel;
+
+    // 说明换了：框的高度跟着说明走(两排按钮、边距另算)，背景框一起拉高
+    private void FitDetail()
+    {
+        _detailText.RefreshAutoHeight(60f);
+        if (_detailPanel == null) return;
+        float textHeight = _detailText.GetComponent<RectTransform>().sizeDelta.y;
+        float height = Mathf.Max(DetailMinHeight, textHeight + DetailChrome);
+        var rect = _detailPanel.GetComponent<RectTransform>();
+        rect.sizeDelta = new Vector2(rect.sizeDelta.x, height);
+        var layout = _detailPanel.GetComponent<LayoutElement>() ?? _detailPanel.gameObject.AddComponent<LayoutElement>();
+        layout.preferredHeight = height;
+        layout.minHeight = height;
+        if (_detailPanel.transform.Find("CardBackground") is Transform back)
+        {
+            var backRect = back.GetComponent<RectTransform>();
+            backRect.sizeDelta = new Vector2(backRect.sizeDelta.x, height);
+        }
+        LayoutRebuilder.MarkLayoutForRebuild(_root.GetComponent<RectTransform>());
     }
 
     private void RefreshDetail()
@@ -441,18 +467,18 @@ public class TechWindow : AbstractWideWindow<TechWindow>
                 $"{GetStatusName(status).ColorString(GetStatusHex(status))}\n" +
                 $"{LM.Get($"tech_mat_{id}_desc")}\n{TechnologySystem.DescribeMaterialCondition(material)}\n" +
                 (users.Count > 0 ? string.Format(LM.Get("tech_material_used_by"), string.Join("、", users)) : "");
-            _detailText.RefreshAutoHeight(78f);
+            FitDetail();
             return;
         }
         if (!TechnologySystem.TryGetTech(_selectedId, out TechNodeConfig tech))
         {
             _detailText.text.text = LM.Get("tech_select_hint");
-            _detailText.RefreshAutoHeight(78f);
+            FitDetail();
             return;
         }
         (string title, string body) = BuildTechTooltip(tech, TechnologySystem.GetTechStatus(_culture, tech));
         _detailText.text.text = title + "\n" + body;
-        _detailText.RefreshAutoHeight(78f);
+        FitDetail();
     }
 
     private (string title, string body) BuildTechTooltip(TechNodeConfig tech, TechNodeStatus status)
