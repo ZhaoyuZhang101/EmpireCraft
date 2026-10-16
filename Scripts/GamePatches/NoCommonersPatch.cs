@@ -70,6 +70,17 @@ public class NoCommonersPatch : GamePatch
         }
         try
         {
+            // 纯净地图：规划农田区里的田不让原版"田地荒废"退成裸土(见 BeforeFarmDecay)
+            new Harmony(nameof(NoCommonersPatch) + ".FarmDecay").Patch(
+                AccessTools.Method(typeof(WorldBehaviourActions), nameof(WorldBehaviourActions.updateFarmDecay)),
+                prefix: new HarmonyMethod(typeof(NoCommonersPatch), nameof(BeforeFarmDecay)));
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft] 规划农田防荒废补丁未生效: {exception.Message}");
+        }
+        try
+        {
             // 越富庶的城民居上限越高、房屋越密集
             new Harmony(nameof(NoCommonersPatch) + ".Houses").Patch(AccessTools.Method(typeof(City), "recalculateMaxHouses"),
                 postfix: new HarmonyMethod(typeof(NoCommonersPatch), nameof(AfterRecalculateMaxHouses)));
@@ -218,6 +229,38 @@ public class NoCommonersPatch : GamePatch
         __instance.status.houses_max = Mathf.RoundToInt(__instance.status.houses_max *
                                                         (1f + CityConstructionSystem.Wealth(__instance) +
                                                          CityConstructionSystem.SeatBonus(__instance)));
+    }
+
+    // 纯净地图下规划农田区开田不看风车(见 FarmlandSystem)，可原版"田地荒废"每一两秒抽十格田，不在风车九格内的就退成裸土；
+    // 每月结算时又整片开回来——满地田块一格格变成浅色裸土、又一齐变回田，远看是一直在闪的白点(用户 2026-10-16
+    // "这些农田上一直在闪的雪花白点是什么")，收成也按田数被吃掉一截。纯净地图下照原版的抽法，只是规划农田区里的田不退
+    private static readonly global::System.Collections.Generic.List<WorldTile> DecayQueue = new();
+    private static int _decayWorld = -1;
+
+    public static bool BeforeFarmDecay()
+    {
+        if (!PureMapMode.Enabled) return true;
+        if (MapBox.current_world_seed_id != _decayWorld)
+        {
+            _decayWorld = MapBox.current_world_seed_id;
+            DecayQueue.Clear();
+        }
+        if (DecayQueue.Count == 0)
+        {
+            foreach (WorldTile tile in TopTileLibrary.field.hashset) DecayQueue.Add(tile);
+            DecayQueue.Shuffle();
+        }
+        for (int i = 0; i < 10 && DecayQueue.Count > 0; i++)
+        {
+            WorldTile tile = DecayQueue.Pop();
+            if (tile?.Type == null || !tile.Type.farm_field) continue;
+            City city = tile.zone?.city;
+            if (city != null && (FarmlandSystem.IsPlanned(city, tile.zone) || city.calculated_farm_fields.Contains(tile) ||
+                                 city.calculated_place_for_farms.Contains(tile))) continue;
+            if (city != null && tile.hasBuilding() && tile.building.asset.wheat) tile.building.startDestroyBuilding();
+            MapAction.decreaseTile(tile, pDamage: false);
+        }
+        return false;
     }
 
     public static void AfterPlanAllowsBuilding(City __instance, TileZone pZone, ref bool __result)
