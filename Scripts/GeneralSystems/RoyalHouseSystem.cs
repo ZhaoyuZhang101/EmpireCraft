@@ -246,6 +246,7 @@ public static class RoyalHouseSystem
             SuccessionCouncilSystem.Monthly();
             EmpirePartitionSystem.Monthly();
             CityStateService.EnforceOneCity();
+            TribalFissionService.EnforceOneCity();
             RoyalMarriageSystem.Monthly();
             WarlordEraSystem.FounderCapitulation();
             if (++_months % 12 != 0) return;
