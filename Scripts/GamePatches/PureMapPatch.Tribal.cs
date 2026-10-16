@@ -367,9 +367,9 @@ public partial class PureMapPatch
         {
             index++;
             float x0 = (vx - c.X0) * s + 2, y0 = top - ((vy - c.Y0) * s + 2);
-            for (int y = Mathf.FloorToInt(y0 - 8); y <= y0 + 8; y++)
-            for (int x = Mathf.FloorToInt(x0 - 8); x <= x0 + 8; x++)
-                if ((x - x0) * (x - x0) + (y - y0) * (y - y0) <= 64f && KindAt(x, y) is KEmpty or KPath && LandAt(x, y))
+            for (int y = Mathf.FloorToInt(y0 - 9); y <= y0 + 9; y++)
+            for (int x = Mathf.FloorToInt(x0 - 9); x <= x0 + 9; x++)
+                if ((x - x0) * (x - x0) + (y - y0) * (y - y0) <= 81f && KindAt(x, y) is KEmpty or KPath && LandAt(x, y))
                     Put(x, y, TribeGround, KGround);
             for (int y = Mathf.FloorToInt(y0 - 3); y <= y0 + 3; y++)
             for (int x = Mathf.FloorToInt(x0 - 3); x <= x0 + 3; x++)
@@ -378,7 +378,8 @@ public partial class PureMapPatch
             for (int j = 0; j < count; j++)
             {
                 float a = j / (float)count * Mathf.PI * 2f + H(index, 151);
-                Hut(Mathf.RoundToInt(x0 + Mathf.Cos(a) * 6f), Mathf.RoundToInt(y0 + Mathf.Sin(a) * 6f), 2, x0, y0);
+                // 小屋离中心五格半：屋连同一圈留空都落在踩出来的空地里
+                Hut(Mathf.RoundToInt(x0 + Mathf.Cos(a) * 5.5f), Mathf.RoundToInt(y0 + Mathf.Sin(a) * 5.5f), 2, x0, y0);
             }
         }
     }
