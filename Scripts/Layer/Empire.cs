@@ -666,8 +666,9 @@ public class Empire : MetaObject<EmpireData>
         // 篡位的连带后果（分裂、内战、改国号、清空帝系）牵涉大量外部状态，任何一步抛异常都不能
         // 打断下面的即位登记——否则皇室、年号、历史都停留在上一任，年号会一直累加下去。
         // 选帝制(神圣罗马式)换了家族是正常换届，不算篡位
+        // 华夏原始政体推举共主(禅让，见 ShanrangSystem)：换了氏族也是正常换届
         bool usurpation = currentSpecificClan != previousRoyalClan && data.empire_specific_clan != -1L &&
-                          !IsRepublicState && !HolyRomanSystem.IsElective(this);
+                          !IsRepublicState && !HolyRomanSystem.IsElective(this) && !ShanrangSystem.Elective(this);
         try
         {
             if (usurpation)

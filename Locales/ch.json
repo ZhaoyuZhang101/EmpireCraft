@@ -1979,6 +1979,8 @@
   "empire_capital_huaxia_origin": "共主都邑",
   "empire_clan_huaxia_origin": "共主氏族",
   "emperor_huaxia_origin": "共主",
+  "shanrang_elect_history": "{0}崩，諸部議事，推{1}為共主。",
+  "shanrang_abdicate_history": "{0}年老，諸部議事，{0}禪位於{1}。",
   "capital_loss_restored": "{0}收復舊都{1}，還於舊都，復稱{2}。",
   "kingdom_type_xingzai": "行在",
   "Later": "後",

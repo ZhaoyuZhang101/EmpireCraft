@@ -135,6 +135,7 @@ public static class TribalFissionService
         try
         {
             Migrate();
+            ShanrangSystem.Monthly();
             DetachMembers();
             FoldAlliances();
             Enfeoff();

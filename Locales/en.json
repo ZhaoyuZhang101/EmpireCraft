@@ -1977,6 +1977,8 @@
   "empire_capital_huaxia_origin": "Overlord's Seat",
   "empire_clan_huaxia_origin": "Overlord Clan",
   "emperor_huaxia_origin": "Common Lord",
+  "shanrang_elect_history": "{0} died; the tribes' council chose {1} as Common Lord.",
+  "shanrang_abdicate_history": "{0}, grown old, abdicated in favour of {1} by the tribes' council.",
   "capital_loss_restored": "{0} retakes its old capital {1} and is again known as {2}.",
   "kingdom_type_xingzai": "Temporary Court",
   "Later": "Later",
