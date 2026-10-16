@@ -54,6 +54,15 @@ public sealed class TechResearchConfig
     public int modernize_subsidy = 60;
     // 世界首创：达到这个时代的技术才写入世界日志(开局的原始技术谁都会，不值得记)
     public int world_first_min_tier = 3;
+    // 先民摸索(用户 2026-10-16 "从部落过渡到周朝这个进度太慢了")：还没到青铜时代(时代档不超过 prehistoric_max_tier)的文化
+    // 没有书、没有学府，以前只靠每城 0.2 点底数，一年一两点，从原始群走到分封要上千年。这段时期每个文化每年另得
+    // prehistoric_flat 点、每座城再得 prehistoric_per_city 点(算在底数里)
+    public float prehistoric_flat = 4f;
+    public float prehistoric_per_city = 0.6f;
+    public int prehistoric_max_tier = 2;
+    // 早期科技(时代档不超过 early_cost_max_tier：石器、铜器、青铜)的费用倍率
+    public int early_cost_max_tier = 3;
+    public float early_cost_multiplier = 0.5f;
 }
 
 // 加速事件(文明六的"尤里卡")：本文化做到了某件事，对应技术立刻获得一部分研究进度
@@ -693,7 +702,8 @@ public static class TechnologySystem
     public static float GetCost(string culture, TechNodeConfig tech)
     {
         float cost = Math.Max(1f, tech.cost) * Math.Max(0.01f, Config.research.cost_multiplier) *
-                     GetSizeCostFactor(culture);
+                     GetSizeCostFactor(culture) *
+                     (tech.tier <= Config.research.early_cost_max_tier ? Math.Max(0.05f, Config.research.early_cost_multiplier) : 1f);
         return cost * (1f - GetDiffusionDiscount(culture, tech.id));
     }
 
@@ -1402,6 +1412,9 @@ public static class TechnologySystem
             basis += cityBasis;
             schools += citySchools;
         }
+        // 先民摸索：青铜时代以前另给一份底数(见 TechResearchConfig.prehistoric_flat)
+        if (cities.Count > 0 && GetEraTier(culture) <= research.prehistoric_max_tier)
+            basis += research.prehistoric_flat + research.prehistoric_per_city * cities.Count;
         BooksWritten.TryGetValue(culture, out float written);
         BooksRead.TryGetValue(culture, out float read);
         BooksWritten.Remove(culture);

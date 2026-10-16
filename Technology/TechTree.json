@@ -32,7 +32,7 @@
     "modernize_per_city": 8,
     "modernize_years": 3,
     "modernize_subsidy": 60,
-    "world_first_min_tier": 3
+    "world_first_min_tier": 3, "prehistoric_flat": 4.0, "prehistoric_per_city": 0.6, "prehistoric_max_tier": 2, "early_cost_max_tier": 3, "early_cost_multiplier": 0.5
   },
 
 
