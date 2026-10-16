@@ -21,8 +21,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //      本派的人优先；
 //   ③ 定策：太后降懿旨，没有太后由权臣、再没有由议程官拍板，多半从廷议多数，也会偏向对自己有利的人；
 //   ④ 迎立：定下的人入继大统(继承人就位，下一次王位检查登基)。
-// 皇族已无可立之人：疆域大、有强藩的帝国裂土，群雄并起各自称帝(见 InterregnumSystem)；
-// 不裂土的群臣劝进——权臣、重臣，或由尊王、血脉派拥立一位宗室远支，劝进外姓即改朝换代，定策后直接即位。
+// 皇族已无可立之人：天下无主、各地散伙，京城由权臣据而称帝(见 InterregnumSystem)；
+// 周制天下、原始部落联盟等不裂土的群臣劝进——权臣、重臣，或由尊王、血脉派拥立一位宗室远支，劝进外姓即改朝换代，定策后直接即位。
 // 每步隔一个月，空位约两个月。有议会、共和、选帝制、宪制保护皇位的帝国不走这条路，照继承法递补。
 public static class SuccessionCouncilSystem
 {
@@ -153,9 +153,10 @@ public static class SuccessionCouncilSystem
         {
             council.outsider = true;
             NominateOutsiders(empire, core, council.candidates);
-            // 皇族绝嗣、天下无主：京城由权臣重臣即位，强藩各自称帝(见 InterregnumSystem)
-            CourtSuccessionCandidate first = council.candidates.FirstOrDefault(candidate => candidate.basis != Commoner);
-            Actor strongman = first == null ? null : CandidateActor(first);
+            // 皇族绝嗣、天下无主：京城由权臣重臣(没有就京城官员)据而称帝，各地散伙(见 InterregnumSystem)
+            CourtSuccessionCandidate first = council.candidates.FirstOrDefault(candidate => candidate.basis != Commoner) ??
+                                             council.candidates.FirstOrDefault();
+            Actor strongman = first == null ? null : first.basis == Commoner ? Enthrone(empire, core, first) : CandidateActor(first);
             if (InterregnumSystem.TryFracture(empire, predecessor, strongman))
             {
                 state.succession = null;

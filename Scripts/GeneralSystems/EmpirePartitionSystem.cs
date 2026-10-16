@@ -29,6 +29,11 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   按理来说会有一部分宗室追随他……很容易断代，然后直接被吞并"：三种分立的概率都减半；另一朝换一个和原朝相差最大的颜色；
 //   宗室随新君而去(见 Followers)——新君的妻妾子孙全随行，兄弟一家各一半，留在原朝京城的宗室三成投奔，
 //   在新朝疆域里的宗室本就归新朝。
+// 玩家反馈："小皇帝跑路了就自己找出来一个皇叔……那个皇叔也是乖乖的把大权拱手相让""小皇帝跑到地方了以后也会立刻找一个
+//   有能力的大臣让他当权臣""做成皇帝成年以后再出奔吧""出奔弄三种随机结果：成功跑路(并立)、反杀权臣(还政)、被废黜"：
+//   · 皇帝年满二十才谋出奔；出奔三种结局(见 FleeOutcome)：成功出奔两朝并立、反杀权臣亲政、事泄被废(宗室无人可立就天下散伙)；
+//   · 出奔成功，强藩起初只是辅政(控制三成)，庸弱昏聩之君才一来就被挟制；
+//   · 权臣立的傀儡先挑京城里现成的宗室，再挑年幼的(五到十五岁)，不再随手从族谱里拉出一位成年皇叔。
 public static class EmpirePartitionSystem
 {
     public const string KindWill = "will", KindMinister = "minister", KindRestoration = "restoration";
@@ -530,9 +535,18 @@ public static class EmpirePartitionSystem
         if (plan.Share < 0.15f || plan.Share > 0.7f) return;
         Actor strongman = bastion.king;
         City seat = bastion.capital;
-        bool flee = emperor.isAdult() && UnityEngine.Random.value < 0.5f;
+        bool flee = emperor.getAge() >= FleeMinAge && UnityEngine.Random.value < 0.5f;
         if (flee)
         {
+            switch (FleeOutcome(empire, emperor))
+            {
+                case Flee.Counter:
+                    Counter(empire, emperor, minister);
+                    return;
+                case Flee.Deposed:
+                    Depose(empire, emperor, minister);
+                    return;
+            }
             // 皇帝出奔：权臣先在京城另立宗室幼主，皇帝在强藩处另立朝廷
             Actor puppet = PickRoyal(empire, emperor, preferYoung: true);
             if (puppet != null)
@@ -544,7 +558,9 @@ public static class EmpirePartitionSystem
                     empire.data.core_name, renameSource: true);
                 if (twin != null)
                 {
-                    AfterMinisterSplit(empire, twin, strongman, emperor);
+                    AfterMinisterSplit(empire, twin, strongman, emperor,
+                        RulerQualitySystem.Of(emperor) is RulerQualitySystem.Grade.Weak or RulerQualitySystem.Grade.Fatuous
+                            ? ControlledProgress : HostProgress);
                     Publish(empire, twin, string.Format(LM.Get("partition_flee_history"), emperorName, minister.getName(),
                         seat.GetCityName(), strongman.getName(), puppet.getName(), empire.GetEmpireFullName(),
                         twin.GetEmpireFullName()), emperor);
@@ -558,21 +574,90 @@ public static class EmpirePartitionSystem
         Empire rival = Split(empire, royal, seat, plan, KindMinister, PrinceStruggleSystem.NoteRaised,
             empire.data.core_name, renameSource: true);
         if (rival == null) return;
-        AfterMinisterSplit(empire, rival, strongman, royal);
+        AfterMinisterSplit(empire, rival, strongman, royal, ControlledProgress);
         Publish(empire, rival, string.Format(LM.Get("partition_raise_history"), strongman.getName(), seat.GetCityName(),
             royal.getName(), minister.getName(), empire.GetEmpireFullName(), rival.GetEmpireFullName()), royal);
     }
 
     // 强藩把持新朝(权臣)；两朝互争正统、开战
-    private static void AfterMinisterSplit(Empire source, Empire twin, Actor strongman, Actor ruler)
+    private const int FleeMinAge = 20, ControlledProgress = 75, HostProgress = 30;
+
+    private enum Flee { Escaped, Counter, Deposed }
+
+    // 出奔的结局：成功出奔四成、反杀权臣三成、事泄被废三成；明君更能反杀，庸弱昏聩更易被废，权臣挟制已深的更易被废
+    private static Flee FleeOutcome(Empire empire, Actor emperor)
+    {
+        float escaped = 0.4f, counter = 0.3f, deposed = 0.3f;
+        switch (RulerQualitySystem.Of(emperor))
+        {
+            case RulerQualitySystem.Grade.Wise:
+                counter += 0.2f;
+                break;
+            case RulerQualitySystem.Grade.Weak:
+            case RulerQualitySystem.Grade.Fatuous:
+                deposed += 0.2f;
+                counter = Mathf.Max(0.05f, counter - 0.15f);
+                break;
+        }
+        if (empire.data.is_been_controlled) deposed += 0.1f;
+        float roll = UnityEngine.Random.value * (escaped + counter + deposed);
+        return roll < escaped ? Flee.Escaped : roll < escaped + counter ? Flee.Counter : Flee.Deposed;
+    }
+
+    // 反杀：皇帝与近臣谋诛权臣，抄没家产，亲政
+    private static void Counter(Empire empire, Actor emperor, Actor minister)
+    {
+        Kingdom core = empire.CoreKingdom;
+        string ministerName = minister.getName();
+        int fortune = Mathf.Max(0, minister.money);
+        if (fortune > 0)
+        {
+            minister.data.money = 0;
+            core.AddMoney(fortune, TreasuryCategory.RecoveredFunds);
+        }
+        empire.ResetPowerfulMinister();
+        empire.AddMandate(5);
+        string text = string.Format(LM.Get("partition_counter_history"), emperor.getName(), ministerName);
+        emperor.RecordPersonalHistory(text, relatedActorId: minister.id);
+        minister.RecordPersonalHistory(text, relatedActorId: emperor.id);
+        minister.die(true, AttackType.Other, false, false);
+        empire.RecordHistory(directContent: text, actorId: emperor.id);
+        TranslateHelper.LogEventMessage(text, core);
+    }
+
+    // 事泄被废：权臣废帝，另立宗室幼主；宗室无人可立就天下散伙(见 InterregnumSystem)
+    private static void Depose(Empire empire, Actor emperor, Actor minister)
+    {
+        Kingdom core = empire.CoreKingdom;
+        string emperorName = emperor.getName(), ministerName = minister.getName();
+        Actor puppet = PickRoyal(empire, emperor, preferYoung: true);
+        if (puppet == null)
+        {
+            InterregnumSystem.TryFracture(empire, emperor.GetPersonalIdentity(), minister,
+                string.Format(LM.Get("interregnum_deposed_opening"), emperorName, ministerName));
+            return;
+        }
+        core.removeKing();
+        Install(empire, puppet, PrinceStruggleSystem.NoteEnthroned);
+        empire.data.powerful_minister_progress = Mathf.Max(empire.data.powerful_minister_progress, ControlledProgress);
+        empire.data.powerful_minister_emperor_id = puppet.id;
+        empire.data.is_been_controlled = true;
+        string text = string.Format(LM.Get("partition_deposed_history"), emperorName, ministerName, puppet.getName());
+        emperor.RecordPersonalHistory(text, relatedActorId: minister.id);
+        puppet.RecordPersonalHistory(text, relatedActorId: minister.id);
+        empire.RecordHistory(directContent: text, actorId: puppet.id);
+        TranslateHelper.LogEventMessage(text, core);
+    }
+
+    private static void AfterMinisterSplit(Empire source, Empire twin, Actor strongman, Actor ruler, int control)
     {
         if (strongman?.data != null && strongman.isAlive())
         {
             twin.data.powerful_minister_id = strongman.id;
-            twin.data.powerful_minister_progress = 75;
+            twin.data.powerful_minister_progress = control;
             twin.data.powerful_minister_emperor_id = ruler?.id ?? -1L;
             twin.data.last_powerful_minister_timestamp = World.world.getCurWorldTime();
-            twin.data.is_been_controlled = true;
+            twin.data.is_been_controlled = control >= ControlledProgress;
         }
         ImperialLegitimacyChallengeService.DeclareDynasticRivals(twin, source, war: true);
     }
@@ -583,8 +668,12 @@ public static class EmpirePartitionSystem
         PersonalClanIdentity parent = emperor?.GetPersonalIdentity();
         if (parent == null) return null;
         var pool = EmpireCraftKingdomBehCheckHeir.CollateralPool(empire.CoreKingdom, parent);
+        // 先挑京城里现成的宗室(实体)，再挑年幼的；不随手从族谱里拉出一位成年皇叔
         IEnumerable<PersonalClanIdentity> ordered = (preferYoung
-                ? pool.OrderBy(item => item.kinship).ThenBy(item => Mathf.Abs(item.person.age - 12))
+                ? pool.OrderByDescending(item => !item.person.is_virtual && item.person._actor?.data != null &&
+                                                 item.person._actor.city == empire.CoreKingdom.capital)
+                    .ThenByDescending(item => item.person.age >= 5 && item.person.age < 16)
+                    .ThenBy(item => item.kinship).ThenBy(item => Mathf.Abs(item.person.age - 10))
                 : pool.OrderBy(item => item.kinship).ThenByDescending(item => item.person.age >= 18).ThenByDescending(item => item.person.age))
             .Select(item => item.person);
         return VirtualGenealogySystem.RealizeFirst(ordered,
