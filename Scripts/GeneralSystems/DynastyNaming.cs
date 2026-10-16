@@ -37,8 +37,30 @@ public static class DynastyNaming
         kingdom?.data == null || !kingdom.IsInEmpire() ? HuaxiaCourtStage.None : StageOf(kingdom.GetEmpire());
 
     // 国家类别后缀的文本键：律令制的直隶(京畿)与行政区按阶段改称
+    // 华夏原始阶段(母系氏族至家天下，用原始政体)：称谓换成本土的部落联盟、邦、方国、共主、方伯、巫祝、族长，城称邑
+    public static bool HuaxiaOrigin(Kingdom kingdom) =>
+        kingdom?.data != null && !kingdom.isRekt() && kingdom.GetRegime()?.type == RegimeType.Origin &&
+        InstitutionSystem.GetCultureLine(CultureService.GetRealmCulture(kingdom)) == "Huaxia";
+
+    // 制度线专属称谓：日本线的国家类别、官名在文本键后加 "_japan"(天皇、国司、大名、国……见各政体 OfficialType.csv)
+    public static string LineSuffix(Kingdom kingdom)
+    {
+        if (kingdom?.data == null || kingdom.isRekt()) return null;
+        return InstitutionSystem.GetCultureLine(CultureService.GetRealmCulture(kingdom)) == "Japan" ? "_japan" : null;
+    }
+
+    // 帝国名的类别：部落联盟；进入家天下后称"朝"(夏、商)
+    public static string HuaxiaOriginEmpireKey(Kingdom core) =>
+        InstitutionSystem.IsEnacted(CultureService.GetRealmCulture(core), "huaxia_hereditary_kingship")
+            ? "Origin_empire_huaxia_dynasty"
+            : "Origin_empire_huaxia";
+
     public static string KingdomTypeKey(Kingdom kingdom, KingdomType type)
     {
+        if (LineSuffix(kingdom) is string lineSuffix && LM.Has(type + lineSuffix)) return type + lineSuffix;
+        if (type is KingdomType.Origin_centre or KingdomType.Origin_kingdom && HuaxiaOrigin(kingdom) &&
+            LM.Has(type + "_huaxia"))
+            return type + "_huaxia";
         string key = type switch
         {
             KingdomType.LvLing_centre => "dynasty_capital",
@@ -65,6 +87,10 @@ public static class DynastyNaming
     public static string RankKey(RegimeType regime, int officeType, NanoObject meta)
     {
         string key = $"{regime}_officiallevel_{officeType}";
+        Kingdom owner = meta switch { Kingdom k => k, City town => town.kingdom, Army army => army.getKingdom(), _ => null };
+        if (LineSuffix(owner) is string lineSuffix && LM.Has(key + lineSuffix)) return key + lineSuffix;
+        if (regime == RegimeType.Origin)
+            return owner != null && HuaxiaOrigin(owner) && LM.Has(key + "_huaxia") ? key + "_huaxia" : key;
         if (regime == RegimeType.ZhouFeudalism)
         {
             // 春秋僭越、战国相王：诸侯国君改称王
@@ -103,7 +129,7 @@ public static class DynastyNaming
         Kingdom kingdom = city?.kingdom;
         Regime regime = kingdom?.GetRegime();
         if (regime == null) return null;
-        if (regime.type == RegimeType.ZhouFeudalism) return "city_suffix_yi";
+        if (regime.type == RegimeType.ZhouFeudalism || HuaxiaOrigin(kingdom)) return "city_suffix_yi";
         if (regime.type == RegimeType.LvLing && kingdom.GetKingdomType() != KingdomType.LvLing_jimizhou &&
             StageOf(kingdom) == HuaxiaCourtStage.Han) return "city_suffix_commandery";
         return null;

@@ -49,6 +49,8 @@ public static partial class IdeologyPopulationSystem
         PartyIdeology[] ideas=(PartyIdeology[])Enum.GetValues(typeof(PartyIdeology));
         var options=new ContactOption[ideas.Length];
         var indexes=new Dictionary<PartyIdeology,int>();
+        // 印刷等级不够时新兴理念传不开(见 MediaSystem)
+        float massFactor=MediaSystem.MassFactor(MediaSystem.PrintLevel(city.kingdom));
         for(int i=0;i<ideas.Length;i++)
         {
             PartyIdeology idea=ideas[i];indexes[idea]=i;int flags=0;
@@ -64,6 +66,7 @@ public static partial class IdeologyPopulationSystem
             counts.TryGetValue(idea,out int count);organizers.TryGetValue(idea,out int organized);
             float movement=available.Contains(idea)&&!string.IsNullOrEmpty(culture)&&InstitutionSystem.GetFeature(culture,
                 IdeologyInstitutionPaths.StageFeature(idea,1))>0f?IdeologyInstitutionPaths.GetProfile(idea).MovementMultiplier:1f;
+            if(MediaSystem.IsMassIdeology(idea))movement*=massFactor;
             options[i]=new ContactOption((int)idea,flags,count,organized,movement);
         }
         var classes=(SocialClass[])Enum.GetValues(typeof(SocialClass));

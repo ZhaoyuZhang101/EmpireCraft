@@ -246,6 +246,10 @@ public static class InstitutionDefinitionRegistry
     public static IReadOnlyList<string> GetConstitutionRequiredFeatures(string line) =>
         GetTree(line)?.constitution?.required_features ?? Global.constitution.required_features;
 
+    // 线的立宪科技前提：线 json 的 constitution.required_techs 覆盖全局值
+    public static IReadOnlyList<string> GetConstitutionRequiredTechs(string line) =>
+        GetTree(line)?.constitution?.required_techs ?? Global.constitution.required_techs ?? new List<string>();
+
     public static bool IsConstitutionRequiringCompositeEmpire(string line) =>
         GetTree(line)?.constitution?.requires_composite_empire ?? Global.constitution.requires_composite_empire;
 
@@ -281,9 +285,10 @@ public static class InstitutionDefinitionRegistry
             foreach (string required in GetAllPrerequisites(node))
             {
                 if (Definitions.TryGetValue(required, out InstitutionNodeConfig prerequisite) &&
-                    prerequisite.advancement >= node.advancement)
+                    prerequisite.advancement >= node.advancement && node.advancement > 1)
                 {
                     // 只是警告：树状图按等级分层布点，前置等级不低于自己会让连线往回画。
+                    // 等级 1 的节点排在顶上一行，按前后次序从左到右排(如华夏的母系→父系→部落联盟→家天下→宗法)，不算异常
                     LogService.LogWarning(
                         $"制度节点 {node.id}(等级 {node.advancement}) 的前置 {required}" +
                         $"(等级 {prerequisite.advancement}) 等级不低于它，树状图分层会显示异常。");

@@ -30,7 +30,7 @@
       "regime": "Arabic"
     },
     {
-      "id": "arabic_caliphal_diwan",
+      "id": "arabic_caliphal_diwan", "requires_techs": ["bureaucracy"],
       "name_key": "institution_arabic_caliphal_diwan",
       "description_key": "institution_arabic_caliphal_diwan_desc",
       "branch": "administration",
@@ -74,7 +74,7 @@
       ]
     },
     {
-      "id": "arabic_caravan_trade",
+      "id": "arabic_caravan_trade", "requires_techs": ["currency"],
       "name_key": "institution_arabic_caravan_trade",
       "description_key": "institution_arabic_caravan_trade_desc",
       "branch": "finance",
@@ -115,7 +115,7 @@
       }
     },
     {
-      "id": "arabic_mamluk_corps",
+      "id": "arabic_mamluk_corps", "requires_techs": ["military_register"],
       "features": {"army_standing": 1},
       "name_key": "institution_arabic_mamluk_corps",
       "description_key": "institution_arabic_mamluk_corps_desc",
@@ -168,7 +168,7 @@
       ]
     },
     {
-      "id": "arabic_jizya_tax",
+      "id": "arabic_jizya_tax", "requires_techs": ["taxation"],
       "name_key": "institution_arabic_jizya_tax",
       "description_key": "institution_arabic_jizya_tax_desc",
       "branch": "finance",
@@ -212,7 +212,7 @@
       ]
     },
     {
-      "id": "arabic_iqta_military_fiscal",
+      "id": "arabic_iqta_military_fiscal", "requires_techs": ["taxation", "military_register"],
       "name_key": "institution_arabic_iqta_military_fiscal",
       "description_key": "institution_arabic_iqta_military_fiscal_desc",
       "branch": "finance",
@@ -265,7 +265,7 @@
       ]
     },
     {
-      "id": "arabic_ulama_jurisprudence",
+      "id": "arabic_ulama_jurisprudence", "requires_techs": ["canon_law"],
       "name_key": "institution_arabic_ulama_jurisprudence",
       "description_key": "institution_arabic_ulama_jurisprudence_desc",
       "branch": "society",
@@ -321,7 +321,7 @@
       ]
     },
     {
-      "id": "arabic_sultanate_bureaucracy",
+      "id": "arabic_sultanate_bureaucracy", "requires_techs": ["bureaucracy", "postal_roads"],
       "name_key": "institution_arabic_sultanate_bureaucracy",
       "description_key": "institution_arabic_sultanate_bureaucracy_desc",
       "branch": "administration",
@@ -386,7 +386,7 @@
       }
     },
     {
-      "id": "arabic_caliphal_theocracy",
+      "id": "arabic_caliphal_theocracy", "requires_techs": ["canon_law"],
       "name_key": "institution_arabic_caliphal_theocracy",
       "description_key": "institution_arabic_caliphal_theocracy_desc",
       "branch": "administration",
@@ -457,7 +457,7 @@
       ]
     },
     {
-      "id": "arabic_bayt_al_mal",
+      "id": "arabic_bayt_al_mal", "requires_techs": ["taxation"],
       "name_key": "institution_arabic_bayt_al_mal",
       "description_key": "institution_arabic_bayt_al_mal_desc",
       "branch": "finance",
@@ -509,7 +509,7 @@
       }
     },
     {
-      "id": "arabic_waqf_endowment",
+      "id": "arabic_waqf_endowment", "requires_techs": ["currency", "canon_law"],
       "name_key": "institution_arabic_waqf_endowment",
       "description_key": "institution_arabic_waqf_endowment_desc",
       "branch": "finance",
@@ -563,7 +563,7 @@
       ]
     },
     {
-      "id": "arabic_madrasa_network",
+      "id": "arabic_madrasa_network", "requires_techs": ["paper"],
       "name_key": "institution_arabic_madrasa_network",
       "description_key": "institution_arabic_madrasa_network_desc",
       "branch": "society",

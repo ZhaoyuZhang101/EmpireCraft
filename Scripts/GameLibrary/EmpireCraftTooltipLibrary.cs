@@ -927,10 +927,10 @@ public static class EmpireCraftTooltipLibrary
         if (actor != null) AddActorIdeology(pTooltip, actor);
 
         pTooltip.addLineBreak();
-        AddTooltipLine(pTooltip, "empirecraft_actor_specific_clan",
-            actor?.GetSpecificClan()?.name ?? identity?._specificClan?.name, "#5CFFAF");
-        AddTooltipLine(pTooltip, "empirecraft_actor_clan",
-            actor?.hasClan() == true ? actor.clan.data.name : identity?.clanName, "#8CE1FF");
+        // 宗族与氏族合为一行"姓氏"：华夏合一前"姬姓·鲁氏"，合一后"鲁氏(出自姬姓)"(见 SpecificClan.SurnameLine)
+        SpecificClan ownClan = actor?.GetSpecificClan() ?? identity?._specificClan;
+        AddTooltipLine(pTooltip, "empirecraft_actor_surname", ownClan != null ? ownClan.SurnameLine()
+            : actor?.hasClan() == true ? actor.clan.data.name : identity?.clanName, "#5CFFAF");
         AddTooltipLine(pTooltip, "empirecraft_actor_family",
             actor?.hasFamily() == true ? actor.family.data.name : identity?.familyName, "#8CE1FF");
         AddTooltipLine(pTooltip, "empirecraft_actor_parents", GetParentNames(identity), "#F1F1F1");

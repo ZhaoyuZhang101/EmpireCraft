@@ -397,6 +397,8 @@ public static partial class IdeologyPopulationSystem
             : localCounts.Where(pair => IdeologyFamilies.IsLiberal(pair.Key)).Sum(pair => pair.Value) / (float)localTotal;
         float pluralism = Mathf.Clamp01((liberalShare - 0.5f) * 2f);
         List<PartyIdeology> otherIsms = available.Where(ideology => !IdeologyFamilies.IsLiberal(ideology)).ToList();
+        // 印刷等级：新兴理念要靠大量印行的书报才能在民间传开(见 MediaSystem)
+        float massFactor = MediaSystem.MassFactor(MediaSystem.PrintLevel(city.kingdom));
         if (CityPopulationSystem.AbstractPopulationEnabled &&
             !EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(city))
         {
@@ -498,6 +500,7 @@ public static partial class IdeologyPopulationSystem
                 chance *= 1.4f;
             chance *= EconomyFactor(target, economy);
             if (!IdeologyFamilies.IsLiberal(target)) chance *= 1f + PluralismBoost * pluralism;
+            if (MediaSystem.IsMassIdeology(target)) chance *= massFactor;
             return UnityEngine.Random.value < chance;
         }
     }
@@ -713,9 +716,16 @@ public static partial class IdeologyPopulationSystem
         if (!state.discovered_ideologies.Contains(key)) state.discovered_ideologies.Add(key);
     }
 
+    // 理念要靠书传开：开放党禁时就有的几种基本理念以外，本文化要先有这个理念的奠基名著
+    // (自己写出来，或书从外面传进来、被读到，见 LandmarkBookSystem)才会有人信奉
+    public static bool HasIdeaBook(string culture, PartyIdeology ideology) =>
+        PartySystem.BaseIdeologies.Contains(ideology) || LandmarkBookSystem.FoundingBook(ideology) == null ||
+        LandmarkBookSystem.HasFoundingBook(culture, ideology);
+
     public static bool IsIdeaAvailable(string culture, PartyIdeology ideology) =>
         CultureService.IsValidCulture(culture) &&
         TechnologySystem.AreFeatureTechsMet(culture, IdeologySpreadSystem.FeatureKey(ideology)) &&
+        HasIdeaBook(culture, ideology) &&
         (PartySystem.IsResearched(culture, ideology) ||
          InstitutionSystem.GetOrCreateCultureState(culture)?.discovered_ideologies?.Contains(ideology.ToString()) == true ||
          LandmarkBookSystem.FoundingBook(ideology) != null && LandmarkBookSystem.HasFoundingBook(culture, ideology));
@@ -729,7 +739,7 @@ public static partial class IdeologyPopulationSystem
         {
             bool emergence = includeEmerging || IdeologyDynamicsSystem.GetLiberation(empire) > 0f;
             foreach (PartyIdeology ideology in Enum.GetValues(typeof(PartyIdeology)))
-                if ((emergence || IsIdeaAvailable(culture, ideology)) &&
+                if ((emergence && HasIdeaBook(culture, ideology) || IsIdeaAvailable(culture, ideology)) &&
                     TechnologySystem.AreFeatureTechsMet(culture, IdeologySpreadSystem.FeatureKey(ideology)))
                     choices.Add(ideology);
         }

@@ -30,7 +30,7 @@
       "regime": "YouMu"
     },
     {
-      "id": "youmu_subject_register",
+      "id": "youmu_subject_register", "requires_techs": ["census"],
       "name_key": "institution_youmu_subject_register",
       "description_key": "institution_youmu_subject_register_desc",
       "branch": "administration",
@@ -77,7 +77,7 @@
       ]
     },
     {
-      "id": "youmu_khuriltai_election",
+      "id": "youmu_khuriltai_election", "requires_techs": ["ritual_rites"],
       "name_key": "institution_youmu_khuriltai_election",
       "description_key": "institution_youmu_khuriltai_election_desc",
       "branch": "society",
@@ -120,7 +120,7 @@
       ]
     },
     {
-      "id": "youmu_decimal_army",
+      "id": "youmu_decimal_army", "requires_techs": ["military_register"],
       "features": {"army_regional": 1, "army_mobilization": 0.2},
       "name_key": "institution_youmu_decimal_army",
       "description_key": "institution_youmu_decimal_army_desc",
@@ -166,7 +166,7 @@
       ]
     },
     {
-      "id": "youmu_provincial_tax_farming",
+      "id": "youmu_provincial_tax_farming", "requires_techs": ["taxation"],
       "name_key": "institution_youmu_provincial_tax_farming",
       "description_key": "institution_youmu_provincial_tax_farming_desc",
       "branch": "finance",
@@ -214,7 +214,7 @@
       ]
     },
     {
-      "id": "youmu_steppe_law",
+      "id": "youmu_steppe_law", "requires_techs": ["law_code"],
       "name_key": "institution_youmu_steppe_law",
       "description_key": "institution_youmu_steppe_law_desc",
       "branch": "society",
@@ -262,7 +262,7 @@
       }
     },
     {
-      "id": "youmu_horse_archer_doctrine",
+      "id": "youmu_horse_archer_doctrine", "requires_techs": ["military_register"],
       "name_key": "institution_youmu_horse_archer_doctrine",
       "description_key": "institution_youmu_horse_archer_doctrine_desc",
       "branch": "military",
@@ -310,7 +310,7 @@
       ]
     },
     {
-      "id": "youmu_dual_administration",
+      "id": "youmu_dual_administration", "requires_techs": ["bureaucracy"],
       "name_key": "institution_youmu_dual_administration",
       "description_key": "institution_youmu_dual_administration_desc",
       "branch": "administration",
@@ -364,7 +364,7 @@
       }
     },
     {
-      "id": "youmu_post_relay_network",
+      "id": "youmu_post_relay_network", "requires_techs": ["postal_roads"],
       "name_key": "institution_youmu_post_relay_network",
       "description_key": "institution_youmu_post_relay_network_desc",
       "branch": "finance",
@@ -409,7 +409,7 @@
       ]
     },
     {
-      "id": "youmu_provincial_system",
+      "id": "youmu_provincial_system", "requires_techs": ["bureaucracy", "postal_roads"],
       "name_key": "institution_youmu_provincial_system",
       "description_key": "institution_youmu_provincial_system_desc",
       "branch": "administration",
@@ -467,7 +467,7 @@
       }
     },
     {
-      "id": "youmu_ulus_appanage",
+      "id": "youmu_ulus_appanage", "requires_techs": ["ritual_rites"],
       "name_key": "institution_youmu_ulus_appanage",
       "description_key": "institution_youmu_ulus_appanage_desc",
       "branch": "administration",
@@ -517,7 +517,7 @@
       ]
     },
     {
-      "id": "youmu_keshig_guard",
+      "id": "youmu_keshig_guard", "requires_techs": ["standing_army"],
       "features": {"army_standing": 1},
       "name_key": "institution_youmu_keshig_guard",
       "description_key": "institution_youmu_keshig_guard_desc",
@@ -574,7 +574,7 @@
       ]
     },
     {
-      "id": "youmu_religious_tolerance",
+      "id": "youmu_religious_tolerance", "requires_techs": ["canon_law"],
       "name_key": "institution_youmu_religious_tolerance",
       "description_key": "institution_youmu_religious_tolerance_desc",
       "branch": "society",
@@ -630,7 +630,7 @@
       ]
     },
     {
-      "id": "youmu_fugitive_household_law",
+      "id": "youmu_fugitive_household_law", "requires_techs": ["census", "law_code"],
       "name_key": "institution_youmu_fugitive_household_law",
       "description_key": "institution_youmu_fugitive_household_law_desc",
       "branch": "administration",

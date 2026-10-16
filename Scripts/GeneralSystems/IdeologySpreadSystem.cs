@@ -10,12 +10,15 @@ using NeoModLoader.General;
 namespace EmpireCraft.Scripts.GeneralSystems;
 
 // 理念传播。本文化第一次有帝国以某理念改制共和，这个理念就成为本文化的主导理念；
-// 之后每年，主导理念向接壤的异文化传播；达到阈值时先影响当地居民。
+// 之后每年，主导理念随书籍向接壤的异文化流传(本文化要有这个理念的奠基名著才传得出去)；
+// 达到阈值时，书的抄本传进对方一座能藏书的城、被当地读到，再影响当地居民。
 // 文化制度节点仍须由本国执政党推进，政党能否成立则取决于本国人口支持。
 public static class IdeologySpreadSystem
 {
     private const float ExposurePerBorder = 10f;
     private const float MaxExposurePerYear = 30f;
+    // 通信技术带来的跨国传入另算上限(见 MediaSystem)
+    private const float MaxRemoteExposurePerYear = 15f;
     private const float UnlockExposure = 100f;
     private static double _lastScan = -1d;
 
@@ -78,11 +81,19 @@ public static class IdeologySpreadSystem
     {
         // 目标文化 → (理念 → 今年新增接触度)
         var gains = new Dictionary<string, Dictionary<PartyIdeology, float>>();
-        foreach (Empire empire in ModClass.EMPIRE_MANAGER.ToList())
+        var remote = new Dictionary<string, Dictionary<PartyIdeology, float>>();
+        List<Empire> empires = ModClass.EMPIRE_MANAGER.ToList().Where(empire => empire?.data != null && !empire.isRekt() &&
+            !empire.IsArchived() && empire.CoreKingdom != null && !empire.CoreKingdom.isRekt()).ToList();
+        foreach (Empire empire in empires)
         {
-            if (empire?.data == null || empire.isRekt() || empire.IsArchived() || empire.CoreKingdom == null) continue;
             string source = InstitutionSystem.GetPrimaryCulture(empire);
             if (!TryGetStateIdeology(source, out PartyIdeology ideology)) continue;
+            // 理念随书流传：本文化手里没有这个理念的奠基名著，就没有书可传
+            if (!LandmarkBookSystem.HasFoundingBook(source, ideology)) continue;
+            // 本国连纸都没有，书抄不出去；印得越多，随边境往来带出去的越多(见 MediaSystem)
+            float media = MediaSystem.BookFactor(empire.CoreKingdom);
+            if (media <= 0f) continue;
+            var reached = new HashSet<Empire>();
             var borders = new HashSet<(long, long)>();
             foreach (Kingdom kingdom in empire.kingdoms_hashset.Where(kingdom => kingdom != null && !kingdom.isRekt()))
             foreach (City city in kingdom.cities.Where(city => city != null && !city.isRekt()))
@@ -92,17 +103,38 @@ public static class IdeologySpreadSystem
                 if (other == null || other.isRekt() || other.GetEmpire() == empire) continue;
                 string target = CultureService.GetRealmCulture(other);
                 if (!CultureService.IsValidCulture(target) || target == source) continue;
+                if (other.GetEmpire() is Empire otherEmpire) reached.Add(otherEmpire);
                 if (!borders.Add((kingdom.id, other.id))) continue;
-                if (!gains.TryGetValue(target, out Dictionary<PartyIdeology, float> perIdeology))
-                    gains[target] = perIdeology = new Dictionary<PartyIdeology, float>();
-                perIdeology[ideology] = Math.Min(MaxExposurePerYear,
-                    (perIdeology.TryGetValue(ideology, out float value) ? value : 0f) + ExposurePerBorder);
+                Add(gains, target, ideology, ExposurePerBorder * media, MaxExposurePerYear);
+            }
+            // 电报、广播、互联网：不接壤的开放国家也能收到这个理念
+            if (MediaSystem.CommLevel(empire.CoreKingdom) <= 0) continue;
+            foreach (Empire other in empires)
+            {
+                if (other == empire || reached.Contains(other)) continue;
+                string target = InstitutionSystem.GetPrimaryCulture(other);
+                if (!CultureService.IsValidCulture(target) || target == source) continue;
+                int link = MediaSystem.LinkLevel(empire.CoreKingdom, other.CoreKingdom);
+                if (link <= 0) continue;
+                Add(remote, target, ideology, MediaSystem.CrossBorderExposurePerYear(link), MaxRemoteExposurePerYear);
             }
         }
+
+        foreach (KeyValuePair<string, Dictionary<PartyIdeology, float>> culture in remote)
+        foreach (KeyValuePair<PartyIdeology, float> gain in culture.Value)
+            Add(gains, culture.Key, gain.Key, gain.Value, MaxExposurePerYear + MaxRemoteExposurePerYear);
 
         foreach (KeyValuePair<string, Dictionary<PartyIdeology, float>> culture in gains)
         foreach (KeyValuePair<PartyIdeology, float> gain in culture.Value)
             ApplyExposure(culture.Key, gain.Key, gain.Value);
+
+        static void Add(Dictionary<string, Dictionary<PartyIdeology, float>> map, string culture, PartyIdeology ideology,
+            float amount, float cap)
+        {
+            if (!map.TryGetValue(culture, out Dictionary<PartyIdeology, float> perIdeology))
+                map[culture] = perIdeology = new Dictionary<PartyIdeology, float>();
+            perIdeology[ideology] = Math.Min(cap, (perIdeology.TryGetValue(ideology, out float value) ? value : 0f) + amount);
+        }
     }
 
     private static void ApplyExposure(string culture, PartyIdeology ideology, float gain)
@@ -125,6 +157,12 @@ public static class IdeologySpreadSystem
             exposure = UnlockExposure - 0.01f;
         state.ideology_exposure[key] = exposure;
         if (exposure < UnlockExposure) return;
+        // 书的抄本传进来(对方还没有能藏书的城就进不来，下一年再试)
+        if (!LandmarkBookSystem.ReceiveFoundingBook(culture, ideology))
+        {
+            state.ideology_exposure[key] = UnlockExposure - 0.01f;
+            return;
+        }
         int changed = IdeologyPopulationSystem.IntroduceToCulture(culture, ideology);
         if (changed <= 0) return; // 暂无读者或未说服任何人时，接触度保留在门槛，下一次继续。
         state.ideology_exposure[key] = -1f;

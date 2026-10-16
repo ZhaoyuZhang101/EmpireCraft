@@ -36,6 +36,9 @@ public sealed class ConstitutionConfig
     // Replace：JSON 里写了就整体替换默认值，而不是追加在默认值后面
     [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
     public List<string> required_features = new() { "constitution_basis_administration", "constitution_basis_fiscal" };
+    // 发起立宪改革前必须研究出的科技(科技树启用时才查)。默认印刷术：没有印刷就没有宪政思想的传播
+    [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
+    public List<string> required_techs = new() { "printing" };
     // 是否要求先完成多元帝国整合。线的 json 可以覆盖。
     public bool requires_composite_empire = false;
     public int stable_culture_years = 50;
@@ -93,6 +96,7 @@ public sealed class InstitutionLineConstitutionConfig
 {
     public bool? enabled;
     public List<string> required_features;
+    public List<string> required_techs;
     public bool? requires_composite_empire;
 }
 
@@ -200,6 +204,8 @@ public sealed class InstitutionNodeConfig
     // 前置：requires 里的必须全部施行；requires_any 不为空时，其中至少施行一个
     public List<string> requires = new();
     public List<string> requires_any = new();
+    // 专门的科技前提(科技树启用时)：没研究出这些科技，这个制度不能研究、施行，也不会被吸收
+    public List<string> requires_techs = new();
     public List<string> replaces = new();
     public List<string> exclusive_with = new();
     public InstitutionResearchConfig research = new();
@@ -364,6 +370,8 @@ public static class InstitutionConfigNormalizer
         if (config == null) return;
         config.required_features ??= new List<string>();
         config.required_features.RemoveAll(string.IsNullOrWhiteSpace);
+        config.required_techs ??= new List<string>();
+        config.required_techs.RemoveAll(string.IsNullOrWhiteSpace);
         config.faction_stances ??= new Dictionary<FactionType, float>();
         config.stable_culture_years = global::System.Math.Max(0, config.stable_culture_years);
         config.trade_window_years = global::System.Math.Max(1, config.trade_window_years);
@@ -419,6 +427,7 @@ public static class InstitutionConfigNormalizer
             node.regime = (node.regime ?? "").Trim();
             node.requires ??= new List<string>();
             node.requires_any ??= new List<string>();
+            node.requires_techs ??= new List<string>();
             node.replaces ??= new List<string>();
             node.exclusive_with ??= new List<string>();
             node.research ??= new InstitutionResearchConfig();

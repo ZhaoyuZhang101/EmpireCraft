@@ -33,6 +33,8 @@ Locales/Cultures/
     "setting": {
         "regime": "LvLing",          // 默认政体，对应 Scripts/Regimes/Configs/<政体>/
         "institution_line": "Huaxia",// 制度科技线，对应 InstitutionTrees/<线>.json；留空用默认线
+        "start_institution": "",     // 开局阶段：本线的一个制度节点，开局即施行它和它的全部前置；留空从根节点起步(华夏线是原始群)
+        "surname_evolution": true,   // 姓氏演变(只对华夏线有效)：原始群无姓→母系有姓→贵族分氏→周制男子称氏女子称姓、平民无氏→郡县后姓氏合一
         "traits": ["patriarchy"],    // 文化特质 id
         "political_traits": ["strong_unification"], // 模组政治特质；强统一诉求会启用唯一中央、易帜、临时政府和统一继承
         "Religion": "ReligionNames", // 宗教名词库
@@ -54,6 +56,12 @@ Locales/Cultures/
 - `name_pos`：名字按空格拆开后，第几段是“有效名字”(从 0 数)。比如 “XX 市” 是 0，“钢铁 德莱尔” 取“德莱尔”是 1。
 - Clan / Family：`has_sex_post` 姓氏有阴阳词性，`use_local_as_lastname` 名在前姓在后，
   `sex_post_Male` / `sex_post_Female` 为 [简体, 英文, 繁体] 的后缀。Unit：`is_invert` 名在前(西式)。
+- Clan：`ancient_group` 古姓词库(可写“别的文化:词库名”)，原始群、母系氏族阶段新立的氏族从这里取姓，华夏配的是姬、姜、姒、嬴这类女字旁古姓
+  (`HuaxiaAncientSurnames.csv`)；不配就照常起姓。
+- Clan：`shi_office_group` / `shi_craft_group` 氏的词库：支脉起氏时做官的族人一半以官为氏(司马、司徒)，平民三成以职业为氏(陶、巫、匠)，
+  其余以受封的国、所居的邑、房祖的名的首字为氏。
+- Unit：`ancient_male_group` / `ancient_female_group` 上古人名词库；Kingdom：`ancient_group` 部落、方国国号词库。
+  只在华夏线还没到宗法(原始群至家天下)时使用，不配就照常起名。
 - Kingdom：`english_type_prefix` 英文界面用 “The {类别} of {国名}”，否则 “{国名} {类别}”。
 
 ### 政党(Party)

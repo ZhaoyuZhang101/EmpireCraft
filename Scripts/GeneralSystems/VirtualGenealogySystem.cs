@@ -80,6 +80,14 @@ public static class VirtualGenealogySystem
         if (relinked > 0) LogService.LogInfo($"[EmpireCraft][虚拟族谱] 族谱接回父母 {relinked} 人(原版记着父母、族谱里断开的)");
         var moved = new Dictionary<long, long>();
         int maternal = SurnameInheritanceSystem.RepairMaternalClan(SpecificClanManager._globalPersonLookup.Values, moved);
+        // 原版氏族与宗族不一致的君主、储君(人物档案上"氏族""宗族"对不上)跟着宗族走
+        foreach (Kingdom kingdom in World.world.kingdoms)
+        {
+            if (kingdom?.data == null || kingdom.isRekt()) continue;
+            if (kingdom.king != null) SpecificClanManager.SyncVanillaClan(kingdom.king);
+            Actor heir = kingdom.HasHeir() ? kingdom.GetHeir() : null;
+            if (heir != null) SpecificClanManager.SyncVanillaClan(heir);
+        }
         if (maternal > 0)
         {
             LogService.LogInfo($"[EmpireCraft][虚拟族谱] 华夏宗族误入母亲氏族的改回父族 {maternal} 人");
@@ -102,6 +110,8 @@ public static class VirtualGenealogySystem
         if (princes > 0) LogService.LogInfo($"[EmpireCraft][虚拟族谱] 按个人经历补记藩王王号 {princes} 人");
         int clanSurnames = SurnameInheritanceSystem.RepairClanSurnames(SpecificClanManager._globalPersonLookup.Values);
         if (clanSurnames > 0) LogService.LogInfo($"[EmpireCraft][虚拟族谱] 华夏宗族里不姓本族姓的改回 {clanSurnames} 人");
+        int vanillaNames = SpecificClanManager.SyncAllVanillaClanNames();
+        if (vanillaNames > 0) LogService.LogInfo($"[EmpireCraft][虚拟族谱] 原版氏族名跟随宗族、支脉改名 {vanillaNames} 个");
     }
 
     // 读档校正旧存档的生日：成年落地的人以前把落地日记成生日(见 ActorExtension.TrueBirthTime)，族谱上父母只比子女大
@@ -270,6 +280,8 @@ public static class VirtualGenealogySystem
         // 年龄与族谱卡片一致；与有实体的亲人重新接上原版的家庭关系
         SetAge(actor, age);
         RestoreFamilyTies(actor, person, previousActorId);
+        // 原版氏族跟着族谱的宗族走(接回家庭关系时可能随了别的氏族)
+        SpecificClanManager.SyncVanillaClan(actor);
         return actor;
     }
 

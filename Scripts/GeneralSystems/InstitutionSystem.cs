@@ -139,15 +139,66 @@ public static class InstitutionSystem
         {
             state = new CultureInstitutionState();
             _cultureStates[culture] = state;
+            // 文化配置的开局阶段(start_institution)：这个节点及其前置开局即已施行
+            if (OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(culture, out Setting setting) &&
+                !string.IsNullOrWhiteSpace(setting?.start_institution) &&
+                InstitutionDefinitionRegistry.Get(setting.start_institution) is InstitutionNodeConfig start &&
+                IsSameLine(start.line, GetCultureLine(culture)))
+            {
+                InstitutionStateNormalizer.Normalize(state);
+                ForceEnactChain(state, start, new List<InstitutionNodeConfig>());
+            }
         }
         InstitutionStateNormalizer.Normalize(state);
+        MigrateLine(culture, state);
         // 开局即初始状态：只给本线的根节点（无效果），其余一律自己研究或从别的线吸收。
+        // 根节点已被后来的制度取代(如华夏母系氏族被父系、宗法取代)就不再补回
         foreach (string rootId in InstitutionDefinitionRegistry.GetRootNodes(GetCultureLine(culture)))
         {
-            if (InstitutionDefinitionRegistry.Get(rootId) != null && !state.enacted_node_ids.Contains(rootId))
+            if (InstitutionDefinitionRegistry.Get(rootId) != null && !state.enacted_node_ids.Contains(rootId) &&
+                !IsSuperseded(state, rootId))
                 state.enacted_node_ids.Add(rootId);
         }
         return state;
+    }
+
+    // 文化换了制度线(如日本从华夏线分出自己的线)：旧线上已施行的制度折算到新线，旧档不退回原始阶段——
+    // 同一公共模板的实例直接对上；另按 LineMigrations 把旧线的阶段节点对到新线的阶段节点(连同前置一起施行)
+    private static readonly Dictionary<string, string> LineMigrations = new()
+    {
+        { "huaxia_patriarchal_clan", "japan_yamato_kingship" },
+        { "zhou_enfeoffment", "japan_kabane_ranks" },
+        { "huaxia_prefecture_county_bureaucracy", "japan_ritsuryo_state" },
+        { "huaxia_three_departments", "japan_ritsuryo_state" },
+        { "huaxia_land_equalization", "japan_handen" },
+        { "huaxia_military_garrison", "japan_samurai_bands" },
+        { "huaxia_constitutional_preparation", "japan_meiji_restoration" },
+    };
+
+    private static void MigrateLine(string culture, CultureInstitutionState state)
+    {
+        string line = GetCultureLine(culture);
+        if (string.IsNullOrEmpty(line) || state.line_id == line) return;
+        bool firstSeen = string.IsNullOrEmpty(state.line_id);
+        state.line_id = line;
+        List<InstitutionNodeConfig> foreign = state.enacted_node_ids.Select(InstitutionDefinitionRegistry.Get)
+            .Where(node => node != null && !IsSameLine(node.line, line) && !state.absorbed_node_ids.Contains(node.id)).ToList();
+        // 新开的文化、或一直就在这条线上的旧档：没有旧线成果可折算
+        if (foreign.Count == 0 || firstSeen && foreign.Count < 3) return;
+        List<InstitutionNodeConfig> lineNodes = InstitutionDefinitionRegistry.GetForLine(line).ToList();
+        var added = new List<InstitutionNodeConfig>();
+        foreach (InstitutionNodeConfig old in foreign)
+        {
+            InstitutionNodeConfig target = LineMigrations.TryGetValue(old.id, out string mapped)
+                ? InstitutionDefinitionRegistry.Get(mapped)
+                : lineNodes.FirstOrDefault(node => node.equivalence_key == old.equivalence_key && node.id != old.id);
+            if (target != null && IsSameLine(target.line, line)) ForceEnactChain(state, target, added);
+        }
+        // 旧线的节点不再算本文化自研，记作吸收来的(还在已掌握里，特性照旧生效)
+        foreach (InstitutionNodeConfig old in foreign)
+            if (!state.absorbed_node_ids.Contains(old.id)) state.absorbed_node_ids.Add(old.id);
+        if (added.Count > 0)
+            LogService.LogInfo($"[EmpireCraft][制度] {culture} 改用 {line} 线，旧线成果折算为 {string.Join("、", added.Select(node => node.id))}");
     }
 
     public static bool IsEnacted(string culture, string nodeId)
@@ -337,6 +388,17 @@ public static class InstitutionSystem
         return core.HasValue && RegimeManager.IsMonarchy(core) ? core.Value : regime;
     }
 
+    // 这个国家能否过渡到本文化的某个体制：本文化制度线上声明这个政体的节点所需的科技，本国都已采纳
+    public static bool RealmCanAdoptRegime(Kingdom kingdom, RegimeType regime)
+    {
+        string culture = CultureService.GetRealmCulture(kingdom);
+        if (!CultureService.IsValidCulture(culture)) return true;
+        InstitutionNodeConfig node = InstitutionDefinitionRegistry.GetForLine(GetCultureLine(culture))
+            .FirstOrDefault(candidate => InstitutionDefinitionRegistry.TryGetNodeRegime(candidate, out RegimeType declared) &&
+                                         declared == regime);
+        return node == null || TechnologySystem.AreRealmInstitutionTechsMet(kingdom, node, out _);
+    }
+
     public static bool TryResolveCultureRegime(string culture, out RegimeType regime)
     {
         regime = default;
@@ -396,6 +458,8 @@ public static class InstitutionSystem
             !member.isRekt() && CultureService.GetRealmCulture(member) == culture &&
             member.GetRegime()?.type == RegimeType.Feudalism) == true;
         if (!feudalSubjects && Date.getYearsSince(enactedAt) < 2 + kingdom.id % 4) return;
+        // 本国还没采纳封建化所需的科技：等采纳了再改
+        if (!RealmCanAdoptRegime(kingdom, RegimeType.Feudalism)) return;
 
         if (empire != null)
         {
@@ -456,6 +520,26 @@ public static class InstitutionSystem
         }
         RulingMajority[empire.data.id] = (result, now);
         return result;
+    }
+
+    // 之前因为本国没采纳科技而没跟上本文化的新体制：科技采纳齐了就过渡过去
+    private static void RetryPendingRegime(Empire empire, InstitutionEmpireState state)
+    {
+        if (state == null || !state.pending_culture_regime) return;
+        Kingdom core = empire.CoreKingdom;
+        Regime current = core?.GetRegime();
+        string culture = GetPrimaryCulture(empire);
+        if (current == null || CompositeEmpireService.IsComposite(empire) || RepublicSystem.IsRegimeLocked(core) ||
+            core.GetOrCreate().regime_manually_selected || !TryResolveCultureRegime(culture, out RegimeType regime) ||
+            current.type == regime)
+        {
+            state.pending_culture_regime = false;
+            return;
+        }
+        if (!RealmCanAdoptRegime(core, regime)) return;
+        state.pending_culture_regime = false;
+        LogService.LogInfo($"[EmpireCraft][制度] {empire.GetEmpireName()} 已采纳所需科技，政体由 {current.type} 过渡到 {regime}");
+        ChangeRegime(empire, regime);
     }
 
     // 帝国核心的政体根本不属于制度文化那条线(如华夏制度线上没有游牧政体)：改成本文化已施行到的政体，
@@ -520,6 +604,14 @@ public static class InstitutionSystem
         }
 
         SyncForeignRegime(empire);
+        RetryPendingRegime(empire, state);
+        // 现代同文化小国并入接壤大国(见 NationalUnificationSystem)
+        NationalUnificationSystem.Consider(empire);
+        // 原始阶段的帝号类别随阶段改称(华夏部落联盟→朝，日本部族连合→王权)
+        if (empire.CoreKingdom.GetRegime() is Regime originRegime && originRegime.type == RegimeType.Origin &&
+            !string.IsNullOrEmpty(empire.data.empire_type_key) && empire.data.empire_type_key.StartsWith("Origin_empire") &&
+            empire.data.empire_type_key != OverallHelperFunc.ResolveEmpireTypeKey(originRegime, empire.CoreKingdom))
+            empire.data.empire_type_key = "";
         // 同文化的其他政权研究出来的制度，在这里把持久效果补到本政权身上
         SyncSharedEffects(empire);
         SyncGrantedTraits(empire);
@@ -625,8 +717,9 @@ public static class InstitutionSystem
             reason = "institution_reform_premodern";
             return false;
         }
-        // 技术是制度的物质基础：没有对应技术，这项制度推不动(强制也不行，只有上帝模式直接点亮)
-        if (!TechnologySystem.AreInstitutionTechsMet(culture, node, out _))
+        // 技术是制度的物质基础：没有对应技术，这项制度推不动(强制也不行，只有上帝模式直接点亮)。
+        // 本文化发明了还不够，本国也要采纳了(见 TechnologySystem.RealmHasTech)
+        if (!TechnologySystem.AreRealmInstitutionTechsMet(empire.CoreKingdom, node, out _))
         {
             reason = "institution_reform_missing_tech";
             return false;
@@ -1049,9 +1142,13 @@ public static class InstitutionSystem
             if (empireState?.active_reform != null && (IsEnacted(culture, empireState.active_reform.node_id) ||
                                                        IsSuperseded(culture, empireState.active_reform.node_id)))
                 empireState.active_reform = null;
+            // 本国还没采纳新体制所需的科技：政体暂不过渡
             if (TryResolveCultureRegime(culture, out RegimeType regime) &&
                 empire.CoreKingdom.GetRegime()?.type != regime)
-                ChangeRegime(empire, regime);
+            {
+                if (RealmCanAdoptRegime(empire.CoreKingdom, regime)) ChangeRegime(empire, regime);
+                else if (empireState != null) empireState.pending_culture_regime = true;
+            }
             SyncSharedEffects(empire);
             empire.RecordHistory(directContent: content, kingdomId: empire.CoreKingdom.id);
             messageKingdom ??= empire.CoreKingdom;
@@ -2098,6 +2195,8 @@ public static class InstitutionSystem
                 state.last_exposure_timestamp.Remove(nodeId);
                 continue;
             }
+            // 外来制度也要本文化先研究出它要求的科技，否则接触度留着、暂不吸收
+            if (!TechnologySystem.AreInstitutionTechsMet(culture, node, out _)) continue;
             if (!InstitutionRules.IsTierAbsorbable(node.advancement, level, rule.max_tier_gap)) continue;
             float requiredExposure = node.absorb.minimum_exposure >= 0f
                 ? node.absorb.minimum_exposure
@@ -2365,6 +2464,20 @@ public static class InstitutionSystem
         type == RegimeType.LvLing || type == RegimeType.ZhouFeudalism;
 
     private static void ApplyRegimeChange(Empire empire, RegimeType regimeType)
+    {
+        RegimeType? previousCore = empire?.CoreKingdom?.GetRegime()?.type;
+        try
+        {
+            ApplyRegimeChangeCore(empire, regimeType);
+        }
+        finally
+        {
+            // 开幕府 / 大政奉还(见 BakufuSystem)
+            BakufuSystem.OnRegimeChanged(empire, previousCore, regimeType);
+        }
+    }
+
+    private static void ApplyRegimeChangeCore(Empire empire, RegimeType regimeType)
     {
         List<Kingdom> affected = EnumerateAffectedKingdoms(empire);
         foreach (Kingdom kingdom in affected)

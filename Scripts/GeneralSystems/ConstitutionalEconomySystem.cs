@@ -38,6 +38,8 @@ public sealed class ConstitutionalEconomyView
     public float parliamentary_support;
     public string blocker = "";
     public string missing_institutions = "";
+    // 立宪还缺的科技(科技名，顿号隔开)
+    public string missing_techs = "";
 }
 
 // 资本主义萌芽与君主立宪。
@@ -177,6 +179,9 @@ public static class ConstitutionalEconomySystem
 
     #endregion
 
+    // 一年约 60 秒世界时间(见 GoodsLedger.YearSeconds)
+    private const double FirstYearSpreadSeconds = 60d;
+
     #region 年度更新（唯一会改动状态的入口）
 
     public static void Update(Empire empire)
@@ -215,7 +220,10 @@ public static class ConstitutionalEconomySystem
         NationalSentimentSystem.UpdateWorld();
         // 土崩瓦解：各省响应(自带月度计时)
         ProvincialCollapseSystem.Monthly(empire);
-        if (state.last_economy_update >= 0 && Date.getYearsSince(state.last_economy_update) < 1) return;
+        // 新国家的年度结算错开一年里的随机时点：现代一下子建政的一大批国家不再挤在同一时刻结算(以前一到年底就卡)
+        if (state.last_economy_update < 0)
+            state.last_economy_update = World.world.getCurWorldTime() - UnityEngine.Random.value * FirstYearSpreadSeconds;
+        if (Date.getYearsSince(state.last_economy_update) < 1) return;
         state.last_economy_update = World.world.getCurWorldTime();
         PruneTrade(state);
         // 与别的帝国同色(分裂/延续出来的帝国沿用了原色)时换色；旧存档也在这里修正
@@ -539,6 +547,16 @@ public static class ConstitutionalEconomySystem
             .Where(feature => !InstitutionSystem.HasFeature(culture, feature)).ToList();
     }
 
+    // 立宪所需、而本文化尚未研究的科技(科技树没启用时不限制)
+    public static List<string> GetMissingTechs(Empire empire)
+    {
+        string culture = InstitutionSystem.GetPrimaryCulture(empire);
+        if (!TechnologySystem.IsActiveFor(culture) || empire?.CoreKingdom == null) return new List<string>();
+        // 本文化发明、本国也采纳了才算
+        return TechnologySystem.RealmMissingTechs(empire.CoreKingdom,
+            InstitutionDefinitionRegistry.GetConstitutionRequiredTechs(GetLine(empire)));
+    }
+
     // 缺失特性的显示文本：列出本线能提供该特性的节点名；本线没有的话显示特性本身的名称
     private static string DescribeMissingFeatures(Empire empire, List<string> missing)
     {
@@ -583,6 +601,9 @@ public static class ConstitutionalEconomySystem
         CanStartReform(empire, out view.blocker);
         if (view.blocker == "constitution_requires_institutions")
             view.missing_institutions = DescribeMissingFeatures(empire, GetMissingFeatures(empire));
+        if (view.blocker == "constitution_requires_tech")
+            view.missing_techs = string.Join(LocalizedTextManager.instance?.language is "cz" or "ch" ? "、" : ", ",
+                GetMissingTechs(empire).Select(TechnologySystem.GetTechName));
         return view;
     }
 
@@ -606,6 +627,7 @@ public static class ConstitutionalEconomySystem
             state.stable_culture_since < 0)
         { reason = "constitution_requires_stability"; return false; }
         if (GetMissingFeatures(empire).Count > 0) { reason = "constitution_requires_institutions"; return false; }
+        if (GetMissingTechs(empire).Count > 0) { reason = "constitution_requires_tech"; return false; }
         if (InstitutionDefinitionRegistry.IsConstitutionRequiringCompositeEmpire(line) &&
             empire.data.composite_integration_stage < CompositeEmpireIntegrationStage.CompositeEmpire)
         { reason = "constitution_requires_composite"; return false; }

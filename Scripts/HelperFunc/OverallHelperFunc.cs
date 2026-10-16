@@ -235,9 +235,24 @@ namespace EmpireCraft.Scripts.HelperFunc
         public static string ResolveEmpireTypeKey(Regime regime, Kingdom coreKingdom)
         {
             string key = null;
-            if (regime != null && regime.centre_empire_separate)
+            if (regime != null && regime.type == RegimeType.Origin && coreKingdom != null &&
+                EmpireCraft.Scripts.GeneralSystems.DynastyNaming.HuaxiaOrigin(coreKingdom))
+            {
+                key = EmpireCraft.Scripts.GeneralSystems.DynastyNaming.HuaxiaOriginEmpireKey(coreKingdom);
+            }
+            else if (regime != null && regime.centre_empire_separate)
             {
                 key = $"{regime.type}_empire";
+                // 日本线：部族连合(进入大和王权后称王权)、朝廷(见 DynastyNaming.LineSuffix)
+                if (coreKingdom != null && EmpireCraft.Scripts.GeneralSystems.DynastyNaming.LineSuffix(coreKingdom) is string lineSuffix)
+                {
+                    string staged = regime.type == RegimeType.Origin &&
+                                    EmpireCraft.Scripts.GeneralSystems.InstitutionSystem.IsEnacted(
+                                        EmpireCraft.Scripts.GeneralSystems.CultureService.GetRealmCulture(coreKingdom), "japan_yamato_kingship")
+                        ? key + lineSuffix + "_yamato"
+                        : key + lineSuffix;
+                    if (LM.Has(staged)) key = staged;
+                }
             }
             else if (coreKingdom != null && !coreKingdom.isRekt())
             {

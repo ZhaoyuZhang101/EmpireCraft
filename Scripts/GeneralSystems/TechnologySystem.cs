@@ -467,6 +467,97 @@ public static class TechnologySystem
     public static bool CanUse(string culture, string techId) =>
         techId == null || !IsBeyondPremodern(techId) && (!IsActiveFor(culture) || HasTech(culture, techId));
 
+    // ---- 国家采纳 ----
+    // 科技由文化发明(研究进度归文化)，但每个国家(在帝国里按帝国算)要自己采纳才算拥有：
+    // 第一次登记时本文化当时已有的科技都算采纳(旧存档、新立的国家不倒退)；此后本文化新发明的科技，
+    // 各国按本国条件逐年采纳：基础 2 年 + 每层 0.5 年，图书馆、大学、城市多的国家快(最快约三分之一时间)，
+    // 小国、没有藏书的国家慢(最慢两倍)。本国没采纳的科技：建筑、装备、兵种不能用，制度不能推行，
+    // 立宪不能发起，本文化的新体制也过渡不过来
+    public static RealmTechState GetRealmState(Kingdom kingdom)
+    {
+        if (kingdom?.data == null || kingdom.isRekt()) return null;
+        Layer.Empire empire = kingdom.IsInEmpire() ? kingdom.GetEmpire() : null;
+        RealmTechState state = empire?.data != null
+            ? empire.data.realm_tech ??= new RealmTechState()
+            : kingdom.GetOrCreate().realm_tech ??= new RealmTechState();
+        if (!state.initialized)
+        {
+            string culture = GetCultureOf(kingdom);
+            if (IsActiveFor(culture))
+            {
+                foreach (string tech in Researched(culture)) state.Adopt(tech);
+                state.initialized = true;
+            }
+        }
+        return state;
+    }
+
+    public static bool RealmHasTech(Kingdom kingdom, string techId)
+    {
+        string culture = GetCultureOf(kingdom);
+        if (!IsActiveFor(culture)) return true;
+        if (!HasTech(culture, techId)) return false;
+        RealmTechState state = GetRealmState(kingdom);
+        return state == null || !state.initialized || state.Has(techId);
+    }
+
+    // 本国还没采纳的、本文化已发明的科技
+    public static List<string> RealmMissingTechs(Kingdom kingdom, IEnumerable<string> techIds) =>
+        techIds?.Where(id => !RealmHasTech(kingdom, id)).ToList() ?? new List<string>();
+
+    public static bool CanUseIn(Kingdom kingdom, string techId) =>
+        techId == null || !IsBeyondPremodern(techId) && RealmHasTech(kingdom, techId);
+
+    // 某国的制度科技前提：本文化要发明，本国要采纳
+    public static bool AreRealmInstitutionTechsMet(Kingdom kingdom, InstitutionNodeConfig node, out List<string> missing)
+    {
+        missing = new List<string>();
+        string culture = GetCultureOf(kingdom);
+        if (!IsActiveFor(culture)) return true;
+        missing = GetInstitutionRequiredTechs(node).Where(id => !RealmHasTech(kingdom, id)).ToList();
+        return missing.Count == 0;
+    }
+
+    // 采纳进度条显示用：某国采纳某项科技的进度(0~1，已采纳为 1)
+    public static float GetRealmAdoption(Kingdom kingdom, string techId)
+    {
+        RealmTechState state = GetRealmState(kingdom);
+        if (state == null || !state.initialized || state.Has(techId)) return 1f;
+        return state.progress.TryGetValue(techId, out float value) ? value : 0f;
+    }
+
+    private static void AdoptRealms(string culture, List<City> cities)
+    {
+        var realms = new Dictionary<RealmTechState, List<City>>();
+        foreach (City city in cities)
+        {
+            if (city?.kingdom == null || city.kingdom.isRekt()) continue;
+            RealmTechState state = GetRealmState(city.kingdom);
+            if (state == null || !state.initialized) continue;
+            if (!realms.TryGetValue(state, out List<City> list)) realms[state] = list = new List<City>();
+            list.Add(city);
+        }
+        HashSet<string> known = Researched(culture);
+        foreach (KeyValuePair<RealmTechState, List<City>> realm in realms)
+        {
+            int libraries = 0, universities = 0;
+            foreach (City city in realm.Value)
+            {
+                libraries += city.countBuildingsType("type_library");
+                universities += city.countBuildingsType("type_university");
+            }
+            float speed = Mathf.Clamp(0.6f + 0.15f * libraries + 0.3f * universities + 0.02f * realm.Value.Count, 0.5f, 3f);
+            foreach (string techId in known)
+            {
+                if (realm.Key.Has(techId) || !_techs.TryGetValue(techId, out TechNodeConfig tech)) continue;
+                float years = 2f + 0.5f * tech.tier;
+                float progress = (realm.Key.progress.TryGetValue(techId, out float value) ? value : 0f) + speed / years;
+                if (progress >= 1f) realm.Key.Adopt(techId);
+                else realm.Key.progress[techId] = progress;
+            }
+        }
+    }
+
     public static string GetCultureOf(Kingdom kingdom) =>
         kingdom == null || kingdom.isRekt() || !kingdom.isCiv() ? "" : CultureService.GetRealmCulture(kingdom);
 
@@ -488,23 +579,28 @@ public static class TechnologySystem
 
     public static bool CanCraft(string culture, ItemAsset asset) => CanUse(culture, GetRequiredTechForItem(asset));
 
+    // 建筑、装备、兵种看本国是否采纳了对应科技(本文化发明了、本国还没采纳也不行)
     public static bool CanBuild(City city, string buildingId)
     {
         if (city == null) return true;
         string tech = GetRequiredTechForBuilding(buildingId);
-        return tech == null || CanUse(GetCultureOf(city), tech);
+        return tech == null || (city.kingdom != null && !city.kingdom.isRekt()
+            ? CanUseIn(city.kingdom, tech) : CanUse(GetCultureOf(city), tech));
     }
 
     public static bool CanEquip(Actor actor, ItemAsset asset)
     {
         string tech = GetRequiredTechForItem(asset);
-        return tech == null || CanUse(GetCultureOf(actor), tech);
+        if (tech == null) return true;
+        Kingdom kingdom = actor?.kingdom != null && !actor.kingdom.isRekt() && actor.kingdom.isCiv() ? actor.kingdom : actor?.city?.kingdom;
+        return kingdom != null && !kingdom.isRekt() ? CanUseIn(kingdom, tech) : CanUse(GetCultureOf(actor), tech);
     }
 
     public static bool CanSpawnUnit(string actorAssetId, City city)
     {
         string tech = GetRequiredTechForUnit(actorAssetId);
-        return tech == null || city == null || CanUse(GetCultureOf(city), tech);
+        return tech == null || city == null || (city.kingdom != null && !city.kingdom.isRekt()
+            ? CanUseIn(city.kingdom, tech) : CanUse(GetCultureOf(city), tech));
     }
 
     public static bool ArePrerequisitesMet(string culture, TechNodeConfig tech) =>
@@ -660,6 +756,37 @@ public static class TechnologySystem
         ["modern_warships"] = new[] { "electricity", "motorization" }
     };
 
+    // 制度后来加了专门的科技前提(典章线)：已经推行的制度说明这些科技早就有了，直接补上，不把旧档打回原形
+    private static void BackfillCivicsLine(string culture)
+    {
+        CultureInstitutionState institutions = InstitutionSystem.GetOrCreateCultureState(culture);
+        if (institutions?.enacted_node_ids == null) return;
+        foreach (string nodeId in institutions.enacted_node_ids.ToList())
+        {
+            InstitutionNodeConfig node = InstitutionDefinitionRegistry.Get(nodeId);
+            if (node?.requires_techs == null) continue;
+            foreach (string tech in node.requires_techs) ForceResearch(culture, tech);
+        }
+    }
+
+    // 传播媒介科技是后加的：旧档里已经有后续科技(或时代已过)的文化直接补上，不让书报一下子退回手抄
+    private static readonly (string tech, string legacy)[] MediaLegacy =
+    {
+        ("paper", "printing"), ("movable_type", "scientific_method"), ("steam_press", "industrialization"),
+        ("telegraph", "electricity"), ("radio", "computing"), ("internet", "computing")
+    };
+
+    private static void BackfillMediaLine(string culture)
+    {
+        int era = GetEraTier(culture);
+        foreach ((string techId, string legacy) in MediaLegacy)
+        {
+            if (HasTech(culture, techId) || !_techs.TryGetValue(techId, out TechNodeConfig tech)) continue;
+            if (!tech.requires_techs.All(id => HasTech(culture, id))) continue;
+            if (era > tech.tier || HasTech(culture, legacy) && tech.tier <= era) CompleteTech(culture, techId);
+        }
+    }
+
     private static void BackfillNavalLine(string culture)
     {
         int era = GetEraTier(culture);
@@ -804,8 +931,14 @@ public static class TechnologySystem
                 yield return link;
     }
 
+    // 制度要求的科技：节点自己写的专门科技(requires_techs) + 按特性挂的科技(institution_links)
     public static List<string> GetInstitutionRequiredTechs(InstitutionNodeConfig node) =>
-        LinksFor(node).SelectMany(link => link.requires_techs).Distinct().ToList();
+        (node?.requires_techs ?? Enumerable.Empty<string>())
+        .Concat(LinksFor(node).SelectMany(link => link.requires_techs)).Distinct().ToList();
+
+    // 以这项科技为专门前提的制度节点(科技窗口里列出"可研究制度：某某")
+    public static IEnumerable<InstitutionNodeConfig> InstitutionsRequiring(string techId) =>
+        InstitutionDefinitionRegistry.All.Where(node => node.requires_techs != null && node.requires_techs.Contains(techId));
 
     public static bool AreInstitutionTechsMet(string culture, InstitutionNodeConfig node, out List<string> missing)
     {
@@ -954,6 +1087,16 @@ public static class TechnologySystem
                 state.naval_line = true;
                 BackfillNavalLine(culture);
             }
+            if (!state.civics_line)
+            {
+                state.civics_line = true;
+                BackfillCivicsLine(culture);
+            }
+            if (!state.media_line)
+            {
+                state.media_line = true;
+                BackfillMediaLine(culture);
+            }
             using (FrameProfiler.Measure("科技·发现材料")) DiscoverMaterials(culture, pair.Value);
             if (state.last_era_tier < 0) state.last_era_tier = GetEraTier(culture);
             if (!addResearch) continue;
@@ -969,6 +1112,8 @@ public static class TechnologySystem
             using (FrameProfiler.Measure("科技·自动研究")) if (state.auto_research) SpendBank(culture, pair.Value, null);
             using (FrameProfiler.Measure("科技·时代")) CheckEra(culture, pair.Value);
             using (FrameProfiler.Measure("科技·名著")) LandmarkBookSystem.YearlyCheck(culture, pair.Value, state);
+            using (FrameProfiler.Measure("科技·国家采纳")) AdoptRealms(culture, pair.Value);
+            PrehistoricClanSystem.YearlyCheck(culture);
             if (state.modernize_years > 0)
             {
                 state.modernize_years--;

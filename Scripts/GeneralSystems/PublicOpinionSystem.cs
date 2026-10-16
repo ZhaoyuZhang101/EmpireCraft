@@ -243,7 +243,17 @@ public static class PublicOpinionSystem
         }
         double ownPower = Math.Max(1d, empire.CoreKingdom.GetNationalPower());
         int ownEra = TechnologySystem.GetEraTier(culture);
-        foreach (Empire source in borders)
+        // 电报、广播、互联网：本国开放时，不接壤的国家的理念也会形成压力(按通信等级打折，见 MediaSystem)
+        var remote = new Dictionary<Empire, float>();
+        if (MediaSystem.CommLevel(empire.CoreKingdom) > 0 && MediaSystem.IsOpen(empire.CoreKingdom))
+            foreach (Empire other in ModClass.EMPIRE_MANAGER.ToList())
+            {
+                if (other == null || other == empire || borders.Contains(other) || other.isRekt() || other.IsArchived() ||
+                    other.CoreKingdom == null || other.CoreKingdom.isRekt()) continue;
+                int link = MediaSystem.LinkLevel(other.CoreKingdom, empire.CoreKingdom);
+                if (link > 0) remote[other] = MediaSystem.CrossBorderPressureFactor(link);
+            }
+        foreach (Empire source in borders.Concat(remote.Keys))
         {
             if (source.CoreKingdom == null || !PartySystem.IsActive(source)) continue;
             PartyIdeology? ideology = GetGoverning(source);
@@ -252,6 +262,7 @@ public static class PublicOpinionSystem
             int eraGap = TechnologySystem.GetEraTier(InstitutionSystem.GetPrimaryCulture(source)) - ownEra;
             float amount = BasePressure * ratio * (1f + 0.25f * Math.Max(0, eraGap));
             if (empire.CoreKingdom.isEnemy(source.CoreKingdom)) amount *= 0.5f;
+            if (remote.TryGetValue(source, out float linkFactor)) amount *= linkFactor;
             result.Add(new IdeologyPressureSource
             {
                 empire_id = source.getID(),
@@ -389,7 +400,7 @@ public static class PublicOpinionSystem
 
     private static void Announce(Empire empire, string text)
     {
-        TranslateHelper.LogEventMessage(text, empire.CoreKingdom);
+        if (EventRecorder.ShowRoutine(empire)) TranslateHelper.LogEventMessage(text, empire.CoreKingdom);
         EmpireCraft.Scripts.System.HistoryRecordSystem.RecordHistory(empire, directContent: text,
             kingdomId: empire.CoreKingdom?.id ?? -1L);
     }

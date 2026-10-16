@@ -101,7 +101,7 @@ public class BabyHelperPatch : GamePatch
                     if (pParent.clan?.data == null) return;
                     pBaby.setClan(pParent.clan);
                     if (pBaby.clan?.data == null) return;
-                    pBaby.GetModName().familyName = pBaby.clan.GetClanName();
+                    pBaby.GetModName().familyName = pBaby.clan.GetMemberSurname();
                     pBaby.GetModName().SetName(pBaby);
                 }
             }

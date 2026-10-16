@@ -259,7 +259,11 @@ public static partial class ParliamentSystem
         // 议席指向已不存在的派系(政党解散、被取缔，或旧存档派系不进存档)：
         // 全部议席都失效才重新大选；只是个别议席失效就转给议员现在的党或按得票补选，
         // 不能因此提前大选(否则政党一解散就改选一次，届数飞涨)
-        if (state.parliament_seats.Count > 0 &&
+        // 一年内刚大选过的不因议席全部失效再选(小国政党分合频繁，以前一年里大选好几次、选举信息刷屏)，改为转给现属政党或补选
+        bool recentElection = state.last_general_election_held >= 0d &&
+                              World.world.getCurWorldTime() >= state.last_general_election_held &&
+                              Date.getYearsSince(state.last_general_election_held) < 1;
+        if (state.parliament_seats.Count > 0 && !recentElection &&
             state.parliament_seats.All(seat => FindFaction(empire, seat.faction_id) == null))
             state.last_parliament_election = -1d;
         else if (ReassignOrphanSeats(empire, state))

@@ -18,6 +18,8 @@ public sealed class CultureInstitutionState
 {
     // 本文化已掌握的制度（自研完成的 + 从别的线吸收来的 + 开局的根节点）
     public List<string> enacted_node_ids = new();
+    // 上次认定的本文化制度线；文化改了线(如日本从华夏线分出自己的线)时据此把旧线的成果折算到新线(见 InstitutionSystem.MigrateLine)
+    public string line_id = "";
     // 时代潮流(见 InstitutionSystem.UpdateCultureDrift)：没有政权推动时，民间自发推行的制度与进度
     public string drift_node_id = "";
     public float drift_progress;
@@ -62,6 +64,8 @@ public sealed class CultureInstitutionState
 public sealed class InstitutionEmpireState
 {
     public InstitutionReformState active_reform;
+    // 本文化已过渡到新体制，但本国还没采纳所需科技、暂时没跟上；采纳后每年重试(见 InstitutionSystem.RetryPendingRegime)
+    public bool pending_culture_regime;
     public List<string> applied_node_ids = new();
     // 阶层怨气是帝国政治状态，不随文化共享。键是阶层，值为 0~100。
     public Dictionary<SocialClass, float> class_grievances = new();

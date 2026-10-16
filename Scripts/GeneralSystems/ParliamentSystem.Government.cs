@@ -286,7 +286,7 @@ public static partial class ParliamentSystem
             plan.Formateur.Name, plan.Seats, total, partners);
         string key = reason == "election" ? "parliament_election_result_history" : "parliament_new_government_history";
         string content = string.Format(LM.Get(key), empire.GetEmpireFullName(), state.parliament_term, formation);
-        EventRecorder.Record(empire, content, primeMinister);
+        EventRecorder.RecordRoutine(empire, content, primeMinister);
         primeMinister.RecordPersonalHistory(content);
     }
 
@@ -373,7 +373,7 @@ public static partial class ParliamentSystem
             .Where(party => party != null).GroupBy(party => party.Name)
             .Select(group => string.Format(LM.Get("parliament_cabinet_party_entry"), group.Key, group.Count())));
         if (!string.IsNullOrEmpty(lineup))
-            EventRecorder.Record(empire, string.Format(LM.Get("parliament_cabinet_formed_history"),
+            EventRecorder.RecordRoutine(empire, string.Format(LM.Get("parliament_cabinet_formed_history"),
                 empire.GetEmpireFullName(), lineup));
     }
 
@@ -473,11 +473,11 @@ public static partial class ParliamentSystem
         string country = empire.GetEmpireFullName();
         if (yes * 2 <= total)
         {
-            EventRecorder.Record(empire, string.Format(LM.Get("parliament_no_confidence_failed_history"), country,
+            EventRecorder.RecordRoutine(empire, string.Format(LM.Get("parliament_no_confidence_failed_history"), country,
                 primeMinister.getName(), yes, total, string.Join("、", reasons)), primeMinister);
             return false;
         }
-        EventRecorder.Record(empire, string.Format(LM.Get("parliament_no_confidence_passed_history"), country,
+        EventRecorder.RecordRoutine(empire, string.Format(LM.Get("parliament_no_confidence_passed_history"), country,
             primeMinister.getName(), yes, total, string.Join("、", reasons)), primeMinister);
         primeMinister.RecordPersonalHistory(string.Format(LM.Get("parliament_no_confidence_personal_history"),
             country));
@@ -499,7 +499,7 @@ public static partial class ParliamentSystem
         }
         else
         {
-            EventRecorder.Record(empire, string.Format(LM.Get("parliament_snap_election_history"), country));
+            EventRecorder.RecordRoutine(empire, string.Format(LM.Get("parliament_snap_election_history"), country));
             HoldGeneralElection(empire, state);
         }
         return true;
@@ -532,7 +532,7 @@ public static partial class ParliamentSystem
         }
         else
         {
-            EventRecorder.Record(empire, string.Format(LM.Get("parliament_snap_election_history"),
+            EventRecorder.RecordRoutine(empire, string.Format(LM.Get("parliament_snap_election_history"),
                 empire.GetEmpireFullName()));
             HoldGeneralElection(empire, state);
         }
@@ -576,7 +576,7 @@ public static partial class ParliamentSystem
                 clause = pick.clause, target = pick.target, party_id = governing.GetID(),
                 started_at = World.world.getCurWorldTime(), threshold = ConstitutionSystem.AmendmentThreshold(empire)
             };
-            EventRecorder.Record(empire, string.Format(LM.Get("government_agenda_proposed_history"), country,
+            EventRecorder.RecordRoutine(empire, string.Format(LM.Get("government_agenda_proposed_history"), country,
                 governing.Name, AgendaText(agenda, ConstitutionSystem.CurrentValue(constitution.clauses, pick.clause))));
             return;
         }
@@ -608,7 +608,7 @@ public static partial class ParliamentSystem
         else if (agenda.stalled_since < 0d) agenda.stalled_since = World.world.getCurWorldTime();
         else if (Date.getYearsSince(agenda.stalled_since) >= StalledAgendaYears)
         {
-            EventRecorder.Record(empire, string.Format(LM.Get("government_agenda_shelved_history"), country,
+            EventRecorder.RecordRoutine(empire, string.Format(LM.Get("government_agenda_shelved_history"), country,
                 governing.Name, AgendaText(agenda, current)));
             state.government_agenda = null;
             return;
@@ -631,7 +631,7 @@ public static partial class ParliamentSystem
         if (agenda.progress < 100f) return;
         FixedFaction sponsor = FindFaction(empire, agenda.party_id) ?? governing;
         if (ConstitutionSystem.AmendByGovernment(empire, agenda.clause, agenda.target, sponsor.GetID()))
-            EventRecorder.Record(empire, string.Format(LM.Get("government_agenda_passed_history"), country,
+            EventRecorder.RecordRoutine(empire, string.Format(LM.Get("government_agenda_passed_history"), country,
                 sponsor.Name, AgendaText(agenda, current)));
         state.government_agenda = null;
     }
@@ -649,12 +649,12 @@ public static partial class ParliamentSystem
         if (position == agenda.target)
         {
             agenda.party_id = newParty.GetID();
-            EventRecorder.Record(empire, string.Format(LM.Get("government_agenda_continued_history"), country,
+            EventRecorder.RecordRoutine(empire, string.Format(LM.Get("government_agenda_continued_history"), country,
                 newParty.Name, AgendaText(agenda, current)));
             return;
         }
         state.government_agenda = null;
-        EventRecorder.Record(empire, string.Format(LM.Get("government_agenda_abandoned_history"), country,
+        EventRecorder.RecordRoutine(empire, string.Format(LM.Get("government_agenda_abandoned_history"), country,
             newParty.Name, AgendaText(agenda, current)));
     }
 

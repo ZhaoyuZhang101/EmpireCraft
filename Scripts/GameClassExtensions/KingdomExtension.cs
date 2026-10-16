@@ -232,6 +232,8 @@ public static class KingdomExtension
     public static readonly SemaphoreSlim _sem = new SemaphoreSlim(Environment.ProcessorCount);
     public class KingdomExtraData: ExtraDataBase
     {
+        // 不在帝国里的国家对本文化科技的采纳(见 TechnologySystem.RealmHasTech)
+        public EmpireCraft.Scripts.Data.RealmTechState realm_tech;
         public long EmpireID = -1L;
         public double TimestampEmpire = -1L;
         public double TimestampBeFeifed = -1L;
@@ -285,6 +287,10 @@ public static class KingdomExtension
         public double forage_until = -1d;
         // 上次结算行政控制力的时间(见 AdministrativeControlSystem)
         public double admin_pass_at = -1d;
+        // 直辖容量与过度扩张(见 AdministrativeControlSystem)：直辖城数、容量、超出比例(0 = 未超，1 = 超出一倍及以上)
+        public int admin_direct_cities;
+        public int admin_capacity;
+        public float admin_overextension;
         // 西方帝国成员国的党派：0 无 / 1 教皇党 / 2 皇帝党(见 PapacySystem)
         public int papal_party;
         // 帝国的特殊成员：0 普通诸侯 / 1 帝国自由城市 / 2 教会诸侯(主教领)(见 HolyRomanSystem.Members)

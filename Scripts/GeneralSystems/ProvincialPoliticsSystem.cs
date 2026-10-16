@@ -208,13 +208,18 @@ public static class ProvincialPoliticsSystem
                 winner.Name));
             TryInstallGovernor(empire, province, winner);
         }
-        if (total == 0) return;
+        // 只有一个行政区的小国：地方选举就是全国选举，不另记一条
+        if (total < 2)
+        {
+            CheckFederalPressure(empire, state);
+            return;
+        }
         string country = empire.GetEmpireFullName();
         string summary = string.Format(LM.Get("local_election_history"), country, won, total, total - won);
         if (oppositionHeld.Count > 0)
             summary += string.Format(LM.Get("local_election_opposition_list"),
                 string.Join("、", oppositionHeld.Take(4)) + (oppositionHeld.Count > 4 ? "…" : ""));
-        EventRecorder.Record(empire, summary);
+        EventRecorder.RecordRoutine(empire, summary);
         CheckFederalPressure(empire, state);
     }
 
@@ -273,7 +278,7 @@ public static class ProvincialPoliticsSystem
         if (!ConstitutionSystem.AmendByGovernment(empire, ConstitutionSystem.ClauseTerritory,
                 ConstitutionTerritory.Federal.ToString(), "provinces")) return;
         state.local_opposition_streak = 0;
-        EventRecorder.Record(empire, string.Format(LM.Get("local_federalism_history"), empire.GetEmpireFullName()));
+        EventRecorder.RecordRoutine(empire, string.Format(LM.Get("local_federalism_history"), empire.GetEmpireFullName()));
     }
 
     #endregion

@@ -28,7 +28,8 @@ public class TempFac_制度融入 : TemporaryFaction
             !CompositeEmpireService.IsComposite(empire) &&
             CultureService.IsValidCulture(culture) &&
             CultureService.GetRealmCulture(target) == culture &&
-            InstitutionSystem.TryResolveCultureRegime(culture, out RegimeType expected) && expected == targetRegime.type)
+            InstitutionSystem.TryResolveCultureRegime(culture, out RegimeType expected) && expected == targetRegime.type &&
+            InstitutionSystem.RealmCanAdoptRegime(empire.CoreKingdom, expected))
         {
             foreach (var kingdom in empire.kingdoms_list)
             {
@@ -51,6 +52,8 @@ public class TempFac_制度融入 : TemporaryFaction
         string culture = CultureService.GetRealmCulture(empire.CoreKingdom);
         if (!CultureService.IsValidCulture(culture) ||
             !InstitutionSystem.TryResolveCultureRegime(culture, out RegimeType expected)) return false;
+        // 本国(帝国)还没采纳新体制所需的科技：过渡不过去
+        if (!InstitutionSystem.RealmCanAdoptRegime(empire.CoreKingdom, expected)) return false;
 
         var regimeCount = empire.kingdoms_list
             .Where(k => k != null && !k.isRekt() && CultureService.GetRealmCulture(k) == culture &&

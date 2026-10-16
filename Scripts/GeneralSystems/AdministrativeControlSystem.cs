@@ -25,6 +25,19 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     以前这里的"边地易手"(太平时互相侵蚀)、"被围空地并入"(把山地、隔水的地并进来)不守原版规矩，已删；
 //     旧存档里因此留下的山地、隔水地和飞地，读档后交给原版的"断开的地放弃"清掉(见 CityExpansionPatch.CheckAbandonOnLoad)；
 //     飞地易帜：陆路不通的飞地城(不是都城)控制力不到 0.45 时，每年有概率改投接壤最长的邻国(双方都不在打仗)。
+//
+// 扩张上限(用户 2026-10-16："扩张的毫无节制""远的扩张不到的就可以用羁縻统治，或者属国朝贡或者诸侯等，参考朝鲜和明朝的关系")：
+//   · 控制范围：满控路程除了时代，还看本国已采纳的科技(驿传、工业化、电报、摩托化、航空)、政体(律令远、封建近)
+//     和君主(雄主、正统高管得远，昏君、正统低收缩)；
+//   · 硬限：30 年内新打下(含割让)的城，控制力不到三成(过度扩张时门槛更高)且没在打仗的，由当地首领自立，
+//     按政体文化转为间接统治——施行羁縻的帝国设羁縻州(仍在帝国内，自治、少纳税)；封建、分封或不是帝国的立为附庸诸侯；
+//     其余帝国收为朝贡国(如朝鲜之于明)。每国每年至多放出一片(最多 6 城)；
+//   · 早期生产力只够这样统治(用户 2026-10-16："早期之所以是周朝制度是因为生产力只能允许这么统治")：
+//     直辖容量起点很低，青铜时代只能直辖十几城，再大就只能分封——周制、封建帝国里的诸侯(周制的郡除外)
+//     不算直辖，也不因路远失稳；青铜时代及以前，或周制天下，管不到的新征服之地封为诸侯(帝国成员)；
+//   · 软限：直辖容量 = 4 + 4×时代 + 制度科技(官僚文书、驿传、考选取士、电报、计算机)，按政体、君主折算；
+//     羁縻地区、分封诸侯不算直辖。直辖城数超过容量即过度扩张：远方城市稳定度再降，硬限门槛提高，
+//     开战不再谋割地吞并、只迫其称臣(见 WarGoalSystem.Ensure)。
 public static class AdministrativeControlSystem
 {
     private const int MemberSeatOffset = 4;
@@ -41,6 +54,13 @@ public static class AdministrativeControlSystem
     private const float WaterStep = 1f + TerrainResistance.RiverCrossing;
     // 鞭长莫及：赋税、征兵按 0.5 + 0.5 × 控制力
     private const float MinYield = 0.5f;
+    // 扩张上限：新征服之地控制力不到三成转间接统治(过度扩张时门槛最多再加两成)；30 年内算新征服；一次最多放出 6 城
+    private const float HardLimit = 0.3f, OverextendedHardLimit = 0.2f;
+    private const float RecentConquestYears = 30f;
+    private const int ReleaseClusterMax = 6;
+    private const float OverextensionPenalty = 15f;
+    // 开战估算路程：直线距离按平均地形阻力折算
+    private const float EstimateTerrain = 1.4f;
 
     private static readonly Queue<long> Pending = new();
     private static int _cursor;
@@ -70,7 +90,75 @@ public static class AdministrativeControlSystem
 
     public static bool Known(City city) => city?.data != null && city.GetOrCreate().admin_control >= 0f;
 
-    public static float StabilityLoss(City city) => Known(city) ? (1f - Get(city)) * StabilityPenalty : 0f;
+    // 羁縻地区本地首领自治，不因鞭长莫及而失稳；过度扩张时远方再扣(满控扣 3，控制力越低扣得越多，最多 18)
+    public static float StabilityLoss(City city)
+    {
+        if (!Known(city) || IsIndirect(city.kingdom)) return 0f;
+        float control = Get(city);
+        float loss = (1f - control) * StabilityPenalty;
+        Kingdom realm = Realm(city.kingdom);
+        float over = realm?.data == null ? 0f : realm.GetOrCreate().admin_overextension;
+        return loss + over * OverextensionPenalty * (1.2f - control);
+    }
+
+    // 间接统治：羁縻地区；周制、封建帝国里的诸侯(周制直辖的郡、帝国核心除外)
+    private static bool IsIndirect(Kingdom kingdom)
+    {
+        Empire empire = kingdom?.GetEmpire();
+        if (empire == null || kingdom == empire.CoreKingdom) return false;
+        if (JimiSystem.IsJimiAdministration(kingdom) || JimiSystem.IsJimiRegion(kingdom, empire)) return true;
+        RegimeType? regime = empire.CoreKingdom?.GetRegime()?.type;
+        // 原始政体的部落联盟：各部落、方国自治
+        // 幕府：世袭大名的藩自治，天领由奉行直辖
+        if (regime == RegimeType.Bakufu) return kingdom.GetKingdomType() != KingdomType.Bakufu_tenryo;
+        return regime == RegimeType.Feudalism || regime == RegimeType.Origin ||
+               regime == RegimeType.ZhouFeudalism && kingdom.GetKingdomType() != KingdomType.ZhouFeudalism_jun;
+    }
+
+    // 青铜时代及以前(时代 ≤ 3)
+    private const int EarlyEraTier = 3;
+
+    // 城易主时记下(CityPatch 攻城结算、WarGoalSystem 割地调用)
+    public static void MarkConquered(City city, Kingdom receiver)
+    {
+        if (city?.data == null || receiver?.data == null) return;
+        var data = city.GetOrCreate();
+        data.conquered_at = World.world.getCurWorldTime();
+        data.conquered_by = Realm(receiver).id;
+    }
+
+    // 开战定目标用：对方都城是否远在本国控制范围之外(按本国离它最近的城的路程加直线距离估算)，或本国已过度扩张
+    public static bool BeyondReach(Kingdom attacker, City target)
+    {
+        Kingdom realm = Realm(attacker);
+        if (!Valid(realm) || target?.data == null || target.isRekt()) return false;
+        if (realm.GetOrCreate().admin_overextension > 0f) return true;
+        TileZone goal = CenterZone(target);
+        if (goal == null) return false;
+        float best = float.MaxValue;
+        foreach (City city in Cities(realm))
+        {
+            if (!Known(city)) continue;
+            TileZone from = CenterZone(city);
+            if (from == null) continue;
+            float cost = city.GetOrCreate().admin_distance +
+                         Vector2.Distance(new Vector2(from.x, from.y), new Vector2(goal.x, goal.y)) * EstimateTerrain;
+            if (cost < best) best = cost;
+        }
+        return best < float.MaxValue && Control(best, Reach(realm)) < HardLimit;
+    }
+
+    public static string DescribeCapacity(Kingdom kingdom)
+    {
+        Kingdom realm = Realm(kingdom);
+        if (!Valid(realm)) return null;
+        var data = realm.GetOrCreate();
+        if (data.admin_capacity <= 0) return null;
+        string text = string.Format(LM.Get("admin_capacity_line"), data.admin_direct_cities, data.admin_capacity);
+        return data.admin_overextension > 0f
+            ? text + "  " + string.Format(LM.Get("admin_overextended"), data.admin_overextension * 100f)
+            : text;
+    }
 
     // 赋税、征兵能收上来几成(满控全收，最低一半)
     public static float Yield(City city) => Known(city) ? MinYield + (1f - MinYield) * Get(city) : 1f;
@@ -105,7 +193,9 @@ public static class AdministrativeControlSystem
                 data.admin_pass_at = World.world.getCurWorldTime();
                 List<City> cities = Cities(realm);
                 Compute(realm, cities);
+                UpdateCapacity(realm, cities);
                 if (!realm.hasEnemies()) Defect(realm, cities);
+                ReleaseOverreach(realm, cities);
             }
         }
         catch (Exception error)
@@ -150,16 +240,62 @@ public static class AdministrativeControlSystem
         return city.zones.Count > 0 ? city.zones[0] : null;
     }
 
+    // 满控路程：时代 + 本国已采纳的交通通信科技，按政体、君主折算
+    private static readonly (string tech, float reach)[] ReachTechs =
+        { ("postal_roads", 2f), ("industrialization", 2f), ("telegraph", 3f), ("motorization", 2f), ("aviation", 2f) };
+    // 直辖容量：时代 + 本国已采纳的治理科技
+    private static readonly (string tech, float cities)[] CapacityTechs =
+        { ("bureaucracy", 4f), ("postal_roads", 4f), ("civil_examination", 4f), ("telegraph", 8f), ("computing", 6f) };
+
     private static float Reach(Kingdom realm)
     {
         int tier = TechnologySystem.GetEraTier(TechnologySystem.GetCultureOf(realm));
         float reach = 10f + 2f * tier;
-        return realm.GetRegime()?.type switch
+        foreach ((string tech, float bonus) in ReachTechs)
+            if (TechnologySystem.RealmHasTech(realm, tech)) reach += bonus;
+        reach *= realm.GetRegime()?.type switch
         {
-            RegimeType.LvLing => reach * 1.15f,
-            RegimeType.Feudalism or RegimeType.ZhouFeudalism => reach * 0.9f,
-            _ => reach
+            RegimeType.LvLing => 1.15f,
+            RegimeType.Feudalism or RegimeType.ZhouFeudalism or RegimeType.Bakufu => 0.9f,
+            _ => 1f
         };
+        return reach * RulerFactor(realm);
+    }
+
+    public static int Capacity(Kingdom realm)
+    {
+        int tier = TechnologySystem.GetEraTier(TechnologySystem.GetCultureOf(realm));
+        float capacity = 4f + 4f * tier;
+        foreach ((string tech, float bonus) in CapacityTechs)
+            if (TechnologySystem.RealmHasTech(realm, tech)) capacity += bonus;
+        // 分封、封建不缩容量：诸侯本就不算直辖，是生产力不够时的统治办法
+        if (realm.GetRegime()?.type == RegimeType.LvLing) capacity *= 1.2f;
+        return Mathf.Max(3, Mathf.RoundToInt(capacity * RulerFactor(realm)));
+    }
+
+    // 君主：雄主 ×1.15、平庸 ×1、懦弱放纵 ×0.9、昏聩 ×0.85、暴君 ×0.95；帝国再按正统 0.85~1.15 折算
+    private static float RulerFactor(Kingdom realm)
+    {
+        float factor = RulerQualitySystem.Of(realm.king) switch
+        {
+            RulerQualitySystem.Grade.Wise => 1.15f,
+            RulerQualitySystem.Grade.Weak or RulerQualitySystem.Grade.Dissolute => 0.9f,
+            RulerQualitySystem.Grade.Fatuous => 0.85f,
+            RulerQualitySystem.Grade.Tyrant => 0.95f,
+            _ => 1f
+        };
+        Empire empire = realm.GetEmpire();
+        if (empire?.data != null && realm.IsEmpire())
+            factor *= 0.85f + 0.3f * Mathf.Clamp01(MonarchyLegitimacy.Get(empire) / 100f);
+        return factor;
+    }
+
+    private static void UpdateCapacity(Kingdom realm, List<City> cities)
+    {
+        var data = realm.GetOrCreate();
+        data.admin_capacity = Capacity(realm);
+        data.admin_direct_cities = cities.Count(city => !IsIndirect(city.kingdom));
+        data.admin_overextension = Mathf.Clamp01((float)data.admin_direct_cities / data.admin_capacity - 1f);
     }
 
     private static float Control(float distance, float reach) =>
@@ -250,6 +386,119 @@ public static class AdministrativeControlSystem
             float cap = overseas ? modern ? ModernOverseasCap : OverseasCap : ExclaveCap;
             data.admin_control = Mathf.Min(cap, Control(far, reach));
         }
+    }
+
+    #endregion
+
+    #region 扩张上限
+
+    private static bool Overreached(Kingdom realm, City city, float limit)
+    {
+        if (!Valid(city) || city.kingdom.capital == city) return false;
+        var data = city.GetOrCreate();
+        return data.conquered_at >= 0d && data.conquered_by == realm.id && data.admin_control >= 0f &&
+               data.admin_control < limit && World.world.getCurWorldTime() >= data.conquered_at &&
+               Date.getYearsSince(data.conquered_at) < RecentConquestYears &&
+               !(data.OccupiedStatus?.Count > 0) && !city.kingdom.hasEnemies() && !IsIndirect(city.kingdom);
+    }
+
+    // 管不到的新征服之地：由当地首领自立，按政体文化转为羁縻州、附庸诸侯或朝贡国
+    private static void ReleaseOverreach(Kingdom realm, List<City> cities)
+    {
+        float limit = HardLimit + OverextendedHardLimit * realm.GetOrCreate().admin_overextension;
+        City seed = cities.Where(city => Overreached(realm, city, limit))
+            .OrderBy(city => city.GetOrCreate().admin_control).ThenBy(city => city.id).FirstOrDefault();
+        if (seed == null) return;
+        Kingdom former = seed.kingdom;
+        // 连成一片的同属一国的新征服城一起放出
+        var cluster = new List<City> { seed };
+        var seen = new HashSet<City> { seed };
+        for (int i = 0; i < cluster.Count && cluster.Count < ReleaseClusterMax; i++)
+            foreach (City next in (IEnumerable<City>)cluster[i].neighbours_cities ?? Array.Empty<City>())
+            {
+                if (cluster.Count >= ReleaseClusterMax) break;
+                if (next == null || !seen.Add(next) || next.kingdom != former || !Overreached(realm, next, limit)) continue;
+                cluster.Add(next);
+            }
+        if (!seed.hasLeader()) CityPopulationSystem.EnsureLeader(seed);
+        Actor leader = LocalLeader(seed);
+        if (leader == null) return;
+        Kingdom local;
+        try
+        {
+            local = seed.makeOwnKingdom(leader);
+        }
+        catch (Exception error)
+        {
+            LogService.LogWarning($"[EmpireCraft][扩张上限] {seed.data.name} 自立失败: {error.Message}");
+            return;
+        }
+        if (local == null || local.isRekt() || seed.kingdom != local) return;
+        foreach (City city in cluster.Skip(1))
+            if (Valid(city) && city.kingdom == former) city.joinAnotherKingdom(local);
+        foreach (City city in cluster)
+        {
+            var data = city.GetOrCreate();
+            data.conquered_at = -1d;
+            data.conquered_by = -1L;
+            data.admin_control = -1f;
+        }
+        string form = Subordinate(realm, local);
+        EventRecorder.Record(realm, string.Format(LM.Get("admin_overreach_" + form + "_history"),
+            realm.GetKingdomName(), local.GetKingdomName(), cluster.Count));
+        LogService.LogInfo($"[EmpireCraft][扩张上限] {realm.GetKingdomName()} 管不到 {seed.data.name} 等 {cluster.Count} 城，转为 {form}");
+    }
+
+    private static Actor LocalLeader(City city)
+    {
+        Actor current = city.leader;
+        if (current != null && !current.isRekt() && current.isAlive() && current.isAdult() && !current.isKing() &&
+            current.isUnitFitToRule()) return current;
+        return (city.units ?? new List<Actor>()).ToList()
+            .Where(actor => actor != null && !actor.isRekt() && actor.isAlive() && actor.isAdult() && !actor.isKing() &&
+                            actor.isUnitFitToRule())
+            .OrderByDescending(actor => actor.GetOrCreate().socialClass == SocialClass.Noble)
+            .ThenByDescending(actor => actor.data?.renown ?? 0).FirstOrDefault();
+    }
+
+    // 周制天下、部落联盟或青铜时代及以前的帝国 → 分封诸侯、附从的部落(帝国成员)；施行羁縻的帝国 → 羁縻州；
+    // 封建政体或不是帝国 → 附庸诸侯；其余帝国 → 朝贡国
+    private static string Subordinate(Kingdom realm, Kingdom local)
+    {
+        Empire empire = realm.IsEmpire() ? realm.GetEmpire() : null;
+        if (empire != null && (realm.GetRegime()?.type is RegimeType.ZhouFeudalism or RegimeType.Origin or RegimeType.Bakufu ||
+                               TechnologySystem.GetEraTier(TechnologySystem.GetCultureOf(realm)) <= EarlyEraTier))
+        {
+            if (local.hasAlliance()) local.getAlliance().leave(local);
+            empire.join(local, pForce: true);
+            if (local.GetEmpire() == empire)
+            {
+                local.GetOrCreate().last_kingdom_status_ts = -1d;
+                EmpireCraft.Scripts.AI.KingdomAI.EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(local);
+                return "enfeoff";
+            }
+        }
+        if (empire != null && JimiSystem.Enacted(empire))
+        {
+            if (local.hasAlliance()) local.getAlliance().leave(local);
+            empire.join(local, pForce: true);
+            if (local.GetEmpire() == empire)
+            {
+                var data = local.GetOrCreate();
+                data.jimi_mode = (int)JimiMode.Jimi;
+                data.last_kingdom_status_ts = -1d;
+                EmpireCraft.Scripts.AI.KingdomAI.EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(local);
+                return "jimi";
+            }
+        }
+        RegimeType? regime = realm.GetRegime()?.type;
+        bool feudal = regime == RegimeType.Feudalism || regime == RegimeType.ZhouFeudalism;
+        if (empire != null && !feudal)
+        {
+            local.JoinTakenAlliance(empire, pForce: true);
+            if (local.HasTakenAlliance()) return "tributary";
+        }
+        return FeudalVassalService.ForceBind(realm, local) ? "vassal" : "independent";
     }
 
     #endregion

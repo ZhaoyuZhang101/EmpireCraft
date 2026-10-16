@@ -98,14 +98,90 @@ public class SpecificClan
     public long parent_clan_id { get; set; } = -1L;
     // 分支的称号，如"越国支"/"苏城支"/"谈华房"
     public string branch_label { get; set; } = "";
+    // 华夏姓氏合一以前分出的支脉的"氏"(见 PrehistoricClanSystem)；空 = 没有氏，称宗族的姓
+    public string shi { get; set; } = "";
     public string branch_reason { get; set; } = "";
     public double last_branch_timestamp { get; set; } = -1d;
     // 族人在各城最早定居的时间，用来判定"迁徙开基"
     public Dictionary<long, double> city_settle_since { get; set; } = new();
 
-    // 显示名：始祖宗族是"谈宗族"，分支是"谈宗族·越国支"
+    // 姓氏体系(华夏，用户 2026-10-16 选定"姓—氏两层")：始祖宗族是"姓"(姬姓)，支脉是"氏"(鲁氏)，原版氏族是每个氏的实体；
+    // 姓氏合一(郡县)以后，有氏的支脉升为新的姓(鲁氏宗族，出自姬姓)，再往下分的是郡望、房支。见 PrehistoricClanSystem
+    private bool SurnameMerged() => PrehistoricClanSystem.EraOf(_lineCulture) == PrehistoricClanSystem.SurnameEra.Merged;
+
+    // 离本支最近的"氏"(含本支，不含始祖宗族)；没有返回 null
+    private string NearestShi()
+    {
+        SpecificClan current = this;
+        var visited = new HashSet<long>();
+        while (current != null && current.parent_clan_id >= 0 && visited.Add(current.id))
+        {
+            if (!string.IsNullOrEmpty(current.shi)) return current.shi;
+            current = SpecificClanManager.Get(current.parent_clan_id);
+        }
+        return null;
+    }
+
+    // 作为"姓"的那一层：姓氏合一前是始祖宗族；合一后是离本支最近的有氏的支脉(没有就是始祖宗族)
+    public SpecificClan SurnameRoot()
+    {
+        SpecificClan root = GetRootClan();
+        if (!HuaxiaLine() || !SurnameMerged()) return root;
+        SpecificClan current = this;
+        var visited = new HashSet<long>();
+        while (current != null && current != root && visited.Add(current.id))
+        {
+            if (!string.IsNullOrEmpty(current.shi)) return current;
+            current = current.parent_clan_id >= 0 ? SpecificClanManager.Get(current.parent_clan_id) : null;
+        }
+        return root;
+    }
+
+    private static string SurnameOfRoot(SpecificClan root) => !string.IsNullOrEmpty(root.shi) ? root.shi : root.name;
+
+    // 人物档案的"姓氏"一行：合一前"姬姓·鲁氏"，合一后"鲁氏(出自姬姓)"；非华夏照旧"谈氏(本宗)""谈氏·越国支"
+    public string SurnameLine()
+    {
+        SpecificClan top = GetRootClan();
+        if (!HuaxiaLine())
+            return parent_clan_id < 0 || string.IsNullOrWhiteSpace(branch_label)
+                ? string.Format(LM.Get("empirecraft_actor_clan_main"), top.name)
+                : string.Format(LM.Get("empirecraft_actor_clan_branch"), top.name, branch_label);
+        if (!SurnameMerged()) return PremergeName(top);
+        SpecificClan root = SurnameRoot();
+        string line = root != top
+            ? string.Format(LM.Get("clan_surname_origin"), SurnameOfRoot(root), top.name)
+            : string.Format(LM.Get("clan_surname_shi"), SurnameOfRoot(root));
+        return root == this || string.IsNullOrWhiteSpace(branch_label)
+            ? line
+            : string.Format(LM.Get("clan_branch_display"), line, branch_label);
+    }
+
+    private string PremergeName(SpecificClan top)
+    {
+        if (this == top || parent_clan_id < 0) return string.Format(LM.Get("clan_xing"), top.name);
+        return NearestShi() is string shiName
+            ? string.Format(LM.Get("clan_xing_shi"), top.name, shiName)
+            : string.Format(LM.Get("clan_xing_branch"), top.name, branch_label);
+    }
+
+    // 原版氏族显示的名字(不带"氏"字)：华夏有氏的支脉(及其再分的郡望、房支)写氏，其余写宗族的姓。
+    // 族人的姓不从这里取(见 ClanExtension.GetMemberSurname)
+    public string VanillaClanName() => HuaxiaLine() && NearestShi() is string shiName ? shiName : name;
+
+    // 显示名：始祖宗族是"谈宗族"，分支是"谈宗族·越国支"；华夏合一前"姬姓·鲁氏"，合一后"鲁宗族·清河支"
     public string GetDisplayName()
     {
+        if (HuaxiaLine())
+        {
+            SpecificClan top = GetRootClan();
+            if (!SurnameMerged()) return PremergeName(top);
+            SpecificClan root = SurnameRoot();
+            string rootName = JoinNameParts(SurnameOfRoot(root), LM.Get("specific_clan"));
+            return root == this || string.IsNullOrWhiteSpace(branch_label)
+                ? rootName
+                : string.Format(LM.Get("clan_branch_display"), rootName, branch_label);
+        }
         string clanName = JoinNameParts(name, LM.Get("specific_clan"));
         return parent_clan_id < 0 || string.IsNullOrWhiteSpace(branch_label)
             ? clanName
@@ -254,7 +330,7 @@ public class SpecificClan
         _cache = new Dictionary<long, PersonalClanIdentity>();
         Clan clan = actor.clan;
         id = IdGenerator.NextId();
-        name = clan.GetClanName();
+        name = clan.GetMemberSurname();
         established_timestamp = World.world.getCurWorldTime();
         clan_sex_priority = judgeMalePriority(actor) ? SpecificClanType.MalePriority : SpecificClanType.FemalePriority;
         clan.SetSpecificClan(this);
@@ -288,9 +364,15 @@ public class SpecificClan
     }
 
     [JsonIgnore] private bool? _patrilineal;
+    [JsonIgnore] private string _lineCulture;
 
-    // 华夏一系宗法父系(见 isMalePriority、SurnameInheritanceSystem)
-    public bool Patrilineal()
+    // 华夏一系宗法父系(见 isMalePriority、SurnameInheritanceSystem)；本文化还在母系氏族阶段时不算(见 Matrilineal)
+    public bool Patrilineal() => HuaxiaLine() && !PrehistoricClanSystem.IsMatrilineal(_lineCulture);
+
+    // 华夏一系的母系氏族阶段：孩子入母亲的氏族、随母姓(见 PrehistoricClanSystem)
+    public bool Matrilineal() => HuaxiaLine() && PrehistoricClanSystem.IsMatrilineal(_lineCulture);
+
+    private bool HuaxiaLine()
     {
         if (_patrilineal.HasValue) return _patrilineal.Value;
         string culture = SpecificClanManager.getPerson(founder)?.culture;
@@ -299,6 +381,7 @@ public class SpecificClan
         try
         {
             _patrilineal = InstitutionSystem.GetCultureLine(culture) == "Huaxia";
+            _lineCulture = culture;
         }
         catch
         {
@@ -446,9 +529,50 @@ public static class SpecificClanManager
         Actor actor = person.is_alive && !person.is_virtual ? person._actor : null;
         if (actor?.data == null || actor.isRekt()) return;
         actor.SetPersonalIdentity(person);
-        Clan vanilla = target.AllAliveMembers.Where(member => member != actor).Select(member => member.clan)
-            .FirstOrDefault(clan => clan != null);
-        if (vanilla != null && actor.clan != vanilla) actor.setClan(vanilla);
+        SyncVanillaClan(actor);
+    }
+
+    // 原版氏族跟着宗族走(人物档案里"氏族"与"宗族"一致)：挪进对应这个宗族的原版氏族；
+    // 一个都没有(族人都没有实体、原来的氏族已散)就以本人为始祖新立一个，对应到这个宗族(按姓起名，如"公氏")
+    public static void SyncVanillaClan(Actor actor, Dictionary<long, Clan> cache = null)
+    {
+        if (actor?.data == null || actor.isRekt() || actor.hasDied()) return;
+        SpecificClan specific = actor.GetSpecificClan();
+        if (specific == null || actor.clan != null && actor.clan.GetSpecificClan() == specific) return;
+        try
+        {
+            Clan target = VanillaClanOf(specific, actor, cache);
+            if (target == null)
+            {
+                target = World.world.clans.newClan(actor, true);
+                if (target == null) return;
+                target.SetSpecificClan(specific);
+                SpecificClanManager.SyncVanillaClanName(target);
+                if (cache != null) cache[specific.id] = target;
+            }
+            if (actor.clan != target) actor.setClan(target);
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft][族谱] 同步原版氏族失败: {exception.Message}");
+        }
+    }
+
+    private static Clan VanillaClanOf(SpecificClan specific, Actor except, Dictionary<long, Clan> cache)
+    {
+        if (cache != null && cache.TryGetValue(specific.id, out Clan cached) && cached?.data != null && !cached.isRekt())
+            return cached;
+        Clan found = specific.AllAliveMembers.Where(member => member != except && member.clan != null)
+            .Select(member => member.clan).FirstOrDefault(clan => clan.GetSpecificClan() == specific);
+        if (found == null && cache == null)
+            foreach (Clan clan in World.world.clans.list)
+                if (clan?.data != null && !clan.isRekt() && clan.GetSpecificClan() == specific)
+                {
+                    found = clan;
+                    break;
+                }
+        if (found != null && cache != null) cache[specific.id] = found;
+        return found;
     }
 
     // 把记下的父母接回族谱(父亲、母亲各接一位；已有的不动)，返回是否接上了
@@ -537,6 +661,15 @@ public static class SpecificClanManager
             }
         }
         specificClan.founder = actor.GetPersonalIdentity().id;
+        // 原始群、母系氏族阶段新立的氏族取带女字旁的古姓，始祖随之改姓(见 PrehistoricClanSystem)
+        string clanCulture = TechnologySystem.GetCultureOf(actor);
+        if (PrehistoricClanSystem.AncientNaming(clanCulture) &&
+            PrehistoricClanSystem.PickAncientSurname(clanCulture) is string ancient)
+        {
+            specificClan.name = ancient;
+            SurnameInheritanceSystem.ApplySurname(actor.GetPersonalIdentity(), specificClan.name);
+            if (actor.clan?.data != null) actor.clan.data.name = JoinNameParts(ancient, LM.Get("Clan"));
+        }
         if (show_log)
         {
             TranslateHelper.LogOfficerBuildSpecificClan(actor, specificClan);
@@ -1012,6 +1145,39 @@ public static class SpecificClanManager
     }
     
     // 写：所有对 _specificClans 的 Add/Remove/Clear 必须同一把锁保护
+    // 原版氏族的名字跟着宗族、支脉走：华夏姬姓分出的鲁氏，原版氏族就叫"鲁氏"
+    public static void SyncVanillaClanName(Clan clan)
+    {
+        SpecificClan specific = clan?.data == null ? null : clan.GetSpecificClan();
+        string shown = specific?.VanillaClanName();
+        if (string.IsNullOrWhiteSpace(shown)) return;
+        string expected = JoinNameParts(shown, LM.Get("Clan"));
+        if (clan.data.name != expected) clan.data.name = expected;
+    }
+
+    public static int SyncAllVanillaClanNames()
+    {
+        if (World.world?.clans?.list == null) return 0;
+        int changed = 0;
+        foreach (Clan clan in World.world.clans.list.ToList())
+        {
+            string before = clan?.data?.name;
+            SyncVanillaClanName(clan);
+            if (clan?.data != null && clan.data.name != before) changed++;
+        }
+        return changed;
+    }
+
+    // 现有各氏族的名字(取古姓时避开已用的)
+    public static HashSet<string> ClanNames()
+    {
+        var names = new HashSet<string>();
+        lock (_clansLock)
+            foreach (SpecificClan clan in _specificClans)
+                if (!string.IsNullOrEmpty(clan?.name)) names.Add(clan.name);
+        return names;
+    }
+
     public static void AddClan(SpecificClan clan)
     {
         lock (_clansLock) _specificClans.Add(clan);
@@ -1092,11 +1258,11 @@ public static class SpecificClanManager
             if (created != null)
             {
                 LinkRecordedParents(actor, created);
+                if (clanParent.sex != ActorSex.Male && clanParent._specificClan.Matrilineal()) created.matrilineal_birth = true;
                 Actor parentActor = clanParent.is_alive && !clanParent.is_virtual ? clanParent._actor : null;
-                Clan vanilla = parentActor?.clan ?? clanParent._specificClan.AllAliveMembers
-                    .Where(member => member != actor).Select(member => member.clan).FirstOrDefault(clan => clan != null);
-                if (vanilla != null && actor.clan != vanilla) actor.setClan(vanilla);
-                if (clanParent._specificClan.Patrilineal() || SurnameInheritanceSystem.Reigns(parentActor))
+                SyncVanillaClan(actor);
+                if (clanParent._specificClan.Patrilineal() || clanParent._specificClan.Matrilineal() ||
+                    SurnameInheritanceSystem.Reigns(parentActor))
                     SurnameInheritanceSystem.ApplySurname(created,
                         !string.IsNullOrWhiteSpace(clanParent.surname) ? clanParent.surname : clanParent._specificClan.name);
                 return;
@@ -1194,6 +1360,8 @@ public class PersonalClanIdentity
     public long id { get; set; }
     public long specific_clan_id { get; set; }
     public long actor_id { get; set; }
+    // 生于母系氏族阶段、随母入氏(见 PrehistoricClanSystem)：读档的父系修正不把他挪回父亲那一族
+    public bool matrilineal_birth;
     public string merit = "";
     public string honoraryOfficial = "";
     public string PeeragesLevel = "";

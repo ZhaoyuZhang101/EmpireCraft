@@ -326,6 +326,49 @@ public static class LandmarkBookSystem
         TryApplyIdeologyEffect(culture, cities, state, config, techFactor, title);
     }
 
+    // 理念随书流入(边境往来，见 IdeologySpreadSystem)：本文化收到这部奠基名著的一个抄本，
+    // 放进一座能藏书的城、算作被读到。没有能藏书的城时传不进来，返回 false；已经有这部书返回 true
+    public static bool ReceiveFoundingBook(string culture, PartyIdeology ideology)
+    {
+        LandmarkBookConfig config = FoundingBook(ideology);
+        if (config == null || HasFoundingBook(culture, ideology)) return true;
+        List<City> cities = World.world?.cities?.Where(city => city != null && !city.isRekt() &&
+                                                               CultureService.GetMainCulture(city) == culture &&
+                                                               city.getBuildingWithBookSlot() != null).ToList();
+        if (cities == null || cities.Count == 0) return false;
+        string title = GetTitle(config.id, culture);
+        try
+        {
+            Actor copyist = PickAuthor(cities);
+            Book book = copyist == null ? null : World.world.books.generateNewBook(copyist);
+            if (book != null)
+            {
+                book.setName(title);
+                BookExtension.BookExtraData data = book.GetOrCreate();
+                data.id = book.getID();
+                data.landmark_id = config.id;
+                data.origin_culture = OriginCulture(config) ?? culture;
+                data.inspired_cultures.Add(culture);
+            }
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft] 名著抄本传入失败: {exception.Message}");
+        }
+        Inspire(culture, config, ForeignTechFactor, title);
+        Announce(culture, null, string.Format(LM.Get("landmark_book_spread_log"), title, culture.GetCultureTranslate()), -1L);
+        return true;
+    }
+
+    // 写出这部名著的文化(没写出来过返回 null)
+    private static string OriginCulture(LandmarkBookConfig config)
+    {
+        foreach (string culture in CultureService.CultureKeys)
+            if (TechnologySystem.IsActiveFor(culture) &&
+                TechnologySystem.GetState(culture)?.landmark_books?.Contains(config.id) == true) return culture;
+        return null;
+    }
+
     // 理念的奠基名著(资本论之于共产主义、国富论之于资本主义……)：LandmarkBooks.json 里标了该理念的名著
     public static LandmarkBookConfig FoundingBook(PartyIdeology ideology) =>
         Books.FirstOrDefault(book => TryGetIdeology(book, out PartyIdeology own) && own == ideology);
@@ -451,6 +494,9 @@ public static class LandmarkBookSystem
         var result = new List<CityIdeologyBook>();
         if (city?.buildings == null || World.world?.books == null) return result;
         var environmentFit = new Dictionary<string, bool>();
+        // 印刷等级决定书印得多不多：无纸时理念书籍传不开，手抄本只有一半影响(见 MediaSystem)
+        float media = MediaSystem.BookFactor(city.kingdom);
+        if (media <= 0f) return result;
         foreach (Building building in city.buildings)
         {
             List<long> ids = building?.data?.books?.list_books;
@@ -466,7 +512,7 @@ public static class LandmarkBookSystem
                     float treatiseMaturity = Maturity(book);
                     result.Add(new CityIdeologyBook(book, treatiseIdeology, treatiseMaturity, true,
                         SpeechFreedomSystem.TreatiseOutbreak * CityInfluenceFactor * treatiseMaturity *
-                        SpeechFreedomSystem.BookReach(city, treatiseIdeology)));
+                        SpeechFreedomSystem.BookReach(city, treatiseIdeology) * media));
                     continue;
                 }
                 if (!book.TryGetLandmark(out BookExtension.BookExtraData data) ||
@@ -478,7 +524,7 @@ public static class LandmarkBookSystem
                 // 言论自由对名著同样适用：严格时非立国理念的名著被查禁，宽松时流传更广
                 result.Add(new CityIdeologyBook(book, ideology, maturity, fits,
                     config.ideology_outbreak * CityInfluenceFactor * maturity * (fits ? 1f : UnripeSocietyFactor) *
-                    SpeechFreedomSystem.BookReach(city, ideology)));
+                    SpeechFreedomSystem.BookReach(city, ideology) * media));
             }
         }
         return result;
@@ -521,9 +567,11 @@ public static class LandmarkBookSystem
     {
         if (city == null || city.isRekt() || city.units == null || city.units.Count == 0) return;
         Dictionary<PartyIdeology, float> influences = GetCityBookInfluences(city);
+        // 手抄本出不了城，雕版印刷开始外溢到邻城，机械印刷外溢更广(见 MediaSystem)
+        float neighbourMedia = influences.Count == 0 ? 0f : MediaSystem.NeighbourFactor(city.kingdom);
         foreach (KeyValuePair<PartyIdeology, float> pair in influences)
         {
-            float radiance = pair.Value * NeighbourSpreadFactor *
+            float radiance = pair.Value * NeighbourSpreadFactor * neighbourMedia *
                              Math.Min(1f, IdeologyPopulationSystem.GetCityShare(city, pair.Key) / SaturationShare);
             IdeologyPopulationSystem.InfluenceCity(city, pair.Key, Damped(city, pair.Key, pair.Value));
             if (radiance <= 0f) continue;

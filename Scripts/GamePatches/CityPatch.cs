@@ -531,6 +531,7 @@ public class CityPatch : GamePatch
                     pWars.FirstOrDefault(w => IsWarRelevantToCapture(w, pNewKingdom, joinAfterCapture, oldKingdom)));
             else WartimeCustodySystem.Clear(__instance);
             __instance.removeSoldiers();
+            AdministrativeControlSystem.MarkConquered(__instance, joinAfterCapture);
             __instance.joinAnotherKingdom(joinAfterCapture, true);
         }
 

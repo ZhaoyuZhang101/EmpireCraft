@@ -73,6 +73,9 @@ public class EmpireData : MetaObjectData
     public string capital_loss_previous_prefix = "";
     public string core_name = "";
     public string empire_type_key = "";
+    // 幕府(见 BakufuSystem)：开幕时的天皇家(宗族)与当时的天皇；天皇为虚君，明治维新时大政奉还
+    public long court_clan_id = -1L;
+    public long court_emperor_id = -1L;
     // 西方封建帝国的代数：同名封建帝国反复建立时称"第二帝国""第三帝国"(0/1 表示不加序数)
     public int western_ordinal = 0;
     public long emperor { get; set; } = -1L;
@@ -228,6 +231,8 @@ public class EmpireData : MetaObjectData
     public string composite_cultural_name_source { get; set; } = "";
     public double composite_cultural_name_adopted_timestamp { get; set; } = -1L;
     public InstitutionEmpireState institution_state { get; set; } = new InstitutionEmpireState();
+    // 帝国对本文化科技的采纳(帝国成员共用，见 TechnologySystem.RealmHasTech)
+    public EmpireCraft.Scripts.Data.RealmTechState realm_tech { get; set; }
     public ConstitutionalEconomyState constitutional_economy { get; set; } = new ConstitutionalEconomyState();
 }
 

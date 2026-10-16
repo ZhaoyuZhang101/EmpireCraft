@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Newtonsoft.Json;
 
 namespace EmpireCraft.Scripts.Data;
 
@@ -20,6 +21,10 @@ public sealed class CultureTechState
     public bool bootstrapped;
     // 海军科技线已按本文化的时代补齐过(旧存档读档后补一次，见 TechnologySystem.BackfillNavalLine)
     public bool naval_line;
+    // 典章科技线(制度的专门科技前提)补记过：旧存档里已经推行的制度，所需的典章科技直接算研究过
+    public bool civics_line;
+    // 传播媒介科技(活字、机械印刷、电报、广播、互联网)已为旧存档补过
+    public bool media_line;
     // 每项技术各自的已投入研究点(加速事件可以给还没开始研究的技术预存进度)；
     // 上面的 progress 是旧存档字段，读档时并入这里
     public Dictionary<string, float> tech_progress = new();
@@ -44,4 +49,32 @@ public sealed class CultureTechState
     public List<string> known_books = new();
     // 已经真正引发过人口传播的理念名著；与 known_books 分开以兼容旧存档。
     public List<string> ideology_book_outbreaks = new();
+}
+
+// 国家对科技的采纳(见 TechnologySystem.RealmHasTech)：科技由文化发明，每个国家(在帝国里按帝国算)
+// 要自己采纳才算拥有。adopted 为已采纳的科技，progress 为采纳中的进度(0~1)
+public sealed class RealmTechState
+{
+    public List<string> adopted = new();
+    public Dictionary<string, float> progress = new();
+    // 第一次登记时把本文化当时已有的科技都算采纳过(旧存档、新立的国家不倒退)
+    public bool initialized;
+    [JsonIgnore] private HashSet<string> _set;
+    [JsonIgnore] private int _count = -1;
+
+    public bool Has(string techId)
+    {
+        if (_set == null || _count != adopted.Count)
+        {
+            _set = new HashSet<string>(adopted);
+            _count = adopted.Count;
+        }
+        return _set.Contains(techId);
+    }
+
+    public void Adopt(string techId)
+    {
+        if (!Has(techId)) adopted.Add(techId);
+        progress.Remove(techId);
+    }
 }
