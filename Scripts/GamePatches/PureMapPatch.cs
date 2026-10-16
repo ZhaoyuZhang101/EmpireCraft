@@ -263,6 +263,7 @@ public partial class PureMapPatch : GamePatch
         }
         RoadNetwork.Tick();
         RuralSettlementSystem.Tick();
+        FactorySystem.Tick();
     }
 
     // 平面图的指纹：画出来的样子会变的东西都算进去

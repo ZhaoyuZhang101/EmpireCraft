@@ -17,7 +17,10 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     重工厂与重型船厂(装甲战)、轻型飞机厂(航空)、重型飞机厂(战略航空)；船厂要城里有码头。每座 1~3 级；
 //   · 产出：每座每级给城里 jobs_per_factory 个工场岗位(见 UrbanEmploymentSystem)，每年按门类出一份产值(进税基，见 Produce)；
 //   · 本城有厂区：矿场、伐木场能升到第三级以上，产出多两成五；每片厂区多许建一座矿场、伐木场、屠宰场(至多三座)；
-//   · 点厂区打开小窗口(见 FactoryWindow)：改名、扩建缩建、换个样子，厂的升级降级、添加拆除，看产出。
+//   · 点厂区打开小窗口(见 FactoryWindow)：改名、扩建缩建、换个样子，厂的升级降级、添加拆除，看产出；
+//   · AI 自己建(用户 2026-10-17 "可以"——撤了规划以后 AI 城市没有厂区，矿场伐木场卡在二级)：有能建的门类、不在打仗的城，
+//     每年至多一件事——没满的厂区添一座厂、给一座厂升一级、厂区满了扩建、不够数就在城区边上新建一片小厂区；
+//     城的档位二级起一片、三级两片、四级三片(见 Tick)。世界法则「固定城乡格局」开着时不建，只听手动。
 public static class FactorySystem
 {
     // 门类：建筑 id、解锁它的科技、每级每年的产值
@@ -50,6 +53,8 @@ public static class FactorySystem
         All.Clear();
         _byZone = null;
         _nextId = 1;
+        LastGrown.Clear();
+        _lastMonth = -1d;
         Revision++;
     }
 
@@ -199,6 +204,86 @@ public static class FactorySystem
             foreach (FactoryUnit unit in site.units)
                 value += ValueOf(unit);
         if (value > 0f) data.produced_value += value * years;
+    }
+
+    #endregion
+
+    #region AI 自建
+
+    private const double GrowYears = 1d;
+    private static readonly Dictionary<long, double> LastGrown = new();
+    private static double _lastMonth = -1d;
+
+    // 每月(见 PureMapPatch.RefreshUrbanSlice)：轮到满一年的城各做一件事
+    public static void Tick()
+    {
+        MapBox world = World.world;
+        if (world?.cities == null || !PureMapMode.Enabled || RuralSettlementSystem.Fixed) return;
+        double now = world.getCurWorldTime();
+        if (_lastMonth >= 0d && now >= _lastMonth && Date.getMonthsSince(_lastMonth) < 1) return;
+        _lastMonth = now;
+        foreach (City city in world.cities.list.ToList())
+        {
+            if (city?.data == null || city.isRekt() || city.kingdom == null || city.kingdom.wild || city.kingdom.hasEnemies() ||
+                EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(city)) continue;
+            if (LastGrown.TryGetValue(city.data.id, out double last) && now >= last && Date.getYearsSince(last) < GrowYears) continue;
+            LastGrown[city.data.id] = now;
+            try
+            {
+                Grow(city);
+            }
+            catch (Exception exception)
+            {
+                NeoModLoader.services.LogService.LogWarning($"[EmpireCraft][厂区] {city.GetCityName()} 自建失败: {exception.Message}");
+            }
+        }
+    }
+
+    private static void Grow(City city)
+    {
+        List<string> unlocked = Unlocked(city);
+        if (unlocked.Count == 0) return;
+        int tier = city.GetOrCreate().urban_tier;
+        int wanted = tier >= 4 ? 3 : tier >= 3 ? 2 : tier >= 2 ? 1 : 0;
+        List<FactorySite> sites = InCity(city);
+        if (wanted == 0 && sites.Count == 0) return;
+        // 没满的厂区添一座(先挑区里还没有的门类)
+        FactorySite open = sites.FirstOrDefault(site => site.units.Count < Capacity(site.size));
+        if (open != null)
+        {
+            List<string> fresh = unlocked.Where(type => !open.units.Exists(unit => unit.type == type)).ToList();
+            List<string> pool = fresh.Count > 0 ? fresh : unlocked;
+            AddUnit(open, pool[UnityEngine.Random.Range(0, pool.Count)]);
+            return;
+        }
+        // 给一座厂升一级
+        var upgradable = sites.SelectMany(site => site.units.Select((unit, index) => (site, unit, index)))
+            .Where(entry => entry.unit.level < MaxLevel).ToList();
+        if (upgradable.Count > 0 && UnityEngine.Random.value < 0.5f)
+        {
+            var pick = upgradable[UnityEngine.Random.Range(0, upgradable.Count)];
+            SetLevel(pick.site, pick.index, pick.unit.level + 1);
+            return;
+        }
+        // 厂区满了、城够大：扩建一片
+        if (sites.Count >= wanted)
+        {
+            FactorySite small = sites.Where(site => site.size < MaxSize && site.size < tier - 1).OrderBy(site => site.size).FirstOrDefault();
+            if (small != null) Resize(small, small.size + 1);
+            return;
+        }
+        // 不够数：城区边上(离城心由近及远、不在城区里)新建一片小厂区
+        WorldTile center = city.getTile();
+        HashSet<int> built = PureMapPatch.BuiltZones(city);
+        if (center == null || built == null) return;
+        int tries = 0;
+        foreach (TileZone zone in city.zones.Where(zone => zone?.centerTile != null && !built.Contains(zone.id) && zone != center.zone)
+                     .OrderBy(zone => Toolbox.SquaredDistTile(zone.centerTile, center)).ToList())
+        {
+            if (++tries > 16) break;
+            Place(zone.centerTile, 1, out FactorySite placed);
+            if (placed != null) return;
+        }
     }
 
     #endregion
