@@ -2800,6 +2800,8 @@ namespace EmpireCraft.Scripts.AI
             if (NationalSentimentSystem.InSameUnitedFront(initiator, target)) return false;
             // 遗诏分治的兄弟之国互不征伐(见 EmpirePartitionSystem)
             if (EmpirePartitionSystem.InAmity(initiator, target)) return false;
+            // 共主与共事它的部落互不征伐，共主只打不服的、脱离的(见 TribalFissionService.Bound)
+            if (TribalFissionService.Bound(initiator, target)) return false;
             if (initiator?.capital == null || target?.capital == null || initiator == target ||
                 !target.isAlive() ||
                 !target.hasCities() || target.getAge() < SimGlobals.m.minimum_kingdom_age_for_attack ||
@@ -2829,6 +2831,7 @@ namespace EmpireCraft.Scripts.AI
         {
             if (NationalSentimentSystem.InSameUnitedFront(initiator, target)) return false;
             if (EmpirePartitionSystem.InAmity(initiator, target)) return false;
+            if (TribalFissionService.Bound(initiator, target)) return false;
             if (initiator == null || target == null || initiator == target || !initiator.IsEmpire() ||
                 !target.isAlive() || target.IsInSameEmpire(initiator)) return false;
             Empire empire = initiator.GetEmpire();

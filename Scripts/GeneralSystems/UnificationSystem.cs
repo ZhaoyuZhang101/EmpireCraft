@@ -462,7 +462,9 @@ public static class UnificationSystem
         if (!Rivals.TryGetValue(unifier.id, out List<Kingdom> rivals) || rivals.Count == 0) return;
         int wars = unifier.getWars().Count(war => IsUnificationWar(war));
         if (wars >= MaxWars || CorpsSystem.CannotFundWar(unifier) || WarGoalSystem.FightingForSurvival(unifier)) return;
-        List<Kingdom> open = rivals.Where(rival => Alive(rival) && Sovereign(rival) == rival && !unifier.isInWarWith(rival)).ToList();
+        // 共事本部落联盟的部落不打(见 TribalFissionService.Bound)
+        List<Kingdom> open = rivals.Where(rival => Alive(rival) && Sovereign(rival) == rival && !unifier.isInWarWith(rival) &&
+                                                   !TribalFissionService.Bound(unifier, rival)).ToList();
         Kingdom target = open.FirstOrDefault(rival => Borders(unifier, rival));
         if (target == null) return;
         War war = World.world.diplomacy.startWar(unifier, target, WarTypeLibrary.normal);
