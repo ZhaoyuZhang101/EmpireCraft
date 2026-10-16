@@ -68,6 +68,8 @@ public static class SpeechFreedomSystem
             .SelectMany(kingdom => kingdom.cities)
             .Where(city => city != null && !city.isRekt() && city.units != null && city.hasBookSlots()).ToList();
         if (cities.Count == 0) return;
+        // 不到 4 城的小国按城数折算出版的机会(现代小国林立时，以前每国每年都至少出一本，书多到卡)
+        if (cities.Count < 4 && UnityEngine.Random.value > cities.Count / 4f) return;
         int books = clauses.speech switch
         {
             ConstitutionSpeech.Free => Mathf.Clamp(cities.Count / 6, 1, 6),

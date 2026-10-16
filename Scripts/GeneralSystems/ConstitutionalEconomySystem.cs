@@ -179,6 +179,9 @@ public static class ConstitutionalEconomySystem
 
     #endregion
 
+    // 一年约 60 秒世界时间(见 GoodsLedger.YearSeconds)
+    private const double FirstYearSpreadSeconds = 60d;
+
     #region 年度更新（唯一会改动状态的入口）
 
     public static void Update(Empire empire)
@@ -217,7 +220,10 @@ public static class ConstitutionalEconomySystem
         NationalSentimentSystem.UpdateWorld();
         // 土崩瓦解：各省响应(自带月度计时)
         ProvincialCollapseSystem.Monthly(empire);
-        if (state.last_economy_update >= 0 && Date.getYearsSince(state.last_economy_update) < 1) return;
+        // 新国家的年度结算错开一年里的随机时点：现代一下子建政的一大批国家不再挤在同一时刻结算(以前一到年底就卡)
+        if (state.last_economy_update < 0)
+            state.last_economy_update = World.world.getCurWorldTime() - UnityEngine.Random.value * FirstYearSpreadSeconds;
+        if (Date.getYearsSince(state.last_economy_update) < 1) return;
         state.last_economy_update = World.world.getCurWorldTime();
         PruneTrade(state);
         // 与别的帝国同色(分裂/延续出来的帝国沿用了原色)时换色；旧存档也在这里修正
