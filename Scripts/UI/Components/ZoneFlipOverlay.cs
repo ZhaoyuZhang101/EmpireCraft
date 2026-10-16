@@ -178,7 +178,7 @@ public static class ZoneFlipOverlay
         _mesh.SetColors(Colors);
         _mesh.SetTriangles(Triangles, 0);
         _renderer.sortingLayerID = source.sortingLayerID;
-        _renderer.sortingOrder = source.sortingOrder + 1;
+        _renderer.sortingOrder = source.sortingOrder + 2;
         if (!_renderer.enabled) _renderer.enabled = true;
     }
 

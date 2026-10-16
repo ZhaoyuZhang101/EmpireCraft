@@ -12,7 +12,9 @@ namespace EmpireCraft.Scripts.UI.Components;
 // 高德式(2026-10-14 用户选定)：土路浅灰、驿道白、官道浅黄、公路黄、柏油公路橙；驿道以上两侧描一道深色细边，
 // 任何国色上都看得清；
 // 换了地图图层(底色全变)半秒后重画一次。
-// 城市与道路不按远近隐藏，跟着地形浮雕开关走(关掉就不画，见 PureMapPatch.CitiesShown)；城市图层也画(不要求纯净地图)。
+// 地形浮雕关掉就不画(见 PureMapPatch.CitiesShown)；城市图层也画(不要求纯净地图)。
+// 分级显示(见 MapZoomTier)：干线(官道、公路、柏油公路)一张图，中景起出现；支线(土路、驿道)与城外的巷子、零散房屋另一张图，
+// 近景起出现。城市图层、规划视图不分级，一直全显示。
 public static class RoadOverlay
 {
     private const float RedrawSeconds = 20f, MinRedrawSeconds = 10f;
@@ -22,16 +24,23 @@ public static class RoadOverlay
         new(0, 0, 0, 0), new(238, 232, 220, 170), new(255, 255, 255, 215), new(255, 240, 170, 235),
         new(255, 216, 110, 245), new(255, 176, 70, 250)
     };
+    // 干线：官道及以上
+    private const int MajorGrade = 3;
     // 描边(驿道以上)
     private static readonly Color32 Casing = new(110, 92, 74, 120);
     private static object _layer;
     private static int _layerOption = -1;
 
-    private static GameObject _object;
-    private static SpriteRenderer _renderer;
-    private static Texture2D _texture;
-    private static Color32[] _pixels;
-    private static readonly List<int> Painted = new();
+    private sealed class Sheet
+    {
+        public GameObject Object;
+        public SpriteRenderer Renderer;
+        public Texture2D Texture;
+        public Color32[] Pixels;
+        public readonly List<int> Painted = new();
+    }
+
+    private static Sheet _major, _minor;
     private static int _drawnVersion = -1;
     private static float _drawnAt = -1000f;
 
@@ -42,16 +51,16 @@ public static class RoadOverlay
         // 纯净地图，或城市图层(不论纯净地图开没开)
         if (!PureMapMode.Enabled && !EmpireCraft.Scripts.Layer.CityViewMap.Active || source?.sprite == null)
         {
-            if (_renderer != null) _renderer.enabled = false;
+            if (_major?.Renderer != null) _major.Renderer.enabled = false;
+            if (_minor?.Renderer != null) _minor.Renderer.enabled = false;
             return;
         }
         if (!Ensure(zones, source)) return;
-        float alpha = ZoomAlpha();
-        _renderer.enabled = source.enabled && alpha > 0.01f;
-        _renderer.color = new Color(1f, 1f, 1f, alpha);
-        _renderer.sortingLayerID = source.sortingLayerID;
-        // 城市精细层(+1，见 CityDetailOverlay)之上
-        _renderer.sortingOrder = source.sortingOrder + 2;
+        float shown = PureMapPatch.CitiesShown ? 1f : 0f;
+        // 城市图层、规划视图不分级
+        bool tiered = !EmpireCraft.Scripts.Layer.CityViewMap.Active && !ZonePlanSystem.SteadyOverlay;
+        Show(_major, source, shown * (tiered ? MapZoomTier.Past(MapZoomTier.Mid) : 1f), 3);
+        Show(_minor, source, shown * (tiered ? MapZoomTier.Past(MapZoomTier.Near) : 1f), 3);
         float now = Time.unscaledTime;
         // 换了地图图层：底色全变，半秒后(色块重画完)重画路
         MetaTypeAsset layer = World.world.getCachedMapMetaAsset();
@@ -70,37 +79,49 @@ public static class RoadOverlay
         using (FrameProfiler.Measure("路网·贴图重画")) Redraw();
     }
 
-    private static float ZoomAlpha()
+    private static void Show(Sheet sheet, SpriteRenderer source, float alpha, int order)
     {
-        // 不按远近淡入淡出；地形浮雕关掉时不画(城市图层、规划视图照画)
-        return PureMapPatch.CitiesShown ? 1f : 0f;
+        sheet.Renderer.enabled = source.enabled && alpha > 0.01f;
+        sheet.Renderer.color = new Color(1f, 1f, 1f, alpha);
+        sheet.Renderer.sortingLayerID = source.sortingLayerID;
+        // 地形底(+1)、城市精细层(+2，见 CityDetailOverlay)之上
+        sheet.Renderer.sortingOrder = source.sortingOrder + order;
     }
 
     private static bool Ensure(ZoneCalculator zones, SpriteRenderer source)
     {
         int width = MapBox.width, height = MapBox.height;
         if (width <= 0 || height <= 0) return false;
-        if (_object != null && _texture != null && _texture.width == width && _texture.height == height &&
-            _object.transform.parent == zones.transform)
-            return true;
-        if (_object != null) Object.Destroy(_object);
-        _texture = new Texture2D(width, height, TextureFormat.RGBA32, false)
+        if (Valid(_major, zones, width, height) && Valid(_minor, zones, width, height)) return true;
+        _major = Create("EmpireCraftRoadsMajor", _major, zones, source, width, height);
+        _minor = Create("EmpireCraftRoadsMinor", _minor, zones, source, width, height);
+        _drawnAt = -1000f;
+        return true;
+    }
+
+    private static bool Valid(Sheet sheet, ZoneCalculator zones, int width, int height) =>
+        sheet?.Object != null && sheet.Texture != null && sheet.Texture.width == width && sheet.Texture.height == height &&
+        sheet.Object.transform.parent == zones.transform;
+
+    private static Sheet Create(string name, Sheet old, ZoneCalculator zones, SpriteRenderer source, int width, int height)
+    {
+        if (old?.Object != null) Object.Destroy(old.Object);
+        var sheet = new Sheet
         {
-            name = "EmpireCraftRoads",
-            filterMode = FilterMode.Point,
-            wrapMode = TextureWrapMode.Clamp
+            Texture = new Texture2D(width, height, TextureFormat.RGBA32, false)
+            {
+                name = name, filterMode = FilterMode.Point, wrapMode = TextureWrapMode.Clamp
+            },
+            Pixels = new Color32[width * height]
         };
-        _pixels = new Color32[width * height];
         // 与色块图层同一锚点、同一比例，叠在它的正上方
         Sprite reference = source.sprite;
         var pivot = new Vector2(reference.pivot.x / reference.rect.width, reference.pivot.y / reference.rect.height);
-        _object = new GameObject("EmpireCraftRoadOverlay");
-        _object.transform.SetParent(zones.transform, false);
-        _renderer = _object.AddComponent<SpriteRenderer>();
-        _renderer.sprite = Sprite.Create(_texture, new Rect(0f, 0f, width, height), pivot, reference.pixelsPerUnit);
-        Painted.Clear();
-        _drawnAt = -1000f;
-        return true;
+        sheet.Object = new GameObject(name);
+        sheet.Object.transform.SetParent(zones.transform, false);
+        sheet.Renderer = sheet.Object.AddComponent<SpriteRenderer>();
+        sheet.Renderer.sprite = Sprite.Create(sheet.Texture, new Rect(0f, 0f, width, height), pivot, reference.pixelsPerUnit);
+        return sheet;
     }
 
     private static readonly Dictionary<int, bool> BuiltZones = new();
@@ -108,33 +129,46 @@ public static class RoadOverlay
     private static void Redraw()
     {
         BuiltZones.Clear();
-        foreach (int id in Painted) _pixels[id] = Clear;
-        Painted.Clear();
+        Clean(_major);
+        Clean(_minor);
         WorldTile[] tiles = World.world.tiles_list;
-        foreach (int id in RoadNetwork.LaneTileIds) Paint(id, Lane);
+        foreach (int id in RoadNetwork.LaneTileIds) Paint(_minor, id, Lane);
         foreach (int id in RoadNetwork.BuildingTileIds)
-            if (Outside(tiles, id)) Paint(id, Building);
-        // 先描边(路两侧不是路的格)，再画路面，路面压在描边上
+            if (Outside(tiles, id)) Paint(_minor, id, Building);
+        // 先描边(路两侧不是路的格)，再画路面，路面压在描边上；描边跟着各自那一级的路
         var roads = RoadNetwork.RoadTileGrades;
         foreach (var pair in roads)
         {
             if (pair.Value < 2 || !Outside(tiles, pair.Key)) continue;
+            Sheet sheet = pair.Value >= MajorGrade ? _major : _minor;
             WorldTile tile = tiles[pair.Key];
             foreach (WorldTile next in tile.neighbours ?? global::System.Array.Empty<WorldTile>())
             {
                 int id = next?.data?.tile_id ?? -1;
-                if (id < 0 || roads.ContainsKey(id) || _pixels[id].a > 0 || !Outside(tiles, id)) continue;
-                Paint(id, Casing);
+                if (id < 0 || roads.ContainsKey(id) || sheet.Pixels[id].a > 0 || !Outside(tiles, id)) continue;
+                Paint(sheet, id, Casing);
             }
         }
         foreach (var pair in roads)
         {
             if (!Outside(tiles, pair.Key)) continue;
             int grade = Mathf.Clamp(pair.Value, 1, Grades.Length - 1);
-            Paint(pair.Key, Grades[grade]);
+            Paint(grade >= MajorGrade ? _major : _minor, pair.Key, Grades[grade]);
         }
-        _texture.SetPixels32(_pixels);
-        _texture.Apply(false);
+        Upload(_major);
+        Upload(_minor);
+    }
+
+    private static void Clean(Sheet sheet)
+    {
+        foreach (int id in sheet.Painted) sheet.Pixels[id] = Clear;
+        sheet.Painted.Clear();
+    }
+
+    private static void Upload(Sheet sheet)
+    {
+        sheet.Texture.SetPixels32(sheet.Pixels);
+        sheet.Texture.Apply(false);
     }
 
     // 城里建成的地块有自己的街格，路不压上去
@@ -147,10 +181,10 @@ public static class RoadOverlay
         return !built;
     }
 
-    private static void Paint(int id, Color32 color)
+    private static void Paint(Sheet sheet, int id, Color32 color)
     {
-        if (id < 0 || id >= _pixels.Length) return;
-        _pixels[id] = color;
-        Painted.Add(id);
+        if (id < 0 || id >= sheet.Pixels.Length) return;
+        sheet.Pixels[id] = color;
+        sheet.Painted.Add(id);
     }
 }
