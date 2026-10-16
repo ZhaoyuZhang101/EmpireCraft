@@ -926,7 +926,7 @@ public partial class PureMapPatch : GamePatch
             {
                 case PlanUse.Park: return Lerp(color, (tile.x * 7 + tile.y * 3) % 5 == 0 ? ParkTree : ParkLawn, 0.6f);
                 case PlanUse.Keep: return Lerp(color, (tile.x + tile.y) % 3 == 0 ? ParkTree : KeepWood, 0.65f);
-                case PlanUse.Farm: return Scale(color, tile.y % 2 == 0 ? 0.84f : 0.97f);
+                case PlanUse.Farm: return Lerp(color, tile.y % 3 == 0 ? UrbanFabric.FieldFurrow : UrbanFabric.FieldCrop, 0.85f);
             }
         }
         // 原始聚落：环壕或围垣、小屋点、广场；城外不画路、镇(那时还没有)，划了农田的照画垄沟
@@ -975,8 +975,8 @@ public partial class PureMapPatch : GamePatch
         // 城外：村镇、田块；工业化以后的新城区(见 UrbanFabric)
         if (!built && fabric != null && UrbanFabric.Tile(tile, color, fabric, false, use, out Color32 outside))
             return outside;
-        // 农耕区：垄沟条纹(见 UrbanFabric.Farmland)，不画成浅色田块——AI 缺粮时会把各城至多一半的地块划成农田，
-        // 浅色田块加白田埂满地像城区；阿兹特克的水上田园每三行一道水渠
+        // 农耕区：一小块一小块的条田(见 UrbanFabric.Farmland)，块间留空地——AI 缺粮时会把各城至多一半的地块划成农田，
+        // 整片涂满就成了大片；阿兹特克的水上田园每三行一道水渠
         if (use == ZoneUse.Farm)
         {
             if (plan?.family == "aztec") return tile.y % 3 == 0 ? Lerp(color, Chinampa, 0.5f) : color;

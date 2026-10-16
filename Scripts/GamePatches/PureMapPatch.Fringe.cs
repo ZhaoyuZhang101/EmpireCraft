@@ -7,7 +7,7 @@ namespace EmpireCraft.Scripts.GamePatches;
 // 从城边(精细图上画了城的格子：街坊、城墙、大道、新城区)往外量格数，加一点噪声，边不跟着格子走：
 //   · 一格多以内：城根下的土院子，稀稀拉拉几户人家；
 //   · 三格多以内：菜园(一垄垄)、果园(一行行树)、空院；
-//   · 六格半以内：田块(庄稼色，越远越稀)、一丛丛树林；
+//   · 六格半以内：一小块一小块的条田(见 FieldColor，越远越稀，块间留空地)、一丛丛树林；
 //   · 地面颜色从城边的土黄绿慢慢过渡回国色。
 // 只画在本城或无主的陆地上；画在村镇、田块、小路之前，它们照旧压在上面。
 public partial class PureMapPatch
@@ -15,7 +15,6 @@ public partial class PureMapPatch
     private const int FringeReach = 7;
     private static readonly Color32 FringeSoft = Rgb(178, 192, 128), FringeVegA = Rgb(104, 156, 86), FringeVegB = Rgb(146, 188, 106),
         FringeOrchard = Rgb(164, 192, 118), FringeOrchardTree = Rgb(64, 112, 58), FringeWood = Rgb(72, 120, 64), FringeWoodLit = Rgb(96, 146, 80);
-    private static readonly Color32[] FringeCrops = { Rgb(214, 196, 112), Rgb(178, 196, 104), Rgb(200, 206, 130), Rgb(160, 182, 96) };
 
     // 二维值噪声(0~1)
     private static float DetailNoise2(float x, float y, float cell, long seed)
@@ -27,6 +26,24 @@ public partial class PureMapPatch
         sy = sy * sy * (3f - 2f * sy);
         float a = DetailHash(seed, ix, iy), b = DetailHash(seed, ix + 1, iy), c = DetailHash(seed, ix, iy + 1), d = DetailHash(seed, ix + 1, iy + 1);
         return Mathf.Lerp(Mathf.Lerp(a, b, sx), Mathf.Lerp(c, d, sx), sy);
+    }
+
+    // 城郊的条田：每 16×12 像素一格，格里一块八到十二像素宽、五到八像素高的田(位置随机，四周留空地)；
+    // 格子正中离城边三格半到六格半才种，越远越稀
+    private static bool FringeField(int[] dist, int w, int h, int px, int py, long seed, out bool vertical)
+    {
+        const int cw = 16, ch = 12;
+        int s = DetailScale, shift = py / ch * 5, col = (px + shift) / cw, row = py / ch, ix = (px + shift) % cw, iy = py % ch;
+        vertical = DetailHash(seed, col, row, 605) < 0.4f;
+        int fw = 8 + (int)(DetailHash(seed, col, row, 607) * 5), fh = 5 + (int)(DetailHash(seed, col, row, 608) * 4);
+        int ox = 1 + (int)(DetailHash(seed, col, row, 609) * (cw - fw - 1)), oy = 1 + (int)(DetailHash(seed, col, row, 610) * (ch - fh - 1));
+        if (ix < ox || ix >= ox + fw || iy < oy || iy >= oy + fh) return false;
+        int mx = col * cw - shift + cw / 2, my = row * ch + ch / 2;
+        int tx = Mathf.Clamp(mx / s, 0, w - 1), ty = Mathf.Clamp(my / s, 0, h - 1);
+        int baseDist = dist[ty * w + tx];
+        if (baseDist <= 0 || baseDist > FringeReach) return false;
+        float d = baseDist - 0.5f + (DetailNoise2(mx, my, 7f, seed + 600) - 0.5f) * 2.2f;
+        return d >= 3.4f && d <= 6.5f && DetailHash(seed, col, row, 604) <= 1f - (d - 3.4f) / 3.1f * 0.75f;
     }
 
     private static void DrawFringe(Canvas c, DetailStyle style, Color32 tint, long seed)
@@ -69,6 +86,12 @@ public partial class PureMapPatch
             int baseDist = dist[py / s * w + px / s];
             if (baseDist <= 0 || baseDist > FringeReach) continue;
             float d = baseDist - 0.5f + (DetailNoise2(px, py, 7f, seed + 600) - 0.5f) * 2.2f;
+            // 条田：按格子定一块田的大小、位置与种不种(看格子正中离城边多远)，块里的像素整块画，不随每个像素的远近参差
+            if (d >= 3.4f && FringeField(dist, w, h, px, py, seed, out bool vertical))
+            {
+                c.Put(px, py, FieldColor(tint, px, py, vertical), KEmpty);
+                continue;
+            }
             if (d > 6.5f) continue;
             // 地色往城边过渡：城边是土黄绿，往外慢慢回到国色
             float k = Mathf.Max(0f, 1f - d / 6.5f);
@@ -100,16 +123,6 @@ public partial class PureMapPatch
             {
                 c.Put(px, py, DetailHash(seed, px, py, 603) < 0.5f ? FringeWood : FringeWoodLit, KEmpty);
                 continue;
-            }
-            {
-                const int cw = 16, ch = 12;
-                int shift = py / ch * 5, col = (px + shift) / cw, row = py / ch;
-                if ((px + shift) % cw == 0 || py % ch == 0) continue;
-                if (DetailHash(seed, col, row, 604) > 1f - (d - 3.4f) / 3.1f * 0.75f) continue;
-                Color32 crop = FringeCrops[Mathf.Clamp((int)(DetailHash(seed, col, row, 606) * FringeCrops.Length), 0, FringeCrops.Length - 1)];
-                int orientation = (int)(DetailHash(seed, col, row, 605) * 3f);
-                bool line = orientation switch { 0 => py % 3 == 0, 1 => px % 3 == 0, _ => (px + py) % 4 == 0 };
-                c.Put(px, py, line ? Darker(crop, 0.82f) : crop, KEmpty);
             }
         }
         // 城根下几户人家

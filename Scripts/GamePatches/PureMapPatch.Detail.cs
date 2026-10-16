@@ -33,7 +33,7 @@ public partial class PureMapPatch
         TreeDark = Rgb(92, 146, 80), TreeLight = Rgb(128, 178, 106), Palm = Rgb(86, 140, 70), Dirt = Rgb(214, 196, 160),
         Thatch = Rgb(156, 132, 92), Threshing = Rgb(232, 220, 190), Stall = Rgb(200, 120, 70), StallLight = Rgb(220, 150, 90),
         TempleRoof = Rgb(82, 70, 64), TempleYard = Rgb(226, 216, 196), Garden = Rgb(170, 196, 130), Workshop = Rgb(132, 110, 90),
-        Furrow = new(0, 0, 0, 52), FieldTint = new(255, 240, 180, 18), WaterBlue = Rgb(140, 185, 235), Ripple = Rgb(176, 210, 240),
+        WaterBlue = Rgb(140, 185, 235), Ripple = Rgb(176, 210, 240),
         White = Rgb(255, 255, 255), Fence = Rgb(124, 96, 64);
     private static readonly Color32[] SlateRoofs = { Rgb(96, 98, 108), Rgb(104, 102, 108), Rgb(90, 94, 104), Rgb(110, 106, 100), Rgb(98, 92, 96) };
 
@@ -528,12 +528,19 @@ public partial class PureMapPatch
         }
     }
 
+    // 农田一律画成条田(用户 2026-10-17 "农田不要用奇怪的纹路了，就用这个绿黄色条纹的""一小块一小块就行""不要大片")：
+    // 庄稼色与垄沟色相间，每三行(列)一道垄沟，横条或竖条；村边、城郊、农耕区都是一小块一小块，块间留空地
+    private static readonly Color32 FieldCropColor = Rgb(186, 196, 110), FieldFurrowColor = Rgb(150, 128, 84);
+
+    private static Color32 FieldColor(Color32 tint, int px, int py, bool vertical) =>
+        Lerp(tint, ((vertical ? px : py) % 3 + 3) % 3 == 0 ? FieldFurrowColor : FieldCropColor, 0.85f);
+
     // 城外刷的农田、绿地、保护区(见 TilePlanSystem)：画在城郊过渡带、村镇小路之上，村镇的房子不动
     private static void DrawPlanCountryside(Canvas c, CityPlan plan, Color32 tint, long seed)
     {
         if (!TilePlanSystem.Any) return;
         int s = DetailScale;
-        Color32 furrow = Lerp(tint, Rgb(150, 128, 84), 0.85f), crop = Lerp(tint, Rgb(186, 196, 110), 0.85f),
+        Color32 furrow = Lerp(tint, FieldFurrowColor, 0.85f), crop = Lerp(tint, FieldCropColor, 0.85f),
             lawn = Lerp(tint, ParkLawn, 0.85f), tree = Lerp(tint, ParkTree, 0.9f), wood = Lerp(tint, KeepWood, 0.9f),
             woodLit = Lerp(tint, Rgb(84, 140, 72), 0.9f);
         for (int ty = 0; ty < c.H; ty++)
@@ -1113,7 +1120,7 @@ public partial class PureMapPatch
                 Trees(c, style, x0, y0, x1, y1, seed + 1);
                 return;
             case PlanUse.Farm:
-                Plots(c, x0, y0, x1, y1, w > h);
+                Plots(c, x0, y0, x1, y1, w > h, seed);
                 return;
             case PlanUse.None:
                 break;
@@ -1137,7 +1144,7 @@ public partial class PureMapPatch
         }
         if (planned == PlanUse.None && (use == ZoneUse.Farm || icon == null && r < 0.55f))
         {
-            Plots(c, x0, y0, x1, y1, w > h);
+            Plots(c, x0, y0, x1, y1, w > h, seed);
             return;
         }
         if (plan.ruin > 0f && DetailHash(seed, 12) < plan.ruin)
@@ -1545,12 +1552,20 @@ public partial class PureMapPatch
     }
 
     // 菜园：一畦一畦
-    private static void Plots(Canvas c, int x0, int y0, int x1, int y1, bool horizontal)
+    // 农耕区的地块：几块条田(见 FieldColor)，块间、四周留空地，约三成的块不种
+    private static void Plots(Canvas c, int x0, int y0, int x1, int y1, bool horizontal, long seed)
     {
-        Color32 dark = Lerp(c.Block, Rgb(150, 180, 110), 0.6f), light = Lerp(c.Block, Garden, 0.7f);
-        for (int py = y0 + 1; py < y1; py++)
-        for (int px = x0 + 1; px < x1; px++)
-            Paint(c, px, py, ((horizontal ? py : px) & 1) == 0 ? dark : light, KGround);
+        for (int by = y0 + 1; by < y1 - 3; by += 9)
+        for (int bx = x0 + 1; bx < x1 - 4; bx += 12)
+        {
+            if (DetailHash(seed, bx, by, 611) > 0.7f) continue;
+            int w = Mathf.Min(x1 - bx, 8 + (int)(DetailHash(seed, bx, by, 612) * 3));
+            int h = Mathf.Min(y1 - by, 5 + (int)(DetailHash(seed, bx, by, 613) * 2));
+            bool vertical = DetailHash(seed, bx, by, 614) < (horizontal ? 0.3f : 0.7f);
+            for (int py = by; py < by + h; py++)
+            for (int px = bx; px < bx + w; px++)
+                Paint(c, px, py, FieldColor(c.Block, px, py, vertical), KGround);
+        }
     }
 
     // 废墟：残墙断瓦
@@ -1688,37 +1703,58 @@ public partial class PureMapPatch
             index++;
             if (!Swallowed(px, py)) Village(c, style, tint, px, py, dirt, ground, seed + 3000 * index);
         }
-        // 田块：大小不一的格子田拼成一片，田块中心离村镇不远就整块画；田块之间留一像素田埂(阿兹特克是水上浮田)
-        var centers = new List<(int x, int y, int r)>();
-        foreach ((int x, int y) in g.Villages) centers.Add(((x - c.X0) * s + 2, (y - c.Y0) * s + 2, 6 * s));
-        foreach ((int x, int y, int townSize, _) in g.Towns) centers.Add(((x - c.X0) * s + 2, (y - c.Y0) * s + 2, (townSize + 5) * s));
-        foreach ((int x, int y, int r) in centers)
-        for (int py = Mathf.Max(0, y - r - 16); py <= Mathf.Min(c.PH - 1, y + r + 16); py++)
-        for (int px = Mathf.Max(0, x - r - 16); px <= Mathf.Min(c.PW - 1, x + r + 16); px++)
+        // 田块：村镇四周散着几块条田(见 FieldColor)，一块八到十三像素宽、六到九像素高，块与块之间至少留三像素空地；
+        // 只种在本城能耕的空地上，一块里能种的不到七成就换个地方(阿兹特克是水上浮田)
+        var fields = new List<(int x0, int y0, int x1, int y1)>();
+        bool Farmable(int px, int py)
         {
-            if (c.Kind(px, py) != KEmpty) continue;
-            int row = py / 18, colW = 14 + (int)(DetailHash(seed, row, 85) * 12), shift = (int)(DetailHash(seed, row, 86) * colW);
-            int col = (px + shift) / colW, inRow = py - row * 18, inCol = px + shift - col * colW;
-            if (inRow == 0 || inCol == 0) continue;
-            float pcx = col * colW - shift + colW / 2f, pcy = row * 18 + 9f;
-            bool near = false;
-            foreach ((int vx, int vy, int vr) in centers)
-                if ((pcx - vx) * (pcx - vx) + (pcy - vy) * (pcy - vy) <= vr * vr)
-                {
-                    near = true;
-                    break;
-                }
-            if (!near || DetailHash(seed, col, row, 81) < 0.25f) continue;
+            if (c.Kind(px, py) != KEmpty) return false;
             WorldTile tile = c.Tile(px, py);
-            if (tile?.Type == null || !tile.Type.can_be_farm && !tile.Type.farm_field || tile.zone?.city != c.City) continue;
-            if (style.Layout == "canal")
+            return tile?.Type != null && (tile.Type.can_be_farm || tile.Type.farm_field) && tile.zone?.city == c.City;
+        }
+        void Fields(int cx, int cy, int count, float reach, long key)
+        {
+            int placed = 0;
+            for (int attempt = 0; attempt < count * 4 && placed < count; attempt++)
             {
-                if (py % 4 == 0) c.Put(px, py, new Color32(140, 185, 235, 160), KEmpty);
-                continue;
+                float angle = DetailHash(key, attempt, 621) * Mathf.PI * 2f, dist = reach * (0.35f + 0.65f * DetailHash(key, attempt, 622));
+                int w = 8 + (int)(DetailHash(key, attempt, 623) * 6), h = 6 + (int)(DetailHash(key, attempt, 624) * 4);
+                int x0 = Mathf.RoundToInt(cx + Mathf.Cos(angle) * dist) - w / 2, y0 = Mathf.RoundToInt(cy + Mathf.Sin(angle) * dist) - h / 2;
+                int x1 = x0 + w - 1, y1 = y0 + h - 1;
+                if (fields.Exists(f => x0 <= f.x1 + 3 && x1 >= f.x0 - 3 && y0 <= f.y1 + 3 && y1 >= f.y0 - 3)) continue;
+                int ok = 0;
+                for (int py = y0; py <= y1; py++)
+                for (int px = x0; px <= x1; px++)
+                    if (Farmable(px, py)) ok++;
+                if (ok * 10 < w * h * 7) continue;
+                fields.Add((x0, y0, x1, y1));
+                placed++;
+                bool vertical = DetailHash(key, attempt, 625) < 0.4f;
+                for (int py = y0; py <= y1; py++)
+                for (int px = x0; px <= x1; px++)
+                {
+                    if (!Farmable(px, py)) continue;
+                    if (style.Layout == "canal")
+                    {
+                        if (py % 4 == 0) c.Put(px, py, new Color32(140, 185, 235, 160), KEmpty);
+                        continue;
+                    }
+                    c.Put(px, py, FieldColor(tint, px, py, vertical), KEmpty);
+                }
             }
-            int orientation = (int)(DetailHash(seed, col, row, 82) * 3);
-            bool line = orientation switch { 0 => py % 3 == 0, 1 => px % 3 == 0, _ => (px + py) % 4 == 0 };
-            c.Put(px, py, line ? Furrow : FieldTint, KEmpty);
+        }
+        index = 0;
+        foreach ((int x, int y) in g.Villages)
+        {
+            index++;
+            Fields((x - c.X0) * s + 2, (y - c.Y0) * s + 2, 4 + (int)(DetailHash(seed, index, 626) * 3), 7f * s, seed + 7000 + index * 37L);
+        }
+        index = 0;
+        foreach ((int x, int y, int townSize, _) in g.Towns)
+        {
+            index++;
+            Fields((x - c.X0) * s + 2, (y - c.Y0) * s + 2, 6 + (int)(DetailHash(seed, index, 627) * 4), (townSize + 6) * s,
+                seed + 9000 + index * 41L);
         }
     }
 

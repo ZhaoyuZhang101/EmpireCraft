@@ -1228,8 +1228,11 @@ public static class UrbanFabric
         return true;
     }
 
-    // 农耕区(城市规划划的农田)：不是整块地齐刷刷的横条，而是大小不一的田块拼起来——每块一种作物色、
-    // 垄沟横、竖、斜或是草场，田块之间有田埂；挨着不是农田的地方边缘参差，留出几格原野
+    // 农耕区(城市规划划的农田；用户 2026-10-17 "农田不要用奇怪的纹路了，就用这个绿黄色条纹的""一小块一小块就行""不要大片"，
+    // 替掉 2026-10-14 的压暗垄沟条纹)：一小块一小块的条田——每行高四格(田三格、空一格)，每块宽五到七格(田占去一格空地，
+    // 各行错开)，约六成的块种上；田里庄稼色与垄沟色相间(每三行或三列一道垄沟)；挨着不是农田的地方边缘参差，留出几格原野
+    public static readonly Color32 FieldCrop = new(186, 196, 110, 255), FieldFurrow = new(150, 128, 84, 255);
+
     public static Color32 Farmland(Geometry g, WorldTile tile, Color32 color)
     {
         TileZone zone = tile.zone;
@@ -1241,24 +1244,14 @@ public static class UrbanFabric
         if (!IsFarm(g, zone.x, zone.y - 1)) edge = Mathf.Min(edge, ly);
         if (!IsFarm(g, zone.x, zone.y + 1)) edge = Mathf.Min(edge, size - 1 - ly);
         if (edge < 3f * Noise(tile.x, tile.y, 4f, g.Seed + 30) - 0.5f) return color;
-        // 田块：先把坐标扭一扭，再按行切、每行按不同宽度切
-        float fx = tile.x + 3f * Noise(tile.x, tile.y, 11f, g.Seed + 31), fy = tile.y + 3f * Noise(tile.x, tile.y, 11f, g.Seed + 32);
-        float rowHeight = 4f + 3f * H(g.Seed, Mathf.FloorToInt(fx / 16f), 33);
-        int row = Mathf.FloorToInt(fy / rowHeight);
-        float width = 4f + 5f * H(g.Seed, row, 34);
-        int column = Mathf.FloorToInt((fx + row * 2.3f) / width);
-        float inRow = fy - row * rowHeight, inColumn = fx + row * 2.3f - column * width;
-        // 垄沟条纹(用户 2026-10-14 选定)：只把国色压暗成细条纹，每块田一个朝向(横、竖、两种斜)，田块之间不画线——
-        // 不掺别的颜色，任何国色上都不脏，也和城区(浅色街区、白色街)一眼分得开
-        int furrow = (int)(H(g.Seed, column, row, 36) * 4);
-        bool line = furrow switch
-        {
-            0 => tile.y % 2 == 0,
-            1 => tile.x % 2 == 0,
-            2 => (tile.x + tile.y) % 3 == 0,
-            _ => ((tile.x - tile.y) % 3 + 3) % 3 == 0
-        };
-        return Darken(color, line ? 0.84f : 0.97f);
+        int row = Mathf.FloorToInt(tile.y / 4f), inRow = tile.y - row * 4;
+        if (inRow == 3) return color;
+        int width = 5 + (int)(H(g.Seed, row, 34) * 3), shift = (int)(H(g.Seed, row, 35) * width);
+        int column = Mathf.FloorToInt((tile.x + shift) / (float)width), inColumn = tile.x + shift - column * width;
+        if (inColumn == width - 1 || H(g.Seed, column, row, 36) > 0.6f) return color;
+        bool vertical = H(g.Seed, column, row, 37) < 0.4f;
+        bool furrow = ((vertical ? tile.x : tile.y) % 3 + 3) % 3 == 0;
+        return Mix(color, furrow ? FieldFurrow : FieldCrop, 0.85f);
     }
 
     private static bool IsFarm(Geometry g, int zx, int zy)
