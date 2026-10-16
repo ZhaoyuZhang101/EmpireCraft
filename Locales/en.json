@@ -5444,5 +5444,7 @@
   "lineage_next": "Next",
   "lineage_page": "Page {0}/{1} · {2} rulers",
   "history_event_page": "Events {0}/{1} · {2} records",
-  "EmpireHistoryWindow Title": "Ruler Lineage"
+  "EmpireHistoryWindow Title": "Ruler Lineage",
+  "empirecraft_actor_clan_main": "House {0} (main line)",
+  "empirecraft_actor_clan_branch": "House {0} · {1}"
 }
