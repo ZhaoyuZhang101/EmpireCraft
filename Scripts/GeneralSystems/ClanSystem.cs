@@ -288,9 +288,15 @@ public class SpecificClan
     }
 
     [JsonIgnore] private bool? _patrilineal;
+    [JsonIgnore] private string _lineCulture;
 
-    // 华夏一系宗法父系(见 isMalePriority、SurnameInheritanceSystem)
-    public bool Patrilineal()
+    // 华夏一系宗法父系(见 isMalePriority、SurnameInheritanceSystem)；本文化还在母系氏族阶段时不算(见 Matrilineal)
+    public bool Patrilineal() => HuaxiaLine() && !PrehistoricClanSystem.IsMatrilineal(_lineCulture);
+
+    // 华夏一系的母系氏族阶段：孩子入母亲的氏族、随母姓(见 PrehistoricClanSystem)
+    public bool Matrilineal() => HuaxiaLine() && PrehistoricClanSystem.IsMatrilineal(_lineCulture);
+
+    private bool HuaxiaLine()
     {
         if (_patrilineal.HasValue) return _patrilineal.Value;
         string culture = SpecificClanManager.getPerson(founder)?.culture;
@@ -299,6 +305,7 @@ public class SpecificClan
         try
         {
             _patrilineal = InstitutionSystem.GetCultureLine(culture) == "Huaxia";
+            _lineCulture = culture;
         }
         catch
         {
@@ -577,6 +584,12 @@ public static class SpecificClanManager
             }
         }
         specificClan.founder = actor.GetPersonalIdentity().id;
+        // 母系氏族阶段新立的氏族取带女字旁的古姓，始祖随之改姓(见 PrehistoricClanSystem)
+        if (specificClan.Matrilineal())
+        {
+            specificClan.name = PrehistoricClanSystem.PickAncientSurname();
+            SurnameInheritanceSystem.ApplySurname(actor.GetPersonalIdentity(), specificClan.name);
+        }
         if (show_log)
         {
             TranslateHelper.LogOfficerBuildSpecificClan(actor, specificClan);
@@ -1052,6 +1065,16 @@ public static class SpecificClanManager
     }
     
     // 写：所有对 _specificClans 的 Add/Remove/Clear 必须同一把锁保护
+    // 现有各氏族的名字(取古姓时避开已用的)
+    public static HashSet<string> ClanNames()
+    {
+        var names = new HashSet<string>();
+        lock (_clansLock)
+            foreach (SpecificClan clan in _specificClans)
+                if (!string.IsNullOrEmpty(clan?.name)) names.Add(clan.name);
+        return names;
+    }
+
     public static void AddClan(SpecificClan clan)
     {
         lock (_clansLock) _specificClans.Add(clan);
@@ -1132,9 +1155,11 @@ public static class SpecificClanManager
             if (created != null)
             {
                 LinkRecordedParents(actor, created);
+                if (clanParent.sex != ActorSex.Male && clanParent._specificClan.Matrilineal()) created.matrilineal_birth = true;
                 Actor parentActor = clanParent.is_alive && !clanParent.is_virtual ? clanParent._actor : null;
                 SyncVanillaClan(actor);
-                if (clanParent._specificClan.Patrilineal() || SurnameInheritanceSystem.Reigns(parentActor))
+                if (clanParent._specificClan.Patrilineal() || clanParent._specificClan.Matrilineal() ||
+                    SurnameInheritanceSystem.Reigns(parentActor))
                     SurnameInheritanceSystem.ApplySurname(created,
                         !string.IsNullOrWhiteSpace(clanParent.surname) ? clanParent.surname : clanParent._specificClan.name);
                 return;
@@ -1232,6 +1257,8 @@ public class PersonalClanIdentity
     public long id { get; set; }
     public long specific_clan_id { get; set; }
     public long actor_id { get; set; }
+    // 生于母系氏族阶段、随母入氏(见 PrehistoricClanSystem)：读档的父系修正不把他挪回父亲那一族
+    public bool matrilineal_birth;
     public string merit = "";
     public string honoraryOfficial = "";
     public string PeeragesLevel = "";

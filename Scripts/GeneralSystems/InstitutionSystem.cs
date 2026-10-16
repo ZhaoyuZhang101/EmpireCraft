@@ -142,9 +142,11 @@ public static class InstitutionSystem
         }
         InstitutionStateNormalizer.Normalize(state);
         // 开局即初始状态：只给本线的根节点（无效果），其余一律自己研究或从别的线吸收。
+        // 根节点已被后来的制度取代(如华夏母系氏族被父系、宗法取代)就不再补回
         foreach (string rootId in InstitutionDefinitionRegistry.GetRootNodes(GetCultureLine(culture)))
         {
-            if (InstitutionDefinitionRegistry.Get(rootId) != null && !state.enacted_node_ids.Contains(rootId))
+            if (InstitutionDefinitionRegistry.Get(rootId) != null && !state.enacted_node_ids.Contains(rootId) &&
+                !IsSuperseded(state, rootId))
                 state.enacted_node_ids.Add(rootId);
         }
         return state;
@@ -554,6 +556,11 @@ public static class InstitutionSystem
 
         SyncForeignRegime(empire);
         RetryPendingRegime(empire, state);
+        // 华夏原始阶段进入家天下：帝号的类别由"部落联盟"改称"朝"
+        if (DynastyNaming.HuaxiaOrigin(empire.CoreKingdom) &&
+            !string.IsNullOrEmpty(empire.data.empire_type_key) && empire.data.empire_type_key.StartsWith("Origin_empire") &&
+            empire.data.empire_type_key != DynastyNaming.HuaxiaOriginEmpireKey(empire.CoreKingdom))
+            empire.data.empire_type_key = "";
         // 同文化的其他政权研究出来的制度，在这里把持久效果补到本政权身上
         SyncSharedEffects(empire);
         SyncGrantedTraits(empire);

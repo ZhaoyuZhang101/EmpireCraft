@@ -116,8 +116,21 @@ public class InstitutionGraphView
         _engine.ClearEdges();
         _nodeFrames.Clear();
 
+        // 等级 1 的节点同排在顶上一行，按前置链的深度从左往右排(华夏：母系→父系→部落联盟→家天下→宗法)
+        var rootDepth = new Dictionary<string, int>();
+        int Depth(InstitutionNodeConfig node, int guard)
+        {
+            if (node == null || guard > 16) return 0;
+            if (rootDepth.TryGetValue(node.id, out int known)) return known;
+            int depth = node.requires.Select(InstitutionDefinitionRegistry.Get)
+                .Where(required => required != null && required.advancement <= 1)
+                .Select(required => Depth(required, guard + 1) + 1).DefaultIfEmpty(0).Max();
+            rootDepth[node.id] = depth;
+            return depth;
+        }
         List<GraphLayout.Node> layoutNodes = lineNodes
-            .Select(view => new GraphLayout.Node(view.Node.id, view.Node.branch, view.Node.advancement)).ToList();
+            .Select(view => new GraphLayout.Node(view.Node.id, view.Node.branch, view.Node.advancement,
+                view.Node.advancement <= 1 ? Depth(view.Node, 0) : 0)).ToList();
         GraphLayout.Result layout = GraphLayout.TieredLanes(layoutNodes, BranchOrder, NodeWidth, NodeHeight,
             LaneGap, RowGap);
         Dictionary<string, Vector2> positions = layout.Positions;

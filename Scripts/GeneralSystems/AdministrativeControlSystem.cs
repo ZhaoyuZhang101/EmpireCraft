@@ -108,7 +108,8 @@ public static class AdministrativeControlSystem
         if (empire == null || kingdom == empire.CoreKingdom) return false;
         if (JimiSystem.IsJimiAdministration(kingdom) || JimiSystem.IsJimiRegion(kingdom, empire)) return true;
         RegimeType? regime = empire.CoreKingdom?.GetRegime()?.type;
-        return regime == RegimeType.Feudalism ||
+        // 原始政体的部落联盟：各部落、方国自治
+        return regime == RegimeType.Feudalism || regime == RegimeType.Origin ||
                regime == RegimeType.ZhouFeudalism && kingdom.GetKingdomType() != KingdomType.ZhouFeudalism_jun;
     }
 
@@ -458,12 +459,12 @@ public static class AdministrativeControlSystem
             .ThenByDescending(actor => actor.data?.renown ?? 0).FirstOrDefault();
     }
 
-    // 周制天下或青铜时代及以前的帝国 → 分封诸侯(帝国成员)；施行羁縻的帝国 → 羁縻州；
+    // 周制天下、部落联盟或青铜时代及以前的帝国 → 分封诸侯、附从的部落(帝国成员)；施行羁縻的帝国 → 羁縻州；
     // 封建政体或不是帝国 → 附庸诸侯；其余帝国 → 朝贡国
     private static string Subordinate(Kingdom realm, Kingdom local)
     {
         Empire empire = realm.IsEmpire() ? realm.GetEmpire() : null;
-        if (empire != null && (realm.GetRegime()?.type == RegimeType.ZhouFeudalism ||
+        if (empire != null && (realm.GetRegime()?.type is RegimeType.ZhouFeudalism or RegimeType.Origin ||
                                TechnologySystem.GetEraTier(TechnologySystem.GetCultureOf(realm)) <= EarlyEraTier))
         {
             if (local.hasAlliance()) local.getAlliance().leave(local);

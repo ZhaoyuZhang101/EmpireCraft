@@ -18,12 +18,15 @@ public static class GraphLayout
         public readonly string Id;
         public readonly string Lane;
         public readonly int Tier;
+        // 根节点行里的先后次序(小的在左)；没有先后的按 id 排
+        public readonly int Order;
 
-        public Node(string id, string lane, int tier)
+        public Node(string id, string lane, int tier, int order = 0)
         {
             Id = id;
             Lane = lane;
             Tier = tier;
+            Order = order;
         }
     }
 
@@ -75,7 +78,7 @@ public static class GraphLayout
         float RowY(int tier) => -tier * (nodeHeight + rowGap);
 
         List<Node> roots = nodes.Where(n => n.Tier <= rootTier)
-            .OrderBy(n => n.Id, StringComparer.Ordinal).ToList();
+            .OrderBy(n => n.Order).ThenBy(n => n.Id, StringComparer.Ordinal).ToList();
         for (int i = 0; i < roots.Count; i++)
         {
             float x = (i - (roots.Count - 1) / 2f) * (nodeWidth + laneGap);

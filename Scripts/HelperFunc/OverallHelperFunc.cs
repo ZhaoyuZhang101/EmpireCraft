@@ -235,7 +235,12 @@ namespace EmpireCraft.Scripts.HelperFunc
         public static string ResolveEmpireTypeKey(Regime regime, Kingdom coreKingdom)
         {
             string key = null;
-            if (regime != null && regime.centre_empire_separate)
+            if (regime != null && regime.type == RegimeType.Origin && coreKingdom != null &&
+                EmpireCraft.Scripts.GeneralSystems.DynastyNaming.HuaxiaOrigin(coreKingdom))
+            {
+                key = EmpireCraft.Scripts.GeneralSystems.DynastyNaming.HuaxiaOriginEmpireKey(coreKingdom);
+            }
+            else if (regime != null && regime.centre_empire_separate)
             {
                 key = $"{regime.type}_empire";
             }

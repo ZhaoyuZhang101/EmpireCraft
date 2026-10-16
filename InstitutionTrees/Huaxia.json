@@ -1,18 +1,31 @@
 {
   "name_key": "institution_line_huaxia",
   "root_nodes": [
-    "huaxia_patriarchal_clan"
+    "huaxia_matrilineal_clan"
   ],
   "nodes": [
+    {"id": "huaxia_matrilineal_clan", "name_key": "institution_huaxia_matrilineal_clan", "description_key": "institution_huaxia_matrilineal_clan_desc", "branch": "society", "advancement": 1, "reform": {"minimum_years": 1, "allow_force": false}, "politics": {"support_classes": {"Peasant": 0.5}}, "features": {"matrilineal_descent": 1}, "absorb": {"enabled": false}, "regime": "Origin"},
+    {"id": "huaxia_patrilineal_clan", "name_key": "institution_huaxia_patrilineal_clan", "description_key": "institution_huaxia_patrilineal_clan_desc", "branch": "society", "advancement": 1, "requires": ["huaxia_matrilineal_clan"], "replaces": ["huaxia_matrilineal_clan"], "requires_techs": ["copper_smelting"], "reform": {"base_progress_per_year": 8.0, "minimum_years": 8, "allow_force": false}, "resistance": {"base_radicalism": 4.0, "vested_interest_radicalism": 6.0, "rebellion_threshold": 85.0}, "politics": {"support_classes": {"Noble": 0.6, "Army": 0.4}}, "absorb": {"enabled": false}, "regime": "Origin"},
+    {"id": "huaxia_tribal_alliance", "name_key": "institution_huaxia_tribal_alliance", "description_key": "institution_huaxia_tribal_alliance_desc", "branch": "society", "advancement": 1, "requires": ["huaxia_patrilineal_clan"], "replaces": ["huaxia_matrilineal_clan", "huaxia_patrilineal_clan"], "requires_techs": ["masonry"], "reform": {"base_progress_per_year": 8.0, "minimum_years": 8, "allow_force": false}, "resistance": {"base_radicalism": 4.0, "vested_interest_radicalism": 6.0, "rebellion_threshold": 85.0}, "politics": {"support_classes": {"Noble": 0.7, "Army": 0.3}}, "absorb": {"enabled": false}, "regime": "Origin"},
+    {"id": "huaxia_hereditary_kingship", "name_key": "institution_huaxia_hereditary_kingship", "description_key": "institution_huaxia_hereditary_kingship_desc", "branch": "society", "advancement": 1, "requires": ["huaxia_tribal_alliance"], "replaces": ["huaxia_matrilineal_clan", "huaxia_patrilineal_clan", "huaxia_tribal_alliance"], "requires_techs": ["bronze_casting"], "reform": {"base_progress_per_year": 8.0, "minimum_years": 8, "allow_force": false}, "resistance": {"base_radicalism": 4.0, "vested_interest_radicalism": 6.0, "rebellion_threshold": 85.0}, "politics": {"support_classes": {"Noble": 0.8, "Army": 0.4}}, "absorb": {"enabled": false}, "regime": "Origin"},
     {
       "id": "huaxia_patriarchal_clan",
       "name_key": "institution_huaxia_patriarchal_clan",
       "description_key": "institution_huaxia_patriarchal_clan_desc",
       "branch": "society",
       "advancement": 1,
+      "requires": ["huaxia_hereditary_kingship"],
+      "replaces": ["huaxia_matrilineal_clan", "huaxia_patrilineal_clan", "huaxia_tribal_alliance", "huaxia_hereditary_kingship"],
+      "requires_techs": ["writing", "ritual_rites"],
       "reform": {
-        "minimum_years": 1,
+        "base_progress_per_year": 8.0,
+        "minimum_years": 8,
         "allow_force": false
+      },
+      "resistance": {
+        "base_radicalism": 5.0,
+        "vested_interest_radicalism": 8.0,
+        "rebellion_threshold": 82.0
       },
       "politics": {
         "support_classes": {

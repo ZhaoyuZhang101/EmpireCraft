@@ -40,6 +40,8 @@ public static class SurnameInheritanceSystem
         // 华夏一系宗法父系：随父姓(入赘的除外)。以前"婚姻有记录的一方"优先，生母有婚姻记录、生父没有时，
         // 皇子随了生母的姓(聂志之子成了欧阳朗，此后一路姓欧阳)
         if (parent.isSexMale() && identity?._specificClan?.Patrilineal() == true && identity.is_main) return 500;
+        // 华夏母系氏族阶段：随母姓、入母亲的氏族(见 PrehistoricClanSystem)
+        if (!parent.isSexMale() && identity?._specificClan?.Matrilineal() == true && identity.is_main) return 500;
         // Respect the existing marriage/concubinage and maternal/paternal clan rules.
         int priority = identity == null ? 0 : !identity.is_main ? -100
             : identity.hasLover() || identity.is_concubine ? 100 : 0;
@@ -55,7 +57,7 @@ public static class SurnameInheritanceSystem
         int repaired = 0;
         foreach (PersonalClanIdentity person in people.Where(person => person != null).OrderBy(person => person.id))
         {
-            if (!person.is_main || person.father <= 0) continue;
+            if (!person.is_main || person.father <= 0 || person.matrilineal_birth) continue;
             SpecificClan clan = person._specificClan;
             if (clan == null || !clan.Patrilineal()) continue;
             PersonalClanIdentity father = SpecificClanManager.getPerson(person.father);
@@ -99,6 +101,9 @@ public static class SurnameInheritanceSystem
         PersonalClanIdentity father = list.FirstOrDefault(parent => parent.sex == ActorSex.Male && parent.is_main &&
                                                                      parent._specificClan.Patrilineal());
         if (father != null) return father;
+        PersonalClanIdentity mother = list.FirstOrDefault(parent => parent.sex != ActorSex.Male && parent.is_main &&
+                                                                     parent._specificClan.Matrilineal());
+        if (mother != null) return mother;
         return list.FirstOrDefault(parent => parent.is_main && parent.IsHeirPriority());
     }
 
@@ -110,7 +115,8 @@ public static class SurnameInheritanceSystem
         int repaired = 0;
         foreach (PersonalClanIdentity person in people.Where(person => person != null).OrderBy(person => person.id).ToList())
         {
-            if (!person.is_alive || !person.is_main || person.is_concubine || person.father <= 0) continue;
+            if (!person.is_alive || !person.is_main || person.is_concubine || person.father <= 0 ||
+                person.matrilineal_birth) continue;
             PersonalClanIdentity father = SpecificClanManager.getPerson(person.father);
             SpecificClan fatherClan = father?._specificClan;
             if (fatherClan == null || !father.is_main || !fatherClan.Patrilineal() || person.specific_clan_id == fatherClan.id) continue;
