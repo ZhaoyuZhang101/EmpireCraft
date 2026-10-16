@@ -169,6 +169,8 @@ public class KingdomPatch : GamePatch
         if (!ModClass.IS_CLEAR)
         {
             pActor.CheckSpecificClan();
+            // 新君的原版氏族跟着宗族走(人物档案上"氏族""宗族"一致)
+            SpecificClanManager.SyncVanillaClan(pActor);
             __instance.SetSpecificClan(pActor.GetSpecificClan());
             __instance.TransferRealmTitlesToRuler(pActor);
             (__instance.GetEmpire() ?? __instance.GetTakenAllianceEmpire())?

@@ -446,9 +446,49 @@ public static class SpecificClanManager
         Actor actor = person.is_alive && !person.is_virtual ? person._actor : null;
         if (actor?.data == null || actor.isRekt()) return;
         actor.SetPersonalIdentity(person);
-        Clan vanilla = target.AllAliveMembers.Where(member => member != actor).Select(member => member.clan)
-            .FirstOrDefault(clan => clan != null);
-        if (vanilla != null && actor.clan != vanilla) actor.setClan(vanilla);
+        SyncVanillaClan(actor);
+    }
+
+    // 原版氏族跟着宗族走(人物档案里"氏族"与"宗族"一致)：挪进对应这个宗族的原版氏族；
+    // 一个都没有(族人都没有实体、原来的氏族已散)就以本人为始祖新立一个，对应到这个宗族(按姓起名，如"公氏")
+    public static void SyncVanillaClan(Actor actor, Dictionary<long, Clan> cache = null)
+    {
+        if (actor?.data == null || actor.isRekt() || actor.hasDied()) return;
+        SpecificClan specific = actor.GetSpecificClan();
+        if (specific == null || actor.clan != null && actor.clan.GetSpecificClan() == specific) return;
+        try
+        {
+            Clan target = VanillaClanOf(specific, actor, cache);
+            if (target == null)
+            {
+                target = World.world.clans.newClan(actor, true);
+                if (target == null) return;
+                target.SetSpecificClan(specific);
+                if (cache != null) cache[specific.id] = target;
+            }
+            if (actor.clan != target) actor.setClan(target);
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft][族谱] 同步原版氏族失败: {exception.Message}");
+        }
+    }
+
+    private static Clan VanillaClanOf(SpecificClan specific, Actor except, Dictionary<long, Clan> cache)
+    {
+        if (cache != null && cache.TryGetValue(specific.id, out Clan cached) && cached?.data != null && !cached.isRekt())
+            return cached;
+        Clan found = specific.AllAliveMembers.Where(member => member != except && member.clan != null)
+            .Select(member => member.clan).FirstOrDefault(clan => clan.GetSpecificClan() == specific);
+        if (found == null && cache == null)
+            foreach (Clan clan in World.world.clans.list)
+                if (clan?.data != null && !clan.isRekt() && clan.GetSpecificClan() == specific)
+                {
+                    found = clan;
+                    break;
+                }
+        if (found != null && cache != null) cache[specific.id] = found;
+        return found;
     }
 
     // 把记下的父母接回族谱(父亲、母亲各接一位；已有的不动)，返回是否接上了
@@ -1093,9 +1133,7 @@ public static class SpecificClanManager
             {
                 LinkRecordedParents(actor, created);
                 Actor parentActor = clanParent.is_alive && !clanParent.is_virtual ? clanParent._actor : null;
-                Clan vanilla = parentActor?.clan ?? clanParent._specificClan.AllAliveMembers
-                    .Where(member => member != actor).Select(member => member.clan).FirstOrDefault(clan => clan != null);
-                if (vanilla != null && actor.clan != vanilla) actor.setClan(vanilla);
+                SyncVanillaClan(actor);
                 if (clanParent._specificClan.Patrilineal() || SurnameInheritanceSystem.Reigns(parentActor))
                     SurnameInheritanceSystem.ApplySurname(created,
                         !string.IsNullOrWhiteSpace(clanParent.surname) ? clanParent.surname : clanParent._specificClan.name);
