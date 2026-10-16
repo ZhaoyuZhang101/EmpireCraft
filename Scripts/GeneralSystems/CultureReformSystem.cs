@@ -136,12 +136,15 @@ public static class CultureReformSystem
         return true;
     }
 
-    // 宗族本非目标文化：看始祖记下的文化，没有记录就看这个人原来的文化
+    // 宗族本非目标文化：看始祖记下的文化，没有记录就看这个人原来的文化。
+    // 同一文化圈(制度线相同，如华夏、山海)里改俗只改风俗不改姓——以前只比文化名，汉朝改从山海之俗，
+    // 刘氏皇族整支改姓"彤鱼"(玩家反馈 2026-10-16)。改姓只留给跨文化圈的(如鲜卑拓跋改从华夏之俗改姓元)
     private static bool ForeignOrigin(SpecificClan clan, string fallback, string target)
     {
         string origin = clan != null ? SpecificClanManager.getPerson(clan.founder)?.culture : null;
         if (!CultureService.IsValidCulture(origin)) origin = fallback;
-        return CultureService.IsValidCulture(origin) && !string.Equals(origin, target, StringComparison.Ordinal);
+        return CultureService.IsValidCulture(origin) && !string.Equals(origin, target, StringComparison.Ordinal) &&
+               !SurnameInheritanceSystem.SameSphere(origin, target);
     }
 
     // 旧俗出身的在任官员改从新俗；宗族本非新文化的整支改姓

@@ -168,6 +168,36 @@ public static class SurnameInheritanceSystem
         return true;
     }
 
+    // 两种文化同属一个文化圈(文化规则里配的制度线相同，如华夏、山海都是 Huaxia；没配的不算，不按默认线凑)
+    public static bool SameSphere(string a, string b)
+    {
+        if (string.IsNullOrEmpty(a) || string.IsNullOrEmpty(b)) return false;
+        string line = a.GetInstitutionLine();
+        return !string.IsNullOrEmpty(line) && string.Equals(line, b.GetInstitutionLine(), StringComparison.Ordinal);
+    }
+
+    // 读档修正一次：同一文化圈里易俗改制改掉的宗族姓改回来(汉朝改从山海之俗，刘氏皇族整支成了"彤鱼"，
+    // 见 CultureReformSystem.ForeignOrigin)。父系宗族的始祖(分支看根宗族的始祖)与在世族人文化不同、却同属一个文化圈，
+    // 宗族名又不是始祖的姓：宗族名改回始祖的姓，族人的姓随后由 RepairClanSurnames 改回(史书里的旧名不动)
+    public static int RepairSameSphereRenames(IEnumerable<SpecificClan> clans)
+    {
+        int repaired = 0;
+        foreach (SpecificClan clan in clans.Where(clan => clan != null && clan.Patrilineal()).ToList())
+        {
+            PersonalClanIdentity founder = SpecificClanManager.getPerson(clan.GetRootClan()?.founder ?? clan.founder);
+            string original = founder?.surname;
+            if (string.IsNullOrWhiteSpace(original)) original = NameSurname(founder);
+            original = original?.Trim();
+            if (string.IsNullOrEmpty(original) || original == clan.name || original.Length > 4 || original.Any(char.IsWhiteSpace) ||
+                original.Contains(' ') || string.IsNullOrEmpty(founder.culture)) continue;
+            string culture = clan.LivingPeople.FirstOrDefault(person => person.is_main && !string.IsNullOrEmpty(person.culture))?.culture;
+            if (culture == null || culture == founder.culture || !SameSphere(culture, founder.culture)) continue;
+            clan.name = original;
+            repaired++;
+        }
+        return repaired;
+    }
+
     // 读档修正：华夏宗族里在世的主位族人姓不是本族姓的，改回本族姓
     public static int RepairClanSurnames(IEnumerable<PersonalClanIdentity> people)
     {
