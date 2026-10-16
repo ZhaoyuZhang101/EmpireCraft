@@ -93,9 +93,9 @@ public static class VirtualGenealogySystem
                 if (empire?.data != null && empire.data.empire_specific_clan == oldClan) empire.data.empire_specific_clan = king.specific_clan_id;
             }
         }
-        // 同一文化圈里易俗改制改掉的宗族姓改回来(见 SurnameInheritanceSystem.RepairSameSphereRenames)
-        int renamed = SurnameInheritanceSystem.RepairSameSphereRenames(SpecificClanManager._specificClans);
-        if (renamed > 0) LogService.LogInfo($"[EmpireCraft][虚拟族谱] 同一文化圈改俗改掉的宗族姓改回始祖的姓 {renamed} 支");
+        // 宗族名与这一族历来的姓对不上的改回(见 SurnameInheritanceSystem.RepairClanNames)
+        int renamed = SurnameInheritanceSystem.RepairClanNames(SpecificClanManager._specificClans);
+        if (renamed > 0) LogService.LogInfo($"[EmpireCraft][虚拟族谱] 宗族名与历来的姓对不上的改回 {renamed} 支");
         int surnames = SurnameInheritanceSystem.RepairPatrilineal(SpecificClanManager._globalPersonLookup.Values);
         if (surnames > 0) LogService.LogInfo($"[EmpireCraft][虚拟族谱] 华夏宗族随错姓的改回父姓 {surnames} 人");
         int princes = PrinceLineage.Backfill(SpecificClanManager._globalPersonLookup.Values);
