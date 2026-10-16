@@ -326,6 +326,49 @@ public static class LandmarkBookSystem
         TryApplyIdeologyEffect(culture, cities, state, config, techFactor, title);
     }
 
+    // 理念随书流入(边境往来，见 IdeologySpreadSystem)：本文化收到这部奠基名著的一个抄本，
+    // 放进一座能藏书的城、算作被读到。没有能藏书的城时传不进来，返回 false；已经有这部书返回 true
+    public static bool ReceiveFoundingBook(string culture, PartyIdeology ideology)
+    {
+        LandmarkBookConfig config = FoundingBook(ideology);
+        if (config == null || HasFoundingBook(culture, ideology)) return true;
+        List<City> cities = World.world?.cities?.Where(city => city != null && !city.isRekt() &&
+                                                               CultureService.GetMainCulture(city) == culture &&
+                                                               city.getBuildingWithBookSlot() != null).ToList();
+        if (cities == null || cities.Count == 0) return false;
+        string title = GetTitle(config.id, culture);
+        try
+        {
+            Actor copyist = PickAuthor(cities);
+            Book book = copyist == null ? null : World.world.books.generateNewBook(copyist);
+            if (book != null)
+            {
+                book.setName(title);
+                BookExtension.BookExtraData data = book.GetOrCreate();
+                data.id = book.getID();
+                data.landmark_id = config.id;
+                data.origin_culture = OriginCulture(config) ?? culture;
+                data.inspired_cultures.Add(culture);
+            }
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft] 名著抄本传入失败: {exception.Message}");
+        }
+        Inspire(culture, config, ForeignTechFactor, title);
+        Announce(culture, null, string.Format(LM.Get("landmark_book_spread_log"), title, culture.GetCultureTranslate()), -1L);
+        return true;
+    }
+
+    // 写出这部名著的文化(没写出来过返回 null)
+    private static string OriginCulture(LandmarkBookConfig config)
+    {
+        foreach (string culture in CultureService.CultureKeys)
+            if (TechnologySystem.IsActiveFor(culture) &&
+                TechnologySystem.GetState(culture)?.landmark_books?.Contains(config.id) == true) return culture;
+        return null;
+    }
+
     // 理念的奠基名著(资本论之于共产主义、国富论之于资本主义……)：LandmarkBooks.json 里标了该理念的名著
     public static LandmarkBookConfig FoundingBook(PartyIdeology ideology) =>
         Books.FirstOrDefault(book => TryGetIdeology(book, out PartyIdeology own) && own == ideology);

@@ -369,6 +369,8 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
             string blocker = LM.Get(view.blocker);
             if (!string.IsNullOrEmpty(view.missing_institutions))
                 blocker = string.Format(LM.Get("constitution_missing_nodes"), view.missing_institutions);
+            else if (!string.IsNullOrEmpty(view.missing_techs))
+                blocker = string.Format(LM.Get("constitution_missing_techs"), view.missing_techs);
             notes.Add(blocker.ColorString("#D98C8C"));
         }
         return notes;

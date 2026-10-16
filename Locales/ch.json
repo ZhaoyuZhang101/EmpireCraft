@@ -5446,5 +5446,7 @@
   "history_event_page": "記事第 {0}/{1} 頁 · 共 {2} 條",
   "EmpireHistoryWindow Title": "君主世系",
   "empirecraft_actor_clan_main": "{0}氏(本宗)",
-  "empirecraft_actor_clan_branch": "{0}氏·{1}"
+  "empirecraft_actor_clan_branch": "{0}氏·{1}",
+  "constitution_requires_tech": "還需研究立憲所需的科技",
+  "constitution_missing_techs": "尚缺科技：{0}"
 }

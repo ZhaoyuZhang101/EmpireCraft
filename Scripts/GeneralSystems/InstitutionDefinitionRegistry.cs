@@ -246,6 +246,10 @@ public static class InstitutionDefinitionRegistry
     public static IReadOnlyList<string> GetConstitutionRequiredFeatures(string line) =>
         GetTree(line)?.constitution?.required_features ?? Global.constitution.required_features;
 
+    // 线的立宪科技前提：线 json 的 constitution.required_techs 覆盖全局值
+    public static IReadOnlyList<string> GetConstitutionRequiredTechs(string line) =>
+        GetTree(line)?.constitution?.required_techs ?? Global.constitution.required_techs ?? new List<string>();
+
     public static bool IsConstitutionRequiringCompositeEmpire(string line) =>
         GetTree(line)?.constitution?.requires_composite_empire ?? Global.constitution.requires_composite_empire;
 

@@ -5446,5 +5446,7 @@
   "history_event_page": "Events {0}/{1} · {2} records",
   "EmpireHistoryWindow Title": "Ruler Lineage",
   "empirecraft_actor_clan_main": "House {0} (main line)",
-  "empirecraft_actor_clan_branch": "House {0} · {1}"
+  "empirecraft_actor_clan_branch": "House {0} · {1}",
+  "constitution_requires_tech": "Requires technologies for a constitution",
+  "constitution_missing_techs": "Missing technology: {0}"
 }

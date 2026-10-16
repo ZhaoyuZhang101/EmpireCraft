@@ -38,6 +38,8 @@ public sealed class ConstitutionalEconomyView
     public float parliamentary_support;
     public string blocker = "";
     public string missing_institutions = "";
+    // 立宪还缺的科技(科技名，顿号隔开)
+    public string missing_techs = "";
 }
 
 // 资本主义萌芽与君主立宪。
@@ -539,6 +541,15 @@ public static class ConstitutionalEconomySystem
             .Where(feature => !InstitutionSystem.HasFeature(culture, feature)).ToList();
     }
 
+    // 立宪所需、而本文化尚未研究的科技(科技树没启用时不限制)
+    public static List<string> GetMissingTechs(Empire empire)
+    {
+        string culture = InstitutionSystem.GetPrimaryCulture(empire);
+        if (!TechnologySystem.IsActiveFor(culture)) return new List<string>();
+        return InstitutionDefinitionRegistry.GetConstitutionRequiredTechs(GetLine(empire))
+            .Where(tech => !TechnologySystem.HasTech(culture, tech)).ToList();
+    }
+
     // 缺失特性的显示文本：列出本线能提供该特性的节点名；本线没有的话显示特性本身的名称
     private static string DescribeMissingFeatures(Empire empire, List<string> missing)
     {
@@ -583,6 +594,9 @@ public static class ConstitutionalEconomySystem
         CanStartReform(empire, out view.blocker);
         if (view.blocker == "constitution_requires_institutions")
             view.missing_institutions = DescribeMissingFeatures(empire, GetMissingFeatures(empire));
+        if (view.blocker == "constitution_requires_tech")
+            view.missing_techs = string.Join(LocalizedTextManager.instance?.language is "cz" or "ch" ? "、" : ", ",
+                GetMissingTechs(empire).Select(TechnologySystem.GetTechName));
         return view;
     }
 
@@ -606,6 +620,7 @@ public static class ConstitutionalEconomySystem
             state.stable_culture_since < 0)
         { reason = "constitution_requires_stability"; return false; }
         if (GetMissingFeatures(empire).Count > 0) { reason = "constitution_requires_institutions"; return false; }
+        if (GetMissingTechs(empire).Count > 0) { reason = "constitution_requires_tech"; return false; }
         if (InstitutionDefinitionRegistry.IsConstitutionRequiringCompositeEmpire(line) &&
             empire.data.composite_integration_stage < CompositeEmpireIntegrationStage.CompositeEmpire)
         { reason = "constitution_requires_composite"; return false; }

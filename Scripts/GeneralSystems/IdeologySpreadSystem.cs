@@ -10,7 +10,8 @@ using NeoModLoader.General;
 namespace EmpireCraft.Scripts.GeneralSystems;
 
 // 理念传播。本文化第一次有帝国以某理念改制共和，这个理念就成为本文化的主导理念；
-// 之后每年，主导理念向接壤的异文化传播；达到阈值时先影响当地居民。
+// 之后每年，主导理念随书籍向接壤的异文化流传(本文化要有这个理念的奠基名著才传得出去)；
+// 达到阈值时，书的抄本传进对方一座能藏书的城、被当地读到，再影响当地居民。
 // 文化制度节点仍须由本国执政党推进，政党能否成立则取决于本国人口支持。
 public static class IdeologySpreadSystem
 {
@@ -83,6 +84,8 @@ public static class IdeologySpreadSystem
             if (empire?.data == null || empire.isRekt() || empire.IsArchived() || empire.CoreKingdom == null) continue;
             string source = InstitutionSystem.GetPrimaryCulture(empire);
             if (!TryGetStateIdeology(source, out PartyIdeology ideology)) continue;
+            // 理念随书流传：本文化手里没有这个理念的奠基名著，就没有书可传
+            if (!LandmarkBookSystem.HasFoundingBook(source, ideology)) continue;
             var borders = new HashSet<(long, long)>();
             foreach (Kingdom kingdom in empire.kingdoms_hashset.Where(kingdom => kingdom != null && !kingdom.isRekt()))
             foreach (City city in kingdom.cities.Where(city => city != null && !city.isRekt()))
@@ -125,6 +128,12 @@ public static class IdeologySpreadSystem
             exposure = UnlockExposure - 0.01f;
         state.ideology_exposure[key] = exposure;
         if (exposure < UnlockExposure) return;
+        // 书的抄本传进来(对方还没有能藏书的城就进不来，下一年再试)
+        if (!LandmarkBookSystem.ReceiveFoundingBook(culture, ideology))
+        {
+            state.ideology_exposure[key] = UnlockExposure - 0.01f;
+            return;
+        }
         int changed = IdeologyPopulationSystem.IntroduceToCulture(culture, ideology);
         if (changed <= 0) return; // 暂无读者或未说服任何人时，接触度保留在门槛，下一次继续。
         state.ideology_exposure[key] = -1f;
