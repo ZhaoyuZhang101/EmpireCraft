@@ -132,7 +132,12 @@
 
     { "id": "steelmaking", "branch": "metallurgy", "tier": 5, "cost": 260, "requires_techs": ["ironworking"], "requires_materials": ["coal"], "unlock_materials": ["steel"], "unlock_buildings": ["ec_mine_3", "ec_lumber_3"], "boosts": [{"type": "building_type", "value": "type_mine", "amount": 5}] },
     { "id": "alchemy", "branch": "science", "tier": 5, "cost": 260, "requires_techs": ["mathematics"], "requires_materials": ["gold"], "research_bonus": 0.1, "boosts": [{"type": "resource", "value": "gold", "amount": 20}] },
-    { "id": "printing", "branch": "science", "tier": 5, "cost": 260, "requires_techs": ["mathematics"], "research_bonus": 0.2, "unlock_buildings": ["university"], "boosts": [{"type": "building_type", "value": "type_library", "amount": 2}] },
+    { "id": "printing", "branch": "science", "tier": 5, "cost": 260, "requires_techs": ["mathematics", "paper"], "research_bonus": 0.2, "unlock_buildings": ["university"], "boosts": [{"type": "building_type", "value": "type_library", "amount": 2}] },
+    { "id": "movable_type", "branch": "science", "tier": 5, "cost": 320, "requires_techs": ["printing"], "research_bonus": 0.1, "boosts": [{"type": "building_type", "value": "type_library", "amount": 4}] },
+    { "id": "steam_press", "branch": "science", "tier": 7, "cost": 650, "requires_techs": ["movable_type", "industrialization"], "research_bonus": 0.1 },
+    { "id": "telegraph", "branch": "science", "tier": 8, "cost": 950, "requires_techs": ["electricity", "postal_roads"] },
+    { "id": "radio", "branch": "science", "tier": 9, "cost": 1400, "requires_techs": ["telegraph"] },
+    { "id": "internet", "branch": "science", "tier": 10, "cost": 2000, "requires_techs": ["radio", "computing"], "research_bonus": 0.2 },
     { "id": "coastal_pilotage", "branch": "naval", "tier": 4, "cost": 150, "requires_techs": ["carpentry", "ironworking"], "boosts": [{"type": "building_type", "value": "type_docks", "amount": 1}], "naval_reach": 32 },
     { "id": "ocean_navigation", "branch": "naval", "tier": 5, "cost": 260, "requires_techs": ["mathematics", "carpentry", "coastal_pilotage"], "boosts": [{"type": "building_type", "value": "type_docks", "amount": 1}], "naval_reach": 64, "naval_hull": 1.5 },
 
@@ -193,7 +198,7 @@
     { "id": "constitutionalism", "branch": "civics", "tier": 7, "cost": 650, "requires_techs": ["printing", "law_code"] },
     { "id": "political_economy", "branch": "civics", "tier": 7, "cost": 650, "requires_techs": ["printing", "mathematics"] },
     { "id": "republicanism", "branch": "civics", "tier": 7, "cost": 650, "requires_techs": ["secular_philosophy"] },
-    { "id": "mass_politics", "branch": "civics", "tier": 8, "cost": 950, "requires_techs": ["constitutionalism", "industrialization"] },
+    { "id": "mass_politics", "branch": "civics", "tier": 8, "cost": 950, "requires_techs": ["constitutionalism", "industrialization", "steam_press"] },
     { "id": "social_theory", "branch": "civics", "tier": 8, "cost": 950, "requires_techs": ["industrialization", "political_economy"] },
     { "id": "nationalism", "branch": "civics", "tier": 8, "cost": 950, "requires_techs": ["printing", "industrialization"] }
   ]

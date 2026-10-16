@@ -23,6 +23,8 @@ public sealed class CultureTechState
     public bool naval_line;
     // 典章科技线(制度的专门科技前提)补记过：旧存档里已经推行的制度，所需的典章科技直接算研究过
     public bool civics_line;
+    // 传播媒介科技(活字、机械印刷、电报、广播、互联网)已为旧存档补过
+    public bool media_line;
     // 每项技术各自的已投入研究点(加速事件可以给还没开始研究的技术预存进度)；
     // 上面的 progress 是旧存档字段，读档时并入这里
     public Dictionary<string, float> tech_progress = new();

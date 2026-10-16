@@ -165,6 +165,11 @@ public class TechWindow : AbstractWideWindow<TechWindow>
                     $"{TechnologySystem.GetTechName(id)}({TechnologySystem.GetRealmAdoption(_kingdom, id) * 100f:0}%)")) +
                     (pending.Count > 4 ? "…" : "")).ColorString("#E9A85B");
             AddLine(panel, adoptLine);
+            // 传播媒介(见 MediaSystem)
+            AddLine(panel, string.Format(LM.Get("tech_media_effects"),
+                LM.Get($"media_print_{MediaSystem.PrintLevel(_kingdom)}"),
+                LM.Get($"media_comm_{MediaSystem.CommLevel(_kingdom)}"),
+                LM.Get(MediaSystem.IsOpen(_kingdom) ? "tech_media_open" : "tech_media_closed")).ColorString("#9FD0C8"));
         }
 
         // 科技点储备与来源明细；年产太低就是停滞

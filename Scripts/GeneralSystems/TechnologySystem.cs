@@ -769,6 +769,24 @@ public static class TechnologySystem
         }
     }
 
+    // 传播媒介科技是后加的：旧档里已经有后续科技(或时代已过)的文化直接补上，不让书报一下子退回手抄
+    private static readonly (string tech, string legacy)[] MediaLegacy =
+    {
+        ("paper", "printing"), ("movable_type", "scientific_method"), ("steam_press", "industrialization"),
+        ("telegraph", "electricity"), ("radio", "computing"), ("internet", "computing")
+    };
+
+    private static void BackfillMediaLine(string culture)
+    {
+        int era = GetEraTier(culture);
+        foreach ((string techId, string legacy) in MediaLegacy)
+        {
+            if (HasTech(culture, techId) || !_techs.TryGetValue(techId, out TechNodeConfig tech)) continue;
+            if (!tech.requires_techs.All(id => HasTech(culture, id))) continue;
+            if (era > tech.tier || HasTech(culture, legacy) && tech.tier <= era) CompleteTech(culture, techId);
+        }
+    }
+
     private static void BackfillNavalLine(string culture)
     {
         int era = GetEraTier(culture);
@@ -1073,6 +1091,11 @@ public static class TechnologySystem
             {
                 state.civics_line = true;
                 BackfillCivicsLine(culture);
+            }
+            if (!state.media_line)
+            {
+                state.media_line = true;
+                BackfillMediaLine(culture);
             }
             using (FrameProfiler.Measure("科技·发现材料")) DiscoverMaterials(culture, pair.Value);
             if (state.last_era_tier < 0) state.last_era_tier = GetEraTier(culture);
