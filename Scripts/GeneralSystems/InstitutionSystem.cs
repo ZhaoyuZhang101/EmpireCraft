@@ -605,6 +605,8 @@ public static class InstitutionSystem
 
         SyncForeignRegime(empire);
         RetryPendingRegime(empire, state);
+        // 现代同文化小国并入接壤大国(见 NationalUnificationSystem)
+        NationalUnificationSystem.Consider(empire);
         // 原始阶段的帝号类别随阶段改称(华夏部落联盟→朝，日本部族连合→王权)
         if (empire.CoreKingdom.GetRegime() is Regime originRegime && originRegime.type == RegimeType.Origin &&
             !string.IsNullOrEmpty(empire.data.empire_type_key) && empire.data.empire_type_key.StartsWith("Origin_empire") &&

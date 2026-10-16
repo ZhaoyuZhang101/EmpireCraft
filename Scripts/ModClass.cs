@@ -102,6 +102,7 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
         EmpireCraft.Scripts.GeneralSystems.EnclaveFill.Tick();
         using (FrameProfiler.Measure("后台·官职清理")) EmpireCraft.Scripts.Regimes.OfficeManager.Tick();
         using (FrameProfiler.Measure("后台·和约割城")) EmpireCraft.Scripts.GeneralSystems.WarGoalSystem.Tick();
+        using (FrameProfiler.Measure("后台·民族统一")) EmpireCraft.Scripts.GeneralSystems.NationalUnificationSystem.Tick();
         EmpireCraft.Scripts.GeneralSystems.PopulationRuntimeDiagnostics.Tick();
         if (!EmpireCraft.Scripts.GeneralSystems.CityPopulationSystem.AbstractPopulationEnabled)
         {

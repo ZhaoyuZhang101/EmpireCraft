@@ -4722,6 +4722,7 @@
   "local_politics_suppress_tip": "Spend {0} gold from the central treasury against this party in this province: -10% votes here (max -50%), fading each year.",
   "local_politics_help_body": "In electoral states (parties legal, a parliament, multiple parties), each province has its own party support based on its own voters. Halfway through each parliamentary term, local elections are held: the party with the most votes governs the province and one of its local members becomes governor.\nProvinces governed by the coalition get +3 city loyalty. Provinces held by the opposition resist the center: -5 city loyalty, and the government agenda slows in proportion to the population they control (up to 40% slower).\nIf the opposition holds over 60% of the provinces in two local elections in a row, a unitary state is forced to amend its constitution and become federal. The capital province is run directly by the center and holds no local elections.",
   "local_election_history": "{0} held local elections: the governing coalition won {1}/{2} provinces and the opposition {3}.",
+  "national_unification_history": "National unification: {0} merges into {1}; its government dissolves and its lands join {1}",
   "local_election_opposition_list": " Opposition-held: {0}.",
   "local_election_province_entry": "{0} ({1})",
   "local_election_governor_personal": "Won the local election for {1} and became governor of {0}",
