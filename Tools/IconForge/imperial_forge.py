@@ -1369,6 +1369,42 @@ RESOURCES = {
 }
 
 
+# 传国玉玺(装备，见 Scripts/GeneralSystems/ImperialSealSystem.cs)：青玉方印、盘龙钮、金镶一角、朱红绶带
+SEAL_JADE = ((186, 214, 188), (92, 138, 106), (20, 42, 28))
+
+
+def obj_imperial_seal(img):
+    # 立体方印：顶面、正面，金镶一角
+    over(img, shade(poly([(58, 132), (198, 132), (176, 108), (80, 108)]), SEAL_JADE, bevel=6, gloss=1.0, grain=0.1))
+    over(img, shade(rrect([58, 130, 198, 214], 8), SEAL_JADE, bevel=14, gloss=0.8, grain=0.12))
+    over(img, shade(poly([(58, 130), (112, 130), (58, 184)]), GOLD, bevel=6, gloss=1.0))
+    over(img, shade(rrect([58, 202, 198, 224], 6), RED, bevel=6))
+    # 盘龙钮：一团盘曲的龙身，龙头居中昂起
+    coil = union(ellipse([70, 84, 186, 128]), ellipse([88, 70, 168, 106]))
+    over(img, shade(coil, SEAL_JADE, bevel=12, gloss=1.0, grain=0.12))
+    over(img, shade(lines([[(92, 106), (128, 92), (164, 106)]], 6), (96, 140, 108) and ((96, 140, 108), (52, 88, 64), (12, 30, 18)), bevel=2))
+    over(img, shade(ellipse([108, 46, 148, 82]), SEAL_JADE, bevel=10, gloss=1.0))
+    over(img, shade(lines([[(114, 52), (96, 30)], [(142, 52), (160, 30)]], 6), GOLD, bevel=2, gloss=1.0))
+    over(img, shade(ellipse([116, 60, 124, 68]), RED, bevel=2, gloss=1.0))
+    over(img, shade(ellipse([132, 60, 140, 68]), RED, bevel=2, gloss=1.0))
+    # 朱红绶带
+    over(img, shade(lines([[(168, 104), (214, 150), (220, 206)], [(168, 104), (230, 140), (240, 196)]], 8), RED, bevel=3))
+    over(img, shade(ellipse([160, 96, 180, 116]), RED, bevel=4, gloss=0.8))
+
+
+# 受命宝(没有传国玉玺的皇帝另刻)：铜金方印、伏虎钮
+def obj_imperial_seal_lesser(img):
+    over(img, shade(rrect([66, 144, 190, 214], 8), GOLD, bevel=12, gloss=0.9))
+    over(img, shade(rrect([66, 204, 190, 222], 6), RED, bevel=5))
+    tiger = union(ellipse([90, 104, 166, 150]), ellipse([148, 88, 186, 124]), rrect([96, 136, 114, 152], 5),
+                  rrect([142, 136, 160, 152], 5), lines([[(94, 118), (70, 100)]], 10))
+    over(img, shade(tiger, GOLD, bevel=10, gloss=1.0))
+    over(img, shade(ellipse([166, 98, 174, 106]), LACQ, bevel=2, flat=True))
+
+
+ITEMS = {"icon_imperial_seal": obj_imperial_seal, "icon_imperial_seal_lesser": obj_imperial_seal_lesser}
+
+
 def obj_park(img):
     """绿地：一圈骨白石子小径围着草坪(暗翠)，坪上一株圆冠大树，路边一盏旧铜石灯。"""
     over(img, shade(sub(ellipse([18, 128, 238, 238]), ellipse([40, 144, 216, 222])), BONE, bevel=5, grain=0.3))
@@ -1447,6 +1483,8 @@ def build():
         out[f"GameResources/ui/icons/empirelist/{name}.png"] = make_plot(obj, badge)
     for name, obj in RESOURCES.items():
         out[f"GameResources/ui/icons/resources/iconRes_{name}.png"] = make_plot(obj, None)
+    for name, obj in ITEMS.items():
+        out[f"GameResources/ui/icons/items/{name}.png"] = make_plot(obj, None)
     for name, (obj, badge) in TOOLS.items():
         out[f"GameResources/ui/icons/{name}.png"] = make_plot(obj, badge)
     src = os.path.join(HERE, "source")

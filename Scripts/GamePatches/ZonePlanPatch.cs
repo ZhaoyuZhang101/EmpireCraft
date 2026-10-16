@@ -20,6 +20,7 @@ public class ZonePlanPatch : GamePatch
     public void Initialize()
     {
         MineralResourceSystem.Init();
+        ImperialSealSystem.Init();
         IndustryBuildingSystem.Init();
         var harmony = new Harmony(nameof(ZonePlanPatch));
         try
