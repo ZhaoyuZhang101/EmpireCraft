@@ -36,6 +36,9 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 远距离不交战(用户 2026-10-15："能不能阻止远距离交战，但是很近的海岛却可以")：只打本方(连同所在帝国)够得着的敌城——
 //   与本方的城接壤、同一块陆地上离本方某座城不过 LandReachTiles 格，或隔海不远(离本方水师港口不过 StraitReach 的距离)；
 //   远方的盟友不再千里驰援，远洋登陆打不了，够不着的仗只是名义上开着。
+//   陆上不穿第三国(用户 2026-10-17 "又在跨国打架""军队还过不去")：同一块陆地上离得近，还要从本方控制的地块出发、
+//   只经过无主之地与本方、盟友、交战敌国的地块走得到那座城(见 LandRoute)；中间隔着不相干的第三国就够不着，
+//   军团行军也尽量绕开第三国的地(见 CorpsSystem.FindPath)。
 // 军团须开到战线附近(两块地块以内)才参战。
 // 叛乱初起时被叛方有集结期(见 MusterSystem)：不反攻、只有附近的军能守城、守方战力打折。
 public static partial class FrontSystem
@@ -207,9 +210,49 @@ public static partial class FrontSystem
         foreach (City own in home)
         {
             WorldTile at = own.getTile();
-            if (at != null && at.isSameIsland(tile) && Toolbox.SquaredDistTile(at, tile) <= limit) return true;
+            if (at != null && at.isSameIsland(tile) && Toolbox.SquaredDistTile(at, tile) <= limit && LandRoute(side, city)) return true;
         }
         return StraitReach.Reaches(side, city);
+    }
+
+    // 陆路：从这座城往外，只经过能走的地块(见 Passable)找得到本方控制的地块；一个月内按(本方帝国, 城)缓存
+    private const int LandRouteSearch = 6000;
+    private static readonly Dictionary<(long, long), bool> LandRoutes = new();
+
+    // 能走的地块：陆地、不是高山，归属无主或本方、盟友、交战敌国(不相干的第三国不走)
+    public static bool Passable(Kingdom side, TileZone zone)
+    {
+        if (zone == null || TerrainSystem.Impassable(zone) || SeaRegionSystem.IsSea(zone)) return false;
+        Kingdom owner = Controller(zone);
+        return owner == null || owner.wild || Friendly(side, owner) || Hostile(side, owner);
+    }
+
+    private static bool LandRoute(Kingdom side, City target)
+    {
+        if (target?.zones == null || target.data == null) return false;
+        var key = (Realm(side).id, target.data.id);
+        if (LandRoutes.TryGetValue(key, out bool known)) return known;
+        var seen = new HashSet<int>();
+        var queue = new Queue<TileZone>();
+        foreach (TileZone zone in target.zones)
+            if (zone != null && seen.Add(zone.id)) queue.Enqueue(zone);
+        bool found = false;
+        while (queue.Count > 0 && seen.Count < LandRouteSearch && !found)
+        {
+            TileZone zone = queue.Dequeue();
+            foreach (TileZone next in zone.neighbours_all ?? Array.Empty<TileZone>())
+            {
+                if (next == null || !seen.Add(next.id)) continue;
+                if (Controller(next) is Kingdom owner && Friendly(side, owner) && !TerrainSystem.Impassable(next))
+                {
+                    found = true;
+                    break;
+                }
+                if (Passable(side, next)) queue.Enqueue(next);
+            }
+        }
+        LandRoutes[key] = found;
+        return found;
     }
 
     private static List<Sector> Sectors(Kingdom side)
@@ -315,6 +358,7 @@ public static partial class FrontSystem
         _atWar = World.world.kingdoms.Where(kingdom => kingdom?.data != null && !kingdom.isRekt() &&
                                                        (kingdom.hasEnemies() || Realm(kingdom).hasEnemies())).ToList();
         DefenseByCity.Clear();
+        LandRoutes.Clear();
         foreach ((Kingdom owner, CorpsData corps) in CorpsSystem.All())
         {
             if (corps.sector_city_id < 0 || corps.task is not ("defend" or "attack")) continue;

@@ -1302,7 +1302,7 @@ public static class CorpsSystem
             cached.path.RemoveAt(0);
             return ZoneById(cached.path[0]);
         }
-        List<int> path = FindPath(current, target, CorpsArmSystem.Of(corps));
+        List<int> path = FindPath(current, target, CorpsArmSystem.Of(corps), World.world.kingdoms.get(corps.kingdom_id));
         if (path == null || path.Count < 2)
         {
             Paths.Remove(corps.id);
@@ -1331,9 +1331,20 @@ public static class CorpsSystem
     }
 
     // 按代价寻路(八方向)：路上的地块代价 1，路外按兵种加价(OffRoad 的倒数)，山地、沼泽、丛林再按兵种加价(Rough 的倒数)，
-    // 斜走乘 1.41；不可通行的地块与海面不进，终点除外
-    private static List<int> FindPath(TileZone from, TileZone to, CorpsArmSystem.Arm arm)
+    // 斜走乘 1.41；不可通行的地块与海面不进，终点除外。给了 side 时不相干的第三国的地加重八倍(能绕就绕，见 FrontSystem.Passable)
+    private const float ForeignStep = 8f;
+
+    private static List<int> FindPath(TileZone from, TileZone to, CorpsArmSystem.Arm arm, Kingdom side = null)
     {
+        var passable = new Dictionary<long, bool>();
+        bool Foreign(TileZone zone)
+        {
+            if (side == null) return false;
+            Kingdom owner = FrontSystem.Controller(zone);
+            if (owner == null) return false;
+            if (!passable.TryGetValue(owner.id, out bool ok)) passable[owner.id] = ok = FrontSystem.Passable(side, zone);
+            return !ok;
+        }
         float offRoad = 1f / Mathf.Max(0.1f, CorpsArmSystem.OffRoad(arm));
         float rough = 1f / Mathf.Max(0.1f, CorpsArmSystem.Rough(arm));
         var cost = new Dictionary<int, float> { [from.id] = 0f };
@@ -1353,6 +1364,7 @@ public static class CorpsSystem
                 if (neighbour != to && (TerrainSystem.Impassable(neighbour) || SeaRegionSystem.IsSea(neighbour))) continue;
                 float step = RoadNetwork.IsRoad(neighbour) ? 1f : offRoad;
                 if (TerrainSystem.SlowsMarch(neighbour)) step *= rough;
+                if (neighbour != to && Foreign(neighbour)) step *= ForeignStep;
                 if (neighbour.x != zone.x && neighbour.y != zone.y) step *= 1.41f;
                 float total = here + step;
                 if (cost.TryGetValue(neighbour.id, out float known) && known <= total) continue;
