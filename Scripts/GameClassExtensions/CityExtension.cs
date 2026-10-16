@@ -127,6 +127,8 @@ public static class CityExtension
         public int district_space_requests;
         public long personalIdentityId = -1L;
         public bool is_choosing_heir = false;
+        // 记住的城心(见 CityCenterPatch)：-1 = 还没定
+        public int center_tile_x = -1, center_tile_y = -1;
         [JsonIgnore]
         public SimpleButton limitToggle { get; set; }
         public CityType cityType { get; set; }
