@@ -154,24 +154,67 @@ public static class TianxiaSystem
         EmpireCore lead = Lead(core);
         List<EmpireCore> members = Members(lead);
         if (members.Count <= 1) return false;
-        if (lead == core)
-        {
-            EmpireCore heir = members[1];
-            heir.tianxia_lead_id = -1L;
-            heir.tianxia_name = lead.tianxia_name;
-            heir.mandate_kingdom_id = lead.mandate_kingdom_id;
-            heir.mandate_at = lead.mandate_at;
-            heir.mandate_holder_name = lead.mandate_holder_name;
-            heir.mandate_lost_at = lead.mandate_lost_at;
-            heir.mandate_former_kingdom_id = lead.mandate_former_kingdom_id;
-            heir.mandate_history = lead.mandate_history;
-            lead.mandate_history = null;
-            foreach (EmpireCore member in members.Skip(2)) member.tianxia_lead_id = heir.id;
-        }
+        if (lead == core) Handover(lead, Largest(members.Where(member => member != lead)), members);
         core.tianxia_lead_id = -1L;
         core.tianxia_name = "";
         ClearState(core);
         return true;
+    }
+
+    // 城最多的核心(交接天下时由它作主)
+    private static EmpireCore Largest(IEnumerable<EmpireCore> cores) =>
+        cores.Where(core => core != null).OrderByDescending(core => EmpireCoreManager.GetCities(core).Count).ThenBy(core => core.id)
+            .FirstOrDefault();
+
+    // 天下交给 heir 作主：名号、天命、历代共主、天命阶段、天下朝贡国一并移交，其余成员改挂 heir
+    private static void Handover(EmpireCore lead, EmpireCore heir, List<EmpireCore> members)
+    {
+        if (lead == null || heir == null || heir == lead) return;
+        heir.tianxia_lead_id = -1L;
+        heir.tianxia_name = lead.tianxia_name;
+        heir.mandate_kingdom_id = lead.mandate_kingdom_id;
+        heir.mandate_at = lead.mandate_at;
+        heir.mandate_holder_name = lead.mandate_holder_name;
+        heir.mandate_lost_at = lead.mandate_lost_at;
+        heir.mandate_former_kingdom_id = lead.mandate_former_kingdom_id;
+        heir.mandate_history = lead.mandate_history;
+        heir.tianxia_phase = lead.tianxia_phase;
+        lead.mandate_history = null;
+        foreach (EmpireCore member in members)
+            if (member != null && member != lead && member != heir) member.tianxia_lead_id = heir.id;
+        MoveTributaries(lead.id, heir.id);
+    }
+
+    private static void MoveTributaries(long from, long to)
+    {
+        if (World.world?.kingdoms == null) return;
+        foreach (Kingdom kingdom in World.world.kingdoms.list)
+            if (kingdom?.data != null && kingdom.GetOrCreate().tianxia_tributary_lead == from)
+                kingdom.GetOrCreate().tianxia_tributary_lead = to;
+    }
+
+    // 帝国核心被销毁(军阀、法统之争、现代国家、神力……，见 EmpireCoreManager.DestroyEmpireCore)：它作主的天下交给
+    // 城最多的成员接着作主，名号天命不丢；没有别的成员就散了，天下朝贡国的标记一并清掉
+    public static void OnCoreDestroyed(EmpireCore core)
+    {
+        if (core == null || Lead(core) != core) return;
+        List<EmpireCore> members = Members(core);
+        EmpireCore heir = Largest(members.Where(member => member != core));
+        if (heir != null) Handover(core, heir, members);
+        else MoveTributaries(core.id, -1L);
+    }
+
+    // 每年(自动并分之前)：指向已不存在、或已不作主的核心的天下归属理顺——以前主核心被销毁后成员一直挂着失效的编号，
+    // 天命、正统、封禅、造玺都判不成
+    private static void Repair()
+    {
+        foreach (EmpireCore core in EmpireCoreManager.EmpireCores.Values.ToList())
+        {
+            if (core == null || core.tianxia_lead_id < 0 || core.tianxia_lead_id == core.id) continue;
+            EmpireCore target = EmpireCoreManager.Get(core.tianxia_lead_id);
+            EmpireCore lead = target == null ? null : Lead(target);
+            core.tianxia_lead_id = lead == null || lead == core ? -1L : lead.id;
+        }
     }
 
     private static void ClearState(EmpireCore core)
@@ -181,6 +224,7 @@ public static class TianxiaSystem
         core.mandate_holder_name = "";
         core.mandate_lost_at = -1d;
         core.mandate_former_kingdom_id = -1L;
+        core.tianxia_phase = -1;
     }
 
     #endregion
@@ -200,6 +244,7 @@ public static class TianxiaSystem
     public static void AutoArrange()
     {
         if (EmpireCoreManager.EmpireCores == null || World.world?.cities == null) return;
+        Repair();
         // 退出：联合天下里文化标识与主核心不同的(玩家动过的不管)
         foreach (EmpireCore core in EmpireCoreManager.EmpireCores.Values.ToList())
         {

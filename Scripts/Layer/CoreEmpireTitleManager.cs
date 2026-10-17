@@ -586,6 +586,8 @@ public static class EmpireCoreManager
     public static bool DestroyEmpireCore(EmpireCore core)
     {
         if (core == null) return false;
+        // 它作主的天下交给别的成员(见 TianxiaSystem.OnCoreDestroyed)
+        EmpireCraft.Scripts.GeneralSystems.TianxiaSystem.OnCoreDestroyed(core);
         foreach (var city in World.world.cities.list)
         {
             if (city == null || city.isRekt()) continue;
