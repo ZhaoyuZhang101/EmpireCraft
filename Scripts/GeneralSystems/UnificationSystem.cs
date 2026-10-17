@@ -134,11 +134,12 @@ public static class UnificationSystem
         return UnifyYears(sovereign) >= LateYears ? LatePushBonus : PushBonus;
     }
 
-    // 改朝换代：新王朝可以再统一一次
+    // 改朝换代：新王朝可以再统一一次；但本国仍受着天命(篡位、内禅接手的是现成的天下)时不清——
+    // 以前篡了共主的人马上又算统一者、再得三十年开国气象(连保留积弊的权臣篡位也是)
     public static void OnDynastyChanged(Empire empire)
     {
         Kingdom core = empire?.CoreKingdom;
-        if (!Alive(core)) return;
+        if (!Alive(core) || TianxiaSystem.MandateOf(core) != null) return;
         var data = core.GetOrCreate();
         data.unify_since = -1d;
         data.unified_at = -1d;
@@ -348,6 +349,7 @@ public static class UnificationSystem
                     data.unify_since = -1d;
                     data.unified_at = now;
                     Record(unifier, "unify_done_history", unifier.GetKingdomName());
+                    if (realm.lead != null) TianxiaSystem.Grant(realm.lead, unifier, realm.held[unifier], realm.total, realm.line);
                     continue;
                 }
                 double strongest = powers.Where(holder => holder != unifier)
@@ -357,6 +359,7 @@ public static class UnificationSystem
                     data.unify_since = -1d;
                     data.unified_at = now;
                     Record(unifier, "unify_done_history", unifier.GetKingdomName());
+                    if (realm.lead != null) TianxiaSystem.Grant(realm.lead, unifier, realm.held[unifier], realm.total, realm.line);
                     continue;
                 }
                 bool overtaken = powers.Any(holder => holder != unifier && realm.held[holder] > realm.held[unifier]);
@@ -379,6 +382,7 @@ public static class UnificationSystem
                     data.unify_since = -1d;
                     data.unified_at = now;
                     Record(unifier, "unify_done_history", unifier.GetKingdomName());
+                    if (realm.lead != null) TianxiaSystem.Grant(realm.lead, unifier, realm.held[unifier], realm.total, realm.line);
                     continue;
                 }
                 Submissions(unifier);
@@ -391,6 +395,8 @@ public static class UnificationSystem
             // 还在开国气象里的统一者不再起统一战；气象过了，旧王朝(崩了以后的残部)也能重新问鼎——以前"统一过"的标记永远不清，
             // 残部仍是最大一家时谁都发不起统一战，天下永远乱世
             if (InGrace(top)) continue;
+            // 已受这个天下天命的不再起统一战(它就是天下共主)
+            if (realm.lead != null && TianxiaSystem.MandateOf(top) == realm.lead) continue;
             float topShare = realm.held[top] / (float)realm.total;
             double topPower = WarSituation.Power(top);
             double second = ranked.Skip(1).Select(holder => WarSituation.Power(holder)).DefaultIfEmpty(0d).Max();

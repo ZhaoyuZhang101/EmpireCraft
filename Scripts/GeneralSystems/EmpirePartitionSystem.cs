@@ -64,6 +64,14 @@ public static class EmpirePartitionSystem
         return a != null && b != null && a != b && a.data.partition_amity && Twin(a) == b;
     }
 
+    // 天命阶段的分裂倍数：治世 ×0.25、动荡 ×1、乱世(天下无主；都城不在任何天下里也记为乱世) ×1.5
+    private static float PhaseFactor(Kingdom core) => TianxiaSystem.PhaseOf(core) switch
+    {
+        TianxiaSystem.Peace => 0.25f,
+        TianxiaSystem.Chaos => 1.5f,
+        _ => 1f
+    };
+
     private static bool Eligible(Empire empire)
     {
         Kingdom core = empire?.CoreKingdom;
@@ -438,6 +446,8 @@ public static class EmpirePartitionSystem
         else if (regime == RegimeType.Feudalism) chance *= 1.5f;
         if (cities.Count >= 24) chance *= 1.5f;
         if (span >= mapSize * 0.45f) chance *= 1.5f;
+        // 分裂集中在动荡、末世(用户 2026-10-17 选"以天命为准"：治世少分)
+        chance *= PhaseFactor(core);
         chance *= RulerQualitySystem.Of(emperor) switch
         {
             RulerQualitySystem.Grade.Wise => 0.5f,
@@ -533,7 +543,7 @@ public static class EmpirePartitionSystem
                               (Might(kingdom) >= total * StrongmanMightShare || CorpsSystem.IsGeneral(kingdom.king) ||
                                kingdom.GetKingdomType() is KingdomType.LvLing_jiedushi or KingdomType.LvLing_duhufu))
             .OrderByDescending(Might).FirstOrDefault();
-        if (bastion == null || UnityEngine.Random.value >= MinisterChance) return;
+        if (bastion == null || UnityEngine.Random.value >= MinisterChance * PhaseFactor(core)) return;
         Plan plan = Divide(empire, capital, bastion.capital);
         if (plan.Share < 0.15f || plan.Share > 0.7f) return;
         Actor strongman = bastion.king;

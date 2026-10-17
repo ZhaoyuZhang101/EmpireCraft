@@ -330,21 +330,34 @@ public static class TianxiaSystem
             SetPhase(lead, Chaos, name, null);
             return;
         }
-        lead.mandate_kingdom_id = top.Key.id;
+        Claim(lead, top.Key, top.Value, total, name, now);
+    }
+
+    private static void Claim(EmpireCore lead, Kingdom kingdom, int count, int total, string name, double now)
+    {
+        lead.mandate_kingdom_id = kingdom.id;
         lead.mandate_at = now;
-        lead.mandate_holder_name = top.Key.GetKingdomName();
+        lead.mandate_holder_name = kingdom.GetKingdomName();
         lead.mandate_lost_at = -1d;
         lead.mandate_history ??= new List<MandateRecord>();
         lead.mandate_history.Add(new MandateRecord
         {
-            kingdom_id = top.Key.id, kingdom_name = lead.mandate_holder_name,
-            dynasty = top.Key.GetEmpire()?.EmpireSpecificClan?.name ?? "", claimed_at = now
+            kingdom_id = kingdom.id, kingdom_name = lead.mandate_holder_name,
+            dynasty = kingdom.GetEmpire()?.EmpireSpecificClan?.name ?? "", claimed_at = now
         });
-        Record(top.Key, string.Format(LM.Get("tianxia_mandate_claim_history"), lead.mandate_holder_name, name,
-            $"{top.Value / (float)total:P0}"));
+        Record(kingdom, string.Format(LM.Get("tianxia_mandate_claim_history"), lead.mandate_holder_name, name,
+            $"{count / (float)total:P0}"));
         lead.tianxia_phase = Peace;
         lead.tianxia_phase_since = now;
-        InvalidateLegitimacy(top.Key);
+        InvalidateLegitimacy(kingdom);
+    }
+
+    // 统一完成即受天命(用户 2026-10-17 选"以天命为准"：统一了就是治世的开头)，不论据有几成；之后照常过半才守得住
+    public static void Grant(EmpireCore lead, Kingdom unifier, int count, int total, string name)
+    {
+        if (lead == null || unifier?.data == null || unifier.isRekt() || unifier.wild || total <= 0 ||
+            lead.mandate_kingdom_id >= 0 || World.world == null) return;
+        Claim(lead, unifier, count, total, name, World.world.getCurWorldTime());
     }
 
     // 这一国受着哪个天下的天命(没有为空)
