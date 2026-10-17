@@ -1,18 +1,74 @@
 {
   "name_key": "institution_line_arabic",
   "root_nodes": [
-    "arabic_tribal_shura"
+    "arabic_bedouin_clans"
   ],
   "nodes": [
     {
-      "id": "arabic_tribal_shura",
-      "name_key": "institution_arabic_tribal_shura",
-      "description_key": "institution_arabic_tribal_shura_desc",
+      "id": "arabic_bedouin_clans",
+      "name_key": "institution_arabic_bedouin_clans",
+      "description_key": "institution_arabic_bedouin_clans_desc",
       "branch": "society",
       "advancement": 1,
       "reform": {
         "minimum_years": 1,
         "allow_force": false
+      },
+      "politics": {
+        "support_classes": {"Peasant": 0.5, "Merchant": 0.3}
+      },
+      "absorb": {
+        "enabled": false
+      },
+      "regime": "Origin"
+    },
+    {
+      "id": "arabic_tribal_union", "requires_techs": ["copper_smelting"],
+      "name_key": "institution_arabic_tribal_union",
+      "description_key": "institution_arabic_tribal_union_desc",
+      "branch": "administration",
+      "advancement": 1,
+      "requires": [
+        "arabic_bedouin_clans"
+      ],
+      "replaces": [
+        "arabic_bedouin_clans"
+      ],
+      "reform": {
+        "base_progress_per_year": 12.0,
+        "minimum_years": 5
+      },
+      "resistance": {
+        "base_radicalism": 5.0,
+        "vested_interest_radicalism": 8.0,
+        "rebellion_threshold": 80.0
+      },
+      "politics": {
+        "support_classes": {"Noble": 0.6, "Merchant": 0.4}
+      },
+      "regime": "Origin"
+    },
+    {
+      "id": "arabic_tribal_shura", "requires_techs": ["bronze_casting", "writing"],
+      "name_key": "institution_arabic_tribal_shura",
+      "description_key": "institution_arabic_tribal_shura_desc",
+      "branch": "society",
+      "advancement": 1,
+      "requires": [
+        "arabic_tribal_union"
+      ],
+      "replaces": [
+        "arabic_bedouin_clans",
+        "arabic_tribal_union"
+      ],
+      "reform": {
+        "base_progress_per_year": 12.0,
+        "minimum_years": 5
+      },
+      "resistance": {
+        "base_radicalism": 5.0,
+        "vested_interest_radicalism": 8.0,
+        "rebellion_threshold": 80.0
       },
       "politics": {
         "support_classes": {

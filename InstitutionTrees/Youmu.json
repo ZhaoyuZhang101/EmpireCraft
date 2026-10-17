@@ -1,18 +1,74 @@
 {
   "name_key": "institution_line_youmu",
   "root_nodes": [
-    "youmu_tribal_confederation"
+    "youmu_steppe_clans"
   ],
   "nodes": [
     {
-      "id": "youmu_tribal_confederation",
-      "name_key": "institution_youmu_tribal_confederation",
-      "description_key": "institution_youmu_tribal_confederation_desc",
-      "branch": "military",
+      "id": "youmu_steppe_clans",
+      "name_key": "institution_youmu_steppe_clans",
+      "description_key": "institution_youmu_steppe_clans_desc",
+      "branch": "society",
       "advancement": 1,
       "reform": {
         "minimum_years": 1,
         "allow_force": false
+      },
+      "politics": {
+        "support_classes": {"Peasant": 0.5, "Noble": 0.3}
+      },
+      "absorb": {
+        "enabled": false
+      },
+      "regime": "Origin"
+    },
+    {
+      "id": "youmu_clan_union", "requires_techs": ["copper_smelting"],
+      "name_key": "institution_youmu_clan_union",
+      "description_key": "institution_youmu_clan_union_desc",
+      "branch": "administration",
+      "advancement": 1,
+      "requires": [
+        "youmu_steppe_clans"
+      ],
+      "replaces": [
+        "youmu_steppe_clans"
+      ],
+      "reform": {
+        "base_progress_per_year": 12.0,
+        "minimum_years": 5
+      },
+      "resistance": {
+        "base_radicalism": 5.0,
+        "vested_interest_radicalism": 8.0,
+        "rebellion_threshold": 80.0
+      },
+      "politics": {
+        "support_classes": {"Noble": 0.6, "Army": 0.4}
+      },
+      "regime": "Origin"
+    },
+    {
+      "id": "youmu_tribal_confederation", "requires_techs": ["bronze_casting"],
+      "name_key": "institution_youmu_tribal_confederation",
+      "description_key": "institution_youmu_tribal_confederation_desc",
+      "branch": "military",
+      "advancement": 1,
+      "requires": [
+        "youmu_clan_union"
+      ],
+      "replaces": [
+        "youmu_steppe_clans",
+        "youmu_clan_union"
+      ],
+      "reform": {
+        "base_progress_per_year": 12.0,
+        "minimum_years": 5
+      },
+      "resistance": {
+        "base_radicalism": 5.0,
+        "vested_interest_radicalism": 8.0,
+        "rebellion_threshold": 80.0
       },
       "politics": {
         "support_classes": {

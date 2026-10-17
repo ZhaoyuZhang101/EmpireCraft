@@ -236,7 +236,7 @@ namespace EmpireCraft.Scripts.HelperFunc
         {
             string key = null;
             if (regime != null && RegimeManager.IsPrimitive(regime.type) && coreKingdom != null &&
-                EmpireCraft.Scripts.GeneralSystems.DynastyNaming.HuaxiaOrigin(coreKingdom))
+                EmpireCraft.Scripts.GeneralSystems.DynastyNaming.TribalNaming(coreKingdom))
             {
                 key = EmpireCraft.Scripts.GeneralSystems.DynastyNaming.HuaxiaOriginEmpireKey(coreKingdom);
             }

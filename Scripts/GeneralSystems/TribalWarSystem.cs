@@ -18,7 +18,8 @@ public static class TribalWarSystem
 {
     private const float TributeShare = 0.3f;
 
-    // 本文化会不会联合诸部：华夏看「部落联合」(之后的家天下也算)，日本看弥生小国；别的文化没有这一步，照旧
+    // 本文化会不会联合诸部：华夏看「部落联合」(之后的家天下也算)，日本看弥生小国，游牧看诸部联合(之后的汗国也算)，
+    // 阿拉伯看部族联合(之后的哈里发国也算；用户 2026-10-17 选"游牧、阿拉伯也从部落起步")；别的文化没有这一步，照旧
     public static bool Unified(Kingdom kingdom)
     {
         string culture = CultureService.GetRealmCulture(kingdom);
@@ -28,6 +29,8 @@ public static class TribalWarSystem
         {
             "Huaxia" => Known("huaxia_tribal_alliance") || Known("huaxia_hereditary_kingship"),
             "Japan" => Known("japan_yayoi_kuni") || Known("japan_yamato_kingship"),
+            "Youmu" => Known("youmu_clan_union") || Known("youmu_tribal_confederation"),
+            "Arabic" => Known("arabic_tribal_union") || Known("arabic_tribal_shura"),
             _ => true
         };
     }

@@ -54,7 +54,22 @@ public static class DynastyNaming
     public static string LineSuffix(Kingdom kingdom)
     {
         if (kingdom?.data == null || kingdom.isRekt()) return null;
-        return InstitutionSystem.GetCultureLine(CultureService.GetRealmCulture(kingdom)) == "Japan" ? "_japan" : null;
+        // 游牧、阿拉伯只在原始阶段另有称谓(部落、首领、谢赫……见 Origin/OfficialType.csv)，没有译文的键照旧用政体原名
+        return InstitutionSystem.GetCultureLine(CultureService.GetRealmCulture(kingdom)) switch
+        {
+            "Japan" => "_japan",
+            "Youmu" => "_youmu",
+            "Arabic" => "_arabic",
+            _ => null
+        };
+    }
+
+    // 帝国名按部落、部落联盟称的原始政体：华夏，连同从部落起步的游牧、阿拉伯
+    public static bool TribalNaming(Kingdom kingdom)
+    {
+        if (HuaxiaOrigin(kingdom)) return true;
+        if (kingdom?.data == null || kingdom.isRekt() || kingdom.GetRegime()?.type != RegimeType.Origin) return false;
+        return InstitutionSystem.GetCultureLine(CultureService.GetRealmCulture(kingdom)) is "Youmu" or "Arabic";
     }
 
     // 帝国名的类别：一部自立称部落，有了共事的部落称部落联盟(见 TribalFissionService.Incorporate)；进入家天下后称"朝"(夏、商)
