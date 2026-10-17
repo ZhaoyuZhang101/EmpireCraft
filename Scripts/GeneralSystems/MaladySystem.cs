@@ -128,15 +128,23 @@ public static class MaladySystem
                                      (EmpireBankruptcySystem.IsBankrupt(empire) ? 3f : 0f)));
     }
 
-    // 积弊滋生的快慢(历史周期律)：开国气象里不滋生；立国头 50 年四分之一，50~100 年六成，百年后全速
+    // 积弊滋生的快慢(历史周期律)：开国气象里不滋生；立国头 50 年四分之一，50~100 年六成，百年后全速。
+    // 受天命的王朝再看天命周期(用户 2026-10-17 选"以天命为准")：治世里慢两成五，天命动摇后快一半(末世加速)；没受天命的照常
     private const int EarlyYears = 50, MiddleYears = 100;
-    private const float EarlyPace = 0.25f, MiddlePace = 0.6f;
+    private const float EarlyPace = 0.25f, MiddlePace = 0.6f, PeacePace = 0.75f, UnrestPace = 1.5f;
 
     public static float Pace(Empire empire)
     {
         if (empire.InFoundingGrace) return 0f;
         int age = DynasticCycleSystem.GetAge(empire);
-        return age < EarlyYears ? EarlyPace : age < MiddleYears ? MiddlePace : 1f;
+        return (age < EarlyYears ? EarlyPace : age < MiddleYears ? MiddlePace : 1f) * MandatePace(empire);
+    }
+
+    private static float MandatePace(Empire empire)
+    {
+        List<EmpireCore> mandates = TianxiaSystem.MandatesOf(empire.CoreKingdom);
+        if (mandates.Count == 0) return 1f;
+        return mandates.Any(lead => TianxiaSystem.Phase(lead) == TianxiaSystem.Unrest) ? UnrestPace : PeacePace;
     }
 
     // 每年才结算的效果：吏治(各城腐败)、冗费(行政开支)、党争(各派怨望)

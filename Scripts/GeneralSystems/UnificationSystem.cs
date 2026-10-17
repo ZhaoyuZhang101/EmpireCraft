@@ -90,13 +90,26 @@ public static class UnificationSystem
         return since >= 0d ? Date.getYearsSince(since) : 0;
     }
 
-    // 开国气象：统一战争期间、统一后三十年(见 Empire.InFoundingGrace、RebellionSystem.CanAttempt)
+    // 开国气象：统一战争期间、统一后三十年(见 Empire.InFoundingGrace、RebellionSystem.CanAttempt)。
+    // 开国气象是治世的开头(用户 2026-10-17 选"以天命为准")：统一了有帝国法理的天下、受了天命的，要还受着天命、天下仍是治世——
+    // 天命动摇、失了天命，开国气象就此过去(以前照样满三十年，地盘丢了大半也不起事、不分裂、积弊不涨)
     public static bool InGrace(Kingdom kingdom)
     {
         Kingdom sovereign = Sovereign(kingdom);
         if (!Alive(sovereign) || World.world == null) return false;
         var data = sovereign.GetOrCreate();
         if (data.unify_since >= 0d) return true;
+        if (!RecentlyUnified(sovereign)) return false;
+        return !data.unified_tianxia ||
+               TianxiaSystem.MandatesOf(sovereign).Any(lead => TianxiaSystem.Phase(lead) == TianxiaSystem.Peace);
+    }
+
+    // 统一天下不到三十年(不论天命如何；天命动摇的判定用它，免得统一时不到七成五的第二年就动荡)
+    public static bool RecentlyUnified(Kingdom kingdom)
+    {
+        Kingdom sovereign = Sovereign(kingdom);
+        if (!Alive(sovereign) || World.world == null) return false;
+        var data = sovereign.GetOrCreate();
         return data.unified_at >= 0d && World.world.getCurWorldTime() >= data.unified_at &&
                Date.getYearsSince(data.unified_at) < GraceYears;
     }
@@ -143,6 +156,7 @@ public static class UnificationSystem
         var data = core.GetOrCreate();
         data.unify_since = -1d;
         data.unified_at = -1d;
+        data.unified_tianxia = false;
     }
 
     #endregion
@@ -346,20 +360,14 @@ public static class UnificationSystem
                 var data = unifier.GetOrCreate();
                 if (share >= UnifiedShare || alone)
                 {
-                    data.unify_since = -1d;
-                    data.unified_at = now;
-                    Record(unifier, "unify_done_history", unifier.GetKingdomName());
-                    if (realm.lead != null) TianxiaSystem.Grant(realm.lead, unifier, realm.held[unifier], realm.total, realm.line);
+                    Complete(unifier, realm, now);
                     continue;
                 }
                 double strongest = powers.Where(holder => holder != unifier)
                     .Select(holder => WarSituation.Power(holder)).DefaultIfEmpty(0d).Max();
                 if (UnifyYears(unifier) >= MaxUnifyYears && share >= LateUnifiedShare)
                 {
-                    data.unify_since = -1d;
-                    data.unified_at = now;
-                    Record(unifier, "unify_done_history", unifier.GetKingdomName());
-                    if (realm.lead != null) TianxiaSystem.Grant(realm.lead, unifier, realm.held[unifier], realm.total, realm.line);
+                    Complete(unifier, realm, now);
                     continue;
                 }
                 bool overtaken = powers.Any(holder => holder != unifier && realm.held[holder] > realm.held[unifier]);
@@ -379,10 +387,7 @@ public static class UnificationSystem
                 {
                     Stalled.Remove(unifier.id);
                     Rivals.Remove(unifier.id);
-                    data.unify_since = -1d;
-                    data.unified_at = now;
-                    Record(unifier, "unify_done_history", unifier.GetKingdomName());
-                    if (realm.lead != null) TianxiaSystem.Grant(realm.lead, unifier, realm.held[unifier], realm.total, realm.line);
+                    Complete(unifier, realm, now);
                     continue;
                 }
                 Submissions(unifier);
@@ -417,6 +422,17 @@ public static class UnificationSystem
             if (data.unify_since >= 0d) data.unify_since = -1d;
         }
         RetagStaleWars();
+    }
+
+    // 统一完成：开国气象起算；有帝国法理的天下即受天命(TianxiaSystem.Grant)，受了天命的开国气象跟着天命走(见 InGrace)
+    private static void Complete(Kingdom unifier, Realm realm, double now)
+    {
+        var data = unifier.GetOrCreate();
+        data.unify_since = -1d;
+        data.unified_at = now;
+        Record(unifier, "unify_done_history", unifier.GetKingdomName());
+        if (realm.lead != null) TianxiaSystem.Grant(realm.lead, unifier, realm.held[unifier], realm.total, realm.line);
+        data.unified_tianxia = realm.lead != null && TianxiaSystem.Holder(realm.lead) == unifier;
     }
 
     // 已不在同一天下的"统一战争"(旧存档跨文化开的、天下散了的)改名：游牧政权为游牧扩张，别的为帝国扩张
@@ -572,8 +588,9 @@ public static class UnificationSystem
             var top = realm.held.OrderByDescending(pair => pair.Value).Take(3)
                 .Select(pair => $"{pair.Key.GetKingdomName()} {pair.Value / (float)realm.total:P0}");
             Kingdom unifier = realm.members.FirstOrDefault(holder => holder.GetOrCreate().unify_since >= 0d);
+            string cycle = realm.lead != null ? TianxiaSystem.PhaseName(TianxiaSystem.Phase(realm.lead)) : "文化连片";
             string phase = unifier != null ? $"统一战争 {unifier.GetKingdomName()} 第{UnifyYears(unifier)}年"
-                : realm.members.Any(InGrace) ? "治世(开国气象)" : "乱世/常态";
+                : realm.members.Any(InGrace) ? $"{cycle}(开国气象)" : cycle;
             LogService.LogInfo($"[EmpireCraft][天下大势] {realm.line} {realm.total}城 {realm.members.Count}家(另有外家{realm.held.Count - realm.members.Count})：{phase}；{string.Join("、", top)}");
         }
         var dynasties = World.world.kingdoms.list.Select(kingdom => kingdom?.GetEmpire()).Where(empire => empire != null &&

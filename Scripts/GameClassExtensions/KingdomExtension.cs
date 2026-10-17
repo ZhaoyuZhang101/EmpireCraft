@@ -388,6 +388,8 @@ public static class KingdomExtension
         // 天下大势(见 UnificationSystem)：开始统一战争的时间、统一完成的时间(-1 没有)
         public double unify_since = -1d;
         public double unified_at = -1d;
+        // 统一的是有帝国法理的天下、受了天命：开国气象跟着天命走(天命动摇、失了天命就过去，见 UnificationSystem.InGrace)
+        public bool unified_tianxia;
         // 分封制下的小乱(见 PettyRebellion)：原主国家与起事时间(-1 不是)
         public long petty_rebel_origin = -1L;
         public double petty_rebel_since = -1d;

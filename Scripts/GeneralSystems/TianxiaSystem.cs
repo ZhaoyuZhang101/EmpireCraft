@@ -360,15 +360,36 @@ public static class TianxiaSystem
         Claim(lead, unifier, count, total, name, World.world.getCurWorldTime());
     }
 
-    // 这一国受着哪个天下的天命(没有为空)
+    // 这一国受着哪个天下的天命(没有为空；受着几个的取第一个，要全部的用 MandatesOf)
     public static EmpireCore MandateOf(Kingdom kingdom) => kingdom == null ? null
         : EmpireCoreManager.EmpireCores.Values.FirstOrDefault(lead => lead != null && lead.tianxia_lead_id < 0 && lead.mandate_kingdom_id == kingdom.id);
 
-    // 这一国所处天下的天命周期(受天命的看它那个天下，否则看都城所在的天下；不在天下里算乱世)
+    // 这一国受着天命的各个天下
+    public static List<EmpireCore> MandatesOf(Kingdom kingdom) => kingdom == null ? new List<EmpireCore>()
+        : EmpireCoreManager.EmpireCores.Values.Where(lead => lead != null && lead.tianxia_lead_id < 0 && lead.mandate_kingdom_id == kingdom.id).ToList();
+
+    // 这一国所处的天下：受天命的看它那个天下，否则看都城所在的天下；不在任何天下里为空
+    public static EmpireCore RealmOf(Kingdom kingdom) => MandateOf(kingdom) ?? LeadOf(kingdom?.capital);
+
+    // 这一国所处天下的天命周期(不在天下里算乱世)
     public static int PhaseOf(Kingdom kingdom)
     {
-        EmpireCore lead = MandateOf(kingdom) ?? LeadOf(kingdom?.capital);
+        EmpireCore lead = RealmOf(kingdom);
         return lead == null ? Chaos : Phase(lead);
+    }
+
+    // 周期律的快慢(叛乱、积弊，用户 2026-10-17 选"以天命为准")：所处天下治世为 peace、动荡为 unrest、乱世为 chaos；
+    // 不在任何天下里的照常(1)
+    public static float CycleFactor(Kingdom kingdom, float peace, float unrest, float chaos)
+    {
+        EmpireCore lead = RealmOf(kingdom);
+        if (lead == null) return 1f;
+        return Phase(lead) switch
+        {
+            Peace => peace,
+            Unrest => unrest,
+            _ => chaos
+        };
     }
 
     // 来朝诸国(仰慕这个天下的共主而来的、还在朝贡的)
@@ -423,11 +444,14 @@ public static class TianxiaSystem
             Record(holder, string.Format(LM.Get("tianxia_tribute_leave_history"), string.Join("、", left), name));
     }
 
-    // 天命动摇：地盘跌到七成五以下、正统低于三十、积弊六十以上
+    // 天命动摇：地盘跌到七成五以下(怀玺的六成)、正统低于三十、积弊六十以上。
+    // 统一后三十年里不看地盘——统一完成即受天命(打满三十年过半、或够不着别家也算统一)，以前不到七成五的第二年就动荡，
+    // 开国气象跟着就没了(见 UnificationSystem.InGrace)
     private static bool Shaken(Kingdom holder, float share)
     {
         Empire empire = holder?.GetEmpire();
-        if (share < ClaimShare) return true;
+        float floor = ImperialSealSystem.Holds(holder) ? SealClaimShare : ClaimShare;
+        if (share < floor && !UnificationSystem.RecentlyUnified(holder)) return true;
         if (empire == null) return false;
         return empire.Legitimacy < ShakenMandate || DynasticCycleSystem.GetPressure(empire) >= ShakenPressure;
     }

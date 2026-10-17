@@ -25,11 +25,15 @@ public static class RebellionSystem
     public static bool CanAttempt(Kingdom kingdom) => kingdom != null && !kingdom.isRekt() &&
         GraceYearsRemaining(kingdom) == 0 && !RulerTraitSystem.FounderShield(kingdom) && !UnificationSystem.InGrace(kingdom);
 
+    // 天命周期(用户 2026-10-17 选"以天命为准")：所处天下治世起事少、动荡多，乱世略多；不在天下里照常
+    private const float PeaceRebellion = 0.6f, UnrestRebellion = 1.5f, ChaosRebellion = 1.2f;
+
     public static float ChanceFactor(Kingdom kingdom)
     {
         Empire empire = kingdom?.GetEmpire();
         return RebellionRules.LegitimacyFactor(empire != null && !empire.isRekt() ? empire.Legitimacy : -1) *
-               (ModernStability.IsModern(kingdom) ? ModernStability.RebellionFactor : 1f);
+               (ModernStability.IsModern(kingdom) ? ModernStability.RebellionFactor : 1f) *
+               TianxiaSystem.CycleFactor(kingdom, PeaceRebellion, UnrestRebellion, ChaosRebellion);
     }
 
     public static bool CanContinueCityPlot(Actor actor, bool forced = false)
