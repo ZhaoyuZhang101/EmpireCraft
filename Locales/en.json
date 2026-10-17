@@ -2523,6 +2523,7 @@
   "heqin_history": "{0} makes a marriage alliance with {1}; the two will not war for twenty years",
   "heqin_marry_history": "{0} sends the princess {1} in marriage to {2}; the two will not war for twenty years",
   "heqin_settle_history": "{0} submits to {1} and is settled as a frontier march under loose rein",
+  "stability_religion_detail": "Heterodox faith ({0})",
   "capital_loss_restored": "{0} retakes its old capital {1} and is again known as {2}.",
   "kingdom_type_xingzai": "Temporary Court",
   "Later": "Later",

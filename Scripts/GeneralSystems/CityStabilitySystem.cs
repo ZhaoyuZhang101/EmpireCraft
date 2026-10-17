@@ -227,10 +227,22 @@ public static class CityStabilitySystem
             input.Landless, input.Famine, input.Grievance);
         // 鞭长莫及：行政控制力低的城自然稳定度下降
         float remote = AdministrativeControlSystem.StabilityLoss(city);
-        if (remote < 1f) return natural;
-        string cause = string.Format(LM.Get("stability_admin_detail"), AdministrativeControlSystem.Get(city) * 100f);
-        detail = string.IsNullOrEmpty(detail) ? cause : detail + " / " + cause;
-        return CityStabilityRules.Clamp(natural - remote);
+        // 异教之城：信仰与国教不同、国家限制信仰(见 ReligionStabilitySystem)
+        float faith = ReligionStabilitySystem.StabilityLoss(city);
+        if (remote < 1f && faith <= 0f) return natural;
+        if (remote >= 1f)
+        {
+            string cause = string.Format(LM.Get("stability_admin_detail"), AdministrativeControlSystem.Get(city) * 100f);
+            detail = string.IsNullOrEmpty(detail) ? cause : detail + " / " + cause;
+            natural -= remote;
+        }
+        if (faith > 0f)
+        {
+            string cause = string.Format(LM.Get("stability_religion_detail"), city.religion?.name ?? "");
+            detail = string.IsNullOrEmpty(detail) ? cause : detail + " / " + cause;
+            natural -= faith;
+        }
+        return CityStabilityRules.Clamp(natural);
     }
 
     public static float Effective(City city)

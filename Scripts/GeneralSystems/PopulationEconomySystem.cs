@@ -342,8 +342,9 @@ public static class PopulationEconomySystem
         data.sector_tax_carry ??= new();
         // 国野之制：国中赋税轻、野人重(见 GuoyeSystem)
         // 世家荫户少收(见 GentrySystem)；城外镇村毁于兵火，那几份不交税(见 RuralSettlementSystem)
+        // 人头税：异教之城多纳两成(见 ReligionStabilitySystem)
         double baseRate = city.kingdom.GetTaxRate() * GuoyeSystem.TaxFactor(city) * GentrySystem.TaxFactor(city) *
-                          RuralSettlementSystem.OutputFactor(city);
+                          RuralSettlementSystem.OutputFactor(city) * ReligionStabilitySystem.TaxFactor(city);
         float remaining = income, due = 0f;
         long wholeTotal = 0;
         // 税先从民间现金里交(每月最多现金盈余的一半)，不够的部分才按产值估值折算(旧模型)；

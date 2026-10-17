@@ -270,6 +270,9 @@
       "description_key": "institution_arabic_jizya_tax_desc",
       "branch": "finance",
       "advancement": 3,
+      "features": {
+        "head_tax": 1
+      },
       "requires": [
         "arabic_caravan_trade"
       ],

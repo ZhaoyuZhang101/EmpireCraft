@@ -317,6 +317,8 @@ public class WarPatch: GamePatch
                     break;
                 case EmpireWarType.地方叛乱:
                 case EmpireWarType.地方独立:
+                case EmpireWarType.民族叛乱:
+                case EmpireWarType.宗教叛乱:
                     Kingdom attacker1 = pWar.getMainAttacker();
                     InstitutionSystem.ResolveSocialRebellion(pWar, pWinner);
                     LandEconomySystem.ResolvePeasantLandRebellion(pWar, pWinner);

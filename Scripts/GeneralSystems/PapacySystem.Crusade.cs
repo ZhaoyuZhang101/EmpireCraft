@@ -32,6 +32,8 @@ public static partial class PapacySystem
     private const int CrusadeCooldownYears = 15;
     private const int MaxResponders = 8, MaxDefenders = 5;
     private const double SecondsPerYear = 60d;
+    // 圣战冷却(秒)：教皇国另起圣战也用它(见 EmpireCraftPlotsAddition)
+    public const double CrusadeCooldownSeconds = CrusadeCooldownYears * SecondsPerYear;
 
     public static War ActiveCrusade(Religion religion)
     {

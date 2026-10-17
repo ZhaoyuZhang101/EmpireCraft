@@ -31,8 +31,12 @@ public class EmpireCraftCityBehCheckJoinRebellion: GameAICityBase
             if (!c.hasKingdom()) return false;
             var targetKingdom = c.kingdom;
             if (initKingdom == targetKingdom) return false;
+            // 宗教叛乱只有同信仰的城加入，民族叛乱只有同文化的城加入
             var targetWar = targetKingdom.getWars().ToList().Find(w =>
-                (w.GetEmpireWarType() == EmpireWarType.地方叛乱 || w.GetEmpireWarType() == EmpireWarType.地方独立) &&
+                (w.GetEmpireWarType() == EmpireWarType.地方叛乱 || w.GetEmpireWarType() == EmpireWarType.地方独立 ||
+                 w.GetEmpireWarType() == EmpireWarType.宗教叛乱 && pCity.religion != null && pCity.religion == c.religion ||
+                 w.GetEmpireWarType() == EmpireWarType.民族叛乱 &&
+                 CultureService.GetMainCulture(pCity) == CultureService.GetMainCulture(c)) &&
                 w.main_attacker == targetKingdom && (w.main_defender == initKingdom || initCore != null && w.main_defender == initCore));
             if (targetWar == null) return false;
             return true;

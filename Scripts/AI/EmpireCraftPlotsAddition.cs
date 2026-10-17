@@ -1336,12 +1336,17 @@ namespace EmpireCraft.Scripts.AI
                     if (kingdom.hasReligion() && kingdom.religion.GetCity() == kingdom.capital)
                     {
                         Religion religion = kingdom.religion;
+                        // 与本宗教的圣战共用十五年冷却(见 PapacySystem.Crusade；以前教皇国另起圣战不看冷却)
+                        var faith = religion.GetOrCreate();
+                        if (World.world.getCurWorldTime() < faith.CrusadeCooldownUntil) return false;
 
                         var target = World.world.kingdoms.ToList().Find(k =>
                             !religion.kingdoms.Contains(k) && HolyWarNeighbour(kingdom, k));
                         if (target == null) return false;
                         var war = DiplomacyHelpers.wars.newWar(kingdom, target, WarTypeLibrary.normal);
+                        if (war == null) return false;
                         war.SetEmpireWarType(EmpireWarType.神圣, pre:religion.name);
+                        faith.CrusadeCooldownUntil = World.world.getCurWorldTime() + PapacySystem.CrusadeCooldownSeconds;
                         regime.religion_point -= 1000;
                         return true;
                     }
@@ -2379,6 +2384,10 @@ namespace EmpireCraft.Scripts.AI
                     RebellionCauseData cause = RebellionSystem.Capture(origin, originCity,
                         originCity.isHappy() ? "rebellion_reason_exclave" : "rebellion_reason_city_loyalty",
                         RebellionSystem.CityLoyaltyCauses(originCity));
+                    // 异教之城起事打宗教叛乱、异族之城打民族叛乱，其余是地方独立(见 ReligionStabilitySystem；起事前按原国判)
+                    EmpireWarType uprising = ReligionStabilitySystem.Heterodox(originCity) ? EmpireWarType.宗教叛乱
+                        : NationalSentimentSystem.IsForeignRuled(originCity) ? EmpireWarType.民族叛乱
+                        : EmpireWarType.地方独立;
 				    bool pCheckForHappiness = !plot.data.forced;
 				    DiplomacyHelpersRebellion.startRebellion(pActor, plot, pCheckForHappiness);
                     if (pActor.kingdom == null || pActor.kingdom == origin) return false;
@@ -2395,8 +2404,8 @@ namespace EmpireCraft.Scripts.AI
                     }
                     if (war != null)
                     {
-                        war.SetEmpireWarType(EmpireWarType.地方独立);
-                        pActor.kingdom.StartLocalRebelling(EmpireWarType.地方独立, pre: pActor.city.GetCityName());
+                        war.SetEmpireWarType(uprising);
+                        pActor.kingdom.StartLocalRebelling(uprising, pre: pActor.city.GetCityName());
                         RebellionSystem.Record(pActor.kingdom, war, cause);
                         // 就地武装义军：以前城市起事走原版起义流程，无小人模式下城里几乎没有实体兵，
                         // 叛军一冒头手里没兵，集结期一过本省军府开到就收复了。民心越背离(忠诚越低)武装越多

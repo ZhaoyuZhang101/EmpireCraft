@@ -144,6 +144,8 @@ public class EmpireCraftKingdomBehCheckPlots : GameAIKingdomBase
         World.world.wars.endWar(war, WarWinner.Peace);
         return true;
     }
+    private const int MaxHolyWarAttackers = 9;
+
     public void CheckJoinReligionWar(Kingdom pKingdom)
     {
         if (!pKingdom.hasReligion()) return;
@@ -157,6 +159,11 @@ public class EmpireCraftKingdomBehCheckPlots : GameAIKingdomBase
             if (war.getAttackers().Contains(pKingdom)) continue;
             if (war.GetEmpireWarType() == EmpireWarType.神圣)
             {
+                // 响应圣战有上限与远近(用户 2026-10-17 选"圣战加上限与距离")：攻方至多九国(发起国连同八国响应)，
+                // 要与守方接壤或隔海相望，不去打自己帝国的成员
+                if (war.getAttackers().Count() >= MaxHolyWarAttackers) continue;
+                if (!StraitReach.Within(pKingdom, war.main_defender)) continue;
+                if (pKingdom.GetEmpire() != null && pKingdom.GetEmpire() == war.main_defender.GetEmpire()) continue;
                 if (pKingdom.religion == war.main_attacker?.religion)
                 {
                     if (pKingdom.isOpinionTowardsKingdomGood(war.main_attacker))
