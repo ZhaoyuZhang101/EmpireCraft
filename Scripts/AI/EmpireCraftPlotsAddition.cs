@@ -2826,8 +2826,8 @@ namespace EmpireCraft.Scripts.AI
                 !empire.IsNeighbourWith(target) && !StraitReach.Across(initiator, target)) return false;
             if (target.GetGivenAllianceEmpire() == empire || target.GetTakenAllianceEmpire() == empire)
                 return false;
-            return FeudalVassalService.CanDeclareExternalWar(initiator, target,
-                includeImperialMembers: true);
+            // 岁币、朝贡反方向(本帝国给对方送岁币、称臣)也不打，同盟不打(见 WarGate)
+            return WarGate.CanDeclare(initiator, target);
         }
 
         private static bool IsWarNeededForPlot(Kingdom kingdom)

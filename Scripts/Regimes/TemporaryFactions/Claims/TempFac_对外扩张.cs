@@ -51,7 +51,8 @@ public class TempFac_对外扩张 : TemporaryFaction
                     if (!kingdom.isInWarWith(empire.CoreKingdom) &&
                         !EmpireCraft.Scripts.Compatibility.NuclearDoctrineSystem.IsDeterred(empire.CoreKingdom, kingdom))
                     {
-                        if (GeneralSystems.WarSituation.Power(empire) > GeneralSystems.WarSituation.Power(kingdom))
+                        if (GeneralSystems.WarSituation.Power(empire) > GeneralSystems.WarSituation.Power(kingdom) &&
+                            GeneralSystems.WarGate.CanDeclare(empire.CoreKingdom, kingdom))
                         {
                             SetKingdomTarget(kingdom);
                             return true;

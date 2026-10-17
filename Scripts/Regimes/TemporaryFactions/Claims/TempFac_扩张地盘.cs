@@ -52,6 +52,7 @@ public class TempFac_扩张地盘 : TemporaryFaction
                 if (empire.taken_Kingdoms.Contains(kingdom)) continue;
                 if (kingdom.isInWarWith(empire.CoreKingdom)) continue;
                 if (empire.CoreKingdom.isOpinionTowardsKingdomGood(kingdom)) continue;
+                if (!GeneralSystems.WarGate.CanDeclare(empire.CoreKingdom, kingdom)) continue;
                 SetKingdomTarget(kingdom);
                 Acc = 30;
                 return true;

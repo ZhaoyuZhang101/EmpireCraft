@@ -44,7 +44,7 @@ public class TempFac_迫使朝贡 : TemporaryFaction
             if (ZhouEraSystem.IsDetachedVassal(kingdom)) continue;
             if (empire.taken_Kingdoms.Contains(kingdom)) continue;
             // 比战力(军团、无小人模式下原版小人数是 0，以前比小人数永远不开战)
-            if (WarSituation.Power(kingdom) >= WarSituation.Power(empire)) continue;
+            if (WarSituation.Power(kingdom) >= WarSituation.Power(empire) || !WarGate.CanDeclare(empire.CoreKingdom, kingdom)) continue;
             if (!empire.IsNeighbourWith(kingdom) && !StraitReach.Across(empire.CoreKingdom, kingdom)) continue;
             if (kingdom.cities.Count<=1) continue;
             SetKingdomTarget(kingdom);

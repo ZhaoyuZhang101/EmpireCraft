@@ -49,7 +49,7 @@ public class TempFac_游牧扩张 : TemporaryFaction
             if (kingdom == null || kingdom.isRekt() || kingdom.IsInEmpire() || empire.given_Kingdoms.Contains(kingdom) ||
                 empire.taken_Kingdoms.Contains(kingdom) || empire.CoreKingdom.isOpinionTowardsKingdomGood(kingdom)) continue;
             if (EmpireCraft.Scripts.Compatibility.NuclearDoctrineSystem.IsDeterred(empire.CoreKingdom, kingdom)) continue;
-            if (power <= WarSituation.Power(kingdom)) continue;
+            if (power <= WarSituation.Power(kingdom) || !WarGate.CanDeclare(empire.CoreKingdom, kingdom)) continue;
             SetKingdomTarget(kingdom);
             return true;
         }
