@@ -535,7 +535,8 @@
       ],
       "features": { "state_granary": 1,
         "vassal_authority": 100,
-        "direct_administration": 1
+        "direct_administration": 1,
+        "army_standing": 1
       }
     },
     {
@@ -775,7 +776,7 @@
       "effects_on_complete": [
         {
           "type": "change_tax_level",
-          "value": "Medium"
+          "value": "High"
         },
         {
           "type": "modify_faction_power",

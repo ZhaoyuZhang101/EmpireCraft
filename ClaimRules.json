@@ -435,12 +435,6 @@
     }
   },
   "争夺主教叙任权": {
-    "cultures": [
-      "Germanic",
-      "Frankish",
-      "Roma",
-      "Western"
-    ],
     "lines": {
       "Roma": {
         "any": [
@@ -450,12 +444,6 @@
     }
   },
   "神授君权": {
-    "cultures": [
-      "Germanic",
-      "Frankish",
-      "Roma",
-      "Western"
-    ],
     "lines": {
       "Roma": {
         "any": [
@@ -465,12 +453,6 @@
     }
   },
   "恢复圣地": {
-    "cultures": [
-      "Germanic",
-      "Frankish",
-      "Roma",
-      "Western"
-    ],
     "lines": {
       "Roma": {
         "any": [
@@ -481,12 +463,6 @@
     }
   },
   "划地给教廷": {
-    "cultures": [
-      "Germanic",
-      "Frankish",
-      "Roma",
-      "Western"
-    ],
     "lines": {
       "Roma": {
         "any": [
@@ -499,12 +475,6 @@
   "加强神权": {
     "lines": {
       "Roma": {
-        "cultures": [
-          "Germanic",
-          "Frankish",
-          "Roma",
-          "Western"
-        ],
         "any": [
           "western_clerical_supremacy",
           "western_theocratic_state"

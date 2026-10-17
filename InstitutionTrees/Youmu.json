@@ -176,7 +176,7 @@
       ]
     },
     {
-      "id": "youmu_decimal_army", "requires_techs": ["military_register"],
+      "id": "youmu_decimal_army", "requires_techs": ["military_register", "taxation"],
       "features": {"army_regional": 1, "army_mobilization": 0.15},
       "name_key": "institution_youmu_decimal_army",
       "description_key": "institution_youmu_decimal_army_desc",
@@ -186,7 +186,7 @@
         "youmu_tribal_confederation"
       ],
       "research": {
-        "mandate_required": 28
+        "mandate_required": 40
       },
       "reform": {
         "base_progress_per_year": 9.5,
@@ -318,7 +318,7 @@
       }
     },
     {
-      "id": "youmu_horse_archer_doctrine", "requires_techs": ["military_register"],
+      "id": "youmu_horse_archer_doctrine", "requires_techs": ["standing_army"],
       "name_key": "institution_youmu_horse_archer_doctrine",
       "description_key": "institution_youmu_horse_archer_doctrine_desc",
       "branch": "military",

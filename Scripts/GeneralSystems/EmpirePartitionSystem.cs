@@ -433,7 +433,8 @@ public static class EmpirePartitionSystem
         float chance = WillBaseChance;
         RegimeType? regime = core.GetRegime()?.type;
         if (regime == RegimeType.LvLing) chance *= 0.5f;
-        else if (regime == RegimeType.YouMu) chance *= 2f;
+        // 游牧 ×1.25(原 ×2；大汗死时已按兀鲁思分封，见 EnfeoffmentHelper.UlusPartition)
+        else if (regime == RegimeType.YouMu) chance *= 1.25f;
         else if (regime == RegimeType.Feudalism) chance *= 1.5f;
         if (cities.Count >= 24) chance *= 1.5f;
         if (span >= mapSize * 0.45f) chance *= 1.5f;
