@@ -460,6 +460,7 @@ public static class FeudalVassalService
     {
         if (attacker == null || target == null || attacker == target || !target.isAlive() ||
             attacker.IsInSameEmpire(target) || RoyalMarriageSystem.Allied(attacker, target) ||
+            GreatPowerDiplomacy.Pact(attacker, target) ||
             IsInChain(attacker, target) || IsInChain(target, attacker) ||
             attacker.king != null && attacker.king == target.king ||
             attacker.hasAlliance() && attacker.getAlliance() == target.getAlliance()) return false;

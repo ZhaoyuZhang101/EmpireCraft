@@ -228,15 +228,14 @@ public static class EmpireCraftOpinionAddition
         {
             id = "opinion_different_empire_with_other_subspecies",
             translation_key_negative = "opinion_different_empire_with_other_subspecies",
-            calc = delegate (Kingdom pMain, Kingdom pTarget)
-            {
-                int result = 0;
-                if (!pMain.IsInSameEmpire(pTarget)&&pMain.IsEmpire()&&pTarget.IsEmpire()&&pMain.getSpecies()==pTarget.getSpecies()&&pMain.king!=pTarget.king)
-                {
-                    result = -999;
-                }
-                return result;
-            }
+            // 同一族类天无二日(-999)；别的文明的帝国按远近，结了盟约的不再相恶(见 GreatPowerDiplomacy)
+            calc = EmpireCraft.Scripts.GeneralSystems.GreatPowerDiplomacy.EmperorOpinion
+        });
+        opl.add(new OpinionAsset
+        {
+            id = "opinion_imperial_pact",
+            translation_key = "opinion_imperial_pact",
+            calc = EmpireCraft.Scripts.GeneralSystems.GreatPowerDiplomacy.PactOpinionOf
         });
         opl.add(new OpinionAsset
         {

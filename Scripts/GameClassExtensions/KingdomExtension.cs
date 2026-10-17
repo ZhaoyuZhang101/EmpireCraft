@@ -424,6 +424,8 @@ public static class KingdomExtension
         public long union_partition_heir_id = -1L;
         // 姻亲之国(见 RoyalMarriageSystem)：对方国家 id → 联姻时间，二十年内互不开战
         public Dictionary<long, double> marriage_pacts = new();
+        // 跨文明的帝国盟约(见 GreatPowerDiplomacy)：对方帝国中央 id → 结约时间；记在中央上
+        public Dictionary<long, double> imperial_pacts = new();
         public long union_city_state_heir_id = -1L;
         public bool union_city_state_local_succession;
         public long union_alliance_leader_kingdom_id = -1L;

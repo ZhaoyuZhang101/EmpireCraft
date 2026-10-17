@@ -444,6 +444,7 @@ public class WarPatch: GamePatch
             // 施行祭祀的攻方战前先卜(见 RitesSystem)
             RitesSystem.OnWarDeclared(__result);
             RoyalMarriageSystem.OnWarStarted(__result);
+            GreatPowerDiplomacy.OnWarStarted(__result);
             SmoothBorders.RefreshWar(__result);
         }
         catch (Exception exception)
