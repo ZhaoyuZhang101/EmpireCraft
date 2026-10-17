@@ -328,9 +328,9 @@ public class FixedFaction
     // 2：派系诉求重新分配(血脉、攘夷、绥靖、尊王、民主、融入、同化)
     // 3：加修氏族志(尊王、绥靖)、抑豪强(尊王、中央)，旧存档的派系按新清单重建一次
     // 4：文化同化、文化转化开给各政体(用户 2026-10-17 选"同化、转化手段开给各政体"：以前只有律令、共和的攘夷派能同化，
-    //    只有游牧的融入派能转化——封建(整个罗马线)、阿拉伯、周制、幕府、城邦都不能同化或转化成员头衔)；
-    //    自治、僭主派加劫掠(只有带 raider 特质的文化真能提出，见 ClaimRules.json：维京能劫掠)
-    public const int CurrentClaimCatalogVersion = 4;
+    //    只有游牧的融入派能转化——封建(整个罗马线)、阿拉伯、周制、幕府、城邦都不能同化或转化成员头衔)
+    // 5：自治、僭主派加劫掠(只有带 raider 特质的文化真能提出，见 ClaimRules.json：维京能劫掠)
+    public const int CurrentClaimCatalogVersion = 5;
     public string _id;
     public bool only_king;
     //特质需求（拥有该特质的人会更加倾向于加入此派系）
@@ -505,6 +505,7 @@ public class FixedFaction
             if (ClaimCatalogVersion < 2 && !IsParty) catalogChanged |= MigrateClaimCatalogV2();
             if (ClaimCatalogVersion < 3 && !IsParty) catalogChanged |= MigrateClaimCatalogV3();
             if (ClaimCatalogVersion < 4 && !IsParty) catalogChanged |= MigrateClaimCatalogV4();
+            if (ClaimCatalogVersion < 5 && !IsParty) catalogChanged |= MigrateClaimCatalogV5();
             if (Empire.CoreKingdom.GetRegime()?.type == RegimeType.Feudalism)
                 catalogChanged |= MigrateFeudalClaimCatalog();
             ClaimCatalogVersion = CurrentClaimCatalogVersion;
@@ -581,20 +582,24 @@ public class FixedFaction
         return changed;
     }
 
-    // 版本 4：文化同化给中央、尊王、僭主、同化派，文化转化给自治、诸侯、血脉、绥靖、共和派；劫掠给自治、僭主派
-    private bool MigrateClaimCatalogV4()
+    // 版本 4：文化同化给中央、尊王、僭主、同化派，文化转化给自治、诸侯、血脉、绥靖、共和派
+    private bool MigrateClaimCatalogV4() => AddClaims(Type switch
+    {
+        FactionType.中央 or FactionType.尊王 or FactionType.僭主 or FactionType.同化 => new[] { TemporaryFactionType.文化同化 },
+        FactionType.自治 or FactionType.诸侯 or FactionType.血脉 or FactionType.绥靖 or FactionType.共和 => new[] { TemporaryFactionType.文化转化 },
+        _ => Array.Empty<TemporaryFactionType>()
+    });
+
+    // 版本 5：劫掠给自治、僭主派
+    private bool MigrateClaimCatalogV5() => AddClaims(Type is FactionType.自治 or FactionType.僭主
+        ? new[] { TemporaryFactionType.劫掠 }
+        : Array.Empty<TemporaryFactionType>());
+
+    private bool AddClaims(IEnumerable<TemporaryFactionType> claims)
     {
         TemporaryFactionTypesRecord ??= new List<TemporaryFactionType>();
-        TemporaryFactionType[] add = Type switch
-        {
-            FactionType.僭主 => new[] { TemporaryFactionType.文化同化, TemporaryFactionType.劫掠 },
-            FactionType.自治 => new[] { TemporaryFactionType.文化转化, TemporaryFactionType.劫掠 },
-            FactionType.中央 or FactionType.尊王 or FactionType.同化 => new[] { TemporaryFactionType.文化同化 },
-            FactionType.诸侯 or FactionType.血脉 or FactionType.绥靖 or FactionType.共和 => new[] { TemporaryFactionType.文化转化 },
-            _ => Array.Empty<TemporaryFactionType>()
-        };
         bool changed = false;
-        foreach (TemporaryFactionType claim in add)
+        foreach (TemporaryFactionType claim in claims)
         {
             if (TemporaryFactionTypesRecord.Contains(claim)) continue;
             TemporaryFactionTypesRecord.Add(claim);

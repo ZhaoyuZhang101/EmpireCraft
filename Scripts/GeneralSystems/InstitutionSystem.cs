@@ -93,6 +93,7 @@ public static class InstitutionSystem
         _cultureStates = new Dictionary<string, CultureInstitutionState>(StringComparer.Ordinal);
         _lastWorldPassTimestamp = -1d;
         WarnedMissingOptions.Clear();
+        FilterChecked.Clear();
     }
 
     public static void ImportCultureStates(Dictionary<string, CultureInstitutionState> states)
@@ -146,11 +147,12 @@ public static class InstitutionSystem
                 IsSameLine(start.line, GetCultureLine(culture)))
             {
                 InstitutionStateNormalizer.Normalize(state);
-                ForceEnactChain(state, start, new List<InstitutionNodeConfig>());
+                ForceEnactChain(state, start, new List<InstitutionNodeConfig>(), culture);
             }
         }
         InstitutionStateNormalizer.Normalize(state);
         MigrateLine(culture, state);
+        MigrateCultureFilter(culture, state);
         // 开局即初始状态：只给本线的根节点（无效果），其余一律自己研究或从别的线吸收。
         // 根节点已被后来的制度取代(如华夏母系氏族被父系、宗法取代)就不再补回
         foreach (string rootId in InstitutionDefinitionRegistry.GetRootNodes(GetCultureLine(culture)))
@@ -192,13 +194,46 @@ public static class InstitutionSystem
             InstitutionNodeConfig target = LineMigrations.TryGetValue(old.id, out string mapped)
                 ? InstitutionDefinitionRegistry.Get(mapped)
                 : lineNodes.FirstOrDefault(node => node.equivalence_key == old.equivalence_key && node.id != old.id);
-            if (target != null && IsSameLine(target.line, line)) ForceEnactChain(state, target, added);
+            if (target != null && IsSameLine(target.line, line)) ForceEnactChain(state, target, added, culture);
         }
         // 旧线的节点不再算本文化自研，记作吸收来的(还在已掌握里，特性照旧生效)
         foreach (InstitutionNodeConfig old in foreign)
             if (!state.absorbed_node_ids.Contains(old.id)) state.absorbed_node_ids.Add(old.id);
         if (added.Count > 0)
             LogService.LogInfo($"[EmpireCraft][制度] {culture} 改用 {line} 线，旧线成果折算为 {string.Join("、", added.Select(node => node.id))}");
+    }
+
+    // 同线各文化分开(节点的 cultures、exclude_cultures)之前施行过、现在不给本文化的本线制度：撤掉；撤掉的声明了政体的，
+    // 改施行本文化在同一位置(同等级、同样前置、也声明政体)的替代制度——旧档里印度的部族议事会 → 列国王政，免得政体退回原始
+    // (每个世界每个文化查一次)
+    private static readonly HashSet<string> FilterChecked = new(StringComparer.Ordinal);
+
+    private static void MigrateCultureFilter(string culture, CultureInstitutionState state)
+    {
+        string line = GetCultureLine(culture);
+        if (!InstitutionDefinitionRegistry.HasLine(line) || !FilterChecked.Add(culture)) return;
+        List<InstitutionNodeConfig> barred = state.enacted_node_ids.Select(InstitutionDefinitionRegistry.Get)
+            .Where(node => node != null && IsSameLine(node.line, line) && !InstitutionDefinitionRegistry.Allows(node, culture))
+            .ToList();
+        if (barred.Count == 0) return;
+        var substituted = new List<string>();
+        foreach (InstitutionNodeConfig node in barred)
+        {
+            state.enacted_node_ids.Remove(node.id);
+            state.absorbed_node_ids.Remove(node.id);
+            if (!InstitutionDefinitionRegistry.TryGetNodeRegime(node, out _)) continue;
+            InstitutionNodeConfig substitute = InstitutionDefinitionRegistry.GetForCulture(line, culture).FirstOrDefault(other =>
+                other.id != node.id && other.advancement == node.advancement &&
+                InstitutionDefinitionRegistry.TryGetNodeRegime(other, out _) &&
+                other.requires.Count == node.requires.Count && other.requires.All(node.requires.Contains));
+            if (substitute == null || state.enacted_node_ids.Contains(substitute.id)) continue;
+            state.enacted_node_ids.Add(substitute.id);
+            state.enacted_timestamps ??= new Dictionary<string, double>();
+            state.enacted_timestamps[substitute.id] = World.world?.getCurWorldTime() ?? 0d;
+            substituted.Add(substitute.id);
+        }
+        LogService.LogInfo($"[EmpireCraft][制度] {culture} 撤去不属本文化的制度 {string.Join("、", barred.Select(node => node.id))}" +
+                           (substituted.Count > 0 ? $"，改施行 {string.Join("、", substituted)}" : ""));
     }
 
     public static bool IsEnacted(string culture, string nodeId)
@@ -419,7 +454,7 @@ public static class InstitutionSystem
         foreach (string nodeId in state?.enacted_node_ids ?? Enumerable.Empty<string>())
         {
             InstitutionNodeConfig node = InstitutionDefinitionRegistry.Get(nodeId);
-            if (node == null || !IsSameLine(node.line, line)) continue;
+            if (node == null || !IsSameLine(node.line, line) || !InstitutionDefinitionRegistry.Allows(node, culture)) continue;
             if (!InstitutionDefinitionRegistry.TryGetNodeRegime(node, out _)) continue;
             if (best == null || node.advancement > best.advancement) best = node;
         }
@@ -449,7 +484,9 @@ public static class InstitutionSystem
         if (target == current.type || RegimeManager.IsPrimitive(target) || target == RegimeType.Modern ||
             !RegimeManager.regimes.TryGetValue(target, out Regime template) || template == null) return;
         if (target == RegimeType.Bakufu && empire == null) return;
-        if (RegimePosition(culture, current.type) >= node.advancement) return;
+        // 只往前走；现在的政体本文化根本不声明的(外来政体，如旧档印度的阿拉伯政体)也改过来
+        int position = RegimePosition(culture, current.type);
+        if (position != int.MaxValue && position >= node.advancement) return;
         CultureInstitutionState cultureState = GetOrCreateCultureState(culture);
         if (cultureState == null) return;
         cultureState.enacted_timestamps ??= new Dictionary<string, double>();
@@ -485,7 +522,8 @@ public static class InstitutionSystem
         foreach (string nodeId in GetOrCreateCultureState(culture)?.enacted_node_ids ?? new List<string>())
         {
             InstitutionNodeConfig node = InstitutionDefinitionRegistry.Get(nodeId);
-            if (node == null || !IsSameLine(node.line, line) || !InstitutionDefinitionRegistry.TryGetNodeRegime(node, out _)) continue;
+            if (node == null || !IsSameLine(node.line, line) || !InstitutionDefinitionRegistry.Allows(node, culture) ||
+                !InstitutionDefinitionRegistry.TryGetNodeRegime(node, out _)) continue;
             if (best == null || node.advancement > best.advancement) best = node;
         }
         return best;
@@ -601,7 +639,8 @@ public static class InstitutionSystem
         // 别的线留着幕府都改不回来)；原始阶段走部落迁移、现代走共和途径，不在此列
         if (RegimeManager.IsPrimitive(regime.type) || regime.type == RegimeType.Modern || regime.type == RegimeType.Republic) return;
         if (!InstitutionDefinitionRegistry.HasLine(line) || CultureDeclares(culture, regime.type)) return;
-        if (!TryResolveCultureRegime(culture, out RegimeType target) || target == regime.type) return;
+        // 不改成原始政体(本文化还在原始阶段的，留给部落迁移；以前封建帝国会被改成部落、再一城一部落地拆开)
+        if (!TryResolveCultureRegime(culture, out RegimeType target) || target == regime.type || RegimeManager.IsPrimitive(target)) return;
         LogService.LogInfo($"[EmpireCraft][制度] {empire.GetEmpireName()} 政体 {regime.type} 不属于 {culture} 的制度线，改为 {target}");
         ChangeRegime(empire, target);
         empire.data.empire_type_key = "";
@@ -1032,7 +1071,7 @@ public static class InstitutionSystem
             .FirstOrDefault(candidate =>
                 InstitutionDefinitionRegistry.TryGetNodeRegime(candidate, out RegimeType declared) &&
                 declared == regimeType);
-        if (node != null) EnactNodeChain(state, node);
+        if (node != null) EnactNodeChain(state, node, culture);
     }
 
     // 读档补记(见 TechnologySystem.BackfillRegimes)：这条文化线上声明了这些政体的制度，连同前置链记成已施行；返回新记的项数
@@ -1046,21 +1085,29 @@ public static class InstitutionSystem
         {
             InstitutionNodeConfig node = line.FirstOrDefault(candidate =>
                 InstitutionDefinitionRegistry.TryGetNodeRegime(candidate, out RegimeType declared) && declared == regime);
-            if (node != null) EnactNodeChain(state, node);
+            if (node != null) EnactNodeChain(state, node, culture);
         }
         return state.enacted_node_ids.Count - before;
     }
 
-    private static void EnactNodeChain(CultureInstitutionState state, InstitutionNodeConfig node)
+    private static void EnactNodeChain(CultureInstitutionState state, InstitutionNodeConfig node, string culture = null)
     {
         if (node == null || state.enacted_node_ids.Contains(node.id)) return;
         foreach (string requiredId in node.requires)
-            EnactNodeChain(state, InstitutionDefinitionRegistry.Get(requiredId));
-        // "任一满足"的一组一个都没施行时，补上第一个有效的分支
+            EnactNodeChain(state, InstitutionDefinitionRegistry.Get(requiredId), culture);
+        // "任一满足"的一组一个都没施行时，补上第一个有效的分支(先挑给本文化的，见 FirstAlternative)
         if (node.requires_any.Count > 0 && !node.requires_any.Any(state.enacted_node_ids.Contains))
-            EnactNodeChain(state, node.requires_any.Select(InstitutionDefinitionRegistry.Get)
-                .FirstOrDefault(candidate => candidate != null));
+            EnactNodeChain(state, FirstAlternative(node, culture), culture);
         state.enacted_node_ids.Add(node.id);
+    }
+
+    // requires_any 里先挑给本文化的(cultures、exclude_cultures)——以前取第一个，强制点亮印度后面的制度会把部族议事会一并点上
+    private static InstitutionNodeConfig FirstAlternative(InstitutionNodeConfig node, string culture)
+    {
+        List<InstitutionNodeConfig> candidates = node.requires_any.Select(InstitutionDefinitionRegistry.Get)
+            .Where(candidate => candidate != null).ToList();
+        return candidates.FirstOrDefault(candidate => culture == null || InstitutionDefinitionRegistry.Allows(candidate, culture)) ??
+               candidates.FirstOrDefault();
     }
 
     #region 强制点亮（玩家/上帝模式）
@@ -1075,7 +1122,7 @@ public static class InstitutionSystem
         InstitutionNodeConfig node = InstitutionDefinitionRegistry.Get(nodeId);
         if (state == null || node == null) return 0;
         var added = new List<InstitutionNodeConfig>();
-        ForceEnactChain(state, node, added);
+        ForceEnactChain(state, node, added, culture);
         AfterForceEnact(culture, added);
         return added.Count;
     }
@@ -1092,7 +1139,7 @@ public static class InstitutionSystem
         foreach (InstitutionNodeConfig node in InstitutionDefinitionRegistry.GetForCulture(GetCultureLine(culture), culture)
                      .Where(node => node.branch != IdeologyBranch &&
                                     !IdeologyInstitutionPaths.TryGetIdeology(node.branch, out _)))
-            ForceEnactChain(state, node, added);
+            ForceEnactChain(state, node, added, culture);
         AfterForceEnact(culture, added);
         return added.Count;
     }
@@ -1101,15 +1148,14 @@ public static class InstitutionSystem
         state.enacted_node_ids.Any(id => InstitutionDefinitionRegistry.Get(id)?.replaces.Contains(nodeId) == true);
 
     private static void ForceEnactChain(CultureInstitutionState state, InstitutionNodeConfig node,
-        List<InstitutionNodeConfig> added)
+        List<InstitutionNodeConfig> added, string culture = null)
     {
         if (node == null || state.enacted_node_ids.Contains(node.id) || IsSuperseded(state, node.id)) return;
         foreach (string requiredId in node.requires)
-            ForceEnactChain(state, InstitutionDefinitionRegistry.Get(requiredId), added);
+            ForceEnactChain(state, InstitutionDefinitionRegistry.Get(requiredId), added, culture);
         if (node.requires_any.Count > 0 &&
             !node.requires_any.Any(id => state.enacted_node_ids.Contains(id) || IsSuperseded(state, id)))
-            ForceEnactChain(state, node.requires_any.Select(InstitutionDefinitionRegistry.Get)
-                .FirstOrDefault(candidate => candidate != null), added);
+            ForceEnactChain(state, FirstAlternative(node, culture), added, culture);
         foreach (string replaced in node.replaces.Where(state.enacted_node_ids.Contains).ToList())
         {
             state.enacted_node_ids.Remove(replaced);
@@ -1304,7 +1350,7 @@ public static class InstitutionSystem
         state.drift_node_id = "";
         state.drift_progress = 0f;
         var added = new List<InstitutionNodeConfig>();
-        ForceEnactChain(state, target, added);
+        ForceEnactChain(state, target, added, culture);
         AfterForceEnact(culture, added, "institution_trend_enacted_history");
     }
 
@@ -2355,12 +2401,14 @@ public static class InstitutionSystem
         if (empire?.CoreKingdom != null && !empire.CoreKingdom.isRekt()) result.Add(empire.CoreKingdom);
         string culture = GetPrimaryCulture(empire);
         string line = GetCultureLine(culture);
+        // 复合帝国的成员各按地方制度(见 CompositeEmpireService.SynchronizeRegionalInstitutions)，只认文化一字不差的
+        bool composite = CompositeEmpireService.IsComposite(empire);
         foreach (Kingdom kingdom in empire?.kingdoms_list ?? new List<Kingdom>())
         {
             if (kingdom == null || kingdom.isRekt() || result.Contains(kingdom)) continue;
             string own = CultureService.GetRealmCulture(kingdom);
             if (string.Equals(own, culture, StringComparison.Ordinal) ||
-                CultureService.IsValidCulture(own) && IsSameLine(GetCultureLine(own), line))
+                !composite && CultureService.IsValidCulture(own) && IsSameLine(GetCultureLine(own), line))
                 result.Add(kingdom);
         }
         return result;
@@ -2560,10 +2608,15 @@ public static class InstitutionSystem
     private static void ApplyRegimeChangeCore(Empire empire, RegimeType regimeType)
     {
         List<Kingdom> affected = EnumerateAffectedKingdoms(empire);
+        string primary = GetPrimaryCulture(empire);
         foreach (Kingdom kingdom in affected)
         {
             Regime old = kingdom.GetRegime();
             if (old?.type == regimeType) continue;
+            // 同线别的文化的成员：本文化也走这个政体才跟着换(阿拉伯帝国里的印度成员不改阿拉伯政体，见 CultureDeclares)
+            string own = CultureService.GetRealmCulture(kingdom);
+            if (kingdom != empire.CoreKingdom && !string.Equals(own, primary, StringComparison.Ordinal) &&
+                CultureService.IsValidCulture(own) && !CultureDeclares(own, regimeType)) continue;
             // 改行律令制、周制时成员保留原有的外交权与选任方式(州郡仍是州郡、封国仍是封国)，
             // 否则重置成模板默认(律令制默认有外交权、科举选任)，州郡和封国全被判成军府。
             // 以前只管周制 ⇄ 律令制，封建制等改行律令制(如采纳三省六部连带补上郡县制)时全帝国州郡秒变军府

@@ -337,7 +337,7 @@ public class KingdomPatch : GamePatch
         __instance.RememberInitialRandomKingdomName();
         __instance.SetLevel(4);
         __instance.SetEmpireID(-1L);
-        CultureService.ApplyFounderCulture(__instance, pActor);
+        CultureService.ApplyFounderCulture(__instance, pActor, local: true);
         Regime regime = __instance.GetRegime();
         if (regime == null)
         {

@@ -130,14 +130,15 @@ public static class CultureService
         return changed;
     }
 
-    // 叛乱、自立的新国取当地主文化(用户 2026-10-17 选"叛乱新国取当地主文化")：起事的城已有主流文化就用它，
-    // 不用领头人个人的文化(以前异族官员在本地起事，新国成了官员的文化)；新开的村落还没有主流文化，照旧用开国者的
-    public static void ApplyFounderCulture(Kingdom kingdom, Actor founder)
+    // 叛乱、自立的新国取当地主文化(用户 2026-10-17 选"叛乱新国取当地主文化")：local 时(新立的国，见 KingdomPatch)
+    // 起事的城已有主流文化就用它，不用领头人个人的文化(以前异族官员在本地起事，新国成了官员的文化)；新开的村落还没有主流文化，
+    // 照旧用开国者的。称帝(Empire.CreateNewEmpire)不走这条，免得都城在被征服之地的汗国一称帝就改了文化
+    public static void ApplyFounderCulture(Kingdom kingdom, Actor founder, bool local = false)
     {
         if (kingdom?.data == null || founder == null) return;
-        City home = founder.city;
-        string local = home?.data != null && !home.isRekt() ? GetMainCulture(home, initialize: false) : "";
-        string culture = IsValidCulture(local) ? local : GetFounderCulture(founder);
+        City home = local ? founder.city : null;
+        string localCulture = home?.data != null && !home.isRekt() ? GetMainCulture(home, initialize: false) : "";
+        string culture = IsValidCulture(localCulture) ? localCulture : GetFounderCulture(founder);
         if (!IsValidCulture(culture)) return;
         SetRealmCulture(kingdom, culture, updatePoliticalSystem: true);
     }
@@ -174,7 +175,7 @@ public static class CultureService
         if (!IsValidCulture(culture)) return;
         string line = culture.GetInstitutionLine();
         if (InstitutionDefinitionRegistry.HasLine(line) &&
-            InstitutionDefinitionRegistry.GetForLine(line).Any(node =>
+            InstitutionDefinitionRegistry.GetForCulture(line, culture).Any(node =>
                 InstitutionDefinitionRegistry.TryGetNodeRegime(node, out RegimeType type) && type == RegimeType.Arabic)) return;
         if (OnomasticsRule.ALL_CULTURE_RULE[culture].regime == RegimeType.Arabic) return;
         if (!ApplyCulturePoliticalSystem(kingdom, culture)) return;
