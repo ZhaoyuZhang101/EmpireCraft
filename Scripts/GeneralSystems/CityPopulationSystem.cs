@@ -1080,8 +1080,10 @@ public static class CityPopulationSystem
     }
 
     // 背景人口的文化同化：城里非主流文化的居民每年有 AssimilationRate 的比例改用主流文化
-    // (通婚、上学、做官都要用主流文化)，阶层、物种、理念不变。种族(物种)不会被同化
-    private const float AssimilationRate = 0.02f;
+    // (通婚、上学、做官都要用主流文化)，阶层、物种、理念不变。种族(物种)不会被同化。
+    // 少数族群(用户 2026-10-17 选"可和平同化、留少数族群")：异族(不同天下标识)同化减半；一个文化在本城只剩不到 8% 时
+    // 不再被同化，留作稳定的少数族群——以前每年一律 2%，几十年后城里只剩主流文化
+    private const float AssimilationRate = 0.02f, ForeignAssimilationFactor = 0.5f, MinorityFloor = 0.08f;
 
     private static void AssimilateBackground(City city, CityPopulationData data, float years)
     {
@@ -1089,11 +1091,21 @@ public static class CityPopulationSystem
         if (!CultureService.IsValidCulture(main) || data?.groups == null) return;
         // 主流文化在本城的教化越盛同化越快(0.4~1.6 倍，见 CultureRadiation)
         float rate = AssimilationRate * CultureRadiation.AssimilationFactor(city, main);
+        float total = 0f;
+        var byCulture = new Dictionary<string, float>(StringComparer.Ordinal);
+        foreach (PopGroup group in data.groups)
+        {
+            total += group.Background;
+            if (group.culture != null) byCulture[group.culture] = (byCulture.TryGetValue(group.culture, out float sum) ? sum : 0f) + group.Background;
+        }
+        if (total <= 0f) return;
         var moves = new List<(PopGroup from, float amount)>();
         foreach (PopGroup group in data.groups)
         {
             if (string.Equals(group.culture, main, StringComparison.Ordinal)) continue;
-            float amount = group.Background * Mathf.Clamp01(rate * years);
+            if (group.culture != null && byCulture.TryGetValue(group.culture, out float share) && share <= total * MinorityFloor) continue;
+            float groupRate = CultureService.SameKin(group.culture, main) ? rate : rate * ForeignAssimilationFactor;
+            float amount = group.Background * Mathf.Clamp01(groupRate * years);
             if (amount > 0f) moves.Add((group, amount));
         }
         foreach ((PopGroup from, float amount) in moves)

@@ -130,10 +130,14 @@ public static class CultureService
         return changed;
     }
 
+    // 叛乱、自立的新国取当地主文化(用户 2026-10-17 选"叛乱新国取当地主文化")：起事的城已有主流文化就用它，
+    // 不用领头人个人的文化(以前异族官员在本地起事，新国成了官员的文化)；新开的村落还没有主流文化，照旧用开国者的
     public static void ApplyFounderCulture(Kingdom kingdom, Actor founder)
     {
         if (kingdom?.data == null || founder == null) return;
-        string culture = GetFounderCulture(founder);
+        City home = founder.city;
+        string local = home?.data != null && !home.isRekt() ? GetMainCulture(home, initialize: false) : "";
+        string culture = IsValidCulture(local) ? local : GetFounderCulture(founder);
         if (!IsValidCulture(culture)) return;
         SetRealmCulture(kingdom, culture, updatePoliticalSystem: true);
     }
@@ -504,8 +508,9 @@ public static class CultureService
             ApplyCultureFloor(targetShares, occupationCulture,
                 CultureShareRules.ForeignOccupationCultureTarget);
         else if (IsValidCulture(officialCulture))
-            ApplyCultureFloor(targetShares, officialCulture,
-                CultureShareRules.OfficialCultureInstitutionalFloor);
+            ApplyCultureFloor(targetShares, officialCulture, CultureShareRules.OfficialFloor(targetShares
+                .Where(pair => !string.Equals(pair.Key, officialCulture, StringComparison.Ordinal))
+                .Select(pair => pair.Value).DefaultIfEmpty(0f).Max()));
         NormalizeShares(targetShares);
 
         // 行政同化代表持续的教育、礼制与官僚投入。人口迁徙仍可改变其他文化的相对占比，

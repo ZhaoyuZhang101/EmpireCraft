@@ -21,12 +21,23 @@ public static class CultureShareRules
     // 始终保留多数地位；只有异文化征服才能直接更换官方文化并打破这种惯性。
     public const float PopulationPressurePerYear = 1f;
     public const float OfficialCultureInstitutionalFloor = 55f;
+    // 和平同化(用户 2026-10-17 选"可和平同化、留少数族群")：人口与教化压倒性偏向另一个文化(六成以上)时，官方文化的保底
+    // 随之降低，九成时降到三成——那个文化就能慢慢占到五成五、领先一成五，过了稳定期由城主决议翻城(以前保底一律五成五，
+    // 挑战文化最多四成五，不经征服永远翻不了城)
+    public const float OverwhelmingShareStart = 60f, OverwhelmingShareFull = 90f, OverwhelmedOfficialFloor = 30f;
     public const float ForeignOccupationCultureShock = 30f;
     public const float ForeignOccupationCultureTarget = 60f;
     // 王国/帝国法理层面：某文化需要成为法理辖下至少这个比例的城市的主流文化（且是首都的主流文化）
     // 才允许“文治”派系发起“改变法理主流文化”的决议。
     public const float TitleCultureDominanceRatio = 2f / 3f;
     private const float Epsilon = 0.0001f;
+
+    // 官方文化的保底：最强的别的文化在人口与教化里占 strongestOther(百分比)
+    public static float OfficialFloor(float strongestOther)
+    {
+        float t = Math.Max(0f, Math.Min(1f, (strongestOther - OverwhelmingShareStart) / (OverwhelmingShareFull - OverwhelmingShareStart)));
+        return OfficialCultureInstitutionalFloor + (OverwhelmedOfficialFloor - OfficialCultureInstitutionalFloor) * t;
+    }
 
     public static bool IsAssimilated(float share)
     {

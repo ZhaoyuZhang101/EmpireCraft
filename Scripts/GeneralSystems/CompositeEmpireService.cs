@@ -177,11 +177,11 @@ public static class CompositeEmpireService
             status.IsEligible = status.HasDistinctCultures && status.HasRequiredControl && status.HasRequiredMandate;
             return status;
         }
-        if (!OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(status.RulingCulture, out Setting rulingSetting) ||
-            rulingSetting.regime != RegimeType.YouMu)
-        {
-            return status;
-        }
+        // 任何征服者都可以采纳被征服文化的制度(用户 2026-10-17 选"任何征服者都可采纳更先进的被征服文化制度")：
+        // 游牧照旧不论高下；别的要被征服的文化制度比自己先进(制度树走得更远)，且不是同一族类
+        if (!CultureService.IsValidCulture(status.RulingCulture)) return status;
+        bool nomadic = IsNomadicCulture(status.RulingCulture);
+        int own = nomadic ? 0 : InstitutionSystem.GetCultureAdvancement(status.RulingCulture);
 
         if (ModClass.KINGDOM_TITLE_MANAGER != null)
         {
@@ -197,6 +197,8 @@ public static class CompositeEmpireService
 
             foreach (var group in titleGroups)
             {
+                if (!nomadic && (CultureService.SameKin(group.Key, status.RulingCulture) ||
+                                 InstitutionSystem.GetCultureAdvancement(group.Key) <= own)) continue;
                 ConsiderInstitutionalCandidate(status, empire, group.Key,
                     group.Select(item => item.Title).ToList());
             }

@@ -33,12 +33,12 @@ public static class FactionManager
             {
                 FactionType.僭主,
                 new List<TemporaryFactionType>
-                    { TemporaryFactionType.强者继承法, TemporaryFactionType.宗教同化, TemporaryFactionType.索取皇位 }
+                    { TemporaryFactionType.强者继承法, TemporaryFactionType.宗教同化, TemporaryFactionType.索取皇位, TemporaryFactionType.文化同化 }
             },
             {
                 FactionType.血脉,
                 new List<TemporaryFactionType>
-                    { TemporaryFactionType.转世袭, TemporaryFactionType.神授君权, TemporaryFactionType.索取皇位 }
+                    { TemporaryFactionType.转世袭, TemporaryFactionType.神授君权, TemporaryFactionType.索取皇位, TemporaryFactionType.文化转化 }
             },
             {
                 FactionType.尊王,
@@ -46,13 +46,14 @@ public static class FactionManager
                 {
                     TemporaryFactionType.削藩, TemporaryFactionType.夺取诸侯开战权, TemporaryFactionType.扩张地盘,
                     TemporaryFactionType.转天朝制度, TemporaryFactionType.索取皇位, TemporaryFactionType.谋求统一,
-                    TemporaryFactionType.复辟帝制, TemporaryFactionType.修氏族志, TemporaryFactionType.抑豪强
+                    TemporaryFactionType.复辟帝制, TemporaryFactionType.修氏族志, TemporaryFactionType.抑豪强,
+                    TemporaryFactionType.文化同化
                 }
             },
             {
                 FactionType.诸侯,
                 new List<TemporaryFactionType>
-                    { TemporaryFactionType.分封, TemporaryFactionType.允许诸侯自由开战, TemporaryFactionType.索取皇位 }
+                    { TemporaryFactionType.分封, TemporaryFactionType.允许诸侯自由开战, TemporaryFactionType.索取皇位, TemporaryFactionType.文化转化 }
             },
             {
                 FactionType.中央,
@@ -61,7 +62,7 @@ public static class FactionManager
                     TemporaryFactionType.削藩, TemporaryFactionType.夺取诸侯开战权, TemporaryFactionType.扩张地盘,
                     TemporaryFactionType.索取皇位, TemporaryFactionType.谋求统一,
                     TemporaryFactionType.恢复世袭皇权, TemporaryFactionType.颁布帝国治安令,
-                    TemporaryFactionType.争夺主教叙任权, TemporaryFactionType.抑豪强
+                    TemporaryFactionType.争夺主教叙任权, TemporaryFactionType.抑豪强, TemporaryFactionType.文化同化
                 }
             },
             {
@@ -70,7 +71,7 @@ public static class FactionManager
                 {
                     TemporaryFactionType.分封, TemporaryFactionType.允许诸侯自由开战,
                     TemporaryFactionType.索取皇位, TemporaryFactionType.颁布金玺诏书,
-                    TemporaryFactionType.确认诸侯特权
+                    TemporaryFactionType.确认诸侯特权, TemporaryFactionType.文化转化
                 }
             },
             {
@@ -88,7 +89,8 @@ public static class FactionManager
                     TemporaryFactionType.撤销军府, TemporaryFactionType.提供岁币, TemporaryFactionType.割让城池,
                     TemporaryFactionType.削藩, TemporaryFactionType.设置行政区, TemporaryFactionType.开科取士,
                     TemporaryFactionType.推行三省六部, TemporaryFactionType.设立内阁,
-                    TemporaryFactionType.索取皇位, TemporaryFactionType.开放党禁, TemporaryFactionType.修氏族志
+                    TemporaryFactionType.索取皇位, TemporaryFactionType.开放党禁, TemporaryFactionType.修氏族志,
+                    TemporaryFactionType.文化转化
                 }
             },
             {
@@ -103,7 +105,7 @@ public static class FactionManager
                 new List<TemporaryFactionType>
                 {
                     TemporaryFactionType.提高赋税, TemporaryFactionType.提高福利, TemporaryFactionType.清除移民,
-                    TemporaryFactionType.缩减金融霸权, TemporaryFactionType.开放党禁
+                    TemporaryFactionType.缩减金融霸权, TemporaryFactionType.开放党禁, TemporaryFactionType.文化转化
                 }
             },
             {
@@ -149,7 +151,8 @@ public static class FactionManager
                 new List<TemporaryFactionType>
                 {
                     TemporaryFactionType.宗教同化, TemporaryFactionType.游牧化, TemporaryFactionType.劫掠,
-                    TemporaryFactionType.游牧扩张, TemporaryFactionType.对外扩张, TemporaryFactionType.索取皇位
+                    TemporaryFactionType.游牧扩张, TemporaryFactionType.对外扩张, TemporaryFactionType.索取皇位,
+                    TemporaryFactionType.文化同化
                 }
             },
             {
@@ -321,7 +324,9 @@ public class FixedFaction
 {
     // 2：派系诉求重新分配(血脉、攘夷、绥靖、尊王、民主、融入、同化)
     // 3：加修氏族志(尊王、绥靖)、抑豪强(尊王、中央)，旧存档的派系按新清单重建一次
-    public const int CurrentClaimCatalogVersion = 3;
+    // 4：文化同化、文化转化开给各政体(用户 2026-10-17 选"同化、转化手段开给各政体"：以前只有律令、共和的攘夷派能同化，
+    //    只有游牧的融入派能转化——封建(整个罗马线)、阿拉伯、周制、幕府、城邦都不能同化或转化成员头衔)
+    public const int CurrentClaimCatalogVersion = 4;
     public string _id;
     public bool only_king;
     //特质需求（拥有该特质的人会更加倾向于加入此派系）
@@ -495,6 +500,7 @@ public class FixedFaction
         {
             if (ClaimCatalogVersion < 2 && !IsParty) catalogChanged |= MigrateClaimCatalogV2();
             if (ClaimCatalogVersion < 3 && !IsParty) catalogChanged |= MigrateClaimCatalogV3();
+            if (ClaimCatalogVersion < 4 && !IsParty) catalogChanged |= MigrateClaimCatalogV4();
             if (Empire.CoreKingdom.GetRegime()?.type == RegimeType.Feudalism)
                 catalogChanged |= MigrateFeudalClaimCatalog();
             ClaimCatalogVersion = CurrentClaimCatalogVersion;
@@ -569,6 +575,21 @@ public class FixedFaction
             changed = true;
         }
         return changed;
+    }
+
+    // 版本 4：文化同化给中央、尊王、僭主、同化派，文化转化给自治、诸侯、血脉、绥靖、共和派
+    private bool MigrateClaimCatalogV4()
+    {
+        TemporaryFactionTypesRecord ??= new List<TemporaryFactionType>();
+        TemporaryFactionType? add = Type switch
+        {
+            FactionType.中央 or FactionType.尊王 or FactionType.僭主 or FactionType.同化 => TemporaryFactionType.文化同化,
+            FactionType.自治 or FactionType.诸侯 or FactionType.血脉 or FactionType.绥靖 or FactionType.共和 => TemporaryFactionType.文化转化,
+            _ => null
+        };
+        if (add == null || TemporaryFactionTypesRecord.Contains(add.Value)) return false;
+        TemporaryFactionTypesRecord.Add(add.Value);
+        return true;
     }
 
     public bool MigrateFeudalClaimCatalog()
