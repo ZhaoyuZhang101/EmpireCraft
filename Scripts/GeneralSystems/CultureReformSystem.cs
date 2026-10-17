@@ -111,8 +111,16 @@ public static class CultureReformSystem
         if (title?.data != null && (force || !title.data.culture_locked && !CultureService.IsFixedDeJureCultureEnabled()))
             CultureService.ConvertTitleCulture(title, target);
         if (composite) CompositeEmpireService.CompleteByReform(empire);
-        // 帝国不再按开国族群的文化算征服王朝(否则"采用中原制度"会把统治文化改回去)
-        else if (core) empire.data.conquest_founder_culture = target;
+        // 帝国不再按开国族群的文化算征服王朝(否则"采用中原制度"会把统治文化改回去)；
+        // 帝国核心的默认文化(没锁定的)、统治文化也换成新文化——以前只改国家，制度、天下、同化目标仍按旧文化
+        else if (core)
+        {
+            empire.data.conquest_founder_culture = target;
+            EmpireCore empireCore = EmpireCoreManager.Get(empire);
+            if (empireCore != null && !empireCore.culture_locked) empireCore.default_culture = target;
+            empire.data.ruling_culture = target;
+            InstitutionSystem.ForgetRulingMajority(empire);
+        }
         CultureService.SetRealmCulture(kingdom, target, updatePoliticalSystem: !core);
         if (core) InstitutionSystem.ResyncCulture(empire);
 

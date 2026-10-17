@@ -494,6 +494,12 @@ public static class InstitutionSystem
     // 统治文化同时也是治下多数城市的主流文化时返回它，否则 null(按帝国缓存，一年重算一次)
     private static readonly Dictionary<long, (string culture, double at)> RulingMajority = new();
 
+    // 统治文化变了(易俗改制等)：丢掉缓存，下次重算
+    public static void ForgetRulingMajority(Empire empire)
+    {
+        if (empire?.data != null) RulingMajority.Remove(empire.data.id);
+    }
+
     private static string RulingMajorityCulture(Empire empire)
     {
         if (World.world == null || empire.kingdoms_list == null) return null;
@@ -611,6 +617,12 @@ public static class InstitutionSystem
         if (empire.CoreKingdom.GetRegime() is Regime originRegime && RegimeManager.IsPrimitive(originRegime.type) &&
             !string.IsNullOrEmpty(empire.data.empire_type_key) && empire.data.empire_type_key.StartsWith("Origin_empire") &&
             empire.data.empire_type_key != OverallHelperFunc.ResolveEmpireTypeKey(originRegime, empire.CoreKingdom))
+            empire.data.empire_type_key = "";
+        // 走出原始阶段(汗国、哈里发国、律令国家……)：部落、部落联盟、部族连合、王权这些称呼不再沿用，按新政体重取
+        // (华夏家天下以后的"朝"照旧)
+        else if (empire.CoreKingdom.GetRegime() is Regime settled && !RegimeManager.IsPrimitive(settled.type) &&
+                 empire.data.empire_type_key is string staleKey && staleKey.StartsWith("Origin_empire") &&
+                 staleKey != "Origin_empire_huaxia_dynasty")
             empire.data.empire_type_key = "";
         // 同文化的其他政权研究出来的制度，在这里把持久效果补到本政权身上
         SyncSharedEffects(empire);
