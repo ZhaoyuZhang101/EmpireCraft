@@ -16,7 +16,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 渔村：打鱼出鱼，不看农时。
 // 一份(村 1、镇 3，有墙大镇也是 3)折成半座原来的矿场、伐木场、牧场，乘科技等级的倍数，本城有厂区再多两成五；
 // 田、牧按农具，鱼按渔船，也随科技换代(见 FarmlandSystem.FarmTools)。
-// 生计按村镇四周的地形定(山多为矿、林多为林、草原或游牧为牧、靠海为渔，其余务农)，本城务农的不到四成时能耕的地先务农，
+// 生计按村镇四周的地形定(山多为矿、林多为林、草原为牧、靠海为渔，其余务农)，本城务农的不到四成时能耕的地先务农，
 // 本城有矿藏却还没有矿村时先开一处矿；定了存进存档(RuralSettlement.trade)，小窗口里可以手动改。
 // 原版的矿场、伐木场、牧场、屠宰场在纯净地图下不再建，旧有的清掉(见 Replaces)；非纯净地图(开小人)照旧走原版建筑。
 // 林场、矿、牧是产业，分官营民营(见 RuralSettlement.state、EnterpriseSystem.CountEnterprises)。
@@ -90,7 +90,7 @@ public static class LivelihoodSystem
         if (needMine) return Mine;
         if (w >= 0.3f) return Fish;
         if (f >= 0.45f) return Forest;
-        if (st >= 0.5f || AnimalHusbandrySystem.IsNomadic(city?.kingdom)) return Pasture;
+        if (st >= 0.5f) return Pasture;
         if (r >= 0.25f) return Mine;
         return Farm;
     }
@@ -159,15 +159,16 @@ public static class LivelihoodSystem
         return equivalent * IndustryBuildingSystem.TierFactor(Level(city, trade)) * IndustryBuildingSystem.FactoryBonus(city);
     }
 
-    // 牧场、屠宰场折几座(见 AnimalHusbandrySystem)：游牧城照原来三座牧场；研究了制革，牧村、林场村的一半折成屠宰场(宰杀、狩猎)
+    // 牧场、屠宰场折几座(见 AnimalHusbandrySystem)：游牧营地(没有镇村，见 CityStyleSystem.Nomad)照原来三座牧场——
+    // 只看城是不是营地，不看文化线(游牧一系也有阿兹特克、林地部族，他们是农耕、渔猎)；研究了制革，牧村、林场村的一半折成屠宰场
     public static float Pastures(City city) =>
-        AnimalHusbandrySystem.IsNomadic(city?.kingdom) ? Mathf.Max(NomadPastures, Equivalent(city, Pasture)) : Equivalent(city, Pasture);
+        CityStyleSystem.Nomad(city) ? Mathf.Max(NomadPastures, Equivalent(city, Pasture)) : Equivalent(city, Pasture);
 
     public static float Slaughterhouses(City city)
     {
         if (city == null || !TechnologySystem.CanBuild(city, "ec_slaughterhouse")) return 0f;
         float game = (Shares(city, Pasture) + Shares(city, Forest)) * PerShare * 0.5f;
-        return AnimalHusbandrySystem.IsNomadic(city.kingdom) ? Mathf.Max(1f, game) : game;
+        return CityStyleSystem.Nomad(city) ? Mathf.Max(1f, game) : game;
     }
 
     // 原版建筑类型折几座(科技加速"本文化有几座矿场"等，见 TechnologySystem.IsBoostMet)
