@@ -114,6 +114,9 @@ public static class AncientSchoolsSystem
             state.hundred_schools_since = World.world.getCurWorldTime();
             Record(empire, LM.Get("hundred_schools_history"));
         }
+        // 正统是整个文化共用的：只由这个文化最大的帝国(城最多)定立、废弛——以前每个同文化帝国各按自己的天下判，
+        // 治世的共主与乱世的别家来回"百家复起""定于一尊"，史册刷屏
+        if (!LeadsCulture(empire, culture)) return;
         bool chaos = TianxiaSystem.PhaseOf(empire.CoreKingdom) == TianxiaSystem.Chaos;
         if (!string.IsNullOrEmpty(state.orthodox_school) && chaos && UnityEngine.Random.value < LapseChance)
         {
@@ -129,6 +132,22 @@ public static class AncientSchoolsSystem
     }
 
     private const float LapseChance = 0.2f;
+
+    private static int CityCount(Empire empire) =>
+        empire?.kingdoms_list?.Where(kingdom => kingdom != null && !kingdom.isRekt()).Sum(kingdom => kingdom.cities?.Count ?? 0) ?? 0;
+
+    private static bool LeadsCulture(Empire empire, string culture)
+    {
+        int own = CityCount(empire);
+        foreach (Empire other in ModClass.EMPIRE_MANAGER?.ToList() ?? new List<Empire>())
+        {
+            if (other?.data == null || other == empire || other.isRekt() || other.IsArchived()) continue;
+            if (!string.Equals(InstitutionSystem.GetPrimaryCulture(other), culture, StringComparison.Ordinal)) continue;
+            int count = CityCount(other);
+            if (count > own || count == own && other.id < empire.id) return false;
+        }
+        return true;
+    }
 
     // 改尊一家为正统(独尊官学，见 TempFac_独尊官学)：主这一家的朋党占比 +8
     public static bool SetOrthodox(Empire empire, PartyIdeology school)
