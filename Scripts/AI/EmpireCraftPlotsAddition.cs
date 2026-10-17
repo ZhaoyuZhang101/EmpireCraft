@@ -1308,6 +1308,9 @@ namespace EmpireCraft.Scripts.AI
                     if (kingdom.GetKingdomType() != KingdomType.Feudalism_papal_state) return false;
                     if (regime.religion_point<1000) return false;
                     if (kingdom.hasEnemies()) return false;
+                    // 与本宗教的圣战共用冷却(见 PapacySystem.Crusade)
+                    if (kingdom.hasReligion() && World.world.getCurWorldTime() < kingdom.religion.GetOrCreate().CrusadeCooldownUntil)
+                        return false;
                     var warsList2 = KingdomExtension.GetWarsCached(kingdom, false);
                     for (int wi = 0; wi < warsList2.Count; wi++)
                     {
@@ -2385,7 +2388,7 @@ namespace EmpireCraft.Scripts.AI
                         originCity.isHappy() ? "rebellion_reason_exclave" : "rebellion_reason_city_loyalty",
                         RebellionSystem.CityLoyaltyCauses(originCity));
                     // 异教之城起事打宗教叛乱、异族之城打民族叛乱，其余是地方独立(见 ReligionStabilitySystem；起事前按原国判)
-                    EmpireWarType uprising = ReligionStabilitySystem.Heterodox(originCity) ? EmpireWarType.宗教叛乱
+                    EmpireWarType uprising = ReligionStabilitySystem.StabilityLoss(originCity) > 0f ? EmpireWarType.宗教叛乱
                         : NationalSentimentSystem.IsForeignRuled(originCity) ? EmpireWarType.民族叛乱
                         : EmpireWarType.地方独立;
 				    bool pCheckForHappiness = !plot.data.forced;

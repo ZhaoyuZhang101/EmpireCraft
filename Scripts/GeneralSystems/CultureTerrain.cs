@@ -8,7 +8,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 地利(用户 2026-10-17："可以给地形一点加成，比如平原农耕文明难以被异族转化，游牧在沙漠难以被异族转化等")：
 // 文化配置写本文化的故土地形(setting.home_terrain：Plains 平原、River 水网、Steppe 草原(稀树草原)、Desert 沙漠、
 // Forest 森林、Hills 丘陵、Mountain 山地、Jungle 丛林、Swamp 沼泽、Snow 雪原)；城的地形取它各地块地形(见 TerrainSystem)
-// 里最多的一种，平原地块里稀树草原多的算草原。本文化在故土地形的城里难被异族(不同天下标识)转化——
+// 里最多的一种，平原地块中心是稀树草原的算草原。本文化在故土地形的城里难被异族(不同天下标识)转化——
 //   · 城的文化影响力被异族夺走的速度减半(征服后的占领压力、人口迁徙、教化，见 CultureService.ApplyPopulationPressure)；
 //   · 异族征服时的文化冲击减半(见 CultureService.ApplyForeignOccupationCulture)；
 //   · 背景人口被异族主流文化同化的速度减半(见 CityPopulationSystem.AssimilateBackground)。

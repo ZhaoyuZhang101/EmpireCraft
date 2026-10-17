@@ -6,6 +6,7 @@ using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.Regimes;
+using EmpireCraft.Scripts.System;
 using NeoModLoader.General;
 using NeoModLoader.services;
 
@@ -136,7 +137,8 @@ public static class HeqinSystem
     // 降部戍边：游牧的独立小国内附为羁縻之地
     private static void TrySettle(Empire empire, Kingdom nomad)
     {
-        if (!JimiSystem.Enacted(empire) || nomad.IsEmpire() || nomad.IsInEmpire() ||
+        // 还在打仗的不内附(入帝国不会了结它的仗，会把仗带进来)
+        if (!JimiSystem.Enacted(empire) || nomad.IsEmpire() || nomad.IsInEmpire() || nomad.hasEnemies() || nomad.getWars().Any() ||
             (nomad.cities?.Count ?? 0) > SettleMaxCities || UnityEngine.Random.value >= SettleChance) return;
         string name = nomad.GetKingdomName();
         empire.join(nomad, pForce: true);

@@ -1246,7 +1246,8 @@ public static class KingdomExtension
         core.AddMoney(value, TreasuryCategory.Tribute);
         // 来朝即宗主的声望(用户 2026-10-17 选"朝贡给贸易与声望回报"；朝贡国的回报是宗主出兵保护与互市，
         // 见 FeudalVassalService.ExpandSide、TradeRouteSystem)
-        empire.AddRenown(TributeRenown);
+        // 非财政模式下来朝不记时间(每次检查都交)，只在财政模式里给声望，免得刷声望
+        if (fiscal) empire.AddRenown(TributeRenown);
         if (k.GetMoney()<=0)
         {
             if (population / 3 > (abstracted ? CityPopulationSystem.Households(empire) : empire.getUnits().Count()))

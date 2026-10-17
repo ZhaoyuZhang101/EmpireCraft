@@ -4,6 +4,7 @@ using System.Linq;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
+using EmpireCraft.Scripts.System;
 using NeoModLoader.General;
 using NeoModLoader.services;
 
@@ -115,14 +116,17 @@ public static class GreatPowerDiplomacy
     // 盟约之国遭第三国攻打：五成机会出兵相助(WarPatch.new_war)
     public static void OnWarStarted(War war)
     {
-        Kingdom defender = Core(war?.main_defender), attacker = war?.main_attacker;
-        var pacts = defender?.data == null ? null : defender.GetOrCreate().imperial_pacts;
+        // 只在帝国中央自己是主守方时(成员的仗中央都不插手，见 MemberWarAid)
+        Kingdom defender = war?.main_defender, attacker = war?.main_attacker;
+        if (defender?.data == null || Core(defender) != defender) return;
+        var pacts = defender.GetOrCreate().imperial_pacts;
         if (pacts == null || pacts.Count == 0 || attacker == null || war.getAsset() == WarTypeLibrary.rebellion) return;
         foreach (long id in pacts.Keys.ToList())
         {
             Kingdom ally = World.world.kingdoms.get(id);
             if (ally?.data == null || ally.isRekt() || !Pact(defender, ally) || ally.IsInSameEmpire(attacker) || war.hasKingdom(ally) ||
-                Pact(ally, attacker) || ally.isInWarWith(attacker) || UnityEngine.Random.value >= AidChance) continue;
+                Pact(ally, attacker) || ally.isInWarWith(attacker) || ally.isInWarWith(defender) ||
+                UnityEngine.Random.value >= AidChance) continue;
             war.joinDefenders(ally);
             TranslateHelper.LogEventMessage(string.Format(LM.Get("great_power_aid_history"), ally.GetKingdomName(),
                 defender.GetKingdomName()), ally);

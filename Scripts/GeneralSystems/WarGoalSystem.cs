@@ -334,8 +334,6 @@ public static class WarGoalSystem
             if (war?.data == null || war.hasEnded() || !war.isDefender(kingdom)) continue;
             if (war.isTotalWar()) return true;
             if (war.main_defender != kingdom) continue;
-            // 迫使朝贡的仗守方可以称臣求和(见 TrySueForPeace)，不算困兽之斗
-            if (war.GetEmpireWarType() == EmpireWarType.迫使朝贡) continue;
             if (!Applies(war) && war.GetEmpireWarType() != EmpireWarType.劫掠 || Excessive(war, kingdom)) return true;
         }
         return false;

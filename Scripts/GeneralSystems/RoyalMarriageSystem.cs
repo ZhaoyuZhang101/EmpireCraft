@@ -107,7 +107,8 @@ public static class RoyalMarriageSystem
         Marry(kingdom, royal, best.other, best.partner);
     }
 
-    private static void Marry(Kingdom home, Actor royal, Kingdom other, Actor partner)
+    // announce：记联姻史册(和亲另记，见 HeqinSystem)
+    private static void Marry(Kingdom home, Actor royal, Kingdom other, Actor partner, bool announce = true)
     {
         PersonalClanIdentity a = royal.GetPersonalIdentity(), b = partner.GetPersonalIdentity();
         if (a == null || b == null) return;
@@ -132,6 +133,7 @@ public static class RoyalMarriageSystem
         double now = World.world.getCurWorldTime();
         home.GetOrCreate().marriage_pacts[other.id] = now;
         other.GetOrCreate().marriage_pacts[home.id] = now;
+        if (!announce) return;
         string text = string.Format(LM.Get("royal_marriage_history"), home.GetKingdomName(), royal.getName(),
             other.GetKingdomName(), partner.getName());
         TranslateHelper.LogEventMessage(text, home);
@@ -150,7 +152,7 @@ public static class RoyalMarriageSystem
             .FirstOrDefault(actor => actor != null && actor.isSexMale() && Marriageable(actor, other, emperors: true) &&
                                      !KinshipRules.AreCloseKin(princess, actor));
         if (groom == null) return null;
-        Marry(home, princess, other, groom);
+        Marry(home, princess, other, groom, announce: false);
         return princess.kingdom == other ? princess : null;
     }
 

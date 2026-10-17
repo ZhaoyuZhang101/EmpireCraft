@@ -162,11 +162,10 @@ public class EmpireCraftKingdomBehCheckPlots : GameAIKingdomBase
                 // 响应圣战有上限与远近(用户 2026-10-17 选"圣战加上限与距离")：攻方至多九国(发起国连同八国响应)，
                 // 要与守方接壤或隔海相望，不去打自己帝国的成员
                 if (war.getAttackers().Count() >= MaxHolyWarAttackers) continue;
-                if (!StraitReach.Within(pKingdom, war.main_defender)) continue;
                 if (pKingdom.GetEmpire() != null && pKingdom.GetEmpire() == war.main_defender.GetEmpire()) continue;
                 if (pKingdom.religion == war.main_attacker?.religion)
                 {
-                    if (pKingdom.isOpinionTowardsKingdomGood(war.main_attacker))
+                    if (pKingdom.isOpinionTowardsKingdomGood(war.main_attacker) && StraitReach.Within(pKingdom, war.main_defender))
                     {
                         war.joinAttackers(pKingdom);
                         TranslateHelper.LogJoinReligionWar(pKingdom, pKingdom.religion);

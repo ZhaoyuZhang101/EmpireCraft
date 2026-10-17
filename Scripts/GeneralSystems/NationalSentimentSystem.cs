@@ -208,8 +208,7 @@ public static class NationalSentimentSystem
                 War war = DiplomacyHelpers.wars.newWar(member, core, WarTypeLibrary.normal);
                 if (war == null) continue;
                 empire.leave(member, true, true);
-                // 民族独立：打民族叛乱(以前记为地方独立，民族叛乱从没出现过)
-                war.SetEmpireWarType(EmpireWarType.民族叛乱);
+                war.SetEmpireWarType(EmpireWarType.地方独立);
                 RebellionSystem.Record(member, war, cause);
                 EventRecorder.Record(empire, actor: member.king, logKingdom: member, text: string.Format(
                     LM.Get("nation_independence_history"), member.GetKingdomFullName(),
