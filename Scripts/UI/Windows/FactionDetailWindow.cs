@@ -674,9 +674,13 @@ public class FactionDetailWindow : AbstractWideWindow<FactionDetailWindow>
             (_faction.IsParty ? 94 : 80) + (pFaction.type == TemporaryFactionType.提高福利 ? 14 : 0)));
     }
     
+    // 改名(窗口标题就是输入框，同帝国窗口)：空的不改；改了左栏档案随即换成新名字
     public void ChangeFactionName(string newName)
     {
-        _faction.Name = newName;
+        string name = newName?.Trim();
+        if (_faction == null || string.IsNullOrEmpty(name) || name == _faction.Name) return;
+        _faction.Name = name;
+        InitialTopPart();
     }
     
     public void InitialTextInput()
