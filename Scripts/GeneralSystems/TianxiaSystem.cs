@@ -143,7 +143,7 @@ public static class TianxiaSystem
         List<City> cities = Cities(lead);
         Dictionary<Kingdom, int> held = EmpireCoreControl.CountHolders(cities);
         foreach (Kingdom wild in held.Keys.Where(kingdom => kingdom.wild).ToList()) held.Remove(wild);
-        return (held, cities.Count);
+        return (held, cities.Count(city => city.kingdom != null && !city.kingdom.wild));
     }
 
     public static string Name(EmpireCore lead)
@@ -372,10 +372,12 @@ public static class TianxiaSystem
         return kingdom?.data != null && !kingdom.isRekt() && !kingdom.wild ? kingdom : null;
     }
 
-    // 太小不受天命的天下(每年结算时记下)：不算天命周期(见 RealmOf)，界面上注明
+    // 太小不受天命的天下(每年结算时记下)：没有共主，叛乱、积弊不看天命周期(见 RealmOf)，界面上注明；
+    // 天下阶段照据有的多少算(一家七成五以上为治世，否则乱世)，分治、百家、官学照常
     private static readonly HashSet<long> Small = new();
 
-    private static bool TooSmall(EmpireCore lead, int total) => total < MinSoloMandateCities && Members(lead).Count < 2;
+    // 按天下的全部城数(连野生占着的)判，免得几座城落到野生手里就忽大忽小
+    private static bool TooSmall(EmpireCore lead) => Cities(lead).Count < MinSoloMandateCities && Members(lead).Count < 2;
 
     // 年度(UnificationSystem.Yearly 统计完天下以后)：各家据有的城数 → 受天命、失天命
     public static void Settle(EmpireCore lead, Dictionary<Kingdom, int> held, int total, string name)
@@ -383,18 +385,24 @@ public static class TianxiaSystem
         if (lead == null || total <= 0) return;
         double now = World.world.getCurWorldTime();
         Kingdom holder = Holder(lead);
-        if (TooSmall(lead, total))
+        if (TooSmall(lead))
         {
-            // 旧档里已受的天命悄悄撤掉(不记失天命)，来朝的标记一并清掉
             Small.Add(lead.id);
-            if (lead.mandate_kingdom_id >= 0 || lead.tianxia_phase >= 0)
+            // 旧档里已受的天命悄悄撤掉(不记失天命)，来朝的一并散去(不记史册)
+            if (lead.mandate_kingdom_id >= 0)
             {
                 MandateRecord open = lead.mandate_history?.LastOrDefault(record => record.lost_at < 0d);
                 if (open != null) open.lost_at = now;
+                foreach (Kingdom kingdom in Tributaries(lead))
+                {
+                    kingdom.GetOrCreate().tianxia_tributary_lead = -1L;
+                    if (kingdom.HasTakenAlliance()) kingdom.RemoveTakenAlliance();
+                }
                 ClearState(lead);
-                MoveTributaries(lead.id, -1L);
                 InvalidateLegitimacy(holder);
             }
+            int most = held.Count == 0 ? 0 : held.Values.Max();
+            lead.tianxia_phase = most >= total * ClaimShare ? Peace : Chaos;
             return;
         }
         Small.Remove(lead.id);
@@ -447,11 +455,12 @@ public static class TianxiaSystem
         InvalidateLegitimacy(kingdom);
     }
 
-    // 统一完成即受天命(用户 2026-10-17 选"以天命为准"：统一了就是治世的开头)，不论据有几成；之后照常过半才守得住
+    // 统一完成即受天命(用户 2026-10-17 选"以天命为准"：统一了就是治世的开头)；要据有过半(以前不论几成，
+    // 不到一半的第二年就按"跌破一半"失天命、记一笔失天命再扣正统)，之后照常过半才守得住
     public static void Grant(EmpireCore lead, Kingdom unifier, int count, int total, string name)
     {
         if (lead == null || unifier?.data == null || unifier.isRekt() || unifier.wild || total <= 0 ||
-            lead.mandate_kingdom_id >= 0 || World.world == null || TooSmall(lead, total)) return;
+            lead.mandate_kingdom_id >= 0 || World.world == null || TooSmall(lead) || count < total * KeepShare) return;
         Claim(lead, unifier, count, total, name, World.world.getCurWorldTime());
     }
 
@@ -479,10 +488,10 @@ public static class TianxiaSystem
         return lead == null || Small.Contains(lead.id) ? null : lead;
     }
 
-    // 这一国所处天下的天命周期(不在天下里算乱世)
+    // 这一国所处天下的天命周期(不在天下里算乱世；太小不受天命的天下按据有多少算，见 Settle)
     public static int PhaseOf(Kingdom kingdom)
     {
-        EmpireCore lead = RealmOf(kingdom);
+        EmpireCore lead = MandateOf(kingdom) ?? LeadOf(kingdom?.capital);
         return lead == null ? Chaos : Phase(lead);
     }
 

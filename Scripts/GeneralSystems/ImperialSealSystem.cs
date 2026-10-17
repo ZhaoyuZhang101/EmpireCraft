@@ -98,7 +98,11 @@ public static class ImperialSealSystem
         string home = culture.GetTianxiaId();
         if (!Huaxia(home)) home = culture;
         CultureInstitutionState state = InstitutionSystem.GetOrCreateCultureState(home);
-        if (state != null && home != culture) Merge(InstitutionSystem.GetOrCreateCultureState(culture), state);
+        if (state == null) return null;
+        // 同一天下的各文化一次并齐(不论先问到的是哪个文化，免得先在主文化上新造一方、再把别的文化的旧玺抹掉)
+        foreach (string other in CultureService.CultureKeys)
+            if (other != home && Huaxia(other) && other.GetTianxiaId() == home)
+                Merge(InstitutionSystem.GetOrCreateCultureState(other), state);
         return state;
     }
 
@@ -118,6 +122,7 @@ public static class ImperialSealSystem
         from.imperial_seal_made = false;
         from.imperial_seal_empire_id = -1L;
         from.imperial_seal_kingdom_id = -1L;
+        from.imperial_seal_city_id = -1L;
         from.imperial_seal_lost_since = -1d;
     }
 

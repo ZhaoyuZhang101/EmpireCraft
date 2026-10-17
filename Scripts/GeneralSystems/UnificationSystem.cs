@@ -415,8 +415,8 @@ public static class UnificationSystem
                 float share = realm.held[unifier] / (float)realm.total;
                 bool alone = powers.All(holder => holder == unifier || Exempt(holder));
                 var data = unifier.GetOrCreate();
-                // 光复之战：外族还受着天命时，不按"地盘不到两成、被人超过"判中辍(本来就是以小搏大)
-                data.unify_restoring = data.unify_restoring && Restoring(realm, unifier);
+                // 光复之战：外族还占着天下时，不按"地盘不到两成、被人超过"判中辍(本来就是以小搏大)
+                data.unify_restoring = data.unify_restoring && Restoring(realm, unifier, homes);
                 if (share >= UnifiedShare || alone)
                 {
                     Complete(unifier, realm, now);
@@ -436,6 +436,7 @@ public static class UnificationSystem
                 {
                     data.unify_since = -1d;
                     data.unify_restoring = false;
+                    data.unify_ended_at = now;
                     Record(unifier, "unify_lost_history", unifier.GetKingdomName());
                     continue;
                 }
@@ -444,7 +445,8 @@ public static class UnificationSystem
                 bool engaged = Rivals[unifier.id].Any(rival => unifier.isInWarWith(rival) || Borders(unifier, rival));
                 Stalled.TryGetValue(unifier.id, out int stalled);
                 Stalled[unifier.id] = stalled = engaged ? 0 : stalled + 1;
-                if (stalled >= StallYears)
+                // 光复时外族还占着天下，够不着也不算统一了(以前停滞三年就"统一"，白得三十年开国气象)
+                if (stalled >= StallYears && !restoring)
                 {
                     Stalled.Remove(unifier.id);
                     Rivals.Remove(unifier.id);
@@ -455,14 +457,14 @@ public static class UnificationSystem
                 continue;
             }
             // 光复(用户 2026-10-17 选"外族入主可受天命、本族可光复")：外族受着这个天下的天命、天命已动摇，本族最强的一家起兵
-            Kingdom restorer = Restorer(realm, homes);
+            Kingdom restorer = Restorer(realm, homes, now);
             if (restorer != null)
             {
                 var data = restorer.GetOrCreate();
                 data.unify_since = now;
                 data.unify_restoring = true;
                 tracked.Add(restorer);
-                Record(restorer, "unify_restore_history", restorer.GetKingdomName(), Occupier(realm)?.GetKingdomName() ?? "");
+                Record(restorer, "unify_restore_history", restorer.GetKingdomName(), Occupier(realm, homes)?.GetKingdomName() ?? "");
                 Track(restorer, realm);
                 continue;
             }
@@ -477,6 +479,9 @@ public static class UnificationSystem
             // 已受这个天下天命的不再起统一战(它就是天下共主)
             if (realm.lead != null && TianxiaSystem.MandateOf(top) == realm.lead) continue;
             float topShare = realm.held[top] / (float)realm.total;
+            // 本朝统一过、仍据有过半的不再起统一战(一个王朝只统一一次，衰落到不足一半才能中兴再统一)——
+            // 没有天命的天下(太小、文化连片)以前开国气象一过、冒出个叛军就再统一一次，几乎永远在开国气象里
+            if (top.GetOrCreate().unified_at >= 0d && topShare >= LateUnifiedShare) continue;
             double topPower = WarSituation.Power(top);
             double second = ranked.Skip(1).Select(holder => WarSituation.Power(holder)).DefaultIfEmpty(0d).Max();
             bool leads = topShare >= ContenderShare || topShare >= PowerLeadMinShare && topPower >= second * PowerLead;
@@ -506,36 +511,52 @@ public static class UnificationSystem
         Arenas[unifier.id] = realm.lead;
     }
 
-    // 光复：外族(与天下主核心不是同一族类)占着天下——受着天命而天命已动摇，或刚失了天命、仍是天下的一家；
-    // 本族(都城在天下里、同族类)最强、据有天下 8% 以上、不在开国气象里的一家起兵(外族还没受过这个天下天命时不算光复，
-    // 照常争天下，入主的外族也能做统一者)
+    // 光复：外族(与天下主核心不是同一族类)占着天下——受着天命而天命已动摇；刚失了天命(三十年内)、仍是天下的一家；
+    // 或都城在别处、据有天下最多。本族(都城在天下里、同族类)最强、据有天下 8% 以上、不在开国气象里、
+    // 十年内没有中辍过统一或光复的一家起兵(外族还没受过这个天下的天命、都城又在这里时不算光复，照常争天下，
+    // 入主的外族也能做统一者)
     private const float RestoreMinShare = 0.08f;
+    private const int RestoreCooldownYears = 10, OccupiedYears = 30;
 
-    private static Kingdom Restorer(Realm realm, Dictionary<Kingdom, Realm> homes)
+    private static Kingdom Restorer(Realm realm, Dictionary<Kingdom, Realm> homes, double now)
     {
-        Kingdom ruler = Occupier(realm);
+        Kingdom ruler = Occupier(realm, homes);
         if (ruler == null) return null;
+        bool Rested(Kingdom native)
+        {
+            double ended = native.GetOrCreate().unify_ended_at;
+            return ended < 0d || now < ended || Date.getYearsSince(ended) >= RestoreCooldownYears;
+        }
         return realm.natives.Where(native => native != ruler && !Exempt(native) && !TianxiaSystem.Foreign(realm.lead, native) &&
                                              homes.TryGetValue(native, out Realm home) && home == realm && !InGrace(native) &&
-                                             realm.held[native] >= realm.total * RestoreMinShare)
+                                             realm.held[native] >= realm.total * RestoreMinShare && Rested(native))
             .OrderByDescending(native => WarSituation.Power(native)).FirstOrDefault();
     }
 
-    private static Kingdom Occupier(Realm realm)
+    private static Kingdom Occupier(Realm realm, Dictionary<Kingdom, Realm> homes)
     {
         if (realm.lead == null) return null;
         int phase = TianxiaSystem.Phase(realm.lead);
-        Kingdom ruler = phase == TianxiaSystem.Unrest ? TianxiaSystem.Holder(realm.lead)
-            : phase == TianxiaSystem.Chaos && realm.lead.mandate_former_kingdom_id >= 0
-                ? realm.members.FirstOrDefault(member => member.id == realm.lead.mandate_former_kingdom_id)
-                : null;
+        Kingdom ruler = null;
+        if (phase == TianxiaSystem.Unrest) ruler = TianxiaSystem.Holder(realm.lead);
+        else if (phase == TianxiaSystem.Chaos)
+        {
+            EmpireCore lead = realm.lead;
+            if (lead.mandate_former_kingdom_id >= 0 && lead.mandate_lost_at >= 0d &&
+                Date.getYearsSince(lead.mandate_lost_at) < OccupiedYears)
+                ruler = realm.members.FirstOrDefault(member => member.id == lead.mandate_former_kingdom_id);
+            // 都城在别处、据有天下最多的外族(以前它挡着，本族谁都起不了统一战)
+            Kingdom largest = realm.members.OrderByDescending(member => realm.held[member]).FirstOrDefault();
+            if (ruler == null && largest != null && !(homes.TryGetValue(largest, out Realm home) && home == realm))
+                ruler = largest;
+        }
         return ruler != null && TianxiaSystem.Foreign(realm.lead, ruler) ? ruler : null;
     }
 
     // 还在光复：天下仍被别的外族占着
-    private static bool Restoring(Realm realm, Kingdom unifier)
+    private static bool Restoring(Realm realm, Kingdom unifier, Dictionary<Kingdom, Realm> homes)
     {
-        Kingdom ruler = Occupier(realm);
+        Kingdom ruler = Occupier(realm, homes);
         return ruler != null && ruler != unifier;
     }
 

@@ -392,6 +392,8 @@ public static class KingdomExtension
         public bool unified_tianxia;
         // 这场统一战争是本族起兵光复(外族受着天命时)：不按"地盘不到两成、被人超过"判中辍
         public bool unify_restoring;
+        // 上次统一、光复中辍的时间(-1 没有)：十年内不再起兵光复
+        public double unify_ended_at = -1d;
         // 分封制下的小乱(见 PettyRebellion)：原主国家与起事时间(-1 不是)
         public long petty_rebel_origin = -1L;
         public double petty_rebel_since = -1d;
