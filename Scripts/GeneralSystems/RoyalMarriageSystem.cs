@@ -62,9 +62,10 @@ public static class RoyalMarriageSystem
         foreach (Actor child in king?.getChildren(false) ?? Enumerable.Empty<Actor>()) yield return child;
     }
 
-    private static bool Marriageable(Actor actor, Kingdom kingdom)
+    // emperors：和亲时对方的君主可以是皇帝、大汗(西方联姻不配皇帝)
+    private static bool Marriageable(Actor actor, Kingdom kingdom, bool emperors = false)
     {
-        if (actor?.data == null || actor.isRekt() || !actor.isAlive() || !actor.isAdult() || actor.IsEmperor()) return false;
+        if (actor?.data == null || actor.isRekt() || !actor.isAlive() || !actor.isAdult() || !emperors && actor.IsEmperor()) return false;
         int age = actor.getAge();
         if (age < MinAge || age > (actor == kingdom.king ? KingMaxAge : MaxAge)) return false;
         PersonalClanIdentity identity = actor.GetPersonalIdentity();
@@ -136,6 +137,21 @@ public static class RoyalMarriageSystem
         TranslateHelper.LogEventMessage(text, home);
         Empire otherEmpire = other.GetEmpire();
         if (otherEmpire != null && otherEmpire != home.GetEmpire()) otherEmpire.RecordHistory(directContent: text);
+    }
+
+    // 和亲(见 HeqinSystem)：本国君主未婚的成年女儿嫁给对方的君主或储君；嫁成了返回这位宗室女，没有合适人选为空
+    public static Actor Heqin(Kingdom home, Kingdom other)
+    {
+        if (home?.king == null || other?.data == null) return null;
+        Actor princess = (home.king.getChildren(false) ?? Enumerable.Empty<Actor>())
+            .FirstOrDefault(child => child != null && child.isSexFemale() && !Ruling(child, home) && Marriageable(child, home));
+        if (princess == null) return null;
+        Actor groom = new[] { other.king, other.HasHeir() ? other.GetHeir() : null }
+            .FirstOrDefault(actor => actor != null && actor.isSexMale() && Marriageable(actor, other, emperors: true) &&
+                                     !KinshipRules.AreCloseKin(princess, actor));
+        if (groom == null) return null;
+        Marry(home, princess, other, groom);
+        return princess.kingdom == other ? princess : null;
     }
 
     private static void Relocate(Actor mover, Kingdom destination)
