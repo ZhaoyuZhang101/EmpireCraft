@@ -163,8 +163,16 @@ public static class EnfeoffmentHelper
             .Count(identity => identity != null && IsEligibleSibling(identity._actor, empire));
     }
 
+    // 兀鲁思(用户 2026-10-17 转群友"游牧太强了几乎不会分封"，选"汗死诸子分兀鲁思")：游牧政体的大汗死了、
+    // 汗国的核心有 UlusMinCities 座城以上，新汗的兄弟(先汗诸子)各分一块法理做兀鲁思(成员国)，同分割继承法；
+    // 打仗时等停了再分(见 Empire.update)。大汗弱时兀鲁思可以自立(见 kingdom_allow_independent)
+    public const int UlusMinCities = 8;
+
+    public static bool UlusPartition(Empire empire) =>
+        empire?.CoreKingdom?.GetRegime()?.type == RegimeType.YouMu && empire.CoreKingdom.countCities() >= UlusMinCities;
+
     // 新皇帝即位(不论是立储继承、选举还是拥立)时由 KingdomPatch 的 setKing 补丁调用：
-    //   · 分割继承法：诸子分封；
+    //   · 分割继承法、游牧兀鲁思：诸子分封；
     //   · 本文化已施行「分封建国」且尚未「削藩」：先君一死，新君的兄弟按法理裂土受封。
     // 政体只能虚封(如律令制)或已无法理可分时，按兄弟人数给正统性补偿。
     public static void OnEmperorSucceeded(Empire empire)
@@ -172,7 +180,7 @@ public static class EnfeoffmentHelper
         Kingdom coreKingdom = empire?.CoreKingdom;
         if (coreKingdom == null || coreKingdom.isRekt() || empire.Emperor == null) return;
         empire.data.succession_enfeoff_pending = false;
-        bool divisionLaw = coreKingdom.GetSuccessionLaw() == SuccessionLawType.分割继承法;
+        bool divisionLaw = coreKingdom.GetSuccessionLaw() == SuccessionLawType.分割继承法 || UlusPartition(empire);
         bool enfeoffmentEnacted =
             InstitutionSystem.HasFeature(empire, InstitutionFeatures.SiblingEnfeoffment) &&
             !InstitutionSystem.HasFeature(empire, InstitutionFeatures.SiblingEnfeoffmentAbolished);

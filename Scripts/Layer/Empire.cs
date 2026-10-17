@@ -1734,6 +1734,8 @@ public class Empire : MetaObject<EmpireData>
             // 西方中央集权君主制、神权国家同郡县制一样，直辖的法理要划成辖区/教区
             if (IsWesternCentralized() || regime?.type == RegimeType.ZhouFeudalism ||
                 regime?.type == RegimeType.Feudalism) ProcessTerritorialAcquisitionEnfeoff();
+            // 游牧兀鲁思：大汗死时正在打仗没分成的，停战后补分(见 EnfeoffmentHelper.UlusPartition)
+            else if (regime?.type == RegimeType.YouMu) EnfeoffmentHelper.ResumeSuccessionEnfeoff(this);
             if (regime != null && data.powerful_minister_id > 0) ClearPowerfulMinister();
         }
         // 现代国家不再运行传统封爵、恩赏爵位或爵位承袭流程。

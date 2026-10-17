@@ -1608,11 +1608,14 @@ namespace EmpireCraft.Scripts.AI
                     bool garrison = regime.type == RegimeType.LvLing &&
                                     (kingdom.GetKingdomType() == KingdomType.LvLing_jiedushi ||
                                      kingdom.GetKingdomType() == KingdomType.LvLing_duhufu);
-                    if (regime.type != RegimeType.Feudalism && regime.type != RegimeType.Arabic && !garrison) return false;
+                    // 游牧的兀鲁思(见 EnfeoffmentHelper.UlusPartition)：大汗弱时自立为汗国，各有自己的军队，
+                    // 不受"支援中央军"所限(骑射本位、行省制度会把本文化成员国都设为支援中央)
+                    bool ulus = regime.type == RegimeType.YouMu;
+                    if (regime.type != RegimeType.Feudalism && regime.type != RegimeType.Arabic && !garrison && !ulus) return false;
                     if (!regime.IsAllowDiplomacy()) return false;
                     if (!regime.IsAllowArmy()) return false;
                     if (regime.GetLeaderSelectMethod() != LeaderSelectMethod.Succession) return false;
-                    if (regime.IsAllowSupportCenterArmy()) return false;
+                    if (regime.IsAllowSupportCenterArmy() && !ulus) return false;
                     if (kingdom.isOpinionTowardsKingdomGood(empire.CoreKingdom)) return false;
                     return true;
                 },
