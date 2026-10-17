@@ -25,8 +25,18 @@ public class BuildingMinimapPatch : GamePatch
         );
     }
 
-    public static bool GetColorForMinimapPrefix(Building __instance, ref Color32 __result)
+    public static bool GetColorForMinimapPrefix(Building __instance, object[] __args, ref Color32 __result)
     {
+        // 纯净地图：拉远时原版小地图(按格上色的远景)也不画建筑，那一格照地表本色画
+        // (玩家反馈"虽然建筑不显示了但是 minimap 还在"：远景里还看得到原版的房子、篝火色块)
+        if (EmpireCraft.Scripts.GeneralSystems.PureMapMode.Enabled)
+        {
+            WorldTile tile = __args != null && __args.Length > 0 && __args[0] is WorldTile given ? given : __instance?.current_tile;
+            TileTypeBase type = tile?.Type;
+            TileTypeBase surface = type == null || type.road ? null : tile.top_type ?? type;
+            __result = surface != null ? surface.color : new Color32(110, 150, 90, 255);
+            return false;
+        }
         if (__instance?.asset?.building_sprites?.map_icon == null)
         {
             __result = default;

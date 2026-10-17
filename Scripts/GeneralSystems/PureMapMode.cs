@@ -107,6 +107,15 @@ public static class PureMapMode
             if (asset != null) asset.draw_call = NoDraw;
         }
         LogService.LogInfo("[EmpireCraft][纯净地图] 不再绘制人物与建筑");
+        // 远景小地图上已经画好的建筑色块：强制整张重画一次，按地表本色(见 BuildingMinimapPatch)
+        try
+        {
+            HarmonyLib.AccessTools.Method(typeof(MapBox), "redrawMiniMap")?.Invoke(World.world, new object[] { true });
+        }
+        catch (global::System.Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft][纯净地图] 重画小地图失败: {exception.Message}");
+        }
     }
 
     private static void EnsureSpritesOff()
