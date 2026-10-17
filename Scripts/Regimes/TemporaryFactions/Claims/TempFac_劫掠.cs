@@ -43,8 +43,12 @@ public class TempFac_劫掠 : TemporaryFaction
         var neighbours = empire.GetKingdomNeighbours();
         if (!neighbours.Any()) return false;
         RegimeType? own = empire.CoreKingdom.GetRegime()?.type;
+        string ownCulture = GeneralSystems.CultureService.GetRealmCulture(empire.CoreKingdom);
+        // 劫别的文化或别的政体的邻国(维京劫同为封建的法兰克，见 ClaimRules.json 的 raider 特质)；
         // 五年内遭劫过的不再劫(用户 2026-10-17 选"劫掠只拿三成国库"：同一家几年内不再劫)
-        var target = neighbours.Find(k => k?.data != null && !k.isRekt() && k.GetRegime()?.type != own &&
+        var target = neighbours.Find(k => k?.data != null && !k.isRekt() &&
+                                          (k.GetRegime()?.type != own ||
+                                           GeneralSystems.CultureService.GetRealmCulture(k) != ownCulture) &&
                                           (k.GetOrCreate().raided_at < 0d || Date.getYearsSince(k.GetOrCreate().raided_at) >= 5) &&
                                           GeneralSystems.WarSituation.Power(k) < power &&
                                           GeneralSystems.WarGate.CanDeclare(empire.CoreKingdom, k));

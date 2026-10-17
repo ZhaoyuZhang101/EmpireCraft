@@ -26,6 +26,20 @@
 - 同一模板的各个实例视为同一项制度：已掌握其中之一的文化不会再从别的线吸收另一个；
   本线树上已有同源实例时，也不会吸收外线实例（应按本线前置自行研究）。
 
+## 同线各文化分开 `cultures` / `exclude_cultures`
+
+一条线下有好几个文化(阿拉伯线有阿拉伯、埃及、波斯、印度)时，节点可以只给某些文化、或不给某些文化：
+
+```json
+{ "id": "arabic_tribal_shura", "exclude_cultures": ["India"], ... }
+{ "id": "arabic_raja_kingdoms", "cultures": ["India"], "regime": "Feudalism", ... }
+```
+
+- `cultures` 留空不限；`exclude_cultures` 里的文化没有这项制度。研究(改革)、时代潮流、外来吸收、读档补记政体、
+  科技树显示、各国逐国跟进政体都按它过滤。
+- 后续节点要让两条路都能接上，用 `requires_any`(如 `["arabic_tribal_shura", "arabic_raja_kingdoms"]`)。
+- 派系诉求另按文化的政治特质分(`political_traits`，见 `ClaimRules.json` 的 `traits`：raider 劫掠、nomadic 游牧扩张)。
+
 ## 制度特性 `features`（代码只认特性，不认节点 id）
 
 节点通过 `features` 声明它提供的系统级效果，多个节点声明同一特性时取最大值：

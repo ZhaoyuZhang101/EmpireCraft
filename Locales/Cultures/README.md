@@ -37,7 +37,7 @@ Locales/Cultures/
         "start_institution": "",     // 开局阶段：本线的一个制度节点，开局即施行它和它的全部前置；留空从根节点起步(华夏线是原始群)
         "surname_evolution": true,   // 姓氏演变(只对华夏线有效)：原始群无姓→母系有姓→贵族分氏→周制男子称氏女子称姓、平民无氏→郡县后姓氏合一
         "traits": ["patriarchy"],    // 文化特质 id
-        "political_traits": ["strong_unification"], // 模组政治特质；强统一诉求会启用唯一中央、易帜、临时政府和统一继承
+        "political_traits": ["strong_unification"], // 模组政治特质；strong_unification 强统一诉求会启用唯一中央、易帜、临时政府和统一继承；nomadic 游牧(游牧扩张、游牧化)；raider 劫掠者(劫掠)——同一制度线下各文化靠特质分开(见 ClaimRules.json 的 traits)
         "Religion": "ReligionNames", // 宗教名词库
         "City":    { "groups": { "group_1": "CityNames1" }, "rule": ["group_1"], "name_pos": 0 },
         "Kingdom": { "groups": { "group_1": "CountryNames" }, "rule": ["group_1"], "name_pos": 0, "english_type_prefix": false },

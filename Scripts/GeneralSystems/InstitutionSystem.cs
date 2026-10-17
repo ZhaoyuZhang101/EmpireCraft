@@ -126,7 +126,7 @@ public static class InstitutionSystem
     public static (List<InstitutionNodeConfig> supports, List<InstitutionNodeConfig> opposes)
         GetFactionInstitutionStance(string culture, FactionType factionType)
     {
-        List<InstitutionNodeConfig> nodes = InstitutionDefinitionRegistry.GetForLine(GetCultureLine(culture)).ToList();
+        List<InstitutionNodeConfig> nodes = InstitutionDefinitionRegistry.GetForCulture(GetCultureLine(culture), culture).ToList();
         List<InstitutionNodeConfig> supports = nodes.Where(node => node.politics.support_factions.ContainsKey(factionType)).ToList();
         List<InstitutionNodeConfig> opposes = nodes.Where(node => node.politics.oppose_factions.ContainsKey(factionType)).ToList();
         return (supports, opposes);
@@ -260,7 +260,7 @@ public static class InstitutionSystem
     // 本线里声明了某特性的节点（按等级排序）。派系诉求这类"推动某项改革"的逻辑用它找目标，
     // 而不是写死节点 id。
     public static IEnumerable<InstitutionNodeConfig> GetLineNodesWithFeature(Empire empire, string feature) =>
-        InstitutionDefinitionRegistry.GetForLine(GetCultureLine(GetPrimaryCulture(empire)))
+        InstitutionDefinitionRegistry.GetForCulture(GetCultureLine(GetPrimaryCulture(empire)), GetPrimaryCulture(empire))
             .Where(node => !string.IsNullOrWhiteSpace(feature) && node.features.ContainsKey(feature));
 
     // 派系诉求要推动的改革目标：本线声明了 claim_reform:<诉求名> 特性、且本文化尚未掌握的节点。
@@ -393,7 +393,7 @@ public static class InstitutionSystem
     {
         string culture = CultureService.GetRealmCulture(kingdom);
         if (!CultureService.IsValidCulture(culture)) return true;
-        InstitutionNodeConfig node = InstitutionDefinitionRegistry.GetForLine(GetCultureLine(culture))
+        InstitutionNodeConfig node = InstitutionDefinitionRegistry.GetForCulture(GetCultureLine(culture), culture)
             .FirstOrDefault(candidate => InstitutionDefinitionRegistry.TryGetNodeRegime(candidate, out RegimeType declared) &&
                                          declared == regime);
         return node == null || TechnologySystem.AreRealmInstitutionTechsMet(kingdom, node, out _);
@@ -498,7 +498,7 @@ public static class InstitutionSystem
         string line = culture.GetInstitutionLine();
         CultureInstitutionState state = GetOrCreateCultureState(culture);
         int enacted = -1, first = int.MaxValue;
-        foreach (InstitutionNodeConfig node in InstitutionDefinitionRegistry.GetForLine(line))
+        foreach (InstitutionNodeConfig node in InstitutionDefinitionRegistry.GetForCulture(line, culture))
         {
             if (!InstitutionDefinitionRegistry.TryGetNodeRegime(node, out RegimeType declared) || declared != type) continue;
             first = Math.Min(first, node.advancement);
@@ -600,17 +600,21 @@ public static class InstitutionSystem
         // 本线没声明的政体都改(复查 2026-10-17 第四批：以前只认游牧、阿拉伯、律令、周制——华夏复辟落到封建、
         // 别的线留着幕府都改不回来)；原始阶段走部落迁移、现代走共和途径，不在此列
         if (RegimeManager.IsPrimitive(regime.type) || regime.type == RegimeType.Modern || regime.type == RegimeType.Republic) return;
-        if (!InstitutionDefinitionRegistry.HasLine(line) || LineDeclares(line, regime.type)) return;
+        if (!InstitutionDefinitionRegistry.HasLine(line) || CultureDeclares(culture, regime.type)) return;
         if (!TryResolveCultureRegime(culture, out RegimeType target) || target == regime.type) return;
         LogService.LogInfo($"[EmpireCraft][制度] {empire.GetEmpireName()} 政体 {regime.type} 不属于 {culture} 的制度线，改为 {target}");
         ChangeRegime(empire, target);
         empire.data.empire_type_key = "";
     }
 
-    private static bool LineDeclares(string line, RegimeType type) =>
-        InstitutionDefinitionRegistry.TryGetRootRegime(line, out RegimeType root) && root == type ||
-        InstitutionDefinitionRegistry.GetForLine(line).Any(node =>
-            InstitutionDefinitionRegistry.TryGetNodeRegime(node, out RegimeType declared) && declared == type);
+    // 本文化的制度线声明了这个政体(根节点或给本文化的节点)
+    private static bool CultureDeclares(string culture, RegimeType type)
+    {
+        string line = GetCultureLine(culture);
+        return InstitutionDefinitionRegistry.TryGetRootRegime(line, out RegimeType root) && root == type ||
+               InstitutionDefinitionRegistry.GetForCulture(line, culture).Any(node =>
+                   InstitutionDefinitionRegistry.TryGetNodeRegime(node, out RegimeType declared) && declared == type);
+    }
 
     #endregion
 
@@ -721,6 +725,12 @@ public static class InstitutionSystem
         if (!IsSameLine(node.line, GetCultureLine(culture)))
         {
             reason = "institution_reform_wrong_line";
+            return false;
+        }
+        // 同线各文化分开(用户 2026-10-17)：不给本文化的制度(节点的 cultures、exclude_cultures)
+        if (!InstitutionDefinitionRegistry.Allows(node, culture))
+        {
+            reason = "institution_reform_other_culture";
             return false;
         }
         if (IdeologyInstitutionPaths.TryGetIdeology(node.branch, out PartyIdeology ideology))
@@ -1018,7 +1028,7 @@ public static class InstitutionSystem
         string culture = GetPrimaryCulture(empire);
         CultureInstitutionState state = GetOrCreateCultureState(culture);
         if (state == null) return;
-        InstitutionNodeConfig node = InstitutionDefinitionRegistry.GetForLine(GetCultureLine(culture))
+        InstitutionNodeConfig node = InstitutionDefinitionRegistry.GetForCulture(GetCultureLine(culture), culture)
             .FirstOrDefault(candidate =>
                 InstitutionDefinitionRegistry.TryGetNodeRegime(candidate, out RegimeType declared) &&
                 declared == regimeType);
@@ -1031,7 +1041,7 @@ public static class InstitutionSystem
         CultureInstitutionState state = GetOrCreateCultureState(culture);
         if (state == null || regimes == null) return 0;
         int before = state.enacted_node_ids.Count;
-        List<InstitutionNodeConfig> line = InstitutionDefinitionRegistry.GetForLine(GetCultureLine(culture)).ToList();
+        List<InstitutionNodeConfig> line = InstitutionDefinitionRegistry.GetForCulture(GetCultureLine(culture), culture).ToList();
         foreach (RegimeType regime in regimes)
         {
             InstitutionNodeConfig node = line.FirstOrDefault(candidate =>
@@ -1079,7 +1089,7 @@ public static class InstitutionSystem
         CultureInstitutionState state = GetOrCreateCultureState(culture);
         if (state == null) return 0;
         var added = new List<InstitutionNodeConfig>();
-        foreach (InstitutionNodeConfig node in InstitutionDefinitionRegistry.GetForLine(GetCultureLine(culture))
+        foreach (InstitutionNodeConfig node in InstitutionDefinitionRegistry.GetForCulture(GetCultureLine(culture), culture)
                      .Where(node => node.branch != IdeologyBranch &&
                                     !IdeologyInstitutionPaths.TryGetIdeology(node.branch, out _)))
             ForceEnactChain(state, node, added);
@@ -1304,7 +1314,7 @@ public static class InstitutionSystem
         node.features != null && node.features.ContainsKey(RepublicSystem.FeatureAbolishMonarchy);
 
     private static IEnumerable<InstitutionNodeConfig> GetForLine(string culture) =>
-        InstitutionDefinitionRegistry.GetForLine(GetCultureLine(culture));
+        InstitutionDefinitionRegistry.GetForCulture(GetCultureLine(culture), culture);
 
     // 与帝国改革同样的门槛(本线、未确立、未被取代、前置、技术、互斥、禁止近代化)，
     // 意识形态车道与需要复合帝国的制度除外——那些必须由政权推动
@@ -2253,7 +2263,7 @@ public static class InstitutionSystem
         foreach (string nodeId in state.exposure.Keys.ToList())
         {
             InstitutionNodeConfig node = InstitutionDefinitionRegistry.Get(nodeId);
-            if (!IsForeignCandidate(node, line, state))
+            if (!IsForeignCandidate(node, line, state) || !InstitutionDefinitionRegistry.Allows(node, culture))
             {
                 state.exposure.Remove(nodeId);
                 state.contact_years.Remove(nodeId);
@@ -2520,7 +2530,7 @@ public static class InstitutionSystem
     {
         CultureInstitutionState state = GetOrCreateCultureState(culture);
         if (state == null || string.IsNullOrWhiteSpace(feature)) return false;
-        InstitutionNodeConfig node = InstitutionDefinitionRegistry.GetForLine(GetCultureLine(culture))
+        InstitutionNodeConfig node = InstitutionDefinitionRegistry.GetForCulture(GetCultureLine(culture), culture)
             .FirstOrDefault(candidate => candidate.features != null && candidate.features.ContainsKey(feature));
         if (node == null || state.enacted_node_ids.Contains(node.id)) return false;
         state.enacted_node_ids.Add(node.id);
@@ -2587,7 +2597,7 @@ public static class InstitutionSystem
         string activeNode = empireState?.active_reform?.node_id;
         Dictionary<SocialClass, float> shares = BuildClassShares(empire);
 
-        foreach (InstitutionNodeConfig node in InstitutionDefinitionRegistry.GetForLine(GetCultureLine(culture)))
+        foreach (InstitutionNodeConfig node in InstitutionDefinitionRegistry.GetForCulture(GetCultureLine(culture), culture))
         {
             InstitutionPoliticalBalance balance = CalculatePoliticalBalance(empire, node, shares);
             var view = new InstitutionNodeView
@@ -2646,7 +2656,7 @@ public static class InstitutionSystem
                 string.Equals(GetPrimaryCulture(empire), culture, StringComparison.Ordinal))
                 reforming.Add(nodeId);
         }
-        foreach (InstitutionNodeConfig node in InstitutionDefinitionRegistry.GetForLine(GetCultureLine(culture)))
+        foreach (InstitutionNodeConfig node in InstitutionDefinitionRegistry.GetForCulture(GetCultureLine(culture), culture))
         {
             var view = new InstitutionNodeView { Node = node };
             if (state.enacted_node_ids.Contains(node.id))

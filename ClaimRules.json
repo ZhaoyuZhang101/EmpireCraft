@@ -1,5 +1,5 @@
 {
-  "_comment": "派系决议与文化制度树、科技时代的对应(见 Scripts/GeneralSystems/ClaimRules.cs)。cultures 只有这些文化才有；min_era/max_era 科技时代 tier(1 石器 … 7 工业 … 11 未来，0 不限)；lines 各制度线(Huaxia/Roma/Arabic/Youmu/Japan)的要求，没列出的线 = 没有这条路线、不出现；any 已施行其一才提出，none 已施行其一就不再提出，push 决议成功后对第一个未施行的制度发起改革；special: sinicized_nomad = 已采纳中原制度的游牧政权。没写进本文件的决议不受限制。",
+  "_comment": "派系决议与文化制度树、科技时代的对应(见 Scripts/GeneralSystems/ClaimRules.cs)。cultures 只有这些文化才有；traits 本文化有其中任一政治特质(文化配置 political_traits，如 nomadic 游牧、raider 劫掠者)才有；min_era/max_era 科技时代 tier(1 石器 … 7 工业 … 11 未来，0 不限)；lines 各制度线(Huaxia/Roma/Arabic/Youmu/Japan)的要求，没列出的线 = 没有这条路线、不出现；any 已施行其一才提出，none 已施行其一就不再提出，push 决议成功后对第一个未施行的制度发起改革；special: sinicized_nomad = 已采纳中原制度的游牧政权。没写进本文件的决议不受限制。",
   "开科取士": {
     "lines": {
       "Huaxia": {}
@@ -507,14 +507,13 @@
     }
   },
   "劫掠": {
-    "lines": {
-      "Youmu": {}
-    }
+    "traits": ["raider"]
   },
   "游牧扩张": {
-    "lines": {
-      "Youmu": {}
-    }
+    "traits": ["nomadic"]
+  },
+  "游牧化": {
+    "traits": ["nomadic"]
   },
   "输出革命": {
     "lines": {

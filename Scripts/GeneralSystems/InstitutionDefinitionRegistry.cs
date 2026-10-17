@@ -458,6 +458,15 @@ public static class InstitutionDefinitionRegistry
             : tree.name_key;
     }
 
+    // 这项制度给不给这个文化(cultures 留空不限；exclude_cultures 里的没有)
+    public static bool Allows(InstitutionNodeConfig node, string culture) =>
+        node != null && (node.cultures == null || node.cultures.Count == 0 || node.cultures.Contains(culture)) &&
+        (node.exclude_cultures == null || !node.exclude_cultures.Contains(culture));
+
+    // 某个文化自己的那条线(一条线的节点按 cultures、exclude_cultures 过滤)
+    public static IReadOnlyList<InstitutionNodeConfig> GetForCulture(string line, string culture) =>
+        GetForLine(line).Where(node => Allows(node, culture)).ToList();
+
     // 一条线的全部节点，按等级、分支、id 稳定排序（树状图布点直接吃这个顺序）
     public static IReadOnlyList<InstitutionNodeConfig> GetForLine(string line)
     {

@@ -208,6 +208,10 @@ public sealed class InstitutionNodeConfig
     public List<string> requires_techs = new();
     public List<string> replaces = new();
     public List<string> exclusive_with = new();
+    // 只给这些文化(留空不限)、这些文化没有(用户 2026-10-17 选"同线各文化分开"：同一制度线下各文化可有各自的政体与起步，
+    // 如印度不走阿拉伯的部族议事会(哈里发国)，另走列国王政)；研究、潮流、吸收、科技树显示都按它
+    public List<string> cultures = new();
+    public List<string> exclude_cultures = new();
     public InstitutionResearchConfig research = new();
     public InstitutionPoliticsConfig politics = new();
     public InstitutionReformConfig reform = new();

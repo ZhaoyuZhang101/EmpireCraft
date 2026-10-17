@@ -15,6 +15,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 以前派系决议各写各的条件，大半不看本文化走的是哪条制度路线，于是没有朝贡体系也能"迫使朝贡"、
 // 石器时代也能"拓展金融霸权"、日本也会"颁布金玺诏书"。现在每个决议可以声明：
 //   · cultures      只有这些文化才有(如神圣罗马式的决议只给日耳曼、法兰克、罗马、西方)；
+//   · traits        本文化有其中任一政治特质(文化配置的 political_traits，如 nomadic 游牧、raider 劫掠者)才有——
+//                   同一制度线下各文化分开(用户 2026-10-17 选"同线各文化分开"：阿兹特克不劫掠、维京能劫掠)；
 //   · min_era / max_era  科技时代(TechTree.json 的 tier，0 = 不限)；
 //   · lines         各文化制度线(Huaxia/Roma/Arabic/Youmu)的要求；声明了 lines 而本文化的线不在其中 = 没有这条路线，不出现。
 //                   每条线可写：
@@ -40,6 +42,7 @@ public static class ClaimRules
     private sealed class Rule
     {
         public List<string> Cultures = new();
+        public List<string> Traits = new();
         public int MinEra;
         public int MaxEra;
         public Dictionary<string, LineRule> Lines;
@@ -71,6 +74,7 @@ public static class ClaimRules
                     var rule = new Rule
                     {
                         Cultures = Strings(body["cultures"]),
+                        Traits = Strings(body["traits"]),
                         MinEra = body.Value<int?>("min_era") ?? 0,
                         MaxEra = body.Value<int?>("max_era") ?? 0
                     };
@@ -111,7 +115,8 @@ public static class ClaimRules
         blocker = "";
         if (empire?.CoreKingdom == null || !Rules.TryGetValue(type.ToString(), out Rule rule)) return true;
         string culture = InstitutionSystem.GetPrimaryCulture(empire);
-        if (rule.Cultures.Count > 0 && !rule.Cultures.Contains(culture))
+        if (rule.Cultures.Count > 0 && !rule.Cultures.Contains(culture) ||
+            rule.Traits.Count > 0 && !rule.Traits.Any(trait => culture.HasPoliticalTrait(trait)))
         {
             blocker = LM.Get("claim_rule_no_tradition");
             return false;

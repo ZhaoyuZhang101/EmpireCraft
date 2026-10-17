@@ -54,6 +54,7 @@
       "description_key": "institution_arabic_tribal_shura_desc",
       "branch": "society",
       "advancement": 1,
+      "exclude_cultures": ["India"],
       "requires": [
         "arabic_tribal_union"
       ],
@@ -86,13 +87,52 @@
       "regime": "Arabic"
     },
     {
+      "id": "arabic_raja_kingdoms", "requires_techs": ["bronze_casting", "writing"],
+      "name_key": "institution_arabic_raja_kingdoms",
+      "description_key": "institution_arabic_raja_kingdoms_desc",
+      "branch": "society",
+      "advancement": 1,
+      "cultures": ["India"],
+      "requires": [
+        "arabic_tribal_union"
+      ],
+      "replaces": [
+        "arabic_bedouin_clans",
+        "arabic_tribal_union"
+      ],
+      "reform": {
+        "base_progress_per_year": 12.0,
+        "minimum_years": 5
+      },
+      "resistance": {
+        "base_radicalism": 5.0,
+        "vested_interest_radicalism": 8.0,
+        "rebellion_threshold": 80.0
+      },
+      "politics": {
+        "support_classes": {
+          "Noble": 0.7,
+          "Army": 0.4
+        },
+        "support_factions": {
+          "血脉": 0.4,
+          "僭主": 0.4
+        }
+      },
+      "absorb": {
+        "enabled": false
+      },
+      "regime": "Feudalism"
+    },
+    {
       "id": "arabic_caliphal_diwan", "requires_techs": ["bureaucracy"],
       "name_key": "institution_arabic_caliphal_diwan",
       "description_key": "institution_arabic_caliphal_diwan_desc",
       "branch": "administration",
       "advancement": 2,
-      "requires": [
-        "arabic_tribal_shura"
+      "requires_any": [
+        "arabic_tribal_shura",
+        "arabic_raja_kingdoms"
       ],
       "research": {
         "mandate_required": 28
@@ -135,8 +175,9 @@
       "description_key": "institution_arabic_caravan_trade_desc",
       "branch": "finance",
       "advancement": 2,
-      "requires": [
-        "arabic_tribal_shura"
+      "requires_any": [
+        "arabic_tribal_shura",
+        "arabic_raja_kingdoms"
       ],
       "research": {
         "mandate_required": 25
@@ -447,6 +488,7 @@
       "description_key": "institution_arabic_caliphal_theocracy_desc",
       "branch": "administration",
       "advancement": 5,
+      "exclude_cultures": ["India"],
       "requires": [
         "arabic_ulama_jurisprudence"
       ],
