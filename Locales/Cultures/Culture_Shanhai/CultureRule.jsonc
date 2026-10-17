@@ -5,6 +5,8 @@
     "setting": {
         "regime": "ZhouFeudalism",
         "institution_line": "Huaxia",
+        // 故土地形(见 CultureTerrain)：本文化在这些地形的城里难被异族转化——平原、水网(农耕)
+        "home_terrain": ["Plains", "River"],
         // 天下标识：同一标识的文化同属一个天下(相邻的帝国法理自动并成一个天下)；留空 = 本文化自成一个天下
         "tianxia": "Huaxia",
         // 开局阶段：写华夏线的一个制度节点(如 "huaxia_patriarchal_clan" 从宗法开局)，留空从原始群起步

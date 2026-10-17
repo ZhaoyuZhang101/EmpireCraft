@@ -5,6 +5,8 @@
     "setting": {
         "regime": "Feudalism",
         "institution_line": "Roma",
+        // 故土地形(见 CultureTerrain)：本文化在这些地形的城里难被异族转化——丘陵、沙漠
+        "home_terrain": ["Hills", "Desert"],
         // 现代政权称呼(见 Locales/Cultures/README.md 政党一节)：未组建政府的势力 / 临时政府；没配的理念用默认称呼
         "Party": {
             "untitled_groups": {

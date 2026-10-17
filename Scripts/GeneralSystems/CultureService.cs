@@ -529,8 +529,19 @@ public static class CultureService
             }
         }
 
-        return MoveSharesToward(data.culture_shares, targetShares,
-            CultureShareRules.PopulationPressurePerYear);
+        // 地利(见 CultureTerrain)：本地文化在故土地形上，异族夺走它的影响力慢一半
+        float pace = CultureShareRules.PopulationPressurePerYear;
+        string native = IsValidCulture(data.main_culture) ? data.main_culture : officialCulture;
+        if (IsValidCulture(native))
+        {
+            string rising = IsValidCulture(occupationCulture) ? occupationCulture
+                : targetShares.Where(pair => !string.Equals(pair.Key, native, StringComparison.Ordinal))
+                    .OrderByDescending(pair => pair.Value).Select(pair => pair.Key).FirstOrDefault();
+            float nativeNow = data.culture_shares.TryGetValue(native, out float nowValue) ? nowValue : 0f;
+            float nativeTarget = targetShares.TryGetValue(native, out float aimValue) ? aimValue : 0f;
+            if (nativeTarget < nativeNow) pace *= CultureTerrain.Factor(city, native, rising);
+        }
+        return MoveSharesToward(data.culture_shares, targetShares, pace);
     }
 
     private static void ApplyCultureFloor(Dictionary<string, float> shares, string protectedCulture, float floor)
@@ -825,8 +836,9 @@ public static class CultureService
 
         Dictionary<string, float> shares = GetCityCultureShares(city);
         float current = shares.TryGetValue(newCulture, out float value) ? value : 0f;
+        // 本地文化在故土地形上，征服的文化冲击减半(见 CultureTerrain)
         CultureShareRules.SetShare(shares, newCulture,
-            Math.Max(current, CultureShareRules.ForeignOccupationCultureShock));
+            Math.Max(current, CultureShareRules.ForeignOccupationCultureShock * CultureTerrain.Factor(city, oldCulture, newCulture)));
         NormalizeShares(shares);
 
         data.culture_shift_candidate = "";

@@ -5,6 +5,8 @@
     "setting": {
         "regime": "Feudalism",
         "institution_line": "Roma",
+        // 故土地形(见 CultureTerrain)：本文化在这些地形的城里难被异族转化——平原、丘陵
+        "home_terrain": ["Plains", "Hills"],
         // 天下标识：同一标识的文化同属一个天下(相邻的帝国法理自动并成一个天下，文案按标识换)；罗马一系共用"普世帝国"
         "tianxia": "Roma",
         // 宪法：名称词库(name_group / provisional_name_group)与本文化的制宪倾向(clauses，覆盖各党主张)

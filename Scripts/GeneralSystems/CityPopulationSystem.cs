@@ -1104,7 +1104,9 @@ public static class CityPopulationSystem
         {
             if (string.Equals(group.culture, main, StringComparison.Ordinal)) continue;
             if (group.culture != null && byCulture.TryGetValue(group.culture, out float share) && share <= total * MinorityFloor) continue;
-            float groupRate = CultureService.SameKin(group.culture, main) ? rate : rate * ForeignAssimilationFactor;
+            // 异族减半；在故土地形上再减半(见 CultureTerrain)
+            float groupRate = CultureService.SameKin(group.culture, main) ? rate
+                : rate * ForeignAssimilationFactor * CultureTerrain.Factor(city, group.culture, main);
             float amount = group.Background * Mathf.Clamp01(groupRate * years);
             if (amount > 0f) moves.Add((group, amount));
         }

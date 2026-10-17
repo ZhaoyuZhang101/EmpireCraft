@@ -43,6 +43,9 @@ public class Setting
     // 天下标识(见 TianxiaSystem)：写了同一个标识的文化同属一个天下——相邻的帝国法理自动并成一个天下，
     // 还没有帝国法理的地方也按它连片。留空 = 本文化自成一个天下
     public string tianxia = "";
+    // 故土地形(见 CultureTerrain)：本文化在这些地形的城里难被异族转化。Plains 平原、River 水网、Steppe 草原、Desert 沙漠、
+    // Forest 森林、Hills 丘陵、Mountain 山地、Jungle 丛林、Swamp 沼泽、Snow 雪原；留空没有地利
+    public List<string> home_terrain = new List<string>();
     // 开局阶段：写本线的一个制度节点，文化开局时这个节点及其全部前置都已施行(被它取代的不算)；
     // 留空从本线的根节点起步(华夏线是原始群)
     public string start_institution = "";

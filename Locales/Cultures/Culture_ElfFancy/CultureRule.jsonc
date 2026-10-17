@@ -5,6 +5,8 @@
     "setting": {
         "regime": "Feudalism",
         "institution_line": "Roma",
+        // 故土地形(见 CultureTerrain)：本文化在这些地形的城里难被异族转化——森林
+        "home_terrain": ["Forest"],
         "traits": ["patriarchy"],
         "City": {
             "groups": {

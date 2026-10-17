@@ -5,6 +5,8 @@
     "setting": {
         "regime": "Origin",
         "institution_line": "Japan",
+        // 故土地形(见 CultureTerrain)：本文化在这些地形的城里难被异族转化——平原、丘陵(稻作)
+        "home_terrain": ["Plains", "Hills"],
         // 天下标识：同一标识的文化同属一个天下(相邻的帝国法理自动并成一个天下，文案按标识换)；日本"天下人"
         "tianxia": "Japan",
         // 开局阶段：写日本线的一个制度节点(如 "japan_yamato_kingship" 从大和王权开局)，留空从绳文部落起步

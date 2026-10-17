@@ -5,6 +5,8 @@
     "setting": {
         "regime": "Origin",
         "institution_line": "Arabic",
+        // 故土地形(见 CultureTerrain)：本文化在这些地形的城里难被异族转化——平原、水网、丛林
+        "home_terrain": ["Plains", "River", "Jungle"],
         // 宪法：名称词库(name_group / provisional_name_group)与本文化的制宪倾向(clauses，覆盖各党主张)
         "Constitution": {
             "clauses": { "territory": "Federal" }
