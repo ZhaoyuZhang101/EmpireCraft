@@ -106,8 +106,7 @@ public static class UnificationSystem
         var data = sovereign.GetOrCreate();
         if (data.unify_since >= 0d) return true;
         if (!RecentlyUnified(sovereign)) return false;
-        return !data.unified_tianxia ||
-               TianxiaSystem.MandatesOf(sovereign).Any(lead => TianxiaSystem.Phase(lead) == TianxiaSystem.Peace);
+        return !data.unified_tianxia || TianxiaSystem.HoldsInPeace(sovereign);
     }
 
     // 统一天下不到三十年(不论天命如何；天命动摇的判定用它，免得统一时不到七成五的第二年就动荡)

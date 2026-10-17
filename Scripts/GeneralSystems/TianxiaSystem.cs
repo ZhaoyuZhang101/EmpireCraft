@@ -459,6 +459,15 @@ public static class TianxiaSystem
     public static EmpireCore MandateOf(Kingdom kingdom) => kingdom == null ? null
         : EmpireCoreManager.EmpireCores.Values.FirstOrDefault(lead => lead != null && lead.tianxia_lead_id < 0 && lead.mandate_kingdom_id == kingdom.id);
 
+    // 这一国受着某个天下的天命、那个天下是治世(开国气象用，见 UnificationSystem.InGrace；常被问到，不分配列表)
+    public static bool HoldsInPeace(Kingdom kingdom)
+    {
+        if (kingdom == null) return false;
+        foreach (EmpireCore lead in EmpireCoreManager.EmpireCores.Values)
+            if (lead != null && lead.tianxia_lead_id < 0 && lead.mandate_kingdom_id == kingdom.id && Phase(lead) == Peace) return true;
+        return false;
+    }
+
     // 这一国受着天命的各个天下
     public static List<EmpireCore> MandatesOf(Kingdom kingdom) => kingdom == null ? new List<EmpireCore>()
         : EmpireCoreManager.EmpireCores.Values.Where(lead => lead != null && lead.tianxia_lead_id < 0 && lead.mandate_kingdom_id == kingdom.id).ToList();
