@@ -81,6 +81,13 @@ public static class PopulationMathWorkers
     private static int _pending, _generation;
     public static int PendingCount => Volatile.Read(ref _pending);
 
+    // 后台线程开不起来、或有任务排着却 StallMilliseconds 没有任何进展(手机等平台；2026-10-18 群友报手机开无小人后
+    // "他们就没法工作了")：改在主线程直接算，排着的任务就地算完。计算是纯数值，在哪个线程算结果都一样
+    private static volatile bool _inline;
+    private static int _lastProgress = Environment.TickCount;
+    private const int StallMilliseconds = 15000;
+    public static bool Inline => _inline;
+
     public sealed class Job
     {
         internal readonly PopulationNumericInput Input;
@@ -104,20 +111,68 @@ public static class PopulationMathWorkers
         {
             if (_started) return;
             _started = true;
+            int running = 0;
             for (int i = 0; i < WorkerCount; i++)
-                new Thread(Run) { IsBackground = true, Name = "EmpireCraft population " + i }.Start();
+            {
+                try
+                {
+                    new Thread(Run) { IsBackground = true, Name = "EmpireCraft population " + i }.Start();
+                    running++;
+                }
+                catch (Exception exception)
+                {
+                    NeoModLoader.services.LogService.LogWarning($"[EmpireCraft][人口计算] 后台线程开不起来: {exception.Message}");
+                }
+            }
+            if (running == 0)
+            {
+                _inline = true;
+                NeoModLoader.services.LogService.LogWarning("[EmpireCraft][人口计算] 没有后台线程，改在主线程计算");
+            }
         }
     }
 
     public static Job Submit(PopulationNumericInput input)
     {
         Initialize();
-        if (Interlocked.Increment(ref _pending) > MaximumPending)
+        if (!_inline && Volatile.Read(ref _pending) > 0 &&
+            unchecked(Environment.TickCount - Volatile.Read(ref _lastProgress)) > StallMilliseconds)
+        {
+            _inline = true;
+            NeoModLoader.services.LogService.LogWarning("[EmpireCraft][人口计算] 后台线程长时间没有进展，改在主线程计算");
+            DrainInline();
+        }
+        if (_inline)
+        {
+            var done = new Job(input, Volatile.Read(ref _generation));
+            try { done.Completion.TrySetResult(Compute(input)); }
+            catch (Exception exception) { done.Completion.TrySetException(exception); }
+            return done;
+        }
+        int pending = Interlocked.Increment(ref _pending);
+        if (pending > MaximumPending)
         { Interlocked.Decrement(ref _pending); return null; }
+        // 从空闲转为有活：从现在起计进展
+        if (pending == 1) Volatile.Write(ref _lastProgress, Environment.TickCount);
         var job = new Job(input, Volatile.Read(ref _generation));
         Queue.Enqueue(job);
         Ready.Release();
         return job;
+    }
+
+    // 主线程把排着的任务就地算完(后台线程不干活时)
+    private static void DrainInline()
+    {
+        while (Queue.TryDequeue(out Job job))
+        {
+            try
+            {
+                if (job.Generation != Volatile.Read(ref _generation)) job.Completion.TrySetCanceled();
+                else job.Completion.TrySetResult(Compute(job.Input));
+            }
+            catch (Exception exception) { job.Completion.TrySetException(exception); }
+            finally { Interlocked.Decrement(ref _pending); }
+        }
     }
 
     public static void Reset()
@@ -144,7 +199,11 @@ public static class PopulationMathWorkers
                 }
             }
             catch (Exception exception) { job.Completion.TrySetException(exception); }
-            finally { Interlocked.Decrement(ref _pending); }
+            finally
+            {
+                Interlocked.Decrement(ref _pending);
+                Volatile.Write(ref _lastProgress, Environment.TickCount);
+            }
         }
     }
 
