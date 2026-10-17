@@ -84,9 +84,22 @@ public static class CompositeEmpireService
     {
         string culture = GetInstitutionalCulture(empire);
         RegimeType regimeType = empire?.CoreKingdom?.GetRegime()?.type ?? RegimeType.Feudalism;
-        if (OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(culture, out Setting setting))
-            regimeType = setting.regime;
+        if (AdoptableRegime(culture, out RegimeType adoptable)) regimeType = adoptable;
         return GetRegimeName(regimeType);
+    }
+
+    // 征服王朝采纳某文化的制度时换成的政体(复查 2026-10-17)：按这个文化制度树实际走到的(TryResolveCultureRegime)，
+    // 解析不出才用文化配置——以前一律用配置里的静态政体：征服日本、印度、阿兹特克成了原始政体(一城一部落地拆)，
+    // 征服"中国"成了共和，征服西方成了城邦被拆城。原始、城邦、现代政体一律不采纳
+    public static bool AdoptableRegime(string culture, out RegimeType regimeType)
+    {
+        regimeType = RegimeType.Feudalism;
+        if (!CultureService.IsValidCulture(culture)) return false;
+        if (InstitutionSystem.TryResolveCultureRegime(culture, out RegimeType resolved)) regimeType = resolved;
+        else if (OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(culture, out Setting setting)) regimeType = setting.regime;
+        else return false;
+        return !RegimeManager.IsPrimitive(regimeType) && regimeType != RegimeType.ClassicalRepublic &&
+               regimeType != RegimeType.Modern;
     }
 
     public static string GetRegimeName(RegimeType regimeType)
@@ -194,9 +207,9 @@ public static class CompositeEmpireService
         if (status == null || empire == null || titles == null || titles.Count == 0 ||
             !CultureService.IsValidCulture(culture) ||
             string.Equals(culture, status.RulingCulture, StringComparison.Ordinal) ||
-            !OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(culture, out Setting setting) ||
+            !AdoptableRegime(culture, out RegimeType adoptable) ||
             RegimeManager.regimes == null ||
-            !RegimeManager.regimes.TryGetValue(setting.regime, out Regime targetRegime) || targetRegime == null)
+            !RegimeManager.regimes.TryGetValue(adoptable, out Regime targetRegime) || targetRegime == null)
         {
             return;
         }
@@ -223,7 +236,7 @@ public static class CompositeEmpireService
         status.InstitutionalCore = EmpireCoreManager.EmpireCores.Values.FirstOrDefault(core =>
             core != null && string.Equals(core.default_culture, culture, StringComparison.Ordinal));
         status.InstitutionalCulture = culture;
-        status.InstitutionalRegime = setting.regime;
+        status.InstitutionalRegime = adoptable;
         status.ControlledTitles = controlled;
         status.TotalTitles = titles.Count;
     }
@@ -287,14 +300,12 @@ public static class CompositeEmpireService
     {
         regimeType = RegimeType.Feudalism;
         regime = null;
-        if (!CultureService.IsValidCulture(culture) ||
-            !OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(culture, out Setting setting) ||
-            RegimeManager.regimes == null ||
-            !RegimeManager.regimes.TryGetValue(setting.regime, out regime) || regime == null)
+        if (!AdoptableRegime(culture, out RegimeType adoptable) || RegimeManager.regimes == null ||
+            !RegimeManager.regimes.TryGetValue(adoptable, out regime) || regime == null)
         {
             return false;
         }
-        regimeType = setting.regime;
+        regimeType = adoptable;
         return true;
     }
 
@@ -469,12 +480,10 @@ public static class CompositeEmpireService
         int controlled = titles.Count(title => title.getCities().Any(city =>
             city != null && !city.isRekt() && city.kingdom?.GetEmpire() == empire));
         float controlledShare = titles.Count > 0 ? (float)controlled / titles.Count : 0f;
-        bool institutionalRegime =
-            OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(institutionalCulture, out Setting institutionalSetting) &&
-            empire.CoreKingdom.GetRegime()?.type == institutionalSetting.regime;
-        bool preservesMilitary = institutionalSetting == null ||
-            !string.Equals(empire.data.military_tradition, institutionalSetting.regime.ToString(),
-                StringComparison.OrdinalIgnoreCase);
+        bool adoptable = AdoptableRegime(institutionalCulture, out RegimeType institutionalType);
+        bool institutionalRegime = adoptable && empire.CoreKingdom.GetRegime()?.type == institutionalType;
+        bool preservesMilitary = !adoptable ||
+            !string.Equals(empire.data.military_tradition, institutionalType.ToString(), StringComparison.OrdinalIgnoreCase);
 
         empire.data.central_plains_legitimacy = Clamp100(empire.data.central_plains_legitimacy +
             CompositeEmpireRules.GetCentralLegitimacyDelta(institutionalRegime, controlledShare, institutionalShare));
@@ -642,8 +651,8 @@ public static class CompositeEmpireService
             string.Equals(empire.data.ruling_culture, institutionalCulture, StringComparison.Ordinal)) return;
         empire.data.ruling_culture = institutionalCulture;
         empire.data.external_identity_culture = institutionalCulture;
-        if (OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(institutionalCulture, out Setting institutionalSetting))
-            empire.data.military_tradition = institutionalSetting.regime.ToString();
+        if (AdoptableRegime(institutionalCulture, out RegimeType institutionalType))
+            empire.data.military_tradition = institutionalType.ToString();
         CultureService.SetRealmCulture(empire.CoreKingdom, institutionalCulture, updatePoliticalSystem: false);
         SynchronizeMilitaryTraditionClaims(empire);
     }
