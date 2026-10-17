@@ -50,7 +50,45 @@ public static class FarmlandSystem
     public const float RuralYield = 1.2f;
     private const float CitySuburbFarmShare = 0.25f;
 
-    public static float Productivity(City city) => ModernStability.IsModern(city?.kingdom) ? 3f : 1f;
+    // 农具(用户 2026-10-17 "那就升级科技让产量多点或者农耕工具")：照本国采纳了的科技换代，田里与牧业的产量随之倍增——
+    //   耒耜 1 → 青铜农具 1.2(青铜铸造) → 铁犁牛耕 1.5(冶铁) → 钢制农具 1.8(炼钢) → 新式农具 2.2(工业化)
+    //   → 化肥农机 3(内燃机或石油化工)；渔船另按航海、工业科技换代：独木舟 1 → 近海帆船 1.3(沿岸领航)
+    //   → 远洋渔船 1.6(远洋航海) → 蒸汽渔船 2.2(工业化) → 机动渔船 3(内燃机)。
+    //   现代政体至少按 3 算(原来"现代农业"的倍数，与农具不叠加)；没开科技树的文化按第一级。
+    private static readonly (string[] techs, float factor)[] FarmTools =
+    {
+        (Array.Empty<string>(), 1f), (new[] { "bronze_casting" }, 1.2f), (new[] { "ironworking" }, 1.5f),
+        (new[] { "steelmaking" }, 1.8f), (new[] { "industrialization" }, 2.2f), (new[] { "motorization", "petrochemistry" }, 3f)
+    };
+
+    private static readonly (string[] techs, float factor)[] FishTools =
+    {
+        (Array.Empty<string>(), 1f), (new[] { "coastal_pilotage" }, 1.3f), (new[] { "ocean_navigation" }, 1.6f),
+        (new[] { "industrialization" }, 2.2f), (new[] { "motorization" }, 3f)
+    };
+
+    private static bool Knows(City city, string tech)
+    {
+        string culture = TechnologySystem.GetCultureOf(city);
+        if (!TechnologySystem.IsActiveFor(culture)) return false;
+        return city.kingdom != null && !city.kingdom.isRekt() ? TechnologySystem.CanUseIn(city.kingdom, tech) : TechnologySystem.HasTech(culture, tech);
+    }
+
+    private static int TierOf((string[] techs, float factor)[] ladder, City city)
+    {
+        int tier = 1;
+        if (city == null) return tier;
+        for (int i = 1; i < ladder.Length; i++)
+            if (Array.Exists(ladder[i].techs, tech => Knows(city, tech))) tier = i + 1;
+        return tier;
+    }
+
+    public static int FarmToolTier(City city) => TierOf(FarmTools, city);
+    public static int FishToolTier(City city) => TierOf(FishTools, city);
+    private static float ModernFloor(City city) => ModernStability.IsModern(city?.kingdom) ? 3f : 1f;
+
+    public static float Productivity(City city) => Mathf.Max(ModernFloor(city), FarmTools[FarmToolTier(city) - 1].factor);
+    public static float FishProductivity(City city) => Mathf.Max(ModernFloor(city), FishTools[FishToolTier(city) - 1].factor);
 
     public static ConstitutionFarmland Policy(Kingdom kingdom)
     {

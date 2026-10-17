@@ -14,7 +14,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 矿村：开矿出石头、金属、金子，连同本城的矿藏(金银铜煤……，见 MineralResourceSystem；原矿场五级随科技换代)；
 //   · 牧村：放牧(牧群容量、产肉产皮，见 AnimalHusbandrySystem)，研究了制革再宰杀、狩猎；
 //   · 渔村：打鱼出鱼，不看农时。
-// 一份(村 1、镇 3，有墙大镇也是 3)折成半座原来的矿场、伐木场、牧场，乘科技等级的倍数，本城有厂区再多两成五。
+// 一份(村 1、镇 3，有墙大镇也是 3)折成半座原来的矿场、伐木场、牧场，乘科技等级的倍数，本城有厂区再多两成五；
+// 田、牧按农具，鱼按渔船，也随科技换代(见 FarmlandSystem.FarmTools)。
 // 生计按村镇四周的地形定(山多为矿、林多为林、草原或游牧为牧、靠海为渔，其余务农)，本城务农的不到四成时能耕的地先务农，
 // 本城有矿藏却还没有矿村时先开一处矿；定了存进存档(RuralSettlement.trade)，小窗口里可以手动改。
 // 原版的矿场、伐木场、牧场、屠宰场在纯净地图下不再建，旧有的清掉(见 Replaces)；非纯净地图(开小人)照旧走原版建筑。
@@ -128,12 +129,23 @@ public static class LivelihoodSystem
         return shares;
     }
 
-    // 本文化这一行做到第几级(原矿场、伐木场五级，随科技换代)
+    // 本文化这一行做到第几级(原矿场、伐木场五级，农具、渔船，都随科技换代，见 FarmlandSystem.FarmTools)
     public static int Level(City city, int trade) => trade switch
     {
         Mine => Mathf.Max(1, IndustryBuildingSystem.UnlockedTier(city, IndustryBuildingSystem.MineChain)),
         Forest => Mathf.Max(1, IndustryBuildingSystem.UnlockedTier(city, IndustryBuildingSystem.LumberChain)),
+        Farm => FarmlandSystem.FarmToolTier(city),
+        Fish => FarmlandSystem.FishToolTier(city),
         _ => 1
+    };
+
+    // 小窗口里生计后面跟的：矿、林第几级，农、渔用什么农具渔船
+    public static string LevelText(City city, int trade) => city == null ? "" : trade switch
+    {
+        Mine or Forest => string.Format(LM.Get("livelihood_level"), Level(city, trade)),
+        Farm => " · " + LM.Get("farm_tool_" + Level(city, trade)),
+        Fish => " · " + LM.Get("fish_tool_" + Level(city, trade)),
+        _ => ""
     };
 
     // 折成几座原来的矿场、伐木场、牧场
@@ -189,7 +201,7 @@ public static class LivelihoodSystem
     public static void Produce(City city, CityPopulationData data, float years)
     {
         if (!Active || city == null || data == null || years <= 0f) return;
-        float fish = Workers(city, Fish) * FishYield * FarmlandSystem.Productivity(city) * years;
+        float fish = Workers(city, Fish) * FishYield * FarmlandSystem.FishProductivity(city) * years;
         if (fish > 0f && AssetManager.resources?.get("fish") != null) PopulationEconomySystem.Deposit(city, data, "fish", fish);
     }
 
@@ -234,7 +246,7 @@ public static class LivelihoodSystem
             case Farm:
                 return string.Format(LM.Get("livelihood_output_farm"), Mathf.RoundToInt(households * FarmlandSystem.RuralYield * productivity));
             case Fish:
-                return string.Format(LM.Get("livelihood_output_fish"), Mathf.RoundToInt(households * FishYield * productivity));
+                return string.Format(LM.Get("livelihood_output_fish"), Mathf.RoundToInt(households * FishYield * FarmlandSystem.FishProductivity(city)));
             case Forest:
             {
                 float factor = equivalent * IndustryBuildingSystem.TierFactor(Level(city, Forest)) * IndustryBuildingSystem.FactoryBonus(city);

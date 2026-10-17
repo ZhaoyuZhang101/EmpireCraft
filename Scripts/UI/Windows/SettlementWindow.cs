@@ -112,8 +112,7 @@ public class SettlementWindow : AbstractWideWindow<SettlementWindow>
         if (trade >= 0)
         {
             var tradeRow = build.BeginHoriGroup(new Vector2(RowWidth, 16f), TextAnchor.MiddleLeft, 3, new RectOffset(0, 0, 0, 0));
-            string level = city != null && trade is LivelihoodSystem.Mine or LivelihoodSystem.Forest
-                ? string.Format(LM.Get("livelihood_level"), LivelihoodSystem.Level(city, trade)) : "";
+            string level = LivelihoodSystem.LevelText(city, trade);
             tradeRow.AddTextIntoHoriLayout((string.Format(LM.Get("livelihood_row"), LivelihoodSystem.Name(trade)) + level).ColorString("#F2EEE2"),
                 true, TextAnchor.MiddleLeft, new Vector2(RowWidth - 46f, 14f)).UseFixedFontSize(7, HorizontalWrapMode.Overflow);
             tradeRow.AddButtonIntoHoriLayout("settlement_trade", LM.Get("livelihood_change"), () =>
