@@ -1381,7 +1381,8 @@ namespace EmpireCraft.Scripts.AI
                     string culture = kingdom.GetEmpireCraftCulture();
                     if (!string.IsNullOrWhiteSpace(culture))
                     {
-                        if (culture == "Huaxia")
+                        // 华夏一系(华夏、中国、山海，同一天下标识)
+                        if (CultureService.SameKin(culture, "Huaxia"))
                         {
                             string new_name = pActor.generateName(MetaType.Kingdom, IdGenerator.NextId());
                             LogService.LogInfo($"New Empire Name：{new_name}，Original Empire Name：{empire.GetEmpireName()}");
