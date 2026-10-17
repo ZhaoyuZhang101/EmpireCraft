@@ -247,7 +247,9 @@ public class Regime
     {
         if ((PlayerFactions?.Count??0)<=0) return null;
         var force = PlayerFactions.Find(f => f.Force);
-        return force ?? PlayerFactions.OrderByDescending(faction => faction.CentralRatio).First();
+        // 朋党：主导的是权最大的阶级派系(学说朋党的占比并入它投靠的那家，见 CliqueSystem.Power)
+        return force ?? CliqueSystem.DominantClass(PlayerFactions) ??
+            PlayerFactions.OrderByDescending(faction => faction.CentralRatio).First();
     }
 
     public List<Actor> GetAllFactionMembers()

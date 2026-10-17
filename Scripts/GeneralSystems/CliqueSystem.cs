@@ -146,6 +146,7 @@ public static class CliqueSystem
             Drift(empire, regime, officials);
             AssignPatrons(empire, regime);
             MandateCourt(empire, regime, officials);
+            DrainDormant(empire, regime);
             TrySplit(empire, regime);
         }
         catch (Exception exception)
@@ -549,6 +550,48 @@ public static class CliqueSystem
         empire.AddMandate(-3);
         Record(empire, string.Format(LM.Get("clique_proscribed_history"), proposer?.Name ?? "", name), proposer?.GetLeader());
         return name;
+    }
+
+    #endregion
+
+    #region 权与影响
+
+    // 权与影响(用户 2026-10-17："他们既然投靠了别人那么在这个国家主导的就是那个阶级派系而不是下面的学说派系，
+    // 因为他们没有权但是又影响力""这意味着他们的百分比是并入上面的阶级派系的")：
+    //   · 权只归阶级派系：自己的占比 + 投靠它的学说朋党的占比；主导派系在阶级派系里按权比(见 Regime.GetDominateFaction)；
+    //   · 学说朋党只有影响(自己的占比)：廷议照样按它表态、算分量，但不争主导，卡片写"影响 x%"；
+    //   · 不投靠任何一方的学说朋党，占比不并入任何一家。
+    public static int Power(FixedFaction faction)
+    {
+        Empire empire = faction?.Empire;
+        if (faction == null || !faction.IsClique || empire?.CoreKingdom == null) return faction?.CentralRatio ?? 0;
+        if (!IsClassClique(faction)) return 0;
+        Regime regime = empire.CoreKingdom.GetRegime();
+        int power = faction.CentralRatio;
+        if (regime == null) return power;
+        foreach (FixedFaction school in Schools(regime))
+            if (Patron(empire, school) == faction) power += school.CentralRatio;
+        return power;
+    }
+
+    // 朝中有阶级派系时，主导的是权最大的阶级派系
+    public static FixedFaction DominantClass(IEnumerable<FixedFaction> factions) =>
+        factions?.Where(faction => faction != null && !faction.Ban && faction.IsClique && IsClassClique(faction))
+            .OrderByDescending(Power).FirstOrDefault();
+
+    // 没人领头的后党、阉党不该白占份额：每年把占比归入天子派
+    private static void DrainDormant(Empire empire, Regime regime)
+    {
+        Dictionary<FixedFaction, int> ratios = empire.CoreKingdom.GetOrCreate().FactionRatio;
+        FixedFaction crown = ClassClique(regime, PartyIdeology.ImperialPower);
+        if (ratios == null || crown == null) return;
+        foreach (PartyIdeology stance in new[] { PartyIdeology.ConsortKin, PartyIdeology.Eunuchs })
+        {
+            FixedFaction dormant = ClassClique(regime, stance);
+            if (dormant == null || dormant.GetLeader() != null || !ratios.TryGetValue(dormant, out int power) || power <= 0) continue;
+            ratios[dormant] = 0;
+            ratios[crown] = (ratios.TryGetValue(crown, out int current) ? current : 0) + power;
+        }
     }
 
     #endregion

@@ -1150,9 +1150,16 @@ public static class UIHelper
         // 左：占比扇形图
         string culture = CultureService.GetRealmCulture(kingdom);
         InstitutionReformState activeReform = empire?.data.institution_state?.active_reform;
-        float total = factions.Sum(faction => Mathf.Max(0, faction.CentralRatio));
+        // 朋党：按权画——阶级派系一块(自己 + 投靠它的学说朋党)，投靠了的学说朋党并进去不单独占块，
+        // 不投靠任何一方的学说朋党按影响单独一块(见 CliqueSystem.Power)
+        bool cliquePie = factions.Any(faction => faction.IsClique && CliqueSystem.IsClassClique(faction));
+        int PieShare(FixedFaction faction) => !cliquePie || !faction.IsClique ? Mathf.Max(0, faction.CentralRatio)
+            : CliqueSystem.IsClassClique(faction) ? CliqueSystem.Power(faction)
+            : CliqueSystem.Patron(empire, faction) == null ? Mathf.Max(0, faction.CentralRatio) : 0;
+        List<FixedFaction> pieFactions = factions.Where(faction => PieShare(faction) > 0 || !cliquePie).ToList();
+        float total = pieFactions.Sum(faction => (float)PieShare(faction));
         var slices = new List<FactionPieChart.Slice>();
-        foreach (FixedFaction faction in factions)
+        foreach (FixedFaction faction in pieFactions)
         {
             (List<InstitutionNodeConfig> supports, List<InstitutionNodeConfig> opposes) =
                 InstitutionSystem.GetFactionInstitutionStance(culture, faction.Type);
@@ -1161,7 +1168,7 @@ public static class UIHelper
             FixedFaction target = faction;
             slices.Add(new FactionPieChart.Slice
             {
-                Share = total > 0f ? Mathf.Max(0, faction.CentralRatio) / total : 0f,
+                Share = total > 0f ? PieShare(faction) / total : 0f,
                 Color = IdeologyColor(ideology),
                 Emblem = SpriteTextureLoader.getSprite(EmpireCraft.Scripts.GameLibrary.IdeologyTraitIcons.Path(ideology)),
                 TipTitleKey = titleKey,
@@ -1258,12 +1265,17 @@ public static class UIHelper
         // 第一行：理念徽章 + 名称 + 中央占比
         var top = info.BeginHoriGroup(new Vector2(inner, 11f), TextAnchor.MiddleLeft, 2, new RectOffset(0, 0, 0, 0));
         AddLayoutIcon(top.transform, SpriteTextureLoader.getSprite(EmpireCraft.Scripts.GameLibrary.IdeologyTraitIcons.Path(ideology)), 10f);
+        // 朋党：阶级派系写权(并入投靠它的学说朋党)，学说朋党写影响(见 CliqueSystem.Power)
+        bool school = faction.IsClique && !CliqueSystem.IsClassClique(faction);
+        float shareWidth = school ? 38f : 24f;
         var name = top.AddTextIntoHoriLayout(CliqueTitle(faction).ColorString(isDominate ? "#FFE9A8" : "#F2EEE2"), true,
-            TextAnchor.MiddleLeft, new Vector2(inner - 38f, 10f));
+            TextAnchor.MiddleLeft, new Vector2(inner - 14f - shareWidth, 10f));
         name.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
         HoverMarqueeText.Attach(name);
-        top.AddTextIntoHoriLayout($"{faction.CentralRatio}%".ColorString(isDominate ? "#F3C34A" : "#E6E0CF"), true,
-            TextAnchor.MiddleRight, new Vector2(24f, 10f)).UseFixedFontSize(7, HorizontalWrapMode.Overflow);
+        string share = school ? string.Format(LM.Get("faction_influence_share"), faction.CentralRatio).ColorString("#A8B8BE")
+            : $"{CliqueSystem.Power(faction)}%".ColorString(isDominate ? "#F3C34A" : "#E6E0CF");
+        top.AddTextIntoHoriLayout(share, true, TextAnchor.MiddleRight, new Vector2(shareWidth, 10f))
+            .UseFixedFontSize(school ? 6 : 7, HorizontalWrapMode.Overflow);
         // 第二行：地位 · 理念
         string state = isDominate ? LM.Get("empire_faction_dominant_short").ColorString("#F3C34A")
             : !kingdom.IsEmpire() ? LM.Get("empire_faction_inactive_short").ColorString("#D98C8C") : "";

@@ -2377,7 +2377,6 @@
   "tribal_war_incorporated": "{0}兵敗，奉{1}為共主，賠款{2}金，佔地盡還",
   "tribal_war_tribute": "{0}兵敗求和，賠給{1}{2}金，佔地盡還",
   "tribal_tribe_formed_history": "{0}自立為{1}",
-  "city_place_occupied": "這塊地正被敵軍佔著，建不了城",
   "factory_type_heavy_aircraft_factory_description": "研究戰略航空後可建。每級給城裡 3 個工場崗位(隨城市工場檔位加倍)，每年產值 120。",
   "factory_type_light_aircraft_factory_description": "研究航空後可建。每級給城裡 3 個工場崗位(隨城市工場檔位加倍)，每年產值 100。",
   "factory_type_heavy_shipyard_description": "研究裝甲戰後可建，要城裡有碼頭。每級給城裡 3 個工場崗位(隨城市工場檔位加倍)，每年產值 80。",
@@ -2386,6 +2385,7 @@
   "factory_type_light_factory_description": "研究摩託化後可建。每級給城裡 3 個工場崗位(隨城市工場檔位加倍)，每年產值 50。",
   "factory_type_steel_mill_description": "研究工業化後可建。每級給城裡 3 個工場崗位(隨城市工場檔位加倍)，每年產值 60。",
   "factory_type_gunpowder_mill_description": "研究火藥後可建。每級給城裡 3 個工場崗位(隨城市工場檔位加倍)，每年產值 40。",
+  "city_place_occupied": "這塊地正被敵軍佔著，建不了城",
   "tribal_war_incorporated_none": "{0}兵敗，奉{1}為共主，佔地盡還",
   "tribal_war_tribute_none": "{0}兵敗求和，府庫空虛無以為賠，{1}罷兵，佔地盡還",
   "livelihood_farm": "務農",
@@ -6240,5 +6240,6 @@
   "clique_label_RoyalKin": "宗室派",
   "faction_represents_RoyalKin": "代表宗室",
   "institution_ideology_royal_kin_desc": "皇族宗親，靠與君主同出一脈而貴，求供養、封國與世襲。只在朝堂裡，朝中為宗室派。",
-  "empire_formation_route_Seal": "懷璽受命"
+  "empire_formation_route_Seal": "懷璽受命",
+  "faction_influence_share": "影響{0}%"
 }
