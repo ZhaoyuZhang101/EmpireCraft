@@ -37,7 +37,10 @@ public class TempFac_劫掠 : TemporaryFaction
         if (empire.CoreKingdom.hasEnemies()) return false;
         var neighbours = empire.GetKingdomNeighbours();
         if (!neighbours.Any()) return false;
-        var target = neighbours.Find(k => k.GetRegime().type != empire.CoreKingdom.GetRegime().type);
+        RegimeType? own = empire.CoreKingdom.GetRegime()?.type;
+        // 五年内遭劫过的不再劫(用户 2026-10-17 选"劫掠只拿三成国库"：同一家几年内不再劫)
+        var target = neighbours.Find(k => k?.data != null && !k.isRekt() && k.GetRegime()?.type != own &&
+                                          (k.GetOrCreate().raided_at < 0d || Date.getYearsSince(k.GetOrCreate().raided_at) >= 5));
         if (target!= null)
         {
             SetKingdomTarget(target);

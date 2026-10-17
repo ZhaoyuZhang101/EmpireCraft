@@ -121,11 +121,11 @@
     },
     {
       "id": "youmu_decimal_army", "requires_techs": ["military_register"],
-      "features": {"army_regional": 1, "army_mobilization": 0.2},
+      "features": {"army_regional": 1, "army_mobilization": 0.15},
       "name_key": "institution_youmu_decimal_army",
       "description_key": "institution_youmu_decimal_army_desc",
       "branch": "military",
-      "advancement": 2,
+      "advancement": 4,
       "requires": [
         "youmu_tribal_confederation"
       ],
@@ -266,7 +266,7 @@
       "name_key": "institution_youmu_horse_archer_doctrine",
       "description_key": "institution_youmu_horse_archer_doctrine_desc",
       "branch": "military",
-      "advancement": 3,
+      "advancement": 5,
       "requires": [
         "youmu_decimal_army"
       ],
@@ -522,7 +522,7 @@
       "name_key": "institution_youmu_keshig_guard",
       "description_key": "institution_youmu_keshig_guard_desc",
       "branch": "military",
-      "advancement": 4,
+      "advancement": 5,
       "requires": [
         "youmu_decimal_army"
       ],

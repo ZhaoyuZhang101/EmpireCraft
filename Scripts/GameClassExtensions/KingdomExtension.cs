@@ -237,6 +237,8 @@ public static class KingdomExtension
         public long EmpireID = -1L;
         public double TimestampEmpire = -1L;
         public double TimestampBeFeifed = -1L;
+        // 上次遭劫掠的时间(五年内不再遭劫，见 TempFac_劫掠)
+        public double raided_at = -1d;
         public long HeirID = -1L;
         // 上次记入日志的接班人(族谱身份编号)：同一人反复复查不再重复记"已选定接班人"
         public long logged_heir_identity = -1L;

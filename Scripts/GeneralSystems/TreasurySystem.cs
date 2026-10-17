@@ -211,12 +211,13 @@ public static class TreasurySystem
     }
 
     // 劫掠只转移现有现金；债务不能作为负数战利品转嫁给胜方。
-    public static void TransferWarSpoils(City city, Kingdom recipient)
+    // share：拿走几成(劫掠三成，用户 2026-10-17 选"劫掠只拿三成国库")
+    public static void TransferWarSpoils(City city, Kingdom recipient, float share = 1f)
     {
         if (city?.data == null || city.isRekt() || recipient == null || recipient.isRekt() ||
             city.kingdom == null || city.kingdom == recipient) return;
         bool capital = city.isCapitalCity();
-        int amount = Math.Max(0, capital ? city.kingdom.GetMoney() : city.GetMoney());
+        int amount = Math.Max(0, (int)((capital ? city.kingdom.GetMoney() : city.GetMoney()) * Math.Max(0f, Math.Min(1f, share))));
         if (amount == 0) return;
         if (capital) city.kingdom.SubMoney(amount, TreasuryCategory.Diplomacy);
         else city.SubMoney(amount, TreasuryCategory.Diplomacy);

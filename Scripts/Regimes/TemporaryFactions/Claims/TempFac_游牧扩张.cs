@@ -29,6 +29,8 @@ public class TempFac_游牧扩张 : TemporaryFaction
             var war = DiplomacyHelpers.wars.newWar(empire.CoreKingdom, target, WarTypeLibrary.normal);
             war.SetEmpireWarType(EmpireWarType.游牧扩张);
         }
+        // 同对外扩张：五年一次(用户 2026-10-17 选"游牧扩张加冷却比兵力")
+        CountDown = 5;
         End();
     }
 
@@ -38,18 +40,18 @@ public class TempFac_游牧扩张 : TemporaryFaction
         if (empire?.CoreKingdom?.GetRegime()?.type != RegimeType.YouMu &&
             !CompositeEmpireService.UsesMilitaryTradition(empire, RegimeType.YouMu)) return false;
         if (empire.CoreKingdom.hasEnemies()) return false;
-        var neighbours = empire.GetKingdomNeighbours();
-        if (neighbours.Any())
+        // 同对外扩张(用户 2026-10-17 "游牧太强了")：打仗太多、发不出军饷不开新仗；只打不在任何帝国里的邻国，
+        // 自己给出去、收进来的不打，对方有核自己没有不敢碰，兵力(战力)要占优
+        if (WarSituation.TooBusyForWar(empire.CoreKingdom) || CorpsSystem.CannotFundWar(empire.CoreKingdom)) return false;
+        double power = WarSituation.Power(empire);
+        foreach (Kingdom kingdom in empire.GetKingdomNeighbours())
         {
-            var target = neighbours.Find(k=>!empire.CoreKingdom.isOpinionTowardsKingdomGood(k));
-            if (target != null)
-            {
-                if (target.countTotalWarriors() < empire.countWarriors())
-                {
-                    SetKingdomTarget(target);
-                    return true;
-                }
-            }
+            if (kingdom == null || kingdom.isRekt() || kingdom.IsInEmpire() || empire.given_Kingdoms.Contains(kingdom) ||
+                empire.taken_Kingdoms.Contains(kingdom) || empire.CoreKingdom.isOpinionTowardsKingdomGood(kingdom)) continue;
+            if (EmpireCraft.Scripts.Compatibility.NuclearDoctrineSystem.IsDeterred(empire.CoreKingdom, kingdom)) continue;
+            if (power <= WarSituation.Power(kingdom)) continue;
+            SetKingdomTarget(kingdom);
+            return true;
         }
         return false;
     }

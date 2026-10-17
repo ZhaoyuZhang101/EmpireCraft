@@ -38,13 +38,13 @@ public static class ClaimTuning
     // 经费份数
     public static float BudgetShares(TemporaryFactionType type) => type switch
     {
-        TemporaryFactionType.对外扩张 or TemporaryFactionType.谋求统一 => 4f,
+        TemporaryFactionType.对外扩张 or TemporaryFactionType.游牧扩张 or TemporaryFactionType.谋求统一 => 4f,
         TemporaryFactionType.迫使朝贡 or TemporaryFactionType.提供岁币 or TemporaryFactionType.推行三省六部 or
             TemporaryFactionType.转天朝制度 or TemporaryFactionType.土地改革 or TemporaryFactionType.赈济灾荒 or
             TemporaryFactionType.恢复圣地 or TemporaryFactionType.复辟帝制 or TemporaryFactionType.兴修水利 or
             TemporaryFactionType.封禅 => 3f,
         TemporaryFactionType.屯田实边 => 2f,
-        TemporaryFactionType.游牧扩张 or TemporaryFactionType.扩张地盘 or TemporaryFactionType.收回地盘 or
+        TemporaryFactionType.扩张地盘 or TemporaryFactionType.收回地盘 or
             TemporaryFactionType.开科取士 or TemporaryFactionType.设立内阁 or TemporaryFactionType.推行普选 or
             TemporaryFactionType.供养宗室 or TemporaryFactionType.整顿吏治 or TemporaryFactionType.国_打击贪腐 or
             TemporaryFactionType.削藩 or TemporaryFactionType.神授君权 or TemporaryFactionType.恢复世袭皇权 or

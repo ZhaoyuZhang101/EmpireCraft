@@ -204,6 +204,9 @@ public class CityPatch : GamePatch
             prefix: new HarmonyMethod(GetType(), nameof(CanUseBuildAsset))
         );
     }
+    // 游牧扩张攻下都城整国并入的上限(城数)，再大的改为称臣纳贡
+    private const int NomadAnnexMaxCities = 3;
+
     public static bool CanUseBuildAsset(CityBehBuild __instance, BuildOrder pBuildAsset, City pCity, ref bool __result)
     {
         using var timing = FrameProfiler.Measure("建造钩子·能否建造");
@@ -439,7 +442,9 @@ public class CityPatch : GamePatch
             //检测城市是否被劫掠如果是则不执行占领城市逻辑但是相应的城市金库会被劫走
             if (war!= null)
             {
-                EmpireCraft.Scripts.GeneralSystems.TreasurySystem.TransferWarSpoils(__instance, pNewKingdom);
+                // 劫掠只拿三成，遭劫的国五年内不再遭劫(见 TempFac_劫掠)
+                __instance.kingdom.GetOrCreate().raided_at = World.world.getCurWorldTime();
+                EmpireCraft.Scripts.GeneralSystems.TreasurySystem.TransferWarSpoils(__instance, pNewKingdom, 0.3f);
                 ClearResolvedCaptureProgress(__instance);
                 // 劫掠是一次性有限战争：第一座城市被成功洗劫后，
                 // 立即判进攻方获胜并结束整场战争，而不是只让当前守城国退出。
@@ -448,10 +453,18 @@ public class CityPatch : GamePatch
                 return false;
             }
             //检测是否为游牧扩张战争，如果是则返还法理土地，保留制度但是加入帝国
+            // 只吞小国(用户 2026-10-17 选"攻下都城只吞小国")：三城以内整国并入，大国改为称臣纳贡(同迫使朝贡)
             if (expendWar != null)
             {
                 LogService.LogInfo("游牧扩张战争");
                 Empire empire = joinAfterCapture.GetEmpire();
+                if (__instance.isCapitalCity() && __instance.kingdom.countCities() > NomadAnnexMaxCities && empire != null)
+                {
+                    __instance.kingdom.JoinTakenAlliance(empire, pForce: true);
+                    ClearResolvedCaptureProgress(__instance);
+                    expendWar.lostWar(__instance.kingdom);
+                    return false;
+                }
                 if (__instance.isCapitalCity()&&__instance.GetTitle()?.title_capital==__instance)
                 {
                     __instance.GetTitle().city_list.ForEach(c =>
