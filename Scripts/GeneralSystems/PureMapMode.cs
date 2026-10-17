@@ -67,6 +67,9 @@ public static class PureMapMode
         {
             _lawCheckAt = UnityEngine.Time.unscaledTime + 2f;
             SyncLaws();
+            // 原版(或别的模组)重建了绘制表、把建筑和小人的画法装回去了：再关一次
+            // (玩家反馈纯净地图下又看到了原版的村子建筑和篝火)
+            EnsureSpritesOff();
         }
         Sweep();
         Purge();
@@ -93,15 +96,30 @@ public static class PureMapMode
         building?.asset != null && (building.asset.flora || building.asset.wheat || IsDecor(building.asset) ||
                                     LivelihoodSystem.Replaces(building.asset));
 
+    private static readonly global::System.Action<QuantumSpriteAsset> NoDraw = _ => { };
+
     private static void TurnOffSprites()
     {
         _spritesOff = true;
         foreach (string id in HiddenSprites)
         {
             QuantumSpriteAsset asset = AssetManager.quantum_sprites?.get(id);
-            if (asset != null) asset.draw_call = _ => { };
+            if (asset != null) asset.draw_call = NoDraw;
         }
         LogService.LogInfo("[EmpireCraft][纯净地图] 不再绘制人物与建筑");
+    }
+
+    private static void EnsureSpritesOff()
+    {
+        int restored = 0;
+        foreach (string id in HiddenSprites)
+        {
+            QuantumSpriteAsset asset = AssetManager.quantum_sprites?.get(id);
+            if (asset == null || ReferenceEquals(asset.draw_call, NoDraw)) continue;
+            asset.draw_call = NoDraw;
+            restored++;
+        }
+        if (restored > 0) LogService.LogInfo($"[EmpireCraft][纯净地图] 绘制表被重建，重新关掉 {restored} 项人物与建筑的绘制");
     }
 
     public static bool Visible(Actor actor) => actor?.asset != null && actor.asset.is_boat;
