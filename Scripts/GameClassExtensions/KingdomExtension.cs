@@ -2151,9 +2151,18 @@ public static class KingdomExtension
         Regime old = data.regime;
         bool keep = old != null && k.IsInEmpire() && !k.IsEmpire() && RegimeManager.IsMonarchy(old.type) &&
                     (data.regimeType == RegimeType.LvLing || data.regimeType == RegimeType.ZhouFeudalism);
+        // 离开幕府改行律令制(大政奉还、明治维新)：废藩置县——各藩不再世袭、没有外交权，改为府县
+        // (用户 2026-10-17 选"补明治废藩"；以前保留原地位，各藩照旧世袭)
+        bool abolishDomains = old?.type == RegimeType.Bakufu && data.regimeType == RegimeType.LvLing && k.IsInEmpire() && !k.IsEmpire();
         bool diplomacy = old?.IsAllowDiplomacy() ?? false;
         LeaderSelectMethod method = old?.GetLeaderSelectMethod() ?? LeaderSelectMethod.Default;
         k.LoadRegime();
+        if (abolishDomains && k.GetRegime() is Regime prefecture)
+        {
+            prefecture.SetAllowDiplomacy(false);
+            prefecture.SetLeaderSelectMethod(LeaderSelectMethod.Exam);
+            return false;
+        }
         if (!keep) return false;
         Regime loaded = k.GetRegime();
         if (loaded == null) return false;

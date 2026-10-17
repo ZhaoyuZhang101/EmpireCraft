@@ -26,7 +26,13 @@ public static class BakufuSystem
         try
         {
             if (current == RegimeType.Bakufu) Establish(empire);
-            else if (previous == RegimeType.Bakufu) Restore(empire);
+            else if (previous == RegimeType.Bakufu)
+            {
+                Restore(empire);
+                // 改行律令制：各藩已废为府县(见 KingdomExtension.LoadRegimeKeepingRole)
+                if (current == RegimeType.LvLing)
+                    Record(empire, string.Format(LM.Get("bakufu_abolish_domains_history"), empire.GetEmpireName()));
+            }
         }
         catch (Exception exception)
         {
