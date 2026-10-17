@@ -111,11 +111,13 @@ public static class TianxiaSystem
         return CitiesByLead.TryGetValue(lead.id, out List<City> found) ? found : new List<City>();
     }
 
-    // 天下里各家(宗主)据有的城数与城的总数
+    // 天下里各家(宗主)据有的城数与城的总数；野生的不算一家(同年度结算，以前界面上的占比算上野生、与受命时对不上)
     public static (Dictionary<Kingdom, int> held, int total) Holdings(EmpireCore lead)
     {
         List<City> cities = Cities(lead);
-        return (EmpireCoreControl.CountHolders(cities), cities.Count);
+        Dictionary<Kingdom, int> held = EmpireCoreControl.CountHolders(cities);
+        foreach (Kingdom wild in held.Keys.Where(kingdom => kingdom.wild).ToList()) held.Remove(wild);
+        return (held, cities.Count);
     }
 
     public static string Name(EmpireCore lead)
@@ -236,8 +238,7 @@ public static class TianxiaSystem
     {
         string culture = core?.default_culture;
         if (!CultureService.IsValidCulture(culture)) return "";
-        string id = culture.GetTianxiaId();
-        return explicitOnly && id == culture ? "" : id;
+        return explicitOnly && !culture.HasExplicitTianxia() ? "" : culture.GetTianxiaId();
     }
 
     // 年度(统计天下之前)：标识不同的退出，标识相同的相邻天下并成一个
@@ -270,6 +271,7 @@ public static class TianxiaSystem
                 pairs.Add(a.id < b.id ? (a.id, b.id) : (b.id, a.id));
             }
         }
+        Bridges(pairs);
         foreach ((long first, long second) in pairs)
         {
             EmpireCore a = Lead(EmpireCoreManager.Get(first)), b = Lead(EmpireCoreManager.Get(second));
@@ -284,6 +286,52 @@ public static class TianxiaSystem
             if (ca < cb || ca == cb && a.id > b.id) Join(a, b, manual: false);
             else Join(b, a, manual: false);
         }
+    }
+
+    // 两个天下中间夹着还没有帝国法理、文化标了同一标识的城(同一块陆地上连成一片)，也算相邻——
+    // 以前夹着几座无核心的华夏城就永远连不上(用户 2026-10-17 选"天下统一按帝国核心"：没有核心的地方临时按文化连片，有了核心就归入)
+    private static void Bridges(HashSet<(long, long)> pairs)
+    {
+        var seen = new HashSet<City>();
+        var queue = new Queue<City>();
+        foreach (City start in World.world.cities.list)
+        {
+            if (!Uncored(start, out string id) || !seen.Add(start)) continue;
+            object island = start.getTile()?.region?.island;
+            if (island == null) continue;
+            var leads = new HashSet<EmpireCore>();
+            queue.Enqueue(start);
+            while (queue.Count > 0)
+            {
+                City city = queue.Dequeue();
+                if (city.neighbours_cities == null) continue;
+                foreach (City next in city.neighbours_cities)
+                {
+                    if (next?.data == null || next.isRekt() || !ReferenceEquals(island, next.getTile()?.region?.island)) continue;
+                    EmpireCore lead = LeadOf(next);
+                    if (lead != null)
+                    {
+                        if (TianxiaId(lead, explicitOnly: true) == id) leads.Add(lead);
+                    }
+                    else if (Uncored(next, out string nextId) && nextId == id && seen.Add(next)) queue.Enqueue(next);
+                }
+            }
+            List<EmpireCore> found = leads.ToList();
+            for (int i = 0; i < found.Count; i++)
+            for (int j = i + 1; j < found.Count; j++)
+                pairs.Add(found[i].id < found[j].id ? (found[i].id, found[j].id) : (found[j].id, found[i].id));
+        }
+    }
+
+    // 还没有帝国法理、主文化明写了天下标识的城
+    private static bool Uncored(City city, out string id)
+    {
+        id = "";
+        if (city?.data == null || city.isRekt() || LeadOf(city) != null) return false;
+        string culture = CultureService.GetMainCulture(city, false);
+        if (!CultureService.IsValidCulture(culture) || !culture.HasExplicitTianxia()) return false;
+        id = culture.GetTianxiaId();
+        return true;
     }
 
     #endregion

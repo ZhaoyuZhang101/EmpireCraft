@@ -247,10 +247,13 @@ public static class OnomasticsRule
     public static string GetTianxiaId(this string culture)
     {
         if (string.IsNullOrEmpty(culture)) return "";
-        return ALL_CULTURE_RULE.TryGetValue(culture, out Setting setting) && !string.IsNullOrWhiteSpace(setting?.tianxia)
-            ? setting.tianxia.Trim()
-            : culture;
+        return HasExplicitTianxia(culture) ? ALL_CULTURE_RULE[culture].tianxia.Trim() : culture;
     }
+
+    // 文化配置里明写了天下标识(写的可以就是文化自己的名字，如日本标 Japan：几个日本帝国法理也并成一个天下)
+    public static bool HasExplicitTianxia(this string culture) =>
+        !string.IsNullOrEmpty(culture) && ALL_CULTURE_RULE.TryGetValue(culture, out Setting setting) &&
+        !string.IsNullOrWhiteSpace(setting?.tianxia);
 
     public static bool HasPoliticalTrait(this string culture, string trait)
     {

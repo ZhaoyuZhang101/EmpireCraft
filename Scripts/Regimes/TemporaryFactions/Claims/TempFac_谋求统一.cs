@@ -53,11 +53,14 @@ public class TempFac_谋求统一 : TemporaryFaction
             SetKingdomTarget(target);
             return true;
         }
+        // 天下有主(治世、动荡)：别家不能问鼎，只有共主收拾天下里的残局(见 TianxiaSystem.BarsContender)
+        if (UnificationSystem.Barred(empire.CoreKingdom)) return false;
         EmpireCore selfCore = EmpireCoreManager.Get(empire);
         foreach (var kingdom in World.world.kingdoms)
         {
-            // 统一只统一同一文化圈的(用户 2026-10-15："有的甚至还跨文化跨地域打")
-            if (!UnificationSystem.SameSphere(empire.CoreKingdom, kingdom)) continue;
+            // 统一只统一同一个天下的(用户 2026-10-15："有的甚至还跨文化跨地域打"；2026-10-17 选"天下统一按帝国核心"：
+            // 有帝国法理的按天下，还没有的临时按文化圈，都不跨海)
+            if (!UnificationSystem.SameTianxia(empire.CoreKingdom, kingdom)) continue;
             if (empire.given_Kingdoms.Contains(kingdom)) continue;
             if (empire.taken_Kingdoms.Contains(kingdom)) continue;
             if (kingdom.IsLocalRebelling()) continue;

@@ -139,6 +139,25 @@ public static class UnificationSystem
         return line != null && line == LineOf(CultureService.GetRealmCulture(b));
     }
 
+    // 同一个天下(用户 2026-10-17 选"天下统一按帝国核心")：两国都城都在有帝国法理的天下里的，看是不是同一个天下；
+    // 有一边还没有帝国法理的，临时按文化圈(天下标识)且在同一块陆地上算
+    public static bool SameTianxia(Kingdom a, Kingdom b)
+    {
+        if (a?.data == null || b?.data == null) return false;
+        EmpireCore la = TianxiaSystem.LeadOf(a.capital), lb = TianxiaSystem.LeadOf(b.capital);
+        if (la != null && lb != null) return la == lb;
+        object ia = IslandOf(a.capital?.getTile()), ib = IslandOf(b.capital?.getTile());
+        return ia != null && ReferenceEquals(ia, ib) && SameSphere(a, b);
+    }
+
+    // 天下有主(治世、动荡)：这一家不能问鼎(谋求统一、统一战争)，共主自己除外(见 TianxiaSystem.BarsContender)
+    public static bool Barred(Kingdom kingdom)
+    {
+        Kingdom sovereign = Sovereign(kingdom);
+        EmpireCore lead = TianxiaSystem.LeadOf(sovereign?.capital);
+        return lead != null && TianxiaSystem.BarsContender(lead, sovereign);
+    }
+
     // 战线推进：统一者打天下里的别家快一半，统一十年后加倍
     public static float PushFactor(Kingdom side, Kingdom opponent)
     {
