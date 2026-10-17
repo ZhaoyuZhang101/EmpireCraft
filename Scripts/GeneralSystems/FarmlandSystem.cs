@@ -47,8 +47,8 @@ public static class FarmlandSystem
     // 一个区块至少有这么多可耕地才值得划为农田
     private const int MinFarmableTilesInZone = 8;
     // 纯净地图：种田的每户每年产粮(户数尺度；每户每年吃 1、自给 0.5)、城里种城郊田的份数、玩家刷的农田每格每年产粮
-    private const float RuralYield = 1.2f, CitySuburbFarmShare = 0.25f;
-    private const int MaxRetiredZonesPerSettle = 2;
+    public const float RuralYield = 1.2f;
+    private const float CitySuburbFarmShare = 0.25f;
 
     public static float Productivity(City city) => ModernStability.IsModern(city?.kingdom) ? 3f : 1f;
 
@@ -76,8 +76,9 @@ public static class FarmlandSystem
         return data.farm_zones;
     }
 
+    // 纯净地图的田只属于农村(见 LivelihoodSystem)，原来划的农耕区不再起作用(护田、条田、不盖民居都不算)
     public static bool IsPlanned(City city, TileZone zone) =>
-        city?.data != null && zone != null && zone.city == city && Zones(city).Contains(zone.id);
+        !PureMapMode.Enabled && city?.data != null && zone != null && zone.city == city && Zones(city).Contains(zone.id);
 
     // 原版 CityBehCheckFarms 使用本城的 type_windmill，距离平方不超过 81。
     public static bool IsWithinWindmillRange(City city, WorldTile tile) =>
@@ -229,7 +230,12 @@ public static class FarmlandSystem
         switch (phase)
         {
             case 0:
-                if (PureMapMode.Enabled) RetireAutoPlannedZones(city);
+                // 纯净地图的田只属于农村(见 LivelihoodSystem)：旧档划的农耕区一并退掉，不再清民居、不再整田
+                if (PureMapMode.Enabled)
+                {
+                    RetirePlannedZones(city);
+                    break;
+                }
                 ConstrainPlannedFields(city);
                 foreach (TileZone zone in PlannedZones(city)) ClearHousing(city, zone);
                 break;
@@ -237,7 +243,8 @@ public static class FarmlandSystem
             case 2: return Harvest(city, data);
             case 3: Plant(city); break;
             case 4:
-                foreach (TileZone zone in PlannedZones(city)) CultivateZone(city, zone, MaxTilesPerSettle);
+                if (!PureMapMode.Enabled)
+                    foreach (TileZone zone in PlannedZones(city)) CultivateZone(city, zone, MaxTilesPerSettle);
                 MakeVanillaFields(city);
                 break;
         }
@@ -309,30 +316,26 @@ public static class FarmlandSystem
         return food;
     }
 
-    // 纯净地图：一个月的收成——住在完好镇村里的农户、城郊种地的城里人
+    // 纯净地图：一个月的收成——住在完好农村里的农户、城郊种地的城里人(林场、矿、牧、渔村不种田，见 LivelihoodSystem；
+    // 渔户的岗位也记在这里，鱼另出，见 LivelihoodSystem.Produce)
     private static float RuralHarvest(City city)
     {
         (float living, float ruined) = RuralSettlementSystem.Weights(city);
         const float cityWeight = 6f;
         float households = CityPopulationSystem.BackgroundHouseholds(city);
-        float farmers = households * (living + cityWeight * CitySuburbFarmShare) / (cityWeight + living + ruined);
+        float farms = LivelihoodSystem.Shares(city, LivelihoodSystem.Farm);
+        float farmers = households * (farms + cityWeight * CitySuburbFarmShare) / (cityWeight + living + ruined);
         CityPopulationData population = CityPopulationSystem.Get(city);
-        if (population != null) population.farm_jobs = farmers * 0.6f;
+        if (population != null) population.farm_jobs = (farmers + LivelihoodSystem.Workers(city, LivelihoodSystem.Fish)) * 0.6f;
         float food = farmers * RuralYield * Productivity(city);
         if (World.world_era != null && !World.world_era.flag_crops_grow) food *= 0.5f;
         return food / 12f;
     }
 
-    // 旧存档里 AI 缺粮时划的农耕区每月退掉两块(纯净地图的田是村镇的田)
-    private static void RetireAutoPlannedZones(City city)
+    // 旧存档里划的农耕区(AI 缺粮时划的、原来规划笔刷刷的)一并退掉(纯净地图的田是农村的田)
+    private static void RetirePlannedZones(City city)
     {
-        int retired = 0;
-        foreach (TileZone zone in PlannedZones(city).ToList())
-        {
-            if (retired >= MaxRetiredZonesPerSettle) break;
-            TogglePlanned(city, zone);
-            retired++;
-        }
+        foreach (TileZone zone in PlannedZones(city).ToList()) TogglePlanned(city, zone);
     }
 
     // 纯净地图模式没有庄稼：按田里的种植位折算，每个种植位一轮成熟收 FoodPerCrop 份，

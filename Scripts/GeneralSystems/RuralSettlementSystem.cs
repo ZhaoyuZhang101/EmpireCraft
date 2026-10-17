@@ -248,7 +248,7 @@ public static class RuralSettlementSystem
 
     #region 住人、产粮交税
 
-    private static float Weight(RuralSettlement settlement) => settlement.fort ? 0f : settlement.town ? TownWeight : VillageWeight;
+    public static float Weight(RuralSettlement settlement) => settlement.fort ? 0f : settlement.town ? TownWeight : VillageWeight;
 
     // 本城城外镇村的份数：完好的、毁了的
     public static (float living, float ruined) Weights(City city)
@@ -366,6 +366,37 @@ public static class RuralSettlementSystem
         }
         Revision++;
         if (city != null) PureMapPatch.Redraw(city);
+    }
+
+    // 改生计(窗口里，见 LivelihoodSystem)
+    public static void SetTrade(RuralSettlement settlement, int trade)
+    {
+        if (settlement == null || settlement.cleared || settlement.fort) return;
+        trade = ((trade % LivelihoodSystem.Count) + LivelihoodSystem.Count) % LivelihoodSystem.Count;
+        if (settlement.trade == trade) return;
+        settlement.trade = trade;
+        Revision++;
+        City city = CityOf(settlement);
+        if (city != null) PureMapPatch.Redraw(city);
+    }
+
+    // 改官营、民营(窗口里)
+    public static void SetState(RuralSettlement settlement, bool state)
+    {
+        if (settlement == null || settlement.cleared) return;
+        settlement.state = state;
+    }
+
+    // AI 新建镇村的花费(用户 2026-10-17 选"花钱，分官营民营")：照国策国库先出或民间投资池先出，国库出钱的归官营；
+    // 村没人出得起时百姓自建(归民营)，镇出不起就不建；本城头一回摆镇村(新城、旧档的底子)不花钱
+    public const int VillageCost = 30, TownCost = 120, WallCost = 60;
+
+    public static bool Fund(City city, bool town, bool walled, bool initial, out bool state)
+    {
+        state = false;
+        if (initial || city == null) return true;
+        int cost = town ? TownCost + (walled ? WallCost : 0) : VillageCost;
+        return EnterpriseSystem.Fund(city, cost, !town, out state);
     }
 
     public static void Rename(RuralSettlement settlement, string name)

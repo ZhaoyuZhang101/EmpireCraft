@@ -140,7 +140,13 @@ public class CityWindowPatch : GamePatch
     private static void ShowZoneRows(CityWindow window, City city)
     {
         int mine = 0, lumber = 0;
-        if (city.buildings != null)
+        // 纯净地图：有矿村、林场村就按本文化的等级(见 LivelihoodSystem)
+        if (LivelihoodSystem.Active)
+        {
+            if (LivelihoodSystem.Shares(city, LivelihoodSystem.Mine) > 0f) mine = LivelihoodSystem.Level(city, LivelihoodSystem.Mine);
+            if (LivelihoodSystem.Shares(city, LivelihoodSystem.Forest) > 0f) lumber = LivelihoodSystem.Level(city, LivelihoodSystem.Forest);
+        }
+        else if (city.buildings != null)
             foreach (Building building in city.buildings)
             {
                 if (building?.asset == null || building.isUnderConstruction()) continue;

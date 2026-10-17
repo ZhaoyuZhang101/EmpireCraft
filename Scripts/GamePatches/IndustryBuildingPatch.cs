@@ -11,7 +11,7 @@ namespace EmpireCraft.Scripts.GamePatches;
 // 矿场伐木场分级的原版接入点(城市规划撤掉后留下的部分，用户 2026-10-17 "之前的城市规划的那一套和图层都得取消掉了")：
 //   - 规划农田(见 FarmlandSystem)：风车范围里不盖民居，田受保护时只许风车、牧场、仓库(原城市规划里农田那条)；
 //   - 伐木场挑树多的地块建(建在林子边上，不挑规划农田)；
-//   - 拆除中的建筑不能升级，矿场伐木场的高等级要有工厂(见 IndustryBuildingSystem.CanUpgradeHere)；
+//   - 拆除中的建筑不能升级；
 //   - 矿场、伐木场、屠宰场的额外配额，森林多的城多建伐木场，游牧国多建牧场(City.getLimitOfBuildingsType)。
 public class IndustryBuildingPatch : GamePatch
 {
@@ -89,7 +89,7 @@ public class IndustryBuildingPatch : GamePatch
     public static bool BeforeUpgradeBuilding(Building pBuilding, City pCity, ref bool __result)
     {
         if (pBuilding?.asset == null || pCity == null) return true;
-        if (!pBuilding.isOnRemove() && IndustryBuildingSystem.CanUpgradeHere(pBuilding, pCity)) return true;
+        if (!pBuilding.isOnRemove()) return true;
         __result = false;
         return false;
     }

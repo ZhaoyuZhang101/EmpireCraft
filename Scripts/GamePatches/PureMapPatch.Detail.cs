@@ -1598,32 +1598,51 @@ public partial class PureMapPatch
         foreach ((int x, int y, bool town) in g.Ruins)
             RuralRuin(c, (x - c.X0) * s + s / 2, (y - c.Y0) * s + s / 2, town ? 16f : 7f, UrbanFabric.SettlementKey(x, y) + 5000, tint);
         c.Spill = false;
-        // 田块：村镇四周散着几块条田(见 FieldColor)，一块八到十三像素宽、六到九像素高，块与块之间至少留三像素空地；
-        // 只种在本城能耕的空地上，一块里能种的不到七成就换个地方(阿兹特克是水上浮田)
+        // 村镇四周按生计画(见 LivelihoodSystem)，一块块之间至少留三像素空地，只落在本城的空地上：
+        //   · 农村：几块条田(见 FieldColor)，一块八到十三像素宽、六到九像素高，能种的不到七成就换个地方(阿兹特克是水上浮田)；
+        //   · 林场村：几片林子(深浅两色的树冠，边缘参差)，村边两三垛原木；
+        //   · 矿村：一两处矿坑(外圈土黄、里面一层深过一层)，坑边灰白的碴堆，山地上也开；
+        //   · 牧村：几块围着篱笆的草场，草场里几只羊；
+        //   · 渔村：一两块菜地，近处水面上几条小船。
         var fields = new List<(int x0, int y0, int x1, int y1)>();
+        bool Own(int px, int py, bool rough)
+        {
+            if (c.Kind(px, py) != KEmpty) return false;
+            WorldTile tile = c.Tile(px, py);
+            if (tile?.Type == null || tile.Type.liquid || tile.Type.block || !rough && tile.Type.mountains) return false;
+            return tile.zone?.city == c.City;
+        }
         bool Farmable(int px, int py)
         {
             if (c.Kind(px, py) != KEmpty) return false;
             WorldTile tile = c.Tile(px, py);
             return tile?.Type != null && (tile.Type.can_be_farm || tile.Type.farm_field) && tile.zone?.city == c.City;
         }
-        void Fields(int cx, int cy, int count, float reach, long key)
+        // 在 (cx, cy) 四周 reach 像素内找 count 块 w×h 的空地(能用的像素够七成)，找到一块画一块
+        void Patches(int cx, int cy, int count, float reach, long key, int wMin, int wSpan, int hMin, int hSpan,
+            Func<int, int, bool> usable, Action<int, int, int, int, int> paint)
         {
             int placed = 0;
             for (int attempt = 0; attempt < count * 4 && placed < count; attempt++)
             {
                 float angle = DetailHash(key, attempt, 621) * Mathf.PI * 2f, dist = reach * (0.35f + 0.65f * DetailHash(key, attempt, 622));
-                int w = 8 + (int)(DetailHash(key, attempt, 623) * 6), h = 6 + (int)(DetailHash(key, attempt, 624) * 4);
+                int w = wMin + (int)(DetailHash(key, attempt, 623) * wSpan), h = hMin + (int)(DetailHash(key, attempt, 624) * hSpan);
                 int x0 = Mathf.RoundToInt(cx + Mathf.Cos(angle) * dist) - w / 2, y0 = Mathf.RoundToInt(cy + Mathf.Sin(angle) * dist) - h / 2;
                 int x1 = x0 + w - 1, y1 = y0 + h - 1;
                 if (fields.Exists(f => x0 <= f.x1 + 3 && x1 >= f.x0 - 3 && y0 <= f.y1 + 3 && y1 >= f.y0 - 3)) continue;
                 int ok = 0;
                 for (int py = y0; py <= y1; py++)
                 for (int px = x0; px <= x1; px++)
-                    if (Farmable(px, py)) ok++;
+                    if (usable(px, py)) ok++;
                 if (ok * 10 < w * h * 7) continue;
                 fields.Add((x0, y0, x1, y1));
                 placed++;
+                paint(x0, y0, x1, y1, attempt);
+            }
+        }
+        void Fields(int cx, int cy, int count, float reach, long key) =>
+            Patches(cx, cy, count, reach, key, 8, 6, 6, 4, Farmable, (x0, y0, x1, y1, attempt) =>
+            {
                 bool vertical = DetailHash(key, attempt, 625) < 0.4f;
                 for (int py = y0; py <= y1; py++)
                 for (int px = x0; px <= x1; px++)
@@ -1636,22 +1655,128 @@ public partial class PureMapPatch
                     }
                     c.Put(px, py, FieldColor(tint, px, py, vertical), KEmpty);
                 }
+            });
+        // 一块里的椭圆(边缘按哈希参差)
+        bool InBlob(int px, int py, int x0, int y0, int x1, int y1, long key)
+        {
+            float rx = (x1 - x0 + 1) / 2f, ry = (y1 - y0 + 1) / 2f;
+            float dx = (px - x0 + 0.5f - rx) / rx, dy = (py - y0 + 0.5f - ry) / ry;
+            return dx * dx + dy * dy <= 0.75f + 0.25f * DetailHash(key, px, py, 630);
+        }
+        void Woods(int cx, int cy, int count, float reach, long key)
+        {
+            Patches(cx, cy, count, reach, key, 9, 6, 8, 5, (px, py) => Own(px, py, false), (x0, y0, x1, y1, _) =>
+            {
+                for (int py = y0; py <= y1; py++)
+                for (int px = x0; px <= x1; px++)
+                {
+                    if (!InBlob(px, py, x0, y0, x1, y1, key) || !Own(px, py, false)) continue;
+                    bool light = DetailHash(key, px * 3 + 1, py * 5 + 2, 634) < 0.3f;
+                    c.Put(px, py, Lerp(tint, light ? TreeLight : TreeDark, 0.88f), KEmpty);
+                }
+            });
+            // 伐木场：村边两三垛原木
+            for (int n = 0; n < 3; n++)
+            {
+                int lx = cx + 4 + n * 3, ly = cy + 5 + (int)(DetailHash(key, n, 635) * 3);
+                for (int k = 0; k < 2; k++)
+                    if (Own(lx + k, ly, false)) c.Put(lx + k, ly, Rgb(150, 112, 72), KEmpty);
             }
         }
-        index = 0;
-        foreach ((int x, int y) in g.Villages)
+        void Pits(int cx, int cy, int count, float reach, long key)
         {
-            index++;
-            long key = UrbanFabric.SettlementKey(x, y);
-            Fields((x - c.X0) * s + 2, (y - c.Y0) * s + 2, 4 + (int)(DetailHash(key, 626) * 3), 7f * s, key + 7000);
+            Patches(cx, cy, count, reach, key, 7, 4, 6, 3, (px, py) => Own(px, py, true), (x0, y0, x1, y1, attempt) =>
+            {
+                float rx = (x1 - x0 + 1) / 2f, ry = (y1 - y0 + 1) / 2f;
+                for (int py = y0; py <= y1; py++)
+                for (int px = x0; px <= x1; px++)
+                {
+                    if (!Own(px, py, true)) continue;
+                    float dx = (px - x0 + 0.5f - rx) / rx, dy = (py - y0 + 0.5f - ry) / ry, d = dx * dx + dy * dy;
+                    if (d > 1f) continue;
+                    Color32 color = d > 0.55f ? Rgb(178, 158, 120) : d > 0.2f ? Rgb(130, 116, 98) : Rgb(92, 84, 76);
+                    c.Put(px, py, Lerp(tint, color, 0.9f), KEmpty);
+                }
+                // 碴堆：坑边两三点灰白
+                for (int k = 0; k < 3; k++)
+                {
+                    int hx = DetailHash(key, attempt, k, 636) < 0.5f ? x0 - 1 : x1 + 1;
+                    int hy = y0 + (int)(DetailHash(key, attempt, k, 637) * (y1 - y0 + 1));
+                    if (Own(hx, hy, true)) c.Put(hx, hy, Rgb(196, 190, 178), KEmpty);
+                }
+            });
         }
-        index = 0;
-        foreach ((int x, int y, int townSize, _) in g.Towns)
+        void Paddocks(int cx, int cy, int count, float reach, long key)
         {
-            index++;
-            long key = UrbanFabric.SettlementKey(x, y);
-            Fields((x - c.X0) * s + 2, (y - c.Y0) * s + 2, 6 + (int)(DetailHash(key, 627) * 4), (townSize + 6) * s, key + 9000);
+            Patches(cx, cy, count, reach, key, 9, 5, 7, 3, (px, py) => Own(px, py, false), (x0, y0, x1, y1, attempt) =>
+            {
+                for (int py = y0; py <= y1; py++)
+                for (int px = x0; px <= x1; px++)
+                {
+                    if (!Own(px, py, false)) continue;
+                    bool edge = px == x0 || px == x1 || py == y0 || py == y1;
+                    c.Put(px, py, edge ? Lerp(tint, Fence, 0.9f) : Lerp(tint, Rgb(184, 210, 132), 0.85f), KEmpty);
+                }
+                // 羊
+                int sheep = 2 + (int)(DetailHash(key, attempt, 638) * 3);
+                for (int k = 0; k < sheep; k++)
+                {
+                    int sx = x0 + 1 + (int)(DetailHash(key, attempt, k, 639) * (x1 - x0 - 1));
+                    int sy = y0 + 1 + (int)(DetailHash(key, attempt, k, 640) * (y1 - y0 - 1));
+                    c.Put(sx, sy, Rgb(244, 240, 230), KEmpty);
+                }
+            });
         }
+        void Boats(int cx, int cy, int count, float reach, long key)
+        {
+            bool Water(int px, int py)
+            {
+                if (c.Kind(px, py) is not (KEmpty or KWater)) return false;
+                WorldTile tile = c.Tile(px, py);
+                return tile?.Type != null && tile.Type.liquid && !tile.Type.lava;
+            }
+            int placed = 0;
+            for (int attempt = 0; attempt < count * 16 && placed < count; attempt++)
+            {
+                float angle = DetailHash(key, attempt, 641) * Mathf.PI * 2f, dist = reach * (0.4f + 1.2f * DetailHash(key, attempt, 642));
+                int bx = Mathf.RoundToInt(cx + Mathf.Cos(angle) * dist), by = Mathf.RoundToInt(cy + Mathf.Sin(angle) * dist);
+                if (!Water(bx - 1, by) || !Water(bx, by) || !Water(bx + 1, by) || !Water(bx, by - 1) || !Water(bx + 2, by)) continue;
+                for (int k = -1; k <= 1; k++) c.Put(bx + k, by, Rgb(118, 84, 54), KFixed);
+                c.Put(bx, by - 1, Rgb(246, 242, 232), KFixed);
+                placed++;
+            }
+        }
+        void Surround(int x, int y, bool town, int townSize)
+        {
+            long key = UrbanFabric.SettlementKey(x, y);
+            int cx = (x - c.X0) * s + 2, cy = (y - c.Y0) * s + 2;
+            int many = town ? 6 + (int)(DetailHash(key, 627) * 4) : 4 + (int)(DetailHash(key, 626) * 3);
+            float reach = town ? (townSize + 6) * s : 7f * s;
+            long salt = key + (town ? 9000 : 7000);
+            switch (LivelihoodSystem.At(x, y))
+            {
+                case LivelihoodSystem.Forest:
+                    Woods(cx, cy, many - 1, reach, salt + 100);
+                    Fields(cx, cy, 1, reach * 0.6f, salt);
+                    break;
+                case LivelihoodSystem.Mine:
+                    Pits(cx, cy, town ? 3 : 2, reach * 0.8f, salt + 200);
+                    Fields(cx, cy, 1, reach * 0.6f, salt);
+                    break;
+                case LivelihoodSystem.Pasture:
+                    Paddocks(cx, cy, many - 1, reach, salt + 300);
+                    break;
+                case LivelihoodSystem.Fish:
+                    Fields(cx, cy, 2, reach * 0.6f, salt);
+                    Boats(cx, cy, town ? 5 : 3, reach * 1.6f, salt + 400);
+                    break;
+                default:
+                    Fields(cx, cy, many, reach, salt);
+                    break;
+            }
+        }
+        foreach ((int x, int y) in g.Villages) Surround(x, y, false, 0);
+        foreach ((int x, int y, int townSize, _) in g.Towns) Surround(x, y, true, townSize);
     }
 
     // 出城的大路、岔路(粗图上一格一像素的白路，见 UrbanFabric.Countryside)：照同一条线画成连续的路——古代是浅色土路、

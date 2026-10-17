@@ -9,14 +9,14 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   矿场：1 矿坑(原版 mine) → 2 矿井 → 3 水力矿场 → 4 蒸汽煤矿 → 5 现代矿业工厂；
 //   伐木场：1 伐木营 → 2 锯木坊 → 3 水力锯木厂 → 4 蒸汽锯木厂 → 5 现代木材加工厂。
 // 升级按科技解锁(见 Technology/TechTree.json 的 unlock_buildings)，由城市按升级订单自动升级
-// (无小人模式下由 CityConstructionSystem 出钱升级)；第 3 级起本城要有工厂(见 FactorySystem)。
+// (无小人模式下由 CityConstructionSystem 出钱升级)。
+// 纯净地图下不再建这些建筑：矿、林改为城外村镇的生计，等级随科技换代(见 LivelihoodSystem)，下面的产出倍数照村镇算。
 // 产出：矿场每年固定产石头、金属、金子，伐木场每年固定产木头，都按等级倍增，本城有工厂再加成。
 // 每座厂区让本城多建一座矿场、一座伐木场(最多多 3 座，见 ExtraLimit)。
 // 兼容 Modern Mod：它的 2mine_modernmod 视为矿场第 2 级，接到第 3 级上。
 public static class IndustryBuildingSystem
 {
     public const string LumberType = "type_lumber";
-    public const int IndustryZoneTier = 3;
     private const string ModernModMine = "2mine_modernmod";
 
     public static readonly string[] MineChain = { "mine", "ec_mine_2", "ec_mine_3", "ec_mine_4", "ec_mine_5" };
@@ -25,7 +25,6 @@ public static class IndustryBuildingSystem
     // 产出倍数(按等级)
     private static readonly float[] TierOutput = { 1f, 1.6f, 2.5f, 4f, 6f };
     private const float IndustryZoneBonus = 1.25f;
-    private const float WoodPerLumberYear = 8f;
 
     private static readonly Dictionary<string, int> Tiers = new();
 
@@ -226,34 +225,30 @@ public static class IndustryBuildingSystem
     }
 
     // ---- 规则 ----
-    // 第 3 级起本城要有工厂才能升上去(原来要建在工业区；用户 2026-10-17 撤城市规划时选"改由新工厂提供")
-    public static bool CanUpgradeHere(Building building, City city)
-    {
-        BuildingAsset target = AssetManager.buildings.get(building?.asset?.upgrade_to ?? "");
-        if (target == null || !Tiers.TryGetValue(target.id, out int tier) || tier < IndustryZoneTier) return true;
-        // 造不了厂区的(不是纯净地图、固定城乡格局、本城还没解锁任何工厂门类)不卡：否则火药以前、关着纯净地图时永远升不上去
-        if (!PureMapMode.Enabled || RuralSettlementSystem.Fixed || FactorySystem.Unlocked(city).Count == 0) return true;
-        return FactorySystem.Count(city) > 0;
-    }
-
     // 每座工厂多许建一座矿场、伐木场、屠宰场，至多三座
     public static int ExtraLimit(City city) => Mathf.Min(3, FactorySystem.Count(city));
 
-
-    public static int CountIndustry(City city)
-    {
-        int count = 0;
-        if (city?.buildings == null) return 0;
-        foreach (Building building in city.buildings)
-            if (building?.asset != null && (IsMine(building.asset) || IsLumber(building.asset))) count++;
-        return count;
-    }
-
     // ---- 产出(每年，按户数尺度) ----
-    // 建成的矿场的产出倍数之和
-    public static float MineOutputFactor(City city) => OutputFactor(city, IsMine);
-    public static float LumberOutputFactor(City city) => OutputFactor(city, IsLumber);
-    public static float WoodPerYear(City city) => LumberOutputFactor(city) * WoodPerLumberYear;
+    // 建成的矿场的产出倍数之和(纯净地图：矿村、林场村折算，见 LivelihoodSystem.Factor)
+    public static float MineOutputFactor(City city) =>
+        LivelihoodSystem.Active ? LivelihoodSystem.Factor(city, LivelihoodSystem.Mine) : OutputFactor(city, IsMine);
+
+    public static float LumberOutputFactor(City city) =>
+        LivelihoodSystem.Active ? LivelihoodSystem.Factor(city, LivelihoodSystem.Forest) : OutputFactor(city, IsLumber);
+
+    // 第几级的产出倍数、本城有厂区的加成、纯净地图下一份伐木产出倍数一年出几份木头(见 HarvestTrees)
+    public static float TierFactor(int tier) => TierOutput[Mathf.Clamp(tier, 1, TierOutput.Length) - 1];
+    public static float FactoryBonus(City city) => FactorySystem.Count(city) > 0 ? IndustryZoneBonus : 1f;
+    public const float WoodPerFactorYear = TreesPerLumberYear * WoodPerTree;
+
+    // 本文化(本国采纳了的)科技做到这条链的第几级(0 = 第一级也还没解锁)
+    public static int UnlockedTier(City city, string[] chain)
+    {
+        int tier = 0;
+        for (int i = 0; i < chain.Length; i++)
+            if (TechnologySystem.CanBuild(city, chain[i])) tier = i + 1;
+        return tier;
+    }
 
     // ---- 伐木：伐木场真的砍本城领地里的树 ----
     // 每座伐木场(按等级、有无工厂折算的产出倍数)每年砍 TreesPerLumberYear 棵，每棵出 WoodPerTree 份木头；
@@ -373,7 +368,7 @@ public static class IndustryBuildingSystem
     private static float OutputFactor(City city, Func<BuildingAsset, bool> kind)
     {
         float total = 0f;
-        float bonus = FactorySystem.Count(city) > 0 ? IndustryZoneBonus : 1f;
+        float bonus = FactoryBonus(city);
         if (city?.buildings == null) return 0f;
         foreach (Building building in city.buildings)
         {

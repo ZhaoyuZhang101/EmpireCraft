@@ -1236,7 +1236,8 @@ public static class TechnologySystem
         switch (boost.type)
         {
             case "building_type":
-                return cities.Sum(city => city.countBuildingsType(boost.value)) >= amount;
+                // 纯净地图：矿场、伐木场、牧场、屠宰场按村镇折算(见 LivelihoodSystem.BuildingEquivalent)
+                return cities.Sum(city => city.countBuildingsType(boost.value) + LivelihoodSystem.BuildingEquivalent(city, boost.value)) >= amount;
             case "resource":
                 return cities.Any(city => city.getResourcesAmount(boost.value) >= amount);
             case "population":

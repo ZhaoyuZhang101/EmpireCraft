@@ -16,13 +16,15 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     领地里的野兽一并猎取；牧群超过容量八成时宰掉多余的部分；
 //   - 产出乘农业生产力(古代 1，现代 3)；
 //   - 游牧制度(制度线 Youmu)的国家：牧场容量、圈养数量翻倍，牧群繁殖快一半，每城可多建两座牧场。
+//   纯净地图下不建牧场、屠宰场：放牧是城外牧村的生计，牧村折成几座牧场，研究了制革牧村、林场村再折出屠宰场
+//   (见 LivelihoodSystem.Pastures/Slaughterhouses；游牧城照三座牧场)。
 // 每月一次：先把全图动物按所在城市领地分组，再逐城结算(分帧)。
 public static class AnimalHusbandrySystem
 {
     public const string PastureType = "type_pasture";
     public const string SlaughterhouseType = "type_slaughterhouse";
 
-    private const float HerdPerPasture = 60f;
+    public const float HerdPerPasture = 60f;
     private const int CapturePerPasture = 15;
     private const int HuntPerSlaughterhouse = 25;
     private const float HerdGrowthPerMonth = 0.015f;
@@ -91,9 +93,15 @@ public static class AnimalHusbandrySystem
         return count;
     }
 
+    // 牧场、屠宰场几座(纯净地图：牧村、林场村折算，见 LivelihoodSystem)
+    public static float Pastures(City city) =>
+        LivelihoodSystem.Active ? LivelihoodSystem.Pastures(city) : CountBuildings(city, PastureType);
+
+    public static float Slaughterhouses(City city) =>
+        LivelihoodSystem.Active ? LivelihoodSystem.Slaughterhouses(city) : CountBuildings(city, SlaughterhouseType);
+
     public static float HerdCapacity(City city) =>
-        CountBuildings(city, PastureType) * HerdPerPasture * (IsNomadic(city?.kingdom) ? 2f : 1f) *
-        (0.4f + 1.2f * Rangeland(city));
+        Pastures(city) * HerdPerPasture * (IsNomadic(city?.kingdom) ? 2f : 1f) * (0.4f + 1.2f * Rangeland(city));
 
     // 地形：草场比例(城市区块里空着的可耕地占比)、山林程度(每块区块平均树木数 / 8，最多 1)。每月算一次缓存
     private static readonly Dictionary<City, (double at, float range, float wild)> Terrain = new();
@@ -246,8 +254,8 @@ public static class AnimalHusbandrySystem
                 if (pest != null && !pest.isRekt() && pest.isAlive() && pest.current_tile?.zone?.city == city) Remove(pest);
         CityPopulationData data = CityPopulationSystem.Get(city);
         if (data == null) return;
-        int pastures = CountBuildings(city, PastureType);
-        int slaughterhouses = CountBuildings(city, SlaughterhouseType);
+        float pastures = Pastures(city);
+        float slaughterhouses = Slaughterhouses(city);
         bool nomadic = IsNomadic(city.kingdom);
         float capacity = HerdCapacity(city);
         if (data.herd > capacity) data.herd = capacity;
@@ -259,7 +267,7 @@ public static class AnimalHusbandrySystem
         // 牧场：圈进家畜
         if (pastures > 0 && animals != null)
         {
-            int limit = pastures * CapturePerPasture * (nomadic ? 2 : 1);
+            int limit = Mathf.RoundToInt(pastures * CapturePerPasture * (nomadic ? 2 : 1));
             for (int i = animals.Count - 1; i >= 0 && limit > 0 && data.herd < capacity; i--)
             {
                 Actor animal = animals[i];
@@ -287,7 +295,7 @@ public static class AnimalHusbandrySystem
             meat += game * 3f;
             leather += game * 1.5f;
             bones += game;
-            int limit = slaughterhouses * HuntPerSlaughterhouse;
+            int limit = Mathf.RoundToInt(slaughterhouses * HuntPerSlaughterhouse);
             if (animals != null)
                 for (int i = animals.Count - 1; i >= 0 && limit > 0; i--)
                 {

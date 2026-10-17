@@ -949,7 +949,11 @@ public static class CityPopulationSystem
         {
             factories = UrbanEmploymentSystem.CountFactories(city);
             advancedHousing = UrbanCitizenSystem.GetCapacity(city, Mathf.Max(1, households)) > 0;
-            if (city.buildings != null)
+            // 纯净地图：矿村、林场村折成几座(见 LivelihoodSystem)
+            if (LivelihoodSystem.Active)
+                mines = Mathf.RoundToInt(LivelihoodSystem.Equivalent(city, LivelihoodSystem.Mine) +
+                                         LivelihoodSystem.Equivalent(city, LivelihoodSystem.Forest));
+            else if (city.buildings != null)
                 foreach (Building building in city.buildings)
                     if ((IndustryBuildingSystem.IsMine(building?.asset) || IndustryBuildingSystem.IsLumber(building?.asset)) &&
                         !building.isUnderConstruction()) mines++;

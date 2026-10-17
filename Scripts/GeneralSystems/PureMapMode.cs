@@ -88,8 +88,10 @@ public static class PureMapMode
     public static bool IsDecor(BuildingAsset asset) =>
         asset != null && (DecorTypes.Contains(asset.type ?? "") || DecorIds.Contains(asset.id ?? ""));
 
+    // 植物、庄稼、装饰，连同改为村镇生计的矿场、伐木场、牧场、屠宰场(见 LivelihoodSystem.Replaces)
     private static bool ShouldClear(Building building) =>
-        building?.asset != null && (building.asset.flora || building.asset.wheat || IsDecor(building.asset));
+        building?.asset != null && (building.asset.flora || building.asset.wheat || IsDecor(building.asset) ||
+                                    LivelihoodSystem.Replaces(building.asset));
 
     private static void TurnOffSprites()
     {

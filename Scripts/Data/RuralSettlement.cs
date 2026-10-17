@@ -19,4 +19,8 @@ public sealed class RuralSettlement
     public long seed;
     // 彻底抹去了(见 RuralSettlementSystem.Erase)：不画、不算数、不重建，只留着占住原处，城郊不再在这里另建
     public bool cleared;
+    // 生计(见 LivelihoodSystem：0 农、1 林、2 矿、3 牧、4 渔；-1 = 还没定，按四周地形补定)
+    public int trade = -1;
+    // 官营(国库出钱建的，见 EnterpriseSystem.Fund)；民营为 false
+    public bool state;
 }

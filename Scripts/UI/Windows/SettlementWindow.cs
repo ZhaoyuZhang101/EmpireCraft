@@ -14,9 +14,10 @@ using UnityEngine.UI;
 namespace EmpireCraft.Scripts.UI.Windows;
 
 // 村镇小窗口(用户 2026-10-17 "点击后打开一个很小的窗口, 就像那个帝国设置的界面一样……升级降级, 改名")：
-// 拉近到看得见镇村时点一下镇村打开(见 MapLabelOverlay.HandleClick)。宽窗口 480×180、两张半宽卡，同帝国设置——
+// 拉近到看得见镇村时点一下镇村打开(见 MapLabelOverlay.HandleClick)。宽窗口 480×200、两张半宽卡，同帝国设置——
 //   左「概况」：名字(可改)、档位(村 → 镇 → 有墙大镇，升级降级)、约多少人、属哪座城哪国、完好或毁了几年；
-//   右「营建」：换个样子(只换这一处的布局种子)、毁弃(完好的毁为废墟，废墟彻底抹去)或重建废墟，改隶与固定城乡格局的说明。
+//   右「营建」：生计(务农、伐木、采矿、放牧、打鱼，可改，见 LivelihoodSystem)与一年的出产，林场、矿、牧的官营民营(可改)；
+//     换个样子(只换这一处的布局种子)、毁弃(完好的毁为废墟，废墟彻底抹去)或重建废墟，改隶与固定城乡格局的说明。
 public class SettlementWindow : AbstractWideWindow<SettlementWindow>
 {
     private const float CardWidth = (UIHelper.WidePanelWidth - UIHelper.CardGap) / 2f;
@@ -106,6 +107,36 @@ public class SettlementWindow : AbstractWideWindow<SettlementWindow>
 
         // 营建
         var build = columns.BeginColumnCard(CardWidth, "settlement_window_build", icons: "ui/icons/godpowers/place_town");
+        // 生计(关城没有，见 LivelihoodSystem)：做哪一行、几级、一年出多少；林场、矿、牧分官营民营
+        int trade = LivelihoodSystem.Of(settlement);
+        if (trade >= 0)
+        {
+            var tradeRow = build.BeginHoriGroup(new Vector2(RowWidth, 16f), TextAnchor.MiddleLeft, 3, new RectOffset(0, 0, 0, 0));
+            string level = city != null && trade is LivelihoodSystem.Mine or LivelihoodSystem.Forest
+                ? string.Format(LM.Get("livelihood_level"), LivelihoodSystem.Level(city, trade)) : "";
+            tradeRow.AddTextIntoHoriLayout((string.Format(LM.Get("livelihood_row"), LivelihoodSystem.Name(trade)) + level).ColorString("#F2EEE2"),
+                true, TextAnchor.MiddleLeft, new Vector2(RowWidth - 46f, 14f)).UseFixedFontSize(7, HorizontalWrapMode.Overflow);
+            tradeRow.AddButtonIntoHoriLayout("settlement_trade", LM.Get("livelihood_change"), () =>
+            {
+                RuralSettlement now = RuralSettlementSystem.ById(_selected);
+                if (now != null) RuralSettlementSystem.SetTrade(now, LivelihoodSystem.Of(now) + 1);
+                Draw();
+            }, size: new Vector2(42f, 14f));
+            Line(build, LivelihoodSystem.Describe(settlement, city).ColorString(ruined ? "#E9A85B" : "#65D66E"));
+            if (LivelihoodSystem.IsEnterprise(trade))
+            {
+                var ownRow = build.BeginHoriGroup(new Vector2(RowWidth, 16f), TextAnchor.MiddleLeft, 3, new RectOffset(0, 0, 0, 0));
+                ownRow.AddTextIntoHoriLayout(string.Format(LM.Get("enterprise_row"),
+                        LM.Get(settlement.state ? "enterprise_state" : "enterprise_private")).ColorString("#D9B36A"), true,
+                    TextAnchor.MiddleLeft, new Vector2(RowWidth - 46f, 14f)).UseFixedFontSize(7, HorizontalWrapMode.Overflow);
+                ownRow.AddButtonIntoHoriLayout("settlement_state", LM.Get(settlement.state ? "enterprise_to_private" : "enterprise_to_state"), () =>
+                {
+                    RuralSettlement now = RuralSettlementSystem.ById(_selected);
+                    if (now != null) RuralSettlementSystem.SetState(now, !now.state);
+                    Draw();
+                }, size: new Vector2(42f, 14f));
+            }
+        }
         var buttons = build.BeginHoriGroup(new Vector2(RowWidth, 18f), TextAnchor.MiddleLeft, 3, new RectOffset(0, 0, 0, 0));
         buttons.AddButtonIntoHoriLayout("settlement_reroll", LM.Get("settlement_reroll"), () =>
         {

@@ -19,6 +19,9 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //      为民营；国库出钱为官营。官营产业按占全城产业的比例，从工业产值里拿出 PublicProfitShare 作为官营利润，
 //      按税收分成上缴(见 TreasuryCategory.PublicEnterprise)；这部分不再进民间收入，也不再征工业税。
 //      重商、农商并重时民间投资优先；工业化、重农抑商或施行“盐铁专卖”类制度(特性 state_enterprise)时官办优先。
+//   4. 纯净地图(用户 2026-10-17 选"花钱，分官营民营")：产业是城外林场、矿、牧的镇村与厂区里的厂(见 LivelihoodSystem、
+//      FactorySystem)。AI 新建镇村、厂区，添厂、升级、扩建都要出钱(见 Fund/FundOwned)，照上面的先后定国库出还是投资池出，
+//      国库出钱的记为官营；官营的按份数从工业产值里拿利润上缴。神力手动建的不花钱，小窗口里可以改官营民营。
 public static class EnterpriseSystem
 {
     private const float InvestSharePerYear = 0.3f;
@@ -222,10 +225,53 @@ public static class EnterpriseSystem
         if (!ids.Contains(building.data.id)) { ids.Add(building.data.id); FiscalDiagnostics.Count("官营开办"); }
     }
 
-    // 建成的产业建筑中官营的占比(顺带清掉已经不存在的登记)
+    // ---- 村镇、厂区的营建(纯净地图，用户 2026-10-17 选"花钱，分官营民营")：AI 新建、扩建要花钱 ----
+    // 新建：照国策国库先出或民间投资池先出(见 StatePreferred)，国库出钱的归官营、投资池出钱的归民营；
+    // selfBuild：没人出得起时百姓自建(村)，归民营；否则出不起就不建
+    public static bool Fund(City city, int cost, bool selfBuild, out bool state)
+    {
+        state = false;
+        if (!Active || city?.data == null || cost <= 0) return true;
+        bool prefer = StatePreferred(city.kingdom);
+        if (prefer && PayPublicFirst(city, cost))
+        {
+            state = true;
+            return true;
+        }
+        if (Pool(city) >= cost)
+        {
+            SpendPool(city, cost);
+            return true;
+        }
+        if (!prefer && PayPublicFirst(city, cost))
+        {
+            state = true;
+            return true;
+        }
+        return selfBuild;
+    }
+
+    public static bool CanFund(City city, int cost) => !Active || city?.data == null || CanPay(city, cost, true);
+
+    // 已有的扩建、添厂、升级：官营的国库出钱，民营的民间投资池出钱
+    public static bool FundOwned(City city, int cost, bool state)
+    {
+        if (!Active || city?.data == null || cost <= 0) return true;
+        if (state) return PayPublicFirst(city, cost);
+        if (Pool(city) < cost) return false;
+        SpendPool(city, cost);
+        return true;
+    }
+
+    // 建成的产业建筑中官营的占比(顺带清掉已经不存在的登记)；纯净地图按林场、矿、牧的镇村与厂区里的厂算(见 LivelihoodSystem)
     public static void CountEnterprises(City city, out int total, out int publicCount)
     {
         total = publicCount = 0;
+        if (LivelihoodSystem.Active)
+        {
+            LivelihoodSystem.CountEnterprises(city, out total, out publicCount);
+            return;
+        }
         if (city?.buildings == null) return;
         List<long> ids = city.GetOrCreate().public_enterprise_ids;
         HashSet<long> alive = ids != null && ids.Count > 0 ? new HashSet<long>() : null;

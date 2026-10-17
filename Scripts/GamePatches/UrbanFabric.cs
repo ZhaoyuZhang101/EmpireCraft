@@ -361,6 +361,8 @@ public static class UrbanFabric
         // 镇村是固定的地方(见 RuralSettlementSystem)：先摆上存档里落在本城地上的；被城区盖住的不画、不算数，
         // 毁于兵火的画成废墟、照样算数；不够数才照下面原来的选址办法新建，建了就记进存档
         int townCount = 0, villageCount = 0;
+        // 本城头一回摆镇村(新城、旧档的底子)不花钱，以后 AI 新建的要出钱(见 RuralSettlementSystem.Fund)
+        bool initial = RuralSettlementSystem.InCity(g.City).Count == 0;
         unchecked
         {
             // 按生成先后排(本城原有的镇村先后与原来一样，标注起名、画法都对得上)
@@ -371,7 +373,8 @@ public static class UrbanFabric
                 if (!Open(g, settlement.x, settlement.y)) continue;
                 g.SettlementHash = g.SettlementHash * 31 + settlement.id * 7 + (settlement.ruined_at >= 0d ? 3 : 1) +
                                    (int)settlement.seed * 13 + RuralSettlementSystem.Tier(settlement) * 5 +
-                                   (settlement.name?.GetHashCode() ?? 0) + (settlement.fort ? 11 : 0);
+                                   (settlement.name?.GetHashCode() ?? 0) + (settlement.fort ? 11 : 0) +
+                                   LivelihoodSystem.Of(settlement) * 17;
                 // 关城：不算村镇数
                 if (settlement.fort)
                 {
@@ -415,9 +418,12 @@ public static class UrbanFabric
             if (!Open(g, x, y) && !edge || g.Towns.Exists(t => Mathf.Abs(t.x - x) + Mathf.Abs(t.y - y) < t.size + size + 6) ||
                 Taken(x, y, size + 4)) continue;
             bool walled = tier >= 3 && H(g.Seed, attempt, 64) < 0.45f;
+            // 设镇要出钱(国库或民间投资池)，出不起就不建
+            if (!RuralSettlementSystem.Fund(g.City, true, walled, initial, out bool state)) break;
             g.Towns.Add((x, y, size, walled));
             townCount++;
             RuralSettlement town = RuralSettlementSystem.Add(x, y, true, size, walled);
+            town.state = state;
             if (!edge) continue;
             RuralSettlementSystem.Found(g.City, town, g.GateX, g.GateY, far);
             frontier = false;
@@ -461,18 +467,23 @@ public static class UrbanFabric
         {
             if (!grow || villageCount >= villages) break;
             if (!Open(g, x, y) || !Spaced(x, y)) continue;
+            // 立村：有人出钱就出(国库出的归官营)，没人出得起百姓自建
+            RuralSettlementSystem.Fund(g.City, false, false, initial, out bool state);
             g.Villages.Add((x, y));
             villageCount++;
-            RuralSettlementSystem.Add(x, y, false, 0, false);
+            RuralSettlementSystem.Add(x, y, false, 0, false).state = state;
         }
         // 本城地上不够数：城外最近的一处村址(见上面的 frontier)
         if (grow && villageCount < villages)
             foreach ((int x, int y, _) in sites)
             {
                 if (!Edge(x, y) || !Spaced(x, y)) continue;
+                RuralSettlementSystem.Fund(g.City, false, false, initial, out bool state);
                 g.Villages.Add((x, y));
                 villageCount++;
-                RuralSettlementSystem.Found(g.City, RuralSettlementSystem.Add(x, y, false, 0, false), g.GateX, g.GateY, far);
+                RuralSettlement founded = RuralSettlementSystem.Add(x, y, false, 0, false);
+                founded.state = state;
+                RuralSettlementSystem.Found(g.City, founded, g.GateX, g.GateY, far);
                 break;
             }
         // 画出来的路：两城之间的官道(见 Links)；通往邻城有官道的方向不再另画出城大路，出城大路、岔路走到本城地界以前收住

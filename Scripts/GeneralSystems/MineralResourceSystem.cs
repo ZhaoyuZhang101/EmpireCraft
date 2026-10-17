@@ -245,6 +245,9 @@ public static class MineralResourceSystem
     // 本城最高矿场等级
     public static int MineTier(City city)
     {
+        // 纯净地图：有矿村就按本文化的采矿等级(见 LivelihoodSystem)
+        if (LivelihoodSystem.Active)
+            return LivelihoodSystem.Shares(city, LivelihoodSystem.Mine) > 0f ? LivelihoodSystem.Level(city, LivelihoodSystem.Mine) : 0;
         int tier = 0;
         if (city?.buildings == null) return 0;
         foreach (Building building in city.buildings)

@@ -118,9 +118,9 @@ internal static class MainTab
         // 设置窗口换宽窗口(标题用 "<窗口id> Title" 约定 key)，内容只有两张卡，窗口矮一些
         EmpireSettingWindow.CreateAndInit(nameof(EmpireSettingWindow), new Vector2(480f, 180f));
         // 村镇小窗口(点地图上的镇村打开)
-        SettlementWindow.CreateAndInit(nameof(SettlementWindow), new Vector2(480f, 180f));
+        SettlementWindow.CreateAndInit(nameof(SettlementWindow), new Vector2(480f, 200f));
         // 厂区小窗口(点地图上的厂区打开)
-        FactoryWindow.CreateAndInit(nameof(FactoryWindow), new Vector2(480f, 180f));
+        FactoryWindow.CreateAndInit(nameof(FactoryWindow), new Vector2(480f, 200f));
         MetaColorWindow.CreateWindow(nameof(MetaColorWindow),
             nameof(MetaColorWindow) + "Title");
         // 政体、派系详情改宽窗口(标题用 "<窗口id> Title" 约定 key)

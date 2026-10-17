@@ -215,6 +215,12 @@ public class CityPatch : GamePatch
             return false;
         }
         BuildingAsset buildingAsset = pBuildAsset.getBuildingAsset(pCity);
+        // 纯净地图：矿场、伐木场、牧场、屠宰场改为城外村镇的生计(见 LivelihoodSystem)，不再建、不再升
+        if (EmpireCraft.Scripts.GeneralSystems.LivelihoodSystem.Replaces(buildingAsset))
+        {
+            __result = false;
+            return false;
+        }
         if (pBuildAsset.min_zones != 0 && pCity.zones.Count < pBuildAsset.min_zones)
         {
             __result = false;

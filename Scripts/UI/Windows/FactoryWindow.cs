@@ -16,8 +16,8 @@ using UnityEngine.UI;
 namespace EmpireCraft.Scripts.UI.Windows;
 
 // 厂区小窗口(用户 2026-10-17 "如果打开工厂区, 我能看点里面有什么厂(图标) 而且可以给他们升级降级添加并取消还能看到他们的产出")：
-// 拉近后点厂区打开(见 MapLabelOverlay.HandleClick)。宽窗口 480×180、两张半宽卡，同村镇小窗口——
-//   左「概况」：名字(可改)、大小(小 → 中 → 大厂区，扩建缩建)、厂几座、合计岗位与年产值、属哪座城哪国，换个样子、拆除；
+// 拉近后点厂区打开(见 MapLabelOverlay.HandleClick)。宽窗口 480×200、两张半宽卡，同村镇小窗口——
+//   左「概况」：名字(可改)、大小(小 → 中 → 大厂区，扩建缩建)、厂几座、合计岗位与年产值、官营民营(可改)、属哪座城哪国，换个样子、拆除；
 //   右「工厂」：每座厂一行(门类图标、名字、等级、岗位、年产值，升级、降级、拆掉)，没满时末尾一排已解锁门类的图标，点哪个添哪个。
 public class FactoryWindow : AbstractWideWindow<FactoryWindow>
 {
@@ -112,6 +112,16 @@ public class FactoryWindow : AbstractWideWindow<FactoryWindow>
         int jobs = site.units.Sum(FactorySystem.JobsOf);
         float value = site.units.Sum(FactorySystem.ValueOf);
         Line(info, string.Format(LM.Get("factory_window_total"), jobs, Mathf.RoundToInt(value)).ColorString("#65D66E"));
+        // 官营民营(见 EnterpriseSystem：官营的利润上缴国库)
+        var ownRow = info.BeginHoriGroup(new Vector2(RowWidth, 16f), TextAnchor.MiddleLeft, 3, new RectOffset(0, 0, 0, 0));
+        ownRow.AddTextIntoHoriLayout(string.Format(LM.Get("enterprise_row"), LM.Get(site.state ? "enterprise_state" : "enterprise_private"))
+            .ColorString("#D9B36A"), true, TextAnchor.MiddleLeft, new Vector2(RowWidth - 46f, 14f)).UseFixedFontSize(7, HorizontalWrapMode.Overflow);
+        ownRow.AddButtonIntoHoriLayout("factory_state", LM.Get(site.state ? "enterprise_to_private" : "enterprise_to_state"), () =>
+        {
+            FactorySite now = FactorySystem.ById(_selected);
+            if (now != null) now.state = !now.state;
+            Draw();
+        }, size: new Vector2(42f, 14f));
         Line(info, (city == null
             ? LM.Get("settlement_unowned")
             : string.Format(LM.Get("settlement_owner"), city.GetCityName(), city.kingdom?.GetKingdomName() ?? "")).ColorString("#7FD8EA"));

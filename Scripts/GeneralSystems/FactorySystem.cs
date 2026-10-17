@@ -220,7 +220,23 @@ public static class FactorySystem
         foreach (FactorySite site in InCity(city))
             foreach (FactoryUnit unit in site.units)
                 value += ValueOf(unit);
-        if (value > 0f) data.produced_value += value * years;
+        if (value <= 0f) return;
+        // 记进工业那一栏(交工业税，官营的那份利润从这里拿，见 EnterpriseSystem.TakePublicProfit)
+        float made = value * years;
+        data.produced_value += made;
+        var sectors = data.produced_sector_values ??= new();
+        string key = TreasuryCategory.IndustrialTax.ToString();
+        sectors.TryGetValue(key, out float previous);
+        sectors[key] = previous + made;
+    }
+
+    // AI 营建的花费(神力手动的不花钱)：添一座厂按门类年产值，升级按年产值乘新等级的一半，扩建每级 100，新建一片小厂区 80 加里面的厂
+    private const int ExpandCostPerSize = 100, SiteCost = 80;
+
+    private static int UnitCost(string type, int level)
+    {
+        int index = TypeIndex(type);
+        return index < 0 ? 0 : UnityEngine.Mathf.RoundToInt(Types[index].value * Math.Max(1, level) * (level <= 1 ? 1f : 0.5f));
     }
 
     #endregion
@@ -268,7 +284,8 @@ public static class FactorySystem
         {
             List<string> fresh = unlocked.Where(type => !open.units.Exists(unit => unit.type == type)).ToList();
             List<string> pool = fresh.Count > 0 ? fresh : unlocked;
-            AddUnit(open, pool[UnityEngine.Random.Range(0, pool.Count)]);
+            string type = pool[UnityEngine.Random.Range(0, pool.Count)];
+            if (EnterpriseSystem.FundOwned(city, UnitCost(type, 1), open.state)) AddUnit(open, type);
             return;
         }
         // 给一座厂升一级
@@ -277,27 +294,35 @@ public static class FactorySystem
         if (upgradable.Count > 0 && UnityEngine.Random.value < 0.5f)
         {
             var pick = upgradable[UnityEngine.Random.Range(0, upgradable.Count)];
-            SetLevel(pick.site, pick.index, pick.unit.level + 1);
+            if (EnterpriseSystem.FundOwned(city, UnitCost(pick.unit.type, pick.unit.level + 1), pick.site.state))
+                SetLevel(pick.site, pick.index, pick.unit.level + 1);
             return;
         }
         // 厂区满了、城够大：扩建一片
         if (sites.Count >= wanted)
         {
             FactorySite small = sites.Where(site => site.size < MaxSize && site.size < tier - 1).OrderBy(site => site.size).FirstOrDefault();
-            if (small != null) Resize(small, small.size + 1);
+            if (small != null && EnterpriseSystem.FundOwned(city, ExpandCostPerSize * (small.size + 1), small.state))
+                Resize(small, small.size + 1);
             return;
         }
         // 不够数：城区边上(离城心由近及远、不在城区里)新建一片小厂区
         WorldTile center = city.getTile();
         HashSet<int> built = PureMapPatch.BuiltZones(city);
         if (center == null || built == null) return;
+        // 新建一片小厂区(两座厂)：先看出不出得起，建成了再按国策定谁出钱
+        int cost = SiteCost + Capacity(1) * UnityEngine.Mathf.RoundToInt((float)unlocked.Average(type => UnitCost(type, 1)));
+        if (!EnterpriseSystem.CanFund(city, cost)) return;
         int tries = 0;
         foreach (TileZone zone in city.zones.Where(zone => zone?.centerTile != null && !built.Contains(zone.id) && zone != center.zone)
                      .OrderBy(zone => Toolbox.SquaredDistTile(zone.centerTile, center)).ToList())
         {
             if (++tries > 16) break;
             Place(zone.centerTile, 1, out FactorySite placed);
-            if (placed != null) return;
+            if (placed == null) continue;
+            if (EnterpriseSystem.Fund(city, cost, false, out bool state)) placed.state = state;
+            else Remove(placed);
+            return;
         }
     }
 

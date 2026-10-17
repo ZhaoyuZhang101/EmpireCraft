@@ -13,6 +13,8 @@ public sealed class FactorySite
     public string name = "";
     // 布局种子(「换个样子」换一个)
     public long seed;
+    // 官营(国库出钱建的，见 EnterpriseSystem.Fund)；民营为 false
+    public bool state;
     // 区里的厂
     public List<FactoryUnit> units = new();
 }

@@ -131,7 +131,7 @@ public static class PopulationEconomySystem
         // 自给口粮自己吃掉，不是收入
         Deposit(city, data, _foodId ?? "berries", numeric.Production?.Subsistence ?? background * SubsistenceFoodPerYear * years, income: false);
         // 矿场、伐木场固定产出：每座建成的每年产出固定数量，按等级倍增、本城有工厂再加成，不看岗位和人口
-        // (见 IndustryBuildingSystem)
+        // (见 IndustryBuildingSystem；纯净地图按矿村、林场村折算，见 LivelihoodSystem)
         float mines = plan == null ? IndustryBuildingSystem.MineOutputFactor(city) : 0f;
         if(plan != null)
             for(int i=plan.JobCount;i<plan.Resources.Length;i++)Deposit(city,data,plan.Resources[i],numeric.Production.Outputs[i]);
@@ -142,6 +142,8 @@ public static class PopulationEconomySystem
         MineralResourceSystem.Produce(city, data, years);
         // 工厂区里的厂按门类、等级出产值(见 FactorySystem)
         FactorySystem.Produce(city, data, years);
+        // 渔村打的鱼(见 LivelihoodSystem)
+        LivelihoodSystem.Produce(city, data, years);
         // 伐木场砍本城领地里的树出木头(见 IndustryBuildingSystem.HarvestTrees)
         float wood = IndustryBuildingSystem.HarvestTrees(city, years) / Mathf.Max(0.0001f, years);
         if (wood > 0f && AssetManager.resources?.get("wood") != null) Deposit(city, data, "wood", wood * years);
@@ -540,6 +542,9 @@ public static class PopulationEconomySystem
             foreach (var pair in JobOutputs())
                 if (pair.Item1 != null && pair.Item2.Length > 0)
                     productive += Math.Max(0, city.jobs.countCurrentJobs(pair.Item1));
+            // 纯净地图：矿、林、牧的岗位在村镇里(见 LivelihoodSystem.Jobs)，田是农村的田，不看风车
+            if (LivelihoodSystem.Active)
+                return productive + LivelihoodSystem.Jobs(city) + (CityPopulationSystem.Get(city)?.farm_jobs ?? 0f);
             foreach (Building building in city.buildings)
                 if (building?.asset != null && !building.isUnderConstruction() &&
                     (IndustryBuildingSystem.IsMine(building.asset) || IndustryBuildingSystem.IsLumber(building.asset)))
