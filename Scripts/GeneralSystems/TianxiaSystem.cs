@@ -231,13 +231,13 @@ public static class TianxiaSystem
             if (a == null || b == null || a == b) continue;
             string id = TianxiaId(a, explicitOnly: true);
             if (id == "" || id != TianxiaId(b, explicitOnly: true)) continue;
-            // 小的并进大的(城多的作主)；玩家动过的那边不挪
+            // 小的并进大的(城多的作主)；任一边被玩家动过(加入、退出都会锁)就不自动合并——以前锁了的一边反而把对面并进来：
+            // 刚退出的小核心第二年就把原来的大天下吞了、抹掉大天下的天命
             List<EmpireCore> ma = Members(a), mb = Members(b);
-            bool aLocked = ma.Any(core => core.tianxia_locked), bLocked = mb.Any(core => core.tianxia_locked);
+            if (ma.Any(core => core.tianxia_locked) || mb.Any(core => core.tianxia_locked)) continue;
             int ca = ma.Sum(core => EmpireCoreManager.GetCities(core).Count), cb = mb.Sum(core => EmpireCoreManager.GetCities(core).Count);
-            bool moveA = bLocked ? !aLocked : aLocked ? false : ca < cb || ca == cb && a.id > b.id;
-            if (moveA && !aLocked) Join(a, b, manual: false);
-            else if (!moveA && !bLocked) Join(b, a, manual: false);
+            if (ca < cb || ca == cb && a.id > b.id) Join(a, b, manual: false);
+            else Join(b, a, manual: false);
         }
     }
 

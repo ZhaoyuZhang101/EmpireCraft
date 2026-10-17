@@ -37,7 +37,8 @@ public static class UnificationSystem
 {
     private const float ContenderShare = 0.3f, PowerLead = 2f, PowerLeadMinShare = 0.08f, UnifiedShare = 0.9f,
         LostShare = 0.2f, CollapsedShare = 0.06f;
-    private const int GraceYears = 30, MaxWars = 4, LateYears = 10, MinCities = 8, MinContenders = 3;
+    // 两家就可以争(南北对峙、分治的两朝也要能统一，以前要三家，两强对峙永远不打统一战)
+    private const int GraceYears = 30, MaxWars = 4, LateYears = 10, MinCities = 8, MinContenders = 2;
     // 统一战争最多打这么多年；到期地盘过半算统一了，不到就中辍
     private const int MaxUnifyYears = 30;
     private const float LateUnifiedShare = 0.5f;
@@ -383,11 +384,13 @@ public static class UnificationSystem
                 Submissions(unifier);
                 continue;
             }
-            // 乱世(三家以上)：看有没有天命所归的
+            // 乱世(两家以上)：看有没有天命所归的
             var ranked = powers.Where(holder => !Exempt(holder)).OrderByDescending(holder => realm.held[holder]).ToList();
             if (ranked.Count < MinContenders) continue;
             Kingdom top = ranked[0];
-            if (top.GetOrCreate().unified_at >= 0d) continue;
+            // 还在开国气象里的统一者不再起统一战；气象过了，旧王朝(崩了以后的残部)也能重新问鼎——以前"统一过"的标记永远不清，
+            // 残部仍是最大一家时谁都发不起统一战，天下永远乱世
+            if (InGrace(top)) continue;
             float topShare = realm.held[top] / (float)realm.total;
             double topPower = WarSituation.Power(top);
             double second = ranked.Skip(1).Select(holder => WarSituation.Power(holder)).DefaultIfEmpty(0d).Max();

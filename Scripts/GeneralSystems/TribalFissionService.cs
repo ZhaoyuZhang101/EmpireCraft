@@ -438,7 +438,7 @@ public static class TribalFissionService
             // 别的文化线没有自己的原始节点：照旧用共用的原始政体，不因为解析不出来就改(游牧、阿拉伯从部落起步，
             // 本文化成了汗国、哈里发国，帝国之外的部落一并改过去)
             if (target == current || !RegimeManager.IsPrimitive(target) && current == RegimeType.Origin &&
-                InstitutionSystem.GetCultureLine(culture) is not ("Huaxia" or "Youmu" or "Arabic")) continue;
+                InstitutionSystem.GetCultureLine(culture) is not ("Huaxia" or "Youmu" or "Arabic" or "Japan")) continue;
             try
             {
                 if (empire != null) InstitutionSystem.ChangeRegimeForTransition(empire, target);

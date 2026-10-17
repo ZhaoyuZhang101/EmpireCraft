@@ -76,7 +76,8 @@ public static class AnimalHusbandrySystem
         if (kingdom == null || kingdom.wild || kingdom.isRekt()) return false;
         try
         {
-            return InstitutionSystem.GetCultureLine(CultureService.GetRealmCulture(kingdom)) == "Youmu";
+            // 按文化不按制度线：游牧一系也含阿兹特克、林地部族，他们不是游牧
+            return CultureService.GetRealmCulture(kingdom) == "Youmu";
         }
         catch
         {

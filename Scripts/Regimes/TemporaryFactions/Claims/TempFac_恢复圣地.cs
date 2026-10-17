@@ -46,18 +46,12 @@ public class TempFac_恢复圣地 : TemporaryFaction
             !GeneralSystems.InstitutionSystem.HasFeature(empire, InstitutionFeatures.TheocraticState))
             return false;
         var religion = empire.Religion;
-        if (!religion.isRekt())
-        {
-            var religionCity = religion.GetCity();
-            if (!religionCity.isCapitalCity())
-            {
-                if (religionCity.kingdom.IsInEmpire())
-                {
-                    SetCityTarget(religionCity);
-                    return true;
-                }
-            }
-        }
-        return false;
+        if (religion == null || religion.isRekt()) return false;
+        var religionCity = religion.GetCity();
+        if (religionCity?.kingdom == null || religionCity.isRekt() || religionCity.isCapitalCity()) return false;
+        // 只把本帝国里的圣城立为教宗国(以前任何帝国里的圣城都能分出来并进自己帝国，等于白拿别国的城)
+        if (religionCity.kingdom.GetEmpire() != empire) return false;
+        SetCityTarget(religionCity);
+        return true;
     }
 }

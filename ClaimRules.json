@@ -1,5 +1,5 @@
 {
-  "_comment": "派系决议与文化制度树、科技时代的对应(见 Scripts/GeneralSystems/ClaimRules.cs)。cultures 只有这些文化才有；min_era/max_era 科技时代 tier(1 石器 … 7 工业 … 11 未来，0 不限)；lines 各制度线(Huaxia/Roma/Arabic/Youmu)的要求，没列出的线 = 没有这条路线、不出现；any 已施行其一才提出，none 已施行其一就不再提出，push 决议成功后对第一个未施行的制度发起改革；special: sinicized_nomad = 已采纳中原制度的游牧政权。没写进本文件的决议不受限制。",
+  "_comment": "派系决议与文化制度树、科技时代的对应(见 Scripts/GeneralSystems/ClaimRules.cs)。cultures 只有这些文化才有；min_era/max_era 科技时代 tier(1 石器 … 7 工业 … 11 未来，0 不限)；lines 各制度线(Huaxia/Roma/Arabic/Youmu/Japan)的要求，没列出的线 = 没有这条路线、不出现；any 已施行其一才提出，none 已施行其一就不再提出，push 决议成功后对第一个未施行的制度发起改革；special: sinicized_nomad = 已采纳中原制度的游牧政权。没写进本文件的决议不受限制。",
   "开科取士": {
     "lines": {
       "Huaxia": {}
@@ -7,7 +7,12 @@
   },
   "推行三省六部": {
     "lines": {
-      "Huaxia": {}
+      "Huaxia": {},
+      "Japan": {
+        "any": [
+          "japan_ritsuryo_state"
+        ]
+      }
     }
   },
   "设立内阁": {
@@ -31,6 +36,11 @@
       "Youmu": {
         "push": [
           "youmu_provincial_system"
+        ]
+      },
+      "Japan": {
+        "push": [
+          "japan_ritsuryo_state"
         ]
       }
     }
@@ -66,6 +76,11 @@
         "push": [
           "youmu_provincial_system"
         ]
+      },
+      "Japan": {
+        "push": [
+          "japan_sankin_kotai"
+        ]
       }
     }
   },
@@ -74,6 +89,11 @@
       "Huaxia": {
         "push": [
           "zhou_forbid_private_wars"
+        ]
+      },
+      "Japan": {
+        "any": [
+          "japan_bakufu"
         ]
       }
     }
@@ -104,6 +124,13 @@
           "youmu_ideology_socialism",
           "youmu_ideology_communism"
         ]
+      },
+      "Japan": {
+        "any": [
+          "japan_handen",
+          "japan_ideology_socialism",
+          "japan_ideology_communism"
+        ]
       }
     }
   },
@@ -128,6 +155,11 @@
         ],
         "any": [
           "youmu_lift_party_ban"
+        ]
+      },
+      "Japan": {
+        "any": [
+          "japan_lift_party_ban"
         ]
       }
     }
@@ -156,6 +188,12 @@
       "Youmu": {
         "any": [
           "youmu_ulus_appanage"
+        ]
+      },
+      "Japan": {
+        "any": [
+          "japan_shoen_estates",
+          "japan_bakufu"
         ]
       }
     }
@@ -187,6 +225,14 @@
         "any": [
           "youmu_ulus_appanage"
         ]
+      },
+      "Japan": {
+        "any": [
+          "japan_shoen_estates"
+        ],
+        "none": [
+          "japan_sankin_kotai"
+        ]
       }
     }
   },
@@ -206,6 +252,11 @@
         "any": [
           "youmu_decimal_army"
         ]
+      },
+      "Japan": {
+        "any": [
+          "japan_samurai_bands"
+        ]
       }
     }
   },
@@ -224,6 +275,11 @@
       "Youmu": {
         "any": [
           "youmu_decimal_army"
+        ]
+      },
+      "Japan": {
+        "any": [
+          "japan_samurai_bands"
         ]
       }
     }
@@ -249,6 +305,11 @@
         "any": [
           "youmu_provincial_system"
         ]
+      },
+      "Japan": {
+        "any": [
+          "japan_ritsuryo_state"
+        ]
       }
     }
   },
@@ -273,6 +334,12 @@
       "Youmu": {
         "any": [
           "youmu_ulus_appanage"
+        ]
+      },
+      "Japan": {
+        "any": [
+          "japan_shoen_estates",
+          "japan_bakufu"
         ]
       }
     }
@@ -300,7 +367,8 @@
       },
       "Roma": {},
       "Arabic": {},
-      "Youmu": {}
+      "Youmu": {},
+      "Japan": {}
     }
   },
   "颁布金玺诏书": {
@@ -458,9 +526,13 @@
       },
       "Youmu": {
         "any": [
-          "youmu_tribal_confederation"
-        ],
-        "special": "sinicized_nomad"
+          "youmu_post_relay_network"
+        ]
+      },
+      "Arabic": {
+        "any": [
+          "arabic_jizya_tax"
+        ]
       }
     }
   },
@@ -499,6 +571,12 @@
           "youmu_ideology_communism",
           "youmu_ideology_socialism"
         ]
+      },
+      "Japan": {
+        "any": [
+          "japan_ideology_communism",
+          "japan_ideology_socialism"
+        ]
       }
     }
   },
@@ -526,6 +604,12 @@
         "any": [
           "youmu_ideology_communism",
           "youmu_ideology_socialism"
+        ]
+      },
+      "Japan": {
+        "any": [
+          "japan_ideology_communism",
+          "japan_ideology_socialism"
         ]
       }
     }
@@ -555,6 +639,12 @@
           "youmu_ideology_communism",
           "youmu_ideology_socialism"
         ]
+      },
+      "Japan": {
+        "any": [
+          "japan_ideology_communism",
+          "japan_ideology_socialism"
+        ]
       }
     }
   },
@@ -578,7 +668,8 @@
         "none": [
           "youmu_religious_tolerance"
         ]
-      }
+      },
+      "Japan": {}
     }
   },
   "开放移民": {
@@ -609,6 +700,11 @@
         "any": [
           "youmu_ideology_capitalism"
         ]
+      },
+      "Japan": {
+        "any": [
+          "japan_ideology_capitalism"
+        ]
       }
     }
   },
@@ -633,6 +729,11 @@
       "Youmu": {
         "any": [
           "youmu_ideology_capitalism"
+        ]
+      },
+      "Japan": {
+        "any": [
+          "japan_ideology_capitalism"
         ]
       }
     }

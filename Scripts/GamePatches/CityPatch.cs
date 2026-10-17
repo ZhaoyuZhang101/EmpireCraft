@@ -460,7 +460,10 @@ public class CityPatch : GamePatch
                 Empire empire = joinAfterCapture.GetEmpire();
                 if (__instance.isCapitalCity() && __instance.kingdom.countCities() > NomadAnnexMaxCities && empire != null)
                 {
-                    __instance.kingdom.JoinTakenAlliance(empire, pForce: true);
+                    // 收不了朝贡(还没施行驿传网络之类的朝贡制度)就改为赔款三成，不至于打下都城一无所得
+                    if (EmpireCraft.Scripts.GeneralSystems.FeudalConquestService.HasTributeInstitution(empire))
+                        __instance.kingdom.JoinTakenAlliance(empire, pForce: true);
+                    else EmpireCraft.Scripts.GeneralSystems.TreasurySystem.TransferWarSpoils(__instance, pNewKingdom, 0.3f);
                     ClearResolvedCaptureProgress(__instance);
                     expendWar.lostWar(__instance.kingdom);
                     return false;

@@ -56,13 +56,18 @@ public class EmpireCraftEmpireBehCheckCabinet : GameAIEmpireBase
                 // 施行「元老院」后维护元老名单(执政官出缺时按派系投票)
                 SenateSystem.Maintain(empire);
                 break;
+            case RegimeType.Bakufu:
+                // 幕府的三席(老中)：同律令按主导派系维护(以前没有这一支，每次都抛异常)
+                SetCabinetForLvLing(empire);
+                break;
             case RegimeType.YouMu:
             case RegimeType.Modern:
             case RegimeType.Origin:
             case RegimeType.HuaxiaOrigin:
                 break;
             default:
-                throw new ArgumentOutOfRangeException();
+                // 新政体没登记内阁规则：不维护，不抛异常
+                break;
         }
 
         if (parliament)
