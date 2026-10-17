@@ -2424,6 +2424,7 @@
   "institution_arabic_bedouin_clans_desc": "Clans bound by blood hold their own oases and trade routes. Wars between tribes are raids for goods that end in reparations; no tribe can absorb another.",
   "institution_arabic_tribal_union": "Tribal Union",
   "institution_arabic_tribal_union_desc": "Once enacted, a tribe that wins a war makes the loser acknowledge it as leader (before this, wars end only in reparations), and the winner becomes a tribal alliance. Member tribes stay self-governing.",
+  "emirate_hereditary": "The emir of {0}, {1}, makes the office hereditary and grows beyond {2}'s control",
   "capital_loss_restored": "{0} retakes its old capital {1} and is again known as {2}.",
   "kingdom_type_xingzai": "Temporary Court",
   "Later": "Later",

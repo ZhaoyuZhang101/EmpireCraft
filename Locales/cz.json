@@ -2427,6 +2427,7 @@
   "institution_arabic_bedouin_clans_desc": "以血缘结成氏族，在绿洲与商路之间各自为政。部落之间打仗只为掠夺财货，打完赔款了事，吞并不了别的部落。",
   "institution_arabic_tribal_union": "部族联合",
   "institution_arabic_tribal_union_desc": "施行以后，部族之间打赢一仗，败者便奉胜者为首(之前只能赔款求和)，胜者这才称部落联盟；各部仍然自治，不算直辖。",
+  "emirate_hereditary": "{0}的埃米尔{1}世袭其位，拥兵坐大，{2}鞭长莫及",
   "capital_loss_restored": "{0}收复旧都{1}，还于旧都，复称{2}。",
   "kingdom_type_xingzai": "行在",
   "Later": "后",
