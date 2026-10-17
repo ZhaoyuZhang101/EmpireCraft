@@ -49,7 +49,7 @@ public static class JimiSystem
         string empireCulture = CultureService.GetEmpireDefaultCulture(empire);
         string realmCulture = CultureService.GetRealmCulture(kingdom);
         return CultureService.IsValidCulture(empireCulture) && CultureService.IsValidCulture(realmCulture) &&
-               !string.Equals(empireCulture, realmCulture, StringComparison.Ordinal);
+               !CultureService.SameKin(empireCulture, realmCulture);
     }
 
     // 当前实际是羁縻政区(都护府或羁縻州)

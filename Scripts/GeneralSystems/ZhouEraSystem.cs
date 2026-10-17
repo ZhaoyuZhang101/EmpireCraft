@@ -224,7 +224,7 @@ public static class ZhouEraSystem
         Kingdom core = empire?.CoreKingdom;
         if (core == null || kingdom?.data == null || kingdom.isRekt() || SphereOf(kingdom) == empire) return false;
         return kingdom.species_id != core.species_id ||
-               CultureService.GetRealmCulture(kingdom) != CultureService.GetRealmCulture(core);
+               !CultureService.SameKin(CultureService.GetRealmCulture(kingdom), CultureService.GetRealmCulture(core));
     }
 
     // 春秋、战国周室内部的战争：交战双方都是同一周室的成员(西周时的叛乱照旧由诸侯随天子平定)

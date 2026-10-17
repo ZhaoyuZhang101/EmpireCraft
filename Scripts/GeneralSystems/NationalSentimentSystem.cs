@@ -125,7 +125,7 @@ public static class NationalSentimentSystem
         string cityCulture = CultureService.GetMainCulture(city);
         string rulerCulture = RulerCulture(city);
         return CultureService.IsValidCulture(cityCulture) && CultureService.IsValidCulture(rulerCulture) &&
-               !string.Equals(cityCulture, rulerCulture, StringComparison.Ordinal);
+               !CultureService.SameKin(cityCulture, rulerCulture);
     }
 
     public static bool IsInvadedCity(City city)
@@ -149,10 +149,10 @@ public static class NationalSentimentSystem
                 : CultureService.GetRealmCulture(city.kingdom);
             ConstitutionNation policy = ConstitutionSystem.GetNation(empire);
             bool valid = CultureService.IsValidCulture(cityCulture) && CultureService.IsValidCulture(rulerCulture);
-            bool foreignRule = valid && !string.Equals(cityCulture, rulerCulture, StringComparison.Ordinal);
+            bool foreignRule = valid && !CultureService.SameKin(cityCulture, rulerCulture);
             bool invaded = valid && IsInvaded(city.kingdom, cityCulture);
             bool occupied = valid && city.GetOccupiedStatus().Keys.Any(occupier =>
-                occupier != null && !string.Equals(CultureService.GetRealmCulture(occupier), cityCulture, StringComparison.Ordinal));
+                occupier != null && !CultureService.SameKin(CultureService.GetRealmCulture(occupier), cityCulture));
             float delta = 0f;
             if (foreignRule)
                 delta += ForeignRuleGain + policy switch
@@ -176,8 +176,7 @@ public static class NationalSentimentSystem
     private static bool IsInvaded(Kingdom kingdom, string cityCulture) =>
         kingdom.getWars().Any(war => war != null && !war.hasEnded() && war.isDefender(kingdom) &&
                                      war._list_attackers.Any(attacker => attacker != null && !attacker.isRekt() &&
-                                         !string.Equals(CultureService.GetRealmCulture(attacker), cityCulture,
-                                             StringComparison.Ordinal)));
+                                         !CultureService.SameKin(CultureService.GetRealmCulture(attacker), cityCulture)));
 
     #endregion
 
@@ -286,7 +285,7 @@ public static class NationalSentimentSystem
     private static bool IsForeignWar(War war, HashSet<Kingdom> camp, string coreCulture) =>
         war._list_attackers.Concat(war._list_defenders).Any(kingdom => kingdom != null && !kingdom.isRekt() &&
             !camp.Contains(kingdom) && !kingdom.IsInSameEmpire(camp.First()) &&
-            !string.Equals(CultureService.GetRealmCulture(kingdom), coreCulture, StringComparison.Ordinal)) &&
+            !CultureService.SameKin(CultureService.GetRealmCulture(kingdom), coreCulture)) &&
         war._list_attackers.Concat(war._list_defenders).Any(camp.Contains);
 
     // 统一战线的各政府加入同一阵营抗敌

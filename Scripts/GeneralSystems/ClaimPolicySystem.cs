@@ -115,6 +115,8 @@ public static class ClaimPolicySystem
         if (!CityPopulationSystem.AbstractPopulationEnabled) return;
         string main = InstitutionSystem.GetPrimaryCulture(empire);
         if (!CultureService.IsValidCulture(main)) return;
+        // 统治民族(征服王朝的族人)与同一族类的不算外人(以前元朝式帝国会把自家族人赶走)
+        string ruling = CompositeEmpireService.GetRulingCulture(empire);
         bool expelled = false;
         foreach (City city in Cities(empire).ToList())
         {
@@ -122,7 +124,8 @@ public static class ClaimPolicySystem
             if (data?.groups == null) continue;
             List<PopGroup> foreigners = data.groups.Where(group => group != null && group.Background > 0f &&
                     group.social_class != SocialClass.Army && group.social_class != SocialClass.Officer &&
-                    !string.IsNullOrEmpty(group.culture) && group.culture != main).ToList();
+                    !string.IsNullOrEmpty(group.culture) && !CultureService.SameKin(group.culture, main) &&
+                    !CultureService.SameKin(group.culture, ruling)).ToList();
             if (foreigners.Count == 0) continue;
             List<City> abroad = city.neighbours_cities?.Where(other => other?.data != null && !other.isRekt() &&
                 other.kingdom != null && other.kingdom.GetEmpire() != empire).ToList() ?? new List<City>();

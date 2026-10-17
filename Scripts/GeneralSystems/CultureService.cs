@@ -293,6 +293,12 @@ public static class CultureService
         return GetActiveEmpireForCulture(culture, excludedEmpire) != null;
     }
 
+    // 同一族类：文化相同，或同属一个天下标识(华夏、中国、山海……见 CultureRule 的 tianxia)——"异族统治""外族入侵"
+    // "夷狄""羁縻""清除移民"都按它判(复查 2026-10-17：以前一字不差地比文化，华夏统治中国文化的城也算异族统治)
+    public static bool SameKin(string a, string b) =>
+        string.Equals(a, b, StringComparison.Ordinal) ||
+        IsValidCulture(a) && IsValidCulture(b) && string.Equals(a.GetTianxiaId(), b.GetTianxiaId(), StringComparison.Ordinal);
+
     public static bool SetEmpireDefaultCulture(EmpireCore core, string culture, bool locked)
     {
         if (core == null || !IsValidCulture(culture)) return false;
