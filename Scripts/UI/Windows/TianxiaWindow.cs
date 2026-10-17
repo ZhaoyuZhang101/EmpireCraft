@@ -86,7 +86,7 @@ namespace EmpireCraft.Scripts.UI.Windows
             stats.AddRailRow(rowWidth, LM.Get("tianxia_cores_count"), TianxiaSystem.Members(lead).Count.ToString(), "#73D1FF", 0);
             stats.AddRailRow(rowWidth, LM.Get("empire_core_cities_count"), total.ToString(), "#73F28C", 1);
             stats.AddRailRow(rowWidth, LM.Get("tianxia_houses_count"), held.Count.ToString(), "#FFB852", 2);
-            stats.AddRailRow(rowWidth, LM.Get("tianxia_dynasties_count"), (lead.mandate_history?.Count ?? 0).ToString(), "#F2EEE2", 3);
+            stats.AddRailRow(rowWidth, TianxiaSystem.Text(lead, "tianxia_dynasties_count"), (lead.mandate_history?.Count ?? 0).ToString(), "#F2EEE2", 3);
         }
 
         private void DrawContent()
@@ -97,20 +97,20 @@ namespace EmpireCraft.Scripts.UI.Windows
             _content.AddPageHeader(ContentWidth, TianxiaSystem.Name(lead), TianxiaSystem.MandateText(lead));
 
             // 天下诸家：各家据有几成(天命：据有七成五受命，跌破一半失命)
-            Section(LM.Get("tianxia_section_houses"));
+            Section(TianxiaSystem.Text(lead, "tianxia_section_houses"));
             (Dictionary<Kingdom, int> held, int total) = TianxiaSystem.Holdings(lead);
             Kingdom holder = TianxiaSystem.Holder(lead);
             foreach (KeyValuePair<Kingdom, int> pair in held.OrderByDescending(pair => pair.Value).Take(8))
             {
                 float share = total > 0 ? pair.Value / (float)total : 0f;
-                string mark = pair.Key == holder ? " " + LM.Get("tianxia_holder_mark").ColorString("#F3C34A") : "";
+                string mark = pair.Key == holder ? " " + TianxiaSystem.Text(lead, "tianxia_holder_mark").ColorString("#F3C34A") : "";
                 Line($"{pair.Key.GetKingdomName().ColorString(pair.Key.getColor()?.color_text ?? "#FFFFFF")}{mark}  " +
                      $"{share:P0} ({pair.Value}/{total})");
             }
             if (held.Count == 0) Line(LM.Get("empire_core_none"));
             PartyIdeology? school = CliqueSystem.OfficialSchool(holder?.GetEmpire());
             if (school != null) Line(string.Format(LM.Get("tianxia_official_school"), PartySystem.GetIdeologyName(school.Value)));
-            Line(string.Format(LM.Get("tianxia_rule_hint"), $"{TianxiaSystem.ClaimShare:P0}", $"{TianxiaSystem.KeepShare:P0}")
+            Line(string.Format(TianxiaSystem.Text(lead, "tianxia_rule_hint"), $"{TianxiaSystem.ClaimShare:P0}", $"{TianxiaSystem.KeepShare:P0}")
                 .ColorString("#8FA0A8"));
 
             // 来朝诸国(天下朝贡)
@@ -136,9 +136,9 @@ namespace EmpireCraft.Scripts.UI.Windows
             }
 
             // 历代共主
-            Section(LM.Get("tianxia_section_history"));
+            Section(TianxiaSystem.Text(lead, "tianxia_section_history"));
             List<MandateRecord> history = lead.mandate_history ?? new List<MandateRecord>();
-            if (history.Count == 0) Line(LM.Get("tianxia_mandate_never"));
+            if (history.Count == 0) Line(TianxiaSystem.Text(lead, "tianxia_mandate_never"));
             foreach (MandateRecord record in Enumerable.Reverse(history).Take(20))
             {
                 string to = record.lost_at < 0d ? LM.Get("tianxia_until_now") : Date.getDate(record.lost_at);
@@ -153,7 +153,7 @@ namespace EmpireCraft.Scripts.UI.Windows
                 EmpireCore target = other;
                 Kingdom otherHolder = TianxiaSystem.Holder(other);
                 string label = $"{TianxiaSystem.Name(other)} · {TianxiaSystem.Cities(other).Count}{LM.Get("tianxia_cities_suffix")} · " +
-                               (otherHolder != null ? otherHolder.GetKingdomName() : LM.Get("tianxia_vacant_short"));
+                               (otherHolder != null ? otherHolder.GetKingdomName() : TianxiaSystem.Text(other, "tianxia_vacant_short"));
                 _content.AddButtonIntoVertLayout("tianxia_switch", label, () =>
                 {
                     _selected = target;

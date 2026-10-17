@@ -5,6 +5,8 @@
     "setting": {
         "regime": "Origin",
         "institution_line": "Japan",
+        // 天下标识：同一标识的文化同属一个天下(相邻的帝国法理自动并成一个天下，文案按标识换)；日本"天下人"
+        "tianxia": "Japan",
         // 开局阶段：写日本线的一个制度节点(如 "japan_yamato_kingship" 从大和王权开局)，留空从绳文部落起步
         "start_institution": "",
         // 姓氏演变：绳文、弥生无姓 → 大和起贵族、武士有氏(苗字)、平民无姓 → 明治维新后百姓皆有苗字

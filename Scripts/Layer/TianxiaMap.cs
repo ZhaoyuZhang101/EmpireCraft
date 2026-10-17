@@ -143,8 +143,8 @@ public static class TianxiaMap
         EmpireCore lead = TianxiaSystem.LeadOf(city);
         if (lead == null) return;
         tooltip.clear();
-        tooltip.setTitle(TianxiaSystem.Name(lead), "tianxia_label", HexOf(lead));
-        tooltip.addLineText(LM.Get("tianxia_mandate_short"), TianxiaSystem.MandateText(lead), "#FF8A7A", pPercent: false,
+        tooltip.setTitle(TianxiaSystem.Name(lead), TianxiaSystem.Key(lead, "tianxia_label"), HexOf(lead));
+        tooltip.addLineText(TianxiaSystem.Text(lead, "tianxia_mandate_short"), TianxiaSystem.MandateText(lead), "#FF8A7A", pPercent: false,
             pLocalize: false);
         (Dictionary<Kingdom, int> held, int total) = TianxiaSystem.Holdings(lead);
         foreach (KeyValuePair<Kingdom, int> pair in held.OrderByDescending(pair => pair.Value).Take(5))

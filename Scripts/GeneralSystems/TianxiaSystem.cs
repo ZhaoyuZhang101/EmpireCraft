@@ -25,12 +25,18 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //       - 动荡：有共主，但地盘跌到七成五以下、正统低于三十或积弊六十以上(天命动摇)——共主正统只 +2；
 //       - 乱世：天下无主，群雄逐鹿。
 //     有共主的天下(治世、动荡)里别家不能起统一战争问鼎，只有乱世才有统一战争(见 UnificationSystem)。
+//   · 各文明一个共同天下(用户 2026-10-17)：罗马一系标 Roma(普世帝国、普世皇帝、帝统)、阿拉伯一系 Umma(乌玛、乌玛之主)、
+//     游牧 Steppe(草原、大汗)、日本 Japan(天下人)，文案按标识换(见 Key)；只有一个帝国法理的天下不到二十城不受天命
+//     (以前一个帝国法理一个天下，开国就占满自己的法理，白拿天命)；一国受着几个天下的天命时正统各算各的。
 //   · 天下朝贡：治世时天下以外、与共主接壤、国力不到共主四分之一的国家每年一成五机会来朝(走原有朝贡，
 //     见 KingdomExtension.JoinTakenAlliance，朝贡制度的要求照旧)，不论文化；来朝两国以上共主正统 +2(万邦来朝)；
 //     动荡时来朝诸国每年一成散去，失了天命一齐散去。
 public static class TianxiaSystem
 {
     public const float ClaimShare = 0.75f, KeepShare = 0.5f, SealClaimShare = 0.6f;
+    // 只有一个帝国法理的天下不到这么多城不受天命(用户 2026-10-17 选"各文明一个共同天下"：以前没写天下标识的文化
+    // 一个帝国法理一个天下，开国就占满自己的法理，白拿天命与正统 +8)
+    public const int MinSoloMandateCities = 20;
     private const int HolderLegitimacy = 8, ShakenLegitimacy = 2, LostLegitimacy = -5;
     private const int ShakenMandate = 30;
     private const float TributeChance = 0.15f, TributeLeaveChance = 0.1f, TributePowerRatio = 0.25f;
@@ -45,6 +51,16 @@ public static class TianxiaSystem
         : lead.tianxia_phase;
 
     public static string PhaseName(int phase) => LM.Get("tianxia_phase_" + phase);
+
+    // 文案按文明换(用户 2026-10-17 选"各文明一个共同天下")：语言键后面接天下标识(如 tianxia_label_Roma 普世帝国、
+    // _Umma 乌玛、_Steppe 草原大汗、_Japan 天下人)，没有的用通用的(天下、天命、天下共主)
+    public static string Key(EmpireCore lead, string key)
+    {
+        string id = TianxiaId(lead);
+        return id != "" && LM.Has(key + "_" + id) ? key + "_" + id : key;
+    }
+
+    public static string Text(EmpireCore lead, string key) => LM.Get(Key(lead, key));
 
     // 有共主的天下里，别家不能问鼎(起统一战争)；外族入主、天命已动摇时，本族可以起兵光复(用户 2026-10-17 选"外族入主可受天命、本族可光复")
     public static bool BarsContender(EmpireCore lead, Kingdom contender)
@@ -134,7 +150,7 @@ public static class TianxiaSystem
     {
         if (lead == null) return "";
         if (!string.IsNullOrWhiteSpace(lead.tianxia_name)) return lead.tianxia_name.Trim();
-        return string.Format(LM.Get("tianxia_default_name"), EmpireCoreManager.GetDisplayName(lead));
+        return string.Format(Text(lead, "tianxia_default_name"), EmpireCoreManager.GetDisplayName(lead));
     }
 
     public static void Rename(EmpireCore core, string name)
@@ -255,6 +271,7 @@ public static class TianxiaSystem
     public static void AutoArrange()
     {
         if (EmpireCoreManager.EmpireCores == null || World.world?.cities == null) return;
+        Small.Clear();
         Repair();
         // 退出：联合天下里文化标识与主核心不同的(玩家动过的不管)
         foreach (EmpireCore core in EmpireCoreManager.EmpireCores.Values.ToList())
@@ -355,12 +372,32 @@ public static class TianxiaSystem
         return kingdom?.data != null && !kingdom.isRekt() && !kingdom.wild ? kingdom : null;
     }
 
+    // 太小不受天命的天下(每年结算时记下)：不算天命周期(见 RealmOf)，界面上注明
+    private static readonly HashSet<long> Small = new();
+
+    private static bool TooSmall(EmpireCore lead, int total) => total < MinSoloMandateCities && Members(lead).Count < 2;
+
     // 年度(UnificationSystem.Yearly 统计完天下以后)：各家据有的城数 → 受天命、失天命
     public static void Settle(EmpireCore lead, Dictionary<Kingdom, int> held, int total, string name)
     {
         if (lead == null || total <= 0) return;
         double now = World.world.getCurWorldTime();
         Kingdom holder = Holder(lead);
+        if (TooSmall(lead, total))
+        {
+            // 旧档里已受的天命悄悄撤掉(不记失天命)，来朝的标记一并清掉
+            Small.Add(lead.id);
+            if (lead.mandate_kingdom_id >= 0 || lead.tianxia_phase >= 0)
+            {
+                MandateRecord open = lead.mandate_history?.LastOrDefault(record => record.lost_at < 0d);
+                if (open != null) open.lost_at = now;
+                ClearState(lead);
+                MoveTributaries(lead.id, -1L);
+                InvalidateLegitimacy(holder);
+            }
+            return;
+        }
+        Small.Remove(lead.id);
         if (lead.mandate_kingdom_id >= 0)
         {
             int ours = holder != null && held.TryGetValue(holder, out int count) ? count : 0;
@@ -377,7 +414,7 @@ public static class TianxiaSystem
             lead.mandate_lost_at = now;
             MandateRecord open = lead.mandate_history?.LastOrDefault(record => record.lost_at < 0d);
             if (open != null) open.lost_at = now;
-            Record(holder, string.Format(LM.Get("tianxia_mandate_lost_history"), former, name));
+            Record(holder, string.Format(Text(lead, "tianxia_mandate_lost_history"), former, name));
             DisperseTributaries(lead, holder, name, 1f);
             InvalidateLegitimacy(holder);
         }
@@ -403,7 +440,7 @@ public static class TianxiaSystem
             kingdom_id = kingdom.id, kingdom_name = lead.mandate_holder_name,
             dynasty = kingdom.GetEmpire()?.EmpireSpecificClan?.name ?? "", claimed_at = now
         });
-        Record(kingdom, string.Format(LM.Get("tianxia_mandate_claim_history"), lead.mandate_holder_name, name,
+        Record(kingdom, string.Format(Text(lead, "tianxia_mandate_claim_history"), lead.mandate_holder_name, name,
             $"{count / (float)total:P0}"));
         lead.tianxia_phase = Peace;
         lead.tianxia_phase_since = now;
@@ -414,7 +451,7 @@ public static class TianxiaSystem
     public static void Grant(EmpireCore lead, Kingdom unifier, int count, int total, string name)
     {
         if (lead == null || unifier?.data == null || unifier.isRekt() || unifier.wild || total <= 0 ||
-            lead.mandate_kingdom_id >= 0 || World.world == null) return;
+            lead.mandate_kingdom_id >= 0 || World.world == null || TooSmall(lead, total)) return;
         Claim(lead, unifier, count, total, name, World.world.getCurWorldTime());
     }
 
@@ -426,8 +463,12 @@ public static class TianxiaSystem
     public static List<EmpireCore> MandatesOf(Kingdom kingdom) => kingdom == null ? new List<EmpireCore>()
         : EmpireCoreManager.EmpireCores.Values.Where(lead => lead != null && lead.tianxia_lead_id < 0 && lead.mandate_kingdom_id == kingdom.id).ToList();
 
-    // 这一国所处的天下：受天命的看它那个天下，否则看都城所在的天下；不在任何天下里为空
-    public static EmpireCore RealmOf(Kingdom kingdom) => MandateOf(kingdom) ?? LeadOf(kingdom?.capital);
+    // 这一国所处的天下：受天命的看它那个天下，否则看都城所在的天下；不在任何天下里、或天下太小不受天命的为空
+    public static EmpireCore RealmOf(Kingdom kingdom)
+    {
+        EmpireCore lead = MandateOf(kingdom) ?? LeadOf(kingdom?.capital);
+        return lead == null || Small.Contains(lead.id) ? null : lead;
+    }
 
     // 这一国所处天下的天命周期(不在天下里算乱世)
     public static int PhaseOf(Kingdom kingdom)
@@ -478,12 +519,14 @@ public static class TianxiaSystem
         {
             if (neighbour?.data == null || neighbour.isRekt() || neighbour.wild || neighbour.IsInEmpire() ||
                 neighbour.HasTakenAlliance() || EmpireCoreControl.Sovereign(neighbour) != neighbour) continue;
+            // 两个天下的共主互不朝贡；正在与共主打仗的不来朝(以前强拉进朝贡，战争中也拉)
+            if (MandateOf(neighbour) != null || neighbour.isInWarWith(holder)) continue;
             if (neighbour.capital != null && LeadOf(neighbour.capital) == lead) continue;
             if (WarSituation.Power(neighbour) > power * TributePowerRatio || UnityEngine.Random.value >= TributeChance) continue;
             neighbour.JoinTakenAlliance(empire, pForce: true);
             if (neighbour.GetTakenAllianceEmpire() != empire) continue;
             neighbour.GetOrCreate().tianxia_tributary_lead = lead.id;
-            Record(holder, string.Format(LM.Get("tianxia_tribute_history"), neighbour.GetKingdomName(), holder.GetKingdomName(), name));
+            Record(holder, string.Format(Text(lead, "tianxia_tribute_history"), neighbour.GetKingdomName(), holder.GetKingdomName(), name));
             InvalidateLegitimacy(holder);
         }
     }
@@ -499,7 +542,7 @@ public static class TianxiaSystem
             left.Add(kingdom.GetKingdomName());
         }
         if (left.Count > 0)
-            Record(holder, string.Format(LM.Get("tianxia_tribute_leave_history"), string.Join("、", left), name));
+            Record(holder, string.Format(Text(lead, "tianxia_tribute_leave_history"), string.Join("、", left), name));
     }
 
     // 天命动摇：地盘跌到七成五以下(怀玺的六成)、正统低于三十、积弊六十以上。
@@ -523,35 +566,36 @@ public static class TianxiaSystem
         lead.tianxia_phase_since = World.world.getCurWorldTime();
         if (old < 0 || holder == null) return;
         if (phase == Unrest && old == Peace)
-            Record(holder, string.Format(LM.Get("tianxia_unrest_history"), name, holder.GetKingdomName()));
+            Record(holder, string.Format(Text(lead, "tianxia_unrest_history"), name, holder.GetKingdomName()));
         else if (phase == Peace && old == Unrest)
-            Record(holder, string.Format(LM.Get("tianxia_peace_history"), name, holder.GetKingdomName()));
+            Record(holder, string.Format(Text(lead, "tianxia_peace_history"), name, holder.GetKingdomName()));
         InvalidateLegitimacy(holder);
     }
 
-    // 正统：天下共主 +8；失了天命、天下仍无主的旧朝 -5
+    // 正统：天下共主 +8(动荡 +2)，来朝两国以上再 +2；失了天命、天下仍无主的旧朝 -5。
+    // 一国受着几个天下的天命时各算各的(复查 2026-10-17：以前一个天下动荡就全按动荡算)
     public static IEnumerable<(string key, int value)> LegitimacyItems(Empire empire)
     {
         Kingdom core = empire?.CoreKingdom;
         if (core == null) yield break;
-        bool holds = false, lost = false, shaken = false;
-        foreach (EmpireCore lead in EmpireCoreManager.EmpireCores.Values)
+        bool holds = false;
+        EmpireCore lost = null;
+        foreach (EmpireCore lead in EmpireCoreManager.EmpireCores.Values.ToList())
         {
             if (lead == null || lead.tianxia_lead_id >= 0) continue;
             if (lead.mandate_kingdom_id == core.id)
             {
                 holds = true;
-                shaken |= lead.tianxia_phase == Unrest;
+                if (Tributaries(lead).Count >= TributeLegitimacyMin)
+                    yield return (Key(lead, "mandate_tianxia_tribute"), TributeLegitimacy);
+                yield return lead.tianxia_phase == Unrest
+                    ? (Key(lead, "mandate_tianxia_shaken"), ShakenLegitimacy)
+                    : (Key(lead, "mandate_tianxia_holder"), HolderLegitimacy);
             }
             else if (lead.mandate_kingdom_id < 0 && lead.mandate_lost_at >= 0d && lead.mandate_former_kingdom_id == core.id)
-                lost = true;
+                lost ??= lead;
         }
-        if (holds && EmpireCoreManager.EmpireCores.Values.Any(lead => lead != null && lead.tianxia_lead_id < 0 &&
-                lead.mandate_kingdom_id == core.id && Tributaries(lead).Count >= TributeLegitimacyMin))
-            yield return ("mandate_tianxia_tribute", TributeLegitimacy);
-        if (holds && shaken) yield return ("mandate_tianxia_shaken", ShakenLegitimacy);
-        else if (holds) yield return ("mandate_tianxia_holder", HolderLegitimacy);
-        else if (lost) yield return ("mandate_tianxia_lost", LostLegitimacy);
+        if (!holds && lost != null) yield return (Key(lost, "mandate_tianxia_lost"), LostLegitimacy);
     }
 
     // 界面上的天命状况
@@ -560,11 +604,12 @@ public static class TianxiaSystem
         if (lead == null) return "";
         Kingdom holder = Holder(lead);
         if (holder != null)
-            return string.Format(LM.Get("tianxia_mandate_held"), holder.GetKingdomName(), Date.getYearsSince(lead.mandate_at)) +
+            return string.Format(Text(lead, "tianxia_mandate_held"), holder.GetKingdomName(), Date.getYearsSince(lead.mandate_at)) +
                    " · " + PhaseName(Phase(lead));
         if (lead.mandate_lost_at >= 0d)
-            return string.Format(LM.Get("tianxia_mandate_vacant"), lead.mandate_holder_name, Date.getYearsSince(lead.mandate_lost_at));
-        return LM.Get("tianxia_mandate_never");
+            return string.Format(Text(lead, "tianxia_mandate_vacant"), lead.mandate_holder_name, Date.getYearsSince(lead.mandate_lost_at));
+        if (Small.Contains(lead.id)) return string.Format(Text(lead, "tianxia_mandate_too_small"), MinSoloMandateCities);
+        return Text(lead, "tianxia_mandate_never");
     }
 
     private static void InvalidateLegitimacy(Kingdom kingdom)

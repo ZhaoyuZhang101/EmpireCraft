@@ -33,7 +33,7 @@ Locales/Cultures/
     "setting": {
         "regime": "LvLing",          // 默认政体，对应 Scripts/Regimes/Configs/<政体>/
         "institution_line": "Huaxia",// 制度科技线，对应 InstitutionTrees/<线>.json；留空用默认线
-        "tianxia": "Huaxia",// 天下标识：写同一标识的文化同属一个天下，相邻的帝国法理自动并成一个天下；留空 = 本文化自成一个天下
+        "tianxia": "Huaxia",// 天下标识：写同一标识的文化同属一个天下，相邻的帝国法理自动并成一个天下；留空 = 本文化自成一个天下。自带的标识：Huaxia(华夏、中国、山海)、Roma(罗马一系，普世帝国)、Umma(阿拉伯、埃及、波斯，乌玛)、Steppe(游牧，大汗)、Japan(天下人)；天下的文案按标识换(语言键后接 _标识，如 tianxia_label_Roma)，没有的用通用的天下、天命
         "start_institution": "",     // 开局阶段：本线的一个制度节点，开局即施行它和它的全部前置；留空从根节点起步(华夏线是原始群)
         "surname_evolution": true,   // 姓氏演变(只对华夏线有效)：原始群无姓→母系有姓→贵族分氏→周制男子称氏女子称姓、平民无氏→郡县后姓氏合一
         "traits": ["patriarchy"],    // 文化特质 id

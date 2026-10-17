@@ -154,7 +154,7 @@ namespace EmpireCraft.Scripts.UI.Windows
             EmpireCore lead = TianxiaSystem.Lead(_core);
             List<EmpireCore> members = TianxiaSystem.Members(lead);
             var tianxia = _rail.BeginRailCard();
-            tianxia.AddRailText($"{LM.Get("tianxia_label")}: {TianxiaSystem.Name(lead)}".ColorString("#E8C66A"), 7, 10f);
+            tianxia.AddRailText($"{TianxiaSystem.Text(lead, "tianxia_label")}: {TianxiaSystem.Name(lead)}".ColorString("#E8C66A"), 7, 10f);
             string tianxiaId = TianxiaSystem.TianxiaId(lead);
             if (tianxiaId != "")
                 tianxia.AddRailText(string.Format(LM.Get("tianxia_id_label"), tianxiaId).ColorString("#8FA0A8"), 6, 9f);
