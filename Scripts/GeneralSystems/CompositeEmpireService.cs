@@ -170,6 +170,13 @@ public static class CompositeEmpireService
         {
             empire.data.conquest_founder_culture = status.RulingCulture;
         }
+        // 外族入主(用户 2026-10-17 选"外族入主可受天命"，以 MandateOf 为触发)：受着别的族类的天下的天命，
+        // 就可以采纳那个天下的制度，不限游牧
+        if (ConsiderMandate(status, empire))
+        {
+            status.IsEligible = status.HasDistinctCultures && status.HasRequiredControl && status.HasRequiredMandate;
+            return status;
+        }
         if (!OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(status.RulingCulture, out Setting rulingSetting) ||
             rulingSetting.regime != RegimeType.YouMu)
         {
@@ -199,6 +206,28 @@ public static class CompositeEmpireService
                             status.HasRequiredControl &&
                             status.HasRequiredMandate;
         return status;
+    }
+
+    // 受着天命的天下(主核心的文化与统治文化不是同一族类、可采纳)：制度目标为那个天下，控制看天下各帝国法理的王国法理
+    private static bool ConsiderMandate(AdoptionStatus status, Empire empire)
+    {
+        foreach (EmpireCore lead in TianxiaSystem.MandatesOf(empire.CoreKingdom))
+        {
+            string culture = lead.default_culture;
+            if (!CultureService.IsValidCulture(culture) || CultureService.SameKin(culture, status.RulingCulture) ||
+                !AdoptableRegime(culture, out RegimeType adoptable) || RegimeManager.regimes == null ||
+                !RegimeManager.regimes.TryGetValue(adoptable, out Regime targetRegime) || targetRegime == null) continue;
+            List<KingdomTitle> titles = TianxiaSystem.Members(lead).SelectMany(EmpireCoreManager.GetTitles)
+                .Where(title => title?.data != null && !title.isRekt()).Distinct().ToList();
+            if (titles.Count == 0) continue;
+            status.InstitutionalCore = lead;
+            status.InstitutionalCulture = culture;
+            status.InstitutionalRegime = adoptable;
+            status.TotalTitles = titles.Count;
+            status.ControlledTitles = titles.Count(title => IsTitleControlledByEmpire(title, empire));
+            return true;
+        }
+        return false;
     }
 
     private static void ConsiderInstitutionalCandidate(AdoptionStatus status, Empire empire, string culture,

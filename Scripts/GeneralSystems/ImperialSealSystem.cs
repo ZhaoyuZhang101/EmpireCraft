@@ -14,7 +14,8 @@ using UnityEngine;
 namespace EmpireCraft.Scripts.GeneralSystems;
 
 // 传国玉玺(用户 2026-10-16："把传国玉玺做成装备吧""皇帝会下令打造或者搜索遗落的传国玉玺""只有华夏有玉玺")：
-// 只有华夏文化有，每个文化一方，是一件护符栏装备(带"永恒"词缀，不坏、不会凭空消失)，由持有它的帝国的皇帝佩着——
+// 只有华夏一线的文化有，每个天下一方(华夏、中国、山海共用；复查 2026-10-17 前是每个文化一方)，是一件护符栏装备
+// (带"永恒"词缀，不坏、不会凭空消失)，由持有它的帝国的皇帝佩着；入主的外族受着天命也能得、能用——
 //   · 打造：本文化还没有玉玺时，进入帝制的华夏帝国(不是原始部落联盟、周制天子)国库有三百以上，每年约四分之一的机会
 //     命良工琢玉为玺，号传国玉玺；
 //   · 持有：皇帝佩着玉玺的帝国每年法统 +2；皇位更替时传给新君；
@@ -89,10 +90,50 @@ public static class ImperialSealSystem
         }
     }
 
+    // 玉玺按天下存(复查 2026-10-17：华夏、中国、山海一个联合天下以前可能有三方真玺)：标了同一天下标识的华夏线文化共用一方，
+    // 存在与标识同名的文化上(没有同名文化就存在本文化)；旧档里存在别的文化上的并过来
+    private static CultureInstitutionState SealState(string culture)
+    {
+        if (!Huaxia(culture)) return null;
+        string home = culture.GetTianxiaId();
+        if (!Huaxia(home)) home = culture;
+        CultureInstitutionState state = InstitutionSystem.GetOrCreateCultureState(home);
+        if (state != null && home != culture) Merge(InstitutionSystem.GetOrCreateCultureState(culture), state);
+        return state;
+    }
+
+    private static void Merge(CultureInstitutionState from, CultureInstitutionState into)
+    {
+        if (from == null || from == into || from.imperial_seal_item_id <= 0 && !from.imperial_seal_made) return;
+        if (into.imperial_seal_item_id <= 0 && !into.imperial_seal_made)
+        {
+            into.imperial_seal_item_id = from.imperial_seal_item_id;
+            into.imperial_seal_made = from.imperial_seal_made;
+            into.imperial_seal_empire_id = from.imperial_seal_empire_id;
+            into.imperial_seal_kingdom_id = from.imperial_seal_kingdom_id;
+            into.imperial_seal_city_id = from.imperial_seal_city_id;
+            into.imperial_seal_lost_since = from.imperial_seal_lost_since;
+        }
+        from.imperial_seal_item_id = -1L;
+        from.imperial_seal_made = false;
+        from.imperial_seal_empire_id = -1L;
+        from.imperial_seal_kingdom_id = -1L;
+        from.imperial_seal_lost_since = -1d;
+    }
+
+    // 帝国用哪一方玉玺：本文化是华夏线的用本天下的；外族受着华夏线天下的天命的(入主，用户 2026-10-17 选"外族入主可受天命"，
+    // 能用玉玺)也用那个天下的
     private static CultureInstitutionState StateOf(Empire empire, out string culture)
     {
         culture = CultureService.GetEmpireDefaultCulture(empire);
-        return Huaxia(culture) ? InstitutionSystem.GetOrCreateCultureState(culture) : null;
+        if (Huaxia(culture)) return SealState(culture);
+        foreach (EmpireCore lead in TianxiaSystem.MandatesOf(empire?.CoreKingdom))
+        {
+            if (!Huaxia(lead.default_culture)) continue;
+            culture = lead.default_culture;
+            return SealState(culture);
+        }
+        return null;
     }
 
     public static bool HeldBy(Empire empire)
@@ -105,9 +146,7 @@ public static class ImperialSealSystem
     public static bool HeldByKingdom(Kingdom kingdom)
     {
         if (kingdom?.data == null || kingdom.isRekt()) return false;
-        string culture = CultureService.GetRealmCulture(kingdom);
-        if (!Huaxia(culture)) return false;
-        CultureInstitutionState state = InstitutionSystem.GetOrCreateCultureState(culture);
+        CultureInstitutionState state = SealState(CultureService.GetRealmCulture(kingdom));
         return state != null && state.imperial_seal_empire_id <= 0 && state.imperial_seal_kingdom_id == kingdom.id;
     }
 
@@ -122,9 +161,7 @@ public static class ImperialSealSystem
     // 开国天命的增减：怀玺称帝不另加(路线已给)，别家怀着玉玺时无玺称帝 -10
     public static int FoundingMandateAdjustment(Kingdom founder)
     {
-        string culture = CultureService.GetRealmCulture(founder);
-        if (!Huaxia(culture)) return 0;
-        CultureInstitutionState state = InstitutionSystem.GetOrCreateCultureState(culture);
+        CultureInstitutionState state = SealState(CultureService.GetRealmCulture(founder));
         if (state == null || Holds(founder)) return 0;
         bool another = state.imperial_seal_empire_id > 0 || state.imperial_seal_kingdom_id >= 0 && state.imperial_seal_kingdom_id != founder.id;
         return another ? -10 : 0;
@@ -343,8 +380,7 @@ public static class ImperialSealSystem
             place = World.world.cities.get(state.imperial_seal_city_id);
             realm = RealmOf(place?.kingdom);
         }
-        if (Alive(realm) && Huaxia(CultureService.GetEmpireDefaultCulture(realm)) && realm.Emperor?.data != null &&
-            realm.Emperor.isAlive())
+        if (Alive(realm) && StateOf(realm, out _) == state && realm.Emperor?.data != null && realm.Emperor.isAlive())
             Give(realm, announce: realm != holder);
         // 佩着它的人、存着它的城归一个还没称帝的华夏王国
         else if (!GiveKingdom(state, owner?.data != null && owner.isAlive() ? owner.kingdom : place?.kingdom,

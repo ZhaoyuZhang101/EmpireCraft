@@ -2425,6 +2425,7 @@
   "institution_arabic_tribal_union": "Tribal Union",
   "institution_arabic_tribal_union_desc": "Once enacted, a tribe that wins a war makes the loser acknowledge it as leader (before this, wars end only in reparations), and the winner becomes a tribal alliance. Member tribes stay self-governing.",
   "emirate_hereditary": "The emir of {0}, {1}, makes the office hereditary and grows beyond {2}'s control",
+  "unify_restore_history": "{0} rises in restoration against the conquering {1}",
   "capital_loss_restored": "{0} retakes its old capital {1} and is again known as {2}.",
   "kingdom_type_xingzai": "Temporary Court",
   "Later": "Later",

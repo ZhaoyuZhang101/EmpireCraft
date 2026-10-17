@@ -373,14 +373,14 @@ public static class WarGoalSystem
                 defender.GetKingdomName(), queued.Count), attacker);
     }
 
-    // 整国并入(见 UnificationSystem)：把一国所有的城排进移交队列，逐帧易主；返回排了几座
-    public static int QueueAnnex(Kingdom from, Kingdom to)
+    // 整国并入(见 UnificationSystem)：把一国所有的城(only 不为空时只排合它的)排进移交队列，逐帧易主；返回排了几座
+    public static int QueueAnnex(Kingdom from, Kingdom to, Func<City, bool> only = null)
     {
         if (from?.cities == null || to?.data == null || to.isRekt() || from == to) return 0;
         int queued = 0;
         foreach (City city in from.cities.ToList())
         {
-            if (city?.data == null || city.isRekt()) continue;
+            if (city?.data == null || city.isRekt() || only != null && !only(city)) continue;
             PendingCessions.Add((city.id, to.id));
             queued++;
         }

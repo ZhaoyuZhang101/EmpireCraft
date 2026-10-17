@@ -46,11 +46,21 @@ public static class TianxiaSystem
 
     public static string PhaseName(int phase) => LM.Get("tianxia_phase_" + phase);
 
-    // 有共主的天下里，别家不能问鼎(起统一战争)
+    // 有共主的天下里，别家不能问鼎(起统一战争)；外族入主、天命已动摇时，本族可以起兵光复(用户 2026-10-17 选"外族入主可受天命、本族可光复")
     public static bool BarsContender(EmpireCore lead, Kingdom contender)
     {
         Kingdom holder = Holder(lead);
-        return holder != null && holder != contender;
+        if (holder == null || holder == contender) return false;
+        return !(Phase(lead) == Unrest && Foreign(lead, holder) && !Foreign(lead, contender));
+    }
+
+    // 外族：本国文化与天下主核心的文化不是同一族类(见 CultureService.SameKin；入主后汉化完成、改从当地文化的就不再是外族)
+    public static bool Foreign(EmpireCore lead, Kingdom kingdom)
+    {
+        if (lead == null || kingdom?.data == null) return false;
+        string culture = CultureService.GetRealmCulture(kingdom);
+        return CultureService.IsValidCulture(culture) && CultureService.IsValidCulture(lead.default_culture) &&
+               !CultureService.SameKin(culture, lead.default_culture);
     }
 
     #region 结构

@@ -390,6 +390,8 @@ public static class KingdomExtension
         public double unified_at = -1d;
         // 统一的是有帝国法理的天下、受了天命：开国气象跟着天命走(天命动摇、失了天命就过去，见 UnificationSystem.InGrace)
         public bool unified_tianxia;
+        // 这场统一战争是本族起兵光复(外族受着天命时)：不按"地盘不到两成、被人超过"判中辍
+        public bool unify_restoring;
         // 分封制下的小乱(见 PettyRebellion)：原主国家与起事时间(-1 不是)
         public long petty_rebel_origin = -1L;
         public double petty_rebel_since = -1d;
