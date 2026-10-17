@@ -780,6 +780,9 @@ public static class CityExtension
             RuralSettlementSystem.Sparing = sparing;
         }
 
+        // 主城池(城区那片)落入敌手：整个行政区投降，余下地块连同各村镇一并归占领方(见 FrontSystem.OnZoneTaken)
+        EmpireCraft.Scripts.GeneralSystems.FrontSystem.OnZoneTaken(city, occupier, tileZone);
+
         // 检查是否完成占领
         city.CheckFinishedCapture(occupier);
 

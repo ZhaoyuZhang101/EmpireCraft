@@ -253,9 +253,8 @@ public static partial class FrontSystem
             if (current != null && current != owner) city.RemoveOccupiedTileZone(current, zone);
             city.AddOccupiedTileZone(occupier, zone, landing: true);
             SmoothBorders.Settle(zone);
-            // 这一片(村镇四周或城区)一并到手；城区那片就是主城池，陷落即整城投降
+            // 这一片(村镇四周或城区)一并到手；城区那片就是主城池，陷落即整城投降(见 OnZoneTaken)
             OccupyDistrict(city, side, owner, zone);
-            if (CityDistricts.SameDistrict(city, zone, city.getTile()?.zone)) Surrender(city, side, owner);
             SweepImpassable(city, side, owner);
             if (city.kingdom != owner)
             {

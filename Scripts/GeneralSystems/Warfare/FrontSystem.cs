@@ -28,6 +28,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //      守军还在时城中最后一块地不会丢；组织度归零的军溃退。
 //      主城池(城心那块地)陷落即整城投降(用户 2026-10-17 "军队推进攻下主城池那么城市会直接投降")：守军还在时据城死守、
 //      城池放到最后打；守军溃散后先取城池，城池一破，余下的地块一并归攻方(见 Surrender)。
+//      不论怎么破的(军团推进、平滑战线、小人占领、高正统扩散、转交)，主城池那片一落入敌手整个行政区都投降
+//      (用户 2026-10-17 "一旦主城被破整个行政区都会被迫投降"，统一挂在 CityExtension.AddOccupiedTileZone，见 OnZoneTaken)。
 //      困守一隅(用户 2026-10-17 "攻打一个地方就只剩这么一丝地盘也能不停的反攻回来")：守方只剩不到三分之一的地时，
 //      守军战力按剩下的比例打折(最低五成)；团练只从守方还占着的那部分城里抽；攻方军团在上面或紧挨着看守的地，
 //      守方不打赢就收不回来(以前攻方一退下休整，守方就一块块白白收回，看着像不停反攻)。
@@ -1022,7 +1024,6 @@ public static partial class FrontSystem
             taken++;
             // 这一片(村镇四周或城区)一并到手
             OccupyDistrict(city, attacker, owner, zone);
-            if (CityDistricts.SameDistrict(city, zone, center)) Surrender(city, attacker, owner);
             CorpsData lead = spearheads.Where(corps => CorpsSystem.ZoneDistance(CorpsSystem.Zone(corps), zone) <= 1f)
                 .OrderBy(corps => CorpsSystem.ZoneDistance(CorpsSystem.Zone(corps), zone))
                 .ThenByDescending(corps => corps.strength).FirstOrDefault();
@@ -1077,14 +1078,26 @@ public static partial class FrontSystem
         }
     }
 
-    // 主城池陷落：整城投降，余下的地块一并归攻方(平滑国界下各块直接翻过去)
+    // 占下一块地(CityExtension.AddOccupiedTileZone 每次都调)：是主城池(城区那片，没有村镇的城就是城心那块)就举城投降
+    [ThreadStatic] private static bool _surrendering;
+
+    public static void OnZoneTaken(City city, Kingdom occupier, TileZone zone)
+    {
+        Kingdom owner = city?.kingdom;
+        if (_surrendering || owner == null || zone == null || !Hostile(occupier, owner)) return;
+        if (!CityDistricts.SameDistrict(city, zone, city.getTile()?.zone)) return;
+        Surrender(city, occupier, owner);
+    }
+
+    // 主城池陷落：整个行政区投降，余下的地块(连同各村镇)一并归攻方(平滑国界下各块直接翻过去)
     private static void Surrender(City city, Kingdom attacker, Kingdom owner)
     {
-        if (city?.zones == null || city.kingdom != owner) return;
+        if (city?.zones == null || city.kingdom != owner || _surrendering) return;
         Kingdom occupier = Belligerent(attacker, owner);
         // 举城投降：城外的镇村不遭兵火
         bool sparing = RuralSettlementSystem.Sparing;
         RuralSettlementSystem.Sparing = true;
+        _surrendering = true;
         try
         {
             foreach (TileZone zone in city.zones.Where(zone => zone != null && !Friendly(attacker, Controller(zone))).ToList())
@@ -1092,12 +1105,13 @@ public static partial class FrontSystem
                 if (city.kingdom != owner) break;
                 Kingdom current = city.GetTileZoneOccupier(zone);
                 if (current != null && current != owner) city.RemoveOccupiedTileZone(current, zone);
-                if (!city.AddOccupiedTileZone(occupier, zone, landing: true)) break;
-                if (SmoothActive) SmoothBorders.Settle(zone);
+                // 个别地块占不下(盟军占着等)就跳过，接着收余下的
+                if (city.AddOccupiedTileZone(occupier, zone, landing: true) && SmoothActive) SmoothBorders.Settle(zone);
             }
         }
         finally
         {
+            _surrendering = false;
             RuralSettlementSystem.Sparing = sparing;
         }
     }
