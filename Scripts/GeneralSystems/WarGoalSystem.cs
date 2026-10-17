@@ -17,7 +17,9 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 赔款：不接壤(跨海)或攻方兵力不如对方；
 //   · 劫掠：原有的劫掠战争(洗劫第一座城即收兵，见 CityPatch)；
 //   · 收复：对方手里有我方法理(法理主国是我方)的城，且接壤——优先于其他目标；
-//   · 迫使附庸：攻方兵力一倍半以上、对方不是帝国，攻方行分封(封建、分封制)或对方大到吞不下。
+//   · 迫使附庸：攻方兵力一倍半以上、对方不是帝国，攻方行分封(封建、分封制)或对方大到吞不下；
+//   · 称臣纳贡：同上，但攻方不行分封、所在帝国有朝贡制度(华夏朝贡、游牧驿传、阿拉伯人丁税……)——败方成为朝贡国，
+//     不再一律收成西方式的封建附庸(用户 2026-10-17 选"朝贡双向与称臣和约")；两样都没有的只求赔款。
 // 战争窗口里点"战争目标"一行可以轮换目标(劫掠除外)。
 // 议和时按这场仗里双方各丢了多少城(含被对方占了一半以上地块的城)判胜负，相差不到一城就是白和——不赔不割：
 //   攻方胜：赔款 → 对方赔款；割地 → 被攻方占了一半以上的城割给占领者；吞并 → 同割地，对方丢了一半城或都城时余下的城一并吞并；
@@ -35,7 +37,7 @@ public static class WarGoalSystem
     // 迫使附庸：攻方兵力至少是对方几倍
     private const float VassalStrength = 1.5f;
     // 战争窗口里轮换的顺序(劫掠不参与)
-    private static readonly WarGoal[] Cycle = { WarGoal.吞并, WarGoal.割地, WarGoal.收复, WarGoal.迫使附庸, WarGoal.赔款 };
+    private static readonly WarGoal[] Cycle = { WarGoal.吞并, WarGoal.割地, WarGoal.收复, WarGoal.迫使附庸, WarGoal.称臣, WarGoal.赔款 };
     // 占了一座城一半以上的地块才算到手
     private const float HeldShare = 0.5f;
     // 每帧最多易主几座城(易主有原版开销)
@@ -51,11 +53,24 @@ public static class WarGoalSystem
 
     private static readonly List<(long city, long to)> PendingCessions = new();
     private static readonly List<(long lord, long subject)> PendingVassals = new();
+    private static readonly List<(long lord, long subject)> PendingTributaries = new();
 
     public static void ResetWorldState()
     {
         PendingCessions.Clear();
         PendingVassals.Clear();
+        PendingTributaries.Clear();
+    }
+
+    // 迫其称臣用哪种属国形式：行分封(封建、周制分封)的收附庸；所在帝国有朝贡制度的收为朝贡国；都不是的只求赔款
+    private static WarGoal SubjectGoal(Kingdom attacker)
+    {
+        RegimeType? regime = attacker.GetRegime()?.type;
+        if (regime == RegimeType.Feudalism || regime == RegimeType.ZhouFeudalism) return WarGoal.迫使附庸;
+        Empire empire = attacker.GetEmpire();
+        return empire != null && !empire.isRekt() && FeudalConquestService.HasTributeInstitution(empire)
+            ? WarGoal.称臣
+            : WarGoal.赔款;
     }
 
     private static bool Applies(War war) =>
@@ -93,13 +108,13 @@ public static class WarGoalSystem
         else data.war_goal = !borders ? OverseasGoal(attacker, defender, strength, small)
             : Claimed(attacker, defender.cities).Count > 0 ? WarGoal.收复
             : strength >= AnnexStrength && small && !feudal ? WarGoal.吞并
-            : strength >= VassalStrength && !defender.IsEmpire() && (feudal || strength >= AnnexStrength) ? WarGoal.迫使附庸
+            : strength >= VassalStrength && !defender.IsEmpire() && (feudal || strength >= AnnexStrength) ? SubjectGoal(attacker)
             : strength >= ConquestStrength ? WarGoal.割地
             : WarGoal.赔款;
         // 扩张上限：已经过度扩张，或对方都城远在本国控制范围之外，不谋土地，改为迫其称臣(帝国则求赔款)
         if ((data.war_goal == WarGoal.吞并 || data.war_goal == WarGoal.割地) &&
             AdministrativeControlSystem.BeyondReach(attacker, defender.capital))
-            data.war_goal = defender.IsEmpire() ? WarGoal.赔款 : WarGoal.迫使附庸;
+            data.war_goal = defender.IsEmpire() ? WarGoal.赔款 : SubjectGoal(attacker);
         data.war_goal_capital_id = defender.capital?.data != null ? defender.capital.id : -1L;
         TranslateHelper.LogEventMessage(string.Format(LM.Get("war_goal_declared"), attacker.GetKingdomName(),
             defender.GetKingdomName(), Name(data.war_goal)), attacker);
@@ -244,6 +259,11 @@ public static class WarGoalSystem
                         if (defender.IsEmpire()) WarReparationsSystem.Impose(defender, attacker);
                         else PendingVassals.Add((attacker.id, defender.id));
                         break;
+                    case WarGoal.称臣:
+                        // 帝国不会整个称臣，退回赔款
+                        if (defender.IsEmpire()) WarReparationsSystem.Impose(defender, attacker);
+                        else PendingTributaries.Add((attacker.id, defender.id));
+                        break;
                 }
             }
             else if (defendersWon)
@@ -269,6 +289,15 @@ public static class WarGoalSystem
     public static bool TrySueForPeace(War war, Kingdom broke)
     {
         if (war?.data == null || war.hasEnded() || broke == null || war.isTotalWar()) return false;
+        // 迫使朝贡的仗：守方撑不住就称臣纳贡(以前这类仗有自己的结局，守方求和不了，只能等都城被破)
+        if (war.GetEmpireWarType() == EmpireWarType.迫使朝贡 && broke == war.main_defender && !broke.IsEmpire() &&
+            war.main_attacker?.GetEmpire() is Empire suzerain && !suzerain.isRekt())
+        {
+            broke.JoinTakenAlliance(suzerain, pForce: true);
+            if (broke.GetTakenAllianceEmpire() != suzerain) return false;
+            World.world.wars.endWar(war, WarWinner.Attackers);
+            return true;
+        }
         if (!Applies(war) && war.GetEmpireWarType() != EmpireWarType.劫掠) return false;
         Kingdom attacker = war.main_attacker, defender = war.main_defender;
         if (attacker?.data == null || defender?.data == null || attacker == defender) return false;
@@ -288,6 +317,7 @@ public static class WarGoalSystem
     private static bool Excessive(War war, Kingdom defender)
     {
         WarGoal goal = Get(war);
+        // 称臣纳贡不算过分(守方欠饷就认了)
         if (goal == WarGoal.吞并 || goal == WarGoal.迫使附庸 && !defender.IsEmpire()) return true;
         if (goal != WarGoal.割地) return false;
         List<(City city, Kingdom holder)> held = HeldCities(war, new[] { defender }, war._list_attackers);
@@ -304,6 +334,8 @@ public static class WarGoalSystem
             if (war?.data == null || war.hasEnded() || !war.isDefender(kingdom)) continue;
             if (war.isTotalWar()) return true;
             if (war.main_defender != kingdom) continue;
+            // 迫使朝贡的仗守方可以称臣求和(见 TrySueForPeace)，不算困兽之斗
+            if (war.GetEmpireWarType() == EmpireWarType.迫使朝贡) continue;
             if (!Applies(war) && war.GetEmpireWarType() != EmpireWarType.劫掠 || Excessive(war, kingdom)) return true;
         }
         return false;
@@ -407,6 +439,26 @@ public static class WarGoalSystem
             catch (Exception exception)
             {
                 LogService.LogWarning($"[EmpireCraft][开战目标] 立附庸失败: {exception.Message}");
+            }
+        }
+        while (PendingTributaries.Count > 0)
+        {
+            (long lordId, long subjectId) = PendingTributaries[0];
+            PendingTributaries.RemoveAt(0);
+            Kingdom lord = World.world.kingdoms.get(lordId), subject = World.world.kingdoms.get(subjectId);
+            if (lord?.data == null || subject?.data == null || lord.isRekt() || subject.isRekt()) continue;
+            try
+            {
+                Empire suzerain = lord.GetEmpire();
+                if (suzerain != null) subject.JoinTakenAlliance(suzerain, pForce: true);
+                if (suzerain != null && subject.GetTakenAllianceEmpire() == suzerain)
+                    TranslateHelper.LogEventMessage(string.Format(LM.Get("war_peace_tributary"), subject.GetKingdomName(),
+                        suzerain.GetEmpireName()), lord);
+                else WarReparationsSystem.Impose(subject, lord);
+            }
+            catch (Exception exception)
+            {
+                LogService.LogWarning($"[EmpireCraft][开战目标] 称臣纳贡失败: {exception.Message}");
             }
         }
         if (PendingCessions.Count == 0) return;

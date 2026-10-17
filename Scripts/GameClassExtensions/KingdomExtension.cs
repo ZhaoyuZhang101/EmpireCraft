@@ -1218,6 +1218,8 @@ public static class KingdomExtension
     {
         k.SetHeirLaw(k.GetDefaultHeirLaw());
     }
+    private const int TributeRenown = 5;
+
     public static bool IsNeedToTaken(this Kingdom k)
     {
         return Date.getYearsSince(k.GetOrCreate().last_taken_time) >= (TreasurySystem.Enabled(k) ? 1 : 2) && k.HasTakenAlliance();
@@ -1240,6 +1242,9 @@ public static class KingdomExtension
         if (fiscal) value = Math.Min(value, Math.Max(0, k.GetMoney()));
         k.SubMoney(value, TreasuryCategory.Tribute);
         core.AddMoney(value, TreasuryCategory.Tribute);
+        // 来朝即宗主的声望(用户 2026-10-17 选"朝贡给贸易与声望回报"；朝贡国的回报是宗主出兵保护与互市，
+        // 见 FeudalVassalService.ExpandSide、TradeRouteSystem)
+        empire.AddRenown(TributeRenown);
         if (k.GetMoney()<=0)
         {
             if (population / 3 > (abstracted ? CityPopulationSystem.Households(empire) : empire.getUnits().Count()))

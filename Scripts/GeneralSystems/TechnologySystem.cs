@@ -1208,7 +1208,9 @@ public static class TechnologySystem
                     Link(Contacts, pair.Key, influence.Key);
                     Link(Contacts, influence.Key, pair.Key);
                 }
+            // 朝贡国与宗主的帝国算一处(注释早说含朝贡国，以前代码只看帝国成员；用户 2026-10-17 选"朝贡算科技接触")
             long empireId = city.kingdom?.GetEmpireID() ?? -1L;
+            if (empireId < 0) empireId = city.kingdom?.GetTakenAllianceEmpire()?.id ?? -1L;
             if (empireId < 0) continue;
             if (!empireCultures.TryGetValue(empireId, out HashSet<string> cultures))
                 empireCultures[empireId] = cultures = new HashSet<string>(StringComparer.Ordinal);

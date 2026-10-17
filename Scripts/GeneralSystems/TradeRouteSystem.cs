@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.HelperFunc;
+using EmpireCraft.Scripts.Layer;
 using NeoModLoader.General;
 using NeoModLoader.services;
 using UnityEngine;
@@ -104,8 +105,20 @@ public static class TradeRouteSystem
             // 交战禁运；任一港口被敌方舰队封锁也断航(见 NavySystem)
             if (city.kingdom.isInWarWith(partner.kingdom) || NavySystem.IsBlockaded(city) ||
                 NavySystem.IsBlockaded(partner)) continue;
-            Earn(city, TradeValue(city, partner));
+            float value = TradeValue(city, partner);
+            // 互市：朝贡国与宗主帝国之间的商路利得多一半(用户 2026-10-17 选"朝贡给贸易回报")
+            if (Tributary(city.kingdom, partner.kingdom) || Tributary(partner.kingdom, city.kingdom)) value *= TributeTradeBonus;
+            Earn(city, value);
         }
+    }
+
+    private const float TributeTradeBonus = 1.5f;
+
+    // tributary 是 suzerain(所在帝国)的朝贡国
+    private static bool Tributary(Kingdom tributary, Kingdom suzerain)
+    {
+        Empire empire = tributary?.GetTakenAllianceEmpire();
+        return empire != null && suzerain?.GetEmpire() == empire;
     }
 
     // 贸易利得记进民间资产(与生产估值同口径)；关税按商业税率从民间现金征，入城市国库

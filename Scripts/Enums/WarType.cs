@@ -15,7 +15,9 @@ namespace EmpireCraft.Scripts.Enums
         赔款,
         劫掠,
         收复,
-        迫使附庸
+        迫使附庸,
+        // 称臣纳贡：败方成为胜方帝国的朝贡国(用户 2026-10-17 选"朝贡双向与称臣和约"；追加在末尾保持旧存档枚举值)
+        称臣
     }
 
     public enum EmpireWarType

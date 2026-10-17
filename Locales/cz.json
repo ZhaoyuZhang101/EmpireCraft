@@ -2521,6 +2521,8 @@
   "institution_arabic_raja_kingdoms": "列国王政",
   "institution_arabic_raja_kingdoms_desc": "诸部各奉王族为君，武士与祭司分掌征战与礼仪，部落联盟成为世袭王国，改行封建政体；不立哈里发(只有印度走这一路)。",
   "institution_reform_other_culture": "本文化不走这项制度",
+  "war_goal_称臣": "称臣纳贡",
+  "war_peace_tributary": "{0}战败，向{1}称臣纳贡",
   "capital_loss_restored": "{0}收复旧都{1}，还于旧都，复称{2}。",
   "kingdom_type_xingzai": "行在",
   "Later": "后",

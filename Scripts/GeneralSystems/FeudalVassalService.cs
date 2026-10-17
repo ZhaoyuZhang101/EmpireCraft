@@ -595,6 +595,12 @@ public static class FeudalVassalService
             bool directIndependence = GetOverlord(war.getMainAttacker()) == war.getMainDefender();
             if (!attackers && !directIndependence && GetOverlord(current) is Kingdom protector)
                 followers.Add(protector);
+            // 宗主保护朝贡国(用户 2026-10-17 选"朝贡双向")：朝贡国遭外敌进攻，宗主帝国的中央出兵相救；
+            // 起事、宗主自己或它的成员、别的朝贡国来打的不管
+            if (!attackers && war.getAsset() != WarTypeLibrary.rebellion && current.GetTakenAllianceEmpire() is Empire suzerain &&
+                suzerain.CoreKingdom is Kingdom suzerainCore && !suzerainCore.isRekt() && war.getMainAttacker() is Kingdom aggressor &&
+                aggressor.GetEmpire() != suzerain && aggressor.GetTakenAllianceEmpire() != suzerain)
+                followers.Add(suzerainCore);
             if (current.king != null) followers.AddRange(PersonalUnionService.GetRealms(current.king));
             foreach (Kingdom follower in followers)
             {
