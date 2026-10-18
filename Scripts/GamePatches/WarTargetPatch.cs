@@ -31,7 +31,8 @@ public class WarTargetPatch : GamePatch
         }
         if (__result != null && IsNeighbour(pInitiatorKingdom, __result) &&
             !GeneralSystems.RoyalMarriageSystem.Allied(pInitiatorKingdom, __result) &&
-            !GeneralSystems.GreatPowerDiplomacy.Bound(pInitiatorKingdom, __result)) return;
+            !GeneralSystems.GreatPowerDiplomacy.Bound(pInitiatorKingdom, __result) &&
+            !GeneralSystems.WarGoalSystem.Installed(pInitiatorKingdom, __result)) return;
         __result = NearestNeighbourTarget(pInitiatorKingdom);
     }
 
@@ -55,6 +56,7 @@ public class WarTargetPatch : GamePatch
             bool friendly = initiator.isOpinionTowardsKingdomGood(target);
             if (ours < theirs || GeneralSystems.RoyalMarriageSystem.Allied(initiator, target) ||
                 GeneralSystems.GreatPowerDiplomacy.Bound(initiator, target) ||
+                GeneralSystems.WarGoalSystem.Installed(initiator, target) ||
                 !initiator.capital.reachableFrom(target.capital) && !GeneralSystems.StraitReach.Across(initiator, target) ||
                 Date.getYearsSince(DiplomacyHelpers.diplomacy.getRelation(initiator, target).data.timestamp_last_war_ended) <
                 SimGlobals.m.minimum_years_between_wars ||

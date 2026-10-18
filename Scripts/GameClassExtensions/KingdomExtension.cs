@@ -239,6 +239,11 @@ public static class KingdomExtension
         public double TimestampBeFeifed = -1L;
         // 上次遭劫掠的时间(五年内不再遭劫，见 TempFac_劫掠)
         public double raided_at = -1d;
+        // 和约(见 WarGoalSystem)：被迫开港与谁通商、从何时起(二十年)；被谁扶立为君、何时(二十年内两国互不开战)
+        public long trade_treaty_partner_id = -1L;
+        public double trade_treaty_at = -1d;
+        public long installed_by_kingdom_id = -1L;
+        public double installed_at = -1d;
         public long HeirID = -1L;
         // 上次记入日志的接班人(族谱身份编号)：同一人反复复查不再重复记"已选定接班人"
         public long logged_heir_identity = -1L;

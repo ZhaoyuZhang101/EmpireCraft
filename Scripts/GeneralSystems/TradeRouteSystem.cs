@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.HelperFunc;
@@ -14,7 +15,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   并按商业税率就地征一笔关税：从民间现金扣，入城市国库(商业税)；没有现金就征不到。
 //   两国交战即断航(禁运)，任一港口被敌方舰队封锁也断航；港口被拆、城市易主重新配对。配对每年重算一次，结算每月一次。
 //   只与同一片海上的港口配对(码头旁的海面属于同一水域；以前按直线距离，隔着陆地的内湖、两洋也配上)；
-//   锁国的(制度特性 closed_country，如日本锁国令)不与外国通商。
+//   锁国的(制度特性 closed_country，如日本锁国令)不与外国通商；
+//   被迫开港(和约，见 WarGoalSystem 通商)的二十年里锁国也开，港口优先与胜者的港口配对，两边都得利。
 public static class TradeRouteSystem
 {
     private const float MaxRouteDistance = 160f;
@@ -89,9 +91,14 @@ public static class TradeRouteSystem
             float bestDistance = MaxRouteDistance * MaxRouteDistance;
             Vector2 from = city.city_center;
             object sea = seas[city];
+            // 被迫开港的先与胜者的港口配对
+            Kingdom partner = TreatyPartner(city.kingdom);
+            bool partnerReachable = partner != null && ports.Any(other => other.kingdom == partner &&
+                                                                         (sea == null || seas[other] == null || seas[other] == sea));
             foreach (City other in ports)
             {
                 if (other == city || other.kingdom == city.kingdom) continue;
+                if (partnerReachable && other.kingdom != partner) continue;
                 if (sea != null && seas[other] != null && seas[other] != sea) continue;
                 Vector2 to = other.city_center;
                 float distance = (to - from).sqrMagnitude;
@@ -115,9 +122,37 @@ public static class TradeRouteSystem
         return null;
     }
 
-    // 锁国：不与外国通商
-    private static bool Closed(Kingdom kingdom)
+    private const int TreatyYears = 20;
+
+    public static bool HasPort(Kingdom kingdom) => kingdom?.cities?.Any(Tradeable) == true;
+
+    // 和约逼开港：二十年里与胜者通商(锁国也开)
+    public static bool ImposeTreaty(Kingdom loser, Kingdom winner)
     {
+        if (!HasPort(loser) || !HasPort(winner) || loser == winner) return false;
+        var data = loser.GetOrCreate();
+        data.trade_treaty_partner_id = winner.id;
+        data.trade_treaty_at = World.world.getCurWorldTime();
+        _lastPairing = -1d;
+        return true;
+    }
+
+    private static Kingdom TreatyPartner(Kingdom kingdom)
+    {
+        if (kingdom?.data == null || World.world == null) return null;
+        var data = kingdom.GetOrCreate();
+        if (data.trade_treaty_partner_id < 0 || data.trade_treaty_at < 0d ||
+            Date.getYearsSince(data.trade_treaty_at) >= TreatyYears) return null;
+        Kingdom partner = World.world.kingdoms.get(data.trade_treaty_partner_id);
+        return partner?.data != null && !partner.isRekt() ? partner : null;
+    }
+
+    private static bool Treaty(Kingdom a, Kingdom b) => TreatyPartner(a) == b || TreatyPartner(b) == a;
+
+    // 锁国：不与外国通商(被迫开港的不算)
+    public static bool Closed(Kingdom kingdom)
+    {
+        if (TreatyPartner(kingdom) != null) return false;
         string culture = CultureService.GetRealmCulture(kingdom);
         return CultureService.IsValidCulture(culture) && InstitutionSystem.GetFeature(culture, "closed_country") > 0f;
     }
@@ -128,12 +163,15 @@ public static class TradeRouteSystem
         {
             City city = World.world.cities.get(route.Key);
             City partner = World.world.cities.get(route.Value);
+            bool treaty = Treaty(city.kingdom, partner.kingdom);
             if (!Tradeable(city) || !Tradeable(partner) || city.kingdom == partner.kingdom ||
-                Closed(city.kingdom) || Closed(partner.kingdom)) continue;
+                !treaty && (Closed(city.kingdom) || Closed(partner.kingdom))) continue;
             // 交战禁运；任一港口被敌方舰队封锁也断航(见 NavySystem)
             if (city.kingdom.isInWarWith(partner.kingdom) || NavySystem.IsBlockaded(city) ||
                 NavySystem.IsBlockaded(partner)) continue;
             Earn(city, TradeValue(city, partner));
+            // 和约商路：胜者那边也得利
+            if (treaty) Earn(partner, TradeValue(partner, city));
         }
     }
 

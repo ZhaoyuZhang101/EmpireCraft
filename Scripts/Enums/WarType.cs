@@ -15,7 +15,11 @@ namespace EmpireCraft.Scripts.Enums
         赔款,
         劫掠,
         收复,
-        迫使附庸
+        迫使附庸,
+        // 和约新条款(用户 2026-10-19 选"改宗、开港通商、扶立君主")；追加在末尾以保持旧存档枚举值不变
+        改宗,
+        通商,
+        扶立
     }
 
     public enum EmpireWarType

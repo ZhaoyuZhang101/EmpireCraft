@@ -19,8 +19,8 @@ public static class WarGate
         if (NationalSentimentSystem.InSameUnitedFront(attacker, target)) return false;
         if (EmpirePartitionSystem.InAmity(attacker, target)) return false;
         if (TribalFissionService.Bound(attacker, target)) return false;
-        // 跨文明通好之国互不侵犯(见 GreatPowerDiplomacy)
-        if (GreatPowerDiplomacy.Bound(attacker, target)) return false;
+        // 跨文明通好之国互不侵犯(见 GreatPowerDiplomacy)；扶立之君与扶立者二十年互不开战(见 WarGoalSystem)
+        if (GreatPowerDiplomacy.Bound(attacker, target) || WarGoalSystem.Installed(attacker, target)) return false;
         if (attacker.IsInSameEmpire(target)) return false;
         double lastWarEnded = World.world?.diplomacy?.getRelation(attacker, target)?.data?.timestamp_last_war_ended ?? -1d;
         if (lastWarEnded >= 0d && Date.getYearsSince(lastWarEnded) < SimGlobals.m.minimum_years_between_wars) return false;

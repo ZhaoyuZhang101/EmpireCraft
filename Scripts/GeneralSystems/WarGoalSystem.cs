@@ -6,6 +6,7 @@ using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.Regimes;
+using EmpireCraft.Scripts.System;
 using NeoModLoader.General;
 using NeoModLoader.services;
 
@@ -17,7 +18,11 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 赔款：不接壤(跨海)或攻方兵力不如对方；
 //   · 劫掠：原有的劫掠战争(洗劫第一座城即收兵，见 CityPatch)；
 //   · 收复：对方手里有我方法理(法理主国是我方)的城，且接壤——优先于其他目标；
-//   · 迫使附庸：攻方兵力一倍半以上、对方不是帝国，攻方行分封(封建、分封制)或对方大到吞不下。
+//   · 迫使附庸：攻方兵力一倍半以上、对方不是帝国，攻方行分封(封建、分封制)或对方大到吞不下；
+//   · 改宗：圣战且两边宗教不同——对方连同各城改奉攻方的宗教；
+//   · 通商：跨海打不下城、兵力够、两边都有港口，对方锁国或攻方兵力两倍以上——对方被迫开港，与攻方通商二十年(锁国也开)；
+//   · 扶立：兵力一倍半以上、对方不是帝国，攻方对那国王位有血亲宣称或对方君主年幼——从对方宗室里另立一位成年人为君，
+//     二十年内两国互不开战。(用户 2026-10-19 选"改宗、开港通商、扶立君主")
 // 战争窗口里点"战争目标"一行可以轮换目标(劫掠除外)。
 // 议和时按这场仗里双方各丢了多少城(含被对方占了一半以上地块的城)判胜负，相差不到一城就是白和——不赔不割：
 //   攻方胜：赔款 → 对方赔款；割地 → 被攻方占了一半以上的城割给占领者；吞并 → 同割地，对方丢了一半城或都城时余下的城一并吞并；
@@ -35,7 +40,10 @@ public static class WarGoalSystem
     // 迫使附庸：攻方兵力至少是对方几倍
     private const float VassalStrength = 1.5f;
     // 战争窗口里轮换的顺序(劫掠不参与)
-    private static readonly WarGoal[] Cycle = { WarGoal.吞并, WarGoal.割地, WarGoal.收复, WarGoal.迫使附庸, WarGoal.赔款 };
+    private static readonly WarGoal[] Cycle =
+        { WarGoal.吞并, WarGoal.割地, WarGoal.收复, WarGoal.迫使附庸, WarGoal.扶立, WarGoal.改宗, WarGoal.通商, WarGoal.赔款 };
+    // 扶立君主之后两国互不开战的年数
+    private const int InstalledYears = 20;
     // 占了一座城一半以上的地块才算到手
     private const float HeldShare = 0.5f;
     // 每帧最多易主几座城(易主有原版开销)
@@ -100,6 +108,13 @@ public static class WarGoalSystem
         if ((data.war_goal == WarGoal.吞并 || data.war_goal == WarGoal.割地) &&
             AdministrativeControlSystem.BeyondReach(attacker, defender.capital))
             data.war_goal = defender.IsEmpire() ? WarGoal.赔款 : WarGoal.迫使附庸;
+        // 圣战且两边宗教不同：要对方改宗
+        if (war.GetEmpireWarType() == EmpireWarType.神圣 && Convertible(attacker, defender)) data.war_goal = WarGoal.改宗;
+        // 扶立君主：对那国王位有血亲宣称、或对方君主年幼，又找得到人扶立
+        else if (data.war_goal is WarGoal.迫使附庸 or WarGoal.割地 && strength >= VassalStrength && !defender.IsEmpire() &&
+                 (RoyalMarriageSystem.HasClaim(attacker, defender) || defender.king?.isAdult() == false) &&
+                 InstallCandidate(defender) != null)
+            data.war_goal = WarGoal.扶立;
         data.war_goal_capital_id = defender.capital?.data != null ? defender.capital.id : -1L;
         TranslateHelper.LogEventMessage(string.Format(LM.Get("war_goal_declared"), attacker.GetKingdomName(),
             defender.GetKingdomName(), Name(data.war_goal, attacker)), attacker);
@@ -111,12 +126,78 @@ public static class WarGoalSystem
     // 跨海：兵力两倍以上、战舰是对方一倍半以上、对方都城在舰种航程内，才谋割地(小国则吞并)，否则只求赔款
     private static WarGoal OverseasGoal(Kingdom attacker, Kingdom defender, float strength, bool small)
     {
-        if (strength < AnnexStrength || defender.capital?.data == null) return WarGoal.赔款;
+        if (strength < AnnexStrength || defender.capital?.data == null) return OverseasFallback(attacker, defender, strength);
         int ours = NavySystem.Warships(attacker), theirs = NavySystem.Warships(defender);
-        if (ours <= 0 || ours < theirs * 1.5f) return WarGoal.赔款;
+        if (ours <= 0 || ours < theirs * 1.5f) return OverseasFallback(attacker, defender, strength);
         List<SeaRegionSystem.Region> route = NavySystem.LandingRoute(attacker, defender.capital);
-        if (route == null || route.Count > NavySystem.MaxRange(attacker)) return WarGoal.赔款;
+        if (route == null || route.Count > NavySystem.MaxRange(attacker)) return OverseasFallback(attacker, defender, strength);
         return small ? WarGoal.吞并 : WarGoal.割地;
+    }
+
+    // 跨海打不下城：兵力够、两边都有港口，对方锁国或攻方兵力两倍以上的，逼对方开港通商；否则赔款
+    private static WarGoal OverseasFallback(Kingdom attacker, Kingdom defender, float strength) =>
+        strength >= ConquestStrength && TradeRouteSystem.HasPort(attacker) && TradeRouteSystem.HasPort(defender) &&
+        (TradeRouteSystem.Closed(defender) || strength >= AnnexStrength)
+            ? WarGoal.通商
+            : WarGoal.赔款;
+
+    private static bool Convertible(Kingdom attacker, Kingdom defender) =>
+        attacker?.religion != null && defender?.data != null && !defender.isRekt() && defender.religion != attacker.religion;
+
+    // 改宗：对方连同各城、城里的人改奉攻方的宗教
+    private static bool Convert(Kingdom defender, Kingdom attacker)
+    {
+        if (!Convertible(attacker, defender)) return false;
+        Religion faith = attacker.religion;
+        defender.setReligion(faith);
+        foreach (City city in defender.cities.ToList())
+        {
+            if (city?.data == null || city.isRekt()) continue;
+            city.setReligion(faith);
+            city.units?.ForEach(actor => actor?.setReligion(faith));
+        }
+        TranslateHelper.LogEventMessage(string.Format(LM.Get("war_peace_converted"), defender.GetKingdomName(),
+            attacker.GetKingdomName(), faith.name), attacker);
+        return true;
+    }
+
+    // 扶立：对方宗室里另一位成年人(不是现任君主)，威望最高的
+    private static Actor InstallCandidate(Kingdom defender)
+    {
+        SpecificClan clan = defender?.king?.GetSpecificClan();
+        return clan?.AllAliveMembers?
+            .Where(actor => actor?.data != null && !actor.isRekt() && actor.isAlive() && actor.isAdult() &&
+                            actor != defender.king && !actor.isKing() && actor.kingdom == defender && actor.isUnitFitToRule())
+            .OrderByDescending(actor => actor.data?.renown ?? 0).FirstOrDefault();
+    }
+
+    private static bool Install(Kingdom attacker, Kingdom defender)
+    {
+        Actor candidate = InstallCandidate(defender);
+        if (candidate == null) return false;
+        Actor former = defender.king;
+        GraceEdictService.Crown(defender, candidate);
+        if (defender.king != candidate) return false;
+        var extra = defender.GetOrCreate();
+        extra.installed_by_kingdom_id = attacker.id;
+        extra.installed_at = World.world.getCurWorldTime();
+        TranslateHelper.LogEventMessage(string.Format(LM.Get("war_peace_installed"), attacker.GetKingdomName(),
+            candidate.getName(), defender.GetKingdomName(), former?.getName() ?? ""), attacker);
+        return true;
+    }
+
+    // 扶立之君：二十年内两国互不开战(见 WarGate、WarTargetPatch)
+    public static bool Installed(Kingdom a, Kingdom b)
+    {
+        if (a?.data == null || b?.data == null || a == b || World.world == null) return false;
+        return InstalledBy(a, b) || InstalledBy(b, a);
+    }
+
+    private static bool InstalledBy(Kingdom puppet, Kingdom patron)
+    {
+        var extra = puppet.GetOrCreate();
+        return extra.installed_by_kingdom_id == patron.id && extra.installed_at >= 0d &&
+               Date.getYearsSince(extra.installed_at) < InstalledYears;
     }
 
     // 窗口里能不能轮换目标：定了目标、还没打完、不是劫掠
@@ -250,6 +331,18 @@ public static class WarGoalSystem
                         if (defender.IsEmpire()) WarReparationsSystem.Impose(defender, attacker);
                         else PendingVassals.Add((attacker.id, defender.id));
                         break;
+                    case WarGoal.改宗:
+                        if (!Convert(defender, attacker)) WarReparationsSystem.Impose(defender, attacker);
+                        break;
+                    case WarGoal.通商:
+                        if (TradeRouteSystem.ImposeTreaty(defender, attacker))
+                            TranslateHelper.LogEventMessage(string.Format(LM.Get("war_peace_trade"), defender.GetKingdomName(),
+                                attacker.GetKingdomName()), attacker);
+                        else WarReparationsSystem.Impose(defender, attacker);
+                        break;
+                    case WarGoal.扶立:
+                        if (defender.IsEmpire() || !Install(attacker, defender)) WarReparationsSystem.Impose(defender, attacker);
+                        break;
                 }
             }
             else if (defendersWon)
@@ -294,7 +387,7 @@ public static class WarGoalSystem
     private static bool Excessive(War war, Kingdom defender)
     {
         WarGoal goal = Get(war);
-        if (goal == WarGoal.吞并 || goal == WarGoal.迫使附庸 && !defender.IsEmpire()) return true;
+        if (goal == WarGoal.吞并 || (goal == WarGoal.迫使附庸 || goal == WarGoal.扶立) && !defender.IsEmpire()) return true;
         if (goal != WarGoal.割地) return false;
         List<(City city, Kingdom holder)> held = HeldCities(war, new[] { defender }, war._list_attackers);
         int cities = defender.cities?.Count ?? 0;
