@@ -38,7 +38,8 @@ Locales/Cultures/
         "surname_evolution": true,   // 姓氏演变(只对华夏线有效)：原始群无姓→母系有姓→贵族分氏→周制男子称氏女子称姓、平民无氏→郡县后姓氏合一
         "traits": ["patriarchy"],    // 文化特质 id
         "political_traits": ["strong_unification"], // 模组政治特质：strong_unification 强统一诉求(唯一中央、易帜、临时政府、统一继承)；
-                                     // nomad 游牧(游牧扩张、牧帐、放牧加倍)；raider 劫掠传统(派系可提劫掠)
+                                     // nomad 游牧(游牧扩张、牧帐、放牧加倍)；raider 劫掠传统(派系可提劫掠)；
+                                     // dharmic 法教传统(不发起圣战、宗教宽容)
         "Religion": "ReligionNames", // 宗教名词库
         "City":    { "groups": { "group_1": "CityNames1" }, "rule": ["group_1"], "name_pos": 0 },
         "Kingdom": { "groups": { "group_1": "CountryNames" }, "rule": ["group_1"], "name_pos": 0, "english_type_prefix": false },

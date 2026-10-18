@@ -144,8 +144,9 @@ public static partial class PapacySystem
             if (empire != null && IsExcommunicated(empire)) continue;
             float chance = 0.35f;
             if (empire != null && IsCrowned(empire) && !State(empire).self_crowned) chance += 0.25f;
-            if (empire != null ? IsWestern(empire)
-                    : InstitutionSystem.GetCultureLine(CultureService.GetRealmCulture(kingdom)) == Line) chance += 0.1f;
+            // 西方文化、阿拉伯一线(吉哈德)的集结机会多一成
+            if (empire != null ? IsWestern(empire) || IsCaliphal(empire)
+                    : WagesHolyWar(CultureService.GetRealmCulture(kingdom))) chance += 0.1f;
             chance += OrderHostBonus(kingdom, religion);
             if (seat != null && kingdom.capital != null)
                 chance -= Vector2.Distance(kingdom.capital.city_center, seat.city_center) / 8f / 20f * 0.05f;

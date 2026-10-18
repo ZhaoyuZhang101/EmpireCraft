@@ -41,7 +41,9 @@ public static class ReligiousTension
     public static Policy PolicyOf(Kingdom kingdom)
     {
         string culture = CultureService.GetRealmCulture(kingdom);
-        if (InstitutionSystem.HasFeature(culture, ToleranceFeature)) return Policy.Tolerant;
+        // 法教传统(印度)向来宽容(见 PapacySystem.DharmicTrait)
+        if (InstitutionSystem.HasFeature(culture, ToleranceFeature) ||
+            EmpireCraft.Scripts.Data.OnomasticsRule.HasPoliticalTrait(culture, PapacySystem.DharmicTrait)) return Policy.Tolerant;
         return InstitutionSystem.HasFeature(culture, PollTaxFeature) ? Policy.PollTax : Policy.Intolerant;
     }
 

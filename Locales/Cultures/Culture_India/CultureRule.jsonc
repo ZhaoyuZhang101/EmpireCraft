@@ -19,6 +19,8 @@
             }
         },
         "traits": ["patriarchy"],
+        // 法教传统：不发起圣战，宗教向来宽容(见 PapacySystem.DharmicTrait、ReligiousTension)
+        "political_traits": ["dharmic"],
         "City": {
             "groups": {
                 "group_1": "CityNames1"

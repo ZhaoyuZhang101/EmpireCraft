@@ -124,8 +124,19 @@ public static partial class PapacySystem
     // 正统里的教廷一项(MonarchyLegitimacy.Breakdown 调用)
     public static IEnumerable<(string key, int value)> LegitimacyItems(Empire empire)
     {
-        if (!Applies(empire)) yield break;
+        bool caliphal = !Applies(empire) && AppliesCaliphal(empire);
+        if (!Applies(empire) && !caliphal) yield break;
         PapalRelationState state = State(empire);
+        // 阿拉伯一线：受册封、未受册封(见 PapacySystem.Caliphate)
+        if (caliphal)
+        {
+            if (IsCrowned(empire)) yield return ("mandate_caliphal_investiture", CrownedLegitimacy);
+            else if (empire.data.newEmperor_timestamp >= 0d && World.world != null &&
+                     World.world.getCurWorldTime() >= empire.data.newEmperor_timestamp &&
+                     Date.getYearsSince(empire.data.newEmperor_timestamp) >= UncrownedGraceYears)
+                yield return ("mandate_uncrowned_caliphal", UncrownedLegitimacy);
+            yield break;
+        }
         // 圣座帝国：教宗即皇帝，正统按教权计
         if (IsHolySee(empire))
         {
@@ -208,7 +219,12 @@ public static partial class PapacySystem
             if (religion != null) UpdateReligion(religion);
             TryBreakWithRome(empire);
             religion = ReligionOf(empire);
-            if (!Applies(empire)) return;
+            if (!Applies(empire))
+            {
+                // 阿拉伯一线：册封与天课(见 PapacySystem.Caliphate)
+                if (AppliesCaliphal(empire)) CaliphalYear(empire, religion);
+                return;
+            }
             PapalRelationState state = State(empire);
             NameHolySee(empire, state);
             state.investiture = Investiture(empire);
@@ -235,8 +251,8 @@ public static partial class PapacySystem
         if (papacy == null)
         {
             Kingdom strongest = Strongest(religion);
-            string holder = strongest == null ? "" : InstitutionSystem.GetCultureLine(CultureService.GetRealmCulture(strongest));
-            if (holder == Line || holder == "Arabic") TryCrusade(religion);
+            // 圣战：罗马一线、阿拉伯一线(法教传统的除外，见 WagesHolyWar)
+            if (strongest != null && WagesHolyWar(CultureService.GetRealmCulture(strongest))) TryCrusade(religion);
             UpdateOrders(religion);
             return;
         }
@@ -257,9 +273,8 @@ public static partial class PapacySystem
         if (IsCaptive(religion)) target -= CaptivityPenalty;
         if (data.Schism) target -= SchismPenalty;
         data.PapalAuthority = Mathf.Clamp(data.PapalAuthority + (target - data.PapalAuthority) * AuthorityDrift, 0f, 100f);
-        // 圣战：西方(与阿拉伯的吉哈德)才有
-        string line = InstitutionSystem.GetCultureLine(CultureService.GetRealmCulture(papacy));
-        if (line == Line || line == "Arabic") TryCrusade(religion);
+        // 圣战：西方(与阿拉伯的吉哈德)才有，法教传统的不打(见 WagesHolyWar)
+        if (WagesHolyWar(CultureService.GetRealmCulture(papacy))) TryCrusade(religion);
         UpdateOrders(religion);
     }
 
@@ -310,8 +325,8 @@ public static partial class PapacySystem
         Actor pope = Pope(religion);
         string text = self
             ? string.Format(LM.Get("papal_self_coronation_history"), emperor.getName(), empire.GetEmpireFullName())
-            : string.Format(LM.Get("papal_coronation_history"), emperor.getName(), holy?.GetCityName() ?? "",
-                pope?.getName() ?? LM.Get("label_none"), empire.GetEmpireFullName());
+            : string.Format(LM.Get(IsCaliphal(empire) ? "caliphal_investiture_history" : "papal_coronation_history"),
+                emperor.getName(), holy?.GetCityName() ?? "", pope?.getName() ?? LM.Get("label_none"), empire.GetEmpireFullName());
         empire.RecordHistory(directContent: text, actorId: emperor.id, kingdomId: empire.CoreKingdom.id);
         TranslateHelper.LogEventMessage(text, empire.CoreKingdom);
         emperor.RecordPersonalHistory(text);
