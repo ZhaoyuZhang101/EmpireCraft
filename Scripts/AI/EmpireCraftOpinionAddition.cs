@@ -31,6 +31,13 @@ public static class EmpireCraftOpinionAddition
             translation_key_negative = "opinion_nuclear_superiority",
             calc = EmpireCraft.Scripts.Compatibility.NuclearDoctrineSystem.DeterrenceOpinion
         });
+        // 跨文明通好：互认称号、互不侵犯的帝国好感 +40(见 GreatPowerDiplomacy)
+        opl.add(new OpinionAsset
+        {
+            id = "opinion_great_power_pact",
+            translation_key = "opinion_great_power_pact",
+            calc = EmpireCraft.Scripts.GeneralSystems.GreatPowerDiplomacy.PactOpinionOf
+        });
         // 受胙：天子赐胙之国十年内对王室好感 +40(见 ZhouEraSystem.GrantZuo)
         opl.add(new OpinionAsset
         {
@@ -233,7 +240,8 @@ public static class EmpireCraftOpinionAddition
                 int result = 0;
                 if (!pMain.IsInSameEmpire(pTarget)&&pMain.IsEmpire()&&pTarget.IsEmpire()&&pMain.getSpecies()==pTarget.getSpecies()&&pMain.king!=pTarget.king)
                 {
-                    result = -999;
+                    // 同一文明势不两立；不同文明按远近相忌、通好的不忌(见 GreatPowerDiplomacy)
+                    result = EmpireCraft.Scripts.GeneralSystems.GreatPowerDiplomacy.EmperorRivalry(pMain, pTarget);
                 }
                 return result;
             }

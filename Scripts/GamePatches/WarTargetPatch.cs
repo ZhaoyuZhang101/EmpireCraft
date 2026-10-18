@@ -30,7 +30,8 @@ public class WarTargetPatch : GamePatch
             return;
         }
         if (__result != null && IsNeighbour(pInitiatorKingdom, __result) &&
-            !GeneralSystems.RoyalMarriageSystem.Allied(pInitiatorKingdom, __result)) return;
+            !GeneralSystems.RoyalMarriageSystem.Allied(pInitiatorKingdom, __result) &&
+            !GeneralSystems.GreatPowerDiplomacy.Bound(pInitiatorKingdom, __result)) return;
         __result = NearestNeighbourTarget(pInitiatorKingdom);
     }
 
@@ -53,6 +54,7 @@ public class WarTargetPatch : GamePatch
             // 好感好的邻国：有继承宣称、或兵力是对方两倍以上才打；姻亲之国不打(见 RoyalMarriageSystem)
             bool friendly = initiator.isOpinionTowardsKingdomGood(target);
             if (ours < theirs || GeneralSystems.RoyalMarriageSystem.Allied(initiator, target) ||
+                GeneralSystems.GreatPowerDiplomacy.Bound(initiator, target) ||
                 !initiator.capital.reachableFrom(target.capital) && !GeneralSystems.StraitReach.Across(initiator, target) ||
                 Date.getYearsSince(DiplomacyHelpers.diplomacy.getRelation(initiator, target).data.timestamp_last_war_ended) <
                 SimGlobals.m.minimum_years_between_wars ||
