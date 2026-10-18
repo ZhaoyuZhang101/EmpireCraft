@@ -1735,7 +1735,8 @@ public class Empire : MetaObject<EmpireData>
             // 阿拉伯：打下的法理设行省派埃米尔(见 EmirateSystem)
             // 元首制：核心打下的城设行省
             if (IsWesternCentralized() || regime?.type == RegimeType.ZhouFeudalism ||
-                regime?.type == RegimeType.Feudalism || regime?.type == RegimeType.Arabic || IsPrincipate())
+                regime?.type == RegimeType.Feudalism || regime?.type == RegimeType.Arabic || IsPrincipate() ||
+                regime?.type == RegimeType.Bakufu)
                 ProcessTerritorialAcquisitionEnfeoff();
             // 游牧施行行省制度后，打下的法理设行省(那一步里也补分兀鲁思)
             else if (IsNomadProvincial()) ProcessTerritorialAcquisitionEnfeoff();
@@ -4139,8 +4140,9 @@ public class Empire : MetaObject<EmpireData>
             return;
         }
         // 西方中央集权君主制/神权国家：新得的土地不再分封，改设辖区/教区；游牧要施行了行省制度、古典共和要施行了元首制才设行省
+        // 幕府：打下的地设天领，由奉行直辖(以前从不生成天领)
         bool provinces = RegimeSupportsProvince(regime) && (regime.type != RegimeType.YouMu || IsNomadProvincial()) &&
-                         (regime.type != RegimeType.ClassicalRepublic || IsPrincipate());
+                         (regime.type != RegimeType.ClassicalRepublic || IsPrincipate()) || regime.type == RegimeType.Bakufu;
         AutoEstablishTerritorialDivisions(regime, provinces || IsWesternCentralized());
         World.world.zone_calculator.dirtyAndClear();
     }

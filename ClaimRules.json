@@ -1,5 +1,5 @@
 {
-  "_comment": "派系决议与文化制度树、科技时代的对应(见 Scripts/GeneralSystems/ClaimRules.cs)。cultures 只有这些文化才有；traits 文化要有其中一个政治特性(raider 劫掠传统、nomad 游牧，见各文化 CultureRule.jsonc 的 political_traits；复合帝国也看统治族群)；min_era/max_era 科技时代 tier(1 石器 … 7 工业 … 11 未来，0 不限)；lines 各制度线(Huaxia/Roma/Arabic/Youmu/Japan)的要求，没列出的线 = 没有这条路线、不出现；any 已施行其一才提出，none 已施行其一就不再提出，push 决议成功后对第一个未施行的制度发起改革；special: sinicized_nomad = 已采纳中原制度的游牧政权。没写进本文件的决议不受限制。",
+  "_comment": "派系决议与文化制度树、科技时代的对应(见 Scripts/GeneralSystems/ClaimRules.cs)。cultures 只有这些文化才有；traits 文化要有其中一个政治特性(raider 劫掠传统、nomad 游牧，见各文化 CultureRule.jsonc 的 political_traits；复合帝国也看统治族群)；min_era/max_era 科技时代 tier(1 石器 … 7 工业 … 11 未来，0 不限)；lines 各制度线(Huaxia/Roma/Arabic/Youmu/Japan)的要求，没列出的线 = 没有这条路线、不出现；any 已施行其一才提出，none 已施行其一就不再提出，push 决议成功后对第一个未施行的制度发起改革(push 都施行了就不再提出；削藩这类本身是做事的决议同时写 any，施行之后照样能提)；special: sinicized_nomad = 已采纳中原制度的游牧政权。没写进本文件的决议不受限制。",
   "开科取士": {
     "lines": {
       "Huaxia": {}
@@ -60,25 +60,41 @@
         "push": [
           "huaxia_grace_edict",
           "zhou_reduce_vassals"
+        ],
+        "any": [
+          "huaxia_grace_edict",
+          "zhou_reduce_vassals"
         ]
       },
       "Roma": {
         "push": [
+          "western_centralized_monarchy"
+        ],
+        "any": [
           "western_centralized_monarchy"
         ]
       },
       "Arabic": {
         "push": [
           "arabic_sultanate_bureaucracy"
+        ],
+        "any": [
+          "arabic_sultanate_bureaucracy"
         ]
       },
       "Youmu": {
         "push": [
           "youmu_provincial_system"
+        ],
+        "any": [
+          "youmu_provincial_system"
         ]
       },
       "Japan": {
         "push": [
+          "japan_sankin_kotai"
+        ],
+        "any": [
           "japan_sankin_kotai"
         ]
       }

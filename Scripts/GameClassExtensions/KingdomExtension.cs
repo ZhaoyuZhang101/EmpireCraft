@@ -2620,7 +2620,8 @@ public static class KingdomExtension
                kingdomType == KingdomType.Feudalism_intendancy ||
                kingdomType == KingdomType.Feudalism_diocese ||
                kingdomType == KingdomType.YouMu_province ||
-               kingdomType == KingdomType.ClassicalRepublic_province;
+               kingdomType == KingdomType.ClassicalRepublic_province ||
+               kingdomType == KingdomType.Bakufu_tenryo;
     }
 
     public static string GetAdministrativeProvinceName(this Kingdom kingdom)

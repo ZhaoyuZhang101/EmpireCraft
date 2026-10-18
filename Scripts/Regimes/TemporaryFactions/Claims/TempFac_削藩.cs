@@ -66,8 +66,9 @@ public class TempFac_削藩 : TemporaryFaction
     {
         Empire empire = GetEmpire();
         if (empire == null || ZhouEraSystem.RoyalReclaimBlocked(empire)) return false;
-        // 哈里发正统高才收得回世袭的埃米尔(见 EmirateSystem)
-        if (EmirateSystem.Applies(empire) && empire.Legitimacy < EmirateSystem.StrongLegitimacy) return false;
+        // 哈里发正统高才收得回世袭的埃米尔(见 EmirateSystem)；大汗也要正统高才收得回兀鲁思(见 EnfeoffmentHelper.UlusPartition)
+        if ((EmirateSystem.Applies(empire) || empire.CoreKingdom?.GetRegime()?.type == RegimeType.YouMu) &&
+            empire.Legitimacy < EmirateSystem.StrongLegitimacy) return false;
         foreach (Kingdom kingdom in empire.kingdoms_list)
         {
             if (kingdom.IsEmpire()) continue;

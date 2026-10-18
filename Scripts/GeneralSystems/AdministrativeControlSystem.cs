@@ -101,12 +101,16 @@ public static class AdministrativeControlSystem
         return loss + over * OverextensionPenalty * (1.2f - control);
     }
 
-    // 间接统治：羁縻地区；周制、封建帝国里的诸侯(周制直辖的郡、帝国核心除外)
+    // 间接统治：羁縻地区；自主外交的世袭成员与自治城邦；周制、封建帝国里的诸侯(周制直辖的郡、帝国核心除外)
     private static bool IsIndirect(Kingdom kingdom)
     {
         Empire empire = kingdom?.GetEmpire();
         if (empire == null || kingdom == empire.CoreKingdom) return false;
         if (JimiSystem.IsJimiAdministration(kingdom) || JimiSystem.IsJimiRegion(kingdom, empire)) return true;
+        // 自主外交的世袭成员(游牧兀鲁思、世袭的埃米尔与苏丹国、封国藩镇)与自治城邦也是间接统治
+        Regime own = kingdom.GetRegime();
+        if (own != null && own.IsAllowDiplomacy() &&
+            (own.GetLeaderSelectMethod() == LeaderSelectMethod.Succession || CityStateService.IsCityState(kingdom))) return true;
         RegimeType? regime = empire.CoreKingdom?.GetRegime()?.type;
         // 原始政体的部落联盟：各部落、方国自治
         // 幕府：世袭大名的藩自治，天领由奉行直辖
