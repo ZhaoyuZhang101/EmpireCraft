@@ -439,11 +439,9 @@ public static class EmpirePartitionSystem
         if (sons.Count < 2) return;
         heir ??= sons.OrderByDescending(son => son.getAge()).First();
         float chance = WillBaseChance;
-        RegimeType? regime = core.GetRegime()?.type;
-        if (regime == RegimeType.LvLing) chance *= 0.5f;
-        // 游牧 ×1.25(原 ×2；大汗死时已按兀鲁思分封，见 EnfeoffmentHelper.UlusPartition)
-        else if (regime == RegimeType.YouMu) chance *= 1.25f;
-        else if (regime == RegimeType.Feudalism) chance *= 1.5f;
+        // 各政体的倍数读政体配置(partition_chance_factor)：律令 ×0.5、游牧 ×1.25(大汗死时已按兀鲁思分封，
+        // 见 EnfeoffmentHelper.UlusPartition)、封建 ×1.5，其余 ×1
+        chance *= RegimeManager.GetTemplate(core.GetRegime()?.type)?.partition_chance_factor ?? 1f;
         if (cities.Count >= 24) chance *= 1.5f;
         if (span >= mapSize * 0.45f) chance *= 1.5f;
         // 分裂集中在动荡、末世(用户 2026-10-17 选"以天命为准"：治世少分)

@@ -1605,18 +1605,17 @@ namespace EmpireCraft.Scripts.AI
                     if (empire.Legitimacy > 40 || !RebellionSystem.CanAttempt(kingdom) ||
                         !CityStabilitySystem.CanRise(kingdom.capital)) return false;
                     if (regime == null) return false;
-                    // 律令制的藩镇(世袭节度使、都护)也能拥兵自立；以前只开放封建制与哈里发，节度使永远反不了
-                    bool garrison = regime.type == RegimeType.LvLing &&
-                                    (kingdom.GetKingdomType() == KingdomType.LvLing_jiedushi ||
-                                     kingdom.GetKingdomType() == KingdomType.LvLing_duhufu);
-                    // 游牧的兀鲁思(见 EnfeoffmentHelper.UlusPartition)：大汗弱时自立为汗国，各有自己的军队，
-                    // 不受"支援中央军"所限(骑射本位、行省制度会把本文化成员国都设为支援中央)
-                    bool ulus = regime.type == RegimeType.YouMu;
-                    if (regime.type != RegimeType.Feudalism && regime.type != RegimeType.Arabic && !garrison && !ulus) return false;
+                    // 哪些政体、哪类成员能拥兵自立读政体配置(members_can_secede 等，见 Scripts/Regimes/Configs/README.md)：
+                    // 封建、阿拉伯的成员；律令制的藩镇(世袭节度使、都护)；游牧的兀鲁思(大汗弱时自立为汗国，各有自己的军队，
+                    // 不受"支援中央军"所限，见 EnfeoffmentHelper.UlusPartition)
+                    Regime template = RegimeManager.GetTemplate(regime.type);
+                    if (template?.members_can_secede != true) return false;
+                    if (template.secede_member_types?.Count > 0 &&
+                        !template.secede_member_types.Contains(kingdom.GetKingdomType())) return false;
                     if (!regime.IsAllowDiplomacy()) return false;
                     if (!regime.IsAllowArmy()) return false;
                     if (regime.GetLeaderSelectMethod() != LeaderSelectMethod.Succession) return false;
-                    if (regime.IsAllowSupportCenterArmy() && !ulus) return false;
+                    if (regime.IsAllowSupportCenterArmy() && !template.secede_ignores_central_army) return false;
                     if (kingdom.isOpinionTowardsKingdomGood(empire.CoreKingdom)) return false;
                     return true;
                 },

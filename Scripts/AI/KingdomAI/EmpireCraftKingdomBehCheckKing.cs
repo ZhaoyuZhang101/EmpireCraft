@@ -178,7 +178,8 @@ public class EmpireCraftKingdomBehCheckKing : GameAIKingdomBase
             return;
         }
 
-        if (lastKingdom != null && lastKingdom.GetRegime() is {type: RegimeType.LvLing or RegimeType.ZhouFeudalism})
+        // 成员君主入继大统、封国传给子女的政体读政体配置(keep_member_roles)：律令制、周制
+        if (lastKingdom != null && RegimeManager.GetTemplate(lastKingdom.GetRegime()?.type)?.keep_member_roles == true)
         {
             var children = heir.getChildren();
             if (children != null && children.ToList().FindAll(a=>a != null && !a.isKing()).Any())

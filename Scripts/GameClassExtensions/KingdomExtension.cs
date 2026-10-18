@@ -2155,8 +2155,9 @@ public static class KingdomExtension
         if (k?.data == null || k.isRekt()) return false;
         KingdomExtraData data = k.GetOrCreate();
         Regime old = data.regime;
+        // 哪些政体保留成员原地位读政体配置(keep_member_roles)：律令制、周制
         bool keep = old != null && k.IsInEmpire() && !k.IsEmpire() && RegimeManager.IsMonarchy(old.type) &&
-                    (data.regimeType == RegimeType.LvLing || data.regimeType == RegimeType.ZhouFeudalism);
+                    RegimeManager.GetTemplate(data.regimeType)?.keep_member_roles == true;
         bool diplomacy = old?.IsAllowDiplomacy() ?? false;
         LeaderSelectMethod method = old?.GetLeaderSelectMethod() ?? LeaderSelectMethod.Default;
         k.LoadRegime();

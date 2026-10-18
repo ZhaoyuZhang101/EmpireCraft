@@ -12,6 +12,15 @@
     "leader_select_method": "Vote",
     "default_kingdom": "Modern_centre",
     "centre_empire_separate": true,
+    // 政体行为开关(见 Scripts/Regimes/Configs/README.md)
+    "members_can_secede": false,
+    "secede_member_types": [],
+    "secede_ignores_central_army": false,
+    "indirect_rule": false,
+    "direct_member_types": [],
+    "partition_conquests": false,
+    "keep_member_roles": false,
+    "partition_chance_factor": 1.0,
     "laws": [0,1,13,14,16,17,18,20,21,27,28,29,32,33,36,37,38,39,42,43,50,51,54],
     "Factions": [
       {

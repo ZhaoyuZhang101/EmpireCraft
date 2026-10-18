@@ -10,6 +10,15 @@
     "leader_select_method": "Succession",
     "default_kingdom": "Origin_kingdom",
     "centre_empire_separate": true,
+    // 政体行为开关(见 Scripts/Regimes/Configs/README.md)
+    "members_can_secede": false,
+    "secede_member_types": [],
+    "secede_ignores_central_army": false,
+    "indirect_rule": true,
+    "direct_member_types": [],
+    "partition_conquests": false,
+    "keep_member_roles": false,
+    "partition_chance_factor": 1.0,
     "laws": [
       0,
       1,

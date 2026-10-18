@@ -1734,9 +1734,9 @@ public class Empire : MetaObject<EmpireData>
             // 西方中央集权君主制、神权国家同郡县制一样，直辖的法理要划成辖区/教区
             // 阿拉伯：打下的法理设行省派埃米尔(见 EmirateSystem)
             // 元首制：核心打下的城设行省
-            if (IsWesternCentralized() || regime?.type == RegimeType.ZhouFeudalism ||
-                regime?.type == RegimeType.Feudalism || regime?.type == RegimeType.Arabic || IsPrincipate() ||
-                regime?.type == RegimeType.Bakufu)
+            // 哪些政体划分打下的法理读政体配置(partition_conquests)：封建、周制、阿拉伯、幕府……
+            if (IsWesternCentralized() || RegimeManager.GetTemplate(regime?.type)?.partition_conquests == true ||
+                IsPrincipate())
                 ProcessTerritorialAcquisitionEnfeoff();
             // 游牧施行行省制度后，打下的法理设行省(那一步里也补分兀鲁思)
             else if (IsNomadProvincial()) ProcessTerritorialAcquisitionEnfeoff();

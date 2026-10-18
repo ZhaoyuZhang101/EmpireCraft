@@ -138,6 +138,21 @@ public class Regime
     public AutoHoriLayoutGroup FactionSpace;
     public LeaderSelectMethod leader_select_method; 
     public bool centre_empire_separate;
+    // 政体行为开关(用户 2026-10-19 选"挪进配置"；以前写死在代码里)，各政体 SystemConfig.json 写明，读模板(GetTemplate)：
+    //   members_can_secede：成员能否"拥兵自立"；secede_member_types：只有这些国家类别的成员能(空 = 都能)；
+    //   secede_ignores_central_army：支援中央军的成员也能(游牧兀鲁思)；
+    //   indirect_rule：成员算间接统治(不因鞭长莫及失稳)；direct_member_types：其中按直辖算的国家类别；
+    //   partition_conquests：打下的法理划成行政区或分封(见 Empire.AutoEnfeoff)；
+    //   keep_member_roles：换成这个政体时成员保留原来的外交权与选任方式，成员君主入继大统时封国传给他的子女；
+    //   partition_chance_factor：遗诏分治的机会倍数(见 EmpirePartitionSystem)
+    public bool members_can_secede;
+    public List<KingdomType> secede_member_types = new();
+    public bool secede_ignores_central_army;
+    public bool indirect_rule;
+    public List<KingdomType> direct_member_types = new();
+    public bool partition_conquests;
+    public bool keep_member_roles;
+    public float partition_chance_factor = 1f;
     public bool has_cabinet;
     public int cabinet_number;
     public KingdomType default_kingdom;

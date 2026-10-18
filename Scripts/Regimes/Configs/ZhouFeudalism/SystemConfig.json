@@ -11,6 +11,15 @@
     "leader_select_method": "Succession",
     "default_kingdom": "ZhouFeudalism_zi",
     "centre_empire_separate": false,
+    // 政体行为开关(见 Scripts/Regimes/Configs/README.md)
+    "members_can_secede": false,
+    "secede_member_types": [],
+    "secede_ignores_central_army": false,
+    "indirect_rule": true,
+    "direct_member_types": ["ZhouFeudalism_jun"],
+    "partition_conquests": true,
+    "keep_member_roles": true,
+    "partition_chance_factor": 1.0,
     "laws": [0,1,2,4,5,6,7,8,9,10,11,12,13,14,16,17,19,20,21,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,46,47,50,51,52,54,55],
     "Factions": [
       {
