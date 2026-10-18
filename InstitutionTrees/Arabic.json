@@ -438,7 +438,8 @@
       ],
       "features": { "state_granary": 1,
         "constitution_basis_administration": 1,
-        "vassal_authority": 100
+        "vassal_authority": 100,
+        "sultanate": 1
       }
     },
     {

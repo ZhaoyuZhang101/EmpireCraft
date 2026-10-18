@@ -2525,8 +2525,9 @@ public static class InstitutionSystem
         }
         finally
         {
-            // 开幕府 / 大政奉还(见 BakufuSystem)
+            // 开幕府 / 大政奉还(见 BakufuSystem)；离开阿拉伯政体时不再有苏丹、哈里发之分(见 EmirateSystem)
             BakufuSystem.OnRegimeChanged(empire, previousCore, regimeType);
+            EmirateSystem.OnRegimeChanged(empire, previousCore, regimeType);
         }
     }
 

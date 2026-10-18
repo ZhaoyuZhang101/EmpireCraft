@@ -6,6 +6,7 @@ Arabic_emirate,酋长国,Emirate,酋長國
 Arabic_province,行省,Province,行省
 
 Arabic_officiallevel_0,哈里发,Caliph,哈里發
+Arabic_officiallevel_0_sultanate,苏丹,Sultan,蘇丹
 Arabic_officiallevel_1,宰相,Vizier,宰相
 Arabic_officiallevel_2,大法官,Chief Judge,大法官
 Arabic_officiallevel_3,军事总督,Military Governor,軍事總督
@@ -22,3 +23,4 @@ Arabic_emirate_india,土邦,Princely State,土邦
 Arabic_officiallevel_0_india,大君,Maharaja,大君
 Arabic_officiallevel_4_india,王公,Prince,王公
 Arabic_officiallevel_6_india,王,Raja,王
+Arabic_officiallevel_0_sultanate_india,摄政王,Regent,攝政王

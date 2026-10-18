@@ -136,6 +136,9 @@ public static class DynastyNaming
     {
         string key = $"{regime}_officiallevel_{officeType}";
         Kingdom owner = meta switch { Kingdom k => k, City town => town.kingdom, Army army => army.getKingdom(), _ => null };
+        // 苏丹架空哈里发：帝国核心的君主称苏丹(见 EmirateSystem.IsSultanate)
+        if (regime == RegimeType.Arabic && officeType == 0 && owner?.GetEmpire() is Empire ownerEmpire && ownerEmpire.CoreKingdom == owner &&
+            EmirateSystem.IsSultanate(ownerEmpire) && LM.Has(key + "_sultanate")) key += "_sultanate";
         if (CultureVariant(owner, key) is string cultureKey) return cultureKey;
         if (LineSuffix(owner) is string lineSuffix && LM.Has(key + lineSuffix)) return key + lineSuffix;
         if (regime == RegimeType.Origin)

@@ -317,6 +317,10 @@ namespace EmpireCraft.Scripts.UI.Windows
             // 幕府：天皇居于朝廷为虚君(见 BakufuSystem)
             if (BakufuSystem.IsBakufu(_empire) && BakufuSystem.Emperor(_empire) is Actor courtEmperor)
                 Stat(LM.Get("bakufu_emperor"), courtEmperor.getName(), "#E8B840");
+            // 苏丹架空哈里发：哈里发退为象征(见 EmirateSystem)
+            else if (EmirateSystem.IsSultanate(_empire) && BakufuSystem.Emperor(_empire) is Actor caliph)
+                Stat(LM.Get(DynastyNaming.CultureVariant("sultanate_caliph", CultureService.GetRealmCulture(_empire.CoreKingdom)) ??
+                            "sultanate_caliph"), caliph.getName(), "#E8B840");
             Stat(LM.Get("i_population"), $"{ShortCount(_empire.CountPopulation())}/{ShortCount(_empire.countMaxPopulation())}", "#F2EEE2");
             // 战国周室：连同离开帝国的诸侯的"天下"城与人口
             if (ZhouEraSystem.DetachedVassals(_empire).Count > 0)
