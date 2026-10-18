@@ -110,6 +110,20 @@
           "condition": ["empire_center:true"],
           "city_type": "YouMu_city"
         },
+        "YouMu_province":{
+          "pre": "",
+          "type": 6,
+          "description": "",
+          "powers": [],
+          "merit": -1,
+          "honorary": -1,
+          "peerageType": "Civil",
+          "select_from_local": false,
+          "leader_select_method": "Exam",
+          "require_traits": [],
+          "condition": ["allow_diplomacy:false","succession:false","empire_center:false"],
+          "city_type": "YouMu_city"
+        },
         "YouMu_kingdom":{
           "pre": "",
           "type": 3,

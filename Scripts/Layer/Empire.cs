@@ -1735,6 +1735,8 @@ public class Empire : MetaObject<EmpireData>
             // 阿拉伯：打下的法理设行省派埃米尔(见 EmirateSystem)
             if (IsWesternCentralized() || regime?.type == RegimeType.ZhouFeudalism ||
                 regime?.type == RegimeType.Feudalism || regime?.type == RegimeType.Arabic) ProcessTerritorialAcquisitionEnfeoff();
+            // 游牧施行行省制度后，打下的法理设行省(那一步里也补分兀鲁思)
+            else if (IsNomadProvincial()) ProcessTerritorialAcquisitionEnfeoff();
             // 游牧兀鲁思：大汗死时正在打仗没分成的，停战后补分(见 EnfeoffmentHelper.UlusPartition)
             else if (regime?.type == RegimeType.YouMu) EnfeoffmentHelper.ResumeSuccessionEnfeoff(this);
             // 哈里发弱时埃米尔世袭坐大
@@ -4134,8 +4136,9 @@ public class Empire : MetaObject<EmpireData>
             data.last_legal_peerage_timestamp = -1L;
             return;
         }
-        // 西方中央集权君主制/神权国家：新得的土地不再分封，改设辖区/教区
-        AutoEstablishTerritorialDivisions(regime, RegimeSupportsProvince(regime) || IsWesternCentralized());
+        // 西方中央集权君主制/神权国家：新得的土地不再分封，改设辖区/教区；游牧要施行了行省制度才设行省
+        bool provinces = RegimeSupportsProvince(regime) && (regime.type != RegimeType.YouMu || IsNomadProvincial());
+        AutoEstablishTerritorialDivisions(regime, provinces || IsWesternCentralized());
         World.world.zone_calculator.dirtyAndClear();
     }
 
@@ -4485,6 +4488,11 @@ public class Empire : MetaObject<EmpireData>
     }
 
     // 西方封建制具备制度特性 direct_administration(中央集权君主制、神权国家等)后设辖区/教区
+    // 游牧施行了"行省制度"(用户 2026-10-19 选"补……游牧行省"；以前这一步只解锁设置行政区，打下的地照旧分给宗王)
+    public bool IsNomadProvincial() =>
+        CoreKingdom?.GetRegime()?.type == RegimeType.YouMu &&
+        InstitutionSystem.HasFeature(this, InstitutionFeatures.ProvincialAdministration);
+
     public bool IsWesternCentralized() =>
         CoreKingdom?.GetRegime()?.type == RegimeType.Feudalism &&
         InstitutionSystem.HasFeature(this, InstitutionFeatures.DirectAdministration);

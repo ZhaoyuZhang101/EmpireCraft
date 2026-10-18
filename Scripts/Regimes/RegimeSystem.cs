@@ -58,6 +58,7 @@ public enum KingdomType
     Bakufu_shogunate, // 幕府：将军的直辖(见 BakufuSystem)；以下追加在末尾以保持旧存档枚举值稳定
     Bakufu_han,       // 藩：世袭大名的领国
     Bakufu_tenryo,    // 天领：幕府派奉行治理的直辖地
+    YouMu_province,   // 游牧行省：施行"行省制度"后打下的法理设行省、派官治理(见 Empire.IsNomadProvincial)
 }
 
 public enum ArmyOfficialType

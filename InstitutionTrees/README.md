@@ -56,6 +56,7 @@
 | `sibling_enfeoffment` / `sibling_enfeoffment_abolished` | 新君兄弟裂土受封 / 取消 |
 | `senate_election` | 元老院推举首领 |
 | `direct_administration` | 封建制下设辖区/教区 |
+| `provincial_administration` | 游牧政体打下的法理设行省(行省制度) |
 | `theocratic_state` | 神权国家 |
 | `claim_reform:<诉求名>` | 派系诉求（如 `开科取士`、`转天朝制度`）推动的改革目标 |
 

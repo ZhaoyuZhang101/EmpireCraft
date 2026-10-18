@@ -519,7 +519,8 @@
         }
       ],
       "features": { "state_granary": 1,
-        "vassal_authority": 100
+        "vassal_authority": 100,
+        "provincial_administration": 1
       }
     },
     {

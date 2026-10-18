@@ -2616,7 +2616,8 @@ public static class KingdomExtension
                  kingdomType == KingdomType.LvLing_duhufu)) ||
                kingdomType == KingdomType.ZhouFeudalism_jun ||
                kingdomType == KingdomType.Feudalism_intendancy ||
-               kingdomType == KingdomType.Feudalism_diocese;
+               kingdomType == KingdomType.Feudalism_diocese ||
+               kingdomType == KingdomType.YouMu_province;
     }
 
     public static string GetAdministrativeProvinceName(this Kingdom kingdom)
@@ -2735,13 +2736,15 @@ public static class KingdomExtension
         bool isLvLing = empire.CoreKingdom?.GetRegime()?.type == RegimeType.LvLing ||
                         kingdomType == KingdomType.ZhouFeudalism_jun ||
                         kingdomType == KingdomType.Feudalism_intendancy ||
-                        kingdomType == KingdomType.Feudalism_diocese;
+                        kingdomType == KingdomType.Feudalism_diocese ||
+                        kingdomType == KingdomType.YouMu_province;
         bool isProvinceOrMilitary = kingdomType == KingdomType.LvLing_province ||
                                     kingdomType == KingdomType.LvLing_jiedushi ||
                                     kingdomType == KingdomType.LvLing_duhufu ||
                                     kingdomType == KingdomType.ZhouFeudalism_jun ||
                                     kingdomType == KingdomType.Feudalism_intendancy ||
-                                    kingdomType == KingdomType.Feudalism_diocese;
+                                    kingdomType == KingdomType.Feudalism_diocese ||
+                                    kingdomType == KingdomType.YouMu_province;
         return DeJureTitleBindingRules.IsAdministrativeAcquisitionBlocked(isLvLing,
             isProvinceOrMilitary, empire.Mandate);
     }

@@ -3,6 +3,7 @@ YouMu_empire,匈鲁斯,Khanate,匈魯斯
 YouMu_centre,斡里朵,Ordo,斡里朵
 YouMu_kingdom,汗国,Khanate Realm,汗國
 YouMu_bu,部,Tribe,部
+YouMu_province,行省,Province,行省
 
 YouMu_officiallevel_0,大可汗,Great Khan,大可汗
 YouMu_officiallevel_1,宰相,Vizier,宰相
@@ -10,6 +11,7 @@ YouMu_officiallevel_2,军政总管,Grand Administrator,軍政總管
 YouMu_officiallevel_3,可汗,Khan,可汗
 YouMu_officiallevel_4,部那颜,Tribal Noyan,部那顏
 YouMu_officiallevel_5,帐那颜,Camp Noyan,帳那顏
+YouMu_officiallevel_6,平章,Provincial Governor,平章
 
 YouMu_city,帐,Camp,帳
 
@@ -32,3 +34,7 @@ YouMu_officiallevel_3_ojibwe,酋长,Chief,酋長
 YouMu_officiallevel_4_ojibwe,氏族长,Clan Chief,氏族長
 YouMu_officiallevel_5_ojibwe,战酋,War Chief,戰酋
 YouMu_city_ojibwe,村,Village,村
+YouMu_province_aztec,朝贡省,Tributary Province,朝貢省
+YouMu_officiallevel_6_aztec,收贡官,Tribute Steward,收貢官
+YouMu_province_ojibwe,辖地,Territory,轄地
+YouMu_officiallevel_6_ojibwe,总管,Steward,總管
