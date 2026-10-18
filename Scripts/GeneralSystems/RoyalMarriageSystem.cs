@@ -12,14 +12,15 @@ using UnityEngine;
 
 namespace EmpireCraft.Scripts.GeneralSystems;
 
-// 西方王室联姻与继承(西方封建制的君主国)：
+// 王室联姻与继承(西方封建制、阿拉伯政体的君主国；用户 2026-10-19 选"西方与阿拉伯君主国"，华夏、游牧走和亲，
+// 见 FrontierRelations)：
 //   ① 联姻：每年各国可能为储君、国王(没有正室时)、成年未婚的王子公主向他国王室议婚——对方的国王、储君或王子公主，
 //      异性、成年、未婚、不是近亲；看对方国力、是否接壤、信仰与文化是否相同、两国好感，配国王、储君的更体面。
 //      一方是在位君主或储君的，另一方嫁(入赘)过去；两位在位君主联姻则各守其国，子女日后兼承两国；都不是的，
 //      女方嫁到男方的国家。两国结为姻亲：二十年内互不开战，一方遭外敌攻打另一方可能出兵相助。
 //   ② 宣称：在位君主与他国君主是隔四代以内的血亲(含外嫁女子的后代)，就对那国王位有继承宣称，可以为此开战
 //      (见 FeudalVassalService.CanDeclareExternalWar)。
-//   ③ 继承(见 EmpireCraftKingdomBehCheckHeir)：封建王国本宗绝嗣，按血缘远近找外嫁宗亲的后代入继；
+//   ③ 继承(见 EmpireCraftKingdomBehCheckHeir)：封建王国(阿拉伯按父系，不走这一条)本宗绝嗣，按血缘远近找外嫁宗亲的后代入继；
 //      入继者本是别国君主的，两国共主(见 PersonalUnionService)。
 public static class RoyalMarriageSystem
 {
@@ -27,7 +28,8 @@ public static class RoyalMarriageSystem
     private const float ProposalChance = 0.35f, AidChance = 0.5f;
 
     public static bool Applies(Kingdom kingdom) =>
-        kingdom?.data != null && !kingdom.isRekt() && kingdom.hasKing() && kingdom.GetRegime()?.type == RegimeType.Feudalism;
+        kingdom?.data != null && !kingdom.isRekt() && kingdom.hasKing() &&
+        kingdom.GetRegime()?.type is RegimeType.Feudalism or RegimeType.Arabic;
 
     #region 议婚(RoyalHouseSystem 每月调用；各国按编号分到十二个月里，每国每年一次机会，不在同一帧里全算)
 
