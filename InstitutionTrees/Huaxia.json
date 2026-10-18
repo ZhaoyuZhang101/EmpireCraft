@@ -4,6 +4,82 @@
     "huaxia_primitive_band"
   ],
   "nodes": [
+    {
+      "id": "huaxia_self_strengthening",
+      "requires_techs": [
+        "industrialization"
+      ],
+      "name_key": "institution_huaxia_self_strengthening",
+      "description_key": "institution_huaxia_self_strengthening_desc",
+      "branch": "finance",
+      "advancement": 8,
+      "requires": [
+        "huaxia_grand_secretariat"
+      ],
+      "research": {
+        "mandate_required": 50
+      },
+      "reform": {
+        "base_progress_per_year": 7.0,
+        "minimum_years": 10,
+        "force_radicalism": 20.0
+      },
+      "resistance": {
+        "base_radicalism": 8.0,
+        "rebellion_threshold": 75.0
+      },
+      "politics": {
+        "support_classes": {
+          "Officer": 0.7,
+          "Merchant": 0.5
+        },
+        "oppose_classes": {
+          "Landlord": 0.4
+        }
+      },
+      "features": {
+        "state_enterprise": 1,
+        "constitution_basis_commerce": 1
+      }
+    },
+    {
+      "id": "huaxia_new_army",
+      "requires_techs": [
+        "rifling"
+      ],
+      "name_key": "institution_huaxia_new_army",
+      "description_key": "institution_huaxia_new_army_desc",
+      "branch": "military",
+      "advancement": 8,
+      "requires": [
+        "huaxia_recruited_army"
+      ],
+      "research": {
+        "mandate_required": 40
+      },
+      "reform": {
+        "base_progress_per_year": 7.0,
+        "minimum_years": 8,
+        "force_radicalism": 20.0
+      },
+      "resistance": {
+        "base_radicalism": 8.0,
+        "rebellion_threshold": 75.0
+      },
+      "politics": {
+        "support_classes": {
+          "Army": 0.7,
+          "Officer": 0.4
+        },
+        "oppose_classes": {
+          "Landlord": 0.3
+        }
+      },
+      "features": {
+        "army_standing": 1,
+        "army_mobilization": 0.2
+      }
+    },
     {"id": "huaxia_primitive_band", "name_key": "institution_huaxia_primitive_band", "description_key": "institution_huaxia_primitive_band_desc", "branch": "society", "advancement": 1, "reform": {"minimum_years": 1, "allow_force": false}, "politics": {"support_classes": {"Peasant": 0.5}}, "features": {"no_surname": 1, "matrilineal_descent": 1}, "absorb": {"enabled": false}, "regime": "HuaxiaOrigin"},
     {"id": "huaxia_matrilineal_clan", "name_key": "institution_huaxia_matrilineal_clan", "description_key": "institution_huaxia_matrilineal_clan_desc", "branch": "society", "advancement": 1, "requires": ["huaxia_primitive_band"], "replaces": ["huaxia_primitive_band"], "requires_techs": ["rammed_earth_housing"], "reform": {"base_progress_per_year": 12.0, "minimum_years": 5, "allow_force": false}, "resistance": {"base_radicalism": 4.0, "vested_interest_radicalism": 6.0, "rebellion_threshold": 85.0}, "politics": {"support_classes": {"Peasant": 0.5}}, "features": {"matrilineal_descent": 1}, "absorb": {"enabled": false}, "regime": "HuaxiaOrigin"},
     {"id": "huaxia_patrilineal_clan", "name_key": "institution_huaxia_patrilineal_clan", "description_key": "institution_huaxia_patrilineal_clan_desc", "branch": "society", "advancement": 1, "requires": ["huaxia_matrilineal_clan"], "replaces": ["huaxia_primitive_band", "huaxia_matrilineal_clan"], "requires_techs": ["copper_smelting"], "reform": {"base_progress_per_year": 12.0, "minimum_years": 5, "allow_force": false}, "resistance": {"base_radicalism": 4.0, "vested_interest_radicalism": 6.0, "rebellion_threshold": 85.0}, "politics": {"support_classes": {"Noble": 0.6, "Army": 0.4}}, "absorb": {"enabled": false}, "regime": "HuaxiaOrigin"},

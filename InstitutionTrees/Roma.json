@@ -5,6 +5,306 @@
   ],
   "nodes": [
     {
+      "id": "western_knighthood",
+      "requires_techs": [
+        "ironworking"
+      ],
+      "name_key": "institution_western_knighthood",
+      "description_key": "institution_western_knighthood_desc",
+      "branch": "military",
+      "advancement": 4,
+      "requires": [
+        "western_feudalization"
+      ],
+      "research": {
+        "mandate_required": 30
+      },
+      "reform": {
+        "base_progress_per_year": 7.0,
+        "minimum_years": 8,
+        "force_radicalism": 20.0
+      },
+      "resistance": {
+        "base_radicalism": 8.0,
+        "rebellion_threshold": 75.0
+      },
+      "politics": {
+        "support_classes": {
+          "Noble": 0.8,
+          "Army": 0.4
+        },
+        "oppose_classes": {
+          "Peasant": 0.3
+        },
+        "support_factions": {
+          "自治": 1.0
+        }
+      },
+      "effects_on_complete": [
+        {
+          "type": "modify_faction_power",
+          "int_value": 3,
+          "faction": "自治"
+        }
+      ],
+      "features": {
+        "army_regional": 1
+      }
+    },
+    {
+      "id": "western_mercantilism",
+      "requires_techs": [
+        "ocean_navigation"
+      ],
+      "name_key": "institution_western_mercantilism",
+      "description_key": "institution_western_mercantilism_desc",
+      "branch": "finance",
+      "advancement": 5,
+      "requires": [
+        "western_burgher_charters"
+      ],
+      "research": {
+        "mandate_required": 40
+      },
+      "reform": {
+        "base_progress_per_year": 7.0,
+        "minimum_years": 8,
+        "force_radicalism": 20.0
+      },
+      "resistance": {
+        "base_radicalism": 8.0,
+        "rebellion_threshold": 75.0
+      },
+      "politics": {
+        "support_classes": {
+          "Merchant": 0.9,
+          "Officer": 0.3
+        },
+        "oppose_classes": {
+          "Landlord": 0.4
+        }
+      },
+      "features": {
+        "constitution_basis_commerce": 1
+      }
+    },
+    {
+      "id": "western_military_revolution",
+      "requires_techs": [
+        "gunpowder",
+        "matchlock"
+      ],
+      "name_key": "institution_western_military_revolution",
+      "description_key": "institution_western_military_revolution_desc",
+      "branch": "military",
+      "advancement": 6,
+      "requires": [
+        "western_centralized_monarchy",
+        "western_knighthood"
+      ],
+      "research": {
+        "mandate_required": 40
+      },
+      "reform": {
+        "base_progress_per_year": 7.0,
+        "minimum_years": 8,
+        "force_radicalism": 20.0
+      },
+      "resistance": {
+        "base_radicalism": 8.0,
+        "rebellion_threshold": 75.0
+      },
+      "politics": {
+        "support_classes": {
+          "Army": 0.8,
+          "Officer": 0.4
+        },
+        "oppose_classes": {
+          "Noble": 0.6
+        },
+        "support_factions": {
+          "中央": 1.0
+        },
+        "oppose_factions": {
+          "自治": 0.6
+        }
+      },
+      "effects_on_complete": [
+        {
+          "type": "add_mandate",
+          "int_value": 3
+        }
+      ],
+      "features": {
+        "army_standing": 1,
+        "army_mobilization": 0.15
+      }
+    },
+    {
+      "id": "western_absolutism",
+      "requires_techs": [
+        "scientific_method"
+      ],
+      "name_key": "institution_western_absolutism",
+      "description_key": "institution_western_absolutism_desc",
+      "branch": "administration",
+      "advancement": 6,
+      "requires": [
+        "western_centralized_monarchy"
+      ],
+      "research": {
+        "mandate_required": 50
+      },
+      "reform": {
+        "base_progress_per_year": 7.0,
+        "minimum_years": 10,
+        "force_radicalism": 20.0
+      },
+      "resistance": {
+        "base_radicalism": 8.0,
+        "rebellion_threshold": 75.0
+      },
+      "politics": {
+        "support_classes": {
+          "Officer": 0.8,
+          "Merchant": 0.3
+        },
+        "oppose_classes": {
+          "Noble": 0.8
+        },
+        "support_factions": {
+          "中央": 1.0
+        },
+        "oppose_factions": {
+          "自治": 1.0
+        }
+      },
+      "features": {
+        "vassal_authority": 100,
+        "constitution_basis_administration": 1
+      }
+    },
+    {
+      "id": "western_enlightenment",
+      "requires_techs": [
+        "secular_philosophy"
+      ],
+      "name_key": "institution_western_enlightenment",
+      "description_key": "institution_western_enlightenment_desc",
+      "branch": "society",
+      "advancement": 7,
+      "requires": [
+        "western_secularization"
+      ],
+      "research": {
+        "mandate_required": 40
+      },
+      "reform": {
+        "base_progress_per_year": 7.0,
+        "minimum_years": 8,
+        "force_radicalism": 20.0
+      },
+      "resistance": {
+        "base_radicalism": 8.0,
+        "rebellion_threshold": 75.0
+      },
+      "politics": {
+        "support_classes": {
+          "Merchant": 0.6,
+          "Officer": 0.5,
+          "Citizen": 0.4
+        },
+        "oppose_classes": {
+          "Noble": 0.5
+        },
+        "oppose_factions": {
+          "神权": 1.0
+        }
+      },
+      "features": {
+        "constitution_basis_law": 1
+      }
+    },
+    {
+      "id": "western_abolish_serfdom",
+      "requires_techs": [
+        "political_economy"
+      ],
+      "name_key": "institution_western_abolish_serfdom",
+      "description_key": "institution_western_abolish_serfdom_desc",
+      "branch": "society",
+      "advancement": 7,
+      "requires": [
+        "western_manorial_economy",
+        "western_secularization"
+      ],
+      "research": {
+        "mandate_required": 50
+      },
+      "reform": {
+        "base_progress_per_year": 7.0,
+        "minimum_years": 10,
+        "force_radicalism": 20.0
+      },
+      "resistance": {
+        "base_radicalism": 8.0,
+        "rebellion_threshold": 75.0
+      },
+      "politics": {
+        "support_classes": {
+          "Peasant": 0.9,
+          "Merchant": 0.4
+        },
+        "oppose_classes": {
+          "Landlord": 0.9,
+          "Noble": 0.6
+        }
+      },
+      "effects_on_complete": [
+        {
+          "type": "open_private_land_market"
+        }
+      ]
+    },
+    {
+      "id": "western_conscription",
+      "requires_techs": [
+        "nationalism"
+      ],
+      "name_key": "institution_western_conscription",
+      "description_key": "institution_western_conscription_desc",
+      "branch": "military",
+      "advancement": 8,
+      "requires": [
+        "western_military_revolution",
+        "western_enlightenment"
+      ],
+      "research": {
+        "mandate_required": 40
+      },
+      "reform": {
+        "base_progress_per_year": 7.0,
+        "minimum_years": 8,
+        "force_radicalism": 20.0
+      },
+      "resistance": {
+        "base_radicalism": 8.0,
+        "rebellion_threshold": 75.0
+      },
+      "politics": {
+        "support_classes": {
+          "Army": 0.6,
+          "Officer": 0.5
+        },
+        "oppose_classes": {
+          "Peasant": 0.6
+        }
+      },
+      "features": {
+        "army_mobilization": 0.25
+      }
+    },
+    {
       "id": "western_classical_city_republic",
       "name_key": "institution_western_classical_city_republic",
       "description_key": "institution_western_classical_city_republic_desc",

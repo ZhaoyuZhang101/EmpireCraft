@@ -5,6 +5,131 @@
   ],
   "nodes": [
     {
+      "id": "arabic_gunpowder_army",
+      "requires_techs": [
+        "gunpowder",
+        "matchlock"
+      ],
+      "name_key": "institution_arabic_gunpowder_army",
+      "description_key": "institution_arabic_gunpowder_army_desc",
+      "branch": "military",
+      "advancement": 6,
+      "requires": [
+        "arabic_mamluk_corps"
+      ],
+      "research": {
+        "mandate_required": 40
+      },
+      "reform": {
+        "base_progress_per_year": 7.0,
+        "minimum_years": 8,
+        "force_radicalism": 20.0
+      },
+      "resistance": {
+        "base_radicalism": 8.0,
+        "rebellion_threshold": 75.0
+      },
+      "politics": {
+        "support_classes": {
+          "Army": 0.8,
+          "Officer": 0.4
+        },
+        "oppose_classes": {
+          "Landlord": 0.3
+        }
+      },
+      "features": {
+        "army_standing": 1,
+        "army_mobilization": 0.15
+      }
+    },
+    {
+      "id": "arabic_iqta_abolition",
+      "requires_techs": [
+        "fiscal_reform"
+      ],
+      "name_key": "institution_arabic_iqta_abolition",
+      "description_key": "institution_arabic_iqta_abolition_desc",
+      "branch": "finance",
+      "advancement": 6,
+      "requires": [
+        "arabic_iqta_military_fiscal",
+        "arabic_sultanate_bureaucracy"
+      ],
+      "research": {
+        "mandate_required": 50
+      },
+      "reform": {
+        "base_progress_per_year": 7.0,
+        "minimum_years": 10,
+        "force_radicalism": 20.0
+      },
+      "resistance": {
+        "base_radicalism": 8.0,
+        "rebellion_threshold": 75.0
+      },
+      "politics": {
+        "support_classes": {
+          "Officer": 0.8,
+          "Merchant": 0.3
+        },
+        "oppose_classes": {
+          "Army": 0.6,
+          "Landlord": 0.6
+        }
+      },
+      "replaces": [
+        "arabic_iqta_military_fiscal"
+      ],
+      "features": {
+        "vassal_authority": 100,
+        "constitution_basis_fiscal": 1,
+        "state_granary": 1
+      }
+    },
+    {
+      "id": "arabic_reorganization",
+      "requires_techs": [
+        "constitutionalism"
+      ],
+      "name_key": "institution_arabic_reorganization",
+      "description_key": "institution_arabic_reorganization_desc",
+      "branch": "administration",
+      "advancement": 7,
+      "requires": [
+        "arabic_sultanate_bureaucracy",
+        "arabic_iqta_abolition"
+      ],
+      "research": {
+        "mandate_required": 55
+      },
+      "reform": {
+        "base_progress_per_year": 7.0,
+        "minimum_years": 12,
+        "force_radicalism": 20.0
+      },
+      "resistance": {
+        "base_radicalism": 8.0,
+        "rebellion_threshold": 75.0
+      },
+      "politics": {
+        "support_classes": {
+          "Officer": 0.8,
+          "Merchant": 0.5
+        },
+        "oppose_classes": {
+          "Landlord": 0.5
+        },
+        "oppose_factions": {
+          "神权": 0.8
+        }
+      },
+      "features": {
+        "constitution_basis_administration": 1,
+        "constitution_basis_law": 1
+      }
+    },
+    {
       "id": "arabic_bedouin_clans",
       "name_key": "institution_arabic_bedouin_clans",
       "description_key": "institution_arabic_bedouin_clans_desc",

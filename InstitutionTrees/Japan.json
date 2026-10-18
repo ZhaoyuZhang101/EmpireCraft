@@ -4,6 +4,82 @@
     "japan_jomon_tribes"
   ],
   "nodes": [
+    {
+      "id": "japan_conscription",
+      "requires_techs": [
+        "rifling"
+      ],
+      "name_key": "institution_japan_conscription",
+      "description_key": "institution_japan_conscription_desc",
+      "branch": "military",
+      "advancement": 8,
+      "requires": [
+        "japan_meiji_restoration"
+      ],
+      "research": {
+        "mandate_required": 40
+      },
+      "reform": {
+        "base_progress_per_year": 7.0,
+        "minimum_years": 8,
+        "force_radicalism": 20.0
+      },
+      "resistance": {
+        "base_radicalism": 8.0,
+        "rebellion_threshold": 75.0
+      },
+      "politics": {
+        "support_classes": {
+          "Officer": 0.6,
+          "Army": 0.4
+        },
+        "oppose_classes": {
+          "Noble": 0.7
+        }
+      },
+      "features": {
+        "army_standing": 1,
+        "army_mobilization": 0.25
+      }
+    },
+    {
+      "id": "japan_industrial_promotion",
+      "requires_techs": [
+        "industrialization"
+      ],
+      "name_key": "institution_japan_industrial_promotion",
+      "description_key": "institution_japan_industrial_promotion_desc",
+      "branch": "finance",
+      "advancement": 9,
+      "requires": [
+        "japan_land_tax_reform"
+      ],
+      "research": {
+        "mandate_required": 50
+      },
+      "reform": {
+        "base_progress_per_year": 7.0,
+        "minimum_years": 10,
+        "force_radicalism": 20.0
+      },
+      "resistance": {
+        "base_radicalism": 8.0,
+        "rebellion_threshold": 75.0
+      },
+      "politics": {
+        "support_classes": {
+          "Merchant": 0.7,
+          "Officer": 0.5
+        },
+        "oppose_classes": {
+          "Peasant": 0.3
+        }
+      },
+      "features": {
+        "state_enterprise": 1,
+        "constitution_basis_commerce": 1
+      }
+    },
     {"id": "japan_jomon_tribes", "name_key": "institution_japan_jomon_tribes", "description_key": "institution_japan_jomon_tribes_desc", "branch": "society", "advancement": 1, "reform": {"minimum_years": 1, "allow_force": false}, "politics": {"support_classes": {"Peasant": 0.5}}, "absorb": {"enabled": false}, "regime": "Origin", "features": {"no_surname": 1, "primordial_naming": 1}},
     {"id": "japan_yayoi_kuni", "requires_techs": ["copper_smelting"], "name_key": "institution_japan_yayoi_kuni", "description_key": "institution_japan_yayoi_kuni_desc", "branch": "administration", "advancement": 2, "requires": ["japan_jomon_tribes"], "replaces": ["japan_jomon_tribes"], "reform": {"base_progress_per_year": 12.0, "minimum_years": 5}, "resistance": {"base_radicalism": 5.0, "vested_interest_radicalism": 8.0, "rebellion_threshold": 80.0}, "politics": {"support_classes": {"Noble": 0.6, "Peasant": 0.3}}, "regime": "Origin", "features": {"no_surname": 1, "primordial_naming": 1}},
     {"id": "japan_yamato_kingship", "requires_techs": ["bronze_casting", "ritual_rites"], "name_key": "institution_japan_yamato_kingship", "description_key": "institution_japan_yamato_kingship_desc", "branch": "administration", "advancement": 3, "requires": ["japan_yayoi_kuni"], "replaces": ["japan_jomon_tribes", "japan_yayoi_kuni"], "reform": {"base_progress_per_year": 12.0, "minimum_years": 5}, "resistance": {"base_radicalism": 5.0, "vested_interest_radicalism": 8.0, "rebellion_threshold": 80.0}, "politics": {"support_classes": {"Noble": 0.8, "Army": 0.3}}, "effects_on_complete": [{"type": "add_mandate", "int_value": 5}], "regime": "Origin", "features": {"noble_surname_only": 1}},

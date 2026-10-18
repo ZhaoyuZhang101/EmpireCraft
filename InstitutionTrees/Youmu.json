@@ -5,6 +5,135 @@
   ],
   "nodes": [
     {
+      "id": "youmu_sedentarization",
+      "requires_techs": [
+        "fiscal_reform"
+      ],
+      "name_key": "institution_youmu_sedentarization",
+      "description_key": "institution_youmu_sedentarization_desc",
+      "branch": "society",
+      "advancement": 6,
+      "requires": [
+        "youmu_provincial_system"
+      ],
+      "research": {
+        "mandate_required": 45
+      },
+      "reform": {
+        "base_progress_per_year": 7.0,
+        "minimum_years": 10,
+        "force_radicalism": 20.0
+      },
+      "resistance": {
+        "base_radicalism": 8.0,
+        "rebellion_threshold": 75.0
+      },
+      "politics": {
+        "support_classes": {
+          "Officer": 0.6,
+          "Peasant": 0.5,
+          "Merchant": 0.3
+        },
+        "oppose_classes": {
+          "Army": 0.5,
+          "Noble": 0.4
+        },
+        "support_factions": {
+          "融入": 1.0
+        },
+        "oppose_factions": {
+          "同化": 0.8
+        }
+      },
+      "features": {
+        "state_granary": 1,
+        "constitution_basis_fiscal": 1
+      }
+    },
+    {
+      "id": "youmu_firearms",
+      "requires_techs": [
+        "gunpowder",
+        "matchlock"
+      ],
+      "name_key": "institution_youmu_firearms",
+      "description_key": "institution_youmu_firearms_desc",
+      "branch": "military",
+      "advancement": 6,
+      "requires": [
+        "youmu_keshig_guard"
+      ],
+      "research": {
+        "mandate_required": 40
+      },
+      "reform": {
+        "base_progress_per_year": 7.0,
+        "minimum_years": 8,
+        "force_radicalism": 20.0
+      },
+      "resistance": {
+        "base_radicalism": 8.0,
+        "rebellion_threshold": 75.0
+      },
+      "politics": {
+        "support_classes": {
+          "Army": 0.7
+        },
+        "oppose_classes": {
+          "Noble": 0.3
+        }
+      },
+      "features": {
+        "army_standing": 1,
+        "army_mobilization": 0.15
+      }
+    },
+    {
+      "id": "youmu_settled_bureaucracy",
+      "requires_techs": [
+        "civil_examination"
+      ],
+      "name_key": "institution_youmu_settled_bureaucracy",
+      "description_key": "institution_youmu_settled_bureaucracy_desc",
+      "branch": "administration",
+      "advancement": 7,
+      "requires": [
+        "youmu_sedentarization"
+      ],
+      "research": {
+        "mandate_required": 55
+      },
+      "reform": {
+        "base_progress_per_year": 7.0,
+        "minimum_years": 12,
+        "force_radicalism": 20.0
+      },
+      "resistance": {
+        "base_radicalism": 8.0,
+        "rebellion_threshold": 75.0
+      },
+      "politics": {
+        "support_classes": {
+          "Officer": 0.9
+        },
+        "oppose_classes": {
+          "Army": 0.5,
+          "Noble": 0.6
+        },
+        "support_factions": {
+          "融入": 1.0
+        },
+        "oppose_factions": {
+          "同化": 1.0
+        }
+      },
+      "features": {
+        "constitution_basis_administration": 1,
+        "constitution_basis_law": 1,
+        "vassal_authority": 100
+      }
+    },
+    {
       "id": "youmu_steppe_clans",
       "name_key": "institution_youmu_steppe_clans",
       "description_key": "institution_youmu_steppe_clans_desc",
