@@ -175,6 +175,9 @@ public static class PrinceLineage
     // 用字同封国国君(见 PosthumousNameGenerator.DecideVassal：早夭殇、冲、悼，死于非命烈、愍、庄，其余孝、恭、惠……)，
     // 同一王号先前的藩王用过的谥加"后"区别。在位的帝王、封国国君另有谥法，不走这里
     public static void OnPrinceDied(PersonalClanIdentity person, bool killed)
+        => AssignPosthumous(person, killed, recordHistory: true);
+
+    private static void AssignPosthumous(PersonalClanIdentity person, bool killed, bool recordHistory)
     {
         if (person == null || string.IsNullOrWhiteSpace(person.prince_title) || !string.IsNullOrWhiteSpace(person.posthumous_name)) return;
         if (person._specificClan?.Patrilineal() != true) return;
@@ -194,12 +197,46 @@ public static class PrinceLineage
             used.Add(middle);
         }
         int age = person.recordedAge > 0 ? person.recordedAge : person.age;
-        var decision = PosthumousNameGenerator.DecideVassal(-1, age, killed, 0, used);
+        // 选字器会把本次选中的字加入集合；判定是否重谥要保留此前的集合。
+        var decision = PosthumousNameGenerator.DecideVassal(-1, age, killed, 0, new HashSet<string>(used));
         string shi = LM.Get(decision.shi);
         if (string.IsNullOrWhiteSpace(shi)) return;
         string posthumous = place + (used.Contains(shi) ? LM.Get("posthumous_later_prefix") ?? "" : "") + shi + KingSuffix;
         person.posthumous_name = posthumous;
-        person.RecordPersonalHistory(string.Format(LM.Get("feudal_posthumous_history"), posthumous, LM.Get(decision.reason)));
+        if (recordHistory)
+            person.RecordPersonalHistory(string.Format(LM.Get("feudal_posthumous_history"), posthumous, LM.Get(decision.reason)));
+    }
+
+    // 旧档补王号发生在身故之后，不能再等死亡回调。只补未定谥的已故藩王，帝王仍由帝国史书定谥。
+    // 修复不追加一条发生在读档当天的“薨”记事，也不改已有谥号。
+    public static int BackfillPosthumous(IEnumerable<PersonalClanIdentity> people)
+    {
+        var emperors = new HashSet<long>();
+        if (ModClass.EMPIRE_MANAGER != null)
+            foreach (Empire empire in ModClass.EMPIRE_MANAGER)
+            {
+                if (empire?.data?.currentHistory != null) emperors.Add(empire.data.currentHistory.id);
+                if (empire?.data?.history != null)
+                    foreach (var history in empire.data.history)
+                        if (history != null) emperors.Add(history.id);
+            }
+        if (ModClass.ALL_HISTORY_DATA != null)
+            foreach (var histories in ModClass.ALL_HISTORY_DATA.Values)
+                if (histories != null)
+                    foreach (var history in histories)
+                        if (history != null) emperors.Add(history.id);
+
+        int filled = 0;
+        foreach (PersonalClanIdentity person in people)
+        {
+            if (person == null || person.is_alive || string.IsNullOrWhiteSpace(person.prince_title) ||
+                !string.IsNullOrWhiteSpace(person.posthumous_name) || person.actor_id > 0 && emperors.Contains(person.actor_id)) continue;
+            string assassination = string.Format(LM.Get("virtual_person_death_assassinated"), person.recordedAge);
+            bool killed = person.personal_history?.Any(record => record?.content == assassination) == true;
+            AssignPosthumous(person, killed, recordHistory: false);
+            if (!string.IsNullOrWhiteSpace(person.posthumous_name)) filled++;
+        }
+        return filled;
     }
 
     // 读档：旧档没记王号的，按个人经历里最近一次"获授某王"补上

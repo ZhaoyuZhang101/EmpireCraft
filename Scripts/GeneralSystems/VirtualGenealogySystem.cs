@@ -108,6 +108,8 @@ public static class VirtualGenealogySystem
         if (surnames > 0) LogService.LogInfo($"[EmpireCraft][虚拟族谱] 华夏宗族随错姓的改回父姓 {surnames} 人");
         int princes = PrinceLineage.Backfill(SpecificClanManager._globalPersonLookup.Values);
         if (princes > 0) LogService.LogInfo($"[EmpireCraft][虚拟族谱] 按个人经历补记藩王王号 {princes} 人");
+        int princePosthumous = PrinceLineage.BackfillPosthumous(SpecificClanManager._globalPersonLookup.Values);
+        if (princePosthumous > 0) LogService.LogInfo($"[EmpireCraft][虚拟族谱] 补记已故藩王谥号 {princePosthumous} 人");
         int clanSurnames = SurnameInheritanceSystem.RepairClanSurnames(SpecificClanManager._globalPersonLookup.Values);
         if (clanSurnames > 0) LogService.LogInfo($"[EmpireCraft][虚拟族谱] 华夏宗族里不姓本族姓的改回 {clanSurnames} 人");
         int vanillaNames = SpecificClanManager.SyncAllVanillaClanNames();
