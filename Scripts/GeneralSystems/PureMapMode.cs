@@ -96,7 +96,8 @@ public static class PureMapMode
         building?.asset != null && (building.asset.flora || building.asset.wheat || IsDecor(building.asset) ||
                                     LivelihoodSystem.Replaces(building.asset));
 
-    private static readonly global::System.Action<QuantumSpriteAsset> NoDraw = _ => { };
+    // 原版的绘制委托类型是 QuantumSpriteUpdater(不是 Action)，否则赋不上 draw_call
+    private static readonly QuantumSpriteUpdater NoDraw = _ => { };
 
     private static void TurnOffSprites()
     {
