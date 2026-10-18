@@ -321,6 +321,7 @@ public static class TianxiaSystem
     public static void Settle(EmpireCore lead, Dictionary<Kingdom, int> held, int total, string name)
     {
         if (lead == null || total <= 0) return;
+        NoteWorld();
         double now = World.world.getCurWorldTime();
         if (total < MinMandateCities)
         {
@@ -550,11 +551,27 @@ public static class TianxiaSystem
         if (empire != null) MonarchyLegitimacy.Invalidate(empire);
     }
 
-    // 天命得失：记史册之外也上世界公告(以前只记本国史册，看不到)
+    // 天命得失：记史册之外也上世界公告(以前只记本国史册，看不到)。读档(或开新世界)后头一年只记史册不公告——
+    // 旧档第一次结算时各天下一齐受命，公告刷屏
+    private static object _announceWorld;
+    private static double _announceFrom = -1d;
+
     private static void Announce(Kingdom kingdom, string text)
     {
         Record(kingdom, text);
+        if (World.world == null) return;
+        NoteWorld();
+        double now = World.world.getCurWorldTime();
+        if (now >= _announceFrom && Date.getYearsSince(_announceFrom) < 1) return;
         if (kingdom?.data != null && !kingdom.isRekt()) TranslateHelper.LogEventOnly(text, kingdom);
+    }
+
+    // 记下读档(换世界)的时间：年度结算一开始就记，头一年的天命得失不公告
+    private static void NoteWorld()
+    {
+        if (World.world == null || ReferenceEquals(_announceWorld, World.world)) return;
+        _announceWorld = World.world;
+        _announceFrom = World.world.getCurWorldTime();
     }
 
     private static void Record(Kingdom kingdom, string text)
