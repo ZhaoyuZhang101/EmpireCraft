@@ -13,6 +13,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   双方民间资产各记一笔贸易利润(与生产估值同口径，之后由商业税基征税)，
 //   并按商业税率就地征一笔关税：从民间现金扣，入城市国库(商业税)；没有现金就征不到。
 //   两国交战即断航(禁运)，任一港口被敌方舰队封锁也断航；港口被拆、城市易主重新配对。配对每年重算一次，结算每月一次。
+//   只与同一片海上的港口配对(码头旁的海面属于同一水域；以前按直线距离，隔着陆地的内湖、两洋也配上)；
+//   锁国的(制度特性 closed_country，如日本锁国令)不与外国通商。
 public static class TradeRouteSystem
 {
     private const float MaxRouteDistance = 160f;
@@ -74,16 +76,23 @@ public static class TradeRouteSystem
     {
         Routes.Clear();
         var ports = new List<City>();
+        var seas = new Dictionary<City, object>();
         foreach (City city in World.world.cities)
-            if (Tradeable(city)) ports.Add(city);
+            if (Tradeable(city) && !Closed(city.kingdom))
+            {
+                ports.Add(city);
+                seas[city] = SeaOf(city);
+            }
         foreach (City city in ports)
         {
             City best = null;
             float bestDistance = MaxRouteDistance * MaxRouteDistance;
             Vector2 from = city.city_center;
+            object sea = seas[city];
             foreach (City other in ports)
             {
                 if (other == city || other.kingdom == city.kingdom) continue;
+                if (sea != null && seas[other] != null && seas[other] != sea) continue;
                 Vector2 to = other.city_center;
                 float distance = (to - from).sqrMagnitude;
                 if (distance >= bestDistance) continue;
@@ -94,13 +103,33 @@ public static class TradeRouteSystem
         }
     }
 
+    // 港口所在的那片海：码头所在或紧挨着的海面所属的水域；找不到返回 null(那就照旧按距离配)
+    private static object SeaOf(City city)
+    {
+        Building docks = city.getBuildingOfType("type_docks", pCountOnlyFinished: true, pRandom: false);
+        WorldTile tile = docks?.current_tile;
+        if (tile == null) return null;
+        if (tile.Type?.ocean == true && tile.region?.island != null) return tile.region.island;
+        foreach (WorldTile next in tile.neighboursAll ?? Array.Empty<WorldTile>())
+            if (next?.Type?.ocean == true && next.region?.island != null) return next.region.island;
+        return null;
+    }
+
+    // 锁国：不与外国通商
+    private static bool Closed(Kingdom kingdom)
+    {
+        string culture = CultureService.GetRealmCulture(kingdom);
+        return CultureService.IsValidCulture(culture) && InstitutionSystem.GetFeature(culture, "closed_country") > 0f;
+    }
+
     private static void Settle()
     {
         foreach (KeyValuePair<long, long> route in Routes)
         {
             City city = World.world.cities.get(route.Key);
             City partner = World.world.cities.get(route.Value);
-            if (!Tradeable(city) || !Tradeable(partner) || city.kingdom == partner.kingdom) continue;
+            if (!Tradeable(city) || !Tradeable(partner) || city.kingdom == partner.kingdom ||
+                Closed(city.kingdom) || Closed(partner.kingdom)) continue;
             // 交战禁运；任一港口被敌方舰队封锁也断航(见 NavySystem)
             if (city.kingdom.isInWarWith(partner.kingdom) || NavySystem.IsBlockaded(city) ||
                 NavySystem.IsBlockaded(partner)) continue;
