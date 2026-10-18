@@ -195,8 +195,11 @@ public static class CompositeEmpireService
             }
         }
 
+        // 受着被征服文化那个天下的天命，也触发采纳(外族入主，用户 2026-10-19 选"可受天命、本族可光复")
+        bool mandateTrigger = TianxiaSystem.MandateOf(empire.CoreKingdom) is EmpireCore lead &&
+                              CultureService.SameKin(lead.default_culture, status.InstitutionalCulture);
         status.IsEligible = status.HasDistinctCultures &&
-                            status.HasRequiredControl &&
+                            (status.HasRequiredControl || mandateTrigger) &&
                             status.HasRequiredMandate;
         return status;
     }

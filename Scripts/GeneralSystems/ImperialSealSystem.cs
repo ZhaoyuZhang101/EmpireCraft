@@ -92,6 +92,9 @@ public static class ImperialSealSystem
     private static CultureInstitutionState StateOf(Empire empire, out string culture)
     {
         culture = CultureService.GetEmpireDefaultCulture(empire);
+        // 外族入主：受着华夏天下天命的外族王朝也能用玉玺(用户 2026-10-19 选"可受天命、本族可光复")
+        if (!Huaxia(culture) && TianxiaSystem.MandateOf(empire?.CoreKingdom) is EmpireCore lead && Huaxia(lead.default_culture))
+            culture = lead.default_culture;
         return Huaxia(culture) ? InstitutionSystem.GetOrCreateCultureState(culture) : null;
     }
 

@@ -118,6 +118,29 @@ public static class UnificationSystem
                Rivals.TryGetValue(sovereign.id, out List<Kingdom> rivals) && rivals.Contains(foe);
     }
 
+    // 同一个天下(用户 2026-10-19 选"统一按帝国核心")：都城都在帝国核心的天下里就比天下；都不在就照旧按文化圈；
+    // 外族据有这个天下四分之一以上的城也算天下一家(都城在草原也算，用户选"可受天命、本族可光复"，见 Tally)
+    public static bool SameRealm(Kingdom a, Kingdom b)
+    {
+        if (!Alive(a) || !Alive(b)) return false;
+        EmpireCore la = TianxiaSystem.LeadOf(a.capital), lb = TianxiaSystem.LeadOf(b.capital);
+        if (la != null && la == lb) return true;
+        if (la != null && HoldsShare(b, la) || lb != null && HoldsShare(a, lb)) return true;
+        return la == null && lb == null && SameSphere(a, b);
+    }
+
+    // 外族算天下一家要据有几成
+    private const float ForeignMemberShare = 0.25f;
+
+    private static bool HoldsShare(Kingdom kingdom, EmpireCore lead)
+    {
+        List<City> cities = TianxiaSystem.Cities(lead);
+        if (cities.Count == 0) return false;
+        Kingdom sovereign = Sovereign(kingdom);
+        int held = cities.Count(city => city?.kingdom != null && Sovereign(city.kingdom) == sovereign);
+        return held >= cities.Count * ForeignMemberShare;
+    }
+
     // 同一文化圈(本国文化的天下标识相同，见 LineOf)
     public static bool SameSphere(Kingdom a, Kingdom b)
     {
@@ -255,8 +278,10 @@ public static class UnificationSystem
             realm.held.TryGetValue(holder, out int count);
             realm.held[holder] = count + 1;
         }
-        foreach (Kingdom holder in realm.held.Keys)
-            if (holder.capital != null && realm.cities.Contains(holder.capital)) realm.members.Add(holder);
+        // 天下一家：都城在这片天下里的，连同据有四分之一以上的外族(都城在草原也算——外族入主可受天命，本族可光复)
+        foreach (KeyValuePair<Kingdom, int> pair in realm.held)
+            if (pair.Key.capital != null && realm.cities.Contains(pair.Key.capital) ||
+                realm.lead != null && pair.Value >= realm.total * ForeignMemberShare) realm.members.Add(pair.Key);
     }
 
     // 两座城连成一片：领地接壤，或同一块陆地上城心相距不远
