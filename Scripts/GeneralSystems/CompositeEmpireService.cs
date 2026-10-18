@@ -14,7 +14,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 
 public static class CompositeEmpireService
 {
-    public const int CulturalNameIntegrationThreshold = 70;
+    // 改用制度文化的国号：融合度到 60(以前 70——统治族群还在时融合度封顶 69，国号永远改不了)
+    public const int CulturalNameIntegrationThreshold = 60;
 
     private sealed class CulturalNameCandidate
     {
@@ -519,19 +520,7 @@ public static class CompositeEmpireService
 
         string rulingCulture = GetRulingCulture(empire);
         string institutionalCulture = GetInstitutionalCulture(empire);
-        int total = 0;
-        int ruling = 0;
-        int institutional = 0;
-        foreach (Actor actor in EmpirePopulation.Enumerate(empire.kingdoms_hashset))
-        {
-            if (actor == null || actor.isRekt() || !actor.isAlive()) continue;
-            total++;
-            string culture = CultureService.GetActorCulture(actor);
-            if (string.Equals(culture, rulingCulture, StringComparison.Ordinal)) ruling++;
-            if (string.Equals(culture, institutionalCulture, StringComparison.Ordinal)) institutional++;
-        }
-        float rulingShare = total > 0 ? (float)ruling / total : 0f;
-        float institutionalShare = total > 0 ? (float)institutional / total : 0f;
+        PopulationShares(empire, rulingCulture, institutionalCulture, out float rulingShare, out float institutionalShare);
         string emperorCulture = CultureService.GetActorCulture(empire.Emperor);
         bool emperorUsesRuling = string.Equals(emperorCulture, rulingCulture, StringComparison.Ordinal);
         bool emperorUsesInstitution = string.Equals(emperorCulture, institutionalCulture, StringComparison.Ordinal);
@@ -572,6 +561,37 @@ public static class CompositeEmpireService
             TranslateHelper.LogCompositeEmpireStageChanged(empire, oldStage, empire.data.composite_integration_stage);
         if (empire.data.composite_integration_stage == CompositeEmpireIntegrationStage.IntegratedDynasty)
             CompleteIntegration(empire, institutionalCulture);
+    }
+
+    // 统治族群、制度文化各占治下人口的几成：按各城的文化构成乘城中人口(含无小人模式的背景人口)。
+    // 以前数实体小人——无小人模式下几乎没有小人，两个占比都是 0，融合只看皇帝本人的文化
+    public static void PopulationShares(Empire empire, string rulingCulture, string institutionalCulture,
+        out float rulingShare, out float institutionalShare)
+    {
+        double total = 0d, ruling = 0d, institutional = 0d;
+        foreach (Kingdom kingdom in empire?.kingdoms_list ?? new List<Kingdom>())
+        {
+            if (kingdom?.cities == null || kingdom.isRekt()) continue;
+            foreach (City city in kingdom.cities)
+            {
+                if (city?.data == null || city.isRekt()) continue;
+                double people = Math.Max(1, city.CountLivingPopulation());
+                Dictionary<string, float> shares = CultureService.GetCityCultureShares(city, initialize: false);
+                float sum = shares.Values.Sum();
+                total += people;
+                if (sum <= 0f)
+                {
+                    string main = CultureService.GetMainCulture(city, initialize: false);
+                    if (string.Equals(main, rulingCulture, StringComparison.Ordinal)) ruling += people;
+                    if (string.Equals(main, institutionalCulture, StringComparison.Ordinal)) institutional += people;
+                    continue;
+                }
+                if (shares.TryGetValue(rulingCulture ?? "", out float r)) ruling += people * r / sum;
+                if (shares.TryGetValue(institutionalCulture ?? "", out float i)) institutional += people * i / sum;
+            }
+        }
+        rulingShare = total > 0d ? (float)(ruling / total) : 0f;
+        institutionalShare = total > 0d ? (float)(institutional / total) : 0f;
     }
 
     public static bool TryAdoptInstitutionalCultureName(Empire empire)
@@ -710,10 +730,18 @@ public static class CompositeEmpireService
         if (!CultureService.IsValidCulture(institutionalCulture) ||
             string.Equals(empire.data.ruling_culture, institutionalCulture, StringComparison.Ordinal)) return;
         empire.data.ruling_culture = institutionalCulture;
+        empire.data.conquest_founder_culture = institutionalCulture;
         empire.data.external_identity_culture = institutionalCulture;
         if (AdoptableRegime(institutionalCulture, out RegimeType institutionalType))
             empire.data.military_tradition = institutionalType.ToString();
         CultureService.SetRealmCulture(empire.CoreKingdom, institutionalCulture, updatePoliticalSystem: false);
+        // 帝国核心的默认文化(没锁定、该文化此刻没有别的正统帝国时)也换过来，国号类别按现行政体重取：
+        // 以前融合完成后核心仍是游牧文化(天下、同化目标都按旧文化)，对外仍称"汗国"
+        EmpireCore core = EmpireCoreManager.Get(empire);
+        if (core != null && !core.culture_locked && CultureService.GetActiveEmpireForCulture(institutionalCulture, empire) == null)
+            core.default_culture = institutionalCulture;
+        empire.data.empire_type_key = "";
+        InstitutionSystem.ForgetRulingMajority(empire);
         SynchronizeMilitaryTraditionClaims(empire);
     }
 

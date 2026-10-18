@@ -353,6 +353,15 @@ public static class EmpirePartitionSystem
         twin.data.show_long_posthumous = source.data.show_long_posthumous;
         twin.data.ruling_culture = source.data.ruling_culture;
         twin.data.institutional_culture = source.data.institutional_culture;
+        // 征服王朝分出来的新朝照旧是征服王朝(以前只抄两个文化，新朝融合阶段为"无"，复合帝国的一切都不生效)
+        twin.data.conquest_founder_culture = source.data.conquest_founder_culture;
+        twin.data.external_identity_culture = source.data.external_identity_culture;
+        twin.data.military_tradition = source.data.military_tradition;
+        twin.data.composite_integration = source.data.composite_integration;
+        twin.data.composite_integration_stage = source.data.composite_integration_stage;
+        twin.data.central_plains_legitimacy = source.data.central_plains_legitimacy;
+        twin.data.ruling_tradition_legitimacy = source.data.ruling_tradition_legitimacy;
+        twin.data.composite_identity_adopted_timestamp = source.data.composite_identity_adopted_timestamp;
         twin.data.Mandate = Mathf.Max(30, source.data.Mandate - 15);
         try
         {
