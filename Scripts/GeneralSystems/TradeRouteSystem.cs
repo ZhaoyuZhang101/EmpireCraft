@@ -124,7 +124,9 @@ public static class TradeRouteSystem
 
     private const int TreatyYears = 20;
 
-    public static bool HasPort(Kingdom kingdom) => kingdom?.cities?.Any(Tradeable) == true;
+    // 有能通商的港口(海上商路只在无小人模式开着，见 TryMonthlyScan)
+    public static bool HasPort(Kingdom kingdom) =>
+        CityPopulationSystem.AbstractPopulationEnabled && kingdom?.cities?.Any(Tradeable) == true;
 
     // 和约逼开港：二十年里与胜者通商(锁国也开)
     public static bool ImposeTreaty(Kingdom loser, Kingdom winner)
