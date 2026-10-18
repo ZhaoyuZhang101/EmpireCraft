@@ -1209,6 +1209,8 @@ public static class TechnologySystem
                     Link(Contacts, influence.Key, pair.Key);
                 }
             long empireId = city.kingdom?.GetEmpireID() ?? -1L;
+            // 朝贡国与宗主也算一家(以前注释说含朝贡国，代码只看帝国成员；见 TributaryRelations)
+            if (empireId < 0 && city.kingdom?.GetTakenAllianceEmpire() is { } suzerain) empireId = suzerain.id;
             if (empireId < 0) continue;
             if (!empireCultures.TryGetValue(empireId, out HashSet<string> cultures))
                 empireCultures[empireId] = cultures = new HashSet<string>(StringComparer.Ordinal);

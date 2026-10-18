@@ -88,6 +88,13 @@ public static class FeudalVassalService
             // 和平途径不能抢走别人的附庸(征服与上帝工具除外)：附庸不再被邻国排队挖走
             GetOverlord(subject) != null && GetOverlord(subject) != lord ||
             IsInChain(lord, subject)) return false;
+        return UsesFeudalVassals(lord);
+    }
+
+    // 行西方式附庸的：封建化了的文化，或废了君主制的(朝贡体系随之废除，改用附庸国)
+    public static bool UsesFeudalVassals(Kingdom lord)
+    {
+        if (lord?.data == null || lord.isRekt()) return false;
         if (IsPostMonarchy(lord)) return true;
         string culture = CultureService.GetRealmCulture(lord);
         return InstitutionSystem.IsEnacted(culture, "western_feudalization");

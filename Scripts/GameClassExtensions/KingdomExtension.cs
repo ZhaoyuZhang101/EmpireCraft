@@ -1234,6 +1234,8 @@ public static class KingdomExtension
         if (fiscal) value = Math.Min(value, Math.Max(0, k.GetMoney()));
         k.SubMoney(value, TreasuryCategory.Tribute);
         core.AddMoney(value, TreasuryCategory.Tribute);
+        // 厚往薄来：宗主回赐、得正统(见 TributaryRelations)
+        TributaryRelations.AfterTribute(k, empire, value);
         if (k.GetMoney()<=0)
         {
             if (population / 3 > (abstracted ? CityPopulationSystem.Households(empire) : empire.getUnits().Count()))

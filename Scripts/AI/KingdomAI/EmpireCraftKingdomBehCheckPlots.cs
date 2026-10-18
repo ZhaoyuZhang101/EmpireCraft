@@ -35,6 +35,8 @@ public class EmpireCraftKingdomBehCheckPlots : GameAIKingdomBase
         {
             CheckJoinWar(pKingdom);
         }
+        // 朝贡国遭外敌攻打，宗主出兵保护(见 TributaryRelations)
+        if (pKingdom.HasTakenAlliance()) TributaryRelations.Protect(pKingdom);
 
         CheckProgress(pKingdom);
         CheckPowerfulMinisterPlot(pKingdom);

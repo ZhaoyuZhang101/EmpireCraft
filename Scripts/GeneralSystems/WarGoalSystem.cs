@@ -102,7 +102,7 @@ public static class WarGoalSystem
             data.war_goal = defender.IsEmpire() ? WarGoal.赔款 : WarGoal.迫使附庸;
         data.war_goal_capital_id = defender.capital?.data != null ? defender.capital.id : -1L;
         TranslateHelper.LogEventMessage(string.Format(LM.Get("war_goal_declared"), attacker.GetKingdomName(),
-            defender.GetKingdomName(), Name(data.war_goal)), attacker);
+            defender.GetKingdomName(), Name(data.war_goal, attacker)), attacker);
         // 开打即拜统帅(谋划开战时已拜的不变，见 WarCommandSystem)
         WarCommandSystem.MonthTick(FrontSystem.Realm(attacker));
         WarCommandSystem.MonthTick(FrontSystem.Realm(defender));
@@ -156,14 +156,20 @@ public static class WarGoalSystem
 
     public static string Name(WarGoal goal) => LM.Get("war_goal_" + goal);
 
+    // 不行封建附庸的攻方：迫使附庸称"迫使称臣"(战后对方称臣纳贡，见 Tick)
+    public static string Name(WarGoal goal, Kingdom attacker) =>
+        goal == WarGoal.迫使附庸 && attacker?.data != null && !FeudalVassalService.UsesFeudalVassals(attacker)
+            ? LM.Get("war_goal_迫使称臣")
+            : Name(goal);
+
     // 战争窗口：目标与战况(双方各已得几城)
     public static string Describe(War war)
     {
         WarGoal goal = Get(war);
         if (goal == WarGoal.None) return null;
-        if (war.hasEnded()) return Name(goal);
+        if (war.hasEnded()) return Name(goal, war.main_attacker);
         (int attackerGain, int defenderGain) = Gains(war);
-        return string.Format(LM.Get("war_goal_standing"), Name(goal), attackerGain, defenderGain);
+        return string.Format(LM.Get("war_goal_standing"), Name(goal, war.main_attacker), attackerGain, defenderGain);
     }
 
     // 攻守双方在这场仗里各得几城：对方参战以来少了的城 + 己方占了一半以上地块的对方城市
@@ -399,7 +405,16 @@ public static class WarGoalSystem
             if (lord?.data == null || subject?.data == null || lord.isRekt() || subject.isRekt()) continue;
             try
             {
-                if (FeudalVassalService.ForceBind(lord, subject))
+                // 称臣纳贡(用户 2026-10-19 选"朝贡双向与称臣和约")：不行封建附庸的胜者(华夏、游牧、阿拉伯……)不再得
+                // 西方式附庸，改为对方向本帝国称臣纳贡；收不了朝贡的照旧赔款
+                if (!FeudalVassalService.UsesFeudalVassals(lord))
+                {
+                    if (TributaryRelations.Submit(lord, subject))
+                        TranslateHelper.LogEventMessage(string.Format(LM.Get("war_peace_tributary"), subject.GetKingdomName(),
+                            lord.GetEmpire()?.GetEmpireName() ?? lord.GetKingdomName()), lord);
+                    else WarReparationsSystem.Impose(subject, lord);
+                }
+                else if (FeudalVassalService.ForceBind(lord, subject))
                     TranslateHelper.LogEventMessage(string.Format(LM.Get("war_peace_vassalized"), subject.GetKingdomName(),
                         lord.GetKingdomName()), lord);
                 else WarReparationsSystem.Impose(subject, lord);
