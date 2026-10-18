@@ -454,6 +454,13 @@ public class CityPatch : GamePatch
             }
             //检测是否为游牧扩张战争，如果是则返还法理土地，保留制度但是加入帝国
             // 只吞小国(用户 2026-10-17 选"攻下都城只吞小国")：三城以内整国并入，大国改为称臣纳贡(同迫使朝贡)
+            // 南下打的是别的帝国的成员(或来救援的那个帝国)：城照常易手，不整国并入、不改称臣
+            if (expendWar != null && __instance.kingdom.GetEmpire() is Empire otherEmpire &&
+                otherEmpire != joinAfterCapture.GetEmpire())
+            {
+                LogService.LogInfo($"游牧扩张战争：南下攻取{otherEmpire.GetEmpireName()}的城{__instance.name}");
+                expendWar = null;
+            }
             if (expendWar != null)
             {
                 LogService.LogInfo("游牧扩张战争");

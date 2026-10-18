@@ -47,13 +47,27 @@ public class TempFac_游牧扩张 : TemporaryFaction
         double power = WarSituation.Power(empire);
         foreach (Kingdom kingdom in empire.GetKingdomNeighbours())
         {
-            if (kingdom == null || kingdom.isRekt() || kingdom.IsInEmpire() || empire.given_Kingdoms.Contains(kingdom) ||
+            if (kingdom == null || kingdom.isRekt() || empire.given_Kingdoms.Contains(kingdom) ||
                 empire.taken_Kingdoms.Contains(kingdom) || empire.CoreKingdom.isOpinionTowardsKingdomGood(kingdom)) continue;
+            if (kingdom.IsInEmpire() && !BorderTarget(empire, kingdom, power)) continue;
             if (EmpireCraft.Scripts.Compatibility.NuclearDoctrineSystem.IsDeterred(empire.CoreKingdom, kingdom)) continue;
-            if (power <= WarSituation.Power(kingdom) || !WarGate.CanDeclare(empire.CoreKingdom, kingdom)) continue;
+            if (!kingdom.IsInEmpire() && power <= WarSituation.Power(kingdom)) continue;
+            if (!WarGate.CanDeclare(empire.CoreKingdom, kingdom)) continue;
             SetKingdomTarget(kingdom);
             return true;
         }
         return false;
+    }
+
+    // 南下(用户 2026-10-19 选"游牧扩张可打中原帝国的边地")：定居帝国(统治族群不游牧)的成员——不是它的核心——
+    // 也可以打：对这一国要强出一半，对它整个帝国也不能不到一半(中央出兵救援时不至于送死)。
+    // 打下的城照常易手，不整国并入、不收朝贡(见 CityPatch)
+    public static bool BorderTarget(Empire empire, Kingdom kingdom, double power)
+    {
+        Empire theirs = kingdom?.GetEmpire();
+        if (theirs == null || theirs == empire || theirs.isRekt() || theirs.IsArchived() ||
+            theirs.CoreKingdom == null || theirs.CoreKingdom == kingdom ||
+            ClaimRules.HasTrait(theirs, EmpireCraft.Scripts.Data.OnomasticsRule.NomadTrait)) return false;
+        return power > kingdom.GetNationalPower() * 1.5d && power * 2d >= WarSituation.Power(theirs);
     }
 }
