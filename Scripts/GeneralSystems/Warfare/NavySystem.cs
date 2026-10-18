@@ -718,7 +718,7 @@ public static class NavySystem
         Building building = home == null ? null : Port(home);
         Docks docks = building?.component_docks;
         if (docks == null || home.kingdom != kingdom) return;
-        if (docks.tiles_ocean == null || docks.tiles_ocean.Count == 0)
+        if (docks.tiles_ocean == null || docks.tiles_ocean.Count() == 0)
         {
             docks.recalculateOceanTiles();
             return;
