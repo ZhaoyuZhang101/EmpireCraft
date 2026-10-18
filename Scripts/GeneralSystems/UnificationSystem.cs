@@ -218,6 +218,39 @@ public static class UnificationSystem
     // 还没有帝国核心的城照旧按文化连片
     private const int MinCoreCities = 5;
 
+    // 还没有帝国核心、按文化连片的天下(天下图层上显示，见 TianxiaMap)：每年结算时记下，城 → 第几片
+    private static readonly Dictionary<long, int> UncoredOf = new();
+    private static readonly List<List<City>> Uncored = new();
+    private static object _uncoredWorld;
+    // 每年重算一次就加一(图层按它清掉缓存的称呼)
+    public static int UncoredVersion { get; private set; }
+
+    public static List<City> UncoredRealmOf(City city)
+    {
+        if (city?.data == null || !ReferenceEquals(_uncoredWorld, World.world) ||
+            !UncoredOf.TryGetValue(city.data.id, out int index)) return null;
+        return Uncored[index];
+    }
+
+    public static IEnumerable<List<City>> UncoredRealms() =>
+        ReferenceEquals(_uncoredWorld, World.world) ? Uncored : Enumerable.Empty<List<City>>();
+
+    private static void RememberUncored(List<Realm> realms)
+    {
+        UncoredOf.Clear();
+        Uncored.Clear();
+        _uncoredWorld = World.world;
+        UncoredVersion++;
+        foreach (Realm realm in realms)
+        {
+            if (realm.lead != null) continue;
+            var cities = realm.cities.ToList();
+            foreach (City city in cities)
+                if (city?.data != null) UncoredOf[city.data.id] = Uncored.Count;
+            Uncored.Add(cities);
+        }
+    }
+
     private static List<Realm> Survey()
     {
         var byLine = new Dictionary<string, List<City>>();
@@ -366,6 +399,7 @@ public static class UnificationSystem
         // 天下自动并分(按文化配置的天下标识，见 TianxiaSystem.AutoArrange)
         TianxiaSystem.AutoArrange();
         List<Realm> realms = Survey();
+        RememberUncored(realms);
         Diagnose(realms);
         var tracked = new HashSet<Kingdom>();
         foreach (Realm realm in realms)

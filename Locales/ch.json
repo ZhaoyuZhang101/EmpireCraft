@@ -2556,6 +2556,8 @@
   "tianxia_shaken_pressure": "積弊{0:0}，已達{1:0}",
   "tianxia_grace_left": "開國氣象尚餘{0}年",
   "tianxia_minor_hint": "天下不足{0}城，偏安一隅，不評天命",
+  "tianxia_uncored_name": "{0}(未立核心)",
+  "tianxia_uncored_hint": "未立帝國核心，按文化連片，不評天命",
   "capital_loss_restored": "{0}收復舊都{1}，還於舊都，復稱{2}。",
   "kingdom_type_xingzai": "行在",
   "Later": "後",
