@@ -256,7 +256,7 @@ namespace EmpireCraft.Scripts.UI.Windows
             string rulerRole = republic
                 ? RepublicSystem.GetHeadOfStateTitle(_empire)
                 : _empire.CoreKingdom.GetRegime()?.type == RegimeType.ClassicalRepublic
-                    ? LM.Get("ClassicalRepublic_officiallevel_0")
+                    ? LM.Get(DynastyNaming.RankKey(RegimeType.ClassicalRepublic, 0, _empire.CoreKingdom))
                     : LM.Get(_empire.Emperor?.isSexFemale() == true ? "actor_emperor_G" : "actor_emperor_B");
             if (_empire.data.is_been_controlled) rulerRole += " · " + LM.Get("powerful_minister_status_puppet");
             int peopleRows = 0;

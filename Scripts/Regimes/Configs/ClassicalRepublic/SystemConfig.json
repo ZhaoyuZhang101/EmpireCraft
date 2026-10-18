@@ -66,6 +66,20 @@
           "condition": ["empire_center:true"],
           "city_type": "ClassicalRepublic_city"
         },
+        "ClassicalRepublic_province": {
+          "pre": "",
+          "type": 3,
+          "description": "",
+          "powers": [],
+          "merit": -1,
+          "honorary": -1,
+          "peerageType": "Civil",
+          "select_from_local": false,
+          "leader_select_method": "Exam",
+          "require_traits": [],
+          "condition": ["empire_center:false", "allow_diplomacy:false", "succession:false"],
+          "city_type": "ClassicalRepublic_city"
+        },
         "ClassicalRepublic_city_state": {
           "pre": "",
           "type": 1,

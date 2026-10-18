@@ -243,6 +243,10 @@ namespace EmpireCraft.Scripts.HelperFunc
             else if (regime != null && regime.centre_empire_separate)
             {
                 key = $"{regime.type}_empire";
+                // 元首制：共和国改称帝国(见 Empire.IsPrincipate)
+                if (regime.type == RegimeType.ClassicalRepublic && coreKingdom?.GetEmpire() is EmpireCraft.Scripts.Layer.Empire principate &&
+                    principate.IsPrincipate() && LM.Has(key + "_principate"))
+                    key += "_principate";
                 // 文化专属称谓(阿兹特克不称匈鲁斯……见 DynastyNaming.CultureVariant)
                 if (coreKingdom != null &&
                     EmpireCraft.Scripts.GeneralSystems.DynastyNaming.CultureVariant(coreKingdom, key) is string cultureKey)

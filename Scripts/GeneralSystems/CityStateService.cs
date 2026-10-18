@@ -16,11 +16,21 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 联盟只用于没有称帝的城邦：攻城方/母邦已属于帝国时，新城邦或被征服的城邦直接并入该帝国
 //     (本模组里帝国和原版联盟是互不兼容的两套东西)；
 //   · 城邦国名默认用城市名，不能建立法理；
-//   · 称帝后是古典共和帝国：成员完全自治；首领在施行「元老院」之前由最强者担任，之后由元老院推举。
+//   · 称帝后是古典共和帝国：成员完全自治；首领在施行「元老院」之前由最强者担任，之后由元老院推举；
+//   · 施行「元首制」后：元首在家族里相传；核心与它的行省不再一城一国——核心打下的城归核心，再设行省派总督
+//     (见 Empire.IsPrincipate)，原有的自治城邦照旧。
 public static class CityStateService
 {
     public static bool IsCityState(Kingdom kingdom) =>
         kingdom != null && !kingdom.isRekt() && kingdom.GetRegime()?.type == RegimeType.ClassicalRepublic;
+
+    // 元首制的核心与行省(没有外交权的成员)：不再一城一国
+    public static bool IsPrincipateRealm(Kingdom kingdom)
+    {
+        Empire empire = kingdom?.GetEmpire();
+        if (empire == null || !IsCityState(kingdom) || !empire.IsPrincipate()) return false;
+        return kingdom == empire.CoreKingdom || kingdom.GetRegime()?.IsAllowDiplomacy() == false;
+    }
 
     // 元老院推举由制度特性 senate_election 提供
     public static bool HasSenate(Empire empire) =>
@@ -57,6 +67,7 @@ public static class CityStateService
             ApplyCityName(mother);
             return;
         }
+        if (IsPrincipateRealm(mother)) return;
         Actor leader = founder != null && !founder.isRekt() && founder.isAlive() && !founder.isKing() &&
                        founder.city == city
             ? founder
@@ -77,7 +88,8 @@ public static class CityStateService
         foreach (Kingdom mother in World.world.kingdoms.list.ToList())
         {
             if (!IsCityState(mother) || mother.capital == null || mother.cities == null || mother.cities.Count <= 1 ||
-                EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(mother)) continue;
+                EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(mother) ||
+                IsPrincipateRealm(mother)) continue;
             City city = mother.cities.Where(candidate => candidate?.data != null && !candidate.isRekt() &&
                                                          candidate != mother.capital && !candidate.GetOrCreate().placed_by_hand)
                 .OrderBy(candidate => candidate.id).FirstOrDefault();
@@ -107,7 +119,8 @@ public static class CityStateService
     // CityPatch.FinishedCapture 调用。返回 true 表示已按城邦规则处理，城市不归攻城方。
     public static bool TryResolveCapture(City city, Kingdom captor, Kingdom defender)
     {
-        if (city == null || !IsCityState(captor) || defender == null || defender == captor || defender.isRekt())
+        if (city == null || !IsCityState(captor) || defender == null || defender == captor || defender.isRekt() ||
+            IsPrincipateRealm(captor))
             return false;
         string captorName = captor.GetKingdomName();
 

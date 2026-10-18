@@ -114,6 +114,53 @@
       }
     },
     {
+      "id": "western_principate", "requires_techs": ["law_code", "military_register"],
+      "name_key": "institution_western_principate",
+      "description_key": "institution_western_principate_desc",
+      "branch": "administration",
+      "advancement": 3,
+      "requires": [
+        "western_senate",
+        "western_civic_legion"
+      ],
+      "research": {
+        "mandate_required": 35
+      },
+      "reform": {
+        "base_progress_per_year": 7.0,
+        "minimum_years": 8,
+        "force_radicalism": 20.0
+      },
+      "resistance": {
+        "base_radicalism": 10.0,
+        "rebellion_threshold": 72.0
+      },
+      "politics": {
+        "support_classes": {
+          "Army": 0.8,
+          "Officer": 0.4
+        },
+        "oppose_classes": {
+          "Noble": 0.6
+        },
+        "support_factions": {
+          "僭主": 1.0
+        },
+        "oppose_factions": {
+          "共和": 1.0
+        }
+      },
+      "effects_on_complete": [
+        {
+          "type": "add_mandate",
+          "int_value": 5
+        }
+      ],
+      "features": {
+        "principate": 1
+      }
+    },
+    {
       "id": "western_roman_law", "requires_techs": ["law_code"],
       "name_key": "institution_western_roman_law",
       "description_key": "institution_western_roman_law_desc",

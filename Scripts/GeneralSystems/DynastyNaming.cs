@@ -104,6 +104,10 @@ public static class DynastyNaming
 
     public static string KingdomTypeKey(Kingdom kingdom, KingdomType type)
     {
+        // 元首制：核心改称帝国(见 Empire.IsPrincipate)
+        if (type == KingdomType.ClassicalRepublic_centre && kingdom?.GetEmpire() is Empire principate &&
+            principate.CoreKingdom == kingdom && principate.IsPrincipate() && LM.Has(type + "_principate"))
+            return CultureVariant(kingdom, type + "_principate") ?? type + "_principate";
         if (CultureVariant(kingdom, type.ToString()) is string cultureKey) return cultureKey;
         if (LineSuffix(kingdom) is string lineSuffix && LM.Has(type + lineSuffix)) return type + lineSuffix;
         if (type is KingdomType.Origin_centre or KingdomType.Origin_kingdom && HuaxiaOrigin(kingdom) &&
@@ -136,9 +140,13 @@ public static class DynastyNaming
     {
         string key = $"{regime}_officiallevel_{officeType}";
         Kingdom owner = meta switch { Kingdom k => k, City town => town.kingdom, Army army => army.getKingdom(), _ => null };
-        // 苏丹架空哈里发：帝国核心的君主称苏丹(见 EmirateSystem.IsSultanate)
-        if (regime == RegimeType.Arabic && officeType == 0 && owner?.GetEmpire() is Empire ownerEmpire && ownerEmpire.CoreKingdom == owner &&
-            EmirateSystem.IsSultanate(ownerEmpire) && LM.Has(key + "_sultanate")) key += "_sultanate";
+        // 苏丹架空哈里发、元首制：帝国核心的君主称苏丹、元首(见 EmirateSystem.IsSultanate、Empire.IsPrincipate)
+        if (officeType == 0 && owner?.GetEmpire() is Empire ownerEmpire && ownerEmpire.CoreKingdom == owner)
+        {
+            string regimeStage = regime == RegimeType.Arabic && EmirateSystem.IsSultanate(ownerEmpire) ? "_sultanate"
+                : regime == RegimeType.ClassicalRepublic && ownerEmpire.IsPrincipate() ? "_principate" : null;
+            if (regimeStage != null && LM.Has(key + regimeStage)) key += regimeStage;
+        }
         if (CultureVariant(owner, key) is string cultureKey) return cultureKey;
         if (LineSuffix(owner) is string lineSuffix && LM.Has(key + lineSuffix)) return key + lineSuffix;
         if (regime == RegimeType.Origin)

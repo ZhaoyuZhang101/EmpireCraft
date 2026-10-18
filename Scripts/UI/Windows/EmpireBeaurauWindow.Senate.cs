@@ -41,9 +41,8 @@ public partial class EmpireBeaurauWindow
         // 执政官：出身的城邦
         Actor consul = _empire.Emperor;
         Kingdom home = Serving(consul) ? states.FirstOrDefault(kingdom => kingdom.king == consul) : null;
-        string consulTitle = LM.Has("ClassicalRepublic_officiallevel_0")
-            ? LM.Get("ClassicalRepublic_officiallevel_0")
-            : LM.Get("legislature_head_of_state");
+        string consulKey = DynastyNaming.RankKey(RegimeType.ClassicalRepublic, 0, _empire.CoreKingdom);
+        string consulTitle = LM.Has(consulKey) ? LM.Get(consulKey) : LM.Get("legislature_head_of_state");
         AddPersonCell(left, column, consul, consulTitle, "#FFCC00",
             JoinDetail(home == null ? "" : string.Format(LM.Get("senate_leader_detail"), home.GetKingdomName())
                 .ColorString("#C8C2B4"), PartyOf(consul)));

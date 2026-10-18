@@ -263,6 +263,8 @@ public static class InstitutionFeatures
     public const string ProvincialAdministration = "provincial_administration";
     // 苏丹架空哈里发(见 EmirateSystem.IsSultanate)
     public const string Sultanate = "sultanate";
+    // 元首制(见 Empire.IsPrincipate)
+    public const string Principate = "principate";
     // 神权国家（教宗国等神权诉求的前提）
     public const string TheocraticState = "theocratic_state";
     // 派系诉求"开科取士""转天朝制度"要推动的改革目标

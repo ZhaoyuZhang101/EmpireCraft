@@ -1733,8 +1733,10 @@ public class Empire : MetaObject<EmpireData>
         {
             // 西方中央集权君主制、神权国家同郡县制一样，直辖的法理要划成辖区/教区
             // 阿拉伯：打下的法理设行省派埃米尔(见 EmirateSystem)
+            // 元首制：核心打下的城设行省
             if (IsWesternCentralized() || regime?.type == RegimeType.ZhouFeudalism ||
-                regime?.type == RegimeType.Feudalism || regime?.type == RegimeType.Arabic) ProcessTerritorialAcquisitionEnfeoff();
+                regime?.type == RegimeType.Feudalism || regime?.type == RegimeType.Arabic || IsPrincipate())
+                ProcessTerritorialAcquisitionEnfeoff();
             // 游牧施行行省制度后，打下的法理设行省(那一步里也补分兀鲁思)
             else if (IsNomadProvincial()) ProcessTerritorialAcquisitionEnfeoff();
             // 游牧兀鲁思：大汗死时正在打仗没分成的，停战后补分(见 EnfeoffmentHelper.UlusPartition)
@@ -4136,8 +4138,9 @@ public class Empire : MetaObject<EmpireData>
             data.last_legal_peerage_timestamp = -1L;
             return;
         }
-        // 西方中央集权君主制/神权国家：新得的土地不再分封，改设辖区/教区；游牧要施行了行省制度才设行省
-        bool provinces = RegimeSupportsProvince(regime) && (regime.type != RegimeType.YouMu || IsNomadProvincial());
+        // 西方中央集权君主制/神权国家：新得的土地不再分封，改设辖区/教区；游牧要施行了行省制度、古典共和要施行了元首制才设行省
+        bool provinces = RegimeSupportsProvince(regime) && (regime.type != RegimeType.YouMu || IsNomadProvincial()) &&
+                         (regime.type != RegimeType.ClassicalRepublic || IsPrincipate());
         AutoEstablishTerritorialDivisions(regime, provinces || IsWesternCentralized());
         World.world.zone_calculator.dirtyAndClear();
     }
@@ -4492,6 +4495,12 @@ public class Empire : MetaObject<EmpireData>
     public bool IsNomadProvincial() =>
         CoreKingdom?.GetRegime()?.type == RegimeType.YouMu &&
         InstitutionSystem.HasFeature(this, InstitutionFeatures.ProvincialAdministration);
+
+    // 古典共和施行了"元首制"(用户 2026-10-19 选"补罗马元首制"；以前城邦共和直接封建化，没有元首、没有行省)：
+    // 元首在家族里相传(见 OfficeSelector)，核心打下的城不再分成自治城邦，设行省派总督(见 CityStateService)
+    public bool IsPrincipate() =>
+        CoreKingdom?.GetRegime()?.type == RegimeType.ClassicalRepublic &&
+        InstitutionSystem.HasFeature(this, InstitutionFeatures.Principate);
 
     public bool IsWesternCentralized() =>
         CoreKingdom?.GetRegime()?.type == RegimeType.Feudalism &&

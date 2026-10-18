@@ -39,9 +39,10 @@ public static class OfficeSelector
         {
             method =  regime.GetLeaderSelectMethod();
         }
-        // 古典共和帝国首领：施行「元老院」之前谁强谁上，之后由元老院推举
+        // 古典共和帝国首领：施行「元老院」之前谁强谁上，之后由元老院推举；施行「元首制」后元首在家族里相传
         if (regime?.type == RegimeType.ClassicalRepublic && pKingdom.IsEmpire() && office == pKingdom.GetOffice())
-            method = CityStateService.HasSenate(pKingdom.GetEmpire()) ? LeaderSelectMethod.Vote : LeaderSelectMethod.Army;
+            method = pKingdom.GetEmpire()?.IsPrincipate() == true ? LeaderSelectMethod.Succession
+                : CityStateService.HasSenate(pKingdom.GetEmpire()) ? LeaderSelectMethod.Vote : LeaderSelectMethod.Army;
         switch (method)
         {
             case LeaderSelectMethod.Exam:

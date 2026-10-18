@@ -2617,7 +2617,8 @@ public static class KingdomExtension
                kingdomType == KingdomType.ZhouFeudalism_jun ||
                kingdomType == KingdomType.Feudalism_intendancy ||
                kingdomType == KingdomType.Feudalism_diocese ||
-               kingdomType == KingdomType.YouMu_province;
+               kingdomType == KingdomType.YouMu_province ||
+               kingdomType == KingdomType.ClassicalRepublic_province;
     }
 
     public static string GetAdministrativeProvinceName(this Kingdom kingdom)

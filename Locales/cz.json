@@ -2532,6 +2532,8 @@
   "sultanate_established_history_india": "{0}的权臣{1}入朝摄政，大君{2}退为象征",
   "sultanate_caliph": "哈里发",
   "sultanate_caliph_india": "大君",
+  "institution_western_principate": "元首制",
+  "institution_western_principate_desc": "大权集于一位终身的元首，元老院仍在却只备咨询：元首之位在其家族中相传；核心打下的城不再一律立为自治城邦，而是设行省、派总督治理。",
   "capital_loss_restored": "{0}收复旧都{1}，还于旧都，复称{2}。",
   "kingdom_type_xingzai": "行在",
   "Later": "后",

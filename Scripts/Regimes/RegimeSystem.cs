@@ -59,6 +59,7 @@ public enum KingdomType
     Bakufu_han,       // 藩：世袭大名的领国
     Bakufu_tenryo,    // 天领：幕府派奉行治理的直辖地
     YouMu_province,   // 游牧行省：施行"行省制度"后打下的法理设行省、派官治理(见 Empire.IsNomadProvincial)
+    ClassicalRepublic_province, // 元首制的行省：总督由朝廷选任(见 Empire.IsPrincipate)
 }
 
 public enum ArmyOfficialType

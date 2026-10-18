@@ -636,6 +636,10 @@ public static class InstitutionSystem
                  empire.data.empire_type_key is string staleKey && staleKey.StartsWith("Origin_empire") &&
                  staleKey != "Origin_empire_huaxia_dynasty")
             empire.data.empire_type_key = "";
+        // 元首制：共和国改称帝国(见 Empire.IsPrincipate)
+        else if (empire.data.empire_type_key is string republicKey && republicKey.StartsWith("ClassicalRepublic_empire") &&
+                 republicKey != OverallHelperFunc.ResolveEmpireTypeKey(empire.CoreKingdom.GetRegime(), empire.CoreKingdom))
+            empire.data.empire_type_key = "";
         // 同文化的其他政权研究出来的制度，在这里把持久效果补到本政权身上
         SyncSharedEffects(empire);
         SyncGrantedTraits(empire);

@@ -430,6 +430,7 @@ private static void DrawEmpireCraftOccupiedZones(QuantumSpriteAsset pAsset)
                         break;
                     case KingdomType.LvLing_province:
                     case KingdomType.YouMu_province:
+                    case KingdomType.ClassicalRepublic_province:
                     case KingdomType.ZhouFeudalism_jun:
                     case KingdomType.Feudalism_intendancy:
                     case KingdomType.Feudalism_diocese:
