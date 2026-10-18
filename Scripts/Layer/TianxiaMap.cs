@@ -56,10 +56,56 @@ public static class TianxiaMap
     private static TianxiaMapColor ColorOf(EmpireCore lead)
     {
         _colors ??= Palette.Select((hex, i) => TianxiaMapColor.Create(i, hex)).ToArray();
-        return _colors[(int)((lead.id % Palette.Length + Palette.Length) % Palette.Length)];
+        return _colors[IndexOf(lead)];
     }
 
-    public static string HexOf(EmpireCore lead) => Palette[(int)((lead.id % Palette.Length + Palette.Length) % Palette.Length)];
+    public static string HexOf(EmpireCore lead) => Palette[IndexOf(lead)];
+
+    // 着色：先照主核心编号取，与接壤的天下撞色就换一个(以前只按编号轮，相邻的天下常常同色)；每年随天下结算重排
+    private static readonly Dictionary<long, int> ColorIndex = new();
+    private static int _colorVersion = -1;
+    private static object _colorWorld;
+
+    private static int Preferred(EmpireCore lead) => (int)((lead.id % Palette.Length + Palette.Length) % Palette.Length);
+
+    private static int IndexOf(EmpireCore lead)
+    {
+        if (lead == null) return 0;
+        if (!ReferenceEquals(_colorWorld, World.world) || _colorVersion != UnificationSystem.UncoredVersion) Recolor();
+        if (ColorIndex.TryGetValue(lead.id, out int index)) return index;
+        return ColorIndex[lead.id] = Preferred(lead);
+    }
+
+    private static void Recolor()
+    {
+        _colorWorld = World.world;
+        _colorVersion = UnificationSystem.UncoredVersion;
+        ColorIndex.Clear();
+        if (World.world?.cities == null) return;
+        var adjacent = new Dictionary<long, HashSet<long>>();
+        foreach (City city in World.world.cities)
+        {
+            EmpireCore lead = TianxiaSystem.LeadOf(city);
+            if (lead == null || city.neighbours_cities == null) continue;
+            foreach (City next in city.neighbours_cities)
+            {
+                EmpireCore other = TianxiaSystem.LeadOf(next);
+                if (other == null || other == lead) continue;
+                if (!adjacent.TryGetValue(lead.id, out HashSet<long> set)) adjacent[lead.id] = set = new HashSet<long>();
+                set.Add(other.id);
+            }
+        }
+        foreach (EmpireCore lead in TianxiaSystem.Leads().OrderBy(item => item.id))
+        {
+            var used = new HashSet<int>();
+            if (adjacent.TryGetValue(lead.id, out HashSet<long> near))
+                foreach (long other in near)
+                    if (ColorIndex.TryGetValue(other, out int taken)) used.Add(taken);
+            int preferred = Preferred(lead), pick = preferred;
+            for (int step = 0; step < Palette.Length && used.Contains(pick); step++) pick = (preferred + step + 1) % Palette.Length;
+            ColorIndex[lead.id] = pick;
+        }
+    }
 
     private static bool Shown(City city) =>
         city != null && !city.isRekt() && !AncientWarfareCompatibility.OwnsObject(city) &&
