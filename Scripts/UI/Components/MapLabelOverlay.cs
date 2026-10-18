@@ -25,12 +25,14 @@ public static class MapLabelOverlay
     // 字高封顶(屏幕像素，按 1080 行的屏幕算；用户 2026-10-16 "字太大了")：拉近时字不再跟着地图一起放大，
     // 像电子地图一样街名约 11 像素高，建筑、住宅名按比例小一些(至少 9 像素)；拉远到不足这个高度时照旧按格算
     private const float StreetPixels = 11f, MinPixels = 9f;
+    private const float BackgroundPaddingX = 0.25f, BackgroundPaddingY = 0.14f;
 
     private sealed class Label
     {
         public GameObject Object;
         public TextMesh Text;
         public MeshRenderer Renderer;
+        public SpriteRenderer Background;
         public string Shown;
     }
 
@@ -42,8 +44,9 @@ public static class MapLabelOverlay
         public readonly float Size;
         public readonly bool Vertical;
         public readonly int Priority;
+        public readonly bool Backdrop;
 
-        public Spec(Vector2 tile, string text, Color color, float size, bool vertical, int priority)
+        public Spec(Vector2 tile, string text, Color color, float size, bool vertical, int priority, bool backdrop = false)
         {
             Tile = tile;
             Text = text;
@@ -51,18 +54,20 @@ public static class MapLabelOverlay
             Size = size;
             Vertical = vertical;
             Priority = priority;
+            Backdrop = backdrop;
         }
     }
 
     private static readonly List<Label> Pool = new();
     private static readonly Dictionary<long, (int stamp, bool houses, bool drawn, List<Spec> specs)> Cache = new();
     private static Font _font;
+    private static Sprite _backgroundSprite;
     private static object _world;
 
     private static readonly Color StreetColor = new(0.36f, 0.38f, 0.42f), CivicColor = new(0.16f, 0.36f, 0.66f),
         MarketColor = new(0.86f, 0.42f, 0.10f), IndustryColor = new(0.45f, 0.36f, 0.30f), TempleColor = new(0.52f, 0.30f, 0.62f),
         MilitaryColor = new(0.40f, 0.46f, 0.30f), DockColor = new(0.10f, 0.50f, 0.66f), HouseColor = new(0.42f, 0.42f, 0.44f),
-        CityColor = new(0.16f, 0.16f, 0.20f), SettlementColor = new(0.36f, 0.30f, 0.22f), RuinColor = new(0.42f, 0.36f, 0.32f);
+        CityColor = new(0.16f, 0.16f, 0.20f), SettlementColor = new(0.98f, 0.95f, 0.86f), RuinColor = new(0.82f, 0.82f, 0.80f);
 
     public static void Update()
     {
@@ -126,6 +131,7 @@ public static class MapLabelOverlay
             label.Renderer.sortingLayerID = source.sortingLayerID;
             label.Renderer.sortingOrder = source.sortingOrder + 6;
             if (!label.Object.activeSelf) label.Object.SetActive(true);
+            UpdateBackground(label, source, spec.Backdrop && !string.IsNullOrEmpty(text));
         }
         for (int i = used; i < Pool.Count; i++)
             if (Pool[i].Object != null && Pool[i].Object.activeSelf) Pool[i].Object.SetActive(false);
@@ -168,6 +174,33 @@ public static class MapLabelOverlay
         }
         if (label.Object.transform.parent != source.transform) label.Object.transform.SetParent(source.transform, false);
         return label;
+    }
+
+    // 村镇名用浅字配半透明黑底；底板按文字的本地包围盒留边，跟随文字一起缩放、隐藏并复用。
+    private static void UpdateBackground(Label label, SpriteRenderer source, bool shown)
+    {
+        if (!shown)
+        {
+            if (label.Background != null) label.Background.enabled = false;
+            return;
+        }
+        if (label.Background == null)
+        {
+            _backgroundSprite ??= Sprite.Create(Texture2D.whiteTexture, new Rect(0f, 0f, 1f, 1f),
+                new Vector2(0.5f, 0.5f), 1f);
+            var background = new GameObject("EmpireCraftMapLabelBackground");
+            background.transform.SetParent(label.Object.transform, false);
+            label.Background = background.AddComponent<SpriteRenderer>();
+            label.Background.sprite = _backgroundSprite;
+            label.Background.color = new Color(0f, 0f, 0f, 0.58f);
+        }
+        Bounds bounds = label.Renderer.localBounds;
+        label.Background.transform.localPosition = new Vector3(bounds.center.x, bounds.center.y, 0f);
+        label.Background.transform.localScale = new Vector3(bounds.size.x + BackgroundPaddingX * 2f,
+            bounds.size.y + BackgroundPaddingY * 2f, 1f);
+        label.Background.sortingLayerID = source.sortingLayerID;
+        label.Background.sortingOrder = label.Renderer.sortingOrder - 1;
+        label.Background.enabled = true;
     }
 
     private static void HideAll()
@@ -294,19 +327,19 @@ public static class MapLabelOverlay
         {
             string name = NameOf(RuralSettlementSystem.At(plan.TownTiles[i].x, plan.TownTiles[i].y), true, huaxia, used,
                 city.id * 7349L + i * 131L + 17L);
-            specs.Add(new Spec(plan.Towns[i].at, name, SettlementColor, TownSize, false, 1));
+            specs.Add(new Spec(plan.Towns[i].at, name, SettlementColor, TownSize, false, 1, backdrop: true));
         }
         for (int i = 0; i < plan.Villages.Count; i++)
         {
             string name = NameOf(RuralSettlementSystem.At(plan.VillageTiles[i].x, plan.VillageTiles[i].y), false, huaxia, used,
                 city.id * 9973L + i * 257L + 29L);
-            specs.Add(new Spec(plan.Villages[i], name, SettlementColor, VillageSize, false, 2));
+            specs.Add(new Spec(plan.Villages[i], name, SettlementColor, VillageSize, false, 2, backdrop: true));
         }
         foreach ((Vector2 at, int x, int y) in plan.Forts)
         {
             RuralSettlement settlement = RuralSettlementSystem.At(x, y);
             if (settlement == null) continue;
-            specs.Add(new Spec(at, NameOf(settlement, settlement.town, huaxia, used, 0L), SettlementColor, TownSize, false, 1));
+            specs.Add(new Spec(at, NameOf(settlement, settlement.town, huaxia, used, 0L), SettlementColor, TownSize, false, 1, backdrop: true));
         }
         foreach ((Vector2 at, int x, int y) in plan.Ruins)
         {
@@ -314,7 +347,7 @@ public static class MapLabelOverlay
             if (settlement == null) continue;
             string name = NameOf(settlement, settlement.town, huaxia, used, 0L);
             specs.Add(new Spec(at, string.Format(NeoModLoader.General.LM.Get("settlement_ruin_label"), name), RuinColor,
-                settlement.town ? TownSize : VillageSize, false, 2));
+                settlement.town ? TownSize : VillageSize, false, 2, backdrop: true));
         }
     }
 

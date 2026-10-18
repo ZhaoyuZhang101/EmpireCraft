@@ -9,12 +9,12 @@ using NeoModLoader.api;
 
 namespace EmpireCraft.Scripts.GamePatches;
 
-// 城市扩张守原版的规矩：原版选地(CityZoneGrowth.getZoneToClaim)、能不能领(canBeClaimedByCity：地貌能否定居、
-// 别国的地要开着原版"边界侵蚀"且两国交战)、与本城接壤；原版还要小人走到那块地里去领，走不到(隔水、翻山)就领不到。
+// 城市扩张守原版选地(CityZoneGrowth.getZoneToClaim)、地貌定居和接壤规则；
+// 原版还要小人走到那块地里去领，走不到(隔水、翻山)就领不到。
 // 模组只加了每城地块上限(模组设置)，以及无小人模式下由虚拟居民代领时按"走得到"核对(见 Reachable)。
 // 城的地按村镇拓展(用户 2026-10-17 选"新建村镇就划进它一片"、限制"按离城远近")：纯净地图下，无主之地只领城区(城心、
 // 建成地块)或本城村镇两块地以内的(见 Settled)；再往外靠城外新建村镇划地(见 RuralSettlementSystem.Found)。
-// 别国的地(原版"边界侵蚀")不受这一条限制。
+// 已有城市的地不参与自动扩张：战争只记录临时占领，不能用边界侵蚀永久拆改城市辖区。
 public class CityExpansionPatch : GamePatch
 {
     public ModDeclare declare { get; set; }
@@ -29,10 +29,30 @@ public class CityExpansionPatch : GamePatch
         harmony.Patch(AccessTools.Method(typeof(CityZoneGrowth), nameof(CityZoneGrowth.getZoneToClaim)),
             prefix: new HarmonyMethod(typeof(CityExpansionPatch), nameof(BeforeGetZoneToClaim)),
             postfix: new HarmonyMethod(typeof(CityExpansionPatch), nameof(AfterGetZoneToClaim)));
+        harmony.Patch(AccessTools.Method(typeof(CityZoneAbandon), nameof(CityZoneAbandon.check)),
+            prefix: new HarmonyMethod(typeof(CityExpansionPatch), nameof(BeforeAbandonZones)));
     }
 
     public static bool AtLimit(City city) => city?.zones != null &&
         ModClass.CITY_MAX_ZONES > 0 && city.zones.Count >= ModClass.CITY_MAX_ZONES;
+
+    // 最后一道检查放在实际加地之前：领地人、村镇划地、手动改隶等入口都不能绕过设置。
+    // 读档同样调用 addZone，但这里是在恢复原辖区，不能按新上限截断存档里的城市。
+    public static bool CanAddZone(City city, TileZone zone)
+    {
+        if (city == null || zone == null) return false;
+        if (city.zones?.Contains(zone) == true || ModClass.IS_CLEAR || !Config.game_loaded || SmoothLoader.isLoading() ||
+            AncientWarfareCompatibility.OwnsObject(city)) return true;
+        return !AtLimit(city);
+    }
+
+    // 自动领地只领无主地；与手动村镇改隶、建城、读档的 addZone 分开。
+    public static bool CanClaimZone(City city, TileZone zone) =>
+        city != null && zone != null && zone.city == null && CanAddZone(city, zone);
+
+    // 原版按剩余建筑找连通地块，战损后会把原辖区当作弃地删除；城市格局不能因此变化。
+    public static bool BeforeAbandonZones(City pCity, bool pDebug) =>
+        pDebug || !CityTerritoryProtection.PreserveWarLayout(pCity);
 
     // 城区或本城村镇几块地以内
     public const int SettledReach = 2;
@@ -63,6 +83,7 @@ public class CityExpansionPatch : GamePatch
     {
         // 到达目标前再次核对，防止多个扩张者和 expansionists 连续领取越过上限。
         AfterCanGrowZones(__instance, ref __result);
+        if (__result && !AncientWarfareCompatibility.OwnsObject(__instance) && !CanClaimZone(__instance, pZone)) __result = false;
         if (__result && !AncientWarfareCompatibility.OwnsObject(__instance) && !Settled(__instance, pZone)) __result = false;
     }
 
@@ -89,12 +110,17 @@ public class CityExpansionPatch : GamePatch
     public static void AfterGetZoneToClaim(CityZoneGrowth __instance, Actor pActor, City pCity,
         bool pDebug, ref TileZone __result)
     {
-        if (pDebug || pCity?.data == null || pCity.isRekt() || AtLimit(pCity) ||
+        if (pDebug || pCity?.data == null || pCity.isRekt() ||
             AncientWarfareCompatibility.OwnsObject(pCity)) return;
+        if (AtLimit(pCity))
+        {
+            __result = null;
+            return;
+        }
         // 无主之地只领城区、村镇附近的(见 Settled)
         if (__result != null)
         {
-            if (Settled(pCity, __result)) return;
+            if (CanClaimZone(pCity, __result) && Settled(pCity, __result)) return;
             __result = null;
         }
         if (!pCity.canGrowZones()) return;
@@ -150,7 +176,7 @@ public class CityExpansionPatch : GamePatch
         {
             TileZone target = growth.getZoneToClaim(actor, city);
             if (target == null) return;
-            if (target.city == city || !Reachable(target, city)) continue;
+            if (!CanClaimZone(city, target) || !Reachable(target, city)) continue;
             bool good = actor != null
                 ? city.isZoneToClaimStillGood(actor, target, origin)
                 : target.canBeClaimedByCity(city) && target.neighbours.Any(neighbour => neighbour?.city == city);

@@ -184,7 +184,6 @@ public static partial class FrontSystem
         {
             float months = (float)((now - push.Last) / SecondsPerMonth);
             push.Last = now;
-            if (months <= 0f || push.Direction == 0) continue;
             try
             {
                 Step(push, months);
@@ -197,16 +196,24 @@ public static partial class FrontSystem
         }
     }
 
+    private static bool ResolvePush(Push push, out City city, out Kingdom side, out TileZone zone)
+    {
+        city = World.world.cities.get(push.City);
+        side = World.world.kingdoms.get(push.Side);
+        zone = World.world.zone_calculator.getZoneByID(push.Zone);
+        return city?.data != null && !city.isRekt() && side?.data != null && !side.isRekt() &&
+               zone?.city == city && Valid(push, city, side, zone);
+    }
+
     private static void Step(Push push, float months)
     {
-        City city = World.world.cities.get(push.City);
-        Kingdom side = World.world.kingdoms.get(push.Side);
-        TileZone zone = World.world.zone_calculator.getZoneByID(push.Zone);
-        if (city?.data == null || city.isRekt() || side?.data == null || side.isRekt() || zone?.city != city || !Valid(push, city, side, zone))
+        // 停住的战线也要检查：停战、灭国、城市易主后不能一直保留半块旧占领色；没有经过游戏时间时同样清理。
+        if (!ResolvePush(push, out City city, out Kingdom side, out TileZone zone))
         {
             Remove(push);
             return;
         }
+        if (months <= 0f || push.Direction == 0) return;
         // 开国雄主、正统高的帝国打一般国家推得更快(见 PushFactor)；被推回时按原速
         float pace = push.Direction > 0 ? PushFactor(side, push.Retake ? Controller(zone) : city.kingdom) : 1f;
         push.Progress += push.Direction * SmoothZonesPerMonth * months * pace;
@@ -298,15 +305,11 @@ public static partial class FrontSystem
         int step = Mathf.Clamp(Mathf.FloorToInt(push.Progress * PaintSteps), 0, PaintSteps);
         if (step == push.Painted) return;
         push.Painted = step;
-        zone.resetRenderHelpers();
-        ZoneCalculator calc = World.world.zone_calculator;
-        calc.getZone(zone.x + 1, zone.y)?.resetRenderHelpers();
-        calc.getZone(zone.x - 1, zone.y)?.resetRenderHelpers();
-        calc.getZone(zone.x, zone.y + 1)?.resetRenderHelpers();
-        calc.getZone(zone.x, zone.y - 1)?.resetRenderHelpers();
+        SmoothBorders.Repaint(zone);
     }
 
-    private static void Repaint(int zoneId) => World.world?.zone_calculator?.getZoneByID(zoneId)?.resetRenderHelpers();
+    // 推进结束/取消后四周也变了；不能只画本块，否则邻块仍留着推进时的边框。
+    private static void Repaint(int zoneId) => SmoothBorders.Repaint(World.world?.zone_calculator?.getZoneByID(zoneId));
 
     #endregion
 
@@ -318,9 +321,10 @@ public static partial class FrontSystem
         side = null;
         retake = false;
         if (zone == null || !PushByZone.TryGetValue(zone.id, out Push push)) return false;
-        side = World.world.kingdoms.get(push.Side);
+        // 上色可能早于本帧 SmoothTick：此处也不采用已经失效的战线。
+        if (!ResolvePush(push, out _, out side, out _)) return false;
         retake = push.Retake;
-        return side?.data != null && !side.isRekt();
+        return true;
     }
 
     // 地格 (x, y) 已被推进方吃下(从推进方一侧按进度算，边缘带一点起伏)

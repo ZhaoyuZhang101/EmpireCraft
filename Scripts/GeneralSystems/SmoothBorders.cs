@@ -10,7 +10,7 @@ using UnityEngine;
 namespace EmpireCraft.Scripts.GeneralSystems;
 
 // 平滑国界(模组设置「平滑国界」)：国界、城界不再沿 8×8 的地块方格走，而是逐个像素(地格)判定归属——
-// 每格按周围 3×3 块地的归属做二次 B 样条加权(块心权重最大，越靠边越接近一半一半)，再叠一层按国家散列的
+// 每格按周围 3×3 块地的城市归属做二次 B 样条加权(块心权重最大，越靠边越接近一半一半)，再叠一层按城市散列的
 // 低频噪声，拐角变圆、斜边变顺、直边微微起伏；归属不同的相邻像素画边框。逻辑上的归属仍按地块(建城、
 // 征税、占领都按块)，这里只改画法。国家、帝国图层按实际控制方画：被敌军占着的地直接涂占领方的颜色(不画斜纹)，
 // 军团模式下逐格推进中已吃下的格子算推进方的(见 FrontSystem.Smooth)，国界跟着前线走；交战双方相接处的边框涂成战线的朱红
@@ -68,6 +68,9 @@ public static class SmoothBorders
     // 正在逐格推进的块：吃下的格子归谁(推进方，或收复时的原主)
     private static readonly IMetaObject[] PushMetas = new IMetaObject[25];
     private static readonly TileZone[] Zones = new TileZone[25];
+    // 城界是国家/帝国的几何底图：先确定属于哪座城，再映射政治归属，不能合并国家权重后另算一套边。
+    private static readonly IMetaObject[] CityMetas = new IMetaObject[25];
+    private static bool _cityGeometry, _controlGeometry;
     private static int _cx, _cy;
 
     // 图层本来的归属(原版按它算颜色、选中高亮)
@@ -117,7 +120,8 @@ public static class SmoothBorders
         if (!ControlLayer(layer) || zone?.city?.kingdom == null) return meta;
         Kingdom owner = zone.city.kingdom;
         Kingdom occupier = zone.city.GetTileZoneOccupier(zone);
-        if (occupier?.data == null || occupier.isRekt() || occupier == owner || occupier.isInWarOnSameSide(owner)) return meta;
+        if (occupier?.data == null || occupier.isRekt() || occupier == owner || occupier.isInWarOnSameSide(owner) ||
+            !FrontSystem.Hostile(owner, occupier)) return meta;
         return RealmMeta(layer, occupier) ?? meta;
     }
 
@@ -135,6 +139,8 @@ public static class SmoothBorders
         int option = layer.getZoneOptionState();
         _cx = center.x;
         _cy = center.y;
+        _controlGeometry = ControlLayer(layer);
+        _cityGeometry = _controlGeometry || layer.map_mode == MetaType.City;
         _hover = HoveredProvince(layer, option);
         for (int dy = -2; dy <= 2; dy++)
         for (int dx = -2; dx <= 2; dx++)
@@ -142,6 +148,7 @@ public static class SmoothBorders
             int index = (dy + 2) * 5 + dx + 2;
             TileZone zone = calc.getZone(_cx + dx, _cy + dy);
             Zones[index] = zone;
+            CityMetas[index] = zone?.city is City city && city.isAlive() ? city : null;
             Metas[index] = MetaOf(layer, option, zone);
             Shades[index] = ShadeOf(zone, Metas[index]);
             PushMetas[index] = PushMetaOf(layer, zone);
@@ -202,18 +209,27 @@ public static class SmoothBorders
     private static readonly IMetaObject[] Candidates = new IMetaObject[9];
     private static readonly float[] Weights = new float[9];
 
-    // 地格 (x, y) 归谁：逐格推进中已吃下的归推进方；否则周围 3×3 块的归属按二次 B 样条加权，
-    // 再加按国家散列的低频噪声，取最大
+    // 城界只算一遍。国家/帝国的和平国界是城市轮廓的并集；临时控制只在该城的轮廓内计算。
     private static IMetaObject OwnerAt(int x, int y)
     {
         if (IsWater(x, y)) return null;
+        if (!_cityGeometry) return SmoothedOwnerAt(x, y, false);
+        City city = SmoothedOwnerAt(x, y, true) as City;
+        if (city == null || !_controlGeometry) return city;
         int zx = Mathf.FloorToInt((float)x / ZoneSize), zy = Mathf.FloorToInt((float)y / ZoneSize);
         int hx = zx - _cx + 2, hy = zy - _cy + 2;
         if (hx is >= 0 and < 5 && hy is >= 0 and < 5)
         {
             int here = hy * 5 + hx;
-            if (PushMetas[here] != null && FrontSystem.SmoothCovers(Zones[here], x, y)) return PushMetas[here];
+            if (ReferenceEquals(CityMetas[here], city) && PushMetas[here] != null &&
+                FrontSystem.SmoothCovers(Zones[here], x, y)) return PushMetas[here];
         }
+        return SmoothedOwnerAt(x, y, false, city);
+    }
+
+    private static IMetaObject SmoothedOwnerAt(int x, int y, bool cities, City within = null)
+    {
+        int zx = Mathf.FloorToInt((float)x / ZoneSize), zy = Mathf.FloorToInt((float)y / ZoneSize);
         float tx = (x + 0.5f) / ZoneSize - zx - 0.5f, ty = (y + 0.5f) / ZoneSize - zy - 0.5f;
         float ax0 = 0.5f * (0.5f - tx) * (0.5f - tx), ax1 = 0.75f - tx * tx, ax2 = 0.5f * (0.5f + tx) * (0.5f + tx);
         float ay0 = 0.5f * (0.5f - ty) * (0.5f - ty), ay1 = 0.75f - ty * ty, ay2 = 0.5f * (0.5f + ty) * (0.5f + ty);
@@ -224,7 +240,10 @@ public static class SmoothBorders
             for (int i = -1; i <= 1; i++)
             {
                 int gx = zx + i - _cx + 2, gy = zy + j - _cy + 2;
-                IMetaObject meta = gx is >= 0 and < 5 && gy is >= 0 and < 5 ? Shades[gy * 5 + gx] : null;
+                bool inWindow = gx is >= 0 and < 5 && gy is >= 0 and < 5;
+                int index = inWindow ? gy * 5 + gx : -1;
+                if (within != null && (!inWindow || !ReferenceEquals(CityMetas[index], within))) continue;
+                IMetaObject meta = inWindow ? cities ? CityMetas[index] : Shades[index] : null;
                 float w = wy * (i < 0 ? ax0 : i == 0 ? ax1 : ax2);
                 int k = 0;
                 while (k < count && !ReferenceEquals(Candidates[k], meta)) k++;
@@ -384,6 +403,35 @@ public static class SmoothBorders
         return gx is >= 0 and < Window && gy is >= 0 and < Window ? Owners[gy * Window + gx] : OwnerAt(x, y);
     }
 
+    private static void EnsurePixelState(Color32[] pixels)
+    {
+        if (pixels == null || _outline.Length == pixels.Length) return;
+        _outline = new bool[pixels.Length];
+        _foreign = new bool[pixels.Length];
+        _owner = new IMetaObject[pixels.Length];
+        _base = new Color32[pixels.Length];
+        _hasBase = new bool[pixels.Length];
+    }
+
+    private static bool UniformWindow()
+    {
+        // 国家按城市轮廓映射，外圈也可能有另一座城市；检查整个采样窗口才能安全跳过几何计算。
+        if (_controlGeometry)
+        {
+            for (int i = 0; i < 25; i++)
+                if (!ReferenceEquals(Shades[i], Shades[12]) || PushMetas[i] != null ||
+                    Shades[12] != null && CityMetas[i] == null) return false;
+            return true;
+        }
+        for (int dy = 1; dy <= 3; dy++)
+        for (int dx = 1; dx <= 3; dx++)
+        {
+            int index = dy * 5 + dx;
+            if (!ReferenceEquals(Shades[index], Shades[12]) || PushMetas[index] != null) return false;
+        }
+        return true;
+    }
+
     // 画这块地；返回 false 时(图层不支持、地图未就绪)照原版画
     public static bool Paint(ZoneCalculator calc, TileZone zone, Color32 inside, Color32 outside)
     {
@@ -402,29 +450,13 @@ public static class SmoothBorders
         _pendingKey = key;
         _ox = zone.x * ZoneSize - 1;
         _oy = zone.y * ZoneSize - 1;
-        // 内陆地块(周围 3×3 块同属一方、没有逐格推进)：平滑不会改变任何一格(隔两块的地权重不到百分之一，
-        // 噪声翻不过来)，也画不出边框——不逐格算 B 样条与四邻
-        bool uniform = true;
-        for (int dy = 1; dy <= 3 && uniform; dy++)
-        for (int dx = 1; dx <= 3; dx++)
-        {
-            int index = dy * 5 + dx;
-            if (ReferenceEquals(Shades[index], Shades[12]) && PushMetas[index] == null) continue;
-            uniform = false;
-            break;
-        }
+        // 整个采样窗口同属一方、没有逐格推进：平滑不会改变国色，也画不出边框，跳过逐格计算。
+        bool uniform = UniformWindow();
         for (int gy = 0; gy < Window; gy++)
         for (int gx = 0; gx < Window; gx++)
             Owners[gy * Window + gx] = uniform ? IsWater(_ox + gx, _oy + gy) ? null : Shades[12] : OwnerAt(_ox + gx, _oy + gy);
         Color32[] pixels = calc.pixels;
-        if (_outline.Length != pixels.Length)
-        {
-            _outline = new bool[pixels.Length];
-            _foreign = new bool[pixels.Length];
-            _owner = new IMetaObject[pixels.Length];
-            _base = new Color32[pixels.Length];
-            _hasBase = new bool[pixels.Length];
-        }
+        EnsurePixelState(pixels);
         // 本块的归属、原版这次给本块的颜色是按谁画的(悬停的省按本省)
         IMetaObject own = Shades[12];
         IMetaObject native = ShadeOf(zone, LayerMeta(layer, layer.getZoneOptionState(), zone));
@@ -534,7 +566,7 @@ public static class SmoothBorders
     //   · 临时换色(帝国图层悬停某省显示本省颜色、移开换回)：要跟手——从鼠标处很快地翻过去(每秒 RippleSpeed 格，
     //     每张牌 HoverFlipSeconds 秒)，这个省连同四周的地块上色时优先；没翻完就移开，从眼下看到的那一面翻回去；
     //   · 换图层(国家、文化、宗教……或图层选项)：旧图留着，各地块照常分帧重画(镜头里的先画，见 ZonePaintBudget)，
-    //     一方(国家，帝国图层上是整个帝国)在镜头里的地块都画好了才一起翻，从这一方的中间往外；镜头外的直接换。
+    //     所有图层都用同一组扫描，从镜头中心整体翻过去，晚画到的地块接入同一道波；镜头外的直接换。
     // 一次换主的地块要分好几帧才画完(上色分帧，见 ZonePaintBudget)：等这批画完(至多 MaxPlanWait 秒)再统一排一道，
     // 之后才画到的块接着这道往下排。战线不翻：被敌军占着、收复(只是谁占着变了)直接换，逐格推进吃下的地(FrontSystem.Smooth)
     // 本身就是渐变，也直接显示。新旧一样的块不翻。
@@ -597,6 +629,7 @@ public static class SmoothBorders
     private static readonly Dictionary<(IMetaObject meta, int color), SweepPlan> Plans = new();
     private static float _pendingSince;
     private static MetaTypeAsset _sweepLayer;
+    private static object _transitionWorld;
     private static int _sweepOption = int.MinValue;
     private static float _rippleStart = -10f;
     private static int _rippleX, _rippleY;
@@ -622,6 +655,24 @@ public static class SmoothBorders
         Plans.Clear();
         ExpandedUnits.Clear();
         _layerFlip = null;
+    }
+
+    // 新世界也可能复用同一个 MapBox；读档/重建时显式清掉旧画面与未结束的换色。
+    public static void ResetWorldState()
+    {
+        ResetTransitions();
+        _transitionWorld = null;
+        _sweepLayer = null;
+        _sweepOption = int.MinValue;
+        LastMeta.Clear();
+        Snapshots.Clear();
+        Array.Clear(_hasBase, 0, _hasBase.Length);
+        Array.Clear(_owner, 0, _owner.Length);
+        Array.Clear(_outline, 0, _outline.Length);
+        Array.Clear(_foreign, 0, _foreign.Length);
+        _paintedZone = _restoredZone = -1;
+        _pendingKey = 0L;
+        ZoneFlipOverlay.Hide();
     }
 
     // 真实归属；顺带看这块地换主了没有，换了就记下它原来的样子、排进扫描
@@ -655,12 +706,37 @@ public static class SmoothBorders
         if (!first) StartLayerFlip();
     }
 
+    // 在原版决定清图之前统一观察图层，所有模式都走同一次全图换色，不等某块地开始上色才发现切换。
+    public static bool PrepareLayerSwitch(ZoneCalculator calc)
+    {
+        if (!Enabled || calc?.pixels == null || World.world == null) return false;
+        EnsurePixelState(calc.pixels);
+        if (!ReferenceEquals(_transitionWorld, World.world))
+        {
+            ResetWorldState();
+            _transitionWorld = World.world;
+        }
+        MetaTypeAsset layer = World.world.getCachedMapMetaAsset();
+        if (layer == null)
+        {
+            if (_sweepLayer != null) ResetTransitions();
+            _sweepLayer = null;
+            _sweepOption = int.MinValue;
+            return false;
+        }
+        int option = layer.getZoneOptionState();
+        bool changed = _sweepLayer != null && (!ReferenceEquals(layer, _sweepLayer) || option != _sweepOption);
+        CheckLayer(layer, option);
+        return changed;
+    }
+
     // 原版画法的图层(没有逐格归属的，如教化、政令这类热力图层)：上色前记下旧样子，画完(Finish)再翻
     public static void CaptureRaw(TileZone zone)
     {
         if (!Enabled || zone?.tiles == null || World.world == null) return;
         MetaTypeAsset layer = World.world.getCachedMapMetaAsset();
         if (layer == null) return;
+        EnsurePixelState(World.world.zone_calculator?.pixels);
         CheckLayer(layer, layer.getZoneOptionState());
         Transition transition = CaptureLayerFlip(zone, NoOwner);
         if (transition != null) transition.raw = true;
@@ -729,6 +805,9 @@ public static class SmoothBorders
     public static void Cleared(TileZone zone)
     {
         if (zone?.tiles == null) return;
+        // 新图层不覆盖的地块也参与同一道全图换色；清理旧归属时不能把这段退场动画一并删掉。
+        bool layerClear = _layerFlip?.seen.Contains(zone.id) == true &&
+                          Transitions.TryGetValue(zone.id, out Transition clearing) && clearing.raw && clearing.newPixels != null;
         foreach (WorldTile tile in zone.tiles)
         {
             int id = tile.data.tile_id;
@@ -736,9 +815,9 @@ public static class SmoothBorders
             _hasBase[id] = false;
             _owner[id] = null;
         }
-        Transitions.Remove(zone.id);
+        if (!layerClear) Transitions.Remove(zone.id);
         PendingSweep.Remove(zone.id);
-        _layerFlip?.seen.Remove(zone.id);
+        if (!layerClear) _layerFlip?.seen.Remove(zone.id);
         Shown.Remove(zone.id);
         NativeShown.Remove(zone.id);
         LastMeta.Remove(zone.id);
@@ -814,7 +893,9 @@ public static class SmoothBorders
     // 当场换成新样子——以前直接丢掉渐变，这块地就一直留着旧颜色(它已经画过，原版不会再重画)
     public static void Settle(TileZone zone)
     {
-        if (zone == null) return;
+        MetaTypeAsset layer = World.world?.getCachedMapMetaAsset();
+        // 战线推进只处理国家/帝国的显示；不能撤销城市图层的状态或写回别的图层留下的颜色。
+        if (zone == null || layer == null || !ControlLayer(layer) || !ReferenceEquals(layer, _sweepLayer)) return;
         Shown.Remove(zone.id);
         PendingSweep.Remove(zone.id);
         if (!Transitions.TryGetValue(zone.id, out Transition transition)) return;
@@ -1331,30 +1412,19 @@ public static class SmoothBorders
             {
                 if (PushMetas[i] != null) return 0L;
                 IMetaObject meta = Shades[i];
+                IMetaObject city = CityMetas[i];
+                Add(city == null ? 0 : global::System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(city));
                 Add(meta == null ? 0 : global::System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(meta));
-                Add(ColorIndex(meta));
+                Add(ColorKey(SafeColor(meta)));
                 // 帝国金边看各国属于哪个帝国
                 if (meta is Kingdom kingdom) Add(kingdom.GetEmpireID());
             }
             Add((CorpsSystem.Enabled ? 1 : 0) | (PureMapMode.Enabled ? 2 : 0) | 
-                (PureMapPatch.DetailShown ? 8 : 0) | (PureMapPatch.Relief ? 16 : 0));
+                (PureMapPatch.DetailShown ? 8 : 0) | (PureMapPatch.Relief ? 16 : 0) |
+                (PureMapPatch.CitiesShown ? 32 : 0));
             Add(_warEpoch);
-            Add(PureMapPatch.StampOf(zone.city));
+            Add(PureMapPatch.CitiesShown ? PureMapPatch.StampOf(zone.city) : 0);
             return key == 0L ? 1L : key;
-        }
-    }
-
-    // 颜色编号：颜色表里找不到(编号失效，原版 getColor 会抛异常)的记 -2，不能让一块地因此画不出来
-    private static int ColorIndex(IMetaObject meta)
-    {
-        if (meta == null) return -1;
-        try
-        {
-            return (CustomColorSystem.Of(meta) ?? meta.getColor())?.index_id ?? -1;
-        }
-        catch
-        {
-            return -2;
         }
     }
 
@@ -1431,7 +1501,7 @@ public static class SmoothBorders
         return true;
     }
 
-    // 残留的边框(见 LayerDiagnostics)：丢掉这块地的上色缓存，连同四邻重画
+    // 归属/战线变化或残留边框：丢掉本块与周围八块的缓存，包含平滑轮廓伸入的斜对角。
     public static void Repaint(TileZone zone)
     {
         if (zone == null) return;
@@ -1532,6 +1602,19 @@ public static class SmoothBorders
         }
     }
 
+    // 城市精细层的底色也从当前图层、当前选项和实际控制方取，不能固定拿国家色或选项 0。
+    internal static ColorAsset DisplayColor(TileZone zone)
+    {
+        MetaTypeAsset layer = World.world?.getCachedMapMetaAsset();
+        if (zone == null || !Smoothable(layer)) return null;
+        int option = layer.getZoneOptionState();
+        IMetaObject meta = RealMetaOf(layer, option, zone);
+        Kingdom hover = HoveredProvince(layer, option);
+        if (meta is Empire empire && hover == zone.city?.kingdom && hover != null && hover.GetEmpire() == empire)
+            meta = hover;
+        return SafeColor(meta);
+    }
+
     private static void ColorsFrom(ColorAsset color, bool clearInside, ref Color32 inside, ref Color32 outside)
     {
         if (color == null) return;
@@ -1579,7 +1662,8 @@ public static class SmoothBorders
     // 这块地的归属或颜色变了：周围八块(连斜对角)也重画，平滑的边要跟着变
     private static void Remember(TileZone zone, IMetaObject meta)
     {
-        int color = ColorIndex(meta);
+        // 自定义色可能共用同一个调色板编号，必须比较实际色值。
+        int color = ColorKey(SafeColor(meta));
         if (LastMeta.TryGetValue(zone.id, out var last) && ReferenceEquals(last.meta, meta) && last.color == color) return;
         bool first = !LastMeta.ContainsKey(zone.id);
         LastMeta[zone.id] = (meta, color);

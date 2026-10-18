@@ -248,7 +248,7 @@ public partial class PureMapPatch : GamePatch
         _urbanCredit += UrbanQueue.Count / UrbanCycleSeconds * delta;
         int count = Mathf.FloorToInt(_urbanCredit);
         _urbanCredit -= count;
-        // 不画城市时(见 CitiesShown)：不必算平面图、不必为它重画；打开时整张重画
+        // 原有一格一像素粗图随城市变化；精细贴图的近景门槛由 CityDetailOverlay 单独控制。
         bool detail = CitiesShown;
         for (int i = 0; i < count && _urbanCursor < UrbanQueue.Count; i++)
         {
@@ -358,9 +358,7 @@ public partial class PureMapPatch : GamePatch
         SmoothBorders.Finish(__instance.pixels, pZone);
     }
 
-    // ───────── 城市与道路不按远近隐藏，跟着地形浮雕开关走 ─────────
-    // 以前拉远到原版远景时只画国色与地形，拉近才画城市；用户 2026-10-15 改成不论远近都显示，
-    // 同日又定"地形浮雕要连城市和道路也隐藏"：开关关掉时只剩纯平国色(见 Relief)
+    // 地形浮雕开关同时控制城市和路网；道路仍按自己的缩放档位显示。
     public static bool DetailShown => Relief;
 
     // 城市图层专看城市，不管开关
@@ -470,7 +468,8 @@ public partial class PureMapPatch : GamePatch
         bool empireLayer = mode == MetaTypeExtension.Empire;
         if (mode != MetaType.Kingdom && !empireLayer) return null;
         Kingdom occupier = city.GetTileZoneOccupier(zone);
-        if (occupier?.data == null || occupier.isRekt() || occupier == city.kingdom || occupier.isInWarOnSameSide(city.kingdom))
+        if (occupier?.data == null || occupier.isRekt() || occupier == city.kingdom || occupier.isInWarOnSameSide(city.kingdom) ||
+            !FrontSystem.Hostile(city.kingdom, occupier))
             return null;
         Empire empire = empireLayer && occupier.IsInEmpire() ? occupier.GetEmpire() : null;
         object meta = empire != null && !empire.IsArchived() ? empire : occupier;
@@ -1282,9 +1281,17 @@ public partial class PureMapPatch : GamePatch
         if (PureMapMode.Enabled) Opaque(ref pColor);
     }
 
-    private static void BeforeColorZone(ref Color32 pColor)
+    private static bool BeforeColorZone(ZoneCalculator __instance, TileZone pZone, ref Color32 pColor)
     {
         if (PureMapMode.Enabled) Opaque(ref pColor);
+        if ((!PureMapMode.Enabled && !SmoothBorders.Enabled) || pZone?.tiles == null || __instance.pixels == null) return true;
+        SmoothBorders.CaptureRaw(pZone);
+        // 原版只比较第一格，第一格已透明就跳过整块清色。平滑后同一块里颜色不同，
+        // 第一格可能是海水/无主地，余下却还有旧国色和边框；清掉每一格才能真正撤掉旧图层。
+        foreach (WorldTile tile in pZone.tiles) __instance.pixels[tile.data.tile_id] = pColor;
+        SmoothBorders.Finish(__instance.pixels, pZone);
+        __instance.setDirty();
+        return false;
     }
 
     private static bool BeforeColorZonesList(List<TileZone> pZones) => !SmoothBorders.Highlight(pZones);

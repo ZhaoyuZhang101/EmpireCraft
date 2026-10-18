@@ -6,7 +6,7 @@ using UnityEngine;
 namespace EmpireCraft.Scripts.UI.Components;
 
 // 城市精细层的显示(画法见 PureMapPatch.Detail；用户 2026-10-16："拉近的时候也只渲染离镜头最近的城市""没显示出来的不渲染")：
-//   · 镜头拉近到一格至少 MinPixelsPerTile 个屏幕像素才画(再远看不出一格以内的细节，照一格一像素的平面图)；
+//   · 镜头拉近到一格至少 MinPixelsPerTile 个屏幕像素才画；再远时保留底图的一格一像素城市粗图；
 //   · 只画镜头里看得到的城，按离镜头中心远近排，至多 MaxShown 座；镜头外的不生成、不画；
 //   · 每座城一张贴图，平面图或底色变了才重画，每帧至多重画一座(其余先顶着旧图)；
 //     离开镜头的贴图只留 MaxCached 张(来回拖动不必重算)，多了先丢最久没看的。

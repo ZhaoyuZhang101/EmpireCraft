@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace EmpireCraft.Scripts.UI.Components;
 
-// 远景的地形底(见 MapZoomTier ①)：一张与地图等大的贴图，按地形画成电子地图的配色——平原薄荷绿、林地绿、丛林深绿、
+// 非平滑模式的远景地形底(见 MapZoomTier ①)：一张与地图等大的贴图，按地形画成电子地图的配色——平原薄荷绿、林地绿、丛林深绿、
 // 丘陵浅黄绿、山地米灰、山巅与雪原白、荒漠米黄、沼泽灰绿；水面与国界那一格留空(国色的蓝水与国界照常露出来)。
 // 盖在国色色块上，拉远时不透明度高(国色只剩薄薄一层)，拉近逐渐变淡，到近景就没了。
 // 地形、国界会变：每 30 秒按行分帧重画一遍(每帧至多 48 行)，不在一帧里扫全图。
@@ -32,7 +32,9 @@ public static class TerrainOverlay
     {
         ZoneCalculator zones = World.world?.zone_calculator;
         SpriteRenderer source = zones?.sprRnd;
-        if (!PureMapMode.Enabled || !PureMapPatch.DetailShown || EmpireCraft.Scripts.Layer.CityViewMap.Active ||
+        // 平滑政治底图已经逐像素做地形浮雕。再盖浅色地形会冲淡国色，且这张贴图按
+        // 逻辑地块挖出的国界空隙会把原版方格边界重新露出来。
+        if (SmoothBorders.Enabled || !PureMapMode.Enabled || !PureMapPatch.DetailShown || EmpireCraft.Scripts.Layer.CityViewMap.Active ||
             source?.sprite == null)
         {
             if (_renderer != null) _renderer.enabled = false;

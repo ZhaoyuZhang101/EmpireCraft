@@ -150,6 +150,7 @@ public class ZonePaintBudget : GamePatch
 
     private static bool BeforeClearAll(ZoneCalculator __instance)
     {
+        bool layerChanged = SmoothBorders.PrepareLayerSwitch(__instance);
         NanoObject cursor = __instance._cursor_nano_object, selected = __instance._selected_nano_object;
         NanoObject oldCursor = _lastCursor, oldSelected = _lastSelected;
         _lastCursor = cursor;
@@ -159,9 +160,8 @@ public class ZonePaintBudget : GamePatch
         int state = World.world?.getCachedMapMetaAsset()?.getZoneOptionState() ?? -1;
         bool option = state != -1 && state != __instance._last_zone_state;
         bool clearColor = __instance._last_should_be_clear_color != __instance._cached_should_be_clear_color;
-        // 平滑国界下换图层选项：不清空(原版清空后当帧重画整张图，平滑国界下一次五百多毫秒)，旧图留着，
-        // 各地块照常分帧重画，画好一块翻一块(见 SmoothBorders 的翻牌)
-        if (option && !clearColor && smooth)
+        // 切图层或改选项都保留旧图，目标画面分帧生成后，进入 SmoothBorders 的同一组全图翻转。
+        if (smooth && (layerChanged || option && !clearColor))
         {
             __instance._selection_changed_dirty = false;
             __instance.setDrawnZonesDirty();

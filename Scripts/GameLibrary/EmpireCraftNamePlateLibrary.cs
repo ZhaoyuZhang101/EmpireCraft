@@ -656,7 +656,7 @@ public static class EmpireCraftNamePlateLibrary
         AssetManager.nameplates_library.map_modes_nameplates[assetNation.map_mode] = assetNation;
         AssetManager.nameplates_library.dict["Nation"] = assetNation;
 
-        // 天下图层：每个天下一枚铭牌(天下名·共主，见 TianxiaMap.SubmitLabels)
+        // 天下图层：每个天下一枚纯文字铭牌，只写天下名(见 TianxiaMap.SubmitLabels)
         NameplateAsset assetTianxia = new NameplateAsset
         {
             id = "plate_tianxia",

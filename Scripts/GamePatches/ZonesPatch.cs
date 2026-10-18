@@ -125,13 +125,23 @@ public class ZonesPatch:GamePatch
             __result = MetaTypeExtension.CityView;
             return false;
         }
+        if (EmpireCraftMetaTypeLibrary.tianxia?.isActive(pCheckOnlyOption) == true)
+        {
+            __result = MetaTypeExtension.Tianxia;
+            return false;
+        }
         __result = MetaType.City;
         return false;
     }
 
-    public static bool CanBeClaimedByCityPrefix(City pCity, ref bool __result)
+    public static bool CanBeClaimedByCityPrefix(TileZone __instance, City pCity, ref bool __result)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(pCity)) return true;
+        if (!CityExpansionPatch.CanClaimZone(pCity, __instance))
+        {
+            __result = false;
+            return false;
+        }
         if (pCity != null && !_invalidZoneClaimCities.Contains(pCity))
             return true;
 

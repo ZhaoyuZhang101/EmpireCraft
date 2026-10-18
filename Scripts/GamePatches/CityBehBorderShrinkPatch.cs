@@ -27,6 +27,11 @@ internal class CityBehBorderShrinkPatch : GamePatch
     public static bool execute(CityBehBorderShrink __instance, City pCity, ref BehResult __result)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(pCity)) return true;
+        if (CityTerritoryProtection.PreserveWarLayout(pCity))
+        {
+            __result = BehResult.Stop;
+            return false;
+        }
         if (BehaviourActionBase<City>.world.getWorldTimeElapsedSince(pCity.timestamp_shrink) < SimGlobals.m.empty_city_borders_shrink_time)
         {
             __result = BehResult.Stop;

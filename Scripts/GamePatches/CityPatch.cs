@@ -1038,6 +1038,7 @@ public class CityPatch : GamePatch
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return true;
         if (!__instance.zones.Contains(pZone))
         {
+            if (!CityExpansionPatch.CanAddZone(__instance, pZone)) return false;
             OccupationReadIndex.Invalidate(__instance, pZone);
             if (pZone.city != null)
             {
@@ -1784,8 +1785,9 @@ public class CityPatch : GamePatch
 
     public static bool zone_steal(CityBehBorderSteal __instance, City pCity)
     {
-        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(pCity)) return true;
-        return true;
+        // 原版侵蚀先移除邻城地块，再加给本城：即使尚未满额也会永久改变城市边界。
+        // 模组战争使用临时占领与整城划归，在入口拦下，不能等 addZone 时才拒绝。
+        return EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(pCity);
     }
 
     public static bool destroy_city(City __instance)

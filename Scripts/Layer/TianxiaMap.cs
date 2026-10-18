@@ -121,17 +121,14 @@ public static class TianxiaMap
         return TianxiaSystem.LeadOf(other) != lead || EmpireCoreControl.Sovereign(other.kingdom) != holder;
     }
 
-    // 铭牌：每个天下一枚，写天下名(受了天命的加共主)
+    // 铭牌：每个天下一枚，沿用帝国的简易纯文字样式，只写天下名称。
     public static void SubmitLabels()
     {
         foreach (EmpireCore lead in TianxiaSystem.Leads())
         {
             List<City> cities = TianxiaSystem.Cities(lead);
             if (cities.Count == 0) continue;
-            Kingdom holder = TianxiaSystem.Holder(lead);
-            string text = holder == null ? TianxiaSystem.Name(lead)
-                : $"{TianxiaSystem.Name(lead)}·{holder.GetKingdomName()}";
-            UI.Components.TerritoryLabelRenderer.SubmitCities($"tianxia:{lead.id}", text, cities,
+            UI.Components.TerritoryLabelRenderer.SubmitCities($"tianxia:{lead.id}", TianxiaSystem.Name(lead), cities,
                 UI.Components.TerritoryLabelRenderer.EmpireStyle);
         }
     }

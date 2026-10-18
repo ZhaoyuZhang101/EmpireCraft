@@ -964,7 +964,7 @@ public static class CityExtension
             }
         }
 
-        OccupationReadIndex.Invalidate(city);
+        OccupationReadIndex.Invalidate(city, tileZone);
 
         return removedAny;
     }

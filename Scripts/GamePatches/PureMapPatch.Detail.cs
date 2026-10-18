@@ -164,11 +164,8 @@ public partial class PureMapPatch
         Color32 tint = new(160, 160, 160, 255);
         try
         {
-            ZoneCalculator zones = World.world.zone_calculator;
             TileZone center = city.getTile()?.zone;
-            MetaTypeAsset mode = zones?._mode_asset;
-            object meta = center != null && mode?.tile_get_metaobject_0 != null ? mode.tile_get_metaobject_0(center) : null;
-            ColorAsset color = (meta as IMetaObject)?.getColor() ?? city.kingdom?.getColor();
+            ColorAsset color = SmoothBorders.DisplayColor(center) ?? CustomColorSystem.Of(city.kingdom) ?? city.kingdom?.getColor();
             if (color != null) tint = color.getColorBorderInsideAlpha32();
         }
         catch
