@@ -428,47 +428,56 @@ public static class InstitutionSystem
     }
 
     // 文化掌握封建化只代表具备改制条件；未主持改革的旧城邦按本国节奏过渡。
-    public static void TryAdvanceFeudalTransition(Kingdom kingdom)
+    // 各国逐个跟上本文化的政体(用户 2026-10-19 选"各线通用逐国跟进"；以前只有罗马线的城邦→封建化会跟，别的线第二个帝国
+    // 永远停在旧政体——节点"已施行"后别国再也采纳不了)：独立国家与帝国核心每年看本文化制度树走到的政体，本国没跟上的，
+    // 在本文化走到那一步后的第 2~5 年(属国已改的先改)、本国采纳了所需科技时改过去。
+    // 原始政体(部落分迁管)、共和与现代(RepublicSystem 管)、手动选过或被锁定的、征服王朝(复合帝国)、周室之内的不动
+    public static void TryAdvanceRegimeTransition(Kingdom kingdom)
     {
-        if (kingdom?.data == null || kingdom.isRekt() || World.world == null ||
-            kingdom.GetRegime()?.type != RegimeType.ClassicalRepublic ||
-            RegimeManager.regimes == null ||
-            !RegimeManager.regimes.TryGetValue(RegimeType.Feudalism, out Regime feudalRegime) ||
-            feudalRegime == null) return;
-
+        if (kingdom?.data == null || kingdom.isRekt() || World.world == null || RegimeManager.regimes == null) return;
+        RegimeType? current = kingdom.GetRegime()?.type;
+        if (current == null || RegimeManager.IsPrimitive(current) || current is RegimeType.Modern or RegimeType.Republic) return;
         Empire empire = kingdom.GetEmpire();
-        if (empire != null && (empire.IsArchived() || empire.isRekt() || empire.CoreKingdom != kingdom)) return;
+        if (empire != null && (empire.IsArchived() || empire.isRekt() || empire.CoreKingdom != kingdom ||
+                               CompositeEmpireService.IsComposite(empire))) return;
+        var extra = kingdom.GetOrCreate();
+        if (extra.regime_manually_selected || extra.zhou_sphere_id >= 0 || RepublicSystem.IsRegimeLocked(kingdom)) return;
         string culture = CultureService.GetRealmCulture(kingdom);
-        if (!CultureService.IsValidCulture(culture) ||
-            !TryResolveCultureRegime(culture, out RegimeType target) || target != RegimeType.Feudalism)
-            return;
+        if (!CultureService.IsValidCulture(culture) || !TryResolveCultureRegime(culture, out RegimeType target) ||
+            target == current || RegimeManager.IsPrimitive(target) || target is RegimeType.Modern or RegimeType.Republic ||
+            !RegimeManager.regimes.TryGetValue(target, out Regime targetRegime) || targetRegime == null) return;
 
-        const string nodeId = "western_feudalization";
+        // 本文化施行那个政体节点的时间(没记过的从现在起算)
         CultureInstitutionState cultureState = GetOrCreateCultureState(culture);
-        if (cultureState == null || !cultureState.enacted_node_ids.Contains(nodeId)) return;
+        if (cultureState == null) return;
+        string line = GetCultureLine(culture);
+        InstitutionNodeConfig node = InstitutionDefinitionRegistry.GetForLine(line).FirstOrDefault(candidate =>
+            cultureState.enacted_node_ids.Contains(candidate.id) &&
+            InstitutionDefinitionRegistry.TryGetNodeRegime(candidate, out RegimeType declared) && declared == target);
+        if (node == null) return;
         cultureState.enacted_timestamps ??= new Dictionary<string, double>();
-        if (!cultureState.enacted_timestamps.TryGetValue(nodeId, out double enactedAt) || enactedAt < 0d)
+        if (!cultureState.enacted_timestamps.TryGetValue(node.id, out double enactedAt) || enactedAt < 0d)
         {
             enactedAt = World.world.getCurWorldTime();
-            cultureState.enacted_timestamps[nodeId] = enactedAt;
+            cultureState.enacted_timestamps[node.id] = enactedAt;
         }
 
-        // 属国已经改制时先让中央跟上；其他国家在文化完成研究后的第 2~5 年分批改制。
-        bool feudalSubjects = empire?.kingdoms_list?.Any(member => member != null && member != kingdom &&
-            !member.isRekt() && CultureService.GetRealmCulture(member) == culture &&
-            member.GetRegime()?.type == RegimeType.Feudalism) == true;
-        if (!feudalSubjects && Date.getYearsSince(enactedAt) < 2 + kingdom.id % 4) return;
-        // 本国还没采纳封建化所需的科技：等采纳了再改
-        if (!RealmCanAdoptRegime(kingdom, RegimeType.Feudalism)) return;
+        // 属国已经改制时先让中央跟上；其他国家在文化走到这一步后的第 2~5 年分批改制
+        bool subjectsFirst = empire?.kingdoms_list?.Any(member => member != null && member != kingdom && !member.isRekt() &&
+            GetCultureLine(CultureService.GetRealmCulture(member)) == line && member.GetRegime()?.type == target) == true;
+        if (!subjectsFirst && Date.getYearsSince(enactedAt) < 2 + kingdom.id % 4) return;
+        // 本国还没采纳所需的科技：等采纳了再改
+        if (!RealmCanAdoptRegime(kingdom, target)) return;
 
+        LogService.LogInfo($"[EmpireCraft][制度] {kingdom.GetKingdomName()} 跟上本文化的政体：{current} → {target}");
         if (empire != null)
         {
             EnsureEmpireState(empire);
-            ChangeRegime(empire, RegimeType.Feudalism);
+            ChangeRegime(empire, target);
         }
         else
         {
-            kingdom.SetRegimeType(RegimeType.Feudalism);
+            kingdom.SetRegimeType(target);
             kingdom.LoadRegime();
             kingdom.SystemChange();
         }
@@ -562,8 +571,8 @@ public static class InstitutionSystem
         if (state?.active_reform != null && InstitutionDefinitionRegistry.Get(state.active_reform.node_id) is InstitutionNodeConfig node &&
             InstitutionDefinitionRegistry.HasLine(line) && !IsSameLine(node.line, line))
             state.active_reform = null;
-        if (regime.type != RegimeType.YouMu && regime.type != RegimeType.Arabic && regime.type != RegimeType.LvLing &&
-            regime.type != RegimeType.ZhouFeudalism) return;
+        // 不属于本文化制度线的政体一律改回本线的(以前只管游牧、阿拉伯、律令、周制四种)；原始、共和、现代各有专管
+        if (RegimeManager.IsPrimitive(regime.type) || regime.type is RegimeType.Modern or RegimeType.Republic) return;
         if (!InstitutionDefinitionRegistry.HasLine(line) || LineDeclares(line, regime.type)) return;
         if (!TryResolveCultureRegime(culture, out RegimeType target) || target == regime.type) return;
         LogService.LogInfo($"[EmpireCraft][制度] {empire.GetEmpireName()} 政体 {regime.type} 不属于 {culture} 的制度线，改为 {target}");
@@ -2306,10 +2315,15 @@ public static class InstitutionSystem
         var result = new List<Kingdom>();
         if (empire?.CoreKingdom != null && !empire.CoreKingdom.isRekt()) result.Add(empire.CoreKingdom);
         string culture = GetPrimaryCulture(empire);
+        string line = GetCultureLine(culture);
         foreach (Kingdom kingdom in empire?.kingdoms_list ?? new List<Kingdom>())
         {
             if (kingdom == null || kingdom.isRekt() || result.Contains(kingdom)) continue;
-            if (string.Equals(CultureService.GetRealmCulture(kingdom), culture, StringComparison.Ordinal))
+            // 同一条制度线的成员国跟着核心换政体(用户 2026-10-19 选"成员国按制度线跟核心换"：以前要文化一字不差，
+            // 哈里发里的埃及、法兰克帝国里的日耳曼、华夏里的中国山海都留着旧政体)
+            string memberCulture = CultureService.GetRealmCulture(kingdom);
+            if (string.Equals(memberCulture, culture, StringComparison.Ordinal) ||
+                !string.IsNullOrEmpty(line) && GetCultureLine(memberCulture) == line)
                 result.Add(kingdom);
         }
         return result;

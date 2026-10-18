@@ -247,7 +247,7 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
             }
         }
         FeudalVassalService.Sync(pKingdom);
-        InstitutionSystem.TryAdvanceFeudalTransition(pKingdom);
+        InstitutionSystem.TryAdvanceRegimeTransition(pKingdom);
         SyncKingdomStatus(pKingdom);
         // 周制诸侯各用各的颜色(帝国仍是天子的颜色)
         KingdomColorService.EnsureDistinctInZhou(pKingdom);
