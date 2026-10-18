@@ -417,7 +417,7 @@ public static class InstitutionSystem
             if (node == null || !IsSameLine(node.line, line) ||
                 !InstitutionDefinitionRegistry.TryGetNodeRegime(node, out RegimeType declared) ||
                 !RegimeManager.IsMonarchy(declared) || RegimeManager.IsPrimitive(declared)) continue;
-            if (best != null && node.advancement <= best.advancement) continue;
+            if (best != null && node.advancement < best.advancement) continue;
             best = node;
             regime = declared;
         }
@@ -450,7 +450,8 @@ public static class InstitutionSystem
             InstitutionNodeConfig node = InstitutionDefinitionRegistry.Get(nodeId);
             if (node == null || !IsSameLine(node.line, line)) continue;
             if (!InstitutionDefinitionRegistry.TryGetNodeRegime(node, out _)) continue;
-            if (best == null || node.advancement > best.advancement) best = node;
+            // 等级相同取后施行的(以前取先施行的：部落、汗国、哈里发国、周制这些节点等级相同，全靠 replaces 兜着)
+            if (best == null || node.advancement >= best.advancement) best = node;
         }
         if (best != null && InstitutionDefinitionRegistry.TryGetNodeRegime(best, out regime)) return true;
         return InstitutionDefinitionRegistry.TryGetRootRegime(line, out regime);
@@ -1054,13 +1055,20 @@ public static class InstitutionSystem
 
     private static void EnactNodeChain(CultureInstitutionState state, InstitutionNodeConfig node)
     {
-        if (node == null || state.enacted_node_ids.Contains(node.id)) return;
+        // 被取代的旧制度不补；补上的新制度取代旧的(同改革落地、强制点亮；以前这里漏了，读档补记后新旧制度并存)
+        if (node == null || state.enacted_node_ids.Contains(node.id) || IsSuperseded(state, node.id)) return;
         foreach (string requiredId in node.requires)
             EnactNodeChain(state, InstitutionDefinitionRegistry.Get(requiredId));
         // "任一满足"的一组一个都没施行时，补上第一个有效的分支
-        if (node.requires_any.Count > 0 && !node.requires_any.Any(state.enacted_node_ids.Contains))
+        if (node.requires_any.Count > 0 &&
+            !node.requires_any.Any(id => state.enacted_node_ids.Contains(id) || IsSuperseded(state, id)))
             EnactNodeChain(state, node.requires_any.Select(InstitutionDefinitionRegistry.Get)
                 .FirstOrDefault(candidate => candidate != null));
+        foreach (string replaced in node.replaces.Where(state.enacted_node_ids.Contains).ToList())
+        {
+            state.enacted_node_ids.Remove(replaced);
+            state.absorbed_node_ids.Remove(replaced);
+        }
         state.enacted_node_ids.Add(node.id);
     }
 
