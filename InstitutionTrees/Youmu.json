@@ -684,7 +684,10 @@
           "int_value": 4,
           "faction": "融入"
         }
-      ]
+      ],
+      "features": {
+        "religious_tolerance": 1
+      }
     },
     {
       "id": "youmu_fugitive_household_law", "requires_techs": ["census", "law_code"],

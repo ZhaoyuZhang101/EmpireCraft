@@ -1024,7 +1024,10 @@
           "int_value": 3,
           "faction": "共和"
         }
-      ]
+      ],
+      "features": {
+        "religious_tolerance": 1
+      }
     },
     {
       "template": "lift_party_ban",

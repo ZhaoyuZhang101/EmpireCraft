@@ -213,6 +213,7 @@ public class SaveManagerPatch : GamePatch
         EmpireCraft.Scripts.GeneralSystems.ShanrangSystem.ResetWorldState();
         EmpireCraft.Scripts.GeneralSystems.EmirateSystem.ResetWorldState();
         EmpireCraft.Scripts.GeneralSystems.FrontierRelations.ResetWorldState();
+        EmpireCraft.Scripts.GeneralSystems.ReligiousTension.ResetWorldState();
         EmpireCraft.Scripts.GeneralSystems.UnificationSystem.ResetWorldState();
         EmpireCraft.Scripts.GeneralSystems.EnclaveFill.ResetWorldState();
         ModClass.EMPIRE_MANAGER = new EmpireManager();

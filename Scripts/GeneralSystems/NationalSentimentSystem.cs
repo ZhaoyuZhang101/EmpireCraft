@@ -163,7 +163,10 @@ public static class NationalSentimentSystem
                 };
             if (invaded) delta += InvasionGain * (policy == ConstitutionNation.Nationalist && !foreignRule ? 2f : 1f);
             if (occupied) delta += OccupationGain;
-            if (!foreignRule && !invaded && !occupied) delta = -Decay;
+            // 异教之城(见 ReligiousTension)
+            float heterodox = ReligiousTension.SentimentGain(city);
+            delta += heterodox;
+            if (!foreignRule && !invaded && !occupied && heterodox <= 0f) delta = -Decay;
             data.national_sentiment = Mathf.Clamp(data.national_sentiment + delta, 0f, 100f);
             if (empire == null) continue;
             totals.TryGetValue(empire.id, out var total);

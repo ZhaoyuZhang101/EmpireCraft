@@ -161,7 +161,8 @@ public class EmpireCraftKingdomBehCheckPlots : GameAIKingdomBase
             {
                 if (pKingdom.religion == war.main_attacker?.religion)
                 {
-                    if (pKingdom.isOpinionTowardsKingdomGood(war.main_attacker))
+                    // 圣战加上限与距离(见 ReligiousTension.CanJoinHolyWar)
+                    if (pKingdom.isOpinionTowardsKingdomGood(war.main_attacker) && ReligiousTension.CanJoinHolyWar(pKingdom, war))
                     {
                         war.joinAttackers(pKingdom);
                         TranslateHelper.LogJoinReligionWar(pKingdom, pKingdom.religion);

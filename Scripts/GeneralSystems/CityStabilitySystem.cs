@@ -225,6 +225,14 @@ public static class CityStabilitySystem
         detail = Pressure(input);
         float natural = CityStabilityRules.Natural(input.Loyalty, input.Legitimacy, input.Corruption, input.Sentiment,
             input.Landless, input.Famine, input.Grievance);
+        // 异教之城(见 ReligiousTension)
+        float faith = ReligiousTension.StabilityLoss(city);
+        if (faith > 0f)
+        {
+            natural = CityStabilityRules.Clamp(natural - faith);
+            string heterodox = ReligiousTension.Describe(city);
+            detail = string.IsNullOrEmpty(detail) ? heterodox : detail + " / " + heterodox;
+        }
         // 鞭长莫及：行政控制力低的城自然稳定度下降
         float remote = AdministrativeControlSystem.StabilityLoss(city);
         if (remote < 1f) return natural;

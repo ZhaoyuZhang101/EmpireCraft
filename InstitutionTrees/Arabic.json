@@ -266,7 +266,10 @@
           "type": "enable_claim",
           "value": "迫使朝贡"
         }
-      ]
+      ],
+      "features": {
+        "poll_tax": 1
+      }
     },
     {
       "id": "arabic_iqta_military_fiscal", "requires_techs": ["taxation", "military_register"],
