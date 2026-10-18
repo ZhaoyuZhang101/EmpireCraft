@@ -427,7 +427,8 @@ public static class TianxiaSystem
     private static bool Shaken(Kingdom holder, float share)
     {
         Empire empire = holder?.GetEmpire();
-        if (share < ClaimShare) return true;
+        // 怀玺者六成受命，也按六成判动摇(以前受命第二年就按七成五记"天命动摇")
+        if (share < (holder != null && ImperialSealSystem.Holds(holder) ? SealClaimShare : ClaimShare)) return true;
         if (empire == null) return false;
         return empire.Legitimacy < ShakenMandate || DynasticCycleSystem.GetPressure(empire) >= ShakenPressure;
     }

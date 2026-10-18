@@ -97,8 +97,11 @@ public static class UnificationSystem
         if (!Alive(sovereign) || World.world == null) return false;
         var data = sovereign.GetOrCreate();
         if (data.unify_since >= 0d) return true;
-        return data.unified_at >= 0d && World.world.getCurWorldTime() >= data.unified_at &&
-               Date.getYearsSince(data.unified_at) < GraceYears;
+        if (data.unified_at < 0d || World.world.getCurWorldTime() < data.unified_at ||
+            Date.getYearsSince(data.unified_at) >= GraceYears) return false;
+        // 统一后的开国气象就是受天命的治世开头(用户 2026-10-19 选"以天命为准")：天命丢了气象就散了——
+        // 以前统一"完成"却没受天命，天下显示乱世，开国气象却还在
+        return TianxiaSystem.LeadOf(sovereign.capital) == null || TianxiaSystem.MandateOf(sovereign) != null;
     }
 
     // 统一者与天下里别家的仗，不论谁先动手(不受三十年强制停战、攻方议和；把对方正规军打光就举国吞并)。

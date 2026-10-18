@@ -136,7 +136,9 @@ public static class MaladySystem
     {
         if (empire.InFoundingGrace) return 0f;
         int age = DynasticCycleSystem.GetAge(empire);
-        return age < EarlyYears ? EarlyPace : age < MiddleYears ? MiddlePace : 1f;
+        float pace = age < EarlyYears ? EarlyPace : age < MiddleYears ? MiddlePace : 1f;
+        // 天命动荡时积弊长得快一半(用户 2026-10-19 选"以天命为准")
+        return TianxiaSystem.PhaseOf(empire.CoreKingdom) == TianxiaSystem.Unrest ? pace * 1.5f : pace;
     }
 
     // 每年才结算的效果：吏治(各城腐败)、冗费(行政开支)、党争(各派怨望)

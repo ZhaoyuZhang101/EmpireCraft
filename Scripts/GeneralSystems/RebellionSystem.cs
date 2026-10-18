@@ -29,8 +29,16 @@ public static class RebellionSystem
     {
         Empire empire = kingdom?.GetEmpire();
         return RebellionRules.LegitimacyFactor(empire != null && !empire.isRekt() ? empire.Legitimacy : -1) *
-               (ModernStability.IsModern(kingdom) ? ModernStability.RebellionFactor : 1f);
+               (ModernStability.IsModern(kingdom) ? ModernStability.RebellionFactor : 1f) * PhaseFactor(kingdom);
     }
+
+    // 天命阶段(用户 2026-10-19 选"以天命为准")：治世起事少两成五，动荡多两成五；乱世天下无主照常
+    private static float PhaseFactor(Kingdom kingdom) => TianxiaSystem.PhaseOf(kingdom) switch
+    {
+        TianxiaSystem.Peace => 0.75f,
+        TianxiaSystem.Unrest => 1.25f,
+        _ => 1f
+    };
 
     public static bool CanContinueCityPlot(Actor actor, bool forced = false)
     {
