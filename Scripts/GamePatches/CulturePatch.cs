@@ -330,6 +330,13 @@ public class CulturePatch : GamePatch
             string key = group.Key;
             string value = group.Value;
 
+            // 姓名、氏族名模板用 U+200A 等空白分隔；它们是字面内容，不是词库名或翻译键。
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                groups = groups.Append((key, null, value ?? "")).ToArray();
+                continue;
+            }
+
             string ModPath = Path.Combine(ModClass._declare.FolderPath, "Locales");
             string culturePath = Path.Combine(ModPath, "Cultures", $"Culture_{culture}");
             string CharacterSetPath = Path.Combine(culturePath, String.Format("{0}{1}.csv", culture, value));

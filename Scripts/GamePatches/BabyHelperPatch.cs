@@ -92,8 +92,15 @@ public class BabyHelperPatch : GamePatch
             if (pParent.HasSpecificClan())
             {
                 PersonalClanIdentity pci = pParent.GetPersonalIdentity();
-                if (pci?.is_main == true)
+                if (pci?.is_main == true || SurnameInheritanceSystem.Reigns(pParent))
                 {
+                    // 第一个父母回调可能已经建了族谱身份；最终入族须与最终选中的亲本一致。
+                    PersonalClanIdentity childIdentity = pBaby.GetPersonalIdentity();
+                    if (childIdentity != null && pci?._specificClan != null)
+                    {
+                        SpecificClanManager.MoveToClan(childIdentity, pci._specificClan);
+                        childIdentity.matrilineal_birth = !pParent.isSexMale() && pci._specificClan.Matrilineal();
+                    }
                     if (pParent.hasCulture())
                     {
                         pBaby.setCulture(pParent.GetCulture());
@@ -101,17 +108,20 @@ public class BabyHelperPatch : GamePatch
                     if (pParent.clan?.data == null) return;
                     pBaby.setClan(pParent.clan);
                     if (pBaby.clan?.data == null) return;
-                    pBaby.GetModName().familyName = pBaby.clan.GetMemberSurname();
-                    pBaby.GetModName().SetName(pBaby);
+                    string surname = SurnameInheritanceSystem.FamilyNameOf(pParent);
+                    pBaby.SetFamilyName(!string.IsNullOrWhiteSpace(surname) ? surname : pBaby.clan.GetMemberSurname());
+                    pBaby.GetModName()?.SetName(pBaby);
                 }
             }
         }
     }
     public static void ApplyParentsMeta(Actor pParent1, Actor pParent2, Actor pBaby)
     {
+        if (pBaby?.data == null || pBaby.isRekt()) return;
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(pBaby)) return;
-        JudgeBabyJoinMainParent(pBaby, pParent1);
-        JudgeBabyJoinMainParent(pBaby, pParent2);
+        // 原版已设置父母后才走这里：不能再依次套用两方，让最后执行的母亲覆盖已经选好的父系姓氏。
+        Actor parent = SurnameInheritanceSystem.SelectParent(new[] { pParent1, pParent2 }.Concat(pBaby.getParents()));
+        JudgeBabyJoinMainParent(pBaby, parent);
     }
 
     public static bool CheckReproduction(Actor pActor, ref BehResult __result)
