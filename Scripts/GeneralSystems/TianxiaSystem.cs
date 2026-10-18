@@ -354,7 +354,7 @@ public static class TianxiaSystem
             lead.mandate_lost_at = now;
             MandateRecord open = lead.mandate_history?.LastOrDefault(record => record.lost_at < 0d);
             if (open != null) open.lost_at = now;
-            Record(holder, string.Format(LM.Get(Term(lead, "tianxia_mandate_lost_history")), former, name));
+            Announce(holder, string.Format(LM.Get(Term(lead, "tianxia_mandate_lost_history")), former, name));
             DisperseTributaries(lead, holder, name, 1f);
             InvalidateLegitimacy(holder);
         }
@@ -380,7 +380,7 @@ public static class TianxiaSystem
             kingdom_id = kingdom.id, kingdom_name = lead.mandate_holder_name,
             dynasty = kingdom.GetEmpire()?.EmpireSpecificClan?.name ?? "", claimed_at = now
         });
-        Record(kingdom, string.Format(LM.Get(Term(lead, "tianxia_mandate_claim_history")), lead.mandate_holder_name, name,
+        Announce(kingdom, string.Format(LM.Get(Term(lead, "tianxia_mandate_claim_history")), lead.mandate_holder_name, name,
             $"{count / (float)total:P0}"));
         lead.tianxia_phase = Peace;
         lead.tianxia_phase_since = now;
@@ -528,6 +528,13 @@ public static class TianxiaSystem
     {
         Empire empire = kingdom?.GetEmpire();
         if (empire != null) MonarchyLegitimacy.Invalidate(empire);
+    }
+
+    // 天命得失：记史册之外也上世界公告(以前只记本国史册，看不到)
+    private static void Announce(Kingdom kingdom, string text)
+    {
+        Record(kingdom, text);
+        if (kingdom?.data != null && !kingdom.isRekt()) TranslateHelper.LogEventOnly(text, kingdom);
     }
 
     private static void Record(Kingdom kingdom, string text)

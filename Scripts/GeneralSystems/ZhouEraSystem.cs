@@ -972,6 +972,15 @@ public static class ZhouEraSystem
         empire.data.centerOffice?.Init(core);
         core.SystemChange();
         Announce(empire, string.Format(LM.Get("zhou_log_unified"), core.GetKingdomName()), core);
+        // 秦式统一：同统一战争给开国气象、受天命(用户 2026-10-19 选"以天命为准"；以前取周统一不算统一，没有开国气象)
+        var unifiedData = core.GetOrCreate();
+        unifiedData.unify_since = -1d;
+        unifiedData.unified_at = World.world.getCurWorldTime();
+        if (TianxiaSystem.LeadOf(core.capital) is EmpireCore lead)
+        {
+            (Dictionary<Kingdom, int> held, int total) = TianxiaSystem.Holdings(lead);
+            TianxiaSystem.Grant(lead, core, held.TryGetValue(core, out int count) ? count : 0, total, TianxiaSystem.Name(lead));
+        }
         empire.RecordHistory(directContent: string.Format(LM.Get("zhou_history_unified"), core.GetKingdomName(),
             empire.GetEmpireName()), kingdomId: core.id);
     }
