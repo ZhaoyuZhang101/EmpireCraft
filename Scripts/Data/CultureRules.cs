@@ -252,6 +252,11 @@ public static class OnomasticsRule
             : culture;
     }
 
+    // 文化配置里明写了天下标识
+    public static bool HasExplicitTianxia(this string culture) =>
+        !string.IsNullOrEmpty(culture) && ALL_CULTURE_RULE.TryGetValue(culture, out Setting setting) &&
+        !string.IsNullOrWhiteSpace(setting?.tianxia);
+
     public static bool HasPoliticalTrait(this string culture, string trait)
     {
         if (string.IsNullOrWhiteSpace(culture) || string.IsNullOrWhiteSpace(trait) ||
