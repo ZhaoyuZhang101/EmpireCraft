@@ -39,7 +39,10 @@ public static class NationalUnificationSystem
         if (!east && !TechnologySystem.RealmHasTech(core, "nationalism")) return;
         EmpireCore lawful = Lawful(small);
         Empire large = Neighbours(small)
-            .Where(other => IsModern(other) && CultureService.GetRealmCulture(other.CoreKingdom) == culture &&
+            // 强统一诉求的文化按天下认(华夏、中国、山海同属一族)；别的按确切文化(民族国家只统一本民族)
+            .Where(other => IsModern(other) && (east
+                                ? CultureService.SameKin(CultureService.GetRealmCulture(other.CoreKingdom), culture)
+                                : CultureService.GetRealmCulture(other.CoreKingdom) == culture) &&
                             Cities(other) >= Math.Max(LargeCities, Cities(small) * 2) &&
                             !small.CoreKingdom.isEnemy(other.CoreKingdom) && !other.CoreKingdom.hasEnemies() &&
                             (east || lawful != null && Lawful(other) == lawful))

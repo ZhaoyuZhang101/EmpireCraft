@@ -26,7 +26,7 @@ public static class CityStyleSystem
     {
         "Huaxia" or "China" or "Shanhai" => "huaxia",
         "Japan" => "japan",
-        "Western" or "Frankish" or "Germanic" or "Slavonic" or "ElfFancy" => "western",
+        "Western" or "Frankish" or "Germanic" or "Slavonic" or "ElfFancy" or "Emperor" or "Corporate" => "western",
         "Roma" => "roma",
         "Viking" => "viking",
         "Arab" or "Kosher" => "arab",
@@ -36,8 +36,19 @@ public static class CityStyleSystem
         "Aztec" => "aztec",
         "Youmu" => "nomad",
         "Ojibwe" => "woodland",
-        _ => NomadCulture(culture) ? "nomad" : "huaxia"
+        _ => NomadCulture(culture) ? "nomad" : LineFamily(culture)
     };
+
+    // 别的(自定义)文化按制度线取(以前一律回落成华夏风格)
+    private static string LineFamily(string culture) =>
+        (string.IsNullOrEmpty(culture) ? "" : InstitutionSystem.GetCultureLine(culture)) switch
+        {
+            "Roma" => "western",
+            "Arabic" => "arab",
+            "Japan" => "japan",
+            "Youmu" => "woodland",
+            _ => "huaxia"
+        };
 
     // 别的(自定义)文化：有游牧特性的住牧帐(以前看游牧一线，没马的阿兹特克式文化也住帐篷)
     private static bool NomadCulture(string culture) =>

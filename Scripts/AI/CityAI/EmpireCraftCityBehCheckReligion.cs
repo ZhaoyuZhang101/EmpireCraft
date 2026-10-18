@@ -20,10 +20,8 @@ public class EmpireCraftCityBehCheckReligion: GameAICityBase
         if (pCity.kingdom.IsInEmpire())  return BehResult.Continue;
         var culture = CultureService.GetMainCulture(pCity);
         if (!CultureService.IsValidCulture(culture)) culture = "Western";
-        RegimeType regimeType = OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(culture, out Setting setting)
-            ? setting.regime
-            : RegimeType.Feudalism;
-        if (regimeType != RegimeType.Feudalism )  return BehResult.Continue;
+        // 圣城神权自立：罗马一线(教会与王权分立的传统)；以前查文化配置的政体是不是封建，西方(古典城邦起步)漏了
+        if (InstitutionSystem.GetCultureLine(culture) != "Roma") return BehResult.Continue;
         if (pCity.hasReligion())
         {
             Religion pReligion = pCity.getReligion();
