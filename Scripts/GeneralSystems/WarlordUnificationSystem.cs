@@ -203,8 +203,10 @@ public static partial class WarlordEraSystem
         }
     }
 
-    // 开国雄主的望风归附(古代王朝，不限军阀时期)：开国雄主在位的帝国控制本核心过半城市时，
-    // 接壤、尚未入帝国、没有宗主的本核心割据政权每年按控制比例有一定概率归附(与"大势所趋"同一套概率与归附方式)
+    // 开国雄主的望风归附(古代王朝，不限军阀时期)：开国雄主在位的帝国控制本核心四成以上城市时，
+    // 接壤、尚未入帝国、没有宗主的本核心割据政权每年按控制比例有一定概率归附(与"大势所趋"同一套概率与归附方式)。
+    // 只剩一两座城的小国才不战而降(用户 2026-10-19 选"一并改成战线崩溃"：以前多大的割据政权都整国倒过来)
+    private const int BandwagonMaxCities = 2;
     private static void FounderBandwagon(EmpireCore core, Dictionary<Kingdom, int> held, int total)
     {
         if (total <= 0 || NationalSentimentSystem.InUnitedFront(core)) return;
@@ -222,8 +224,8 @@ public static partial class WarlordEraSystem
         {
             if (holder == null || holder == founderKingdom || holder.isRekt() || !holder.hasKing() ||
                 !IsLocalHolder(core, holder) || holder.IsInEmpire() || FeudalVassalService.GetOverlord(holder) != null ||
-                holder.GetRegime()?.type == RegimeType.Modern || !Borders(holder, founder) ||
-                Random.value >= chance) continue;
+                holder.GetRegime()?.type == RegimeType.Modern || (holder.cities?.Count ?? 0) > BandwagonMaxCities ||
+                !Borders(holder, founder) || Random.value >= chance) continue;
             War war = FindActiveWar(holder, founderKingdom);
             if (war != null)
                 World.world.wars.endWar(war, war.isAttacker(founderKingdom) ? WarWinner.Attackers : WarWinner.Defenders);
@@ -275,9 +277,9 @@ public static partial class WarlordEraSystem
         }
     }
 
-    // 每月：开国雄主的统一战争里，被讨伐的割据政权按丢掉的地盘(被雄主一方占着的地块比例)、都城是否失陷，
-    // 有一定概率举国归附(战争以雄主获胜结束，归附方式同"望风归附")
-    // 军阀时期的内战同样：与中央交战的一方地盘被中央占得越多越可能举国归附
+    // 每月：开国雄主的统一战争里，被讨伐的割据政权正规军打垮、又丢了都城或三分之一的城，兵败如山倒——战线崩溃、
+    // 推进加快，城仍一座座打(见 FrontCollapse；用户 2026-10-19 选"一并改成战线崩溃"，以前丢一块地就每月有几率举国归附)。
+    // 军阀时期的内战照旧：与中央交战的一方地盘被中央占得越多越可能举国归附
     public static void FounderCapitulation()
     {
         if (World.world?.wars == null) return;
@@ -301,6 +303,11 @@ public static partial class WarlordEraSystem
             Kingdom founderKingdom = attackerFounder ? attacker : defender, rival = attackerFounder ? defender : attacker;
             Empire founder = founderKingdom?.GetEmpire();
             if (founder == null || rival == null || rival.isRekt() || rival.cities == null || rival.cities.Count == 0) continue;
+            if (founderWar)
+            {
+                FrontCollapse.Check(founderKingdom, rival, war);
+                continue;
+            }
             int zones = 0, lost = 0;
             foreach (City city in rival.cities)
             {

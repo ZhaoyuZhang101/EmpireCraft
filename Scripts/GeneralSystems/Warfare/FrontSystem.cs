@@ -793,8 +793,9 @@ public static partial class FrontSystem
     {
         if (city?.kingdom == null || attacker == null || Friendly(attacker, city.kingdom)) return 0f;
         if (LandEconomySystem.WouldSurrenderTo(city, attacker, out _)) return 0f;
-        // 团练只从守方还占着的那部分城里抽
-        return CityPopulationSystem.GetBackgroundTotal(city) * 0.02f * 0.6f * HeldShare(city);
+        // 团练只从守方还占着的那部分城里抽；兵败如山倒时减半(见 FrontCollapse)
+        return CityPopulationSystem.GetBackgroundTotal(city) * 0.02f * 0.6f * HeldShare(city) *
+               FrontCollapse.Militia(city.kingdom, attacker);
     }
 
     // 城里还归守方(城主一方)控制的地块占几成(高山不算)
@@ -975,7 +976,11 @@ public static partial class FrontSystem
     // 正统越高推得越快——正统 50 起算，100 时三倍，前提是军饷发足(欠饷一成半以上不算)。两者取大，最快三倍
     private const float ImperialPushMax = 3f, ImperialPushFloor = 50f;
 
-    private static float PushFactor(Kingdom side, Kingdom opponent)
+    // 兵败如山倒的对手再快一倍(见 FrontCollapse)
+    private static float PushFactor(Kingdom side, Kingdom opponent) =>
+        BasePushFactor(side, opponent) * FrontCollapse.PushFactor(side, opponent);
+
+    private static float BasePushFactor(Kingdom side, Kingdom opponent)
     {
         // 统一者打天下里的别家：快一半，统一十年后加倍(见 UnificationSystem)
         float factor = (RulerTraitSystem.FounderReigns(side) ? 2f : 1f) * UnificationSystem.PushFactor(side, opponent);

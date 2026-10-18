@@ -22,9 +22,12 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 统一战争：一家占到三成，或国力是第二名的两倍(且至少占 8%)——天命所归，目标二十年内打完：
 //       - 统一者每月挑接壤(或隔海相望)的一家开战(目标吞并)，同时可打四场，不必休战，不受三十年强制停战；
 //         天下里的别家都够不着、手上也没有统一战争，连着三年就算统一了能统一的；
-//       - 把对方正规军(军团；没有军团时看士兵与可征之兵)打光、连续两个月没缓过来，就举国吞并，不等和约；
-//       - 望风归附(用户 2026-10-14："兵力没有达到绝对碾压之前、主力还没打完就望风而降")：统一者正规军是对方五倍以上，
-//         而且对方主力已被打垮(正规军剩不到满编三成，或不到统一者十分之一)，才每年有几率举国归附，统一十年后几率加倍；
+//       - 兵败如山倒(用户 2026-10-19："不要整个国家一次性把土地判过去，至少做成战线快速推进")：对方正规军打到剩不到
+//         满编一成半，又丢了都城或三分之一的城，连着两个月没缓过来——战线崩溃、推进快一倍，城仍一座座打(见 FrontCollapse)；
+//         以前是举国吞并，另有"不到统一者一成就算打光"，小国一仗没打就整国并入；
+//       - 望风归附(用户 2026-10-14："兵力没有达到绝对碾压之前、主力还没打完就望风而降")：只剩一两座城的小国，正与统一者交战、
+//         统一者正规军是它五倍以上、它的主力确已被打垮(正规军剩不到满编三成)，才每年有几率举国归附，统一十年后几率加倍
+//         (以前不交战的也算，"不到统一者十分之一"也算打垮)；
 //       - 战线推进加快一半，十年后加倍(见 FrontSystem.PushFactor)；
 //       - 统一者处在开国气象里(见 InGrace)：积弊不涨、不起事、不分裂；
 //   · 统一完成(占到九成，或天下再没有别的独立势力)：开国气象延续三十年；之后积弊按王朝年岁慢慢沉积(见 MaladySystem.Pace)，
@@ -44,17 +47,13 @@ public static class UnificationSystem
     private const float LateUnifiedShare = 0.5f;
     // 同一文化圈的两座城领地接壤，或同在一块陆地上、城心相距不过这么多格，就连成一片
     private const int LinkTiles = 48;
-    // 望风归附：兵力碾压(对方正规军不到五分之一)、对方主力已垮(剩不到满编三成，或不到十分之一)
-    private const float CrushRatio = 0.2f, BrokenShare = 0.3f, RoutRatio = 0.1f, SubmitChance = 0.1f, SubmitCap = 0.35f;
+    // 望风归附：只剩一两座城、正在交战、兵力被碾压(正规军不到统一者五分之一)、主力已垮(剩不到满编三成)
+    private const float CrushRatio = 0.2f, BrokenShare = 0.3f, SubmitChance = 0.1f, SubmitCap = 0.35f;
+    private const int SubmitMaxCities = 2;
     private const float PushBonus = 1.5f, LatePushBonus = 2f;
-    // 正规军打光：连续几个月(月度检查)没有正规军才吞并(打光后下个月又征起来的不算)
-    private const int WipeMonths = 2;
-    // 没有军团制时：士兵连同可征之兵不过这么多算打光
-    private const int WipedWarriors = 3;
 
     private static object _world;
     private static double _lastMonth = -1d, _lastYear = -1d;
-    private static readonly Dictionary<long, int> Wiped = new();
     // 统一者连着几年够不着天下里的任何一家(也没在打)
     private static readonly Dictionary<long, int> Stalled = new();
     private const int StallYears = 3;
@@ -65,7 +64,7 @@ public static class UnificationSystem
     {
         _world = null;
         _lastMonth = _lastYear = -1d;
-        Wiped.Clear();
+        FrontCollapse.ResetWorldState();
         Stalled.Clear();
         Rivals.Clear();
     }
@@ -530,7 +529,8 @@ public static class UnificationSystem
             .ToList();
     }
 
-    // 望风归附：兵力被碾压、主力已被打垮的，每年有几率举国归附，统一十年后几率加倍(帝国不归附，要打)
+    // 望风归附：只剩一两座城、正与统一者交战、兵力被碾压、主力确已被打垮的，每年有几率举国归附，统一十年后几率加倍
+    // (帝国不归附，要打)
     private static void Submissions(Kingdom unifier)
     {
         if (!Rivals.TryGetValue(unifier.id, out List<Kingdom> rivals)) return;
@@ -539,11 +539,10 @@ public static class UnificationSystem
         bool late = UnifyYears(unifier) >= LateYears;
         foreach (Kingdom rival in rivals.ToList())
         {
-            if (!Alive(rival) || rival.IsEmpire()) continue;
+            if (!Alive(rival) || rival.IsEmpire() || (rival.cities?.Count ?? 0) > SubmitMaxCities ||
+                !unifier.isInWarWith(rival)) continue;
             (float strength, float full) = Army(rival);
-            if (strength > ours * CrushRatio) continue;
-            bool broken = full > 0f && strength <= full * BrokenShare || strength <= ours * RoutRatio;
-            if (!broken) continue;
+            if (strength > ours * CrushRatio || full <= 0f || strength > full * BrokenShare) continue;
             float chance = Mathf.Min(SubmitCap, SubmitChance * (late ? 2f : 1f));
             if (UnityEngine.Random.value >= chance) continue;
             Annex(unifier, rival, null, "unify_submit_history");
@@ -564,50 +563,21 @@ public static class UnificationSystem
 
     private static void Monthly()
     {
+        FrontCollapse.Prune();
         foreach (Kingdom unifier in World.world.kingdoms.list.Where(kingdom => Alive(kingdom) &&
                      kingdom.GetOrCreate().unify_since >= 0d && Sovereign(kingdom) == kingdom).ToList())
         {
-            // 正规军打光的举国吞并
+            // 正规军打垮、又丢了都城或三分之一的城：兵败如山倒(见 FrontCollapse)
             foreach (War war in unifier.getWars().ToList())
             {
                 if (war?.data == null || war.hasEnded() || !IsUnificationWar(war)) continue;
                 Kingdom attacker = Sovereign(war.getMainAttacker());
                 Kingdom foe = attacker == unifier ? Sovereign(war.getMainDefender()) : attacker;
                 if (!Alive(foe) || foe == unifier) continue;
-                if (!ArmyWiped(foe, unifier))
-                {
-                    Wiped.Remove(foe.id);
-                    continue;
-                }
-                Wiped.TryGetValue(foe.id, out int months);
-                Wiped[foe.id] = ++months;
-                if (months < WipeMonths) continue;
-                Wiped.Remove(foe.id);
-                Annex(unifier, foe, war, "unify_annex_history");
+                FrontCollapse.Check(unifier, foe, war);
             }
             Declare(unifier);
         }
-    }
-
-    // 正规军打光：军团制看各成员国的正规军团(不算民兵、骑士团)；否则看士兵连同可征之兵。
-    // 以前要连着两个月一兵不剩，可每月都会补征，从来没吞并成过；现在剩不到满编的一成半，或不到统一者的一成就算打光
-    private const float WipedShareOfFull = 0.15f, WipedShareOfUnifier = 0.1f;
-
-    private static bool ArmyWiped(Kingdom sovereign, Kingdom unifier)
-    {
-        IEnumerable<Kingdom> Members(Kingdom kingdom) => kingdom.GetEmpire()?.kingdoms_list?.Where(Alive) ?? new[] { kingdom };
-        if (CorpsSystem.Enabled)
-        {
-            var regulars = Members(sovereign).SelectMany(member => CorpsSystem.Of(member))
-                .Where(corps => !corps.militia && corps.order_id < 0).ToList();
-            float strength = regulars.Sum(corps => Mathf.Max(0f, corps.strength)), full = regulars.Sum(corps => Mathf.Max(0f, corps.full));
-            float theirs = Members(unifier).SelectMany(member => CorpsSystem.Of(member))
-                .Where(corps => !corps.militia && corps.order_id < 0).Sum(corps => Mathf.Max(0f, corps.strength));
-            return strength < 1f || strength < full * WipedShareOfFull || strength < theirs * WipedShareOfUnifier;
-        }
-        int warriors = Members(sovereign).Sum(member => member.countTotalWarriors() + CityPopulationSystem.MobilizableReserve(member));
-        int unifierWarriors = Members(unifier).Sum(member => member.countTotalWarriors());
-        return warriors <= WipedWarriors || warriors < unifierWarriors * WipedShareOfUnifier;
     }
 
     // 开战：手上的统一战争不到四场、养得起兵，就挑接壤(或隔海相望)的一家开战(目标吞并)，每月至多一场；不隔着别国远征

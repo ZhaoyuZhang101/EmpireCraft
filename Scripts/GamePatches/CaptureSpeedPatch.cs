@@ -11,7 +11,8 @@ namespace EmpireCraft.Scripts.GamePatches;
 // 真正的占领进度 _capture_ticks 每 0.1 秒固定 +1、满 100 占领；这里按倍率放大每次的进度增量：
 //   开国气象期间(Empire.InFoundingGrace)的帝国来攻：×FoundingMultiplier；
 //   民心归附(LandEconomySystem.WouldSurrenderTo：本城土地兼并严重、来攻者兼并轻得多)：×SurrenderMultiplier，
-//   因此陷落时发世界提示"开城归降"。
+//   因此陷落时发世界提示"开城归降"；
+//   兵败如山倒(见 FrontCollapse)：打垮了守方的一家来攻 ×2。
 public class CaptureSpeedPatch : GamePatch
 {
     public ModDeclare declare { get; set; }
@@ -44,6 +45,7 @@ public class CaptureSpeedPatch : GamePatch
 
         float multiplier = 1f;
         if (attacker.GetEmpire()?.InFoundingGrace == true) multiplier *= FoundingMultiplier;
+        multiplier *= FrontCollapse.Capture(__instance.kingdom, attacker);
         bool surrender = LandEconomySystem.WouldSurrenderTo(__instance, attacker, out float landless);
         if (surrender) multiplier *= SurrenderMultiplier;
         // 无小人模式：没有守兵的城由百姓组织团练抵抗，人口越多越难攻(每 100 户慢一倍，最多慢到 1/4)；民心归附时不抵抗
