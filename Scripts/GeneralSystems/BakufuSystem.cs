@@ -15,7 +15,9 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     帝国里不属天皇一系、领地最大的成员国君主(镇守府、藩国优先)，找不到就由朝中最高的武官出任；
 //     将军一系成为帝国的执政宗族(继承在将军家传承)。找不到合适人选时由在位者兼任将军，天皇家仍记下；
 //   · 天皇：天皇家在世族人里辈分最高、年纪最大的男子(开幕时的天皇在世就是他)，帝国窗口显示；
-//   · 大政奉还(明治维新等离开幕府政体时)：天皇家的天皇重新执政，执政宗族改回天皇家。
+//   · 大政奉还(明治维新等离开幕府政体时)：天皇家的天皇重新执政，执政宗族改回天皇家；
+//   · 废藩置县：大政奉还后改行律令(明治维新)，世袭的藩一律改为朝廷选任的县(用户 2026-10-19 选"补……明治废藩"；
+//     以前换政体时各藩照旧世袭、有外交权，明治之后仍是一国诸藩)。
 public static class BakufuSystem
 {
     public static bool IsBakufu(Empire empire) => empire?.CoreKingdom?.GetRegime()?.type == RegimeType.Bakufu;
@@ -26,7 +28,11 @@ public static class BakufuSystem
         try
         {
             if (current == RegimeType.Bakufu) Establish(empire);
-            else if (previous == RegimeType.Bakufu) Restore(empire);
+            else if (previous == RegimeType.Bakufu)
+            {
+                Restore(empire);
+                if (current == RegimeType.LvLing) AbolishHan(empire);
+            }
         }
         catch (Exception exception)
         {
@@ -76,6 +82,26 @@ public static class BakufuSystem
         empire.data.empire_specific_clan = court.id;
         Record(empire, string.Format(LM.Get("bakufu_restoration_history"), empire.GetEmpireName(), shogun?.getName() ?? "",
             emperor.getName()));
+    }
+
+    // 废藩置县：世袭或有外交权的成员(藩)改为不世袭、无外交权、朝廷选任的县；羁縻的不动
+    private static void AbolishHan(Empire empire)
+    {
+        int abolished = 0;
+        foreach (Kingdom member in empire.kingdoms_list?.ToList() ?? new global::System.Collections.Generic.List<Kingdom>())
+        {
+            if (member?.data == null || member.isRekt() || member == empire.CoreKingdom ||
+                JimiSystem.IsJimiAdministration(member)) continue;
+            Regime regime = member.GetRegime();
+            if (regime == null || regime.type != RegimeType.LvLing ||
+                !regime.IsAllowDiplomacy() && regime.GetLeaderSelectMethod() != LeaderSelectMethod.Succession) continue;
+            regime.SetAllowDiplomacy(false);
+            regime.SetLeaderSelectMethod(LeaderSelectMethod.Exam);
+            EmpireCraft.Scripts.AI.KingdomAI.EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(member);
+            abolished++;
+        }
+        if (abolished > 0)
+            Record(empire, string.Format(LM.Get("bakufu_han_abolished_history"), empire.GetEmpireName(), abolished));
     }
 
     // 将军人选：不属天皇一系、领地最大的成员国君主(镇守府、藩国优先)；没有就取朝中最高的武官
