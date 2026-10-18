@@ -5,6 +5,8 @@
     "setting": {
         "regime": "Modern",
         "institution_line": "Roma",
+        // 现代开局(用户 2026-10-19 选"开局即现代")：废除君主制连同全部前置开局即施行，科技随之补齐
+        "start_institution": "roma_abolish_monarchy",
         // 现代政权称呼(见 Locales/Cultures/README.md 政党一节)：未组建政府的势力 / 临时政府；没配的理念用默认称呼
         "Party": {
             "untitled_groups": {
