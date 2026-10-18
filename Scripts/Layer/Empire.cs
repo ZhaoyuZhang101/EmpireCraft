@@ -3667,6 +3667,21 @@ public class Empire : MetaObject<EmpireData>
                                               SpecificClanManager.SameLineage(unit.GetSpecificClan(), EmpireSpecificClan))
             .OrderByDescending(unit => unit.GetFaction() == faction)
             .ThenByDescending(unit => unit.getAge()).ThenBy(unit => unit.id).FirstOrDefault();
+        // 无小人模式下宗室可能都在虚拟族谱中；只把实际要迎立的人落成，不能把“没有实体”当作皇族绝嗣。
+        if (heir == null && EmpireSpecificClan != null)
+            foreach (PersonalClanIdentity person in SpecificClanManager.LineageClans(EmpireSpecificClan)
+                         .SelectMany(clan => clan.SnapshotPeople())
+                         .Where(person => person != null && person.is_alive && person.is_virtual && person.sex == ActorSex.Male &&
+                             person.age >= 18 && person.actor_id != deposed.id && person.virtual_city_id > 0 &&
+                             World.world.cities.get(person.virtual_city_id)?.kingdom?.GetEmpire() == this)
+                         .OrderByDescending(person => person.age).ThenBy(person => person.id))
+            {
+                Actor candidate = person.Realize();
+                if (candidate?.data == null || !candidate.isAlive() || candidate.isRekt() || !candidate.isAdult() ||
+                    candidate.kingdom?.GetEmpire() != this) continue;
+                heir = candidate;
+                break;
+            }
         if (heir == null) return null;
         // 宪政继承受保护的、新君过不了继承规矩的不废(否则废了立不上，皇位落空)
         if (ConstitutionalSuccessionSystem.IsProtected(this) && !ConstitutionalSuccessionSystem.CanInherit(this, heir)) return null;
@@ -3675,6 +3690,7 @@ public class Empire : MetaObject<EmpireData>
         this.RecordHistory(directContent: content, actorId: heir.id);
         deposed.RecordPersonalHistory(content, relatedActorId: heir.id);
         heir.RecordPersonalHistory(content, relatedActorId: deposed.id);
+        PrinceStruggleSystem.Note(core, heir, PrinceStruggleSystem.NotePalaceCoup);
         Kingdom formerKingdom = heir.kingdom;
         if (heir.isKing() && formerKingdom != core) formerKingdom.removeKing();
         if (core.king?.id == deposed.id) core.removeKing();

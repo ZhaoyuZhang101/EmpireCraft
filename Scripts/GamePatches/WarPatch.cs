@@ -309,7 +309,8 @@ public class WarPatch: GamePatch
                     {
                         attacker.GetEmpire().ReplaceEmpire(attacker);
                     }
-                    attacker.EndFactionRebelling();
+                    // 联省兵谏的响应者也有叛乱状态与临时国名，停战时一并清理。
+                    foreach (Kingdom participant in pWar._list_attackers.ToList()) participant?.EndFactionRebelling();
                     break;
                 case EmpireWarType.清君侧:
                     // 一派独大引发的清君侧(见 FactionPurgeSystem)；皇位空缺时的清君侧没有派系记录，照旧

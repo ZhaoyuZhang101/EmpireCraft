@@ -15,6 +15,12 @@ public sealed class CourtState
     // 律令制中央官制所处阶段(han 三公九卿 / tang 三省六部)，变了就重建中央机构
     public string bureau_stage = "";
     public double last_year = -1d;
+    // 低正统下集体罢朝持续的年数；换君或朝局恢复后消退，读档保留。
+    public int crisis_years;
+    public long crisis_emperor_id = -1L;
+    public double last_escalation = -1d;
+    // 联省兵谏拉起来的成员国(中途退出战争的，每年清掉叛乱状态，见 CourtSystem.AdvanceCrisis)
+    public global::System.Collections.Generic.List<long> crisis_rebels = new();
     // 议立新君(见 SuccessionCouncilSystem)：皇位空缺、身后无子孙时朝廷议立的进程
     public CourtSuccession succession;
 }

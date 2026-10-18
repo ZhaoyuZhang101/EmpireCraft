@@ -45,6 +45,7 @@ public static partial class CourtSystem
         if (CouncilKind(empire) == CourtCouncilKind.Cabinet) ReshuffleCabinet(empire, state);
         foreach (FixedFaction faction in factions.OrderBy(_ => Random.value))
             TakeAction(empire, state, faction, factions, Council(empire));
+        AdvanceCrisis(empire, state, factions);
         Escalate(empire, state, factions);
         if (CouncilKind(empire) == CourtCouncilKind.Cabinet) CabinetAdministration(empire);
     }
@@ -60,7 +61,8 @@ public static partial class CourtSystem
                        Mathf.Clamp(faction.ClassPower / 20f, 0f, 3f);
         data.capital = Mathf.Min(100f, data.capital + income);
         data.favor += (50f - data.favor) * 0.1f;
-        data.grievance = Mathf.Max(0f, data.grievance - (data.favor >= 60f ? 8f : 4f));
+        data.grievance = Mathf.Clamp(data.grievance + CourtCrisisRules.GrievanceChange(empire.Legitimacy,
+            IsBoycotting(data), data.favor), 0f, 100f);
         data.obstruction = 0f;
         data.last_action = "";
         data.last_action_detail = "";
@@ -286,7 +288,13 @@ public static partial class CourtSystem
     private static void Escalate(Empire empire, CourtState state, List<FixedFaction> factions)
     {
         Kingdom core = empire.CoreKingdom;
-        if (empire.Emperor == null) return;
+        if (empire.Emperor == null || core == null || !RebellionSystem.CanAttempt(core)) return;
+        double now = World.world.getCurWorldTime();
+        if (state.last_escalation >= 0d && now >= state.last_escalation && Date.getYearsSince(state.last_escalation) < 5)
+            return;
+        if (core.getWars().Any(war => war != null && !war.hasEnded() &&
+                war.GetEmpireWarType() is EmpireWarType.派系叛乱 or EmpireWarType.清君侧)) return;
+        if (TryCoalition(empire, state, factions)) return;
         foreach (FixedFaction faction in factions.OrderByDescending(faction => FactionState(empire, faction).grievance))
         {
             CourtFactionState data = FactionState(empire, faction);
@@ -301,10 +309,16 @@ public static partial class CourtSystem
             {
                 // 只剩京畿(没有成员国)才在都城逼宫；有成员国只是眼下起不了兵的，等以后
                 if (empire.kingdoms_list.Any(kingdom => kingdom != null && !kingdom.isRekt() && kingdom != core)) continue;
+                ConstitutionalEconomyState economy = empire.data.constitutional_economy;
+                if (economy?.last_coup_at >= 0d && now >= economy.last_coup_at && Date.getYearsSince(economy.last_coup_at) < 20)
+                    continue;
                 Actor installed = empire.CompleteFactionDeposition(faction);
                 if (installed == null) continue;
+                if (economy != null) economy.last_coup_at = now;
+                state.last_escalation = now;
                 data.grievance = 50f;
                 data.favor = 60f;
+                Act(data, "palace_coup", installed.getName());
                 Log(state, "court_log_palace_coup", faction.Name);
                 return;
             }
@@ -321,6 +335,8 @@ public static partial class CourtSystem
             // 郡县多不许养兵，起兵时就地武装义军(见 RebellionStartupService)，按怨望定规模
             RebellionStartupService.RaiseUprisingMilitia(rebel, data.grievance / 100f);
             data.grievance = 50f;
+            state.last_escalation = now;
+            Act(data, "mutiny", rebel.GetKingdomName());
             Log(state, "court_log_mutiny", faction.Name, rebel.GetKingdomName());
             empire.RecordHistory(directContent: string.Format(LM.Get("court_history_mutiny"), faction.Name,
                 rebel.GetKingdomName()), kingdomId: core.id);

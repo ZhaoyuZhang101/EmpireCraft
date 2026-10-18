@@ -211,6 +211,9 @@ public static class CourtPanel
         float inner = width - 12f;
         var card = parent.BeginCard(width, LM.Get("court_factions_title"), "#F3C34A",
             LM.Get("court_factions_header"), "ui/icons/iconFamily");
+        if (state.crisis_years > 0)
+            AddLine(card, inner, string.Format(LM.Get("court_crisis_status"), state.crisis_years,
+                Mathf.RoundToInt(CourtSystem.BoycottShare(empire))).ColorString("#E05A4F"), 6);
         float[] columns = { 58f, 28f, 54f, 54f, 26f };
         float actionWidth = inner - columns.Sum() - 2f * columns.Length;
         var head = card.BeginHoriGroup(new Vector2(inner, 9f), TextAnchor.MiddleLeft, 2, new RectOffset(0, 0, 0, 0));
