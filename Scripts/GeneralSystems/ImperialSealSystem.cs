@@ -14,7 +14,7 @@ using UnityEngine;
 namespace EmpireCraft.Scripts.GeneralSystems;
 
 // 传国玉玺(用户 2026-10-16："把传国玉玺做成装备吧""皇帝会下令打造或者搜索遗落的传国玉玺""只有华夏有玉玺")：
-// 只有华夏文化有，每个文化一方，是一件护符栏装备(带"永恒"词缀，不坏、不会凭空消失)，由持有它的帝国的皇帝佩着——
+// 只有华夏文化有，每个天下一方(华夏、中国、山海同属一个天下，共一方)，是一件护符栏装备(带"永恒"词缀，不坏、不会凭空消失)，由持有它的帝国的皇帝佩着——
 //   · 打造：本文化还没有玉玺时，进入帝制的华夏帝国(不是原始部落联盟、周制天子)国库有三百以上，每年约四分之一的机会
 //     命良工琢玉为玺，号传国玉玺；
 //   · 持有：皇帝佩着玉玺的帝国每年法统 +2；皇位更替时传给新君；
@@ -89,13 +89,34 @@ public static class ImperialSealSystem
         }
     }
 
+    // 玉玺按天下存：同一天下(华夏、中国、山海……)共一方，记在与天下标识同名的文化名下(没有这样的文化就记在本文化)——
+    // 以前每个文化各一方，同一天下里能有几方传国玉玺。旧档里记在别的文化名下的，挪过来
+    private static CultureInstitutionState SealState(string culture)
+    {
+        string id = culture.GetTianxiaId();
+        string owner = CultureService.IsValidCulture(id) ? id : culture;
+        CultureInstitutionState state = InstitutionSystem.GetOrCreateCultureState(owner);
+        if (state == null || owner == culture) return state;
+        CultureInstitutionState own = InstitutionSystem.GetOrCreateCultureState(culture);
+        if (own == null || own.imperial_seal_item_id <= 0 || state.imperial_seal_item_id > 0) return state;
+        state.imperial_seal_item_id = own.imperial_seal_item_id;
+        state.imperial_seal_empire_id = own.imperial_seal_empire_id;
+        state.imperial_seal_kingdom_id = own.imperial_seal_kingdom_id;
+        state.imperial_seal_city_id = own.imperial_seal_city_id;
+        state.imperial_seal_lost_since = own.imperial_seal_lost_since;
+        state.imperial_seal_made |= own.imperial_seal_made;
+        own.imperial_seal_item_id = own.imperial_seal_empire_id = own.imperial_seal_kingdom_id = own.imperial_seal_city_id = -1L;
+        own.imperial_seal_lost_since = -1d;
+        return state;
+    }
+
     private static CultureInstitutionState StateOf(Empire empire, out string culture)
     {
         culture = CultureService.GetEmpireDefaultCulture(empire);
         // 外族入主：受着华夏天下天命的外族王朝也能用玉玺(用户 2026-10-19 选"可受天命、本族可光复")
         if (!Huaxia(culture) && TianxiaSystem.MandateOf(empire?.CoreKingdom) is EmpireCore lead && Huaxia(lead.default_culture))
             culture = lead.default_culture;
-        return Huaxia(culture) ? InstitutionSystem.GetOrCreateCultureState(culture) : null;
+        return Huaxia(culture) ? SealState(culture) : null;
     }
 
     public static bool HeldBy(Empire empire)
@@ -110,7 +131,7 @@ public static class ImperialSealSystem
         if (kingdom?.data == null || kingdom.isRekt()) return false;
         string culture = CultureService.GetRealmCulture(kingdom);
         if (!Huaxia(culture)) return false;
-        CultureInstitutionState state = InstitutionSystem.GetOrCreateCultureState(culture);
+        CultureInstitutionState state = SealState(culture);
         return state != null && state.imperial_seal_empire_id <= 0 && state.imperial_seal_kingdom_id == kingdom.id;
     }
 
@@ -127,7 +148,7 @@ public static class ImperialSealSystem
     {
         string culture = CultureService.GetRealmCulture(founder);
         if (!Huaxia(culture)) return 0;
-        CultureInstitutionState state = InstitutionSystem.GetOrCreateCultureState(culture);
+        CultureInstitutionState state = SealState(culture);
         if (state == null || Holds(founder)) return 0;
         bool another = state.imperial_seal_empire_id > 0 || state.imperial_seal_kingdom_id >= 0 && state.imperial_seal_kingdom_id != founder.id;
         return another ? -10 : 0;
