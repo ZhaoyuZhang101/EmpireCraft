@@ -53,6 +53,8 @@ public static class CultureReformSystem
         if (!CultureService.IsValidCulture(local) || string.Equals(local, previous, StringComparison.Ordinal)) return false;
         if (composite && !string.Equals(local, CompositeEmpireService.GetInstitutionalCulture(empire), StringComparison.Ordinal))
             return false;
+        // 征服王朝要已走上从俗之路(见 CompositeEmpireService.GetRoute)：分治、兼用的不易俗
+        if (composite && CompositeEmpireService.GetRoute(empire) != CompositeEmpireService.RouteAdopt) return false;
         int total = 0, same = 0;
         foreach (City city in RealmCities(kingdom, core ? empire : null))
         {

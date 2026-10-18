@@ -244,7 +244,7 @@ namespace EmpireCraft.Scripts.UI.Windows
                     true, TextAnchor.MiddleLeft, new Vector2(ContentWidth - 32f, 10));
                 details.AddTextIntoVertLayout($"{LM.Get("composite_empire_military_tradition")}: {CompositeEmpireService.GetMilitaryTraditionName(empire)}  |  {CompositeEmpireService.GetStageName(empire)} {empire.data.composite_integration}%",
                     true, TextAnchor.MiddleLeft, new Vector2(ContentWidth - 32f, 10));
-                details.AddTextIntoVertLayout($"{LM.Get("composite_empire_dual_legitimacy")}: {empire.data.central_plains_legitimacy}/{empire.data.ruling_tradition_legitimacy}",
+                details.AddTextIntoVertLayout($"{LM.Get("composite_empire_dual_legitimacy")}: {empire.data.central_plains_legitimacy}/{empire.data.ruling_tradition_legitimacy}  |  {LM.Get("composite_route_label")}: {CompositeEmpireService.GetRouteName(empire)}",
                     true, TextAnchor.MiddleLeft, new Vector2(ContentWidth - 32f, 10));
             }
             card.AddButtonIntoHoriLayout("open_empire", "", () =>

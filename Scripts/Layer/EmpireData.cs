@@ -257,6 +257,9 @@ public class EmpireData : MetaObjectData
     public string composite_cultural_name_culture { get; set; } = "";
     public string composite_cultural_name_source { get; set; } = "";
     public double composite_cultural_name_adopted_timestamp { get; set; } = -1L;
+    // 征服王朝的治理路线(见 CompositeEmpireService.GetRoute)：0 未定、1 分治、2 兼用、3 从俗；定下或改换的时间
+    public int composite_route { get; set; } = 0;
+    public double composite_route_since { get; set; } = -1d;
     public InstitutionEmpireState institution_state { get; set; } = new InstitutionEmpireState();
     // 帝国对本文化科技的采纳(帝国成员共用，见 TechnologySystem.RealmHasTech)
     public EmpireCraft.Scripts.Data.RealmTechState realm_tech { get; set; }

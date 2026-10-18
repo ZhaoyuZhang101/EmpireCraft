@@ -8,7 +8,9 @@ using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.Regimes.TemporaryFactions;
+using EmpireCraft.Scripts.System;
 using NeoModLoader.General;
+using NeoModLoader.services;
 
 namespace EmpireCraft.Scripts.GeneralSystems;
 
@@ -76,6 +78,80 @@ public static class CompositeEmpireService
                empire.data.composite_integration_stage != CompositeEmpireIntegrationStage.None;
     }
 
+    // 治理路线(用户 2026-10-19 选"三条路线由局势定")，每年按局势重定(见 UpdateRoute)：
+    //   · 分治：本族旧地占三成五以上的城(或本族人口三成五以上)——朝廷照本族旧制，属地之民以其本制治之，
+    //     融合度不过 49、不改国号，不能易俗改制；
+    //   · 从俗：本族旧地不到一成五，且属地文化更先进或融入派当权(本俗反扑期间不从俗)——融合每年多一点，
+    //     统治族群在也能融完，可以易俗改制；
+    //   · 兼用：其余——朝廷用属地制度，本族保留旧俗与军事传统，统治族群在时融合度不过 79。
+    // 已在某条路上的，要越过阈值五个百分点才改(免得年年来回)
+    public const int RouteDual = 1, RouteJoint = 2, RouteAdopt = 3;
+
+    public static int GetRoute(Empire empire)
+    {
+        if (!IsComposite(empire)) return 0;
+        int route = empire.data.composite_route;
+        return route is RouteDual or RouteJoint or RouteAdopt ? route : RouteJoint;
+    }
+
+    // 中央朝廷照哪种文化的制度：分治照本族旧制，兼用、从俗照属地制度
+    public static string GetCourtCulture(Empire empire) =>
+        GetRoute(empire) == RouteDual ? GetRulingCulture(empire) : GetInstitutionalCulture(empire);
+
+    public static string GetRouteName(Empire empire) => LM.Get("composite_route_" + GetRoute(empire));
+
+    public static string GetRouteDetail(Empire empire, int route)
+    {
+        string ruling = GetRulingCulture(empire), institutional = GetInstitutionalCulture(empire);
+        return string.Format(LM.Get("composite_route_detail_" + route),
+            CultureService.IsValidCulture(ruling) ? ruling.GetCultureTranslate() : ruling,
+            CultureService.IsValidCulture(institutional) ? institutional.GetCultureTranslate() : institutional);
+    }
+
+    private static void UpdateRoute(Empire empire, string ruling, string institutional, float rulingShare)
+    {
+        int current = empire.data.composite_route;
+        float homeland = Math.Max(rulingShare, HomelandCityShare(empire, ruling));
+        int next;
+        if (homeland >= (current == RouteDual ? 0.30f : 0.35f)) next = RouteDual;
+        else if (DrawnToConquered(empire, ruling, institutional) &&
+                 homeland < (current == RouteAdopt ? 0.20f : 0.15f)) next = RouteAdopt;
+        else next = RouteJoint;
+        if (next == current) return;
+        empire.data.composite_route = next;
+        empire.data.composite_route_since = World.world?.getCurWorldTime() ?? -1d;
+        SynchronizeRegionalInstitutions(empire);
+        InstitutionSystem.ForgetRulingMajority(empire);
+        InstitutionSystem.DropForeignReform(empire);
+        string text = string.Format(LM.Get(current == 0 ? "composite_route_chosen_history" : "composite_route_changed_history"),
+            empire.GetEmpireName(), LM.Get("composite_route_" + next), GetRouteDetail(empire, next));
+        empire.RecordHistory(directContent: text, kingdomId: empire.CoreKingdom.id);
+        if (current != 0) TranslateHelper.LogEventMessage(text, empire.CoreKingdom);
+        LogService.LogInfo($"[EmpireCraft][征服王朝] {empire.GetEmpireName()} 治理路线 {current} → {next}(本族旧地 {homeland:P0})");
+    }
+
+    // 属地文化更先进，或融入派当权
+    private static bool DrawnToConquered(Empire empire, string ruling, string institutional) =>
+        MoreAdvanced(institutional, ruling) ||
+        empire.CoreKingdom?.GetRegime()?.GetDominateFaction()?.Type == FactionType.融入;
+
+    // 本族旧地：主流文化是统治族群文化的城占几成
+    private static float HomelandCityShare(Empire empire, string ruling)
+    {
+        int total = 0, home = 0;
+        foreach (Kingdom kingdom in empire?.kingdoms_list ?? new List<Kingdom>())
+        {
+            if (kingdom?.cities == null || kingdom.isRekt()) continue;
+            foreach (City city in kingdom.cities)
+            {
+                if (city?.data == null || city.isRekt()) continue;
+                total++;
+                if (string.Equals(CultureService.GetMainCulture(city, initialize: false), ruling, StringComparison.Ordinal)) home++;
+            }
+        }
+        return total > 0 ? (float)home / total : 0f;
+    }
+
     public static string GetRulingCulture(Empire empire)
     {
         if (CultureService.IsValidCulture(empire?.data?.ruling_culture)) return empire.data.ruling_culture;
@@ -109,7 +185,7 @@ public static class CompositeEmpireService
 
     public static string GetInstitutionalRegimeName(Empire empire)
     {
-        string culture = GetInstitutionalCulture(empire);
+        string culture = GetCourtCulture(empire);
         RegimeType regimeType = empire?.CoreKingdom?.GetRegime()?.type ?? RegimeType.Feudalism;
         if (AdoptableRegime(culture, out RegimeType adoptable)) regimeType = adoptable;
         return GetRegimeName(regimeType);
@@ -406,7 +482,7 @@ public static class CompositeEmpireService
         if (RepublicSystem.IsRegimeLocked(member)) return false;
 
         string culture = member == empire.CoreKingdom
-            ? GetInstitutionalCulture(empire)
+            ? GetCourtCulture(empire)
             : ResolveRegionalInstitutionCulture(member);
         if (!TryGetCultureRegime(culture, out RegimeType targetType, out _)) return false;
         if (member.GetRegime()?.type == targetType) return false;
@@ -490,6 +566,9 @@ public static class CompositeEmpireService
         empire.data.ruling_tradition_legitimacy = 75;
         empire.data.composite_identity_adopted_timestamp = World.world.getCurWorldTime();
         empire.data.last_composite_identity_update_timestamp = empire.data.composite_identity_adopted_timestamp;
+        empire.data.composite_route = 0;
+        PopulationShares(empire, rulingCulture, institutionalCulture, out float rulingShare, out _);
+        UpdateRoute(empire, rulingCulture, institutionalCulture, rulingShare);
 
         SynchronizeRegionalInstitutions(empire);
         empire.data.centerOffice ??= new CenterOffice();
@@ -521,6 +600,9 @@ public static class CompositeEmpireService
         string rulingCulture = GetRulingCulture(empire);
         string institutionalCulture = GetInstitutionalCulture(empire);
         PopulationShares(empire, rulingCulture, institutionalCulture, out float rulingShare, out float institutionalShare);
+        bool integrated = string.Equals(rulingCulture, institutionalCulture, StringComparison.Ordinal);
+        if (!integrated) UpdateRoute(empire, rulingCulture, institutionalCulture, rulingShare);
+        int route = GetRoute(empire);
         string emperorCulture = CultureService.GetActorCulture(empire.Emperor);
         bool emperorUsesRuling = string.Equals(emperorCulture, rulingCulture, StringComparison.Ordinal);
         bool emperorUsesInstitution = string.Equals(emperorCulture, institutionalCulture, StringComparison.Ordinal);
@@ -530,8 +612,9 @@ public static class CompositeEmpireService
             city != null && !city.isRekt() && city.kingdom?.GetEmpire() == empire));
         float controlledShare = titles.Count > 0 ? (float)controlled / titles.Count : 0f;
         bool adoptable = AdoptableRegime(institutionalCulture, out RegimeType institutionalType);
-        bool institutionalRegime = adoptable && empire.CoreKingdom.GetRegime()?.type == institutionalType;
-        bool preservesMilitary = !adoptable ||
+        // 分治：属地以其本制治之，朝廷照旧制——两边的正统都算照顾到了
+        bool institutionalRegime = route == RouteDual || adoptable && empire.CoreKingdom.GetRegime()?.type == institutionalType;
+        bool preservesMilitary = route == RouteDual || !adoptable ||
             !string.Equals(empire.data.military_tradition, institutionalType.ToString(), StringComparison.OrdinalIgnoreCase);
 
         empire.data.central_plains_legitimacy = Clamp100(empire.data.central_plains_legitimacy +
@@ -541,12 +624,13 @@ public static class CompositeEmpireService
 
         int delta = CompositeEmpireRules.GetAnnualIntegrationDelta(institutionalShare, rulingShare,
             emperorUsesInstitution, emperorUsesRuling);
+        if (route == RouteAdopt) delta += 1;
+        else if (route == RouteDual) delta = Math.Min(delta, 1);
         // 融合完成后统治文化就是制度文化，不再有"保留旧俗的统治族群"压着融合度
-        // (以前完成融合的王朝次年又被压回 69、退回"复合帝国")
-        bool rulingEliteStillExists = !string.Equals(rulingCulture, institutionalCulture, StringComparison.Ordinal) &&
-                                      (emperorUsesRuling || rulingShare >= 0.08f);
+        // (以前完成融合的王朝次年又被压回 69、退回"复合帝国")；从俗的王朝统治族群自己在改俗，也不压
+        bool rulingEliteStillExists = !integrated && route != RouteAdopt && (emperorUsesRuling || rulingShare >= 0.08f);
         int nextIntegration = Math.Max(1, CompositeEmpireRules.CapIntegration(
-            empire.data.composite_integration + delta, rulingEliteStillExists));
+            empire.data.composite_integration + delta, rulingEliteStillExists, !integrated && route == RouteDual));
         CompositeEmpireIntegrationStage oldStage = empire.data.composite_integration_stage;
         empire.data.composite_integration = nextIntegration;
         empire.data.composite_integration_stage = CompositeEmpireRules.GetStage(nextIntegration);
@@ -596,7 +680,7 @@ public static class CompositeEmpireService
 
     public static bool TryAdoptInstitutionalCultureName(Empire empire)
     {
-        if (!IsComposite(empire) || empire.data.composite_cultural_name_adopted ||
+        if (!IsComposite(empire) || empire.data.composite_cultural_name_adopted || GetRoute(empire) == RouteDual ||
             empire.data.composite_integration < CulturalNameIntegrationThreshold ||
             empire.CoreKingdom?.data == null || empire.CoreKingdom.isRekt() ||
             empire.CoreKingdom.HasCustomCountryNaming())
@@ -731,6 +815,7 @@ public static class CompositeEmpireService
             string.Equals(empire.data.ruling_culture, institutionalCulture, StringComparison.Ordinal)) return;
         empire.data.ruling_culture = institutionalCulture;
         empire.data.conquest_founder_culture = institutionalCulture;
+        empire.data.composite_route = RouteAdopt;
         empire.data.external_identity_culture = institutionalCulture;
         if (AdoptableRegime(institutionalCulture, out RegimeType institutionalType))
             empire.data.military_tradition = institutionalType.ToString();

@@ -15,7 +15,9 @@ public static class CompositeEmpireRules
     public const int InitialIntegration = 35;
     public const int CompositeThreshold = 50;
     public const int IntegratedThreshold = 80;
-    public const int PreservedEliteIntegrationCap = 69;
+    // 兼用：统治族群还在时融合度不过 79(以前 69)；分治：不过 49，始终是双轨统治
+    public const int PreservedEliteIntegrationCap = 79;
+    public const int DualRouteIntegrationCap = 49;
 
     public static CompositeEmpireIntegrationStage GetStage(int integration)
     {
@@ -35,9 +37,9 @@ public static class CompositeEmpireRules
         return Math.Max(-2, Math.Min(5, delta));
     }
 
-    public static int CapIntegration(int value, bool rulingEliteStillExists)
+    public static int CapIntegration(int value, bool rulingEliteStillExists, bool dualRoute = false)
     {
-        int cap = rulingEliteStillExists ? PreservedEliteIntegrationCap : 100;
+        int cap = dualRoute ? DualRouteIntegrationCap : rulingEliteStillExists ? PreservedEliteIntegrationCap : 100;
         return Math.Max(0, Math.Min(cap, value));
     }
 

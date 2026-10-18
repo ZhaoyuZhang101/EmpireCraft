@@ -518,8 +518,9 @@ public static class InstitutionSystem
         // 制度按国家绑定的文化走：征服王朝采用当地制度后，制度树跟随制度文化(而不是统治族群的文化)，
         // 否则会按统治族群的科技线把政体改回去(如阿拉伯王朝治下的华夏帝国显示哈里发)
         bool composite = CompositeEmpireService.IsComposite(empire);
+        // 分治的征服王朝朝廷照本族旧制，制度树走本族那条线(见 CompositeEmpireService.GetCourtCulture)
         string culture = composite
-            ? CompositeEmpireService.GetInstitutionalCulture(empire)
+            ? CompositeEmpireService.GetCourtCulture(empire)
             : CultureService.GetEmpireDefaultCulture(empire);
         // 统治者与治下多数城市同属一种文化：制度跟着这种文化走，不看法统缓存的文化。
         // 华夏的梁继承了游牧政权"西苏"的法统(法统文化不能改：一种文化同时只能有一个正统帝国)，
@@ -608,6 +609,17 @@ public static class InstitutionSystem
         LogService.LogInfo($"[EmpireCraft][制度] {empire.GetEmpireName()} 政体 {regime.type} 不属于 {culture} 的制度线，改为 {target}");
         ChangeRegime(empire, target);
         empire.data.empire_type_key = "";
+    }
+
+    // 征服王朝改换治理路线后制度树换了线：正在推的外线改革作废
+    public static void DropForeignReform(Empire empire)
+    {
+        InstitutionEmpireState state = empire?.data?.institution_state;
+        if (state?.active_reform == null) return;
+        string line = GetCultureLine(GetPrimaryCulture(empire));
+        if (InstitutionDefinitionRegistry.Get(state.active_reform.node_id) is InstitutionNodeConfig node &&
+            InstitutionDefinitionRegistry.HasLine(line) && !IsSameLine(node.line, line))
+            state.active_reform = null;
     }
 
     private static bool LineDeclares(string line, RegimeType type) =>

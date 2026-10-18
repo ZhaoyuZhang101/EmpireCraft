@@ -620,6 +620,12 @@ namespace EmpireCraft.Scripts.UI.Windows
                 panel.AddTextIntoVertLayout(
                     $"{LM.Get("composite_empire_court_system")}: {CompositeEmpireService.GetInstitutionalRegimeName(empire)}",
                     true, TextAnchor.MiddleCenter, new Vector2(MainWidth - 12f, 10));
+                int route = CompositeEmpireService.GetRoute(empire);
+                panel.AddTextIntoVertLayout(
+                    $"{LM.Get("composite_route_label")}: {CompositeEmpireService.GetRouteName(empire).ColorString("#F3C34A")}",
+                    true, TextAnchor.MiddleCenter, new Vector2(MainWidth - 12f, 10));
+                panel.AddTextIntoVertLayout(CompositeEmpireService.GetRouteDetail(empire, route).ColorString("#AEB6C2"),
+                    true, TextAnchor.MiddleCenter, new Vector2(MainWidth - 12f, 20));
                 if (hasCulturalName)
                 {
                     string nameCulture = GetCultureDisplayName(empire.data.composite_cultural_name_culture);
