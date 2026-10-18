@@ -1744,7 +1744,9 @@ public class Empire : MetaObject<EmpireData>
             else if (regime?.type == RegimeType.YouMu) EnfeoffmentHelper.ResumeSuccessionEnfeoff(this);
             // 哈里发弱时埃米尔世袭坐大
             if (regime?.type == RegimeType.Arabic) EmirateSystem.Tick(this);
-            if (regime != null && data.powerful_minister_id > 0) ClearPowerfulMinister();
+            // 幕府将军、苏丹以权臣执政(见 MilitaryRegency)；别的非律令政体不设权臣
+            if (regime?.type is RegimeType.Bakufu or RegimeType.Arabic) MilitaryRegency.Maintain(this);
+            else if (regime != null && data.powerful_minister_id > 0) ClearPowerfulMinister();
         }
         // 现代国家不再运行传统封爵、恩赏爵位或爵位承袭流程。
         if (regime?.type == RegimeType.Modern || regime?.enfeoff_virtual_only != true) return;

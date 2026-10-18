@@ -140,13 +140,9 @@ public static class DynastyNaming
     {
         string key = $"{regime}_officiallevel_{officeType}";
         Kingdom owner = meta switch { Kingdom k => k, City town => town.kingdom, Army army => army.getKingdom(), _ => null };
-        // 苏丹架空哈里发、元首制：帝国核心的君主称苏丹、元首(见 EmirateSystem.IsSultanate、Empire.IsPrincipate)
-        if (officeType == 0 && owner?.GetEmpire() is Empire ownerEmpire && ownerEmpire.CoreKingdom == owner)
-        {
-            string regimeStage = regime == RegimeType.Arabic && EmirateSystem.IsSultanate(ownerEmpire) ? "_sultanate"
-                : regime == RegimeType.ClassicalRepublic && ownerEmpire.IsPrincipate() ? "_principate" : null;
-            if (regimeStage != null && LM.Has(key + regimeStage)) key += regimeStage;
-        }
+        // 元首制：帝国核心的首领称元首(见 Empire.IsPrincipate)
+        if (officeType == 0 && regime == RegimeType.ClassicalRepublic && owner?.GetEmpire() is Empire ownerEmpire &&
+            ownerEmpire.CoreKingdom == owner && ownerEmpire.IsPrincipate() && LM.Has(key + "_principate")) key += "_principate";
         if (CultureVariant(owner, key) is string cultureKey) return cultureKey;
         if (LineSuffix(owner) is string lineSuffix && LM.Has(key + lineSuffix)) return key + lineSuffix;
         if (regime == RegimeType.Origin)

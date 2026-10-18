@@ -286,7 +286,11 @@ namespace EmpireCraft.Scripts.UI.Windows
                 {
                     // 太后、后宫干政(女子掌权)、权臣
                     string role = LM.Get(_empire.data.powerful_minister_is_empress_dowager ? "empress_dowager_title"
-                        : _empire.IsHaremPower(_empire.GetPowerfulMinister()) ? "harem_power_title" : "powerful_minister_title");
+                        : _empire.IsHaremPower(_empire.GetPowerfulMinister()) ? "harem_power_title"
+                        : MilitaryRegency.Active(_empire)
+                            ? DynastyNaming.CultureVariant(MilitaryRegency.TitleKey(_empire),
+                                  CultureService.GetRealmCulture(_empire.CoreKingdom)) ?? MilitaryRegency.TitleKey(_empire)
+                            : "powerful_minister_title");
                     string status = _empire.GetPowerfulMinisterStatusText();
                     if (!string.IsNullOrWhiteSpace(status)) role += " · " + status;
                     if (AddPersonRow(people, _empire.GetPowerfulMinister(), role, "#FF8C1A")) peopleRows++;
@@ -314,13 +318,11 @@ namespace EmpireCraft.Scripts.UI.Windows
                 Stat(LM.Get(DynastyNaming.Term(_empire, "empire_clan")), _empire.EmpireSpecificClan?.name ?? LM.Get("label_none"),
                     _empire.EmpireSpecificClan?.color ?? "#FFFFFF");
             }
-            // 幕府：天皇居于朝廷为虚君(见 BakufuSystem)
-            if (BakufuSystem.IsBakufu(_empire) && BakufuSystem.Emperor(_empire) is Actor courtEmperor)
-                Stat(LM.Get("bakufu_emperor"), courtEmperor.getName(), "#E8B840");
-            // 苏丹架空哈里发：哈里发退为象征(见 EmirateSystem)
-            else if (EmirateSystem.IsSultanate(_empire) && BakufuSystem.Emperor(_empire) is Actor caliph)
-                Stat(LM.Get(DynastyNaming.CultureVariant("sultanate_caliph", CultureService.GetRealmCulture(_empire.CoreKingdom)) ??
-                            "sultanate_caliph"), caliph.getName(), "#E8B840");
+            // 武家执政：征夷大将军、苏丹(见 MilitaryRegency)
+            if (MilitaryRegency.Regent(_empire) is Actor regent)
+                Stat(LM.Get(DynastyNaming.CultureVariant(MilitaryRegency.TitleKey(_empire),
+                         CultureService.GetRealmCulture(_empire.CoreKingdom)) ?? MilitaryRegency.TitleKey(_empire)),
+                    regent.getName(), "#E8B840");
             Stat(LM.Get("i_population"), $"{ShortCount(_empire.CountPopulation())}/{ShortCount(_empire.countMaxPopulation())}", "#F2EEE2");
             // 战国周室：连同离开帝国的诸侯的"天下"城与人口
             if (ZhouEraSystem.DetachedVassals(_empire).Count > 0)
