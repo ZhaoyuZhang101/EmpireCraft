@@ -32,6 +32,9 @@ public static class CompositeEmpireService
         public int ControlledTitles;
         public int TotalTitles;
         public int Mandate;
+        // 统治族群是游牧，或被征服文化比本族先进(见 MoreAdvanced)：才走得上复合帝国这条路
+        public bool RulerIsNomadic;
+        public bool Applicable => RulerIsNomadic || HasInstitutionalTarget && MoreAdvanced(InstitutionalCulture, RulingCulture);
 
         public bool HasInstitutionalTarget =>
             CultureService.IsValidCulture(InstitutionalCulture) && TotalTitles > 0;
@@ -170,8 +173,10 @@ public static class CompositeEmpireService
         {
             empire.data.conquest_founder_culture = status.RulingCulture;
         }
-        if (!OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(status.RulingCulture, out Setting rulingSetting) ||
-            rulingSetting.regime != RegimeType.YouMu)
+        // 任何征服者都可采纳更先进的被征服文化的制度(用户 2026-10-19 选"可和平同化、留少数族群"；以前只有游牧)：
+        // 游牧照旧；别的统治族群要治下有比本族先进的文化的城才往下找(省得每次扫全世界的法理)
+        status.RulerIsNomadic = IsNomadicCulture(status.RulingCulture);
+        if (!status.RulerIsNomadic && !HoldsMoreAdvancedCulture(empire, status.RulingCulture))
         {
             return status;
         }
@@ -198,10 +203,39 @@ public static class CompositeEmpireService
         // 受着被征服文化那个天下的天命，也触发采纳(外族入主，用户 2026-10-19 选"可受天命、本族可光复")
         bool mandateTrigger = TianxiaSystem.MandateOf(empire.CoreKingdom) is EmpireCore lead &&
                               CultureService.SameKin(lead.default_culture, status.InstitutionalCulture);
-        status.IsEligible = status.HasDistinctCultures &&
+        status.IsEligible = status.HasDistinctCultures && status.Applicable &&
                             (status.HasRequiredControl || mandateTrigger) &&
                             status.HasRequiredMandate;
         return status;
+    }
+
+    // 被征服文化比本族先进：科技时代更晚，或同一时代文明等级更高
+    public static bool MoreAdvanced(string conquered, string ruling)
+    {
+        if (!CultureService.IsValidCulture(conquered) || !CultureService.IsValidCulture(ruling)) return false;
+        if (TechnologySystem.IsEnabled)
+        {
+            int conqueredEra = TechnologySystem.GetEraTier(conquered), rulingEra = TechnologySystem.GetEraTier(ruling);
+            if (conqueredEra != rulingEra) return conqueredEra > rulingEra;
+        }
+        return InstitutionSystem.GetCultureLevel(conquered) > InstitutionSystem.GetCultureLevel(ruling);
+    }
+
+    private static bool HoldsMoreAdvancedCulture(Empire empire, string ruling)
+    {
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (Kingdom kingdom in empire.kingdoms_list ?? new List<Kingdom>())
+        {
+            if (kingdom?.cities == null || kingdom.isRekt()) continue;
+            foreach (City city in kingdom.cities)
+            {
+                string culture = city?.data == null || city.isRekt() ? "" : CultureService.GetMainCulture(city, initialize: false);
+                if (!CultureService.IsValidCulture(culture) || string.Equals(culture, ruling, StringComparison.Ordinal) ||
+                    !seen.Add(culture)) continue;
+                if (MoreAdvanced(culture, ruling)) return true;
+            }
+        }
+        return false;
     }
 
     private static void ConsiderInstitutionalCandidate(AdoptionStatus status, Empire empire, string culture,

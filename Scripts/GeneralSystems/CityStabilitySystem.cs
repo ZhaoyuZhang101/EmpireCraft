@@ -535,6 +535,8 @@ public static class CityStabilitySystem
             if (founder == null) return;
             independent = city.makeOwnKingdom(founder);
             if (independent == null) return;
+            // 据城自立的取当地之俗(见 CultureService.ApplyLocalCulture)
+            CultureService.ApplyLocalCulture(independent, city);
         }
         independent.ClearAdministrativeTitle();
         independent.SetKingdomType(KingdomType.default_country_post);

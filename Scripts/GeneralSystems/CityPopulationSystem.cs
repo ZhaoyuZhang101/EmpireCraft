@@ -1080,20 +1080,37 @@ public static class CityPopulationSystem
     }
 
     // 背景人口的文化同化：城里非主流文化的居民每年有 AssimilationRate 的比例改用主流文化
-    // (通婚、上学、做官都要用主流文化)，阶层、物种、理念不变。种族(物种)不会被同化
+    // (通婚、上学、做官都要用主流文化)，阶层、物种、理念不变。种族(物种)不会被同化。
+    // 留少数族群(用户 2026-10-19 选"可和平同化、留少数族群")：每个文化在本城有一成人口守着旧俗不再同化
+    // (以前每年 2% 全改主流文化，几十年后城里只剩一种文化)
     private const float AssimilationRate = 0.02f;
+    private const float MinorityResidue = 0.10f;
 
     private static void AssimilateBackground(City city, CityPopulationData data, float years)
     {
         string main = CultureService.GetMainCulture(city, initialize: false);
         if (!CultureService.IsValidCulture(main) || data?.groups == null) return;
         // 主流文化在本城的教化越盛同化越快(0.4~1.6 倍，见 CultureRadiation)
-        float rate = AssimilationRate * CultureRadiation.AssimilationFactor(city, main);
+        float rate = Mathf.Clamp01(AssimilationRate * CultureRadiation.AssimilationFactor(city, main) * years);
+        float total = 0f;
+        var byCulture = new Dictionary<string, float>(StringComparer.Ordinal);
+        foreach (PopGroup group in data.groups)
+        {
+            total += group.Background;
+            if (string.Equals(group.culture, main, StringComparison.Ordinal)) continue;
+            string key = group.culture ?? "";
+            byCulture[key] = (byCulture.TryGetValue(key, out float sum) ? sum : 0f) + group.Background;
+        }
+        if (total <= 0f) return;
         var moves = new List<(PopGroup from, float amount)>();
         foreach (PopGroup group in data.groups)
         {
-            if (string.Equals(group.culture, main, StringComparison.Ordinal)) continue;
-            float amount = group.Background * Mathf.Clamp01(rate * years);
+            if (string.Equals(group.culture, main, StringComparison.Ordinal) || group.Background <= 0f) continue;
+            float cultureTotal = byCulture[group.culture ?? ""];
+            // 只同化一成留存之外的那部分
+            float convertible = cultureTotal - MinorityResidue * total;
+            if (convertible <= 0f) continue;
+            float amount = group.Background * rate * convertible / cultureTotal;
             if (amount > 0f) moves.Add((group, amount));
         }
         foreach ((PopGroup from, float amount) in moves)

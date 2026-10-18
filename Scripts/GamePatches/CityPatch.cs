@@ -1116,6 +1116,8 @@ public class CityPatch : GamePatch
         __instance.setKingdom(kingdom);
         __instance.switchedKingdom();
         kingdom.setCityMetas(__instance);
+        // 叛乱自立的取当地之俗(见 CultureService.ApplyLocalCulture)
+        if (pRebellion) EmpireCraft.Scripts.GeneralSystems.CultureService.ApplyLocalCulture(kingdom, __instance);
         kingdom.RememberRebellionOrigin(rebellionOrigin);
         if (pRebellion) kingdom.SetRebellionOriginCityValue(rebellionOriginValue);
         // 分封制的诸侯国里起事：一城一邑的小乱(见 PettyRebellion)

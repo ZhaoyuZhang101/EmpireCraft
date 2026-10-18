@@ -579,12 +579,9 @@ namespace EmpireCraft.Scripts.UI.Windows
             CompositeEmpireService.AdoptionStatus adoption = composite
                 ? null
                 : CompositeEmpireService.GetAdoptionStatus(empire);
-            // 只有游牧统治传统的帝国才可能走上"复合帝国"这条路——其它帝国这块面板本来就用不上，
-            // 与其显示一句"仅具有游牧统治传统的帝国可以..."占地方，不如这块面板直接不显示；
-            // 统治文化/当前制度这两条基础信息已经挪到顶部信息栏，不会因为面板不显示就看不到。
-            bool rulingCultureIsNomadic = composite || (adoption != null &&
-                OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(adoption.RulingCulture, out Setting rulingSetting) &&
-                rulingSetting.regime == RegimeType.YouMu);
+            // 只有游牧统治传统、或治下有比本族先进的被征服文化的帝国才可能走上"复合帝国"这条路——其它帝国这块面板
+            // 本来就用不上，不如直接不显示；统治文化/当前制度这两条基础信息已经挪到顶部信息栏，不会因为面板不显示就看不到。
+            bool rulingCultureIsNomadic = composite || adoption?.Applicable == true;
             if (!rulingCultureIsNomadic) return;
             bool hasCulturalName = composite && empire.data.composite_cultural_name_adopted &&
                                    !string.IsNullOrWhiteSpace(empire.data.composite_cultural_name);
@@ -655,7 +652,7 @@ namespace EmpireCraft.Scripts.UI.Windows
                     $"{LM.Get("composite_empire_candidate_culture")}: {institution.ColorString("#65D6C4")}",
                     true, TextAnchor.MiddleCenter, new Vector2(MainWidth - 12f, 10));
 
-                // 走到这里已经确认过统治文化是游牧传统了(见方法开头的 rulingCultureIsNomadic
+                // 走到这里已经确认过统治文化是游牧传统、或被征服文化更先进了(见方法开头的 rulingCultureIsNomadic
                 // 提前返回)，"不是游牧传统"这条分支不会再触发，删掉。
                 string requirement;
                 if (!adoption.HasInstitutionalTarget)

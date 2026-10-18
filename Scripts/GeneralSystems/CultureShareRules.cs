@@ -21,6 +21,10 @@ public static class CultureShareRules
     // 始终保留多数地位；只有异文化征服才能直接更换官方文化并打破这种惯性。
     public const float PopulationPressurePerYear = 1f;
     public const float OfficialCultureInstitutionalFloor = 55f;
+    // 官方文化靠制度、教育在人口与教化之上最多再抬这么多个百分点(至多到上面的 55)：人口与教化压倒性偏向别的文化时，
+    // 官方文化守不住多数，城会慢慢改从多数之俗(用户 2026-10-19 选"可和平同化、留少数族群"；以前一律保底 55，
+    // 挑战者最多 45，迁徙、教化永远翻不了城)
+    public const float OfficialCultureInstitutionalLift = 25f;
     public const float ForeignOccupationCultureShock = 30f;
     public const float ForeignOccupationCultureTarget = 60f;
     // 王国/帝国法理层面：某文化需要成为法理辖下至少这个比例的城市的主流文化（且是首都的主流文化）

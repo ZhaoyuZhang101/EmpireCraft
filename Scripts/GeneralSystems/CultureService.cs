@@ -130,6 +130,16 @@ public static class CultureService
         return changed;
     }
 
+    // 叛乱自立的新国取当地主文化(用户 2026-10-19 选"可和平同化、留少数族群"；以前取领头人个人的文化——异族守将、
+    // 移民据城自立，整个新国就成了异族)；分封、分治、建国等别的立国照旧取立国者的文化
+    public static void ApplyLocalCulture(Kingdom kingdom, City seat)
+    {
+        if (kingdom?.data == null || kingdom.isRekt() || seat?.data == null || seat.isRekt()) return;
+        string local = GetMainCulture(seat, initialize: false);
+        if (!IsValidCulture(local) || string.Equals(local, GetRealmCulture(kingdom), StringComparison.Ordinal)) return;
+        SetRealmCulture(kingdom, local, updatePoliticalSystem: true);
+    }
+
     public static void ApplyFounderCulture(Kingdom kingdom, Actor founder)
     {
         if (kingdom?.data == null || founder == null) return;
@@ -504,8 +514,7 @@ public static class CultureService
             ApplyCultureFloor(targetShares, occupationCulture,
                 CultureShareRules.ForeignOccupationCultureTarget);
         else if (IsValidCulture(officialCulture))
-            ApplyCultureFloor(targetShares, officialCulture,
-                CultureShareRules.OfficialCultureInstitutionalFloor);
+            ApplyCultureFloor(targetShares, officialCulture, OfficialFloor(targetShares, officialCulture));
         NormalizeShares(targetShares);
 
         // 行政同化代表持续的教育、礼制与官僚投入。人口迁徙仍可改变其他文化的相对占比，
@@ -527,6 +536,11 @@ public static class CultureService
         return MoveSharesToward(data.culture_shares, targetShares,
             CultureShareRules.PopulationPressurePerYear);
     }
+
+    // 官方文化的保底：人口与教化里的占比再抬 25，至多 55(见 CultureShareRules.OfficialCultureInstitutionalLift)
+    private static float OfficialFloor(Dictionary<string, float> shares, string official) =>
+        Math.Min(CultureShareRules.OfficialCultureInstitutionalFloor,
+            (shares.TryGetValue(official, out float value) ? value : 0f) + CultureShareRules.OfficialCultureInstitutionalLift);
 
     private static void ApplyCultureFloor(Dictionary<string, float> shares, string protectedCulture, float floor)
     {
