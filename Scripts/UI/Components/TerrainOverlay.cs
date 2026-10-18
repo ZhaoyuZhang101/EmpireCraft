@@ -105,7 +105,8 @@ public static class TerrainOverlay
     {
         TileTypeBase type = tile.Type;
         if (type == null || type.liquid && !type.lava || type.ocean) return Clear;
-        if (Border(tile)) return Clear;
+        // 国界那一格画成本国颜色压暗的一道实线：远景国色变淡后国界仍清楚，不会一段段露出底色显得乱
+        if (Border(tile)) return BorderColor(tile);
         TileTypeBase main = tile.main_type;
         string id = type.id ?? "";
         Color32 color;
@@ -131,7 +132,15 @@ public static class TerrainOverlay
             (byte)Mathf.Clamp(color.b + delta, 0, 255), 255);
     }
 
-    // 国界那一格留空：四邻里有归属不同国家的陆地
+    private static Color32 BorderColor(WorldTile tile)
+    {
+        Kingdom kingdom = tile.zone?.city?.kingdom;
+        if (kingdom == null || kingdom.isRekt()) return new Color32(150, 150, 150, 255);
+        Color main = kingdom.getColor().getColorMain();
+        return new Color32((byte)(main.r * 170f), (byte)(main.g * 170f), (byte)(main.b * 170f), 255);
+    }
+
+    // 国界那一格：四邻里有归属不同国家的陆地
     private static bool Border(WorldTile tile)
     {
         Kingdom own = tile.zone?.city?.kingdom;

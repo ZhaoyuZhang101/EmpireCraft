@@ -63,6 +63,18 @@ public class CityExpansionPatch : GamePatch
         // 这座城的平面图还没算过(关着地形浮雕、不画城市时不算，村镇也不会新建)：照原版领地，不限在村镇附近
         HashSet<int> built = PureMapPatch.BuiltZones(city);
         if (built == null) return true;
+        // 离城心太远的不领(与城外选村址同一个距离，随城的档位放宽)：以前顺着村镇一路往外领，城界伸成长条、伸进别人家
+        // (玩家反馈"边界在胡乱扩张"，用户 2026-10-17 选"破碎、夹着空地""伸得太远、蛇形")
+        WorldTile seat = city.getTile();
+        if (seat != null && zone.centerTile != null)
+        {
+            int tier = global::UnityEngine.Mathf.Clamp(city.GetOrCreate().urban_tier, 0, 4);
+            float far = 24f + 8f * tier;
+            float dx = zone.centerTile.x - seat.x, dy = zone.centerTile.y - seat.y;
+            if (dx * dx + dy * dy > far * far) return false;
+        }
+        // 被本城的地三面以上围着的空地(城界上的豁口、夹在中间的空地)补进来，城界不再破碎
+        if (Enclosed(city, zone)) return true;
         bool Near(TileZone anchor) => anchor != null && global::System.Math.Abs(anchor.x - zone.x) <= SettledReach &&
                                       global::System.Math.Abs(anchor.y - zone.y) <= SettledReach;
         if (Near(city.getTile()?.zone)) return true;
@@ -71,6 +83,17 @@ public class CityExpansionPatch : GamePatch
         foreach (RuralSettlement settlement in RuralSettlementSystem.InCity(city))
             if (Near(World.world.GetTile(settlement.x, settlement.y)?.zone)) return true;
         return false;
+    }
+
+    private static bool Enclosed(City city, TileZone zone)
+    {
+        var world = World.world.zone_calculator;
+        int own = 0;
+        if (world.getZone(zone.x - 1, zone.y)?.city == city) own++;
+        if (world.getZone(zone.x + 1, zone.y)?.city == city) own++;
+        if (world.getZone(zone.x, zone.y - 1)?.city == city) own++;
+        if (world.getZone(zone.x, zone.y + 1)?.city == city) own++;
+        return own >= 3;
     }
 
     public static void AfterCanGrowZones(City __instance, ref bool __result)
