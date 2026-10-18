@@ -341,17 +341,34 @@ public static class UnificationSystem
     // 这一家是这个天下的人(都城在这片里)：只有它们能做统一者、是统一的对象
     private static bool Belongs(Kingdom sovereign, Realm realm) => Alive(sovereign) && realm.members.Contains(sovereign);
 
-    // 两家接壤(领地相邻，或隔海相望，见 StraitReach)
+    // 两家接壤(领地相邻，或隔海相望，见 StraitReach)。各家的接壤表每帧建一次(以前每问一次就把全世界的城扫一遍，
+    // 统一者对每个对手各问一次)
+    private static readonly Dictionary<Kingdom, HashSet<Kingdom>> Adjacency = new();
+    private static int _adjacencyFrame = -1;
+
     private static bool Borders(Kingdom sovereign, Kingdom rival)
     {
-        foreach (City city in World.world.cities.list)
+        if (_adjacencyFrame != UnityEngine.Time.frameCount)
         {
-            if (city?.data == null || city.isRekt() || city.neighbours_cities == null || city.kingdom == null) continue;
-            if (Sovereign(city.kingdom) != sovereign) continue;
-            foreach (City next in city.neighbours_cities)
-                if (next?.kingdom != null && !next.isRekt() && Sovereign(next.kingdom) == rival) return true;
+            _adjacencyFrame = UnityEngine.Time.frameCount;
+            Adjacency.Clear();
+            foreach (City city in World.world.cities.list)
+            {
+                if (city?.data == null || city.isRekt() || city.neighbours_cities == null || city.kingdom == null) continue;
+                Kingdom own = Sovereign(city.kingdom);
+                if (own == null) continue;
+                foreach (City next in city.neighbours_cities)
+                {
+                    if (next?.kingdom == null || next.isRekt()) continue;
+                    Kingdom other = Sovereign(next.kingdom);
+                    if (other == null || other == own) continue;
+                    if (!Adjacency.TryGetValue(own, out HashSet<Kingdom> set)) Adjacency[own] = set = new HashSet<Kingdom>();
+                    set.Add(other);
+                }
+            }
         }
-        return StraitReach.Across(sovereign, rival);
+        return Adjacency.TryGetValue(sovereign, out HashSet<Kingdom> near) && near.Contains(rival) ||
+               StraitReach.Across(sovereign, rival);
     }
 
     private static bool Exempt(Kingdom sovereign) => ZhouEraSystem.SphereOf(sovereign) != null;

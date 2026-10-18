@@ -139,14 +139,11 @@ public static class EmpireCoreManager
 
     public static List<City> GetCities(EmpireCore core)
     {
+        // 查重用集合(以前用列表 Contains，城一多就是平方级；天下自动并分、天下窗口每个核心都要取一次)
         List<City> cities = new();
+        var seen = new HashSet<City>();
         foreach (City city in EnumerateCities(core))
-        {
-            if (!cities.Contains(city))
-            {
-                cities.Add(city);
-            }
-        }
+            if (seen.Add(city)) cities.Add(city);
         return cities;
     }
 
