@@ -172,6 +172,14 @@
           "type": "set_regime_option",
           "option": "option_leader_select_method",
           "int_value": 3
+        },
+        {
+          "type": "unlock_succession_law",
+          "value": "强者继承法"
+        },
+        {
+          "type": "set_succession_law",
+          "value": "强者继承法"
         }
       ]
     },

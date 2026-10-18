@@ -707,7 +707,7 @@ public static class ZhouEraSystem
             }
     }
 
-    // 霸主讨伐僭越称王者(攘夷)
+    // 霸主讨伐僭越称王者(同文化之国，记为伐不臣，不是攘夷)
     private static void PunishUsurper(Empire empire, ZhouEraState state, Kingdom hegemon)
     {
         foreach (long id in state.kings.ToList())
@@ -717,7 +717,7 @@ public static class ZhouEraSystem
                 !hegemon.IsNeighbourWith(usurper) || Random.value > 0.25f) continue;
             War war = World.world.diplomacy.startWar(hegemon, usurper, WarTypeLibrary.normal);
             if (war == null) continue;
-            war.SetEmpireWarType(EmpireCraft.Scripts.Enums.EmpireWarType.攘夷);
+            war.SetEmpireWarType(EmpireCraft.Scripts.Enums.EmpireWarType.伐不臣);
             war.data.name = string.Format(LM.Get("zhou_punish_war_name"), hegemon.GetKingdomName(), usurper.GetKingdomName());
             Announce(empire, string.Format(LM.Get("zhou_log_punish"), hegemon.GetKingdomName(), usurper.GetKingdomName()),
                 hegemon, history: true);

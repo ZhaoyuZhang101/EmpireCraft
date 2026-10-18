@@ -25,7 +25,10 @@ public class TempFac_对外扩张 : TemporaryFaction
         if (kingdom != null)
         {
             var war = World.world.diplomacy.startWar(GetEmpire().CoreKingdom, kingdom, WarTypeLibrary.normal);
-            war?.SetEmpireWarType(EmpireWarType.攘夷);
+            // 攘夷是华夏的说法；别的文明对异族的对外扩张记为帝国扩张
+            bool huaxia = GeneralSystems.InstitutionSystem.GetCultureLine(
+                GeneralSystems.CultureService.GetRealmCulture(GetEmpire().CoreKingdom)) == "Huaxia";
+            war?.SetEmpireWarType(huaxia ? EmpireWarType.攘夷 : EmpireWarType.帝国扩张);
         }
         CountDown = 5;
         End();

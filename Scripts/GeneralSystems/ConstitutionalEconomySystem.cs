@@ -629,7 +629,7 @@ public static class ConstitutionalEconomySystem
         if (GetMissingFeatures(empire).Count > 0) { reason = "constitution_requires_institutions"; return false; }
         if (GetMissingTechs(empire).Count > 0) { reason = "constitution_requires_tech"; return false; }
         if (InstitutionDefinitionRegistry.IsConstitutionRequiringCompositeEmpire(line) &&
-            empire.data.composite_integration_stage < CompositeEmpireIntegrationStage.CompositeEmpire)
+            !CompositeEmpireService.IsMultiethnic(empire))
         { reason = "constitution_requires_composite"; return false; }
         if (GetParliamentarySupport(empire) < Config.support_threshold)
         { reason = "constitution_requires_support"; return false; }

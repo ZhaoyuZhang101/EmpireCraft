@@ -1003,11 +1003,21 @@ public static class RepublicSystem
                state.parliament_seats.Count(seat => seat.faction_id == party.GetID()) * 2 > total;
     }
 
+    // 复辟回到哪种君主政体：记下的前一个君主政体；没记(联军建立的共和等)就取本文化制度树上已施行的最晚的君主政体，
+    // 再不行取文化配置的默认政体，最后才是封建(以前一律落到封建，华夏复辟成了封建)
+    private static RegimeType PreviousMonarchy(Empire empire, ConstitutionalEconomyState state)
+    {
+        if (state.previous_regime >= 0) return (RegimeType)state.previous_regime;
+        return InstitutionSystem.TryResolveMonarchyRegime(InstitutionSystem.GetPrimaryCulture(empire), out RegimeType regime)
+            ? regime
+            : RegimeType.Feudalism;
+    }
+
     public static void Restore(Empire empire, FixedFaction party)
     {
         if (!CanRestore(empire, party)) return;
         ConstitutionalEconomyState state = State(empire);
-        RegimeType previous = state.previous_regime >= 0 ? (RegimeType)state.previous_regime : RegimeType.Feudalism;
+        RegimeType previous = PreviousMonarchy(empire, state);
         state.is_republic = false;
         state.republic_calendar_mode = 0;
         state.one_party_id = "";
@@ -1042,7 +1052,7 @@ public static class RepublicSystem
     {
         ConstitutionalEconomyState state = State(empire);
         if (state == null || !IsRepublic(empire)) return;
-        RegimeType previous = state.previous_regime >= 0 ? (RegimeType)state.previous_regime : RegimeType.Feudalism;
+        RegimeType previous = PreviousMonarchy(empire, state);
         state.is_republic = false;
         state.republic_calendar_mode = 0;
         state.one_party_id = "";

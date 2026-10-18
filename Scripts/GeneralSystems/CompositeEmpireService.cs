@@ -46,6 +46,29 @@ public static class CompositeEmpireService
             !string.Equals(RulingCulture, InstitutionalCulture, StringComparison.Ordinal);
     }
 
+    // 多元帝国：完成整合的复合帝国，或治下四分之一以上的城是异族(不同天下的文化)——逃人法、游牧立宪用
+    // (以前只认复合帝国，而复合帝国的制度按被征服文化的线走，游牧线上这两样永远到不了)
+    public static bool IsMultiethnic(Empire empire)
+    {
+        if (empire?.data == null) return false;
+        if (empire.data.composite_integration_stage >= CompositeEmpireIntegrationStage.CompositeEmpire) return true;
+        string ruling = GetRulingCulture(empire);
+        if (!CultureService.IsValidCulture(ruling)) return false;
+        int total = 0, foreign = 0;
+        foreach (Kingdom kingdom in empire.kingdoms_list ?? new List<Kingdom>())
+        {
+            if (kingdom?.cities == null || kingdom.isRekt()) continue;
+            foreach (City city in kingdom.cities)
+            {
+                string main = city?.data == null || city.isRekt() ? "" : CultureService.GetMainCulture(city, initialize: false);
+                if (!CultureService.IsValidCulture(main)) continue;
+                total++;
+                if (!CultureService.SameKin(main, ruling)) foreign++;
+            }
+        }
+        return total > 0 && foreign * 4 >= total;
+    }
+
     public static bool IsComposite(Empire empire)
     {
         return empire?.data != null &&

@@ -203,8 +203,9 @@ public static class WarCommandSystem
         if (goal == WarGoal.劫掠) return "raid";
         Kingdom enemy = war == null ? CityPopulationSystem.EnemyOf(kingdom) : war.main_defender;
         string ours = CultureService.GetRealmCulture(kingdom), theirs = CultureService.GetRealmCulture(enemy);
+        // 蛮夷之战按天下(见 CultureService.SameKin)不按制度线：同一线里的异族(法兰克打林地部族)也算，同一天下的不算
         if (type == EmpireWarType.攘夷 || CultureService.IsValidCulture(ours) && CultureService.IsValidCulture(theirs) &&
-            ours.GetInstitutionLine() != theirs.GetInstitutionLine()) return "barbarian";
+            !CultureService.SameKin(ours, theirs)) return "barbarian";
         return goal == WarGoal.吞并 ? "annex" : "attack";
     }
 

@@ -39,7 +39,7 @@ public static class InstitutionDefinitionRegistry
     private static readonly HashSet<string> SupportedEffects = new(StringComparer.Ordinal)
     {
         "add_mandate", "change_tax_level", "set_regime_option", "modify_faction_power", "enable_claim",
-        "change_regime", "unlock_succession_law", "grant_trait", "abolish_monarchy",
+        "change_regime", "unlock_succession_law", "set_succession_law", "grant_trait", "abolish_monarchy",
         "open_private_land_market", "enact_law", "relieve_malady"
     };
 
@@ -52,8 +52,8 @@ public static class InstitutionDefinitionRegistry
     // 而且要覆盖同文化的其它政权(不只是推完改革的那一个)，同样归进共享效果。
     private static readonly HashSet<string> SharedEffects = new(StringComparer.Ordinal)
     {
-        "change_tax_level", "set_regime_option", "enable_claim", "unlock_succession_law", "grant_trait",
-        "open_private_land_market", "enact_law"
+        "change_tax_level", "set_regime_option", "enable_claim", "unlock_succession_law", "set_succession_law",
+        "grant_trait", "open_private_land_market", "enact_law"
     };
 
     public static InstitutionGlobalConfig Global { get; private set; } = new();

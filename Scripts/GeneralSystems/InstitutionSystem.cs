@@ -402,6 +402,32 @@ public static class InstitutionSystem
         return node == null || TechnologySystem.AreRealmInstitutionTechsMet(kingdom, node, out _);
     }
 
+    // 本文化制度树上已施行的最晚的君主政体(复辟用，见 RepublicSystem)：不看废除君主制，原始政体不算；
+    // 树上没有就取文化配置的默认政体(是君主制的话)
+    public static bool TryResolveMonarchyRegime(string culture, out RegimeType regime)
+    {
+        regime = default;
+        if (!CultureService.IsValidCulture(culture)) return false;
+        string line = culture.GetInstitutionLine();
+        CultureInstitutionState state = GetOrCreateCultureState(culture);
+        InstitutionNodeConfig best = null;
+        foreach (string nodeId in state?.enacted_node_ids ?? Enumerable.Empty<string>())
+        {
+            InstitutionNodeConfig node = InstitutionDefinitionRegistry.Get(nodeId);
+            if (node == null || !IsSameLine(node.line, line) ||
+                !InstitutionDefinitionRegistry.TryGetNodeRegime(node, out RegimeType declared) ||
+                !RegimeManager.IsMonarchy(declared) || RegimeManager.IsPrimitive(declared)) continue;
+            if (best != null && node.advancement <= best.advancement) continue;
+            best = node;
+            regime = declared;
+        }
+        if (best != null) return true;
+        if (!OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(culture, out Setting setting) || setting == null ||
+            !RegimeManager.IsMonarchy(setting.regime) || RegimeManager.IsPrimitive(setting.regime)) return false;
+        regime = setting.regime;
+        return true;
+    }
+
     public static bool TryResolveCultureRegime(string culture, out RegimeType regime)
     {
         regime = default;
@@ -758,8 +784,7 @@ public static class InstitutionSystem
             reason = "institution_reform_missing_tech";
             return false;
         }
-        if (node.requires_composite_empire &&
-            empire.data.composite_integration_stage < CompositeEmpireIntegrationStage.CompositeEmpire)
+        if (node.requires_composite_empire && !CompositeEmpireService.IsMultiethnic(empire))
         {
             reason = "institution_reform_requires_composite_empire";
             return false;
@@ -2388,6 +2413,13 @@ public static class InstitutionSystem
             case "enable_claim":
                 EnableClaim(empire, node, effect);
                 break;
+            case "set_succession_law":
+                // 改核心的继承法(忽里勒台推举大汗)；只在还是默认的嫡长子继承时改，免得改政体重放持久效果时把后来改过的改回去
+                if (Enum.TryParse(effect.value, true, out SuccessionLawType lawToSet) &&
+                    empire.CoreKingdom?.GetRegime() is Regime lawRegime &&
+                    empire.CoreKingdom.GetSuccessionLaw() == SuccessionLawType.嫡长子继承法)
+                    lawRegime.SetSuccessionLaw(lawToSet);
+                break;
             case "unlock_succession_law":
                 if (Enum.TryParse(effect.value, true, out SuccessionLawType succession))
                 {
@@ -2410,8 +2442,7 @@ public static class InstitutionSystem
                     LandEconomySystem.OpenPrivateLandMarket(kingdom, redistribute: false, revolutionary: false);
                 break;
             case "enact_law":
-                if (node.requires_composite_empire &&
-                    empire.data.composite_integration_stage < CompositeEmpireIntegrationStage.CompositeEmpire)
+                if (node.requires_composite_empire && !CompositeEmpireService.IsMultiethnic(empire))
                     break;
                 if (Enum.TryParse(effect.value, true, out GeneralSystems.EmpireLaw.LawType lawType))
                 {
