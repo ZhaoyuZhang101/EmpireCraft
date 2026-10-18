@@ -229,7 +229,7 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
             LM.Get("institution_card_reform"), reformStatus);
         if (reform != null)
         {
-            AddCardLine(reformCard, $"{InstitutionSystem.GetNodeName(reformNode).ColorString("#F3C34A")}  ·  " +
+            AddCardLine(reformCard, $"{InstitutionSystem.GetNodeName(reformNode, _culture).ColorString("#F3C34A")}  ·  " +
                                     $"{GetStageName(reform.stage)} {reform.progress:0}%".ColorString("#65D6C4"));
             var barRow = reformCard.BeginHoriGroup(new Vector2(CardWidth - 12f, CardLineHeight),
                 TextAnchor.MiddleCenter, 0);
@@ -835,12 +835,12 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
         bool foreign = view.Status is InstitutionNodeStatus.ForeignLocked
             or InstitutionNodeStatus.ForeignContacting or InstitutionNodeStatus.ForeignReady;
 
-        string title = $"{InstitutionSystem.GetNodeName(view.Node).ColorString("#F3C34A")}  " +
+        string title = $"{InstitutionSystem.GetNodeName(view.Node, _culture).ColorString("#F3C34A")}  " +
                         $"{LM.Get("institution_advancement")} {view.Node.advancement}  ·  " +
                         $"{GetBranchName(view.Node.branch)}  ·  " +
                         $"{GetStatusName(view.Status).ColorString(GetStatusHex(view.Status))}";
 
-        var lines = new List<string> { LM.Get(view.Node.description_key) };
+        var lines = new List<string> { InstitutionSystem.GetNodeDescription(view.Node, _culture) };
         string techLine = TechnologySystem.DescribeInstitutionTechLine(_culture, view.Node);
         if (techLine != null) lines.Add(techLine.ColorString("#9EF2FF"));
 
@@ -952,7 +952,7 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
         List<string> missing = InstitutionDefinitionRegistry
             .GetMissingPrerequisites(view.Node, required => InstitutionSystem.IsEnacted(_culture, required))
             .Select(group => string.Join(LM.Get("institution_requires_any_separator"), group.Select(required =>
-                InstitutionSystem.GetNodeName(InstitutionDefinitionRegistry.Get(required)))))
+                InstitutionSystem.GetNodeName(InstitutionDefinitionRegistry.Get(required), _culture))))
             .ToList();
         if (missing.Count > 0)
             lines.Add(string.Format(LM.Get("institution_missing_requires"),
@@ -1058,7 +1058,7 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
             or InstitutionNodeStatus.ForeignContacting or InstitutionNodeStatus.ForeignReady;
 
         _detailPanel.AddTextIntoVertLayout(
-            $"{InstitutionSystem.GetNodeName(view.Node).ColorString("#F3C34A")}  " +
+            $"{InstitutionSystem.GetNodeName(view.Node, _culture).ColorString("#F3C34A")}  " +
             $"{GetStatusName(view.Status).ColorString(GetStatusHex(view.Status))}",
             true, TextAnchor.MiddleCenter, new Vector2(PanelWidth, 11));
 

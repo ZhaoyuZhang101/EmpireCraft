@@ -1717,11 +1717,11 @@ public static class UIHelper
         }
         if (supports.Count > 0)
             lines.Add(($"{LM.Get("institution_support")}: " + string.Join("、", supports.Select(node =>
-                $"{InstitutionSystem.GetNodeName(node)}({FormatClassContributions(node.politics.support_classes, empire, classShares)}){MarkIfActive(node)}")))
+                $"{InstitutionSystem.GetNodeName(empire, node)}({FormatClassContributions(node.politics.support_classes, empire, classShares)}){MarkIfActive(node)}")))
                 .ColorString("#65D66E"));
         if (opposes.Count > 0)
             lines.Add(($"{LM.Get("institution_opposition")}: " + string.Join("、", opposes.Select(node =>
-                $"{InstitutionSystem.GetNodeName(node)}({FormatClassContributions(node.politics.oppose_classes, empire, classShares)}){MarkIfActive(node)}")))
+                $"{InstitutionSystem.GetNodeName(empire, node)}({FormatClassContributions(node.politics.oppose_classes, empire, classShares)}){MarkIfActive(node)}")))
                 .ColorString("#D98C8C"));
         if (supports.Count > 0 || opposes.Count > 0)
             lines.Add(LM.Get("institution_contribution_hint").ColorString("#8FA0A8"));

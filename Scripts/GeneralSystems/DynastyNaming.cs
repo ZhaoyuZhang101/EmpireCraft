@@ -64,6 +64,29 @@ public static class DynastyNaming
         };
     }
 
+    // 文化专属称谓(用户 2026-10-19 选"加文化特性与节点过滤")：同一条制度线里个别文化另有叫法——印度走阿拉伯一线，不称哈里发、
+    // 苏丹；阿兹特克、林地部族走游牧一线，不称大可汗、斡里朵。有 "<键>_<文化小写>" 译文的先用(见各政体 OfficialType.csv、
+    // 制度节点名)；与制度线同名的文化(华夏、罗马、游牧、日本)用的就是线本身的称谓，不另找
+    private static readonly Dictionary<string, string> CultureSuffixes = new();
+
+    public static string CultureVariant(string key, string culture)
+    {
+        if (string.IsNullOrEmpty(key) || string.IsNullOrEmpty(culture)) return null;
+        if (!CultureSuffixes.TryGetValue(culture, out string suffix))
+        {
+            suffix = string.Equals(InstitutionSystem.GetCultureLine(culture), culture, global::System.StringComparison.OrdinalIgnoreCase)
+                ? ""
+                : "_" + culture.ToLowerInvariant();
+            CultureSuffixes[culture] = suffix;
+        }
+        if (suffix.Length == 0) return null;
+        string variant = key + suffix;
+        return LM.Has(variant) ? variant : null;
+    }
+
+    public static string CultureVariant(Kingdom kingdom, string key) =>
+        kingdom?.data == null || kingdom.isRekt() ? null : CultureVariant(key, CultureService.GetRealmCulture(kingdom));
+
     // 帝国名按部落、部落联盟称的原始政体：华夏，连同从部落起步的游牧、阿拉伯
     public static bool TribalNaming(Kingdom kingdom)
     {
@@ -81,6 +104,7 @@ public static class DynastyNaming
 
     public static string KingdomTypeKey(Kingdom kingdom, KingdomType type)
     {
+        if (CultureVariant(kingdom, type.ToString()) is string cultureKey) return cultureKey;
         if (LineSuffix(kingdom) is string lineSuffix && LM.Has(type + lineSuffix)) return type + lineSuffix;
         if (type is KingdomType.Origin_centre or KingdomType.Origin_kingdom && HuaxiaOrigin(kingdom) &&
             LM.Has(type + "_huaxia"))
@@ -112,6 +136,7 @@ public static class DynastyNaming
     {
         string key = $"{regime}_officiallevel_{officeType}";
         Kingdom owner = meta switch { Kingdom k => k, City town => town.kingdom, Army army => army.getKingdom(), _ => null };
+        if (CultureVariant(owner, key) is string cultureKey) return cultureKey;
         if (LineSuffix(owner) is string lineSuffix && LM.Has(key + lineSuffix)) return key + lineSuffix;
         if (regime == RegimeType.Origin)
             return owner != null && HuaxiaOrigin(owner) && LM.Has(key + "_huaxia") ? key + "_huaxia" : key;

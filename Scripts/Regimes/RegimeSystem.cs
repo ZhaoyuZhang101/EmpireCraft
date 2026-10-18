@@ -224,6 +224,10 @@ public class Regime
         res.PlayerFactions = hasConfig
             ? factions.Select(f => f.DeepClone()).ToList()
             : res.Factions.Select(f => f.DeepClone()).ToList();
+        // 同一政体按文化另起派系名(印度走阿拉伯政体，不分逊尼派、什叶派，见 DynastyNaming.CultureVariant)
+        foreach (FixedFaction faction in res.Factions.Concat(res.PlayerFactions))
+            if (faction != null && DynastyNaming.CultureVariant(kingdom, $"faction_name_{type}_{faction.Type}") is string nameKey)
+                faction.Name = LM.Get(nameKey);
         return res;
     }
 

@@ -296,7 +296,7 @@ public static class CompositeEmpireService
     {
         return CultureService.IsValidCulture(culture) &&
                OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(culture, out Setting setting) &&
-               setting.regime == RegimeType.YouMu;
+               (setting.regime == RegimeType.YouMu || culture.IsNomadCulture());
     }
 
     public static bool TryGetCultureRegime(string culture, out RegimeType regimeType, out Regime regime)

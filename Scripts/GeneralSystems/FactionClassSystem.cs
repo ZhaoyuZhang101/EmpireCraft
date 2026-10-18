@@ -175,7 +175,7 @@ public static class FactionClassSystem
             InstitutionNodeConfig node = InstitutionDefinitionRegistry.Get(source.Substring("institution:".Length));
             return node == null
                 ? LM.Get("faction_class_source_inherited")
-                : string.Format(LM.Get("faction_class_source_institution"), InstitutionSystem.GetNodeName(node));
+                : string.Format(LM.Get("faction_class_source_institution"), InstitutionSystem.GetNodeName(faction.Empire, node));
         }
         if (source.StartsWith("claim:", StringComparison.Ordinal) &&
             Enum.TryParse(source.Substring("claim:".Length), out TemporaryFactionType claim))

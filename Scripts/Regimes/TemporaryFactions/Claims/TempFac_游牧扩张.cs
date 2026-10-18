@@ -37,8 +37,9 @@ public class TempFac_游牧扩张 : TemporaryFaction
     public override bool CheckCondition()
     {
         Empire empire = GetEmpire();
-        if (empire?.CoreKingdom?.GetRegime()?.type != RegimeType.YouMu &&
-            !CompositeEmpireService.UsesMilitaryTradition(empire, RegimeType.YouMu)) return false;
+        if (empire?.CoreKingdom == null || empire.CoreKingdom.isRekt()) return false;
+        // 游牧文化才有：按文化特性不按政体(阿兹特克、林地部族同走游牧政体却不游牧；元、清式复合帝国看统治族群)
+        if (!ClaimRules.HasTrait(empire, EmpireCraft.Scripts.Data.OnomasticsRule.NomadTrait)) return false;
         if (empire.CoreKingdom.hasEnemies()) return false;
         // 同对外扩张(用户 2026-10-17 "游牧太强了")：打仗太多、发不出军饷不开新仗；只打不在任何帝国里的邻国，
         // 自己给出去、收进来的不打，对方有核自己没有不敢碰，兵力(战力)要占优

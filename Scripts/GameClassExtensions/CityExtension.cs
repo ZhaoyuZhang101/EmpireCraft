@@ -2641,11 +2641,15 @@ public static class CityExtension
             }
             if (setting.city_suffix_keys_by_culture?.TryGetValue(culture, out string citySuffix) == true &&
                 !string.IsNullOrWhiteSpace(citySuffix)) return citySuffix;
-            if (!string.IsNullOrWhiteSpace(setting.city_suffix_key)) return setting.city_suffix_key;
-            return setting.city_type.ToString();
+            if (!string.IsNullOrWhiteSpace(setting.city_suffix_key)) return CultureCityKey(kingdom, setting.city_suffix_key);
+            return CultureCityKey(kingdom, setting.city_type.ToString());
         }
-        return city.GetCityType().ToString();
+        return CultureCityKey(kingdom, city.GetCityType().ToString());
     }
+
+    // 文化专属称谓(阿兹特克的城不称帐……见 DynastyNaming.CultureVariant)
+    private static string CultureCityKey(Kingdom kingdom, string key) =>
+        EmpireCraft.Scripts.GeneralSystems.DynastyNaming.CultureVariant(kingdom, key) ?? key;
 
     public static void RefreshCityDisplayName(this City city)
     {

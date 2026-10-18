@@ -276,7 +276,7 @@ public class InstitutionGraphView
         // 两边各让出一个图标的宽度。
         CreateCardIcon(rect, GetBranchIcon(view.Node.branch), new Vector2(8f, -3f), 8f);
         SimpleText name = UnityEngine.Object.Instantiate(SimpleText.Prefab, rect);
-        name.Setup(InstitutionSystem.GetNodeName(view.Node), TextAnchor.MiddleCenter, new Vector2(46f, 10f));
+        name.Setup(InstitutionSystem.GetNodeName(view.Node, view.Culture), TextAnchor.MiddleCenter, new Vector2(46f, 10f));
         RectTransform nameRect = name.GetComponent<RectTransform>();
         nameRect.anchorMin = nameRect.anchorMax = new Vector2(0.5f, 0.5f);
         nameRect.pivot = new Vector2(0.5f, 0.5f);

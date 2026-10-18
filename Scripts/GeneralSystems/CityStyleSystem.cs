@@ -36,21 +36,12 @@ public static class CityStyleSystem
         "Aztec" => "aztec",
         "Youmu" => "nomad",
         "Ojibwe" => "woodland",
-        _ => NomadLine(culture) ? "nomad" : "huaxia"
+        _ => NomadCulture(culture) ? "nomad" : "huaxia"
     };
 
-    private static bool NomadLine(string culture)
-    {
-        if (string.IsNullOrEmpty(culture)) return false;
-        try
-        {
-            return InstitutionSystem.GetCultureLine(culture) == "Youmu";
-        }
-        catch
-        {
-            return false;
-        }
-    }
+    // 别的(自定义)文化：有游牧特性的住牧帐(以前看游牧一线，没马的阿兹特克式文化也住帐篷)
+    private static bool NomadCulture(string culture) =>
+        !string.IsNullOrEmpty(culture) && EmpireCraft.Scripts.Data.OnomasticsRule.IsNomadCulture(culture);
 
     public static bool Nomad(City city) => city?.data != null && !city.isRekt() && Established(city) == "nomad";
 

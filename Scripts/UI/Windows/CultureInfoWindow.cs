@@ -308,11 +308,11 @@ public class CultureInfoWindow : AbstractWideWindow<CultureInfoWindow>
 
     private static (string title, string body) BuildTooltip(InstitutionNodeView view)
     {
-        string title = $"{InstitutionSystem.GetNodeName(view.Node).ColorString("#F3C34A")}  " +
+        string title = $"{InstitutionSystem.GetNodeName(view.Node, view.Culture).ColorString("#F3C34A")}  " +
                        $"{LM.Get("institution_advancement")} {view.Node.advancement}  ·  " +
                        $"{GetBranchName(view.Node.branch)}  ·  " +
                        $"{GetStatusName(view.Status).ColorString(GetStatusHex(view.Status))}";
-        var lines = new List<string> { LM.Get(view.Node.description_key) };
+        var lines = new List<string> { InstitutionSystem.GetNodeDescription(view.Node, view.Culture) };
         string techLine = TechnologySystem.DescribeInstitutionTechLine(_pendingCulture, view.Node);
         if (techLine != null) lines.Add(techLine.ColorString("#9EF2FF"));
         if (!string.IsNullOrEmpty(view.Reason)) lines.Add(LM.Get(view.Reason).ColorString("#D98C8C"));

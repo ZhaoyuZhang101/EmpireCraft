@@ -243,8 +243,12 @@ namespace EmpireCraft.Scripts.HelperFunc
             else if (regime != null && regime.centre_empire_separate)
             {
                 key = $"{regime.type}_empire";
+                // 文化专属称谓(阿兹特克不称匈鲁斯……见 DynastyNaming.CultureVariant)
+                if (coreKingdom != null &&
+                    EmpireCraft.Scripts.GeneralSystems.DynastyNaming.CultureVariant(coreKingdom, key) is string cultureKey)
+                    key = cultureKey;
                 // 日本线：部族连合(进入大和王权后称王权)、朝廷(见 DynastyNaming.LineSuffix)
-                if (coreKingdom != null && EmpireCraft.Scripts.GeneralSystems.DynastyNaming.LineSuffix(coreKingdom) is string lineSuffix)
+                else if (coreKingdom != null && EmpireCraft.Scripts.GeneralSystems.DynastyNaming.LineSuffix(coreKingdom) is string lineSuffix)
                 {
                     string staged = regime.type == RegimeType.Origin &&
                                     EmpireCraft.Scripts.GeneralSystems.InstitutionSystem.IsEnacted(
@@ -257,6 +261,8 @@ namespace EmpireCraft.Scripts.HelperFunc
             else if (coreKingdom != null && !coreKingdom.isRekt())
             {
                 key = EmpireCraftKingdomBehCheckKingdomType.CalcKingdomType(coreKingdom).ToString();
+                // 文化专属称谓(印度不称哈里发国……见 DynastyNaming.CultureVariant)
+                key = EmpireCraft.Scripts.GeneralSystems.DynastyNaming.CultureVariant(coreKingdom, key) ?? key;
             }
 
             if (string.IsNullOrWhiteSpace(key)) return "EmpireText";

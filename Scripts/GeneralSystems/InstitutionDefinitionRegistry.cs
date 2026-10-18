@@ -374,6 +374,15 @@ public static class InstitutionDefinitionRegistry
     public static IEnumerable<string> GetAllPrerequisites(InstitutionNodeConfig node) =>
         node == null ? Enumerable.Empty<string>() : node.requires.Concat(node.requires_any).Distinct();
 
+    // 同一条线里只给部分文化的节点(cultures / exclude_cultures / requires_traits，见 InstitutionNodeConfig)
+    public static bool FitsCulture(InstitutionNodeConfig node, string culture)
+    {
+        if (node == null) return false;
+        if (node.cultures.Count > 0 && !node.cultures.Contains(culture)) return false;
+        if (node.exclude_cultures.Contains(culture)) return false;
+        return node.requires_traits.Count == 0 || node.requires_traits.Any(trait => culture.HasPoliticalTrait(trait));
+    }
+
     public static bool ArePrerequisitesMet(InstitutionNodeConfig node, Func<string, bool> isEnacted)
     {
         if (node == null) return false;

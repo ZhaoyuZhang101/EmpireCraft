@@ -65,6 +65,8 @@ public sealed class InstitutionNodeView
     public float RequiredExposure;
     public int RequiredContactYears;
     public string Reason = "";
+    // 看的是哪个文化的树(节点名按文化另有叫法，见 InstitutionSystem.GetNodeName)
+    public string Culture = "";
 }
 
 // 制度系统。
@@ -283,10 +285,11 @@ public static class InstitutionSystem
     // 外来节点能否进入本文化的吸收流程：别的线的、允许吸收、本文化还没有同源制度、
     // 而且本线自己的树上也没有同源实例（本线有的就该按本线前置自己研究）。
     private static bool IsForeignCandidate(InstitutionNodeConfig node, string targetLine,
-        CultureInstitutionState target)
+        CultureInstitutionState target, string targetCulture)
     {
         if (node == null || IsSameLine(node.line, targetLine) || node.absorb?.enabled != true ||
             IdeologyInstitutionPaths.TryGetIdeology(node.branch, out _)) return false;
+        if (!InstitutionDefinitionRegistry.FitsCulture(node, targetCulture)) return false;
         if (TechnologySystem.PremodernLocked && TechnologySystem.IsModernInstitution(node)) return false;
         if (HasEquivalentEnacted(target, node)) return false;
         return !InstitutionDefinitionRegistry.GetForLine(targetLine).Any(own =>
@@ -696,6 +699,12 @@ public static class InstitutionSystem
             reason = "institution_reform_wrong_line";
             return false;
         }
+        // 同线里只给部分文化的制度(见 InstitutionNodeConfig.cultures)
+        if (!InstitutionDefinitionRegistry.FitsCulture(node, culture))
+        {
+            reason = "institution_reform_no_tradition";
+            return false;
+        }
         if (IdeologyInstitutionPaths.TryGetIdeology(node.branch, out PartyIdeology ideology))
         {
             FixedFaction governing = PartySystem.GetGovernmentParty(empire);
@@ -808,7 +817,7 @@ public static class InstitutionSystem
         ApplyOppositionFactionGrowth(empire, node);
         ApplyEffects(empire, node, node.effects_on_start, false);
         string content = string.Format(LM.Get("institution_reform_started_history"), empire.GetEmpireName(),
-            GetNodeName(node));
+            GetNodeName(empire, node));
         empire.RecordHistory(directContent: content, actorId: empire.Emperor?.id ?? -1L,
             kingdomId: empire.CoreKingdom?.id ?? -1L);
         EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventMessage(content, empire.CoreKingdom);
@@ -837,7 +846,7 @@ public static class InstitutionSystem
             PartySystem.GetGovernmentParty(empire)?.Ideology != ideology)
         {
             empire.data.institution_state.active_reform = null;
-            string stopped = string.Format(LM.Get("ideology_reform_stopped_history"), GetNodeName(node));
+            string stopped = string.Format(LM.Get("ideology_reform_stopped_history"), GetNodeName(empire, node));
             empire.RecordHistory(directContent: stopped, kingdomId: empire.CoreKingdom?.id ?? -1L);
             return;
         }
@@ -973,7 +982,7 @@ public static class InstitutionSystem
         state.active_reform = null;
         state.last_reform_completed_timestamp = World.world.getCurWorldTime();
         string content = string.Format(LM.Get("institution_reform_completed_history"), empire.GetEmpireName(),
-            GetNodeName(node), culture.GetCultureTranslate());
+            GetNodeName(node, culture), culture.GetCultureTranslate());
         empire.RecordHistory(directContent: content, actorId: empire.Emperor?.id ?? -1L,
             kingdomId: empire.CoreKingdom?.id ?? -1L);
         EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventMessage(content, empire.CoreKingdom);
@@ -1147,7 +1156,7 @@ public static class InstitutionSystem
     {
         if (removed.Count == 0 || ModClass.EMPIRE_MANAGER == null) return;
         string content = string.Format(LM.Get("institution_force_revoked_history"), culture.GetCultureTranslate(),
-            string.Join("、", removed.Select(GetNodeName)));
+            string.Join("、", removed.Select(node => GetNodeName(node, culture))));
         Kingdom messageKingdom = null;
         foreach (Empire empire in ModClass.EMPIRE_MANAGER.ToList())
         {
@@ -1953,7 +1962,7 @@ public static class InstitutionSystem
             .OrderByDescending(kingdom => kingdom.countTotalWarriors()).FirstOrDefault();
         if (opposition == null || rebel == null) return false;
         var cause = RebellionSystem.Capture(rebel, rebel.capital, "rebellion_reason_reform",
-            GetNodeName(node) + "：" + GetResistanceReason(node));
+            GetNodeName(empire, node) + "：" + GetResistanceReason(node));
         rebel.StartFactionRebelling(opposition);
         War war = World.world.diplomacy.startWar(rebel, empire.CoreKingdom, WarTypeLibrary.normal);
         if (war == null)
@@ -1987,10 +1996,10 @@ public static class InstitutionSystem
         string forceMode = LM.Get(warData.institution_reform_forced
             ? "institution_reform_forced_marker"
             : "institution_reform_normal_marker");
-        war.data.name = string.Format(LM.Get("institution_reform_rebellion_war_name"), opposition.Name,
-            GetNodeName(node));
+        string nodeName = GetNodeName(empire, node);
+        war.data.name = string.Format(LM.Get("institution_reform_rebellion_war_name"), opposition.Name, nodeName);
         string content = string.Format(LM.Get("institution_reform_resistance_history_detailed"), opposition.Name,
-            GetNodeName(node), rebel.GetKingdomName(), reason, stage, warData.institution_reform_support,
+            nodeName, rebel.GetKingdomName(), reason, stage, warData.institution_reform_support,
             warData.institution_reform_opposition, warData.institution_reform_radicalism, forceMode);
         empire.RecordHistory(directContent: content, actorId: opposition.GetLeader()?.id ?? -1L,
             kingdomId: rebel.id);
@@ -2047,7 +2056,7 @@ public static class InstitutionSystem
             ? sponsor?.Name ?? LM.Get("institution_reform_origin_ruler")
             : warData.institution_reform_sponsor_name;
         string content = string.Format(LM.Get(historyKey),
-            oppositionName, GetNodeName(node), sponsorName);
+            oppositionName, GetNodeName(empire, node), sponsorName);
         empire.RecordHistory(directContent: content,
             actorId: opposition?.GetLeader()?.id ?? -1L,
             kingdomId: war.getMainAttacker()?.id ?? -1L);
@@ -2098,7 +2107,7 @@ public static class InstitutionSystem
                 foreach (string nodeId in source.enacted_node_ids)
                 {
                     InstitutionNodeConfig node = InstitutionDefinitionRegistry.Get(nodeId);
-                    if (!IsForeignCandidate(node, targetLine, target)) continue;
+                    if (!IsForeignCandidate(node, targetLine, target, targetCulture)) continue;
                     // 等级不够就完全不积累接触度，这样几张接触表只会装"真的有机会吸收"的节点
                     if (!InstitutionRules.IsTierAbsorbable(node.advancement, targetLevel, rule.max_tier_gap))
                         continue;
@@ -2226,7 +2235,7 @@ public static class InstitutionSystem
         foreach (string nodeId in state.exposure.Keys.ToList())
         {
             InstitutionNodeConfig node = InstitutionDefinitionRegistry.Get(nodeId);
-            if (!IsForeignCandidate(node, line, state))
+            if (!IsForeignCandidate(node, line, state, culture))
             {
                 state.exposure.Remove(nodeId);
                 state.contact_years.Remove(nodeId);
@@ -2253,7 +2262,7 @@ public static class InstitutionSystem
             state.contact_years.Remove(nodeId);
             state.last_exposure_timestamp.Remove(nodeId);
             string absorbed = string.Format(LM.Get("institution_absorbed_tip"),
-                culture.GetCultureTranslate(), GetNodeName(node),
+                culture.GetCultureTranslate(), GetNodeName(node, culture),
                 LM.Get(InstitutionDefinitionRegistry.GetLineNameKey(node.line)));
             // 吸收是文化层面的事件：发一条世界消息，并记入该文化所有帝国的史书
             Kingdom messageKingdom = null;
@@ -2494,7 +2503,8 @@ public static class InstitutionSystem
         CultureInstitutionState state = GetOrCreateCultureState(culture);
         if (state == null || string.IsNullOrWhiteSpace(feature)) return false;
         InstitutionNodeConfig node = InstitutionDefinitionRegistry.GetForLine(GetCultureLine(culture))
-            .FirstOrDefault(candidate => candidate.features != null && candidate.features.ContainsKey(feature));
+            .FirstOrDefault(candidate => candidate.features != null && candidate.features.ContainsKey(feature) &&
+                                         InstitutionDefinitionRegistry.FitsCulture(candidate, culture));
         if (node == null || state.enacted_node_ids.Contains(node.id)) return false;
         state.enacted_node_ids.Add(node.id);
         if (!state.absorbed_node_ids.Contains(node.id)) state.absorbed_node_ids.Add(node.id);
@@ -2566,6 +2576,7 @@ public static class InstitutionSystem
             var view = new InstitutionNodeView
             {
                 Node = node,
+                Culture = culture,
                 Support = balance.Support,
                 Opposition = balance.Opposition
             };
@@ -2621,7 +2632,7 @@ public static class InstitutionSystem
         }
         foreach (InstitutionNodeConfig node in InstitutionDefinitionRegistry.GetForLine(GetCultureLine(culture)))
         {
-            var view = new InstitutionNodeView { Node = node };
+            var view = new InstitutionNodeView { Node = node, Culture = culture };
             if (state.enacted_node_ids.Contains(node.id))
                 view.Status = state.absorbed_node_ids.Contains(node.id)
                     ? InstitutionNodeStatus.Absorbed
@@ -2633,6 +2644,11 @@ public static class InstitutionSystem
             }
             else if (reforming.Contains(node.id))
                 view.Status = InstitutionNodeStatus.Reforming;
+            else if (!InstitutionDefinitionRegistry.FitsCulture(node, culture))
+            {
+                view.Status = InstitutionNodeStatus.Locked;
+                view.Reason = "institution_reform_no_tradition";
+            }
             else if (!InstitutionDefinitionRegistry.ArePrerequisitesMet(node, state.enacted_node_ids.Contains))
             {
                 view.Status = InstitutionNodeStatus.Locked;
@@ -2674,7 +2690,7 @@ public static class InstitutionSystem
         {
             InstitutionNodeConfig node = InstitutionDefinitionRegistry.Get(nodeId);
             if (node == null || !seen.Add(nodeId)) continue;
-            result.Add(new InstitutionNodeView { Node = node, Status = InstitutionNodeStatus.Absorbed });
+            result.Add(new InstitutionNodeView { Node = node, Culture = culture, Status = InstitutionNodeStatus.Absorbed });
         }
         foreach (string nodeId in state.exposure.Keys)
         {
@@ -2691,6 +2707,7 @@ public static class InstitutionSystem
             result.Add(new InstitutionNodeView
             {
                 Node = node,
+                Culture = culture,
                 Exposure = exposure,
                 ContactYears = years,
                 RequiredExposure = requiredExposure,
@@ -2706,15 +2723,25 @@ public static class InstitutionSystem
             .ThenBy(view => view.Node.id, StringComparer.Ordinal).ToList();
     }
 
-    public static string GetNodeName(InstitutionNodeConfig node)
+    public static string GetNodeName(InstitutionNodeConfig node) => GetNodeName(node, null);
+
+    // culture：看的是哪个文化的树——同一条线里个别文化另有叫法(印度的阿拉伯线不称哈里发国，见 DynastyNaming.CultureVariant)
+    public static string GetNodeName(InstitutionNodeConfig node, string culture)
     {
         if (node == null) return LM.Get("label_none");
-        string value = LM.Get(node.name_key);
+        string key = DynastyNaming.CultureVariant(node.name_key, culture) ?? node.name_key;
+        string value = LM.Get(key);
         if (IdeologyInstitutionPaths.TryGetIdeology(node.branch, out PartyIdeology ideology) &&
             node.name_key.StartsWith("ideology_stage_", StringComparison.Ordinal))
             return $"{PartySystem.GetIdeologyName(ideology)} · {value}";
-        return string.IsNullOrWhiteSpace(value) || value == node.name_key ? node.id : value;
+        return string.IsNullOrWhiteSpace(value) || value == key ? node.id : value;
     }
+
+    public static string GetNodeName(Empire empire, InstitutionNodeConfig node) =>
+        GetNodeName(node, empire?.data == null || empire.CoreKingdom == null ? null : GetPrimaryCulture(empire));
+
+    public static string GetNodeDescription(InstitutionNodeConfig node, string culture) =>
+        node == null ? "" : LM.Get(DynastyNaming.CultureVariant(node.description_key, culture) ?? node.description_key);
 
     #endregion
 }

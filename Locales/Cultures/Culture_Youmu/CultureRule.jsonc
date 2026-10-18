@@ -16,6 +16,8 @@
             }
         },
         "traits": ["patriarchy"],
+        // 游牧(游牧扩张、牧帐、放牧加倍)、劫掠传统(派系可提劫掠)，见 Locales/Cultures/README.md
+        "political_traits": ["nomad", "raider"],
         "City": {
             "groups": {
                 "group_1": "CityNames1"

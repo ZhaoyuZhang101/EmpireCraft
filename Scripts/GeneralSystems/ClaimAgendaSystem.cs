@@ -127,14 +127,14 @@ public static class ClaimAgendaSystem
         }
         else if (target != null)
         {
-            view.TechnologyName = InstitutionSystem.GetNodeName(target);
+            view.TechnologyName = InstitutionSystem.GetNodeName(empire, target);
             if (!InstitutionSystem.CanStartReform(empire, target, out string reason, false) &&
                 !InstitutionSystem.CanStartReform(empire, target, out _, true))
                 view.Blocker = reason;
         }
         else if (reformNodes.Count > 0)
         {
-            view.TechnologyName = InstitutionSystem.GetNodeName(reformNodes.Last());
+            view.TechnologyName = InstitutionSystem.GetNodeName(empire, reformNodes.Last());
             view.Blocker = "institution_reform_already_enacted";
         }
         else if (claim.type == TemporaryFactionType.提高福利)
@@ -158,7 +158,7 @@ public static class ClaimAgendaSystem
         if (string.IsNullOrEmpty(view.TechnologyName))
         {
             InstitutionNodeConfig pushTarget = ClaimRules.FindPushTarget(empire, claim.type);
-            if (pushTarget != null) view.TechnologyName = InstitutionSystem.GetNodeName(pushTarget);
+            if (pushTarget != null) view.TechnologyName = InstitutionSystem.GetNodeName(empire, pushTarget);
         }
 
         view.Score = view.Support - view.Opposition + view.Urgency +

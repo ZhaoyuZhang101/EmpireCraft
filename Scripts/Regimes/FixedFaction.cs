@@ -70,7 +70,9 @@ public static class FactionManager
                 {
                     TemporaryFactionType.分封, TemporaryFactionType.允许诸侯自由开战,
                     TemporaryFactionType.索取皇位, TemporaryFactionType.颁布金玺诏书,
-                    TemporaryFactionType.确认诸侯特权
+                    TemporaryFactionType.确认诸侯特权,
+                    // 有劫掠传统的文化(维京)由领主出海劫掠(见 ClaimRules.json)
+                    TemporaryFactionType.劫掠
                 }
             },
             {
@@ -95,7 +97,9 @@ public static class FactionManager
                 FactionType.原始,
                 new List<TemporaryFactionType>
                 {
-                    TemporaryFactionType.索取皇位, TemporaryFactionType.分封, TemporaryFactionType.加强神权, TemporaryFactionType.扩张地盘
+                    TemporaryFactionType.索取皇位, TemporaryFactionType.分封, TemporaryFactionType.加强神权, TemporaryFactionType.扩张地盘,
+                    // 有劫掠传统的部落(草原、维京)出塞出海劫掠(见 ClaimRules.json)
+                    TemporaryFactionType.劫掠
                 }
             },
             {
@@ -321,7 +325,7 @@ public class FixedFaction
 {
     // 2：派系诉求重新分配(血脉、攘夷、绥靖、尊王、民主、融入、同化)
     // 3：加修氏族志(尊王、绥靖)、抑豪强(尊王、中央)，旧存档的派系按新清单重建一次
-    public const int CurrentClaimCatalogVersion = 3;
+    public const int CurrentClaimCatalogVersion = 4;
     public string _id;
     public bool only_king;
     //特质需求（拥有该特质的人会更加倾向于加入此派系）
@@ -495,6 +499,7 @@ public class FixedFaction
         {
             if (ClaimCatalogVersion < 2 && !IsParty) catalogChanged |= MigrateClaimCatalogV2();
             if (ClaimCatalogVersion < 3 && !IsParty) catalogChanged |= MigrateClaimCatalogV3();
+            if (ClaimCatalogVersion < 4 && !IsParty) catalogChanged |= MigrateClaimCatalogV4();
             if (Empire.CoreKingdom.GetRegime()?.type == RegimeType.Feudalism)
                 catalogChanged |= MigrateFeudalClaimCatalog();
             ClaimCatalogVersion = CurrentClaimCatalogVersion;
@@ -569,6 +574,16 @@ public class FixedFaction
             changed = true;
         }
         return changed;
+    }
+
+    // 版本 4：劫掠按文化特性(用户 2026-10-19 选"加文化特性与节点过滤")——领主(自治)、部落(原始)也能提，有劫掠传统的文化才提得出
+    private bool MigrateClaimCatalogV4()
+    {
+        TemporaryFactionTypesRecord ??= new List<TemporaryFactionType>();
+        if (Type is not (FactionType.自治 or FactionType.原始) ||
+            TemporaryFactionTypesRecord.Contains(TemporaryFactionType.劫掠)) return false;
+        TemporaryFactionTypesRecord.Add(TemporaryFactionType.劫掠);
+        return true;
     }
 
     public bool MigrateFeudalClaimCatalog()

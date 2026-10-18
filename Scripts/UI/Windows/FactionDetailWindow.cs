@@ -336,7 +336,7 @@ public class FactionDetailWindow : AbstractWideWindow<FactionDetailWindow>
                         ? LM.Get("institution_faction_role_opponent")
                         : LM.Get("institution_faction_role_neutral");
             content.AddTextIntoVertLayout(string.Format(LM.Get("institution_faction_active_reform"),
-                    InstitutionSystem.GetNodeName(activeNode), role, active.progress, active.radicalism), true,
+                    InstitutionSystem.GetNodeName(empire, activeNode), role, active.progress, active.radicalism), true,
                 TextAnchor.MiddleCenter, new Vector2(ContentWidth, 28));
         }
 
@@ -373,7 +373,7 @@ public class FactionDetailWindow : AbstractWideWindow<FactionDetailWindow>
                 _ => LM.Get("institution_status_locked")
             };
             parent.AddTextIntoVertLayout(
-                $"{InstitutionSystem.GetNodeName(node)}  [{statusText}]".ColorString(color), true,
+                $"{InstitutionSystem.GetNodeName(node, view?.Culture)}  [{statusText}]".ColorString(color), true,
                 TextAnchor.MiddleLeft, new Vector2(ContentWidth - 10f, 14));
         }
     }

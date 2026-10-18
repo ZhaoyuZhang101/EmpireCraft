@@ -26,6 +26,18 @@
 - 同一模板的各个实例视为同一项制度：已掌握其中之一的文化不会再从别的线吸收另一个；
   本线树上已有同源实例时，也不会吸收外线实例（应按本线前置自行研究）。
 
+## 同一条线里按文化区分
+
+一条线由好几个文化共用（游牧线有草原、阿兹特克、林地部族，阿拉伯线有阿拉伯、埃及、波斯、印度），节点可以只给其中一部分：
+
+```json
+{ "id": "...", "cultures": ["Youmu"], "exclude_cultures": ["India"], "requires_traits": ["nomad"] }
+```
+
+- `cultures`：只有这些文化能推行、吸收；`exclude_cultures`：这些文化不能；`requires_traits`：文化要有其中一个政治特性（见 `Locales/Cultures/README.md` 的 `political_traits`）。
+- 不合本文化的节点在树上显示为锁定，原因"本文化没有这一传统"。
+- 只想换叫法不必过滤：节点名、说明的文本键加 `_<文化小写>` 后缀（如 `institution_arabic_tribal_shura_india`），这个文化看到的就是另一套名字；政体的国家类别、官名同理（各政体 `OfficialType.csv` 里的 `Arabic_caliphate_india`）。与线同名的文化（华夏、罗马、游牧、日本）用线本身的叫法。
+
 ## 制度特性 `features`（代码只认特性，不认节点 id）
 
 节点通过 `features` 声明它提供的系统级效果，多个节点声明同一特性时取最大值：

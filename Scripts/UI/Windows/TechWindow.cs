@@ -536,7 +536,7 @@ public class TechWindow : AbstractWideWindow<TechWindow>
         var unlocks = TechnologySystem.DescribeAvailableUnlocks(tech);
         // 以这项科技为专门前提的制度(同一个模板在各线的节点只列一次)
         List<string> institutions = TechnologySystem.InstitutionsRequiring(tech.id)
-            .GroupBy(node => node.equivalence_key).Select(group => InstitutionSystem.GetNodeName(group.First()))
+            .GroupBy(node => node.equivalence_key).Select(group => InstitutionSystem.GetNodeName(group.First(), _culture))
             .Distinct().ToList();
         if (institutions.Count > 0)
             unlocks.Add(string.Format(LM.Get("tech_enables_institution"), string.Join("、", institutions)).ColorString("#C9A7E8"));

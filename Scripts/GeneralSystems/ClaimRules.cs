@@ -15,6 +15,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 以前派系决议各写各的条件，大半不看本文化走的是哪条制度路线，于是没有朝贡体系也能"迫使朝贡"、
 // 石器时代也能"拓展金融霸权"、日本也会"颁布金玺诏书"。现在每个决议可以声明：
 //   · cultures      只有这些文化才有(如神圣罗马式的决议只给日耳曼、法兰克、罗马、西方)；
+//   · traits        文化要有其中一个政治特性(劫掠要 raider、游牧扩张要 nomad，见各文化 CultureRule.jsonc)；
+//                   复合帝国也看统治族群的文化；
 //   · min_era / max_era  科技时代(TechTree.json 的 tier，0 = 不限)；
 //   · lines         各文化制度线(Huaxia/Roma/Arabic/Youmu)的要求；声明了 lines 而本文化的线不在其中 = 没有这条路线，不出现。
 //                   每条线可写：
@@ -40,6 +42,7 @@ public static class ClaimRules
     private sealed class Rule
     {
         public List<string> Cultures = new();
+        public List<string> Traits = new();
         public int MinEra;
         public int MaxEra;
         public Dictionary<string, LineRule> Lines;
@@ -71,6 +74,7 @@ public static class ClaimRules
                     var rule = new Rule
                     {
                         Cultures = Strings(body["cultures"]),
+                        Traits = Strings(body["traits"]),
                         MinEra = body.Value<int?>("min_era") ?? 0,
                         MaxEra = body.Value<int?>("max_era") ?? 0
                     };
@@ -116,6 +120,11 @@ public static class ClaimRules
             blocker = LM.Get("claim_rule_no_tradition");
             return false;
         }
+        if (rule.Traits.Count > 0 && !rule.Traits.Any(trait => HasTrait(empire, trait)))
+        {
+            blocker = LM.Get("claim_rule_no_tradition");
+            return false;
+        }
         if (TechnologySystem.IsEnabled && CultureService.IsValidCulture(culture))
         {
             int era = TechnologySystem.GetEraTier(culture);
@@ -150,7 +159,7 @@ public static class ClaimRules
         string forbidden = entry.None.FirstOrDefault(node => InstitutionSystem.IsEnacted(culture, node));
         if (forbidden != null)
         {
-            blocker = string.Format(LM.Get("claim_rule_forbidden"), NodeName(forbidden));
+            blocker = string.Format(LM.Get("claim_rule_forbidden"), NodeName(forbidden, culture));
             return false;
         }
         if (entry.Any.Count == 0 && entry.Push.Count == 0) return true;
@@ -159,7 +168,8 @@ public static class ClaimRules
         List<string> wanted = entry.Any.Count > 0 ? entry.Any : entry.Push;
         blocker = entry.Any.Count == 0
             ? LM.Get("institution_reform_already_enacted")
-            : string.Format(LM.Get("claim_rule_requires"), string.Join(LM.Get("claim_rule_or"), wanted.Select(NodeName)));
+            : string.Format(LM.Get("claim_rule_requires"),
+                string.Join(LM.Get("claim_rule_or"), wanted.Select(id => NodeName(id, culture))));
         return false;
     }
 
@@ -205,10 +215,19 @@ public static class ClaimRules
                InstitutionSystem.GetCultureLine(CompositeEmpireService.GetInstitutionalCulture(empire)) == "Huaxia";
     }
 
-    private static string NodeName(string id)
+    private static string NodeName(string id, string culture)
     {
         InstitutionNodeConfig node = InstitutionDefinitionRegistry.Get(id);
-        return node == null ? id : InstitutionSystem.GetNodeName(node);
+        return node == null ? id : InstitutionSystem.GetNodeName(node, culture);
+    }
+
+    // 文化特性：本文化有，或复合帝国的统治族群有(元、清式的游牧王朝治下照样出兵游牧扩张)
+    public static bool HasTrait(Empire empire, string trait)
+    {
+        if (empire?.CoreKingdom == null) return false;
+        if (InstitutionSystem.GetPrimaryCulture(empire).HasPoliticalTrait(trait)) return true;
+        return CompositeEmpireService.IsComposite(empire) &&
+               CompositeEmpireService.GetRulingCulture(empire).HasPoliticalTrait(trait);
     }
 
     private static string EraName(int tier)

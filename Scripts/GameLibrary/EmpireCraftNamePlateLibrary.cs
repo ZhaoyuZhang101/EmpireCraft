@@ -2200,7 +2200,7 @@ public static class EmpireCraftNamePlateLibrary
                             InstitutionNodeConfig reformNode = InstitutionDefinitionRegistry.Get(reform.node_id);
                             FixedFaction sponsor = InstitutionSystem.GetReformSponsor(empire, reform);
                             reformText = "\n" + string.Format(LM.Get("institution_nameplate_reform"),
-                                InstitutionSystem.GetNodeName(reformNode), reform.progress,
+                                InstitutionSystem.GetNodeName(empire, reformNode), reform.progress,
                                 sponsor?.Name ?? LM.Get("institution_reform_origin_ruler"), reform.radicalism)
                                 .ColorString(pColor: reform.radicalism >= 70f
                                     ? new Color(0.9f, 0.35f, 0.3f)

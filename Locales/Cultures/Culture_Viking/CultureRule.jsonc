@@ -15,6 +15,8 @@
             }
         },
         "traits": ["patriarchy"],
+        // 劫掠传统(领主派可提劫掠)，见 Locales/Cultures/README.md
+        "political_traits": ["raider"],
         "City": {
             "groups": {
                 "group_1": "CityNames1",
