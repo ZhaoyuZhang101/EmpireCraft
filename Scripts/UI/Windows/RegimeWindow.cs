@@ -490,7 +490,8 @@ public class RegimeWindow : AbstractWideWindow<RegimeWindow>
 
     private void ChangeRegime(RegimeType pType)
     {
-        if (_kingdom.GetRegime()?.type == pType) return;
+        RegimeType? previous = _kingdom.GetRegime()?.type;
+        if (previous == pType) return;
         Empire empire = _kingdom.GetEmpire();
         if (empire?.CoreKingdom == _kingdom && PartySystem.IsActive(empire)) return;
         // 有政党的话换政体时保留下来；帝国核心国换政体后立即同步共和/君主状态
@@ -500,7 +501,13 @@ public class RegimeWindow : AbstractWideWindow<RegimeWindow>
             _kingdom.GetOrCreate().regime_manually_selected = true;
             _kingdom.LoadRegime();
         });
-        if (empire != null && empire.CoreKingdom == _kingdom) GeneralSystems.RepublicSystem.SyncWithRegime(empire, manual: true);
+        if (empire != null && empire.CoreKingdom == _kingdom)
+        {
+            GeneralSystems.RepublicSystem.SyncWithRegime(empire, manual: true);
+            // 帝国核心手动换政体同样开幕府/大政奉还、离开阿拉伯政体时不再分苏丹哈里发(以前手动换政体跳过这些)
+            GeneralSystems.BakufuSystem.OnRegimeChanged(empire, previous, pType);
+            GeneralSystems.EmirateSystem.OnRegimeChanged(empire, previous, pType);
+        }
         RefreshKingdomStatus();
         InitialContent();
     }

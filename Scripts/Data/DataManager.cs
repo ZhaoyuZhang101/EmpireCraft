@@ -110,6 +110,8 @@ public static class DataManager
                 : RegimeType.Feudalism;
                     if (manuallySelected || RepublicSystem.IsRegimeLocked(kingdom))
                         regimeType = kingdom.GetOrCreate().regimeType;
+                    // 君主制帝国里的成员不因本文化已废君主制而成了现代政体(同 CultureService 的政体换算)
+                    else regimeType = InstitutionSystem.AdjustForMonarchyEmpire(kingdom, regimeType);
                     kingdom.SetRegimeType(regimeType);
                     kingdom.GetOrCreate().regime_manually_selected = manuallySelected;
                     kingdom.LoadRegime();
