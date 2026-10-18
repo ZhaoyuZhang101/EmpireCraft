@@ -176,12 +176,12 @@ public static class SurnameInheritanceSystem
         return true;
     }
 
-    // 两种文化同属一个文化圈(文化规则里配的制度线相同，如华夏、山海都是 Huaxia；没配的不算，不按默认线凑)
+    // 两种文化同属一个文化圈：同一天下(见 CultureService.SameKin，如华夏、山海都属华夏天下)。以前按制度线，
+    // 游牧一线的阿兹特克、林地部族也算草原的同一圈，易俗改制时不改姓
     public static bool SameSphere(string a, string b)
     {
         if (string.IsNullOrEmpty(a) || string.IsNullOrEmpty(b)) return false;
-        string line = a.GetInstitutionLine();
-        return !string.IsNullOrEmpty(line) && string.Equals(line, b.GetInstitutionLine(), StringComparison.Ordinal);
+        return CultureService.SameKin(a, b);
     }
 
     // 读档修正一次：宗族名与这一族历来的姓对不上的，宗族名改回历来的姓(族人的姓随后由 RepairClanSurnames 改回，史书里的旧名不动)。
