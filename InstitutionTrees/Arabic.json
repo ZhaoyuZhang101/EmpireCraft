@@ -167,7 +167,8 @@
         }
       ],
       "features": {
-        "constitution_basis_commerce": 1
+        "constitution_basis_commerce": 1,
+        "caravan_trade": 1
       }
     },
     {

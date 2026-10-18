@@ -106,7 +106,23 @@ public static class RoyalMarriageSystem
         Marry(kingdom, royal, best.other, best.partner);
     }
 
-    private static void Marry(Kingdom home, Actor royal, Kingdom other, Actor partner)
+    // 和亲(见 FrontierRelations)：本国君主的女儿或宗室女嫁给对方君主或储君；成了返回出嫁的人，没有合适的人返回 null
+    public static Actor ArrangeHeqin(Kingdom home, Kingdom other)
+    {
+        if (home?.data == null || other?.data == null || !home.hasKing() || !other.hasKing()) return null;
+        Actor groom = new[] { other.king, other.HasHeir() ? other.GetHeir() : null }
+            .FirstOrDefault(actor => actor != null && actor.isSexMale() && Marriageable(actor, other));
+        if (groom == null) return null;
+        IEnumerable<Actor> clan = home.GetEmpire()?.EmpireSpecificClan?.AllAliveMembers ?? Enumerable.Empty<Actor>();
+        Actor bride = (home.king?.getChildren(false) ?? Enumerable.Empty<Actor>()).Concat(clan).Distinct()
+            .FirstOrDefault(actor => actor != null && actor.isSexFemale() && !Ruling(actor, home) &&
+                                     Marriageable(actor, home) && !KinshipRules.AreCloseKin(actor, groom));
+        if (bride == null) return null;
+        Marry(home, bride, other, groom, log: false);
+        return bride.hasLover() ? bride : null;
+    }
+
+    private static void Marry(Kingdom home, Actor royal, Kingdom other, Actor partner, bool log = true)
     {
         PersonalClanIdentity a = royal.GetPersonalIdentity(), b = partner.GetPersonalIdentity();
         if (a == null || b == null) return;
@@ -131,6 +147,7 @@ public static class RoyalMarriageSystem
         double now = World.world.getCurWorldTime();
         home.GetOrCreate().marriage_pacts[other.id] = now;
         other.GetOrCreate().marriage_pacts[home.id] = now;
+        if (!log) return;
         string text = string.Format(LM.Get("royal_marriage_history"), home.GetKingdomName(), royal.getName(),
             other.GetKingdomName(), partner.getName());
         TranslateHelper.LogEventMessage(text, home);

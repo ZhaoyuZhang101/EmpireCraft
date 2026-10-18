@@ -59,6 +59,7 @@
 | `provincial_administration` | 游牧政体打下的法理设行省(行省制度) |
 | `sultanate` | 苏丹架空哈里发(阿拉伯政体) |
 | `principate` | 元首制：古典共和的首领在家族里相传，核心打下的城设行省 |
+| `caravan_trade` | 陆路商路：与异族邻国相安时每年得市易之利(多五成，见 FrontierRelations) |
 | `theocratic_state` | 神权国家 |
 | `claim_reform:<诉求名>` | 派系诉求（如 `开科取士`、`转天朝制度`）推动的改革目标 |
 

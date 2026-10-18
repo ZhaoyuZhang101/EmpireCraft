@@ -1150,10 +1150,11 @@ public class CityPatch : GamePatch
         TradeRouteSystem.TryMonthlyScan,
         VassalColorService.TickReassert,
         FeudalVassalService.TryYearlyTribute,
-        FamousTalentSystem.TryYearlyScan
+        FamousTalentSystem.TryYearlyScan,
+        FrontierRelations.TryYearlyScan
     };
     private static readonly string[] WorldYearlyScanNames =
-        { "宗族分支", "理念传播", "科技", "制度漂移", "苛政", "核威慑", "文化近代化", "失都改称", "战后分配", "羁縻边防", "行政区划界", "国债", "还于旧都", "战争赔款", "海上商路", "附庸描边", "封建贡赋", "名将名臣" };
+        { "宗族分支", "理念传播", "科技", "制度漂移", "苛政", "核威慑", "文化近代化", "失都改称", "战后分配", "羁縻边防", "行政区划界", "国债", "还于旧都", "战争赔款", "海上商路", "附庸描边", "封建贡赋", "名将名臣", "和亲互市" };
     private static int _worldScanFrame = -1;
     private const int SurrenderCheckEvery = 10;
     private const int SlowHookCitiesPerFrame = 3;

@@ -409,7 +409,9 @@ public static class WarGoalSystem
                 // 西方式附庸，改为对方向本帝国称臣纳贡；收不了朝贡的照旧赔款
                 if (!FeudalVassalService.UsesFeudalVassals(lord))
                 {
-                    if (TributaryRelations.Submit(lord, subject))
+                    // 降部戍边：游牧政权败给施行了羁縻的帝国，整部内附为羁縻州(见 FrontierRelations)
+                    if (FrontierRelations.SettleSurrenderedTribe(lord, subject)) { }
+                    else if (TributaryRelations.Submit(lord, subject))
                         TranslateHelper.LogEventMessage(string.Format(LM.Get("war_peace_tributary"), subject.GetKingdomName(),
                             lord.GetEmpire()?.GetEmpireName() ?? lord.GetKingdomName()), lord);
                     else WarReparationsSystem.Impose(subject, lord);
