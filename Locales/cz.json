@@ -2572,6 +2572,8 @@
   "war_peace_converted": "{0}战败，改奉{1}的{2}",
   "war_peace_trade": "{0}战败，被迫开港，与{1}通商二十年",
   "war_peace_installed": "{0}扶立{1}为{2}之君，废{3}",
+  "opinion_migration_grievance": "抽走或驱逐人口",
+  "stability_refugee_detail": "难民涌入",
   "capital_loss_restored": "{0}收复旧都{1}，还于旧都，复称{2}。",
   "kingdom_type_xingzai": "行在",
   "Later": "后",

@@ -100,7 +100,11 @@ public static class ClaimPolicySystem
             if (IdeologyPopulationSystem.CityProsperity(foreign) > IdeologyPopulationSystem.CityProsperity(own) + 0.1f)
                 continue;
             float amount = Mathf.Min(CityPopulationSystem.CivilianBackground(foreign) * OpenInflowShare, OpenInflowCap);
-            if (amount >= 1f) moved += CityPopulationSystem.TransferCivilianBackground(foreign, own, amount);
+            if (amount < 1f) continue;
+            float transferred = CityPopulationSystem.TransferCivilianBackground(foreign, own, amount);
+            moved += transferred;
+            // 被抽走人口的邻国记下这笔(见 MigrationRelations)
+            if (transferred > 0f) MigrationRelations.Drained(foreign.kingdom, empire.CoreKingdom);
         }
         // 外来人口压低工钱：劳工不满，商人得利
         if (moved > 0f)
@@ -135,12 +139,15 @@ public static class ClaimPolicySystem
                 float removed = CityPopulationSystem.RemoveBackground(group, group.Background * ExpelShare);
                 if (removed <= 0f) continue;
                 expelled = true;
-                // 送回同文化的邻国，没有就流散他乡
+                // 送回同文化的邻国，没有就涌入接壤的外国城做难民(见 MigrationRelations)
                 City home = abroad.FirstOrDefault(other => CultureService.GetRealmCulture(other.kingdom) == group.culture);
-                if (home == null) continue;
-                PopulationParallelSystem.Discard(home);
-                CityPopulationSystem.AddBackground(home, group.social_class, group.culture, group.species,
+                City refuge = home ?? abroad.FirstOrDefault();
+                if (refuge == null) continue;
+                PopulationParallelSystem.Discard(refuge);
+                CityPopulationSystem.AddBackground(refuge, group.social_class, group.culture, group.species,
                     group.ideology, removed);
+                if (home == null) MigrationRelations.TakeRefugees(refuge);
+                MigrationRelations.Expelled(refuge.kingdom, empire.CoreKingdom);
             }
         }
         if (!expelled) return;

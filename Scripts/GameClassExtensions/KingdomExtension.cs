@@ -423,6 +423,9 @@ public static class KingdomExtension
         public long union_partition_heir_id = -1L;
         // 姻亲之国(见 RoyalMarriageSystem)：对方国家 id → 联姻时间，二十年内互不开战
         public Dictionary<long, double> marriage_pacts = new();
+        // 移民的积怨(见 MigrationRelations)：哪国(帝国按核心)抽走本国人口、往本国驱逐人口，何时
+        public Dictionary<long, double> migration_drained = new();
+        public Dictionary<long, double> migration_expelled = new();
         public long union_city_state_heir_id = -1L;
         public bool union_city_state_local_succession;
         public long union_alliance_leader_kingdom_id = -1L;

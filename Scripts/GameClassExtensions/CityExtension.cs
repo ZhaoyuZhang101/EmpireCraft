@@ -70,6 +70,8 @@ public static class CityExtension
         public bool admin_overseas;
         // 最近一次被打下(或割让)的时间和当时的接收政权(帝国按核心王国记)。远方新征服之地管不到时转为间接统治(见 AdministrativeControlSystem)
         public double conquered_at = -1d;
+        // 难民涌入的时间(见 MigrationRelations；五年内稳定度少一截)
+        public double refugees_at = -1d;
         public long conquered_by = -1L;
         public string kingdom_names = "";
         public long title_id = -1L;

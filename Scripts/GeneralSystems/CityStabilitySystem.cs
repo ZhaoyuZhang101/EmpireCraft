@@ -225,6 +225,13 @@ public static class CityStabilitySystem
         detail = Pressure(input);
         float natural = CityStabilityRules.Natural(input.Loyalty, input.Legitimacy, input.Corruption, input.Sentiment,
             input.Landless, input.Famine, input.Grievance);
+        // 难民涌入(见 MigrationRelations)
+        float refugees = MigrationRelations.RefugeeLoss(city);
+        if (refugees > 0f)
+        {
+            natural = CityStabilityRules.Clamp(natural - refugees);
+            detail = string.IsNullOrEmpty(detail) ? MigrationRelations.Describe() : detail + " / " + MigrationRelations.Describe();
+        }
         // 异教之城(见 ReligiousTension)
         float faith = ReligiousTension.StabilityLoss(city);
         if (faith > 0f)

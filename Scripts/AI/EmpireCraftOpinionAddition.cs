@@ -31,6 +31,13 @@ public static class EmpireCraftOpinionAddition
             translation_key_negative = "opinion_nuclear_superiority",
             calc = EmpireCraft.Scripts.Compatibility.NuclearDoctrineSystem.DeterrenceOpinion
         });
+        // 移民积怨：抽走本国人口 −25、往本国驱逐人口 −40，十年(见 MigrationRelations)
+        opl.add(new OpinionAsset
+        {
+            id = "opinion_migration_grievance",
+            translation_key_negative = "opinion_migration_grievance",
+            calc = EmpireCraft.Scripts.GeneralSystems.MigrationRelations.Opinion
+        });
         // 跨文明通好：互认称号、互不侵犯的帝国好感 +40(见 GreatPowerDiplomacy)
         opl.add(new OpinionAsset
         {
