@@ -130,9 +130,11 @@ public static class TianxiaSystem
     }
 
     // 天下里各家(宗主)据有的城数与城的总数
+    // 与年度结算同一口径(见 UnificationSystem.Tally)：野生国的城不算(以前窗口里的占比把野生国算进总数，与结算不一致)
     public static (Dictionary<Kingdom, int> held, int total) Holdings(EmpireCore lead)
     {
-        List<City> cities = Cities(lead);
+        List<City> cities = Cities(lead).Where(city => city?.kingdom != null && !city.kingdom.isRekt() && !city.kingdom.wild)
+            .ToList();
         return (EmpireCoreControl.CountHolders(cities), cities.Count);
     }
 

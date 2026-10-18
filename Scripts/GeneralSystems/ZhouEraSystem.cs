@@ -102,8 +102,9 @@ public static class ZhouEraSystem
     public static Empire RealmOfCulture(string culture)
     {
         if (!CultureService.IsValidCulture(culture) || ModClass.EMPIRE_MANAGER == null) return null;
+        // 按天下(同文化或同天下标识，见 CultureService.SameKin)：华夏、山海……同一天下里只有一个周室(以前按文化一字不差)
         return ModClass.EMPIRE_MANAGER.FirstOrDefault(empire => Applies(empire) &&
-            string.Equals(CultureService.GetEmpireDefaultCulture(empire), culture, StringComparison.Ordinal));
+            CultureService.SameKin(CultureService.GetEmpireDefaultCulture(empire), culture));
     }
 
     // 本文化已有周制王朝、这国又不是它的王畿：不能另行称帝或发动正统之争，天下只有一个正统核心。
@@ -119,8 +120,7 @@ public static class ZhouEraSystem
     public static bool Unsubmitted(Empire empire, Kingdom kingdom) =>
         Applies(empire) && kingdom?.data != null && !kingdom.isRekt() && kingdom != empire.CoreKingdom &&
         SphereOf(kingdom) == null && !kingdom.IsInEmpire() && !kingdom.IsEmpire() && !kingdom.HasTakenAlliance() &&
-        string.Equals(CultureService.GetRealmCulture(kingdom), CultureService.GetEmpireDefaultCulture(empire),
-            StringComparison.Ordinal);
+        CultureService.SameKin(CultureService.GetRealmCulture(kingdom), CultureService.GetEmpireDefaultCulture(empire));
 
     // 天子兴师讨伐的不服王化之国：与王畿接壤、兵力不及王师的，先挑最弱的
     public static Kingdom SubdueTarget(Empire empire)
