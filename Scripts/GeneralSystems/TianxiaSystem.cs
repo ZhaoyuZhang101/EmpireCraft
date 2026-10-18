@@ -40,7 +40,7 @@ public static class TianxiaSystem
     public const int Peace = 0, Unrest = 1, Chaos = 2, Minor = 3;
     // 天下要有这么多城才评天命(用户 2026-10-19 选"各文明一个共同天下"：单核心要够大才给天命，免得一核心一天下白拿)；
     // 不够的记为偏安(不算治世、动荡、乱世，分治、起事、正统都照常)
-    private const int MinMandateCities = 8;
+    public const int MinMandateCities = 8;
 
     // 天命周期：0 治世、1 动荡、2 乱世(年度结算定下，见 Settle)
     public static int Phase(EmpireCore lead) => lead == null ? Chaos : lead.tianxia_phase < 0
@@ -468,6 +468,24 @@ public static class TianxiaSystem
         if (share < (holder != null && ImperialSealSystem.Holds(holder) ? SealClaimShare : ClaimShare)) return true;
         if (empire == null) return false;
         return empire.Legitimacy < ShakenMandate || DynasticCycleSystem.GetPressure(empire) >= ShakenPressure;
+    }
+
+    // 天命动摇的缘由(天下窗口显示)
+    public static List<string> ShakenReasons(EmpireCore lead)
+    {
+        var reasons = new List<string>();
+        Kingdom holder = Holder(lead);
+        if (holder == null) return reasons;
+        (Dictionary<Kingdom, int> held, int total) = Holdings(lead);
+        float share = total > 0 && held.TryGetValue(holder, out int ours) ? ours / (float)total : 0f;
+        float need = ImperialSealSystem.Holds(holder) ? SealClaimShare : ClaimShare;
+        if (share < need) reasons.Add(string.Format(LM.Get("tianxia_shaken_share"), share, need));
+        Empire empire = holder.GetEmpire();
+        if (empire == null) return reasons;
+        if (empire.Legitimacy < ShakenMandate) reasons.Add(string.Format(LM.Get("tianxia_shaken_legitimacy"), empire.Legitimacy, ShakenMandate));
+        float pressure = DynasticCycleSystem.GetPressure(empire);
+        if (pressure >= ShakenPressure) reasons.Add(string.Format(LM.Get("tianxia_shaken_pressure"), pressure, ShakenPressure));
+        return reasons;
     }
 
     // 换段：治世转动荡记"天命动摇"、动荡回治世记"复归治世"(乱世由失天命那一笔记过)

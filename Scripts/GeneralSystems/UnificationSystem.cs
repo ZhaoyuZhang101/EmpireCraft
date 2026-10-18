@@ -90,6 +90,14 @@ public static class UnificationSystem
         return since >= 0d ? Date.getYearsSince(since) : 0;
     }
 
+    // 开国气象还剩几年(天下窗口显示)；统一战争期间或没有开国气象时为 -1
+    public static int GraceYearsLeft(Kingdom kingdom)
+    {
+        if (!InGrace(kingdom)) return -1;
+        var data = Sovereign(kingdom).GetOrCreate();
+        return data.unified_at < 0d ? -1 : Math.Max(0, GraceYears - Date.getYearsSince(data.unified_at));
+    }
+
     // 开国气象：统一战争期间、统一后三十年(见 Empire.InFoundingGrace、RebellionSystem.CanAttempt)
     public static bool InGrace(Kingdom kingdom)
     {

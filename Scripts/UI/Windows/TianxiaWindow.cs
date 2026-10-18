@@ -110,7 +110,23 @@ namespace EmpireCraft.Scripts.UI.Windows
             if (held.Count == 0) Line(LM.Get("empire_core_none"));
             PartyIdeology? school = CliqueSystem.OfficialSchool(holder?.GetEmpire());
             if (school != null) Line(string.Format(LM.Get("tianxia_official_school"), PartySystem.GetIdeologyName(school.Value)));
-            Line(string.Format(LM.Get("tianxia_rule_hint"), $"{TianxiaSystem.ClaimShare:P0}", $"{TianxiaSystem.KeepShare:P0}")
+            // 天下处于哪一段：动荡的缘由、开国气象还剩几年
+            if (holder != null)
+            {
+                int phase = TianxiaSystem.Phase(lead);
+                if (phase == TianxiaSystem.Unrest)
+                {
+                    List<string> reasons = TianxiaSystem.ShakenReasons(lead);
+                    if (reasons.Count > 0)
+                        Line(string.Format(LM.Get("tianxia_shaken_reasons"), string.Join("、", reasons)).ColorString("#FFB852"));
+                }
+                int grace = UnificationSystem.GraceYearsLeft(holder);
+                if (grace >= 0) Line(string.Format(LM.Get("tianxia_grace_left"), grace).ColorString("#73F28C"));
+            }
+            else if (TianxiaSystem.Phase(lead) == TianxiaSystem.Minor)
+                Line(string.Format(LM.Get("tianxia_minor_hint"), TianxiaSystem.MinMandateCities).ColorString("#8FA0A8"));
+            Line(string.Format(LM.Get("tianxia_rule_hint"), $"{TianxiaSystem.ClaimShare:P0}", $"{TianxiaSystem.SealClaimShare:P0}",
+                    $"{TianxiaSystem.KeepShare:P0}", TianxiaSystem.MinMandateCities)
                 .ColorString("#8FA0A8"));
 
             // 来朝诸国(天下朝贡)
