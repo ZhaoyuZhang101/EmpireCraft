@@ -10,11 +10,13 @@ using UnityEngine;
 
 namespace EmpireCraft.Scripts.Layer;
 
-// 财富地图图层(MetaTypeExtension.Wealth)：按城市富庶度(经济繁荣 + 城市国库，乘地利，见 CityConstructionSystem.Wealth)
-// 由红(赤贫)到绿(富庶)着色——按全图排名分五档(最穷的两成赤贫、最富的两成富庶)，各城都穷或都富时也一眼看得出
-// 哪里最富庶、哪里最贫瘠。两种显示模式(图层按钮切换)：
-//   0 贫富热度：同一档的城市连成一片，只描档位交界；
-//   1 城市边界：每座城单独描边。
+// 财富地图图层(MetaTypeExtension.Wealth)：按城市富庶度(人均产出、人口为主，乘地利，见 CityConstructionSystem.Wealth)
+// 由红(赤贫)到绿(富庶)着色。三种显示模式(图层按钮切换)：
+//   0 贫富热度：按全图排名分五档(最穷的两成赤贫、最富的两成富庶)，各城都穷或都富时也一眼看得出哪里最富、哪里最穷；
+//     同一档的城市连成一片，只描档位交界；
+//   1 城市边界：同样按排名分档，每座城单独描边；
+//   2 固定档位：按富庶度本身分档(见 AbsoluteBucket)，不排名——普遍富足的天下不会硬凑出两成赤贫；同一档连成一片。
+// 经济圈选主城、城市格局的档位(见 EconomicCircleSystem)照旧按排名(Bucket)，不随图层显示模式变
 public sealed class WealthMapColor : MetaObject<IdeologyMapColorData>
 {
     private ColorAsset _color;
@@ -56,8 +58,26 @@ public static class WealthMap
         return score;
     }
 
-    // 富庶档位的颜色(铭牌数额用)
-    public static string Hex(City city) => BucketHex[Bucket(Score(city))];
+    // 富庶档位的颜色(按图层眼下的显示模式)
+    public static string Hex(City city) => BucketHex[DisplayBucket(Score(city))];
+
+    // 固定档位的分界：富庶度 0.25、0.4、0.55、0.7。稠密的农耕腹地约 0.6~0.75(殷实、富庶)，
+    // 边地小城约 0.4~0.5(小康)，游牧营地约 0.25~0.4(清贫)
+    private static readonly float[] AbsoluteEdges = { 0.25f, 0.4f, 0.55f, 0.7f };
+    public const int AbsoluteMode = 2;
+
+    public static int AbsoluteBucket(float score)
+    {
+        int bucket = 0;
+        while (bucket < AbsoluteEdges.Length && score >= AbsoluteEdges[bucket]) bucket++;
+        return bucket;
+    }
+
+    // 图层眼下是不是固定档位模式
+    public static bool Absolute => EmpireCraftMetaTypeLibrary.wealth?.getZoneOptionState() == AbsoluteMode;
+
+    // 图层显示用的档位：固定档位模式按富庶度本身，其余按全图排名
+    public static int DisplayBucket(float score) => Absolute ? AbsoluteBucket(score) : Bucket(score);
 
     // 按全图排名分档：富庶度在全图各城里排第几(两秒重排一次)
     private static float[] _ranked = new float[0];
@@ -71,8 +91,7 @@ public static class WealthMap
             _rankedAt = now;
             _ranked = World.world?.cities?.list?.Where(Shown).Select(Score).OrderBy(value => value).ToArray() ?? new float[0];
         }
-        if (_ranked.Length < 5)
-            return score >= 0.75f ? 4 : score >= 0.55f ? 3 : score >= 0.35f ? 2 : score >= 0.15f ? 1 : 0;
+        if (_ranked.Length < 5) return AbsoluteBucket(score);
         int below = global::System.Array.BinarySearch(_ranked, score);
         if (below < 0) below = ~below;
         float percentile = below / (float)_ranked.Length;
@@ -97,7 +116,7 @@ public static class WealthMap
             foreach (City city in World.world.cities)
             {
                 if (!Shown(city)) continue;
-                int bucket = Bucket(Score(city));
+                int bucket = BucketFor(mode, Score(city));
                 WealthMapColor color = ColorOf(bucket);
                 foreach (TileZone zone in city.zones)
                 {
@@ -131,24 +150,36 @@ public static class WealthMap
         asset.click_action_zone = new MetaZoneClickAction((tile, power) => false);
     }
 
+    private static int BucketFor(int mode, float score) => mode == AbsoluteMode ? AbsoluteBucket(score) : Bucket(score);
+
+    // 城市边界模式每座城描边；贫富热度、固定档位只描档位交界
     private static bool IsBorder(int mode, TileZone neighbour, City city, int bucket)
     {
         City other = neighbour?.city;
-        if (mode != 0) return other != city;
-        return !Shown(other) || Bucket(Score(other)) != bucket;
+        if (mode == 1) return other != city;
+        return !Shown(other) || BucketFor(mode, Score(other)) != bucket;
     }
 
-    // 悬停提示：富庶度与档位、城市国库、民间资产(无小人模式再列现金与投资池)
+    private static string Percent(float value) => Mathf.RoundToInt(Mathf.Clamp01(value) * 100f) + "%";
+
+    // 悬停提示：富庶度与档位(注明是按排名还是固定档位)、构成、城市国库、民间资产(无小人模式再列现金与投资池)
     public static void ShowTooltip(Tooltip tooltip, string type, TooltipData data)
     {
         City city = data?.city;
         if (city == null || city.isRekt()) return;
         tooltip.clear();
         float score = Score(city);
-        int bucket = Bucket(score);
+        bool absolute = Absolute;
+        int bucket = absolute ? AbsoluteBucket(score) : Bucket(score);
         tooltip.setTitle(city.GetCityFullName(), "wealth_layer_tooltip", "#FFFFFF");
-        tooltip.addLineText(LM.Get("wealth_layer_tooltip"), $"{score:P0} · {LM.Get(BucketKeys[bucket])}",
+        tooltip.addLineText(LM.Get("wealth_layer_tooltip"), $"{Percent(score)} · {LM.Get(BucketKeys[bucket])}",
             BucketHex[bucket], pPercent: false, pLocalize: false);
+        tooltip.addLineText(LM.Get("wealth_mode_label"), LM.Get(absolute ? "wealth_mode_absolute" : "wealth_mode_rank"),
+            "#D8D2B8", pPercent: false, pLocalize: false);
+        CityConstructionSystem.WealthParts parts = CityConstructionSystem.WealthBreakdown(city);
+        tooltip.addLineText(LM.Get("wealth_parts_label"),
+            string.Format(LM.Get("wealth_parts_value"), Percent(parts.Output), Percent(parts.Population), Percent(parts.Commerce),
+                Percent(parts.Assets)), "#D8D2B8", pPercent: false, pLocalize: false);
         float geography = CityGeographySystem.Factor(city);
         tooltip.addLineText(LM.Get("city_geography_label"),
             string.Format(LM.Get("city_geography_value"), geography, CityGeographySystem.Commerce(city), CityGeographySystem.Industry(city)),

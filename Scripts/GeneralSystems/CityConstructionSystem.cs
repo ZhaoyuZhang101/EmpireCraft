@@ -23,7 +23,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     拆下来的木头、石头回到仓库。没钱就留着，废墟占着地方盖不了新房；
 //   - 拓荒：新城还没盖起民居时，没有砍树采石的实体，民居要的木头凑不齐，城就一直只有篝火。这时百姓自己拾柴采石，
 //     每次结算往仓库补一点木头、石头，凑够盖头几座民居为止(见 Pioneer)。
-// 富庶度 = 经济繁荣度(商人、市民多、高级民居)与城市国库的综合，0~1。
+// 富庶度(0~1，见 Wealth)：主要看人均产出与人口，工商、民间家底各占一小份，乘地利。
 public static class CityConstructionSystem
 {
     private const float BasePointsPerSecond = 3f;
@@ -32,8 +32,6 @@ public static class CityConstructionSystem
     private const int FundingThreshold = 500;
     private const float FundingBonus = 1.5f;
     private const float PointsPerFundingGold = 10f;
-    // 城市国库达到这个数算"钱多"(富庶度里国库那一半拉满)
-    private const float RichCityMoney = 1000f;
     // 升级的花费：基础 + 升级后建筑施工量的一半
     private const int UpgradeBaseCost = 10;
 
@@ -52,23 +50,75 @@ public static class CityConstructionSystem
         return kingdom.IsInEmpire() && !kingdom.IsEmpire() ? ProvincialSeatBonus : CapitalBonus;
     }
 
-    // 富庶度(0~1)
-    public static float Wealth(City city)
+    // ---- 富庶度(0~1) ----
+    // 以前 = 商人市民的比例(六成)与城市国库(四成)乘地利：农耕腹地商人少、赋税上解把城库抽空，又多半缺皮革(繁荣度打七折)，
+    // 人口稠密的腹地在全图排到最穷的两成，边地、游牧营地反倒显得富。现在主要看人均产出与人口，不看城市国库：
+    //   人均产出 OutputWeight：一年产值(粮食、手工劳作、矿产、商贸，见 PopulationEconomySystem)÷ 财政户(百人)，
+    //     2 金为零、40 金拉满(按对数)；
+    //   人口 PopulationWeight：规模(一千人为零、三十万拉满)与密度(每地块三十人为零、三千人拉满)各半，都按对数；
+    //   工商 CommerceWeight：商人市民的比例与高级民居(见 IdeologyPopulationSystem.CityProsperity，那是自由主义的依据，这里不改它)；
+    //   家底 AssetWeight：民间资产(含存货估值，见 PopulationEconomySystem.Savings)÷ 财政户，百金为零、两万金拉满(按对数)。
+    // 合计再乘 0.4 + 0.6 × 地利(地利好的城更富庶，富庶度又加快建设；只乘六成，免得山城沙城在产出之外再被重罚一遍)。
+    // 开小人(没有背景人口经济)时只有人口与工商，按比例放大
+    private const float OutputWeight = 0.4f, PopulationWeight = 0.3f, CommerceWeight = 0.15f, AssetWeight = 0.15f;
+
+    public readonly struct WealthParts
     {
-        if (city == null) return 0f;
-        float prosperity = 0f;
+        public readonly float Output, Population, Commerce, Assets, Total;
+
+        public WealthParts(float output, float population, float commerce, float assets, float total)
+        {
+            Output = output;
+            Population = population;
+            Commerce = commerce;
+            Assets = assets;
+            Total = total;
+        }
+    }
+
+    public static float Wealth(City city) => WealthBreakdown(city).Total;
+
+    public static WealthParts WealthBreakdown(City city)
+    {
+        if (city?.data == null) return default;
+        float commerce = 0f;
         try
         {
-            prosperity = Mathf.Clamp01(IdeologyPopulationSystem.CityProsperity(city));
+            commerce = Mathf.Clamp01(IdeologyPopulationSystem.CityProsperity(city));
         }
         catch
         {
             // 算不出繁荣度按 0
         }
-        float treasury = Mathf.Clamp01(city.GetMoney() / RichCityMoney);
-        // 地利好的城更富庶(富庶度又加快建设，财富向河海平原、交通要冲集中)
-        return Mathf.Clamp01((prosperity * 0.6f + treasury * 0.4f) * CityGeographySystem.Factor(city));
+        int zones = city.zones?.Count ?? 0;
+        float population, output = 0f, assets = 0f, raw;
+        CityPopulationData data = CityPopulationSystem.AbstractPopulationEnabled ? CityPopulationSystem.Get(city) : null;
+        float households = data == null ? 0f : CityPopulationSystem.GetBackgroundTotal(city) / CityPopulationSystem.FiscalPeoplePerHousehold;
+        if (data != null && households >= 1f)
+        {
+            population = PopulationScore(CityPopulationSystem.GetTotal(city), zones);
+            output = LogScore(data.last_income / households, 2f, 40f);
+            assets = data.private_savings > 0f ? LogScore(data.private_savings / households, 100f, 20000f) : 0f;
+            raw = OutputWeight * output + PopulationWeight * population + CommerceWeight * commerce + AssetWeight * assets;
+        }
+        else
+        {
+            // 开小人：一个居民约当一户(百人)；无小人模式下还没有背景人口的新城按实有人数
+            float people = CityPopulationSystem.AbstractPopulationEnabled ? CityPopulationSystem.GetTotal(city)
+                : city.getPopulationPeople() * (float)CityPopulationSystem.PremodernPeoplePerSlot;
+            population = PopulationScore(people, zones);
+            raw = (PopulationWeight * population + CommerceWeight * commerce) / (PopulationWeight + CommerceWeight);
+        }
+        float total = Mathf.Clamp01(raw * (0.4f + 0.6f * CityGeographySystem.Factor(city)));
+        return new WealthParts(output, population, commerce, assets, total);
     }
+
+    private static float PopulationScore(float people, int zones) =>
+        0.5f * (LogScore(people, 1000f, 300000f) + LogScore(people / Mathf.Max(1, zones), 30f, 3000f));
+
+    // value 在 zero 以下为 0、到 full 为 1，中间按对数
+    private static float LogScore(float value, float zero, float full) =>
+        value <= zero || float.IsNaN(value) ? 0f : Mathf.Clamp01(Mathf.Log(value / zero) / Mathf.Log(full / zero));
 
     // 每月随人口经济结算一次：按经过的秒数推进施工，空闲时开下一座(或升级)
     public static void Settle(City city, CityPopulationData data, float seconds)
