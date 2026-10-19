@@ -557,6 +557,7 @@ public static class VirtualGenealogySystem
     private const int SmallClanSize = 3;
     private const int KeepHistoryHead = 1;
     private const int KeepHistoryTail = 2;
+    private const int KeepHistoryMajor = 4;
     private static readonly EmpireCraft.Scripts.HelperFunc.FrameBudgetQueue<long> PruneQueue =
         new(1.5d, PruneClan, "族谱瘦身");
     private static readonly HashSet<long> PrunedClans = new();
@@ -577,11 +578,11 @@ public static class VirtualGenealogySystem
                 anyAlive = true;
                 continue;
             }
+            // 首条、末两条之外再留几件大事(见 BiographySystem.Trim)，一生的起落不至于删光
             List<PersonalHistoryRecord> history = person.personal_history;
-            if (history == null || history.Count <= KeepHistoryHead + KeepHistoryTail) continue;
-            int remove = history.Count - KeepHistoryHead - KeepHistoryTail;
-            history.RemoveRange(KeepHistoryHead, remove);
-            _trimmedRecords += remove;
+            int cap = KeepHistoryHead + KeepHistoryTail + KeepHistoryMajor;
+            if (history == null || history.Count <= cap) continue;
+            _trimmedRecords += BiographySystem.Trim(history, cap, KeepHistoryTail, KeepHistoryMajor);
         }
         double now = World.world.getCurWorldTime();
         if (anyAlive)
@@ -1141,7 +1142,8 @@ public static class VirtualGenealogySystem
         if (!person.death_history_recorded)
         {
             person.death_history_recorded = true;
-            person.RecordPersonalHistory(string.Format(LM.Get($"virtual_person_death_{cause}"), person.recordedAge));
+            person.RecordPersonalHistory(string.Format(LM.Get($"virtual_person_death_{cause}"), person.recordedAge),
+                eventKey: BiographySystem.DeathKey, major: true);
         }
         VirtualIds.Remove(person.id);
         // 这个人原本算在所在城的背景人口里

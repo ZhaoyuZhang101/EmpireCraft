@@ -216,6 +216,7 @@ public class SaveManagerPatch : GamePatch
         EmpireCraft.Scripts.GeneralSystems.ReligiousTension.ResetWorldState();
         EmpireCraft.Scripts.GeneralSystems.GreatPowerDiplomacy.ResetWorldState();
         EmpireCraft.Scripts.GeneralSystems.UnificationSystem.ResetWorldState();
+        EmpireCraft.Scripts.GeneralSystems.BiographySystem.ResetWorldState();
         EmpireCraft.Scripts.GeneralSystems.EnclaveFill.ResetWorldState();
         ModClass.EMPIRE_MANAGER = new EmpireManager();
         ModClass.KINGDOM_TITLE_MANAGER = new KingdomTitleManager();

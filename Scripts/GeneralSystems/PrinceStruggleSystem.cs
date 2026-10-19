@@ -83,7 +83,8 @@ public static class PrinceStruggleSystem
             UnityEngine.Random.value < CoupChance * (mood > 1f ? 2f : 1f))
         {
             Record(empire, string.Format(LM.Get("prince_coup_history"), rival.getName(), heir.getName(), emperor.getName()), rival);
-            heir.die(false, AttackType.Other, true, true);
+            BiographySystem.Note(rival, BiographySystem.Format("bio_prince_coup_winner", heir.getName()), heir);
+            BiographySystem.Kill(heir, BiographySystem.Format("death_cause_coup", rival.getName()), rival);
             Install(empire, rival, NoteCoup);
             return;
         }
@@ -94,10 +95,13 @@ public static class PrinceStruggleSystem
             core.SetHeir(rival);
             Note(core, rival, NoteDeposed);
             Record(empire, string.Format(LM.Get("prince_deposed_history"), emperor.getName(), heir.getName(), rival.getName()), emperor);
+            BiographySystem.Note(heir, BiographySystem.Format("bio_heir_deposed", emperor.getName(), rival.getName()), emperor);
+            BiographySystem.Note(emperor, BiographySystem.Format("bio_emperor_deposed_heir", heir.getName(), rival.getName()), heir);
+            BiographySystem.Note(rival, BiographySystem.Format("bio_became_heir", heir.getName()), heir);
             if (UnityEngine.Random.value < 0.25f)
             {
                 Record(empire, string.Format(LM.Get("prince_deposed_killed_history"), heir.getName()), heir);
-                heir.die(false, AttackType.Other, true, true);
+                BiographySystem.Kill(heir, BiographySystem.Format("death_cause_deposed_heir", emperor.getName()), emperor, executed: true);
             }
         }
     }
@@ -136,13 +140,15 @@ public static class PrinceStruggleSystem
         if (UnityEngine.Random.value < ratio / (ratio + 1f))
         {
             Record(empire, string.Format(LM.Get("prince_strife_win_history"), rival.getName(), emperor.getName()), rival);
+            BiographySystem.Note(rival, BiographySystem.Format("bio_strife_winner", emperor.getName()), emperor);
             Install(empire, rival, NoteStrife);
-            if (emperor.isAlive()) emperor.die(false, AttackType.Other, true, true);
+            if (emperor.isAlive()) BiographySystem.Kill(emperor, BiographySystem.Format("death_cause_strife", rival.getName()), rival);
         }
         else
         {
             Record(empire, string.Format(LM.Get("prince_strife_lose_history"), rival.getName()), rival);
-            rival.die(false, AttackType.Other, true, true);
+            BiographySystem.Note(emperor, BiographySystem.Format("bio_strife_suppressed", rival.getName()), rival);
+            BiographySystem.Kill(rival, BiographySystem.Format("death_cause_strife_lost", emperor.getName()), emperor, executed: true);
         }
         foreach (City city in empire.CoreKingdom?.cities?.ToList() ?? new List<City>())
         {

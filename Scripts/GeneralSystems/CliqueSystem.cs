@@ -751,7 +751,10 @@ public static class CliqueSystem
             ratios[party] = 0;
             if (crown != null) ratios[crown] = (ratios.TryGetValue(crown, out int current) ? current : 0) + power;
         }
-        foreach (Actor eunuch in eunuchs) eunuch.die(true, AttackType.Other, false, false);
+        foreach (Actor eunuch in eunuchs)
+            BiographySystem.Kill(eunuch, BiographySystem.Format("death_cause_eunuch_purge", emperor.getName()), emperor,
+                executed: true, destroy: true, countDeath: false);
+        BiographySystem.Note(emperor, BiographySystem.Format("bio_eunuchs_purged", leaderName));
         empire.AddMandate(5);
         Record(empire, string.Format(LM.Get("clique_eunuch_purged_history"), emperor.getName(), leaderName, name), emperor);
     }

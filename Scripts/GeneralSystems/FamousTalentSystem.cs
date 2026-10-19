@@ -104,6 +104,10 @@ public static class FamousTalentSystem
 
     public static bool IsFamous(Actor actor) => Of(actor)?.alive == true;
 
+    // 按人取(在世或已故)，列传用
+    public static TalentRecord OfActorId(long actorId) =>
+        actorId >= 0 && ByActor.TryGetValue(actorId, out TalentRecord record) && record.rank >= TalentRank.Fine ? record : null;
+
     public static Actor ActorOf(TalentRecord record)
     {
         if (record == null || !record.alive || World.world == null) return null;
@@ -434,7 +438,8 @@ public static class FamousTalentSystem
             return;
         }
         RefreshRealm(record, actor);
-        TalentFall fall = type switch
+        // 赐死、处决的(见 BiographySystem.NoteDeath)记"伏诛"
+        TalentFall fall = BiographySystem.WasExecuted(actor) ? TalentFall.Executed : type switch
         {
             AttackType.Age => TalentFall.Age,
             AttackType.Weapon or AttackType.Explosion => TalentFall.Battle,

@@ -50,9 +50,12 @@ public static class HaremSuccessionSystem
             string text = string.Format(LM.Get("harem_heir_history"), consort.getName(), emperor.getName(),
                 favourite.getName(), passedOver.getName());
             Record(empire, emperor, text);
+            BiographySystem.Note(passedOver, BiographySystem.Format("bio_heir_passed_over", consort.getName(), favourite.getName()), favourite);
+            BiographySystem.Note(consort, BiographySystem.Format("bio_consort_won_heir", favourite.getName(), passedOver.getName()), favourite);
+            BiographySystem.Note(favourite, BiographySystem.Format("bio_became_heir", passedOver.getName()), passedOver);
             if (UnityEngine.Random.value >= MurderChance) return;
             string name = passedOver.getName();
-            passedOver.die(false, AttackType.Other, true, true);
+            BiographySystem.Kill(passedOver, LM.Get("death_cause_suspicious"));
             Record(empire, emperor, string.Format(LM.Get("harem_heir_death_history"), name));
         }
         catch (Exception exception)

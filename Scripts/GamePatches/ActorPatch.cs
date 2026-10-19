@@ -366,7 +366,13 @@ public class ActorPatch : GamePatch
             if (identity != null && !identity.death_history_recorded)
             {
                 identity.death_history_recorded = true;
-                identity.RecordPersonalHistory(LM.Get("personal_history_died"));
+                // 死因、地点、凶手(见 BiographySystem)；死的是要人，下手的人也记一笔
+                Kingdom realm = __instance.kingdom;
+                Empire realmEmpire = realm?.GetEmpire();
+                identity.RecordPersonalHistory(BiographySystem.DeathText(__instance, pType, out Actor killer),
+                    realmEmpire?.GetYearNameWithTime(), realm?.GetKingdomName(), realmEmpire?.id ?? -1L,
+                    BiographySystem.DeathKey, killer?.id ?? -1L, major: true);
+                BiographySystem.RecordKiller(__instance, killer);
             }
         }
 

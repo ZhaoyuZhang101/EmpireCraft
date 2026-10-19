@@ -642,7 +642,8 @@ public static class EmpirePartitionSystem
         string text = string.Format(LM.Get("partition_counter_history"), emperor.getName(), ministerName);
         emperor.RecordPersonalHistory(text, relatedActorId: minister.id);
         minister.RecordPersonalHistory(text, relatedActorId: emperor.id);
-        minister.die(true, AttackType.Other, false, false);
+        BiographySystem.Kill(minister, BiographySystem.Format("death_cause_executed_by", emperor.getName()), emperor,
+            executed: true, destroy: true, countDeath: false);
         empire.RecordHistory(directContent: text, actorId: emperor.id);
         TranslateHelper.LogEventMessage(text, core);
     }

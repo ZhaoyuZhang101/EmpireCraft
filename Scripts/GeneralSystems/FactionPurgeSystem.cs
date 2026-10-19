@@ -154,7 +154,11 @@ public static class FactionPurgeSystem
                 empire.data.is_been_controlled = false;
             }
             if (villain?.data != null && villain.isAlive() && villain != empire.Emperor)
-                villain.die(false, AttackType.Other, true, true);
+            {
+                Actor avenger = rebels.GetLeader();
+                BiographySystem.Note(avenger, BiographySystem.Format("bio_purge_leader", villainName), villain);
+                BiographySystem.Kill(villain, BiographySystem.Format("death_cause_purge", rebels.Name), avenger, executed: true);
+            }
             core.TryIncreaseFactionRatio(rebels, RatioTransfer);
             empire.data.faction_imbalance *= 0.3f;
             empire.data.faction_imbalance_warned = false;

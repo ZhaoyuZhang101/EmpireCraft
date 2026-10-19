@@ -878,6 +878,7 @@ public static class RepublicSystem
     {
         if (victim == null || victim.isRekt() || !victim.isAlive()) return;
         victim.RecordPersonalHistory(history, "revolution_execution", revolutionaryLeader?.id ?? -1L);
+        BiographySystem.NoteDeath(victim, LM.Get("death_cause_revolution"), revolutionaryLeader, executed: true);
         victim.addTrait("death_mark");
         victim.ChangeDeathRate(1f);
         victim.setHealth(0);

@@ -300,7 +300,7 @@ public static class RoyalHouseSystem
                 realm.RecordHistory(directContent: text, actorId: actor.id);
                 TranslateHelper.LogEventMessage(text, realm.CoreKingdom);
             }
-            actor.die(false, AttackType.Other, true, true);
+            BiographySystem.Kill(actor, LM.Get("death_cause_child"));
             if (emperor) Turmoil(empire, heir, designated);
         }
     }
@@ -337,7 +337,7 @@ public static class RoyalHouseSystem
         string text = string.Format(LM.Get("emperor_mishap_" + key), emperor.getName());
         empire.RecordHistory(directContent: text, actorId: emperor.id);
         TranslateHelper.LogEventMessage(text, core);
-        emperor.die(false, AttackType.Other, true, true);
+        BiographySystem.Kill(emperor, LM.Get("death_cause_mishap_" + key));
         Turmoil(empire, heir, designated);
     }
 

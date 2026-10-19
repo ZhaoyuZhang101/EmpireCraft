@@ -272,6 +272,19 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
 
         _identity.BackfillCurrentEraNameHistory();
         _identity.BackfillChildBirthHistoryNames();
+        // 列传：帝王、有爵有官、名将名臣、大事够多的人(见 BiographySystem.Compose)
+        string biography = BiographySystem.Compose(_identity);
+        if (!string.IsNullOrEmpty(biography))
+        {
+            historySpace.AddTextIntoVertLayout(LM.Get("biography_heading").ColorString(pColor: new Color(1f, 0.78f, 0.2f)), true,
+                TextAnchor.MiddleCenter, new Vector2(130, 16));
+            float units = biography.Sum(c => c < 0x2E80 ? 0.5f : 1f);
+            int lines = Mathf.Max(1, Mathf.CeilToInt(units / 20f));
+            SimpleText paragraph = historySpace.AddTextIntoVertLayout(biography, true, TextAnchor.UpperLeft,
+                new Vector2(176, lines * 10f + 4f));
+            paragraph.UseFixedFontSize(8, HorizontalWrapMode.Wrap);
+            paragraph.RefreshAutoHeight(lines * 10f + 4f, 4f);
+        }
         List<PersonalHistoryRecord> records = (_identity.personal_history ?? new List<PersonalHistoryRecord>())
             .OrderBy(record => record.timestamp)
             .ToList();

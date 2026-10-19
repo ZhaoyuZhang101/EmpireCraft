@@ -984,7 +984,7 @@ public static class ActorExtension
         return SpecificClanManager.getPerson(ed.personal_identity);
     }
     public static void RecordPersonalHistory(this Actor a, string content, string eventKey = "", long relatedActorId = -1L,
-        long relatedPersonalIdentityId = -1L)
+        long relatedPersonalIdentityId = -1L, bool major = false)
     {
         if (a == null || World.world == null || ModClass.IS_CLEAR) return;
         PersonalClanIdentity identity = a.GetPersonalIdentity();
@@ -992,21 +992,22 @@ public static class ActorExtension
         Empire empire = kingdom?.GetEmpire();
         string historyDate = empire?.GetYearNameWithTime();
         identity.RecordPersonalHistory(content, historyDate, kingdom?.GetKingdomName(), empire?.id ?? -1L, eventKey,
-            relatedActorId, relatedPersonalIdentityId);
+            relatedActorId, relatedPersonalIdentityId, major);
     }
 
     // 个人经历上限：族谱里连已故族人的经历也存档，不设上限存档会膨胀到几百 MB、读档内存不够直接闪退。
-    // 超出时丢掉最早的记录，但保留第一条(通常是出生)
-    // 已故族人只留 12 条(出生、婚育、官职、逝世这些大事足够)，族谱里绝大多数是已故的人
+    // 超出时留第一条(通常是出生)、最近几条与大事，先删例行公事(见 BiographySystem.Trim)
+    // 已故族人只留 12 条，族谱里绝大多数是已故的人
     public const int MaxPersonalHistory = 80;
     public const int MaxDeceasedPersonalHistory = 12;
 
     public static void TrimPersonalHistory(PersonalClanIdentity identity)
     {
         List<PersonalHistoryRecord> history = identity?.personal_history;
-        int cap = identity?.is_alive == false ? MaxDeceasedPersonalHistory : MaxPersonalHistory;
+        bool dead = identity?.is_alive == false;
+        int cap = dead ? MaxDeceasedPersonalHistory : MaxPersonalHistory;
         if (history == null || history.Count <= cap) return;
-        history.RemoveRange(1, history.Count - cap);
+        BiographySystem.Trim(history, cap, 3, dead ? BiographySystem.MaxDeceasedMajor : BiographySystem.MaxMajor);
     }
 
     // 存档前把所有族人的经历压到上限(已故的人不再记新经历，只能在这里收)
@@ -1019,7 +1020,7 @@ public static class ActorExtension
 
     public static void RecordPersonalHistory(this PersonalClanIdentity identity, string content, string historyDate = null,
         string kingdomName = "", long empireId = -1L, string eventKey = "", long relatedActorId = -1L,
-        long relatedPersonalIdentityId = -1L)
+        long relatedPersonalIdentityId = -1L, bool major = false)
     {
         if (identity == null || World.world == null || ModClass.IS_CLEAR || string.IsNullOrWhiteSpace(content)) return;
         double now = World.world.getCurWorldTime();
@@ -1035,7 +1036,8 @@ public static class ActorExtension
             event_key = eventKey ?? "",
             related_actor_id = relatedActorId,
             related_personal_identity_id = relatedPersonalIdentityId,
-            owner_personal_identity_id = identity.id
+            owner_personal_identity_id = identity.id,
+            major = major || !BiographySystem.IsRoutine(content)
         };
         identity.personal_history.Add(record);
         TrimPersonalHistory(identity);
