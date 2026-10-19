@@ -3,6 +3,7 @@ using System.Diagnostics;
 using EmpireCraft.Scripts.GeneralSystems;
 using HarmonyLib;
 using NeoModLoader.api;
+using NeoModLoader.services;
 using UnityEngine;
 
 namespace EmpireCraft.Scripts.GamePatches;
@@ -11,10 +12,9 @@ namespace EmpireCraft.Scripts.GamePatches;
 //   · 原版"全图重画"(dirtyAndClear：国家换色、帝国变动、分封等都会触发)把五千多块地挤在同一帧上色，卡半秒多；
 //   · 这里每帧上色到预算用完为止，余下的地块留到下一轮(原版每帧巡一遍要重画的地块，没画的下一轮还会画)；
 //     屏幕里的地块预算宽一些，先画看得见的；
-//   · 只有还留着旧颜色的地块才分帧；切换图层、选中东西时原版先把色块清空了，空着的地块当帧全部画上，
-//     不会一块一块地冒出来；
-//   · 全图重画时不先把色块清成透明(原版先清空再重画，分帧画会露出一块块空白)，旧颜色留到新颜色画上为止，
-//     不再归任何对象的地块照原版在下一轮清掉。
+//   · 空白地块(不在"已画"名单里：刚建的城、读档后头一遍)预算宽得多(BlankBudgetMs)，尽快画上，但也不再不限量；
+//   · 全图重画、清空已画地块(原版 clearCurrentDrawnZones：切换图层选项、选中对象变了、缩放跨过远景门槛)时不先把色块清成透明
+//     (原版先清空再重画，分帧画会露出一块块空白)，旧颜色留到新颜色画上为止，不再归任何对象的地块照原版在下一轮清掉。
 // 只在纯净地图或平滑国界开着时生效；每帧上色耗时记在帧率体检里(纯净地图·地块上色)。
 public class ZonePaintBudget : GamePatch
 {
@@ -22,12 +22,25 @@ public class ZonePaintBudget : GamePatch
     // 正在换色、等着画新样子的地块(见 SmoothBorders.Awaiting)与悬停、刚移开的省(SmoothBorders.HoverUrgent)预算放宽到
     // UrgentBudgetMs，整片换色尽快画齐、一起翻，悬停跟手
     private const double BudgetMs = 6d, VisibleBudgetMs = 14d, UrgentBudgetMs = 30d;
+    // 空白地块：以前当帧不限量全部画上，读档、缩放跨过远景门槛(原版清空整图)时五千多块挤在一帧，
+    // 性能日志"原版·updateMapLayers"一帧 500~570 毫秒；现在每帧画到 40 毫秒为止，余下的下一帧接着按这个预算画
+    private const double BlankBudgetMs = 40d;
     private const int MinZonesPerFrame = 6;
     private static readonly double TicksPerMs = Stopwatch.Frequency / 1000d;
 
     private static int _frame = -1, _painted, _visibleFrame = -1, _deferredFrame = -10;
     private static long _spent, _started;
     private static readonly HashSet<int> Visible = new();
+    // 因预算延后的空白地块：原版照常调 drawEnd 记进"已画"名单(不会被当成多余的块清掉)，但它还是空的(或旧的)，
+    // 下一帧仍按空白地块的预算画，不落到普通预算里慢慢排
+    private static readonly HashSet<int> Blank = new();
+    // 空白地块分帧的统计：这一阵延后了多少帧、多少块次(画完后记一行日志，看分帧是否常被触发)
+    private static int _blankFrames, _blankDeferred, _blankLastFrame = -10000, _blankCountedFrame = -1;
+    // 正在缩放跨过远景门槛(QualityChanger.setZoomOrthographic 里原版清空整图)
+    private static bool _zoomSwitch;
+    // 上次清空已画地块的时刻：之后一秒镜头里的地块按"急着画"的预算上色(同平滑国界换图层)，新样子尽快盖住旧的
+    private static float _clearedAt = -10f;
+    private const float ClearUrgentSeconds = 1f;
 
     private static bool Active => PureMapMode.Enabled || SmoothBorders.Enabled;
 
@@ -51,10 +64,34 @@ public class ZonePaintBudget : GamePatch
             prefix: new HarmonyMethod(typeof(ZonePaintBudget), nameof(BeforeClearAll)));
         harmony.Patch(AccessTools.Method(typeof(ZoneCalculator), "drawZoneClear"),
             postfix: new HarmonyMethod(typeof(ZonePaintBudget), nameof(AfterZoneClear)));
+        harmony.Patch(AccessTools.Method(typeof(ZoneCalculator), "clearCurrentDrawnZones"),
+            prefix: new HarmonyMethod(typeof(ZonePaintBudget), nameof(BeforeClearDrawn)));
+        harmony.Patch(AccessTools.Method(typeof(QualityChanger), "setZoomOrthographic"),
+            prefix: new HarmonyMethod(typeof(ZonePaintBudget), nameof(BeforeZoom)),
+            finalizer: new HarmonyMethod(typeof(ZonePaintBudget), nameof(AfterZoom)));
     }
 
     // 原版清空了一块地：平滑国界忘掉它记下的底色、渐变(见 SmoothBorders.Cleared)
     private static void AfterZoneClear(TileZone pZone) => SmoothBorders.Cleared(pZone);
+
+    private static void BeforeZoom() => _zoomSwitch = true;
+    private static void AfterZoom() => _zoomSwitch = false;
+
+    // 原版清空所有已画地块(切换图层选项、选中对象变了、清色设置变了、缩放跨过远景门槛)：原版逐块清成透明、移出"已画"名单，
+    // 下一轮这五千多块都成了空白地块、当帧全部重画，平滑国界的上色缓存也随清空一起丢掉(见 SmoothBorders.Cleared)。
+    // 这里只让它们下一轮重画(同 BeforeDirtyAndClear)：旧颜色和上色缓存留着，分帧画上新样子；不再归谁的地块照原版下一轮清掉。
+    // 纯净地图下缩放跨过远景门槛时连重画都不必：清除色恒为不透明(见 PureMapPatch.BeforeShouldBeClearColor)，
+    // 色块与远近无关，悬停、选中随远近变了另由 checkClearAllZonesToRedraw 只重新提亮(见 BeforeClearAll)。
+    // 没开纯净地图(只开平滑国界)时近看内部要清成透明，照样重画，只是分帧
+    private static bool BeforeClearDrawn(ZoneCalculator __instance, bool pCleanTimer)
+    {
+        if (!Active) return true;
+        if (_zoomSwitch && PureMapMode.Enabled) return false;
+        foreach (TileZone zone in __instance._current_drawn_zones) zone.resetRenderHelpers();
+        if (pCleanTimer) __instance.clearAllRedrawTimers();
+        _clearedAt = Time.unscaledTime;
+        return false;
+    }
 
     private static void NewFrame()
     {
@@ -63,6 +100,18 @@ public class ZonePaintBudget : GamePatch
         _frame = frame;
         _painted = 0;
         _spent = 0L;
+        if (_blankFrames > 0 && frame - _blankLastFrame > 2) ReportBlank();
+        // 一阵子没有延后的空白地块：清掉残留的记号(延后后又不归谁、不再画的块)
+        if (Blank.Count > 0 && frame - _blankLastFrame > 600) Blank.Clear();
+    }
+
+    // 空白地块分帧画完：记一行日志(一阵一行)
+    private static void ReportBlank()
+    {
+        LogService.LogInfo($"[EmpireCraft][地块上色] 空白地块超过每帧 {BlankBudgetMs:0} 毫秒的预算，分 {_blankFrames} 帧画完，" +
+                           $"延后 {_blankDeferred} 块次");
+        _blankFrames = 0;
+        _blankDeferred = 0;
     }
 
     // 原版比对的指纹补上实际控制方、实际颜色、所属帝国(见 SmoothBorders.Fingerprint)：这些变了下一轮巡检就重画
@@ -78,16 +127,47 @@ public class ZonePaintBudget : GamePatch
     {
         if (!__result || !Active) return;
         NewFrame();
-        if (_painted < MinZonesPerFrame) return;
-        // 已经清空的地块(不在"已画"名单里)：当帧画上
-        if (World.world?.zone_calculator == null || !World.world.zone_calculator._current_drawn_zones.Contains(__instance)) return;
+        if (_painted < MinZonesPerFrame)
+        {
+            if (Blank.Count > 0) Blank.Remove(__instance.id);
+            return;
+        }
+        ZoneCalculator calc = World.world?.zone_calculator;
+        if (calc == null) return;
         double spent = _spent / TicksPerMs;
+        // 空白地块(不在"已画"名单里，或上一帧因预算延后的空白地块)：按宽得多的预算尽快画上
+        if (!calc._current_drawn_zones.Contains(__instance) || Blank.Count > 0 && Blank.Contains(__instance.id))
+        {
+            if (spent < BlankBudgetMs)
+            {
+                if (Blank.Count > 0) Blank.Remove(__instance.id);
+                return;
+            }
+            Blank.Add(__instance.id);
+            int frame = Time.frameCount;
+            if (_blankCountedFrame != frame)
+            {
+                _blankCountedFrame = frame;
+                _blankFrames++;
+            }
+            _blankDeferred++;
+            _blankLastFrame = frame;
+            Defer(__instance, ref __result);
+            return;
+        }
         if (spent < BudgetMs || spent < VisibleBudgetMs && IsVisible(__instance) ||
             spent < UrgentBudgetMs && (SmoothBorders.Awaiting(__instance) || SmoothBorders.HoverUrgent(__instance) ||
-                                       SmoothBorders.LayerFlipPending && IsVisible(__instance))) return;
-        __result = false;
+                                       (SmoothBorders.LayerFlipPending || Time.unscaledTime - _clearedAt < ClearUrgentSeconds) &&
+                                       IsVisible(__instance))) return;
+        Defer(__instance, ref __result);
+    }
+
+    // 这块地这一帧不画：原版之后照常调 drawEnd(记进"已画"名单、不会被当成多余的块清掉)，下一轮再画
+    private static void Defer(TileZone zone, ref bool result)
+    {
+        result = false;
         _deferredFrame = Time.frameCount;
-        __instance.resetRenderHelpers();
+        zone.resetRenderHelpers();
     }
 
     private static void BeginPaint()
@@ -155,6 +235,7 @@ public class ZonePaintBudget : GamePatch
     // 它要让没悬停的对象变淡、悬停的边框呼吸；纯净地图下色块不透明，变淡本来就看不出来，呼吸也改成了常亮，
     // 整图重画(这里一次几百毫秒)白白卡一下。纯净地图下这种情况只把新旧悬停、选中对象的格子重新提亮或还原(约一毫秒)，
     // 平滑国界下只是鼠标移到别的对象上也这样；平滑国界下切换图层选项不清空，分帧重画、翻牌；清色设置变了照原版重画
+    // (原版的清空只让各块下一轮重画，见 BeforeClearDrawn)
     private static NanoObject _lastCursor, _lastSelected;
 
     private static bool BeforeClearAll(ZoneCalculator __instance)
