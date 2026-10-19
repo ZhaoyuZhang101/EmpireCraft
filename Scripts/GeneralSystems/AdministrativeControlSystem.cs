@@ -101,8 +101,9 @@ public static class AdministrativeControlSystem
         return loss + over * OverextensionPenalty * (1.2f - control);
     }
 
-    // 间接统治：羁縻地区；自主外交的世袭成员与自治城邦；周制、封建帝国里的诸侯(周制直辖的郡、帝国核心除外)
-    private static bool IsIndirect(Kingdom kingdom)
+    // 间接统治：羁縻地区；自主外交的世袭成员与自治城邦；周制、封建帝国里的诸侯(周制直辖的郡、帝国核心除外)。
+    // 水土(ShuiTuSystem)按同一口径分直辖与否
+    public static bool IsIndirect(Kingdom kingdom)
     {
         Empire empire = kingdom?.GetEmpire();
         if (empire == null || kingdom == empire.CoreKingdom) return false;

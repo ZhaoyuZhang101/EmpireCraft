@@ -62,6 +62,8 @@ public static class EmpireCraftStrategicScheduler
         using (FrameProfiler.Measure("天下大势")) UnificationSystem.Tick();
         using (FrameProfiler.Measure("飞地年度维护")) ExclaveMaintenanceSystem.Tick();
         AdministrativeControlSystem.Tick();
+        // 水土：游牧离草、定居入草(每帧至多一个政权，一年一次，见 ShuiTuSystem)
+        ShuiTuSystem.Tick();
         CultureRadiation.Tick();
         CityStabilitySystem.Tick();
         using (FrameProfiler.Measure("帝国改划")) AdministrationReorganizationSystem.Tick();

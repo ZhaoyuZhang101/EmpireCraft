@@ -72,6 +72,10 @@ public static class CityExtension
         public double conquered_at = -1d;
         // 难民涌入的时间(见 MigrationRelations；五年内稳定度少一截)
         public double refugees_at = -1d;
+        // 水土(见 ShuiTuSystem)：不服旱地水土的定居政权(帝国按核心，自成一体的成员按本国)占着这座旱地城的起始时间与政权；
+        // -1 = 没在计(旧档没有这两项，从第一次结算起算)
+        public double shuitu_since = -1d;
+        public long shuitu_owner = -1L;
         public long conquered_by = -1L;
         public string kingdom_names = "";
         public long title_id = -1L;

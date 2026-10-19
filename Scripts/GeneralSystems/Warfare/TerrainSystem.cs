@@ -7,7 +7,9 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 战线地形(借鉴钢铁雄心)：每块地块按格子构成定一种地形(格子改了当场重判，否则 4~6 年重判一次，见 Lookup)。
 // 交战时看攻方要推进的那块地：攻方战力打折、双方额外掉组织度(补给难)、每月最多推进几块；
 // 山地、沼泽、丛林行军慢一半。城中心那块地算城池。
-// 原版最高的地形(山地、山巅是阻挡格，地面单位走不了)占到四分之三的地块不可通行：军团绕行，战线不从这里推进
+// 原版最高的地形(山地、山巅是阻挡格，地面单位走不了)占到四分之三的地块不可通行：军团绕行，战线不从这里推进。
+// 同一份缓存还记着地块里的陆地格数与旱地格数(水土用，见 ShuiTuSystem、DryCounts)：旱地按 LandKinds.Dry(荒漠、稀树草原、荒原)，
+// 陆地不含水、岩浆——同毡帐村镇的口径(RuralSettlementSystem.YurtGround)；这里的"沙漠"地形连海滩沙地也算，水土不用它
 public enum FrontTerrain { Plains, Forest, Jungle, Hills, Mountain, River, Swamp, Desert, Snow, Urban }
 
 public readonly struct TerrainEffect
@@ -50,6 +52,8 @@ public static class TerrainSystem
         public double At;
         public FrontTerrain Terrain;
         public bool Impassable, Known;
+        // 陆地格数、旱地格数(一块地 64 格)
+        public byte Land, Dry;
     }
 
     private const int RefreshMonths = 48, RefreshSpreadMonths = 24;
@@ -71,22 +75,37 @@ public static class TerrainSystem
     public static TerrainEffect Effect(FrontTerrain terrain) =>
         Effects.TryGetValue(terrain, out TerrainEffect effect) ? effect : Effects[FrontTerrain.Plains];
 
-    public static FrontTerrain Of(TileZone zone) => Lookup(zone).terrain;
+    public static FrontTerrain Of(TileZone zone) => Lookup(zone).Terrain;
 
     // 地形与能否通行一次取出(地形阻力两样都要，免得查两遍缓存)
     public static FrontTerrain Of(TileZone zone, out bool impassable)
     {
-        (FrontTerrain terrain, bool blocked) = Lookup(zone);
-        impassable = zone != null && blocked;
-        return terrain;
+        Entry entry = Lookup(zone);
+        impassable = zone != null && entry.Impassable;
+        return entry.Terrain;
     }
 
     // 原版最高的地形：山地、山巅(阻挡格)占到四分之三的地块，军团绕行、战线不从这里推进
-    public static bool Impassable(TileZone zone) => zone != null && Lookup(zone).impassable;
+    public static bool Impassable(TileZone zone) => zone != null && Lookup(zone).Impassable;
 
-    private static (FrontTerrain terrain, bool impassable) Lookup(TileZone zone)
+    // 地块里的陆地格数与旱地格数(水土，见 ShuiTuSystem)
+    public static (int land, int dry) DryCounts(TileZone zone)
     {
-        if (zone?.tiles == null || World.world == null) return (FrontTerrain.Plains, false);
+        if (zone == null) return (0, 0);
+        Entry entry = Lookup(zone);
+        return (entry.Land, entry.Dry);
+    }
+
+    // 旱地地块：陆地里一半以上是旱地
+    public static bool IsDry(TileZone zone)
+    {
+        (int land, int dry) = DryCounts(zone);
+        return land > 0 && dry * 2 > land;
+    }
+
+    private static Entry Lookup(TileZone zone)
+    {
+        if (zone?.tiles == null || World.world == null) return new Entry { Terrain = FrontTerrain.Plains };
         int id = zone.id;
         if (id < 0) return Classify(zone);
         if (id >= _cache.Length)
@@ -94,10 +113,12 @@ public static class TerrainSystem
         double now = World.world.getCurWorldTime();
         ref Entry hit = ref _cache[id];
         if (hit.Known && now >= hit.At && Date.getMonthsSince(hit.At) < RefreshMonths + id % RefreshSpreadMonths)
-            return (hit.Terrain, hit.Impassable);
-        (FrontTerrain terrain, bool impassable) = Classify(zone);
-        hit = new Entry { At = now, Terrain = terrain, Impassable = impassable, Known = true };
-        return (terrain, impassable);
+            return hit;
+        Entry fresh = Classify(zone);
+        fresh.At = now;
+        fresh.Known = true;
+        hit = fresh;
+        return fresh;
     }
 
     // 交战地形：城中心那块地是城池
@@ -176,15 +197,32 @@ public static class TerrainSystem
 
     // 按地块里 64 格的构成判定：山多为山地，山与丘陵多为丘陵，其次沼泽、水网(河湖)、丛林、森林、沙漠、雪原，都不够为平原。
     // 门槛按本地大地图实测：城市地块里平原约四成，丛林、雪原、水网、山地、丘陵各占一到两成(视地图而定)
-    private static (FrontTerrain terrain, bool impassable) Classify(TileZone zone)
+    private static Entry Classify(TileZone zone)
+    {
+        (FrontTerrain terrain, bool impassable, int land, int dry) = ClassifyTiles(zone);
+        return new Entry
+        {
+            Terrain = terrain, Impassable = impassable,
+            Land = (byte)Math.Min(byte.MaxValue, land), Dry = (byte)Math.Min(byte.MaxValue, dry)
+        };
+    }
+
+    private static (FrontTerrain terrain, bool impassable, int land, int dry) ClassifyTiles(TileZone zone)
     {
         int total = 0, water = 0, mountain = 0, hills = 0, trees = 0, woods = 0, swamp = 0, jungle = 0, desert = 0, snow = 0,
-            blocked = 0;
+            blocked = 0, land = 0, dry = 0;
         foreach (WorldTile tile in zone.tiles)
         {
             TileTypeBase type = tile?.Type;
             if (type == null) continue;
             total++;
+            // 水土：陆地(不含水、岩浆)与其中的旱地
+            int kinds = LandKinds.Of(type);
+            if ((kinds & (LandKinds.Water | LandKinds.Lava)) == 0)
+            {
+                land++;
+                if ((kinds & LandKinds.Dry) != 0) dry++;
+            }
             int marks = Marks(type);
             if ((marks & MarkWater) != 0)
             {
@@ -205,18 +243,18 @@ public static class TerrainSystem
             BuildingAsset flora = tile.building?.asset;
             if (flora != null && flora.flora && flora.flora_type == FloraType.Tree) trees++;
         }
-        if (total == 0) return (FrontTerrain.Plains, false);
+        if (total == 0) return (FrontTerrain.Plains, false, land, dry);
         bool impassable = blocked >= total * 0.75f;
         float Share(int count) => count / (float)total;
-        if (Share(mountain) >= 0.25f) return (FrontTerrain.Mountain, impassable);
-        if (Share(mountain + hills) >= 0.3f) return (FrontTerrain.Hills, impassable);
-        if (Share(swamp) >= 0.3f) return (FrontTerrain.Swamp, impassable);
-        if (Share(water) >= 0.15f) return (FrontTerrain.River, impassable);
-        if (Share(jungle) >= 0.3f) return (FrontTerrain.Jungle, impassable);
+        if (Share(mountain) >= 0.25f) return (FrontTerrain.Mountain, impassable, land, dry);
+        if (Share(mountain + hills) >= 0.3f) return (FrontTerrain.Hills, impassable, land, dry);
+        if (Share(swamp) >= 0.3f) return (FrontTerrain.Swamp, impassable, land, dry);
+        if (Share(water) >= 0.15f) return (FrontTerrain.River, impassable, land, dry);
+        if (Share(jungle) >= 0.3f) return (FrontTerrain.Jungle, impassable, land, dry);
         // 城市周边的树大多被砍过，一块地里有四棵树(约 6%)就算林地；桦树林、枫树林等林地生物群系按面积算
-        if (Share(trees) >= 0.06f || Share(woods) >= 0.3f) return (FrontTerrain.Forest, impassable);
-        if (Share(desert) >= 0.4f) return (FrontTerrain.Desert, impassable);
-        if (Share(snow) >= 0.4f) return (FrontTerrain.Snow, impassable);
-        return (FrontTerrain.Plains, impassable);
+        if (Share(trees) >= 0.06f || Share(woods) >= 0.3f) return (FrontTerrain.Forest, impassable, land, dry);
+        if (Share(desert) >= 0.4f) return (FrontTerrain.Desert, impassable, land, dry);
+        if (Share(snow) >= 0.4f) return (FrontTerrain.Snow, impassable, land, dry);
+        return (FrontTerrain.Plains, impassable, land, dry);
     }
 }

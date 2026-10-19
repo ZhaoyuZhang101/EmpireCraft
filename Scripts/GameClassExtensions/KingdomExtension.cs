@@ -241,6 +241,16 @@ public static class KingdomExtension
         public double TimestampBeFeifed = -1L;
         // 上次遭劫掠的时间(五年内不再遭劫，见 TempFac_劫掠)
         public double raided_at = -1d;
+        // 水土(见 ShuiTuSystem)：游牧离草的起始时间(-1 = 不在离草；旧档没有这项，从第一次结算起算)、已记入史书的离草档位、
+        // 不服水土的旱地城已记入史书的最高档位、上次走出路的时间
+        public double shuitu_offgrass_since = -1d;
+        public int shuitu_offgrass_tier;
+        public int shuitu_unfit_tier;
+        public double shuitu_outlet_at = -1d;
+        // 改从游牧分出来的游牧成员、附庸(宗主更替逢乱时易散)：分出来的时间；-1 = 不是
+        public double shuitu_nomadized_at = -1d;
+        // 水土出路改的政体(封建化、本族定居、整国游牧化)：记下以免制度同步按文化改回去；-1 = 没改过
+        public int shuitu_regime = -1;
         // 埃米尔世袭(或以世袭成员身份第一次被看到)的时间：世袭满十五年才可能割据(见 EmirateSystem)；-1 = 不是世袭的埃米尔
         public double emirate_hereditary_at = -1d;
         // 和约(见 WarGoalSystem)：被迫开港与谁通商、从何时起(二十年)；被谁扶立为君、何时(二十年内两国互不开战)
