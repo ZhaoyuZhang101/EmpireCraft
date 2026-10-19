@@ -59,7 +59,7 @@ public static class FactionManager
                 new List<TemporaryFactionType>
                 {
                     TemporaryFactionType.削藩, TemporaryFactionType.夺取诸侯开战权, TemporaryFactionType.扩张地盘,
-                    TemporaryFactionType.索取皇位, TemporaryFactionType.谋求统一,
+                    TemporaryFactionType.转天朝制度, TemporaryFactionType.索取皇位, TemporaryFactionType.谋求统一,
                     TemporaryFactionType.恢复世袭皇权, TemporaryFactionType.颁布帝国治安令,
                     TemporaryFactionType.争夺主教叙任权, TemporaryFactionType.抑豪强, TemporaryFactionType.文化同化
                 }
@@ -326,7 +326,8 @@ public class FixedFaction
     // 2：派系诉求重新分配(血脉、攘夷、绥靖、尊王、民主、融入、同化)
     // 3：加修氏族志(尊王、绥靖)、抑豪强(尊王、中央)，旧存档的派系按新清单重建一次
     // 4：劫掠也给领主(自治)、部落(原始)派；5：文化同化、文化转化开给各政体
-    public const int CurrentClaimCatalogVersion = 5;
+    // 6：中央(法家变法派)也能提转天朝制度
+    public const int CurrentClaimCatalogVersion = 6;
     public string _id;
     public bool only_king;
     //特质需求（拥有该特质的人会更加倾向于加入此派系）
