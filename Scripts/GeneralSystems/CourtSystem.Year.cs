@@ -76,31 +76,48 @@ public static partial class CourtSystem
     }
 
     // 皇帝方略：一派独大则制衡；威权不足又有宠信的派系则偏宠；有派系怨望过高而皇帝威权足则打压；否则亲政
-    private static void UpdateStrategy(Empire empire, CourtState state, List<FixedFaction> factions)
+    private static (string strategy, string target) ChooseStrategy(Empire empire, List<FixedFaction> factions)
     {
         (Actor _, string role) = Decider(empire);
-        string strategy = "personal", target = "";
-        if (role != "emperor" || factions.Count == 0)
-        {
-            strategy = "regency";
-        }
-        else
-        {
-            int legitimacy = empire.Legitimacy;
-            FixedFaction top = factions.OrderByDescending(faction => faction.CentralRatio).First();
-            FixedFaction darling = factions.Where(faction => FactionState(empire, faction).favor >= 75f)
-                .OrderByDescending(faction => FactionState(empire, faction).favor).FirstOrDefault();
-            FixedFaction angry = factions.Where(faction => FactionState(empire, faction).grievance >= 70f)
-                .OrderByDescending(faction => FactionState(empire, faction).grievance).FirstOrDefault();
-            if (top.CentralRatio >= 55) { strategy = "balance"; target = top.GetID(); }
-            else if (darling != null && legitimacy < 60) { strategy = "favorite"; target = darling.GetID(); }
-            else if (angry != null && (legitimacy >= 70 || empire.Emperor.hasTrait("paranoid")))
-            { strategy = "suppress"; target = angry.GetID(); }
-        }
+        // 批红不出于皇帝(幼主、被挟制、昏聩怠政)才是摄政；皇帝亲政而朝中没有派系的，照旧算亲政(以前也记成摄政)
+        if (role != "emperor") return ("regency", "");
+        if (factions.Count == 0 || empire.Emperor == null) return ("personal", "");
+        int legitimacy = empire.Legitimacy;
+        FixedFaction top = factions.OrderByDescending(faction => faction.CentralRatio).First();
+        FixedFaction darling = factions.Where(faction => FactionState(empire, faction).favor >= 75f)
+            .OrderByDescending(faction => FactionState(empire, faction).favor).FirstOrDefault();
+        FixedFaction angry = factions.Where(faction => FactionState(empire, faction).grievance >= 70f)
+            .OrderByDescending(faction => FactionState(empire, faction).grievance).FirstOrDefault();
+        if (top.CentralRatio >= 55) return ("balance", top.GetID());
+        if (darling != null && legitimacy < 60) return ("favorite", darling.GetID());
+        if (angry != null && (legitimacy >= 70 || empire.Emperor.hasTrait("paranoid"))) return ("suppress", angry.GetID());
+        return ("personal", "");
+    }
+
+    private static void SetStrategy(Empire empire, CourtState state, string strategy, string target)
+    {
         if (strategy != state.strategy || target != state.strategy_target)
             Log(state, "court_log_strategy_" + strategy, FindFaction(empire, target)?.Name ?? "");
         state.strategy = strategy;
         state.strategy_target = target;
+    }
+
+    // 批红的人变了(幼主成年亲政、新君即位、权臣倒台，或反过来皇帝失势)：方略当月改定，不等年度结算。
+    // 以前方略一年才定一次，成年的皇帝亲政后还挂着"摄政"，最长一年(年度结算那时帝位虚悬就更久)。
+    // 只改方略本身，圣眷的增减仍按年度结算
+    private static void RefreshStrategyOnRuleChange(Empire empire, CourtState state)
+    {
+        if (string.IsNullOrEmpty(state.strategy) || empire.Emperor == null) return;
+        bool emperorRules = Decider(empire).role == "emperor";
+        if (emperorRules == (state.strategy != "regency")) return;
+        (string strategy, string target) = ChooseStrategy(empire, Factions(empire));
+        SetStrategy(empire, state, strategy, target);
+    }
+
+    private static void UpdateStrategy(Empire empire, CourtState state, List<FixedFaction> factions)
+    {
+        (string strategy, string target) = ChooseStrategy(empire, factions);
+        SetStrategy(empire, state, strategy, target);
         foreach (FixedFaction faction in factions)
         {
             CourtFactionState data = FactionState(empire, faction);

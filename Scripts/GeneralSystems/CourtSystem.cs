@@ -172,6 +172,7 @@ public static partial class CourtSystem
         double now = World.world.getCurWorldTime();
         EnsureBureau(empire);
         YearlyIfDue(empire, state, now);
+        RefreshStrategyOnRuleChange(empire, state);
         state.last_month = now;
         CourtMemorial memorial = state.memorial;
         if (memorial == null)

@@ -417,7 +417,7 @@
   "court_strategy_desc_favorite": "A ruler short of authority with a favourite faction favours it: its favour rises, its memorials pass more easily and it is kept a cabinet seat; the others lose favour.",
   "court_strategy_desc_suppress": "When a faction is deeply aggrieved and the emperor has the authority (or is paranoid) he suppresses it: its favour drops, its grievance grows, its memorials rarely pass and it is kept out of the cabinet.",
   "court_strategy_desc_personal": "The emperor rules in person and appoints on merit: cabinet seats go by ability and favour.",
-  "court_strategy_desc_regency": "With a child or puppet on the throne the strongman or regent gives assent; there is no court policy.",
+  "court_strategy_desc_regency": "With a child, a puppet or a ruler too negligent to govern on the throne, the strongman or regent gives assent; there is no court policy.",
   "court_log_void": "The memorial \"{0}\" lapsed",
   "court_log_propose": "{0} submitted \"{1}\"",
   "court_log_unheard": "{0}'s \"{1}\" found no one to forward it",
