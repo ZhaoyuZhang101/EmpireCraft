@@ -589,7 +589,7 @@ public static class CorpsSystem
         float legionSize = Mathf.Clamp(pool / Mathf.Max(1, totalSlots), 1f, CityPopulationSystem.PeoplePerLegion);
         // 量入为出：按人口该有的兵额超出养得起的，每个军团按比例缩编
         float budget = BudgetFactor(kingdom, war, totalSlots * legionSize);
-        // 校验平衡用：打仗的游牧或与游牧交战的国家，兵源、军费系数、征兵比例、积弊(限频，见 WarBalanceDiagnostics)
+        // 校验平衡用：打仗的游牧、阿拉伯国家或与之交战的国家，兵源、军费系数、征兵比例、积弊(限频，见 WarBalanceDiagnostics)
         if (war) WarBalanceDiagnostics.Realm(kingdom, background, pool, budget, doctrine.LevyShare * levyShare);
         bool limited = budget < 0.999f;
         legionSize = Mathf.Max(1f, legionSize * budget);

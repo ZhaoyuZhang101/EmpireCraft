@@ -966,7 +966,7 @@ public static partial class FrontSystem
             if (Beside(spearheads, target)) fort = Mathf.Max(fort, RuralSettlementSystem.FortFactor(city, target));
         if (fort > 1f) defend *= breach ? 1f + (fort - 1f) * 0.5f : fort;
         float ratio = attack + defend <= 0f ? 0.5f : attack / (attack + defend);
-        // 校验平衡用：一方是游牧时记一行战况分解(交战前的兵力，限频，见 WarBalanceDiagnostics)
+        // 校验平衡用：一方是游牧或阿拉伯政体时记一行战况分解(交战前的兵力，限频，见 WarBalanceDiagnostics)
         WarBalanceDiagnostics.Battle(city, attacker, owner, attackers, holders, terrain, ground.Attack, landing, breach, remnant,
             militia, fort, attack, defend, ratio);
         // 伤亡与组织度
