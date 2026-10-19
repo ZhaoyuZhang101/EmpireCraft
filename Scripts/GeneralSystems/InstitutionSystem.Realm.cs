@@ -288,6 +288,9 @@ public static partial class InstitutionSystem
         kingdom.SetRegimeType(regimeType);
         kingdom.LoadRegime();
         kingdom.SystemChange();
+        // LoadRegime 只给帝国核心对派系占比；王国换了一套派系对象，当即按编号、类别对上，免得这一年的支持度算不到派系
+        List<FixedFaction> factions = kingdom.GetRegime()?.GetPlayerFactions();
+        if (factions != null) kingdom.ReconcileFactionRatios(factions);
         // LoadRegime 从模板重新克隆政体，改过的选项都回到默认：清掉落地记录，整体重放一遍持久效果(同帝国)
         InstitutionEmpireState state = EnsureRealmState(realm);
         if (state == null) return;
