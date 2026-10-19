@@ -2055,7 +2055,7 @@ public class Empire : MetaObject<EmpireData>
         // 以前每次修复都整套重建，而读档、存档都会经 EmpireManager.update → checkActive 走到这里：
         // 三公卿士、三公九卿、后宫每次存读档都换成一套新的空缺官职，在任者留着指向已删官职的"在任"标记，
         // 存档里中央官职从来都是空的，读档后朝廷一片空缺，要等帝国 AI 重新选官
-        bool rebuild = data.centerOffice == null || coreChanged || !data.centerOffice.IsIntact(CoreKingdom);
+        bool rebuild = data.centerOffice == null || coreChanged;
         if (data.centerOffice == null)
         {
             data.centerOffice = new CenterOffice();
@@ -2064,8 +2064,16 @@ public class Empire : MetaObject<EmpireData>
 
         try
         {
+            // 判断完好要取核心国的政体，读档后头一回取会现建政体(还原派系、迁移诉求清单)：放在 try 里，
+            // 出错照旧按重建兜底。以前它在 try 外，一出错就从 checkActive 一路抛出读档流程，后面的帝国核心、法理、宗族都读不进来
+            if (!rebuild) rebuild = !data.centerOffice.IsIntact(CoreKingdom);
             if (rebuild) data.centerOffice.Init(CoreKingdom);
-            else data.centerOffice.SyncMetaObject(CoreKingdom);
+            else
+            {
+                data.centerOffice.SyncMetaObject(CoreKingdom);
+                // 不重建时也要把派系占比对回核心国的派系(以前由每次重建顺带做，见 CenterOffice.SyncFactionRatios)
+                data.centerOffice.SyncFactionRatios(CoreKingdom);
+            }
         }
         catch (Exception e)
         {

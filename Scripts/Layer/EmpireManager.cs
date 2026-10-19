@@ -35,6 +35,20 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
     public override void update(float pElapsed)
     {
         base.update(pElapsed);
+        Process(runEmpireUpdates: true);
+    }
+
+    // 读档时(见 DataManager.LoadAll)只整理成员、核心国与解散无领土的帝国，不跑各帝国的月度更新(Empire.update)：
+    // 这时帝国核心、法理、宗族、史书、城墙村镇都还没读进来，月度更新里的各系统按"没有核心/法理/宗族"处置——
+    // 帝国改划按空法理排程、一读档就记成改划完成，武家执政把旧档的天皇家记录当成找不到清掉，分封把已见法理记成空的……
+    // 读档后战略调度第一轮就会给每个帝国补跑一次(见 EmpireCraftStrategicScheduler，读档时排程已清空)
+    public void RepairAfterLoad()
+    {
+        Process(runEmpireUpdates: false);
+    }
+
+    private void Process(bool runEmpireUpdates)
+    {
         // 创建集合副本进行遍历
         _empiresToProcess.Clear();
         foreach (Empire empire in this)
@@ -107,7 +121,7 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
                     _to_dissolve.Add(current);
                 }
             }
-            else
+            else if (runEmpireUpdates)
             {
                 current.update();
             }
@@ -149,6 +163,8 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
     public void dissolveEmpire(Empire pEmpire)
     {
         if (pEmpire == null) return;
+        // 帝国只从这里解散：记下是谁、由哪几层调用解散的(见 EmpireLossDiagnostics)
+        EmpireCraft.Scripts.Diagnostics.EmpireLossDiagnostics.OnDissolving(pEmpire);
         EmpireCore falseCore = EmpireCoreManager.Get(pEmpire);
         bool destroyFalseCore = falseCore?.false_core_against_empire_id > 0 &&
                                 !EmpireCoreManager.GetEmpires(falseCore)

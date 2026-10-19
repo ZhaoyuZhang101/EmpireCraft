@@ -519,14 +519,23 @@ public class CenterOffice
             Harems.Add(o.OfficeID);
         }
 
-        if (!pKingdom.IsEmpire()) return;
+        SyncFactionRatios(pKingdom);
+    }
+
+    // 派系占比挂回核心国现在的派系：读档时占比表的键只是记着编号的占位派系(见 FactionRatioConverter)，
+    // 要按编号对回政体里真正的派系；成员国不设中央派系。以前每次存读档都整套重建官署、顺带在这里对一次，
+    // 官署完好不重建以后(见 Empire.TryRepairState)也要照对，否则读档后核心国各派占比都按 0 算
+    public void SyncFactionRatios(Kingdom pKingdom)
+    {
+        if (pKingdom == null || !pKingdom.IsEmpire()) return;
         var empire = pKingdom.GetEmpire();
         empire?.kingdoms_list.ForEach(k =>
         {
+            if (k == null || k.isRekt()) return;
             if (k == empire.CoreKingdom)
-                k.ReconcileFactionRatios(pKingdom.GetRegime().GetPlayerFactions());
+                k.ReconcileFactionRatios(pKingdom.GetRegime()?.GetPlayerFactions());
             else
-                k.RemoveFactionRatio();
+                k.GetOrCreate().FactionRatio?.Clear();
         });
     }
 

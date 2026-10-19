@@ -214,7 +214,8 @@ public static class DataManager
                 LogService.LogError($"加载帝国数据失败，已跳过: {e}");
             }
         }
-        ModClass.EMPIRE_MANAGER.update(-1L);
+        // 只整理成员与核心国，不跑帝国月度更新：帝国核心、法理、宗族等还在后面才读(见 EmpireManager.RepairAfterLoad)
+        ModClass.EMPIRE_MANAGER.RepairAfterLoad();
         LogService.LogInfo("Sync Empire Data");
         BookNamingSystem.RepairLegacyNames();
         EmpireCoreManager.EmpireCores = BuildEmpireCoreMap(saveData.empireCoreDatas);
@@ -342,6 +343,8 @@ public static class DataManager
         {
             LogService.LogWarning($"存档一致性检查失败: {exception}");
         }
+        // 给读进来的各帝国记底，读档后按月对账(见 EmpireLossDiagnostics)
+        EmpireCraft.Scripts.Diagnostics.EmpireLossDiagnostics.OnLoaded();
     }
 
     private static void NormalizeLoadedNameSeparators()

@@ -50,6 +50,8 @@ public static class EmpireCraftStrategicScheduler
         MapBox currentWorld = World.world;
         if (currentWorld == null || !Config.game_loaded || Config.paused || SmoothLoader.isLoading()) return;
         if (!ReferenceEquals(_boundWorld, currentWorld)) Reset(currentWorld);
+        // 读档后第 1、6、12、36 个月对一次帝国的账(见 EmpireLossDiagnostics)，平时第一行就返回
+        EmpireCraft.Scripts.Diagnostics.EmpireLossDiagnostics.Tick();
         // 计时标签都是字面量(不每帧拼字符串)；路网、行政控制力、文化辐射、地方稳定与财政在各自里面计时
         using (FrameProfiler.Measure("国家移民与空城安置")) StateSettlementSystem.Tick();
         // 路网规划、修路养路(自己按真实时间与游戏月份限频，见 RoadNetwork、RoadBuildingSystem)
