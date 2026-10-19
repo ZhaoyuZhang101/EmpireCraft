@@ -30,8 +30,8 @@ public static class ModernStateFormationSystem
             return TryMergeIntoOverlordGovernment(kingdom, overlord);
         }
         if (kingdom.IsEmpire() || kingdom.IsInEmpire()) return false;
-        if (!kingdom.HasMainTitle() && kingdom.hasKing())
-            kingdom.ReconcileMainTitle(kingdom.GetControlledTitle());
+        RestoreSovereignRights(kingdom);
+        TryClaimSeatTitle(kingdom);
         if (!kingdom.HasMainTitle())
         {
             ApplyUntitledName(kindom: kingdom);
@@ -46,6 +46,33 @@ public static class ModernStateFormationSystem
             return false;
         }
         return FormGovernment(kingdom) != null;
+    }
+
+    // 现代国家的省、州建制时关了自主外交(见 Empire 的直辖区划分)，政府解散或脱离后这项留在了独立的地方势力身上：
+    // 外交权关着就不能谋求法理(KingdomExtension.CanPursueDeJureTitle)，没有法理又组建不了政府，永远是"某某自治军"。
+    // 独立的现代势力(不在任何国家里、也没有宗主)一律恢复自主外交
+    private static void RestoreSovereignRights(Kingdom kingdom)
+    {
+        Regime regime = kingdom.GetRegime();
+        if (regime == null || regime.IsAllowDiplomacy() || FeudalVassalService.GetOverlord(kingdom) != null) return;
+        regime.SetAllowDiplomacy(true);
+    }
+
+    // 没有主法理的现代势力认领都城所在的法理。原先只调 ReconcileMainTitle(GetControlledTitle())，
+    // 可那只认君主名下已有的法理；政府解散或省州脱离后，这片法理还记在前任元首名下(ModernTitleCentralization 收归中央)，
+    // 实际控制着它也认领不到，只能当自治军。按常规法理规则(据有法理首府、或占够地块，见 DeJureTitleClaimRules)
+    // 能不战而得的，就从旧主名下承袭过来(同法理谋划 kingdom_get_title 的承袭方式)
+    internal static bool TryClaimSeatTitle(Kingdom kingdom)
+    {
+        if (kingdom == null || kingdom.isRekt() || !kingdom.hasKing()) return false;
+        if (kingdom.HasMainTitle()) return true;
+        kingdom.ReconcileMainTitle(kingdom.GetControlledTitle());
+        if (kingdom.HasMainTitle() || kingdom.IsInEmpire()) return kingdom.HasMainTitle();
+        KingdomTitle title = kingdom.GetCapitalDeJureTitle();
+        if (title?.title_capital == null || title.title_capital.isRekt() || title.title_capital.kingdom != kingdom ||
+            !kingdom.CanAcquireDeJureTitleWithoutWar(title)) return false;
+        kingdom.InheritRealmTitles(title.FindRealmTitleHolder(), new[] { title.id });
+        return kingdom.HasMainTitle();
     }
 
     // 组建政府：现代政体下取代"称帝"(所有文化)，政权由此进入帝国层、享有正常国家的全部机制

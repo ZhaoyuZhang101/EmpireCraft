@@ -293,11 +293,19 @@ public static partial class WarlordEraSystem
         // 已有政府代表这一理念
         if (holders.Any(holder => holder != kingdom && Government(holder) is Empire government &&
                                   GovernmentIdeology(government) == ideology)) return false;
-        // 同一理念的势力里实力最强的才能代表这一理念组建政府
+        // 同一理念的势力里实力最强的才能代表这一理念组建政府。只比真能组建的(有君主、有主法理)：
+        // 以前最强的那家没有法理(多是政府解散后散出来的省州)也算在内，它组建不了，同理念的别家也都轮不上，
+        // 整个核心一个政府也没有
         return holders.FirstOrDefault(holder => Government(holder) == null &&
                                                 holder.GetRegime()?.type == RegimeType.Modern &&
+                                                CouldFormGovernment(holder) &&
                                                 HolderIdeology(holder) == ideology) == kingdom;
     }
+
+    // 组建政府的先决条件(见 ModernStateFormationSystem.TryUpdate、FormGovernment)
+    private static bool CouldFormGovernment(Kingdom holder) =>
+        holder.hasKing() && holder.HasMainTitle() &&
+        !Compatibility.AncientWarfareCompatibility.BlocksEmpireFormation(holder);
 
     // 政府代表的理念：宪法规定的立国理念 → 共和国的建国理念 → 执政理念
     public static PartyIdeology GovernmentIdeology(Empire government)
@@ -533,9 +541,7 @@ public static partial class WarlordEraSystem
     {
         Empire government = Government(winner);
         if (government != null) return government;
-        if (!winner.HasMainTitle() && winner.hasKing())
-            winner.ReconcileMainTitle(winner.GetControlledTitle());
-        return winner.HasMainTitle() ? ModernStateFormationSystem.FormGovernment(winner) : null;
+        return ModernStateFormationSystem.TryClaimSeatTitle(winner) ? ModernStateFormationSystem.FormGovernment(winner) : null;
     }
 
     // 修复短期错误版本留下的存档：现代临时政府曾同时被写入父核心关系和伪核心标记。
@@ -627,6 +633,9 @@ public static partial class WarlordEraSystem
             Empire government = Government(holder);
             if (government == null || !Roles.TryGetValue(government.id, out var entry) || entry.role != Role.Warlord ||
                  government.data?.constitutional_economy?.revolutionary_government == true) continue;
+            // 只撤销现代组建的政府：强统一文化的核心一有现代势力就开始争夺中央，同核心里较弱的古代王朝(帝国)
+            // 也会被算成"同理念的第二个政府"整个解散，州郡散成一地没有法理的小国
+            if (government.CoreKingdom?.GetRegime()?.type != RegimeType.Modern) continue;
             string name = government.GetBaseEmpireFullName();
             DissolveContestingGovernment(government, core);
             if (holder.isRekt()) continue;
@@ -788,8 +797,7 @@ public static partial class WarlordEraSystem
     private static bool HasGovernmentTitle(Kingdom kingdom)
     {
         if (kingdom == null || kingdom.isRekt() || !kingdom.hasKing()) return false;
-        if (!kingdom.HasMainTitle()) kingdom.ReconcileMainTitle(kingdom.GetControlledTitle());
-        return kingdom.HasMainTitle();
+        return ModernStateFormationSystem.TryClaimSeatTitle(kingdom);
     }
 
     private static War FindActiveWar(Kingdom first, Kingdom second) => first?.getWars()
