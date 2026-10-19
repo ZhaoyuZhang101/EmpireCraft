@@ -471,7 +471,9 @@ public static class InstitutionSystem
         if (empire != null && (empire.IsArchived() || empire.isRekt() || empire.CoreKingdom != kingdom ||
                                CompositeEmpireService.IsComposite(empire))) return;
         var extra = kingdom.GetOrCreate();
-        if (extra.regime_manually_selected || extra.zhou_sphere_id >= 0 || RepublicSystem.IsRegimeLocked(kingdom)) return;
+        // 周室之内：只认还在的周室(战国离开帝国、所属周室仍是周制的诸侯)。zhou_sphere_id 只在周被代、统一时清，
+        // 周室亡于外族、改行律令或解散后还留着，以前凭它一概不动，这些旧诸侯就永远停在周制
+        if (extra.regime_manually_selected || ZhouEraSystem.IsDetachedVassal(kingdom) || RepublicSystem.IsRegimeLocked(kingdom)) return;
         string culture = CultureService.GetRealmCulture(kingdom);
         if (!CultureService.IsValidCulture(culture) || !TryResolveCultureRegime(culture, out RegimeType target) ||
             target == current || RegimeManager.IsPrimitive(target) || target is RegimeType.Modern or RegimeType.Republic ||
@@ -1920,12 +1922,16 @@ public static class InstitutionSystem
         return share * weight * 300f;
     }
 
+    // 同一类别可以有好几个派系(朋党：宽政派、节用派都算绥靖)，要逐个加总，与 CalculatePoliticalBalance 一致。
+    // 以前只取第一个，界面上的派系贡献比实际算进支持度的少，看着像"派系不支持"
     public static float GetFactionContribution(Empire empire, FactionType factionType, float weight)
     {
-        FixedFaction faction = empire?.CoreKingdom?.GetRegime()?.GetPlayerFactions()
-            ?.FirstOrDefault(f => f.Type == factionType);
-        if (faction == null || empire.CoreKingdom == null) return 0f;
-        float share = empire.CoreKingdom.GetFactionRatioValue(faction) / 100f;
+        List<FixedFaction> factions = empire?.CoreKingdom?.GetRegime()?.GetPlayerFactions();
+        if (factions == null) return 0f;
+        float share = 0f;
+        foreach (FixedFaction faction in factions)
+            if (faction != null && faction.Type == factionType)
+                share += empire.CoreKingdom.GetFactionRatioValue(faction) / 100f;
         return share * weight * 100f;
     }
 

@@ -923,9 +923,15 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
         // 派")，能找到就显示它的真实名字，找不到(这个政体压根没配这个类别)才退回类别名。
         List<FixedFaction> playerFactions = _empire.CoreKingdom?.GetRegime()?.GetPlayerFactions()
                                              ?? new List<FixedFaction>();
+        // 同一类别有好几个派系(朋党)时把名字都列出来，贡献是它们的合计(见 GetFactionContribution)
         string factionLine = BuildWeightedGroupLine(view.Node.politics.support_factions,
             view.Node.politics.oppose_factions,
-            faction => playerFactions.FirstOrDefault(f => f.Type == faction)?.Name ?? faction.ToString(),
+            faction =>
+            {
+                List<string> names = playerFactions.Where(f => f != null && f.Type == faction && !string.IsNullOrEmpty(f.Name))
+                    .Select(f => f.Name).Distinct().ToList();
+                return names.Count > 0 ? string.Join("/", names) : faction.ToString();
+            },
             (faction, weight) => InstitutionSystem.GetFactionContribution(_empire, faction, weight));
         if (!string.IsNullOrEmpty(factionLine)) lines.Add(factionLine);
         Dictionary<SocialClass, float> classShares = InstitutionSystem.BuildClassShares(_empire);
