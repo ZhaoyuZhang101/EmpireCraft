@@ -89,6 +89,12 @@ public class CityWindowPatch : GamePatch
             __instance.showStatRow("admin_control", control, "#7FD8EA", pIconPath: "iconKings");
         if (EmpireCraft.Scripts.GeneralSystems.AdministrativeControlSystem.DescribeCapacity(metaObject.kingdom) is string capacity)
             __instance.showStatRow("admin_capacity", capacity, "#7FD8EA", pIconPath: "iconKings");
+        // 水土：旱地还是农地、离草或不服水土几年第几档，到档的另起一行写折损(见 ShuiTuSystem)
+        if (ShuiTuSystem.DescribeCity(metaObject, out string soil, out string soilEffect, out string soilColor))
+        {
+            __instance.showStatRow("shuitu", soil, soilColor, pIconPath: "iconKings");
+            if (soilEffect != null) __instance.showStatRow("shuitu_effect", soilEffect, soilColor, pIconPath: "iconKings");
+        }
         CityValueSnapshot cityValue = metaObject.GetCityStrategicValue();
         string cityValueText = $"{cityValue.Total}/100" +
                                (cityValue.IsIsolated ? $" ({LM.Get("city_value_isolated")})" : "");

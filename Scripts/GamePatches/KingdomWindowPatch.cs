@@ -153,6 +153,14 @@ public class KingdomWindowPatch: GamePatch
             __instance.showStatRow("state_settlement", EmpireCraft.Scripts.GeneralSystems.StateSettlementSystem.Status(metaObject),
                 "#F3C34A", pIconPath: "iconCity");
         __instance.showStatRow("national_power", (object) metaObject.GetNationalPower().ToString("0.##"), "#FFD34E", pIconPath: "iconKings");
+        // 水土(按所属政权)：生活方式、直辖城与旱地城、离草或不服水土的境况，到档的写折损(见 ShuiTuSystem)
+        if (EmpireCraft.Scripts.GeneralSystems.ShuiTuSystem.DescribeKingdom(metaObject, out string soil, out string soilState,
+                out string soilEffect, out string soilColor))
+        {
+            __instance.showStatRow("shuitu", soil, "#B8C6CC", pIconPath: "iconKings");
+            __instance.showStatRow("shuitu_state", soilState, soilColor, pIconPath: "iconKings");
+            if (soilEffect != null) __instance.showStatRow("shuitu_effect", soilEffect, soilColor, pIconPath: "iconKings");
+        }
         if (EmpireCraft.Scripts.GeneralSystems.TreasurySystem.Enabled(metaObject) &&
             EmpireCraft.Scripts.GeneralSystems.ExclaveMaintenanceSystem.Status(metaObject) is string exclaveStatus)
             __instance.showStatRow("exclave_maintenance", exclaveStatus, "#E6D36A", pIconPath: "iconMoney");
