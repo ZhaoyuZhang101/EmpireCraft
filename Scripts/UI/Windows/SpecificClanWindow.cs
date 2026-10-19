@@ -61,6 +61,14 @@ public class SpecificClanWindow : AutoLayoutWindow<SpecificClanWindow>
             tab.Setup("specific_clan_relations", ScrollWindowComponent, action: _ => refreshAll(),
                 sprite: SpriteTextureLoader.getSprite("ui/icons/iconOptions"));
         }
+        if (ScrollWindowComponent.tabs._tabs.All(p => p.name != "specific_clan_lineage"))
+        {
+            // 支派：这一姓怎么分支、宗子怎么一代代传下来(见 ClanLineageWindow)
+            var tab = GameObject.Instantiate(SimpleWindowTab.Prefab);
+            tab.Setup("specific_clan_lineage", ScrollWindowComponent,
+                action: _ => ClanLineageWindow.ShowFor(_sc ?? _identity?._specificClan),
+                sprite: UIHelper.FirstSprite("ui/icons/iconFamily", "ui/specificClanIcon"));
+        }
         if (ScrollWindowComponent.tabs._tabs.All(p => p.name != "specific_clan_history"))
         {
             var tab = GameObject.Instantiate(SimpleWindowTab.Prefab);
