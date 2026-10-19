@@ -22,6 +22,15 @@ public static class CourtIssues
         TemporaryFactionType.整顿吏治, TemporaryFactionType.赈济灾荒
     };
 
+    // 朋党朝廷里也是国是的议题(用户 2026-10-20 定)：谋求统一以前只有派系类型带它的几派(天子派、变法派、武官派)能上奏，
+    // 朋党朝廷里这几派常被别的议题占着；世族、宗室、后党、清流本也略赞成统一，天下分裂时也该能上奏。
+    // 别的朝廷不变：还是固定的两三派，游牧同化派当年特意去掉了它(见 FixedFaction.MigrateClaimCatalogV2)
+    private static readonly TemporaryFactionType[] CliquePublicIssues = { TemporaryFactionType.谋求统一 };
+
+    // 这一派能当公共议题上奏的(读档时补进各派清单，见 FixedFaction.FixMissedTemporaryFactions)
+    public static IEnumerable<TemporaryFactionType> PublicIssuesFor(FixedFaction faction) =>
+        faction?.IsClique == true ? PublicIssues.Concat(CliquePublicIssues) : PublicIssues;
+
     private static readonly (TemporaryFactionType a, TemporaryFactionType b)[] Opposites =
     {
         (TemporaryFactionType.提高赋税, TemporaryFactionType.降低赋税),
@@ -67,6 +76,9 @@ public static class CourtIssues
 
     public static bool IsPublic(TemporaryFactionType issue) => Array.IndexOf(PublicIssues, issue) >= 0;
 
+    public static bool IsPublic(FixedFaction faction, TemporaryFactionType issue) =>
+        IsPublic(issue) || faction?.IsClique == true && Array.IndexOf(CliquePublicIssues, issue) >= 0;
+
     // 挑战皇权的诉求不经朝议
     public static bool IsDirectAction(TemporaryFactionType issue) => issue == TemporaryFactionType.索取皇位;
 
@@ -82,7 +94,7 @@ public static class CourtIssues
     // 本派系类型自带的诉求(配置清单)，不含公共议题与直接行动
     public static List<TemporaryFactionType> UniqueIssues(FixedFaction faction) =>
         (faction?.TemporaryFactionTypes ?? new List<TemporaryFactionType>())
-        .Where(issue => !IsPublic(issue) && !IsDirectAction(issue)).Distinct().ToList();
+        .Where(issue => !IsPublic(faction, issue) && !IsDirectAction(issue)).Distinct().ToList();
 
     private static bool Holds(FixedFaction faction, TemporaryFactionType issue) =>
         faction?.TemporaryFactionTypesRecord?.Contains(issue) == true ||
@@ -99,7 +111,7 @@ public static class CourtIssues
         // 朋党：阶级派系按利、学说朋党按义(见 CourtDoctrine)，各阶层亲疏退居其次
         int? weigh = CourtDoctrine.Weigh(faction, issue);
         if (weigh != null) score = score * 0.5f + weigh.Value * 1.5f;
-        if (Holds(faction, issue) && (!IsPublic(issue) || faction.TemporaryFactionTypes?.Contains(issue) == true))
+        if (Holds(faction, issue) && (!IsPublic(faction, issue) || faction.TemporaryFactionTypes?.Contains(issue) == true))
             score += 12f;
         if (OppositesOf(issue).Any(opposite => faction.TemporaryFactionTypes?.Contains(opposite) == true))
             score -= 12f;

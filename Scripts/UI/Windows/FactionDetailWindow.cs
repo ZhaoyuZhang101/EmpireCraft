@@ -551,7 +551,7 @@ public class FactionDetailWindow : AbstractWideWindow<FactionDetailWindow>
         // 议题分两组：本派独有的议题，与各派都能上奏的公共议题(赋税、战和、取士)
         foreach ((string key, bool isPublic) in new[] { ("court_unique_issues", false), ("court_public_issues", true) })
         {
-            var group = entries.Where(entry => CourtIssues.IsPublic(entry.claim.type) == isPublic).ToList();
+            var group = entries.Where(entry => CourtIssues.IsPublic(_faction, entry.claim.type) == isPublic).ToList();
             if (group.Count == 0) continue;
             claimSpace.AddTextIntoVertLayout(LM.Get(key).ColorString("#F3C34A"), size: new Vector2(ContentWidth, 14),
                 hideBackground: true, anchor: TextAnchor.MiddleLeft);

@@ -272,7 +272,7 @@ public static class CourtPanel
         List<Regimes.TemporaryFactions.TemporaryFactionType> unique = CourtIssues.UniqueIssues(faction);
         if (unique.Count > 0)
             lines.Add($"{LM.Get("court_unique_issues")}：{string.Join("、", unique.Select(CourtSystem.IssueName))}");
-        lines.Add($"{LM.Get("court_public_issues")}：" + string.Join("、", CourtIssues.PublicIssues.Select(issue =>
+        lines.Add($"{LM.Get("court_public_issues")}：" + string.Join("、", CourtIssues.PublicIssuesFor(faction).Select(issue =>
             $"{CourtSystem.IssueName(issue)}{StanceMark(CourtIssues.StanceLevel(faction, issue))}")));
         FixedFaction ally = CourtSystem.FindFaction(empire, data.ally);
         if (ally != null) lines.Add(string.Format(LM.Get("court_ally_mark"), ally.Name));

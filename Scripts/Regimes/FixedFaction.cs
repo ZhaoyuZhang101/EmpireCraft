@@ -498,9 +498,9 @@ public class FixedFaction
             TemporaryFactionTypesRecord.Add(TemporaryFactionType.开放党禁);
             catalogChanged = true;
         }
-        // 公共议题(赋税、战和、取士)：每个派系都能上奏，见 CourtIssues
+        // 公共议题(赋税、战和、取士；朋党朝廷还有谋求统一)：每个派系都能上奏，见 CourtIssues
         if (!IsParty)
-            foreach (TemporaryFactionType issue in GeneralSystems.CourtIssues.PublicIssues)
+            foreach (TemporaryFactionType issue in GeneralSystems.CourtIssues.PublicIssuesFor(this))
             {
                 if (TemporaryFactionTypesRecord.Contains(issue)) continue;
                 TemporaryFactionTypesRecord.Add(issue);
