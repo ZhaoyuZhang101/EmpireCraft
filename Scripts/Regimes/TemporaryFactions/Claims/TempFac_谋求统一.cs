@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
@@ -57,10 +58,13 @@ public class TempFac_谋求统一 : TemporaryFaction
         // 天下有主(别家受着天命)：不能问鼎(同统一战争，见 TianxiaSystem.BarsContender)
         EmpireCore realmLead = TianxiaSystem.LeadOf(empire.CoreKingdom.capital);
         if (realmLead != null && TianxiaSystem.BarsContender(realmLead, empire.CoreKingdom)) return false;
+        HashSet<Kingdom> occupiers = Occupiers(realmLead, empire.CoreKingdom);
         foreach (var kingdom in World.world.kingdoms)
         {
-            // 统一只统一同一个天下的(用户 2026-10-15："有的甚至还跨文化跨地域打"；2026-10-19 选"统一按帝国核心")
-            if (!UnificationSystem.SameRealm(empire.CoreKingdom, kingdom)) continue;
+            // 统一只统一同一个天下的(用户 2026-10-15："有的甚至还跨文化跨地域打"；2026-10-19 选"统一按帝国核心")；
+            // 光复旧土：占着本朝天下里的城的邻国也打(见 Occupiers)，它不是天下一家，照常看停战、同盟、岁币朝贡
+            if (!UnificationSystem.SameRealm(empire.CoreKingdom, kingdom) &&
+                (!occupiers.Contains(kingdom) || !WarGate.CanDeclare(empire.CoreKingdom, kingdom))) continue;
             if (empire.given_Kingdoms.Contains(kingdom)) continue;
             if (empire.taken_Kingdoms.Contains(kingdom)) continue;
             if (kingdom.IsLocalRebelling()) continue;
@@ -107,5 +111,21 @@ public class TempFac_谋求统一 : TemporaryFaction
             }
         }
         return false;
+    }
+
+    // 占着本朝天下里的城的外国(本帝国成员、野生国不算)。只打同一天下(SameRealm)以后，都城在天下外、
+    // 占的又不到四分之一的邻国算不上天下一家，对外扩张又只打异种——这样的邻国占去的城再也收不回。
+    // 开战目标按法理定(对方手里有本朝法理的城即为收复，见 WarGoalSystem)
+    private static HashSet<Kingdom> Occupiers(EmpireCore realmLead, Kingdom core)
+    {
+        var result = new HashSet<Kingdom>();
+        if (realmLead == null || core == null) return result;
+        foreach (City city in TianxiaSystem.Cities(realmLead))
+        {
+            Kingdom holder = city?.kingdom;
+            if (holder?.data == null || holder.isRekt() || holder.wild || holder == core || holder.IsInSameEmpire(core)) continue;
+            result.Add(holder);
+        }
+        return result;
     }
 }

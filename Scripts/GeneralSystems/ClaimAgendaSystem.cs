@@ -209,8 +209,30 @@ public static class ClaimAgendaSystem
             TemporaryFactionType.国语骑射 => CompositeEmpireService.NativismUrgency(empire),
             TemporaryFactionType.册立储君 => empire.Emperor == null ? 0f
                 : Mathf.Clamp((empire.Emperor.getAge() - 30) * 0.5f, 0f, 20f),
+            TemporaryFactionType.谋求统一 => UnificationUrgency(empire),
             _ => 0f
         };
+    }
+
+    // 天下归于一家算统一完成(同 UnificationSystem 的九成)
+    private const float UnifiedRealmShare = 0.9f;
+
+    // 谋求统一的紧迫度：本朝所在的天下还没归于一家(别家割据、失地被邻国占着)就急于统一、收复，据有的越少越急(15~25)。
+    // 朋党取代固定派系以后，朝堂新议题(诛宦官、独尊官学、兴修水利、封禅……)都带了紧迫度，统一一直是 0；
+    // 统一要动兵，农民一反对议程分就低，提得出它的天子派、变法派总把它排在末尾，专主用兵的武官派又多被并掉、
+    // 只剩一两人(官员按学说归党)，天下分裂、失地未复也没人上奏。只给朋党朝廷(别的朝廷还是固定的两三派，主统一的那派一直在、上奏机会也多)；
+    // 天下已统一、别家受着天命(不能问鼎)、周制(征伐不服王化另有一套)、本朝是别国附庸的，都不急
+    private static float UnificationUrgency(Empire empire)
+    {
+        Kingdom core = empire?.CoreKingdom;
+        if (core?.capital == null || !CliqueSystem.Applies(empire) || ZhouEraSystem.Applies(empire)) return 0f;
+        if (EmpireCoreControl.Sovereign(core) != core) return 0f;
+        EmpireCore lead = TianxiaSystem.LeadOf(core.capital);
+        if (lead == null || TianxiaSystem.BarsContender(lead, core)) return 0f;
+        (Dictionary<Kingdom, int> held, int total) = TianxiaSystem.Holdings(lead);
+        if (total <= 0) return 0f;
+        float share = held.TryGetValue(core, out int ours) ? ours / (float)total : 0f;
+        return share >= UnifiedRealmShare ? 0f : 15f + 10f * (1f - share);
     }
 
     // 国库欠饷、入不敷出，或税率压得很低时急着加税(以前加税没有紧迫度，减税却税率越高越急，税率只降不升)
