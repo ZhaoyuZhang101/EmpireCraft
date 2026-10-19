@@ -225,26 +225,39 @@ public static class CityStabilitySystem
         detail = Pressure(input);
         float natural = CityStabilityRules.Natural(input.Loyalty, input.Legitimacy, input.Corruption, input.Sentiment,
             input.Landless, input.Famine, input.Grievance);
+        return LocalPressures(city, natural, ref detail);
+    }
+
+    // 公式之外按本城情形另扣的自然稳定度(城市稳定度初建、每月结算都要扣——以前只在初建时扣一次，
+    // 之后每月按公式重算就没了，难民、异教、鞭长莫及从来没有真正压低过稳定度)
+    private static float LocalPressures(City city, float natural, ref string detail)
+    {
+        void Note(ref string text, string cause) => text = string.IsNullOrEmpty(text) ? cause : text + " / " + cause;
         // 难民涌入(见 MigrationRelations)
         float refugees = MigrationRelations.RefugeeLoss(city);
         if (refugees > 0f)
         {
             natural = CityStabilityRules.Clamp(natural - refugees);
-            detail = string.IsNullOrEmpty(detail) ? MigrationRelations.Describe() : detail + " / " + MigrationRelations.Describe();
+            Note(ref detail, MigrationRelations.Describe());
+        }
+        // 久战疲敝(见 FrontCollapse)：正被统一、被雄主讨伐，仗打久了
+        float weary = FrontCollapse.WarWeariness(city);
+        if (weary > 0f)
+        {
+            natural = CityStabilityRules.Clamp(natural - weary);
+            Note(ref detail, FrontCollapse.DescribeWeariness(weary));
         }
         // 异教之城(见 ReligiousTension)
         float faith = ReligiousTension.StabilityLoss(city);
         if (faith > 0f)
         {
             natural = CityStabilityRules.Clamp(natural - faith);
-            string heterodox = ReligiousTension.Describe(city);
-            detail = string.IsNullOrEmpty(detail) ? heterodox : detail + " / " + heterodox;
+            Note(ref detail, ReligiousTension.Describe(city));
         }
         // 鞭长莫及：行政控制力低的城自然稳定度下降
         float remote = AdministrativeControlSystem.StabilityLoss(city);
         if (remote < 1f) return natural;
-        string cause = string.Format(LM.Get("stability_admin_detail"), AdministrativeControlSystem.Get(city) * 100f);
-        detail = string.IsNullOrEmpty(detail) ? cause : detail + " / " + cause;
+        Note(ref detail, string.Format(LM.Get("stability_admin_detail"), AdministrativeControlSystem.Get(city) * 100f));
         return CityStabilityRules.Clamp(natural - remote);
     }
 
@@ -413,8 +426,9 @@ public static class CityStabilitySystem
             state.military_fiscal_units_version = 1;
         }
         state.last_update = World.world.getCurWorldTime();
-        state.natural_stability = budget.Natural;
-        state.pressure_detail = Pressure(input);
+        string pressure = Pressure(input);
+        state.natural_stability = LocalPressures(city, budget.Natural, ref pressure);
+        state.pressure_detail = pressure;
         float governance = budget.Governance;
         double governanceAnnual = budget.GovernanceAnnual;
         state.governance_due = CityStabilityRules.Invoice(governanceAnnual, ref state.governance_carry);

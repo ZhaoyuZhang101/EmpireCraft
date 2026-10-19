@@ -13,6 +13,9 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   或丢了开战时三分之一的城，连着两个月没缓过来——战线崩溃：胜方打它推进快一倍(见 FrontSystem.PushFactor)、
 //   各城团练抵抗减半；不开军团时攻城快一倍(见 CaptureSpeedPatch)。城仍要一座座打下来，不再举国并入、举国归附。
 //   对方正规军恢复到满编三成以上、或两家不再交战，崩溃即止。
+// 久战疲敝(用户 2026-10-19："统一战争不用一开始就触发，可以时间打的久了降国内稳定度，很差才这样")：被统一、被讨伐的一方，
+//   仗打满一年后各城自然稳定度每年少 6(至多 36)，丢的城每占开战时的一成再少 3(至多 15)，见 CityStabilitySystem.Natural；
+//   兵败如山倒还要它国内稳定度很差——各城平均不到 25(不开财政时按久战疲敝折算)。统一者、雄主自己不疲敝(开国气象)。
 // 以前统一战争另有"兵力不到统一者一成就算打光"：国库独大的统一者一开战，小国一仗没打，两个月后就举国并入；
 // 雄主讨伐时对方丢一块地就每月有几率举国归附。
 public static class FrontCollapse
@@ -20,6 +23,10 @@ public static class FrontCollapse
     private const int ConfirmMonths = 2;
     private const float BrokenShare = 0.15f, RecoveredShare = 0.3f, LostCitiesShare = 1f / 3f;
     private const int WipedWarriors = 3;
+    private const float WearyGraceYears = 1f, WearyPerYear = 6f, WearyYearsCap = 36f, WearyPerLostTenth = 3f, WearyLossCap = 15f;
+    private const float CollapseStability = 25f, BaseStability = 55f;
+    // 久战疲敝按国(帝国按核心)一个月算一次
+    private static readonly Dictionary<long, (float loss, double at)> Weariness = new();
     public const float PushBonus = 2f, MilitiaFactor = 0.5f, CaptureBonus = 2f;
 
     // 崩溃的一方(帝国按核心) → 打垮它的一方；连着几个月被打垮
@@ -34,6 +41,7 @@ public static class FrontCollapse
         Collapsed.Clear();
         Pending.Clear();
         CheckedAt.Clear();
+        Weariness.Clear();
     }
 
     private static Kingdom Realm(Kingdom kingdom) => FrontSystem.Realm(kingdom);
@@ -69,7 +77,7 @@ public static class FrontCollapse
             return;
         }
         string reason = Lost(a, b, war);
-        if (reason == null || !Broken(a))
+        if (reason == null || !Broken(a) || AverageStability(a) >= CollapseStability)
         {
             Pending.Remove(a.id);
             return;
@@ -141,6 +149,54 @@ public static class FrontCollapse
         if (lost <= 0) return null;
         int before = lost + WarSituation.SideCities(foe);
         return lost >= before * LostCitiesShare ? string.Format(LM.Get("front_collapse_cities"), lost) : null;
+    }
+
+    // 久战疲敝：这座城所属的一方正被统一、被雄主讨伐，按打得最久的那场仗算
+    public static float WarWeariness(City city)
+    {
+        Kingdom realm = Realm(city?.kingdom);
+        if (!Alive(realm) || World.world == null) return 0f;
+        double now = World.world.getCurWorldTime();
+        if (Weariness.TryGetValue(realm.id, out var hit) && now >= hit.at && now - hit.at < HalfMonth * 2d) return hit.loss;
+        float loss = 0f;
+        if (!UnificationSystem.Unifying(realm) && !RulerTraitSystem.FounderReigns(realm))
+            foreach (War war in realm.getWars())
+            {
+                if (war?.data == null || war.hasEnded() || !RulerTraitSystem.IsFounderUnificationWar(war)) continue;
+                float years = WarSituation.WarYears(war);
+                if (years < WearyGraceYears) continue;
+                float wear = Mathf.Min(WearyYearsCap, (years - WearyGraceYears) * WearyPerYear);
+                int lost = WarSituation.CitiesLost(war, realm);
+                int before = lost + WarSituation.SideCities(realm);
+                if (lost > 0 && before > 0) wear += Mathf.Min(WearyLossCap, lost * 10f / before * WearyPerLostTenth);
+                loss = Mathf.Max(loss, wear);
+            }
+        if (Weariness.Count > 512) Weariness.Clear();
+        Weariness[realm.id] = (loss, now);
+        return loss;
+    }
+
+    public static string DescribeWeariness(float loss) => string.Format(LM.Get("stability_war_weariness_detail"), loss);
+
+    // 国内稳定度：各城稳定度的平均(帝国连同各成员国)；不开财政(没有稳定度)的城按久战疲敝折算
+    private static float AverageStability(Kingdom realm)
+    {
+        float sum = 0f;
+        int count = 0;
+        foreach (Kingdom member in Members(realm))
+        {
+            if (member.cities == null) continue;
+            foreach (City city in member.cities)
+            {
+                if (city?.data == null || city.isRekt()) continue;
+                var state = city.GetOrCreate().stability;
+                sum += state != null && state.owner_id == member.id && TreasurySystem.Enabled(city)
+                    ? state.stability
+                    : Mathf.Max(0f, BaseStability - WarWeariness(city));
+                count++;
+            }
+        }
+        return count == 0 ? 100f : sum / count;
     }
 
     private static void Record(Kingdom victor, string text)

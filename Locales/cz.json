@@ -2629,6 +2629,7 @@
   "front_collapse_recovered_history": "{0}重整兵马，战线复稳。",
   "front_collapse_capital": "都城失守",
   "front_collapse_cities": "已失{0}座城",
+  "stability_war_weariness_detail": "久战疲敝 −{0:0}",
   "capital_loss_restored": "{0}收复旧都{1}，还于旧都，复称{2}。",
   "kingdom_type_xingzai": "行在",
   "Later": "后",
