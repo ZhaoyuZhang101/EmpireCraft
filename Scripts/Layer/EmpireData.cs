@@ -260,6 +260,8 @@ public class EmpireData : MetaObjectData
     // 征服王朝的治理路线(见 CompositeEmpireService.GetRoute)：0 未定、1 分治、2 兼用、3 从俗；定下或改换的时间
     public int composite_route { get; set; } = 0;
     public double composite_route_since { get; set; } = -1d;
+    // 本俗反扑(国语骑射，见 CompositeEmpireService.ProclaimNativism)：重申的时间，二十年内不从俗
+    public double nativist_revival_at { get; set; } = -1d;
     public InstitutionEmpireState institution_state { get; set; } = new InstitutionEmpireState();
     // 帝国对本文化科技的采纳(帝国成员共用，见 TechnologySystem.RealmHasTech)
     public EmpireCraft.Scripts.Data.RealmTechState realm_tech { get; set; }

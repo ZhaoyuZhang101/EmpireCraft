@@ -14,7 +14,7 @@ using NeoModLoader.services;
 
 namespace EmpireCraft.Scripts.GeneralSystems;
 
-public static class CompositeEmpireService
+public static partial class CompositeEmpireService
 {
     // 改用制度文化的国号：融合度到 60(以前 70——统治族群还在时融合度封顶 69，国号永远改不了)
     public const int CulturalNameIntegrationThreshold = 60;
@@ -114,7 +114,7 @@ public static class CompositeEmpireService
         float homeland = Math.Max(rulingShare, HomelandCityShare(empire, ruling));
         int next;
         if (homeland >= (current == RouteDual ? 0.30f : 0.35f)) next = RouteDual;
-        else if (DrawnToConquered(empire, ruling, institutional) &&
+        else if (!NativistActive(empire) && DrawnToConquered(empire, ruling, institutional) &&
                  homeland < (current == RouteAdopt ? 0.20f : 0.15f)) next = RouteAdopt;
         else next = RouteJoint;
         if (next == current) return;
@@ -611,6 +611,8 @@ public static class CompositeEmpireService
         int controlled = titles.Count(title => title.getCities().Any(city =>
             city != null && !city.isRekt() && city.kingdom?.GetEmpire() == empire));
         float controlledShare = titles.Count > 0 ? (float)controlled / titles.Count : 0f;
+        // 北归(见 CompositeEmpireService.Conquest)：属地丢得差不多了，退回本族旧地
+        if (!integrated && TryNorthernRetreat(empire, rulingCulture, institutionalCulture, controlledShare)) return;
         bool adoptable = AdoptableRegime(institutionalCulture, out RegimeType institutionalType);
         // 分治：属地以其本制治之，朝廷照旧制——两边的正统都算照顾到了
         bool institutionalRegime = route == RouteDual || adoptable && empire.CoreKingdom.GetRegime()?.type == institutionalType;
@@ -813,6 +815,7 @@ public static class CompositeEmpireService
     {
         if (!CultureService.IsValidCulture(institutionalCulture) ||
             string.Equals(empire.data.ruling_culture, institutionalCulture, StringComparison.Ordinal)) return;
+        string oldRuling = GetRulingCulture(empire);
         empire.data.ruling_culture = institutionalCulture;
         empire.data.conquest_founder_culture = institutionalCulture;
         empire.data.composite_route = RouteAdopt;
@@ -828,31 +831,39 @@ public static class CompositeEmpireService
         empire.data.empire_type_key = "";
         InstitutionSystem.ForgetRulingMajority(empire);
         SynchronizeMilitaryTraditionClaims(empire);
+        // 旧部不服改俗，据地起兵(见 CompositeEmpireService.Conquest)
+        OldGuardRevolt(empire, oldRuling, institutionalCulture);
     }
 
+    // 征服王朝随统治族群带来的诉求：游牧扩张挂在攘夷、融入派上(保留游牧军事传统时)；
+    // 国语骑射挂在攘夷、同化派上(统治族群游牧、尚未融完时)。没有这些派系的挂在当权派上
     private static void SynchronizeMilitaryTraditionClaims(Empire empire)
     {
         var factions = empire?.CoreKingdom?.GetRegime()?.GetPlayerFactions();
         if (factions == null) return;
-        bool preserveNomadicExpansion = UsesMilitaryTradition(empire, RegimeType.YouMu);
-        List<FixedFaction> traditionFactions = factions
-            .Where(f => f != null && (f.Type == FactionType.攘夷 || f.Type == FactionType.融入))
-            .ToList();
-        if (traditionFactions.Count == 0 && factions.FirstOrDefault(f => f?.Force == true) is FixedFaction dominate)
-            traditionFactions.Add(dominate);
+        SyncClaim(empire, factions, TemporaryFactionType.游牧扩张, UsesMilitaryTradition(empire, RegimeType.YouMu),
+            FactionType.攘夷, FactionType.融入);
+        SyncClaim(empire, factions, TemporaryFactionType.国语骑射, NativistClaimApplies(empire),
+            FactionType.攘夷, FactionType.同化);
+    }
+
+    private static void SyncClaim(Empire empire, List<FixedFaction> factions, TemporaryFactionType type, bool wanted,
+        params FactionType[] hostTypes)
+    {
+        List<FixedFaction> hosts = factions.Where(f => f != null && hostTypes.Contains(f.Type)).ToList();
+        if (hosts.Count == 0 && factions.FirstOrDefault(f => f?.Force == true) is FixedFaction dominate)
+            hosts.Add(dominate);
         foreach (FixedFaction faction in factions.Where(f => f != null))
         {
             faction.TemporaryFactionTypesRecord ??= new List<TemporaryFactionType>();
             faction.TemporaryFactions ??= new List<TemporaryFaction>();
-            TemporaryFaction existing = faction.TemporaryFactions
-                .FirstOrDefault(tf => tf != null && tf.type == TemporaryFactionType.游牧扩张);
-            if (preserveNomadicExpansion && traditionFactions.Contains(faction))
+            TemporaryFaction existing = faction.TemporaryFactions.FirstOrDefault(tf => tf != null && tf.type == type);
+            if (wanted && hosts.Contains(faction))
             {
-                if (!faction.TemporaryFactionTypesRecord.Contains(TemporaryFactionType.游牧扩张))
-                    faction.TemporaryFactionTypesRecord.Add(TemporaryFactionType.游牧扩张);
+                if (!faction.TemporaryFactionTypesRecord.Contains(type))
+                    faction.TemporaryFactionTypesRecord.Add(type);
                 if (existing == null && FactionManager.Config?.StoredTemporaryFaction != null &&
-                    FactionManager.Config.StoredTemporaryFaction.TryGetValue(
-                        TemporaryFactionType.游牧扩张, out TemporaryFaction prototype))
+                    FactionManager.Config.StoredTemporaryFaction.TryGetValue(type, out TemporaryFaction prototype))
                 {
                     TemporaryFaction claim = prototype.Clone(faction);
                     claim.Init(faction);
@@ -860,10 +871,10 @@ public static class CompositeEmpireService
                     faction.TemporaryFactions.Add(claim);
                 }
             }
-            else
+            else if (existing?.IsStarted() != true)
             {
-                faction.TemporaryFactionTypesRecord.Remove(TemporaryFactionType.游牧扩张);
-                faction.TemporaryFactions.RemoveAll(tf => tf != null && tf.type == TemporaryFactionType.游牧扩张);
+                faction.TemporaryFactionTypesRecord.Remove(type);
+                faction.TemporaryFactions.RemoveAll(tf => tf != null && tf.type == type);
             }
         }
     }

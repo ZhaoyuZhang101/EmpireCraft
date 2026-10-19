@@ -28,7 +28,7 @@ public static class ClaimTuning
             TemporaryFactionType.开放党禁 or TemporaryFactionType.索取皇位 or TemporaryFactionType.诛宦官 or
             TemporaryFactionType.党锢 or TemporaryFactionType.大赦天下 or TemporaryFactionType.盐铁专营 or
             TemporaryFactionType.重农抑商 or TemporaryFactionType.封禅 or TemporaryFactionType.裁省用度 or
-            TemporaryFactionType.独尊官学 => LightMonths,
+            TemporaryFactionType.独尊官学 or TemporaryFactionType.国语骑射 => LightMonths,
         TemporaryFactionType.土地改革 or TemporaryFactionType.游牧化 or TemporaryFactionType.颁布金玺诏书 or
             TemporaryFactionType.恢复世袭皇权 or TemporaryFactionType.建立共和 or TemporaryFactionType.复辟帝制 or
             TemporaryFactionType.转周制 => HeavyMonths,

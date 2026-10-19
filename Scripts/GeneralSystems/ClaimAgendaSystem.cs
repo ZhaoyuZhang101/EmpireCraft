@@ -205,6 +205,8 @@ public static class ClaimAgendaSystem
                 TianxiaSystem.PhaseOf(empire.CoreKingdom) == TianxiaSystem.Unrest ? 15f : 5f,
             TemporaryFactionType.重定律令 or TemporaryFactionType.重农抑商 => 5f,
             TemporaryFactionType.独尊官学 => 12f,
+            // 征服王朝融得越深、已在从俗，本族旧臣越急着重申国语骑射
+            TemporaryFactionType.国语骑射 => CompositeEmpireService.NativismUrgency(empire),
             TemporaryFactionType.册立储君 => empire.Emperor == null ? 0f
                 : Mathf.Clamp((empire.Emperor.getAge() - 30) * 0.5f, 0f, 20f),
             _ => 0f

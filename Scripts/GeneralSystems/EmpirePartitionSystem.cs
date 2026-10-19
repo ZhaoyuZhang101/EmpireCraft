@@ -359,6 +359,8 @@ public static class EmpirePartitionSystem
         twin.data.military_tradition = source.data.military_tradition;
         twin.data.composite_integration = source.data.composite_integration;
         twin.data.composite_integration_stage = source.data.composite_integration_stage;
+        twin.data.composite_route = source.data.composite_route;
+        twin.data.nativist_revival_at = source.data.nativist_revival_at;
         twin.data.central_plains_legitimacy = source.data.central_plains_legitimacy;
         twin.data.ruling_tradition_legitimacy = source.data.ruling_tradition_legitimacy;
         twin.data.composite_identity_adopted_timestamp = source.data.composite_identity_adopted_timestamp;

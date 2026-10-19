@@ -626,6 +626,9 @@ namespace EmpireCraft.Scripts.UI.Windows
                     true, TextAnchor.MiddleCenter, new Vector2(MainWidth - 12f, 10));
                 panel.AddTextIntoVertLayout(CompositeEmpireService.GetRouteDetail(empire, route).ColorString("#AEB6C2"),
                     true, TextAnchor.MiddleCenter, new Vector2(MainWidth - 12f, 20));
+                if (CompositeEmpireService.NativistActive(empire))
+                    panel.AddTextIntoVertLayout(LM.Get("composite_nativist_active").ColorString("#E9A85B"),
+                        true, TextAnchor.MiddleCenter, new Vector2(MainWidth - 12f, 10));
                 if (hasCulturalName)
                 {
                     string nameCulture = GetCultureDisplayName(empire.data.composite_cultural_name_culture);

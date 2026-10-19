@@ -129,5 +129,7 @@ public enum TemporaryFactionType
     [Description("重农抑商，限制商贾")]
     重农抑商,
     [Description("受天命的治世，学说朋党请以本家学说为官学")]
-    独尊官学
+    独尊官学,
+    [Description("征服王朝的本族旧臣请重申本族语言与骑射，不改从属地之俗")]
+    国语骑射
 }
