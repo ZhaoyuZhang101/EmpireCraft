@@ -95,6 +95,40 @@ public static class TerritoryLabelRenderer
         arc_curvature = 0.1f
     };
 
+    // 天下图层(用户 2026-10-19 嫌与帝国法理分不开，看对比图选"紫气")：排版同帝国标签，淡紫到紫罗兰渐变、深紫描边
+    public static readonly TerritoryLabelStyle TianxiaStyle = new TerritoryLabelStyle
+    {
+        text_color = new Color(1f, 1f, 1f, 0.85f),
+        outline_color = new Color32(36, 14, 58, 220),
+        size_multiplier = 0.90f,
+        territory_padding = 0.95f,
+        min_font_size = 6,
+        font_style = FontStyle.Normal,
+        use_gold_gradient = true,
+        gold_top = new Color32(244, 232, 255, 255),
+        gold_bottom = new Color32(154, 98, 216, 255),
+        wrap_english_name = true,
+        bridge_internal_gaps = true,
+        arc_curvature = 0.1f
+    };
+
+    // 未立核心、按文化连片的天下：同一套紫，淡一些、偏灰
+    public static readonly TerritoryLabelStyle UncoredTianxiaStyle = new TerritoryLabelStyle
+    {
+        text_color = new Color(1f, 1f, 1f, 0.6f),
+        outline_color = new Color32(30, 22, 40, 170),
+        size_multiplier = 0.90f,
+        territory_padding = 0.95f,
+        min_font_size = 6,
+        font_style = FontStyle.Normal,
+        use_gold_gradient = true,
+        gold_top = new Color32(228, 222, 234, 255),
+        gold_bottom = new Color32(140, 124, 162, 255),
+        wrap_english_name = true,
+        bridge_internal_gaps = true,
+        arc_curvature = 0.1f
+    };
+
     // 同盟标签(帝国视图的补充)：蓝色文字，排版同帝国标签
     public static readonly TerritoryLabelStyle AllianceStyle = new TerritoryLabelStyle
     {
