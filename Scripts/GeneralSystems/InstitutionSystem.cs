@@ -581,9 +581,12 @@ public static partial class InstitutionSystem
         Kingdom core = empire.CoreKingdom;
         Regime current = core?.GetRegime();
         string culture = GetPrimaryCulture(empire);
+        // 原始政体(部落分迁管)、共和与现代(RepublicSystem 管)不从这里改：以前读档后本文化制度线还在原始阶段的帝国
+        // 会被改成部落，成员被赶出、帝号变成部落
         if (current == null || CompositeEmpireService.IsComposite(empire) || RepublicSystem.IsRegimeLocked(core) ||
             core.GetOrCreate().regime_manually_selected || !TryResolveCultureRegime(culture, out RegimeType regime) ||
-            current.type == regime)
+            current.type == regime || RegimeManager.IsPrimitive(regime) ||
+            regime is RegimeType.Modern or RegimeType.Republic)
         {
             state.pending_culture_regime = false;
             return;
@@ -612,6 +615,10 @@ public static partial class InstitutionSystem
         if (RegimeManager.IsPrimitive(regime.type) || regime.type is RegimeType.Modern or RegimeType.Republic) return;
         if (!InstitutionDefinitionRegistry.HasLine(line) || LineDeclares(line, regime.type)) return;
         if (!TryResolveCultureRegime(culture, out RegimeType target) || target == regime.type) return;
+        // 本文化制度线还停在原始阶段(华夏、游牧、阿拉伯、日本线开局都是原始政体)时不能把成形的帝国改回部落——
+        // 这里读档(MigrateEmpire)和每年都跑，以前一读档就把帝国改成部落，成员被赶出、帝号变成部落；
+        // 也不从这里跳到共和、现代(那些走 RepublicSystem)。外线政体先留着，等本文化走出原始阶段再改
+        if (RegimeManager.IsPrimitive(target) || target is RegimeType.Modern or RegimeType.Republic) return;
         LogService.LogInfo($"[EmpireCraft][制度] {empire.GetEmpireName()} 政体 {regime.type} 不属于 {culture} 的制度线，改为 {target}");
         ChangeRegime(empire, target);
         empire.data.empire_type_key = "";
