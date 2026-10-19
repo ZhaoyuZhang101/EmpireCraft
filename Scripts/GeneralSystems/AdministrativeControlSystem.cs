@@ -194,10 +194,14 @@ public static class AdministrativeControlSystem
             {
                 data.admin_pass_at = World.world.getCurWorldTime();
                 List<City> cities = Cities(realm);
-                Compute(realm, cities);
-                UpdateCapacity(realm, cities);
-                if (!realm.hasEnemies()) Defect(realm, cities);
-                ReleaseOverreach(realm, cities);
+                // 分项计时(嵌在"行政控制力"里)：最短路(含地形阻力、港口)与其余各步
+                using (FrameProfiler.Measure("行政控制力·最短路")) Compute(realm, cities);
+                using (FrameProfiler.Measure("行政控制力·其余"))
+                {
+                    UpdateCapacity(realm, cities);
+                    if (!realm.hasEnemies()) Defect(realm, cities);
+                    ReleaseOverreach(realm, cities);
+                }
             }
         }
         catch (Exception error)
@@ -303,6 +307,49 @@ public static class AdministrativeControlSystem
     private static float Control(float distance, float reach) =>
         distance <= reach ? 1f : Mathf.Max(MinControl, 1f - (distance - reach) / (2f * reach));
 
+    // 最短路的工作数组(按地块编号，记的是第几趟，不必每趟清空)：本国领土、已走到(路程、是否走过海路)、本趟算过的地形阻力。
+    // 以前每趟新建以地块为键的 HashSet、Dictionary，大国一趟几千块地
+    private static readonly MinHeap<(TileZone zone, bool sea)> Heap = new();
+    private static int _pass;
+    private static int[] _member = new int[0], _done = new int[0], _stepPass = new int[0];
+    private static float[] _cost = new float[0], _step = new float[0];
+    private static bool[] _sea = new bool[0];
+
+    private static void BeginPass()
+    {
+        int size = World.world?.zone_calculator?.zones?.Count ?? 0;
+        if (_member.Length < size) GrowPass(size);
+        if (++_pass < int.MaxValue) return;
+        Array.Clear(_member, 0, _member.Length);
+        Array.Clear(_done, 0, _done.Length);
+        Array.Clear(_stepPass, 0, _stepPass.Length);
+        _pass = 1;
+    }
+
+    private static void GrowPass(int size)
+    {
+        Array.Resize(ref _member, size);
+        Array.Resize(ref _done, size);
+        Array.Resize(ref _stepPass, size);
+        Array.Resize(ref _cost, size);
+        Array.Resize(ref _step, size);
+        Array.Resize(ref _sea, size);
+    }
+
+    private static bool Member(TileZone zone) => zone.id >= 0 && zone.id < _member.Length && _member[zone.id] == _pass;
+
+    private static bool Reached(TileZone zone) => zone.id >= 0 && zone.id < _done.Length && _done[zone.id] == _pass;
+
+    private static float Step(TileZone zone)
+    {
+        int id = zone.id;
+        if (_stepPass[id] == _pass) return _step[id];
+        float step = TerrainResistance.Step(zone);
+        _step[id] = step;
+        _stepPass[id] = _pass;
+        return step;
+    }
+
     private static void Compute(Kingdom realm, List<City> cities)
     {
         var seats = new List<(TileZone zone, int offset)>();
@@ -314,10 +361,14 @@ public static class AdministrativeControlSystem
             if (zone != null) seats.Add((zone, owner == realm ? 0 : MemberSeatOffset));
         }
         if (seats.Count == 0) return;
-        var zones = new HashSet<TileZone>();
+        BeginPass();
         foreach (City city in cities)
             foreach (TileZone zone in city.zones)
-                if (zone != null) zones.Add(zone);
+                if (zone != null && zone.id >= 0)
+                {
+                    if (zone.id >= _member.Length) GrowPass(zone.id + 1);
+                    _member[zone.id] = _pass;
+                }
         // 港口(本国水师辐射内互通海路)：城心块 → 港口城、所在水域
         float radius = StraitReach.Radius(realm);
         var ports = new Dictionary<TileZone, (City city, HashSet<int> basins)>();
@@ -329,29 +380,33 @@ public static class AdministrativeControlSystem
                 var basins = new HashSet<int>(SeaRegionSystem.RegionsAround(city).Select(region => region.Basin));
                 if (zone != null && basins.Count > 0) ports[zone] = (city, basins);
             }
-        // 多源最短路(按地形阻力)：都城从 0 起、成员国都城从 4 起；记下路上有没有走过海路
-        var distance = new Dictionary<TileZone, (float cost, bool sea)>();
-        var heap = new MinHeap<(TileZone zone, bool sea)>();
-        foreach ((TileZone zone, int offset) in seats) heap.Push(offset, (zone, false));
-        while (heap.Count > 0)
+        // 多源最短路(按地形阻力)：都城从 0 起、成员国都城从 4 起；记下路上有没有走过海路。
+        // 每块地的阻力一趟只算一次(以前四邻各推一次就现算一次)
+        Heap.Clear();
+        foreach ((TileZone zone, int offset) in seats) Heap.Push(offset, (zone, false));
+        while (Heap.Count > 0)
         {
-            (float cost, (TileZone zone, bool sea)) = heap.Pop();
-            if (distance.ContainsKey(zone)) continue;
-            distance[zone] = (cost, sea);
+            (float cost, (TileZone zone, bool sea)) = Heap.Pop();
+            if (zone.id < 0 || Reached(zone)) continue;
+            if (zone.id >= _member.Length) GrowPass(zone.id + 1);
+            _done[zone.id] = _pass;
+            _cost[zone.id] = cost;
+            _sea[zone.id] = sea;
             foreach (TileZone neighbour in zone.neighbours ?? Array.Empty<TileZone>())
             {
-                if (neighbour == null || !zones.Contains(neighbour) || distance.ContainsKey(neighbour)) continue;
-                float step = TerrainResistance.Step(neighbour);
-                heap.Push(cost + (step < 0f ? WaterStep : step), (neighbour, sea));
+                if (neighbour == null || !Member(neighbour) || Reached(neighbour)) continue;
+                float step = Step(neighbour);
+                Heap.Push(cost + (step < 0f ? WaterStep : step), (neighbour, sea));
             }
-            if (!ports.TryGetValue(zone, out var from)) continue;
+            if (ports.Count == 0 || !ports.TryGetValue(zone, out var from)) continue;
             foreach (KeyValuePair<TileZone, (City city, HashSet<int> basins)> to in ports)
             {
-                if (to.Key == zone || distance.ContainsKey(to.Key) || !from.basins.Overlaps(to.Value.basins)) continue;
+                if (to.Key == zone || Reached(to.Key) || !from.basins.Overlaps(to.Value.basins)) continue;
                 float span = (from.city.city_center - to.Value.city.city_center).magnitude;
-                if (span <= radius) heap.Push(cost + SeaEmbark + span / SeaTilesPerCost, (to.Key, true));
+                if (span <= radius) Heap.Push(cost + SeaEmbark + span / SeaTilesPerCost, (to.Key, true));
             }
         }
+        Heap.Clear();
         float reach = Reach(realm);
         bool modern = TechnologySystem.GetEraTier(TechnologySystem.GetCultureOf(realm)) >= 7;
         foreach (City city in cities)
@@ -359,15 +414,16 @@ public static class AdministrativeControlSystem
             var data = city.GetOrCreate();
             TileZone center = CenterZone(city);
             if (center == null) continue;
-            if (distance.TryGetValue(center, out var reached))
+            if (Reached(center))
             {
+                float reachedCost = _cost[center.id];
                 // 走海路才到、又与各治所不在同一块陆地上的，是隔海的城
-                bool across = reached.sea && !seats.Any(seat => seat.zone.centerTile != null && center.centerTile != null &&
-                                                                  seat.zone.centerTile.isSameIsland(center.centerTile));
-                data.admin_distance = Mathf.RoundToInt(reached.cost);
+                bool across = _sea[center.id] && !seats.Any(seat => seat.zone.centerTile != null && center.centerTile != null &&
+                                                                     seat.zone.centerTile.isSameIsland(center.centerTile));
+                data.admin_distance = Mathf.RoundToInt(reachedCost);
                 data.admin_exclave = false;
                 data.admin_overseas = across;
-                float control = Control(reached.cost, reach);
+                float control = Control(reachedCost, reach);
                 data.admin_control = across ? Mathf.Min(modern ? ModernOverseasCap : OverseasCap, control) : control;
                 continue;
             }
