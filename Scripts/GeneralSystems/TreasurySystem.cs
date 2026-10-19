@@ -188,6 +188,9 @@ public static class TreasurySystem
             int era = ZhouEraSystem.Era(empire);
             if (era >= ZhouEraSystem.Spring && local.GetKingdomType() != KingdomType.ZhouFeudalism_jun)
                 centralPercent = era == ZhouEraSystem.Spring ? 5 : 0;
+            // 世袭的埃米尔只象征性地向哈里发缴税(见 EmirateSystem)
+            else if (EmirateSystem.IsHereditaryEmir(empire, local))
+                centralPercent = EmirateSystem.HereditaryCentralPercent;
         }
         return (25, 75 - centralPercent, centralPercent);
     }

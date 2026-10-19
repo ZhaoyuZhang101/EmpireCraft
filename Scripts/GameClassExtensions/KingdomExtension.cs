@@ -241,6 +241,8 @@ public static class KingdomExtension
         public double TimestampBeFeifed = -1L;
         // 上次遭劫掠的时间(五年内不再遭劫，见 TempFac_劫掠)
         public double raided_at = -1d;
+        // 埃米尔世袭(或以世袭成员身份第一次被看到)的时间：世袭满十五年才可能割据(见 EmirateSystem)；-1 = 不是世袭的埃米尔
+        public double emirate_hereditary_at = -1d;
         // 和约(见 WarGoalSystem)：被迫开港与谁通商、从何时起(二十年)；被谁扶立为君、何时(二十年内两国互不开战)
         public long trade_treaty_partner_id = -1L;
         public double trade_treaty_at = -1d;
