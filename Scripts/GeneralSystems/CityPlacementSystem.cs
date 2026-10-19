@@ -24,14 +24,27 @@ public static class CityPlacementSystem
     // 建城期间：新城不独立为城邦、不分出新部落
     public static bool Placing { get; private set; }
 
+    // 先选国家再建城：纯净地图、无小人模式下点不到小人，原版"点小人建城"用不了。点一国的地先选定它，
+    // 再点它的地或无主的平地给它建城，城名、主流文化照它的国家文化；点别国的地改选那一国。
+    // 没选过时，点无主之地照旧归挨着的国家里都城最近的
+    private static long _chosen = -1L;
+
     public static string PlaceCity(WorldTile tile)
     {
         TileZone zone = tile?.zone;
         if (zone == null || tile.Type == null || tile.Type.liquid || tile.Type.mountains || MapWallSystem.Contains(tile))
             return LM.Get("city_place_no_land");
         City host = zone.city;
-        Kingdom owner = host?.kingdom;
-        if (host == null)
+        Kingdom chosen = _chosen > 0 ? World.world.kingdoms.get(_chosen) : null;
+        if (chosen != null && (chosen.isRekt() || chosen.wild)) chosen = null;
+        Kingdom clicked = host?.kingdom;
+        if (clicked != null && !clicked.wild && !clicked.isRekt() && clicked != chosen)
+        {
+            _chosen = clicked.getID();
+            return string.Format(LM.Get("city_place_chosen"), clicked.GetKingdomName());
+        }
+        Kingdom owner = chosen ?? clicked;
+        if (host == null && owner == null)
         {
             // 无主之地：挨着的国家里都城最近的
             float best = float.MaxValue;
@@ -62,7 +75,13 @@ public static class CityPlacementSystem
         City source = host ?? owner.cities?.Where(city => city?.getTile() != null && !city.isRekt())
             .OrderBy(city => Toolbox.SquaredDistTile(city.getTile(), tile)).FirstOrDefault();
         if (source == null) return LM.Get("city_place_no_kingdom");
+        string culture = CultureService.GetRealmCulture(owner);
+        if (!CultureService.IsValidCulture(culture)) culture = CultureService.GetMainCulture(source);
         Actor founder = CityPopulationSystem.AbstractPopulationEnabled ? CityPopulationSystem.SpawnOfficial(source, owner) : null;
+        // 新落成的建城人随国家文化，原版按他的文化给新城起名
+        if (founder != null && !founder.isRekt() && CultureService.GetNativeCultureObject(culture) is Culture native &&
+            founder.culture != native)
+            founder.setCulture(native);
         if (founder == null || founder.isRekt()) founder = source.leader;
         if (founder == null || founder.isRekt() || !founder.isAlive() || founder.kingdom != owner)
             return LM.Get("city_place_no_founder");
@@ -83,7 +102,8 @@ public static class CityPlacementSystem
         }
         if (city == null) return LM.Get("city_place_no_land");
         city.GetOrCreate().placed_by_hand = true;
-        CultureService.SetCityMainCulture(city, CultureService.GetMainCulture(source));
+        // 主流文化照国家文化(与起名的文化不同时按它改名)
+        CultureService.SetCityMainCulture(city, culture);
         CityPopulationSystem.TransferBackground(source, city, 0.1f);
         string content = string.Format(LM.Get("city_placed"), owner.GetKingdomName(), city.GetCityName());
         TranslateHelper.LogEventOnly(content, owner);
