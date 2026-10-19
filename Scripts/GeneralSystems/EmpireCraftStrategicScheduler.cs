@@ -50,18 +50,19 @@ public static class EmpireCraftStrategicScheduler
         MapBox currentWorld = World.world;
         if (currentWorld == null || !Config.game_loaded || Config.paused || SmoothLoader.isLoading()) return;
         if (!ReferenceEquals(_boundWorld, currentWorld)) Reset(currentWorld);
-        StateSettlementSystem.Tick();
+        // 计时标签都是字面量(不每帧拼字符串)；路网、行政控制力、文化辐射、地方稳定与财政在各自里面计时
+        using (FrameProfiler.Measure("国家移民与空城安置")) StateSettlementSystem.Tick();
         // 路网规划、修路养路(自己按真实时间与游戏月份限频，见 RoadNetwork、RoadBuildingSystem)
         RoadNetwork.Tick();
         using (FrameProfiler.Measure("皇帝出行")) EmperorTourSystem.Tick();
         using (FrameProfiler.Measure("宗室·生老病死")) RoyalHouseSystem.Tick();
         using (FrameProfiler.Measure("饥荒动荡")) FamineUnrestSystem.Tick();
         using (FrameProfiler.Measure("天下大势")) UnificationSystem.Tick();
-        ExclaveMaintenanceSystem.Tick();
+        using (FrameProfiler.Measure("飞地年度维护")) ExclaveMaintenanceSystem.Tick();
         AdministrativeControlSystem.Tick();
         CultureRadiation.Tick();
         CityStabilitySystem.Tick();
-        AdministrationReorganizationSystem.Tick();
+        using (FrameProfiler.Measure("帝国改划")) AdministrationReorganizationSystem.Tick();
 
         float realtime = Time.realtimeSinceStartup;
         if (realtime >= _nextCompatibilityRefresh)
@@ -113,7 +114,7 @@ public static class EmpireCraftStrategicScheduler
 
         // Titles are internally sliced. Calling once per render frame avoids a full
         // title scan on every physics tick.
-        ModClass.KINGDOM_TITLE_MANAGER?.update(0f);
+        using (FrameProfiler.Measure("头衔管理")) ModClass.KINGDOM_TITLE_MANAGER?.update(0f);
 
         int processedEmpires = 0;
         do
@@ -334,7 +335,7 @@ public static class EmpireCraftStrategicScheduler
             {
                 state.EmperorId = emperorId;
                 state.LastStrategicWorldTime = World.world.getCurWorldTime();
-                empire.update();
+                using (FrameProfiler.Measure("帝国·月度")) empire.update();
             }
             FaultRetryTimes.Remove(faultKey);
         }
