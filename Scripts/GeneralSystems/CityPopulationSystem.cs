@@ -443,6 +443,7 @@ public static class CityPopulationSystem
         GentrySystem.ResetWorldState();
         _passMilliseconds = 0d;
         _passCities = 0;
+        _yearEndStep = 0;
     }
 
     public static CityPopulationData Get(City city)
@@ -506,6 +507,7 @@ public static class CityPopulationSystem
         }
         else { PendingFolds.Clear(); _foldCity = null; _foldOwner = null; }
         if (enabled && SimulationFrameBudget.HasTime) TickHomeless();
+        if (_yearEndStep > 0) RunYearEndStep();
         if (PendingCities.Count == 0)
         {
             bool due = _lastPass < 0d || now < _lastPass || Date.getYearsSince(_lastPass) >= 1;
@@ -546,10 +548,24 @@ public static class CityPopulationSystem
             LogService.LogInfo($"[EmpireCraft][人口数据层] 本年校准 {LastPassCities} 座城市，共耗时 {LastPassMilliseconds:0.0} ms(分帧，每帧上限 {SliceBudgetMs} ms)");
             FoldHomeless();
             // 全世界内存普查只在调试时主动调用，避免年度分帧结束后再集中扫描一遍所有单位与族谱。
-            // 人口诊断只遍历城市，开销小，每年记一次
-            LogPopulationDiagnosis();
-            FiscalDiagnostics.LogYearly();
+            // 人口诊断、财政诊断每年记一次，各占后面的一帧(以前和最后一批校准挤在同一帧)
+            _yearEndStep = 1;
         }
+    }
+
+    // 年度校准结完后的诊断日志：1 人口诊断，2 财政诊断，0 没有
+    private static int _yearEndStep;
+
+    private static void RunYearEndStep()
+    {
+        if (_yearEndStep == 1)
+        {
+            LogPopulationDiagnosis();
+            _yearEndStep = 2;
+            return;
+        }
+        FiscalDiagnostics.LogYearly();
+        _yearEndStep = 0;
     }
 
     // 流民：属于某个文明国家、却不属于任何城市的普通人和散兵(城破逃散、迁徙落空、军团解散后留在野外的)。
@@ -690,7 +706,8 @@ public static class CityPopulationSystem
             int cities = 0, famine = 0, crowded = 0, war = 0;
             double total = 0d, capacity = 0d, birth = 0d, death = 0d, satisfaction = 0d;
             int satisfied = 0;
-            var smallest = new List<(float total, string line)>();
+            // 只给最小的五座城拼说明(以前每座城都拼一行字、数一遍废墟，再挑五行)
+            var smallest = new List<(float total, City city, GrowthFactors f, float sat)>();
             foreach (City city in World.world.cities)
             {
                 if (city?.data == null || city.isRekt() || city.kingdom == null || city.kingdom.wild) continue;
@@ -711,14 +728,18 @@ public static class CityPopulationSystem
                     satisfaction += sat;
                     satisfied++;
                 }
-                smallest.Add((f.Total, $"{city.data.name} 人口 {f.Total:0} / 上限 {f.Capacity:0}，存粮 {f.FoodPerCapita:0.0}/户，" +
-                                       $"吃饱 {(sat < 0f ? "-" : sat.ToString("P0"))}，生 {f.BirthRate:P1} 死 {f.DeathRate:P1}" +
-                                       $"{(f.Famine ? " 饥荒" : "")}{(f.War ? " 战乱" : "")}，废墟 {CityConstructionSystem.CountRuins(city)}"));
+                smallest.Add((f.Total, city, f, sat));
             }
             if (cities == 0) return;
             smallest.Sort((a, b) => a.total.CompareTo(b.total));
             var worst = new List<string>();
-            for (int i = 0; i < Mathf.Min(5, smallest.Count); i++) worst.Add(smallest[i].line);
+            for (int i = 0; i < Mathf.Min(5, smallest.Count); i++)
+            {
+                (_, City city, GrowthFactors f, float sat) = smallest[i];
+                worst.Add($"{city.data.name} 人口 {f.Total:0} / 上限 {f.Capacity:0}，存粮 {f.FoodPerCapita:0.0}/户，" +
+                          $"吃饱 {(sat < 0f ? "-" : sat.ToString("P0"))}，生 {f.BirthRate:P1} 死 {f.DeathRate:P1}" +
+                          $"{(f.Famine ? " 饥荒" : "")}{(f.War ? " 战乱" : "")}，废墟 {CityConstructionSystem.CountRuins(city)}");
+            }
             LogService.LogInfo($"[EmpireCraft][人口诊断] {cities} 城，总人口 {total:0}，住房上限合计 {capacity:0}；" +
                                $"饥荒 {famine} 城，战乱 {war} 城，住满 {crowded} 城；" +
                                $"平均出生 {birth / cities:P1} 死亡 {death / cities:P1}，平均吃饱 " +
@@ -1244,8 +1265,12 @@ public static class CityPopulationSystem
             }
             try
             {
-                using var phaseTiming = new PerfTimer($"城市月度步骤 {_foldPhase} ({city.data.name})");
-                if (ExecuteFoldPhase(city, Get(city), _foldNow, _foldPhase++)) _foldCity = null;
+                // 慢了才拼"城市月度步骤 N (城名)"的标签(以前每一步都拼一次)
+                int phase = _foldPhase;
+                long phaseStarted = PerfTimer.Begin();
+                bool finished = ExecuteFoldPhase(city, Get(city), _foldNow, _foldPhase++);
+                if (PerfTimer.Slow(phaseStarted, out double phaseMs)) PerfTimer.Warn($"城市月度步骤 {phase} ({city.data?.name})", phaseMs);
+                if (finished) _foldCity = null;
                 if (_waitingForMath) break;
             }
             catch (Exception exception)
@@ -1285,18 +1310,19 @@ public static class CityPopulationSystem
             case 9: PopulationEconomySystem.Settle(city, data, now, _foldHarvest); break;
             case 10: MarketSystem.Settle(city, data); break;
             case 11: MarketSystem.CheckSiegeSurrender(city, data); break;
+            // 城市扩张与营建各占一步(以前同一步，两样都重时一帧里连着做)
             case 12:
                 if (_foldEconomyDue) EmpireCraft.Scripts.GamePatches.CityExpansionPatch.GrowVirtualCity(city);
-                SettleConstruction(city, data, now);
                 break;
-            case 13: ScorchedEarthSystem.Settle(city); break;
-            case 14: Migrate(city, data, now); break;
-            case 15: Plague(city, data); break;
-            case 16: ReadBooks(city); break;
-            case 17: GrowBackground(city, data, now); break;
+            case 13: SettleConstruction(city, data, now); break;
+            case 14: ScorchedEarthSystem.Settle(city); break;
+            case 15: Migrate(city, data, now); break;
+            case 16: Plague(city, data); break;
+            case 17: ReadBooks(city); break;
+            case 18: GrowBackground(city, data, now); break;
             default:
                 if (!PopulationParallelSystem.TryCompleteGrowth(city))
-                { _foldPhase = 18; _waitingForMath = true; return false; }
+                { _foldPhase = 19; _waitingForMath = true; return false; }
                 Census(city, data, keepBackground: true);
                 return true;
         }

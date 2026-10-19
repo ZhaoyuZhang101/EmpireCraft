@@ -67,7 +67,8 @@ public static class FiscalDiagnostics
         if (World.world?.kingdoms == null) return;
         int states = 0, deficit = 0, indebted = 0, defaulted = 0, rationed = 0;
         long treasuries = 0, debt = 0;
-        var biggest = new List<(long balance, string line)>();
+        // 只给最富的三国拼说明(以前每国都拼一行字再挑三行)
+        var biggest = new List<(long balance, Kingdom kingdom, long monthly, long bonds, double ratio)>();
         foreach (Kingdom kingdom in World.world.kingdoms)
         {
             if (kingdom == null || kingdom.isRekt() || !TreasurySystem.Enabled(kingdom)) continue;
@@ -83,9 +84,7 @@ public static class FiscalDiagnostics
             if (StateDebtSystem.DefaultedRecently(kingdom)) defaulted++;
             double ratio = FiscalBudgetPlanner.NormalRatio(kingdom);
             if (ratio < 0.999d) rationed++;
-            biggest.Add((balance, $"{kingdom.GetKingdomName()} 库 {HelperFunc.MoneyDisplay.Format(balance)}/" +
-                                  $"月 {(monthly >= 0 ? "+" : "")}{monthly}/债 {HelperFunc.MoneyDisplay.Format(bonds)}" +
-                                  $"{(ratio < 0.999d ? $"/拨付 {ratio:0%}" : "")}"));
+            biggest.Add((balance, kingdom, monthly, bonds, ratio));
         }
         if (states == 0) return;
         long arrears = 0;
@@ -103,7 +102,10 @@ public static class FiscalDiagnostics
             .Append($"月度赤字 {deficit} 国，负债 {indebted} 国(共 {HelperFunc.MoneyDisplay.Format(debt)})，")
             .Append($"违约 {defaulted} 国，限额拨款 {rationed} 国；欠饷 {arrearsCities} 城共 {HelperFunc.MoneyDisplay.Format(arrears)}。");
         if (biggest.Count > 0)
-            text.Append("最大的国：").Append(string.Join("；", biggest.Take(3).Select(item => item.line)));
+            text.Append("最大的国：").Append(string.Join("；", biggest.Take(3).Select(item =>
+                $"{item.kingdom.GetKingdomName()} 库 {HelperFunc.MoneyDisplay.Format(item.balance)}/" +
+                $"月 {(item.monthly >= 0 ? "+" : "")}{item.monthly}/债 {HelperFunc.MoneyDisplay.Format(item.bonds)}" +
+                $"{(item.ratio < 0.999d ? $"/拨付 {item.ratio:0%}" : "")}")));
         LogService.LogInfo(text.ToString());
     }
 }
