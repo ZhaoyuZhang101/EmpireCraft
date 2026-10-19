@@ -490,12 +490,28 @@ public static class CorpsSystem
         float budget = BudgetFactor(kingdom, war, totalSlots * legionSize);
         bool limited = budget < 0.999f;
         legionSize = Mathf.Max(1f, legionSize * budget);
+        // 各军镇的军、各军分出去的渡海先遣军兵力先按驻地、原军归好(以前每座军镇、每支军都把全国的军筛一遍)。
+        // 下面只对各军镇自己的正规军补员、退伍、新编，不动先遣军，也不改驻地，归好的不会变
+        var byHome = new Dictionary<long, List<CorpsData>>();
+        var awayByParent = new Dictionary<long, float>();
+        foreach (CorpsData corps in list)
+        {
+            if (corps.parent_id >= 0)
+            {
+                awayByParent.TryGetValue(corps.parent_id, out float away);
+                awayByParent[corps.parent_id] = away + corps.strength;
+                continue;
+            }
+            if (corps.militia || corps.order_id >= 0 || corps.manual) continue;
+            if (!byHome.TryGetValue(corps.home_city_id, out List<CorpsData> group))
+                byHome[corps.home_city_id] = group = new List<CorpsData>();
+            group.Add(corps);
+        }
         foreach (City city in cities)
         {
             if (!posts.TryGetValue(city, out int legions)) continue;
             int wanted = legions <= 0 ? 0 : Mathf.CeilToInt(legions / (float)LegionsPerCorps);
-            var here = list.Where(corps => corps.home_city_id == city.id && !corps.militia && corps.order_id < 0 &&
-                                           corps.parent_id < 0 && !corps.manual).ToList();
+            var here = byHome.TryGetValue(city.id, out List<CorpsData> stationed) ? stationed : new List<CorpsData>();
             // 每支军分到的旧制军团数
             for (int i = 0; i < Mathf.Max(wanted, here.Count); i++)
             {
@@ -521,7 +537,7 @@ public static class CorpsSystem
                 }
                 // 补给不到五成(海外断了航线、孤军深入、被围)补不上兵；在船上的也补不了。
                 // 分出去的渡海先遣军算在本军名下(补员、裁撤按两者合计)，免得一边分兵一边补满、兵越分越多
-                float away = list.Where(other => other.parent_id == corps.id).Sum(other => other.strength);
+                awayByParent.TryGetValue(corps.id, out float away);
                 if (corps.strength + away < corps.full && corps.supply >= 0.5f && !corps.embarked && !unpaid)
                     Reinforce(kingdom, corps, Mathf.Min(corps.full * ReinforceShare * corps.supply, corps.full - away - corps.strength));
                 else if ((!war || limited) && corps.strength + away > corps.full)
@@ -648,15 +664,40 @@ public static class CorpsSystem
     private const int NearbySources = 4;
     private const float ReinforceDistanceHalf = 15f;
 
+    // 本国离 at 最近的 count 座城(按地块距离，一样近的按城的先后)，与 OrderBy(距离).Take(count) 同序。
+    // 补员、调粮每支军都要挑一次，以前每次把全国的城排一遍序
+    public static List<City> NearestCities(Kingdom kingdom, TileZone at, int count)
+    {
+        var result = new List<City>(count);
+        if (kingdom?.cities == null || at == null || count <= 0) return result;
+        var distances = new List<float>(count);
+        foreach (City city in kingdom.cities)
+        {
+            TileZone zone = city?.data != null && !city.isRekt() ? city.getTile()?.zone : null;
+            if (zone == null) continue;
+            float distance = ZoneDistance(zone, at);
+            if (result.Count == count && distance >= distances[count - 1]) continue;
+            // 插在一样近的城之后，保持先后
+            int index = result.Count;
+            while (index > 0 && distances[index - 1] > distance) index--;
+            if (result.Count == count)
+            {
+                result.RemoveAt(count - 1);
+                distances.RemoveAt(count - 1);
+            }
+            result.Insert(index, city);
+            distances.Insert(index, distance);
+        }
+        return result;
+    }
+
     private static void Reinforce(Kingdom kingdom, CorpsData corps, float amount, City only = null)
     {
         float need = Mathf.Min(amount, corps.full - corps.strength);
         if (need < 1f) return;
         float taken = 0f;
         TileZone at = Zone(corps);
-        List<City> nearby = only != null || at == null ? new List<City>()
-            : kingdom.cities.Where(city => city?.data != null && !city.isRekt() && city.getTile()?.zone != null)
-                .OrderBy(city => ZoneDistance(city.getTile().zone, at)).Take(NearbySources).ToList();
+        List<City> nearby = only != null || at == null ? new List<City>() : NearestCities(kingdom, at, NearbySources);
         if (nearby.Count > 0)
         {
             float distance = ZoneDistance(nearby[0].getTile().zone, at);
@@ -696,8 +737,11 @@ public static class CorpsSystem
                 if (origin == null || origin.size <= 0f) continue;
                 float back = origin.size * ratio;
                 origin.size -= back;
-                City destination = kingdom.cities?.FirstOrDefault(city => city != null && !city.isRekt() &&
-                                                                          city.id == origin.city_id) ?? Home(corps);
+                // 来源城还在本国就还回那座城(按编号直接取，不再逐个兵源把全国的城扫一遍)，否则还回驻地
+                City destination = World.world.cities.get(origin.city_id) is City source && source.data != null &&
+                                   !source.isRekt() && source.kingdom == kingdom
+                    ? source
+                    : Home(corps);
                 if (destination == null) continue;
                 CityPopulationSystem.AddBackground(destination, origin.social_class == SocialClass.Army
                     ? SocialClass.Peasant : origin.social_class, origin.culture, origin.species, origin.ideology, back);

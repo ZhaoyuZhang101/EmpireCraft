@@ -268,9 +268,7 @@ public static class LogisticsSystem
             // 就近调粮：离这支军最近的几座本国城的余粮
             TileZone at = CorpsSystem.Zone(corps);
             if (at != null && kingdom.cities != null)
-                foreach (City near in kingdom.cities
-                             .Where(item => item?.data != null && !item.isRekt() && item.getTile()?.zone != null)
-                             .OrderBy(item => CorpsSystem.ZoneDistance(item.getTile().zone, at)).Take(NearbyGranaries).ToList())
+                foreach (City near in CorpsSystem.NearestCities(kingdom, at, NearbyGranaries))
                 {
                     float surplus = near.getTotalFood() - CityPopulationSystem.Households(near);
                     if (surplus < 1f) continue;
