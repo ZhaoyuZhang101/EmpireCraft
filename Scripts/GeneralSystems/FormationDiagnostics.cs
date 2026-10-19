@@ -93,6 +93,8 @@ public static class FormationDiagnostics
                 return $"原版判定不需要打仗(兵{warriors}、人口{people:0}/{possible:0}、城{kingdom.countCities()}；" +
                        "兵太少，或不到四城且没住满六成)";
             }
+            // 选对象前先看打不打得起(WarTargetPatch 打不起就不给对象)，免得记成"找不到开战对象"
+            if (CorpsSystem.CannotFundWar(kingdom)) return "打不起仗(欠饷，或国库不到安全储备四分之一且连月亏损)";
             Kingdom target = DiplomacyHelpers.getWarTarget(kingdom);
             if (target == null)
                 return $"找不到开战对象(兵{kingdom.countTotalWarriors()}；对象要兵不比自己多、走得到、关系不好、上次停战已满年限)";
