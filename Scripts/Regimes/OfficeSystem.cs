@@ -550,6 +550,33 @@ public class CenterOffice
                 office.is_local = false;
             }
         }
+        // 后宫也要挂回核心国：meta_object 不进存档，读档后不挂回的话选妃(TryGetHarem)取 meta_object 时是空的。
+        // 以前读档时整套中央官署都重建一遍，后宫跟着新建，没露出来
+        foreach (var office_id in Harems ?? new List<long>())
+        {
+            OfficeObject office = OfficeManager.Offices.TryGetValue(office_id, out OfficeObject o)? o: null;
+            if (office != null)
+            {
+                office.meta_object = pkingdom;
+                office.is_local = false;
+            }
+        }
+    }
+
+    // 官署完好：登记的官职都还在官职表里、按核心国现在的政体设立，而且不是一个官职都没有。
+    // 完好的不必重建(重建会把在任者全部撤掉，见 Empire.TryRepairState)
+    public bool IsIntact(Kingdom core)
+    {
+        RegimeType? type = core?.GetRegime()?.type;
+        if (type == null || CoreOffices == null || Divisions == null || Harems == null) return false;
+        int count = 0;
+        foreach (long id in CoreOffices.Concat(Divisions).Concat(Harems))
+        {
+            if (!OfficeManager.Offices.TryGetValue(id, out OfficeObject office) || office == null ||
+                office.regimeType != type) return false;
+            count++;
+        }
+        return count > 0;
     }
 
     public List<Actor> GetAllOfficers(Empire empire)

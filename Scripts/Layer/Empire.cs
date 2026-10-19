@@ -1985,6 +1985,7 @@ public class Empire : MetaObject<EmpireData>
 
         Kingdom currentCore = CoreKingdom;
         bool coreInvalid = currentCore == null || currentCore.isRekt() || !kingdoms_hashset.Contains(currentCore) || currentCore.cities.Count <= 0;
+        bool coreChanged = false;
         if (coreInvalid)
         {
             long preferredCoreId = data.last_core_kingdom_id > 0 ? data.last_core_kingdom_id : data.empire;
@@ -1999,6 +2000,7 @@ public class Empire : MetaObject<EmpireData>
 
             if (candidate != null)
             {
+                coreChanged = candidate != currentCore;
                 CoreKingdom = candidate;
                 SyncCoreKingdomReference();
                 repaired = true;
@@ -2038,6 +2040,11 @@ public class Empire : MetaObject<EmpireData>
             }
         }
 
+        // 中央官署只在缺失、残缺(登记的官职不在官职表里)、政体对不上或换了核心国时重建，完好的只重新挂到核心国上。
+        // 以前每次修复都整套重建，而读档、存档都会经 EmpireManager.update → checkActive 走到这里：
+        // 三公卿士、三公九卿、后宫每次存读档都换成一套新的空缺官职，在任者留着指向已删官职的"在任"标记，
+        // 存档里中央官职从来都是空的，读档后朝廷一片空缺，要等帝国 AI 重新选官
+        bool rebuild = data.centerOffice == null || coreChanged || !data.centerOffice.IsIntact(CoreKingdom);
         if (data.centerOffice == null)
         {
             data.centerOffice = new CenterOffice();
@@ -2046,7 +2053,8 @@ public class Empire : MetaObject<EmpireData>
 
         try
         {
-            data.centerOffice.Init(CoreKingdom);
+            if (rebuild) data.centerOffice.Init(CoreKingdom);
+            else data.centerOffice.SyncMetaObject(CoreKingdom);
         }
         catch (Exception e)
         {
