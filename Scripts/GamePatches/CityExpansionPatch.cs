@@ -121,7 +121,9 @@ public class CityExpansionPatch : GamePatch
         foreach (TileZone neighbour in zone.neighbours_all)
         {
             City other = neighbour?.city;
-            if (other == null || other == city || other.data == null || other.isRekt() || AtLimit(other)) continue;
+            // 领不了这块地的城(满了、没人、地貌不能定居、隔水翻山走不到)不挡别人
+            if (other == null || other == city || other.data == null || other.isRekt() || AtLimit(other) ||
+                !other.canGrowZones() || !zone.canBeClaimedByCity(other) || !Reachable(zone, other)) continue;
             WorldTile otherSeat = other.getTile();
             if (otherSeat != null && Distance(otherSeat) < mine) return false;
         }

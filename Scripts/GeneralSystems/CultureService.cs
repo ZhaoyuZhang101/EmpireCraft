@@ -142,11 +142,16 @@ public static class CultureService
 
     // 固定法理文化开着时(或立国之地的法理锁定了文化)，新国取立国之地(都城，没有都城取立国者所在的城)的官方文化，
     // 不取立国者本人的——以前异族守将、外来宗室受封、外族新君称帝，整个国家连同它的帝国法理就改成了外族文化
+    // 正在自成一国的城(City.makeOwnKingdom 期间，见 CulturePatch)
+    internal static City PendingSeat;
+
     public static void ApplyFounderCulture(Kingdom kingdom, Actor founder)
     {
         if (kingdom?.data == null || founder == null) return;
         string culture = GetFounderCulture(founder);
-        City seat = kingdom.capital ?? founder.city;
+        // 立国之地：分封、分治、自立都是"某城自成一国"(City.makeOwnKingdom)，这时新国还没有城，立国者常住在京城，
+        // 要取这座城本身(见 CulturePatch.BeforeMakeOwnKingdom)
+        City seat = PendingSeat ?? kingdom.capital ?? founder.city;
         if (seat?.data != null && !seat.isRekt() && IsCityMainCultureLocked(seat))
         {
             string local = GetMainCulture(seat, initialize: false);
@@ -419,7 +424,9 @@ public static class CultureService
     public static void RememberInitialTitleCulture(KingdomTitle title)
     {
         if (title?.data == null || IsValidCulture(title.data.initial_culture)) return;
-        string current = IsValidCulture(title.data.culture) ? title.data.culture : GetEffectiveTitleCulture(title);
+        // 记眼下显示的文化(随帝国默认文化走的法理，记的是帝国的文化，不是存着没用的那一份)
+        string current = GetEffectiveTitleCulture(title);
+        if (!IsValidCulture(current)) current = title.data.culture;
         if (IsValidCulture(current)) title.data.initial_culture = current;
     }
 
@@ -441,8 +448,8 @@ public static class CultureService
     {
         string initial = GetInitialTitleCulture(title);
         if (!IsValidCulture(initial)) return false;
-        if (string.Equals(GetEffectiveTitleCulture(title), initial, StringComparison.Ordinal) && title.data.culture_explicit)
-            return false;
+        // 眼下显示的已是初始文化：不算恢复，也不把随帝国走的法理定死
+        if (string.Equals(GetEffectiveTitleCulture(title), initial, StringComparison.Ordinal)) return false;
         if (ConvertTitleCulture(title, initial)) return true;
         title.data.culture = initial;
         title.data.culture_explicit = true;
@@ -864,6 +871,20 @@ public static class CultureService
         return true;
     }
 
+    // 按模组文化名找原版文化对象要逐个比对全部文化，决策检查里每个君主、城主都会调：记十秒
+    private static readonly Dictionary<string, (Culture culture, float at)> NativeCultureCache = new(StringComparer.Ordinal);
+
+    private static Culture CachedNativeCulture(string culture)
+    {
+        float now = global::UnityEngine.Time.unscaledTime;
+        if (NativeCultureCache.TryGetValue(culture, out var hit) && now - hit.at < 10f && now >= hit.at &&
+            (hit.culture == null || hit.culture.data != null && !hit.culture.isRekt()))
+            return hit.culture;
+        Culture found = GetNativeCultureObject(culture);
+        NativeCultureCache[culture] = (found, now);
+        return found;
+    }
+
     // 原版的国家文化对象(原版窗口、新城看它)跟着国家文化走
     public static void SyncVanillaKingdomCulture(Kingdom kingdom)
     {
@@ -871,7 +892,7 @@ public static class CultureService
         string realm = kingdom.GetOrCreate().realm_culture;
         if (!IsValidCulture(realm) || string.Equals(CulturePatch.GetInjectedCultureName(kingdom.culture), realm, StringComparison.Ordinal))
             return;
-        Culture native = GetNativeCultureObject(realm);
+        Culture native = CachedNativeCulture(realm);
         if (native != null) kingdom.setCulture(native);
     }
 
@@ -882,7 +903,7 @@ public static class CultureService
         string main = city.GetOrCreate().main_culture;
         if (!IsValidCulture(main) || string.Equals(CulturePatch.GetInjectedCultureName(city.culture), main, StringComparison.Ordinal))
             return;
-        Culture native = GetNativeCultureObject(main);
+        Culture native = CachedNativeCulture(main);
         if (native == null || city.culture == native) return;
         city.culture = native;
         World.world?.cultures?.setDirtyCities();
@@ -893,7 +914,8 @@ public static class CultureService
     public static bool AllowLeaderCityCulture(Actor actor)
     {
         City city = actor?.city;
-        if (city?.data == null || city.isRekt() || actor.culture == null) return true;
+        if (city?.data == null || city.isRekt() || actor.culture == null ||
+            EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(city)) return true;
         if (IsCityMainCultureLocked(city))
         {
             SyncVanillaCityCulture(city);

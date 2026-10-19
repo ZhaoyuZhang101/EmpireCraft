@@ -33,6 +33,7 @@ public static class LayerDiagnostics
     private static readonly List<string> WaterExamples = new(), LandExamples = new(), OutlineExamples = new(), StaleExamples = new();
     // 上一轮就对不上的块：这一轮还对不上才算(刚变、下一帧就会重画的不算)
     private static readonly HashSet<int> StaleSeen = new();
+    private static object _staleLayer;
 
     public static void Tick()
     {
@@ -68,6 +69,12 @@ public static class LayerDiagnostics
             _cursor = -1;
             _next = Time.unscaledTime + IntervalSeconds;
             return;
+        }
+        // 换了图层：上一层记下的"没刷新"不算数
+        if (!ReferenceEquals(_staleLayer, layer))
+        {
+            _staleLayer = layer;
+            StaleSeen.Clear();
         }
         int end = Mathf.Min(zones.Count, _cursor + ZonesPerFrame);
         for (; _cursor < end; _cursor++) Check(zones[_cursor], pixels, layer, calc);

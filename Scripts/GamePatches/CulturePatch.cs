@@ -34,6 +34,29 @@ public class CulturePatch : GamePatch
         new Harmony(nameof(clone_culture_name)).Patch(AccessTools.Method(typeof(Culture), nameof(Culture.cloneAndEvolveOnomastics)),
             postfix: new HarmonyMethod(GetType(), nameof(clone_culture_name)));
         GuardVanillaCultureDecisions();
+        try
+        {
+            new Harmony(nameof(BeforeMakeOwnKingdom)).Patch(AccessTools.Method(typeof(City), "makeOwnKingdom"),
+                prefix: new HarmonyMethod(typeof(CulturePatch), nameof(BeforeMakeOwnKingdom)) { priority = Priority.First },
+                finalizer: new HarmonyMethod(typeof(CulturePatch), nameof(AfterMakeOwnKingdom)));
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft] 立国取封地文化的补丁未生效: {exception.Message}");
+        }
+    }
+
+    // 某城自成一国期间记下这座城(锁定文化时新国取它的官方文化，见 CultureService.ApplyFounderCulture)
+    private static void BeforeMakeOwnKingdom(City __instance, out City __state)
+    {
+        __state = CultureService.PendingSeat;
+        CultureService.PendingSeat = __instance;
+    }
+
+    private static Exception AfterMakeOwnKingdom(Exception __exception, City __state)
+    {
+        CultureService.PendingSeat = __state;
+        return __exception;
     }
 
     // 原版"国王把国家文化改成自己的""城主把城市文化改成自己的"两个决策只改原版的文化对象，模组的国家文化、
@@ -50,7 +73,8 @@ public class CulturePatch : GamePatch
                 king.action_check_launch = actor =>
                 {
                     if (actor?.kingdom == null) return false;
-                    if (actor.kingdom.culture == null) return original(actor);
+                    // 古战模组的国家照原版
+                    if (actor.kingdom.culture == null || AncientWarfareCompatibility.Owns(actor.kingdom)) return original(actor);
                     // 已被这条决策改成君主文化的(旧存档)，拉回国家文化
                     CultureService.SyncVanillaKingdomCulture(actor.kingdom);
                     return false;

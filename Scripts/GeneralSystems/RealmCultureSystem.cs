@@ -49,6 +49,10 @@ public static class RealmCultureSystem
 
     private static int ConvertKingdom(Kingdom kingdom, string culture)
     {
+        // 先改国家文化、政体、君主与旧俗官员(见 CultureReformSystem.Force)，国家本已是这个文化的、别的文化出身的官员另行改过来，
+        // 再改各城——以前先改城，城里的君主、官员已随百姓改了文化，改姓、宗族记的文化都判成"不用改"，异族出身的整支不改姓
+        CultureReformSystem.Force(kingdom, culture);
+        CultureReformSystem.ConvertRulers(kingdom, culture);
         int cities = 0;
         foreach (City city in (kingdom.cities ?? new List<City>()).ToList())
         {
@@ -58,10 +62,7 @@ public static class RealmCultureSystem
         }
         foreach (KingdomTitle title in kingdom.GetControlledTitles().ToList())
             CultureService.ConvertTitleCulture(title, culture);
-        // 国家文化、政体、君主与旧俗官员(见 CultureReformSystem.Force)；国家本已是这个文化的，君主与官员另行改过来
-        CultureReformSystem.Force(kingdom, culture);
         CultureService.SetRealmCulture(kingdom, culture, updatePoliticalSystem: kingdom.GetEmpire()?.CoreKingdom != kingdom);
-        CultureReformSystem.ConvertRulers(kingdom, culture);
         // 科技按新文化重新登记采纳(见 TechnologySystem.GetRealmState)
         kingdom.GetOrCreate().realm_tech = null;
         return cities;
