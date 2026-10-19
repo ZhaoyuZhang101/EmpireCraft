@@ -155,7 +155,11 @@ public static partial class CourtSystem
             : council.Count(actor => Supports(state.memorial, actor.GetFaction())) / (float)council.Count;
         float obstruction = state.memorial.stances.Where(pair => pair.Value < 0)
             .Sum(pair => state.factions.TryGetValue(pair.Key, out CourtFactionState data) ? data.obstruction : 0f);
-        return (0.6f + 0.9f * councilSupport) * (1f - Mathf.Min(0.6f, obstruction));
+        float multiplier = (0.6f + 0.9f * councilSupport) * (1f - Mathf.Min(0.6f, obstruction));
+        // 朝廷兴兵：掣肘最多把一年拖到三年(见 ClaimTuning.WarMonths)
+        if (ClaimTuning.IsCourtWar(claim.type))
+            multiplier = Mathf.Max(multiplier, ClaimTuning.WarMonths / ClaimTuning.WarMaxMonths);
+        return multiplier;
     }
 
     private static bool Supports(CourtMemorial memorial, FixedFaction faction) =>

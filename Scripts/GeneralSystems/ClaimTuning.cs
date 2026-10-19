@@ -6,7 +6,7 @@ using NeoModLoader.General;
 namespace EmpireCraft.Scripts.GeneralSystems;
 
 // 诉求的施行时长、经费与完成结果：按诉求轻重分档，统一在这里调
-//   · 时长(月)：宣战、改税、推动改革这类一纸诏令 24；削藩、教化、改继承法 48；改换国本(土改、游牧化、金玺诏书、共和与复辟) 72；
+//   · 时长(月)：朝廷兴兵 12(掣肘最多拖到 36)；改税、推动改革这类一纸诏令 24；削藩、教化、改继承法 48；改换国本(土改、游牧化、金玺诏书、共和与复辟) 72；
 //   · 经费：以"一年一档福利"为一份(户数/100，至少 5)，兴兵、改制、赈济各按份数计；准奏施行时从国库支出，国库不够不施行；
 //     地方推动的按该地户数计，由该地出钱；
 //   · 结果：完成时写进史书与朝局纪事(诉求自己写了 CompletionOutcome 的以它为准，否则用 claim_outcome_诉求名)。
@@ -14,12 +14,21 @@ public static class ClaimTuning
 {
     public const float LightMonths = 24f, MediumMonths = 48f, HeavyMonths = 72f;
 
+    // 朝廷兴兵(谋求统一、对外扩张、迫使朝贡)：准奏后一年宣战，反对派掣肘最多拖到三年(见 CourtSystem.ProgressMultiplier)。
+    // 以前与改税同为两年，掣肘(施行速度可压到两成四)能拖到八年，仗还没开目标早变了，朝廷看着按兵不动(用户 2026-10-20 定)。
+    // 游牧扩张、劫掠、军府扩张地盘不在此列(游牧刚削弱过，劫掠与扩张地盘本来就频)
+    public const float WarMonths = 12f, WarMaxMonths = 36f;
+
+    public static bool IsCourtWar(TemporaryFactionType type) =>
+        type is TemporaryFactionType.谋求统一 or TemporaryFactionType.对外扩张 or TemporaryFactionType.迫使朝贡;
+
     public static float Duration(TemporaryFactionType type) => type switch
     {
+        _ when IsCourtWar(type) => WarMonths,
         TemporaryFactionType.降低赋税 or TemporaryFactionType.提高赋税 or TemporaryFactionType.提供岁币 or
-            TemporaryFactionType.割让城池 or TemporaryFactionType.对外扩张 or TemporaryFactionType.迫使朝贡 or
+            TemporaryFactionType.割让城池 or
             TemporaryFactionType.劫掠 or TemporaryFactionType.游牧扩张 or TemporaryFactionType.扩张地盘 or
-            TemporaryFactionType.收回地盘 or TemporaryFactionType.谋求统一 or TemporaryFactionType.允许诸侯自由开战 or
+            TemporaryFactionType.收回地盘 or TemporaryFactionType.允许诸侯自由开战 or
             TemporaryFactionType.夺取诸侯开战权 or TemporaryFactionType.颁布帝国治安令 or
             TemporaryFactionType.确认诸侯特权 or TemporaryFactionType.供养宗室 or TemporaryFactionType.禁党 or
             TemporaryFactionType.国_打击贪腐 or TemporaryFactionType.整顿吏治 or TemporaryFactionType.赈济灾荒 or
