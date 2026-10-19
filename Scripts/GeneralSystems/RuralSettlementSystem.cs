@@ -572,7 +572,9 @@ public static class RuralSettlementSystem
         bool beside = zones.Exists(zone => zone.neighbours_all != null &&
                                            Array.Exists(zone.neighbours_all, neighbour => neighbour?.city == target && !set.Contains(neighbour)));
         if (!beside) return string.Format(LM.Get("settlement_assign_far"), name, targetName);
-        foreach (TileZone zone in zones) target.addZone(zone);
+        // 神力改隶：不受每城地块上限(以前目标城满了上限，一片地只改过去一部分或一块也改不过去)
+        using (GamePatches.CityExpansionPatch.Manual())
+            foreach (TileZone zone in zones) target.addZone(zone);
         Revision++;
         CityDistricts.Reset();
         PureMapPatch.Redraw(target);

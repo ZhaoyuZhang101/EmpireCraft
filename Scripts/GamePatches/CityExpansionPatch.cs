@@ -32,18 +32,46 @@ public class CityExpansionPatch : GamePatch
             postfix: new HarmonyMethod(typeof(CityExpansionPatch), nameof(AfterGetZoneToClaim)));
         harmony.Patch(AccessTools.Method(typeof(CityZoneAbandon), nameof(CityZoneAbandon.check)),
             prefix: new HarmonyMethod(typeof(CityExpansionPatch), nameof(BeforeAbandonZones)));
+        // 原版边界画笔(神力 border_brush)：画的这一下算神力手动划地，不受每城地块上限(见 CanAddZone)
+        global::System.Reflection.MethodInfo brush = AccessTools.Method(typeof(PowerLibrary), "drawBorderBrush");
+        if (brush != null)
+            harmony.Patch(brush, prefix: new HarmonyMethod(typeof(CityExpansionPatch), nameof(BeginManual)),
+                finalizer: new HarmonyMethod(typeof(CityExpansionPatch), nameof(EndManual)));
     }
 
     public static bool AtLimit(City city) => city?.zones != null &&
         ModClass.CITY_MAX_ZONES > 0 && city.zones.Count >= ModClass.CITY_MAX_ZONES;
 
-    // 最后一道检查放在实际加地之前：领地人、村镇划地、手动改隶等入口都不能绕过设置。
+    // 神力手动划地(原版边界画笔、村镇改隶)期间：玩家是神，划地不受每城地块上限。
+    // 上限只管自动扩张(不设上限时一大片荒漠会裂成两百来座小城)；以前画笔也被它拦下，城满了上限就一块也画不进去
+    // (玩家反馈"绘图工具绘不了城市边界了，擦除倒是还能正常")。自动扩张的规矩(Settled、走得到)本来就不在 addZone 里查
+    private static int _manual;
+    public static bool ManualClaim => _manual > 0;
+    public static void BeginManual() => _manual++;
+    public static void EndManual()
+    {
+        if (_manual > 0) _manual--;
+    }
+
+    // using (CityExpansionPatch.Manual()) { city.addZone(...); }：手动划地的一段，出了这段(包括出错)就恢复上限
+    public static ManualScope Manual()
+    {
+        BeginManual();
+        return default;
+    }
+
+    public readonly struct ManualScope : global::System.IDisposable
+    {
+        public void Dispose() => EndManual();
+    }
+
+    // 最后一道检查放在实际加地之前：领地人、村镇划地等自动入口都不能绕过设置；神力手动划地不受限(见 ManualClaim)。
     // 读档同样调用 addZone，但这里是在恢复原辖区，不能按新上限截断存档里的城市。
     public static bool CanAddZone(City city, TileZone zone)
     {
         if (city == null || zone == null) return false;
         if (city.zones?.Contains(zone) == true || ModClass.IS_CLEAR || !Config.game_loaded || SmoothLoader.isLoading() ||
-            AncientWarfareCompatibility.OwnsObject(city)) return true;
+            AncientWarfareCompatibility.OwnsObject(city) || ManualClaim) return true;
         return !AtLimit(city);
     }
 
