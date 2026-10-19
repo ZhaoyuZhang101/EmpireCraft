@@ -21,9 +21,11 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     权臣篡位、外戚代立是朝廷里的易代，积弊原样留下(玩家建议"如司马故事"，见 DynasticCycleSystem.OnDynastyChanged)；
 //   · 效果(轻重 s = 积弊/100)：
 //       吏治——帝国各城、各成员国腐败每年 +1.2%×s；兼并——有地农民卖地的速度 ×(1+s)；
-//       冗费——每年多支 12%×s 年度经常收入(行政开支)；武备——本帝国各军战力 ×(1−0.25s)，禁军空饷再多两成×s；
+//       冗费——每年多支 12%×s 年度经常收入(行政开支)；武备——本帝国各军战力 ×(1−0.25s)，禁军空饷再多两成×s，
+//         兵源(可征之兵)×(1−0.3s)，组织度上限 100−20s、休整恢复 ×(1−0.3s)(用户 2026-10-20 选"积弊动真格")；
 //       党争——奏议准奏率 -15%×s，各派怨望每年 +8×s；苛捐——苛政 +15×s；
-//       合计——王朝积弊(周期压力)每年多涨 六条平均×0.6。
+//       合计——王朝积弊(周期压力)每年多涨 六条平均×1.5；正统 −(平均−30)×0.25；平均过五十推高土崩瓦解的内忧，
+//         平均七十以上算危局，苛政民变打仗时也会爆发(见 MonarchyLegitimacy、ProvincialCollapseSystem、HarshRuleSystem)。
 // 只有传统君主制有(同王朝周期，见 DynasticCycleSystem.Applies)。
 public static class MaladySystem
 {
@@ -35,7 +37,11 @@ public static class MaladySystem
     private const float GraftCorruption = 0.012f, BloatCost = 0.12f, MilitaryPenalty = 0.25f, PhantomShare = 0.2f;
     // 党争给各派怨望的年增：不超过每年自然回落的 4(见 CourtSystem.Income)，否则党争与怨望互相推高、各派永远罢朝
     // (用户 2026-10-17 "全罢朝了是什么意思"，选"拆掉，党争只推怨望不超过每年回落")
-    private const float ApprovalPenalty = 0.15f, FactionGrievance = 3f, LeviesBurden = 15f, StrainShare = 0.6f;
+    private const float ApprovalPenalty = 0.15f, FactionGrievance = 3f, LeviesBurden = 15f, StrainShare = 1.5f;
+    // 武备废弛：兵源、组织度上限、休整恢复(用户 2026-10-20 选"积弊动真格"：以前只打战力七五折，积弊满格的游牧照样打赢)
+    private const float LevyPenalty = 0.3f, OrgCapPenalty = 20f, RecoveryPenalty = 0.3f;
+    // 合计：正统 −(平均−LegitimacyFloor)×LegitimacyRate；平均过 CollapseFloor 推高土崩瓦解的内忧；平均 CrisisAverage 以上算危局
+    private const float LegitimacyFloor = 30f, LegitimacyRate = 0.25f, CollapseFloor = 50f, CollapseSpan = 40f, CrisisAverage = 70f;
 
     public static bool Applies(Empire empire) => empire?.data != null && DynasticCycleSystem.Applies(empire);
 
@@ -182,8 +188,26 @@ public static class MaladySystem
         return 1f - MilitaryPenalty * Severity(EmpireOf(World.world.kingdoms.get(corps.kingdom_id)), Military);
     }
 
+    // 武备废弛：兵籍虚冒、军户逃亡，可征之兵(兵源)打折(见 CorpsSystem.Mobilize、CityPopulationSystem.WarPotential)
+    public static float LevyFactor(Kingdom kingdom) => 1f - LevyPenalty * Severity(EmpireOf(kingdom), Military);
+
+    // 武备废弛：操练荒疏，组织度上限压低、休整恢复变慢(见 CorpsSystem.Recover)
+    public static float OrgCeiling(Kingdom kingdom) => 100f - OrgCapPenalty * Severity(EmpireOf(kingdom), Military);
+
+    public static float RecoveryFactor(Kingdom kingdom) => 1f - RecoveryPenalty * Severity(EmpireOf(kingdom), Military);
+
     // 武备废弛：禁军空饷再多
     public static float PhantomExtra(Empire empire) => PhantomShare * Severity(empire, Military);
+
+    // 合计：积弊深重损正统(见 MonarchyLegitimacy)，平均不到三十不损
+    public static int LegitimacyPenalty(Empire empire) =>
+        -Mathf.RoundToInt(Mathf.Max(0f, Average(empire) - LegitimacyFloor) * LegitimacyRate);
+
+    // 合计：土崩瓦解的内忧(0~1，见 ProvincialCollapseSystem.Crisis)
+    public static float CollapseFactor(Empire empire) => Mathf.Clamp01((Average(empire) - CollapseFloor) / CollapseSpan);
+
+    // 合计：积弊危局——苛政民变打仗时也会爆发(见 HarshRuleSystem)
+    public static bool InCrisis(Empire empire) => Average(empire) >= CrisisAverage;
 
     // 党争：奏议准奏率
     public static float ApprovalMalus(Empire empire) => ApprovalPenalty * Severity(empire, Factionalism);
@@ -198,6 +222,10 @@ public static class MaladySystem
     public static string EffectText(Empire empire, string key)
     {
         float s = Severity(empire, key);
+        // 武备废弛：兵源、战力、组织度上限三项
+        if (key == Military)
+            return string.Format(NeoModLoader.General.LM.Get("malady_effect_" + key), Mathf.RoundToInt(MilitaryPenalty * s * 100f),
+                Mathf.RoundToInt(LevyPenalty * s * 100f), Mathf.RoundToInt(OrgCapPenalty * s));
         return string.Format(NeoModLoader.General.LM.Get("malady_effect_" + key), key switch
         {
             Graft => (GraftCorruption * s * 100f).ToString("0.0"),

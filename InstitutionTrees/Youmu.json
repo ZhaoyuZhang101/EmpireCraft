@@ -127,6 +127,18 @@
           "同化": 1.0
         }
       },
+      "effects_on_complete": [
+        {
+          "type": "relieve_malady",
+          "value": "graft",
+          "int_value": 20
+        },
+        {
+          "type": "relieve_malady",
+          "value": "factionalism",
+          "int_value": 20
+        }
+      ],
       "features": {
         "constitution_basis_administration": 1,
         "constitution_basis_law": 1,
@@ -448,6 +460,11 @@
           "type": "modify_faction_power",
           "int_value": 4,
           "faction": "同化"
+        },
+        {
+          "type": "relieve_malady",
+          "value": "levies",
+          "int_value": 20
         }
       ],
       "features": {
@@ -550,6 +567,16 @@
           "type": "modify_faction_power",
           "int_value": 5,
           "faction": "融入"
+        },
+        {
+          "type": "relieve_malady",
+          "value": "graft",
+          "int_value": 15
+        },
+        {
+          "type": "relieve_malady",
+          "value": "bloat",
+          "int_value": 15
         }
       ],
       "features": {
@@ -653,6 +680,16 @@
         {
           "type": "add_mandate",
           "int_value": -5
+        },
+        {
+          "type": "relieve_malady",
+          "value": "annexation",
+          "int_value": 20
+        },
+        {
+          "type": "relieve_malady",
+          "value": "bloat",
+          "int_value": 10
         }
       ],
       "features": { "state_granary": 1,
@@ -764,6 +801,11 @@
         {
           "type": "add_mandate",
           "int_value": -4
+        },
+        {
+          "type": "relieve_malady",
+          "value": "military",
+          "int_value": 30
         }
       ]
     },

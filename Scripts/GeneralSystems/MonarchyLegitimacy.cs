@@ -66,6 +66,9 @@ public static class MonarchyLegitimacy
         if (dynasty != 0) items.Add(("mandate_dynastic_events", dynasty));
         int strain = DynasticCycleRules.LegitimacyPenalty(DynasticCycleSystem.GetPressure(empire));
         if (strain != 0) items.Add(("mandate_dynastic_strain", strain));
+        // 朝政积弊深重(六条平均过三十，见 MaladySystem)
+        int maladies = MaladySystem.LegitimacyPenalty(empire);
+        if (maladies != 0) items.Add(("mandate_maladies", maladies));
         // 西方：教宗加冕、未加冕、绝罚(见 PapacySystem)
         items.AddRange(PapacySystem.LegitimacyItems(empire));
         // 神圣罗马式选帝制：家族领地的厚薄(见 HolyRomanSystem)

@@ -262,10 +262,10 @@ public static class HarshRuleSystem
         bool modern)
     {
         if (burden < UprisingBurden) return;
-        bool crisis = !modern && DynasticCycleSystem.InCrisis(empire);
-        if (crisis)
+        // 王朝积弊入危机，或朝政积弊六条平均七十以上(见 MaladySystem.InCrisis)：打仗时民变照样爆发
+        bool crisis = !modern && (DynasticCycleSystem.InCrisis(empire) || MaladySystem.InCrisis(empire));
+        if (crisis && State(empire) is ConstitutionalEconomyState state)
         {
-            ConstitutionalEconomyState state = State(empire);
             double now = World.world.getCurWorldTime();
             if (state.last_dynastic_uprising_attempt >= 0d && now >= state.last_dynastic_uprising_attempt &&
                 Date.getYearsSince(state.last_dynastic_uprising_attempt) < 1) return;

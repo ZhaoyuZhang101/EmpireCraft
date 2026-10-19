@@ -582,10 +582,14 @@ public static class CorpsSystem
         foreach (City city in cities)
             background += Mathf.Max(0f, CityPopulationSystem.GetBackgroundTotal(city) - SlaverySystem.Unfree(city)) *
                           AdministrativeControlSystem.Yield(city);
-        float pool = background * doctrine.LevyShare * (war ? WarLevyShare(kingdom, peace) : peace);
+        // 武备废弛：兵籍虚冒、军户逃亡，兵源打折(见 MaladySystem.LevyFactor)
+        float levyShare = war ? WarLevyShare(kingdom, peace) : peace;
+        float pool = background * doctrine.LevyShare * levyShare * MaladySystem.LevyFactor(kingdom);
         float legionSize = Mathf.Clamp(pool / Mathf.Max(1, totalSlots), 1f, CityPopulationSystem.PeoplePerLegion);
         // 量入为出：按人口该有的兵额超出养得起的，每个军团按比例缩编
         float budget = BudgetFactor(kingdom, war, totalSlots * legionSize);
+        // 校验平衡用：打仗的游牧或与游牧交战的国家，兵源、军费系数、征兵比例、积弊(限频，见 WarBalanceDiagnostics)
+        if (war) WarBalanceDiagnostics.Realm(kingdom, background, pool, budget, doctrine.LevyShare * levyShare);
         bool limited = budget < 0.999f;
         legionSize = Mathf.Max(1f, legionSize * budget);
         // 各军镇的军、各军分出去的渡海先遣军兵力先按驻地、原军归好(以前每座军镇、每支军都把全国的军筛一遍)。
@@ -925,17 +929,20 @@ public static class CorpsSystem
     private static void Recover(Kingdom kingdom)
     {
         // 欠饷时组织度回不满(见 PayUpkeep)：溃退的军回到上限附近就归建，不会永远卡在溃退休整
-        float regroup = Mathf.Min(50f, 100f - UnpaidOrgCap * kingdom.GetOrCreate().corps_pay_shortfall - 5f);
+        // 武备废弛：组织度上限压低、休整恢复变慢(见 MaladySystem.OrgCeiling)
+        float ceiling = MaladySystem.OrgCeiling(kingdom), recovery = MaladySystem.RecoveryFactor(kingdom);
+        float regroup = Mathf.Min(50f, Mathf.Min(ceiling, 100f - UnpaidOrgCap * kingdom.GetOrCreate().corps_pay_shortfall) - 5f);
         foreach (CorpsData corps in Of(kingdom))
         {
             // 补给不到五成：组织度不恢复，反而下降(断绝时每月 -5)
             if (corps.supply < 0.5f)
             {
-                corps.org = Mathf.Max(0f, corps.org - (0.5f - corps.supply) * 10f);
+                corps.org = Mathf.Max(0f, Mathf.Min(corps.org, ceiling) - (0.5f - corps.supply) * 10f);
                 continue;
             }
             bool fighting = corps.task is "attack" or "defend" && FrontSystem.EngagedLastMonth(corps);
-            if (!fighting) corps.org = Mathf.Min(100f, corps.org + (corps.task is "reserve" or "retreat" ? RestOrg : IdleOrg));
+            if (!fighting) corps.org = Mathf.Min(ceiling, corps.org + (corps.task is "reserve" or "retreat" ? RestOrg : IdleOrg) * recovery);
+            else corps.org = Mathf.Min(corps.org, ceiling);
             if (corps.task == "retreat" && corps.org >= regroup) corps.task = "reserve";
             if (corps.task == "defend" && fighting) corps.entrench = Mathf.Min(0.3f, corps.entrench + 0.05f);
             else if (corps.task != "defend") corps.entrench = 0f;

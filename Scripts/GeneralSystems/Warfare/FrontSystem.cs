@@ -820,7 +820,7 @@ public static partial class FrontSystem
     }
 
     // 禁军的空饷不打仗(见 PalaceArmySystem)；武备废弛打折(见 MaladySystem)；起义军打折(见 CorpsSystem.Insurgent)
-    private static float Effective(CorpsData corps) =>
+    internal static float Effective(CorpsData corps) =>
         corps.strength * PalaceArmySystem.RealShare(corps) * MaladySystem.MilitaryFactor(corps) * CorpsSystem.InsurgentFactor(corps) *
         (0.25f + 0.75f * Mathf.Clamp01(corps.org / 100f));
 
@@ -829,7 +829,7 @@ public static partial class FrontSystem
 
     // 纯净地图模式：人物、载具都是数据，不靠 WarBox 的实体载具，火力按这支军的兵种(装备)算(见 CorpsArmSystem.Power)；
     // 其余模式照旧按本国载具数
-    private static float Firepower(Kingdom kingdom, CorpsData corps) =>
+    internal static float Firepower(Kingdom kingdom, CorpsData corps) =>
         PureMapMode.Enabled ? CorpsArmSystem.Power(CorpsArmSystem.Of(corps)) : Firepower(kingdom);
 
     private static float Firepower(Kingdom kingdom)
@@ -966,6 +966,9 @@ public static partial class FrontSystem
             if (Beside(spearheads, target)) fort = Mathf.Max(fort, RuralSettlementSystem.FortFactor(city, target));
         if (fort > 1f) defend *= breach ? 1f + (fort - 1f) * 0.5f : fort;
         float ratio = attack + defend <= 0f ? 0.5f : attack / (attack + defend);
+        // 校验平衡用：一方是游牧时记一行战况分解(交战前的兵力，限频，见 WarBalanceDiagnostics)
+        WarBalanceDiagnostics.Battle(city, attacker, owner, attackers, holders, terrain, ground.Attack, landing, breach, remnant,
+            militia, fort, attack, defend, ratio);
         // 伤亡与组织度
         float attackStrength = attackers.Sum(entry => entry.corps.strength);
         float holdStrength = holders.Sum(entry => entry.corps.strength);

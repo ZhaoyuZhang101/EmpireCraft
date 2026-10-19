@@ -1814,7 +1814,8 @@ public static class CityPopulationSystem
         if (need <= 0) return 0;
         // 每个兵代表一个军团：兵源是全国的背景人口，可征比例由军制决定(默认一成)，按全国各军镇的兵额平分，每团最多一万人
         ArmyDoctrine doctrine = DoctrineOf(city.kingdom);
-        float pool = KingdomBackground(city.kingdom) * doctrine.LevyShare;
+        // 武备废弛：兵源打折(见 MaladySystem.LevyFactor)
+        float pool = KingdomBackground(city.kingdom) * doctrine.LevyShare * MaladySystem.LevyFactor(city.kingdom);
         int totalSlots = 0;
         foreach (City other in city.kingdom.cities)
             if (other != null && !other.isRekt()) totalSlots += Mathf.Max(0, LevyTarget(other));
@@ -1906,7 +1907,8 @@ public static class CityPopulationSystem
             if (city == null || city.isRekt()) continue;
             total += Mathf.Max(LevyTarget(city, true), city.status?.warriors_current ?? 0);
         }
-        return total;
+        // 武备废弛：兵源打折，国力、开战比兵力也跟着看低(见 MaladySystem.LevyFactor)
+        return Mathf.RoundToInt(total * MaladySystem.LevyFactor(kingdom));
     }
 
     // 守方还能动员的兵(实体士兵之外，各军镇按战时兵额尚未征召的部分)。入城即降据此判断是否真的无兵可征

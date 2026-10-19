@@ -278,14 +278,19 @@ public static class TreasurySystem
         var share = TreasuryRules.SplitTax(amount - stolen, cityPercent, centralPercent,
             ref data.tax_city_carry, ref data.tax_central_carry);
         int localShare = share.local, centralShare = share.central;
-        // 地方截留：吏治坏了，省里把该解送中央的截下一部分(见 TaxErosionSystem)
+        // 地方截留：吏治坏了，省里把该解送中央的截下一部分(见 TaxErosionSystem)——截下的一半落入经手官吏私囊，
+        // 只有一半真进了省里的库(用户 2026-10-20 选"积弊动真格"：以前截下的全归成员国，吏治越坏藩属越有钱养兵)
+        int pocketed = 0;
         if (taxed && centralShare > 0 && local != central)
         {
             int withheld = Math.Min(centralShare, TaxErosionSystem.Round(centralShare * (double)TaxErosionSystem.Withholding(realm)));
+            pocketed = Math.Min(withheld, TaxErosionSystem.Round(withheld * 0.5d));
             centralShare -= withheld;
-            localShare += withheld;
-            TaxErosionSystem.RecordWithheld(realm, withheld);
+            localShare += withheld - pocketed;
+            TaxErosionSystem.RecordWithheld(realm, withheld - pocketed);
+            TaxErosionSystem.RecordStolen(realm, pocketed);
         }
+        if (pocketed > 0) city.SubMoney(pocketed, TreasuryCategory.Corruption);
         int paid = localShare + centralShare;
         if (paid > 0) city.SubMoney(paid, TreasuryCategory.InternalTransfer);
         if (localShare > 0) CreditTaxShare(local, localShare, category);

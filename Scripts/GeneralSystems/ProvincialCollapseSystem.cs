@@ -15,7 +15,8 @@ using UnityEngine;
 namespace EmpireCraft.Scripts.GeneralSystems;
 
 // 土崩瓦解：帝国内忧深重时，一省首义，各省陆续响应。
-//   · 内忧(0~1)：正统 50 以下、王朝积弊 40 以上、国库亏空或欠饷、阶层怨气 60 以上、篡位之君在位(十年内 0.5)，
+//   · 内忧(0~1)：正统 50 以下、王朝积弊 40 以上、国库亏空或欠饷、阶层怨气 60 以上、篡位之君在位(十年内 0.5)、
+//     朝政积弊六条平均 50 以上(90 满，见 MaladySystem.CollapseFactor)，
 //     取最重的一项再加其余的四分之一；
 //   · 首义(每年)：概率 = 内忧 × 0.5；离心最重、离心度不低于 0.5 的一省宣布独立。
 //     离心度 = (1 − 行政控制力) + 都城稳定不足 70 的部分/70，近代再看革新理念，异文化再加 0.3，
@@ -68,8 +69,11 @@ public static class ProvincialCollapseSystem
             ? 0.5f : 0f;
         // 武人跋扈(藩镇)、诸侯坐大(见 FactionBalanceSystem)
         float faction = FactionBalanceSystem.CollapseFactor(empire);
-        float top = Mathf.Max(Mathf.Max(Mathf.Max(legitimacy, strain), Mathf.Max(fiscal, grievance)), Mathf.Max(usurped, faction));
-        return Mathf.Clamp01(top + 0.25f * (legitimacy + strain + fiscal + grievance + usurped + faction - top));
+        // 朝政积弊六条平均过五十(见 MaladySystem.CollapseFactor)
+        float malady = MaladySystem.CollapseFactor(empire);
+        float top = Mathf.Max(Mathf.Max(Mathf.Max(legitimacy, strain), Mathf.Max(fiscal, grievance)),
+            Mathf.Max(Mathf.Max(usurped, faction), malady));
+        return Mathf.Clamp01(top + 0.25f * (legitimacy + strain + fiscal + grievance + usurped + faction + malady - top));
     }
 
     private static List<Kingdom> Provinces(Empire empire) =>
