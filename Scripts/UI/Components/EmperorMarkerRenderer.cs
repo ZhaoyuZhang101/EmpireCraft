@@ -15,7 +15,7 @@ namespace EmpireCraft.Scripts.UI.Components;
 // 改为在皇帝所属的城(没有就都城)城心上方画一枚皇帝标记——帝国颜色的圆形印面、旧铜环、金冕
 // (Tools/IconForge/emperor_marker_forge.py，印面单独一层按帝国颜色染色)。不跟着实体走，所以不闪；
 // 微服私访、出访、御驾亲征时标记像兵牌一样沿路走(见 EmperorTourSystem)，换了地块在一秒里匀速滑过去，暂停时不动。
-// 画在地名画布上，按屏幕像素定大小。共和国的元首不画。
+// 画在地图浮层画布上(关掉「地图名称」也照画，见 MapOverlayCanvas)，按屏幕像素定大小。共和国的元首不画。
 // 鼠标停在标记上：标记放大、置顶，显示皇帝的基本情况——帝国、年龄、在位几年、资质、眼下在做什么(在宫中、微服私访、
 // 出访、御驾亲征、回銮途中)、储君、天命正统(兵牌悬停时让路)。
 public static class EmperorMarkerRenderer
@@ -45,9 +45,10 @@ public static class EmperorMarkerRenderer
     public static bool Hovering => _hover >= 0;
     private static readonly List<RaycastResult> RaycastHits = new();
 
+    // 画在地图浮层画布上(见 MapOverlayCanvas)：以前挂在地名画布下，原版关掉「地图名称」时跟着一起看不见
     public static void EnsureHost()
     {
-        Canvas canvas = CanvasMain.instance == null ? null : CanvasMain.instance.canvas_map_names;
+        Canvas canvas = MapOverlayCanvas.Ensure();
         if (canvas == null) return;
         if (_root != null && _root.parent == canvas.transform) return;
         if (_root != null) Object.Destroy(_root.gameObject);
@@ -65,16 +66,17 @@ public static class EmperorMarkerRenderer
     internal static void HostLateUpdate()
     {
         using var timing = FrameProfiler.Measure("纯净地图·皇帝标记");
-        // 铭牌是后来加进地名画布的：保持皇帝标记在最上层，画在铭牌上面
+        // 保持皇帝标记在最上层，画在兵牌上面
         if (_root != null && _root.parent != null && _root.GetSiblingIndex() != _root.parent.childCount - 1)
             _root.SetAsLastSibling();
         int used = 0;
         Hits.Clear();
-        if (PureMapMode.Enabled && World.world?.camera != null && CanvasMain.instance?.canvas_map_names != null &&
-            ModClass.EMPIRE_MANAGER != null)
+        Canvas canvas = MapOverlayCanvas.Current;
+        if (PureMapMode.Enabled && World.world?.camera != null && canvas != null && ModClass.EMPIRE_MANAGER != null)
         {
+            MapOverlayCanvas.Sync();
             Camera camera = World.world.camera;
-            float scale = Mathf.Max(0.01f, CanvasMain.instance.canvas_map_names.scaleFactor);
+            float scale = Mathf.Max(0.01f, canvas.scaleFactor);
             foreach (Empire empire in ModClass.EMPIRE_MANAGER)
             {
                 Actor emperor = empire?.data == null ? null : empire.Emperor;
@@ -145,7 +147,7 @@ public static class EmperorMarkerRenderer
         });
     }
 
-    // 鼠标压在界面面板上(地名画布以外的 UI)时不算悬停
+    // 鼠标压在界面面板上(地名画布、地图浮层以外的 UI)时不算悬停
     private static bool PointerOverPanels()
     {
         if (EventSystem.current == null) return false;
@@ -153,8 +155,7 @@ public static class EmperorMarkerRenderer
         _pointer.position = Input.mousePosition;
         RaycastHits.Clear();
         EventSystem.current.RaycastAll(_pointer, RaycastHits);
-        Transform names = CanvasMain.instance?.canvas_map_names?.transform;
-        return RaycastHits.Any(hit => hit.gameObject != null && (names == null || !hit.gameObject.transform.IsChildOf(names)));
+        return RaycastHits.Any(hit => hit.gameObject != null && !MapOverlayCanvas.IsMap(hit.gameObject.transform));
     }
 
     // 悬停详情

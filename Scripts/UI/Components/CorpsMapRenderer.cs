@@ -110,9 +110,7 @@ public static class CorpsMapRenderer
     private const int HoverNone = 0, HoverCounter = 1, HoverMarker = 2, HoverFleet = 3, HoverNaval = 4;
 
     private static RectTransform _root;
-    // 兵牌自己的画布、照着对齐的地名画布(见 EnsureHost)
-    private static Canvas _canvas, _names;
-    private static CanvasScaler _scaler, _namesScaler;
+    private static Canvas _canvas;
     private static Font _font;
     private static Sprite _white;
     private static readonly List<Counter> Counters = new();
@@ -379,36 +377,17 @@ public static class CorpsMapRenderer
     private static bool ShowsCorps(Kingdom kingdom, CorpsData corps) =>
         corps.task != "reserve" || SwitchGarrisonButton.Shown || CorpsSystem.IsAtWar(kingdom) || Located(corps);
 
-    // 兵牌画在自己的一块画布上(与地名画布同级、同排序，紧跟在它后面)：原版关掉「地图名称」时把地名画布整个停用
-    // (NameplateManager)，以前兵牌挂在地名画布下，跟着一起看不见，打仗时也找不到军队
+    // 兵牌画在地图浮层画布上(见 MapOverlayCanvas)：以前挂在地名画布下，原版关掉「地图名称」时跟着一起看不见
     public static void EnsureHost()
     {
-        Canvas names = CanvasMain.instance == null ? null : CanvasMain.instance.canvas_map_names;
-        if (names == null) return;
-        if (_root != null && _canvas != null && _names == names) return;
+        Canvas canvas = MapOverlayCanvas.Ensure();
+        if (canvas == null) return;
+        if (_root != null && _root.parent == canvas.transform) return;
         if (_root != null) UnityEngine.Object.Destroy(_root.gameObject);
-        if (_canvas != null) UnityEngine.Object.Destroy(_canvas.gameObject);
         Counters.Clear();
         Lines.Clear();
         Markers.Clear();
         ClearHover();
-        var canvasObject = new GameObject("EmpireCraftCorpsCanvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler));
-        canvasObject.layer = names.gameObject.layer;
-        canvasObject.transform.SetParent(names.transform.parent, false);
-        canvasObject.transform.SetSiblingIndex(names.transform.GetSiblingIndex() + 1);
-        Canvas canvas = canvasObject.GetComponent<Canvas>();
-        canvas.renderMode = names.renderMode;
-        canvas.worldCamera = names.worldCamera;
-        canvas.planeDistance = names.planeDistance;
-        canvas.sortingLayerID = names.sortingLayerID;
-        canvas.sortingOrder = names.sortingOrder;
-        canvas.overrideSorting = names.overrideSorting;
-        canvas.pixelPerfect = names.pixelPerfect;
-        _names = names;
-        _namesScaler = names.GetComponent<CanvasScaler>();
-        _canvas = canvas;
-        _scaler = canvasObject.GetComponent<CanvasScaler>();
-        SyncCanvas();
         var rootObject = new GameObject("EmpireCraftCorps", typeof(RectTransform), typeof(CorpsMapRendererHost));
         _root = rootObject.GetComponent<RectTransform>();
         _root.SetParent(canvas.transform, false);
@@ -416,22 +395,10 @@ public static class CorpsMapRenderer
         _root.anchorMax = Vector2.one;
         _root.offsetMin = Vector2.zero;
         _root.offsetMax = Vector2.zero;
-        _font = names.GetComponent<NameplateManager>()?.prefab?._text_name?.font;
-    }
-
-    // 缩放照地名画布(随原版「地名大小」设置变，见 CanvasMain.resizeMapNames)，每帧对齐一次
-    private static void SyncCanvas()
-    {
-        if (_namesScaler == null || _scaler == null) return;
-        if (_scaler.uiScaleMode != _namesScaler.uiScaleMode) _scaler.uiScaleMode = _namesScaler.uiScaleMode;
-        if (_scaler.referenceResolution != _namesScaler.referenceResolution)
-            _scaler.referenceResolution = _namesScaler.referenceResolution;
-        if (_scaler.screenMatchMode != _namesScaler.screenMatchMode) _scaler.screenMatchMode = _namesScaler.screenMatchMode;
-        if (!Mathf.Approximately(_scaler.matchWidthOrHeight, _namesScaler.matchWidthOrHeight))
-            _scaler.matchWidthOrHeight = _namesScaler.matchWidthOrHeight;
-        if (!Mathf.Approximately(_scaler.scaleFactor, _namesScaler.scaleFactor)) _scaler.scaleFactor = _namesScaler.scaleFactor;
-        if (!Mathf.Approximately(_scaler.referencePixelsPerUnit, _namesScaler.referencePixelsPerUnit))
-            _scaler.referencePixelsPerUnit = _namesScaler.referencePixelsPerUnit;
+        // 皇帝标记在兵牌之上(见 EmperorMarkerRenderer)
+        _root.SetAsFirstSibling();
+        _canvas = canvas;
+        _font = MapOverlayCanvas.NameplateFont();
     }
 
     // 绘制出错只记一次(每段各记一次)：以前出错一律吞掉，前面一段(比如航线)一出错，整帧的兵牌都不画
@@ -608,7 +575,7 @@ public static class CorpsMapRenderer
             if (_root != null && CorpsSystem.Enabled && World.world?.camera != null && Config.game_loaded &&
                 !SmoothLoader.isLoading())
             {
-                SyncCanvas();
+                MapOverlayCanvas.Sync();
                 Render(out counters, out lines, out markers);
                 rendered = true;
             }
@@ -1140,12 +1107,8 @@ public static class CorpsMapRenderer
         RaycastHits.Clear();
         EventSystem.current.RaycastAll(_pointer, RaycastHits);
         foreach (RaycastResult hit in RaycastHits)
-        {
-            if (hit.gameObject == null) continue;
-            Transform at = hit.gameObject.transform;
-            bool map = _canvas != null && at.IsChildOf(_canvas.transform) || _names != null && at.IsChildOf(_names.transform);
-            if (!map) return true;
-        }
+            if (hit.gameObject != null && !MapOverlayCanvas.IsMap(hit.gameObject.transform))
+                return true;
         return false;
     }
 
