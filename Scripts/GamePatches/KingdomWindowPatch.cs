@@ -48,6 +48,13 @@ public class KingdomWindowPatch: GamePatch
             techTab.Setup("technology", __instance.scroll_window, action:(_) => TechWindow.Open(_kingdom),
                 sprite:SpriteTextureLoader.getSprite("ui/icons/iconKnowledge"));
         }
+        // 制度：独立王国、部落按简化朝堂推制度；帝国核心、成员国打开所在帝国；附庸只能看
+        if (__instance.tabs._tabs.All(p => p.name != "kingdom_institutions"))
+        {
+            SimpleWindowTab institutionTab = Object.Instantiate(SimpleWindowTab.Prefab);
+            institutionTab.Setup("kingdom_institutions", __instance.scroll_window,
+                action:(_) => InstitutionWindow.Open(_kingdom), sprite:SpriteTextureLoader.getSprite("TabInstitutions"));
+        }
         if (__instance.tabs._tabs.All(p => p.name != "kingdom_military"))
         {
             SimpleWindowTab militaryTab = Object.Instantiate(SimpleWindowTab.Prefab);

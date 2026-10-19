@@ -6727,5 +6727,15 @@
   "realm_authority_prestige": "Ruler's renown",
   "realm_authority_rebellion": "Unquelled rebellion",
   "kingdom_institution_reforms_toggle": "Kingdom Institution Reforms",
-  "kingdom_institution_reforms_toggle Description": "When on, independent kingdoms and tribes enact institutional reforms through a simplified court: the ruler decides alone, and royal authority stands in for legitimacy. While an empire of the same culture exists, institutions that change the form of government or abolish the monarchy are still left to the empire. When off, only empires enact reforms."
+  "kingdom_institution_reforms_toggle Description": "When on, independent kingdoms and tribes enact institutional reforms through a simplified court: the ruler decides alone, and royal authority stands in for legitimacy. While an empire of the same culture exists, institutions that change the form of government or abolish the monarchy are still left to the empire. When off, only empires enact reforms.",
+  "institution_env_realms": "Same-culture realms",
+  "institution_reform_environment_realms": "Reform environment: {0} same-culture states · {1} realms · {2} advanced neighbors · ×{3:0.00} speed · at least {4} years",
+  "institution_realm_scope_note": "Figures below are specific to {0}. Other realms of the same culture may have different politics and progress.",
+  "institution_authority_required": "Authority required",
+  "realm_authority_title": "Royal authority",
+  "realm_authority_tip": "A kingdom has no imperial legitimacy; its royal authority is checked against each institution's mandate requirement",
+  "realm_court_ruler_decides": "Ruler's decree",
+  "realm_court_ruler_decides_desc": "A kingdom keeps a simplified court: no memorials, cabinet or demands. The ruler alone proposes and decides reforms; the strongest supporting faction is named as sponsor.",
+  "kingdom_institutions": "Institutions",
+  "kingdom_institutions_description": "View the institution tree of this realm's culture and its reform progress; members of an empire open their empire"
 }

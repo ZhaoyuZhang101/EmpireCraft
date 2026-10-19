@@ -92,6 +92,7 @@ public class KingdomOverviewWindow : WideScrollWindow<KingdomOverviewWindow>
             ScrollWindow.showWindow(nameof(RegimeWindow));
         });
         rail.AddRailButton("kov_open_tech", LM.Get("TechWindow Title"), () => TechWindow.Open(kingdom));
+        rail.AddRailButton("kov_open_institutions", LM.Get("kingdom_institutions"), () => InstitutionWindow.Open(kingdom));
         rail.AddRailButton("kov_open_vanilla", LM.Get("kov_open_vanilla"), () =>
         {
             SelectedMetas.selected_kingdom = kingdom;

@@ -6727,5 +6727,15 @@
   "realm_authority_prestige": "君主聲望",
   "realm_authority_rebellion": "叛亂未平",
   "kingdom_institution_reforms_toggle": "王國推行制度改革",
-  "kingdom_institution_reforms_toggle Description": "開啓後，獨立王國與部落以簡化朝堂自行推行制度改革：君主親裁，以君威代替正統；本文化有帝國時，改政體、廢君主的制度仍須由帝國推行。關閉則只有帝國推行改革。"
+  "kingdom_institution_reforms_toggle Description": "開啓後，獨立王國與部落以簡化朝堂自行推行制度改革：君主親裁，以君威代替正統；本文化有帝國時，改政體、廢君主的制度仍須由帝國推行。關閉則只有帝國推行改革。",
+  "institution_env_realms": "同文化政權",
+  "institution_reform_environment_realms": "改革環境：同文明國家 {0} · 政權 {1} · 先進鄰國 {2} · 速度 ×{3:0.00} · 至少 {4} 年",
+  "institution_realm_scope_note": "以下數據僅針對「{0}」：同文化的其他政權政治態勢與推進進度可能不同，不會互相同步。",
+  "institution_authority_required": "君威需求",
+  "realm_authority_title": "君威",
+  "realm_authority_tip": "王國沒有正統，推行制度時以君威比照該制度的正統需求",
+  "realm_court_ruler_decides": "君主親裁",
+  "realm_court_ruler_decides_desc": "王國朝堂從簡：沒有奏議、內閣與訴求，改革由君主一人提議定奪；倡議者取支持派裡勢力最大的一家。",
+  "kingdom_institutions": "文明制度",
+  "kingdom_institutions_description": "查看本國文化的制度科技樹與本國改革進度；帝國成員打開所在帝國"
 }

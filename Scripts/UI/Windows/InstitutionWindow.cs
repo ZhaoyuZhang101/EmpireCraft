@@ -39,7 +39,14 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
 
     private readonly List<GameObject> _content = new();
     private AutoVertLayoutGroup _root;
-    private Empire _empire;
+    // 看的是哪个政权：帝国，或独立王国/部落(简化朝堂，见 InstitutionRealm)。从帝国、王国窗口打开时由 Open 记下，
+    // 返回键回到本窗口时沿用(同 TechWindow)
+    private static InstitutionRealm _pendingRealm;
+    private InstitutionRealm _realm;
+    // 帝国才有的栏目(宪法、舆论、社会动荡、街头、理念)仍按帝国取数；王国模式下为空
+    private Empire _empire => _realm?.Empire;
+    // 附庸、王国改革关闭时的王国：只能看不能推
+    private bool _readOnly;
     private InstitutionGraphView _graph;
     private AutoVertLayoutGroup _detailPanel;
     private IReadOnlyList<InstitutionNodeView> _lineViews = Array.Empty<InstitutionNodeView>();
@@ -55,13 +62,30 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
         _rail = UIHelper.CreateWideWindowRail(BackgroundTransform, UIHelper.RailWidth, UIHelper.RailInset);
     }
 
+    // 帝国：制度改革、立宪、舆论全套
+    public static void Open(Empire empire)
+    {
+        if (empire?.data == null || empire.isRekt()) return;
+        _pendingRealm = InstitutionRealm.Of(empire);
+        ScrollWindow.showWindow(nameof(InstitutionWindow));
+    }
+
+    // 王国：帝国核心、成员国打开所在帝国；独立王国/部落按简化朝堂；附庸只读
+    public static void Open(Kingdom kingdom)
+    {
+        if (kingdom?.data == null || kingdom.isRekt()) return;
+        _pendingRealm = InstitutionRealm.Of(kingdom);
+        ScrollWindow.showWindow(nameof(InstitutionWindow));
+    }
+
     public override void OnNormalEnable()
     {
         base.OnNormalEnable();
         UIHelper.FixWideWindowScrollArea(BackgroundTransform);
-        _empire = EmpireCraftMetaTypeLibrary.selected_empire;
+        _realm = _pendingRealm ?? InstitutionRealm.Of(EmpireCraftMetaTypeLibrary.selected_empire);
         _selectedId = "";
-        _selectedIdeology = PartySystem.GetGovernmentParty(_empire)?.Ideology ?? PartyIdeology.Conservatism;
+        _selectedIdeology = (_empire != null ? PartySystem.GetGovernmentParty(_empire)?.Ideology : null) ??
+                            PartyIdeology.Conservatism;
         Rebuild();
         StartCoroutine(UIHelper.StabilizeWideWindowScrollArea(BackgroundTransform));
     }
@@ -83,8 +107,9 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
     }
 
     private bool IsUsable() =>
-        _empire?.data != null && !_empire.isRekt() && _empire.CoreKingdom != null &&
-        !_empire.CoreKingdom.isRekt() && _empire.CoreKingdom.GetRegime() != null;
+        _realm != null && (_realm.IsEmpire ? _empire.data != null && !_empire.isRekt() : _realm.IsAlive) &&
+        _realm.Core != null && !_realm.Core.isRekt() && _realm.Core.GetRegime() != null &&
+        CultureService.IsValidCulture(_realm.Culture);
 
     private void Rebuild()
     {
@@ -99,10 +124,12 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
                 new Vector2(PanelWidth, 12));
             return;
         }
-        InstitutionSystem.MigrateEmpire(_empire);
-        _culture = InstitutionSystem.GetPrimaryCulture(_empire);
-        _lineViews = InstitutionSystem.BuildLineView(_empire);
-        _foreignViews = InstitutionSystem.BuildForeignView(_empire);
+        if (_realm.IsEmpire) InstitutionSystem.MigrateEmpire(_empire);
+        else InstitutionSystem.EnsureRealmState(_realm);
+        _readOnly = !_realm.IsEmpire && (!InstitutionSystem.KingdomReformsEnabled || !_realm.IsSovereign);
+        _culture = _realm.Culture;
+        _lineViews = InstitutionSystem.BuildLineView(_realm);
+        _foreignViews = InstitutionSystem.BuildCultureForeignView(_culture);
         if (string.IsNullOrEmpty(_selectedId))
             _selectedId = _lineViews.FirstOrDefault(view =>
                               view.Status == InstitutionNodeStatus.Reforming)?.Node.id
@@ -111,9 +138,13 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
                           ?? _lineViews.FirstOrDefault()?.Node.id ?? "";
         AddStatusPanel();
         AddOverviewCards();
-        AddSocialUnrest();
-        AddStreetUnrest();
-        AddPublicOpinion();
+        // 社会动荡、街头抗争、舆论选举都是帝国朝廷的事，王国的简化朝堂不显示
+        if (_realm.IsEmpire)
+        {
+            AddSocialUnrest();
+            AddStreetUnrest();
+            AddPublicOpinion();
+        }
         AddLegend();
         AddGraph();
         AddDetail();
@@ -132,8 +163,19 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
         identity.AddRailText(_culture.GetCultureTranslate().ColorString("#F3C34A"), 10, 14f);
         identity.AddRailText((LM.Get(InstitutionDefinitionRegistry.GetLineNameKey(ranking.Line)) +
                               LM.Get("institution_line_label")).ColorString("#7FD8EA"), 7, 10f);
-        identity.AddRailText(CompositeEmpireService.GetRegimeName(_empire.CoreKingdom.GetRegime().type)
+        identity.AddRailText(CompositeEmpireService.GetRegimeName(_realm.Core.GetRegime().type)
             .ColorString("#E6E0CF"), 7, 10f);
+        if (!_realm.IsEmpire)
+        {
+            // 王国：简化朝堂(君主亲裁)，君威代替正统，悬停看各项来源
+            identity.AddRailText(_realm.Name.ColorString("#E6E0CF"), 7, 10f);
+            identity.AddRailText(LM.Get("realm_court_ruler_decides").ColorString("#F3C34A"), 7, 10f);
+            int authority = RealmAuthority.Get(_realm.Kingdom);
+            SimpleText authorityText = identity.AddRailText(
+                $"{LM.Get("realm_authority_title")} {authority.ToString().ColorString(AuthorityHex(authority))}", 7, 10f);
+            UIHelper.AttachTextTooltip(authorityText.gameObject, $"realm_authority_{_realm.Kingdom.id}",
+                LM.Get("realm_authority_title"), BuildAuthorityTooltip());
+        }
         (string levelText, float levelProgress) = BuildLevelLine(ranking);
         identity.AddRailText(levelText, 6, 20f, wrap: true);
         var barRow = identity.BeginHoriGroup(new Vector2(UIHelper.RailWidth - 8f, 7f), TextAnchor.MiddleCenter, 0,
@@ -142,6 +184,31 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
             new Color(0.95f, 0.76f, 0.29f));
         var note = _rail.BeginRailCard();
         note.AddRailText(LM.Get("institution_tagline").ColorString("#9FB0B6"), 6, 30f, wrap: true);
+        if (_realm.IsEmpire) return;
+        note.AddRailText(LM.Get("realm_court_ruler_decides_desc").ColorString("#9FB0B6"), 6, 30f, wrap: true);
+        // 附庸只能看；王国改革在设置里关了也只能看
+        if (_readOnly)
+        {
+            var locked = _rail.BeginRailCard();
+            locked.AddRailText(LM.Get(InstitutionSystem.KingdomReformsEnabled
+                ? "institution_realm_not_sovereign"
+                : "institution_kingdom_reforms_off").ColorString("#D98C8C"), 6, 30f, wrap: true);
+        }
+    }
+
+    // 君威的颜色：够推多数制度为绿，勉强为黄，低了为红
+    private static string AuthorityHex(int authority) =>
+        authority >= 55 ? "#65D66E" : authority >= 35 ? "#E9D35B" : "#D98C8C";
+
+    // 君威悬停明细：各项来源逐行列出(同正统明细的说法)
+    private string BuildAuthorityTooltip()
+    {
+        List<(string key, int value)> items = RealmAuthority.Breakdown(_realm.Kingdom);
+        var lines = items.Select(item =>
+            $"{LM.Get(item.key)}  {(item.value >= 0 ? "+" : "")}{item.value}"
+                .ColorString(item.value >= 0 ? "#B8C6CC" : "#D98C8C")).ToList();
+        lines.Add(LM.Get("realm_authority_tip").ColorString("#8FA0A8"));
+        return string.Join("\n", lines);
     }
 
     // 文明等级这一行的关键是把"综合先进度"这个数字变得有意义：标出离下一级还差多少，
@@ -178,44 +245,61 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
     private const float ChipHeight = 12f;
     private const float CardSpacing = 2f;
 
+    // 王国模式右边换成君威卡(王国没有立宪)
     private void AddOverviewCards()
     {
-        InstitutionReformState reform = _empire.data.institution_state?.active_reform;
+        InstitutionReformState reform = _realm.State?.active_reform;
         InstitutionNodeConfig reformNode = reform != null ? InstitutionDefinitionRegistry.Get(reform.node_id) : null;
-        InstitutionReformEnvironment environment = InstitutionSystem.GetReformEnvironment(_empire, reformNode);
-        ConstitutionalEconomyView constitution = ConstitutionalEconomySystem.GetView(_empire);
+        InstitutionReformEnvironment environment = InstitutionSystem.GetReformEnvironment(_realm, reformNode);
+        ConstitutionalEconomyView constitution = null;
         ConstitutionConfig constitutionConfig = InstitutionDefinitionRegistry.Global.constitution;
-        ParliamentView parliament = ParliamentSystem.GetView(_empire);
-
-        List<string> constitutionNotes = BuildConstitutionNotes(constitution, constitutionConfig, parliament,
-            out bool showStartButton);
-        bool isRepublic = RepublicSystem.IsRepublic(_empire);
-        if (isRepublic) showStartButton = false;
-        if (RepublicSystem.IsTransitioning(_empire))
+        ParliamentView parliament = null;
+        var constitutionNotes = new List<string>();
+        bool showStartButton = false, isRepublic = false, showForceBudding = false, showForceConstitution = false;
+        List<(string key, int value)> authorityItems = null;
+        float rightHeight;
+        int rightItems;
+        if (_realm.IsEmpire)
         {
-            showStartButton = false;
-            ConstitutionalEconomyState transition = _empire.data.constitutional_economy;
-            int yearsRemaining = Math.Max(0, 3 - Date.getYearsSince(transition.republic_transition_started));
-            constitutionNotes.Add(string.Format(LM.Get("republic_transition_progress"),
-                LM.Get(transition.republic_transition_stage == 1
-                    ? "republic_provisional_stage" : "republic_drafting_stage"), yearsRemaining)
-                .ColorString("#65D6C4"));
+            constitution = ConstitutionalEconomySystem.GetView(_empire);
+            parliament = ParliamentSystem.GetView(_empire);
+            constitutionNotes = BuildConstitutionNotes(constitution, constitutionConfig, parliament,
+                out showStartButton);
+            isRepublic = RepublicSystem.IsRepublic(_empire);
+            if (isRepublic) showStartButton = false;
+            if (RepublicSystem.IsTransitioning(_empire))
+            {
+                showStartButton = false;
+                ConstitutionalEconomyState transition = _empire.data.constitutional_economy;
+                int yearsRemaining = Math.Max(0, 3 - Date.getYearsSince(transition.republic_transition_started));
+                constitutionNotes.Add(string.Format(LM.Get("republic_transition_progress"),
+                    LM.Get(transition.republic_transition_stage == 1
+                        ? "republic_provisional_stage" : "republic_drafting_stage"), yearsRemaining)
+                    .ColorString("#65D6C4"));
+            }
+            else if (RepublicSystem.CanAbolish(_empire))
+                constitutionNotes.Add(LM.Get("republic_abolition_available").ColorString("#65D6C4"));
+            // 强制萌芽只在还没萌芽时出现；已萌芽才可能出现"发起制宪"按钮，两者不会同时显示
+            showForceBudding = !isRepublic && !constitution.budding && !constitution.constitutional;
+            showForceConstitution = !isRepublic && ConstitutionalEconomySystem.CanForceConstitution(_empire);
+            rightHeight = CardHeaderHeight + ChipRows(4, 7) * ChipHeight + constitutionNotes.Count * CardLineHeight +
+                          (showStartButton ? 14f : 0f) + (showForceBudding ? 14f : 0f) +
+                          (showForceConstitution ? 14f : 0f);
+            rightItems = 1 + ChipRows(4, 7) + constitutionNotes.Count + (showStartButton ? 1 : 0) +
+                         (showForceBudding ? 1 : 0) + (showForceConstitution ? 1 : 0);
         }
-        else if (RepublicSystem.CanAbolish(_empire))
-            constitutionNotes.Add(LM.Get("republic_abolition_available").ColorString("#65D6C4"));
-        // 强制萌芽只在还没萌芽时出现；已萌芽才可能出现"发起制宪"按钮，两者不会同时显示
-        bool showForceBudding = !isRepublic && !constitution.budding && !constitution.constitutional;
-        bool showForceConstitution = !isRepublic && ConstitutionalEconomySystem.CanForceConstitution(_empire);
+        else
+        {
+            authorityItems = RealmAuthority.Breakdown(_realm.Kingdom);
+            int chipRows = ChipRows((authorityItems.Count + 1) / 2, authorityItems.Count);
+            rightHeight = CardHeaderHeight + chipRows * ChipHeight;
+            rightItems = 1 + chipRows;
+        }
         int reformLines = reform != null ? 2 : 1; // 改革中：名称行 + 进度条行
         float reformHeight = CardHeaderHeight + reformLines * CardLineHeight + ChipRows(3, 5) * ChipHeight;
-        float constitutionHeight = CardHeaderHeight + ChipRows(4, 7) * ChipHeight + constitutionNotes.Count * CardLineHeight +
-                                   (showStartButton ? 14f : 0f) + (showForceBudding ? 14f : 0f) +
-                                   (showForceConstitution ? 14f : 0f);
         int reformItems = 1 + reformLines + ChipRows(3, 5);
-        int constitutionItems = 1 + ChipRows(4, 7) + constitutionNotes.Count + (showStartButton ? 1 : 0) +
-                                (showForceBudding ? 1 : 0) + (showForceConstitution ? 1 : 0);
         float height = Mathf.Max(reformHeight + reformItems * CardSpacing,
-            constitutionHeight + constitutionItems * CardSpacing) + 10f;
+            rightHeight + rightItems * CardSpacing) + 10f;
 
         var row = _root.BeginHoriGroup(new Vector2(PanelWidth, height), TextAnchor.UpperCenter, CardGap);
         _content.Add(row.gameObject);
@@ -244,12 +328,13 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
                 : LM.Get("institution_hint_none").ColorString("#B8B8B8"));
         }
         string speedColor = environment.AdvancedBorderEmpires > 0 ? "#65D6C4" :
-            environment.SameCultureEmpires > 1 ? "#F3C34A" : "#E6E0CF";
+            environment.SameCultureRealms > 1 ? "#F3C34A" : "#E6E0CF";
+        // 改革竞争按同文化政权(帝国 + 独立王国)算，这里显示政权数
         AddChipRow(reformCard,
             (Icon("ui/icons/iconCulture"), LM.Get("institution_env_same_culture"),
                 environment.SameCultureCountries.ToString()),
-            (Icon("ui/icons/iconKingdom"), LM.Get("institution_env_empires"),
-                environment.SameCultureEmpires.ToString()));
+            (Icon("ui/icons/iconKingdom"), LM.Get("institution_env_realms"),
+                environment.SameCultureRealms.ToString()));
         AddChipRow(reformCard,
             (Icon("ui/icons/iconDiplomacy", "ui/icons/iconAlliance"), LM.Get("institution_env_advanced"),
                 environment.AdvancedBorderEmpires.ToString()),
@@ -259,6 +344,13 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
             (Icon("ui/icons/iconClock"), LM.Get("institution_env_years"),
                 environment.EffectiveMinimumYears.ToString()),
             (null, null, null));
+
+        // 右：王国是君威卡
+        if (!_realm.IsEmpire)
+        {
+            AddAuthorityCard(row, height, authorityItems);
+            return;
+        }
 
         // 右：君主立宪
         var constitutionCard = BeginCard(row, height);
@@ -317,6 +409,22 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
                 Icon("ui/icons/iconCrown", "ui/icons/iconKings"), size: new Vector2(CardWidth - 16f, 12));
     }
 
+    // 君威卡(王国)：标题右边是君威总数，下面每项来源一格
+    private void AddAuthorityCard(AutoHoriLayoutGroup row, float height, List<(string key, int value)> items)
+    {
+        var card = BeginCard(row, height);
+        int authority = RealmAuthority.Get(_realm.Kingdom);
+        AddCardHeader(card, Icon("ui/icons/iconCrown", "ui/icons/iconKings"), LM.Get("realm_authority_title"),
+            authority.ToString().ColorString(AuthorityHex(authority)));
+        Sprite plus = Icon("ui/icons/iconLoyalty", "ui/icons/iconKingdom");
+        Sprite minus = Icon("ui/icons/iconWarning", "ui/icons/iconWar");
+        (Sprite icon, string label, string value) Chip((string key, int value) item) =>
+            (item.value >= 0 ? plus : minus, LM.Get(item.key),
+                $"{(item.value >= 0 ? "+" : "")}{item.value}".ColorString(item.value >= 0 ? "#65D66E" : "#D98C8C"));
+        for (int i = 0; i < items.Count; i += 2)
+            AddChipRow(card, Chip(items[i]), i + 1 < items.Count ? Chip(items[i + 1]) : (null, null, null));
+    }
+
     // 立宪卡片数据块下面的几行说明(内阁、僵局、制宪进度、卡在哪一步)，先算出来好定卡片高度。
     private List<string> BuildConstitutionNotes(ConstitutionalEconomyView view, ConstitutionConfig config,
         ParliamentView parliament, out bool showStartButton)
@@ -330,7 +438,7 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
         if (!parliament.Exists && !view.constitutional)
         {
             // 还没有议会时，把"哪些派系算支持制宪"摊开：数字是按这些派系的中央占比加出来的
-            List<FixedFaction> factions = _empire.CoreKingdom?.GetRegime()?.GetPlayerFactions()
+            List<FixedFaction> factions = _realm.Core?.GetRegime()?.GetPlayerFactions()
                 ?.Where(faction => faction != null && !faction.Ban).ToList() ?? new List<FixedFaction>();
             string Names(bool pro) => string.Join("、", factions
                 .Where(faction => ConstitutionalEconomySystem.IsConstitutionalist(faction, view.budding) == pro)
@@ -757,28 +865,37 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
     {
         var section = _root.BeginVertGroup(pSpacing: 1, pAlignment: TextAnchor.UpperCenter);
         _content.Add(section.gameObject);
-        var ideologyRow = section.BeginHoriGroup(new Vector2(PanelWidth, 14), TextAnchor.MiddleCenter, 4);
-        ideologyRow.AddButtonIntoHoriLayout("ideology_previous", "◀", () => CycleIdeology(-1),
-            size: new Vector2(18, 12));
-        ideologyRow.AddTextIntoHoriLayout(PartySystem.GetIdeologyName(_selectedIdeology), true,
-            TextAnchor.MiddleCenter, new Vector2(150, 12));
-        ideologyRow.AddButtonIntoHoriLayout("ideology_next", "▶", () => CycleIdeology(1),
-            size: new Vector2(18, 12));
-        PartyIdeology? governingIdeology = PartySystem.GetGovernmentParty(_empire)?.Ideology;
-        section.AddTextIntoVertLayout(string.Format(LM.Get("ideology_route_view_status"),
-                PartySystem.GetIdeologyName(_selectedIdeology),
-                governingIdeology.HasValue ? PartySystem.GetIdeologyName(governingIdeology.Value) : LM.Get("label_none")),
-            true, TextAnchor.MiddleCenter, new Vector2(PanelWidth, 12));
+        // 理念车道要执政党推，王国没有政党：不显示理念行，树上也不画理念节点
+        if (_realm.IsEmpire)
+        {
+            var ideologyRow = section.BeginHoriGroup(new Vector2(PanelWidth, 14), TextAnchor.MiddleCenter, 4);
+            ideologyRow.AddButtonIntoHoriLayout("ideology_previous", "◀", () => CycleIdeology(-1),
+                size: new Vector2(18, 12));
+            ideologyRow.AddTextIntoHoriLayout(PartySystem.GetIdeologyName(_selectedIdeology), true,
+                TextAnchor.MiddleCenter, new Vector2(150, 12));
+            ideologyRow.AddButtonIntoHoriLayout("ideology_next", "▶", () => CycleIdeology(1),
+                size: new Vector2(18, 12));
+            PartyIdeology? governingIdeology = PartySystem.GetGovernmentParty(_empire)?.Ideology;
+            section.AddTextIntoVertLayout(string.Format(LM.Get("ideology_route_view_status"),
+                    PartySystem.GetIdeologyName(_selectedIdeology),
+                    governingIdeology.HasValue ? PartySystem.GetIdeologyName(governingIdeology.Value) : LM.Get("label_none")),
+                true, TextAnchor.MiddleCenter, new Vector2(PanelWidth, 12));
+        }
         var header = section.BeginHoriGroup(new Vector2(PanelWidth, 13), TextAnchor.MiddleCenter, 2);
         header.AddTextIntoHoriLayout(LM.Get("institution_graph_hint").ColorString("#B8C6CC"), true,
             TextAnchor.MiddleLeft, new Vector2(PanelWidth - 42f, 11));
         header.AddButtonIntoHoriLayout("institution_graph_reset", LM.Get("institution_graph_reset"),
             () => _graph?.ResetView(), size: new Vector2(34, 11));
         _graph = InstitutionGraphView.Create(section.transform, new Vector2(PanelWidth, GraphHeight));
-        _graph.Rebuild(IdeologyInstitutionPaths.Visible(_lineViews, _selectedIdeology),
-            IdeologyInstitutionPaths.Visible(_foreignViews, _selectedIdeology), _selectedId,
+        _graph.Rebuild(VisibleViews(_lineViews), VisibleViews(_foreignViews), _selectedId,
             OnNodeSelected, BuildNodeTooltip, BuildNodeCard);
     }
+
+    // 帝国只画选中的那条理念车道；王国一条都不画
+    private IReadOnlyList<InstitutionNodeView> VisibleViews(IReadOnlyList<InstitutionNodeView> views) =>
+        _realm.IsEmpire
+            ? IdeologyInstitutionPaths.Visible(views, _selectedIdeology)
+            : views.Where(view => !IdeologyInstitutionPaths.TryGetIdeology(view.Node.branch, out _)).ToList();
 
     private void CycleIdeology(int direction)
     {
@@ -796,7 +913,7 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
         string statusHex = GetStatusHex(view.Status);
         string status = GetStatusName(view.Status).ColorString(statusHex);
         float progress = -1f;
-        InstitutionReformState reform = _empire.data.institution_state?.active_reform;
+        InstitutionReformState reform = _realm.State?.active_reform;
         if (view.Status == InstitutionNodeStatus.Reforming && reform != null && reform.node_id == view.Node.id)
         {
             status = $"{GetStageName(reform.stage)} {reform.progress:0}%".ColorString(statusHex);
@@ -902,26 +1019,23 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
         // 同文化下如果还有其他帝国，它们各自的政治态势、甚至各自是否已经在推进同一个节点，
         // 都可能完全不一样，不会互相同步。这里把帝国名字钉在数字前面，切换帝国查看时
         // 才不会把"这个帝国的态势"误当成"整个文化的态势"。
-        lines.Add(string.Format(LM.Get("institution_empire_scope_note"), _empire.GetEmpireName())
-            .ColorString("#8FA0A8"));
-        InstitutionReformEnvironment environment = InstitutionSystem.GetReformEnvironment(_empire, view.Node);
-        string environmentColor = environment.AdvancedBorderEmpires > 0 ? "#65D6C4" :
-            environment.SameCultureEmpires > 1 ? "#F3C34A" : "#B8C6CC";
-        lines.Add(string.Format(LM.Get("institution_reform_environment"),
-                environment.SameCultureCountries, environment.SameCultureEmpires,
-                environment.AdvancedBorderEmpires, environment.SpeedMultiplier,
-                environment.EffectiveMinimumYears).ColorString(environmentColor));
+        lines.Add(string.Format(LM.Get(_realm.IsEmpire ? "institution_empire_scope_note" : "institution_realm_scope_note"),
+                _realm.Name).ColorString("#8FA0A8"));
+        InstitutionReformEnvironment environment = InstitutionSystem.GetReformEnvironment(_realm, view.Node);
+        lines.Add(FormatEnvironment(environment, "#B8C6CC"));
+        // 王国比的是君威(见 RealmAuthority)，帝国比正统
         lines.Add($"{LM.Get("institution_support")} {view.Support.ToString("0").ColorString("#65D66E")}%  ·  " +
                    $"{LM.Get("institution_opposition")} {view.Opposition.ToString("0").ColorString("#D98C8C")}%  ·  " +
                    $"{LM.Get("institution_minimum_years")} {environment.EffectiveMinimumYears}  ·  " +
-                   $"{LM.Get("institution_mandate_required")} {view.Node.research.mandate_required}");
+                   $"{LM.Get(_realm.IsEmpire ? "institution_mandate_required" : "institution_authority_required")} " +
+                   $"{view.Node.research.mandate_required}");
 
         // 支持/反对具体是哪个派系、哪个阶层——之前只报一个百分比看不出跟派系系统有什么关系，
         // 这里直接把节点配置里的 support_factions/oppose_factions(还有阶层)摊开显示。
         // FactionType 只是派系"类别"(尊王/诸侯/绥靖……)，不是玩家在这局游戏里实际见到的
         // 那个派系——同一类别在当前政体下已经有一个具体的 FixedFaction 了(比如"贵族寡头
         // 派")，能找到就显示它的真实名字，找不到(这个政体压根没配这个类别)才退回类别名。
-        List<FixedFaction> playerFactions = _empire.CoreKingdom?.GetRegime()?.GetPlayerFactions()
+        List<FixedFaction> playerFactions = _realm.Core?.GetRegime()?.GetPlayerFactions()
                                              ?? new List<FixedFaction>();
         // 同一类别有好几个派系(朋党)时把名字都列出来，贡献是它们的合计(见 GetFactionContribution)
         string factionLine = BuildWeightedGroupLine(view.Node.politics.support_factions,
@@ -932,20 +1046,20 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
                     .Select(f => f.Name).Distinct().ToList();
                 return names.Count > 0 ? string.Join("/", names) : faction.ToString();
             },
-            (faction, weight) => InstitutionSystem.GetFactionContribution(_empire, faction, weight));
+            (faction, weight) => InstitutionSystem.GetFactionContribution(_realm, faction, weight));
         if (!string.IsNullOrEmpty(factionLine)) lines.Add(factionLine);
-        Dictionary<SocialClass, float> classShares = InstitutionSystem.BuildClassShares(_empire);
+        Dictionary<SocialClass, float> classShares = InstitutionSystem.BuildClassShares(_realm);
         string classLine = BuildWeightedGroupLine(view.Node.politics.support_classes,
             view.Node.politics.oppose_classes, socialClass => LM.Get($"class_{socialClass}"),
-            (socialClass, weight) => InstitutionSystem.GetClassContribution(_empire, socialClass, weight, classShares));
+            (socialClass, weight) => InstitutionSystem.GetClassContribution(_realm, socialClass, weight, classShares));
         if (!string.IsNullOrEmpty(classLine)) lines.Add(classLine);
         if (!string.IsNullOrEmpty(factionLine) || !string.IsNullOrEmpty(classLine))
             lines.Add(LM.Get("institution_contribution_hint").ColorString("#8FA0A8"));
 
-        InstitutionReformState activeReform = _empire.data.institution_state?.active_reform;
+        InstitutionReformState activeReform = _realm.State?.active_reform;
         if (activeReform != null && activeReform.node_id == view.Node.id)
         {
-            FixedFaction sponsor = InstitutionSystem.GetReformSponsor(_empire, activeReform);
+            FixedFaction sponsor = InstitutionSystem.GetReformSponsor(_realm, activeReform);
             string sponsorName = sponsor?.Name ?? LM.Get("institution_reform_origin_ruler");
             lines.Add(string.Format(LM.Get("institution_reform_sponsor"), sponsorName)
                 .ColorString("#F3C34A"));
@@ -970,7 +1084,7 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
                 lines.Add(LM.Get(view.Reason).ColorString("#D98C8C"));
                 break;
             case InstitutionNodeStatus.Reforming:
-                InstitutionReformState reform = _empire.data.institution_state?.active_reform;
+                InstitutionReformState reform = _realm.State?.active_reform;
                 if (reform != null)
                     lines.Add(
                         $"{GetStageName(reform.stage)}  {reform.progress:0.0}%  ·  {LM.Get("institution_radicalism")} {reform.radicalism:0}%"
@@ -1035,6 +1149,17 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
 
     public static string FormatContribution(float points) => (points >= 0 ? "+" : "") + points.ToString("0.0");
 
+    // 改革环境一行：改革竞争按同文化政权(帝国 + 独立王国)数加速，这里报政权数
+    private static string FormatEnvironment(InstitutionReformEnvironment environment, string calmHex)
+    {
+        string hex = environment.AdvancedBorderEmpires > 0 ? "#65D6C4" :
+            environment.SameCultureRealms > 1 ? "#F3C34A" : calmHex;
+        return string.Format(LM.Get("institution_reform_environment_realms"),
+            environment.SameCultureCountries, environment.SameCultureRealms,
+            environment.AdvancedBorderEmpires, environment.SpeedMultiplier,
+            environment.EffectiveMinimumYears).ColorString(hex);
+    }
+
     private void OnNodeSelected(string nodeId)
     {
         _selectedId = nodeId ?? "";
@@ -1092,17 +1217,14 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
         godRow.AddButtonIntoHoriLayout("institution_force_enact_all", LM.Get("institution_force_enact_all"),
             () => ForceEnact(view.Node.id, true), size: new Vector2(110, 12));
 
-        InstitutionReformEnvironment environment = InstitutionSystem.GetReformEnvironment(_empire, view.Node);
-        string environmentColor = environment.AdvancedBorderEmpires > 0 ? "#65D6C4" :
-            environment.SameCultureEmpires > 1 ? "#F3C34A" : "#B8C6CC";
-        _detailPanel.AddTextIntoVertLayout(string.Format(LM.Get("institution_reform_environment"),
-                environment.SameCultureCountries, environment.SameCultureEmpires,
-                environment.AdvancedBorderEmpires, environment.SpeedMultiplier,
-                environment.EffectiveMinimumYears).ColorString(environmentColor), true,
+        InstitutionReformEnvironment environment = InstitutionSystem.GetReformEnvironment(_realm, view.Node);
+        _detailPanel.AddTextIntoVertLayout(FormatEnvironment(environment, "#B8C6CC"), true,
             TextAnchor.MiddleCenter, new Vector2(PanelWidth, 12));
 
         bool missingRequires = !InstitutionDefinitionRegistry.ArePrerequisitesMet(view.Node,
             required => InstitutionSystem.IsEnacted(_culture, required));
+        // 附庸、王国改革关闭：只看不推(上面的上帝模式按钮改的是文化，照留)
+        if (_readOnly && view.Status is InstitutionNodeStatus.Available or InstitutionNodeStatus.Forceable) return;
 
         switch (view.Status)
         {
@@ -1120,10 +1242,10 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
                     size: new Vector2(PanelWidth - 6f, 14));
                 break;
             case InstitutionNodeStatus.Reforming:
-                InstitutionReformState reform = _empire.data.institution_state?.active_reform;
+                InstitutionReformState reform = _realm.State?.active_reform;
                 if (reform != null)
                 {
-                    FixedFaction sponsor = InstitutionSystem.GetReformSponsor(_empire, reform);
+                    FixedFaction sponsor = InstitutionSystem.GetReformSponsor(_realm, reform);
                     _detailPanel.AddTextIntoVertLayout(
                         $"{GetStageName(reform.stage)}  {reform.progress:0.0}%  ·  " +
                         $"{LM.Get("institution_radicalism")} {reform.radicalism:0}%",
@@ -1160,7 +1282,7 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
     // 不能叫 Start：Unity 会把它当成生命周期方法调用并报错 "Start() can not take parameters"
     private void StartReform(string nodeId, bool force)
     {
-        if (!InstitutionSystem.StartReform(_empire, nodeId, force)) return;
+        if (!InstitutionSystem.StartReform(_realm, nodeId, force)) return;
         _selectedId = nodeId;
         Rebuild();
     }

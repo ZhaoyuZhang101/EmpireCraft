@@ -172,7 +172,8 @@ namespace EmpireCraft.Scripts.UI.Windows
 
         private void OpenInstitutionWindow(WindowMetaTab pArg0)
         {
-            ScrollWindow.showWindow(nameof(InstitutionWindow));
+            // 制度窗口也从王国打开(简化朝堂)，这里指明看的是本帝国
+            InstitutionWindow.Open(_empire);
         }
 
         public void ShowTopPart()

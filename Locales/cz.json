@@ -6727,5 +6727,15 @@
   "realm_authority_prestige": "君主声望",
   "realm_authority_rebellion": "叛乱未平",
   "kingdom_institution_reforms_toggle": "王国推行制度改革",
-  "kingdom_institution_reforms_toggle Description": "开启后，独立王国与部落以简化朝堂自行推行制度改革：君主亲裁，以君威代替正统；本文化有帝国时，改政体、废君主的制度仍须由帝国推行。关闭则只有帝国推行改革。"
+  "kingdom_institution_reforms_toggle Description": "开启后，独立王国与部落以简化朝堂自行推行制度改革：君主亲裁，以君威代替正统；本文化有帝国时，改政体、废君主的制度仍须由帝国推行。关闭则只有帝国推行改革。",
+  "institution_env_realms": "同文化政权",
+  "institution_reform_environment_realms": "改革环境：同文明国家 {0} · 政权 {1} · 先进邻国 {2} · 速度 ×{3:0.00} · 至少 {4} 年",
+  "institution_realm_scope_note": "以下数据仅针对「{0}」：同文化的其他政权政治态势与推进进度可能不同，不会互相同步。",
+  "institution_authority_required": "君威需求",
+  "realm_authority_title": "君威",
+  "realm_authority_tip": "王国没有正统，推行制度时以君威比照该制度的正统需求",
+  "realm_court_ruler_decides": "君主亲裁",
+  "realm_court_ruler_decides_desc": "王国朝堂从简：没有奏议、内阁与诉求，改革由君主一人提议定夺；倡议者取支持派里势力最大的一家。",
+  "kingdom_institutions": "文明制度",
+  "kingdom_institutions_description": "查看本国文化的制度科技树与本国改革进度；帝国成员打开所在帝国"
 }
