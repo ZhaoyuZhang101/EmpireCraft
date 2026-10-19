@@ -5,6 +5,7 @@
     "setting": {
         "regime": "Arabic",
         "institution_line": "Arabic",
+        "political_traits": ["dry_native"],
         "tianxia": "Umma",
         // 宪法：名称词库(name_group / provisional_name_group)与本文化的制宪倾向(clauses，覆盖各党主张)
         "Constitution": {

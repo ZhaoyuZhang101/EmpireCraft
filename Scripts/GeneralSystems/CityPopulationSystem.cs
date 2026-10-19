@@ -355,6 +355,14 @@ public static class CityPopulationSystem
         return total;
     }
 
+    // 军团与实体征召共用的有效兵源；手动组军也不能绕过役籍、宗教和水土限制。
+    public static float LevyBackground(City city) => city?.data == null || city.isRekt() ? 0f
+        : Mathf.Max(0f, GetBackgroundTotal(city) - SlaverySystem.Unfree(city)) *
+          ReligiousTension.LevyFactor(city) * AdministrativeControlSystem.Yield(city) * ShuiTuSystem.LevyFactor(city);
+
+    public static float KingdomLevyBackground(Kingdom kingdom) =>
+        kingdom?.cities?.Sum(LevyBackground) ?? 0f;
+
     // 按背景人口加权抽一座本国城市(兵源从哪座城出、退伍回哪座城)
     public static City DrawKingdomCity(Kingdom kingdom, Func<City, bool> filter = null)
     {
@@ -1815,7 +1823,7 @@ public static class CityPopulationSystem
         // 每个兵代表一个军团：兵源是全国的背景人口，可征比例由军制决定(默认一成)，按全国各军镇的兵额平分，每团最多一万人
         ArmyDoctrine doctrine = DoctrineOf(city.kingdom);
         // 武备废弛：兵源打折(见 MaladySystem.LevyFactor)
-        float pool = KingdomBackground(city.kingdom) * doctrine.LevyShare * MaladySystem.LevyFactor(city.kingdom);
+        float pool = KingdomLevyBackground(city.kingdom) * doctrine.LevyShare * MaladySystem.LevyFactor(city.kingdom);
         int totalSlots = 0;
         foreach (City other in city.kingdom.cities)
             if (other != null && !other.isRekt()) totalSlots += Mathf.Max(0, LevyTarget(other));
@@ -1824,8 +1832,8 @@ public static class CityPopulationSystem
         for (int i = 0; i < need; i++)
         {
             if (i > 0 && !SimulationFrameBudget.HasTime) break;
-            City source = DrawKingdomCity(city.kingdom) ?? city;
-            PopGroup group = DrawBackground(source, candidate => candidate.Background >= 1f &&
+            City source = DrawKingdomCity(city.kingdom, other => LevyBackground(other) >= 1f) ?? city;
+            PopGroup group = DrawBackground(source, candidate => SlaverySystem.CanRecruit(candidate) &&
                                                                  !string.IsNullOrEmpty(candidate.species));
             if (group == null) break;
             Actor actor = SpawnFromGroup(city, group, soldier: true);
@@ -1839,8 +1847,8 @@ public static class CityPopulationSystem
             LegionPopulationRules.Add(extra.legion_population, source.id, group, taken - 1f);
             for (int attempt = 0; taken < legion && attempt < 8; attempt++)
             {
-                City other = DrawKingdomCity(city.kingdom);
-                PopGroup more = other == null ? null : DrawBackground(other, candidate => candidate.Background >= 1f);
+                City other = DrawKingdomCity(city.kingdom, candidate => LevyBackground(candidate) >= 1f);
+                PopGroup more = other == null ? null : DrawBackground(other, candidate => SlaverySystem.CanRecruit(candidate));
                 if (more == null) break;
                 float contribution = RemoveBackground(more, legion - taken);
                 LegionPopulationRules.Add(extra.legion_population, other.id, more, contribution);
@@ -1870,7 +1878,7 @@ public static class CityPopulationSystem
         int raised = 0;
         for (int i = 0; i < count; i++)
         {
-            PopGroup group = DrawBackground(city, candidate => candidate.Background >= 1f &&
+            PopGroup group = DrawBackground(city, candidate => SlaverySystem.CanRecruit(candidate, !garrison) &&
                                                                !string.IsNullOrEmpty(candidate.species));
             if (group == null) break;
             Actor actor = SpawnFromGroup(city, group, soldier: true);
@@ -1883,7 +1891,7 @@ public static class CityPopulationSystem
             LegionPopulationRules.Add(extra.legion_population, city.id, group, taken - 1f);
             for (int attempt = 0; taken < legion && attempt < 8; attempt++)
             {
-                PopGroup more = DrawBackground(city, candidate => candidate.Background >= 1f);
+                PopGroup more = DrawBackground(city, candidate => SlaverySystem.CanRecruit(candidate, !garrison));
                 if (more == null) break;
                 float contribution = RemoveBackground(more, legion - taken);
                 LegionPopulationRules.Add(extra.legion_population, city.id, more, contribution);

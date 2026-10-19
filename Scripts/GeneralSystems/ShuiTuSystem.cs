@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using EmpireCraft.Scripts.Compatibility;
+using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
@@ -17,7 +18,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     与毡帐村镇同一口径(RuralSettlementSystem.YurtGround)。一座城领土里的陆地(不含水、岩浆)过半是旱地算"旱地城"，其余算"农地城"；
 //     地块的格子构成随战线地形一起缓存(TerrainSystem.DryCounts，格子改了当场作废)，城按 CityDryYears 年缓存(领土地块数变了两成以上提前重算)；
 //   · 生活方式(按"政权"：帝国核心连同它直辖的成员；间接统治的成员、定居帝国里的游牧成员自成一体)：
-//     游牧(游牧政体，或原始政体的游牧文化)适应旱地；本族故地多在旱地的定居文化(游牧文化改行定居、制度线是 Arabic，
+//     游牧文化的游牧/原始政体适应旱地；本族故地多在旱地的定居文化(游牧文化改行定居、文化带 dry_native，
 //     或以它为主流的城里旱地城过半)两种地都适应；其余定居政权只适应农地。原始政体的定居文化(部落)、近代政体、羁縻地区不论水土；
 //   · 游牧离草(政权级)：直辖城(羁縻、附庸不算，口径同 AdministrativeControlSystem.IsIndirect)里旱地城不到 SteppeShare(六成)起算，
 //     回到六成以上、或改了政体(不再是游牧)就清零；
@@ -38,8 +39,7 @@ public static partial class ShuiTuSystem
     // 分档
     private const int FirstTierYears = 20, TierStepYears = 10;
     public const int MaxTier = 3;
-    // 本族故地在旱地：制度线是 DryLine，或以该文化为主流的城里旱地城占 DryNativeShare 以上
-    private const string DryLine = "Arabic";
+    // 本族故地在旱地：文化带 dry_native，或以该文化为主流的城里旱地城占 DryNativeShare 以上
     private const float DryNativeShare = 0.5f;
     // 一年约 60 秒世界时间(5 秒一个月)
     private const double SecondsPerYear = 60d;
@@ -252,16 +252,17 @@ public static partial class ShuiTuSystem
         RegimeType? regime = unit.GetRegime()?.type;
         if (regime == null || regime is RegimeType.Modern or RegimeType.Republic) return Fit.None;
         string culture = CultureService.GetRealmCulture(unit);
-        if (regime == RegimeType.YouMu) return Fit.Nomad;
+        // 阿兹特克、林地部族也能采用同线的游牧政体，但不逐水草而居。
+        if (regime == RegimeType.YouMu && culture.IsNomadCulture()) return Fit.Nomad;
         if (RegimeManager.IsPrimitive(regime)) return CompositeEmpireService.IsNomadicCulture(culture) ? Fit.Nomad : Fit.None;
         return DryNative(culture) ? Fit.Both : Fit.Farm;
     }
 
-    // 本族故地多在旱地的文化：游牧文化(改行定居的)、制度线是 Arabic 的，或以它为主流的城里旱地城过半
+    // 本族故地多在旱地的文化：游牧文化(改行定居的)、带 dry_native 的，或以它为主流的城里旱地城过半
     public static bool DryNative(string culture)
     {
         if (!CultureService.IsValidCulture(culture)) return false;
-        if (CompositeEmpireService.IsNomadicCulture(culture) || InstitutionSystem.GetCultureLine(culture) == DryLine) return true;
+        if (culture.IsNomadCulture() || culture.HasPoliticalTrait(OnomasticsRule.DryNativeTrait)) return true;
         return DryNativeCultures.TryGetValue(culture, out bool dry) && dry;
     }
 

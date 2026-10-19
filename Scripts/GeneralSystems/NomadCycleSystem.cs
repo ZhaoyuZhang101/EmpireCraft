@@ -36,7 +36,8 @@ public static class NomadCycleSystem
     public const string FitnaReason = "rebellion_reason_emirate_fitna";
 
     public static bool IsKhanate(Empire empire) =>
-        empire != null && !empire.isRekt() && !empire.IsArchived() && empire.CoreKingdom?.GetRegime()?.type == RegimeType.YouMu;
+        empire != null && !empire.isRekt() && !empire.IsArchived() && empire.CoreKingdom?.GetRegime()?.type == RegimeType.YouMu &&
+        CultureService.GetRealmCulture(empire.CoreKingdom).IsNomadCulture();
 
     #region 汗位更替之乱
 

@@ -39,7 +39,7 @@ Locales/Cultures/
         "traits": ["patriarchy"],    // 文化特质 id
         "political_traits": ["strong_unification"], // 模组政治特质：strong_unification 强统一诉求(唯一中央、易帜、临时政府、统一继承)；
                                      // nomad 游牧(游牧扩张、牧帐、放牧加倍)；raider 劫掠传统(派系可提劫掠)；
-                                     // dharmic 法教传统(不发起圣战、宗教宽容)
+                                     // dharmic 法教传统(不发起圣战、宗教宽容)；dry_native 旱地故土(适应旱地与农地，不按制度线推定)
         "Religion": "ReligionNames", // 宗教名词库
         "City":    { "groups": { "group_1": "CityNames1" }, "rule": ["group_1"], "name_pos": 0 },
         "Kingdom": { "groups": { "group_1": "CountryNames" }, "rule": ["group_1"], "name_pos": 0, "english_type_prefix": false },

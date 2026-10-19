@@ -2111,7 +2111,7 @@
   "clique_label_Confucianism": "清流",
   "corps_log_manual_disbanded": "{0}解散，将士还乡",
   "corps_log_manual_raised": "在{1}组建{0}，兵力 {2}",
-  "corps_manual_no_people": "本城人口太少",
+  "corps_manual_no_people": "本城可征兵人口太少",
   "corps_manual_no_money": "国库不足",
   "corps_manual_limit": "本国手动组建的军已到上限(一支，另每四座城加一支)",
   "corps_manual_unavailable": "现在不能组建",

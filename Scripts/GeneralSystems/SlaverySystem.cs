@@ -50,6 +50,10 @@ public static class SlaverySystem
     // 不能征为兵的人(奴隶；野人大半不征，见 GuoyeSystem；世家荫户，见 GentrySystem)
     public static float Unfree(City city) => Slaves(city) + GuoyeSystem.Exempt(city) + GentrySystem.ShelteredPeople(city);
 
+    // 兵源总额扣了奴隶，实际抽人也要排除；义军仍可从被压迫者中征召。
+    public static bool CanRecruit(PopGroup group, bool militia = false) =>
+        group != null && group.Background >= 1f && (militia || group.social_class != SocialClass.Slave);
+
     // 奴隶主在本城自由民里应占的比例：奴隶越多奴隶主越多
     public static float OwnerShare(City city)
     {

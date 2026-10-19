@@ -307,6 +307,8 @@ public static class OnomasticsRule
     // 游牧(逐水草而居：游牧扩张、牧帐、放牧加倍)、劫掠传统(派系可提劫掠)：按文化特性判断，不按制度线——游牧一线也含阿兹特克、
     // 林地部族，他们不游牧也不劫掠；维京在罗马一线，却以劫掠闻名(用户 2026-10-19 选"加文化特性与节点过滤")
     public const string NomadTrait = "nomad", RaiderTrait = "raider";
+    // 旱地故土文化适应旱地与农地；制度线本身不代表气候(印度也用阿拉伯线)。
+    public const string DryNativeTrait = "dry_native";
 
     public static bool IsNomadCulture(this string culture) => culture.HasPoliticalTrait(NomadTrait);
 

@@ -49,7 +49,8 @@ public static partial class ShuiTuSystem
     {
         bool nomad = info.Fit == Fit.Nomad && info.OffGrass && info.OffTier > 0;
         bool settled = info.Fit == Fit.Farm && info.UnfitTop > 0;
-        if (!nomad && !settled || unit.hasEnemies()) return;
+        // 政权包含直辖成员；中央和平、直辖行省仍在打仗时也不能拆地改制。
+        if (!nomad && !settled || unit.hasEnemies() || kingdoms.Any(member => member != unit && member.hasEnemies())) return;
         var extra = unit.GetOrCreate();
         double now = World.world.getCurWorldTime();
         if (extra.shuitu_outlet_at >= 0d && now >= extra.shuitu_outlet_at && Date.getYearsSince(extra.shuitu_outlet_at) < OutletCooldownYears)

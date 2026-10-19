@@ -2108,7 +2108,7 @@
   "clique_label_Confucianism": "Pure Current",
   "corps_log_manual_disbanded": "{0} disbanded; the soldiers went home",
   "corps_log_manual_raised": "{0} raised at {1}, strength {2}",
-  "corps_manual_no_people": "Too few people in this city",
+  "corps_manual_no_people": "Too few eligible recruits in this city",
   "corps_manual_no_money": "Not enough treasury",
   "corps_manual_limit": "Manual corps limit reached (one, plus one per four cities)",
   "corps_manual_unavailable": "Cannot raise now",

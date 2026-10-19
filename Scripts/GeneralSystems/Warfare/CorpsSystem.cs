@@ -583,8 +583,7 @@ public static class CorpsSystem
         // 奴隶不征为兵、野人大半不征(见 SlaverySystem、GuoyeSystem)；收人头税的国家异教之民大半不征(见 ReligiousTension)；
         // 水土不服的城少征(离草游牧的农地城征兵比例回落、不服水土的旱地城兵源打折，见 ShuiTuSystem.LevyFactor)
         foreach (City city in cities)
-            background += Mathf.Max(0f, CityPopulationSystem.GetBackgroundTotal(city) - SlaverySystem.Unfree(city)) *
-                          ReligiousTension.LevyFactor(city) * AdministrativeControlSystem.Yield(city) * ShuiTuSystem.LevyFactor(city);
+            background += CityPopulationSystem.LevyBackground(city);
         // 武备废弛：兵籍虚冒、军户逃亡，兵源打折(见 MaladySystem.LevyFactor)
         float levyShare = war ? WarLevyShare(kingdom, peace) : peace;
         float pool = background * doctrine.LevyShare * levyShare * MaladySystem.LevyFactor(kingdom);
@@ -674,17 +673,17 @@ public static class CorpsSystem
         List<CorpsData> regular = Of(kingdom).Where(corps => !corps.militia && corps.order_id < 0 && corps.parent_id < 0 &&
                                                              corps.full > 0f).ToList();
         float size = regular.Count > 0 ? regular.Average(corps => corps.full)
-            : CityPopulationSystem.GetBackgroundTotal(home) * ManualShareOfCity;
+            : CityPopulationSystem.LevyBackground(home) * ManualShareOfCity;
         return Mathf.Clamp(size, ManualMin, ManualMax);
     }
 
     public static int ManualCost(Kingdom kingdom, City home) => Mathf.CeilToInt(ManualSize(kingdom, home) * ManualCostPerPerson);
 
-    // 可以组建的驻地：本国背景人口最多的几座城
+    // 可以组建的驻地：本国有效兵源最多的几座城
     public static List<City> ManualSeats(Kingdom kingdom, int count) =>
         kingdom?.cities == null ? new List<City>()
             : kingdom.cities.Where(city => city?.data != null && !city.isRekt())
-                .OrderByDescending(CityPopulationSystem.GetBackgroundTotal).Take(count).ToList();
+                .OrderByDescending(CityPopulationSystem.LevyBackground).Take(count).ToList();
 
     // 不能组建的原因(本地化键)，能组建返回空
     public static string ManualBlocker(Kingdom kingdom, City home)
@@ -693,7 +692,7 @@ public static class CorpsSystem
             return "corps_manual_unavailable";
         if (ManualCount(kingdom) >= ManualLimit(kingdom)) return "corps_manual_limit";
         if (kingdom.GetMoney() < ManualCost(kingdom, home)) return "corps_manual_no_money";
-        if (CityPopulationSystem.GetBackgroundTotal(home) < ManualMin) return "corps_manual_no_people";
+        if (CityPopulationSystem.LevyBackground(home) < ManualMin) return "corps_manual_no_people";
         return null;
     }
 
@@ -704,7 +703,11 @@ public static class CorpsSystem
         int cost = ManualCost(kingdom, home);
         if (!TreasurySystem.TrySpend(kingdom, cost, TreasuryCategory.Military)) return null;
         CorpsData corps = Raise(kingdom, home, LegionsPerCorps, size, World.world.getCurWorldTime());
-        if (corps == null) return null;
+        if (corps == null)
+        {
+            kingdom.AddMoney(cost, TreasuryCategory.Military);
+            return null;
+        }
         corps.manual = true;
         FrontSystem.Log(kingdom, string.Format(LM.Get("corps_log_manual_raised"), Name(corps), home.GetCityName(),
             ShortStrength(corps.strength)));
@@ -817,8 +820,9 @@ public static class CorpsSystem
                 : near ? CityPopulationSystem.DrawKingdomCity(kingdom, WarScopeSystem.InScope)
                 : WarScopeSystem.Unbounded(kingdom) ? CityPopulationSystem.DrawKingdomCity(kingdom) : null);
             PopGroup group = source == null ? null
-                : CityPopulationSystem.DrawBackground(source, candidate => candidate.Background >= 1f);
-            if (group == null) break;
+                : CityPopulationSystem.DrawBackground(source, candidate => SlaverySystem.CanRecruit(candidate, corps.militia));
+            // 最近一城可能只有奴隶，继续找下一座，不能因此挡住邻城的自由民补员。
+            if (group == null) continue;
             float contribution = CityPopulationSystem.RemoveBackground(group, need - taken);
             if (contribution <= 0f) break;
             LegionPopulationRules.Add(corps.population, source.id, group, contribution);
@@ -1018,7 +1022,7 @@ public static class CorpsSystem
         float taken = 0f;
         for (int attempt = 0; taken < needed && attempt < 8; attempt++)
         {
-            PopGroup group = CityPopulationSystem.DrawBackground(city, candidate => candidate.Background >= 1f);
+            PopGroup group = CityPopulationSystem.DrawBackground(city, candidate => SlaverySystem.CanRecruit(candidate));
             if (group == null) break;
             float contribution = CityPopulationSystem.RemoveBackground(group, needed - taken);
             if (contribution <= 0f) break;
@@ -1172,7 +1176,7 @@ public static class CorpsSystem
         }
         City home = Home(corps);
         if (home == null || home.kingdom != kingdom) return;
-        PopGroup group = CityPopulationSystem.DrawBackground(home, candidate => candidate.Background >= 1f &&
+        PopGroup group = CityPopulationSystem.DrawBackground(home, candidate => SlaverySystem.CanRecruit(candidate, corps.militia) &&
                                                                                   !string.IsNullOrEmpty(candidate.species));
         if (group == null) return;
         Actor general = CityPopulationSystem.SpawnFromGroup(home, group, soldier: true);
