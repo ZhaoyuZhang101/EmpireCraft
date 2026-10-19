@@ -27,6 +27,25 @@ public static class EnfeoffmentHelper
     // 原始政体没有封爵分土的制度，一律不分封(玩家反馈：原始体制能分封)
     public static bool RegimeForbids(Empire empire) => RegimeManager.IsPrimitive(empire?.CoreKingdom?.GetRegime()?.type);
 
+    // 游牧几乎年年在打仗，等停战再分就永远分不了：游牧打仗时也分，只是前线的地不分(见 AtFront)
+    public static bool Nomadic(Empire empire) => empire?.CoreKingdom?.GetRegime()?.type == RegimeType.YouMu;
+
+    public static bool WarBlocks(Empire empire) => empire != null && empire.HasTerritorialWar() && !Nomadic(empire);
+
+    // 前线：城里有敌军占着的地块，或挨着交战敌国的城
+    private static bool AtFront(KingdomTitle title, Kingdom core)
+    {
+        foreach (City city in title.getCities())
+        {
+            if (city?.data == null || city.isRekt()) continue;
+            if (city.HasOccupiedZones()) return true;
+            foreach (City other in city.neighbours_cities)
+                if (other?.kingdom != null && !other.isRekt() && other.kingdom != core && FrontSystem.Hostile(core, other.kingdom))
+                    return true;
+        }
+        return false;
+    }
+
     public static List<KingdomTitle> FindEnfeoffableTitles(Empire empire)
     {
         Kingdom coreKingdom = empire?.CoreKingdom;
@@ -34,6 +53,7 @@ public static class EnfeoffmentHelper
             return new List<KingdomTitle>();
         KingdomTitle capitalTitle = coreKingdom.capital.GetTitle();
         string empireName = empire.GetEmpireName();
+        bool atWar = empire.HasTerritorialWar();
         return ModClass.KINGDOM_TITLE_MANAGER
             .Where(title => title != null && !title.isRekt() && title != capitalTitle &&
                             !string.Equals(title.data?.name, empireName, StringComparison.Ordinal))
@@ -44,6 +64,7 @@ public static class EnfeoffmentHelper
                             !EmpireCraft.Scripts.GeneralSystems.WartimeCustodySystem.InCustody(title.title_capital))
             .Where(title => !title.getCities().Any(city => city == coreKingdom.capital ||
                 city?.id == coreKingdom.capital.id))
+            .Where(title => !atWar || !AtFront(title, coreKingdom))
             .OrderByDescending(title => title.getCities().Count(city => city != null && !city.isRekt() &&
                                                                        city.kingdom == coreKingdom))
             .ThenBy(title => title.id)
@@ -101,7 +122,7 @@ public static class EnfeoffmentHelper
     // 这里只重新做一次城池/政体防御性检查(跟 TempFac_分封.Execute 完全一致)。
     public static bool TryEnfeoffActor(Empire empire, Actor actor, int mandateReward = 10)
     {
-        if (empire == null || empire.HasTerritorialWar() || RegimeForbids(empire)) return false;
+        if (empire == null || WarBlocks(empire) || RegimeForbids(empire)) return false;
         Kingdom coreKingdom = empire?.CoreKingdom;
         Regime empireRegime = coreKingdom?.GetRegime();
         KingdomTitle fief = FindEnfeoffableTitle(empire);
@@ -185,7 +206,7 @@ public static class EnfeoffmentHelper
             InstitutionSystem.HasFeature(empire, InstitutionFeatures.SiblingEnfeoffment) &&
             !InstitutionSystem.HasFeature(empire, InstitutionFeatures.SiblingEnfeoffmentAbolished);
         if (!divisionLaw && !enfeoffmentEnacted) return;
-        if (empire.HasTerritorialWar())
+        if (WarBlocks(empire))
         {
             empire.data.succession_enfeoff_pending = true;
             return;
@@ -199,7 +220,7 @@ public static class EnfeoffmentHelper
 
     public static void ResumeSuccessionEnfeoff(Empire empire)
     {
-        if (empire?.data?.succession_enfeoff_pending == true && !empire.HasTerritorialWar())
+        if (empire?.data?.succession_enfeoff_pending == true && !WarBlocks(empire))
             OnEmperorSucceeded(empire);
     }
 
