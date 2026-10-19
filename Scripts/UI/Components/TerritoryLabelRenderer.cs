@@ -95,7 +95,7 @@ public static class TerritoryLabelRenderer
         arc_curvature = 0.1f
     };
 
-    // 天下图层(用户 2026-10-19 嫌与帝国法理分不开，看对比图选"紫气")：排版同帝国标签，淡紫到紫罗兰渐变、深紫描边
+    // 天下图层(用户 2026-10-19 嫌与帝国法理分不开，看对比图后定"紫金")：排版同帝国标签，上淡金下紫的渐变、深紫描边
     public static readonly TerritoryLabelStyle TianxiaStyle = new TerritoryLabelStyle
     {
         text_color = new Color(1f, 1f, 1f, 0.85f),
@@ -105,8 +105,8 @@ public static class TerritoryLabelRenderer
         min_font_size = 6,
         font_style = FontStyle.Normal,
         use_gold_gradient = true,
-        gold_top = new Color32(244, 232, 255, 255),
-        gold_bottom = new Color32(154, 98, 216, 255),
+        gold_top = new Color32(255, 240, 196, 255),
+        gold_bottom = new Color32(138, 82, 200, 255),
         wrap_english_name = true,
         bridge_internal_gaps = true,
         arc_curvature = 0.1f
@@ -122,7 +122,7 @@ public static class TerritoryLabelRenderer
         min_font_size = 6,
         font_style = FontStyle.Normal,
         use_gold_gradient = true,
-        gold_top = new Color32(228, 222, 234, 255),
+        gold_top = new Color32(236, 228, 210, 255),
         gold_bottom = new Color32(140, 124, 162, 255),
         wrap_english_name = true,
         bridge_internal_gaps = true,
