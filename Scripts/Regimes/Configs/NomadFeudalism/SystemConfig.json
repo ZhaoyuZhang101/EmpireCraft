@@ -1,0 +1,214 @@
+{
+  "NomadFeudalism": {
+    "description": "游牧本族定居后的汗国分封制度：汗庭统辖世袭领主，领地承担贡赋与军役；未吸收西方制度，不设选帝侯、教廷与教会领。",
+    "icon_url": "",
+    "era_name": false,
+    "has_cabinet": false,
+    "is_monarchy": true,
+    "allows_landlord_class": false,
+    "cabinet_number": 0,
+    "centre_empire_separate": true,
+    "members_can_secede": true,
+    "secede_member_types": [],
+    "secede_ignores_central_army": false,
+    "indirect_rule": true,
+    "direct_member_types": [],
+    "partition_conquests": true,
+    "keep_member_roles": false,
+    "partition_chance_factor": 1.5,
+    "leader_select_method": "Succession",
+    "default_kingdom": "NomadFeudalism_lordship",
+    "laws": [
+      0,
+      1,
+      2,
+      3,
+      5,
+      13,
+      14,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      25,
+      27,
+      28,
+      29,
+      31,
+      32,
+      33,
+      34,
+      35,
+      36,
+      37,
+      38,
+      39,
+      40,
+      41,
+      42,
+      43,
+      50,
+      51,
+      52,
+      54,
+      55
+    ],
+    "Factions": [
+      {
+        "_requiredTraits": [
+          "ambitious"
+        ],
+        "Members": [],
+        "_id": "8de844f8-d71a-40a4-a3f3-bd3ac1458601",
+        "Leader": -1,
+        "EmpireId": -1,
+        "Name": "汗权派",
+        "Type": "尊王",
+        "only_king": false,
+        "Ban": false
+      },
+      {
+        "_requiredTraits": [
+          "greedy"
+        ],
+        "Members": [],
+        "_id": "8de844f8-d71a-40a4-a3f3-bd3ac1458602",
+        "Leader": -1,
+        "EmpireId": -1,
+        "Name": "领主派",
+        "Type": "诸侯",
+        "only_king": false,
+        "Ban": false
+      },
+      {
+        "_requiredTraits": [
+          "peaceful",
+          "pacifist"
+        ],
+        "Members": [],
+        "_id": "8de844f8-d71a-40a4-a3f3-bd3ac1458603",
+        "Leader": -1,
+        "EmpireId": -1,
+        "Name": "融合派",
+        "Type": "融入",
+        "only_king": false,
+        "Ban": false
+      }
+    ],
+    "options": {
+      "toggle_allow_diplomacy": [
+        1
+      ],
+      "toggle_allow_army": [
+        1
+      ],
+      "toggle_support_army_to_center": [
+        1
+      ],
+      "option_tax_level": [
+        1,
+        4
+      ],
+      "option_leader_select_method": [
+        0,
+        3
+      ],
+      "option_religion_type": [
+        2,
+        4
+      ],
+      "option_succession_law": [
+        0,
+        5
+      ]
+    },
+    "bureau_config": {
+      "cores": [
+        {
+          "pre": "",
+          "type": 1,
+          "description": "",
+          "powers": [
+            "拟定",
+            "审核",
+            "执行"
+          ],
+          "merit": -1,
+          "honorary": -1,
+          "select_from_local": false,
+          "peerageType": "Civil",
+          "leader_select_method": "Default",
+          "require_traits": []
+        },
+        {
+          "pre": "",
+          "type": 2,
+          "description": "",
+          "powers": [
+            "军事"
+          ],
+          "merit": -1,
+          "honorary": -1,
+          "select_from_local": false,
+          "peerageType": "Civil",
+          "leader_select_method": "Default",
+          "require_traits": []
+        }
+      ],
+      "division": [],
+      "harems": [],
+      "armies": {},
+      "kingdoms": {
+        "NomadFeudalism_centre": {
+          "pre": "",
+          "type": 0,
+          "description": "",
+          "powers": [],
+          "merit": -1,
+          "honorary": -1,
+          "peerageType": "Civil",
+          "select_from_local": false,
+          "leader_select_method": "Succession",
+          "require_traits": [],
+          "condition": [
+            "empire_center:true"
+          ],
+          "city_type": "NomadFeudalism_city"
+        },
+        "NomadFeudalism_lordship": {
+          "pre": "",
+          "type": 3,
+          "description": "",
+          "powers": [],
+          "merit": -1,
+          "honorary": -1,
+          "peerageType": "Civil",
+          "select_from_local": false,
+          "leader_select_method": "Succession",
+          "require_traits": [],
+          "condition": [
+            "empire_center:false"
+          ],
+          "city_type": "NomadFeudalism_city"
+        }
+      },
+      "cities": {
+        "NomadFeudalism_city": {
+          "pre": "",
+          "type": 5,
+          "description": "",
+          "powers": [],
+          "merit": -1,
+          "honorary": -1,
+          "peerageType": "Civil",
+          "select_from_local": false,
+          "leader_select_method": "Default",
+          "require_traits": []
+        }
+      }
+    },
+    "cabinet_is_electoral_college": false
+  }
+}

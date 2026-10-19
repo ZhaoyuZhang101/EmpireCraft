@@ -1022,7 +1022,7 @@ public static class CityPopulationSystem
         }
         else
         {
-            bool feudal = type is RegimeType.Feudalism or RegimeType.ZhouFeudalism or RegimeType.YouMu;
+            bool feudal = type is RegimeType.Feudalism or RegimeType.ZhouFeudalism or RegimeType.YouMu or RegimeType.NomadFeudalism;
             bool bureaucratic = GranarySystem.Enabled(kingdom);
             shares[SocialClass.Noble] = feudal ? 0.02f : 0.008f;
             shares[SocialClass.Officer] = bureaucratic ? 0.02f : 0.01f;

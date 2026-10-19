@@ -6793,5 +6793,10 @@
   "faction_stance_共产": "Support common ownership and equality",
   "faction_stance_无": "No policy stance chosen",
   "faction_stance_外戚": "Represent consort families",
-  "faction_stance_宦官": "Represent palace attendants"
+  "faction_stance_宦官": "Represent palace attendants",
+  "regime_type_NomadFeudalism": "Khanate Lordship",
+  "NomadFeudalism": "Khanate Lordship",
+  "汗权派": "Khan Authority Faction",
+  "领主派": "Landed Lords Faction",
+  "融合派": "Integration Faction"
 }

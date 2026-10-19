@@ -263,7 +263,7 @@ public static class AdministrativeControlSystem
         reach *= realm.GetRegime()?.type switch
         {
             RegimeType.LvLing => 1.15f,
-            RegimeType.Feudalism or RegimeType.ZhouFeudalism or RegimeType.Bakufu => 0.9f,
+            RegimeType.Feudalism or RegimeType.ZhouFeudalism or RegimeType.Bakufu or RegimeType.NomadFeudalism => 0.9f,
             _ => 1f
         };
         return reach * RulerFactor(realm);

@@ -115,6 +115,8 @@ public static class CultureService
         data.realm_culture = culture;
         if (changed)
         {
+            // 主动易俗后不再沿用旧文化的水土改制来源。
+            data.shuitu_regime = -1;
             Empire empire = kingdom.GetEmpire();
             if (empire?.CoreKingdom == kingdom)
                 ConstitutionalEconomySystem.ResetCultureStability(empire);

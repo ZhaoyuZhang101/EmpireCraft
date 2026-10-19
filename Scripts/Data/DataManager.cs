@@ -319,6 +319,7 @@ public static class DataManager
             if (legacyRegimeKingdoms.Contains(worldKingdom.id)) worldKingdom.RepairLegacyRegimeRole();
             EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(worldKingdom);
         }
+        NomadFeudalismSystem.RepairAfterLoad();
         OfficeManager.Prune();
         foreach (Empire empire in ModClass.EMPIRE_MANAGER
                      .Where(value => value != null && !value.IsArchived() && !value.isRekt()).ToList())

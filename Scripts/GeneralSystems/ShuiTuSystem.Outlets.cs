@@ -160,15 +160,16 @@ public static partial class ShuiTuSystem
         return true;
     }
 
-    // 封建化：改行封建，兀鲁思改为封建诸侯
+    // 自行封建化保留本族汗庭与世袭领主；已采纳西方制度的才改行西方封建。
     private static bool Feudalize(Kingdom unit)
     {
         string name = unit.GetKingdomName();
-        int members = ChangeRegime(unit, RegimeType.Feudalism);
+        RegimeType target = NomadFeudalismSystem.FeudalizationTarget(unit);
+        int members = ChangeRegime(unit, target);
         if (members < 0) return false;
         ClearOffGrass(unit);
         EventRecorder.Record(unit, string.Format(LM.Get("shuitu_feudalize_history"), name,
-            CompositeEmpireService.GetRegimeName(RegimeType.Feudalism), members));
+            CompositeEmpireService.GetRegimeName(target), members));
         return true;
     }
 

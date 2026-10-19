@@ -6793,5 +6793,10 @@
   "faction_stance_共产": "主張公有與平等",
   "faction_stance_无": "未定政策立場",
   "faction_stance_外戚": "代表後族與貴戚",
-  "faction_stance_宦官": "代表宮廷近侍"
+  "faction_stance_宦官": "代表宮廷近侍",
+  "regime_type_NomadFeudalism": "汗國分封制",
+  "NomadFeudalism": "汗國分封制",
+  "汗权派": "汗權派",
+  "领主派": "領主派",
+  "融合派": "融合派"
 }

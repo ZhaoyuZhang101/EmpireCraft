@@ -60,6 +60,8 @@ public enum KingdomType
     Bakufu_tenryo,    // 天领：幕府派奉行治理的直辖地
     YouMu_province,   // 游牧行省：施行"行省制度"后打下的法理设行省、派官治理(见 Empire.IsNomadProvincial)
     ClassicalRepublic_province, // 元首制的行省：总督由朝廷选任(见 Empire.IsPrincipate)
+    NomadFeudalism_centre, // 本族定居分封的汗庭；只追加，不改变旧档枚举值
+    NomadFeudalism_lordship,
 }
 
 public enum ArmyOfficialType
@@ -83,6 +85,7 @@ public enum CityType
     ZhouFeudalism_city,
     ClassicalRepublic_city,
     Bakufu_city, // 城下町；追加在末尾以保持旧存档枚举值稳定
+    NomadFeudalism_city,
 }
 public enum TaxLevel
 {
@@ -115,7 +118,8 @@ public enum RegimeType
     Origin,
     ClassicalRepublic, //古典城邦共和；追加在末尾以保持旧存档枚举值稳定
     Bakufu, //幕府：天皇为虚君、征夷大将军掌实权、大名世袭各藩(日本)
-    HuaxiaOrigin //华夏原始政体：诸部议事、推举共主、禅让传贤(见 ShanrangSystem)，世袭王权以后家天下；追加在末尾
+    HuaxiaOrigin, //华夏原始政体：诸部议事、推举共主、禅让传贤(见 ShanrangSystem)，世袭王权以后家天下；追加在末尾
+    NomadFeudalism // 本族定居后由部族领主分土世袭；不附带西方教廷、选帝侯与神罗制度
 }
 
 public enum ReligionLevel
