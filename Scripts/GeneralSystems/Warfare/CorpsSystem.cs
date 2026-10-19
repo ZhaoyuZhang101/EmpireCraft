@@ -123,6 +123,7 @@ public static class CorpsSystem
         _lastSecond = _lastMonth = -1d;
         GeneralMoves.Clear();
         Paths.Clear();
+        PathFailures.Clear();
         EmbarkRetry.Clear();
         RoadNetwork.ResetWorldState();
         PureMapMode.ResetWorldState();
@@ -803,6 +804,7 @@ public static class CorpsSystem
         part.strength = 0f;
         RemoveGeneral(part);
         Paths.Remove(part.id);
+        PathFailures.Remove(part.id);
         EmbarkRetry.Remove(part.id);
         Of(kingdom).Remove(part);
     }
@@ -1006,6 +1008,8 @@ public static class CorpsSystem
             Compatibility.WarBoxCompatibility.SweepVehicles();
         }
         bool generals = GeneralUnits;
+        _pathsThisTick = 0;
+        _pathTicksThisTick = 0L;
         foreach ((Kingdom kingdom, CorpsData corps) in All().ToList())
         {
             if (generals) EnsureGeneral(kingdom, corps);
@@ -1028,7 +1032,15 @@ public static class CorpsSystem
                 {
                     corps.march_progress -= 1f;
                     int before = corps.zone_id;
+                    _pathDeferred = false;
                     StepTowardTarget(corps);
+                    // 本秒寻路排满了(见 NextStep)：这一步留到下一秒，进度不丢
+                    if (_pathDeferred)
+                    {
+                        _pathDeferred = false;
+                        corps.march_progress += 1f;
+                        break;
+                    }
                     // 陆上行军记程，月底按路程收行军费(见 PayUpkeep)
                     if (!corps.embarked && corps.zone_id != before) corps.march_zones++;
                     // 到了(或走不动、上了船)就不攒进度
@@ -1371,6 +1383,21 @@ public static class CorpsSystem
     private const int MaxPathSearch = 6000;
     private static readonly Dictionary<long, (int target, List<int> path)> Paths = new();
 
+    // 寻路失败(多是够不着，要搜满 6000 块)的军：同一目标隔 PathRetrySeconds(世界时间)再寻，其间就近挪。
+    // 每秒行军结算里寻路至少 PathsPerTick 次，再多只在本秒寻路累计不到 PathTickMilliseconds 时寻，其余的军这一步等到下一秒
+    // (月初改派一大批军时不再一秒里全寻一遍)
+    private const double PathRetrySeconds = 10d;
+    private const int PathsPerTick = 4;
+    private const double PathTickMilliseconds = 3d;
+    private static readonly Dictionary<long, (int target, double retryAt)> PathFailures = new();
+    private static int _pathsThisTick;
+    private static long _pathTicksThisTick;
+    private static bool _pathDeferred;
+
+    private static bool PathBudget() =>
+        _pathsThisTick < PathsPerTick ||
+        _pathTicksThisTick * 1000d / global::System.Diagnostics.Stopwatch.Frequency < PathTickMilliseconds;
+
     private static TileZone NextStep(CorpsData corps, TileZone current, TileZone target)
     {
         if (Paths.TryGetValue(corps.id, out var cached) && cached.target == target.id && cached.path.Count >= 2 &&
@@ -1379,12 +1406,30 @@ public static class CorpsSystem
             cached.path.RemoveAt(0);
             return ZoneById(cached.path[0]);
         }
-        List<int> path = FindPath(current, target, CorpsArmSystem.Of(corps), World.world.kingdoms.get(corps.kingdom_id));
-        if (path == null || path.Count < 2)
+        double now = World.world.getCurWorldTime();
+        if (PathFailures.TryGetValue(corps.id, out var failed) && failed.target == target.id &&
+            now < failed.retryAt && now >= failed.retryAt - PathRetrySeconds)
         {
             Paths.Remove(corps.id);
             return Nearer(current, target);
         }
+        if (!PathBudget())
+        {
+            _pathDeferred = true;
+            return null;
+        }
+        long started = global::System.Diagnostics.Stopwatch.GetTimestamp();
+        List<int> path = FindPath(current, target, CorpsArmSystem.Of(corps), World.world.kingdoms.get(corps.kingdom_id));
+        _pathsThisTick++;
+        _pathTicksThisTick += global::System.Diagnostics.Stopwatch.GetTimestamp() - started;
+        if (path == null || path.Count < 2)
+        {
+            Paths.Remove(corps.id);
+            if (PathFailures.Count > 4096) PathFailures.Clear();
+            PathFailures[corps.id] = (target.id, now + PathRetrySeconds);
+            return Nearer(current, target);
+        }
+        PathFailures.Remove(corps.id);
         path.RemoveAt(0);
         Paths[corps.id] = (target.id, path);
         return ZoneById(path[0]);
@@ -1424,19 +1469,20 @@ public static class CorpsSystem
         }
         float offRoad = 1f / Mathf.Max(0.1f, CorpsArmSystem.OffRoad(arm));
         float rough = 1f / Mathf.Max(0.1f, CorpsArmSystem.Rough(arm));
-        var cost = new Dictionary<int, float> { [from.id] = 0f };
-        var previous = new Dictionary<int, int> { [from.id] = -1 };
-        var closed = new HashSet<int>();
-        var open = new List<(float key, TileZone zone)> { (0f, from) };
-        while (open.Count > 0 && closed.Count < MaxPathSearch)
+        BeginPathPass();
+        PathReach(from, 0f, -1);
+        PathOpen.Add((0f, from));
+        while (PathOpen.Count > 0 && _pathClosedCount < MaxPathSearch)
         {
-            TileZone zone = PopMin(open);
+            TileZone zone = PopMin(PathOpen);
             if (zone == to) break;
-            if (!closed.Add(zone.id)) continue;
-            float here = cost[zone.id];
+            if (PathClosed(zone)) continue;
+            _pathClosed[zone.id] = _pathPass;
+            _pathClosedCount++;
+            float here = _pathCost[zone.id];
             foreach (TileZone neighbour in zone.neighbours_all ?? Array.Empty<TileZone>())
             {
-                if (neighbour == null || closed.Contains(neighbour.id)) continue;
+                if (neighbour == null || PathClosed(neighbour)) continue;
                 // 陆军不走海面(跨海见 Embark)
                 if (neighbour != to && (TerrainSystem.Impassable(neighbour) || SeaRegionSystem.IsSea(neighbour))) continue;
                 float step = RoadNetwork.IsRoad(neighbour) ? 1f : offRoad;
@@ -1444,18 +1490,56 @@ public static class CorpsSystem
                 if (neighbour != to && Foreign(neighbour)) step *= ForeignStep;
                 if (neighbour.x != zone.x && neighbour.y != zone.y) step *= 1.41f;
                 float total = here + step;
-                if (cost.TryGetValue(neighbour.id, out float known) && known <= total) continue;
-                cost[neighbour.id] = total;
-                previous[neighbour.id] = zone.id;
-                PushHeap(open, (total + ZoneDistance(neighbour, to), neighbour));
+                if (PathSeen(neighbour) && _pathCost[neighbour.id] <= total) continue;
+                PathReach(neighbour, total, zone.id);
+                PushHeap(PathOpen, (total + ZoneDistance(neighbour, to), neighbour));
             }
         }
-        if (!previous.ContainsKey(to.id)) return null;
+        PathOpen.Clear();
+        if (!PathSeen(to)) return null;
         var path = new List<int>();
-        for (int id = to.id; id != -1; id = previous[id]) path.Add(id);
+        for (int id = to.id; id != -1; id = _pathPrevious[id]) path.Add(id);
         path.Reverse();
         return path;
     }
+
+    // 寻路的工作数组(按地块编号，记趟次不清空)与堆：以前每次寻路新建三个字典、集合和一个列表
+    private static int _pathPass, _pathClosedCount;
+    private static int[] _pathSeen = new int[0], _pathClosed = new int[0], _pathPrevious = new int[0];
+    private static float[] _pathCost = new float[0];
+    private static readonly List<(float key, TileZone zone)> PathOpen = new();
+
+    private static void BeginPathPass()
+    {
+        int size = World.world?.zone_calculator?.zones?.Count ?? 0;
+        if (_pathSeen.Length < size) GrowPath(size);
+        _pathClosedCount = 0;
+        PathOpen.Clear();
+        if (++_pathPass < int.MaxValue) return;
+        Array.Clear(_pathSeen, 0, _pathSeen.Length);
+        Array.Clear(_pathClosed, 0, _pathClosed.Length);
+        _pathPass = 1;
+    }
+
+    private static void GrowPath(int size)
+    {
+        Array.Resize(ref _pathSeen, size);
+        Array.Resize(ref _pathClosed, size);
+        Array.Resize(ref _pathPrevious, size);
+        Array.Resize(ref _pathCost, size);
+    }
+
+    private static void PathReach(TileZone zone, float cost, int previous)
+    {
+        if (zone.id >= _pathSeen.Length) GrowPath(zone.id + 1);
+        _pathSeen[zone.id] = _pathPass;
+        _pathCost[zone.id] = cost;
+        _pathPrevious[zone.id] = previous;
+    }
+
+    private static bool PathSeen(TileZone zone) => zone.id < _pathSeen.Length && _pathSeen[zone.id] == _pathPass;
+
+    private static bool PathClosed(TileZone zone) => zone.id < _pathClosed.Length && _pathClosed[zone.id] == _pathPass;
 
     public static void PushHeap(List<(float key, TileZone zone)> heap, (float key, TileZone zone) item)
     {
