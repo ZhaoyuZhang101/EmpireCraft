@@ -14,6 +14,7 @@ namespace EmpireCraft.Scripts.GamePatches;
 // 模组只加了每城地块上限(模组设置)，以及无小人模式下由虚拟居民代领时按"走得到"核对(见 Reachable)。
 // 城的地按村镇拓展(用户 2026-10-17 选"新建村镇就划进它一片"、限制"按离城远近")：纯净地图下，无主之地只领城区(城心、
 // 建成地块)或本城村镇两块地以内的(见 Settled)；再往外靠城外新建村镇划地(见 RuralSettlementSystem.Found)。
+// 夹在城与城之间的空地不受这些限制，由挨着它的城里离得最近的那座领下(见 Sandwiched)。
 // 已有城市的地不参与自动扩张：战争只记录临时占领，不能用边界侵蚀永久拆改城市辖区。
 public class CityExpansionPatch : GamePatch
 {
@@ -63,6 +64,7 @@ public class CityExpansionPatch : GamePatch
         // 这座城的平面图还没算过(关着地形浮雕、不画城市时不算，村镇也不会新建)：照原版领地，不限在村镇附近
         HashSet<int> built = PureMapPatch.BuiltZones(city);
         if (built == null) return true;
+        if (Sandwiched(zone)) return NearestNeighbourCity(city, zone);
         // 离城心太远的不领(与城外选村址同一个距离，随城的档位放宽)：以前顺着村镇一路往外领，城界伸成长条、伸进别人家
         // (玩家反馈"边界在胡乱扩张"，用户 2026-10-17 选"破碎、夹着空地""伸得太远、蛇形")
         WorldTile seat = city.getTile();
@@ -83,6 +85,47 @@ public class CityExpansionPatch : GamePatch
         foreach (RuralSettlement settlement in RuralSettlementSystem.InCity(city))
             if (Near(World.world.GetTile(settlement.x, settlement.y)?.zone)) return true;
         return false;
+    }
+
+    // 夹在城与城之间的空地(用户 2026-10-19 选"夹在中间的补领"；以前城只领城心附近的地，城与城离得远，
+    // 中间成片的空地永远没人领，纯净地图上一块块露着地形，像图层坏了)：往东西南北各走 SandwichReach 块地以内，
+    // 都碰得到有主的地(或水、地图边)，就是国境里、城与城之间的空地，不受离城远近与村镇的限制。
+    // 往外伸的荒地总有一个方向碰不到有主的地，照旧受限，城界不会再伸成长条
+    public const int SandwichReach = 6;
+    private static readonly (int dx, int dy)[] Directions = { (1, 0), (-1, 0), (0, 1), (0, -1) };
+
+    private static bool Sandwiched(TileZone zone)
+    {
+        ZoneCalculator calc = World.world?.zone_calculator;
+        if (calc == null) return false;
+        foreach ((int dx, int dy) in Directions)
+        {
+            bool closed = false;
+            for (int step = 1; step <= SandwichReach && !closed; step++)
+            {
+                TileZone next = calc.getZone(zone.x + dx * step, zone.y + dy * step);
+                closed = next == null || next.tiles_with_ground == 0 || next.city != null;
+            }
+            if (!closed) return false;
+        }
+        return true;
+    }
+
+    // 挨着这块空地的城里(还能扩张的)，城心离它最近的那座来领
+    private static bool NearestNeighbourCity(City city, TileZone zone)
+    {
+        WorldTile center = zone.centerTile, seat = city.getTile();
+        if (center == null || seat == null || zone.neighbours_all == null) return true;
+        float Distance(WorldTile from) => (from.x - center.x) * (from.x - center.x) + (from.y - center.y) * (from.y - center.y);
+        float mine = Distance(seat);
+        foreach (TileZone neighbour in zone.neighbours_all)
+        {
+            City other = neighbour?.city;
+            if (other == null || other == city || other.data == null || other.isRekt() || AtLimit(other)) continue;
+            WorldTile otherSeat = other.getTile();
+            if (otherSeat != null && Distance(otherSeat) < mine) return false;
+        }
+        return true;
     }
 
     private static bool Enclosed(City city, TileZone zone)
