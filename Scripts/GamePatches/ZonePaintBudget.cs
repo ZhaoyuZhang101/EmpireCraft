@@ -38,6 +38,7 @@ public class ZonePaintBudget : GamePatch
     {
         var harmony = new Harmony(nameof(ZonePaintBudget));
         harmony.Patch(AccessTools.Method(typeof(TileZone), nameof(TileZone.checkShouldReRender)),
+            prefix: new HarmonyMethod(typeof(ZonePaintBudget), nameof(BeforeCheck)),
             postfix: new HarmonyMethod(typeof(ZonePaintBudget), nameof(AfterCheck)));
         harmony.Patch(AccessTools.Method(typeof(ZoneCalculator), "applyMetaColorsToZone"),
             prefix: new HarmonyMethod(typeof(ZonePaintBudget), nameof(BeginPaint)) { priority = Priority.First },
@@ -62,6 +63,14 @@ public class ZonePaintBudget : GamePatch
         _frame = frame;
         _painted = 0;
         _spent = 0L;
+    }
+
+    // 原版比对的指纹补上实际控制方、实际颜色、所属帝国(见 SmoothBorders.Fingerprint)：这些变了下一轮巡检就重画
+    private static void BeforeCheck(TileZone __instance, ref int pColorAssetID)
+    {
+        if (!Active) return;
+        int extra = SmoothBorders.Fingerprint(__instance);
+        if (extra != 0) pColorAssetID = unchecked(pColorAssetID * 397 ^ extra);
     }
 
     // 这一帧的预算用完了：这块地先不画，下一轮再画

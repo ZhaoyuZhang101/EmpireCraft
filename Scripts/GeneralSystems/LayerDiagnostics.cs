@@ -14,8 +14,9 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 丢掉这块地连同四邻的上色缓存、重画(见 SmoothBorders.Repaint)，扫描由每分钟一轮改为每十五秒一轮，残线至多停留十几秒；
 // 修过一回下一轮还在的记进日志、不再修(那是画法本身的问题)。
 // 每类记前几块的坐标、像素颜色、平滑国界记下的状态；数目没变就不重复写。
-// 色块不刷新(用户 2026-10-19 转玩家反馈"平滑模式下色块不刷新")：平滑国界开着时(不论纯净地图)，上次画成的归属或颜色
-// 与眼下的实际归属对不上、原版又没来重画的块，当场重画(见 SmoothBorders.StaleOwner)；重画过下一轮还对不上的记进日志、不再重画。
+// 色块不刷新(用户 2026-10-19 转玩家反馈"平滑模式下色块不刷新")：根治在重画指纹(见 SmoothBorders.Fingerprint)，变了下一帧就重画；
+// 这里平滑国界开着时(不论纯净地图)只记日志——上次画成的归属或颜色与眼下的实际归属对不上、过了一轮还没重画的块，
+// 说明还有指纹没算进去的变动(用户定"定时扫描只留作日志诊断"，不在这里补画，免得色块过十几秒突然跳)。
 public static class LayerDiagnostics
 {
     private const float IntervalSeconds = 15f, FirstDelaySeconds = 15f;
@@ -28,9 +29,10 @@ public static class LayerDiagnostics
     private static int _cursor = -1;
     private static object _world;
     private static string _lastSummary;
-    private static int _water, _land, _outline, _stale, _staleFixed;
+    private static int _water, _land, _outline, _stale;
     private static readonly List<string> WaterExamples = new(), LandExamples = new(), OutlineExamples = new(), StaleExamples = new();
-    private static readonly HashSet<int> StaleOnce = new(), StaleGaveUp = new();
+    // 上一轮就对不上的块：这一轮还对不上才算(刚变、下一帧就会重画的不算)
+    private static readonly HashSet<int> StaleSeen = new();
 
     public static void Tick()
     {
@@ -43,8 +45,7 @@ public static class LayerDiagnostics
             _cursor = -1;
             RepairedOnce.Clear();
             GaveUp.Clear();
-            StaleOnce.Clear();
-            StaleGaveUp.Clear();
+            StaleSeen.Clear();
             _next = Time.unscaledTime + FirstDelaySeconds;
             _lastSummary = null;
         }
@@ -52,7 +53,7 @@ public static class LayerDiagnostics
         {
             if (Time.unscaledTime < _next) return;
             _cursor = 0;
-            _water = _land = _outline = _repaired = _stale = _staleFixed = 0;
+            _water = _land = _outline = _repaired = _stale = 0;
             WaterExamples.Clear();
             LandExamples.Clear();
             OutlineExamples.Clear();
@@ -74,7 +75,7 @@ public static class LayerDiagnostics
         _cursor = -1;
         _next = Time.unscaledTime + IntervalSeconds;
         string summary = $"图层 {layer.id}：水面上色 {_water} 块，无主陆地上色 {_land} 块，多余的边框 {_outline} 块，修了 {_repaired} 块残留边框，" +
-                         $"重画了 {_staleFixed} 块没刷新的色块，重画后仍没刷新 {_stale} 块";
+                         $"没刷新的色块 {_stale} 块";
         if (summary == _lastSummary) return;
         _lastSummary = summary;
         var text = new StringBuilder("[EmpireCraft][图层诊断] ").Append(summary);
@@ -152,22 +153,11 @@ public static class LayerDiagnostics
     {
         if (!SmoothBorders.StaleOwner(layer, zone, pixels, out string detail))
         {
-            StaleOnce.Remove(zone.id);
-            StaleGaveUp.Remove(zone.id);
+            StaleSeen.Remove(zone.id);
             return;
         }
-        if (StaleGaveUp.Contains(zone.id)) return;
-        if (!StaleOnce.Add(zone.id))
-        {
-            StaleGaveUp.Add(zone.id);
-            if (_stale++ < Examples)
-                StaleExamples.Add($"块{zone.id}({zone.x},{zone.y}) 城{zone.city?.name ?? "无"} {detail}(重画过仍在，不再重画)");
-            return;
-        }
-        if (_staleFixed < Examples)
-            StaleExamples.Add($"块{zone.id}({zone.x},{zone.y}) 城{zone.city?.name ?? "无"} {detail}");
-        SmoothBorders.Repaint(zone);
-        _staleFixed++;
+        if (StaleSeen.Add(zone.id)) return;
+        if (_stale++ < Examples) StaleExamples.Add($"块{zone.id}({zone.x},{zone.y}) 城{zone.city?.name ?? "无"} {detail}");
     }
 
     private static string Example(TileZone zone, WorldTile tile, Color32[] pixels, IMetaObject meta)

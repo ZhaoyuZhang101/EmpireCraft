@@ -1502,8 +1502,41 @@ public static class SmoothBorders
     }
 
     // 归属/战线变化或残留边框：丢掉本块与周围八块的缓存，包含平滑轮廓伸入的斜对角。
+    // 重画指纹(用户 2026-10-19 转玩家反馈"平滑模式下色块不刷新"，问答选"补全重画指纹")：原版决定一块地要不要重画
+    // (TileZone.checkShouldReRender)只比归属对象与调色板编号(城市图层连编号都不比)，自定义色、附庸描边色、被谁占着、
+    // 所属帝国(金边)变了它都看不出来，那片地停在旧颜色。别的游戏的做法是画的时候比对全部输入的指纹，不靠定时扫描事后补：
+    // 这里把实际控制方、实际颜色值、所属帝国折进原版比对的那个数(见 ZonePaintBudget.BeforeCheck)，变了下一轮巡检就重画、照常翻牌
+    private static int _fingerprintFrame = -1, _fingerprintOption;
+    private static MetaTypeAsset _fingerprintLayer;
+
+    internal static int Fingerprint(TileZone zone)
+    {
+        if (zone == null || World.world == null) return 0;
+        int frame = Time.frameCount;
+        if (_fingerprintFrame != frame)
+        {
+            _fingerprintFrame = frame;
+            _fingerprintLayer = World.world.getCachedMapMetaAsset();
+            _fingerprintOption = _fingerprintLayer?.getZoneOptionState() ?? 0;
+        }
+        if (_fingerprintLayer == null || !Smoothable(_fingerprintLayer)) return 0;
+        IMetaObject real = RealMetaOf(_fingerprintLayer, _fingerprintOption, zone);
+        unchecked
+        {
+            return (real == null ? 0 : global::System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(real)) * 31 +
+                   AppearanceKey(real);
+        }
+    }
+
+    // 一方画出来的样子：颜色(内、外框)与所属帝国(国家图层的帝国金边)
+    private static int AppearanceKey(IMetaObject meta)
+    {
+        int key = ColorKey(SafeColor(meta));
+        return meta is Kingdom kingdom ? unchecked(key * 31 + (int)kingdom.GetEmpireID()) : key;
+    }
+
     // 图层诊断用(见 LayerDiagnostics)：色块没刷新——这块地上次画成的归属或颜色与眼下的实际归属对不上，原版却没来重画
-    // (原版只看归属对象与调色板编号，有的变动它看不出来)；正在翻牌、排着翻的不算，悬停省份临时换成本省颜色的不算。
+    // (重画指纹漏了的变动)；正在翻牌、排着翻的不算，悬停省份临时换成本省颜色的不算。
     // 还没画过的块：眼下有归属，色块却是空的也算
     internal static bool StaleOwner(MetaTypeAsset layer, TileZone zone, Color32[] pixels, out string detail)
     {
@@ -1524,7 +1557,7 @@ public static class SmoothBorders
             }
             return false;
         }
-        if (ReferenceEquals(last.meta, real) && last.color == ColorKey(SafeColor(real))) return false;
+        if (ReferenceEquals(last.meta, real) && last.color == AppearanceKey(real)) return false;
         if (real is Empire && zone.city?.kingdom is Kingdom province && ReferenceEquals(last.meta, province)) return false;
         detail = $"画成 {NameOf(last.meta as IMetaObject)}，眼下归 {NameOf(real)}" +
                  (ReferenceEquals(last.meta, real) ? "(颜色变了)" : "");
@@ -1695,8 +1728,8 @@ public static class SmoothBorders
     // 这块地的归属或颜色变了：周围八块(连斜对角)也重画，平滑的边要跟着变
     private static void Remember(TileZone zone, IMetaObject meta)
     {
-        // 自定义色可能共用同一个调色板编号，必须比较实际色值。
-        int color = ColorKey(SafeColor(meta));
+        // 自定义色可能共用同一个调色板编号，必须比较实际色值；所属帝国变了四邻的金边也要重画
+        int color = AppearanceKey(meta);
         if (LastMeta.TryGetValue(zone.id, out var last) && ReferenceEquals(last.meta, meta) && last.color == color) return;
         bool first = !LastMeta.ContainsKey(zone.id);
         LastMeta[zone.id] = (meta, color);
