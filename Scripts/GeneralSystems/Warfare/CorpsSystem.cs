@@ -121,6 +121,7 @@ public static class CorpsSystem
         GeneralsByCity.Clear();
         GeneralIndex.Clear();
         _lastSecond = _lastMonth = -1d;
+        ResetMonthCycle();
         GeneralMoves.Clear();
         Paths.Clear();
         PathFailures.Clear();
@@ -160,21 +161,13 @@ public static class CorpsSystem
         double now = World.world.getCurWorldTime();
         if (_lastMonth < 0d || now < _lastMonth || Date.getMonthsSince(_lastMonth) >= 1)
         {
+            // 下个月到了上个月还没结完：先当场结完
+            if (_monthPhase != MonthPhase.Idle) AdvanceMonth(unbounded: true);
             bool first = _lastMonth < 0d;
             _lastMonth = now;
-            try
-            {
-                using (FrameProfiler.Measure("军团·月度征召")) MonthTick(now);
-                // 海军先结算：制海权决定这个月的跨海登陆能不能成行(见 FrontSystem)
-                if (!first) using (FrameProfiler.Measure("军团·海军月度")) NavySystem.MonthTick(now);
-                if (!first) using (FrameProfiler.Measure("军团·战线月度")) FrontSystem.MonthTick(now);
-            }
-            catch (Exception exception)
-            {
-                LogService.LogWarning($"[EmpireCraft][军团] 月度结算失败: {exception}");
-            }
-            RebuildIndex();
+            BeginMonthCycle(now, first);
         }
+        if (_monthPhase != MonthPhase.Idle) AdvanceMonth(unbounded: false);
         // 平滑国界下的逐格占领(见 FrontSystem.Smooth)
         using (FrameProfiler.Measure("战线·逐格推进")) FrontSystem.SmoothTick();
         // 路网与航线(行军、航行据此寻路；自己按真实时间限频，见 RoadNetwork)
@@ -192,6 +185,7 @@ public static class CorpsSystem
     // 关闭占领模式：各军就地退伍(兵员还回人口)，统领并回人口
     private static void DisbandAllOnDisable()
     {
+        ResetMonthCycle();
         foreach ((Kingdom kingdom, CorpsData corps) in All().ToList()) Disband(kingdom, corps);
         NavySystem.RemoveAllFlagships();
         RebuildIndex();
@@ -200,30 +194,133 @@ public static class CorpsSystem
 
     #endregion
 
+    #region 月度结算分帧
+
+    // 月度结算分帧：以前月初一帧里把全世界各国的征召补员后勤、海军、战线分派与交战一次结完，大图开战时那一帧卡几百毫秒。
+    // 现在月初把各国排队，每帧结几国(本段不过 MonthSliceMilliseconds，至少一国)，
+    // 各国都结完再结海军(一次)、战线(开头一次，逐国分派，交战结算一次)，最后重建计兵数缓存；先后次序与以前一样。
+    // 下个月到了上个月还没结完，先当场结完上个月
+    private enum MonthPhase { Idle, Kingdoms, Navy, FrontBegin, FrontAssign, FrontEnd }
+
+    private const double MonthSliceMilliseconds = 3d;
+    private static MonthPhase _monthPhase = MonthPhase.Idle;
+    private static readonly Queue<Kingdom> MonthQueue = new();
+    private static double _monthAt;
+    private static bool _monthFirst;
+
+    private static void ResetMonthCycle()
+    {
+        _monthPhase = MonthPhase.Idle;
+        MonthQueue.Clear();
+    }
+
+    private static void BeginMonthCycle(double now, bool first)
+    {
+        _monthAt = now;
+        _monthFirst = first;
+        MonthQueue.Clear();
+        foreach (Kingdom kingdom in World.world.kingdoms.ToList()) MonthQueue.Enqueue(kingdom);
+        _monthPhase = MonthPhase.Kingdoms;
+    }
+
+    private static void AdvanceMonth(bool unbounded)
+    {
+        var watch = global::System.Diagnostics.Stopwatch.StartNew();
+        int done = 0;
+        while (_monthPhase != MonthPhase.Idle)
+        {
+            // 只看本段自己的用时：后台共用预算(SimulationFrameBudget)在这之前多已被人口等队列用完，看它就只能一帧一国，
+            // 几百国的大图一个月结不完
+            if (!unbounded && done > 0 && watch.Elapsed.TotalMilliseconds >= MonthSliceMilliseconds) return;
+            done++;
+            switch (_monthPhase)
+            {
+                case MonthPhase.Kingdoms:
+                    if (MonthQueue.Count == 0)
+                    {
+                        // 读档后第一个月只征召，不结海军、战线
+                        if (_monthFirst) FinishMonth();
+                        else _monthPhase = MonthPhase.Navy;
+                        break;
+                    }
+                    Kingdom kingdom = MonthQueue.Dequeue();
+                    try { using (FrameProfiler.Measure("军团·月度征召")) MonthTick(kingdom, _monthAt); }
+                    catch (Exception exception) { LogService.LogWarning($"[EmpireCraft][军团] 月度结算失败: {exception}"); }
+                    break;
+                case MonthPhase.Navy:
+                    // 海军先结算：制海权决定这个月的跨海登陆能不能成行(见 FrontSystem)
+                    if (!MonthStep("军团·海军月度", () => NavySystem.MonthTick(_monthAt))) break;
+                    _monthPhase = MonthPhase.FrontBegin;
+                    break;
+                case MonthPhase.FrontBegin:
+                    if (!MonthStep("军团·战线月度", () => FrontSystem.BeginMonth(_monthAt))) break;
+                    MonthQueue.Clear();
+                    foreach (Kingdom side in World.world.kingdoms.ToList()) MonthQueue.Enqueue(side);
+                    _monthPhase = MonthPhase.FrontAssign;
+                    break;
+                case MonthPhase.FrontAssign:
+                    if (MonthQueue.Count == 0)
+                    {
+                        _monthPhase = MonthPhase.FrontEnd;
+                        break;
+                    }
+                    Kingdom assigned = MonthQueue.Dequeue();
+                    using (FrameProfiler.Measure("军团·战线月度"))
+                    using (FrameProfiler.Measure("战线·分派"))
+                        FrontSystem.AssignMonth(assigned);
+                    break;
+                case MonthPhase.FrontEnd:
+                    if (MonthStep("军团·战线月度", FrontSystem.EndMonth)) FinishMonth();
+                    break;
+            }
+        }
+    }
+
+    // 海军、战线的整段：出错与以前一样跳过这个月余下的结算
+    private static bool MonthStep(string label, Action step)
+    {
+        try
+        {
+            using (FrameProfiler.Measure(label)) step();
+            return true;
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft][军团] 月度结算失败: {exception}");
+            FinishMonth();
+            return false;
+        }
+    }
+
+    private static void FinishMonth()
+    {
+        ResetMonthCycle();
+        RebuildIndex();
+    }
+
+    #endregion
+
     #region 月度：征召、补员、退伍、休整
 
-    private static void MonthTick(double now)
+    private static void MonthTick(Kingdom kingdom, double now)
     {
-        foreach (Kingdom kingdom in World.world.kingdoms.ToList())
-        {
-            if (kingdom?.data == null || kingdom.isRekt() || kingdom.isNeutral() ||
-                Compatibility.AncientWarfareCompatibility.OwnsObject(kingdom)) continue;
-            WarScopeSystem.MonthTick(kingdom);
-            WarCommandSystem.MonthTick(kingdom);
-            List<CorpsData> list = kingdom.GetOrCreate().corps;
-            bool posts = kingdom.cities?.Any(city => city != null && !city.isRekt() &&
-                CityPopulationSystem.PostOf(city, CityPopulationSystem.DoctrineOf(kingdom)) != CityPopulationSystem.ArmyPost.None) == true;
-            if (!posts && (list == null || list.Count == 0)) continue;
-            Mobilize(kingdom, now);
-            using (FrameProfiler.Measure("军团·后勤")) LogisticsSystem.MonthTick(kingdom);
-            Recover(kingdom);
-            PayUpkeep(kingdom);
-            // 视财力换装一支(见 CorpsArmSystem)
-            CorpsArmSystem.Monthly(kingdom, kingdom.GetOrCreate().corps);
-            AbsorbLegacyLegions(kingdom);
-            // 禁军空饷、忠诚、不奉诏
-            PalaceArmySystem.Monthly(kingdom);
-        }
+        if (kingdom?.data == null || kingdom.isRekt() || kingdom.isNeutral() ||
+            Compatibility.AncientWarfareCompatibility.OwnsObject(kingdom)) return;
+        WarScopeSystem.MonthTick(kingdom);
+        WarCommandSystem.MonthTick(kingdom);
+        List<CorpsData> list = kingdom.GetOrCreate().corps;
+        bool posts = kingdom.cities?.Any(city => city != null && !city.isRekt() &&
+            CityPopulationSystem.PostOf(city, CityPopulationSystem.DoctrineOf(kingdom)) != CityPopulationSystem.ArmyPost.None) == true;
+        if (!posts && (list == null || list.Count == 0)) return;
+        Mobilize(kingdom, now);
+        using (FrameProfiler.Measure("军团·后勤")) LogisticsSystem.MonthTick(kingdom);
+        Recover(kingdom);
+        PayUpkeep(kingdom);
+        // 视财力换装一支(见 CorpsArmSystem)
+        CorpsArmSystem.Monthly(kingdom, kingdom.GetOrCreate().corps);
+        AbsorbLegacyLegions(kingdom);
+        // 禁军空饷、忠诚、不奉诏
+        PalaceArmySystem.Monthly(kingdom);
     }
 
     // 野战军饷：按人头每月发(见 CityStabilityRules.CorpsAnnual)，按兵种加权(装备越先进越贵，见 CorpsArmSystem)，本国先付，听命于中央的成员付不起由中央补；

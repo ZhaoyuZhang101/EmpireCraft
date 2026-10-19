@@ -88,6 +88,9 @@ public static partial class FrontSystem
         _fronts.Clear();
         _frontsNext.Clear();
         LandRoutes.Clear();
+        MonthPressure.Clear();
+        MonthLandingSectors.Clear();
+        _assignFrame = -1;
     }
 
     #region 敌我
@@ -405,8 +408,26 @@ public static partial class FrontSystem
     // 上月各城的守军(按有效兵力)：选进攻段时估算难度用
     private static readonly Dictionary<long, float> DefenseByCity = new();
 
+    // 月度结算分三段(CorpsSystem 分帧调用)：BeginMonth 一次；AssignMonth 逐国分派，可以分几帧；EndMonth 交战结算一次。
+    // 上月攻势、本月登陆战线在三段之间保留
+    private static readonly Dictionary<long, List<(Kingdom attacker, float strength)>> MonthPressure = new();
+    private static readonly Dictionary<long, bool> MonthLandingSectors = new();
+    private static double _monthNow;
+    private static int _assignFrame = -1;
+
+    // 一帧里结完整个月
     public static void MonthTick(double now)
     {
+        BeginMonth(now);
+        using (FrameProfiler.Measure("战线·分派"))
+            foreach (Kingdom kingdom in World.world.kingdoms.ToList())
+                AssignMonth(kingdom);
+        EndMonth();
+    }
+
+    public static void BeginMonth(double now)
+    {
+        _monthNow = now;
         SeaLandingDiagnostics.MonthTick();
         MusterSystem.MonthTick();
         FactionPurgeSystem.MonthTick();
@@ -423,7 +444,8 @@ public static partial class FrontSystem
             DefenseByCity[city.id] = value + Effective(corps);
         }
         // 上月各城受到的攻势(哪国、多少兵力)：守方只按敌军的攻势分兵
-        var pressure = new Dictionary<long, List<(Kingdom attacker, float strength)>>();
+        Dictionary<long, List<(Kingdom attacker, float strength)>> pressure = MonthPressure;
+        pressure.Clear();
         foreach ((Kingdom attacker, CorpsData corps) in CorpsSystem.All())
             if (corps.task == "attack" && corps.sector_city_id >= 0)
             {
@@ -434,30 +456,44 @@ public static partial class FrontSystem
                 float distance = target == null ? 0f : CorpsSystem.ZoneDistance(CorpsSystem.Zone(corps), target);
                 list.Add((attacker, corps.strength * (distance <= 4f ? 1f : distance <= 10f ? 0.5f : 0.25f)));
             }
-        var landingSectors = new Dictionary<long, bool>();
+        MonthLandingSectors.Clear();
         SectorCache.Clear();
         _frontsNext.Clear();
-        using (FrameProfiler.Measure("战线·分派"))
-            foreach (Kingdom kingdom in World.world.kingdoms.ToList())
-            {
-                List<CorpsData> list = kingdom?.data == null || kingdom.isRekt() ? null : kingdom.GetOrCreate().corps;
-                if (list == null || list.Count == 0) continue;
-                // 一国分派出错只跳过这一国：以前异常直接抛出 MonthTick，后面的交战结算整月不跑——
-                // 没有交战提示、战线不结算，军团照旧推着上月的目标，国界来回翻(玩家日志 2026-10-17 连续三百多次)
-                try
-                {
-                    Assign(kingdom, list, pressure, landingSectors);
-                }
-                catch (Exception exception)
-                {
-                    LogService.LogWarning($"[EmpireCraft][军团] {kingdom.GetKingdomName()} 分派失败: {exception}");
-                }
-            }
+    }
+
+    public static void AssignMonth(Kingdom kingdom)
+    {
+        List<CorpsData> list = kingdom?.data == null || kingdom.isRekt() ? null : kingdom.GetOrCreate().corps;
+        if (list == null || list.Count == 0) return;
+        // 分几帧分派时，共用的陆上战线段只在同一帧里共用：隔了几帧，逐格推进可能已改了地块归属
+        int frame = UnityEngine.Time.frameCount;
+        if (frame != _assignFrame)
+        {
+            _assignFrame = frame;
+            SectorCache.Clear();
+        }
+        // 一国分派出错只跳过这一国：以前异常直接抛出 MonthTick，后面的交战结算整月不跑——
+        // 没有交战提示、战线不结算，军团照旧推着上月的目标，国界来回翻(玩家日志 2026-10-17 连续三百多次)
+        try
+        {
+            Assign(kingdom, list, MonthPressure, MonthLandingSectors);
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft][军团] {kingdom.GetKingdomName()} 分派失败: {exception}");
+        }
+    }
+
+    public static void EndMonth()
+    {
+        double now = _monthNow;
         SectorCache.Clear();
         SwapFronts();
         Engaged.Clear();
-        using (FrameProfiler.Measure("战线·交战结算")) Resolve(now, landingSectors);
+        using (FrameProfiler.Measure("战线·交战结算")) Resolve(now, MonthLandingSectors);
         PruneBattles(now);
+        MonthPressure.Clear();
+        MonthLandingSectors.Clear();
     }
 
     // 过期的交战：一个多月没再打、时间倒退(读了更早的存档)、城已不在了
