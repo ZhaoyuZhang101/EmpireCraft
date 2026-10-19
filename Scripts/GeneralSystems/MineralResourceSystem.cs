@@ -13,8 +13,9 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   - 矿藏因城而异，按地形定概率、按城市编号固定地取舍(同一座城每次结果一样，地形大变才会变)：
 //     山地(岩石、山脉、丘陵)多铜、黄金、白银、铝土、稀土、铀、硫磺；荒漠、沿海(沙金)也有黄金，沼泽丛林也有白银；荒漠草原多硝石、石油；沼泽丛林多煤、石油、铝土；
 //     山林茂密多煤；沿海多石油；地狱地貌多硫磺。没有的城要靠市场从别处买，或者干脆用不上；
-//   - 矿藏会枯竭：每处矿藏有储量(Reserves)，采完就枯竭，进入冷却(各矿的冷却年数见 Reserves)，
-//     冷却期间不能开采；冷却结束视为找到新矿脉，储量恢复。等级越高的矿场采得越快、越早枯竭；
+//   - 矿藏会枯竭：每处矿藏有储量(Reserves，随采矿等级加大，见 ReserveScale)，剩得不多时减产(见 TaperFactor)，
+//     采完就枯竭，进入冷却(各矿的冷却年数见 Reserves)，冷却期间不能开采；冷却结束视为找到新矿脉，储量恢复。
+//     采尽不再一条条记进世界日志，按政权每年汇总一条(见 FlushDigest)；
 //   - 科技需要的材料(Technology/TechTree.json 的 materials)把真实矿产列为首选来源，原来的替代来源照旧有效。
 public static class MineralResourceSystem
 {
@@ -52,6 +53,28 @@ public static class MineralResourceSystem
         _ => (200f, 20)
     };
 
+    // 储量随采矿等级加大(深井、机械开采挖得到更深的矿)：以前储量固定、高等级矿场产量翻几倍，现代矿几年就采空，
+    // 铀、石油大半时间都在冷却。铀、稀土照旧(稀缺的战略矿产，核打击要用铀)
+    private static readonly float[] ReserveScale = { 1.4f, 1.5f, 1.7f, 2f, 2.4f };
+    // 剩余不到 TaperStart 时产量按剩余比例减，最低 TaperFloor：矿脉逐渐见底，不是一下子断掉
+    private const float TaperStart = 0.25f, TaperFloor = 0.4f;
+
+    public static float TaperFactor(float remainingShare) => Mathf.Clamp(remainingShare / TaperStart, TaperFloor, 1f);
+
+    // 本城开矿能做到第几级：纯净地图按本文化的科技(见 LivelihoodSystem.Level)，开小人时按城里最高的矿场(没有算 1 级)
+    public static int MiningLevel(City city) =>
+        LivelihoodSystem.Active ? LivelihoodSystem.Level(city, LivelihoodSystem.Mine) : Mathf.Max(1, MineTier(city));
+
+    // 本城这处矿藏的储量(按本城的采矿等级)
+    public static float ReserveOf(City city, string id) => ReserveAt(id, MiningLevel(city));
+
+    private static float ReserveAt(string id, int level)
+    {
+        float reserve = Reserves(id).reserve;
+        if (id is "uranium" or "rare_earth") return reserve;
+        return reserve * ReserveScale[Mathf.Clamp(level, 1, ReserveScale.Length) - 1];
+    }
+
     // 枯竭了还在冷却：返回剩余年数，否则 0
     public static int CooldownLeft(CityPopulationData data, string id)
     {
@@ -76,8 +99,7 @@ public static class MineralResourceSystem
         _ => "ui/icons/resources/iconRes_" + id
     };
 
-    // 查询(界面用)：总储量、枯竭后的冷却年数、开采所需矿场等级、剩余储量
-    public static float ReserveOf(string id) => Reserves(id).reserve;
+    // 查询(界面用)：枯竭后的冷却年数、开采所需矿场等级、剩余储量(总储量见 ReserveOf)
     public static int CooldownYears(string id) => Reserves(id).cooldown;
 
     public static int RequiredTier(string id)
@@ -87,17 +109,27 @@ public static class MineralResourceSystem
         return 0;
     }
 
-    public static float RemainingAmount(CityPopulationData data, string id) =>
-        RemainingShare(data, id) * Reserves(id).reserve;
+    public static float RemainingAmount(City city, CityPopulationData data, string id) =>
+        RemainingShare(city, data, id) * ReserveOf(city, id);
 
     // 剩余储量比例(0~1)
-    public static float RemainingShare(CityPopulationData data, string id)
+    public static float RemainingShare(City city, CityPopulationData data, string id)
     {
         if (CooldownLeft(data, id) > 0) return 0f;
         // 冷却已结束、下次开采才重置储量：此时已发现新矿脉，按储量回满显示
         if (data?.deposit_depleted_at != null && data.deposit_depleted_at.ContainsKey(id)) return 1f;
         float mined = data?.deposit_mined != null && data.deposit_mined.TryGetValue(id, out float m) ? m : 0f;
-        return Mathf.Clamp01(1f - mined / Reserves(id).reserve);
+        return Mathf.Clamp01(1f - mined / ReserveOf(city, id));
+    }
+
+    // 本城有没有眼下(本城采矿等级)开采得了的矿藏：没有就不必先开一处矿村(要更高等级的矿留到科技到了再说)
+    public static bool HasMinableDeposit(City city)
+    {
+        if (city?.data == null) return false;
+        int level = MiningLevel(city);
+        foreach ((string id, int tier, _, float chance) in Minerals)
+            if (tier <= level && AssetManager.resources.get(id) != null && HasDeposit(city, id, chance)) return true;
+        return false;
     }
 
     public static void Init()
@@ -145,7 +177,7 @@ public static class MineralResourceSystem
         double now = World.world.getCurWorldTime();
         if (Terrain.TryGetValue(city, out TerrainProfile cached) && now >= cached.At && Date.getYearsSince(cached.At) < 1)
             return cached;
-        int land = 0, water = 0, rocky = 0, desert = 0, wet = 0, infernal = 0, trees = 0;
+        int land = 0, water = 0, rocky = 0, desert = 0, wet = 0, infernal = 0, trees = 0, forest = 0, woodland = 0;
         if (city.zones != null)
             foreach (TileZone zone in city.zones)
             {
@@ -154,21 +186,26 @@ public static class MineralResourceSystem
                 foreach (WorldTile tile in zone.tiles)
                 {
                     if (tile?.Type == null) continue;
-                    if (tile.Type.liquid)
+                    // 地形归类见 LandKinds：岩浆不算水(不算海岸)，算地狱地貌；冰封丘陵也算山石
+                    int kinds = LandKinds.Of(tile.Type);
+                    if ((kinds & LandKinds.Water) != 0)
                     {
                         water++;
                         continue;
                     }
                     land++;
-                    string biome = tile.Type.biome_asset?.id ?? "";
-                    if (tile.Type.rocks || tile.Type.mountains || biome is "biome_hill" or "biome_rocklands") rocky++;
-                    else if (biome is "biome_desert" or "biome_sand" or "biome_savanna" or "biome_wasteland") desert++;
-                    else if (biome is "biome_swamp" or "biome_jungle") wet++;
-                    else if (biome is "biome_infernal") infernal++;
+                    if ((kinds & LandKinds.Rough) != 0) rocky++;
+                    else if ((kinds & (LandKinds.Dry | LandKinds.Sand)) != 0) desert++;
+                    else if ((kinds & LandKinds.Wet) != 0) wet++;
+                    else if ((kinds & LandKinds.Infernal) != 0) infernal++;
+                    if ((kinds & LandKinds.Forest) != 0) forest++;
+                    else if ((kinds & LandKinds.Woodland) != 0) woodland++;
                 }
             }
         int zones = Mathf.Max(1, city.zones?.Count ?? 1);
         float share(int n) => land == 0 ? 0f : Mathf.Clamp01(n * 3f / land);
+        // 林木：数领地里的树；纯净地图没有树，按林地生物群系折算(疏林算四成)
+        float woods = land == 0 ? 0f : Mathf.Clamp01((forest + 0.4f * woodland) * 1.5f / land);
         var profile = new TerrainProfile
         {
             At = now,
@@ -176,29 +213,31 @@ public static class MineralResourceSystem
             Desert = share(desert),
             Wet = share(wet),
             Infernal = share(infernal),
-            Forest = Mathf.Clamp01(trees / (zones * 8f)),
+            Forest = Mathf.Max(Mathf.Clamp01(trees / (zones * 8f)), woods),
             Coast = land + water == 0 ? 0f : Mathf.Clamp01(water * 4f / (land + water))
         };
         Terrain[city] = profile;
         return profile;
     }
 
-    // 某种矿藏在本城出现的概率(按地形)
+    // 某种矿藏在本城出现的概率(按地形)。平地的底数压低一些(铜 0.3→0.2、煤 0.25→0.15……)，矿藏集中在山地、荒漠、沼泽：
+    // 纯平原的城有任何一种矿藏的机会约 57%(以前 75%)，开得了的一级矿(铜金银)约 29%(以前 43%)。
+    // 已经判定过的城存在存档里(deposits_fixed)，不受影响
     public static float ChanceFor(City city, string id, float baseChance)
     {
         TerrainProfile t = TerrainOf(city);
         float chance = id switch
         {
-            "copper" => 0.3f + 0.6f * t.Rocky,
-            "gold" => 0.1f + 0.4f * t.Rocky + 0.15f * t.Desert + 0.1f * t.Coast,
-            "silver" => 0.1f + 0.45f * t.Rocky + 0.15f * t.Wet,
-            "coal" => 0.25f + 0.4f * t.Wet + 0.35f * t.Forest + 0.25f * t.Rocky,
-            "saltpeter" => 0.1f + 0.7f * t.Desert,
-            "sulfur" => 0.1f + 0.4f * t.Rocky + 0.7f * t.Infernal,
-            "oil" => 0.08f + 0.5f * t.Desert + 0.4f * t.Wet + 0.3f * t.Coast,
-            "aluminium" => 0.15f + 0.45f * t.Rocky + 0.35f * t.Wet,
-            "rare_earth" => 0.05f + 0.35f * t.Rocky,
-            "uranium" => 0.04f + 0.3f * t.Rocky + 0.15f * t.Desert,
+            "copper" => 0.2f + 0.6f * t.Rocky,
+            "gold" => 0.06f + 0.4f * t.Rocky + 0.15f * t.Desert + 0.1f * t.Coast,
+            "silver" => 0.06f + 0.45f * t.Rocky + 0.15f * t.Wet,
+            "coal" => 0.15f + 0.4f * t.Wet + 0.35f * t.Forest + 0.25f * t.Rocky,
+            "saltpeter" => 0.06f + 0.7f * t.Desert,
+            "sulfur" => 0.06f + 0.4f * t.Rocky + 0.7f * t.Infernal,
+            "oil" => 0.06f + 0.5f * t.Desert + 0.4f * t.Wet + 0.3f * t.Coast,
+            "aluminium" => 0.08f + 0.45f * t.Rocky + 0.35f * t.Wet,
+            "rare_earth" => 0.03f + 0.35f * t.Rocky,
+            "uranium" => 0.03f + 0.3f * t.Rocky + 0.15f * t.Desert,
             _ => baseChance
         };
         return Mathf.Clamp(chance, 0.02f, 0.9f);
@@ -290,7 +329,10 @@ public static class MineralResourceSystem
 
     public static void Produce(City city, CityPopulationData data, float years)
     {
+        FlushDigest();
         SmeltSteel(city, data, years);
+        // 旧档里以前硬派的矿村(本城没有开得了的矿、四周也不是山)改回按地形定的生计，见 LivelihoodSystem
+        LivelihoodSystem.RecheckForcedMines(city);
         int tier = MineTier(city);
         if (tier <= 0) return;
         float output = IndustryBuildingSystem.MineOutputFactor(city);
@@ -307,26 +349,77 @@ public static class MineralResourceSystem
                 data.deposit_depleted_at.Remove(id);
                 data.deposit_mined[id] = 0f;
             }
-            (float reserve, _) = Reserves(id);
+            float reserve = ReserveAt(id, tier);
             data.deposit_mined.TryGetValue(id, out float mined);
-            float amount = Mathf.Min(output * perYear * years, reserve - mined);
-            if (amount <= 0f) continue;
-            PopulationEconomySystem.Deposit(city, data, id, amount);
-            mined += amount;
-            data.deposit_mined[id] = mined;
-            if (mined < reserve) continue;
-            data.deposit_depleted_at[id] = World.world.getCurWorldTime();
-            try
+            float left = reserve - mined;
+            if (left > 0f)
             {
-                EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventOnly(
-                    string.Format(NeoModLoader.General.LM.Get("deposit_depleted"), city.GetCityName(),
-                        NameOf(id), Reserves(id).cooldown), city.kingdom);
+                // 剩得不多时减产(见 TaperFactor)
+                float amount = Mathf.Min(output * perYear * years * TaperFactor(left / reserve), left);
+                if (amount <= 0f) continue;
+                PopulationEconomySystem.Deposit(city, data, id, amount);
+                mined += amount;
+                data.deposit_mined[id] = mined;
+                if (mined < reserve - 0.01f) continue;
             }
-            catch (Exception exception)
+            data.deposit_depleted_at[id] = World.world.getCurWorldTime();
+            RecordDepletion(city, id);
+        }
+    }
+
+    // ---- 采尽汇总：按政权(帝国记在核心王国名下)每年一条，详情看城市面板、矿藏图层 ----
+    private static readonly Dictionary<Kingdom, Dictionary<string, int>> Depleted = new();
+    private static double _digestAt = -1d;
+
+    private static void RecordDepletion(City city, string id)
+    {
+        Kingdom realm = FrontSystem.Realm(city?.kingdom);
+        if (realm?.data == null || realm.isRekt()) return;
+        if (!Depleted.TryGetValue(realm, out Dictionary<string, int> counts)) Depleted[realm] = counts = new Dictionary<string, int>();
+        counts.TryGetValue(id, out int count);
+        counts[id] = count + 1;
+    }
+
+    private static void FlushDigest()
+    {
+        if (World.world == null) return;
+        double now = World.world.getCurWorldTime();
+        // 换了世界(时间倒退)：上一个世界没报的不报了
+        if (_digestAt < 0d || now < _digestAt)
+        {
+            _digestAt = now;
+            Depleted.Clear();
+            return;
+        }
+        if (Date.getYearsSince(_digestAt) < 1) return;
+        _digestAt = now;
+        if (Depleted.Count == 0) return;
+        try
+        {
+            foreach (KeyValuePair<Kingdom, Dictionary<string, int>> pair in Depleted)
             {
-                LogService.LogWarning($"[EmpireCraft][矿产] 记录枯竭失败: {exception.Message}");
+                Kingdom realm = pair.Key;
+                if (realm?.data == null || realm.isRekt() || World.world.kingdoms.get(realm.id) != realm) continue;
+                int total = 0;
+                var parts = new List<string>();
+                foreach ((string id, _, _, _) in Minerals)
+                {
+                    if (!pair.Value.TryGetValue(id, out int count) || count <= 0) continue;
+                    total += count;
+                    parts.Add(string.Format(NeoModLoader.General.LM.Get("deposit_depleted_digest_item"), NameOf(id), count));
+                }
+                if (total <= 0) continue;
+                string name = realm.GetEmpire()?.GetEmpireName() ?? realm.GetKingdomName();
+                EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventOnly(
+                    string.Format(NeoModLoader.General.LM.Get("deposit_depleted_digest"), name, total,
+                        string.Join(NeoModLoader.General.LM.Get("deposit_depleted_digest_sep"), parts)), realm);
             }
         }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft][矿产] 采尽汇总失败: {exception.Message}");
+        }
+        Depleted.Clear();
     }
 
     // 城市面板：本城有哪些矿藏(能否开采、剩余储量、枯竭冷却剩余年数)
@@ -337,7 +430,7 @@ public static class MineralResourceSystem
         CityPopulationData data = CityPopulationSystem.Get(city);
         foreach ((string id, int need, _, float chance) in Minerals)
             if (HasDeposit(city, id, chance))
-                list.Add((id, tier >= need, RemainingShare(data, id), CooldownLeft(data, id)));
+                list.Add((id, tier >= need, RemainingShare(city, data, id), CooldownLeft(data, id)));
         return list;
     }
 }

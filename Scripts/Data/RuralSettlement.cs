@@ -24,6 +24,9 @@ public sealed class RuralSettlement
     public bool cleared;
     // 生计(见 LivelihoodSystem：0 农、1 林、2 矿、3 牧、4 渔；-1 = 还没定，按四周地形补定)
     public int trade = -1;
+    // 生计是在窗口里手动改的(之后不再按规则自动改)；按第几版规则定的(旧档 0，见 LivelihoodSystem.RulesVersion)
+    public bool trade_manual;
+    public int trade_rules;
     // 官营(国库出钱建的，见 EnterpriseSystem.Fund)；民营为 false
     public bool state;
 }

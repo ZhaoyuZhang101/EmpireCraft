@@ -115,7 +115,7 @@ public static class MineralMap
         foreach ((string id, bool minable, float remaining, int cooldown) in MineralResourceSystem.Deposits(city))
         {
             string name = MineralResourceSystem.NameOf(id);
-            float reserve = MineralResourceSystem.ReserveOf(id);
+            float reserve = MineralResourceSystem.ReserveOf(city, id);
             string value;
             string color;
             if (cooldown > 0)
@@ -127,14 +127,14 @@ public static class MineralMap
             else if (minable)
             {
                 value = string.Format(NeoModLoader.General.LM.Get("mineral_tooltip_mining"),
-                    Mathf.RoundToInt(MineralResourceSystem.RemainingAmount(population, id)), Mathf.RoundToInt(reserve),
+                    Mathf.RoundToInt(MineralResourceSystem.RemainingAmount(city, population, id)), Mathf.RoundToInt(reserve),
                     remaining);
                 color = remaining < 0.2f ? "#E6A166" : "#9FD67A";
             }
             else
             {
                 value = string.Format(NeoModLoader.General.LM.Get("mineral_tooltip_locked"),
-                    MineralResourceSystem.RequiredTier(id), Mathf.RoundToInt(MineralResourceSystem.RemainingAmount(population, id)),
+                    MineralResourceSystem.RequiredTier(id), Mathf.RoundToInt(MineralResourceSystem.RemainingAmount(city, population, id)),
                     Mathf.RoundToInt(reserve));
                 color = "#8A8A8A";
             }

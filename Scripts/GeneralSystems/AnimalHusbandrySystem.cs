@@ -125,7 +125,9 @@ public static class AnimalHusbandrySystem
             {
                 if (tile?.Type == null || tile.Type.liquid) continue;
                 tiles++;
-                if (tile.Type.can_be_farm && !tile.Type.farm_field && !tile.hasBuilding()) open++;
+                // 可放牧：能耕(草地、荒漠、稀树草原……)又没开成田、没盖房的空地；山石(连同岩地、冰封丘陵)不算，同 LandKinds
+                if (tile.Type.can_be_farm && !tile.Type.farm_field && !tile.hasBuilding() && !LandKinds.Is(tile.Type, LandKinds.Rough))
+                    open++;
             }
         }
         (double, float, float) result = (now, tiles == 0 ? 0f : (float)open / tiles,

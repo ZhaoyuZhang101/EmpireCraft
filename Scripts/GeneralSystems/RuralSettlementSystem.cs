@@ -377,8 +377,14 @@ public static class RuralSettlementSystem
         trade = ((trade % LivelihoodSystem.Count) + LivelihoodSystem.Count) % LivelihoodSystem.Count;
         if (settlement.trade == trade) return;
         settlement.trade = trade;
+        settlement.trade_manual = true;
+        TradeChanged(CityOf(settlement));
+    }
+
+    // 生计改了(窗口里手动改、旧档按新规则重查，见 LivelihoodSystem.RecheckForcedMines)：重画本城
+    internal static void TradeChanged(City city)
+    {
         Revision++;
-        City city = CityOf(settlement);
         if (city != null) PureMapPatch.Redraw(city);
     }
 

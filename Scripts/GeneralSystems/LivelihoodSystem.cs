@@ -16,8 +16,10 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 渔村：打鱼出鱼，不看农时。
 // 一份(村 1、镇 3，有墙大镇也是 3)折成半座原来的矿场、伐木场、牧场，乘科技等级的倍数，本城有厂区再多两成五；
 // 田、牧按农具，鱼按渔船，也随科技换代(见 FarmlandSystem.FarmTools)。
-// 生计按村镇四周的地形定(山多为矿、林多为林、草原为牧、靠海为渔，其余务农)，本城务农的不到四成时能耕的地先务农，
-// 本城有矿藏却还没有矿村时先开一处矿；定了存进存档(RuralSettlement.trade)，小窗口里可以手动改。
+// 生计按村镇四周的地形定(地形归类见 LandKinds)：山多为矿；本城务农的不到四成时能耕的地先务农；本城有眼下开得了的矿藏
+// 却还没有矿村时先开一处矿；靠海为渔；密林(桦、枫、魔法林、丛林)为林；荒漠、稀树草原、荒原为牧(这些地方不算能耕，
+// 先牧后农，只在本城几乎没有产粮的镇村时才旱作)；草地、橡树松树疏林也能放牧、伐木，但宜农，本城产粮的够六成才轮到；
+// 定了存进存档(RuralSettlement.trade)，小窗口里可以手动改(手动改过的不再自动改)。
 // 原版的矿场、伐木场、牧场、屠宰场在纯净地图下不再建，旧有的清掉(见 Replaces)；非纯净地图(开小人)照旧走原版建筑。
 // 林场、矿、牧是产业，分官营民营(见 RuralSettlement.state、EnterpriseSystem.CountEnterprises)。
 public static class LivelihoodSystem
@@ -45,21 +47,46 @@ public static class LivelihoodSystem
     // 是产业(林、矿、牧)：分官营民营，官营的利润上缴(见 EnterpriseSystem)
     public static bool IsEnterprise(int trade) => trade is Forest or Mine or Pasture;
 
+    // 生计规则的版本：旧档按旧规则定的镇村是 0(见 RecheckForcedMines)
+    public const int RulesVersion = 1;
+
     // 这处镇村的生计(关城没有，-1)；还没定的按地形定下、存进存档
     public static int Of(RuralSettlement settlement)
     {
         if (settlement == null || settlement.fort) return -1;
         if (settlement.trade >= 0 && settlement.trade < Count) return settlement.trade;
         settlement.trade = Classify(settlement);
+        settlement.trade_rules = RulesVersion;
         return settlement.trade;
     }
 
     public static int At(int x, int y) => Of(RuralSettlementSystem.At(x, y));
 
-    private static int Classify(RuralSettlement settlement)
+    // 本城产粮的镇村够这么多成，宜农的草地、疏林才轮得到放牧、伐木
+    private const float ArableSpareFood = 0.6f;
+    // 本城产粮的镇村不到这么多成，旱地(荒漠、稀树草原、荒原)也先旱作
+    private const float DryFarmFood = 0.25f;
+
+    // 四周(半径 Radius)的地形构成：山石、密林、疏林、草地、旱地、能耕地各占陆地几成，海面占几成
+    private readonly struct Surroundings
     {
-        City city = RuralSettlementSystem.CityOf(settlement);
-        int land = 0, rough = 0, forest = 0, steppe = 0, arable = 0, sea = 0;
+        public readonly float Rough, Forest, Woodland, Grass, Dry, Arable, Sea;
+
+        public Surroundings(float rough, float forest, float woodland, float grass, float dry, float arable, float sea)
+        {
+            Rough = rough;
+            Forest = forest;
+            Woodland = woodland;
+            Grass = grass;
+            Dry = dry;
+            Arable = arable;
+            Sea = sea;
+        }
+    }
+
+    private static Surroundings Survey(RuralSettlement settlement)
+    {
+        int land = 0, rough = 0, forest = 0, woodland = 0, grass = 0, dry = 0, arable = 0, sea = 0;
         for (int dy = -Radius; dy <= Radius; dy++)
         for (int dx = -Radius; dx <= Radius; dx++)
         {
@@ -67,32 +94,73 @@ public static class LivelihoodSystem
             WorldTile tile = World.world?.GetTile(settlement.x + dx, settlement.y + dy);
             TileTypeBase type = tile?.Type;
             if (type == null) continue;
-            if (type.liquid || type.ocean)
+            int kinds = LandKinds.Of(type);
+            // 海面(连同冰面)算渔场；岩浆不算水也不算地
+            if ((kinds & LandKinds.Water) != 0)
             {
                 if (type.ocean) sea++;
                 continue;
             }
+            if ((kinds & LandKinds.Lava) != 0) continue;
             land++;
-            string biome = type.biome_id ?? "";
-            if (type.mountains || type.rocks || type.block || type.id == "hills" || biome is "biome_hill" or "biome_rocklands") rough++;
-            if (biome is "biome_birch" or "biome_maple" or "biome_forest" or "biome_pine" or "biome_enchanted" or "biome_jungle") forest++;
-            if (biome is "biome_desert" or "biome_sand" or "biome_savanna") steppe++;
-            if (type.can_be_farm || type.farm_field) arable++;
+            if ((kinds & LandKinds.Rough) != 0) rough++;
+            if ((kinds & LandKinds.Forest) != 0) forest++;
+            if ((kinds & LandKinds.Woodland) != 0) woodland++;
+            if ((kinds & LandKinds.Grass) != 0) grass++;
+            if ((kinds & LandKinds.Dry) != 0) dry++;
+            if ((kinds & LandKinds.Arable) != 0) arable++;
         }
         float total = Mathf.Max(1, land);
-        float r = rough / total, f = forest / total, st = steppe / total, ar = arable / total;
-        float w = sea / (float)Mathf.Max(1, sea + land);
-        bool needFood = FoodShare(city, settlement) < 0.4f;
-        bool needMine = city != null && MineralResourceSystem.HasAnyDeposit(city) && !HasTrade(city, Mine, settlement);
-        if (r >= 0.4f) return Mine;
-        if (needFood && ar >= 0.5f) return Farm;
-        // 本城有矿藏(金银铜……)却还没有矿村：先开一处，不然矿藏白放着
+        return new Surroundings(rough / total, forest / total, woodland / total, grass / total, dry / total, arable / total,
+            sea / (float)Mathf.Max(1, sea + land));
+    }
+
+    private static int Classify(RuralSettlement settlement)
+    {
+        City city = RuralSettlementSystem.CityOf(settlement);
+        Surroundings s = Survey(settlement);
+        float food = FoodShare(city, settlement);
+        bool needFood = food < 0.4f;
+        // 本城有眼下开得了的矿藏(金银铜……)却还没有矿村：先开一处，不然矿藏白放着；要更高等级的矿等科技到了再说
+        bool needMine = city != null && !HasTrade(city, Mine, settlement) && MineralResourceSystem.HasMinableDeposit(city);
+        if (s.Rough >= 0.4f) return Mine;
+        if (needFood && s.Arable >= 0.5f) return Farm;
+        // 旱地不算能耕：本城几乎没有产粮的镇村时才旱作(绿洲、河谷)
+        if (food < DryFarmFood && s.Arable + s.Dry >= 0.5f) return Farm;
         if (needMine) return Mine;
-        if (w >= 0.3f) return Fish;
-        if (f >= 0.45f) return Forest;
-        if (st >= 0.5f) return Pasture;
-        if (r >= 0.25f) return Mine;
+        if (s.Sea >= 0.3f) return Fish;
+        if (s.Forest >= 0.45f) return Forest;
+        // 荒漠、稀树草原、荒原：先牧后农
+        if (s.Dry >= 0.5f) return Pasture;
+        // 草地、橡树松树疏林宜农：本城产粮的够六成才放牧、伐木
+        if (food >= ArableSpareFood)
+        {
+            if (s.Forest + s.Woodland >= 0.45f) return Forest;
+            if (s.Dry + s.Grass >= 0.5f) return Pasture;
+        }
+        if (s.Rough >= 0.25f) return Mine;
         return Farm;
+    }
+
+    // 旧档：以前本城有任何矿藏(连同还开不了的铀、石油)就硬派一处矿村，平地上也是。按新规则(地形归类、只看开得了的矿)
+    // 重查一次：没在窗口里手动改过、四周山石不到两成半、本城眼下没有开得了的矿藏的矿村，改按地形重定生计。
+    // 由人口经济结算调用(那时科技已读好)，每处镇村只查一次
+    public static void RecheckForcedMines(City city)
+    {
+        if (!Active || city?.data == null) return;
+        bool? minable = null;
+        bool changed = false;
+        foreach (RuralSettlement settlement in RuralSettlementSystem.InCity(city))
+        {
+            if (settlement.trade_rules >= RulesVersion) continue;
+            settlement.trade_rules = RulesVersion;
+            if (settlement.fort || settlement.trade_manual || settlement.trade != Mine) continue;
+            minable ??= MineralResourceSystem.HasMinableDeposit(city);
+            if (minable.Value || Survey(settlement).Rough >= 0.25f) continue;
+            settlement.trade = Classify(settlement);
+            if (settlement.trade != Mine) changed = true;
+        }
+        if (changed) RuralSettlementSystem.TradeChanged(city);
     }
 
     // 本城已定了生计的镇村里，产粮(农、渔)的份数占几成；还没有的算零
