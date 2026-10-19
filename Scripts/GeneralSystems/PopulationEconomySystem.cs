@@ -92,6 +92,9 @@ public static class PopulationEconomySystem
         // 收成按粮食征收政策一部分交国家粮仓(见 GranarySystem)，其余留在本城
         float harvested = farmHarvest ?? DepositFarmHarvest(city, data, FarmlandSystem.Settle(city, data));
         if (background <= 0f) return;
+        // 耕牛：犁田的役畜老了宰掉，皮子做衣履鞍具，按收成折算(见 DraftHidesPerHarvest)
+        if (harvested > 0f && AssetManager.resources?.get("leather") != null)
+            Deposit(city, data, "leather", harvested * DraftHidesPerHarvest);
 
         float workforce = numeric.Production?.Workforce ?? background * WorkingAgeShare;
         float jobs = plan?.Input.Jobs ?? CountJobs(city);
@@ -672,6 +675,10 @@ public static class PopulationEconomySystem
     // 日用消耗(按户数)：皮革做衣履、鞍具。肉类已经和粮食一起按户吃掉(见 EatFood)。
     // 现代翻倍；库存不够只记缺口
     private const float LeatherPerHouseholdYear = 0.01f;
+    // 耕牛出的皮：每收一百份粮出一张半。农耕城一年收成约是户数的一半，自产的皮够日用的七成多，
+    // 不再只因为没有牧场就缺皮革(繁荣度最多打七折，见 IdeologyPopulationSystem.GoodsShortage)；
+    // 皮革仍以牧场为主(一座牧场一年十几张)
+    private const float DraftHidesPerHarvest = 0.015f;
 
     private static void ConsumeGoods(City city, CityPopulationData data, float households, float years, float? calculatedNeed = null)
     {
