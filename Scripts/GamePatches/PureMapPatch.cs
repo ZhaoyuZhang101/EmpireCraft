@@ -110,31 +110,41 @@ public partial class PureMapPatch : GamePatch
 
     // 夜景灯光：原版按人物与建筑的真实位置点灯，这里人物到处瞬移、建筑不画，灯光会乱飘；
     // 改为只在城市平面图建成的地块上、每座虚拟建筑处点一盏灯——住房越高级越亮，工厂、市场、官署更亮，
-    // 现代格局的地块再亮一些，都城地标最亮；成了废墟的街区不亮；火焰不画，着火处也不亮
-    private static readonly Dictionary<int, (float at, List<(Vector2 at, float size)> lights)> ZoneLights = new();
+    // 现代格局的地块再亮一些，都城地标最亮；成了废墟的街区不亮；火焰不画，着火处也不亮。
+    // 每块地的灯按所属的城与平面图指纹记下，平面图变了(按轮重建，见 RefreshUrbanSlice)才重算；
+    // 以前每块五秒一算，重算时平面图也到期了顺带重建，一帧到 83 毫秒。每帧重算至多约 LightBudgetMs 毫秒，没轮到的先用旧的
+    private static readonly Dictionary<int, (City city, int stamp, List<(Vector2 at, float size)> lights)> ZoneLights = new();
     private static readonly List<(Vector2, float)> NoLights = new();
-    private const int LightRefreshPerFrame = 40;
+    private const double LightBudgetMs = 1d;
+
+    private static bool LightsWanted() =>
+        PlayerConfig.optionBoolEnabled("night_lights") && World.world.era_manager.shouldShowLights();
 
     private static bool BeforeDrawLights()
     {
         if (!PureMapMode.Enabled) return true;
-        if (!PlayerConfig.optionBoolEnabled("night_lights") || !World.world.era_manager.shouldShowLights()) return false;
+        if (!LightsWanted()) return false;
         using var timing = FrameProfiler.Measure("纯净地图·夜景灯光");
         Color color = QuantumSpriteLibrary.getColorForLight();
         List<TileZone> zones = World.world.zone_camera.getVisibleZones();
-        float now = Time.unscaledTime;
         if (ZoneLights.Count > 20000) ZoneLights.Clear();
-        // 每帧至多补算几十块地的灯(灯同时到期一起重算会卡一下)；到期还没轮到的先用旧的
-        int budget = LightRefreshPerFrame;
+        long deadline = global::System.Diagnostics.Stopwatch.GetTimestamp() +
+                        (long)(LightBudgetMs * global::System.Diagnostics.Stopwatch.Frequency / 1000d);
+        bool budget = true;
         foreach (TileZone zone in zones)
         {
-            if (zone.city == null) continue;
+            City city = zone.city;
+            if (city == null) continue;
             bool known = ZoneLights.TryGetValue(zone.id, out var cached);
-            if ((!known || now < cached.at || now - cached.at >= PlanSeconds) && budget > 0)
+            CityPlan plan = CachedPlan(city);
+            bool fresh = known && ReferenceEquals(cached.city, city) && plan != null && cached.stamp == PlanStamp(city, plan);
+            // 还没有平面图的城(还没画到)也在预算内现算一次
+            if (!fresh && budget)
             {
-                budget--;
-                ZoneLights[zone.id] = cached = (now, LightsOf(zone));
+                List<(Vector2, float)> lights = LightsOf(zone, known ? cached.lights : null);
+                ZoneLights[zone.id] = cached = (city, PlanStamp(city, CachedPlan(city)), lights);
                 known = true;
+                budget = global::System.Diagnostics.Stopwatch.GetTimestamp() < deadline;
             }
             if (!known) continue;
             foreach ((Vector2 at, float size) in cached.lights) QuantumSpriteLibrary.showLightAt(at, color, size);
@@ -142,27 +152,34 @@ public partial class PureMapPatch : GamePatch
         return false;
     }
 
-    // 一块地上的灯(按城市平面图，五秒一算)
-    private static List<(Vector2, float)> LightsOf(TileZone zone)
+    // 一块地上的灯(按城市平面图)；reuse：这块地原来那份灯的列表，清空了接着用(不每次新建)
+    private static List<(Vector2, float)> LightsOf(TileZone zone, List<(Vector2, float)> reuse)
     {
         City city = zone.city;
         if (city?.data == null || city.isRekt()) return NoLights;
         CityPlan plan = PlanFor(city);
         if (!plan.built.Contains(zone.id)) return NoLights;
         int ox = zone.x * Config.CITY_ZONE_SIZE, oy = zone.y * Config.CITY_ZONE_SIZE;
-        if (plan.landmark.Contains(zone.id)) return new List<(Vector2, float)> { (new Vector2(ox + 4, oy + 4), 0.9f) };
+        List<(Vector2, float)> lights = reuse != null && !ReferenceEquals(reuse, NoLights) ? reuse : null;
+        lights?.Clear();
+        if (plan.landmark.Contains(zone.id))
+        {
+            lights ??= new List<(Vector2, float)>(1);
+            lights.Add((new Vector2(ox + 4, oy + 4), 0.9f));
+            return lights;
+        }
         if (!plan.zones.TryGetValue(zone.id, out Slot[] slots)) return NoLights;
         bool modern = plan.modern > 0f && Hash01(zone.id) < plan.modern;
-        var lights = new List<(Vector2, float)>(slots.Length);
         for (int i = 0; i < slots.Length; i++)
         {
             if (!slots[i].used || plan.ruin > 0f && Hash01(zone.id * 4L + i + 7L) < plan.ruin) continue;
             int x = ox + i % 2 * 4 + 2, y = oy + i / 2 * 4 + 2;
             WorldTile at = World.world.GetTile(x, y);
             if (at != null && !UrbanFabric.InTown(plan.fabric, at)) continue;
+            lights ??= new List<(Vector2, float)>(slots.Length);
             lights.Add((new Vector2(x, y), LightSize(slots[i].icon) * (modern ? 1.15f : 1f)));
         }
-        return lights;
+        return lights != null && lights.Count > 0 ? lights : NoLights;
     }
 
     private static float LightSize(string icon)
@@ -217,8 +234,13 @@ public partial class PureMapPatch : GamePatch
 
     // 城市肌理随建筑、规划、时代变化(原版只在归属、颜色变了才重画)：约十秒把各城看一轮，
     // 平面图有变化(建成地块、建筑、规划用途、城墙、时代进度、城郊档位、种子)的城才让它的地块重画——
-    // 以前不论变没变都整城重画，纯净地图、平滑国界下上色贵，白白占掉不少帧
+    // 以前不论变没变都整城重画，纯净地图、平滑国界下上色贵，白白占掉不少帧。
+    // 平面图只在这里按轮重建(PlanFor 只在没有时现算)：以前平面图五秒过期，上色、灯光、精细层谁先用到谁重建，
+    // 好几座城赶在同一帧过期就卡一下。每帧至多重建 MaxPlanRebuilds 座，用满约 PlanRebuildBudgetMs 毫秒就停，
+    // 没轮到的额度留到下一帧
     private const float UrbanCycleSeconds = 10f;
+    private const int MaxPlanRebuilds = 4;
+    private const double PlanRebuildBudgetMs = 2d;
     private static readonly List<City> UrbanQueue = new();
     private static readonly Dictionary<long, int> PlanStamps = new();
     private static int _urbanCursor;
@@ -244,16 +266,25 @@ public partial class PureMapPatch : GamePatch
         }
         float delta = _urbanLast < 0f ? 0f : Mathf.Clamp(now - _urbanLast, 0f, 0.5f);
         _urbanLast = now;
-        _urbanCredit += UrbanQueue.Count / UrbanCycleSeconds * delta;
-        int count = Mathf.FloorToInt(_urbanCredit);
-        _urbanCredit -= count;
+        // 欠下的额度至多攒两帧的量(卡了一下不一口气补几十座)
+        _urbanCredit = Mathf.Min(_urbanCredit + UrbanQueue.Count / UrbanCycleSeconds * delta, MaxPlanRebuilds * 2f);
         // 原有一格一像素粗图随城市变化；精细贴图的近景门槛由 CityDetailOverlay 单独控制。
         bool detail = CitiesShown;
-        for (int i = 0; i < count && _urbanCursor < UrbanQueue.Count; i++)
+        // 粗图、精细层、铭牌(都要城市显示开着)与夜景灯光用得着平面图才重建
+        bool needed = detail || LightsWanted();
+        long started = global::System.Diagnostics.Stopwatch.GetTimestamp();
+        long budget = (long)(PlanRebuildBudgetMs * global::System.Diagnostics.Stopwatch.Frequency / 1000d);
+        int rebuilt = 0;
+        while (_urbanCredit >= 1f && _urbanCursor < UrbanQueue.Count && rebuilt < MaxPlanRebuilds &&
+               (rebuilt == 0 || global::System.Diagnostics.Stopwatch.GetTimestamp() - started < budget))
         {
             City city = UrbanQueue[_urbanCursor++];
-            if (!detail || city?.data == null || city.isRekt() || city.zones == null) continue;
-            int stamp = Stamp(city, PlanFor(city));
+            _urbanCredit -= 1f;
+            if (!needed || city?.data == null || city.isRekt() || city.zones == null) continue;
+            CityPlan plan = RebuildPlan(city);
+            rebuilt++;
+            if (!detail) continue;
+            int stamp = plan.stamp;
             bool seen = PlanStamps.TryGetValue(city.data.id, out int last);
             if (seen && last == stamp) continue;
             PlanStamps[city.data.id] = stamp;
@@ -520,7 +551,12 @@ public partial class PureMapPatch : GamePatch
     internal static int StampOf(City city)
     {
         if (city?.data == null || city.isRekt() || !PureMapMode.Enabled) return 0;
-        CityPlan plan = PlanFor(city);
+        return PlanStamp(city, PlanFor(city));
+    }
+
+    private static int PlanStamp(City city, CityPlan plan)
+    {
+        if (plan == null) return 0;
         if (plan.stamp == int.MinValue) plan.stamp = Stamp(city, plan);
         return plan.stamp;
     }
@@ -565,7 +601,6 @@ public partial class PureMapPatch : GamePatch
 
     private static bool Maze(string family) => family is "arab" or "viking";
 
-    private const float PlanSeconds = 5f;
     private static readonly Dictionary<long, CityPlan> Plans = new();
 
     private static readonly Color32 Block = new(243, 241, 237, 255), Street = new(255, 255, 255, 255),
@@ -632,11 +667,26 @@ public partial class PureMapPatch : GamePatch
         return pixels;
     }
 
+    // 已经算好的平面图(不现算；没有为 null)
+    private static CityPlan CachedPlan(City city) =>
+        city?.data != null && Plans.TryGetValue(city.data.id, out CityPlan plan) && ReferenceEquals(plan.city, city) ? plan : null;
+
+    // 按轮重建(见 RefreshUrbanSlice)：丢掉旧的现算一份，顺带记下指纹
+    private static CityPlan RebuildPlan(City city)
+    {
+        Plans.Remove(city.data.id);
+        CityPlan plan = PlanFor(city);
+        plan.stamp = Stamp(city, plan);
+        return plan;
+    }
+
+    // 本城的平面图：有就直接用(不论多久以前算的)，按轮更新见 RefreshUrbanSlice；读档后换了城对象的不算
     private static CityPlan PlanFor(City city)
     {
+        if (Plans.TryGetValue(city.data.id, out CityPlan cached) && ReferenceEquals(cached.city, city)) return cached;
         float now = Time.unscaledTime;
-        if (Plans.TryGetValue(city.data.id, out CityPlan cached) && now >= cached.at && now - cached.at < PlanSeconds) return cached;
-        var plan = new CityPlan { at = now };
+        // 先记下所属的城：建图途中又查到本城时直接拿这一份，不会从头再建
+        var plan = new CityPlan { at = now, city = city };
         if (Plans.Count > 4000) Plans.Clear();
         Plans[city.data.id] = plan;
         string culture = TechnologySystem.GetCultureOf(city) ?? "";
