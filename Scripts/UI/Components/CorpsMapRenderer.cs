@@ -110,7 +110,9 @@ public static class CorpsMapRenderer
     private const int HoverNone = 0, HoverCounter = 1, HoverMarker = 2, HoverFleet = 3, HoverNaval = 4;
 
     private static RectTransform _root;
-    private static Canvas _canvas;
+    // 兵牌自己的画布、照着对齐的地名画布(见 EnsureHost)
+    private static Canvas _canvas, _names;
+    private static CanvasScaler _scaler, _namesScaler;
     private static Font _font;
     private static Sprite _white;
     private static readonly List<Counter> Counters = new();
@@ -377,16 +379,36 @@ public static class CorpsMapRenderer
     private static bool ShowsCorps(Kingdom kingdom, CorpsData corps) =>
         corps.task != "reserve" || SwitchGarrisonButton.Shown || CorpsSystem.IsAtWar(kingdom) || Located(corps);
 
+    // 兵牌画在自己的一块画布上(与地名画布同级、同排序，紧跟在它后面)：原版关掉「地图名称」时把地名画布整个停用
+    // (NameplateManager)，以前兵牌挂在地名画布下，跟着一起看不见，打仗时也找不到军队
     public static void EnsureHost()
     {
-        Canvas canvas = CanvasMain.instance == null ? null : CanvasMain.instance.canvas_map_names;
-        if (canvas == null) return;
-        if (_root != null && _root.parent == canvas.transform) return;
+        Canvas names = CanvasMain.instance == null ? null : CanvasMain.instance.canvas_map_names;
+        if (names == null) return;
+        if (_root != null && _canvas != null && _names == names) return;
         if (_root != null) UnityEngine.Object.Destroy(_root.gameObject);
+        if (_canvas != null) UnityEngine.Object.Destroy(_canvas.gameObject);
         Counters.Clear();
         Lines.Clear();
         Markers.Clear();
         ClearHover();
+        var canvasObject = new GameObject("EmpireCraftCorpsCanvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler));
+        canvasObject.layer = names.gameObject.layer;
+        canvasObject.transform.SetParent(names.transform.parent, false);
+        canvasObject.transform.SetSiblingIndex(names.transform.GetSiblingIndex() + 1);
+        Canvas canvas = canvasObject.GetComponent<Canvas>();
+        canvas.renderMode = names.renderMode;
+        canvas.worldCamera = names.worldCamera;
+        canvas.planeDistance = names.planeDistance;
+        canvas.sortingLayerID = names.sortingLayerID;
+        canvas.sortingOrder = names.sortingOrder;
+        canvas.overrideSorting = names.overrideSorting;
+        canvas.pixelPerfect = names.pixelPerfect;
+        _names = names;
+        _namesScaler = names.GetComponent<CanvasScaler>();
+        _canvas = canvas;
+        _scaler = canvasObject.GetComponent<CanvasScaler>();
+        SyncCanvas();
         var rootObject = new GameObject("EmpireCraftCorps", typeof(RectTransform), typeof(CorpsMapRendererHost));
         _root = rootObject.GetComponent<RectTransform>();
         _root.SetParent(canvas.transform, false);
@@ -394,9 +416,31 @@ public static class CorpsMapRenderer
         _root.anchorMax = Vector2.one;
         _root.offsetMin = Vector2.zero;
         _root.offsetMax = Vector2.zero;
-        _root.SetAsLastSibling();
-        _canvas = canvas;
-        _font = canvas.GetComponent<NameplateManager>()?.prefab?._text_name?.font;
+        _font = names.GetComponent<NameplateManager>()?.prefab?._text_name?.font;
+    }
+
+    // 缩放照地名画布(随原版「地名大小」设置变，见 CanvasMain.resizeMapNames)，每帧对齐一次
+    private static void SyncCanvas()
+    {
+        if (_namesScaler == null || _scaler == null) return;
+        if (_scaler.uiScaleMode != _namesScaler.uiScaleMode) _scaler.uiScaleMode = _namesScaler.uiScaleMode;
+        if (_scaler.referenceResolution != _namesScaler.referenceResolution)
+            _scaler.referenceResolution = _namesScaler.referenceResolution;
+        if (_scaler.screenMatchMode != _namesScaler.screenMatchMode) _scaler.screenMatchMode = _namesScaler.screenMatchMode;
+        if (!Mathf.Approximately(_scaler.matchWidthOrHeight, _namesScaler.matchWidthOrHeight))
+            _scaler.matchWidthOrHeight = _namesScaler.matchWidthOrHeight;
+        if (!Mathf.Approximately(_scaler.scaleFactor, _namesScaler.scaleFactor)) _scaler.scaleFactor = _namesScaler.scaleFactor;
+        if (!Mathf.Approximately(_scaler.referencePixelsPerUnit, _namesScaler.referencePixelsPerUnit))
+            _scaler.referencePixelsPerUnit = _namesScaler.referencePixelsPerUnit;
+    }
+
+    // 绘制出错只记一次(每段各记一次)：以前出错一律吞掉，前面一段(比如航线)一出错，整帧的兵牌都不画
+    private static readonly HashSet<string> ReportedErrors = new();
+
+    private static void ReportError(string part, Exception error)
+    {
+        if (ReportedErrors.Add(part))
+            NeoModLoader.services.LogService.LogWarning($"[EmpireCraft][兵牌] {part}绘制出错：{error}");
     }
 
     private static Sprite White
@@ -564,13 +608,15 @@ public static class CorpsMapRenderer
             if (_root != null && CorpsSystem.Enabled && World.world?.camera != null && Config.game_loaded &&
                 !SmoothLoader.isLoading())
             {
+                SyncCanvas();
                 Render(out counters, out lines, out markers);
                 rendered = true;
             }
         }
-        catch (Exception)
+        catch (Exception error)
         {
-            // 绘制出错时本帧不画，下一帧再试
+            // 各段自己兜住了错(见 Render)，到这里的是段外的；本帧不画，下一帧再试
+            ReportError("整帧", error);
         }
         if (!rendered) ClearHover();
         for (int i = counters; i < Counters.Count; i++) Counters[i].Root.gameObject.SetActive(false);
@@ -585,68 +631,82 @@ public static class CorpsMapRenderer
     private static void Render(out int counterCount, out int lineCount, out int markerCount)
     {
         Camera camera = World.world.camera;
-        Canvas canvas = CanvasMain.instance.canvas_map_names;
-        float scale = Mathf.Max(0.01f, canvas.scaleFactor);
+        float scale = Mathf.Max(0.01f, _canvas.scaleFactor);
         counterCount = lineCount = markerCount = 0;
         Hits.Clear();
 
+        // 下面各段各自兜错(见 ReportError)：一段出错不连累别的段，兵牌照画
         // 战线(平滑国界下战线逐像素画在国界上，见 SmoothBorders，这里不再沿地块边画)
         const int zoneSize = Config.CITY_ZONE_SIZE;
-        foreach ((TileZone a, TileZone b) in SmoothBorders.Enabled
-                     ? Array.Empty<(TileZone, TileZone)>() : FrontSystem.ContestedEdges())
+        try
         {
-            Vector3 from, to;
-            if (b == a.zone_right)
+            foreach ((TileZone a, TileZone b) in SmoothBorders.Enabled
+                         ? Array.Empty<(TileZone, TileZone)>() : FrontSystem.ContestedEdges())
             {
-                float x = (a.x + 1) * zoneSize - 0.5f;
-                from = new Vector3(x, a.y * zoneSize - 0.5f);
-                to = new Vector3(x, (a.y + 1) * zoneSize - 0.5f);
+                Vector3 from, to;
+                if (b == a.zone_right)
+                {
+                    float x = (a.x + 1) * zoneSize - 0.5f;
+                    from = new Vector3(x, a.y * zoneSize - 0.5f);
+                    to = new Vector3(x, (a.y + 1) * zoneSize - 0.5f);
+                }
+                else
+                {
+                    float y = (a.y + 1) * zoneSize - 0.5f;
+                    from = new Vector3(a.x * zoneSize - 0.5f, y);
+                    to = new Vector3((a.x + 1) * zoneSize - 0.5f, y);
+                }
+                Vector3 p1 = camera.WorldToScreenPoint(from), p2 = camera.WorldToScreenPoint(to);
+                if (!OnScreen(p1, 40f) && !OnScreen(p2, 40f)) continue;
+                Image line = GetLine(lineCount++);
+                line.gameObject.SetActive(true);
+                line.color = FrontColor;
+                Vector2 delta = p2 - p1;
+                RectTransform rect = line.rectTransform;
+                rect.position = (p1 + p2) * 0.5f;
+                rect.sizeDelta = new Vector2((delta.magnitude + LineWidth) / scale, LineWidth / scale);
+                rect.localRotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg);
             }
-            else
-            {
-                float y = (a.y + 1) * zoneSize - 0.5f;
-                from = new Vector3(a.x * zoneSize - 0.5f, y);
-                to = new Vector3((a.x + 1) * zoneSize - 0.5f, y);
-            }
-            Vector3 p1 = camera.WorldToScreenPoint(from), p2 = camera.WorldToScreenPoint(to);
-            if (!OnScreen(p1, 40f) && !OnScreen(p2, 40f)) continue;
-            Image line = GetLine(lineCount++);
-            line.gameObject.SetActive(true);
-            line.color = FrontColor;
-            Vector2 delta = p2 - p1;
-            RectTransform rect = line.rectTransform;
-            rect.position = (p1 + p2) * 0.5f;
-            rect.sizeDelta = new Vector2((delta.magnitude + LineWidth) / scale, LineWidth / scale);
-            rect.localRotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg);
+        }
+        catch (Exception error)
+        {
+            ReportError("战线", error);
         }
 
         // 跨海运兵的航线：船走的海上路线(见 CorpsSystem.Voyage)平滑成曲线，画成本国颜色的虚线(同一支船队只画一次)；
         // 旧存档没有路线的，从所在海区经剩下的海区到登陆点
-        var drawnRoutes = new HashSet<(long kingdom, int step, int first, int last)>();
-        foreach ((Kingdom kingdom, CorpsData corps) in CorpsSystem.All())
+        try
         {
-            if (!corps.embarked || corps.sea_route == null || corps.sea_route.Count == 0) continue;
-            if (!drawnRoutes.Add((kingdom.id, corps.sea_step, corps.sea_route[0], corps.sea_route[corps.sea_route.Count - 1])))
-                continue;
-            Color routeColor = kingdom.getColor()?.getColorMain() ?? Color.white;
-            routeColor.a = 0.9f;
-            var points = new List<Vector3>();
-            if (corps.sea_path != null && corps.sea_path.Count >= 2)
+            var drawnRoutes = new HashSet<(long kingdom, int step, int first, int last)>();
+            foreach ((Kingdom kingdom, CorpsData corps) in CorpsSystem.All())
             {
-                List<TileZone> zones = corps.sea_path.Select(CorpsSystem.ZoneById).Where(zone => zone?.centerTile != null).ToList();
-                if (zones.Count >= 2)
-                    foreach (Vector2 point in RoadNetwork.Smooth(zones, zones[0].centerTile, zones[zones.Count - 1].centerTile))
-                        points.Add(camera.WorldToScreenPoint(new Vector3(point.x, point.y)));
-            }
-            else
-            {
-                for (int i = Mathf.Max(0, corps.sea_step); i <= corps.sea_route.Count; i++)
+                if (!corps.embarked || corps.sea_route == null || corps.sea_route.Count == 0) continue;
+                if (!drawnRoutes.Add((kingdom.id, corps.sea_step, corps.sea_route[0], corps.sea_route[corps.sea_route.Count - 1])))
+                    continue;
+                Color routeColor = kingdom.getColor()?.getColorMain() ?? Color.white;
+                routeColor.a = 0.9f;
+                var points = new List<Vector3>();
+                if (corps.sea_path != null && corps.sea_path.Count >= 2)
                 {
-                    TileZone stop = i < corps.sea_route.Count ? SeaRegionSystem.Get(corps.sea_route[i])?.Center : FrontSystem.TargetZone(corps);
-                    if (stop?.centerTile != null) points.Add(camera.WorldToScreenPoint(stop.centerTile.posV));
+                    List<TileZone> zones = corps.sea_path.Select(CorpsSystem.ZoneById).Where(zone => zone?.centerTile != null).ToList();
+                    if (zones.Count >= 2)
+                        foreach (Vector2 point in RoadNetwork.Smooth(zones, zones[0].centerTile, zones[zones.Count - 1].centerTile))
+                            points.Add(camera.WorldToScreenPoint(new Vector3(point.x, point.y)));
                 }
+                else
+                {
+                    for (int i = Mathf.Max(0, corps.sea_step); i <= corps.sea_route.Count; i++)
+                    {
+                        TileZone stop = i < corps.sea_route.Count ? SeaRegionSystem.Get(corps.sea_route[i])?.Center : FrontSystem.TargetZone(corps);
+                        if (stop?.centerTile != null) points.Add(camera.WorldToScreenPoint(stop.centerTile.posV));
+                    }
+                }
+                DrawDashedPath(points, routeColor, ref lineCount, scale);
             }
-            DrawDashedPath(points, routeColor, ref lineCount, scale);
+        }
+        catch (Exception error)
+        {
+            ReportError("航线", error);
         }
 
         // 以屏幕像素定大小：抵消画布缩放，镜头拉远时最多缩到八成五、拉近时最多放大一成五
@@ -666,59 +726,66 @@ public static class CorpsMapRenderer
         _nextCorpsGliders.Clear();
         foreach ((Kingdom kingdom, CorpsData corps) in CorpsSystem.All())
         {
-            if (!ShowsCorps(kingdom, corps)) continue;
-            TileZone zone = CorpsSystem.Zone(corps);
-            if (zone?.centerTile == null) continue;
-            // 有统领实体时跟在统领头顶
-            // 行军途中按进度画在两块地之间，每个游戏秒往前挪一点，滑起来是连续的(见 CorpsSystem.DrawPosition)
-            Vector3 target = CounterTarget(corps, zone, out bool follows);
-            // 统领实体自己在走，兵牌直接跟着，不再另外滑
-            Glider glider = follows ? new Glider { At = target, Target = target } : Glide(_corpsGliders, corps.id, target, glideDelta);
-            _nextCorpsGliders[corps.id] = glider;
-            CounterGroup group;
-            if (Located(corps))
+            try
             {
-                // 定位的军单独画在真实位置，不被同城堆叠挤出镜头，也不被远景折叠吞掉。
-                group = new CounterGroup
-                    { Kingdom = kingdom, Zone = zone, World = glider.At, Task = corps.task, Located = true };
-                Groups[(zone.id, -corps.id - 1L)] = group;
-            }
-            else if ((follows || glider.At == target) && split)
-            {
-                // 拉近：各画一块，绕地块中心上下交替错开(间距大于折叠范围，不会再并回去)
-                var zoneKey = (zone.id, kingdom.id);
-                stacked.TryGetValue(zoneKey, out int index);
-                stacked[zoneKey] = index + 1;
-                float offset = (index + 1) / 2 * (index % 2 == 1 ? 1f : -1f) * stepWorld;
-                group = new CounterGroup
-                    { Kingdom = kingdom, Zone = zone, World = glider.At + new Vector3(0f, offset), Task = corps.task };
-                Groups[(zone.id, -corps.id - 1L)] = group;
-            }
-            else if (follows || glider.At == target)
-            {
-                var key = (zone.id, kingdom.id);
-                if (!Groups.TryGetValue(key, out group))
+                if (!ShowsCorps(kingdom, corps)) continue;
+                TileZone zone = CorpsSystem.Zone(corps);
+                if (zone?.centerTile == null) continue;
+                // 有统领实体时跟在统领头顶
+                // 行军途中按进度画在两块地之间，每个游戏秒往前挪一点，滑起来是连续的(见 CorpsSystem.DrawPosition)
+                Vector3 target = CounterTarget(corps, zone, out bool follows);
+                // 统领实体自己在走，兵牌直接跟着，不再另外滑
+                Glider glider = follows ? new Glider { At = target, Target = target } : Glide(_corpsGliders, corps.id, target, glideDelta);
+                _nextCorpsGliders[corps.id] = glider;
+                CounterGroup group;
+                if (Located(corps))
                 {
-                    group = new CounterGroup { Kingdom = kingdom, Zone = zone, World = glider.At, Task = corps.task };
-                    Groups[key] = group;
+                    // 定位的军单独画在真实位置，不被同城堆叠挤出镜头，也不被远景折叠吞掉。
+                    group = new CounterGroup
+                        { Kingdom = kingdom, Zone = zone, World = glider.At, Task = corps.task, Located = true };
+                    Groups[(zone.id, -corps.id - 1L)] = group;
                 }
-            }
-            else
-            {
-                group = null;
-                foreach (CounterGroup mover in Movers)
-                    if (mover.Kingdom == kingdom && (mover.World - glider.At).sqrMagnitude < MoverMerge * MoverMerge)
+                else if ((follows || glider.At == target) && split)
+                {
+                    // 拉近：各画一块，绕地块中心上下交替错开(间距大于折叠范围，不会再并回去)
+                    var zoneKey = (zone.id, kingdom.id);
+                    stacked.TryGetValue(zoneKey, out int index);
+                    stacked[zoneKey] = index + 1;
+                    float offset = (index + 1) / 2 * (index % 2 == 1 ? 1f : -1f) * stepWorld;
+                    group = new CounterGroup
+                        { Kingdom = kingdom, Zone = zone, World = glider.At + new Vector3(0f, offset), Task = corps.task };
+                    Groups[(zone.id, -corps.id - 1L)] = group;
+                }
+                else if (follows || glider.At == target)
+                {
+                    var key = (zone.id, kingdom.id);
+                    if (!Groups.TryGetValue(key, out group))
                     {
-                        group = mover;
-                        break;
+                        group = new CounterGroup { Kingdom = kingdom, Zone = zone, World = glider.At, Task = corps.task };
+                        Groups[key] = group;
                     }
-                if (group == null)
-                {
-                    group = new CounterGroup { Kingdom = kingdom, Zone = zone, World = glider.At, Task = corps.task, Moving = true };
-                    Movers.Add(group);
                 }
+                else
+                {
+                    group = null;
+                    foreach (CounterGroup mover in Movers)
+                        if (mover.Kingdom == kingdom && (mover.World - glider.At).sqrMagnitude < MoverMerge * MoverMerge)
+                        {
+                            group = mover;
+                            break;
+                        }
+                    if (group == null)
+                    {
+                        group = new CounterGroup { Kingdom = kingdom, Zone = zone, World = glider.At, Task = corps.task, Moving = true };
+                        Movers.Add(group);
+                    }
+                }
+                Add(group, corps, zone);
             }
-            Add(group, corps, zone);
+            catch (Exception error)
+            {
+                ReportError("军团", error);
+            }
         }
         (_corpsGliders, _nextCorpsGliders) = (_nextCorpsGliders, _corpsGliders);
         // 折叠(先放兵力大的，挨着它的并进去)：镜头越远并得越宽，拉近后各自分开——
@@ -727,277 +794,312 @@ public static class CorpsMapRenderer
         float far = FarFactor(camera);
         bool foldMovers = far >= FoldMoversFar, mixRealms = far >= MixRealmsFar;
         float foldX = CounterWidth * zoom * Mathf.Lerp(0.9f, 3f, far), foldY = CounterHeight * zoom * Mathf.Lerp(1.3f, 4.5f, far);
-        Folded.Clear();
-        FoldedZones.Clear();
-        FoldedRealms.Clear();
-        IEnumerable<CounterGroup> candidates = foldMovers ? Groups.Values.Concat(Movers) : Groups.Values;
-        foreach (CounterGroup group in candidates.OrderByDescending(group => group.Strength).ToList())
+        RectTransform locatedRoot = null;
+        try
         {
-            group.Screen = camera.WorldToScreenPoint(group.World);
-            if (!OnScreen(group.Screen, 80f)) continue;
-            CounterGroup into = null;
-            foreach (CounterGroup other in Folded)
-                if (!group.Located && !other.Located && other.Embarked == group.Embarked && Mergeable(other.Kingdom, group.Kingdom, mixRealms) &&
-                    Mathf.Abs(other.Screen.x - group.Screen.x) < foldX &&
-                    Mathf.Abs(other.Screen.y - group.Screen.y) < foldY)
-                {
-                    into = other;
-                    break;
-                }
-            if (into == null)
-            {
-                // 途中的兵牌已记下所经地块；到位的只算自己那块
-                if (!group.Moving)
-                {
-                    group.Zones.Clear();
-                    group.Zones.Add(group.Zone.id);
-                }
-                group.Realms.Clear();
-                group.Realms.Add(group.Kingdom);
-                Folded.Add(group);
-                continue;
-            }
-            into.Count += group.Count;
-            into.Rank = Mathf.Max(into.Rank, group.Rank);
-            if (group.ArmStrength > into.ArmStrength)
-            {
-                into.ArmStrength = group.ArmStrength;
-                into.Arm = group.Arm;
-            }
-            into.Strength += group.Strength;
-            into.Full += group.Full;
-            into.Org += group.Org;
-            if (group.Task == "attack" || group.Task == "defend" && into.Task != "attack") into.Task = group.Task;
-            if (group.Moving)
-            {
-                foreach (int zoneId in group.Zones)
-                    if (!into.Zones.Contains(zoneId)) into.Zones.Add(zoneId);
-            }
-            else if (!into.Zones.Contains(group.Zone.id)) into.Zones.Add(group.Zone.id);
-            if (!into.Realms.Contains(group.Kingdom)) into.Realms.Add(group.Kingdom);
-            into.MinSupply = Mathf.Min(into.MinSupply, group.MinSupply);
-            into.Embarked |= group.Embarked;
-        }
-        foreach (CounterGroup group in Folded)
-        {
-            FoldedZones[(group.Zone.id, group.Kingdom.id)] = group.Zones;
-            FoldedRealms[(group.Zone.id, group.Kingdom.id)] = group.Realms;
-        }
-        // 镜头近时途中的兵牌画在已到位的上面，不折叠
-        if (!foldMovers)
-            foreach (CounterGroup group in Movers)
+            Folded.Clear();
+            FoldedZones.Clear();
+            FoldedRealms.Clear();
+            IEnumerable<CounterGroup> candidates = foldMovers ? Groups.Values.Concat(Movers) : Groups.Values;
+            foreach (CounterGroup group in candidates.OrderByDescending(group => group.Strength).ToList())
             {
                 group.Screen = camera.WorldToScreenPoint(group.World);
                 if (!OnScreen(group.Screen, 80f)) continue;
-                Folded.Add(group);
-                var key = (group.Zone.id, group.Kingdom.id);
-                if (!FoldedZones.ContainsKey(key)) FoldedZones[key] = group.Zones;
-            }
-
-        StackOffsets.Clear();
-        RectTransform locatedRoot = null;
-        foreach (CounterGroup group in Folded)
-        {
-            Vector3 screen = group.Screen;
-            Counter counter = GetCounter(counterCount++);
-            counter.Root.gameObject.SetActive(true);
-            counter.Root.localScale = pixelScale;
-            // 在船上(运兵船)换海青框、棋子站在船上；否则补给断绝换灰边
-            SetFrame(counter.Frame, group.Embarked ? Frame("CorpsFrame_sea")
-                : group.MinSupply < 0.25f ? Frame("CorpsFrame_ash") : TaskFrame(group.Task));
-            if (group.Located)
-            {
-                locatedRoot = counter.Root;
-                if (Mathf.Repeat(Time.unscaledTime, 0.6f) < 0.4f)
-                    SetFrame(counter.Frame, Frame("CorpsFrame_gold"));
-            }
-            counter.Piece.sprite = group.Embarked ? Troopship(group.Rank) : ArmIcon(group.Arm);
-            counter.Plate.color = group.Kingdom.getColor()?.getColorMain() ?? Color.gray;
-            string label = group.Count > 1
-                ? $"{CorpsSystem.ShortStrength(group.Strength)}<color=#F3C34A>×{group.Count}</color>"
-                : CorpsSystem.ShortStrength(group.Strength);
-            if (counter.Label.text != label)
-            {
-                counter.Label.text = label;
-                counter.LabelWidth = counter.Label.preferredWidth;
-            }
-            // 字长时加宽，条随之拉长
-            float width = Mathf.Max(CounterWidth, 29f + counter.LabelWidth);
-            counter.Root.sizeDelta = new Vector2(width, CounterHeight);
-            float barLength = width - 30f;
-            float strength = group.Full <= 0f ? 0f : Mathf.Clamp01(group.Strength / group.Full);
-            float org = Mathf.Clamp01(group.Org / group.Count / 100f);
-            Place(counter.Strength.rectTransform, Vector2.zero, Vector2.zero, new Vector2(25f, 8f),
-                new Vector2(25f + barLength * strength, 10f));
-            Place(counter.Org.rectTransform, Vector2.zero, Vector2.zero, new Vector2(25f, 6f),
-                new Vector2(25f + barLength * org, 8f));
-            counter.Org.color = org < 0.3f ? OrgLowColor : OrgColor;
-            // 同一地块的第二国、第三国往右错开(途中的不错开)
-            float offset = 0f;
-            if (!group.Moving && !group.Located)
-            {
-                StackOffsets.TryGetValue(group.Zone.id, out offset);
-                StackOffsets[group.Zone.id] = offset + width + 3f;
-            }
-            Vector3 center = screen + new Vector3(offset * zoom, 0f);
-            counter.Root.position = center;
-            Hits.Add(new Hit
-            {
-                Kind = HoverCounter, Index = counterCount - 1, A = group.Zone.id, B = group.Kingdom.id,
-                Center = center, Half = new Vector2(width, CounterHeight) * (0.5f * zoom)
-            });
-        }
-
-        // 交战标记(画在交战地块下方，不压住兵牌)
-        foreach (FrontSystem.BattleView battle in FrontSystem.Battles.Values)
-        {
-            TileZone zone = CorpsSystem.ZoneById(battle.zone_id);
-            if (zone?.centerTile == null) continue;
-            Vector3 screen = camera.WorldToScreenPoint(zone.centerTile.posV);
-            if (!OnScreen(screen, 80f)) continue;
-            Marker marker = GetMarker(markerCount++);
-            marker.Root.gameObject.SetActive(true);
-            marker.Root.localScale = pixelScale;
-            SetFrame(marker.Frame, Frame("CorpsBattle"));
-            string label = string.Format(LM.Get("corps_battle_marker"), Mathf.RoundToInt(battle.ratio * 100f));
-            if (marker.Label.text != label)
-            {
-                marker.Label.text = label;
-                marker.LabelWidth = marker.Label.preferredWidth;
-            }
-            float width = Mathf.Max(MarkerWidth, 26f + marker.LabelWidth);
-            marker.Root.sizeDelta = new Vector2(width, MarkerHeight);
-            marker.Attacker.color = KingdomColor(battle.attacker_id);
-            marker.Defender.color = KingdomColor(battle.defender_id);
-            Vector3 center = screen - new Vector3(0f, (CounterHeight + MarkerHeight) * 0.5f * zoom + 3f);
-            marker.Root.position = center;
-            Hits.Add(new Hit
-            {
-                Kind = HoverMarker, Index = markerCount - 1, A = battle.city_id,
-                Center = center, Half = new Vector2(width, MarkerHeight) * (0.5f * zoom)
-            });
-        }
-
-        // 舰队兵牌(折叠规则同上)
-        _nextFleetGliders.Clear();
-        FleetGroups.Clear();
-        foreach ((Kingdom kingdom, FleetData fleet) in NavySystem.All())
-        {
-            if (fleet.warships + fleet.transports <= 0) continue;
-            TileZone zone = CorpsSystem.ZoneById(fleet.zone_id);
-            if (zone?.centerTile == null) continue;
-            Glider glider = Glide(_fleetGliders, fleet.id, zone.centerTile.posV, glideDelta);
-            _nextFleetGliders[fleet.id] = glider;
-            FleetGroups.Add(new FleetGroup
-            {
-                Kingdom = kingdom, Zone = zone, Lead = fleet, World = glider.At, Warships = fleet.warships,
-                Transports = fleet.transports, Count = 1, Org = fleet.org, Sailing = glider.At != glider.Target, Task = fleet.task
-            });
-        }
-        (_fleetGliders, _nextFleetGliders) = (_nextFleetGliders, _fleetGliders);
-        FoldedFleets.Clear();
-        FoldedFleetCounts.Clear();
-        foreach (FleetGroup group in FleetGroups.OrderByDescending(group => group.Warships + group.Transports))
-        {
-            group.Screen = camera.WorldToScreenPoint(group.World);
-            if (!OnScreen(group.Screen, 80f)) continue;
-            FleetGroup into = null;
-            if (foldMovers || !group.Sailing)
-                foreach (FleetGroup other in FoldedFleets)
-                    if ((foldMovers || !other.Sailing) && Mergeable(other.Kingdom, group.Kingdom, mixRealms) &&
-                        Mathf.Abs(other.Screen.x - group.Screen.x) < foldX && Mathf.Abs(other.Screen.y - group.Screen.y) < foldY)
+                CounterGroup into = null;
+                foreach (CounterGroup other in Folded)
+                    if (!group.Located && !other.Located && other.Embarked == group.Embarked && Mergeable(other.Kingdom, group.Kingdom, mixRealms) &&
+                        Mathf.Abs(other.Screen.x - group.Screen.x) < foldX &&
+                        Mathf.Abs(other.Screen.y - group.Screen.y) < foldY)
                     {
                         into = other;
                         break;
                     }
-            if (into == null)
-            {
-                FoldedFleets.Add(group);
-                continue;
+                if (into == null)
+                {
+                    // 途中的兵牌已记下所经地块；到位的只算自己那块
+                    if (!group.Moving)
+                    {
+                        group.Zones.Clear();
+                        group.Zones.Add(group.Zone.id);
+                    }
+                    group.Realms.Clear();
+                    group.Realms.Add(group.Kingdom);
+                    Folded.Add(group);
+                    continue;
+                }
+                into.Count += group.Count;
+                into.Rank = Mathf.Max(into.Rank, group.Rank);
+                if (group.ArmStrength > into.ArmStrength)
+                {
+                    into.ArmStrength = group.ArmStrength;
+                    into.Arm = group.Arm;
+                }
+                into.Strength += group.Strength;
+                into.Full += group.Full;
+                into.Org += group.Org;
+                if (group.Task == "attack" || group.Task == "defend" && into.Task != "attack") into.Task = group.Task;
+                if (group.Moving)
+                {
+                    foreach (int zoneId in group.Zones)
+                        if (!into.Zones.Contains(zoneId)) into.Zones.Add(zoneId);
+                }
+                else if (!into.Zones.Contains(group.Zone.id)) into.Zones.Add(group.Zone.id);
+                if (!into.Realms.Contains(group.Kingdom)) into.Realms.Add(group.Kingdom);
+                into.MinSupply = Mathf.Min(into.MinSupply, group.MinSupply);
+                into.Embarked |= group.Embarked;
             }
-            into.Warships += group.Warships;
-            into.Transports += group.Transports;
-            into.Count += group.Count;
-            into.Org += group.Org;
+            foreach (CounterGroup group in Folded)
+            {
+                FoldedZones[(group.Zone.id, group.Kingdom.id)] = group.Zones;
+                FoldedRealms[(group.Zone.id, group.Kingdom.id)] = group.Realms;
+            }
+            // 镜头近时途中的兵牌画在已到位的上面，不折叠
+            if (!foldMovers)
+                foreach (CounterGroup group in Movers)
+                {
+                    group.Screen = camera.WorldToScreenPoint(group.World);
+                    if (!OnScreen(group.Screen, 80f)) continue;
+                    Folded.Add(group);
+                    var key = (group.Zone.id, group.Kingdom.id);
+                    if (!FoldedZones.ContainsKey(key)) FoldedZones[key] = group.Zones;
+                }
+
+            StackOffsets.Clear();
+            foreach (CounterGroup group in Folded)
+            {
+                Vector3 screen = group.Screen;
+                Counter counter = GetCounter(counterCount++);
+                counter.Root.gameObject.SetActive(true);
+                counter.Root.localScale = pixelScale;
+                // 在船上(运兵船)换海青框、棋子站在船上；否则补给断绝换灰边
+                SetFrame(counter.Frame, group.Embarked ? Frame("CorpsFrame_sea")
+                    : group.MinSupply < 0.25f ? Frame("CorpsFrame_ash") : TaskFrame(group.Task));
+                if (group.Located)
+                {
+                    locatedRoot = counter.Root;
+                    if (Mathf.Repeat(Time.unscaledTime, 0.6f) < 0.4f)
+                        SetFrame(counter.Frame, Frame("CorpsFrame_gold"));
+                }
+                counter.Piece.sprite = group.Embarked ? Troopship(group.Rank) : ArmIcon(group.Arm);
+                counter.Plate.color = group.Kingdom.getColor()?.getColorMain() ?? Color.gray;
+                string label = group.Count > 1
+                    ? $"{CorpsSystem.ShortStrength(group.Strength)}<color=#F3C34A>×{group.Count}</color>"
+                    : CorpsSystem.ShortStrength(group.Strength);
+                if (counter.Label.text != label)
+                {
+                    counter.Label.text = label;
+                    counter.LabelWidth = counter.Label.preferredWidth;
+                }
+                // 字长时加宽，条随之拉长
+                float width = Mathf.Max(CounterWidth, 29f + counter.LabelWidth);
+                counter.Root.sizeDelta = new Vector2(width, CounterHeight);
+                float barLength = width - 30f;
+                float strength = group.Full <= 0f ? 0f : Mathf.Clamp01(group.Strength / group.Full);
+                float org = Mathf.Clamp01(group.Org / group.Count / 100f);
+                Place(counter.Strength.rectTransform, Vector2.zero, Vector2.zero, new Vector2(25f, 8f),
+                    new Vector2(25f + barLength * strength, 10f));
+                Place(counter.Org.rectTransform, Vector2.zero, Vector2.zero, new Vector2(25f, 6f),
+                    new Vector2(25f + barLength * org, 8f));
+                counter.Org.color = org < 0.3f ? OrgLowColor : OrgColor;
+                // 同一地块的第二国、第三国往右错开(途中的不错开)
+                float offset = 0f;
+                if (!group.Moving && !group.Located)
+                {
+                    StackOffsets.TryGetValue(group.Zone.id, out offset);
+                    StackOffsets[group.Zone.id] = offset + width + 3f;
+                }
+                Vector3 center = screen + new Vector3(offset * zoom, 0f);
+                counter.Root.position = center;
+                Hits.Add(new Hit
+                {
+                    Kind = HoverCounter, Index = counterCount - 1, A = group.Zone.id, B = group.Kingdom.id,
+                    Center = center, Half = new Vector2(width, CounterHeight) * (0.5f * zoom)
+                });
+            }
         }
-        foreach (FleetGroup group in FoldedFleets)
+        catch (Exception error)
         {
-            FoldedFleetCounts[group.Lead.id] = group.Count;
-            Kingdom kingdom = group.Kingdom;
-            TileZone zone = group.Zone;
-            bool sailing = group.Sailing;
-            Vector3 screen = group.Screen;
-            Counter counter = GetCounter(counterCount++);
-            counter.Root.gameObject.SetActive(true);
-            counter.Root.localScale = pixelScale;
-            SetFrame(counter.Frame, FleetFrame(group.Task));
-            counter.Piece.sprite = Ship(kingdom);
-            counter.Plate.color = kingdom.getColor()?.getColorMain() ?? Color.gray;
-            string label = (group.Transports > 0
-                ? $"{group.Warships}<color=#C8C2B4>+{group.Transports}</color>"
-                : group.Warships.ToString()) + (group.Count > 1 ? $"<color=#F3C34A>×{group.Count}</color>" : "");
-            if (counter.Label.text != label)
+            ReportError("兵牌", error);
+        }
+
+        // 交战标记(画在交战地块下方，不压住兵牌)
+        try
+        {
+            foreach (FrontSystem.BattleView battle in FrontSystem.Battles.Values)
             {
-                counter.Label.text = label;
-                counter.LabelWidth = counter.Label.preferredWidth;
+                TileZone zone = CorpsSystem.ZoneById(battle.zone_id);
+                if (zone?.centerTile == null) continue;
+                Vector3 screen = camera.WorldToScreenPoint(zone.centerTile.posV);
+                if (!OnScreen(screen, 80f)) continue;
+                Marker marker = GetMarker(markerCount++);
+                marker.Root.gameObject.SetActive(true);
+                marker.Root.localScale = pixelScale;
+                SetFrame(marker.Frame, Frame("CorpsBattle"));
+                string label = string.Format(LM.Get("corps_battle_marker"), Mathf.RoundToInt(battle.ratio * 100f));
+                if (marker.Label.text != label)
+                {
+                    marker.Label.text = label;
+                    marker.LabelWidth = marker.Label.preferredWidth;
+                }
+                float width = Mathf.Max(MarkerWidth, 26f + marker.LabelWidth);
+                marker.Root.sizeDelta = new Vector2(width, MarkerHeight);
+                marker.Attacker.color = KingdomColor(battle.attacker_id);
+                marker.Defender.color = KingdomColor(battle.defender_id);
+                Vector3 center = screen - new Vector3(0f, (CounterHeight + MarkerHeight) * 0.5f * zoom + 3f);
+                marker.Root.position = center;
+                Hits.Add(new Hit
+                {
+                    Kind = HoverMarker, Index = markerCount - 1, A = battle.city_id,
+                    Center = center, Half = new Vector2(width, MarkerHeight) * (0.5f * zoom)
+                });
             }
-            float width = Mathf.Max(CounterWidth, 29f + counter.LabelWidth);
-            counter.Root.sizeDelta = new Vector2(width, CounterHeight);
-            float barLength = width - 30f;
-            float ships = Mathf.Clamp01(group.Warships / (6f * group.Count));
-            float org = Mathf.Clamp01(group.Org / group.Count / 100f);
-            Place(counter.Strength.rectTransform, Vector2.zero, Vector2.zero, new Vector2(25f, 8f),
-                new Vector2(25f + barLength * ships, 10f));
-            Place(counter.Org.rectTransform, Vector2.zero, Vector2.zero, new Vector2(25f, 6f),
-                new Vector2(25f + barLength * org, 8f));
-            counter.Org.color = org < 0.3f ? OrgLowColor : OrgColor;
-            float offset = 0f;
-            if (!sailing)
+        }
+        catch (Exception error)
+        {
+            ReportError("交战标记", error);
+        }
+
+        // 舰队兵牌(折叠规则同上)
+        try
+        {
+            _nextFleetGliders.Clear();
+            FleetGroups.Clear();
+            foreach ((Kingdom kingdom, FleetData fleet) in NavySystem.All())
             {
-                StackOffsets.TryGetValue(zone.id, out offset);
-                StackOffsets[zone.id] = offset + width + 3f;
+                if (fleet.warships + fleet.transports <= 0) continue;
+                TileZone zone = CorpsSystem.ZoneById(fleet.zone_id);
+                if (zone?.centerTile == null) continue;
+                Glider glider = Glide(_fleetGliders, fleet.id, zone.centerTile.posV, glideDelta);
+                _nextFleetGliders[fleet.id] = glider;
+                FleetGroups.Add(new FleetGroup
+                {
+                    Kingdom = kingdom, Zone = zone, Lead = fleet, World = glider.At, Warships = fleet.warships,
+                    Transports = fleet.transports, Count = 1, Org = fleet.org, Sailing = glider.At != glider.Target, Task = fleet.task
+                });
             }
-            Vector3 center = screen + new Vector3(offset * zoom, 0f);
-            counter.Root.position = center;
-            Hits.Add(new Hit
+            (_fleetGliders, _nextFleetGliders) = (_nextFleetGliders, _fleetGliders);
+            FoldedFleets.Clear();
+            FoldedFleetCounts.Clear();
+            foreach (FleetGroup group in FleetGroups.OrderByDescending(group => group.Warships + group.Transports))
             {
-                Kind = HoverFleet, Index = counterCount - 1, A = group.Lead.id, B = kingdom.id,
-                Center = center, Half = new Vector2(width, CounterHeight) * (0.5f * zoom)
-            });
+                group.Screen = camera.WorldToScreenPoint(group.World);
+                if (!OnScreen(group.Screen, 80f)) continue;
+                FleetGroup into = null;
+                if (foldMovers || !group.Sailing)
+                    foreach (FleetGroup other in FoldedFleets)
+                        if ((foldMovers || !other.Sailing) && Mergeable(other.Kingdom, group.Kingdom, mixRealms) &&
+                            Mathf.Abs(other.Screen.x - group.Screen.x) < foldX && Mathf.Abs(other.Screen.y - group.Screen.y) < foldY)
+                        {
+                            into = other;
+                            break;
+                        }
+                if (into == null)
+                {
+                    FoldedFleets.Add(group);
+                    continue;
+                }
+                into.Warships += group.Warships;
+                into.Transports += group.Transports;
+                into.Count += group.Count;
+                into.Org += group.Org;
+            }
+            foreach (FleetGroup group in FoldedFleets)
+            {
+                FoldedFleetCounts[group.Lead.id] = group.Count;
+                Kingdom kingdom = group.Kingdom;
+                TileZone zone = group.Zone;
+                bool sailing = group.Sailing;
+                Vector3 screen = group.Screen;
+                Counter counter = GetCounter(counterCount++);
+                counter.Root.gameObject.SetActive(true);
+                counter.Root.localScale = pixelScale;
+                SetFrame(counter.Frame, FleetFrame(group.Task));
+                counter.Piece.sprite = Ship(kingdom);
+                counter.Plate.color = kingdom.getColor()?.getColorMain() ?? Color.gray;
+                string label = (group.Transports > 0
+                    ? $"{group.Warships}<color=#C8C2B4>+{group.Transports}</color>"
+                    : group.Warships.ToString()) + (group.Count > 1 ? $"<color=#F3C34A>×{group.Count}</color>" : "");
+                if (counter.Label.text != label)
+                {
+                    counter.Label.text = label;
+                    counter.LabelWidth = counter.Label.preferredWidth;
+                }
+                float width = Mathf.Max(CounterWidth, 29f + counter.LabelWidth);
+                counter.Root.sizeDelta = new Vector2(width, CounterHeight);
+                float barLength = width - 30f;
+                float ships = Mathf.Clamp01(group.Warships / (6f * group.Count));
+                float org = Mathf.Clamp01(group.Org / group.Count / 100f);
+                Place(counter.Strength.rectTransform, Vector2.zero, Vector2.zero, new Vector2(25f, 8f),
+                    new Vector2(25f + barLength * ships, 10f));
+                Place(counter.Org.rectTransform, Vector2.zero, Vector2.zero, new Vector2(25f, 6f),
+                    new Vector2(25f + barLength * org, 8f));
+                counter.Org.color = org < 0.3f ? OrgLowColor : OrgColor;
+                float offset = 0f;
+                if (!sailing)
+                {
+                    StackOffsets.TryGetValue(zone.id, out offset);
+                    StackOffsets[zone.id] = offset + width + 3f;
+                }
+                Vector3 center = screen + new Vector3(offset * zoom, 0f);
+                counter.Root.position = center;
+                Hits.Add(new Hit
+                {
+                    Kind = HoverFleet, Index = counterCount - 1, A = group.Lead.id, B = kingdom.id,
+                    Center = center, Half = new Vector2(width, CounterHeight) * (0.5f * zoom)
+                });
+            }
+        }
+        catch (Exception error)
+        {
+            ReportError("舰队", error);
         }
 
         // 海战标记
-        foreach (NavySystem.BattleView battle in NavySystem.Battles.Values)
+        try
         {
-            TileZone zone = CorpsSystem.ZoneById(battle.zone_id);
-            if (zone?.centerTile == null) continue;
-            Vector3 screen = camera.WorldToScreenPoint(zone.centerTile.posV);
-            if (!OnScreen(screen, 80f)) continue;
-            Marker marker = GetMarker(markerCount++);
-            marker.Root.gameObject.SetActive(true);
-            marker.Root.localScale = pixelScale;
-            SetFrame(marker.Frame, Frame("CorpsBattle"));
-            string label = string.Format(LM.Get("navy_battle_marker"), Mathf.RoundToInt(battle.ratio * 100f));
-            if (marker.Label.text != label)
+            foreach (NavySystem.BattleView battle in NavySystem.Battles.Values)
             {
-                marker.Label.text = label;
-                marker.LabelWidth = marker.Label.preferredWidth;
+                TileZone zone = CorpsSystem.ZoneById(battle.zone_id);
+                if (zone?.centerTile == null) continue;
+                Vector3 screen = camera.WorldToScreenPoint(zone.centerTile.posV);
+                if (!OnScreen(screen, 80f)) continue;
+                Marker marker = GetMarker(markerCount++);
+                marker.Root.gameObject.SetActive(true);
+                marker.Root.localScale = pixelScale;
+                SetFrame(marker.Frame, Frame("CorpsBattle"));
+                string label = string.Format(LM.Get("navy_battle_marker"), Mathf.RoundToInt(battle.ratio * 100f));
+                if (marker.Label.text != label)
+                {
+                    marker.Label.text = label;
+                    marker.LabelWidth = marker.Label.preferredWidth;
+                }
+                float width = Mathf.Max(MarkerWidth, 26f + marker.LabelWidth);
+                marker.Root.sizeDelta = new Vector2(width, MarkerHeight);
+                marker.Attacker.color = KingdomColor(battle.attacker_id);
+                marker.Defender.color = KingdomColor(battle.defender_id);
+                Vector3 center = screen - new Vector3(0f, (CounterHeight + MarkerHeight) * 0.5f * zoom + 3f);
+                marker.Root.position = center;
+                Hits.Add(new Hit
+                {
+                    Kind = HoverNaval, Index = markerCount - 1, A = battle.region_id,
+                    Center = center, Half = new Vector2(width, MarkerHeight) * (0.5f * zoom)
+                });
             }
-            float width = Mathf.Max(MarkerWidth, 26f + marker.LabelWidth);
-            marker.Root.sizeDelta = new Vector2(width, MarkerHeight);
-            marker.Attacker.color = KingdomColor(battle.attacker_id);
-            marker.Defender.color = KingdomColor(battle.defender_id);
-            Vector3 center = screen - new Vector3(0f, (CounterHeight + MarkerHeight) * 0.5f * zoom + 3f);
-            marker.Root.position = center;
-            Hits.Add(new Hit
-            {
-                Kind = HoverNaval, Index = markerCount - 1, A = battle.region_id,
-                Center = center, Half = new Vector2(width, MarkerHeight) * (0.5f * zoom)
-            });
+        }
+        catch (Exception error)
+        {
+            ReportError("海战标记", error);
         }
 
         if (locatedRoot != null) locatedRoot.SetAsLastSibling();
-        UpdateHover(pixelScale);
+        try
+        {
+            UpdateHover(pixelScale);
+        }
+        catch (Exception error)
+        {
+            ReportError("悬停", error);
+        }
     }
 
     private static Color KingdomColor(long id) =>
@@ -1029,7 +1131,7 @@ public static class CorpsMapRenderer
     // 按住鼠标(点击、拖地图)时不换悬停对象，只看还在不在原来那块上：松开那一帧还能认出点的是谁
     private static bool MouseHeld => Input.GetMouseButton(0) || Input.GetMouseButton(1) || Input.GetMouseButton(2);
 
-    // 鼠标压在界面面板上(地名画布以外的 UI)时不算悬停
+    // 鼠标压在界面面板上(地名画布、兵牌画布以外的 UI)时不算悬停
     private static bool PointerOverPanels()
     {
         if (EventSystem.current == null) return false;
@@ -1038,8 +1140,12 @@ public static class CorpsMapRenderer
         RaycastHits.Clear();
         EventSystem.current.RaycastAll(_pointer, RaycastHits);
         foreach (RaycastResult hit in RaycastHits)
-            if (hit.gameObject != null && (_canvas == null || !hit.gameObject.transform.IsChildOf(_canvas.transform)))
-                return true;
+        {
+            if (hit.gameObject == null) continue;
+            Transform at = hit.gameObject.transform;
+            bool map = _canvas != null && at.IsChildOf(_canvas.transform) || _names != null && at.IsChildOf(_names.transform);
+            if (!map) return true;
+        }
         return false;
     }
 
