@@ -91,6 +91,13 @@ public class SettlementSetting
     public string terrain_prefix = "";
     public string terrain_suffix = "";
     public Dictionary<string, string> terrain;
+    // 毡帐村镇(游牧营地的城立的，见 RuralSettlement.yurt)：各方式的分量(没配用上面村、镇的分量)、字库方式的词(没配用村、镇的字库)、
+    // 后缀(没配用通用的 YurtVillageSuffix / YurtTownSuffix)；姓氏、地势方式也接毡帐的后缀，名字与农耕村镇分得开
+    public Dictionary<string, float> yurt_village_modes;
+    public Dictionary<string, float> yurt_town_modes;
+    public string yurt_words = "";
+    public string yurt_village_suffix = "";
+    public string yurt_town_suffix = "";
 }
 
 public class ConstitutionSetting

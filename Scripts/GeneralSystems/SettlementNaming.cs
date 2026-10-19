@@ -15,12 +15,16 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //       - 地势：看村子四周的地形(山、丘岗、河湖、海边、林、平原、沙漠、沼泽)，前缀 + 地势词 + 后缀 → 青石山村、柳河村；
 //       - 字库：字库词 + 后缀 → 桃花村；字库可以绑本文化独有的词库；
 //   · 词库都是 CSV(key,cz,en,ch)，直接读当前语言那一列(空着退回英文、简体)；文化没配的项用 Locales/Cultures/Settlements/ 的通用词库；
+//   · 毡帐村镇(游牧营地的城立的，见 RuralSettlement.yurt)另有分量、字库、后缀(营、帐，镇是大营、营盘；游牧文化配了波罗、艾里)，
+//     没配的照村、镇的分量与字库，后缀用通用的毡帐后缀，名字与农耕村镇分得开；
 //   · 同一城里不重名；起好的名字记进存档，不随归属、语言变；手改过的不再动；
 //   · 旧版按写死的词库起的名字(读档时认得出来的)清掉，按文化重起。
 public static class SettlementNaming
 {
     public const int Version = 1;
     private const string Surname = "surname", Terrain = "terrain", Words = "words";
+    // 毡帐村镇的种类(同村、镇、关一样传给 Suffix、ByWords)
+    private const string YurtVillage = "yurt_village", YurtTown = "yurt_town";
     private const int TerrainRadius = 4, Attempts = 10;
 
     #region 词库
@@ -129,6 +133,13 @@ public static class SettlementNaming
             "town" => config?.town_modes,
             _ => config?.village_modes
         };
+        // 毡帐村镇：配了毡帐的分量就用，没配照村、镇的；后缀换成营、帐这类(见 Suffix)
+        if (settlement?.yurt == true && settlement.fort != true)
+        {
+            Dictionary<string, float> own = town ? config?.yurt_town_modes : config?.yurt_village_modes;
+            if (own != null && own.Count > 0 && own.Values.Sum() > 0f) modes = own;
+            kind = town ? YurtTown : YurtVillage;
+        }
         // 没配：都按姓氏(本城宗族或本文化的姓)起——通用字库是汉字、英文雅名，不合别的文化
         if (modes == null || modes.Count == 0 || modes.Values.Sum() <= 0f) modes = new Dictionary<string, float> { [Surname] = 1f };
 
@@ -178,8 +189,21 @@ public static class SettlementNaming
     {
         "fort" => Pick(Pool(culture, config?.fort_suffix, "FortSuffix"), seed),
         "town" => Pick(Pool(culture, config?.town_suffix, "TownSuffix"), seed),
+        YurtTown => Pick(Pool(culture, config?.yurt_town_suffix, "YurtTownSuffix"), seed),
+        YurtVillage => Pick(Pool(culture, config?.yurt_village_suffix, "YurtVillageSuffix"), seed),
         _ => Pick(Pool(culture, config?.village_suffix, "VillageSuffix"), seed)
     } ?? "";
+
+    // 毡帐村镇字库方式的词：配了毡帐字库用它，没配照村、镇的字库
+    private static List<string> YurtWords(string culture, SettlementSetting config, bool town)
+    {
+        if (!string.IsNullOrWhiteSpace(config?.yurt_words))
+        {
+            List<string> own = Pool(culture, config.yurt_words, null);
+            if (own.Count > 0) return own;
+        }
+        return town ? Pool(culture, config?.town_words, "TownWords") : Pool(culture, config?.village_words, "VillageWords");
+    }
 
     private static string ByWords(string culture, SettlementSetting config, string kind, long seed)
     {
@@ -187,6 +211,8 @@ public static class SettlementNaming
         {
             "fort" => Pool(culture, config?.fort_words, "TownWords"),
             "town" => Pool(culture, config?.town_words, "TownWords"),
+            YurtTown => YurtWords(culture, config, true),
+            YurtVillage => YurtWords(culture, config, false),
             _ => Pool(culture, config?.village_words, "VillageWords")
         };
         string word = Pick(pool, seed);

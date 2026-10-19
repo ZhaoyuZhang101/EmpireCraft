@@ -18,6 +18,15 @@
         "traits": ["patriarchy"],
         // 游牧(游牧扩张、牧帐、放牧加倍)、劫掠传统(派系可提劫掠)，见 Locales/Cultures/README.md
         "political_traits": ["nomad", "raider"],
+        // 村镇(见 Locales/Cultures/README.md 村镇一节)：农耕的村镇照旧按姓氏起(某某村)；毡帐村镇(游牧营地的城立的)
+        // 用游牧的字库与营、帐、艾里，波罗、大营这类尾字，同农耕村镇分得开
+        "Settlement": {
+            "yurt_village_modes": { "surname": 1, "words": 2 },
+            "yurt_town_modes": { "words": 1 },
+            "yurt_words": "YurtWords",
+            "yurt_village_suffix": "YurtVillageSuffix",
+            "yurt_town_suffix": "YurtTownSuffix"
+        },
         "City": {
             "groups": {
                 "group_1": "CityNames1"

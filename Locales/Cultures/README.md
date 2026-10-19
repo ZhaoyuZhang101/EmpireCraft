@@ -90,14 +90,22 @@ Locales/Cultures/
     "fort_words": "TownWords", "fort_suffix": "FortSuffix",
     "terrain_prefix": "TerrainPrefix",   // 地势前面的词(青、白石、Ash……)
     "terrain_suffix": "TerrainSuffix",   // 地势村的后缀
-    "terrain": { "mountain": "TerrainMountain", "water": "TerrainWater" }   // 各地势的地势词，没写的地势用通用词库
+    "terrain": { "mountain": "TerrainMountain", "water": "TerrainWater" },  // 各地势的地势词，没写的地势用通用词库
+    "yurt_village_modes": { "surname": 1, "words": 2 },             // 毡帐村：各方式的分量(没配照村的)
+    "yurt_town_modes": { "words": 1 },                             // 毡帐镇(没配照镇的)
+    "yurt_words": "YurtWords",                   // 毡帐字库方式的词(没配照村、镇的字库)
+    "yurt_village_suffix": "YurtVillageSuffix",  // 毡帐村的后缀(营、帐……)，姓氏、地势方式也接它
+    "yurt_town_suffix": "YurtTownSuffix"         // 毡帐镇的后缀(大营、营盘……)
 }
 ```
 
 - 词库同其它词库：本文件夹 `<文化id><词库名>.csv`(key,cz,en,ch)，直接读当前语言那一列；
   英文一列以 `_` 开头表示前面加空格(如 `_Farm`)，单写 `_` 表示空(不加后缀)。
 - 没配的项用 `Settlements/` 下的通用词库(汉字与英文雅名)；整个 `Settlement` 都没配的文化，村、镇、关一律按姓氏起(某某村、某某镇)。
-- 现成的配置：华夏(中国、山海引用华夏的词库，英文是拼音)、日本(罗马字)、西方、法兰克、日耳曼(整名字库)、斯拉夫(姓 + 卡)、维京(姓 + 比)。
+- 毡帐村镇(游牧营地的城在旱地上立的)单起一套：分量、字库、后缀都可以另配，没配的照村、镇的分量与字库，后缀用通用的
+  `Settlements/YurtVillageSuffix`(营、帐、营子)、`YurtTownSuffix`(大营、营盘、大帐)，名字与农耕村镇分得开。
+- 现成的配置：华夏(中国、山海引用华夏的词库，英文是拼音)、日本(罗马字)、西方、法兰克、日耳曼(整名字库)、斯拉夫(姓 + 卡)、维京(姓 + 比)；
+  游牧只配了毡帐村镇(察罕、乌兰这类词 + 营、帐、艾里，镇是波罗、大营、营盘)。
 
 ### 政党(Party)
 
