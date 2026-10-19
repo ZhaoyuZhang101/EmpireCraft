@@ -8,9 +8,8 @@ using UnityEngine;
 
 namespace EmpireCraft.Scripts.UI.Components;
 
-// 街区级标注(见 MapZoomTier ④，用户 2026-10-16 选定：街道名、建筑名、住宅小区名)：
+// 街区级标注(见 MapZoomTier ④，用户 2026-10-16 选定：建筑名、住宅小区名；街道名 2026-10-20 去掉)：
 //   · 镜头拉到一格至少 6 个屏幕像素才标，只标镜头里离中心最近的几座城(与城市精细层一致)；
-//   · 街道：城里地块之间的街格线，横的叫街、竖的叫巷(古代)或路、大街(近代)，名字取吉祥字词，同城不重名；
 //   · 建筑：官署(古代县衙、学宫、书院、驿站、官仓；近代人民政府、法院、医院、中学、小学、图书馆、邮政局)、
 //     市场(集市、商铺；近代商场、超市、便利店)、作坊与工厂、寺庙祠观、兵营、码头，多数冠以城名或雅名；
 //   · 住宅：古代每块住宅地标坊名(平康坊)，近代每栋标小区名加栋号(雪香花园 3 栋)；再拉近(一格 10 像素以上)才标住宅；
@@ -64,7 +63,7 @@ public static class MapLabelOverlay
     private static Sprite _backgroundSprite;
     private static object _world;
 
-    private static readonly Color StreetColor = new(0.36f, 0.38f, 0.42f), CivicColor = new(0.16f, 0.36f, 0.66f),
+    private static readonly Color CivicColor = new(0.16f, 0.36f, 0.66f),
         MarketColor = new(0.86f, 0.42f, 0.10f), IndustryColor = new(0.45f, 0.36f, 0.30f), TempleColor = new(0.52f, 0.30f, 0.62f),
         MilitaryColor = new(0.40f, 0.46f, 0.30f), DockColor = new(0.10f, 0.50f, 0.66f), HouseColor = new(0.42f, 0.42f, 0.44f),
         CityColor = new(0.16f, 0.16f, 0.20f), SettlementColor = new(0.98f, 0.95f, 0.86f), RuinColor = new(0.82f, 0.82f, 0.80f);
@@ -244,7 +243,6 @@ public static class MapLabelOverlay
         var specs = new List<Spec>();
         bool modern = plan.Modern >= 0.5f;
         string cityName = CityName(city);
-        Streets(city, plan, modern, specs);
         var residences = new Dictionary<int, string>();
         int houseNumber = 0;
         foreach (PureMapPatch.LabelSlot slot in plan.Slots)
@@ -281,21 +279,12 @@ public static class MapLabelOverlay
         var specs = new List<Spec>();
         bool modern = PureMapPatch.LabelsOf(city)?.Modern >= 0.5f;
         string cityName = CityName(city);
-        var usedNames = new HashSet<string>();
         var residences = new Dictionary<long, string>();
         int houseNumber = 0;
         foreach (PureMapPatch.DetailLabel label in drawn.OrderBy(label => label.Key))
         {
-            if (label.Icon is "street" or "avenue")
-            {
-                string[] suffixes = label.Icon == "avenue" ? modern ? AvenueSuffixModern : AvenueSuffixOld
-                    : label.Vertical ? modern ? StreetSuffixModernColumn : StreetSuffixOldColumn(city)
-                    : modern ? StreetSuffixModernRow : StreetSuffixOldRow;
-                string name = StreetName(city.id * 131L + label.Key, usedNames, suffixes, modern);
-                specs.Add(new Spec(label.Tile, name, StreetColor, label.Icon == "avenue" ? StreetSize * 1.15f : StreetSize,
-                    label.Vertical && Chinese, 0));
-                continue;
-            }
+            // 街道不标名
+            if (label.Icon is "street" or "avenue") continue;
             long zone = label.Key / 4;
             if (label.Icon.StartsWith("house_"))
             {
@@ -394,42 +383,6 @@ public static class MapLabelOverlay
         plan.Slots.Where(slot => slot.Zone == zone && slot.Icon.StartsWith("house_")).Select(slot => slot.Index)
             .DefaultIfEmpty(-1).Min();
 
-    // 街格线：地块之间的边。横线按行、竖线按列，连成一段的建成地块中间标一个街名
-    private static void Streets(City city, PureMapPatch.LabelPlan plan, bool modern, List<Spec> specs)
-    {
-        int size = Config.CITY_ZONE_SIZE;
-        var rows = plan.Built.GroupBy(zone => zone.y).ToList();
-        var columns = plan.Built.GroupBy(zone => zone.x).ToList();
-        var usedNames = new HashSet<string>();
-        foreach (var row in rows)
-        {
-            int x0 = row.Min(zone => zone.x), x1 = row.Max(zone => zone.x);
-            if (x1 - x0 < 1 && row.Count() < 2) continue;
-            string name = StreetName(city.id * 131L + row.Key, usedNames, modern ? StreetSuffixModernRow : StreetSuffixOldRow, modern);
-            specs.Add(new Spec(new Vector2((x0 + x1 + 1) * size / 2f, row.Key * size), name, StreetColor, StreetSize, false, 0));
-        }
-        foreach (var column in columns)
-        {
-            int y0 = column.Min(zone => zone.y), y1 = column.Max(zone => zone.y);
-            if (y1 - y0 < 1 && column.Count() < 2) continue;
-            string name = StreetName(city.id * 137L + column.Key + 7919L, usedNames,
-                modern ? StreetSuffixModernColumn : StreetSuffixOldColumn(city), modern);
-            specs.Add(new Spec(new Vector2(column.Key * size, (y0 + y1 + 1) * size / 2f), name, StreetColor, StreetSize,
-                Chinese, 0));
-        }
-    }
-
-    private static string StreetName(long seed, HashSet<string> used, string[] suffixes, bool modern)
-    {
-        string[] words = StreetWords(modern);
-        for (int attempt = 0; attempt < 8; attempt++)
-        {
-            string name = Pick(words, seed + attempt * 104729L) + Pick(suffixes, seed);
-            if (used.Add(name)) return name;
-        }
-        return Pick(words, seed) + Pick(suffixes, seed + 1);
-    }
-
     private static (string text, Color color) BuildingName(string icon, bool modern, string cityName, long seed)
     {
         string kind = icon.Split('_')[0];
@@ -495,16 +448,7 @@ public static class MapLabelOverlay
     }
 
     // ───────── 词库(中文界面用汉字，其余语言用英文) ─────────
-    // 街名、坊名按时代分(用户 2026-10-17 "这个街道名称也太现代了"：古城里出了人民大街、胜利大街)
-    private static string[] StreetWords(bool modern) => Chinese ? modern ? StreetZh.Concat(StreetModernZh).ToArray() : StreetZh : StreetEn;
-    private static string[] StreetSuffixOldRow => Chinese ? new[] { "街", "大街", "街" } : new[] { " Street", " Lane" };
-    // 不叫胡同(用户 2026-10-17 "把地方城池和小镇的胡同这种词汇删了""都城也没有胡同")
-    private static string[] StreetSuffixOldColumn(City city) => Chinese ? new[] { "巷" } : new[] { " Alley", " Lane" };
-    private static string[] StreetSuffixModernRow => Chinese ? new[] { "路", "大道", "路" } : new[] { " Road", " Avenue" };
-    private static string[] StreetSuffixModernColumn => Chinese ? new[] { "街", "路", "大街" } : new[] { " Street", " Boulevard" };
-    // 通城门的大道
-    private static string[] AvenueSuffixOld => Chinese ? new[] { "大街" } : new[] { " High Street" };
-    private static string[] AvenueSuffixModern => Chinese ? new[] { "大道" } : new[] { " Avenue" };
+    // 坊名按时代分
     private static string[] EstateWords(bool modern) => Chinese ? modern ? EstateModernZh : EstateZh : EstateEn;
     private static string[] EstateSuffixOld => Chinese ? new[] { "坊", "里", "坊" } : new[] { " Ward", " Quarter" };
     private static string[] EstateSuffixModern => Chinese ? new[] { "花园", "小区", "家园", "新村", "公寓" } : new[] { " Gardens ", " Court ", " Heights " };
@@ -526,28 +470,6 @@ public static class MapLabelOverlay
     private static string[] BarracksModern => Chinese ? new[] { "军营", "武装部" } : new[] { " Barracks", " Armory" };
     private static string[] DocksOld => Chinese ? new[] { "码头", "渡口" } : new[] { " Wharf", " Ferry" };
     private static string[] DocksModern => Chinese ? new[] { "港", "客运码头" } : new[] { " Port", " Terminal" };
-    // 古今通用的雅名(古城只用这些)
-    private static readonly string[] StreetZh =
-    {
-        "建安", "平安", "雅云", "安邻", "学邻", "文治", "长乐", "永宁", "通济", "崇文", "宣武", "太平", "清平", "泰和", "广济",
-        "惠民", "仁和", "德胜", "安定", "延寿", "永安", "崇仁", "怀德", "保宁", "宣化", "富春", "望江", "临河", "迎宾", "南门",
-        "北门", "东门", "西门", "鼓楼", "钟楼", "县前", "府前", "仓前", "察院", "学前", "马市", "骡马", "米市", "盐市", "花市",
-        "铁匠", "布政", "按察", "大功", "积善", "宣平", "靖安", "兴化", "怀远", "通化", "安业", "光德", "延福", "永昌", "丰乐"
-    };
-
-    // 只有近代以后才有的街名
-    private static readonly string[] StreetModernZh =
-    {
-        "光明", "和平", "人民", "新华", "朝阳", "东风", "胜利", "团结", "解放", "青年", "中山", "兴华", "建设", "文化", "工农",
-        "友谊", "前进", "红旗", "民主", "复兴", "东大", "西大"
-    };
-
-    private static readonly string[] StreetEn =
-    {
-        "Elm", "Oak", "Maple", "Cedar", "Pine", "King", "Queen", "Church", "Market", "Mill", "River", "Bridge", "High", "Station",
-        "Park", "Hill", "Garden", "Castle", "Harbor", "Victoria", "Union", "Liberty", "Spring", "Water", "Grove"
-    };
-
     // 古代坊里、店铺、寺庙的雅名
     private static readonly string[] EstateZh =
     {
