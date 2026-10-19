@@ -130,6 +130,9 @@ public static class CultureModernizationSystem
     public static void TryYearlyRealmTransitionScan()
     {
         if (World.world == null || ModClass.IS_CLEAR || TechnologySystem.PremodernLocked) return;
+        // 军阀时期的年度扫描是分帧做的，平时靠各政府的更新每帧推进；全图一个政府也没有时只有这里调用，
+        // 以前一年才调一次，只做得完第一片，到期重排又从头开始，后面的核心永远轮不到。这里每轮都推进一片
+        WarlordEraSystem.UpdateWorld();
         double now = World.world.getCurWorldTime();
         if (!ReferenceEquals(_scanWorld, World.world) || now < _lastRealmTransitionScan)
         {
