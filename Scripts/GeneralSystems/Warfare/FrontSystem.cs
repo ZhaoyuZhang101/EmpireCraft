@@ -87,6 +87,7 @@ public static partial class FrontSystem
         _contestedAt = -1;
         _fronts.Clear();
         _frontsNext.Clear();
+        LandRoutes.Clear();
     }
 
     #region 敌我
@@ -258,9 +259,13 @@ public static partial class FrontSystem
         return StraitReach.Reaches(side, city);
     }
 
-    // 陆路：从这座城往外，只经过能走的地块(见 Passable)找得到本方控制的地块；一个月内按(本方帝国, 城)缓存
-    private const int LandRouteSearch = 6000;
-    private static readonly Dictionary<(long, long), bool> LandRoutes = new();
+    // 陆路：从这座城往外，只经过能走的地块(见 Passable)找得到本方控制的地块；按(本方帝国, 城)缓存三个月。
+    // 以前每月清空，每月月初各国对近处每座敌城重新广度搜索(找不到的要搜满 6000 块)；
+    // 本方的敌国一变(宣战、议和)，能走的地就变了，记下时的敌国签名对不上就重找
+    private const int LandRouteSearch = 6000, LandRouteMonths = 3;
+    private static readonly Dictionary<(long, long), (bool found, double at, long signature)> LandRoutes = new();
+    // 当前在算战线段的一方的敌国签名(见 Sectors)
+    private static long _routeSignature;
 
     // 能走的地块：陆地、不是高山，归属无主或本方、盟友、交战敌国(不相干的第三国不走)
     public static bool Passable(Kingdom side, TileZone zone)
@@ -274,7 +279,9 @@ public static partial class FrontSystem
     {
         if (target?.zones == null || target.data == null) return false;
         var key = (Realm(side).id, target.data.id);
-        if (LandRoutes.TryGetValue(key, out bool known)) return known;
+        double now = World.world.getCurWorldTime();
+        if (LandRoutes.TryGetValue(key, out var known) && known.signature == _routeSignature && now >= known.at &&
+            Date.getMonthsSince(known.at) < LandRouteMonths) return known.found;
         var seen = new HashSet<int>();
         var queue = new Queue<TileZone>();
         foreach (TileZone zone in target.zones)
@@ -294,7 +301,8 @@ public static partial class FrontSystem
                 if (Passable(side, next)) queue.Enqueue(next);
             }
         }
-        LandRoutes[key] = found;
+        if (LandRoutes.Count > 20000) LandRoutes.Clear();
+        LandRoutes[key] = (found, now, _routeSignature);
         return found;
     }
 
@@ -313,6 +321,10 @@ public static partial class FrontSystem
             sectors[city] = sector;
         }
         var hostiles = _atWar.Where(other => Hostile(side, other)).ToList();
+        // 敌国签名：陆路缓存(见 LandRoute)只在敌国没变时沿用
+        long signature = Realm(side).id;
+        foreach (Kingdom hostile in hostiles) signature = unchecked(signature * 31 + hostile.id);
+        _routeSignature = signature;
         foreach (Kingdom hostile in hostiles)
             foreach (City city in hostile.cities ?? new List<City>())
                 Collect(city);
@@ -401,7 +413,6 @@ public static partial class FrontSystem
         _atWar = World.world.kingdoms.Where(kingdom => kingdom?.data != null && !kingdom.isRekt() &&
                                                        (kingdom.hasEnemies() || Realm(kingdom).hasEnemies())).ToList();
         DefenseByCity.Clear();
-        LandRoutes.Clear();
         CityDistricts.Reset();
         foreach ((Kingdom owner, CorpsData corps) in CorpsSystem.All())
         {
@@ -462,6 +473,7 @@ public static partial class FrontSystem
         Dictionary<long, List<(Kingdom attacker, float strength)>> pressure, Dictionary<long, bool> landingSectors)
     {
         bool war = _atWar.Contains(kingdom);
+        SectorDefense.Clear();
         // 起义军没有进攻门槛：组织度再低也上阵，不退下去休整(见 CorpsSystem.Insurgent)
         bool insurgent = CorpsSystem.Insurgent(kingdom);
         foreach (CorpsData corps in list)
@@ -633,12 +645,20 @@ public static partial class FrontSystem
         }
     }
 
+    // 一国这次分派里各段的守势(上月守军 + 团练)：每支军挑段都要比一遍各段，团练要扫城里各地块的归属，算一次就够
+    // (分派中途不改城的归属与人口)；每次分派开头清空
+    private static readonly Dictionary<Sector, float> SectorDefense = new();
+
     // strength：这支军能投到这一段的兵力(跨海时按装得上船的算，见 Shippable)
     private static float Score(Kingdom kingdom, CorpsData corps, Sector sector, Dictionary<Sector, float> attackOn, float strength)
     {
         attackOn.TryGetValue(sector, out float committed);
-        DefenseByCity.TryGetValue(sector.City.id, out float garrison);
-        float defense = garrison * DefenderBonus + Militia(sector.City, kingdom);
+        if (!SectorDefense.TryGetValue(sector, out float defense))
+        {
+            DefenseByCity.TryGetValue(sector.City.id, out float garrison);
+            defense = garrison * DefenderBonus + Militia(sector.City, kingdom);
+            SectorDefense[sector] = defense;
+        }
         float distance = sector.Targets.Count == 0 ? 50f
             : sector.Targets.Min(zone => CorpsSystem.ZoneDistance(zone, CorpsSystem.Zone(corps)));
         float odds = (committed + strength) / (defense + 1f);
