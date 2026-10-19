@@ -234,6 +234,8 @@ public static class KingdomExtension
     {
         // 不在帝国里的国家对本文化科技的采纳(见 TechnologySystem.RealmHasTech)
         public EmpireCraft.Scripts.Data.RealmTechState realm_tech;
+        // 独立王国/部落自己推的制度改革(简化朝堂，见 InstitutionRealm)；没推过为空，用到时补全(InstitutionSystem.EnsureRealmState)
+        public EmpireCraft.Scripts.Data.InstitutionEmpireState institution_state;
         public long EmpireID = -1L;
         public double TimestampEmpire = -1L;
         public double TimestampBeFeifed = -1L;

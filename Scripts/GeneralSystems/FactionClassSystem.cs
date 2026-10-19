@@ -38,11 +38,18 @@ public static class FactionClassSystem
         }
     }
 
-    public static void UpdateEmpire(Empire empire, IEnumerable<FixedFaction> configuredFactions)
+    public static void UpdateEmpire(Empire empire, IEnumerable<FixedFaction> configuredFactions) =>
+        UpdateRealm(InstitutionRealm.Of(empire), configuredFactions);
+
+    // 政权(帝国或独立王国)的阶层支持年度演变；阶层人口按政权范围统计(帝国全体成员 / 王国本国)。
+    // populationShares 可传入已算好的阶层构成，免得同一年里重复扫人口
+    public static void UpdateRealm(InstitutionRealm realm, IEnumerable<FixedFaction> configuredFactions,
+        Dictionary<SocialClass, float> populationShares = null)
     {
         List<FixedFaction> factions = configuredFactions?.Where(faction => faction != null).ToList() ?? new();
-        if (empire == null || factions.Count == 0) return;
-        EnsureEmpireProfiles(empire, factions);
+        if (realm == null || factions.Count == 0) return;
+        populationShares ??= InstitutionSystem.BuildClassShares(realm);
+        EnsureRealmProfiles(realm, factions, populationShares);
         List<FixedFaction> active = factions.Where(faction => !faction.Ban).ToList();
         if (active.Count == 0) return;
 
@@ -76,13 +83,17 @@ public static class FactionClassSystem
                     faction.ClassSupport[socialClass] = faction.ClassSupport[socialClass] / normalizedTotal * 100f;
         }
 
-        RecalculateClassPower(empire, factions);
+        RecalculateClassPower(factions, populationShares);
     }
 
-    public static void EnsureEmpireProfiles(Empire empire, IEnumerable<FixedFaction> configuredFactions)
+    public static void EnsureEmpireProfiles(Empire empire, IEnumerable<FixedFaction> configuredFactions) =>
+        EnsureRealmProfiles(InstitutionRealm.Of(empire), configuredFactions);
+
+    public static void EnsureRealmProfiles(InstitutionRealm realm, IEnumerable<FixedFaction> configuredFactions,
+        Dictionary<SocialClass, float> populationShares = null)
     {
         List<FixedFaction> factions = configuredFactions?.Where(faction => faction != null).ToList() ?? new();
-        if (empire == null || factions.Count == 0) return;
+        if (realm == null || factions.Count == 0) return;
         foreach (FixedFaction faction in factions) EnsureProfile(faction);
         List<FixedFaction> active = factions.Where(faction => !faction.Ban).ToList();
         if (active.Count == 0) return;
@@ -96,12 +107,12 @@ public static class FactionClassSystem
             foreach (FixedFaction faction in active)
                 faction.ClassSupport[socialClass] = scores[faction] / total * 100f;
         }
-        RecalculateClassPower(empire, factions);
+        RecalculateClassPower(factions, populationShares ?? InstitutionSystem.BuildClassShares(realm));
     }
 
-    private static void RecalculateClassPower(Empire empire, IEnumerable<FixedFaction> factions)
+    private static void RecalculateClassPower(IEnumerable<FixedFaction> factions,
+        Dictionary<SocialClass, float> populationShares)
     {
-        Dictionary<SocialClass, float> populationShares = InstitutionSystem.BuildClassShares(empire);
         foreach (FixedFaction faction in factions)
         {
             faction.ClassPower = faction.Ban ? 0f : populationShares.Sum(pair =>
@@ -126,11 +137,15 @@ public static class FactionClassSystem
         faction.ClassFavorSources[socialClass] = source ?? "";
     }
 
-    public static void ApplyInstitutionOutcome(Empire empire, InstitutionNodeConfig node, FixedFaction sponsor)
+    public static void ApplyInstitutionOutcome(Empire empire, InstitutionNodeConfig node, FixedFaction sponsor) =>
+        ApplyInstitutionOutcome(InstitutionRealm.Of(empire), node, sponsor);
+
+    // 改革推成后各派系在阶层里的好感变化：帝国看核心王国的派系，王国看本国的
+    public static void ApplyInstitutionOutcome(InstitutionRealm realm, InstitutionNodeConfig node, FixedFaction sponsor)
     {
-        if (empire == null || node?.politics == null) return;
+        if (realm == null || node?.politics == null) return;
         string source = $"institution:{node.id}";
-        foreach (FixedFaction faction in empire.CoreKingdom?.GetRegime()?.GetPlayerFactions() ??
+        foreach (FixedFaction faction in realm.Core?.GetRegime()?.GetPlayerFactions() ??
                  Enumerable.Empty<FixedFaction>())
         {
             float supportRole = node.politics.support_factions.TryGetValue(faction.Type, out float support)
