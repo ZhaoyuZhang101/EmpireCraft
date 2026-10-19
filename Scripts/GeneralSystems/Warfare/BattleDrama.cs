@@ -107,12 +107,14 @@ public static class BattleDrama
             {
                 captor.AddMoney(price, TreasuryCategory.Reparations);
                 BiographySystem.Note(general, string.Format(LM.Get("bio_captured_ransomed"), place, captor.GetKingdomName(), price), victor);
+                if (victor != null) PersonalTieSystem.MakeRivals(general, victor, PersonalTieSystem.CauseCaptured);
                 Report(kingdom, general, string.Format(LM.Get("battle_general_ransomed_log"), place, name, price), sovereign);
                 return;
             }
             if (UnityEngine.Random.value < 0.5f)
             {
                 BiographySystem.Note(general, string.Format(LM.Get("bio_captured_released"), place, captor.GetKingdomName()), victor);
+                if (victor != null) PersonalTieSystem.MakeRivals(general, victor, PersonalTieSystem.CauseCaptured);
                 Report(kingdom, general, string.Format(LM.Get("battle_general_released_log"), place, name), sovereign);
                 return;
             }

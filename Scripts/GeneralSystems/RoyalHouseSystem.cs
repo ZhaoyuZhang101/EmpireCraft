@@ -260,6 +260,8 @@ public static class RoyalHouseSystem
                     PrinceLineage.GrantPrinces(empire);
                 }
             foreach (Kingdom kingdom in World.world.kingdoms.list.ToList()) Enfeoff(kingdom);
+            // 个人恩怨：构陷、复仇、投敌(见 PersonalTieSystem)
+            PersonalTieSystem.Yearly();
             if (CityPopulationSystem.AbstractPopulationEnabled || PureMapMode.Enabled)
                 foreach (Kingdom kingdom in World.world.kingdoms.list.ToList()) RoyalFamily(kingdom);
         }

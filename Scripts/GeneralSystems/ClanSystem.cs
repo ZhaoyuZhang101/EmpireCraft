@@ -1432,6 +1432,9 @@ public class PersonalClanIdentity
     public List<long> children = new List<long>();
     public List<CrimeRecord> crime_records = new List<CrimeRecord>();
     public List<PersonalHistoryRecord> personal_history = new List<PersonalHistoryRecord>();
+    // 个人恩怨(恩主、门生、宿敌，至多三条，见 PersonalTieSystem)
+    public List<PersonalTie> ties { get; set; }
+    public bool ShouldSerializeties() => ties != null && ties.Count > 0;
     [JsonIgnore]
     public List<PersonalHistoryRecord> related_history_records = new List<PersonalHistoryRecord>();
     public List<long> pending_child_birth_history_parents = new List<long>();
@@ -1839,6 +1842,17 @@ public class PersonalClanIdentity
         actor.kingdom?.StartToChooseHeir();
         actor.kingdom?.RemoveCalcHeirStatus();
     }
+}
+
+public class PersonalTie
+{
+    // 对方的族谱身份
+    public long other { get; set; } = -1L;
+    // 1 对方是我的恩主、2 对方是我的门生、3 宿敌(见 PersonalTieSystem)
+    public int kind { get; set; }
+    // 由来(tie_cause_ 后缀)
+    public string cause { get; set; } = "";
+    public double since { get; set; } = -1d;
 }
 
 public class PersonalHistoryRecord

@@ -222,6 +222,10 @@ public static partial class CourtSystem
         // 秦汉：御史大夫监察百官，他所属的派系弹劾更容易成
         if (CouncilKind(empire) == CourtCouncilKind.Han && DepartmentHead(empire, CensorOffice)?.GetFaction() == faction)
             chance += 0.2f;
+        // 个人恩怨(见 PersonalTieSystem)：门生在朝替恩主说话，每人难成一成(至多两成)；弹劾的是宿敌易成一成五
+        Actor impeacher = faction.GetLeader();
+        chance -= 0.1f * Mathf.Min(2, PersonalTieSystem.ProtegesInOffice(target.actor));
+        if (impeacher != null && PersonalTieSystem.AreRivals(impeacher, target.actor)) chance += 0.15f;
         data.capital -= ImpeachCost;
         string name = target.actor.getName();
         if (Random.value < Mathf.Clamp(chance, 0.05f, 0.9f))
@@ -231,6 +235,7 @@ public static partial class CourtSystem
             rivalData.grievance = Mathf.Min(100f, rivalData.grievance + 8f);
             rivalData.favor = Mathf.Max(0f, rivalData.favor - 4f);
             target.actor.RecordPersonalHistory(string.Format(LM.Get("personal_history_impeached"), faction.Name));
+            if (impeacher != null) PersonalTieSystem.MakeRivals(target.actor, impeacher, PersonalTieSystem.CauseImpeached);
             Act(data, "impeach", name);
             Log(state, "court_log_impeach_success", faction.Name, rivalFaction.Name, name);
         }

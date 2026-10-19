@@ -182,6 +182,8 @@ public static class BiographySystem
         if (killer?.data == null || killer.isRekt() || killer == victim || !Notable(victim) || killer.GetPersonalIdentity() == null) return;
         killer.RecordPersonalHistory(string.Format(LM.Get("death_killer_record"), victim.getName()), relatedActorId: victim.id,
             major: true);
+        // 死者的子与兄弟与凶手结下杀亲之仇(见 PersonalTieSystem)
+        PersonalTieSystem.OnKinKilled(victim, killer);
     }
 
     // 一句生平(大事)，人不在、没族谱身份的跳过
@@ -225,6 +227,7 @@ public static class BiographySystem
         List<PersonalHistoryRecord> deeds = majors.Where(record => !IsDeath(record)).ToList();
         foreach (PersonalHistoryRecord record in deeds.Skip(Math.Max(0, deeds.Count - ListedMajor)))
             text.Append(record.content.Trim());
+        text.Append(PersonalTieSystem.Describe(person));
         PersonalHistoryRecord death = majors.LastOrDefault(IsDeath) ?? history.LastOrDefault(IsDeath);
         if (death != null) text.Append(death.content.Trim());
         if (!string.IsNullOrWhiteSpace(person.posthumous_name))

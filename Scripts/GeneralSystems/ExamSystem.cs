@@ -156,6 +156,8 @@ public static class ExamSystem
         Empire empire = (Empire)nano;
         Dictionary<Actor, double> MarksData = new Dictionary<Actor, double>();
         if (empire == null || empire.isRekt()) return;
+        // 殿试及第者以当朝首辅为座主(见 PersonalTieSystem)
+        Actor examiner = empire.GetCabinetLeader();
         foreach (Kingdom province in empire.kingdoms_hashset.Where(province => province != null && !province.isRekt()))
         {
             foreach (Actor actor in province.AllGongshi().Where(actor => actor != null && !actor.isRekt()))
@@ -178,6 +180,8 @@ public static class ExamSystem
                 if (newlyPassed)
                 {
                     item.Key.RecordPersonalHistory(PassedText(item.Key, "empire"));
+                    if (examiner != null && examiner.isAlive() && examiner != item.Key)
+                        PersonalTieSystem.MakePatron(item.Key, examiner, PersonalTieSystem.CauseExam);
                 }
                 OfficeIdentity identity = EnsureExamIdentity(item.Key);
                 identity.TotalPerformance += 300;
@@ -191,6 +195,8 @@ public static class ExamSystem
                 if (newlyPassed)
                 {
                     item.Key.RecordPersonalHistory(PassedText(item.Key, "empire"));
+                    if (examiner != null && examiner.isAlive() && examiner != item.Key)
+                        PersonalTieSystem.MakePatron(item.Key, examiner, PersonalTieSystem.CauseExam);
                 }
                 OfficeIdentity identity = EnsureExamIdentity(item.Key);
                 identity.TotalPerformance += 300;
