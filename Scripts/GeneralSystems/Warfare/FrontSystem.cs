@@ -963,6 +963,8 @@ public static partial class FrontSystem
         }
         else if (SmoothActive) SmoothHold(city);
         Record(city, attacker, owner, ratio, attackStrength, holdStrength + militia, taken, now, terrain);
+        // 大败、溃散一方的统领：阵亡、被俘、突围(见 BattleDrama)
+        BattleDrama.AfterBattle(city, attackers, holders, ratio);
         // 名将名臣：赢的一方的军团统领、战争统帅记战功(见 FamousTalentSystem)
         if (ratio >= 0.55f)
             FamousTalentSystem.OnBattle(attackers.Where(entry => entry.kingdom == attacker), city.GetCityName(),
@@ -1098,6 +1100,8 @@ public static partial class FrontSystem
     private static void Surrender(City city, Kingdom attacker, Kingdom owner)
     {
         if (city?.zones == null || city.kingdom != owner || _surrendering) return;
+        // 守城统领殉国、被俘或出走(见 BattleDrama)
+        BattleDrama.CityFell(city, attacker, owner);
         Kingdom occupier = Belligerent(attacker, owner);
         // 举城投降：城外的镇村不遭兵火
         bool sparing = RuralSettlementSystem.Sparing;

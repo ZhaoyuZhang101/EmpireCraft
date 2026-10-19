@@ -1050,6 +1050,18 @@ public static class CorpsSystem
         if (home != null) CityPopulationSystem.DisbandIntoPopulation(general, home);
     }
 
+    // 统领被俘归降(见 BattleDrama)：不再统领这支军，组织度大挫，下个月补任
+    public static void LoseGeneral(Actor actor)
+    {
+        if (actor?.data == null || !GeneralIndex.TryGetValue(actor.id, out var key)) return;
+        GeneralIndex.Remove(actor.id);
+        Kingdom kingdom = World.world.kingdoms.get(key.kingdom);
+        CorpsData corps = kingdom == null ? null : Find(kingdom, key.corps);
+        if (corps == null) return;
+        corps.general_id = -1L;
+        corps.org = Mathf.Max(0f, corps.org - 20f);
+    }
+
     // 统领阵亡：组织度大挫，下个月补任
     public static void OnGeneralDied(Actor actor)
     {
