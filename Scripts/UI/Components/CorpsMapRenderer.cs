@@ -4,6 +4,7 @@ using System.Linq;
 using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GeneralSystems;
+using EmpireCraft.Scripts.GodPowers;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.UI.Windows;
 using NeoModLoader.General;
@@ -41,6 +42,47 @@ public static class CorpsMapRenderer
     private const float HoverScale = 1.4f;
     private const float LineWidth = 2.5f;
     private const float TooltipRefresh = 1f;
+    private const float LocateSeconds = 4f;
+    private static long _locatedCorps = -1L;
+    private static float _locateUntil;
+    private static MapBox _locateWorld;
+
+    public static void ClearLocate()
+    {
+        _locatedCorps = -1L;
+        _locateWorld = null;
+        _locateUntil = 0f;
+    }
+
+    private static bool Located(CorpsData corps) => corps.id == _locatedCorps &&
+        ReferenceEquals(_locateWorld, World.world) && Time.unscaledTime < _locateUntil;
+
+    // 关闭窗口后跳到兵牌实际位置；即使驻军开关关闭，也临时显示这支军。
+    public static bool Locate(CorpsData corps)
+    {
+        if (!CorpsSystem.Enabled || corps == null || World.world == null || MoveCamera.instance == null) return false;
+        Kingdom owner = World.world.kingdoms.get(corps.kingdom_id);
+        CorpsData current = CorpsSystem.Find(owner, corps.id);
+        TileZone zone = CorpsSystem.Zone(current);
+        if (current == null || zone?.centerTile == null) return false;
+        Vector3 target = CounterTarget(current, zone, out _);
+        _locatedCorps = current.id;
+        _locateWorld = World.world;
+        _locateUntil = Time.unscaledTime + LocateSeconds;
+        _corpsGliders[current.id] = new Glider { At = target, Target = target };
+        EnsureHost();
+        ScrollWindow.hideAllEvent();
+        MoveCamera.instance.focusOn(target);
+        return true;
+    }
+
+    private static Vector3 CounterTarget(CorpsData corps, TileZone zone, out bool follows)
+    {
+        Actor general = corps.general_id >= 0 ? World.world.units.get(corps.general_id) : null;
+        follows = general?.data != null && !general.isRekt() && general.isAlive() &&
+                  general.current_tile?.zone != null && CorpsSystem.ZoneDistance(general.current_tile.zone, zone) <= 2f;
+        return follows ? (Vector3)general.current_position + new Vector3(0f, 3f) : CorpsSystem.DrawPosition(corps);
+    }
 
     private sealed class Counter
     {
@@ -111,6 +153,7 @@ public static class CorpsMapRenderer
         public float ArmStrength = -1f;
         // 行军途中(还没滑到所在地块)：镜头近时不与别的兵牌折叠，不按地块错开
         public bool Moving;
+        public bool Located;
         public readonly List<int> Zones = new();
         // 并进来的各国(第一个是兵力最大、颜色所用的那国)
         public readonly List<Kingdom> Realms = new();
@@ -332,7 +375,7 @@ public static class CorpsMapRenderer
     private static readonly Color FrontColor = new Color32(226, 64, 52, 235);
 
     private static bool ShowsCorps(Kingdom kingdom, CorpsData corps) =>
-        corps.task != "reserve" || CorpsSystem.IsAtWar(kingdom);
+        corps.task != "reserve" || SwitchGarrisonButton.Shown || CorpsSystem.IsAtWar(kingdom) || Located(corps);
 
     public static void EnsureHost()
     {
@@ -627,16 +670,20 @@ public static class CorpsMapRenderer
             TileZone zone = CorpsSystem.Zone(corps);
             if (zone?.centerTile == null) continue;
             // 有统领实体时跟在统领头顶
-            Actor general = corps.general_id >= 0 ? World.world.units.get(corps.general_id) : null;
-            bool follows = general?.data != null && !general.isRekt() && general.isAlive() &&
-                           general.current_tile?.zone != null && CorpsSystem.ZoneDistance(general.current_tile.zone, zone) <= 2f;
             // 行军途中按进度画在两块地之间，每个游戏秒往前挪一点，滑起来是连续的(见 CorpsSystem.DrawPosition)
-            Vector3 target = follows ? (Vector3)general.current_position + new Vector3(0f, 3f) : CorpsSystem.DrawPosition(corps);
+            Vector3 target = CounterTarget(corps, zone, out bool follows);
             // 统领实体自己在走，兵牌直接跟着，不再另外滑
             Glider glider = follows ? new Glider { At = target, Target = target } : Glide(_corpsGliders, corps.id, target, glideDelta);
             _nextCorpsGliders[corps.id] = glider;
             CounterGroup group;
-            if ((follows || glider.At == target) && split)
+            if (Located(corps))
+            {
+                // 定位的军单独画在真实位置，不被同城堆叠挤出镜头，也不被远景折叠吞掉。
+                group = new CounterGroup
+                    { Kingdom = kingdom, Zone = zone, World = glider.At, Task = corps.task, Located = true };
+                Groups[(zone.id, -corps.id - 1L)] = group;
+            }
+            else if ((follows || glider.At == target) && split)
             {
                 // 拉近：各画一块，绕地块中心上下交替错开(间距大于折叠范围，不会再并回去)
                 var zoneKey = (zone.id, kingdom.id);
@@ -690,7 +737,7 @@ public static class CorpsMapRenderer
             if (!OnScreen(group.Screen, 80f)) continue;
             CounterGroup into = null;
             foreach (CounterGroup other in Folded)
-                if (other.Embarked == group.Embarked && Mergeable(other.Kingdom, group.Kingdom, mixRealms) &&
+                if (!group.Located && !other.Located && other.Embarked == group.Embarked && Mergeable(other.Kingdom, group.Kingdom, mixRealms) &&
                     Mathf.Abs(other.Screen.x - group.Screen.x) < foldX &&
                     Mathf.Abs(other.Screen.y - group.Screen.y) < foldY)
                 {
@@ -748,6 +795,7 @@ public static class CorpsMapRenderer
             }
 
         StackOffsets.Clear();
+        RectTransform locatedRoot = null;
         foreach (CounterGroup group in Folded)
         {
             Vector3 screen = group.Screen;
@@ -757,6 +805,12 @@ public static class CorpsMapRenderer
             // 在船上(运兵船)换海青框、棋子站在船上；否则补给断绝换灰边
             SetFrame(counter.Frame, group.Embarked ? Frame("CorpsFrame_sea")
                 : group.MinSupply < 0.25f ? Frame("CorpsFrame_ash") : TaskFrame(group.Task));
+            if (group.Located)
+            {
+                locatedRoot = counter.Root;
+                if (Mathf.Repeat(Time.unscaledTime, 0.6f) < 0.4f)
+                    SetFrame(counter.Frame, Frame("CorpsFrame_gold"));
+            }
             counter.Piece.sprite = group.Embarked ? Troopship(group.Rank) : ArmIcon(group.Arm);
             counter.Plate.color = group.Kingdom.getColor()?.getColorMain() ?? Color.gray;
             string label = group.Count > 1
@@ -780,7 +834,7 @@ public static class CorpsMapRenderer
             counter.Org.color = org < 0.3f ? OrgLowColor : OrgColor;
             // 同一地块的第二国、第三国往右错开(途中的不错开)
             float offset = 0f;
-            if (!group.Moving)
+            if (!group.Moving && !group.Located)
             {
                 StackOffsets.TryGetValue(group.Zone.id, out offset);
                 StackOffsets[group.Zone.id] = offset + width + 3f;
@@ -942,6 +996,7 @@ public static class CorpsMapRenderer
             });
         }
 
+        if (locatedRoot != null) locatedRoot.SetAsLastSibling();
         UpdateHover(pixelScale);
     }
 

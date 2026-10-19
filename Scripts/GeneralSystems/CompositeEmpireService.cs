@@ -38,11 +38,17 @@ public static partial class CompositeEmpireService
         // 统治族群是游牧，或被征服文化比本族先进(见 MoreAdvanced)：才走得上复合帝国这条路
         public bool RulerIsNomadic;
         public bool Applicable => RulerIsNomadic || HasInstitutionalTarget && MoreAdvanced(InstitutionalCulture, RulingCulture);
+        // 离草的游牧(见 ShuiTuSystem)：采纳定居文化的制度，控制法理的门槛从一半按档降到三分之一、四分之一、五分之一，
+        // 天命门槛每档低 5(ControlDivisor 是所选制度文化的门槛分母)
+        public int OffGrassTier;
+        public int ControlDivisor = 2;
 
         public bool HasInstitutionalTarget =>
             CultureService.IsValidCulture(InstitutionalCulture) && TotalTitles > 0;
-        public bool HasRequiredControl => HasInstitutionalTarget && ControlledTitles * 2 >= TotalTitles;
-        public bool HasRequiredMandate => Mandate >= 40;
+        public int RequiredTitles => (TotalTitles + ControlDivisor - 1) / ControlDivisor;
+        public int RequiredMandate => 40 - 5 * OffGrassTier;
+        public bool HasRequiredControl => HasInstitutionalTarget && ControlledTitles >= RequiredTitles;
+        public bool HasRequiredMandate => Mandate >= RequiredMandate;
         public bool HasDistinctCultures =>
             CultureService.IsValidCulture(RulingCulture) &&
             CultureService.IsValidCulture(InstitutionalCulture) &&
@@ -81,7 +87,8 @@ public static partial class CompositeEmpireService
     // 治理路线(用户 2026-10-19 选"三条路线由局势定")，每年按局势重定(见 UpdateRoute)：
     //   · 分治：本族旧地占三成五以上的城(或本族人口三成五以上)——朝廷照本族旧制，属地之民以其本制治之，
     //     融合度不过 49、不改国号，不能易俗改制；
-    //   · 从俗：本族旧地不到一成五，且属地文化更先进或融入派当权(本俗反扑期间不从俗)——融合每年多一点，
+    //   · 从俗：本族旧地不到一成五，且属地文化更先进或融入派当权(本俗反扑期间不从俗；离草的游牧对一切定居文化都肯从俗，
+    //     门槛按离草档位放宽，见 ShuiTuSystem)——融合每年多一点，
     //     统治族群在也能融完，可以易俗改制；
     //   · 兼用：其余——朝廷用属地制度，本族保留旧俗与军事传统，统治族群在时融合度不过 79。
     // 已在某条路上的，要越过阈值五个百分点才改(免得年年来回)
@@ -112,10 +119,14 @@ public static partial class CompositeEmpireService
     {
         int current = empire.data.composite_route;
         float homeland = Math.Max(rulingShare, HomelandCityShare(empire, ruling));
+        // 离草的游牧(见 ShuiTuSystem)：每档把分治的门槛抬高、从俗的门槛放宽五个百分点，属地是定居文化就肯从俗
+        int offGrass = ShuiTuSystem.OffGrassTier(empire.CoreKingdom);
+        float push = 0.05f * offGrass;
         int next;
-        if (homeland >= (current == RouteDual ? 0.30f : 0.35f)) next = RouteDual;
-        else if (!NativistActive(empire) && DrawnToConquered(empire, ruling, institutional) &&
-                 homeland < (current == RouteAdopt ? 0.20f : 0.15f)) next = RouteAdopt;
+        if (homeland >= (current == RouteDual ? 0.30f : 0.35f) + push) next = RouteDual;
+        else if (!NativistActive(empire) &&
+                 (DrawnToConquered(empire, ruling, institutional) || offGrass > 0 && !IsNomadicCulture(institutional)) &&
+                 homeland < (current == RouteAdopt ? 0.20f : 0.15f) + push) next = RouteAdopt;
         else next = RouteJoint;
         if (next == current) return;
         empire.data.composite_route = next;
@@ -280,6 +291,7 @@ public static partial class CompositeEmpireService
         {
             return status;
         }
+        status.OffGrassTier = status.RulerIsNomadic ? ShuiTuSystem.OffGrassTier(empire.CoreKingdom) : 0;
 
         if (ModClass.KINGDOM_TITLE_MANAGER != null)
         {
@@ -355,7 +367,9 @@ public static partial class CompositeEmpireService
             city != null && !city.isRekt() && city.kingdom?.GetEmpire() == empire));
         if (controlled <= 0) return;
 
-        bool candidateEligible = controlled * 2 >= titles.Count;
+        // 离草的游牧采纳定居文化的制度，门槛按档放宽(见 AdoptionStatus.OffGrassTier)
+        int divisor = status.OffGrassTier > 0 && !IsNomadicCulture(culture) ? 2 + status.OffGrassTier : 2;
+        bool candidateEligible = controlled * divisor >= titles.Count;
         bool currentEligible = status.HasRequiredControl;
         bool replace = status.TotalTitles <= 0 || candidateEligible && !currentEligible;
         if (!replace && candidateEligible == currentEligible)
@@ -376,6 +390,7 @@ public static partial class CompositeEmpireService
         status.InstitutionalRegime = adoptable;
         status.ControlledTitles = controlled;
         status.TotalTitles = titles.Count;
+        status.ControlDivisor = divisor;
     }
 
     private static List<KingdomTitle> GetInstitutionalTitles(string culture)

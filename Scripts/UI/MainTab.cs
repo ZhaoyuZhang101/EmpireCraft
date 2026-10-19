@@ -508,6 +508,10 @@ internal static class MainTab
             SpriteTextureLoader.getSprite("ui/icons/iconHideUI"));
         AddButton(DISPLAY_GROUP, simpleNameplateButton);
 
+        SwitchGarrisonButton.init();
+        AddButton(DISPLAY_GROUP, PowerButtonCreator.CreateToggleButton("show_garrison",
+            SpriteTextureLoader.getSprite("ui/icons/iconWar")));
+
         // 地形浮雕：国色上叠不叠地形明暗
         SwitchTerrainReliefButton.init();
         PowerButton reliefButton = PowerButtonCreator.CreateToggleButton("terrain_relief",

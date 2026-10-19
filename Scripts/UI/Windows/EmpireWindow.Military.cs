@@ -228,13 +228,13 @@ namespace EmpireCraft.Scripts.UI.Windows
         }
 
         // 列宽：番号 | 驻地 | 兵力 | 组织度 | 任务
-        // 军号 | 兵种(可换装时带"换装"按钮) | 驻地 | 兵力 | 组织度 | 任务
-        private static readonly float[] CorpsColumns = { 0.15f, 0.19f, 0.13f, 0.21f, 0.13f, 0.19f };
+        // 军号 | 兵种(可换装时带"换装"按钮) | 驻地 | 兵力 | 组织度 | 任务 | 定位
+        private static readonly float[] CorpsColumns = { 0.14f, 0.18f, 0.10f, 0.19f, 0.12f, 0.19f, 0.08f };
 
         private static void AddCorpsHeader(AutoVertLayoutGroup card, float width)
         {
             var row = card.BeginHoriGroup(new Vector2(width, 10f), TextAnchor.MiddleLeft, 2, new RectOffset(0, 0, 0, 0));
-            string[] keys = { "corps_col_name", "corps_col_arm", "corps_col_home", "corps_col_strength", "corps_col_org", "corps_col_task" };
+            string[] keys = { "corps_col_name", "corps_col_arm", "corps_col_home", "corps_col_strength", "corps_col_org", "corps_col_task", "corps_locate" };
             for (int i = 0; i < keys.Length; i++)
                 row.AddTextIntoHoriLayout(LM.Get(keys[i]).ColorString("#8FA0A8"), true, TextAnchor.MiddleLeft,
                     new Vector2(width * CorpsColumns[i] - 2f, 10f)).UseFixedFontSize(6, HorizontalWrapMode.Overflow);
@@ -269,6 +269,7 @@ namespace EmpireCraft.Scripts.UI.Windows
             {
                 row.AddTextIntoHoriLayout(TaskText(corps), true, TextAnchor.MiddleLeft, new Vector2(W(5), 12f))
                     .UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+                AddLocateCell(row, W(6), corps);
                 return;
             }
             // 手动组建的军：任务后带"解散"按钮(交战中的不能解散)
@@ -285,6 +286,22 @@ namespace EmpireCraft.Scripts.UI.Windows
                 disband.gameObject.SetActive(false);
             }, size: new Vector2(DisbandWidth, 10f));
             if (corps.task is "attack" or "defend") disband.Button.interactable = false;
+            AddLocateCell(row, W(6), corps);
+        }
+
+        private static void AddLocateCell(AutoHoriLayoutGroup row, float width, CorpsData corps)
+        {
+            var button = row.AddButtonIntoHoriLayout($"corps_locate_{corps.id}", LM.Get("corps_locate"), () =>
+            {
+                if (!CorpsMapRenderer.Locate(corps))
+                    WorldTip.showNow(LM.Get("corps_locate_unavailable"), false, "top", 3f);
+            }, size: new Vector2(width, 10f));
+            button.Text.fontSize = 6;
+            button.Text.resizeTextForBestFit = true;
+            button.Text.resizeTextMinSize = 4;
+            button.Text.resizeTextMaxSize = 6;
+            UIHelper.AttachTextTooltip(button.gameObject, $"corps_locate_{corps.id}", LM.Get("corps_locate"),
+                LM.Get("corps_locate_description"));
         }
 
         private const int RaiseSeats = 5;

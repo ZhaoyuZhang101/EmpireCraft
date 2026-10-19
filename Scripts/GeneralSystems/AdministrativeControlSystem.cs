@@ -480,9 +480,26 @@ public static class AdministrativeControlSystem
                 if (next == null || !seen.Add(next) || next.kingdom != former || !Overreached(realm, next, limit)) continue;
                 cluster.Add(next);
             }
+        string seedName = seed.data.name;
+        Kingdom local = ReleaseToLocal(realm, cluster, null, out string form);
+        if (local == null) return;
+        EventRecorder.Record(realm, string.Format(LM.Get("admin_overreach_" + form + "_history"),
+            realm.GetKingdomName(), local.GetKingdomName(), cluster.Count));
+        LogService.LogInfo($"[EmpireCraft][扩张上限] {realm.GetKingdomName()} 管不到 {seedName} 等 {cluster.Count} 城，转为 {form}");
+    }
+
+    // 交给当地首领：cluster 的头一座城由当地首领自立为国，其余仍属原国的城并入，再按 place 安置
+    // (为空时按政体文化转为分封诸侯、羁縻州、朝贡国或附庸，见 Subordinate)。水土的出路也走这里(见 ShuiTuSystem)。
+    // form 是安置的形式(admin_overreach_{form}_history)；自立不成返回 null
+    public static Kingdom ReleaseToLocal(Kingdom realm, List<City> cluster, Func<Kingdom, string> place, out string form)
+    {
+        form = null;
+        City seed = cluster?.FirstOrDefault();
+        if (realm?.data == null || !Valid(seed)) return null;
+        Kingdom former = seed.kingdom;
         if (!seed.hasLeader()) CityPopulationSystem.EnsureLeader(seed);
         Actor leader = LocalLeader(seed);
-        if (leader == null) return;
+        if (leader == null) return null;
         Kingdom local;
         try
         {
@@ -491,9 +508,9 @@ public static class AdministrativeControlSystem
         catch (Exception error)
         {
             LogService.LogWarning($"[EmpireCraft][扩张上限] {seed.data.name} 自立失败: {error.Message}");
-            return;
+            return null;
         }
-        if (local == null || local.isRekt() || seed.kingdom != local) return;
+        if (local == null || local.isRekt() || seed.kingdom != local) return null;
         foreach (City city in cluster.Skip(1))
             if (Valid(city) && city.kingdom == former) city.joinAnotherKingdom(local);
         foreach (City city in cluster)
@@ -503,10 +520,8 @@ public static class AdministrativeControlSystem
             data.conquered_by = -1L;
             data.admin_control = -1f;
         }
-        string form = Subordinate(realm, local);
-        EventRecorder.Record(realm, string.Format(LM.Get("admin_overreach_" + form + "_history"),
-            realm.GetKingdomName(), local.GetKingdomName(), cluster.Count));
-        LogService.LogInfo($"[EmpireCraft][扩张上限] {realm.GetKingdomName()} 管不到 {seed.data.name} 等 {cluster.Count} 城，转为 {form}");
+        form = place != null ? place(local) : Subordinate(realm, local);
+        return local;
     }
 
     private static Actor LocalLeader(City city)

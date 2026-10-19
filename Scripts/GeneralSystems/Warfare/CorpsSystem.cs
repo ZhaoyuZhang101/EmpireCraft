@@ -117,6 +117,7 @@ public static class CorpsSystem
 
     public static void ResetWorldState()
     {
+        UI.Components.CorpsMapRenderer.ClearLocate();
         EquivalentsByCity.Clear();
         GeneralsByCity.Clear();
         GeneralIndex.Clear();

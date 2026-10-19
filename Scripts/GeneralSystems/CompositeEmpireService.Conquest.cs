@@ -19,12 +19,13 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 北归：尚未融完、不受天命、属地法理只控制着不到四分之一、治下还有本族旧地的城——退归旧地：都城迁回本族旧地最大的城，
 //     朝廷复行旧制(军事传统的政体)，国号加方位(新都在旧都哪边就称哪边)，以属地制度治理的成员各自脱离，复合帝国就此作罢；
 //     日后再打下属地、条件够了还可以再采纳。采纳后十年内不北归。
+//     离草(见 ShuiTuSystem)到第二档以上的，属地还没丢也每年有 RetreatHomesickChance 的机会北归，只回旱地上的本族旧地，离草从头计。
 public static partial class CompositeEmpireService
 {
     private const int NativistYears = 20, NativistIntegration = 50, NativistLoss = 10, NativistLegitimacy = 10;
     private const float OldGuardChance = 0.5f;
     private const int OldGuardMax = 2;
-    private const float RetreatControlShare = 0.25f;
+    private const float RetreatControlShare = 0.25f, RetreatHomesickChance = 0.3f;
     private const int RetreatGraceYears = 10;
 
     #region 本俗反扑
@@ -106,13 +107,18 @@ public static partial class CompositeEmpireService
     private static bool TryNorthernRetreat(Empire empire, string ruling, string institutional, float controlledShare)
     {
         Kingdom core = empire.CoreKingdom;
-        if (core?.capital == null || World.world == null || controlledShare >= RetreatControlShare ||
+        if (core?.capital == null || World.world == null) return false;
+        // 属地丢得差不多了；或离草到第二档以上(部众思归，每年三成机会)
+        bool lost = controlledShare < RetreatControlShare;
+        bool homesick = !lost && ShuiTuSystem.OffGrassTier(core) >= ShuiTuSystem.RetreatTier &&
+                        UnityEngine.Random.value < RetreatHomesickChance;
+        if ((!lost && !homesick) ||
             TianxiaSystem.MandateOf(core) != null || !IsNomadicCulture(ruling) || !CultureService.IsValidCulture(institutional) ||
             empire.data.composite_identity_adopted_timestamp >= 0d &&
             Date.getYearsSince(empire.data.composite_identity_adopted_timestamp) < RetreatGraceYears ||
             !Enum.TryParse(empire.data.military_tradition, true, out RegimeType tradition) ||
             RegimeManager.regimes == null || !RegimeManager.regimes.ContainsKey(tradition)) return false;
-        City seat = HomelandSeat(empire, ruling);
+        City seat = HomelandSeat(empire, ruling, homesick);
         if (seat == null) return false;
 
         string before = empire.GetEmpireFullName();
@@ -157,10 +163,12 @@ public static partial class CompositeEmpireService
         empire.data.centerOffice ??= new CenterOffice();
         empire.data.centerOffice.Init(core);
 
-        string text = string.Format(LM.Get("composite_northern_retreat_history"), before, institutional.GetCultureTranslate(),
-            seat.GetCityName(), empire.GetEmpireFullName(), left);
+        string text = string.Format(LM.Get(homesick ? "composite_northern_retreat_shuitu_history" : "composite_northern_retreat_history"),
+            before, institutional.GetCultureTranslate(), seat.GetCityName(), empire.GetEmpireFullName(), left);
         EventRecorder.Record(empire, text);
-        LogService.LogInfo($"[EmpireCraft][征服王朝] {before} 北归 {seat.GetCityName()}，{left} 个成员脱离");
+        // 离草从头计(见 ShuiTuSystem)
+        ShuiTuSystem.OnNorthernRetreat(core);
+        LogService.LogInfo($"[EmpireCraft][征服王朝] {before} 北归 {seat.GetCityName()}{(homesick ? "(离草思归)" : "")}，{left} 个成员脱离");
         return true;
     }
 
@@ -178,11 +186,12 @@ public static partial class CompositeEmpireService
         SynchronizeMilitaryTraditionClaims(empire);
     }
 
-    // 本族旧地最大的城：先找朝廷自己的，再找成员的(成员的都城不拿)
-    private static City HomelandSeat(Empire empire, string ruling)
+    // 本族旧地最大的城：先找朝廷自己的，再找成员的(成员的都城不拿)；离草思归的只回旱地上的旧地(见 ShuiTuSystem.IsDryCity)
+    private static City HomelandSeat(Empire empire, string ruling, bool dryOnly = false)
     {
         bool Home(City city) => city?.data != null && !city.isRekt() &&
-                                string.Equals(CultureService.GetMainCulture(city, initialize: false), ruling, StringComparison.Ordinal);
+                                string.Equals(CultureService.GetMainCulture(city, initialize: false), ruling, StringComparison.Ordinal) &&
+                                (!dryOnly || ShuiTuSystem.IsDryCity(city));
         City own = (empire.CoreKingdom.cities ?? new List<City>()).Where(Home)
             .OrderByDescending(city => city.CountLivingPopulation()).FirstOrDefault();
         if (own != null) return own;

@@ -681,14 +681,14 @@ namespace EmpireCraft.Scripts.UI.Windows
                 }
                 else
                 {
-                    int requiredTitles = (adoption.TotalTitles + 1) / 2;
+                    int requiredTitles = adoption.RequiredTitles;
                     string controlled = adoption.ControlledTitles.ToString().ColorString(
                         adoption.HasRequiredControl ? "#65D66E" : "#FF6B6B");
                     string mandate = adoption.Mandate.ToString().ColorString(
                         adoption.HasRequiredMandate ? "#65D66E" : "#FF6B6B");
                     requirement = string.Format(LM.Get("composite_empire_adoption_title_progress"),
                                       controlled, adoption.TotalTitles, requiredTitles) + "\n" +
-                                  string.Format(LM.Get("composite_empire_adoption_mandate_progress"), mandate);
+                                  string.Format(LM.Get("composite_empire_adoption_mandate_progress"), mandate, adoption.RequiredMandate);
                 }
                 panel.AddTextIntoVertLayout(requirement, true, TextAnchor.MiddleCenter, new Vector2(MainWidth - 12f, 20));
 

@@ -19,7 +19,6 @@ using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
 using EmpireCraft.Scripts.AI.KingdomAI;
 using static EmpireCraft.Scripts.GameClassExtensions.KingdomExtension;
-using EmpireCraft.Scripts.GeneralSystems;
 
 namespace EmpireCraft.Scripts.GamePatches;
 
@@ -235,10 +234,14 @@ public class KingdomPatch : GamePatch
                 if (isActualSuccession && empire != null) NomadCycleSystem.OnKhanSucceeded(empire);
                 // 新哈里发即位：积弊深重或正统低落时世袭的埃米尔可能举兵自立(哈里发更替之乱，见 NomadCycleSystem)
                 if (isActualSuccession && empire != null) NomadCycleSystem.OnCaliphSucceeded(empire);
+                // 定居帝国换了君主：改从游牧的成员逢乱可能据地自立(见 ShuiTuSystem)
+                if (isActualSuccession && empire != null) ShuiTuSystem.OnSuzerainSucceeded(empire);
                 // 不论新皇帝是怎么即位的，都在这里处理即位分封(按法理把土地封给新君的兄弟)
                 if (isActualSuccession && empire != null) EnfeoffmentHelper.OnEmperorSucceeded(empire);
                 return;
             }
+            // 不是帝国的宗主换了君主：改从游牧的附庸可能起兵独立(见 ShuiTuSystem)
+            if (!pFromLoad && (__state == null || __state.id != pActor.id)) ShuiTuSystem.OnOverlordSucceeded(__instance);
             __instance.RemoveHeir();
         }
     }

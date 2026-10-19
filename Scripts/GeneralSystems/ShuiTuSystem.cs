@@ -24,7 +24,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 定居入草(按城)：只适应农地的政权直辖的每座旱地城，记下占有起始时间与政权(易主按新主人重新计时)；
 //   · 分档：满 FirstTierYears(20)年第一档，之后每满 TierStepYears(10)年加一档，最多 MaxTier(3)档。
 //     旧档读进来没有这些时间的从第一次结算起算，不会一读档就到档；
-//   · 每个政权每年结算一次(分帧，每帧至多一个)：走档、离草结束记入史书；Player.log 诊断行 [水土](到档的每国每年一行，状态变了也记一行)。
+//   · 每个政权每年结算一次(分帧，每帧至多一个)：走档、离草结束记入史书；Player.log 诊断行 [水土](到档的每国每年一行，状态变了也记一行)；
+//   · 效果见"效果"一节，出路见 ShuiTuSystem.Outlets。
 public static partial class ShuiTuSystem
 {
     public enum Fit { None, Nomad, Both, Farm }
@@ -409,6 +410,8 @@ public static partial class ShuiTuSystem
             EndOffGrass(unit, extra, fit == Fit.Nomad);
         RecordTiers(unit, info, extra);
         Diagnose(unit, info);
+        // 到档后按局势走出路(见 ShuiTuSystem.Outlets)
+        TryOutlet(unit, info, kingdoms, cities);
     }
 
     // 离草结束(回到旱地，或改了政体)：到过档的记入史书

@@ -10,7 +10,8 @@ using UnityEngine;
 
 namespace EmpireCraft.Scripts.Regimes.TemporaryFactions.Claims;
 
-// 屯田实边(变法派、将门的朝堂议题)：与外国接壤的边城(至多六座)屯田积粮；军人怨气 -5、农民服役 +2；十年一次
+// 屯田实边(变法派、将门的朝堂议题)：与外国接壤的边城(至多六座)屯田积粮；军人怨气 -5、农民服役 +2；十年一次。
+// 本国不服水土的旱地城计时往回拨五年(不晚于现在)，只是拖延，免不掉(见 ShuiTuSystem.Delay)
 public class TempFac_屯田实边 : TemporaryFaction
 {
     public override TemporaryFaction Clone(FixedFaction faction)
@@ -43,6 +44,8 @@ public class TempFac_屯田实边 : TemporaryFaction
             ClaimPolicySystem.AddGrievance(empire, SocialClass.Army, -5f);
             ClaimPolicySystem.AddGrievance(empire, SocialClass.Peasant, 2f);
             CompletionOutcome = string.Format(LM.Get("claim_outcome_屯田实边_done"), cities.Count, grain);
+            int delayed = ShuiTuSystem.Delay(empire.CoreKingdom);
+            if (delayed > 0) CompletionOutcome += string.Format(LM.Get("claim_outcome_屯田实边_shuitu"), delayed);
         }
         End();
     }
