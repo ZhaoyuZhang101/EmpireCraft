@@ -63,7 +63,9 @@ public enum PartyIdeology
     // 各文化有文字以前人人信的上古信仰，有了文字就分化为本文化的学说、教门
     Animism,                // 泛灵论    农民、奴隶
     // 宗亲(玩家建议"宦官天然是天子派……宗室从天子派里拆出来"，用户 2026-10-17 定)：只在朝堂里，朝中为宗室派
-    RoyalKin                // 宗亲      宗室派
+    RoyalKin,               // 宗亲      宗室派
+    // 军功(用户 2026-10-20 选"常设军功派")：统兵的将领、武职官员，只在朝堂里，朝中为军功派(律令制模板的武官派即是)
+    MilitaryMerit           // 军功      军功派
 }
 
 // 政党。开放党禁(制度特性 party_politics)且议会已召开后：
@@ -127,7 +129,8 @@ public static class PartySystem
         { PartyIdeology.ConsortKin, new Vector2(45f, -68f) },
         { PartyIdeology.Eunuchs, new Vector2(-15f, -92f) },
         { PartyIdeology.Animism, new Vector2(-40f, -30f) },
-        { PartyIdeology.RoyalKin, new Vector2(25f, -80f) }
+        { PartyIdeology.RoyalKin, new Vector2(25f, -80f) },
+        { PartyIdeology.MilitaryMerit, new Vector2(15f, -70f) }
     };
 
     // 各阶层在光谱上的立场
@@ -177,7 +180,9 @@ public static class PartySystem
         { PartyIdeology.ConsortKin, FactionType.外戚 },
         { PartyIdeology.Eunuchs, FactionType.宦官 },
         { PartyIdeology.Animism, FactionType.原始 },
-        { PartyIdeology.RoyalKin, FactionType.血脉 }
+        { PartyIdeology.RoyalKin, FactionType.血脉 },
+        // 军功派沿用攘夷(武官派)的诉求：对外扩张、谋求统一、迫使朝贡……
+        { PartyIdeology.MilitaryMerit, FactionType.攘夷 }
     };
 
     // 各理念的诉求：沿用原派系诉求，另加推行普选/土地改革
@@ -210,7 +215,8 @@ public static class PartySystem
         { PartyIdeology.ConsortKin, new[] { TemporaryFactionType.册立储君, TemporaryFactionType.转世袭, TemporaryFactionType.神授君权 } },
         { PartyIdeology.Eunuchs, new[] { TemporaryFactionType.恢复世袭皇权, TemporaryFactionType.颁布帝国治安令, TemporaryFactionType.整顿吏治 } },
         { PartyIdeology.Animism, new[] { TemporaryFactionType.加强神权, TemporaryFactionType.扩张地盘, TemporaryFactionType.分封 } },
-        { PartyIdeology.RoyalKin, new[] { TemporaryFactionType.分封, TemporaryFactionType.供养宗室, TemporaryFactionType.转世袭 } }
+        { PartyIdeology.RoyalKin, new[] { TemporaryFactionType.分封, TemporaryFactionType.供养宗室, TemporaryFactionType.转世袭 } },
+        { PartyIdeology.MilitaryMerit, new[] { TemporaryFactionType.对外扩张, TemporaryFactionType.谋求统一, TemporaryFactionType.屯田实边 } }
     };
 
     private static readonly SocialClass[] RestrictedFranchise =
@@ -268,7 +274,8 @@ public static class PartySystem
         { PartyIdeology.ConsortKin, IdeologyRoute.Stances },
         { PartyIdeology.Eunuchs, IdeologyRoute.Stances },
         { PartyIdeology.Animism, IdeologyRoute.Primordial },
-        { PartyIdeology.RoyalKin, IdeologyRoute.Stances }
+        { PartyIdeology.RoyalKin, IdeologyRoute.Stances },
+        { PartyIdeology.MilitaryMerit, IdeologyRoute.Stances }
     };
 
     public static IdeologyRoute RouteOf(PartyIdeology ideology) => Routes[ideology];

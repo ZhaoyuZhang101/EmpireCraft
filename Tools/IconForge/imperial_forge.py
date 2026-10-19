@@ -1531,6 +1531,8 @@ ANCIENT_IDEOLOGIES = {
     "Diplomatists": (obj_envoy, VIOLET), "YinYang": (obj_taiji, STEEL), "ImperialPower": (obj_crown, AMBER),
     "GreatClans": (obj_tablet, TEAL), "ConsortKin": (obj_phoenix, RED), "Eunuchs": (obj_whisk, VIOLET),
     "Animism": (obj_totem, MOSS), "RoyalKin": (obj_imperial_seal_lesser, AMBER),
+    # 军功(将领与武职)：铁兜鍪、血红盔缨，赭黄底
+    "MilitaryMerit": (lambda img: obj_helmet(img, STEEL, RED), OCHRE),
 }
 
 

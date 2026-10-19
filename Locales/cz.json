@@ -2254,6 +2254,8 @@
   "Tianxia_layer": "天下图层",
   "ideology_seed_royalkin_description": "将撒到的居民立即转为宗亲。",
   "ideology_seed_royalkin": "宗亲种子",
+  "ideology_seed_militarymerit_description": "将撒到的居民立即转为军功。",
+  "ideology_seed_militarymerit": "军功种子",
   "ideology_seed_animism_description": "将撒到的居民立即转为泛灵论。",
   "ideology_seed_animism": "泛灵论种子",
   "ideology_seed_eunuchs_description": "将撒到的居民立即转为宦官。",
@@ -6708,6 +6710,11 @@
   "clique_label_RoyalKin": "宗室派",
   "faction_represents_RoyalKin": "代表宗室",
   "institution_ideology_royal_kin_desc": "皇族宗亲，靠与君主同出一脉而贵，求供养、封国与世袭。只在朝堂里，朝中为宗室派。",
+  "trait_empire_ideology_MilitaryMerit": "军功",
+  "party_ideology_MilitaryMerit": "军功",
+  "clique_label_MilitaryMerit": "军功派",
+  "faction_represents_MilitaryMerit": "代表将领与武职",
+  "institution_ideology_military_merit_desc": "统兵的将领与武职官员，靠战功进身，主用兵、开边、一统，耻于岁币割地，恶宦官掌兵。只在朝堂里，朝中为军功派。",
   "empire_formation_route_Seal": "怀玺受命",
   "faction_influence_share": "影响{0}%"
 }

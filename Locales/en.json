@@ -2251,6 +2251,8 @@
   "Tianxia_layer": "All-Under-Heaven Layer",
   "ideology_seed_royalkin_description": "Residents touched by these seeds immediately adopt Royal Kin.",
   "ideology_seed_royalkin": "Royal Kin seeds",
+  "ideology_seed_militarymerit_description": "Residents touched by these seeds immediately adopt Military Merit.",
+  "ideology_seed_militarymerit": "Military Merit seeds",
   "ideology_seed_animism_description": "Residents touched by these seeds immediately adopt Animism.",
   "ideology_seed_animism": "Animism seeds",
   "ideology_seed_eunuchs_description": "Residents touched by these seeds immediately adopt Eunuchs.",
@@ -6708,6 +6710,11 @@
   "clique_label_RoyalKin": "Royal Kin Faction",
   "faction_represents_RoyalKin": "for the royal kin",
   "institution_ideology_royal_kin_desc": "Kinsmen of the ruling house, seeking stipends, fiefs and hereditary rank. Court only; at court they form the Royal Kin Faction.",
+  "trait_empire_ideology_MilitaryMerit": "Military Merit",
+  "party_ideology_MilitaryMerit": "Military Merit",
+  "clique_label_MilitaryMerit": "Military Merit Faction",
+  "faction_represents_MilitaryMerit": "for the generals and military officers",
+  "institution_ideology_military_merit_desc": "Generals and military officers who rose through battle; they push for campaigns, frontier expansion and unification, scorn tribute payments and ceded cities, and loathe eunuchs commanding troops. Court only; at court they form the Military Merit Faction.",
   "empire_formation_route_Seal": "Bearer of the Heirloom Seal",
   "faction_influence_share": "sway {0}%"
 }

@@ -28,7 +28,7 @@ public static class FactionEditor
         PartyIdeology.Confucianism, PartyIdeology.Legalism, PartyIdeology.HuangLao, PartyIdeology.Mohism,
         PartyIdeology.Agrarianism, PartyIdeology.Strategists, PartyIdeology.Diplomatists, PartyIdeology.YinYang,
         PartyIdeology.ImperialPower, PartyIdeology.GreatClans, PartyIdeology.ConsortKin, PartyIdeology.Eunuchs,
-        PartyIdeology.RoyalKin, PartyIdeology.Animism
+        PartyIdeology.RoyalKin, PartyIdeology.MilitaryMerit, PartyIdeology.Animism
     };
 
     public static readonly PartyIdeology[] Modern =

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using EmpireCraft.Scripts.Data;
+using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
@@ -37,6 +38,9 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   昏君在位、宦官得宠时从天子派里分出阉党(带走天子派的宦官和三分之一的势力)，专权弄政；
 //   明君诛宦官后阉党余众并回天子派、阉党蛰伏，日后昏君在位又会分出来。上面的倡立、合并、分裂、消亡只对学说朋党，
 //   学说朋党至多四个，是附着在阶级派系之上、来来去去的思潮。
+// 军功派(用户 2026-10-20 选"常设军功派")：统兵的将领、武职官员按身份归入，也是常设的阶级派系。以前律令制的武官派改作
+//   兵家学说朋党，官员按学说归党后只剩一两人、势弱就被并掉，朝中再没有主用兵的一派，天下分裂、失地也没人奏请统一。
+//   现在武官派这类模板(攘夷)改作军功派；已改成兵家的旧武官派读档时改回军功派；兵家学说照旧可另立将门。
 public static class CliqueSystem
 {
     public const string EunuchTrait = "eunuch";
@@ -76,8 +80,13 @@ public static class CliqueSystem
         if (actor.isKing() || GentrySystem.IsGentry(actor) || EmpireCraft.Scripts.AI.ActorAI.EmpireCaftActorJudgeClass.IsNoble(actor))
             return PartyIdeology.GreatClans;
         if (empire.GetCabinetMembers().Contains(actor)) return PartyIdeology.ImperialPower;
+        if (IsMilitary(actor)) return PartyIdeology.MilitaryMerit;
         return null;
     }
+
+    // 武人：统兵的将领(军团统帅)，或任武职的官员
+    private static bool IsMilitary(Actor actor) =>
+        CorpsSystem.IsGeneral(actor) || actor.GetOffice()?.peerageType == PeerageType.Military;
 
     // 派系里按什么归属：身份立场优先，否则按信的学说
     private static PartyIdeology Stance(Empire empire, Actor actor) =>
@@ -87,7 +96,9 @@ public static class CliqueSystem
     private static PartyIdeology? TypeIdeology(FactionType type) => type switch
     {
         FactionType.绥靖 => PartyIdeology.Confucianism,
-        FactionType.攘夷 or FactionType.僭主 or FactionType.同化 => PartyIdeology.Strategists,
+        // 武官派(攘夷)代表的是武人这一身份，改作常设的军功派；僭主、同化(别的文化的模板)仍按兵家
+        FactionType.攘夷 => PartyIdeology.MilitaryMerit,
+        FactionType.僭主 or FactionType.同化 => PartyIdeology.Strategists,
         FactionType.尊王 => PartyIdeology.ImperialPower,
         FactionType.诸侯 or FactionType.自治 or FactionType.血脉 => PartyIdeology.GreatClans,
         FactionType.中央 => PartyIdeology.Legalism,
@@ -101,7 +112,10 @@ public static class CliqueSystem
 
     private const int MaxSchoolCliques = 4;
     private static readonly PartyIdeology[] ClassStances =
-        { PartyIdeology.ImperialPower, PartyIdeology.RoyalKin, PartyIdeology.GreatClans, PartyIdeology.ConsortKin, PartyIdeology.Eunuchs };
+    {
+        PartyIdeology.ImperialPower, PartyIdeology.RoyalKin, PartyIdeology.GreatClans, PartyIdeology.ConsortKin, PartyIdeology.Eunuchs,
+        PartyIdeology.MilitaryMerit
+    };
 
     private static List<FixedFaction> Cliques(Regime regime) =>
         regime.GetPlayerFactions().Where(faction => faction != null && faction.IsClique && !faction.Ban).ToList();
@@ -165,8 +179,16 @@ public static class CliqueSystem
     // 模板派系改作朋党(换政体后模板派系重建，也再改一次)
     private static void Convert(Empire empire, Regime regime)
     {
+        bool hasMilitary = Cliques(regime).Any(clique => clique.Ideology == PartyIdeology.MilitaryMerit);
         foreach (FixedFaction faction in regime.GetPlayerFactions())
         {
+            // 旧存档：模板武官派(攘夷)以前改作兵家学说朋党，改回军功派(手动选过理念的不动；已有军功派的不重复)
+            if (!hasMilitary && faction != null && faction.IsClique && !faction.Ban && faction.CliqueFoundedAt < 0d &&
+                faction.Type == FactionType.攘夷 && faction.Ideology == PartyIdeology.Strategists && !faction.IdeologyChosen)
+            {
+                faction.Ideology = PartyIdeology.MilitaryMerit;
+                hasMilitary = true;
+            }
             if (faction != null && faction.IsClique) EnsureCatalog(faction);
             if (faction == null || faction.IsClique || faction.IsParty || faction.only_king) continue;
             PartyIdeology ideology = TypeIdeology(faction.Type) ?? PartySystem.LeaningOf(faction);
@@ -177,7 +199,7 @@ public static class CliqueSystem
         }
     }
 
-    // 四个阶级派系缺哪个补哪个：有这身份的官员就由名望最高的人领头，没有就先蛰伏(势力为零)
+    // 阶级派系缺哪个补哪个：有这身份的官员就由名望最高的人领头，没有就先蛰伏(势力为零)
     private static void EnsureClassCliques(Empire empire, Regime regime, List<Actor> officials)
     {
         foreach (PartyIdeology stance in ClassStances)
@@ -496,7 +518,8 @@ public static class CliqueSystem
         [PartyIdeology.RoyalKin] = new[] { TemporaryFactionType.供养宗室, TemporaryFactionType.分封, TemporaryFactionType.封禅 },
         [PartyIdeology.GreatClans] = new[] { TemporaryFactionType.诛宦官 },
         [PartyIdeology.ConsortKin] = new[] { TemporaryFactionType.诛宦官, TemporaryFactionType.大赦天下 },
-        [PartyIdeology.Eunuchs] = new[] { TemporaryFactionType.党锢 }
+        [PartyIdeology.Eunuchs] = new[] { TemporaryFactionType.党锢 },
+        [PartyIdeology.MilitaryMerit] = new[] { TemporaryFactionType.屯田实边 }
     };
 
     private static void EnsureIssues(Regime regime)
