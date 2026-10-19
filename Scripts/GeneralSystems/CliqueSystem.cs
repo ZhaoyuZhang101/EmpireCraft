@@ -234,6 +234,17 @@ public static class CliqueSystem
         }
     }
 
+    // 手动立派(添加派系窗口"按理念新建"，见 FactionEditor)：按理念立一个朋党，暂无魁首(年度结算里按身份、学说招人)，
+    // 占一成中央，名字照史书习惯
+    internal static FixedFaction CreateManual(Empire empire, PartyIdeology ideology)
+    {
+        Regime regime = empire?.CoreKingdom?.GetRegime();
+        return regime == null ? null : Create(empire, regime, ideology, null, FoundRatio);
+    }
+
+    // 某理念朋党的默认称号(重了加领袖之姓、籍贯或序号)
+    internal static string DefaultName(Regime regime, PartyIdeology ideology, Actor leader) => NameFor(regime, ideology, leader);
+
     private static FixedFaction Create(Empire empire, Regime regime, PartyIdeology ideology, Actor leader, int ratio,
         string name = null)
     {

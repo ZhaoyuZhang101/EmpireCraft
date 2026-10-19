@@ -1067,7 +1067,7 @@ public static class UIHelper
                 }
             }
         }
-        else if (factions.Count < 3)
+        else if (FactionEditor.HasRoom(kingdom))
         {
             var addRow = panel.BeginHoriGroup(new Vector2(rowWidth, 16), TextAnchor.MiddleCenter, 2);
             AddFactionSlot(addRow, kingdom, new Vector2(rowWidth - 4f, 14f));
@@ -1205,7 +1205,8 @@ public static class UIHelper
                 FixedFaction tileFaction = faction;
                 cells.Add(row => AddFactionTile(row, tileFaction, kingdom, tileWidth, Refresh));
             }
-            if (!partyMode && !cliqueMode && factions.Count < 3)
+            // 空席(添加派系)：固定派系三席、朋党八席(见 FactionEditor)；政党另有组党条，朋党的空席只放在学说一组后面
+            if (!partyMode && FactionEditor.HasRoom(kingdom) && (!cliqueMode || header == LM.Get("faction_group_school")))
                 cells.Add(row => AddFactionSlot(row, kingdom, new Vector2(tileWidth, FactionTileHeight)));
             if (header != null && cells.Count == 0)
                 grid.AddTextIntoVertLayout(LM.Get("faction_group_empty").ColorString("#8FA0A8"), true, TextAnchor.MiddleLeft,
@@ -1869,6 +1870,13 @@ public static class UIHelper
         if (classes == null || classes.Count == 0) return "";
         return string.Join(",", classes.Select(pair =>
             $"{LM.Get($"class_{pair.Key}")}{InstitutionWindow.FormatContribution(InstitutionSystem.GetClassContribution(empire, pair.Key, pair.Value, classShares))}"));
+    }
+
+    // 别的窗口(添加派系、派系详情)改了派系：帝国主页的派系格局跟着重画
+    public static void RefreshFactionSpace(Kingdom kingdom)
+    {
+        AutoHoriLayoutGroup space = kingdom?.data != null && !kingdom.isRekt() ? kingdom.GetRegime()?.FactionSpace : null;
+        if (space != null) RefreshEmpireFactionSpace(space, kingdom);
     }
 
     public static void OpenSelectionWindow(Kingdom kingdom)

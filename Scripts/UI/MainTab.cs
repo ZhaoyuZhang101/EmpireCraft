@@ -132,8 +132,7 @@ internal static class MainTab
             nameof(TraitsSelectWindow) + "Title");
         AddFactionMemberWindow.CreateWindow(nameof(AddFactionMemberWindow),
             nameof(AddFactionMemberWindow) + "Title");
-        AddFactionWindow.CreateWindow(nameof(AddFactionWindow),
-            nameof(AddFactionWindow) + "Title");
+        AddFactionWindow.CreateAndInit(nameof(AddFactionWindow), new Vector2(480f, 380f));
         EmpireHistoryWindow.CreateAndInit(nameof(EmpireHistoryWindow), new Vector2(480f, 380f));
         // 世系图(历代君主窗口左栏打开)
         DynastyLineageWindow.CreateAndInit(nameof(DynastyLineageWindow), new Vector2(480f, 380f));

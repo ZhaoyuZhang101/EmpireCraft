@@ -465,7 +465,7 @@ public static class PartySystem
     public static PartyIdeology LeaningOf(FixedFaction faction)
     {
         if (faction == null) return PartyIdeology.Centrism;
-        if (faction.IsParty || faction.IsClique) return faction.Ideology;
+        if (faction.IsParty || faction.IsClique || faction.IdeologyChosen) return faction.Ideology;
         if (faction.ClassAffinities == null || faction.ClassAffinities.Count == 0) FactionClassSystem.EnsureProfile(faction);
         Vector2 weighted = Vector2.zero;
         float total = 0f;
@@ -723,7 +723,7 @@ public static class PartySystem
 
     #region 玩家组党 / 解散(按现实逻辑：组党要有发起人和一批同道，解散后党员各投立场最近的党)
 
-    private const int PlayerMaxParties = 10;
+    internal const int PlayerMaxParties = 10;
 
     // The founder must share the ideology of the prospective party.
     private static Actor FindFounder(Empire empire, PartyIdeology ideology) =>
@@ -1118,6 +1118,9 @@ public static class PartySystem
     }
 
     // 党名：本文化给这个理念配的词库 → 通用词库 → 理念名+党；已被占用的名字不重复用
+    // 政党的默认名(派系详情"默认名"，见 FactionEditor)：本文化这一理念的党名库里取一个没用过的
+    internal static string DefaultPartyName(Empire empire, PartyIdeology ideology) => NewPartyName(empire, ideology);
+
     private static string NewPartyName(Empire empire, PartyIdeology ideology)
     {
         var used = new HashSet<string>(empire.CoreKingdom.GetRegime().GetPlayerFactions()

@@ -344,6 +344,11 @@ public class FixedFaction
     // —— 朋党(党禁前的华夏朝堂派系像政党一样兴衰，见 CliqueSystem)：理念记在 Ideology ——
     public bool IsClique { get; set; }
     public double CliqueFoundedAt { get; set; } = -1d;
+    // —— 手动设定(添加派系窗口、派系详情，见 FactionEditor) ——
+    // 理念是手选的：不再由阶层倾向推算(以前自定义派系没有阶层倾向，一律落在中间派)
+    public bool IdeologyChosen { get; set; }
+    // 起名方式：0 自定(手改的名字)，1 默认名(随理念)，2 魁首之姓(魁首换人跟着改，如"严党")
+    public int NameMode { get; set; }
     public string Name { set; get; }
     public long EmpireId { get; set; } = -1L;
     public bool Hide { get; set; } = false;
@@ -437,7 +442,9 @@ public class FixedFaction
             PartyFounderId = PartyFounderId,
             PartyFoundedAt = PartyFoundedAt,
             IsClique = IsClique,
-            CliqueFoundedAt = CliqueFoundedAt
+            CliqueFoundedAt = CliqueFoundedAt,
+            IdeologyChosen = IdeologyChosen,
+            NameMode = NameMode
         };
         TemporaryFactionTypesRecord = new List<TemporaryFactionType>(GetClaimCatalog());
         newFaction.TemporaryFactions = newFaction.ConvertToObjectFromFactionType();
@@ -471,7 +478,9 @@ public class FixedFaction
             PartyFounderId = PartyFounderId,
             PartyFoundedAt = PartyFoundedAt,
             IsClique = IsClique,
-            CliqueFoundedAt = CliqueFoundedAt
+            CliqueFoundedAt = CliqueFoundedAt,
+            IdeologyChosen = IdeologyChosen,
+            NameMode = NameMode
         };
         newFaction.TemporaryFactions = newFaction.ConvertToObjectFromFactionType();
         newFaction.TemporaryFactions.ForEach(tf=>tf.Init(newFaction));
@@ -744,6 +753,7 @@ public class FixedFaction
         if (candidate == null) return;
         if (candidate.GetFaction() != this) candidate.SetFaction(this);
         else SetLeader(candidate);
+        FactionEditor.FollowLeaderName(this);
     }
 
     private bool IsEligibleLeader(Actor actor)
@@ -803,6 +813,8 @@ public class FixedFaction
         {
             Members.Add(newLeaderId);
         }
+        // 按魁首之姓起名的派系换了魁首跟着改名(见 FactionEditor)
+        FactionEditor.FollowLeaderName(this);
 
         Actor leader = GetLeader();
         if (leader != null)

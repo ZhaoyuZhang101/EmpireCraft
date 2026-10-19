@@ -78,7 +78,8 @@ public class FactionDetailWindow : AbstractWideWindow<FactionDetailWindow>
         topPart = identity;
         identity.AddRailText(_faction.Name.ColorString("#F3C34A"), 10, 14f);
         PartyIdeology ideology = PartySystem.LeaningOf(_faction);
-        identity.AddRailText(PartySystem.GetIdeologyName(ideology).ColorString("#7FD8EA"), 7, 10f);
+        AddIdeologyRow(identity, ideology);
+        AddNamingRow(identity);
         var leaderRow = identity.BeginHoriGroup(new Vector2(UIHelper.RailWidth - 8f, 32f), TextAnchor.MiddleLeft, 3,
             new RectOffset(0, 0, 0, 0));
         leaderRow.transform.localPosition = Vector3.zero;
@@ -680,9 +681,119 @@ public class FactionDetailWindow : AbstractWideWindow<FactionDetailWindow>
     {
         string name = newName?.Trim();
         if (_faction == null || string.IsNullOrEmpty(name) || name == _faction.Name) return;
-        _faction.Name = name;
+        // 手改了名字：起名方式记为自定，以后不再自动改(见 FactionEditor)
+        FactionEditor.Rename(_faction, name);
         InitialTopPart();
         BringNameInputToFront();
+        UIHelper.RefreshFactionSpace(_kingdom);
+    }
+
+    // 左栏"理念 · 更改"(用户 2026-10-19 转玩家反馈"自定义派系为啥只有中间派"，看过示意图定"照这个做")：
+    // 理念名按理念上色，点"更改"右侧换成理念选择页
+    private void AddIdeologyRow(AutoVertLayoutGroup card, PartyIdeology ideology)
+    {
+        float inner = UIHelper.RailWidth - 8f;
+        var row = card.BeginHoriGroup(new Vector2(inner, 14f), TextAnchor.MiddleLeft, 3, new RectOffset(3, 3, 0, 0));
+        UIHelper.AddInsetBackground(row, new Vector2(inner, 14f));
+        row.AddTextIntoHoriLayout(LM.Get("faction_ideology_label").ColorString("#8FA0A8"), true, TextAnchor.MiddleLeft,
+            new Vector2(20f, 12f)).UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+        string hex = WideKit.Hex(UIHelper.IdeologyColor(ideology));
+        row.AddTextIntoHoriLayout(PartySystem.GetIdeologyName(ideology).ColorString(hex), true, TextAnchor.MiddleLeft,
+            new Vector2(inner - 62f, 12f)).UseFixedFontSize(7, HorizontalWrapMode.Overflow);
+        row.AddButtonIntoHoriLayout("faction_change_ideology", LM.Get("faction_change_ideology"), ShowIdeologyPicker,
+            size: new Vector2(30f, 12f));
+    }
+
+    // 左栏起名方式：自定 / 默认名 / 魁首之姓(用户 2026-10-19："派系名称的设置允许派系自动用魁首名字命名比如严党这种，也可以允许使用默认名称")
+    private void AddNamingRow(AutoVertLayoutGroup card)
+    {
+        float inner = UIHelper.RailWidth - 8f;
+        var row = card.BeginHoriGroup(new Vector2(inner, 14f), TextAnchor.MiddleLeft, 2, new RectOffset(0, 0, 0, 0));
+        row.AddTextIntoHoriLayout(LM.Get("faction_naming_label").ColorString("#8FA0A8"), true, TextAnchor.MiddleLeft,
+            new Vector2(20f, 12f)).UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+        float width = (inner - 20f - 6f) / 3f;
+        foreach ((int mode, string key) in new[]
+                 {
+                     (FactionEditor.NameCustom, "faction_naming_custom"), (FactionEditor.NameDefault, "faction_naming_default"),
+                     (FactionEditor.NameLeader, "faction_naming_leader")
+                 })
+        {
+            int target = mode;
+            string label = LM.Get(key);
+            row.AddButtonIntoHoriLayout(key, _faction.NameMode == mode ? label.ColorString("#F3C34A") : label, () =>
+            {
+                FactionEditor.SetNameMode(_kingdom, _faction, target);
+                if (target == FactionEditor.NameLeader && FactionEditor.LeaderName(_faction) == null)
+                    WorldTip.showNow(LM.Get("faction_naming_no_leader"), false, "top", 2.5f);
+                AfterFactionChanged();
+            }, size: new Vector2(width, 12f), showTip: true);
+        }
+    }
+
+    // 理念选择页：本朝堂能选的理念各一格(古代：诸子百家只有华夏有、按科技出现；政党时代：已传入的近代理念)，
+    // 现在的标金框；不能选的置灰、悬停看原因。改了按新理念重设诉求与阶层亲疏(见 FactionEditor.ChangeIdeology)
+    public void ShowIdeologyPicker()
+    {
+        Clear();
+        InitialTopPart();
+        var content = _root.BeginVertGroup(pSpacing: 2, pAlignment: TextAnchor.UpperCenter);
+        _groups.Add(content.gameObject);
+        content.AddPageHeader(ContentWidth, LM.Get("faction_ideology_pick"), LM.Get("faction_ideology_pick_note"));
+        var options = FactionEditor.Options(_kingdom, _faction);
+        bool modern = options.Count > 0 && !IdeologyFamilies.IsAncient(options[0].ideology);
+        content.AddSectionHeader(ContentWidth, LM.Get(modern ? "faction_ideology_modern" : "faction_ideology_ancient"), localize: false);
+        const int columns = 5;
+        float tile = (ContentWidth - (columns - 1) * UIHelper.CardGap) / columns;
+        PartyIdeology current = PartySystem.LeaningOf(_faction);
+        for (int start = 0; start < options.Count; start += columns)
+        {
+            var row = content.BeginColumns(ContentWidth);
+            for (int i = start; i < Mathf.Min(options.Count, start + columns); i++)
+            {
+                (PartyIdeology ideology, string reason) = options[i];
+                AddIdeologyTile(row, tile, ideology, reason, ideology == current);
+            }
+        }
+        if (!modern)
+            content.AddTextIntoVertLayout(LM.Get("faction_ideology_modern_later").ColorString("#8FA0A8"), true,
+                TextAnchor.MiddleLeft, new Vector2(ContentWidth, 12f)).UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+        BringNameInputToFront();
+    }
+
+    private void AddIdeologyTile(AutoHoriLayoutGroup row, float width, PartyIdeology ideology, string reason, bool current)
+    {
+        bool ok = reason == null;
+        var cell = row.BeginVertGroup(new Vector2(width, 18f), pSpacing: 0, pAlignment: TextAnchor.MiddleCenter,
+            pPadding: new RectOffset(0, 0, 1, 1));
+        UIHelper.FixPanelWidth(cell.transform, width);
+        UIHelper.AddInsetBackground(cell, new Vector2(width, 18f));
+        string name = PartySystem.GetIdeologyName(ideology);
+        string hex = current ? "#F3C34A" : ok ? WideKit.Hex(UIHelper.IdeologyColor(ideology)) : "#6E746A";
+        cell.AddTextIntoVertLayout((current ? $"[{name}]" : name).ColorString(hex), true, TextAnchor.MiddleCenter,
+            new Vector2(width - 2f, 14f)).UseFixedFontSize(7, HorizontalWrapMode.Overflow);
+        UIHelper.AttachTextTooltip(cell.gameObject, $"faction_pick_{ideology}", name,
+            ok ? IdeologyFamilies.FactionLeaning(ideology) : LM.Get(reason));
+        if (!ok || current) return;
+        UIHelper.MakeClickable(cell.gameObject, () =>
+        {
+            if (!FactionEditor.ChangeIdeology(_kingdom, _faction, ideology, out string why))
+            {
+                if (why != null) WorldTip.showNow(LM.Get(why), false, "top", 2.5f);
+                return;
+            }
+            WorldTip.showNow(string.Format(LM.Get("faction_ideology_changed"), _faction.Name, name), false, "top", 2.5f);
+            AfterFactionChanged();
+            ShowClaims();
+        });
+    }
+
+    // 理念、名字改了：左栏、标题改名框、帝国主页的派系格局跟着换
+    private void AfterFactionChanged()
+    {
+        InitialTopPart();
+        if (_factionNameInput != null && !_factionNameInput.input.isFocused) _factionNameInput.input.text = _faction.Name;
+        BringNameInputToFront();
+        UIHelper.RefreshFactionSpace(_kingdom);
     }
     
     public void InitialTextInput()
