@@ -115,6 +115,7 @@ public class FactionDetailWindow : AbstractWideWindow<FactionDetailWindow>
         traits.AddRailText(LM.Get("faction_required_traits").ColorString("#8FA0A8"), 6, 9f);
         var traitsPart = traits.BeginHoriGroup(pAlignment: TextAnchor.MiddleLeft, pPadding: new RectOffset(0, 0, 0, 0));
         InitTraitPart(traitsPart);
+        BringNameInputToFront();
     }
 
     /// <summary>
@@ -681,6 +682,7 @@ public class FactionDetailWindow : AbstractWideWindow<FactionDetailWindow>
         if (_faction == null || string.IsNullOrEmpty(name) || name == _faction.Name) return;
         _faction.Name = name;
         InitialTopPart();
+        BringNameInputToFront();
     }
     
     public void InitialTextInput()
@@ -688,5 +690,15 @@ public class FactionDetailWindow : AbstractWideWindow<FactionDetailWindow>
         _faction = ConfigData.CURRENT_SELECTED_FACTION;
         var text = _faction.Name;
         this.transform.GenerateTextInput(offset:new Vector2(0, 218), default_text:text, input:_factionNameInput);
+        BringNameInputToFront();
+    }
+
+    // 改名框挂在窗口根上，之后画的左栏、内容会盖在它上面、点不到(玩家反馈"派系名称现在改不了了")：
+    // 每次画完都把它挪到最上层(同帝国窗口 SyncNameInputText)
+    private void BringNameInputToFront()
+    {
+        if (_factionNameInput == null) return;
+        _factionNameInput.gameObject.SetActive(true);
+        _factionNameInput.transform.SetAsLastSibling();
     }
 }
