@@ -5065,6 +5065,7 @@
   "warlord_era_solo_rival_history": "{0}高舉{1}旗幟，獨自另立中央政府，與{2}分庭抗禮；雙方皆為臨時政府。",
   "warlord_era_strong_solo_rival_history": "{0}高舉{1}旗幟，獨自另立臨時政府，與正式中央{2}爭奪全國。",
   "warlord_era_attracted_history": "{0}認同{1}，易幟歸附{2}。",
+  "warlord_era_cross_attracted_history": "{0}審時度勢，易幟歸附{1}。",
   "warlord_unify_war_history": "{0}發動統一戰爭，討伐{1}",
   "warlord_defect_city_history": "{0}民心歸向{1}，起義歸附{2}",
   "warlord_uprising_history": "{0}民眾擁護{1}，揭竿而起",

@@ -180,8 +180,9 @@ public static partial class WarlordEraSystem
             _ => 1f
         };
 
-    // 5. 大势所趋
-    private static void Bandwagon(EmpireCore core, Dictionary<Kingdom, int> held, int total, Empire central)
+    // 5. 大势所趋。leftoversOnly：统一之后清剩下的地方武装(见 AbsorbLeftovers)，正在造反的、与中央交战的不动
+    private static void Bandwagon(EmpireCore core, Dictionary<Kingdom, int> held, int total, Empire central,
+        bool leftoversOnly = false)
     {
         Kingdom centralKingdom = central.CoreKingdom;
         if (centralKingdom == null || !held.TryGetValue(centralKingdom, out int centralHeld)) return;
@@ -192,7 +193,10 @@ public static partial class WarlordEraSystem
         {
             if (holder == centralKingdom || !IsLocalHolder(core, holder) || Government(holder) != null ||
                 holder.IsInEmpire() || FeudalVassalService.GetOverlord(holder) != null ||
-                holder.GetRegime()?.type != RegimeType.Modern || !holder.hasKing() || Random.value >= chance) continue;
+                holder.GetRegime()?.type != RegimeType.Modern || !holder.hasKing()) continue;
+            if (leftoversOnly && (holder.IsFactionRebelling() || holder.IsLocalRebelling() ||
+                                  holder.isEnemy(centralKingdom))) continue;
+            if (Random.value >= chance) continue;
             War war = FindActiveWar(holder, centralKingdom);
             if (war != null)
                 World.world.wars.endWar(war, war.isAttacker(centralKingdom) ? WarWinner.Attackers : WarWinner.Defenders);

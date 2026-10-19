@@ -40,6 +40,8 @@ public static partial class WarlordEraSystem
     private const float CoalitionChance = 0.2f;
     // 同理念势力每年易帜归附的最高概率(中央相对实力越强越接近这个值)，调低以免中央不战而统一
     private const float AttractionChance = 0.15f;
+    // 异理念势力归附中央的最高概率：同理念的三分之一，一城的地方武装平均二十年左右才易帜
+    private const float CrossIdeologyAttractionChance = 0.05f;
 
     private static readonly Dictionary<long, (EmpireCore core, Role role)> Roles = new();
     private static object _world;
@@ -419,7 +421,10 @@ public static partial class WarlordEraSystem
         {
             Empire government = EnsureUnifierGovernment(strongest);
             if (government != null)
+            {
                 CompleteUnification(core, held, strongest, government, now, strongUnification);
+                AbsorbLeftovers(core, government);
+            }
             return;
         }
         // 军阀时期的范围：统一过又分裂的核心(所有文化)；强统一文化在第一次统一前进入现代政体即开始争夺中央
@@ -434,7 +439,8 @@ public static partial class WarlordEraSystem
                 ? "warlord_era_huaxia_contest_history" : "warlord_era_began_history"),
                 EmpireCoreManager.GetDisplayName(core)));
         }
-        if (!ModClass.KINGDOM_TITLE_FREEZE && ModClass.WARLORD_ERA_YEARS > 0 &&
+        // 冻结法理只管法理不被销毁、帝国法理不吸收王国法理，与承认分治无关(以前冻结法理时永不承认分治，而它默认开着)
+        if (ModClass.WARLORD_ERA_YEARS > 0 &&
             Date.getYearsSince(core.fragmented_since) >= ModClass.WARLORD_ERA_YEARS)
         {
             EventRecorder.Record(strongest, string.Format(LM.Get("warlord_era_split_recognized_history"),
@@ -490,15 +496,31 @@ public static partial class WarlordEraSystem
         foreach (Empire representative in representatives)
             if (!representative.isRekt() && !representative.IsArchived())
                 AttractSameIdeology(core, held, representative);
+        if (central != null) AttractOtherIdeologies(core, held, central);
         UpdateUnification(core, held, total, central, representatives);
     }
 
-    // 地方武装之间的混战(双方都不是中央)打满 FeudYears 年还分不出胜负就各自罢兵——统一靠中央，不靠无休止的内耗
+    // 统一(控制七成)之后，核心里剩下的地方武装照样会易帜归附(同理念吸引、异理念吸引、大势所趋)。
+    // 以前统一一完成就不再管，剩下的军阀永远割据。与中央交战的不收，大势所趋也不收正在造反的(叛乱照旧打出结果)
+    private static void AbsorbLeftovers(EmpireCore core, Empire government)
+    {
+        if (government == null || government.isRekt() || government.IsArchived()) return;
+        EmpireCoreControl.Invalidate(core);
+        (Dictionary<Kingdom, int> held, int total) = EmpireCoreControl.GetHolders(core);
+        if (total == 0) return;
+        AttractSameIdeology(core, held, government);
+        AttractOtherIdeologies(core, held, government);
+        Bandwagon(core, held, total, government, leftoversOnly: true);
+    }
+
+    // 地方武装之间的混战(双方都不是中央)打满 FeudYears 年还分不出胜负就各自罢兵——统一靠中央，不靠无休止的内耗。
+    // 核心里还没有中央政府时不强令罢兵：这时只能靠地方武装互相兼并聚起来，四年一停战谁也吞不下谁
     private const float FeudYears = 4f;
 
     private static void SettleWarlordFeuds(EmpireCore core, Empire central)
     {
-        Kingdom centralKingdom = central?.CoreKingdom;
+        if (central == null) return;
+        Kingdom centralKingdom = central.CoreKingdom;
         foreach (War war in World.world.wars.list.ToList())
         {
             if (war == null || war.hasEnded() || war.getAge() < FeudYears) continue;
@@ -674,6 +696,34 @@ public static partial class WarlordEraSystem
             EmpireCoreControl.Invalidate(core);
             EventRecorder.Record(centralKingdom, string.Format(LM.Get("warlord_era_attracted_history"),
                 holder.GetKingdomFullName(), PartySystem.GetIdeologyName(ideology), central.GetBaseEmpireFullName()));
+        }
+    }
+
+    // 理念不同的地方武装也可能易帜归附中央，只是慢得多(同理念的三分之一)：以前只吸引同理念的，
+    // 本理念没有政府的地方武装除非被打下来，永远割据。与中央理念截然对立的(光谱距离 ≥ 90)不归附，
+    // 它们只会联合另立政府(TryFormCoalition)
+    private static void AttractOtherIdeologies(EmpireCore core, Dictionary<Kingdom, int> held, Empire central)
+    {
+        Kingdom centralKingdom = central?.CoreKingdom;
+        if (centralKingdom == null || central.isRekt() || central.IsArchived() ||
+            !held.TryGetValue(centralKingdom, out int centralHeld)) return;
+        PartyIdeology ideology = GovernmentIdeology(central);
+        PartyIdeology centralStance = IdeologyFamilies.StateIdeology(centralKingdom);
+        foreach (Kingdom holder in held.Keys.ToList())
+        {
+            if (holder == centralKingdom || !IsLocalHolder(core, holder) || Government(holder) != null ||
+                holder.IsInEmpire() || FeudalVassalService.GetOverlord(holder) != null ||
+                holder.GetRegime()?.type != RegimeType.Modern || !holder.hasKing() ||
+                holder.isEnemy(centralKingdom) || HolderIdeology(holder) == ideology ||
+                PartySystem.IdeologyDistance(IdeologyFamilies.StateIdeology(holder), centralStance) >= OppositeIdeologyDistance)
+                continue;
+            float chance = CrossIdeologyAttractionChance * centralHeld / (centralHeld + held[holder]);
+            if (UnityEngine.Random.value >= chance) continue;
+            string name = holder.GetKingdomFullName();
+            if (!AbsorbDefector(central, holder)) continue;
+            EmpireCoreControl.Invalidate(core);
+            EventRecorder.Record(centralKingdom, string.Format(LM.Get("warlord_era_cross_attracted_history"),
+                name, central.GetBaseEmpireFullName()));
         }
     }
 

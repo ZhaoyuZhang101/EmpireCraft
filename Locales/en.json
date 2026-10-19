@@ -5065,6 +5065,7 @@
   "warlord_era_solo_rival_history": "Raising the banner of {1}, {0} alone proclaims a rival central government against {2}; both are now only provisional governments.",
   "warlord_era_strong_solo_rival_history": "Raising the banner of {1}, {0} alone forms a provisional government to contest the formally recognised state of {2}.",
   "warlord_era_attracted_history": "Sharing its commitment to {1}, {0} changes its flag and submits to {2}.",
+  "warlord_era_cross_attracted_history": "Weighing the odds, {0} changes its flag and submits to {1}.",
   "warlord_unify_war_history": "{0} launched a war of unification against {1}",
   "warlord_defect_city_history": "{0}, won over by {1}, rose up and joined {2}",
   "warlord_uprising_history": "The people of {0} rose up in support of {1}",
