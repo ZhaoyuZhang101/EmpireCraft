@@ -268,6 +268,11 @@ public class Regime
     {
         if ((PlayerFactions?.Count??0)<=0) return null;
         var force = PlayerFactions.Find(f => f.Force);
+        // 不在帝国里的独立王国(简化朝堂)：派系不挂帝国，CentralRatio 全是零，按本国占比排
+        Kingdom kingdom = World.world?.kingdoms?.get(control_kingdom_id);
+        if (kingdom?.data != null && !kingdom.isRekt() && kingdom.GetEmpire() == null)
+            return force ?? CliqueSystem.DominantClass(PlayerFactions) ??
+                PlayerFactions.OrderByDescending(faction => kingdom.GetFactionRatioValue(faction)).First();
         // 朋党：主导的是权最大的阶级派系(学说朋党的占比并入它投靠的那家，见 CliqueSystem.Power)
         return force ?? CliqueSystem.DominantClass(PlayerFactions) ??
             PlayerFactions.OrderByDescending(faction => faction.CentralRatio).First();

@@ -170,6 +170,8 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
                                 !EmpireCoreManager.GetEmpires(falseCore)
                                     .Any(other => other != pEmpire && !other.IsArchived());
         EmpireFormationService.OnEmpireDissolving(pEmpire);
+        // 进行中的制度改革交回核心王国(见 InstitutionSystem.Realm.cs)
+        InstitutionSystem.OnEmpireDissolving(pEmpire);
         pEmpire.dissolve();
         pEmpire.Dispose();
         pEmpire.Archive();
@@ -318,6 +320,8 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
         pKingdom.GetOrCreate().isEmpire = true;
         pKingdom.SetEmpireID(empire.id);
         EmpireFormationService.OnEmpireCreated(empire);
+        // 称帝前王国在推的制度改革带进帝国(见 InstitutionSystem.Realm.cs)
+        InstitutionSystem.OnEmpireProclaimed(empire);
         if (!suppressFoundingLog && empire.data.has_year_name)
         {
             new WorldLogMessage(EmpireCraftWorldLogLibrary.become_new_empire_log, pKingdom.king.name, empire.GetEmpireName())

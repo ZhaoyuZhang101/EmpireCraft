@@ -6716,5 +6716,16 @@
   "faction_represents_MilitaryMerit": "for the generals and military officers",
   "institution_ideology_military_merit_desc": "Generals and military officers who rose through battle; they push for campaigns, frontier expansion and unification, scorn tribute payments and ceded cities, and loathe eunuchs commanding troops. Court only; at court they form the Military Merit Faction.",
   "empire_formation_route_Seal": "Bearer of the Heirloom Seal",
-  "faction_influence_share": "sway {0}%"
+  "faction_influence_share": "sway {0}%",
+  "institution_kingdom_reform_collapsed_history": "{0}'s push for {1} collapsed: opponents feared it would {2} and rose against it. The ruler's renown suffered.",
+  "institution_kingdom_reform_dropped_history": "{0} abandoned the {1} reform: {2}",
+  "institution_reform_requires_paramount": "An empire of this culture exists: institutions that change the form of government or abolish the monarchy must be enacted by the empire",
+  "institution_realm_not_sovereign": "Not a sovereign realm; institutional reform is directed by its overlord or empire",
+  "institution_reform_low_authority": "Insufficient royal authority",
+  "institution_kingdom_reforms_off": "Kingdom institution reforms are turned off in the mod settings",
+  "realm_authority_base": "Base authority",
+  "realm_authority_prestige": "Ruler's renown",
+  "realm_authority_rebellion": "Unquelled rebellion",
+  "kingdom_institution_reforms_toggle": "Kingdom Institution Reforms",
+  "kingdom_institution_reforms_toggle Description": "When on, independent kingdoms and tribes enact institutional reforms through a simplified court: the ruler decides alone, and royal authority stands in for legitimacy. While an empire of the same culture exists, institutions that change the form of government or abolish the monarchy are still left to the empire. When off, only empires enact reforms."
 }

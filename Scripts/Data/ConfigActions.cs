@@ -76,6 +76,11 @@ namespace EmpireCraft.Scripts.Data
         {
             ModClass.PERFORMANCE_SKIP_NAMEPLATE_OVERLAP = on;
         }
+        // 王国推制度改革(见 InstitutionSystem.Realm.cs)；设置里没有这一项时不会回调，ModClass 里默认开
+        public static void KingdomInstitutionReformsCallBack(bool on)
+        {
+            ModClass.KINGDOM_INSTITUTION_REFORMS = on;
+        }
         // 平滑国界：逐像素画国界、城界，军团模式下占领逐格推进(见 SmoothBorders、FrontSystem.Smooth)
         public static void SmoothBordersCallBack(bool on)
         {

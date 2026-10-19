@@ -595,7 +595,10 @@ public static class KingdomExtension
         List<FixedFaction> configuredFactions = factions
             .Where(faction => faction != null)
             .ToList();
-        FactionClassSystem.UpdateEmpire(kingdom.GetEmpire(), configuredFactions);
+        // 不在帝国里的独立王国(简化朝堂)按本国人口算阶层支持(以前传空帝国，什么都不算)
+        Empire owner = kingdom.GetEmpire();
+        if (owner != null) FactionClassSystem.UpdateEmpire(owner, configuredFactions);
+        else FactionClassSystem.UpdateRealm(InstitutionRealm.Of(kingdom), configuredFactions);
         List<(FixedFaction faction, Actor leader, int influence)> activeFactions = configuredFactions
             .Where(faction => !faction.Ban)
             .Select(faction => (faction, leader: faction.GetLeader(),

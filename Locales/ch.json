@@ -6716,5 +6716,16 @@
   "faction_represents_MilitaryMerit": "代表將領與武職",
   "institution_ideology_military_merit_desc": "統兵的將領與武職官員，靠戰功進身，主用兵、開邊、一統，恥於歲幣割地，惡宦官掌兵。只在朝堂裡，朝中為軍功派。",
   "empire_formation_route_Seal": "懷璽受命",
-  "faction_influence_share": "影響{0}%"
+  "faction_influence_share": "影響{0}%",
+  "institution_kingdom_reform_collapsed_history": "{0}推行「{1}」，反對者以為此舉將{2}，群起抵制，改革作罷，君主聲望受挫。",
+  "institution_kingdom_reform_dropped_history": "{0}的「{1}」改革中止：{2}",
+  "institution_reform_requires_paramount": "本文化已有帝國：改政體、廢君主的制度須由帝國推行",
+  "institution_realm_not_sovereign": "不是獨立政權，制度改革由宗主或所在帝國主持",
+  "institution_reform_low_authority": "君威不足",
+  "institution_kingdom_reforms_off": "模組設定中已關閉王國推行制度改革",
+  "realm_authority_base": "君威基礎",
+  "realm_authority_prestige": "君主聲望",
+  "realm_authority_rebellion": "叛亂未平",
+  "kingdom_institution_reforms_toggle": "王國推行制度改革",
+  "kingdom_institution_reforms_toggle Description": "開啓後，獨立王國與部落以簡化朝堂自行推行制度改革：君主親裁，以君威代替正統；本文化有帝國時，改政體、廢君主的制度仍須由帝國推行。關閉則只有帝國推行改革。"
 }

@@ -35,6 +35,8 @@ public sealed class InstitutionReformEnvironment
 {
     public int SameCultureCountries;
     public int SameCultureEmpires;
+    // 同文化推制度的政权(帝国 + 独立王国)；王国改革关掉时等于帝国数。改革竞争按它加速
+    public int SameCultureRealms;
     public int AdvancedBorderEmpires;
     public float SpeedMultiplier = 1f;
     public int EffectiveMinimumYears = 1;
@@ -849,6 +851,8 @@ public static partial class InstitutionSystem
             reason = "institution_reform_exclusive";
             return false;
         }
+        // 王国：总开关、是否独立、本文化有帝国时不推改政体的制度(见 InstitutionSystem.Realm.cs)
+        if (!realm.IsEmpire && !CanKingdomTakeUp(realm, node, culture, out reason)) return false;
         if (realm.Authority < node.research.mandate_required)
         {
             reason = realm.IsEmpire ? "institution_reform_low_mandate" : "institution_reform_low_authority";
@@ -911,7 +915,8 @@ public static partial class InstitutionSystem
         return true;
     }
 
-    private static void AdvanceReform(InstitutionRealm realm)
+    // shares：已算好的本政权阶层构成(王国年度扫描里一并算过，免得再扫一遍人口)
+    private static void AdvanceReform(InstitutionRealm realm, Dictionary<SocialClass, float> shares = null)
     {
         InstitutionEmpireState state = EnsureRealmState(realm);
         InstitutionReformState reform = state.active_reform;
@@ -946,7 +951,7 @@ public static partial class InstitutionSystem
             SyncSharedEffects(realm);
             return;
         }
-        InstitutionPoliticalBalance balance = CalculatePoliticalBalance(realm, node);
+        InstitutionPoliticalBalance balance = CalculatePoliticalBalance(realm, node, shares);
         reform.support = balance.Support;
         reform.opposition = balance.Opposition;
         bool replacesVestedInterest = node.replaces.Any(id => IsEnacted(culture, id));
@@ -965,8 +970,13 @@ public static partial class InstitutionSystem
         ApplyOppositionFactionGrowth(realm, node);
         if (!reform.resistance_triggered && reform.radicalism >= node.resistance.rebellion_threshold)
         {
-            // 帝国：反对派拥立成员国起兵；王国另见 InstitutionSystem.Realm.cs
+            // 帝国：反对派拥立成员国起兵；王国没有成员国，改革当场作罢(见 InstitutionSystem.Realm.cs)
             if (realm.IsEmpire) reform.resistance_triggered = TryEscalateResistance(realm.Empire, node);
+            else
+            {
+                CollapseKingdomReform(realm, node);
+                return;
+            }
         }
         int elapsedYears = Math.Max(0, Date.getYearsSince(reform.started_timestamp));
         if (reform.progress >= 100f && elapsedYears >= minimumYears)
@@ -997,6 +1007,9 @@ public static partial class InstitutionSystem
                 candidate.CoreKingdom != null && !candidate.CoreKingdom.isRekt() &&
                 string.Equals(GetPrimaryCulture(candidate), culture, StringComparison.Ordinal));
         }
+        // 改革竞争按同文化"政权"数(帝国 + 自己推制度的独立王国)算：部落时代多是王国、部落，
+        // 只数帝国的话那时的改革要慢一倍
+        result.SameCultureRealms = Math.Max(1, result.SameCultureEmpires + CultureKingdomRealms(culture).Count);
         result.SameCultureCountries = Math.Max(1, result.SameCultureCountries);
         result.SameCultureEmpires = Math.Max(1, result.SameCultureEmpires);
         result.AdvancedBorderEmpires = CountAdvancedBorderEmpires(realm, culture);
@@ -1004,7 +1017,7 @@ public static partial class InstitutionSystem
         float countryBonus = Math.Min(config.country_bonus_cap,
             Math.Max(0, result.SameCultureCountries - 1) * config.country_bonus_per_additional);
         float empireBonus = Math.Min(config.empire_bonus_cap,
-            Math.Max(0, result.SameCultureEmpires - 1) * config.empire_bonus_per_additional);
+            Math.Max(0, result.SameCultureRealms - 1) * config.empire_bonus_per_additional);
         float borderBonus = result.AdvancedBorderEmpires > 0 ? config.advanced_border_bonus : 0f;
         result.SpeedMultiplier = Math.Max(1f, Math.Min(config.maximum_speed_multiplier,
             1f + countryBonus + empireBonus + borderBonus));
@@ -1013,13 +1026,13 @@ public static partial class InstitutionSystem
         return result;
     }
 
-    // 接壤的、文明等级更高的异文化政权数(帝国按全体成员的边境算)
+    // 接壤的、文明等级更高的异文化政权数(帝国按全体成员的边境算；邻国是帝国的算帝国，自己推制度的独立王国也算一个)
     private static int CountAdvancedBorderEmpires(InstitutionRealm realm, string culture)
     {
         if (realm == null || realm.IsEmpire && realm.Empire.kingdoms_list == null) return 0;
         IEnumerable<Kingdom> members = realm.IsEmpire ? realm.Empire.kingdoms_list : realm.Scope;
         int ownLevel = GetCultureRanking(culture).Level;
-        var neighbours = new HashSet<Empire>();
+        var neighbours = new HashSet<string>(StringComparer.Ordinal);
         foreach (Kingdom member in members.Where(kingdom => kingdom != null && !kingdom.isRekt()))
         {
             foreach (City city in (member.cities ?? Enumerable.Empty<City>()).Where(city =>
@@ -1029,13 +1042,26 @@ public static partial class InstitutionSystem
                 {
                     if (neighbour == null || neighbour.isRekt() || neighbour == member) continue;
                     Empire neighbourEmpire = neighbour.GetEmpire();
-                    if (neighbourEmpire == null || neighbourEmpire == realm.Empire || neighbourEmpire.isRekt() ||
-                        neighbourEmpire.IsArchived() || neighbourEmpire.CoreKingdom == null ||
-                        neighbourEmpire.CoreKingdom.isRekt()) continue;
-                    string neighbourCulture = GetPrimaryCulture(neighbourEmpire);
+                    string key;
+                    string neighbourCulture;
+                    if (neighbourEmpire != null)
+                    {
+                        if (neighbourEmpire == realm.Empire || neighbourEmpire.isRekt() ||
+                            neighbourEmpire.IsArchived() || neighbourEmpire.CoreKingdom == null ||
+                            neighbourEmpire.CoreKingdom.isRekt()) continue;
+                        key = "e" + neighbourEmpire.id;
+                        neighbourCulture = GetPrimaryCulture(neighbourEmpire);
+                    }
+                    else if (KingdomReformsEnabled && neighbour != realm.Kingdom &&
+                             InstitutionRealm.IsSovereignKingdom(neighbour))
+                    {
+                        key = "k" + neighbour.id;
+                        neighbourCulture = CultureService.GetRealmCulture(neighbour);
+                    }
+                    else continue;
                     if (!CultureService.IsValidCulture(neighbourCulture) ||
                         string.Equals(neighbourCulture, culture, StringComparison.Ordinal)) continue;
-                    if (GetCultureRanking(neighbourCulture).Level > ownLevel) neighbours.Add(neighbourEmpire);
+                    if (GetCultureRanking(neighbourCulture).Level > ownLevel) neighbours.Add(key);
                 }
             }
         }
@@ -1276,6 +1302,7 @@ public static partial class InstitutionSystem
             empire.RecordHistory(directContent: content, kingdomId: empire.CoreKingdom.id);
             messageKingdom ??= empire.CoreKingdom;
         }
+        SyncCultureKingdoms(culture, nodeId => removed.Any(node => node.id == nodeId));
         EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventMessage(content, messageKingdom);
     }
 
@@ -1306,6 +1333,8 @@ public static partial class InstitutionSystem
             empire.RecordHistory(directContent: content, kingdomId: empire.CoreKingdom.id);
             messageKingdom ??= empire.CoreKingdom;
         }
+        // 本文化的王国：推着的改革已点亮或被取代就结束，补上持久效果(政体由 TryAdvanceRegimeTransition 逐国跟进)
+        SyncCultureKingdoms(culture, nodeId => IsEnacted(culture, nodeId) || IsSuperseded(culture, nodeId));
         messageKingdom ??= World.world?.kingdoms?.FirstOrDefault(kingdom => kingdom != null && !kingdom.isRekt() &&
             kingdom.isCiv() && string.Equals(CultureService.GetRealmCulture(kingdom), culture, StringComparison.Ordinal));
         EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventMessage(content, messageKingdom);
@@ -1358,6 +1387,9 @@ public static partial class InstitutionSystem
                              empire.CoreKingdom != null &&
                              string.Equals(GetPrimaryCulture(empire), culture, StringComparison.Ordinal)).ToList();
         if (empires.Any(empire => empire.data.institution_state?.active_reform != null)) return;
+        // 自己推制度的独立王国也算政权：有在推的就不介入，有王国在时同样半速
+        List<Kingdom> kingdomRealms = CultureKingdomRealms(culture);
+        if (kingdomRealms.Any(kingdom => kingdom.GetOrCreate().institution_state?.active_reform != null)) return;
 
         InstitutionNodeConfig target = GetForLine(culture)
             .Where(node => IsDriftCandidate(culture, state, node) && (empires.Count == 0 || !ChangesRegime(node)))
@@ -1377,7 +1409,7 @@ public static partial class InstitutionSystem
             state.drift_progress = 0f;
         }
         float gain = (DriftBase + TechnologySystem.GetInstitutionPush(culture, target) * DriftPerPush) *
-                     (empires.Count > 0 ? 0.5f : 1f);
+                     (empires.Count + kingdomRealms.Count > 0 ? 0.5f : 1f);
         state.drift_progress += gain;
         if (state.drift_progress < 100f) return;
         state.drift_node_id = "";
@@ -1431,7 +1463,7 @@ public static partial class InstitutionSystem
 
     private const int BasicsSlack = 2;
 
-    private static void TryStartAiReform(InstitutionRealm realm)
+    private static void TryStartAiReform(InstitutionRealm realm, Dictionary<SocialClass, float> shares = null)
     {
         if (!InstitutionDefinitionRegistry.Global.ai_enabled) return;
         InstitutionEmpireState state = EnsureRealmState(realm);
@@ -1440,10 +1472,14 @@ public static partial class InstitutionSystem
         int interval = TechnologySystem.GetEraTier(primaryCulture) - EnactedAdvancement(primaryCulture) >= 3 ? 1 : 3;
         if (state.last_ai_reform_attempt_timestamp >= 0 &&
             Date.getYearsSince(state.last_ai_reform_attempt_timestamp) < interval) return;
+        // 王国：错开年份、叛乱未平不推、每文化至多三国同时在推(见 InstitutionSystem.Realm.cs)
+        if (!realm.IsEmpire && !KingdomAiMayTry(realm, state, primaryCulture, interval)) return;
         state.last_ai_reform_attempt_timestamp = World.world.getCurWorldTime();
+        // 王国不跟着同文化别的政权重复推同一项
+        HashSet<string> takenElsewhere = realm.IsEmpire ? null : NodesReformedElsewhere(realm, primaryCulture);
 
         // 全人口只扫一遍，所有候选节点共用这份阶级构成
-        Dictionary<SocialClass, float> shares = BuildClassShares(realm);
+        shares ??= BuildClassShares(realm);
         // 先推基础的：能推、也有足够支持的候选里，只在先进程度最低的那一档(+BasicsSlack)里按支持度挑。
         // 以前分数里先进程度乘 2 加分，越先进越优先——察举、科举、府兵这些古代制度牵动世家地主、反对多，
         // 一直排在后面，城市生产(商人、工匠、市民都支持)倒先推到了工场生产
@@ -1453,6 +1489,7 @@ public static partial class InstitutionSystem
         foreach (InstitutionNodeConfig node in InstitutionDefinitionRegistry.GetForLine(
                      GetCultureLine(primaryCulture)))
         {
+            if (takenElsewhere != null && takenElsewhere.Contains(node.id)) continue;
             InstitutionPoliticalBalance balance = CalculatePoliticalBalance(realm, node, shares);
             if (!CanStartReform(realm, node, out _, false, balance)) continue;
             if (balance.Support < balance.Opposition + (era - node.advancement >= 3 ? 0f : 5f)) continue;
@@ -2664,7 +2701,9 @@ public static partial class InstitutionSystem
 
     private static void ChangeRegime(InstitutionRealm realm, RegimeType regimeType)
     {
-        if (realm?.IsEmpire == true) ChangeRegime(realm.Empire, regimeType);
+        if (realm == null) return;
+        if (realm.IsEmpire) ChangeRegime(realm.Empire, regimeType);
+        else ApplyKingdomRegimeChange(realm, regimeType);
     }
 
     // 制度同步不会把已经改制共和的帝国拉回文化的政体；共和改制/复辟走 ChangeRegimeForTransition
@@ -2820,6 +2859,7 @@ public static partial class InstitutionSystem
                 string.Equals(GetPrimaryCulture(empire), culture, StringComparison.Ordinal))
                 reforming.Add(nodeId);
         }
+        foreach ((Kingdom _, string nodeId) in CultureKingdomReforms(culture)) reforming.Add(nodeId);
         foreach (InstitutionNodeConfig node in InstitutionDefinitionRegistry.GetForLine(GetCultureLine(culture)))
         {
             var view = new InstitutionNodeView { Node = node, Culture = culture };

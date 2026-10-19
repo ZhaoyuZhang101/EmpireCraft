@@ -84,8 +84,8 @@ public sealed class InstitutionRealm
         ? Empire.data?.institution_state
         : Kingdom?.data == null ? null : Kingdom.GetOrCreate().institution_state;
 
-    // 推改革要够的威望：帝国看正统；王国暂无
-    public int Authority => Empire != null ? Empire.Legitimacy : 0;
+    // 推改革要够的威望：帝国看正统，王国看君威(见 RealmAuthority)
+    public int Authority => Empire != null ? Empire.Legitimacy : RealmAuthority.Get(Kingdom);
 
     public string Name => Empire != null ? Empire.GetEmpireName() : Kingdom?.GetKingdomName() ?? "";
 
