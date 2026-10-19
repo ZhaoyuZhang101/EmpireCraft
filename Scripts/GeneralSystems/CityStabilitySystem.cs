@@ -254,7 +254,7 @@ public static class CityStabilitySystem
             natural = CityStabilityRules.Clamp(natural - faith);
             Note(ref detail, ReligiousTension.Describe(city));
         }
-        // 水土不服(见 ShuiTuSystem)：离草游牧治下的农地城
+        // 水土不服(见 ShuiTuSystem)：离草游牧治下的农地城、只宜农地的政权治下的旱地城
         float soil = ShuiTuSystem.StabilityLoss(city);
         if (soil > 0f)
         {

@@ -580,7 +580,7 @@ public static class CorpsSystem
         // 鞭长莫及：控制力低的城征不齐(见 AdministrativeControlSystem.Yield)
         float background = 0f;
         // 奴隶不征为兵、野人大半不征(见 SlaverySystem、GuoyeSystem)；收人头税的国家异教之民大半不征(见 ReligiousTension)；
-        // 水土不服的城少征(离草游牧的农地城征兵比例回落，见 ShuiTuSystem.LevyFactor)
+        // 水土不服的城少征(离草游牧的农地城征兵比例回落、不服水土的旱地城兵源打折，见 ShuiTuSystem.LevyFactor)
         foreach (City city in cities)
             background += Mathf.Max(0f, CityPopulationSystem.GetBackgroundTotal(city) - SlaverySystem.Unfree(city)) *
                           ReligiousTension.LevyFactor(city) * AdministrativeControlSystem.Yield(city) * ShuiTuSystem.LevyFactor(city);

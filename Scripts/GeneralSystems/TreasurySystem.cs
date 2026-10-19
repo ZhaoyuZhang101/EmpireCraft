@@ -234,10 +234,11 @@ public static class TreasurySystem
     {
         if (amount <= 0 || city?.data == null || city.isRekt()) return;
         if (!Enabled(city)) { city.AddMoney(amount); return; }
-        // 鞭长莫及：控制力低的城赋税收不齐(满控全收，最低一半，见 AdministrativeControlSystem.Yield)
+        // 鞭长莫及：控制力低的城赋税收不齐(满控全收，最低一半，见 AdministrativeControlSystem.Yield)；
+        // 不服水土的旱地城再少收(见 ShuiTuSystem.TaxFactor)
         if (TaxErosionSystem.IsTax(category))
         {
-            amount = (int)Math.Round(amount * (double)AdministrativeControlSystem.Yield(city));
+            amount = (int)Math.Round(amount * (double)(AdministrativeControlSystem.Yield(city) * ShuiTuSystem.TaxFactor(city)));
             if (amount <= 0) return;
         }
         var local = city.kingdom;

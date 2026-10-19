@@ -161,25 +161,40 @@ public static partial class ShuiTuSystem
         return unit?.Fit == Fit.Nomad && unit.OffGrass ? unit.OffTier : 0;
     }
 
-    // 兵源打几折(见 CorpsSystem.Mobilize 逐城累加兵源)：离草游牧的农地城征兵比例回落
+    // 只宜农地的政权直辖的旱地城：不服水土的档位；别的城 0
+    public static int UnfitTier(City city) =>
+        Lookup(city, out CityInfo info, out UnitInfo unit) && unit.Fit == Fit.Farm && info.Dry ? info.Tier : 0;
+
+    // 政权不服水土的旱地城里最高的档(旱地交战按它打折)
+    public static int UnfitTop(Kingdom kingdom)
+    {
+        UnitInfo unit = UnitInfoOf(kingdom);
+        return unit?.Fit == Fit.Farm ? unit.UnfitTop : 0;
+    }
+
+    // 兵源打几折(见 CorpsSystem.Mobilize 逐城累加兵源)：离草游牧的农地城征兵比例回落；不服水土的旱地城兵源打折
     public static float LevyFactor(City city)
     {
         int off = OffGrassTier(city);
-        return off > 0 ? NomadLevy(city.kingdom, off) : 1f;
+        return off > 0 ? NomadLevy(city.kingdom, off) : SettledLevyFor(UnfitTier(city));
     }
 
-    // 自然稳定度扣多少(见 CityStabilitySystem.LocalPressures)：离草游牧的农地城
-    public static float StabilityLoss(City city) => StabilityFor(OffGrassTier(city));
+    // 自然稳定度扣多少(见 CityStabilitySystem.LocalPressures)：离草游牧的农地城、不服水土的旱地城
+    public static float StabilityLoss(City city) => StabilityFor(Math.Max(OffGrassTier(city), UnfitTier(city)));
 
     public static string DescribeStability(City city) => string.Format(LM.Get("shuitu_stability_detail"), StabilityLoss(city));
 
+    // 赋税收几成(见 TreasurySystem.CollectResidentTax，与鞭长莫及的系数相乘)：不服水土的旱地城少收
+    public static float TaxFactor(City city) => SettledTaxFor(UnfitTier(city));
+
     // 交战攻守打几折(见 FrontSystem.ResolveCity)：dryGround 是交战的那块地是不是旱地(TerrainSystem.IsDry)；
-    // 离草的游牧在非旱地上打折
+    // 离草的游牧在非旱地上打折，不服水土的定居政权在旱地上按它最高的档打折
     public static float CombatFactor(Kingdom kingdom, bool dryGround)
     {
         UnitInfo unit = UnitInfoOf(kingdom);
         if (unit == null) return 1f;
         if (unit.Fit == Fit.Nomad && unit.OffGrass && !dryGround) return NomadCombatFor(unit.OffTier);
+        if (unit.Fit == Fit.Farm && dryGround) return SettledCombatFor(unit.UnfitTop);
         return 1f;
     }
 
