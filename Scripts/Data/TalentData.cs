@@ -55,6 +55,9 @@ public sealed class TalentRecord
     public string realm_text_color = "";
     public string post = "";
     public bool alive = true;
+    // 君主的猜忌(功高震主，见 ThroneSuspicion)：满一百有个了断；记着是哪位君主的猜忌，换了君主减半
+    public float suspicion;
+    public long suspicion_ruler_id = -1L;
     public double died_at = -1d;
     public int died_age;
     public TalentFall fall;

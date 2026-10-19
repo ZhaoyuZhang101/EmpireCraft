@@ -228,6 +228,7 @@ public static class BiographySystem
         foreach (PersonalHistoryRecord record in deeds.Skip(Math.Max(0, deeds.Count - ListedMajor)))
             text.Append(record.content.Trim());
         text.Append(PersonalTieSystem.Describe(person));
+        text.Append(AmbitionSystem.Describe(person));
         PersonalHistoryRecord death = majors.LastOrDefault(IsDeath) ?? history.LastOrDefault(IsDeath);
         if (death != null) text.Append(death.content.Trim());
         if (!string.IsNullOrWhiteSpace(person.posthumous_name))

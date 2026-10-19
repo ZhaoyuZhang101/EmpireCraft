@@ -24,7 +24,7 @@ public static class PersonalTieSystem
 {
     public const int Patron = 1, Protege = 2, Rival = 3;
     public const string CauseImpeached = "impeached", CauseKinKilled = "kin_killed", CauseCaptured = "captured",
-        CauseExam = "exam";
+        CauseExam = "exam", CauseDismissed = "dismissed", CauseRank = "rank", CauseFavourite = "favourite";
     private const int MaxTies = 3, MaxAvengers = 3;
     private const float FrameChance = 0.1f, RevengeChance = 0.05f, RevengeSuccess = 0.35f, DefectChance = 0.05f;
 
@@ -140,7 +140,8 @@ public static class PersonalTieSystem
             if (rival?.data == null || rival.isRekt() || !rival.isAlive()) continue;
             if (tie.cause == CauseKinKilled && UnityEngine.Random.value < RevengeChance) return Revenge(actor, rival);
             if (rival.isKing() && rival.kingdom == actor.kingdom && !actor.isKing() &&
-                (CorpsSystem.IsGeneral(actor) || actor.IsOnOffice()) && UnityEngine.Random.value < DefectChance &&
+                (CorpsSystem.IsGeneral(actor) || actor.IsOnOffice()) &&
+                UnityEngine.Random.value < DefectChance * (AmbitionSystem.Wants(actor, AmbitionSystem.Throne) ? 2f : 1f) &&
                 Defect(actor, rival)) return true;
             if (actor.IsOnOffice() && rival.IsOnOffice() && actor.kingdom?.GetEmpire() is Empire empire &&
                 rival.kingdom?.GetEmpire() == empire && actor.renown >= rival.renown && UnityEngine.Random.value < FrameChance)

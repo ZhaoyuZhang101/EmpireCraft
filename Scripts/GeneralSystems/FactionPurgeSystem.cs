@@ -159,6 +159,8 @@ public static class FactionPurgeSystem
                 BiographySystem.Note(avenger, BiographySystem.Format("bio_purge_leader", villainName), villain);
                 BiographySystem.Kill(villain, BiographySystem.Format("death_cause_purge", rebels.Name), avenger, executed: true);
             }
+            // 宠臣一并被诛(见 FavouriteSystem)
+            FavouriteSystem.OnPurge(empire, rebels.GetLeader());
             core.TryIncreaseFactionRatio(rebels, RatioTransfer);
             empire.data.faction_imbalance *= 0.3f;
             empire.data.faction_imbalance_warned = false;

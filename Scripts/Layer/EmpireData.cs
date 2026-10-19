@@ -96,6 +96,9 @@ public class EmpireData : MetaObjectData
     public long court_emperor_id = -1L;
     // 武家执政(见 MilitaryRegency)：0 无、1 征夷大将军、2 苏丹；将军/苏丹的家族
     public int military_regency = 0;
+    // 宠臣(见 FavouriteSystem)：宠臣与宠信他的皇帝
+    public long favourite_id = -1L;
+    public long favourite_emperor_id = -1L;
     public long regent_clan_id = -1L;
     // 跨文明通好(见 GreatPowerDiplomacy)：对方帝国编号 → 通好的时间
     public Dictionary<long, double> diplomatic_pacts = new();

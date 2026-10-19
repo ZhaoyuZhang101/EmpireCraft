@@ -1435,6 +1435,11 @@ public class PersonalClanIdentity
     // 个人恩怨(恩主、门生、宿敌，至多三条，见 PersonalTieSystem)
     public List<PersonalTie> ties { get; set; }
     public bool ShouldSerializeties() => ties != null && ties.Count > 0;
+    // 志向(封侯、拜相、敛财、扬名、篡位，见 AmbitionSystem)与是否已达成
+    public string ambition { get; set; } = "";
+    public bool ambition_done { get; set; }
+    public bool ShouldSerializeambition() => !string.IsNullOrEmpty(ambition);
+    public bool ShouldSerializeambition_done() => ambition_done;
     [JsonIgnore]
     public List<PersonalHistoryRecord> related_history_records = new List<PersonalHistoryRecord>();
     public List<long> pending_child_birth_history_parents = new List<long>();

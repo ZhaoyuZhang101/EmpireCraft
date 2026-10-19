@@ -1050,6 +1050,27 @@ public static class CorpsSystem
         if (home != null) CityPopulationSystem.DisbandIntoPopulation(general, home);
     }
 
+    // 这人统领的军(不是统领返回空)
+    public static CorpsData CorpsOf(Actor actor)
+    {
+        if (actor?.data == null || !GeneralIndex.TryGetValue(actor.id, out var key)) return null;
+        Kingdom kingdom = World.world.kingdoms.get(key.kingdom);
+        return kingdom == null ? null : Find(kingdom, key.corps);
+    }
+
+    // 整支军改投别国(拥兵自立，见 ThroneSuspicion)：驻地改到 home，回驻地待命
+    public static void Transfer(CorpsData corps, Kingdom from, Kingdom to, City home)
+    {
+        if (corps == null || from == null || to == null || from == to) return;
+        Of(from).Remove(corps);
+        corps.kingdom_id = to.id;
+        if (home != null) corps.home_city_id = home.id;
+        corps.task = "reserve";
+        corps.sector_city_id = -1L;
+        Of(to).Add(corps);
+        RebuildIndex();
+    }
+
     // 统领被俘归降(见 BattleDrama)：不再统领这支军，组织度大挫，下个月补任
     public static void LoseGeneral(Actor actor)
     {

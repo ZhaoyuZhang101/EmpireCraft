@@ -324,6 +324,8 @@ public static class FamousTalentSystem
                 }
             }
             Advance(record, actor);
+            // 功高震主：成名的，君主的猜忌逐年累积(见 ThroneSuspicion)
+            if (record.alive && actor.isAlive()) ThroneSuspicion.Yearly(record, actor);
         }
     }
 

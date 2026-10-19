@@ -256,12 +256,15 @@ public static class RoyalHouseSystem
                     if (empire?.data == null || RepublicSystem.IsRepublic(empire)) continue;
                     Mishap(empire);
                     PrinceStruggleSystem.Yearly(empire);
+                    // 宠臣专权(见 FavouriteSystem)
+                    FavouriteSystem.Yearly(empire);
                     EmpirePartitionSystem.Yearly(empire);
                     PrinceLineage.GrantPrinces(empire);
                 }
             foreach (Kingdom kingdom in World.world.kingdoms.list.ToList()) Enfeoff(kingdom);
-            // 个人恩怨：构陷、复仇、投敌(见 PersonalTieSystem)
+            // 个人恩怨：构陷、复仇、投敌(见 PersonalTieSystem)；志向(见 AmbitionSystem)
             PersonalTieSystem.Yearly();
+            AmbitionSystem.Yearly();
             if (CityPopulationSystem.AbstractPopulationEnabled || PureMapMode.Enabled)
                 foreach (Kingdom kingdom in World.world.kingdoms.list.ToList()) RoyalFamily(kingdom);
         }
