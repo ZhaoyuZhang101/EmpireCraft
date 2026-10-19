@@ -23,6 +23,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 埃米尔割据(用户 2026-10-20 选"阿拉伯也照游牧那样修"；以前世袭的埃米尔照旧缴两成税，"拥兵自立"又要正统 40 以下、
 //   都城不稳、对朝廷没有好感——同帝国 +100、受封五十年内 +100、圣城 +200 起，正统掉到个位数都自立不了，哈里发国从不分裂)：
 //   · 世袭的埃米尔(阿拉伯政体、世袭、通外交的成员)只向中央缴 HereditaryCentralPercent 的税(见 TreasurySystem.TaxShares)；
+//     行省缴 ProvinceCentralPercent(以前与世袭诸侯同为两成、本省留五成五，行省既听调遣又养得起兵，打起仗来比律令的道多出一两倍兵)；
 //   · 世袭满 BreakawayTenureYears 年的，每年按 边远(鞭长莫及那一项)×0.5 + (55 − 正统)×0.5 + 每丢一成城 3 掷一次(%)，
 //     兵力占帝国一成半以上再 ×1.5，至多 15%；每个帝国每年至多一家，苏丹(权臣)自己的国、开国气象里不割据；
 //   · 正统 50 以上：和平脱离——名义上仍奉哈里发，改为朝贡国(还没有朝贡制度的改为附庸，再不行就自立)；
@@ -36,8 +37,8 @@ public static class EmirateSystem
     public const float DistantPercentile = 0.7f;
     public const float DistantSmallMax = 4f, DistantLargeMax = 10f;
     public const int DistantSmallCities = 8, DistantLargeCities = 40;
-    // 世袭的埃米尔向中央缴几成税(行省照旧，见 TreasurySystem.TaxShares)
-    public const int HereditaryCentralPercent = 5;
+    // 央地分成(见 TreasurySystem.TaxShares)：行省向中央缴四成(本省留三成五)，世袭的埃米尔只缴半成
+    public const int ProvinceCentralPercent = 40, HereditaryCentralPercent = 5;
     // 割据：世袭满几年才有份；正统到多少以上和平脱离、改为朝贡；各项系数
     public const int BreakawayTenureYears = 15, PeacefulLegitimacy = 50, BreakawayWeakLegitimacy = 55;
     public const float BreakawayDistantShare = 0.5f, BreakawayWeakShare = 0.5f, BreakawayPerLostTenth = 3f,

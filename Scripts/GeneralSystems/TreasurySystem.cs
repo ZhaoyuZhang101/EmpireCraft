@@ -184,6 +184,8 @@ public static class TreasurySystem
             centralPercent = administrative || local.GetKingdomType() == KingdomType.ZhouFeudalism_jun ||
                 local.GetKingdomType() == KingdomType.Feudalism_intendancy ||
                 local.GetKingdomType() == KingdomType.Feudalism_diocese ? 55 : 20;
+            // 阿拉伯行省(朝廷派的埃米尔，听调遣)：中央收四成，本省留三成五养兵(以前与世袭诸侯同为两成，行省钱多又听调，见 EmirateSystem)
+            if (local.GetKingdomType() == KingdomType.Arabic_province) centralPercent = EmirateSystem.ProvinceCentralPercent;
             // 周室衰微(见 ZhouEraSystem)：春秋诸侯只给天子象征性的贡赋(霸主另收一成)，战国诸侯不再向周室交税；郡照旧
             int era = ZhouEraSystem.Era(empire);
             if (era >= ZhouEraSystem.Spring && local.GetKingdomType() != KingdomType.ZhouFeudalism_jun)
