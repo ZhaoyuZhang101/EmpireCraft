@@ -996,6 +996,12 @@ public static class CityExtension
     {
         return city.GetTileZoneOccupier(tileZone) != null;
     }
+    // 这座城有没有被谁占着的地块(没有时 GetTileZoneOccupier 对它的每块地都是 null，平滑国界的重画指纹据此跳过逐块查)
+    internal static bool HasOccupiedZones(this City city)
+    {
+        Dictionary<int, long> ownerMap = city.GetOccupiedZoneOwnerMap();
+        return ownerMap != null && ownerMap.Count > 0;
+    }
     public static int GetOccupiedTileZoneCount(this City city, Kingdom occupier)
     {
         if (city == null || occupier == null)

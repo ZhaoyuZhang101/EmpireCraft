@@ -1645,8 +1645,16 @@ public static class SmoothBorders
     // (TileZone.checkShouldReRender)只比归属对象与调色板编号(城市图层连编号都不比)，自定义色、附庸描边色、被谁占着、
     // 所属帝国(金边)变了它都看不出来，那片地停在旧颜色。别的游戏的做法是画的时候比对全部输入的指纹，不靠定时扫描事后补：
     // 这里把实际控制方、实际颜色值、所属帝国折进原版比对的那个数(见 ZonePaintBudget.BeforeCheck)，变了下一轮巡检就重画、照常翻牌
+    // 每轮巡检每块地都要算一次指纹：按帧记下——各方的样子(AppearanceKeys)；归属只看城的图层上(见 CityKeyed)，
+    // 原版按城成串巡检，同一座城的地块只取一次归属，城里没有被占的地块时也不逐块查谁占着(结果与逐块算一样)
     private static int _fingerprintFrame = -1, _fingerprintOption;
     private static MetaTypeAsset _fingerprintLayer;
+    private static bool _fingerprintSmooth, _fingerprintByCity;
+    private static City _fingerprintCity;
+    private static IMetaObject _fingerprintCityMeta, _fingerprintMeta;
+    private static bool _fingerprintCityOccupied;
+    private static int _fingerprintKey;
+    private static readonly Dictionary<IMetaObject, int> AppearanceKeys = new();
 
     internal static int Fingerprint(TileZone zone)
     {
@@ -1657,13 +1665,34 @@ public static class SmoothBorders
             _fingerprintFrame = frame;
             _fingerprintLayer = World.world.getCachedMapMetaAsset();
             _fingerprintOption = _fingerprintLayer?.getZoneOptionState() ?? 0;
+            _fingerprintSmooth = _fingerprintLayer != null && Smoothable(_fingerprintLayer);
+            _fingerprintByCity = _fingerprintSmooth && CityKeyed(_fingerprintLayer, _fingerprintOption);
+            _fingerprintCity = null;
+            _fingerprintCityMeta = _fingerprintMeta = null;
+            _fingerprintKey = 0;
+            AppearanceKeys.Clear();
         }
-        if (_fingerprintLayer == null || !Smoothable(_fingerprintLayer)) return 0;
-        IMetaObject real = RealMetaOf(_fingerprintLayer, _fingerprintOption, zone);
+        if (!_fingerprintSmooth) return 0;
+        IMetaObject real;
+        City city = zone.city;
+        if (_fingerprintByCity && city != null)
+        {
+            if (!ReferenceEquals(city, _fingerprintCity))
+            {
+                _fingerprintCity = city;
+                _fingerprintCityMeta = LayerMeta(_fingerprintLayer, _fingerprintOption, zone);
+                _fingerprintCityOccupied = ControlLayer(_fingerprintLayer) && city.kingdom != null && city.HasOccupiedZones();
+            }
+            real = _fingerprintCityOccupied ? RealMetaOf(_fingerprintLayer, _fingerprintOption, zone) : _fingerprintCityMeta;
+        }
+        else real = RealMetaOf(_fingerprintLayer, _fingerprintOption, zone);
+        if (real == null) return 0;
+        if (ReferenceEquals(real, _fingerprintMeta)) return _fingerprintKey;
+        if (!AppearanceKeys.TryGetValue(real, out int key)) AppearanceKeys[real] = key = AppearanceKey(real);
+        _fingerprintMeta = real;
         unchecked
         {
-            return (real == null ? 0 : global::System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(real)) * 31 +
-                   AppearanceKey(real);
+            return _fingerprintKey = global::System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(real) * 31 + key;
         }
     }
 
