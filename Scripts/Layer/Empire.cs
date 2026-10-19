@@ -1339,6 +1339,11 @@ public class Empire : MetaObject<EmpireData>
         // 核心王国没了(比如最后一座城被叛军攻下)：先把它移出成员，再从剩下的成员里找皇族当国王的
         // 王国来延续帝国，找不到才解散。之前这里先无条件解散，解散会清空成员列表，导致后面永远找
         // 不到皇族王国，只要核心王国一亡，帝国就整个没了。
+        // 现代国家(共和国)没有皇族：省州长官多是考选的，按皇族找接续者总是落空，首都一失整个国家就解散，
+        // 各省散成一地"某某自治军"。现代国家的中央王国真没了(城都丢光)时，改由状态修复从剩下的成员里另选中央
+        // (同 checkActive 换核心)；神力移除帝国等核心王国还在的情形照旧解散
+        bool modernState = !ModClass.IS_CLEAR && mainKingdom != null && (mainKingdom.cities?.Count ?? 0) == 0 &&
+                           (mainKingdom.GetRegime()?.type == RegimeType.Modern || RepublicSystem.IsRepublic(this));
         if (mainKingdom != null)
         {
             this.kingdoms_hashset.Remove(mainKingdom);
@@ -1363,6 +1368,12 @@ public class Empire : MetaObject<EmpireData>
                         }
                     }
             }
+        }
+        if (heirEmpire == null && modernState && TryRepairState("modern core kingdom lost") &&
+            CoreKingdom != null && CoreKingdom != mainKingdom && !CoreKingdom.isRekt())
+        {
+            LogService.LogInfo($"现代国家的中央王国灭亡，由{CoreKingdom.GetKingdomName()}接任中央");
+            return;
         }
         if (heirEmpire == null)
         {
