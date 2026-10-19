@@ -227,6 +227,8 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
                 }
             }
         }
+        // 易俗按钮逐项读取文化配置；必须先读文化，不能只生成范围开关、漏掉全部文化笔刷。
+        OnomasticsRule.ReadSetting();
         LoadUI();
         prefab_library = new GameObject("PrefabLibrary").transform;
         prefab_library.SetParent(transform);
@@ -257,7 +259,6 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
         FactionManager.init();
         EMPIRE_MANAGER = new EmpireManager();
         KINGDOM_TITLE_MANAGER = new KingdomTitleManager();
-        OnomasticsRule.ReadSetting();
         string parentFolder = Directory.GetParent(_declare.FolderPath)?.FullName;
         if (parentFolder != null)
         {

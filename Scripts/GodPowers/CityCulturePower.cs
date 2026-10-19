@@ -31,8 +31,11 @@ public static class CityCulturePower
             string name = culture.GetCultureTranslate();
             LM.AddToCurrentLocale(id, string.Format(LM.Get("city_culture_power_name"), name));
             LM.AddToCurrentLocale(id + "_description", string.Format(LM.Get("city_culture_power_description"), name));
-            if (AssetManager.powers.get(id) == null)
-                AssetManager.powers.add(new GodPower { id = id, name = id, click_action = Apply });
+            GodPower asset = AssetManager.powers.get(id);
+            if (asset == null)
+                asset = AssetManager.powers.add(new GodPower { id = id, name = id, click_action = Apply });
+            asset.path_icon = "cultures/" + culture;
+            asset.sprite_icon = EmpireCraft.Scripts.UI.Components.CultureIcons.Get(culture);
             result.Add((id, culture));
         }
         return result;
