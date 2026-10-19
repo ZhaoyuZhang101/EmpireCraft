@@ -1502,6 +1502,39 @@ public static class SmoothBorders
     }
 
     // 归属/战线变化或残留边框：丢掉本块与周围八块的缓存，包含平滑轮廓伸入的斜对角。
+    // 图层诊断用(见 LayerDiagnostics)：色块没刷新——这块地上次画成的归属或颜色与眼下的实际归属对不上，原版却没来重画
+    // (原版只看归属对象与调色板编号，有的变动它看不出来)；正在翻牌、排着翻的不算，悬停省份临时换成本省颜色的不算。
+    // 还没画过的块：眼下有归属，色块却是空的也算
+    internal static bool StaleOwner(MetaTypeAsset layer, TileZone zone, Color32[] pixels, out string detail)
+    {
+        detail = null;
+        if (!Enabled || layer == null || zone?.tiles == null || !Smoothable(layer) || Transitions.ContainsKey(zone.id) ||
+            PendingSweep.Contains(zone.id)) return false;
+        IMetaObject real = RealMetaOf(layer, layer.getZoneOptionState(), zone);
+        if (!LastMeta.TryGetValue(zone.id, out var last))
+        {
+            if (real == null || pixels == null || !ControlLayer(layer) && layer.map_mode != MetaType.City) return false;
+            foreach (WorldTile tile in zone.tiles)
+            {
+                int id = tile?.data?.tile_id ?? -1;
+                if (id < 0 || id >= pixels.Length || IsWater(tile.x, tile.y)) continue;
+                if (pixels[id].a != 0) return false;
+                detail = $"没画过，眼下归 {NameOf(real)}";
+                return true;
+            }
+            return false;
+        }
+        if (ReferenceEquals(last.meta, real) && last.color == ColorKey(SafeColor(real))) return false;
+        if (real is Empire && zone.city?.kingdom is Kingdom province && ReferenceEquals(last.meta, province)) return false;
+        detail = $"画成 {NameOf(last.meta as IMetaObject)}，眼下归 {NameOf(real)}" +
+                 (ReferenceEquals(last.meta, real) ? "(颜色变了)" : "");
+        return true;
+    }
+
+    private static string NameOf(IMetaObject meta) =>
+        meta == null ? "无" : meta is Kingdom kingdom ? kingdom.name : meta is City city ? city.name :
+        meta is Empire empire ? empire.GetEmpireName() : meta.GetType().Name;
+
     public static void Repaint(TileZone zone)
     {
         if (zone == null) return;

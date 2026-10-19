@@ -14,6 +14,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 丢掉这块地连同四邻的上色缓存、重画(见 SmoothBorders.Repaint)，扫描由每分钟一轮改为每十五秒一轮，残线至多停留十几秒；
 // 修过一回下一轮还在的记进日志、不再修(那是画法本身的问题)。
 // 每类记前几块的坐标、像素颜色、平滑国界记下的状态；数目没变就不重复写。
+// 色块不刷新(用户 2026-10-19 转玩家反馈"平滑模式下色块不刷新")：平滑国界开着时(不论纯净地图)，上次画成的归属或颜色
+// 与眼下的实际归属对不上、原版又没来重画的块，当场重画(见 SmoothBorders.StaleOwner)；重画过下一轮还对不上的记进日志、不再重画。
 public static class LayerDiagnostics
 {
     private const float IntervalSeconds = 15f, FirstDelaySeconds = 15f;
@@ -26,19 +28,23 @@ public static class LayerDiagnostics
     private static int _cursor = -1;
     private static object _world;
     private static string _lastSummary;
-    private static int _water, _land, _outline;
-    private static readonly List<string> WaterExamples = new(), LandExamples = new(), OutlineExamples = new();
+    private static int _water, _land, _outline, _stale, _staleFixed;
+    private static readonly List<string> WaterExamples = new(), LandExamples = new(), OutlineExamples = new(), StaleExamples = new();
+    private static readonly HashSet<int> StaleOnce = new(), StaleGaveUp = new();
 
     public static void Tick()
     {
         MapBox world = World.world;
-        if (!PureMapMode.Enabled || world?.zone_calculator?.zones == null || !Config.game_loaded || SmoothLoader.isLoading()) return;
+        if (!PureMapMode.Enabled && !SmoothBorders.Enabled || world?.zone_calculator?.zones == null || !Config.game_loaded ||
+            SmoothLoader.isLoading()) return;
         if (!ReferenceEquals(_world, world))
         {
             _world = world;
             _cursor = -1;
             RepairedOnce.Clear();
             GaveUp.Clear();
+            StaleOnce.Clear();
+            StaleGaveUp.Clear();
             _next = Time.unscaledTime + FirstDelaySeconds;
             _lastSummary = null;
         }
@@ -46,10 +52,11 @@ public static class LayerDiagnostics
         {
             if (Time.unscaledTime < _next) return;
             _cursor = 0;
-            _water = _land = _outline = _repaired = 0;
+            _water = _land = _outline = _repaired = _stale = _staleFixed = 0;
             WaterExamples.Clear();
             LandExamples.Clear();
             OutlineExamples.Clear();
+            StaleExamples.Clear();
         }
         ZoneCalculator calc = world.zone_calculator;
         Color32[] pixels = calc.pixels;
@@ -66,13 +73,15 @@ public static class LayerDiagnostics
         if (_cursor < zones.Count) return;
         _cursor = -1;
         _next = Time.unscaledTime + IntervalSeconds;
-        string summary = $"图层 {layer.id}：水面上色 {_water} 块，无主陆地上色 {_land} 块，多余的边框 {_outline} 块，修了 {_repaired} 块残留边框";
+        string summary = $"图层 {layer.id}：水面上色 {_water} 块，无主陆地上色 {_land} 块，多余的边框 {_outline} 块，修了 {_repaired} 块残留边框，" +
+                         $"重画了 {_staleFixed} 块没刷新的色块，重画后仍没刷新 {_stale} 块";
         if (summary == _lastSummary) return;
         _lastSummary = summary;
         var text = new StringBuilder("[EmpireCraft][图层诊断] ").Append(summary);
         Append(text, "水面上色", WaterExamples);
         Append(text, "无主陆地上色", LandExamples);
         Append(text, "多余的边框", OutlineExamples);
+        Append(text, "没刷新的色块", StaleExamples);
         LogService.LogInfo(text.ToString());
     }
 
@@ -101,6 +110,8 @@ public static class LayerDiagnostics
     private static void Check(TileZone zone, Color32[] pixels, MetaTypeAsset layer, ZoneCalculator calc)
     {
         if (zone?.tiles == null) return;
+        CheckStale(zone, pixels, layer);
+        if (!PureMapMode.Enabled) return;
         IMetaObject meta = MetaOf(layer, zone);
         WorldTile waterHit = null, landHit = null, outlineHit = null;
         foreach (WorldTile tile in zone.tiles)
@@ -135,6 +146,28 @@ public static class LayerDiagnostics
         }
         SmoothBorders.Repaint(zone);
         _repaired++;
+    }
+
+    private static void CheckStale(TileZone zone, Color32[] pixels, MetaTypeAsset layer)
+    {
+        if (!SmoothBorders.StaleOwner(layer, zone, pixels, out string detail))
+        {
+            StaleOnce.Remove(zone.id);
+            StaleGaveUp.Remove(zone.id);
+            return;
+        }
+        if (StaleGaveUp.Contains(zone.id)) return;
+        if (!StaleOnce.Add(zone.id))
+        {
+            StaleGaveUp.Add(zone.id);
+            if (_stale++ < Examples)
+                StaleExamples.Add($"块{zone.id}({zone.x},{zone.y}) 城{zone.city?.name ?? "无"} {detail}(重画过仍在，不再重画)");
+            return;
+        }
+        if (_staleFixed < Examples)
+            StaleExamples.Add($"块{zone.id}({zone.x},{zone.y}) 城{zone.city?.name ?? "无"} {detail}");
+        SmoothBorders.Repaint(zone);
+        _staleFixed++;
     }
 
     private static string Example(TileZone zone, WorldTile tile, Color32[] pixels, IMetaObject meta)
