@@ -19,18 +19,18 @@ namespace EmpireCraft.Scripts.GamePatches;
 public class ZonePaintBudget : GamePatch
 {
     public ModDeclare declare { get; set; }
-    // 正在换色、等着画新样子的地块(见 SmoothBorders.Awaiting)与悬停、刚移开的省(SmoothBorders.HoverUrgent)预算放宽到
-    // UrgentBudgetMs，整片换色尽快画齐、一起翻，悬停跟手
-    private const double BudgetMs = 6d, VisibleBudgetMs = 14d, UrgentBudgetMs = 30d;
+    // 镜头里正在换色、等着画新样子的地块(见 SmoothBorders.Awaiting)与悬停、刚移开的省(SmoothBorders.HoverUrgent)预算放宽到
+    // UrgentBudgetMs，整片换色尽快画齐、一起翻，悬停跟手。以前镜头外的也算急、预算 30 毫秒，
+    // 大片换色时"纯净地图·地块上色"常顶到 30 毫秒；镜头外的翻牌看不见，按普通预算画
+    private const double BudgetMs = 6d, VisibleBudgetMs = 14d, UrgentBudgetMs = 16d;
     // 空白地块：以前当帧不限量全部画上，读档、缩放跨过远景门槛(原版清空整图)时五千多块挤在一帧，
     // 性能日志"原版·updateMapLayers"一帧 500~570 毫秒；现在每帧画到 40 毫秒为止，余下的下一帧接着按这个预算画
     private const double BlankBudgetMs = 40d;
     private const int MinZonesPerFrame = 6;
     private static readonly double TicksPerMs = Stopwatch.Frequency / 1000d;
 
-    private static int _frame = -1, _painted, _visibleFrame = -1, _deferredFrame = -10;
+    private static int _frame = -1, _painted, _deferredFrame = -10;
     private static long _spent, _started;
-    private static readonly HashSet<int> Visible = new();
     // 因预算延后的空白地块：原版照常调 drawEnd 记进"已画"名单(不会被当成多余的块清掉)，但它还是空的(或旧的)，
     // 下一帧仍按空白地块的预算画，不落到普通预算里慢慢排
     private static readonly HashSet<int> Blank = new();
@@ -155,10 +155,17 @@ public class ZonePaintBudget : GamePatch
             Defer(__instance, ref __result);
             return;
         }
-        if (spent < BudgetMs || spent < VisibleBudgetMs && IsVisible(__instance) ||
-            spent < UrgentBudgetMs && (SmoothBorders.Awaiting(__instance) || SmoothBorders.HoverUrgent(__instance) ||
-                                       (SmoothBorders.LayerFlipPending || Time.unscaledTime - _clearedAt < ClearUrgentSeconds) &&
-                                       IsVisible(__instance))) return;
+        if (spent < BudgetMs) return;
+        // 镜头外的：普通预算用完就留到下一轮，再急也不加预算(TileZone.visible 由原版 ZoneCamera 每帧维护，
+        // 与 getVisibleZones 同一份，不再每帧另建一个 HashSet)
+        if (!__instance.visible)
+        {
+            Defer(__instance, ref __result);
+            return;
+        }
+        if (spent < VisibleBudgetMs ||
+            spent < UrgentBudgetMs && (SmoothBorders.LayerFlipPending || Time.unscaledTime - _clearedAt < ClearUrgentSeconds ||
+                                       SmoothBorders.Awaiting(__instance) || SmoothBorders.HoverUrgent(__instance))) return;
         Defer(__instance, ref __result);
     }
 
@@ -185,21 +192,6 @@ public class ZonePaintBudget : GamePatch
         _started = 0L;
         _painted++;
         FrameProfiler.Record("纯净地图·地块上色", elapsed);
-    }
-
-    private static bool IsVisible(TileZone zone)
-    {
-        int frame = Time.frameCount;
-        if (_visibleFrame != frame)
-        {
-            _visibleFrame = frame;
-            Visible.Clear();
-            List<TileZone> zones = World.world?.zone_camera?.getVisibleZones();
-            if (zones != null)
-                foreach (TileZone visible in zones)
-                    if (visible != null) Visible.Add(visible.id);
-        }
-        return Visible.Contains(zone.id);
     }
 
     // 选中的对象：原版让它的地块每帧重画、边框一闪一闪(呼吸动画)，这里上色贵，每帧重画整个国家拖得一帧一帧的。

@@ -721,6 +721,7 @@ public static class SmoothBorders
     }
 
     private static readonly Dictionary<(IMetaObject meta, int color), SweepPlan> Plans = new();
+    private static readonly List<(IMetaObject meta, int color)> ExpiredPlans = new();
     private static float _pendingSince;
     private static MetaTypeAsset _sweepLayer;
     private static object _transitionWorld;
@@ -840,9 +841,17 @@ public static class SmoothBorders
     }
 
     // 记下这块地原来的样子、排进扫描。不是正在画的这块(画邻块时顺带发现它变了)：让原版下一轮重画它，
-    // 否则它等不到新样子，渐变作废后一直留着旧颜色
+    // 否则它等不到新样子，渐变作废后一直留着旧颜色。
+    // 镜头外(外扩一块)的地块不翻(同换图层)：看不见，直接画成新样子——大国整片换色时不必给几千块地记旧样子、逐帧写翻牌
     private static void Queue(TileZone zone, bool repaint, bool self)
     {
+        if (!InFlipView(zone))
+        {
+            Transitions.Remove(zone.id);
+            PendingSweep.Remove(zone.id);
+            if (repaint) zone.resetRenderHelpers();
+            return;
+        }
         Transition transition = Capture(zone);
         if (transition == null) return;
         transition.self = self;
@@ -850,6 +859,23 @@ public static class SmoothBorders
         if (PendingSweep.Count == 0) _pendingSince = Time.unscaledTime;
         PendingSweep.Add(zone.id);
         if (repaint) zone.resetRenderHelpers();
+    }
+
+    private static int _flipViewFrame = -1;
+    private static Rect _flipView;
+
+    // 这块地在镜头里(镜头外扩一块地，每帧取一次镜头)
+    private static bool InFlipView(TileZone zone)
+    {
+        int frame = Time.frameCount;
+        if (_flipViewFrame != frame)
+        {
+            _flipViewFrame = frame;
+            Rect view = ZoneFlipOverlay.CameraView();
+            _flipView = Rect.MinMaxRect(view.xMin - ZoneSize, view.yMin - ZoneSize, view.xMax + ZoneSize, view.yMax + ZoneSize);
+        }
+        float x0 = zone.x * ZoneSize, y0 = zone.y * ZoneSize;
+        return x0 + ZoneSize >= _flipView.xMin && x0 <= _flipView.xMax && y0 + ZoneSize >= _flipView.yMin && y0 <= _flipView.yMax;
     }
 
     // 换色的单位是整个国家、整个帝国(并入帝国、成了附庸、国家换颜色……)：一块地换了，同一国(涉及帝国就是整个帝国)
@@ -1238,8 +1264,12 @@ public static class SmoothBorders
         if (PendingSweep.Count > 0 && (!PendingUnpainted() || now - _pendingSince >= MaxPlanWait)) PlanSweeps();
         PlanLayerFlips(now);
         if (Plans.Count > 0)
-            foreach ((IMetaObject, int) key in Plans.Where(pair => now > pair.Value.end).Select(pair => pair.Key).ToList())
-                Plans.Remove(key);
+        {
+            ExpiredPlans.Clear();
+            foreach (KeyValuePair<(IMetaObject meta, int color), SweepPlan> pair in Plans)
+                if (now > pair.Value.end) ExpiredPlans.Add(pair.Key);
+            foreach ((IMetaObject, int) key in ExpiredPlans) Plans.Remove(key);
+        }
         if (Transitions.Count == 0)
         {
             ZoneFlipOverlay.Hide(false);
