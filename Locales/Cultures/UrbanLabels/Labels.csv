@@ -1,0 +1,168 @@
+family,kind,cz,en,ch
+common,ward,河畔住区|山麓住区|花园住区|工匠住区,Riverside Quarter|Hill Quarter|Garden Quarter|Artisan Quarter,河畔住區|山麓住區|花園住區|工匠住區
+common,civic,{city}议事厅|公共粮仓|城镇学堂,{city} Council Hall|Public Granary|Town School,{city}議事廳|公共糧倉|城鎮學堂
+common,market,河畔集市|城门商铺|工匠集市,Riverside Market|Gate Shops|Artisan Market,河畔集市|城門商鋪|工匠集市
+common,industry,陶工作坊|织工作坊|铁工作坊,Pottery Workshop|Weaving Workshop|Smithy,陶工作坊|織工作坊|鐵工作坊
+common,temple,祭祀堂|祈祷所,Sanctuary|House of Prayer,祭祀堂|祈禱所
+common,barracks,{city}兵营|{city}守备所,{city} Barracks|{city} Garrison,{city}兵營|{city}守備所
+common,docks,{city}码头|{city}渡口,{city} Wharf|{city} Ferry,{city}碼頭|{city}渡口
+common,palace,{city}宫殿,{city} Palace,{city}宮殿
+common,modern_ward,河畔公寓|花园住宅区|山麓公寓|湖滨住宅区,Riverside Apartments|Garden Estate|Hill Apartments|Lakeside Estate,河畔公寓|花園住宅區|山麓公寓|湖濱住宅區
+common,modern_civic,{city}市政厅|{city}图书馆|{city}医院|{city}中学|{city}邮局|{city}法院,{city} City Hall|{city} Library|{city} Hospital|{city} High School|{city} Post Office|{city} Court,{city}市政廳|{city}圖書館|{city}醫院|{city}中學|{city}郵局|{city}法院
+common,modern_market,中央百货|河畔商场|城南商店|湖滨酒店,Central Department Store|Riverside Mall|Southside Store|Lakeside Hotel,中央百貨|河畔商場|城南商店|湖濱酒店
+common,modern_industry,机械厂|纺织厂|钢铁厂|食品厂|造船厂,Machine Works|Textile Mill|Steelworks|Food Factory|Shipyard,機械廠|紡織廠|鋼鐵廠|食品廠|造船廠
+common,modern_barracks,{city}军营|{city}军械库,{city} Barracks|{city} Armory,{city}軍營|{city}軍械庫
+common,modern_docks,{city}港|{city}客运码头,{city} Port|{city} Ferry Terminal,{city}港|{city}客運碼頭
+huaxia,ward,安仁坊|崇义坊|永宁里|宣阳坊|敦化坊|修德里|积庆坊|嘉禾里|平康坊|兴道坊|永和里|长寿坊,Anren Ward|Chongyi Ward|Yongning Quarter|Xuanyang Ward|Dunhua Ward|Xiude Quarter|Jiqing Ward|Jiahe Quarter|Pingkang Ward|Xingdao Ward|Yonghe Quarter|Changshou Ward,安仁坊|崇義坊|永寧裏|宣陽坊|敦化坊|修德裏|積慶坊|嘉禾裏|平康坊|興道坊|永和裏|長壽坊
+huaxia,civic,{city}县衙|{city}府衙|学宫|书院|官仓|驿站,{city} Magistrate Office|{city} Prefecture Office|Confucian Academy|Scholars Academy|State Granary|Post Station,{city}縣衙|{city}府衙|學宮|書院|官倉|驛站
+huaxia,market,东市|西市|同丰粮行|锦绣布庄|春和茶肆|望江酒楼,East Market|West Market|Tongfeng Grain Shop|Jinxiu Cloth Shop|Chunhe Tea House|Wangjiang Inn,東市|西市|同豐糧行|錦繡布莊|春和茶肆|望江酒樓
+huaxia,industry,织造坊|青瓷窑|通济铁铺|染绫坊|漆器作坊|玉器作坊,Silk Weaving Workshop|Celadon Kiln|Tongji Smithy|Silk Dyehouse|Lacquer Workshop|Jade Workshop,織造坊|青瓷窯|通濟鐵鋪|染綾坊|漆器作坊|玉器作坊
+huaxia,temple,兴福寺|玄真观|城隍庙|宗祠,Xingfu Temple|Xuanzhen Taoist Temple|City God Temple|Ancestral Hall,興福寺|玄真觀|城隍廟|宗祠
+huaxia,barracks,{city}卫所|{city}校场,{city} Guard Station|{city} Drill Ground,{city}衛所|{city}校場
+huaxia,docks,{city}漕运码头|{city}渡口,{city} Canal Wharf|{city} Ferry,{city}漕運碼頭|{city}渡口
+huaxia,palace,{city}宫城,{city} Palace Enclosure,{city}宮城
+huaxia,modern_ward,锦绣家园|嘉禾新村|梧桐公寓|春晖花园|碧水小区|永和家园,Jinxiu Estate|Jiahe Estate|Wutong Apartments|Chunhui Gardens|Bishui Estate|Yonghe Estate,錦繡家園|嘉禾新村|梧桐公寓|春暉花園|碧水小區|永和家園
+japan,ward,樱町|松叶町|染屋町|锻冶町|桥本町|寺前町|柳町|本町,Sakura-machi|Matsuba-machi|Someya-machi|Kaji-machi|Hashimoto-machi|Teramae-machi|Yanagi-machi|Honmachi,櫻町|松葉町|染屋町|鍛冶町|橋本町|寺前町|柳町|本町
+japan,civic,{city}奉行所|寺子屋|御米藏|{city}评定所,{city} Magistrate Office|Terakoya School|Rice Storehouse|{city} Council Chamber,{city}奉行所|寺子屋|御米藏|{city}評定所
+japan,market,乐市|米问屋|越后屋|樱花茶屋,Rakuichi Market|Rice Merchant|Echigoya Shop|Sakura Teahouse,樂市|米問屋|越後屋|櫻花茶屋
+japan,industry,锻冶屋|西阵织工房|染屋|陶工房|漆器工房,Kajiya Smithy|Nishijin Weaving House|Someya Dyehouse|Pottery Studio|Lacquer Studio,鍛冶屋|西陣織工房|染屋|陶工房|漆器工房
+japan,temple,八幡社|稻荷社|莲华寺|春日社,Hachiman Shrine|Inari Shrine|Renge Temple|Kasuga Shrine,八幡社|稻荷社|蓮華寺|春日社
+japan,barracks,{city}番所|{city}武家屋敷,{city} Guardhouse|{city} Samurai Quarters,{city}番所|{city}武家屋敷
+japan,docks,{city}船着场|{city}渡船场,{city} Funatsukiba|{city} Ferry Landing,{city}船着場|{city}渡船場
+japan,palace,{city}御所,{city} Gosho,{city}御所
+japan,modern_ward,樱丘公寓|松风团地|青叶住宅区|若叶台|旭丘团地|高砂公寓,Sakuragaoka Apartments|Matsukaze Danchi|Aoba Estate|Wakabadai Estate|Asahigaoka Danchi|Takasago Apartments,櫻丘公寓|松風團地|青葉住宅區|若葉臺|旭丘團地|高砂公寓
+western,ward,橡树街区|钟楼区|行会街区|磨坊区|玫瑰区|石桥区|修道院区|城堡区,Oak Quarter|Belfry Quarter|Guild Quarter|Mill Quarter|Rose Quarter|Stonebridge Quarter|Abbey Quarter|Castle Quarter,橡樹街區|鍾樓區|行會街區|磨坊區|玫瑰區|石橋區|修道院區|城堡區
+western,civic,{city}市政厅|行会大厅|{city}法庭|抄写学校,{city} Town Hall|Guildhall|{city} Courthouse|Scribes School,{city}市政廳|行會大廳|{city}法庭|抄寫學校
+western,market,市集广场|金狮旅店|羊毛市场|老桥商铺,Market Square|Golden Lion Inn|Wool Market|Old Bridge Shops,市集廣場|金獅旅店|羊毛市場|老橋商鋪
+western,industry,行会铁匠铺|磨坊|呢绒工坊|彩绘玻璃工坊|制桶工坊,Guild Smithy|Watermill|Wool Workshop|Stained Glass Workshop|Coopers Workshop,行會鐵匠鋪|磨坊|呢絨工坊|彩繪玻璃工坊|制桶工坊
+western,temple,圣乔治教堂|钟楼礼拜堂|白石修道院,St George Church|Belfry Chapel|Whitestone Abbey,聖喬治教堂|鍾樓禮拜堂|白石修道院
+western,barracks,{city}守卫营|{city}骑士营房,{city} Watch Barracks|{city} Knights Quarters,{city}守衛營|{city}騎士營房
+western,docks,{city}商船码头|{city}渡口,{city} Merchant Wharf|{city} Ferry,{city}商船碼頭|{city}渡口
+western,palace,{city}王宫,{city} Royal Palace,{city}王宮
+western,modern_ward,玫瑰花园公寓|橡树住宅区|常春藤公寓|石桥公寓|榆树庭院|磨坊住宅区,Rose Gardens|Oak Estate|Ivy Apartments|Stonebridge Apartments|Elm Court|Mill Estate,玫瑰花園公寓|橡樹住宅區|常春藤公寓|石橋公寓|榆樹庭院|磨坊住宅區
+roma,ward,朱庇特区|密涅瓦区|台伯街区|橄榄街区|浴场区|陶匠区|月桂区|广场区,Jupiter Vicus|Minerva Vicus|Tiber Vicus|Olive Vicus|Baths Quarter|Potters Vicus|Laurel Vicus|Forum Quarter,朱庇特區|密涅瓦區|臺伯街區|橄欖街區|浴場區|陶匠區|月桂區|廣場區
+roma,civic,{city}元老院|公共浴场|{city}法庭|公共粮仓,{city} Curia|Public Baths|{city} Basilica|Public Granary,{city}元老院|公共浴場|{city}法庭|公共糧倉
+roma,market,中央广场|图拉真市场|橄榄商铺|酒商会馆,Forum Market|Trajan Market|Olive Shops|Wine Merchants Hall,中央廣場|圖拉真市場|橄欖商鋪|酒商會館
+roma,industry,陶罐工坊|军械工坊|马赛克工坊|铁匠作坊|染布工坊,Amphora Workshop|Armory Workshop|Mosaic Workshop|Fabrica Smithy|Dye Workshop,陶罐工坊|軍械工坊|馬賽克工坊|鐵匠作坊|染布工坊
+roma,temple,朱庇特神庙|密涅瓦神庙|维斯塔神庙,Temple of Jupiter|Temple of Minerva|Temple of Vesta,朱庇特神廟|密涅瓦神廟|維斯塔神廟
+roma,barracks,{city}军团营|{city}禁卫营,{city} Castra|{city} Praetorian Barracks,{city}軍團營|{city}禁衛營
+roma,docks,{city}商港|{city}河港,{city} Emporium|{city} River Port,{city}商港|{city}河港
+roma,palace,{city}皇宫,{city} Palatium,{city}皇宮
+roma,modern_ward,月桂公寓|橄榄花园|台伯公寓|密涅瓦住宅区|朱庇特公寓|广场住宅区,Laurel Apartments|Olive Gardens|Tiber Apartments|Minerva Estate|Jupiter Apartments|Forum Estate,月桂公寓|橄欖花園|臺伯公寓|密涅瓦住宅區|朱庇特公寓|廣場住宅區
+viking,ward,渡鸦聚落|长船营|白桦住区|盾牌住区|峡湾住区|榛木聚落|熊爪聚落|橡木长屋区,Raven Stead|Longship Stead|Birch Quarter|Shield Quarter|Fjord Quarter|Hazel Stead|Bearclaw Stead|Oak Longhouse Quarter,渡鴉聚落|長船營|白樺住區|盾牌住區|峽灣住區|榛木聚落|熊爪聚落|橡木長屋區
+viking,civic,庭议长屋|领主大厅|符文书屋|公共粮仓,Thing Hall|Jarls Hall|Rune House|Common Granary,庭議長屋|領主大廳|符文書屋|公共糧倉
+viking,market,峡湾集市|琥珀商摊|蜂蜜酒馆|长船市集,Fjord Market|Amber Stalls|Mead Hall|Longship Market,峽灣集市|琥珀商攤|蜂蜜酒館|長船市集
+viking,industry,长船船坞|乌尔夫铁匠铺|盾牌工坊|琥珀工坊|皮革工坊,Longship Yard|Ulf Smithy|Shield Workshop|Amber Workshop|Leather Workshop,長船船塢|烏爾夫鐵匠鋪|盾牌工坊|琥珀工坊|皮革工坊
+viking,temple,奥丁祭殿|托尔祭殿|圣林祭场,Odin Hof|Thor Hof|Sacred Grove,奧丁祭殿|托爾祭殿|聖林祭場
+viking,barracks,{city}侍卫长屋|{city}盾墙营地,{city} Hird Longhouse|{city} Shieldwall Camp,{city}侍衛長屋|{city}盾牆營地
+viking,docks,{city}长船码头|{city}峡湾渡口,{city} Longship Landing|{city} Fjord Ferry,{city}長船碼頭|{city}峽灣渡口
+viking,palace,{city}王者大厅,{city} Kings Hall,{city}王者大廳
+viking,modern_ward,峡湾公寓|白桦住宅区|渡鸦庭院|北星花园|榛木公寓|长船住宅区,Fjord Apartments|Birch Estate|Raven Court|North Star Gardens|Hazel Apartments|Longship Estate,峽灣公寓|白樺住宅區|渡鴉庭院|北星花園|榛木公寓|長船住宅區
+arab,ward,铜匠哈拉|椰林马哈拉|驼队街区|泉门巷|香料哈拉|银匠哈拉|玫瑰庭院区|老城马哈拉,Coppersmith Hara|Palm Mahalla|Caravan Quarter|Spring Gate Lane|Spice Hara|Silversmith Hara|Rose Courtyard Quarter|Old City Mahalla,銅匠哈拉|椰林馬哈拉|駝隊街區|泉門巷|香料哈拉|銀匠哈拉|玫瑰庭院區|老城馬哈拉
+arab,civic,{city}迪万|经学院|公共粮仓|商队客栈,{city} Diwan|Madrasa|Public Granary|Caravanserai,{city}迪萬|經學院|公共糧倉|商隊客棧
+arab,market,香料苏克|椰枣苏克|铜器苏克|驼队巴扎,Spice Souk|Date Souk|Copper Souk|Caravan Bazaar,香料蘇克|椰棗蘇克|銅器蘇克|駝隊巴扎
+arab,industry,大马士革钢作坊|铜匠工坊|织毯工坊|皮革作坊|彩釉陶坊,Damascene Steel Workshop|Coppersmith Workshop|Carpet Workshop|Leather Workshop|Glazed Pottery Workshop,大馬士革鋼作坊|銅匠工坊|織毯工坊|皮革作坊|彩釉陶坊
+arab,temple,聚礼清真寺|新月清真寺|椰林清真寺,Friday Mosque|Crescent Mosque|Palm Mosque,聚禮清真寺|新月清真寺|椰林清真寺
+arab,barracks,{city}卫队营|{city}骑兵营,{city} Guard Barracks|{city} Cavalry Camp,{city}衛隊營|{city}騎兵營
+arab,docks,{city}帆船码头|{city}商港,{city} Dhow Wharf|{city} Trading Port,{city}帆船碼頭|{city}商港
+arab,palace,{city}卡斯尔宫,{city} Qasr,{city}卡斯爾宮
+arab,modern_ward,椰林公寓|新月住宅区|泉门花园|香料庭院|绿洲公寓|银匠住宅区,Palm Apartments|Crescent Estate|Spring Gate Gardens|Spice Court|Oasis Apartments|Silversmith Estate,椰林公寓|新月住宅區|泉門花園|香料庭院|綠洲公寓|銀匠住宅區
+persia,ward,蔷薇马哈拉|工匠马哈拉|柏树街区|石榴庭院区|织毯街区|泉边马哈拉|蓝顶街区|花园街区,Rose Mahalla|Artisan Mahalla|Cypress Quarter|Pomegranate Quarter|Carpet Quarter|Spring Mahalla|Blue Dome Quarter|Garden Quarter,薔薇馬哈拉|工匠馬哈拉|柏樹街區|石榴庭院區|織毯街區|泉邊馬哈拉|藍頂街區|花園街區
+persia,civic,{city}迪万|书记官署|王室粮仓|商队驿馆,{city} Divan|Scribes Hall|Royal Granary|Caravanserai,{city}迪萬|書記官署|王室糧倉|商隊驛館
+persia,market,蔷薇巴扎|宝石巴扎|丝路商馆|石榴巴扎,Rose Bazaar|Gem Bazaar|Silk Road Trading House|Pomegranate Bazaar,薔薇巴扎|寶石巴扎|絲路商館|石榴巴扎
+persia,industry,波斯织毯坊|彩釉砖窑|银器工坊|丝织作坊|细密画工坊,Persian Carpet Workshop|Glazed Tile Kiln|Silver Workshop|Silk Workshop|Miniature Workshop,波斯織毯坊|彩釉磚窯|銀器工坊|絲織作坊|細密畫工坊
+persia,temple,圣火祠|晨光火庙|柏树火祠,Fire Sanctuary|Dawn Fire Temple|Cypress Fire Temple,聖火祠|晨光火廟|柏樹火祠
+persia,barracks,{city}禁卫营|{city}骑兵营,{city} Royal Guard Barracks|{city} Cavalry Camp,{city}禁衛營|{city}騎兵營
+persia,docks,{city}商船码头|{city}渡口,{city} Merchant Wharf|{city} Ferry,{city}商船碼頭|{city}渡口
+persia,palace,{city}王庭,{city} Royal Court,{city}王庭
+persia,modern_ward,柏树公寓|蔷薇花园|石榴庭院|蓝顶住宅区|泉边公寓|织毯住宅区,Cypress Apartments|Rose Gardens|Pomegranate Court|Blue Dome Estate|Spring Apartments|Carpet Estate,柏樹公寓|薔薇花園|石榴庭院|藍頂住宅區|泉邊公寓|織毯住宅區
+egypt,ward,尼罗街区|莲花街区|纸草街区|芦苇街区|白鹭住区|石匠街区|圣甲虫区|棕榈住区,Nile Quarter|Lotus Quarter|Papyrus Quarter|Reed Quarter|Heron Quarter|Stonecutters Quarter|Scarab Quarter|Palm Quarter,尼羅街區|蓮花街區|紙草街區|蘆葦街區|白鷺住區|石匠街區|聖甲蟲區|棕櫚住區
+egypt,civic,书记官署|{city}王室粮仓|生命之屋|{city}法庭,Scribes Office|{city} Royal Granary|House of Life|{city} Court,書記官署|{city}王室糧倉|生命之屋|{city}法庭
+egypt,market,尼罗河集市|纸草商铺|棕榈集市|亚麻商馆,Nile Market|Papyrus Shops|Palm Market|Linen Trading House,尼羅河集市|紙草商鋪|棕櫚集市|亞麻商館
+egypt,industry,亚麻织坊|纸草工坊|石雕工坊|彩陶作坊|青铜作坊,Linen Workshop|Papyrus Workshop|Stone Carving Workshop|Faience Workshop|Bronze Workshop,亞麻織坊|紙草工坊|石雕工坊|彩陶作坊|青銅作坊
+egypt,temple,拉神庙|伊西斯神庙|荷鲁斯神庙,Temple of Ra|Temple of Isis|Temple of Horus,拉神廟|伊西斯神廟|荷魯斯神廟
+egypt,barracks,{city}战车营|{city}王室卫营,{city} Chariot Barracks|{city} Royal Guard Barracks,{city}戰車營|{city}王室衛營
+egypt,docks,{city}尼罗河埠|{city}芦船码头,{city} Nile Landing|{city} Reed Boat Wharf,{city}尼羅河埠|{city}蘆船碼頭
+egypt,palace,{city}法老宫,{city} Pharaoh Palace,{city}法老宮
+egypt,modern_ward,莲花公寓|尼罗花园|白鹭住宅区|棕榈公寓|纸草庭院|芦苇住宅区,Lotus Apartments|Nile Gardens|Heron Estate|Palm Apartments|Papyrus Court|Reed Estate,蓮花公寓|尼羅花園|白鷺住宅區|棕櫚公寓|紙草庭院|蘆葦住宅區
+india,ward,莲花普拉|芒果普拉|织工街区|榕树街区|孔雀住区|香料街区|菩提住区|檀香普拉,Lotus Pura|Mango Pura|Weavers Quarter|Banyan Quarter|Peacock Quarter|Spice Quarter|Bodhi Quarter|Sandalwood Pura,蓮花普拉|芒果普拉|織工街區|榕樹街區|孔雀住區|香料街區|菩提住區|檀香普拉
+india,civic,{city}议事堂|学舍|王室粮仓|{city}裁判所,{city} Sabha|Gurukula|Royal Granary|{city} Court,{city}議事堂|學舍|王室糧倉|{city}裁判所
+india,market,香料哈特|棉布市集|莲花巴扎|芒果哈特,Spice Haat|Cotton Market|Lotus Bazaar|Mango Haat,香料哈特|棉布市集|蓮花巴扎|芒果哈特
+india,industry,棉织工坊|靛蓝染坊|珠宝工坊|檀香雕坊|乌兹钢作坊,Cotton Workshop|Indigo Dyehouse|Jewelry Workshop|Sandalwood Workshop|Wootz Steel Workshop,棉織工坊|靛藍染坊|珠寶工坊|檀香雕坊|烏茲鋼作坊
+india,temple,毗湿奴神庙|湿婆神庙|莲花佛寺,Vishnu Mandir|Shiva Mandir|Lotus Vihara,毗溼奴神廟|溼婆神廟|蓮花佛寺
+india,barracks,{city}战象营|{city}王室卫营,{city} Elephant Barracks|{city} Royal Guard Barracks,{city}戰象營|{city}王室衛營
+india,docks,{city}河埠|{city}商船码头,{city} River Ghat|{city} Merchant Wharf,{city}河埠|{city}商船碼頭
+india,palace,{city}王公宫,{city} Maharaja Palace,{city}王公宮
+india,modern_ward,莲花公寓|榕树住宅区|芒果花园|孔雀公寓|檀香庭院|菩提住宅区,Lotus Apartments|Banyan Estate|Mango Gardens|Peacock Apartments|Sandalwood Court|Bodhi Estate,蓮花公寓|榕樹住宅區|芒果花園|孔雀公寓|檀香庭院|菩提住宅區
+aztec,ward,羽蛇住区|黑曜石住区|玉米卡尔普利|玉石住区|美洲豹住区|鹰之卡尔普利|芦苇住区|可可卡尔普利,Feathered Serpent Quarter|Obsidian Quarter|Maize Calpulli|Jade Quarter|Jaguar Quarter|Eagle Calpulli|Reed Quarter|Cacao Calpulli,羽蛇住區|黑曜石住區|玉米卡爾普利|玉石住區|美洲豹住區|鷹之卡爾普利|蘆葦住區|可可卡爾普利
+aztec,civic,{city}议事宫|卡尔梅卡克学舍|公共粮仓|特尔波奇卡利学舍,{city} Council Palace|Calmecac School|Common Granary|Telpochcalli School,{city}議事宮|卡爾梅卡克學舍|公共糧倉|特爾波奇卡利學舍
+aztec,market,可可提安吉斯|玉石集市|羽饰集市|玉米提安吉斯,Cacao Tianquiztli|Jade Market|Feather Market|Maize Tianquiztli,可可提安吉斯|玉石集市|羽飾集市|玉米提安吉斯
+aztec,industry,黑曜石作坊|羽饰作坊|玉器工坊|彩陶作坊|棉织工坊,Obsidian Workshop|Featherwork House|Jade Workshop|Painted Pottery Workshop|Cotton Workshop,黑曜石作坊|羽飾作坊|玉器工坊|彩陶作坊|棉織工坊
+aztec,temple,羽蛇神庙|雨神庙|太阳神庙,Feathered Serpent Temple|Rain Temple|Sun Temple,羽蛇神廟|雨神廟|太陽神廟
+aztec,barracks,{city}鹰武士营|{city}豹武士营,{city} Eagle Warrior House|{city} Jaguar Warrior House,{city}鷹武士營|{city}豹武士營
+aztec,docks,{city}独木舟埠|{city}湖岸码头,{city} Canoe Landing|{city} Lakeside Wharf,{city}獨木舟埠|{city}湖岸碼頭
+aztec,palace,{city}特拉托阿尼宫,{city} Tlatoani Palace,{city}特拉托阿尼宮
+aztec,modern_ward,玉石公寓|太阳住宅区|可可花园|美洲豹公寓|鹰之庭院|芦苇住宅区,Jade Apartments|Sun Estate|Cacao Gardens|Jaguar Apartments|Eagle Court|Reed Estate,玉石公寓|太陽住宅區|可可花園|美洲豹公寓|鷹之庭院|蘆葦住宅區
+nomad,ward,白狼营|乌兰艾里|青鹰营|长河艾里|白毡营|金帐住区|察罕营|牧马艾里,White Wolf Camp|Ulan Ail|Blue Eagle Camp|River Ail|White Felt Camp|Golden Tent Quarter|Chagan Camp|Horseherd Ail,白狼營|烏蘭艾裏|青鷹營|長河艾裏|白氈營|金帳住區|察罕營|牧馬艾裏
+nomad,civic,议事大帐|书记帐|粮秣帐|使者驿帐,Council Tent|Scribes Tent|Provision Tent|Envoys Relay Tent,議事大帳|書記帳|糧秣帳|使者驛帳
+nomad,market,马市|皮毛互市|驼队集市|羊毛互市,Horse Market|Fur Trading Ground|Caravan Market|Wool Trading Ground,馬市|皮毛互市|駝隊集市|羊毛互市
+nomad,industry,毡制作坊|马具作坊|角弓作坊|皮革作坊|银饰作坊,Felt Workshop|Saddlery|Horn Bow Workshop|Leather Workshop|Silver Ornament Workshop,氈制作坊|馬具作坊|角弓作坊|皮革作坊|銀飾作坊
+nomad,temple,腾格里祭帐|祖灵祭帐|白山祭场,Tengri Sacred Tent|Ancestor Spirit Tent|White Mountain Sanctuary,騰格裏祭帳|祖靈祭帳|白山祭場
+nomad,barracks,{city}怯薛营|{city}骑兵营,{city} Keshig Camp|{city} Cavalry Camp,{city}怯薛營|{city}騎兵營
+nomad,docks,{city}渡马口|{city}皮筏渡口,{city} Horse Ford|{city} Hide Raft Ferry,{city}渡馬口|{city}皮筏渡口
+nomad,palace,{city}汗帐,{city} Khans Ordo,{city}汗帳
+nomad,modern_ward,乌兰公寓|白狼住宅区|青鹰花园|察罕住宅区|牧马公寓|长河庭院,Ulan Apartments|White Wolf Estate|Blue Eagle Gardens|Chagan Estate|Horseherd Apartments|River Court,烏蘭公寓|白狼住宅區|青鷹花園|察罕住宅區|牧馬公寓|長河庭院
+woodland,ward,红枫氏族营|白桦长屋营|河狸氏族营|松林住区|鹤之氏族营|湖岸长屋营|熊之氏族营|野米住区,Red Maple Clan Camp|Birch Lodge Camp|Beaver Clan Camp|Pine Quarter|Crane Clan Camp|Lakeside Lodge Camp|Bear Clan Camp|Wild Rice Quarter,紅楓氏族營|白樺長屋營|河狸氏族營|松林住區|鶴之氏族營|湖岸長屋營|熊之氏族營|野米住區
+woodland,civic,长屋议堂|氏族粮仓|传习长屋|公共熏屋,Council Lodge|Clan Granary|Teaching Lodge|Common Smokehouse,長屋議堂|氏族糧倉|傳習長屋|公共燻屋
+woodland,market,湖岸集市|皮毛交换场|野米集市|松林交换场,Lakeside Market|Fur Trading Ground|Wild Rice Market|Pine Trading Ground,湖岸集市|皮毛交換場|野米集市|松林交換場
+woodland,industry,白桦舟工坊|皮工作坊|珠饰工坊|木雕工坊|编篮作坊,Birchbark Canoe Workshop|Hide Workshop|Beadwork Lodge|Woodcarving Workshop|Basket Workshop,白樺舟工坊|皮工作坊|珠飾工坊|木雕工坊|編籃作坊
+woodland,temple,祭祀长屋|圣林祭场|祖灵小屋,Ceremonial Lodge|Sacred Grove|Ancestor Lodge,祭祀長屋|聖林祭場|祖靈小屋
+woodland,barracks,{city}战士长屋|{city}猎手营,{city} Warrior Lodge|{city} Hunters Camp,{city}戰士長屋|{city}獵手營
+woodland,docks,{city}独木舟埠|{city}湖岸渡口,{city} Canoe Landing|{city} Lakeside Ferry,{city}獨木舟埠|{city}湖岸渡口
+woodland,palace,{city}酋长议屋,{city} Chiefs Council Lodge,{city}酋長議屋
+woodland,modern_ward,红枫公寓|白桦住宅区|湖岸花园|鹤之庭院|松林公寓|野米住宅区,Red Maple Apartments|Birch Estate|Lakeside Gardens|Crane Court|Pine Apartments|Wild Rice Estate,紅楓公寓|白樺住宅區|湖岸花園|鶴之庭院|松林公寓|野米住宅區
+Kosher,ward,橄榄街区|石榴街区|大卫街区|锡安住区|葡萄园区|会堂街区,Olive Quarter|Pomegranate Quarter|David Quarter|Zion Quarter|Vineyard Quarter|Synagogue Quarter,橄欖街區|石榴街區|大衛街區|錫安住區|葡萄園區|會堂街區
+Kosher,civic,{city}长老议堂|经学堂|公共粮仓,{city} Elders Council|Beit Midrash|Common Granary,{city}長老議堂|經學堂|公共糧倉
+Kosher,market,橄榄集市|葡萄酒商铺|石榴集市,Olive Market|Wine Shops|Pomegranate Market,橄欖集市|葡萄酒商鋪|石榴集市
+Kosher,industry,经卷抄写坊|银器工坊|织布作坊|橄榄油坊,Torah Scribes Workshop|Silver Workshop|Weaving Workshop|Olive Press,經卷抄寫坊|銀器工坊|織布作坊|橄欖油坊
+Kosher,temple,橄榄会堂|大卫会堂|锡安会堂,Olive Synagogue|David Synagogue|Zion Synagogue,橄欖會堂|大衛會堂|錫安會堂
+Kosher,barracks,{city}守卫营|{city}盾兵营,{city} Guard Barracks|{city} Shield Barracks,{city}守衛營|{city}盾兵營
+Kosher,docks,{city}商船码头|{city}渡口,{city} Merchant Wharf|{city} Ferry,{city}商船碼頭|{city}渡口
+Kosher,palace,{city}王宫,{city} Royal Palace,{city}王宮
+Kosher,modern_ward,橄榄公寓|石榴花园|锡安住宅区|葡萄园公寓,Olive Apartments|Pomegranate Gardens|Zion Estate|Vineyard Apartments,橄欖公寓|石榴花園|錫安住宅區|葡萄園公寓
+Frankish,ward,圣马丁区|百合街区|圣德尼区|王桥区|葡萄园区|圣雷米区,St Martin Quarter|Lily Quarter|St Denis Quarter|Kingsbridge Quarter|Vineyard Quarter|St Remy Quarter,聖馬丁區|百合街區|聖德尼區|王橋區|葡萄園區|聖雷米區
+Frankish,industry,高卢织坊|百合铁匠铺|葡萄酒作坊|圣马丁陶坊,Gallic Weaving House|Lily Smithy|Wine Workshop|St Martin Pottery,高盧織坊|百合鐵匠鋪|葡萄酒作坊|聖馬丁陶坊
+Frankish,temple,圣马丁教堂|圣德尼修道院|圣雷米礼拜堂,St Martin Church|St Denis Abbey|St Remy Chapel,聖馬丁教堂|聖德尼修道院|聖雷米禮拜堂
+Germanic,ward,铁匠巷区|椴树街区|城堡街区|汉萨街区|橡木区|磨坊巷区,Schmiedegasse Quarter|Linden Quarter|Burg Quarter|Hanse Quarter|Oak Quarter|Mill Lane Quarter,鐵匠巷區|椴樹街區|城堡街區|漢薩街區|橡木區|磨坊巷區
+Germanic,industry,汉萨铁匠铺|椴树酿坊|呢绒工坊|木刻工坊,Hanse Smithy|Linden Brewery|Wool Workshop|Woodcut Workshop,漢薩鐵匠鋪|椴樹釀坊|呢絨工坊|木刻工坊
+Germanic,temple,圣米迦勒教堂|圣乌尔里希修道院|圣彼得礼拜堂,St Michael Church|St Ulrich Abbey|St Peter Chapel,聖米迦勒教堂|聖烏爾裏希修道院|聖彼得禮拜堂
+Slavonic,ward,白桦斯洛博达|铁匠斯洛博达|河湾波萨德|圣像街区|椴树波萨德|木堡街区,Birch Sloboda|Smiths Sloboda|River Posad|Icon Quarter|Linden Posad|Timber Fort Quarter,白樺斯洛博達|鐵匠斯洛博達|河灣波薩德|聖像街區|椴樹波薩德|木堡街區
+Slavonic,civic,{city}维彻议堂|{city}官署|公共粮仓,{city} Veche Hall|{city} Chancery|Public Granary,{city}維徹議堂|{city}官署|公共糧倉
+Slavonic,industry,圣像画坊|白桦铁匠铺|蜂蜜酒酿坊|木器工坊,Icon Workshop|Birch Smithy|Mead Brewery|Woodworking Shop,聖像畫坊|白樺鐵匠鋪|蜂蜜酒釀坊|木器工坊
+Slavonic,temple,圣尼古拉教堂|金顶修道院|圣索菲亚教堂,St Nicholas Church|Golden Dome Monastery|St Sophia Church,聖尼古拉教堂|金頂修道院|聖索菲亞教堂
+ElfFancy,ward,银叶林居|星辉庭院|月泉住区|翡翠树庭|晨露林居|白鹿住区,Silverleaf Glade|Starlight Court|Moonspring Quarter|Emerald Bower|Dew Glade|White Stag Quarter,銀葉林居|星輝庭院|月泉住區|翡翠樹庭|晨露林居|白鹿住區
+ElfFancy,civic,{city}长老树庭|星辉学舍|月泉藏书阁,{city} Elder Bower|Starlight Academy|Moonspring Library,{city}長老樹庭|星輝學舍|月泉藏書閣
+ElfFancy,market,月泉市集|银叶商馆|星光集市,Moonspring Market|Silverleaf Trading House|Starlight Market,月泉市集|銀葉商館|星光集市
+ElfFancy,industry,星银工坊|月纹织坊|翠木弓坊|琉光工坊,Starsilver Workshop|Moonweave Workshop|Greenwood Bowyer|Gleamglass Workshop,星銀工坊|月紋織坊|翠木弓坊|琉光工坊
+ElfFancy,temple,月泉圣所|星辉神殿|古树祭庭,Moonspring Sanctuary|Starlight Temple|Elder Tree Sanctuary,月泉聖所|星輝神殿|古樹祭庭
+ElfFancy,barracks,{city}游侠营|{city}银弓卫所,{city} Ranger Lodge|{city} Silverbow Guardhouse,{city}遊俠營|{city}銀弓衛所
+ElfFancy,docks,{city}月泉渡口|{city}银叶舟埠,{city} Moonspring Ferry|{city} Silverleaf Landing,{city}月泉渡口|{city}銀葉舟埠
+ElfFancy,palace,{city}星冠殿,{city} Starcrown Palace,{city}星冠殿
+ElfFancy,modern_ward,银叶公寓|月泉花园|星辉住宅区|翡翠庭院,Silverleaf Apartments|Moonspring Gardens|Starlight Estate|Emerald Court,銀葉公寓|月泉花園|星輝住宅區|翡翠庭院
+Emperor,ward,金鹰区|紫袍区|帝冠区|禁卫区|凯旋区|紫宸住区,Golden Eagle Quarter|Purple Robe Quarter|Imperial Crown Quarter|Guard Quarter|Triumph Quarter|Purple Palace Quarter,金鷹區|紫袍區|帝冠區|禁衛區|凱旋區|紫宸住區
+Emperor,civic,{city}帝国官署|{city}枢密院|帝国学馆,{city} Imperial Chancery|{city} Privy Council|Imperial Academy,{city}帝國官署|{city}樞密院|帝國學館
+Emperor,temple,帝国圣堂|金鹰圣殿|紫冠礼拜堂,Imperial Cathedral|Golden Eagle Sanctuary|Purple Crown Chapel,帝國聖堂|金鷹聖殿|紫冠禮拜堂
+Emperor,palace,{city}帝宫,{city} Imperial Palace,{city}帝宮
+Corporate,ward,职员住宅区|商社住区|交易所街区|仓储区|总部住区|工商业街区,Clerks Estate|Company Quarter|Exchange Quarter|Warehouse Quarter|Headquarters Estate|Commerce Quarter,職員住宅區|商社住區|交易所街區|倉儲區|總部住區|工商業街區
+Corporate,civic,{city}董事会馆|商事仲裁所|商业学馆,{city} Board Hall|Commercial Arbitration Hall|Commercial Academy,{city}董事會館|商事仲裁所|商業學館
+Corporate,market,商社交易所|中央商场|联合商馆,Company Exchange|Central Store|Union Trading House,商社交易所|中央商場|聯合商館
+Corporate,industry,联合工坊|商社制造所|精工制造所,Union Workshop|Company Manufactury|Precision Manufactury,聯合工坊|商社制造所|精工制造所
+Corporate,temple,商社礼拜堂|职员祈祷所|中央礼拜堂,Company Chapel|Workers Prayer House|Central Chapel,商社禮拜堂|職員祈禱所|中央禮拜堂
+Corporate,barracks,{city}商社警备队|{city}护商队营房,{city} Company Guardhouse|{city} Trade Escort Barracks,{city}商社警備隊|{city}護商隊營房
+Corporate,docks,{city}货运码头|{city}商社船埠,{city} Cargo Wharf|{city} Company Landing,{city}貨運碼頭|{city}商社船埠
+Corporate,palace,{city}商社总部,{city} Company Headquarters,{city}商社總部
+Corporate,modern_ward,职员公寓|总部住宅区|商社花园|联合住宅区,Staff Apartments|Headquarters Estate|Company Gardens|Union Estate,職員公寓|總部住宅區|商社花園|聯合住宅區
+Frankish,modern_ward,百合公寓|圣马丁花园|王桥住宅区|葡萄园公寓,Lily Apartments|St Martin Gardens|Kingsbridge Estate|Vineyard Apartments,百合公寓|聖馬丁花園|王橋住宅區|葡萄園公寓
+Germanic,modern_ward,椴树公寓|橡木住宅区|汉萨花园|城堡公寓,Linden Apartments|Oak Estate|Hanse Gardens|Burg Apartments,椴樹公寓|橡木住宅區|漢薩花園|城堡公寓
+Slavonic,modern_ward,白桦公寓|河湾住宅区|金顶庭院|椴树花园,Birch Apartments|River Estate|Golden Dome Court|Linden Gardens,白樺公寓|河灣住宅區|金頂庭院|椴樹花園
+Emperor,modern_ward,金鹰公寓|帝冠住宅区|凯旋花园|紫袍庭院,Golden Eagle Apartments|Imperial Crown Estate|Triumph Gardens|Purple Robe Court,金鷹公寓|帝冠住宅區|凱旋花園|紫袍庭院

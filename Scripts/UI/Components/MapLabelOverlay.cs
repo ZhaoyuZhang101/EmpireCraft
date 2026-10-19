@@ -10,10 +10,9 @@ namespace EmpireCraft.Scripts.UI.Components;
 
 // 街区级标注(见 MapZoomTier ④，用户 2026-10-16 选定：建筑名、住宅小区名；街道名 2026-10-20 去掉)：
 //   · 镜头拉到一格至少 6 个屏幕像素才标，只标镜头里离中心最近的几座城(与城市精细层一致)；
-//   · 建筑：官署(古代县衙、学宫、书院、驿站、官仓；近代人民政府、法院、医院、中学、小学、图书馆、邮政局)、
-//     市场(集市、商铺；近代商场、超市、便利店)、作坊与工厂、寺庙祠观、兵营、码头，多数冠以城名或雅名；
-//   · 住宅：古代每块住宅地标坊名(平康坊)，近代每栋标小区名加栋号(雪香花园 3 栋)；再拉近(一格 10 像素以上)才标住宅；
-//   · 名字按城、地块、街区编号算出来，同一处每次一样，不存档；标注只在平面图变了或镜头里的城变了时重排。
+//   · 官署、市场、作坊、祭祀建筑、兵营、码头与住宅按本城主流文化取名(见 UrbanLabelNaming)，近代另有词库；
+//   · 住宅：古代每块住宅地标一次街区名，近代每栋标住宅区名加栋号；再拉近(一格 10 像素以上)才标住宅；
+//   · 名字按城、地块、街区编号算出来，同一处每次一样，不存档；布局、城名、文化或语言变更时更新缓存。
 // 字是世界坐标里的 TextMesh，盖在所有地图图层之上；至多 160 条，对象池复用。
 public static class MapLabelOverlay
 {
@@ -58,7 +57,7 @@ public static class MapLabelOverlay
     }
 
     private static readonly List<Label> Pool = new();
-    private static readonly Dictionary<long, (int stamp, bool houses, bool drawn, List<Spec> specs)> Cache = new();
+    private static readonly Dictionary<long, (int stamp, bool houses, bool drawn, string naming, List<Spec> specs)> Cache = new();
     private static Font _font;
     private static Sprite _backgroundSprite;
     private static object _world;
@@ -225,15 +224,16 @@ public static class MapLabelOverlay
     {
         // 平面图没变就用上次排好的(不每帧重新取平面图)
         int stamp = PureMapPatch.StampOf(city);
+        UrbanLabelNaming.Names names = UrbanLabelNaming.For(city);
         List<PureMapPatch.DetailLabel> drawn = PureMapPatch.DrawnLabelsOf(city);
         if (Cache.TryGetValue(city.id, out var cached) && cached.stamp == stamp && cached.houses == houses &&
-            cached.drawn == (drawn != null)) return cached.specs;
+            cached.drawn == (drawn != null) && cached.naming == names.Key) return cached.specs;
         // 精细图画到哪里就标到哪里(见 PureMapPatch.DetailLabel)；这座城画精细图、只是还没画好的，先不标，免得字和画面对不上
         if (drawn != null)
         {
-            List<Spec> fromDrawing = SpecsOfDrawing(city, drawn, houses);
+            List<Spec> fromDrawing = SpecsOfDrawing(city, drawn, houses, names);
             Settlements(city, PureMapPatch.LabelsOf(city), fromDrawing);
-            Cache[city.id] = (stamp, houses, true, fromDrawing);
+            Cache[city.id] = (stamp, houses, true, names.Key, fromDrawing);
             if (Cache.Count > 64) Cache.Remove(Cache.Keys.First());
             return fromDrawing;
         }
@@ -242,7 +242,6 @@ public static class MapLabelOverlay
         if (plan == null) return new List<Spec>();
         var specs = new List<Spec>();
         bool modern = plan.Modern >= 0.5f;
-        string cityName = CityName(city);
         var residences = new Dictionary<int, string>();
         int houseNumber = 0;
         foreach (PureMapPatch.LabelSlot slot in plan.Slots)
@@ -253,32 +252,30 @@ public static class MapLabelOverlay
             {
                 if (!houses) continue;
                 if (!residences.TryGetValue(slot.Zone, out string estate))
-                    residences[slot.Zone] = estate = Pick(EstateWords(modern), city.id * 7919L + slot.Zone) +
-                                                     (modern ? Pick(EstateSuffixModern, slot.Zone) : Pick(EstateSuffixOld, slot.Zone));
+                    residences[slot.Zone] = estate = names.Residence(modern, city.id * 7919L + slot.Zone);
                 // 古代一块住宅地标一次坊名；近代每栋标楼号
                 if (!modern)
                 {
                     if (slot.Index != FirstHouse(plan, slot.Zone)) continue;
                     specs.Add(new Spec(slot.Tile, estate, HouseColor, HouseSize, false, 3));
                 }
-                else specs.Add(new Spec(slot.Tile, estate + (++houseNumber % 30 + 1) + Building(), HouseColor, HouseSize, false, 3));
+                else specs.Add(new Spec(slot.Tile, names.Numbered(estate, ++houseNumber), HouseColor, HouseSize, false, 3));
                 continue;
             }
-            (string text, Color color) = BuildingName(icon, modern, cityName, seed);
+            (string text, Color color) = BuildingName(icon, modern, names, seed);
             if (!string.IsNullOrEmpty(text)) specs.Add(new Spec(slot.Tile, text, color, BuildingSize, false, 1));
         }
         Settlements(city, plan, specs);
-        Cache[city.id] = (plan.Stamp, houses, false, specs);
+        Cache[city.id] = (plan.Stamp, houses, false, names.Key, specs);
         if (Cache.Count > 64) Cache.Remove(Cache.Keys.First());
         return specs;
     }
 
     // 按精细图实际画出来的街、大道、房子标注
-    private static List<Spec> SpecsOfDrawing(City city, List<PureMapPatch.DetailLabel> drawn, bool houses)
+    private static List<Spec> SpecsOfDrawing(City city, List<PureMapPatch.DetailLabel> drawn, bool houses, UrbanLabelNaming.Names names)
     {
         var specs = new List<Spec>();
         bool modern = PureMapPatch.LabelsOf(city)?.Modern >= 0.5f;
-        string cityName = CityName(city);
         var residences = new Dictionary<long, string>();
         int houseNumber = 0;
         foreach (PureMapPatch.DetailLabel label in drawn.OrderBy(label => label.Key))
@@ -290,13 +287,12 @@ public static class MapLabelOverlay
             {
                 if (!houses) continue;
                 if (!residences.TryGetValue(zone, out string estate))
-                    residences[zone] = estate = Pick(EstateWords(modern), city.id * 7919L + zone) +
-                                                (modern ? Pick(EstateSuffixModern, zone) : Pick(EstateSuffixOld, zone));
-                specs.Add(new Spec(label.Tile, modern ? estate + (++houseNumber % 30 + 1) + Building() : estate, HouseColor,
+                    residences[zone] = estate = names.Residence(modern, city.id * 7919L + zone);
+                specs.Add(new Spec(label.Tile, modern ? names.Numbered(estate, ++houseNumber) : estate, HouseColor,
                     HouseSize, false, 3));
                 continue;
             }
-            (string text, Color color) = BuildingName(label.Icon, modern, cityName, city.id * 1000003L + label.Key);
+            (string text, Color color) = BuildingName(label.Icon, modern, names, city.id * 1000003L + label.Key);
             if (!string.IsNullOrEmpty(text)) specs.Add(new Spec(label.Tile, text, color, BuildingSize, false, 1));
         }
         return specs;
@@ -383,109 +379,18 @@ public static class MapLabelOverlay
         plan.Slots.Where(slot => slot.Zone == zone && slot.Icon.StartsWith("house_")).Select(slot => slot.Index)
             .DefaultIfEmpty(-1).Min();
 
-    private static (string text, Color color) BuildingName(string icon, bool modern, string cityName, long seed)
+    private static (string text, Color color) BuildingName(string icon, bool modern, UrbanLabelNaming.Names names, long seed)
     {
-        string kind = icon.Split('_')[0];
-        switch (kind)
+        Color color = icon.Split('_')[0] switch
         {
-            case "civic":
-            {
-                string[] pool = modern ? CivicModern : CivicOld;
-                string name = Pick(pool, seed);
-                return (name.StartsWith("·") ? cityName + name.Substring(1) : name, CivicColor);
-            }
-            case "market":
-                return (Pick(Elegant(modern), seed) + Pick(modern ? MarketModern : MarketOld, seed + 3), MarketColor);
-            case "industry":
-                bool modernWorks = modern || icon.EndsWith("1") || icon.EndsWith("2");
-                return (Pick(Elegant(modernWorks), seed) + Pick(modernWorks ? FactoryModern : FactoryOld, seed + 5),
-                    IndustryColor);
-            case "temple":
-                return (Pick(Elegant(false), seed) + Pick(TempleNames, seed + 7), TempleColor);
-            case "barracks":
-                return (cityName + Pick(modern ? BarracksModern : BarracksOld, seed), MilitaryColor);
-            case "docks":
-                return (cityName + Pick(modern ? DocksModern : DocksOld, seed), DockColor);
-            case "palace":
-                return (Chinese ? "宫城" : "Palace", CivicColor);
-            default:
-                return (null, Color.white);
-        }
+            "civic" or "palace" => CivicColor,
+            "market" => MarketColor,
+            "industry" => IndustryColor,
+            "temple" => TempleColor,
+            "barracks" => MilitaryColor,
+            "docks" => DockColor,
+            _ => Color.white
+        };
+        return (names.Building(icon, modern, seed), color);
     }
-
-    private static string CityName(City city)
-    {
-        string name = city.GetCityName() ?? "";
-        return name.Length > 2 && Chinese ? name.Substring(0, 2) : name;
-    }
-
-    private static bool Chinese
-    {
-        get
-        {
-            try
-            {
-                string language = LocalizedTextManager.instance?.language ?? "cz";
-                return language == "cz" || language == "ch";
-            }
-            catch
-            {
-                return true;
-            }
-        }
-    }
-
-    private static string Building() => Chinese ? "栋" : "";
-
-    private static string Pick(string[] pool, long seed)
-    {
-        unchecked
-        {
-            ulong x = (ulong)seed * 0x9E3779B97F4A7C15UL;
-            x ^= x >> 29;
-            return pool[(int)(x % (ulong)pool.Length)];
-        }
-    }
-
-    // ───────── 词库(中文界面用汉字，其余语言用英文) ─────────
-    // 坊名按时代分
-    private static string[] EstateWords(bool modern) => Chinese ? modern ? EstateModernZh : EstateZh : EstateEn;
-    private static string[] EstateSuffixOld => Chinese ? new[] { "坊", "里", "坊" } : new[] { " Ward", " Quarter" };
-    private static string[] EstateSuffixModern => Chinese ? new[] { "花园", "小区", "家园", "新村", "公寓" } : new[] { " Gardens ", " Court ", " Heights " };
-    private static string[] Elegant(bool modern) => EstateWords(modern);
-    private static string[] CivicOld => Chinese
-        ? new[] { "·县衙", "·府衙", "学宫", "书院", "驿站", "官仓", "·察院", "·文庙" }
-        : new[] { "Magistrate", "Academy", "Post Station", "Granary", "Court House" };
-    private static string[] CivicModern => Chinese
-        ? new[] { "·人民政府", "·人民法院", "·公安局", "·人民医院", "·第一中学", "·实验小学", "·图书馆", "·邮政局", "·税务局", "·博物馆" }
-        : new[] { "City Hall", "Court", "Police Station", "General Hospital", "High School", "Primary School", "Library", "Post Office" };
-    private static string[] MarketOld => Chinese ? new[] { "集市", "商铺", "酒楼", "茶肆", "布庄", "粮行" } : new[] { " Market", " Inn", " Tea House" };
-    private static string[] MarketModern => Chinese
-        ? new[] { "商场", "超市", "便利店", "百货", "购物中心", "饭店", "酒店" }
-        : new[] { " Mall", " Supermarket", " Store", " Hotel" };
-    private static string[] FactoryOld => Chinese ? new[] { "作坊", "窑", "染坊", "铁铺" } : new[] { " Workshop", " Kiln", " Forge" };
-    private static string[] FactoryModern => Chinese ? new[] { "工厂", "机械厂", "纺织厂", "钢铁厂", "化工厂" } : new[] { " Works", " Mill", " Factory" };
-    private static string[] TempleNames => Chinese ? new[] { "寺", "庙", "观", "祠", "庵" } : new[] { " Temple", " Shrine", " Chapel" };
-    private static string[] BarracksOld => Chinese ? new[] { "军营", "校场", "卫所" } : new[] { " Barracks", " Garrison" };
-    private static string[] BarracksModern => Chinese ? new[] { "军营", "武装部" } : new[] { " Barracks", " Armory" };
-    private static string[] DocksOld => Chinese ? new[] { "码头", "渡口" } : new[] { " Wharf", " Ferry" };
-    private static string[] DocksModern => Chinese ? new[] { "港", "客运码头" } : new[] { " Port", " Terminal" };
-    // 古代坊里、店铺、寺庙的雅名
-    private static readonly string[] EstateZh =
-    {
-        "桃花", "石榴", "枇杷", "南湖", "锦绣", "金桂", "碧水", "康乐", "平康", "安仁", "永和", "长寿", "怡和", "春晖", "梧桐",
-        "海棠", "牡丹", "清风", "明月", "嘉禾", "崇义", "宣阳", "常乐", "延康", "怀贞", "归义", "敦化", "修德", "积庆", "兴道"
-    };
-
-    // 近代小区名
-    private static readonly string[] EstateModernZh =
-    {
-        "雪香", "风华", "金百合", "桃花", "石榴", "月亮湾", "都市桃源", "南湖", "锦绣", "翠苑", "丽景", "金桂", "碧水", "阳光",
-        "幸福", "康乐", "怡和", "春晖", "紫荆", "梧桐", "海棠", "清风", "明月", "嘉禾", "滨江", "御景", "名都", "世纪"
-    };
-
-    private static readonly string[] EstateEn =
-    {
-        "Rose", "Willow", "Sunny", "Lake", "Meadow", "Golden", "Silver", "Green", "Orchard", "Ivy", "Laurel", "Briar", "Fern", "Clover"
-    };
 }
