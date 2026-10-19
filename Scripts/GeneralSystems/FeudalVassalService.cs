@@ -375,13 +375,25 @@ public static class FeudalVassalService
         var titles = new List<KingdomTitle>(subject.GetControlledTitles() ?? new List<KingdomTitle>());
         KingdomTitle main = subject.GetMainTitle();
         if (main != null && !titles.Contains(main)) titles.Add(main);
+        // 附庸自己组建了政府(现代国家作附庸可保留政府)：政府一解散，其余省州以前就散成一个个独立的小国(现代即"某某自治军")。
+        // 和附庸手下的小附庸一样改向宗主效忠；宗主是现代国家的中央时直接编入
+        List<Kingdom> governmentMembers = subjectGovernment?.kingdoms_list?
+            .Where(member => member != null && member != subject && member != lord && !member.isRekt()).ToList()
+            ?? new List<Kingdom>();
         Break(subject);
         if (subjectGovernment != null && !subjectGovernment.IsArchived())
             ModClass.EMPIRE_MANAGER?.dissolveEmpire(subjectGovernment);
-        if (lord.IsInEmpire() && IsPostMonarchy(lord)) lord.GetEmpire()?.join(subject, pForce: true);
+        bool joinLordState = lord.IsInEmpire() && IsPostMonarchy(lord);
+        if (joinLordState) lord.GetEmpire()?.join(subject, pForce: true);
         else
             foreach (City city in subject.cities?.ToList() ?? new List<City>())
                 city.joinAnotherKingdom(lord);
+        foreach (Kingdom member in governmentMembers)
+        {
+            if (member.isRekt() || member.IsInEmpire()) continue;
+            if (joinLordState) lord.GetEmpire()?.join(member, pForce: true);
+            else BindCore(lord, member);
+        }
         if (ruler == null) return;
         foreach (KingdomTitle title in titles)
         {
