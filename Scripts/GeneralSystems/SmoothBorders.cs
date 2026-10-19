@@ -308,10 +308,16 @@ public static class SmoothBorders
 
     private const float HighlightLift = 0.32f;
     private static readonly HashSet<IMetaObject> CollectMetas = new(), ActiveMetas = new();
-    private static readonly HashSet<int> CollectZones = new(), ActiveZones = new();
+    // 两组轮换(收齐一帧后互换)，不每次重建
+    private static HashSet<int> CollectZones = new(), ActiveZones = new();
     private static int _collectFrame = -1;
 
-    // QuantumSpriteLibrary.colorZones 的前缀：记下这一帧要高亮哪些地块(及其归属)，不画方片
+    // 图层归属只看地块所属的城(城市图层；国家、帝国图层的"按城池归属"那一档，见 EnclaveFill：补洞只补没有城的地块)
+    private static bool CityKeyed(MetaTypeAsset layer, int option) =>
+        layer.map_mode == MetaType.City || option == 0 && ControlLayer(layer);
+
+    // QuantumSpriteLibrary.colorZones 的前缀：记下这一帧要高亮哪些地块(及其归属)，不画方片。
+    // 高亮的地块按城成串传进来：归属只看城的图层上，同一座城的地块只取一次归属
     public static bool Highlight(IEnumerable<TileZone> zones)
     {
         if (!Enabled || World.world == null || zones == null) return false;
@@ -324,11 +330,27 @@ public static class SmoothBorders
             _collectFrame = frame;
         }
         int option = layer.getZoneOptionState();
+        bool byCity = CityKeyed(layer, option);
+        City lastCity = null;
+        IMetaObject lastMeta = null, lastAdded = null;
         foreach (TileZone zone in zones)
         {
             if (zone == null || !CollectZones.Add(zone.id)) continue;
-            IMetaObject meta = LayerMeta(layer, option, zone);
-            if (meta != null) CollectMetas.Add(meta);
+            City city = zone.city;
+            IMetaObject meta;
+            if (byCity && city != null)
+            {
+                if (!ReferenceEquals(city, lastCity))
+                {
+                    lastCity = city;
+                    lastMeta = LayerMeta(layer, option, zone);
+                }
+                meta = lastMeta;
+            }
+            else meta = LayerMeta(layer, option, zone);
+            if (meta == null || ReferenceEquals(meta, lastAdded)) continue;
+            CollectMetas.Add(meta);
+            lastAdded = meta;
         }
         return true;
     }
@@ -346,46 +368,106 @@ public static class SmoothBorders
     }
 
     // 收齐一帧：高亮对象变了，新旧地块连同四周重画
+    // (性能日志"精灵·highlight_cursor_zones"一次 50~88 毫秒：大国几千块地，以前每次新建两个 HashSet、逐格浮点插值、
+    // 逐格查一次帧号与字典；现在用按地块编号记轮次的数组去重，提亮查表，同一归属连成串只查一次)
     private static void FinishFrame()
     {
         bool same = CollectMetas.SetEquals(ActiveMetas) && CollectZones.SetEquals(ActiveZones);
         if (!same && World.world?.zone_calculator != null)
         {
+            using var timing = FrameProfiler.Measure("平滑国界·高亮重算");
             ZoneCalculator calc = World.world.zone_calculator;
-            var touched = new HashSet<int>(ActiveZones);
-            touched.UnionWith(CollectZones);
             ActiveMetas.Clear();
             ActiveMetas.UnionWith(CollectMetas);
-            ActiveZones.Clear();
-            ActiveZones.UnionWith(CollectZones);
-            LitCache.Clear();
+            // 新旧两组互换：before 是旧的高亮地块，下面一起改色后随 CollectZones 清空
+            HashSet<int> before = ActiveZones;
+            ActiveZones = CollectZones;
+            CollectZones = before;
+            ResetLit();
             // 高亮只是把底色提亮：相关地块(连同四周，平滑的边会伸进邻块)直接改色，当帧就变，不必重画
             Color32[] pixels = calc.pixels;
-            var done = new HashSet<int>();
             bool changed = false;
             if (pixels != null && pixels.Length == _base.Length)
-                foreach (int id in touched)
-                {
-                    TileZone zone = calc.getZoneByID(id);
-                    if (zone == null) continue;
-                    for (int dy = -1; dy <= 1; dy++)
-                    for (int dx = -1; dx <= 1; dx++)
-                    {
-                        TileZone near = calc.getZone(zone.x + dx, zone.y + dy);
-                        if (near?.tiles == null || !done.Add(near.id)) continue;
-                        foreach (WorldTile tile in near.tiles)
-                        {
-                            int pixel = tile.data.tile_id;
-                            if (!_hasBase[pixel] || pixels[pixel].a == 0) continue;
-                            pixels[pixel] = Lifted(pixel);
-                            changed = true;
-                        }
-                    }
-                }
+            {
+                BeginLift();
+                int stamp = NextMark(calc);
+                foreach (int id in before) changed |= LiftAround(calc, pixels, id, stamp);
+                foreach (int id in ActiveZones) changed |= LiftAround(calc, pixels, id, stamp);
+            }
             if (changed) calc.setDirty();
         }
         CollectMetas.Clear();
         CollectZones.Clear();
+    }
+
+    // 这块地连同四周八块按当前高亮重新提亮或还原(这一轮已经改过的块跳过)
+    private static bool LiftAround(ZoneCalculator calc, Color32[] pixels, int zoneId, int stamp)
+    {
+        if (!calc._zones_dict_id.TryGetValue(zoneId, out TileZone zone) || zone == null) return false;
+        bool changed = false;
+        for (int dy = -1; dy <= 1; dy++)
+        for (int dx = -1; dx <= 1; dx++)
+        {
+            TileZone near = calc.getZone(zone.x + dx, zone.y + dy);
+            if (near?.tiles == null || near.id < 0 || near.id >= _zoneMark.Length || _zoneMark[near.id] == stamp) continue;
+            _zoneMark[near.id] = stamp;
+            int[] ids = PixelIds(near);
+            for (int i = 0; i < ids.Length; i++)
+            {
+                int pixel = ids[i];
+                if (pixel < 0 || !_hasBase[pixel] || pixels[pixel].a == 0) continue;
+                pixels[pixel] = Lifted(pixel);
+                changed = true;
+            }
+        }
+        return changed;
+    }
+
+    // 按地块编号记轮次(代替每轮新建 HashSet)
+    private static int[] _zoneMark = Array.Empty<int>();
+    private static int _markStamp;
+
+    private static int NextMark(ZoneCalculator calc)
+    {
+        int count = calc.zones?.Count ?? 0;
+        if (_zoneMark.Length < count) _zoneMark = new int[count];
+        if (_markStamp == int.MaxValue)
+        {
+            Array.Clear(_zoneMark, 0, _zoneMark.Length);
+            _markStamp = 0;
+        }
+        return ++_markStamp;
+    }
+
+    // 每块地各格的像素编号(按 zone.id 存，第一次用到时建；地块的格子数组换了就重建)：
+    // 逐格循环里不再每格 tiles[i].data.tile_id 两次间接取值
+    private static int[][] _pixelIds = Array.Empty<int[]>();
+    private static WorldTile[][] _pixelIdsOf = Array.Empty<WorldTile[]>();
+
+    private static int[] PixelIds(TileZone zone)
+    {
+        WorldTile[] tiles = zone.tiles;
+        int index = zone.id;
+        if (index < 0) return BuildPixelIds(tiles);
+        if (index >= _pixelIds.Length)
+        {
+            int size = Mathf.Max(index + 1, World.world?.zone_calculator?.zones?.Count ?? 0);
+            Array.Resize(ref _pixelIds, size);
+            Array.Resize(ref _pixelIdsOf, size);
+        }
+        int[] ids = _pixelIds[index];
+        if (ids != null && ReferenceEquals(_pixelIdsOf[index], tiles)) return ids;
+        ids = BuildPixelIds(tiles);
+        _pixelIds[index] = ids;
+        _pixelIdsOf[index] = tiles;
+        return ids;
+    }
+
+    private static int[] BuildPixelIds(WorldTile[] tiles)
+    {
+        var ids = new int[tiles.Length];
+        for (int i = 0; i < tiles.Length; i++) ids[i] = tiles[i]?.data?.tile_id ?? -1;
+        return ids;
     }
 
     #endregion
@@ -509,15 +591,18 @@ public static class SmoothBorders
             Transitions.TryGetValue(zone.id, out Transition raw) && raw.raw)
             ApplyRaw(pixels, zone, raw);
         if (zone?.tiles == null || pixels == null || pixels.Length != _base.Length) return;
+        int[] ids = PixelIds(zone);
         if (!Enabled || _paintedZone != zone.id)
         {
-            foreach (WorldTile tile in zone.tiles) _hasBase[tile.data.tile_id] = false;
+            foreach (int id in ids)
+                if (id >= 0) _hasBase[id] = false;
             return;
         }
         _paintedZone = -1;
-        foreach (WorldTile tile in zone.tiles)
+        BeginLift();
+        foreach (int id in ids)
         {
-            int id = tile.data.tile_id;
+            if (id < 0) continue;
             _base[id] = pixels[id];
             _hasBase[id] = true;
             pixels[id] = Lifted(id);
@@ -528,26 +613,35 @@ public static class SmoothBorders
     }
 
     // 悬停、选中的对象变了：属于新旧对象的格子按记下的底色重新提亮或还原
+    // (整张图逐格扫，帧率体检里藏着 35~50 毫秒的尖峰：相邻的格大多同一归属，连成串只判一次是否命中)
     public static void Retint(params object[] metas)
     {
         ZoneCalculator calc = World.world?.zone_calculator;
         Color32[] pixels = calc?.pixels;
         if (!Enabled || pixels == null || pixels.Length != _base.Length) return;
-        LitCache.Clear();
+        using var timing = FrameProfiler.Measure("平滑国界·高亮重算");
+        ResetLit();
+        BeginLift();
         bool changed = false;
+        IMetaObject runOwner = null;
+        bool runHit = false;
         for (int id = 0; id < pixels.Length; id++)
         {
             IMetaObject owner = _owner[id];
             if (owner == null || !_hasBase[id] || pixels[id].a == 0) continue;
-            IMetaObject realm = ReferenceEquals(owner, _hover) && _hoverRealm != null ? _hoverRealm : owner;
-            bool hit = false;
-            foreach (object meta in metas)
-                if (meta != null && (ReferenceEquals(meta, owner) || ReferenceEquals(meta, realm)))
-                {
-                    hit = true;
-                    break;
-                }
-            if (!hit) continue;
+            if (!ReferenceEquals(owner, runOwner))
+            {
+                runOwner = owner;
+                IMetaObject realm = ReferenceEquals(owner, _hover) && _hoverRealm != null ? _hoverRealm : owner;
+                runHit = false;
+                foreach (object meta in metas)
+                    if (meta != null && (ReferenceEquals(meta, owner) || ReferenceEquals(meta, realm)))
+                    {
+                        runHit = true;
+                        break;
+                    }
+            }
+            if (!runHit) continue;
             pixels[id] = Lifted(id);
             changed = true;
         }
@@ -670,6 +764,9 @@ public static class SmoothBorders
         Array.Clear(_owner, 0, _owner.Length);
         Array.Clear(_outline, 0, _outline.Length);
         Array.Clear(_foreign, 0, _foreign.Length);
+        _pixelIds = Array.Empty<int[]>();
+        _pixelIdsOf = Array.Empty<WorldTile[]>();
+        _zoneMark = Array.Empty<int>();
         _paintedZone = _restoredZone = -1;
         _pendingKey = 0L;
         ZoneFlipOverlay.Hide();
@@ -808,9 +905,8 @@ public static class SmoothBorders
         // 新图层不覆盖的地块也参与同一道全图换色；清理旧归属时不能把这段退场动画一并删掉。
         bool layerClear = _layerFlip?.seen.Contains(zone.id) == true &&
                           Transitions.TryGetValue(zone.id, out Transition clearing) && clearing.raw && clearing.newPixels != null;
-        foreach (WorldTile tile in zone.tiles)
+        foreach (int id in PixelIds(zone))
         {
-            int id = tile.data.tile_id;
             if (id < 0 || id >= _hasBase.Length) continue;
             _hasBase[id] = false;
             _owner[id] = null;
@@ -878,10 +974,11 @@ public static class SmoothBorders
             return new Transition { oldPixels = (Color32[])face.Clone(), created = Time.unscaledTime };
         }
         Color32[] shown = World.world?.zone_calculator?.pixels;
-        var old = new Color32[zone.tiles.Length];
-        for (int i = 0; i < zone.tiles.Length; i++)
+        int[] ids = PixelIds(zone);
+        var old = new Color32[ids.Length];
+        for (int i = 0; i < ids.Length; i++)
         {
-            int id = zone.tiles[i].data.tile_id;
+            int id = ids[i];
             if (id >= 0 && id < _base.Length && _hasBase[id]) old[i] = _base[id];
             else if (shown != null && id >= 0 && id < shown.Length) old[i] = shown[id];
             else return null;
@@ -904,9 +1001,12 @@ public static class SmoothBorders
         Color32[] pixels = calc?.pixels;
         if (transition.newPixels == null || zone.tiles == null || pixels == null || pixels.Length != _base.Length ||
             transition.newPixels.Length != zone.tiles.Length) return;
-        for (int i = 0; i < zone.tiles.Length; i++)
+        int[] ids = PixelIds(zone);
+        BeginLift();
+        for (int i = 0; i < ids.Length; i++)
         {
-            int id = zone.tiles[i].data.tile_id;
+            int id = ids[i];
+            if (id < 0) continue;
             _base[id] = transition.newPixels[i];
             pixels[id] = Lifted(id);
         }
@@ -932,11 +1032,12 @@ public static class SmoothBorders
     // 原版画法的块刚画好：新样子取色块上的颜色
     private static void ApplyRaw(Color32[] pixels, TileZone zone, Transition transition)
     {
-        var fresh = new Color32[zone.tiles.Length];
+        int[] ids = PixelIds(zone);
+        var fresh = new Color32[ids.Length];
         bool same = transition.oldPixels.Length == fresh.Length;
-        for (int i = 0; i < zone.tiles.Length; i++)
+        for (int i = 0; i < ids.Length; i++)
         {
-            int id = zone.tiles[i].data.tile_id;
+            int id = ids[i];
             fresh[i] = id >= 0 && id < pixels.Length ? pixels[id] : default;
             if (!same) continue;
             Color32 a = fresh[i], b = transition.oldPixels[i];
@@ -956,11 +1057,12 @@ public static class SmoothBorders
     private static void ApplyTransition(Color32[] pixels, TileZone zone)
     {
         if (!Transitions.TryGetValue(zone.id, out Transition transition)) return;
-        var fresh = new Color32[zone.tiles.Length];
+        int[] ids = PixelIds(zone);
+        var fresh = new Color32[ids.Length];
         bool same = transition.oldPixels.Length == fresh.Length;
-        for (int i = 0; i < zone.tiles.Length; i++)
+        for (int i = 0; i < ids.Length; i++)
         {
-            fresh[i] = _base[zone.tiles[i].data.tile_id];
+            fresh[i] = _base[ids[i]];
             if (same)
             {
                 Color32 a = fresh[i], b = transition.oldPixels[i];
@@ -987,9 +1089,11 @@ public static class SmoothBorders
         transition.phase = phase;
         Color32[] source = phase <= 1 ? transition.oldPixels : transition.newPixels;
         bool slot = phase is 1 or 2;
-        for (int i = 0; i < zone.tiles.Length && i < source.Length; i++)
+        int[] ids = PixelIds(zone);
+        BeginLift();
+        for (int i = 0; i < ids.Length && i < source.Length; i++)
         {
-            int id = zone.tiles[i].data.tile_id;
+            int id = ids[i];
             if (id < 0 || id >= pixels.Length) continue;
             if (transition.raw || id >= _base.Length)
             {
@@ -1436,9 +1540,12 @@ public static class SmoothBorders
         {
             if (shot == null || shot.key != key || now - shot.at > CacheSeconds || now < shot.at ||
                 shot.pixels.Length != zone.tiles.Length) continue;
-            for (int i = 0; i < zone.tiles.Length; i++)
+            int[] ids = PixelIds(zone);
+            BeginLift();
+            for (int i = 0; i < ids.Length; i++)
             {
-                int id = zone.tiles[i].data.tile_id;
+                int id = ids[i];
+                if (id < 0) continue;
                 _owner[id] = shot.owners[i];
                 _outline[id] = shot.outline[i];
                 _foreign[id] = shot.foreign[i];
@@ -1472,9 +1579,11 @@ public static class SmoothBorders
         }
         shot.key = key;
         shot.at = Time.unscaledTime;
+        int[] ids = PixelIds(zone);
         for (int i = 0; i < count; i++)
         {
-            int id = zone.tiles[i].data.tile_id;
+            int id = ids[i];
+            if (id < 0) continue;
             shot.pixels[i] = _base[id];
             shot.owners[i] = _owner[id];
             shot.outline[i] = _outline[id];
@@ -1583,32 +1692,65 @@ public static class SmoothBorders
 
     #endregion
 
+    // 提亮查表：表就是用 Color32.Lerp(c, 白, HighlightLift) 逐个通道值算出来的，与逐格插值的结果一模一样
+    // (Lerp 各通道独立；透明度插向自己，不变)，逐格不再做浮点插值
+    private static readonly byte[] LiftTable = BuildLiftTable();
+
+    private static byte[] BuildLiftTable()
+    {
+        var table = new byte[256];
+        var white = new Color32(255, 255, 255, 255);
+        for (int v = 0; v < 256; v++) table[v] = Color32.Lerp(new Color32((byte)v, (byte)v, (byte)v, 255), white, HighlightLift).r;
+        return table;
+    }
+
+    // 调用前这一轮先 BeginLift()(新的一帧作废按归属记下的提亮与否)
     private static Color32 Lifted(int id)
     {
         Color32 color = _base[id];
         IMetaObject owner = _owner[id];
         if (_outline[id] || owner == null || color.a == 0) return color;
-        return Lit(owner) ? Color32.Lerp(color, new Color32(255, 255, 255, color.a), HighlightLift) : color;
+        return Lit(owner) ? new Color32(LiftTable[color.r], LiftTable[color.g], LiftTable[color.b], color.a) : color;
     }
 
     // 悬停的、选中的(原版选中后边框一闪一闪，这里改成常亮；选中变了原版会整图重画)。每帧按归属记一次，不逐格查；
-    // 悬停时单独显示本省颜色的那个省算它所属的帝国
+    // 悬停时单独显示本省颜色的那个省算它所属的帝国。
+    // 相邻的格大多同一归属：上一次查的归属与结果记下(_runOwner)，同一轮(_litEpoch 没变)直接用，连字典也不查
     private static readonly Dictionary<IMetaObject, bool> LitCache = new();
-    private static int _litFrame = -1;
+    private static int _litFrame = -1, _litEpoch, _runEpoch = -1;
+    private static IMetaObject _runOwner;
+    private static bool _runLit;
+
+    // 逐格提亮的循环开头调一次：帧号只在这里取(不逐格取)，新的一帧作废记下的结果
+    private static void BeginLift()
+    {
+        int frame = Time.frameCount;
+        if (_litFrame == frame) return;
+        _litFrame = frame;
+        ResetLit();
+    }
+
+    // 高亮对象变了：作废记下的结果
+    private static void ResetLit()
+    {
+        LitCache.Clear();
+        _litEpoch++;
+    }
 
     private static bool Lit(IMetaObject owner)
     {
-        if (_litFrame != Time.frameCount)
+        if (_runEpoch == _litEpoch && ReferenceEquals(owner, _runOwner)) return _runLit;
+        if (!LitCache.TryGetValue(owner, out bool lit))
         {
-            _litFrame = Time.frameCount;
-            LitCache.Clear();
+            IMetaObject realm = ReferenceEquals(owner, _hover) && _hoverRealm != null ? _hoverRealm : owner;
+            ZoneCalculator calc = World.world?.zone_calculator;
+            lit = ActiveMetas.Count > 0 && (ActiveMetas.Contains(owner) || ActiveMetas.Contains(realm)) ||
+                  calc != null && calc._cached_check_animation && calc.shouldShowSelectionFor(realm);
+            LitCache[owner] = lit;
         }
-        if (LitCache.TryGetValue(owner, out bool lit)) return lit;
-        IMetaObject realm = ReferenceEquals(owner, _hover) && _hoverRealm != null ? _hoverRealm : owner;
-        ZoneCalculator calc = World.world?.zone_calculator;
-        lit = ActiveMetas.Count > 0 && (ActiveMetas.Contains(owner) || ActiveMetas.Contains(realm)) ||
-              calc != null && calc._cached_check_animation && calc.shouldShowSelectionFor(realm);
-        LitCache[owner] = lit;
+        _runOwner = owner;
+        _runLit = lit;
+        _runEpoch = _litEpoch;
         return lit;
     }
 
