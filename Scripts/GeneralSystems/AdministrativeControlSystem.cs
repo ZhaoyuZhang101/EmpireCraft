@@ -44,7 +44,7 @@ public static class AdministrativeControlSystem
     private const float ExclaveFactor = 1.4f;
     private const int ExclavePenalty = 8;
     private const float ExclaveCap = 0.8f, OverseasCap = 0.65f, ModernOverseasCap = 0.8f;
-    private const float MinControl = 0.1f;
+    public const float MinControl = 0.1f;
     private const float StabilityPenalty = 20f;
     private const float DefectThreshold = 0.45f;
     private const float DefectChance = 0.5f;
@@ -148,6 +148,22 @@ public static class AdministrativeControlSystem
             if (cost < best) best = cost;
         }
         return best < float.MaxValue && Control(best, Reach(realm)) < HardLimit;
+    }
+
+    // 朝廷对成员国的控制力(0~1)：成员国都城本身是治所(从 4 起算)，各城的控制力看不出它离朝廷多远，
+    // 这里按帝国都城到它都城的直线距离、平均地形阻力折算路程(同 BeyondReach)，隔海的照样封顶。埃米尔坐大用(见 EmirateSystem)
+    public static float CourtControl(Kingdom member)
+    {
+        Kingdom realm = Realm(member);
+        if (!Valid(realm) || !Valid(member) || realm == member) return 1f;
+        if (!Valid(realm.capital) || !Valid(member.capital)) return 1f;
+        TileZone from = CenterZone(realm.capital), to = CenterZone(member.capital);
+        if (from == null || to == null) return 1f;
+        float distance = Vector2.Distance(new Vector2(from.x, from.y), new Vector2(to.x, to.y)) * EstimateTerrain;
+        float control = Control(distance, Reach(realm));
+        if (from.centerTile == null || to.centerTile == null || from.centerTile.isSameIsland(to.centerTile)) return control;
+        bool modern = TechnologySystem.GetEraTier(TechnologySystem.GetCultureOf(realm)) >= 7;
+        return Mathf.Min(modern ? ModernOverseasCap : OverseasCap, control);
     }
 
     public static string DescribeCapacity(Kingdom kingdom)
