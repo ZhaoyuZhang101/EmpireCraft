@@ -252,8 +252,10 @@ public static partial class ShuiTuSystem
         RegimeType? regime = unit.GetRegime()?.type;
         if (regime == null || regime is RegimeType.Modern or RegimeType.Republic) return Fit.None;
         string culture = CultureService.GetRealmCulture(unit);
-        // 阿兹特克、林地部族也能采用同线的游牧政体，但不逐水草而居。
-        if (regime == RegimeType.YouMu && culture.IsNomadCulture()) return Fit.Nomad;
+        // 阿兹特克、林地部族也能采用同线的游牧政体，但不逐水草而居；
+        // 定居政权走"整国游牧化"出路改行的游牧政体(shuitu_regime 记着)照样算游牧，否则改了政体还按只宜农地扣
+        if (regime == RegimeType.YouMu &&
+            (culture.IsNomadCulture() || unit.GetOrCreate().shuitu_regime == (int)RegimeType.YouMu)) return Fit.Nomad;
         if (RegimeManager.IsPrimitive(regime)) return CompositeEmpireService.IsNomadicCulture(culture) ? Fit.Nomad : Fit.None;
         return DryNative(culture) ? Fit.Both : Fit.Farm;
     }
