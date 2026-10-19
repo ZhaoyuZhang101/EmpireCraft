@@ -85,7 +85,12 @@ public static class TianxiaSystem
         return core;
     }
 
-    public static EmpireCore LeadOf(City city) => city == null ? null : Lead(city.GetEmpireCore());
+    // 城所在的天下：按法理所属的帝国核心；法理不在任何核心、又连不成一片的零星城，算进相邻的同一文化圈天下
+    // (见 UnificationSystem.OrphanLeadOf)
+    public static EmpireCore LeadOf(City city) => city == null ? null : CoreLeadOf(city) ?? UnificationSystem.OrphanLeadOf(city);
+
+    // 只按法理所属的帝国核心(不含并入的零星城)
+    public static EmpireCore CoreLeadOf(City city) => city == null ? null : Lead(city.GetEmpireCore());
 
     // 天下里的各帝国核心(主核心在前；不含临时子核心)
     public static List<EmpireCore> Members(EmpireCore lead)

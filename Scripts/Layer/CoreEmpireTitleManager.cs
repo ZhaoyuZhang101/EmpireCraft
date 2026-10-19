@@ -171,6 +171,69 @@ public static class EmpireCoreManager
         }
     }
 
+    // 法理所属的正式核心(不含军阀临时子核心、争正统的伪核心)；同一法理误记在两个正式核心里时取后收进来的那个
+    public static EmpireCore LawfulCoreOf(KingdomTitle title)
+    {
+        if (title == null || title.isRekt() || EmpireCores == null) return null;
+        EmpireCore best = null;
+        double bestAt = double.MinValue;
+        foreach (EmpireCore core in EmpireCores.Values)
+        {
+            if (core?.titlesRecord == null || core.warlord_parent_core_id > 0 || core.false_core_against_empire_id > 0) continue;
+            foreach (var record in core.titlesRecord)
+            {
+                if (record.titleId != title.id || record.time < bestAt) continue;
+                best = core;
+                bestAt = record.time;
+            }
+        }
+        return best;
+    }
+
+    // 城记的核心与法理对不上时按法理改正(读档时、每年一次，见 UnificationSystem.Yearly)。
+    // 玩家反馈 2026-10-19 "这两个城市死活算不进天下里面"：天下、天下图层都按城自己记的核心认城，而这个记号只在
+    // 法理收进核心、城并入法理时顺手写——并入时看的是法理都城记的核心，都城自己没记上(换过都城、读旧档)，
+    // 新并进来的城也就没记上，法理明明在核心里，城却成了无主。只改没记核心、或记着已没有帝国且不含本城法理的核心的城；
+    // 被占领(记着占领者核心)、军阀临时核心的城照旧
+    public static int ReconcileCityCores()
+    {
+        if (EmpireCores == null || World.world?.cities == null || ModClass.KINGDOM_TITLE_MANAGER == null) return 0;
+        var lawful = new Dictionary<long, EmpireCore>();
+        var recordedAt = new Dictionary<long, double>();
+        foreach (EmpireCore core in EmpireCores.Values)
+        {
+            if (core?.titlesRecord == null || core.warlord_parent_core_id > 0 || core.false_core_against_empire_id > 0) continue;
+            foreach (var record in core.titlesRecord)
+            {
+                if (recordedAt.TryGetValue(record.titleId, out double at) && at > record.time) continue;
+                lawful[record.titleId] = core;
+                recordedAt[record.titleId] = record.time;
+            }
+        }
+        var alive = new Dictionary<long, bool>();
+        int fixedCount = 0;
+        foreach (City city in World.world.cities.list)
+        {
+            if (city?.data == null || city.isRekt()) continue;
+            KingdomTitle title = city.GetTitle();
+            EmpireCore expected = title != null && !title.isRekt() && lawful.TryGetValue(title.id, out EmpireCore found) ? found : null;
+            EmpireCore current = city.GetEmpireCore();
+            if (current == expected) continue;
+            if (current != null)
+            {
+                if (current.warlord_parent_core_id > 0 || current.false_core_against_empire_id > 0 || ContainsTitle(current, title))
+                    continue;
+                if (!alive.TryGetValue(current.id, out bool held)) alive[current.id] = held = GetEmpires(current).Any(empire => !empire.IsArchived());
+                if (held) continue;
+            }
+            if (expected == null && current == null) continue;
+            city.SetEmpireCore(expected);
+            fixedCount++;
+        }
+        if (fixedCount > 0) NeoModLoader.services.LogService.LogInfo($"[EmpireCraft][法理] 城市所属核心与法理不符，已改正 {fixedCount} 座");
+        return fixedCount;
+    }
+
     public static List<Empire> GetEmpires(EmpireCore core)
     {
         if (core == null) return new List<Empire>();
@@ -553,7 +616,9 @@ public static class EmpireCoreManager
         if (core == null || title == null || title.isRekt()) return false;
         bool changed = false;
 
+        // 都城没记核心时按法理记录找(以前只看都城记的，都城没记上就不从旧核心移出，同一法理挂在两个核心里)
         EmpireCore previousCore = title.title_capital?.GetEmpireCore();
+        if (previousCore == null || !ContainsTitle(previousCore, title)) previousCore = LawfulCoreOf(title);
         if (previousCore != null && previousCore.id != core.id)
         {
             RemoveTitleFromCore(previousCore, title);

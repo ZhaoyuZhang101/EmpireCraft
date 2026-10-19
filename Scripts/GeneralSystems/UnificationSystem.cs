@@ -235,6 +235,45 @@ public static class UnificationSystem
     public static IEnumerable<List<City>> UncoredRealms() =>
         ReferenceEquals(_uncoredWorld, World.world) ? Uncored : Enumerable.Empty<List<City>>();
 
+    // 零星城(用户 2026-10-19 选"并入相邻天下"；玩家："这两个城市死活算不进天下里面")：法理不在任何帝国核心、
+    // 同一文化圈里又连不成八城一片的城，以前两头不算——不在核心的天下里，也凑不成"未立核心"的天下。
+    // 现在算进与它接壤(没有就同一块陆地上相近)的同一文化圈天下：计入天下城数、图层着色、统一战争；法理不动。每年结算时重算
+    private static readonly Dictionary<long, long> OrphanOf = new();
+    private static object _orphanWorld;
+
+    public static EmpireCore OrphanLeadOf(City city)
+    {
+        if (city?.data == null || OrphanOf.Count == 0 || !ReferenceEquals(_orphanWorld, World.world) ||
+            !OrphanOf.TryGetValue(city.data.id, out long leadId)) return null;
+        EmpireCore lead = EmpireCoreManager.Get(leadId);
+        return lead != null && TianxiaSystem.Lead(lead) == lead ? lead : null;
+    }
+
+    // 一片零星城该并进哪个天下：同一文化圈的天下里，与这片接壤的城最多的；都不接壤就看同一块陆地上相近的
+    private static EmpireCore NeighbourLead(List<City> group, string line, Dictionary<EmpireCore, List<City>> byLead)
+    {
+        var score = new Dictionary<EmpireCore, int>();
+        foreach (City city in group)
+            foreach (City next in city.neighbours_cities ?? new HashSet<City>())
+            {
+                EmpireCore lead = TianxiaSystem.CoreLeadOf(next);
+                if (lead == null || !byLead.ContainsKey(lead) || !SameLine(lead, line)) continue;
+                score.TryGetValue(lead, out int count);
+                score[lead] = count + 1;
+            }
+        if (score.Count == 0)
+            foreach (KeyValuePair<EmpireCore, List<City>> pair in byLead)
+            {
+                if (!SameLine(pair.Key, line)) continue;
+                int links = group.Sum(city => pair.Value.Count(other => Linked(city, other)));
+                if (links > 0) score[pair.Key] = links;
+            }
+        return score.Count == 0 ? null : score.OrderByDescending(pair => pair.Value).ThenBy(pair => pair.Key.id).First().Key;
+    }
+
+    private static bool SameLine(EmpireCore lead, string line) =>
+        TianxiaSystem.Members(lead).Any(core => LineOf(core.default_culture) == line);
+
     private static void RememberUncored(List<Realm> realms)
     {
         UncoredOf.Clear();
@@ -258,7 +297,7 @@ public static class UnificationSystem
         foreach (City city in World.world.cities.list)
         {
             if (city?.data == null || city.isRekt() || city.kingdom == null || city.kingdom.wild) continue;
-            EmpireCore lead = TianxiaSystem.LeadOf(city);
+            EmpireCore lead = TianxiaSystem.CoreLeadOf(city);
             if (lead != null)
             {
                 if (!byLead.TryGetValue(lead, out List<City> cored)) byLead[lead] = cored = new List<City>();
@@ -272,15 +311,7 @@ public static class UnificationSystem
             list.Add(city);
         }
         var realms = new List<Realm>();
-        foreach (KeyValuePair<EmpireCore, List<City>> pair in byLead)
-        {
-            var realm = new Realm { line = TianxiaSystem.Name(pair.Key), lead = pair.Key };
-            foreach (City city in pair.Value) realm.cities.Add(city);
-            Tally(realm);
-            // 太小的天下不打统一战争，天命照样结算
-            if (pair.Value.Count >= MinCoreCities) realms.Add(realm);
-            else TianxiaSystem.Settle(realm.lead, realm.held, realm.total, realm.line);
-        }
+        var uncored = new List<Realm>();
         var queue = new Queue<City>();
         foreach (KeyValuePair<string, List<City>> pair in byLine)
         {
@@ -304,11 +335,37 @@ public static class UnificationSystem
                         remaining.RemoveAt(remaining.Count - 1);
                     }
                 }
-                if (realm.cities.Count < MinCities) continue;
-                Tally(realm);
-                realms.Add(realm);
+                uncored.Add(realm);
             }
         }
+        // 连不成八城一片的零星城并进相邻的同一文化圈天下(见 OrphanLeadOf)
+        OrphanOf.Clear();
+        _orphanWorld = World.world;
+        foreach (Realm realm in uncored)
+        {
+            if (realm.cities.Count >= MinCities) continue;
+            List<City> group = realm.cities.ToList();
+            EmpireCore target = NeighbourLead(group, realm.line, byLead);
+            if (target == null) continue;
+            byLead[target].AddRange(group);
+            foreach (City city in group) OrphanOf[city.data.id] = target.id;
+        }
+        foreach (KeyValuePair<EmpireCore, List<City>> pair in byLead)
+        {
+            var realm = new Realm { line = TianxiaSystem.Name(pair.Key), lead = pair.Key };
+            foreach (City city in pair.Value) realm.cities.Add(city);
+            Tally(realm);
+            // 太小的天下不打统一战争，天命照样结算
+            if (pair.Value.Count >= MinCoreCities) realms.Add(realm);
+            else TianxiaSystem.Settle(realm.lead, realm.held, realm.total, realm.line);
+        }
+        foreach (Realm realm in uncored)
+        {
+            if (realm.cities.Count < MinCities) continue;
+            Tally(realm);
+            realms.Add(realm);
+        }
+        if (OrphanOf.Count > 0) LogService.LogInfo($"[EmpireCraft][天下大势] {OrphanOf.Count} 座零星城并入相邻天下");
         return realms;
     }
 
@@ -393,6 +450,8 @@ public static class UnificationSystem
             if (_lastYear < 0d || now < _lastYear || Date.getYearsSince(_lastYear) >= 1)
             {
                 _lastYear = now;
+                // 先把城记的核心按法理对齐，天下才认得全(见 EmpireCoreManager.ReconcileCityCores)
+                EmpireCoreManager.ReconcileCityCores();
                 Yearly();
             }
             if (_lastMonth < 0d || now < _lastMonth || Date.getMonthsSince(_lastMonth) >= 1)

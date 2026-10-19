@@ -391,8 +391,10 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
         city.SetTitle(this);
         city_list_hash.Add(city);
         CultureService.InitializeCityCulture(city);
+        // 法理都城没记核心(换过都城、读旧档)时按法理记录找，免得新并进来的城成了无主(见 EmpireCoreManager.ReconcileCityCores)
         EmpireCore core = this.title_capital?.GetEmpireCore();
-        if (core != null && EmpireCoreManager.ContainsTitle(core, this))
+        if (core == null || !EmpireCoreManager.ContainsTitle(core, this)) core = EmpireCoreManager.LawfulCoreOf(this);
+        if (core != null)
         {
             city.SetEmpireCore(core);
         }
