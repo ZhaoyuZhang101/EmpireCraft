@@ -135,6 +135,56 @@ public static partial class ShuiTuSystem
 
     #endregion
 
+    #region 效果
+
+    // 这座城眼下所属政权的结算(换了主人、新主人还没结算的不算)
+    private static bool Lookup(City city, out CityInfo info, out UnitInfo unit)
+    {
+        info = default;
+        unit = null;
+        return city?.data != null && city.kingdom != null && CityInfos.TryGetValue(city.id, out info) &&
+               info.Kingdom == city.kingdom.id && Units.TryGetValue(info.Unit, out unit);
+    }
+
+    private static UnitInfo UnitInfoOf(Kingdom kingdom) =>
+        kingdom?.data != null && KingdomUnits.TryGetValue(kingdom.id, out long id) && Units.TryGetValue(id, out UnitInfo info)
+            ? info : null;
+
+    // 离草游牧治下的农地城：离草档位；别的城 0
+    public static int OffGrassTier(City city) =>
+        Lookup(city, out CityInfo info, out UnitInfo unit) && unit.Fit == Fit.Nomad && unit.OffGrass && !info.Dry ? unit.OffTier : 0;
+
+    // 政权(按所属政权)的离草档位；不在离草 0
+    public static int OffGrassTier(Kingdom kingdom)
+    {
+        UnitInfo unit = UnitInfoOf(kingdom);
+        return unit?.Fit == Fit.Nomad && unit.OffGrass ? unit.OffTier : 0;
+    }
+
+    // 兵源打几折(见 CorpsSystem.Mobilize 逐城累加兵源)：离草游牧的农地城征兵比例回落
+    public static float LevyFactor(City city)
+    {
+        int off = OffGrassTier(city);
+        return off > 0 ? NomadLevy(city.kingdom, off) : 1f;
+    }
+
+    // 自然稳定度扣多少(见 CityStabilitySystem.LocalPressures)：离草游牧的农地城
+    public static float StabilityLoss(City city) => StabilityFor(OffGrassTier(city));
+
+    public static string DescribeStability(City city) => string.Format(LM.Get("shuitu_stability_detail"), StabilityLoss(city));
+
+    // 交战攻守打几折(见 FrontSystem.ResolveCity)：dryGround 是交战的那块地是不是旱地(TerrainSystem.IsDry)；
+    // 离草的游牧在非旱地上打折
+    public static float CombatFactor(Kingdom kingdom, bool dryGround)
+    {
+        UnitInfo unit = UnitInfoOf(kingdom);
+        if (unit == null) return 1f;
+        if (unit.Fit == Fit.Nomad && unit.OffGrass && !dryGround) return NomadCombatFor(unit.OffTier);
+        return 1f;
+    }
+
+    #endregion
+
     #region 地
 
     // 旱地城(按城缓存)

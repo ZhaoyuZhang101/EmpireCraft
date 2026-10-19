@@ -934,8 +934,11 @@ public static partial class FrontSystem
         Kingdom attacker = attackers.GroupBy(entry => entry.kingdom)
             .OrderByDescending(entries => entries.Sum(entry => entry.corps.strength)).First().Key;
         // 地形：攻方要推进的那块地(城中心那块是城池)
-        FrontTerrain terrain = TerrainSystem.OfBattle(city, FrontZone(city, attacker, landing));
+        TileZone battleZone = FrontZone(city, attacker, landing);
+        FrontTerrain terrain = TerrainSystem.OfBattle(city, battleZone);
         TerrainEffect ground = TerrainSystem.Effect(terrain);
+        // 水土：离草的游牧在非旱地、不服水土的定居政权在旱地上交战，攻守都打折(按那块地的格子构成，见 ShuiTuSystem.CombatFactor)
+        bool dryGround = TerrainSystem.IsDry(battleZone);
         // 跨海登陆的头一个月攻方吃亏
         // 战时统帅按兵略给本国各军加成(见 WarCommandSystem)
         // 补给不足打折(见 LogisticsSystem)
@@ -943,7 +946,8 @@ public static partial class FrontSystem
         // 开国雄主的军队锐不可当(见 RulerTraitSystem.FounderCombat)
         float attack = attackers.Sum(entry => Effective(entry.corps) * Firepower(entry.kingdom, entry.corps) *
                                               WarCommandSystem.Factor(entry.kingdom) * LogisticsSystem.AttackFactor(entry.corps) *
-                                              PapacySystem.OrderFactor(entry.corps) * RulerTraitSystem.FounderCombat(entry.kingdom)) *
+                                              PapacySystem.OrderFactor(entry.corps) * RulerTraitSystem.FounderCombat(entry.kingdom) *
+                                              ShuiTuSystem.CombatFactor(entry.kingdom, dryGround)) *
                        (landing ? 0.7f : 1f) * ground.Attack;
         // 叛乱初起还在集结的守方仓促应战(见 MusterSystem)
         // 红夷大炮破城：攻方有重炮营，城池守势减弱、堑壕只剩一半、团练抵抗剩七成
@@ -953,6 +957,7 @@ public static partial class FrontSystem
         float defend = holders.Sum(entry => Effective(entry.corps) * Firepower(entry.kingdom, entry.corps) *
                                             WarCommandSystem.Factor(entry.kingdom) * LogisticsSystem.AttackFactor(entry.corps) *
                                             PapacySystem.OrderFactor(entry.corps) * RulerTraitSystem.FounderCombat(entry.kingdom) *
+                                            ShuiTuSystem.CombatFactor(entry.kingdom, dryGround) *
                                             (breach ? BreachedDefenderBonus + entry.corps.entrench * BreachedEntrench
                                                 : DefenderBonus + entry.corps.entrench) *
                                             MusterSystem.DefenseFactor(entry.kingdom, attacker)) * remnant;

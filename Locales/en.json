@@ -2893,6 +2893,7 @@
   "shuitu_offgrass_end_steppe_history": "Dry land again makes up over sixty percent of {0}'s cities; back on the steppe, its people recover",
   "shuitu_offgrass_end_regime_history": "{0} adopts {1} and gives up following the pastures; the strain of foreign land is lifted",
   "shuitu_unfit_tier_history": "{0}'s settlers still sit ill in the dry lands ({2} cities, the longest held for {1} years); the strain deepens (tier {3})",
+  "shuitu_stability_detail": "Ill-suited land −{0:0}",
   "capital_loss_restored": "{0} retakes its old capital {1} and is again known as {2}.",
   "kingdom_type_xingzai": "Temporary Court",
   "Later": "Later",
