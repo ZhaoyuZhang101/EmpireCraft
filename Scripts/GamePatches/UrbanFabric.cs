@@ -370,7 +370,8 @@ public static class UrbanFabric
             stored.Sort((a, b) => a.id.CompareTo(b.id));
             foreach (RuralSettlement settlement in stored)
             {
-                if (!Open(g, settlement.x, settlement.y)) continue;
+                // 关城可以压在城墙上(关门，见 WallGateSystem)，村镇不行
+                if (!Open(g, settlement.x, settlement.y, settlement.fort)) continue;
                 g.SettlementHash = g.SettlementHash * 31 + settlement.id * 7 + (settlement.ruined_at >= 0d ? 3 : 1) +
                                    (int)settlement.seed * 13 + RuralSettlementSystem.Tier(settlement) * 5 +
                                    (settlement.name?.GetHashCode() ?? 0) + (settlement.fort ? 11 : 0) +
@@ -378,6 +379,8 @@ public static class UrbanFabric
                 // 关城：不算村镇数
                 if (settlement.fort)
                 {
+                    // 关门几格算进指纹：后画的城墙穿过关城、关门变了，粗图、精细图(城墙接进关的那几格)跟着重画
+                    g.SettlementHash = g.SettlementHash * 7 + WallGateSystem.GatesAround(settlement.x, settlement.y);
                     if (settlement.ruined_at >= 0d) g.Ruins.Add((settlement.x, settlement.y, true));
                     else g.Forts.Add((settlement.x, settlement.y, Mathf.Clamp(settlement.size, 1, 3)));
                     continue;
@@ -678,7 +681,8 @@ public static class UrbanFabric
         float Step(int x, int y)
         {
             WorldTile tile = World.world.GetTile(x, y);
-            if (tile?.Type == null || tile.Type.liquid || tile.Type.mountains || MapWallSystem.Contains(tile)) return -1f;
+            // 城墙只能从关门过(见 WallGateSystem)
+            if (tile?.Type == null || tile.Type.liquid || tile.Type.mountains || MapWallSystem.Blocks(tile)) return -1f;
             return tile.Type.rocks || tile.Type.block ? 4f : 1f;
         }
         float Guess(int index)
@@ -735,7 +739,7 @@ public static class UrbanFabric
                 if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
                 int next = ny * w + nx;
                 float step = next == goal ? 1f : Step(nx + x0, ny + y0);
-                if (step < 0f) continue;
+                if (step < 0f || k >= 4 && MapWallSystem.CutsCorner(cx + x0, cy + y0, nx + x0, ny + y0)) continue;
                 float total = cost[index] + step * (k >= 4 ? 1.41f : 1f);
                 if (total >= cost[next]) continue;
                 cost[next] = total;
@@ -773,16 +777,24 @@ public static class UrbanFabric
             float wiggle = 0.6f + 0.6f * H(g.Seed, key, 98), freq = 2f + Mathf.Floor(H(g.Seed, key, 99) * 3f);
             var points = new Vector2[steps + 1];
             int blocked = 0;
+            // 穿过城墙(关门以外，见 WallGateSystem)的这一边不修，换一边或交给顺着地势的寻路(那里只从关门过墙)。
+            // 以前小路不看城墙，横穿长城
+            bool walled = false;
+            int lastX = int.MinValue, lastY = 0;
             for (int k = 0; k <= steps; k++)
             {
                 float t = k / (float)steps, taper = Mathf.Sin(t * Mathf.PI);
                 float offset = bend * taper + wiggle * taper * Mathf.Sin(t * freq * Mathf.PI + key % 7);
                 Vector2 p = a + dir * (length * t) + normal * offset;
                 points[k] = p;
-                WorldTile tile = World.world.GetTile(Mathf.RoundToInt(p.x), Mathf.RoundToInt(p.y));
+                int x = Mathf.RoundToInt(p.x), y = Mathf.RoundToInt(p.y);
+                WorldTile tile = World.world.GetTile(x, y);
                 if (tile?.Type == null || tile.Type.liquid || tile.Type.mountains) blocked++;
+                if (MapWallSystem.Blocks(tile) || lastX != int.MinValue && MapWallSystem.CutsCorner(lastX, lastY, x, y)) walled = true;
+                lastX = x;
+                lastY = y;
             }
-            if (blocked * 10 > steps * 3) continue;
+            if (walled || blocked * 10 > steps * 3) continue;
             g.Paths.Add(points);
             return true;
         }
@@ -821,15 +833,19 @@ public static class UrbanFabric
     }
 
     // 城郊的路遇到山(山、高峰)或原版城墙就到此为止，丘陵照走
-    // 出城大路、岔路：遇山、城墙为止；画出来的路走出本城的地以前就收住(离地界留一格)，不再一头撞断在地界上
+    // 出城大路、岔路：遇山、城墙为止(关门照走，见 WallGateSystem)；画出来的路走出本城的地以前就收住(离地界留一格)，不再一头撞断在地界上
     private static int Clip(Geometry g, Road road, bool ownLand)
     {
+        int lastX = int.MinValue, lastY = 0;
         for (int d = 0; d <= road.Length; d++)
         {
             (int x, int y) = Point(road, d);
             WorldTile tile = World.world.GetTile(x, y);
-            if (tile?.Type == null || tile.Type.mountains || tile.Type.block || tile.Type.wall || MapWallSystem.Contains(tile))
+            if (tile?.Type == null || tile.Type.mountains || tile.Type.block || MapWallSystem.Blocks(tile) ||
+                lastX != int.MinValue && MapWallSystem.CutsCorner(lastX, lastY, x, y))
                 return Mathf.Max(0, d - 1);
+            lastX = x;
+            lastY = y;
             if (ownLand && tile.zone?.city != g.City) return Mathf.Max(0, d - 2);
         }
         return road.Length;
@@ -947,15 +963,19 @@ public static class UrbanFabric
                 Amp = 0.8f + 2.2f * H(sa, sb, 301), Freq = 0.04f + 0.08f * H(sa, sb, 302), Phase = H(sa, sb, 303) * TwoPi
             };
             bool clear = true;
-            int water = 0;
+            int water = 0, lastX = int.MinValue, lastY = 0;
             for (int d = 0; d <= road.Length && clear; d++)
             {
                 (int x, int y) = Point(road, d);
                 WorldTile tile = World.world.GetTile(x, y);
-                if (tile?.Type == null || tile.Type.mountains || tile.Type.block || tile.Type.wall || MapWallSystem.Contains(tile))
+                // 长城只从关门穿(见 WallGateSystem)
+                if (tile?.Type == null || tile.Type.mountains || tile.Type.block || MapWallSystem.Blocks(tile) ||
+                    lastX != int.MinValue && MapWallSystem.CutsCorner(lastX, lastY, x, y))
                     clear = false;
                 else if (tile.Type.liquid) clear = ++water <= LinkFord;
                 else water = 0;
+                lastX = x;
+                lastY = y;
             }
             if (!clear) continue;
             int margin = Mathf.CeilToInt(road.Amp) + 1;
@@ -1039,9 +1059,10 @@ public static class UrbanFabric
 
     #endregion
 
-    // 能立村镇的格：陆地、不是山地碎石、没有城墙(手动立村设镇用，见 RuralSettlementSystem.Place)
-    internal static bool Buildable(WorldTile tile) =>
-        tile?.zone != null && tile.Type != null && !tile.Type.liquid && !Rough(tile) && !MapWallSystem.Contains(tile);
+    // 能立村镇的格：陆地、不是山地碎石、没有城墙(手动立村设镇用，见 RuralSettlementSystem.Place)；
+    // 关城可以筑在城墙上(onWall，关门见 WallGateSystem)
+    internal static bool Buildable(WorldTile tile, bool onWall = false) =>
+        tile?.zone != null && tile.Type != null && !tile.Type.liquid && !Rough(tile) && (onWall || !MapWallSystem.Contains(tile));
 
     // 城外紧挨着本城的无主空地(城外新建村镇用，见 PlaceCountryside)
     private static bool Frontier(Geometry g, int x, int y)
@@ -1060,11 +1081,11 @@ public static class UrbanFabric
         return beside && RuralSettlementSystem.CanClaim(g.City, zone);
     }
 
-    private static bool Open(Geometry g, int x, int y)
+    private static bool Open(Geometry g, int x, int y, bool onWall = false)
     {
         WorldTile tile = World.world.GetTile(x, y);
         return tile?.zone != null && tile.zone.city == g.City && !g.Built.Contains(tile.zone.id) && tile.Type != null &&
-               !tile.Type.liquid && !Rough(tile) && !MapWallSystem.Contains(tile);
+               !tile.Type.liquid && !Rough(tile) && (onWall || !MapWallSystem.Contains(tile));
     }
 
     // 路上第 d 格：起点后慢慢弯起来

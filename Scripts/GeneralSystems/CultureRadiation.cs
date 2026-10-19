@@ -222,7 +222,7 @@ public static class CultureRadiation
             }
             (City a, City b) = Links[_cursor++];
             if (!Valid(a) || !Valid(b)) return;
-            float cost = LandCost(AdministrativeControlSystem.CenterZone(a), AdministrativeControlSystem.CenterZone(b));
+            float cost = LandCost(AdministrativeControlSystem.CenterZone(a), AdministrativeControlSystem.CenterZone(b), a.kingdom, b.kingdom);
             if (cost < 0f) return;
             AddEdge(a.id, b.id, cost);
             AddEdge(b.id, a.id, cost);
@@ -243,8 +243,8 @@ public static class CultureRadiation
         edges[to] = cost;
     }
 
-    // 两城城心之间最省力那条路的阻力(A*，按地块；找不到返回 -1)
-    private static float LandCost(TileZone from, TileZone to)
+    // 两城城心之间最省力那条路的阻力(A*，按地块；找不到返回 -1)。城墙上的关门(见 WallGateSystem)两城所属的国都放行才不加城墙阻力
+    private static float LandCost(TileZone from, TileZone to, Kingdom fromKingdom, Kingdom toKingdom)
     {
         if (from == null || to == null) return -1f;
         if (from == to) return 0f;
@@ -264,7 +264,7 @@ public static class CultureRadiation
             foreach (TileZone next in zone.neighbours ?? Array.Empty<TileZone>())
             {
                 if (next == null || ZoneDone.Contains(next)) continue;
-                float step = TerrainResistance.Step(next);
+                float step = TerrainResistance.Step(next, fromKingdom, toKingdom);
                 if (step < 0f) continue;
                 float total = cost + step;
                 if (ZoneCost.TryGetValue(next, out float old) && old <= total) continue;

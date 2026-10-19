@@ -13,7 +13,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //         决定要什么等级才修得通；
 //       - 再在走廊(路线经过的地块及其一圈)里按格子寻路：山、高峰、原版城墙的格子一律不走，丘陵可以走(代价加倍)，
 //         过河过湖算架桥(代价高，画成桥)，已有的路便宜；城墙是一格宽的线，横在走廊里绕不过去时把走廊放宽到三圈再找，
-//         还绕不过(山挡住、城被墙围死)的不修；
+//         还绕不过(山挡住、城被墙围死)的不修；城墙上筑了关城的，路从关门过墙(见 WallGateSystem)；斜接的城墙缝钻不过去；
 //     规划好的路要各国出钱修、每年出钱养(见 RoadBuildingSystem)，修通的路才画出来、才能走；
 //     行军(见 CorpsSystem)：寻路时路上的地块代价低、路外按兵种加价，路外行军按兵种打折(见 CorpsArmSystem.OffRoad)；城心也算有路。
 //   · 海路：港口城之间的航线——每座港口连最近的两座港口，另连一座别的陆地上最近的港口。按地块在海面上寻路，
@@ -321,9 +321,10 @@ public static class RoadNetwork
         return share;
     }
 
-    // 山、高峰、原版城墙与图层城墙(见 MapWallSystem)：路不走；丘陵可以。城墙不算进地块的山地占比(一格宽的线，绕过去就行)
+    // 山、高峰、原版城墙与图层城墙(见 MapWallSystem)：路不走；丘陵可以。城墙不算进地块的山地占比(一格宽的线，绕过去就行)。
+    // 关城压着的关门(见 WallGateSystem)照走：以前城墙格一律当山，关挨着墙筑也过不去
     private static bool Mountain(WorldTile tile) => tile.Type != null &&
-        (tile.Type.mountains || tile.Type.block || tile.Type.wall || MapWallSystem.Contains(tile));
+        (tile.Type.mountains || tile.Type.block && !tile.Type.wall || MapWallSystem.Blocks(tile));
 
     // 走进这一格的代价：山不走，丘陵加倍，水面是桥，已有的路便宜
     private static float TileStep(WorldTile tile)
@@ -365,7 +366,7 @@ public static class RoadNetwork
             {
                 if (next?.zone == null || closed.Contains(next.data.tile_id) || !corridor.Contains(next.zone.id)) continue;
                 float enter = next.data.tile_id == goal ? 1f : TileStep(next);
-                if (enter < 0f) continue;
+                if (enter < 0f || MapWallSystem.CutsCorner(tile.x, tile.y, next.x, next.y)) continue;
                 if (next.x != tile.x && next.y != tile.y) enter *= 1.41f;
                 float total = here + enter;
                 if (cost.TryGetValue(next.data.tile_id, out float known) && known <= total) continue;
@@ -467,7 +468,7 @@ public static class RoadNetwork
             if (e2 <= dx) { err += dx; y0 += sy; }
             WorldTile tile = World.world.GetTile(x0, y0);
             float step = tile == b ? 1f : TileStep(tile);
-            if (step < 0f) return -1f;
+            if (step < 0f || MapWallSystem.CutsCorner(px, py, x0, y0)) return -1f;
             total += x0 != px && y0 != py ? step * 1.41f : step;
             px = x0;
             py = y0;
@@ -494,6 +495,8 @@ public static class RoadNetwork
                 if (result.Count == 0 || result[result.Count - 1] != tile)
                 {
                     if (Mountain(tile) && tile != first && tile != end) return null;
+                    WorldTile previous = result.Count == 0 ? null : result[result.Count - 1];
+                    if (previous != null && MapWallSystem.CutsCorner(previous.x, previous.y, tile.x, tile.y)) return null;
                     result.Add(tile);
                 }
                 if (x0 == x1 && y0 == y1) break;

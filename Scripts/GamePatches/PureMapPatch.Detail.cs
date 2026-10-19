@@ -228,11 +228,11 @@ public partial class PureMapPatch
         // 画村镇、小路、废墟时不看归属(见 DrawCountryside)
         public bool Spill;
 
-        // 这一像素落在能盖房子的地上(不是水、山，属于本城或无主)
+        // 这一像素落在能盖房子的地上(不是水、山、城墙，属于本城或无主)；关城压着的关门算地，关城画在上面(见 WallGateSystem)
         public bool Land(int px, int py)
         {
             WorldTile tile = Tile(px, py);
-            if (tile?.Type == null || tile.Type.liquid || tile.Type.mountains || tile.Type.block || MapWallSystem.Contains(tile))
+            if (tile?.Type == null || tile.Type.liquid || tile.Type.mountains || tile.Type.block || MapWallSystem.Blocks(tile))
                 return false;
             City owner = tile.zone?.city;
             return Spill || owner == null || owner == City;
@@ -1590,7 +1590,10 @@ public partial class PureMapPatch
         }
         // 关城(见 RuralSettlementSystem)：一圈城墙、四角墩台、南门，里面营房校场、一杆旗
         foreach ((int x, int y, int level) in g.Forts)
+        {
             Fort(c, (x - c.X0) * s + s / 2, (y - c.Y0) * s + s / 2, level, UrbanFabric.SettlementKey(x, y) + 7000);
+            GateStubs(c, x, y, level);
+        }
         // 毁于兵火的镇村(见 RuralSettlementSystem)：一片焦土，残垣断瓦
         foreach ((int x, int y, bool town) in g.Ruins)
             RuralRuin(c, (x - c.X0) * s + s / 2, (y - c.Y0) * s + s / 2, town ? 16f : 7f, UrbanFabric.SettlementKey(x, y) + 5000, tint);
@@ -1939,6 +1942,27 @@ public partial class PureMapPatch
         if (c.In(cx + 1, cy + 4)) c.Put(cx + 1, cy + 4, Rgb(196, 52, 44), KBuilding);
         if (c.In(cx + 2, cy + 4)) c.Put(cx + 2, cy + 4, Rgb(196, 52, 44), KBuilding);
         if (c.In(cx + 1, cy + 3)) c.Put(cx + 1, cy + 3, Rgb(176, 44, 38), KBuilding);
+    }
+
+    // 城墙接进关城(见 WallGateSystem)：精细图的关城方城四边落在边上那一格的中间，城墙图层一格一像素、到关城方城外一格为止，
+    // 中间差半格；城墙进关的那几格(方城最外一圈上的关门)把方城外的半格补成墙色，城墙与关墙连上不留缝
+    private static void GateStubs(Canvas c, int x, int y, int level)
+    {
+        int reach = 2 + level, s = DetailScale;
+        int cx = (x - c.X0) * s + s / 2, cy = (y - c.Y0) * s + s / 2, r = reach * s;
+        Color32 wall = Rgb(150, 140, 124);
+        for (int dy = -reach; dy <= reach; dy++)
+        for (int dx = -reach; dx <= reach; dx++)
+        {
+            if (Mathf.Max(Mathf.Abs(dx), Mathf.Abs(dy)) != reach || !WallGateSystem.IsGate(World.world.GetTile(x + dx, y + dy))) continue;
+            int px0 = (x + dx - c.X0) * s, py0 = (y + dy - c.Y0) * s;
+            for (int py = py0; py < py0 + s; py++)
+            for (int px = px0; px < px0 + s; px++)
+            {
+                if (!c.In(px, py) || Mathf.Abs(px - cx) <= r && Mathf.Abs(py - cy) <= r) continue;
+                c.Put(px, py, (px + py) % 2 == 0 ? wall : Darker(wall, 0.9f), KWall);
+            }
+        }
     }
 
     private static void Town(Canvas c, DetailStyle style, int cx, int cy, int townSize, bool walled, Color32 dirt, Color32 ground, long seed)

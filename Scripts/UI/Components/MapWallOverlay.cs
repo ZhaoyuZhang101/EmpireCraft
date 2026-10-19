@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using EmpireCraft.Scripts.GamePatches;
 using EmpireCraft.Scripts.GeneralSystems;
 using UnityEngine;
 
@@ -7,6 +8,8 @@ namespace EmpireCraft.Scripts.UI.Components;
 // 图层城墙(见 MapWallSystem)：按像素画成长城——墙身石色，垛口一明一暗相间；斜着走的地方补一格转角砖，墙身连成一线
 // (不是一串虚点)；隔六格左右一座敌楼(3×3 的方台：深色外圈、浅色楼顶)；东南一侧落一道影子。单独一张与地图等大的贴图，盖在色块与路网之上(无主的荒地、山上也画得出)，远近都画——
 // 长城是地标，拉远也看得见。城墙变了才重画
+// 关城压在城墙上是关门(见 WallGateSystem)：关城方城那几格不画墙身、影子、转角砖，城墙画到关城两侧，关城(画在色块与精细层里)露出来；
+// 敌楼离关城至少 TowerSpacing 格。城市不显示(地形浮雕关了)时关城不画，城墙照常画满
 public static class MapWallOverlay
 {
     private static readonly Color32 StoneLight = new(214, 204, 180, 255), StoneDark = new(172, 160, 134, 255),
@@ -21,6 +24,7 @@ public static class MapWallOverlay
     private static Color32[] _pixels;
     private static readonly List<int> Painted = new();
     private static int _drawnVersion = -1;
+    private static bool _drawnGates;
 
     public static void Update()
     {
@@ -35,9 +39,11 @@ public static class MapWallOverlay
         _renderer.enabled = source.enabled;
         _renderer.sortingLayerID = source.sortingLayerID;
         _renderer.sortingOrder = source.sortingOrder + 4;
-        if (_drawnVersion == MapWallSystem.Version) return;
+        bool gates = PureMapPatch.CitiesShown;
+        if (_drawnVersion == MapWallSystem.Version && _drawnGates == gates) return;
         _drawnVersion = MapWallSystem.Version;
-        using (FrameProfiler.Measure("图层城墙·贴图重画")) Redraw();
+        _drawnGates = gates;
+        using (FrameProfiler.Measure("图层城墙·贴图重画")) Redraw(gates);
     }
 
     private static bool Ensure(ZoneCalculator zones, SpriteRenderer source)
@@ -66,26 +72,37 @@ public static class MapWallOverlay
         return true;
     }
 
-    private static void Redraw()
+    private static void Redraw(bool gates)
     {
         foreach (int id in Painted) _pixels[id] = Clear;
         Painted.Clear();
         WorldTile[] tiles = World.world.tiles_list;
         var walls = new List<int>(MapWallSystem.Walls.Keys);
         walls.Sort();
+        // 关城方城那几格让给关城
+        bool Covered(WorldTile tile) => gates && tile?.data != null && WallGateSystem.Covered(tile.data.tile_id);
         // 影子：墙东南一格
         foreach (int id in walls)
         {
             WorldTile tile = Tile(tiles, id);
-            WorldTile shade = tile == null ? null : World.world.GetTile(tile.x + 1, tile.y - 1);
-            if (shade?.data != null && !MapWallSystem.Contains(shade)) Paint(shade.data.tile_id, Shadow);
+            if (tile == null || Covered(tile)) continue;
+            WorldTile shade = World.world.GetTile(tile.x + 1, tile.y - 1);
+            if (shade?.data != null && !MapWallSystem.Contains(shade) && !Covered(shade)) Paint(shade.data.tile_id, Shadow);
         }
-        // 敌楼：按格序挑，离已有的敌楼至少隔 TowerSpacing 格(沿着墙大致等距)
+        // 敌楼：按格序挑，离已有的敌楼至少隔 TowerSpacing 格(沿着墙大致等距)；关城当作已有的一座(不画)，敌楼不贴着关城起
         var towers = new List<WorldTile>();
+        int skip = 0;
+        if (gates)
+            foreach ((int x, int y) in WallGateSystem.Centers)
+                if (World.world.GetTile(x, y) is WorldTile center)
+                {
+                    towers.Add(center);
+                    skip++;
+                }
         foreach (int id in walls)
         {
             WorldTile tile = Tile(tiles, id);
-            if (tile == null) continue;
+            if (tile == null || Covered(tile)) continue;
             bool near = false;
             foreach (WorldTile other in towers)
                 if (Mathf.Abs(other.x - tile.x) <= TowerSpacing && Mathf.Abs(other.y - tile.y) <= TowerSpacing)
@@ -95,13 +112,12 @@ public static class MapWallOverlay
                 }
             if (!near) towers.Add(tile);
         }
-        var towerSet = new HashSet<int>();
-        foreach (WorldTile tower in towers) towerSet.Add(tower.data.tile_id);
+        towers.RemoveRange(0, skip);
         // 墙身：垛口一明一暗
         foreach (int id in walls)
         {
             WorldTile tile = Tile(tiles, id);
-            if (tile == null) continue;
+            if (tile == null || Covered(tile)) continue;
             Paint(id, (tile.x + tile.y) % 2 == 0 ? StoneLight : StoneDark);
         }
         // 转角砖：两格墙只斜着相连(中间两格都不是墙)时补上一格，墙身连成一线
@@ -116,7 +132,7 @@ public static class MapWallOverlay
                 WorldTile side = World.world.GetTile(tile.x + dx, tile.y), up = World.world.GetTile(tile.x, tile.y + 1);
                 if (side == null || up == null || MapWallSystem.Contains(side) || MapWallSystem.Contains(up)) continue;
                 WorldTile corner = side.Type?.liquid != true ? side : up;
-                Paint(corner.data.tile_id, StoneDark);
+                if (!Covered(corner)) Paint(corner.data.tile_id, StoneDark);
             }
         }
         // 敌楼：3×3 的方台，深色外圈、浅色楼顶
@@ -126,7 +142,7 @@ public static class MapWallOverlay
                 for (int dy = -1; dy <= 1; dy++)
                 {
                     WorldTile part = World.world.GetTile(tower.x + dx, tower.y + dy);
-                    if (part?.data == null || part.Type?.liquid == true) continue;
+                    if (part?.data == null || part.Type?.liquid == true || Covered(part)) continue;
                     Paint(part.data.tile_id, dx == 0 && dy == 0 ? TowerRoof : TowerBase);
                 }
         }

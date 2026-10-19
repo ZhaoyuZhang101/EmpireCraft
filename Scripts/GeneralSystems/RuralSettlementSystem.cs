@@ -43,7 +43,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 世界法则「固定城乡格局」：开了以后 AI 不新建村镇、兵火不烧、废墟不自己重建，只听手动(用来摆符合史实的地图)。
 // 关城、军城(用户 2026-10-17 "城=关城/军城")：只有城墙、驻军，不住百姓、不算村镇数，只能手动筑(营建页「筑关」)；
 //   三级(关隘、关城、雄关)；打仗时敌军攻它那一片(见 CityDistricts)，守方战力按等级多三成、六成、九成(见 FortFactor)；
-//   不毁于兵火，可以毁弃。
+//   不毁于兵火，可以毁弃。点在城墙上或城墙边，关城落到城墙上当关门，城墙从两侧接进关里(见 WallGateSystem)。
 public static class RuralSettlementSystem
 {
     private const float VillageWeight = 1f, TownWeight = 3f, CityWeight = 6f, RuinedOutputLoss = 0.6f, BurnPopulationLoss = 0.5f;
@@ -87,6 +87,13 @@ public static class RuralSettlementSystem
     }
 
     public static List<RuralSettlement> Save() => All.Values.ToList();
+
+    // 关城(含废墟，不含抹去的；城墙上的关门见 WallGateSystem)
+    public static IEnumerable<RuralSettlement> Forts()
+    {
+        foreach (RuralSettlement settlement in All.Values)
+            if (settlement.fort && !settlement.cleared) yield return settlement;
+    }
 
     private static Dictionary<int, List<RuralSettlement>> ByZone()
     {
@@ -464,7 +471,10 @@ public static class RuralSettlementSystem
     public static string Place(WorldTile tile, bool town, bool fort = false)
     {
         if (!PureMapMode.Enabled) return LM.Get("settlement_need_pure_map");
-        if (!UrbanFabric.Buildable(tile)) return LM.Get("settlement_place_no_land");
+        // 筑关点在城墙上或城墙边：关城落到城墙上，是墙上的关门(以前城墙格当山一样不让放，关只能挨着墙)
+        WorldTile gate = fort ? WallGateSystem.SnapToWall(tile) : null;
+        if (gate != null) tile = gate;
+        if (!UrbanFabric.Buildable(tile, gate != null)) return LM.Get("settlement_place_no_land");
         TileZone zone = tile.zone;
         City city = zone.city;
         bool claim = city == null;
@@ -513,7 +523,8 @@ public static class RuralSettlementSystem
             ClaimAround(city, settlement, center?.x ?? tile.x, center?.y ?? tile.y, float.MaxValue);
         }
         PureMapPatch.Redraw(city);
-        return string.Format(LM.Get(fort ? "settlement_placed_fort" : town ? "settlement_placed_town" : "settlement_placed_village"), cityName);
+        return string.Format(LM.Get(gate != null ? "settlement_placed_gate" : fort ? "settlement_placed_fort"
+            : town ? "settlement_placed_town" : "settlement_placed_village"), cityName);
     }
 
     // 毁弃：完好的毁为废墟，废墟彻底抹去；这里没有镇村时返回 null

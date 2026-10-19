@@ -340,11 +340,12 @@ public static class AdministrativeControlSystem
 
     private static bool Reached(TileZone zone) => zone.id >= 0 && zone.id < _done.Length && _done[zone.id] == _pass;
 
-    private static float Step(TileZone zone)
+    // 一趟只算一国(realm)，城墙上的关门放本国与友邦过(见 TerrainResistance、WallGateSystem)
+    private static float Step(TileZone zone, Kingdom realm)
     {
         int id = zone.id;
         if (_stepPass[id] == _pass) return _step[id];
-        float step = TerrainResistance.Step(zone);
+        float step = TerrainResistance.Step(zone, realm);
         _step[id] = step;
         _stepPass[id] = _pass;
         return step;
@@ -395,7 +396,7 @@ public static class AdministrativeControlSystem
             foreach (TileZone neighbour in zone.neighbours ?? Array.Empty<TileZone>())
             {
                 if (neighbour == null || !Member(neighbour) || Reached(neighbour)) continue;
-                float step = Step(neighbour);
+                float step = Step(neighbour, realm);
                 Heap.Push(cost + (step < 0f ? WaterStep : step), (neighbour, sea));
             }
             if (ports.Count == 0 || !ports.TryGetValue(zone, out var from)) continue;
