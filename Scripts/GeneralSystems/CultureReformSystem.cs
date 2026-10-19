@@ -119,7 +119,8 @@ public static class CultureReformSystem
         {
             empire.data.conquest_founder_culture = target;
             EmpireCore empireCore = EmpireCoreManager.Get(empire);
-            if (empireCore != null && !empireCore.culture_locked) empireCore.default_culture = target;
+            if (empireCore != null && !empireCore.culture_locked && !CultureService.IsFixedDeJureCultureEnabled())
+                empireCore.default_culture = target;
             empire.data.ruling_culture = target;
             InstitutionSystem.ForgetRulingMajority(empire);
         }

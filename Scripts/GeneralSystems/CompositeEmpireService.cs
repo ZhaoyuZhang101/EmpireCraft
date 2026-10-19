@@ -826,7 +826,8 @@ public static partial class CompositeEmpireService
         // 帝国核心的默认文化(没锁定、该文化此刻没有别的正统帝国时)也换过来，国号类别按现行政体重取：
         // 以前融合完成后核心仍是游牧文化(天下、同化目标都按旧文化)，对外仍称"汗国"
         EmpireCore core = EmpireCoreManager.Get(empire);
-        if (core != null && !core.culture_locked && CultureService.GetActiveEmpireForCulture(institutionalCulture, empire) == null)
+        if (core != null && !core.culture_locked && !CultureService.IsFixedDeJureCultureEnabled() &&
+            CultureService.GetActiveEmpireForCulture(institutionalCulture, empire) == null)
             core.default_culture = institutionalCulture;
         empire.data.empire_type_key = "";
         InstitutionSystem.ForgetRulingMajority(empire);

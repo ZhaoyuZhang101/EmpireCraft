@@ -140,10 +140,18 @@ public static class CultureService
         SetRealmCulture(kingdom, local, updatePoliticalSystem: true);
     }
 
+    // 固定法理文化开着时(或立国之地的法理锁定了文化)，新国取立国之地(都城，没有都城取立国者所在的城)的官方文化，
+    // 不取立国者本人的——以前异族守将、外来宗室受封、外族新君称帝，整个国家连同它的帝国法理就改成了外族文化
     public static void ApplyFounderCulture(Kingdom kingdom, Actor founder)
     {
         if (kingdom?.data == null || founder == null) return;
         string culture = GetFounderCulture(founder);
+        City seat = kingdom.capital ?? founder.city;
+        if (seat?.data != null && !seat.isRekt() && IsCityMainCultureLocked(seat))
+        {
+            string local = GetMainCulture(seat, initialize: false);
+            if (IsValidCulture(local)) culture = local;
+        }
         if (!IsValidCulture(culture)) return;
         SetRealmCulture(kingdom, culture, updatePoliticalSystem: true);
     }
@@ -354,6 +362,17 @@ public static class CultureService
     public static bool IsInheritingEmpireCulture(KingdomTitle title)
     {
         return title?.data != null && !title.data.culture_explicit && GetInheritedEmpireCore(title) != null;
+    }
+
+    // 固定法理文化开着时，法理并入、移出帝国核心前先把眼下的文化定下来——没定过文化的法理随所在核心的默认文化走，
+    // 以前外族称帝、并入别的帝国、帝国覆灭，名下法理的文化就跟着换了
+    public static void PinTitleCultureIfFixed(KingdomTitle title)
+    {
+        if (!IsFixedDeJureCultureEnabled() || title?.data == null || title.isRekt() || title.data.culture_explicit) return;
+        string current = GetEffectiveTitleCulture(title);
+        if (!IsValidCulture(current)) return;
+        title.data.culture = current;
+        title.data.culture_explicit = true;
     }
 
     public static string GetEffectiveTitleCulture(KingdomTitle title)
@@ -592,11 +611,14 @@ public static class CultureService
         shares[protectedCulture] = floor;
     }
 
+    // 异族占领的文化压力(保底六成、可越过锁定改主流文化)：主流文化锁定(固定法理文化或法理锁定)时不算，
+    // 以前锁着文化的城被攻占，过几年照样改从征服者的文化、改名
     private static bool TryGetActiveOccupationCulture(City city, out string culture)
     {
         culture = "";
         if (city?.data == null || city.isRekt() || city.kingdom?.data == null || city.kingdom.isRekt())
             return false;
+        if (IsCityMainCultureLocked(city)) return false;
         CityExtension.CityExtraData data = city.GetOrCreate();
         string target = data.occupation_pressure_culture;
         if (!IsValidCulture(target) || string.Equals(data.main_culture, target, StringComparison.Ordinal))
@@ -837,8 +859,49 @@ public static class CultureService
         data.culture_shift_candidate_since = -1d;
         data.occupation_pressure_culture = "";
         ApplyCulturalCityRename(city, previousCulture, candidate);
+        SyncVanillaCityCulture(city);
         EmpireCraftNamePlateLibrary.RequestRefresh();
         return true;
+    }
+
+    // 原版的国家文化对象(原版窗口、新城看它)跟着国家文化走
+    public static void SyncVanillaKingdomCulture(Kingdom kingdom)
+    {
+        if (kingdom?.data == null || kingdom.isRekt()) return;
+        string realm = kingdom.GetOrCreate().realm_culture;
+        if (!IsValidCulture(realm) || string.Equals(CulturePatch.GetInjectedCultureName(kingdom.culture), realm, StringComparison.Ordinal))
+            return;
+        Culture native = GetNativeCultureObject(realm);
+        if (native != null) kingdom.setCulture(native);
+    }
+
+    // 原版的城市文化对象(原版窗口、没有文化的新居民看它)跟着官方主流文化走
+    public static void SyncVanillaCityCulture(City city)
+    {
+        if (city?.data == null || city.isRekt()) return;
+        string main = city.GetOrCreate().main_culture;
+        if (!IsValidCulture(main) || string.Equals(CulturePatch.GetInjectedCultureName(city.culture), main, StringComparison.Ordinal))
+            return;
+        Culture native = GetNativeCultureObject(main);
+        if (native == null || city.culture == native) return;
+        city.culture = native;
+        World.world?.cultures?.setDirtyCities();
+    }
+
+    // 原版决策"城主把城市文化改成自己的"(只改原版的文化对象)：主流文化锁定时不许，并把原版对象拉回官方文化；
+    // 城主与城本是同一文化(两个同文化的原版对象)也不改，免得来回互改
+    public static bool AllowLeaderCityCulture(Actor actor)
+    {
+        City city = actor?.city;
+        if (city?.data == null || city.isRekt() || actor.culture == null) return true;
+        if (IsCityMainCultureLocked(city))
+        {
+            SyncVanillaCityCulture(city);
+            return false;
+        }
+        string leaderCulture = GetActorCulture(actor);
+        return !IsValidCulture(leaderCulture) ||
+               !string.Equals(leaderCulture, CulturePatch.GetInjectedCultureName(city.culture), StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -890,6 +953,9 @@ public static class CultureService
             city.kingdom != controller) return false;
         CityExtension.CityExtraData data = city.GetOrCreate();
         if (!data.culture_restoration_available || !IsValidCulture(data.restoration_culture)) return false;
+        // 主流文化锁定时，只许恢复成现行的官方文化(把被占领时带进来的人口改回来)，不许借复俗改掉官方文化
+        if (IsCityMainCultureLocked(city) &&
+            !string.Equals(data.main_culture, data.restoration_culture, StringComparison.Ordinal)) return false;
         string controllerCulture = GetRealmCulture(controller);
         if (!string.Equals(controllerCulture, data.restoration_culture, StringComparison.Ordinal)) return false;
         culture = data.restoration_culture;
@@ -921,6 +987,11 @@ public static class CultureService
         data.occupation_pressure_culture = "";
         data.last_culture_share_sync_timestamp = World.world?.getCurWorldTime() ?? -1d;
         if (!string.Equals(previousCulture, culture, StringComparison.Ordinal)) ApplyCulturalCityRename(city, previousCulture, culture);
+        if (nativeCulture != null && city.culture != nativeCulture)
+        {
+            city.culture = nativeCulture;
+            World.world?.cultures?.setDirtyCities();
+        }
         EmpireCraftNamePlateLibrary.RequestRefresh();
         return true;
     }
@@ -956,6 +1027,11 @@ public static class CultureService
         data.culture_restoration_available = false;
         data.last_culture_share_sync_timestamp = World.world?.getCurWorldTime() ?? -1d;
         ApplyCulturalCityRename(city, previousCulture, culture);
+        if (city.culture != nativeCulture)
+        {
+            city.culture = nativeCulture;
+            World.world?.cultures?.setDirtyCities();
+        }
         EmpireCraftNamePlateLibrary.RequestRefresh();
         TranslateHelper.LogCityCultureRestored(city, previousCulture, culture);
         return true;

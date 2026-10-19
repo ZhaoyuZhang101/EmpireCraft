@@ -85,7 +85,11 @@ public static class EmpireCoreManager
             // 外来帝国另立核心：它实际控制的法理从原核心移过去
             List<KingdomTitle> owned = intruder.CoreKingdom.GetControlledTitles()
                 .Where(title => title != null && !title.isRekt()).ToList();
-            foreach (KingdomTitle title in owned) core.RemoveTitle(title);
+            foreach (KingdomTitle title in owned)
+            {
+                CultureService.PinTitleCultureIfFixed(title);
+                core.RemoveTitle(title);
+            }
             intruder.data.empire_core_id = -1L;
             newEmpireCore(intruder);
             // 中央政府接管原核心，撤销它的临时子核心
@@ -108,6 +112,8 @@ public static class EmpireCoreManager
 
     public static EmpireCore newEmpireCore(Empire empire)
     {
+        foreach (KingdomTitle title in empire.CoreKingdom.GetControlledTitles())
+            CultureService.PinTitleCultureIfFixed(title);
         var empireCore = new EmpireCore()
         {
             id = OverallHelperFunc.IdGenerator.NextId(),
@@ -615,6 +621,7 @@ public static class EmpireCoreManager
     {
         if (core == null || title == null || title.isRekt()) return false;
         bool changed = false;
+        if (!ContainsTitle(core, title)) CultureService.PinTitleCultureIfFixed(title);
 
         // 都城没记核心时按法理记录找(以前只看都城记的，都城没记上就不从旧核心移出，同一法理挂在两个核心里)
         EmpireCore previousCore = title.title_capital?.GetEmpireCore();
@@ -640,6 +647,7 @@ public static class EmpireCoreManager
     public static bool RemoveTitleFromCore(EmpireCore core, KingdomTitle title)
     {
         if (core == null || title == null || title.isRekt()) return false;
+        if (ContainsTitle(core, title)) CultureService.PinTitleCultureIfFixed(title);
         bool changed = core.RemoveTitle(title);
         SyncCitiesFromTitles(core);
         return changed;
@@ -648,6 +656,8 @@ public static class EmpireCoreManager
     public static bool DestroyEmpireCore(EmpireCore core)
     {
         if (core == null) return false;
+        foreach (KingdomTitle title in GetTitles(core).ToList())
+            CultureService.PinTitleCultureIfFixed(title);
         // 它作主的天下交给别的成员(见 TianxiaSystem.OnCoreDestroyed)
         EmpireCraft.Scripts.GeneralSystems.TianxiaSystem.OnCoreDestroyed(core);
         foreach (var city in World.world.cities.list)

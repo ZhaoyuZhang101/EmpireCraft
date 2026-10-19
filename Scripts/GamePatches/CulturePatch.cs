@@ -33,6 +33,40 @@ public class CulturePatch : GamePatch
             postfix: new HarmonyMethod(GetType(), nameof(set_default_culture_name)));
         new Harmony(nameof(clone_culture_name)).Patch(AccessTools.Method(typeof(Culture), nameof(Culture.cloneAndEvolveOnomastics)),
             postfix: new HarmonyMethod(GetType(), nameof(clone_culture_name)));
+        GuardVanillaCultureDecisions();
+    }
+
+    // 原版"国王把国家文化改成自己的""城主把城市文化改成自己的"两个决策只改原版的文化对象，模组的国家文化、
+    // 城市主流文化另有一套：君主与国、城文化不同(或同一文化有两个原版对象)就来回互改，锁着文化也照改，
+    // 原版窗口里的文化跟着君主变。国家这一条不再走(国家文化只随易俗、立国等改)；城市这一条锁定时不走(见 CultureService.AllowLeaderCityCulture)
+    private static void GuardVanillaCultureDecisions()
+    {
+        try
+        {
+            DecisionAsset king = AssetManager.decisions_library?.get("king_change_kingdom_culture");
+            if (king?.action_check_launch != null)
+            {
+                DecisionAction original = king.action_check_launch;
+                king.action_check_launch = actor =>
+                {
+                    if (actor?.kingdom == null) return false;
+                    if (actor.kingdom.culture == null) return original(actor);
+                    // 已被这条决策改成君主文化的(旧存档)，拉回国家文化
+                    CultureService.SyncVanillaKingdomCulture(actor.kingdom);
+                    return false;
+                };
+            }
+            DecisionAsset leader = AssetManager.decisions_library?.get("leader_change_city_culture");
+            if (leader?.action_check_launch != null)
+            {
+                DecisionAction original = leader.action_check_launch;
+                leader.action_check_launch = actor => CultureService.AllowLeaderCityCulture(actor) && original(actor);
+            }
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft] 原版改文化决策的拦截未生效: {exception.Message}");
+        }
     }
 
     private static void set_default_culture_name(Actor __instance, string pCultureName)
