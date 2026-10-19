@@ -13,7 +13,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   才是它该归的行政区。城落在别的行政区或中央名下时，改隶管它法理的那个成员。
 //   本区法理里的城(哪怕不连成一片)不动；没有法理的城、帝国里还没有成员管的法理也不动，
 //   留待"按法理整合行政区"决议整体重划。首都、王畿等受保护的直辖城、战时代管的城不动。
-//   和平时才做，每个帝国每年最多改隶两座城，免得版图一夜大变。
+//   战时只动不在前线的城(见 EnfeoffmentHelper.DeferCity；以前帝国一有战事就整年不做，常年打仗的帝国从不划界)，
+//   每个帝国每年最多改隶两座城，免得版图一夜大变。
 public static class InternalBoundarySystem
 {
     private const int MovesPerYear = 2;
@@ -46,10 +47,11 @@ public static class InternalBoundarySystem
 
     private static void FixOne(Empire empire)
     {
-        if (empire?.data == null || empire.isRekt() || empire.IsArchived() || empire.HasTerritorialWar() ||
+        if (empire?.data == null || empire.isRekt() || empire.IsArchived() ||
             AdministrationReorganizationSystem.IsRunning(empire) || ZhouEraSystem.RoyalReclaimBlocked(empire)) return;
         Kingdom core = empire.CoreKingdom;
-        if (core == null || core.isRekt() || core.hasEnemies()) return;
+        if (core == null || core.isRekt()) return;
+        bool atWar = empire.HasTerritorialWar();
 
         // 法理 → 帝国里管它的成员
         var holders = new Dictionary<KingdomTitle, Kingdom>();
@@ -76,7 +78,8 @@ public static class InternalBoundarySystem
             foreach (City city in source.cities.ToArray())
             {
                 if (city == null || city.isRekt() || city == source.capital || city == core.capital ||
-                    protectedCities.Contains(city.id) || WartimeCustodySystem.InCustody(city)) continue;
+                    protectedCities.Contains(city.id) || WartimeCustodySystem.InCustody(city) ||
+                    EnfeoffmentHelper.DeferCity(city, core, atWar)) continue;
                 KingdomTitle title = city.GetTitle();
                 // 没有法理、或本就在本区法理里(含不连片的飞地)：法理归属没错，不动
                 if (!Usable(title) || title == own) continue;

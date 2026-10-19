@@ -4143,16 +4143,19 @@ public class Empire : MetaObject<EmpireData>
         Kingdom coreKingdom = CoreKingdom;
         if (data == null || coreKingdom == null || coreKingdom.isRekt()) return;
         if (AdministrationReorganizationSystem.IsRunning(this)) return;
-        if (HasTerritorialWar()) { data.territorial_enfeoff_pending = true; return; }
+        // 战时照样划分，只跳过前线的城、战时代管的城(见 EnfeoffmentHelper.DeferCity)；跳过了就挂起，
+        // 下一趟(每月一次，见 ProcessTerritorialAcquisitionEnfeoff)离了前线再划
+        bool atWar = HasTerritorialWar();
         data.territorial_enfeoff_pending = false;
+        int moves = _partitionMoves;
         Regime regime = coreKingdom.GetRegime();
         if (regime == null) return;
 
         // LvLing's unlanded peerages do not replace its territorial circuits.
         if (regime?.type == RegimeType.LvLing)
         {
-            AutoEstablishLvLingAdministrativeDivisions();
-            World.world.zone_calculator.dirtyAndClear();
+            AutoEstablishLvLingAdministrativeDivisions(atWar);
+            RedrawAfterPartition(atWar, moves);
             return;
         }
         if (regime != null && regime.enfeoff_virtual_only)
@@ -4164,8 +4167,25 @@ public class Empire : MetaObject<EmpireData>
         // 幕府：打下的地设天领，由奉行直辖(以前从不生成天领)
         bool provinces = RegimeSupportsProvince(regime) && (regime.type != RegimeType.YouMu || IsNomadProvincial()) &&
                          (regime.type != RegimeType.ClassicalRepublic || IsPrincipate()) || regime.type == RegimeType.Bakufu;
-        AutoEstablishTerritorialDivisions(regime, provinces || IsWesternCentralized());
-        World.world.zone_calculator.dirtyAndClear();
+        AutoEstablishTerritorialDivisions(regime, provinces || IsWesternCentralized(), atWar);
+        RedrawAfterPartition(atWar, moves);
+    }
+
+    // 划分时城易主的次数，用来判断这趟有没有动过版图
+    private int _partitionMoves;
+
+    // 战时前线的地留着，每月都会再来一趟；什么都没动就不重画地图
+    private void RedrawAfterPartition(bool atWar, int movesBefore)
+    {
+        if (!atWar || _partitionMoves != movesBefore) World.world.zone_calculator.dirtyAndClear();
+    }
+
+    // 这趟划分要跳过的城(见 EnfeoffmentHelper.DeferCity)；跳过了就挂起，等下一趟
+    private bool DeferPartition(City city, bool atWar)
+    {
+        if (!EnfeoffmentHelper.DeferCity(city, CoreKingdom, atWar)) return false;
+        data.territorial_enfeoff_pending = true;
+        return true;
     }
 
     private void ProcessTerritorialAcquisitionEnfeoff()
@@ -4175,22 +4195,24 @@ public class Empire : MetaObject<EmpireData>
         if (data.last_auto_enfeoff_check_timestamp >= 0 &&
             Date.getMonthsSince(data.last_auto_enfeoff_check_timestamp) < 1) return;
         data.last_auto_enfeoff_check_timestamp = now;
-        if (HasTerritorialWar()) { data.territorial_enfeoff_pending = true; return; }
+        // 以前帝国里任何一国有敌人就整个挂起，常年打仗的帝国打下的地从来划不出去。现在战时照样处理，
+        // 只是前线的城、战时代管的城先不动(见 AutoEnfeoff、EnfeoffmentHelper.DeferCity)
+        bool atWar = HasTerritorialWar();
 
         FeudalConquestService.ProcessPeaceEnfeoff(this);
         EnfeoffmentHelper.ResumeSuccessionEnfeoff(this);
-        HashSet<long> currentCities = CoreKingdom.cities
-            .Where(city => city != null && !city.isRekt() && city.kingdom == CoreKingdom)
-            .Select(city => city.id).ToHashSet();
-        HashSet<long> currentCompleteTitles = ModClass.KINGDOM_TITLE_MANAGER
+        List<City> coreCities = CoreKingdom.cities
+            .Where(city => city != null && !city.isRekt() && city.kingdom == CoreKingdom).ToList();
+        HashSet<long> currentCities = coreCities.Select(city => city.id).ToHashSet();
+        List<KingdomTitle> completeTitles = ModClass.KINGDOM_TITLE_MANAGER
             .Where(title => title != null && !title.isRekt())
             .Where(title =>
             {
                 List<City> cities = title.getCities()
                     .Where(city => city != null && !city.isRekt()).Distinct().ToList();
                 return cities.Count > 0 && cities.All(city => city.kingdom?.GetEmpire() == this);
-            })
-            .Select(title => title.id).ToHashSet();
+            }).ToList();
+        HashSet<long> currentCompleteTitles = completeTitles.Select(title => title.id).ToHashSet();
 
         data.auto_enfeoff_observed_city_ids ??= new List<long>();
         data.auto_enfeoff_observed_title_ids ??= new List<long>();
@@ -4205,8 +4227,20 @@ public class Empire : MetaObject<EmpireData>
 
         bool acquiredCity = currentCities.Except(data.auto_enfeoff_observed_city_ids).Any();
         bool completedTitle = currentCompleteTitles.Except(data.auto_enfeoff_observed_title_ids).Any();
-        data.auto_enfeoff_observed_city_ids = currentCities.OrderBy(id => id).ToList();
-        data.auto_enfeoff_observed_title_ids = currentCompleteTitles.OrderBy(id => id).ToList();
+        // 新得的城、新凑齐的法理还在前线(或战时代管)的不记作已见：离了前线，下一趟照样当新得的地处理
+        HashSet<long> seenCities = data.auto_enfeoff_observed_city_ids.ToHashSet();
+        HashSet<long> seenTitles = data.auto_enfeoff_observed_title_ids.ToHashSet();
+        HashSet<long> deferredCities = coreCities
+            .Where(city => !seenCities.Contains(city.id) && EnfeoffmentHelper.DeferCity(city, CoreKingdom, atWar))
+            .Select(city => city.id).ToHashSet();
+        HashSet<long> deferredTitles = completeTitles
+            .Where(title => !seenTitles.Contains(title.id) && EnfeoffmentHelper.TitleDeferred(title, CoreKingdom, atWar))
+            .Select(title => title.id).ToHashSet();
+        if (deferredCities.Count > 0 || deferredTitles.Count > 0) data.territorial_enfeoff_pending = true;
+        data.auto_enfeoff_observed_city_ids = currentCities.Where(id => !deferredCities.Contains(id))
+            .OrderBy(id => id).ToList();
+        data.auto_enfeoff_observed_title_ids = currentCompleteTitles.Where(id => !deferredTitles.Contains(id))
+            .OrderBy(id => id).ToList();
         // 郡县制/中央集权/神权国家：核心王国除开国法理外还直辖别的法理时，一律划出行政区(同"普天之下")
         if (data.territorial_enfeoff_pending || acquiredCity || completedTitle || HoldsExtraDirectTitles()) AutoEnfeoff();
     }
@@ -4220,12 +4254,12 @@ public class Empire : MetaObject<EmpireData>
                                               city.hasTitle() && city.GetTitle() is { } title && !title.isRekt());
     }
 
-    private void AutoEstablishLvLingAdministrativeDivisions()
+    private void AutoEstablishLvLingAdministrativeDivisions(bool atWar)
     {
-        AutoEstablishTerritorialDivisions(CoreKingdom?.GetRegime(), createAdministration: true);
+        AutoEstablishTerritorialDivisions(CoreKingdom?.GetRegime(), createAdministration: true, atWar);
     }
 
-    private void AutoEstablishTerritorialDivisions(Regime regime, bool createAdministration)
+    private void AutoEstablishTerritorialDivisions(Regime regime, bool createAdministration, bool atWar)
     {
         Kingdom coreKingdom = CoreKingdom;
         if (regime == null || coreKingdom?.cities == null || coreKingdom.cities.Count == 0) return;
@@ -4242,7 +4276,7 @@ public class Empire : MetaObject<EmpireData>
         {
             List<Kingdom> existingPartitions = FindExistingTitlePartitions(title);
             if (existingPartitions.Count > 0)
-                CompleteTitlePartition(title, existingPartitions, protectedCities);
+                CompleteTitlePartition(title, existingPartitions, protectedCities, atWar);
         }
 
         foreach (KingdomTitle title in titles)
@@ -4255,6 +4289,8 @@ public class Empire : MetaObject<EmpireData>
             {
                 List<City> region = GetPartitionTitleCities(title)
                     .Where(city => IsDirectPartitionCandidate(city, protectedCities)).ToList();
+                // 新设的行政区、封国以整片法理为单位：还有城在前线就整片等下一趟，免得治所落到别的城上
+                if (region.Any(city => DeferPartition(city, atWar))) continue;
                 Regime partitionRegime = regime;
                 bool partitionAsAdministration = createAdministration;
                 string titleCulture = CultureService.GetEffectiveTitleCulture(title);
@@ -4269,10 +4305,10 @@ public class Empire : MetaObject<EmpireData>
                 if (created != null) existingPartitions.Add(created);
             }
             if (existingPartitions.Count > 0)
-                CompleteTitlePartition(title, existingPartitions, protectedCities);
+                CompleteTitlePartition(title, existingPartitions, protectedCities, atWar);
         }
 
-        AutoEstablishUntitledExclaveDivisions(regime, createAdministration, protectedCities);
+        AutoEstablishUntitledExclaveDivisions(regime, createAdministration, protectedCities, atWar);
     }
 
     public HashSet<long> GetProtectedDirectCityIds()
@@ -4321,9 +4357,11 @@ public class Empire : MetaObject<EmpireData>
     }
 
     private void CompleteTitlePartition(KingdomTitle title, List<Kingdom> targets,
-        HashSet<long> protectedCities)
+        HashSet<long> protectedCities, bool atWar)
     {
-        targets = targets?.Where(IsValidTerritorialPartition).Distinct().ToList() ?? new List<Kingdom>();
+        targets = targets?.Where(IsValidTerritorialPartition)
+            .Where(target => !atWar || !EnfeoffmentHelper.Contested(target, CoreKingdom))
+            .Distinct().ToList() ?? new List<Kingdom>();
         if (targets.Count == 0) return;
 
         foreach (City city in GetPartitionTitleCities(title))
@@ -4332,7 +4370,10 @@ public class Empire : MetaObject<EmpireData>
                 targets.Contains(city.kingdom)) continue;
             Kingdom target = SelectNearestPartition(city, targets);
             if (target == null || !CanTransferPartitionCity(city, target)) continue;
+            // 已设的行政区、封国补齐法理：前线的城先留在原处
+            if (DeferPartition(city, atWar)) continue;
             city.joinAnotherKingdom(target);
+            if (city.kingdom == target) _partitionMoves++;
         }
         foreach (Kingdom target in targets)
             EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(target);
@@ -4378,6 +4419,7 @@ public class Empire : MetaObject<EmpireData>
 
         Kingdom newKingdom = SetEnfeoff(capital, governor);
         if (newKingdom == null) return null;
+        _partitionMoves++;
         foreach (City city in region)
             if (city != capital && IsDirectPartitionCandidate(city, protectedCities)) city.joinAnotherKingdom(newKingdom);
 
@@ -4458,11 +4500,11 @@ public class Empire : MetaObject<EmpireData>
     }
 
     private void AutoEstablishUntitledExclaveDivisions(Regime regime, bool createAdministration,
-        HashSet<long> protectedCities)
+        HashSet<long> protectedCities, bool atWar)
     {
         var remaining = new HashSet<City>(CoreKingdom.cities.ToList().Where(city =>
             IsDirectPartitionCandidate(city, protectedCities) && !city.hasTitle() &&
-            !city.IsConnectedToKingdomCapital()));
+            !city.IsConnectedToKingdomCapital() && !DeferPartition(city, atWar)));
         while (remaining.Count > 0)
         {
             City seed = remaining.OrderByDescending(city => city.GetCityStrategicValue().DistanceToCore)
@@ -4489,7 +4531,9 @@ public class Empire : MetaObject<EmpireData>
 
     public Kingdom EstablishTerritorialDivision(List<City> region, KingdomTitle title)
     {
-        if (HasTerritorialWar()) { data.territorial_enfeoff_pending = true; return null; }
+        // 战时只设不在前线的城，前线的留在核心直辖、挂起待下一趟(见 AutoEnfeoff)
+        region = WithoutDeferred(region);
+        if (region.Count == 0) return null;
         var regime = CoreKingdom?.GetRegime();
         if (regime == null) return null;
         bool administration = RegimeSupportsProvince(regime) || GraceEdictService.IsCommanderyKingdomActive(this) ||
@@ -4503,7 +4547,8 @@ public class Empire : MetaObject<EmpireData>
     // 政体不支持行政区时返回 null，城市留在核心王国直辖。
     public Kingdom EstablishAdministrativeDivision(List<City> region, KingdomTitle title)
     {
-        if (HasTerritorialWar()) { data.territorial_enfeoff_pending = true; return null; }
+        region = WithoutDeferred(region);
+        if (region.Count == 0) return null;
         Regime regime = CoreKingdom?.GetRegime();
         // 政体没有行政区类型(比如还是分封制)时不建行政区，城市就留在王畿直辖；
         // 施行了郡国并行的分封制可以设郡
@@ -4511,6 +4556,12 @@ public class Empire : MetaObject<EmpireData>
                                 IsWesternCentralized()))
             return null;
         return CreateTerritorialPartition(region, title, regime, createAdministration: true);
+    }
+
+    private List<City> WithoutDeferred(List<City> region)
+    {
+        bool atWar = HasTerritorialWar();
+        return region?.Where(city => city != null && !DeferPartition(city, atWar)).ToList() ?? new List<City>();
     }
 
     // 西方封建制具备制度特性 direct_administration(中央集权君主制、神权国家等)后设辖区/教区

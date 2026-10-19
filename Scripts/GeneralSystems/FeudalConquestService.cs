@@ -127,7 +127,10 @@ public static class FeudalConquestService
         string conqueredName = conquered.GetKingdomName();
         Record(empire, conquered, rebel ? "feudal_conquest_rebel_submit_history" : "feudal_conquest_submit_history",
             empire.GetEmpireName(), conqueredName);
-        bool deferPrince = zhou && empire.HasTerritorialWar();
+        // 战时归附、国境还在前线的，等离了前线再改封皇子(见 ProcessPeaceEnfeoff)。以前帝国一有战事就一律等停战，
+        // 列国常年征伐，归附国从来封不成
+        bool deferPrince = zhou && empire.HasTerritorialWar() &&
+                           EmpireCraft.Scripts.HelperFunc.EnfeoffmentHelper.KingdomAtFront(conquered, empire.CoreKingdom);
         if (deferPrince)
         {
             empire.data.territorial_enfeoff_pending = true;
@@ -140,19 +143,24 @@ public static class FeudalConquestService
         return true;
     }
 
+    // 每月改封一国(见 Empire.ProcessTerritorialAcquisitionEnfeoff)；战时先挑不在前线的，都在前线就等下个月
     public static void ProcessPeaceEnfeoff(Empire empire)
     {
         var pending = empire?.data?.pending_conquest_enfeoff_kingdom_ids;
-        if (pending == null || pending.Count == 0 || empire.HasTerritorialWar()) return;
+        if (pending == null || pending.Count == 0) return;
         // 原始政体不分封(见 EnfeoffmentHelper.RegimeForbids)
         if (EmpireCraft.Scripts.HelperFunc.EnfeoffmentHelper.RegimeForbids(empire))
         {
             pending.Clear();
             return;
         }
-        long id = pending[0];
-        pending.RemoveAt(0);
-        Kingdom member = empire.kingdoms_list.FirstOrDefault(kingdom => kingdom?.id == id);
+        Kingdom Member(long kingdomId) => empire.kingdoms_list.FirstOrDefault(kingdom => kingdom?.id == kingdomId);
+        int index = !empire.HasTerritorialWar() ? 0 : pending.FindIndex(kingdomId =>
+            !EmpireCraft.Scripts.HelperFunc.EnfeoffmentHelper.KingdomAtFront(Member(kingdomId), empire.CoreKingdom));
+        if (index < 0) return;
+        long id = pending[index];
+        pending.RemoveAt(index);
+        Kingdom member = Member(id);
         if (AppliesTo(empire) && member != null && !member.isRekt() && member.GetEmpire() == empire &&
             member != empire.CoreKingdom && HasEnfeoffmentInstitution(empire)) TryInstallPrince(empire, member);
     }

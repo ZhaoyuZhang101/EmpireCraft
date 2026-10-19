@@ -30,20 +30,65 @@ public static class EnfeoffmentHelper
     // 游牧几乎年年在打仗，等停战再分就永远分不了：游牧打仗时也分，只是前线的地不分(见 AtFront)
     public static bool Nomadic(Empire empire) => empire?.CoreKingdom?.GetRegime()?.type == RegimeType.YouMu;
 
+    // 兄弟分封(新君即位分封、分封诉求)仍只有游牧战时照分，别的政体等停战：打仗时找不到不在前线的法理，
+    // 即位分封会改发正统补偿、不再挂起，别的政体也放开就成了战时兄弟分不到地，所以不跟领土划分(见 DeferCity)一起改
     public static bool WarBlocks(Empire empire) => empire != null && empire.HasTerritorialWar() && !Nomadic(empire);
 
-    // 前线：城里有敌军占着的地块，或挨着交战敌国的城
-    private static bool AtFront(KingdomTitle title, Kingdom core)
+    // 前线：城里有敌军占着的地块，或挨着与帝国核心(或本城所属成员国)交战之国的城
+    public static bool IsFrontCity(City city, Kingdom core)
     {
-        foreach (City city in title.getCities())
+        if (city?.data == null || city.isRekt() || city.neighbours_cities == null) return false;
+        if (city.HasOccupiedZones()) return true;
+        Kingdom owner = city.kingdom;
+        foreach (City other in city.neighbours_cities)
         {
-            if (city?.data == null || city.isRekt()) continue;
-            if (city.HasOccupiedZones()) return true;
-            foreach (City other in city.neighbours_cities)
-                if (other?.kingdom != null && !other.isRekt() && other.kingdom != core && FrontSystem.Hostile(core, other.kingdom))
-                    return true;
+            Kingdom enemy = other?.kingdom;
+            if (enemy == null || other.isRekt() || enemy == core || enemy == owner) continue;
+            if (FrontSystem.Hostile(core, enemy) || owner != null && owner != core && FrontSystem.Hostile(owner, enemy))
+                return true;
         }
         return false;
+    }
+
+    // 划行政区、设行省、分封打下的地时先不动的城(用户 2026-10-19 选"所有政体都改")：
+    // 以前帝国里任何一国有敌人，这些就整个挂起等停战；阿拉伯、封建、周制、幕府年年在打，打下的地从来设不成行省、封不出去。
+    // 现在战时照样划分，只跳过前线的城、战时代管等战后分配的城(见 WartimeCustodySystem)、正与中央交战的成员的城；停战后照旧
+    public static bool DeferCity(City city, Kingdom core, bool atWar) =>
+        atWar && (WartimeCustodySystem.InCustody(city) || Contested(city?.kingdom, core) || IsFrontCity(city, core));
+
+    // 正在叛乱、或与中央交战的成员：战时不从它那里划城，也不往它那里划
+    public static bool Contested(Kingdom kingdom, Kingdom core) =>
+        kingdom?.data != null && core != null && kingdom != core &&
+        (kingdom.IsFactionRebelling() || kingdom.IsLocalRebelling() || kingdom.isInWarWith(core));
+
+    // 法理里归本帝国的城有一座在前线就算前线(别国手里的城不算)
+    public static bool AtFront(KingdomTitle title, Kingdom core)
+    {
+        foreach (City city in title?.getCities() ?? Enumerable.Empty<City>())
+            if (InRealm(city, core) && IsFrontCity(city, core)) return true;
+        return false;
+    }
+
+    public static bool TitleDeferred(KingdomTitle title, Kingdom core, bool atWar)
+    {
+        foreach (City city in title?.getCities() ?? Enumerable.Empty<City>())
+            if (InRealm(city, core) && DeferCity(city, core, atWar)) return true;
+        return false;
+    }
+
+    // 成员国有一座城在前线就算前线(周制战时改封皇子用，见 FeudalConquestService)
+    public static bool KingdomAtFront(Kingdom kingdom, Kingdom core)
+    {
+        if (kingdom?.cities == null || kingdom.isRekt()) return false;
+        foreach (City city in kingdom.cities)
+            if (IsFrontCity(city, core)) return true;
+        return false;
+    }
+
+    private static bool InRealm(City city, Kingdom core)
+    {
+        Kingdom owner = city?.kingdom;
+        return owner != null && !city.isRekt() && (owner == core || owner.GetEmpire()?.CoreKingdom == core);
     }
 
     public static List<KingdomTitle> FindEnfeoffableTitles(Empire empire)
