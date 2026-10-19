@@ -74,6 +74,38 @@ public class ZonePaintBudget : GamePatch
     // 原版清空了一块地：平滑国界忘掉它记下的底色、渐变(见 SmoothBorders.Cleared)
     private static void AfterZoneClear(TileZone pZone) => SmoothBorders.Cleared(pZone);
 
+    // 一格的样子变了(设地面格、顶层格前后 Type 不同，见 MapWallPatch：水桶抽水抽岩浆、镐铲斧、画地形、岩浆冷却、海水回灌、开田退耕……)。
+    // 原版的图层色块只是盖在地形上的一层半透明颜色，地形另由原版地块层画，所以原版只在归属、颜色变了才重画色块；
+    // 纯净地图(城市图层同样)把地形浮雕、水面画进不透明的色块里(见 PureMapPatch.ShadeTerrain)，平滑国界按水陆定归属与边框
+    // (水面不归谁、透明)，地形变了色块却不重画：自家地上的岩浆用水桶浇了还是岩浆，抽干的湖一直是灰坑不成陆地
+    // (玩家反馈"油桶也用不了")。平滑国界的上色缓存(SmoothBorders 的 Snapshots)也不含地形，就算重画也会拷回旧样子。
+    // 这里让这块地下一轮重画并丢掉它的上色缓存；水陆变了，这一格四邻落在别的块上的，那块的边框也跟着重画。
+    // 只开平滑国界(色块不带地形)时只管水陆变化：原版草木蔓生时顶层格变得很勤，不能每次都重画
+    public static void TerrainChanged(WorldTile tile, TileTypeBase before)
+    {
+        TileTypeBase after = tile?.Type;
+        if (ReferenceEquals(before, after) || tile.zone == null || !Config.game_loaded || SmoothLoader.isLoading() ||
+            World.world?.zone_calculator == null) return;
+        bool water = Water(before) != Water(after);
+        if (!PureMapMode.Enabled && !Layer.CityViewMap.Active && !(SmoothBorders.Enabled && water)) return;
+        Repaint(tile.zone);
+        if (!water) return;
+        Repaint(tile.tile_up?.zone, tile.zone);
+        Repaint(tile.tile_down?.zone, tile.zone);
+        Repaint(tile.tile_left?.zone, tile.zone);
+        Repaint(tile.tile_right?.zone, tile.zone);
+    }
+
+    // 水面(同 SmoothBorders.IsWater、PureMapPatch.ShadeTerrain：岩浆不算水，照常归地块的主人)
+    private static bool Water(TileTypeBase type) => type != null && (type.ocean || type.liquid && !type.lava);
+
+    private static void Repaint(TileZone zone, TileZone skip = null)
+    {
+        if (zone == null || ReferenceEquals(zone, skip)) return;
+        zone.resetRenderHelpers();
+        SmoothBorders.ForgetSnapshot(zone);
+    }
+
     private static void BeforeZoom() => _zoomSwitch = true;
     private static void AfterZoom() => _zoomSwitch = false;
 

@@ -1504,7 +1504,7 @@ public static class SmoothBorders
     // 每次都要整块重画(逐格平滑、地形、城市平面图)，大国一换就是几百块地，鼠标一动卡一下。
     // 同样的输入画出同样的像素：每块地记下最近画过的两版，再遇到同样的输入直接拷回，当帧就好、几乎不花时间，画面不变。
     // 输入：两种颜色、周围 5×5 块的归属及其颜色与所属帝国、图层与选项、战线开关、宣战议和、本城平面图的指纹、纯净地图与规划视图；
-    // 周围有逐格推进的地块不缓存；缓存三十秒过期(地形之类没算进去的变化至多三十秒后补上)
+    // 周围有逐格推进的地块不缓存；缓存三十秒过期(没算进去的变化至多三十秒后补上；地形变了当场丢掉那块的，见 ForgetSnapshot)
     private const float CacheSeconds = 30f;
     private const int MaxCached = 12000;
 
@@ -1622,6 +1622,12 @@ public static class SmoothBorders
     }
 
     public static void ClearCache() => Snapshots.Clear();
+
+    // 这块地的地形变了(见 ZonePaintBudget.TerrainChanged)：缓存的输入不含地形，丢掉，下次重画按眼下的地形画
+    public static void ForgetSnapshot(TileZone zone)
+    {
+        if (zone != null && Snapshots.Count > 0) Snapshots.Remove(zone.id);
+    }
 
     // 这一格记为边框，四邻的陆地格记下的归属却都同它一样：残留的边框(国界早该没了，见 LayerDiagnostics)
     public static bool StaleOutline(WorldTile tile)
