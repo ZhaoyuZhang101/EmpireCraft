@@ -51,12 +51,30 @@ public static class LogisticsSystem
         return until > 0d && World.world != null && World.world.getCurWorldTime() < until;
     }
 
+    // 一国一月的补给结算里：各控制方与本国的关系(友、敌、都不是)只判一次；同一块地、同样走不走海路的补给线只找一次
+    // (几支军常挤在同一块地上)。都只在这一国这一次结算里有效
+    private const sbyte RelationFriendly = 1, RelationHostile = 2, RelationNeither = 3;
+    private static readonly Dictionary<long, sbyte> Relations = new();
+    private static readonly Dictionary<int, float> SupplyByZone = new();
+
+    private static sbyte Relation(Kingdom kingdom, Kingdom other)
+    {
+        if (other == null) return RelationNeither;
+        if (Relations.TryGetValue(other.id, out sbyte known)) return known;
+        sbyte relation = FrontSystem.Friendly(kingdom, other) ? RelationFriendly
+            : FrontSystem.Hostile(kingdom, other) ? RelationHostile : RelationNeither;
+        Relations[other.id] = relation;
+        return relation;
+    }
+
     public static void MonthTick(Kingdom kingdom)
     {
         List<CorpsData> list = CorpsSystem.Of(kingdom);
         if (list.Count == 0) return;
         bool foraging = Foraging(kingdom);
         float bonus = WarCommandSystem.QuartermasterSupply(kingdom);
+        Relations.Clear();
+        SupplyByZone.Clear();
         foreach (CorpsData corps in list)
         {
             float supply = Supply(kingdom, corps, foraging);
@@ -66,6 +84,8 @@ public static class LogisticsSystem
                 FrontSystem.Log(kingdom, string.Format(LM.Get(wasCut ? "corps_log_supply_restored" : "corps_log_supply_cut"),
                     CorpsSystem.Name(corps)));
         }
+        Relations.Clear();
+        SupplyByZone.Clear();
         Feed(kingdom, list, foraging);
         Attrition(kingdom, list);
         if (FrontSystem.Realm(kingdom) == kingdom) TryForage(kingdom);
@@ -81,12 +101,54 @@ public static class LogisticsSystem
         City home = CorpsSystem.Home(corps);
         Dictionary<int, int> sea = null;
         if (home != null && !CorpsSystem.SameLand(zone, home.getTile()?.zone)) sea = SeaLanding.Reachable(kingdom);
-        float supply = SupplyLine(kingdom, zone, sea, NavySystem.MaxRange(kingdom));
+        // 补给线只看起点与走不走海路(海路、航程每国一样)
+        int key = zone.id * 2 + (sea != null ? 1 : 0);
+        if (!SupplyByZone.TryGetValue(key, out float supply))
+        {
+            supply = SupplyLine(kingdom, zone, sea, NavySystem.MaxRange(kingdom));
+            SupplyByZone[key] = supply;
+        }
         Kingdom controller = FrontSystem.Controller(zone);
-        if (foraging && supply > 0f && controller != null && FrontSystem.Hostile(kingdom, controller))
+        if (foraging && supply > 0f && controller != null && Relation(kingdom, controller) == RelationHostile)
             supply = Mathf.Min(1f, supply + ForageBonus);
         return supply;
     }
+
+    // 补给线最短路的工作数组(按地块编号，记趟次不清空)与堆：以前每找一次新建三个字典、集合和一个列表
+    private static int _pass, _closedCount;
+    private static int[] _seen = new int[0], _closed = new int[0], _steps = new int[0];
+    private static float[] _cost = new float[0];
+    private static readonly List<(float key, TileZone zone)> Open = new();
+
+    private static void BeginPass()
+    {
+        int size = World.world?.zone_calculator?.zones?.Count ?? 0;
+        if (_seen.Length < size) Grow(size);
+        _closedCount = 0;
+        Open.Clear();
+        if (++_pass < int.MaxValue) return;
+        Array.Clear(_seen, 0, _seen.Length);
+        Array.Clear(_closed, 0, _closed.Length);
+        _pass = 1;
+    }
+
+    private static void Grow(int size)
+    {
+        Array.Resize(ref _seen, size);
+        Array.Resize(ref _closed, size);
+        Array.Resize(ref _steps, size);
+        Array.Resize(ref _cost, size);
+    }
+
+    private static void Reach(TileZone zone, float cost, int steps)
+    {
+        if (zone.id >= _seen.Length) Grow(zone.id + 1);
+        _seen[zone.id] = _pass;
+        _cost[zone.id] = cost;
+        _steps[zone.id] = steps;
+    }
+
+    private static bool Closed(TileZone zone) => zone.id < _closed.Length && _closed[zone.id] == _pass;
 
     // 补给线：从军所在的地块往后方找折损最小的运粮路线，到最近的己方(含友军)城为止(海外还可以到沿岸，按海路封顶)；
     // 返回沿途剩下的几成，找不到为 0(被切断)。按每块折损取对数做最短路。
@@ -97,29 +159,36 @@ public static class LogisticsSystem
         float Source(TileZone zone)
         {
             City city = zone.city;
-            if (city?.data != null && !city.isRekt() && city.getTile()?.zone == zone && FrontSystem.Friendly(kingdom, city.kingdom))
+            if (city?.data != null && !city.isRekt() && city.getTile()?.zone == zone &&
+                Relation(kingdom, city.kingdom) == RelationFriendly)
                 return 1f;
             if (sea == null || sea.Count == 0) return 0f;
-            if (zone != start && FrontSystem.Controller(zone) is Kingdom holder && !FrontSystem.Friendly(kingdom, holder)) return 0f;
+            if (zone != start && FrontSystem.Controller(zone) is Kingdom holder && Relation(kingdom, holder) != RelationFriendly)
+                return 0f;
+            // 岸外的海区(同 SeaLanding.Waters，不另建列表)
+            if (SeaRegionSystem.IsSea(zone)) return 0f;
             int hops = int.MaxValue;
-            foreach (SeaRegionSystem.Region region in SeaLanding.Waters(zone))
-                if (sea.TryGetValue(region.Id, out int count) && count < hops) hops = count;
+            foreach (TileZone next in zone.neighbours_all ?? Array.Empty<TileZone>())
+                if (SeaRegionSystem.Of(next) is { } region && sea.TryGetValue(region.Id, out int count) && count < hops)
+                    hops = count;
             return hops == int.MaxValue ? 0f : hops <= range ? OverseasCap : OutOfRange;
         }
         float here = Source(start);
         if (here >= 1f) return 1f;
-        var cost = new Dictionary<int, float> { [start.id] = 0f };
-        var steps = new Dictionary<int, int> { [start.id] = 0 };
-        var closed = new HashSet<int>();
-        var open = new List<(float key, TileZone zone)> { (0f, start) };
+        BeginPass();
+        Reach(start, 0f, 0);
+        Open.Add((0f, start));
         float best = here;
-        while (open.Count > 0 && closed.Count < MaxSupplySearch)
+        while (Open.Count > 0 && _closedCount < MaxSupplySearch)
         {
-            (float key, TileZone zone) = (open[0].key, CorpsSystem.PopMin(open));
+            (float key, TileZone zone) = (Open[0].key, CorpsSystem.PopMin(Open));
             // 再往外走剩下的不会比已找到的多
             if (Mathf.Exp(-key) <= best) break;
-            if (!closed.Add(zone.id)) continue;
-            int depth = steps[zone.id];
+            if (Closed(zone)) continue;
+            if (zone.id >= _closed.Length) Grow(zone.id + 1);
+            _closed[zone.id] = _pass;
+            _closedCount++;
+            int depth = _steps[zone.id];
             if (zone != start)
             {
                 float source = Source(zone);
@@ -132,16 +201,16 @@ public static class LogisticsSystem
             if (depth >= MaxSupplyDepth) continue;
             foreach (TileZone next in zone.neighbours_all ?? Array.Empty<TileZone>())
             {
-                if (next == null || closed.Contains(next.id) || SeaRegionSystem.IsSea(next) || TerrainSystem.Impassable(next)) continue;
+                if (next == null || Closed(next) || SeaRegionSystem.IsSea(next) || TerrainSystem.Impassable(next)) continue;
                 float loss = Loss(kingdom, next, depth + 1);
                 if (loss >= 1f) continue;
                 float total = key - Mathf.Log(1f - loss);
-                if (cost.TryGetValue(next.id, out float known) && known <= total) continue;
-                cost[next.id] = total;
-                steps[next.id] = depth + 1;
-                CorpsSystem.PushHeap(open, (total, next));
+                if (next.id < _seen.Length && _seen[next.id] == _pass && _cost[next.id] <= total) continue;
+                Reach(next, total, depth + 1);
+                CorpsSystem.PushHeap(Open, (total, next));
             }
         }
+        Open.Clear();
         return best;
     }
 
@@ -150,9 +219,10 @@ public static class LogisticsSystem
     {
         Kingdom controller = FrontSystem.Controller(zone);
         float loss;
+        sbyte relation = Relation(kingdom, controller);
         if (controller == null) loss = NeutralLoss;
-        else if (FrontSystem.Friendly(kingdom, controller)) loss = FriendlyLoss;
-        else if (FrontSystem.Hostile(kingdom, controller))
+        else if (relation == RelationFriendly) loss = FriendlyLoss;
+        else if (relation == RelationHostile)
         {
             if (depth > FrontlineDepth) return 1f;
             loss = EnemyLoss;
