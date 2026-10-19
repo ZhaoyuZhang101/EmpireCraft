@@ -497,7 +497,8 @@ public static class CorpsSystem
             foreach (War war in side.getWars())
                 if (war?.data != null && !war.hasEnded()) months = Mathf.Max(months, Date.getMonthsSince(war.data.created_time));
         }
-        return Mathf.Lerp(peace, 1f, Mathf.Clamp01((months + 1) / WarLevyMonths));
+        // 部众思归：游牧汗国打满两年以后兵源逐年打九折，至多六折(见 NomadCycleSystem)
+        return Mathf.Lerp(peace, 1f, Mathf.Clamp01((months + 1) / WarLevyMonths)) * NomadCycleSystem.HomesickLevy(kingdom, months);
     }
     // 起义军的正规军只征兵源的一半：仓促成军，一大半人编在义军里(见 RaiseMilitia)
     private const float InsurgentLevy = 0.5f;

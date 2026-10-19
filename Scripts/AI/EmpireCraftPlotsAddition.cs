@@ -1602,7 +1602,8 @@ namespace EmpireCraft.Scripts.AI
                     if (!kingdom.IsInEmpire()) return false;
                     Empire empire = kingdom.GetEmpire();
                     Regime regime = kingdom.GetRegime();
-                    if (empire.Legitimacy > 40 || !RebellionSystem.CanAttempt(kingdom) ||
+                    // 正统门槛 40；汗国连吃败仗时抬高(兵败离心，见 NomadCycleSystem.SecessionGate)
+                    if (empire.Legitimacy > NomadCycleSystem.SecessionGate(kingdom) || !RebellionSystem.CanAttempt(kingdom) ||
                         !CityStabilitySystem.CanRise(kingdom.capital)) return false;
                     if (regime == null) return false;
                     // 哪些政体、哪类成员能拥兵自立读政体配置(members_can_secede 等，见 Scripts/Regimes/Configs/README.md)：
@@ -1620,23 +1621,16 @@ namespace EmpireCraft.Scripts.AI
                     return true;
                 },
                 check_should_continue = actor => actor?.isKing() == true &&
-                    actor.kingdom.GetEmpire() is Empire current && current.Legitimacy <= 40 &&
+                    actor.kingdom.GetEmpire() is Empire current && current.Legitimacy <= NomadCycleSystem.SecessionGate(actor.kingdom) &&
                     RebellionSystem.CanAttempt(actor.kingdom) && CityStabilitySystem.CanRise(actor.kingdom.capital),
                 action = delegate(Actor pActor) 
                 {
                     Kingdom kingdom = pActor.kingdom;
                     Empire empire = kingdom.GetEmpire();
-                    if (empire == null || empire.isRekt() || empire.Legitimacy > 40 ||
+                    if (empire == null || empire.isRekt() || empire.Legitimacy > NomadCycleSystem.SecessionGate(kingdom) ||
                         !RebellionSystem.CanAttempt(kingdom) || !CityStabilitySystem.CanRise(kingdom.capital)) return false;
-                    RebellionCauseData cause = RebellionSystem.Capture(kingdom, kingdom.capital,
-                        "rebellion_reason_secession");
-                    var war = DiplomacyHelpers.wars.newWar(kingdom, empire.CoreKingdom, WarTypeLibrary.normal);
-                    if (war == null) return false;
-                    kingdom.FinishedSelfPlot();
-                    empire.leave(kingdom, true, true);
-                    war.SetEmpireWarType(EmpireWarType.地方独立);
-                    RebellionSystem.Record(kingdom, war, cause);
-                    return true;
+                    // 退出帝国、与中央开战(与汗位更替之乱共用，见 NomadCycleSystem.DeclareIndependence)
+                    return NomadCycleSystem.DeclareIndependence(kingdom, empire, "rebellion_reason_secession");
                 }
             });
             AssetManager.plots_library.add(new PlotAsset

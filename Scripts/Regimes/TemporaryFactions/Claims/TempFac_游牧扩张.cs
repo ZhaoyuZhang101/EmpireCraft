@@ -44,6 +44,9 @@ public class TempFac_游牧扩张 : TemporaryFaction
         // 同对外扩张(用户 2026-10-17 "游牧太强了")：打仗太多、发不出军饷不开新仗；只打不在任何帝国里的邻国，
         // 自己给出去、收进来的不打，对方有核自己没有不敢碰，兵力(战力)要占优
         if (WarSituation.TooBusyForWar(empire.CoreKingdom) || CorpsSystem.CannotFundWar(empire.CoreKingdom)) return false;
+        // 已过度扩张(直辖城数超出容量，见 AdministrativeControlSystem)不再兴兵扩张(用户 2026-10-20 选"游牧来得快去得快")
+        if (empire.CoreKingdom.GetOrCreate().admin_overextension > 0f) return false;
+        // 国力里的兵力已按武备废弛打折(见 MaladySystem.LevyFactor、CityPopulationSystem.WarPotential)
         double power = WarSituation.Power(empire);
         foreach (Kingdom kingdom in empire.GetKingdomNeighbours())
         {

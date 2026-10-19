@@ -15,6 +15,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   对方正规军恢复到满编三成以上、或两家不再交战，崩溃即止。
 // 久战疲敝(用户 2026-10-19："统一战争不用一开始就触发，可以时间打的久了降国内稳定度，很差才这样")：被统一、被讨伐的一方，
 //   仗打满一年后各城自然稳定度每年少 6(至多 36)，丢的城每占开战时的一成再少 3(至多 15)，见 CityStabilitySystem.Natural；
+//   游牧汗国不论什么仗，打满两年后每年少 5(至多 20，部众思归，见 NomadCycleSystem)；
 //   兵败如山倒还要它国内稳定度很差——各城平均不到 25(不开财政时按久战疲敝折算)。统一者、雄主自己不疲敝(开国气象)。
 // 以前统一战争另有"兵力不到统一者一成就算打光"：国库独大的统一者一开战，小国一仗没打，两个月后就举国并入；
 // 雄主讨伐时对方丢一块地就每月有几率举国归附。
@@ -171,6 +172,8 @@ public static class FrontCollapse
                 if (lost > 0 && before > 0) wear += Mathf.Min(WearyLossCap, lost * 10f / before * WearyPerLostTenth);
                 loss = Mathf.Max(loss, wear);
             }
+        // 部众思归：游牧汗国一场仗打满两年，各城自然稳定度每年少 5(至多 20，见 NomadCycleSystem)
+        loss = Mathf.Max(loss, NomadCycleSystem.StabilityLoss(realm));
         if (Weariness.Count > 512) Weariness.Clear();
         Weariness[realm.id] = (loss, now);
         return loss;

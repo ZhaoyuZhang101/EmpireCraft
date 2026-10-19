@@ -204,8 +204,8 @@ public class CityPatch : GamePatch
             prefix: new HarmonyMethod(GetType(), nameof(CanUseBuildAsset))
         );
     }
-    // 游牧扩张攻下都城整国并入的上限(城数)，再大的改为称臣纳贡
-    private const int NomadAnnexMaxCities = 3;
+    // 游牧扩张攻下都城整国并入的上限(城数)，再大的改为称臣纳贡(用户 2026-10-20 选"游牧来得快去得快"：三城改两城)
+    private const int NomadAnnexMaxCities = 2;
 
     public static bool CanUseBuildAsset(CityBehBuild __instance, BuildOrder pBuildAsset, City pCity, ref bool __result)
     {
@@ -453,7 +453,7 @@ public class CityPatch : GamePatch
                 return false;
             }
             //检测是否为游牧扩张战争，如果是则返还法理土地，保留制度但是加入帝国
-            // 只吞小国(用户 2026-10-17 选"攻下都城只吞小国")：三城以内整国并入，大国改为称臣纳贡(同迫使朝贡)
+            // 只吞小国(用户 2026-10-17 选"攻下都城只吞小国")：两城以内整国并入(见 NomadAnnexMaxCities)，大国改为称臣纳贡(同迫使朝贡)
             // 南下打的是别的帝国的成员(或来救援的那个帝国)：城照常易手，不整国并入、不改称臣
             if (expendWar != null && __instance.kingdom.GetEmpire() is Empire otherEmpire &&
                 otherEmpire != joinAfterCapture.GetEmpire())
