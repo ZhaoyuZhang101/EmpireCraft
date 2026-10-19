@@ -1575,18 +1575,24 @@ public partial class PureMapPatch
             }
         int index = 0;
         bool Swallowed(int px, int py) => g.Modern && c.Kind(px, py) is not (KEmpty or KPath);
+        // 毡帐村镇(见 RuralSettlement.yurt)：踩出来的空地上一圈圈毡帐，同游牧营地
+        Color32 trampled = Lerp(tint, Rgb(196, 186, 140), 0.6f);
         foreach ((int x, int y, int townSize, bool walled) in g.Towns)
         {
             int px = (x - c.X0) * s + s / 2, py = (y - c.Y0) * s + s / 2;
             index++;
-            if (!Swallowed(px, py)) Town(c, style, px, py, townSize, walled, dirt, townGround, UrbanFabric.SettlementKey(x, y) + 1000);
+            if (Swallowed(px, py)) continue;
+            if (UrbanFabric.IsYurt(g, x, y)) YurtTown(c, px, py, townSize, trampled, UrbanFabric.SettlementKey(x, y) + 1000);
+            else Town(c, style, px, py, townSize, walled, dirt, townGround, UrbanFabric.SettlementKey(x, y) + 1000);
         }
         index = 0;
         foreach ((int x, int y) in g.Villages)
         {
             int px = (x - c.X0) * s + s / 2, py = (y - c.Y0) * s + s / 2;
             index++;
-            if (!Swallowed(px, py)) Village(c, style, tint, px, py, dirt, ground, UrbanFabric.SettlementKey(x, y) + 3000);
+            if (Swallowed(px, py)) continue;
+            if (UrbanFabric.IsYurt(g, x, y)) YurtVillage(c, px, py, trampled, UrbanFabric.SettlementKey(x, y) + 3000);
+            else Village(c, style, tint, px, py, dirt, ground, UrbanFabric.SettlementKey(x, y) + 3000);
         }
         // 关城(见 RuralSettlementSystem)：一圈城墙、四角墩台、南门，里面营房校场、一杆旗
         foreach ((int x, int y, int level) in g.Forts)
@@ -1595,8 +1601,10 @@ public partial class PureMapPatch
             GateStubs(c, x, y, level);
         }
         // 毁于兵火的镇村(见 RuralSettlementSystem)：一片焦土，残垣断瓦
+        // 毡帐烧了只剩焦土，没有残墙
         foreach ((int x, int y, bool town) in g.Ruins)
-            RuralRuin(c, (x - c.X0) * s + s / 2, (y - c.Y0) * s + s / 2, town ? 16f : 7f, UrbanFabric.SettlementKey(x, y) + 5000, tint);
+            RuralRuin(c, (x - c.X0) * s + s / 2, (y - c.Y0) * s + s / 2, town ? 16f : 7f, UrbanFabric.SettlementKey(x, y) + 5000, tint,
+                !UrbanFabric.IsYurt(g, x, y));
         c.Spill = false;
         // 村镇四周按生计画(见 LivelihoodSystem)，一块块之间至少留三像素空地，只落在本城的空地上：
         //   · 农村：几块条田(见 FieldColor)，一块八到十三像素宽、六到九像素高，能种的不到七成就换个地方(阿兹特克是水上浮田)；
@@ -1727,6 +1735,26 @@ public partial class PureMapPatch
                 }
             });
         }
+        // 毡帐的畜栏：一圈木栏围着几只羊，不铺绿草场(毡帐都在旱地上，见 RuralSettlementSystem.YurtGround)，同游牧营地里的畜栏
+        void Corrals(int cx, int cy, int count, float reach, long key)
+        {
+            Patches(cx, cy, count, reach, key, 8, 4, 6, 3, (px, py) => Own(px, py, false), (x0, y0, x1, y1, attempt) =>
+            {
+                for (int py = y0; py <= y1; py++)
+                for (int px = x0; px <= x1; px++)
+                {
+                    bool rim = px == x0 || px == x1 || py == y0 || py == y1;
+                    if (rim && (px + py) % 2 == 0 && Own(px, py, false)) c.Put(px, py, Lerp(tint, Fence, 0.9f), KEmpty);
+                }
+                int sheep = 2 + (int)(DetailHash(key, attempt, 643) * 3);
+                for (int k = 0; k < sheep; k++)
+                {
+                    int sx = x0 + 1 + (int)(DetailHash(key, attempt, k, 644) * (x1 - x0 - 1));
+                    int sy = y0 + 1 + (int)(DetailHash(key, attempt, k, 645) * (y1 - y0 - 1));
+                    if (Own(sx, sy, false)) c.Put(sx, sy, Rgb(244, 240, 230), KEmpty);
+                }
+            });
+        }
         void Boats(int cx, int cy, int count, float reach, long key)
         {
             bool Water(int px, int py)
@@ -1764,7 +1792,8 @@ public partial class PureMapPatch
                     Fields(cx, cy, 1, reach * 0.6f, salt);
                     break;
                 case LivelihoodSystem.Pasture:
-                    Paddocks(cx, cy, many - 1, reach, salt + 300);
+                    if (UrbanFabric.IsYurt(g, x, y)) Corrals(cx, cy, town ? 4 : 2, reach * 0.9f, salt + 300);
+                    else Paddocks(cx, cy, many - 1, reach, salt + 300);
                     break;
                 case LivelihoodSystem.Fish:
                     Fields(cx, cy, 2, reach * 0.6f, salt);
@@ -1842,8 +1871,8 @@ public partial class PureMapPatch
         }
     }
 
-    // 城外的废墟：焦土一圈，残墙一段段(断开)，碎瓦、焦黑点点
-    private static void RuralRuin(Canvas c, int cx, int cy, float r, long seed, Color32 tint)
+    // 城外的废墟：焦土一圈，残墙一段段(断开)，碎瓦、焦黑点点；毡帐的废墟没有残墙(walls 为 false)
+    private static void RuralRuin(Canvas c, int cx, int cy, float r, long seed, Color32 tint, bool walls = true)
     {
         Color32 scorched = Lerp(tint, Rgb(112, 100, 84), 0.6f), rubble = Rgb(132, 118, 102), burnt = Rgb(66, 58, 54),
             wall = Rgb(150, 138, 120);
@@ -1859,7 +1888,7 @@ public partial class PureMapPatch
             // 残墙：几段方方的墙基，断断续续
             int lx = px - cx + reach, ly = py - cy + reach, cell = Mathf.Max(4, reach / 2);
             bool edgeX = lx % cell == 0, edgeY = ly % cell == 0;
-            if ((edgeX || edgeY) && d < 0.8f && DetailHash(seed, lx / cell, ly / cell, edgeX ? 3 : 4) < 0.45f) color = wall;
+            if (walls && (edgeX || edgeY) && d < 0.8f && DetailHash(seed, lx / cell, ly / cell, edgeX ? 3 : 4) < 0.45f) color = wall;
             c.Put(px, py, color, KEmpty);
         }
     }
@@ -2126,6 +2155,11 @@ public partial class PureMapPatch
         }
         void Tent(float x, float y, int r, bool main)
         {
+            if (yurt)
+            {
+                Yurt(c, x, y, r, main);
+                return;
+            }
             for (int dy = -r; dy <= r; dy++)
             for (int dx = -r; dx <= r; dx++)
             {
@@ -2133,12 +2167,8 @@ public partial class PureMapPatch
                 int px = Mathf.RoundToInt(x) + dx, py = Mathf.RoundToInt(y) + dy;
                 if (d > r + 0.3f || c.Kind(px, py) is not (KGround or KEmpty)) continue;
                 if (c.Kind(px, py) == KEmpty && !c.Land(px, py)) continue;
-                Color32 color = yurt
-                    ? d > r - 0.8f ? Rgb(200, 192, 172) : d < 0.8f ? Rgb(150, 130, 100) : Rgb(240, 234, 218)
-                    : d > r - 0.8f ? Rgb(96, 72, 50) : d < 0.8f ? Rgb(70, 52, 38) : Rgb(140, 108, 74);
-                c.Put(px, py, color, KBuilding);
+                c.Put(px, py, d > r - 0.8f ? Rgb(96, 72, 50) : d < 0.8f ? Rgb(70, 52, 38) : Rgb(140, 108, 74), KBuilding);
             }
-            if (main && yurt) c.Put(Mathf.RoundToInt(x), Mathf.RoundToInt(y) - r, Rgb(190, 60, 40), KBuilding);
         }
         Tent(cx, cy, yurt ? 5 : 4, true);
         if (!yurt) Roof(c, (int)cx - 14, (int)cy - 12, (int)cx + 2, (int)cy - 9, true, Rgb(130, 100, 70), KBuilding, true);
@@ -2172,7 +2202,14 @@ public partial class PureMapPatch
                     else if (!rim && DetailHash(seed, k, dx * 16 + dy, 22) < 0.3f) c.Put(x + dx, y + dy, Rgb(244, 240, 228), KBuilding);
                 }
             }
-        // 城外营地(游牧的营地、林地的村子都画成一小圈)
+        // 游牧城外：存档里的毡帐村镇连同畜栏，落在本城地上的别的村镇、废墟、关城一并画(见 DrawCountryside；不出大路、不修小路，
+        // 那里自然没有路)。以前只画几处随手散的营地
+        if (yurt)
+        {
+            DrawCountryside(c, g, style, tint, seed);
+            return;
+        }
+        // 林地城外的村子画成一小圈营地
         int index = 0;
         foreach ((int vx, int vy) in g.Villages)
         {
@@ -2187,6 +2224,68 @@ public partial class PureMapPatch
             {
                 float a = j / 6f * Mathf.PI * 2f + DetailHash(seed, index, 30);
                 Tent(x0 + Mathf.Cos(a) * 6f, y0 + Mathf.Sin(a) * 6f, 2, false);
+            }
+        }
+    }
+
+    // 一顶毡帐：白毡圆顶，边上一圈浅影，正中天窗深色；大帐顶上一点红
+    private static void Yurt(Canvas c, float x, float y, int r, bool main)
+    {
+        for (int dy = -r; dy <= r; dy++)
+        for (int dx = -r; dx <= r; dx++)
+        {
+            float d = Mathf.Sqrt(dx * dx + dy * dy);
+            int px = Mathf.RoundToInt(x) + dx, py = Mathf.RoundToInt(y) + dy;
+            if (d > r + 0.3f || c.Kind(px, py) is not (KGround or KEmpty)) continue;
+            if (c.Kind(px, py) == KEmpty && !c.Land(px, py)) continue;
+            c.Put(px, py, d > r - 0.8f ? Rgb(200, 192, 172) : d < 0.8f ? Rgb(150, 130, 100) : Rgb(240, 234, 218), KBuilding);
+        }
+        if (main) c.Put(Mathf.RoundToInt(x), Mathf.RoundToInt(y) - r, Rgb(190, 60, 40), KBuilding);
+    }
+
+    // 毡帐村：踩出一小片空地，正中一顶大帐，四到六顶小帐围一圈(以前游牧城外的营地也是这样)
+    private static void YurtVillage(Canvas c, int cx, int cy, Color32 trampled, long seed)
+    {
+        if (!c.In(cx, cy) || !c.Land(cx, cy)) return;
+        for (int py = cy - 7; py <= cy + 7; py++)
+        for (int px = cx - 7; px <= cx + 7; px++)
+            if ((px - cx) * (px - cx) + (py - cy) * (py - cy) <= 49 && c.Kind(px, py) is KEmpty or KPath && c.Land(px, py))
+                c.Put(px, py, trampled, KGround);
+        Yurt(c, cx, cy, 3, true);
+        int count = 4 + (int)(DetailHash(seed, 31) * 3);
+        float turn = DetailHash(seed, 30) * Mathf.PI * 2f;
+        for (int j = 0; j < count; j++)
+        {
+            float a = j / (float)count * Mathf.PI * 2f + turn, rr = 5.5f + DetailHash(seed, j, 32) * 1.2f;
+            Yurt(c, cx + Mathf.Cos(a) * rr, cy + Mathf.Sin(a) * rr, 2, false);
+        }
+    }
+
+    // 毡帐镇：踩出一大片空地(同镇的大小，边缘参差)，正中大帐，外面一圈圈毡帐，偶有几顶大些的
+    private static void YurtTown(Canvas c, int cx, int cy, int townSize, Color32 trampled, long seed)
+    {
+        int r = townSize * DetailScale + 2;
+        for (int py = cy - r - 2; py <= cy + r + 2; py++)
+        for (int px = cx - r - 2; px <= cx + r + 2; px++)
+        {
+            float edge = r + 2.5f * (DetailNoise(Mathf.Atan2(py - cy, px - cx) * 20f + 20f, 3f, seed) - 0.5f);
+            if ((px - cx) * (px - cx) + (py - cy) * (py - cy) > edge * edge || c.Kind(px, py) is not (KEmpty or KPath) ||
+                !c.Land(px, py)) continue;
+            c.Put(px, py, DetailHash(seed, px, py, 40) < 0.06f ? Darker(trampled, 0.92f) : trampled, KGround);
+        }
+        Yurt(c, cx, cy, 4, true);
+        // 一圈隔五像素：镇三格见方的两圈十来顶，四格的三圈二十多顶
+        for (int ring = 1; 2 + ring * 5 <= r - 1; ring++)
+        {
+            float rr = 2 + ring * 5 + DetailHash(seed, ring, 41) * 0.8f;
+            int n = Mathf.Max(4, Mathf.FloorToInt(rr * Mathf.PI * 2f / 6.5f));
+            float turn = DetailHash(seed, ring, 42);
+            for (int i = 0; i < n; i++)
+            {
+                if (DetailHash(seed, ring, i, 43) < 0.2f) continue;
+                float a = (i + turn) / n * Mathf.PI * 2f;
+                bool big = ring > 1 && DetailHash(seed, ring, i, 44) < 0.1f;
+                Yurt(c, cx + Mathf.Cos(a) * rr, cy + Mathf.Sin(a) * rr, big ? 3 : 2, false);
             }
         }
     }

@@ -11,6 +11,9 @@ public sealed class RuralSettlement
     // 关城、军城(用户 2026-10-17 "城=关城/军城"：只有城墙、驻军，不住百姓，见 RuralSettlementSystem.FortFactor)
     public bool fort;
     public bool walled;
+    // 毡帐村镇(游牧营地的城立的，见 RuralSettlementSystem.YurtGround)：只立在旱地上、只放牧、画成一圈圈毡帐；
+    // 随地易主后照旧是毡帐(钉在地上的是这些人家，不随新主人改样)
+    public bool yurt;
     public string name = "";
     // 名字是手改的(改名后不再按文化重起)；按文化起名的版本(0 = 旧版写死的词库，读档时改按文化重起，见 SettlementNaming)
     public bool named_by_hand;

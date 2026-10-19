@@ -19,7 +19,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 生计按村镇四周的地形定(地形归类见 LandKinds)：山多为矿；本城务农的不到四成时能耕的地先务农；本城有眼下开得了的矿藏
 // 却还没有矿村时先开一处矿；靠海为渔；密林(桦、枫、魔法林、丛林)为林；荒漠、稀树草原、荒原为牧(这些地方不算能耕，
 // 先牧后农，只在本城几乎没有产粮的镇村时才旱作)；草地、橡树松树疏林也能放牧、伐木，但宜农，本城产粮的够六成才轮到；
-// 定了存进存档(RuralSettlement.trade)，小窗口里可以手动改(手动改过的不再自动改)。
+// 定了存进存档(RuralSettlement.trade)，小窗口里可以手动改(手动改过的不再自动改)。毡帐村镇(游牧营地的城立的)只放牧，不改行。
 // 原版的矿场、伐木场、牧场、屠宰场在纯净地图下不再建，旧有的清掉(见 Replaces)；非纯净地图(开小人)照旧走原版建筑。
 // 林场、矿、牧是产业，分官营民营(见 RuralSettlement.state、EnterpriseSystem.CountEnterprises)。
 public static class LivelihoodSystem
@@ -36,7 +36,8 @@ public static class LivelihoodSystem
     private const float FishYield = 1f;
     // 看地形的半径(格)
     private const int Radius = 7;
-    // 游牧城没有镇村实体(营地，见 UrbanFabric.PlaceCamps)：照原来一座牧场加游牧多许的两座
+    // 游牧营地的城保底的牧场：照原来一座牧场加游牧多许的两座。这三座就是营地自己连同城外各处帐落的牧群
+    // (约六份毡帐村)，所以城外的毡帐村镇(见 RuralSettlementSystem.YurtGround)折算超过三座时才多出牧群，不叠加
     private const float NomadPastures = 3f;
 
     public static bool Active => PureMapMode.Enabled;
@@ -54,6 +55,12 @@ public static class LivelihoodSystem
     public static int Of(RuralSettlement settlement)
     {
         if (settlement == null || settlement.fort) return -1;
+        // 毡帐村镇只放牧(见 RuralSettlementSystem.MarkYurt)：不开矿、不种田、不伐木，也就不添矿产
+        if (settlement.yurt)
+        {
+            settlement.trade = Pasture;
+            return Pasture;
+        }
         if (settlement.trade >= 0 && settlement.trade < Count) return settlement.trade;
         settlement.trade = Classify(settlement);
         settlement.trade_rules = RulesVersion;
@@ -227,7 +234,7 @@ public static class LivelihoodSystem
         return equivalent * IndustryBuildingSystem.TierFactor(Level(city, trade)) * IndustryBuildingSystem.FactoryBonus(city);
     }
 
-    // 牧场、屠宰场折几座(见 AnimalHusbandrySystem)：游牧营地(没有镇村，见 CityStyleSystem.Nomad)照原来三座牧场——
+    // 牧场、屠宰场折几座(见 AnimalHusbandrySystem)：游牧营地(见 CityStyleSystem.Nomad)至少照原来三座牧场，毡帐村镇多了才往上加——
     // 只看城是不是营地，不看文化线(游牧一系也有阿兹特克、林地部族，他们是农耕、渔猎)；研究了制革，牧村、林场村的一半折成屠宰场
     public static float Pastures(City city) =>
         CityStyleSystem.Nomad(city) ? Mathf.Max(NomadPastures, Equivalent(city, Pasture)) : Equivalent(city, Pasture);

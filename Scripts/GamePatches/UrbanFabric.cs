@@ -46,8 +46,10 @@ public static class UrbanFabric
         public float SectorOffset;
         public float[] SectorPace = new float[0];
         public float IndustryDir, RailDir;
-        // 游牧：蒙古包营地，不修路、不起楼、没有田(城外只散着营地)
+        // 游牧：毡帐营地，不修路、不起楼、没有田；城外是毡帐村镇，只在旱地上(见 RuralSettlementSystem.YurtGround)
         public bool Nomad;
+        // 毡帐村镇的位置键(见 PosKey；不论落在游牧城还是别的城的地上，都画成毡帐)
+        public readonly HashSet<long> Yurts = new();
         public int CbdX, CbdY;
         public bool Perimeter;
         // 城郊：档位、城门(城心两条中线)、四条出城大路(东北西南)是否修了、从城门到城外的距离、路长、关厢长
@@ -336,16 +338,15 @@ public static class UrbanFabric
     // 城郊：路、关厢、镇、村与小路，都只落在本城没建成的平地上。种子定：
     //   · 出城大路：四门里哪几门有(档位 0 没有、1 两门相对、2 起多数城门有)，各多长、弯得多大多密；
     //   · 岔路：从大路出城几格处分出去，斜着走，档位越高越多；
-    //   · 镇落在大路、岔路上，村散在路网之间，小路弯弯曲曲通到最近的路、镇或城门，近处的村彼此也有小路(见 PlaceTrails)
+    //   · 镇落在大路、岔路上，村散在路网之间，小路弯弯曲曲通到最近的路、镇或城门，近处的村彼此也有小路(见 PlaceTrails)。
+    // 游牧营地的城(用户 2026-10-20 游牧地方也要有村镇)：不出大路、不修小路，城外是毡帐村、毡帐镇，存档、划地、花钱同普通村镇，
+    // 只是只立在旱地上(见 RuralSettlementSystem.YurtGround)，附近没有旱地就不添；镇不靠路，与村一样挑村址；数目比农耕城少些。
+    // 以前游牧城外是每次重算随手散的几处营地，不记存档、不算村镇
     private static void PlaceCountryside(Geometry g)
     {
         int tier = g.Tier;
-        if (g.Nomad)
-        {
-            PlaceCamps(g);
-            return;
-        }
-        g.Suburb = tier >= 2 ? 4 * (tier - 1) : 0;
+        bool nomad = g.Nomad;
+        g.Suburb = !nomad && tier >= 2 ? 4 * (tier - 1) : 0;
         int first = (int)(H(g.Seed, 60) * 4);
         // 路网的路从哪几个方向出城(修通的、在修的)：这些方向不再另画出城大路，免得两条路并排走
         var linked = new List<float>();
@@ -356,8 +357,8 @@ public static class UrbanFabric
             WorldTile there = other < 0 ? null : World.world.cities.get(other)?.getTile();
             if (there != null) linked.Add(Angle(there.x - g.GateX, there.y - g.GateY));
         }
-        // 镇、村的落点照旧按原来的出城大路、岔路定(官道是后加的，村镇不因此挪地方)；画出来的路在后面另算
-        GateRoads(g, linked, false);
+        // 镇、村的落点照旧按原来的出城大路、岔路定(官道是后加的，村镇不因此挪地方)；画出来的路在后面另算。游牧不出大路
+        if (!nomad) GateRoads(g, linked, false);
         // 镇村是固定的地方(见 RuralSettlementSystem)：先摆上存档里落在本城地上的；被城区盖住的不画、不算数，
         // 毁于兵火的画成废墟、照样算数；不够数才照下面原来的选址办法新建，建了就记进存档
         int townCount = 0, villageCount = 0;
@@ -375,7 +376,8 @@ public static class UrbanFabric
                 g.SettlementHash = g.SettlementHash * 31 + settlement.id * 7 + (settlement.ruined_at >= 0d ? 3 : 1) +
                                    (int)settlement.seed * 13 + RuralSettlementSystem.Tier(settlement) * 5 +
                                    (settlement.name?.GetHashCode() ?? 0) + (settlement.fort ? 11 : 0) +
-                                   LivelihoodSystem.Of(settlement) * 17;
+                                   LivelihoodSystem.Of(settlement) * 17 + (settlement.yurt ? 19 : 0);
+                if (settlement.yurt) g.Yurts.Add(PosKey(settlement.x, settlement.y));
                 // 关城：不算村镇数
                 if (settlement.fort)
                 {
@@ -409,7 +411,10 @@ public static class UrbanFabric
         bool Edge(int x, int y) => frontier && (x - g.GateX) * (x - g.GateX) + (y - g.GateY) * (y - g.GateY) <= far * far &&
                                    Frontier(g, x, y);
         // 镇：落在路上(大路出城十格以外、岔路五格以外)；离路口多远只看种子，不随路的长短(档位)变
-        int towns = tier switch { 2 => 1, 3 => 2 + (H(g.Seed, 61) < 0.5f ? 1 : 0), 4 => 3 + (H(g.Seed, 61) < 0.5f ? 1 : 0), _ => 0 };
+        // 游牧的毡帐镇：大营地才有，一两座(镇不靠路，在下面与村一样挑村址)
+        int towns = nomad
+            ? tier switch { 3 => 1, 4 => 1 + (H(g.Seed, 61) < 0.5f ? 1 : 0), _ => 0 }
+            : tier switch { 2 => 1, 3 => 2 + (H(g.Seed, 61) < 0.5f ? 1 : 0), 4 => 3 + (H(g.Seed, 61) < 0.5f ? 1 : 0), _ => 0 };
         for (int attempt = 0; attempt < 16 && grow && townCount < towns && g.Roads.Count > 0; attempt++)
         {
             Road road = g.Roads[(first + attempt) % g.Roads.Count];
@@ -435,7 +440,10 @@ public static class UrbanFabric
         // 取本城没建成的平地上、够得着的，由近及远取够数——城长大了、档位变了，原有的村不挪地方，只是近处的被城吞进去、
         // 远处的多出来几座(用户 2026-10-16 "为什么每次更新城市后这些村子的位置会变"：以前按随机方位一个个试，
         // 城的轮廓、建成地块、档位一变，前面试中的不一样，整组村子都换了地方)
-        int villages = tier switch { 0 => 1, 1 => 2, 2 => 4, 3 => 6, _ => 8 } + (int)(H(g.Seed, 65) * (tier >= 4 ? 4 : 3));
+        // 游牧的毡帐村比农耕城的村少些(营地自己就带着三座牧场的牧群，见 LivelihoodSystem.Pastures)
+        int villages = nomad
+            ? tier switch { 0 => 1, 1 => 2, 2 => 3, 3 => 4, _ => 5 } + (int)(H(g.Seed, 65) * 2)
+            : tier switch { 0 => 1, 1 => 2, 2 => 4, 3 => 6, _ => 8 } + (int)(H(g.Seed, 65) * (tier >= 4 ? 4 : 3));
         const int SiteCell = 11;
         var sites = new List<(int x, int y, float d)>();
         for (int cy = Mathf.FloorToInt((g.GateY - far) / SiteCell); cy <= Mathf.FloorToInt((g.GateY + far) / SiteCell); cy++)
@@ -466,26 +474,55 @@ public static class UrbanFabric
                 }
             return best >= 3;
         }
+        // 毡帐只立在旱地上(用户 2026-10-20 "蒙古包只能留在沙漠，或者荒原之类的地形")
+        bool Ground(int x, int y, bool town, int size) => !nomad || RuralSettlementSystem.YurtGround(x, y, town, size);
+        // 游牧的毡帐镇：挑村址(由近及远)，本城地上没有就城外紧挨着的一处(同农耕城的镇)
+        if (nomad)
+            foreach ((int x, int y, _) in sites)
+            {
+                if (!grow || townCount >= towns) break;
+                int size = tier >= 4 ? 4 : 3;
+                // 先看旱地(没有旱地的游牧城每次重算都会把村址挨个看一遍，便宜的先查)
+                if (!Ground(x, y, true, size)) continue;
+                bool edge = !Open(g, x, y) && Edge(x, y);
+                if (!Open(g, x, y) && !edge || g.Towns.Exists(t => Mathf.Abs(t.x - x) + Mathf.Abs(t.y - y) < t.size + size + 6) ||
+                    Taken(x, y, size + 4)) continue;
+                if (!RuralSettlementSystem.Fund(g.City, true, false, initial, out bool state)) break;
+                g.Towns.Add((x, y, size, false));
+                g.Yurts.Add(PosKey(x, y));
+                townCount++;
+                RuralSettlement town = RuralSettlementSystem.Add(x, y, true, size, false);
+                town.state = state;
+                RuralSettlementSystem.MarkYurt(town, true);
+                if (!edge) continue;
+                RuralSettlementSystem.Found(g.City, town, g.GateX, g.GateY, far);
+                frontier = false;
+            }
         foreach ((int x, int y, _) in sites)
         {
             if (!grow || villageCount >= villages) break;
-            if (!Open(g, x, y) || !Spaced(x, y)) continue;
+            if (!Open(g, x, y) || !Ground(x, y, false, 0) || !Spaced(x, y)) continue;
             // 立村：有人出钱就出(国库出的归官营)，没人出得起百姓自建
             RuralSettlementSystem.Fund(g.City, false, false, initial, out bool state);
             g.Villages.Add((x, y));
             villageCount++;
-            RuralSettlementSystem.Add(x, y, false, 0, false).state = state;
+            RuralSettlement village = RuralSettlementSystem.Add(x, y, false, 0, false);
+            village.state = state;
+            if (nomad) g.Yurts.Add(PosKey(x, y));
+            RuralSettlementSystem.MarkYurt(village, nomad);
         }
         // 本城地上不够数：城外最近的一处村址(见上面的 frontier)
         if (grow && villageCount < villages)
             foreach ((int x, int y, _) in sites)
             {
-                if (!Edge(x, y) || !Spaced(x, y)) continue;
+                if (!Ground(x, y, false, 0) || !Edge(x, y) || !Spaced(x, y)) continue;
                 RuralSettlementSystem.Fund(g.City, false, false, initial, out bool state);
                 g.Villages.Add((x, y));
                 villageCount++;
                 RuralSettlement founded = RuralSettlementSystem.Add(x, y, false, 0, false);
                 founded.state = state;
+                if (nomad) g.Yurts.Add(PosKey(x, y));
+                RuralSettlementSystem.MarkYurt(founded, nomad);
                 RuralSettlementSystem.Found(g.City, founded, g.GateX, g.GateY, far);
                 break;
             }
@@ -505,7 +542,8 @@ public static class UrbanFabric
                 if (other != null) AddLinkSpur(g, road);
             }
         }
-        PlaceTrails(g);
+        // 游牧逐水草而居，毡帐村镇之间不踩小路
+        if (!nomad) PlaceTrails(g);
     }
 
     // 出城大路与岔路：linked 方向上不出大路；ownLand 为真时走到本城地界以前收住(画出来的路)，否则只遇山、城墙收住(定村镇落点用)
@@ -801,34 +839,28 @@ public static class UrbanFabric
         return false;
     }
 
-    // 游牧城外：不修路，一处处蒙古包营地散在草场上，档位越高营地越多、散得越远
-    private static void PlaceCamps(Geometry g)
-    {
-        int tier = g.Tier;
-        g.Suburb = 0;
-        int camps = tier switch { 0 => 2, 1 => 3, 2 => 5, 3 => 7, _ => 9 } + (int)(H(g.Seed, 65) * 3);
-        int range = 14 + 8 * tier;
-        for (int attempt = 0; attempt < camps * 6 && g.Villages.Count < camps; attempt++)
-        {
-            float a = H(g.Seed, attempt, 66) * TwoPi;
-            float dist = 8f + H(g.Seed, attempt, 67) * (range - 2f);
-            int x = Mathf.RoundToInt(g.GateX + dist * Mathf.Cos(a)), y = Mathf.RoundToInt(g.GateY + dist * Mathf.Sin(a));
-            if (!Open(g, x, y)) continue;
-            if (g.Villages.Exists(v => Mathf.Abs(v.x - x) + Mathf.Abs(v.y - y) < 7)) continue;
-            g.Villages.Add((x, y));
-        }
-    }
+    // 这一处镇村是毡帐(见 RuralSettlement.yurt)
+    internal static bool IsYurt(Geometry g, int x, int y) => g != null && g.Yurts.Count > 0 && g.Yurts.Contains(PosKey(x, y));
 
     private static readonly Color32 Felt = new(240, 234, 218, 255), Trampled = new(196, 186, 140, 255);
     private static readonly Color32 FortWall = new(150, 140, 124, 255), FortTower = new(110, 102, 90, 255),
         FortYard = new(198, 186, 158, 255), FortBarracks = new(96, 88, 84, 255);
 
-    // 一处营地：几顶蒙古包围成一圈，正中一顶大的，地上踩出一片
+    // 毡帐村(粗图)：几顶毡帐围成一圈，正中一顶大的，地上踩出一片
     private static Color32 YurtCamp(Geometry g, WorldTile tile, Color32 color, int dx, int dy, int cx, int cy)
     {
         if (dx == 0 && dy == 0) return Paint(color, Felt, 1f);
         bool ring = Mathf.Abs(dx) + Mathf.Abs(dy) == 2 && (dx == 0 || dy == 0 || Mathf.Abs(dx) == 1);
         if (ring && H(g.Seed, cx * 7 + dx, cy * 7 + dy, 24) < 0.7f) return Paint(color, Felt, 0.9f);
+        return Paint(color, Trampled, 0.3f);
+    }
+
+    // 毡帐镇(粗图)：踩出来的一大片空地上毡帐一顶挨一顶(隔格错开，远看是一片白点)，正中大帐
+    private static Color32 YurtTownTile(Geometry g, WorldTile tile, Color32 color, int dx, int dy, int cx, int cy)
+    {
+        if (dx == 0 && dy == 0) return Paint(color, Felt, 1f);
+        if (Mathf.Abs(dx) <= 1 && Mathf.Abs(dy) <= 1) return Paint(color, Trampled, 0.45f);
+        if (((dx + dy) & 1) == 0 && H(g.Seed, cx * 7 + dx, cy * 7 + dy, 25) < 0.6f) return Paint(color, Felt, 0.9f);
         return Paint(color, Trampled, 0.3f);
     }
 
@@ -1508,7 +1540,7 @@ public static class UrbanFabric
             int dx = tile.x - x, dy = tile.y - y;
             float d = Mathf.Sqrt(dx * dx + dy * dy), reach = size + 0.4f + 0.8f * (H(g.Seed, x, y, (int)(Angle(dx, dy) * 2f)) - 0.5f);
             if (d > reach) continue;
-            result = TownTile(g, tile, color, dx, dy, d, reach, walled);
+            result = IsYurt(g, x, y) ? YurtTownTile(g, tile, color, dx, dy, x, y) : TownTile(g, tile, color, dx, dy, d, reach, walled);
             return true;
         }
         // 关城：方方正正一圈城墙，四角墩台，里面是营房校场
@@ -1536,13 +1568,14 @@ public static class UrbanFabric
         {
             (int x, int y) = g.Villages[index];
             int dx = tile.x - x, dy = tile.y - y;
-            if (g.Nomad)
+            // 毡帐村画一小圈毡帐(以前游牧城外的营地也是这样画)
+            if (IsYurt(g, x, y))
             {
                 if (dx * dx + dy * dy > 6) continue;
                 result = YurtCamp(g, tile, color, dx, dy, x, y);
                 return true;
             }
-            // 村不画(每座城外好几处，满地小点，看着乱)
+            // 别的村不画(每座城外好几处，满地小点，看着乱)
             continue;
         }
         // 高德式：城外不画田块、林子(以前每座城一大圈，远看是噪点)；游牧城外是草场

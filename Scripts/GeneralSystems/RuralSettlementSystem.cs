@@ -44,6 +44,11 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 关城、军城(用户 2026-10-17 "城=关城/军城")：只有城墙、驻军，不住百姓、不算村镇数，只能手动筑(营建页「筑关」)；
 //   三级(关隘、关城、雄关)；打仗时敌军攻它那一片(见 CityDistricts)，守方战力按等级多三成、六成、九成(见 FortFactor)；
 //   不毁于兵火，可以毁弃。点在城墙上或城墙边，关城落到城墙上当关门，城墙从两侧接进关里(见 WallGateSystem)。
+// 毡帐村镇(用户 2026-10-20：游牧地方也要有村镇，村是几顶毡帐、镇是一大片毡帐；"蒙古包只能留在沙漠，或者荒原之类的地形")：
+//   · 游牧营地的城(城市风格定型为游牧，见 CityStyleSystem)立村设镇、城长大添村镇，立的都是毡帐村镇(RuralSettlement.yurt)；
+//     以前游牧城外只画几处随手散的营地，不记存档、不算村镇；
+//   · 只立在旱地上(荒漠、稀树草原、荒原，见 YurtGround)：手动点在别的地上不立并给提示，AI 只挑旱地，附近没有旱地的游牧城不添；
+//   · 只放牧(生计定死为牧，见 LivelihoodSystem.Of)，没有有墙大镇这一档；兵火焚毁、重建、毁弃、改隶同普通村镇。
 public static class RuralSettlementSystem
 {
     private const float VillageWeight = 1f, TownWeight = 3f, CityWeight = 6f, RuinedOutputLoss = 0.6f, BurnPopulationLoss = 0.5f;
@@ -332,6 +337,9 @@ public static class RuralSettlementSystem
     // 档位：0 村、1 镇、2 有墙大镇
     public const int MaxTier = 2;
 
+    // 毡帐村镇没有有墙大镇(毡帐不筑墙)
+    public static int MaxTierOf(RuralSettlement settlement) => settlement?.yurt == true ? 1 : MaxTier;
+
     public static int Tier(RuralSettlement settlement) => settlement == null ? 0
         : settlement.fort ? Math.Max(1, Math.Min(3, settlement.size)) - 1
         : !settlement.town ? 0 : settlement.walled ? 2 : 1;
@@ -339,9 +347,51 @@ public static class RuralSettlementSystem
     public static string TierName(int tier) =>
         LM.Get(tier switch { 0 => "settlement_kind_village", 1 => "settlement_kind_town", _ => "settlement_kind_walled_town" });
 
-    // 关城按等级叫关隘、关城、雄关
+    // 关城按等级叫关隘、关城、雄关；毡帐的叫毡帐村、毡帐镇
     public static string TierName(RuralSettlement settlement) =>
-        settlement?.fort == true ? LM.Get("fort_level_" + Tier(settlement)) : TierName(Tier(settlement));
+        settlement?.fort == true ? LM.Get("fort_level_" + Tier(settlement))
+        : settlement?.yurt == true ? LM.Get(settlement.town ? "settlement_kind_yurt_town" : "settlement_kind_yurt_village")
+        : TierName(Tier(settlement));
+
+    #region 毡帐
+
+    // 毡帐村镇占地范围里的陆地至少几成是旱地(边上带一点草地、沙地可以，一半压在草地上不行)
+    private const float YurtDryShare = 0.6f;
+
+    // 游牧营地的城：立村设镇、城长大添村镇都是毡帐(见 UrbanFabric.PlaceCountryside)
+    public static bool YurtCity(City city) => city?.data != null && !city.isRekt() && CityStyleSystem.Established(city) == "nomad";
+
+    // 毡帐立得住的地方：所在那一格是旱地(荒漠、稀树草原、荒原，见 LandKinds.Dry；海滩沙地算海岸、不算)，
+    // 占地范围(村两格，镇按大小)里的陆地六成以上是旱地
+    public static bool YurtGround(int x, int y, bool town, int size)
+    {
+        WorldTile center = World.world?.GetTile(x, y);
+        if (center?.Type == null || !LandKinds.Is(center.Type, LandKinds.Dry)) return false;
+        int r = town ? Math.Max(2, size) : 2, land = 0, dry = 0;
+        for (int dy = -r; dy <= r; dy++)
+        for (int dx = -r; dx <= r; dx++)
+        {
+            if (dx * dx + dy * dy > r * r) continue;
+            TileTypeBase type = World.world.GetTile(x + dx, y + dy)?.Type;
+            if (type == null) continue;
+            int kinds = LandKinds.Of(type);
+            if ((kinds & (LandKinds.Water | LandKinds.Lava)) != 0) continue;
+            land++;
+            if ((kinds & LandKinds.Dry) != 0) dry++;
+        }
+        return land > 0 && dry >= land * YurtDryShare;
+    }
+
+    // 记成毡帐村镇：生计定死为牧(见 LivelihoodSystem.Of)
+    public static void MarkYurt(RuralSettlement settlement, bool yurt)
+    {
+        if (settlement == null || !yurt) return;
+        settlement.yurt = true;
+        settlement.trade = LivelihoodSystem.Pasture;
+        settlement.trade_rules = LivelihoodSystem.RulesVersion;
+    }
+
+    #endregion
 
     // 关城守御：敌军攻的那块地所在的一片(见 CityDistricts)里有完好的关城，守方战力按等级多三成、六成、九成
     public static float FortFactor(City city, TileZone zone)
@@ -358,7 +408,7 @@ public static class RuralSettlementSystem
     public static void SetTier(RuralSettlement settlement, int tier)
     {
         if (settlement == null || settlement.cleared) return;
-        tier = Math.Max(0, Math.Min(MaxTier, tier));
+        tier = Math.Max(0, Math.Min(MaxTierOf(settlement), tier));
         if (tier == Tier(settlement)) return;
         City city = CityOf(settlement);
         if (settlement.fort) settlement.size = tier + 1;
@@ -380,7 +430,8 @@ public static class RuralSettlementSystem
     // 改生计(窗口里，见 LivelihoodSystem)
     public static void SetTrade(RuralSettlement settlement, int trade)
     {
-        if (settlement == null || settlement.cleared || settlement.fort) return;
+        // 毡帐只放牧，不改行
+        if (settlement == null || settlement.cleared || settlement.fort || settlement.yurt) return;
         trade = ((trade % LivelihoodSystem.Count) + LivelihoodSystem.Count) % LivelihoodSystem.Count;
         if (settlement.trade == trade) return;
         settlement.trade = trade;
@@ -464,6 +515,7 @@ public static class RuralSettlementSystem
             if (!string.IsNullOrEmpty(named)) return named;
         }
         return LM.Get(settlement?.fort == true ? "settlement_kind_fort"
+            : settlement?.yurt == true ? settlement.town ? "settlement_kind_yurt_town" : "settlement_kind_yurt_village"
             : settlement?.town == true ? "settlement_kind_town" : "settlement_kind_village");
     }
 
@@ -495,7 +547,8 @@ public static class RuralSettlementSystem
         }
         if (city?.data == null || city.isRekt()) return LM.Get("settlement_place_no_city");
         string cityName = city.GetCityName();
-        if (CityStyleSystem.Established(city) == "nomad") return string.Format(LM.Get("settlement_place_nomad"), cityName);
+        // 游牧营地的城立的是毡帐村镇，只立在旱地上(以前游牧城一概不设村镇)；关城是驻军不是住户，照常筑
+        bool yurt = !fort && YurtCity(city);
         HashSet<int> built = PureMapPatch.BuiltZones(city);
         if (zone == city.getTile()?.zone || built != null && built.Contains(zone.id))
             return string.Format(LM.Get("settlement_place_urban"), cityName);
@@ -505,6 +558,8 @@ public static class RuralSettlementSystem
             foreach (RuralSettlement other in InZone(around))
                 if (Math.Abs(other.x - tile.x) + Math.Abs(other.y - tile.y) < room + (other.town ? other.size : 0))
                     return string.Format(LM.Get("settlement_place_crowded"), Label(other));
+        int size = fort ? 1 : town ? (city.GetOrCreate().urban_tier >= 3 ? 4 : 3) : 0;
+        if (yurt && !YurtGround(tile.x, tile.y, town, size)) return LM.Get("settlement_place_yurt_dry");
         // 原处抹去的占位让出来
         if (_clearedByZone != null)
             foreach (TileZone around in Around(zone))
@@ -514,9 +569,9 @@ public static class RuralSettlementSystem
                         list.Remove(gone);
                         All.Remove(gone.id);
                     }
-        int size = fort ? 1 : town ? (city.GetOrCreate().urban_tier >= 3 ? 4 : 3) : 0;
         RuralSettlement settlement = Add(tile.x, tile.y, town && !fort, size, false);
         settlement.fort = fort;
+        MarkYurt(settlement, yurt);
         if (claim)
         {
             WorldTile center = city.getTile();
@@ -524,6 +579,7 @@ public static class RuralSettlementSystem
         }
         PureMapPatch.Redraw(city);
         return string.Format(LM.Get(gate != null ? "settlement_placed_gate" : fort ? "settlement_placed_fort"
+            : yurt ? town ? "settlement_placed_yurt_town" : "settlement_placed_yurt_village"
             : town ? "settlement_placed_town" : "settlement_placed_village"), cityName);
     }
 
