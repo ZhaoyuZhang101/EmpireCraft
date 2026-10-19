@@ -320,18 +320,27 @@ namespace EmpireCraft.Scripts.UI.Windows
             card.transform.AddStretchBackground("FactionFrame", new Vector2(ContentWidth, 92));
 
             AddSectionTitle(LM.Get("kingdom_title_select_culture"));
-            AutoGridLayoutGroup palette = _content.BeginGridGroup(GridColumns(48), GridLayoutGroup.Constraint.FixedColumnCount,
-                pCellSize: new Vector2(48, 16), pSpacing: new Vector2(2, 2));
+            AutoGridLayoutGroup palette = _content.BeginGridGroup(GridColumns(60), GridLayoutGroup.Constraint.FixedColumnCount,
+                pCellSize: new Vector2(60, 16), pSpacing: new Vector2(2, 2));
             foreach (string culture in CultureService.CultureKeys)
             {
                 string cultureKey = culture;
                 string label = culture.GetCultureTranslate();
                 if (culture == _selectedCulture) label = label.ColorString(pColor: GoldColor);
+                // 带文化图标(玩家反馈"文化图标没有适配到法理界面")
                 palette.AddButtonIntoGirdLayout($"select_culture_{culture}", label,
-                    () => SelectCulture(cultureKey), size: new Vector2(48, 16));
+                    () => SelectCulture(cultureKey), EmpireCraft.Scripts.UI.Components.CultureIcons.Get(culture),
+                    size: new Vector2(60, 16));
             }
 
             AddSectionTitle(LM.Get("kingdom_title_city_cultures"));
+            // 一次改全部城(玩家反馈"更改很麻烦")：占比全设为所选文化；或整城易俗(百姓、人物、城名、主流文化一并改)
+            var bulk = _content.BeginHoriGroup(pSize: new Vector2(ContentWidth - 10f, 16), pSpacing: 3,
+                pAlignment: TextAnchor.MiddleCenter);
+            bulk.AddButtonIntoHoriLayout("title_all_cities_share", LM.Get("kingdom_title_all_cities_share"),
+                SetAllCitiesShare, SpriteTextureLoader.getSprite("ui/icons/iconArrowUP"), size: new Vector2(120, 15), showTip: false);
+            bulk.AddButtonIntoHoriLayout("title_all_cities_convert", LM.Get("kingdom_title_all_cities_convert"),
+                ConvertAllCities, SpriteTextureLoader.getSprite("ui/changeOfficer"), size: new Vector2(120, 15), showTip: false);
             foreach (City city in title.city_list.Where(city => city != null && !city.isRekt())
                          .OrderByDescending(city => city == title.title_capital).ThenBy(city => city.GetCityName()))
             {
@@ -376,6 +385,8 @@ namespace EmpireCraft.Scripts.UI.Windows
                     () => AdjustCityCulture(city, cultureKey, -5f), size: new Vector2(45, 14));
                 row.AddButtonIntoHoriLayout($"increase_{city.id}_{cultureKey}", "+5%",
                     () => AdjustCityCulture(city, cultureKey, 5f), size: new Vector2(45, 14));
+                row.AddButtonIntoHoriLayout($"full_{city.id}_{cultureKey}", "100%",
+                    () => AdjustCityCulture(city, cultureKey, 100f), size: new Vector2(45, 14));
             }
             card.AddButtonIntoVertLayout($"add_selected_culture_{city.id}",
                 LM.Get("kingdom_title_add_selected_culture"), () => AddSelectedCulture(city),
@@ -447,6 +458,30 @@ namespace EmpireCraft.Scripts.UI.Windows
             CultureService.SetCityCultureShare(city, _selectedCulture, Math.Min(100f, current + 5f));
             // 城市/法理的主流文化不再在这里自动切换：城市主流文化要靠城主发起决议，
             // 法理主流文化要靠"文治"派系发起决议（见 TempFac_文化转化），这里只改占比。
+            RefreshContent();
+        }
+
+        private void SetAllCitiesShare()
+        {
+            if (!CultureService.IsValidCulture(_selectedCulture))
+            {
+                ActionLibrary.showWhisperTip("kingdom_title_culture_invalid");
+                return;
+            }
+            foreach (City city in title.city_list.Where(city => city != null && !city.isRekt()).ToList())
+                CultureService.SetCityCultureShare(city, _selectedCulture, 100f);
+            RefreshContent();
+        }
+
+        private void ConvertAllCities()
+        {
+            if (!CultureService.IsValidCulture(_selectedCulture))
+            {
+                ActionLibrary.showWhisperTip("kingdom_title_culture_invalid");
+                return;
+            }
+            foreach (City city in title.city_list.Where(city => city != null && !city.isRekt()).ToList())
+                CultureService.ForceCityCulture(city, _selectedCulture);
             RefreshContent();
         }
 
@@ -630,19 +665,31 @@ namespace EmpireCraft.Scripts.UI.Windows
         // 整个窗口都被重置回顶部”。这里在重建前记录滚动位置，重建后立即恢复。
         private ScrollRect _cachedScrollRect;
 
+        // 重画后保持滚动位置(玩家反馈 2026-10-19 "改文化占比时按钮每按一次窗口就重置到最上面")：以前往父物体找滚动框，
+        // 宽窗口的滚动框在子物体里，找不到就回到顶部。改照宽窗口基类：记下内容的位置，重画后下一帧排好版再放回去
+        private int _refreshGeneration;
+
         private void RefreshContent(bool preserveScroll = true)
         {
-            ScrollRect scrollRect = preserveScroll ? GetOwningScrollRect() : null;
-            float? savedAnchoredY = null;
-            if (scrollRect != null && scrollRect.content != null)
-                savedAnchoredY = scrollRect.content.anchoredPosition.y;
+            ScrollWindow window = GetComponent<ScrollWindow>();
+            Vector3? keep = preserveScroll && window?.transform_content != null ? window.transform_content.localPosition : null;
 
             Clear();
             if (title == null || title.isRekt() || title.data == null) return;
             BuildContent();
 
-            if (scrollRect != null && savedAnchoredY.HasValue)
-                RestoreScrollPosition(scrollRect, savedAnchoredY.Value);
+            if (keep.HasValue && gameObject.activeInHierarchy) StartCoroutine(KeepScroll(++_refreshGeneration, keep.Value));
+        }
+
+        private global::System.Collections.IEnumerator KeepScroll(int generation, Vector3 keep)
+        {
+            ScrollWindow window = GetComponent<ScrollWindow>();
+            if (window?.transform_content != null) window.transform_content.localPosition = keep;
+            yield return CoroutineHelper.wait_for_next_frame;
+            if (generation != _refreshGeneration || !gameObject.activeInHierarchy || window?.transform_content == null) yield break;
+            for (int pass = 0; pass < 3; pass++) LayoutRebuilder.ForceRebuildLayoutImmediate(window.transform_content);
+            window.transform_content.localPosition = keep;
+            window.scrollRect?.StopMovement();
         }
 
         private ScrollRect GetOwningScrollRect()

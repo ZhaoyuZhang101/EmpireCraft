@@ -106,6 +106,8 @@ namespace EmpireCraft.Scripts.UI.Windows
                 }
             }
 
+            AddCulturePicker(parent);
+
             AddSectionTitle(parent, LM.Get("all_titles"));
             var titleGrid = parent.BeginGridGroup(Mathf.Max(1, (int)((ContentWidth + 2f) / 50f)), GridLayoutGroup.Constraint.FixedColumnCount,
                 pCellSize: new Vector2(48, 34), pSpacing: new Vector2(2, 2));
@@ -185,8 +187,8 @@ namespace EmpireCraft.Scripts.UI.Windows
             var cultureCard = _rail.BeginRailCard();
             string display = CultureService.IsValidCulture(culture) ? culture.GetCultureTranslate() : LM.Get("label_none");
             cultureCard.AddRailText($"{LM.Get("kingdom_title_effective_culture")}: {display}", 7, 10f);
-            TextInput input = null;
-            input = cultureCard.AddRailInput(LM.Get("kingdom_title_select_culture"), culture ?? "", value => ChangeCulture(value, input));
+            // 改默认文化在右栏点选(带文化图标)：以前要手打英文的文化名(玩家反馈"帝国法理不好改，英文不认识")
+            cultureCard.AddRailText(LM.Get("empire_core_pick_culture_hint").ColorString("#8FA0A8"), 6, 9f);
             string lockText = _core.culture_locked
                 ? LM.Get("kingdom_title_culture_locked")
                 : LM.Get("kingdom_title_culture_unlocked");
@@ -198,15 +200,37 @@ namespace EmpireCraft.Scripts.UI.Windows
             }, SpriteTextureLoader.getSprite("ui/icons/iconArrowUP"), size: new Vector2(UIHelper.RailWidth - 8f, 14), showTip: false);
         }
 
-        private void ChangeCulture(string value, TextInput input)
+        private void ChangeCulture(string value)
         {
             if (!CultureService.SetEmpireDefaultCulture(_core, value?.Trim(), _core.culture_locked))
             {
-                ActionLibrary.showWhisperTip("kingdom_title_culture_invalid");
-                input.input.text = _core.default_culture ?? "";
+                ActionLibrary.showWhisperTip("empire_core_culture_taken");
                 return;
             }
             RefreshWindow();
+        }
+
+        // 默认文化：各文化一个按钮(图标 + 名字)，现在的标金色；另可一键把本核心全部法理恢复初始文化
+        private void AddCulturePicker(AutoVertLayoutGroup parent)
+        {
+            AddSectionTitle(parent, LM.Get("empire_core_default_culture"));
+            var grid = parent.BeginGridGroup(Mathf.Max(1, (int)((ContentWidth + 2f) / 62f)), GridLayoutGroup.Constraint.FixedColumnCount,
+                pCellSize: new Vector2(60, 16), pSpacing: new Vector2(2, 2));
+            foreach (string culture in CultureService.CultureKeys)
+            {
+                string key = culture;
+                string label = culture.GetCultureTranslate();
+                if (string.Equals(culture, _core.default_culture, global::System.StringComparison.Ordinal))
+                    label = label.ColorString("#F3C34A");
+                grid.AddButtonIntoGirdLayout($"empire_core_culture_{culture}", label, () => ChangeCulture(key),
+                    EmpireCraft.Scripts.UI.Components.CultureIcons.Get(culture), size: new Vector2(60, 16));
+            }
+            parent.AddButtonIntoVertLayout("empire_core_restore_titles", LM.Get("empire_core_restore_title_cultures"), () =>
+            {
+                int restored = EmpireCoreManager.GetTitles(_core).Count(CultureService.RestoreInitialTitleCulture);
+                ActionLibrary.showWhisperTip(string.Format(LM.Get("empire_core_restored_title_cultures"), restored));
+                RefreshWindow();
+            }, SpriteTextureLoader.getSprite("ui/icons/godpowers/restore_title_culture"), size: new Vector2(150, 15), showTip: false);
         }
 
         private void AddMetricCard(AutoHoriLayoutGroup parent, string label, string value, Color color)
