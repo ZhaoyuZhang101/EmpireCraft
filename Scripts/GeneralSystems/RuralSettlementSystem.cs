@@ -382,6 +382,28 @@ public static class RuralSettlementSystem
         return land > 0 && dry >= land * YurtDryShare;
     }
 
+    // 一片地(游牧城的城心，见 PureMapPatch.Layout)是不是旱地：陆地六成以上是旱地，口径同 YurtGround。
+    // 不是旱地的游牧城城心画成冬营地(木土小屋、畜栏)，不画毡帐；只管画法，人口上限、牧场保底、不修路照旧
+    public static bool DryLand(IEnumerable<TileZone> zones)
+    {
+        int land = 0, dry = 0;
+        if (zones == null) return false;
+        foreach (TileZone zone in zones)
+        {
+            if (zone?.tiles == null) continue;
+            foreach (WorldTile tile in zone.tiles)
+            {
+                TileTypeBase type = tile?.Type;
+                if (type == null) continue;
+                int kinds = LandKinds.Of(type);
+                if ((kinds & (LandKinds.Water | LandKinds.Lava)) != 0) continue;
+                land++;
+                if ((kinds & LandKinds.Dry) != 0) dry++;
+            }
+        }
+        return land > 0 && dry >= land * YurtDryShare;
+    }
+
     // 记成毡帐村镇：生计定死为牧(见 LivelihoodSystem.Of)
     public static void MarkYurt(RuralSettlement settlement, bool yurt)
     {

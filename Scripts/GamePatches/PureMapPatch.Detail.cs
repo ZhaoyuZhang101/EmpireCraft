@@ -2113,6 +2113,8 @@ public partial class PureMapPatch
     {
         int s = DetailScale;
         bool yurt = style.Layout == "yurt";
+        // 冬营地(游牧城的城心不在旱地上，见 RuralSettlementSystem.DryLand)：毡帐换成木土小屋，畜栏照旧
+        bool winter = yurt && plan.winter;
         Color32 trampled = Lerp(tint, Rgb(196, 186, 140), 0.6f);
         c.Block = trampled;
         for (int ty = 0; ty < c.H; ty++)
@@ -2155,6 +2157,11 @@ public partial class PureMapPatch
         }
         void Tent(float x, float y, int r, bool main)
         {
+            if (winter)
+            {
+                WinterHut(c, x, y, r, main);
+                return;
+            }
             if (yurt)
             {
                 Yurt(c, x, y, r, main);
@@ -2226,6 +2233,29 @@ public partial class PureMapPatch
                 Tent(x0 + Mathf.Cos(a) * 6f, y0 + Mathf.Sin(a) * 6f, 2, false);
             }
         }
+    }
+
+    // 冬营地的一座木土小屋(俯视)：土黄屋顶、正中一道屋脊、屋檐一圈压暗，南墙正中一个门洞；议事的大屋(main)宽些。
+    // 横竖按位置定，免得一圈屋子全朝一个方向
+    private static void WinterHut(Canvas c, float x, float y, int r, bool main)
+    {
+        int cx = Mathf.RoundToInt(x), cy = Mathf.RoundToInt(y);
+        bool across = main || DetailHash(cx, cy, 51) < 0.6f;
+        int halfLong = main ? r + 1 : r, halfShort = main ? r - 1 : Mathf.Max(1, r - 1);
+        int hw = across ? halfLong : halfShort, hh = across ? halfShort : halfLong;
+        Color32 roof = Rgb(178, 142, 94), eave = Rgb(150, 118, 78), ridge = Rgb(122, 94, 62), door = Rgb(84, 64, 44);
+        for (int dy = -hh; dy <= hh; dy++)
+        for (int dx = -hw; dx <= hw; dx++)
+        {
+            int px = cx + dx, py = cy + dy;
+            if (c.Kind(px, py) is not (KGround or KEmpty) || c.Kind(px, py) == KEmpty && !c.Land(px, py)) continue;
+            bool onRidge = across ? dy == 0 : dx == 0;
+            bool rim = Mathf.Abs(dx) == hw || Mathf.Abs(dy) == hh;
+            c.Put(px, py, onRidge ? ridge : rim ? eave : roof, KBuilding);
+        }
+        // 门洞：南墙(画布的行往北增，南面是 cy - hh)外一格
+        int doorY = cy - hh - 1;
+        if (c.Kind(cx, doorY) is KGround or KEmpty && c.Land(cx, doorY)) c.Put(cx, doorY, door, KBuilding);
     }
 
     // 一顶毡帐：白毡圆顶，边上一圈浅影，正中天窗深色；大帐顶上一点红

@@ -319,6 +319,7 @@ public partial class PureMapPatch : GamePatch
                 foreach (FactoryUnit unit in site.units) Add((unit.type?.GetHashCode() ?? 0) + unit.level * 7);
             }
             Add(plan.tribal * 7 + 3);
+            Add(plan.winter ? 11 : 1);
             Add(Mathf.RoundToInt(plan.rebuild * 20f));
             Add(Mathf.RoundToInt(plan.modern * 20f));
             Add(Mathf.RoundToInt(plan.ruin * 20f));
@@ -543,6 +544,8 @@ public partial class PureMapPatch : GamePatch
         public int housing = 1;
         // 原始聚落的阶段(见 PureMapPatch.Tribal)：-1 = 不是原始政体的城
         public int tribal = -1;
+        // 游牧城的城心不在旱地上：画成冬营地(木土小屋、畜栏)，不画毡帐(见 RuralSettlementSystem.DryLand)；只管画法
+        public bool winter;
         // 平面图的指纹(见 Stamp；平滑国界的上色缓存用)
         public int stamp = int.MinValue;
     }
@@ -840,6 +843,10 @@ public partial class PureMapPatch : GamePatch
         }
         // 原始政体的城画成原始聚落(见 PureMapPatch.Tribal)：不筑城墙、不挖护城河、没有中轴大街和都城地标
         plan.tribal = Camp(plan.family) ? -1 : TribalStageOf(city, culture);
+        // 毡帐只留在沙漠、荒原这类旱地上：城心那片地(建成地块)不是旱地的游牧城画成冬营地。按眼下的地形算，
+        // 生物群系变了下回重算平面图就换画法；城市风格(map_style)和随它的人口上限、牧场保底、不修路都不动
+        plan.winter = plan.family == "nomad" &&
+                      !RuralSettlementSystem.DryLand(city.zones.Where(zone => zone != null && plan.built.Contains(zone.id)));
         if (plan.tribal >= 0)
         {
             plan.walled = plan.moat = plan.axis = false;
@@ -1076,6 +1083,7 @@ public partial class PureMapPatch : GamePatch
         Color32 baseColor = Lerp(color, Block, BlockShare);
         if (slots == null || index < 0 || index >= slots.Length || !slots[index].used) return baseColor;
         string name;
+        Color32[] winter = null;
         if (plan.ruin > 0f && Hash01(zone.id * 4L + index + 7L) < plan.ruin) name = plan.burning ? "burning" : "ruin";
         else
         {
@@ -1087,8 +1095,10 @@ public partial class PureMapPatch : GamePatch
                 else if (turn < plan.rebuild + ConstructionBand) family = null;
             }
             name = family == null ? "construction" : StyleIcon(family, slots[index].icon);
+            // 冬营地(城心不在旱地上的游牧城)：毡帐图块换成木土小屋、畜栏
+            if (family == "nomad" && plan.winter) winter = WinterIcon(slots[index].icon, zone.id * 4L + index);
         }
-        Color32[] icon = Icon(name) ?? Icon(slots[index].icon);
+        Color32[] icon = winter ?? Icon(name) ?? Icon(slots[index].icon);
         if (icon == null) return Lerp(baseColor, Footprint, 0.85f);
         Color32 pixel = icon[(2 - py) * 3 + px];
         // 建筑是灰色占地块，只留一点屋顶本色
@@ -1127,7 +1137,7 @@ public partial class PureMapPatch : GamePatch
         {
             case "egypt": return Pyramid(color, lx, ly);
             case "aztec": return SteppedPyramid(color, lx, ly);
-            case "nomad": return GreatTent(color, lx, ly);
+            case "nomad": return plan.winter ? WinterHall(color, lx, ly) : GreatTent(color, lx, ly);
         }
         (string piece, Color32? wall, Color32 floor) = family switch
         {
@@ -1194,6 +1204,45 @@ public partial class PureMapPatch : GamePatch
         if (r > 2.9f) return Lerp(color, new Color32(225, 190, 90, 255), 0.95f);
         return Lerp(color, Mathf.Abs(dx) < 0.6f || Mathf.Abs(dy) < 0.6f ? new Color32(225, 220, 210, 255)
             : new Color32(246, 244, 236, 255), 0.95f);
+    }
+
+    // 冬营地的图块(3×3，第一行在北)：木土小屋(土黄屋顶、正中一道屋脊)、畜栏(四角木桩、中间一只羊)、
+    // 官署是一座大些的土屋、寺庙是一堆石头；集市是牲口栏；兵营、码头、作坊照通用图块
+    private static readonly Color32 WinterRoof = new(178, 142, 94, 255), WinterRidge = new(122, 94, 62, 255),
+        WinterFence = new(124, 96, 64, 255), WinterSheep = new(244, 240, 230, 255), WinterStone = new(168, 162, 150, 255),
+        WinterStoneDark = new(120, 114, 104, 255), WinterNone = new(0, 0, 0, 0);
+    private static readonly Color32[] WinterHutTile =
+        { WinterRoof, WinterRidge, WinterRoof, WinterRoof, WinterRidge, WinterRoof, WinterNone, WinterNone, WinterNone };
+    private static readonly Color32[] WinterPenTile =
+        { WinterFence, WinterNone, WinterFence, WinterNone, WinterSheep, WinterNone, WinterFence, WinterNone, WinterFence };
+    private static readonly Color32[] WinterLodgeTile =
+        { WinterRoof, WinterRoof, WinterRoof, WinterRidge, WinterRidge, WinterRidge, WinterRoof, WinterRoof, WinterRoof };
+    private static readonly Color32[] WinterCairnTile =
+        { WinterNone, WinterStone, WinterNone, WinterStone, WinterStoneDark, WinterStone, WinterNone, WinterStone, WinterNone };
+
+    private static Color32[] WinterIcon(string icon, long key)
+    {
+        if (string.IsNullOrEmpty(icon)) return null;
+        if (icon.StartsWith("house_")) return Hash01(key * 31L + 5L) < 0.3f ? WinterPenTile : WinterHutTile;
+        if (icon.StartsWith("civic_")) return WinterLodgeTile;
+        if (icon.StartsWith("market_")) return WinterPenTile;
+        return icon == "temple" ? WinterCairnTile : null;
+    }
+
+    // 冬营地的大帐换成议事的大土屋(俯视)：一圈木栅(南面开门)，院里一座土屋，东西一道屋脊
+    private static Color32 WinterHall(Color32 color, int lx, int ly)
+    {
+        float dx = lx - 3.5f, dy = ly - 3.5f;
+        float d = Mathf.Max(Mathf.Abs(dx), Mathf.Abs(dy));
+        if (d > 3f)
+        {
+            // 南门(地块里 ly 小的一边是南)
+            if (dy < 0f && Mathf.Abs(dx) < 1f) return Lerp(color, Block, 0.12f);
+            return Lerp(color, (lx + ly) % 2 == 0 ? new Color32(108, 82, 54, 255) : new Color32(150, 116, 76, 255), 0.9f);
+        }
+        if (Mathf.Abs(dx) <= 2.5f && Mathf.Abs(dy) <= 1.5f)
+            return Lerp(color, Mathf.Abs(dy) < 0.6f ? WinterRidge : WinterRoof, 0.95f);
+        return Lerp(color, Block, 0.12f);
     }
 
     // 本模式下不实际铺路(原版建筑落成时排的连路)
