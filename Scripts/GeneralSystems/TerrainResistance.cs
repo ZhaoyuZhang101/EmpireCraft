@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+using System;
 using UnityEngine;
 
 namespace EmpireCraft.Scripts.GeneralSystems;
@@ -11,15 +11,21 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 public static class TerrainResistance
 {
     public const float RiverCrossing = 2f, WallCrossing = 6f, RoadFactor = 0.5f, Ridge = 8f;
-    // 地块里有没有城墙：原版城墙不常变，一分钟(真实时间)重查一次；图层长城变了立即重查
-    private const float WallRefreshSeconds = 60f;
-    private static readonly Dictionary<int, (bool wall, float at)> Walls = new();
+    // 地块里有没有城墙(按地块编号，0 没查过、1 有、-1 没有)：原版城墙格只经设地面格、顶层格两处变(城墙格不会冻上)，
+    // 那两处一改就把这块地作废(见 MapWallPatch)；图层长城变了全部重查。以前每块地一分钟(真实时间)就过期重扫 64 格
+    private static sbyte[] _walls = new sbyte[0];
     private static int _wallVersion = -1;
 
     public static void ResetWorldState()
     {
-        Walls.Clear();
+        _walls = new sbyte[0];
         _wallVersion = -1;
+    }
+
+    // 地块里有格子改了：城墙下次用到时重查
+    public static void InvalidateWall(TileZone zone)
+    {
+        if (zone != null && zone.id >= 0 && zone.id < _walls.Length) _walls[zone.id] = 0;
     }
 
     public static float Base(FrontTerrain terrain) => terrain switch
@@ -36,8 +42,8 @@ public static class TerrainResistance
     public static float Step(TileZone zone)
     {
         if (zone == null || zone.world_edge || SeaRegionSystem.IsSea(zone)) return -1f;
-        FrontTerrain terrain = TerrainSystem.Of(zone);
-        float cost = TerrainSystem.Impassable(zone) ? Ridge : Base(terrain);
+        FrontTerrain terrain = TerrainSystem.Of(zone, out bool impassable);
+        float cost = impassable ? Ridge : Base(terrain);
         bool road = RoadNetwork.IsRoad(zone);
         if (terrain == FrontTerrain.River && !road) cost += RiverCrossing;
         if (HasWall(zone)) cost += WallCrossing;
@@ -49,20 +55,23 @@ public static class TerrainResistance
         if (zone?.tiles == null) return false;
         if (_wallVersion != MapWallSystem.Version)
         {
-            Walls.Clear();
+            Array.Clear(_walls, 0, _walls.Length);
             _wallVersion = MapWallSystem.Version;
         }
-        float now = Time.unscaledTime;
-        if (Walls.TryGetValue(zone.id, out var hit) && now >= hit.at && now - hit.at < WallRefreshSeconds) return hit.wall;
-        bool wall = false;
-        foreach (WorldTile tile in zone.tiles)
-        {
-            if (tile?.Type == null || !tile.Type.wall && !MapWallSystem.Contains(tile)) continue;
-            wall = true;
-            break;
-        }
-        if (Walls.Count > 200000) Walls.Clear();
-        Walls[zone.id] = (wall, now);
+        int id = zone.id;
+        if (id < 0) return ScanWall(zone);
+        if (id >= _walls.Length)
+            Array.Resize(ref _walls, Mathf.Max(id + 1, World.world?.zone_calculator?.zones?.Count ?? 0));
+        if (_walls[id] != 0) return _walls[id] > 0;
+        bool wall = ScanWall(zone);
+        _walls[id] = wall ? (sbyte)1 : (sbyte)-1;
         return wall;
+    }
+
+    private static bool ScanWall(TileZone zone)
+    {
+        foreach (WorldTile tile in zone.tiles)
+            if (tile?.Type != null && (tile.Type.wall || MapWallSystem.Contains(tile))) return true;
+        return false;
     }
 }

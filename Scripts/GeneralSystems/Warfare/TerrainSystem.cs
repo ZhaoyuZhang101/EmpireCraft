@@ -1,9 +1,10 @@
+using System;
 using System.Collections.Generic;
 using NeoModLoader.General;
 
 namespace EmpireCraft.Scripts.GeneralSystems;
 
-// 战线地形(借鉴钢铁雄心)：每块地块按格子构成定一种地形(地形极少变化，一年重判一次)。
+// 战线地形(借鉴钢铁雄心)：每块地块按格子构成定一种地形(格子改了当场重判，否则 4~6 年重判一次，见 Lookup)。
 // 交战时看攻方要推进的那块地：攻方战力打折、双方额外掉组织度(补给难)、每月最多推进几块；
 // 山地、沼泽、丛林行军慢一半。城中心那块地算城池。
 // 原版最高的地形(山地、山巅是阻挡格，地面单位走不了)占到四分之三的地块不可通行：军团绕行，战线不从这里推进
@@ -42,14 +43,43 @@ public static class TerrainSystem
         [FrontTerrain.Urban] = new TerrainEffect(0.7f, 0f, 0f, 2, false)
     };
 
-    private static readonly Dictionary<int, (FrontTerrain terrain, bool impassable, double at)> Cache = new();
+    // 地块地形缓存(按地块编号)：以前一律一年过期，又和行政控制力的年度结算同步，到期那一刻一国的地块一起重判。
+    // 现在格子改了(设地面格、顶层格，见 MapWallPatch)当场作废；没改的只为树木长、砍重判，4~6 年一次，按地块编号错开到期
+    private struct Entry
+    {
+        public double At;
+        public FrontTerrain Terrain;
+        public bool Impassable, Known;
+    }
 
-    public static void ResetWorldState() => Cache.Clear();
+    private const int RefreshMonths = 48, RefreshSpreadMonths = 24;
+    private static Entry[] _cache = new Entry[0];
+
+    public static void ResetWorldState()
+    {
+        _cache = new Entry[0];
+        _marks = new int[0];
+        _markTypes = new TileTypeBase[0];
+    }
+
+    // 地块里有格子改了：下次用到时重判
+    public static void Invalidate(TileZone zone)
+    {
+        if (zone != null && zone.id >= 0 && zone.id < _cache.Length) _cache[zone.id].Known = false;
+    }
 
     public static TerrainEffect Effect(FrontTerrain terrain) =>
         Effects.TryGetValue(terrain, out TerrainEffect effect) ? effect : Effects[FrontTerrain.Plains];
 
     public static FrontTerrain Of(TileZone zone) => Lookup(zone).terrain;
+
+    // 地形与能否通行一次取出(地形阻力两样都要，免得查两遍缓存)
+    public static FrontTerrain Of(TileZone zone, out bool impassable)
+    {
+        (FrontTerrain terrain, bool blocked) = Lookup(zone);
+        impassable = zone != null && blocked;
+        return terrain;
+    }
 
     // 原版最高的地形：山地、山巅(阻挡格)占到四分之三的地块，军团绕行、战线不从这里推进
     public static bool Impassable(TileZone zone) => zone != null && Lookup(zone).impassable;
@@ -57,11 +87,16 @@ public static class TerrainSystem
     private static (FrontTerrain terrain, bool impassable) Lookup(TileZone zone)
     {
         if (zone?.tiles == null || World.world == null) return (FrontTerrain.Plains, false);
+        int id = zone.id;
+        if (id < 0) return Classify(zone);
+        if (id >= _cache.Length)
+            Array.Resize(ref _cache, Math.Max(id + 1, World.world.zone_calculator?.zones?.Count ?? 0));
         double now = World.world.getCurWorldTime();
-        if (Cache.TryGetValue(zone.id, out var hit) && now >= hit.at && Date.getMonthsSince(hit.at) < 12)
-            return (hit.terrain, hit.impassable);
+        ref Entry hit = ref _cache[id];
+        if (hit.Known && now >= hit.At && Date.getMonthsSince(hit.At) < RefreshMonths + id % RefreshSpreadMonths)
+            return (hit.Terrain, hit.Impassable);
         (FrontTerrain terrain, bool impassable) = Classify(zone);
-        Cache[zone.id] = (terrain, impassable, now);
+        hit = new Entry { At = now, Terrain = terrain, Impassable = impassable, Known = true };
         return (terrain, impassable);
     }
 
@@ -91,6 +126,54 @@ public static class TerrainSystem
         return parts.Count == 0 ? LM.Get("terrain_effect_none") : string.Join(LM.Get("terrain_effect_separator"), parts);
     }
 
+    // 格子种类的地形标记(按 TileTypeBase.index_id：原版地面格与顶层格共用一套编号)。判地形每块地 64 格，
+    // 以前逐格比 id、生物群系的字符串；现在每种格子第一次见到时算一次标记，逐格只取标记
+    private const int MarkWater = 1, MarkBlock = 2, MarkMountain = 4, MarkHills = 8, MarkSnowHills = 16, MarkSwamp = 32,
+        MarkJungle = 64, MarkWoods = 128, MarkDesert = 256, MarkSnow = 512;
+    private static int[] _marks = new int[0];
+    private static TileTypeBase[] _markTypes = new TileTypeBase[0];
+
+    private static int Marks(TileTypeBase type)
+    {
+        int index = type.index_id;
+        if (index < 0) return ComputeMarks(type);
+        if (index >= _marks.Length)
+        {
+            int size = Math.Max(index + 1, 256);
+            Array.Resize(ref _marks, size);
+            Array.Resize(ref _markTypes, size);
+        }
+        // 编号撞上别的格子(模板格不分编号)就照算，不串用
+        if (ReferenceEquals(_markTypes[index], type)) return _marks[index];
+        int marks = ComputeMarks(type);
+        _marks[index] = marks;
+        _markTypes[index] = type;
+        return marks;
+    }
+
+    private static int ComputeMarks(TileTypeBase type)
+    {
+        int marks = 0;
+        if (type.liquid && !type.lava) marks |= MarkWater;
+        if (type.block) marks |= MarkBlock;
+        if (type.mountains || type.summit) marks |= MarkMountain;
+        string id = type.id ?? "";
+        if (id == "hills") marks |= MarkHills;
+        else if (id == "snow_hills") marks |= MarkSnowHills;
+        switch (type.biome_id)
+        {
+            case "biome_swamp": marks |= MarkSwamp; break;
+            case "biome_jungle": marks |= MarkJungle; break;
+            case "biome_birch":
+            case "biome_maple": marks |= MarkWoods; break;
+            case "biome_desert":
+            case "biome_sand": marks |= MarkDesert; break;
+        }
+        if (type.biome_id == "biome_permafrost" || id.StartsWith("snow", StringComparison.Ordinal) ||
+            id.StartsWith("frozen", StringComparison.Ordinal)) marks |= MarkSnow;
+        return marks;
+    }
+
     // 按地块里 64 格的构成判定：山多为山地，山与丘陵多为丘陵，其次沼泽、水网(河湖)、丛林、森林、沙漠、雪原，都不够为平原。
     // 门槛按本地大地图实测：城市地块里平原约四成，丛林、雪原、水网、山地、丘陵各占一到两成(视地图而定)
     private static (FrontTerrain terrain, bool impassable) Classify(TileZone zone)
@@ -102,26 +185,23 @@ public static class TerrainSystem
             TileTypeBase type = tile?.Type;
             if (type == null) continue;
             total++;
-            if (type.liquid && !type.lava)
+            int marks = Marks(type);
+            if ((marks & MarkWater) != 0)
             {
                 water++;
                 continue;
             }
+            // 底下的地面格只看阻挡、山地，丘陵只认 hills
             TileTypeBase main = tile.main_type;
-            string id = type.id ?? "";
-            if (type.block || main != null && main.block) blocked++;
-            if (type.mountains || type.summit || main != null && (main.mountains || main.summit)) mountain++;
-            else if (id == "hills" || id == "snow_hills" || main?.id == "hills") hills++;
-            switch (type.biome_id)
-            {
-                case "biome_swamp": swamp++; break;
-                case "biome_jungle": jungle++; break;
-                case "biome_birch":
-                case "biome_maple": woods++; break;
-                case "biome_desert":
-                case "biome_sand": desert++; break;
-            }
-            if (type.biome_id == "biome_permafrost" || id.StartsWith("snow") || id.StartsWith("frozen")) snow++;
+            int under = main != null ? Marks(main) : 0;
+            if (((marks | under) & MarkBlock) != 0) blocked++;
+            if (((marks | under) & MarkMountain) != 0) mountain++;
+            else if ((marks & (MarkHills | MarkSnowHills)) != 0 || (under & MarkHills) != 0) hills++;
+            if ((marks & MarkSwamp) != 0) swamp++;
+            else if ((marks & MarkJungle) != 0) jungle++;
+            else if ((marks & MarkWoods) != 0) woods++;
+            else if ((marks & MarkDesert) != 0) desert++;
+            if ((marks & MarkSnow) != 0) snow++;
             BuildingAsset flora = tile.building?.asset;
             if (flora != null && flora.flora && flora.flora_type == FloraType.Tree) trees++;
         }
