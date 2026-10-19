@@ -504,6 +504,9 @@ public static class DataManager
         {
             InstitutionStateNormalizer.Normalize(state);
         }
+        // 独立王国自己推的制度改革(可空，见 InstitutionRealm)
+        foreach (KingdomExtraData extra in saveData.kingdomExtraData)
+            InstitutionStateNormalizer.Normalize(extra?.institution_state);
         saveData.yearNameSubspecies ??= new List<string>();
         saveData.all_history ??= new Dictionary<long, List<EmpireCraftHistory>>();
         saveData.specificClans = saveData.specificClans?.Where(sc => sc != null).ToList() ?? new List<SpecificClan>();
