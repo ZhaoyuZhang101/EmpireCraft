@@ -604,16 +604,28 @@ public static partial class WarlordEraSystem
         ResetEra(core);
     }
 
-    private static void DissolveContestingGovernment(Empire government, EmpireCore contestedCore)
+    // keepBloc：撤销政府是这一家退回地方武装，不是把它拆散——以前 dissolveEmpire 让各省州各自独立，
+    // 一个政府散成一地没有法理的"某某自治军"，再也聚不起来。其余省州改作原中央王国的附庸，仍是同一股势力
+    // (控制权照旧算在它名下，它日后建政或归附时一并带上，见 ModernStateFormationSystem.TryMergeIntoOverlordGovernment)。
+    // 联合另立政府失败时成员本是各自独立的军阀，散回原样(keepBloc = false)
+    private static void DissolveContestingGovernment(Empire government, EmpireCore contestedCore, bool keepBloc = true)
     {
         if (government == null || government.IsArchived()) return;
         Roles.Remove(government.id);
+        Kingdom head = government.CoreKingdom;
+        List<Kingdom> members = keepBloc && head != null
+            ? government.kingdoms_list?.Where(member => member != null && member != head && !member.isRekt()).ToList()
+            : null;
         EmpireCore ownCore = EmpireCoreManager.Get(government);
         if (ownCore != null && ownCore != contestedCore &&
             (ownCore.warlord_parent_core_id == contestedCore.id ||
              government.id == contestedCore.rival_central_empire_id))
             EmpireCoreManager.DestroyEmpireCore(ownCore);
         ModClass.EMPIRE_MANAGER?.dissolveEmpire(government);
+        if (members == null || head.isRekt()) return;
+        foreach (Kingdom member in members)
+            if (!member.isRekt() && !member.IsInEmpire() && FeudalVassalService.GetOverlord(member) == null)
+                FeudalVassalService.ForceBind(head, member);
     }
 
     private static void ReleaseProvisionalCores(EmpireCore parent)
@@ -765,7 +777,7 @@ public static partial class WarlordEraSystem
             members = joined;
             if (members.Count < 2)
             {
-                DissolveContestingGovernment(leader, core);
+                DissolveContestingGovernment(leader, core, keepBloc: false);
                 return null;
             }
         }
@@ -774,7 +786,7 @@ public static partial class WarlordEraSystem
                   World.world.diplomacy.startWar(leaderKingdom, centralKingdom, WarTypeLibrary.normal);
         if (war == null)
         {
-            DissolveContestingGovernment(leader, core);
+            DissolveContestingGovernment(leader, core, keepBloc: false);
             return null;
         }
         core.rival_alliance_id = -1L;
