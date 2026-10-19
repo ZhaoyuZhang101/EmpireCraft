@@ -512,6 +512,7 @@ public class FixedFaction
             if (ClaimCatalogVersion < 3 && !IsParty) catalogChanged |= MigrateClaimCatalogV3();
             if (ClaimCatalogVersion < 4 && !IsParty) catalogChanged |= MigrateClaimCatalogV4();
             if (ClaimCatalogVersion < 5 && !IsParty) catalogChanged |= MigrateClaimCatalogV5();
+            if (ClaimCatalogVersion < 6 && !IsParty) catalogChanged |= MigrateClaimCatalogV6();
             if (Empire.CoreKingdom.GetRegime()?.type == RegimeType.Feudalism)
                 catalogChanged |= MigrateFeudalClaimCatalog();
             ClaimCatalogVersion = CurrentClaimCatalogVersion;
@@ -612,6 +613,16 @@ public class FixedFaction
         };
         if (claim == null || TemporaryFactionTypesRecord.Contains(claim.Value)) return false;
         TemporaryFactionTypesRecord.Add(claim.Value);
+        return true;
+    }
+
+    // 版本 6：中央(法家变法派)也能提转天朝制度。诉求对象按 TemporaryFactionTypesRecord 生成，只改配置、升版本号
+    // 而不迁移的话，旧存档里的中央派系(含已立的变法派朋党)清单上没有这一条，永远提不出来
+    private bool MigrateClaimCatalogV6()
+    {
+        TemporaryFactionTypesRecord ??= new List<TemporaryFactionType>();
+        if (Type != FactionType.中央 || TemporaryFactionTypesRecord.Contains(TemporaryFactionType.转天朝制度)) return false;
+        TemporaryFactionTypesRecord.Add(TemporaryFactionType.转天朝制度);
         return true;
     }
 
