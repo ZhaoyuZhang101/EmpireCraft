@@ -12,6 +12,9 @@ public sealed class RuralSettlement
     public bool fort;
     public bool walled;
     public string name = "";
+    // 名字是手改的(改名后不再按文化重起)；按文化起名的版本(0 = 旧版写死的词库，读档时改按文化重起，见 SettlementNaming)
+    public bool named_by_hand;
+    public int naming_version;
     public double founded = -1d;
     // 毁于兵火的时间(-1 = 完好)
     public double ruined_at = -1d;

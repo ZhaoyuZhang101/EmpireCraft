@@ -30,6 +30,22 @@
             }
         },
         "traits": ["patriarchy"],
+        // 村镇命名(见 Locales/Cultures/README.md 村镇一节)：苗字村(田中村)、地势(高山村)、字库(中野村)
+        "Settlement": {
+            "village_modes": { "surname": 2, "terrain": 2, "words": 2 },
+            "town_modes": { "terrain": 1, "words": 2 },
+            "fort_modes": { "terrain": 1, "words": 1 },
+            "village_words": "VillageWords",
+            "village_suffix": "VillageSuffix",
+            "surname_suffix": "SurnameSuffix",
+            "town_words": "VillageWords",
+            "town_suffix": "TownSuffix",
+            "fort_words": "VillageWords",
+            "fort_suffix": "FortSuffix",
+            "terrain_prefix": "TerrainPrefix",
+            "terrain_suffix": "TerrainSuffix",
+            "terrain": { "mountain": "TerrainMountain", "hill": "TerrainHill", "water": "TerrainWater", "coast": "TerrainCoast", "forest": "TerrainForest", "plain": "TerrainPlain", "desert": "TerrainDesert", "swamp": "TerrainSwamp" }
+        },
         "City": {
             "groups": {
                 "group_1": "CityNames1",

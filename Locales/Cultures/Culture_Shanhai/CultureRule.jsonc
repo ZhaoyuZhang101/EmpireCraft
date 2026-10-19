@@ -34,6 +34,22 @@
             }
         },
         "traits": ["patriarchy"],
+        // 村镇命名(见 Locales/Cultures/README.md 村镇一节)：姓氏(罗家庄)、地势(青石山村)、字库(桃花村)的分量与词库
+        "Settlement": {
+            "village_modes": { "surname": 3, "terrain": 2, "words": 1 },
+            "town_modes": { "terrain": 1, "words": 2 },
+            "fort_modes": { "terrain": 1, "words": 1 },
+            "village_words": "Huaxia:VillageWords",
+            "village_suffix": "Huaxia:VillageSuffix",
+            "surname_suffix": "Huaxia:SurnameSuffix",
+            "town_words": "Huaxia:TownWords",
+            "town_suffix": "Huaxia:TownSuffix",
+            "fort_words": "Huaxia:TownWords",
+            "fort_suffix": "Huaxia:FortSuffix",
+            "terrain_prefix": "Huaxia:TerrainPrefix",
+            "terrain_suffix": "Huaxia:TerrainSuffix",
+            "terrain": { "mountain": "Huaxia:TerrainMountain", "hill": "Huaxia:TerrainHill", "water": "Huaxia:TerrainWater", "coast": "Huaxia:TerrainCoast", "forest": "Huaxia:TerrainForest", "plain": "Huaxia:TerrainPlain", "desert": "Huaxia:TerrainDesert", "swamp": "Huaxia:TerrainSwamp" }
+        },
         "City": {
             "groups": {
                 "group_1": "CityNames"

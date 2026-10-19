@@ -313,8 +313,8 @@ public static class MapLabelOverlay
         return specs;
     }
 
-    // 城名(用户 2026-10-16 "周边的村子还有中间的城似乎也没名字")：城北沿上方标城名；城外的镇、村
-    // 华夏的村多是姓氏加家庄、村、屯，其余是雅字加村、庄；镇是雅字或方位加镇。同城不重名。
+    // 城名(用户 2026-10-16 "周边的村子还有中间的城似乎也没名字")：城北沿上方标城名；城外的镇、村按所在城的文化起名
+    // (用户 2026-10-19：姓氏、地势、字库几种方式，文化配置可绑独有字库，见 SettlementNaming)。同城不重名。
     // 镇村的名字头一回标注时按位置起，记进存档(见 RuralSettlementSystem)，从此不随先后、归属变；废墟标"某某·废墟"
     private static void Settlements(City city, PureMapPatch.LabelPlan plan, List<Spec> specs)
     {
@@ -322,16 +322,15 @@ public static class MapLabelOverlay
         if (!float.IsNaN(plan.NameAt.x)) specs.Add(new Spec(plan.NameAt, city.GetCityName() ?? "", CityColor, CitySize, false, 0));
         var used = new HashSet<string>(RuralSettlementSystem.InCity(city).Select(settlement => settlement.name)
             .Where(name => !string.IsNullOrEmpty(name)));
-        bool huaxia = plan.Family == "huaxia";
         for (int i = 0; i < plan.Towns.Count; i++)
         {
-            string name = NameOf(RuralSettlementSystem.At(plan.TownTiles[i].x, plan.TownTiles[i].y), true, huaxia, used,
+            string name = NameOf(RuralSettlementSystem.At(plan.TownTiles[i].x, plan.TownTiles[i].y), true, city, used,
                 city.id * 7349L + i * 131L + 17L);
             specs.Add(new Spec(plan.Towns[i].at, name, SettlementColor, TownSize, false, 1, backdrop: true));
         }
         for (int i = 0; i < plan.Villages.Count; i++)
         {
-            string name = NameOf(RuralSettlementSystem.At(plan.VillageTiles[i].x, plan.VillageTiles[i].y), false, huaxia, used,
+            string name = NameOf(RuralSettlementSystem.At(plan.VillageTiles[i].x, plan.VillageTiles[i].y), false, city, used,
                 city.id * 9973L + i * 257L + 29L);
             specs.Add(new Spec(plan.Villages[i], name, SettlementColor, VillageSize, false, 2, backdrop: true));
         }
@@ -339,32 +338,22 @@ public static class MapLabelOverlay
         {
             RuralSettlement settlement = RuralSettlementSystem.At(x, y);
             if (settlement == null) continue;
-            specs.Add(new Spec(at, NameOf(settlement, settlement.town, huaxia, used, 0L), SettlementColor, TownSize, false, 1, backdrop: true));
+            specs.Add(new Spec(at, NameOf(settlement, settlement.town, city, used, 0L), SettlementColor, TownSize, false, 1, backdrop: true));
         }
         foreach ((Vector2 at, int x, int y) in plan.Ruins)
         {
             RuralSettlement settlement = RuralSettlementSystem.At(x, y);
             if (settlement == null) continue;
-            string name = NameOf(settlement, settlement.town, huaxia, used, 0L);
+            string name = NameOf(settlement, settlement.town, city, used, 0L);
             specs.Add(new Spec(at, string.Format(NeoModLoader.General.LM.Get("settlement_ruin_label"), name), RuinColor,
                 settlement.town ? TownSize : VillageSize, false, 2, backdrop: true));
         }
     }
 
-    // 镇村的名字：存档里有就用，没有就起一个记下——按原来的"城与编号"种子起(镇村按生成先后排，旧存档头一回标出来的名字
-    // 与原来一样)，没有编号的(废墟、点开的)按位置起
-    private static string NameOf(RuralSettlement settlement, bool town, bool huaxia, HashSet<string> used, long fallback)
-    {
-        if (!string.IsNullOrEmpty(settlement?.name)) return settlement.name;
-        long seed = fallback != 0L || settlement == null ? fallback : UrbanFabric.PosKey(settlement.x, settlement.y) + 29L;
-        string name = settlement?.fort == true ? SettlementName(seed, used, TownWords, FortSuffix)
-            : town ? SettlementName(seed, used, TownWords, TownSuffix)
-            : Chinese && huaxia && Pick(VillageKind, seed) == "姓"
-                ? SettlementName(seed, used, SurnameZh, VillageSuffixClan)
-                : SettlementName(seed, used, VillageWords, VillageSuffix);
-        if (settlement != null) settlement.name = name;
-        return name;
-    }
+    // 镇村的名字：存档里有就用，没有就按所在城的文化起一个记下(姓氏、地势、字库，见 SettlementNaming)——
+    // 种子按原来的"城与编号"(镇村按生成先后排)，没有编号的(废墟、点开的)按位置起
+    private static string NameOf(RuralSettlement settlement, bool town, City city, HashSet<string> used, long fallback) =>
+        SettlementNaming.Name(settlement, city, town, used, fallback);
 
     // 点开镇村(没选神力时点一下；拖动地图不算)：打开村镇小窗口(改名、升降级、换个样子、毁弃，见 SettlementWindow)
     private static Vector3 _pressedAt;
@@ -396,19 +385,9 @@ public static class MapLabelOverlay
         bool huaxia = city != null && PureMapPatch.LabelsOf(city)?.Family == "huaxia";
         var used = new HashSet<string>(city == null ? Enumerable.Empty<string>()
             : RuralSettlementSystem.InCity(city).Select(other => other.name).Where(name => !string.IsNullOrEmpty(name)));
-        NameOf(settlement, settlement.town, huaxia, used, 0L);
+        NameOf(settlement, settlement.town, city, used, 0L);
         // 打开村镇小窗口(见 SettlementWindow)
         EmpireCraft.Scripts.UI.Windows.SettlementWindow.Open(settlement);
-    }
-
-    private static string SettlementName(long seed, HashSet<string> used, string[] words, string[] suffixes)
-    {
-        for (int attempt = 0; attempt < 8; attempt++)
-        {
-            string name = Pick(words, seed + attempt * 7919L) + Pick(suffixes, seed + attempt);
-            if (used.Add(name)) return name;
-        }
-        return Pick(words, seed) + Pick(suffixes, seed + 3);
     }
 
     private static int FirstHouse(PureMapPatch.LabelPlan plan, int zone) =>
@@ -547,30 +526,6 @@ public static class MapLabelOverlay
     private static string[] BarracksModern => Chinese ? new[] { "军营", "武装部" } : new[] { " Barracks", " Armory" };
     private static string[] DocksOld => Chinese ? new[] { "码头", "渡口" } : new[] { " Wharf", " Ferry" };
     private static string[] DocksModern => Chinese ? new[] { "港", "客运码头" } : new[] { " Port", " Terminal" };
-    // 城外的镇、村
-    private static readonly string[] VillageKind = { "姓", "姓", "雅" };
-    private static string[] TownWords => Chinese ? TownZh : StreetEn;
-    private static string[] TownSuffix => Chinese ? new[] { "镇" } : new[] { "ton", "bury", "ford" };
-    private static string[] FortSuffix => Chinese ? new[] { "关" } : new[] { "gate", "hold", "watch" };
-    private static string[] VillageWords => Chinese ? VillageZh : StreetEn;
-    private static string[] VillageSuffix => Chinese ? new[] { "村", "庄", "村", "湾", "坪" } : new[] { "by", "ham", "wick", "field" };
-    private static string[] VillageSuffixClan => new[] { "家庄", "村", "家村", "屯", "家寨", "家集" };
-    private static readonly string[] TownZh =
-    {
-        "清河", "白沙", "柳林", "石桥", "青山", "安乐", "长兴", "龙泉", "双溪", "临江", "永丰", "太平", "新安", "古城", "黄土",
-        "东关", "西关", "南关", "北关", "三河", "平原", "桃源", "梅岭", "松林", "高桥"
-    };
-    private static readonly string[] VillageZh =
-    {
-        "桃花", "杏花", "柳树", "槐树", "枣林", "榆树", "前河", "后河", "东湾", "西坡", "南岗", "北塘", "大柳", "小桥", "石门",
-        "上坪", "下坪", "芦苇", "荷塘", "水井", "菜园", "果园", "麦地", "牛栏", "羊坊"
-    };
-    private static readonly string[] SurnameZh =
-    {
-        "张", "王", "李", "赵", "刘", "陈", "杨", "黄", "周", "吴", "徐", "孙", "马", "胡", "朱", "郭", "何", "林", "高", "罗",
-        "郑", "梁", "谢", "宋", "唐", "许", "韩", "冯", "邓", "曹"
-    };
-
     // 古今通用的雅名(古城只用这些)
     private static readonly string[] StreetZh =
     {

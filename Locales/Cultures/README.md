@@ -67,6 +67,38 @@ Locales/Cultures/
   只在华夏线还没到宗法(原始群至家天下)时使用，不配就照常起名。
 - Kingdom：`english_type_prefix` 英文界面用 “The {类别} of {国名}”，否则 “{国名} {类别}”。
 
+### 村镇(Settlement)
+
+城外的村、镇、关城按**所在城的主流文化**起名，起好记进存档(改过名的不再动)。三种命名方式按分量随机挑：
+
+| 方式 | 拼法 | 例子 |
+|---|---|---|
+| `surname` 姓氏 | 本城宗族的姓(没有就取本文化 Family 的姓氏词库) + 姓氏后缀 | 罗家庄、伊万诺夫卡、Luojiazhuang |
+| `terrain` 地势 | 前缀 + 地势词 + 后缀；地势看村子四周：mountain 山、hill 丘岗、water 河湖、coast 海边、forest 林、plain 平原、desert 沙漠、swamp 沼泽 | 青石山村、柳河村、Takayama-mura |
+| `words` 字库 | 字库词 + 后缀(字库可以是整名，后缀写 `_` 表示不加) | 桃花村、阿什福德村、Ashford |
+
+```jsonc
+"Settlement": {
+    "village_modes": { "surname": 3, "terrain": 2, "words": 1 },   // 村：各方式的分量
+    "town_modes": { "terrain": 1, "words": 2 },                    // 镇
+    "fort_modes": { "terrain": 1, "words": 1 },                    // 关城
+    "village_words": "VillageWords",     // 字库方式的词(可写"别的文化:词库名")
+    "village_suffix": "VillageSuffix",   // 村的后缀(村、庄、湾……)
+    "surname_suffix": "SurnameSuffix",   // 姓氏方式的后缀(家庄、家村……)
+    "surname_words": "",                 // 本城没有宗族时的姓氏词库(留空用 Family 的第一个词库)
+    "town_words": "TownWords", "town_suffix": "TownSuffix",
+    "fort_words": "TownWords", "fort_suffix": "FortSuffix",
+    "terrain_prefix": "TerrainPrefix",   // 地势前面的词(青、白石、Ash……)
+    "terrain_suffix": "TerrainSuffix",   // 地势村的后缀
+    "terrain": { "mountain": "TerrainMountain", "water": "TerrainWater" }   // 各地势的地势词，没写的地势用通用词库
+}
+```
+
+- 词库同其它词库：本文件夹 `<文化id><词库名>.csv`(key,cz,en,ch)，直接读当前语言那一列；
+  英文一列以 `_` 开头表示前面加空格(如 `_Farm`)，单写 `_` 表示空(不加后缀)。
+- 没配的项用 `Settlements/` 下的通用词库(汉字与英文雅名)；整个 `Settlement` 都没配的文化，村、镇、关一律按姓氏起(某某村、某某镇)。
+- 现成的配置：华夏(中国、山海引用华夏的词库，英文是拼音)、日本(罗马字)、西方、法兰克、日耳曼(整名字库)、斯拉夫(姓 + 卡)、维京(姓 + 比)。
+
 ### 政党(Party)
 
 理念 → 词库名。理念可选：Anarchism, SocialDemocracy, Libertarianism, SocialLiberalism, Capitalism,

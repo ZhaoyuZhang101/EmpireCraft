@@ -27,6 +27,18 @@
             }
         },
         "traits": ["patriarchy"],
+        // 村镇命名(见 Locales/Cultures/README.md 村镇一节)：姓氏(伊万诺夫卡)、字库(别廖佐夫卡村)；关城用姓氏(伊万诺夫格勒)
+        "Settlement": {
+            "village_modes": { "surname": 2, "words": 1 },
+            "town_modes": { "words": 1 },
+            "fort_modes": { "surname": 1 },
+            "village_words": "VillageNames",
+            "village_suffix": "Western:VillageSuffix",
+            "surname_suffix": "SurnameSuffix",
+            "town_words": "VillageNames",
+            "town_suffix": "TownSuffix",
+            "fort_suffix": "FortSuffix"
+        },
         "City": {
             "groups": {
                 "group_1": "CityNames1"

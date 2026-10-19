@@ -59,6 +59,38 @@ public class Setting
     public PartySetting Party;
     // 宪法：名称词库与本文化的制宪倾向(见 ConstitutionSystem)
     public ConstitutionSetting Constitution;
+    // 村镇命名(见 SettlementNaming)：命名方式的分量与各词库；没配的项用 Locales/Cultures/Settlements/ 里的通用词库
+    public SettlementSetting Settlement;
+}
+
+// 村镇命名(用户 2026-10-19："按照 Locales/Cultures 里面的名词库来，依据自己的文化；文化配置里加几种村镇命名方式，
+// 比如按照姓氏(罗家村)、按照地势(什么什么山村)、按照字库，文化配置里可以绑定独有的村镇字库")。
+// 词库名同其它词库：本文件夹 <文化><词库名>.csv，可写"别的文化:词库名"；没写的用 Locales/Cultures/Settlements/<默认名>.csv。
+// 词库里英文一列以"_"开头表示前面加空格(如"_Farm")，单写"_"表示空(没有后缀)。
+public class SettlementSetting
+{
+    // 命名方式 → 分量：surname 姓氏(本城宗族的姓 + 姓氏后缀，如罗家村)、terrain 地势(前缀 + 地势词 + 后缀，如青石山村)、
+    // words 字库(字库词 + 后缀，如桃花村)。没配：都按姓氏
+    public Dictionary<string, float> village_modes;
+    public Dictionary<string, float> town_modes;
+    public Dictionary<string, float> fort_modes;
+    // 字库方式的词(默认 VillageWords / TownWords)
+    public string village_words = "";
+    public string town_words = "";
+    public string fort_words = "";
+    // 后缀(默认 VillageSuffix / TownSuffix / FortSuffix)
+    public string village_suffix = "";
+    public string town_suffix = "";
+    public string fort_suffix = "";
+    // 姓氏方式的后缀(默认 SurnameSuffix)；姓氏词库(本城没有宗族时用，默认取本文化 Family 的第一个词库)
+    public string surname_suffix = "";
+    public string surname_words = "";
+    // 地势方式：地势前面的词(默认 TerrainPrefix)、地势之后的后缀(默认 TerrainSuffix)；
+    // 各地势的地势词：mountain 山、hill 丘岗、water 河湖、coast 海边、forest 林、plain 平原、desert 沙漠、swamp 沼泽
+    // (默认 Terrain<地势首字母大写>，如 TerrainMountain)
+    public string terrain_prefix = "";
+    public string terrain_suffix = "";
+    public Dictionary<string, string> terrain;
 }
 
 public class ConstitutionSetting

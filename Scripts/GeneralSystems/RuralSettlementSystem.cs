@@ -82,6 +82,8 @@ public static class RuralSettlementSystem
             All[settlement.id] = settlement;
             _nextId = Math.Max(_nextId, settlement.id + 1);
         }
+        // 旧版按写死的词库起的名字改按文化重起(手改过的不动，见 SettlementNaming)
+        SettlementNaming.MigrateOldNames(All.Values);
     }
 
     public static List<RuralSettlement> Save() => All.Values.ToList();
@@ -404,6 +406,7 @@ public static class RuralSettlementSystem
         string value = (name ?? "").Trim();
         if (settlement == null || value.Length == 0 || value == settlement.name) return;
         settlement.name = value.Length > 8 ? value.Substring(0, 8) : value;
+        settlement.named_by_hand = true;
         Revision++;
         City city = CityOf(settlement);
         if (city != null) PureMapPatch.Redraw(city);
@@ -436,11 +439,20 @@ public static class RuralSettlementSystem
     // 画法用的种子：按位置，换过样子的再加上它自己的种子(见 UrbanFabric.SettlementKey)
     public static long SeedAt(int x, int y) => At(x, y)?.seed ?? 0L;
 
-    // 名字(还没标注过、没起名的写"村""镇")
-    public static string Label(RuralSettlement settlement) =>
-        !string.IsNullOrEmpty(settlement?.name) ? settlement.name
-            : LM.Get(settlement?.fort == true ? "settlement_kind_fort"
-                : settlement?.town == true ? "settlement_kind_town" : "settlement_kind_village");
+    // 名字：没起过名的按所在城的文化起一个记下(见 SettlementNaming)；不在城里的写"村""镇"
+    public static string Label(RuralSettlement settlement)
+    {
+        if (!string.IsNullOrEmpty(settlement?.name)) return settlement.name;
+        City city = CityOf(settlement);
+        if (settlement != null && city?.data != null && !city.isRekt())
+        {
+            var used = new HashSet<string>(InCity(city).Select(other => other.name).Where(name => !string.IsNullOrEmpty(name)));
+            string named = SettlementNaming.Name(settlement, city, settlement.town, used, 0L);
+            if (!string.IsNullOrEmpty(named)) return named;
+        }
+        return LM.Get(settlement?.fort == true ? "settlement_kind_fort"
+            : settlement?.town == true ? "settlement_kind_town" : "settlement_kind_village");
+    }
 
     // 立村、设镇、筑关：返回提示文字
     public static string Place(WorldTile tile, bool town, bool fort = false)

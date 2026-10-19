@@ -27,6 +27,19 @@
             }
         },
         "traits": ["patriarchy"],
+        // 村镇命名(见 Locales/Cultures/README.md 村镇一节)：整名字库(博蒙村)、姓氏(某某维尔)
+        "Settlement": {
+            "village_modes": { "words": 2, "surname": 1 },
+            "town_modes": { "words": 1 },
+            "fort_modes": { "words": 1 },
+            "village_words": "VillageNames",
+            "village_suffix": "Western:VillageSuffix",
+            "surname_suffix": "SurnameSuffix",
+            "town_words": "TownNames",
+            "town_suffix": "Western:TownSuffix",
+            "fort_words": "VillageNames",
+            "fort_suffix": "Western:FortSuffix"
+        },
         "City": {
             "groups": {
                 "group_1": "CityNames1",
