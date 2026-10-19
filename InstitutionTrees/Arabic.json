@@ -446,6 +446,10 @@
           "type": "modify_faction_power",
           "int_value": 5,
           "faction": "僭主"
+        },
+        {
+          "type": "add_mandate",
+          "int_value": -5
         }
       ]
     },

@@ -579,10 +579,10 @@ public static class CorpsSystem
         float peace = doctrine.CentralStanding || doctrine.DistrictStanding ? StandingPoolShare : PeacePoolShare;
         // 鞭长莫及：控制力低的城征不齐(见 AdministrativeControlSystem.Yield)
         float background = 0f;
-        // 奴隶不征为兵、野人大半不征(见 SlaverySystem、GuoyeSystem)
+        // 奴隶不征为兵、野人大半不征(见 SlaverySystem、GuoyeSystem)；收人头税的国家异教之民大半不征(见 ReligiousTension)
         foreach (City city in cities)
             background += Mathf.Max(0f, CityPopulationSystem.GetBackgroundTotal(city) - SlaverySystem.Unfree(city)) *
-                          AdministrativeControlSystem.Yield(city);
+                          ReligiousTension.LevyFactor(city) * AdministrativeControlSystem.Yield(city);
         // 武备废弛：兵籍虚冒、军户逃亡，兵源打折(见 MaladySystem.LevyFactor)
         float levyShare = war ? WarLevyShare(kingdom, peace) : peace;
         float pool = background * doctrine.LevyShare * levyShare * MaladySystem.LevyFactor(kingdom);

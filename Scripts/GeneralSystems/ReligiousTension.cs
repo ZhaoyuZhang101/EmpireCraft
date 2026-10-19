@@ -14,6 +14,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 城里通行的宗教与国教(国家的宗教)不同的是异教之城，按国家的宗教政策：
 //       宽容(特性 religious_tolerance：游牧宗教宽容、罗马世俗化)——稳定度少 3，民族情绪不受影响；
 //       收人头税(特性 poll_tax：阿拉伯人丁税制)——稳定度少 6，情绪每年 +1，每座异教之城每年多交一笔人头税；
+//         交了人头税就豁免兵役：异教之城的人口只征 DhimmiLevy(同野人，见 CorpsSystem.Mobilize)，打下异教之地添税不添兵；
 //       不宽容(其余)——稳定度少 10，情绪每年 +2；
 //   · 宗教叛乱：不宽容的国家，异教之城稳定度低于起事线时每年有两成机会举教起事(新国奉本城之教，十年内同城不再起事)；
 //   · 圣战(见 EmpireCraftKingdomBehCheckPlots.CheckJoinReligionWar)：同教的国家要对发起者有好感、不与被攻者同属一个帝国、
@@ -22,6 +23,8 @@ public static class ReligiousTension
 {
     public const string ToleranceFeature = "religious_tolerance", PollTaxFeature = "poll_tax";
     public const int MaxHolyWarAttackers = 6;
+    // 收人头税的国家，异教之城的人口征兵只征几成
+    public const float DhimmiLevy = 0.25f;
     public const float HolyWarReach = 160f;
     private const float RevoltChance = 0.2f;
     private const int RevoltCooldownYears = 10;
@@ -46,6 +49,10 @@ public static class ReligiousTension
             EmpireCraft.Scripts.Data.OnomasticsRule.HasPoliticalTrait(culture, PapacySystem.DharmicTrait)) return Policy.Tolerant;
         return InstitutionSystem.HasFeature(culture, PollTaxFeature) ? Policy.PollTax : Policy.Intolerant;
     }
+
+    // 异教之城征兵打几折(见 CorpsSystem.Mobilize)：收人头税的国家豁免异教之民的兵役，只征 DhimmiLevy
+    public static float LevyFactor(City city) =>
+        IsHeterodox(city) && PolicyOf(city.kingdom) == Policy.PollTax ? DhimmiLevy : 1f;
 
     // 异教之城的稳定度损失(见 CityStabilitySystem.Natural)
     public static float StabilityLoss(City city) =>
