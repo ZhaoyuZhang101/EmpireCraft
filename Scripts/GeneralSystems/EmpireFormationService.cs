@@ -63,6 +63,31 @@ public static class EmpireFormationService
 
     #region 资格
 
+    // 独立行省/旧王国可能实际占领了都城法理，却仍记在前任君主名下。
+    // ReconcileMainTitle 只选择已持有的头衔，不能完成承接，因此再大也过不了称帝门槛。
+    internal static bool RepairFoundingTitle(Kingdom kingdom)
+    {
+        if (kingdom?.data == null || kingdom.isRekt() || !kingdom.hasKing() || !kingdom.hasCapital() ||
+            kingdom.king?.kingdom != kingdom || kingdom.IsEmpire() || kingdom.IsInEmpire() ||
+            FeudalVassalService.GetOverlord(kingdom) != null || TribalFissionService.OverlordOf(kingdom) != null ||
+            kingdom.HasTakenAlliance() || Compatibility.AncientWarfareCompatibility.BlocksEmpireFormation(kingdom)) return false;
+        if (kingdom.HasMainTitle()) return true;
+        // 同现代省州独立后的处理：已经没有宗主的国家恢复外交权，不能继续按旧直辖行省锁住法理谋划。
+        kingdom.GetRegime()?.SetAllowDiplomacy(true);
+        // 此方法的法理承接规则不限定现代政体：须控制法理首府且可以合法不战而得，不抢现存国家的主法理。
+        if (ModernStateFormationSystem.TryClaimSeatTitle(kingdom)) return true;
+        // 首府根本未立过法理时，达到通常称帝规模的国家可先立首府头衔，再照常筹备；不覆盖既有法理。
+        if (kingdom.capital.hasTitle() || kingdom.countUnits() < MinimumPopulation || kingdom.cities.Count < MinimumCities ||
+            ModClass.KINGDOM_TITLE_MANAGER == null || EmpireCraftWorldLawLibrary.empirecraft_law_ban_empire.isEnabled()) return false;
+        KingdomTitle title = ModClass.KINGDOM_TITLE_MANAGER.newKingdomTitle(kingdom.capital);
+        if (title == null) return false;
+        title.owner = kingdom.king;
+        kingdom.king.AddOwnedTitle(title);
+        kingdom.SetMainTitle(title);
+        EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogCreateTitle(kingdom, title);
+        return kingdom.HasMainTitle();
+    }
+
     public static bool IsInFailureCooldown(Kingdom kingdom)
     {
         double failed = kingdom.GetOrCreate().empire_formation_failed_timestamp;

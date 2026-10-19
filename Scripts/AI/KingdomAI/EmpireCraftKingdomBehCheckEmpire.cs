@@ -264,7 +264,7 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
         if (repairMainTitle && pKingdom.hasKing() && !pKingdom.HasMainTitle() &&
             !pKingdom.IsEmpire() && !pKingdom.IsInEmpire())
         {
-            pKingdom.ReconcileMainTitle(pKingdom.GetControlledTitle());
+            EmpireFormationService.RepairFoundingTitle(pKingdom);
         }
         // 共主兼领的王国(城邦同盟成员等)不单独称帝：称帝剧情由君主发起，筹备记录、失败冷却都记在
         // 君主本国(actor.kingdom)身上；若让兼领国发起，本国没有筹备记录会立刻判定"被超越"失败，
