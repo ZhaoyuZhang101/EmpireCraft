@@ -208,7 +208,6 @@ public partial class PureMapPatch : GamePatch
         color.a = 1f;
         __instance.sprRnd.color = color;
         RefreshUrbanSlice();
-        UI.Components.TerrainOverlay.Update();
         UI.Components.CityDetailOverlay.Update();
         UI.Components.RoadOverlay.Update();
         UI.Components.MapWallOverlay.Update();
