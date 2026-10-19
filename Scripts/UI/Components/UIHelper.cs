@@ -1282,9 +1282,7 @@ public static class UIHelper
             : !kingdom.IsEmpire() ? LM.Get("empire_faction_inactive_short").ColorString("#D98C8C") : "";
         if (faction.IsParty && empire != null && PartyBanSystem.IsConsultative(empire, faction))
             state = (string.IsNullOrEmpty(state) ? "" : state + " ") + LM.Get("party_consultative_short").ColorString("#7FD8EA");
-        string ideologyLabel = (faction.IsParty
-                ? PartySystem.GetIdeologyName(ideology)
-                : IdeologyFamilies.FactionLeaning(ideology))
+        string ideologyLabel = IdeologyFamilies.FactionLeaning(faction)
             .ColorString(pColor: Color.Lerp(ideologyColor, Color.white, 0.35f));
         // 朋党：阶级派系没人领头时"蛰伏"；学说朋党标出投靠哪个阶级派系
         if (faction.IsClique && empire != null)
@@ -1467,9 +1465,7 @@ public static class UIHelper
         name.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
         HoverMarqueeText.Attach(name);
         // 第二行：理念(党禁前的派系标"倾向")，政党再标民族色彩
-        string ideologyLabel = faction.IsParty
-            ? PartySystem.GetIdeologyName(ideology)
-            : IdeologyFamilies.FactionLeaning(ideology);
+        string ideologyLabel = IdeologyFamilies.FactionLeaning(faction);
         string ideologyLine = ideologyLabel.ColorString(pColor: Color.Lerp(ideologyColor, Color.white, 0.35f));
         if (faction.IsParty && faction.Empire != null)
             ideologyLine += (" · " + LM.Get(EmpireCraft.Scripts.GeneralSystems.NationalSentimentSystem.ColorKey(

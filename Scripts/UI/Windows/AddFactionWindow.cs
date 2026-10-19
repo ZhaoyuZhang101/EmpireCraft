@@ -118,7 +118,7 @@ public class AddFactionWindow : WideScrollWindow<AddFactionWindow>
     private void DrawDefaultCard(AutoHoriLayoutGroup row, float width, FixedFaction template)
     {
         PartyIdeology ideology = PartySystem.LeaningOf(template);
-        var card = row.BeginColumnCard(width, template.Name, IdeologyHex(ideology), PartySystem.GetIdeologyName(ideology));
+        var card = row.BeginColumnCard(width, template.Name, IdeologyHex(ideology), IdeologyFamilies.FactionLeaning(template));
         Empire empire = FactionEditor.EmpireOf(_kingdom);
         string claims = string.Join("·", (template.TemporaryFactionTypes ?? new List<EmpireCraft.Scripts.Regimes.TemporaryFactions.TemporaryFactionType>())
             .Take(3).Select(type => TranslateHelper.GetTemporaryFactionClaimText(type, empire)));
@@ -215,7 +215,7 @@ public class AddFactionWindow : WideScrollWindow<AddFactionWindow>
                 new Vector2(70f, 13f)).UseFixedFontSize(7, HorizontalWrapMode.Overflow);
             string traits = string.Join("、", (preset.RequiredTraits ?? new List<string>()).Take(3)
                 .Select(trait => AssetManager.traits.get(trait)?.getTranslatedName() ?? trait));
-            row.AddTextIntoHoriLayout($"{PartySystem.GetIdeologyName(ideology)}  {traits}".ColorString(WideKit.Muted), true,
+            row.AddTextIntoHoriLayout($"{IdeologyFamilies.FactionLeaning(preset)}  {traits}".ColorString(WideKit.Muted), true,
                 TextAnchor.MiddleLeft, new Vector2(inner - 70f - 13f - 50f, 13f)).UseFixedFontSize(6, HorizontalWrapMode.Overflow);
             row.AddButtonIntoHoriLayout("add_faction", "", () =>
             {

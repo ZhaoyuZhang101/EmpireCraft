@@ -695,10 +695,13 @@ public class FactionDetailWindow : AbstractWideWindow<FactionDetailWindow>
         float inner = UIHelper.RailWidth - 8f;
         var row = card.BeginHoriGroup(new Vector2(inner, 14f), TextAnchor.MiddleLeft, 3, new RectOffset(3, 3, 0, 0));
         UIHelper.AddInsetBackground(row, new Vector2(inner, 14f));
-        row.AddTextIntoHoriLayout(LM.Get("faction_ideology_label").ColorString("#8FA0A8"), true, TextAnchor.MiddleLeft,
+        row.AddTextIntoHoriLayout(LM.Get(IdeologyFamilies.HasExplicitIdeology(_faction)
+                ? "faction_ideology_label" : "faction_stance_label").ColorString("#8FA0A8"), true, TextAnchor.MiddleLeft,
             new Vector2(20f, 12f)).UseFixedFontSize(6, HorizontalWrapMode.Overflow);
         string hex = WideKit.Hex(UIHelper.IdeologyColor(ideology));
-        row.AddTextIntoHoriLayout(PartySystem.GetIdeologyName(ideology).ColorString(hex), true, TextAnchor.MiddleLeft,
+        string stance = IdeologyFamilies.HasExplicitIdeology(_faction)
+            ? PartySystem.GetIdeologyName(ideology) : IdeologyFamilies.FactionLeaning(_faction);
+        row.AddTextIntoHoriLayout(stance.ColorString(hex), true, TextAnchor.MiddleLeft,
             new Vector2(inner - 62f, 12f)).UseFixedFontSize(7, HorizontalWrapMode.Overflow);
         row.AddButtonIntoHoriLayout("faction_change_ideology", LM.Get("faction_change_ideology"), ShowIdeologyPicker,
             size: new Vector2(30f, 12f));

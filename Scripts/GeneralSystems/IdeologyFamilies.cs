@@ -49,6 +49,19 @@ public static class IdeologyFamilies
         return string.Format(NeoModLoader.General.LM.Get(key), PartySystem.GetIdeologyName(ideology));
     }
 
+    // 固定派系按政策立场命名，不把用于配色的光谱近似值写成实际学说。
+    // 真正的朋党、政党及玩家手选的理念仍显示其实际信念。
+    public static bool HasExplicitIdeology(FixedFaction faction) =>
+        faction != null && (faction.IsParty || faction.IsClique || faction.IdeologyChosen);
+
+    public static string FactionLeaning(FixedFaction faction)
+    {
+        if (faction == null) return NeoModLoader.General.LM.Get("faction_stance_无");
+        if (!HasExplicitIdeology(faction)) return NeoModLoader.General.LM.Get("faction_stance_" + faction.Type);
+        PartyIdeology ideology = PartySystem.LeaningOf(faction);
+        return faction.IsParty ? PartySystem.GetIdeologyName(ideology) : FactionLeaning(ideology);
+    }
+
     // 只在朝堂里的立场(外戚、宦官、宗亲、军功)：不在民间流传
     public static bool IsCourtOnly(PartyIdeology ideology) =>
         ideology is PartyIdeology.ConsortKin or PartyIdeology.Eunuchs or PartyIdeology.RoyalKin or PartyIdeology.MilitaryMerit;

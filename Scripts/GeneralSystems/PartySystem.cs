@@ -481,8 +481,11 @@ public static class PartySystem
             weighted += ClassPositions[pair.Key] * pair.Value;
             total += pair.Value;
         }
-        // 党禁前的派系是古代朝堂的派系：只落到古代理念上
-        return NearestIdeology(total > 0f ? weighted / total : Vector2.zero, IdeologyFamilies.IsAncient);
+        // 这是供配色、政治距离等使用的近似立场，不是派系实际信奉的学说。
+        // 诸子百家只用于华夏朋党朝堂；游牧等固定派系不能凭阶层坐标被推成黄老、农家、兵家。
+        bool schools = CliqueSystem.Applies(faction.Empire);
+        return NearestIdeology(total > 0f ? weighted / total : Vector2.zero,
+            ideology => IdeologyFamilies.IsAncient(ideology) && (schools || !IdeologyFamilies.IsSchool(ideology)));
     }
 
     private static void ConvertToParty(Empire empire, FixedFaction faction, PartyIdeology ideology, string name)
