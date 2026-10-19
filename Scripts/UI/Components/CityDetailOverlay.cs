@@ -43,6 +43,10 @@ public static class CityDetailOverlay
         public float Seen;
     }
 
+    // 每帧用的候选城、显示的城(复用，不每帧新建)
+    private static readonly List<(City city, float distance)> Candidates = new();
+    private static readonly HashSet<long> Shown = new();
+    private static readonly global::System.Comparison<(City city, float distance)> ByDistance = (a, b) => a.distance.CompareTo(b.distance);
     private static int _lastBuildFrame = -100;
     private static Vector3 _cameraPosition;
     private static float _cameraSize = -1f, _cameraMovedAt = -10f;
@@ -81,7 +85,8 @@ public static class CityDetailOverlay
         bool canBuild = CameraSettled(camera) && Time.frameCount - _lastBuildFrame >= BuildEveryFrames;
         // 镜头范围(格)
         Rect view = ViewInTiles(camera, source);
-        var candidates = new List<(City city, float distance)>();
+        List<(City city, float distance)> candidates = Candidates;
+        candidates.Clear();
         foreach (City city in world.cities.list)
         {
             if (city?.data == null || city.isRekt() || city.zones == null || city.zones.Count == 0) continue;
@@ -91,8 +96,9 @@ public static class CityDetailOverlay
             float dx = center.x - view.center.x, dy = center.y - view.center.y;
             candidates.Add((city, dx * dx + dy * dy));
         }
-        candidates.Sort((a, b) => a.distance.CompareTo(b.distance));
-        var shown = new HashSet<long>();
+        candidates.Sort(ByDistance);
+        HashSet<long> shown = Shown;
+        shown.Clear();
         foreach ((City city, _) in candidates)
         {
             if (shown.Count >= MaxShown) break;

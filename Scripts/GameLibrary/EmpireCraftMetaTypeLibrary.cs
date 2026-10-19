@@ -336,8 +336,9 @@ public static class EmpireCraftMetaTypeLibrary
 	        switch (pMetaTypeAsset.getZoneOptionState())
 	        {
 		        case 0:
-              // 画到了哪些城(没画到的王国最后按本国颜色补上，见 drawUncoveredKingdoms)
-              var covered = new HashSet<City>();
+              // 画到了哪些城(没画到的王国最后按本国颜色补上，见 drawUncoveredKingdoms)；每轮重画复用同一个集合
+              var covered = CoveredCities;
+              covered.Clear();
               foreach (var kingdom in World.world.kingdoms)
               { 
                 if (kingdom.IsInEmpire()) continue;
@@ -424,7 +425,8 @@ public static class EmpireCraftMetaTypeLibrary
               drawUncoveredKingdoms(covered);
 			        break;
 		        case 1:
-              var drawn = new HashSet<City>();
+              var drawn = CoveredCities;
+              drawn.Clear();
 
 			        foreach (var pEmpire in ModClass.EMPIRE_MANAGER)
 			        {
@@ -442,7 +444,8 @@ public static class EmpireCraftMetaTypeLibrary
               drawUncoveredKingdoms(drawn);
 			        break;
 		        case 2:
-              drawn = new HashSet<City>();
+              drawn = CoveredCities;
+              drawn.Clear();
               foreach (var pEmpire in ModClass.EMPIRE_MANAGER)
               {
                 if (pEmpire == null || pEmpire.IsArchived()) continue;
@@ -1004,6 +1007,8 @@ public static class EmpireCraftMetaTypeLibrary
     // 独立王国是空的(纯净地图下色块不透明，那里露出底下的地图)
     // 没画到的城按国家一秒一算(图层每帧都调)
     private static readonly List<(Kingdom kingdom, List<City> cities)> _uncovered = new();
+    // 帝国图层这一轮画到了哪些城(draw_zones 每轮重画都用，不每轮新建)
+    private static readonly HashSet<City> CoveredCities = new();
     private static float _uncoveredAt = -10f;
     private static int _uncoveredOption = -1;
 
