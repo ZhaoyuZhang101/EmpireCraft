@@ -46,6 +46,8 @@ public class KingdomTitleData: MetaObjectData
 
     // EmpireCraft culture key (for example Huaxia), not a vanilla species or Culture id.
     public string culture = "";
+    // 初始文化(见 CultureService.GetInitialTitleCulture)：法理头衔最早的文化，供一键恢复；法理窗口里可以改
+    public string initial_culture = "";
     public bool culture_explicit = false;
     public bool culture_locked = false;
     public double last_culture_check_timestamp = -1L;

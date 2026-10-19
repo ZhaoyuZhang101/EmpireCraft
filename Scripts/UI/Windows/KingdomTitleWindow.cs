@@ -282,10 +282,17 @@ namespace EmpireCraft.Scripts.UI.Windows
                 ? LM.Get("kingdom_title_culture_locked")
                 : LM.Get("kingdom_title_culture_unlocked");
 
-            var card = _content.BeginVertGroup(pSize: new Vector2(ContentWidth, 64), pSpacing: 1,
+            // 初始文化(见 CultureService.GetInitialTitleCulture)：可设为所选文化，或一键恢复
+            string initialCulture = CultureService.GetInitialTitleCulture(title);
+            string initialDisplay = CultureService.IsValidCulture(initialCulture)
+                ? initialCulture.GetCultureTranslate()
+                : LM.Get("label_none");
+            var card = _content.BeginVertGroup(pSize: new Vector2(ContentWidth, 92), pSpacing: 1,
                 pAlignment: TextAnchor.MiddleCenter);
             card.AddTextIntoVertLayout($"{LM.Get("kingdom_title_effective_culture")}: {displayCulture}", true,
                 TextAnchor.MiddleCenter, new Vector2(ContentWidth - 10f, 12));
+            card.AddTextIntoVertLayout($"{LM.Get("kingdom_title_initial_culture")}: {initialDisplay}", true,
+                TextAnchor.MiddleCenter, new Vector2(ContentWidth - 10f, 10));
             card.AddTextIntoVertLayout($"{source} · {lockState}", true,
                 TextAnchor.MiddleCenter, new Vector2(ContentWidth - 10f, 10));
             string selectedDisplay = CultureService.IsValidCulture(_selectedCulture)
@@ -303,7 +310,14 @@ namespace EmpireCraft.Scripts.UI.Windows
             actions.AddButtonIntoHoriLayout("clear_title_culture_override", LM.Get("kingdom_title_clear_override"),
                 ClearCultureOverride, SpriteTextureLoader.getSprite("ui/changeOfficer"),
                 size: new Vector2(61, 15), showTip: false);
-            card.transform.AddStretchBackground("FactionFrame", new Vector2(ContentWidth, 64));
+            var initialActions = card.BeginHoriGroup(pSize: new Vector2(ContentWidth - 10f, 16), pSpacing: 3,
+                pAlignment: TextAnchor.MiddleCenter);
+            initialActions.AddButtonIntoHoriLayout("set_title_initial_culture", LM.Get("kingdom_title_set_initial_culture"),
+                SetInitialCulture, SpriteTextureLoader.getSprite("ui/changeOfficer"), size: new Vector2(92, 15), showTip: false);
+            initialActions.AddButtonIntoHoriLayout("restore_title_initial_culture", LM.Get("kingdom_title_restore_initial_culture"),
+                RestoreInitialCulture, SpriteTextureLoader.getSprite("ui/icons/godpowers/restore_title_culture"),
+                size: new Vector2(92, 15), showTip: false);
+            card.transform.AddStretchBackground("FactionFrame", new Vector2(ContentWidth, 92));
 
             AddSectionTitle(LM.Get("kingdom_title_select_culture"));
             AutoGridLayoutGroup palette = _content.BeginGridGroup(GridColumns(48), GridLayoutGroup.Constraint.FixedColumnCount,
@@ -386,6 +400,24 @@ namespace EmpireCraft.Scripts.UI.Windows
                 ActionLibrary.showWhisperTip("kingdom_title_culture_invalid");
                 return;
             }
+            RefreshContent();
+        }
+
+        // 把所选文化设为这块法理的初始文化(不改现在的文化)
+        private void SetInitialCulture()
+        {
+            if (!CultureService.SetInitialTitleCulture(title, _selectedCulture))
+            {
+                ActionLibrary.showWhisperTip("kingdom_title_culture_invalid");
+                return;
+            }
+            RefreshContent();
+        }
+
+        private void RestoreInitialCulture()
+        {
+            if (title?.data == null) return;
+            CultureService.RestoreInitialTitleCulture(title);
             RefreshContent();
         }
 

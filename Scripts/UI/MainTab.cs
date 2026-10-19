@@ -439,6 +439,13 @@ internal static class MainTab
                 SpriteTextureLoader.getSprite("ui/icons/godpowers/dissolve_city")));
 
         // ---- 易俗：点城一键改换文化，本国最后一座城连国家制度一并改(见 CityCulturePower) ----
+        // 举国 / 举朝易俗开关与复旧法理(见 RealmCulturePowers)放在各文化笔刷前面
+        RealmCulturePowers.Init();
+        foreach (string toggle in new[] { RealmCulturePowers.Kingdom, RealmCulturePowers.Empire })
+            AddButton(CULTURE_BRUSH_GROUP, PowerButtonCreator.CreateToggleButton(toggle,
+                SpriteTextureLoader.getSprite("ui/icons/godpowers/" + toggle)));
+        AddButton(CULTURE_BRUSH_GROUP, PowerButtonCreator.CreateGodPowerButton(RealmCulturePowers.Restore,
+            SpriteTextureLoader.getSprite("ui/icons/godpowers/" + RealmCulturePowers.Restore)));
         foreach ((string powerId, string culture) in CityCulturePower.Init())
         {
             PowerButton brush = PowerButtonCreator.CreateGodPowerButton(powerId, EmpireCraft.Scripts.UI.Components.CultureIcons.Get(culture));

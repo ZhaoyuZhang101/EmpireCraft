@@ -1707,6 +1707,10 @@ GODPOWERS.update({
     "famous_talents": (obj_swords, "crown"),
     "bestow_famous_general": (obj_sword, "up"),
     "bestow_famous_minister": (obj_brush, "up"),
+    # 易俗范围开关：举国易俗(王冠 + 笔)、举朝易俗(帝国法理 + 笔)；恢复法理初始文化(法理 + 返回)
+    "realm_culture_kingdom": (lambda i: (obj_crown(i), obj_brush(i)), "swap"),
+    "realm_culture_empire": (lambda i: (obj_title(i), obj_brush(i)), "swap"),
+    "restore_title_culture": (obj_title, "back"),
 })
 
 

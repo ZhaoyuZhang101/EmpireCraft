@@ -150,6 +150,49 @@ public static class CultureReformSystem
         return true;
     }
 
+    // 一键易俗(见 RealmCultureSystem)：君主一家与在任官员，不论原来是什么文化，一律改从 target——
+    // 宗族本非同一文化圈的整支改姓(同 Apply)；返回王族的新姓(没改姓为空)
+    public static string ConvertRulers(Kingdom kingdom, string target)
+    {
+        if (kingdom?.data == null || kingdom.isRekt() || !CultureService.IsValidCulture(target)) return null;
+        Actor king = kingdom.king != null && !kingdom.king.isRekt() && kingdom.king.isAlive() ? kingdom.king : null;
+        Culture native = string.Equals(CulturePatch.GetInjectedCultureName(kingdom.culture), target, StringComparison.Ordinal)
+            ? kingdom.culture
+            : CultureService.GetNativeCultureObject(target);
+        var taken = new HashSet<string>(SpecificClanManager._specificClans.Where(c => c != null && !string.IsNullOrWhiteSpace(c.name))
+            .Select(c => c.name), StringComparer.Ordinal);
+        var done = new HashSet<long>();
+        string royalSurname = null;
+        if (king != null && !string.Equals(CultureService.GetActorCulture(king), target, StringComparison.Ordinal))
+        {
+            SpecificClan royal = king.GetSpecificClan();
+            if (royal == null) Convert(king, target, native, null);
+            else
+            {
+                done.Add(Root(royal).id);
+                if (ForeignOrigin(royal, CultureService.GetActorCulture(king), target))
+                    royalSurname = RenameLineage(royal, target, native, taken, king.getID());
+                else Convert(royal, target, native, null);
+            }
+        }
+        foreach (Actor actor in kingdom.units.ToList())
+        {
+            if (actor?.data == null || actor.isRekt() || !actor.IsOnOffice() ||
+                string.Equals(CultureService.GetActorCulture(actor), target, StringComparison.Ordinal)) continue;
+            SpecificClan clan = actor.GetSpecificClan();
+            if (clan == null)
+            {
+                Convert(actor, target, native, null);
+                continue;
+            }
+            if (!done.Add(Root(clan).id)) continue;
+            if (done.Count <= MaxRenamedClans + 1 && ForeignOrigin(clan, CultureService.GetActorCulture(actor), target))
+                RenameLineage(clan, target, native, taken, actor.getID());
+            else Convert(clan, target, native, null);
+        }
+        return royalSurname;
+    }
+
     // 宗族本非目标文化：看始祖记下的文化，没有记录就看这个人原来的文化。
     // 同一文化圈(制度线相同，如华夏、山海)里改俗只改风俗不改姓——以前只比文化名，汉朝改从山海之俗，
     // 刘氏皇族整支改姓"彤鱼"(玩家反馈 2026-10-16)。改姓只留给跨文化圈的(如鲜卑拓跋改从华夏之俗改姓元)

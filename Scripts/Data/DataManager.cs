@@ -254,6 +254,9 @@ public static class DataManager
 
         }
         ModClass.KINGDOM_TITLE_MANAGER.update(-1L);
+        // 旧存档没有法理的初始文化：以现在的文化补上(见 CultureService.RememberInitialTitleCulture)
+        foreach (KingdomTitle title in ModClass.KINGDOM_TITLE_MANAGER.ToList())
+            CultureService.RememberInitialTitleCulture(title);
         // 修复：临时子核心抢走的原核心城市归还原核心(见 EmpireCoreManager.RestoreParentCities)
         EmpireCoreManager.RepairContestedCoreOwners();
         EmpireCoreManager.RestoreAllParentCities();

@@ -391,12 +391,50 @@ public static class CultureService
             if (!IsValidCulture(title.data.culture))
                 title.data.culture = GetRealmCulture(title.title_capital?.kingdom);
         }
+        RememberInitialTitleCulture(title);
         foreach (City city in title.getCities()) InitializeCityCulture(city);
+    }
+
+    // 法理的初始文化(用户 2026-10-19："一键恢复法理的初始文化，法理里面能够变更初始文化")：法理头衔第一次有文化时记下；
+    // 改文化前没记过的先记下改之前的；旧存档读档时以当时的文化补上(见 DataManager)
+    public static void RememberInitialTitleCulture(KingdomTitle title)
+    {
+        if (title?.data == null || IsValidCulture(title.data.initial_culture)) return;
+        string current = IsValidCulture(title.data.culture) ? title.data.culture : GetEffectiveTitleCulture(title);
+        if (IsValidCulture(current)) title.data.initial_culture = current;
+    }
+
+    public static string GetInitialTitleCulture(KingdomTitle title)
+    {
+        RememberInitialTitleCulture(title);
+        return title?.data?.initial_culture ?? "";
+    }
+
+    public static bool SetInitialTitleCulture(KingdomTitle title, string culture)
+    {
+        if (title?.data == null || !IsValidCulture(culture)) return false;
+        title.data.initial_culture = culture;
+        return true;
+    }
+
+    // 恢复初始文化(锁定的也恢复)；已经是初始文化的返回 false
+    public static bool RestoreInitialTitleCulture(KingdomTitle title)
+    {
+        string initial = GetInitialTitleCulture(title);
+        if (!IsValidCulture(initial)) return false;
+        if (string.Equals(GetEffectiveTitleCulture(title), initial, StringComparison.Ordinal) && title.data.culture_explicit)
+            return false;
+        if (ConvertTitleCulture(title, initial)) return true;
+        title.data.culture = initial;
+        title.data.culture_explicit = true;
+        RefreshCultureDependents(title);
+        return true;
     }
 
     public static bool SetTitleCulture(KingdomTitle title, string culture, bool explicitCulture, bool locked)
     {
         if (title?.data == null || !IsValidCulture(culture)) return false;
+        RememberInitialTitleCulture(title);
         title.data.culture = culture;
         title.data.culture_explicit = explicitCulture;
         title.data.culture_locked = locked;
@@ -1267,6 +1305,7 @@ public static class CultureService
         if (title?.data == null || title.isRekt() || !IsValidCulture(candidate)) return false;
         string previous = GetEffectiveTitleCulture(title);
         if (string.Equals(previous, candidate, StringComparison.Ordinal)) return false;
+        RememberInitialTitleCulture(title);
 
         title.data.culture = candidate;
         title.data.culture_explicit = true;

@@ -164,6 +164,20 @@ public static partial class CompositeEmpireService
         return true;
     }
 
+    // 复合帝国作罢(一键易俗把整个帝国改成一个文化时，见 RealmCultureSystem)：不改政体，只清掉双重身份
+    public static void Dissolve(Empire empire)
+    {
+        if (empire?.data == null) return;
+        empire.data.composite_integration_stage = CompositeEmpireIntegrationStage.None;
+        empire.data.composite_integration = 0;
+        empire.data.composite_route = 0;
+        empire.data.institutional_culture = "";
+        empire.data.external_identity_culture = "";
+        empire.data.military_tradition = "";
+        empire.data.nativist_revival_at = -1d;
+        SynchronizeMilitaryTraditionClaims(empire);
+    }
+
     // 本族旧地最大的城：先找朝廷自己的，再找成员的(成员的都城不拿)
     private static City HomelandSeat(Empire empire, string ruling)
     {
