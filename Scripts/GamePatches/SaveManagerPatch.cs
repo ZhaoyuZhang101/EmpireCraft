@@ -84,6 +84,7 @@ public class SaveManagerPatch : GamePatch
     public static void BeforeClearWorld()
     {
         ModClass.IS_CLEAR = true;
+        EnsureCompatPatches();
         DBManagerPatch.AllClear();
         ClearPersistentWorldState();
         ClearRuntimeState();
@@ -114,9 +115,24 @@ public class SaveManagerPatch : GamePatch
         return true;
 
     }    
+    // 给别的模组打的兼容补丁(WarBox、modernmod、科技门槛，见 TechnologyPatch.EnsureModPatches)要一两秒：以前等进了世界、
+    // 第一次科技年度扫描才打，读档后卡一下(性能日志"年度扫描·科技"单次 1.9 秒)；挪到建图、读档的加载阶段，藏在加载画面里
+    private static void EnsureCompatPatches()
+    {
+        try
+        {
+            TechnologyPatch.EnsureModPatches();
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft] 兼容补丁提前打失败(进世界后再打): {exception.Message}");
+        }
+    }
+
     public static void load_mod_data(SaveManager __instance, SavedMap pData, string pPath)
     {
         ModClass.IS_CLEAR = true;
+        EnsureCompatPatches();
         ActorPatch.startSessionMonth = Date.getMonthsSince(World.world.getCurSessionTime());
         ActorPatch.isReadyToSet = false;
         ClearPersistentWorldState();
