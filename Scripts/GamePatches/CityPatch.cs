@@ -1164,6 +1164,8 @@ public class CityPatch : GamePatch
     };
     private static readonly string[] WorldYearlyScanNames =
         { "宗族分支", "理念传播", "科技", "制度漂移", "苛政", "核威慑", "文化近代化", "失都改称", "战后分配", "羁縻边防", "行政区划界", "国债", "还于旧都", "战争赔款", "海上商路", "附庸描边", "封建贡赋", "名将名臣", "和亲互市", "宗教", "大国通好" };
+    // 计时标签预先拼好(以前每帧拼一次"年度扫描·"+名字)
+    private static readonly string[] WorldYearlyScanLabels = WorldYearlyScanNames.Select(name => "年度扫描·" + name).ToArray();
     private static int _worldScanFrame = -1;
     private const int SurrenderCheckEvery = 10;
     private const int SlowHookCitiesPerFrame = 3;
@@ -1174,7 +1176,7 @@ public class CityPatch : GamePatch
         if (frame == _worldScanFrame) return;
         _worldScanFrame = frame;
         int index = frame % WorldYearlyScans.Length;
-        using (FrameProfiler.Measure("年度扫描·" + WorldYearlyScanNames[index])) WorldYearlyScans[index]();
+        using (FrameProfiler.Measure(WorldYearlyScanLabels[index])) WorldYearlyScans[index]();
     }
 
     public static void city_update(City __instance, float pElapsed)
