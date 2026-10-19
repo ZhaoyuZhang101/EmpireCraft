@@ -6335,6 +6335,7 @@
   "rebellion_reason_secession": "Local secession",
   "rebellion_reason_khan_succession": "A new khan's accession splits the hordes",
   "rebellion_reason_emirate_secession": "An emir breaks away",
+  "rebellion_reason_emirate_fitna": "Emirs break away during a succession",
   "rebellion_reason_exclave": "Isolated territory",
   "rebellion_reason_city_loyalty": "Low local loyalty",
   "rebellion_reason_harsh_rule": "Oppressive rule",

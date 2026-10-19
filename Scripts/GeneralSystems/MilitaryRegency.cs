@@ -136,6 +136,8 @@ public static class MilitaryRegency
         Install(empire, heir, kind);
         Record(empire, string.Format(LM.Get("military_regency_succession"), heir.getName(), LM.Get(TitleKey(empire)),
             empire.GetEmpireName()));
+        // 苏丹更替：积弊深重或正统低落时世袭的埃米尔可能举兵自立(见 NomadCycleSystem 的哈里发更替之乱)
+        if (kind == Sultan) NomadCycleSystem.OnSultanSucceeded(empire, heir);
     }
 
     // 收场：大政奉还(幕府)、不再有苏丹(阿拉伯)

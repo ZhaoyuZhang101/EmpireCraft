@@ -543,14 +543,16 @@ public static class EmpirePartitionSystem
         float total = empire.kingdoms_list.Sum(Might);
         City capital = core.capital;
         FixedFaction ministerFaction = minister.GetFaction();
-        // 强藩：远方、兵多(或带兵的统帅、节度使、都护)、不与权臣同派的成员国君主
+        // 强藩：远方、兵多(或带兵的统帅、节度使、都护、世袭的埃米尔)、不与权臣同派的成员国君主；
+        // 苏丹挟制哈里发时，远方世袭的埃米尔也会拥立宗室另立一朝(见 EmirateSystem)
         Kingdom bastion = empire.kingdoms_list
             .Where(kingdom => kingdom != null && !kingdom.isRekt() && kingdom != core && kingdom.capital != null &&
                               kingdom.king?.data != null && kingdom.king.isAlive() && kingdom.king.isAdult() &&
                               kingdom.king != minister && (ministerFaction == null || kingdom.king.GetFaction() != ministerFaction) &&
                               Vector2.Distance(kingdom.capital.city_center, capital.city_center) >= span * StrongmanDistanceShare &&
                               (Might(kingdom) >= total * StrongmanMightShare || CorpsSystem.IsGeneral(kingdom.king) ||
-                               kingdom.GetKingdomType() is KingdomType.LvLing_jiedushi or KingdomType.LvLing_duhufu))
+                               kingdom.GetKingdomType() is KingdomType.LvLing_jiedushi or KingdomType.LvLing_duhufu ||
+                               EmirateSystem.IsHereditaryEmir(empire, kingdom)))
             .OrderByDescending(Might).FirstOrDefault();
         if (bastion == null || UnityEngine.Random.value >= MinisterChance * PhaseFactor(core)) return;
         Plan plan = Divide(empire, capital, bastion.capital);

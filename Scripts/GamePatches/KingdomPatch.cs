@@ -233,6 +233,8 @@ public class KingdomPatch : GamePatch
                 __instance.RemoveHeir();
                 // 汗国新汗即位：积弊深重或正统低落时各兀鲁思可能据地自立(见 NomadCycleSystem)，先于即位分封
                 if (isActualSuccession && empire != null) NomadCycleSystem.OnKhanSucceeded(empire);
+                // 新哈里发即位：积弊深重或正统低落时世袭的埃米尔可能举兵自立(哈里发更替之乱，见 NomadCycleSystem)
+                if (isActualSuccession && empire != null) NomadCycleSystem.OnCaliphSucceeded(empire);
                 // 不论新皇帝是怎么即位的，都在这里处理即位分封(按法理把土地封给新君的兄弟)
                 if (isActualSuccession && empire != null) EnfeoffmentHelper.OnEmperorSucceeded(empire);
                 return;

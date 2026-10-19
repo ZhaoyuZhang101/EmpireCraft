@@ -20,7 +20,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     取最重的一项再加其余的四分之一；
 //   · 首义(每年)：概率 = 内忧 × 0.5；离心最重、离心度不低于 0.5 的一省宣布独立。
 //     离心度 = (1 − 行政控制力) + 都城稳定不足 70 的部分/70，近代再看革新理念，异文化再加 0.3，
-//     手握重兵的藩镇(节度使、都护府)再加 0.3(军阀割据)，正自顾打仗的减 0.2；
+//     手握重兵的藩镇(节度使、都护府)、世袭的埃米尔再加 0.3(军阀割据)，正自顾打仗的减 0.2；
 //     开国雄主登基头 15 年、上次瓦解结束后 15 年内不发生；周制春秋战国另有规则，不在此列；
 //   · 响应(此后两年，每月)：各省按 0.06 × 内忧(至少 0.35) × 离心度 检定，与已独立之省接壤的再乘 1.6，单月最多 35%；
 //   · 近代(本文化可废君主，或已入工业时代且开放了党禁——先要立宪)：各省合组革命同盟与朝廷开战，沿用地方共和同盟的结局(见 RepublicSystem)：
@@ -92,8 +92,9 @@ public static class ProvincialCollapseSystem
         string ruling = CompositeEmpireService.GetRulingCulture(empire);
         string local = CultureService.GetMainCulture(capital);
         if (CultureService.IsValidCulture(local) && !string.Equals(local, ruling, StringComparison.Ordinal)) value += 0.3f;
-        // 军阀割据：手握重兵的藩镇
-        if (province.GetKingdomType() is KingdomType.LvLing_jiedushi or KingdomType.LvLing_duhufu) value += 0.3f;
+        // 军阀割据：手握重兵的藩镇；世袭的埃米尔同样(见 EmirateSystem)
+        if (province.GetKingdomType() is KingdomType.LvLing_jiedushi or KingdomType.LvLing_duhufu ||
+            EmirateSystem.IsHereditaryEmir(empire, province)) value += 0.3f;
         if (province.getWars().Any(war => war != null && !war.hasEnded())) value -= 0.2f;
         return Mathf.Max(0f, value);
     }

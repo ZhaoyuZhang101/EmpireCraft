@@ -157,6 +157,8 @@ public static class EmpireCraftOpinionAddition
             calc = delegate (Kingdom pMain, Kingdom pTarget)
             {
                 int result = 0;
+                // 圣地只让外国景仰；同一帝国的成员对坐拥圣地的朝廷不另加(以前另加 200~300，成员永远自立不了)
+                if (pMain.IsInSameEmpire(pTarget)) return result;
                 if (pMain.hasReligion()&&pMain.GetRegime()!=null)
                 {
                     Religion religion = pMain.religion;
