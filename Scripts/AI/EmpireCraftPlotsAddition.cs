@@ -2442,8 +2442,10 @@ namespace EmpireCraft.Scripts.AI
                     IsIndependentWarRealm(actor?.kingdom)
                         ? vanillaWarStart != null && vanillaWarStart(actor, asset, forced)
                         : TryStartModWar(actor, asset, forced);
+                // 谋划期间(动员、陈兵边境要几个月)结成了不该打的关系(联姻、共事、统一战线……)就作罢，见 WarGate.Forbidden
                 vanillaWar.check_should_continue = actor => IsIndependentWarRealm(actor?.kingdom)
-                    ? (vanillaWarContinue?.Invoke(actor) ?? true)
+                    ? (vanillaWarContinue?.Invoke(actor) ?? true) &&
+                      !WarGate.Forbidden(actor.kingdom, actor.plot?.target_kingdom)
                     : ShouldContinueModWar(actor);
                 vanillaWar.action = actor => IsIndependentWarRealm(actor?.kingdom)
                     ? (vanillaWarAction?.Invoke(actor) ?? false)
@@ -2756,6 +2758,18 @@ namespace EmpireCraft.Scripts.AI
         private static bool IsIndependentWarRealm(Kingdom kingdom) =>
             kingdom != null && UsesVanillaWarPlot(kingdom.IsEmpire(), kingdom.IsInEmpire(),
                 FeudalVassalService.GetOverlord(kingdom) != null);
+
+        // 开战谋划对君主本人的门槛(原版 PlotAsset.checkIsPossible 先查：等级 3、武略 6、本人的钱、国家声望 50)。
+        // 这几项都靠原版小人的日常攒：打仗、读书、逐年长进涨等级武略，城主向君主上贡攒钱，人丁出生涨国家声望。
+        // 无小人模式把这些都抽象掉了——君主多是从人口里新补出来的(武略只有天生的三四点、等级一二级)，城主也不再上贡，
+        // 部落、小国的君主几十年过不了门槛，独立王国一直没有开战的谋划([开战诊断]："君主武略 3 < 6"、"君主的钱不够")。
+        // 无小人模式下独立王国不看君主本人这几项(见 PlotAssetPatch.checkIsPossible)，照原版看国家要不要打(isWarNeeded)、
+        // 打不打得起(CorpsSystem.CannotFundWar)、有没有对象(getWarTarget)；好和平的君主与文化照旧不打。
+        // 帝国、帝国成员、附庸另有开战途径，照旧看君主本人；兼容模组接管的国家也照原版
+        internal static bool SkipsWarPlotRulerGate(Actor actor) =>
+            actor?.kingdom != null && CityPopulationSystem.AbstractPopulationEnabled &&
+            !EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(actor) &&
+            IsIndependentWarRealm(actor.kingdom);
 
         // 宗教战争的对象：与发起国(或其所在帝国)接壤的异教国家，不是本帝国的成员
         private static bool HolyWarNeighbour(Kingdom kingdom, Kingdom target) =>

@@ -69,10 +69,14 @@ public static class FormationDiagnostics
         if (war == null) return "原版开战剧情不存在";
         if (kingdom.GetRegime()?.IsAllowDiplomacy() == false) return "政体不许自主外交";
         if (king.hasPlot()) return $"君主正忙别的剧情({king.plot?.getAsset()?.id})";
-        if (!king.hasEnoughMoney(war.money_cost)) return $"君主的钱不够({king.money}/{war.money_cost})";
-        if (king.level < war.min_level) return $"君主等级 {king.level} < {war.min_level}";
-        if (kingdom.getRenown() < war.min_renown_kingdom) return $"国家声望 {kingdom.getRenown()} < {war.min_renown_kingdom}";
-        if (king.warfare < war.min_warfare) return $"君主武略 {king.warfare} < {war.min_warfare}";
+        // 无小人模式下独立王国不看君主本人的钱、等级、武略与国家声望(见 PlotAssetPatch.checkIsPossible)
+        if (!EmpireCraft.Scripts.AI.EmpireCraftPlotsAddition.SkipsWarPlotRulerGate(king))
+        {
+            if (!king.hasEnoughMoney(war.money_cost)) return $"君主的钱不够({king.money}/{war.money_cost})";
+            if (king.level < war.min_level) return $"君主等级 {king.level} < {war.min_level}";
+            if (kingdom.getRenown() < war.min_renown_kingdom) return $"国家声望 {kingdom.getRenown()} < {war.min_renown_kingdom}";
+            if (king.warfare < war.min_warfare) return $"君主武略 {king.warfare} < {war.min_warfare}";
+        }
         if (!war.isAllowedByWorldLaws()) return "世界法则关了外交";
         if (king.hasTrait("pacifist") || king.hasCulture() && king.culture.hasTrait("serenity_now")) return "君主或文化好和平";
         CityPopulationSystem.EnterVanillaScale();
