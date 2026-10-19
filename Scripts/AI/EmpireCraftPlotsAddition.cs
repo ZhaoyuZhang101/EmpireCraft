@@ -2642,6 +2642,8 @@ namespace EmpireCraft.Scripts.AI
                 }
             });
             BlockVanillaAlliancePlots();
+            foreach (var asset in AssetManager.plots_library.getList())
+                VanillaIdentitySystem.ApplyPlotPolicy((PlotAsset)asset);
             GuardAllPlotAssets();
             LogService.LogInfo($"Currently loaded{AssetManager.plots_library.getList().Count().ToString()} plots");
             AssetManager.plots_library.linkAssets();

@@ -1,5 +1,6 @@
 ﻿using EmpireCraft.Scripts.GameClassExtensions;
 using HarmonyLib;
+using EmpireCraft.Scripts.GeneralSystems;
 using NeoModLoader.api;
 using System;
 using System.Collections.Generic;
@@ -25,6 +26,12 @@ public class PlotAssetPatch : GamePatch
     // 其余门槛与 check_is_possible 照原版 PlotAsset.checkIsPossible 的顺序查
     public static bool checkIsPossible(PlotAsset __instance, Actor pActor, bool pWorldLawsCheck, ref bool __result)
     {
+        if (VanillaIdentitySystem.BlocksPlot(__instance?.id) ||
+            __instance?.id == "new_language" && VanillaIdentitySystem.TryReuseLanguage(pActor))
+        {
+            __result = false;
+            return false;
+        }
         if (__instance == null || __instance != PlotsLibrary.new_war ||
             !EmpireCraft.Scripts.AI.EmpireCraftPlotsAddition.SkipsWarPlotRulerGate(pActor)) return true;
         __result = pActor.renown >= __instance.min_renown_actor &&

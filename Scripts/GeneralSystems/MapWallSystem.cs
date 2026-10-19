@@ -108,9 +108,21 @@ public static class MapWallSystem
         bool destroy = options != null && (options.destroy_buildings || options.remove_top_tile || options.explode_tile ||
                                            options.damage_buildings || options.transform_to_wasteland || options.id == "draw");
         if (!destroy && !(main != null && (main.liquid || main.lava))) return;
-        _walls.Remove(tile.data.tile_id);
+        Remove(tile);
+    }
+
+    // 拆除工具看不到已转为图层数据的实体墙，需直接删除存档数据并作废寻路缓存。
+    public static bool Remove(WorldTile tile)
+    {
+        if (_converting || tile?.data == null || !_walls.Remove(tile.data.tile_id)) return false;
         Revision++;
         _dirty = true;
+        if (tile.zone != null)
+        {
+            TerrainSystem.Invalidate(tile.zone);
+            TerrainResistance.InvalidateWall(tile.zone);
+        }
+        return true;
     }
 
     // 神力新画的城墙：原版设好顶层格之后排队，下一帧转换(不在原版设格的过程中改格子)；

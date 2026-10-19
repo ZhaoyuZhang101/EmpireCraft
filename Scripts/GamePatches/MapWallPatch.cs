@@ -14,6 +14,9 @@ public class MapWallPatch : GamePatch
 
     public void Initialize()
     {
+        new Harmony(nameof(MapWallPatch) + ".Demolish").Patch(
+            AccessTools.Method(typeof(PowerLibrary), nameof(PowerLibrary.drawDemolish)),
+            prefix: new HarmonyMethod(typeof(MapWallPatch), nameof(BeforeDemolish)));
         new Harmony(nameof(MapWallPatch)).Patch(
             AccessTools.Method(typeof(WorldTile), nameof(WorldTile.setTopTileType)),
             prefix: new HarmonyMethod(typeof(MapWallPatch), nameof(BeforeSetType)),
@@ -30,6 +33,8 @@ public class MapWallPatch : GamePatch
 
     public static void BeforeTerraform(WorldTile pTile, TileType pNewTypeMain, TopTileType pTopType, TerraformOptions pOptions) =>
         MapWallSystem.OnTerraform(pTile, pNewTypeMain, pTopType, pOptions);
+
+    public static void BeforeDemolish(WorldTile pTile) => MapWallSystem.Remove(pTile);
 
     // 记下设格之前这一格的样子(原版 Type 在 updateStats 里才换：setTileTypes 先不更新地设顶层格，再设地面格时一起换)
     public static void BeforeSetType(WorldTile __instance, out TileTypeBase __state) => __state = __instance?.Type;
