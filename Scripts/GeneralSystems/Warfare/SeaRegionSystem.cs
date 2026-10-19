@@ -10,11 +10,14 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 一个地块区块(8×8 格)几乎全是水(陆地 ≤ 16 格)就算海；
 //   · 连通的海面从一块未分的海开始向外广度扩张，满 RegionSize 块切成一个海区，大洋因此分成许多海区，制海权可以局部争夺；
 //   · 记下海区之间的相邻关系(找航线用)、海区的中心块(画兵牌)、沿岸港口城(港口城的地块与海区相邻)。
-// 读档或换地图后第一次用到时建一次；海陆变了(造岛、填海)每年重建一次。
+// 读档或换地图后第一次用到时建一次；海陆变了(造岛、填海)最多每年重建一次。
+// 以前不论变没变每年整图重划一次(排序全图地块、广度扩张)；现在设地面格(MapWallPatch)时看这块地算不算海变没变，
+// 变了才记下要重划，到一年照旧重划，没变就不划；十年兜底重划一次
 public static class SeaRegionSystem
 {
     private const int RegionSize = 60;
     private const int MaxGround = 16;
+    private const int FallbackYears = 10;
 
     public sealed class Region
     {
@@ -33,6 +36,9 @@ public static class SeaRegionSystem
     private static readonly Dictionary<int, int> RegionByZone = new();
     private static object _world;
     private static double _builtAt = -1d;
+    // 上次划分时各地块算不算海(按地块编号)；有地块变了就要重划
+    private static bool[] _seaAtBuild = new bool[0];
+    private static bool _dirty;
 
     public static IReadOnlyList<Region> All
     {
@@ -50,6 +56,15 @@ public static class SeaRegionSystem
         ShoreCache.Clear();
         _world = null;
         _builtAt = -1d;
+        _seaAtBuild = new bool[0];
+        _dirty = false;
+    }
+
+    // 设地面格之后(MapWallPatch)：这块地算不算海和上次划分时不一样了，记下要重划
+    public static void OnTileChanged(TileZone zone)
+    {
+        if (_dirty || zone == null || zone.id < 0 || zone.id >= _seaAtBuild.Length) return;
+        if (_seaAtBuild[zone.id] != IsSea(zone)) _dirty = true;
     }
 
     // 城的海岸：本城临海的陆上地块(中心格坐标)及外面海区所在的水域；Offset 是离城心最远的一处(按距离粗筛用)。
@@ -108,16 +123,35 @@ public static class SeaRegionSystem
         if (World.world?.zone_calculator == null) return;
         double now = World.world.getCurWorldTime();
         bool stale = !ReferenceEquals(_world, World.world) || Regions.Count == 0 && _builtAt < 0d ||
-                     _builtAt >= 0d && (now < _builtAt || Date.getYearsSince(_builtAt) >= 1);
+                     _builtAt >= 0d && (now < _builtAt ||
+                                        Date.getYearsSince(_builtAt) >= (_dirty ? 1 : FallbackYears));
         if (!stale) return;
         _world = World.world;
         _builtAt = now;
-        try { Build(); }
-        catch (Exception exception) { LogService.LogWarning($"[EmpireCraft][海区] 划分失败: {exception.Message}"); }
+        using var timing = FrameProfiler.Measure("海区·划分");
+        try
+        {
+            Build();
+            _dirty = false;
+        }
+        catch (Exception exception)
+        {
+            // 划分失败照旧一年后再试
+            _dirty = true;
+            LogService.LogWarning($"[EmpireCraft][海区] 划分失败: {exception.Message}");
+        }
     }
 
     private static void Build()
     {
+        // 记下这次划分时各地块算不算海
+        List<TileZone> all = World.world.zone_calculator.zones;
+        int size = all.Count;
+        foreach (TileZone zone in all)
+            if (zone != null && zone.id >= size) size = zone.id + 1;
+        if (_seaAtBuild.Length != size) _seaAtBuild = new bool[size];
+        foreach (TileZone zone in all)
+            if (zone != null && zone.id >= 0) _seaAtBuild[zone.id] = IsSea(zone);
         // 保留旧的制海权(按中心块对上)
         var oldControl = new Dictionary<int, (long, double)>();
         foreach (Region region in Regions)
