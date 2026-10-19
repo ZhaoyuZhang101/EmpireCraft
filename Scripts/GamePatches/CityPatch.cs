@@ -900,8 +900,11 @@ public class CityPatch : GamePatch
         if (WorldLawLibrary.world_law_civ_limit_population_100?.isEnabled() == true)
             cap = Math.Min(cap, 100);
 
-        // 无小人模式：一个住房位住一户(古代 100 人、现代 1000 人)；原版逻辑读上限时仍按住房位数
-        __result = CityPopulationSystem.VanillaScale ? cap : cap * CityPopulationSystem.PeoplePerSlot(__instance);
+        // 无小人模式：一个住房位住一户(古代 100 人、现代 1000 人)；原版逻辑读上限时仍按住房位数。
+        // 游牧营地只算四成(见 CityStyleSystem.CapacityFactor)；原版按住房位数读的不打折，免得原版以为住满了一直盖房
+        if (CityPopulationSystem.VanillaScale) __result = cap;
+        else if (!CityPopulationSystem.AbstractPopulationEnabled) __result = cap * CityPopulationSystem.PeoplePerSlot(__instance);
+        else __result = Mathf.CeilToInt(cap * CityPopulationSystem.PeoplePerSlot(__instance) * CityStyleSystem.CapacityFactor(__instance));
         return false;
     }
     public static bool HasReachedWorldLawLimit(City __instance, ref bool __result)

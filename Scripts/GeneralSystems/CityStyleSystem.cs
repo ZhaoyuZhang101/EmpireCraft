@@ -56,6 +56,15 @@ public static class CityStyleSystem
 
     public static bool Nomad(City city) => city?.data != null && !city.isRekt() && Established(city) == "nomad";
 
+    // 游牧营地的人口上限：逐水草而居，一片草场养的人远不如农耕城，住房上限只算 NomadCapacityShare(见 CityPatch.getPopulationMaximum)。
+    // 只看城是不是营地：游牧政权占了的农耕城照旧；营地改建成别的风格后也照旧。原有超出的人口按住房超额的规则每年流失超出部分的
+    // 四分之一、不再出生，逐年降下来，不会一下子没了。征兵比例照旧(十户制 15%)，人少兵也就少
+    public const float NomadCapacityShare = 0.4f;
+
+    // 读档、建图途中不判(那时城市风格还没读进来，免得按眼下文化先定了风格)
+    public static float CapacityFactor(City city) =>
+        global::Config.game_loaded && !SmoothLoader.isLoading() && Nomad(city) ? NomadCapacityShare : 1f;
+
     // 不修路的城：游牧、林地、阿兹特克
     public static bool Roadless(City city) =>
         city?.data != null && !city.isRekt() && Established(city) is "nomad" or "woodland" or "aztec";
