@@ -379,7 +379,10 @@ public class KingdomPatch : GamePatch
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return true;
         if (CityPopulationSystem.VanillaScale && CityPopulationSystem.AbstractPopulationEnabled)
         {
-            __result = CityPopulationSystem.Households(__instance);
+            // 原版判断要不要开战时按古代口径折户(见 NoCommonersPatch.WarNeedPopulation)
+            __result = NoCommonersPatch.InWarNeedScope
+                ? NoCommonersPatch.WarNeedPopulation(__instance)
+                : CityPopulationSystem.Households(__instance);
             return false;
         }
         var ed = __instance.GetOrCreate();

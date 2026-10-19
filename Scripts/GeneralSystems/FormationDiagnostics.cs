@@ -85,7 +85,11 @@ public static class FormationDiagnostics
             if (!DiplomacyHelpers.isWarNeeded(kingdom))
             {
                 int warriors = kingdom.countTotalWarriors();
-                float people = kingdom.getPopulationPeople(), possible = kingdom.getPopulationTotalPossible();
+                // 人口与 isWarNeeded 同一口径(古代每户 100 人，见 NoCommonersPatch.WarNeedPopulation)
+                float people = CityPopulationSystem.AbstractPopulationEnabled
+                    ? EmpireCraft.Scripts.GamePatches.NoCommonersPatch.WarNeedPopulation(kingdom)
+                    : kingdom.getPopulationPeople();
+                float possible = kingdom.getPopulationTotalPossible();
                 return $"原版判定不需要打仗(兵{warriors}、人口{people:0}/{possible:0}、城{kingdom.countCities()}；" +
                        "兵太少，或不到四城且没住满六成)";
             }

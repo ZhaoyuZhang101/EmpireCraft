@@ -306,17 +306,42 @@ public class NoCommonersPatch : GamePatch
     // 原版其余条件照旧(已在打仗不开新仗、不到四城要住满六成)
     private const int AbstractMinWarriors = 4;
 
+    // 原版"不到四城要住满六成"：原尺度下人口按户、上限按住房位数比。进入现代后一个住房位住 1000 人(古代 100 人)，
+    // 户数一夜降到十分之一，人口要再涨六倍(粮食多半养不起)才算住满六成——现代的小国从此不再谋划开战。
+    // isWarNeeded 里人口改按古代口径(每户 100 人)折户，与上限的住房位数同一量级(见 KingdomPatch.getPopulationPeople)
+    [ThreadStatic] private static int _warNeedScope;
+    public static bool InWarNeedScope => _warNeedScope > 0;
+
+    public static int WarNeedPopulation(Kingdom kingdom)
+    {
+        if (kingdom?.cities == null) return 0;
+        int total = 0;
+        foreach (City city in kingdom.cities)
+        {
+            if (city == null || city.isRekt()) continue;
+            int units = CityPopulationSystem.Households(city) - CityPopulationSystem.BackgroundHouseholds(city);
+            total += Math.Max(0, units) + Mathf.CeilToInt(CityPopulationSystem.GetBackgroundTotal(city) /
+                                                          CityPopulationSystem.PremodernPeoplePerSlot);
+        }
+        return total;
+    }
+
     public static void BeforeIsWarNeeded(out int __state)
     {
         __state = -1;
         if (!CityPopulationSystem.AbstractPopulationEnabled || SimGlobals.m == null) return;
         __state = SimGlobals.m.diplomacy_years_war_min_warriors;
         SimGlobals.m.diplomacy_years_war_min_warriors = Math.Min(__state, AbstractMinWarriors);
+        _warNeedScope++;
     }
 
     public static Exception AfterIsWarNeeded(Exception __exception, int __state)
     {
-        if (__state >= 0 && SimGlobals.m != null) SimGlobals.m.diplomacy_years_war_min_warriors = __state;
+        if (__state >= 0)
+        {
+            if (SimGlobals.m != null) SimGlobals.m.diplomacy_years_war_min_warriors = __state;
+            if (_warNeedScope > 0) _warNeedScope--;
+        }
         return __exception;
     }
 
