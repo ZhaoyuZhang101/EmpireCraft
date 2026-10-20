@@ -28,6 +28,17 @@ public static partial class HolyRomanSystem
 
     public static bool ReformEnacted(Empire empire) => empire?.data != null && InstitutionSystem.IsEnacted(empire, NodeImperialReform);
 
+    // AI 选改革的加分(见 InstitutionSystem.TryStartAiReform)：有帝国议会的封建制帝国偏向帝国改革、避开与之互斥的
+    // 中央集权君主制，选帝制更甚。两者同在第五档，中央集权所需的官僚、常备军技术先到，以前多半先推了它，帝国改革就永远推不了
+    public const string NodeCentralizedMonarchy = "western_centralized_monarchy";
+
+    public static float ReformBias(Empire empire, InstitutionNodeConfig node)
+    {
+        if (node == null || node.id != NodeImperialReform && node.id != NodeCentralizedMonarchy || !HasDiet(empire)) return 0f;
+        float lean = IsElective(empire) ? 30f : 12f;
+        return node.id == NodeImperialReform ? lean : -lean;
+    }
+
     public static int Circle(Empire empire, Kingdom kingdom)
     {
         HolyRomanState state = State(empire);

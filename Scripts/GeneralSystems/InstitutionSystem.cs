@@ -1507,7 +1507,8 @@ public static partial class InstitutionSystem
             if (balance.Support < balance.Opposition + (era - node.advancement >= 3 ? 0f : 5f)) continue;
             float score = balance.Support - balance.Opposition +
                           TechnologySystem.GetInstitutionPush(primaryCulture, node) * 40f +
-                          (realm.IsEmpire ? PapacySystem.ReformBias(realm.Empire, node) : 0f);
+                          (realm.IsEmpire ? PapacySystem.ReformBias(realm.Empire, node) +
+                                            HolyRomanSystem.ReformBias(realm.Empire, node) : 0f);
             candidates.Add((node, score));
         }
         if (candidates.Count == 0) return;
