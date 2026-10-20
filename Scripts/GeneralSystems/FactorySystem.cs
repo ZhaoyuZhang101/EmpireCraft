@@ -21,6 +21,10 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · AI 自己建(用户 2026-10-17 "可以"——撤了规划以后 AI 城市没有厂区，矿场伐木场卡在二级)：有能建的门类、不在打仗的城，
 //     每年至多一件事——没满的厂区添一座厂、给一座厂升一级、厂区满了扩建、不够数就在城区边上新建一片小厂区；
 //     城的档位二级起一片、三级两片、四级三片(见 Tick)。世界法则「固定城乡格局」开着时不建，只听手动。
+//   · 手动不设限(用户 2026-10-20 "手动放置建筑时候不要有任何限制")：神力放厂区、小窗口扩建添厂不看科技(八类随便挑，船厂不要码头)、
+//     不看离镇村多近、压不压城区城墙、有几成是水，点在无主之地归挨着的城(四周没有城就全图最近的，那块地划进去)；
+//     只留：厂区中心落在水里、别的厂区里(厂按片认，点选、画法会撞)，整片伸出地图外；一片厂区的厂数照大小(厂房按大小排，多了画不下，
+//     要多放就扩建或另放一片)。AI 自建照旧要科技、守地界与间距。
 public static class FactorySystem
 {
     // 门类：建筑 id、解锁它的科技、每级每年的产值
@@ -186,6 +190,9 @@ public static class FactorySystem
         return result;
     }
 
+    // 全部门类(手动放、手动添厂用：不看科技)
+    public static List<string> AllTypes() => Types.Select(type => type.id).ToList();
+
     // 一座厂一年的产值、岗位
     public static float ValueOf(FactoryUnit unit)
     {
@@ -337,17 +344,26 @@ public static class FactorySystem
         if (city != null) PureMapPatch.Redraw(city);
     }
 
-    // 放一片厂区：返回提示文字
-    public static string Place(WorldTile tile, int size, out FactorySite placed)
+    // 放一片厂区：返回提示文字。manual 为神力手动放的(不设限，见上)
+    public static string Place(WorldTile tile, int size, out FactorySite placed, bool manual = false)
     {
         placed = null;
         if (!PureMapMode.Enabled) return LM.Get("settlement_need_pure_map");
         City city = tile?.zone?.city;
+        bool claim = manual && city == null && tile?.zone != null;
+        if (claim) city = RuralSettlementSystem.NearestCity(tile.zone, tile);
         if (city?.data == null || city.isRekt()) return LM.Get("factory_place_no_city");
-        List<string> unlocked = Unlocked(city);
+        List<string> unlocked = manual ? AllTypes() : Unlocked(city);
         if (unlocked.Count == 0) return string.Format(LM.Get("factory_place_no_tech"), city.GetCityName());
-        string refusal = CheckFootprint(city, tile.x, tile.y, size, null);
+        string refusal = manual ? CheckManual(tile.x, tile.y, size, null) : CheckFootprint(city, tile.x, tile.y, size, null);
         if (refusal != null) return refusal;
+        if (claim)
+        {
+            using (GamePatches.CityExpansionPatch.Manual())
+                city.addZone(tile.zone);
+            if (tile.zone.city != city) return LM.Get("factory_place_no_city");
+            CityDistricts.Reset();
+        }
         placed = new FactorySite { id = _nextId++, x = tile.x, y = tile.y, size = Math.Max(1, Math.Min(MaxSize, size)),
             founded = World.world.getCurWorldTime() };
         // 一整片成品：从已解锁的门类里随机挑满，尽量不重样
@@ -396,6 +412,19 @@ public static class FactorySystem
         return null;
     }
 
+    // 手动放、扩建的占地：中心不在水里、不落在别的厂区里，整片在地图里
+    private static string CheckManual(int cx, int cy, int size, FactorySite self)
+    {
+        WorldTile center = World.world.GetTile(cx, cy);
+        if (center?.Type == null || center.Type.liquid) return LM.Get("factory_place_no_room");
+        FactorySite other = At(center);
+        if (other != null && other != self) return LM.Get("factory_place_no_room");
+        (int x0, int y0, int side) = Footprint(new FactorySite { x = cx, y = cy, size = size });
+        if (World.world.GetTile(x0, y0) == null || World.world.GetTile(x0 + side - 1, y0 + side - 1) == null)
+            return LM.Get("factory_place_no_room");
+        return null;
+    }
+
     public static string Remove(FactorySite site)
     {
         if (site == null || !All.Remove(site.id)) return null;
@@ -426,8 +455,8 @@ public static class FactorySystem
         Changed(site);
     }
 
-    // 扩建、缩建：缩到放不下的厂从末尾拆掉；扩建要四周放得下
-    public static string Resize(FactorySite site, int size)
+    // 扩建、缩建：缩到放不下的厂从末尾拆掉；扩建要四周放得下(manual：小窗口里手动扩建，只看不出地图)
+    public static string Resize(FactorySite site, int size, bool manual = false)
     {
         if (site == null) return null;
         size = Math.Max(1, Math.Min(MaxSize, size));
@@ -435,8 +464,8 @@ public static class FactorySystem
         if (size > site.size)
         {
             City city = CityOf(site);
-            if (city == null) return LM.Get("factory_place_no_room");
-            string refusal = CheckFootprint(city, site.x, site.y, size, site);
+            if (city == null && !manual) return LM.Get("factory_place_no_room");
+            string refusal = manual ? CheckManual(site.x, site.y, size, site) : CheckFootprint(city, site.x, site.y, size, site);
             if (refusal != null) return refusal;
         }
         site.size = size;

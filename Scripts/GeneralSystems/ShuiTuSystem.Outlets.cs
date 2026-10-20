@@ -317,9 +317,9 @@ public static partial class ShuiTuSystem
         foreach (City city in cluster)
         {
             CultureService.SetCityMainCulture(city, nomad);
-            // 城按游牧营地改建(同"改建城池"，逐年翻新，见 CityStyleSystem)
+            // 城按游牧营地改建(同"改建城池"，逐年翻新，见 CityStyleSystem)；城貌手动选定的不改
             var data = city.GetOrCreate();
-            if (CityStyleSystem.Established(city) != "nomad" && data.map_style_target != "nomad")
+            if (!data.map_style_by_hand && CityStyleSystem.Established(city) != "nomad" && data.map_style_target != "nomad")
             {
                 data.map_style_target = "nomad";
                 data.map_style_since = now;

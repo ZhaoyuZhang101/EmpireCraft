@@ -640,6 +640,13 @@ public partial class PureMapPatch : GamePatch
         return plan.walled && plan.tribal < 0 && plan.fabric?.WallsDown != true;
     }
 
+    // 这座城画的是冬营地(城貌小窗口用，见 CityStyleWindow)：按已算好的平面图，还没算过就现算一份
+    internal static bool WinterCamp(City city)
+    {
+        if (city?.data == null || city.isRekt() || city.zones == null) return false;
+        return (CachedPlan(city) ?? PlanFor(city)).winter;
+    }
+
     internal static bool UrbanTile(WorldTile tile)
     {
         City city = tile?.zone?.city;
@@ -712,7 +719,13 @@ public partial class PureMapPatch : GamePatch
         int housing = 1;
         for (int i = 0; i < HousingTechs.Length; i++) if (Has(HousingTechs[i])) housing = i + 1;
         int industryEra = Has("electricity") ? 2 : Has("industrialization") ? 1 : 0;
-        int modern = Has("electricity") ? 1 : 0;
+        // 已建起的楼不退回去(易主给科技落后的国家、易俗)：住宅代数取画到过的最高一代，工厂、市场、官署的时代随画到过的时代进度
+        CityExtension.CityExtraData peak = city.GetOrCreate();
+        if (PeakReady(city)) peak.urban_peak_housing = Mathf.Max(peak.urban_peak_housing, housing);
+        housing = Mathf.Max(housing, peak.urban_peak_housing);
+        if (peak.urban_peak_progress >= 1f) industryEra = 2;
+        else if (peak.urban_peak_progress > 0f) industryEra = Mathf.Max(industryEra, 1);
+        int modern = industryEra >= 2 ? 1 : 0;
         // 各类建筑数(按数据)；没装工厂模组时的虚拟工厂也算
         var counts = new Dictionary<Kind, int>();
         foreach (Kind kind in Enum.GetValues(typeof(Kind))) counts[kind] = 0;
@@ -792,6 +805,7 @@ public partial class PureMapPatch : GamePatch
         plan.city = city;
         plan.family = CityStyleSystem.Established(city);
         (plan.target, plan.rebuild) = CityStyleSystem.Rebuild(city);
+        CityExtension.CityExtraData extra = city.GetOrCreate();
         foreach (int id in plan.zones.Keys) plan.built.Add(id);
         plan.factories.AddRange(FactorySystem.InCity(city));
         if (centerZone != null && centerZone.city == city) plan.built.Add(centerZone.id);
@@ -814,8 +828,9 @@ public partial class PureMapPatch : GamePatch
             plan.axisX = centerZone.x * Config.CITY_ZONE_SIZE + 4;
             plan.axisY = centerZone.y * Config.CITY_ZONE_SIZE + 4;
         }
-        // 都城地标(宫城)：大城的都城；帝国核心的默认首都即皇宫，不论大小都有(见 CityPlacementSystem.BuildPalace)
-        if ((grand || IsPalace(city)) && centerZone != null && city.isCapitalCity())
+        // 都城地标(宫城)：大城的都城；帝国核心的默认首都即皇宫，不论大小都有(见 CityPlacementSystem.BuildPalace)；
+        // 易主后、手动营的宫城留着(见 HasPalace)
+        if (centerZone != null && HasPalace(city, extra, grand))
         {
             // 埃及的金字塔在城外(城里第一块没建成的地块)，其余在城心；拼块式的地标大城连北面一块
             if (plan.family == "egypt")
@@ -841,6 +856,9 @@ public partial class PureMapPatch : GamePatch
         if (tech?.timestamps != null && tech.timestamps.TryGetValue("tech:" + ModernPlanningTech, out double since) &&
             TechnologySystem.HasTech(culture, ModernPlanningTech))
             plan.modern = Mathf.Clamp01(Date.getYearsSince(since) / ModernYears);
+        // 已改成现代规划的街区不退回去(同住宅代数)
+        if (PeakReady(city)) extra.urban_peak_modern = Mathf.Max(extra.urban_peak_modern, plan.modern);
+        plan.modern = Mathf.Max(plan.modern, extra.urban_peak_modern);
         // 残破：屠城死难占全城的比例，随年头淡去；正在交战再加一层
         var data = city.GetOrCreate();
         float population = CityPopulationSystem.GetBackgroundTotal(city);
@@ -856,12 +874,16 @@ public partial class PureMapPatch : GamePatch
             plan.ruin = Mathf.Max(plan.ruin, 0.25f);
             plan.burning = true;
         }
-        // 原始政体的城画成原始聚落(见 PureMapPatch.Tribal)：不筑城墙、不挖护城河、没有中轴大街和都城地标
-        plan.tribal = Camp(plan.family) ? -1 : TribalStageOf(city, culture);
+        // 原始政体的城画成原始聚落(见 PureMapPatch.Tribal)：不筑城墙、不挖护城河、没有中轴大街和都城地标。
+        // 易主不改建筑：在非原始政体下画过城池的城(map_settled)易主给原始政体的部落，照旧画城池，城墙、宫城、关城、镇都留着
+        if (!extra.map_settled && !Camp(plan.family) && SettledOwner(city, culture)) extra.map_settled = true;
+        plan.tribal = Camp(plan.family) || extra.map_settled ? -1 : TribalStageOf(city, culture);
         // 毡帐只留在沙漠、荒原这类旱地上：城心那片地(建成地块)不是旱地的游牧城画成冬营地。按眼下的地形算，
-        // 生物群系变了下回重算平面图就换画法；城市风格(map_style)和随它的人口上限、牧场保底、不修路都不动
-        plan.winter = plan.family == "nomad" &&
-                      !RuralSettlementSystem.DryLand(city.zones.Where(zone => zone != null && plan.built.Contains(zone.id)));
+        // 生物群系变了下回重算平面图就换画法；城市风格(map_style)和随它的人口上限、牧场保底、不修路都不动。
+        // 城貌小窗口里手动定了毡帐营地、冬营地的照定的画(见 CityStyleSystem.SetByHand)
+        plan.winter = plan.family == "nomad" && (extra.map_style_by_hand && extra.map_style_camp != 0
+            ? extra.map_style_camp == 2
+            : !RuralSettlementSystem.DryLand(city.zones.Where(zone => zone != null && plan.built.Contains(zone.id))));
         if (plan.tribal >= 0)
         {
             plan.walled = plan.moat = plan.axis = false;
@@ -869,6 +891,37 @@ public partial class PureMapPatch : GamePatch
         }
         plan.fabric = UrbanFabric.Build(city, plan.built, plan.landmark, plan.family, culture, plan.gateX, plan.gateY);
     }
+
+    // 画不画宫城：大城的都城、皇宫(帝国核心的默认首都)照旧画。易主不拆宫城(用户 2026-10-20 "游牧入主中原这种情况，不能改变中原
+    // 原有的建筑""至少不会拆掉")：画着宫城时记下主人，换了主人、不再是都城的照样留着(palace_kept，以后一直留着)；
+    // 本国自己迁都，旧都的宫城照旧不画(一国一座)。营建页「营宫殿」手动营的也一直留着
+    private static bool HasPalace(City city, CityExtension.CityExtraData extra, bool grand)
+    {
+        if (!PeakReady(city)) return extra.palace_kept || (grand || IsPalace(city)) && city.isCapitalCity();
+        long owner = city.kingdom.id;
+        if ((grand || IsPalace(city)) && city.isCapitalCity())
+        {
+            extra.palace_owner = owner;
+            return true;
+        }
+        if (extra.palace_kept) return true;
+        if (extra.palace_owner >= 0L && extra.palace_owner != owner)
+        {
+            extra.palace_kept = true;
+            return true;
+        }
+        extra.palace_owner = -1L;
+        return false;
+    }
+
+    // 读档、建图途中与没有主人的城不记宫城、最高时代(那时国家、科技还没读好)
+    private static bool PeakReady(City city) =>
+        global::Config.game_loaded && !SmoothLoader.isLoading() && city?.kingdom?.data != null && !city.kingdom.isRekt();
+
+    // 主人不是原始政体(政体已定)：这座城画过城池，以后易主给部落也照旧
+    private static bool SettledOwner(City city, string culture) =>
+        PeakReady(city) && !city.kingdom.wild && CultureService.IsValidCulture(culture) &&
+        city.kingdom.GetRegime() is EmpireCraft.Scripts.Regimes.Regime regime && !Regimes.RegimeManager.IsPrimitive(regime.type);
 
     // 皇宫：帝国核心记的默认首都(一个帝国只有一座)
     private static bool IsPalace(City city)
@@ -923,6 +976,7 @@ public partial class PureMapPatch : GamePatch
         if (plan != null && plan.tribal >= 0)
         {
             if (TribalCoarse(tile, color, plan) is Color32 tribe) return tribe;
+            if (UrbanFabric.FortTile(plan.fabric, tile, color, out Color32 fort)) return fort;
             return farm && plan.fabric != null ? UrbanFabric.Farmland(plan.fabric, tile, color) : color;
         }
         bool built = plan != null && Urban(tile, plan);

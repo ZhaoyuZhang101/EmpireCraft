@@ -19,7 +19,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 生计按村镇四周的地形定(地形归类见 LandKinds)：山多为矿；本城务农的不到四成时能耕的地先务农；本城有眼下开得了的矿藏
 // 却还没有矿村时先开一处矿；靠海为渔；密林(桦、枫、魔法林、丛林)为林；荒漠、稀树草原、荒原为牧(这些地方不算能耕，
 // 先牧后农，只在本城几乎没有产粮的镇村时才旱作)；草地、橡树松树疏林也能放牧、伐木，但宜农，本城产粮的够六成才轮到；
-// 定了存进存档(RuralSettlement.trade)，小窗口里可以手动改(手动改过的不再自动改)。毡帐村镇(游牧营地的城立的)只放牧，不改行。
+// 定了存进存档(RuralSettlement.trade)，小窗口里可以手动改(手动改过的不再自动改)。AI 立的毡帐村镇只放牧，手动的能改行。
 // 原版的矿场、伐木场、牧场、屠宰场在纯净地图下不再建，旧有的清掉(见 Replaces)；非纯净地图(开小人)照旧走原版建筑。
 // 林场、矿、牧是产业，分官营民营(见 RuralSettlement.state、EnterpriseSystem.CountEnterprises)。
 public static class LivelihoodSystem
@@ -55,8 +55,9 @@ public static class LivelihoodSystem
     public static int Of(RuralSettlement settlement)
     {
         if (settlement == null || settlement.fort) return -1;
-        // 毡帐村镇只放牧(见 RuralSettlementSystem.MarkYurt)：不开矿、不种田、不伐木，也就不添矿产
-        if (settlement.yurt)
+        // AI 立的毡帐村镇只放牧(见 RuralSettlementSystem.MarkYurt)：不开矿、不种田、不伐木，也就不添矿产；
+        // 窗口里改过行、换过样式的(手动)照它自己的
+        if (settlement.yurt && !settlement.trade_manual && !settlement.style_by_hand)
         {
             settlement.trade = Pasture;
             return Pasture;

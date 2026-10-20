@@ -18,7 +18,8 @@ namespace EmpireCraft.Scripts.UI.Windows;
 // 厂区小窗口(用户 2026-10-17 "如果打开工厂区, 我能看点里面有什么厂(图标) 而且可以给他们升级降级添加并取消还能看到他们的产出")：
 // 拉近后点厂区打开(见 MapLabelOverlay.HandleClick)。宽窗口 480×200、两张半宽卡，同村镇小窗口——
 //   左「概况」：名字(可改)、大小(小 → 中 → 大厂区，扩建缩建)、厂几座、合计岗位与年产值、官营民营(可改)、属哪座城哪国，换个样子、拆除；
-//   右「工厂」：每座厂一行(门类图标、名字、等级、岗位、年产值，升级、降级、拆掉)，没满时末尾一排已解锁门类的图标，点哪个添哪个。
+//   右「工厂」：每座厂一行(门类图标、名字、等级、岗位、年产值，升级、降级、拆掉)，没满时末尾一排八类门类的图标，点哪个添哪个
+//   (手动的不看科技、不要码头，见 FactorySystem 开头；扩建只看出不出地图)。
 public class FactoryWindow : AbstractWideWindow<FactoryWindow>
 {
     private const float CardWidth = (UIHelper.WidePanelWidth - UIHelper.CardGap) / 2f;
@@ -99,7 +100,7 @@ public class FactoryWindow : AbstractWideWindow<FactoryWindow>
             sizeRow.AddButtonIntoHoriLayout("factory_expand", LM.Get("factory_expand"), () =>
             {
                 FactorySite now = FactorySystem.ById(_selected);
-                if (now != null) Tip(FactorySystem.Resize(now, now.size + 1));
+                if (now != null) Tip(FactorySystem.Resize(now, now.size + 1, true));
                 Draw();
             }, size: new Vector2(36f, 14f));
         if (site.size > 1)
@@ -161,8 +162,8 @@ public class FactoryWindow : AbstractWideWindow<FactoryWindow>
         if (site.units.Count == 0) Line(list, LM.Get("factory_window_empty").ColorString("#8FA0A8"));
         if (site.units.Count < FactorySystem.Capacity(site.size))
         {
-            List<string> unlocked = FactorySystem.Unlocked(city);
-            Line(list, LM.Get(unlocked.Count > 0 ? "factory_window_add" : "factory_window_no_tech").ColorString("#8FA0A8"), 6, 10f);
+            List<string> unlocked = FactorySystem.AllTypes();
+            Line(list, LM.Get("factory_window_add").ColorString("#8FA0A8"), 6, 10f);
             var add = list.BeginHoriGroup(new Vector2(RowWidth, 16f), TextAnchor.MiddleLeft, 2, new RectOffset(0, 0, 0, 0));
             foreach (string type in unlocked)
             {

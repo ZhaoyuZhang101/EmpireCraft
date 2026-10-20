@@ -1598,6 +1598,8 @@ GODPOWERS.update({
     "place_fort": (obj_wall, "plus"),
     "place_city": (obj_city, "plus"),
     "relocate_city": (obj_city, "arrow"),
+    # 城貌：城池加互换角标(换成别的文化风格)
+    "restyle_city": (obj_city, "swap"),
     "build_palace": (obj_palace, "up"),
     # 小、中、大厂区
     "factory_small": (obj_factory, "plus"),

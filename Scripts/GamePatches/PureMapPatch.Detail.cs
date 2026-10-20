@@ -237,6 +237,15 @@ public partial class PureMapPatch
             City owner = tile.zone?.city;
             return Spill || owner == null || owner == City;
         }
+
+        // 关城落笔的地(见 Fort)：不是水就画——关城筑在山口、山脊的城墙上(见 WallGateSystem.SnapToWall)，山格、墙格照画
+        public bool FortLand(int px, int py)
+        {
+            WorldTile tile = Tile(px, py);
+            if (tile?.Type == null || tile.Type.liquid) return false;
+            City owner = tile.zone?.city;
+            return Spill || owner == null || owner == City;
+        }
     }
 
     private static float DetailHash(long seed, long a, long b = 0, long c = 0)
@@ -329,7 +338,12 @@ public partial class PureMapPatch
         var c = new Canvas(city, x0, y0, x1 - x0 + 1, y1 - y0 + 1);
         long seed = UrbanFabric.SeedOf(city);
         if (style.Camp) DrawCamp(c, plan, g, style, tint, seed);
-        else if (plan.tribal >= 0) DrawTribal(c, plan, g, style, tint, seed);
+        else if (plan.tribal >= 0)
+        {
+            DrawTribal(c, plan, g, style, tint, seed);
+            // 原始聚落城外不画镇、路(那时还没有)；手动筑的关城、废墟照画
+            DrawOutposts(c, g, tint);
+        }
         else
         {
             DrawUrban(c, plan, style, tint, seed);
@@ -337,8 +351,9 @@ public partial class PureMapPatch
             // 城郊过渡带(见 PureMapPatch.Fringe)：画在村镇、田块、小路之前
             DrawFringe(c, style, tint, seed);
             DrawCountryside(c, g, style, tint, seed);
-            DrawFactories(c, plan);
         }
+        // 厂区：营地、原始聚落里手动放的也画(见 FactorySystem.Place)
+        DrawFactories(c, plan);
         List<DetailLabel> labels = ReduceLabels(c.Labels);
         DrawnLabels[city.data.id] = (StampOf(city), labels);
         if (DrawnLabels.Count > 64)
@@ -1582,8 +1597,8 @@ public partial class PureMapPatch
             int px = (x - c.X0) * s + s / 2, py = (y - c.Y0) * s + s / 2;
             index++;
             if (Swallowed(px, py)) continue;
-            if (UrbanFabric.IsYurt(g, x, y)) YurtTown(c, px, py, townSize, trampled, UrbanFabric.SettlementKey(x, y) + 1000);
-            else Town(c, style, px, py, townSize, walled, dirt, townGround, UrbanFabric.SettlementKey(x, y) + 1000);
+            if (UrbanFabric.IsYurt(g, x, y)) YurtTown(c, px, py, townSize, walled, trampled, UrbanFabric.SettlementKey(x, y) + 1000);
+            else Town(c, OwnStyle(g, x, y, style), px, py, townSize, walled, dirt, townGround, UrbanFabric.SettlementKey(x, y) + 1000);
         }
         index = 0;
         foreach ((int x, int y) in g.Villages)
@@ -1592,7 +1607,7 @@ public partial class PureMapPatch
             index++;
             if (Swallowed(px, py)) continue;
             if (UrbanFabric.IsYurt(g, x, y)) YurtVillage(c, px, py, trampled, UrbanFabric.SettlementKey(x, y) + 3000);
-            else Village(c, style, tint, px, py, dirt, ground, UrbanFabric.SettlementKey(x, y) + 3000);
+            else Village(c, OwnStyle(g, x, y, style), tint, px, py, dirt, ground, UrbanFabric.SettlementKey(x, y) + 3000);
         }
         // 关城(见 RuralSettlementSystem)：一圈城墙、四角墩台、南门，里面营房校场、一杆旗
         foreach ((int x, int y, int level) in g.Forts)
@@ -1938,7 +1953,7 @@ public partial class PureMapPatch
         for (int py = cy - r; py <= cy + r; py++)
         for (int px = cx - r; px <= cx + r; px++)
         {
-            if (!c.In(px, py) || !c.Land(px, py)) continue;
+            if (!c.In(px, py) || !c.FortLand(px, py)) continue;
             int dx = px - cx, dy = py - cy, d = Mathf.Max(Mathf.Abs(dx), Mathf.Abs(dy));
             bool corner = Mathf.Abs(dx) >= r - 2 && Mathf.Abs(dy) >= r - 2;
             if (d >= r - 1)
@@ -2233,6 +2248,52 @@ public partial class PureMapPatch
                 Tent(x0 + Mathf.Cos(a) * 6f, y0 + Mathf.Sin(a) * 6f, 2, false);
             }
         }
+        // 林地城外的镇：一大片林间空地，正中长屋，外面一圈圈棚屋(以前精细图上不画，粗图上有)
+        index = 0;
+        foreach ((int tx, int ty, int townSize, _) in g.Towns)
+        {
+            index++;
+            float x0 = (tx - c.X0) * s + 2f, y0 = (ty - c.Y0) * s + 2f, r = townSize * DetailScale + 2;
+            for (int py = (int)(y0 - r); py <= y0 + r; py++)
+            for (int px = (int)(x0 - r); px <= x0 + r; px++)
+                if ((px - x0) * (px - x0) + (py - y0) * (py - y0) <= r * r && c.Kind(px, py) == KEmpty && c.Land(px, py))
+                    c.Put(px, py, trampled, KGround);
+            Tent(x0, y0, 4, true);
+            for (float rr = 6f; rr <= r - 3f; rr += 5f)
+            {
+                int n = Mathf.Max(5, Mathf.FloorToInt(rr * Mathf.PI * 2f / 7f));
+                for (int j = 0; j < n; j++)
+                {
+                    float a = (j + DetailHash(seed, index, (int)rr, 31)) / n * Mathf.PI * 2f;
+                    Tent(x0 + Mathf.Cos(a) * rr, y0 + Mathf.Sin(a) * rr, 2, false);
+                }
+            }
+        }
+        DrawOutposts(c, g, tint);
+    }
+
+    // 关城与废墟(林地营地、原始聚落城外用；见 DrawCountryside 里的同一段)：关城筑在哪座城的地上都画
+    private static void DrawOutposts(Canvas c, UrbanFabric.Geometry g, Color32 tint)
+    {
+        int s = DetailScale;
+        bool spill = c.Spill;
+        c.Spill = true;
+        foreach ((int x, int y, int level) in g.Forts)
+        {
+            Fort(c, (x - c.X0) * s + s / 2, (y - c.Y0) * s + s / 2, level, UrbanFabric.SettlementKey(x, y) + 7000);
+            GateStubs(c, x, y, level);
+        }
+        foreach ((int x, int y, bool town) in g.Ruins)
+            RuralRuin(c, (x - c.X0) * s + s / 2, (y - c.Y0) * s + s / 2, town ? 16f : 7f, UrbanFabric.SettlementKey(x, y) + 5000, tint,
+                !UrbanFabric.IsYurt(g, x, y));
+        c.Spill = spill;
+    }
+
+    // 村镇自己的画法(小窗口里换了样式的，见 RuralSettlementSystem.SetStyle)；没换的随所在的城
+    private static DetailStyle OwnStyle(UrbanFabric.Geometry g, int x, int y, DetailStyle city)
+    {
+        DetailStyle own = StyleOf(UrbanFabric.StyleAt(g, x, y));
+        return own == null || own.Camp ? city : own;
     }
 
     // 冬营地的一座木土小屋(俯视)：土黄屋顶、正中一道屋脊、屋檐一圈压暗，南墙正中一个门洞；议事的大屋(main)宽些。
@@ -2292,7 +2353,7 @@ public partial class PureMapPatch
     }
 
     // 毡帐镇：踩出一大片空地(同镇的大小，边缘参差)，正中大帐，外面一圈圈毡帐，偶有几顶大些的
-    private static void YurtTown(Canvas c, int cx, int cy, int townSize, Color32 trampled, long seed)
+    private static void YurtTown(Canvas c, int cx, int cy, int townSize, bool walled, Color32 trampled, long seed)
     {
         int r = townSize * DetailScale + 2;
         for (int py = cy - r - 2; py <= cy + r + 2; py++)
@@ -2317,6 +2378,16 @@ public partial class PureMapPatch
                 bool big = ring > 1 && DetailHash(seed, ring, i, 44) < 0.1f;
                 Yurt(c, cx + Mathf.Cos(a) * rr, cy + Mathf.Sin(a) * rr, big ? 3 : 2, false);
             }
+        }
+        // 有墙的毡帐大营(小窗口里升的，见 RuralSettlementSystem.SetTier)：一圈木栅，四面留口
+        if (!walled) return;
+        for (int t = 0; t < 1440; t++)
+        {
+            float a = t / 1440f * Mathf.PI * 2f, rr = r + 1.5f;
+            int px = cx + Mathf.RoundToInt(Mathf.Cos(a) * rr), py = cy + Mathf.RoundToInt(Mathf.Sin(a) * rr);
+            if (Mathf.Abs(px - cx) <= 2 || Mathf.Abs(py - cy) <= 2) continue;
+            if (c.Kind(px, py) is KEmpty or KGround or KPath && c.Land(px, py))
+                c.Put(px, py, t % 2 == 1 ? Rgb(150, 116, 76) : Rgb(108, 82, 54), KWall);
         }
     }
 

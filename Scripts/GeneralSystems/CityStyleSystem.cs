@@ -76,15 +76,21 @@ public static class CityStyleSystem
     {
         var data = city.GetOrCreate();
         if (string.IsNullOrEmpty(data.map_style)) data.map_style = CurrentFamily(city);
-        // 旧档：以前只认游牧文化本身，制度线属游牧的文化被定成了华夏城池，改回来一次
+        // 旧档：以前只认游牧文化本身，制度线属游牧的文化被定成了华夏城池，改回来一次。
+        // CurrentFamily 看的是主人的国家文化：游牧打下的定居城(城里住的仍是定居百姓)不算，只改城里主流文化也是游牧的
+        // (以前一读档就把游牧国家占着的中原城池改成了营地，城墙、宫城、关隘跟着没了)；手动选定的不改
         if (!data.map_style_nomad_checked)
         {
             data.map_style_nomad_checked = true;
-            if (data.map_style == "huaxia" && string.IsNullOrEmpty(data.map_style_target) && CurrentFamily(city) == "nomad")
+            if (data.map_style == "huaxia" && string.IsNullOrEmpty(data.map_style_target) && !data.map_style_by_hand &&
+                CurrentFamily(city) == "nomad" && Family(CultureService.GetMainCulture(city, initialize: false) ?? "") == "nomad")
                 data.map_style = "nomad";
         }
         return data.map_style;
     }
+
+    // 营地(游牧、林地)：不筑城墙、不修街
+    public static bool Camp(string family) => family is "nomad" or "woodland";
 
     // 改建中：目标风格与进度(0~1)；没在改建返回 (null, 0)。改完即定型
     public static (string target, float progress) Rebuild(City city)
@@ -99,11 +105,18 @@ public static class CityStyleSystem
         return (null, 0f);
     }
 
-    // 风格与现文化不合、又没在改建的城
+    // 风格与现文化不合、又没在改建的城。易主不改建筑(用户 2026-10-20 "游牧入主中原这种情况，不能改变中原原有的建筑")：
+    //   · 定居的城池不改建成营地(游牧、林地)：游牧打下的城照旧是城池，城墙、宫城、关城、村镇都留着；
+    //   · 城貌手动选定的(见 SetByHand)不改
     private static List<City> Stale(Kingdom kingdom) =>
-        kingdom?.cities?.Where(city => city?.data != null && !city.isRekt() &&
-                                       string.IsNullOrEmpty(city.GetOrCreate().map_style_target) &&
-                                       Established(city) != CurrentFamily(city)).ToList() ?? new List<City>();
+        kingdom?.cities?.Where(city =>
+        {
+            if (city?.data == null || city.isRekt()) return false;
+            var data = city.GetOrCreate();
+            if (!string.IsNullOrEmpty(data.map_style_target) || data.map_style_by_hand) return false;
+            string established = Established(city), current = CurrentFamily(city);
+            return established != current && (!Camp(current) || Camp(established));
+        }).ToList() ?? new List<City>();
 
     public static bool CanRebuild(Actor actor)
     {
@@ -131,4 +144,63 @@ public static class CityStyleSystem
         EventRecorder.Record(kingdom.GetEmpire(), text, king, kingdom);
         return true;
     }
+
+    #region 城貌(手动)
+
+    // 城貌小窗口(用户 2026-10-20 "什么文化风格都可以转换"，见 CityStyleWindow)：从各文化系里任选一种，当场改成那样、记进存档，
+    // 记作手动选定(map_style_by_hand)——改建决议、旧档改正、水土改从游牧都不再改它；游牧营地另分毡帐营地、冬营地两种画法
+    // (手动选的不再按城心是不是旱地自动换)。只换画法，随风格走的现成规矩照旧跟着换：游牧营地人口上限四成、保底三座牧场的牧群、
+    // 城外新添的是毡帐村镇；游牧、林地、阿兹特克不修路(连着的官道随之荒废)。近代的街区、高楼随科技长，不是一种风格，不在这里选
+    public const string WinterCamp = "nomad_winter";
+
+    public static readonly string[] ManualStyles =
+        { "huaxia", "japan", "western", "roma", "viking", "arab", "persia", "egypt", "india", "aztec", "nomad", WinterCamp, "woodland" };
+
+    public static string StyleName(string option) => LM.Get("city_style_name_" + (string.IsNullOrEmpty(option) ? "huaxia" : option));
+
+    // 这座城眼下的画法选项(游牧营地按画出来的分毡帐、冬营地，见 PureMapPatch.Layout)
+    public static string OptionOf(City city, bool winter)
+    {
+        if (city?.data == null) return "";
+        string family = Established(city);
+        return family == "nomad" && winter ? WinterCamp : family;
+    }
+
+    public static void SetByHand(City city, string option)
+    {
+        if (city?.data == null || city.isRekt() || global::System.Array.IndexOf(ManualStyles, option) < 0) return;
+        var data = city.GetOrCreate();
+        data.map_style_nomad_checked = true;
+        data.map_style = option == WinterCamp ? "nomad" : option;
+        data.map_style_target = "";
+        data.map_style_since = -1d;
+        data.map_style_by_hand = true;
+        data.map_style_camp = option == WinterCamp ? 2 : option == "nomad" ? 1 : 0;
+        Changed(city);
+    }
+
+    // 交还规矩：当场照现文化改过来，以后改建决议、冬营地判定照常管
+    public static void FollowCulture(City city)
+    {
+        if (city?.data == null || city.isRekt()) return;
+        var data = city.GetOrCreate();
+        data.map_style_nomad_checked = true;
+        data.map_style = CurrentFamily(city);
+        data.map_style_target = "";
+        data.map_style_since = -1d;
+        data.map_style_by_hand = false;
+        data.map_style_camp = 0;
+        Changed(city);
+    }
+
+    // 风格换了：本城重画，路网照新风格重找(不修路的城不连官道)，政令路程跟着重算
+    private static void Changed(City city)
+    {
+        GamePatches.PureMapPatch.Redraw(city);
+        RuralSettlementSystem.Touch();
+        RoadNetwork.ReplanCity(city);
+        AdministrativeControlSystem.Refresh(city.kingdom);
+    }
+
+    #endregion
 }

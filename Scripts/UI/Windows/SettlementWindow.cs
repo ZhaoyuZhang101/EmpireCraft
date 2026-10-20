@@ -15,9 +15,11 @@ namespace EmpireCraft.Scripts.UI.Windows;
 
 // 村镇小窗口(用户 2026-10-17 "点击后打开一个很小的窗口, 就像那个帝国设置的界面一样……升级降级, 改名")：
 // 拉近到看得见镇村时点一下镇村打开(见 MapLabelOverlay.HandleClick)。宽窗口 480×200、两张半宽卡，同帝国设置——
-//   左「概况」：名字(可改)、档位(村 → 镇 → 有墙大镇，升级降级；毡帐村镇只有村、镇两档)、约多少人、属哪座城哪国、完好或毁了几年；
-//   右「营建」：生计(务农、伐木、采矿、放牧、打鱼，可改，见 LivelihoodSystem；毡帐只放牧)与一年的出产，林场、矿、牧的官营民营(可改)；
-//     换个样子(只换这一处的布局种子)、毁弃(完好的毁为废墟，废墟彻底抹去)或重建废墟，改隶与固定城乡格局的说明。
+//   左「概况」：名字(可改)、档位(村 → 镇 → 有墙大镇，升级降级；毡帐的有墙大营围木栅；废墟也能改)、约多少人、属哪座城哪国、完好或毁了几年；
+//   右「营建」：生计(务农、伐木、采矿、放牧、打鱼，可改，见 LivelihoodSystem；毡帐的也能改)与一年的出产，林场、矿、牧的官营民营(可改)；
+//     换个样子(只换这一处的布局种子)、毁弃(完好的毁为废墟，废墟彻底抹去)或重建废墟，改隶与固定城乡格局的说明；
+//   下「样式」(关城没有)：随所在的城、各文化系的画法、毡帐，点哪个当场换成哪个(用户 2026-10-20 "什么文化风格都可以转换"，
+//     见 RuralSettlementSystem.SetStyle)。手动的一概不设限，见 RuralSettlementSystem 开头。
 public class SettlementWindow : AbstractWideWindow<SettlementWindow>
 {
     private const float CardWidth = (UIHelper.WidePanelWidth - UIHelper.CardGap) / 2f;
@@ -88,13 +90,10 @@ public class SettlementWindow : AbstractWideWindow<SettlementWindow>
         var tierRow = info.BeginHoriGroup(new Vector2(RowWidth, 16f), TextAnchor.MiddleLeft, 3, new RectOffset(0, 0, 0, 0));
         tierRow.AddTextIntoHoriLayout(RuralSettlementSystem.TierName(settlement).ColorString("#F2EEE2"), true, TextAnchor.MiddleLeft,
             new Vector2(RowWidth - 80f, 14f)).UseFixedFontSize(8, HorizontalWrapMode.Overflow);
-        if (!ruined)
-        {
-            if (tier < RuralSettlementSystem.MaxTierOf(settlement))
-                tierRow.AddButtonIntoHoriLayout("settlement_upgrade", LM.Get("settlement_upgrade"), () => Change(+1), size: new Vector2(36f, 14f));
-            if (tier > 0)
-                tierRow.AddButtonIntoHoriLayout("settlement_downgrade", LM.Get("settlement_downgrade"), () => Change(-1), size: new Vector2(36f, 14f));
-        }
+        if (tier < RuralSettlementSystem.MaxTier)
+            tierRow.AddButtonIntoHoriLayout("settlement_upgrade", LM.Get("settlement_upgrade"), () => Change(+1), size: new Vector2(36f, 14f));
+        if (tier > 0)
+            tierRow.AddButtonIntoHoriLayout("settlement_downgrade", LM.Get("settlement_downgrade"), () => Change(-1), size: new Vector2(36f, 14f));
         Line(info, (ruined
             ? string.Format(LM.Get("settlement_window_ruined"), Mathf.Max(0, Date.getYearsSince(settlement.ruined_at)))
             : settlement.fort
@@ -115,17 +114,12 @@ public class SettlementWindow : AbstractWideWindow<SettlementWindow>
             string level = LivelihoodSystem.LevelText(city, trade);
             tradeRow.AddTextIntoHoriLayout((string.Format(LM.Get("livelihood_row"), LivelihoodSystem.Name(trade)) + level).ColorString("#F2EEE2"),
                 true, TextAnchor.MiddleLeft, new Vector2(RowWidth - 46f, 14f)).UseFixedFontSize(7, HorizontalWrapMode.Overflow);
-            // 毡帐村镇只放牧，不给改行
-            if (settlement.yurt)
-                tradeRow.AddTextIntoHoriLayout(LM.Get("livelihood_yurt_only").ColorString("#8FA0A8"), true, TextAnchor.MiddleRight,
-                    new Vector2(42f, 14f)).UseFixedFontSize(6, HorizontalWrapMode.Overflow);
-            else
-                tradeRow.AddButtonIntoHoriLayout("settlement_trade", LM.Get("livelihood_change"), () =>
-                {
-                    RuralSettlement now = RuralSettlementSystem.ById(_selected);
-                    if (now != null) RuralSettlementSystem.SetTrade(now, LivelihoodSystem.Of(now) + 1);
-                    Draw();
-                }, size: new Vector2(42f, 14f));
+            tradeRow.AddButtonIntoHoriLayout("settlement_trade", LM.Get("livelihood_change"), () =>
+            {
+                RuralSettlement now = RuralSettlementSystem.ById(_selected);
+                if (now != null) RuralSettlementSystem.SetTrade(now, LivelihoodSystem.Of(now) + 1);
+                Draw();
+            }, size: new Vector2(42f, 14f));
             Line(build, LivelihoodSystem.Describe(settlement, city).ColorString(ruined ? "#E9A85B" : "#65D66E"));
             if (LivelihoodSystem.IsEnterprise(trade))
             {
@@ -163,6 +157,34 @@ public class SettlementWindow : AbstractWideWindow<SettlementWindow>
         Line(build, LM.Get("settlement_window_assign_hint").ColorString("#8FA0A8"), 6, 10f);
         Line(build, LM.Get(RuralSettlementSystem.Fixed ? "settlement_window_fixed_on" : "settlement_window_fixed_off")
             .ColorString(RuralSettlementSystem.Fixed ? "#F3C34A" : "#8FA0A8"), 6, 10f);
+
+        // 样式：随城、各文化系、毡帐，点哪个换哪个
+        if (settlement.fort) return;
+        var style = _root.BeginCard(UIHelper.WidePanelWidth, "settlement_window_style", icons: "ui/icons/godpowers/place_village");
+        const float Inner = UIHelper.WidePanelWidth - 12f;
+        string current = RuralSettlementSystem.StyleOf(settlement);
+        SimpleText now = style.AddTextIntoVertLayout(string.Format(LM.Get("settlement_style_now"), RuralSettlementSystem.StyleName(current))
+            .ColorString("#F2EEE2"), true, TextAnchor.MiddleLeft, new Vector2(Inner, 11f));
+        now.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
+        const int PerRow = 6;
+        float buttonWidth = (Inner - (PerRow - 1) * 3f) / PerRow;
+        string[] options = RuralSettlementSystem.Styles;
+        for (int i = 0; i < options.Length; i += PerRow)
+        {
+            var row = style.BeginHoriGroup(new Vector2(Inner, 16f), TextAnchor.MiddleLeft, 3, new RectOffset(0, 0, 0, 0));
+            for (int k = i; k < Mathf.Min(options.Length, i + PerRow); k++)
+            {
+                string option = options[k];
+                string text = RuralSettlementSystem.StyleName(option);
+                if (option == current) text = "· " + text + " ·";
+                row.AddButtonIntoHoriLayout("settlement_style_" + (option.Length == 0 ? "city" : option), text, () =>
+                {
+                    RuralSettlementSystem.SetStyle(RuralSettlementSystem.ById(_selected), option);
+                    Draw();
+                }, size: new Vector2(buttonWidth, 14f));
+            }
+        }
+        Line(style, LM.Get("settlement_style_hint").ColorString("#8FA0A8"), 6, 10f);
     }
 
     private void Change(int delta)

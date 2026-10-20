@@ -6,7 +6,7 @@ using UnityEngine;
 namespace EmpireCraft.Scripts.GeneralSystems;
 
 // 关城即城墙上的关门(玩家反馈：关放不到城墙上，城墙被当成了山，关城只能挨着墙放)：
-//   · 筑关点在城墙上或城墙边 Snap 格以内，关城落到城墙上(见 RuralSettlementSystem.Place)；村、镇、城照旧不能压在城墙上；
+//   · 筑关点在城墙上或城墙边 Snap 格以内，关城落到城墙上(见 RuralSettlementSystem.Place；山上的墙也行)；村、镇、城照旧不能压在城墙上；
 //   · 完好的关城方城(中心起 2 + 等级 格，与粗图、精细图画出来的一样大)压着的城墙格是关门——城墙数据照旧留着，
 //     只是画城墙时让给关城，城墙画到关城两侧接上(见 MapWallOverlay)；关城毁成废墟或抹去，关门没了，城墙原样合上；
 //     后画的城墙穿过已有的关城，同样接进关里；
@@ -17,8 +17,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 关门不存档：读档后按关城位置与城墙现算。
 public static class WallGateSystem
 {
-    // 点在城墙边几格以内就吸到墙上：一级关城方城的半边长，再远一点方城就碰不到墙
-    public const int Snap = 3;
+    // 点在城墙边几格以内就吸到墙上(关城落在墙上，方城总压着墙)
+    public const int Snap = 5;
     // 关城那片地易主、城毁了都不经过关城的增删，隔一会儿重算一遍(关城只能手动筑，没几座，很便宜)
     private const float RefreshSeconds = 2f;
 
@@ -80,7 +80,8 @@ public static class WallGateSystem
         return _covered.Count > 0 && _covered.Contains(tileId);
     }
 
-    // 筑关吸附：点的这一格或四周 Snap 格以内最近的一格城墙(须是平地，不在水里、山上)；优先落在点的那座城的地上。没有返回 null
+    // 筑关吸附：点的这一格或四周 Snap 格以内最近的一格城墙(只排除水面：长城多沿山脊，关隘本在山口，山上、岩石上的墙也吸；
+    // 关城画在山格上照画，见 PureMapPatch.Fort)；优先落在点的那座城的地上。没有返回 null
     public static WorldTile SnapToWall(WorldTile tile)
     {
         if (tile?.zone == null || MapWallSystem.Walls.Count == 0) return null;
@@ -91,8 +92,7 @@ public static class WallGateSystem
         for (int dx = -Snap; dx <= Snap; dx++)
         {
             WorldTile wall = World.world.GetTile(tile.x + dx, tile.y + dy);
-            if (wall?.zone == null || !MapWallSystem.Contains(wall) || wall.Type == null || wall.Type.liquid ||
-                wall.Type.mountains || wall.Type.rocks || wall.Type.block) continue;
+            if (wall?.zone == null || !MapWallSystem.Contains(wall) || wall.Type == null || wall.Type.liquid) continue;
             float score = dx * dx + dy * dy + (clicked != null && wall.zone.city != clicked ? 1000f : 0f);
             if (score >= bestScore) continue;
             bestScore = score;

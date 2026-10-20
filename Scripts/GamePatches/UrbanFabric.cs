@@ -50,6 +50,8 @@ public static class UrbanFabric
         public bool Nomad;
         // 毡帐村镇的位置键(见 PosKey；不论落在游牧城还是别的城的地上，都画成毡帐)
         public readonly HashSet<long> Yurts = new();
+        // 换了样式的镇村(位置键 → 文化系，见 RuralSettlementSystem.SetStyle)；没换的随城
+        public readonly Dictionary<long, string> Styles = new();
         public int CbdX, CbdY;
         public bool Perimeter;
         // 城郊：档位、城门(城心两条中线)、四条出城大路(东北西南)是否修了、从城门到城外的距离、路长、关厢长
@@ -182,8 +184,9 @@ public static class UrbanFabric
         // 发展快慢：种子定一个底(0.7~1.3 倍)，城大的、都城快些
         float pace = (0.7f + 0.6f * H(seed, 50)) * (0.85f + 0.3f * Mathf.Clamp01(built.Count / 12f)) *
                      (city.isCapitalCity() ? 1.15f : 1f);
-        // 游牧的城一直是营地：不拆墙修环路、不起楼、不通铁路
-        g.Progress = g.Nomad ? 0f : ProgressOf(culture, pace);
+        // 游牧的城一直是营地：不拆墙修环路、不起楼、不通铁路。
+        // 已建起的不退回去(易主给科技落后的国家、易俗)：取画到过的最高进度
+        g.Progress = g.Nomad ? 0f : PeakProgress(city, ProgressOf(culture, pace));
         // 城的轮廓：面积是建成地块的一半(建筑挤在一起，城外留给田野)；建成地块之外的部分不算城里。
         // 种子定城的样子：长宽比(约 0.7~1.4)、往哪边偏(城区中心离城门中线至多四成半径)、边缘起伏多大；
         // 华夏、日本的城是方城(圆角，横平竖直)，其余是起伏的一团，还可以斜着长、起伏的疏密也不同
@@ -296,6 +299,14 @@ public static class UrbanFabric
         return Mathf.Max(0.01f, Mathf.Clamp01(industrial / 25f));
     }
 
+    private static float PeakProgress(City city, float progress)
+    {
+        CityExtension.CityExtraData data = city.GetOrCreate();
+        if (global::Config.game_loaded && !SmoothLoader.isLoading() && city.kingdom?.data != null && !city.kingdom.isRekt())
+            data.urban_peak_progress = Mathf.Max(data.urban_peak_progress, progress);
+        return Mathf.Max(progress, data.urban_peak_progress);
+    }
+
     private const float TierYears = 3f;
     // 城的轮廓占建成地块面积的比例
     private const float TownDensity = 0.5f;
@@ -372,12 +383,14 @@ public static class UrbanFabric
             foreach (RuralSettlement settlement in stored)
             {
                 // 关城可以压在城墙上(关门，见 WallGateSystem)，村镇不行
-                if (!Open(g, settlement.x, settlement.y, settlement.fort)) continue;
+                if (!Shown(g, settlement)) continue;
                 g.SettlementHash = g.SettlementHash * 31 + settlement.id * 7 + (settlement.ruined_at >= 0d ? 3 : 1) +
                                    (int)settlement.seed * 13 + RuralSettlementSystem.Tier(settlement) * 5 +
                                    (settlement.name?.GetHashCode() ?? 0) + (settlement.fort ? 11 : 0) +
-                                   LivelihoodSystem.Of(settlement) * 17 + (settlement.yurt ? 19 : 0);
+                                   LivelihoodSystem.Of(settlement) * 17 + (settlement.yurt ? 19 : 0) +
+                                   (settlement.style?.GetHashCode() ?? 0) * 23;
                 if (settlement.yurt) g.Yurts.Add(PosKey(settlement.x, settlement.y));
+                else if (!string.IsNullOrEmpty(settlement.style)) g.Styles[PosKey(settlement.x, settlement.y)] = settlement.style;
                 // 关城：不算村镇数
                 if (settlement.fort)
                 {
@@ -842,7 +855,11 @@ public static class UrbanFabric
     // 这一处镇村是毡帐(见 RuralSettlement.yurt)
     internal static bool IsYurt(Geometry g, int x, int y) => g != null && g.Yurts.Count > 0 && g.Yurts.Contains(PosKey(x, y));
 
-    private static readonly Color32 Felt = new(240, 234, 218, 255), Trampled = new(196, 186, 140, 255);
+    // 这一处镇村换成了哪一系的画法(没换为 null)
+    internal static string StyleAt(Geometry g, int x, int y) =>
+        g != null && g.Styles.Count > 0 && g.Styles.TryGetValue(PosKey(x, y), out string family) ? family : null;
+
+    private static readonly Color32 Felt = new(240, 234, 218, 255), Trampled = new(196, 186, 140, 255), Palisade = new(128, 98, 64, 255);
     private static readonly Color32 FortWall = new(150, 140, 124, 255), FortTower = new(110, 102, 90, 255),
         FortYard = new(198, 186, 158, 255), FortBarracks = new(96, 88, 84, 255);
 
@@ -855,9 +872,11 @@ public static class UrbanFabric
         return Paint(color, Trampled, 0.3f);
     }
 
-    // 毡帐镇(粗图)：踩出来的一大片空地上毡帐一顶挨一顶(隔格错开，远看是一片白点)，正中大帐
-    private static Color32 YurtTownTile(Geometry g, WorldTile tile, Color32 color, int dx, int dy, int cx, int cy)
+    // 毡帐镇(粗图)：踩出来的一大片空地上毡帐一顶挨一顶(隔格错开，远看是一片白点)，正中大帐；有墙的大营外沿一圈木栅
+    private static Color32 YurtTownTile(Geometry g, WorldTile tile, Color32 color, int dx, int dy, int cx, int cy, float d, float reach,
+        bool walled)
     {
+        if (walled && d > reach - 1f && dx != 0 && dy != 0) return Paint(color, Palisade, 0.85f);
         if (dx == 0 && dy == 0) return Paint(color, Felt, 1f);
         if (Mathf.Abs(dx) <= 1 && Mathf.Abs(dy) <= 1) return Paint(color, Trampled, 0.45f);
         if (((dx + dy) & 1) == 0 && H(g.Seed, cx * 7 + dx, cy * 7 + dy, 25) < 0.6f) return Paint(color, Felt, 0.9f);
@@ -1091,10 +1110,25 @@ public static class UrbanFabric
 
     #endregion
 
-    // 能立村镇的格：陆地、不是山地碎石、没有城墙(手动立村设镇用，见 RuralSettlementSystem.Place)；
+    // 能立村镇的格：陆地、不是山地碎石、没有城墙(迁城旧城址留镇用，见 RuralSettlementSystem.LeaveOldSeat)；
     // 关城可以筑在城墙上(onWall，关门见 WallGateSystem)
     internal static bool Buildable(WorldTile tile, bool onWall = false) =>
         tile?.zone != null && tile.Type != null && !tile.Type.liquid && !Rough(tile) && (onWall || !MapWallSystem.Contains(tile));
+
+    // 手动营建能落的格(立村设镇筑关、迁城，见 RuralSettlementSystem.Place、CityRelocationSystem)：画得出来就行——陆地，丘陵、林地、旱地都行；
+    // 水、岩浆、山、高峰不行(精细图在那几格不落笔，立在上面看不见也点不着；原版城心要人走得到)，城墙上只有关城(onWall：关门，
+    // 长城多沿山脊，山上、高峰上的墙也能筑，只排除水面)
+    internal static bool ManualGround(WorldTile tile, bool onWall = false) =>
+        tile?.zone != null && tile.Type != null && !tile.Type.liquid &&
+        (onWall || !tile.Type.mountains && !tile.Type.block && !MapWallSystem.Contains(tile));
+
+    // 存档里落在本城地上的镇村画不画(见 PlaceCountryside)：本城没建成的地上、手动营建落得下的格(丘陵也画；关城压在墙上、山上也画)
+    private static bool Shown(Geometry g, RuralSettlement settlement)
+    {
+        WorldTile tile = World.world.GetTile(settlement.x, settlement.y);
+        return tile?.zone != null && tile.zone.city == g.City && !g.Built.Contains(tile.zone.id) &&
+               ManualGround(tile, settlement.fort && MapWallSystem.Contains(tile));
+    }
 
     // 城外紧挨着本城的无主空地(城外新建村镇用，见 PlaceCountryside)
     private static bool Frontier(Geometry g, int x, int y)
@@ -1499,6 +1533,24 @@ public static class UrbanFabric
         return rural;
     }
 
+    // 关城(粗图，原始聚落城外用：那里不画路、镇，手动筑的关城照画，见 PureMapPatch.Plan)
+    internal static bool FortTile(Geometry g, WorldTile tile, Color32 color, out Color32 result)
+    {
+        result = color;
+        if (g == null || tile?.zone == null || g.Forts.Count == 0) return false;
+        foreach (int index in RuralOf(g, tile.zone).Forts)
+        {
+            (int x, int y, int level) = g.Forts[index];
+            int dx = tile.x - x, dy = tile.y - y, r = 2 + level, d = Mathf.Max(Mathf.Abs(dx), Mathf.Abs(dy));
+            if (d > r) continue;
+            bool corner = Mathf.Abs(dx) == r && Mathf.Abs(dy) == r;
+            result = d == r ? Mix(color, corner ? FortTower : FortWall, 0.9f)
+                : Mix(color, (dx + dy) % 2 == 0 && d <= r - 2 ? FortBarracks : FortYard, 0.75f);
+            return true;
+        }
+        return false;
+    }
+
     // 城郊的路、关厢、镇、村、小路(田块、林子不算)
     public static bool Feature(Geometry g, WorldTile tile)
     {
@@ -1540,7 +1592,8 @@ public static class UrbanFabric
             int dx = tile.x - x, dy = tile.y - y;
             float d = Mathf.Sqrt(dx * dx + dy * dy), reach = size + 0.4f + 0.8f * (H(g.Seed, x, y, (int)(Angle(dx, dy) * 2f)) - 0.5f);
             if (d > reach) continue;
-            result = IsYurt(g, x, y) ? YurtTownTile(g, tile, color, dx, dy, x, y) : TownTile(g, tile, color, dx, dy, d, reach, walled);
+            result = IsYurt(g, x, y) ? YurtTownTile(g, tile, color, dx, dy, x, y, d, reach, walled)
+                : TownTile(g, tile, color, dx, dy, d, reach, walled);
             return true;
         }
         // 关城：方方正正一圈城墙，四角墩台，里面是营房校场

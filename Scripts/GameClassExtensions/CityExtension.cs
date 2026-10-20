@@ -101,6 +101,20 @@ public static class CityExtension
         public double map_style_since = -1d;
         // 游牧城旧档改正过一次(见 CityStyleSystem.Established)
         public bool map_style_nomad_checked;
+        // 城貌是在城貌小窗口里手动选定的(见 CityStyleSystem.SetByHand)：改建决议、旧档改正、水土改从游牧都不再改它；
+        // 游牧营地手动定的画法：0 按地形(旱地毡帐、别处冬营地)，1 一直是毡帐营地，2 一直是冬营地
+        public bool map_style_by_hand;
+        public int map_style_camp;
+        // 本城在非原始政体下画过城池(见 PureMapPatch.Layout)：以后易主给原始政体的部落也照旧画城池，不改画原始聚落
+        public bool map_settled;
+        // 宫城(都城地标，见 PureMapPatch.Layout)：画着宫城时的主人；易主后宫城留着(palace_kept)，手动营的宫城也一直留着
+        public long palace_owner = -1L;
+        public bool palace_kept;
+        // 城市平面图画到过的最高时代进度、住宅代数、现代规划进度(见 UrbanFabric.Build、PureMapPatch.PlanFor)：
+        // 易主给科技落后的国家、易俗，已建起的楼不退回去
+        public float urban_peak_progress;
+        public int urban_peak_housing;
+        public float urban_peak_modern;
         // 从本城通往 id 更大的邻城的路(见 RoadBuildingSystem)
         public List<RoadLink> road_links;
         // 连荒了几年(见 FamineUnrestSystem)
