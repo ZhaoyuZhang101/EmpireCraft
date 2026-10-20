@@ -375,7 +375,7 @@
       ]
     },
     {
-      "id": "western_senate", "requires_techs": ["law_code"],
+      "id": "western_senate", "requires_techs": ["writing"],
       "name_key": "institution_western_senate",
       "description_key": "institution_western_senate_desc",
       "branch": "society",

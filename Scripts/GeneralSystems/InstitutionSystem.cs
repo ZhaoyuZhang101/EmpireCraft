@@ -35,8 +35,10 @@ public sealed class InstitutionReformEnvironment
 {
     public int SameCultureCountries;
     public int SameCultureEmpires;
-    // 同文化推制度的政权(帝国 + 独立王国)；王国改革关掉时等于帝国数。改革竞争按它加速
+    // 同文化推制度的政权(帝国 + 独立王国 + 帝国里同文化成员国每三国折一家)；王国改革关掉时不计王国。改革竞争按它加速
     public int SameCultureRealms;
+    // 同文化帝国里本文化的成员国数(不含核心)，每 MembersPerRealm 国折一家政权
+    public int SameCultureMembers;
     public int AdvancedBorderEmpires;
     public float SpeedMultiplier = 1f;
     public int EffectiveMinimumYears = 1;
@@ -1047,8 +1049,11 @@ public static partial class InstitutionSystem
                 string.Equals(GetPrimaryCulture(candidate), culture, StringComparison.Ordinal));
         }
         // 改革竞争按同文化"政权"数(帝国 + 自己推制度的独立王国)算：部落时代多是王国、部落，
-        // 只数帝国的话那时的改革要慢一倍
-        result.SameCultureRealms = Math.Max(1, result.SameCultureEmpires + CultureKingdomRealms(culture).Count);
+        // 只数帝国的话那时的改革要慢一倍。统一成一个大帝国后只剩一家，一项要四十来年；
+        // 帝国里同文化的成员国每三国折一家(九个成员的统一帝国约二十二年一项，同分立的部落、王国相当)
+        result.SameCultureMembers = CultureEmpireMembers(culture);
+        result.SameCultureRealms = Math.Max(1, result.SameCultureEmpires + CultureKingdomRealms(culture).Count +
+                                               result.SameCultureMembers / MembersPerRealm);
         result.SameCultureCountries = Math.Max(1, result.SameCultureCountries);
         result.SameCultureEmpires = Math.Max(1, result.SameCultureEmpires);
         result.AdvancedBorderEmpires = CountAdvancedBorderEmpires(realm, culture);
@@ -1520,7 +1525,7 @@ public static partial class InstitutionSystem
         int interval = TechnologySystem.GetEraTier(primaryCulture) - EnactedAdvancement(primaryCulture) >= 3 ? 1 : 3;
         if (state.last_ai_reform_attempt_timestamp >= 0 &&
             Date.getYearsSince(state.last_ai_reform_attempt_timestamp) < interval) return;
-        // 王国、部落：错开年份、叛乱未平不推、每文化至多三家同时在推(见 InstitutionSystem.Realm.cs)
+        // 王国、部落：错开年份、叛乱未平不推、每文化同推有名额(3~6 家，见 InstitutionSystem.Realm.cs)
         bool kingdomRules = FollowsKingdomRules(realm);
         if (kingdomRules && !KingdomAiMayTry(realm, state, primaryCulture, interval)) return;
         state.last_ai_reform_attempt_timestamp = World.world.getCurWorldTime();
