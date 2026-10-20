@@ -100,9 +100,10 @@ public static partial class PapacySystem
         data.PapalAuthority = Mathf.Clamp(data.PapalAuthority + delta, 0f, 100f);
     }
 
-    // 脱离罗马(宗教改革)或世俗化
+    // 脱离罗马(宗教改革)或世俗化。选帝制帝国的皇帝不随宗教改革脱离罗马(由诸侯改宗，见 HolyRomanSystem.KeepsOldFaith)
     public static bool BrokeWithRome(Empire empire) =>
-        InstitutionSystem.IsEnacted(empire, NodeReformation) || InstitutionSystem.IsEnacted(empire, NodeSecularization);
+        InstitutionSystem.IsEnacted(empire, NodeSecularization) ||
+        InstitutionSystem.IsEnacted(empire, NodeReformation) && !HolyRomanSystem.KeepsOldFaith(empire);
 
     public static int Investiture(Empire empire)
     {

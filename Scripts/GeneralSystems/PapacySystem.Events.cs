@@ -18,7 +18,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 教廷之囚：圣地落在世俗强国(帝国中央或成员)手里。挟持者的君主由教宗加冕(教廷在本帝国，见 Coronation)；
 //     与挟持者交战的帝国每年按 教权/100 的概率遭绝罚(教宗受挟)；被挟持满 20 年出现对立教宗(大分裂)，大分裂期间教权目标再 -20；
 //     圣地脱离挟持即告结束；
-//   · 宗教改革脱离罗马：文化施行了宗教改革的西方帝国(教廷所在的除外)以皇帝为首另立国教会(新宗教，圣地在帝都)，
+//   · 宗教改革脱离罗马：文化施行了宗教改革的西方帝国(教廷所在的、皇帝仍奉旧教的选帝制帝国除外)以皇帝为首另立国教会(新宗教，圣地在帝都)，
 //     帝国各国、各城、城里的人改奉国教会；没收教产(两年经常收入)；母宗教教权 -8。国教会记下母宗教，
 //     此后 30 年内母宗教的教廷可号召讨伐异端(教权 40 以上)；讨伐异端的圣战打完(不论胜负)即"教随国定"，母宗教 50 年内不再讨伐异端；
 //   · 骑士团国世俗化：骑士团国所在文化施行了宗教改革或世俗化，大团长改为世袭公国，骑士团解散；
@@ -85,7 +85,8 @@ public static partial class PapacySystem
     // 宗教改革脱离罗马：另立国教会
     private static void TryBreakWithRome(Empire empire)
     {
-        if (!IsWestern(empire) || !InstitutionSystem.IsEnacted(empire, NodeReformation)) return;
+        // 选帝制帝国的皇帝不随宗教改革脱离罗马，由诸侯另立新教会(见 HolyRomanSystem.SeedReformation)
+        if (!IsWestern(empire) || !InstitutionSystem.IsEnacted(empire, NodeReformation) || HolyRomanSystem.KeepsOldFaith(empire)) return;
         PapalRelationState state = State(empire);
         Religion old = ReligionOf(empire);
         if (state == null || state.national_church_id >= 0 || old == null) return;
@@ -134,8 +135,10 @@ public static partial class PapacySystem
             var split = other.GetOrCreate();
             if (split.ParentReligionId != religion.data.id || split.SplitAt < 0d ||
                 Date.getYearsSince(split.SplitAt) > HereticWindowYears) continue;
+            // 只讨伐整个政权改宗的(国教会)；帝国诸侯另立的新教会归帝国内的宗教战争(见 HolyRomanSystem.Leagues)，
+            // 不然教廷会去讨伐仍奉旧教的皇帝
             Kingdom head = Papacy(other);
-            if (head != null) return Realm(head);
+            if (head != null && Realm(head).religion == other) return Realm(head);
         }
         return null;
     }

@@ -12,9 +12,12 @@ using UnityEngine;
 namespace EmpireCraft.Scripts.GeneralSystems;
 
 // 宗教改革之后(封建制帝国，原型施马尔卡尔登同盟、三十年战争与威斯特伐利亚和约)：
+//   · 新教会从哪来：别的帝国脱离罗马另立的国教会(PapacySystem.TryBreakWithRome)；选帝制帝国的皇帝不随宗教改革脱离罗马
+//     (KeepsOldFaith)，本文化施行宗教改革后，由一位与皇帝最不睦的世俗诸侯在自己的都城另立新教会(SeedReformation)；
 //   · 诸侯改宗：世上有从皇帝所奉宗教分出去的新教会时，成员国每年有小概率改奉它——
 //     与奉新教会的国家接壤更容易，主教领不改，教皇党诸侯少改，与皇帝交恶的多改；自由城市同样会改；
-//   · 诸侯同盟：改奉别教的成员国两家以上、合计占帝国城数两成以上时，可能以最强一家的都城为名结成同盟；
+//   · 诸侯同盟：改奉新教会(与皇帝所奉宗教有分合关系)的成员国两家以上、合计占帝国城数两成以上时，
+//     可能以最强一家的都城为名结成同盟；奉不相干的别教的诸侯不算(那不是宗教改革)；
 //   · 宗教战争：同盟每年有一成二可能向皇帝开战，同盟诸国随盟主进攻，与皇帝同教的诸侯多半助战；
 //   · 结局：皇帝胜——同盟诸国改回皇帝的宗教，同盟解散，正统 +10；
 //           否则(同盟胜或打成平手)订立和约(以一座自由城市或同盟盟主都城为名)——诸侯取得完全主权
@@ -25,6 +28,7 @@ public static partial class HolyRomanSystem
 {
     private const float ConvertChance = 0.04f, ConvertNeighbourBonus = 0.06f;
     private const float LeagueChance = 0.15f, LeagueCityShare = 0.2f, ReligiousWarChance = 0.12f, CatholicLeagueChance = 0.6f;
+    private const float ReformationSeedChance = 0.15f;
     public const int LeagueCrushedLegitimacy = 10, PeaceLegitimacy = -10, SovereignLegitimacy = -5, RomzugLegitimacy = -3;
     private const float RomzugCost = 0.2f;
     private const double RomzugYears = 1d;
@@ -36,9 +40,11 @@ public static partial class HolyRomanSystem
     {
         Kingdom core = empire.CoreKingdom;
         if (!core.hasReligion()) return;
+        SeedReformation(empire);
         PrincelyReformation(empire);
         if (state.sovereign_princes) return;
-        List<Kingdom> dissenters = Members(empire).Where(member => member.hasReligion() && member.religion != core.religion).ToList();
+        List<Kingdom> dissenters = Members(empire).Where(member => member.hasReligion() && Schismatic(member.religion, core.religion))
+            .ToList();
         if (state.league_leader_id < 0)
         {
             if (dissenters.Count < 2 || UnityEngine.Random.value >= LeagueChance) return;
@@ -53,7 +59,8 @@ public static partial class HolyRomanSystem
             return;
         }
         Kingdom head = World.world.kingdoms.get(state.league_leader_id);
-        if (head?.data == null || head.isRekt() || head.GetEmpire() != empire || !head.hasReligion() || head.religion == core.religion)
+        if (head?.data == null || head.isRekt() || head.GetEmpire() != empire || !head.hasReligion() ||
+            !Schismatic(head.religion, core.religion))
         {
             head = dissenters.OrderByDescending(member => member.countTotalWarriors()).FirstOrDefault();
             if (head == null)
@@ -77,15 +84,55 @@ public static partial class HolyRomanSystem
             .Where(kingdom => kingdom?.data != null && !kingdom.isRekt() && kingdom.GetEmpire() == empire).ToList() ?? new List<Kingdom>();
     }
 
+    // 两教有分合关系：一方是从另一方分出去的(宗教改革另立的新教会与它的母宗教)
+    public static bool Schismatic(Religion a, Religion b) =>
+        a?.data != null && b?.data != null && a != b &&
+        (a.GetOrCreate().ParentReligionId == b.data.id || b.GetOrCreate().ParentReligionId == a.data.id);
+
+    // 从某宗教分出去的新教会
+    private static List<Religion> ChurchesOf(Religion old) =>
+        old?.data == null ? new List<Religion>()
+            : World.world.religions.Where(religion => religion?.data != null && !religion.isRekt() && religion != old &&
+                                                      religion.GetOrCreate().ParentReligionId == old.data.id).ToList();
+
+    // 选帝制帝国的皇帝不随本文化的宗教改革脱离罗马(见 PapacySystem.BrokeWithRome、TryBreakWithRome)：宗教改革由诸侯开头，
+    // 皇帝与奉旧教的诸侯对抗新教同盟。已另立过国教会的(如改回世袭时脱离过)照旧算脱离
+    public static bool KeepsOldFaith(Empire empire) =>
+        IsElective(empire) && (PapacySystem.State(empire)?.national_church_id ?? -1L) < 0;
+
+    // 诸侯另立新教会：本文化施行了宗教改革、皇帝仍奉旧教、世上还没有从皇帝所奉宗教分出去的新教会时，每年一成五可能由
+    // 与皇帝最不睦的世俗诸侯(不同族)在自己的都城另立新教会，圣地就在那里，之后各诸侯陆续改宗(PrincelyReformation)。
+    // 以前新教会只能来自别的帝国脱离罗马，帝国自己施行宗教改革又是整个改宗——一国独大的西方或握着教廷的帝国，
+    // 诸侯同盟与和约永远凑不齐(玩家日志 0 次)
+    private static void SeedReformation(Empire empire)
+    {
+        Religion old = empire.CoreKingdom.religion;
+        if (!KeepsOldFaith(empire) || !InstitutionSystem.IsEnacted(empire, PapacySystem.NodeReformation) ||
+            ChurchesOf(old).Count > 0 || UnityEngine.Random.value >= ReformationSeedChance) return;
+        Kingdom founder = Members(empire)
+            .Where(member => SecularPrince(member) && member.hasKing() && member.capital != null && member.religion == old &&
+                             !SameHouse(member.king, empire.Emperor))
+            .OrderBy(member => Opinion(member, empire.CoreKingdom)).ThenByDescending(member => member.cities.Count).FirstOrDefault();
+        if (founder == null) return;
+        Actor head = founder.king;
+        if (head.city != founder.capital) head.joinCity(founder.capital);
+        Religion church = World.world.religions.newReligion(head, false);
+        if (church?.data == null) return;
+        church.data.name = string.Format(LM.Get("hre_reformed_church_name"), founder.capital.GetCityName());
+        church.SetCity(founder.capital);
+        var data = church.GetOrCreate();
+        data.ParentReligionId = old.data.id;
+        data.SplitAt = World.world.getCurWorldTime();
+        Convert(founder, old, church);
+        Record(empire, string.Format(LM.Get("hre_reformation_founded_history"), founder.GetKingdomName(), church.name, old.name));
+    }
+
     // 诸侯改宗：改奉从皇帝所奉宗教分出去的新教会
     private static void PrincelyReformation(Empire empire)
     {
         Kingdom core = empire.CoreKingdom;
         Religion old = core.religion;
-        List<Religion> churches = World.world.religions.Where(religion => religion?.data != null && !religion.isRekt() &&
-                                                                          religion != old &&
-                                                                          religion.GetOrCreate().ParentReligionId == old.data.id)
-            .ToList();
+        List<Religion> churches = ChurchesOf(old);
         if (churches.Count == 0) return;
         foreach (Kingdom member in Members(empire))
         {

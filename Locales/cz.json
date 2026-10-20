@@ -2950,6 +2950,8 @@
   "papacy_crown_block_done": "{0}的皇帝已经加冕。",
   "hre_diet_war_troops_outcome": "通过，{0}国应征出兵(兵力约{2})，抗命的有{1}",
   "hre_corps_log_call_to_arms": "应帝国议会征召，发兵参加{0}",
+  "hre_reformed_church_name": "{0}新教会",
+  "hre_reformation_founded_history": "{0}弃{2}，在本国另立{1}。",
   "capital_loss_restored": "{0}收复旧都{1}，还于旧都，复称{2}。",
   "kingdom_type_xingzai": "行在",
   "Later": "后",
