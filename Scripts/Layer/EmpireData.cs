@@ -148,6 +148,8 @@ public class EmpireData : MetaObjectData
     public double timestamp_given_time;
     public CenterOffice centerOffice { get; set; }
     public double newEmperor_timestamp { get; set; }
+    // newEmperor_timestamp 是哪位君主即位登记时记下的(见 Empire.NewEmperor、RepairUnregisteredEmperor)；-1 为旧档
+    public long reign_emperor_id { get; set; } = -1L;
     // 一部自立的部落(见 TribalFissionService.FormTribes)：走出原始阶段时若没有并入别的国就撤掉帝国；有了共事的部落改为 false
     public bool formed_as_tribe { get; set; }
     // 禅让旧档清理做过了(见 ShanrangSystem.DropInterimReigns)

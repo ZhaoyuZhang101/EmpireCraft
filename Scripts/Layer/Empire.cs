@@ -568,15 +568,33 @@ public class Empire : MetaObject<EmpireData>
     private long _unregisteredEmperorRepairAttempt = -1L;
 
     // 自愈：皇帝在位，但当前这一朝的历史记录属于别人（空位期留下的记录，或即位登记中途失败），
-    // 说明这位皇帝从未完成即位登记——皇室、年号、在位历史都还停在上一任，年号会从上一任起一直累加。
-    // 这里补做一次完整的即位处理。每位皇帝只尝试一次，避免即位处理本身出错时每帧重试。
+    // 或即位时间记的是别人(reign_emperor_id)，说明这位皇帝从未完成即位登记——皇室、年号、在位历史都还停在上一任，
+    // 年号、在位年数会从上一任起一直累加。后一种：继承人本是别国(兀鲁思、封国)君主时中央直接改成他的国
+    // (EmpireCraftKingdomBehCheckKing.ChooseKingFromHeir)、中央灭亡改立别的成员国(TryRepairState)，都不经 setKing，
+    // 当前这一朝的记录又是记事时按当今补开的，以前看不出来(用户 2026-10-21 截图：游牧汗国一位先汗"在位 136 年"，
+    // 是几位汗的在位年数连在一起)。这里补做一次完整的即位处理。每位皇帝只尝试一次，避免即位处理本身出错时每帧重试。
     private void RepairUnregisteredEmperor()
     {
         Actor emperor = Emperor;
-        if (emperor?.data == null || emperor.isRekt() || data.currentHistory == null) return;
-        if (data.currentHistory.id == emperor.data.id || _unregisteredEmperorRepairAttempt == emperor.data.id) return;
+        if (emperor?.data == null || emperor.isRekt() || !emperor.isAlive()) return;
+        // 旧档没记即位登记的是谁：校正一次旧的在位年数(见 ReignRecordSystem.RepairLegacyTenure)，当今算已登记
+        if (data.reign_emperor_id < 0)
+        {
+            ReignRecordSystem.RepairLegacyTenure(this);
+            data.reign_emperor_id = emperor.data.id;
+        }
+        bool foreignPage = data.currentHistory != null && data.currentHistory.id != emperor.data.id;
+        if (!foreignPage && data.reign_emperor_id == emperor.data.id) return;
+        if (_unregisteredEmperorRepairAttempt == emperor.data.id) return;
         _unregisteredEmperorRepairAttempt = emperor.data.id;
         LogService.LogWarning($"帝国 {GetEmpireName()} 的皇帝 {emperor.getName()} 未完成即位登记，补做即位处理。");
+        // 上一位登记过的君主的本朝记录还开着(没经 EmperorLeft 收进史书)：按他的即位时间收起，不随新开的一页丢掉
+        if (foreignPage && data.currentHistory.id > 0 && data.currentHistory.id == data.reign_emperor_id)
+        {
+            data.currentHistory.total_time = Date.getYearsSince(data.newEmperor_timestamp);
+            data.history.Add(data.currentHistory);
+            data.currentHistory = null;
+        }
         NewEmperor(emperor);
     }
 
@@ -792,6 +810,8 @@ public class Empire : MetaObject<EmpireData>
         }
         
         
+        // 即位时间(newEmperor_timestamp，上面定年号时记下)属于这位(见 RepairUnregisteredEmperor)
+        data.reign_emperor_id = actor.id;
         //记录历史
         this.RecordNewEmperorHistory(isNew);
         RulerTraitSystem.OnCrowned(this, actor);
@@ -938,7 +958,8 @@ public class Empire : MetaObject<EmpireData>
         emperor.RemoveEmpire();
         if (!protectedDynasty) data.empire_specific_clan = previousClan?.id ?? -1L;
         LogService.LogInfo("上一任皇氏族记录:" + (previousClan?.name ?? "无"));
-        data.currentHistory.total_time = Date.getYearsSince(data.newEmperor_timestamp);
+        // 没来得及补登记就走了的(见 RepairUnregisteredEmperor)：从上一位最后一条记事算起，不连上一位的年数
+        data.currentHistory.total_time = Date.getYearsSince(ReignRecordSystem.ReignStart(this, emperor));
         ReignRecordSystem.OnReignEnd(this, emperor);
         data.history.Add(data.currentHistory);
         data.currentHistory = null;
