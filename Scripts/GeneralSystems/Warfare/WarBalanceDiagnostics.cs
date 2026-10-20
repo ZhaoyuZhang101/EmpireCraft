@@ -16,15 +16,19 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     背景人口、兵源、军费系数、征兵比例、积弊、现有兵力。
 // 阿拉伯政体同样记一份(先看行省的军费系数是否卡住兵额，再调央地分成)：一方是阿拉伯政体(帝国按核心)、又不是游牧战事的，
 // 记成[阿拉伯平衡·交战]、[阿拉伯平衡·兵源]，另计行数(限频同上)；兵源行另记国家类别、央地分成、年经常收入与国库。
+// 罗马、华夏两路(用户 2026-10-20 定"补上罗马、华夏两路，进游戏四系对比")：不是游牧、阿拉伯战事的，一方(帝国按核心)的文化线是
+// 罗马线(西方各文化默认走罗马线)记[罗马平衡]，否则一方是华夏线记[华夏平衡]；格式、限频同阿拉伯，兵源行另记政体。
 public static class WarBalanceDiagnostics
 {
     private const int MaxBattleLines = 6, MaxRealmLines = 8, CooldownMonths = 12;
     private const double SecondsPerMonth = 5d;
-    // 两路诊断：0 游牧、1 阿拉伯
-    private const int NomadChannel = 0, ArabicChannel = 1, Channels = 2;
-    private static readonly string[] Tags = { "游牧平衡", "阿拉伯平衡" };
+    // 四路诊断：0 游牧、1 阿拉伯、2 罗马、3 华夏
+    private const int NomadChannel = 0, ArabicChannel = 1, RomaChannel = 2, HuaxiaChannel = 3, Channels = 4;
+    private static readonly string[] Tags = { "游牧平衡", "阿拉伯平衡", "罗马平衡", "华夏平衡" };
+    private static readonly string[] Marks = { "·游牧", "·阿拉伯", "·罗马", "·华夏" };
 
-    private static readonly Dictionary<long, double>[] BattleLogged = { new(), new() }, RealmLogged = { new(), new() };
+    private static readonly Dictionary<long, double>[] BattleLogged = { new(), new(), new(), new() },
+        RealmLogged = { new(), new(), new(), new() };
     private static double _monthAt = -1d;
     private static readonly int[] BattleLines = new int[Channels], RealmLines = new int[Channels];
 
@@ -54,6 +58,22 @@ public static class WarBalanceDiagnostics
         kingdom?.data != null && !kingdom.isRekt() &&
         (kingdom.GetRegime()?.type == RegimeType.Arabic || FrontSystem.Realm(kingdom)?.GetRegime()?.type == RegimeType.Arabic);
 
+    // 文化线(帝国按核心)：罗马线(西方各文化默认走罗马线)、华夏线
+    private static string Line(Kingdom kingdom)
+    {
+        Kingdom realm = FrontSystem.Realm(kingdom);
+        return realm?.data == null || realm.isRekt() ? "" : InstitutionSystem.GetCultureLine(CultureService.GetRealmCulture(realm));
+    }
+
+    private static bool Roman(Kingdom kingdom) => kingdom?.data != null && !kingdom.isRekt() && Line(kingdom) == "Roma";
+
+    private static bool Huaxia(Kingdom kingdom) => kingdom?.data != null && !kingdom.isRekt() && Line(kingdom) == "Huaxia";
+
+    // 这一方属于哪一路(游牧、阿拉伯、罗马、华夏依次)；都不是返回 -1
+    private static int ChannelOf(Kingdom kingdom) =>
+        Nomad(kingdom) ? NomadChannel : Arabic(kingdom) ? ArabicChannel : Roman(kingdom) ? RomaChannel :
+        Huaxia(kingdom) ? HuaxiaChannel : -1;
+
     // 本国(连同所在帝国的核心)在跟某类国家打仗，或自己就是
     private static bool AtWarWith(Kingdom kingdom, global::System.Func<Kingdom, bool> watched)
     {
@@ -71,9 +91,10 @@ public static class WarBalanceDiagnostics
         return false;
     }
 
-    // 记哪一路：游牧优先，其次阿拉伯；都不是返回 -1
+    // 记哪一路：游牧优先，其次阿拉伯、罗马、华夏；都不是返回 -1
     private static int RealmChannel(Kingdom kingdom) =>
-        AtWarWith(kingdom, Nomad) ? NomadChannel : AtWarWith(kingdom, Arabic) ? ArabicChannel : -1;
+        AtWarWith(kingdom, Nomad) ? NomadChannel : AtWarWith(kingdom, Arabic) ? ArabicChannel :
+        AtWarWith(kingdom, Roman) ? RomaChannel : AtWarWith(kingdom, Huaxia) ? HuaxiaChannel : -1;
 
     private static string Name(Kingdom kingdom) => kingdom?.data == null ? "?" : kingdom.GetKingdomName();
 
@@ -90,7 +111,7 @@ public static class WarBalanceDiagnostics
             Layer.Empire empire = kingdom.GetEmpire();
             List<CorpsData> corps = CorpsSystem.Of(kingdom);
             float strength = corps.Sum(entry => Mathf.Max(0f, entry.strength)), full = corps.Sum(entry => Mathf.Max(0f, entry.full));
-            string mark = channel == NomadChannel ? (Nomad(kingdom) ? "·游牧" : "") : (Arabic(kingdom) ? "·阿拉伯" : "");
+            string mark = ChannelOf(kingdom) == channel ? Marks[channel] : "";
             var text = new StringBuilder();
             text.Append($"[EmpireCraft][{Tags[channel]}·兵源] {Name(kingdom)}({CultureService.GetRealmCulture(kingdom)}" +
                         $"{mark}{(empire != null ? "·" + empire.GetEmpireName() : "")}) " +
@@ -104,10 +125,11 @@ public static class WarBalanceDiagnostics
                             $"税率{kingdom.GetTaxRate() * 100d:0.#}%");
             else
             {
-                // 行省、埃米尔国的钱袋：央地分成(城/本国/中央)、年经常收入、国库，看军费系数是不是卡在钱上
+                // 行省、埃米尔国(罗马、华夏同)的钱袋：央地分成(城/本国/中央)、年经常收入、国库，看军费系数是不是卡在钱上
                 var (cityShare, localShare, centralShare) = TreasurySystem.TaxShares(kingdom);
                 text.Append($"类别{kingdom.GetKingdomType()} 分成{cityShare}/{localShare}/{centralShare} " +
                             $"年入{StateDebtSystem.AnnualStableIncome(kingdom)} 国库{kingdom.GetMoney()}");
+                if (channel != ArabicChannel) text.Append($" 政体{FrontSystem.Realm(kingdom)?.GetRegime()?.type}");
             }
             LogService.LogInfo(text.ToString());
         }
@@ -125,14 +147,14 @@ public static class WarBalanceDiagnostics
         try
         {
             if (city?.data == null || World.world == null) return;
-            bool nomadAttacker = Nomad(attacker), nomadOwner = Nomad(owner);
-            bool arabicAttacker = Arabic(attacker), arabicOwner = Arabic(owner);
-            int channel = nomadAttacker || nomadOwner ? NomadChannel : arabicAttacker || arabicOwner ? ArabicChannel : -1;
+            // 两边各属哪一路，取排在前面的那一路(游牧、阿拉伯、罗马、华夏)
+            int attackerChannel = ChannelOf(attacker), ownerChannel = ChannelOf(owner);
+            int channel = attackerChannel < 0 ? ownerChannel : ownerChannel < 0 ? attackerChannel : Mathf.Min(attackerChannel, ownerChannel);
             if (channel < 0 || !Budget(true, channel) || Cooling(BattleLogged[channel], city.data.id)) return;
             BattleLogged[channel][city.data.id] = World.world.getCurWorldTime();
             BattleLines[channel]++;
-            string attackerMark = channel == NomadChannel ? (nomadAttacker ? "·游牧" : "") : (arabicAttacker ? "·阿拉伯" : "");
-            string ownerMark = channel == NomadChannel ? (nomadOwner ? "·游牧" : "") : (arabicOwner ? "·阿拉伯" : "");
+            string attackerMark = attackerChannel == channel ? Marks[channel] : "";
+            string ownerMark = ownerChannel == channel ? Marks[channel] : "";
             var text = new StringBuilder();
             text.Append($"[EmpireCraft][{Tags[channel]}·交战] {city.GetCityName()} 攻:{Name(attacker)}{attackerMark} ");
             Side(text, attackers);
