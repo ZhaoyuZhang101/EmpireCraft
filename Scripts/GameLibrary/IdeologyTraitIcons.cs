@@ -38,6 +38,29 @@ public static class IdeologyTraitIcons
 
     public static string Path(PartyIdeology ideology) => $"ui/icons/actor_traits/ideology_{ideology}";
 
+    // 古代学说各文化线一套徽章(西方十字、阿拉伯新月、草原狼头……见 Tools/IconForge/doctrine_forge.py)：
+    // 先找 ideology_<理念>_<文化小写>，再找 ideology_<理念>_<谱系>，都没有回退华夏那枚
+    private static readonly global::System.Collections.Generic.Dictionary<string, bool> Exists = new();
+
+    public static string Path(PartyIdeology ideology, string culture)
+    {
+        if (!IdeologyFamilies.IsAncient(ideology) || string.IsNullOrEmpty(culture)) return Path(ideology);
+        string set = CultureDoctrines.SetOf(culture);
+        if (set == CultureDoctrines.Huaxia) return Path(ideology);
+        foreach (string suffix in new[] { culture.ToLowerInvariant(), set })
+        {
+            string path = $"{Path(ideology)}_{suffix}";
+            if (!Exists.TryGetValue(path, out bool found))
+            {
+                found = global::System.IO.File.Exists(global::System.IO.Path.Combine(ModClass._declare.FolderPath, "GameResources",
+                    path.Replace('/', global::System.IO.Path.DirectorySeparatorChar) + ".png"));
+                Exists[path] = found;
+            }
+            if (found) return path;
+        }
+        return Path(ideology);
+    }
+
     public static void Register()
     {
         if (_registered) return;

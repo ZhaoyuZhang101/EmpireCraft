@@ -549,7 +549,8 @@ public partial class EmpireBeaurauWindow
     private static void AddPartyLine(AutoVertLayoutGroup column, float width, ParliamentFactionView faction, string text)
     {
         var line = column.BeginHoriGroup(new Vector2(width, 11f), TextAnchor.MiddleLeft, 2, new RectOffset(0, 0, 0, 0));
-        UIHelper.AddLayoutIcon(line.transform, SpriteTextureLoader.getSprite(IdeologyTraitIcons.Path(faction.Ideology)), 9f);
+        UIHelper.AddLayoutIcon(line.transform, SpriteTextureLoader.getSprite(
+            IdeologyTraitIcons.Path(faction.Ideology, CultureDoctrines.CultureOf(faction.Faction))), 9f);
         SimpleText label = line.AddTextIntoHoriLayout(text, true, TextAnchor.MiddleLeft, new Vector2(width - 11f, 11f));
         label.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
         HoverMarqueeText.Attach(label);

@@ -25,6 +25,7 @@
 | 法理 / 行政区 / 帝国核心工具 | 器物 + 角标(法理图卷、朱红官印、玉玺) | `TOOLS` | 覆盖原 `ui/icons/iconTool*.png` |
 | 民族情绪图层 | 由冷到热的色带旗(黑铁 → 枪灰 → 旧铜 → 暗红 → 血红) | `TOOLS` | `ui/icons/iconNationLayer.png` |
 | 理念徽章 | 保留原设计，在原图上调色(降饱和、冷色再去色、金色转旧铜、纯黑描边) | `regrade_badge` | 母版在 `Tools/IconForge/source/` |
+| 各文化的古代学说徽章 | 同一格理念与华夏那枚同底色，换成本文化的通用意象(十字、新月、狼首、法轮、鸟居、羽蛇……，不画人物与史名)；细节笔画至少 30(256 画布)才看得见 | `doctrine_forge.py`(单独脚本，预览 `doctrine_preview.png`) | `ui/icons/actor_traits/ideology_<理念>_<谱系或文化>` |
 | 卷册卡片框(九宫格 36×36) | 深橄榄底；普通=橄榄青铜边+金回纹角(中心朱红)，高亮=金边，选中=朱漆边，宗族=缠枝纹角 | `frame_forge.py`(单独脚本) | `GameResources/ui/FactionFrame*.png`、`regimeFrame.png`、`clanFrame.png` |
 | 世界提示 | 直接复用上面的图标，`path_icon` 指过去 | —— | —— |
 | 纯净地图城市平面图的建筑图块(3×3 像素，按时代分代) | 平涂像素图块，"." 透明露出街区底色 | `citymap_forge.py`(单独脚本) | `GameResources/ui/citymap/<名>.png` |

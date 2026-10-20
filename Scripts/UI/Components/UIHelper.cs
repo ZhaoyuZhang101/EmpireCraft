@@ -1159,6 +1159,8 @@ public static class UIHelper
         List<FixedFaction> pieFactions = factions.Where(faction => PieShare(faction) > 0 || !cliquePie).ToList();
         float total = pieFactions.Sum(faction => (float)PieShare(faction));
         var slices = new List<FactionPieChart.Slice>();
+        // 古代学说的徽章按本朝堂的文化线取(见 IdeologyTraitIcons.Path)
+        string doctrineCulture = FactionEditor.CultureOf(kingdom);
         foreach (FixedFaction faction in pieFactions)
         {
             (List<InstitutionNodeConfig> supports, List<InstitutionNodeConfig> opposes) =
@@ -1170,7 +1172,7 @@ public static class UIHelper
             {
                 Share = total > 0f ? PieShare(faction) / total : 0f,
                 Color = IdeologyColor(ideology),
-                Emblem = SpriteTextureLoader.getSprite(EmpireCraft.Scripts.GameLibrary.IdeologyTraitIcons.Path(ideology)),
+                Emblem = SpriteTextureLoader.getSprite(EmpireCraft.Scripts.GameLibrary.IdeologyTraitIcons.Path(ideology, doctrineCulture)),
                 TipTitleKey = titleKey,
                 TipBodyKey = bodyKey,
                 OnClick = () => OpenFactionDetail(target, kingdom)
@@ -1265,7 +1267,8 @@ public static class UIHelper
             pPadding: new RectOffset(0, 0, 0, 0));
         // 第一行：理念徽章 + 名称 + 中央占比
         var top = info.BeginHoriGroup(new Vector2(inner, 11f), TextAnchor.MiddleLeft, 2, new RectOffset(0, 0, 0, 0));
-        AddLayoutIcon(top.transform, SpriteTextureLoader.getSprite(EmpireCraft.Scripts.GameLibrary.IdeologyTraitIcons.Path(ideology)), 10f);
+        AddLayoutIcon(top.transform, SpriteTextureLoader.getSprite(
+            EmpireCraft.Scripts.GameLibrary.IdeologyTraitIcons.Path(ideology, FactionEditor.CultureOf(kingdom))), 10f);
         // 朋党：阶级派系写权(并入投靠它的学说朋党)，学说朋党写影响(见 CliqueSystem.Power)
         bool school = faction.IsClique && !CliqueSystem.IsClassClique(faction);
         float shareWidth = school ? 38f : 24f;
@@ -1445,7 +1448,7 @@ public static class UIHelper
         AddColorBlock(row.transform, new Vector2(3, FactionCardHeight - 4f), ideologyColor);
         var badge = row.BeginVertGroup(new Vector2(15, FactionCardHeight - 4f), pSpacing: 0, pAlignment: TextAnchor.MiddleCenter);
         AddLayoutIcon(badge.transform,
-            SpriteTextureLoader.getSprite(EmpireCraft.Scripts.GameLibrary.IdeologyTraitIcons.Path(ideology)), 15f);
+            SpriteTextureLoader.getSprite(EmpireCraft.Scripts.GameLibrary.IdeologyTraitIcons.Path(ideology, FactionEditor.CultureOf(kingdom))), 15f);
         row.AddActorViewIntoHoriLayout(faction.GetLeader());
 
         // 政党行多一个"合并"按钮，按钮栏加宽一格、信息栏让出来
@@ -1731,7 +1734,8 @@ public static class UIHelper
         foreach (TemporaryFaction tempFac in faction.TemporaryFactions ?? new List<TemporaryFaction>())
         {
             if (tempFac == null || (tempFac.Hide && !tempFac.IsStarted())) continue;
-            string label = tempFac.type.ToString();
+            // 诉求名按帝国的文化线(见 CultureDoctrines)；以前直接写枚举名，英文界面也是中文
+            string label = TranslateHelper.GetTemporaryFactionClaimText(tempFac.type, empire);
             if (tempFac.IsStarted())
             {
                 string startContent = tempFac.ShowAsPlot

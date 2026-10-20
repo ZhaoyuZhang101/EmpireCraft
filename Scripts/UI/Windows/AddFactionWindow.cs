@@ -45,8 +45,8 @@ public class AddFactionWindow : WideScrollWindow<AddFactionWindow>
         FactionManager.Save();
     }
 
-    private static Sprite IdeologyIcon(PartyIdeology ideology) =>
-        SpriteTextureLoader.getSprite(EmpireCraft.Scripts.GameLibrary.IdeologyTraitIcons.Path(ideology));
+    private Sprite IdeologyIcon(PartyIdeology ideology) =>
+        SpriteTextureLoader.getSprite(EmpireCraft.Scripts.GameLibrary.IdeologyTraitIcons.Path(ideology, _culture));
 
     private static string IdeologyHex(PartyIdeology ideology) => WideKit.Hex(UIHelper.IdeologyColor(ideology));
 
