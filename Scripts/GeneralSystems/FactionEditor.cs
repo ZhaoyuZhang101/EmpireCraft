@@ -66,13 +66,11 @@ public static class FactionEditor
 
     public static bool HasRoom(Kingdom kingdom) => Current(kingdom).Count < Seats(kingdom);
 
-    private static string CultureOf(Kingdom kingdom)
-    {
-        Empire empire = EmpireOf(kingdom);
-        return empire != null ? InstitutionSystem.GetPrimaryCulture(empire) : CultureService.GetRealmCulture(kingdom);
-    }
+    // 朝堂的文化：帝国核心按帝国的制度文化，其余按本国文化(古代学说的叫法、有无按它，见 CultureDoctrines)
+    public static string CultureOf(Kingdom kingdom) => CultureDoctrines.CultureOf(kingdom);
 
-    // 这一朝堂按理念能立(或改成)的理念：政党时代是近代理念，此前是古代理念(诸子百家只有华夏有、按科技陆续出现)；
+    // 这一朝堂按理念能立(或改成)的理念：政党时代是近代理念，此前是古代理念——本文化线的学说(华夏是诸子百家，
+    // 西方是经院正统、法学派……按科技陆续出现)、朝堂立场与上古信仰，本文化线没有的(西方没有宦官……)不列；
     // 固定派系另有一格"空白"(中间派)。reason 为空表示可选
     public static List<(PartyIdeology ideology, string reason)> Options(Kingdom kingdom, FixedFaction editing = null)
     {
@@ -92,21 +90,12 @@ public static class FactionEditor
             return result;
         }
         string culture = CultureOf(kingdom);
-        bool huaxia = false;
-        try
-        {
-            huaxia = InstitutionSystem.GetCultureLine(culture) == "Huaxia";
-        }
-        catch
-        {
-            // 文化线取不到：当作非华夏
-        }
+        string set = CultureDoctrines.SetOf(culture);
         foreach (PartyIdeology ideology in Ancient)
         {
-            string reason = null;
-            if (IdeologyFamilies.IsSchool(ideology))
-                reason = !huaxia ? "faction_ideology_huaxia_only"
-                    : !PartySystem.IsResearched(culture, ideology) ? "faction_ideology_not_yet" : null;
+            if (!CultureDoctrines.Has(set, ideology)) continue;
+            // 学说随科技出现(以前只认开放党禁后才有的理念节点，党禁前一家也选不了)
+            string reason = CultureDoctrines.Emerged(culture, ideology) ? null : "faction_ideology_not_yet";
             result.Add((ideology, reason));
         }
         if (court == Court.Fixed && editing?.IsClique != true) result.Add((PartyIdeology.Centrism, null));
@@ -252,7 +241,7 @@ public static class FactionEditor
     }
 
     // 默认名：政党取本文化这一理念的党名；本政体默认派系里同类型的用它的名字(文官派、皇权派……)；
-    // 其余按理念的史书称号(清流、变法派、帝党……)，重名加序号；空白派系叫"新派系"
+    // 其余按理念的史书称号(清流、变法派、帝党……；别的文化线按本线的叫法，如西方的王党、骑士派)，重名加序号；空白派系叫"新派系"
     public static string DefaultName(Kingdom kingdom, FixedFaction faction)
     {
         Regime regime = kingdom?.GetRegime();
@@ -263,7 +252,7 @@ public static class FactionEditor
             return match.Name;
         string label = faction.Ideology == PartyIdeology.Centrism
             ? LM.Get("faction_blank_name")
-            : LM.Get("clique_label_" + faction.Ideology);
+            : CultureDoctrines.Label(faction.Ideology, CultureOf(kingdom));
         var used = new HashSet<string>(Current(kingdom).Where(other => other != faction && other.Name != null)
             .Select(other => other.Name));
         if (!used.Contains(label)) return label;

@@ -490,6 +490,8 @@ public class FixedFaction
 
     public void FixMissedTemporaryFactions()
     {
+        // 古代学说按所在文化线来：旧档里记着本文化线没有的(西方派系选了宦官……)就近换成本线有的，见 CultureDoctrines
+        GeneralSystems.CultureDoctrines.Normalize(this);
         bool catalogChanged = false;
         // Eligibility follows population pressure and institutional prerequisites.
         TemporaryFactionTypesRecord ??= new List<TemporaryFactionType>();

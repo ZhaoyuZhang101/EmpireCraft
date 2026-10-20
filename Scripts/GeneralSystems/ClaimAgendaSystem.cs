@@ -142,7 +142,7 @@ public static class ClaimAgendaSystem
             // 纲领阶段只有近代政党有；朋党(古代理念)只写理念名，不去取不存在的纲领文本
             view.TechnologyName = faction.IsParty
                 ? $"{PartySystem.GetIdeologyName(faction.Ideology)} · " + LM.Get($"ideology_{faction.Ideology}_stage_2")
-                : PartySystem.GetIdeologyName(faction.Ideology);
+                : PartySystem.GetIdeologyName(faction.Ideology, CultureDoctrines.CultureOf(faction));
             if (!faction.IsParty || view.IdeologyStage < 2)
                 view.Blocker = "agenda_requires_policy_program";
             else if (empire.data.constitutional_economy?.welfare_level >= 3)

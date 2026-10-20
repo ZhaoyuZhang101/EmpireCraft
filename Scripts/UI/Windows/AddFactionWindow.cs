@@ -26,6 +26,8 @@ public class AddFactionWindow : WideScrollWindow<AddFactionWindow>
     private Regime _regime;
     private List<FixedFaction> _current = new();
     private FactionEditor.Court _court;
+    // 本朝堂的文化：古代学说的叫法与有无按它(见 CultureDoctrines)
+    private string _culture;
 
     protected override void OnOpen() => _kingdom = SelectedMetas.selected_kingdom;
 
@@ -34,6 +36,7 @@ public class AddFactionWindow : WideScrollWindow<AddFactionWindow>
         _regime = _kingdom?.data != null && !_kingdom.isRekt() ? _kingdom.GetRegime() : null;
         _current = FactionEditor.Current(_kingdom);
         _court = FactionEditor.CourtOf(_kingdom);
+        _culture = FactionEditor.CultureOf(_kingdom);
     }
 
     public override void OnNormalDisable()
@@ -118,7 +121,7 @@ public class AddFactionWindow : WideScrollWindow<AddFactionWindow>
     private void DrawDefaultCard(AutoHoriLayoutGroup row, float width, FixedFaction template)
     {
         PartyIdeology ideology = PartySystem.LeaningOf(template);
-        var card = row.BeginColumnCard(width, template.Name, IdeologyHex(ideology), IdeologyFamilies.FactionLeaning(template));
+        var card = row.BeginColumnCard(width, template.Name, IdeologyHex(ideology), IdeologyFamilies.FactionLeaning(template, _culture));
         Empire empire = FactionEditor.EmpireOf(_kingdom);
         string claims = string.Join("·", (template.TemporaryFactionTypes ?? new List<EmpireCraft.Scripts.Regimes.TemporaryFactions.TemporaryFactionType>())
             .Take(3).Select(type => TranslateHelper.GetTemporaryFactionClaimText(type, empire)));
@@ -167,10 +170,12 @@ public class AddFactionWindow : WideScrollWindow<AddFactionWindow>
     private void DrawIdeologyTile(AutoHoriLayoutGroup row, float width, PartyIdeology ideology, string why)
     {
         bool ok = why == null;
-        string label = _court == FactionEditor.Court.Party ? PartySystem.GetIdeologyName(ideology)
-            : ideology == PartyIdeology.Centrism ? LM.Get("faction_blank_name") : LM.Get("clique_label_" + ideology);
+        // 名字照本文化线的叫法(华夏的清流、变法派，西方的王党、骑士派……)
+        string doctrine = PartySystem.GetIdeologyName(ideology, _culture);
+        string label = _court == FactionEditor.Court.Party ? doctrine
+            : ideology == PartyIdeology.Centrism ? LM.Get("faction_blank_name") : CultureDoctrines.Label(ideology, _culture);
         string sub = why == "faction_add_seated" ? LM.Get("faction_add_seated")
-            : _court == FactionEditor.Court.Party ? LM.Get("faction_add_found") : PartySystem.GetIdeologyName(ideology);
+            : _court == FactionEditor.Court.Party ? LM.Get("faction_add_found") : doctrine;
         var cell = row.BeginVertGroup(new Vector2(width, 24f), pSpacing: 0, pAlignment: TextAnchor.MiddleCenter,
             pPadding: new RectOffset(0, 0, 1, 1));
         UIHelper.FixPanelWidth(cell.transform, width);
@@ -179,9 +184,9 @@ public class AddFactionWindow : WideScrollWindow<AddFactionWindow>
             new Vector2(width - 2f, 12f)).UseFixedFontSize(7, HorizontalWrapMode.Overflow);
         cell.AddTextIntoVertLayout(sub.ColorString(ok ? WideKit.Muted : "#5E645A"), true, TextAnchor.MiddleCenter,
             new Vector2(width - 2f, 9f)).UseFixedFontSize(5, HorizontalWrapMode.Overflow);
-        string tipTitle = string.Format(LM.Get("faction_add_tip_title"), label, PartySystem.GetIdeologyName(ideology));
+        string tipTitle = label == doctrine ? label : string.Format(LM.Get("faction_add_tip_title"), label, doctrine);
         UIHelper.AttachTextTooltip(cell.gameObject, $"faction_add_{ideology}", tipTitle,
-            ok ? IdeologyFamilies.FactionLeaning(ideology) : LM.Get(why));
+            ok ? FactionDetailWindow.DoctrineTip(ideology, _culture) : LM.Get(why));
         if (!ok) return;
         UIHelper.MakeClickable(cell.gameObject, () =>
         {
@@ -215,7 +220,7 @@ public class AddFactionWindow : WideScrollWindow<AddFactionWindow>
                 new Vector2(70f, 13f)).UseFixedFontSize(7, HorizontalWrapMode.Overflow);
             string traits = string.Join("、", (preset.RequiredTraits ?? new List<string>()).Take(3)
                 .Select(trait => AssetManager.traits.get(trait)?.getTranslatedName() ?? trait));
-            row.AddTextIntoHoriLayout($"{IdeologyFamilies.FactionLeaning(preset)}  {traits}".ColorString(WideKit.Muted), true,
+            row.AddTextIntoHoriLayout($"{IdeologyFamilies.FactionLeaning(preset, _culture)}  {traits}".ColorString(WideKit.Muted), true,
                 TextAnchor.MiddleLeft, new Vector2(inner - 70f - 13f - 50f, 13f)).UseFixedFontSize(6, HorizontalWrapMode.Overflow);
             row.AddButtonIntoHoriLayout("add_faction", "", () =>
             {

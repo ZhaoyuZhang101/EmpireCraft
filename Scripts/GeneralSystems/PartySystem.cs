@@ -347,6 +347,9 @@ public static class PartySystem
 
     public static string GetIdeologyName(PartyIdeology ideology) => LM.Get($"party_ideology_{ideology}");
 
+    // 按文化取名：古代理念各文化线另有说法(西方的经院正统、阿拉伯的教法派……见 CultureDoctrines)，近代理念照旧
+    public static string GetIdeologyName(PartyIdeology ideology, string culture) => CultureDoctrines.Name(ideology, culture);
+
     public static List<FixedFaction> GetParties(Empire empire) =>
         empire?.CoreKingdom?.GetRegime()?.GetPlayerFactions()
             ?.Where(faction => faction != null && faction.IsParty && !faction.Ban).ToList() ?? new List<FixedFaction>();
@@ -474,18 +477,29 @@ public static class PartySystem
         if (faction == null) return PartyIdeology.Centrism;
         if (faction.IsParty || faction.IsClique || faction.IdeologyChosen) return faction.Ideology;
         if (faction.ClassAffinities == null || faction.ClassAffinities.Count == 0) FactionClassSystem.EnsureProfile(faction);
+        // 这是供配色、政治距离等使用的近似立场，不是派系实际信奉的学说。
+        // 诸子百家只用于华夏朋党朝堂；游牧等固定派系不能凭阶层坐标被推成黄老、农家、兵家。
+        // 所在文化线没有的立场(西方没有宦官……见 CultureDoctrines)也不落上去
+        bool schools = CliqueSystem.Applies(faction.Empire);
+        string set = CultureDoctrines.SetOf(CultureDoctrines.CultureOf(faction));
+        return NearestIdeology(ClassCenter(faction) ?? Vector2.zero,
+            ideology => IdeologyFamilies.IsAncient(ideology) && (schools || !IdeologyFamilies.IsSchool(ideology)) &&
+                        CultureDoctrines.Has(set, ideology));
+    }
+
+    // 派系偏向的各阶层立场的加权中心；没有偏向任何阶层时返回空
+    public static Vector2? ClassCenter(FixedFaction faction)
+    {
+        if (faction?.ClassAffinities == null) return null;
         Vector2 weighted = Vector2.zero;
         float total = 0f;
         foreach (KeyValuePair<SocialClass, float> pair in faction.ClassAffinities.Where(pair => pair.Value > 0f))
         {
-            weighted += ClassPositions[pair.Key] * pair.Value;
+            if (!ClassPositions.TryGetValue(pair.Key, out Vector2 position)) continue;
+            weighted += position * pair.Value;
             total += pair.Value;
         }
-        // 这是供配色、政治距离等使用的近似立场，不是派系实际信奉的学说。
-        // 诸子百家只用于华夏朋党朝堂；游牧等固定派系不能凭阶层坐标被推成黄老、农家、兵家。
-        bool schools = CliqueSystem.Applies(faction.Empire);
-        return NearestIdeology(total > 0f ? weighted / total : Vector2.zero,
-            ideology => IdeologyFamilies.IsAncient(ideology) && (schools || !IdeologyFamilies.IsSchool(ideology)));
+        return total > 0f ? weighted / total : null;
     }
 
     private static void ConvertToParty(Empire empire, FixedFaction faction, PartyIdeology ideology, string name)

@@ -229,7 +229,7 @@ public class CultureInfoWindow : AbstractWideWindow<CultureInfoWindow>
         var ideologyRow = section.BeginHoriGroup(new Vector2(PanelWidth, 14), TextAnchor.MiddleCenter, 4);
         ideologyRow.AddButtonIntoHoriLayout("ideology_previous", "◀", () => CycleIdeology(-1),
             size: new Vector2(18, 12));
-        ideologyRow.AddTextIntoHoriLayout(PartySystem.GetIdeologyName(_selectedIdeology), true,
+        ideologyRow.AddTextIntoHoriLayout(PartySystem.GetIdeologyName(_selectedIdeology, _culture), true,
             TextAnchor.MiddleCenter, new Vector2(150, 12));
         ideologyRow.AddButtonIntoHoriLayout("ideology_next", "▶", () => CycleIdeology(1),
             size: new Vector2(18, 12));
@@ -302,7 +302,7 @@ public class CultureInfoWindow : AbstractWideWindow<CultureInfoWindow>
             ? $"{LM.Get("institution_exposure")} {view.Exposure:0}/{view.RequiredExposure:0}"
             : InstitutionDefinitionRegistry.TryGetNodeRegime(view.Node, out RegimeType regime)
                 ? $"→ {CompositeEmpireService.GetRegimeName(regime)}".ColorString("#C9A7E8")
-                : GetBranchName(view.Node.branch);
+                : GetBranchName(view.Node.branch, view.Culture);
         return new InstitutionGraphView.NodeCardInfo(status, info, -1f);
     }
 
@@ -310,7 +310,7 @@ public class CultureInfoWindow : AbstractWideWindow<CultureInfoWindow>
     {
         string title = $"{InstitutionSystem.GetNodeName(view.Node, view.Culture).ColorString("#F3C34A")}  " +
                        $"{LM.Get("institution_advancement")} {view.Node.advancement}  ·  " +
-                       $"{GetBranchName(view.Node.branch)}  ·  " +
+                       $"{GetBranchName(view.Node.branch, view.Culture)}  ·  " +
                        $"{GetStatusName(view.Status).ColorString(GetStatusHex(view.Status))}";
         var lines = new List<string> { InstitutionSystem.GetNodeDescription(view.Node, view.Culture) };
         string techLine = TechnologySystem.DescribeInstitutionTechLine(_pendingCulture, view.Node);
@@ -331,10 +331,11 @@ public class CultureInfoWindow : AbstractWideWindow<CultureInfoWindow>
         return (title, string.Join("\n", lines));
     }
 
-    private static string GetBranchName(string branch)
+    // 理念分支按这棵树的文化叫(古代学说各文化线另有说法，见 CultureDoctrines)
+    private static string GetBranchName(string branch, string culture)
     {
         if (IdeologyInstitutionPaths.TryGetIdeology(branch, out PartyIdeology ideology))
-            return PartySystem.GetIdeologyName(ideology);
+            return PartySystem.GetIdeologyName(ideology, culture);
         string key = $"institution_branch_{branch}";
         string value = LM.Get(key);
         return string.IsNullOrWhiteSpace(value) || value == key ? branch : value;

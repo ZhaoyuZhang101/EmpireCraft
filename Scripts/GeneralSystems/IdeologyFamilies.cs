@@ -32,7 +32,7 @@ public static class IdeologyFamilies
     // 古代理念(诸子百家与古代政治立场，见 PartySystem.PartyIdeology)
     public static bool IsAncient(PartyIdeology ideology) => ideology >= PartyIdeology.Confucianism;
 
-    // 诸子百家(只有华夏有)
+    // 诸子百家(华夏)；别的文化线同一格是本文化的学说(西方的经院正统、法学派……见 CultureDoctrines)
     public static bool IsSchool(PartyIdeology ideology) =>
         ideology is >= PartyIdeology.Confucianism and <= PartyIdeology.YinYang;
 
@@ -41,12 +41,14 @@ public static class IdeologyFamilies
     public static bool IsIdentityStance(PartyIdeology ideology) =>
         ideology is PartyIdeology.ImperialPower or PartyIdeology.GreatClans || IsCourtOnly(ideology);
 
-    // 派系卡片第二行：身份立场写"代表某某"，诸子百家写"宗某之学"(学说渊源)，其余写"倾向某理念"
-    public static string FactionLeaning(PartyIdeology ideology)
+    // 派系卡片第二行：身份立场写"代表某某"，诸子百家写"宗某之学"(学说渊源)，其余写"倾向某理念"。
+    // culture：派系所在的文化——古代学说按文化线换说法(西方写"属经院正统"，见 CultureDoctrines)；空则用华夏原名
+    public static string FactionLeaning(PartyIdeology ideology, string culture = null)
     {
-        if (IsIdentityStance(ideology)) return NeoModLoader.General.LM.Get("faction_represents_" + ideology);
-        string key = IsSchool(ideology) ? "faction_school_doctrine" : "faction_ideology_leaning";
-        return string.Format(NeoModLoader.General.LM.Get(key), PartySystem.GetIdeologyName(ideology));
+        if (IsIdentityStance(ideology))
+            return NeoModLoader.General.LM.Get(CultureDoctrines.Key("faction_represents_" + ideology, culture));
+        string key = IsSchool(ideology) ? CultureDoctrines.Key("faction_school_doctrine", culture) : "faction_ideology_leaning";
+        return string.Format(NeoModLoader.General.LM.Get(key), PartySystem.GetIdeologyName(ideology, culture));
     }
 
     // 固定派系按政策立场命名，不把用于配色的光谱近似值写成实际学说。
@@ -54,12 +56,14 @@ public static class IdeologyFamilies
     public static bool HasExplicitIdeology(FixedFaction faction) =>
         faction != null && (faction.IsParty || faction.IsClique || faction.IdeologyChosen);
 
-    public static string FactionLeaning(FixedFaction faction)
+    // culture 不给就按派系所在帝国的文化(派系库里的、不挂帝国的按华夏原名)
+    public static string FactionLeaning(FixedFaction faction, string culture = null)
     {
         if (faction == null) return NeoModLoader.General.LM.Get("faction_stance_无");
         if (!HasExplicitIdeology(faction)) return NeoModLoader.General.LM.Get("faction_stance_" + faction.Type);
         PartyIdeology ideology = PartySystem.LeaningOf(faction);
-        return faction.IsParty ? PartySystem.GetIdeologyName(ideology) : FactionLeaning(ideology);
+        culture ??= CultureDoctrines.CultureOf(faction);
+        return faction.IsParty ? PartySystem.GetIdeologyName(ideology) : FactionLeaning(ideology, culture);
     }
 
     // 只在朝堂里的立场(外戚、宦官、宗亲、军功)：不在民间流传

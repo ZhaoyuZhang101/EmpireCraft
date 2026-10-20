@@ -176,7 +176,9 @@ public class IdeologyInfoWindow : AbstractWideWindow<IdeologyInfoWindow>
             .Cast<SocialClass>().Select(socialClass => (socialClass, PartySystem.GetAffinity(_selected, socialClass)))
             .OrderByDescending(pair => pair.Item2).ToList();
         string scope = AncientScope(_selected);
-        float height = string.IsNullOrEmpty(scope) ? 74f : 86f;
+        // 古代理念在别的文化线另有说法(西方的经院正统、阿拉伯的教法派……见 CultureDoctrines)
+        string others = CultureDoctrines.OtherNames(_selected);
+        float height = (string.IsNullOrEmpty(scope) ? 74f : 86f) + (string.IsNullOrEmpty(others) ? 0f : 20f);
         var card = Card(new Vector2(PanelWidth, height), "FactionFrame_dominate");
 
         var head = card.BeginHoriGroup(new Vector2(PanelWidth - 12f, 20f), TextAnchor.MiddleLeft, 4);
@@ -193,6 +195,9 @@ public class IdeologyInfoWindow : AbstractWideWindow<IdeologyInfoWindow>
         if (!string.IsNullOrEmpty(scope))
             card.AddTextIntoVertLayout(scope.ColorString("#E6C27A"), true, TextAnchor.MiddleCenter,
                 new Vector2(PanelWidth - 16f, 10f)).UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+        if (!string.IsNullOrEmpty(others))
+            card.AddTextIntoVertLayout(string.Format(LM.Get("ideology_window_other_cultures"), others).ColorString("#A8B8BE"),
+                true, TextAnchor.MiddleCenter, new Vector2(PanelWidth - 16f, 18f)).UseFixedFontSize(6, HorizontalWrapMode.Wrap);
 
         AddClassRow(card, LM.Get("ideology_window_attracts"), affinities.Where(pair => pair.affinity >= 30f).Take(4),
             "#65D66E");

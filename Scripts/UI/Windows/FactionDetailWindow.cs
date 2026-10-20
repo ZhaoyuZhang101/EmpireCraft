@@ -699,8 +699,10 @@ public class FactionDetailWindow : AbstractWideWindow<FactionDetailWindow>
                 ? "faction_ideology_label" : "faction_stance_label").ColorString("#8FA0A8"), true, TextAnchor.MiddleLeft,
             new Vector2(20f, 12f)).UseFixedFontSize(6, HorizontalWrapMode.Overflow);
         string hex = WideKit.Hex(UIHelper.IdeologyColor(ideology));
+        // 古代学说按本朝堂的文化线叫(西方是经院正统、骑士派……见 CultureDoctrines)
+        string culture = FactionEditor.CultureOf(_kingdom);
         string stance = IdeologyFamilies.HasExplicitIdeology(_faction)
-            ? PartySystem.GetIdeologyName(ideology) : IdeologyFamilies.FactionLeaning(_faction);
+            ? PartySystem.GetIdeologyName(ideology, culture) : IdeologyFamilies.FactionLeaning(_faction, culture);
         row.AddTextIntoHoriLayout(stance.ColorString(hex), true, TextAnchor.MiddleLeft,
             new Vector2(inner - 62f, 12f)).UseFixedFontSize(7, HorizontalWrapMode.Overflow);
         row.AddButtonIntoHoriLayout("faction_change_ideology", LM.Get("faction_change_ideology"), ShowIdeologyPicker,
@@ -733,7 +735,7 @@ public class FactionDetailWindow : AbstractWideWindow<FactionDetailWindow>
         }
     }
 
-    // 理念选择页：本朝堂能选的理念各一格(古代：诸子百家只有华夏有、按科技出现；政党时代：已传入的近代理念)，
+    // 理念选择页：本朝堂能选的理念各一格(古代：本文化线的学说，按科技出现；政党时代：已传入的近代理念)，
     // 现在的标金框；不能选的置灰、悬停看原因。改了按新理念重设诉求与阶层亲疏(见 FactionEditor.ChangeIdeology)
     public void ShowIdeologyPicker()
     {
@@ -770,12 +772,13 @@ public class FactionDetailWindow : AbstractWideWindow<FactionDetailWindow>
             pPadding: new RectOffset(0, 0, 1, 1));
         UIHelper.FixPanelWidth(cell.transform, width);
         UIHelper.AddInsetBackground(cell, new Vector2(width, 18f));
-        string name = PartySystem.GetIdeologyName(ideology);
+        string culture = FactionEditor.CultureOf(_kingdom);
+        string name = PartySystem.GetIdeologyName(ideology, culture);
         string hex = current ? "#F3C34A" : ok ? WideKit.Hex(UIHelper.IdeologyColor(ideology)) : "#6E746A";
         cell.AddTextIntoVertLayout((current ? $"[{name}]" : name).ColorString(hex), true, TextAnchor.MiddleCenter,
             new Vector2(width - 2f, 14f)).UseFixedFontSize(7, HorizontalWrapMode.Overflow);
         UIHelper.AttachTextTooltip(cell.gameObject, $"faction_pick_{ideology}", name,
-            ok ? IdeologyFamilies.FactionLeaning(ideology) : LM.Get(reason));
+            ok ? DoctrineTip(ideology, culture) : LM.Get(reason));
         if (!ok || current) return;
         UIHelper.MakeClickable(cell.gameObject, () =>
         {
@@ -788,6 +791,14 @@ public class FactionDetailWindow : AbstractWideWindow<FactionDetailWindow>
             AfterFactionChanged();
             ShowClaims();
         });
+    }
+
+    // 悬停一格理念：本文化的说法("属骑士派")与说明
+    internal static string DoctrineTip(PartyIdeology ideology, string culture)
+    {
+        string leaning = IdeologyFamilies.FactionLeaning(ideology, culture);
+        string description = IdeologyFamilies.IsAncient(ideology) ? CultureDoctrines.Description(ideology, culture) : "";
+        return string.IsNullOrEmpty(description) ? leaning : $"{leaning}\n{description}";
     }
 
     // 理念、名字改了：左栏、标题改名框、帝国主页的派系格局跟着换

@@ -560,7 +560,9 @@ public partial class EmpireBeaurauWindow
         bool lead, bool withIdeology)
     {
         string name = faction.Faction.Name.ColorString(pColor: colors[faction.Faction.GetID()]);
-        string ideology = PartySystem.GetIdeologyName(faction.Ideology).ColorString("#8FA0A8");
+        // 党禁前的议会里是古代派系：按帝国的文化线叫(见 CultureDoctrines)
+        string ideology = PartySystem.GetIdeologyName(faction.Ideology, CultureDoctrines.CultureOf(faction.Faction))
+            .ColorString("#8FA0A8");
         if (lead)
             return $"{name} {string.Format(LM.Get("legislature_delegates"), faction.Seats)} " +
                    $"{faction.Seats * 100 / Math.Max(1, view.TotalSeats)}%".ColorString("#A8B8BE") +
@@ -620,7 +622,8 @@ public partial class EmpireBeaurauWindow
             line += " " + string.Format(LM.Get("parliament_vote_share"), (faction.VoteShare * 100f).ToString("0"))
                 .ColorString("#A8B8BE");
         if (withIdeology)
-            line += " " + $"[{PartySystem.GetIdeologyName(faction.Ideology)}]".ColorString("#C9A7E8");
+            line += " " + $"[{PartySystem.GetIdeologyName(faction.Ideology, CultureDoctrines.CultureOf(faction.Faction))}]"
+                .ColorString("#C9A7E8");
         return line;
     }
 
