@@ -555,8 +555,8 @@ public static class ConstitutionalEconomySystem
     {
         string culture = InstitutionSystem.GetPrimaryCulture(empire);
         if (!TechnologySystem.IsActiveFor(culture) || empire?.CoreKingdom == null) return new List<string>();
-        // 本文化发明、本国也采纳了才算
-        return TechnologySystem.RealmMissingTechs(empire.CoreKingdom,
+        // 本文化发明、本国也采纳了才算；旧制犹存的旧制所属文化发明的也算(见 TechnologySystem.RealmHasInstitutionTech)
+        return TechnologySystem.RealmMissingInstitutionTechs(empire.CoreKingdom,
             InstitutionDefinitionRegistry.GetConstitutionRequiredTechs(GetLine(empire)));
     }
 

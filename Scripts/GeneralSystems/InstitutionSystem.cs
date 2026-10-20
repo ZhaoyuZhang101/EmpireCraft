@@ -534,7 +534,13 @@ public static partial class InstitutionSystem
         }
     }
 
+    // 帝国的制度文化：政体、改革、立宪、党禁与政党机制、复辟、继承法、制度特性等照它(旧制犹存的照旧制)
     public static string GetPrimaryCulture(Empire empire) => GetPrimaryCulture(empire, honorLegacy: true);
+
+    // 帝国的风俗文化：党名、国号后缀、宪法名、元首称号这些词库，文化特性(游牧、劫掠)，宗教亲和(教廷、哈里发)，
+    // 族类(逐客、朝贡国并入)，本文化发明的科技与名著的通告——照国家/统治文化，不随旧制(见 LegacyInstitutionSystem)。
+    // 没有旧制时与制度文化相同
+    public static string GetCustomsCulture(Empire empire) => GetPrimaryCulture(empire, honorLegacy: false);
 
     // honorLegacy：帝国核心改从文明等级更低的文化后旧制犹存(见 LegacyInstitutionSystem)，制度照旧制所属的文化；
     // 传 false 取不论旧制时本该用的制度文化(判旧制何时结束用)

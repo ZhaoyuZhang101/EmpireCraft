@@ -120,9 +120,11 @@ public static class CultureService
     // allowLegacyInstitutions：换成文明等级更低的文化时旧制犹存(见 LegacyInstitutionSystem)，政体不按新文化改；
     // 叛乱自立、征服王朝、神力改俗、归化改制传 false(不保留，原有的旧制也一并作罢)。立国不满一年的新国
     // (分封、水土胡化分出来的游牧之国……)由 LegacyInstitutionSystem 自己排除。
-    // previousInstitutionCulture：调用方在改动帝国文化之前先取下的制度文化(易俗改制先改了帝国的文化再改国家)；空则在这里取
+    // previousInstitutionCulture：调用方在改动帝国文化之前先取下的制度文化(易俗改制先改了帝国的文化再改国家)；空则在这里取。
+    // activeReform：主动易俗——"仍沿旧制"由易俗收尾时记进世界日志(见 LegacyInstitutionSystem.AnnounceReform)；
+    // 其余(法理同化、原版改文化、称帝改从君主之俗)只记本帝国史书与诊断
     public static bool SetRealmCulture(Kingdom kingdom, string culture, bool updatePoliticalSystem = false,
-        bool allowLegacyInstitutions = true, string previousInstitutionCulture = null)
+        bool allowLegacyInstitutions = true, string previousInstitutionCulture = null, bool activeReform = false)
     {
         if (kingdom?.data == null || kingdom.isRekt() || !IsValidCulture(culture)) return false;
         KingdomExtension.KingdomExtraData data = kingdom.GetOrCreate();
@@ -140,7 +142,9 @@ public static class CultureService
                 ConstitutionalEconomySystem.ResetCultureStability(empire);
         }
         if (!allowLegacyInstitutions) LegacyInstitutionSystem.Drop(kingdom, culture);
-        else if (changed) keepLegacy = LegacyInstitutionSystem.OnRealmCultureChanged(kingdom, previousInstitutionCulture, culture);
+        // 主动易俗时国家文化可能已随法理先改过了(见 CultureReformSystem.Apply)，照样定夺
+        else if (changed || activeReform)
+            keepLegacy = LegacyInstitutionSystem.OnRealmCultureChanged(kingdom, previousInstitutionCulture, culture, activeReform);
         bool canCreateNativeCulture = kingdom.king?.city?.data != null;
         Culture nativeCulture = ResolveNativeCulture(culture, kingdom.king, canCreateNativeCulture);
         if (nativeCulture != null)

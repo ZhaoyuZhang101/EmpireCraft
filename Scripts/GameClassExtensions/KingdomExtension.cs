@@ -365,6 +365,8 @@ public static class KingdomExtension
         public string realm_culture = "";
         // 旧制犹存(见 LegacyInstitutionSystem)：改从文明等级更低的文化后仍沿用的制度所属文化；空 = 与国家文化相同(旧档没有这项，照空)
         public string institution_culture = "";
+        // 这份旧制是主动易俗时留下的(作罢时进世界日志)；法理同化等自然改俗留下的只记史书
+        public bool institution_culture_by_reform;
         // 王族：存档只记宗族 ID，运行时按 ID 取族谱里的那一个(见 GetSpecificClan)。
         // 以前整个宗族对象(含全部族人与生平)随王国再存一遍，存档里每个王国一份副本、读档后还与族谱脱节
         public long kingdom_specific_clan_id = -1L;

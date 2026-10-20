@@ -56,8 +56,9 @@ public static partial class PapacySystem
         return core != null && core.hasReligion() ? core.religion : null;
     }
 
+    // 奉不奉教廷是宗教亲和，照风俗文化(旧制犹存不改口径，见 InstitutionSystem.GetCustomsCulture)
     public static bool IsWestern(Empire empire) =>
-        empire?.data != null && InstitutionSystem.GetCultureLine(InstitutionSystem.GetPrimaryCulture(empire)) == Line;
+        empire?.data != null && InstitutionSystem.GetCultureLine(InstitutionSystem.GetCustomsCulture(empire)) == Line;
 
     // 有教廷可言：西方文化、君主制、奉一个有圣地的宗教
     public static bool Applies(Empire empire) =>

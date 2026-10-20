@@ -528,9 +528,26 @@ public static class TechnologySystem
         missing = new List<string>();
         string culture = GetCultureOf(kingdom);
         if (!IsActiveFor(culture)) return true;
-        missing = GetInstitutionRequiredTechs(node).Where(id => !RealmHasTech(kingdom, id)).ToList();
+        missing = GetInstitutionRequiredTechs(node).Where(id => !RealmHasInstitutionTech(kingdom, id)).ToList();
         return missing.Count == 0;
     }
+
+    // 制度用的科技前提(推制度、政体过渡、立宪)：旧制犹存的国家推的是旧制那棵树(见 LegacyInstitutionSystem)，
+    // 旧制所属文化已发明的科技也算，再加上本国已采纳的——只按落后的新文化算，旧树的高阶节点、政体过渡就卡死了。
+    // 其余国家照旧：本文化发明、本国采纳(RealmHasTech)。科技窗口的显示不走这里
+    public static bool RealmHasInstitutionTech(Kingdom kingdom, string techId)
+    {
+        if (RealmHasTech(kingdom, techId)) return true;
+        string institution = CultureService.GetInstitutionCulture(kingdom);
+        if (!CultureService.IsValidCulture(institution) ||
+            string.Equals(institution, GetCultureOf(kingdom), StringComparison.Ordinal)) return false;
+        if (IsActiveFor(institution) && HasTech(institution, techId)) return true;
+        RealmTechState state = GetRealmState(kingdom);
+        return state != null && state.Has(techId);
+    }
+
+    public static List<string> RealmMissingInstitutionTechs(Kingdom kingdom, IEnumerable<string> techIds) =>
+        techIds?.Where(id => !RealmHasInstitutionTech(kingdom, id)).ToList() ?? new List<string>();
 
     // 采纳进度条显示用：某国采纳某项科技的进度(0~1，已采纳为 1)
     public static float GetRealmAdoption(Kingdom kingdom, string techId)
@@ -1593,7 +1610,8 @@ public static class TechnologySystem
         foreach (Layer.Empire empire in ModClass.EMPIRE_MANAGER?.ToList() ?? new List<Layer.Empire>())
         {
             if (empire?.data == null || empire.isRekt() || empire.IsArchived()) continue;
-            if (InstitutionSystem.GetPrimaryCulture(empire) != culture) continue;
+            // 科技由国家文化发明：照风俗文化通告(见 InstitutionSystem.GetCustomsCulture)
+            if (InstitutionSystem.GetCustomsCulture(empire) != culture) continue;
             EmpireCraft.Scripts.System.HistoryRecordSystem.RecordHistory(empire, directContent: text,
                 kingdomId: empire.CoreKingdom?.id ?? -1L);
         }

@@ -643,7 +643,8 @@ public static class LandmarkBookSystem
         foreach (Layer.Empire empire in ModClass.EMPIRE_MANAGER?.ToList() ?? new List<Layer.Empire>())
         {
             if (empire?.data == null || empire.isRekt() || empire.IsArchived()) continue;
-            if (InstitutionSystem.GetPrimaryCulture(empire) != culture) continue;
+            // 名著属于写它的文化：照风俗文化通告(见 InstitutionSystem.GetCustomsCulture)
+            if (InstitutionSystem.GetCustomsCulture(empire) != culture) continue;
             EmpireCraft.Scripts.System.HistoryRecordSystem.RecordHistory(empire, directContent: text,
                 actorId: actorId, kingdomId: empire.CoreKingdom?.id ?? -1L);
         }

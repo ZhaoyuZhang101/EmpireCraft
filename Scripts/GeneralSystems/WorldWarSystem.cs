@@ -89,7 +89,7 @@ public static class WorldWarSystem
             Kingdom representative = empire?.CoreKingdom ?? kingdom;
             string culture = empire == null
                 ? CultureService.GetRealmCulture(kingdom)
-                : InstitutionSystem.GetPrimaryCulture(empire);
+                : InstitutionSystem.GetCustomsCulture(empire);
             blocs[key] = new PoliticalBloc
             {
                 Key = key,

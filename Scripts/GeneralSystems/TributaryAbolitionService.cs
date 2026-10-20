@@ -70,7 +70,7 @@ public static class TributaryAbolitionService
         double overlordPower = Math.Max(1d, empire.GetNationalPower());
         double share = tributary.GetNationalPower() / overlordPower;
         if (share >= IndependencePowerShare || opinion < 0) return Choice.Independence;
-        bool sameCulture = CultureService.GetRealmCulture(tributary) == InstitutionSystem.GetPrimaryCulture(empire);
+        bool sameCulture = CultureService.GetRealmCulture(tributary) == InstitutionSystem.GetCustomsCulture(empire);
         bool closeIdeology = tributary.capital != null && PartySystem.IdeologyDistance(
             IdeologyFamilies.StateIdeology(tributary), IdeologyFamilies.StateIdeology(empire)) < CloseIdeologyDistance;
         if (opinion >= JoinOpinion && share < JoinPowerShare && (sameCulture || closeIdeology)) return Choice.Join;

@@ -113,9 +113,10 @@ public static class CultureReformSystem
         SpecificClan royal = king?.GetSpecificClan();
         bool renameRoyal = king != null && ForeignOrigin(royal, CultureService.GetActorCulture(king), target);
 
+        // 法理带着国家文化一起改(见 CultureService.RefreshCultureDependents)：这一步的旧制存废留给下面的易俗定，不按法理同化定
         KingdomTitle title = kingdom.GetMainTitle();
         if (title?.data != null && (force || !title.data.culture_locked && !CultureService.IsFixedDeJureCultureEnabled()))
-            CultureService.ConvertTitleCulture(title, target);
+            LegacyInstitutionSystem.Deferred(kingdom, () => CultureService.ConvertTitleCulture(title, target));
         if (composite) CompositeEmpireService.CompleteByReform(empire);
         // 帝国不再按开国族群的文化算征服王朝(否则"采用中原制度"会把统治文化改回去)；
         // 帝国核心的默认文化(没锁定的)、统治文化也换成新文化——以前只改国家，制度、天下、同化目标仍按旧文化
@@ -130,7 +131,7 @@ public static class CultureReformSystem
         }
         // 新文化落后时政体、制度照旧(帝国核心由 ResyncCulture 按旧制所属的文化重算，同样不动)
         CultureService.SetRealmCulture(kingdom, target, updatePoliticalSystem: !core, allowLegacyInstitutions: allowLegacy,
-            previousInstitutionCulture: previousInstitution);
+            previousInstitutionCulture: previousInstitution, activeReform: true);
         if (core) InstitutionSystem.ResyncCulture(empire);
 
         Culture native = string.Equals(CulturePatch.GetInjectedCultureName(kingdom.culture), target, StringComparison.Ordinal)
@@ -153,6 +154,8 @@ public static class CultureReformSystem
         }
         if (kingdom.GetRegime()?.type != before) EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(kingdom);
         TranslateHelper.LogCultureReform(kingdom, core ? empire : null, king, target, royalSurname);
+        // 新文化落后、旧制犹存的，接着易俗记一笔"改从某之俗，仍沿某之制"
+        LegacyInstitutionSystem.AnnounceReform(kingdom, target);
         LogService.LogInfo($"[EmpireCraft][易俗改制] {kingdom.GetKingdomName()} {previous} -> {target}，政体 {before} -> {kingdom.GetRegime()?.type}，王族改姓 {royalSurname ?? "(不改)"}");
         return true;
     }

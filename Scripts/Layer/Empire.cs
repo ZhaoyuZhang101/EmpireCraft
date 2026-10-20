@@ -410,7 +410,7 @@ public class Empire : MetaObject<EmpireData>
                 var extra = CoreKingdom.GetOrCreate();
                 extra.ideology_suffix_pool_version = SuffixPoolVersion;
                 PartyIdeology stateIdeology = IdeologyFamilies.StateIdeology(this);
-                List<string> pool = PartySystem.CountrySuffixPool(InstitutionSystem.GetPrimaryCulture(this), stateIdeology);
+                List<string> pool = PartySystem.CountrySuffixPool(InstitutionSystem.GetCustomsCulture(this), stateIdeology);
                 if (pool.Count > 0 && !pool.Contains(ideologySuffix))
                     ideologySuffix = extra.ideology_country_suffix = PartySystem.PickCountrySuffix(this, stateIdeology);
             }

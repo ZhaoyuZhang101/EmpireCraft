@@ -117,7 +117,8 @@ public static class ClaimPolicySystem
     private static void ExpelForeigners(Empire empire)
     {
         if (!CityPopulationSystem.AbstractPopulationEnabled) return;
-        string main = InstitutionSystem.GetPrimaryCulture(empire);
+        // 谁算外人按族类，照风俗文化(见 InstitutionSystem.GetCustomsCulture)
+        string main = InstitutionSystem.GetCustomsCulture(empire);
         if (!CultureService.IsValidCulture(main)) return;
         // 统治民族(征服王朝的族人)与同一族类的不算外人(以前元朝式帝国会把自家族人赶走)
         string ruling = CompositeEmpireService.GetRulingCulture(empire);

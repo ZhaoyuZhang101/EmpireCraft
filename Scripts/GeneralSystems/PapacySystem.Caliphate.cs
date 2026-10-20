@@ -21,7 +21,8 @@ public static partial class PapacySystem
     public static bool IsCaliphal(Empire empire)
     {
         if (empire?.data == null) return false;
-        string culture = InstitutionSystem.GetPrimaryCulture(empire);
+        // 宗教亲和照风俗文化(见 InstitutionSystem.GetCustomsCulture)
+        string culture = InstitutionSystem.GetCustomsCulture(empire);
         return InstitutionSystem.GetCultureLine(culture) == "Arabic" && !culture.HasPoliticalTrait(DharmicTrait);
     }
 

@@ -325,7 +325,8 @@ public static class ConstitutionSystem
     // 宪法名称：本文化词库里随机取一条({0} 代入国号)，没配用默认
     private static string ConstitutionName(Empire empire, bool provisional)
     {
-        string culture = InstitutionSystem.GetPrimaryCulture(empire);
+        // 宪法名称是词库，照风俗文化(见 InstitutionSystem.GetCustomsCulture)
+        string culture = InstitutionSystem.GetCustomsCulture(empire);
         ConstitutionSetting setting = CultureSetting(culture);
         List<string> pool = PartySystem.GetCultureWordPool(culture,
             provisional ? setting?.provisional_name_group : setting?.name_group);

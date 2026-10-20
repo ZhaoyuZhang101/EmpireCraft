@@ -99,7 +99,8 @@ public static class RepublicSystem
         // 复辟帝制期间元首改称皇帝(见 RestorationSystem)
         if (RestorationSystem.IsProclaimed(empire)) return LM.Get("emperor");
         PartyIdeology ideology = IdeologyFamilies.StateIdeology(empire);
-        string culture = InstitutionSystem.GetPrimaryCulture(empire);
+        // 元首称号照风俗文化(见 InstitutionSystem.GetCustomsCulture)
+        string culture = InstitutionSystem.GetCustomsCulture(empire);
         foreach (string key in new[] { $"head_of_state_{culture}_{ideology}", $"head_of_state_{ideology}", "head_of_state" })
         {
             if (!LM.Has(key)) continue;

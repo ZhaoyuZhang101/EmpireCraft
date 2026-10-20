@@ -225,7 +225,8 @@ public static class ClaimRules
     public static bool HasTrait(Empire empire, string trait)
     {
         if (empire?.CoreKingdom == null) return false;
-        if (InstitutionSystem.GetPrimaryCulture(empire).HasPoliticalTrait(trait)) return true;
+        // 文化特性是风俗，不随旧制(见 InstitutionSystem.GetCustomsCulture)
+        if (InstitutionSystem.GetCustomsCulture(empire).HasPoliticalTrait(trait)) return true;
         return CompositeEmpireService.IsComposite(empire) &&
                CompositeEmpireService.GetRulingCulture(empire).HasPoliticalTrait(trait);
     }

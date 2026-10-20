@@ -1067,7 +1067,8 @@ public static class PartySystem
     // 改制后的国号后缀：本文化给这个理念配的后缀词库 → 通用词库
     public static string PickCountrySuffix(Empire empire, PartyIdeology ideology)
     {
-        List<string> pool = CountrySuffixPool(InstitutionSystem.GetPrimaryCulture(empire), ideology);
+        // 国号后缀词库照风俗文化(旧制犹存不改口径，见 InstitutionSystem.GetCustomsCulture)
+        List<string> pool = CountrySuffixPool(InstitutionSystem.GetCustomsCulture(empire), ideology);
         return pool.Count == 0 ? LM.Get("republic_default_suffix") : pool[Random.Range(0, pool.Count)];
     }
 
@@ -1149,7 +1150,8 @@ public static class PartySystem
     {
         var used = new HashSet<string>(empire.CoreKingdom.GetRegime().GetPlayerFactions()
             .Where(faction => faction != null).Select(faction => faction.Name));
-        List<string> pool = GetNamePool(InstitutionSystem.GetPrimaryCulture(empire), ideology);
+        // 党名词库照风俗文化(见 InstitutionSystem.GetCustomsCulture)
+        List<string> pool = GetNamePool(InstitutionSystem.GetCustomsCulture(empire), ideology);
         List<string> free = pool.Where(name => !used.Contains(name)).ToList();
         if (free.Count > 0) return free[Random.Range(0, free.Count)];
         string baseName = pool.Count > 0 ? pool[Random.Range(0, pool.Count)]
