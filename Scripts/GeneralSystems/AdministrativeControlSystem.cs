@@ -38,6 +38,12 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 软限：直辖容量 = 4 + 4×时代 + 制度科技(官僚文书、驿传、考选取士、电报、计算机)，按政体、君主折算；
 //     羁縻地区、分封诸侯不算直辖。直辖城数超过容量即过度扩张：远方城市稳定度再降，硬限门槛提高，
 //     开战不再谋割地吞并、只迫其称臣(见 WarGoalSystem.Ensure)。
+//
+// 游牧低控制(用户 2026-10-20 定的游牧基调"高扩张，低控制"：能打下来、直辖不了多少)：游牧政体与汗国分封——
+//   · 直辖容量 ×NomadCapacity(0.6)：逐水草而居、没有郡县文书，汗庭直辖的城有限，多出来的很快就是过度扩张；
+//   · 满控路程不减反长：游牧 ×NomadReach(1.1)、汗国分封 ×1(不再按分封打九折)——骑兵来去快，号令传得远；
+//   · 硬限门槛提到 NomadHardLimit(0.45)：新打下的城控制力不到四成五就由当地首领自立，转为间接统治(朝贡国、附庸、
+//     汗国分封与早期的帝国分封为成员，按 Subordinate 的老规矩)，比别的政体早得多。
 public static class AdministrativeControlSystem
 {
     private const int MemberSeatOffset = 4;
@@ -61,6 +67,10 @@ public static class AdministrativeControlSystem
     private const float OverextensionPenalty = 15f;
     // 开战估算路程：直线距离按平均地形阻力折算
     private const float EstimateTerrain = 1.4f;
+    // 游牧低控制：直辖容量、满控路程、硬限门槛
+    private const float NomadCapacity = 0.6f, NomadReach = 1.1f, NomadHardLimit = 0.45f;
+
+    private static bool NomadRegime(Kingdom realm) => realm?.GetRegime()?.type is RegimeType.YouMu or RegimeType.NomadFeudalism;
 
     private static readonly Queue<long> Pending = new();
     private static int _cursor;
@@ -272,7 +282,8 @@ public static class AdministrativeControlSystem
         reach *= realm.GetRegime()?.type switch
         {
             RegimeType.LvLing => 1.15f,
-            RegimeType.Feudalism or RegimeType.ZhouFeudalism or RegimeType.Bakufu or RegimeType.NomadFeudalism => 0.9f,
+            RegimeType.YouMu => NomadReach,
+            RegimeType.Feudalism or RegimeType.ZhouFeudalism or RegimeType.Bakufu => 0.9f,
             _ => 1f
         };
         return reach * RulerFactor(realm);
@@ -286,6 +297,8 @@ public static class AdministrativeControlSystem
             if (TechnologySystem.RealmHasTech(realm, tech)) capacity += bonus;
         // 分封、封建不缩容量：诸侯本就不算直辖，是生产力不够时的统治办法
         if (realm.GetRegime()?.type == RegimeType.LvLing) capacity *= 1.2f;
+        // 游牧低控制：直辖不了多少
+        if (NomadRegime(realm)) capacity *= NomadCapacity;
         return Mathf.Max(3, Mathf.RoundToInt(capacity * RulerFactor(realm)));
     }
 
@@ -474,7 +487,7 @@ public static class AdministrativeControlSystem
     // 管不到的新征服之地：由当地首领自立，按政体文化转为羁縻州、附庸诸侯或朝贡国
     private static void ReleaseOverreach(Kingdom realm, List<City> cities)
     {
-        float limit = HardLimit + OverextendedHardLimit * realm.GetOrCreate().admin_overextension;
+        float limit = (NomadRegime(realm) ? NomadHardLimit : HardLimit) + OverextendedHardLimit * realm.GetOrCreate().admin_overextension;
         City seed = cities.Where(city => Overreached(realm, city, limit))
             .OrderBy(city => city.GetOrCreate().admin_control).ThenBy(city => city.id).FirstOrDefault();
         if (seed == null) return;
