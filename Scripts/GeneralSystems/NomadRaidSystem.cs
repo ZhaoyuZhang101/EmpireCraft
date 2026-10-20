@@ -447,7 +447,7 @@ public static partial class NomadRaidSystem
             leader_id = leader.id, leader_name = leader.GetKingdomName(), target_name = target.GetKingdomName(),
             members = joined.Select(member => member.id).ToList(),
             troops = joined.ToDictionary(member => member.id, member => Mathf.Max(1f, Troops(member))),
-            goal = SteppeRules.SackGoal(joined.Count), defense = Defense(joined, target)
+            goal = SteppeRules.SackGoal(joined.Count), defense = Defense(joined, target), started_at = now
         };
         war.GetOrCreate().raid = state;
         foreach (Kingdom member in joined)

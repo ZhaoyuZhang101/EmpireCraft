@@ -69,6 +69,8 @@ public sealed class RaidWarState
     public List<long> sacked_cities = new();
     // 守方长城关隘之固(0~1)：抢得少、折损大
     public float defense;
+    // 从何时起算一年退兵(新开的劫掠之战 = 开战时；旧档里打着的 = 读档后头一回看到时，免得读档就成批收场)
+    public double started_at = -1d;
     // 战利品合计(金帛、粮、人口)
     public int loot_money;
     public int loot_food;

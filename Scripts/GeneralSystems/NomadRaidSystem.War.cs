@@ -19,7 +19,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 打满 RaidYears 年还没抢够也退兵：抢到过就算得手(攻方胜)，一城没抢到算被打退(守方胜)；
 //   · 收场：战争结束、联盟解散，出过兵的部从这时起 RaidCooldownYears 年内不再出兵；守方胜不索赔(打退就是，见 WarGoalSystem)；
 //     买了和、判攻方胜(抢够了或守方求和)、议和时抢到过都算得手，判守方胜或一城没抢到就罢兵算被打退；
-//     得手、被打退、联盟散伙各记一笔。旧档里打着的劫掠之战补一份记录(盟主 = 主攻方，抢一城即退，同旧规)。
+//     得手、被打退、联盟散伙各记一笔。旧档里打着的劫掠之战补一份记录(盟主 = 主攻方，抢一城即退，同旧规；一年从读档起算)。
 public static partial class NomadRaidSystem
 {
     private const float RaidYears = 1f;
@@ -36,10 +36,14 @@ public static partial class NomadRaidSystem
             leader_id = leader?.id ?? -1L, leader_name = leader?.GetKingdomName() ?? "", target_name = target?.GetKingdomName() ?? "",
             members = members.Select(member => member.id).ToList(),
             troops = members.ToDictionary(member => member.id, member => Mathf.Max(1f, Troops(member))),
-            goal = 1f
+            goal = 1f, started_at = World.world.getCurWorldTime()
         };
         return extra.raid;
     }
+
+    // 劫掠打了几年(从开战或读档后头一回看到时起算)
+    private static float RaidAge(War war, RaidWarState state) =>
+        state.started_at >= 0d ? YearsSince(state.started_at) : WarSituation.WarYears(war);
 
     private static List<War> RaidWars() =>
         World.world.wars.list.Where(war => war?.data != null && war.isAlive() && !war.hasEnded() &&
@@ -52,7 +56,7 @@ public static partial class NomadRaidSystem
         foreach (War war in RaidWars())
         {
             RaidWarState state = Ensure(war);
-            if (WarSituation.WarYears(war) >= RaidYears)
+            if (RaidAge(war, state) >= RaidYears)
             {
                 LogService.LogInfo($"{LogTag} {war.data.name} 打满一年退兵(洗劫{state.sacked:0.#}/{state.goal:0.#}城)");
                 World.world.wars.endWar(war, state.sacked > 0f ? WarWinner.Attackers : WarWinner.Defenders);
