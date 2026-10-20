@@ -7,7 +7,7 @@ using Rand = System.Random;
 
 namespace EmpireCraft.Scripts.GeneralSystems;
 
-// 战声(仿 EU4)：镜头拉近到正在交战的地方时，听得到那里的厮杀声。音源与 FMOD 通道见 BattleSoundBank。
+// 战声(仿 EU4)：镜头拉近到正在交战的地方时，听得到那里的厮杀声。音源与 FMOD 通道见 BattleSoundBank(通道是装箱的句柄，没有为 null)。
 //   交战处：陆战取 FrontSystem.Battles(本月、上月打过的城，交战标记画在哪就从哪出声)，海战取 NavySystem.Battles；
 //   音色：按在那座城攻守的各军兵种(CorpsArmSystem)分时代——步兵、弓兵、车兵、骑兵算冷兵器，火枪兵算火器，
 //     步枪兵、装甲车、坦克、飞机算近代；炮兵同场有近代兵种时是近代炮击，不然是前装炮；民兵看本国科技到了哪个时代；
@@ -61,7 +61,7 @@ public static class BattleSound
 
     private sealed class AmbientVoice
     {
-        public FMOD.Channel Channel;
+        public object Channel;
         public float Volume, Target, Pan, TargetPan;
     }
 
@@ -79,7 +79,7 @@ public static class BattleSound
     private static readonly List<Tally> TallyPool = new();
     private static readonly Dictionary<long, int> KingdomEras = new();
     private static readonly AmbientVoice[] Ambients = { new(), new(), new(), new() };
-    private static readonly List<FMOD.Channel> Shots = new();
+    private static readonly List<object> Shots = new();
     private static readonly Queue<float> RecentShots = new();
     private static readonly int ArmCount = Enum.GetValues(typeof(CorpsArmSystem.Arm)).Length;
     private static readonly Rand Rng = new();
@@ -173,7 +173,7 @@ public static class BattleSound
         BattleSoundBank.StopAll();
         foreach (AmbientVoice voice in Ambients)
         {
-            voice.Channel = default;
+            voice.Channel = null;
             voice.Volume = voice.Target = 0f;
         }
         Shots.Clear();
@@ -503,7 +503,7 @@ public static class BattleSound
                     // 从循环里随机一处开始，免得每次都是同一句开头
                     voice.Channel = BattleSoundBank.Play(BattleSoundBank.Ambient(EraNames[e]), voice.Volume, voice.Pan, 1f,
                         (float)Rng.NextDouble());
-                    if (!_announced && voice.Channel.hasHandle())
+                    if (!_announced && voice.Channel != null)
                     {
                         _announced = true;
                         NeoModLoader.services.LogService.LogInfo(
@@ -512,7 +512,7 @@ public static class BattleSound
                 }
                 else BattleSoundBank.SetVolume(voice.Channel, voice.Volume, voice.Pan);
             }
-            else if (voice.Channel.hasHandle()) BattleSoundBank.Stop(ref voice.Channel);
+            else if (voice.Channel != null) BattleSoundBank.Stop(ref voice.Channel);
         }
     }
 
@@ -558,8 +558,8 @@ public static class BattleSound
         if (variants > 1 && key + index == _lastShot) index = (index + 1 + Rng.Next(variants - 1)) % variants;
         float volume = HeardGain[pick] * KindGain[kind] * (0.75f + 0.25f * (float)Rng.NextDouble());
         float pitch = 0.94f + 0.12f * (float)Rng.NextDouble();
-        FMOD.Channel channel = BattleSoundBank.Play(BattleSoundBank.Shot(key, index), volume, HeardPan[pick], pitch);
-        if (!channel.hasHandle()) return;
+        object channel = BattleSoundBank.Play(BattleSoundBank.Shot(key, index), volume, HeardPan[pick], pitch);
+        if (channel == null) return;
         Shots.Add(channel);
         RecentShots.Enqueue(now);
         _lastShot = key + index;
