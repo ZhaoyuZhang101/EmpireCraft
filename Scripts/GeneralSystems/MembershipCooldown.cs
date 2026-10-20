@@ -11,7 +11,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 神力放出(移除帝国；解除附庸；加冕称帝时离开原帝国；加入帝国时离开原帝国)：ReleaseYears 年内原帝国(连同它的核心)、
 //     原宗主(连同宗主所在的帝国)不得收回——自愿归附、收朝贡、收附庸、各种强制并入一概拦下(见 Empire.join、
 //     KingdomExtension.JoinTakenAlliance、FeudalVassalService.BindCore)；打仗打下来的照旧(两家正在交战，
-//     或停战不到 WarResultYears 年——战后称臣、立附庸在停战后几帧里结算)。它自己也不主动回去，除非危急(见 Desperate)；
+//     或停战不到 WarResultYears 年——战后称臣、立附庸在停战后几帧里结算)。它自己也不主动回去，除非危急(见 Desperate)。
+//     头 TruceYears 年原帝国、原宗主不对它开战(用户 2026-10-20 定，见 TruceForbids、WarGate.Forbidden)，它去打原主不拦；
 //   · 神力拉入(加入帝国、创建省份、普天之下、强制附庸)：JoinYears 年内不因离心自行离开——拥兵自立、诸侯同盟、
 //     教皇党倒戈、改朝离心、亏空自立、羁縻叛去、附庸独立都不算它(RebellionSystem.CanAttempt 与 Settled)；
 //     战败失城、亡国、帝国瓦解另说；
@@ -26,6 +27,8 @@ public static class MembershipCooldown
     public const int JoinYears = 15;
     public const int RejoinYears = 10;
     public const int WarResultYears = 1;
+    // 神力放出后原帝国、原宗主不对它开战的年数(见 TruceForbids)
+    public const int TruceYears = 10;
     // 危急：正被别国攻打，这场仗丢了三成以上的城，或敌方兵力是自己的三倍以上
     public const float DesperateLostShare = 0.3f, DesperateStrength = 3f;
     private const int LogPerMinute = 30;
@@ -99,6 +102,22 @@ public static class MembershipCooldown
                      data.manual_release_lord_id >= 0 &&
                      (data.manual_release_lord_id == lordId || data.manual_release_lord_id == coreId);
         return match ? Math.Max(0, ReleaseYears - Date.getYearsSince(data.manual_release_at)) : 0;
+    }
+
+    // 神力放出后 TruceYears 年内，原帝国(核心与各成员)、原宗主(连同宗主所在的帝国)不对它开战(见 WarGate.Forbidden)；
+    // 它自己去打原主不拦。保护期因战事、危急并回或神力放回而作废的，这一条随之作废
+    public static bool TruceForbids(Kingdom attacker, Kingdom target)
+    {
+        if (attacker?.data == null || target?.data == null || attacker == target || World.world == null) return false;
+        var data = target.GetOrCreate();
+        if (data.manual_release_at < 0d || Now < data.manual_release_at || Date.getYearsSince(data.manual_release_at) >= TruceYears)
+            return false;
+        long empireId = attacker.GetEmpireID();
+        if (data.manual_release_empire_id >= 0 && empireId == data.manual_release_empire_id) return true;
+        if (data.manual_release_lord_id < 0) return false;
+        if (attacker.id == data.manual_release_lord_id) return true;
+        Kingdom lord = World.world.kingdoms?.get(data.manual_release_lord_id);
+        return empireId >= 0 && lord?.data != null && !lord.isRekt() && lord.GetEmpireID() == empireId;
     }
 
     // 神力拉入、仍在原处、未满 JoinYears 年(帝国核心不算)
