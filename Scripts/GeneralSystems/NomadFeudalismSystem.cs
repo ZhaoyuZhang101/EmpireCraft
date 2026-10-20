@@ -90,6 +90,8 @@ public static class NomadFeudalismSystem
         foreach (var pair in options)
             if (current.options.TryGetValue(pair.Key, out int[] option) && option.Length > 0)
                 option[0] = pair.Value;
+        // 汗国分封的税级只有"无/低"两档(见 Regime.MaxTaxLevel)：旧封建制带过来的中、高压回"低"
+        current.ClampTaxLevel();
         kingdom.GetOrCreate().FactionRatio = ratios;
         kingdom.ReconcileFactionRatios(factions);
         kingdom.GetOrCreate().shuitu_regime = (int)RegimeType.NomadFeudalism;

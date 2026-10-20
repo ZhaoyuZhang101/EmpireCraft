@@ -99,7 +99,9 @@ public static class WarBalanceDiagnostics
                         $"积弊均{MaladySystem.Average(empire):0}/武备{MaladySystem.Get(empire, MaladySystem.Military):0} " +
                         $"正统{(empire != null ? empire.Legitimacy.ToString() : "—")} ");
             if (channel == NomadChannel)
-                text.Append($"思归×{NomadCycleSystem.HomesickLevy(kingdom):0.00} 自立门槛{NomadCycleSystem.SecessionGate(kingdom)}");
+                // 税率是实际生效的(游牧政体已打对折，见 KingdomExtension.NomadTaxFactor)，看军费系数低是不是税收少
+                text.Append($"思归×{NomadCycleSystem.HomesickLevy(kingdom):0.00} 自立门槛{NomadCycleSystem.SecessionGate(kingdom)} " +
+                            $"税率{kingdom.GetTaxRate() * 100d:0.#}%");
             else
             {
                 // 行省、埃米尔国的钱袋：央地分成(城/本国/中央)、年经常收入、国库，看军费系数是不是卡在钱上

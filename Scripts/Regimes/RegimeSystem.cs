@@ -295,16 +295,37 @@ public class Regime
     {
         return era_name;
     }
+    // 税级能选到哪一档：配置 option_tax_level 是 [默认税级, 可选档数]，政体窗口按档数画按钮。游牧政体(游牧、
+    // 汗国分封)配成 2 档，只有"无/低"(收税另打对折，见 KingdomExtension.NomadTaxFactor)；制度改革、诏令要把税级
+    // 提到中、高的，到这一档为止
+    public TaxLevel MaxTaxLevel()
+    {
+        if (options == null || !options.TryGetValue("option_tax_level", out int[] tax) || tax == null || tax.Length < 2)
+            return TaxLevel.High;
+        return (TaxLevel)Math.Max(0, Math.Min((int)TaxLevel.High, tax[1] - 1));
+    }
     public TaxLevel GetTaxLevel()
     {
-        return (TaxLevel)options["option_tax_level"][0];
+        return (TaxLevel)Math.Min(options["option_tax_level"][0], (int)MaxTaxLevel());
     }
     public void SetTaxLevel(TaxLevel level)
     {
+        if (level > MaxTaxLevel()) level = MaxTaxLevel();
         Kingdom kingdom = World.world?.kingdoms?.get(control_kingdom_id);
         if (kingdom != null && level != GetTaxLevel() &&
             !ConstitutionalEconomySystem.CanChangeTax(kingdom.GetEmpire())) return;
         options["option_tax_level"][0] = (int) level;
+    }
+    // 存着的税级超过可选档数的压回最高一档(旧档里的游牧政体以前能设中、高)。直接写选项——议会掌握征税权时
+    // SetTaxLevel 会被否决，这是修补不是改税。返回是否改了
+    public bool ClampTaxLevel()
+    {
+        if (options == null || !options.TryGetValue("option_tax_level", out int[] tax) || tax == null || tax.Length == 0)
+            return false;
+        int max = (int)MaxTaxLevel();
+        if (tax[0] <= max) return false;
+        tax[0] = max;
+        return true;
     }
 
     public ReligionLevel GetReligionLevel()

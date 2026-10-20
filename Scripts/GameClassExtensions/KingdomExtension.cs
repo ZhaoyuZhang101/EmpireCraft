@@ -1937,6 +1937,14 @@ public static class KingdomExtension
         if (!k.IsInEmpire() || k.IsEmpire()) return false;
         return Date.getYearsSince(k.GetLastTaxTime()) >= 1;
     }
+    // 游牧政体收税打对折(用户 2026-10-20 定)：逐水草迁徙，户口不定，按户按田计征收不上来，汗庭的钱更多靠劫掠、
+    // 岁币与朝贡。本国向百姓收的各项税(人头、田赋、商税、背景人口纳税)都走这里，所以只在这里乘一次；税级也只给
+    // "无/低"两档(YouMu、NomadFeudalism 的 SystemConfig.json 里 option_tax_level 档数为 2，见 Regime.MaxTaxLevel)。
+    // 汗国分封是游牧本族定居后的分封形态，同样打折；水土整国游牧化改成的游牧政体照此打折，不另处理
+    public const float NomadTaxFactor = 0.5f;
+
+    public static bool IsNomadTaxRegime(RegimeType type) => type is RegimeType.YouMu or RegimeType.NomadFeudalism;
+
     public static double GetTaxRate(this Kingdom k)
     {
         var baseTax = 0.1f;
@@ -1952,19 +1960,26 @@ public static class KingdomExtension
         var regime = k?.GetRegime();
         if (regime != null)
         {
+            float rate;
             switch (regime.GetTaxLevel())
             {
                 case TaxLevel.None:
-                    return 0.0f;
+                    rate = 0.0f;
+                    break;
                 case TaxLevel.Low:
-                    return baseTax;
+                    rate = baseTax;
+                    break;
                 case TaxLevel.Medium:
-                    return baseTax + 0.2f;
+                    rate = baseTax + 0.2f;
+                    break;
                 case TaxLevel.High:
-                    return baseTax + 0.4f;
+                    rate = baseTax + 0.4f;
+                    break;
                 default:
-                    return baseTax;
-            } 
+                    rate = baseTax;
+                    break;
+            }
+            return IsNomadTaxRegime(regime.type) ? rate * NomadTaxFactor : rate;
         }
         return baseTax;
     }
@@ -2137,6 +2152,9 @@ public static class KingdomExtension
                         option[0] = pair.Value;
             ed.saved_regime_options = null;
         }
+        // 旧档里游牧政体的税级可能是中、高(那时游牧也给四档)，读档压回"低"(见 Regime.MaxTaxLevel)
+        if (regime != null && regime.ClampTaxLevel())
+            NeoModLoader.services.LogService.LogInfo($"[EmpireCraft][税级] {k.name} 的{regime.type}政体税级超出可选档，已降为{regime.GetTaxLevel()}");
         k.SetRegime(regime);
         if (k.IsEmpire()) k.EnsureHereditaryThrone();
         if (k.IsEmpire())

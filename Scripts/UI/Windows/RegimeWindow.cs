@@ -236,6 +236,9 @@ public class RegimeWindow : AbstractWideWindow<RegimeWindow>
         foreach (var option in options)
         {
             if (option.Key.Contains("toggle_")) AddToggleRow(settingSpace, option.Key, option.Value[0] != 0);
+            // 税级按实际生效的那档高亮：存着的值超过可选档数时(见 Regime.MaxTaxLevel)按最高一档算
+            else if (option.Key == "option_tax_level")
+                AddChoiceRow(settingSpace, option.Key, (int)_kingdom.GetRegime().GetTaxLevel(), option.Value[1]);
             else if (option.Key.Contains("option_")) AddChoiceRow(settingSpace, option.Key, option.Value[0], option.Value[1]);
         }
         settingSpace.transform.AddStretchBackground("regimeFrame", size: new Vector2(SettingWidth + 4f, height));
