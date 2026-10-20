@@ -20,7 +20,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 教权(每个宗教一个值 0~100)：每年向目标回归——基准 55，教廷是独立的教皇国 +10，各西方帝国施行教会叙任 +2、
 //     君主叙任 −2、脱离罗马 −4(合计最多 ±20)，教廷之囚 −15；加冕、悔罪、圣战胜负另有加减；
 //   · 加冕：西方帝国的新君每年有四成可能赴圣地请教宗加冕(献礼为年度经常收入的一成)，加冕后正统 +8；
-//     登基三年仍未加冕正统 −5；脱离罗马或世俗化之后自行加冕 +3；帝国自己握有圣地的直接加冕；
+//     登基三年仍未加冕正统 −5；脱离罗马或世俗化之后自行加冕 +3；帝国自己握有圣地的直接加冕
+//     (封建制帝国圣地不在皇帝自家领内的，要先远征，见 HolyRomanSystem.Romzug)；
 //   · 叙任权：教会叙任 / 政教协约 / 君主叙任，按施行的制度定(叙任权之争打赢也会改为君主叙任)；
 //   · 什一税：每年把年度经常收入的 6% 按叙任权档位(全额 / 一半 / 不缴)上缴教廷。
 public static partial class PapacySystem
@@ -290,12 +291,14 @@ public static partial class PapacySystem
             Crown(empire, state, emperor, self: true, null);
             return;
         }
-        if (papacy == core || papacy.GetEmpire() == empire)
+        // 封建制帝国：教廷不是皇帝自家领国就要远征受冕，圣地在本帝国诸侯手里(教宗受挟)也一样——原型罗马远征，
+        // 圣城在帝国之内皇帝照样率军前往。以前教廷在本帝国就直接加冕，玩家日志里三次加冕都没有远征
+        if (papacy == core || papacy.GetEmpire() == empire && !HolyRomanSystem.HasDiet(empire))
         {
             Crown(empire, state, emperor, self: false, papacy);
             return;
         }
-        // 封建制帝国：皇帝要远征教廷，一年后到达才加冕(见 HolyRomanSystem.Romzug)；到了却与教廷开战就作罢
+        // 皇帝要远征教廷，一年后到达才加冕(见 HolyRomanSystem.Romzug)；到了却与教廷开战就作罢
         int romzug = HolyRomanSystem.Romzug(empire);
         if (romzug == HolyRomanSystem.RomzugTravelling) return;
         if (romzug != HolyRomanSystem.RomzugArrived)
