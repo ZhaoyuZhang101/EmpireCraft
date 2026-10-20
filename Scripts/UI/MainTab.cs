@@ -586,7 +586,7 @@ internal static class MainTab
 
     private static void AddButton(string group, PowerButton button)
     {
-        bool cultureSide = group is CULTURE_GROUP or BUILD_GROUP or IDEOLOGY_SEED_GROUP or CULTURE_BRUSH_GROUP;
+        bool cultureSide = group is CULTURE_GROUP or BUILD_GROUP or IDEOLOGY_SEED_GROUP or CULTURE_BRUSH_GROUP or RESOURCE_BRUSH_GROUP;
         bool warSide = group is WAR_GROUP or VASSAL_GROUP or ZHOU_GROUP;
         (warSide ? warTab : cultureSide ? cultureTab : tab).AddPowerButton(group, button);
         if (button != null) _buttonsInOrder.Add(new KeyValuePair<string, PowerButton>(group, button));
