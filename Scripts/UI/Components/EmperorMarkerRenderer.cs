@@ -20,15 +20,16 @@ namespace EmpireCraft.Scripts.UI.Components;
 // 微服私访、出访、御驾亲征时标记像兵牌一样沿路走(见 EmperorTourSystem)，换了地块在一秒里匀速滑过去，暂停时不动。
 // 画在地图浮层画布上(关掉「地图名称」也照画，见 MapOverlayCanvas)，按屏幕像素定大小。共和国的元首不画。
 // 鼠标停在标记上：标记放大、置顶，显示皇帝的基本情况——帝国、年龄、在位几年、资质、眼下在做什么(在宫中、微服私访、
-// 出访、御驾亲征、回銮途中)、储君、天命正统(兵牌悬停时让路)。
+// 出访、御驾亲征、回銮途中)、储君、天命正统(兵牌悬停时让路)。这些说法按帝国文化换(CultureDoctrines.Key：文化 → 谱系 →
+// _other → 原键，如西方是正统、宫廷、巡游、亲征、返驾)，没配的谱系照原键。
 //   · 按文化取冠：帝国制度文化的谱系(CultureDoctrines.SetOf，与派系学说、教廷判西方同一口径)查 Crowns 表——罗马一线
 //     (西方各族)画西方帝冠，没列的照旧画华夏冕；以后加汗、哈里发等，在表里加一行、在 IconForge 里画一枚冠即可；
 //   · 教宗标记：西方宗教(圣地是罗马一线文化的城，或教廷所在国属罗马一线，同 PapacySystem 的年度诊断)有教宗时，
-//     在圣地(教廷所在)城心上方画一枚同样印面、铜环的标记，冠换成三重冕，印面用教廷所在国的国色；教宗兼做皇帝
-//     (圣座帝国、教廷就在帝国核心国)而皇帝出行时跟着行程走，否则不动。滑动、悬停放大置顶、兵牌让路都与皇帝标记一样，
-//     悬停显示教宗的情况——教会、圣地与所在国(是否教宗国)、年龄与在位、资质、教权、独立还是受谁挟制、兼帝位、近况、
-//     进行中的圣战、骑士团；
-//   · 教宗与皇帝同在一城(或在屏幕上挨着)时左右错开：皇帝在左、教宗在右，挨得越近推得越开，重叠时正好并排。
+//     在圣地(教廷所在)城心上方画一枚同样印面、铜环的标记，冠换成三重冕，印面用教廷所在国的国色。教宗本人就是皇帝
+//     (圣座帝国、教廷就在帝国核心国)时只画这一枚三重冕、不再画帝冠，皇帝出行时跟着行程走，否则不动。滑动、悬停放大置顶、
+//     兵牌让路都与皇帝标记一样，悬停显示教宗的情况——教会、圣地与所在国(是否教宗国)、年龄与在位、资质、教权、独立还是
+//     受谁挟制、近况、进行中的圣战、骑士团；兼做皇帝的再加兼帝位、储君、正统；
+//   · 教宗与别的皇帝同在一城(或在屏幕上挨着)时左右错开：皇帝在左、教宗在右，挨得越近推得越开，重叠时正好并排。
 public static class EmperorMarkerRenderer
 {
     private const float Size = 43f, Lift = 31f, HoverScale = 1.3f, TooltipRefresh = 1f, Gap = 2f;
@@ -74,6 +75,9 @@ public static class EmperorMarkerRenderer
     private static readonly Dictionary<long, (Sprite crown, float at)> EmpireCrowns = new();
     // 有教宗的西方宗教(每秒重查一次)
     private static readonly List<Religion> Sees = new();
+    // 本帧要画的教宗，及兼做皇帝的帝国(这些帝国不再另画帝冠)
+    private static readonly List<(Religion religion, Kingdom papacy, City holy, Empire throne)> Popes = new();
+    private static readonly HashSet<long> PopeThrones = new();
     private static float _seesAt = float.NegativeInfinity;
     private static object _seesWorld;
     private static readonly List<Entry> Entries = new();
@@ -122,10 +126,13 @@ public static class EmperorMarkerRenderer
             MapOverlayCanvas.Sync();
             Camera camera = World.world.camera;
             float scale = Mathf.Max(0.01f, canvas.scaleFactor);
+            CollectPopes();
             foreach (Empire empire in ModClass.EMPIRE_MANAGER)
             {
                 Actor emperor = empire?.data == null ? null : empire.Emperor;
                 if (emperor?.data == null || emperor.isRekt() || !emperor.isAlive() || RepublicSystem.IsRepublic(empire)) continue;
+                // 教宗本人就是皇帝：只画三重冕那一枚
+                if (PopeThrones.Contains(empire.data.id)) continue;
                 // 出行途中按进度画在两块地之间，每个游戏秒往前挪一点、滑过去(见 EmperorTourSystem.DrawPosition)
                 Vector3? away = EmperorTourSystem.DrawPosition(empire);
                 WorldTile home = away == null ? EmperorTourSystem.Home(empire)?.getTile() : null;
@@ -135,16 +142,9 @@ public static class EmperorMarkerRenderer
                 Color color = empire.getColor()?.getColorMain() ?? Color.white;
                 Entries.Add(new Entry { Kind = Kind.Emperor, Id = empire.data.id, Screen = screen, Color = color, Crown = CrownOf(empire) });
             }
-            RefreshSees();
-            foreach (Religion religion in Sees)
+            foreach (var (religion, papacy, holy, throne) in Popes)
             {
-                if (religion?.data == null || religion.isRekt()) continue;
-                Actor pope = PapacySystem.Pope(religion);
-                Kingdom papacy = PapacySystem.Papacy(religion);
-                City holy = PapacySystem.HolyCity(religion);
-                if (pope == null || papacy == null || holy == null) continue;
                 // 教宗兼做皇帝时跟着皇帝的行程走，否则在圣地不动
-                Empire throne = Throne(pope, papacy);
                 Vector3? away = throne != null ? EmperorTourSystem.DrawPosition(throne) : null;
                 WorldTile seat = away == null ? holy.getTile() : null;
                 if (away == null && seat == null) continue;
@@ -213,6 +213,25 @@ public static class EmperorMarkerRenderer
         Sprite crown = (Crowns.TryGetValue(set, out string path) ? Load(path) : null) ?? Load(DefaultCrown);
         EmpireCrowns[id] = (crown, now);
         return crown;
+    }
+
+    // 本帧有教宗可画的西方宗教，记下兼做皇帝的帝国
+    private static void CollectPopes()
+    {
+        Popes.Clear();
+        PopeThrones.Clear();
+        RefreshSees();
+        foreach (Religion religion in Sees)
+        {
+            if (religion?.data == null || religion.isRekt()) continue;
+            Actor pope = PapacySystem.Pope(religion);
+            Kingdom papacy = PapacySystem.Papacy(religion);
+            City holy = PapacySystem.HolyCity(religion);
+            if (pope == null || papacy == null || holy == null) continue;
+            Empire throne = Throne(pope, papacy);
+            if (throne != null) PopeThrones.Add(throne.data.id);
+            Popes.Add((religion, papacy, holy, throne));
+        }
     }
 
     // 有教宗的西方宗教，每秒(换了世界立即)重查一次
@@ -329,19 +348,29 @@ public static class EmperorMarkerRenderer
         string colorHex = empire.getColor()?.color_text ?? "#F3C34A";
         tooltip.setTitle(emperor.getName(), "emperor_tip_subtitle", colorHex);
         tooltip.addLineText(LM.Get("emperor_tip_empire"), empire.GetEmpireFullName(), colorHex, pPercent: false, pLocalize: false);
-        tooltip.addLineText(LM.Get("emperor_tip_age"), string.Format(LM.Get("emperor_tip_age_value"), emperor.getAge(),
+        string culture = CultureDoctrines.CultureOf(empire);
+        tooltip.addLineText(T("emperor_tip_age", culture), string.Format(T("emperor_tip_age_value", culture), emperor.getAge(),
             empire.GetEmperorYear()), Plain, pPercent: false, pLocalize: false);
-        AddGrade(tooltip, emperor);
-        tooltip.addLineText(LM.Get("emperor_tip_state"), State(empire), "#9FD0E8", pPercent: false, pLocalize: false);
+        AddGrade(tooltip, emperor, culture);
+        tooltip.addLineText(T("emperor_tip_state", culture), State(empire, culture), "#9FD0E8", pPercent: false, pLocalize: false);
+        AddHeirAndMandate(tooltip, empire, culture);
+    }
+
+    // 储君、天命正统(皇帝标记，与兼做皇帝的教宗共用)
+    private static void AddHeirAndMandate(Tooltip tooltip, Empire empire, string culture)
+    {
         Kingdom core = empire.CoreKingdom;
         Actor heir = core != null && core.HasHeir() ? core.GetHeir() : null;
         bool designated = core != null && core.GetOrCreate().designated_heir_id >= 0;
-        tooltip.addLineText(LM.Get("emperor_tip_heir"), heir?.data == null
-                ? LM.Get("emperor_tip_no_heir")
-                : string.Format(LM.Get(designated ? "emperor_tip_heir_designated" : "emperor_tip_heir_law"), heir.getName(), heir.getAge()),
+        tooltip.addLineText(T("emperor_tip_heir", culture), heir?.data == null
+                ? T("emperor_tip_no_heir", culture)
+                : string.Format(T(designated ? "emperor_tip_heir_designated" : "emperor_tip_heir_law", culture), heir.getName(), heir.getAge()),
             heir == null ? "#E07A5F" : Plain, pPercent: false, pLocalize: false);
-        tooltip.addLineText(LM.Get("emperor_tip_mandate"), empire.Mandate.ToString(), "#F3C34A", pPercent: false, pLocalize: false);
+        tooltip.addLineText(T("emperor_tip_mandate", culture), empire.Mandate.ToString(), "#F3C34A", pPercent: false, pLocalize: false);
     }
+
+    // 按文化取说法：文化 → 谱系 → _other → 原键(见 CultureDoctrines.Key)
+    private static string T(string key, string culture) => LM.Get(CultureDoctrines.Key(key, culture));
 
     // 教宗标记的悬停详情
     public static void ShowPopeTooltip(Tooltip tooltip, string type, TooltipData data)
@@ -361,20 +390,27 @@ public static class EmperorMarkerRenderer
             holy.GetCityName(), papacy.GetKingdomName()), Plain, pPercent: false, pLocalize: false);
         double since = papacy.data.timestamp_king_rule;
         int reign = since >= 0d ? Date.getYearsSince(since) + 1 : 1;
-        tooltip.addLineText(LM.Get("emperor_tip_age"), string.Format(LM.Get("emperor_tip_age_value"), pope.getAge(), reign),
+        string culture = CultureDoctrines.CultureOf(papacy);
+        tooltip.addLineText(T("emperor_tip_age", culture), string.Format(T("emperor_tip_age_value", culture), pope.getAge(), reign),
             Plain, pPercent: false, pLocalize: false);
-        AddGrade(tooltip, pope);
+        AddGrade(tooltip, pope, culture);
         float authority = PapacySystem.Authority(religion);
         tooltip.addLineText(LM.Get("papacy_authority"), $"{authority:0}",
             authority >= 60f ? "#7CD27C" : authority >= 35f ? Plain : "#E07A5F", pPercent: false, pLocalize: false);
         bool captive = PapacySystem.IsCaptive(religion);
         tooltip.addLineText(LM.Get("papacy_state"), SeeState(religion, papacy, captive), captive ? "#E07A5F" : "#7CD27C",
             pPercent: false, pLocalize: false);
+        // 兼做皇帝：帝国、储君、正统
         Empire throne = Throne(pope, papacy);
+        string throneCulture = throne != null ? CultureDoctrines.CultureOf(throne) : culture;
         if (throne != null)
-            tooltip.addLineText(LM.Get("pope_tip_throne"), throne.GetEmpireFullName(), colorHex, pPercent: false, pLocalize: false);
-        tooltip.addLineText(LM.Get("emperor_tip_state"), throne != null
-            ? State(throne)
+        {
+            tooltip.addLineText(LM.Get("pope_tip_throne"), throne.GetEmpireFullName(), throne.getColor()?.color_text ?? colorHex,
+                pPercent: false, pLocalize: false);
+            AddHeirAndMandate(tooltip, throne, throneCulture);
+        }
+        tooltip.addLineText(T("emperor_tip_state", culture), throne != null
+            ? State(throne, throneCulture)
             : string.Format(LM.Get("pope_tip_state_see"), holy.GetCityName()), "#9FD0E8", pPercent: false, pLocalize: false);
         War crusade = PapacySystem.ActiveCrusade(religion);
         if (crusade?.data != null)
@@ -385,10 +421,10 @@ public static class EmperorMarkerRenderer
     }
 
     // 资质(皇帝、教宗共用)
-    private static void AddGrade(Tooltip tooltip, Actor ruler)
+    private static void AddGrade(Tooltip tooltip, Actor ruler, string culture)
     {
         RulerQualitySystem.Grade grade = RulerQualitySystem.Of(ruler);
-        tooltip.addLineText(LM.Get("emperor_tip_grade"), LM.Get(grade switch
+        tooltip.addLineText(T("emperor_tip_grade", culture), T(grade switch
             {
                 RulerQualitySystem.Grade.Wise => "trait_" + RulerQualitySystem.Wise,
                 RulerQualitySystem.Grade.Weak => "trait_" + RulerQualitySystem.Weak,
@@ -396,7 +432,7 @@ public static class EmperorMarkerRenderer
                 RulerQualitySystem.Grade.Dissolute => "trait_" + RulerQualitySystem.Dissolute,
                 RulerQualitySystem.Grade.Tyrant => "trait_" + RulerQualitySystem.Tyrant,
                 _ => "emperor_tip_grade_average"
-            }), grade == RulerQualitySystem.Grade.Wise ? "#7CD27C" : grade == RulerQualitySystem.Grade.Average ? Plain : "#E07A5F",
+            }, culture), grade == RulerQualitySystem.Grade.Wise ? "#7CD27C" : grade == RulerQualitySystem.Grade.Average ? Plain : "#E07A5F",
             pPercent: false, pLocalize: false);
     }
 
@@ -410,21 +446,21 @@ public static class EmperorMarkerRenderer
             papacy.GetEmpire()?.GetEmpireFullName() ?? papacy.GetKingdomName(), years);
     }
 
-    // 眼下在做什么(见 EmperorTourSystem)
-    private static string State(Empire empire)
+    // 眼下在做什么(见 EmperorTourSystem)，说法按文化
+    private static string State(Empire empire, string culture)
     {
         var data = empire.data;
         if (string.IsNullOrEmpty(data.tour_kind))
-            return string.Format(LM.Get("emperor_tip_state_palace"), EmperorTourSystem.Home(empire)?.GetCityName() ?? "");
-        if (data.tour_returning) return LM.Get("emperor_tip_state_returning");
+            return string.Format(T("emperor_tip_state_palace", culture), EmperorTourSystem.Home(empire)?.GetCityName() ?? "");
+        if (data.tour_returning) return T("emperor_tip_state_returning", culture);
         if (data.tour_kind == EmperorTourSystem.Campaign)
         {
             CorpsData corps = CorpsSystem.Find(empire.CoreKingdom, data.tour_corps);
-            return string.Format(LM.Get("emperor_tip_state_campaign"), corps == null ? "" : CorpsSystem.Name(corps));
+            return string.Format(T("emperor_tip_state_campaign", culture), corps == null ? "" : CorpsSystem.Name(corps));
         }
         City city = World.world.cities.get(data.tour_city);
         string where = data.tour_kind == EmperorTourSystem.Visit ? city?.kingdom?.data?.name ?? "" : city?.GetCityName() ?? "";
-        return string.Format(LM.Get(data.tour_kind == EmperorTourSystem.Visit ? "emperor_tip_state_visit" : "emperor_tip_state_tour"), where);
+        return string.Format(T(data.tour_kind == EmperorTourSystem.Visit ? "emperor_tip_state_visit" : "emperor_tip_state_tour", culture), where);
     }
 
     // 换了位置就在一个游戏秒里匀速滑过去(太远就直接到，如换了皇帝)；暂停时不动
