@@ -298,7 +298,9 @@ public static partial class HolyRomanSystem
                 state.lawsuits.Remove(suit);
                 continue;
             }
-            if (Date.getYearsSince(suit.filed_at) < LawsuitHearingYears || UnityEngine.Random.value >= VerdictChance) continue;
+            // 两造正在交战(违禁私战、禁令战)：缓判
+            if (plaintiff.isInWarWith(defendant) || Date.getYearsSince(suit.filed_at) < LawsuitHearingYears ||
+                UnityEngine.Random.value >= VerdictChance) continue;
             state.lawsuits.Remove(suit);
             Verdict(empire, state, suit, plaintiff, defendant, city);
         }
@@ -379,6 +381,7 @@ public static partial class HolyRomanSystem
             else
             {
                 city.joinAnotherKingdom(plaintiff);
+                if (city.kingdom != plaintiff) return;
                 state.court_rulings++;
                 state.lawsuits_granted++;
                 ChangeAuthority(empire, AuthRulingObeyed, "hre_auth_ruling_obeyed", suit.city_name);

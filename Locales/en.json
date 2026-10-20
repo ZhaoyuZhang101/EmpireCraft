@@ -3124,6 +3124,7 @@
   "diet_act_abdicate_confirm": "Click again: abdicate and dissolve the empire",
   "hre_dissolution_toggle": "Feudal Empire Dissolution",
   "hre_dissolution_toggle Description": "When on, a feudal empire whose imperial authority stays low for long may see a foreign power draw a league of princes away, and if it sinks further the emperor abdicates and the empire dissolves. When off, neither happens.",
+  "hre_interregnum_lapsed_history": "After {0} years with an empty throne and no prince fit to elect, the imperial core chose a ruler by its own custom.",
   "capital_loss_restored": "{0} retakes its old capital {1} and is again known as {2}.",
   "kingdom_type_xingzai": "Temporary Court",
   "Later": "Later",

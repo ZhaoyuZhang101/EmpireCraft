@@ -28,10 +28,12 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 双重选举(决选平票)：首席选帝侯所投者即位；另一位称对立国王，权威 −10，开"{国}争位之战"——对立国王与投他的
 //     选帝侯所在国(各六成)对中央与投皇帝的选帝侯国(各六成)，不拉姻亲、不升级；打下中央都城正统只扣 10；
 //     打满五年强制议和。攻方胜——对立国王的领国成为中央(不扣正统)，让步一项、权威再 −5；守方胜或议和——对立国王放弃，权威 +5；
-//   · 大空位：在座选帝侯不足三位、没有候选，或权威不到 15 时四成"选帝侯不肯会选"——先帝家族领国暂不立君，由在座世俗选帝侯中
+//   · 大空位：在座选帝侯不足三位，或权威不到 15 时四成"选帝侯不肯会选"——先帝家族领国暂不立君，由在座世俗选帝侯中
 //     国力最强的非候选者代理帝国(没有就最强诸侯；只挂名、主持议会，史书不记为皇帝)；权威开头 −10、每年 −4；
-//     每年重开会选，成功几率 35% + 每过一年 15%；满五年由帝国代理定夺；期间议会只议帝国战争与禁令，不选储君、不加冕、
-//     不授选帝侯位，私战几率 ×1.5。
+//     每年重开会选，成功几率 35% + 每过一年 15%(一位在座选帝侯都没有时只能等代理定夺)；满五年由帝国代理定夺；
+//     期间议会只议帝国战争与禁令，不选储君、不加冕、不授选帝侯位，私战几率 ×1.5；
+//   · 一个候选都没有(成员里没有能当选的诸侯)：不进大空位(等也等不出人)，交回普通选任从中央择人；
+//     虚悬满五年代理也定不了(候选都没了)时同样作罢。
 public static partial class HolyRomanSystem
 {
     private const int MaxCandidates = 4, ElectionLogSize = 8, MinElectors = 3, InterregnumMaxYears = 5, ContestMaxYears = 5;
@@ -141,10 +143,10 @@ public static partial class HolyRomanSystem
     {
         List<Actor> electors = SeatedElectors(empire);
         List<Actor> pool = ElectionCandidates(empire);
+        if (pool.Count == 0) return inInterregnum;
         if (!inInterregnum)
         {
-            string reason = pool.Count == 0 ? "无人可选"
-                : electors.Count < MinElectors ? $"在座选帝侯只有{electors.Count}位"
+            string reason = electors.Count < MinElectors ? $"在座选帝侯只有{electors.Count}位"
                 : Authority(empire) < RefuseToConveneAuthority && UnityEngine.Random.value < RefuseToConveneChance
                     ? $"权威{Authority(empire)}，选帝侯不肯会选" : null;
             if (reason != null)
@@ -153,8 +155,8 @@ public static partial class HolyRomanSystem
                 return true;
             }
         }
-        else if (pool.Count == 0) return true;
-        if (electors.Count == 0) return inInterregnum && VicarDecides(empire, state, pool);
+        // 一位在座选帝侯都没有：等满五年由代理定夺
+        if (electors.Count == 0) return inInterregnum;
         List<Actor> candidates = TopCandidates(empire, state, electors, pool, MaxCandidates);
         float[,] scores = ScoreMatrix(empire, state, electors, candidates);
         ImperialElectionRules.Result tally = ImperialElectionRules.Tally(scores);
@@ -347,11 +349,19 @@ public static partial class HolyRomanSystem
 
     #region 年结
 
-    // 每年(Yearly)：大空位重开会选、争位之战期满、拉票
+    // 每年(Yearly)：大空位重开会选、争位之战期满、拉票；已改回世袭的只清掉残留的虚悬
     private static void ElectionYearly(Empire empire, HolyRomanState state)
     {
         state.campaign ??= new Dictionary<string, long>();
         state.elections ??= new List<ElectionRecord>();
+        if (!IsElective(empire))
+        {
+            state.interregnum_since = -1d;
+            state.vicar_id = state.vicar_realm_id = -1L;
+            state.vicar_name = "";
+            state.campaign.Clear();
+            return;
+        }
         if (state.anti_king_war_id >= 0)
         {
             War war = ContestWar(empire);
@@ -395,8 +405,17 @@ public static partial class HolyRomanSystem
         if (Vicar(empire) == null || LiveKingdom(state.vicar_realm_id)?.GetEmpire() != empire) PickVicar(empire, state, null);
         int years = Date.getYearsSince(state.interregnum_since);
         List<Actor> pool = ElectionCandidates(empire);
-        if (years >= InterregnumMaxYears) VicarDecides(empire, state, pool);
-        else if (UnityEngine.Random.value < ImperialElectionRules.InterregnumChance(years)) RunElection(empire, state, inInterregnum: true);
+        if (years < InterregnumMaxYears)
+        {
+            if (UnityEngine.Random.value < ImperialElectionRules.InterregnumChance(years)) RunElection(empire, state, inInterregnum: true);
+            return;
+        }
+        if (VicarDecides(empire, state, pool)) return;
+        // 满五年代理也定不了(候选都没了)：虚悬作罢，交回普通选任
+        Record(empire, string.Format(LM.Get("hre_interregnum_lapsed_history"), years));
+        state.interregnum_since = -1d;
+        state.vicar_id = state.vicar_realm_id = -1L;
+        state.vicar_name = "";
     }
 
     // 拉票：皇帝年迈、没有储君时，票势前两名的候选给还没倒向自己的选帝侯送钱

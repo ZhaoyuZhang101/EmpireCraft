@@ -3126,6 +3126,7 @@
   "diet_act_abdicate_confirm": "再點一下：皇帝退位、帝國解散",
   "hre_dissolution_toggle": "封建帝國解體",
   "hre_dissolution_toggle Description": "開啟後，帝國權威長期低迷的封建制帝國，可能被外國強邦拉走一批諸侯另結同盟，再低迷下去皇帝退位、帝國解散。關閉則這兩件事都不會發生。",
+  "hre_interregnum_lapsed_history": "帝位虛懸{0}年，選帝侯無人可推，改由中央自行擇立。",
   "capital_loss_restored": "{0}收復舊都{1}，還於舊都，復稱{2}。",
   "kingdom_type_xingzai": "行在",
   "Later": "後",

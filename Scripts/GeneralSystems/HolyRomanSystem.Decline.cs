@@ -57,7 +57,8 @@ public static partial class HolyRomanSystem
         return data != null && data.hre_protected_at >= 0d && Date.getYearsSince(data.hre_protected_at) < 2;
     }
 
-    private static void DeclineYearly(Empire empire, HolyRomanState state)
+    // 返回 true = 皇帝退位、帝国已解散
+    private static bool DeclineYearly(Empire empire, HolyRomanState state)
     {
         state.departed_log ??= new List<string>();
         state.peak_members = Math.Max(state.peak_members, Members(empire).Count + 1);
@@ -65,13 +66,14 @@ public static partial class HolyRomanSystem
         if (authority < CollapseAuthority && state.authority_collapse_since < 0d)
             state.authority_collapse_since = World.world.getCurWorldTime();
         else if (authority >= CollapseRecover) state.authority_collapse_since = -1d;
-        if (!DissolutionEnabled) return;
+        if (!DissolutionEnabled) return false;
         if (state.authority_low_since >= 0d && Date.getYearsSince(state.authority_low_since) >= ProtectorLowYears &&
             (state.last_protector_at < 0d || Date.getYearsSince(state.last_protector_at) >= ProtectorGapYears) &&
             UnityEngine.Random.value < ProtectorChance)
             TryProtectorLeague(empire, state);
-        if (!HasDiet(empire) || AbdicationBlocker(empire, state) != null || UnityEngine.Random.value >= AbdicationChance) return;
+        if (!HasDiet(empire) || AbdicationBlocker(empire, state) != null || UnityEngine.Random.value >= AbdicationChance) return false;
         Abdicate(empire, state);
+        return true;
     }
 
     // 退位解散还差什么(年度诊断、界面用)，条件已齐时为 null

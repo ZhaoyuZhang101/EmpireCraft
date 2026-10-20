@@ -151,7 +151,7 @@ public static partial class HolyRomanSystem
             if (HasDiet(empire)) AuthorityYearly(empire, state);
             if (IsElective(empire)) ElectiveYearly(empire, state);
             if (!HasDiet(empire)) return;
-            if (IsElective(empire)) ElectionYearly(empire, state);
+            ElectionYearly(empire, state);
             ImperialPeaceYearly(empire, state);
             MembersYearly(empire, state);
             ElectorsYearly(empire, state);
@@ -159,7 +159,8 @@ public static partial class HolyRomanSystem
             FeudsYearly(empire, state);
             ImmediacyYearly(empire, state);
             LeaguesYearly(empire, state);
-            DeclineYearly(empire, state);
+            // 皇帝退位、帝国已解散：不再往下结
+            if (DeclineYearly(empire, state)) return;
             DietYearly(empire, state);
             Diagnose(empire, state);
         }
