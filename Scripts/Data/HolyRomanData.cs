@@ -32,6 +32,11 @@ public sealed class HolyRomanState
     public string banned_name = "";
     public long ban_war_id = -1L;
 
+    // —— 帝国治安令(见 HolyRomanSystem 的「帝国治安令」一节) ——
+    // 颁布时间(-1 = 未施行或已作废)；施行期间以特权、选举让步取回外交开战权的诸侯
+    public double imperial_peace_at = -1d;
+    public List<long> privileged_ids = new();
+
     // —— 加冕远征(见 HolyRomanSystem.Romzug) ——
     public double romzug_at = -1d;
     public long romzug_emperor_id = -1L;

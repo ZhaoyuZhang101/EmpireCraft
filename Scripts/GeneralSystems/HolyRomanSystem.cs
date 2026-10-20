@@ -134,6 +134,7 @@ public static partial class HolyRomanSystem
             HolyRomanState state = State(empire);
             if (IsElective(empire)) ElectiveYearly(empire, state);
             if (!HasDiet(empire)) return;
+            ImperialPeaceYearly(empire, state);
             MembersYearly(empire, state);
             ReformYearly(empire, state);
             LeaguesYearly(empire, state);
@@ -196,9 +197,12 @@ public static partial class HolyRomanSystem
 
         string RestoreWarRight()
         {
-            Kingdom member = ElectorRealms(empire).FirstOrDefault(kingdom => kingdom.GetRegime()?.IsAllowDiplomacy() == false);
+            // 主教领的选帝侯本就不开战，不在此列；治安令施行期间记为豁免
+            Kingdom member = ElectorRealms(empire).FirstOrDefault(kingdom => SecularPrince(kingdom) &&
+                                                                             kingdom.GetRegime()?.IsAllowDiplomacy() == false);
             if (member == null) return null;
             member.GetRegime().SetAllowDiplomacy(true);
+            Exempt(empire, member);
             return string.Format(LM.Get("hre_concession_war_right"), member.GetKingdomName());
         }
 
@@ -221,6 +225,77 @@ public static partial class HolyRomanSystem
             return string.Format(LM.Get("hre_concession_fief"), city.GetCityName(), elector.GetKingdomName());
         }
     }
+
+    #region 帝国治安令
+
+    // 帝国治安令(诉求「颁布帝国治安令」)：施行期间世俗诸侯没有外交开战权、须向中央出兵；自由城市、主教领本就不开战、
+    // 不给中央出兵，不在其内。以前诉求只看"还有没有诸侯能开战或不出兵"：新封的、分割出来的、换家族后降为诸侯的旧中央，
+    // 连同本就不出兵的自由城市，一出现就又能提，同一帝国几年里颁布三次(玩家日志 2026-10-20)。现在：
+    //   · 施行期间新入帝国、新立的世俗诸侯每年一查，照令办理；
+    //   · 以诸侯特权(确认诸侯特权、允许诸侯自由开战)或选举让步取回开战权的记为豁免——从未施行、或有了豁免(被部分撤销)
+    //     才能再提，颁布后十五年内不再提(见 TempFac_颁布帝国治安令)；
+    //   · 和约之后诸侯取得完全主权，治安令作废，也不再能提。
+    public static bool SecularPrince(Kingdom kingdom) => kingdom?.data != null && Estate(kingdom) == EstateNone;
+
+    public static bool ImperialPeaceInForce(Empire empire) => State(empire)?.imperial_peace_at >= 0d;
+
+    // 可以再提：未施行，或已被特权、让步部分撤销；和约之后不再有
+    public static bool ImperialPeaceOpen(Empire empire)
+    {
+        HolyRomanState state = State(empire);
+        return state != null && !state.sovereign_princes && (state.imperial_peace_at < 0d || state.privileged_ids?.Count > 0);
+    }
+
+    // 颁布(诉求执行时调用)：诸侯一律受令，豁免清零
+    public static void EnactImperialPeace(Empire empire, IEnumerable<Kingdom> princes)
+    {
+        HolyRomanState state = State(empire);
+        if (state == null || World.world == null) return;
+        foreach (Kingdom prince in princes.ToList()) Bind(prince);
+        state.imperial_peace_at = World.world.getCurWorldTime();
+        state.privileged_ids?.Clear();
+    }
+
+    // 某诸侯取回外交开战权(诸侯特权、选举让步)：施行期间记为豁免
+    public static void Exempt(Empire empire, Kingdom prince)
+    {
+        HolyRomanState state = State(empire);
+        if (state == null || prince?.data == null || state.imperial_peace_at < 0d) return;
+        state.privileged_ids ??= new List<long>();
+        if (!state.privileged_ids.Contains(prince.id)) state.privileged_ids.Add(prince.id);
+    }
+
+    private static void Bind(Kingdom prince)
+    {
+        Regime regime = prince?.GetRegime();
+        if (regime == null) return;
+        regime.SetAllowDiplomacy(false);
+        regime.SetAllowSupportCenterArmy(true);
+    }
+
+    // 每年：和约后作废；施行期间新来的世俗诸侯照令办理，豁免名单清掉已不在帝国的
+    private static void ImperialPeaceYearly(Empire empire, HolyRomanState state)
+    {
+        if (state.imperial_peace_at < 0d) return;
+        state.privileged_ids ??= new List<long>();
+        if (state.sovereign_princes)
+        {
+            state.imperial_peace_at = -1d;
+            state.privileged_ids.Clear();
+            return;
+        }
+        state.privileged_ids.RemoveAll(id => World.world.kingdoms.get(id)?.GetEmpire() != empire);
+        foreach (Kingdom member in Members(empire))
+        {
+            if (!SecularPrince(member) || !member.hasKing() || state.privileged_ids.Contains(member.id) ||
+                member.IsFactionRebelling() || member.IsLocalRebelling()) continue;
+            Regime regime = member.GetRegime();
+            if (regime == null || !regime.IsAllowDiplomacy() && regime.IsAllowSupportCenterArmy()) continue;
+            Bind(member);
+        }
+    }
+
+    #endregion
 
     // 选帝侯所在的成员国(不含中央、被禁者)
     public static List<Kingdom> ElectorRealms(Empire empire) =>

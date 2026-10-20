@@ -1,5 +1,6 @@
 using System.Linq;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.GeneralSystems;
 using EmpireCraft.Scripts.Layer;
 using NeoModLoader.General;
 using NeoModLoader.services;
@@ -32,6 +33,8 @@ public class TempFac_确认诸侯特权 : TemporaryFaction
         {
             regime.SetAllowDiplomacy(true);
             regime.SetAllowSupportCenterArmy(false);
+            // 帝国治安令施行期间：这一家记为豁免(治安令被部分撤销，可以再提)
+            HolyRomanSystem.Exempt(GetEmpire(), target);
             CompletionOutcome = string.Format(LM.Get("holy_roman_outcome_princely_privileges"),
                 target.GetKingdomName());
             LogService.LogInfo($"执行{type}");
@@ -56,8 +59,9 @@ public class TempFac_确认诸侯特权 : TemporaryFaction
 
     private bool NeedsPrivilege(Kingdom kingdom)
     {
+        // 自由城市、主教领本就不开战、不给中央出兵，不讨这份特权
         if (kingdom == null || kingdom.isRekt() || kingdom == GetEmpire()?.CoreKingdom ||
-            kingdom.GetEmpire() != GetEmpire()) return false;
+            kingdom.GetEmpire() != GetEmpire() || !HolyRomanSystem.SecularPrince(kingdom)) return false;
         Regime regime = kingdom.GetRegime();
         return regime != null && (!regime.IsAllowDiplomacy() || regime.IsAllowSupportCenterArmy());
     }

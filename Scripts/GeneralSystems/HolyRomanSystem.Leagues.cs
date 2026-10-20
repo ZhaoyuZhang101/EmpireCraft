@@ -151,6 +151,9 @@ public static partial class HolyRomanSystem
         City venue = Members(empire).Where(IsFreeCity).Select(kingdom => kingdom.capital).FirstOrDefault(city => city != null)
                      ?? World.world.kingdoms.get(state.league_leader_id)?.capital ?? core.capital;
         state.sovereign_princes = true;
+        // 诸侯取得完全主权：帝国治安令作废
+        state.imperial_peace_at = -1d;
+        state.privileged_ids?.Clear();
         state.peace_name = string.Format(LM.Get("hre_peace_name"), venue?.GetCityName() ?? empire.GetEmpireName());
         state.peace_at = World.world.getCurWorldTime();
         foreach (Kingdom member in Members(empire))

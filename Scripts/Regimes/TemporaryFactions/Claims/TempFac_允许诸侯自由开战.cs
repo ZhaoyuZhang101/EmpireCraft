@@ -1,4 +1,5 @@
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.GeneralSystems;
 using EmpireCraft.Scripts.Layer;
 using NeoModLoader.services;
 
@@ -25,6 +26,8 @@ public class TempFac_允许诸侯自由开战 : TemporaryFaction
         {
             regime.SetAllowDiplomacy(true);
             regime.SetAllowSupportCenterArmy(false);
+            // 封建制帝国的治安令施行期间：这一家记为豁免(见 HolyRomanSystem「帝国治安令」)
+            HolyRomanSystem.Exempt(GetEmpire(), kingdom);
         }
         End();
     }
@@ -39,7 +42,9 @@ public class TempFac_允许诸侯自由开战 : TemporaryFaction
         }
         foreach (Kingdom kingdom in empire.kingdoms_list)
         {
-            if (kingdom?.data == null || kingdom.isRekt() || kingdom == empire.CoreKingdom) continue;
+            // 自由城市、主教领本就不开战，不在此列
+            if (kingdom?.data == null || kingdom.isRekt() || kingdom == empire.CoreKingdom ||
+                !HolyRomanSystem.SecularPrince(kingdom)) continue;
             Regime regime = kingdom.GetRegime();
             if (regime != null && !regime.IsAllowDiplomacy())
             {
