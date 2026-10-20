@@ -55,6 +55,7 @@ public static class StateDebtSystem
     public static long AnnualStableIncome(Kingdom kingdom) => AnnualIncome(kingdom, recurringOnly: false);
 
     // 举债看的年收：再去掉一次性划拨——央地拨款里只算记明是税款分成的，城库余钱上缴、城毁交回国库这类不算
+    // (官营产业利润经城库分成上来的那份没有记明来源，也不算，宁可少借)
     public static long BorrowingIncome(Kingdom kingdom) => AnnualIncome(kingdom, recurringOnly: true);
 
     private static long AnnualIncome(Kingdom kingdom, bool recurringOnly)
