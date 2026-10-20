@@ -151,6 +151,10 @@ public class WorldLogNamePatch : GamePatch
                     if (raw == display || !text.Contains(raw)) continue;
                     if (raw.Length < 2 && !text.StartsWith(raw, StringComparison.Ordinal)) continue;
                     int at = text.IndexOf(raw, StringComparison.Ordinal);
+                    // 铭牌名本就含这个短名(核心名)，而文中这处短名紧挨着分隔、已是带了类别的全名(如"盖雷新 帝国")：不再换。
+                    // 以前把其中的"盖雷新"换成此时的铭牌名"盖雷新 公国"，战争名每年(军阀时期年度扫描)、帝位每换一家就叠一层，
+                    // 成了"盖雷新 公国 帝国 公国 帝国帝国扩张战争"
+                    if (display.Contains(raw) && Decorated(text, at, raw.Length)) continue;
                     text = text.Substring(0, at) + display + text.Substring(at + raw.Length);
                     break;
                 }
@@ -161,6 +165,13 @@ public class WorldLogNamePatch : GamePatch
             NeoModLoader.services.LogService.LogWarning($"[EmpireCraft] 名称替换失败: {exception.Message}");
         }
         return text;
+    }
+
+    // 文中这处名字前后紧挨着名称分隔(窄空格、空格)：是"某某 帝国""The Duchy of 某某"这样带了类别的全名的一部分
+    private static bool Decorated(string text, int at, int length)
+    {
+        static bool Separator(char c) => c == ' ' || ModClass.NARROW_SPACE.IndexOf(c) >= 0;
+        return at > 0 && Separator(text[at - 1]) || at + length < text.Length && Separator(text[at + length]);
     }
 
     private static IEnumerable<string> RawNames(Kingdom kingdom)
