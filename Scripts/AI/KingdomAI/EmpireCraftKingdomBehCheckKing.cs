@@ -97,6 +97,8 @@ public class EmpireCraftKingdomBehCheckKing : GameAIKingdomBase
         if (ProvincialPoliticsSystem.TryFillGovernorVacancy(pKingdom)) return BehResult.Continue;
         // 主教领：主教不世袭，出缺时按叙任权另派(见 HolyRomanSystem.Members)
         if (HolyRomanSystem.TryAppointBishop(pKingdom)) return BehResult.Continue;
+        // 有帝国议会的选帝制帝国：帝位空缺由选帝侯会选(拉票、双重选举、大空位，见 HolyRomanSystem.Election)
+        if (HolyRomanSystem.TryHoldElection(pKingdom)) return BehResult.Continue;
         OfficeObject office = pKingdom.GetOffice();
         if (office == null) return BehResult.Continue;
         office.is_local = true;

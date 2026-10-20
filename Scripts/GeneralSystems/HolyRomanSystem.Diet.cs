@@ -241,6 +241,8 @@ public static partial class HolyRomanSystem
                                            kingdom != core);
             if (defiant != null) return (AgendaBan, defiant);
         }
+        // 帝位虚悬：帝国代理主持的议会只议帝国战争与禁令
+        if (state.interregnum_since >= 0d) return (null, null);
         if (ReformDue(empire, state)) return (AgendaReform, null);
         long income = StateDebtSystem.AnnualStableIncome(core);
         if (core.GetMoney() < income / 2 || OutsideFoes(empire).Any()) return (AgendaLevy, null);
@@ -514,6 +516,11 @@ public static partial class HolyRomanSystem
                 if (FeudRecord(empire, id) != null)
                 {
                     SettleFeud(empire, state, war, winner);
+                    continue;
+                }
+                if (id == state.anti_king_war_id)
+                {
+                    SettleContest(empire, state, winner);
                     continue;
                 }
                 if (id != state.imperial_war_id && id != state.ban_war_id && id != state.league_war_id &&

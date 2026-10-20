@@ -14,9 +14,10 @@ using UnityEngine;
 namespace EmpireCraft.Scripts.UI.Windows
 {
     // 帝国议会页(封建制帝国，见 HolyRomanSystem)：
-    //   页头 → 主指标(帝国权威、家族领地、皇族届数、上次议会、帝国禁令) → 两栏(三院席位 | 皇位：帝位、储君、加冕、帝国改革、诸侯主权)
+    //   页头(帝位虚悬时标代理) → 主指标(帝国权威、家族领地、皇族届数、上次议会、帝国禁令)
+    //   → 两栏(三院席位 | 皇位：帝位、储君、加冕、帝国改革、诸侯主权、帝国战争、会选、对立国王、帝国代理)
     //   → 两栏(帝国权威：刻度、近来收支、各事项所费 | 选帝侯：三教会席 + 四世俗席，授予/褫夺) → 两栏(诸侯纷争：私战或诉讼 | 留空)
-    //   → 议会纪事 → 选举让步 → 诸侯同盟 → 按钮(召开议会、提请或解除禁令、颁行帝国改革、册立自由城市、典押自由城市、封立主教领)
+    //   → 议会纪事 → 历次会选 → 选举让步 → 诸侯同盟 → 按钮(召开议会、提请或解除禁令、颁行帝国改革、册立自由城市、典押自由城市、封立主教领)
     public partial class EmpireWindow
     {
         public void ShowDiet(WindowMetaTab pArg0)
@@ -31,8 +32,9 @@ namespace EmpireCraft.Scripts.UI.Windows
             }
             HolyRomanState state = HolyRomanSystem.State(_empire);
             bool elective = HolyRomanSystem.IsElective(_empire);
-            var page = BeginPage("empire_diet", LM.Get(elective ? "diet_elective_vote" : "diet_elective_hereditary"),
-                CrownStatus(out _));
+            var chips = new List<string> { LM.Get(elective ? "diet_elective_vote" : "diet_elective_hereditary"), CrownStatus(out _) };
+            if (state.interregnum_since >= 0d) chips.Add(string.Format(LM.Get("diet_interregnum_chip"), state.vicar_name));
+            var page = BeginPage("empire_diet", chips.ToArray());
 
             float share = HolyRomanSystem.HouseShare(_empire);
             string last = state.last_diet_at < 0d ? LM.Get("diet_never")
@@ -88,6 +90,7 @@ namespace EmpireCraft.Scripts.UI.Windows
             War imperialWar = HolyRomanSystem.ImperialWar(_empire);
             if (imperialWar != null)
                 crown.AddListRow(HalfWidth, 5, null, LM.Get("diet_imperial_war"), imperialWar.data.name, titleWidth: 64f);
+            if (elective) DrawElectionRows(crown, state);
 
             DrawAuthority(page, state, authority, elective, pArg0);
             DrawDisputes(page, state);
@@ -103,6 +106,21 @@ namespace EmpireCraft.Scripts.UI.Windows
                     record.princes_yes, record.princes_no, record.cities_yes, record.cities_no, record.outcome);
                 log.AddListRow(MainWidth, i, null, HolyRomanSystem.AgendaText(record.agenda, record.subject), detail,
                     titleWidth: 150f, titleHex: record.passed ? WideKit.Green : WideKit.Red);
+            }
+
+            if (elective)
+            {
+                List<ElectionRecord> elections = (state.elections ?? new List<ElectionRecord>()).AsEnumerable().Reverse().Take(6).ToList();
+                var history = page.BeginCard(MainWidth, "diet_elections_title", WideKit.Cyan, elections.Count.ToString());
+                if (elections.Count == 0)
+                    history.AddListRow(MainWidth, 0, null, LM.Get("label_none"), LM.Get("diet_elections_none"), titleWidth: 150f);
+                for (int i = 0; i < elections.Count; i++)
+                {
+                    ElectionRecord record = elections[i];
+                    history.AddListRow(MainWidth, i, null,
+                        $"{string.Format(LM.Get("diet_years_ago"), Date.getYearsSince(record.at))} · {record.winner}",
+                        $"{record.outcome} · {record.tally}", titleWidth: 150f, titleHex: WideKit.Gold);
+                }
             }
 
             if (elective || state.concessions?.Count > 0)
@@ -232,6 +250,27 @@ namespace EmpireCraft.Scripts.UI.Windows
             HolyRomanState state = HolyRomanSystem.State(_empire);
             string last = state.elector_log?.LastOrDefault();
             card.AddListRow(HalfWidth, row, null, "", string.IsNullOrEmpty(last) ? LM.Get("diet_elector_note") : last, titleWidth: 1f);
+        }
+
+        // 皇位卡的会选三行：会选(拉票中时各候选眼下的票，否则上次结果)、对立国王(有时)、帝国代理(帝位虚悬时)
+        private void DrawElectionRows(AutoVertLayoutGroup crown, HolyRomanState state)
+        {
+            List<(Actor candidate, int votes)> standing = HolyRomanSystem.CampaignStanding(_empire);
+            ElectionRecord last = state.elections?.LastOrDefault();
+            string election = standing.Count > 0
+                ? string.Format(LM.Get("diet_campaign"), string.Join(" · ", standing.Select(item => $"{item.candidate.getName()} {item.votes}")))
+                : last == null ? LM.Get("label_none") : $"{last.winner} · {last.outcome}";
+            crown.AddListRow(HalfWidth, 6, null, LM.Get("diet_election"), election, titleWidth: 64f);
+            if (state.anti_king_id >= 0)
+            {
+                War war = HolyRomanSystem.ContestWar(_empire);
+                crown.AddListRow(HalfWidth, 7, null, LM.Get("diet_anti_king"),
+                    war == null ? state.anti_king_name : $"{state.anti_king_name} · {war.data.name}", titleWidth: 64f, titleHex: WideKit.Red);
+            }
+            if (state.interregnum_since >= 0d)
+                crown.AddListRow(HalfWidth, 8, null, LM.Get("diet_vicar"),
+                    string.Format(LM.Get("diet_vicar_detail"), state.vicar_name, Date.getYearsSince(state.interregnum_since)),
+                    titleWidth: 64f, titleHex: WideKit.Orange);
         }
 
         // 诸侯纷争一排两栏：左"诸侯纷争"——进行中的私战(帝国改革后只有违禁私战，红字)、待裁的诉讼，下接最近四起结果

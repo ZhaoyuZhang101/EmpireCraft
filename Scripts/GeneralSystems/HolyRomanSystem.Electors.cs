@@ -110,7 +110,8 @@ public static partial class HolyRomanSystem
         }
         if (state.elector_vacant_at < 0d || now < state.elector_vacant_at) state.elector_vacant_at = now;
         double years = Date.getYearsSince(state.elector_vacant_at);
-        if (years < ElectorGrantWaitYears) return;
+        // 帝位虚悬时不授席位
+        if (years < ElectorGrantWaitYears || Interregnum(empire)) return;
         if (Authority(empire) >= ElectorGrantThreshold) GrantElector(empire, state, spend: true);
         else if (years >= ElectorFallbackYears) FallbackElector(empire, state);
     }

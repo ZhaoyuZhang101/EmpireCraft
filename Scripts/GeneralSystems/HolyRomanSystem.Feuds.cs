@@ -38,9 +38,10 @@ public static partial class HolyRomanSystem
     // 正在由本系统兴起私战(startWar 前后)：开战钩子据此不拉姻亲、不扩封建、不升级世界大战
     public static bool DeclaringFeud;
 
-    // 只许两家对打的内战：私战(开战那一刻起)
+    // 只许两家对打(不拉外人、不升级)的内战：私战、争位之战(开战那一刻起)
     public static bool ContainedWar(War war) =>
-        DeclaringFeud || war?.data != null && war.GetEmpireWarType() == EmpireWarType.私战;
+        DeclaringFeud || DeclaringContest ||
+        war?.data != null && war.GetEmpireWarType() is EmpireWarType.私战 or EmpireWarType.对立国王;
 
     public static int ActiveFeuds(HolyRomanState state) => state?.private_wars?.Count(record => record.ended_at < 0d) ?? 0;
 
@@ -135,6 +136,8 @@ public static partial class HolyRomanSystem
         int authority = Authority(empire);
         if (illegal && authority >= IllegalFeudAuthority || ActiveFeuds(state) >= FeudMaxConcurrent) return;
         float chance = illegal ? IllegalFeudChance : ImperialAuthorityRules.FeudChance(authority);
+        // 帝位虚悬时诸侯更敢兴兵
+        if (Interregnum(empire)) chance *= InterregnumFeudFactor;
         List<Kingdom> members = Members(empire);
         foreach (Kingdom attacker in members.Where(member => FeudCapable(empire, member)).OrderBy(_ => UnityEngine.Random.value))
         {

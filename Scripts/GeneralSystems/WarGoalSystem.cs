@@ -55,7 +55,7 @@ public static class WarGoalSystem
         EmpireWarType.地方叛乱, EmpireWarType.民族叛乱, EmpireWarType.宗教叛乱, EmpireWarType.地方独立,
         EmpireWarType.附庸独立, EmpireWarType.清君侧, EmpireWarType.索取法理, EmpireWarType.去帝号,
         EmpireWarType.帝国正统, EmpireWarType.不奉诏, EmpireWarType.获取帝国, EmpireWarType.征伐不服,
-        EmpireWarType.私战
+        EmpireWarType.私战, EmpireWarType.对立国王
     };
 
     private static readonly List<(long city, long to)> PendingCessions = new();

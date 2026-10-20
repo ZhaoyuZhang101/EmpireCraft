@@ -93,6 +93,26 @@ public sealed class HolyRomanState
     public List<long> elector_realm_ids = new();
     public double elector_vacant_at = -1d;
     public List<string> elector_log = new();
+
+    // —— 会选、对立国王、大空位(见 HolyRomanSystem.Election) ——
+    // 拉票："候选国 id:选帝侯国 id" → 送过的钱(每年减半，选完清空)
+    public Dictionary<string, long> campaign = new();
+    // 最近 8 次会选(含选立储君)
+    public List<ElectionRecord> elections = new();
+    // 对立国王与争位之战
+    public long anti_king_id = -1L, anti_king_realm_id = -1L, anti_king_war_id = -1L;
+    public string anti_king_name = "";
+    // 大空位起始(-1 = 不在空位)；帝国代理
+    public double interregnum_since = -1d;
+    public long vicar_id = -1L, vicar_realm_id = -1L;
+    public string vicar_name = "";
+}
+
+// 一次会选(已本地化的结果)
+public sealed class ElectionRecord
+{
+    public double at;
+    public string winner = "", tally = "", outcome = "";
 }
 
 // 一场诸侯私战

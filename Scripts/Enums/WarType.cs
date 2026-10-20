@@ -47,6 +47,7 @@ namespace EmpireCraft.Scripts.Enums
         不奉诏, // 追加在 None 之后，保持旧存档里的枚举值不变
         附庸独立,
         征伐不服, // 周制天子讨伐不服王化的同文化之国(见 ZhouEraSystem.MarkSubdueWar)
-        私战 // 封建制帝国诸侯为法理互争边城(见 HolyRomanSystem.Feuds)；追加在末尾，旧值不变
+        私战, // 封建制帝国诸侯为法理互争边城(见 HolyRomanSystem.Feuds)；追加在末尾，旧值不变
+        对立国王 // 选帝制双重选举后对立国王的争位之战(见 HolyRomanSystem.Election)
     }
 }
