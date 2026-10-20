@@ -1,7 +1,7 @@
 # 更新内容 (Update Features)
 
-2026-10-20 · 0.4.7
+2026-10-21 · 0.4.7Beta1
 
-游牧重做：税低、灾年结盟劫掠、雄主才能一统、大汗一死就分裂，离开草原水土不服。神圣罗马二期：帝国权威、私战与帝国法院、选帝侯与大空位、帝国解体。教宗国与“神圣”可达，无小人也会创教。华夏按帝国法理称帝、复国称号、多京与直隶；西方经教宗加冕得普世之名。科技约束制度，王国也能改制，换文化时旧制犹存；派系学说按文化。新增迁城、城貌，手动营建不设限；兵牌与舰队平滑移动。
+新增战场音效与八系文明背景音乐，镜头拉近时播放，可在显示栏关闭。华夏选定国号重做：帝国法理、自家国号、美号、前朝国号加“后”，世界法则可开“姓氏国号”。城墙挡军团、只走关门，关城定为 5×5；水师会跨海登陆。修复：换图层色块不刷新、王国制度停滞、君主即位不久便老死、读其他模组旧图崩溃、村镇名串到别的文化。
 
-Nomads reworked: low taxes, raid leagues in hard years, only great khans unify and realms split when they die, and nomads struggle off the steppe. Holy Roman phase two: imperial authority, feuds and an imperial court, electors, interregnum and dissolution. Papal states and "Holy" titles now appear; religions form without commoners. Huaxia claims imperial titles, restoration names and multiple capitals; Western emperors gain universal names through papal coronation. Technology gates institutions, kingdoms reform, legacy institutions survive culture changes, and faction doctrines follow culture. New city relocation, city styles, unrestricted manual building, and smoother army and fleet movement.
+Battle sounds and background music for eight civilization families now play when the camera zooms in; both can be turned off. Huaxia dynasty naming reworked: imperial titles, own realm names, auspicious names and "Later" prefixes, plus an optional surname-naming world law. Walls block armies except at gates, forts are fixed at 5×5, and navies launch amphibious landings. Fixes: stale colors after layer switches, stalled kingdom reforms, rulers dying soon after accession, crashes loading saves from other mods, and village names leaking across cultures.
