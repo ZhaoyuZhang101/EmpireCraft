@@ -80,8 +80,8 @@ public partial class PureMapPatch
                 result.Villages.Add(new Vector2(x + 0.5f, y + 3f));
                 result.VillageTiles.Add((x, y));
             }
-            foreach ((int x, int y, int level) in plan.fabric.Forts)
-                result.Forts.Add((new Vector2(x + 0.5f, y + level + 4.5f), x, y));
+            foreach ((int x, int y, _) in plan.fabric.Forts)
+                result.Forts.Add((new Vector2(x + 0.5f, y + GeneralSystems.RuralSettlementSystem.FortReach + 2.5f), x, y));
             foreach ((int x, int y, bool town) in plan.fabric.Ruins)
                 result.Ruins.Add((new Vector2(x + 0.5f, y + (town ? 5.5f : 3f)), x, y));
         }

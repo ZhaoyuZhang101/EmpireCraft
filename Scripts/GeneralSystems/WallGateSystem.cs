@@ -7,7 +7,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 
 // 关城即城墙上的关门(玩家反馈：关放不到城墙上，城墙被当成了山，关城只能挨着墙放)：
 //   · 筑关点在城墙上或城墙边 Snap 格以内，关城落到城墙上(见 RuralSettlementSystem.Place；山上的墙也行)；村、镇、城照旧不能压在城墙上；
-//   · 完好的关城方城(中心起 2 + 等级 格，与粗图、精细图画出来的一样大)压着的城墙格是关门——城墙数据照旧留着，
+//   · 完好的关城方城(5×5，中心起 RuralSettlementSystem.FortReach = 2 格，不随等级变，与粗图、精细图画出来的一样大)
+//     压着的城墙格是关门——城墙数据照旧留着，
 //     只是画城墙时让给关城，城墙画到关城两侧接上(见 MapWallOverlay)；关城毁成废墟或抹去，关门没了，城墙原样合上；
 //     后画的城墙穿过已有的关城，同样接进关里；
 //   · 路(路网干道、城郊大路小路、官道)只能从关门过墙(见 RoadNetwork、UrbanFabric)；
@@ -17,7 +18,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 关门不存档：读档后按关城位置与城墙现算。
 public static class WallGateSystem
 {
-    // 点在城墙边几格以内就吸到墙上(关城落在墙上，方城总压着墙)
+    // 点在城墙边几格以内就吸到墙上(关城中心落在墙上，方城总压着墙；方城改成 5×5 后吸附半径照旧 5 格)
     public const int Snap = 5;
     // 关城那片地易主、城毁了都不经过关城的增删，隔一会儿重算一遍(关城只能手动筑，没几座，很便宜)
     private const float RefreshSeconds = 2f;
@@ -49,8 +50,8 @@ public static class WallGateSystem
         }
     }
 
-    // 关城方城的半边长(格)：与 UrbanFabric、PureMapPatch.Fort 画的一样
-    public static int Reach(RuralSettlement fort) => 2 + Mathf.Clamp(fort?.size ?? 1, 1, 3);
+    // 关城方城的半边长(格)：一律 RuralSettlementSystem.FortReach，不随等级变；与 UrbanFabric、PureMapPatch.Fort 画的一样
+    public static int Reach(RuralSettlement fort) => RuralSettlementSystem.FortReach;
 
     public static bool IsGate(int tileId)
     {
@@ -66,7 +67,7 @@ public static class WallGateSystem
         Ensure();
         if (_gates.Count == 0) return 0;
         int count = 0;
-        const int far = 5;
+        const int far = RuralSettlementSystem.FortReach;
         for (int dy = -far; dy <= far; dy++)
         for (int dx = -far; dx <= far; dx++)
             if (World.world.GetTile(x + dx, y + dy)?.data is WorldTileData data && _gates.Contains(data.tile_id)) count++;

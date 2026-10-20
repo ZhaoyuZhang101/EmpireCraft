@@ -43,6 +43,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 世界法则「固定城乡格局」：开了以后 AI 不新建村镇、兵火不烧、废墟不自己重建，只听手动(用来摆符合史实的地图)。
 // 关城、军城(用户 2026-10-17 "城=关城/军城")：只有城墙、驻军，不住百姓、不算村镇数，只能手动筑(营建页「筑关」)；
 //   三级(关隘、关城、雄关)；打仗时敌军攻它那一片(见 CityDistricts)，守方战力按等级多三成、六成、九成(见 FortFactor)；
+//   方城一律 5×5 格(半边长 FortReach = 2，用户 2026-10-21 嫌一级就 7×7 比村子大一圈多)，不随等级变大，
+//   等级只体现在画法(营房排数、门楼、墩台，见 UrbanFabric、PureMapPatch.Fort)和守御上；旧档的关城也按这个尺寸画；
 //   不毁于兵火，可以毁弃。点在城墙上或城墙边，关城落到城墙上当关门，城墙从两侧接进关里(见 WallGateSystem)。
 // 毡帐村镇(用户 2026-10-20：游牧地方也要有村镇，村是几顶毡帐、镇是一大片毡帐；"蒙古包只能留在沙漠，或者荒原之类的地形")：
 //   · 游牧营地的城(城市风格定型为游牧，见 CityStyleSystem)立村设镇、城长大添村镇，立的都是毡帐村镇(RuralSettlement.yurt)；
@@ -98,6 +100,9 @@ public static class RuralSettlementSystem
     }
 
     public static List<RuralSettlement> Save() => All.Values.ToList();
+
+    // 关城方城的半边长(格)：一律 5×5，不随等级变(关门、粗图、精细图、点选、选址都按它，见 WallGateSystem.Reach)
+    public const int FortReach = 2;
 
     // 关城(含废墟，不含抹去的；城墙上的关门见 WallGateSystem)
     public static IEnumerable<RuralSettlement> Forts()
@@ -258,7 +263,7 @@ public static class RuralSettlementSystem
             foreach (RuralSettlement settlement in InZone(around))
             {
                 float dx = settlement.x - tile.x, dy = settlement.y - tile.y, d = dx * dx + dy * dy;
-                float reach = settlement.fort ? settlement.size + 3.5f : settlement.town ? settlement.size + 1.5f : 2.5f;
+                float reach = settlement.fort ? FortReach + 1.5f : settlement.town ? settlement.size + 1.5f : 2.5f;
                 if (d > reach * reach || d >= bestDistance || Hidden(settlement)) continue;
                 best = settlement;
                 bestDistance = d;

@@ -319,7 +319,7 @@ public partial class PureMapPatch
             Grow(Mathf.RoundToInt(at.x), Mathf.RoundToInt(at.y), Mathf.CeilToInt(TribalRadius(plan) / DetailScale) + 14);
         }
         foreach ((int x, int y, int townSize, _) in g.Towns) Grow(x, y, townSize + 4);
-        foreach ((int x, int y, int level) in g.Forts) Grow(x, y, level + 5);
+        foreach ((int x, int y, _) in g.Forts) Grow(x, y, RuralSettlementSystem.FortReach + 3);
         foreach (FactorySite site in plan.factories) Grow(site.x, site.y, FactorySystem.Side(site.size) / 2 + 2);
         // 出城的大路、岔路一直画到路的尽头(连同关厢)，不在图边上从精细的路断成粗图上一格一格的路
         foreach (UrbanFabric.Road road in g.Roads)
@@ -1945,17 +1945,19 @@ public partial class PureMapPatch
     }
 
     // 镇：一片地面，十字街、街口集市(摊棚)、沿街房子一户挨一户、背街再几户；富的镇围一圈矮墙
-    // 关城：方城一圈(画布的行往北增，南门在 cy - r)，四角墩台；城里两三排营房，正中校场、一杆红旗
+    // 关城：方城一圈(画布的行往北增，南门在 cy - r)，四角墩台；城里几排营房，正中校场、一杆红旗。
+    // 方城一律 5×5 格(见 RuralSettlementSystem.FortReach)，等级看画法：关隘一排营房，关城两排、南门两侧起门楼，
+    // 雄关三排、墩台加大一圈
     private static void Fort(Canvas c, int cx, int cy, int level, long seed)
     {
-        int r = (2 + level) * DetailScale;
+        int r = RuralSettlementSystem.FortReach * DetailScale, towerSize = level >= 3 ? 3 : 2;
         Color32 wall = Rgb(150, 140, 124), tower = Rgb(108, 100, 88), yard = Rgb(200, 188, 160), roof = Rgb(92, 84, 80);
         for (int py = cy - r; py <= cy + r; py++)
         for (int px = cx - r; px <= cx + r; px++)
         {
             if (!c.In(px, py) || !c.FortLand(px, py)) continue;
             int dx = px - cx, dy = py - cy, d = Mathf.Max(Mathf.Abs(dx), Mathf.Abs(dy));
-            bool corner = Mathf.Abs(dx) >= r - 2 && Mathf.Abs(dy) >= r - 2;
+            bool corner = Mathf.Abs(dx) >= r - towerSize && Mathf.Abs(dy) >= r - towerSize;
             if (d >= r - 1)
             {
                 // 南门
@@ -1966,8 +1968,17 @@ public partial class PureMapPatch
             if (corner) { c.Put(px, py, tower, KWall); continue; }
             c.Put(px, py, yard, KPlaza);
         }
-        // 营房：东西两侧各几排长屋，正中留校场
-        int rows = 1 + level;
+        // 门楼(关城起)：南门两侧各一座墩台，门里一道门楼屋顶
+        if (level >= 2)
+        {
+            for (int py = cy - r; py <= cy - r + 1; py++)
+            for (int side = -1; side <= 1; side += 2)
+                if (c.In(cx + side * 2, py) && c.FortLand(cx + side * 2, py)) c.Put(cx + side * 2, py, tower, KWall);
+            for (int px = cx - 2; px <= cx + 2; px++)
+                if (c.In(px, cy - r + 2) && c.Kind(px, cy - r + 2) == KPlaza) c.Put(px, cy - r + 2, Darker(roof, 1.15f), KBuilding);
+        }
+        // 营房：东西两侧各几排长屋(关隘一排、关城两排、雄关三排)，正中留校场
+        int rows = Mathf.Clamp(level, 1, 3);
         for (int k = 0; k < rows; k++)
         {
             int py0 = cy - r + 4 + k * 4;
@@ -1992,7 +2003,7 @@ public partial class PureMapPatch
     // 中间差半格；城墙进关的那几格(方城最外一圈上的关门)把方城外的半格补成墙色，城墙与关墙连上不留缝
     private static void GateStubs(Canvas c, int x, int y, int level)
     {
-        int reach = 2 + level, s = DetailScale;
+        int reach = RuralSettlementSystem.FortReach, s = DetailScale;
         int cx = (x - c.X0) * s + s / 2, cy = (y - c.Y0) * s + s / 2, r = reach * s;
         Color32 wall = Rgb(150, 140, 124);
         for (int dy = -reach; dy <= reach; dy++)

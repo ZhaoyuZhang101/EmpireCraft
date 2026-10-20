@@ -407,8 +407,13 @@ public static class FactorySystem
         }
         if (land * 10 < side * side * 7) return LM.Get("factory_place_no_room");
         foreach (RuralSettlement settlement in RuralSettlementSystem.InCity(city))
-            if (settlement.x >= x0 - 2 && settlement.x < x0 + side + 2 && settlement.y >= y0 - 2 && settlement.y < y0 + side + 2)
+        {
+            // 关城方城 5×5(见 RuralSettlementSystem.FortReach)，厂区不压它
+            int margin = settlement.fort ? RuralSettlementSystem.FortReach + 1 : 2;
+            if (settlement.x >= x0 - margin && settlement.x < x0 + side + margin && settlement.y >= y0 - margin &&
+                settlement.y < y0 + side + margin)
                 return string.Format(LM.Get("settlement_place_crowded"), RuralSettlementSystem.Label(settlement));
+        }
         return null;
     }
 
