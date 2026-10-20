@@ -12,7 +12,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   旧都在成员国手里时先划归中央再迁(还于旧都)；成员只剩这一座城、城在战时代管中、
 //   正被占领、或持有者正与中央交战(内战/叛乱)时不动。
 //   旧档核心缺少记录首都的，用现有 GetRepresentativeCity 补录。
-// 每月检查一次(挂 CityPatch 的世界扫描轮转)；迁回后失都改称系统自会恢复国号。
+// 每月检查一次(挂 CityPatch 的世界扫描轮转)；迁回后失都改称系统自会恢复国号。选帝制帝国不还都(帝都随当选家族)。
 public static class CoreCapitalRestorationSystem
 {
     private static double _lastScan = -1d;
@@ -66,6 +66,9 @@ public static class CoreCapitalRestorationSystem
             return;
         Kingdom core = empire.CoreKingdom;
         if (core == null || core.isRekt()) return;
+        // 选帝制(颁布金玺诏书)：帝都跟当选的家族走(见 HolyRomanSystem)。以前每次选帝后旧都都被从上一家手里划归中央、迁都回去，
+        // 家族领地成了空话，世界日志一换皇帝就刷一次"还于旧都"
+        if (HolyRomanSystem.IsElective(empire)) return;
         EmpireCore empireCore = EmpireCoreManager.Get(empire);
         if (empireCore == null) return;
         // 旧档缺记录首都时补录(现任首都或第一块法理的首府)
