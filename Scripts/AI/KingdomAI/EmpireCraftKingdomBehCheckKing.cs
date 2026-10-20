@@ -50,6 +50,8 @@ public class EmpireCraftKingdomBehCheckKing : GameAIKingdomBase
                 return BehResult.Continue;
             }
         }
+        // 第二直隶：储君就藩，没有储君就空着，不选任(见 MultiCapitalSystem.Zhili)
+        if (MultiCapitalSystem.HoldsVacancy(pKingdom)) return BehResult.Continue;
         if (ConstitutionalSuccessionSystem.TryHandleVacancy(pKingdom)) return BehResult.Continue;
         // 共主联盟：城邦跟随盟主新君、封建共主的王国按长幼分给子女
         if (PersonalUnionService.TryHandleVacancy(pKingdom))
@@ -183,7 +185,9 @@ public class EmpireCraftKingdomBehCheckKing : GameAIKingdomBase
         }
 
         // 成员君主入继大统、封国传给子女的政体读政体配置(keep_member_roles)：律令制、周制
-        if (lastKingdom != null && RegimeManager.GetTemplate(lastKingdom.GetRegime()?.type)?.keep_member_roles == true)
+        // 储君领着第二直隶：即位后直隶空出等新储君，不传子女(见 MultiCapitalSystem.Zhili)
+        if (lastKingdom != null && !MultiCapitalSystem.IsZhili(lastKingdom) &&
+            RegimeManager.GetTemplate(lastKingdom.GetRegime()?.type)?.keep_member_roles == true)
         {
             var children = heir.getChildren();
             if (children != null && children.ToList().FindAll(a=>a != null && !a.isKing()).Any())

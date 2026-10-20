@@ -62,6 +62,7 @@ public enum KingdomType
     ClassicalRepublic_province, // 元首制的行省：总督由朝廷选任(见 Empire.IsPrincipate)
     NomadFeudalism_centre, // 本族定居分封的汗庭；只追加，不改变旧档枚举值
     NomadFeudalism_lordship,
+    LvLing_zhili, // 内阁阶段归储君的第二直隶(见 MultiCapitalSystem.Zhili)；只追加，不改变旧档枚举值
 }
 
 public enum ArmyOfficialType

@@ -197,6 +197,8 @@ public static class TreasurySystem
             // 世袭的埃米尔只象征性地向哈里发缴税(见 EmirateSystem)
             else if (EmirateSystem.IsHereditaryEmir(empire, local))
                 centralPercent = EmirateSystem.HereditaryCentralPercent;
+            // 无主的第二直隶(没有储君，见 MultiCapitalSystem.Zhili)：赋税全归中央
+            if (MultiCapitalSystem.IsVacantZhili(local)) centralPercent = 75;
         }
         return (25, 75 - centralPercent, centralPercent);
     }

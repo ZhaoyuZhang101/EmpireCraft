@@ -119,6 +119,7 @@ public static class DynastyNaming
             KingdomType.LvLing_province => "dynasty_province",
             KingdomType.LvLing_jimizhou => "dynasty_jimi",
             KingdomType.LvLing_duhufu => "dynasty_duhufu",
+            KingdomType.LvLing_zhili => "dynasty_zhili",
             _ => null
         };
         if (key == null) return type.ToString();

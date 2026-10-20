@@ -35,7 +35,8 @@ public enum ConditionType
     hre_estate,
     holy_city,
     papal_rule,
-    None
+    None,
+    zhili // 内阁阶段归储君的第二直隶(见 MultiCapitalSystem.Zhili)
 }
 public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
 {
@@ -214,6 +215,12 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
                     if (InstitutionSystem.GetFeature(empire, featureParts[0]) < minimum) return false;
                     break;
                 }
+                case ConditionType.zhili:
+                {
+                    var expect = val.Equals("true", StringComparison.OrdinalIgnoreCase);
+                    if (MultiCapitalSystem.IsZhili(kingdom) != expect) return false;
+                    break;
+                }
                 case ConditionType.hre_estate:
                 {
                     // 帝国的特殊成员，例："hre_estate:free_city"、"hre_estate:church"(见 HolyRomanSystem.Members)
@@ -361,6 +368,9 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
             : !string.IsNullOrWhiteSpace(mainTitle?.name)
             ? mainTitle.name
             : pKingdom.GetUntitledKingdomName();
+        // 第二直隶以京名为号("某京直隶"，见 MultiCapitalSystem.Zhili)
+        string zhiliFront = MultiCapitalSystem.ZhiliFront(pKingdom);
+        if (!string.IsNullOrWhiteSpace(zhiliFront)) kingdomFront = zhiliFront;
 
         if (pKingdom.IsEmpire())
         {

@@ -443,6 +443,22 @@
           "city_type": "LvLing_city",
           "city_suffix_key": "city_suffix_county"
         },
+        "LvLing_zhili":{
+          "pre": "",
+          "type": 7,
+          "description": "",
+          "powers": [],
+          "merit": 8,
+          "honorary": 7,
+          "peerageType": "Civil",
+          "select_from_local": false,
+          "leader_select_method": "Exam",
+          "require_traits": [],
+          "condition": ["zhili:true"],
+          "city_type": "LvLing_city",
+          "city_suffix_key": "city_suffix_county",
+          "capital_city_suffix_key": "city_suffix_prefecture"
+        },
         "LvLing_jiedushi":{
           "pre": "",
           "type": 6,
