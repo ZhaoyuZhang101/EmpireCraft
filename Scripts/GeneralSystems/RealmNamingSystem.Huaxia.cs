@@ -4,6 +4,7 @@ using System.Linq;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
+using EmpireCraft.Scripts.System;
 using NeoModLoader.General;
 using NeoModLoader.services;
 
@@ -16,6 +17,9 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 绑法理：主法理所在帝国法理空闲先绑它(都城留在本帝国法理)，否则绑据三分之二的那个；那个还被旧朝占着就按僭越称帝
 //     (临时法理、互为正统对手)；
 //   · 定号：称帝那一刻改用所据帝国法理的名字；与现存帝国同号时加方位(新都相对旧朝都城)，再无同号之国时去掉。
+// 复国(方案第 2 步)：国君的宗族或同一世系的上支曾以某帝国法理称帝、那一朝已亡、本世系眼下没在别处称帝(不限年数)，
+//   称帝那一刻以祖号为号，冠方位——新法理(所据的帝国法理，没有就本帝国要绑的)首都相对祖上帝国法理首都，四方位；
+//   新法理就是祖上那个法理、或两个首都重合时称"后"(用户 2026-10-20 选定)。复国方位定下后失都不再改方位(见 CapitalLossNamingSystem)。
 public static partial class RealmNamingSystem
 {
     // 这一国据有三分之二的帝国法理(华夏；没有返回 null)
@@ -98,6 +102,8 @@ public static partial class RealmNamingSystem
         if (!Enabled || empire?.data == null || kingdom == null || route == EmpireFormationRoute.None) return null;
         if (!IsHuaxia(kingdom)) return null;
         EmpireCore dominion = DominionCore(kingdom);
+        EmpireFoundingNameChoice restored = SelectRestorationName(empire, kingdom, dominion, riseCore);
+        if (restored != null) return restored;
         if (dominion == null) return null;
         string name = CoreName(dominion);
         if (string.IsNullOrWhiteSpace(name)) return null;
@@ -106,6 +112,60 @@ public static partial class RealmNamingSystem
         empire.data.named_core_id = dominion.id;
         return new EmpireFoundingNameChoice(name, EmpireFoundingNameSource.DominionCore);
     }
+
+    // 复国：祖号 + 方位(见文件头)
+    private static EmpireFoundingNameChoice SelectRestorationName(Empire empire, Kingdom kingdom, EmpireCore dominion,
+        EmpireCore riseCore)
+    {
+        SpecificClan house = RestorationHouse(kingdom.king, empire);
+        if (house == null) return null;
+        string name = EmpireCoreManager.NormalizeCoreName(house.empire_name);
+        if (string.IsNullOrWhiteSpace(name)) return null;
+        EmpireCore ancestral = AncestralCore(house);
+        EmpireCore newTitle = dominion ?? (IsFormalCore(riseCore) ? riseCore : null);
+        City ancestralSeat = ancestral == null ? null : EmpireCoreManager.GetRepresentativeCity(ancestral);
+        City newSeat = (newTitle == null ? null : EmpireCoreManager.GetRepresentativeCity(newTitle)) ?? kingdom.capital;
+        float ax = ancestralSeat != null ? ancestralSeat.city_center.x : house.capital_city_pos_x;
+        float ay = ancestralSeat != null ? ancestralSeat.city_center.y : house.capital_city_pos_y;
+        if (newSeat == null) return null;
+        bool sameTitle = newTitle != null && ancestral != null && newTitle == ancestral;
+        string prefix = RealmNameRules.RestorationPrefix(sameTitle, ax, ay, newSeat.city_center.x, newSeat.city_center.y);
+        empire.data.directPre = prefix;
+        empire.data.founding_prefix = prefix;
+        empire.data.name_source = SourceRestoration;
+        empire.data.named_core_id = newTitle?.id ?? -1L;
+        // 称帝定号时宗族记的还是祖上那一朝；称帝后宗族改记本朝，史书要的祖上法理名先记下
+        PendingAncestral[empire.data.id] = string.IsNullOrWhiteSpace(CoreName(ancestral)) ? name : CoreName(ancestral);
+        LogService.LogInfo($"[EmpireCraft][复国国号] {kingdom.GetKingdomName()} 祖号 {name}(祖法理 {CoreName(ancestral)})，" +
+                           $"新法理 {CoreName(newTitle)}，方位 {prefix}");
+        return new EmpireFoundingNameChoice(name, EmpireFoundingNameSource.RestoredAncestral);
+    }
+
+    // 复国之家：国君的宗族，没有帝国记录就沿分家往上找；那一朝须已亡、本世系眼下没在别处称帝
+    public static SpecificClan RestorationHouse(Actor king, Empire founding = null)
+    {
+        SpecificClan clan = king?.GetSpecificClan();
+        SpecificClan house = null;
+        var visited = new HashSet<long>();
+        for (SpecificClan current = clan; current != null && visited.Add(current.id);
+             current = current.parent_clan_id >= 0 ? SpecificClanManager.Get(current.parent_clan_id) : null)
+        {
+            if (!current.HasHistoryEmpire()) continue;
+            house = current;
+            break;
+        }
+        if (house == null || ModClass.EMPIRE_MANAGER == null) return null;
+        bool reigning = ModClass.EMPIRE_MANAGER.Any(other => other?.data != null && other != founding && !other.isRekt() &&
+                                                              !other.IsArchived() &&
+                                                              (SpecificClanManager.SameLineage(other.EmpireSpecificClan, house) ||
+                                                               SpecificClanManager.SameLineage(other.EmpireSpecificClan, clan)));
+        return reigning ? null : house;
+    }
+
+    // 失都改称不动复国方位(用户 2026-10-20 选定：复国方位是本朝定号，失都只显示行在)
+    public static bool KeepsFoundingPrefix(Empire empire) =>
+        Enabled && empire?.data != null && !string.IsNullOrWhiteSpace(empire.data.founding_prefix) &&
+        empire.data.directPre == empire.data.founding_prefix;
 
     // 新建帝国法理时的名字：国号取自别的帝国法理(据有法理、复国)的，新法理用主法理名，免得两个帝国法理同名
     public static string FreshCoreName(Empire empire)
@@ -140,6 +200,7 @@ public static partial class RealmNamingSystem
     public static void AfterProclaimed(Empire empire)
     {
         if (!Enabled || empire?.data == null || empire.CoreKingdom == null || !IsHuaxia(empire)) return;
+        if (empire.data.name_source == SourceRestoration) RecordRestoration(empire);
         if (empire.data.name_source != SourceEmpireTitle && empire.data.name_source != SourceRestoration) return;
         // 已带方位(复国)、"大"之类前缀的，全名本就与旧朝有别
         if (empire.CoreKingdom.HasCustomCountryNaming() || !string.IsNullOrWhiteSpace(empire.data.directPre)) return;
@@ -156,6 +217,19 @@ public static partial class RealmNamingSystem
         EventRecorder.Record(empire, string.Format(LM.Get("realm_rival_prefix_history"), before,
             namesake.GetEmpireFullName(), empire.GetEmpireFullName()));
         LogService.LogInfo($"[EmpireCraft][法理国号] {before} 与 {namesake.GetEmpireFullName()} 同号，改称 {empire.GetEmpireFullName()}");
+    }
+
+    private static readonly Dictionary<long, string> PendingAncestral = new();
+
+    private static void RecordRestoration(Empire empire)
+    {
+        if (!PendingAncestral.TryGetValue(empire.data.id, out string ancestral)) return;
+        PendingAncestral.Remove(empire.data.id);
+        string text = empire.data.founding_prefix == RealmNameRules.Later
+            ? string.Format(LM.Get("realm_restoration_same_history"), empire.Emperor?.getName() ?? "", ancestral, empire.GetEmpireFullName())
+            : string.Format(LM.Get("realm_restoration_history"), empire.Emperor?.getName() ?? "", ancestral,
+                LM.Get(empire.data.founding_prefix), empire.GetEmpireFullName());
+        EventRecorder.Record(empire, text);
     }
 
     // 与本国同号(国号本名相同)的另一个现存帝国
