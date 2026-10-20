@@ -120,13 +120,22 @@ public static partial class HolyRomanSystem
         }
     }
 
-    // 分割继承(GraceEdictService.TryHandleVacancy 调用，每次出缺只掷一次)
+    // 分割继承(GraceEdictService.TryHandleVacancy 调用，每次出缺只掷一次)；掷中后还要有两个以上的儿子、都城外有城才分
     public static bool RollPartible(Empire empire, Kingdom fief)
     {
-        if (!HasDiet(empire) || fief?.data == null || fief.GetRegime()?.type != RegimeType.Feudalism ||
-            Estate(fief) != EstateNone || fief.cities.Count < 2) return false;
-        if (empire.data.CabinetMembers != null &&
-            empire.GetCabinetMembers().Any(actor => actor?.kingdom == fief)) return false;
-        return UnityEngine.Random.value < PartibleChance;
+        if (!HasDiet(empire) || fief?.data == null) return false;
+        string blocked = fief.GetRegime()?.type != RegimeType.Feudalism ? "不是封建制"
+            : Estate(fief) != EstateNone ? "自由城市或主教领"
+            : fief.cities.Count < 2 ? "只有一城"
+            : empire.data.CabinetMembers != null && empire.GetCabinetMembers().Any(actor => actor?.kingdom == fief) ? "选帝侯领国不可分"
+            : null;
+        bool rolled = blocked == null && UnityEngine.Random.value < PartibleChance;
+        PartibleTally.TryGetValue(empire.data.id, out var tally);
+        PartibleTally[empire.data.id] = (tally.vacant + 1, tally.rolled + (rolled ? 1 : 0),
+            rolled ? tally.blocked : blocked ?? "没掷中(三成五)");
+        return rolled;
     }
+
+    // 分割继承的年度计数(诊断用，不存档)：帝国 → (诸侯出缺几次, 掷中几次, 最近一次没分的缘由)
+    private static readonly Dictionary<long, (int vacant, int rolled, string blocked)> PartibleTally = new();
 }

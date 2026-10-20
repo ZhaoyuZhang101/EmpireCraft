@@ -145,6 +145,7 @@ public static partial class HolyRomanSystem
             ReformYearly(empire, state);
             LeaguesYearly(empire, state);
             DietYearly(empire, state);
+            Diagnose(empire, state);
         }
         catch (Exception exception)
         {
@@ -343,6 +344,103 @@ public static partial class HolyRomanSystem
             .Where(kingdom => kingdom != empire.CoreKingdom && kingdom.GetEmpire() == empire && !kingdom.isRekt() &&
                               !IsBanned(kingdom))
             .Distinct().ToList();
+
+    #region 诊断
+
+    // 每年一行(随年度结算，每个封建制帝国一行)：各项现状、卡在哪一条，进游戏看 Player.log 的 [EmpireCraft][神罗诊断]
+    private static void Diagnose(Empire empire, HolyRomanState state)
+    {
+        try
+        {
+            Kingdom core = empire.CoreKingdom;
+            List<Kingdom> members = Members(empire);
+            var parts = new List<string>
+            {
+                $"成员{members.Count}国、共{empire.countCities()}城，中央{core.cities?.Count ?? 0}城(家族领地{HouseShare(empire):P0})，" +
+                (IsElective(empire) ? "选帝制" : "世袭"),
+                "治安令：" + (state.sovereign_princes ? "和约后作废" : state.imperial_peace_at >= 0d
+                    ? $"施行中，豁免{state.privileged_ids?.Count ?? 0}家" : "未施行"),
+                $"选举让步：累计{state.concessions?.Count ?? 0}条" +
+                (state.last_concession_at >= 0d ? $"，距上次{Date.getYearsSince(state.last_concession_at)}年" : "")
+            };
+            if (IsElective(empire)) parts.Add("储君：" + KingOfRomansStatus(empire));
+            List<Kingdom> free = members.Where(IsFreeCity).ToList();
+            parts.Add($"自由城市{free.Count}座" + (free.Count == 0 ? "" : "(" + string.Join("、", free.Take(4).Select(city =>
+                $"{city.GetKingdomName()} 年收{StateDebtSystem.AnnualStableIncome(city)}/债{StateDebtSystem.Outstanding(city)}")) + ")"));
+            parts.Add($"主教领{members.Count(IsChurchEstate)}家：" + (ChurchBlocker(empire) ?? "条件已齐，每年一成可能"));
+            parts.Add("帝国改革：" + ReformStatus(empire, state));
+            PartibleTally.TryGetValue(empire.data.id, out var partible);
+            PartibleTally.Remove(empire.data.id);
+            parts.Add("分割继承：" + (partible.vacant == 0 ? "本年无诸侯出缺"
+                : $"本年诸侯出缺{partible.vacant}次、掷中{partible.rolled}次" +
+                  (partible.blocked != null ? $"，最近没分：{partible.blocked}" : "")));
+            parts.Add("诸侯同盟：" + LeagueStatus(empire, state));
+            parts.Add("加冕远征：" + RomzugStatus(empire));
+            LogService.LogInfo($"[EmpireCraft][神罗诊断] {empire.GetEmpireFullName()}：{string.Join("；", parts)}");
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft][神罗诊断] 失败: {exception.Message}");
+        }
+    }
+
+    private static string KingOfRomansStatus(Empire empire)
+    {
+        if (KingOfRomans(empire) is Actor chosen) return $"已选立{chosen.getName()}";
+        Actor emperor = empire.Emperor;
+        if (emperor == null) return "帝位空缺";
+        int living = EmpireCraftKingdomBehCheckHeir.HeirCandidates(empire.CoreKingdom).Count(actor => actor.isAdult());
+        PersonalClanIdentity parent = emperor.GetPersonalIdentity();
+        int all = parent == null ? 0 : SpecificClanManager.getChildren(parent).Count(item =>
+            item.Item2 != null && item.Item2.is_alive && item.Item2.CanHeir() && item.Item2.age >= 18);
+        return Math.Max(living, all) == 0 ? "皇帝没有成年可继位的子嗣" : $"成年子嗣{Math.Max(living, all)}人，每年两成可能";
+    }
+
+    private static string ReformStatus(Empire empire, HolyRomanState state)
+    {
+        if (ReformEnacted(empire)) return $"已施行，{CircleCount(empire)}个大区，帝国法院判过{state.court_rulings}次";
+        InstitutionNodeConfig node = InstitutionDefinitionRegistry.Get(NodeImperialReform);
+        if (node == null) return "制度树里没有这个节点";
+        if (InstitutionSystem.CanStartReform(empire, node, out string reason))
+            return "条件已齐，待 AI 选中(别的改革在推时要排队)";
+        string text = LM.Get(reason);
+        if (reason == "institution_reform_missing_tech" &&
+            !TechnologySystem.AreRealmInstitutionTechsMet(empire.CoreKingdom, node, out List<string> missing))
+            text += "：" + string.Join("、", missing);
+        return reason == "institution_reform_low_mandate" ? $"{text}(正统{empire.Legitimacy}，要{node.research.mandate_required})" : text;
+    }
+
+    private static string LeagueStatus(Empire empire, HolyRomanState state)
+    {
+        if (state.sovereign_princes) return $"已订{state.peace_name}，诸侯完全主权";
+        if (LeagueWar(empire) != null) return $"{state.league_name}宗教战争进行中";
+        if (state.league_leader_id >= 0) return $"{state.league_name}已结成({LeagueMembers(empire).Count}家)，每年一成二可能开战";
+        Kingdom core = empire.CoreKingdom;
+        if (!core.hasReligion()) return "中央没有国教";
+        bool reformation = InstitutionSystem.IsEnacted(empire, PapacySystem.NodeReformation);
+        if (ChurchesOf(core.religion).Count == 0)
+            return !reformation ? "本文化未施行宗教改革，也没有从皇帝所奉宗教分出的新教会"
+                : KeepsOldFaith(empire) ? "待诸侯另立新教会(每年一成五)" : "非选帝制，宗教改革由皇帝主导、整个帝国改宗";
+        List<Kingdom> reformed = Members(empire).Where(member => member.hasReligion() && Schismatic(member.religion, core.religion)).ToList();
+        int total = Math.Max(1, empire.countCities());
+        return $"改奉新教会{reformed.Count}家、占{reformed.Sum(member => member.cities.Count) / (float)total:P0}城(要两家、两成)";
+    }
+
+    private static string RomzugStatus(Empire empire)
+    {
+        if (RomzugUnderway(empire)) return "远征途中";
+        if (!PapacySystem.Applies(empire)) return "无教廷可言(非西方、非君主制或所奉宗教没有圣地)";
+        if (empire.Emperor == null) return "帝位空缺";
+        if (PapacySystem.IsCrowned(empire)) return "已加冕";
+        Kingdom papacy = PapacySystem.Papacy(PapacySystem.ReligionOf(empire)), core = empire.CoreKingdom;
+        if (papacy == null || PapacySystem.BrokeWithRome(empire)) return "教廷无主或已脱离罗马，自行加冕";
+        if (papacy == core) return "教廷就在皇帝自家领内，直接加冕";
+        if (PapacySystem.IsExcommunicated(empire)) return "绝罚中";
+        if (papacy.isInWarWith(core)) return $"与教廷{papacy.GetKingdomName()}交战";
+        return $"未加冕，每年四成可能远征{papacy.GetKingdomName()}";
+    }
+
+    #endregion
 
     private static void Record(Empire empire, string text)
     {
