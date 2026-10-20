@@ -1745,6 +1745,25 @@ def obj_battle_sound(img):
 
 
 GODPOWERS["battle_sound"] = (obj_battle_sound, None)
+
+
+def obj_civ_music(img):
+    """文明乐开关：一口生了铜绿的古钟(旧铜钟钮与口沿、钟身三排枚)，右上一个骨白的八分音符。"""
+    over(img, shade(rrect([68, 22, 116, 40], 8), BRASS, bevel=6, gloss=0.8))                    # 钟钮
+    over(img, shade(rrect([84, 30, 100, 56], 4), BRASS, bevel=4))
+    bell = poly([(48, 52), (136, 52), (168, 206), (92, 190), (16, 206)])
+    over(img, shade(bell, JADE, bevel=18, gloss=0.6, grain=0.3))                                # 钟身(铜绿)
+    over(img, shade(poly([(16, 200), (92, 184), (168, 200), (168, 214), (92, 198), (16, 214)]), BRASS, bevel=5, gloss=0.8))
+    for row, y in enumerate((80, 112, 144)):
+        for k in range(3):
+            x = 64 + k * 28 - row * 4 + (row * 4 if k == 1 else 0)
+            over(img, shade(ellipse([x - 7, y - 7, x + 7, y + 7]), BRASS, bevel=4, gloss=0.9))  # 枚
+    over(img, shade(ellipse([166, 132, 206, 162]), BONE, bevel=6, gloss=0.7))                  # 音符
+    over(img, shade(rrect([194, 40, 208, 148], 4), BONE, bevel=4))
+    over(img, shade(poly([(194, 40), (240, 66), (240, 92), (208, 70)]), BONE, bevel=4))
+
+
+GODPOWERS["civ_music"] = (obj_civ_music, None)
 # 制度窗口左栏的两枚文化按钮：浏览别的文化(法典 + 放大镜)、改从文化(旗帜 + 互换)
 GODPOWERS.update({
     "institution_browse_culture": (obj_book, "lens"),

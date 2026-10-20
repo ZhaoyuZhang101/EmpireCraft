@@ -523,6 +523,11 @@ internal static class MainTab
         AddButton(DISPLAY_GROUP, PowerButtonCreator.CreateToggleButton("battle_sound",
             SpriteTextureLoader.getSprite("ui/icons/godpowers/battle_sound")));
 
+        // 文明乐：镜头拉近到某一系文明的地盘时放那一系的曲子(见 CivMusic)
+        SwitchCivMusicButton.init();
+        AddButton(DISPLAY_GROUP, PowerButtonCreator.CreateToggleButton("civ_music",
+            SpriteTextureLoader.getSprite("ui/icons/godpowers/civ_music")));
+
         // 领土铭牌字体：自动(传统书体优先) / 游戏字体 / 本机任一字体
         var territoryFontButton = PowerButtonCreator.CreateWindowButton("territory_font_button",
             nameof(TerritoryFontWindow), SpriteTextureLoader.getSprite("ui/icons/godpowers/territory_font"));
