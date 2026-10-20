@@ -158,6 +158,8 @@ public class KingdomPatch : GamePatch
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
         if (pActor == null || pActor.IsWarMachine()) return; // 被 before_new_emperor 拒绝的船只
         if (__instance.king != pActor) return; // 被宪制拒绝的即位不能继续转移宗族和法理头衔
+        // 真实年龄：新君即位时已到或将到天年的，按即位时的年纪另定余寿(见 RealisticAgeSystem.OnCrowned)
+        if (!pFromLoad && !ModClass.IS_CLEAR && (__state == null || __state.id != pActor.id)) RealisticAgeSystem.OnCrowned(pActor);
         if (!ModClass.IS_CLEAR)
         {
             // 即位时姓本族的姓(华夏宗族)，世系、年号诏书上不会写成随错的姓

@@ -354,6 +354,13 @@ public static class ActorExtension
         public bool ruler_assessed;
         // 君主、储君上次添孩子的时间(见 RoyalHouseSystem.CanBirth)
         public double last_royal_birth = -1d;
+        // 真实年龄：成为君主、储君时的年纪与保底的天年、上回看到在位的时间(见 RealisticAgeSystem.RoyalLifespan)；-1 未定
+        public int royal_anchor_age = -1;
+        public int royal_anchor_floor = -1;
+        public double royal_seen_at = -1d;
+        public bool ShouldSerializeroyal_anchor_age() => royal_anchor_age >= 0;
+        public bool ShouldSerializeroyal_anchor_floor() => royal_anchor_floor >= 0;
+        public bool ShouldSerializeroyal_seen_at() => royal_seen_at >= 0d;
         // 爵位  
         [JsonConverter(typeof(StringEnumConverter))]
         public PeeragesLevel peeragesLevel;
