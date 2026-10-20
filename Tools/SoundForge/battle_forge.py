@@ -1,36 +1,45 @@
-"""EmpireCraft 战声锻造器 —— 纯代码合成战场音效，不用任何外部素材。
+"""EmpireCraft 战声锻造器 —— 战场音效：冷兵器的刀剑与喊杀、火器的枪炮用 CC0 录音素材加工，其余纯代码合成。
 
 时代(文件名前缀)：
-  cold   冷兵器：刀剑相击、喊杀、箭雨、马蹄
-  fire   火器：火绳枪齐射、前装炮
-  modern 近代：步枪连射、机枪、炮击
-  naval  海战：海浪、舰炮(闷远的炮声 + 水面回声)、弹着水柱
+  cold   冷兵器：刀剑相击、喊杀、环境声(录音素材)；箭雨、马蹄(合成)
+  fire   火器：排枪齐射、前装炮、环境声(录音素材)
+  modern 近代：步枪连射、机枪、炮击(合成)
+  naval  海战：海浪、舰炮(闷远的炮声 + 水面回声)、弹着水柱(合成)
 
 输出：
   GameResources/sounds/battle/<时代>_amb.wav          环境声，8 秒，首尾交叉淡化可无缝循环
   GameResources/sounds/battle/<时代>_<种类>_<n>.wav   单发变体
   Tools/SoundForge/preview/preview_<时代>.wav         每个时代 14 秒试听混音(环境声 + 按游戏里的配比随机插单发；不进游戏)
 
-格式：16 位单声道 PCM；以中低频为主的(炮、舰炮、炸点、马蹄、远处的环境声)存 16000 Hz，其余 22050 Hz，省体积。
-游戏里的读法与配比见 Scripts/GeneralSystems/Warfare/BattleSound.cs。
+格式：16 位单声道 PCM；以中低频为主的(炮、舰炮、炸点、马蹄、火器与近代的环境声)存 16000 Hz，其余 22050 Hz，省体积。
+游戏里的读法与配比见 Scripts/GeneralSystems/Warfare/BattleSound.cs。素材出处与授权见 Docs/CREDITS.md。
 
+录音素材的加工(build_from_assets)：
+  · 刀剑：十段相击各自裁静音、轻微变调做单响；挥砍带出相击做对砍；远近错落叠成混战；
+  · 喊杀与环境声：一段人声氛围错开起点、轻微变调叠两三层(像更多人)，喊杀加起势与渐落，环境声里撒远处的相击；
+  · 齐射：一段六响的黑火药录音按起振切成单发，错开叠成一排(前排几乎同时、后面零落)，按远近压暗；
+  · 炮：原声、压低音高放远、两门先后开火；火器环境声是远处零星枪声 + 喊杀，切掉 140 Hz 以下。
 合成手法(都在下面各函数里)：
-  · 金属：噪声短促激励一组非谐波二阶共振器(模态合成)，每个模成对略失谐出拍频，高次模衰减快；
-  · 人声：声门脉冲(带抖动、颤音的谐波叠加 + 气声) → 四个共振峰滤波，元音从 u 滑到 a("呼——啊")，
-    多人错开起声、分远中近三层各自压暗，不是滤过的白噪声，不会像风；
-  · 火器：药池引燃的嘶声 + 爆裂 + 低频冲击，按远近低通、减弱，齐射按伽马分布参差排开，再加地形回声与混响；
+  · 金属：噪声短促激励一组非谐波二阶共振器(模态合成)，用在箭落叮甲、马具、机枪机件；
+  · 枪炮：枪口暴音 + 低频冲击，按远近低通、减弱，再加地形或水面回声与混响；
   · 远近：越远越闷越轻(低通 + 衰减)；混响 = 指数衰减噪声脉冲响应(前段亮、后段暗) + 几道早期反射。
-随机数种子固定(按文件名派生)，重跑结果逐字节一致。
+随机数种子固定(按文件名派生)，同样的素材重跑结果逐字节一致。
 
-用法：python Tools/SoundForge/battle_forge.py [--only 名字前缀] [--spectrogram 输出目录]
+用法：
+  python -I Tools/SoundForge/battle_forge.py --clash 刀剑相击.zip --swing 挥砍.zip --crowd 人声.ogg       --powder 黑火药.wav --cannon 炮.ogg [--spectrogram 输出目录]
+  不给素材时只重做合成的那些，素材做的沿用 GameResources 里现有的文件(试听混音照常出)。
+  解码 ogg 要 soundfile(pip install --user soundfile)。
 """
 import argparse
+import io
+import math
 import os
 import wave
+import zipfile
 import zlib
 
 import numpy as np
-from scipy.signal import butter, fftconvolve, iirpeak, lfilter, resample_poly, sosfilt
+from scipy.signal import butter, fftconvolve, lfilter, resample_poly, sosfilt
 
 SR = 22050
 NYQ = SR / 2
@@ -45,12 +54,12 @@ PREVIEW = os.path.join(HERE, "preview")
 SAVE_RATES = (("naval_splash", 22050), ("naval_", 16000), ("fire_cannon", 16000), ("fire_amb", 16000),
               ("modern_shell", 16000), ("modern_amb", 16000), ("cold_hooves", 16000))
 # 单发最长几秒(混响尾巴再长也在这里淡出)
-MAX_LEN = {"fire_cannon": 2.6, "naval_gun": 3.2, "naval_broadside": 4.2, "modern_shell": 3.4}
+MAX_LEN = {"fire_cannon": 3.0, "naval_gun": 3.2, "naval_broadside": 4.2, "modern_shell": 3.4}
 
 # 各种类的播放音量，与 BattleSound.cs 里的 KindGain 一致(试听混音按这个配比)
 GAIN = {
     "amb": 0.5,
-    "clash": 0.55, "warcry": 0.5, "arrows": 0.55, "hooves": 0.5,
+    "clash": 0.55, "warcry": 0.5, "arrows": 0.4, "hooves": 0.35,
     "volley": 0.7, "cannon": 0.8,
     "rifle": 0.65, "mg": 0.65, "shell": 0.8,
     "gun": 0.8, "broadside": 0.8, "splash": 0.45,
@@ -89,11 +98,6 @@ def hp(x, f, order=2):
 
 def bp(x, lo, hi, order=2):
     return sosfilt(_sos("bandpass", (lo, hi), order), x)
-
-
-def peak_filter(x, f, q):
-    b, a = iirpeak(min(f, NYQ * 0.9), q, fs=SR)
-    return lfilter(b, a, x)
 
 
 def resonator(x, f, tau):
@@ -240,6 +244,12 @@ def finish_oneshot(x, peak=0.89):
     return norm_peak(trim_tail(x), peak)
 
 
+def pitch(x, factor):
+    """变速变调(与 FMOD setPitch 一样)：factor>1 更高更短。"""
+    n = int(len(x) / factor)
+    return np.interp(np.arange(n) * factor, np.arange(len(x)), x)
+
+
 def make_loop(x, length, xfade):
     """x 长 length+xfade：把尾巴 xfade 与开头等功率交叉淡化，结果长 length、循环时无缝。"""
     L, X = n_(length), n_(xfade)
@@ -249,7 +259,7 @@ def make_loop(x, length, xfade):
     return y
 
 
-# ═════════════ 金属、木头 ═════════════
+# ═════════════ 金属、木头(箭落、马具、机件) ═════════════
 METAL_RATIOS = np.array([1.0, 2.43, 3.95, 5.41, 6.82, 8.37, 9.9, 11.6])
 
 
@@ -275,37 +285,6 @@ def impulse_exc(rng, total, length=0.004, hp_hz=600):
     return exc
 
 
-def blade_clash(rng, f0=None, ring=None):
-    """两刃相击：两把刀剑各响各的(音高、余音不同)，接触处一声脆响，再带一点刃身的闷击。"""
-    f0 = f0 or rng.uniform(950, 1900)
-    ring = ring or rng.uniform(0.12, 0.32)
-    total = ring * 4 + 0.05
-    a = metal_ring(rng, impulse_exc(rng, total), f0, ring, bright=rng.uniform(0.78, 0.95))
-    b = metal_ring(rng, impulse_exc(rng, total), f0 * rng.uniform(0.7, 1.35), ring * rng.uniform(0.5, 1.0))
-    y = a / np.max(np.abs(a)) + 0.7 * np.roll(b / np.max(np.abs(b)), n_(rng.uniform(0.0, 0.004)))
-    n = len(y)
-    click = np.zeros(n)
-    c = hp(white(rng, n_(0.012)), 2500) * decay(n_(0.012), 0.0025, 0.0002)
-    click[:len(c)] = c
-    thunk = np.zeros(n)
-    th = bp(white(rng, n_(0.07)), 220, 800) * decay(n_(0.07), 0.014, 0.0008)
-    thunk[:len(th)] = th
-    return y * 0.55 + click * 0.9 + thunk * 0.9
-
-
-def blade_scrape(rng, dur=None):
-    """刃口相磨：抖动的高频摩擦噪声，同时激起刃身的鸣响("锵——")。"""
-    dur = dur or rng.uniform(0.08, 0.2)
-    total = dur + 0.5
-    n = n_(total)
-    exc = np.zeros(n)
-    m = n_(dur)
-    flutter = 1 + 0.6 * np.sin(2 * np.pi * rng.uniform(30, 80) * tvec(m)) * rng.uniform(0.5, 1.0)
-    exc[:m] = bp(white(rng, m), 1800, 7000) * flutter * bell(m, 0.4, 0.35)
-    ring = metal_ring(rng, exc, rng.uniform(1100, 2000), rng.uniform(0.15, 0.3), beat=0.4)
-    return exc * 0.35 + ring / np.max(np.abs(ring)) * 0.5
-
-
 def wood_knock(rng, size=1.0):
     """木盾、木杆的闷击：几只低频短共振器 + 一声干裂。"""
     total = 0.18
@@ -320,88 +299,6 @@ def wood_knock(rng, size=1.0):
     c = bp(white(rng, n_(0.01)), 1200, 4500) * decay(n_(0.01), 0.002, 0.0002)
     crack[:len(c)] = c
     return y + crack * 0.6
-
-
-def shield_bash(rng):
-    """盾击：木盾闷响 + 铜盾钉一点轻响。"""
-    w = wood_knock(rng, size=rng.uniform(0.9, 1.2))
-    boss = metal_ring(rng, impulse_exc(rng, 0.3), rng.uniform(450, 800), 0.07, modes=4)
-    y = np.zeros(max(len(w), len(boss)))
-    y[:len(w)] += w
-    y[:len(boss)] += 0.25 * boss / np.max(np.abs(boss))
-    return y
-
-
-# ═════════════ 人声 ═════════════
-VOWELS = {"a": (800, 1250, 2600, 3300), "o": (560, 940, 2500, 3200), "e": (620, 1750, 2550, 3350),
-          "u": (420, 820, 2400, 3200), "ae": (740, 1650, 2500, 3300)}
-FORMANT_GAIN = (1.0, 0.62, 0.3, 0.16)
-FORMANT_BW = (95, 115, 170, 230)
-
-
-def voice(rng, dur, f0, v1="u", v2="a", glide=0.2, effort=1.0):
-    """一个人喊一声：声门脉冲(谐波叠加，带抖动与颤音) + 气声，过四个共振峰；元音 v1→v2 滑过去。"""
-    n = n_(dur)
-    t = tvec(n)
-    rise = np.clip(t / (0.12 * dur), 0, 1)
-    contour = (0.86 + 0.18 * rise) * (1 - 0.2 * np.clip((t - 0.3 * dur) / (0.7 * dur), 0, 1))
-    jit = lp(white(rng, n), 7)
-    jit = jit / (np.std(jit) + 1e-9) * 0.018
-    vib = 0.012 * np.sin(2 * np.pi * rng.uniform(4.5, 7) * t + rng.uniform(0, 6.3))
-    f = f0 * contour * (1 + jit + vib)
-    ph = 2 * np.pi * np.cumsum(f) / SR + rng.uniform(0, 6.3)
-    k_max = max(4, int(4600 / (f0 * 1.12)))
-    tilt = 1.15 - 0.3 * effort
-    src = np.zeros(n)
-    for k in range(1, k_max + 1):
-        src += np.sin(k * ph) / k ** tilt
-    # 嗓子喊劈了的粗糙感：部分人带一点次谐波
-    if rng.random() < 0.35:
-        src += 0.25 * np.sin(0.5 * ph)
-    asp = hp(white(rng, n), 1000) * (0.6 + 0.4 * np.sin(ph))
-    src = src / (np.std(src) + 1e-9) + asp * rng.uniform(0.15, 0.3)
-    scale = rng.uniform(0.92, 1.08)
-
-    def formant(x, vowel):
-        out = np.zeros(n)
-        for fi, gi, bwi in zip(VOWELS[vowel], FORMANT_GAIN, FORMANT_BW):
-            fi = fi * scale * (1.12 if fi < 1000 else 1.0) * (1 + 0.08 * effort)
-            out += gi * peak_filter(x, fi, fi / bwi)
-        return out
-
-    a = formant(src, v1)
-    b = formant(src, v2) if v2 != v1 else a
-    w = np.clip((t - 0.04) / max(0.04, glide), 0, 1)
-    y = a * (1 - w) + b * w
-    att = min(n, n_(rng.uniform(0.04, 0.12)))
-    rel = min(n, n_(rng.uniform(0.12, 0.3)))
-    env = np.ones(n)
-    env[:att] = np.linspace(0, 1, att) ** 1.5
-    env[-rel:] *= np.linspace(1, 0, rel) ** 1.3
-    env *= 1 + 0.12 * np.sin(2 * np.pi * rng.uniform(2, 5) * t)
-    return y * env
-
-
-def crowd(rng, length, voices, onset_span=None, dur_range=(0.4, 1.2), f0_range=(100, 240), effort=(0.6, 1.0),
-          d_layers=((0.1, 0.25), (0.35, 0.3), (0.65, 0.45)), vowels=None, onset_shape=None):
-    """一群人喊：每人随机音高、元音、起声时刻；按远近分三层，各层合起来再压暗(省得每人滤一次)。"""
-    vowels = vowels or [("u", "a"), ("a", "a"), ("o", "a"), ("e", "a"), ("a", "o"), ("ae", "a"), ("u", "o")]
-    total = np.zeros(n_(length))
-    span = onset_span if onset_span is not None else length
-    weights = np.array([w for _, w in d_layers])
-    weights = weights / weights.sum()
-    layers = [np.zeros(n_(length)) for _ in d_layers]
-    for _ in range(voices):
-        li = rng.choice(len(d_layers), p=weights)
-        dur = rng.uniform(*dur_range)
-        at = onset_shape(rng) if onset_shape else rng.uniform(-dur * 0.5, span)
-        v1, v2 = vowels[rng.integers(len(vowels))]
-        f0 = rng.uniform(*f0_range) if rng.random() > 0.15 else rng.uniform(170, 300)
-        v = voice(rng, dur, f0, v1, v2, glide=rng.uniform(0.08, 0.3), effort=rng.uniform(*effort))
-        place(layers[li], v, at, rng.uniform(0.5, 1.0))
-    for (d, _), layer in zip(d_layers, layers):
-        total += distant(layer, d)
-    return total
 
 
 # ═════════════ 弓箭 ═════════════
@@ -514,42 +411,7 @@ def cavalry(rng, length=3.2, horses=18, approach=True):
     return reverb(y, room(rng, 1.0, 4000, 800), 0.2)
 
 
-# ═════════════ 火器 ═════════════
-def musket_shot(rng, d=0.0):
-    """火绳枪/燧发枪一响：药池先"嘶"地一闪，随后爆裂(钝、闷、低频足)；越远越闷越轻。"""
-    n = n_(0.65)
-    y = np.zeros(n)
-    pre = rng.uniform(0.025, 0.06)
-    if d < 0.45:
-        click = metal_ring(rng, impulse_exc(rng, 0.06, 0.002, 1500), rng.uniform(1800, 3000), 0.012, modes=3)
-        place(y, click / np.max(np.abs(click)), 0.0, 0.08)
-        m = n_(pre)
-        fizz = hp(white(rng, m), 1800) * np.sin(np.linspace(0, np.pi, m)) ** 0.7
-        place(y, fizz, 0.003, 0.07)
-    m = n_(0.5)
-    blast = white(rng, m) * decay(m, rng.uniform(0.04, 0.075), 0.0006)
-    body = lp(blast, rng.uniform(1600, 2800)) * 0.9 + bp(blast, 110, 420) * 1.9
-    thump = lp(white(rng, m), 120, 4) * decay(m, rng.uniform(0.05, 0.09), 0.002) * 3.2
-    crack = hp(white(rng, n_(0.006)), 1300) * decay(n_(0.006), 0.0015, 0.0002) * 0.8
-    place(y, body + thump, pre)
-    place(y, crack, pre)
-    return distant(y, d)
-
-
-def volley(rng, shots=40, spread=0.45, d_range=(0.1, 0.6), stragglers=4, rt=1.8):
-    """一排齐射：前排几乎同时、后面零零落落(伽马分布)，外加几声迟发；再加山林回声与旷野混响。"""
-    pool = [(d, musket_shot(rng, d)) for d in np.linspace(d_range[0], d_range[1], 6) for _ in range(4)]
-    length = spread * 2 + 2.6
-    y = np.zeros(n_(length))
-    onsets = list(np.clip(rng.gamma(2.2, spread / 4.4, shots), 0, spread * 1.8))
-    onsets += list(rng.uniform(spread, spread * 2.2, stragglers))
-    for at in onsets:
-        _, shot = pool[rng.integers(len(pool))]
-        place(y, shot, 0.05 + at, rng.uniform(0.55, 1.0))
-    y = echoes(y, [(rng.uniform(0.32, 0.45), 0.2, 1300), (rng.uniform(0.62, 0.85), 0.11, 800)])
-    return reverb(y, room(rng, rt, 4200, 750), 0.42)
-
-
+# ═════════════ 炮声(近代炮击、舰炮共用) ═════════════
 def cannon_core(rng, size=1.0):
     """前装炮的炮口暴音：一声裂响 + 闷雷般的中低频爆 + 很沉的次低频冲击。"""
     n = n_(1.6)
@@ -563,13 +425,6 @@ def cannon_core(rng, size=1.0):
     exc[0] = 1.0
     boom = resonator(exc, rng.uniform(42, 62), 0.09 * size) * 0.45
     return crack * 0.5 + body + sub + boom
-
-
-def cannon(rng, d=0.0, size=1.0, rt=2.8):
-    y = distant(cannon_core(rng, size), d)
-    y = echoes(y, [(rng.uniform(0.35, 0.55), 0.34, 700), (rng.uniform(0.8, 1.1), 0.22, 520),
-                   (rng.uniform(1.3, 1.75), 0.12, 400)])
-    return reverb(y, room(rng, rt, 2600, 480), 0.55)
 
 
 # ═════════════ 近代 ═════════════
@@ -744,81 +599,263 @@ def creak(rng, dur=None):
     return y * np.sin(np.linspace(0, np.pi, n)) ** 0.8
 
 
+# ═════════════ 录音素材(冷兵器的刀剑与喊杀、火器的枪炮；CC0，出处见 Docs/CREDITS.md) ═════════════
+# 下载来的文件当不可信数据：只用 soundfile 解码音频；zip 只在内存里读 .ogg/.wav 成员，不解压到磁盘、不执行任何东西。
+# 命令行参数名 → 说明
+ASSETS = (("clash", "刀剑相击 zip：StarNinjas《20 Sword Sound Effects》的 sword_clash.1~10.ogg"),
+          ("swing", "挥砍 zip：同上的 sword.1~10.ogg"),
+          ("crowd", "人声喊杀氛围：StarNinjas《Crowd Shouting/Speaking Ambience》crowd_shouting_0.ogg"),
+          ("powder", "黑火药枪声：kurt《Gunshots》Black Powder.wav(一段六响)"),
+          ("cannon", "炮声：Thimras《Cannon Fire》cannon_fire_0.ogg"))
+MAX_MEMBER = 20 * 1024 * 1024
+# 素材做成的单发按 50 ms 短时最大响度统一到这么多 dBFS(峰值另限 -1 dBFS)，与合成的那几类相当
+ASSET_LOUDNESS = {"cold_clash": -13.0, "cold_warcry": -13.0, "fire_volley": -11.0, "fire_cannon": -9.0}
+
+
+def _soundfile():
+    """soundfile 装在用户 site-packages 里(python -I 不会自动带上)。"""
+    import site
+    import sys
+    sys.path.append(site.getusersitepackages())
+    import soundfile
+    return soundfile
+
+
+def _mono(data, rate):
+    """解码结果 → 单声道、SR 采样率的浮点数组。"""
+    x = np.asarray(data, dtype=np.float64)
+    if x.ndim == 2:
+        x = x.mean(axis=1)
+    if int(rate) != SR:
+        g = math.gcd(int(rate), SR)
+        x = resample_poly(x, SR // g, int(rate) // g)
+    return x
+
+
+def read_audio(path):
+    data, rate = _soundfile().read(path, always_2d=True)
+    return _mono(data, rate)
+
+
+def read_zip(path):
+    """zip 里的 .ogg/.wav 成员按文件名里的序号排好，逐个在内存里解码。"""
+    sf = _soundfile()
+    found = []
+    with zipfile.ZipFile(path) as z:
+        for info in z.infolist():
+            name = info.filename.replace("\\", "/").split("/")[-1]
+            if info.is_dir() or not name.lower().endswith((".ogg", ".wav")) or info.file_size > MAX_MEMBER:
+                continue
+            data, rate = sf.read(io.BytesIO(z.read(info)), always_2d=True)
+            digits = "".join(ch for ch in name if ch.isdigit())
+            found.append((int(digits) if digits else 0, name, _mono(data, rate)))
+    found.sort(key=lambda item: (item[0], item[1]))
+    return [x for _, _, x in found]
+
+
+def trim_head(x, thresh_db=-40.0, pre=0.004):
+    """裁掉开头的静音(留几毫秒再淡入)。"""
+    a = np.abs(x)
+    i = int(np.argmax(a > a.max() * 10 ** (thresh_db / 20)))
+    y = x[max(0, i - n_(pre)):].copy()
+    f = min(len(y), n_(pre))
+    y[:f] *= np.linspace(0, 1, f)
+    return y
+
+
+def short_term_max(x, win=0.05):
+    w = n_(win)
+    r = np.sqrt(np.convolve(x ** 2, np.ones(w) / w, "valid")) if len(x) > w else np.sqrt(np.mean(x ** 2))
+    return float(np.max(r))
+
+
+def finish_asset(name, x):
+    """素材做成的单发：去直流、裁首尾静音(录音的余音自然，留到 -52 dB)，按短时最大响度统一，峰值不过 -1 dBFS。"""
+    x = trim_tail(trim_head(hp(x, 25)), -52.0, 0.2)
+    target = next((v for k, v in ASSET_LOUDNESS.items() if name.startswith(k)), -12.0)
+    gain = min(10 ** (target / 20) / max(short_term_max(x), 1e-9), 0.89 / max(np.max(np.abs(x)), 1e-9))
+    return cap_length(name, x * gain)
+
+
+def split_shots(x, gap=0.25, thresh_db=-20.0):
+    """一段多响的录音按起振切成单发：包络静下去 gap 秒以上再越过阈值算新的一响，切到下一响之前。"""
+    w = n_(0.005)
+    env = np.convolve(np.abs(x), np.ones(w) / w, "same")
+    above = np.nonzero(env > env.max() * 10 ** (thresh_db / 20))[0]
+    onsets, prev = [], -n_(10)
+    for k in above:
+        if k - prev > n_(gap):
+            onsets.append(int(k))
+        prev = k
+    shots = []
+    for i, start in enumerate(onsets):
+        end = onsets[i + 1] - n_(0.01) if i + 1 < len(onsets) else len(x)
+        shot = trim_tail(x[max(0, start - n_(0.003)):end], -45.0, 0.1)
+        shots.append(norm_peak(shot, 1.0))
+    return shots
+
+
+def load_assets(args):
+    A = {
+        "clash": [norm_peak(trim_head(c), 1.0) for c in read_zip(args.clash)],
+        "swing": [norm_peak(trim_head(c), 1.0) for c in read_zip(args.swing)],
+        "crowd": read_audio(args.crowd),
+        "shots": split_shots(read_audio(args.powder)),
+        "cannon": norm_peak(trim_head(read_audio(args.cannon)), 1.0),
+    }
+    crowd = A["crowd"]
+    A["crowd"] = crowd[n_(0.6):] / (np.max(np.abs(crowd)) + 1e-9)
+    print(f"assets: {len(A['clash'])} clashes, {len(A['swing'])} swings, crowd {len(A['crowd']) / SR:.1f}s, "
+          f"{len(A['shots'])} black-powder shots, cannon {len(A['cannon']) / SR:.1f}s")
+    if len(A["clash"]) < 4 or len(A["swing"]) < 2 or len(A["shots"]) < 3 or len(A["crowd"]) < n_(22):
+        raise SystemExit("素材不全：刀剑相击至少 4 段、挥砍 2 段、枪声至少 3 响、人声氛围至少 22 秒")
+    return A
+
+
+def crowd_layers(crowd, total, layers):
+    """同一段人声错开起点、轻微变调叠几层，听着像更多人；layers = [(起点秒, 变调, 增益)]。"""
+    y = np.zeros(n_(total))
+    for start, factor, g in layers:
+        seg = pitch(crowd[n_(start):n_(start + total * factor + 0.1)], factor)[:n_(total)]
+        y[:len(seg)] += g * seg
+    return y
+
+
+def build_from_assets(A):
+    """用录音素材做的：冷兵器的刀剑相击、喊杀、环境声，火器的齐射、炮声、环境声。"""
+    S = {}
+    clashes, swings, crowd, shots, cannon = A["clash"], A["swing"], A["crowd"], A["shots"], A["cannon"]
+
+    def put(name, fn):
+        S[name] = finish_asset(name, fn(rng_for(name)))
+
+    def any_clash(rng, swing_chance=0.0):
+        pool = swings if rng.random() < swing_chance else clashes
+        return pitch(pool[rng.integers(len(pool))], rng.uniform(0.95, 1.05))
+
+    # 刀剑：前六段是单独一响(挑不同的录音、轻微变调)，七八是一来一回的对砍(挥砍带出相击)，九十是远近错落的混战
+    order = rng_for("cold_clash_order").permutation(len(clashes))
+    for i in range(6):
+        source = clashes[order[i % len(clashes)]]
+        put(f"cold_clash_{i + 1}",
+            lambda r, s=source: reverb(pitch(s, r.uniform(0.96, 1.04)), room(r, 0.8, 5000, 1000), 0.12))
+
+    def duel(rng):
+        y = np.zeros(n_(2.4))
+        t = 0.0
+        for _ in range(rng.integers(2, 4)):
+            place(y, pitch(swings[rng.integers(len(swings))], rng.uniform(0.95, 1.05)), t, rng.uniform(0.5, 0.8))
+            t += rng.uniform(0.12, 0.22)
+            place(y, any_clash(rng), t, rng.uniform(0.75, 1.0))
+            t += rng.uniform(0.25, 0.45)
+        return reverb(y, room(rng, 0.9, 5000, 1000), 0.15)
+
+    def melee(rng):
+        y = np.zeros(n_(3.0))
+        for _ in range(rng.integers(8, 13)):
+            place(y, distant(any_clash(rng, 0.3), rng.uniform(0.05, 0.7)), rng.uniform(0, 1.8), rng.uniform(0.5, 1.0))
+        return reverb(y, room(rng, 1.2, 4500, 900), 0.22)
+
+    put("cold_clash_7", duel)
+    put("cold_clash_8", duel)
+    put("cold_clash_9", melee)
+    put("cold_clash_10", melee)
+
+    # 喊杀：人声氛围错开叠两层(一层略低沉)，起势、喊满、渐落，起势时声音由闷转亮
+    def warcry(rng, layers):
+        length = 3.0
+        y = crowd_layers(crowd, length, layers)
+        t = tvec(len(y))
+        env = np.clip(0.3 + 0.7 * t / 0.5, 0, 1) * np.clip((length - t) / 1.1, 0, 1) ** 1.5
+        y = lp(y, 1800) * (1 - env) + y * env
+        return reverb(y * env, room(rng, 1.2, 4500, 900), 0.18)
+
+    put("cold_warcry_1", lambda r: warcry(r, [(3.0, 1.0, 1.0), (15.5, 0.95, 0.8)]))
+    put("cold_warcry_2", lambda r: warcry(r, [(8.5, 1.03, 1.0), (20.0, 0.97, 0.8)]))
+
+    # 冷兵器环境声：人声氛围三层(大军)，略压暗，远处稀疏的刀剑相击
+    def amb_cold(rng, total):
+        y = lp(crowd_layers(crowd, total, [(0.0, 1.0, 1.0), (6.5, 0.96, 0.8), (13.5, 1.04, 0.65)]), 6000)
+        hits = np.zeros(len(y))
+        for _ in range(int(total * 1.2)):
+            place(hits, distant(any_clash(rng, 0.25), rng.uniform(0.45, 0.85)), rng.uniform(0, total),
+                  rng.uniform(0.25, 0.5))
+        return reverb(y + hits * 0.6, room(rng, 1.4, 4000, 800), 0.2)[:len(y)]
+
+    S["cold_amb"] = ambient("cold_amb", amb_cold)
+
+    # 齐射：六响黑火药单发错开叠起来，前排几乎同时、后面零零落落(伽马分布)，外加几声迟发；按远近压暗、轻微变调
+    def volley(rng, count, spread, d_range, stragglers=4):
+        y = np.zeros(n_(spread * 2.2 + 1.6))
+        onsets = list(np.clip(rng.gamma(2.2, spread / 4.4, count), 0, spread * 1.8))
+        onsets += list(rng.uniform(spread, spread * 2.2, stragglers))
+        for at in onsets:
+            shot = pitch(shots[rng.integers(len(shots))], rng.uniform(0.93, 1.07))
+            place(y, distant(shot, rng.uniform(*d_range)), 0.02 + at, rng.uniform(0.55, 1.0))
+        return reverb(y, room(rng, 1.4, 4500, 900), 0.18)
+
+    put("fire_volley_1", lambda r: volley(r, 36, 0.35, (0.1, 0.5)))
+    put("fire_volley_2", lambda r: volley(r, 50, 0.6, (0.2, 0.7)))
+    put("fire_volley_3", lambda r: volley(r, 24, 0.25, (0.05, 0.35), stragglers=2))
+    put("fire_volley_4", lambda r: volley(r, 60, 0.9, (0.35, 0.85), stragglers=8))
+
+    # 炮：原声近处一门；压低音高放远(闷而长)；两门先后开火
+    put("fire_cannon_1", lambda r: reverb(cannon, room(r, 2.0, 3000, 600), 0.1))
+    put("fire_cannon_2", lambda r: reverb(distant(pitch(cannon, 0.86), 0.45), room(r, 2.8, 2500, 500), 0.35))
+
+    def cannon_pair(rng):
+        y = np.zeros(n_(4.2))
+        place(y, distant(cannon, 0.15), 0.0)
+        place(y, distant(pitch(cannon, 1.07), 0.35), rng.uniform(0.5, 0.7), 0.8)
+        return reverb(y, room(rng, 2.4, 2800, 550), 0.2)
+
+    put("fire_cannon_3", cannon_pair)
+
+    # 火器环境声：远处零星的枪声(偶尔一小排)，加远处的喊杀；全程切掉 140 Hz 以下，不要成排的低频闷响
+    def amb_fire(rng, total):
+        n = n_(total)
+        y = lp(crowd_layers(crowd, total, [(4.0, 0.98, 1.0), (14.0, 1.02, 0.7)]), 2600) * 0.4
+        fire = np.zeros(n)
+        t = rng.uniform(0, 0.3)
+        while t < total:
+            if rng.random() < 0.15:
+                for _ in range(rng.integers(3, 7)):
+                    shot = pitch(shots[rng.integers(len(shots))], rng.uniform(0.92, 1.08))
+                    place(fire, distant(shot, rng.uniform(0.5, 0.85)), t + rng.gamma(2.0, 0.08), rng.uniform(0.4, 0.9))
+                t += rng.uniform(0.6, 1.1)
+            else:
+                shot = pitch(shots[rng.integers(len(shots))], rng.uniform(0.92, 1.08))
+                place(fire, distant(shot, rng.uniform(0.45, 0.9)), t, rng.uniform(0.35, 1.0))
+                t += rng.exponential(0.4)
+        y = hp(y + fire * 2.4, 140)
+        return reverb(y, room(rng, 1.8, 3500, 700), 0.22)[:n]
+
+    S["fire_amb"] = ambient("fire_amb", amb_fire)
+    return S
+
+
 # ═════════════ 成品：单发 ═════════════
+def cap_length(name, x):
+    cap = next((v for k, v in MAX_LEN.items() if name.startswith(k)), None)
+    if cap and len(x) > n_(cap):
+        x = x[:n_(cap)]
+        f = n_(0.6)
+        x[-f:] *= np.linspace(1, 0, f) ** 2
+    return x
+
+
 def build_oneshots():
+    """合成的单发：箭雨、马蹄、近代、海战。"""
     S = {}
 
     def put(name, fn):
-        x = finish_oneshot(fn(rng_for(name)))
-        cap = next((v for k, v in MAX_LEN.items() if name.startswith(k)), None)
-        if cap and len(x) > n_(cap):
-            x = x[:n_(cap)]
-            f = n_(0.6)
-            x[-f:] *= np.linspace(1, 0, f) ** 2
-        S[name] = x
+        S[name] = cap_length(name, finish_oneshot(fn(rng_for(name))))
 
-    # 冷兵器
-    def clash_1(rng):
-        y = np.zeros(n_(1.4))
-        place(y, blade_clash(rng), 0.02)
-        place(y, blade_clash(rng) * 0.5, rng.uniform(0.25, 0.4))
-        return reverb(y, room(rng, 0.9, 5000, 1000), 0.18)
-
-    def clash_2(rng):
-        y = np.zeros(n_(1.8))
-        t = 0.02
-        for _ in range(rng.integers(3, 5)):
-            place(y, blade_clash(rng), t, rng.uniform(0.6, 1.0))
-            if rng.random() < 0.5:
-                place(y, blade_scrape(rng), t + 0.03, 0.5)
-            t += rng.uniform(0.12, 0.26)
-        return reverb(y, room(rng, 0.9, 5000, 1000), 0.2)
-
-    def clash_3(rng):
-        y = np.zeros(n_(1.5))
-        place(y, shield_bash(rng), 0.02, 1.0)
-        place(y, blade_clash(rng), rng.uniform(0.15, 0.25), 0.8)
-        place(y, shield_bash(rng), rng.uniform(0.35, 0.5), 0.7)
-        return reverb(y, room(rng, 1.0, 4500, 900), 0.22)
-
-    def clash_4(rng):
-        y = np.zeros(n_(2.2))
-        for _ in range(rng.integers(9, 14)):
-            d = rng.uniform(0.1, 0.7)
-            src = blade_clash(rng) if rng.random() < 0.65 else shield_bash(rng)
-            place(y, distant(src, d), rng.uniform(0, 1.5), rng.uniform(0.5, 1.0))
-        return reverb(y, room(rng, 1.2, 4500, 900), 0.26)
-
-    for i, fn in enumerate((clash_1, clash_2, clash_3, clash_4), 1):
-        put(f"cold_clash_{i}", fn)
-
-    def warcry(rng, voices, f0_range):
-        y = crowd(rng, 2.6, voices, dur_range=(0.7, 1.6), f0_range=f0_range, effort=(0.8, 1.0),
-                  onset_shape=lambda r: r.gamma(2.0, 0.12))
-        return reverb(y, room(rng, 1.4, 4200, 900), 0.32)
-
-    put("cold_warcry_1", lambda r: warcry(r, 60, (105, 220)))
-    put("cold_warcry_2", lambda r: warcry(r, 90, (95, 200)))
+    # 冷兵器：箭雨、马蹄(刀剑、喊杀换成了录音素材，见 build_from_assets)
     put("cold_arrows_1", lambda r: arrow_volley(r, True, 55))
     put("cold_arrows_2", lambda r: arrow_volley(r, False, 70))
     put("cold_hooves_1", lambda r: cavalry(r, 3.2, 18, True))
     put("cold_hooves_2", lambda r: cavalry(r, 2.8, 26, False))
-
-    # 火器
-    put("fire_volley_1", lambda r: volley(r, 36, 0.35, (0.1, 0.5)))
-    put("fire_volley_2", lambda r: volley(r, 50, 0.6, (0.2, 0.7)))
-    put("fire_volley_3", lambda r: volley(r, 24, 0.25, (0.05, 0.35), stragglers=2))
-    put("fire_volley_4", lambda r: volley(r, 60, 0.9, (0.35, 0.85), stragglers=8, rt=2.2))
-    put("fire_cannon_1", lambda r: cannon(r, 0.15, 1.0))
-    put("fire_cannon_2", lambda r: cannon(r, 0.55, 1.1, rt=3.2))
-
-    def cannon_pair(rng):
-        y = np.zeros(n_(5.0))
-        place(y, cannon(rng, 0.3, 1.0), 0.0)
-        place(y, cannon(rng, 0.45, 0.9), rng.uniform(0.5, 0.8), 0.8)
-        return y
-
-    put("fire_cannon_3", cannon_pair)
 
     # 近代
     put("modern_rifle_1", lambda r: fusillade(r, 2.6, 3, 10))
@@ -887,47 +924,6 @@ def ambient(name, body):
     return norm_rms(y, -20.0)
 
 
-def amb_cold(rng, total):
-    n = n_(total)
-    y = crowd(rng, total, int(total * 13), dur_range=(0.25, 1.0), effort=(0.4, 0.9),
-              d_layers=((0.3, 0.2), (0.55, 0.4), (0.8, 0.4))) * 0.9
-    hits = np.zeros(n)
-    for _ in range(int(total * 7)):
-        d = rng.uniform(0.25, 0.9)
-        src = blade_clash(rng) if rng.random() < 0.6 else shield_bash(rng)
-        place(hits, distant(src, d), rng.uniform(0, total), rng.uniform(0.3, 0.8))
-    y += hits * 0.55
-    stomp = np.zeros(n)
-    pool = hoof_pool(rng, 12)
-    for _ in range(int(total * 14)):
-        place(stomp, pool[rng.integers(len(pool))], rng.uniform(0, total), rng.uniform(0.2, 0.6))
-    y += lp(stomp, 500) * 0.4 + lp(brown(rng, n), 140) * 0.35
-    return reverb(y, room(rng, 1.6, 4000, 800), 0.35)[:n]
-
-
-def amb_fire(rng, total):
-    n = n_(total)
-    y = crowd(rng, total, int(total * 6), dur_range=(0.3, 1.0), effort=(0.4, 0.8),
-              d_layers=((0.55, 0.4), (0.85, 0.6))) * 0.6
-    shots = np.zeros(n)
-    pool = [musket_shot(rng, d) for d in np.linspace(0.5, 0.95, 5) for _ in range(4)]
-    t = 0.0
-    while t < total:
-        if rng.random() < 0.12:
-            for _ in range(rng.integers(5, 12)):
-                place(shots, pool[rng.integers(len(pool))], t + rng.gamma(2.0, 0.08), rng.uniform(0.5, 1.0))
-            t += rng.uniform(0.4, 0.8)
-        else:
-            place(shots, pool[rng.integers(len(pool))], t, rng.uniform(0.4, 1.0))
-            t += rng.exponential(0.11)
-    y += shots * 1.1
-    for _ in range(max(2, int(total / 4))):
-        place(y, distant(cannon_core(rng, 1.0), rng.uniform(0.75, 0.95)), rng.uniform(0, total), rng.uniform(0.5, 0.9))
-    y += lp(brown(rng, n), 120) * 0.3
-    y = echoes(y, [(0.42, 0.18, 900)])[:n]
-    return reverb(y, room(rng, 2.2, 3500, 650), 0.45)[:n]
-
-
 def amb_modern(rng, total):
     n = n_(total)
     y = np.zeros(n)
@@ -961,7 +957,8 @@ def amb_naval(rng, total):
     return reverb(y, room(rng, 1.8, 3000, 600), 0.25)[:n]
 
 
-AMBIENTS = {"cold_amb": amb_cold, "fire_amb": amb_fire, "modern_amb": amb_modern, "naval_amb": amb_naval}
+# 合成的环境声(冷兵器、火器的换成了录音素材，见 build_from_assets)
+AMBIENTS = {"modern_amb": amb_modern, "naval_amb": amb_naval}
 
 
 # ═════════════ 试听混音 ═════════════
@@ -973,12 +970,6 @@ PREVIEW_PLAN = {
     "naval": ("naval_amb", {"gun": 4.0, "broadside": 2.0, "splash": 1.5}, 1.0),
 }
 PREVIEW_LEN = 14.0
-
-
-def pitch(x, factor):
-    """变速变调(与 FMOD setPitch 一样)：factor>1 更高更短。"""
-    n = int(len(x) / factor)
-    return np.interp(np.arange(n) * factor, np.arange(len(x)), x)
 
 
 def build_preview(era, files):
@@ -996,7 +987,9 @@ def build_preview(era, files):
         prefix = ("cold" if kind in ("clash", "warcry", "arrows", "hooves") else
                   "fire" if kind in ("volley", "cannon") else
                   "modern" if kind in ("rifle", "mg", "shell") else "naval")
-        names = [k for k in files if k.startswith(f"{prefix}_{kind}_") and k != last]
+        # 按序号排(素材做的是读盘还是现做，挑中的都一样)
+        names = sorted((k for k in files if k.startswith(f"{prefix}_{kind}_") and k != last),
+                       key=lambda k: int(k.rsplit("_", 1)[1]))
         name = names[rng.integers(len(names))]
         last = name
         shot = pitch(files[name], rng.uniform(0.94, 1.06))
@@ -1054,29 +1047,54 @@ def spectrogram(path, x, title):
     plt.close(fig)
 
 
+def read_wav(path):
+    """读现有的游戏音频(16 位单声道)，升回 SR。"""
+    with wave.open(path, "rb") as w:
+        rate = w.getframerate()
+        x = np.frombuffer(w.readframes(w.getnframes()), "<i2") / 32767
+    return from_rate(x, rate)
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--only", default="", help="只重做名字以此开头的文件(试听混音照常出)")
+    for key, text in ASSETS:
+        ap.add_argument("--" + key, default="", help=text)
     ap.add_argument("--spectrogram", default="", help="把每个文件的波形与频谱图画到这个目录")
     args = ap.parse_args()
+    given = [key for key, _ in ASSETS if getattr(args, key)]
+    if 0 < len(given) < len(ASSETS):
+        ap.error("五个素材要一起给(或者都不给，只重做合成的)")
 
     files = build_oneshots()
     for name, body in AMBIENTS.items():
         files[name] = ambient(name, body)
+    if given:
+        files.update(build_from_assets(load_assets(args)))
+    made = set(files)
     total = 0
     for name, x in sorted(files.items()):
         rate = save_rate(name)
         stored = to_rate(x, rate, loop=name.endswith("_amb"))
         # 试听混音用存盘后的版本(降了采样率的再升回来)，听到的就是游戏里的
         files[name] = from_rate(np.clip(np.round(stored * 32767), -32768, 32767) / 32767, rate)
-        if args.only and not name.startswith(args.only):
-            continue
         path = os.path.join(OUT, name + ".wav")
         save_wav(path, stored, rate)
         total += os.path.getsize(path)
         print(f"{name:22s} {len(x) / SR:5.2f}s {rate:5d}Hz  peak {np.max(np.abs(x)):.2f}  "
-              f"rms {20 * np.log10(np.sqrt(np.mean(x ** 2)) + 1e-12):6.1f} dB")
-    print(f"game sounds: {len(files)} files, {total / 1024:.0f} KiB")
+              f"st-max {20 * np.log10(short_term_max(x) + 1e-12):6.1f} dB")
+    print(f"written: {len(made)} files, {total / 1024:.0f} KiB")
+    for f in sorted(os.listdir(OUT)):
+        name, ext = os.path.splitext(f)
+        if ext.lower() != ".wav" or name in made:
+            continue
+        if given:
+            # 全部重做时，不再产出的旧文件(被替换掉的合成版、变体数变少了的)删掉
+            os.remove(os.path.join(OUT, f))
+            print("removed stale", f)
+        else:
+            files[name] = read_wav(os.path.join(OUT, f))
+    sizes = sum(os.path.getsize(os.path.join(OUT, f)) for f in os.listdir(OUT) if f.lower().endswith(".wav"))
+    print(f"game sounds now: {sum(1 for f in os.listdir(OUT) if f.lower().endswith('.wav'))} files, {sizes / 1024:.0f} KiB")
     for era in PREVIEW_PLAN:
         y = build_preview(era, files)
         save_wav(os.path.join(PREVIEW, f"preview_{era}.wav"), y)

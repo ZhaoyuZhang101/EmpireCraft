@@ -45,7 +45,8 @@ public static class BattleSound
         "cold_clash", "cold_warcry", "cold_arrows", "cold_hooves", "fire_volley", "fire_cannon", "modern_rifle",
         "modern_mg", "modern_shell", "naval_gun", "naval_broadside", "naval_splash"
     };
-    private static readonly float[] KindGain = { 0.55f, 0.5f, 0.55f, 0.5f, 0.7f, 0.8f, 0.65f, 0.65f, 0.8f, 0.8f, 0.8f, 0.45f };
+    // 箭雨、马蹄是合成的，压低一点，别抢刀剑与喊杀(录音素材)
+    private static readonly float[] KindGain = { 0.55f, 0.5f, 0.4f, 0.35f, 0.7f, 0.8f, 0.65f, 0.65f, 0.8f, 0.8f, 0.8f, 0.45f };
     private const float AmbientGain = 0.5f;
     private const int KClash = 0, KWarcry = 1, KArrows = 2, KHooves = 3, KVolley = 4, KCannon = 5, KRifle = 6, KMg = 7,
         KShell = 8, KGun = 9, KBroadside = 10, KSplash = 11;
