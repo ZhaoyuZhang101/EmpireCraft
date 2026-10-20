@@ -27,8 +27,10 @@ public sealed class SteppeState
     // 买和开的互市：与哪国(定居一方的核心)、开市的时间；十年内劫掠过也照样通市
     public long market_treaty_with = -1L;
     public double market_treaty_at = -1d;
-    // 劫掠收场后待办：成雄主转汗国(下个月办，不在战争收尾那一帧里改帝国)
+    // 劫掠收场后待办(下个月办，不在战争收尾那一帧里改帝国、开仗)：成雄主转汗国与要并入的各部；被打退后要反目的各部
     public bool hero_pending;
+    public List<long> hero_members;
+    public List<long> rift_members;
 }
 
 // 劫掠之战(见 NomadRaidSystem)：存在 WarExtraData.raid 里

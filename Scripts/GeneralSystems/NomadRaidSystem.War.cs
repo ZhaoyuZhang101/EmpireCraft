@@ -46,6 +46,7 @@ public static partial class NomadRaidSystem
 
     private static void MonthTick()
     {
+        Aftermath();
         foreach (War war in RaidWars())
         {
             RaidWarState state = Ensure(war);
