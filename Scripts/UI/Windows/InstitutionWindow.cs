@@ -42,6 +42,13 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
     // 看的是哪个政权：帝国，或独立王国/部落(简化朝堂，见 InstitutionRealm)。从帝国、王国窗口打开时由 Open 记下，
     // 返回键回到本窗口时沿用(同 TechWindow)
     private static InstitutionRealm _pendingRealm;
+    // 从王国窗口打开的那一国(从帝国窗口打开为空)：改从文化时只改这一国，从帝国窗口进来的改整个帝国
+    private static Kingdom _pendingKingdom;
+    // 浏览别的文化(左栏文化按钮，见 InstitutionCultureWindow)：空 = 看本国。选文化小窗口回来时沿用，所以是静态的；Open 时清掉
+    private static string _browseCulture = "";
+    // 打开窗口时看的政权(本国/本帝国)；浏览别的文化时 _realm 换成那个文化的样本政权(没有就为空，只看文化本身)
+    private InstitutionRealm _homeRealm;
+    private bool _browsing;
     private InstitutionRealm _realm;
     // 帝国才有的栏目(宪法、舆论、社会动荡、街头、理念)仍按帝国取数；王国模式下为空
     private Empire _empire => _realm?.Empire;
@@ -60,6 +67,8 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
         UIHelper.FixWideWindowScrollArea(BackgroundTransform);
         _root = UIHelper.SetupWideWindowContentRoot(ContentTransform, 2f, new RectOffset(3, 3, 3, 3));
         _rail = UIHelper.CreateWideWindowRail(BackgroundTransform, UIHelper.RailWidth, UIHelper.RailInset);
+        // 左栏文化按钮用的选文化小窗口随本窗口一起注册
+        InstitutionCultureWindow.Register();
     }
 
     // 帝国：制度改革、立宪、舆论全套
@@ -67,6 +76,8 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
     {
         if (empire?.data == null || empire.isRekt()) return;
         _pendingRealm = InstitutionRealm.Of(empire);
+        _pendingKingdom = null;
+        _browseCulture = "";
         ScrollWindow.showWindow(nameof(InstitutionWindow));
     }
 
@@ -75,19 +86,74 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
     {
         if (kingdom?.data == null || kingdom.isRekt()) return;
         _pendingRealm = InstitutionRealm.Of(kingdom);
+        _pendingKingdom = kingdom;
+        _browseCulture = "";
         ScrollWindow.showWindow(nameof(InstitutionWindow));
     }
+
+    // 选文化小窗口选定后(见 InstitutionCultureWindow)：浏览这个文化，空 = 回本国；回到本窗口时生效
+    public static void BrowseCulture(string culture) => _browseCulture = culture ?? "";
 
     public override void OnNormalEnable()
     {
         base.OnNormalEnable();
         UIHelper.FixWideWindowScrollArea(BackgroundTransform);
-        _realm = _pendingRealm ?? InstitutionRealm.Of(EmpireCraftMetaTypeLibrary.selected_empire);
+        _homeRealm = _pendingRealm ?? InstitutionRealm.Of(EmpireCraftMetaTypeLibrary.selected_empire);
         _selectedId = "";
-        _selectedIdeology = (_empire != null ? PartySystem.GetGovernmentParty(_empire)?.Ideology : null) ??
-                            PartyIdeology.Conservatism;
+        ResolveViewRealm();
+        ResetIdeology();
         Rebuild();
         StartCoroutine(UIHelper.StabilizeWideWindowScrollArea(BackgroundTransform));
+    }
+
+    private void ResetIdeology() =>
+        _selectedIdeology = (_empire != null ? PartySystem.GetGovernmentParty(_empire)?.Ideology : null) ??
+                            PartyIdeology.Conservatism;
+
+    // 定下这回看哪一国：本国；浏览别的文化时换成那个文化的样本政权(城最多的帝国，没有就独立王国)，都没有为空
+    private void ResolveViewRealm()
+    {
+        _browsing = false;
+        _realm = _homeRealm;
+        if (string.IsNullOrEmpty(_browseCulture)) return;
+        if (!CultureService.IsValidCulture(_browseCulture) ||
+            string.Equals(_browseCulture, HomeCulture(), StringComparison.Ordinal))
+        {
+            _browseCulture = "";
+            return;
+        }
+        _browsing = true;
+        _realm = InstitutionCultureWindow.SampleRealm(_browseCulture);
+    }
+
+    private string HomeCulture() => IsUsable(_homeRealm) ? _homeRealm.Culture : "";
+
+    // 左栏 ◀ ▶、回本国：在窗口里直接换着看
+    private void Browse(string culture)
+    {
+        _browseCulture = culture ?? "";
+        _selectedId = "";
+        ResolveViewRealm();
+        ResetIdeology();
+        Rebuild();
+    }
+
+    private void CycleCulture(int direction)
+    {
+        List<string> cultures = InstitutionCultureWindow.Ordered();
+        if (cultures.Count == 0) return;
+        int index = cultures.IndexOf(_browsing ? _culture : HomeCulture());
+        Browse(cultures[index < 0 ? 0 : (index + direction + cultures.Count) % cultures.Count]);
+    }
+
+    // 改从文化改的是谁：从王国窗口进来的只改这一国；从帝国窗口进来的改整个帝国(核心连同全部成员国)
+    private (Kingdom kingdom, bool wholeEmpire) ConvertTarget()
+    {
+        if (_pendingKingdom?.data != null && !_pendingKingdom.isRekt() && _homeRealm != null &&
+            _homeRealm.Is(InstitutionRealm.Of(_pendingKingdom)))
+            return (_pendingKingdom, false);
+        if (!IsUsable(_homeRealm)) return (null, false);
+        return (_homeRealm.Core, _homeRealm.IsEmpire);
     }
 
     public override void OnNormalDisable()
@@ -106,14 +172,22 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
         _detailPanel = null;
     }
 
-    private bool IsUsable() =>
-        _realm != null && (_realm.IsEmpire ? _empire.data != null && !_empire.isRekt() : _realm.IsAlive) &&
-        _realm.Core != null && !_realm.Core.isRekt() && _realm.Core.GetRegime() != null &&
-        CultureService.IsValidCulture(_realm.Culture);
+    private bool IsUsable() => IsUsable(_realm);
+
+    private static bool IsUsable(InstitutionRealm realm) =>
+        realm != null && (realm.IsEmpire ? realm.Empire.data != null && !realm.Empire.isRekt() : realm.IsAlive) &&
+        realm.Core != null && !realm.Core.isRekt() && realm.Core.GetRegime() != null &&
+        CultureService.IsValidCulture(realm.Culture);
 
     private void Rebuild()
     {
         Clear();
+        // 浏览的文化眼下没有自主的帝国或独立王国：只看文化本身
+        if (_browsing && _realm == null)
+        {
+            RebuildCultureOnly();
+            return;
+        }
         // 帝国已归档 / 核心王国丢了的话，给一行说明而不是让窗口空着 —— 空内容会被
         // AutoLayoutWindow 顶成原版的"未找到/开发中"占位页，看起来像功能坏了。
         if (!IsUsable())
@@ -122,11 +196,14 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
             _content.Add(empty.gameObject);
             empty.AddTextIntoVertLayout(LM.Get("label_none"), true, TextAnchor.MiddleCenter,
                 new Vector2(PanelWidth, 12));
+            // 本国没了也能浏览别的文化
+            if (_rail != null) AddCultureTools(_rail.BeginRailCard());
             return;
         }
         if (_realm.IsEmpire) InstitutionSystem.MigrateEmpire(_empire);
         else InstitutionSystem.EnsureRealmState(_realm);
-        _readOnly = !_realm.IsEmpire && (!InstitutionSystem.KingdomReformsEnabled || !_realm.IsSovereign);
+        // 浏览别的文化：只看不改
+        _readOnly = _browsing || !_realm.IsEmpire && (!InstitutionSystem.KingdomReformsEnabled || !_realm.IsSovereign);
         _culture = _realm.Culture;
         _lineViews = InstitutionSystem.BuildLineView(_realm);
         _foreignViews = InstitutionSystem.BuildCultureForeignView(_culture);
@@ -151,6 +228,84 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
         AddCultureRanking();
     }
 
+    // 浏览的文化眼下没有自主的帝国或独立王国：树与文明等级按文化本身(同文化窗口，见 InstitutionSystem.BuildCultureLineView)，
+    // 没有改革、立宪与朝堂态势
+    private void RebuildCultureOnly()
+    {
+        _readOnly = true;
+        _culture = _browseCulture;
+        _lineViews = InstitutionSystem.BuildCultureLineView(_culture);
+        _foreignViews = InstitutionSystem.BuildCultureForeignView(_culture);
+        if (string.IsNullOrEmpty(_selectedId))
+            _selectedId = _lineViews.FirstOrDefault(view => view.Status == InstitutionNodeStatus.Reforming)?.Node.id
+                          ?? _lineViews.FirstOrDefault(view => view.Status == InstitutionNodeStatus.Available)?.Node.id
+                          ?? _lineViews.FirstOrDefault()?.Node.id ?? "";
+        AddStatusPanel();
+        const float height = 34f;
+        var panel = _root.BeginVertGroup(new Vector2(PanelWidth, height), pSpacing: 1, pAlignment: TextAnchor.MiddleCenter,
+            pPadding: new RectOffset(6, 6, 4, 4));
+        _content.Add(panel.gameObject);
+        panel.AddTextIntoVertLayout(LM.Get("institution_culture_only_note").ColorString("#B8C6CC"), true,
+            TextAnchor.MiddleCenter, new Vector2(PanelWidth - 12f, 26f)).UseFixedFontSize(7, HorizontalWrapMode.Wrap);
+        panel.transform.AddStretchBackground("FactionFrame", new Vector2(PanelWidth, height));
+        AddLegend();
+        AddGraph();
+        AddDetail();
+        AddCultureRanking();
+    }
+
+    // ── 浏览别的文化、改从文化(左栏两枚文化按钮) ──
+    // 浏览中：左栏最上面一张卡写明在看哪个文化、以哪国为例，◀ ▶ 换着看，「回本国」回来
+    private void AddBrowseCard()
+    {
+        var card = _rail.BeginRailCard("FactionFrame_dominate");
+        card.AddRailText(string.Format(LM.Get("institution_culture_browsing"), _culture.GetCultureTranslate())
+            .ColorString("#E9A85B"), 8, 12f);
+        card.AddRailText((_realm != null
+            ? string.Format(LM.Get("institution_culture_sample"), _realm.Name)
+            : LM.Get("institution_culture_no_sample")).ColorString("#9FB0B6"), 6, 18f, wrap: true);
+        float inner = UIHelper.RailWidth - 8f;
+        var row = card.BeginHoriGroup(new Vector2(inner, 14f), TextAnchor.MiddleCenter, 3, new RectOffset(0, 0, 0, 0));
+        row.AddButtonIntoHoriLayout("institution_culture_previous", "◀", () => CycleCulture(-1), size: new Vector2(18, 12));
+        row.AddButtonIntoHoriLayout("institution_culture_home", LM.Get("institution_culture_home"), () => Browse(""),
+            size: new Vector2(inner - 48f, 12));
+        row.AddButtonIntoHoriLayout("institution_culture_next", "▶", () => CycleCulture(1), size: new Vector2(18, 12));
+    }
+
+    // 一排两枚图标按钮(左卡底下)：浏览别的文化、改从文化(神力)；本国没了只留浏览
+    private void AddCultureTools(AutoVertLayoutGroup card)
+    {
+        float inner = UIHelper.RailWidth - 8f;
+        float half = (inner - 4f) / 2f;
+        var row = card.BeginHoriGroup(new Vector2(inner, 18f), TextAnchor.MiddleLeft, 4, new RectOffset(0, 0, 0, 0));
+        AddToolButton(row, half, "institution_culture_browse", "institution_browse_culture",
+            LM.Get("institution_culture_browse_short"), LM.Get("institution_culture_browse"),
+            LM.Get("institution_culture_browse_tip"),
+            () => InstitutionCultureWindow.OpenBrowse(_homeRealm, _browsing ? _culture : ""));
+        (Kingdom target, bool wholeEmpire) = ConvertTarget();
+        if (target == null) return;
+        Empire empire = target.GetEmpire();
+        string name = wholeEmpire && empire != null ? empire.GetEmpireName() : target.GetKingdomName();
+        AddToolButton(row, half, "institution_culture_convert", "institution_convert_culture",
+            LM.Get("institution_culture_convert_short"), LM.Get("institution_culture_convert"),
+            string.Format(LM.Get(wholeEmpire ? "institution_culture_convert_tip_empire" : "institution_culture_convert_tip_kingdom"),
+                name),
+            () => InstitutionCultureWindow.OpenConvert(target, wholeEmpire));
+    }
+
+    // 图标(IconForge 神力风，见 Tools/IconForge/imperial_forge.py)+ 小字，点哪都开选文化小窗口，悬停说明
+    private static void AddToolButton(AutoHoriLayoutGroup row, float width, string id, string icon, string label, string title,
+        string tip, UnityEngine.Events.UnityAction action)
+    {
+        var group = row.BeginHoriGroup(new Vector2(width, 18f), TextAnchor.MiddleLeft, 2, new RectOffset(0, 0, 0, 0));
+        var button = group.AddButtonIntoHoriLayout(id, "", action,
+            Icon("ui/icons/godpowers/" + icon, "ui/icons/iconCulture"), size: new Vector2(17, 17));
+        UIHelper.AttachTextTooltip(button.gameObject, id + "_tip", title, tip);
+        SimpleText text = AddLabel(group, label.ColorString("#7FD8EA"), width - 19f, 7, TextAnchor.MiddleLeft, 17f);
+        UIHelper.MakeClickable(text.gameObject, action);
+        UIHelper.AttachTextTooltip(text.gameObject, id + "_tip", title, tip);
+    }
+
     // ── 我现在什么水平 ──
     // 顶部总览卡：第一行三枚带图标的"标签"(文化 / 科技线 / 政体)，第二行文明等级 + 一根到下一级的进度条，
     // 最后一行小字点出"制度属于文化"。原来三行都是自动放大的大字，头重脚轻，把下面的内容挤到很后面。
@@ -158,21 +313,27 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
     {
         UIHelper.ClearRail(_rail);
         if (_rail == null) return;
+        if (_browsing) AddBrowseCard();
         InstitutionCultureRanking ranking = InstitutionSystem.GetCultureRanking(_culture);
         var identity = _rail.BeginRailCard("FactionFrame_dominate");
         identity.AddRailText(_culture.GetCultureTranslate().ColorString("#F3C34A"), 10, 14f);
         identity.AddRailText((LM.Get(InstitutionDefinitionRegistry.GetLineNameKey(ranking.Line)) +
                               LM.Get("institution_line_label")).ColorString("#7FD8EA"), 7, 10f);
-        identity.AddRailText(CompositeEmpireService.GetRegimeName(_realm.Core.GetRegime().type)
-            .ColorString("#E6E0CF"), 7, 10f);
+        // 只看文化本身时(浏览的文化没有自主政权)报文化的制度所定的政体
+        string regimeName = _realm != null
+            ? CompositeEmpireService.GetRegimeName(_realm.Core.GetRegime().type)
+            : InstitutionSystem.TryResolveCultureRegime(_culture, out RegimeType cultureRegime)
+                ? CompositeEmpireService.GetRegimeName(cultureRegime)
+                : LM.Get("label_none");
+        identity.AddRailText(regimeName.ColorString("#E6E0CF"), 7, 10f);
         // 旧制犹存：改从了文明更落后的文化，制度仍照旧制所属的文化(上面的文化、制度树就是它)，悬停看缘由与何时作罢
-        if (LegacyInstitutionSystem.TryGet(_realm.Core, out string legacy))
+        if (_realm != null && LegacyInstitutionSystem.TryGet(_realm.Core, out string legacy))
         {
             SimpleText legacyText = identity.AddRailText(LegacyInstitutionSystem.Label(legacy).ColorString("#E9A85B"), 7, 10f);
             UIHelper.AttachTextTooltip(legacyText.gameObject, $"legacy_institution_{_realm.Core.id}",
                 LM.Get("legacy_institution_tip_title"), LegacyInstitutionSystem.Tooltip(_realm.Core, legacy));
         }
-        if (!_realm.IsEmpire)
+        if (_realm != null && !_realm.IsEmpire)
         {
             // 王国：简化朝堂(君主亲裁)，君威代替正统，悬停看各项来源
             identity.AddRailText(_realm.Name.ColorString("#E6E0CF"), 7, 10f);
@@ -189,12 +350,13 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
             new RectOffset(0, 0, 0, 0));
         AddProgressBar(barRow.transform, new Vector2(UIHelper.RailWidth - 12f, 5f), levelProgress,
             new Color(0.95f, 0.76f, 0.29f));
+        AddCultureTools(identity);
         var note = _rail.BeginRailCard();
         note.AddRailText(LM.Get("institution_tagline").ColorString("#9FB0B6"), 6, 30f, wrap: true);
-        if (_realm.IsEmpire) return;
+        if (_realm == null || _realm.IsEmpire) return;
         note.AddRailText(LM.Get("realm_court_ruler_decides_desc").ColorString("#9FB0B6"), 6, 30f, wrap: true);
-        // 附庸只能看；王国改革在设置里关了也只能看
-        if (_readOnly)
+        // 附庸只能看；王国改革在设置里关了也只能看(浏览别的文化另有上面那张卡说明)
+        if (_readOnly && !_browsing)
         {
             var locked = _rail.BeginRailCard();
             locked.AddRailText(LM.Get(InstitutionSystem.KingdomReformsEnabled
@@ -289,6 +451,8 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
             // 强制萌芽只在还没萌芽时出现；已萌芽才可能出现"发起制宪"按钮，两者不会同时显示
             showForceBudding = !isRepublic && !constitution.budding && !constitution.constitutional;
             showForceConstitution = !isRepublic && ConstitutionalEconomySystem.CanForceConstitution(_empire);
+            // 浏览别的文化：只看不改
+            if (_browsing) showStartButton = showForceBudding = showForceConstitution = false;
             rightHeight = CardHeaderHeight + ChipRows(4, 7) * ChipHeight + constitutionNotes.Count * CardLineHeight +
                           (showStartButton ? 14f : 0f) + (showForceBudding ? 14f : 0f) +
                           (showForceConstitution ? 14f : 0f);
@@ -539,13 +703,13 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
             new Vector2(PanelWidth - 12f, 10)).UseFixedFontSize(6, HorizontalWrapMode.Overflow);
 
         var buttons = panel.BeginHoriGroup(new Vector2(PanelWidth - 12f, 13), TextAnchor.MiddleCenter, 4);
-        if (hasPreferred)
+        if (hasPreferred && !_browsing)
             buttons.AddButtonIntoHoriLayout("public_opinion_accept", LM.Get("public_opinion_accept"), () =>
             {
                 PublicOpinionSystem.AcceptPreferred(_empire);
                 Rebuild();
             }, size: new Vector2(90, 11));
-        if (parliament.Exists && !RepublicSystem.IsOneParty(_empire))
+        if (parliament.Exists && !RepublicSystem.IsOneParty(_empire) && !_browsing)
             buttons.AddButtonIntoHoriLayout("public_opinion_snap_election", LM.Get("public_opinion_snap_election"), () =>
             {
                 PublicOpinionSystem.CallSnapElection(_empire);
@@ -590,6 +754,7 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
                     PartyBanSystem.ConsultationLegitimacy,
                     Mathf.RoundToInt(PartyBanSystem.ConsultationDissent * 100f)));
 
+        if (_browsing) return;
         var buttons = panel.BeginHoriGroup(new Vector2(PanelWidth - 12f, 13), TextAnchor.MiddleCenter, 4);
         if (PartyBanSystem.IsClosed(_empire))
             buttons.AddButtonIntoHoriLayout("party_ban_open", LM.Get("party_ban_open"), () =>
@@ -673,6 +838,12 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
                        $"   {LM.Get("label_harsh_rule")} {burden:0}  " + causes.ColorString("#B8C6CC"),
             PanelWidth - 30f, 7, TextAnchor.MiddleLeft);
 
+        // 浏览别的文化：只看不改
+        if (_browsing)
+        {
+            panel.transform.AddStretchBackground("FactionFrame", new Vector2(PanelWidth, height));
+            return;
+        }
         bool can = HarshRuleSystem.CanPlayerRespond(_empire) == null;
         var buttons = panel.BeginHoriGroup(new Vector2(PanelWidth - 12f, 13), TextAnchor.MiddleCenter, 4);
         var repress = buttons.AddButtonIntoHoriLayout("street_response_repress",
@@ -872,8 +1043,8 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
     {
         var section = _root.BeginVertGroup(pSpacing: 1, pAlignment: TextAnchor.UpperCenter);
         _content.Add(section.gameObject);
-        // 理念车道要执政党推，王国没有政党：不显示理念行，树上也不画理念节点
-        if (_realm.IsEmpire)
+        // 理念车道要执政党推，王国没有政党：不显示理念行，树上也不画理念节点(只看文化本身时同王国)
+        if (_realm?.IsEmpire == true)
         {
             var ideologyRow = section.BeginHoriGroup(new Vector2(PanelWidth, 14), TextAnchor.MiddleCenter, 4);
             ideologyRow.AddButtonIntoHoriLayout("ideology_previous", "◀", () => CycleIdeology(-1),
@@ -900,7 +1071,7 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
 
     // 帝国只画选中的那条理念车道；王国一条都不画
     private IReadOnlyList<InstitutionNodeView> VisibleViews(IReadOnlyList<InstitutionNodeView> views) =>
-        _realm.IsEmpire
+        _realm?.IsEmpire == true
             ? IdeologyInstitutionPaths.Visible(views, _selectedIdeology)
             : views.Where(view => !IdeologyInstitutionPaths.TryGetIdeology(view.Node.branch, out _)).ToList();
 
@@ -920,7 +1091,7 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
         string statusHex = GetStatusHex(view.Status);
         string status = GetStatusName(view.Status).ColorString(statusHex);
         float progress = -1f;
-        InstitutionReformState reform = _realm.State?.active_reform;
+        InstitutionReformState reform = _realm?.State?.active_reform;
         if (view.Status == InstitutionNodeStatus.Reforming && reform != null && reform.node_id == view.Node.id)
         {
             status = $"{GetStageName(reform.stage)} {reform.progress:0}%".ColorString(statusHex);
@@ -938,17 +1109,22 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
             case InstitutionNodeStatus.Available:
             case InstitutionNodeStatus.Forceable:
             case InstitutionNodeStatus.Reforming:
-                info = $"{LM.Get("institution_support")} {view.Support.ToString("0").ColorString("#65D66E")}%  " +
-                       $"{LM.Get("institution_opposition")} {view.Opposition.ToString("0").ColorString("#D98C8C")}%";
+                info = _realm == null
+                    ? RegimeOrBranch(view)
+                    : $"{LM.Get("institution_support")} {view.Support.ToString("0").ColorString("#65D66E")}%  " +
+                      $"{LM.Get("institution_opposition")} {view.Opposition.ToString("0").ColorString("#D98C8C")}%";
                 break;
             default:
-                info = InstitutionDefinitionRegistry.TryGetNodeRegime(view.Node, out RegimeType regime)
-                    ? $"→ {CompositeEmpireService.GetRegimeName(regime)}".ColorString("#C9A7E8")
-                    : GetBranchName(view.Node.branch);
+                info = RegimeOrBranch(view);
                 break;
         }
         return new InstitutionGraphView.NodeCardInfo(status, info, progress);
     }
+
+    private static string RegimeOrBranch(InstitutionNodeView view) =>
+        InstitutionDefinitionRegistry.TryGetNodeRegime(view.Node, out RegimeType regime)
+            ? $"→ {CompositeEmpireService.GetRegimeName(regime)}".ColorString("#C9A7E8")
+            : GetBranchName(view.Node.branch);
 
     // 悬浮提示要跟点击后的详情卡说同一件事——直接复用同一套拼字逻辑，只是不放交互按钮。
     // TipButton 渲染的 Text 组件本来就开着富文本，颜色标签是保真的(之前判断它不保真是误判，
@@ -1020,6 +1196,15 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
 
         if (view.Status is InstitutionNodeStatus.Enacted or InstitutionNodeStatus.Absorbed)
             return (title, string.Join("\n", lines));
+
+        // 只看文化本身(浏览的文化眼下没有自主政权)：没有哪国的政治态势可算，只说缺什么、为什么锁着
+        if (_realm == null)
+        {
+            string lacking = MissingRequirementLine(view.Node);
+            if (lacking != null) lines.Add(lacking);
+            else if (!string.IsNullOrEmpty(view.Reason)) lines.Add(LM.Get(view.Reason).ColorString("#B8B8B8"));
+            return (title, string.Join("\n", lines));
+        }
 
         // 制度本身是文化共有的(施行完成会同文化全体共享，见窗口顶部那句提示)，但只要还没
         // 施行完成，"支持/反对/是不是在改革中"这些数字算的都是当前查看的这一个帝国——
@@ -1104,6 +1289,19 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
         }
 
         return (title, string.Join("\n", lines));
+    }
+
+    // 缺哪些前置("任一满足"的一组显示成"A或B")；不缺返回空
+    private string MissingRequirementLine(InstitutionNodeConfig node)
+    {
+        List<string> missing = InstitutionDefinitionRegistry
+            .GetMissingPrerequisites(node, required => InstitutionSystem.IsEnacted(_culture, required))
+            .Select(group => string.Join(LM.Get("institution_requires_any_separator"), group.Select(required =>
+                InstitutionSystem.GetNodeName(InstitutionDefinitionRegistry.Get(required), _culture))))
+            .ToList();
+        return missing.Count == 0
+            ? null
+            : string.Format(LM.Get("institution_missing_requires"), string.Join("、", missing)).ColorString("#D98C8C");
     }
 
     // 把特质 id 换成"特质名(+伤害10 · +速度10)"这样能看懂的样子，直接读特质自己的
@@ -1204,6 +1402,18 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
         {
             _detailPanel.AddTextIntoVertLayout(LM.Get("institution_foreign_hint").ColorString("#B8C6CC"), true,
                 TextAnchor.MiddleCenter, new Vector2(PanelWidth, 20));
+            return;
+        }
+
+        // 浏览别的文化：只看不改，不放施行、回退、推动改革这些按钮
+        if (_browsing)
+        {
+            if (view.Status is not (InstitutionNodeStatus.Enacted or InstitutionNodeStatus.Absorbed) &&
+                !string.IsNullOrEmpty(view.Reason))
+                _detailPanel.AddTextIntoVertLayout(LM.Get(view.Reason).ColorString("#B8B8B8"), true,
+                    TextAnchor.MiddleCenter, new Vector2(PanelWidth, 11));
+            _detailPanel.AddTextIntoVertLayout(LM.Get("institution_culture_readonly").ColorString("#E9A85B"), true,
+                TextAnchor.MiddleCenter, new Vector2(PanelWidth, 11));
             return;
         }
 
@@ -1311,13 +1521,16 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
             foreach (InstitutionCultureRanking culture in cultures)
             {
                 var row = section.BeginHoriGroup(new Vector2(PanelWidth, 16), TextAnchor.MiddleCenter, 2);
-                row.AddButtonIntoHoriLayout("institution_level_down", "-",
-                    () => AdjustCultureLevel(culture.Culture, -1), size: new Vector2(16, 14), showTip: true);
+                // 浏览别的文化：只看不改，不放升降级按钮
+                if (!_browsing)
+                    row.AddButtonIntoHoriLayout("institution_level_down", "-",
+                        () => AdjustCultureLevel(culture.Culture, -1), size: new Vector2(16, 14), showTip: true);
                 string mode = culture.Manual ? LM.Get("institution_level_manual") : LM.Get("institution_level_auto");
                 row.AddTextIntoHoriLayout(
                     $"{culture.Culture.GetCultureTranslate()}  " +
                     $"[{LM.Get(InstitutionDefinitionRegistry.GetLineNameKey(culture.Line))}]  " +
                     $"{culture.Advancement}  ({mode})", true, TextAnchor.MiddleLeft, new Vector2(PanelWidth - 66f, 14));
+                if (_browsing) continue;
                 row.AddButtonIntoHoriLayout("institution_level_auto", LM.Get("institution_level_auto_short"),
                     () => ResetCultureLevel(culture.Culture), size: new Vector2(28, 14), showTip: true);
                 row.AddButtonIntoHoriLayout("institution_level_up", "+",

@@ -1719,6 +1719,23 @@ GODPOWERS.update({
 })
 
 
+def b_lens(img):
+    """放大镜角标：骨白镜框与斜柄，镜片枪灰高光。"""
+    cx, cy = BX - 8, BY - 8
+    frame = union(sub(ellipse([cx - 32, cy - 32, cx + 32, cy + 32]), ellipse([cx - 20, cy - 20, cx + 20, cy + 20])),
+                  lines([[(cx + 20, cy + 20), (BX + 44, BY + 44)]], 16))
+    _badge(img, frame, BONE)
+    over(img, shade(ellipse([cx - 20, cy - 20, cx + 20, cy + 20]), STEEL, bevel=6, gloss=1.0))
+
+
+BADGES["lens"] = b_lens
+# 制度窗口左栏的两枚文化按钮：浏览别的文化(法典 + 放大镜)、改从文化(旗帜 + 互换)
+GODPOWERS.update({
+    "institution_browse_culture": (obj_book, "lens"),
+    "institution_convert_culture": (obj_flag, "swap"),
+})
+
+
 def build():
     out = {}
     for name, obj in TABS.items():

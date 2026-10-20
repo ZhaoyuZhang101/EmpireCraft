@@ -48,6 +48,12 @@ public class CultureInfoWindow : AbstractWideWindow<CultureInfoWindow>
         ScrollWindow.showWindow(nameof(CultureInfoWindow));
     }
 
+    // 整体转化之后(见 InstitutionCultureWindow)：原文化已消亡，回到本窗口时改看转成的文化
+    public static void SelectCulture(string culture)
+    {
+        if (CultureService.IsValidCulture(culture)) _pendingCulture = culture;
+    }
+
     protected override void Init()
     {
         UIHelper.FixWideWindowScrollArea(BackgroundTransform);
@@ -143,6 +149,11 @@ public class CultureInfoWindow : AbstractWideWindow<CultureInfoWindow>
             () => CultureBooksWindow.Open(_culture), size: new Vector2(50, 11));
         buttons.AddButtonIntoHoriLayout("culture_window_modernize", LM.Get("culture_window_modernize"),
             ModernizeWorld, size: new Vector2(90, 11));
+        // 整体转化(神力)：选一个文化，这个文化整个改从它
+        var convertAll = buttons.AddButtonIntoHoriLayout("culture_convert_all", LM.Get("culture_convert_all"),
+            () => InstitutionCultureWindow.OpenCulture(_culture), size: new Vector2(60, 11));
+        UIHelper.AttachTextTooltip(convertAll.gameObject, "culture_convert_all_tip", LM.Get("culture_convert_all"),
+            string.Format(LM.Get("culture_convert_all_tip"), _culture.GetCultureTranslate()));
         panel.transform.AddStretchBackground("FactionFrame_dominate", new Vector2(PanelWidth, 48f));
     }
 
