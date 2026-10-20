@@ -1738,9 +1738,25 @@ public static class SmoothBorders
         return true;
     }
 
-    private static string NameOf(IMetaObject meta) =>
-        meta == null ? "无" : meta is Kingdom kingdom ? kingdom.name : meta is City city ? city.name :
-        meta is Empire empire ? empire.GetEmpireName() : meta.GetType().Name;
+    // 诊断用：记下的旧主人可能已经灭亡(原版 name 取 data.name，data 没了就空引用)
+    private static string NameOf(IMetaObject meta)
+    {
+        try
+        {
+            return meta switch
+            {
+                null => "无",
+                Kingdom kingdom => kingdom.data == null ? "已灭之国" : kingdom.name,
+                City city => city.data == null ? "已毁之城" : city.name,
+                Empire empire => empire.data == null ? "已亡帝国" : empire.GetEmpireName(),
+                _ => meta.GetType().Name
+            };
+        }
+        catch (Exception)
+        {
+            return meta.GetType().Name;
+        }
+    }
 
     public static void Repaint(TileZone zone)
     {

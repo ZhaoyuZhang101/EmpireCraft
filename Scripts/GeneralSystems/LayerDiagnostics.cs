@@ -35,7 +35,26 @@ public static class LayerDiagnostics
     private static readonly HashSet<int> StaleSeen = new();
     private static object _staleLayer;
 
+    // 诊断出错只记一次、本轮作罢：以前异常直接抛进 ModClass.Update，排在后面的各系统这一帧都不跑
+    private static bool _failedReported;
+
     public static void Tick()
+    {
+        try
+        {
+            TickCore();
+        }
+        catch (global::System.Exception exception)
+        {
+            _cursor = -1;
+            _next = Time.unscaledTime + IntervalSeconds;
+            if (_failedReported) return;
+            _failedReported = true;
+            LogService.LogWarning($"[EmpireCraft][图层诊断] 诊断出错，本轮作罢：{exception}");
+        }
+    }
+
+    private static void TickCore()
     {
         MapBox world = World.world;
         if (!PureMapMode.Enabled && !SmoothBorders.Enabled || world?.zone_calculator?.zones == null || !Config.game_loaded ||
