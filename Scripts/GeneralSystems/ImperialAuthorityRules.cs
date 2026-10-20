@@ -50,4 +50,25 @@ public static class ImperialAuthorityRules
 
     // 抗命几率系数
     public static float RefusalFactor(int authority) => Math.Max(0.5f, Math.Min(1.5f, 1.5f - Clamp(authority) / 100f));
+
+    // —— 诸侯私战与帝国法院(见 HolyRomanSystem.Feuds) ——
+    public const float FeudBase = 0.05f, CourtBase = 0.35f, DefyBase = 0.25f;
+
+    // 私战几率(每年每个够格攻方)：5% × (2 − 权威/50)，系数夹 0.2~2——权威 50 时 5%、25 时 7.5%、80 时 2%
+    public static float FeudChance(int authority) => FeudBase * Math.Max(0.2f, Math.Min(2f, 2f - Clamp(authority) / 50f));
+
+    // 法院判给原告的几率：0.35 + 原告是选帝侯 0.15 − 被告是选帝侯 0.10 + 原告与皇帝同族 0.10 − 被告与皇帝同族 0.10
+    //   + (权威−50)/200 + 打点 0.10 + extra(陪臣化请愿另加)，夹 0.1~0.8
+    public static float CourtGrantChance(bool plaintiffElector, bool defendantElector, bool plaintiffImperial,
+        bool defendantImperial, int authority, bool bribed, float extra = 0f)
+    {
+        float chance = CourtBase + (plaintiffElector ? 0.15f : 0f) - (defendantElector ? 0.1f : 0f) +
+                       (plaintiffImperial ? 0.1f : 0f) - (defendantImperial ? 0.1f : 0f) + StanceBonus(authority) +
+                       (bribed ? 0.1f : 0f) + extra;
+        return Math.Max(0.1f, Math.Min(0.8f, chance));
+    }
+
+    // 被告抗判的几率：0.25 × (1.5 − 权威/100) + 被告兵力是原告两倍以上 0.2，夹 0~0.7
+    public static float DefyRulingChance(int authority, bool defendantMuchStronger) =>
+        Math.Max(0f, Math.Min(0.7f, DefyBase * (1.5f - Clamp(authority) / 100f) + (defendantMuchStronger ? 0.2f : 0f)));
 }

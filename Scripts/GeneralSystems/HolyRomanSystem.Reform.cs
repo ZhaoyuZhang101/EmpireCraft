@@ -13,8 +13,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 
 // 帝国改革(原型 1495 年沃尔姆斯帝国议会)：西方制度树「帝国改革」节点施行后，各帝国还要在帝国议会提案颁行
 //   (帝国权威 60 以上才付议、四年一议，通过扣 30，见 Diet 的 AgendaReform；旧档节点已施行的读档后直接算已颁行)：
-//   · 永久和平：成员国之间本就不许私战(见 FeudalVassalService.CanDeclareExternalWar)，此后诸侯纠纷一律交议会与法院；
-//   · 帝国法院：每年有三成可能受理一桩领土纠纷——成员国手里有别的成员国法理的城，判还法理主；
+//   · 永久和平：此后诸侯不得私战(颁行之前诸侯可为法理打小仗，见 Feuds)，纠纷一律交议会与法院；
+//   · 帝国法院：诸侯为法理城起诉，审理、宣判、抗判见 Feuds；
 //   · 帝国大区：成员国按都城所在分成几个大区(每四国一区，至多十区)，大区诸侯应征、缴摊派更可靠(抗命几率减半)，
 //     帝国禁令由被禁者所在大区最强的诸侯执行；
 //   · 议会投票整体 +0.1(诸侯认这套规矩)，正统 +3。
@@ -23,7 +23,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 public static partial class HolyRomanSystem
 {
     public const string NodeImperialReform = "western_imperial_reform";
-    private const float CourtChance = 0.3f, PartibleChance = 0.35f;
+    private const float PartibleChance = 0.35f;
     private const int MembersPerCircle = 4, MaxCircles = 10, CircleRefreshYears = 10;
     public const int ReformLegitimacy = 3;
 
@@ -74,7 +74,6 @@ public static partial class HolyRomanSystem
         bool changed = members.Count != state.circles.Count || members.Any(member => !state.circles.ContainsKey(member.id));
         if (changed || state.circles_at < 0d || Date.getYearsSince(state.circles_at) >= CircleRefreshYears)
             AssignCircles(state, members);
-        if (UnityEngine.Random.value < CourtChance) CourtRuling(empire, state);
     }
 
     // 按都城位置分区(简单 k 均值，种子按国号顺序取，结果稳定)
@@ -105,30 +104,6 @@ public static partial class HolyRomanSystem
             }
         }
         foreach (var pair in assignment) state.circles[pair.Key.id] = pair.Value;
-    }
-
-    // 帝国法院：成员国手里有别的成员国(含中央)法理的城，判还法理主(都城不判)
-    private static void CourtRuling(Empire empire, HolyRomanState state)
-    {
-        foreach (Kingdom holder in empire.kingdoms_list.ToList().OrderBy(_ => UnityEngine.Random.value))
-        {
-            if (holder?.data == null || holder.isRekt() || holder.GetEmpire() != empire) continue;
-            foreach (City city in holder.cities.ToList())
-            {
-                if (city?.data == null || city.isRekt() || city == holder.capital || EnfeoffmentHelper.IsRealmCapital(city)) continue;
-                var title = city.GetTitle();
-                if (title == null || title.isRekt()) continue;
-                Kingdom rightful = title.main_kingdom ?? title.owner?.kingdom;
-                if (rightful?.data == null || rightful.isRekt() || rightful == holder || rightful.GetEmpire() != empire ||
-                    IsBanned(rightful) || rightful.isInWarWith(holder)) continue;
-                string cityName = city.GetCityName();
-                city.joinAnotherKingdom(rightful);
-                state.court_rulings++;
-                Record(empire, string.Format(LM.Get("hre_court_ruling_history"), cityName, rightful.GetKingdomName(),
-                    holder.GetKingdomName()));
-                return;
-            }
-        }
     }
 
     // 分割继承(GraceEdictService.TryHandleVacancy 调用，每次出缺只掷一次)；掷中后还要有两个以上的儿子、都城外有城才分

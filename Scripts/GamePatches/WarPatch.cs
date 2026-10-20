@@ -102,7 +102,7 @@ public class WarPatch: GamePatch
 
         EmpireCraft.Scripts.GeneralSystems.WarGoalSystem.Ensure(__instance);
         RecordWarDeclared(__instance);
-        WorldWarSystem.TryEscalate(__instance);
+        if (!EmpireCraft.Scripts.GeneralSystems.HolyRomanSystem.ContainedWar(__instance)) WorldWarSystem.TryEscalate(__instance);
         if (!__instance.hasEnded() && __instance.GetEmpireWarType() == EmpireWarType.索取法理)
         {
             KingdomTitle targetTitle = __instance.GetTitleTarget();
@@ -439,10 +439,12 @@ public class WarPatch: GamePatch
         WarSituation.RecordParticipant(__result, __result.main_defender);
         try
         {
-            EmpirePartitionSystem.OnWarStarted(__result);
+            // 诸侯私战只许两家对打：不拉兄弟之国、姻亲(见 HolyRomanSystem.ContainedWar)
+            bool contained = EmpireCraft.Scripts.GeneralSystems.HolyRomanSystem.ContainedWar(__result);
+            if (!contained) EmpirePartitionSystem.OnWarStarted(__result);
             // 施行祭祀的攻方战前先卜(见 RitesSystem)
             RitesSystem.OnWarDeclared(__result);
-            RoyalMarriageSystem.OnWarStarted(__result);
+            if (!contained) RoyalMarriageSystem.OnWarStarted(__result);
             SmoothBorders.RefreshWar(__result);
         }
         catch (Exception exception)
@@ -456,7 +458,8 @@ public class WarPatch: GamePatch
         ExpandFeudalWar(__result);
         RecordWarDeclared(__result);
         DetachHostileTributaries(__result);
-        WorldWarSystem.TryEscalate(__result, force: true);
+        if (!EmpireCraft.Scripts.GeneralSystems.HolyRomanSystem.ContainedWar(__result))
+            WorldWarSystem.TryEscalate(__result, force: true);
 
         // 只“排队”，这里不再同步扫描全国人口/军队。
         QueueWarSideMobilization(__result, __result._list_attackers);
@@ -512,14 +515,17 @@ public class WarPatch: GamePatch
         ExpandFeudalWar(__instance);
         CaptureWarRoyalHouses(__instance);
         DetachHostileTributaries(__instance);
-        WorldWarSystem.TryEscalate(__instance, force: true);
+        if (!EmpireCraft.Scripts.GeneralSystems.HolyRomanSystem.ContainedWar(__instance))
+            WorldWarSystem.TryEscalate(__instance, force: true);
 
         QueueKingdomMobilizationOnce(__instance, pKingdom);
     }
 
+    // 诸侯私战不扩封建附庸、共主领国(见 HolyRomanSystem.ContainedWar)
     private static void ExpandFeudalWar(War war)
     {
-        if (war?.getAsset() != WarTypeLibrary.normal || !_expandingFeudalWars.Add(war)) return;
+        if (war?.getAsset() != WarTypeLibrary.normal || EmpireCraft.Scripts.GeneralSystems.HolyRomanSystem.ContainedWar(war) ||
+            !_expandingFeudalWars.Add(war)) return;
         try { FeudalVassalService.ExpandWar(war); }
         finally { _expandingFeudalWars.Remove(war); }
     }

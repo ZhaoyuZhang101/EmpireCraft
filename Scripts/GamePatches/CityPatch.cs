@@ -363,6 +363,12 @@ public class CityPatch : GamePatch
             __instance.clearCapture();
             return false;
         }
+        // 诸侯私战只争清单里的边城，都城与别的城打不下(见 HolyRomanSystem.Feuds)
+        if (EmpireCraft.Scripts.GeneralSystems.HolyRomanSystem.BlocksFeudCity(pNewKingdom, __instance))
+        {
+            __instance.clearCapture();
+            return false;
+        }
         // 部落之间破城不易主：部落联合以前赔款求和，以后奉胜者为共主，占的地全数退还(见 TribalWarSystem)
         if (EmpireCraft.Scripts.GeneralSystems.TribalWarSystem.TrySubmit(__instance, pNewKingdom))
         {
@@ -971,6 +977,8 @@ public class CityPatch : GamePatch
         }
         // 分封制下的小乱：割让、倒戈投靠同样至多两座城、拿不到原主都城(见 PettyRebellion)
         if (EmpireCraft.Scripts.GeneralSystems.PettyRebellion.Blocks(pNewSetKingdom, __instance)) return false;
+        // 诸侯私战进行中：两家之间只有争的城能易手(见 HolyRomanSystem.Feuds)
+        if (EmpireCraft.Scripts.GeneralSystems.HolyRomanSystem.BlocksFeudCity(pNewSetKingdom, __instance)) return false;
         
         __instance.SetCorruptionRate(0.0f);
         string pHappinessEvent = null;

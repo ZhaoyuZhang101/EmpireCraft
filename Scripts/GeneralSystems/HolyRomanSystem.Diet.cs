@@ -500,7 +500,7 @@ public static partial class HolyRomanSystem
 
     #region 战争结束
 
-    // 战争结束(WarPatch 在开战目标结算之后调用)：帝国战争与执行禁令的战争
+    // 战争结束(WarPatch 在开战目标结算之后调用)：帝国战争、执行禁令的战争、宗教战争、护佑之战、诸侯私战
     public static void OnWarEnded(War war, WarWinner winner)
     {
         try
@@ -510,8 +510,13 @@ public static partial class HolyRomanSystem
             foreach (Empire empire in ModClass.EMPIRE_MANAGER.ToList())
             {
                 HolyRomanState state = empire?.data?.holy_roman;
-                if (state == null || empire.isRekt() || empire.IsArchived() ||
-                    id != state.imperial_war_id && id != state.ban_war_id && id != state.league_war_id &&
+                if (state == null || empire.isRekt() || empire.IsArchived()) continue;
+                if (FeudRecord(empire, id) != null)
+                {
+                    SettleFeud(empire, state, war, winner);
+                    continue;
+                }
+                if (id != state.imperial_war_id && id != state.ban_war_id && id != state.league_war_id &&
                     state.protect_wars?.ContainsKey(id) != true) continue;
                 (int attackerGain, int defenderGain) = WarGoalSystem.Gains(war);
                 bool attackersWon = winner == WarWinner.Attackers || winner == WarWinner.Peace && attackerGain >= defenderGain + 1;

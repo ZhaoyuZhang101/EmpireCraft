@@ -77,6 +77,37 @@ public sealed class HolyRomanState
     public double last_reform_agenda_at = -1d;
     // 护佑之战：中央应求援加入成员守方的战争 id → 被护佑的成员国 id
     public Dictionary<long, long> protect_wars = new();
+
+    // —— 诸侯私战与帝国法院(见 HolyRomanSystem.Feuds) ——
+    // 私战：进行中的与十年内打完的(同一对诸侯十年内不再私战)
+    public List<PrivateWarRecord> private_wars = new();
+    // 待裁的诉讼
+    public List<LawsuitRecord> lawsuits = new();
+    // 最近 8 起私战结果与裁决(已本地化)
+    public List<string> court_log = new();
+    // 累计：私战场数、判给原告、驳回(帝国法院判城沿用 court_rulings)
+    public int private_war_count, lawsuits_granted, lawsuits_refused;
+}
+
+// 一场诸侯私战
+public sealed class PrivateWarRecord
+{
+    public long war_id = -1L, attacker_id = -1L, defender_id = -1L;
+    public string attacker_name = "", defender_name = "", city_names = "";
+    // 争的城(只有这几座能在两家之间易手)
+    public List<long> city_ids = new();
+    public double at = -1d, ended_at = -1d;
+    // 帝国改革颁行之后的违禁私战
+    public bool illegal;
+}
+
+// 一桩帝国法院的诉讼(原告告被告占了自己法理的一座城)
+public sealed class LawsuitRecord
+{
+    public long plaintiff_id = -1L, defendant_id = -1L, city_id = -1L;
+    public string plaintiff_name = "", defendant_name = "", city_name = "";
+    public double filed_at = -1d;
+    public bool bribed;
 }
 
 // 帝国权威的一笔收支

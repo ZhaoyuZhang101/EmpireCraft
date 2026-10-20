@@ -14,7 +14,7 @@ namespace EmpireCraft.Scripts.UI.Windows
 {
     // 帝国议会页(封建制帝国，见 HolyRomanSystem)：
     //   页头 → 主指标(帝国权威、家族领地、皇族届数、上次议会、帝国禁令) → 两栏(三院席位 | 皇位：帝位、储君、加冕、帝国改革、诸侯主权)
-    //   → 两栏(帝国权威：刻度与近来收支 | 皇权所费：各事项的门槛与花费)
+    //   → 两栏(帝国权威：刻度与近来收支 | 皇权所费：各事项的门槛与花费) → 两栏(诸侯纷争：私战或诉讼 | 留空)
     //   → 议会纪事 → 选举让步 → 诸侯同盟 → 按钮(召开议会、提请或解除禁令、颁行帝国改革、册立自由城市、典押自由城市、封立主教领)
     public partial class EmpireWindow
     {
@@ -89,6 +89,7 @@ namespace EmpireCraft.Scripts.UI.Windows
                 crown.AddListRow(HalfWidth, 5, null, LM.Get("diet_imperial_war"), imperialWar.data.name, titleWidth: 64f);
 
             DrawAuthority(page, state, authority, elective);
+            DrawDisputes(page, state);
 
             List<DietRecord> records = (state.diets ?? new List<DietRecord>()).AsEnumerable().Reverse().Take(8).ToList();
             var log = page.BeginCard(MainWidth, "diet_records_title", WideKit.Gold, records.Count.ToString());
@@ -184,6 +185,29 @@ namespace EmpireCraft.Scripts.UI.Windows
                     titleHex: authority >= threshold ? WideKit.Gold : WideKit.Muted);
             }
             right.AddListRow(HalfWidth, costs.Count, null, "", LM.Get("diet_spend_note"), titleWidth: 1f);
+        }
+
+        // 诸侯纷争一排两栏：左"诸侯纷争"——进行中的私战(帝国改革后只有违禁私战，红字)、待裁的诉讼，下接最近四起结果
+        private void DrawDisputes(AutoVertLayoutGroup page, HolyRomanState state)
+        {
+            var columns = page.BeginColumns(MainWidth);
+            bool reformed = HolyRomanSystem.ReformEnacted(_empire);
+            var card = columns.BeginColumnCard(HalfWidth, "diet_feud_title", WideKit.Orange,
+                string.Format(LM.Get("diet_feud_header"), state.private_war_count, state.court_rulings));
+            int row = 0;
+            foreach (PrivateWarRecord record in (state.private_wars ?? new List<PrivateWarRecord>()).Where(item => item.ended_at < 0d))
+                card.AddListRow(HalfWidth, row++, null, $"{record.attacker_name}↔{record.defender_name}",
+                    string.Format(LM.Get(record.illegal ? "diet_feud_illegal_row" : "diet_feud_row"), record.city_names,
+                        Date.getYearsSince(record.at) + 1), titleWidth: 80f, titleHex: record.illegal ? WideKit.Red : WideKit.Orange);
+            foreach (LawsuitRecord suit in state.lawsuits ?? new List<LawsuitRecord>())
+                card.AddListRow(HalfWidth, row++, null, string.Format(LM.Get("diet_lawsuit_title"), suit.plaintiff_name, suit.defendant_name),
+                    string.Format(LM.Get("diet_lawsuit_row"), suit.city_name, Date.getYearsSince(suit.filed_at)) +
+                    (suit.bribed ? LM.Get("diet_lawsuit_bribed") : ""), titleWidth: 80f, titleHex: WideKit.Cyan);
+            if (row == 0)
+                card.AddListRow(HalfWidth, row++, null, LM.Get("diet_feud_quiet"),
+                    LM.Get(reformed ? "diet_feud_quiet_reformed" : "diet_feud_quiet_hint"), titleWidth: 50f, titleHex: WideKit.Green);
+            foreach (string text in (state.court_log ?? new List<string>()).AsEnumerable().Reverse().Take(4))
+                card.AddListRow(HalfWidth, row++, null, "", text, titleWidth: 1f);
         }
 
         // 加冕状态：已加冕 / 远征教廷途中 / 当选未加冕(原型"德意志国王")

@@ -66,7 +66,7 @@ public enum TemporaryFactionType
     颁布金玺诏书,
     [Description("废除选帝制并恢复皇位世袭")]
     恢复世袭皇权,
-    [Description("禁止诸侯私战并要求诸侯军队支援帝国")]
+    [Description("收回诸侯外交与对外开战之权，要求诸侯出兵支援帝国")]
     颁布帝国治安令,
     [Description("恢复一名诸侯的私战权并免除其中央军役")]
     确认诸侯特权,
