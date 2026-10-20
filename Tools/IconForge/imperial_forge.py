@@ -1589,7 +1589,7 @@ GODPOWERS.update({
 GODPOWERS.update({
     "tianxia_layer": (obj_ding, None),
 })
-# 营建(城乡营建组)：立村、设镇、毁弃、改隶
+# 营建(城乡营建组)：立村、设镇、毁弃、改隶、迁城
 GODPOWERS.update({
     "place_village": (obj_houses, "plus"),
     "place_town": (obj_market, "plus"),
@@ -1597,6 +1597,7 @@ GODPOWERS.update({
     "assign_settlement": (obj_houses, "arrow"),
     "place_fort": (obj_wall, "plus"),
     "place_city": (obj_city, "plus"),
+    "relocate_city": (obj_city, "arrow"),
     "build_palace": (obj_palace, "up"),
     # 小、中、大厂区
     "factory_small": (obj_factory, "plus"),

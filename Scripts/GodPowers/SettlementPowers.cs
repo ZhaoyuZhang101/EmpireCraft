@@ -7,15 +7,16 @@ namespace EmpireCraft.Scripts.GodPowers;
 
 // 营建神力(用户 2026-10-17 "手动把村子划入城市势力范围""手动放置村/镇……和销毁他们"，见 RuralSettlementSystem)：
 //   立村、设镇、筑关：点城郊平地放一处，小路顺着地势自动连上；建城、营宫殿见 CityPlacementSystem；
+//   迁城：先点一座城，再点本城地界里的新城址，城池当场迁过去、旧城址留一处镇(见 CityRelocationSystem)；
 //   毁弃：点一处村镇，完好的毁为废墟，对废墟再点一下彻底抹去；
 //   改隶：先点一处村镇，再点一座接壤的城，村镇连同它那一片地改归那座城(点别处取消，半分钟不点也取消)；
 //   小、中、大厂区：点城的地放下一整片成品厂区(见 FactorySystem.Place)；毁弃也能拆厂区。
 public static class SettlementPowers
 {
     public const string Village = "place_village", Town = "place_town", Fort = "place_fort", Raze = "raze_settlement", Assign = "assign_settlement";
-    public const string NewCity = "place_city", Palace = "build_palace";
+    public const string NewCity = "place_city", Palace = "build_palace", Relocate = "relocate_city";
     public const string FactorySmall = "factory_small", FactoryMedium = "factory_medium", FactoryLarge = "factory_large";
-    public static readonly string[] Ids = { Village, Town, Fort, NewCity, Palace, FactorySmall, FactoryMedium, FactoryLarge, Raze, Assign };
+    public static readonly string[] Ids = { Village, Town, Fort, NewCity, Relocate, Palace, FactorySmall, FactoryMedium, FactoryLarge, Raze, Assign };
     private const float PickSeconds = 30f;
     private static int _picked = -1;
     private static float _pickedAt = -100f;
@@ -28,6 +29,7 @@ public static class SettlementPowers
         AssetManager.powers.add(new GodPower { id = Fort, name = Fort, click_action = (tile, _) => Tip(RuralSettlementSystem.Place(tile, false, true)) });
         AssetManager.powers.add(new GodPower { id = NewCity, name = NewCity, click_action = (tile, _) => Tip(CityPlacementSystem.PlaceCity(tile)) });
         AssetManager.powers.add(new GodPower { id = Palace, name = Palace, click_action = (tile, _) => Tip(CityPlacementSystem.BuildPalace(tile)) });
+        AssetManager.powers.add(new GodPower { id = Relocate, name = Relocate, click_action = (tile, _) => Tip(CityRelocationSystem.Click(tile)) });
         AssetManager.powers.add(new GodPower
         {
             id = Raze, name = Raze,

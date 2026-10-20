@@ -89,6 +89,19 @@ public static class RoadNetwork
         _dirty = true;
     }
 
+    // 一座城的城心挪了(迁城，见 CityRelocationSystem)：连着它的陆路、航线丢掉，照新城心重新找路——修了的路也重找，
+    // 修路的等级、进度记在 RoadBuildingSystem 里不动；马上接着算(不等五秒一次的全量扫描)
+    public static void ReplanCity(City city)
+    {
+        if (city?.data == null) return;
+        long id = city.data.id;
+        foreach (var key in Roads.Keys.Where(key => key.Item1 == id || key.Item2 == id).ToList()) Roads.Remove(key);
+        foreach (var key in Lanes.Keys.Where(key => key.Item1 == id || key.Item2 == id).ToList()) Lanes.Remove(key);
+        PlansComplete = false;
+        _nextTick = _nextScan = 0f;
+        _dirty = true;
+    }
+
     // 有路的地块：干道经过的，以及城心
     public static bool IsRoad(TileZone zone) =>
         zone != null && (RoadZones.Contains(zone.id) || zone.city?.data != null && zone.city.getTile()?.zone == zone);

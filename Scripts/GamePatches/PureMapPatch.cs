@@ -324,8 +324,14 @@ public partial class PureMapPatch : GamePatch
             Add(Mathf.RoundToInt(plan.modern * 20f));
             Add(Mathf.RoundToInt(plan.ruin * 20f));
             Add((plan.walled ? 1 : 0) + (plan.moat ? 2 : 0) + (plan.axis ? 4 : 0) + (plan.burning ? 8 : 0));
+            // 城心那块地与城门中线(迁城后整座城换地方，见 CityRelocationSystem)
+            Add(plan.centerZone * 131 + 7);
+            Add(plan.gateX * 73 + plan.gateY * 37);
             if (plan.fabric != null)
             {
+                // 官道(邻城迁了城心，接过来的官道换了走向)
+                foreach (UrbanFabric.Road road in plan.fabric.Roads)
+                    if (road.Link) Add(Mathf.RoundToInt(road.X) * 92821 + Mathf.RoundToInt(road.Y) * 7919 + road.Length);
                 Add(Mathf.RoundToInt(plan.fabric.Progress * 20f));
                 Add(plan.fabric.Tier);
                 Add(plan.fabric.Seed.GetHashCode());
@@ -624,6 +630,15 @@ public partial class PureMapPatch : GamePatch
     // 城市平面图里建成的地块(城区)；平面图还没算过的为 null(只读缓存，不为此重算，见 CityDistricts)
     internal static HashSet<int> BuiltZones(City city) =>
         city?.data != null && Plans.TryGetValue(city.data.id, out CityPlan plan) && plan.city == city ? plan.built : null;
+
+    // 这座城画出来有没有城墙(现代拆成环路的不算；迁城时旧城址留有墙的大镇用，见 CityRelocationSystem)：
+    // 按已算好的平面图，还没算过就现算一份
+    internal static bool Walled(City city)
+    {
+        if (city?.data == null || city.isRekt() || city.zones == null) return false;
+        CityPlan plan = CachedPlan(city) ?? PlanFor(city);
+        return plan.walled && plan.tribal < 0 && plan.fabric?.WallsDown != true;
+    }
 
     internal static bool UrbanTile(WorldTile tile)
     {

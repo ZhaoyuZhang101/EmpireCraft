@@ -49,6 +49,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     以前游牧城外只画几处随手散的营地，不记存档、不算村镇；
 //   · 只立在旱地上(荒漠、稀树草原、荒原，见 YurtGround)：手动点在别的地上不立并给提示，AI 只挑旱地，附近没有旱地的游牧城不添；
 //   · 只放牧(生计定死为牧，见 LivelihoodSystem.Of)，没有有墙大镇这一档；兵火焚毁、重建、毁弃、改隶同普通村镇。
+// 迁城(用户 2026-10-20，见 CityRelocationSystem)：新城心那块地上的镇村并进城里(Absorb)；旧城址留一处镇(LeaveOldSeat)，
+//   有城墙的城留有墙的大镇，不花钱。
 public static class RuralSettlementSystem
 {
     private const float VillageWeight = 1f, TownWeight = 3f, CityWeight = 6f, RuinedOutputLoss = 0.6f, BurnPopulationLoss = 0.5f;
@@ -669,6 +671,90 @@ public static class RuralSettlementSystem
         PureMapPatch.Redraw(target);
         if (source != null) PureMapPatch.Redraw(source);
         return string.Format(LM.Get("settlement_assign_done"), name, targetName);
+    }
+
+    #endregion
+
+    #region 迁城
+
+    // 迁城(见 CityRelocationSystem)：新城心那块地上的镇村(关城除外)并进城里——从存档里去掉，住的人算回城里，不留占位
+    public static void Absorb(TileZone zone)
+    {
+        if (zone == null || All.Count == 0) return;
+        bool changed = false;
+        foreach (RuralSettlement settlement in InZone(zone).ToList())
+        {
+            if (settlement.fort) continue;
+            All.Remove(settlement.id);
+            if (_byZone != null && _byZone.TryGetValue(zone.id, out List<RuralSettlement> list)) list.Remove(settlement);
+            changed = true;
+        }
+        if (!changed) return;
+        Revision++;
+        CityDistricts.Reset();
+    }
+
+    // 迁城后旧城址留一处镇(见 CityRelocationSystem)，不花钱：
+    //   · 旧城心那块地上原有镇村(被城区盖住、没画出来的)就把离旧城心最近的那处升成镇，毁了的当即修复；
+    //   · 没有就在那块地里离旧城心(块心)最近、不挤着别的镇村与厂区的平地上立一处；
+    //   · 有城墙的城留有墙的大镇；游牧营地的城在旱地上留毡帐镇(毡帐不筑墙)，不是旱地的留普通的镇。
+    // 立不下(那块地没有平地、四周挤满)返回 null
+    public static RuralSettlement LeaveOldSeat(City city, TileZone zone, bool walled)
+    {
+        if (city?.data == null || city.isRekt() || zone?.tiles == null || zone.city != city) return null;
+        int gx = zone.x * Config.CITY_ZONE_SIZE + 4, gy = zone.y * Config.CITY_ZONE_SIZE + 4;
+        bool yurtCity = YurtCity(city);
+        int tier = walled && !yurtCity ? 2 : 1;
+        RuralSettlement kept = InZone(zone).Where(settlement => !settlement.fort)
+            .OrderBy(settlement => Math.Abs(settlement.x - gx) + Math.Abs(settlement.y - gy)).FirstOrDefault();
+        if (kept != null)
+        {
+            if (kept.ruined_at >= 0d)
+            {
+                kept.ruined_at = -1d;
+                kept.founded = World.world.getCurWorldTime();
+            }
+            if (Tier(kept) < Math.Min(tier, MaxTierOf(kept))) SetTier(kept, tier);
+            Label(kept);
+            Revision++;
+            CityDistricts.Reset();
+            return kept;
+        }
+        bool large = city.GetOrCreate().urban_tier >= 3;
+        int size = tier >= 2 ? large ? 5 : 4 : large ? 4 : 3;
+        const int room = 9;
+        WorldTile best = null;
+        int bestDistance = int.MaxValue;
+        foreach (WorldTile tile in zone.tiles)
+        {
+            if (!UrbanFabric.Buildable(tile)) continue;
+            int d = Math.Abs(tile.x - gx) + Math.Abs(tile.y - gy);
+            if (d >= bestDistance || FactorySystem.Near(tile.x, tile.y, 3)) continue;
+            bool crowded = false;
+            foreach (TileZone around in Around(zone))
+                foreach (RuralSettlement other in InZone(around))
+                    if (Math.Abs(other.x - tile.x) + Math.Abs(other.y - tile.y) < room + (other.town ? other.size : 0))
+                        crowded = true;
+            if (crowded) continue;
+            best = tile;
+            bestDistance = d;
+        }
+        if (best == null) return null;
+        // 原处抹去的占位让出来(同手动立村设镇)
+        if (_clearedByZone != null)
+            foreach (TileZone around in Around(zone))
+                if (_clearedByZone.TryGetValue(around.id, out List<RuralSettlement> list))
+                    foreach (RuralSettlement gone in list.FindAll(gone => Math.Abs(gone.x - best.x) + Math.Abs(gone.y - best.y) < room))
+                    {
+                        list.Remove(gone);
+                        All.Remove(gone.id);
+                    }
+        bool yurt = yurtCity && YurtGround(best.x, best.y, true, size);
+        RuralSettlement town = Add(best.x, best.y, true, size, tier >= 2);
+        MarkYurt(town, yurt);
+        Label(town);
+        CityDistricts.Reset();
+        return town;
     }
 
     #endregion

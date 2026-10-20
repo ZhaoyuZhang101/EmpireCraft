@@ -73,6 +73,15 @@ public static class AdministrativeControlSystem
 
     private static Kingdom Realm(Kingdom kingdom) => kingdom?.GetEmpire()?.CoreKingdom ?? kingdom;
 
+    // 治所挪了地方(迁城，见 CityRelocationSystem)：本国(在帝国里的算整个帝国)排进队里重算路程，不等满一年
+    public static void Refresh(Kingdom kingdom)
+    {
+        Kingdom realm = Realm(kingdom);
+        if (!Valid(realm)) return;
+        realm.GetOrCreate().admin_pass_at = -1d;
+        if (!Pending.Contains(realm.id)) Pending.Enqueue(realm.id);
+    }
+
     private static bool Valid(Kingdom kingdom) => kingdom?.data != null && !kingdom.isRekt() && !kingdom.wild &&
                                                   !AncientWarfareCompatibility.Owns(kingdom);
 
