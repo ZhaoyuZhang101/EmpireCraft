@@ -209,10 +209,7 @@ public static class TreasuryRules
             bool repayment = pair.Key == nameof(TreasuryCategory.GovernanceArrears) ||
                 pair.Key == nameof(TreasuryCategory.GarrisonArrears) || pair.Key == nameof(TreasuryCategory.MilitaryArrears);
             if (repayment) report.debt_repayment += expense ? value : -value;
-            if (!expense && (pair.Key == nameof(TreasuryCategory.ResidentTax) || pair.Key == nameof(TreasuryCategory.LandTax) ||
-                pair.Key == nameof(TreasuryCategory.IndustrialTax) || pair.Key == nameof(TreasuryCategory.CommercialTax) || pair.Key == nameof(TreasuryCategory.InternalTransfer) ||
-                pair.Key == nameof(TreasuryCategory.PublicTrade) || pair.Key == nameof(TreasuryCategory.Tribute) ||
-                pair.Key == nameof(TreasuryCategory.PublicEnterprise))) report.stable_income += value;
+            if (!expense && StableIncomeKey(pair.Key)) report.stable_income += value;
             // 每个账户的经常收支包含真实央地分成，投资和偶发款项单列。
             if (pair.Key != nameof(TreasuryCategory.Construction) && pair.Key != nameof(TreasuryCategory.Research) &&
                 pair.Key != nameof(TreasuryCategory.RecoveredFunds) &&
@@ -222,6 +219,13 @@ public static class TreasuryRules
                 report.operating_balance += expense ? -value : value;
         }
     }
+
+    // 经常收入的类目：税款、央地拨款(税款分成与城库上缴)、公共贸易、贡金、官营产业
+    public static bool StableIncomeKey(string key) =>
+        key == nameof(TreasuryCategory.ResidentTax) || key == nameof(TreasuryCategory.LandTax) ||
+        key == nameof(TreasuryCategory.IndustrialTax) || key == nameof(TreasuryCategory.CommercialTax) ||
+        key == nameof(TreasuryCategory.InternalTransfer) || key == nameof(TreasuryCategory.PublicTrade) ||
+        key == nameof(TreasuryCategory.Tribute) || key == nameof(TreasuryCategory.PublicEnterprise);
 
     // 整数分摊以总账单为准，余数按大小及输入顺序稳定分配。
     public static int[] Allocate(int bill, IReadOnlyList<int> budgets)

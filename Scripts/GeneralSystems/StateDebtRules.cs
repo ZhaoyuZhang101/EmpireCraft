@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace EmpireCraft.Scripts.GeneralSystems;
 
@@ -32,6 +33,27 @@ public static class StateDebtRules
         int due = (int)Math.Min(int.MaxValue, Math.Floor(interest + .00000001d));
         carry = Math.Max(0d, interest - due);
         return due;
+    }
+
+    // 按月账折年收：满十二个月按合计；不满一年保守估——按月均折年与按中位月折年取小(缺账的月份算 0，偶数个取低的那个)。
+    // 以前一律 合计 × 12 / 月数，新立的国家头一两个月有一笔大进账就被放大成十几倍的年收
+    public static long Annualize(IReadOnlyList<long> monthly, int months)
+    {
+        months = Math.Max(1, Math.Min(12, months));
+        var values = new List<long>();
+        long sum = 0L;
+        if (monthly != null)
+            foreach (long value in monthly)
+            {
+                long amount = Math.Max(0L, value);
+                values.Add(amount);
+                sum += amount;
+            }
+        if (months >= 12) return sum;
+        while (values.Count < months) values.Add(0L);
+        values.Sort();
+        long median = values[(values.Count - 1) / 2];
+        return Math.Min(sum * 12L / months, median * 12L);
     }
 
     // 还能借多少：年经常收入 × 上限倍数 − 现有债务

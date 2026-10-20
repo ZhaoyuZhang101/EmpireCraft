@@ -12,7 +12,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 
 // 国债(无小人模式；参考维多利亚3“有偿债能力的借贷”)：
 //   借：国库不到安全储备的四分之一，或正对一般地方限额拨款(FiscalBudgetPlanner)时，向本国各城百姓的民间现金借钱——
-//       只借每户日用底线以上的部分，每城最多借出一半；借款不超过缺口，总债务不超过年经常收入的 2 倍。
+//       只借每户日用底线以上的部分，每城最多借出一半；借款不超过缺口，总债务不超过年经常收入的 2 倍
+//       (举债看的年收不算城库余钱上缴这类一次性划拨，账目不满一年保守折年，见 BorrowingIncome)。
 //       没掌握“数学”的文明不会举债；一年内违约过的，没人肯借。借来的是真钱(百姓现金 → 国库)，记“举债所得”，不算经常收入。
 //   息：年利率 4%，未掌握“银行”+3%，正统越低越贵(最多 +4%)，有欠饷 +2%，限 3%~12%；每月付给债权城的民间现金。
 //       付不起就把利息滚进本金，记一次违约。
@@ -48,10 +49,46 @@ public static class StateDebtSystem
         return total > 0d ? (float)(weighted / total) : 0f;
     }
 
-    public static long AnnualStableIncome(Kingdom kingdom)
+    // 年经常收入(近十二个月的税款、央地拨款、贡金、公共贸易、官营产业)。账目不满一年时按月账保守折年(见 StateDebtRules.Annualize)：
+    // 以前 合计 × 12 / 月数，新立的国家头一两个月城库余钱上缴之类的大笔进账被放大成十几倍的年收，凭它借满两年收入的债，
+    // 几个月后年收回落，又月月废债重组(玩家日志 2026-10-20 自由城市年收 29→7→2→0)。满一年的照旧按合计
+    public static long AnnualStableIncome(Kingdom kingdom) => AnnualIncome(kingdom, recurringOnly: false);
+
+    // 举债看的年收：再去掉一次性划拨——央地拨款里只算记明是税款分成的，城库余钱上缴、城毁交回国库这类不算
+    public static long BorrowingIncome(Kingdom kingdom) => AnnualIncome(kingdom, recurringOnly: true);
+
+    private static long AnnualIncome(Kingdom kingdom, bool recurringOnly)
     {
         TreasuryReport report = TreasurySystem.Report(kingdom);
-        return report == null || report.months <= 0 ? 0L : report.stable_income * 12L / Math.Max(1, report.months);
+        if (report == null || report.months <= 0) return 0L;
+        if (report.months >= 12 && !recurringOnly) return report.stable_income;
+        // Report 已按十二个月修剪过账目
+        List<TreasuryPeriod> periods = kingdom.GetOrCreate().treasury?.periods;
+        var monthly = new List<long>();
+        if (periods != null)
+            foreach (TreasuryPeriod period in periods)
+                if (period != null) monthly.Add(StableIncomeOf(period, recurringOnly));
+        return StateDebtRules.Annualize(monthly, report.months);
+    }
+
+    private static long StableIncomeOf(TreasuryPeriod period, bool recurringOnly)
+    {
+        if (period.income == null) return 0L;
+        long total = 0L;
+        foreach (KeyValuePair<string, long> pair in period.income)
+        {
+            if (!TreasuryRules.StableIncomeKey(pair.Key)) continue;
+            long value = Math.Max(0L, pair.Value);
+            if (recurringOnly && pair.Key == nameof(TreasuryCategory.InternalTransfer))
+            {
+                long shared = 0L;
+                if (period.tax_transfer_income != null)
+                    foreach (long amount in period.tax_transfer_income.Values) shared += Math.Max(0L, amount);
+                value = Math.Min(value, shared);
+            }
+            total += value;
+        }
+        return total;
     }
 
     public static bool DefaultedRecently(Kingdom kingdom)
@@ -92,7 +129,7 @@ public static class StateDebtSystem
         long need = StateDebtRules.BorrowNeed(kingdom.GetTreasuryBalance(), TreasurySystem.SafetyReserve(kingdom),
             FiscalBudgetPlanner.NormalRatio(kingdom) < 0.999d);
         if (need <= 0L) return;
-        long room = StateDebtRules.BorrowRoom(AnnualStableIncome(kingdom), Outstanding(kingdom));
+        long room = StateDebtRules.BorrowRoom(BorrowingIncome(kingdom), Outstanding(kingdom));
         long target = Math.Min(need, room);
         if (target < MinimumLoan || kingdom.cities == null) return;
 
