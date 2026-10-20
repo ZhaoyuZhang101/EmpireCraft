@@ -230,6 +230,8 @@ public static class EmpirePartitionSystem
             LogService.LogWarning($"[EmpireCraft][分裂] {source.GetEmpireFullName()} 分立失败：{newCore.name} 未能称帝");
             return null;
         }
+        // 一片地一个帝国法理：分立的一朝另立的法理只是与原朝并立时的伪法理(见 RealmNamingSystem.MarkProvisionalCore)
+        RealmNamingSystem.MarkProvisionalCore(twin, source);
         Inherit(source, twin, ruler);
         foreach (Kingdom kingdom in plan.Members)
             if (kingdom != null && !kingdom.isRekt() && kingdom.GetEmpire() == source)

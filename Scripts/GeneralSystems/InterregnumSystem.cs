@@ -89,6 +89,9 @@ public static class InterregnumSystem
             {
                 LogService.LogWarning($"[EmpireCraft][绝嗣裂土] {region.name} 称帝失败: {exception.Message}");
             }
+            // 一片地一个帝国法理(用户 2026-10-20 定)：据地称帝者另立的法理只是与京城朝廷并立时的伪法理，
+            // 不把旧法理的王国法理挖走；朝廷亡了、自己据有旧法理过半时并回旧法理(见 ImperialLegitimacyChallengeService.TryLegitimizeFalseCore)
+            RealmNamingSystem.MarkProvisionalCore(rival, empire);
             if (rival?.data == null)
             {
                 texts.Add(string.Format(LM.Get("interregnum_claim_independent_history"), ruler, seatName));

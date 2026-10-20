@@ -107,6 +107,16 @@ public static partial class RealmNamingSystem
         return IsFormalCore(byCity) ? byCity : null;
     }
 
+    // 一片地一个帝国法理(用户 2026-10-20 定)：与现存帝国并立时另立的法理(绝嗣裂土的据地称帝、两朝分立)只算伪法理——
+    // 不算正式法理(法理归属、天下照旧归原法理)，原朝亡后据有原法理过半即并回(TryLegitimizeFalseCore)。帝国法理名第一次生成时定下，此后不改
+    public static void MarkProvisionalCore(Empire claimant, Empire incumbent)
+    {
+        if (claimant?.data == null || incumbent?.data == null || claimant == incumbent || incumbent.IsArchived()) return;
+        EmpireCore own = EmpireCoreManager.Get(claimant);
+        if (own == null || own == EmpireCoreManager.Get(incumbent) || own.false_core_against_empire_id > 0) return;
+        own.false_core_against_empire_id = incumbent.id;
+    }
+
     // 宗族记下祖上帝国时一并记帝国法理(称帝时帝国还没绑法理，绑完由 EmpireManager.NewEmpire 补记)
     public static void RememberAncestralCore(SpecificClan clan, Empire empire)
     {
