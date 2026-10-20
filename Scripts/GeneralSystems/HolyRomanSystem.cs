@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using EmpireCraft.Scripts.AI.KingdomAI;
 using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.HelperFunc;
@@ -20,7 +21,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     不到一成时，城比中央多的诸侯不听调遣(见 EmpirePeacePatch.Obeys)；皇帝远征加冕在外时，城比中央一半多的也不听；
 //   · 选举让步：帝位换了一家(或选立储君)时随机让出一项——帝国税降一档、某选帝侯所在国恢复外交与开战权、
 //     自治派系 +5、中央一座非都城的城封给最强的选帝侯；十年内至多让一次，各项有底线(见 Concede)；
-//   · 选立储君(原型"罗马人民的国王")：皇帝在世、有继承人时，每年有两成可能让选帝侯先把继承人选为储君
+//   · 选立储君(原型"罗马人民的国王")：皇帝在世、有成年子嗣时，每年有两成可能让选帝侯先把长子选为储君
 //     (让出一项、花一成年度经常收入)；皇帝死后他直接即位，不再另选。同一家族连续当选记届数。
 // 其余见各分部：Diet 帝国议会与禁令、Members 自由城市与教会诸侯、Reform 帝国改革与分割继承、
 // Leagues 诸侯同盟与和约、加冕远征。选帝制只管上面几条；其余凡封建制帝国(HasDiet)都适用。
@@ -164,8 +165,10 @@ public static partial class HolyRomanSystem
         }
         if (KingOfRomans(empire) != null) return;
         state.king_of_romans_id = -1L;
-        Actor heir = empire.CoreKingdom.HasHeir() ? empire.CoreKingdom.GetHeir() : null;
-        if (heir?.data == null || heir.isRekt() || !heir.isAlive() || UnityEngine.Random.value >= KingOfRomansChance) return;
+        // 先掷骰再挑人：挑人可能落成虚拟族人
+        if (UnityEngine.Random.value >= KingOfRomansChance) return;
+        Actor heir = KingOfRomansCandidate(empire);
+        if (heir?.data == null || heir.isRekt() || !heir.isAlive()) return;
         long cost = Math.Min(Math.Max(0L, (long)empire.CoreKingdom.GetMoney()),
             (long)(StateDebtSystem.AnnualStableIncome(empire.CoreKingdom) * KingOfRomansCost));
         if (cost > 0) empire.CoreKingdom.SubMoney((int)cost, TreasuryCategory.Gift);
@@ -173,6 +176,23 @@ public static partial class HolyRomanSystem
         Concede(empire, state);
         Record(empire, string.Format(LM.Get("hre_king_of_romans_history"), heir.getName(), emperor.getName()));
         heir.RecordPersonalHistory(LM.Get("personal_history_king_of_romans"));
+    }
+
+    // 储君人选：皇帝成年可继位、身在本帝国的子嗣，年长的先。选帝制下帝位不世袭，中央一直没有继承人
+    // (EmpireCraftKingdomBehCheckHeir 只给世袭的国家立继承人)，以前按"有继承人"判，罗马人民的国王从来选不出来。
+    // 无小人模式下皇子多是虚拟族人：实体里没有就按长幼落成一位(最多试两人，不合格的并回人口)
+    public static Actor KingOfRomansCandidate(Empire empire)
+    {
+        bool Fit(Actor actor) => actor.isAdult() && actor.isUnitFitToRule() && actor.kingdom?.GetEmpire() == empire;
+        Actor pick = EmpireCraftKingdomBehCheckHeir.HeirCandidates(empire.CoreKingdom).Where(Fit)
+            .OrderByDescending(actor => actor.getAge()).FirstOrDefault();
+        if (pick != null || !CityPopulationSystem.AbstractPopulationEnabled) return pick;
+        PersonalClanIdentity parent = empire.Emperor?.GetPersonalIdentity();
+        if (parent == null) return null;
+        return VirtualGenealogySystem.RealizeFirst(SpecificClanManager.getChildren(parent).Select(item => item.Item2)
+                .Where(identity => identity != null && identity.is_alive && identity.CanHeir())
+                .OrderByDescending(identity => identity.age),
+            actor => Fit(actor) && actor != empire.Emperor, 2);
     }
 
     private static bool NewHouse(HolyRomanState state, Actor elected)
