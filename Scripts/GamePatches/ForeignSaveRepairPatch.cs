@@ -10,7 +10,9 @@ namespace EmpireCraft.Scripts.GamePatches;
 // 别的模组的旧存档(用户 2026-10-19：有人读 0.22.9 带种族模组的存档，Kingdom.loadData 空引用进不去)：
 // 存档里国家、城市、宗族、文化等记的开国物种是那个模组加的、现在没有，原版读国家时取物种资产不判空就崩了。
 // 原版转换完旧存档之后，把找不到的物种换成现有的：同名(不分大小写) > 名字里含现有的文明物种(xia_human→human) > 人类；
-// 开过国、建过城、有宗族文化的物种，它的单位一并换过来，别的找不到的单位照原版丢掉
+// 开过国、建过城、有宗族文化的物种，它的单位一并换过来，别的找不到的单位照原版丢掉。
+// 战争类型同理(2026-10-21 有人读别的模组用过的图，读联盟时 War.isTotalWar 取不到战争类型空引用)：
+// 原版谋划读档会丢掉找不到类型的，战争不判，这里把找不到的改成普通战争
 public class ForeignSaveRepairPatch : GamePatch
 {
     public ModDeclare declare { get; set; }
@@ -32,6 +34,31 @@ public class ForeignSaveRepairPatch : GamePatch
         {
             LogService.LogWarning($"[EmpireCraft] 旧存档物种修复失败: {exception.Message}");
         }
+        try
+        {
+            RepairWars(pData);
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft] 旧存档战争类型修复失败: {exception.Message}");
+        }
+    }
+
+    private static void RepairWars(SavedMap data)
+    {
+        Dictionary<string, WarTypeAsset> types = AssetManager.war_types_library?.dict;
+        if (data?.wars == null || types == null || !types.ContainsKey("normal")) return;
+        var unknown = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (WarData war in data.wars)
+        {
+            if (war == null || !string.IsNullOrEmpty(war.war_type) && types.ContainsKey(war.war_type)) continue;
+            string key = string.IsNullOrEmpty(war.war_type) ? "(空)" : war.war_type;
+            unknown[key] = unknown.TryGetValue(key, out int count) ? count + 1 : 1;
+            war.war_type = "normal";
+        }
+        if (unknown.Count == 0) return;
+        LogService.LogWarning($"[EmpireCraft][外来存档] 找不到的战争类型已改为普通战争：" +
+                              string.Join("，", unknown.Select(pair => $"{pair.Key} {pair.Value} 场")));
     }
 
     private static bool Known(string id) =>
