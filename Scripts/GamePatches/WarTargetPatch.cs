@@ -29,9 +29,11 @@ public class WarTargetPatch : GamePatch
             __result = null;
             return;
         }
-        // 姻亲、通好、扶立、共事部落、统一战线、兄弟之国、岁币朝贡、封建上下级等不打(见 WarGate.Forbidden)
+        // 姻亲、通好、扶立、共事部落、统一战线、兄弟之国、岁币朝贡、封建上下级等不打(见 WarGate.Forbidden)；
+        // 没有雄主在位的游牧政权平时只打两城以内的小国(见 SteppeOrderSystem)
         if (__result != null && IsNeighbour(pInitiatorKingdom, __result) &&
-            !GeneralSystems.WarGate.Forbidden(pInitiatorKingdom, __result)) return;
+            !GeneralSystems.WarGate.Forbidden(pInitiatorKingdom, __result) &&
+            GeneralSystems.SteppeOrderSystem.PeacetimeWarAllowed(pInitiatorKingdom, __result)) return;
         __result = NearestNeighbourTarget(pInitiatorKingdom);
     }
 
@@ -54,6 +56,7 @@ public class WarTargetPatch : GamePatch
             // 好感好的邻国：有继承宣称、或兵力是对方两倍以上才打；姻亲之国等不打(见 WarGate.Forbidden)
             bool friendly = initiator.isOpinionTowardsKingdomGood(target);
             if (ours < theirs || GeneralSystems.WarGate.Forbidden(initiator, target) ||
+                !GeneralSystems.SteppeOrderSystem.PeacetimeWarAllowed(initiator, target) ||
                 !initiator.capital.reachableFrom(target.capital) && !GeneralSystems.StraitReach.Across(initiator, target) ||
                 Date.getYearsSince(DiplomacyHelpers.diplomacy.getRelation(initiator, target).data.timestamp_last_war_ended) <
                 SimGlobals.m.minimum_years_between_wars ||

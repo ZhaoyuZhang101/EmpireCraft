@@ -8,12 +8,15 @@ using EmpireCraft.Scripts.Regimes;
 namespace EmpireCraft.Scripts.Regimes.TemporaryFactions.Claims;
 
 // 游牧扩张(朝堂诉求)。游牧高扩张(用户 2026-10-20 定的游牧基调"高扩张，低控制")：雄主(开国雄主、中兴雄主)在位时势头更猛——
-// 冷却 HeroCooldownYears 年(平时 NormalCooldownYears 年)，手上的游牧扩张之战不到 HeroMaxWars 场就能再开(平时要一场仗都没有)，
-// 不看过度扩张(打下来管不住的交给低控制转间接统治，见 AdministrativeControlSystem)。这是诉求里的扩张，
-// 与天下大势的统一战争(只有雄主能打，见 UnificationSystem)是两回事
+// 冷却 HeroCooldownYears 年，手上的游牧扩张之战不到 HeroMaxWars 场就能再开，不看过度扩张(打下来管不住的交给低控制
+// 转间接统治，见 AdministrativeControlSystem)，可南下打定居帝国的边地。
+// 平时不大扩张(用户 2026-10-20 定的草原常态，见 SteppeOrderSystem)：没有雄主在位，NormalCooldownYears 年一次、
+// 一场仗都没在打才提，只打 PeaceMaxCities 城以内、不在任何帝国里、兵力不到本国一半的小国——至多小打小闹。
+// 这是诉求里的扩张，与天下大势的统一战争(只有雄主能打，见 UnificationSystem)是两回事
 public class TempFac_游牧扩张 : TemporaryFaction
 {
-    private const int NormalCooldownYears = 5, HeroCooldownYears = 2, HeroMaxWars = 2;
+    private const int NormalCooldownYears = 8, HeroCooldownYears = 2, HeroMaxWars = 2;
+    private const double PeacePowerLead = 2d;
 
     public override TemporaryFaction Clone(FixedFaction faction)
     {
@@ -36,7 +39,7 @@ public class TempFac_游牧扩张 : TemporaryFaction
             var war = DiplomacyHelpers.wars.newWar(empire.CoreKingdom, target, WarTypeLibrary.normal);
             war.SetEmpireWarType(EmpireWarType.游牧扩张);
         }
-        // 同对外扩张：五年一次(用户 2026-10-17 选"游牧扩张加冷却比兵力")；雄主在位两年一次
+        // 平时八年一次(用户 2026-10-17 选"游牧扩张加冷却比兵力"时是五年，2026-10-20 定平时不大扩张)；雄主在位两年一次
         CountDown = empire?.CoreKingdom != null && RulerTraitSystem.FounderReigns(empire.CoreKingdom) ? HeroCooldownYears : NormalCooldownYears;
         End();
     }
@@ -71,6 +74,9 @@ public class TempFac_游牧扩张 : TemporaryFaction
             if (kingdom == null || kingdom.isRekt() || empire.given_Kingdoms.Contains(kingdom) ||
                 empire.taken_Kingdoms.Contains(kingdom) || empire.CoreKingdom.isOpinionTowardsKingdomGood(kingdom) ||
                 empire.CoreKingdom.isInWarWith(kingdom)) continue;
+            // 平时只打两城以内、不在帝国里、兵力不到本国一半的小国
+            if (!hero && (kingdom.IsInEmpire() || kingdom.IsEmpire() || (kingdom.cities?.Count ?? 0) > SteppeOrderSystem.PeaceMaxCities ||
+                          power < WarSituation.Power(kingdom) * PeacePowerLead)) continue;
             if (kingdom.IsInEmpire() && !BorderTarget(empire, kingdom, power)) continue;
             if (EmpireCraft.Scripts.Compatibility.NuclearDoctrineSystem.IsDeterred(empire.CoreKingdom, kingdom)) continue;
             if (!kingdom.IsInEmpire() && power <= WarSituation.Power(kingdom)) continue;

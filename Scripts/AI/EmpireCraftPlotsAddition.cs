@@ -2811,6 +2811,8 @@ namespace EmpireCraft.Scripts.AI
             if (lastWarEnded >= 0 &&
                 Date.getYearsSince(lastWarEnded) < SimGlobals.m.minimum_years_between_wars)
                 return false;
+            // 草原常态：没有雄主在位的游牧政权平时只打两城以内的小国(见 SteppeOrderSystem)
+            if (!SteppeOrderSystem.PeacetimeWarAllowed(initiator, target)) return false;
             // 春秋战国：周室诸侯之间可以互相征伐(春秋不得攻王畿)
             bool zhouValid = ZhouEraSystem.IsValidVassalWarTarget(initiator, target, out bool zhouHandled);
             if (zhouHandled) return zhouValid;
