@@ -20,6 +20,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 阻力满了不起兵(王国没有可起兵的成员国)：改革作罢、反对派 +6、君主声望 −20；
 //   · 规则一：本文化有帝国时，王国不推改政体、废君主的制度——那要帝国来推；部落时代没有帝国，哪个部落都能推部落联合之类；
 //   · AI：与帝国同样的间隔，按国家编号错开年份；叛乱未平不推；同文化别的政权在推的不重复推；每个文化至多三个王国同时在推；
+//     部落(原始政体的帝国，见 IsTribalEmpire)也照这几条，与王国合占名额；
+//   · 扫描分帧排队，一轮可能不止一年：改革进度按两次扫描之间实际过去的年数补足；
 //   · 称帝时进行中的改革带进帝国(落地记录不带)，帝国解散时交回核心王国。
 public static partial class InstitutionSystem
 {
@@ -31,6 +33,9 @@ public static partial class InstitutionSystem
     private const int CollapseOppositionGain = 6;
     private const int CollapseRenownLoss = 20;
     private const int MaxKingdomReformsPerCulture = 3;
+    // 王国两次扫描之间按实际年数补改革进度：至少半年(同一年不扫两遍)，至多补十年(很久没扫的不一下子跳完)
+    private const double MinScanYears = 0.5d, MaxCatchUpYears = 10d;
+    private const double SecondsPerYear = 60d;
 
     private static readonly Queue<Kingdom> KingdomScanQueue = new();
     private static object _kingdomScanWorld;
@@ -56,6 +61,7 @@ public static partial class InstitutionSystem
             _lastKingdomScan = now;
             if (!KingdomReformsEnabled) return;
             foreach (Kingdom kingdom in World.world.kingdoms.list.ToList()) KingdomScanQueue.Enqueue(kingdom);
+            _kingdomPassSize = KingdomScanQueue.Count;
         }
         var budget = global::System.Diagnostics.Stopwatch.StartNew();
         while (KingdomScanQueue.Count > 0 && budget.ElapsedMilliseconds < KingdomScanBudgetMs)
@@ -71,6 +77,8 @@ public static partial class InstitutionSystem
                 LogService.LogWarning($"[EmpireCraft] 王国制度结算失败({kingdom.data?.name}): {exception.Message}");
             }
         }
+        // 一轮扫完：记下这一轮用了几年(诊断用，见 InstitutionSystem.Diagnostics.cs)
+        if (KingdomScanQueue.Count == 0) NoteKingdomPassDone(now);
     }
 
     private static void UpdateKingdom(Kingdom kingdom)
@@ -98,6 +106,11 @@ public static partial class InstitutionSystem
         }
         // 一年一扫；分帧排队的先后不一，用半年防同一年里扫两遍
         if (Date.getMonthsSince(state.last_update_timestamp) < 6) return;
+        // 距上回扫过了几年：王国多、游戏开得快时一轮不止一年(每帧至多几毫秒，见 KingdomScanBudgetMs)，
+        // 改革进度按实际过去的年数补足。以前每扫一次只记一年，开快了王国的改革慢上几倍，
+        // 帝国(含各部落)是按年更新的，于是只见部落在推
+        float elapsedYears = (float)Math.Max(MinScanYears,
+            Math.Min(MaxCatchUpYears, (now - state.last_update_timestamp) / SecondsPerYear));
         state.last_update_timestamp = now;
 
         Dictionary<SocialClass, float> shares = BuildClassShares(realm);
@@ -112,7 +125,7 @@ public static partial class InstitutionSystem
             DropKingdomReform(kingdom, state, culture, "institution_reform_requires_paramount");
             return;
         }
-        if (state.active_reform != null) AdvanceReform(realm, shares);
+        if (state.active_reform != null) AdvanceReform(realm, shares, elapsedYears);
         else TryStartAiReform(realm, shares);
     }
 
@@ -197,7 +210,8 @@ public static partial class InstitutionSystem
         return result;
     }
 
-    // 本文化各王国正在推的改革(国家, 节点)
+    // 本文化各独立王国正在推的改革(国家, 节点)。已不独立的(入了帝国、成了附庸)不算：它们的改革要等扫到时才作罢，
+    // 王国多、一轮扫描不止一年时，以前这些作废的改革一直占着"每文化三国"的名额
     private static IEnumerable<(Kingdom kingdom, string nodeId)> CultureKingdomReforms(string culture)
     {
         if (World.world?.kingdoms == null) yield break;
@@ -206,24 +220,65 @@ public static partial class InstitutionSystem
             if (kingdom?.data == null || kingdom.isRekt()) continue;
             string nodeId = kingdom.GetOrCreate().institution_state?.active_reform?.node_id;
             if (string.IsNullOrEmpty(nodeId) ||
-                !string.Equals(CultureService.GetInstitutionCulture(kingdom), culture, StringComparison.Ordinal)) continue;
+                !string.Equals(CultureService.GetInstitutionCulture(kingdom), culture, StringComparison.Ordinal) ||
+                !InstitutionRealm.IsSovereignKingdom(kingdom)) continue;
             yield return (kingdom, nodeId);
         }
     }
 
-    // 王国 AI 这一年动不动手(间隔已由 TryStartAiReform 判过)：第一次按国家编号错开年份，免得同文化的王国同一年一齐动手；
-    // 叛乱未平不推；本文化已有三个王国在推就等着
-    private static bool KingdomAiMayTry(InstitutionRealm realm, InstitutionEmpireState state, string culture, int interval)
+    // 部落(原始政体的帝国)：部落分迁让每个独立部落自立为"某某部落"(帝国，见 TribalFissionService.FormTribes)，
+    // 其实是一城一部的小政权。推制度按王国的规矩：错开年份、同文化别家在推的不重复推、与王国合占每文化三家的名额。
+    // 以前按帝国算，一个文化十几个部落同一年一齐推同一项(诸部联合)，满屏"开始推动"，推完一家其余跟着算完
+    private static bool IsTribalEmpire(Empire empire) =>
+        empire?.data != null && !empire.IsArchived() && !empire.isRekt() && TribalFissionService.IsTribal(empire.CoreKingdom);
+
+    // 按王国规矩推制度的政权：独立王国、部落
+    private static bool FollowsKingdomRules(InstitutionRealm realm) =>
+        realm != null && (!realm.IsEmpire || IsTribalEmpire(realm.Empire));
+
+    // 本文化各部落正在推的改革(部落那一国, 节点)
+    private static IEnumerable<(Kingdom kingdom, string nodeId)> CultureTribeReforms(string culture)
     {
-        Kingdom kingdom = realm.Kingdom;
-        if (kingdom == null) return false;
-        if (state.last_ai_reform_attempt_timestamp < 0 && interval > 1 &&
-            (Date.getCurrentYear() + kingdom.id) % interval != 0) return false;
-        if (RealmAuthority.InRebellion(kingdom)) return false;
-        return CultureKingdomReforms(culture).Count(entry => entry.kingdom != kingdom) < MaxKingdomReformsPerCulture;
+        foreach (Empire empire in ModClass.EMPIRE_MANAGER ?? Enumerable.Empty<Empire>())
+        {
+            string nodeId = empire?.data?.institution_state?.active_reform?.node_id;
+            if (string.IsNullOrEmpty(nodeId) || !IsTribalEmpire(empire) ||
+                !string.Equals(GetPrimaryCulture(empire), culture, StringComparison.Ordinal)) continue;
+            yield return (empire.CoreKingdom, nodeId);
+        }
     }
 
-    // 同文化别的政权(帝国、王国)正在推的节点：王国 AI 不跟着重复推
+    // 王国、部落 AI 这一年动不动手(间隔已由 TryStartAiReform 判过)：第一次按国家编号错开年份，免得同文化的一齐动手；
+    // 叛乱未平不推；本文化已有三家王国、部落在推就等着
+    private static bool KingdomAiMayTry(InstitutionRealm realm, InstitutionEmpireState state, string culture, int interval)
+    {
+        Kingdom kingdom = realm.Core;
+        if (kingdom == null) return false;
+        if (state.last_ai_reform_attempt_timestamp < 0 && interval > 1)
+        {
+            // 第一次：按国家编号错开 0~interval-1 年，记成那么多年前"试过"，往后照常按间隔。
+            // 以前按"(年份+编号)%间隔"判，一轮扫描不止一年时同一国常年对不上，迟迟不动手
+            long offset = Math.Abs(kingdom.id) % interval;
+            if (offset != 0)
+            {
+                state.last_ai_reform_attempt_timestamp = World.world.getCurWorldTime() - (interval - offset) * SecondsPerYear;
+                NoteAiSkip(culture, AiSkip.Stagger);
+                return false;
+            }
+        }
+        if (RealmAuthority.InRebellion(kingdom))
+        {
+            NoteAiSkip(culture, AiSkip.Rebellion);
+            return false;
+        }
+        int busy = CultureKingdomReforms(culture).Count(entry => entry.kingdom != kingdom) +
+                   CultureTribeReforms(culture).Count(entry => entry.kingdom != kingdom);
+        if (busy < MaxKingdomReformsPerCulture) return true;
+        NoteAiSkip(culture, AiSkip.Busy);
+        return false;
+    }
+
+    // 同文化别的政权(帝国、部落、王国)正在推的节点：王国、部落的 AI 不跟着重复推
     private static HashSet<string> NodesReformedElsewhere(InstitutionRealm realm, string culture)
     {
         var result = new HashSet<string>(StringComparer.Ordinal);

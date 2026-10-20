@@ -101,6 +101,7 @@ public static partial class InstitutionSystem
         _cultureStates = new Dictionary<string, CultureInstitutionState>(StringComparer.Ordinal);
         _lastWorldPassTimestamp = -1d;
         WarnedMissingOptions.Clear();
+        ResetDiagnostics();
     }
 
     public static void ImportCultureStates(Dictionary<string, CultureInstitutionState> states)
@@ -940,8 +941,10 @@ public static partial class InstitutionSystem
         return true;
     }
 
-    // shares：已算好的本政权阶层构成(王国年度扫描里一并算过，免得再扫一遍人口)
-    private static void AdvanceReform(InstitutionRealm realm, Dictionary<SocialClass, float> shares = null)
+    // shares：已算好的本政权阶层构成(王国年度扫描里一并算过，免得再扫一遍人口)；
+    // years：这次结算抵几年(帝国按年更新为 1；王国分帧扫描，一轮可能不止一年，按实际年数补，见 UpdateKingdom)
+    private static void AdvanceReform(InstitutionRealm realm, Dictionary<SocialClass, float> shares = null,
+        float years = 1f)
     {
         InstitutionEmpireState state = EnsureRealmState(realm);
         InstitutionReformState reform = state.active_reform;
@@ -987,12 +990,12 @@ public static partial class InstitutionSystem
         int minimumYears = Math.Max(1, environment.EffectiveMinimumYears - EraLag(culture, node));
         reform.progress = Math.Min(100f, reform.progress + InstitutionRules.CalculateDurationScaledAnnualProgress(
             node.reform.base_progress_per_year, balance.Support, balance.Opposition,
-            minimumYears) * (1f + techPush));
+            minimumYears) * (1f + techPush) * years);
         reform.radicalism = InstitutionRules.Clamp100(reform.radicalism +
             InstitutionRules.CalculateAnnualRadicalism(balance.Support, balance.Opposition,
-                replacesVestedInterest, reform.forced));
+                replacesVestedInterest, reform.forced) * years);
         reform.stage = InstitutionRules.ResolveStage(reform.progress);
-        ApplyOppositionFactionGrowth(realm, node);
+        ApplyOppositionFactionGrowth(realm, node, years);
         if (!reform.resistance_triggered && reform.radicalism >= node.resistance.rebellion_threshold)
         {
             // 帝国：反对派拥立成员国起兵；王国没有成员国，改革当场作罢(见 InstitutionSystem.Realm.cs)
@@ -1400,6 +1403,15 @@ public static partial class InstitutionSystem
             {
                 LogService.LogWarning($"[EmpireCraft] 时代潮流结算失败({culture}): {exception.Message}");
             }
+            // 每年每个文化一行制度进度(见 InstitutionSystem.Diagnostics.cs)
+            try
+            {
+                LogCultureProgress(culture);
+            }
+            catch (Exception exception)
+            {
+                LogService.LogWarning($"[EmpireCraft][制度进度] {culture} 诊断失败: {exception.Message}");
+            }
         }
     }
 
@@ -1497,11 +1509,13 @@ public static partial class InstitutionSystem
         int interval = TechnologySystem.GetEraTier(primaryCulture) - EnactedAdvancement(primaryCulture) >= 3 ? 1 : 3;
         if (state.last_ai_reform_attempt_timestamp >= 0 &&
             Date.getYearsSince(state.last_ai_reform_attempt_timestamp) < interval) return;
-        // 王国：错开年份、叛乱未平不推、每文化至多三国同时在推(见 InstitutionSystem.Realm.cs)
-        if (!realm.IsEmpire && !KingdomAiMayTry(realm, state, primaryCulture, interval)) return;
+        // 王国、部落：错开年份、叛乱未平不推、每文化至多三家同时在推(见 InstitutionSystem.Realm.cs)
+        bool kingdomRules = FollowsKingdomRules(realm);
+        if (kingdomRules && !KingdomAiMayTry(realm, state, primaryCulture, interval)) return;
         state.last_ai_reform_attempt_timestamp = World.world.getCurWorldTime();
-        // 王国不跟着同文化别的政权重复推同一项
-        HashSet<string> takenElsewhere = realm.IsEmpire ? null : NodesReformedElsewhere(realm, primaryCulture);
+        NoteAiTry(primaryCulture);
+        // 王国、部落不跟着同文化别的政权重复推同一项
+        HashSet<string> takenElsewhere = kingdomRules ? NodesReformedElsewhere(realm, primaryCulture) : null;
 
         // 全人口只扫一遍，所有候选节点共用这份阶级构成
         shares ??= BuildClassShares(realm);
@@ -1510,14 +1524,32 @@ public static partial class InstitutionSystem
         // 一直排在后面，城市生产(商人、工匠、市民都支持)倒先推到了工场生产
         // 比本文化技术时代落后三档以上的老制度(大势所趋)：支持不少于反对就推，不再要求多出 5
         int era = TechnologySystem.GetEraTier(primaryCulture);
+        CultureInstitutionState cultureState = GetOrCreateCultureState(primaryCulture);
         var candidates = new List<(InstitutionNodeConfig node, float score)>();
         foreach (InstitutionNodeConfig node in InstitutionDefinitionRegistry.GetForLine(
                      GetCultureLine(primaryCulture)))
         {
-            if (takenElsewhere != null && takenElsewhere.Contains(node.id)) continue;
+            // 已施行、前置未齐的先跳过(CanStartReform 也会拒)，免得一百多个节点个个都算一遍支持度；
+            // 王国扫描每帧只有几毫秒，省下来一轮扫得快些
+            if (cultureState != null && (cultureState.enacted_node_ids.Contains(node.id) ||
+                                         !InstitutionDefinitionRegistry.ArePrerequisitesMet(node,
+                                             cultureState.enacted_node_ids.Contains))) continue;
+            if (takenElsewhere != null && takenElsewhere.Contains(node.id))
+            {
+                NoteCandidateBlock(realm, primaryCulture, node, ReasonTakenElsewhere);
+                continue;
+            }
             InstitutionPoliticalBalance balance = CalculatePoliticalBalance(realm, node, shares);
-            if (!CanStartReform(realm, node, out _, false, balance)) continue;
-            if (balance.Support < balance.Opposition + (era - node.advancement >= 3 ? 0f : 5f)) continue;
+            if (!CanStartReform(realm, node, out string reason, false, balance))
+            {
+                NoteCandidateBlock(realm, primaryCulture, node, reason);
+                continue;
+            }
+            if (balance.Support < balance.Opposition + (era - node.advancement >= 3 ? 0f : 5f))
+            {
+                NoteCandidateBlock(realm, primaryCulture, node, ReasonSupportMargin);
+                continue;
+            }
             float score = balance.Support - balance.Opposition +
                           TechnologySystem.GetInstitutionPush(primaryCulture, node) * 40f +
                           (realm.IsEmpire ? PapacySystem.ReformBias(realm.Empire, node) +
@@ -1528,7 +1560,7 @@ public static partial class InstitutionSystem
         int basic = candidates.Min(entry => entry.node.advancement) + BasicsSlack;
         InstitutionNodeConfig selected = candidates.Where(entry => entry.node.advancement <= basic)
             .OrderByDescending(entry => entry.score).First().node;
-        StartReform(realm, selected.id);
+        if (StartReform(realm, selected.id)) NoteAiStart(primaryCulture);
     }
 
     #endregion
@@ -2141,16 +2173,18 @@ public static partial class InstitutionSystem
     public static string GetResistanceReason(InstitutionNodeConfig node) =>
         LM.Get(GetResistanceReasonKey(node));
 
-    private static void ApplyOppositionFactionGrowth(InstitutionRealm realm, InstitutionNodeConfig node)
+    // years：抵几年(王国一轮扫描不止一年时按实际年数，见 AdvanceReform)
+    private static void ApplyOppositionFactionGrowth(InstitutionRealm realm, InstitutionNodeConfig node, float years = 1f)
     {
         if (node.resistance.opposition_faction_growth <= 0) return;
+        int growth = Math.Max(1, (int)Math.Round(node.resistance.opposition_faction_growth * years));
         Kingdom core = realm?.Core;
         IEnumerable<FixedFaction> factions = core?.GetRegime()?.GetPlayerFactions() ??
                                              Enumerable.Empty<FixedFaction>();
         foreach (FixedFaction faction in factions.Where(faction =>
                      node.politics.oppose_factions.ContainsKey(faction.Type)))
         {
-            core.TryIncreaseFactionRatio(faction, node.resistance.opposition_faction_growth);
+            core.TryIncreaseFactionRatio(faction, growth);
         }
     }
 
