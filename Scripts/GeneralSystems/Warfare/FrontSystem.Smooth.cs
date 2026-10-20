@@ -14,7 +14,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   每月推两块地(地块模式一月一块的两倍)；推满一块才真正易手，离它最近的军团进驻，接着推身边的下一块。
 //   当月没占优、或军团不在场就停在原处；对方占优时先把推进中的那块逐格推回去，推回到头再由对方开始推进。
 //   守方收复被占的地块同理。每座城同一时间只有一条推进线。吃下的格子在国家、帝国图层上直接算推进方的地
-//   (不画占领斜纹，国界跟着推进线走，见 SmoothBorders)。
+//   (不画占领斜纹，国界跟着推进线走，见 SmoothBorders)。隔城墙攻坚的那块地推得慢(见 FrontSystem.Wall，收复不算)。
 public static partial class FrontSystem
 {
     private const float SmoothZonesPerMonth = 2f, SecondsPerMonth = 5f;
@@ -29,6 +29,8 @@ public static partial class FrontSystem
         // 收复(守方把被占的地块夺回)；Free：没有攻方来争、不打仗的收复(攻方看守着的地不收)
         public bool Retake, Free;
         public float Progress;
+        // 隔城墙攻坚时推进速度的倍数(见 FrontSystem.Wall)
+        public float Wall = 1f;
         // +1 推进 / -1 被推回 / 0 停住
         public int Direction;
         public double Last;
@@ -79,6 +81,7 @@ public static partial class FrontSystem
             push.Landing = landing;
             push.Free = free;
             SetCorps(push, spearheads);
+            push.Wall = push.Retake ? 1f : WallPaceOf(side, CorpsSystem.ZoneById(push.Zone), spearheads);
             return;
         }
         TileZone zone = retake ? RetakeTarget(city, side, spearheads, free) : AdvanceTarget(city, side, spearheads, defended, landing);
@@ -86,7 +89,8 @@ public static partial class FrontSystem
         push = new Push
         {
             City = city.id, Side = side.id, Zone = zone.id, Retake = retake, Free = free, Direction = 1, Defended = defended,
-            Landing = landing, Confirmed = true, Last = World.world.getCurWorldTime()
+            Landing = landing, Confirmed = true, Last = World.world.getCurWorldTime(),
+            Wall = retake ? 1f : WallPaceOf(side, zone, spearheads)
         };
         SetCorps(push, spearheads);
         Aim(push, zone, side);
@@ -125,6 +129,7 @@ public static partial class FrontSystem
         targets = Outskirts(city, side, targets, center, defended);
         if (targets.Count == 0) return null;
         return targets.OrderBy(candidate => CenterOrder(city, candidate, center, defended))
+            .ThenBy(candidate => WallBetween(side, candidate, spearheads) ? 1 : 0)
             .ThenByDescending(candidate => (candidate.neighbours ?? Array.Empty<TileZone>())
                 .Count(neighbour => Friendly(side, Controller(neighbour)))).First();
     }
@@ -214,8 +219,8 @@ public static partial class FrontSystem
             return;
         }
         if (months <= 0f || push.Direction == 0) return;
-        // 开国雄主、正统高的帝国打一般国家推得更快(见 PushFactor)；被推回时按原速
-        float pace = push.Direction > 0 ? PushFactor(side, push.Retake ? Controller(zone) : city.kingdom) : 1f;
+        // 开国雄主、正统高的帝国打一般国家推得更快(见 PushFactor)，隔城墙攻坚推得慢(见 FrontSystem.Wall)；被推回时按原速
+        float pace = push.Direction > 0 ? PushFactor(side, push.Retake ? Controller(zone) : city.kingdom) * push.Wall : 1f;
         push.Progress += push.Direction * SmoothZonesPerMonth * months * pace;
         if (push.Progress <= 0f && push.Direction < 0)
         {
@@ -284,7 +289,8 @@ public static partial class FrontSystem
         var chained = new Push
         {
             City = push.City, Side = push.Side, Zone = next.id, Retake = push.Retake, Direction = 1, Defended = push.Defended,
-            Landing = push.Landing, Confirmed = push.Confirmed, Last = push.Last, Progress = Mathf.Clamp01(leftover)
+            Landing = push.Landing, Confirmed = push.Confirmed, Last = push.Last, Progress = Mathf.Clamp01(leftover),
+            Wall = push.Retake ? 1f : WallPaceOf(side, next, corps)
         };
         chained.Corps.AddRange(push.Corps);
         Aim(chained, next, side);

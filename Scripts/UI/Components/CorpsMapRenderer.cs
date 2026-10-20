@@ -1466,7 +1466,18 @@ public static class CorpsMapRenderer
             pPercent: false, pLocalize: false);
         tooltip.addLineText(LM.Get("corps_tip_terrain"), TerrainSystem.Name(battle.terrain), "#C9E6A8",
             pPercent: false, pLocalize: false, pLimitValue: 40);
-        tooltip.addBottomDescription(TerrainSystem.Describe(battle.terrain) + "\n" + LM.Get("corps_tip_battle_hint") +
+        // 隔城墙攻坚(见 FrontSystem.Wall)
+        string wall = "";
+        if (battle.wall)
+        {
+            tooltip.addLineText(LM.Get("corps_tip_wall"),
+                LM.Get(battle.wall_breach ? "corps_tip_wall_breached" : "corps_tip_wall_across"), "#E6C8A8",
+                pPercent: false, pLocalize: false, pLimitValue: 40);
+            wall = string.Format(LM.Get(battle.wall_breach ? "corps_tip_wall_effect_breached" : "corps_tip_wall_effect"),
+                FrontSystem.WallAttackFactor(battle.wall_breach).ToString("0.##"),
+                FrontSystem.WallPaceFactor(battle.wall_breach).ToString("0.##")) + "\n";
+        }
+        tooltip.addBottomDescription(wall + TerrainSystem.Describe(battle.terrain) + "\n" + LM.Get("corps_tip_battle_hint") +
                                      "\n" + LM.Get("corps_tip_click"));
     }
 

@@ -21,11 +21,13 @@ public static class TerrainResistance
     {
         _walls = new sbyte[0];
         _wallVersion = -1;
+        WallPassage.ResetWorldState();
     }
 
-    // 地块里有格子改了：城墙下次用到时重查
+    // 地块里有格子改了：城墙下次用到时重查(军团过城墙的地块对也跟着作废，见 WallPassage)
     public static void InvalidateWall(TileZone zone)
     {
+        WallPassage.InvalidateZone(zone);
         if (zone != null && zone.id >= 0 && zone.id < _walls.Length) _walls[zone.id] = 0;
     }
 

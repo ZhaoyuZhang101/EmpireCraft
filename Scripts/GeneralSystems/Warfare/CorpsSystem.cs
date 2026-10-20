@@ -1497,7 +1497,10 @@ public static class CorpsSystem
     }
 
     // 行军路线：按地块寻路，绕开原版最高的地形(见 TerrainSystem.Impassable)；路线按目标缓存，
-    // 走偏了(撤退、改派)或目标变了再重算；找不到路就朝目标就近挪一块可走的地
+    // 走偏了(撤退、改派)或目标变了再重算；找不到路就朝目标就近挪一块可走的地。
+    // 城墙(见 WallPassage)：隔着城墙的两块地不能直接走，只从对本方开着的关门过(关城所在地块的控制者与同一势力、
+    // 并肩作战的友邦、同盟)，敌军绕过城墙尽头走或先打下关城；就近挪也不穿墙。缓存的路线每走一步看下一步还走不走得通
+    // (关城易手、和战变了、新画了城墙)，走不通就重寻。飞机(FlyStep)不受城墙限制，海上运兵照旧
     private const int MaxPathSearch = 6000;
     private static readonly Dictionary<long, (int target, List<int> path)> Paths = new();
     // 各军这一拍的行军速度(块/秒)：兵牌按节拍里过了几成往前插值(见 DrawPosition)；停下的不记
@@ -1520,18 +1523,25 @@ public static class CorpsSystem
 
     private static TileZone NextStep(CorpsData corps, TileZone current, TileZone target)
     {
+        Kingdom side = World.world.kingdoms.get(corps.kingdom_id);
         if (Paths.TryGetValue(corps.id, out var cached) && cached.target == target.id && cached.path.Count >= 2 &&
             cached.path[0] == current.id)
         {
-            cached.path.RemoveAt(0);
-            return ZoneById(cached.path[0]);
+            TileZone next = ZoneById(cached.path[1]);
+            // 下一步隔着城墙走不过去了(关门不再放行、新画了城墙)：重寻
+            if (next != null && (side == null || !WallPassage.Blocks(current, next, side)))
+            {
+                cached.path.RemoveAt(0);
+                return next;
+            }
+            Paths.Remove(corps.id);
         }
         double now = World.world.getCurWorldTime();
         if (PathFailures.TryGetValue(corps.id, out var failed) && failed.target == target.id &&
             now < failed.retryAt && now >= failed.retryAt - PathRetrySeconds)
         {
             Paths.Remove(corps.id);
-            return Nearer(current, target);
+            return Nearer(current, target, side);
         }
         if (!PathBudget())
         {
@@ -1539,15 +1549,16 @@ public static class CorpsSystem
             return null;
         }
         long started = global::System.Diagnostics.Stopwatch.GetTimestamp();
-        List<int> path = FindPath(current, target, CorpsArmSystem.Of(corps), World.world.kingdoms.get(corps.kingdom_id));
+        List<int> path = FindPath(current, target, CorpsArmSystem.Of(corps), side);
         _pathsThisTick++;
         _pathTicksThisTick += global::System.Diagnostics.Stopwatch.GetTimestamp() - started;
+        if (_wallBlocked > 0) LogWallPath(corps, side, path, _wallBlocked);
         if (path == null || path.Count < 2)
         {
             Paths.Remove(corps.id);
             if (PathFailures.Count > 4096) PathFailures.Clear();
             PathFailures[corps.id] = (target.id, now + PathRetrySeconds);
-            return Nearer(current, target);
+            return Nearer(current, target, side);
         }
         PathFailures.Remove(corps.id);
         path.RemoveAt(0);
@@ -1573,8 +1584,54 @@ public static class CorpsSystem
     }
 
     // 按代价寻路(八方向)：路上的地块代价 1，路外按兵种加价(OffRoad 的倒数)，山地、沼泽、丛林再按兵种加价(Rough 的倒数)，
-    // 斜走乘 1.41；不可通行的地块与海面不进，终点除外。给了 side 时不相干的第三国的地加重八倍(能绕就绕，见 FrontSystem.Passable)
+    // 斜走乘 1.41；不可通行的地块与海面不进，终点除外。给了 side 时不相干的第三国的地加重八倍(能绕就绕，见 FrontSystem.Passable)，
+    // 隔着城墙的两块地不走(关门对 side 开着的除外，进终点也一样，见 WallPassage)；不给 side(皇帝出行等借用)不看城墙
     private const float ForeignStep = 8f;
+    // 上一次寻路被城墙挡掉的走法数(诊断日志用)
+    private static int _wallBlocked;
+    private static float _wallLoggedAt = -100f;
+    // 先从终点往回走几百块：城墙(连同高山、海面)把终点围在一小片里、走遍了也到不了出发地，就不必把外面几千块搜一遍
+    // (围城：城被一圈城墙围着、关门在敌方手里，攻城的军每次寻路都要搜满 MaxPathSearch)
+    private const int EnclosureSearch = 512;
+    private static readonly HashSet<int> EnclosureSeen = new();
+    private static readonly Queue<TileZone> EnclosureQueue = new();
+
+    private static bool Enclosed(TileZone from, TileZone to, Kingdom side)
+    {
+        EnclosureSeen.Clear();
+        EnclosureQueue.Clear();
+        EnclosureSeen.Add(to.id);
+        EnclosureQueue.Enqueue(to);
+        bool enclosed = true;
+        while (EnclosureQueue.Count > 0 && enclosed)
+        {
+            if (EnclosureSeen.Count > EnclosureSearch)
+            {
+                enclosed = false;
+                break;
+            }
+            TileZone zone = EnclosureQueue.Dequeue();
+            foreach (TileZone next in zone.neighbours_all ?? Array.Empty<TileZone>())
+            {
+                if (next == null || EnclosureSeen.Contains(next.id)) continue;
+                if (WallPassage.BlocksKnown(next, zone, side))
+                {
+                    _wallBlocked++;
+                    continue;
+                }
+                if (next == from)
+                {
+                    enclosed = false;
+                    break;
+                }
+                if (TerrainSystem.Impassable(next) || SeaRegionSystem.IsSea(next)) continue;
+                EnclosureSeen.Add(next.id);
+                EnclosureQueue.Enqueue(next);
+            }
+        }
+        EnclosureQueue.Clear();
+        return enclosed;
+    }
 
     private static List<int> FindPath(TileZone from, TileZone to, CorpsArmSystem.Arm arm, Kingdom side = null)
     {
@@ -1589,6 +1646,9 @@ public static class CorpsSystem
         }
         float offRoad = 1f / Mathf.Max(0.1f, CorpsArmSystem.OffRoad(arm));
         float rough = 1f / Mathf.Max(0.1f, CorpsArmSystem.Rough(arm));
+        bool walls = side != null && WallPassage.Active;
+        _wallBlocked = 0;
+        if (walls && from != to && Enclosed(from, to, side)) return null;
         BeginPathPass();
         PathReach(from, 0f, -1);
         PathOpen.Add((0f, from));
@@ -1605,6 +1665,12 @@ public static class CorpsSystem
                 if (neighbour == null || PathClosed(neighbour)) continue;
                 // 陆军不走海面(跨海见 Embark)
                 if (neighbour != to && (TerrainSystem.Impassable(neighbour) || SeaRegionSystem.IsSea(neighbour))) continue;
+                // 城墙：只从对本方开着的关门过
+                if (walls && WallPassage.BlocksKnown(zone, neighbour, side))
+                {
+                    _wallBlocked++;
+                    continue;
+                }
                 float step = RoadNetwork.IsRoad(neighbour) ? 1f : offRoad;
                 if (TerrainSystem.SlowsMarch(neighbour)) step *= rough;
                 if (neighbour != to && Foreign(neighbour)) step *= ForeignStep;
@@ -1736,9 +1802,10 @@ public static class CorpsSystem
         }
         else if (predicting && FrontSystem.TargetZone(corps) is TileZone target && target != zone)
         {
-            // 没有缓存路线(寻路失败、本拍寻路排满)时照 NextStep 的退路，朝目标就近挪
-            next = Nearer(zone, target);
-            if (next != null && next != target) after = Nearer(next, target);
+            // 没有缓存路线(寻路失败、本拍寻路排满)时照 NextStep 的退路，朝目标就近挪(不穿墙)
+            Kingdom side = World.world.kingdoms.get(corps.kingdom_id);
+            next = Nearer(zone, target, side);
+            if (next != null && next != target) after = Nearer(next, target, side);
         }
         if (next?.centerTile == null) return here;
         float progress = corps.march_progress;
@@ -1764,14 +1831,17 @@ public static class CorpsSystem
     public static List<int> PathFor(TileZone from, TileZone to, CorpsArmSystem.Arm arm = CorpsArmSystem.Arm.Cavalry) =>
         from == null || to == null ? null : FindPath(from, to, arm);
 
-    private static TileZone Nearer(TileZone current, TileZone target)
+    // 朝目标就近挪一块(不进高山、海面；给了 side 时不穿城墙，见 WallPassage)
+    private static TileZone Nearer(TileZone current, TileZone target, Kingdom side = null)
     {
         TileZone best = null;
         float bestDistance = ZoneDistance(current, target);
+        bool walls = side != null && WallPassage.Active;
         foreach (TileZone neighbour in current.neighbours_all ?? Array.Empty<TileZone>())
         {
             if (neighbour == null || neighbour != target && (TerrainSystem.Impassable(neighbour) || SeaRegionSystem.IsSea(neighbour)))
                 continue;
+            if (walls && WallPassage.BlocksKnown(current, neighbour, side)) continue;
             float distance = ZoneDistance(neighbour, target);
             if (distance < bestDistance)
             {
@@ -1780,6 +1850,16 @@ public static class CorpsSystem
             }
         }
         return best;
+    }
+
+    // 诊断：寻路被城墙挡过的军(每 5 秒最多一行)
+    private static void LogWallPath(CorpsData corps, Kingdom side, List<int> path, int blocked)
+    {
+        float now = Time.unscaledTime;
+        if (now < _wallLoggedAt + 5f && now >= _wallLoggedAt) return;
+        _wallLoggedAt = now;
+        string result = path == null || path.Count < 2 ? "找不到路，就近挪到墙边" : $"绕行，路线 {path.Count - 1} 块";
+        LogService.LogInfo($"[EmpireCraft][城墙隔断] {side?.data?.name} {Name(corps)} 寻路时 {blocked} 处被城墙挡住：{result}");
     }
 
     public static float ZoneDistance(TileZone a, TileZone b) =>

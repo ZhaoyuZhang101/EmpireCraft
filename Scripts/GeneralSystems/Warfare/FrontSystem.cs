@@ -37,6 +37,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //      推进与收复都按片——拿下一片里紧挨着军团的一块地，那一片就一并到手；城区那片就是主城池；守军还在时城中最后一片不丢。占领区的年度扩散、正统扩张在军团模式下都不生效
 //      (见 CityExtension.TryYearlyOccupationSpread、TrySpreadOccupiedZonesByMandate)。
 //      地形(见 TerrainSystem)看攻方要推进的那块地：攻方战力打折、双方额外掉组织度、限制每月推进的块数。
+//      城墙(见 FrontSystem.Wall)：那块地与攻方一侧隔着城墙、又没有对攻方开着的关门，攻方战力 ×0.7、推进速度 ×0.5、
+//      每月最多推进块数减一，红夷大炮破城时减半；挑推进的地块先挑不隔墙的。
 // 远距离不交战(用户 2026-10-15："能不能阻止远距离交战，但是很近的海岛却可以")：只打本方(连同所在帝国)够得着的敌城——
 //   与本方的城接壤、同一块陆地上离本方某座城不过 LandReachTiles 格，或隔海不远(离本方水师港口不过 StraitReach 的距离)；
 //   远方的盟友不再千里驰援，远洋登陆打不了，够不着的仗只是名义上开着。
@@ -67,6 +69,8 @@ public static partial class FrontSystem
         public int taken;
         public double time;
         public FrontTerrain terrain;
+        // 隔城墙攻坚、红夷大炮破城(见 FrontSystem.Wall)
+        public bool wall, wall_breach;
     }
 
     public static readonly Dictionary<long, BattleView> Battles = new();
@@ -933,8 +937,10 @@ public static partial class FrontSystem
         }
         Kingdom attacker = attackers.GroupBy(entry => entry.kingdom)
             .OrderByDescending(entries => entries.Sum(entry => entry.corps.strength)).First().Key;
+        // 攻方各军(连同友邦的)：要推进的地、关城守御、隔城墙都看它们挨着的地
+        List<CorpsData> spearheads = attackers.Select(entry => entry.corps).ToList();
         // 地形：攻方要推进的那块地(城中心那块是城池)
-        TileZone battleZone = FrontZone(city, attacker, landing);
+        TileZone battleZone = FrontZone(city, attacker, landing, spearheads);
         FrontTerrain terrain = TerrainSystem.OfBattle(city, battleZone);
         TerrainEffect ground = TerrainSystem.Effect(terrain);
         // 水土：离草的游牧在非旱地、不服水土的定居政权在旱地上交战，攻守都打折(按那块地的格子构成，见 ShuiTuSystem.CombatFactor)
@@ -952,6 +958,9 @@ public static partial class FrontSystem
         // 叛乱初起还在集结的守方仓促应战(见 MusterSystem)
         // 红夷大炮破城：攻方有重炮营，城池守势减弱、堑壕只剩一半、团练抵抗剩七成
         bool breach = attackers.Any(entry => CorpsArmSystem.Breaches(entry.corps));
+        // 隔城墙攻坚：攻方要推进的那块地与攻方一侧隔着城墙，攻方战力打折，红夷大炮破城时减半(见 FrontSystem.Wall)
+        bool walled = WallBetween(attacker, battleZone, spearheads);
+        if (walled) attack *= WallAttackFactor(breach);
         // 困守一隅的守军战力打折(见 RemnantFactor)
         float remnant = RemnantFactor(city);
         float defend = holders.Sum(entry => Effective(entry.corps) * Firepower(entry.kingdom, entry.corps) *
@@ -966,11 +975,11 @@ public static partial class FrontSystem
         // 关城守御：攻方军团够得着的地(同 Advance 挑的)里有关城那一片的，守方按等级加成；红夷大炮破城时只剩一半
         // (见 RuralSettlementSystem.FortFactor)
         float fort = 1f;
-        List<CorpsData> spearheads = attackers.Select(entry => entry.corps).ToList();
         foreach (TileZone target in TargetZones(attacker, city))
             if (Beside(spearheads, target)) fort = Mathf.Max(fort, RuralSettlementSystem.FortFactor(city, target));
         if (fort > 1f) defend *= breach ? 1f + (fort - 1f) * 0.5f : fort;
         float ratio = attack + defend <= 0f ? 0.5f : attack / (attack + defend);
+        if (walled) LogWall(city, attacker, owner, breach, fort, ratio);
         // 校验平衡用：一方是游牧或阿拉伯政体时记一行战况分解(交战前的兵力，限频，见 WarBalanceDiagnostics)
         WarBalanceDiagnostics.Battle(city, attacker, owner, attackers, holders, terrain, ground.Attack, landing, breach, remnant,
             militia, fort, attack, defend, ratio);
@@ -1006,9 +1015,10 @@ public static partial class FrontSystem
         }
         else if (ratio >= 0.55f)
         {
-            // 开国雄主、正统高的帝国打一般国家，一月可多下几块地(见 PushFactor)
-            float pace = PushFactor(attacker, owner);
-            int zones = Mathf.Min(ground.MaxAdvance, Mathf.FloorToInt(pace) + (UnityEngine.Random.value < pace - Mathf.Floor(pace) ? 1 : 0));
+            // 开国雄主、正统高的帝国打一般国家，一月可多下几块地(见 PushFactor)；隔城墙攻坚推得慢、最多少下一块(见 FrontSystem.Wall)
+            float pace = PushFactor(attacker, owner) * (walled ? WallPaceFactor(breach) : 1f);
+            int maxAdvance = walled ? WallMaxAdvance(ground.MaxAdvance, breach) : ground.MaxAdvance;
+            int zones = Mathf.Min(maxAdvance, Mathf.FloorToInt(pace) + (UnityEngine.Random.value < pace - Mathf.Floor(pace) ? 1 : 0));
             taken = Advance(city, attacker, zones, standing, landing,
                 attackers.Where(entry => entry.kingdom == attacker).Select(entry => entry.corps).ToList());
             if (city.kingdom != owner)
@@ -1026,7 +1036,7 @@ public static partial class FrontSystem
             else Retake(city, lead, 1, holders.Select(entry => entry.corps));
         }
         else if (SmoothActive) SmoothHold(city);
-        Record(city, attacker, owner, ratio, attackStrength, holdStrength + militia, taken, now, terrain);
+        Record(city, attacker, owner, ratio, attackStrength, holdStrength + militia, taken, now, terrain, walled, breach);
         // 大败、溃散一方的统领：阵亡、被俘、突围(见 BattleDrama)
         BattleDrama.AfterBattle(city, attackers, holders, ratio);
         // 名将名臣：赢的一方的军团统领、战争统帅记战功(见 FamousTalentSystem)
@@ -1057,12 +1067,15 @@ public static partial class FrontSystem
         return Mathf.Max(factor, 1f + (ImperialPushMax - 1f) * rise);
     }
 
-    private static TileZone FrontZone(City city, Kingdom attacker, bool landing)
+    // 先挑攻方军团挨着的(Advance 只推这些)，城池放后，不隔城墙的在先(见 FrontSystem.Wall)
+    private static TileZone FrontZone(City city, Kingdom attacker, bool landing, List<CorpsData> spearheads = null)
     {
         List<TileZone> targets = TargetZones(attacker, city);
         if (targets.Count == 0 && landing) targets = LandingZones(city).Where(zone => Hostile(attacker, Controller(zone))).ToList();
         TileZone center = city.getTile()?.zone;
-        return targets.OrderBy(candidate => candidate == center ? 1 : 0)
+        return targets.OrderBy(candidate => spearheads == null || Beside(spearheads, candidate) ? 0 : 1)
+            .ThenBy(candidate => candidate == center ? 1 : 0)
+            .ThenBy(candidate => WallBetween(attacker, candidate, spearheads) ? 1 : 0)
             .ThenByDescending(candidate => (candidate.neighbours ?? Array.Empty<TileZone>())
                 .Count(neighbour => Friendly(attacker, Controller(neighbour)))).FirstOrDefault() ?? center;
     }
@@ -1084,7 +1097,9 @@ public static partial class FrontSystem
             TileZone center = city.getTile()?.zone;
             targets = Outskirts(city, attacker, targets, center, defended);
             if (targets.Count == 0) break;
+            // 不隔城墙的先推(见 FrontSystem.Wall)
             TileZone zone = targets.OrderBy(candidate => CenterOrder(city, candidate, center, defended))
+                .ThenBy(candidate => WallBetween(attacker, candidate, spearheads) ? 1 : 0)
                 .ThenByDescending(candidate => (candidate.neighbours ?? Array.Empty<TileZone>())
                     .Count(neighbour => Friendly(attacker, Controller(neighbour)))).First();
             Kingdom occupier = Belligerent(attacker, owner);
@@ -1227,14 +1242,14 @@ public static partial class FrontSystem
     }
 
     private static void Record(City city, Kingdom attacker, Kingdom defender, float ratio, float attack, float defend,
-        int taken, double now, FrontTerrain terrain = FrontTerrain.Plains)
+        int taken, double now, FrontTerrain terrain = FrontTerrain.Plains, bool wall = false, bool breach = false)
     {
         TileZone marker = TargetZones(attacker, city).FirstOrDefault() ?? city.getTile()?.zone;
         Battles[city.id] = new BattleView
         {
             city_id = city.id, zone_id = marker?.id ?? -1, ratio = ratio, attack = attack, defend = defend,
             attacker_id = attacker?.id ?? -1L, defender_id = defender?.id ?? -1L, taken = taken, time = now,
-            terrain = terrain
+            terrain = terrain, wall = wall, wall_breach = wall && breach
         };
     }
 
