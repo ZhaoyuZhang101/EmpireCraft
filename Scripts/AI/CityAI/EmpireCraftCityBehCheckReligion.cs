@@ -15,7 +15,6 @@ public class EmpireCraftCityBehCheckReligion: GameAICityBase
 
     public override BehResult execute(City pCity)
     {
-        if (pCity.isCapitalCity()) return BehResult.Continue;
         if (!pCity.hasKingdom()) return BehResult.Continue;
         if (pCity.kingdom.IsInEmpire())  return BehResult.Continue;
         var culture = CultureService.GetMainCulture(pCity);
@@ -28,6 +27,16 @@ public class EmpireCraftCityBehCheckReligion: GameAICityBase
             if (pReligion.GetCity() == pCity)
             {
                 if (pCity.kingdom?.getReligion() != pReligion) return BehResult.Continue;
+                // 圣城本就是一城之国的都城(创教之城多是城邦都城)：这国就是教廷所在，整国政教合一，封建化后即为教宗国。
+                // 以前都城一律不管，圣城之国一直是世俗的城邦、公国，教宗国从来出不来；多城之国的都城不动，等本文化施行教权至上
+                if (pCity.isCapitalCity())
+                {
+                    Regime seat = pCity.kingdom.GetRegime();
+                    if (pCity.kingdom.cities.Count == 1 && seat?.options != null &&
+                        seat.options.ContainsKey("option_religion_type") && seat.GetReligionLevel() < ReligionLevel.High)
+                        seat.SetReligionLevel(ReligionLevel.High);
+                    return BehResult.Continue;
+                }
                 // 由城主出面自立。以前取城里第一个实体：无小人模式下可能是船或路过的要人，城里没有实体时直接抛异常
                 Actor theocrat = Theocrat(pCity);
                 if (theocrat == null) return BehResult.Continue;

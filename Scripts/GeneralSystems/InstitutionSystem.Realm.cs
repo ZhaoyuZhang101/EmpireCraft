@@ -285,6 +285,7 @@ public static partial class InstitutionSystem
         if (kingdom.GetOrCreate().regime_manually_selected || RepublicSystem.IsRegimeLocked(kingdom)) return;
         if (regimeType == RegimeType.Modern && RegimeManager.IsMonarchy(current)) return;
         LogService.LogInfo($"[EmpireCraft][制度] {kingdom.GetKingdomName()} 推成制度，政体 {current} → {regimeType}");
+        ReligionLevel? piety = PapacySystem.PietyBeforeReload(kingdom);
         kingdom.SetRegimeType(regimeType);
         kingdom.LoadRegime();
         kingdom.SystemChange();
@@ -296,6 +297,8 @@ public static partial class InstitutionSystem
         if (state == null) return;
         state.applied_node_ids.Clear();
         SyncSharedEffects(realm);
+        // 圣城之主的政教合一不是制度给的(圣城神权自立)，换政体后照旧
+        PapacySystem.KeepTheocracy(kingdom, piety);
     }
 
     #endregion

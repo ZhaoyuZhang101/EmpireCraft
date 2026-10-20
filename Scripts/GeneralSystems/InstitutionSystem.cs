@@ -515,9 +515,21 @@ public static partial class InstitutionSystem
         }
         else
         {
+            ReligionLevel? piety = PapacySystem.PietyBeforeReload(kingdom);
             kingdom.SetRegimeType(target);
             kingdom.LoadRegime();
             kingdom.SystemChange();
+            // LoadRegime 从模板重新克隆政体，改过的选项都回到默认：同王国推成改政体的制度，清掉落地记录整体重放一遍持久效果。
+            // 以前独立王国跟上文化政体时不重放，早先施行的教权至上等对它再也不生效
+            InstitutionRealm realm = InstitutionRealm.Of(kingdom);
+            InstitutionEmpireState state = InstitutionRealm.IsSovereignKingdom(kingdom) ? EnsureRealmState(realm) : null;
+            if (state != null)
+            {
+                state.applied_node_ids.Clear();
+                SyncSharedEffects(realm);
+            }
+            // 圣城之主的政教合一不是制度给的(圣城神权自立、恢复圣地)，城邦封建化之后照旧，才成得了教宗国
+            PapacySystem.KeepTheocracy(kingdom, piety);
         }
     }
 
@@ -2757,6 +2769,7 @@ public static partial class InstitutionSystem
     private static void ApplyRegimeChangeCore(Empire empire, RegimeType regimeType)
     {
         List<Kingdom> affected = EnumerateAffectedKingdoms(empire);
+        var pieties = new Dictionary<Kingdom, ReligionLevel?>();
         foreach (Kingdom kingdom in affected)
         {
             Regime old = kingdom.GetRegime();
@@ -2764,6 +2777,7 @@ public static partial class InstitutionSystem
             // 改行律令制、周制时成员保留原有的外交权与选任方式(州郡仍是州郡、封国仍是封国)，
             // 否则重置成模板默认(律令制默认有外交权、科举选任)，州郡和封国全被判成军府。
             // 以前只管周制 ⇄ 律令制，封建制等改行律令制(如采纳三省六部连带补上郡县制)时全帝国州郡秒变军府
+            pieties[kingdom] = PapacySystem.PietyBeforeReload(kingdom);
             kingdom.SetRegimeType(regimeType);
             kingdom.LoadRegimeKeepingRole();
             kingdom.SystemChange();
@@ -2776,6 +2790,8 @@ public static partial class InstitutionSystem
         // 再整体重放一遍本文化已掌握节点的持久效果，把被抹掉的部分补回来。
         empire.data.institution_state.applied_node_ids.Clear();
         SyncSharedEffects(empire);
+        // 圣城之主(教宗国)的政教合一不是制度给的，换政体后照旧
+        foreach (KeyValuePair<Kingdom, ReligionLevel?> piety in pieties) PapacySystem.KeepTheocracy(piety.Key, piety.Value);
     }
 
     #endregion

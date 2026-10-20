@@ -34,6 +34,7 @@ public enum ConditionType
     jimi_region,
     hre_estate,
     holy_city,
+    papal_rule,
     None
 }
 public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
@@ -228,6 +229,13 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
                     City holy = kingdom.hasReligion() ? kingdom.religion.GetCity() : null;
                     var actual = holy?.data != null && !holy.isRekt() && holy.kingdom == kingdom;
                     if (actual != expect) return false;
+                    break;
+                }
+                case ConditionType.papal_rule:
+                {
+                    // 教宗国的制度前提：帝国之内要帝国施行了教权至上或神权国家；独立的圣城之国不限(见 PapacySystem.PapalRule)
+                    var expect = val.Equals("true", StringComparison.OrdinalIgnoreCase);
+                    if (PapacySystem.PapalRule(empire) != expect) return false;
                     break;
                 }
                 case ConditionType.jimi_region:

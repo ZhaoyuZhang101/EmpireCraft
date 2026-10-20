@@ -104,7 +104,7 @@
           "condition": [],
           "city_type": "Feudalism_city"
         },
-        // 教宗国：神权国家之内握有本宗教圣地的成员(见 TempFac_恢复圣地、TempFac_神授君权、PapacySystem)。
+        // 教宗国：握有本宗教圣地、政教合一的封建国；帝国成员还要帝国施行了教权至上或神权国家，独立的不限(见 PapacySystem.PapalState)。
         // 要排在各级封建领地之前判定——圣城之主多半有法理，排在后面就永远成了公国、伯国，帝国里也就从来没有教宗国
         "Feudalism_papal_state": {
           "pre": "",
@@ -116,7 +116,7 @@
           "select_from_local": false,
           "leader_select_method": "Default",
           "require_traits": [],
-          "condition": ["empire_center:false", "holy_city:true", "religion_level:>=|3", "empire_feature:theocratic_state"],
+          "condition": ["empire_center:false", "holy_city:true", "religion_level:>=|3", "papal_rule:true"],
           "city_type": "Feudalism_religion_district"
         },
         // 帝国自由城市(市长)、教会诸侯(主教领，大主教)：帝国的特殊成员，紧接教宗国判定(见 HolyRomanSystem.Members)
