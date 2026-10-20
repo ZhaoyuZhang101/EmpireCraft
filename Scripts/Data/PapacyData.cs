@@ -40,4 +40,13 @@ public sealed class PapalRelationState
     // 什一税：上次结算时间与上缴额
     public double last_tithe_at = -1d;
     public long tithe_paid;
+    // 普世帝国之名(见 RealmNamingSystem.Universal)：所取的天下(主核心 id，-1 = 没有)、取得途径
+    // (RealmNamingSystem.Via*)、取得时间、当时的皇帝；绝罚期间暂停(名字退回本名，解除后恢复)
+    public long universal_lead_id = -1L;
+    public int universal_via;
+    public double universal_at = -1d;
+    public long universal_emperor_id = -1L;
+    public bool universal_suspended;
+    // 逼冕之战打输的时间(十年内不再逼冕)
+    public double coerce_failed_at = -1d;
 }

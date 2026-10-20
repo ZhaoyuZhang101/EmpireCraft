@@ -90,6 +90,8 @@ public class SpecificClan
     // 本宗族作为皇族统治的帝国灭亡的时间(-1 表示没有记录)，用于判定"宗室复国"的时效。
     public double empire_fall_timestamp { get; set; } = -1d;
     public long capital_city_id { get; set; }
+    // 那个帝国绑的帝国法理(复国定方位用，见 RealmNamingSystem.AncestralCore)；-1 = 旧档没记
+    public long history_empire_core_id { get; set; } = -1L;
     public string empire_name { get; set; }
     public float capital_city_pos_x { get; set; }
     public float capital_city_pos_y { get; set; }
@@ -285,6 +287,8 @@ public class SpecificClan
     {
         if (empire == null || empire.isRekt() || capital == null || capital.isRekt()) return;
         empire_name = empire.GetEmpireName();
+        // 称帝那一刻帝国还没绑帝国法理，绑完再补记(见 EmpireManager.NewEmpire)
+        history_empire_core_id = EmpireCoreManager.Get(empire)?.id ?? -1L;
         capital_city_id = capital.getID();
         capital_city_pos_x = capital.city_center.x;
         capital_city_pos_y = capital.city_center.y;

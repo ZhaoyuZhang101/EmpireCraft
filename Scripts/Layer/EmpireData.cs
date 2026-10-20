@@ -91,6 +91,16 @@ public class EmpireData : MetaObjectData
     public string capital_loss_previous_prefix = "";
     public string core_name = "";
     public string empire_type_key = "";
+    // 天下之名(见 RealmNamingSystem)：国号来源(RealmNamingSystem.Source*)、以之为号的帝国法理、复国定下的方位前缀、
+    // 与旧朝同名时加的方位前缀、改用天下之名(普世之名、唯一合法政府)前的本名
+    public int name_source;
+    public long named_core_id = -1L;
+    public string founding_prefix = "";
+    public string rival_name_prefix = "";
+    public string pre_tianxia_name = "";
+    // 多京(见 MultiCapitalSystem)：各京(主京在前)；行省阶段归太子的第二直隶
+    public List<JingRecord> jing = new List<JingRecord>();
+    public long zhili_kingdom_id = -1L;
     // 幕府(见 BakufuSystem)：开幕时的天皇家(宗族)与当时的天皇；天皇为虚君，明治维新时大政奉还
     public long court_clan_id = -1L;
     public long court_emperor_id = -1L;

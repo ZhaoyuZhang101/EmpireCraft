@@ -146,6 +146,8 @@ public sealed class ConstitutionalEconomyState
     public double ruling_streak_since = -1d;
     // 已按哪个帝国核心改用核心名作国号(-1 = 未改)
     public long named_after_core_id = -1L;
+    // 华夏唯一合法政府以天下基名为国号(见 RealmNamingSystem.Modern)：所据天下的主核心(-1 = 未用)
+    public long named_after_tianxia_lead_id = -1L;
     // 废君压力(见 RepublicSystem.UpdateAbolitionPressure)：已能废除君主制却迟迟不废、非保守派占优时逐年加剧
     public float abolition_pressure;
     public double abolition_pressure_since = -1d;

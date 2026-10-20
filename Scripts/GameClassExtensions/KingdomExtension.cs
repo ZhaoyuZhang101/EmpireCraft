@@ -334,6 +334,8 @@ public static class KingdomExtension
         public int papal_party;
         // 帝国的特殊成员：0 普通诸侯 / 1 帝国自由城市 / 2 教会诸侯(主教领)(见 HolyRomanSystem.Members)
         public int hre_estate;
+        // 行省阶段归太子的第二直隶：属于哪个帝国(-1 = 不是，见 MultiCapitalSystem)
+        public long zhili_empire_id = -1L;
         // 随保护同盟离开封建制帝国：保护人、保护约起始(三十年)、离开的帝国(见 HolyRomanSystem.Decline)
         public long hre_protector_id = -1L;
         public double hre_protected_at = -1d;

@@ -39,6 +39,8 @@ public class EmpireCore
     public long tianxia_lead_id { get; set; } = -1L;
     // 玩家给天下起的名字；空 = 按主核心名称("某天下")
     public string tianxia_name { get; set; } = "";
+    // 天下基名(天下之名国号用，见 RealmNamingSystem.TianxiaBaseName)；空 = 从天下名里拆，拆不出用主核心名
+    public string tianxia_base_name { get; set; } = "";
     // 玩家用神力并入、退出过天下：自动并分不再动它
     public bool tianxia_locked { get; set; }
     // 天下共主(受天命的国家)；-1 = 未有天命或天下无主

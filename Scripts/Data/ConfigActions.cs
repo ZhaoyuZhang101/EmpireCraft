@@ -86,6 +86,16 @@ namespace EmpireCraft.Scripts.Data
         {
             EmpireCraft.Scripts.GeneralSystems.HolyRomanSystem.DissolutionEnabled = on;
         }
+        // 天下之名：华夏帝国法理国号与复国、西方普世之名、现代唯一合法政府用天下之名(见 RealmNamingSystem)；设置里没有这一项时默认开
+        public static void RealmNameRulesCallBack(bool on)
+        {
+            EmpireCraft.Scripts.GeneralSystems.RealmNamingSystem.Enabled = on;
+        }
+        // 多京与直隶：华夏律令制联合天下的多京、行省阶段的两直隶(见 MultiCapitalSystem)；设置里没有这一项时默认开
+        public static void MultiCapitalCallBack(bool on)
+        {
+            EmpireCraft.Scripts.GeneralSystems.RealmNamingSystem.MultiCapitalEnabled = on;
+        }
         // 平滑国界：逐像素画国界、城界，军团模式下占领逐格推进(见 SmoothBorders、FrontSystem.Smooth)
         public static void SmoothBordersCallBack(bool on)
         {
