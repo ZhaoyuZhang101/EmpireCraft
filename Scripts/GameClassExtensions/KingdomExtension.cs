@@ -241,6 +241,8 @@ public static class KingdomExtension
         public double TimestampBeFeifed = -1L;
         // 上次遭劫掠的时间(五年内不再遭劫，见 TempFac_劫掠)
         public double raided_at = -1d;
+        // 草原压力、盟主威望、岁币互市的记录(见 NomadRaidSystem)；没有劫掠传统的国家为空
+        public EmpireCraft.Scripts.Data.SteppeState steppe;
         // 水土(见 ShuiTuSystem)：游牧离草的起始时间(-1 = 不在离草；旧档没有这项，从第一次结算起算)、已记入史书的离草档位、
         // 不服水土的旱地城已记入史书的最高档位、上次走出路的时间
         public double shuitu_offgrass_since = -1d;

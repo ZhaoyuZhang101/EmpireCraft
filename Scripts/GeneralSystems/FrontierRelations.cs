@@ -100,6 +100,8 @@ public static class FrontierRelations
         if (amount <= 0) return;
         Pay(a, caravanA ? Mathf.RoundToInt(amount * CaravanBonus) : amount);
         Pay(b, caravanB ? Mathf.RoundToInt(amount * CaravanBonus) : amount);
+        // 游牧一方记下互市(断了两年算互市断绝，见 NomadRaidSystem 草原压力)
+        if (frontier) NomadRaidSystem.NoteMarket(a, b);
     }
 
     private static void Pay(Kingdom kingdom, int amount)

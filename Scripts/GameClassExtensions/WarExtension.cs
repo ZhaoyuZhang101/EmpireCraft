@@ -32,6 +32,8 @@ public static class WarExtension
         public bool history_declaration_recorded;
         public bool history_end_recorded;
         public RebellionCauseData rebellion_cause;
+        // 劫掠之战：盟主、出兵各部、抢够几城、战利品(见 NomadRaidSystem)；别的仗为空
+        public EmpireCraft.Scripts.Data.RaidWarState raid;
         // 清君侧(见 FactionPurgeSystem)：起兵的派系、要讨伐的独大派系、起兵时的京城
         public string purge_faction_id = "";
         public string purge_target_faction_id = "";
