@@ -28,7 +28,11 @@ public class EmpireCraftCityBehCheckReligion: GameAICityBase
             if (pReligion.GetCity() == pCity)
             {
                 if (pCity.kingdom?.getReligion() != pReligion) return BehResult.Continue;
-                var kingdom = pCity.makeOwnKingdom(pCity.units.First());
+                // 由城主出面自立。以前取城里第一个实体：无小人模式下可能是船或路过的要人，城里没有实体时直接抛异常
+                Actor theocrat = Theocrat(pCity);
+                if (theocrat == null) return BehResult.Continue;
+                var kingdom = pCity.makeOwnKingdom(theocrat);
+                if (kingdom == null) return BehResult.Continue;
                 Regime regime = kingdom.GetRegime();
                 regime.SetReligionLevel(ReligionLevel.High);
                 if (pCity.hasTitle())
@@ -46,5 +50,13 @@ public class EmpireCraftCityBehCheckReligion: GameAICityBase
             }
         }
         return BehResult.Continue;
+    }
+
+    private static Actor Theocrat(City city)
+    {
+        static bool Fit(Actor actor) => actor?.data != null && !actor.isRekt() && actor.isAlive() && actor.isAdult() &&
+                                        !actor.isKing() && !CityPopulationSystem.IsVehicle(actor);
+        if (Fit(city.leader)) return city.leader;
+        return city.units?.FirstOrDefault(Fit);
     }
 }

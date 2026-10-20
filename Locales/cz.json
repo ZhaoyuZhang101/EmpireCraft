@@ -2941,6 +2941,7 @@
   "shuitu_effect_unfit_city": "兵源×{0:0.0}、稳定−{1:0}、赋税×{2:0.0}",
   "shuitu_effect_offgrass_kingdom": "农地城征兵×{0:0.00}、稳定−{1:0}；非旱地交战×{2:0.00}",
   "shuitu_effect_unfit_kingdom": "旱地城兵源×{0:0.0}、稳定−{1:0}、赋税×{2:0.0}；旱地交战×{3:0.00}",
+  "religion_founded_log": "{0}在{1}创立{2}，{1}遂为圣地",
   "capital_loss_restored": "{0}收复旧都{1}，还于旧都，复称{2}。",
   "kingdom_type_xingzai": "行在",
   "Later": "后",

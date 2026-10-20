@@ -2037,6 +2037,9 @@ public static class CityPopulationSystem
         if (culture != null) actor.setCulture(culture);
         actor.joinKingdom(city.kingdom);
         actor.joinCity(city);
+        // 背景人口信本城的宗教(见 BackgroundReligionSystem)，落成的人也带着。以前不带，补上来的城主、君主都无教，
+        // 原版的城教、国教跟着城主、君主走，就跟不上人口的信仰
+        if (!actor.hasReligion() && city.hasReligion()) actor.setReligion(city.religion);
         IdeologyPopulationSystem.Set(actor, group.ideology);
         // 从人口里落成的都是成年人：士兵 18~35 岁(服役年龄)，平民(补位城主、官员) 25~55 岁；
         // 寿命短的物种按寿命折算，并保证已经成年

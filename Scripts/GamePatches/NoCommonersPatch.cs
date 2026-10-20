@@ -507,6 +507,11 @@ public class NoCommonersPatch : GamePatch
                 if (method != null)
                     harmony.Patch(method, postfix: new HarmonyMethod(typeof(NoCommonersPatch), nameof(AfterMetaPopulation)));
             }
+            // 宗教的信众数：原版宗教窗口、宗教列表、悬停提示、历史曲线都用 countUnits(只数实体)，
+            // 无小人模式下大宗教也只显示几个人。同 getPopulationPeople 补上背景人口
+            global::System.Reflection.MethodInfo religionCount = AccessTools.Method(typeof(Religion), "countUnits");
+            if (religionCount != null)
+                harmony.Patch(religionCount, postfix: new HarmonyMethod(typeof(NoCommonersPatch), nameof(AfterReligionCountUnits)));
             // 原版：文化、宗教、语言、亚种没有实体单位(也没有藏书)就整个删掉。无小人模式下城里实体单位很少，
             // 还有成千上万背景人口信着的文化也会被删，城市随之失去文化。还有背景人口属于它时不删
             foreach (Type type in new[] { typeof(Culture), typeof(Religion), typeof(Language), typeof(Subspecies) })
@@ -678,6 +683,16 @@ public class NoCommonersPatch : GamePatch
             if (MetaBackground.TryGetValue(__instance, out int background))
                 __result = (int)Math.Min(int.MaxValue, (long)__result + background);
         }
+    }
+
+    // countUnits 是泛型基类的方法，各类 MetaObject(城市、氏族……)共用一份代码，这里只给宗教补。
+    // 文化、语言照旧只数实体：原版的文化分裂、语言分化谋划拿它当门槛
+    public static void AfterReligionCountUnits(object __instance, ref int __result)
+    {
+        if (__instance is not Religion || !CityPopulationSystem.AbstractPopulationEnabled) return;
+        RebuildIndex();
+        if (MetaBackground.TryGetValue(__instance, out int background))
+            __result = (int)Math.Min(int.MaxValue, (long)__result + background);
     }
 
     #endregion

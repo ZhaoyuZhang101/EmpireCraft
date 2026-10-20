@@ -23,10 +23,12 @@ public class PlotAssetPatch : GamePatch
     }
 
     // 开战谋划：无小人模式下独立王国不看君主本人的等级、武略、钱和国家声望(缘由见 EmpireCraftPlotsAddition.SkipsWarPlotRulerGate)，
-    // 其余门槛与 check_is_possible 照原版 PlotAsset.checkIsPossible 的顺序查
+    // 其余门槛与 check_is_possible 照原版 PlotAsset.checkIsPossible 的顺序查。
+    // 原版创教谋划在无小人模式下停用，改按背景人口创教(见 BackgroundReligionSystem)
     public static bool checkIsPossible(PlotAsset __instance, Actor pActor, bool pWorldLawsCheck, ref bool __result)
     {
         if (VanillaIdentitySystem.BlocksPlot(__instance?.id) ||
+            BackgroundReligionSystem.ReplacesVanillaPlot(__instance?.id) ||
             __instance?.id == "new_language" && VanillaIdentitySystem.TryReuseLanguage(pActor))
         {
             __result = false;

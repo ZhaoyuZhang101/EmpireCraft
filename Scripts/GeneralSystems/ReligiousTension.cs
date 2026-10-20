@@ -96,6 +96,15 @@ public static class ReligiousTension
                 LogService.LogWarning($"[EmpireCraft][宗教] {city?.data?.name} 结算失败: {exception.Message}");
             }
         }
+        // 无小人模式：按背景人口创教、传教(见 BackgroundReligionSystem)
+        try
+        {
+            BackgroundReligionSystem.YearlyPass();
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft][宗教] 背景人口传教结算失败: {exception.Message}");
+        }
     }
 
     private static void CollectPollTax(City city)
