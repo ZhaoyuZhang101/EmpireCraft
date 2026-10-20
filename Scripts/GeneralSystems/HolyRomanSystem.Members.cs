@@ -16,14 +16,15 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 帝国自由城市：诸侯领内人口最多的非都城，得皇帝特许状脱离诸侯，自立为一城一国(市议会推举执政，不世袭)，
 //     直属皇帝，每年把一成年度经常收入缴给中央，在帝国议会城市院有席位；数目不超过成员国的三分之一(至少可有两座)；
 //     中央缺钱(国库不足一成年收)时，皇帝可把自由城市典押给最有钱的诸侯，城就并入那个诸侯国(原型"典押")；
-//   · 教会诸侯(主教领)：皇帝把中央一座非都城的城封给主教(原型奥托王朝的帝国教会)，最多三家；
+//   · 教会诸侯(主教领)：皇帝把中央一座非都城的城封给主教(原型奥托王朝的帝国教会)，每年一成可能；
+//     中央三城以上、帝国六城以上，每四家成员至多一家、最多三家(见 ChurchBlocker)；
 //     主教不世袭，出缺时按叙任权另派——教会叙任由教廷派、政教协约由本地座堂教士推举、君主叙任由皇帝派自己人；
 //     选帝侯团的三个教会席位先给主教领的主教(见 EmpireCraftEmpireBehCheckCabinet)。
 public static partial class HolyRomanSystem
 {
     public const int EstateNone = 0, EstateFreeCity = 1, EstateChurch = 2;
     private const float FreeCityChance = 0.12f, ChurchChance = 0.1f, PawnChance = 0.25f;
-    private const int MaxChurchPrinces = 3, MinFreeCityCap = 2;
+    private const int MaxChurchPrinces = 3, MinFreeCityCap = 2, ChurchMinCoreCities = 3, ChurchMinEmpireCities = 6;
     private const float FreeCityTax = 0.1f, PawnYears = 3f;
 
     public static int Estate(Kingdom kingdom) => kingdom?.data == null ? EstateNone : kingdom.GetOrCreate().hre_estate;
@@ -195,11 +196,25 @@ public static partial class HolyRomanSystem
 
     private static void TryEndowChurch(Empire empire)
     {
-        Kingdom core = empire.CoreKingdom;
-        if (!core.hasReligion() || core.cities.Count < 5 || Members(empire).Count(IsChurchEstate) >= MaxChurchPrinces ||
-            UnityEngine.Random.value >= ChurchChance) return;
+        if (ChurchBlocker(empire) != null || UnityEngine.Random.value >= ChurchChance) return;
         City city = ChurchCandidate(empire);
         if (city != null) EndowChurch(empire, city);
+    }
+
+    // 封不出主教领的缘由(年度诊断也用)，能封时为 null。以前要中央五城以上——选帝制下中央就是当选者的自家领国，
+    // 多半一到三城，从来封不出(玩家日志 0 次)。现在中央三城以上(封后还剩两城)、帝国合计六城以上即可；
+    // 每四家成员至多一家主教领(至少一家、至多三家)
+    public static string ChurchBlocker(Empire empire)
+    {
+        Kingdom core = empire.CoreKingdom;
+        if (!core.hasReligion()) return "中央没有国教";
+        int coreCities = core.cities?.Count ?? 0, total = empire.countCities();
+        if (coreCities < ChurchMinCoreCities) return $"中央{coreCities}城，要{ChurchMinCoreCities}城";
+        if (total < ChurchMinEmpireCities) return $"帝国共{total}城，要{ChurchMinEmpireCities}城";
+        List<Kingdom> members = Members(empire);
+        int cap = Mathf.Clamp(members.Count / 4, 1, MaxChurchPrinces), have = members.Count(IsChurchEstate);
+        if (have >= cap) return $"已有{have}家，上限{cap}家";
+        return ChurchCandidate(empire) == null ? "中央没有可封的非都城" : null;
     }
 
     public static Kingdom ActEndowChurch(Empire empire)
