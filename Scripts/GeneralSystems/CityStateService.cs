@@ -209,6 +209,10 @@ public static class CityStateService
             empire.join(member, pForce: true);
             return true;
         }
+        // 别的帝国的成员被城邦打下、入城邦同盟：先退出原帝国(帝国与同盟互不兼容)。以前留在帝国里，帝国的仗又把它拉回去，
+        // 对面的城邦一打再打，同一座城一会儿入这家同盟、一会儿入那家，日志里成串地刷"即将被…捕获"
+        Empire former = member.GetEmpire();
+        if (former != null && !former.isRekt() && !former.IsArchived() && former.CoreKingdom != member) former.leave(member);
         PersonalUnionService.JoinAlliance(leader, member);
         ShareSovereign(leader, member);
         return false;
