@@ -233,6 +233,11 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
         prefab_library = new GameObject("PrefabLibrary").transform;
         prefab_library.SetParent(transform);
         modConfig = new ModConfig(_declare.FolderPath + "/default_config.json", true);
+        // 新版加载器读配置只还原值、不调用回调；IConfigurable 自行管理的配置必须主动应用。
+        // 否则界面显示开启，PURE_MAP_MODE 等运行标记仍是默认值，建筑和人物继续显示。
+        // 旧版与手机版加载器没有 ApplyCallbacks(读配置时已自己调回调)，按反射找，找不到就跳过，免得编不过
+        typeof(ModConfig).GetMethod("ApplyCallbacks", Type.EmptyTypes)?.Invoke(modConfig, null);
+        LogService.LogInfo($"[EmpireCraft][配置] 启动设置已应用：纯净地图={PURE_MAP_MODE}，高人口优化={PERFORMANCE_HIGH_POPULATION_MODE}");
         LogService.LogInfo("加载帝国模组更多世界提示");
         EmpireCraftWorldLogLibrary.init();
         EmpireCraftWorldLawGroupLibrary.init();
