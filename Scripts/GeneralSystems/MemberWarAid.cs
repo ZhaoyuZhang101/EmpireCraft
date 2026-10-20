@@ -126,6 +126,8 @@ public static class MemberWarAid
         TranslateHelper.LogEmpireJoinWar(empire, member);
         empire.RecordHistory(directContent: string.Format(LM.Get("empire_join_member_war_history"),
             empire.GetEmpireFullName(), member.GetKingdomName()), kingdomId: member.id);
+        // 封建制帝国：护佑诸侯，战后按胜负涨帝国权威(见 HolyRomanSystem.Authority)
+        HolyRomanSystem.NoteProtection(empire, actor.plot.target_war, member);
         return true;
     }
 

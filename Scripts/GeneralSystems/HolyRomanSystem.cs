@@ -67,6 +67,10 @@ public static partial class HolyRomanSystem
         }
         if (!HasDiet(empire)) yield break;
         HolyRomanState state = State(empire);
+        // 帝国权威：隆盛 +5、名存实亡 −5(还没起算的不计)
+        if (state.authority >= ImperialAuthorityRules.Glorious) yield return ("mandate_imperial_authority_high", AuthorityLegitimacyHigh);
+        else if (state.authority >= 0 && state.authority < LowAuthority)
+            yield return ("mandate_imperial_authority_low", AuthorityLegitimacyLow);
         if (ReformEnacted(empire)) yield return ("mandate_imperial_reform", ReformLegitimacy);
         if (state.sovereign_princes) yield return ("mandate_sovereign_princes", SovereignLegitimacy);
         if (RomzugUnderway(empire)) yield return ("mandate_romzug", RomzugLegitimacy);
@@ -110,7 +114,7 @@ public static partial class HolyRomanSystem
             HolyRomanState state = State(empire);
             // 选举让步只在帝位真的换了一家(不同世系)时给，同一世系的分支连选不算
             bool newHouse = NewHouse(state, elected);
-            Elected(empire, state, elected);
+            Elected(empire, state, elected, heir: false);
             if (newHouse) Concede(empire, state);
             Record(empire, string.Format(LM.Get("hre_election_history"), elected.getName(), houseName,
                 house.capital?.GetCityName() ?? "", former));
@@ -123,12 +127,15 @@ public static partial class HolyRomanSystem
         }
     }
 
-    private static void Elected(Empire empire, HolyRomanState state, Actor emperor)
+    // 记届数；同族连任(第二届起)或储君即位，帝国权威 +3
+    private static void Elected(Empire empire, HolyRomanState state, Actor emperor, bool heir)
     {
         long clan = emperor.GetSpecificClan()?.id ?? -1L;
         state.house_terms = clan >= 0 && clan == state.house_clan_id ? state.house_terms + 1 : 1;
         state.house_clan_id = clan;
         state.last_election_at = World.world.getCurWorldTime();
+        if (heir) ChangeAuthority(empire, AuthContinuity, "hre_auth_heir_succeeded", emperor.getName());
+        else if (state.house_terms >= 2) ChangeAuthority(empire, AuthContinuity, "hre_auth_house_continued", emperor.getName());
     }
 
     // 每年(ConstitutionalEconomySystem 年度结算)：选帝制的储君；封建制帝国的成员构成、帝国改革、诸侯同盟、帝国议会
@@ -138,6 +145,8 @@ public static partial class HolyRomanSystem
         {
             if (!IsElective(empire) && !HasDiet(empire)) return;
             HolyRomanState state = State(empire);
+            // 帝国权威最先结(起算、旧档帝国改革迁移都要赶在帝国改革、议会之前)
+            if (HasDiet(empire)) AuthorityYearly(empire, state);
             if (IsElective(empire)) ElectiveYearly(empire, state);
             if (!HasDiet(empire)) return;
             ImperialPeaceYearly(empire, state);
@@ -162,7 +171,7 @@ public static partial class HolyRomanSystem
         if (state.king_of_romans_id == emperor.id)
         {
             state.king_of_romans_id = -1L;
-            Elected(empire, state, emperor);
+            Elected(empire, state, emperor, heir: true);
         }
         if (KingOfRomans(empire) != null) return;
         state.king_of_romans_id = -1L;
@@ -222,6 +231,7 @@ public static partial class HolyRomanSystem
             if (state.concessions.Count > 20) state.concessions.RemoveAt(0);
             state.last_concession_at = World.world.getCurWorldTime();
             Record(empire, string.Format(LM.Get("hre_concession_history"), text));
+            ChangeAuthority(empire, AuthConcession, "hre_auth_concession", text);
             return;
         }
 
@@ -357,6 +367,7 @@ public static partial class HolyRomanSystem
             List<Kingdom> members = Members(empire);
             var parts = new List<string>
             {
+                "帝国权威：" + AuthorityStatus(empire, state),
                 $"成员{members.Count}国、共{empire.countCities()}城，中央{core.cities?.Count ?? 0}城(家族领地{HouseShare(empire):P0})，" +
                 (IsElective(empire) ? "选帝制" : "世袭"),
                 "治安令：" + (state.sovereign_princes ? "和约后作废" : state.imperial_peace_at >= 0d
@@ -400,6 +411,11 @@ public static partial class HolyRomanSystem
     private static string ReformStatus(Empire empire, HolyRomanState state)
     {
         if (ReformEnacted(empire)) return $"已施行，{CircleCount(empire)}个大区，帝国法院判过{state.court_rulings}次";
+        if (ReformNodeEnacted(empire))
+            return Authority(empire) < ReformThreshold ? $"制度节点已施行，待议会颁行：权威{Authority(empire)}，要{ReformThreshold}"
+                : state.last_reform_agenda_at >= 0d && Date.getYearsSince(state.last_reform_agenda_at) < ReformAgendaGapYears
+                    ? $"制度节点已施行，{Date.getYearsSince(state.last_reform_agenda_at)}年前付议未过，满{ReformAgendaGapYears}年再议"
+                    : "制度节点已施行，待下次议会付议";
         InstitutionNodeConfig node = InstitutionDefinitionRegistry.Get(NodeImperialReform);
         if (node == null) return "制度树里没有这个节点";
         if (InstitutionSystem.CanStartReform(empire, node, out string reason))

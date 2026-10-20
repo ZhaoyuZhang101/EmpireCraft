@@ -20,7 +20,8 @@ public class TempFac_颁布帝国治安令 : TemporaryFaction
         return result;
     }
 
-    // 颁布后十五年内不再提(治安令施行期间的规矩见 HolyRomanSystem「帝国治安令」一节)
+    // 颁布后十五年内不再提(治安令施行期间的规矩见 HolyRomanSystem「帝国治安令」一节)；
+    // 帝国权威 50 以上才立项，颁布时扣 25(见 HolyRomanSystem.Authority)
     public override int CooldownYears => 15;
 
     public override void Execute()
@@ -29,6 +30,7 @@ public class TempFac_颁布帝国治安令 : TemporaryFaction
         if (HolyRomanClaimRules.IsEligible(empire))
         {
             HolyRomanSystem.EnactImperialPeace(empire, HolyRomanClaimRules.GetSecularPrinces(empire));
+            HolyRomanSystem.Spend(empire, HolyRomanSystem.PeaceCost, "hre_auth_imperial_peace");
             CompletionOutcome = LM.Get("holy_roman_outcome_imperial_peace");
             LogService.LogInfo($"执行{type}");
         }
@@ -41,6 +43,7 @@ public class TempFac_颁布帝国治安令 : TemporaryFaction
     {
         Empire empire = GetEmpire();
         return HolyRomanClaimRules.IsEligible(empire) && OffCooldown() && HolyRomanSystem.ImperialPeaceOpen(empire) &&
+               HolyRomanSystem.CanSpend(empire, HolyRomanSystem.PeaceThreshold) &&
                HolyRomanClaimRules.GetSecularPrinces(empire)
                    .Any(prince => prince.GetRegime()?.IsAllowDiplomacy() == true ||
                                   prince.GetRegime()?.IsAllowSupportCenterArmy() != true);

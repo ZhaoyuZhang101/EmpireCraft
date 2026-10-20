@@ -561,6 +561,7 @@ public static class DataManager
         data.composite_cultural_name_source ??= "";
         data.institution_state ??= new InstitutionEmpireState();
         InstitutionStateNormalizer.Normalize(data.institution_state);
+        NormalizeHolyRoman(data.holy_roman);
         data.composite_integration = Math.Max(0, Math.Min(100, data.composite_integration));
         data.central_plains_legitimacy = Math.Max(0, Math.Min(100, data.central_plains_legitimacy));
         data.ruling_tradition_legitimacy = Math.Max(0, Math.Min(100, data.ruling_tradition_legitimacy));
@@ -575,6 +576,26 @@ public static class DataManager
                 description.cities ??= new List<string>();
             }
         }
+    }
+
+    // 神罗式帝国(见 HolyRomanSystem)：补空表；已有议会、选举、改革这些动静却还没起算帝国权威的(旧档)记 -2，
+    // 第一次年结按现状折算(不记事件)；从没有动静的照新帝国起算 50
+    private static void NormalizeHolyRoman(HolyRomanState state)
+    {
+        if (state == null) return;
+        state.concessions ??= new List<string>();
+        state.diets ??= new List<DietRecord>();
+        state.imperial_war_members ??= new List<long>();
+        state.defiance ??= new Dictionary<long, double>();
+        state.privileged_ids ??= new List<long>();
+        state.circles ??= new Dictionary<long, int>();
+        state.league_member_ids ??= new List<long>();
+        state.authority_log ??= new List<AuthorityEntry>();
+        state.protect_wars ??= new Dictionary<long, long>();
+        bool active = state.last_diet_at >= 0d || state.house_terms > 0 || state.concessions.Count > 0 ||
+                      state.circles.Count > 0 || state.sovereign_princes || state.imperial_peace_at >= 0d ||
+                      state.league_leader_id >= 0;
+        if (state.authority == -1 && active) state.authority = -2;
     }
 
     private static Dictionary<long, EmpireCore> BuildEmpireCoreMap(IEnumerable<EmpireCore> cores)

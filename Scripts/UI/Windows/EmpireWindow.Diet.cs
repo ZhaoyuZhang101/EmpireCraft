@@ -13,8 +13,9 @@ using UnityEngine;
 namespace EmpireCraft.Scripts.UI.Windows
 {
     // 帝国议会页(封建制帝国，见 HolyRomanSystem)：
-    //   页头 → 主指标(家族领地、皇族届数、上次议会、帝国禁令) → 两栏(三院席位 | 皇位：帝位、储君、加冕、帝国改革、诸侯主权)
-    //   → 议会纪事 → 选举让步 → 诸侯同盟 → 按钮(召开议会、提请或解除禁令、册立自由城市、典押自由城市、封立主教领)
+    //   页头 → 主指标(帝国权威、家族领地、皇族届数、上次议会、帝国禁令) → 两栏(三院席位 | 皇位：帝位、储君、加冕、帝国改革、诸侯主权)
+    //   → 两栏(帝国权威：刻度与近来收支 | 皇权所费：各事项的门槛与花费)
+    //   → 议会纪事 → 选举让步 → 诸侯同盟 → 按钮(召开议会、提请或解除禁令、颁行帝国改革、册立自由城市、典押自由城市、封立主教领)
     public partial class EmpireWindow
     {
         public void ShowDiet(WindowMetaTab pArg0)
@@ -36,7 +37,10 @@ namespace EmpireCraft.Scripts.UI.Windows
             string last = state.last_diet_at < 0d ? LM.Get("diet_never")
                 : string.Format(LM.Get("diet_years_ago"), Date.getYearsSince(state.last_diet_at));
             string ban = state.banned_kingdom_id >= 0 ? state.banned_name : LM.Get("label_none");
+            int authority = HolyRomanSystem.Authority(_empire);
             page.AddKpiRow(MainWidth,
+                (LM.Get("diet_authority"), $"{authority}·{HolyRomanSystem.AuthorityTierText(authority)}",
+                    WideKit.Grade(authority, 60, 30)),
                 (LM.Get("diet_house"), $"{share * 100f:0}%", WideKit.Grade(share * 100f, 25, 10)),
                 (LM.Get("diet_terms"), state.house_terms.ToString(), WideKit.Gold),
                 (LM.Get("diet_last"), last, WideKit.Cyan),
@@ -74,13 +78,17 @@ namespace EmpireCraft.Scripts.UI.Windows
                 titleHex: crownHex);
             string reform = HolyRomanSystem.ReformEnacted(_empire)
                 ? string.Format(LM.Get("diet_reform_on"), HolyRomanSystem.CircleCount(_empire), state.court_rulings)
-                : LM.Get("diet_reform_off");
+                : HolyRomanSystem.ReformNodeEnacted(_empire)
+                    ? string.Format(LM.Get("diet_reform_pending"), authority, HolyRomanSystem.ReformThreshold)
+                    : LM.Get("diet_reform_off");
             crown.AddListRow(HalfWidth, 3, null, LM.Get("diet_reform"), reform, titleWidth: 64f);
             crown.AddListRow(HalfWidth, 4, null, LM.Get("diet_sovereignty"),
                 state.sovereign_princes ? state.peace_name : LM.Get("label_none"), titleWidth: 64f);
             War imperialWar = HolyRomanSystem.ImperialWar(_empire);
             if (imperialWar != null)
                 crown.AddListRow(HalfWidth, 5, null, LM.Get("diet_imperial_war"), imperialWar.data.name, titleWidth: 64f);
+
+            DrawAuthority(page, state, authority, elective);
 
             List<DietRecord> records = (state.diets ?? new List<DietRecord>()).AsEnumerable().Reverse().Take(8).ToList();
             var log = page.BeginCard(MainWidth, "diet_records_title", WideKit.Gold, records.Count.ToString());
@@ -124,11 +132,58 @@ namespace EmpireCraft.Scripts.UI.Windows
                     bool done = state.banned_kingdom_id >= 0 ? HolyRomanSystem.ActLiftBan(_empire) : HolyRomanSystem.ActProposeBan(_empire) != null;
                     if (done) ShowDiet(pArg0);
                 }),
-                ("diet_act_charter", LM.Get("diet_act_charter"), () => { if (HolyRomanSystem.ActCharterFreeCity(_empire) != null) ShowDiet(pArg0); }));
+                ("diet_act_reform", LM.Get("diet_act_reform"), () =>
+                {
+                    if (HolyRomanSystem.ActEnactReform(_empire) != null) ShowDiet(pArg0);
+                    else ActionLibrary.showWhisperTip(HolyRomanSystem.ReformEnacted(_empire) ? "diet_reform_done_tip" : "diet_reform_need_node_tip");
+                }));
             actions.AddButtonRow(MainWidth,
+                ("diet_act_charter", LM.Get("diet_act_charter"), () => { if (HolyRomanSystem.ActCharterFreeCity(_empire) != null) ShowDiet(pArg0); }),
                 ("diet_act_pawn", LM.Get("diet_act_pawn"), () => { if (HolyRomanSystem.PawnFreeCity(_empire)) ShowDiet(pArg0); }),
                 ("diet_act_church", LM.Get("diet_act_church"), () => { if (HolyRomanSystem.ActEndowChurch(_empire) != null) ShowDiet(pArg0); }));
             StartCoroutine(RefreshScrollLayout(resetToTop: true));
+        }
+
+        // 帝国权威一排两栏：左"帝国权威"(刻度 + 最近六笔收支，涨绿跌红)，右"皇权所费"(各事项门槛与花费，够的金色、不够灰)
+        private void DrawAuthority(AutoVertLayoutGroup page, HolyRomanState state, int authority, bool elective)
+        {
+            float inner = HalfWidth - 12f;
+            var columns = page.BeginColumns(MainWidth);
+            string grade = WideKit.Grade(authority, 60, 30);
+            var left = columns.BeginColumnCard(HalfWidth, "diet_authority_title", WideKit.Gold,
+                $"{authority} · {HolyRomanSystem.AuthorityTierText(authority)}");
+            Color barColor = ColorUtility.TryParseHtmlString(grade, out Color parsed) ? parsed : Color.white;
+            UIHelper.AddBarRow(left, inner, LM.Get("diet_authority").ColorString(WideKit.Muted), $"{authority}/100",
+                authority / 100f, barColor);
+            List<AuthorityEntry> entries = (state.authority_log ?? new List<AuthorityEntry>()).AsEnumerable().Reverse().Take(6).ToList();
+            if (entries.Count == 0)
+                left.AddListRow(HalfWidth, 0, null, LM.Get("label_none"), LM.Get("diet_authority_none"), titleWidth: 30f);
+            for (int i = 0; i < entries.Count; i++)
+            {
+                AuthorityEntry entry = entries[i];
+                string ago = string.Format(LM.Get("diet_years_ago"), Date.getYearsSince(entry.at));
+                left.AddListRow(HalfWidth, i, null, entry.delta > 0 ? $"+{entry.delta}" : entry.delta.ToString(),
+                    $"{entry.text} · {ago}", titleWidth: 22f, titleHex: entry.delta > 0 ? WideKit.Green : WideKit.Red);
+            }
+
+            var right = columns.BeginColumnCard(HalfWidth, "diet_spend_title", WideKit.Cyan);
+            var costs = new List<(string label, int threshold, int cost)>
+            {
+                (LM.Get("diet_act_reform"), HolyRomanSystem.ReformThreshold, HolyRomanSystem.ReformCost),
+                (LM.Get("颁布帝国治安令"), HolyRomanSystem.PeaceThreshold, HolyRomanSystem.PeaceCost),
+                (LM.Get("diet_act_ban"), HolyRomanSystem.BanThreshold, HolyRomanSystem.BanCost),
+                (LM.Get("确认诸侯特权"), 0, HolyRomanSystem.PrivilegeCost)
+            };
+            if (elective) costs.Add((LM.Get("恢复世袭皇权"), HolyRomanSystem.HereditaryThreshold, HolyRomanSystem.HereditaryCost));
+            for (int i = 0; i < costs.Count; i++)
+            {
+                (string label, int threshold, int cost) = costs[i];
+                string detail = threshold > 0 ? string.Format(LM.Get("diet_spend_detail"), threshold, cost)
+                    : string.Format(LM.Get("diet_spend_free"), cost);
+                right.AddListRow(HalfWidth, i, null, label, detail, titleWidth: 70f,
+                    titleHex: authority >= threshold ? WideKit.Gold : WideKit.Muted);
+            }
+            right.AddListRow(HalfWidth, costs.Count, null, "", LM.Get("diet_spend_note"), titleWidth: 1f);
         }
 
         // 加冕状态：已加冕 / 远征教廷途中 / 当选未加冕(原型"德意志国王")

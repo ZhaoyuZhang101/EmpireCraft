@@ -35,6 +35,8 @@ public class TempFac_确认诸侯特权 : TemporaryFaction
             regime.SetAllowSupportCenterArmy(false);
             // 帝国治安令施行期间：这一家记为豁免(治安令被部分撤销，可以再提)
             HolyRomanSystem.Exempt(GetEmpire(), target);
+            // 当作一次让步：帝国权威 −5
+            HolyRomanSystem.Spend(GetEmpire(), HolyRomanSystem.PrivilegeCost, "hre_auth_privilege", target.GetKingdomName());
             CompletionOutcome = string.Format(LM.Get("holy_roman_outcome_princely_privileges"),
                 target.GetKingdomName());
             LogService.LogInfo($"执行{type}");

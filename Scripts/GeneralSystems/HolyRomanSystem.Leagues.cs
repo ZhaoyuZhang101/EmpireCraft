@@ -19,9 +19,10 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 诸侯同盟：改奉新教会(与皇帝所奉宗教有分合关系)的成员国两家以上、合计占帝国城数两成以上时，
 //     可能以最强一家的都城为名结成同盟；奉不相干的别教的诸侯不算(那不是宗教改革)；
 //   · 宗教战争：同盟每年有一成二可能向皇帝开战，同盟诸国随盟主进攻，与皇帝同教的诸侯多半助战；
-//   · 结局：皇帝胜——同盟诸国改回皇帝的宗教，同盟解散，正统 +10；
+//   · 结局：皇帝胜——同盟诸国改回皇帝的宗教，同盟解散，正统 +10、帝国权威 +10；
 //           否则(同盟胜或打成平手)订立和约(以一座自由城市或同盟盟主都城为名)——诸侯取得完全主权
-//           (恢复外交与开战权、不再给中央出兵)，教随国定，帝国从此有名无实：正统 -5(长期)，议会更难通过议案。
+//           (恢复外交与开战权、不再给中央出兵)，教随国定，帝国从此有名无实：正统 -5(长期)，议会更难通过议案，
+//           帝国权威 −30、此后每年 −1。
 // 加冕远征(原型罗马远征)：教廷不是皇帝自家领国时(在本帝国诸侯手里也一样)，皇帝要亲自远征教廷受冕——
 //   花两成年度经常收入(军费)，一年后到达才加冕；远征期间不开议会，正统 -3，诸侯更不听调遣。
 public static partial class HolyRomanSystem
@@ -172,6 +173,7 @@ public static partial class HolyRomanSystem
         if (war?.data == null) return;
         war.data.name = string.Format(LM.Get("hre_religious_war_name"), state.league_name);
         state.league_war_id = war.data.id;
+        state.year_turmoil = true;
         foreach (Kingdom member in dissenters)
             if (member != head && !war.hasKingdom(member) && !member.isInWarWith(head)) war.joinAttackers(member);
         foreach (Kingdom member in Members(empire))
@@ -190,6 +192,7 @@ public static partial class HolyRomanSystem
         {
             foreach (Kingdom member in members) Convert(member, member.religion, core.religion);
             empire.AddMandate(LeagueCrushedLegitimacy);
+            ChangeAuthority(empire, AuthLeagueCrushed, "hre_auth_league_crushed", state.league_name);
             Record(empire, string.Format(LM.Get("hre_league_crushed_history"), state.league_name, core.religion.name));
             DissolveLeague(state);
             return;
@@ -212,6 +215,7 @@ public static partial class HolyRomanSystem
         }
         if (core.hasReligion()) PapacySystem.ReligiousPeace(core.religion);
         empire.AddMandate(PeaceLegitimacy);
+        ChangeAuthority(empire, AuthReligiousPeace, "hre_auth_religious_peace", state.peace_name);
         Record(empire, string.Format(LM.Get("hre_peace_history"), state.peace_name, empire.GetEmpireFullName()));
         DissolveLeague(state);
     }

@@ -58,13 +58,40 @@ public sealed class HolyRomanState
     public bool sovereign_princes;
     public string peace_name = "";
     public double peace_at = -1d;
+
+    // —— 帝国权威(见 HolyRomanSystem.Authority) ——
+    // 0~100；-1 = 还没起算(新帝国第一次年结记 50)，-2 = 旧档读入、第一次年结按现状折算(见 DataManager.NormalizeEmpireData)
+    public int authority = -1;
+    // 最近 16 笔收支(最新的在后)
+    public List<AuthorityEntry> authority_log = new();
+    // 已按加冕计过权威的皇帝
+    public long authority_crowned_id = -1L;
+    // 权威低于 20 起算的时间(回到 25 以上重计；帝国解体用)
+    public double authority_low_since = -1d;
+    // 本年已扣的抗命、失城(各有封顶)，本年涨跌合计(诊断用)；年结后清零
+    public int year_defiance_loss, year_city_loss, year_gain, year_loss;
+    // 本年帝国内有过兵戈(禁令战、宗教战……)，年结时不算太平
+    public bool year_turmoil;
+    // 帝国改革在本帝国颁行的时间(-1 = 未颁行；文化制度节点只是前提，要帝国议会通过)；上次付议
+    public double reform_at = -1d;
+    public double last_reform_agenda_at = -1d;
+    // 护佑之战：中央应求援加入成员守方的战争 id → 被护佑的成员国 id
+    public Dictionary<long, long> protect_wars = new();
+}
+
+// 帝国权威的一笔收支
+public sealed class AuthorityEntry
+{
+    public double at;
+    public int delta;
+    public string text = "";
 }
 
 // 一次帝国议会
 public sealed class DietRecord
 {
     public double at;
-    // levy 摊派 / war 帝国战争 / ban 帝国禁令
+    // levy 摊派 / war 帝国战争 / ban 帝国禁令 / reform 帝国改革
     public string agenda = "";
     public string subject = "";
     public int electors_yes, electors_no, princes_yes, princes_no, cities_yes, cities_no;

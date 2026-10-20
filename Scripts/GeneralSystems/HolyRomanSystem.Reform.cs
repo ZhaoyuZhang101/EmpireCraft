@@ -11,7 +11,8 @@ using UnityEngine;
 
 namespace EmpireCraft.Scripts.GeneralSystems;
 
-// 帝国改革(西方制度树「帝国改革」节点，原型 1495 年沃尔姆斯帝国议会)：
+// 帝国改革(原型 1495 年沃尔姆斯帝国议会)：西方制度树「帝国改革」节点施行后，各帝国还要在帝国议会提案颁行
+//   (帝国权威 60 以上才付议、四年一议，通过扣 30，见 Diet 的 AgendaReform；旧档节点已施行的读档后直接算已颁行)：
 //   · 永久和平：成员国之间本就不许私战(见 FeudalVassalService.CanDeclareExternalWar)，此后诸侯纠纷一律交议会与法院；
 //   · 帝国法院：每年有三成可能受理一桩领土纠纷——成员国手里有别的成员国法理的城，判还法理主；
 //   · 帝国大区：成员国按都城所在分成几个大区(每四国一区，至多十区)，大区诸侯应征、缴摊派更可靠(抗命几率减半)，
@@ -26,7 +27,17 @@ public static partial class HolyRomanSystem
     private const int MembersPerCircle = 4, MaxCircles = 10, CircleRefreshYears = 10;
     public const int ReformLegitimacy = 3;
 
-    public static bool ReformEnacted(Empire empire) => empire?.data != null && InstitutionSystem.IsEnacted(empire, NodeImperialReform);
+    // 本帝国已颁行(帝国级)；旧档还没起算权威时按文化节点算(第一次年结即迁移成颁行，见 EnsureAuthority)
+    public static bool ReformEnacted(Empire empire)
+    {
+        HolyRomanState state = State(empire);
+        if (state == null) return false;
+        return state.reform_at >= 0d || state.authority == LegacyAuthority && ReformNodeEnacted(empire);
+    }
+
+    // 文化制度节点(颁行的前提)
+    public static bool ReformNodeEnacted(Empire empire) =>
+        empire?.data != null && InstitutionSystem.IsEnacted(empire, NodeImperialReform);
 
     // AI 选改革的加分(见 InstitutionSystem.TryStartAiReform)：有帝国议会的封建制帝国偏向帝国改革、避开与之互斥的
     // 中央集权君主制，选帝制更甚。两者同在第五档，中央集权所需的官僚、常备军技术先到，以前多半先推了它，帝国改革就永远推不了

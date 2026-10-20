@@ -21,12 +21,16 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     帝国战争——中央与外敌交战时付议，通过则各成员国(含有自主外交的世袭诸侯)按中央一方参战、出征(见 CallToArms)；
 //     帝国禁令——有成员国拒缴摊派或拒不应征时付议，通过则由与它接壤的最强诸侯(施行帝国改革后由所在大区)
 //       奉命讨伐，打下的城归执行者；被禁者不得列席议会、不得为选帝侯；
+//     帝国改革——文化制度节点已施行、本帝国未颁行、帝国权威 60 以上时付议(四年一次)，通过则颁行、扣权威 30
+//       (小诸侯、自由城市、教会诸侯乐见永久和平，五城以上的大诸侯不愿失了私战之权)；
 //     帝国摊派——中央国库吃紧或在打仗时付议，通过则各成员国按年度经常收入的 15% 上缴中央；
-//   · 投票：与皇帝的关系、是否同一家族、教皇党或皇帝党、皇帝家族领地的厚薄，加上议题本身的利害；
+//   · 投票：与皇帝的关系、是否同一家族、教皇党或皇帝党、皇帝家族领地的厚薄、帝国权威(每票 +(权威−50)/200)，
+//     加上议题本身的利害；提请禁令花权威 10(AI 权威不到 20 不提)；
 //   · 照常每四年一议，帝国战争与禁令一年即可再议；皇帝远征加冕在外时不开议会。
 public static partial class HolyRomanSystem
 {
-    public const string AgendaLevy = "levy", AgendaWar = "war", AgendaBan = "ban";
+    public const string AgendaLevy = "levy", AgendaWar = "war", AgendaBan = "ban", AgendaReform = "reform";
+    private const int ReformAgendaGapYears = 4;
     public const int CollegeElectors = 0, CollegePrinces = 1, CollegeCities = 2;
     private const int DietIntervalYears = 4, UrgentDietGapYears = 1;
     private const float LevyRate = 0.15f;
@@ -106,6 +110,7 @@ public static partial class HolyRomanSystem
                     : PapacySystem.IsExcommunicated(empire) ? -0.4f : 0f;
         }
         score += HouseShare(empire) - 0.2f;
+        score += ImperialAuthorityRules.StanceBonus(Authority(empire));
         if (state.sovereign_princes) score -= 0.2f;
         if (ReformEnacted(empire)) score += 0.1f;
         switch (agenda)
@@ -138,6 +143,15 @@ public static partial class HolyRomanSystem
                 if (partyRealm != PapacySystem.PartyNone && partyRealm == PapacySystem.Party(subject)) score -= 0.3f;
                 if (subject.cities.Count > realm.cities.Count * 2) score -= 0.15f;
                 score -= Mathf.Clamp(Opinion(realm, subject) / 100f, -0.3f, 0.3f);
+                break;
+            case AgendaReform:
+                // 永久和平护着小邦，大诸侯失了私战之权
+                if (voter.college == CollegeElectors) score += 0.1f;
+                if (realm == core) break;
+                if (IsFreeCity(realm)) score += 0.3f;
+                else if (IsEcclesiastical(realm)) score += 0.1f;
+                else if (realm.cities.Count <= 2) score += 0.2f;
+                else if (realm.cities.Count >= 5) score -= 0.2f;
                 break;
         }
         return score + UnityEngine.Random.Range(-0.2f, 0.2f);
@@ -179,10 +193,12 @@ public static partial class HolyRomanSystem
         return state != null && member != null && ImperialWar(empire) != null && state.imperial_war_members.Contains(member.id);
     }
 
-    private static void MarkDefiance(HolyRomanState state, Kingdom kingdom)
+    // 记抗命(以备禁令)，帝国权威 −2(每年至多 −8)
+    private static void MarkDefiance(Empire empire, HolyRomanState state, Kingdom kingdom)
     {
         state.defiance ??= new Dictionary<long, double>();
         state.defiance[kingdom.id] = World.world.getCurWorldTime();
+        AuthorityDefiance(empire, state, kingdom);
     }
 
     #region 年度
@@ -203,7 +219,7 @@ public static partial class HolyRomanSystem
         (string agenda, Kingdom subject) = PickAgenda(empire, state);
         if (agenda == null) return;
         double years = state.last_diet_at < 0d ? double.MaxValue : Date.getYearsSince(state.last_diet_at);
-        if (years < (agenda == AgendaLevy ? DietIntervalYears : UrgentDietGapYears)) return;
+        if (years < (agenda is AgendaLevy or AgendaReform ? DietIntervalYears : UrgentDietGapYears)) return;
         Convene(empire, agenda, subject);
     }
 
@@ -216,7 +232,8 @@ public static partial class HolyRomanSystem
             if (war != null && war.data.id != state.imperial_war_id && war.data.id != state.last_war_agenda_id)
                 return (AgendaWar, foe);
         }
-        if (state.banned_kingdom_id < 0 && state.defiance != null)
+        // 禁令要花权威 10，AI 留 10 的余量(权威不到 20 不提)
+        if (state.banned_kingdom_id < 0 && state.defiance != null && Authority(empire) >= BanAiThreshold)
         {
             Kingdom defiant = state.defiance.OrderByDescending(pair => pair.Value)
                 .Select(pair => World.world.kingdoms.get(pair.Key))
@@ -224,10 +241,16 @@ public static partial class HolyRomanSystem
                                            kingdom != core);
             if (defiant != null) return (AgendaBan, defiant);
         }
+        if (ReformDue(empire, state)) return (AgendaReform, null);
         long income = StateDebtSystem.AnnualStableIncome(core);
         if (core.GetMoney() < income / 2 || OutsideFoes(empire).Any()) return (AgendaLevy, null);
         return (null, null);
     }
+
+    // 帝国改革可以付议：文化节点已施行、本帝国未颁行、权威够门槛、距上次付议满四年
+    private static bool ReformDue(Empire empire, HolyRomanState state) =>
+        ReformNodeEnacted(empire) && !ReformEnacted(empire) && Authority(empire) >= ReformThreshold &&
+        (state.last_reform_agenda_at < 0d || Date.getYearsSince(state.last_reform_agenda_at) >= ReformAgendaGapYears);
 
     #endregion
 
@@ -259,6 +282,9 @@ public static partial class HolyRomanSystem
             record.passed = Majority(record.electors_yes, record.electors_no) && Majority(record.princes_yes, record.princes_no);
             state.last_diet_at = record.at;
             if (agenda == AgendaWar && subject != null) state.last_war_agenda_id = CoreWarWith(empire, subject)?.data?.id ?? -1L;
+            if (agenda == AgendaReform) state.last_reform_agenda_at = record.at;
+            // 提请禁令即花权威(不论通过与否)
+            if (agenda == AgendaBan && subject != null) Spend(empire, BanCost, "hre_auth_ban", subject.GetKingdomName());
             record.outcome = record.passed ? Enact(empire, state, agenda, subject, ballots) : LM.Get("hre_diet_rejected");
             state.diets ??= new List<DietRecord>();
             state.diets.Add(record);
@@ -282,6 +308,7 @@ public static partial class HolyRomanSystem
     {
         AgendaWar => string.Format(LM.Get("hre_agenda_war"), subject),
         AgendaBan => string.Format(LM.Get("hre_agenda_ban"), subject),
+        AgendaReform => LM.Get("hre_agenda_reform"),
         _ => LM.Get("hre_agenda_levy")
     };
 
@@ -319,6 +346,14 @@ public static partial class HolyRomanSystem
                     war.joinAttackers(member);
                 return string.Format(LM.Get("hre_diet_ban_outcome"), executor.GetKingdomName());
             }
+            case AgendaReform:
+            {
+                if (ReformEnacted(empire)) return LM.Get("hre_diet_reform_already");
+                state.reform_at = World.world.getCurWorldTime();
+                Spend(empire, ReformCost, "hre_auth_reform");
+                MonarchyLegitimacy.Invalidate(empire);
+                return LM.Get("hre_diet_reform_outcome");
+            }
             default:
             {
                 long total = 0;
@@ -328,7 +363,7 @@ public static partial class HolyRomanSystem
                     if (Refuses(empire, member, ballots))
                     {
                         refused.Add(member.GetKingdomName());
-                        MarkDefiance(state, member);
+                        MarkDefiance(empire, state, member);
                         continue;
                     }
                     long amount = Math.Min(Math.Max(0L, member.GetMoney()),
@@ -375,7 +410,7 @@ public static partial class HolyRomanSystem
             if (Refuses(empire, member, ballots))
             {
                 refused.Add(member.GetKingdomName());
-                MarkDefiance(state, member);
+                MarkDefiance(empire, state, member);
                 continue;
             }
             if (inWar) already++;
@@ -406,7 +441,8 @@ public static partial class HolyRomanSystem
     private static float Troops(Kingdom kingdom) =>
         CorpsSystem.Enabled ? CorpsSystem.Of(kingdom).Sum(corps => corps.strength) : kingdom.countTotalWarriors();
 
-    // 不听调遣：家族领地薄弱时比中央大的诸侯一概不理；投了反对票的有三成抗命，投赞成的偶尔也赖掉
+    // 不听调遣：家族领地薄弱时比中央大的诸侯一概不理；投了反对票的有三成抗命，投赞成的偶尔也赖掉；
+    // 帝国权威高则少抗命(×1.5 − 权威/100，夹 0.5~1.5)
     private static bool Refuses(Empire empire, Kingdom member, Dictionary<Kingdom, bool> ballots)
     {
         if (Defies(empire, member)) return true;
@@ -414,6 +450,7 @@ public static partial class HolyRomanSystem
         float chance = yes ? 0.05f : 0.3f;
         if (State(empire).sovereign_princes) chance += 0.2f;
         if (InCircle(empire, member)) chance *= 0.5f;
+        chance *= ImperialAuthorityRules.RefusalFactor(Authority(empire));
         return UnityEngine.Random.value < chance;
     }
 
@@ -474,7 +511,8 @@ public static partial class HolyRomanSystem
             {
                 HolyRomanState state = empire?.data?.holy_roman;
                 if (state == null || empire.isRekt() || empire.IsArchived() ||
-                    id != state.imperial_war_id && id != state.ban_war_id && id != state.league_war_id) continue;
+                    id != state.imperial_war_id && id != state.ban_war_id && id != state.league_war_id &&
+                    state.protect_wars?.ContainsKey(id) != true) continue;
                 (int attackerGain, int defenderGain) = WarGoalSystem.Gains(war);
                 bool attackersWon = winner == WarWinner.Attackers || winner == WarWinner.Peace && attackerGain >= defenderGain + 1;
                 bool defendersWon = winner == WarWinner.Defenders || winner == WarWinner.Peace && defenderGain >= attackerGain + 1;
@@ -485,6 +523,8 @@ public static partial class HolyRomanSystem
                     bool lost = coreAttacking ? defendersWon : attackersWon;
                     if (won) empire.AddMandate(ImperialWarWin);
                     if (lost) empire.AddMandate(ImperialWarLoss);
+                    if (won) ChangeAuthority(empire, AuthImperialWarWin, "hre_auth_imperial_war_won", war.data.name);
+                    if (lost) ChangeAuthority(empire, AuthImperialWarLoss, "hre_auth_imperial_war_lost", war.data.name);
                     Record(empire, string.Format(LM.Get(won ? "hre_imperial_war_won_history" : lost ? "hre_imperial_war_lost_history"
                         : "hre_imperial_war_peace_history"), war.data.name));
                     state.imperial_war_id = -1L;
@@ -493,18 +533,22 @@ public static partial class HolyRomanSystem
                 if (id == state.ban_war_id)
                 {
                     state.ban_war_id = -1L;
+                    state.year_turmoil = true;
                     if (attackersWon)
                     {
                         empire.AddMandate(BanLegitimacyWin);
+                        ChangeAuthority(empire, AuthBanExecuted, "hre_auth_ban_executed", state.banned_name);
                         LiftBan(empire, state, LM.Get("hre_ban_executed_history"));
                     }
                     else if (defendersWon)
                     {
                         empire.AddMandate(BanLegitimacyLoss);
+                        ChangeAuthority(empire, AuthBanFailed, "hre_auth_ban_failed", state.banned_name);
                         LiftBan(empire, state, LM.Get("hre_ban_failed_history"));
                     }
                 }
                 if (id == state.league_war_id) OnLeagueWarEnded(empire, state, war, attackersWon, defendersWon);
+                SettleProtection(empire, state, war, defendersWon, attackerGain, winner);
             }
         }
         catch (Exception exception)
@@ -517,7 +561,8 @@ public static partial class HolyRomanSystem
 
     #region 上帝视角
 
-    // 帝国议会页的按钮：立即召开(按当前最急的议程，没有就议摊派)、对最不听话的成员国提请禁令、解除禁令
+    // 帝国议会页的按钮：立即召开(按当前最急的议程，没有就议摊派)、对最不听话的成员国提请禁令、解除禁令、颁行帝国改革；
+    // 神力按钮照扣帝国权威，扣到 0 为止，不因权威不够拦下
     public static DietRecord ActConvene(Empire empire)
     {
         if (!HasDiet(empire)) return null;
@@ -535,6 +580,13 @@ public static partial class HolyRomanSystem
             .OrderBy(member => state.defiance != null && state.defiance.ContainsKey(member.id) ? 0 : 1)
             .ThenBy(member => Opinion(member, core)).ThenByDescending(member => member.cities.Count).FirstOrDefault();
         return target == null ? null : Convene(empire, AgendaBan, target);
+    }
+
+    // 颁行帝国改革：文化节点已施行、本帝国未颁行时径付议会(权威不够照扣到 0)
+    public static DietRecord ActEnactReform(Empire empire)
+    {
+        if (!HasDiet(empire) || ReformEnacted(empire) || !ReformNodeEnacted(empire)) return null;
+        return Convene(empire, AgendaReform, null);
     }
 
     public static bool ActLiftBan(Empire empire)

@@ -205,6 +205,7 @@ public class SaveManagerPatch : GamePatch
         EmpireCraftActorCheckWarriorMove.ClearRuntimeState();
         EmpireCraftActorCheckWarriorMoveAdvanced.ClearRuntimeState();
         EmpireCraft.Scripts.GeneralSystems.WarGoalSystem.ResetWorldState();
+        EmpireCraft.Scripts.GeneralSystems.HolyRomanSystem.ResetWorldState();
         EmpireCraft.Scripts.GeneralSystems.AdministrativeControlSystem.ResetWorldState();
         EmpireCraft.Scripts.GeneralSystems.ShuiTuSystem.ResetWorldState();
         // 读档时世界对象不换(MapBox 还是同一个)，军团、战线、海军的运行记录要在这里清
