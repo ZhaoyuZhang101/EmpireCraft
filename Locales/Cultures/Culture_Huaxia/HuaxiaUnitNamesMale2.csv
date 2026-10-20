@@ -86,7 +86,7 @@ male2_ming_2,茗,Ming,茗
 male2_fei_2,飞,Fei,飛
 male2_zhou,舟,Zhou,舟
 male2_xiang_2,向,Xiang,向
-male2_di,笛,Di,笛
+male2_di_2,笛,Di,笛
 male2_le_2,乐,Le,樂
 male2_yi_6,意,Yi,意
 male2_an_2,宁,Ning,寧
@@ -280,7 +280,7 @@ male2_yu_8,禹,Yu,禹
 male2_yu_9,煜,Yu,煜
 male2_yun_3,云,Yun,雲
 male2_tian_2,天,Tian,天
-male2_xue,雪,Xue,雪
+male2_xue_4,雪,Xue,雪
 male2_feng_2,峰,Feng,峰
 male2_cheng_10,天,Cheng,天
 male2_shi_4,识,Shi,識
@@ -308,7 +308,7 @@ male2_yu_10,雨,Yu,雨
 male2_wen_7,文,Wen,文
 male2_zhong,中,Zhong,中
 male2_ling,令,Ling,令
-male2_xue_2,雪,Xue,雪
+male2_xue_2_2,雪,Xue,雪
 male2_tong_2,同,Tong,同
 male2_shu_3,澍,Shu,澍
 male2_kang_2,安,Kang,安
@@ -338,7 +338,7 @@ male2_yao_5,曜,Yao,曜
 male2_dong,栋,Dong,棟
 male2_shan_2,山,Shan,山
 male2_sheng_3,盛,Sheng,盛
-male2_zhou,周,Zhou,周
+male2_zhou_3,周,Zhou,周
 male2_han_9,海,Han,海
 male2_bo_7,伯,Bo,伯
 male2_fan_2,范,Fan,範
@@ -415,7 +415,7 @@ male2_ge_3,歌,Ge,歌
 male2_jian_3,健,Jian,健
 male2_zhang,章,Zhang,章
 male2_gong_2,工,Gong,工
-male2_si,嗣,Si,嗣
+male2_si_3,嗣,Si,嗣
 male2_cheng_11,珹,Cheng,珹
 male2_han_11,涵,Han,涵
 male2_qi_8,祺,Qi,祺
@@ -472,7 +472,7 @@ male2_ping_6,平,Ping,平
 male2_hao_10,皓,Hao,皓
 male2_lang_3,朗,Lang,朗
 male2_shan_3,山,Shan,山
-male2_qing,清,Qing,清
+male2_qing_2,清,Qing,清
 male2_hua_5,化,Hua,化
 male2_ge_4,歌,Ge,歌
 male2_zhe_5,喆,Zhe,喆
@@ -485,7 +485,7 @@ male2_dong_2,栋,Dong,棟
 male2_qian_4,乾,Qian,乾
 male2_yu_13,郁,Yu,郁
 male2_xuan_9,轩,Xuan,軒
-male2_zhang,彰,Zhang,彰
+male2_zhang_3,彰,Zhang,彰
 male2_shui,水,Shui,水
 male2_yun_6,允,Yun,允
 male2_da_7,达,Da,達
@@ -524,7 +524,7 @@ male2_tian_3,天,Tian,天
 male2_yi_20,逸,Yi,逸
 male2_yang_4,阳,Yang,陽
 male2_yuan_8,远,Yuan,遠
-male2_gang,毅,Gang,毅
+male2_gang_2,毅,Gang,毅
 male2_bai_2,柏,Bai,柏
 male2_zhi_7,志,Zhi,志
 male2_xing_6,行,Xing,行
@@ -595,7 +595,7 @@ male2_fei_3,飞,Fei,飛
 male2_fu_2,富,Fu,富
 male2_zheng_4,正,Zheng,正
 male2_mo,漠,Mo,漠
-male2_bi,弼,Bi,弼
+male2_bi_3,弼,Bi,弼
 male2_mao_2,茂,Mao,茂
 male2_tu,图,Tu,圖
 male2_min_2,民,Min,民
@@ -634,7 +634,7 @@ male2_kang_3,康,Kang,康
 male2_tai_2,泰,Tai,泰
 male2_bo_12,博,Bo,博
 male2_wei_13,志,Wei,志
-male2_kun,锟,Kun,錕
+male2_kun_2,锟,Kun,錕
 male2_wei_14,为,Wei,為
 male2_bi_2,弼,Bi,弼
 male2_yuan_11,骞,Yuan,騫

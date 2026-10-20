@@ -1044,7 +1044,7 @@ family_Mo_2,莫,Mo,莫
 family_Jing,经,Jing,經
 family_Fang_2,房,Fang,房
 family_Qiu_3,裘,Qiu,裘
-family_Miao,缪,Miao,繆
+family_Miao_2,缪,Miao,繆
 family_Gan,干,Gan,乾
 family_Xie_2,解,Xie,解
 family_Ying,应,Ying,應
@@ -1153,7 +1153,7 @@ family_Lin_2,蔺,Lin,藺
 family_Tu_2,屠,Tu,屠
 family_Meng_2,蒙,Meng,蒙
 family_Chi,池,Chi,池
-family_Qiao,乔,Qiao,喬
+family_Qiao_2,乔,Qiao,喬
 family_Yin_4,阴,Yin,陰
 family_Yu_8,郁,Yu,鬱
 family_Xu_3,胥,Xu,胥
@@ -1188,7 +1188,7 @@ family_Bian_2,边,Bian,邊
 family_Hu_2,扈,Hu,扈
 family_Yan_6,燕,Yan,燕
 family_Ji_10,冀,Ji,冀
-family_Jia_2,郏,Jia,郟
+family_Jia_2_2,郏,Jia,郟
 family_Pu_3,浦,Pu,浦
 family_Shang_2,尚,Shang,尚
 family_Nong,农,Nong,農
@@ -1209,7 +1209,7 @@ family_Ai_2,艾,Ai,艾
 family_Yu_9,鱼,Yu,魚
 family_Rong_3,容,Rong,容
 family_Xiang_2,向,Xiang,向
-family_Gu_2,古,Gu,古
+family_Gu_2_2,古,Gu,古
 family_Yi_3,易,Yi,易
 family_Shen_4,慎,Shen,慎
 family_Ge_2,戈,Ge,戈
@@ -1223,7 +1223,7 @@ family_Bu_2,步,Bu,步
 family_Du_3,都,Du,都
 family_Geng_2,耿,Geng,耿
 family_Man,满,Man,滿
-family_Hong,弘,Hong,弘
+family_Hong_3,弘,Hong,弘
 family_Kuang_2,匡,Kuang,匡
 family_Guo_2,国,Guo,國
 family_Wen_3,文,Wen,文
@@ -1233,7 +1233,7 @@ family_Lu_5,禄,Lu,祿
 family_Que,阙,Que,闕
 family_Dong_2,东,Dong,東
 family_Ou,欧,Ou,歐
-family_Shu,殳,Shu,殳
+family_Shu_3,殳,Shu,殳
 family_Wo,沃,Wo,沃
 family_Li_5,利,Li,利
 family_Yu_10,蔚,Yu,蔚
@@ -1255,7 +1255,7 @@ family_Kan,阚,Kan,闞
 family_Na,那,Na,那
 family_Jian,简,Jian,簡
 family_Rao,饶,Rao,饒
-family_Kong,空,Kong,空
+family_Kong_2,空,Kong,空
 family_Zeng,曾,Zeng,曾
 family_Wu_7,毋,Wu,毋
 family_Sha,沙,Sha,沙
