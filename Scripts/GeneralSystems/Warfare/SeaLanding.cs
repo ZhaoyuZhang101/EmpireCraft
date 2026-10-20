@@ -107,4 +107,34 @@ public static class SeaLanding
         }
         return (null, null);
     }
+
+    // 诊断(见 SeaLandingDiagnostics)：from 那片陆地上为什么找不到能靠岸的海滩——没有出海口、海路不通(隔着大陆)、
+    // 敌方制海截断、超出舰种航程。试的岸与 Beachhead 一样
+    public static string WhyNoBeachhead(Kingdom side, TileZone from)
+    {
+        if (side?.data == null || side.isRekt() || from == null) return "目标不可达";
+        List<SeaRegionSystem.Region> origin = NavySystem.HomeWaters(side);
+        if (origin.Count == 0) return "没有出海的港口";
+        int range = NavySystem.MaxRange(side), shortest = int.MaxValue, tries = 0;
+        bool open = false, cut = false;
+        var tried = new HashSet<int>();
+        foreach (TileZone zone in Shores(from))
+        {
+            var waters = new List<SeaRegionSystem.Region>();
+            foreach (SeaRegionSystem.Region region in Waters(zone))
+                if (tried.Add(region.Id)) waters.Add(region);
+            if (waters.Count == 0) continue;
+            if (SeaRegionSystem.Route(origin, waters) != null)
+            {
+                open = true;
+                List<SeaRegionSystem.Region> safe = SeaRegionSystem.Route(origin, waters, region => NavySystem.IsHostile(side, region));
+                if (safe == null) cut = true;
+                else shortest = Math.Min(shortest, safe.Count);
+            }
+            if (++tries >= MaxShoreTries) break;
+        }
+        if (!open) return tries == 0 ? "那片陆地没有海岸" : "海路不通(隔着大陆)";
+        if (shortest != int.MaxValue && shortest > range) return $"超出航程(要{shortest}个海区，航程{range})";
+        return cut ? "敌方制海截断航线" : "目标不可达";
+    }
 }

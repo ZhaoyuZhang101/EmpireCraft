@@ -911,7 +911,9 @@ public static class CorpsMapRenderer
                 marker.Root.gameObject.SetActive(true);
                 marker.Root.localScale = pixelScale;
                 SetFrame(marker.Frame, Frame("CorpsBattle"));
-                string label = string.Format(LM.Get("corps_battle_marker"), Mathf.RoundToInt(battle.ratio * 100f));
+                // 渡海登陆的一仗标"登陆"，画在抢滩的那块地(见 FrontSystem.Record)
+                string label = string.Format(LM.Get(battle.landing ? "corps_battle_marker_landing" : "corps_battle_marker"),
+                    Mathf.RoundToInt(battle.ratio * 100f));
                 if (marker.Label.text != label)
                 {
                     marker.Label.text = label;
@@ -1466,14 +1468,21 @@ public static class CorpsMapRenderer
             pPercent: false, pLocalize: false);
         tooltip.addLineText(LM.Get("corps_tip_terrain"), TerrainSystem.Name(battle.terrain), "#C9E6A8",
             pPercent: false, pLocalize: false, pLimitValue: 40);
-        // 隔城墙攻坚(见 FrontSystem.Wall)
+        // 渡海登陆：还没在这座城站住脚，攻方战力打折(见 FrontSystem.Landing)
         string wall = "";
+        if (battle.landing)
+        {
+            tooltip.addLineText(LM.Get("corps_tip_landing"), LM.Get("corps_tip_landing_value"), "#8FC3E8",
+                pPercent: false, pLocalize: false, pLimitValue: 40);
+            wall = string.Format(LM.Get("corps_tip_landing_effect"), FrontSystem.LandingAttack.ToString("0.##")) + "\n";
+        }
+        // 隔城墙攻坚(见 FrontSystem.Wall)
         if (battle.wall)
         {
             tooltip.addLineText(LM.Get("corps_tip_wall"),
                 LM.Get(battle.wall_breach ? "corps_tip_wall_breached" : "corps_tip_wall_across"), "#E6C8A8",
                 pPercent: false, pLocalize: false, pLimitValue: 40);
-            wall = string.Format(LM.Get(battle.wall_breach ? "corps_tip_wall_effect_breached" : "corps_tip_wall_effect"),
+            wall += string.Format(LM.Get(battle.wall_breach ? "corps_tip_wall_effect_breached" : "corps_tip_wall_effect"),
                 FrontSystem.WallAttackFactor(battle.wall_breach).ToString("0.##"),
                 FrontSystem.WallPaceFactor(battle.wall_breach).ToString("0.##")) + "\n";
         }

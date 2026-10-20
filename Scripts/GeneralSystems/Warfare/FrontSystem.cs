@@ -16,6 +16,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //      由近及远挑够得着的敌城，从其外缘地块登陆——跨海登陆是硬限制：目标那片陆地上要有一处能靠岸的海滩，航线从本国港口
 //      出发、不经过敌方制海海区、在舰种航程内(见 SeaLanding、NavySystem)；装得上运输船的兵力才能派去，整军装不下就按
 //      剩下的运力分出先遣军(见 CorpsSystem.Detach)；登陆头一个月攻方战力 ×0.7；
+//      守城分完兵、陆上攻势之前先为登陆抽兵，登陆不占三路陆上攻势的名额(见 FrontSystem.Landing)；
 //   ② 分派：各国先按上月敌军的攻势分兵守城，余下的军集中攻打一两段；组织度太低的军回乡休整；
 //      (用户转玩家 2026-10-17 "十座城，五个军团全部决定守首都，太怪了")攻势按敌军离那座城的远近打折(四块地以内全算、
 //      十块以内算一半、更远算四分之一，免得远在千里的敌军一把首都定为目标就把全军拉回去)；守军不够分时按各城攻势比例分，
@@ -71,6 +72,8 @@ public static partial class FrontSystem
         public FrontTerrain terrain;
         // 隔城墙攻坚、红夷大炮破城(见 FrontSystem.Wall)
         public bool wall, wall_breach;
+        // 渡海登陆(还没在那座城站住脚，攻方 ×LandingAttack，见 FrontSystem.Landing)
+        public bool landing;
     }
 
     public static readonly Dictionary<long, BattleView> Battles = new();
@@ -95,6 +98,7 @@ public static partial class FrontSystem
         MonthPressure.Clear();
         MonthLandingSectors.Clear();
         _assignFrame = -1;
+        ResetLandings();
     }
 
     #region 敌我
@@ -175,6 +179,8 @@ public static partial class FrontSystem
         public City City;
         public readonly List<TileZone> Targets = new();
         public bool Landing;
+        // 登陆战线的城从本方控制的地块走陆路走得到(不穿第三国，见 LandRoute)；走不到的，同一片陆地上的军也要坐船(见 FrontSystem.Landing)
+        public bool Overland = true;
     }
 
     // 敌城里可以下手的地块：敌控、且与己方控制的地块相邻；不可通行的高山两边都不算(见 TerrainSystem.Impassable)
@@ -359,9 +365,10 @@ public static partial class FrontSystem
             if (fronts >= MaxLandingFronts) break;
             Sector beachhead = LandingSector(side, hostile, home, origin, out City wanted, out int route);
             // 跨海：记下想登陆的城(舰队据此多造运输船、去打通航线)；航线不通也记下最近的那座
-            City desired = beachhead != null && !beachhead.City.getTile().isSameIsland(origin) ? beachhead.City : wanted;
+            City desired = beachhead != null && route > 0 ? beachhead.City : wanted;
             if (desired != null && !NavySystem.DesiredLanding.ContainsKey(side.id)) NavySystem.DesiredLanding[side.id] = desired.id;
-            SeaLandingDiagnostics.Pair(side, hostile, beachhead?.City, wanted, route);
+            SeaLandingDiagnostics.Pair(side, hostile, beachhead?.City, wanted, route,
+                beachhead != null && route > 0 && beachhead.City.getTile().isSameIsland(origin));
             if (beachhead == null || sectors.ContainsKey(beachhead.City)) continue;
             sectors[beachhead.City] = beachhead;
             fronts++;
@@ -374,6 +381,8 @@ public static partial class FrontSystem
 
     // 登陆战线：敌国够得着的城里，按离本国都城由近及远试，挑第一座有登陆点、跨海时有能靠岸的海滩(航线不经敌方制海、
     // 在舰种航程内，见 SeaLanding.Beachhead)的城；跨海的登陆点挑临海的地块。
+    // 与都城同在一片陆地、却隔着第三国走不过去的城(只因水师辐射够得着才算够得着，见 InReach)也按跨海算：要有海滩，
+    // 只从临海的地块登陆，同一片陆地上的军也坐船沿海绕过去(见 FrontSystem.Landing)；以前这种城当作陆路，军从第三国的地上穿过去。
     // wanted：第一座够得着的跨海的城(航线不通也算，舰队据此去打通航线)；route：选中那座城的航线经过几个海区(不跨海为 0)
     private static Sector LandingSector(Kingdom side, Kingdom hostile, HashSet<City> home, WorldTile origin, out City wanted,
         out int route)
@@ -388,17 +397,20 @@ public static partial class FrontSystem
             if (!InReach(side, city, home)) continue;
             List<TileZone> landing = LandingZones(city);
             if (landing.Count == 0) continue;
-            if (!city.getTile().isSameIsland(origin))
+            bool sameIsland = city.getTile().isSameIsland(origin);
+            bool overland = LandRoute(side, city);
+            if (!sameIsland || !overland)
             {
                 wanted ??= city;
                 if (++tries > MaxLandingTries) break;
                 var (shore, path) = SeaLanding.Beachhead(side, city.getTile().zone);
                 if (shore == null) continue;
-                route = path.Count;
                 List<TileZone> coastal = landing.Where(zone => SeaLanding.Waters(zone).Count > 0).ToList();
                 if (coastal.Count > 0) landing = coastal;
+                else if (sameIsland) continue;
+                route = path.Count;
             }
-            var sector = new Sector { City = city, Landing = true };
+            var sector = new Sector { City = city, Landing = true, Overland = overland };
             sector.Targets.AddRange(landing);
             return sector;
         }
@@ -529,6 +541,7 @@ public static partial class FrontSystem
                                         Eligible(corps)).ToList();
         if (!war)
         {
+            NoteLandingWays(kingdom, null);
             // 战备：动员范围里的军开往朝向目标国的边境(离自己最近的一段，见 WarReadinessSystem)；太平：回驻地
             IReadOnlyList<TileZone> border = CityPopulationSystem.IsMobilizing(kingdom)
                 ? CityPopulationSystem.FrontZones(kingdom) : Array.Empty<TileZone>();
@@ -557,11 +570,13 @@ public static partial class FrontSystem
             sectors = CachedSectors(kingdom).Where(sector => !MusterSystem.Mustering(kingdom, sector.City.kingdom)).ToList();
         foreach (Sector sector in sectors)
             if (sector.City?.kingdom != null) NoteFront(kingdom, sector.City.kingdom);
+        NoteLandingWays(kingdom, sectors);
         // 跨海登陆的军(还没上岸的)兵力合计不超过运输船运力
         float shipping = sectors.Any(sector => sector.Landing) ? NavySystem.TransportCapacity(kingdom) : 0f;
         if (sectors.Any(sector => sector.Landing)) SeaLandingDiagnostics.Deployable(kingdom, ready, shipping);
         if (ready.Count == 0)
         {
+            NoteLandingIdle(kingdom, sectors, "没有可上阵的军(在动员范围外或溃退休整)");
             // 没有能上阵的军(远处留守、都在溃退休整)：有城受攻就算吃紧(下月扩大动员)
             if (kingdom.cities?.Any(city => city?.data != null && !city.isRekt() && Threat(city) > 0f) == true)
                 WarScopeSystem.ReportShortfall(kingdom);
@@ -596,6 +611,8 @@ public static partial class FrontSystem
         // 守军不够分：按各城攻势比例分，不让攻势最大的一座城把军全拿走
         float totalThreat = threatened.Where(city => city != hold).Sum(Threat) * 0.9f, rest = Mathf.Max(0f, available - holdNeed);
         float shareOfNeed = totalThreat > rest && totalThreat > 0f ? rest / totalThreat : 1f;
+        // 各城要的守军合计、分到的合计：分到的不到八成算守城吃紧，不另开登陆(见 FrontSystem.Landing)
+        float needTotal = 0f, haveTotal = 0f;
         foreach (City city in threatened)
         {
             float need = city == hold ? holdNeed : Threat(city) * 0.9f * shareOfNeed, have = 0f;
@@ -620,6 +637,8 @@ public static partial class FrontSystem
             }
             // 分不出足够的守军：打不过了，下个月扩大动员
             if (have < need) WarScopeSystem.ReportShortfall(kingdom);
+            needTotal += need;
+            haveTotal += Mathf.Min(have, need);
         }
         // ② 进攻：集中在少数几段；跨海登陆的军(还没上岸的)兵力合计不超过运输船运力，整军装不下就分出先遣军
         // 军令：集中攻打——出征的军都投那座城所在的一段；城在敌境深处、还不是战线的，投离它最近的一段
@@ -634,6 +653,9 @@ public static partial class FrontSystem
         FocusSectors[kingdom.id] = focus?.City?.data?.id ?? -1L;
         var attackOn = new Dictionary<Sector, float>();
         var attackLoad = new Dictionary<int, int>();
+        // 渡海登陆先抽兵(守城不吃紧、有航线与运力时，见 FrontSystem.Landing)，余下的再按胜算挑陆上攻势
+        CommitLandings(kingdom, sectors, ready, assigned, attackOn, attackLoad, focus,
+            needTotal > 0f && haveTotal < needTotal * DefenseShortfall, ref shipping);
         // 不奉诏的禁军只守城、不出征(见 PalaceArmySystem)
         foreach (CorpsData whole in ready.Where(corps => !assigned.Contains(corps) && !PalaceArmySystem.Refuses(corps))
                      .OrderByDescending(corps => corps.strength))
@@ -641,11 +663,14 @@ public static partial class FrontSystem
             if (sectors.Count == 0) break;
             CorpsData corps = whole;
             Sector keep = corps.task == "attack" ? sectors.FirstOrDefault(sector => sector.City.id == corps.sector_city_id) : null;
-            // 船不够、也分不出先遣军的登陆战线不去(已在船上的照旧开过去)；登陆战线按装得上船的兵力估胜算
-            bool Boardable(Sector sector) => Ashore(corps, sector) || corps.embarked || Shippable(corps, shipping) > 0f;
+            // 船不够、也分不出先遣军的登陆战线不去(已在船上的照旧开过去；本土没有能上船的港口的也不去)；登陆战线按装得上船的兵力估胜算
+            bool Boardable(Sector sector) => Ashore(corps, sector) || corps.embarked ||
+                                             Shippable(corps, shipping) > 0f && EmbarkPoint(kingdom, corps) != null;
             if (keep != null && (!Boardable(keep) || focus != null && keep != focus)) keep = null;
             Sector choice = keep ?? (focus != null && Boardable(focus) ? focus : null) ?? sectors
-                .Where(sector => (attackOn.ContainsKey(sector) || attackOn.Count < MaxOffensives) && Boardable(sector))
+                // 三路攻势只算陆上的，登陆战线(每月至多两路)不占名额
+                .Where(sector => (attackOn.ContainsKey(sector) || sector.Landing || LandOffensives(attackOn) < MaxOffensives) &&
+                                 Boardable(sector))
                 .OrderByDescending(sector => Score(kingdom, corps, sector, attackOn,
                     Ashore(corps, sector) ? corps.strength : Mathf.Max(Shippable(corps, shipping), corps.embarked ? corps.strength : 0f)))
                 .FirstOrDefault();
@@ -666,6 +691,7 @@ public static partial class FrontSystem
             }
             attackOn.TryGetValue(choice, out float strength);
             attackOn[choice] = strength + corps.strength;
+            ForgetBeach(corps, choice.City);
             corps.task = "attack";
             corps.sector_city_id = choice.City.id;
             // 在这一段的目标地块之间平均分(不挤在离自己最近的同一块)
@@ -708,13 +734,15 @@ public static partial class FrontSystem
         return Mathf.Min(odds, 3f) + capital + concentrate + recapture - distance * 0.03f;
     }
 
-    // 已在登陆战线所在的那片陆地上(不必上船)；不是登陆战线也算
+    // 已在登陆战线所在的那片陆地上、走陆路去(不必上船)；不是登陆战线也算。
+    // 同一片陆地上隔着第三国走不过去的，还没上岸也要坐船(见 FrontSystem.Landing 的 SailsAround)
     private static bool Ashore(CorpsData corps, Sector sector)
     {
         if (!sector.Landing) return true;
         TileZone zone = CorpsSystem.Zone(corps);
-        return !corps.embarked && zone != null && !SeaRegionSystem.IsSea(zone) &&
-               CorpsSystem.SameLand(zone, sector.City.getTile()?.zone);
+        if (corps.embarked || zone == null || SeaRegionSystem.IsSea(zone) || !CorpsSystem.SameLand(zone, sector.City.getTile()?.zone))
+            return false;
+        return !SailsAround(corps, zone, sector.City, sector.Overland);
     }
 
     // 先遣军至少多少人：一千人，小军按半数
@@ -954,7 +982,7 @@ public static partial class FrontSystem
                                               WarCommandSystem.Factor(entry.kingdom) * LogisticsSystem.AttackFactor(entry.corps) *
                                               PapacySystem.OrderFactor(entry.corps) * RulerTraitSystem.FounderCombat(entry.kingdom) *
                                               ShuiTuSystem.CombatFactor(entry.kingdom, dryGround)) *
-                       (landing ? 0.7f : 1f) * ground.Attack;
+                       (landing ? LandingAttack : 1f) * ground.Attack;
         // 叛乱初起还在集结的守方仓促应战(见 MusterSystem)
         // 红夷大炮破城：攻方有重炮营，城池守势减弱、堑壕只剩一半、团练抵抗剩七成
         bool breach = attackers.Any(entry => CorpsArmSystem.Breaches(entry.corps));
@@ -1036,7 +1064,8 @@ public static partial class FrontSystem
             else Retake(city, lead, 1, holders.Select(entry => entry.corps));
         }
         else if (SmoothActive) SmoothHold(city);
-        Record(city, attacker, owner, ratio, attackStrength, holdStrength + militia, taken, now, terrain, walled, breach);
+        Record(city, attacker, owner, ratio, attackStrength, holdStrength + militia, taken, now, terrain, walled, breach, landing,
+            battleZone);
         // 大败、溃散一方的统领：阵亡、被俘、突围(见 BattleDrama)
         BattleDrama.AfterBattle(city, attackers, holders, ratio);
         // 名将名臣：赢的一方的军团统领、战争统帅记战功(见 FamousTalentSystem)
@@ -1241,15 +1270,17 @@ public static partial class FrontSystem
         return retaken;
     }
 
+    // landing：渡海登陆的一仗，标记画在攻方抢滩的那块地(at，见 FrontZone)；不然画在攻方能下手的第一块地
     private static void Record(City city, Kingdom attacker, Kingdom defender, float ratio, float attack, float defend,
-        int taken, double now, FrontTerrain terrain = FrontTerrain.Plains, bool wall = false, bool breach = false)
+        int taken, double now, FrontTerrain terrain = FrontTerrain.Plains, bool wall = false, bool breach = false,
+        bool landing = false, TileZone at = null)
     {
-        TileZone marker = TargetZones(attacker, city).FirstOrDefault() ?? city.getTile()?.zone;
+        TileZone marker = (landing ? at : null) ?? TargetZones(attacker, city).FirstOrDefault() ?? at ?? city.getTile()?.zone;
         Battles[city.id] = new BattleView
         {
             city_id = city.id, zone_id = marker?.id ?? -1, ratio = ratio, attack = attack, defend = defend,
             attacker_id = attacker?.id ?? -1L, defender_id = defender?.id ?? -1L, taken = taken, time = now,
-            terrain = terrain, wall = wall, wall_breach = wall && breach
+            terrain = terrain, wall = wall, wall_breach = wall && breach, landing = landing
         };
     }
 

@@ -1301,10 +1301,10 @@ public static class CorpsSystem
             corps.zone_id = target.id;
             return;
         }
-        // 目标在另一片陆地上：先开到本国港口，在港口上船(见 Embark、Sail)；
+        // 目标在另一片陆地上，或同一片陆地上隔着第三国走不过去(登陆战线，见 FrontSystem.MustSail)：先开到本国港口，在港口上船(见 Embark、Sail)；
         // 已在海外(不在驻地那片陆地上)、这片陆地上又没有本国港口(登陆上岸的军要回国、转战别处)：就近找一处岸边上船，
         // 不再困在海外。本土没有港口的照旧出不了海
-        if (!SeaRegionSystem.IsSea(current) && !SameLand(current, target))
+        if (!SeaRegionSystem.IsSea(current) && (!SameLand(current, target) || FrontSystem.MustSail(corps, current, target)))
         {
             Kingdom kingdom = World.world.kingdoms.get(corps.kingdom_id);
             City port = PortFor(kingdom, current);
@@ -1368,6 +1368,19 @@ public static class CorpsSystem
             bestDistance = distance;
         }
         return best;
+    }
+
+    // 这支军渡海从哪里上船(与 StepTowardTarget 一致)：这片陆地上本国(连同宗主中央)最近的港口；已在海外、这片陆地上没有
+    // 本国港口的，就近的岸边；本土没有港口(出不了海)返回空。已在船上、在海面的就是所在地块(FrontSystem 挑渡海的军用)
+    public static TileZone EmbarkZone(Kingdom kingdom, CorpsData corps)
+    {
+        TileZone at = Zone(corps);
+        if (kingdom == null || at == null) return null;
+        if (corps.embarked || SeaRegionSystem.IsSea(at)) return at;
+        TileZone port = PortFor(kingdom, at)?.getTile()?.zone;
+        if (port != null) return port;
+        if (SameLand(at, Home(corps)?.getTile()?.zone)) return null;
+        return SeaLanding.Shores(at).FirstOrDefault();
     }
 
     // 上船失败(没有能靠岸的海滩、航线被截断)后隔几秒(真实时间)再试
@@ -1475,14 +1488,22 @@ public static class CorpsSystem
         // 在上船时选好的海滩靠岸，上岸后走陆路开往目标；船还在海上时目标改到了别的陆地(仗打完回驻地等)就直接到目标
         TileZone target = FrontSystem.TargetZone(corps);
         TileZone landing = ZoneById(corps.landing_zone_id);
-        corps.landing_zone_id = -1;
         if (landing == null || SeaRegionSystem.IsSea(landing) ||
             target != null && !SeaRegionSystem.IsSea(target) && !SameLand(landing, target))
             landing = target;
         if (landing == null || SeaRegionSystem.IsSea(landing))
             landing = World.world.cities.get(corps.sector_city_id)?.getTile()?.zone;
         if (landing != null) corps.zone_id = landing.id;
+        // 记着在哪靠的岸(下次上船时换掉)：隔着第三国的登陆战线据此认定已上岸，不再回头坐船(见 FrontSystem.Landed)
+        corps.landing_zone_id = landing != null && !SeaRegionSystem.IsSea(landing) ? landing.id : -1;
         SeaLandingDiagnostics.Landed(corps.kingdom_id);
+        // 渡海去打仗的在纪事里记一笔：攻方"某军渡海在某城登岸"，守方"敌军渡海在某城登岸"
+        City city = World.world.cities.get(corps.sector_city_id);
+        Kingdom kingdom = World.world.kingdoms.get(corps.kingdom_id);
+        if (corps.task != "attack" || city?.data == null || city.isRekt() || kingdom == null || !FrontSystem.Hostile(kingdom, city.kingdom))
+            return;
+        FrontSystem.Log(kingdom, string.Format(LM.Get("corps_log_landed"), Name(corps), city.GetCityName()));
+        FrontSystem.Log(city.kingdom, string.Format(LM.Get("corps_log_enemy_landed"), kingdom.GetKingdomName(), city.GetCityName()));
     }
 
     // 船队驶入敌方制海的海区遭截击：没有护航折损一成五，有护航减半；组织度 -15
