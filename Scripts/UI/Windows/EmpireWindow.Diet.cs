@@ -267,7 +267,32 @@ namespace EmpireCraft.Scripts.UI.Windows
             card.AddListRow(MainWidth, row++, null, LM.Get("diet_survival_waning"), low, titleWidth: 80f, titleHex: WideKit.Orange);
             foreach (string text in departed.AsEnumerable().Reverse().Take(3))
                 card.AddListRow(MainWidth, row++, null, LM.Get("diet_survival_departed"), text, titleWidth: 80f, titleHex: WideKit.Red);
+            if (!HolyRomanSystem.DissolutionEnabled)
+            {
+                card.AddListRow(MainWidth, row, null, LM.Get("diet_survival_abdication"), LM.Get("diet_survival_disabled"), titleWidth: 80f);
+                return;
+            }
+            string blocker = HolyRomanSystem.AbdicationBlocker(_empire, state);
+            card.AddListRow(MainWidth, row, null, LM.Get("diet_survival_abdication"), blocker ?? LM.Get("diet_survival_abdication_ready"),
+                titleWidth: 80f, titleHex: blocker == null ? WideKit.Red : WideKit.Muted);
+            // 权威不到 10：皇帝退位(点两下才生效)
+            if (authority >= HolyRomanSystem.CollapseAuthority) return;
+            bool armed = _abdicationArmed == _empire.data.id;
+            card.AddButtonRow(MainWidth, ("diet_act_abdicate", LM.Get(armed ? "diet_act_abdicate_confirm" : "diet_act_abdicate"), () =>
+            {
+                if (_abdicationArmed != _empire.data.id)
+                {
+                    _abdicationArmed = _empire.data.id;
+                    ShowDiet(tab);
+                    return;
+                }
+                _abdicationArmed = -1L;
+                if (HolyRomanSystem.ActAbdicate(_empire)) ScrollWindow.hideAllEvent();
+            }));
         }
+
+        // 皇帝退位按钮已点过一下的帝国(再点一下才生效)
+        private long _abdicationArmed = -1L;
 
         // 皇位卡的会选三行：会选(拉票中时各候选眼下的票，否则上次结果)、对立国王(有时)、帝国代理(帝位虚悬时)
         private void DrawElectionRows(AutoVertLayoutGroup crown, HolyRomanState state)

@@ -121,6 +121,8 @@ public sealed class HolyRomanState
     public double last_protector_at = -1d;
     public int peak_members;
     public List<string> departed_log = new();
+    // 权威低于 10 起算的时间(回到 15 以上重计；退位解散用)
+    public double authority_collapse_since = -1d;
 }
 
 // 一笔典押：自由城市押给诸侯，三十年内可赎回

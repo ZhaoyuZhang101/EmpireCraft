@@ -81,6 +81,11 @@ namespace EmpireCraft.Scripts.Data
         {
             ModClass.KINGDOM_INSTITUTION_REFORMS = on;
         }
+        // 神罗帝国解体：外国保护人拉走诸侯同盟、皇帝退位解散(见 HolyRomanSystem.Decline)；设置里没有这一项时默认开
+        public static void HreDissolutionCallBack(bool on)
+        {
+            EmpireCraft.Scripts.GeneralSystems.HolyRomanSystem.DissolutionEnabled = on;
+        }
         // 平滑国界：逐像素画国界、城界，军团模式下占领逐格推进(见 SmoothBorders、FrontSystem.Smooth)
         public static void SmoothBordersCallBack(bool on)
         {

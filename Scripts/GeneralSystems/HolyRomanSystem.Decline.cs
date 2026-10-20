@@ -21,8 +21,20 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     保护人是帝国中央时同盟会被解散(帝国与同盟不兼容)，改为这几国自己结盟、与保护人立"保护约"；
 //   · 保护约三十年：保护人与被保护者互不攻伐(WarGate)；原帝国中央或其成员攻打被保护者时，保护人自动加入守方(WarPatch)；
 //   · 权威 −10、正统 −10；年结比对快照见到这几国离开不再另扣。
+// 皇帝退位、帝国解散：
+//   · 条件：权威低于 10 连续满 20 年(回到 15 以上重计)，且(已有保护同盟离去，或已订和约，或成员数不到历史最多的一半)，
+//     且立国满 80 年；每年一成；
+//   · 做法：记"{皇帝}退位，{帝国}解散，诸侯各自独立"；各成员恢复外交与开战权；原中央记称帝失败冷却(十年内不再称帝)；
+//     帝国解散(EmpireManager.dissolveEmpire)，皇帝仍是自家领国的君主；主教领出缺时 TryAppointBishop 见帝国没了自然清标记；
+//   · 神力按钮：权威不到 10 时议会页出现"皇帝退位"(点两下才生效)；
+//   · 模组设置「帝国解体」(默认开，见 ConfigActions.HreDissolutionCallBack)关掉时，保护同盟与退位解散都不会发生。
 public static partial class HolyRomanSystem
 {
+    // 模组设置「帝国解体」
+    public static bool DissolutionEnabled = true;
+    public const int CollapseAuthority = 10, CollapseRecover = 15, CollapseYears = 20, DissolveMinAge = 80;
+    private const float AbdicationChance = 0.1f;
+
     public const int ProtectorLowYears = 12;
     private const int ProtectorGapYears = 20, ProtectionYears = 30;
     private const int MinDeparting = 2, MaxDeparting = 5, DepartOpinion = 10, DepartedLogSize = 8;
@@ -49,10 +61,60 @@ public static partial class HolyRomanSystem
     {
         state.departed_log ??= new List<string>();
         state.peak_members = Math.Max(state.peak_members, Members(empire).Count + 1);
-        if (state.authority_low_since < 0d || Date.getYearsSince(state.authority_low_since) < ProtectorLowYears) return;
-        if (state.last_protector_at >= 0d && Date.getYearsSince(state.last_protector_at) < ProtectorGapYears) return;
-        if (UnityEngine.Random.value >= ProtectorChance) return;
-        TryProtectorLeague(empire, state);
+        int authority = Authority(empire);
+        if (authority < CollapseAuthority && state.authority_collapse_since < 0d)
+            state.authority_collapse_since = World.world.getCurWorldTime();
+        else if (authority >= CollapseRecover) state.authority_collapse_since = -1d;
+        if (!DissolutionEnabled) return;
+        if (state.authority_low_since >= 0d && Date.getYearsSince(state.authority_low_since) >= ProtectorLowYears &&
+            (state.last_protector_at < 0d || Date.getYearsSince(state.last_protector_at) >= ProtectorGapYears) &&
+            UnityEngine.Random.value < ProtectorChance)
+            TryProtectorLeague(empire, state);
+        if (!HasDiet(empire) || AbdicationBlocker(empire, state) != null || UnityEngine.Random.value >= AbdicationChance) return;
+        Abdicate(empire, state);
+    }
+
+    // 退位解散还差什么(年度诊断、界面用)，条件已齐时为 null
+    public static string AbdicationBlocker(Empire empire, HolyRomanState state)
+    {
+        if (state.authority_collapse_since < 0d) return string.Format(LM.Get("hre_dissolve_need_low"), CollapseAuthority);
+        int years = Date.getYearsSince(state.authority_collapse_since);
+        if (years < CollapseYears) return string.Format(LM.Get("hre_dissolve_need_years"), CollapseAuthority, years, CollapseYears);
+        bool broken = state.last_protector_at >= 0d || state.sovereign_princes || (Members(empire).Count + 1) * 2 < state.peak_members;
+        if (!broken) return LM.Get("hre_dissolve_need_break");
+        int age = empire.data.created_time > 0d ? Date.getYearsSince(empire.data.created_time) : 0;
+        return age < DissolveMinAge ? string.Format(LM.Get("hre_dissolve_need_age"), age, DissolveMinAge) : null;
+    }
+
+    // 皇帝退位、帝国解散
+    private static void Abdicate(Empire empire, HolyRomanState state)
+    {
+        Kingdom core = empire.CoreKingdom;
+        Actor emperor = empire.Emperor;
+        string text = string.Format(LM.Get("hre_dissolve_history"), emperor?.getName() ?? core.GetKingdomName(),
+            empire.GetEmpireFullName());
+        Record(empire, text);
+        emperor?.RecordPersonalHistory(text);
+        foreach (Kingdom member in Members(empire))
+        {
+            Regime regime = member.GetRegime();
+            regime?.SetAllowDiplomacy(true);
+            regime?.SetAllowSupportCenterArmy(false);
+        }
+        // 原中央十年内不再称帝(沿用称帝失败的冷却)
+        core.GetOrCreate().empire_formation_failed_timestamp = World.world.getCurWorldTime();
+        FiscalDiagnostics.Count("神罗·帝国解散");
+        LogService.LogInfo($"[EmpireCraft][神罗] {empire.GetEmpireFullName()} 皇帝退位、帝国解散：权威{Authority(empire)}，" +
+                           $"成员{Members(empire).Count}国(最多{state.peak_members})，立国{Date.getYearsSince(empire.data.created_time)}年");
+        ModClass.EMPIRE_MANAGER.dissolveEmpire(empire);
+    }
+
+    // 神力按钮：皇帝退位(权威不到 10 时)
+    public static bool ActAbdicate(Empire empire)
+    {
+        if (!DissolutionEnabled || !HasDiet(empire) || Authority(empire) >= CollapseAuthority) return false;
+        Abdicate(empire, State(empire));
+        return true;
     }
 
     private static bool IsPapacy(Kingdom kingdom) => kingdom.hasReligion() && PapacySystem.Papacy(kingdom.religion) == kingdom;
@@ -202,9 +264,11 @@ public static partial class HolyRomanSystem
     // 年度诊断的帝国存续一段
     private static string DeclineStatus(Empire empire, HolyRomanState state)
     {
+        if (!DissolutionEnabled) return "模组设置已关帝国解体";
         string low = state.authority_low_since < 0d ? $"权威{Authority(empire)}，未在式微"
             : $"权威低于{LowAuthority}已{Date.getYearsSince(state.authority_low_since)}年(满{ProtectorLowYears}年外国可拉人)";
         string last = state.last_protector_at >= 0d ? $"，上次保护同盟{Date.getYearsSince(state.last_protector_at)}年前" : "";
-        return $"{low}{last}，历史最多{state.peak_members}国";
+        string abdication = AbdicationBlocker(empire, state) ?? "条件已齐，每年一成";
+        return $"{low}{last}，历史最多{state.peak_members}国；退位解散：{abdication}";
     }
 }
