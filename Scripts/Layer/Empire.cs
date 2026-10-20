@@ -588,6 +588,12 @@ public class Empire : MetaObject<EmpireData>
         if (_unregisteredEmperorRepairAttempt == emperor.data.id) return;
         _unregisteredEmperorRepairAttempt = emperor.data.id;
         LogService.LogWarning($"帝国 {GetEmpireName()} 的皇帝 {emperor.getName()} 未完成即位登记，补做即位处理。");
+        // 登记过、本朝记录却是别人的(旧有的那种)：照旧只补登记
+        if (data.reign_emperor_id == emperor.data.id)
+        {
+            NewEmperor(emperor);
+            return;
+        }
         // 上一位登记过的君主的本朝记录还开着(没经 EmperorLeft 收进史书)：按他的即位时间收起，不随新开的一页丢掉
         if (foreignPage && data.currentHistory.id > 0 && data.currentHistory.id == data.reign_emperor_id)
         {
@@ -595,7 +601,33 @@ public class Empire : MetaObject<EmpireData>
             data.history.Add(data.currentHistory);
             data.currentHistory = null;
         }
+        CompleteSuccession(emperor);
+    }
+
+    // 即位后续：帝国核心换了君主之后的整套处理——即位登记(NewEmperor)、记入个人经历、重立储君、汗位更替之乱、
+    // 哈里发更替之乱、水土(改从游牧的成员逢乱自立)、即位分封(兀鲁思、分割继承)。setKing(KingdomPatch.new_emperor)、
+    // 继承人带着自己的国入继(EmpireCraftKingdomBehCheckKing.ChooseKingFromHeir，中央直接改成他的国)、中央灭亡改立别国后的
+    // 月度补登记(RepairUnregisteredEmperor)都走这里。以前后两条路只换了人：汗国的新汗多是兀鲁思的汗(上一位分封出去的兄弟、
+    // 儿子)，换汗走的正是中央改国这条路，不乱、不分封，和"大汗死后会分裂"的基调相反。
+    // 同一次换君只走一遍：这位已经即位登记过(reign_emperor_id)就不再走(同一位皇帝挪到新中央也不算换君)；
+    // 即位被拒(宪制不许、建不起宗族)、没登记上的没有后续
+    public void CompleteSuccession(Actor emperor)
+    {
+        if (emperor?.data == null || data == null || data.reign_emperor_id == emperor.data.id) return;
         NewEmperor(emperor);
+        if (data.reign_emperor_id != emperor.data.id) return;
+        if (!RepublicSystem.IsRepublic(this))
+            emperor.RecordPersonalHistory(string.Format(LM.Get("personal_history_became_emperor"), GetEmpireName()));
+        CoreKingdom?.RemoveHeir();
+        // 汗国新汗即位：积弊深重或正统低落时各兀鲁思可能据地自立(雄主之后第一次换汗必乱，见 NomadCycleSystem)，
+        // 先于即位分封——这一回新分出去的兄弟不在其列
+        NomadCycleSystem.OnKhanSucceeded(this);
+        // 新哈里发即位：积弊深重或正统低落时世袭的埃米尔可能举兵自立(哈里发更替之乱，见 NomadCycleSystem)
+        NomadCycleSystem.OnCaliphSucceeded(this);
+        // 定居帝国换了君主：改从游牧的成员逢乱可能据地自立(见 ShuiTuSystem)
+        ShuiTuSystem.OnSuzerainSucceeded(this);
+        // 即位分封(按法理把土地封给新君的兄弟)
+        EnfeoffmentHelper.OnEmperorSucceeded(this);
     }
 
     // 共和国元首更替、复辟迎回旧君：不是篡位，不触发分裂、内战、改国号那一套
@@ -963,6 +995,8 @@ public class Empire : MetaObject<EmpireData>
         ReignRecordSystem.OnReignEnd(this, emperor);
         data.history.Add(data.currentHistory);
         data.currentHistory = null;
+        // 空位：不再有登记在位的君主(0；-1 留给旧档)，同一人复位也照常即位(见 CompleteSuccession)
+        data.reign_emperor_id = 0L;
     }
     // 追封先帝(谥号、庙号)是君主制的礼制：共和国与现代政体不追封，历史记录里的前朝皇帝也不例外
     public bool AllowsPosthumousNames() =>

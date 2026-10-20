@@ -170,6 +170,7 @@ public class EmpireCraftKingdomBehCheckKing : GameAIKingdomBase
         // 等于 2(=ZhouFeudalism)，之前这样写导致律令制的藩王永远走不到下面"封国留给儿子"的分支。
         if (lastKingdom != null && !(lastKingdom.GetRegime() is {type: RegimeType.LvLing or RegimeType.ZhouFeudalism}))
         {
+            Empire succeeded = null;
             if (pKingdom.IsEmpire())
             {
                 Empire empire = pKingdom.GetEmpire();
@@ -178,9 +179,18 @@ public class EmpireCraftKingdomBehCheckKing : GameAIKingdomBase
                     empire.CoreKingdom = lastKingdom;
                     // 继承人带着自己的封国入继大统：国号不随他的封国改(换了皇族的，由 Empire.NewEmperor 的篡位分支另定国号)
                     empire.KeepNameOnNewCore();
+                    succeeded = empire;
                 }
             }
             pKingdom.cities.ForEach(c=>{ if (c != null && !c.isRekt()) c.joinAnotherKingdom(lastKingdom); });
+            // 中央改成了他的国，不经 setKing：即位后续(登记、汗位更替之乱、兀鲁思分封……)在这里补上，见 Empire.CompleteSuccession。
+            // 放在旧中央的城并过来之后(旧中央已是没有君主的空壳，不会被当成兀鲁思据地自立)；原版各国的城市名单要到下一帧才重排，
+            // 先排好，即位分封按新中央的全部城来分
+            if (succeeded != null)
+            {
+                World.world.kingdoms.beginChecksCities();
+                succeeded.CompleteSuccession(heir);
+            }
             return;
         }
 
