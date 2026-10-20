@@ -1005,34 +1005,24 @@ public static class EmpireCraftMetaTypeLibrary
     }
     // 帝国图层上没被哪个帝国(或同盟视图)画到的王国，按本国颜色补画：同盟视图本来只画帝国与同盟，
     // 独立王国是空的(纯净地图下色块不透明，那里露出底下的地图)
-    // 没画到的城按国家一秒一算(图层每帧都调)
-    private static readonly List<(Kingdom kingdom, List<City> cities)> _uncovered = new();
+    // 每轮按这一轮实际画到的城算(只是逐国逐城查一遍集合，不分配)：以前名单一秒一算，国家刚并入帝国的那一秒里
+    // 它的城帝国画一遍、这里按本国又画一遍(两种颜色每轮来回重画，最后落在本国颜色上)；刚离开帝国的那一秒里
+    // 哪边都不画，地块被原版当成没人要清掉，露一下空白再重画，也不翻牌
     // 帝国图层这一轮画到了哪些城(draw_zones 每轮重画都用，不每轮新建)
     private static readonly HashSet<City> CoveredCities = new();
-    private static float _uncoveredAt = -10f;
-    private static int _uncoveredOption = -1;
 
     private static void drawUncoveredKingdoms(HashSet<City> covered)
     {
       using var timing = FrameProfiler.Measure("帝国图层·补画王国");
-      float now = UnityEngine.Time.unscaledTime;
-      int option = empire.getZoneOptionState();
-      if (option != _uncoveredOption || now < _uncoveredAt || now - _uncoveredAt >= 1f)
+      foreach (Kingdom kingdom in World.world.kingdoms)
       {
-        _uncoveredAt = now;
-        _uncoveredOption = option;
-        _uncovered.Clear();
-        foreach (Kingdom kingdom in World.world.kingdoms)
+        if (kingdom?.data == null || kingdom.isRekt() || kingdom.isNeutral() || kingdom.cities == null) continue;
+        foreach (City city in kingdom.cities)
         {
-          if (kingdom == null || kingdom.isRekt() || kingdom.isNeutral() || kingdom.cities == null) continue;
-          List<City> cities = kingdom.cities.Where(city => city != null && !city.isRekt() && !covered.Contains(city)).ToList();
-          if (cities.Count > 0) _uncovered.Add((kingdom, cities));
+          if (city?.data == null || city.isRekt() || city.kingdom != kingdom || covered.Contains(city)) continue;
+          drawZonesForMeta(city.meta_type_asset, city.zones, ZoneKingdom);
         }
       }
-      foreach ((Kingdom kingdom, List<City> cities) in _uncovered)
-        if (kingdom?.data != null && !kingdom.isRekt())
-          drawForCities(kingdom.meta_type_asset, cities.Where(city => city?.data != null && !city.isRekt() && city.kingdom == kingdom),
-            ZoneKingdom);
     }
 
     // 地块所属城池的国家
