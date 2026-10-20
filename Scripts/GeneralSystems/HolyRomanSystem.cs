@@ -313,7 +313,7 @@ public static partial class HolyRomanSystem
         regime.SetAllowSupportCenterArmy(true);
     }
 
-    // 每年：和约后作废；施行期间新来的世俗诸侯照令办理，豁免名单清掉已不在帝国的
+    // 每年：和约后作废；施行期间新来的世俗诸侯照令办理；豁免名单清掉已不在帝国的、又被收回开战权的(如夺取诸侯开战权)
     private static void ImperialPeaceYearly(Empire empire, HolyRomanState state)
     {
         if (state.imperial_peace_at < 0d) return;
@@ -324,7 +324,8 @@ public static partial class HolyRomanSystem
             state.privileged_ids.Clear();
             return;
         }
-        state.privileged_ids.RemoveAll(id => World.world.kingdoms.get(id)?.GetEmpire() != empire);
+        state.privileged_ids.RemoveAll(id => World.world.kingdoms.get(id) is not Kingdom prince || prince.GetEmpire() != empire ||
+                                             prince.GetRegime()?.IsAllowDiplomacy() != true);
         foreach (Kingdom member in Members(empire))
         {
             if (!SecularPrince(member) || !member.hasKing() || state.privileged_ids.Contains(member.id) ||
