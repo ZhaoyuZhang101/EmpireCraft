@@ -104,6 +104,11 @@ public class EmpireData : MetaObjectData
     public Dictionary<long, double> diplomatic_pacts = new();
     // 西方封建帝国的代数：同名封建帝国反复建立时称"第二帝国""第三帝国"(0/1 表示不加序数)
     public int western_ordinal = 0;
+    // 游牧雄主(见 UnificationSystem 游牧难一统)：领着统一天下的那位雄主与他的名字(-1 没有)；
+    // 雄主不在位了、还没换过汗的时间(-1 没有；有就是雄主之后第一次汗位更替，必乱)
+    public long nomad_hero_id = -1L;
+    public string nomad_hero_name = "";
+    public double nomad_hero_fell_at = -1d;
     public long emperor { get; set; } = -1L;
     public long empire_clan { get; set; } = -1L;
     public long empire_core_id { get; set; } = -1L;

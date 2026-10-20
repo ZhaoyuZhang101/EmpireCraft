@@ -6,6 +6,7 @@ using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
+using NeoModLoader.General;
 using NeoModLoader.services;
 using UnityEngine;
 
@@ -18,6 +19,10 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 兵败离心：汗国成员"拥兵自立"的正统门槛(平时 BaseGate)按汗国这些仗里丢城的比例抬高——每丢一成城 +GatePerTenth，最多 MaxGate；
 //   · 部众思归：汗国一场仗打满 HomesickGraceYears 年后，各城自然稳定度每年少 HomesickStability(至多 HomesickStabilityCap，见 FrontCollapse.WarWeariness)，
 //     兵源每年打九折(至多六折，见 CorpsSystem.WarLevyShare)；开国雄主在位不思归(同久战疲敝)。
+//   · 雄主之后第一次汗位更替(用户 2026-10-20："只要出现雄主快速统一，只要一死就会开始动荡"，见 UnificationSystem 游牧难一统)：
+//     领着统一天下的游牧雄主不在位后的第一回换汗，不看积弊、正统，必乱——各兀鲁思(汗国分封的部族领主也算)与新近并入的别种政体成员
+//     各按 HeroBaseSplit + MaladySplit×积弊平均/100(至多 HeroSplitCap)的机会据地自立；汗国分封的帝国平时没有汗位更替之乱，这一回也有；
+//     之后的换汗照常。新汗若是新朝的开国雄主，登基头 15 年境内不起事(RebellionSystem.CanAttempt)，这一回也就无人自立。
 // 哈里发更替之乱(阿拉伯政体，用户 2026-10-20 选"阿拉伯也照游牧那样修"，数字比汗国轻)：新哈里发即位(OnCaliphSucceeded)、
 //   苏丹(权臣)身故由新人承袭(OnSultanSucceeded，见 MilitaryRegency)时，积弊六条平均 ≥ CrisisMalady 或正统 < ArabicCrisisLegitimacy，
 //   世袭的埃米尔(见 EmirateSystem)与 AnnexedYears 年内并入的别种政体成员，各按 ArabicBaseSplit + ArabicMaladySplit×积弊平均/100
@@ -30,6 +35,9 @@ public static class NomadCycleSystem
     private const float HomesickGraceYears = 2f, HomesickStability = 5f, HomesickStabilityCap = 20f;
     private const float HomesickLevyPerYear = 0.1f, HomesickLevyFloor = 0.6f;
     public const string SuccessionReason = "rebellion_reason_khan_succession";
+    // 雄主之后第一次汗位更替：每部起码的机会(平时 BaseSplit)、上限
+    private const float HeroBaseSplit = 0.4f, HeroSplitCap = 0.75f;
+    public const string HeroSuccessionReason = "rebellion_reason_hero_khan_succession";
     // 哈里发更替之乱：正统门槛、机会(比汗国轻)
     private const int ArabicCrisisLegitimacy = 55;
     private const float ArabicBaseSplit = 0.1f, ArabicMaladySplit = 0.4f;
@@ -46,19 +54,31 @@ public static class NomadCycleSystem
     {
         try
         {
-            if (!IsKhanate(empire) || World.world == null) return;
+            if (empire?.data == null || World.world == null) return;
+            // 雄主之后第一次汗位更替：不看积弊、正统，必乱(见 UnificationSystem.TakeHeroTurmoil)
+            bool heroic = UnificationSystem.TakeHeroTurmoil(empire, out string hero);
+            if (!heroic && !IsKhanate(empire)) return;
             float average = MaladySystem.Average(empire);
             int legitimacy = empire.Legitimacy;
-            if (average < CrisisMalady && legitimacy >= CrisisLegitimacy) return;
-            float chance = BaseSplit + MaladySplit * average / 100f;
+            if (!heroic && average < CrisisMalady && legitimacy >= CrisisLegitimacy) return;
+            float chance = heroic ? Mathf.Min(HeroSplitCap, HeroBaseSplit + MaladySplit * average / 100f)
+                : BaseSplit + MaladySplit * average / 100f;
             var split = new List<string>();
             foreach (Kingdom member in empire.kingdoms_list.ToList())
             {
-                if (!Restive(empire, member) || Random.value >= chance) continue;
+                if (!Restive(empire, member, heroic) || Random.value >= chance) continue;
                 string name = member.GetKingdomName();
-                if (DeclareIndependence(member, empire, SuccessionReason)) split.Add(name);
+                if (DeclareIndependence(member, empire, heroic ? HeroSuccessionReason : SuccessionReason)) split.Add(name);
             }
-            if (split.Count > 0)
+            if (heroic)
+            {
+                string khan = empire.Emperor?.getName() ?? "";
+                LogService.LogInfo($"[EmpireCraft][汗位更替] {empire.GetEmpireName()} 雄主{hero}之后第一次换汗(新汗{khan}，积弊均{average:0}，正统{legitimacy})，" +
+                                   $"{(split.Count > 0 ? string.Join("、", split) + " 据地自立" : "无人自立")}(每部机会 {chance:0.00})");
+                if (split.Count > 0)
+                    EventRecorder.Record(empire, string.Format(LM.Get("khan_hero_turmoil_history"), empire.GetEmpireName(), hero, khan, split.Count));
+            }
+            else if (split.Count > 0)
                 LogService.LogInfo($"[EmpireCraft][汗位更替] {empire.GetEmpireName()} 新汗即位(积弊均{average:0}，正统{legitimacy})，" +
                                    $"{string.Join("、", split)} 据地自立(每部机会 {chance:0.00})");
         }
@@ -122,15 +142,17 @@ public static class NomadCycleSystem
         return joined >= 0d && World.world.getCurWorldTime() >= joined && Date.getYearsSince(joined) < AnnexedYears;
     }
 
-    // 会趁汗位更替自立的成员：兀鲁思(游牧政体的成员国，行省、羁縻除外)，或新近并入的别种政体成员
-    private static bool Restive(Empire empire, Kingdom member)
+    // 会趁汗位更替自立的成员：兀鲁思(游牧政体的成员国，行省、羁縻除外)，或新近并入的别种政体成员；
+    // 雄主之后第一次换汗(heroic)汗国分封的部族领主也算兀鲁思
+    private static bool Restive(Empire empire, Kingdom member, bool heroic = false)
     {
         if (member?.data == null || member.isRekt() || member == empire.CoreKingdom || member.GetEmpire() != empire ||
             !member.hasKing() || member.capital == null || member.cities == null || member.cities.Count == 0 ||
             member.IsFactionRebelling() || member.IsLocalRebelling() || !RebellionSystem.CanAttempt(member)) return false;
         if (member.GetKingdomType() == KingdomType.YouMu_province || JimiSystem.IsJimiAdministration(member) ||
             JimiSystem.IsJimiRegion(member, empire)) return false;
-        if (member.GetRegime()?.type == RegimeType.YouMu) return true;
+        RegimeType? type = member.GetRegime()?.type;
+        if (type == RegimeType.YouMu || heroic && type == RegimeType.NomadFeudalism) return true;
         double joined = member.GetTimestampEmpire();
         return joined >= 0d && World.world.getCurWorldTime() >= joined && Date.getYearsSince(joined) < AnnexedYears;
     }

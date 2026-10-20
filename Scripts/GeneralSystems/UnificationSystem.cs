@@ -36,6 +36,14 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 天命已失、统一中辍：地盘跌到 6% 以下，或不到两成、而且已不是天下国力最强的一家；天下里有别家的地盘比统一者还大；
 //     或打满三十年还没统一(玩家日志 2026-10-16：有的统一战争打了一百七十多年，一直处在开国气象里，不起事、不分裂)——
 //     打满三十年时地盘过半算统一了(能统一的都统一了)，不到一半就中辍。
+// 游牧难一统(用户 2026-10-20："游牧应该很难大一统"，"只要出现雄主快速统一，只要一死就会开始动荡")：游牧政权
+// (游牧政体、汗国分封，帝国按核心，见 IsNomad)——
+//   · 只有开国雄主(或中兴雄主，见 RulerTraitSystem.FounderReigns)在位才能发动统一战争；发动时记下这位雄主(EmpireData.nomad_hero_id)，
+//     在位时照上面的规矩打，推进加成、望风归附、兵败如山倒都不变；不是帝国的游牧国没有雄主，要先称汗；
+//   · 雄主不在位了(身故、被废)：统一没打完的当场中辍——打着的统一战争照中辍的规矩改名(游牧扩张/帝国扩张，见 Halt)，
+//     兵败如山倒作罢；继任者不是雄主就不能再发动；
+//   · 统一后的开国气象只到"雄主不在位"与"统一后满 NomadGraceYears 年"两者较早的那时(别的政体照旧 GraceYears 年)；
+//   · 雄主之后第一次汗位更替必乱：不看积弊、正统(见 TakeHeroTurmoil、NomadCycleSystem.OnKhanSucceeded)，之后照常。
 // 周室分封(ZhouEraSystem)的天下另有一套春秋战国，不在这里管。
 public static class UnificationSystem
 {
@@ -52,6 +60,8 @@ public static class UnificationSystem
     private const float CrushRatio = 0.2f, BrokenShare = 0.3f, SubmitChance = 0.1f, SubmitCap = 0.35f;
     private const int SubmitMaxCities = 2;
     private const float PushBonus = 1.5f, LatePushBonus = 2f;
+    // 游牧难一统：统一后的开国气象至多这么多年(雄主先不在位就更早散)；"无雄主不能统一"的日志每家这么多年一行
+    private const int NomadGraceYears = 10, NoHeroLogYears = 10;
 
     private static object _world;
     private static double _lastMonth = -1d, _lastYear = -1d;
@@ -60,6 +70,9 @@ public static class UnificationSystem
     private const int StallYears = 3;
     // 上次年度统计的天下：统一者 → 它天下里的别家(按都城距离排好)
     private static readonly Dictionary<long, List<Kingdom>> Rivals = new();
+    // 诊断限频：游牧无雄主不能统一(国 → 上回记的时间)；统一满十年开国气象到期(国 → 记过的那次统一时间)
+    private static readonly Dictionary<long, double> NoHeroLogged = new();
+    private static readonly Dictionary<long, double> GraceEndLogged = new();
 
     public static void ResetWorldState()
     {
@@ -68,6 +81,8 @@ public static class UnificationSystem
         FrontCollapse.ResetWorldState();
         Stalled.Clear();
         Rivals.Clear();
+        NoHeroLogged.Clear();
+        GraceEndLogged.Clear();
     }
 
     #region 查询
@@ -94,19 +109,25 @@ public static class UnificationSystem
     public static int GraceYearsLeft(Kingdom kingdom)
     {
         if (!InGrace(kingdom)) return -1;
-        var data = Sovereign(kingdom).GetOrCreate();
-        return data.unified_at < 0d ? -1 : Math.Max(0, GraceYears - Date.getYearsSince(data.unified_at));
+        Kingdom sovereign = Sovereign(kingdom);
+        var data = sovereign.GetOrCreate();
+        int years = IsNomad(sovereign) ? NomadGraceYears : GraceYears;
+        return data.unified_at < 0d ? -1 : Math.Max(0, years - Date.getYearsSince(data.unified_at));
     }
 
-    // 开国气象：统一战争期间、统一后三十年(见 Empire.InFoundingGrace、RebellionSystem.CanAttempt)
+    // 开国气象：统一战争期间、统一后三十年(见 Empire.InFoundingGrace、RebellionSystem.CanAttempt)；
+    // 游牧政权只在记下的雄主在位时有，统一后至多 NomadGraceYears 年(见文件头游牧难一统)
     public static bool InGrace(Kingdom kingdom)
     {
         Kingdom sovereign = Sovereign(kingdom);
         if (!Alive(sovereign) || World.world == null) return false;
         var data = sovereign.GetOrCreate();
+        if (data.unify_since < 0d && data.unified_at < 0d) return false;
+        bool nomad = IsNomad(sovereign);
+        if (nomad && !HeroReigns(sovereign)) return false;
         if (data.unify_since >= 0d) return true;
-        if (data.unified_at < 0d || World.world.getCurWorldTime() < data.unified_at ||
-            Date.getYearsSince(data.unified_at) >= GraceYears) return false;
+        if (World.world.getCurWorldTime() < data.unified_at ||
+            Date.getYearsSince(data.unified_at) >= (nomad ? NomadGraceYears : GraceYears)) return false;
         // 统一后的开国气象就是受天命的治世开头(用户 2026-10-19 选"以天命为准")：天命丢了气象就散了——
         // 以前统一"完成"却没受天命，天下显示乱世，开国气象却还在
         return TianxiaSystem.LeadOf(sovereign.capital) == null || TianxiaSystem.MandateOf(sovereign) != null;
@@ -177,6 +198,175 @@ public static class UnificationSystem
         var data = core.GetOrCreate();
         data.unify_since = -1d;
         data.unified_at = -1d;
+    }
+
+    #endregion
+
+    #region 游牧难一统
+
+    // 游牧政权：游牧政体、汗国分封(sovereign 是一家之主，帝国按核心)
+    private static bool IsNomad(Kingdom sovereign)
+    {
+        if (!Alive(sovereign)) return false;
+        var type = sovereign.GetRegime()?.type;
+        return type == EmpireCraft.Scripts.Regimes.RegimeType.YouMu || type == EmpireCraft.Scripts.Regimes.RegimeType.NomadFeudalism;
+    }
+
+    // 记雄主的地方：统一者是帝国(核心)时它的帝国数据；不是帝国就没有雄主可记
+    private static EmpireData HeroState(Kingdom sovereign)
+    {
+        Empire empire = sovereign?.GetEmpire();
+        return empire?.data != null && !empire.isRekt() && empire.CoreKingdom == sovereign ? empire.data : null;
+    }
+
+    // 记下的雄主还在位：仍是这个帝国的君主，仍是开国雄主或中兴雄主
+    private static bool HeroReigns(Kingdom sovereign)
+    {
+        EmpireData state = HeroState(sovereign);
+        if (state == null || state.nomad_hero_id < 0L) return false;
+        Actor emperor = sovereign.GetEmpire().Emperor;
+        return emperor != null && emperor.isAlive() && emperor.id == state.nomad_hero_id && RulerTraitSystem.FounderReigns(sovereign);
+    }
+
+    // 发动统一战争时记下在位的雄主
+    private static void RememberHero(Kingdom sovereign)
+    {
+        EmpireData state = HeroState(sovereign);
+        Actor hero = sovereign.GetEmpire()?.Emperor;
+        if (state == null || hero == null || !hero.isAlive()) return;
+        state.nomad_hero_id = hero.id;
+        state.nomad_hero_name = hero.getName() ?? "";
+    }
+
+    // 记下的雄主不在位了：统一没打完的当场中辍，统一后还在开国气象里的气象就此散了；
+    // 留下"雄主之后第一次换汗必乱"(见 TakeHeroTurmoil)
+    private static void HeroFell(Empire empire)
+    {
+        EmpireData state = empire.data;
+        Kingdom core = empire.CoreKingdom;
+        string hero = state.nomad_hero_name ?? "";
+        state.nomad_hero_id = -1L;
+        if (!Alive(core) || World.world == null) return;
+        double now = World.world.getCurWorldTime();
+        state.nomad_hero_fell_at = now;
+        var data = core.GetOrCreate();
+        string name = core.GetKingdomName();
+        if (data.unify_since >= 0d)
+        {
+            int years = UnifyYears(core);
+            Halt(core);
+            Record(core, "unify_hero_fell_history", name, hero);
+            LogService.LogInfo($"[EmpireCraft][天下大势] {name} 失了雄主{hero}(统一战争第{years}年)，统一中辍，打着的统一战争改名");
+            return;
+        }
+        if (data.unified_at >= 0d && now >= data.unified_at && Date.getYearsSince(data.unified_at) < NomadGraceYears)
+        {
+            Record(core, "unify_hero_grace_end_history", name, hero);
+            LogService.LogInfo($"[EmpireCraft][天下大势] {name} 失了雄主{hero}，统一后第{Date.getYearsSince(data.unified_at)}年开国气象结束");
+            return;
+        }
+        LogService.LogInfo($"[EmpireCraft][天下大势] {name} 失了雄主{hero}({(data.unified_at >= 0d ? "统一后开国气象已过" : "统一未成")})，下回换汗必乱");
+    }
+
+    // 统一中辍：不再算统一者；它打着的统一战争照年度清理的规矩改名(见 RetagStaleWars)，兵败如山倒作罢。
+    // 只动它自己发动的仗——年度结算中途别家的对手表还没重建，不能整个世界一起改
+    private static void Halt(Kingdom unifier)
+    {
+        unifier.GetOrCreate().unify_since = -1d;
+        Stalled.Remove(unifier.id);
+        Rivals.Remove(unifier.id);
+        FrontCollapse.Release(unifier);
+        foreach (War war in unifier.getWars().ToList())
+        {
+            if (war?.data == null || war.hasEnded() || war.GetEmpireWarType() != EmpireWarType.统一 ||
+                Sovereign(war.getMainAttacker()) != unifier) continue;
+            Retag(war);
+        }
+    }
+
+    // 游牧统一者没有雄主在位了就中辍，返回 true(见文件头游牧难一统)：记下的雄主不在位按 HeroFell 收场；
+    // 旧档里打着统一战争却没记下雄主的，雄主在位就补记，不在就中辍
+    private static bool HeroLost(Kingdom unifier)
+    {
+        if (!IsNomad(unifier)) return false;
+        EmpireData state = HeroState(unifier);
+        if (state != null && state.nomad_hero_id >= 0L)
+        {
+            if (HeroReigns(unifier)) return false;
+            HeroFell(unifier.GetEmpire());
+            return true;
+        }
+        if (state != null && RulerTraitSystem.FounderReigns(unifier))
+        {
+            RememberHero(unifier);
+            return false;
+        }
+        int years = UnifyYears(unifier);
+        Halt(unifier);
+        Record(unifier, "unify_no_hero_history", unifier.GetKingdomName());
+        LogService.LogInfo($"[EmpireCraft][天下大势] {unifier.GetKingdomName()} 游牧无雄主在位(统一战争第{years}年)，统一中辍");
+        return true;
+    }
+
+    // 每月：各帝国记下的游牧雄主还在不在位，不在了按 HeroFell 收场；统一满十年雄主还在位的，开国气象到期记一行日志
+    private static void WatchHeroes()
+    {
+        if (ModClass.EMPIRE_MANAGER == null) return;
+        foreach (Empire empire in ModClass.EMPIRE_MANAGER.ToList())
+        {
+            if (empire?.data == null || empire.isRekt() || empire.IsArchived() || empire.data.nomad_hero_id < 0L) continue;
+            Kingdom core = empire.CoreKingdom;
+            if (!Alive(core)) continue;
+            // 不再是游牧政权(改制、入主后汉化)：照别的政体的规矩，记下的雄主作罢
+            if (!IsNomad(core))
+            {
+                empire.data.nomad_hero_id = -1L;
+                continue;
+            }
+            if (!HeroReigns(core))
+            {
+                HeroFell(empire);
+                continue;
+            }
+            var data = core.GetOrCreate();
+            if (data.unify_since >= 0d || data.unified_at < 0d || World.world.getCurWorldTime() < data.unified_at ||
+                Date.getYearsSince(data.unified_at) < NomadGraceYears ||
+                GraceEndLogged.TryGetValue(core.id, out double logged) && logged == data.unified_at) continue;
+            GraceEndLogged[core.id] = data.unified_at;
+            LogService.LogInfo($"[EmpireCraft][天下大势] {core.GetKingdomName()} 统一满{NomadGraceYears}年，开国气象结束(雄主{empire.data.nomad_hero_name}仍在位)");
+        }
+    }
+
+    // 新汗即位时问(见 NomadCycleSystem.OnKhanSucceeded)：是不是雄主之后第一次汗位更替。记下的雄主这才不在位的先按 HeroFell 收场
+    // (统一中辍、气象散)；问过就清掉，之后的汗位更替照常。hero 是那位雄主的名字
+    public static bool TakeHeroTurmoil(Empire empire, out string hero)
+    {
+        hero = "";
+        if (empire?.data == null || empire.isRekt() || World.world == null) return false;
+        EmpireData state = empire.data;
+        if (state.nomad_hero_id < 0L && state.nomad_hero_fell_at < 0d) return false;
+        Kingdom core = empire.CoreKingdom;
+        // 不再是游牧政权：照别的政体的规矩
+        if (!Alive(core) || !IsNomad(core))
+        {
+            state.nomad_hero_id = -1L;
+            state.nomad_hero_fell_at = -1d;
+            return false;
+        }
+        if (state.nomad_hero_id >= 0L && !HeroReigns(core)) HeroFell(empire);
+        if (state.nomad_hero_fell_at < 0d) return false;
+        state.nomad_hero_fell_at = -1d;
+        hero = state.nomad_hero_name ?? "";
+        return true;
+    }
+
+    // 游牧无雄主在位、本可发动统一战争的(诊断，每家 NoHeroLogYears 年一行)
+    private static void LogNoHero(Kingdom top, Realm realm, float share)
+    {
+        double now = World.world.getCurWorldTime();
+        if (NoHeroLogged.TryGetValue(top.id, out double at) && now >= at && Date.getYearsSince(at) < NoHeroLogYears) return;
+        NoHeroLogged[top.id] = now;
+        LogService.LogInfo($"[EmpireCraft][天下大势] {realm.line}：{top.GetKingdomName()} 据有{share:P0}，游牧无雄主在位，不能发动统一战争");
     }
 
     #endregion
@@ -486,6 +676,8 @@ public static class UnificationSystem
             Kingdom unifier = powers.FirstOrDefault(holder => holder.GetOrCreate().unify_since >= 0d);
             if (unifier != null)
             {
+                // 游牧统一者没了雄主：统一中辍(见文件头游牧难一统)
+                if (HeroLost(unifier)) continue;
                 tracked.Add(unifier);
                 float share = realm.held[unifier] / (float)realm.total;
                 bool alone = powers.All(holder => holder == unifier || Exempt(holder));
@@ -550,8 +742,20 @@ public static class UnificationSystem
             if (!leads) continue;
             // 天下有主(治世、动荡)：别家不能问鼎，只有乱世才有统一战争(见 TianxiaSystem 天命周期)
             if (realm.lead != null && TianxiaSystem.BarsContender(realm.lead, top)) continue;
+            // 游牧政权只有雄主在位才能发动统一战争，发动时记下这位雄主(见文件头游牧难一统)
+            bool nomad = IsNomad(top);
+            if (nomad && !RulerTraitSystem.FounderReigns(top))
+            {
+                LogNoHero(top, realm, topShare);
+                continue;
+            }
             top.GetOrCreate().unify_since = now;
             tracked.Add(top);
+            if (nomad)
+            {
+                RememberHero(top);
+                LogService.LogInfo($"[EmpireCraft][天下大势] {realm.line}：游牧 {top.GetKingdomName()} 雄主{HeroState(top)?.nomad_hero_name}在位，发动统一战争");
+            }
             Record(top, "unify_start_history", top.GetKingdomName(), $"{topShare:P0}");
             Rivals[top.id] = Opponents(top, realm);
         }
@@ -572,11 +776,16 @@ public static class UnificationSystem
         {
             if (war?.data == null || war.hasEnded() || war.GetEmpireWarType() != EmpireWarType.统一 || IsUnificationWar(war))
                 continue;
-            Kingdom attacker = war.getMainAttacker();
-            if (attacker == null) continue;
-            bool nomad = attacker.GetRegime()?.type == EmpireCraft.Scripts.Regimes.RegimeType.YouMu;
-            war.SetEmpireWarType(nomad ? EmpireWarType.游牧扩张 : EmpireWarType.帝国扩张);
+            Retag(war);
         }
+    }
+
+    private static void Retag(War war)
+    {
+        Kingdom attacker = war.getMainAttacker();
+        if (attacker == null) return;
+        bool nomad = attacker.GetRegime()?.type == EmpireCraft.Scripts.Regimes.RegimeType.YouMu;
+        war.SetEmpireWarType(nomad ? EmpireWarType.游牧扩张 : EmpireWarType.帝国扩张);
     }
 
     // 天下里的别家(都城在这片里的独立国家、别的帝国)，按都城离统一者都城远近排
@@ -624,9 +833,12 @@ public static class UnificationSystem
     private static void Monthly()
     {
         FrontCollapse.Prune();
+        // 游牧雄主还在不在位(见文件头游牧难一统)
+        WatchHeroes();
         foreach (Kingdom unifier in World.world.kingdoms.list.Where(kingdom => Alive(kingdom) &&
                      kingdom.GetOrCreate().unify_since >= 0d && Sovereign(kingdom) == kingdom).ToList())
         {
+            if (HeroLost(unifier)) continue;
             // 正规军打垮、又丢了都城或三分之一的城：兵败如山倒(见 FrontCollapse)
             foreach (War war in unifier.getWars().ToList())
             {

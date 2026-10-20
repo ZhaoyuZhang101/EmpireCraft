@@ -109,6 +109,16 @@ public static class FrontCollapse
         }
     }
 
+    // 游牧统一者失了雄主、统一中辍(见 UnificationSystem 游牧难一统)：它打出来的兵败如山倒随之作罢——
+    // 不再是统一战争，每月不再查，留着就一直崩到停战
+    public static void Release(Kingdom victor)
+    {
+        Kingdom b = Realm(victor);
+        if (!Alive(b) || Collapsed.Count == 0) return;
+        foreach (long id in Collapsed.Where(pair => pair.Value == b.id).Select(pair => pair.Key).ToList())
+            Collapsed.Remove(id);
+    }
+
     private static IEnumerable<Kingdom> Members(Kingdom realm) =>
         realm.GetEmpire()?.kingdoms_list?.Where(Alive) ?? new[] { realm };
 
