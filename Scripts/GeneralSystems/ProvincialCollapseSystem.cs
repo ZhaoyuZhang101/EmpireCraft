@@ -44,11 +44,13 @@ public static class ProvincialCollapseSystem
 
     public static bool Active(Empire empire) => State(empire)?.collapse_started_at >= 0d;
 
+    // 君主制，以及古典共和施行了元首制的(用户 2026-10-20 定"罗马元首制也会分裂"：元首家传、行省派总督，与帝制无异；
+    // 门槛、机会与君主制一样。以前古典共和不算君主制，元首制帝国从不瓦解)
     private static bool Applies(Empire empire) =>
         empire?.data != null && !empire.isRekt() && !empire.IsArchived() && empire.CoreKingdom != null &&
         !empire.CoreKingdom.isRekt() && !RepublicSystem.IsRepublic(empire) &&
-        RegimeManager.IsMonarchy(empire.CoreKingdom.GetRegime()?.type) && !ZhouEraSystem.RoyalReclaimBlocked(empire) &&
-        !AncientWarfareCompatibility.Owns(empire.CoreKingdom);
+        (RegimeManager.IsMonarchy(empire.CoreKingdom.GetRegime()?.type) || empire.IsPrincipate()) &&
+        !ZhouEraSystem.RoyalReclaimBlocked(empire) && !AncientWarfareCompatibility.Owns(empire.CoreKingdom);
 
     // 以前只看技术进了工业时代：制度还停在三省六部、没立宪的帝国，一次土崩瓦解就成了共和革命，全文化跟着进入现代
     private static bool Modern(Empire empire) =>

@@ -75,7 +75,9 @@ public static class EmpirePartitionSystem
     private static bool Eligible(Empire empire)
     {
         Kingdom core = empire?.CoreKingdom;
-        if (core == null || core.isRekt() || core.capital == null || !SuccessionCouncilSystem.Applies(core)) return false;
+        // 元首制(古典共和施行元首制，元首家传)同君主制可分治(用户 2026-10-20 定"罗马元首制也会分裂")，倍数读古典共和配置(×1)
+        if (core == null || core.isRekt() || core.capital == null ||
+            !SuccessionCouncilSystem.Applies(core) && !empire.IsPrincipate()) return false;
         // 开国气象(统一战争期间、统一后三十年)不分治、不分立(见 UnificationSystem)
         if (UnificationSystem.InGrace(core)) return false;
         if (Twin(empire) != null) return false;

@@ -330,7 +330,7 @@
     },
     {
       "id": "western_civic_legion", "requires_techs": ["military_register"],
-      "features": {"army_mobilization": 0.15},
+      "features": {"army_mobilization": 0.12},
       "name_key": "institution_western_civic_legion",
       "description_key": "institution_western_civic_legion_desc",
       "branch": "military",
