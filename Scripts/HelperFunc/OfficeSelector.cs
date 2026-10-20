@@ -176,8 +176,10 @@ public static class OfficeSelector
             .Where(elector => elector != null && !elector.isRekt())
             .ToList();
 
+        // 帝国自由城市的市长、主教领的主教不是诸侯，不当选皇帝(以前自由城市的市长当选，整座城成了帝国中央，见 HolyRomanSystem.Members)
         return empire.kingdoms_list
-            .Where(kingdom => kingdom != null && !kingdom.isRekt() && kingdom != pKingdom && kingdom.hasKing())
+            .Where(kingdom => kingdom != null && !kingdom.isRekt() && kingdom != pKingdom && kingdom.hasKing() &&
+                              HolyRomanSystem.Estate(kingdom) == HolyRomanSystem.EstateNone)
             .Select(kingdom => kingdom.king)
             .Where(candidate => candidate != null && !candidate.isRekt() && candidate.isAdult() &&
                                 candidate.isUnitFitToRule() && candidate.CanServeOffice(pKingdom) &&

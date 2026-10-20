@@ -37,10 +37,27 @@ public static partial class HolyRomanSystem
 
     private static void MembersYearly(Empire empire, HolyRomanState state)
     {
+        RepairEstates(empire);
         TryCharterFreeCity(empire);
         TryEndowChurch(empire);
         FreeCityTaxes(empire);
         TryPawnFreeCity(empire);
+    }
+
+    // 旧档修补：自由城市、主教领以前税级被设成"无"(一分税收不上)，改回"低"(直接写选项：议会掌握征税权时
+    // SetTaxLevel 会被否决，这是修补不是改税)；自由城市的市长被推举为皇帝、整座城成了中央的，中央不再算自由城市
+    private static void RepairEstates(Empire empire)
+    {
+        Kingdom core = empire.CoreKingdom;
+        if (Estate(core) != EstateNone) core.GetOrCreate().hre_estate = EstateNone;
+        foreach (Kingdom member in Members(empire))
+        {
+            if (Estate(member) == EstateNone) continue;
+            Regime regime = member.GetRegime();
+            if (regime?.options != null && regime.options.TryGetValue("option_tax_level", out int[] tax) && tax != null &&
+                tax.Length > 0 && tax[0] == (int)TaxLevel.None)
+                tax[0] = (int)TaxLevel.Low;
+        }
     }
 
     #region 自由城市
@@ -109,7 +126,9 @@ public static partial class HolyRomanSystem
             regime.SetLeaderSelectMethod(method);
             regime.SetAllowSupportCenterArmy(false);
             regime.SetAllowDiplomacy(false);
-            regime.SetTaxLevel(TaxLevel.None);
+            // 税级是本国向百姓收税的税率(见 KingdomExtension.GetTaxRate)，不是向帝国的贡赋：以前设成"无"，
+            // 自由城市一分税收不上，年收从几十掉到 0、年年废债重组(玩家日志)。向帝国缴的是税款分成与每年一成(见 FreeCityTaxes)
+            regime.SetTaxLevel(TaxLevel.Low);
             if (estate == EstateChurch) regime.SetReligionLevel(ReligionLevel.High);
         }
         if (realm.HasMainTitle()) realm.RemoveMainTitle();
@@ -122,13 +141,16 @@ public static partial class HolyRomanSystem
         return realm;
     }
 
+    // 自由城市只给帝国缴税：本城税款照封建成员的分成交中央(见 TreasurySystem.TaxShares)，另每年缴一成年收入。
+    // 这一成只从可用资金里出(扣掉安全储备)，不为它动用储备、举债
     private static void FreeCityTaxes(Empire empire)
     {
         Kingdom core = empire.CoreKingdom;
         foreach (Kingdom free in Members(empire).Where(IsFreeCity))
         {
             if (free.isInWarWith(core)) continue;
-            int amount = (int)Math.Min(Math.Max(0L, free.GetMoney()), (long)(StateDebtSystem.AnnualStableIncome(free) * FreeCityTax));
+            int amount = (int)Math.Min(StateSettlementSystem.DiscretionaryFunds(free),
+                (long)(StateDebtSystem.AnnualStableIncome(free) * FreeCityTax));
             if (amount <= 0) continue;
             free.SubMoney(amount, TreasuryCategory.Tribute);
             core.AddMoney(amount, TreasuryCategory.Tribute);

@@ -101,7 +101,8 @@ public static class GraceEdictService
         {
             regime.SetLeaderSelectMethod(LeaderSelectMethod.Succession);
             regime.SetAllowSupportCenterArmy(false);
-            regime.SetTaxLevel(TaxLevel.None);
+            // 税级是本国向百姓收税的税率(见 KingdomExtension.GetTaxRate)：以前设成"无"，分出来的小封国一分税收不上
+            regime.SetTaxLevel(TaxLevel.Low);
         }
         if (cityFief.HasMainTitle()) cityFief.RemoveMainTitle();
         string cityName = city.GetCityName();
