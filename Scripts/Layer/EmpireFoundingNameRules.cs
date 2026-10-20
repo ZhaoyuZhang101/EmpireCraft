@@ -11,7 +11,10 @@ public enum EmpireFoundingNameSource
     EmpireCore,
     KingdomName,
     ClanOriginTitle,
-    CapitalTitle
+    CapitalTitle,
+    // 天下之名(见 RealmNamingSystem)：据有三分之二的帝国法理、复国的祖号
+    DominionCore,
+    RestoredAncestral
 }
 
 public sealed class EmpireFoundingNameChoice
@@ -29,6 +32,8 @@ public sealed class EmpireFoundingNameChoice
         EmpireFoundingNameSource.EmpireCore => "empire_name_source_empire_core",
         EmpireFoundingNameSource.ClanOriginTitle => "empire_name_source_clan_origin_title",
         EmpireFoundingNameSource.CapitalTitle => "empire_name_source_capital_title",
+        EmpireFoundingNameSource.DominionCore => "empire_name_source_dominion",
+        EmpireFoundingNameSource.RestoredAncestral => "empire_name_source_restored",
         _ => "empire_name_source_kingdom_name"
     };
 

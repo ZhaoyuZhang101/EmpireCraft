@@ -2682,8 +2682,13 @@ namespace EmpireCraft.Scripts.AI
                 .Where(realm => realm != kingdom && !realm.IsEmpire() && !realm.IsInEmpire()).ToList();
             // 同文化可以有多个帝国并立；主法理在别国核心里的是僭越称帝，先用临时核心，正统之争胜出后再接管原核心
             Empire contested = EmpireFormationService.GetSeatCoreEmpire(kingdom);
+            // 据有法理(华夏)：主法理所在帝国法理空闲先绑它，否则绑据三分之二的那个；那个还被旧朝占着就对它僭越(见 RealmNamingSystem)
+            EmpireCore bindCore = null;
+            bool forceNewCore = contested != null;
+            if (route == EmpireFormationRoute.Dominion)
+                contested = RealmNamingSystem.PlanDominionBinding(kingdom, contested, out bindCore, out forceNewCore);
             Empire empire = ModClass.EMPIRE_MANAGER?.NewEmpire(kingdom, allowCultureRival: true,
-                forceNewCore: contested != null);
+                forceNewCore: forceNewCore, bindCore: bindCore);
             if (empire == null)
             {
                 kingdom.GetOrCreate().empire_formation_route = EmpireFormationRoute.None;
@@ -2693,6 +2698,7 @@ namespace EmpireCraft.Scripts.AI
             EmpireFormationService.CompleteFormation(empire, kingdom, route, foundingAlliance,
                 allianceMembers, coRuledRealms);
             if (contested != null) ImperialLegitimacyChallengeService.DeclareUsurpation(empire, contested);
+            RealmNamingSystem.AfterProclaimed(empire);
             return true;
         }
 

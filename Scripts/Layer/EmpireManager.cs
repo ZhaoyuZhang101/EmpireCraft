@@ -271,7 +271,7 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
 
     public Empire NewEmpire(Kingdom pKingdom, bool isSplit = false,
         bool allowCultureRival = false, bool forceNewCore = false, Empire replacingEmpire = null,
-        bool suppressFoundingLog = false)
+        bool suppressFoundingLog = false, EmpireCore bindCore = null)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.BlocksEmpireFormation(pKingdom)) return null;
         if (pKingdom == null || !pKingdom.isAlive())
@@ -303,7 +303,8 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
         empire.data.timestamp_given_time = World.world.getCurWorldTime();
         // 立国时间(开国气象 Empire.InFoundingGrace 用)
         empire.data.created_time = World.world.getCurWorldTime();
-        var riseCore = forceNewCore ? null : EmpireCoreManager.GetRiseCandidateCore(pKingdom);
+        // bindCore：称帝时指定绑哪个帝国法理(据有法理，见 RealmNamingSystem.PlanDominionBinding)
+        var riseCore = forceNewCore ? null : bindCore ?? EmpireCoreManager.GetRiseCandidateCore(pKingdom);
         // 候选核心已归属别的现存帝国时不能抢过来(主法理在别国核心里的根本不能称帝，见 EmpireFormationService)；
         // 此时只可能是都城/其他法理落在别国核心里，主法理本身没有核心，按规则新建核心
         if (riseCore != null && (EmpireCoreManager.GetEmpires(riseCore).Any(other => other != empire && !other.IsArchived()) ||
@@ -315,8 +316,9 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
         }
         else
         {
-            EmpireCoreManager.newEmpireCore(empire);
+            EmpireCoreManager.newEmpireCore(empire, RealmNamingSystem.FreshCoreName(empire));
         }
+        RealmNamingSystem.OnEmpireBound(empire, pKingdom);
         pKingdom.GetOrCreate().isEmpire = true;
         pKingdom.SetEmpireID(empire.id);
         EmpireFormationService.OnEmpireCreated(empire);

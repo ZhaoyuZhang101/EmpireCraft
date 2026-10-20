@@ -246,6 +246,8 @@ public static class ConstitutionalEconomySystem
         MilitaryCoupSystem.Yearly(empire);
         // 西方：教权、加冕、叙任权、什一税
         PapacySystem.Yearly(empire);
+        // 天下之名：同号方位、普世之名、唯一合法政府国号、多京与直隶(见 RealmNamingSystem)
+        RealmNamingSystem.Yearly(empire);
         // 伪法理转正：正统帝国已亡而据有正规核心过半
         ImperialLegitimacyChallengeService.TryLegitimizeFalseCore(empire);
         // 派系失衡：一派独大按其极端方向引发乱局(先于朝政积弊，见 FactionBalanceSystem)

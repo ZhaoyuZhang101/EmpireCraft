@@ -110,7 +110,8 @@ public static class EmpireCoreManager
             if (core?.warlord_parent_core_id > 0) RestoreParentCities(core);
     }
 
-    public static EmpireCore newEmpireCore(Empire empire)
+    // coreName：新法理另起的名字(国号取自别的帝国法理时，见 RealmNamingSystem.FreshCoreName)；空 = 照国号
+    public static EmpireCore newEmpireCore(Empire empire, string coreName = null)
     {
         foreach (KingdomTitle title in empire.CoreKingdom.GetControlledTitles())
             CultureService.PinTitleCultureIfFixed(title);
@@ -120,7 +121,7 @@ public static class EmpireCoreManager
             empire_id = empire.id,
             culture = empire.CoreKingdom.culture.id,
             default_culture = CultureService.GetRealmCulture(empire.CoreKingdom),
-            name = NormalizeCoreName(empire.GetEmpireName()),
+            name = NormalizeCoreName(string.IsNullOrWhiteSpace(coreName) ? empire.GetEmpireName() : coreName),
             create_timestamp = empire.data.created_time,
             titlesRecord = empire.CoreKingdom.GetControlledTitles().Select(t=>(World.world.getCurWorldTime(), t.id)).ToList(),
             empire_history_ids = new List<long>(),

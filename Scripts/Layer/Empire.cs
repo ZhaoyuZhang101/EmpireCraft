@@ -459,6 +459,9 @@ public class Empire : MetaObject<EmpireData>
         // 按称帝路线定国号：宗室复国沿用前朝国号(加方位)；承续法统而非前朝血脉的，用家族发迹地的
         // 法理，其次都城所在的法理；其余路线(及非剧情称帝)仍按原规则，主法理优先。
         EmpireFormationRoute route = kingdom?.GetOrCreate().empire_formation_route ?? EmpireFormationRoute.None;
+        // 天下之名(华夏据有法理、复国，西方用本帝国法理名)：有就照它，没有照旧规则(见 RealmNamingSystem)
+        EmpireFoundingNameChoice realmChoice = RealmNamingSystem.SelectFoundingName(this, kingdom, riseCore, route);
+        if (realmChoice != null) return realmChoice;
         EmpireFoundingNameChoice choice = null;
         if (route == EmpireFormationRoute.Restoration && !string.IsNullOrWhiteSpace(ancestralEmpireName))
         {

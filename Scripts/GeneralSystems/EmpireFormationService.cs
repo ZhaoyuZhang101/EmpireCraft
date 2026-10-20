@@ -20,7 +20,8 @@ public enum EmpireFormationRoute
     Hegemony = 4,    // 武力霸权：国力达到同文化第二强的两倍
     Fallback = 5,    // 兜底：本文化五十年无帝国，由最强者称帝
     SelfProclamation = 6, // 自立为帝：本文化最强的独立国家自行称帝
-    Seal = 7             // 怀玺受命：华夏王国怀着传国玉玺(见 ImperialSealSystem)，排在宗室复国之后
+    Seal = 7,            // 怀玺受命：华夏王国怀着传国玉玺(见 ImperialSealSystem)，排在宗室复国之后
+    Dominion = 8         // 据有法理：华夏王国据有某帝国法理三分之二(见 RealmNamingSystem)，排在最前；追加在末尾，旧档枚举值不变
 }
 
 // 称帝逻辑：
@@ -49,6 +50,7 @@ public static class EmpireFormationService
     public static int GetInitialMandate(EmpireFormationRoute route) => route switch
     {
         EmpireFormationRoute.Legitimacy => 80,
+        EmpireFormationRoute.Dominion => 80,
         // 都在叛乱滚雪球(40)之上留出余量：开国之君再弱也不至于一登基就崩
         EmpireFormationRoute.Restoration => 75,
         EmpireFormationRoute.Seal => 75,
@@ -100,6 +102,8 @@ public static class EmpireFormationService
         string culture = CultureService.GetRealmCulture(kingdom);
         if (!CultureService.IsValidCulture(culture)) return EmpireFormationRoute.None;
         if (!IsAllianceRepresentative(kingdom, culture)) return EmpireFormationRoute.None;
+        // 据有法理(华夏)：据有某帝国法理三分之二即可称帝，不必国力胜过同文化各帝国(用户 2026-10-20 拍板)
+        if (RealmNamingSystem.DominionRoute(kingdom)) return EmpireFormationRoute.Dominion;
         if (OutmatchedByEmpire(kingdom, culture)) return EmpireFormationRoute.None;
         if (MeetsLegitimacy(kingdom)) return EmpireFormationRoute.Legitimacy;
         if (MeetsRestoration(kingdom)) return EmpireFormationRoute.Restoration;
@@ -405,7 +409,7 @@ public static class EmpireFormationService
         EmpireFormationRoute route = GetBestRoute(kingdom);
         if (route == EmpireFormationRoute.None) return "没有称帝路线(不是本文化最强的候选)";
         if (kingdom.king.plot?.isActive() == true) return $"君主正忙别的剧情({kingdom.king.plot.getAsset()?.id})，路线 {route}";
-        return $"条件都满足(路线 {route})，等称帝剧情";
+        return $"条件都满足(路线 {route}{RealmNamingSystem.DominionNote(kingdom)})，等称帝剧情";
     }
 
     private static bool MeetsBaseRequirements(Kingdom kingdom, bool requireNonNegativeTreasury)
