@@ -46,15 +46,37 @@ public static class CityStateService
         kingdom.SetKingdomCoreName(name, name);
     }
 
-    // 城邦加入古典共和帝国后完全自治：保留外交权和军队，不交税、不向中央输兵
+    // 城邦加入古典共和帝国(诸侯加入封建制帝国)后完全自治：保留外交权和军队，不向中央输兵。
+    // "不交税"是不向中央上缴(古典共和的自治城邦不交，封建诸侯照封建成员的分成交，见 TreasurySystem.TaxShares)，
+    // 不是本国不收税：以前把税级设成"无"，成员一分税收不上；现在税级为"无"的改回"低"，原有的税级不动。
+    // 帝国自由城市、主教领(见 HolyRomanSystem.Members)本就没有外交开战权，不给
     public static void GrantAutonomy(Kingdom kingdom)
     {
         Regime regime = kingdom?.GetRegime();
         if (regime == null) return;
-        regime.SetAllowDiplomacy(true);
-        regime.SetAllowArmy(true);
-        regime.SetAllowSupportCenterArmy(false);
-        regime.SetTaxLevel(TaxLevel.None);
+        if (HolyRomanSystem.Estate(kingdom) == HolyRomanSystem.EstateNone)
+        {
+            regime.SetAllowDiplomacy(true);
+            regime.SetAllowArmy(true);
+            regime.SetAllowSupportCenterArmy(false);
+        }
+        TreasurySystem.EnsureCollectsTax(regime);
+    }
+
+    // 旧档修补(每年随帝国年度结算，见 ConstitutionalEconomySystem)：帝国自由城市、主教领入帝国时被 GrantAutonomy
+    // 误给了外交开战权，收回；诸侯订立和约、各家取得完全主权之后不收
+    public static void RepairEstateAutonomy(Empire empire)
+    {
+        if (empire?.data == null || empire.kingdoms_list == null || empire.data.holy_roman?.sovereign_princes == true) return;
+        foreach (Kingdom member in empire.kingdoms_list)
+        {
+            if (member?.data == null || member.isRekt() || member == empire.CoreKingdom ||
+                HolyRomanSystem.Estate(member) == HolyRomanSystem.EstateNone) continue;
+            Regime regime = member.GetRegime();
+            if (regime == null || !regime.IsAllowDiplomacy()) continue;
+            regime.SetAllowDiplomacy(false);
+            regime.SetAllowSupportCenterArmy(false);
+        }
     }
 
     // CityManager.buildNewCity 之后调用：开国的第一座城用来定国名，之后新建的城独立为殖民城邦

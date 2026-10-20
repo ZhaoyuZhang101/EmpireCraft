@@ -1,5 +1,6 @@
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.AI.KingdomAI;
+using EmpireCraft.Scripts.GeneralSystems;
 using EmpireCraft.Scripts.Layer;
 using NeoModLoader.services;
 
@@ -27,7 +28,8 @@ public class TempFac_转军府 : TemporaryFaction
             Regime regime = kingdom.GetRegime();
             regime.SetAllowDiplomacy(true);
             regime.SetLeaderSelectMethod(LeaderSelectMethod.Exam);
-            regime.SetTaxLevel(TaxLevel.None);
+            // 军府自收自支、不上缴中央(见 TreasurySystem.TaxShares)。以前把税级设成"无"，本军一分税收不上
+            TreasurySystem.EnsureCollectsTax(regime);
             EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(kingdom);
         }
         End();

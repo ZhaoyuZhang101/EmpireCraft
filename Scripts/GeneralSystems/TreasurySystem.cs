@@ -186,6 +186,10 @@ public static class TreasurySystem
                 local.GetKingdomType() == KingdomType.Feudalism_diocese ? 55 : 20;
             // 阿拉伯行省(朝廷派的埃米尔，听调遣)：中央收四成，本省留三成五养兵(以前与世袭诸侯同为两成，行省钱多又听调，见 EmirateSystem)
             if (local.GetKingdomType() == KingdomType.Arabic_province) centralPercent = EmirateSystem.ProvinceCentralPercent;
+            // 古典共和帝国里自治的城邦(有外交权)不向盟主交税；元首制下没有外交权的行省照交(见 CityStateService.GrantAutonomy)
+            if (type == RegimeType.ClassicalRepublic && local.GetRegime()?.IsAllowDiplomacy() == true) centralPercent = 0;
+            // 军府(藩镇)自收自支、不上缴中央；撤销军府改回州郡后照交(见 TempFac_转军府、TempFac_撤销军府)
+            if (local.GetKingdomType() == KingdomType.LvLing_jiedushi) centralPercent = 0;
             // 周室衰微(见 ZhouEraSystem)：春秋诸侯只给天子象征性的贡赋(霸主另收一成)，战国诸侯不再向周室交税；郡照旧
             int era = ZhouEraSystem.Era(empire);
             if (era >= ZhouEraSystem.Spring && local.GetKingdomType() != KingdomType.ZhouFeudalism_jun)
@@ -195,6 +199,31 @@ public static class TreasurySystem
                 centralPercent = EmirateSystem.HereditaryCentralPercent;
         }
         return (25, 75 - centralPercent, centralPercent);
+    }
+
+    // 税级是本国向百姓收税的税率(见 KingdomExtension.GetTaxRate)，设成"无"就一分税收不上。自治的成员、军府的"不交税"
+    // 是不向中央上缴(见 TaxShares)，不是不收税：税级为"无"的改回"低"。直接写选项——议会掌握征税权时 SetTaxLevel
+    // 会被否决，这是让本国收得上税，不是改税
+    public static void EnsureCollectsTax(Regime regime)
+    {
+        if (regime?.options != null && regime.options.TryGetValue("option_tax_level", out int[] tax) && tax != null &&
+            tax.Length > 0 && tax[0] == (int)TaxLevel.None)
+            tax[0] = (int)TaxLevel.Low;
+    }
+
+    // 旧档修补(每年随帝国年度结算，见 ConstitutionalEconomySystem)：以前国家联盟式帝国(封建制、古典共和)的成员一入帝国
+    // 税级就被设成"无"(CityStateService.GrantAutonomy)，转军府也设"无"——这些成员税级为"无"的改回"低"
+    public static void RepairExemptTaxLevels(Layer.Empire empire)
+    {
+        Kingdom core = empire?.CoreKingdom;
+        if (core?.data == null || core.isRekt() || empire.kingdoms_list == null) return;
+        bool union = PersonalUnionService.IsUnionRegime(core);
+        foreach (Kingdom member in empire.kingdoms_list)
+        {
+            if (member?.data == null || member.isRekt() || member == core) continue;
+            if (union || member.GetKingdomType() is KingdomType.LvLing_jiedushi or KingdomType.LvLing_duhufu)
+                EnsureCollectsTax(member.GetRegime());
+        }
     }
 
     public static string TaxSharingText(Kingdom kingdom)

@@ -260,6 +260,9 @@ public static class ConstitutionalEconomySystem
         HaremSuccessionSystem.Yearly(empire);
         // 神圣罗马式选帝制：选立储君
         HolyRomanSystem.Yearly(empire);
+        // 旧档修补：自治成员、军府税级为"无"(收不上税)的改回"低"；自由城市、主教领被误给的开战权收回
+        TreasurySystem.RepairExemptTaxLevels(empire);
+        CityStateService.RepairEstateAutonomy(empire);
         EmpireBankruptcySystem.Update(empire, state);
         ModernTitleCentralization.Update(empire);
         UpdateBudding(empire, state);
