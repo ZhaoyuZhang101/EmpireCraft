@@ -384,6 +384,12 @@ public static class AdministrativeControlSystem
             TileZone zone = CenterZone(city);
             if (zone != null) seats.Add((zone, owner == realm ? 0 : MemberSeatOffset));
         }
+        // 陪京(见 MultiCapitalSystem)：与都城同起点
+        foreach (City jing in MultiCapitalSystem.AuxiliaryCities(realm))
+        {
+            TileZone zone = jing.kingdom != null && cities.Contains(jing) ? CenterZone(jing) : null;
+            if (zone != null) seats.Add((zone, 0));
+        }
         if (seats.Count == 0) return;
         BeginPass();
         foreach (City city in cities)

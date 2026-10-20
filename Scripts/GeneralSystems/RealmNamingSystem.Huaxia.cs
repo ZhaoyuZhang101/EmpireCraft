@@ -283,6 +283,7 @@ public static partial class RealmNamingSystem
             if (Enabled) YearlyHuaxia(empire);
             if (Enabled) YearlyUniversal(empire);
             YearlyModern(empire);
+            MultiCapitalSystem.Yearly(empire);
             SyncCoercionClaim(empire);
         }
         catch (Exception exception)

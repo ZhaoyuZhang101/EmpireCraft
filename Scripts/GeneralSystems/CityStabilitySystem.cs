@@ -261,6 +261,13 @@ public static class CityStabilitySystem
             natural = CityStabilityRules.Clamp(natural - soil);
             Note(ref detail, ShuiTuSystem.DescribeStability(city));
         }
+        // 京师、陪京(见 MultiCapitalSystem)：自然稳定 +5
+        float jing = MultiCapitalSystem.StabilityBonus(city);
+        if (jing > 0f)
+        {
+            natural = CityStabilityRules.Clamp(natural + jing);
+            Note(ref detail, MultiCapitalSystem.DescribeStability(city));
+        }
         // 鞭长莫及：行政控制力低的城自然稳定度下降
         float remote = AdministrativeControlSystem.StabilityLoss(city);
         if (remote < 1f) return natural;
