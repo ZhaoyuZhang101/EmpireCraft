@@ -374,6 +374,9 @@ public class WarPatch: GamePatch
                 case EmpireWarType.不奉诏:
                     VassalInvestitureService.ResolveDefianceWar(pWar, pWinner);
                     break;
+                case EmpireWarType.逼冕:
+                    RealmNamingSystem.ResolveCoerceWar(pWar, pWinner);
+                    break;
             }
             WorldLog.logWarEnded(pWar);
         }

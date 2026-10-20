@@ -47,6 +47,9 @@ public sealed class PapalRelationState
     public double universal_at = -1d;
     public long universal_emperor_id = -1L;
     public bool universal_suspended;
+    // 授名时写下的国号本名(之后被别处改过即作罢)；施压、开战逼冕的时间(教廷记恨二十年)
+    public string universal_name = "";
+    public double coerced_at = -1d;
     // 逼冕之战打输的时间(十年内不再逼冕)
     public double coerce_failed_at = -1d;
 }

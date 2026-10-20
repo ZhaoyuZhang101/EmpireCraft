@@ -281,6 +281,8 @@ public static partial class RealmNamingSystem
         try
         {
             if (Enabled) YearlyHuaxia(empire);
+            if (Enabled) YearlyUniversal(empire);
+            SyncCoercionClaim(empire);
         }
         catch (Exception exception)
         {

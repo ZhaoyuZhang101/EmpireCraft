@@ -23,6 +23,13 @@ public static class EmpireCraftOpinionAddition
             translation_key = "opinion_empire_proclamation_grudge",
             calc = EmpireCraft.Scripts.GeneralSystems.EmpireFormationService.GetGrudgeOpinion
         });
+        // 挟冕之辱：教廷对施压、开战逼冕的帝国好感下降，二十年回复(见 RealmNamingSystem.Universal)
+        opl.add(new OpinionAsset
+        {
+            id = "opinion_coerced_coronation",
+            translation_key = "opinion_coerced_coronation",
+            calc = EmpireCraft.Scripts.GeneralSystems.RealmNamingSystem.CoercionOpinion
+        });
         // 核威慑：对方有核则不敢轻易开战，自己有核则有恃无恐(见 NuclearDoctrineSystem)
         opl.add(new OpinionAsset
         {

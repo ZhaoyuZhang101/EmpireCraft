@@ -131,5 +131,7 @@ public enum TemporaryFactionType
     [Description("受天命的治世，学说朋党请以本家学说为官学")]
     独尊官学,
     [Description("征服王朝的本族旧臣请重申本族语言与骑射，不改从属地之俗")]
-    国语骑射
+    国语骑射,
+    [Description("兴兵逼教宗加冕，以天下之名为国号")]
+    逼冕
 }

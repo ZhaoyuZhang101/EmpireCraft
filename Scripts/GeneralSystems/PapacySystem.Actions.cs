@@ -28,6 +28,19 @@ public static partial class PapacySystem
         Kingdom papacy = Papacy(religion);
         bool self = BrokeWithRome(empire) || papacy == null;
         Crown(empire, State(empire), empire.Emperor, self, papacy);
+        if (!self) RealmNamingSystem.OnPapalCoronation(empire, RealmNamingSystem.CoronationVia(empire, papacy, false));
+        return true;
+    }
+
+    // 逼冕得手(见 RealmNamingSystem.Universal)：解除这场战争招来的绝罚，没由教宗加冕过的由教宗加冕
+    public static bool CrownByForce(Empire empire)
+    {
+        if (!Applies(empire) || IsHolySee(empire) || empire.Emperor == null || BrokeWithRome(empire)) return false;
+        Kingdom papacy = Papacy(ReligionOf(empire));
+        if (papacy == null) return false;
+        PapalRelationState state = State(empire);
+        if (IsExcommunicated(empire)) Lift(empire, state, LM.Get("realm_coerce_ban_lifted_history"));
+        if (!IsCrowned(empire) || state.self_crowned) Crown(empire, state, empire.Emperor, self: false, papacy);
         return true;
     }
 

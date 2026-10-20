@@ -298,6 +298,8 @@ public static partial class PapacySystem
         if (papacy == core || papacy.GetEmpire() == empire && !HolyRomanSystem.HasDiet(empire))
         {
             Crown(empire, state, emperor, self: false, papacy);
+            // 普世之名(见 RealmNamingSystem.Universal)：控制教宗国、好感、施压
+            RealmNamingSystem.OnPapalCoronation(empire, RealmNamingSystem.CoronationVia(empire, papacy, false));
             return;
         }
         // 皇帝要远征教廷，一年后到达才加冕(见 HolyRomanSystem.Romzug)；到了却与教廷开战就作罢
@@ -317,6 +319,8 @@ public static partial class PapacySystem
             papacy.AddMoney(gift, TreasuryCategory.Tithe);
         }
         Crown(empire, state, emperor, self: false, papacy);
+        RealmNamingSystem.OnPapalCoronation(empire,
+            RealmNamingSystem.CoronationVia(empire, papacy, romzug == HolyRomanSystem.RomzugArrived));
     }
 
     private static void Crown(Empire empire, PapalRelationState state, Actor emperor, bool self, Kingdom papacy)

@@ -20,7 +20,8 @@ public static class ClaimTuning
     public const float WarMonths = 12f, WarMaxMonths = 36f;
 
     public static bool IsCourtWar(TemporaryFactionType type) =>
-        type is TemporaryFactionType.谋求统一 or TemporaryFactionType.对外扩张 or TemporaryFactionType.迫使朝贡;
+        type is TemporaryFactionType.谋求统一 or TemporaryFactionType.对外扩张 or TemporaryFactionType.迫使朝贡 or
+            TemporaryFactionType.逼冕;
 
     public static float Duration(TemporaryFactionType type) => type switch
     {
@@ -48,7 +49,7 @@ public static class ClaimTuning
     public static float BudgetShares(TemporaryFactionType type) => type switch
     {
         TemporaryFactionType.对外扩张 or TemporaryFactionType.游牧扩张 or TemporaryFactionType.谋求统一 => 4f,
-        TemporaryFactionType.迫使朝贡 or TemporaryFactionType.提供岁币 or TemporaryFactionType.推行三省六部 or
+        TemporaryFactionType.迫使朝贡 or TemporaryFactionType.逼冕 or TemporaryFactionType.提供岁币 or TemporaryFactionType.推行三省六部 or
             TemporaryFactionType.转天朝制度 or TemporaryFactionType.土地改革 or TemporaryFactionType.赈济灾荒 or
             TemporaryFactionType.恢复圣地 or TemporaryFactionType.复辟帝制 or TemporaryFactionType.兴修水利 or
             TemporaryFactionType.封禅 => 3f,

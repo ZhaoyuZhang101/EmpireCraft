@@ -422,6 +422,7 @@ public class CityPatch : GamePatch
             War war = null;
             War expendWar = null;
             War chaoGongWar = null;
+            War coronationWar = null;
             War religionWar = null;
             War empireRoyalAcquireEmpireWar = null;
             bool attackerInEmpire = joinAfterCapture.isAttacker() && joinAfterCapture.IsInEmpire();
@@ -447,6 +448,8 @@ public class CityPatch : GamePatch
                     expendWar = w;
                 if (chaoGongWar == null && eligibleImperialAttacker && warType == EmpireWarType.迫使朝贡)
                     chaoGongWar = w;
+                if (coronationWar == null && capturingSideIsAttacker && warType == EmpireWarType.逼冕)
+                    coronationWar = w;
                 if (religionWar == null && capturingSideIsAttacker && warType == EmpireWarType.神圣)
                     religionWar = w;
                 if (empireRoyalAcquireEmpireWar == null && eligibleImperialAttacker && warType == EmpireWarType.藩王索取皇位)
@@ -500,6 +503,15 @@ public class CityPatch : GamePatch
                     expendWar.lostWar(__instance.kingdom);
                     return false;
                 }
+            }
+            // 逼冕之战(见 RealmNamingSystem.Universal)：教廷都城或圣城到手即算得手，城不易主，教宗加冕、教廷认输
+            if (coronationWar != null && joinAfterCapture.GetEmpire() is Empire coronationEmpire &&
+                RealmNamingSystem.IsCoercionPrize(__instance, coronationEmpire))
+            {
+                RealmNamingSystem.CoerceVictory(coronationEmpire);
+                ClearResolvedCaptureProgress(__instance);
+                coronationWar.lostWar(__instance.kingdom);
+                return false;
             }
             //检测是否为迫使朝贡战争，如果是则迫使该国家加入朝贡体系
             if (chaoGongWar != null)

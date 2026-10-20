@@ -207,6 +207,8 @@ public static class ClaimAgendaSystem
             TemporaryFactionType.独尊官学 => 12f,
             // 征服王朝融得越深、已在从俗，本族旧臣越急着重申国语骑射
             TemporaryFactionType.国语骑射 => CompositeEmpireService.NativismUrgency(empire),
+            // 联合天下里未得普世之名、教廷又不肯认，武官急着兵临教廷
+            TemporaryFactionType.逼冕 => RealmNamingSystem.CoercionUrgency(empire),
             TemporaryFactionType.册立储君 => empire.Emperor == null ? 0f
                 : Mathf.Clamp((empire.Emperor.getAge() - 30) * 0.5f, 0f, 20f),
             TemporaryFactionType.谋求统一 => UnificationUrgency(empire),
