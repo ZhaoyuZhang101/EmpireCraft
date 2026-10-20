@@ -87,6 +87,12 @@ public sealed class HolyRomanState
     public List<string> court_log = new();
     // 累计：私战场数、判给原告、驳回(帝国法院判城沿用 court_rulings)
     public int private_war_count, lawsuits_granted, lawsuits_refused;
+
+    // —— 选帝侯席位(见 HolyRomanSystem.Electors) ——
+    // 世俗四席所在的成员国(-1 = 出缺)；最早一席出缺的时间；最近 10 条授、夺、出缺
+    public List<long> elector_realm_ids = new();
+    public double elector_vacant_at = -1d;
+    public List<string> elector_log = new();
 }
 
 // 一场诸侯私战

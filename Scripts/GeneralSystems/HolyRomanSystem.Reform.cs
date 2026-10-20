@@ -113,7 +113,8 @@ public static partial class HolyRomanSystem
         string blocked = fief.GetRegime()?.type != RegimeType.Feudalism ? "不是封建制"
             : Estate(fief) != EstateNone ? "自由城市或主教领"
             : fief.cities.Count < 2 ? "只有一城"
-            : empire.data.CabinetMembers != null && empire.GetCabinetMembers().Any(actor => actor?.kingdom == fief) ? "选帝侯领国不可分"
+            : Seats(State(empire)).Contains(fief.id) ||
+              empire.data.CabinetMembers != null && empire.GetCabinetMembers().Any(actor => actor?.kingdom == fief) ? "选帝侯领国不可分"
             : null;
         bool rolled = blocked == null && UnityEngine.Random.value < PartibleChance;
         PartibleTally.TryGetValue(empire.data.id, out var tally);

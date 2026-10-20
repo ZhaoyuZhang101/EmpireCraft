@@ -24,7 +24,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 选立储君(原型"罗马人民的国王")：皇帝在世、有成年子嗣时，每年有两成可能让选帝侯先把长子选为储君
 //     (让出一项、花一成年度经常收入)；皇帝死后他直接即位，不再另选。同一家族连续当选记届数。
 // 其余见各分部：Authority 帝国权威、Diet 帝国议会与禁令、Members 自由城市与教会诸侯、Reform 帝国改革与分割继承、
-// Feuds 诸侯私战与帝国法院、Leagues 诸侯同盟与和约、加冕远征。选帝制只管上面几条；其余凡封建制帝国(HasDiet)都适用。
+// Feuds 诸侯私战与帝国法院、Electors 选帝侯席位、Leagues 诸侯同盟与和约、加冕远征。选帝制只管上面几条；其余凡封建制帝国(HasDiet)都适用。
 public static partial class HolyRomanSystem
 {
     private const float KingOfRomansChance = 0.2f;
@@ -151,6 +151,7 @@ public static partial class HolyRomanSystem
             if (!HasDiet(empire)) return;
             ImperialPeaceYearly(empire, state);
             MembersYearly(empire, state);
+            ElectorsYearly(empire, state);
             ReformYearly(empire, state);
             FeudsYearly(empire, state);
             LeaguesYearly(empire, state);
@@ -383,6 +384,7 @@ public static partial class HolyRomanSystem
             parts.Add($"主教领{members.Count(IsChurchEstate)}家：" + (ChurchBlocker(empire) ?? "条件已齐，每年一成可能"));
             parts.Add("帝国改革：" + ReformStatus(empire, state));
             parts.Add("私战与法院：" + FeudStatus(empire, state));
+            parts.Add("选帝侯：" + ElectorStatus(empire, state));
             PartibleTally.TryGetValue(empire.data.id, out var partible);
             PartibleTally.Remove(empire.data.id);
             parts.Add("分割继承：" + (partible.vacant == 0 ? "本年无诸侯出缺"

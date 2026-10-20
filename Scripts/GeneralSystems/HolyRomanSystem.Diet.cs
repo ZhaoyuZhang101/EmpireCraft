@@ -543,6 +543,8 @@ public static partial class HolyRomanSystem
                     {
                         empire.AddMandate(BanLegitimacyWin);
                         ChangeAuthority(empire, AuthBanExecuted, "hre_auth_ban_executed", state.banned_name);
+                        // 禁令执行成功：褫夺被禁者的选帝侯位(权威不到 10 只停权)
+                        StripElector(empire, state, state.banned_kingdom_id, auto: true);
                         LiftBan(empire, state, LM.Get("hre_ban_executed_history"));
                     }
                     else if (defendersWon)

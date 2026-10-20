@@ -598,6 +598,8 @@ public static class DataManager
         state.lawsuits ??= new List<LawsuitRecord>();
         state.lawsuits.RemoveAll(record => record == null);
         state.court_log ??= new List<string>();
+        state.elector_realm_ids ??= new List<long>();
+        state.elector_log ??= new List<string>();
         bool active = state.last_diet_at >= 0d || state.house_terms > 0 || state.concessions.Count > 0 ||
                       state.circles.Count > 0 || state.sovereign_princes || state.imperial_peace_at >= 0d ||
                       state.league_leader_id >= 0;

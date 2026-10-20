@@ -8,13 +8,14 @@ using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.UI.Components;
 using NeoModLoader.General;
 using NeoModLoader.General.UI.Window.Layout;
+using NeoModLoader.General.UI.Window.Utils.Extensions;
 using UnityEngine;
 
 namespace EmpireCraft.Scripts.UI.Windows
 {
     // 帝国议会页(封建制帝国，见 HolyRomanSystem)：
     //   页头 → 主指标(帝国权威、家族领地、皇族届数、上次议会、帝国禁令) → 两栏(三院席位 | 皇位：帝位、储君、加冕、帝国改革、诸侯主权)
-    //   → 两栏(帝国权威：刻度与近来收支 | 皇权所费：各事项的门槛与花费) → 两栏(诸侯纷争：私战或诉讼 | 留空)
+    //   → 两栏(帝国权威：刻度、近来收支、各事项所费 | 选帝侯：三教会席 + 四世俗席，授予/褫夺) → 两栏(诸侯纷争：私战或诉讼 | 留空)
     //   → 议会纪事 → 选举让步 → 诸侯同盟 → 按钮(召开议会、提请或解除禁令、颁行帝国改革、册立自由城市、典押自由城市、封立主教领)
     public partial class EmpireWindow
     {
@@ -88,7 +89,7 @@ namespace EmpireCraft.Scripts.UI.Windows
             if (imperialWar != null)
                 crown.AddListRow(HalfWidth, 5, null, LM.Get("diet_imperial_war"), imperialWar.data.name, titleWidth: 64f);
 
-            DrawAuthority(page, state, authority, elective);
+            DrawAuthority(page, state, authority, elective, pArg0);
             DrawDisputes(page, state);
 
             List<DietRecord> records = (state.diets ?? new List<DietRecord>()).AsEnumerable().Reverse().Take(8).ToList();
@@ -145,8 +146,8 @@ namespace EmpireCraft.Scripts.UI.Windows
             StartCoroutine(RefreshScrollLayout(resetToTop: true));
         }
 
-        // 帝国权威一排两栏：左"帝国权威"(刻度 + 最近六笔收支，涨绿跌红)，右"皇权所费"(各事项门槛与花费，够的金色、不够灰)
-        private void DrawAuthority(AutoVertLayoutGroup page, HolyRomanState state, int authority, bool elective)
+        // 帝国权威一排两栏：左"帝国权威"(刻度 + 最近六笔收支，涨绿跌红，下接各事项所费)，右"选帝侯"(七席，标题条上授予、褫夺)
+        private void DrawAuthority(AutoVertLayoutGroup page, HolyRomanState state, int authority, bool elective, WindowMetaTab tab)
         {
             float inner = HalfWidth - 12f;
             var columns = page.BeginColumns(MainWidth);
@@ -167,24 +168,70 @@ namespace EmpireCraft.Scripts.UI.Windows
                     $"{entry.text} · {ago}", titleWidth: 22f, titleHex: entry.delta > 0 ? WideKit.Green : WideKit.Red);
             }
 
-            var right = columns.BeginColumnCard(HalfWidth, "diet_spend_title", WideKit.Cyan);
+            // 所费(门槛/花)：够门槛的金色、不够的灰
             var costs = new List<(string label, int threshold, int cost)>
             {
-                (LM.Get("diet_act_reform"), HolyRomanSystem.ReformThreshold, HolyRomanSystem.ReformCost),
-                (LM.Get("颁布帝国治安令"), HolyRomanSystem.PeaceThreshold, HolyRomanSystem.PeaceCost),
-                (LM.Get("diet_act_ban"), HolyRomanSystem.BanThreshold, HolyRomanSystem.BanCost),
-                (LM.Get("确认诸侯特权"), 0, HolyRomanSystem.PrivilegeCost)
+                (LM.Get("diet_cost_reform"), HolyRomanSystem.ReformThreshold, HolyRomanSystem.ReformCost),
+                (LM.Get("diet_cost_peace"), HolyRomanSystem.PeaceThreshold, HolyRomanSystem.PeaceCost),
+                (LM.Get("diet_cost_ban"), HolyRomanSystem.BanThreshold, HolyRomanSystem.BanCost),
+                (LM.Get("diet_cost_privilege"), 0, HolyRomanSystem.PrivilegeCost),
+                (LM.Get("diet_cost_grant"), HolyRomanSystem.ElectorGrantThreshold, HolyRomanSystem.ElectorGrantCost),
+                (LM.Get("diet_cost_strip"), 0, HolyRomanSystem.ElectorStripCost)
             };
-            if (elective) costs.Add((LM.Get("恢复世袭皇权"), HolyRomanSystem.HereditaryThreshold, HolyRomanSystem.HereditaryCost));
-            for (int i = 0; i < costs.Count; i++)
+            if (elective) costs.Add((LM.Get("diet_cost_hereditary"), HolyRomanSystem.HereditaryThreshold, HolyRomanSystem.HereditaryCost));
+            string costLine = string.Join("  ", costs.Select(item =>
+                $"{item.label} {(item.threshold > 0 ? item.threshold.ToString() : "-")}/{item.cost}"
+                    .ColorString(authority >= item.threshold ? WideKit.Gold : WideKit.Muted)));
+            left.AddListRow(HalfWidth, entries.Count == 0 ? 1 : entries.Count, null, LM.Get("diet_spend_title"), costLine,
+                titleWidth: 40f, titleHex: WideKit.Cyan);
+
+            DrawElectors(columns, tab);
+        }
+
+        // 选帝侯七席：三教会席(随主教领与宗教等级而定) + 四世俗席(绑定领国：在座金、停权橙、出缺灰)；标题条上"授予""褫夺"
+        private void DrawElectors(AutoHoriLayoutGroup columns, WindowMetaTab tab)
+        {
+            List<Actor> church = HolyRomanSystem.ChurchElectorsView(_empire);
+            List<(Kingdom realm, Actor holder, int status)> seats = HolyRomanSystem.SecularSeatsView(_empire);
+            int seated = church.Count + seats.Count(seat => seat.status == 0);
+            var card = columns.BeginColumnCard(HalfWidth);
+            var buttons = new List<(string id, string label, global::System.Action action)>();
+            if (HolyRomanSystem.HasVacantSeat(_empire))
+                buttons.Add(("diet_elector_grant", LM.Get("diet_elector_grant"), () => HolyRomanSystem.ActGrantElector(_empire)));
+            if (HolyRomanSystem.BannedHoldsSeat(_empire))
+                buttons.Add(("diet_elector_strip", LM.Get("diet_elector_strip"), () => HolyRomanSystem.ActStripElector(_empire)));
+            float ButtonWidth(string label) => Mathf.Max(26f, UIHelper.EstimateTextWidth(label, 7) + 10f);
+            var bar = UIHelper.AddCardTitle(card, HalfWidth, LM.Get("diet_electors_title"), WideKit.Gold,
+                string.Format(LM.Get("diet_electors_header"), seated), buttons.Sum(entry => ButtonWidth(entry.label) + 3f));
+            foreach ((string id, string label, global::System.Action action) in buttons)
             {
-                (string label, int threshold, int cost) = costs[i];
-                string detail = threshold > 0 ? string.Format(LM.Get("diet_spend_detail"), threshold, cost)
-                    : string.Format(LM.Get("diet_spend_free"), cost);
-                right.AddListRow(HalfWidth, i, null, label, detail, titleWidth: 70f,
-                    titleHex: authority >= threshold ? WideKit.Gold : WideKit.Muted);
+                global::System.Action run = action;
+                bar.AddButtonIntoHoriLayout(id, label, () =>
+                {
+                    run();
+                    ShowDiet(tab);
+                }, size: new Vector2(ButtonWidth(label), 12f));
             }
-            right.AddListRow(HalfWidth, costs.Count, null, "", LM.Get("diet_spend_note"), titleWidth: 1f);
+            int row = 0;
+            for (int i = 0; i < HolyRomanSystem.ChurchSeats; i++)
+            {
+                Actor holder = i < church.Count ? church[i] : null;
+                card.AddListRow(HalfWidth, row++, null, LM.Get("diet_elector_church"),
+                    holder == null ? LM.Get("diet_elector_vacant")
+                        : $"{holder.getName()} · {holder.kingdom?.GetKingdomName() ?? ""}",
+                    titleWidth: 40f, titleHex: holder == null ? WideKit.Muted : WideKit.Gold);
+            }
+            foreach ((Kingdom realm, Actor holder, int status) in seats)
+            {
+                string detail = realm == null ? LM.Get("diet_elector_vacant")
+                    : $"{realm.GetKingdomName()} · {holder?.getName() ?? LM.Get("label_none")}" +
+                      (status == 1 ? " · " + LM.Get("diet_elector_suspended") : "");
+                card.AddListRow(HalfWidth, row++, null, LM.Get("diet_elector_secular"), detail, titleWidth: 40f,
+                    titleHex: status == 0 ? WideKit.Gold : status == 1 ? WideKit.Orange : WideKit.Muted);
+            }
+            HolyRomanState state = HolyRomanSystem.State(_empire);
+            string last = state.elector_log?.LastOrDefault();
+            card.AddListRow(HalfWidth, row, null, "", string.IsNullOrEmpty(last) ? LM.Get("diet_elector_note") : last, titleWidth: 1f);
         }
 
         // 诸侯纷争一排两栏：左"诸侯纷争"——进行中的私战(帝国改革后只有违禁私战，红字)、待裁的诉讼，下接最近四起结果
