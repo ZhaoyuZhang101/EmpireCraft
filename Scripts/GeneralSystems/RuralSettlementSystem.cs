@@ -82,6 +82,7 @@ public static class RuralSettlementSystem
         LastFounded.Clear();
         Pending.Clear();
         Revision++;
+        SettlementNaming.ResetWorldState();
     }
 
     public static void Load(List<RuralSettlement> saved)

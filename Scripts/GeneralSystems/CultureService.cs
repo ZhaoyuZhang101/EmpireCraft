@@ -1110,14 +1110,14 @@ public static class CultureService
 
     /// <summary>
     /// 现场按目标文化生成一个新地名（纯生成，不落地保存也不修改任何对象状态），
-    /// 找不到该文化的任何存活单位可供借用时返回 null。
+    /// 找不到该文化的任何存活单位可供借用时返回 null。人名要传性别(不传原版随手定男女，男丁会取成女名)。
     /// </summary>
-    public static string GenerateCulturalName(MetaType metaType, long id, string culture)
+    public static string GenerateCulturalName(MetaType metaType, long id, string culture, ActorSex sex = ActorSex.None)
     {
         Actor templateActor = FindCultureTemplateActor(culture);
         if (templateActor == null) return null;
         string generated;
-        try { generated = templateActor.generateName(metaType, id); }
+        try { generated = templateActor.generateName(metaType, id, sex); }
         catch { return null; }
         return string.IsNullOrWhiteSpace(generated) ? null : generated;
     }

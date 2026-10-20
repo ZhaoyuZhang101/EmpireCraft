@@ -1112,7 +1112,7 @@ public static class VirtualGenealogySystem
 
     private static string ChildName(SpecificClan clan, PersonalClanIdentity child, PersonalClanIdentity parent)
     {
-        string generated = CultureService.GenerateCulturalName(MetaType.Unit, child.id, parent.culture);
+        string generated = CultureService.GenerateCulturalName(MetaType.Unit, child.id, parent.culture, child.sex);
         string[] parts = (generated ?? "").SplitNameParts();
         string given = parts.Length > 0 ? parts[parts.Length - 1] : "";
         if (string.IsNullOrWhiteSpace(given)) given = generated ?? "";

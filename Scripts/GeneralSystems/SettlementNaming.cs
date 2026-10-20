@@ -11,7 +11,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 村镇命名(用户 2026-10-19："按照 Locales/Cultures 里面的名词库来，依据自己的文化；文化配置里加几种村镇命名方式，
 // 比如按照姓氏(罗家村)、按照地势(什么什么山村)、按照字库，文化配置里可以绑定独有的村镇字库")：
 //   · 按所在城的主流文化(CultureRule.jsonc 的 setting.Settlement，见 SettlementSetting)挑命名方式：
-//       - 姓氏：本城宗族的姓(没有就取本文化的姓氏词库) + 姓氏后缀 → 罗家村、伊万诺夫卡；
+//       - 姓氏：本城宗族的姓(没有就取本文化的姓氏词库) + 姓氏后缀 → 罗家村、伊万诺夫卡；只取与本城同一文化圈的宗族，
+//         异族在此开基的宗族(征服者的宗室分支、外放的官员)不拿来给村镇起名；
 //       - 地势：看村子四周的地形(山、丘岗、河湖、海边、林、平原、沙漠、沼泽)，前缀 + 地势词 + 后缀 → 青石山村、柳河村；
 //       - 字库：字库词 + 后缀 → 桃花村；字库可以绑本文化独有的词库；
 //   · 词库都是 CSV(key,cz,en,ch)，直接读当前语言那一列(空着退回英文、简体)；文化没配的项用 Locales/Cultures/Settlements/ 的通用词库；
@@ -223,7 +224,7 @@ public static class SettlementNaming
     private static string BySurname(RuralSettlement settlement, City city, string culture, Setting setting,
         SettlementSetting config, string kind, long seed)
     {
-        List<string> local = LocalSurnames(city);
+        List<string> local = LocalSurnames(city, culture);
         string surname = local.Count > 0 && (seed & 3L) != 0L ? Pick(local, seed) : null;
         if (string.IsNullOrEmpty(surname))
         {
@@ -298,24 +299,54 @@ public static class SettlementNaming
         return "plain";
     }
 
-    // 本城的宗族(以本城为郡望/祖籍的)的姓：按城缓存一分钟
-    private static readonly Dictionary<long, (float at, List<string> names)> Surnames = new();
+    // 本城的宗族(以本城为郡望/祖籍的)的姓，连同这一族的文化：按城缓存一分钟
+    private static readonly Dictionary<long, (float at, List<(string name, string[] cultures)> clans)> Surnames = new();
 
-    private static List<string> LocalSurnames(City city)
+    // 换世界(读档、新建地图)时清掉：城的编号每个世界从头排，上一个世界的宗族不能拿来给这个世界的村镇起名
+    public static void ResetWorldState() => Surnames.Clear();
+
+    // 只取与本城文化同一文化圈的(见 SurnameInheritanceSystem.SameSphere)：始祖、本支开基的人、在世族人记下的文化都要对得上，
+    // 一处都没记的不取。群友反馈 2026-10-21：日本、游牧、印第安的地图上冒出华夏的姓"卓"——以前不看文化，华夏宗族在那里开基
+    // (征服者的宗室分支、外放的官员)，村镇就随了华夏的姓；本城没有合适的宗族时照旧取本文化的姓氏词库
+    private static List<string> LocalSurnames(City city, string culture)
     {
         if (city?.data == null) return new List<string>();
         float now = Time.unscaledTime;
-        if (Surnames.TryGetValue(city.id, out var hit) && now - hit.at < 60f && now >= hit.at) return hit.names;
-        if (Surnames.Count > 512) Surnames.Clear();
-        var names = new List<string>();
-        foreach (SpecificClan clan in SpecificClanManager._specificClans.ToList())
+        if (!Surnames.TryGetValue(city.id, out var hit) || now - hit.at >= 60f || now < hit.at)
         {
-            if (clan == null || clan.ancestral_city_id != city.id) continue;
-            string name = clan.VanillaClanName();
-            if (!string.IsNullOrWhiteSpace(name) && !names.Contains(name)) names.Add(name);
+            if (Surnames.Count > 512) Surnames.Clear();
+            var clans = new List<(string name, string[] cultures)>();
+            foreach (SpecificClan clan in SpecificClanManager._specificClans.ToList())
+            {
+                if (clan == null || clan.ancestral_city_id != city.id) continue;
+                string name = clan.VanillaClanName();
+                if (!string.IsNullOrWhiteSpace(name)) clans.Add((name, ClanCultures(clan)));
+            }
+            Surnames[city.id] = hit = (now, clans);
         }
-        Surnames[city.id] = (now, names);
+        bool known = CultureService.IsValidCulture(culture);
+        var names = new List<string>();
+        foreach ((string name, string[] cultures) in hit.clans)
+        {
+            if (known && (cultures.Length == 0 || !cultures.All(other => SurnameInheritanceSystem.SameSphere(other, culture))))
+                continue;
+            if (!names.Contains(name)) names.Add(name);
+        }
         return names;
+    }
+
+    // 这一族记下的文化：根宗族的始祖、本支开基的人、一位在世族人(姓随始祖来，人可能已随本城改了俗，都要看)
+    private static string[] ClanCultures(SpecificClan clan)
+    {
+        var cultures = new List<string>();
+        void Add(string culture)
+        {
+            if (CultureService.IsValidCulture(culture) && !cultures.Contains(culture)) cultures.Add(culture);
+        }
+        Add(SpecificClanManager.getPerson(clan.GetRootClan()?.founder ?? clan.founder)?.culture);
+        Add(SpecificClanManager.getPerson(clan.founder)?.culture);
+        Add(clan.LivingPeople?.FirstOrDefault(person => CultureService.IsValidCulture(person?.culture))?.culture);
+        return cultures.ToArray();
     }
 
     #region 旧名迁移
