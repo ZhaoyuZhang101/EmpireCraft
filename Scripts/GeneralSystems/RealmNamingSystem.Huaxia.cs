@@ -214,7 +214,7 @@ public static partial class RealmNamingSystem
         if (!Enabled || empire?.data == null || empire.CoreKingdom == null || !IsHuaxia(empire)) return;
         if (empire.data.name_source == SourceRestoration) RecordRestoration(empire);
         if (empire.data.name_source != SourceEmpireTitle && empire.data.name_source != SourceRestoration) return;
-        ResolveName(empire.GetEmpireName(), conflictOnly: true);
+        ResolveName(PrefixOf(empire.data), empire.GetEmpireName(), conflictOnly: true);
     }
 
     private static readonly Dictionary<long, string> PendingAncestral = new();

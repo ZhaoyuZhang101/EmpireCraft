@@ -10,6 +10,8 @@ using NeoModLoader.services;
 namespace EmpireCraft.Scripts.GeneralSystems;
 
 // 同名相争(用户 2026-10-20 定)：帝国法理只给"可用这个帝国名命名"的资格，不代表正统。
+//   · 同名 = 前缀与名都一样：东某、西某、南某、北某、后某各是一个名，可以并存(两朝分立、复国的南某与原朝)，
+//     只有前缀也一样(两个"中华"、两个"东中华")才相争；
 //   · 只管同名相争：好几家都在用(或让出过)同一个帝国法理名、同一个天下之名时，只有据有其一半以上城的那家能用——
 //     争帝国法理名看那个帝国法理自己的城，争天下之名看整个天下的城(按城数，本国连附庸，EmpireCoreControl 口径)；
 //     恰好两家各半时看谁受着天命；没人过半就谁都不用。不同的名各归各家、互不影响；
@@ -63,6 +65,14 @@ public static partial class RealmNamingSystem
         return at < 0d || World.world.getCurWorldTime() < at || Date.getYearsSince(at) >= SwitchCooldownYears;
     }
 
+    // 国号的前缀(手选的以手选为准)；同名相争比前缀 + 名
+    private static string PrefixOf(EmpireData data) =>
+        data.prefix_manual ? "manual:" + (data.prefix_choice ?? "").Trim() : (data.directPre ?? "").Trim();
+
+    // 让出前用的前缀
+    private static string ClaimPrefixOf(EmpireData data) =>
+        data.prefix_manual ? "manual:" + (data.prefix_choice ?? "").Trim() : (data.title_claim_prev_prefix ?? "").Trim();
+
     private static void DropClaim(Empire empire)
     {
         empire.data.title_claim_name = "";
@@ -71,10 +81,10 @@ public static partial class RealmNamingSystem
         empire.data.title_claim_prev_prefix = "";
     }
 
-    // 每月(ConstitutionalEconomySystem.Update)：新冒出同名的当即改正
+    // 每月(ConstitutionalEconomySystem.Update)：新冒出同名的当即改正；让出过的、已不再有同名的当即复称
     public static void Monthly(Empire empire)
     {
-        if (!Enabled || World.world == null || !InContest(empire) || empire.data.title_claim_yielded) return;
+        if (!Enabled || World.world == null || !InContest(empire)) return;
         if (!ReferenceEquals(_contestWorld, World.world))
         {
             _contestWorld = World.world;
@@ -85,10 +95,16 @@ public static partial class RealmNamingSystem
         LastConflictCheck[empire.data.id] = now;
         try
         {
-            string name = empire.GetEmpireName();
+            if (empire.data.title_claim_yielded)
+            {
+                ResolveName(ClaimPrefixOf(empire.data), empire.data.title_claim_name, conflictOnly: true, releaseAlone: true);
+                return;
+            }
+            string name = empire.GetEmpireName(), prefix = PrefixOf(empire.data);
             if (ModClass.EMPIRE_MANAGER.Any(other => other != empire && InContest(other) && !other.data.title_claim_yielded &&
-                                                     string.Equals(other.GetEmpireName(), name, StringComparison.Ordinal)))
-                ResolveName(name, conflictOnly: true);
+                                                     string.Equals(other.GetEmpireName(), name, StringComparison.Ordinal) &&
+                                                     string.Equals(PrefixOf(other.data), prefix, StringComparison.Ordinal)))
+                ResolveName(prefix, name, conflictOnly: true);
         }
         catch (Exception exception)
         {
@@ -100,12 +116,14 @@ public static partial class RealmNamingSystem
     private static void YearlyContest(Empire empire)
     {
         if (!InContest(empire)) return;
-        string name = empire.data.title_claim_yielded ? empire.data.title_claim_name : empire.GetEmpireName();
-        ResolveName(name, conflictOnly: false);
+        bool yielded = empire.data.title_claim_yielded;
+        ResolveName(yielded ? ClaimPrefixOf(empire.data) : PrefixOf(empire.data),
+            yielded ? empire.data.title_claim_name : empire.GetEmpireName(), conflictOnly: false);
     }
 
-    // 一个名的相争；conflictOnly = 只改正眼下同时有几家在用的(不按正统易手换名)
-    public static void ResolveName(string name, bool conflictOnly)
+    // 一个名(前缀 + 名)的相争；conflictOnly = 只改正眼下同时有几家在用的(不按正统易手换名)；
+    // releaseAlone = 让出过的已无同名就当即复称(月查)
+    public static void ResolveName(string prefix, string name, bool conflictOnly, bool releaseAlone = false)
     {
         if (!Enabled || string.IsNullOrWhiteSpace(name) || ModClass.EMPIRE_MANAGER == null) return;
         if (!RestrictedName(name, out EmpireCore core, out EmpireCore lead)) return;
@@ -116,7 +134,8 @@ public static partial class RealmNamingSystem
             EmpireData data = empire.data;
             if (data.title_claim_yielded)
             {
-                if (!string.Equals(data.title_claim_name, name, StringComparison.Ordinal)) continue;
+                if (!string.Equals(data.title_claim_name, name, StringComparison.Ordinal) ||
+                    !string.Equals(ClaimPrefixOf(data), prefix, StringComparison.Ordinal)) continue;
                 // 让出后又被别处改了名(篡位改号、分立……)：这笔作废
                 if (!string.Equals(data.core_name, data.title_claim_own_name, StringComparison.Ordinal))
                 {
@@ -125,7 +144,8 @@ public static partial class RealmNamingSystem
                 }
                 claimants.Add(empire);
             }
-            else if (string.Equals(empire.GetEmpireName(), name, StringComparison.Ordinal))
+            else if (string.Equals(empire.GetEmpireName(), name, StringComparison.Ordinal) &&
+                     string.Equals(PrefixOf(data), prefix, StringComparison.Ordinal))
             {
                 data.title_claim_name = name;
                 claimants.Add(empire);
@@ -135,7 +155,8 @@ public static partial class RealmNamingSystem
         if (claimants.Count == 1)
         {
             Empire only = claimants[0];
-            if (only.data.title_claim_yielded && !conflictOnly && CanSwitch(only)) Take(only, name, stamp: true, alone: true);
+            if (only.data.title_claim_yielded && (releaseAlone || !conflictOnly && CanSwitch(only)))
+                Take(only, name, stamp: !releaseAlone, alone: true);
             return;
         }
         Empire legit = Legitimate(claimants, core, lead);
@@ -202,9 +223,11 @@ public static partial class RealmNamingSystem
         data.title_claim_prev_prefix = data.directPre ?? "";
         bool holy = OverallHelperFunc.IsHolyPrefix(data);
         if (!holy) data.directPre = "";
+        // 与别国完全同名(前缀也一样，让出后不带前缀)才加方位
         Empire namesake = ModClass.EMPIRE_MANAGER.FirstOrDefault(other => other?.data != null && other != empire && !other.isRekt() &&
                                                                          !other.IsArchived() && other.CoreKingdom?.capital != null &&
-                                                                         string.Equals(other.GetEmpireName(), own, StringComparison.Ordinal));
+                                                                         string.Equals(other.GetEmpireName(), own, StringComparison.Ordinal) &&
+                                                                         PrefixOf(other.data).Length == 0);
         City mine = empire.CoreKingdom.capital, theirs = namesake?.CoreKingdom?.capital;
         if (!holy && mine != null && theirs != null)
             data.directPre = RealmNameRules.Direction4(theirs.city_center.x, theirs.city_center.y,
