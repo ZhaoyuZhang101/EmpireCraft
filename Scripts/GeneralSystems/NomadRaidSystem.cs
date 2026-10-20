@@ -195,7 +195,7 @@ public static partial class NomadRaidSystem
         state.market_at >= 0d && YearsSince(state.market_at) >= MarketCutYears && !TreatyActive(state);
 
     private static bool TreatyActive(SteppeState state) =>
-        state.market_treaty_with >= 0 && state.market_treaty_until >= 0d && World.world.getCurWorldTime() < state.market_treaty_until;
+        state.market_treaty_with >= 0 && state.market_treaty_at >= 0d && YearsSince(state.market_treaty_at) < MarketTreatyYears;
 
     // 互市得利(FrontierRelations.Market 调用)：游牧一方记下时间与对方
     public static void NoteMarket(Kingdom a, Kingdom b)
@@ -484,11 +484,4 @@ public static partial class NomadRaidSystem
     }
 
     #endregion
-
-    // 长城关隘之固、屯田实边的边城：后续补上
-    private static float Defense(List<Kingdom> members, Kingdom target) => 0f;
-
-    private static bool Steadfast(City city) => false;
-
-    private const float SteadfastMoney = 1f, SteadfastFood = 1f, SteadfastPeople = 1f;
 }

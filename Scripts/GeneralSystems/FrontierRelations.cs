@@ -95,7 +95,9 @@ public static class FrontierRelations
         bool caravanA = HasCaravan(a), caravanB = HasCaravan(b);
         bool foreign = !CultureService.SameKin(CultureService.GetRealmCulture(a), CultureService.GetRealmCulture(b));
         if (!frontier && !(foreign && (caravanA || caravanB))) return;
-        if (a.isInWarWith(b) || RaidedWithin(a, MarketRaidYears) || RaidedWithin(b, MarketRaidYears)) return;
+        // 买和开的互市(见 NomadRaidSystem)：期内遭劫过也照常通市
+        if (a.isInWarWith(b) || (RaidedWithin(a, MarketRaidYears) || RaidedWithin(b, MarketRaidYears)) &&
+            !NomadRaidSystem.MarketTreaty(a, b)) return;
         int amount = Mathf.Min(Population(a), Population(b)) / 10;
         if (amount <= 0) return;
         Pay(a, caravanA ? Mathf.RoundToInt(amount * CaravanBonus) : amount);

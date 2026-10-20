@@ -24,9 +24,9 @@ public sealed class SteppeState
     // 互市：上次得市易之利的时间、对方(见 FrontierRelations)
     public double market_at = -1d;
     public long market_partner_id = -1L;
-    // 买和开的互市：与哪国(定居一方的核心)，到什么时候；期间劫掠过也照样通市
+    // 买和开的互市：与哪国(定居一方的核心)、开市的时间；十年内劫掠过也照样通市
     public long market_treaty_with = -1L;
-    public double market_treaty_until = -1d;
+    public double market_treaty_at = -1d;
     // 劫掠收场后待办：成雄主转汗国(下个月办，不在战争收尾那一帧里改帝国)
     public bool hero_pending;
 }
