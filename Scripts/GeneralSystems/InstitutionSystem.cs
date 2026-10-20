@@ -225,6 +225,17 @@ public static partial class InstitutionSystem
         return state != null && IsSuperseded(state, nodeId);
     }
 
+    // 作为前置是否已具备：已施行，或已被本文化施行的新制度取代(这一步算走过了，同强制点亮的 ForceEnactChain)。
+    // 以前推改革、时代潮流、界面只认"已施行"：新制度取代旧制度后，挂在旧制度下面的别支再也推不了——
+    // 阿拉伯线施行哈里发神权或苏丹官僚(都取代哈里发官署)后，贝特马尔国库连同其后的开放党禁、废除君主制、普选、
+    // 各理念节点全部锁死，马穆鲁克军团、火器近卫也锁死；华夏郡县官僚(取代分封)后朝贡体系、羁縻制度锁死，
+    // 募兵制后战阵操典、军镇强藩锁死。真该作废的旧路由节点自己的 exclusive_with 挡住(如九品中正与科举取士)
+    public static bool IsPrerequisiteHeld(CultureInstitutionState state, string nodeId) =>
+        state != null && (state.enacted_node_ids.Contains(nodeId) || IsSuperseded(state, nodeId));
+
+    public static bool IsPrerequisiteHeld(string culture, string nodeId) =>
+        IsPrerequisiteHeld(GetOrCreateCultureState(culture), nodeId);
+
     #region 制度特性
 
     // 特性值：文化已掌握的节点里声明该特性的最大值；没有任何节点声明时返回 0。
@@ -849,7 +860,7 @@ public static partial class InstitutionSystem
             reason = "institution_reform_already_enacted";
             return false;
         }
-        if (!InstitutionDefinitionRegistry.ArePrerequisitesMet(node, cultureState.enacted_node_ids.Contains))
+        if (!InstitutionDefinitionRegistry.ArePrerequisitesMet(node, id => IsPrerequisiteHeld(cultureState, id)))
         {
             reason = "institution_reform_missing_requirement";
             return false;
@@ -1472,7 +1483,7 @@ public static partial class InstitutionSystem
         if (node.branch == IdeologyBranch || IdeologyInstitutionPaths.TryGetIdeology(node.branch, out _)) return false;
         if (node.requires_composite_empire) return false;
         if (state.enacted_node_ids.Contains(node.id) || IsSuperseded(state, node.id)) return false;
-        if (!InstitutionDefinitionRegistry.ArePrerequisitesMet(node, state.enacted_node_ids.Contains)) return false;
+        if (!InstitutionDefinitionRegistry.ArePrerequisitesMet(node, id => IsPrerequisiteHeld(state, id))) return false;
         if (node.exclusive_with.Any(state.enacted_node_ids.Contains)) return false;
         if (TechnologySystem.PremodernLocked && TechnologySystem.IsModernInstitution(node)) return false;
         return TechnologySystem.AreInstitutionTechsMet(culture, node, out _);
@@ -1533,7 +1544,7 @@ public static partial class InstitutionSystem
             // 王国扫描每帧只有几毫秒，省下来一轮扫得快些
             if (cultureState != null && (cultureState.enacted_node_ids.Contains(node.id) ||
                                          !InstitutionDefinitionRegistry.ArePrerequisitesMet(node,
-                                             cultureState.enacted_node_ids.Contains))) continue;
+                                             id => IsPrerequisiteHeld(cultureState, id)))) continue;
             if (takenElsewhere != null && takenElsewhere.Contains(node.id))
             {
                 NoteCandidateBlock(realm, primaryCulture, node, ReasonTakenElsewhere);
@@ -2943,7 +2954,7 @@ public static partial class InstitutionSystem
                 view.Status = InstitutionNodeStatus.Locked;
                 view.Reason = "institution_reform_no_tradition";
             }
-            else if (!InstitutionDefinitionRegistry.ArePrerequisitesMet(node, state.enacted_node_ids.Contains))
+            else if (!InstitutionDefinitionRegistry.ArePrerequisitesMet(node, id => IsPrerequisiteHeld(state, id)))
             {
                 view.Status = InstitutionNodeStatus.Locked;
                 view.Reason = "institution_reform_missing_requirement";

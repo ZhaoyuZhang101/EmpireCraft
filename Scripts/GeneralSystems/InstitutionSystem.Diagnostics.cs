@@ -148,7 +148,7 @@ public static partial class InstitutionSystem
         !IdeologyInstitutionPaths.TryGetIdeology(node.branch, out _) && !node.requires_composite_empire &&
         InstitutionDefinitionRegistry.FitsCulture(node, culture) &&
         !state.enacted_node_ids.Contains(node.id) && !IsSuperseded(state, node.id) &&
-        InstitutionDefinitionRegistry.ArePrerequisitesMet(node, state.enacted_node_ids.Contains) &&
+        InstitutionDefinitionRegistry.ArePrerequisitesMet(node, id => IsPrerequisiteHeld(state, id)) &&
         !node.exclusive_with.Any(state.enacted_node_ids.Contains) &&
         !(TechnologySystem.PremodernLocked && TechnologySystem.IsModernInstitution(node));
 

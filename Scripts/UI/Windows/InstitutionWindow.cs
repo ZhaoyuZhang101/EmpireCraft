@@ -1262,7 +1262,7 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
 
         // "任一满足"的一组显示成"A或B"
         List<string> missing = InstitutionDefinitionRegistry
-            .GetMissingPrerequisites(view.Node, required => InstitutionSystem.IsEnacted(_culture, required))
+            .GetMissingPrerequisites(view.Node, required => InstitutionSystem.IsPrerequisiteHeld(_culture, required))
             .Select(group => string.Join(LM.Get("institution_requires_any_separator"), group.Select(required =>
                 InstitutionSystem.GetNodeName(InstitutionDefinitionRegistry.Get(required), _culture))))
             .ToList();
@@ -1295,7 +1295,7 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
     private string MissingRequirementLine(InstitutionNodeConfig node)
     {
         List<string> missing = InstitutionDefinitionRegistry
-            .GetMissingPrerequisites(node, required => InstitutionSystem.IsEnacted(_culture, required))
+            .GetMissingPrerequisites(node, required => InstitutionSystem.IsPrerequisiteHeld(_culture, required))
             .Select(group => string.Join(LM.Get("institution_requires_any_separator"), group.Select(required =>
                 InstitutionSystem.GetNodeName(InstitutionDefinitionRegistry.Get(required), _culture))))
             .ToList();
@@ -1439,7 +1439,7 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
             TextAnchor.MiddleCenter, new Vector2(PanelWidth, 12));
 
         bool missingRequires = !InstitutionDefinitionRegistry.ArePrerequisitesMet(view.Node,
-            required => InstitutionSystem.IsEnacted(_culture, required));
+            required => InstitutionSystem.IsPrerequisiteHeld(_culture, required));
         // 附庸、王国改革关闭：只看不推(上面的上帝模式按钮改的是文化，照留)
         if (_readOnly && view.Status is InstitutionNodeStatus.Available or InstitutionNodeStatus.Forceable) return;
 
