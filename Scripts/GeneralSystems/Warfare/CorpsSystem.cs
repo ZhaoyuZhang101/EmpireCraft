@@ -125,6 +125,7 @@ public static class CorpsSystem
         ResetMonthCycle();
         GeneralMoves.Clear();
         Paths.Clear();
+        MarchRates.Clear();
         PathFailures.Clear();
         EmbarkRetry.Clear();
         RoadNetwork.ResetWorldState();
@@ -175,7 +176,9 @@ public static class CorpsSystem
         using (FrameProfiler.Measure("路网")) RoadNetwork.Tick();
         if (_lastSecond < 0d || now < _lastSecond || now - _lastSecond >= 1d)
         {
-            _lastSecond = now;
+            // 节拍按整秒往前推，不按本帧时刻重置：以前每拍都拖长一帧的时间(开快速时一拍拖到 1.2 秒)，
+            // 兵牌按一拍一秒插值，到位后干等，走起来一顿一顿。落后太多(暂停、卡顿)才重新对齐
+            _lastSecond = _lastSecond < 0d || now < _lastSecond || now - _lastSecond >= 3d ? now : _lastSecond + 1d;
             try { using (FrameProfiler.Measure("军团·行军")) SecondTick(); }
             catch (Exception exception) { LogService.LogWarning($"[EmpireCraft][军团] 行军失败: {exception.Message}"); }
             try { using (FrameProfiler.Measure("军团·航行")) NavySystem.SecondTick(); }
@@ -1128,6 +1131,7 @@ public static class CorpsSystem
             if (corps.embarked)
             {
                 // 在船上按船速走(见 Sail)
+                MarchRates.Remove(corps.id);
                 StepTowardTarget(corps);
             }
             else
@@ -1139,6 +1143,7 @@ public static class CorpsSystem
                 if (TerrainSystem.SlowsMarch(here)) speed *= CorpsArmSystem.Rough(arm);
                 if (!CorpsArmSystem.Flies(arm) && !RoadNetwork.IsRoad(here)) speed *= CorpsArmSystem.OffRoad(arm);
                 corps.march_progress += speed;
+                MarchRates[corps.id] = speed;
                 while (corps.march_progress >= 1f)
                 {
                     corps.march_progress -= 1f;
@@ -1158,6 +1163,8 @@ public static class CorpsSystem
                     if (corps.embarked || corps.zone_id == before)
                     {
                         corps.march_progress = 0f;
+                        // 停下了(到了、走不动)：兵牌不往前插值
+                        MarchRates.Remove(corps.id);
                         break;
                     }
                 }
@@ -1493,6 +1500,8 @@ public static class CorpsSystem
     // 走偏了(撤退、改派)或目标变了再重算；找不到路就朝目标就近挪一块可走的地
     private const int MaxPathSearch = 6000;
     private static readonly Dictionary<long, (int target, List<int> path)> Paths = new();
+    // 各军这一拍的行军速度(块/秒)：兵牌按节拍里过了几成往前插值(见 DrawPosition)；停下的不记
+    private static readonly Dictionary<long, float> MarchRates = new();
 
     // 寻路失败(多是够不着，要搜满 6000 块)的军：同一目标隔 PathRetrySeconds(世界时间)再寻，其间就近挪。
     // 每秒行军结算里寻路至少 PathsPerTick 次，再多只在本秒寻路累计不到 PathTickMilliseconds 时寻，其余的军这一步等到下一秒
@@ -1685,21 +1694,56 @@ public static class CorpsSystem
 
     // 画兵牌用：行军途中按行军进度画在所在地块与下一块之间(行军很慢，一块地要走二十几秒，
     // 只在换地块时滑一下会一卡一卡的)；下一块按缓存的路线，飞机朝目标就近一块；不在行军返回所在地块中心
-    public static Vector3 DrawPosition(CorpsData corps)
+    public static Vector3 DrawPosition(CorpsData corps) => DrawPosition(corps, out _);
+
+    // 画在哪：所在地块与下一块之间，进度 = 上一拍结算的进度 + 这一拍的速度 × 这一拍过了几成(按世界时间，暂停时不动)，
+    // 所以每帧都匀速往前走，不再等下一拍才挪。moving：正在往下一块走(兵牌按行军中画，不并进所在地块)
+    public static Vector3 DrawPosition(CorpsData corps, out bool moving)
     {
+        moving = false;
         TileZone zone = Zone(corps);
         Vector3 here = zone?.centerTile?.posV ?? Vector3.zero;
         if (zone == null || corps.embarked) return here;
-        TileZone next = null;
+        TileZone next = null, after = null;
+        bool predicting = MarchRates.TryGetValue(corps.id, out float rate) && rate > 0f;
         if (CorpsArmSystem.Flies(corps))
         {
             TileZone target = FrontSystem.TargetZone(corps);
-            if (target != null && target != zone) next = FlyStep(zone, target);
+            if (target != null && target != zone)
+            {
+                next = FlyStep(zone, target);
+                if (predicting && next != null && next != target) after = FlyStep(next, target);
+            }
         }
         else if (Paths.TryGetValue(corps.id, out var cached) && cached.path.Count >= 2 && cached.path[0] == zone.id)
+        {
             next = ZoneById(cached.path[1]);
+            if (cached.path.Count >= 3) after = ZoneById(cached.path[2]);
+        }
+        else if (predicting && FrontSystem.TargetZone(corps) is TileZone target && target != zone)
+        {
+            // 没有缓存路线(寻路失败、本拍寻路排满)时照 NextStep 的退路，朝目标就近挪
+            next = Nearer(zone, target);
+            if (next != null && next != target) after = Nearer(next, target);
+        }
         if (next?.centerTile == null) return here;
-        return Vector3.Lerp(here, next.centerTile.posV, Mathf.Clamp01(corps.march_progress));
+        float progress = corps.march_progress;
+        if (predicting)
+        {
+            moving = true;
+            progress += rate * TickFraction();
+        }
+        // 这一拍会跨进下一块的：过了下一块中心接着往再下一块走，免得停在中心等结算、结算后再往前一跳
+        if (progress > 1f && after?.centerTile != null)
+            return Vector3.Lerp(next.centerTile.posV, after.centerTile.posV, Mathf.Clamp01(progress - 1f));
+        return Vector3.Lerp(here, next.centerTile.posV, Mathf.Clamp01(progress));
+    }
+
+    // 这一拍(见 Update 里的行军节拍)过了几成
+    private static float TickFraction()
+    {
+        if (_lastSecond < 0d || World.world == null) return 0f;
+        return Mathf.Clamp01((float)(World.world.getCurWorldTime() - _lastSecond));
     }
 
     // 别的系统借用军团的寻路(按兵种代价，优先走路，见 FindPath)，如皇帝出行(EmperorTourSystem)

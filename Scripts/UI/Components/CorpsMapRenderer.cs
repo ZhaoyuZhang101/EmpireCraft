@@ -76,12 +76,17 @@ public static class CorpsMapRenderer
         return true;
     }
 
-    private static Vector3 CounterTarget(CorpsData corps, TileZone zone, out bool follows)
+    private static Vector3 CounterTarget(CorpsData corps, TileZone zone, out bool follows) =>
+        CounterTarget(corps, zone, out follows, out _);
+
+    // marching：正在行军，位置已按节拍逐帧插值(见 CorpsSystem.DrawPosition)
+    private static Vector3 CounterTarget(CorpsData corps, TileZone zone, out bool follows, out bool marching)
     {
+        marching = false;
         Actor general = corps.general_id >= 0 ? World.world.units.get(corps.general_id) : null;
         follows = general?.data != null && !general.isRekt() && general.isAlive() &&
                   general.current_tile?.zone != null && CorpsSystem.ZoneDistance(general.current_tile.zone, zone) <= 2f;
-        return follows ? (Vector3)general.current_position + new Vector3(0f, 3f) : CorpsSystem.DrawPosition(corps);
+        return follows ? (Vector3)general.current_position + new Vector3(0f, 3f) : CorpsSystem.DrawPosition(corps, out marching);
     }
 
     private sealed class Counter
@@ -699,11 +704,15 @@ public static class CorpsMapRenderer
                 TileZone zone = CorpsSystem.Zone(corps);
                 if (zone?.centerTile == null) continue;
                 // 有统领实体时跟在统领头顶
-                // 行军途中按进度画在两块地之间，每个游戏秒往前挪一点，滑起来是连续的(见 CorpsSystem.DrawPosition)
-                Vector3 target = CounterTarget(corps, zone, out bool follows);
-                // 统领实体自己在走，兵牌直接跟着，不再另外滑
-                Glider glider = follows ? new Glider { At = target, Target = target } : Glide(_corpsGliders, corps.id, target, glideDelta);
+                // 行军途中按进度画在两块地之间，进度逐帧插值，匀速往前走(见 CorpsSystem.DrawPosition)
+                Vector3 target = CounterTarget(corps, zone, out bool follows, out bool marching);
+                // 统领实体自己在走、行军中已逐帧插值的，兵牌直接画在那里；别的(改派、调防换位)才滑过去。
+                // 以前行军也靠滑：每拍滑到位后被当成"已到"并进所在地块那块兵牌，下一拍又弹出来，一顿一顿
+                Glider glider = follows || marching
+                    ? new Glider { At = target, Target = target }
+                    : Glide(_corpsGliders, corps.id, target, glideDelta);
                 _nextCorpsGliders[corps.id] = glider;
+                bool arrived = !marching && (follows || glider.At == target);
                 CounterGroup group;
                 if (Located(corps))
                 {
@@ -712,7 +721,7 @@ public static class CorpsMapRenderer
                         { Kingdom = kingdom, Zone = zone, World = glider.At, Task = corps.task, Located = true };
                     Groups[(zone.id, -corps.id - 1L)] = group;
                 }
-                else if ((follows || glider.At == target) && split)
+                else if (arrived && split)
                 {
                     // 拉近：各画一块，绕地块中心上下交替错开(间距大于折叠范围，不会再并回去)
                     var zoneKey = (zone.id, kingdom.id);
@@ -723,7 +732,7 @@ public static class CorpsMapRenderer
                         { Kingdom = kingdom, Zone = zone, World = glider.At + new Vector3(0f, offset), Task = corps.task };
                     Groups[(zone.id, -corps.id - 1L)] = group;
                 }
-                else if (follows || glider.At == target)
+                else if (arrived)
                 {
                     var key = (zone.id, kingdom.id);
                     if (!Groups.TryGetValue(key, out group))
