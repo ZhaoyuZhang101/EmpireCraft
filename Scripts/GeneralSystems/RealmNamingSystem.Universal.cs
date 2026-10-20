@@ -188,6 +188,8 @@ public static partial class RealmNamingSystem
     // 读档后头一次年度结算之前加的冕(旧档)：按新规追授一次
     private static object _session;
     private static double _sessionStart = -1d;
+    // 本局已核过追授的帝国(每个只核一次：之后只在教宗加冕时授)
+    private static readonly HashSet<long> RetroChecked = new();
 
     // 每年(RealmNamingSystem.Yearly)
     private static void YearlyUniversal(Empire empire)
@@ -198,11 +200,12 @@ public static partial class RealmNamingSystem
         {
             _session = World.world;
             _sessionStart = World.world.getCurWorldTime();
+            RetroChecked.Clear();
         }
         if (state.universal_lead_id < 0)
         {
-            // 读档追授：本局之前就由教宗加冕、仍在位、没有被绝罚的
-            if (state.crowned_at >= 0d && state.crowned_at < _sessionStart && !state.self_crowned &&
+            // 读档追授：本局之前就由教宗加冕、仍在位、没有被绝罚的(每个帝国只核一次)
+            if (RetroChecked.Add(empire.data.id) && state.crowned_at >= 0d && state.crowned_at < _sessionStart && !state.self_crowned &&
                 PapacySystem.IsCrowned(empire) && !PapacySystem.IsExcommunicated(empire) && !PapacySystem.BrokeWithRome(empire))
             {
                 Kingdom papacy = PapacySystem.Papacy(PapacySystem.ReligionOf(empire));
@@ -335,6 +338,9 @@ public static partial class RealmNamingSystem
         EmpireCore lead = UniversalLead(empire);
         bool wanted = Enabled && IsWestern(empire) && PapacySystem.Applies(empire) && !PapacySystem.IsHolySee(empire) &&
                       lead != null && TianxiaSystem.IsJoint(lead) && Papal(empire)?.universal_lead_id < 0;
+        // 不该有、也没挂过的(非西方帝国大多如此)：不动派系
+        if (!wanted && !factions.Any(f => f?.TemporaryFactionTypesRecord?.Contains(TemporaryFactionType.逼冕) == true ||
+                                          f?.TemporaryFactions?.Any(tf => tf?.type == TemporaryFactionType.逼冕) == true)) return;
         List<FixedFaction> hosts = factions.Where(f => f != null && CoercionHosts.Contains(f.Type)).ToList();
         if (hosts.Count == 0 && factions.FirstOrDefault(f => f?.Force == true) is FixedFaction dominate) hosts.Add(dominate);
         const TemporaryFactionType type = TemporaryFactionType.逼冕;

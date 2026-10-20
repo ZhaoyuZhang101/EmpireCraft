@@ -3383,6 +3383,9 @@ public static class KingdomExtension
     private static string GetKingdomFrontFallback(Kingdom kingdom)
     {
         if (kingdom?.data == null) return "";
+        // 第二直隶以京名为号(见 MultiCapitalSystem.Zhili)
+        string zhiliFront = EmpireCraft.Scripts.GeneralSystems.MultiCapitalSystem.ZhiliFront(kingdom);
+        if (!string.IsNullOrWhiteSpace(zhiliFront)) return zhiliFront;
         string administrativeName = kingdom.GetAdministrativeProvinceName();
         if (!string.IsNullOrWhiteSpace(administrativeName))
         {

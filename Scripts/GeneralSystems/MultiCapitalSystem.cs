@@ -86,7 +86,7 @@ public static partial class MultiCapitalSystem
         {
             // 内阁(行省)阶段：只留第二直隶那一京(见 MultiCapitalSystem.Zhili)
             List<(EmpireCore core, City city)> picks = CandidateCapitals(empire, 1);
-            Arrange(empire, picks);
+            Arrange(empire, picks, "jing_reason_zhili");
             SyncZhili(empire, picks.Count > 0 ? picks[0] : default);
         }
         else

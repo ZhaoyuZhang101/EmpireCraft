@@ -103,6 +103,9 @@ public static partial class MultiCapitalSystem
         // 储君已是别处之君(封国、军府)：不就藩
         if (heir.isKing() && heir.kingdom != zhili) return;
         if (current != null) zhili.removeKing();
+        // 同继位就国：先卸下军职、城主之职(见 EmpireCraftKingdomBehCheckKing.MakeKingAndMoveToCapital)
+        heir.removeFromArmy();
+        if (heir.isCityLeader()) heir.city?.removeLeader();
         OfficeObject office = zhili.GetOffice();
         if (office != null)
         {
@@ -125,7 +128,14 @@ public static partial class MultiCapitalSystem
     {
         if (!RealmNamingSystem.MultiCapitalEnabled || !IsZhili(kingdom)) return false;
         Empire empire = kingdom.GetEmpire();
-        if (empire?.CoreKingdom != null) SyncRuler(empire, kingdom);
+        try
+        {
+            if (empire?.CoreKingdom != null) SyncRuler(empire, kingdom);
+        }
+        catch (global::System.Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft][直隶] 储君就藩失败: {exception.Message}");
+        }
         return true;
     }
 
