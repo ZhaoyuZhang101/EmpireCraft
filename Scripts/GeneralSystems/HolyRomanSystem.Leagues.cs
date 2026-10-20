@@ -179,10 +179,13 @@ public static partial class HolyRomanSystem
 
     #region 加冕远征
 
+    // 远征途中已经加冕(教廷页直接加冕，或教廷没了改自行加冕)：远征就此作罢。以前远征的记录要等"到达"才清，
+    // 而到达的判定在加冕结算里、已加冕的不再走到，这位皇帝一辈子都算远征在外(正统 -3、议会不开)
     public static bool RomzugUnderway(Empire empire)
     {
         HolyRomanState state = State(empire);
-        return state != null && state.romzug_at >= 0d && empire.Emperor != null && state.romzug_emperor_id == empire.Emperor.id;
+        return state != null && state.romzug_at >= 0d && empire.Emperor != null && state.romzug_emperor_id == empire.Emperor.id &&
+               !PapacySystem.IsCrowned(empire);
     }
 
     // PapacySystem.Coronation 调用：没在远征 / 还在路上 / 到了

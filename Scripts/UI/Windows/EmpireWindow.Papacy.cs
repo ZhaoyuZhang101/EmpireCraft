@@ -34,11 +34,15 @@ namespace EmpireCraft.Scripts.UI.Windows
             var data = religion.GetOrCreate();
             var page = BeginPage("empire_papacy", religion.name, PapacyStatus(religion));
 
-            string crown = PapacySystem.IsHolySee(_empire) ? LM.Get("papacy_crown_holy_see")
+            // 非君主政体(古典共和等)不在教廷加冕之列：不显示"未加冕"，免得像是缺了什么
+            bool crownable = PapacySystem.Applies(_empire);
+            string crown = !crownable ? LM.Get("papacy_crown_na")
+                : PapacySystem.IsHolySee(_empire) ? LM.Get("papacy_crown_holy_see")
                 : PapacySystem.IsExcommunicated(_empire) ? LM.Get("papacy_crown_banned")
                 : PapacySystem.IsCrowned(_empire) ? LM.Get(state.self_crowned ? "papacy_crown_self" : "papacy_crown_pope")
                 : LM.Get("papacy_crown_none");
-            string crownHex = PapacySystem.IsExcommunicated(_empire) ? WideKit.Red
+            string crownHex = !crownable ? WideKit.Muted
+                : PapacySystem.IsExcommunicated(_empire) ? WideKit.Red
                 : PapacySystem.IsCrowned(_empire) || PapacySystem.IsHolySee(_empire) ? WideKit.Green : WideKit.Orange;
             page.AddKpiRow(MainWidth,
                 (LM.Get("papacy_authority"), $"{authority:0}", WideKit.Grade(authority, 60, 35)),
@@ -110,12 +114,26 @@ namespace EmpireCraft.Scripts.UI.Windows
 
             var actions = page.BeginCard(MainWidth, "papacy_actions_title", WideKit.Muted);
             actions.AddButtonRow(MainWidth,
-                ("papacy_act_crown", LM.Get("papacy_act_crown"), () => { if (PapacySystem.ActCrown(_empire)) ShowPapacy(pArg0); }),
-                ("papacy_act_ban", LM.Get(PapacySystem.IsExcommunicated(_empire) ? "papacy_act_lift" : "papacy_act_ban"),
-                    () => { if (PapacySystem.ActToggleBan(_empire)) ShowPapacy(pArg0); }),
+                ("papacy_act_crown", LM.Get("papacy_act_crown"), () =>
+                {
+                    if (PapacySystem.ActCrown(_empire)) ShowPapacy(pArg0);
+                    else ShowPapacyBlocked(PapacySystem.CrownBlocker(_empire));
+                }),
+                ("papacy_act_ban", LM.Get(PapacySystem.IsExcommunicated(_empire) ? "papacy_act_lift" : "papacy_act_ban"), () =>
+                {
+                    if (PapacySystem.ActToggleBan(_empire)) ShowPapacy(pArg0);
+                    else ShowPapacyBlocked(PapacySystem.BanBlocker(_empire));
+                }),
                 ("papacy_act_crusade", LM.Get("papacy_act_crusade"), () => { if (PapacySystem.ActCrusade(_empire)) ShowPapacy(pArg0); }),
                 ("papacy_act_order", LM.Get("papacy_act_order"), () => { if (PapacySystem.ActFoundOrder(_empire)) ShowPapacy(pArg0); }));
             StartCoroutine(RefreshScrollLayout(resetToTop: true));
+        }
+
+        // 干预做不成时说明缘由(以前点了毫无动静)
+        private void ShowPapacyBlocked(string key)
+        {
+            if (string.IsNullOrEmpty(key)) return;
+            WorldTip.showNow(string.Format(LM.Get(key), _empire.GetEmpireFullName()), false, "top", 3f);
         }
 
         private static string Names(List<Kingdom> kingdoms) => kingdoms.Count == 0
