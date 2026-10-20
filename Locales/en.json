@@ -3477,6 +3477,8 @@
   "steppe_attach_history": "Too weak to stand alone, {0} attaches itself to {1} as an ulus",
   "steppe_detach_succession_history": "A new khan rules {1}, and {0} drifts away to stand on its own",
   "steppe_detach_decline_history": "As {1} declines, {0} drifts away to stand on its own",
+  "steppe_tribute_submit_history": "{0} submits to {1} as a tributary in exchange for generous gifts",
+  "steppe_tribute_renounce_history": "With the gifts from {1} cut off, {0} no longer submits as a tributary",
   "capital_loss_restored": "{0} retakes its old capital {1} and is again known as {2}.",
   "kingdom_type_xingzai": "Temporary Court",
   "Later": "Later",

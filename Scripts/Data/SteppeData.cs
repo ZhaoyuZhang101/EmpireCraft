@@ -37,6 +37,11 @@ public sealed class SteppeState
     public long attached_empire_id = -1L;
     public double attached_at = -1d;
     public long attached_khan_id = -1L;
+    // 朝贡换赏赐(见 SteppeOrderSystem)：上回得赏赐的时间与宗主(核心)；赏赐断了的时间与那家宗主；-1 = 没有
+    public double gift_at = -1d;
+    public long gift_from = -1L;
+    public double gift_cut_at = -1d;
+    public long gift_cut_from = -1L;
 }
 
 // 争草场之战(见 SteppeOrderSystem)：存在 WarExtraData.pasture 里

@@ -17,7 +17,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 游牧联盟劫掠(用户 2026-10-20 定的游牧基调"税收低，可以劫掠，大汗死后会分裂，高扩张，低控制"；问答定劫掠的规矩)：
 // 草原压力大时游牧临时结盟南下，劫掠定居之国，抢够就退、战争结束、联盟解散；盟主屡胜可成雄主，联盟转为汗国。
 //   · 草原压力(每年每个有劫掠传统的国家算一次，算式见 SteppeRules)：纪元(寒冬最甚、黑暗次之，只算游牧)、牲畜粮食(白灾)、
-//     国库见底(欠饷)、互市断绝与岁币停付(只算游牧)；到 40 就要劫掠。维京这类有劫掠传统的非游牧文化只算国库与粮食，只单国劫掠；
+//     国库见底(欠饷；得着朝贡赏赐的减半)、互市断绝、岁币停付与朝贡赏赐断绝(只算游牧)；到 40 就要劫掠。维京这类有劫掠传统的非游牧文化只算国库与粮食，只单国劫掠；
 //   · 结盟：压力够的游牧政权(独立的国或帝国核心)按国力从强到弱当盟主召集——接壤的游牧政权(本汗国的兀鲁思也算)按自身压力、
 //     亲疏(同文化、姻亲、同一汗国)、强弱掷入盟(比盟主强的不跟)，一盟至多 MaxMembers 部；没人来就单独劫掠
 //     (每年 SingleRaidChance 的机会，而且要比对方强)；
@@ -163,10 +163,12 @@ public static partial class NomadRaidSystem
             float ratio = reserve > 0 ? (float)kingdom.GetTreasuryBalance() / reserve : 1f;
             TreasuryReport report = TreasurySystem.Report(kingdom);
             state.treasury = SteppeRules.Treasury(CorpsSystem.Unpaid(kingdom), ratio, report.months >= 3 && report.operating_balance < 0);
+            // 朝贡换赏赐：一年半内得过定居宗主的赏赐，国库一项减半(见 SteppeOrderSystem)
+            if (SteppeOrderSystem.Gifted(state)) state.treasury *= 0.5f;
         }
         else state.treasury = 0f;
         TrackTribute(kingdom, state, now);
-        state.market = SteppeRules.Market(nomad, TributeCut(state) != null, MarketCut(state), false);
+        state.market = SteppeRules.Market(nomad, TributeCut(state) != null, MarketCut(state), SteppeOrderSystem.GiftCut(state) != null);
         state.pressure = SteppeRules.Total(state.era, state.herd, state.treasury, state.market);
         state.pressure_at = now;
     }
@@ -409,7 +411,7 @@ public static partial class NomadRaidSystem
         foreach (Kingdom member in members)
         {
             SteppeState state = State(member);
-            if (TributeCut(state)?.id == realm) return true;
+            if (TributeCut(state)?.id == realm || SteppeOrderSystem.GiftCut(state)?.id == realm) return true;
             if (MarketCut(state) && state.market_partner_id == realm) return true;
         }
         return false;

@@ -12,7 +12,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //      至多小打小闹(原版挑宣战对象见 WarTargetPatch，帝国与成员见 EmpireCraftPlotsAddition.GetWarTarget)；
 //      平时的动静只有草原压力引起的劫掠(见 NomadRaidSystem)与下面的争草场。
 //   2. 部落争草场(见 SteppeOrderSystem.Feuds)；
-//   3. 依附强部(见 SteppeOrderSystem.Attach)。
+//   3. 依附强部(见 SteppeOrderSystem.Attach)；
+//   4. 朝贡换赏赐(见 SteppeOrderSystem.Tribute)。
 // 每年随草原压力一起结算(NomadRaidSystem 算完压力后调用 Yearly)，每月看争草场到期(Monthly)。诊断日志 [EmpireCraft][游牧常态]。
 public static partial class SteppeOrderSystem
 {
@@ -47,6 +48,14 @@ public static partial class SteppeOrderSystem
         catch (Exception exception)
         {
             LogService.LogWarning($"{LogTag} 依附强部结算失败: {exception.Message}");
+        }
+        try
+        {
+            TributeYearly(nomads);
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"{LogTag} 朝贡换赏赐结算失败: {exception.Message}");
         }
     }
 

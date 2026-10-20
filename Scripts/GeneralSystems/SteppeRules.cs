@@ -83,6 +83,14 @@ public static class SteppeRules
         return Math.Min(0.25f, chance);
     }
 
+    // 定居宗主给游牧朝贡国回赐几倍(厚往薄来)：正统 30 时一倍，每高 40 多一倍，至多两倍；末世减半；正统不到 30 断了(0)
+    public static float GiftShare(int legitimacy, bool crisis)
+    {
+        if (legitimacy < 30) return 0f;
+        float share = Math.Min(2f, 1f + (legitimacy - 30) / 40f);
+        return crisis ? share * 0.5f : share;
+    }
+
     // 弱部依附强汗国的机会(每年)：0.12，草原压力 30 以上 +0.1
     public static float AttachChance(float pressure) => 0.12f + (pressure >= 30f ? 0.1f : 0f);
 

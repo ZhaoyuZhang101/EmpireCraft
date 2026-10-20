@@ -11,7 +11,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 朝贡双向(用户 2026-10-19 选"朝贡双向与称臣和约"；以前朝贡国每年纳贡，宗主既不保护也不回报)：
 //   · 宗主保护：朝贡国遭外敌攻打(打它的不是宗主一方的人，也不是劫掠)，宗主没在打仗、出得起军费、
 //     兵力压过攻方、过得了开战闸门(停战、同盟……见 WarGate)时出兵加入守方；
-//   · 厚往薄来：每次纳贡宗主回赐三成，朝贡国离心减一分；宗主得一点正统(万邦来朝)；
+//   · 厚往薄来：每次纳贡宗主回赐三成，朝贡国离心减一分；宗主得一点正统(万邦来朝)；游牧朝贡国向定居宗主纳贡，
+//     回赐一到两倍(按宗主正统，末世减半，正统不到 30 断了；见 SteppeOrderSystem 朝贡换赏赐)；
 //   · 朝贡国与宗主算一家，科技互通(见 TechnologySystem.RebuildContacts)；
 //   · 称臣和约：不行封建附庸的胜者，迫使附庸改为对方向本帝国称臣纳贡(见 WarGoalSystem.Tick)。
 public static class TributaryRelations
@@ -45,12 +46,14 @@ public static class TributaryRelations
     {
         Kingdom core = empire?.CoreKingdom;
         if (tributary?.data == null || core?.data == null || value <= 0) return;
-        int gift = UnityEngine.Mathf.Min(UnityEngine.Mathf.RoundToInt(value * ReturnGiftShare), UnityEngine.Mathf.Max(0, core.GetMoney()));
+        float share = SteppeOrderSystem.TributeGiftShare(tributary, empire) ?? ReturnGiftShare;
+        int gift = UnityEngine.Mathf.Min(UnityEngine.Mathf.RoundToInt(value * share), UnityEngine.Mathf.Max(0, core.GetMoney()));
         if (gift > 0)
         {
             core.SubMoney(gift, TreasuryCategory.Tribute);
             tributary.AddMoney(gift, TreasuryCategory.Tribute);
         }
+        SteppeOrderSystem.NoteGift(tributary, empire, gift);
         var extra = tributary.GetOrCreate();
         extra.leave_taken_alliance_preference = UnityEngine.Mathf.Max(0f, extra.leave_taken_alliance_preference - GiftLoyalty);
         empire.AddMandate(1);

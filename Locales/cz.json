@@ -3480,6 +3480,8 @@
   "steppe_attach_history": "{0}势单力薄，依附{1}，为其兀鲁思",
   "steppe_detach_succession_history": "{1}易汗，{0}散去自立",
   "steppe_detach_decline_history": "{1}势衰，{0}散去自立",
+  "steppe_tribute_submit_history": "{0}向{1}称臣纳贡，岁得厚赏",
+  "steppe_tribute_renounce_history": "{1}赏赐断绝，{0}不再称臣",
   "capital_loss_restored": "{0}收复旧都{1}，还于旧都，复称{2}。",
   "kingdom_type_xingzai": "行在",
   "Later": "后",
