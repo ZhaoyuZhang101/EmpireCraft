@@ -376,6 +376,8 @@ public static partial class NomadRaidSystem
     private static bool Raidable(Kingdom leader, List<Kingdom> members, Kingdom target)
     {
         if (!Alive(target) || members.Contains(target) || IsNomad(Realm(target))) return false;
+        // 劫异族：同一文化的不劫(维京不劫维京)
+        if (CultureService.GetRealmCulture(Realm(target)) == CultureService.GetRealmCulture(leader)) return false;
         Empire theirs = target.GetEmpire();
         foreach (Kingdom member in members)
         {
@@ -483,10 +485,10 @@ public static partial class NomadRaidSystem
 
     #endregion
 
-    // 长城关隘之固、劫掠之战的月度进展：后续补上
+    // 长城关隘之固、屯田实边的边城：后续补上
     private static float Defense(List<Kingdom> members, Kingdom target) => 0f;
 
-    private static void MonthTick()
-    {
-    }
+    private static bool Steadfast(City city) => false;
+
+    private const float SteadfastMoney = 1f, SteadfastFood = 1f, SteadfastPeople = 1f;
 }

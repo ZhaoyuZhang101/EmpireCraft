@@ -434,7 +434,8 @@ public class CityPatch : GamePatch
                     IsKingdomRepresentedOnWarSide(w, joinAfterCapture, true);
                 bool eligibleImperialAttacker = attackerInEmpire && capturingSideIsAttacker;
 
-                if (war == null && eligibleImperialAttacker && warType == EmpireWarType.劫掠)
+                // 劫掠之战：攻方一边(联盟各部、独立的国都算，不必是帝国)破城即洗劫(见 NomadRaidSystem)
+                if (war == null && capturingSideIsAttacker && warType == EmpireWarType.劫掠)
                     war = w;
                 if (expendWar == null && eligibleImperialAttacker && warType == EmpireWarType.游牧扩张)
                     expendWar = w;
@@ -448,13 +449,11 @@ public class CityPatch : GamePatch
             //检测城市是否被劫掠如果是则不执行占领城市逻辑但是相应的城市金库会被劫走
             if (war!= null)
             {
-                // 劫掠只拿三成，遭劫的国五年内不再遭劫(见 TempFac_劫掠)
-                __instance.kingdom.GetOrCreate().raided_at = World.world.getCurWorldTime();
-                EmpireCraft.Scripts.GeneralSystems.TreasurySystem.TransferWarSpoils(__instance, pNewKingdom, 0.3f);
+                // 劫掠只抢不占：洗劫这座城(金帛、粮、人口按出兵分给各部)，遭劫的国五年内不再遭劫；
+                // 抢够了(单国一城，联盟每部一城)立即判攻方胜、整场罢兵，而不是只让当前守城国退出(见 NomadRaidSystem)
+                bool enough = NomadRaidSystem.OnSack(war, __instance, pNewKingdom);
                 ClearResolvedCaptureProgress(__instance);
-                // 劫掠是一次性有限战争：第一座城市被成功洗劫后，
-                // 立即判进攻方获胜并结束整场战争，而不是只让当前守城国退出。
-                if (war.isAlive() && !war.hasEnded())
+                if (enough && war.isAlive() && !war.hasEnded())
                     World.world.wars.endWar(war, WarWinner.Attackers);
                 return false;
             }

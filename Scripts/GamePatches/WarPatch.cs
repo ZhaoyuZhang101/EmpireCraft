@@ -214,6 +214,8 @@ public class WarPatch: GamePatch
             EmpireCraft.Scripts.GeneralSystems.PapacySystem.OnWarEnded(pWar, pWinner);
             // 帝国战争、执行禁令、宗教战争的结局
             EmpireCraft.Scripts.GeneralSystems.HolyRomanSystem.OnWarEnded(pWar, pWinner);
+            // 劫掠之战收场：联盟散伙、盟主威望(见 NomadRaidSystem)
+            EmpireCraft.Scripts.GeneralSystems.NomadRaidSystem.OnWarEnded(pWar, pWinner);
             ReignRecordSystem.OnWarEnded(pWar, pWinner);
             WorldWarSystem.Resolve(pWar, pWinner);
             World.world.game_stats.data.peacesMade++;
