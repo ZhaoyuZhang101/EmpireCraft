@@ -518,6 +518,11 @@ internal static class MainTab
             SpriteTextureLoader.getSprite("ui/icons/godpowers/terrain_relief"));
         AddButton(DISPLAY_GROUP, reliefButton);
 
+        // 战声：镜头拉近到交战处时听得到厮杀声(见 BattleSound)
+        SwitchBattleSoundButton.init();
+        AddButton(DISPLAY_GROUP, PowerButtonCreator.CreateToggleButton("battle_sound",
+            SpriteTextureLoader.getSprite("ui/icons/godpowers/battle_sound")));
+
         // 领土铭牌字体：自动(传统书体优先) / 游戏字体 / 本机任一字体
         var territoryFontButton = PowerButtonCreator.CreateWindowButton("territory_font_button",
             nameof(TerritoryFontWindow), SpriteTextureLoader.getSprite("ui/icons/godpowers/territory_font"));

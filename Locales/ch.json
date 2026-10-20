@@ -3679,6 +3679,8 @@
   "corps_tip_landing": "登陸",
   "corps_tip_landing_value": "渡海搶灘",
   "corps_tip_landing_effect": "渡海登陸，還沒在城下站住腳：攻方戰力 ×{0}",
+  "battle_sound": "戰聲",
+  "battle_sound_description": "鏡頭拉近到交戰處時播放廝殺聲：冷兵器是刀劍相擊、喊殺與箭雨馬蹄，火器是排槍齊射與炮聲，近代是步槍、機槍與炮擊，海戰是艦炮與海浪。音量跟隨音效音量，暫停時靜音。",
   "capital_loss_restored": "{0}收復舊都{1}，還於舊都，復稱{2}。",
   "kingdom_type_xingzai": "行在",
   "Later": "後",

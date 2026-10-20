@@ -1729,6 +1729,22 @@ def b_lens(img):
 
 
 BADGES["lens"] = b_lens
+
+
+def obj_battle_sound(img):
+    """战声开关：交叉双剑偏左，右侧两道由近及远的声波弧(旧铜、枪灰；弧间留足空隙，缩到 28 像素还分得开)。"""
+    swords = canvas()
+    of.crossed_swords(swords)
+    over(img, inset(swords, 0.92, 84, 134))
+    cx, cy = 120, 128
+    wedge = poly([(cx, cy), (cx + 170, cy - 170), (cx + 170, cy + 170)])
+    for k, (r, w) in enumerate(((66, 24), (126, 24))):
+        ring = sub(ellipse([cx - r, cy - r, cx + r, cy + r]), ellipse([cx - r + w, cy - r + w, cx + r - w, cy + r - w]))
+        arc = Image.fromarray(np.minimum(np.asarray(ring), np.asarray(wedge)))
+        over(img, shade(arc, STEEL if k else BRASS, bevel=7, gloss=0.9 - 0.2 * k, grain=0.15))
+
+
+GODPOWERS["battle_sound"] = (obj_battle_sound, None)
 # 制度窗口左栏的两枚文化按钮：浏览别的文化(法典 + 放大镜)、改从文化(旗帜 + 互换)
 GODPOWERS.update({
     "institution_browse_culture": (obj_book, "lens"),

@@ -3663,6 +3663,8 @@
   "corps_tip_landing": "Landing",
   "corps_tip_landing_value": "Amphibious assault",
   "corps_tip_landing_effect": "Landing from the sea, no foothold yet: attack ×{0}",
+  "battle_sound": "Battle Sounds",
+  "battle_sound_description": "Play the din of battle when the camera is zoomed in near a fight: clashing blades, war cries, arrows and hooves; musket volleys and cannon; rifles, machine guns and shelling; naval guns over the waves. Follows the sound effects volume and goes quiet while paused.",
   "capital_loss_restored": "{0} retakes its old capital {1} and is again known as {2}.",
   "kingdom_type_xingzai": "Temporary Court",
   "Later": "Later",
