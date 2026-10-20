@@ -21,7 +21,9 @@ public static class EmpireEnfeoffButton
     {
         if (!pTile.hasCity()) return false;
         if (!pTile.zone_city.kingdom.IsInEmpire()) return false;
-        pTile.zone_city.kingdom.GetEmpire().AutoEnfeoff();
+        // 神力分出的成员：十五年内不因离心自行离开(见 MembershipCooldown)
+        Empire empire = pTile.zone_city.kingdom.GetEmpire();
+        EmpireCraft.Scripts.GeneralSystems.MembershipCooldown.ByGod(() => empire.AutoEnfeoff());
         ActionLibrary.showWhisperTip("start_enfeoff");
         return true;
     }

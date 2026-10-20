@@ -723,7 +723,8 @@ public class Empire : MetaObject<EmpireData>
                 foreach (var k in kingdoms_list.ToList())
                 {
                     if (_completingMinisterUsurpation) break;
-                    if (!k.isOpinionTowardsKingdomGood(CoreKingdom)&&Legitimacy<20)
+                    // 新入帝国未满十年、神力拉入未满期的不随改朝离去(见 MembershipCooldown.Settled)
+                    if (!k.isOpinionTowardsKingdomGood(CoreKingdom)&&Legitimacy<20&&MembershipCooldown.Settled(k))
                     {
                         this.leave(k);
                     }
@@ -2307,6 +2308,8 @@ public class Empire : MetaObject<EmpireData>
         if (pKingdom == null || pKingdom.isRekt()) return false;
         if (AncientWarfareCompatibility.Owns(CoreKingdom) || AncientWarfareCompatibility.Owns(pKingdom)) return false;
         if (!CanAcceptVoluntarySubmission() || pKingdom.HasRebelledAgainst(this)) return false;
+        // 神力放出的保护期内、自己离开不到十年的，不自愿回来(危急除外，见 MembershipCooldown)
+        if (MembershipCooldown.BlocksVoluntary(pKingdom, this)) return false;
         // 已有封建宗主的国家不能再自愿加入帝国：要么先独立，要么被宗主放还(避免双重从属)
         if (GeneralSystems.FeudalVassalService.GetOverlord(pKingdom) != null) return false;
         if (!ContainsKingdomCapitalInCore(pKingdom) || !MeetsSubmissionPowerThreshold(pKingdom)) return false;
@@ -2475,6 +2478,8 @@ public class Empire : MetaObject<EmpireData>
         {
             return;
         }
+        // 神力放出的国保护期内不得收回，强制的也不行；打仗打下来的、自己危急来投的照旧(见 MembershipCooldown)
+        if (MembershipCooldown.BlocksJoin(pKingdom, this)) return;
         // A rebel polity can never return to an empire it previously rebelled against,
         // including through forced or scripted membership changes.
         if (!pLegitimacyTransfer && pKingdom.HasRebelledAgainst(this)) return;
@@ -2514,6 +2519,8 @@ public class Empire : MetaObject<EmpireData>
             CityStateService.GrantAutonomy(pKingdom);
         if (CompositeEmpireService.IsComposite(this))
             CompositeEmpireService.SynchronizeRegionalInstitution(this, pKingdom);
+        // 神力拉入的记下稳定期；诊断日志(见 MembershipCooldown)
+        if (pKingdom.GetEmpire() == this) MembershipCooldown.OnJoined(pKingdom, this, pForce, pLegitimacyTransfer);
     }
 
     public void leave(Kingdom pKingdom, bool pRecalc = true, bool isLeave = false)
@@ -2536,6 +2543,8 @@ public class Empire : MetaObject<EmpireData>
         bool isCoreKingdom = pKingdom == CoreKingdom;
         this.kingdoms_hashset.Remove(pKingdom);
         pKingdom.EmpireLeave(isLeave);
+        // 记下离开的帝国与时间(十年内不自愿回来)、神力放出的保护期；诊断日志(见 MembershipCooldown)
+        if (!isCoreKingdom) MembershipCooldown.OnLeft(pKingdom, this, isLeave);
         cities_list = this.cities_list.Except(pKingdom?.cities??new List<City>()).ToList();
         if (isCoreKingdom)
         {

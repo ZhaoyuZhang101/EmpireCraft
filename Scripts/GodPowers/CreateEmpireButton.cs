@@ -85,7 +85,9 @@ internal static class CreateEmpireButton
         // Let forceEmpire choose and transfer the actual members. Selecting two existing
         // empires must not first detach (and recolor) the first selection before validation.
         Kingdom first = Config.unity_A, second = Config.unity_B;
-        bool created = ModClass.EMPIRE_MANAGER.forceEmpire(first, second);
+        // 神力拉入：十五年内不因离心自行离开；离开原帝国的记下保护期(见 MembershipCooldown)
+        bool created = EmpireCraft.Scripts.GeneralSystems.MembershipCooldown.ByGod(() =>
+            ModClass.EMPIRE_MANAGER.forceEmpire(first, second));
         bool joined = first.IsInEmpire() && first.GetEmpire() == second.GetEmpire();
         if (created)
         {

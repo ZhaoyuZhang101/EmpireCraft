@@ -187,6 +187,8 @@ public static class ExclaveMaintenanceSystem
     {
         var zones = new HashSet<TileZone>(part);
         var cities = part.Select(zone => zone.city).Distinct().ToArray();
+        // 神力拉入未满期的成员不交接出去(见 MembershipCooldown)，维护费照扣
+        if (cities.Any(city => city?.kingdom != null && MembershipCooldown.ManualJoinActive(city.kingdom))) return false;
         // 本国首都不可交接。整个远方封国都在同一飞地片中时，才允许连同其首都整体移交。
         if (cities.Any(city => !Valid(city, work.realm) ||
             city == city.kingdom.capital && (city.kingdom == work.realm ||

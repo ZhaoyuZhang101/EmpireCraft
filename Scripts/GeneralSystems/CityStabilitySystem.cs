@@ -532,8 +532,10 @@ public static class CityStabilitySystem
         Kingdom origin = city.kingdom;
         Empire empire = origin.GetEmpire();
         Kingdom authority = empire?.CoreKingdom ?? origin;
+        // 神力拉入未满期的成员同新入帝国(见 MembershipCooldown)
         if (city == authority.capital || origin.hasEnemies() || authority.hasEnemies() ||
-            RebellionSystem.GraceYearsRemaining(origin) > 0 || UnificationSystem.InGrace(origin)) return;
+            RebellionSystem.GraceYearsRemaining(origin) > 0 || UnificationSystem.InGrace(origin) ||
+            MembershipCooldown.ManualJoinActive(origin)) return;
         if (state.unfunded_months < CityStabilityRules.WithdrawalMonths ||
             state.stability >= CityStabilityRules.RebellionThreshold || state.last_change > 0f) return;
         TreasuryReport fiscal = TreasurySystem.FundingReport(city);

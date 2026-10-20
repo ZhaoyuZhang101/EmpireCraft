@@ -56,7 +56,9 @@ public static class VassalPowerButtons
             WorldTip.showNow(LM.Get("force_vassal_cancelled"), false, "top", 3f);
             return true;
         }
-        bool bound = FeudalVassalService.ForceBind(lord, kingdom);
+        // 神力强制附庸：十五年内不闹独立；原帝国放出的记下保护期(见 MembershipCooldown)
+        bool bound = MembershipCooldown.ByGod(() => FeudalVassalService.ForceBind(lord, kingdom));
+        if (bound) MembershipCooldown.MarkJoin(kingdom, null, lord);
         SelectedLordId = -1L;
         WorldTip.showNow(string.Format(LM.Get(bound ? "force_vassal_done" : "force_vassal_failed"),
             kingdom.GetKingdomName(), lord.GetKingdomName()), false, "top", 3f);
@@ -71,9 +73,12 @@ public static class VassalPowerButtons
             WorldTip.showNow(LM.Get("force_vassal_no_kingdom"), false, "top", 3f);
             return false;
         }
-        if (FeudalVassalService.GetOverlord(kingdom) != null)
+        // 神力解除附庸：十五年内原宗主(连同它所在的帝国)不得再收(见 MembershipCooldown)
+        Kingdom overlord = FeudalVassalService.GetOverlord(kingdom);
+        if (overlord != null)
         {
             FeudalVassalService.Break(kingdom);
+            MembershipCooldown.MarkRelease(kingdom, overlord.GetEmpire(), overlord);
             WorldTip.showNow(string.Format(LM.Get("release_vassal_done"), kingdom.GetKingdomName()), false, "top", 3f);
             return true;
         }
@@ -81,6 +86,7 @@ public static class VassalPowerButtons
         foreach (Kingdom subject in global::System.Linq.Enumerable.ToList(FeudalVassalService.GetDirectVassals(kingdom)))
         {
             FeudalVassalService.Break(subject);
+            MembershipCooldown.MarkRelease(subject, kingdom.GetEmpire(), kingdom);
             released++;
         }
         WorldTip.showNow(released > 0

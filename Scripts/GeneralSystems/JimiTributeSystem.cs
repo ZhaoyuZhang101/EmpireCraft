@@ -118,7 +118,9 @@ public static class JimiTributeSystem
     // 叛：朝廷先看能否安抚，不能就由它叛去、发兵征讨
     private static bool Revolt(Empire empire, Kingdom core, Kingdom region)
     {
-        if (RulerTraitSystem.FounderShield(region) || region.isInWarWith(core) || region.IsLocalRebelling()) return false;
+        // 新入帝国十年内、神力拉入未满期的不叛去(见 MembershipCooldown)
+        if (RulerTraitSystem.FounderShield(region) || region.isInWarWith(core) || region.IsLocalRebelling() ||
+            !MembershipCooldown.Settled(region)) return false;
         EmpireData data = empire.data;
         float chance = RevoltBase;
         if (empire.Mandate < 40) chance += RevoltWeak;

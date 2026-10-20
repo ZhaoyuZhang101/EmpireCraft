@@ -253,6 +253,16 @@ public static class KingdomExtension
         public int shuitu_regime = -1;
         // 埃米尔世袭(或以世袭成员身份第一次被看到)的时间：世袭满十五年才可能割据(见 EmirateSystem)；-1 = 不是世袭的埃米尔
         public double emirate_hereditary_at = -1d;
+        // 去留冷却(见 MembershipCooldown)：神力从哪个帝国、哪位宗主放出，何时；神力拉入哪个帝国、归哪位宗主，何时；
+        // 最近一次离开的帝国与时间(不论何因)。-1 = 没有
+        public long manual_release_empire_id = -1L;
+        public long manual_release_lord_id = -1L;
+        public double manual_release_at = -1d;
+        public long manual_join_empire_id = -1L;
+        public long manual_join_lord_id = -1L;
+        public double manual_join_at = -1d;
+        public long left_empire_id = -1L;
+        public double left_empire_at = -1d;
         // 和约(见 WarGoalSystem)：被迫开港与谁通商、从何时起(二十年)；被谁扶立为君、何时(二十年内两国互不开战)
         public long trade_treaty_partner_id = -1L;
         public double trade_treaty_at = -1d;
@@ -1461,6 +1471,8 @@ public static class KingdomExtension
         // Force may bypass diplomatic/de-jure eligibility after a tribute war, but a rebel
         // polity can never return to its original empire even as a tributary.
         if (k.HasRebelledAgainst(empire) || !RealmDiplomacySystem.CanChooseOverlord(k)) return;
+        // 神力放出的国保护期内原帝国收不得朝贡(战后称臣、危急除外)；自己离开不到十年的不自愿回来称臣(见 MembershipCooldown)
+        if (MembershipCooldown.BlocksTributary(k, empire, pForce)) return;
         // 没施行朝贡体系类制度的帝国一律不收朝贡国(强制也不行)
         if (!FeudalConquestService.HasTributeInstitution(empire)) return;
         // 战国的周诸侯仍奉王室，不做任何帝国的朝贡国(强制也不行)
@@ -1510,6 +1522,7 @@ public static class KingdomExtension
         if (kingdom == null || kingdom.isRekt() || empire == null || empire.IsArchived() || empire.isRekt())
             return false;
         if (!RealmDiplomacySystem.CanChooseOverlord(kingdom)) return false;
+        if (MembershipCooldown.BlocksVoluntary(kingdom, empire)) return false;
         KingdomTitle mainTitle = kingdom.GetMainTitle();
         if (mainTitle == null)
             return EmpireSubmissionRules.CanVoluntarilyBecomeTributary(false, false);

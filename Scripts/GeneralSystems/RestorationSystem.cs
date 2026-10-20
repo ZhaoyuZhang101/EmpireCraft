@@ -125,8 +125,9 @@ public static class RestorationSystem
         Kingdom core = empire.CoreKingdom;
         foreach (Kingdom member in empire.kingdoms_list.ToList())
         {
+            // 新入帝国十年内、神力拉入未满期的不响应(见 MembershipCooldown)
             if (member == null || member.isRekt() || member == core || !member.hasKing() ||
-                member.IsFactionRebelling() || member.IsLocalRebelling()) continue;
+                member.IsFactionRebelling() || member.IsLocalRebelling() || !MembershipCooldown.Settled(member)) continue;
             bool autonomous = member.GetKingdomType() == Regimes.KingdomType.LvLing_jiedushi ||
                               member.GetRegime()?.IsAllowArmy() == true;
             float chance = Mathf.Min(0.9f, (0.3f + republican) * (autonomous ? 1.5f : 1f));

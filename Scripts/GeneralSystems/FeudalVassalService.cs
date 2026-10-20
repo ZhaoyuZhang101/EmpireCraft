@@ -88,6 +88,8 @@ public static class FeudalVassalService
             // 和平途径不能抢走别人的附庸(征服与上帝工具除外)：附庸不再被邻国排队挖走
             GetOverlord(subject) != null && GetOverlord(subject) != lord ||
             IsInChain(lord, subject)) return false;
+        // 神力放出的保护期内原宗主收不得(见 MembershipCooldown)；这里是挑对象，不记日志
+        if (MembershipCooldown.BlocksVassal(subject, lord, log: false)) return false;
         return UsesFeudalVassals(lord);
     }
 
@@ -128,6 +130,8 @@ public static class FeudalVassalService
             }
             return true;
         }
+        // 神力放出的国保护期内原宗主、原帝国的核心收不得附庸，强制的也不行；打下来的、危急的照旧(见 MembershipCooldown)
+        if (MembershipCooldown.BlocksVassal(subject, lord)) return false;
         if (GetOverlord(subject) != null) Break(subject);
         Empire formerEmpire = subject.GetEmpire();
         // 现代正常国家可以作为附庸保留自己的政府；只有原本作为别国成员时才退出旧帝国。
@@ -562,6 +566,11 @@ public static class FeudalVassalService
         Kingdom lord = GetOverlord(subject);
         double defectedAt = subject?.data == null ? -1d : subject.GetOrCreate().feudal_defected_at;
         if (defectedAt >= 0d && Date.getYearsSince(defectedAt) < DefectorLoyaltyYears) return false;
+        // 去留冷却(见 MembershipCooldown)：神力强制附庸的十五年内、新附的附庸十年内不闹独立
+        if (MembershipCooldown.ManualJoinActive(subject)) return false;
+        double since = subject?.data == null ? -1d : subject.GetOrCreate().feudal_vassal_since;
+        if (since >= 0d && World.world != null && World.world.getCurWorldTime() >= since &&
+            Date.getYearsSince(since) < RebellionRules.LocalGraceYears) return false;
         // 开国气象(统一战争期间、统一后三十年)附庸不独立(见 UnificationSystem)
         if (lord != null && UnificationSystem.InGrace(lord)) return false;
         return lord != null && subject.king != null && subject.king.isAlive() &&

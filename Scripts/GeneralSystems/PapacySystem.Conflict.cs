@@ -146,7 +146,8 @@ public static partial class PapacySystem
         Kingdom core = empire.CoreKingdom;
         foreach (Kingdom member in PartyMembers(empire, PartyPope))
         {
-            if (member.hasEnemies() || UnityEngine.Random.value >= DefectChance) continue;
+            // 新入帝国十年内、神力拉入未满期的不倒戈(见 MembershipCooldown)
+            if (member.hasEnemies() || !MembershipCooldown.Settled(member) || UnityEngine.Random.value >= DefectChance) continue;
             War war = DiplomacyHelpers.wars.newWar(member, core, WarTypeLibrary.normal);
             if (war == null) continue;
             empire.leave(member, true, true);

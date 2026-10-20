@@ -126,6 +126,8 @@ public static partial class HolyRomanSystem
     {
         Kingdom core = empire.CoreKingdom;
         if (member == core || IsChurchEstate(member) && !state.sovereign_princes) return false;
+        // 新入帝国十年内、神力拉入未满期的不被拉走(入帝国就得了自主外交，以前一入帝国就算"不满"，见 MembershipCooldown)
+        if (!MembershipCooldown.Settled(member)) return false;
         return Opinion(member, core) < DepartOpinion ||
                member.hasReligion() && core.hasReligion() && member.religion != core.religion ||
                member.GetRegime()?.IsAllowDiplomacy() == true;

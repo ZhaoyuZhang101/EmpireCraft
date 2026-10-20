@@ -41,8 +41,12 @@ public static class EmpireFormButton
             return true;
         }
 
+        // 神力称帝离开原帝国：十五年内原帝国不得收回(见 MembershipCooldown)
         if (kingdom.IsInEmpire())
-            kingdom.GetEmpire().leave(kingdom);
+        {
+            Empire former = kingdom.GetEmpire();
+            MembershipCooldown.ByGod(() => former.leave(kingdom));
+        }
 
         Empire empire = modern
             ? ModernStateFormationSystem.FormGovernment(kingdom)

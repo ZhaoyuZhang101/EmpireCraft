@@ -107,9 +107,10 @@ public static class EmpireBankruptcySystem
         if (UnificationSystem.InGrace(core)) return;
         float chance = Mathf.Min(MaxChance, BaseChance + ChancePerYear * years);
         List<Kingdom> rebels = RebellionSnowballSystem.FindRebels(empire, core).ToList();
+        // 新入帝国十年内、神力拉入未满期的不因亏空离去(见 MembershipCooldown)
         List<Kingdom> members = empire.kingdoms_list.Where(kingdom => kingdom != null && !kingdom.isRekt() &&
                 kingdom != core && !kingdom.IsFactionRebelling() && !kingdom.IsLocalRebelling() &&
-                !kingdom.getWars().Any())
+                !kingdom.getWars().Any() && MembershipCooldown.Settled(kingdom))
             .OrderBy(_ => UnityEngine.Random.value).ToList();
         int budget = Math.Max(1, Mathf.CeilToInt(members.Count * MaxLossShare));
         int lost = 0;
