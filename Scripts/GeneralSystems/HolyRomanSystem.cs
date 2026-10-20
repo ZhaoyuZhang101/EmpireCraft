@@ -18,8 +18,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     选举换了家族不算篡位(不额外扣正统、旧皇族不出走、不改国号，见 Empire.NewEmperor)；
 //   · 家族领地占帝国城数：不到一成正统 -8，二成五以上 +5，四成以上 +8；
 //     不到一成时，城比中央多的诸侯不听调遣(见 EmpirePeacePatch.Obeys)；皇帝远征加冕在外时，城比中央一半多的也不听；
-//   · 选举让步：每次当选(含选立储君)随机让出一项——帝国税降一档、某选帝侯所在国恢复外交与开战权、
-//     自治派系 +5、中央一座非都城的城封给最强的选帝侯；
+//   · 选举让步：帝位换了一家(或选立储君)时随机让出一项——帝国税降一档、某选帝侯所在国恢复外交与开战权、
+//     自治派系 +5、中央一座非都城的城封给最强的选帝侯；十年内至多让一次，各项有底线(见 Concede)；
 //   · 选立储君(原型"罗马人民的国王")：皇帝在世、有继承人时，每年有两成可能让选帝侯先把继承人选为储君
 //     (让出一项、花一成年度经常收入)；皇帝死后他直接即位，不再另选。同一家族连续当选记届数。
 // 其余见各分部：Diet 帝国议会与禁令、Members 自由城市与教会诸侯、Reform 帝国改革与分割继承、
@@ -29,6 +29,9 @@ public static partial class HolyRomanSystem
     private const float KingOfRomansChance = 0.2f;
     private const float KingOfRomansCost = 0.1f;
     private const float WeakHouse = 0.1f, StrongHouse = 0.25f, DominantHouse = 0.4f;
+    // 选举让步：两次之间至少隔几年；帝国税最低让到几成、自治派系占到几成不再让、中央至少几城才封城给选帝侯
+    private const int ConcessionGapYears = 10, ConcessionAutonomyCap = 40, ConcessionFiefMinCities = 4;
+    private const float ConcessionTaxFloor = 0.1f;
 
     // 正在按选帝侯的推举立皇帝(OfficeSelector 选出、SetActor 即位的那一刻)：即位不扣正统，见 Empire.NewEmperor
     public static bool Electing;
@@ -104,8 +107,10 @@ public static partial class HolyRomanSystem
             // 选帝换家族不改国号(帝国本身照旧，见文件头)
             if (!empire.TransferCoreTo(house, keepName: true)) return false;
             HolyRomanState state = State(empire);
+            // 选举让步只在帝位真的换了一家(不同世系)时给，同一世系的分支连选不算
+            bool newHouse = NewHouse(state, elected);
             Elected(empire, state, elected);
-            Concede(empire, state);
+            if (newHouse) Concede(empire, state);
             Record(empire, string.Format(LM.Get("hre_election_history"), elected.getName(), houseName,
                 house.capital?.GetCityName() ?? "", former));
             return true;
@@ -170,9 +175,19 @@ public static partial class HolyRomanSystem
         heir.RecordPersonalHistory(LM.Get("personal_history_king_of_romans"));
     }
 
-    // 选举让步：随机让出一项(能让的才让)
+    private static bool NewHouse(HolyRomanState state, Actor elected)
+    {
+        SpecificClan previous = state.house_clan_id >= 0 ? SpecificClanManager.Get(state.house_clan_id) : null;
+        return previous == null || !SpecificClanManager.SameLineage(previous, elected.GetSpecificClan());
+    }
+
+    // 选举让步：随机让出一项(能让的才让)。以前每次当选都让，选帝侯推举的多是老迈的诸侯，一两年一选，
+    // 二十来年攒下七八条(玩家日志)。现在：换了一家(或选立储君)才让，十年内至多一次；
+    // 各项有底线——帝国税最多让到一成、自治派系占到四成就不再让、中央剩不到三城不再封城
     private static void Concede(Empire empire, HolyRomanState state)
     {
+        if (state.last_concession_at >= 0d && World.world.getCurWorldTime() >= state.last_concession_at &&
+            Date.getYearsSince(state.last_concession_at) < ConcessionGapYears) return;
         var options = new List<Func<string>> { LowerTax, RestoreWarRight, Autonomy, GrantFief };
         while (options.Count > 0)
         {
@@ -184,14 +199,16 @@ public static partial class HolyRomanSystem
             state.concessions ??= new List<string>();
             state.concessions.Add(text);
             if (state.concessions.Count > 20) state.concessions.RemoveAt(0);
+            state.last_concession_at = World.world.getCurWorldTime();
             Record(empire, string.Format(LM.Get("hre_concession_history"), text));
             return;
         }
 
+        // 以前最低让到 0.02，比帝国税下限(Empire.MinimumTaxRate)还低，读档时又被重置回两成
         string LowerTax()
         {
-            if (empire.data.TaxRate <= 0.021f) return null;
-            empire.data.TaxRate = Mathf.Max(0.02f, empire.data.TaxRate - 0.02f);
+            if (empire.data.TaxRate <= ConcessionTaxFloor + 0.001f) return null;
+            empire.data.TaxRate = Mathf.Max(ConcessionTaxFloor, empire.data.TaxRate - 0.02f);
             return LM.Get("hre_concession_tax");
         }
 
@@ -210,7 +227,8 @@ public static partial class HolyRomanSystem
         {
             FixedFaction faction = empire.CoreKingdom.GetRegime()?.GetPlayerFactions()
                 ?.FirstOrDefault(item => item.Type == FactionType.自治);
-            if (faction == null || !empire.CoreKingdom.TryIncreaseFactionRatio(faction, 5)) return null;
+            if (faction == null || empire.CoreKingdom.GetFactionRatioValue(faction) >= ConcessionAutonomyCap ||
+                !empire.CoreKingdom.TryIncreaseFactionRatio(faction, 5)) return null;
             return LM.Get("hre_concession_autonomy");
         }
 
@@ -219,8 +237,9 @@ public static partial class HolyRomanSystem
             Kingdom core = empire.CoreKingdom;
             City city = core.cities?.Where(item => item != null && !item.isRekt() && item != core.capital)
                 .OrderBy(item => item.zones?.Count ?? 0).FirstOrDefault();
-            Kingdom elector = ElectorRealms(empire).OrderByDescending(kingdom => kingdom.cities.Count).FirstOrDefault();
-            if (city == null || elector == null || core.cities.Count < 3) return null;
+            Kingdom elector = ElectorRealms(empire).Where(SecularPrince).OrderByDescending(kingdom => kingdom.cities.Count)
+                .FirstOrDefault();
+            if (city == null || elector == null || core.cities.Count < ConcessionFiefMinCities) return null;
             city.joinAnotherKingdom(elector);
             return string.Format(LM.Get("hre_concession_fief"), city.GetCityName(), elector.GetKingdomName());
         }

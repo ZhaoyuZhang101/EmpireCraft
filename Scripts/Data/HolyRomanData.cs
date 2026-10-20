@@ -11,8 +11,9 @@ public sealed class HolyRomanState
     public long house_clan_id = -1L;
     public int house_terms;
     public double last_election_at = -1d;
-    // 历次选举让步(已本地化的文本)，最新的在后
+    // 历次选举让步(已本地化的文本)，最新的在后；上次让步的时间
     public List<string> concessions = new();
+    public double last_concession_at = -1d;
     // 上次检定储君
     public double last_king_of_romans_check = -1d;
 
