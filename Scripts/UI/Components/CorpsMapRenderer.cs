@@ -945,12 +945,14 @@ public static class CorpsMapRenderer
                 if (fleet.warships + fleet.transports <= 0) continue;
                 TileZone zone = CorpsSystem.ZoneById(fleet.zone_id);
                 if (zone?.centerTile == null) continue;
-                Glider glider = Glide(_fleetGliders, fleet.id, zone.centerTile.posV, glideDelta);
+                // 航行中沿航线逐帧插值(见 NavySystem.DrawPosition)，直接画；别的(就近挪、到位)才滑过去
+                Vector3 target = NavySystem.DrawPosition(fleet, out bool sailing);
+                Glider glider = sailing ? new Glider { At = target, Target = target } : Glide(_fleetGliders, fleet.id, target, glideDelta);
                 _nextFleetGliders[fleet.id] = glider;
                 FleetGroups.Add(new FleetGroup
                 {
                     Kingdom = kingdom, Zone = zone, Lead = fleet, World = glider.At, Warships = fleet.warships,
-                    Transports = fleet.transports, Count = 1, Org = fleet.org, Sailing = glider.At != glider.Target, Task = fleet.task
+                    Transports = fleet.transports, Count = 1, Org = fleet.org, Sailing = sailing || glider.At != glider.Target, Task = fleet.task
                 });
             }
             (_fleetGliders, _nextFleetGliders) = (_nextFleetGliders, _fleetGliders);

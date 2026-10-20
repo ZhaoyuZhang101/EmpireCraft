@@ -649,6 +649,29 @@ public static class NavySystem
     private const int FleetZonesPerSecond = 3;
     private static readonly Dictionary<long, (int target, List<int> path)> Courses = new();
 
+    // 舰队兵牌画在哪：沿缓存的海上路线，从所在地块往前走 每秒块数 × 这一拍过了几成(见 CorpsSystem.TickFraction)，
+    // 下一拍结算正好走到新的所在地块，逐帧匀速、顺着航线拐弯。sailing：正在航行
+    // (没有路线的就近挪、卡住直接到位这些跳着走的，由兵牌那边滑过去)
+    public static Vector3 DrawPosition(FleetData fleet, out bool sailing)
+    {
+        sailing = false;
+        TileZone current = CorpsSystem.ZoneById(fleet.zone_id);
+        Vector3 here = current?.centerTile?.posV ?? Vector3.zero;
+        if (current == null || !Courses.TryGetValue(fleet.id, out var course) || course.path == null ||
+            course.path.Count < 2 || course.path[0] != current.id ||
+            SeaRegionSystem.Get(fleet.region_id)?.Center?.id != course.target)
+            return here;
+        float steps = FleetZonesPerSecond * CorpsSystem.TickFraction();
+        int index = Mathf.Min(Mathf.FloorToInt(steps), course.path.Count - 1);
+        TileZone from = CorpsSystem.ZoneById(course.path[index]);
+        if (from?.centerTile == null) return here;
+        if (index + 1 >= course.path.Count) return from.centerTile.posV;
+        TileZone to = CorpsSystem.ZoneById(course.path[index + 1]);
+        if (to?.centerTile == null) return from.centerTile.posV;
+        sailing = true;
+        return Vector3.Lerp(from.centerTile.posV, to.centerTile.posV, steps - index);
+    }
+
     private static void StepZone(FleetData fleet)
     {
         SeaRegionSystem.Region region = SeaRegionSystem.Get(fleet.region_id);

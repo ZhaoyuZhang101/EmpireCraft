@@ -1703,7 +1703,21 @@ public static class CorpsSystem
         moving = false;
         TileZone zone = Zone(corps);
         Vector3 here = zone?.centerTile?.posV ?? Vector3.zero;
-        if (zone == null || corps.embarked) return here;
+        if (zone == null) return here;
+        if (corps.embarked)
+        {
+            // 船上：沿海上路线每拍走 SailZones 块(见 SailAlong)，同样按这一拍过了几成插值
+            List<int> sea = corps.sea_path;
+            if (sea == null || sea.Count < 2 || sea[0] != zone.id) return here;
+            float sailed = SailZones * TickFraction();
+            int index = Mathf.Min(Mathf.FloorToInt(sailed), sea.Count - 1);
+            TileZone from = ZoneById(sea[index]);
+            if (from?.centerTile == null) return here;
+            TileZone to = index + 1 < sea.Count ? ZoneById(sea[index + 1]) : null;
+            if (to?.centerTile == null) return from.centerTile.posV;
+            moving = true;
+            return Vector3.Lerp(from.centerTile.posV, to.centerTile.posV, sailed - index);
+        }
         TileZone next = null, after = null;
         bool predicting = MarchRates.TryGetValue(corps.id, out float rate) && rate > 0f;
         if (CorpsArmSystem.Flies(corps))
@@ -1739,8 +1753,8 @@ public static class CorpsSystem
         return Vector3.Lerp(here, next.centerTile.posV, Mathf.Clamp01(progress));
     }
 
-    // 这一拍(见 Update 里的行军节拍)过了几成
-    private static float TickFraction()
+    // 这一拍(见 Update 里的行军节拍，舰队航行同拍)过了几成
+    public static float TickFraction()
     {
         if (_lastSecond < 0d || World.world == null) return 0f;
         return Mathf.Clamp01((float)(World.world.getCurWorldTime() - _lastSecond));
