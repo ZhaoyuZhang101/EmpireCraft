@@ -217,6 +217,8 @@ public static class ConstitutionalEconomySystem
         // 周制：春秋战国(每月结算一次，见 ZhouEraSystem)
         ZhouEraSystem.Update(empire);
         WarlordEraSystem.UpdateWorld();
+        // 同名相争：新冒出同一帝国法理名、天下之名的当月改正(见 RealmNamingSystem.Contest)
+        RealmNamingSystem.Monthly(empire);
         NationalSentimentSystem.UpdateWorld();
         // 土崩瓦解：各省响应(自带月度计时)
         ProvincialCollapseSystem.Monthly(empire);

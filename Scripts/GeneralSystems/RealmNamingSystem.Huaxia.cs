@@ -208,27 +208,13 @@ public static partial class RealmNamingSystem
         RememberAncestralCore(clan, empire);
     }
 
-    // 称帝之后(称帝剧情落定)：与现存帝国同号时加方位，以新都相对旧朝都城定
+    // 称帝之后(称帝剧情落定)：与现存帝国同号的当即按同名相争改正(见 RealmNamingSystem.Contest)
     public static void AfterProclaimed(Empire empire)
     {
         if (!Enabled || empire?.data == null || empire.CoreKingdom == null || !IsHuaxia(empire)) return;
         if (empire.data.name_source == SourceRestoration) RecordRestoration(empire);
         if (empire.data.name_source != SourceEmpireTitle && empire.data.name_source != SourceRestoration) return;
-        // 已带方位(复国)、"大"之类前缀的，全名本就与旧朝有别
-        if (empire.CoreKingdom.HasCustomCountryNaming() || !string.IsNullOrWhiteSpace(empire.data.directPre)) return;
-        Empire namesake = Namesake(empire);
-        if (namesake == null) return;
-        City mine = empire.CoreKingdom.capital, theirs = namesake.CoreKingdom?.capital;
-        if (mine == null || theirs == null) return;
-        string prefix = RealmNameRules.Direction4(theirs.city_center.x, theirs.city_center.y,
-            mine.city_center.x, mine.city_center.y) ?? RealmNameRules.Later;
-        string before = empire.GetEmpireFullName();
-        empire.data.directPre = prefix;
-        empire.data.rival_name_prefix = prefix;
-        empire.SetEmpireName(empire.data.core_name, preserveEmpireType: true);
-        EventRecorder.Record(empire, string.Format(LM.Get("realm_rival_prefix_history"), before,
-            namesake.GetEmpireFullName(), empire.GetEmpireFullName()));
-        LogService.LogInfo($"[EmpireCraft][法理国号] {before} 与 {namesake.GetEmpireFullName()} 同号，改称 {empire.GetEmpireFullName()}");
+        ResolveName(empire.GetEmpireName(), conflictOnly: true);
     }
 
     private static readonly Dictionary<long, string> PendingAncestral = new();
@@ -281,6 +267,7 @@ public static partial class RealmNamingSystem
         try
         {
             if (Enabled) YearlyHuaxia(empire);
+            if (Enabled) YearlyContest(empire);
             if (Enabled) YearlyUniversal(empire);
             YearlyModern(empire);
             MultiCapitalSystem.Yearly(empire);

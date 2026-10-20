@@ -12,6 +12,7 @@ using NeoModLoader.services;
 namespace EmpireCraft.Scripts.GeneralSystems;
 
 // 多京(方案第 3 步，用户 2026-10-20 拍板)：联合天下里的华夏律令制帝国，三省六部(县道)阶段可设多京——
+//   · 只有天下的正统(据有整个天下一半以上城)才行多京；
 //   · 主京 = 本国都城(在本帝国法理之内，见 CoreCapitalRestorationSystem)，称京师；
 //   · 陪京 = 同一天下别的帝国法理的首都：控制那座城、且据有那个帝国法理三分之二城；按据城多少挑，连京师最多四京；
 //   · 京名按相对京师的方位称东京、西京、南京、北京(四方各用一次)，城名不改；
@@ -34,7 +35,9 @@ public static partial class MultiCapitalSystem
     private static bool Eligible(Empire empire) =>
         RealmNamingSystem.MultiCapitalEnabled && empire?.data != null && !empire.isRekt() && !empire.IsArchived() &&
         empire.CoreKingdom?.capital != null && empire.CoreKingdom.GetRegime()?.type == RegimeType.LvLing &&
-        RealmNamingSystem.IsHuaxia(empire) && !RepublicSystem.IsRepublic(empire) && RealmLead(empire) != null;
+        RealmNamingSystem.IsHuaxia(empire) && !RepublicSystem.IsRepublic(empire) && RealmLead(empire) != null &&
+        // 天下的正统(据有整个天下一半以上城)才行多京(用户 2026-10-20 定)
+        RealmNamingSystem.HoldsHalfOfRealm(empire, RealmLead(empire));
 
     // 这座城是京(京师或陪京)
     public static bool IsJing(City city)

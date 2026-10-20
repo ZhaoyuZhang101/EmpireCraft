@@ -251,8 +251,8 @@ public static partial class RealmNamingSystem
                 RevokeUniversal(empire, "realm_universal_reason_uncrowned");
             return;
         }
-        // 同一位皇帝在位时国号被别处改过(分立、篡位改号之类)：普世之名作罢
-        if (!string.IsNullOrWhiteSpace(state.universal_name) &&
+        // 同一位皇帝在位时国号被别处改过(分立、篡位改号之类)：普世之名作罢；同名相争让出的不算(见 RealmNamingSystem.Contest)
+        if (!empire.data.title_claim_yielded && !string.IsNullOrWhiteSpace(state.universal_name) &&
             !string.Equals(empire.data.core_name, state.universal_name, StringComparison.Ordinal))
             RevokeUniversal(empire, "realm_universal_reason_renamed");
     }

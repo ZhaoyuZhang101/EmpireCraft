@@ -13,6 +13,8 @@ public static partial class RealmNamingSystem
     public static string NameSourceLine(Empire empire)
     {
         if (empire?.data == null) return "";
+        if (empire.data.title_claim_yielded)
+            return string.Format(LM.Get("realm_name_source_yielded"), empire.data.title_claim_name);
         switch (empire.data.name_source)
         {
             case SourceEmpireTitle:

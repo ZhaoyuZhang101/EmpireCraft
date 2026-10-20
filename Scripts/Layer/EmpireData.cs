@@ -98,6 +98,13 @@ public class EmpireData : MetaObjectData
     public string founding_prefix = "";
     public string rival_name_prefix = "";
     public string pre_tianxia_name = "";
+    // 同名相争(见 RealmNamingSystem.Contest)：所争的名、是否已让出(改用自家王国法理名)、让出后用的名、让出前的前缀、
+    // 上次因正统易手换名的时间(十年内至多换一次)
+    public string title_claim_name = "";
+    public bool title_claim_yielded;
+    public string title_claim_own_name = "";
+    public string title_claim_prev_prefix = "";
+    public double title_claim_switched_at = -1d;
     // 多京(见 MultiCapitalSystem)：各京(主京在前)；行省阶段归太子的第二直隶
     public List<JingRecord> jing = new List<JingRecord>();
     public long zhili_kingdom_id = -1L;
