@@ -29,7 +29,7 @@ public static class LayerDiagnostics
     private static int _cursor = -1;
     private static object _world;
     private static string _lastSummary;
-    private static int _water, _land, _outline, _stale;
+    private static int _water, _land, _outline, _stale, _staleUnqueued;
     private static readonly List<string> WaterExamples = new(), LandExamples = new(), OutlineExamples = new(), StaleExamples = new();
     // 上一轮就对不上的块：这一轮还对不上才算(刚变、下一帧就会重画的不算)
     private static readonly HashSet<int> StaleSeen = new();
@@ -73,7 +73,7 @@ public static class LayerDiagnostics
         {
             if (Time.unscaledTime < _next) return;
             _cursor = 0;
-            _water = _land = _outline = _repaired = _stale = 0;
+            _water = _land = _outline = _repaired = _stale = _staleUnqueued = 0;
             WaterExamples.Clear();
             LandExamples.Clear();
             OutlineExamples.Clear();
@@ -101,7 +101,7 @@ public static class LayerDiagnostics
         _cursor = -1;
         _next = Time.unscaledTime + IntervalSeconds;
         string summary = $"图层 {layer.id}：水面上色 {_water} 块，无主陆地上色 {_land} 块，多余的边框 {_outline} 块，修了 {_repaired} 块残留边框，" +
-                         $"没刷新的色块 {_stale} 块";
+                         $"没刷新的色块 {_stale} 块" + (_stale > 0 ? $"(其中原版没来重画的 {_staleUnqueued} 块，其余排着等上色)" : "");
         if (summary == _lastSummary) return;
         _lastSummary = summary;
         var text = new StringBuilder("[EmpireCraft][图层诊断] ").Append(summary);
@@ -183,7 +183,10 @@ public static class LayerDiagnostics
             return;
         }
         if (StaleSeen.Add(zone.id)) return;
-        if (_stale++ < Examples) StaleExamples.Add($"块{zone.id}({zone.x},{zone.y}) 城{zone.city?.name ?? "无"} {detail}");
+        // 是排着队没轮到(上色预算)，还是原版根本没来重画(重画指纹漏了的变动)：两种的修法不一样
+        string note = EmpireCraft.Scripts.GamePatches.ZonePaintBudget.WaitNote(zone);
+        if (note.Contains("没在排队")) _staleUnqueued++;
+        if (_stale++ < Examples) StaleExamples.Add($"块{zone.id}({zone.x},{zone.y}) 城{zone.city?.name ?? "无"} {detail}{note}");
     }
 
     private static string Example(TileZone zone, WorldTile tile, Color32[] pixels, IMetaObject meta)

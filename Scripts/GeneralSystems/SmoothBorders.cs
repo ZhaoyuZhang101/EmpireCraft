@@ -5,6 +5,7 @@ using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GamePatches;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.UI.Components;
+using NeoModLoader.services;
 using UnityEngine;
 
 namespace EmpireCraft.Scripts.GeneralSystems;
@@ -659,14 +660,14 @@ public static class SmoothBorders
     //   · 自己变(归属没换、只是颜色变了，如国家换颜色、成了附庸换色)，或换主时接不上新主人：从都城那块地往外一圈圈翻；
     //   · 临时换色(帝国图层悬停某省显示本省颜色、移开换回)：要跟手——从鼠标处很快地翻过去(每秒 RippleSpeed 格，
     //     每张牌 HoverFlipSeconds 秒)，这个省连同四周的地块上色时优先；没翻完就移开，从眼下看到的那一面翻回去；
-    //   · 换图层(国家、文化、宗教……或图层选项)：旧图留着，各地块照常分帧重画(镜头里的先画，见 ZonePaintBudget)，
-    //     所有图层都用同一组扫描，从镜头中心整体翻过去，晚画到的地块接入同一道波；镜头外的直接换。
-    // 一次换主的地块要分好几帧才画完(上色分帧，见 ZonePaintBudget)：等这批画完(至多 MaxPlanWait 秒)再统一排一道，
-    // 之后才画到的块接着这道往下排。战线不翻：被敌军占着、收复(只是谁占着变了)直接换，逐格推进吃下的地(FrontSystem.Smooth)
-    // 本身就是渐变，也直接显示。新旧一样的块不翻。
+    //   · 换图层(国家、文化、宗教……或图层选项)：先算齐再一起翻——旧图留着，镜头里的地块分帧把新图层全部画好
+    //     (这期间镜头外的不画，算力都给镜头里，见 ZonePaintBudget)，画齐了才从镜头中心一道波整体翻开；镜头外的随后补画，直接换。
+    // 一次换主：头一块发现变了就把镜头里同一批变了的地块一起找出来(见 ScanView)，记下旧样子、优先重画，
+    // 等这批都画好(至多 MaxPlanWait 秒)再统一排；之后才画到的块接着这道往下排。挨着换主地块的邻块(平滑的边伸进它们里面)
+    // 跟着那块翻到一半时一起换(Follow)，新颜色不先从边上渗出来。战线不翻：被敌军占着、收复(只是谁占着变了)直接换，
+    // 逐格推进吃下的地(FrontSystem.Smooth)本身就是渐变，也直接显示。新旧一样的块不翻。
     private const float SweepStep = 0.18f, MaxSweepSeconds = 4f, RippleSpeed = 600f, RippleGroupSeconds = 0.15f, HoverFlipSeconds = 0.18f,
-        StaleSeconds = 6f, MaxPlanWait = 0.4f, FlipSeconds = 0.32f, LayerFlipSeconds = 6f,
-        SlotShade = 0.55f;
+        StaleSeconds = 6f, MaxPlanWait = 1f, FlipSeconds = 0.32f, SlotShade = 0.55f;
 
     private sealed class ShownState
     {
@@ -706,11 +707,15 @@ public static class SmoothBorders
         public int phase = -1;
         // 这块地是原版画的(没有平滑国界的底色)：翻的时候直接写色块
         public bool raw;
+        // 跟着邻块换(挨着换主的地块，只是平滑的边变了)：不画牌，到 flipAt(邻块翻到一半)直接换成新样子
+        public bool follow;
     }
 
     private static readonly Dictionary<int, ShownState> Shown = new();
     private static readonly Dictionary<int, (int inside, int outside, int meta, int shade)> NativeShown = new();
     private static readonly HashSet<int> PendingSweep = new();
+    // 等着跟邻块一起换的地块(见 Follow)
+    private static readonly HashSet<int> PendingFollow = new();
     private static readonly Dictionary<int, Transition> Transitions = new();
 
     // 正在扫的一道扫描(按变成谁分)：起扫时刻、每块用时、各块排第几圈
@@ -746,9 +751,10 @@ public static class SmoothBorders
         Shown.Clear();
         NativeShown.Clear();
         PendingSweep.Clear();
+        PendingFollow.Clear();
         Transitions.Clear();
         Plans.Clear();
-        ExpandedUnits.Clear();
+        _scannedAt = -10f;
         _layerFlip = null;
     }
 
@@ -787,7 +793,7 @@ public static class SmoothBorders
         Shown[zone.id] = state;
         if (!known || !PoliticalChange(shown, state)) return real;
         Queue(zone, zone.x != _cx || zone.y != _cy, ReferenceEquals(shown.owner, state.owner));
-        ExpandUnit(layer, option, zone, shown.meta, real);
+        ScanView(layer, option);
         return real;
     }
 
@@ -801,7 +807,7 @@ public static class SmoothBorders
         ResetTransitions();
         // 换图层整图都要重画：不再因为"本块归属变了"让四周八块跟着重画，否则每块要多画好几遍
         LastMeta.Clear();
-        if (!first) StartLayerFlip();
+        if (!first) StartLayerFlip(layer);
     }
 
     // 在原版决定清图之前统一观察图层，所有模式都走同一次全图换色，不等某块地开始上色才发现切换。
@@ -836,7 +842,7 @@ public static class SmoothBorders
         if (layer == null) return;
         EnsurePixelState(World.world.zone_calculator?.pixels);
         CheckLayer(layer, layer.getZoneOptionState());
-        Transition transition = CaptureLayerFlip(zone, NoOwner);
+        Transition transition = CaptureLayerFlip(zone);
         if (transition != null) transition.raw = true;
     }
 
@@ -856,72 +862,111 @@ public static class SmoothBorders
         if (transition == null) return;
         transition.self = self;
         Transitions[zone.id] = transition;
-        if (PendingSweep.Count == 0) _pendingSince = Time.unscaledTime;
+        PendingFollow.Remove(zone.id);
+        if (PendingSweep.Count == 0 && PendingFollow.Count == 0) _pendingSince = Time.unscaledTime;
         PendingSweep.Add(zone.id);
         if (repaint) zone.resetRenderHelpers();
+        Follow(zone);
+    }
+
+    // 挨着换主地块的邻块：一格归谁看周围 3×3 块，换主那块的新主人会伸进邻块的边上。邻块一重画(见 Remember)，
+    // 新颜色就先从边上渗出来、国界先挪了位置，牌却还没翻(大片换色一道扫描要几秒)。邻块也先记下旧样子，
+    // 等挨着的换主地块翻到一半时直接换成新样子(不画牌)；新旧一样的(内陆的邻块)画好时就丢掉
+    private static void Follow(TileZone zone)
+    {
+        ZoneCalculator calc = World.world?.zone_calculator;
+        if (calc == null) return;
+        for (int dy = -1; dy <= 1; dy++)
+        for (int dx = -1; dx <= 1; dx++)
+        {
+            if (dx == 0 && dy == 0) continue;
+            TileZone near = calc.getZone(zone.x + dx, zone.y + dy);
+            // 只跟画过的块(原版不画的空地、海上不归谁的块不会重画，等不到新样子)
+            if (near == null || Transitions.ContainsKey(near.id) || !LastMeta.ContainsKey(near.id) || !InFlipView(near)) continue;
+            Transition transition = Capture(near);
+            if (transition == null) continue;
+            transition.follow = true;
+            Transitions[near.id] = transition;
+            PendingFollow.Add(near.id);
+            near.resetRenderHelpers();
+        }
     }
 
     private static int _flipViewFrame = -1;
     private static Rect _flipView;
 
-    // 这块地在镜头里(镜头外扩一块地，每帧取一次镜头)
-    private static bool InFlipView(TileZone zone)
+    // 镜头外扩一块地(格坐标，每帧取一次镜头)
+    private static Rect FlipView()
     {
         int frame = Time.frameCount;
-        if (_flipViewFrame != frame)
-        {
-            _flipViewFrame = frame;
-            Rect view = ZoneFlipOverlay.CameraView();
-            _flipView = Rect.MinMaxRect(view.xMin - ZoneSize, view.yMin - ZoneSize, view.xMax + ZoneSize, view.yMax + ZoneSize);
-        }
-        float x0 = zone.x * ZoneSize, y0 = zone.y * ZoneSize;
-        return x0 + ZoneSize >= _flipView.xMin && x0 <= _flipView.xMax && y0 + ZoneSize >= _flipView.yMin && y0 <= _flipView.yMax;
+        if (_flipViewFrame == frame) return _flipView;
+        _flipViewFrame = frame;
+        Rect view = ZoneFlipOverlay.CameraView();
+        _flipView = Rect.MinMaxRect(view.xMin - ZoneSize, view.yMin - ZoneSize, view.xMax + ZoneSize, view.yMax + ZoneSize);
+        return _flipView;
     }
 
-    // 换色的单位是整个国家、整个帝国(并入帝国、成了附庸、国家换颜色……)：一块地换了，同一国(涉及帝国就是整个帝国)
-    // 其余要变的地块也当场记下原样、排进同一道扫描，整片从新主人那边一次扫过去。以前要等原版一块块画到才各自排进来，
-    // 画得晚的城只能就地接上，看起来一座城一座城地变。同一国 0.15 秒内只查一次
-    private const float ExpandCooldown = 0.15f;
-    private static readonly Dictionary<long, float> ExpandedUnits = new();
+    // 这块地在镜头里(镜头外扩一块地)
+    private static bool InFlipView(TileZone zone)
+    {
+        Rect view = FlipView();
+        float x0 = zone.x * ZoneSize, y0 = zone.y * ZoneSize;
+        return x0 + ZoneSize >= view.xMin && x0 <= view.xMax && y0 + ZoneSize >= view.yMin && y0 <= view.yMax;
+    }
 
-    private static void ExpandUnit(MetaTypeAsset layer, int option, TileZone zone, IMetaObject before, IMetaObject after)
+    // 一次政权变更往往连带一大片地块(帝国解散、成员离开、并入帝国、国家换颜色……)，原版却按国、按城一块块重画，
+    // 画到哪块才发现哪块变了，看起来零零碎碎地翻(用户 2026-10-21 "新旧颜色东一块西一块")。头一块发现变了，
+    // 就把镜头里(外扩一块)所有归属或颜色变了的地块一起找出来：记下旧样子、让它们优先重画(见 Awaiting)，整批画好再统一排(见 PlanSweeps)。
+    // 以前只查同一国(涉及帝国查帝国成员)的城，帝国解散后找不到原来的成员，成员各自零零碎碎地翻。
+    // 只比记下的样子与眼下的实际归属，不画(同一座城的地块只取一次归属)；镜头外的看不见，照常按重画指纹重画、直接换。
+    // 镜头拉远时一次要比几千块，ScanCooldown 秒内只扫一次(之内发现的变化自己排进来，或等下一次扫)
+    private const float ScanCooldown = 0.2f;
+    private static float _scannedAt = -10f;
+    private static readonly Dictionary<City, IMetaObject> ScanCityMetas = new();
+
+    private static void ScanView(MetaTypeAsset layer, int option)
     {
         float now = Time.unscaledTime;
-        var kingdoms = new List<Kingdom>();
-        void Add(Kingdom kingdom)
+        if (now >= _scannedAt && now - _scannedAt < ScanCooldown) return;
+        _scannedAt = now;
+        ZoneCalculator calc = World.world?.zone_calculator;
+        if (calc == null || layer == null) return;
+        using var timing = FrameProfiler.Measure("平滑国界·换主找齐");
+        Rect view = FlipView();
+        int x0 = Mathf.Max(0, Mathf.FloorToInt(view.xMin / ZoneSize)), x1 = Mathf.Min(calc.zones_total_x - 1, Mathf.FloorToInt(view.xMax / ZoneSize));
+        int y0 = Mathf.Max(0, Mathf.FloorToInt(view.yMin / ZoneSize)), y1 = Mathf.Min(calc.zones_total_y - 1, Mathf.FloorToInt(view.yMax / ZoneSize));
+        bool byCity = CityKeyed(layer, option), control = ControlLayer(layer);
+        ScanCityMetas.Clear();
+        IMetaObject lastMeta = null;
+        int lastKey = 0;
+        for (int y = y0; y <= y1; y++)
+        for (int x = x0; x <= x1; x++)
         {
-            if (kingdom?.cities == null || kingdom.isRekt()) return;
-            if (ExpandedUnits.TryGetValue(kingdom.id, out float at) && now >= at && now - at < ExpandCooldown) return;
-            ExpandedUnits[kingdom.id] = now;
-            kingdoms.Add(kingdom);
-        }
-        void AddRealm(IMetaObject meta)
-        {
-            if (meta is Kingdom kingdom) Add(kingdom);
-            else if (meta is Empire empire && !empire.isRekt() && empire.kingdoms_list != null)
-                foreach (Kingdom member in empire.kingdoms_list) Add(member);
-        }
-        Add(zone.city?.kingdom);
-        AddRealm(before);
-        AddRealm(after);
-        foreach (Kingdom kingdom in kingdoms)
-        foreach (City city in kingdom.cities)
-        {
-            if (city?.zones == null) continue;
-            foreach (TileZone other in city.zones)
+            TileZone zone = calc.getZone(x, y);
+            // 正在画的这块自己会查(见 MetaOf)，这里再让它重画一遍就白画了
+            // 没画过的块(原版不画的空地等)屏幕上没有东西可翻，等它画的时候自己查
+            if (zone == null || x == _cx && y == _cy || PendingSweep.Contains(zone.id) || !LastMeta.ContainsKey(zone.id) ||
+                !Shown.TryGetValue(zone.id, out ShownState shown)) continue;
+            City city = zone.city;
+            IMetaObject real;
+            if (byCity && city != null && !(control && city.kingdom != null && city.HasOccupiedZones()))
             {
-                if (other == null || other == zone || PendingSweep.Contains(other.id) ||
-                    !Shown.TryGetValue(other.id, out ShownState shown)) continue;
-                IMetaObject real = RealMetaOf(layer, option, other);
-                int key = ColorKey(SafeColor(real));
-                if (ReferenceEquals(shown.meta, real) && shown.colorKey == key) continue;
-                ShownState state = StateOf(layer, option, other, real);
-                Shown[other.id] = state;
-                // 只是战线上被占、收复：不翻，原版重画时直接换
-                if (!PoliticalChange(shown, state)) continue;
-                Queue(other, true, ReferenceEquals(shown.owner, state.owner));
+                if (!ScanCityMetas.TryGetValue(city, out real)) ScanCityMetas[city] = real = RealMetaOf(layer, option, zone);
             }
+            else real = RealMetaOf(layer, option, zone);
+            if (!ReferenceEquals(real, lastMeta) || lastMeta == null)
+            {
+                lastMeta = real;
+                lastKey = ColorKey(SafeColor(real));
+            }
+            if (ReferenceEquals(shown.meta, real) && shown.colorKey == lastKey) continue;
+            ShownState state = StateOf(layer, option, zone, real);
+            Shown[zone.id] = state;
+            // 只是战线上被占、收复：不翻，原版重画时直接换
+            if (!PoliticalChange(shown, state)) continue;
+            Queue(zone, true, ReferenceEquals(shown.owner, state.owner));
         }
+        ScanCityMetas.Clear();
     }
 
     // 原版把这块地清空了(不再归任何对象，如城没了)：忘掉记下的底色、渐变与缓存，免得之后高亮、渐变又把旧颜色写回去
@@ -939,6 +984,7 @@ public static class SmoothBorders
         }
         if (!layerClear) Transitions.Remove(zone.id);
         PendingSweep.Remove(zone.id);
+        PendingFollow.Remove(zone.id);
         if (!layerClear) _layerFlip?.seen.Remove(zone.id);
         Shown.Remove(zone.id);
         NativeShown.Remove(zone.id);
@@ -971,6 +1017,7 @@ public static class SmoothBorders
         Orient(transition, dx, dy, zone);
         Transitions[zone.id] = transition;
         PendingSweep.Remove(zone.id);
+        PendingFollow.Remove(zone.id);
     }
 
     // 周围 3×3 块显示成谁(悬停的省)
@@ -1021,6 +1068,7 @@ public static class SmoothBorders
         if (zone == null || layer == null || !ControlLayer(layer) || !ReferenceEquals(layer, _sweepLayer)) return;
         Shown.Remove(zone.id);
         PendingSweep.Remove(zone.id);
+        PendingFollow.Remove(zone.id);
         if (!Transitions.TryGetValue(zone.id, out Transition transition)) return;
         Transitions.Remove(zone.id);
         ZoneCalculator calc = World.world?.zone_calculator;
@@ -1099,6 +1147,7 @@ public static class SmoothBorders
         {
             Transitions.Remove(zone.id);
             PendingSweep.Remove(zone.id);
+            PendingFollow.Remove(zone.id);
             return;
         }
         transition.newPixels = fresh;
@@ -1106,11 +1155,13 @@ public static class SmoothBorders
         WriteFlip(pixels, zone, transition, Time.unscaledTime);
     }
 
-    // 按翻到哪一步写底下的色块：没翻是旧样子，翻着是压暗的旧(前半)、新(后半)样子，翻完是新样子；步子变了才写
+    // 按翻到哪一步写底下的色块：没翻是旧样子，翻着是压暗的旧(前半)、新(后半)样子，翻完是新样子；步子变了才写。
+    // 跟着邻块换的(follow)不翻，到时候直接换成新样子
     private static bool WriteFlip(Color32[] pixels, TileZone zone, Transition transition, float now)
     {
         int phase = !transition.planned || transition.newPixels == null || now < transition.flipAt ? 0
-            : now >= transition.flipAt + transition.duration ? 3 : now < transition.flipAt + transition.duration / 2f ? 1 : 2;
+            : transition.follow || now >= transition.flipAt + transition.duration ? 3
+            : now < transition.flipAt + transition.duration / 2f ? 1 : 2;
         if (phase == transition.phase) return false;
         transition.phase = phase;
         Color32[] source = phase <= 1 ? transition.oldPixels : transition.newPixels;
@@ -1132,75 +1183,81 @@ public static class SmoothBorders
         return true;
     }
 
-    // 换图层：从镜头中心往外一圈圈翻(这次重画的地块各翻一次)
-    // 换图层：全图一起翻(用户 2026-10-16："我切换图层的时候不能用全图翻转吗")——原版按国家、城一块块重画，
-    // 以前画好一块翻一块，看着是一座城一座城地翻。现在镜头里的地块都画好了(一阵子没有新块画进来，或等够了)才一起翻，
-    // 从镜头中心很快地一圈圈翻开(约 LayerRegionSeconds 秒翻到镜头边上)；教化、政令这类原版画法的图层也一样
-    // 用户 2026-10-16 嫌切换图层"将近一秒钟的延迟"：以前要等镜头里的地块都画齐(静 0.12 秒，至多等 1.5 秒)才起翻，
-    // 上色分帧画不完就一直等到 1.5 秒。现在至多等 0.3 秒就从镜头中心起翻，晚画到的块接着波往下排；
-    // 换图层的头一秒镜头里的地块按"急着画"的预算上色(见 ZonePaintBudget)，画得也快
-    private const float LayerGroupQuiet = 0.05f, LayerGroupWait = 0.3f, LayerRegionSeconds = 0.2f, LayerUrgentSeconds = 1f;
-
-    // 刚换了图层：镜头里的地块急着画(见 ZonePaintBudget)
-    public static bool LayerFlipPending => _layerFlip != null && Time.unscaledTime - _layerFlip.start < LayerUrgentSeconds;
-    private static readonly object NoOwner = new();
-
-    private sealed class LayerGroup
-    {
-        public float first, last;
-        public readonly List<int> zones = new();
-    }
+    // 换图层：先算齐再一起翻(用户 2026-10-16："我切换图层的时候不能用全图翻转吗"；2026-10-21："不是说了按我之前的逻辑，
+    // 每次切换图层的时候都先检测，然后一次性从中间也好、从左往右也好转换吗")。
+    //   · 算齐：换图层那一刻起旧图留着，镜头里(外扩一块；算齐期间镜头移到哪也并进来)的地块分帧把新图层全部画好、记下新旧样子；
+    //     这期间每帧都巡检一轮、镜头里的上色预算放宽，镜头外的一概不画(见 ZonePaintBudget)；
+    //   · 起翻：原版巡检完整一轮、镜头里没有一块因预算延后，就是画齐了，从眼下的镜头中心一道波翻开(约 LayerRegionSeconds 秒到镜头边上)；
+    //     至多等 LayerPrecomputeMaxSeconds 秒，还没画齐也起翻，没画好的块画好时接着这道波翻(日志 [换图层] 记下差几块)；
+    //   · 补画：起翻后镜头外的地块按放宽的预算补画、直接换(看不见)，镜头移过去之前画好；补画期间进了镜头的块也翻。
+    // 以前(10-16 嫌"将近一秒钟的延迟"后，7b893278)至多等 0.3 秒就起翻，晚画到的块一块块接着翻；10-19 加急预算又从 30 毫秒
+    // 降到 16 毫秒(c808a189)，原版还隔一帧才巡检一轮，0.3 秒里画不了几块，镜头一大就是新旧颜色东一块西一块地补翻。
+    // 教化、政令这类原版画法的图层一样(见 CaptureRaw)。
+    private const float LayerPrecomputeMaxSeconds = 2.5f, LayerRegionSeconds = 0.2f, LayerBackfillMaxSeconds = 12f,
+        LayerFlipMaxSeconds = 20f;
 
     private sealed class LayerFlip
     {
-        public float start;
+        public string layer;
+        public float start, waveAt = -1f, backfilledAt = -1f;
+        public int startFrame, startRound, rounds, waveFrame, late;
+        // 要一起翻的范围(格)：换图层时的镜头外扩一块，算齐期间镜头移到哪并到哪
         public Rect view;
         public readonly HashSet<int> seen = new();
-        // 正在等画齐的各方；已经起翻的各方(晚画到的块接着这一方的波往下排)：中心、起翻时刻、每秒几格
-        public readonly Dictionary<object, LayerGroup> groups = new();
-        public readonly Dictionary<object, (float x, float y, float at, float speed)> planned = new();
+        // 算齐期间记下了旧样子、等着一起翻的块
+        public readonly List<int> waiting = new();
+        // 那道波：中心、每秒几格
+        public float cx, cy, speed;
+        public bool Precomputing => waveAt < 0f;
+        public bool Backfilling => waveAt >= 0f && backfilledAt < 0f;
     }
 
     private static LayerFlip _layerFlip;
 
-    private static void StartLayerFlip()
-    {
-        Rect view = ZoneFlipOverlay.CameraView();
-        _layerFlip = new LayerFlip
-        {
-            start = Time.unscaledTime,
-            view = Rect.MinMaxRect(view.xMin - ZoneSize, view.yMin - ZoneSize, view.xMax + ZoneSize, view.yMax + ZoneSize)
-        };
-    }
+    // 换图层还在算齐(镜头里的急着画、镜头外的不画)；起翻后还在补画镜头外(见 ZonePaintBudget)
+    public static bool LayerPrecomputing => Enabled && _layerFlip != null && _layerFlip.Precomputing;
+    public static bool LayerBackfilling => Enabled && _layerFlip != null && _layerFlip.Backfilling;
 
-    // 换图层后这块地头一次重画：记下旧样子，等镜头里的都画齐再全图一起翻；镜头外的不翻
-    private static Transition CaptureLayerFlip(TileZone zone, object key = null)
+    // 这块地在换图层要一起翻的范围里(块心在内)
+    public static bool InLayerView(TileZone zone)
     {
         LayerFlip flip = _layerFlip;
-        if (flip == null) return null;
-        float now = Time.unscaledTime;
-        if (now - flip.start > LayerFlipSeconds)
+        return flip != null && zone != null &&
+               flip.view.Contains(new Vector2(zone.x * ZoneSize + ZoneSize / 2f, zone.y * ZoneSize + ZoneSize / 2f));
+    }
+
+    // 有地块等着画新样子好一起翻：原版本来隔一帧才巡检一轮，这期间每帧都巡检(见 ZonePaintBudget.BeforeRedraw)
+    public static bool WantsEveryRound =>
+        Enabled && (_layerFlip != null && (_layerFlip.Precomputing || _layerFlip.Backfilling) ||
+                    Transitions.Count > 0 && (PendingSweep.Count > 0 || PendingFollow.Count > 0));
+
+    private static void StartLayerFlip(MetaTypeAsset layer)
+    {
+        _layerFlip = new LayerFlip
         {
-            _layerFlip = null;
-            return null;
-        }
-        if (!flip.seen.Add(zone.id) || Transitions.ContainsKey(zone.id)) return null;
-        float cx = zone.x * ZoneSize + ZoneSize / 2f, cy = zone.y * ZoneSize + ZoneSize / 2f;
-        if (!flip.view.Contains(new Vector2(cx, cy))) return null;
+            layer = layer?.id, start = Time.unscaledTime, startFrame = Time.frameCount, startRound = ZonePaintBudget.Round,
+            view = FlipView()
+        };
+        ZonePaintBudget.ResetLayerPending();
+    }
+
+    // 换图层后这块地头一次重画：记下旧样子；算齐期间等着一起翻，起翻后接着那道波翻；不在范围里的直接换
+    private static Transition CaptureLayerFlip(TileZone zone)
+    {
+        LayerFlip flip = _layerFlip;
+        if (flip == null || Transitions.ContainsKey(zone.id)) return null;
+        // 起翻后才进镜头(镜头在动)、头一次画上新图层的也翻；在镜头外补画过的再重画(四邻变了之类)不算
+        if (!InLayerView(zone) && !(!flip.Precomputing && zone.visible && ZonePaintBudget.FirstLayerPaint(zone))) return null;
+        if (!flip.seen.Add(zone.id)) return null;
         Transition transition = Capture(zone);
         if (transition == null) return null;
         Transitions[zone.id] = transition;
-        // 全图一组(不再按国家分)
-        key = NoOwner;
-        // 这一方已经起翻了：接着它的波往下排
-        if (flip.planned.TryGetValue(key, out var wave))
+        if (flip.Precomputing) flip.waiting.Add(zone.id);
+        else
         {
-            Schedule(transition, zone, wave.x, wave.y, wave.at, wave.speed, now);
-            return transition;
+            flip.late++;
+            Schedule(transition, zone, flip.cx, flip.cy, flip.waveAt, flip.speed, Time.unscaledTime);
         }
-        if (!flip.groups.TryGetValue(key, out LayerGroup group)) flip.groups[key] = group = new LayerGroup { first = now };
-        group.last = now;
-        group.zones.Add(zone.id);
         return transition;
     }
 
@@ -1212,42 +1269,75 @@ public static class SmoothBorders
         Orient(transition, dx, dy, zone);
     }
 
-    // 画齐了的各方起翻：从这一方(镜头里那部分)的中间往外，一方约 LayerRegionSeconds 秒翻到边上
-    private static void PlanLayerFlips(float now)
+    // 原版巡检完一轮(见 ZonePaintBudget.AfterRedraw)：deferredInView 是这一轮要翻的范围里因预算没画的块，
+    // pending 是换图层以来延后过、还没画上新样子的块。换图层以后完整的一轮(按新图层画的)范围里一块不差，就是算齐了，起翻
+    internal static void LayerRoundEnd(int round, bool modeCurrent, int deferredInView, int pending)
     {
         LayerFlip flip = _layerFlip;
-        if (flip == null || flip.groups.Count == 0) return;
-        ZoneCalculator calc = World.world.zone_calculator;
-        List<object> ready = null;
-        foreach (KeyValuePair<object, LayerGroup> pair in flip.groups)
-            if (now - pair.Value.last >= LayerGroupQuiet || now - pair.Value.first >= LayerGroupWait) (ready ??= new List<object>()).Add(pair.Key);
-        if (ready == null) return;
-        foreach (object key in ready)
+        if (!Enabled || flip == null || round <= flip.startRound || !modeCurrent) return;
+        float now = Time.unscaledTime;
+        if (flip.Precomputing)
         {
-            LayerGroup group = flip.groups[key];
-            flip.groups.Remove(key);
-            var members = new List<(TileZone zone, Transition transition)>();
-            float sumX = 0f, sumY = 0f;
-            foreach (int id in group.zones)
-            {
-                TileZone zone = calc.getZoneByID(id);
-                if (zone == null || !Transitions.TryGetValue(id, out Transition transition) || transition.planned) continue;
-                members.Add((zone, transition));
-                sumX += zone.x * ZoneSize + ZoneSize / 2f;
-                sumY += zone.y * ZoneSize + ZoneSize / 2f;
-            }
-            if (members.Count == 0) continue;
-            // 全图一起翻：从镜头中心起
-            float cx = flip.view.center.x, cy = flip.view.center.y, radius = 0f;
-            foreach ((TileZone zone, _) in members)
-            {
-                float dx = zone.x * ZoneSize + ZoneSize / 2f - cx, dy = zone.y * ZoneSize + ZoneSize / 2f - cy;
-                radius = Mathf.Max(radius, Mathf.Sqrt(dx * dx + dy * dy));
-            }
-            float speed = Mathf.Max(40f, radius / LayerRegionSeconds);
-            flip.planned[key] = (cx, cy, now, speed);
-            foreach ((TileZone zone, Transition transition) in members) Schedule(transition, zone, cx, cy, now, speed, now);
+            flip.rounds++;
+            // 算齐期间镜头移到哪，那里也要画齐、一起翻
+            Rect view = FlipView();
+            flip.view = Rect.MinMaxRect(Mathf.Min(flip.view.xMin, view.xMin), Mathf.Min(flip.view.yMin, view.yMin),
+                Mathf.Max(flip.view.xMax, view.xMax), Mathf.Max(flip.view.yMax, view.yMax));
+            if (deferredInView > 0 && now - flip.start < LayerPrecomputeMaxSeconds) return;
+            StartWave(flip, now, deferredInView);
+            return;
         }
+        if (!flip.Backfilling || pending > 0 && now - flip.waveAt < LayerBackfillMaxSeconds) return;
+        flip.backfilledAt = now;
+        string state = pending > 0 ? $"补画超过 {LayerBackfillMaxSeconds:0} 秒还剩 {pending} 块没画(照常排着画)" : "补画完";
+        LogService.LogInfo($"[EmpireCraft][换图层] {flip.layer}：镜头外{state}，起翻后 {Time.frameCount - flip.waveFrame} 帧、" +
+                           $"{(now - flip.waveAt) * 1000f:0} 毫秒；起翻后才画到、在镜头里接着翻的 {flip.late} 块");
+    }
+
+    // 起翻：从眼下的镜头中心一圈圈翻开，一道波约 LayerRegionSeconds 秒翻到最远的那块
+    private static void StartWave(LayerFlip flip, float now, int unpainted)
+    {
+        Rect camera = ZoneFlipOverlay.CameraView();
+        flip.waveAt = now;
+        flip.waveFrame = Time.frameCount;
+        flip.cx = camera.center.x;
+        flip.cy = camera.center.y;
+        ZoneCalculator calc = World.world.zone_calculator;
+        float radius = 0f;
+        foreach (int id in flip.waiting)
+        {
+            TileZone zone = calc.getZoneByID(id);
+            if (zone == null || !Transitions.ContainsKey(id)) continue;
+            float dx = zone.x * ZoneSize + ZoneSize / 2f - flip.cx, dy = zone.y * ZoneSize + ZoneSize / 2f - flip.cy;
+            radius = Mathf.Max(radius, Mathf.Sqrt(dx * dx + dy * dy));
+        }
+        flip.speed = Mathf.Max(40f, radius / LayerRegionSeconds);
+        int count = 0, unready = 0;
+        foreach (int id in flip.waiting)
+        {
+            TileZone zone = calc.getZoneByID(id);
+            if (zone == null || !Transitions.TryGetValue(id, out Transition transition) || transition.planned) continue;
+            Schedule(transition, zone, flip.cx, flip.cy, now, flip.speed, now);
+            count++;
+            if (transition.newPixels == null) unready++;
+        }
+        flip.waiting.Clear();
+        string ready = unpainted > 0 || unready > 0
+            ? $"；等满 {LayerPrecomputeMaxSeconds} 秒还没算齐，起翻时镜头里还有 {unpainted} 块没画、{unready} 块记了旧样子还没画好(画好时接着这道波翻)"
+            : "；起翻时镜头里都已算好";
+        LogService.LogInfo($"[EmpireCraft][换图层] {flip.layer}：镜头里 {count} 块一起翻(新旧一样的不翻)，算齐用了 " +
+                           $"{Time.frameCount - flip.startFrame} 帧、原版巡检 {flip.rounds} 轮、{(now - flip.start) * 1000f:0} 毫秒{ready}");
+    }
+
+    // 每帧：迟迟没有巡检(地图图层关着之类)也不能一直等着；到时收尾
+    private static void LayerTick(float now)
+    {
+        LayerFlip flip = _layerFlip;
+        if (flip == null) return;
+        if (flip.Precomputing && now - flip.start >= LayerPrecomputeMaxSeconds + 0.5f) StartWave(flip, now, 0);
+        // 补画完、那道波也翻完了就收掉(之后的重画不再当成换图层来翻)
+        if (now - flip.start >= LayerFlipMaxSeconds ||
+            flip.backfilledAt >= 0f && now - flip.waveAt > LayerRegionSeconds + FlipSeconds + 0.5f) _layerFlip = null;
     }
 
     // 每帧：给新换主的块排好何时翻；正在翻的块画成牌、底下压暗，翻完的收掉
@@ -1261,8 +1351,9 @@ public static class SmoothBorders
         float now = Time.unscaledTime;
         // 这次换色的地块都画好新样子(或等满 MaxPlanWait)再统一排：没画好的地块上色时优先(见 Awaiting)，
         // 排好前仍显示旧样子，整片一起翻过去，不剩几块等一下才变
-        if (PendingSweep.Count > 0 && (!PendingUnpainted() || now - _pendingSince >= MaxPlanWait)) PlanSweeps();
-        PlanLayerFlips(now);
+        if ((PendingSweep.Count > 0 || PendingFollow.Count > 0) && (!PendingUnpainted() || now - _pendingSince >= MaxPlanWait))
+            PlanSweeps();
+        LayerTick(now);
         if (Plans.Count > 0)
         {
             ExpiredPlans.Clear();
@@ -1320,6 +1411,8 @@ public static class SmoothBorders
     {
         foreach (int id in PendingSweep)
             if (Transitions.TryGetValue(id, out Transition transition) && transition.newPixels == null) return true;
+        foreach (int id in PendingFollow)
+            if (Transitions.TryGetValue(id, out Transition transition) && transition.newPixels == null) return true;
         return false;
     }
 
@@ -1334,6 +1427,7 @@ public static class SmoothBorders
         if (layer == null)
         {
             PendingSweep.Clear();
+            PendingFollow.Clear();
             return;
         }
         // 按变成谁(新主人、新颜色)分组，各组从挨着新主人的块起一圈圈往里翻；整组都是自己变的从都城那块往外
@@ -1454,6 +1548,29 @@ public static class SmoothBorders
             plan.end = Mathf.Max(plan.end, plan.start + plan.step * (farthest + 3f));
             Plans[group.Key] = plan;
         }
+        PlanFollowers(calc, now);
+    }
+
+    // 跟着邻块换的块：挨着的换主地块里最早翻到一半的那一刻换；挨着的都不用翻了(新旧一样)就当场换
+    private static void PlanFollowers(ZoneCalculator calc, float now)
+    {
+        foreach (int id in PendingFollow)
+        {
+            if (!Transitions.TryGetValue(id, out Transition follower) || !follower.follow) continue;
+            TileZone zone = calc.getZoneByID(id);
+            float at = float.MaxValue;
+            if (zone != null)
+                for (int dy = -1; dy <= 1; dy++)
+                for (int dx = -1; dx <= 1; dx++)
+                {
+                    TileZone near = dx == 0 && dy == 0 ? null : calc.getZone(zone.x + dx, zone.y + dy);
+                    if (near != null && Transitions.TryGetValue(near.id, out Transition lead) && !lead.follow && lead.planned)
+                        at = Mathf.Min(at, lead.flipAt + lead.duration / 2f);
+                }
+            follower.flipAt = at == float.MaxValue ? now : at;
+            follower.planned = true;
+        }
+        PendingFollow.Clear();
     }
 
     private static readonly (int dx, int dy)[] Sides = { (1, 0), (-1, 0), (0, 1), (0, -1) };
@@ -1503,7 +1620,7 @@ public static class SmoothBorders
     // 帝国图层上悬停帝国里的成员国时，它的地块换成本国颜色、移开又换回帝国颜色；平滑国界下邻块跟着变，
     // 每次都要整块重画(逐格平滑、地形、城市平面图)，大国一换就是几百块地，鼠标一动卡一下。
     // 同样的输入画出同样的像素：每块地记下最近画过的两版，再遇到同样的输入直接拷回，当帧就好、几乎不花时间，画面不变。
-    // 输入：两种颜色、周围 5×5 块的归属及其颜色与所属帝国、图层与选项、战线开关、宣战议和、本城平面图的指纹、纯净地图与规划视图；
+    // 输入：两种颜色、周围 5×5 块的归属及其颜色与所属帝国、图层与选项、战线开关、这几方两两是否交战、本城平面图的指纹、纯净地图与规划视图；
     // 周围有逐格推进的地块不缓存；缓存三十秒过期(没算进去的变化至多三十秒后补上；地形变了当场丢掉那块的，见 ForgetSnapshot)
     private const float CacheSeconds = 30f;
     private const int MaxCached = 12000;
@@ -1520,8 +1637,6 @@ public static class SmoothBorders
     private static readonly Dictionary<int, Snapshot[]> Snapshots = new();
     private static long _pendingKey;
     private static int _restoredZone = -1;
-    // 宣战、议和的次数(战线朱红边要变)
-    private static int _warEpoch;
 
     // 这块地刚从缓存拷回(地形调色、城市平面图已经在里面了，PureMapPatch 不再画)
     public static bool Restored(TileZone zone)
@@ -1553,12 +1668,37 @@ public static class SmoothBorders
                 // 帝国金边看各国属于哪个帝国
                 if (meta is Kingdom kingdom) Add(kingdom.GetEmpireID());
             }
-            Add((CorpsSystem.Enabled ? 1 : 0) | (PureMapMode.Enabled ? 2 : 0) | 
+            Add((CorpsSystem.Enabled ? 1 : 0) | (PureMapMode.Enabled ? 2 : 0) |
                 (PureMapPatch.DetailShown ? 8 : 0) | (PureMapPatch.Relief ? 16 : 0) |
                 (PureMapPatch.CitiesShown ? 32 : 0));
-            Add(_warEpoch);
+            Add(CorpsSystem.Enabled && ControlLayer(layer) ? FrontSignature() : 0);
             Add(PureMapPatch.CitiesShown ? PureMapPatch.StampOf(zone.city) : 0);
             return key == 0L ? 1L : key;
+        }
+    }
+
+    // 战线朱红只画在周围 5×5 块里交战的两方之间：缓存按这几方两两是否交战(且真打起来)算，
+    // 以前记全局的宣战议和次数，任何一处宣战、议和全图的上色缓存一起作废，每块都得从头画
+    // (性能日志里"纯净地图·地块上色"每帧都顶着预算，排在后面的地块迟迟轮不到，见 ZonePaintBudget)
+    private static readonly List<IMetaObject> FrontParties = new();
+
+    private static int FrontSignature()
+    {
+        FrontParties.Clear();
+        for (int i = 0; i < 25; i++)
+        {
+            IMetaObject meta = Shades[i];
+            if (meta != null && !FrontParties.Contains(meta)) FrontParties.Add(meta);
+        }
+        if (FrontParties.Count < 2) return 0;
+        unchecked
+        {
+            int signature = 17;
+            for (int a = 0; a < FrontParties.Count; a++)
+            for (int b = a + 1; b < FrontParties.Count; b++)
+                signature = signature * 3 + (AtWarMeta(FrontParties[a], FrontParties[b]) ? 1 : 0) +
+                            (AtWarMeta(FrontParties[b], FrontParties[a]) ? 2 : 0);
+            return signature;
         }
     }
 
@@ -1583,7 +1723,9 @@ public static class SmoothBorders
                 _hasBase[id] = true;
                 pixels[id] = Lifted(id);
             }
-            Remember(zone, Metas[12]);
+            // 记下画成谁要同重画一样按显示的一方(悬停的省按本省)：以前记实际归属，悬停的省从缓存拷回时
+            // 记下的没变，四邻不跟着重画，省界留在邻块上成了残线(图层诊断"多余的边框"，修过仍在)
+            Remember(zone, Shades[12]);
             _restoredZone = zone.id;
             World.world.zone_calculator.setDirty();
             return true;
@@ -1659,23 +1801,29 @@ public static class SmoothBorders
     private static City _fingerprintCity;
     private static IMetaObject _fingerprintCityMeta, _fingerprintMeta;
     private static bool _fingerprintCityOccupied;
-    private static int _fingerprintKey;
+    private static int _fingerprintKey, _fingerprintAppearance;
     private static readonly Dictionary<IMetaObject, int> AppearanceKeys = new();
+    // 刚算过指纹的那块地(原版巡检时先算指纹、紧接着决定画不画，见 ZonePaintBudget.AfterCheck)：实际控制方与它的样子
+    private static int _fpZone = -1, _fpAppearance;
+    private static IMetaObject _fpReal;
 
     internal static int Fingerprint(TileZone zone)
     {
+        _fpZone = -1;
         if (zone == null || World.world == null) return 0;
         int frame = Time.frameCount;
         if (_fingerprintFrame != frame)
         {
             _fingerprintFrame = frame;
-            _fingerprintLayer = World.world.getCachedMapMetaAsset();
+            // 按原版这一轮实际在画的图层算(换图层那一帧原版还按旧图层画一轮，setMode 在这之后)：
+            // 以前取已经换好的新图层，旧图层这一轮里每块地的指纹都变了，五千多块全按旧图层白画一遍
+            _fingerprintLayer = World.world.zone_calculator?._mode_asset ?? World.world.getCachedMapMetaAsset();
             _fingerprintOption = _fingerprintLayer?.getZoneOptionState() ?? 0;
             _fingerprintSmooth = _fingerprintLayer != null && Smoothable(_fingerprintLayer);
             _fingerprintByCity = _fingerprintSmooth && CityKeyed(_fingerprintLayer, _fingerprintOption);
             _fingerprintCity = null;
             _fingerprintCityMeta = _fingerprintMeta = null;
-            _fingerprintKey = 0;
+            _fingerprintKey = _fingerprintAppearance = 0;
             AppearanceKeys.Clear();
         }
         if (!_fingerprintSmooth) return 0;
@@ -1692,14 +1840,32 @@ public static class SmoothBorders
             real = _fingerprintCityOccupied ? RealMetaOf(_fingerprintLayer, _fingerprintOption, zone) : _fingerprintCityMeta;
         }
         else real = RealMetaOf(_fingerprintLayer, _fingerprintOption, zone);
+        _fpZone = zone.id;
+        _fpReal = real;
+        _fpAppearance = 0;
         if (real == null) return 0;
-        if (ReferenceEquals(real, _fingerprintMeta)) return _fingerprintKey;
+        if (ReferenceEquals(real, _fingerprintMeta))
+        {
+            _fpAppearance = _fingerprintAppearance;
+            return _fingerprintKey;
+        }
         if (!AppearanceKeys.TryGetValue(real, out int key)) AppearanceKeys[real] = key = AppearanceKey(real);
         _fingerprintMeta = real;
+        _fpAppearance = _fingerprintAppearance = key;
         unchecked
         {
             return _fingerprintKey = global::System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(real) * 31 + key;
         }
+    }
+
+    // 刚巡检的这块地自身的归属或颜色变了(上次画成的与眼下的实际控制方对不上；还没画过的也算)：
+    // 这种不画就一直是错色(帝国解散、成员离开、城换了主……)，上色排队时优先(见 ZonePaintBudget)；
+    // 只是四邻变了、城市平面图变了、全图重画之类的重画不算
+    internal static bool OwnChanged(TileZone zone)
+    {
+        if (!Enabled || zone == null || zone.id != _fpZone) return false;
+        if (!LastMeta.TryGetValue(zone.id, out var last)) return _fpReal != null;
+        return !ReferenceEquals(last.meta, _fpReal) || last.color != _fpAppearance;
     }
 
     // 一方画出来的样子：颜色(内、外框)与所属帝国(国家图层的帝国金边)
@@ -1848,11 +2014,17 @@ public static class SmoothBorders
         IMetaObject other = OwnerCached(x, y);
         if (other == null || ReferenceEquals(other, owner)) return false;
         if (Hostility.TryGetValue((owner, other), out bool hostile)) return hostile;
-        Kingdom a = owner is Kingdom ka ? ka : (owner as Empire)?.CoreKingdom;
-        Kingdom b = other is Kingdom kb ? kb : (other as Empire)?.CoreKingdom;
-        hostile = a != null && b != null && FrontSystem.Hostile(a, b) && FrontSystem.HasFront(a, b);
+        hostile = AtWarMeta(owner, other);
         Hostility[(owner, other)] = hostile;
         return hostile;
+    }
+
+    // 两方(国家或帝国，帝国按核心算)交战且本月真打起来了
+    private static bool AtWarMeta(IMetaObject owner, IMetaObject other)
+    {
+        Kingdom a = owner is Kingdom ka ? ka : (owner as Empire)?.CoreKingdom;
+        Kingdom b = other is Kingdom kb ? kb : (other as Empire)?.CoreKingdom;
+        return a != null && b != null && FrontSystem.Hostile(a, b) && FrontSystem.HasFront(a, b);
     }
 
     // 描金的范围(同 PureMapPatch.AfterApplyColors)：战国时的周室势力圈(加粗的那种)；纯净地图下所属的帝国
@@ -1914,10 +2086,10 @@ public static class SmoothBorders
         if (outside.a > 0) outside.a = byte.MaxValue;
     }
 
-    // 宣战、议和后战线(边框朱红)要变：双方各城的地块重画(WarPatch)
+    // 宣战、议和后战线(边框朱红)要变：双方各城的地块重画(WarPatch)；上色缓存按周围几方是否交战取(见 FrontSignature)，
+    // 不挨着敌方的地块照样从缓存拷回
     public static void RefreshWar(War war)
     {
-        _warEpoch++;
         if (!Enabled || war == null) return;
         foreach (Kingdom kingdom in war.getAttackers().Concat(war.getDefenders()))
             foreach (City city in kingdom?.cities ?? new List<City>())
@@ -1948,7 +2120,11 @@ public static class SmoothBorders
         }
     }
 
-    // 这块地的归属或颜色变了：周围八块(连斜对角)也重画，平滑的边要跟着变
+    // 这块地的归属或颜色变了：周围两圈(5×5，连斜对角)也重画，平滑的边要跟着变。
+    // 一格归谁看它所在地块周围 3×3 块，判边框还要看外面一圈格(落在邻块里，归属又看邻块周围 3×3)，
+    // 所以隔一块的地块边上的边框也跟着这块变；以前只重画周围八块，隔一块的那圈留着旧边框(图层诊断"多余的边框")
+    private const int RememberRadius = 2;
+
     private static void Remember(TileZone zone, IMetaObject meta)
     {
         // 自定义色可能共用同一个调色板编号，必须比较实际色值；所属帝国变了四邻的金边也要重画
@@ -1958,8 +2134,8 @@ public static class SmoothBorders
         LastMeta[zone.id] = (meta, color);
         if (first) return;
         ZoneCalculator calc = World.world.zone_calculator;
-        for (int dy = -1; dy <= 1; dy++)
-        for (int dx = -1; dx <= 1; dx++)
+        for (int dy = -RememberRadius; dy <= RememberRadius; dy++)
+        for (int dx = -RememberRadius; dx <= RememberRadius; dx++)
             if (dx != 0 || dy != 0) calc.getZone(zone.x + dx, zone.y + dy)?.resetRenderHelpers();
     }
 

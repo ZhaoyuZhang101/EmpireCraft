@@ -14,7 +14,11 @@ namespace EmpireCraft.Scripts.GamePatches;
 //     屏幕里的地块预算宽一些，先画看得见的；
 //   · 空白地块(不在"已画"名单里：刚建的城、读档后头一遍)预算宽得多(BlankBudgetMs)，尽快画上，但也不再不限量；
 //   · 全图重画、清空已画地块(原版 clearCurrentDrawnZones：切换图层选项、选中对象变了、缩放跨过远景门槛)时不先把色块清成透明
-//     (原版先清空再重画，分帧画会露出一块块空白)，旧颜色留到新颜色画上为止，不再归任何对象的地块照原版在下一轮清掉。
+//     (原版先清空再重画，分帧画会露出一块块空白)，旧颜色留到新颜色画上为止，不再归任何对象的地块照原版在下一轮清掉；
+//   · 平滑国界换图层：先算齐再一起翻(见 SmoothBorders.LayerPrecomputing)——算齐期间要一起翻的范围里的按 LayerPrecomputeBudgetMs 画、
+//     范围外的不画，每帧都巡检(原版画一轮隔一帧才画下一轮)；起翻后镜头外按 CatchUpBudgetMs 补画；
+//   · 原版每轮都从头按国、按城巡检，预算总被排在前面的地块用掉：镜头外自身归属或颜色变了的、排了 AgedSeconds 秒还没画的
+//     预算放宽到 CatchUpBudgetMs，不让排在后面的地块几十秒轮不到(图层诊断"没刷新的色块")。
 // 只在纯净地图或平滑国界开着时生效；每帧上色耗时记在帧率体检里(纯净地图·地块上色)。
 public class ZonePaintBudget : GamePatch
 {
@@ -26,6 +30,10 @@ public class ZonePaintBudget : GamePatch
     // 空白地块：以前当帧不限量全部画上，读档、缩放跨过远景门槛(原版清空整图)时五千多块挤在一帧，
     // 性能日志"原版·updateMapLayers"一帧 500~570 毫秒；现在每帧画到 40 毫秒为止，余下的下一帧接着按这个预算画
     private const double BlankBudgetMs = 40d;
+    // 换图层算齐期间要一起翻的范围里每帧画多少：画面停在旧图上，尽快画齐好起翻(镜头外这时一块不画)；
+    // 补画镜头外、镜头外自身变了色的、排得太久的：低于镜头里的预算，但不再只有 6 毫秒、排在后面的总轮不到
+    private const double LayerPrecomputeBudgetMs = 24d, CatchUpBudgetMs = 12d;
+    private const float AgedSeconds = 2f;
     private const int MinZonesPerFrame = 6;
     private static readonly double TicksPerMs = Stopwatch.Frequency / 1000d;
 
@@ -46,6 +54,18 @@ public class ZonePaintBudget : GamePatch
 
     // 这一两帧里有地块因为预算没画、留到下一轮(换色渐变等这批画完再统一起扫描，见 SmoothBorders)
     public static bool Backlogged => Time.frameCount - _deferredFrame <= 1;
+
+    // 原版巡检的轮次(redrawZones 每调一次加一，见 BeforeRedraw)；这一轮巡检了几块、要一起翻的范围里因预算延后了几块
+    public static int Round { get; private set; }
+    private static int _roundChecks, _roundDeferredView, _lastRoundFrame = -1;
+    // 原版 redrawZones 画完一轮把计时设成这个数(隔一帧才画下一轮)
+    private const float RedrawInterval = 0.01f;
+
+    // 每块地从哪一刻起因预算排着等上色(0 没在等)；换图层算齐期间延后过、还没画上新样子的块
+    private static float[] _waitSince = global::System.Array.Empty<float>();
+    private static bool[] _layerPending = global::System.Array.Empty<bool>();
+    private static int _layerPendingCount, _lastPendingPainted = -1;
+    private static object _waitWorld;
 
     public void Initialize()
     {
@@ -69,10 +89,91 @@ public class ZonePaintBudget : GamePatch
         harmony.Patch(AccessTools.Method(typeof(QualityChanger), "setZoomOrthographic"),
             prefix: new HarmonyMethod(typeof(ZonePaintBudget), nameof(BeforeZoom)),
             finalizer: new HarmonyMethod(typeof(ZonePaintBudget), nameof(AfterZoom)));
+        harmony.Patch(AccessTools.Method(typeof(ZoneCalculator), "redrawZones"),
+            prefix: new HarmonyMethod(typeof(ZonePaintBudget), nameof(BeforeRedraw)),
+            postfix: new HarmonyMethod(typeof(ZonePaintBudget), nameof(AfterRedraw)));
     }
 
-    // 原版清空了一块地：平滑国界忘掉它记下的底色、渐变(见 SmoothBorders.Cleared)
-    private static void AfterZoneClear(TileZone pZone) => SmoothBorders.Cleared(pZone);
+    // 原版清空了一块地：平滑国界忘掉它记下的底色、渐变(见 SmoothBorders.Cleared)；它也不再排队等上色
+    private static void AfterZoneClear(TileZone pZone)
+    {
+        Painting(pZone);
+        SmoothBorders.Cleared(pZone);
+    }
+
+    // 原版巡检一轮之前：换图层、换主的地块等着画新样子好一起翻时，每帧都巡检
+    // (原版画完一轮计时设 0.01 秒、下一帧减掉帧时长就跳过，实际隔一帧才画一轮；一帧里模拟跑几次的也只多补这一次)
+    private static void BeforeRedraw(ZoneCalculator __instance)
+    {
+        Round++;
+        _roundChecks = 0;
+        _roundDeferredView = 0;
+        if (!Active || _lastRoundFrame == Time.frameCount || __instance._redraw_timer <= 0f) return;
+        if (SmoothBorders.WantsEveryRound) __instance._redraw_timer = 0f;
+    }
+
+    // 原版巡检完一轮：告诉平滑国界这一轮要一起翻的范围里还差几块(算齐了就起翻)
+    private static void AfterRedraw(ZoneCalculator __instance)
+    {
+        if (__instance._redraw_timer != RedrawInterval && _roundChecks == 0) return;
+        _lastRoundFrame = Time.frameCount;
+        if (!Active) return;
+        SmoothBorders.LayerRoundEnd(Round, ReferenceEquals(__instance._mode_asset, World.world?.getCachedMapMetaAsset()),
+            _roundDeferredView, _layerPendingCount);
+    }
+
+    // 换图层：之前记下的"还没画上新样子"作废，从这一刻重新记
+    public static void ResetLayerPending()
+    {
+        if (_layerPending.Length > 0) global::System.Array.Clear(_layerPending, 0, _layerPending.Length);
+        _layerPendingCount = 0;
+        _lastPendingPainted = -1;
+    }
+
+    private static void EnsureWait(int count)
+    {
+        if (!ReferenceEquals(_waitWorld, World.world))
+        {
+            _waitWorld = World.world;
+            _waitSince = global::System.Array.Empty<float>();
+            _layerPending = global::System.Array.Empty<bool>();
+            _layerPendingCount = 0;
+        }
+        if (_waitSince.Length >= count) return;
+        global::System.Array.Resize(ref _waitSince, count);
+        global::System.Array.Resize(ref _layerPending, count);
+    }
+
+    // 这块地要画了(或被清掉了)：不再排队
+    private static void Painting(TileZone zone)
+    {
+        int id = zone?.id ?? -1;
+        if (id < 0 || id >= _waitSince.Length) return;
+        _waitSince[id] = 0f;
+        if (!_layerPending[id]) return;
+        _layerPending[id] = false;
+        _layerPendingCount--;
+        _lastPendingPainted = id;
+    }
+
+    // 正要画的这块地是换图层以来头一次画上新图层(算齐期间延后过；见 SmoothBorders.CaptureLayerFlip)
+    public static bool FirstLayerPaint(TileZone zone) => zone != null && zone.id == _lastPendingPainted;
+
+    // 这块地排着等上色多久了(秒)
+    private static float Waited(TileZone zone)
+    {
+        int id = zone.id;
+        return id >= 0 && id < _waitSince.Length && _waitSince[id] > 0f ? Time.unscaledTime - _waitSince[id] : 0f;
+    }
+
+    // 图层诊断用：这块没刷新的色块是排着队没轮到，还是原版根本没来重画(重画指纹漏了的变动)
+    internal static string WaitNote(TileZone zone)
+    {
+        if (zone == null) return "";
+        float waited = Waited(zone);
+        string where = zone.visible ? "镜头里" : "镜头外";
+        return waited > 0f ? $"({where}，排着等上色 {waited:0.0} 秒)" : $"({where}，没在排队：原版没来重画)";
+    }
 
     // 一格的样子变了(设地面格、顶层格前后 Type 不同，见 MapWallPatch：水桶抽水抽岩浆、镐铲斧、画地形、岩浆冷却、海水回灌、开田退耕……)。
     // 原版的图层色块只是盖在地形上的一层半透明颜色，地形另由原版地块层画，所以原版只在归属、颜色变了才重画色块；
@@ -132,7 +233,8 @@ public class ZonePaintBudget : GamePatch
         _frame = frame;
         _painted = 0;
         _spent = 0L;
-        if (_blankFrames > 0 && frame - _blankLastFrame > 2) ReportBlank();
+        // 隔一阵没有延后的空白地块才算画完(原版隔一帧才巡检一轮，隔两帧就记，一阵分帧被拆成一帧一行)
+        if (_blankFrames > 0 && frame - _blankLastFrame > 30) ReportBlank();
         // 一阵子没有延后的空白地块：清掉残留的记号(延后后又不归谁、不再画的块)
         if (Blank.Count > 0 && frame - _blankLastFrame > 600) Blank.Clear();
     }
@@ -150,6 +252,7 @@ public class ZonePaintBudget : GamePatch
     private static void BeforeCheck(TileZone __instance, ref int pColorAssetID)
     {
         if (!Active) return;
+        _roundChecks++;
         int extra = SmoothBorders.Fingerprint(__instance);
         if (extra != 0) pColorAssetID = unchecked(pColorAssetID * 397 ^ extra);
     }
@@ -159,45 +262,92 @@ public class ZonePaintBudget : GamePatch
     {
         if (!__result || !Active) return;
         NewFrame();
+        ZoneCalculator calc = World.world?.zone_calculator;
+        if (calc == null) return;
+        EnsureWait(calc.zones?.Count ?? 0);
+        // 换图层那一帧原版还按旧图层画一轮(setMode 在这之后)，平滑国界却已按新图层取归属，画出来是新图层的形状配旧图层的颜色：
+        // 平滑国界下这一轮不画，下一轮按新图层画
+        if (SmoothBorders.Enabled && !ReferenceEquals(calc._mode_asset, World.world.getCachedMapMetaAsset()))
+        {
+            Defer(__instance, ref __result);
+            return;
+        }
+        double spent = _spent / TicksPerMs;
+        // 换图层还在算齐：要一起翻的范围里的按算齐预算画，范围外的一概留到起翻之后(算力全给镜头里)
+        if (SmoothBorders.LayerPrecomputing)
+        {
+            bool view = SmoothBorders.InLayerView(__instance);
+            if (view && (_painted < MinZonesPerFrame || spent < LayerPrecomputeBudgetMs))
+            {
+                Painting(__instance);
+                return;
+            }
+            if (view) _roundDeferredView++;
+            int id = __instance.id;
+            if (id >= 0 && id < _layerPending.Length && !_layerPending[id])
+            {
+                _layerPending[id] = true;
+                _layerPendingCount++;
+            }
+            Defer(__instance, ref __result);
+            return;
+        }
         if (_painted < MinZonesPerFrame)
         {
             if (Blank.Count > 0) Blank.Remove(__instance.id);
+            Painting(__instance);
             return;
         }
-        ZoneCalculator calc = World.world?.zone_calculator;
-        if (calc == null) return;
-        double spent = _spent / TicksPerMs;
-        // 空白地块(不在"已画"名单里，或上一帧因预算延后的空白地块)：按宽得多的预算尽快画上
+        bool visible = __instance.visible;
+        // 换图层起翻后补画镜头外、镜头外自身的归属或颜色变了(不画就一直是错色)、排了太久的(原版每轮都从头按国、按城巡检，
+        // 预算总被排在前面的用掉，排在后面的地块几十秒轮不到：图层诊断"没刷新的色块"多是这种)：镜头外的预算放宽到 CatchUpBudgetMs
+        bool catchUp = SmoothBorders.LayerBackfilling || SmoothBorders.OwnChanged(__instance) || Waited(__instance) >= AgedSeconds;
+        // 空白地块(不在"已画"名单里，或上一帧因预算延后的空白地块)：按宽得多的预算尽快画上；
+        // 换图层补画期间镜头外的按补画预算(起翻那几帧不再一下子顶到 40 毫秒)
         if (!calc._current_drawn_zones.Contains(__instance) || Blank.Count > 0 && Blank.Contains(__instance.id))
         {
-            if (spent < BlankBudgetMs)
+            bool backfill = !visible && SmoothBorders.LayerBackfilling;
+            if (spent < (backfill ? CatchUpBudgetMs : BlankBudgetMs))
             {
                 if (Blank.Count > 0) Blank.Remove(__instance.id);
+                Painting(__instance);
                 return;
             }
-            Blank.Add(__instance.id);
-            int frame = Time.frameCount;
-            if (_blankCountedFrame != frame)
+            if (!backfill)
             {
-                _blankCountedFrame = frame;
-                _blankFrames++;
+                Blank.Add(__instance.id);
+                int frame = Time.frameCount;
+                if (_blankCountedFrame != frame)
+                {
+                    _blankCountedFrame = frame;
+                    _blankFrames++;
+                }
+                _blankDeferred++;
+                _blankLastFrame = frame;
             }
-            _blankDeferred++;
-            _blankLastFrame = frame;
             Defer(__instance, ref __result);
             return;
         }
-        if (spent < BudgetMs) return;
-        // 镜头外的：普通预算用完就留到下一轮，再急也不加预算(TileZone.visible 由原版 ZoneCamera 每帧维护，
-        // 与 getVisibleZones 同一份，不再每帧另建一个 HashSet)
-        if (!__instance.visible)
+        if (spent < BudgetMs)
         {
-            Defer(__instance, ref __result);
+            Painting(__instance);
+            return;
+        }
+        // 镜头外的：普通预算用完就留到下一轮，只有上面几种放宽(TileZone.visible 由原版 ZoneCamera 每帧维护，
+        // 与 getVisibleZones 同一份，不再每帧另建一个 HashSet)
+        if (!visible)
+        {
+            if (catchUp && spent < CatchUpBudgetMs) Painting(__instance);
+            else Defer(__instance, ref __result);
             return;
         }
         if (spent < VisibleBudgetMs ||
-            spent < UrgentBudgetMs && (SmoothBorders.LayerFlipPending || Time.unscaledTime - _clearedAt < ClearUrgentSeconds ||
-                                       SmoothBorders.Awaiting(__instance) || SmoothBorders.HoverUrgent(__instance))) return;
+            spent < UrgentBudgetMs && (catchUp || Time.unscaledTime - _clearedAt < ClearUrgentSeconds ||
+                                       SmoothBorders.Awaiting(__instance) || SmoothBorders.HoverUrgent(__instance)))
+        {
+            Painting(__instance);
+            return;
+        }
         Defer(__instance, ref __result);
     }
 
@@ -207,6 +357,8 @@ public class ZonePaintBudget : GamePatch
         result = false;
         _deferredFrame = Time.frameCount;
         zone.resetRenderHelpers();
+        int id = zone.id;
+        if (id >= 0 && id < _waitSince.Length && _waitSince[id] <= 0f) _waitSince[id] = Mathf.Max(Time.unscaledTime, 0.001f);
     }
 
     private static void BeginPaint()
