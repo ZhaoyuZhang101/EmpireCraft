@@ -3671,6 +3671,8 @@
   "realm_name_source_grand": "國號：美號",
   "realm_name_source_banner": "國號：打前朝旗號，承「{0}」",
   "realm_name_source_usurper": "國號：篡位者的封國名",
+  "empirecraft_law_surname_dynasty_title": "姓氏國號",
+  "empirecraft_law_surname_dynasty_description": "開啟後，新朝再用本天下前朝用過的國號時不加「後」，改在國號前冠開國之君的姓；與前朝同姓的按新都相對前朝都城的方位冠東西南北，同姓又同都才加「後」。復國、中興、兩朝分立不受影響，已有國號不改。",
   "capital_loss_restored": "{0}收復舊都{1}，還於舊都，復稱{2}。",
   "kingdom_type_xingzai": "行在",
   "Later": "後",

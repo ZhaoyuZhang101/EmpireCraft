@@ -28,6 +28,7 @@ public static class EmpireCraftWorldLawLibrary
     public static WorldLawAsset empirecraft_law_premodern;
     public static WorldLawAsset empirecraft_law_no_commoners;
     public static WorldLawAsset empirecraft_law_fixed_settlements;
+    public static WorldLawAsset empirecraft_law_surname_dynasty;
     public static void init()
     {
         LogService.LogInfo("加载帝国世界规则");
@@ -201,6 +202,14 @@ public static class EmpireCraftWorldLawLibrary
             id = nameof(empirecraft_law_fixed_settlements),
             group_id = "EmpireCraftCommonSetting",
             icon_path = "ui/icons/godpowers/place_village",
+            default_state = false
+        });
+        // 姓氏国号(默认关闭)：新朝再用本天下前朝用过的国号时冠开国之君的姓，同姓用方位，都分不出才加"后"(见 RealmNamingSystem.Founding)
+        AssetManager.world_laws_library.add(empirecraft_law_surname_dynasty = new WorldLawAsset()
+        {
+            id = nameof(empirecraft_law_surname_dynasty),
+            group_id = "EmpireCraftCommonSetting",
+            icon_path = "ui/icons/iconClan",
             default_state = false
         });
         

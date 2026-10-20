@@ -184,8 +184,19 @@ public static partial class RealmNamingSystem
         LogService.LogInfo($"[EmpireCraft][选定国号] {kingdom.GetKingdomName()} 用 {name}，前朝用过，冠 {prefix}");
     }
 
-    // 前朝用过的国号再用冠什么：加"后"(世界法则「姓氏国号」另见 ReusePrefix 的说明)
-    private static string ReusePrefix(Kingdom kingdom, (string surname, City capital) former) => RealmNameRules.Later;
+    // 前朝用过的国号再用冠什么：加"后"；世界法则「姓氏国号」开着时冠开国之君的姓(姓与名之间同方位前缀一样不空格)，
+    // 与前朝同姓用方位(新都相对前朝都城，四方位)，同姓又同都(方位算不出)才加"后"
+    private static string ReusePrefix(Kingdom kingdom, (string surname, City capital) former)
+    {
+        if (EmpireCraftWorldLawLibrary.empirecraft_law_surname_dynasty?.isEnabled() != true) return RealmNameRules.Later;
+        string surname = kingdom.king?.GetSpecificClan()?.name?.Trim() ?? "";
+        if (!string.IsNullOrWhiteSpace(surname) && !string.Equals(surname, former.surname?.Trim(), StringComparison.Ordinal))
+            return surname;
+        City mine = kingdom.capital;
+        if (mine == null || former.capital == null || former.capital == mine) return RealmNameRules.Later;
+        return RealmNameRules.Direction4(former.capital.city_center.x, former.capital.city_center.y,
+            mine.city_center.x, mine.city_center.y) ?? RealmNameRules.Later;
+    }
 
     // ③ 起义军：起事时打了前朝旗号的，称帝用前朝号；本天下有人在用同号按复国规则加方位或"后"
     private static EmpireFoundingNameChoice SelectBannerName(Empire empire, Kingdom kingdom)
