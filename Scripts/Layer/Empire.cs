@@ -700,13 +700,20 @@ public class Empire : MetaObject<EmpireData>
                         DiplomacyHelpers.wars.newWar(k, CoreKingdom, WarTypeLibrary.normal);
                     }
                 }
-                if (currentSpecificClan.HasHistoryEmpire())
+                bool restoredHouse = currentSpecificClan.HasHistoryEmpire();
+                if (restoredHouse)
                 {
                     var historyRecord = currentSpecificClan.GetHistoryEmpire();
                     data.directPre = GetDir(historyRecord.pos);
                     SetEmpireName(historyRecord.name);
                 }
-                if (CoreKingdom.GetRegime().type == RegimeType.LvLing)
+                // 华夏：宗室复辟沿用旧号；其余改朝换代用篡位者的封国名，没有封国用美号(见 RealmNamingSystem.Founding)
+                if (RealmNamingSystem.Enabled && RealmNamingSystem.IsHuaxia(this))
+                {
+                    if (restoredHouse || RealmNamingSystem.NameUsurper(this, actor))
+                        currentSpecificClan.RecordHistoryEmpire(this, CoreKingdom.capital);
+                }
+                else if (CoreKingdom.GetRegime().type == RegimeType.LvLing)
                 {
                     data.directPre = "";
                     nameEmpire = actor.culture.getOnomasticData(MetaType.Kingdom).generateName();
@@ -1500,7 +1507,9 @@ public class Empire : MetaObject<EmpireData>
         {
             if (SpecificClanManager.SameLineage(newKingdom.king.GetSpecificClan(), EmpireSpecificClan))
             {
-                newEmpire.data.directPre = newEmpire.GetDir(this._empireCenter);
+                // 华夏中兴沿用旧号，原朝随即解散、不并存，不加方位(见 RealmNamingSystem.Founding)
+                newEmpire.data.directPre = RealmNamingSystem.Enabled && RealmNamingSystem.IsHuaxia(newKingdom)
+                    ? "" : newEmpire.GetDir(this._empireCenter);
                 newEmpire.SetEmpireName(GetEmpireName());
             }
         }

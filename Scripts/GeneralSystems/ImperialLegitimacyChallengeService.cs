@@ -110,8 +110,17 @@ public static class ImperialLegitimacyChallengeService
             return false;
 
         bool contestsIncumbentCore = EmpireFormationService.GetSeatCoreEmpire(kingdom) == incumbent;
-        Empire challenger = ModClass.EMPIRE_MANAGER.NewEmpire(kingdom, allowCultureRival: true,
-            forceNewCore: true);
+        // 挑战称帝以自家王国法理名为号，不拿那个帝国法理名(见 RealmNamingSystem.Founding)
+        Empire challenger;
+        RealmNamingSystem.BeginChallengeFounding();
+        try
+        {
+            challenger = ModClass.EMPIRE_MANAGER.NewEmpire(kingdom, allowCultureRival: true, forceNewCore: true);
+        }
+        finally
+        {
+            RealmNamingSystem.EndChallengeFounding();
+        }
         if (challenger == null) return false;
         MarkRivalry(challenger, incumbent, challengerIsClaimant: true);
         if (contestsIncumbentCore)

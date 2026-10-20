@@ -25,6 +25,12 @@ public static partial class RealmNamingSystem
             case SourceRestoration:
                 return string.Format(LM.Get("realm_name_source_restored"), empire.GetEmpireName(),
                     LM.Get(string.IsNullOrWhiteSpace(empire.data.founding_prefix) ? RealmNameRules.Later : empire.data.founding_prefix));
+            case SourceGrandName:
+                return LM.Get("realm_name_source_grand");
+            case SourceRebelBanner:
+                return string.Format(LM.Get("realm_name_source_banner"), empire.GetEmpireName());
+            case SourceUsurper:
+                return LM.Get("realm_name_source_usurper");
             case SourceTianxia:
             {
                 EmpireCore lead = UniversalLead(empire);

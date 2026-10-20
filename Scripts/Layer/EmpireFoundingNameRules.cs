@@ -14,7 +14,10 @@ public enum EmpireFoundingNameSource
     CapitalTitle,
     // 天下之名(见 RealmNamingSystem)：据有三分之二的帝国法理、复国的祖号
     DominionCore,
-    RestoredAncestral
+    RestoredAncestral,
+    // 选定国号(见 RealmNamingSystem.Founding)：美号、起义军打的前朝旗号
+    GrandName,
+    RebelBanner
 }
 
 public sealed class EmpireFoundingNameChoice
@@ -34,6 +37,8 @@ public sealed class EmpireFoundingNameChoice
         EmpireFoundingNameSource.CapitalTitle => "empire_name_source_capital_title",
         EmpireFoundingNameSource.DominionCore => "empire_name_source_dominion",
         EmpireFoundingNameSource.RestoredAncestral => "empire_name_source_restored",
+        EmpireFoundingNameSource.GrandName => "empire_name_source_grand",
+        EmpireFoundingNameSource.RebelBanner => "empire_name_source_rebel_banner",
         _ => "empire_name_source_kingdom_name"
     };
 

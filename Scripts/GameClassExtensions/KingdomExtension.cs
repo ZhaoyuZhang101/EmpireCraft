@@ -485,6 +485,9 @@ public static class KingdomExtension
         public long peasant_land_rebellion_origin_kingdom_id = -1L;
         // Persist every empire this polity has rebelled against; ending a war must not permit re-entry.
         public List<long> rebellion_origin_empire_ids = new List<long>();
+        // 起义军打的前朝旗号("复某军")：前朝号与那一朝的帝国法理，称帝时用(见 RealmNamingSystem.Founding)
+        public string rebel_banner_name = "";
+        public long rebel_banner_core_id = -1L;
         public RebellionCauseData last_rebellion_cause;
         public double last_stability_release = -1d;
         // 地方叛乱自动吸纳政权时可再接收的城市数。
@@ -1688,6 +1691,8 @@ public static class KingdomExtension
                 }
                 if (string.IsNullOrEmpty(front)) front = kingdom.GetKingdomName();
                 kingdom.data.name = front + '\u200A' + '\u200A' + LM.Get("rebelling");
+                // 华夏地方起事：三成打前朝旗号，号称"复某军"(见 RealmNamingSystem.Founding)
+                if (warType == EmpireWarType.地方叛乱) EmpireCraft.Scripts.GeneralSystems.RealmNamingSystem.TryRaiseBanner(kingdom, kingdom.GetEmpire());
                 break;
         }
         var extraData = kingdom.GetOrCreate();

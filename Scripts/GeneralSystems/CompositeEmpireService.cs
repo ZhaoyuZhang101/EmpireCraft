@@ -707,7 +707,11 @@ public static partial class CompositeEmpireService
 
         string culture = GetInstitutionalCulture(empire);
         if (!CultureService.IsValidCulture(culture)) return false;
-        CulturalNameCandidate candidate = SelectInstitutionalCultureName(empire, culture);
+        // 入主中原采纳中原制度(兼用、从俗)：改用美号(见 RealmNamingSystem.Founding)
+        string grand = RealmNamingSystem.ConquestGrandName(empire, culture);
+        CulturalNameCandidate candidate = !string.IsNullOrWhiteSpace(grand)
+            ? NewNameCandidate(grand, "grand_name")
+            : SelectInstitutionalCultureName(empire, culture);
         if (candidate == null || string.IsNullOrWhiteSpace(candidate.Name)) return false;
 
         string oldName = empire.GetEmpireName();

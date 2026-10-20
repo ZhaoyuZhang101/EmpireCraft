@@ -95,23 +95,15 @@ public static partial class RealmNamingSystem
         return null;
     }
 
-    // 定国号(Empire.SelectFoundingEmpireName 调用；返回 null 照旧规则)。只管称帝剧情来的(route 不为 None)
+    // 定国号(Empire.SelectFoundingEmpireName 调用；返回 null 照旧规则)。西方只管称帝剧情来的(route 不为 None)
     public static EmpireFoundingNameChoice SelectFoundingName(Empire empire, Kingdom kingdom, EmpireCore riseCore,
         EmpireFormationRoute route)
     {
-        if (!Enabled || empire?.data == null || kingdom == null || route == EmpireFormationRoute.None) return null;
-        if (IsWestern(kingdom)) return SelectWesternName(empire, riseCore);
+        if (!Enabled || empire?.data == null || kingdom == null) return null;
+        if (IsWestern(kingdom)) return route == EmpireFormationRoute.None ? null : SelectWesternName(empire, riseCore);
         if (!IsHuaxia(kingdom)) return null;
-        EmpireCore dominion = DominionCore(kingdom);
-        EmpireFoundingNameChoice restored = SelectRestorationName(empire, kingdom, dominion, riseCore);
-        if (restored != null) return restored;
-        if (dominion == null) return null;
-        string name = CoreName(dominion);
-        if (string.IsNullOrWhiteSpace(name)) return null;
-        empire.data.directPre = "";
-        empire.data.name_source = SourceEmpireTitle;
-        empire.data.named_core_id = dominion.id;
-        return new EmpireFoundingNameChoice(name, EmpireFoundingNameSource.DominionCore);
+        // 华夏的选号顺序见 RealmNamingSystem.Founding(称帝剧情以外的建国——绝嗣裂土、挑战称帝等——也走)
+        return SelectHuaxiaName(empire, kingdom, riseCore, route);
     }
 
     // 西方(方案第 5 步)：称帝即用本帝国的帝国法理名——要绑的现成帝国法理空闲就用它的名；要新建法理的照旧(主法理名，新法理随之得名)
