@@ -100,6 +100,7 @@ public static partial class RealmNamingSystem
         EmpireFormationRoute route)
     {
         if (!Enabled || empire?.data == null || kingdom == null || route == EmpireFormationRoute.None) return null;
+        if (IsWestern(kingdom)) return SelectWesternName(empire, riseCore);
         if (!IsHuaxia(kingdom)) return null;
         EmpireCore dominion = DominionCore(kingdom);
         EmpireFoundingNameChoice restored = SelectRestorationName(empire, kingdom, dominion, riseCore);
@@ -111,6 +112,17 @@ public static partial class RealmNamingSystem
         empire.data.name_source = SourceEmpireTitle;
         empire.data.named_core_id = dominion.id;
         return new EmpireFoundingNameChoice(name, EmpireFoundingNameSource.DominionCore);
+    }
+
+    // 西方(方案第 5 步)：称帝即用本帝国的帝国法理名——要绑的现成帝国法理空闲就用它的名；要新建法理的照旧(主法理名，新法理随之得名)
+    private static EmpireFoundingNameChoice SelectWesternName(Empire empire, EmpireCore riseCore)
+    {
+        if (!IsFormalCore(riseCore) || HolderOf(riseCore) != null || EmpireCoreManager.IsClaimedByContest(riseCore)) return null;
+        string name = CoreName(riseCore);
+        if (string.IsNullOrWhiteSpace(name)) return null;
+        empire.data.name_source = SourceEmpireTitle;
+        empire.data.named_core_id = riseCore.id;
+        return new EmpireFoundingNameChoice(name, EmpireFoundingNameSource.EmpireCore);
     }
 
     // 复国：祖号 + 方位(见文件头)

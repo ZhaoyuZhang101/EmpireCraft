@@ -331,7 +331,7 @@ public class Empire : MetaObject<EmpireData>
             ? OverallHelperFunc.ResolveEmpireTypeKey(CoreKingdom?.GetRegime(), CoreKingdom)
             : data.empire_type_key;
         string typeName = string.IsNullOrWhiteSpace(typeKey) ? "" : LM.Get(typeKey);
-        if (data.western_ordinal >= 2 && CoreKingdom?.GetRegime()?.type == RegimeType.Feudalism)
+        if (ShowsWesternOrdinal())
         {
             string ordinalName = OverallHelperFunc.StripLocalizedTypeSuffix(data.name,
                 GetOrdinalText(data.western_ordinal) + typeName);
@@ -425,7 +425,7 @@ public class Empire : MetaObject<EmpireData>
                 typeName = "";
 
             string localizedPrefix = OverallHelperFunc.LocalizeDirectPrefix(data);
-            if (data.western_ordinal >= 2 && CoreKingdom?.GetRegime()?.type == RegimeType.Feudalism)
+            if (ShowsWesternOrdinal())
             {
                 typeName = GetOrdinalText(data.western_ordinal) + typeName;
                 if (!OverallHelperFunc.IsHolyPrefix(data)) localizedPrefix = "";
@@ -1290,7 +1290,7 @@ public class Empire : MetaObject<EmpireData>
             name = OverallHelperFunc.StripLocalizedTypeSuffix(name, typeName);
         string localizedPrefix = OverallHelperFunc.LocalizeDirectPrefix(data);
         // 西方封建帝国的第二、第三代：不用方位前缀，改称"某某第二帝国"；教宗授的"神圣"不是方位，照旧保留
-        if (data.western_ordinal >= 2 && core.GetRegime()?.type == RegimeType.Feudalism)
+        if (ShowsWesternOrdinal())
         {
             name = OverallHelperFunc.StripLocalizedTypeSuffix(name, GetOrdinalText(data.western_ordinal) + typeName);
             typeName = GetOrdinalText(data.western_ordinal) + typeName;
@@ -1323,6 +1323,11 @@ public class Empire : MetaObject<EmpireData>
         CoreKingdom.GetOrCreate().isEmpire = true;
         SetEmpireName(data.core_name, preserveEmpireType: true);
     }
+
+    // 西方封建帝国称"第几帝国"；以天下之名(普世之名)为号时不排代数(见 RealmNamingSystem)
+    public bool ShowsWesternOrdinal() =>
+        data != null && data.western_ordinal >= 2 && data.name_source != RealmNamingSystem.SourceTianxia &&
+        CoreKingdom?.GetRegime()?.type == RegimeType.Feudalism;
 
     private static string GetOrdinalText(int ordinal)
     {

@@ -27,8 +27,9 @@ public class TempFac_神授君权 : TemporaryFaction
         if (empire?.data != null && kingdom?.data != null && !kingdom.isRekt())
         {
             empire.data.directPre = OverallHelperFunc.HolyPrefixKey;
-            // 国号取教宗国都城的法理(原型"神圣罗马")；都城没有法理时国号照旧，只加前缀
-            string seatName = kingdom.capital?.GetTitle()?.name;
+            // 天下之名开着(用户 2026-10-20 选定)：神授君权只加"神圣"，国号的名字归普世之名(教宗认可，见 RealmNamingSystem)；
+            // 关着照旧：国号取教宗国都城的法理(原型"神圣罗马")，都城没有法理时国号照旧，只加前缀
+            string seatName = EmpireCraft.Scripts.GeneralSystems.RealmNamingSystem.Enabled ? null : kingdom.capital?.GetTitle()?.name;
             empire.SetEmpireName(string.IsNullOrWhiteSpace(seatName) ? empire.GetEmpireName() : seatName);
         }
         

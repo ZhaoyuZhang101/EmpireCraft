@@ -1440,8 +1440,7 @@ public static class EmpireCraftNamePlateLibrary
         if (empire.CoreKingdom?.GetRegime()?.type == RegimeType.Modern) return empireName;
         if (!ModClass.SIMPLE_NAMEPLATE_SWITCH) return empireName;
         if (empire.CoreKingdom?.HasCustomCountryNaming() == true) return empire.GetEmpireName();
-        if (empire.data.western_ordinal >= 2 &&
-            empire.CoreKingdom.GetRegime()?.type == RegimeType.Feudalism) return empireName;
+        if (empire.ShowsWesternOrdinal()) return empireName;
         return OverallHelperFunc.JoinNameParts(OverallHelperFunc.LocalizeDirectPrefix(empire.data),
             empire.GetEmpireName());
     }
