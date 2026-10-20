@@ -18,6 +18,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 抢够就退：洗劫的城数到了要抢的数(单国一城，联盟每部一城，至多四城)，当场判攻方胜、罢兵；
 //   · 打满 RaidYears 年还没抢够也退兵：抢到过就算得手(攻方胜)，一城没抢到算被打退(守方胜)；
 //   · 收场：战争结束、联盟解散，出过兵的部从这时起 RaidCooldownYears 年内不再出兵；守方胜不索赔(打退就是，见 WarGoalSystem)；
+//     买了和、判攻方胜(抢够了或守方求和)、议和时抢到过都算得手，判守方胜或一城没抢到就罢兵算被打退；
 //     得手、被打退、联盟散伙各记一笔。旧档里打着的劫掠之战补一份记录(盟主 = 主攻方，抢一城即退，同旧规)。
 public static partial class NomadRaidSystem
 {
@@ -197,7 +198,8 @@ public static partial class NomadRaidSystem
             if (state.settled) return;
             state.settled = true;
             double now = World.world.getCurWorldTime();
-            bool success = state.bought_off > 0 || winner != WarWinner.Defenders && state.sacked > 0f;
+            // 得手：买了和、判攻方胜(抢够了，或守方欠饷求和)、议和时抢到过；被打退：判守方胜，或一城没抢到就罢兵
+            bool success = state.bought_off > 0 || winner == WarWinner.Attackers || winner != WarWinner.Defenders && state.sacked > 0f;
             var members = state.members.Select(LiveKingdom).Where(member => member != null).ToList();
             foreach (Kingdom member in members)
             {
