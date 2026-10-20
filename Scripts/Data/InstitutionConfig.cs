@@ -263,6 +263,8 @@ public static class InstitutionFeatures
     public const string ProvincialAdministration = "provincial_administration";
     // 苏丹架空哈里发(见 EmirateSystem.IsSultanate)
     public const string Sultanate = "sultanate";
+    // 包税制：游牧政体收税的折扣从五成减轻到七成五(见 KingdomExtension.NomadTaxFactorOf)
+    public const string NomadTaxFarming = "nomad_tax_farming";
     // 元首制(见 Empire.IsPrincipate)
     public const string Principate = "principate";
     // 神权国家（教宗国等神权诉求的前提）

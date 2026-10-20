@@ -1940,10 +1940,17 @@ public static class KingdomExtension
     // 游牧政体收税打对折(用户 2026-10-20 定)：逐水草迁徙，户口不定，按户按田计征收不上来，汗庭的钱更多靠劫掠、
     // 岁币与朝贡。本国向百姓收的各项税(人头、田赋、商税、背景人口纳税)都走这里，所以只在这里乘一次；税级也只给
     // "无/低"两档(YouMu、NomadFeudalism 的 SystemConfig.json 里 option_tax_level 档数为 2，见 Regime.MaxTaxLevel)。
-    // 汗国分封是游牧本族定居后的分封形态，同样打折；水土整国游牧化改成的游牧政体照此打折，不另处理
+    // 汗国分封是游牧本族定居后的分封形态，同样打折；水土整国游牧化改成的游牧政体照此打折，不另处理。
+    // 制度文化施行了包税制(特性 nomad_tax_farming)的，税区包给商人代征，折扣减轻到七成五；税级仍只有"无/低"
     public const float NomadTaxFactor = 0.5f;
+    public const float NomadTaxFarmingFactor = 0.75f;
 
     public static bool IsNomadTaxRegime(RegimeType type) => type is RegimeType.YouMu or RegimeType.NomadFeudalism;
+
+    public static float NomadTaxFactorOf(Kingdom k) =>
+        InstitutionSystem.HasFeature(InstitutionRealm.Of(k)?.Culture, InstitutionFeatures.NomadTaxFarming)
+            ? NomadTaxFarmingFactor
+            : NomadTaxFactor;
 
     public static double GetTaxRate(this Kingdom k)
     {
@@ -1979,7 +1986,7 @@ public static class KingdomExtension
                     rate = baseTax;
                     break;
             }
-            return IsNomadTaxRegime(regime.type) ? rate * NomadTaxFactor : rate;
+            return IsNomadTaxRegime(regime.type) ? rate * NomadTaxFactorOf(k) : rate;
         }
         return baseTax;
     }

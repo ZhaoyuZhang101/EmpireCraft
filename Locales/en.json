@@ -5000,7 +5000,7 @@
   "institution_youmu_subject_register": "Subject Register",
   "institution_youmu_subject_register_desc": "Settled subjects are enrolled in registers, giving the steppe realm a countable tax and manpower base.",
   "institution_youmu_provincial_tax_farming": "Tax Farming",
-  "institution_youmu_provincial_tax_farming_desc": "Tax districts are auctioned to merchant collectors: revenue spikes at once, and the provinces are squeezed raw.",
+  "institution_youmu_provincial_tax_farming_desc": "Tax districts are auctioned to merchant collectors: nomadic regimes collect 75% of the usual tax instead of 50% (tax level still limited to None or Low), and the provinces are squeezed raw.",
   "institution_youmu_dual_administration": "Dual Administration",
   "institution_youmu_dual_administration_desc": "Steppe law governs the nomads and settled law the farmers: two parallel bureaucracies that never merge.",
   "institution_civilization_level": "Civilization Tier",

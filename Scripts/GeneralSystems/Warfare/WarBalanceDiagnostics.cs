@@ -99,7 +99,7 @@ public static class WarBalanceDiagnostics
                         $"积弊均{MaladySystem.Average(empire):0}/武备{MaladySystem.Get(empire, MaladySystem.Military):0} " +
                         $"正统{(empire != null ? empire.Legitimacy.ToString() : "—")} ");
             if (channel == NomadChannel)
-                // 税率是实际生效的(游牧政体已打对折，见 KingdomExtension.NomadTaxFactor)，看军费系数低是不是税收少
+                // 税率是实际生效的(游牧政体已打折，见 KingdomExtension.NomadTaxFactorOf)，看军费系数低是不是税收少
                 text.Append($"思归×{NomadCycleSystem.HomesickLevy(kingdom):0.00} 自立门槛{NomadCycleSystem.SecessionGate(kingdom)} " +
                             $"税率{kingdom.GetTaxRate() * 100d:0.#}%");
             else

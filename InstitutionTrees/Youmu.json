@@ -407,11 +407,10 @@
           "融入": 0.3
         }
       },
+      "features": {
+        "nomad_tax_farming": 1
+      },
       "effects_on_complete": [
-        {
-          "type": "change_tax_level",
-          "value": "High"
-        },
         {
           "type": "add_mandate",
           "int_value": -5

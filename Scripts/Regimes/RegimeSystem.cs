@@ -296,7 +296,7 @@ public class Regime
         return era_name;
     }
     // 税级能选到哪一档：配置 option_tax_level 是 [默认税级, 可选档数]，政体窗口按档数画按钮。游牧政体(游牧、
-    // 汗国分封)配成 2 档，只有"无/低"(收税另打对折，见 KingdomExtension.NomadTaxFactor)；制度改革、诏令要把税级
+    // 汗国分封)配成 2 档，只有"无/低"(收税另打折，见 KingdomExtension.NomadTaxFactorOf)；制度改革、诏令要把税级
     // 提到中、高的，到这一档为止
     public TaxLevel MaxTaxLevel()
     {
