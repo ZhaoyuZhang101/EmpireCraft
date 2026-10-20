@@ -33,6 +33,7 @@ public enum ConditionType
     empire_feature,
     jimi_region,
     hre_estate,
+    holy_city,
     None
 }
 public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
@@ -218,6 +219,15 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
                     int estate = val == "free_city" ? HolyRomanSystem.EstateFreeCity
                         : val == "church" ? HolyRomanSystem.EstateChurch : HolyRomanSystem.EstateNone;
                     if (empire == null || HolyRomanSystem.Estate(kingdom) != estate) return false;
+                    break;
+                }
+                case ConditionType.holy_city:
+                {
+                    // 握有本国所奉宗教的圣地(教宗国只认圣城之主，见 Feudalism 配置与 PapacySystem)
+                    var expect = val.Equals("true", StringComparison.OrdinalIgnoreCase);
+                    City holy = kingdom.hasReligion() ? kingdom.religion.GetCity() : null;
+                    var actual = holy?.data != null && !holy.isRekt() && holy.kingdom == kingdom;
+                    if (actual != expect) return false;
                     break;
                 }
                 case ConditionType.jimi_region:

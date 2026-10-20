@@ -1,5 +1,6 @@
 using System;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
 using NeoModLoader.services;
 
@@ -23,10 +24,12 @@ public class TempFac_神授君权 : TemporaryFaction
         LogService.LogInfo($"执行{this.type}");
         Empire empire = GetEmpire();
         var kingdom = GetKingdomTarget();
-        if (kingdom != null)
+        if (empire?.data != null && kingdom?.data != null && !kingdom.isRekt())
         {
-            empire.data.directPre = "empire_prefix_holy";
-            empire.SetEmpireName(kingdom.capital.GetTitle().name);
+            empire.data.directPre = OverallHelperFunc.HolyPrefixKey;
+            // 国号取教宗国都城的法理(原型"神圣罗马")；都城没有法理时国号照旧，只加前缀
+            string seatName = kingdom.capital?.GetTitle()?.name;
+            empire.SetEmpireName(string.IsNullOrWhiteSpace(seatName) ? empire.GetEmpireName() : seatName);
         }
         
         End();
@@ -46,7 +49,7 @@ public class TempFac_神授君权 : TemporaryFaction
             if (religionKingdom == null) return false;
             if (western && (religionKingdom == empire.CoreKingdom ||
                             religionKingdom.GetKingdomType() != KingdomType.Feudalism_papal_state)) return false;
-            if (religionKingdom.GetRegime().GetReligionLevel() == ReligionLevel.High)
+            if (religionKingdom.GetRegime()?.GetReligionLevel() == ReligionLevel.High)
             {
                 if (religionKingdom.IsInSameEmpire(empire.CoreKingdom))
                 {

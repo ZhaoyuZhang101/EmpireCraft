@@ -104,7 +104,22 @@
           "condition": [],
           "city_type": "Feudalism_city"
         },
-        // 帝国自由城市(市长)、教会诸侯(主教领，大主教)：帝国的特殊成员，最先判定(见 HolyRomanSystem.Members)
+        // 教宗国：神权国家之内握有本宗教圣地的成员(见 TempFac_恢复圣地、TempFac_神授君权、PapacySystem)。
+        // 要排在各级封建领地之前判定——圣城之主多半有法理，排在后面就永远成了公国、伯国，帝国里也就从来没有教宗国
+        "Feudalism_papal_state": {
+          "pre": "",
+          "type": 1,
+          "description": "",
+          "powers": [],
+          "merit": -1,
+          "honorary": -1,
+          "select_from_local": false,
+          "leader_select_method": "Default",
+          "require_traits": [],
+          "condition": ["empire_center:false", "holy_city:true", "religion_level:>=|3", "empire_feature:theocratic_state"],
+          "city_type": "Feudalism_religion_district"
+        },
+        // 帝国自由城市(市长)、教会诸侯(主教领，大主教)：帝国的特殊成员，紧接教宗国判定(见 HolyRomanSystem.Members)
         "Feudalism_free_city": {
           "pre": "",
           "type": 8,
@@ -223,19 +238,6 @@
           "require_traits": [],
           "condition": ["is_border:true", "empire_center:false"],
           "city_type": "Feudalism_city"
-        },
-        "Feudalism_papal_state": {
-          "pre": "",
-          "type": 1,
-          "description": "",
-          "powers": [],
-          "merit": -1,
-          "honorary": -1,
-          "select_from_local": false,
-          "leader_select_method": "Default",
-          "require_traits": [],
-          "condition": ["religion_level:>=|3", "empire_feature:theocratic_state", "empire_center:false"],
-          "city_type": "Feudalism_religion_district"
         },
         "Feudalism_empire": {
           "pre": "",
