@@ -249,6 +249,20 @@ namespace EmpireCraft.Scripts.UI.Windows
                 UIHelper.AttachTextTooltip(legacyLine.gameObject, $"legacy_institution_{_empire.CoreKingdom.id}",
                     LM.Get("legacy_institution_tip_title"), LegacyInstitutionSystem.Tooltip(_empire.CoreKingdom, legacy));
             }
+            // 天下之名：国号来源(据有帝国法理、复国、天下之名)、各京、第二直隶(见 RealmNamingSystem)
+            foreach ((string text, string hex) in new[]
+                     {
+                         (RealmNamingSystem.NameSourceLine(_empire), "#E8C66A"),
+                         (RealmNamingSystem.JingLine(_empire), "#C8C2B4"),
+                         (RealmNamingSystem.ZhiliLine(_empire), "#C8C2B4")
+                     })
+            {
+                if (string.IsNullOrWhiteSpace(text)) continue;
+                var realmLine = identity.AddTextIntoVertLayout(text.ColorString(hex), true, TextAnchor.MiddleLeft,
+                    new Vector2(inner, 9f));
+                realmLine.UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+                HoverMarqueeText.Attach(realmLine);
+            }
             // 共和国显示其选定的纪年方式
             string yearText = republic ? RepublicSystem.GetCalendarText(_empire) : _empire.GetYearNameWithTime();
             identity.AddTextIntoVertLayout(yearText.ColorString(pColor: _empire.getColor()._color_text), true,

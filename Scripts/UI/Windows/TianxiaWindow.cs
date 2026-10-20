@@ -70,6 +70,12 @@ namespace EmpireCraft.Scripts.UI.Windows
                 TianxiaSystem.Rename(lead, value);
                 Refresh();
             });
+            // 天下基名：普世之名、唯一合法政府国号所用(见 RealmNamingSystem)
+            identity.AddRailInput(LM.Get("tianxia_base_input"), RealmNamingSystem.TianxiaBaseName(lead), value =>
+            {
+                RealmNamingSystem.SetTianxiaBase(lead, value);
+                Refresh();
+            });
 
             var menu = rail.BeginRailMenu(LM.Get("tianxia_section_all"));
             int index = 0;

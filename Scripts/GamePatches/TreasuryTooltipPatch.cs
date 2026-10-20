@@ -56,6 +56,9 @@ public class TreasuryTooltipPatch : GamePatch
     public static void TradeRouteLine(Tooltip __1, TooltipData __2)
     {
         if (__2.city?.data == null) return;
+        // 京师、陪京(见 MultiCapitalSystem)
+        string jing = EmpireCraft.Scripts.GeneralSystems.MultiCapitalSystem.JingNameOf(__2.city);
+        if (!string.IsNullOrEmpty(jing)) __1.addLineText("city_jing", jing, "#F3C34A");
         string status = EmpireCraft.Scripts.GeneralSystems.TradeRouteSystem.Describe(__2.city);
         if (status != null) __1.addLineText("city_trade_route", status, "#6CC7E7");
     }

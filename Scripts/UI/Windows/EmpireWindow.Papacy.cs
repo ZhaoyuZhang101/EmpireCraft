@@ -76,6 +76,8 @@ namespace EmpireCraft.Scripts.UI.Windows
             realm.AddListRow(HalfWidth, 3, null, LM.Get("papacy_party_emperor"), Names(ghibellines), titleWidth: 56f);
             if (state.national_church_id >= 0)
                 realm.AddListRow(HalfWidth, 4, null, LM.Get("papacy_national_church"), religion.name, titleWidth: 56f);
+            // 普世之名(见 RealmNamingSystem.Universal)
+            realm.AddListRow(HalfWidth, 5, null, LM.Get("papacy_universal_name"), RealmNamingSystem.UniversalStatus(_empire), titleWidth: 56f);
 
             War crusade = PapacySystem.ActiveCrusade(religion);
             var holyWar = page.BeginCard(MainWidth, "papacy_crusade_title", WideKit.Red,
@@ -126,6 +128,18 @@ namespace EmpireCraft.Scripts.UI.Windows
                 }),
                 ("papacy_act_crusade", LM.Get("papacy_act_crusade"), () => { if (PapacySystem.ActCrusade(_empire)) ShowPapacy(pArg0); }),
                 ("papacy_act_order", LM.Get("papacy_act_order"), () => { if (PapacySystem.ActFoundOrder(_empire)) ShowPapacy(pArg0); }));
+            // 普世之名：直接授(须在天下里、天下没有别的普世皇帝)、收回
+            actions.AddButtonRow(MainWidth,
+                ("papacy_act_universal", LM.Get("papacy_act_universal"), () =>
+                {
+                    if (RealmNamingSystem.DecreeUniversal(_empire)) ShowPapacy(pArg0);
+                    else ShowPapacyBlocked("papacy_universal_blocked");
+                }),
+                ("papacy_act_universal_revoke", LM.Get("papacy_act_universal_revoke"), () =>
+                {
+                    RealmNamingSystem.DecreeRevoke(_empire);
+                    ShowPapacy(pArg0);
+                }));
             StartCoroutine(RefreshScrollLayout(resetToTop: true));
         }
 
