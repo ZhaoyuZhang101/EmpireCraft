@@ -67,6 +67,8 @@ public static class CapitalLossNamingSystem
         }
         if (data.capital_loss_prefix_applied || Date.getYearsSince(data.core_capital_lost_since) < LostYears) return;
         if (core.capital == oldCapital) return;
+        // 教宗授的"神圣"不是方位，失都也不拿方位顶掉它
+        if (OverallHelperFunc.IsHolyPrefix(data)) return;
         string before = empire.GetEmpireFullName();
         data.capital_loss_previous_prefix = Array.IndexOf(Directions, data.directPre) >= 0 ? "" : data.directPre ?? "";
         data.directPre = DirectionFrom(oldCapital.city_center, core.capital.city_center);

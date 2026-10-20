@@ -299,6 +299,17 @@ namespace EmpireCraft.Scripts.HelperFunc
             { "Later", "Later" },
         };
 
+        public const string HolyPrefixKey = "empire_prefix_holy";
+
+        // 国号前缀是教宗授的"神圣"(神授君权，见 TempFac_神授君权)：不是方位词，西方第二帝国、失都改称都不去掉它
+        public static bool IsHolyPrefix(EmpireData data)
+        {
+            string chosen = data?.prefix_manual == true ? data.prefix_choice : data?.directPre;
+            if (string.IsNullOrWhiteSpace(chosen)) return false;
+            string raw = chosen.Trim();
+            return (DirectPrefixKeyMap.TryGetValue(raw, out string mapped) ? mapped : raw) == HolyPrefixKey;
+        }
+
         public static string LocalizeDirectPrefix(EmpireData data)
         {
             // 帝国设置里手选了前缀：以它为准，系统自动加的方位词不再生效

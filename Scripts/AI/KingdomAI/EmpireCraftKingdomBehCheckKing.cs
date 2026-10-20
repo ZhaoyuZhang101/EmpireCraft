@@ -172,6 +172,8 @@ public class EmpireCraftKingdomBehCheckKing : GameAIKingdomBase
                 if (empire != null && !empire.isRekt() && !empire.IsArchived())
                 {
                     empire.CoreKingdom = lastKingdom;
+                    // 继承人带着自己的封国入继大统：国号不随他的封国改(换了皇族的，由 Empire.NewEmperor 的篡位分支另定国号)
+                    empire.KeepNameOnNewCore();
                 }
             }
             pKingdom.cities.ForEach(c=>{ if (c != null && !c.isRekt()) c.joinAnotherKingdom(lastKingdom); });

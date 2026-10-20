@@ -92,12 +92,18 @@ public static partial class HolyRomanSystem
             Kingdom house = elected.kingdom;
             if (house == null || house == seat || house.GetEmpire() != empire || house.king != elected || !house.hasCapital())
                 return false;
-            string former = seat.GetKingdomName();
-            if (!empire.TransferCoreTo(house)) return false;
+            // 已经坐在中央的皇帝不再"当选"一次：同一次选举里 SetActor 会被再调几回，以前帝国重心在两三家之间来回搬
+            if (seat.king == elected) return false;
+            // 中央顶着帝国的国号，原家族领地按它的法理称呼；新家族的名字要在交出国号之前取
+            string former = seat.GetMainTitle()?.name;
+            if (string.IsNullOrWhiteSpace(former)) former = seat.GetKingdomName();
+            string houseName = house.GetKingdomName();
+            // 选帝换家族不改国号(帝国本身照旧，见文件头)
+            if (!empire.TransferCoreTo(house, keepName: true)) return false;
             HolyRomanState state = State(empire);
             Elected(empire, state, elected);
             Concede(empire, state);
-            Record(empire, string.Format(LM.Get("hre_election_history"), elected.getName(), house.GetKingdomName(),
+            Record(empire, string.Format(LM.Get("hre_election_history"), elected.getName(), houseName,
                 house.capital?.GetCityName() ?? "", former));
             return true;
         }

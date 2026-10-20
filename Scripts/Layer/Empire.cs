@@ -428,7 +428,7 @@ public class Empire : MetaObject<EmpireData>
             if (data.western_ordinal >= 2 && CoreKingdom?.GetRegime()?.type == RegimeType.Feudalism)
             {
                 typeName = GetOrdinalText(data.western_ordinal) + typeName;
-                localizedPrefix = "";
+                if (!OverallHelperFunc.IsHolyPrefix(data)) localizedPrefix = "";
             }
             return OverallHelperFunc.FormatEmpireFullName(coreName, typeName, localizedPrefix, GetNamingCulture());
         }
@@ -1284,12 +1284,12 @@ public class Empire : MetaObject<EmpireData>
         else
             name = OverallHelperFunc.StripLocalizedTypeSuffix(name, typeName);
         string localizedPrefix = OverallHelperFunc.LocalizeDirectPrefix(data);
-        // 西方封建帝国的第二、第三代：不用方位前缀，改称"某某第二帝国"
+        // 西方封建帝国的第二、第三代：不用方位前缀，改称"某某第二帝国"；教宗授的"神圣"不是方位，照旧保留
         if (data.western_ordinal >= 2 && core.GetRegime()?.type == RegimeType.Feudalism)
         {
             name = OverallHelperFunc.StripLocalizedTypeSuffix(name, GetOrdinalText(data.western_ordinal) + typeName);
             typeName = GetOrdinalText(data.western_ordinal) + typeName;
-            localizedPrefix = "";
+            if (!OverallHelperFunc.IsHolyPrefix(data)) localizedPrefix = "";
         }
         if (!string.IsNullOrWhiteSpace(localizedPrefix))
         {
@@ -1307,6 +1307,16 @@ public class Empire : MetaObject<EmpireData>
         if (core.data != null) core.SetKingdomCoreName(name, data.name);
         if (data.currentHistory != null && data.currentHistory.id == Emperor?.id)
             data.currentHistory.empire_full_name = GetEmpireFullName();
+    }
+
+    // 帝国换了核心王国(选帝换家族、储君带着封国入继、中央丢光城池就地改立)：国号照旧。
+    // 国号存在核心王国的核心名上，每月 SyncKingdomStatus 按核心王国的名字重设国号；不先把帝国的名字写到新核心上，
+    // 下个月国号就成了新核心自己的法理名(西方选帝制每换一家就改一次国号)
+    public void KeepNameOnNewCore()
+    {
+        if (CoreKingdom?.data == null || CoreKingdom.isRekt() || string.IsNullOrWhiteSpace(data?.core_name)) return;
+        CoreKingdom.GetOrCreate().isEmpire = true;
+        SetEmpireName(data.core_name, preserveEmpireType: true);
     }
 
     private static string GetOrdinalText(int ordinal)
@@ -1410,8 +1420,9 @@ public class Empire : MetaObject<EmpireData>
 
     // 返回是否成功由 newKingdom 接续为新帝国（成功时本帝国会被解散）
     // 选帝制(神圣罗马式)：当选的诸侯带着自家领国成为帝国中央，帝都随之搬迁；原中央降为普通诸侯国、仍归原皇族。
-    // 帝国本身(国号、历史、帝国核心)不变，只换中央与皇族(同中央丢光城池时就地改立中央，见 checkActive)
-    public bool TransferCoreTo(Kingdom newCore)
+    // 帝国本身(国号、历史、帝国核心)不变，只换中央与皇族(同中央丢光城池时就地改立中央，见 checkActive)。
+    // keepName：国号随帝国留下(选帝制)；不传的(华夏原始政体推举共主，见 ShanrangSystem)照旧随新的共主之部改称
+    public bool TransferCoreTo(Kingdom newCore, bool keepName = false)
     {
         Kingdom old = CoreKingdom;
         if (newCore == null || newCore.isRekt() || newCore == old || !kingdoms_hashset.Contains(newCore) ||
@@ -1431,6 +1442,8 @@ public class Empire : MetaObject<EmpireData>
         SyncCoreKingdomReference();
         data.centerOffice?.Init(CoreKingdom);
         recalculate();
+        // 先定国号再登基：即位的史书、世界提示用的是照旧的国号
+        if (keepName) KeepNameOnNewCore();
         NewEmperor(newCore.king);
         return true;
     }
@@ -2014,6 +2027,8 @@ public class Empire : MetaObject<EmpireData>
                 coreChanged = candidate != currentCore;
                 CoreKingdom = candidate;
                 SyncCoreKingdomReference();
+                // 原中央灭亡或丢光城池、就地改立中央：同一个帝国，国号不随新中央改
+                if (coreChanged && currentCore != null) KeepNameOnNewCore();
                 repaired = true;
             }
         }
@@ -2193,6 +2208,7 @@ public class Empire : MetaObject<EmpireData>
                     CoreKingdom = candidate;
                     SyncCoreKingdomReference();
                     data.centerOffice.Init(CoreKingdom);
+                    KeepNameOnNewCore();
                     if (originalEmperor != null && !originalEmperor.isRekt())
                     {
                         if (CoreKingdom.king != originalEmperor)
