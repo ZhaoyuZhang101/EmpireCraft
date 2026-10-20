@@ -30,6 +30,9 @@ public static partial class HolyRomanSystem
     private const float KingOfRomansCost = 0.1f;
     private const float WeakHouse = 0.1f, StrongHouse = 0.25f, DominantHouse = 0.4f;
 
+    // 正在按选帝侯的推举立皇帝(OfficeSelector 选出、SetActor 即位的那一刻)：即位不扣正统，见 Empire.NewEmperor
+    public static bool Electing;
+
     public static HolyRomanState State(Empire empire)
     {
         if (empire?.data == null) return null;

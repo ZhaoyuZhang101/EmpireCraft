@@ -642,7 +642,8 @@ public class Empire : MetaObject<EmpireData>
         if (!IsRepublicState) RegnalNameService.OnEmperorCrowned(this, actor);
         // 共和国元首按选举更替，不扣正统
         if (IsRepublicState) isNew = true;
-        if (!isNew)
+        // 选帝侯推举的皇帝(选帝制)是正常换届，不吃普通即位的 -20；篡位、政变、权臣代立不走选举，照旧扣
+        if (!isNew && !HolyRomanSystem.Electing)
         {
             AddMandate(-20);
         }

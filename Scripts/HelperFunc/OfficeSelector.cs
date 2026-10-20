@@ -84,7 +84,18 @@ public static class OfficeSelector
 
         if (actor != null)
         {
-            office.SetActor(actor);
+            // 选帝制：选帝侯推举的皇帝即位(含带着家族领国入主中央)不按普通即位扣正统，见 Empire.NewEmperor
+            bool election = method == LeaderSelectMethod.Vote && office == pKingdom.GetOffice() && pKingdom.IsEmpire() &&
+                            HolyRomanSystem.IsElective(pKingdom.GetEmpire());
+            if (election) HolyRomanSystem.Electing = true;
+            try
+            {
+                office.SetActor(actor);
+            }
+            finally
+            {
+                if (election) HolyRomanSystem.Electing = false;
+            }
         }
     }
 
