@@ -27,7 +27,7 @@ public class TempFac_修氏族志 : TemporaryFaction
         LogService.LogInfo($"执行{this.type}");
         Empire empire = GetEmpire();
         (int raised, int lowered) = GentrySystem.ReviseRegister(empire);
-        CompletionOutcome = string.Format(LM.Get("claim_outcome_修氏族志_revised"), raised, lowered);
+        CompletionOutcome = string.Format(GeneralSystems.CultureDoctrines.Text("claim_outcome_修氏族志_revised", GetEmpire()), raised, lowered);
         End();
     }
 

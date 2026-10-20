@@ -1026,14 +1026,17 @@ public static class TechnologySystem
         }
     }
 
-    public static string DescribeFeature(TechInstitutionLink link)
+    public static string DescribeFeature(TechInstitutionLink link) => DescribeFeature(link, null);
+
+    // culture：看的是哪个文化(古代理念按文化线叫，西方"促成经院正统"……见 CultureDoctrines)
+    public static string DescribeFeature(TechInstitutionLink link, string culture)
     {
         string key = $"tech_feature_{link.feature.Replace(':', '_')}";
         if (link.min_value > 1f) key += $"_{link.min_value:0}";
         string text = LM.Get(key);
         if (!string.IsNullOrWhiteSpace(text) && text != key) return text;
         if (IdeologySpreadSystem.TryParseFeature(link.feature, out PartyIdeology ideology))
-            return string.Format(LM.Get("tech_feature_ideology"), PartySystem.GetIdeologyName(ideology));
+            return string.Format(LM.Get("tech_feature_ideology"), PartySystem.GetIdeologyName(ideology, culture));
         return link.feature;
     }
 

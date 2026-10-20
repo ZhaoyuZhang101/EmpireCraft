@@ -43,7 +43,7 @@ public class TempFac_屯田实边 : TemporaryFaction
             }
             ClaimPolicySystem.AddGrievance(empire, SocialClass.Army, -5f);
             ClaimPolicySystem.AddGrievance(empire, SocialClass.Peasant, 2f);
-            CompletionOutcome = string.Format(LM.Get("claim_outcome_屯田实边_done"), cities.Count, grain);
+            CompletionOutcome = string.Format(GeneralSystems.CultureDoctrines.Text("claim_outcome_屯田实边_done", GetEmpire()), cities.Count, grain);
             int delayed = ShuiTuSystem.Delay(empire.CoreKingdom);
             if (delayed > 0) CompletionOutcome += string.Format(LM.Get("claim_outcome_屯田实边_shuitu"), delayed);
         }

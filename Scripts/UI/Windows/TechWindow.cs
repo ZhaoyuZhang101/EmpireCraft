@@ -529,7 +529,7 @@ public class TechWindow : AbstractWideWindow<TechWindow>
         requires.AddRange(tech.requires_institutions.Select(requirement =>
             Mark(TechnologySystem.IsInstitutionRequirementMet(_culture, requirement)) +
             TechnologySystem.DescribeFeature(new TechInstitutionLink
-                { feature = requirement.feature, min_value = requirement.min_value })));
+                { feature = requirement.feature, min_value = requirement.min_value }, _culture)));
         if (requires.Count > 0) lines.Add(LM.Get("tech_requires") + string.Join("  ", requires));
         // 还没满足时顺着前置往回找，列出真正卡住的地方：现在就能研究的前置科技、缺的材料(及发现条件)、文明等级与制度
         if (status == TechNodeStatus.Locked && MissingChain(tech) is string chain) lines.Add(chain);
@@ -542,7 +542,7 @@ public class TechWindow : AbstractWideWindow<TechWindow>
             unlocks.Add(string.Format(LM.Get("tech_enables_institution"), string.Join("、", institutions)).ColorString("#C9A7E8"));
         foreach ((TechInstitutionLink link, bool gate, float push) in TechnologySystem.GetInstitutionEffects(tech.id))
         {
-            string feature = TechnologySystem.DescribeFeature(link);
+            string feature = TechnologySystem.DescribeFeature(link, _culture);
             unlocks.Add(gate
                 ? string.Format(LM.Get("tech_enables_institution"), feature).ColorString("#C9A7E8")
                 : string.Format(LM.Get("tech_drives_institution"), feature, (push * 100f).ToString("0"))

@@ -33,7 +33,7 @@ public class TempFac_封赏后族 : TemporaryFaction
         if (chief?.data != null && key != null && chief.GrantHonoraryPeerage(empire, key))
         {
             chief.editRenown(Renown);
-            CompletionOutcome = string.Format(LM.Get("claim_outcome_封赏后族_granted"), chief.getName(), LM.Get(key));
+            CompletionOutcome = string.Format(GeneralSystems.CultureDoctrines.Text("claim_outcome_封赏后族_granted", GetEmpire()), chief.getName(), LM.Get(key));
         }
         End();
     }

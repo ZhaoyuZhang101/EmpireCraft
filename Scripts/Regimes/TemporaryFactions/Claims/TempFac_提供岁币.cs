@@ -38,7 +38,7 @@ public class TempFac_提供岁币 : TemporaryFaction
             if (PaidBudget > 0)
             {
                 kingdom.AddMoney(PaidBudget, TreasuryCategory.Tribute);
-                CompletionOutcome = string.Format(LM.Get("claim_outcome_提供岁币_paid"), PaidBudget,
+                CompletionOutcome = string.Format(GeneralSystems.CultureDoctrines.Text("claim_outcome_提供岁币_paid", GetEmpire()), PaidBudget,
                     kingdom.GetKingdomFullName());
             }
             EventRecorder.Record(empire, string.Format(LM.Get("tribute_peace_history"), empire.GetEmpireFullName(),

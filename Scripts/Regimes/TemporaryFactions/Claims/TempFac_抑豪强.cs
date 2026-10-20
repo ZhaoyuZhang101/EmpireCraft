@@ -26,7 +26,7 @@ public class TempFac_抑豪强 : TemporaryFaction
         LogService.LogInfo($"执行{this.type}");
         Empire empire = GetEmpire();
         (int clans, int money) = GentrySystem.CurbMagnates(empire);
-        if (clans > 0) CompletionOutcome = string.Format(LM.Get("claim_outcome_抑豪强_curbed"), clans, MoneyDisplay.Format(money));
+        if (clans > 0) CompletionOutcome = string.Format(GeneralSystems.CultureDoctrines.Text("claim_outcome_抑豪强_curbed", GetEmpire()), clans, MoneyDisplay.Format(money));
         End();
     }
 

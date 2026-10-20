@@ -34,7 +34,7 @@ public class TempFac_封禅 : TemporaryFaction
         {
             empire.AddMandate(5);
             ClaimPolicySystem.AddGrievance(empire, SocialClass.Peasant, 3f);
-            CompletionOutcome = LM.Get("claim_outcome_封禅_done");
+            CompletionOutcome = GeneralSystems.CultureDoctrines.Text("claim_outcome_封禅_done", GetEmpire());
         }
         End();
     }

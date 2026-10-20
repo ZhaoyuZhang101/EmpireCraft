@@ -32,7 +32,7 @@ public class TempFac_太后临朝 : TemporaryFaction
         {
             dowager.editRenown(DowagerRenown);
             ConsortKinSystem.Chief(empire)?.editRenown(ChiefRenown);
-            CompletionOutcome = string.Format(LM.Get("claim_outcome_太后临朝_regent"), dowager.getName());
+            CompletionOutcome = string.Format(GeneralSystems.CultureDoctrines.Text("claim_outcome_太后临朝_regent", GetEmpire()), dowager.getName());
         }
         End();
     }

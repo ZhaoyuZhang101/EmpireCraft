@@ -55,7 +55,7 @@ public class TemporaryFactionExecutePatch : GamePatch
             {
                 FactionClassSystem.ApplyClaimOutcome(empire, __instance.factionID, __instance.type);
                 TranslateHelper.LogTemporaryFactionSucceeded(empire, claimName, targetName, crimeName,
-                    __instance.CompletionOutcome ?? ClaimTuning.Outcome(__instance.type));
+                    __instance.CompletionOutcome ?? ClaimTuning.Outcome(__instance.type, empire));
             }
             else
             {

@@ -145,6 +145,9 @@ public static class CultureDoctrines
         return LM.Has(other) ? other : baseKey;
     }
 
+    // 文字按帝国的文化线(诉求结果等，见 TranslateHelper、ClaimTuning)：同 Key 的查法
+    public static string Text(string baseKey, Empire empire) => LM.Get(Key(baseKey, CultureOf(empire)));
+
     // 学说名：古代理念按文化换说法，近代理念照旧
     public static string Name(PartyIdeology ideology, string culture) =>
         LM.Get(IdeologyFamilies.IsAncient(ideology) ? Key($"party_ideology_{ideology}", culture) : $"party_ideology_{ideology}");
@@ -182,6 +185,28 @@ public static class CultureDoctrines
             parts.Add($"{LM.Get("doctrine_set_" + set)}·{LM.Get(key)}");
         }
         return string.Join("、", parts);
+    }
+
+    // 制度树里开放党禁后生成的古代理念节点(IdeologyInstitutionPaths)：名字按这棵树的文化叫；不是这类节点返回空。
+    // 理念本身那一格叫学说名，三个阶段叫"学说名 · 群众组织"之类(以前古代理念的阶段没有译文，标题显示成节点 id)
+    public static string NodeName(InstitutionNodeConfig node, string culture)
+    {
+        if (node == null || !IdeologyInstitutionPaths.TryGetIdeology(node.branch, out PartyIdeology ideology) ||
+            !IdeologyFamilies.IsAncient(ideology)) return null;
+        if (node.name_key == $"party_ideology_{ideology}") return Name(ideology, culture);
+        for (int stage = 1; stage <= 3; stage++)
+            if (node.name_key == $"ideology_{ideology}_stage_{stage}" && !LM.Has(node.name_key))
+                return $"{Name(ideology, culture)} · {LM.Get($"ideology_stage_{stage}")}";
+        return null;
+    }
+
+    // 古代理念那一格节点的说明后面接上本文化的学说说明；不是这类节点返回空
+    public static string NodeDescriptionSuffix(InstitutionNodeConfig node, string culture)
+    {
+        if (node == null || !IdeologyInstitutionPaths.TryGetIdeology(node.branch, out PartyIdeology ideology) ||
+            !IdeologyFamilies.IsAncient(ideology) || node.name_key != $"party_ideology_{ideology}") return null;
+        string description = Description(ideology, culture);
+        return string.IsNullOrEmpty(description) ? null : description;
     }
 
     #endregion

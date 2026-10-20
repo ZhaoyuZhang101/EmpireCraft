@@ -95,4 +95,13 @@ public static class ClaimTuning
         string text = LM.Get(key);
         return string.IsNullOrWhiteSpace(text) || text == key ? null : text;
     }
+
+    // 按帝国的文化线(西方不写"推行三省六部制"……见 CultureDoctrines)；没有专门结果文本的返回 null
+    public static string Outcome(TemporaryFactionType type, Empire empire)
+    {
+        string baseKey = OutcomeKey(type);
+        string key = CultureDoctrines.Key(baseKey, CultureDoctrines.CultureOf(empire));
+        string text = LM.Get(key);
+        return string.IsNullOrWhiteSpace(text) || text == key ? Outcome(type) : text;
+    }
 }

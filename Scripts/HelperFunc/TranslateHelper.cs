@@ -502,9 +502,19 @@ namespace EmpireCraft.Scripts.HelperFunc
         // 按帝国换称呼的诉求名(华夏原始政体：索取皇位 → 争为共主，见 DynastyNaming.Term)
         public static string GetTemporaryFactionClaimText(TemporaryFactionType claimType, Empire empire)
         {
-            string key = EmpireCraft.Scripts.GeneralSystems.DynastyNaming.Term(empire, $"temporary_faction_claim_{(int)claimType}");
-            return key.EndsWith("_huaxia_origin", StringComparison.Ordinal) ? LM.Get(key) : GetTemporaryFactionClaimText(claimType);
+            string baseKey = $"temporary_faction_claim_{(int)claimType}";
+            string key = EmpireCraft.Scripts.GeneralSystems.DynastyNaming.Term(empire, baseKey);
+            if (key.EndsWith("_huaxia_origin", StringComparison.Ordinal)) return LM.Get(key);
+            // 诉求按帝国的文化线换说法(西方不叫推行三省六部、屯田实边……见 CultureDoctrines)，机制不变
+            string cultureKey = CultureDoctrines.Key(baseKey, CultureDoctrines.CultureOf(empire));
+            return cultureKey != baseKey ? LM.Get(cultureKey) : GetTemporaryFactionClaimText(claimType);
         }
+
+        // 史书、朝局纪事里的诉求名：按帝国的文化线(诉求名记的是枚举名)
+        public static string GetTemporaryFactionClaimText(string claimName, Empire empire) =>
+            empire != null && Enum.TryParse(claimName, out TemporaryFactionType claimType)
+                ? GetTemporaryFactionClaimText(claimType, empire)
+                : GetTemporaryFactionClaimText(claimName);
 
         public static string GetTemporaryFactionClaimText(TemporaryFactionType claimType)
         {
@@ -663,7 +673,7 @@ namespace EmpireCraft.Scripts.HelperFunc
                 CreateTemporaryFactionMessage(EmpireCraftWorldLogLibrary.temporary_faction_prepare_crime_log, empire,
                     targetName,
                     GetTemporaryFactionCrimeText(crimeName),
-                    GetTemporaryFactionClaimText(claimName)).RecordIntoEmpire(empire);
+                    GetTemporaryFactionClaimText(claimName, empire)).RecordIntoEmpire(empire);
                 return;
             }
 
@@ -673,7 +683,7 @@ namespace EmpireCraft.Scripts.HelperFunc
 
             CreateTemporaryFactionMessage(asset, empire,
                 empire.GetEmpireName() ?? empire.data?.name ?? "",
-                GetTemporaryFactionClaimText(claimName),
+                GetTemporaryFactionClaimText(claimName, empire),
                 targetName ?? "").RecordIntoEmpire(empire);
         }
 
@@ -689,7 +699,7 @@ namespace EmpireCraft.Scripts.HelperFunc
             {
                 CreateTemporaryFactionMessage(EmpireCraftWorldLogLibrary.temporary_faction_success_outcome_log,
                     empire, empire.GetEmpireName() ?? empire.data?.name ?? "",
-                    GetTemporaryFactionClaimText(claimName), outcome)
+                    GetTemporaryFactionClaimText(claimName, empire), outcome)
                     .RecordNationalHistoryIntoEmpire(empire, empire.Emperor);
                 return;
             }
@@ -699,7 +709,7 @@ namespace EmpireCraft.Scripts.HelperFunc
                 CreateTemporaryFactionMessage(EmpireCraftWorldLogLibrary.temporary_faction_success_crime_log, empire,
                     targetName,
                     GetTemporaryFactionCrimeText(crimeName),
-                    GetTemporaryFactionClaimText(claimName)).RecordIntoEmpire(empire);
+                    GetTemporaryFactionClaimText(claimName, empire)).RecordIntoEmpire(empire);
                 return;
             }
 
@@ -709,7 +719,7 @@ namespace EmpireCraft.Scripts.HelperFunc
 
             CreateTemporaryFactionMessage(asset, empire,
                 empire.GetEmpireName() ?? empire.data?.name ?? "",
-                GetTemporaryFactionClaimText(claimName),
+                GetTemporaryFactionClaimText(claimName, empire),
                 targetName ?? "").RecordIntoEmpire(empire);
         }
 
@@ -725,7 +735,7 @@ namespace EmpireCraft.Scripts.HelperFunc
                 CreateTemporaryFactionMessage(EmpireCraftWorldLogLibrary.temporary_faction_failed_crime_log, empire,
                     targetName,
                     GetTemporaryFactionCrimeText(crimeName),
-                    GetTemporaryFactionClaimText(claimName)).RecordIntoEmpire(empire);
+                    GetTemporaryFactionClaimText(claimName, empire)).RecordIntoEmpire(empire);
                 return;
             }
 
@@ -735,7 +745,7 @@ namespace EmpireCraft.Scripts.HelperFunc
 
             CreateTemporaryFactionMessage(asset, empire,
                 empire.GetEmpireName() ?? empire.data?.name ?? "",
-                GetTemporaryFactionClaimText(claimName),
+                GetTemporaryFactionClaimText(claimName, empire),
                 targetName ?? "").RecordIntoEmpire(empire);
         }
 

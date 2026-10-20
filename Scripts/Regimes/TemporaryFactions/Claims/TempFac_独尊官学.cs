@@ -36,7 +36,7 @@ public class TempFac_独尊官学 : TemporaryFaction
         {
             AncientSchoolsSystem.SetOrthodox(empire, proposer.Ideology);
             empire.CoreKingdom.TryIncreaseFactionRatio(proposer, 10);
-            CompletionOutcome = string.Format(LM.Get("claim_outcome_独尊官学_done"), PartySystem.GetIdeologyName(proposer.Ideology));
+            CompletionOutcome = string.Format(GeneralSystems.CultureDoctrines.Text("claim_outcome_独尊官学_done", GetEmpire()), PartySystem.GetIdeologyName(proposer.Ideology));
         }
         End();
     }

@@ -163,8 +163,8 @@ public static partial class CourtSystem
         {
             data.capital -= ObstructCost;
             data.obstruction = Mathf.Min(0.6f, data.obstruction + 0.3f);
-            Act(data, "obstruct", IssueName(memorial.claim));
-            Log(state, "court_log_obstruct", faction.Name, IssueName(memorial.claim));
+            Act(data, "obstruct", IssueName(memorial.claim, empire));
+            Log(state, "court_log_obstruct", faction.Name, IssueName(memorial.claim, empire));
             return;
         }
         if (data.capital >= ImpeachCost && (data.grievance >= 25f || Random.value < 0.25f) &&

@@ -33,7 +33,7 @@ public class TempFac_党锢 : TemporaryFaction
         if (empire?.CoreKingdom != null)
         {
             string name = CliqueSystem.Proscribe(empire, factionID);
-            if (!string.IsNullOrEmpty(name)) CompletionOutcome = string.Format(LM.Get("claim_outcome_党锢_done"), name);
+            if (!string.IsNullOrEmpty(name)) CompletionOutcome = string.Format(GeneralSystems.CultureDoctrines.Text("claim_outcome_党锢_done", GetEmpire()), name);
         }
         End();
     }

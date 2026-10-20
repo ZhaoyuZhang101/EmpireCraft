@@ -37,7 +37,7 @@ public class TempFac_重定律令 : TemporaryFaction
             ClaimPolicySystem.AddGrievance(empire, SocialClass.Landlord, 3f);
             ClaimPolicySystem.AddGrievance(empire, SocialClass.Peasant, -2f);
             ClaimPolicySystem.AddGrievance(empire, SocialClass.Officer, -2f);
-            CompletionOutcome = LM.Get("claim_outcome_重定律令_done");
+            CompletionOutcome = GeneralSystems.CultureDoctrines.Text("claim_outcome_重定律令_done", GetEmpire());
         }
         End();
     }

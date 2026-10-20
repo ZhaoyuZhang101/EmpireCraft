@@ -93,7 +93,7 @@ public static class CourtPanel
         CourtMemorial memorial = state.memorial;
         FixedFaction proposer = CourtSystem.FindFaction(empire, memorial?.proposer);
         string title = memorial == null ? LM.Get("court_title")
-            : string.Format(LM.Get("court_memorial_title"), CourtSystem.IssueName(memorial.claim));
+            : string.Format(LM.Get("court_memorial_title"), CourtSystem.IssueName(memorial.claim, empire));
         string header = memorial == null ? LM.Get("court_no_memorial")
             : string.Format(LM.Get("court_memorial_header"), proposer?.Name ?? "", LM.Get("court_status_" + memorial.stage));
         // 施行经费(见 ClaimTuning)：准奏施行时从国库支出
@@ -273,7 +273,7 @@ public static class CourtPanel
         if (unique.Count > 0)
             lines.Add($"{LM.Get("court_unique_issues")}：{string.Join("、", unique.Select(CourtSystem.IssueName))}");
         lines.Add($"{LM.Get("court_public_issues")}：" + string.Join("、", CourtIssues.PublicIssuesFor(faction).Select(issue =>
-            $"{CourtSystem.IssueName(issue)}{StanceMark(CourtIssues.StanceLevel(faction, issue))}")));
+            $"{CourtSystem.IssueName(issue, empire)}{StanceMark(CourtIssues.StanceLevel(faction, issue))}")));
         FixedFaction ally = CourtSystem.FindFaction(empire, data.ally);
         if (ally != null) lines.Add(string.Format(LM.Get("court_ally_mark"), ally.Name));
         int seats = CourtSystem.Council(empire).Count(actor => actor.GetFaction() == faction);

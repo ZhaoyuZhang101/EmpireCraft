@@ -151,7 +151,7 @@ public class InstitutionGraphView
                 .Where(view => view.Node.branch == branch &&
                                view.Status is InstitutionNodeStatus.Enacted or InstitutionNodeStatus.Absorbed)
                 .Select(view => view.Node.advancement).DefaultIfEmpty(0).Max();
-            summaryParts.Add($"{GetBranchShortName(branch)} {reached}");
+            summaryParts.Add($"{GetBranchShortName(branch, lineNodes.FirstOrDefault()?.Culture)} {reached}");
         }
         if (_fixedHeaderText != null) _fixedHeaderText.text = string.Join("  ·  ", summaryParts);
 
@@ -477,10 +477,11 @@ public class InstitutionGraphView
         };
     }
 
-    private static string GetBranchShortName(string branch)
+    // culture：这棵树的文化(古代理念按文化线叫，见 CultureDoctrines)
+    private static string GetBranchShortName(string branch, string culture)
     {
         if (IdeologyInstitutionPaths.TryGetIdeology(branch, out PartyIdeology ideology))
-            return PartySystem.GetIdeologyName(ideology);
+            return PartySystem.GetIdeologyName(ideology, culture);
         string key = $"institution_branch_short_{branch}";
         string value = LM.Get(key);
         return string.IsNullOrWhiteSpace(value) || value == key ? branch : value;

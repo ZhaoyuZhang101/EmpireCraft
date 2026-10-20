@@ -281,7 +281,7 @@ public class FactionDetailWindow : AbstractWideWindow<FactionDetailWindow>
             List<string> claimOptions = (_faction.TemporaryFactionTypesRecord ?? new List<TemporaryFactionType>())
                 .Select(claim => (claim, effect: FactionClassSystem.GetClaimClassEffect(claim, socialClass)))
                 .Where(item => item.effect > 0f).OrderByDescending(item => item.effect).Take(2)
-                .Select(item => $"{LM.Get(item.claim.ToString())} +{item.effect:0}").ToList();
+                .Select(item => $"{TranslateHelper.GetTemporaryFactionClaimText(item.claim, empire)} +{item.effect:0}").ToList();
             List<string> institutionOptions = InstitutionSystem.GetFactionInstitutionStance(
                     InstitutionSystem.GetPrimaryCulture(empire), _faction.Type).supports
                 .Where(node => !InstitutionSystem.IsEnacted(empire, node.id) &&
@@ -569,7 +569,7 @@ public class FactionDetailWindow : AbstractWideWindow<FactionDetailWindow>
                 var tFactionContent = selectPart.BeginGridGroup(5, pCellSize: new Vector2(58, 18));
                 foreach (var tf2 in tf.Value)
                 {
-                    tFactionContent.AddButtonIntoGirdLayout(tf2.ToString(), TranslateHelper.GetTemporaryFactionClaimText(tf2), () =>
+                    tFactionContent.AddButtonIntoGirdLayout(tf2.ToString(), TranslateHelper.GetTemporaryFactionClaimText(tf2, _faction.Empire), () =>
                     {
                         _faction.TemporaryFactionTypesRecord.Add(tf2);
                         _faction.TemporaryFactions = _faction.ConvertToObjectFromFactionType();
@@ -589,7 +589,7 @@ public class FactionDetailWindow : AbstractWideWindow<FactionDetailWindow>
         var card = parent.BeginVertGroup(pSpacing: 0, pAlignment: TextAnchor.MiddleCenter);
         var tfSpace = card.BeginHoriGroup(new Vector2(ContentWidth, 36), pSpacing:20);
         var firstPart = tfSpace.BeginVertGroup();
-        firstPart.AddTextIntoVertLayout(TranslateHelper.GetTemporaryFactionClaimText(pFaction.type), hideBackground:true);
+        firstPart.AddTextIntoVertLayout(TranslateHelper.GetTemporaryFactionClaimText(pFaction.type, _faction?.Empire), hideBackground:true);
         firstPart.AddTextIntoVertLayout($"{LM.Get("label_budget")}: {pFaction.Budget}");
         var secondPart = tfSpace.BeginVertGroup(pSpacing:-5);
         var hideButton = secondPart.transform.AddNormalOptionIntoHori(_root.BeginHoriGroup(), "hide_tfaction", () =>

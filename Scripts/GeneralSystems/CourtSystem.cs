@@ -144,6 +144,13 @@ public static partial class CourtSystem
 
     public static string IssueName(TemporaryFactionType type) => TranslateHelper.GetTemporaryFactionClaimText(type);
 
+    // 按帝国的文化线叫(西方不叫推行三省六部……见 CultureDoctrines)
+    public static string IssueName(string claim, Empire empire) =>
+        Enum.TryParse(claim, out TemporaryFactionType type) ? IssueName(type, empire) : claim;
+
+    public static string IssueName(TemporaryFactionType type, Empire empire) =>
+        TranslateHelper.GetTemporaryFactionClaimText(type, empire);
+
     // 施行速度：议事会里支持的比例越高越快，反对派掣肘拖慢
     public static float ProgressMultiplier(Empire empire, TemporaryFaction claim)
     {
@@ -188,7 +195,7 @@ public static partial class CourtSystem
         FixedFaction proposer = FindFaction(empire, memorial.proposer);
         if (claim == null || proposer == null)
         {
-            Close(empire, state, "court_log_void", IssueName(memorial.claim));
+            Close(empire, state, "court_log_void", IssueName(memorial.claim, empire));
             return;
         }
         if (memorial.stage == 4)
@@ -288,9 +295,9 @@ public static partial class CourtSystem
         };
         var rival = entrants.Where(entry => entry.faction != winner.faction).OrderByDescending(entry => entry.weight).FirstOrDefault();
         if (rival.faction != null)
-            Log(state, "court_log_outbid", winner.faction.Name, rival.faction.Name, IssueName(winner.claim.type));
+            Log(state, "court_log_outbid", winner.faction.Name, rival.faction.Name, IssueName(winner.claim.type, empire));
         else
-            Log(state, "court_log_propose", winner.faction.Name, IssueName(winner.claim.type));
+            Log(state, "court_log_propose", winner.faction.Name, IssueName(winner.claim.type, empire));
     }
 
     // 上奏一派与最大派系的占比相差不超过 ContestGap：廷议不当场否决，交皇帝裁决
@@ -322,7 +329,7 @@ public static partial class CourtSystem
                 if (data.capital >= LobbyCost && Random.value < 0.5f)
                 {
                     data.capital -= LobbyCost;
-                    Log(state, "court_log_lobbied", proposer.Name, setter.getName(), IssueName(claim.type));
+                    Log(state, "court_log_lobbied", proposer.Name, setter.getName(), IssueName(claim.type, empire));
                 }
                 else
                 {
@@ -366,7 +373,7 @@ public static partial class CourtSystem
                 memorial.support.ToString("0"));
             return;
         }
-        Log(state, "court_log_debated", IssueName(claim.type), memorial.support.ToString("0"));
+        Log(state, "court_log_debated", IssueName(claim.type, empire), memorial.support.ToString("0"));
         memorial.stage = 2;
         memorial.stage_time = now;
     }
@@ -401,7 +408,7 @@ public static partial class CourtSystem
                 memorial.stage = 2;
                 memorial.stage_time = now;
                 proposerState.grievance = Mathf.Min(100f, proposerState.grievance + 3f);
-                Log(state, "court_log_fengbo", reviewer.getName(), IssueName(claim.type));
+                Log(state, "court_log_fengbo", reviewer.getName(), IssueName(claim.type, empire));
                 return;
             }
         }
@@ -423,26 +430,26 @@ public static partial class CourtSystem
                         memorial.shelved_once = true;
                         memorial.stage = 3;
                         memorial.stage_time = now;
-                        Log(state, "court_log_no_funds", IssueName(claim.type), claim.Budget);
+                        Log(state, "court_log_no_funds", IssueName(claim.type, empire), claim.Budget);
                     }
                     else
                     {
                         FactionState(empire, proposer).cooldowns[memorial.claim] = now + 12 * 5d;
-                        Close(empire, state, "court_log_no_funds_dropped", IssueName(claim.type));
+                        Close(empire, state, "court_log_no_funds_dropped", IssueName(claim.type, empire));
                     }
                     return;
                 }
                 claim.Start();
                 if (!claim.IsStarted())
                 {
-                    Close(empire, state, "court_log_start_failed", IssueName(claim.type));
+                    Close(empire, state, "court_log_start_failed", IssueName(claim.type, empire));
                     return;
                 }
                 memorial.decision = decision;
                 memorial.stage = 4;
                 memorial.stage_time = now;
                 AdjustAfterRuling(empire, memorial, proposer, true);
-                Log(state, "court_log_approved", who, proposer.Name, IssueName(claim.type));
+                Log(state, "court_log_approved", who, proposer.Name, IssueName(claim.type, empire));
                 break;
             case "shelve":
                 memorial.decision = decision;
@@ -450,7 +457,7 @@ public static partial class CourtSystem
                 memorial.stage = 3;
                 memorial.stage_time = now;
                 FactionState(empire, proposer).grievance += 3f;
-                Log(state, "court_log_shelved", who, IssueName(claim.type));
+                Log(state, "court_log_shelved", who, IssueName(claim.type, empire));
                 break;
             default:
                 AdjustAfterRuling(empire, memorial, proposer, false);
@@ -476,7 +483,7 @@ public static partial class CourtSystem
             memorial.shelved_once = true;
             memorial.stage = 3;
             memorial.stage_time = World.world.getCurWorldTime();
-            Log(state, "court_log_shelved", LM.Get("court_decider_emperor"), IssueName(claim.type));
+            Log(state, "court_log_shelved", LM.Get("court_decider_emperor"), IssueName(claim.type, empire));
             return true;
         }
         Decide(empire, state, memorial, claim, proposer, World.world.getCurWorldTime(), decision);
@@ -596,16 +603,16 @@ public static partial class CourtSystem
             foreach (KeyValuePair<string, int> pair in memorial.stances.Where(pair => pair.Value < 0))
                 if (state.factions.TryGetValue(pair.Key, out CourtFactionState opposed))
                     opposed.grievance = Mathf.Min(100f, opposed.grievance + 6f);
-            string outcome = claim.CompletionOutcome ?? ClaimTuning.Outcome(claim.type);
+            string outcome = claim.CompletionOutcome ?? ClaimTuning.Outcome(claim.type, empire);
             if (string.IsNullOrWhiteSpace(outcome))
-                Close(empire, state, "court_log_completed", IssueName(claim.type), proposer.Name);
+                Close(empire, state, "court_log_completed", IssueName(claim.type, empire), proposer.Name);
             else
-                Close(empire, state, "court_log_completed_outcome", IssueName(claim.type), proposer.Name, outcome);
+                Close(empire, state, "court_log_completed_outcome", IssueName(claim.type, empire), proposer.Name, outcome);
         }
         else
         {
             data.grievance = Mathf.Min(100f, data.grievance + 4f);
-            Close(empire, state, "court_log_aborted", IssueName(claim.type));
+            Close(empire, state, "court_log_aborted", IssueName(claim.type, empire));
         }
     }
 
@@ -615,7 +622,7 @@ public static partial class CourtSystem
         CourtFactionState data = FactionState(empire, proposer);
         data.grievance = Mathf.Min(100f, data.grievance + grievance);
         data.cooldowns[memorial.claim] = World.world.getCurWorldTime() + cooldownYears * 12 * 5d;
-        var args = new List<object> { proposer.Name, IssueName(memorial.claim) };
+        var args = new List<object> { proposer.Name, IssueName(memorial.claim, empire) };
         args.AddRange(extra);
         Close(empire, state, logKey, args.ToArray());
     }

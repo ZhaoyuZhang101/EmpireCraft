@@ -515,7 +515,7 @@ public static class EmpireCraftTooltipLibrary
     private static string FormatRunningClaim(TemporaryFaction claim, Regime regime)
     {
         if (claim == null) return "";
-        string claimName = TranslateHelper.GetTemporaryFactionClaimText(claim.type);
+        string claimName = TranslateHelper.GetTemporaryFactionClaimText(claim.type, claim.Empire);
         FixedFaction sponsor = regime?.GetPlayerFactions()?.FirstOrDefault(faction => faction?.GetID() == claim.factionID);
         string sponsorName = sponsor?.Name ?? LM.Get("label_none");
         int progress = claim.progressMax > 0

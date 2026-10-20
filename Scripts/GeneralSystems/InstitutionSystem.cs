@@ -2983,19 +2983,26 @@ public static partial class InstitutionSystem
     public static string GetNodeName(InstitutionNodeConfig node, string culture)
     {
         if (node == null) return LM.Get("label_none");
+        // 开放党禁后生成的古代理念节点按这棵树的文化线叫(西方是经院正统……见 CultureDoctrines)
+        if (CultureDoctrines.NodeName(node, culture) is string doctrine) return doctrine;
         string key = DynastyNaming.CultureVariant(node.name_key, culture) ?? node.name_key;
         string value = LM.Get(key);
         if (IdeologyInstitutionPaths.TryGetIdeology(node.branch, out PartyIdeology ideology) &&
             node.name_key.StartsWith("ideology_stage_", StringComparison.Ordinal))
-            return $"{PartySystem.GetIdeologyName(ideology)} · {value}";
+            return $"{PartySystem.GetIdeologyName(ideology, culture)} · {value}";
         return string.IsNullOrWhiteSpace(value) || value == key ? node.id : value;
     }
 
     public static string GetNodeName(Empire empire, InstitutionNodeConfig node) =>
         GetNodeName(node, empire?.data == null || empire.CoreKingdom == null ? null : GetPrimaryCulture(empire));
 
-    public static string GetNodeDescription(InstitutionNodeConfig node, string culture) =>
-        node == null ? "" : LM.Get(DynastyNaming.CultureVariant(node.description_key, culture) ?? node.description_key);
+    public static string GetNodeDescription(InstitutionNodeConfig node, string culture)
+    {
+        if (node == null) return "";
+        string text = LM.Get(DynastyNaming.CultureVariant(node.description_key, culture) ?? node.description_key);
+        // 古代理念那一格接上本文化的学说说明(见 CultureDoctrines)
+        return CultureDoctrines.NodeDescriptionSuffix(node, culture) is string doctrine ? $"{text}{doctrine}" : text;
+    }
 
     #endregion
 }

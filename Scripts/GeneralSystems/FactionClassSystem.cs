@@ -194,7 +194,8 @@ public static class FactionClassSystem
         }
         if (source.StartsWith("claim:", StringComparison.Ordinal) &&
             Enum.TryParse(source.Substring("claim:".Length), out TemporaryFactionType claim))
-            return string.Format(LM.Get("faction_class_source_claim"), LM.Get(claim.ToString()));
+            return string.Format(LM.Get("faction_class_source_claim"),
+                EmpireCraft.Scripts.HelperFunc.TranslateHelper.GetTemporaryFactionClaimText(claim, faction.Empire));
         return LM.Get("faction_class_source_inherited");
     }
 
