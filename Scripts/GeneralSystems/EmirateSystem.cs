@@ -37,8 +37,9 @@ public static class EmirateSystem
     public const float DistantPercentile = 0.7f;
     public const float DistantSmallMax = 4f, DistantLargeMax = 10f;
     public const int DistantSmallCities = 8, DistantLargeCities = 40;
-    // 央地分成(见 TreasurySystem.TaxShares)：行省向中央缴四成(本省留三成五)，世袭的埃米尔只缴半成
-    public const int ProvinceCentralPercent = 40, HereditaryCentralPercent = 5;
+    // 央地分成(见 TreasurySystem.TaxShares)：行省向中央缴四成(本省留三成五)，世袭的埃米尔缴一成二
+    // (用户 2026-10-20 定：以前只缴半成，哈里发的钱袋被世袭埃米尔掏空，阿拉伯中央财政四系最薄)
+    public const int ProvinceCentralPercent = 40, HereditaryCentralPercent = 12;
     // 割据：世袭满几年才有份；正统到多少以上和平脱离、改为朝贡；各项系数
     public const int BreakawayTenureYears = 15, PeacefulLegitimacy = 50, BreakawayWeakLegitimacy = 55;
     public const float BreakawayDistantShare = 0.5f, BreakawayWeakShare = 0.5f, BreakawayPerLostTenth = 3f,

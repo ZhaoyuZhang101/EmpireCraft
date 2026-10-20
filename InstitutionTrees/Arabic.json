@@ -298,7 +298,7 @@
     },
     {
       "id": "arabic_mamluk_corps", "requires_techs": ["standing_army"],
-      "features": {"army_standing": 1},
+      "features": {"army_standing": 1, "army_mobilization": 0.13},
       "name_key": "institution_arabic_mamluk_corps",
       "description_key": "institution_arabic_mamluk_corps_desc",
       "branch": "military",
