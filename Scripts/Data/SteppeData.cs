@@ -33,6 +33,10 @@ public sealed class SteppeState
     public List<long> rift_members;
     // 争草场(见 SteppeOrderSystem)：与哪国、上回开打的时间(同一对十年内不再打)
     public Dictionary<long, double> feud_at;
+    // 依附强部(见 SteppeOrderSystem)：自愿依附的汗国、依附的时间、当时(或上回看到)的大汗；-1 = 没有
+    public long attached_empire_id = -1L;
+    public double attached_at = -1d;
+    public long attached_khan_id = -1L;
 }
 
 // 争草场之战(见 SteppeOrderSystem)：存在 WarExtraData.pasture 里
