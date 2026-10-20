@@ -18,7 +18,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 三院：选帝侯院(选帝侯团)、诸侯院(其余成员国君主)、城市院(帝国自由城市)；
 //     选帝侯院与诸侯院都过半才算通过，城市院只有建议权；
 //   · 议程(每次一项，按急缓)：
-//     帝国战争——中央与外敌交战时付议，通过则各成员国(含有自主外交的世袭诸侯)按中央一方参战；
+//     帝国战争——中央与外敌交战时付议，通过则各成员国(含有自主外交的世袭诸侯)按中央一方参战、出征(见 CallToArms)；
 //     帝国禁令——有成员国拒缴摊派或拒不应征时付议，通过则由与它接壤的最强诸侯(施行帝国改革后由所在大区)
 //       奉命讨伐，打下的城归执行者；被禁者不得列席议会、不得为选帝侯；
 //     帝国摊派——中央国库吃紧或在打仗时付议，通过则各成员国按年度经常收入的 15% 上缴中央；
@@ -295,26 +295,7 @@ public static partial class HolyRomanSystem
             {
                 War war = subject == null ? null : CoreWarWith(empire, subject);
                 if (war == null) return LM.Get("hre_diet_war_over");
-                bool attacking = war.isAttacker(core);
-                int joined = 0;
-                foreach (Kingdom member in Members(empire))
-                {
-                    if (war.hasKingdom(member) || member.isInWarWith(core) || Allied(member, subject) || IsBanned(member)) continue;
-                    if (Refuses(empire, member, ballots))
-                    {
-                        refused.Add(member.GetKingdomName());
-                        MarkDefiance(state, member);
-                        continue;
-                    }
-                    if (attacking) war.joinAttackers(member);
-                    else war.joinDefenders(member);
-                    if (!war.hasKingdom(member)) continue;
-                    joined++;
-                    state.imperial_war_members ??= new List<long>();
-                    state.imperial_war_members.Add(member.id);
-                }
-                state.imperial_war_id = war.data.id;
-                return string.Format(LM.Get("hre_diet_war_outcome"), joined, Names(refused));
+                return CallToArms(empire, state, war, subject, ballots);
             }
             case AgendaBan:
             {
@@ -361,6 +342,69 @@ public static partial class HolyRomanSystem
             }
         }
     }
+
+    // 帝国战争应征：各成员国按中央一方出兵。听命于中央的诸侯在中央开战时就被带进了战争名单(见 FeudalVassalService.ExpandSide)，
+    // 以前只数新加入的，回回"0国应征"，也没人下令出征——远处的军团照就近动员留守驻地。现在已在中央一方的与新加入的一律出征
+    // (WarScopeSystem.Dispatch：全军可开往任何战线，兵多的诸侯出得多)；抗命的不出兵(已被带进战争的也只守本境)，记下以备禁令
+    private static string CallToArms(Empire empire, HolyRomanState state, War war, Kingdom subject, Dictionary<Kingdom, bool> ballots)
+    {
+        Kingdom core = empire.CoreKingdom;
+        bool attacking = war.isAttacker(core);
+        var refused = new List<string>();
+        int answered = 0, already = 0, opposed = 0, allied = 0, banned = 0, failed = 0;
+        float troops = 0f;
+        state.imperial_war_members ??= new List<long>();
+        foreach (Kingdom member in Members(empire))
+        {
+            if (IsBanned(member))
+            {
+                banned++;
+                continue;
+            }
+            bool inWar = war.hasKingdom(member);
+            if (member.isInWarWith(core) || inWar && (attacking ? !war.isAttacker(member) : !war.isDefender(member)))
+            {
+                opposed++;
+                continue;
+            }
+            if (!inWar && Allied(member, subject))
+            {
+                allied++;
+                continue;
+            }
+            if (Refuses(empire, member, ballots))
+            {
+                refused.Add(member.GetKingdomName());
+                MarkDefiance(state, member);
+                continue;
+            }
+            if (inWar) already++;
+            else
+            {
+                if (attacking) war.joinAttackers(member);
+                else war.joinDefenders(member);
+                if (!war.hasKingdom(member))
+                {
+                    failed++;
+                    continue;
+                }
+            }
+            WarScopeSystem.Dispatch(member, war);
+            FrontSystem.Log(member, string.Format(LM.Get("hre_corps_log_call_to_arms"), war.data.name));
+            answered++;
+            troops += Troops(member);
+            if (!state.imperial_war_members.Contains(member.id)) state.imperial_war_members.Add(member.id);
+        }
+        state.imperial_war_id = war.data.id;
+        LogService.LogInfo($"[EmpireCraft][神罗诊断] {empire.GetEmpireFullName()} 帝国战争「{war.data.name}」：应征出兵 {answered} 国" +
+                           $"(原已随中央参战 {already}、新加入 {answered - already})，兵力约 {troops:0}；抗命 {refused.Count}；" +
+                           $"未征——与中央交战或在敌方 {opposed}、与敌国同盟 {allied}、被禁 {banned}、加入失败 {failed}");
+        return string.Format(LM.Get("hre_diet_war_troops_outcome"), answered, Names(refused), CorpsSystem.ShortStrength(troops));
+    }
+
+    // 成员国现有兵力：军团模式按各军团兵力，否则按原版计兵
+    private static float Troops(Kingdom kingdom) =>
+        CorpsSystem.Enabled ? CorpsSystem.Of(kingdom).Sum(corps => corps.strength) : kingdom.countTotalWarriors();
 
     // 不听调遣：家族领地薄弱时比中央大的诸侯一概不理；投了反对票的有三成抗命，投赞成的偶尔也赖掉
     private static bool Refuses(Empire empire, Kingdom member, Dictionary<Kingdom, bool> ballots)

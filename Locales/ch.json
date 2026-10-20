@@ -2947,6 +2947,8 @@
   "papacy_crown_block_vacant": "{0}帝位空缺，眼下無人可以加冕。",
   "papacy_crown_block_banned": "{0}正遭絕罰，教宗不肯加冕；須先解除絕罰。",
   "papacy_crown_block_done": "{0}的皇帝已經加冕。",
+  "hre_diet_war_troops_outcome": "通過，{0}國應徵出兵(兵力約{2})，抗命的有{1}",
+  "hre_corps_log_call_to_arms": "應帝國議會徵召，發兵參加{0}",
   "capital_loss_restored": "{0}收復舊都{1}，還於舊都，復稱{2}。",
   "kingdom_type_xingzai": "行在",
   "Later": "後",
