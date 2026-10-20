@@ -1384,10 +1384,14 @@ namespace EmpireCraft.Scripts.AI
                         // 华夏一系(华夏、中国、山海，同一天下标识)
                         if (CultureService.SameKin(culture, "Huaxia"))
                         {
-                            string new_name = pActor.generateName(MetaType.Kingdom, IdGenerator.NextId());
-                            LogService.LogInfo($"New Empire Name：{new_name}，Original Empire Name：{empire.GetEmpireName()}");
-                            string[] nameParts = new_name.SplitNameParts();
-                            empire.SetEmpireName(nameParts.Length > 0 ? nameParts[0] : new_name);
+                            // 帝国内改朝换代：用新皇族之主的封国名，没有封国用美号(见 RealmNamingSystem.Founding)；天下之名关着时照旧随机起名
+                            if (!RealmNamingSystem.NameUsurper(empire, pActor))
+                            {
+                                string new_name = pActor.generateName(MetaType.Kingdom, IdGenerator.NextId());
+                                LogService.LogInfo($"New Empire Name：{new_name}，Original Empire Name：{empire.GetEmpireName()}");
+                                string[] nameParts = new_name.SplitNameParts();
+                                empire.SetEmpireName(nameParts.Length > 0 ? nameParts[0] : new_name);
+                            }
                             LogService.LogInfo($"Empire Name has been changed to：{empire.GetEmpireName()}");
                             empire.data.dynasty_founder_actor_id = pActor.id;
                             empire.data.currentHistory.is_first = true;
