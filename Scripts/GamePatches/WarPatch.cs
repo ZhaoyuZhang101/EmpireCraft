@@ -445,6 +445,8 @@ public class WarPatch: GamePatch
             // 施行祭祀的攻方战前先卜(见 RitesSystem)
             RitesSystem.OnWarDeclared(__result);
             if (!contained) RoyalMarriageSystem.OnWarStarted(__result);
+            // 保护约：原帝国攻打被保护者时保护人加入守方(见 HolyRomanSystem.Decline)
+            if (!contained) EmpireCraft.Scripts.GeneralSystems.HolyRomanSystem.OnWarStarted(__result);
             SmoothBorders.RefreshWar(__result);
         }
         catch (Exception exception)

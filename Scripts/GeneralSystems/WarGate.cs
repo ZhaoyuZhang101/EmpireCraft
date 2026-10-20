@@ -24,7 +24,7 @@ public static class WarGate
     }
 
     // 不论强弱都不打的关系：统一战线、兄弟之国、共主与共事部落、跨文明通好、扶立、同一帝国、岁币与朝贡、同盟、
-    // 姻亲、封建上下级、同一位君主
+    // 姻亲、封建上下级、保护约、同一位君主
     public static bool Forbidden(Kingdom attacker, Kingdom target)
     {
         if (attacker == null || target == null || attacker == target) return true;
@@ -40,6 +40,8 @@ public static class WarGate
         if (attacker.hasAlliance() && target.hasAlliance() && attacker.getAlliance() == target.getAlliance()) return true;
         if (RoyalMarriageSystem.Allied(attacker, target)) return true;
         if (FeudalVassalService.IsInChain(attacker, target) || FeudalVassalService.IsInChain(target, attacker)) return true;
+        // 保护约三十年：保护人与被保护者互不攻伐(见 HolyRomanSystem.Decline)
+        if (HolyRomanSystem.ProtectedBy(attacker, target) || HolyRomanSystem.ProtectedBy(target, attacker)) return true;
         return attacker.king != null && attacker.king == target.king;
     }
 }

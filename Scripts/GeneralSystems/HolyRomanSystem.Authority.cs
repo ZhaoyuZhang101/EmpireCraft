@@ -220,7 +220,8 @@ public static partial class HolyRomanSystem
                         previous.names.TryGetValue(id, out string fallen) ? fallen : "", name);
                 }
             }
-            else if (kingdom.GetEmpire() != empire)
+            // 随保护同盟离开的已在当时扣过(见 Decline)
+            else if (kingdom.GetEmpire() != empire && !LeftUnderProtection(kingdom))
                 ChangeAuthority(empire, AuthMemberLeft, "hre_auth_member_left", kingdom.GetKingdomName());
         }
         int lost = 0;

@@ -322,6 +322,10 @@ public static class KingdomExtension
         public int papal_party;
         // 帝国的特殊成员：0 普通诸侯 / 1 帝国自由城市 / 2 教会诸侯(主教领)(见 HolyRomanSystem.Members)
         public int hre_estate;
+        // 随保护同盟离开封建制帝国：保护人、保护约起始(三十年)、离开的帝国(见 HolyRomanSystem.Decline)
+        public long hre_protector_id = -1L;
+        public double hre_protected_at = -1d;
+        public long hre_protected_from_id = -1L;
         // 上月军饷欠发的比例、禁军不奉诏是否已记(见 PalaceArmySystem)
         public float corps_pay_shortfall;
         // 连着几个月军饷欠发(欠一成半以上)；见 CorpsSystem.PayUpkeep

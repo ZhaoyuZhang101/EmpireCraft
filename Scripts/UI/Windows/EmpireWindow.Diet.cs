@@ -17,7 +17,7 @@ namespace EmpireCraft.Scripts.UI.Windows
     //   页头(帝位虚悬时标代理) → 主指标(帝国权威、家族领地、皇族届数、上次议会、帝国禁令)
     //   → 两栏(三院席位 | 皇位：帝位、储君、加冕、帝国改革、诸侯主权、帝国战争、会选、对立国王、帝国代理)
     //   → 两栏(帝国权威：刻度、近来收支、各事项所费 | 选帝侯：三教会席 + 四世俗席，授予/褫夺) → 两栏(诸侯纷争：私战或诉讼 | 帝国直属：请愿、陪臣化、典押)
-    //   → 议会纪事 → 历次会选 → 选举让步 → 诸侯同盟 → 按钮(召开议会、提请或解除禁令、颁行帝国改革、册立自由城市、典押自由城市、封立主教领)
+    //   → 帝国存续(只在权威低于 25 或已有同盟离去时) → 议会纪事 → 历次会选 → 选举让步 → 诸侯同盟 → 按钮(召开议会、提请或解除禁令、颁行帝国改革、册立自由城市、典押自由城市、封立主教领)
     public partial class EmpireWindow
     {
         public void ShowDiet(WindowMetaTab pArg0)
@@ -94,6 +94,7 @@ namespace EmpireCraft.Scripts.UI.Windows
 
             DrawAuthority(page, state, authority, elective, pArg0);
             DrawDisputes(page, state, pArg0);
+            DrawSurvival(page, state, authority, pArg0);
 
             List<DietRecord> records = (state.diets ?? new List<DietRecord>()).AsEnumerable().Reverse().Take(8).ToList();
             var log = page.BeginCard(MainWidth, "diet_records_title", WideKit.Gold, records.Count.ToString());
@@ -250,6 +251,22 @@ namespace EmpireCraft.Scripts.UI.Windows
             HolyRomanState state = HolyRomanSystem.State(_empire);
             string last = state.elector_log?.LastOrDefault();
             card.AddListRow(HalfWidth, row, null, "", string.IsNullOrEmpty(last) ? LM.Get("diet_elector_note") : last, titleWidth: 1f);
+        }
+
+        // 帝国存续(整宽，只在权威低于 25 或已有同盟离去时)：式微年数、已离去的同盟与保护人
+        private void DrawSurvival(AutoVertLayoutGroup page, HolyRomanState state, int authority, WindowMetaTab tab)
+        {
+            List<string> departed = state.departed_log ?? new List<string>();
+            if (authority >= HolyRomanSystem.LowRecover && departed.Count == 0) return;
+            var card = page.BeginCard(MainWidth, "diet_survival_title", WideKit.Red, $"{authority} · {HolyRomanSystem.AuthorityTierText(authority)}");
+            int row = 0;
+            string low = state.authority_low_since >= 0d
+                ? string.Format(LM.Get("diet_survival_low"), HolyRomanSystem.LowAuthority, Date.getYearsSince(state.authority_low_since),
+                    HolyRomanSystem.ProtectorLowYears)
+                : string.Format(LM.Get("diet_survival_recovering"), HolyRomanSystem.LowAuthority);
+            card.AddListRow(MainWidth, row++, null, LM.Get("diet_survival_waning"), low, titleWidth: 80f, titleHex: WideKit.Orange);
+            foreach (string text in departed.AsEnumerable().Reverse().Take(3))
+                card.AddListRow(MainWidth, row++, null, LM.Get("diet_survival_departed"), text, titleWidth: 80f, titleHex: WideKit.Red);
         }
 
         // 皇位卡的会选三行：会选(拉票中时各候选眼下的票，否则上次结果)、对立国王(有时)、帝国代理(帝位虚悬时)

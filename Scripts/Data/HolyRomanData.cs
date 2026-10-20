@@ -115,6 +115,12 @@ public sealed class HolyRomanState
     // 上次请愿；待决的请愿(下次年结裁处，界面按钮用)
     public double last_petition_at = -1d, petition_at = -1d;
     public long petition_lord_id = -1L, petition_small_id = -1L;
+
+    // —— 帝国解体(见 HolyRomanSystem.Decline) ——
+    // 上次保护同盟拉走诸侯的时间；历史最多的成员国数(含中央)；离去的同盟(已本地化，最近 8 条)
+    public double last_protector_at = -1d;
+    public int peak_members;
+    public List<string> departed_log = new();
 }
 
 // 一笔典押：自由城市押给诸侯，三十年内可赎回
