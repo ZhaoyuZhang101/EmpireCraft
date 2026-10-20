@@ -364,8 +364,12 @@ public static class RuralSettlementSystem
     // 毡帐村镇占地范围里的陆地至少几成是旱地(边上带一点草地、沙地可以，一半压在草地上不行)
     private const float YurtDryShare = 0.6f;
 
-    // 游牧营地的城：立村设镇、城长大添村镇都是毡帐(见 UrbanFabric.PlaceCountryside)
-    public static bool YurtCity(City city) => city?.data != null && !city.isRekt() && CityStyleSystem.Established(city) == "nomad";
+    // 游牧营地的城：立村设镇、城长大添村镇都是毡帐(见 UrbanFabric.PlaceCountryside)；水土改从游牧的城(城池照旧)也是
+    public static bool YurtCity(City city) =>
+        city?.data != null && !city.isRekt() && (CityStyleSystem.Established(city) == "nomad" || NomadSettlers(city));
+
+    // 水土改从游牧的城(见 ShuiTuSystem.TurnNomad)：城池不改建，之后新添的村镇按游牧规矩
+    public static bool NomadSettlers(City city) => city?.data != null && city.GetOrCreate().nomad_settlers;
 
     // 毡帐立得住的地方：所在那一格是旱地(荒漠、稀树草原、荒原，见 LandKinds.Dry；海滩沙地算海岸、不算)，
     // 占地范围(村两格，镇按大小)里的陆地六成以上是旱地

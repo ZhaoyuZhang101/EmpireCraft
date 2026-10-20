@@ -23,7 +23,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   定居入草：
 //     1. 羁縻：施行了羁縻制度的帝国先把到档的旱地城(连成一片的至多六座)交当地首领设羁縻州；
 //     2. 整国游牧化：直辖城旱地六成以上的先改行游牧(五到六成的别的路都走不了才改)；
-//     3. 改从游牧：到档的旱地城连成一片、邻近有游牧文化(没有就找本文化制度线上的游牧文化)，主流文化改成它、城改建游牧营地，
+//     3. 改从游牧：到档的旱地城连成一片、邻近有游牧文化(没有就找本文化制度线上的游牧文化)，主流文化改成它、城外村镇改放牧(城池建筑照旧，不改建营地)，
 //        当地首领立为游牧之国——在帝国里就留作游牧成员(自主外交、世袭，自成一体)，不是帝国就做附庸；
 //        这种成员带着游牧易散的毛病：宗主更替逢积弊深重或正统低落，按汗位更替之乱的机会据地自立(见 OnSuzerainSucceeded)；
 //     4. 交当地首领(第二档起)：按政体文化转为朝贡国、附庸(同"扩张上限"，见 AdministrativeControlSystem.ReleaseToLocal)；
@@ -312,18 +312,21 @@ public static partial class ShuiTuSystem
         Kingdom local = AdministrativeControlSystem.ReleaseToLocal(realm, cluster, created => PlaceNomads(created, unit, nomad),
             out string form);
         if (local == null) return false;
-        // 自立成功后才改文化与城貌；找不到首领或建国失败时保留原城。
-        double now = World.world.getCurWorldTime();
+        // 自立成功后才改住民文化与生计；找不到首领或建国失败时保留原城。易主不改建筑(用户 2026-10-20)：城墙、宫城、城貌、关城、
+        // 村镇样式照旧，不改建成营地、不降人口上限；城外村镇没在窗口里手动改过的改放牧，之后新添的村镇按游牧规矩(毡帐、只在旱地)
         foreach (City city in cluster)
         {
             CultureService.SetCityMainCulture(city, nomad);
-            // 城按游牧营地改建(同"改建城池"，逐年翻新，见 CityStyleSystem)；城貌手动选定的不改
-            var data = city.GetOrCreate();
-            if (!data.map_style_by_hand && CityStyleSystem.Established(city) != "nomad" && data.map_style_target != "nomad")
+            city.GetOrCreate().nomad_settlers = true;
+            bool changed = false;
+            foreach (RuralSettlement settlement in RuralSettlementSystem.InCity(city))
             {
-                data.map_style_target = "nomad";
-                data.map_style_since = now;
+                if (settlement.fort || settlement.trade_manual || settlement.trade == LivelihoodSystem.Pasture) continue;
+                settlement.trade = LivelihoodSystem.Pasture;
+                settlement.trade_rules = LivelihoodSystem.RulesVersion;
+                changed = true;
             }
+            if (changed) RuralSettlementSystem.TradeChanged(city);
         }
         EventRecorder.Record(unit, string.Format(LM.Get("shuitu_nomadized_" + form + "_history"), name, local.GetKingdomName(),
             cluster.Count, nomad.GetCultureTranslate()));

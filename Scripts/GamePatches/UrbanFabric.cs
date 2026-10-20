@@ -357,6 +357,8 @@ public static class UrbanFabric
     {
         int tier = g.Tier;
         bool nomad = g.Nomad;
+        // 新添的村镇是毡帐、只立在旱地上：游牧营地，及水土改从游牧的城(城池照旧，路照修，见 RuralSettlementSystem.NomadSettlers)
+        bool yurts = nomad || RuralSettlementSystem.NomadSettlers(g.City);
         g.Suburb = !nomad && tier >= 2 ? 4 * (tier - 1) : 0;
         int first = (int)(H(g.Seed, 60) * 4);
         // 路网的路从哪几个方向出城(修通的、在修的)：这些方向不再另画出城大路，免得两条路并排走
@@ -437,14 +439,16 @@ public static class UrbanFabric
             int size = tier >= 3 ? (H(g.Seed, attempt, 63) < 0.5f ? 4 : 5) : 3;
             bool edge = !Open(g, x, y) && Edge(x, y);
             if (!Open(g, x, y) && !edge || g.Towns.Exists(t => Mathf.Abs(t.x - x) + Mathf.Abs(t.y - y) < t.size + size + 6) ||
-                Taken(x, y, size + 4)) continue;
-            bool walled = tier >= 3 && H(g.Seed, attempt, 64) < 0.45f;
+                Taken(x, y, size + 4) || yurts && !RuralSettlementSystem.YurtGround(x, y, true, size)) continue;
+            bool walled = !yurts && tier >= 3 && H(g.Seed, attempt, 64) < 0.45f;
             // 设镇要出钱(国库或民间投资池)，出不起就不建
             if (!RuralSettlementSystem.Fund(g.City, true, walled, initial, out bool state)) break;
             g.Towns.Add((x, y, size, walled));
             townCount++;
             RuralSettlement town = RuralSettlementSystem.Add(x, y, true, size, walled);
             town.state = state;
+            if (yurts) g.Yurts.Add(PosKey(x, y));
+            RuralSettlementSystem.MarkYurt(town, yurts);
             if (!edge) continue;
             RuralSettlementSystem.Found(g.City, town, g.GateX, g.GateY, far);
             frontier = false;
@@ -488,7 +492,7 @@ public static class UrbanFabric
             return best >= 3;
         }
         // 毡帐只立在旱地上(用户 2026-10-20 "蒙古包只能留在沙漠，或者荒原之类的地形")
-        bool Ground(int x, int y, bool town, int size) => !nomad || RuralSettlementSystem.YurtGround(x, y, town, size);
+        bool Ground(int x, int y, bool town, int size) => !yurts || RuralSettlementSystem.YurtGround(x, y, town, size);
         // 游牧的毡帐镇：挑村址(由近及远)，本城地上没有就城外紧挨着的一处(同农耕城的镇)
         if (nomad)
             foreach ((int x, int y, _) in sites)
@@ -521,8 +525,8 @@ public static class UrbanFabric
             villageCount++;
             RuralSettlement village = RuralSettlementSystem.Add(x, y, false, 0, false);
             village.state = state;
-            if (nomad) g.Yurts.Add(PosKey(x, y));
-            RuralSettlementSystem.MarkYurt(village, nomad);
+            if (yurts) g.Yurts.Add(PosKey(x, y));
+            RuralSettlementSystem.MarkYurt(village, yurts);
         }
         // 本城地上不够数：城外最近的一处村址(见上面的 frontier)
         if (grow && villageCount < villages)
@@ -534,8 +538,8 @@ public static class UrbanFabric
                 villageCount++;
                 RuralSettlement founded = RuralSettlementSystem.Add(x, y, false, 0, false);
                 founded.state = state;
-                if (nomad) g.Yurts.Add(PosKey(x, y));
-                RuralSettlementSystem.MarkYurt(founded, nomad);
+                if (yurts) g.Yurts.Add(PosKey(x, y));
+                RuralSettlementSystem.MarkYurt(founded, yurts);
                 RuralSettlementSystem.Found(g.City, founded, g.GateX, g.GateY, far);
                 break;
             }

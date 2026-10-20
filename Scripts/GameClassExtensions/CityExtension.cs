@@ -107,6 +107,8 @@ public static class CityExtension
         public int map_style_camp;
         // 本城在非原始政体下画过城池(见 PureMapPatch.Layout)：以后易主给原始政体的部落也照旧画城池，不改画原始聚落
         public bool map_settled;
+        // 水土改从游牧交给游牧首领的城(见 ShuiTuSystem.TurnNomad)：城池建筑、城貌照旧，之后 AI 新添的村镇按游牧规矩(毡帐、只在旱地)
+        public bool nomad_settlers;
         // 宫城(都城地标，见 PureMapPatch.Layout)：画着宫城时的主人；易主后宫城留着(palace_kept)，手动营的宫城也一直留着
         public long palace_owner = -1L;
         public bool palace_kept;
