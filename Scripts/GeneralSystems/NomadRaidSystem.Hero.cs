@@ -18,7 +18,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     原始部落、别家帝国里的不算)并入汗国为兀鲁思。之后照游牧难一统的规矩走：只有雄主在位能发动统一战争、可南下入主，
 //     雄主一死第一回换汗必乱(见 UnificationSystem、NomadCycleSystem)；部落阶段(原始政体)的盟主只攒威望，不称汗；
 //   · 失败内讧：联盟被打退，各部每家 InfightChance 的机会反目——本汗国的兀鲁思离心而去(退出汗国)，独立的部与盟主兵戎相见
-//     (一场小仗，同一回至多一场)，同样下个月办。
+//     (一场争草场的小仗，见 SteppeOrderSystem.Rift；同一回至多一场)，同样下个月办。
 public static partial class NomadRaidSystem
 {
     private const int RepulsedRenown = 30;
@@ -157,14 +157,8 @@ public static partial class NomadRaidSystem
                     new[] { member, leader });
                 continue;
             }
-            if (fought || member.hasEnemies() || !WarGate.CanDeclare(member, leader) || !Skirmish(member, leader)) continue;
+            if (fought || !SteppeOrderSystem.Rift(member, leader)) continue;
             fought = true;
-            Chronicle(string.Format(LM.Get("nomad_raid_rift_war_history"), member.GetKingdomName(), leader.GetKingdomName()),
-                new[] { member, leader });
         }
     }
-
-    // 草原上的一场小仗(内讧)
-    private static bool Skirmish(Kingdom attacker, Kingdom defender) =>
-        World.world.diplomacy.startWar(attacker, defender, WarTypeLibrary.normal)?.data != null;
 }

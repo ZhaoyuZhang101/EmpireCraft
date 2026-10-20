@@ -38,11 +38,12 @@ public static partial class HolyRomanSystem
     // 正在由本系统兴起私战(startWar 前后)：开战钩子据此不拉姻亲、不扩封建、不升级世界大战
     public static bool DeclaringFeud;
 
-    // 只许两家对打(不拉外人、不升级)的内战：私战、争位之战(开战那一刻起)；
+    // 只许两家对打(不拉外人、不升级)的内战：私战、争位之战、游牧争草场(开战那一刻起)；
     // 劫掠之战也不拉姻亲、不扩封建、不升级世界大战(联盟各部由 NomadRaidSystem 自己拉进来)
     public static bool ContainedWar(War war) =>
-        DeclaringFeud || DeclaringContest || NomadRaidSystem.Declaring ||
-        war?.data != null && war.GetEmpireWarType() is EmpireWarType.私战 or EmpireWarType.对立国王 or EmpireWarType.劫掠;
+        DeclaringFeud || DeclaringContest || NomadRaidSystem.Declaring || SteppeOrderSystem.Declaring ||
+        war?.data != null && war.GetEmpireWarType() is EmpireWarType.私战 or EmpireWarType.对立国王 or EmpireWarType.劫掠 or
+            EmpireWarType.草场之争;
 
     public static int ActiveFeuds(HolyRomanState state) => state?.private_wars?.Count(record => record.ended_at < 0d) ?? 0;
 

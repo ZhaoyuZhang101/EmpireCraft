@@ -1,5 +1,8 @@
+using System;
+using System.Collections.Generic;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.Layer;
+using NeoModLoader.services;
 
 namespace EmpireCraft.Scripts.GeneralSystems;
 
@@ -8,7 +11,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //      照部落联合的规矩走，见 TribalWarSystem)主动开的一般战争只打 PeaceMaxCities 城以内、不在任何帝国里的小国——
 //      至多小打小闹(原版挑宣战对象见 WarTargetPatch，帝国与成员见 EmpireCraftPlotsAddition.GetWarTarget)；
 //      平时的动静只有草原压力引起的劫掠(见 NomadRaidSystem)与下面的争草场。
-// 诊断日志 [EmpireCraft][游牧常态]。
+//   2. 部落争草场(见 SteppeOrderSystem.Feuds)。
+// 每年随草原压力一起结算(NomadRaidSystem 算完压力后调用 Yearly)，每月看争草场到期(Monthly)。诊断日志 [EmpireCraft][游牧常态]。
 public static partial class SteppeOrderSystem
 {
     public const string LogTag = "[EmpireCraft][游牧常态]";
@@ -22,5 +26,30 @@ public static partial class SteppeOrderSystem
         if (!NomadRaidSystem.IsNomad(realm) || TribalFissionService.IsTribal(initiator) || RulerTraitSystem.FounderReigns(realm))
             return true;
         return !target.IsEmpire() && !target.IsInEmpire() && (target.cities?.Count ?? 0) <= PeaceMaxCities;
+    }
+
+    // 每年：nomads 是算过草原压力的有劫掠传统的国家
+    public static void Yearly(List<Kingdom> nomads)
+    {
+        try
+        {
+            FeudsYearly(nomads);
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"{LogTag} 争草场结算失败: {exception.Message}");
+        }
+    }
+
+    public static void Monthly()
+    {
+        try
+        {
+            FeudsMonthly();
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"{LogTag} 争草场到期结算失败: {exception.Message}");
+        }
     }
 }

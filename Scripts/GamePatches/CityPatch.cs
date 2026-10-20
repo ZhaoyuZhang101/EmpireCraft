@@ -369,6 +369,12 @@ public class CityPatch : GamePatch
             __instance.clearCapture();
             return false;
         }
+        // 游牧争草场只争清单里的边城(见 SteppeOrderSystem)
+        if (EmpireCraft.Scripts.GeneralSystems.SteppeOrderSystem.BlocksPastureCity(pNewKingdom, __instance))
+        {
+            __instance.clearCapture();
+            return false;
+        }
         // 部落之间破城不易主：部落联合以前赔款求和，以后奉胜者为共主，占的地全数退还(见 TribalWarSystem)
         if (EmpireCraft.Scripts.GeneralSystems.TribalWarSystem.TrySubmit(__instance, pNewKingdom))
         {

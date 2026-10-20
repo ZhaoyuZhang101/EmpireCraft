@@ -75,6 +75,14 @@ public static class SteppeRules
         return Math.Max(0f, Math.Min(0.6f, chance));
     }
 
+    // 争草场的机会(每年每对)：0.02 + 0.005×两边牲畜粮食压力之和；攻方强出一半 ×1.5、比对方弱 ×0.5；至多 0.25
+    public static float FeudChance(float herdA, float herdB, double powerRatio)
+    {
+        float chance = 0.02f + 0.005f * (Math.Max(0f, herdA) + Math.Max(0f, herdB));
+        chance *= powerRatio >= 1.5d ? 1.5f : powerRatio < 1d ? 0.5f : 1f;
+        return Math.Min(0.25f, chance);
+    }
+
     // 盟主转雄主的机会(每回得胜之后掷一次)：威望 2 起 10%，每多一回 +10%，至多 60%
     public static float HeroChance(int prestige) => prestige < 2 ? 0f : Math.Min(0.6f, 0.1f * (prestige - 1));
 

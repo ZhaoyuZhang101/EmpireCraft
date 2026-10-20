@@ -48,6 +48,7 @@ public static partial class NomadRaidSystem
     private static void MonthTick()
     {
         Aftermath();
+        SteppeOrderSystem.Monthly();
         foreach (War war in RaidWars())
         {
             RaidWarState state = Ensure(war);

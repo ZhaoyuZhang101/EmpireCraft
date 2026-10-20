@@ -250,6 +250,8 @@ public static partial class NomadRaidSystem
                                $"国库{state.treasury:0} 互市{state.market:0}){(IsNomad(kingdom) ? "" : "[非游牧]")}" +
                                (state.prestige > 0 ? $" 盟主威望{state.prestige}" : ""));
         }
+        // 草原常态：争草场等(见 SteppeOrderSystem)
+        SteppeOrderSystem.Yearly(raiders);
         var assigned = new HashSet<Kingdom>();
         foreach (Kingdom leader in raiders.Where(kingdom => IsRealm(kingdom) && State(kingdom).pressure >= SteppeRules.RaidThreshold)
                      .OrderByDescending(PowerOf).ToList())

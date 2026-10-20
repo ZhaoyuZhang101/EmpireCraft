@@ -31,6 +31,18 @@ public sealed class SteppeState
     public bool hero_pending;
     public List<long> hero_members;
     public List<long> rift_members;
+    // 争草场(见 SteppeOrderSystem)：与哪国、上回开打的时间(同一对十年内不再打)
+    public Dictionary<long, double> feud_at;
+}
+
+// 争草场之战(见 SteppeOrderSystem)：存在 WarExtraData.pasture 里
+public sealed class PastureFeudState
+{
+    public long attacker_id = -1L, defender_id = -1L;
+    public string attacker_name = "", defender_name = "", city_names = "";
+    // 争的城(守方挨着攻方的非都城，至多两座)
+    public List<long> city_ids = new();
+    public bool settled;
 }
 
 // 劫掠之战(见 NomadRaidSystem)：存在 WarExtraData.raid 里
