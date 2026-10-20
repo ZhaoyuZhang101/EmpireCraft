@@ -792,8 +792,9 @@ public static class TechnologySystem
         var regimes = new HashSet<EmpireCraft.Scripts.Regimes.RegimeType>();
         foreach (Kingdom kingdom in World.world.kingdoms.list)
         {
+            // 政体按制度文化归：旧制犹存的国家用的是旧制所属文化的政体，不能补记到新文化的制度树上(见 LegacyInstitutionSystem)
             if (kingdom?.data == null || kingdom.isRekt() ||
-                !string.Equals(CultureService.GetRealmCulture(kingdom), culture, StringComparison.Ordinal)) continue;
+                !string.Equals(CultureService.GetInstitutionCulture(kingdom), culture, StringComparison.Ordinal)) continue;
             EmpireCraft.Scripts.Regimes.Regime regime = kingdom.GetRegime();
             if (regime != null) regimes.Add(regime.type);
         }

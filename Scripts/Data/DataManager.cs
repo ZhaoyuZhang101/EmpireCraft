@@ -102,7 +102,8 @@ public static class DataManager
                 if (kingdom.GetOfficeID() == -1L)
                 {
                     bool manuallySelected = kingdom.GetOrCreate().regime_manually_selected;
-                    var culture = CultureService.GetRealmCulture(kingdom);
+                    // 旧制犹存的按旧制所属的文化(见 LegacyInstitutionSystem)
+                    var culture = CultureService.GetInstitutionCulture(kingdom);
                     RegimeType regimeType = InstitutionSystem.TryResolveCultureRegime(culture, out RegimeType resolvedRegime)
             ? resolvedRegime
             : OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(culture, out Setting setting)

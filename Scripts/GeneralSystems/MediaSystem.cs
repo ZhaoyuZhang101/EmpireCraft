@@ -61,7 +61,7 @@ public static class MediaSystem
     public static bool IsOpen(Kingdom kingdom)
     {
         if (kingdom == null || kingdom.isRekt()) return false;
-        string culture = CultureService.GetRealmCulture(kingdom);
+        string culture = CultureService.GetInstitutionCulture(kingdom);
         if (CultureService.IsValidCulture(culture) && InstitutionSystem.GetFeature(culture, "closed_country") > 0f) return false;
         Empire empire = kingdom.IsInEmpire() ? kingdom.GetEmpire() : null;
         return empire == null || ConstitutionSystem.GetSpeech(empire) != ConstitutionSpeech.Strict;

@@ -27,7 +27,8 @@ public static class GranarySystem
         Kingdom realm = Realm(kingdom);
         if (realm == null || realm.isRekt() || realm.wild) return false;
         if (ModernStability.IsModern(realm)) return true;
-        string culture = CultureService.GetRealmCulture(realm);
+        // 制度特性照制度文化(旧制犹存的照旧制，见 LegacyInstitutionSystem)
+        string culture = CultureService.GetInstitutionCulture(realm);
         return CultureService.IsValidCulture(culture) && InstitutionSystem.HasFeature(culture, FeatureStateGranary);
     }
 

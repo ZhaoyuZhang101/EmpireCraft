@@ -66,7 +66,7 @@ public static class FeudalConquestService
         // 中央集权以后(direct_administration，如中央集权君主制)：攻下三城以内小国的都城整国并入——以前西方封建
         // 攻城永远只收附庸，整合太慢(复查 2026-10-17)
         if (western && conquered.countCities() <= CentralizedAnnexMaxCities &&
-            InstitutionSystem.GetFeature(CultureService.GetRealmCulture(captor), InstitutionFeatures.DirectAdministration) > 0f)
+            InstitutionSystem.GetFeature(CultureService.GetInstitutionCulture(captor), InstitutionFeatures.DirectAdministration) > 0f)
         {
             foreach (City part in conquered.cities.ToList())
                 if (part != null && !part.isRekt()) part.joinAnotherKingdom(captor);

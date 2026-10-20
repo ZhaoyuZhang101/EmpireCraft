@@ -62,7 +62,9 @@ public static class RealmCultureSystem
         }
         foreach (KingdomTitle title in kingdom.GetControlledTitles().ToList())
             CultureService.ConvertTitleCulture(title, culture);
-        CultureService.SetRealmCulture(kingdom, culture, updatePoliticalSystem: kingdom.GetEmpire()?.CoreKingdom != kingdom);
+        // 一键易俗连制度一并改，不留旧制(见 LegacyInstitutionSystem)
+        CultureService.SetRealmCulture(kingdom, culture, updatePoliticalSystem: kingdom.GetEmpire()?.CoreKingdom != kingdom,
+            allowLegacyInstitutions: false);
         // 科技按新文化重新登记采纳(见 TechnologySystem.GetRealmState)
         kingdom.GetOrCreate().realm_tech = null;
         return cities;

@@ -837,7 +837,9 @@ public static partial class CompositeEmpireService
         empire.data.external_identity_culture = institutionalCulture;
         if (AdoptableRegime(institutionalCulture, out RegimeType institutionalType))
             empire.data.military_tradition = institutionalType.ToString();
-        CultureService.SetRealmCulture(empire.CoreKingdom, institutionalCulture, updatePoliticalSystem: false);
+        // 征服王朝本就分统治文化、制度文化，不叠旧制(见 LegacyInstitutionSystem)
+        CultureService.SetRealmCulture(empire.CoreKingdom, institutionalCulture, updatePoliticalSystem: false,
+            allowLegacyInstitutions: false);
         // 帝国核心的默认文化(没锁定、该文化此刻没有别的正统帝国时)也换过来，国号类别按现行政体重取：
         // 以前融合完成后核心仍是游牧文化(天下、同化目标都按旧文化)，对外仍称"汗国"
         EmpireCore core = EmpireCoreManager.Get(empire);

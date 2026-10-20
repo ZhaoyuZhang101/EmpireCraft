@@ -36,7 +36,7 @@ public static class PersonalUnionService
 
     public static bool IsAtFeudalRealmLimit(Actor ruler) => ruler != null &&
         IsFeudal(ruler.kingdom) &&
-        InstitutionSystem.IsEnacted(CultureService.GetRealmCulture(ruler.kingdom), "western_feudalization") &&
+        InstitutionSystem.IsEnacted(CultureService.GetInstitutionCulture(ruler.kingdom), "western_feudalization") &&
         GetRealms(ruler).Count(IsFeudal) >= ModClass.FEUDAL_UNION_REALM_LIMIT;
 
     public static bool CrownLocalVassal(Kingdom realm, Kingdom overlord)

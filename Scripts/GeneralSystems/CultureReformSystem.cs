@@ -104,6 +104,10 @@ public static class CultureReformSystem
         bool core = empire?.data != null && empire.CoreKingdom == kingdom;
         bool composite = core && CompositeEmpireService.IsComposite(empire);
         RegimeType? before = kingdom.GetRegime()?.type;
+        // 旧制犹存(见 LegacyInstitutionSystem)：先取下改俗前现用的制度文化(帝国核心下面要先改帝国的文化)；
+        // 神力改俗连制度一并改，征服王朝另有制度文化之分，都不留旧制
+        string previousInstitution = LegacyInstitutionSystem.CurrentInstitutionCulture(kingdom);
+        bool allowLegacy = !force && !composite;
 
         // 王族的宗族出身要在改俗之前看(改完君主本人就是新文化了)
         SpecificClan royal = king?.GetSpecificClan();
@@ -124,7 +128,9 @@ public static class CultureReformSystem
             empire.data.ruling_culture = target;
             InstitutionSystem.ForgetRulingMajority(empire);
         }
-        CultureService.SetRealmCulture(kingdom, target, updatePoliticalSystem: !core);
+        // 新文化落后时政体、制度照旧(帝国核心由 ResyncCulture 按旧制所属的文化重算，同样不动)
+        CultureService.SetRealmCulture(kingdom, target, updatePoliticalSystem: !core, allowLegacyInstitutions: allowLegacy,
+            previousInstitutionCulture: previousInstitution);
         if (core) InstitutionSystem.ResyncCulture(empire);
 
         Culture native = string.Equals(CulturePatch.GetInjectedCultureName(kingdom.culture), target, StringComparison.Ordinal)

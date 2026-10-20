@@ -69,10 +69,11 @@ public sealed class InstitutionRealm
     // 王国是独立政权才推制度；帝国总是
     public bool IsSovereign => Empire != null ? IsAlive : IsSovereignKingdom(Kingdom);
 
-    // 制度文化：帝国按制度文化(征服王朝、统治多数派，见 InstitutionSystem.GetPrimaryCulture)，王国按本国文化
+    // 制度文化：帝国按制度文化(征服王朝、统治多数派，见 InstitutionSystem.GetPrimaryCulture)，王国按本国文化；
+    // 旧制犹存的按旧制所属的文化(见 LegacyInstitutionSystem)，推的也是那棵制度树
     public string Culture => Empire != null
         ? InstitutionSystem.GetPrimaryCulture(Empire)
-        : CultureService.GetRealmCulture(Kingdom);
+        : CultureService.GetInstitutionCulture(Kingdom);
 
     // 制度效果、阶层人口所及的国家：帝国全体成员，王国只有自己
     public IEnumerable<Kingdom> Scope => Empire != null

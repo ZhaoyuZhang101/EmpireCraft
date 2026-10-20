@@ -96,7 +96,8 @@ public static class FeudalVassalService
     {
         if (lord?.data == null || lord.isRekt()) return false;
         if (IsPostMonarchy(lord)) return true;
-        string culture = CultureService.GetRealmCulture(lord);
+        // 制度照制度文化(旧制犹存的照旧制，见 LegacyInstitutionSystem)
+        string culture = CultureService.GetInstitutionCulture(lord);
         return InstitutionSystem.IsEnacted(culture, "western_feudalization");
     }
 
@@ -291,7 +292,7 @@ public static class FeudalVassalService
         Empire empire = kingdom.GetEmpire();
         if (empire != null && !empire.IsArchived())
             return InstitutionSystem.HasFeature(empire, InstitutionFeatures.DirectAdministration);
-        string culture = CultureService.GetRealmCulture(kingdom);
+        string culture = CultureService.GetInstitutionCulture(kingdom);
         return !string.IsNullOrEmpty(culture) && InstitutionSystem.HasFeature(culture, InstitutionFeatures.DirectAdministration);
     }
 

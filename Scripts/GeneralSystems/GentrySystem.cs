@@ -140,7 +140,8 @@ public static class GentrySystem
     // 官缺由世家子弟补上的机会
     public static float Monopoly(Kingdom kingdom)
     {
-        string culture = CultureService.GetRealmCulture(kingdom);
+        // 选官之制照制度文化(旧制犹存的照旧制，见 LegacyInstitutionSystem)
+        string culture = CultureService.GetInstitutionCulture(kingdom);
         if (!CultureService.IsValidCulture(culture)) return 0f;
         try
         {

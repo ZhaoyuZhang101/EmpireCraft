@@ -155,7 +155,7 @@ public static partial class PapacySystem
     {
         Kingdom state = order.state_kingdom_id >= 0 ? World.world.kingdoms.get(order.state_kingdom_id) : null;
         if (state?.data == null || state.isRekt()) return false;
-        string culture = CultureService.GetRealmCulture(state);
+        string culture = CultureService.GetInstitutionCulture(state);
         if (!InstitutionSystem.IsEnacted(culture, NodeReformation) && !InstitutionSystem.IsEnacted(culture, NodeSecularization))
             return false;
         string name = string.Format(LM.Get("order_duchy_name"), state.capital?.GetCityName() ?? state.GetKingdomName());

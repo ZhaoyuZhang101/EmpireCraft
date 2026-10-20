@@ -107,12 +107,30 @@ public static class CultureService
         return culture;
     }
 
-    public static bool SetRealmCulture(Kingdom kingdom, string culture, bool updatePoliticalSystem = false)
+    // 制度文化：政体、制度效果、制度特性按它算。改从文明等级更低的文化后旧制犹存的，是旧制所属的文化
+    // (见 LegacyInstitutionSystem)；其余就是国家文化。风俗、命名、宗教、科技照旧按国家文化(GetRealmCulture)
+    public static string GetInstitutionCulture(Kingdom kingdom)
+    {
+        string realm = GetRealmCulture(kingdom);
+        if (kingdom?.data == null || kingdom.isRekt()) return realm;
+        string legacy = kingdom.GetOrCreate().institution_culture;
+        return !string.IsNullOrEmpty(legacy) && IsValidCulture(legacy) ? legacy : realm;
+    }
+
+    // allowLegacyInstitutions：换成文明等级更低的文化时旧制犹存(见 LegacyInstitutionSystem)，政体不按新文化改；
+    // 叛乱自立、征服王朝、神力改俗、归化改制传 false(不保留，原有的旧制也一并作罢)。立国不满一年的新国
+    // (分封、水土胡化分出来的游牧之国……)由 LegacyInstitutionSystem 自己排除。
+    // previousInstitutionCulture：调用方在改动帝国文化之前先取下的制度文化(易俗改制先改了帝国的文化再改国家)；空则在这里取
+    public static bool SetRealmCulture(Kingdom kingdom, string culture, bool updatePoliticalSystem = false,
+        bool allowLegacyInstitutions = true, string previousInstitutionCulture = null)
     {
         if (kingdom?.data == null || kingdom.isRekt() || !IsValidCulture(culture)) return false;
         KingdomExtension.KingdomExtraData data = kingdom.GetOrCreate();
         bool changed = !string.Equals(data.realm_culture, culture, StringComparison.Ordinal);
+        if (changed && allowLegacyInstitutions && previousInstitutionCulture == null)
+            previousInstitutionCulture = LegacyInstitutionSystem.CurrentInstitutionCulture(kingdom);
         data.realm_culture = culture;
+        bool keepLegacy = false;
         if (changed)
         {
             // 主动易俗后不再沿用旧文化的水土改制来源。
@@ -121,6 +139,8 @@ public static class CultureService
             if (empire?.CoreKingdom == kingdom)
                 ConstitutionalEconomySystem.ResetCultureStability(empire);
         }
+        if (!allowLegacyInstitutions) LegacyInstitutionSystem.Drop(kingdom, culture);
+        else if (changed) keepLegacy = LegacyInstitutionSystem.OnRealmCultureChanged(kingdom, previousInstitutionCulture, culture);
         bool canCreateNativeCulture = kingdom.king?.city?.data != null;
         Culture nativeCulture = ResolveNativeCulture(culture, kingdom.king, canCreateNativeCulture);
         if (nativeCulture != null)
@@ -128,18 +148,18 @@ public static class CultureService
             CulturePatch.SyncCultureDisplayName(nativeCulture, culture);
             if (kingdom.culture != nativeCulture) kingdom.setCulture(nativeCulture);
         }
-        if (updatePoliticalSystem) ApplyCulturePoliticalSystem(kingdom, culture);
+        if (updatePoliticalSystem && !keepLegacy) ApplyCulturePoliticalSystem(kingdom, culture);
         return changed;
     }
 
     // 叛乱自立的新国取当地主文化(用户 2026-10-19 选"可和平同化、留少数族群"；以前取领头人个人的文化——异族守将、
-    // 移民据城自立，整个新国就成了异族)；分封、分治、建国等别的立国照旧取立国者的文化
+    // 移民据城自立，整个新国就成了异族)；分封、分治、建国等别的立国照旧取立国者的文化。新立之国没有旧制可沿
     public static void ApplyLocalCulture(Kingdom kingdom, City seat)
     {
         if (kingdom?.data == null || kingdom.isRekt() || seat?.data == null || seat.isRekt()) return;
         string local = GetMainCulture(seat, initialize: false);
         if (!IsValidCulture(local) || string.Equals(local, GetRealmCulture(kingdom), StringComparison.Ordinal)) return;
-        SetRealmCulture(kingdom, local, updatePoliticalSystem: true);
+        SetRealmCulture(kingdom, local, updatePoliticalSystem: true, allowLegacyInstitutions: false);
     }
 
     // 固定法理文化开着时(或立国之地的法理锁定了文化)，新国取立国之地(都城，没有都城取立国者所在的城)的官方文化，
@@ -147,6 +167,7 @@ public static class CultureService
     // 正在自成一国的城(City.makeOwnKingdom 期间，见 CulturePatch)
     internal static City PendingSeat;
 
+    // 已有的国家称帝时改从君主的文化，换成落后的文化照样旧制犹存；新立之国(立国不满一年)没有旧制可沿(见 LegacyInstitutionSystem)
     public static void ApplyFounderCulture(Kingdom kingdom, Actor founder)
     {
         if (kingdom?.data == null || founder == null) return;
@@ -191,7 +212,8 @@ public static class CultureService
         // 只修复历史上的阿拉伯默认值污染；正常改革、手动指定及复合帝国的区域制度另有规则。
         if (data.regimeType != RegimeType.Arabic || data.regime_manually_selected ||
             RepublicSystem.IsRegimeLocked(kingdom) || CompositeEmpireService.IsComposite(kingdom.GetEmpire())) return;
-        string culture = GetRealmCulture(kingdom);
+        // 旧制犹存的按旧制所属文化看(阿拉伯旧制的不算污染)
+        string culture = GetInstitutionCulture(kingdom);
         if (!IsValidCulture(culture)) return;
         string line = culture.GetInstitutionLine();
         if (InstitutionDefinitionRegistry.HasLine(line) &&
@@ -255,6 +277,9 @@ public static class CultureService
         // 否则 LoadRegime 会回退成封建制，而谋划又会在下一轮继续尝试，造成无限刷屏。
         if (!IsRegimeAvailable(regimeType)) return false;
         if (kingdom.GetRegime()?.type == regimeType) return false;
+        // 帝国的文化不及本国现用的制度：改从其俗也是旧制犹存，不归化(见 LegacyInstitutionSystem)——
+        // 否则谋划成了却改不过政体，下一轮又来
+        if (LegacyInstitutionSystem.WouldKeep(kingdom, GetInstitutionCulture(kingdom), culture)) return false;
 
         List<City> cities = (kingdom.cities ?? new List<City>()).Where(city => city != null && !city.isRekt()).ToList();
         if (cities.Count == 0) return false;
@@ -281,7 +306,8 @@ public static class CultureService
             !IsRegimeAvailable(targetRegimeType)) return false;
         RegimeType? previousRegimeType = kingdom.GetRegime()?.type;
         if (previousRegimeType == targetRegimeType) return false;
-        SetRealmCulture(kingdom, targetCulture, updatePoliticalSystem: true);
+        // 归化是本国主动改制：一步改行新制，原有的旧制作罢
+        SetRealmCulture(kingdom, targetCulture, updatePoliticalSystem: true, allowLegacyInstitutions: false);
         // 只有实际加载出的政体与目标一致才算成功；严禁把回退政体记录成成功转制。
         if (kingdom.GetRegime()?.type != targetRegimeType) return false;
         TranslateHelper.LogKingdomRegimeConversion(kingdom, previousRegimeType, targetRegimeType);

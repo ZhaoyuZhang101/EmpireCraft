@@ -62,7 +62,7 @@ public static class RitesSystem
     public static void OnWarDeclared(War war)
     {
         Kingdom attacker = war?.main_attacker, defender = war?.main_defender;
-        if (attacker == null || attacker.isRekt() || defender == null || !Has(CultureService.GetRealmCulture(attacker), FeatureDivination))
+        if (attacker == null || attacker.isRekt() || defender == null || !Has(CultureService.GetInstitutionCulture(attacker), FeatureDivination))
             return;
         float omen = Random.value;
         if (omen >= 0.6f && omen < 0.75f) return;

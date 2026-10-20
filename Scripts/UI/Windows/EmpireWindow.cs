@@ -240,6 +240,15 @@ namespace EmpireCraft.Scripts.UI.Windows
                 true, TextAnchor.MiddleLeft, new Vector2(inner, 9f));
             regimeLine.UseFixedFontSize(6, HorizontalWrapMode.Overflow);
             HoverMarqueeText.Attach(regimeLine);
+            // 旧制犹存：核心改从了文明更落后的文化，帝国的制度仍照旧制所属的文化(见 LegacyInstitutionSystem)
+            if (LegacyInstitutionSystem.TryGet(_empire.CoreKingdom, out string legacy))
+            {
+                var legacyLine = identity.AddTextIntoVertLayout(LegacyInstitutionSystem.Label(legacy).ColorString("#E9A85B"),
+                    true, TextAnchor.MiddleLeft, new Vector2(inner, 9f));
+                legacyLine.UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+                UIHelper.AttachTextTooltip(legacyLine.gameObject, $"legacy_institution_{_empire.CoreKingdom.id}",
+                    LM.Get("legacy_institution_tip_title"), LegacyInstitutionSystem.Tooltip(_empire.CoreKingdom, legacy));
+            }
             // 共和国显示其选定的纪年方式
             string yearText = republic ? RepublicSystem.GetCalendarText(_empire) : _empire.GetYearNameWithTime();
             identity.AddTextIntoVertLayout(yearText.ColorString(pColor: _empire.getColor()._color_text), true,

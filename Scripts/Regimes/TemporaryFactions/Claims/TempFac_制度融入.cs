@@ -23,18 +23,18 @@ public class TempFac_制度融入 : TemporaryFaction
         Empire empire = GetEmpire();
         var target = GetKingdomTarget();
         Regime targetRegime = target != null && !target.isRekt() ? target.GetRegime() : null;
-        string culture = CultureService.GetRealmCulture(empire?.CoreKingdom);
+        string culture = CultureService.GetInstitutionCulture(empire?.CoreKingdom);
         if (empire?.kingdoms_list != null && targetRegime != null &&
             !CompositeEmpireService.IsComposite(empire) &&
             CultureService.IsValidCulture(culture) &&
-            CultureService.GetRealmCulture(target) == culture &&
+            CultureService.GetInstitutionCulture(target) == culture &&
             InstitutionSystem.TryResolveCultureRegime(culture, out RegimeType expected) && expected == targetRegime.type &&
             InstitutionSystem.RealmCanAdoptRegime(empire.CoreKingdom, expected))
         {
             foreach (var kingdom in empire.kingdoms_list)
             {
                 if (kingdom == null || kingdom.isRekt() || kingdom == target) continue;
-                if (CultureService.GetRealmCulture(kingdom) != culture ||
+                if (CultureService.GetInstitutionCulture(kingdom) != culture ||
                     kingdom.GetOrCreate().regime_manually_selected || RepublicSystem.IsRegimeLocked(kingdom)) continue;
                 kingdom.SetRegimeType(targetRegime.type);
                 kingdom.LoadRegime();
@@ -49,14 +49,14 @@ public class TempFac_制度融入 : TemporaryFaction
         Regime coreRegime = empire?.CoreKingdom?.GetRegime();
         if (coreRegime == null || empire.kingdoms_list == null || CompositeEmpireService.IsComposite(empire) ||
             empire.CoreKingdom.GetOrCreate().regime_manually_selected || RepublicSystem.IsRegimeLocked(empire.CoreKingdom)) return false;
-        string culture = CultureService.GetRealmCulture(empire.CoreKingdom);
+        string culture = CultureService.GetInstitutionCulture(empire.CoreKingdom);
         if (!CultureService.IsValidCulture(culture) ||
             !InstitutionSystem.TryResolveCultureRegime(culture, out RegimeType expected)) return false;
         // 本国(帝国)还没采纳新体制所需的科技：过渡不过去
         if (!InstitutionSystem.RealmCanAdoptRegime(empire.CoreKingdom, expected)) return false;
 
         var regimeCount = empire.kingdoms_list
-            .Where(k => k != null && !k.isRekt() && CultureService.GetRealmCulture(k) == culture &&
+            .Where(k => k != null && !k.isRekt() && CultureService.GetInstitutionCulture(k) == culture &&
                 !k.GetOrCreate().regime_manually_selected && !RepublicSystem.IsRegimeLocked(k))
             .Select(k => new { kingdom = k, regime = k.GetRegime() })
             .Where(entry => entry.regime != null && entry.regime.type == expected)

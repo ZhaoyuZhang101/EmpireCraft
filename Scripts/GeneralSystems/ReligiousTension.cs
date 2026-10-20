@@ -44,10 +44,12 @@ public static class ReligiousTension
     public static Policy PolicyOf(Kingdom kingdom)
     {
         string culture = CultureService.GetRealmCulture(kingdom);
+        // 宽容、人头税是制度特性，照制度文化(旧制犹存的照旧制，见 LegacyInstitutionSystem)；法教传统是文化本身的
+        string institutions = CultureService.GetInstitutionCulture(kingdom);
         // 法教传统(印度)向来宽容(见 PapacySystem.DharmicTrait)
-        if (InstitutionSystem.HasFeature(culture, ToleranceFeature) ||
+        if (InstitutionSystem.HasFeature(institutions, ToleranceFeature) ||
             EmpireCraft.Scripts.Data.OnomasticsRule.HasPoliticalTrait(culture, PapacySystem.DharmicTrait)) return Policy.Tolerant;
-        return InstitutionSystem.HasFeature(culture, PollTaxFeature) ? Policy.PollTax : Policy.Intolerant;
+        return InstitutionSystem.HasFeature(institutions, PollTaxFeature) ? Policy.PollTax : Policy.Intolerant;
     }
 
     // 异教之城征兵打几折(见 CorpsSystem.Mobilize)：收人头税的国家豁免异教之民的兵役，只征 DhimmiLevy

@@ -351,6 +351,8 @@ public static class KingdomExtension
         public int provisional_label_pick = -1;
         // Stable EmpireCraft culture key selected from the founder/ruler's current Culture.
         public string realm_culture = "";
+        // 旧制犹存(见 LegacyInstitutionSystem)：改从文明等级更低的文化后仍沿用的制度所属文化；空 = 与国家文化相同(旧档没有这项，照空)
+        public string institution_culture = "";
         // 王族：存档只记宗族 ID，运行时按 ID 取族谱里的那一个(见 GetSpecificClan)。
         // 以前整个宗族对象(含全部族人与生平)随王国再存一遍，存档里每个王国一份副本、读档后还与族谱脱节
         public long kingdom_specific_clan_id = -1L;
@@ -2253,7 +2255,8 @@ public static class KingdomExtension
     public static void InitialRegime(this Kingdom k)
     {
         if (k?.data == null || k.isRekt()) return;
-        var culture = CultureService.GetRealmCulture(k);
+        // 旧制犹存的照旧制所属文化(见 LegacyInstitutionSystem)
+        var culture = CultureService.GetInstitutionCulture(k);
         // 初始政体由该文化所属科技线的**一级制度**决定（华夏开局是周制，律令要等郡县官僚
         // 研究出来），线里没声明才退回 CultureRule.jsonc 里的 setting.regime。
         RegimeType regimeType = InstitutionSystem.TryResolveCultureRegime(culture, out RegimeType resolvedRegime)

@@ -74,7 +74,7 @@ public static class CultureModernizationSystem
 
         List<Kingdom> realms = World.world.kingdoms
             .Where(kingdom => kingdom?.data != null && !kingdom.isRekt() && kingdom.isCiv() &&
-                              string.Equals(CultureService.GetRealmCulture(kingdom), culture,
+                              string.Equals(CultureService.GetInstitutionCulture(kingdom), culture,
                                   StringComparison.Ordinal))
             .ToList();
 
@@ -165,13 +165,14 @@ public static class CultureModernizationSystem
                InstitutionSystem.GetFeature(culture, RepublicSystem.FeatureAbolishMonarchy) > 0f;
     }
 
+    // 按制度文化找本文化的国家：旧制犹存的算在旧制所属的文化里(见 LegacyInstitutionSystem)
     private static bool TransitionIndependentRealms(string culture)
     {
         List<Kingdom> candidates = World.world.kingdoms
             .Where(kingdom => kingdom?.data != null && !kingdom.isRekt() && kingdom.isCiv() &&
                               !kingdom.IsEmpire() && !kingdom.IsInEmpire() &&
                               kingdom.GetAdministrativeTitle() == null &&
-                              string.Equals(CultureService.GetRealmCulture(kingdom), culture,
+                              string.Equals(CultureService.GetInstitutionCulture(kingdom), culture,
                                   StringComparison.Ordinal))
             .ToList();
         bool changed = false;

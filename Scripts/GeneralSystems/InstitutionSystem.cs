@@ -400,7 +400,7 @@ public static partial class InstitutionSystem
     // 这个国家能否过渡到本文化的某个体制：本文化制度线上声明这个政体的节点所需的科技，本国都已采纳
     public static bool RealmCanAdoptRegime(Kingdom kingdom, RegimeType regime)
     {
-        string culture = CultureService.GetRealmCulture(kingdom);
+        string culture = CultureService.GetInstitutionCulture(kingdom);
         if (!CultureService.IsValidCulture(culture)) return true;
         InstitutionNodeConfig node = InstitutionDefinitionRegistry.GetForLine(GetCultureLine(culture))
             .FirstOrDefault(candidate => InstitutionDefinitionRegistry.TryGetNodeRegime(candidate, out RegimeType declared) &&
@@ -480,7 +480,8 @@ public static partial class InstitutionSystem
         // 周室之内：只认还在的周室(战国离开帝国、所属周室仍是周制的诸侯)。zhou_sphere_id 只在周被代、统一时清，
         // 周室亡于外族、改行律令或解散后还留着，以前凭它一概不动，这些旧诸侯就永远停在周制
         if (extra.regime_manually_selected || ZhouEraSystem.IsDetachedVassal(kingdom) || RepublicSystem.IsRegimeLocked(kingdom)) return;
-        string culture = CultureService.GetRealmCulture(kingdom);
+        // 旧制犹存的跟旧制所属的文化(见 LegacyInstitutionSystem)，不跟着落后的新文化退回去
+        string culture = CultureService.GetInstitutionCulture(kingdom);
         if (!CultureService.IsValidCulture(culture) || !TryResolveCultureRegime(culture, out RegimeType target) ||
             target == current || RegimeManager.IsPrimitive(target) || target is RegimeType.Modern or RegimeType.Republic ||
             !RegimeManager.regimes.TryGetValue(target, out Regime targetRegime) || targetRegime == null) return;
@@ -502,7 +503,7 @@ public static partial class InstitutionSystem
 
         // 属国已经改制时先让中央跟上；其他国家在文化走到这一步后的第 2~5 年分批改制
         bool subjectsFirst = empire?.kingdoms_list?.Any(member => member != null && member != kingdom && !member.isRekt() &&
-            GetCultureLine(CultureService.GetRealmCulture(member)) == line && member.GetRegime()?.type == target) == true;
+            GetCultureLine(CultureService.GetInstitutionCulture(member)) == line && member.GetRegime()?.type == target) == true;
         if (!subjectsFirst && Date.getYearsSince(enactedAt) < 2 + kingdom.id % 4) return;
         // 本国还没采纳所需的科技：等采纳了再改
         if (!RealmCanAdoptRegime(kingdom, target)) return;
@@ -533,11 +534,17 @@ public static partial class InstitutionSystem
         }
     }
 
-    public static string GetPrimaryCulture(Empire empire)
+    public static string GetPrimaryCulture(Empire empire) => GetPrimaryCulture(empire, honorLegacy: true);
+
+    // honorLegacy：帝国核心改从文明等级更低的文化后旧制犹存(见 LegacyInstitutionSystem)，制度照旧制所属的文化；
+    // 传 false 取不论旧制时本该用的制度文化(判旧制何时结束用)
+    public static string GetPrimaryCulture(Empire empire, bool honorLegacy)
     {
         // 制度按国家绑定的文化走：征服王朝采用当地制度后，制度树跟随制度文化(而不是统治族群的文化)，
         // 否则会按统治族群的科技线把政体改回去(如阿拉伯王朝治下的华夏帝国显示哈里发)
         bool composite = CompositeEmpireService.IsComposite(empire);
+        // 征服王朝另有统治文化、制度文化之分，不叠旧制
+        if (honorLegacy && !composite && LegacyInstitutionSystem.Stored(empire?.CoreKingdom) is string legacy) return legacy;
         // 分治的征服王朝朝廷照本族旧制，制度树走本族那条线(见 CompositeEmpireService.GetCourtCulture)
         string culture = composite
             ? CompositeEmpireService.GetCourtCulture(empire)
@@ -1068,7 +1075,7 @@ public static partial class InstitutionSystem
                              InstitutionRealm.IsSovereignKingdom(neighbour))
                     {
                         key = "k" + neighbour.id;
-                        neighbourCulture = CultureService.GetRealmCulture(neighbour);
+                        neighbourCulture = CultureService.GetInstitutionCulture(neighbour);
                     }
                     else continue;
                     if (!CultureService.IsValidCulture(neighbourCulture) ||
@@ -2532,8 +2539,8 @@ public static partial class InstitutionSystem
         {
             if (kingdom == null || kingdom.isRekt() || result.Contains(kingdom)) continue;
             // 同一条制度线的成员国跟着核心换政体(用户 2026-10-19 选"成员国按制度线跟核心换"：以前要文化一字不差，
-            // 哈里发里的埃及、法兰克帝国里的日耳曼、华夏里的中国山海都留着旧政体)
-            string memberCulture = CultureService.GetRealmCulture(kingdom);
+            // 哈里发里的埃及、法兰克帝国里的日耳曼、华夏里的中国山海都留着旧政体)。旧制犹存的成员按旧制所属的文化看
+            string memberCulture = CultureService.GetInstitutionCulture(kingdom);
             if (string.Equals(memberCulture, culture, StringComparison.Ordinal) ||
                 !string.IsNullOrEmpty(line) && GetCultureLine(memberCulture) == line)
                 result.Add(kingdom);

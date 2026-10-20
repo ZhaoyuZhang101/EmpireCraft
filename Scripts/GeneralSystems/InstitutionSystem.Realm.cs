@@ -80,7 +80,7 @@ public static partial class InstitutionSystem
         if (!InstitutionRealm.IsSovereignKingdom(kingdom))
         {
             if (existing?.active_reform != null)
-                DropKingdomReform(kingdom, existing, CultureService.GetRealmCulture(kingdom), "institution_realm_not_sovereign");
+                DropKingdomReform(kingdom, existing, CultureService.GetInstitutionCulture(kingdom), "institution_realm_not_sovereign");
             return;
         }
         InstitutionRealm realm = InstitutionRealm.Of(kingdom);
@@ -183,7 +183,7 @@ public static partial class InstitutionSystem
                                               empire.CoreKingdom != null && !empire.CoreKingdom.isRekt() &&
                                               string.Equals(GetPrimaryCulture(empire), culture, StringComparison.Ordinal));
 
-    // 本文化自己推制度的独立王国(有城)
+    // 本文化自己推制度的独立王国(有城)；按制度文化算，旧制犹存的算在旧制所属的文化里(见 LegacyInstitutionSystem)
     private static List<Kingdom> CultureKingdomRealms(string culture)
     {
         var result = new List<Kingdom>();
@@ -191,7 +191,7 @@ public static partial class InstitutionSystem
         foreach (Kingdom kingdom in World.world.kingdoms.list)
         {
             if (kingdom?.data == null || kingdom.isRekt() || !(kingdom.cities?.Count > 0)) continue;
-            if (!string.Equals(CultureService.GetRealmCulture(kingdom), culture, StringComparison.Ordinal)) continue;
+            if (!string.Equals(CultureService.GetInstitutionCulture(kingdom), culture, StringComparison.Ordinal)) continue;
             if (InstitutionRealm.IsSovereignKingdom(kingdom)) result.Add(kingdom);
         }
         return result;
@@ -206,7 +206,7 @@ public static partial class InstitutionSystem
             if (kingdom?.data == null || kingdom.isRekt()) continue;
             string nodeId = kingdom.GetOrCreate().institution_state?.active_reform?.node_id;
             if (string.IsNullOrEmpty(nodeId) ||
-                !string.Equals(CultureService.GetRealmCulture(kingdom), culture, StringComparison.Ordinal)) continue;
+                !string.Equals(CultureService.GetInstitutionCulture(kingdom), culture, StringComparison.Ordinal)) continue;
             yield return (kingdom, nodeId);
         }
     }
@@ -358,6 +358,20 @@ public static partial class InstitutionSystem
             if (state.active_reform != null && reformVoid(state.active_reform.node_id)) state.active_reform = null;
             SyncSharedEffects(InstitutionRealm.Of(kingdom));
         }
+    }
+
+    // 旧制作罢、改行新文化之制后(见 LegacyInstitutionSystem)：独立王国按新的制度文化补持久效果；政体重新加载过的
+    // (选项回到模板默认)清掉落地记录整体重放。还没记底的王国不在这里补，第一次年度扫描时按现状记底
+    internal static void ResyncKingdomEffects(Kingdom kingdom, bool regimeReloaded)
+    {
+        if (!InstitutionRealm.IsSovereignKingdom(kingdom)) return;
+        InstitutionEmpireState existing = kingdom.GetOrCreate().institution_state;
+        if (existing == null || existing.last_update_timestamp < 0) return;
+        InstitutionRealm realm = InstitutionRealm.Of(kingdom);
+        InstitutionEmpireState state = EnsureRealmState(realm);
+        if (state == null) return;
+        if (regimeReloaded) state.applied_node_ids.Clear();
+        SyncSharedEffects(realm);
     }
 
     #endregion

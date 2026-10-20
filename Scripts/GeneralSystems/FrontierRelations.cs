@@ -108,7 +108,7 @@ public static class FrontierRelations
     }
 
     private static bool HasCaravan(Kingdom kingdom) =>
-        InstitutionSystem.HasFeature(CultureService.GetRealmCulture(kingdom), CaravanFeature);
+        InstitutionSystem.HasFeature(CultureService.GetInstitutionCulture(kingdom), CaravanFeature);
 
     private static int Population(Kingdom kingdom) =>
         CityPopulationSystem.AbstractPopulationEnabled ? CityPopulationSystem.Households(kingdom) : kingdom.units?.Count ?? 0;

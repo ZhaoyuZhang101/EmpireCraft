@@ -34,14 +34,15 @@ public static class SlaverySystem
     public static bool Practices(Kingdom kingdom)
     {
         if (kingdom?.data == null || kingdom.isRekt() || kingdom.wild) return false;
-        string culture = CultureService.GetRealmCulture(kingdom);
+        // 制度特性照制度文化(旧制犹存的照旧制，见 LegacyInstitutionSystem)
+        string culture = CultureService.GetInstitutionCulture(kingdom);
         return CultureService.IsValidCulture(culture) && InstitutionSystem.GetFeature(culture, Feature) > 0f;
     }
 
     public static bool Abolished(Kingdom kingdom)
     {
         if (kingdom?.data == null || kingdom.isRekt() || kingdom.wild) return false;
-        string culture = CultureService.GetRealmCulture(kingdom);
+        string culture = CultureService.GetInstitutionCulture(kingdom);
         return CultureService.IsValidCulture(culture) && InstitutionSystem.GetFeature(culture, AbolishedFeature) > 0f;
     }
 

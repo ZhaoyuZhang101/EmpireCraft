@@ -32,7 +32,7 @@ public static class ShanrangSystem
     // 共主推举而不是父子相传(华夏原始政体，还没施行世袭王权)
     public static bool Elective(Empire empire) =>
         DynastyNaming.HuaxiaOriginEmpire(empire) &&
-        !InstitutionSystem.IsEnacted(CultureService.GetRealmCulture(empire.CoreKingdom), "huaxia_hereditary_kingship");
+        !InstitutionSystem.IsEnacted(CultureService.GetInstitutionCulture(empire.CoreKingdom), "huaxia_hereditary_kingship");
 
     // 每月(TribalFissionService.EnforceOneCity)
     public static void Monthly()

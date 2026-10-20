@@ -71,6 +71,13 @@ public class KingdomOverviewWindow : WideScrollWindow<KingdomOverviewWindow>
         if (regime != null)
             stats.AddRailRow(width, LM.Get("kov_regime"), LM.Get("regime_type_" + regime.type), WideKit.Value, row++);
         stats.AddRailRow(width, LM.Get("kov_culture"), CultureName(CultureService.GetRealmCulture(kingdom)), WideKit.Value, row++);
+        // 旧制犹存：改从了文明更落后的文化，政体与制度仍照旧制所属的文化(见 LegacyInstitutionSystem)，悬停看缘由与何时作罢
+        if (LegacyInstitutionSystem.TryGet(kingdom, out string legacy))
+        {
+            SimpleText legacyText = stats.AddRailText(LegacyInstitutionSystem.Label(legacy).ColorString("#E9A85B"), 6, 9f);
+            UIHelper.AttachTextTooltip(legacyText.gameObject, $"legacy_institution_{kingdom.id}",
+                LM.Get("legacy_institution_tip_title"), LegacyInstitutionSystem.Tooltip(kingdom, legacy));
+        }
         if (kingdom.religion != null && !kingdom.religion.isRekt())
             stats.AddRailRow(width, LM.Get("kov_religion"), kingdom.religion.name, WideKit.Value, row++);
         Alliance alliance = kingdom.getAlliance();

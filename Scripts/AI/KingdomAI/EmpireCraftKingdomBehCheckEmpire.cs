@@ -218,7 +218,7 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
         // 本文化已废除君主制：独立的君主国(不在帝国里)改行现代政体，之后按现代国家组建政府或为军阀，不再有称帝
         if (empire == null && !pKingdom.IsInEmpire() && CultureAbolishedMonarchy(pKingdom) &&
             RegimeManager.IsMonarchy(pKingdom.GetRegime()?.type))
-            CultureService.ApplyCulturePoliticalSystem(pKingdom, CultureService.GetRealmCulture(pKingdom));
+            CultureService.ApplyCulturePoliticalSystem(pKingdom, CultureService.GetInstitutionCulture(pKingdom));
         if (empire == null && ModernStateFormationSystem.TryUpdate(pKingdom)) return;
         if (pKingdom.hasKing() && ImperialLegitimacyChallengeService.TryFindTarget(pKingdom, out _))
         {
@@ -247,9 +247,10 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
         }
     }
 
+    // 按制度文化看(旧制犹存的看旧制所属的文化，见 LegacyInstitutionSystem)
     private static bool CultureAbolishedMonarchy(Kingdom kingdom) =>
         !TechnologySystem.PremodernLocked &&
-        InstitutionSystem.GetFeature(CultureService.GetRealmCulture(kingdom), RepublicSystem.FeatureAbolishMonarchy) > 0f;
+        InstitutionSystem.GetFeature(CultureService.GetInstitutionCulture(kingdom), RepublicSystem.FeatureAbolishMonarchy) > 0f;
 
     // 称帝资格：基础条件 + 不在失败冷却期 + 至少满足一条称帝路线(见 EmpireFormationService)
     public static bool CanStartEmpireFormation(Kingdom pKingdom, bool repairMainTitle = false)

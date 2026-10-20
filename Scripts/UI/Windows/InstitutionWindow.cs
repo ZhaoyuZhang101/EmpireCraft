@@ -165,6 +165,13 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
                               LM.Get("institution_line_label")).ColorString("#7FD8EA"), 7, 10f);
         identity.AddRailText(CompositeEmpireService.GetRegimeName(_realm.Core.GetRegime().type)
             .ColorString("#E6E0CF"), 7, 10f);
+        // 旧制犹存：改从了文明更落后的文化，制度仍照旧制所属的文化(上面的文化、制度树就是它)，悬停看缘由与何时作罢
+        if (LegacyInstitutionSystem.TryGet(_realm.Core, out string legacy))
+        {
+            SimpleText legacyText = identity.AddRailText(LegacyInstitutionSystem.Label(legacy).ColorString("#E9A85B"), 7, 10f);
+            UIHelper.AttachTextTooltip(legacyText.gameObject, $"legacy_institution_{_realm.Core.id}",
+                LM.Get("legacy_institution_tip_title"), LegacyInstitutionSystem.Tooltip(_realm.Core, legacy));
+        }
         if (!_realm.IsEmpire)
         {
             // 王国：简化朝堂(君主亲裁)，君威代替正统，悬停看各项来源

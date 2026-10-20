@@ -113,7 +113,8 @@ public static class CityPopulationSystem
     private static ArmyDoctrine ComputeDoctrine(Kingdom kingdom)
     {
         Kingdom realm = kingdom?.GetEmpire()?.CoreKingdom ?? kingdom;
-        string culture = realm == null ? null : CultureService.GetRealmCulture(realm);
+        // 制度特性照制度文化(旧制犹存的照旧制，见 LegacyInstitutionSystem)
+        string culture = realm == null ? null : CultureService.GetInstitutionCulture(realm);
         bool valid = CultureService.IsValidCulture(culture);
         bool prefecture = valid && InstitutionSystem.HasFeature(culture, FeaturePrefecture);
         bool standing = valid && InstitutionSystem.HasFeature(culture, FeatureStanding);
