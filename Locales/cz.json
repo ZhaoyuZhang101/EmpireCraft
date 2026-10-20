@@ -3625,6 +3625,8 @@
   "realm_universal_status_suspended": "暂废：{0}(绝罚中)",
   "realm_universal_status_other": "已归{0}",
   "realm_universal_status_none": "未得(天下：{0})",
+  "realm_tianxia_government_history": "{0}为{1}唯一合法政府，以天下之名为国号，改称{2}。",
+  "realm_tianxia_government_lost_history": "{0}不再是天下唯一合法政府，改称{1}。",
   "capital_loss_restored": "{0}收复旧都{1}，还于旧都，复称{2}。",
   "kingdom_type_xingzai": "行在",
   "Later": "后",

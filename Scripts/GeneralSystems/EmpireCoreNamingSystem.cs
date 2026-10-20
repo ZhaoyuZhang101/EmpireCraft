@@ -25,6 +25,8 @@ public static class EmpireCoreNamingSystem
         if (state == null || core == null || empire.CoreKingdom == null || empire.CoreKingdom.isRekt()) return;
         if (empire.CoreKingdom.GetRegime()?.type != RegimeType.Modern) return;
         if (empire.CoreKingdom.HasCustomCountryNaming() || core.false_core_against_empire_id > 0) return;
+        // 已以天下基名为号的唯一合法政府(见 RealmNamingSystem.Modern)不再改回帝国法理名
+        if (RealmNamingSystem.NamedAfterTianxia(empire)) return;
         EmpireCore own = EmpireCoreManager.Get(empire);
         if (own != null && own != core && EmpireCoreControl.GetControlShare(empire, own) >= ControlShare) return;
         string name = GetCoreBaseName(core);

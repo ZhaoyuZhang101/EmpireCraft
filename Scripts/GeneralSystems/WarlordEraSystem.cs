@@ -192,7 +192,8 @@ public static partial class WarlordEraSystem
             .Where(title => title != null && !title.isRekt())
             .SelectMany(title => title.city_list)
             .Where(city => city != null && !city.isRekt()).Distinct().ToList();
-        string coreName = EmpireCoreNamingSystem.GetCoreBaseName(lawful);
+        // 天下里已有政府以天下名为号(唯一合法政府，见 RealmNamingSystem.Modern)：以法统自居的也称天下名
+        string coreName = RealmNamingSystem.NationalName(lawful) ?? EmpireCoreNamingSystem.GetCoreBaseName(lawful);
         if (coreCities.Count == 0 || string.IsNullOrWhiteSpace(coreName)) return province;
         if (coreCities.Count(own.Contains) >= coreCities.Count * NationalShare)
         {
@@ -247,7 +248,8 @@ public static partial class WarlordEraSystem
     // 中央以帝国核心名作国号，后缀照旧按执政理念(强统一文化另见 DecorateName)
     private static string CentralStyleName(Empire empire, EmpireCore core, string baseName)
     {
-        string coreName = EmpireCoreNamingSystem.GetCoreBaseName(core);
+        // 华夏唯一合法政府以天下基名为号(见 RealmNamingSystem.Modern)
+        string coreName = RealmNamingSystem.ModernBaseName(empire) ?? EmpireCoreNamingSystem.GetCoreBaseName(core);
         if (string.IsNullOrWhiteSpace(coreName)) return baseName;
         var coreData = empire.CoreKingdom.GetOrCreate();
         // 没经过改制(比如直接组建政府、旧存档)的共和国没有后缀，只剩光秃秃的核心名：按执政理念补一个并记住
@@ -268,7 +270,8 @@ public static partial class WarlordEraSystem
     {
         string own = empire.EnsureEmpireCoreName();
         string coreName = EmpireCoreNamingSystem.GetCoreBaseName(core);
-        if (string.IsNullOrWhiteSpace(own) || string.Equals(own, coreName, StringComparison.Ordinal))
+        if (string.IsNullOrWhiteSpace(own) || string.Equals(own, coreName, StringComparison.Ordinal) ||
+            string.Equals(own, RealmNamingSystem.NationalName(core), StringComparison.Ordinal))
             own = empire.CoreKingdom.capital?.GetCityName() ?? own;
         return own;
     }
