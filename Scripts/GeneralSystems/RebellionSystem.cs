@@ -27,6 +27,27 @@ public static class RebellionSystem
         GraceYearsRemaining(kingdom) == 0 && !RulerTraitSystem.FounderShield(kingdom) && !UnificationSystem.InGrace(kingdom) &&
         !MembershipCooldown.ManualJoinActive(kingdom);
 
+    // 拥兵自立的向背(用户 2026-10-20 定"拥兵自立失效要修")：对朝廷的好感里去掉"同帝国 +100""受封五十年内 +100"两项名分——
+    // 它们只说明是成员、不说明忠心；"正统 (正统−50)×5"一项改按离自立门槛的远近算 (正统 − 门槛)×5，门槛照
+    // NomadCycleSystem.SecessionGate(平时 40，汗国兵败每丢一成城抬 10、至多 70)。其余好感(同文化同宗教、宗族、
+    // 法理被占、派系不同……)照旧。合计小于 0 才肯拥兵自立。以前名分两项就有 +200，正统掉到个位数好感仍为正，自立从来过不了
+    public const int SecessionLegitimacyWeight = 5;
+    private static readonly HashSet<string> SecessionIgnoredOpinions = new()
+        { "opinion_in_same_empire", "opinion_just_enfeoff", "opinion_empire_loyalty" };
+
+    public static int SecessionAllegiance(Kingdom kingdom, Empire empire)
+    {
+        Kingdom core = empire?.CoreKingdom;
+        if (kingdom?.data == null || core?.data == null || kingdom == core || World.world?.diplomacy == null) return 0;
+        KingdomOpinion opinion = World.world.diplomacy.getOpinion(kingdom, core);
+        if (opinion == null) return 0;
+        int total = opinion.total;
+        if (opinion.results != null)
+            foreach (KeyValuePair<OpinionAsset, int> pair in opinion.results)
+                if (pair.Key?.id != null && SecessionIgnoredOpinions.Contains(pair.Key.id)) total -= pair.Value;
+        return total + (empire.Legitimacy - NomadCycleSystem.SecessionGate(kingdom)) * SecessionLegitimacyWeight;
+    }
+
     public static float ChanceFactor(Kingdom kingdom)
     {
         Empire empire = kingdom?.GetEmpire();

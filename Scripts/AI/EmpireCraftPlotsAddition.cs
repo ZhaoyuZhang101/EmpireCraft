@@ -1617,7 +1617,9 @@ namespace EmpireCraft.Scripts.AI
                     if (!regime.IsAllowArmy()) return false;
                     if (regime.GetLeaderSelectMethod() != LeaderSelectMethod.Succession) return false;
                     if (regime.IsAllowSupportCenterArmy() && !template.secede_ignores_central_army) return false;
-                    if (kingdom.isOpinionTowardsKingdomGood(empire.CoreKingdom)) return false;
+                    // 向背：去掉同帝国、受封两项名分好感，正统按离自立门槛远近算(见 RebellionSystem.SecessionAllegiance)；
+                    // 以前看整个好感，名分两项 +200 压着，正统掉到个位数也自立不了
+                    if (RebellionSystem.SecessionAllegiance(kingdom, empire) >= 0) return false;
                     return true;
                 },
                 check_should_continue = actor => actor?.isKing() == true &&
