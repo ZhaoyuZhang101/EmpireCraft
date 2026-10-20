@@ -15,7 +15,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 帝国的成员构成(封建制帝国)：
 //   · 帝国自由城市：诸侯领内人口最多的非都城，得皇帝特许状脱离诸侯，自立为一城一国(市议会推举执政，不世袭)，
 //     直属皇帝，每年把一成年度经常收入缴给中央，在帝国议会城市院有席位；数目不超过成员国的三分之一(至少可有两座)；
-//     中央缺钱(国库不足一成年收)时，皇帝可把自由城市典押给最有钱的诸侯，城就并入那个诸侯国(原型"典押")；
+//     中央缺钱(国库不足一成年收)时，皇帝可把自由城市典押给最有钱的诸侯，城就并入那个诸侯国(原型"典押")，
+//     记下押价，三十年内可赎回(见 Immediacy)；
 //   · 教会诸侯(主教领)：皇帝把中央一座非都城的城封给主教(原型奥托王朝的帝国教会)，每年一成可能；
 //     中央三城以上、帝国六城以上，每四家成员至多一家、最多三家(见 ChurchBlocker)；
 //     主教不世袭，出缺时按叙任权另派——教会叙任由教廷派、政教协约由本地座堂教士推举、君主叙任由皇帝派自己人；
@@ -184,6 +185,7 @@ public static partial class HolyRomanSystem
             buyer.SubMoney(price, TreasuryCategory.Other);
             core.AddMoney(price, TreasuryCategory.Other);
             foreach (City item in free.cities.ToList()) item.joinAnotherKingdom(buyer);
+            if (city.kingdom == buyer) NotePawn(State(empire), city, buyer, price);
             Record(empire, string.Format(LM.Get("hre_pawn_history"), cityName, buyer.GetKingdomName(), MoneyDisplay.Format(price)));
             return true;
         }

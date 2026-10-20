@@ -25,7 +25,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     (让出一项、花一成年度经常收入；有帝国议会的帝国这笔钱改为替储君拉票，储君与票势最高的诸侯决选、过半才立，
 //     见 Election)；皇帝死后他直接即位，不再另选。同一家族连续当选记届数。
 // 其余见各分部：Authority 帝国权威、Diet 帝国议会与禁令、Members 自由城市与教会诸侯、Reform 帝国改革与分割继承、
-// Feuds 诸侯私战与帝国法院、Electors 选帝侯席位、Election 会选与对立国王与大空位、Leagues 诸侯同盟与和约、加冕远征。选帝制只管上面几条；其余凡封建制帝国(HasDiet)都适用。
+// Feuds 诸侯私战与帝国法院、Electors 选帝侯席位、Election 会选与对立国王与大空位、Immediacy 陪臣化与帝国直属与典押、
+// Leagues 诸侯同盟与和约、加冕远征。选帝制只管上面几条；其余凡封建制帝国(HasDiet)都适用。
 public static partial class HolyRomanSystem
 {
     private const float KingOfRomansChance = 0.2f;
@@ -156,6 +157,7 @@ public static partial class HolyRomanSystem
             ElectorsYearly(empire, state);
             ReformYearly(empire, state);
             FeudsYearly(empire, state);
+            ImmediacyYearly(empire, state);
             LeaguesYearly(empire, state);
             DietYearly(empire, state);
             Diagnose(empire, state);
@@ -393,6 +395,7 @@ public static partial class HolyRomanSystem
             parts.Add("私战与法院：" + FeudStatus(empire, state));
             parts.Add("选帝侯：" + ElectorStatus(empire, state));
             if (IsElective(empire)) parts.Add("会选：" + ElectionStatus(empire, state));
+            parts.Add("帝国直属：" + ImmediacyStatus(empire, state));
             PartibleTally.TryGetValue(empire.data.id, out var partible);
             PartibleTally.Remove(empire.data.id);
             parts.Add("分割继承：" + (partible.vacant == 0 ? "本年无诸侯出缺"

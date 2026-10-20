@@ -23,6 +23,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //       奉命讨伐，打下的城归执行者；被禁者不得列席议会、不得为选帝侯；
 //     帝国改革——文化制度节点已施行、本帝国未颁行、帝国权威 60 以上时付议(四年一次)，通过则颁行、扣权威 30
 //       (小诸侯、自由城市、教会诸侯乐见永久和平，五城以上的大诸侯不愿失了私战之权)；
+//     陪臣化——大诸侯请并一城小邦、不走法院时付议(见 Immediacy，不经 PickAgenda)；
 //     帝国摊派——中央国库吃紧或在打仗时付议，通过则各成员国按年度经常收入的 15% 上缴中央；
 //   · 投票：与皇帝的关系、是否同一家族、教皇党或皇帝党、皇帝家族领地的厚薄、帝国权威(每票 +(权威−50)/200)，
 //     加上议题本身的利害；提请禁令花权威 10(AI 权威不到 20 不提)；
@@ -144,6 +145,13 @@ public static partial class HolyRomanSystem
                 if (subject.cities.Count > realm.cities.Count * 2) score -= 0.15f;
                 score -= Mathf.Clamp(Opinion(realm, subject) / 100f, -0.3f, 0.3f);
                 break;
+            case AgendaMediatize when subject != null:
+            {
+                float stance = MediatizeStance(empire, state, voter, subject);
+                if (Mathf.Abs(stance) >= 1f) return stance;
+                score += stance;
+                break;
+            }
             case AgendaReform:
                 // 永久和平护着小邦，大诸侯失了私战之权
                 if (voter.college == CollegeElectors) score += 0.1f;
@@ -269,6 +277,10 @@ public static partial class HolyRomanSystem
                 agenda = agenda,
                 subject = subject?.GetKingdomName() ?? ""
             };
+            // 陪臣化：议题写"小邦并入请愿者"
+            if (agenda == AgendaMediatize && subject != null)
+                record.subject = string.Format(LM.Get("hre_mediatize_subject"), subject.GetKingdomName(),
+                    LiveKingdom(state.petition_lord_id)?.GetKingdomName() ?? "");
             var ballots = new Dictionary<Kingdom, bool>();
             foreach (DietVoter voter in Voters(empire))
             {
@@ -311,6 +323,7 @@ public static partial class HolyRomanSystem
         AgendaWar => string.Format(LM.Get("hre_agenda_war"), subject),
         AgendaBan => string.Format(LM.Get("hre_agenda_ban"), subject),
         AgendaReform => LM.Get("hre_agenda_reform"),
+        AgendaMediatize => string.Format(LM.Get("hre_agenda_mediatize"), subject),
         _ => LM.Get("hre_agenda_levy")
     };
 
@@ -347,6 +360,13 @@ public static partial class HolyRomanSystem
                              !war.hasKingdom(member) && !Allied(member, subject)).Take(2))
                     war.joinAttackers(member);
                 return string.Format(LM.Get("hre_diet_ban_outcome"), executor.GetKingdomName());
+            }
+            case AgendaMediatize:
+            {
+                Kingdom lord = LiveKingdom(state.petition_lord_id);
+                if (lord == null || subject?.data == null || subject.isRekt() || subject.GetEmpire() != empire)
+                    return LM.Get("label_none");
+                return Mediatize(empire, state, lord, subject, RouteDiet);
             }
             case AgendaReform:
             {

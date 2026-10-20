@@ -106,6 +106,32 @@ public sealed class HolyRomanState
     public double interregnum_since = -1d;
     public long vicar_id = -1L, vicar_realm_id = -1L;
     public string vicar_name = "";
+
+    // —— 陪臣化与帝国直属、典押(见 HolyRomanSystem.Immediacy) ——
+    // 典押中的自由城市
+    public List<PawnRecord> pawns = new();
+    // 最近 10 起陪臣化与受阻
+    public List<MediatizationRecord> mediatizations = new();
+    // 上次请愿；待决的请愿(下次年结裁处，界面按钮用)
+    public double last_petition_at = -1d, petition_at = -1d;
+    public long petition_lord_id = -1L, petition_small_id = -1L;
+}
+
+// 一笔典押：自由城市押给诸侯，三十年内可赎回
+public sealed class PawnRecord
+{
+    public long city_id = -1L, holder_id = -1L;
+    public string city_name = "", holder_name = "";
+    public int price;
+    public double at = -1d;
+}
+
+// 一起陪臣化(或被驳回、未通过)：route = diet 议会 / court 法院 / pawn 典押期满 / veto 皇帝驳回
+public sealed class MediatizationRecord
+{
+    public double at;
+    public string small = "", lord = "", route = "";
+    public bool blocked;
 }
 
 // 一次会选(已本地化的结果)

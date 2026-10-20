@@ -68,6 +68,12 @@ public static class ImperialAuthorityRules
         return Math.Max(0.1f, Math.Min(0.8f, chance));
     }
 
+    // —— 陪臣化(见 HolyRomanSystem.Immediacy) ——
+    public const float PetitionBase = 0.08f;
+
+    // 大诸侯请求并吞一城小邦的几率(每帝国每年)：8% × (1.5 − 权威/100)——权威 50 时 8%、0 时 12%、100 时 4%
+    public static float PetitionChance(int authority) => PetitionBase * (1.5f - Clamp(authority) / 100f);
+
     // 被告抗判的几率：0.25 × (1.5 − 权威/100) + 被告兵力是原告两倍以上 0.2，夹 0~0.7
     public static float DefyRulingChance(int authority, bool defendantMuchStronger) =>
         Math.Max(0f, Math.Min(0.7f, DefyBase * (1.5f - Clamp(authority) / 100f) + (defendantMuchStronger ? 0.2f : 0f)));

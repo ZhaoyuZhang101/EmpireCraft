@@ -603,6 +603,10 @@ public static class DataManager
         state.campaign ??= new Dictionary<string, long>();
         state.elections ??= new List<ElectionRecord>();
         state.elections.RemoveAll(record => record == null);
+        state.pawns ??= new List<PawnRecord>();
+        state.pawns.RemoveAll(record => record == null);
+        state.mediatizations ??= new List<MediatizationRecord>();
+        state.mediatizations.RemoveAll(record => record == null);
         bool active = state.last_diet_at >= 0d || state.house_terms > 0 || state.concessions.Count > 0 ||
                       state.circles.Count > 0 || state.sovereign_princes || state.imperial_peace_at >= 0d ||
                       state.league_leader_id >= 0;

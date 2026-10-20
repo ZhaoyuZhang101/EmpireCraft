@@ -16,7 +16,7 @@ namespace EmpireCraft.Scripts.UI.Windows
     // 帝国议会页(封建制帝国，见 HolyRomanSystem)：
     //   页头(帝位虚悬时标代理) → 主指标(帝国权威、家族领地、皇族届数、上次议会、帝国禁令)
     //   → 两栏(三院席位 | 皇位：帝位、储君、加冕、帝国改革、诸侯主权、帝国战争、会选、对立国王、帝国代理)
-    //   → 两栏(帝国权威：刻度、近来收支、各事项所费 | 选帝侯：三教会席 + 四世俗席，授予/褫夺) → 两栏(诸侯纷争：私战或诉讼 | 留空)
+    //   → 两栏(帝国权威：刻度、近来收支、各事项所费 | 选帝侯：三教会席 + 四世俗席，授予/褫夺) → 两栏(诸侯纷争：私战或诉讼 | 帝国直属：请愿、陪臣化、典押)
     //   → 议会纪事 → 历次会选 → 选举让步 → 诸侯同盟 → 按钮(召开议会、提请或解除禁令、颁行帝国改革、册立自由城市、典押自由城市、封立主教领)
     public partial class EmpireWindow
     {
@@ -93,7 +93,7 @@ namespace EmpireCraft.Scripts.UI.Windows
             if (elective) DrawElectionRows(crown, state);
 
             DrawAuthority(page, state, authority, elective, pArg0);
-            DrawDisputes(page, state);
+            DrawDisputes(page, state, pArg0);
 
             List<DietRecord> records = (state.diets ?? new List<DietRecord>()).AsEnumerable().Reverse().Take(8).ToList();
             var log = page.BeginCard(MainWidth, "diet_records_title", WideKit.Gold, records.Count.ToString());
@@ -274,7 +274,7 @@ namespace EmpireCraft.Scripts.UI.Windows
         }
 
         // 诸侯纷争一排两栏：左"诸侯纷争"——进行中的私战(帝国改革后只有违禁私战，红字)、待裁的诉讼，下接最近四起结果
-        private void DrawDisputes(AutoVertLayoutGroup page, HolyRomanState state)
+        private void DrawDisputes(AutoVertLayoutGroup page, HolyRomanState state, WindowMetaTab tab)
         {
             var columns = page.BeginColumns(MainWidth);
             bool reformed = HolyRomanSystem.ReformEnacted(_empire);
@@ -294,6 +294,53 @@ namespace EmpireCraft.Scripts.UI.Windows
                     LM.Get(reformed ? "diet_feud_quiet_reformed" : "diet_feud_quiet_hint"), titleWidth: 50f, titleHex: WideKit.Green);
             foreach (string text in (state.court_log ?? new List<string>()).AsEnumerable().Reverse().Take(4))
                 card.AddListRow(HalfWidth, row++, null, "", text, titleWidth: 1f);
+            DrawImmediacy(columns, state, tab);
+        }
+
+        // 帝国直属：待决的请愿、近年的陪臣化与受阻、典押中的自由城市；标题条上"维护"(驳回请愿)、"赎回"(最早一笔典押)
+        private void DrawImmediacy(AutoHoriLayoutGroup columns, HolyRomanState state, WindowMetaTab tab)
+        {
+            (Kingdom lord, Kingdom small) = HolyRomanSystem.PendingPetition(_empire);
+            List<PawnRecord> pawns = state.pawns ?? new List<PawnRecord>();
+            List<MediatizationRecord> history = (state.mediatizations ?? new List<MediatizationRecord>()).AsEnumerable().Reverse().Take(4).ToList();
+            var card = columns.BeginColumnCard(HalfWidth);
+            var buttons = new List<(string id, string label, global::System.Action action)>();
+            if (lord != null)
+                buttons.Add(("diet_immediacy_defend", LM.Get("diet_immediacy_defend"), () => HolyRomanSystem.ActDefendImmediacy(_empire)));
+            if (pawns.Count > 0)
+                buttons.Add(("diet_pawn_redeem", LM.Get("diet_pawn_redeem"), () =>
+                {
+                    if (!HolyRomanSystem.ActRedeem(_empire)) ActionLibrary.showWhisperTip("diet_pawn_redeem_tip");
+                }));
+            float ButtonWidth(string label) => Mathf.Max(26f, UIHelper.EstimateTextWidth(label, 7) + 10f);
+            int done = state.mediatizations?.Count(record => !record.blocked) ?? 0;
+            int blocked = state.mediatizations?.Count(record => record.blocked) ?? 0;
+            var bar = UIHelper.AddCardTitle(card, HalfWidth, LM.Get("diet_immediacy_title"), WideKit.Cyan,
+                string.Format(LM.Get("diet_immediacy_header"), done, blocked), buttons.Sum(entry => ButtonWidth(entry.label) + 3f));
+            foreach ((string id, string label, global::System.Action action) in buttons)
+            {
+                global::System.Action run = action;
+                bar.AddButtonIntoHoriLayout(id, label, () =>
+                {
+                    run();
+                    ShowDiet(tab);
+                }, size: new Vector2(ButtonWidth(label), 12f));
+            }
+            int row = 0;
+            if (lord != null)
+                card.AddListRow(HalfWidth, row++, null, LM.Get("diet_petition"),
+                    string.Format(LM.Get("diet_petition_detail"), lord.GetKingdomName(), small.GetKingdomName()), titleWidth: 40f,
+                    titleHex: WideKit.Orange);
+            foreach (MediatizationRecord record in history)
+                card.AddListRow(HalfWidth, row++, null, LM.Get("diet_mediatize_route_" + record.route),
+                    string.Format(LM.Get(record.blocked ? "diet_mediatize_blocked" : "diet_mediatize_done"), record.small, record.lord,
+                        Date.getYearsSince(record.at)), titleWidth: 40f, titleHex: record.blocked ? WideKit.Green : WideKit.Red);
+            foreach (PawnRecord pawn in pawns)
+                card.AddListRow(HalfWidth, row++, null, LM.Get("diet_pawn"),
+                    string.Format(LM.Get("diet_pawn_detail"), pawn.city_name, pawn.holder_name, MoneyDisplay.Format((long)(pawn.price * 1.2f)),
+                        Mathf.Max(0, 30 - Date.getYearsSince(pawn.at))), titleWidth: 40f, titleHex: WideKit.Gold);
+            if (row == 0) card.AddListRow(HalfWidth, row, null, LM.Get("diet_feud_quiet"), LM.Get("diet_immediacy_none"), titleWidth: 50f,
+                titleHex: WideKit.Green);
         }
 
         // 加冕状态：已加冕 / 远征教廷途中 / 当选未加冕(原型"德意志国王")
