@@ -296,14 +296,20 @@ public class Regime
     {
         return era_name;
     }
-    // 税级能选到哪一档：配置 option_tax_level 是 [默认税级, 可选档数]，政体窗口按档数画按钮。游牧政体(游牧、
-    // 汗国分封)配成 2 档，只有"无/低"(收税另打折，见 KingdomExtension.NomadTaxFactorOf)；制度改革、诏令要把税级
-    // 提到中、高的，到这一档为止
+    // 税级能选到哪一档：配置 option_tax_level 是 [默认税级, 可选档数]，政体窗口按档数画按钮。汗国分封配成 2 档(无/低)，
+    // 游牧配成 3 档(无/低/中)；真游牧(游牧政体 + 游牧文化，见 KingdomExtension.IsTrueNomad)不论配置只到"低"(收税另打折，
+    // 见 KingdomExtension.NomadTaxFactorOf)。阿兹特克、林地部族挂在游牧线上、青铜后锁在游牧政体，却不逐水草而居，
+    // 能用到"中"(用户 2026-10-21 选"阿兹特克、奥吉布瓦不再吃游牧的亏")。制度改革、诏令要把税级提到中、高的，到这一档为止。
+    // 判文化用本政体的 type：换政体时新政体还没装到国家上(见 KingdomExtension.LoadRegime)
     public TaxLevel MaxTaxLevel()
     {
-        if (options == null || !options.TryGetValue("option_tax_level", out int[] tax) || tax == null || tax.Length < 2)
-            return TaxLevel.High;
-        return (TaxLevel)Math.Max(0, Math.Min((int)TaxLevel.High, tax[1] - 1));
+        TaxLevel max = TaxLevel.High;
+        if (options != null && options.TryGetValue("option_tax_level", out int[] tax) && tax != null && tax.Length >= 2)
+            max = (TaxLevel)Math.Max(0, Math.Min((int)TaxLevel.High, tax[1] - 1));
+        if (max > TaxLevel.Low && KingdomExtension.IsNomadTaxRegime(type) &&
+            KingdomExtension.IsTrueNomad(World.world?.kingdoms?.get(control_kingdom_id), type))
+            max = TaxLevel.Low;
+        return max;
     }
     public TaxLevel GetTaxLevel()
     {

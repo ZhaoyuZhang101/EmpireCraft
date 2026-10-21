@@ -163,6 +163,13 @@ public static class TreasurySystem
         return true;
     }
 
+    // 世袭成员向中央缴的税(城留两成五，其余中央拿走这些、本国留下余数)：
+    //   · 西方封建帝国的封地缴两成五、本国留五成(以前两成、留五成五)。用户 2026-10-21 选"西欧会长大"：封建称帝后中央太穷，
+    //     动员不起来；别的政体的世袭成员(周的诸侯、兀鲁思、汗国领主、世袭埃米尔……)照旧两成；
+    //   · 幕府的藩缴三成、本藩留四成五(以前两成、留五成五)。用户 2026-10-21 选"日本能出岛"：幕府中央多些钱出岛扩张；
+    //     天领(幕府派奉行治理的直辖地)并入缴五成五的行政区一类(以前同藩缴两成)
+    public const int FiefCentralPercent = 25, HanCentralPercent = 30;
+
     // 与政体引擎一样，制度性质读模板；旧档中的政体克隆可能缺少新增字段。
     public static (int city, int local, int central) TaxShares(Kingdom local)
     {
@@ -183,7 +190,11 @@ public static class TreasurySystem
                 regime?.enfeoff_virtual_only == true;
             centralPercent = administrative || local.GetKingdomType() == KingdomType.ZhouFeudalism_jun ||
                 local.GetKingdomType() == KingdomType.Feudalism_intendancy ||
-                local.GetKingdomType() == KingdomType.Feudalism_diocese ? 55 : 20;
+                local.GetKingdomType() == KingdomType.Feudalism_diocese ||
+                local.GetKingdomType() == KingdomType.Bakufu_tenryo ? 55
+                : type == RegimeType.Feudalism ? FiefCentralPercent : 20;
+            // 藩(世袭大名的领国)：见 HanCentralPercent
+            if (local.GetKingdomType() == KingdomType.Bakufu_han) centralPercent = HanCentralPercent;
             // 阿拉伯行省(朝廷派的埃米尔，听调遣)：中央收五成，本省留两成五养兵(以前与世袭诸侯同为两成，行省钱多又听调，见 EmirateSystem)
             if (local.GetKingdomType() == KingdomType.Arabic_province) centralPercent = EmirateSystem.ProvinceCentralPercent;
             // 古典共和帝国里自治的城邦(有外交权)不向盟主交税；元首制下没有外交权的行省照交(见 CityStateService.GrantAutonomy)
@@ -194,7 +205,8 @@ public static class TreasurySystem
             int era = ZhouEraSystem.Era(empire);
             if (era >= ZhouEraSystem.Spring && local.GetKingdomType() != KingdomType.ZhouFeudalism_jun)
                 centralPercent = era == ZhouEraSystem.Spring ? 5 : 0;
-            // 世袭的埃米尔向哈里发缴两成，同别的世袭封国(见 EmirateSystem.HereditaryCentralPercent)
+            // 世袭的埃米尔向哈里发缴两成(见 EmirateSystem.HereditaryCentralPercent)，同多数政体的世袭成员
+            // (西方封地、幕府的藩另算，见 FiefCentralPercent)
             else if (EmirateSystem.IsHereditaryEmir(empire, local))
                 centralPercent = EmirateSystem.HereditaryCentralPercent;
             // 无主的第二直隶(没有储君，见 MultiCapitalSystem.Zhili)：赋税全归中央

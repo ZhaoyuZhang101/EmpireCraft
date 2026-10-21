@@ -23,11 +23,15 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     手握重兵的藩镇(节度使、都护府)、世袭的埃米尔再加 0.3(军阀割据)，天命动荡或权臣掌朝时的道、行了军镇强藩的幕府之藩
 //     再加 0.2，正自顾打仗的减 0.2；古典共和(未行元首制)、原始政体首义与响应的机会减半；
 //     开国雄主登基头 15 年、上次瓦解结束后 15 年内不发生；周制春秋战国另有规则，不在此列；
+//     首义归大分裂冷却管(见 UpheavalGuard，用户 2026-10-21 选)：上次大分裂(更替之乱、应仁之乱、宗室另立等)15 年内不首义；
+//     各省起义都记为大分裂。瓦解不受单次带走三分之一的上限(否则帝国永远倒不了)，收束见下；
 //   · 响应(此后两年，每月)：离心度不低于 0.5 的各省按 0.06 × 内忧(至少 0.35) × 离心度 检定，与已独立之省接壤的再乘 1.6，单月最多 35%；
 //     (玩家 2026-10-21 反馈"除了阿拉伯和游牧，其他国家很容易分裂"，用户选"土崩瓦解降频"：首义 0.5 → 0.25，响应以前不看离心门槛，一次约走一半成员)
 //   · 近代(本文化可废君主，或已入工业时代且开放了党禁——先要立宪)：各省合组革命同盟与朝廷开战，沿用地方共和同盟的结局(见 RepublicSystem)：
 //       独立各省的城过半即逼皇帝退位、帝国改行共和；打赢同样退位；议和且三省以上则联合建立共和国；打输各省回归；
-//   · 古代：各省各自宣布独立、与朝廷开战(地方独立)，群雄割据；两年收束时帝国剩下的城不到瓦解前四分之一的(封建帝国四成)，帝国灭亡。
+//   · 古代：各省各自宣布独立、与朝廷开战(地方独立)，群雄割据；两年收束时起义各省(首义 + 响应)离开时带走的城超过瓦解前的四分之三
+//     (即只算起义，帝国剩下的不到四分之一；封建帝国同样)，帝国灭亡：没有响应起义、听命于中央的直辖成员把城并入核心王国，
+//     核心降为普通王国，自治、封建、附庸、羁縻成员照旧各自独立(见 TryFall)。
 public static class ProvincialCollapseSystem
 {
     private const float RiseChance = 0.25f;
@@ -39,7 +43,7 @@ public static class ProvincialCollapseSystem
     private const float MaxResponse = 0.35f;
     private const int CooldownYears = 15;
     private const float AbdicationShare = 0.5f;
-    private const float FallShare = 0.25f, FeudalFallShare = 0.4f;
+    private const float FallShare = 0.25f, FeudalFallShare = 0.25f;
     // 道在动荡、权臣掌朝时，幕府的藩在军镇强藩下，离心度另加
     private const float ProvinceUnrest = 0.2f;
     private const int ModernEraTier = 7;
@@ -67,7 +71,9 @@ public static class ProvincialCollapseSystem
         return type == RegimeType.ClassicalRepublic || RegimeManager.IsPrimitive(type) ? MinorRegimeFactor : 0f;
     }
 
-    // 瓦解收束时剩下的城不到瓦解前的多少就灭亡：封建帝国四成(诸侯本就各自为政，名号最难死；用户 2026-10-21 选"西欧能整合、帝国能倒")，其余四分之一
+    // 瓦解收束时剩下的城不到瓦解前的多少就灭亡：其余四分之一；封建帝国四成(诸侯本就各自为政，名号最难死；用户 2026-10-21 选
+    // "西欧能整合、帝国能倒")→ 同样四分之一(同日玩家反馈"帝国容易突然碎一地"，用户选"瓦解收束不再全散"：
+    // 以前剩下的城把两年里外战、更替之乱、决议自立丢的都算进去，封建帝国四成的门槛一碰就倒)
     private static float FallShareOf(Empire empire) =>
         empire?.CoreKingdom?.GetRegime()?.type == RegimeType.Feudalism ? FeudalFallShare : FallShare;
 
@@ -143,6 +149,13 @@ public static class ProvincialCollapseSystem
             float crisis = Crisis(empire);
             float factor = RegimeFactor(empire);
             if (crisis <= 0f || UnityEngine.Random.value >= crisis * RiseChance * factor) return;
+            // 大分裂冷却里不首义(见 UpheavalGuard)；瓦解进行中的情形上面 Active 已挡
+            if (UpheavalGuard.InCooldown(empire))
+            {
+                LogService.LogInfo($"[EmpireCraft][土崩瓦解] {empire.GetEmpireName()} 本当首义(内忧{crisis:0.00})，" +
+                                   $"大分裂冷却中(上次在 {Date.getYearsSince(empire.data.last_upheaval_at)} 年前)，作罢");
+                return;
+            }
             bool modern = factor >= 1f && Modern(empire);
             if (modern && RepublicSystem.HasActiveRevolutionWar(empire)) return;
             PartyIdeology ideology = RepublicSystem.ReformIdeology(empire);
@@ -159,6 +172,7 @@ public static class ProvincialCollapseSystem
                 .Sum(kingdom => kingdom.cities.Count);
             state.collapse_risen ??= new List<long>();
             state.collapse_risen.Clear();
+            empire.data.collapse_risen_cities = 0;
             if (!Rise(empire, state, first, ideology, first: true)) End(state);
         }
         catch (Exception exception)
@@ -213,19 +227,63 @@ public static class ProvincialCollapseSystem
         }
     }
 
-    // 古代瓦解收束：朝廷(连同仍留在帝国里的各省)剩下的城不到瓦解前的四分之一，帝国就此灭亡，中央降为普通王国。
-    // 以前收束只清计时，朝廷剩几座城也一直算现存帝国，地图上早已四分五裂
+    // 古代瓦解收束：起义各省带走的城之外，帝国剩下的不到瓦解前的四分之一，帝国就此灭亡，中央降为普通王国。
+    // 以前收束只清计时，朝廷剩几座城也一直算现存帝国，地图上早已四分五裂。
+    // 只算起义(首义 + 响应)各省离开时带走的城(用户 2026-10-21 选"瓦解收束不再全散")：以前按帝国眼下剩的城算，
+    // 两年里外战丢的、更替之乱走的、决议自立的都算成瓦解，帝国常常就此灭亡、所有成员各自独立
     private static bool TryFall(Empire empire, ConstitutionalEconomyState state)
     {
         if (state.collapse_modern || state.collapse_origin_cities <= 0 || empire?.data == null || empire.IsArchived() ||
             empire.CoreKingdom == null || empire.CoreKingdom.isRekt()) return false;
-        int held = empire.kingdoms_list.Where(kingdom => kingdom?.cities != null && !kingdom.isRekt())
-            .Sum(kingdom => kingdom.cities.Count);
+        int taken = RisenCities(empire, state);
+        int held = Mathf.Max(0, state.collapse_origin_cities - taken);
+        int remaining = UpheavalGuard.Cities(empire);
+        LogService.LogInfo($"[EmpireCraft][土崩瓦解] {empire.GetEmpireName()} 两年收束：瓦解前 {state.collapse_origin_cities} 城，" +
+                           $"起义各省带走 {taken} 城(只算起义剩 {held} 城，眼下实有 {remaining} 城)，" +
+                           $"{(held >= state.collapse_origin_cities * FallShareOf(empire) ? "帝国存续" : "帝国灭亡")}");
         if (held >= state.collapse_origin_cities * FallShareOf(empire)) return false;
+        // 史书照实记帝国眼下还有几座城
         EventRecorder.Record(empire, actor: empire.Emperor, logKingdom: empire.CoreKingdom, text: string.Format(
-            LM.Get("collapse_fall_history"), empire.GetEmpireFullName(), held, state.collapse_origin_cities));
+            LM.Get("collapse_fall_history"), empire.GetEmpireFullName(), remaining, state.collapse_origin_cities));
+        Absorb(empire, state);
         ModClass.EMPIRE_MANAGER?.dissolveEmpire(empire);
         return true;
+    }
+
+    // 起义各省离开时带走的城；旧档(瓦解进行到一半读进来，没记过)按还在帝国外的起义各省眼下的城数估
+    private static int RisenCities(Empire empire, ConstitutionalEconomyState state)
+    {
+        if (empire.data.collapse_risen_cities >= 0) return empire.data.collapse_risen_cities;
+        return (state.collapse_risen ?? new List<long>()).Select(id => World.world.kingdoms.get(id))
+            .Where(kingdom => kingdom?.data != null && !kingdom.isRekt() && kingdom.GetEmpire() != empire)
+            .Sum(kingdom => kingdom.cities?.Count ?? 0);
+    }
+
+    // 帝国灭亡时，没有响应起义、听命于中央的直辖成员(道、阿拉伯行省、元首制行省、军府等没有自主外交权、朝廷任命的，
+    // 见 EmpirePeacePatch.Obeys)把城并入核心王国，不再随解散各自独立(用户 2026-10-21 选"瓦解收束不再全散")；
+    // 羁縻(异族自治)、自治、封建、附庸类成员照旧独立
+    private static void Absorb(Empire empire, ConstitutionalEconomyState state)
+    {
+        Kingdom core = empire.CoreKingdom;
+        var risen = new HashSet<long>(state.collapse_risen ?? new List<long>());
+        var absorbed = new List<string>();
+        int moved = 0;
+        foreach (Kingdom member in empire.kingdoms_list.ToList())
+        {
+            if (member?.data == null || member.isRekt() || member == core || risen.Contains(member.id) ||
+                !GamePatches.EmpirePeacePatch.Obeys(empire, member) || member.GetKingdomType() == KingdomType.LvLing_jimizhou ||
+                JimiSystem.IsJimiRegion(member, empire)) continue;
+            string name = member.GetKingdomName();
+            List<City> cities = (member.cities ?? new List<City>()).Where(city => city?.data != null && !city.isRekt()).ToList();
+            foreach (City city in cities) city.joinAnotherKingdom(core);
+            int count = cities.Count(city => city.kingdom == core);
+            if (count <= 0) continue;
+            absorbed.Add(name);
+            moved += count;
+        }
+        if (absorbed.Count > 0)
+            LogService.LogInfo($"[EmpireCraft][土崩瓦解] {empire.GetEmpireName()} 灭亡前，直辖的 {string.Join("、", absorbed)} 共 {moved} 城并入" +
+                               $"{core.GetKingdomName()}，不随解散独立");
     }
 
     private static void End(ConstitutionalEconomyState state)
@@ -238,6 +296,8 @@ public static class ProvincialCollapseSystem
     private static bool Rise(Empire empire, ConstitutionalEconomyState state, Kingdom province, PartyIdeology ideology, bool first)
     {
         Kingdom core = empire.CoreKingdom;
+        // 离开时带走的城(收束时只按起义带走的算，见 TryFall)
+        int cities = province.cities?.Count ?? 0;
         RebellionCauseData cause = RebellionSystem.Capture(province, province.capital, "rebellion_reason_collapse",
             empire.GetEmpireFullName());
         War war;
@@ -255,6 +315,9 @@ public static class ProvincialCollapseSystem
         }
         RebellionSystem.Record(province, war, cause);
         state.collapse_risen.Add(province.id);
+        if (empire.data.collapse_risen_cities >= 0) empire.data.collapse_risen_cities += cities;
+        // 各省起义都记为大分裂(见 UpheavalGuard)：首义记日志，响应只刷新时间——冷却从最后一省离开时算
+        UpheavalGuard.Mark(empire, first ? "土崩瓦解首义" : null);
         EventRecorder.Record(empire, actor: province.king, logKingdom: province, text: string.Format(
             LM.Get(first ? "collapse_first_history" : "collapse_respond_history"), province.GetKingdomFullName(),
             empire.GetEmpireFullName()));

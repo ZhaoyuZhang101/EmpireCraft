@@ -16,6 +16,9 @@
         "Constitution": {
             "clauses": { "territory": "Unitary" }
         },
+        // 强统一诉求：启用军阀时期的唯一中央、易帜归附、临时政府与统一继承机制(同华夏；以前漏配，近代按西方规则走。
+        // 用户 2026-10-21 选补上)
+        "political_traits": ["strong_unification"],
         // 未组建政府的现代势力称呼沿用华夏的中国近代史称呼("文化:词库名"引用别的文化的词库)
         "Party": {
             "untitled_groups": {

@@ -233,10 +233,15 @@ public static class EnfeoffmentHelper
     // 汗国的核心有 UlusMinCities 座城以上，新汗的兄弟(先汗诸子)各分一块法理做兀鲁思(成员国)，同分割继承法；
     // 打仗时等停了再分(见 Empire.update)。大汗弱时兀鲁思可以自立(见 kingdom_allow_independent)。
     // 门槛 8 → 5 城(用户 2026-10-21 选"游牧雄主死后真分裂"：小些的汗国汗死也分兀鲁思，诸子各据一方)
-    public const int UlusMinCities = 5;
+    // → 8 城(同日玩家反馈"帝国容易突然碎一地"，用户选回调：五城的小汗国也分，雄主一死新分的兀鲁思又成批自立)
+    public const int UlusMinCities = 8;
 
+    // 要游牧政体、且是真游牧(本国文化带 nomad 特性或水土整国游牧化，见 KingdomExtension.IsTrueNomad；用户 2026-10-21 选)：
+    // 以前只看政体，阿兹特克、奥吉布瓦这类挂在游牧线、并不游牧的文化也分兀鲁思；征服王朝从俗改了政体的照旧不算
     public static bool UlusPartition(Empire empire) =>
-        empire?.CoreKingdom?.GetRegime()?.type == RegimeType.YouMu && empire.CoreKingdom.countCities() >= UlusMinCities;
+        empire?.CoreKingdom?.GetRegime()?.type == RegimeType.YouMu &&
+        EmpireCraft.Scripts.GameClassExtensions.KingdomExtension.IsTrueNomad(empire.CoreKingdom) &&
+        empire.CoreKingdom.countCities() >= UlusMinCities;
 
     // 新皇帝即位(不论是立储继承、选举还是拥立)时由 KingdomPatch 的 setKing 补丁调用：
     //   · 分割继承法、游牧兀鲁思：诸子分封；

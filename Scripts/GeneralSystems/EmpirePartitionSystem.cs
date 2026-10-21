@@ -24,6 +24,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //      权臣在京城另立宗室；或强藩在自己的地盘拥立一位宗室。两朝同一国号加方位，各由权臣把持，互争正统、开战。
 //   ③ 宗室另立(篡位后)：外姓篡位时，先朝宗室有一定可能(看原来的法统)在离篡位者都城最远的那一半起兵称帝，
 //      延续旧国号加方位；已经叛离篡位者的宗室诸王归附。互争正统、开战。下个月起事。
+//      归大分裂冷却管(见 UpheavalGuard，用户 2026-10-21 选)：上次大分裂 15 年内、土崩瓦解收束期内不另立；
+//      一次至多带走篡位帝国三分之一的城(见 Trim)。
 // 划分：以两朝都城为两极，成员国按自己的都城离哪边近整国划走，京畿(核心王国)的城逐城划分。
 // 玩家反馈(2026-10-16)："并立的概率调低点，下调大概一半""并立之后很容易分不清""分裂出来的那个就全靠他一个人，
 //   按理来说会有一部分宗室追随他……很容易断代，然后直接被吞并"：三种分立的概率都减半；另一朝换一个和原朝相差最大的颜色；
@@ -733,8 +735,9 @@ public static class EmpirePartitionSystem
         bool ministerUsurpation)
     {
         if (empire?.data == null || previousClan == null || World.world == null) return;
-        // 权臣篡位与外姓篡位同等(以前权臣篡位减半；用户 2026-10-21 选"华夏有真乱世"：东晋、南明式的宗室另立)
-        float chance = Mathf.Clamp01((mandate - 30f) / 60f) * 0.425f;
+        // 权臣篡位减半。同日曾改为与外姓篡位同等(用户 2026-10-21 选"华夏有真乱世"：东晋、南明式的宗室另立)，
+        // 玩家随即反馈"帝国容易突然碎一地"，用户选回调：恢复减半
+        float chance = Mathf.Clamp01((mandate - 30f) / 60f) * 0.425f * (ministerUsurpation ? 0.5f : 1f);
         if (UnityEngine.Random.value >= chance) return;
         Restorations[empire.data.id] = (previousClan.id, previousName ?? "", World.world.getCurWorldTime());
     }
@@ -744,6 +747,12 @@ public static class EmpirePartitionSystem
         if (usurper?.data == null || usurper.isRekt() || usurper.IsArchived() || Twin(usurper) != null) return;
         Kingdom core = usurper.CoreKingdom;
         if (UnificationSystem.InGrace(core)) return;
+        // 大分裂冷却里、土崩瓦解收束期内不另立(见 UpheavalGuard，用户 2026-10-21 选)：这一回作罢，不再顺延
+        if (UpheavalGuard.Blocked(usurper, out string why))
+        {
+            LogService.LogInfo($"[EmpireCraft][分裂] {usurper.GetEmpireFullName()} 先朝宗室本当另立，{why}，作罢");
+            return;
+        }
         City capital = core?.capital;
         SpecificClan clan = SpecificClanManager.Get(clanId);
         if (capital == null || clan == null || SpecificClanManager.SameLineage(usurper.EmpireSpecificClan, clan)) return;
@@ -782,16 +791,63 @@ public static class EmpirePartitionSystem
                 actor => actor?.data != null && actor.isAlive() && !actor.isKing() && actor.isAdult());
         }
         if (claimant == null || seat == null || plan == null) return;
+        // 一次至多带走篡位帝国总城数的三分之一(见 Trim)
+        int before = UpheavalGuard.Cities(usurper);
+        var budget = new UpheavalGuard.Budget(usurper, UpheavalGuard.CapShare);
+        if (!Trim(plan, seat, leader, budget))
+        {
+            LogService.LogInfo($"[EmpireCraft][分裂] {usurper.GetEmpireFullName()} 先朝宗室另立：新都{seat.GetCityName()}已超出一次带走的上限" +
+                               $"({budget.Cap}/{budget.Total} 城)，作罢");
+            return;
+        }
         string name = string.IsNullOrWhiteSpace(oldName) ? clan.name : oldName;
         Empire loyal = Split(usurper, claimant, seat, plan, KindRestoration, PrinceStruggleSystem.NoteRestoration, name,
             renameSource: false, ownKingdom: leader);
         if (loyal == null) return;
+        // 篡位的帝国真丢了城才记为大分裂(宗室诸王都已在帝国外、只是自立称帝的不算)
+        if (UpheavalGuard.Cities(usurper) < before) UpheavalGuard.Mark(usurper, "宗室另立", budget);
         foreach (Kingdom prince in princes)
             if (prince != leader && !prince.isRekt() && !prince.IsInEmpire())
                 loyal.join(prince, pForce: true, pLegitimacyTransfer: true);
         ImperialLegitimacyChallengeService.DeclareDynasticRivals(loyal, usurper, war: true);
         Publish(usurper, loyal, string.Format(LM.Get("partition_restoration_history"), usurper.Emperor?.getName() ?? "",
             claimant.getName(), seat.GetCityName(), name, loyal.GetEmpireFullName()), claimant);
+    }
+
+    // 宗室另立一次带走的城不超过篡位帝国总城数(含成员)的三分之一(见 UpheavalGuard，用户 2026-10-21 选)：
+    // 照划分的远近，离新都近的先走(成员国整国、京畿逐城)，下一处放进来就超过上限时就停。
+    // 新都本是帝国的城(不是叛离在外的宗室诸王自带的国)时先算它一座；它都放不下就不另立(返回 false)
+    private static bool Trim(Plan plan, City seat, Kingdom ownKingdom, UpheavalGuard.Budget budget)
+    {
+        Vector2 at = seat.city_center;
+        if (ownKingdom == null)
+        {
+            if (!budget.Fits(1)) return false;
+            budget.Take(1);
+        }
+        var parts = new List<(float distance, Kingdom member, City city, int count)>();
+        foreach (Kingdom member in plan.Members)
+        {
+            if (member == null || member.isRekt()) continue;
+            City anchor = member.capital ?? member.cities?.FirstOrDefault();
+            // 新都所在的成员国：新都那座上面已算过
+            int count = (member.cities?.Count ?? 0) - (ownKingdom == null && seat.kingdom == member ? 1 : 0);
+            parts.Add((anchor == null ? 0f : (anchor.city_center - at).sqrMagnitude, member, null, Mathf.Max(0, count)));
+        }
+        foreach (City city in plan.CoreCities)
+            if (city?.data != null && city != seat) parts.Add(((city.city_center - at).sqrMagnitude, null, city, 1));
+        var members = new List<Kingdom>();
+        var coreCities = new List<City>();
+        foreach (var part in parts.OrderBy(item => item.distance))
+        {
+            if (!budget.Fits(part.count)) break;
+            budget.Take(part.count);
+            if (part.member != null) members.Add(part.member);
+            else coreCities.Add(part.city);
+        }
+        plan.Members = members;
+        plan.CoreCities = coreCities;
+        return true;
     }
 
     #endregion

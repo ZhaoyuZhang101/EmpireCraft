@@ -88,7 +88,7 @@ public static class RoadBuildingSystem
             if (city?.data == null || city.isRekt()) continue;
             List<RoadLink> list = city.GetOrCreate().road_links;
             if (list == null || list.Count == 0) continue;
-            // 不修路的城(游牧、林地、阿兹特克，见 CityStyleSystem.Roadless)的旧路随之废弃，不再养护
+            // 不修路的城(游牧营地，见 CityStyleSystem.Roadless)的旧路随之废弃，不再养护
             list.RemoveAll(link => link == null || link.grade <= 0 && link.building <= 0 ||
                                    !(World.world.cities.get(link.to) is City other) || other.isRekt() ||
                                    CityStyleSystem.Roadless(city) || CityStyleSystem.Roadless(other));
@@ -203,12 +203,15 @@ public static class RoadBuildingSystem
         HashSet<long> reached = Reached(kingdom.GetEmpire()?.CoreKingdom?.capital ?? capital);
         (long, long) best = default;
         float bestScore = float.MinValue;
+        int bestGrade = target;
         foreach (var pair in RoadNetwork.Plans)
         {
             RoadNetwork.RoadPlan plan = pair.Value;
-            if (plan.zones.Count == 0 || !plan.Buildable(target) || !Owns(kingdom, pair.Key)) continue;
+            // 每条路按两头城市风格能修的最高一级(林地只修土路，见 RoadNetwork.GradeCap)：本国路级高了也照修这一级，不整条跳过
+            int grade = Mathf.Min(target, RoadNetwork.GradeCap(pair.Key));
+            if (plan.zones.Count == 0 || grade <= 0 || !plan.Buildable(grade) || !Owns(kingdom, pair.Key)) continue;
             RoadLink link = Get(pair.Key);
-            if (link != null && (link.building > 0 || link.grade >= target)) continue;
+            if (link != null && (link.building > 0 || link.grade >= grade)) continue;
             City a = World.world.cities.get(pair.Key.Item1), b = World.world.cities.get(pair.Key.Item2);
             bool joins = reached.Contains(pair.Key.Item1) != reached.Contains(pair.Key.Item2);
             float score = (joins ? 1500f : 0f) + (a == capital || b == capital ? 1000f : 0f) +
@@ -217,14 +220,15 @@ public static class RoadBuildingSystem
             if (score <= bestScore) continue;
             bestScore = score;
             best = pair.Key;
+            bestGrade = grade;
         }
         if (bestScore == float.MinValue) return false;
         RoadLink chosen = Get(best);
-        float monthly = Speed[target] * (Cost[target] - Cost[chosen?.grade ?? 0]);
+        float monthly = Speed[bestGrade] * (Cost[bestGrade] - Cost[chosen?.grade ?? 0]);
         if (kingdom.GetMoney() < monthly * 3f) return false;
         chosen ??= Create(best);
         if (chosen == null) return false;
-        chosen.building = target;
+        chosen.building = bestGrade;
         chosen.progress = 0f;
         chosen.payer = kingdom.id;
         return true;

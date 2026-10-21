@@ -1,5 +1,6 @@
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.GeneralSystems;
 using EmpireCraft.Scripts.Layer;
 using NeoModLoader.services;
 
@@ -28,9 +29,10 @@ public class TempFac_扩张地盘 : TemporaryFaction
         var empire = GetEmpire();
         var kingdom = GetKingdomTarget();
         Kingdom coreKingdom = empire?.CoreKingdom;
+        // 挑目标到推动完成之间雄主可能已经不在了：开战前再看一遍平时游牧只打小国(见 SteppeOrderSystem.PeacetimeWarAllowed)
         if (empire != null && !empire.isRekt() && coreKingdom != null && !coreKingdom.isRekt() &&
             kingdom != null && !kingdom.isRekt() && kingdom != coreKingdom &&
-            !kingdom.isInWarWith(coreKingdom))
+            !kingdom.isInWarWith(coreKingdom) && SteppeOrderSystem.PeacetimeWarAllowed(coreKingdom, kingdom))
         {
             War war = DiplomacyHelpers.wars.newWar(coreKingdom, kingdom, WarTypeLibrary.normal);
             war?.SetEmpireWarType(EmpireWarType.帝国扩张);
@@ -47,15 +49,20 @@ public class TempFac_扩张地盘 : TemporaryFaction
         foreach (var kingdom in World.world.kingdoms)
         {
             if (kingdom.IsInSameEmpire(empire.CoreKingdom)) continue;
-            if (empire.IsNeighbourWith(kingdom))
+            if (empire.given_Kingdoms.Contains(kingdom)) continue;
+            if (empire.taken_Kingdoms.Contains(kingdom)) continue;
+            // 接壤或隔海相望(见 StraitReach，同对外扩张、谋求统一)：以前只认陆地接壤，岛国(日本)的派系提不出扩张。
+            // 用户 2026-10-21 选"日本能出岛"；隔海的目标要在本国水师辐射内，真打起来照跨海登陆的规矩
+            if (empire.IsNeighbourWith(kingdom) || StraitReach.Across(empire.CoreKingdom, kingdom))
             {
-                if (empire.given_Kingdoms.Contains(kingdom)) continue;
-                if (empire.taken_Kingdoms.Contains(kingdom)) continue;
                 if (kingdom.isInWarWith(empire.CoreKingdom)) continue;
                 if (empire.CoreKingdom.isOpinionTowardsKingdomGood(kingdom)) continue;
-                if (!GeneralSystems.WarGate.CanDeclare(empire.CoreKingdom, kingdom)) continue;
+                if (!WarGate.CanDeclare(empire.CoreKingdom, kingdom)) continue;
+                // 没有雄主在位的游牧国平时只打两城以内、不在帝国里的小国(用户 2026-10-21 选"堵平时扩张的漏口"：
+                // 宣战挑目标早有这道限制，派系诉求这条路以前没查)；雄主在位照旧不限
+                if (!SteppeOrderSystem.PeacetimeWarAllowed(empire.CoreKingdom, kingdom)) continue;
                 // 先收法理：占着本帝国法理城的邻国优先(见 DeJureAgenda)
-                if (GeneralSystems.DeJureAgenda.HasClaimOn(empire.CoreKingdom, kingdom))
+                if (DeJureAgenda.HasClaimOn(empire.CoreKingdom, kingdom))
                 {
                     target = kingdom;
                     break;

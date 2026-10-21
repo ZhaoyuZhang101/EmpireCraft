@@ -81,7 +81,8 @@ public class CityStyleWindow : AbstractWideWindow<CityStyleWindow>
         string effect = family switch
         {
             "nomad" => "city_style_effect_nomad",
-            "woodland" or "aztec" => "city_style_effect_roadless",
+            // 阿兹特克照定居城修路，林地只修土路(用户 2026-10-21 选，见 CityStyleSystem.RoadGradeCap)
+            "woodland" => "city_style_effect_dirt_road",
             _ => "city_style_effect_none"
         };
         Line(info, LM.Get(effect).ColorString("#8FA0A8"), 6, 10f);

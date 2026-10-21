@@ -14,8 +14,9 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     先拆旧、起工地，再建成新式，新旧混杂，约 RebuildYears 年改完(布局逐个地块改，城墙与都城地标改完才换)。
 // 文化系：华夏(华夏、中国、山海)、日本、西欧(西方、法兰克、日耳曼、斯拉夫、精灵)、罗马、维京、阿拉伯(阿拉伯、犹太)、
 //   波斯、埃及、印度、阿兹特克、游牧(游牧文化，及制度线属游牧的各文化)、林地(奥吉布瓦)；其余按华夏的通用图块画。
-// 游牧的城是蒙古包营地，不修路(见 UrbanFabric、RoadNetwork)；林地(奥吉布瓦)、阿兹特克这类部落制的文化也不修路
-// (用户转玩家 2026-10-17 "不止游牧，像奥吉布瓦以及阿兹特克这种明显部落制的，也没必要画路")，城外的村镇照旧有，只用小路连着。
+// 游牧的城是蒙古包营地，不修路(见 UrbanFabric、RoadNetwork)。林地(奥吉布瓦)、阿兹特克以前也不修路(用户转玩家 2026-10-17
+// "不止游牧，像奥吉布瓦以及阿兹特克这种明显部落制的，也没必要画路")；用户 2026-10-21 改选"阿兹特克、奥吉布瓦不再吃游牧的亏"：
+// 阿兹特克的城照定居城修路，林地的城只修最低一档的路(土路，见 RoadGradeCap)，游牧营地照旧不修。
 public static class CityStyleSystem
 {
     public const string Plot = "rebuild_city_style";
@@ -65,9 +66,16 @@ public static class CityStyleSystem
     public static float CapacityFactor(City city) =>
         global::Config.game_loaded && !SmoothLoader.isLoading() && Nomad(city) ? NomadCapacityShare : 1f;
 
-    // 不修路的城：游牧、林地、阿兹特克
+    // 不修路的城：只有游牧营地(用户 2026-10-21 选：阿兹特克照定居城修路，林地只修最低一档，见 RoadGradeCap)
     public static bool Roadless(City city) =>
-        city?.data != null && !city.isRekt() && Established(city) is "nomad" or "woodland" or "aztec";
+        city?.data != null && !city.isRekt() && Established(city) == "nomad";
+
+    // 连着这座城的路最高修到几等(路级见 RoadBuildingSystem：1 土路 … 5 柏油公路)：林地只修最低一档的土路，不升等；
+    // 其余不限(用户 2026-10-21 选林地"只修最低一档的路"——部落之间踩出来的路，不修驿道官道)
+    public const int WoodlandRoadGrade = 1;
+
+    public static int RoadGradeCap(City city) =>
+        city?.data != null && !city.isRekt() && Established(city) == "woodland" ? WoodlandRoadGrade : RoadBuildingSystem.MaxGrade;
 
     public static string CurrentFamily(City city) => Family(TechnologySystem.GetCultureOf(city) ?? "");
 
@@ -150,7 +158,7 @@ public static class CityStyleSystem
     // 城貌小窗口(用户 2026-10-20 "什么文化风格都可以转换"，见 CityStyleWindow)：从各文化系里任选一种，当场改成那样、记进存档，
     // 记作手动选定(map_style_by_hand)——改建决议、旧档改正、水土改从游牧都不再改它；游牧营地另分毡帐营地、冬营地两种画法
     // (手动选的不再按城心是不是旱地自动换)。只换画法，随风格走的现成规矩照旧跟着换：游牧营地人口上限四成、保底三座牧场的牧群、
-    // 城外新添的是毡帐村镇；游牧、林地、阿兹特克不修路(连着的官道随之荒废)。近代的街区、高楼随科技长，不是一种风格，不在这里选
+    // 城外新添的是毡帐村镇；游牧不修路(连着的官道随之荒废)、林地只修土路。近代的街区、高楼随科技长，不是一种风格，不在这里选
     public const string WinterCamp = "nomad_winter";
 
     public static readonly string[] ManualStyles =

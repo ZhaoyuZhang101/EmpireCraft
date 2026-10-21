@@ -28,7 +28,10 @@ public class TempFac_谋求统一 : TemporaryFaction
         if (kingdom != null)
         {
             Empire empire = GetEmpire();
-            var war = World.world.diplomacy.startWar(empire.CoreKingdom, kingdom, WarTypeLibrary.normal);
+            // 挑目标到推动完成之间雄主可能已经不在了：开战前再看一遍平时游牧只打小国(见 SteppeOrderSystem.PeacetimeWarAllowed)
+            var war = SteppeOrderSystem.PeacetimeWarAllowed(empire.CoreKingdom, kingdom)
+                ? World.world.diplomacy.startWar(empire.CoreKingdom, kingdom, WarTypeLibrary.normal)
+                : null;
             if (war != null)
             {
                 if (ZhouEraSystem.Applies(empire)) ZhouEraSystem.MarkSubdueWar(war, empire, kingdom);
@@ -45,12 +48,15 @@ public class TempFac_谋求统一 : TemporaryFaction
         Empire empire = GetEmpire();
         if (empire?.CoreKingdom == null || WarSituation.TooBusyForWar(empire.CoreKingdom)) return false;
         if (CorpsSystem.CannotFundWar(empire.CoreKingdom)) return false;   // 发不出军饷不开新仗
+        // 没有雄主在位的游牧国平时只打两城以内、不在任何帝国里的小国(用户 2026-10-21 选"堵平时扩张的漏口"：宣战挑目标
+        // 早有这道限制，统一诉求这条路以前没查)——对手帝国、别家帝国的成员都打不得；雄主在位、非游牧照旧不限
+        bool Allowed(Kingdom target) => SteppeOrderSystem.PeacetimeWarAllowed(empire.CoreKingdom, target);
         // 周制没有统一战争：天下只有一个共主，同文化而不在周室之内的国家就是不服王化，
         // 天子兴师讨伐，攻下其都城即迫其称臣、受封为诸侯；周室之内的诸侯(含战国离开帝国的)不在此列
         if (ZhouEraSystem.Applies(empire))
         {
             Kingdom target = ZhouEraSystem.SubdueTarget(empire);
-            if (target == null) return false;
+            if (target == null || !Allowed(target)) return false;
             SetKingdomTarget(target);
             return true;
         }
@@ -76,7 +82,7 @@ public class TempFac_谋求统一 : TemporaryFaction
                 {
                     Empire targetEmpire = kingdom.GetEmpire();
                     // 同争一个帝国核心的对手帝国也要与本帝国接壤，不隔着别国远征
-                    if (targetEmpire != null && WarSituation.Power(empire) >= WarSituation.Power(targetEmpire) &&
+                    if (targetEmpire != null && Allowed(targetEmpire.CoreKingdom) && WarSituation.Power(empire) >= WarSituation.Power(targetEmpire) &&
                         targetEmpire.kingdoms_list.Any(member => member != null && !member.isRekt() && empire.IsNeighbourWith(member)))
                     {
                         SetKingdomTarget(targetEmpire.CoreKingdom);
@@ -87,7 +93,7 @@ public class TempFac_谋求统一 : TemporaryFaction
             if (empire.GetKingdomNeighbours().Any(k => k.IsInEmpire() && k == kingdom && k.getSpecies()==empire.CoreKingdom.getSpecies()))
             {
                 var targetEmpire = kingdom.GetEmpire();
-                if (WarSituation.Power(empire) > WarSituation.Power(targetEmpire))
+                if (Allowed(targetEmpire.CoreKingdom) && WarSituation.Power(empire) > WarSituation.Power(targetEmpire))
                 {
                     SetKingdomTarget(targetEmpire.CoreKingdom);
                     return true;
@@ -99,7 +105,7 @@ public class TempFac_谋求统一 : TemporaryFaction
             {
                 if (kingdom.species_id == empire.CoreKingdom.species_id)
                 {
-                    if (!kingdom.isInWarWith(empire.CoreKingdom))
+                    if (!kingdom.isInWarWith(empire.CoreKingdom) && Allowed(kingdom))
                     {
                         if (WarSituation.Power(empire) > WarSituation.Power(kingdom))
                         {

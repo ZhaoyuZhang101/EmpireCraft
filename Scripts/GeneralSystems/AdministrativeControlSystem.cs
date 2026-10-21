@@ -17,7 +17,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     路程按地形阻力算(用户 2026-10-16："按照地形和距离来判断辐射范围"，见 TerrainResistance)：平原一块地算 1，
 //     山地 4、过河 +2、翻长城 +6，有路减半——山后、长城外的城鞭长莫及，驿道通到的地方管得远；
 //     港口之间在本国水师辐射内(见 StraitReach)可走海路(上船 2，航程每 16 格 +1)，隔海的城最多六成五(工业时代起八成)。
-//     时代越新管得越远(满控路程 10 + 2×时代，律令制再远一成五，分封、封建近一成)，超出部分每多走满控路程的两倍降到一成；
+//     时代越新管得越远(满控路程 10 + 2×时代，律令制再远一成，分封、封建近一成)，超出部分每多走满控路程的两倍降到一成；
 //     陆路海路都不通的飞地按直线距离的 1.4 倍再加 8 计，最多八成；
 //   · 效果：控制力低的城自然稳定度下降(满控不减，最低扣 20)；赋税收不齐(满控全收，最低收一半，见 TreasurySystem)；
 //     征兵也少从这样的城里抽(见 CorpsSystem.Mobilize、CityPopulationSystem.DrawKingdomCity)；地图上见政令图层；
@@ -39,7 +39,9 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     羁縻地区、分封诸侯不算直辖。直辖城数超过容量即过度扩张：远方城市稳定度再降，硬限门槛提高，
 //     开战不再谋割地吞并、只迫其称臣(见 WarGoalSystem.Ensure)。
 //
-// 游牧低控制(用户 2026-10-20 定的游牧基调"高扩张，低控制"：能打下来、直辖不了多少)：游牧政体与汗国分封——
+// 游牧低控制(用户 2026-10-20 定的游牧基调"高扩张，低控制"：能打下来、直辖不了多少)：游牧政体与汗国分封，且国家文化是游牧
+// (真游牧，见 KingdomExtension.IsTrueNomad；用户 2026-10-21 选"阿兹特克、奥吉布瓦不再吃游牧的亏"——它们挂在游牧制度线上、
+// 青铜后锁在游牧政体，却不逐水草而居，容量、路程、硬限照定居政体算；征服王朝从俗改了定居政体的本来就不算)——
 //   · 直辖容量 ×NomadCapacity(0.6)：逐水草而居、没有郡县文书，汗庭直辖的城有限，多出来的很快就是过度扩张；
 //   · 满控路程不减反长：游牧 ×NomadReach(1.1)、汗国分封 ×1(不再按分封打九折)——骑兵来去快，号令传得远；
 //   · 硬限门槛提到 NomadHardLimit(0.45)：新打下的城控制力不到四成五就由当地首领自立，转为间接统治(朝贡国、附庸、
@@ -69,8 +71,12 @@ public static class AdministrativeControlSystem
     private const float EstimateTerrain = 1.4f;
     // 游牧低控制：直辖容量、满控路程、硬限门槛
     private const float NomadCapacity = 0.6f, NomadReach = 1.1f, NomadHardLimit = 0.45f;
+    // 律令制管得远、直辖得多：满控路程、直辖容量各 ×1.1(以前 ×1.15、×1.2)。用户 2026-10-21 选"华夏兵多一点、地吐一点"：
+    // 华夏打下来最留得住、长局一家独大，这里收一点；前现代征兵少另由制度树补(府兵、募兵节点加征兵比例)
+    private const float LvLingReach = 1.1f, LvLingCapacity = 1.1f;
 
-    private static bool NomadRegime(Kingdom realm) => realm?.GetRegime()?.type is RegimeType.YouMu or RegimeType.NomadFeudalism;
+    // 真游牧才低控制(见 KingdomExtension.IsTrueNomad)：阿兹特克、林地部族的游牧政体不算
+    private static bool NomadRegime(Kingdom realm) => KingdomExtension.IsTrueNomad(realm);
 
     private static readonly Queue<long> Pending = new();
     private static int _cursor;
@@ -281,8 +287,9 @@ public static class AdministrativeControlSystem
             if (TechnologySystem.RealmHasTech(realm, tech)) reach += bonus;
         reach *= realm.GetRegime()?.type switch
         {
-            RegimeType.LvLing => 1.15f,
-            RegimeType.YouMu => NomadReach,
+            RegimeType.LvLing => LvLingReach,
+            // 非游牧文化的游牧政体(阿兹特克、林地部族)不加，按 1 算
+            RegimeType.YouMu when NomadRegime(realm) => NomadReach,
             RegimeType.Feudalism or RegimeType.ZhouFeudalism or RegimeType.Bakufu => 0.9f,
             _ => 1f
         };
@@ -296,7 +303,7 @@ public static class AdministrativeControlSystem
         foreach ((string tech, float bonus) in CapacityTechs)
             if (TechnologySystem.RealmHasTech(realm, tech)) capacity += bonus;
         // 分封、封建不缩容量：诸侯本就不算直辖，是生产力不够时的统治办法
-        if (realm.GetRegime()?.type == RegimeType.LvLing) capacity *= 1.2f;
+        if (realm.GetRegime()?.type == RegimeType.LvLing) capacity *= LvLingCapacity;
         // 游牧低控制：直辖不了多少
         if (NomadRegime(realm)) capacity *= NomadCapacity;
         return Mathf.Max(3, Mathf.RoundToInt(capacity * RulerFactor(realm)));

@@ -22,6 +22,9 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     别家都不够格才仍由本家)；将军家换了一家，王朝积弊重新起算(DynasticCycleSystem.OnDynastyChanged)。以前将军家永不倒；
 //   · 应仁之乱(同上)：将军更替时积弊平均 ≥ OninMalady 或正统 < OninLegitimacy，新将军家以外的藩各按
 //     OninBaseSplit + OninMaladySplit×积弊平均/100 的机会举兵自立(见 Onin)，进入战国，再由人重新统一；
+//     归大分裂冷却管(见 UpheavalGuard，用户 2026-10-21 选)：上次大分裂 15 年内、土崩瓦解收束期内不判，一次至多带走帝国三分之一的城；
+//   · 将军、苏丹本人的国随土崩瓦解或拥兵自立离开了帝国(GetPowerfulMinister 因此为空，人还活着)：按被拉下马另择一家，
+//     当月不判应仁之乱、苏丹更替之乱(用户 2026-10-21 选；以前当成寻常承袭，紧接着再判一场乱，同一个月里接连碎两回)；
 //   · 开国之君在位(开国雄主登基头 15 年、统一战争与开国气象里)不立幕府，开国之后才有将军(用户 2026-10-21 定
 //     "开国之君在位期间不立幕府"；以前一统一就被最大的家臣立为幕府)；
 //   · 苏丹不受以上三条影响(苏丹更替之乱见 NomadCycleSystem)；
@@ -33,8 +36,9 @@ public static class MilitaryRegency
     // 幕府会倒：正统低于它、或积弊平均不低于它，将军另择一家
     private const int FallLegitimacy = 40;
     private const float FallMalady = 60f;
-    // 应仁之乱：门槛、每藩机会
-    private const int OninLegitimacy = 60;
+    // 应仁之乱：门槛、每藩机会。正统门槛 60(用户 2026-10-21 选"幕府会倒、应仁之乱")→ 50(同日玩家反馈"帝国容易突然碎一地"，
+    // 用户选回调：判定就在将军更替之后，60 落在幕府正统的正常区间，平常的将军更替也常中)
+    private const int OninLegitimacy = 50;
     private const float OninMalady = 50f, OninBaseSplit = 0.1f, OninMaladySplit = 0.4f;
     public const string OninReason = "rebellion_reason_onin";
     private const string NewHouseKey = "bakufu_new_house_history", OninKey = "bakufu_onin_history";
@@ -97,9 +101,24 @@ public static class MilitaryRegency
             return;
         }
         // 将军被别处的清算拉下马(清君侧、天皇反杀都会把权臣重置，powerful_minister_id 清掉；病死、老死不清)：
-        // 将军家随之失势，另择一家
+        // 将军家随之失势，另择一家。
+        // 将军、苏丹本人还活着，是他的国随土崩瓦解或拥兵自立离开了帝国(GetPowerfulMinister 只认帝国里的人)：同样按被拉下马另择一家，
+        // 当月不判应仁之乱、苏丹更替之乱(见文件头)
         if (Regent(empire) == null)
-            Succeed(empire, ousted: KindOf(empire) == Shogun && empire.data.powerful_minister_id <= 0);
+        {
+            bool departed = Departed(empire);
+            Succeed(empire, ousted: departed || KindOf(empire) == Shogun && empire.data.powerful_minister_id <= 0, departed: departed);
+        }
+    }
+
+    // 执政者本人还活着，却已不在帝国里(他的国离开了帝国)
+    private static bool Departed(Empire empire)
+    {
+        long id = empire.data.powerful_minister_id;
+        if (id <= 0) return false;
+        Actor former = World.world.units.get(id);
+        return former?.data != null && !former.isRekt() && former.isAlive() && former.kingdom != null &&
+               former.kingdom.GetEmpire() != empire;
     }
 
     // 将军、苏丹在任：保持挟制(别处的清算、换代会把挟制解开)
@@ -141,15 +160,16 @@ public static class MilitaryRegency
     }
 
     // 承袭：家族里辈分最高的成年男子；家族绝了另择一家。
-    // 将军(幕府会倒，见文件头)：被拉下马(ousted)、或正统、积弊到了门槛，另择一家；别家都不够格才仍由本家
-    private static void Succeed(Empire empire, bool ousted = false)
+    // 将军(幕府会倒，见文件头)：被拉下马(ousted)、或正统、积弊到了门槛，另择一家；别家都不够格才仍由本家。
+    // departed：执政者本人的国离开了帝国——将军、苏丹都另择一家(原家一系除外)，当月不判应仁之乱、苏丹更替之乱
+    private static void Succeed(Empire empire, bool ousted = false, bool departed = false)
     {
         int kind = KindOf(empire);
         SpecificClan clan = SpecificClanManager.Get(empire.data.regent_clan_id);
         // 换代前的积弊、正统(换了一家王朝积弊要重算，应仁之乱按换代前的看)
         float average = MaladySystem.Average(empire);
         int legitimacy = empire.Legitimacy;
-        bool fallen = kind == Shogun && clan != null && (ousted || legitimacy < FallLegitimacy || average >= FallMalady);
+        bool fallen = clan != null && (departed || kind == Shogun && (ousted || legitimacy < FallLegitimacy || average >= FallMalady));
         Actor heir = (fallen ? Pick(empire, kind, clan) : null) ?? clan?.AllAliveMembers?
             .Where(actor => Eligible(empire, actor))
             .OrderByDescending(actor => actor.isSexMale())
@@ -165,11 +185,17 @@ public static class MilitaryRegency
         bool newHouse = kind == Shogun && clan != null && !SpecificClanManager.SameLineage(heir.GetSpecificClan(), clan);
         string key = newHouse && LM.Has(NewHouseKey) ? NewHouseKey : "military_regency_succession";
         Record(empire, string.Format(LM.Get(key), heir.getName(), LM.Get(TitleKey(empire)), empire.GetEmpireName()));
+        if (departed)
+            LogService.LogInfo($"[EmpireCraft][武家执政] {empire.GetEmpireName()} 原{LM.Get(TitleKey(empire))}的国已离开帝国，按被拉下马另择一家，" +
+                               $"{heir.getName()} 继任，当月不判{(kind == Sultan ? "苏丹更替之乱" : "应仁之乱")}");
         // 苏丹更替：积弊深重或正统低落时世袭的埃米尔可能举兵自立(见 NomadCycleSystem 的哈里发更替之乱)
-        if (kind == Sultan) NomadCycleSystem.OnSultanSucceeded(empire, heir);
+        if (kind == Sultan)
+        {
+            if (!departed) NomadCycleSystem.OnSultanSucceeded(empire, heir);
+        }
         else if (kind == Shogun)
         {
-            Onin(empire, heir, average, legitimacy);
+            if (!departed) Onin(empire, heir, average, legitimacy);
             // 新的将军家另开幕府：王朝积弊、朝政积弊、派系失衡重新起算(同改朝换代)
             if (newHouse)
             {
@@ -187,18 +213,33 @@ public static class MilitaryRegency
         {
             if (empire?.data == null || empire.isRekt() || empire.IsArchived() || World.world == null) return;
             if (average < OninMalady && legitimacy >= OninLegitimacy) return;
+            // 大分裂冷却里、土崩瓦解收束期内不判(见 UpheavalGuard)
+            if (UpheavalGuard.Blocked(empire, out string why))
+            {
+                LogService.LogInfo($"[EmpireCraft][应仁之乱] {empire.GetEmpireName()} 将军更替(新将军{shogun.getName()}，积弊均{average:0}，" +
+                                   $"正统{legitimacy})，{why}，不判应仁之乱");
+                return;
+            }
             float chance = OninBaseSplit + OninMaladySplit * average / 100f;
             string reason = LM.Has(OninReason) ? OninReason : "rebellion_reason_secession";
+            // 一次带走的城至多帝国总城数的三分之一；按成员次序逐个放走，下一藩放不下就停
+            var budget = new UpheavalGuard.Budget(empire, UpheavalGuard.CapShare);
             var split = new List<string>();
             foreach (Kingdom member in empire.kingdoms_list?.ToList() ?? new List<Kingdom>())
             {
                 if (!RestiveHan(empire, member, shogun) || UnityEngine.Random.value >= chance) continue;
+                int cities = member.cities.Count;
+                if (!budget.Fits(cities)) break;
                 string name = member.GetKingdomName();
-                if (NomadCycleSystem.DeclareIndependence(member, empire, reason)) split.Add(name);
+                if (!NomadCycleSystem.DeclareIndependence(member, empire, reason)) continue;
+                split.Add(name);
+                budget.Take(cities);
             }
             if (split.Count == 0) return;
+            UpheavalGuard.Mark(empire, "应仁之乱", budget);
             LogService.LogInfo($"[EmpireCraft][应仁之乱] {empire.GetEmpireName()} 将军更替(新将军{shogun.getName()}，积弊均{average:0}，" +
-                               $"正统{legitimacy})，{string.Join("、", split)} 举兵自立(每藩机会 {chance:0.00})");
+                               $"正统{legitimacy})，{string.Join("、", split)} 举兵自立(每藩机会 {chance:0.00}" +
+                               $"{(budget.Capped ? $"，已到上限 {budget.Cap} 城" : "")})");
             if (LM.Has(OninKey))
                 Record(empire, string.Format(LM.Get(OninKey), empire.GetEmpireName(), shogun.getName(), LM.Get(TitleKey(empire)),
                     split.Count));

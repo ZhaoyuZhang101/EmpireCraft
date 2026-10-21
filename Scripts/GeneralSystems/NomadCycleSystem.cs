@@ -20,7 +20,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 部众思归：汗国一场仗打满 HomesickGraceYears 年后，各城自然稳定度每年少 HomesickStability(至多 HomesickStabilityCap，见 FrontCollapse.WarWeariness)，
 //     兵源每年打九折(至多六折，见 CorpsSystem.WarLevyShare)；开国雄主在位不思归(同久战疲敝)。
 //   · 雄主之后第一次汗位更替(用户 2026-10-20："只要出现雄主快速统一，只要一死就会开始动荡"，见 UnificationSystem 游牧难一统)：
-//     记下的游牧雄主(领着统一天下的；用户 2026-10-21 选"游牧雄主死后真分裂"后，袭掠成名的、称汗开国的也记，见 RememberHero)
+//     记下的游牧雄主(领着统一天下的；用户 2026-10-21 选"游牧雄主死后真分裂"后，袭掠成名的也记，见 RememberHero；
+//     称汗开国的同日也记过，玩家随即反馈"帝国容易突然碎一地"，用户选回调后不再记——每个汗国开国之君身后都必乱，太频)
 //     不在位后的第一回换汗，先分兀鲁思再判(见 Empire.CompleteSuccession)，不看积弊、正统，必乱——各兀鲁思(汗国分封的部族领主、
 //     这一回新分的兄弟也算)与新近并入的别种政体成员各按 HeroBaseSplit + MaladySplit×积弊平均/100(至多 HeroSplitCap)的机会据地自立，
 //     入伙不满十年的也在内(见 CanRiseAfterHero)；汗国分封的帝国平时没有汗位更替之乱，这一回也有；
@@ -29,18 +30,23 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   苏丹(权臣)身故由新人承袭(OnSultanSucceeded，见 MilitaryRegency)时，积弊六条平均 ≥ ArabicCrisisMalady 或正统 < ArabicCrisisLegitimacy，
 //   世袭的埃米尔(见 EmirateSystem)与 AnnexedYears 年内并入的别种政体成员，各按 ArabicBaseSplit + ArabicMaladySplit×积弊平均/100
 //   的机会举兵自立(行省、羁縻、苏丹自己的国与同族不在此列)。
+// 以上几路都归大分裂冷却管(见 UpheavalGuard，用户 2026-10-21 选)：上次大分裂 15 年内、土崩瓦解收束期内不判(雄主身后的必乱当次作废)；
+//   一次带走的城不超过帝国总城数的三分之一(雄主身后那一回二分之一)，按成员次序逐个放走，下一家放不下就停；
+//   平常的汗位、哈里发/苏丹更替之乱除各部起事的那句外，史书另记一条总述。
 public static class NomadCycleSystem
 {
     // 汗位更替之乱的门槛：积弊 50 → 35、正统 50 → 70(用户 2026-10-21 定"汗位更替之乱的门槛"：汗国正统少有跌破 50，
-    // 以前换汗几乎从不乱)；哈里发更替之乱的积弊门槛另见 ArabicCrisisMalady，没跟着降
-    private const float CrisisMalady = 35f, BaseSplit = 0.15f, MaladySplit = 0.5f;
-    private const int CrisisLegitimacy = 70, AnnexedYears = 30;
+    // 以前换汗几乎从不乱)→ 积弊 45、正统 62(同日玩家反馈"帝国容易突然碎一地"，用户选回调：正统 70 落在汗国的正常区间，
+    // 新汗即位又先扣一截天命，几乎每次换汗都中)；哈里发更替之乱的积弊门槛另见 ArabicCrisisMalady，没跟着降
+    private const float CrisisMalady = 45f, BaseSplit = 0.15f, MaladySplit = 0.5f;
+    private const int CrisisLegitimacy = 62, AnnexedYears = 30;
     private const int BaseGate = 40, GatePerTenth = 10, MaxGate = 70;
     private const float HomesickGraceYears = 2f, HomesickStability = 5f, HomesickStabilityCap = 20f;
     private const float HomesickLevyPerYear = 0.1f, HomesickLevyFloor = 0.6f;
     public const string SuccessionReason = "rebellion_reason_khan_succession";
-    // 雄主之后第一次汗位更替：每部起码的机会(平时 BaseSplit)、上限
-    private const float HeroBaseSplit = 0.4f, HeroSplitCap = 0.75f;
+    // 雄主之后第一次汗位更替：每部起码的机会(平时 BaseSplit)、上限。0.4、至多 0.75(用户 2026-10-21 选"游牧雄主死后真分裂")
+    // → 0.25、至多 0.5(同日玩家反馈"帝国容易突然碎一地"，用户选回调：加上兀鲁思 5 城就分、入伙不满十年也反，雄主一死汗国散掉大半)
+    private const float HeroBaseSplit = 0.25f, HeroSplitCap = 0.5f;
     public const string HeroSuccessionReason = "rebellion_reason_hero_khan_succession";
     // 哈里发更替之乱：正统门槛、积弊门槛、机会(比汗国轻)。正统门槛 55 → 70(用户 2026-10-21 选"平常年景也坐大"：正常的哈里发
     // 正统七八十，以前从不发作)→ 62(同日选"哈里发能衰也能复兴")：判定就在新哈里发即位之后，即位已扣天命 20(正统约 −4)，
@@ -67,26 +73,45 @@ public static class NomadCycleSystem
             float average = MaladySystem.Average(empire);
             int legitimacy = empire.Legitimacy;
             if (!heroic && average < CrisisMalady && legitimacy >= CrisisLegitimacy) return;
+            string khan = empire.Emperor?.getName() ?? "";
+            // 大分裂冷却里、土崩瓦解收束期内不判(见 UpheavalGuard)；雄主身后的必乱上面 TakeHeroTurmoil 已取走，当次作废、不往后顺延
+            if (UpheavalGuard.Blocked(empire, out string why))
+            {
+                LogService.LogInfo($"[EmpireCraft][汗位更替] {empire.GetEmpireName()} {(heroic ? $"雄主{hero}之后第一次换汗" : "新汗即位")}" +
+                                   $"(新汗{khan}，积弊均{average:0}，正统{legitimacy})，{why}，不判汗位更替之乱{(heroic ? "，必乱当次作废" : "")}");
+                return;
+            }
             float chance = heroic ? Mathf.Min(HeroSplitCap, HeroBaseSplit + MaladySplit * average / 100f)
                 : BaseSplit + MaladySplit * average / 100f;
+            // 一次带走的城至多帝国总城数的三分之一，雄主身后那一回二分之一；按成员次序逐个放走，下一家放不下就停
+            var budget = new UpheavalGuard.Budget(empire, heroic ? UpheavalGuard.HeroCapShare : UpheavalGuard.CapShare);
             var split = new List<string>();
             foreach (Kingdom member in empire.kingdoms_list.ToList())
             {
                 if (!Restive(empire, member, heroic) || Random.value >= chance) continue;
+                int cities = member.cities.Count;
+                if (!budget.Fits(cities)) break;
                 string name = member.GetKingdomName();
-                if (DeclareIndependence(member, empire, heroic ? HeroSuccessionReason : SuccessionReason)) split.Add(name);
+                if (!DeclareIndependence(member, empire, heroic ? HeroSuccessionReason : SuccessionReason)) continue;
+                split.Add(name);
+                budget.Take(cities);
             }
+            if (split.Count > 0) UpheavalGuard.Mark(empire, heroic ? $"雄主{hero}身后分裂" : "汗位更替之乱", budget);
             if (heroic)
             {
-                string khan = empire.Emperor?.getName() ?? "";
                 LogService.LogInfo($"[EmpireCraft][汗位更替] {empire.GetEmpireName()} 雄主{hero}之后第一次换汗(新汗{khan}，积弊均{average:0}，正统{legitimacy})，" +
-                                   $"{(split.Count > 0 ? string.Join("、", split) + " 据地自立" : "无人自立")}(每部机会 {chance:0.00})");
+                                   $"{(split.Count > 0 ? string.Join("、", split) + " 据地自立" : "无人自立")}(每部机会 {chance:0.00}" +
+                                   $"{(budget.Capped ? $"，已到上限 {budget.Cap} 城" : "")})");
                 if (split.Count > 0)
                     EventRecorder.Record(empire, string.Format(LM.Get("khan_hero_turmoil_history"), empire.GetEmpireName(), hero, khan, split.Count));
             }
             else if (split.Count > 0)
+            {
                 LogService.LogInfo($"[EmpireCraft][汗位更替] {empire.GetEmpireName()} 新汗即位(积弊均{average:0}，正统{legitimacy})，" +
-                                   $"{string.Join("、", split)} 据地自立(每部机会 {chance:0.00})");
+                                   $"{string.Join("、", split)} 据地自立(每部机会 {chance:0.00}{(budget.Capped ? $"，已到上限 {budget.Cap} 城" : "")})");
+                // 史书总述(用户 2026-10-21 选：以前只有各部起事的那句，看不出是一场汗位更替之乱)
+                EventRecorder.Record(empire, string.Format(LM.Get("khan_turmoil_history"), empire.GetEmpireName(), khan, split.Count));
+            }
         }
         catch (global::System.Exception exception)
         {
@@ -111,18 +136,42 @@ public static class NomadCycleSystem
             float average = MaladySystem.Average(empire);
             int legitimacy = empire.Legitimacy;
             if (average < ArabicCrisisMalady && legitimacy >= ArabicCrisisLegitimacy - gateOffset) return;
+            // 大分裂冷却里、土崩瓦解收束期内不判(见 UpheavalGuard)
+            if (UpheavalGuard.Blocked(empire, out string why))
+            {
+                LogService.LogInfo($"[EmpireCraft][哈里发更替] {empire.GetEmpireName()} {occasion}(积弊均{average:0}，正统{legitimacy})，{why}，不判更替之乱");
+                return;
+            }
             float chance = ArabicBaseSplit + ArabicMaladySplit * average / 100f;
             Actor regent = sultan ?? MilitaryRegency.Regent(empire);
+            // 一次带走的城至多帝国总城数的三分之一；按成员次序逐个放走，下一家放不下就停
+            var budget = new UpheavalGuard.Budget(empire, UpheavalGuard.CapShare);
             var split = new List<string>();
             foreach (Kingdom member in empire.kingdoms_list.ToList())
             {
                 if (!RestiveEmir(empire, member, regent) || Random.value >= chance) continue;
+                int cities = member.cities.Count;
+                if (!budget.Fits(cities)) break;
                 string name = member.GetKingdomName();
-                if (DeclareIndependence(member, empire, FitnaReason)) split.Add(name);
+                if (!DeclareIndependence(member, empire, FitnaReason)) continue;
+                split.Add(name);
+                budget.Take(cities);
             }
-            if (split.Count > 0)
-                LogService.LogInfo($"[EmpireCraft][哈里发更替] {empire.GetEmpireName()} {occasion}(积弊均{average:0}，正统{legitimacy})，" +
-                                   $"{string.Join("、", split)} 举兵自立(每家机会 {chance:0.00})");
+            if (split.Count == 0) return;
+            UpheavalGuard.Mark(empire, sultan != null ? "苏丹更替之乱" : "哈里发更替之乱", budget);
+            LogService.LogInfo($"[EmpireCraft][哈里发更替] {empire.GetEmpireName()} {occasion}(积弊均{average:0}，正统{legitimacy})，" +
+                               $"{string.Join("、", split)} 举兵自立(每家机会 {chance:0.00}{(budget.Capped ? $"，已到上限 {budget.Cap} 城" : "")})");
+            // 史书总述(用户 2026-10-21 选：以前只有各家起事的那句)。苏丹的称呼按文化(印度称摄政王，见 MilitaryRegency.Establish)
+            if (sultan != null)
+            {
+                string titleKey = MilitaryRegency.TitleKey(empire);
+                string title = LM.Get(DynastyNaming.CultureVariant(empire.CoreKingdom, titleKey) ?? titleKey);
+                EventRecorder.Record(empire, string.Format(LM.Get("sultan_fitna_history"), empire.GetEmpireName(), sultan.getName(), title,
+                    split.Count), sultan);
+            }
+            else
+                EventRecorder.Record(empire, string.Format(LM.Get("caliph_fitna_history"), empire.GetEmpireName(),
+                    empire.Emperor?.getName() ?? "", split.Count));
         }
         catch (global::System.Exception exception)
         {
@@ -173,7 +222,9 @@ public static class NomadCycleSystem
         !RulerTraitSystem.FounderShield(member) && !UnificationSystem.InGrace(member) && !MembershipCooldown.ManualJoinActive(member);
 
     // 记下在位的游牧雄主(用户 2026-10-21 选"游牧雄主死后真分裂")：以前只有发动统一战争时才记(见 UnificationSystem)，
-    // 袭掠成名的雄主(NomadRaidSystem.PromoteHero)、称汗开国的大汗(OnKhanateFounded)死了只按积弊、正统判，汗国很少散。
+    // 袭掠成名的雄主(NomadRaidSystem.PromoteHero)死了只按积弊、正统判，汗国很少散。
+    // 称汗开国的大汗同日也在 EmpireManager.NewEmpire 收尾时记过(OnKhanateFounded)，玩家随即反馈"帝国容易突然碎一地"，
+    // 用户选回调：称汗开国不再自动记为雄主(每个汗国的开国之君身后都必乱，太频)，那个入口已删；袭掠成名、发动统一的照旧记。
     // 只在开国雄主、中兴雄主在位时记(否则下个月就被当成不在位、凭空留下"必乱")；已记着另一位还没收场的不改记，
     // 免得吞掉他身后那一回必乱(他不在位的事由每月的 UnificationSystem.WatchHeroes 收场)
     public static void RememberHero(Empire empire, string occasion)
@@ -187,19 +238,6 @@ public static class NomadCycleSystem
         UnificationSystem.RememberHero(core);
         if (recorded < 0L && empire.data.nomad_hero_id == khan.id)
             LogService.LogInfo($"[EmpireCraft][汗位更替] {empire.GetEmpireName()} {occasion}，{khan.getName()}记为雄主(他不在位后第一回换汗必乱)");
-    }
-
-    // 称汗开国(EmpireManager.NewEmpire 收尾时调用)：游牧政体、游牧文化的汗国，开国之君记为雄主
-    public static void OnKhanateFounded(Empire empire)
-    {
-        try
-        {
-            if (IsKhanate(empire)) RememberHero(empire, "称汗开国");
-        }
-        catch (global::System.Exception exception)
-        {
-            LogService.LogWarning($"[EmpireCraft][汗位更替] 开国记雄主失败: {exception.Message}");
-        }
     }
 
     // 拥兵自立：退出帝国、与中央开战(地方独立)，记下起因(拥兵自立决议与汗位更替之乱共用)

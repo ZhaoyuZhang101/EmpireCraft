@@ -220,7 +220,9 @@ public static class TreasuryRules
         }
     }
 
-    // 经常收入的类目：税款、央地拨款(税款分成与城库上缴)、公共贸易、贡金、官营产业
+    // 经常收入的类目：税款、央地拨款(税款分成与城库上缴)、公共贸易、贡金、官营产业。
+    // 贡金含岁币、朝贡，也含劫掠抢来的金帛(见 NomadRaidSystem.OnSack；用户 2026-10-21 选"劫掠所得能养兵")：
+    // 游牧税轻，钱多靠劫掠与岁币，算进经常收入才进得了养兵预算(CorpsSystem 按年经常收入定军费)
     public static bool StableIncomeKey(string key) =>
         key == nameof(TreasuryCategory.ResidentTax) || key == nameof(TreasuryCategory.LandTax) ||
         key == nameof(TreasuryCategory.IndustrialTax) || key == nameof(TreasuryCategory.CommercialTax) ||

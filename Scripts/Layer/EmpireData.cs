@@ -128,6 +128,12 @@ public class EmpireData : MetaObjectData
     public long nomad_hero_id = -1L;
     public string nomad_hero_name = "";
     public double nomad_hero_fell_at = -1d;
+    // 大分裂冷却(见 UpheavalGuard，用户 2026-10-21 选)：最近一次大分裂(汗位/哈里发/苏丹更替之乱、雄主身后分裂、应仁之乱、
+    // 土崩瓦解、宗室另立)真走掉成员的时间；-1 没有(旧档读进来也是 -1)
+    public double last_upheaval_at = -1d;
+    // 土崩瓦解(见 ProvincialCollapseSystem.TryFall)：这一回起义各省(首义 + 响应)离开时带走的城数，收束时只按它算帝国还剩多少；
+    // -1 为没记过(旧档瓦解进行到一半读进来，收束时按起义各省眼下的城数估)，首义时清零
+    public int collapse_risen_cities = -1;
     public long emperor { get; set; } = -1L;
     public long empire_clan { get; set; } = -1L;
     public long empire_core_id { get; set; } = -1L;

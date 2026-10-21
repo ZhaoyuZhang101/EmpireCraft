@@ -1967,13 +1967,26 @@ public static class KingdomExtension
     }
     // 游牧政体收税打对折(用户 2026-10-20 定)：逐水草迁徙，户口不定，按户按田计征收不上来，汗庭的钱更多靠劫掠、
     // 岁币与朝贡。本国向百姓收的各项税(人头、田赋、商税、背景人口纳税)都走这里，所以只在这里乘一次；税级也只给
-    // "无/低"两档(YouMu、NomadFeudalism 的 SystemConfig.json 里 option_tax_level 档数为 2，见 Regime.MaxTaxLevel)。
-    // 汗国分封是游牧本族定居后的分封形态，同样打折；水土整国游牧化改成的游牧政体照此打折，不另处理。
-    // 制度文化施行了包税制(特性 nomad_tax_farming)的，税区包给商人代征，折扣减轻到七成五；税级仍只有"无/低"
+    // "无/低"两档(见 Regime.MaxTaxLevel)。汗国分封是游牧本族定居后的分封形态，同样打折。
+    // 制度文化施行了包税制(特性 nomad_tax_farming)的，税区包给商人代征，折扣减轻到七成五；税级仍只有"无/低"。
+    // 只罚真游牧(见 IsTrueNomad；用户 2026-10-21 选"阿兹特克、奥吉布瓦不再吃游牧的亏")：阿兹特克、林地部族挂在游牧制度线上，
+    // 青铜以后锁在游牧政体，却不逐水草而居，照定居收税、能用到"中"档；征服王朝从俗改了定居政体的本来就不算。
+    // 水土"整国游牧化"改行游牧政体的定居文化国(shuitu_regime)是真的逐水草而居了，照旧算游牧(见 IsTrueNomad)
     public const float NomadTaxFactor = 0.5f;
     public const float NomadTaxFarmingFactor = 0.75f;
 
     public static bool IsNomadTaxRegime(RegimeType type) => type is RegimeType.YouMu or RegimeType.NomadFeudalism;
+
+    // 真游牧：政体是游牧(游牧、汗国分封)且国家文化带 nomad 特性，两个都满足才算(用户 2026-10-21 定)；
+    // 水土出路"整国游牧化"改行游牧政体的定居文化国也算(以前按政体判就算，用户这次只点了阿兹特克、奥吉布瓦)。
+    // 收税打折、税级只到"低"(Regime.MaxTaxLevel)、行政低控制(AdministrativeControlSystem)、统一要雄主(UnificationSystem)、
+    // 换汗分兀鲁思(EnfeoffmentHelper)都按它判。
+    // type 给的是要判的政体：换政体时新政体还没装到国家上(见 LoadRegime 里先 ClampTaxLevel 再 SetRegime)，不能读 GetRegime
+    public static bool IsTrueNomad(Kingdom k, RegimeType type) =>
+        IsNomadTaxRegime(type) && k != null &&
+        (CultureService.GetRealmCulture(k).IsNomadCulture() || k.GetOrCreate().shuitu_regime == (int)RegimeType.YouMu);
+
+    public static bool IsTrueNomad(Kingdom k) => k?.GetRegime() is Regime regime && IsTrueNomad(k, regime.type);
 
     public static float NomadTaxFactorOf(Kingdom k) =>
         InstitutionSystem.HasFeature(InstitutionRealm.Of(k)?.Culture, InstitutionFeatures.NomadTaxFarming)
@@ -2014,7 +2027,7 @@ public static class KingdomExtension
                     rate = baseTax;
                     break;
             }
-            return IsNomadTaxRegime(regime.type) ? rate * NomadTaxFactorOf(k) : rate;
+            return IsTrueNomad(k, regime.type) ? rate * NomadTaxFactorOf(k) : rate;
         }
         return baseTax;
     }
@@ -2187,7 +2200,8 @@ public static class KingdomExtension
                         option[0] = pair.Value;
             ed.saved_regime_options = null;
         }
-        // 旧档里游牧政体的税级可能是中、高(那时游牧也给四档)，读档压回"低"(见 Regime.MaxTaxLevel)
+        // 旧档里游牧政体的税级可能是中、高(那时游牧也给四档)，读档压回可选的最高档：真游牧"低"，
+        // 阿兹特克、林地这类非游牧文化的游牧政体"中"(见 Regime.MaxTaxLevel)
         if (regime != null && regime.ClampTaxLevel())
             NeoModLoader.services.LogService.LogInfo($"[EmpireCraft][税级] {k.name} 的{regime.type}政体税级超出可选档，已降为{regime.GetTaxLevel()}");
         k.SetRegime(regime);

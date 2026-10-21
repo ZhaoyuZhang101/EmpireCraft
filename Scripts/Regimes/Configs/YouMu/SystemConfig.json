@@ -47,11 +47,13 @@
         "Leader": -1
       }
     ],
+    // option_tax_level 三档(无/低/中)：阿兹特克、林地部族这类非游牧文化的游牧政体能用到"中"；真游牧(游牧文化)照旧只到"低"，
+    // 由 Regime.MaxTaxLevel 按文化压回(用户 2026-10-21 选"阿兹特克、奥吉布瓦不再吃游牧的亏")
     "options": {
       "toggle_allow_diplomacy": [1],
       "toggle_allow_army": [1],
       "toggle_support_army_to_center": [0],
-      "option_tax_level": [1, 2],
+      "option_tax_level": [1, 3],
       "option_leader_select_method": [1, 3],
       "option_religion_type": [2, 4],
       "option_succession_law": [0, 5]

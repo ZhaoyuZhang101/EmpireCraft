@@ -40,7 +40,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     或打满三十年还没统一(玩家日志 2026-10-16：有的统一战争打了一百七十多年，一直处在开国气象里，不起事、不分裂)——
 //     打满三十年时地盘过半算统一了(能统一的都统一了)，不到一半就中辍。
 // 游牧难一统(用户 2026-10-20："游牧应该很难大一统"，"只要出现雄主快速统一，只要一死就会开始动荡")：游牧政权
-// (游牧政体、汗国分封，帝国按核心，见 IsNomad)——
+// (游牧政体、汗国分封，且本国是游牧文化，帝国按核心，见 IsNomad)——
 //   · 只有开国雄主(或中兴雄主，见 RulerTraitSystem.FounderReigns)在位才能发动统一战争；发动时记下这位雄主(EmpireData.nomad_hero_id)，
 //     在位时照上面的规矩打，推进加成、望风归附、兵败如山倒都不变；不是帝国的游牧国没有雄主，要先称汗；
 //   · 雄主不在位了(身故、被废)：统一没打完的当场中辍——打着的统一战争照中辍的规矩改名(游牧扩张/帝国扩张，见 Halt)，
@@ -233,13 +233,11 @@ public static class UnificationSystem
 
     #region 游牧难一统
 
-    // 游牧政权：游牧政体、汗国分封(sovereign 是一家之主，帝国按核心)
-    private static bool IsNomad(Kingdom sovereign)
-    {
-        if (!Alive(sovereign)) return false;
-        var type = sovereign.GetRegime()?.type;
-        return type == EmpireCraft.Scripts.Regimes.RegimeType.YouMu || type == EmpireCraft.Scripts.Regimes.RegimeType.NomadFeudalism;
-    }
+    // 游牧政权：真游牧(游牧政体、汗国分封，且本国文化真是游牧或水土整国游牧化，见 KingdomExtension.IsTrueNomad；
+    // sovereign 是一家之主，帝国按核心)。文化这一条是用户 2026-10-21 选的：以前只看政体，阿兹特克、奥吉布瓦这类挂在
+    // 游牧线、并不游牧的文化也吃到"雄主在位才能统一、开国气象 10 年、雄主身后必乱"；征服王朝从俗改了政体的照旧不算
+    private static bool IsNomad(Kingdom sovereign) =>
+        Alive(sovereign) && EmpireCraft.Scripts.GameClassExtensions.KingdomExtension.IsTrueNomad(sovereign);
 
     // 记雄主的地方：统一者是帝国(核心)时它的帝国数据；不是帝国就没有雄主可记
     private static EmpireData HeroState(Kingdom sovereign)
@@ -257,7 +255,8 @@ public static class UnificationSystem
         return emperor != null && emperor.isAlive() && emperor.id == state.nomad_hero_id && RulerTraitSystem.FounderReigns(sovereign);
     }
 
-    // 发动统一战争时记下在位的雄主；袭掠成名的雄主、开国的大汗也记(见 NomadRaidSystem.Hero，用户 2026-10-21 选"游牧雄主死后真分裂")
+    // 发动统一战争时记下在位的雄主；袭掠成名的雄主也记(见 NomadRaidSystem.Hero，用户 2026-10-21 选"游牧雄主死后真分裂")。
+    // 开国的大汗同日也记过，玩家随即反馈"帝国容易突然碎一地"，用户选回调后不再记(见 NomadCycleSystem.RememberHero)
     internal static void RememberHero(Kingdom sovereign)
     {
         EmpireData state = HeroState(sovereign);

@@ -97,8 +97,11 @@ public static partial class NomadRaidSystem
             float people = 0f;
             if (shares.Count > 0)
             {
+                // 抢来的金帛记作贡金(经常收入，见 TreasuryRules.StableIncomeKey)，同岁币一样进养兵预算(CorpsSystem 按年经常收入
+                // 定军费)：用户 2026-10-21 选"劫掠所得能养兵"。以前记在外交类目，不算经常收入，抢得再多也养不了兵。
+                // 被抢的一方照旧记外交类目(一次性损失，不算经常收支)；劫掠仍只抢不占
                 foreach ((Kingdom member, float share) in shares)
-                    member.AddMoney(Mathf.FloorToInt(money * share), TreasuryCategory.Diplomacy);
+                    member.AddMoney(Mathf.FloorToInt(money * share), TreasuryCategory.Tribute);
                 food = TakeFood(city, shares, foodFactor);
                 people = TakePeople(city, shares, peopleFactor);
             }

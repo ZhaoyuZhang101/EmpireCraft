@@ -9,7 +9,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 草原常态(用户 2026-10-20 定"常态下——没灾、没雄主——的游牧国家"四项，全要)：
 //   1. 平时不大扩张：大规模的游牧扩张诉求只在雄主在位时发动(见 TempFac_游牧扩张)；平时游牧政权(部落阶段除外，部落之间的征伐
 //      照部落联合的规矩走，见 TribalWarSystem)主动开的一般战争只打 PeaceMaxCities 城以内、不在任何帝国里的小国——
-//      至多小打小闹(原版挑宣战对象见 WarTargetPatch，帝国与成员见 EmpireCraftPlotsAddition.GetWarTarget)；
+//      至多小打小闹(原版挑宣战对象见 WarTargetPatch，帝国与成员见 EmpireCraftPlotsAddition.GetWarTarget；派系诉求
+//      "谋求统一""扩张地盘"挑目标与开战时也查，用户 2026-10-21 选"堵平时扩张的漏口"，见 TempFac_谋求统一、TempFac_扩张地盘)；
 //      平时的动静只有草原压力引起的劫掠(见 NomadRaidSystem)与下面的争草场。
 //   2. 部落争草场(见 SteppeOrderSystem.Feuds)；
 //   3. 依附强部(见 SteppeOrderSystem.Attach)；

@@ -641,7 +641,9 @@ public class Empire : MetaObject<EmpireData>
         bool heroSplit = UnificationSystem.HeroTurmoilPending(this);
         if (heroSplit) EnfeoffmentHelper.OnEmperorSucceeded(this);
         // 汗国新汗即位：积弊深重或正统低落时各兀鲁思可能据地自立(雄主之后第一次换汗必乱，见 NomadCycleSystem)，
-        // 平常先于即位分封——这一回新分出去的兄弟不在其列
+        // 平常先于即位分封——这一回新分出去的兄弟不在其列。
+        // 汗位更替之乱、哈里发更替之乱各自查大分裂冷却(见 UpheavalGuard，用户 2026-10-21 选)：前一路真走了成员就记下时间，
+        // 后一路随即被冷却挡住，同一次即位不再叠加；土崩瓦解收束期内两路都不判。水土(ShuiTuSystem)不算大分裂，不在此列
         NomadCycleSystem.OnKhanSucceeded(this);
         // 新哈里发即位：积弊深重或正统低落时世袭的埃米尔可能举兵自立(哈里发更替之乱，见 NomadCycleSystem)
         NomadCycleSystem.OnCaliphSucceeded(this);

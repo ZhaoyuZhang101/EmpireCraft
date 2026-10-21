@@ -6,7 +6,8 @@ using UnityEngine;
 namespace EmpireCraft.Scripts.GeneralSystems;
 
 // 路网与航线(模拟的，不实际铺在地上)。
-//   · 陆路规划：同一片陆地上相邻的城之间规划干道(游牧、林地、阿兹特克的城不修路，见 CityStyleSystem.Roadless)，但不是两两都通——
+//   · 陆路规划：同一片陆地上相邻的城之间规划干道(游牧营地不修路，见 CityStyleSystem.Roadless；林地只修最低一档，
+//     见 GradeCap)，但不是两两都通——
 //       - 两城之间另有一座城比它们彼此都近(A 到 C、C 到 B 都比 A 到 B 近)，就经那座城走，不另规划直路；
 //       - 先按地块寻路定走廊：绕开高山(六成以上是山的地块不走)与海面，山地、沼泽、丛林代价高，过河代价更高(架桥)，
 //         已有的路代价低——所以路沿平地、谷地走，彼此并成干线网；地形代价是直线距离几倍(RoadPlan.terrain / straight)
@@ -42,16 +43,28 @@ public static class RoadNetwork
     // 海路虚线：每段几格画、几格空
     private const int DashOn = 3, DashOff = 2;
 
-    // 一条路线(陆路或海路)：经过的地块、落到的格子；陆路另记地形代价与直线距离(地块)
+    // 一条路线(陆路或海路)：经过的地块、落到的格子；陆路另记地形代价与直线距离(地块)、两头的城(id 小的在前；航线不记)
     public sealed class RoadPlan
     {
         public float at;
         public float terrain, straight;
+        public (long, long) cities = (-1L, -1L);
         public readonly List<int> zones = new();
         public readonly List<int> tiles = new();
 
-        // 这个等级的路修得通吗(地形代价不超过直线距离的几倍，见 RoadBuildingSystem.DetourLimit)
-        public bool Buildable(int grade) => zones.Count > 0 && terrain <= Mathf.Max(1f, straight) * RoadBuildingSystem.DetourLimit(grade);
+        // 这个等级的路修得通吗(地形代价不超过直线距离的几倍，见 RoadBuildingSystem.DetourLimit)；
+        // 超过两头城市风格允许的等级(林地只修土路，见 GradeCap)的也修不了
+        public bool Buildable(int grade) => zones.Count > 0 && grade <= GradeCap(cities) &&
+                                            terrain <= Mathf.Max(1f, straight) * RoadBuildingSystem.DetourLimit(grade);
+    }
+
+    // 一条路最高修到几等：两头城市风格的上限取小(用户 2026-10-21 选林地"只修最低一档的路"，见 CityStyleSystem.RoadGradeCap)。
+    // 按眼下的风格现算，城改建了风格、已修的路不重新规划也认得出；没记两头的(航线)不限
+    public static int GradeCap((long, long) key)
+    {
+        if (key.Item1 < 0 || key.Item2 < 0 || World.world?.cities == null) return RoadBuildingSystem.MaxGrade;
+        return Math.Min(CityStyleSystem.RoadGradeCap(World.world.cities.get(key.Item1)),
+            CityStyleSystem.RoadGradeCap(World.world.cities.get(key.Item2)));
     }
 
     private static readonly Dictionary<(long, long), RoadPlan> Roads = new(), Lanes = new();
@@ -267,7 +280,9 @@ public static class RoadNetwork
         bool built = RoadBuildingSystem.Get(key) is { } link && (link.grade > 0 || link.building > 0);
         if (Roads.ContainsKey(key) && (built || Fresh(Roads, key, now))) return false;
         if (Spent(budget)) return true;
-        Roads[key] = BuildRoad(from, to, now);
+        RoadPlan plan = BuildRoad(from, to, now);
+        plan.cities = key;
+        Roads[key] = plan;
         _dirty = true;
         return false;
     }
