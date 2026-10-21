@@ -3781,6 +3781,7 @@
   "road_connect_none": "{0}与{1}之间没有修得通的干道(隔着海、被高山挡住，或途经游牧营地这类不修路的城)",
   "road_connect_planning": "路网还在规划，稍后再试",
   "faction_rebellion_war_name": "{0}之乱",
+  "faction_rebel_army_name": "{0}军",
   "capital_loss_restored": "{0}收复旧都{1}，还于旧都，复称{2}。",
   "kingdom_type_xingzai": "行在",
   "Later": "后",

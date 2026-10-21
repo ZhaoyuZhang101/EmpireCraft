@@ -313,6 +313,8 @@ public class WarPatch: GamePatch
                         RepublicSystem.ResolveRevolutionWar(pWar, pWinner);
                     else if (pWinner == WarWinner.Attackers)
                     {
+                        // 先改回原名再接管帝国：接管时的迁都、换法理日志写真名，接管后起的国号也不被停战改回去
+                        attacker.EndFactionRebelling();
                         attacker.GetEmpire().ReplaceEmpire(attacker);
                     }
                     // 联省兵谏的响应者也有叛乱状态与临时国名，停战时一并清理。
