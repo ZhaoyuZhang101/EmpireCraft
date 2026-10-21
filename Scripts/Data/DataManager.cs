@@ -319,6 +319,7 @@ public static class DataManager
             {
                 worldKingdom.InitialRegime();
             }
+            worldKingdom.RestoreFactionRebelName();
             worldKingdom.SyncRealmTitlesFromRuler();
             if (worldKingdom.hasKing()) worldKingdom.TransferRealmTitlesToRuler(worldKingdom.king);
             worldKingdom.ReconcileMainTitle();

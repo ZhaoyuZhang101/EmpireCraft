@@ -1605,16 +1605,23 @@ public static class KingdomExtension
         k.GetOrCreate().CenterArmID = army.getID();
     }
 
+    // 派系起兵：国名不改(用户 2026-10-22 见几个行省同叫"世族"，选"国名不改")，派系只写进战争名(见 CourtSystem)；
+    // 以前改成派系名、停战再改回(faction_rebel_original_name)，旧档里还在叛乱的读档时改回(见 RestoreFactionRebelName)
     public static void StartFactionRebelling(this Kingdom k, FixedFaction faction)
     {
         if (k?.data == null) return;
         k.RememberRebellionOrigin(k.GetEmpire());
-        if (string.IsNullOrWhiteSpace(k.GetOrCreate().faction_rebel_original_name))
-        {
-            k.GetOrCreate().faction_rebel_original_name = k.data.name ?? k.name ?? "";
-        }
-        k.data.name = faction?.Name ?? ((k.GetOrCreate().faction_rebel_original_name ?? k.name) + "叛乱");
         k.GetOrCreate().isFactionRebelling = true;
+    }
+
+    // 旧档：叛乱期间改成派系名的国家，读档时改回原名
+    public static void RestoreFactionRebelName(this Kingdom k)
+    {
+        if (k?.data == null) return;
+        var extra = k.GetOrCreate();
+        if (string.IsNullOrWhiteSpace(extra.faction_rebel_original_name)) return;
+        k.data.name = extra.faction_rebel_original_name;
+        extra.faction_rebel_original_name = "";
     }
 
     public static void EndFactionRebelling(this Kingdom k)
