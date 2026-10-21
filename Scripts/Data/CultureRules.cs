@@ -43,6 +43,9 @@ public class Setting
     // 天下标识(见 TianxiaSystem)：写了同一个标识的文化同属一个天下——相邻的帝国法理自动并成一个天下，
     // 还没有帝国法理的地方也按它连片。留空 = 本文化自成一个天下
     public string tianxia = "";
+    // 列岛天下(见 TianxiaSystem.IsArchipelago，用户 2026-10-21 选"列岛天下")：标了的文化(日本)，隔着海峡、在水师辐射里的
+    // 相邻天下也自动并成一个，帝国核心也收隔海的同文化法理；不标的照旧只认同一块陆地
+    public bool archipelago;
     // 开局阶段：写本线的一个制度节点，文化开局时这个节点及其全部前置都已施行(被它取代的不算)；
     // 留空从本线的根节点起步(华夏线是原始群)
     public string start_institution = "";

@@ -171,8 +171,11 @@ public static class CultureService
     // 正在自成一国的城(City.makeOwnKingdom 期间，见 CulturePatch)
     internal static City PendingSeat;
 
-    // 已有的国家称帝时改从君主的文化，换成落后的文化照样旧制犹存；新立之国(立国不满一年)没有旧制可沿(见 LegacyInstitutionSystem)
-    public static void ApplyFounderCulture(Kingdom kingdom, Actor founder)
+    // 已有的国家称帝时改从君主的文化，换成落后的文化照样旧制犹存；新立之国(立国不满一年)没有旧制可沿(见 LegacyInstitutionSystem)。
+    // preferDeJure：新立的国家(KingdomPatch.NewCivKingdom)按立国之城的法理文化定文化与政体，没有法理才看立国者本人
+    // (玩家反馈"新建立的国家有些会不根据本地法理建议政体"，用户 2026-10-21 选"按立国之城的法理文化"：以前一律按立国者，
+    // 外族官员在别的文化的法理上自立，政体跟着他本人走)；称帝不走这条，征服王朝照旧保留征服者的文化(见 CompositeEmpireService)
+    public static void ApplyFounderCulture(Kingdom kingdom, Actor founder, bool preferDeJure = false)
     {
         if (kingdom?.data == null || founder == null) return;
         string culture = GetFounderCulture(founder);
@@ -183,6 +186,11 @@ public static class CultureService
         {
             string local = GetMainCulture(seat, initialize: false);
             if (IsValidCulture(local)) culture = local;
+        }
+        else if (preferDeJure && seat?.data != null && !seat.isRekt())
+        {
+            string deJure = GetEffectiveTitleCulture(seat.GetTitle());
+            if (IsValidCulture(deJure)) culture = deJure;
         }
         if (!IsValidCulture(culture)) return;
         SetRealmCulture(kingdom, culture, updatePoliticalSystem: true);

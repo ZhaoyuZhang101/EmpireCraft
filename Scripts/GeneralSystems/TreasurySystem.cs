@@ -184,7 +184,7 @@ public static class TreasurySystem
             centralPercent = administrative || local.GetKingdomType() == KingdomType.ZhouFeudalism_jun ||
                 local.GetKingdomType() == KingdomType.Feudalism_intendancy ||
                 local.GetKingdomType() == KingdomType.Feudalism_diocese ? 55 : 20;
-            // 阿拉伯行省(朝廷派的埃米尔，听调遣)：中央收四成，本省留三成五养兵(以前与世袭诸侯同为两成，行省钱多又听调，见 EmirateSystem)
+            // 阿拉伯行省(朝廷派的埃米尔，听调遣)：中央收五成，本省留两成五养兵(以前与世袭诸侯同为两成，行省钱多又听调，见 EmirateSystem)
             if (local.GetKingdomType() == KingdomType.Arabic_province) centralPercent = EmirateSystem.ProvinceCentralPercent;
             // 古典共和帝国里自治的城邦(有外交权)不向盟主交税；元首制下没有外交权的行省照交(见 CityStateService.GrantAutonomy)
             if (type == RegimeType.ClassicalRepublic && local.GetRegime()?.IsAllowDiplomacy() == true) centralPercent = 0;
@@ -194,7 +194,7 @@ public static class TreasurySystem
             int era = ZhouEraSystem.Era(empire);
             if (era >= ZhouEraSystem.Spring && local.GetKingdomType() != KingdomType.ZhouFeudalism_jun)
                 centralPercent = era == ZhouEraSystem.Spring ? 5 : 0;
-            // 世袭的埃米尔只象征性地向哈里发缴税(见 EmirateSystem)
+            // 世袭的埃米尔向哈里发缴两成，同别的世袭封国(见 EmirateSystem.HereditaryCentralPercent)
             else if (EmirateSystem.IsHereditaryEmir(empire, local))
                 centralPercent = EmirateSystem.HereditaryCentralPercent;
             // 无主的第二直隶(没有储君，见 MultiCapitalSystem.Zhili)：赋税全归中央

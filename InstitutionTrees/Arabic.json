@@ -641,6 +641,10 @@
           "value": "神授君权"
         },
         {
+          "type": "enable_claim",
+          "value": "削藩"
+        },
+        {
           "type": "add_mandate",
           "int_value": -6
         }

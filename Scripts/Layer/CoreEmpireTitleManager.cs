@@ -571,10 +571,12 @@ public static class EmpireCoreManager
         if (CultureService.IsValidCulture(empireCulture) && CultureService.IsValidCulture(titleCulture) &&
             !string.Equals(empireCulture, titleCulture, StringComparison.Ordinal)) return false;
         // 不跨大陆(用户 2026-10-17："哪怕我不开固定，也不应该形成横跨好几个大陆好几个文化和核心的超级大国")：
-        // 王国法理的治所要和帝国法理的治所在同一块陆地上(标了天下标识的文化也不跨海)
+        // 王国法理的治所要和帝国法理的治所在同一块陆地上(标了天下标识的文化也不跨海)；
+        // 列岛文化(文化配置标了 archipelago，用户 2026-10-21 选"列岛天下")隔着海峡、有城在本帝国水师辐射里的法理也收(见 StraitReach)
         object home = core.GetCoreCapital()?.getTile()?.region?.island ?? empire.CoreKingdom.capital?.getTile()?.region?.island;
         object there = title.title_capital?.getTile()?.region?.island;
-        if (home != null && there != null && !ReferenceEquals(home, there)) return false;
+        if (home != null && there != null && !ReferenceEquals(home, there) &&
+            !(TianxiaSystem.IsArchipelago(empireCulture) && AcrossStrait(empire, title))) return false;
         int cost = GetAssimilationCost(empire, title);
         if (!TreasurySystem.TrySpend(empire.CoreKingdom, cost, TreasuryCategory.Policy)) return false;
         bool result = AddTitleToCore(core, title);
@@ -585,6 +587,10 @@ public static class EmpireCoreManager
         }
         return result;
     }
+
+    // 这块法理有城在本帝国(连同各成员)水师的辐射里(隔海相望，见 StraitReach)
+    private static bool AcrossStrait(Empire empire, KingdomTitle title) =>
+        title.getCities().Any(city => city != null && !city.isRekt() && StraitReach.Reaches(empire.CoreKingdom, city));
 
     public static void RebindEmpire(Empire empire, EmpireCore core)
     {

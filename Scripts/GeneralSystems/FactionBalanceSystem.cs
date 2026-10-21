@@ -15,10 +15,12 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 派系平衡：皇帝要维持各派互相牵制，一派独大就积累"失衡"，按这一派走向极端的方向引发经典的帝国乱局，
 // 并推高王朝积弊，帝国一步步走向崩毁。适用于走朝堂博弈(没有议会)的帝国(见 CourtSystem.Applies)。
 // 失衡度(EmpireData.faction_imbalance，0~100)，每年按最大派系的占比结算：
-//   · 占比 ≥ 60：每年 +(占比 - 55) / 3；明君、中兴之主 ×0.5，暴君 ×0.8，庸弱、昏聩、荒淫 ×1.5，天子被挟制再 ×1.3；
+//   · 占比 ≥ 60：每年 +(占比 - 55) / 3；明君、中兴之主 ×0.5，暴君 ×0.8，庸弱、昏聩、荒淫 ×1.5，天子被挟制再 ×1.3
+//     (幕府将军执政不算：天皇本是虚君，朝政由将军批，用户 2026-10-21 选"积弊按将军算")；
 //   · 占比 50~60：每年 -3；占比 < 50(几派互相牵制)：每年 -12；独大的派系换了一家，失衡减半；改朝换代只留三成。
 // 制衡：皇帝亲政时最大派系占比 ≥ 60，每年有机会扶植次大派系(占比 +3~+8，按治理能力)——
-//   明君八成、暴君六成、中主四成半、庸弱两成；幼主、傀儡、怠政之君无从制衡(见 CourtSystem.Decider)。
+//   明君八成、暴君六成、中主四成半、庸弱两成；幼主、傀儡、怠政之君无从制衡(见 CourtSystem.Decider)；
+//   幕府将军执政时由将军制衡(同上，按将军的资质)。
 // 后果(失衡度 30 起，越高越重)：按独大派系走向极端的方向——
 //   · 文臣专权(绥靖)：派系首领做权臣更快(权臣 → 挟制天子成傀儡 → 封公封王 → 篡位，见 Empire.UpdatePowerfulMinister)，
 //     吏治败坏、冗官冗费、土地兼并、武备废弛的积弊滋长；
@@ -123,7 +125,8 @@ public static class FactionBalanceSystem
             RulerQualitySystem.Grade.Weak or RulerQualitySystem.Grade.Fatuous or RulerQualitySystem.Grade.Dissolute => 1.5f,
             _ => 1f
         };
-        return empire.data.is_been_controlled ? factor * 1.3f : factor;
+        // 幕府将军执政：挟制是常态，不再加重失衡(用户 2026-10-21 选"积弊按将军算")
+        return empire.data.is_been_controlled && MilitaryRegency.KindOf(empire) != MilitaryRegency.Shogun ? factor * 1.3f : factor;
     }
 
     // 制衡：扶植次大派系，独大的一派让出占比(派系占比此消彼长，见 KingdomExtension.TryIncreaseFactionRatio)
@@ -131,7 +134,9 @@ public static class FactionBalanceSystem
     {
         if (top.CentralRatio < DominantShare || factions.Count < 2) return;
         (Actor decider, string role) = CourtSystem.Decider(empire);
-        if (role != "emperor" || decider == null) return;
+        // 幕府将军执政时由将军(权臣代批)制衡(用户 2026-10-21 选"积弊按将军算")
+        bool shogun = role == "minister" && MilitaryRegency.KindOf(empire) == MilitaryRegency.Shogun;
+        if ((role != "emperor" && !shogun) || decider == null) return;
         float chance = RulerQualitySystem.Of(decider) switch
         {
             RulerQualitySystem.Grade.Wise => 0.8f,

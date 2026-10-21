@@ -15,12 +15,15 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 埃米尔坐大(用户 2026-10-17 转群友"游牧太强了几乎不会分封""还有阿拉伯"，选"埃米尔行省世袭坐大")：
 //   · 阿拉伯政体的帝国打下的法理设为行省，由朝廷派的埃米尔治理(考选、不世袭、不通外交，见 Empire.update 的领土分封)；
 //   · 哈里发正统不到 65 时(以前 50：正常的哈里发正统七八十，行省从不坐大；用户 2026-10-21 选"平常年景也坐大")，
-//     每个行省每年有 (65 − 正统)% 的机会埃米尔世袭其位：法理归他所有(没有行政法理的行省也会坐大)，改为世袭、通外交、
+//     每个行省每年有 (65 − 正统)/2 % 的机会埃米尔世袭其位(同日选"哈里发能衰也能复兴"减半：以前 (65 − 正统)%，
+//     正统 50 时每省每年 15%，十年坐大八成)：法理归他所有(没有行政法理的行省也会坐大)，改为世袭、通外交、
 //     不再支援中央军——正统再掉到 40 以下就能拥兵自立为苏丹国(见 kingdom_allow_independent)；
+//     印度(阿拉伯制度线、法教传统)没有哈里发受册封的正统 +8，门槛对它减 8(见 InvestitureGap)；
 //   · 鞭长莫及(用户 2026-10-19 选"鞭长莫及也会坐大""按帝国大小算")：正统再高，边远的行省也会坐大——各行省按都城离
 //     帝国都城的远近排位，最远的三成才有份：排在七成处为 0，越往外越高，最远的到顶；顶多少看帝国多大，
 //     8 城以下每年 4%，40 城以上每年 10%，中间平滑过渡。与正统那一项取大的。帝国越大越先从边远处裂开；
-//   · 正统 60 以上才能削藩把世袭的埃米尔收回(见 TempFac_削藩)。
+//   · 正统 StrongLegitimacy(75)以上才能削藩把世袭的埃米尔收回(见 TempFac_削藩；以前 60，与坐大的 65 以下重叠，
+//     一边坐大一边削藩；用户 2026-10-21 选"埃米尔能收回"：提到 75，ClaimRules.json 里苏丹官僚、哈里发神权两条路线都放行)。
 // 埃米尔割据(用户 2026-10-20 选"阿拉伯也照游牧那样修"；以前世袭的埃米尔照旧缴两成税，"拥兵自立"又要正统 40 以下、
 //   都城不稳、对朝廷没有好感——同帝国 +100、受封五十年内 +100、圣城 +200 起，正统掉到个位数都自立不了，哈里发国从不分裂)：
 //   · 世袭的埃米尔(阿拉伯政体、世袭、通外交的成员)只向中央缴 HereditaryCentralPercent 的税(见 TreasurySystem.TaxShares)；
@@ -35,15 +38,18 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 成为傀儡，苏丹以权臣掌实权、在本家承袭(同幕府的征夷大将军，见 MilitaryRegency)；离开阿拉伯政体时不再有苏丹。
 public static class EmirateSystem
 {
-    public const int WeakLegitimacy = 65, StrongLegitimacy = 60;
+    // 坐大的正统门槛、每年机会占 (门槛 − 正统) 的几成；削藩的正统门槛(高于坐大区间，见文件头)
+    public const int WeakLegitimacy = 65, StrongLegitimacy = 75;
+    public const float WeakChanceShare = 0.5f;
     // 鞭长莫及：远近排位在 DistantPercentile 以外的行省有份；最远的每年机会(%)按帝国城数从 SmallMax 平滑升到 LargeMax
     public const float DistantPercentile = 0.7f;
     public const float DistantSmallMax = 4f, DistantLargeMax = 10f;
     public const int DistantSmallCities = 8, DistantLargeCities = 40;
-    // 央地分成(见 TreasurySystem.TaxShares)：行省向中央缴五成(本省留两成五，略多于律令的道)，世袭的埃米尔缴一成二
-    // (用户 2026-10-20 定：以前只缴半成，哈里发的钱袋被世袭埃米尔掏空，阿拉伯中央财政四系最薄；
-    //  2026-10-21 用户选"行省少留钱养兵"：行省四成 → 五成，兵额按本省财力算，行省的军约少三成)
-    public const int ProvinceCentralPercent = 50, HereditaryCentralPercent = 12;
+    // 央地分成(见 TreasurySystem.TaxShares)：行省向中央缴五成(本省留两成五，略多于律令的道)，世袭的埃米尔缴两成(同别的世袭封国)
+    // (用户 2026-10-20 定：以前只缴半成，哈里发的钱袋被世袭埃米尔掏空，阿拉伯中央财政四系最薄，提到一成二；
+    //  2026-10-21 用户选"行省少留钱养兵"：行省四成 → 五成，兵额按本省财力算，行省的军约少三成；
+    //  同日选"财政不断崖"：世袭一成二 → 两成——行省缴五成，一坐大这一省上缴的就少掉近四成，中央财政随坐大断崖式下跌)
+    public const int ProvinceCentralPercent = 50, HereditaryCentralPercent = 20;
     // 割据：世袭满几年才有份；正统到多少以上和平脱离、改为朝贡；各项系数
     public const int BreakawayTenureYears = 15, PeacefulLegitimacy = 65, BreakawayWeakLegitimacy = 55;
     public const float BreakawayDistantShare = 0.5f, BreakawayWeakShare = 0.5f, BreakawayPerLostTenth = 3f,
@@ -58,6 +64,11 @@ public static class EmirateSystem
 
     public static bool IsSultanate(Empire empire) =>
         Applies(empire) && MilitaryRegency.KindOf(empire) == MilitaryRegency.Sultan;
+
+    // 印度这类阿拉伯政体却不奉哈里发的(法教传统，见 PapacySystem.IsCaliphal)：没有受册封的正统 +8，正统常年低约 8 点，
+    // 坐大、削藩、苏丹承袭之乱的正统门槛按它减(用户 2026-10-21 定"印度门槛减 8")；奉哈里发的为 0
+    public static int InvestitureGap(Empire empire) =>
+        Applies(empire) && !PapacySystem.IsCaliphal(empire) ? PapacySystem.CrownedLegitimacy : 0;
 
     // 世袭的埃米尔：哈里发国里阿拉伯政体、世袭、通外交的成员(坐大的行省，或建国时就带着领地入伙的)
     public static bool IsHereditaryEmir(Empire empire, Kingdom kingdom)
@@ -84,7 +95,7 @@ public static class EmirateSystem
         if (LastYear.TryGetValue(empire.id, out double last) && now >= last && Date.getYearsSince(last) < 1) return;
         LastYear[empire.id] = now;
         int legitimacy = empire.Legitimacy;
-        float weakChance = global::System.Math.Max(0, WeakLegitimacy - legitimacy);
+        float weakChance = global::System.Math.Max(0, WeakLegitimacy - InvestitureGap(empire) - legitimacy) * WeakChanceShare;
         Dictionary<long, float> distantChances = DistantChances(empire);
         foreach (Kingdom kingdom in empire.kingdoms_list.ToList())
         {
@@ -170,7 +181,7 @@ public static class EmirateSystem
         kingdom?.data == null || kingdom.isRekt() ? 0f
             : kingdom.countTotalWarriors() + (kingdom.cities ?? new List<City>()).Sum(city => CorpsSystem.EquivalentAt(city));
 
-    // 正统 50 以上和平脱离(朝贡、附庸或自立)，不到 50 举兵自立
+    // 正统 PeacefulLegitimacy(65)以上和平脱离(朝贡、附庸或自立)，不到 65 举兵自立
     private static bool Secede(Empire empire, Kingdom kingdom, int legitimacy, float chance)
     {
         string name = kingdom.GetKingdomName(), emir = kingdom.king?.getName() ?? "", realm = empire.GetEmpireName();

@@ -5,6 +5,9 @@
     "setting": {
         "regime": "Feudalism",
         "institution_line": "Roma",
+        // 天下标识(用户 2026-10-21 定"补天下标识")：本文化自成一个天下；明写了，相邻的同文化帝国法理才会自动并成一个天下
+        // (没写的一个帝国法理一个天下，常常凑不满 8 城、没有天命，见 TianxiaSystem.AutoArrange)
+        "tianxia": "ElfFancy",
         "traits": ["patriarchy"],
         "City": {
             "groups": {

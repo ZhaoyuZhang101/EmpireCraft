@@ -346,6 +346,8 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
         EmpireFormationService.OnEmpireCreated(empire);
         // 称帝前王国在推的制度改革带进帝国(见 InstitutionSystem.Realm.cs)
         InstitutionSystem.OnEmpireProclaimed(empire);
+        // 草原称汗开国：开国大汗记为雄主，他一不在位第一回换汗必乱(用户 2026-10-21 选"游牧雄主死后真分裂"，见 NomadCycleSystem)
+        NomadCycleSystem.OnKhanateFounded(empire);
         if (!suppressFoundingLog && empire.data.has_year_name)
         {
             new WorldLogMessage(EmpireCraftWorldLogLibrary.become_new_empire_log, pKingdom.king.name, empire.GetEmpireName())

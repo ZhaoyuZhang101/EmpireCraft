@@ -14,6 +14,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     相同的相邻帝国法理每年自动并成一个天下(比如华夏、中国、山海都标 Huaxia)；联合天下里文化标识已经不同的法理自动退出。
 //     只并文化配置里明写了同一标识(用户："如果标注了同一个id的文化可以")、同一块陆地上领地接壤的(不跨大陆、不隔海)——没写标识的文化一个帝国法理一个天下，
 //     不论开不开固定法理，都不会自动滚成横跨几个大陆、几种文化、几个法理的天下，古典时代尤其不该有(固定法理开着时帝国法理也不再扩张)。
+//     列岛天下例外(用户 2026-10-21 选"列岛天下")：文化配置标了 archipelago 的(日本)，隔着海峡、在水师辐射里的同标识天下也并(见 IsArchipelago)。
 //     玩家用神力动过的法理不再自动并分。
 //     统一战争在天下里打(见 UnificationSystem.Survey)：天下 = 这些核心的法理城市，不再按文化圈临时圈出来，
 //     城市文化变了、被外族占了，天下也还是那个天下；还没有帝国核心的地方照旧按文化连片。
@@ -279,7 +280,8 @@ public static class TianxiaSystem
             string own = TianxiaId(core), theirs = TianxiaId(lead);
             if (own != "" && theirs != "" && own != theirs) Leave(core, manual: false);
         }
-        // 相邻：同一块陆地上两座接壤的城分属两个天下(用户："跨大陆跨海洋就算了"——隔海的不并，标了同一标识也不并)
+        // 相邻：同一块陆地上两座接壤的城分属两个天下(用户："跨大陆跨海洋就算了"——隔海的不并，标了同一标识也不并；
+        // 列岛天下另算，见 AddStraitPairs)
         var pairs = new HashSet<(long, long)>();
         foreach (City city in World.world.cities.list)
         {
@@ -295,6 +297,7 @@ public static class TianxiaSystem
                 pairs.Add(a.id < b.id ? (a.id, b.id) : (b.id, a.id));
             }
         }
+        AddStraitPairs(pairs);
         foreach ((long first, long second) in pairs)
         {
             EmpireCore a = Lead(EmpireCoreManager.Get(first)), b = Lead(EmpireCoreManager.Get(second));
@@ -309,6 +312,40 @@ public static class TianxiaSystem
             if (ca < cb || ca == cb && a.id > b.id) Join(a, b, manual: false);
             else Join(b, a, manual: false);
         }
+    }
+
+    // 列岛天下(用户 2026-10-21 选"列岛天下")：文化配置标了 archipelago 的(日本)，隔着海峡的天下、帝国法理也能相并
+    // (帝国法理见 EmpireCoreManager.TryAbsorbTitle)——以前只认同一块陆地，列岛被拆成几个不足八城的小天下(偏安，没有天命)
+    public static bool IsArchipelago(string culture) =>
+        !string.IsNullOrEmpty(culture) && OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(culture, out var setting) &&
+        setting?.archipelago == true;
+
+    // 隔海峡相邻的两个天下：明写同一标识、至少一边是列岛文化，一边据有城的国家(帝国按全体成员)水师辐射够得着另一边的城
+    // (见 StraitReach，同宣战、统一的"隔海相望")；没到有水师的时代、没有战舰就够不着，照旧不并
+    private static void AddStraitPairs(HashSet<(long, long)> pairs)
+    {
+        List<EmpireCore> leads = Leads().Where(lead => TianxiaId(lead, explicitOnly: true) != "").ToList();
+        for (int i = 0; i < leads.Count; i++)
+        for (int j = i + 1; j < leads.Count; j++)
+        {
+            EmpireCore a = leads[i], b = leads[j];
+            (long, long) key = a.id < b.id ? (a.id, b.id) : (b.id, a.id);
+            if (pairs.Contains(key) || (!IsArchipelago(a.default_culture) && !IsArchipelago(b.default_culture)) ||
+                TianxiaId(a, explicitOnly: true) != TianxiaId(b, explicitOnly: true)) continue;
+            if (AcrossStrait(a, b) || AcrossStrait(b, a)) pairs.Add(key);
+        }
+    }
+
+    // from 天下里据有城的各国(野生国除外)，有一家的水师够得着 to 天下的某座城
+    private static bool AcrossStrait(EmpireCore from, EmpireCore to)
+    {
+        List<City> theirs = Cities(to);
+        if (theirs.Count == 0) return false;
+        foreach (Kingdom holder in Cities(from).Select(city => city?.kingdom)
+                     .Where(kingdom => kingdom?.data != null && !kingdom.isRekt() && !kingdom.wild).Distinct().ToList())
+        foreach (City city in theirs)
+            if (StraitReach.Reaches(holder, city)) return true;
+        return false;
     }
 
     #endregion

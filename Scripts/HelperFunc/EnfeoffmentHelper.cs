@@ -231,8 +231,9 @@ public static class EnfeoffmentHelper
 
     // 兀鲁思(用户 2026-10-17 转群友"游牧太强了几乎不会分封"，选"汗死诸子分兀鲁思")：游牧政体的大汗死了、
     // 汗国的核心有 UlusMinCities 座城以上，新汗的兄弟(先汗诸子)各分一块法理做兀鲁思(成员国)，同分割继承法；
-    // 打仗时等停了再分(见 Empire.update)。大汗弱时兀鲁思可以自立(见 kingdom_allow_independent)
-    public const int UlusMinCities = 8;
+    // 打仗时等停了再分(见 Empire.update)。大汗弱时兀鲁思可以自立(见 kingdom_allow_independent)。
+    // 门槛 8 → 5 城(用户 2026-10-21 选"游牧雄主死后真分裂"：小些的汗国汗死也分兀鲁思，诸子各据一方)
+    public const int UlusMinCities = 5;
 
     public static bool UlusPartition(Empire empire) =>
         empire?.CoreKingdom?.GetRegime()?.type == RegimeType.YouMu && empire.CoreKingdom.countCities() >= UlusMinCities;

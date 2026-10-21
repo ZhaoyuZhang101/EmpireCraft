@@ -16,7 +16,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 成雄主(下个月办，不在战争收尾那一帧里改帝国)：盟主还不是帝国的，称汗建国(EmpireManager.NewEmpire + 称帝收尾，按武力霸权)，
 //     首领即开国雄主(RulerTraitSystem.Founder)；已是汗国核心的，大汗得开国雄主之号。这一回出过兵的各部(独立的游牧政权，
 //     原始部落、别家帝国里的不算)并入汗国为兀鲁思。之后照游牧难一统的规矩走：只有雄主在位能发动统一战争、可南下入主，
-//     雄主一死第一回换汗必乱(见 UnificationSystem、NomadCycleSystem)；部落阶段(原始政体)的盟主只攒威望，不称汗；
+//     雄主一死第一回换汗必乱(成雄主时就记下，见 NomadCycleSystem.RememberHero；以前要发动统一战争才记，袭掠出的雄主死了照常换汗)；
+//     部落阶段(原始政体)的盟主只攒威望，不称汗；
 //   · 失败内讧：联盟被打退，各部每家 InfightChance 的机会反目——本汗国的兀鲁思离心而去(退出汗国)，独立的部与盟主兵戎相见
 //     (一场争草场的小仗，见 SteppeOrderSystem.Rift；同一回至多一场)，同样下个月办。
 public static partial class NomadRaidSystem
@@ -113,6 +114,8 @@ public static partial class NomadRaidSystem
         }
         else if (empire.CoreKingdom != leader) return;
         if (khan != null && khan.isAlive() && !khan.hasTrait(RulerTraitSystem.Founder)) khan.addTrait(RulerTraitSystem.Founder);
+        // 记为雄主：他一不在位，第一回换汗先分兀鲁思、再必乱(用户 2026-10-21 选"游牧雄主死后真分裂")
+        NomadCycleSystem.RememberHero(empire, "袭掠成雄主");
         var joined = new List<string>();
         foreach (long id in followers)
         {
