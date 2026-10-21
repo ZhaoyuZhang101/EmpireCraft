@@ -951,6 +951,16 @@ public static class TerritoryLabelRenderer
             }
 
             Camera camera = World.world.camera;
+            // 城市图层不分级(同道路)
+            float zoomVisibility = EmpireCraft.Scripts.Layer.CityViewMap.Active
+                ? 1f
+                : TerritoryLabelProjection.ZoomVisibility(MapZoomTier.PixelsPerTile(camera), MapZoomTier.Near,
+                    MapZoomTier.Street);
+            if (zoomVisibility <= 0f)
+            {
+                Hide();
+                return;
+            }
             Vector3 centerScreen = camera.WorldToScreenPoint(_placement.center);
             Vector3 alongScreen = camera.WorldToScreenPoint(_placement.center + _placement.axis * _placement.half_width);
             Vector3 acrossScreen = camera.WorldToScreenPoint(_placement.center + _placement.normal * _placement.half_height);
@@ -1047,7 +1057,7 @@ public static class TerritoryLabelRenderer
             float scale = TerritoryLabelProjection.FitScale(availableWidth, availableHeight,
                 _reference_width, _reference_height, style.size_multiplier, style.max_font_size,
                 outlineDistance);
-            float visibility = TerritoryLabelProjection.Visibility(scale, style.min_font_size);
+            float visibility = TerritoryLabelProjection.Visibility(scale, style.min_font_size) * zoomVisibility;
             if (visibility <= 0f) { Hide(); return; }
             float renderedFontPixels = scale * TerritoryLabelProjection.ReferenceFontSize * canvasScale;
             bool displayCultureLock = showCultureLock && (fullyOpaque || renderedFontPixels >= 14f);
@@ -1073,13 +1083,17 @@ public static class TerritoryLabelRenderer
                 ? new Color(0f, 0f, 0f, style.outline_color.a)
                 : style.outline_color;
             if (fullyOpaque && outlineColor.a > 0f) outlineColor.a = 1f;
+            // 小字行的颜色写在 <color> 标签里，改 Text.color 的透明度淡不下去：字、描边按不淡的颜色画，
+            // 整行透明度交给 CanvasRenderer(画完再乘)，在下面算完占屏淡出后一并设
+            Color subOutlineColor = outlineColor;
             outlineColor.a *= visibility;
             _outline.effectColor = outlineColor;
             _outline.effectDistance = new Vector2(outlineDistance, -outlineDistance);
-            if (_sub_text != null && _sub_text.gameObject.activeSelf)
+            bool hasSubLine = _sub_text != null && _sub_text.gameObject.activeSelf;
+            if (hasSubLine)
             {
-                _sub_text.color = new Color(1f, 1f, 1f, textAlpha);
-                _sub_outline.effectColor = outlineColor;
+                _sub_text.color = Color.white;
+                _sub_outline.effectColor = subOutlineColor;
                 _sub_outline.effectDistance = _outline.effectDistance;
             }
 
@@ -1115,6 +1129,7 @@ public static class TerritoryLabelRenderer
                 outlineColor.a *= screenCoverageVisibility;
                 _outline.effectColor = outlineColor;
             }
+            if (hasSubLine) _sub_text.canvasRenderer.SetAlpha(visibility * screenCoverageVisibility);
             if (!ignoreOverlap && OverlapsSubmittedLabel(collisionBounds))
             {
                 Hide();
