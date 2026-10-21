@@ -25,7 +25,12 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     开国雄主登基头 15 年、上次瓦解结束后 15 年内不发生；周制春秋战国另有规则，不在此列；
 //     首义归大分裂冷却管(见 UpheavalGuard，用户 2026-10-21 选)：上次大分裂(更替之乱、应仁之乱、宗室另立等)15 年内不首义；
 //     各省起义都记为大分裂。瓦解不受单次带走三分之一的上限(否则帝国永远倒不了)，收束见下；
+//   · 分裂进程(用户 2026-10-21 反馈"突然裂开这个设定很突兀"，选"预警前兆、先割据后独立、连锁观望"，见 SchismSystem)：
+//     上面的首义检定中了不再当场首义——离心度不低于 0.5 的各省列为不稳之省，先预警 6~18 个月("天下骚然")、再割据 6~24 个月
+//     (不缴税、不随征)，然后由其中离心最重的一省首义(BeginRising)，其余割据之省观望；预警、割据期间正统与积弊回落且内忧平息、
+//     中央打赢一仗、新君在位满三年都能化解。下面的"首义""响应"都从破局时算起；
 //   · 响应(此后两年，每月)：离心度不低于 0.5 的各省按 0.06 × 内忧(至少 0.35) × 离心度 检定，与已独立之省接壤的再乘 1.6，单月最多 35%；
+//     分裂进程里只有观望的割据之省响应，机会再乘首义的声势(见 SchismSystem.Momentum)；收束时还在观望的复奉号令(帝国灭亡则照下面的规则)；
 //     (玩家 2026-10-21 反馈"除了阿拉伯和游牧，其他国家很容易分裂"，用户选"土崩瓦解降频"：首义 0.5 → 0.25，响应以前不看离心门槛，一次约走一半成员)
 //   · 近代(本文化可废君主，或已入工业时代且开放了党禁——先要立宪)：各省合组革命同盟与朝廷开战，沿用地方共和同盟的结局(见 RepublicSystem)：
 //       独立各省的城过半即逼皇帝退位、帝国改行共和；打赢同样退位；议和且三省以上则联合建立共和国；打输各省回归；
@@ -48,6 +53,9 @@ public static class ProvincialCollapseSystem
     private const float ProvinceUnrest = 0.2f;
     private const int ModernEraTier = 7;
     private const double SecondsPerMonth = 5d;
+    // 分裂进程的化解门槛(见 SchismSystem)：内忧里正统一项从 50 以下算起、朝政积弊一项从 50 以上算起
+    private const int GateLegitimacy = 50;
+    private const float GateMalady = 50f;
 
     private static ConstitutionalEconomyState State(Empire empire) => empire?.data?.constitutional_economy;
 
@@ -149,37 +157,80 @@ public static class ProvincialCollapseSystem
             float crisis = Crisis(empire);
             float factor = RegimeFactor(empire);
             if (crisis <= 0f || UnityEngine.Random.value >= crisis * RiseChance * factor) return;
-            // 大分裂冷却里不首义(见 UpheavalGuard)；瓦解进行中的情形上面 Active 已挡
-            if (UpheavalGuard.InCooldown(empire))
+            // 大分裂冷却里、已有分裂进程时不首义(见 UpheavalGuard)；瓦解进行中的情形上面 Active 已挡
+            if (UpheavalGuard.Blocked(empire, out string why))
             {
-                LogService.LogInfo($"[EmpireCraft][土崩瓦解] {empire.GetEmpireName()} 本当首义(内忧{crisis:0.00})，" +
-                                   $"大分裂冷却中(上次在 {Date.getYearsSince(empire.data.last_upheaval_at)} 年前)，作罢");
+                LogService.LogInfo($"[EmpireCraft][土崩瓦解] {empire.GetEmpireName()} 本当首义(内忧{crisis:0.00})，{why}，作罢");
                 return;
             }
             bool modern = factor >= 1f && Modern(empire);
             if (modern && RepublicSystem.HasActiveRevolutionWar(empire)) return;
             PartyIdeology ideology = RepublicSystem.ReformIdeology(empire);
-            Kingdom first = Provinces(empire)
+            List<Kingdom> unstable = Provinces(empire)
                 .Select(province => (province, value: Disaffection(empire, province, modern, ideology)))
                 .Where(pair => pair.value >= MinDisaffection).OrderByDescending(pair => pair.value)
-                .Select(pair => pair.province).FirstOrDefault();
-            if (first == null) return;
-            state.collapse_started_at = now;
-            state.collapse_month_at = now;
-            state.collapse_modern = modern;
-            state.collapse_war_id = -1L;
-            state.collapse_origin_cities = empire.kingdoms_list.Where(kingdom => kingdom?.cities != null && !kingdom.isRekt())
-                .Sum(kingdom => kingdom.cities.Count);
-            state.collapse_risen ??= new List<long>();
-            state.collapse_risen.Clear();
-            empire.data.collapse_risen_cities = 0;
-            if (!Rise(empire, state, first, ideology, first: true)) End(state);
+                .Select(pair => pair.province).ToList();
+            if (unstable.Count == 0) return;
+            // 分裂进程(用户 2026-10-21 选"预警前兆、先割据后独立、连锁观望"，见 SchismSystem)：以前这里当场由离心最重的一省首义；
+            // 现在离心度够的各省先列为不稳之省、进入预警("天下骚然")，割据之后才由其中离心最重的一省首义(BeginRising)，其余观望。
+            // 不受单次上限(否则帝国永远倒不了，见 UpheavalGuard)；化解门槛按内忧的两项：正统 50、积弊均值 50(另要内忧平息，见 SchismSystem)
+            SchismSystem.Begin(empire, SchismSystem.Collapse, unstable, GateLegitimacy, GateMalady, empire.Emperor,
+                $"内忧{crisis:0.00}{(modern ? "，近代" : "")}");
         }
         catch (Exception exception)
         {
             LogService.LogWarning($"[EmpireCraft][土崩瓦解] 首义失败: {exception.Message}");
         }
     }
+
+    // 分裂进程破局时首义(见 SchismSystem.BreakOutCollapse)：Started 已首义；Wait 近代革命战争还在打，下月再看；Failed 不再瓦解
+    // (帝国已不适用、开国之君在位)或割据之省都起不了事
+    public enum RisingStart
+    {
+        Started,
+        Wait,
+        Failed
+    }
+
+    // 分裂进程破局：割据之省里离心最重的一省首义(原 Yearly 的首义)，两年响应期从这时算起
+    public static RisingStart BeginRising(Empire empire, List<Kingdom> candidates, out Kingdom first)
+    {
+        first = null;
+        if (!Applies(empire) || Active(empire) || candidates == null || candidates.Count == 0) return RisingStart.Failed;
+        ConstitutionalEconomyState state = State(empire);
+        if (state == null || !RebellionSystem.CanAttempt(empire.CoreKingdom)) return RisingStart.Failed;
+        bool modern = RegimeFactor(empire) >= 1f && Modern(empire);
+        if (modern && RepublicSystem.HasActiveRevolutionWar(empire)) return RisingStart.Wait;
+        PartyIdeology ideology = RepublicSystem.ReformIdeology(empire);
+        var provinces = new HashSet<Kingdom>(Provinces(empire));
+        first = candidates.Where(provinces.Contains)
+            .OrderByDescending(province => Disaffection(empire, province, modern, ideology)).FirstOrDefault();
+        if (first == null) return RisingStart.Failed;
+        double now = World.world.getCurWorldTime();
+        state.collapse_started_at = now;
+        state.collapse_month_at = now;
+        state.collapse_modern = modern;
+        state.collapse_war_id = -1L;
+        state.collapse_origin_cities = empire.kingdoms_list.Where(kingdom => kingdom?.cities != null && !kingdom.isRekt())
+            .Sum(kingdom => kingdom.cities.Count);
+        state.collapse_risen ??= new List<long>();
+        state.collapse_risen.Clear();
+        empire.data.collapse_risen_cities = 0;
+        if (Rise(empire, state, first, ideology, first: true)) return RisingStart.Started;
+        End(state);
+        return RisingStart.Failed;
+    }
+
+    // 首义以来几个月(帝国窗口用)；没在瓦解返回 -1
+    public static int RisingMonths(Empire empire)
+    {
+        ConstitutionalEconomyState state = State(empire);
+        if (state == null || state.collapse_started_at < 0d || World.world == null ||
+            World.world.getCurWorldTime() < state.collapse_started_at) return -1;
+        return Date.getMonthsSince(state.collapse_started_at);
+    }
+
+    public const int RisingWindowMonths = CascadeMonths;
 
     // 每次帝国更新都调用，自带月度计时：各省响应、近代过半逼退位、两年后收束
     public static void Monthly(Empire empire)
@@ -196,26 +247,41 @@ public static class ProvincialCollapseSystem
             {
                 bool completed = Applies(empire) && now >= state.collapse_started_at;
                 End(state);
-                if (completed) TryFall(empire, state);
+                // 分裂进程(见 SchismSystem)：还在观望、没响应的割据之省先复奉号令——帝国存续就照常听命；
+                // 灭亡就照下面 TryFall 的规则，直辖的并入核心、自治封建的各自独立
+                List<string> watchers = SchismSystem.ReleaseWatchers(empire);
+                bool fell = completed && TryFall(empire, state);
+                SchismSystem.EndRising(empire, watchers, fell);
                 return;
             }
             War war = state.collapse_modern ? World.world.wars.get(state.collapse_war_id) : null;
             if (state.collapse_modern && (war == null || war.hasEnded()))
             {
                 End(state);
+                SchismSystem.EndRising(empire, SchismSystem.ReleaseWatchers(empire), false);
                 return;
             }
             float crisis = Mathf.Max(Crisis(empire), CascadeCrisis);
             PartyIdeology ideology = RepublicSystem.ReformIdeology(empire);
             List<Kingdom> risen = state.collapse_risen.Select(id => World.world.kingdoms.get(id))
                 .Where(kingdom => kingdom?.data != null && !kingdom.isRekt()).ToList();
-            foreach (Kingdom province in Provinces(empire))
+            // 分裂进程里首义之后(见 SchismSystem，用户 2026-10-21 选"连锁观望")：只有观望的割据之省响应，机会再乘首义的声势
+            // (首义打得顺 ×1.5、中央收复首义省都城 ×0.3、首义各省都平定 ×0)；旧档里没有进程的瓦解照旧各省都可响应
+            bool staged = SchismSystem.InRising(empire);
+            float momentum = staged ? SchismSystem.Momentum(empire) : 1f;
+            List<Kingdom> responders = Provinces(empire);
+            if (staged)
+            {
+                var watching = new HashSet<Kingdom>(SchismSystem.Watchers(empire));
+                responders = responders.Where(watching.Contains).ToList();
+            }
+            foreach (Kingdom province in momentum > 0f ? responders : new List<Kingdom>())
             {
                 float value = Disaffection(empire, province, state.collapse_modern, ideology);
                 if (value < MinDisaffection) continue;
                 bool near = risen.Any(other => other.IsNeighbourWith(province));
                 float chance = Mathf.Min(MaxResponse, ResponseChance * crisis * value * (near ? NeighbourBoost : 1f)) *
-                               RegimeFactor(empire);
+                               RegimeFactor(empire) * momentum;
                 if (UnityEngine.Random.value < chance && Rise(empire, state, province, ideology, first: false))
                     risen.Add(province);
             }
@@ -296,8 +362,9 @@ public static class ProvincialCollapseSystem
     private static bool Rise(Empire empire, ConstitutionalEconomyState state, Kingdom province, PartyIdeology ideology, bool first)
     {
         Kingdom core = empire.CoreKingdom;
-        // 离开时带走的城(收束时只按起义带走的算，见 TryFall)
+        // 离开时带走的城(收束时只按起义带走的算，见 TryFall)；起事时的都城(分裂进程的声势看它有没有被收复)
         int cities = province.cities?.Count ?? 0;
+        City seat = province.capital;
         RebellionCauseData cause = RebellionSystem.Capture(province, province.capital, "rebellion_reason_collapse",
             empire.GetEmpireFullName());
         War war;
@@ -316,6 +383,8 @@ public static class ProvincialCollapseSystem
         RebellionSystem.Record(province, war, cause);
         state.collapse_risen.Add(province.id);
         if (empire.data.collapse_risen_cities >= 0) empire.data.collapse_risen_cities += cities;
+        // 分裂进程(见 SchismSystem)：记下起事时的城数与都城(声势用)，移出观望名单
+        SchismSystem.OnRisen(empire, province, cities, seat);
         // 各省起义都记为大分裂(见 UpheavalGuard)：首义记日志，响应只刷新时间——冷却从最后一省离开时算
         UpheavalGuard.Mark(empire, first ? "土崩瓦解首义" : null);
         EventRecorder.Record(empire, actor: province.king, logKingdom: province, text: string.Format(

@@ -368,6 +368,10 @@ namespace EmpireCraft.Scripts.UI.Windows
             {
                 (LM.Get(_empire.LegitimacyLabelKey), _empire.Legitimacy.ToString(), "#FFCF55")
             };
+            // 分裂进程(见 SchismSystem)：紧跟正统，左栏放得下
+            if (SchismSystem.Active(_empire))
+                stateItems.Add((LM.Get("schism_rail"), $"{SchismSystem.KindLabel(_empire)}·{SchismSystem.StageLabel(_empire)}",
+                    SchismSystem.StageOf(_empire) >= SchismSystem.Breakaway ? "#FF6666" : "#E9A85B"));
             double corruption = CorruptionSystem.GetRate(_empire);
             stateItems.Add((LM.Get("empire_rail_corruption"), $"{corruption:P0}", corruption >= 0.5d ? "#FF6666" : "#F2EEE2"));
             int provinces = _empire.kingdoms_list.Count(kingdom => kingdom != null && !kingdom.isRekt());
@@ -526,6 +530,8 @@ namespace EmpireCraft.Scripts.UI.Windows
                     pPadding: new RectOffset(0, 0, 0, 0)), renderedEmpire.CoreKingdom, MainWidth);
                 // 朝局：当前奏议、各派形势、朝局纪事(没有议会的帝国)
                 CourtPanel.Render(parent, renderedEmpire, MainWidth, () => StartCoroutine(ShowKingdomList()));
+                // 分裂进程：类别、阶段、时限、离心与割据的成员、争位者(见 SchismSystem)；放在积弊前头，进程中一眼看到
+                SchismPanel.Render(parent, renderedEmpire, MainWidth);
                 // 朝政积弊(见 MaladySystem)
                 MaladyPanel.Render(parent, renderedEmpire, MainWidth);
                 // 周制：天下大势(春秋战国)
@@ -1554,7 +1560,9 @@ namespace EmpireCraft.Scripts.UI.Windows
                 Destroy(inst);
                 return;
             }
-            kl.kingdomName.text = e.GetKingdomFullName();
+            // 分裂进程里离心、割据的成员在名字后注明(见 SchismSystem)
+            string schism = SchismSystem.StatusText(e);
+            kl.kingdomName.text = e.GetKingdomFullName() + (schism == null ? "" : $" [{schism}]".ColorString("#FF6666"));
             kl.textAge._text.text = e.getAge().ToString();
             kl.textPopulation._text.text = e.countUnits().ToString();
             kl.textArmy._text.text = e.countTotalWarriors().ToString();

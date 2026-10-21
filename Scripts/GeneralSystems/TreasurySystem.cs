@@ -212,6 +212,8 @@ public static class TreasurySystem
             // 无主的第二直隶(没有储君，见 MultiCapitalSystem.Zhili)：赋税全归中央
             if (MultiCapitalSystem.IsVacantZhili(local)) centralPercent = 75;
         }
+        // 分裂进程里割据的成员(见 SchismSystem，用户 2026-10-21 选"先割据后独立")：不向中央缴税，各政体一样
+        if (SchismSystem.IsBreakaway(local)) centralPercent = 0;
         return (25, 75 - centralPercent, centralPercent);
     }
 

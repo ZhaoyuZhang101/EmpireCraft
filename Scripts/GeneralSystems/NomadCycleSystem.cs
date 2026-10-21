@@ -30,9 +30,12 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   苏丹(权臣)身故由新人承袭(OnSultanSucceeded，见 MilitaryRegency)时，积弊六条平均 ≥ ArabicCrisisMalady 或正统 < ArabicCrisisLegitimacy，
 //   世袭的埃米尔(见 EmirateSystem)与 AnnexedYears 年内并入的别种政体成员，各按 ArabicBaseSplit + ArabicMaladySplit×积弊平均/100
 //   的机会举兵自立(行省、羁縻、苏丹自己的国与同族不在此列)。
-// 以上几路都归大分裂冷却管(见 UpheavalGuard，用户 2026-10-21 选)：上次大分裂 15 年内、土崩瓦解收束期内不判(雄主身后的必乱当次作废)；
-//   一次带走的城不超过帝国总城数的三分之一(雄主身后那一回二分之一)，按成员次序逐个放走，下一家放不下就停；
-//   平常的汗位、哈里发/苏丹更替之乱除各部起事的那句外，史书另记一条总述。
+// 以上几路都归大分裂冷却管(见 UpheavalGuard，用户 2026-10-21 选)：上次大分裂 15 年内、土崩瓦解收束期内、已有分裂进程时不判
+//   (雄主身后的必乱当次作废)；一次选出的城不超过帝国总城数的三分之一(雄主身后那一回二分之一)，按成员次序逐个选，下一家放不下就停。
+// 分裂进程(用户 2026-10-21 反馈"突然裂开这个设定很突兀"，选"预警前兆、先割据后独立、争位内战代替集体出走"，见 SchismSystem)：
+//   上面说的"据地自立""举兵自立"不再当月发生——选出的成员先列为不稳成员、进入预警(汗位、哈里发、苏丹 12~36 个月，雄主身后 6~12 个月)，
+//   再割据 6~24 个月(不缴税、不随征)，然后其中最强的一家举兵争位；争位者胜即为新君(新苏丹)，败则诸部复服，相持五年才各自自立。
+//   期间正统回升、打赢一仗、新君在位满三年都能化解(雄主身后只认打赢一仗)。史书各阶段各记一句(见 SchismSystem.Chronicle)。
 public static class NomadCycleSystem
 {
     // 汗位更替之乱的门槛：积弊 50 → 35、正统 50 → 70(用户 2026-10-21 定"汗位更替之乱的门槛"：汗国正统少有跌破 50，
@@ -83,35 +86,28 @@ public static class NomadCycleSystem
             }
             float chance = heroic ? Mathf.Min(HeroSplitCap, HeroBaseSplit + MaladySplit * average / 100f)
                 : BaseSplit + MaladySplit * average / 100f;
-            // 一次带走的城至多帝国总城数的三分之一，雄主身后那一回二分之一；按成员次序逐个放走，下一家放不下就停
+            // 一次选出的城至多帝国总城数的三分之一，雄主身后那一回二分之一；按成员次序逐个选，下一家放不下就停
             var budget = new UpheavalGuard.Budget(empire, heroic ? UpheavalGuard.HeroCapShare : UpheavalGuard.CapShare);
-            var split = new List<string>();
+            var unstable = new List<Kingdom>();
             foreach (Kingdom member in empire.kingdoms_list.ToList())
             {
                 if (!Restive(empire, member, heroic) || Random.value >= chance) continue;
                 int cities = member.cities.Count;
                 if (!budget.Fits(cities)) break;
-                string name = member.GetKingdomName();
-                if (!DeclareIndependence(member, empire, heroic ? HeroSuccessionReason : SuccessionReason)) continue;
-                split.Add(name);
+                unstable.Add(member);
                 budget.Take(cities);
             }
-            if (split.Count > 0) UpheavalGuard.Mark(empire, heroic ? $"雄主{hero}身后分裂" : "汗位更替之乱", budget);
-            if (heroic)
+            string detail = $"{(heroic ? $"雄主{hero}之后第一次换汗，" : "")}新汗{khan}，积弊均{average:0}，正统{legitimacy}，" +
+                            $"每部机会 {chance:0.00}{(budget.Capped ? $"，已到上限 {budget.Cap}/{budget.Total} 城" : "")}";
+            if (unstable.Count == 0)
             {
-                LogService.LogInfo($"[EmpireCraft][汗位更替] {empire.GetEmpireName()} 雄主{hero}之后第一次换汗(新汗{khan}，积弊均{average:0}，正统{legitimacy})，" +
-                                   $"{(split.Count > 0 ? string.Join("、", split) + " 据地自立" : "无人自立")}(每部机会 {chance:0.00}" +
-                                   $"{(budget.Capped ? $"，已到上限 {budget.Cap} 城" : "")})");
-                if (split.Count > 0)
-                    EventRecorder.Record(empire, string.Format(LM.Get("khan_hero_turmoil_history"), empire.GetEmpireName(), hero, khan, split.Count));
+                LogService.LogInfo($"[EmpireCraft][汗位更替] {empire.GetEmpireName()} {detail}，无部离心");
+                return;
             }
-            else if (split.Count > 0)
-            {
-                LogService.LogInfo($"[EmpireCraft][汗位更替] {empire.GetEmpireName()} 新汗即位(积弊均{average:0}，正统{legitimacy})，" +
-                                   $"{string.Join("、", split)} 据地自立(每部机会 {chance:0.00}{(budget.Capped ? $"，已到上限 {budget.Cap} 城" : "")})");
-                // 史书总述(用户 2026-10-21 选：以前只有各部起事的那句，看不出是一场汗位更替之乱)
-                EventRecorder.Record(empire, string.Format(LM.Get("khan_turmoil_history"), empire.GetEmpireName(), khan, split.Count));
-            }
+            // 分裂进程(用户 2026-10-21 选，见 SchismSystem)：以前选中的部当月据地自立(地方独立)；现在先列为不稳之部、进入预警，
+            // 割据之后由其中最强的一家举兵争汗位。雄主身后的必乱开了进程即算兑现(上面 TakeHeroTurmoil 已取走)，只能靠打赢一仗化解
+            SchismSystem.Begin(empire, heroic ? SchismSystem.Hero : SchismSystem.Khan, unstable, CrisisLegitimacy, CrisisMalady,
+                empire.Emperor, detail);
         }
         catch (global::System.Exception exception)
         {
@@ -144,34 +140,29 @@ public static class NomadCycleSystem
             }
             float chance = ArabicBaseSplit + ArabicMaladySplit * average / 100f;
             Actor regent = sultan ?? MilitaryRegency.Regent(empire);
-            // 一次带走的城至多帝国总城数的三分之一；按成员次序逐个放走，下一家放不下就停
+            // 一次选出的城至多帝国总城数的三分之一；按成员次序逐个选，下一家放不下就停
             var budget = new UpheavalGuard.Budget(empire, UpheavalGuard.CapShare);
-            var split = new List<string>();
+            var unstable = new List<Kingdom>();
             foreach (Kingdom member in empire.kingdoms_list.ToList())
             {
                 if (!RestiveEmir(empire, member, regent) || Random.value >= chance) continue;
                 int cities = member.cities.Count;
                 if (!budget.Fits(cities)) break;
-                string name = member.GetKingdomName();
-                if (!DeclareIndependence(member, empire, FitnaReason)) continue;
-                split.Add(name);
+                unstable.Add(member);
                 budget.Take(cities);
             }
-            if (split.Count == 0) return;
-            UpheavalGuard.Mark(empire, sultan != null ? "苏丹更替之乱" : "哈里发更替之乱", budget);
-            LogService.LogInfo($"[EmpireCraft][哈里发更替] {empire.GetEmpireName()} {occasion}(积弊均{average:0}，正统{legitimacy})，" +
-                               $"{string.Join("、", split)} 举兵自立(每家机会 {chance:0.00}{(budget.Capped ? $"，已到上限 {budget.Cap} 城" : "")})");
-            // 史书总述(用户 2026-10-21 选：以前只有各家起事的那句)。苏丹的称呼按文化(印度称摄政王，见 MilitaryRegency.Establish)
-            if (sultan != null)
+            string detail = $"{occasion}，积弊均{average:0}，正统{legitimacy}，每家机会 {chance:0.00}" +
+                            $"{(budget.Capped ? $"，已到上限 {budget.Cap}/{budget.Total} 城" : "")}";
+            if (unstable.Count == 0)
             {
-                string titleKey = MilitaryRegency.TitleKey(empire);
-                string title = LM.Get(DynastyNaming.CultureVariant(empire.CoreKingdom, titleKey) ?? titleKey);
-                EventRecorder.Record(empire, string.Format(LM.Get("sultan_fitna_history"), empire.GetEmpireName(), sultan.getName(), title,
-                    split.Count), sultan);
+                LogService.LogInfo($"[EmpireCraft][哈里发更替] {empire.GetEmpireName()} {detail}，无家离心");
+                return;
             }
-            else
-                EventRecorder.Record(empire, string.Format(LM.Get("caliph_fitna_history"), empire.GetEmpireName(),
-                    empire.Emperor?.getName() ?? "", split.Count));
+            // 分裂进程(用户 2026-10-21 选，见 SchismSystem)：以前选中的埃米尔当月举兵自立(地方独立)；现在先列为不稳之家、进入预警，
+            // 割据之后由其中最强的一家举兵争位(哈里发更替争哈里发之位，先挑能称对立哈里发的；苏丹更替争苏丹之位)。
+            // 门槛照上面(苏丹更替对印度减去册封那 +8)，化解看它
+            SchismSystem.Begin(empire, sultan != null ? SchismSystem.Sultan : SchismSystem.Caliph, unstable,
+                ArabicCrisisLegitimacy - gateOffset, ArabicCrisisMalady, sultan ?? empire.Emperor, detail);
         }
         catch (global::System.Exception exception)
         {

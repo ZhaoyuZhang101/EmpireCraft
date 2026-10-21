@@ -21,8 +21,11 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     或将军被清君侧(FactionPurgeSystem)、天皇反杀(EmpirePartitionSystem)拉下马，不再由本家承袭，另择一家(原将军家一系除外，
 //     别家都不够格才仍由本家)；将军家换了一家，王朝积弊重新起算(DynasticCycleSystem.OnDynastyChanged)。以前将军家永不倒；
 //   · 应仁之乱(同上)：将军更替时积弊平均 ≥ OninMalady 或正统 < OninLegitimacy，新将军家以外的藩各按
-//     OninBaseSplit + OninMaladySplit×积弊平均/100 的机会举兵自立(见 Onin)，进入战国，再由人重新统一；
-//     归大分裂冷却管(见 UpheavalGuard，用户 2026-10-21 选)：上次大分裂 15 年内、土崩瓦解收束期内不判，一次至多带走帝国三分之一的城；
+//     OninBaseSplit + OninMaladySplit×积弊平均/100 的机会离心(见 Onin)；
+//     归大分裂冷却管(见 UpheavalGuard，用户 2026-10-21 选)：上次大分裂 15 年内、土崩瓦解收束期内、已有分裂进程时不判，
+//     一次选出的藩至多帝国三分之一的城；
+//     分裂进程(用户 2026-10-21 选，见 SchismSystem)：选出的藩不再当月举兵自立，先预警 12~36 个月、再割据 6~24 个月，
+//     然后其中最强的一家举兵争将军之位(争位者胜即由他家执政，见 Usurp)；相持五年才各自为政，进入战国，再由人重新统一；
 //   · 将军、苏丹本人的国随土崩瓦解或拥兵自立离开了帝国(GetPowerfulMinister 因此为空，人还活着)：按被拉下马另择一家，
 //     当月不判应仁之乱、苏丹更替之乱(用户 2026-10-21 选；以前当成寻常承袭，紧接着再判一场乱，同一个月里接连碎两回)；
 //   · 开国之君在位(开国雄主登基头 15 年、统一战争与开国气象里)不立幕府，开国之后才有将军(用户 2026-10-21 定
@@ -40,8 +43,9 @@ public static class MilitaryRegency
     // 用户选回调：判定就在将军更替之后，60 落在幕府正统的正常区间，平常的将军更替也常中)
     private const int OninLegitimacy = 50;
     private const float OninMalady = 50f, OninBaseSplit = 0.1f, OninMaladySplit = 0.4f;
+    // 应仁之乱的起因(旧时诸藩当场举兵自立用；改走分裂进程后诸藩不再当场开战，键与译文留着)
     public const string OninReason = "rebellion_reason_onin";
-    private const string NewHouseKey = "bakufu_new_house_history", OninKey = "bakufu_onin_history";
+    private const string NewHouseKey = "bakufu_new_house_history";
     // 各帝国上次检查的时间(不存档)
     private static readonly Dictionary<long, double> LastCheck = new();
     private static object _world;
@@ -221,28 +225,27 @@ public static class MilitaryRegency
                 return;
             }
             float chance = OninBaseSplit + OninMaladySplit * average / 100f;
-            string reason = LM.Has(OninReason) ? OninReason : "rebellion_reason_secession";
-            // 一次带走的城至多帝国总城数的三分之一；按成员次序逐个放走，下一藩放不下就停
+            // 一次选出的城至多帝国总城数的三分之一；按成员次序逐个选，下一藩放不下就停
             var budget = new UpheavalGuard.Budget(empire, UpheavalGuard.CapShare);
-            var split = new List<string>();
+            var unstable = new List<Kingdom>();
             foreach (Kingdom member in empire.kingdoms_list?.ToList() ?? new List<Kingdom>())
             {
                 if (!RestiveHan(empire, member, shogun) || UnityEngine.Random.value >= chance) continue;
                 int cities = member.cities.Count;
                 if (!budget.Fits(cities)) break;
-                string name = member.GetKingdomName();
-                if (!NomadCycleSystem.DeclareIndependence(member, empire, reason)) continue;
-                split.Add(name);
+                unstable.Add(member);
                 budget.Take(cities);
             }
-            if (split.Count == 0) return;
-            UpheavalGuard.Mark(empire, "应仁之乱", budget);
-            LogService.LogInfo($"[EmpireCraft][应仁之乱] {empire.GetEmpireName()} 将军更替(新将军{shogun.getName()}，积弊均{average:0}，" +
-                               $"正统{legitimacy})，{string.Join("、", split)} 举兵自立(每藩机会 {chance:0.00}" +
-                               $"{(budget.Capped ? $"，已到上限 {budget.Cap} 城" : "")})");
-            if (LM.Has(OninKey))
-                Record(empire, string.Format(LM.Get(OninKey), empire.GetEmpireName(), shogun.getName(), LM.Get(TitleKey(empire)),
-                    split.Count));
+            string detail = $"新将军{shogun.getName()}，积弊均{average:0}，正统{legitimacy}，每藩机会 {chance:0.00}" +
+                            $"{(budget.Capped ? $"，已到上限 {budget.Cap}/{budget.Total} 城" : "")}";
+            if (unstable.Count == 0)
+            {
+                LogService.LogInfo($"[EmpireCraft][应仁之乱] {empire.GetEmpireName()} 将军更替({detail})，无藩离心");
+                return;
+            }
+            // 分裂进程(用户 2026-10-21 选，见 SchismSystem)：以前选中的藩当月举兵自立(地方独立)；现在先列为不稳之藩、进入预警，
+            // 割据之后由其中最强的一家举兵争将军之位(应仁之乱的争位之战)，相持五年才各自为政(战国)
+            SchismSystem.Begin(empire, SchismSystem.Onin, unstable, OninLegitimacy, OninMalady, shogun, detail);
         }
         catch (Exception exception)
         {
@@ -263,6 +266,27 @@ public static class MilitaryRegency
         SpecificClan clan = shogun.GetSpecificClan();
         return member.king != shogun && member != shogun.kingdom &&
                (clan == null || !SpecificClanManager.SameLineage(member.king.GetSpecificClan(), clan));
+    }
+
+    // 够不够格执政(分裂进程挑争位者用，见 SchismSystem.PickClaimant)：有将军、苏丹的帝国里，不属皇族一系的成年人
+    public static bool CanTakeOver(Empire empire, Actor actor) => Active(empire) && Eligible(empire, actor);
+
+    // 分裂进程的争位之战里争位者得胜(见 SchismSystem，用户 2026-10-21 选"争位内战代替集体出走")：争位者一家取代原执政家，
+    // 成为将军家、苏丹家——照被拉下马另择一家的写法(Install；将军家换了一家另开幕府，王朝积弊重新起算，见 Succeed)。
+    // 史书由 SchismSystem 记争位的结局；不判应仁之乱、苏丹更替之乱(进程收场时已记大分裂冷却)
+    public static bool Usurp(Empire empire, Actor claimant)
+    {
+        if (!Active(empire) || !Eligible(empire, claimant)) return false;
+        int kind = KindOf(empire);
+        SpecificClan former = SpecificClanManager.Get(empire.data.regent_clan_id);
+        Actor previous = Regent(empire);
+        Install(empire, claimant, kind);
+        bool newHouse = former == null || !SpecificClanManager.SameLineage(claimant.GetSpecificClan(), former);
+        if (kind == Shogun && newHouse) DynasticCycleSystem.OnDynastyChanged(empire, false);
+        LogService.LogInfo($"[EmpireCraft][武家执政] {empire.GetEmpireName()} 争位得胜：{claimant.getName()}({claimant.kingdom?.GetKingdomName()})" +
+                           $"取代{previous?.getName() ?? "原执政"}为{LM.Get(TitleKey(empire))}" +
+                           $"{(kind == Shogun && newHouse ? "，另开幕府，王朝积弊重新起算" : "")}");
+        return true;
     }
 
     // 收场：大政奉还(幕府)、不再有苏丹(阿拉伯)

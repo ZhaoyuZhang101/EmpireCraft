@@ -642,8 +642,9 @@ public class Empire : MetaObject<EmpireData>
         if (heroSplit) EnfeoffmentHelper.OnEmperorSucceeded(this);
         // 汗国新汗即位：积弊深重或正统低落时各兀鲁思可能据地自立(雄主之后第一次换汗必乱，见 NomadCycleSystem)，
         // 平常先于即位分封——这一回新分出去的兄弟不在其列。
-        // 汗位更替之乱、哈里发更替之乱各自查大分裂冷却(见 UpheavalGuard，用户 2026-10-21 选)：前一路真走了成员就记下时间，
-        // 后一路随即被冷却挡住，同一次即位不再叠加；土崩瓦解收束期内两路都不判。水土(ShuiTuSystem)不算大分裂，不在此列
+        // 汗位更替之乱、哈里发更替之乱各自查大分裂冷却(见 UpheavalGuard，用户 2026-10-21 选)：前一路开了分裂进程(预警，
+        // 见 SchismSystem)，后一路随即被"已有分裂进程"挡住，同一次即位不再叠加；土崩瓦解收束期内两路都不判。
+        // 水土(ShuiTuSystem)不算大分裂，不在此列
         NomadCycleSystem.OnKhanSucceeded(this);
         // 新哈里发即位：积弊深重或正统低落时世袭的埃米尔可能举兵自立(哈里发更替之乱，见 NomadCycleSystem)
         NomadCycleSystem.OnCaliphSucceeded(this);
@@ -1530,8 +1531,11 @@ public class Empire : MetaObject<EmpireData>
     // 返回是否成功由 newKingdom 接续为新帝国（成功时本帝国会被解散）
     // 选帝制(神圣罗马式)：当选的诸侯带着自家领国成为帝国中央，帝都随之搬迁；原中央降为普通诸侯国、仍归原皇族。
     // 帝国本身(国号、历史、帝国核心)不变，只换中央与皇族(同中央丢光城池时就地改立中央，见 checkActive)。
-    // keepName：国号随帝国留下(选帝制)；不传的(华夏原始政体推举共主，见 ShanrangSystem)照旧随新的共主之部改称
-    public bool TransferCoreTo(Kingdom newCore, bool keepName = false)
+    // keepName：国号随帝国留下(选帝制)；不传的(华夏原始政体推举共主，见 ShanrangSystem)照旧随新的共主之部改称。
+    // settledContest：分裂进程的争位之战得胜、争位者的国接任中央(见 SchismSystem，用户 2026-10-21 选"争位内战代替集体出走")——
+    // 争位有它自己的结局(随攻方的割据成员复奉号令、帝国仍在)，换了家族也不再走篡位那套宗室成员出走开战、成员离去
+    // (同逼宫废立、太后废立)；扣正统、改朝换代的记录照旧
+    public bool TransferCoreTo(Kingdom newCore, bool keepName = false, bool settledContest = false)
     {
         Kingdom old = CoreKingdom;
         if (newCore == null || newCore.isRekt() || newCore == old || !kingdoms_hashset.Contains(newCore) ||
@@ -1553,7 +1557,10 @@ public class Empire : MetaObject<EmpireData>
         recalculate();
         // 先定国号再登基：即位的史书、世界提示用的是照旧的国号
         if (keepName) KeepNameOnNewCore();
-        NewEmperor(newCore.king);
+        bool completing = _completingMinisterUsurpation;
+        if (settledContest) _completingMinisterUsurpation = true;
+        try { NewEmperor(newCore.king); }
+        finally { _completingMinisterUsurpation = completing; }
         return true;
     }
 

@@ -183,6 +183,8 @@ public class EmpireCraftKingdomBehCheckPlots : GameAIKingdomBase
         if (regime == null) return;
         // 成员挨打向中央求援、邻近成员挨打议驰援(中央不再自动援助成员，见 MemberWarAid)
         if (!pKingdom.IsEmpire()) MemberWarAid.TryRaise(pKingdom);
+        // 分裂进程里割据的成员不随征(见 SchismSystem，用户 2026-10-21 选"先割据后独立")
+        if (SchismSystem.IsBreakaway(pKingdom)) return;
         if (empire.CoreKingdom.getWars().Any(w=>w.GetEmpireWarType()== EmpireWarType.藩王索取皇位)) return;
         // 帝国一级的冷却(timestamp_invite_war_cool_down)照旧看：称帝之初、中央应成员求援出兵后三个月内成员不随征
         // (见 Empire.CreateNewEmpire、MemberWarAid.AnswerRequest)。成员随征不再记在帝国上，改记在各成员自己身上，见 JoinCoolingDown
@@ -206,6 +208,8 @@ public class EmpireCraftKingdomBehCheckPlots : GameAIKingdomBase
         {
             // 中央援助成员的仗不随征(邻近成员要议驰援，见 MemberWarAid)
             if (MemberWarAid.IsMemberWar(w, empire, w.isAttacker(coreKingdom))) continue;
+            // 分裂进程的争位之战：阵营在开战时就分好了(见 SchismSystem.Proclaim)，别的成员观望
+            if (SchismSystem.IsContestWar(w)) continue;
             joinedAny |= TryJoinWarOnSameSide(w, coreKingdom, pKingdom);
         }
         if (joinedAny)

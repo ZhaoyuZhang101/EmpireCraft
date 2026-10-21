@@ -209,11 +209,12 @@ public static class MemberWarAid
         return true;
     }
 
-    // 能发起这几项决议的成员：帝国的非核心成员、没在叛乱；战国周室已不管诸侯的仗
+    // 能发起这几项决议的成员：帝国的非核心成员、没在叛乱；战国周室已不管诸侯的仗；
+    // 分裂进程里割据的成员不奉诏，也不向中央求援、不驰援、不勤王(见 SchismSystem，用户 2026-10-21 选"先割据后独立")
     private static Empire Context(Kingdom member)
     {
         if (member?.data == null || member.isRekt() || member.IsEmpire() ||
-            member.IsFactionRebelling() || member.IsLocalRebelling()) return null;
+            member.IsFactionRebelling() || member.IsLocalRebelling() || SchismSystem.IsBreakaway(member)) return null;
         Empire empire = member.GetEmpire();
         if (empire == null || empire.isRekt() || empire.IsArchived() || empire.CoreKingdom == null ||
             empire.CoreKingdom.isRekt()) return null;

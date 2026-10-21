@@ -93,6 +93,8 @@ public static class EmpireCraftStrategicScheduler
         var empireManager = ModClass.EMPIRE_MANAGER;
         // 每月整理一次帝国存续：没有领土的帝国就此解散(见 EmpireManager.CheckLiveness)；放在取帝国列表之前
         using (FrameProfiler.Measure("帝国存续")) empireManager?.CheckLiveness();
+        // 分裂进程每月推进一次：化解、预警期满割据、割据期满破局、争位之战满五年(自带月度计时，见 SchismSystem)
+        using (FrameProfiler.Measure("分裂进程")) SchismSystem.Tick();
         empireManager?.checkLists();
         IList<Empire> empires = empireManager?.list;
 

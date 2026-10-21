@@ -124,11 +124,13 @@ public static partial class WarBoxCompatibility
         }
     }
 
-    // 帝国内政性质的战争：不结算 WarBox 的赔款与和约
+    // 帝国内政性质的战争：不结算 WarBox 的赔款与和约。争位之战(对立国王)也算：神罗的对立国王收场时仍在帝国里(下面 AreBound
+    // 本就不结算)；分裂进程的争位之战相持分裂时争位一方在结束钩子里就离开了帝国，不该再由 WarBox 签一份赔款和约(见 SchismSystem)
     private static bool IsInternalWar(EmpireWarType type) => type is EmpireWarType.伐不臣 or EmpireWarType.地方独立
         or EmpireWarType.派系叛乱 or EmpireWarType.地方叛乱 or EmpireWarType.民族叛乱 or EmpireWarType.宗教叛乱
         or EmpireWarType.藩王索取皇位 or EmpireWarType.帝国正统 or EmpireWarType.去帝号 or EmpireWarType.清君侧
-        or EmpireWarType.不奉诏 or EmpireWarType.附庸独立 or EmpireWarType.获取帝国 or EmpireWarType.统一;
+        or EmpireWarType.不奉诏 or EmpireWarType.附庸独立 or EmpireWarType.获取帝国 or EmpireWarType.统一
+        or EmpireWarType.对立国王;
 
     private static EmpireWarType TypeOf(War war)
     {

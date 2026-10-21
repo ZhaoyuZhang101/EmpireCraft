@@ -134,6 +134,36 @@ public class EmpireData : MetaObjectData
     // 土崩瓦解(见 ProvincialCollapseSystem.TryFall)：这一回起义各省(首义 + 响应)离开时带走的城数，收束时只按它算帝国还剩多少；
     // -1 为没记过(旧档瓦解进行到一半读进来，收束时按起义各省眼下的城数估)，首义时清零
     public int collapse_risen_cities = -1;
+    // 分裂进程(见 SchismSystem，用户 2026-10-21 选"预警前兆、先割据后独立、争位内战代替集体出走、连锁观望")：
+    // 类别(0 无进程；旧档读进来也是 0，旧机制下已出走的成员不追认)、阶段、阶段起始时间、本阶段时长(月)、进程开始时间；
+    // 化解门槛(正统、积弊均值，开进程时由各路径给定)；看"新君在位满三年"的那位(皇帝或将军、苏丹)与他起算的时间(-1 不算)；
+    // 不稳成员(预警时离心、割据后割据、土崩瓦解首义后观望)；争位者的国、人名、国名与争位之战
+    public int schism_kind = 0;
+    public int schism_stage = 0;
+    public double schism_stage_at = -1d;
+    public int schism_stage_months = 0;
+    public double schism_started_at = -1d;
+    public int schism_gate_legitimacy = 0;
+    public float schism_gate_malady = 0f;
+    public long schism_ruler_id = -1L;
+    public double schism_ruler_at = -1d;
+    public List<long> schism_members = new();
+    public long schism_claimant_id = -1L;
+    public string schism_claimant_name = "";
+    public string schism_claimant_realm = "";
+    public long schism_war_id = -1L;
+    // 争位之战开打时双方的都城(决胜：攻下对方都城即定局，见 SchismSystem.ContestMonthly)；-1 为没记(旧档)
+    public long schism_core_capital_id = -1L;
+    public long schism_claimant_capital_id = -1L;
+    // 中央(核心是主攻方或主守方)上次打赢一仗的时间(化解用，不论有无进程都记，见 SchismSystem.OnWarEnded)；-1 没有
+    public double schism_last_victory_at = -1d;
+    // 土崩瓦解首义之后的声势(见 SchismSystem.Momentum)：起义各省(首义 + 响应)、各自起事时的城数与都城；
+    // 叛省比起事时多打下的城(上次看到的数)与多打下城的时间
+    public List<long> schism_risen = new();
+    public List<int> schism_risen_cities = new();
+    public List<long> schism_risen_capitals = new();
+    public int schism_rebel_gain = 0;
+    public double schism_rebel_gain_at = -1d;
     public long emperor { get; set; } = -1L;
     public long empire_clan { get; set; } = -1L;
     public long empire_core_id { get; set; } = -1L;

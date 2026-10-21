@@ -635,7 +635,8 @@ public class CityPatch : GamePatch
             }
             else if (oldKingdom.IsEmpire())
             {
-                // 选帝制双重选举的争位之战：打下中央都城只扣 10(见 HolyRomanSystem.Election)
+                // 选帝制双重选举的争位之战、分裂进程的争位之战(同用对立国王这一类，见 SchismSystem)：
+                // 打下中央都城只扣 10(见 HolyRomanSystem.Election)
                 targetEmpire.AddMandate(EmpireCraft.Scripts.GeneralSystems.HolyRomanSystem.InContest(oldKingdom, capturingKingdom)
                     ? EmpireCraft.Scripts.GeneralSystems.HolyRomanSystem.ContestCapitalLegitimacy
                     : -40);

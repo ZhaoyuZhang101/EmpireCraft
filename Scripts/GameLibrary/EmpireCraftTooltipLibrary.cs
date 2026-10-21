@@ -253,6 +253,10 @@ public static class EmpireCraftTooltipLibrary
 				$"{feudalLord.GetKingdomName()} ({fealty.feudal_vassal_level}, {fealty.feudal_vassal_progress}/{FeudalVassalService.ProgressPerLevel})",
 				"#FF5555");
 		}
+		// 分裂进程里的处境：离心、割据、割据观望、举兵争位(见 SchismSystem)
+		if (SchismSystem.StatusText(kingdom) is string schismStatus)
+			pTooltip.addLineText("schism_member_status", schismStatus,
+				SchismSystem.IsBreakaway(kingdom) ? "#FF5555" : "#E9A85B");
 		pTooltip.addLineText("ruler_money", EmpireCraft.Scripts.HelperFunc.MoneyDisplay.Format(kingdom.GetTreasuryBalance()));
         if (CityPopulationSystem.AbstractPopulationEnabled && ExclaveMaintenanceSystem.Status(kingdom) is string exclaveStatus)
             pTooltip.addLineText("exclave_maintenance", exclaveStatus);

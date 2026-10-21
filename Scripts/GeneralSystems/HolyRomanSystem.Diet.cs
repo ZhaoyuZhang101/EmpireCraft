@@ -467,7 +467,8 @@ public static partial class HolyRomanSystem
     // 帝国权威高则少抗命(×1.5 − 权威/100，夹 0.5~1.5)
     private static bool Refuses(Empire empire, Kingdom member, Dictionary<Kingdom, bool> ballots)
     {
-        if (Defies(empire, member)) return true;
+        // 分裂进程里割据的诸侯不奉诏(见 SchismSystem，用户 2026-10-21 选"先割据后独立")，同不听调遣的大诸侯
+        if (Defies(empire, member) || SchismSystem.IsBreakaway(member)) return true;
         bool yes = ballots.TryGetValue(member, out bool vote) && vote;
         float chance = yes ? 0.05f : 0.3f;
         if (State(empire).sovereign_princes) chance += 0.2f;

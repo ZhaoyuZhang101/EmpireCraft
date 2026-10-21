@@ -214,6 +214,8 @@ public class WarPatch: GamePatch
             EmpireCraft.Scripts.GeneralSystems.PapacySystem.OnWarEnded(pWar, pWinner);
             // 帝国战争、执行禁令、宗教战争的结局
             EmpireCraft.Scripts.GeneralSystems.HolyRomanSystem.OnWarEnded(pWar, pWinner);
+            // 分裂进程：中央打赢一仗(化解用)、争位之战的结局(见 SchismSystem)
+            EmpireCraft.Scripts.GeneralSystems.SchismSystem.OnWarEnded(pWar, pWinner);
             // 劫掠之战收场：联盟散伙、盟主威望(见 NomadRaidSystem)
             EmpireCraft.Scripts.GeneralSystems.NomadRaidSystem.OnWarEnded(pWar, pWinner);
             // 游牧争草场收场：割争城或赔款(见 SteppeOrderSystem)

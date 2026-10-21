@@ -85,7 +85,10 @@ public class KingdomWindowPatch: GamePatch
                 __instance.showStatRow("religion_point", (object) metaObject.GetRegime().religion_point, "#43FF43", pIconPath: "iconMoney");
             }
         }
-        
+
+        // 分裂进程里的处境：离心、割据、割据观望、举兵争位(见 SchismSystem；割据的不向中央缴税，下面的央地分成随之为 0)
+        if (EmpireCraft.Scripts.GeneralSystems.SchismSystem.StatusText(metaObject) is string schismStatus)
+            __instance.showStatRow("schism_member_status", schismStatus, "#FF5555", pIconPath: "iconKings");
         __instance.showStatRow("ruler_money", EmpireCraft.Scripts.HelperFunc.MoneyDisplay.Format(metaObject.GetTreasuryBalance()), "#43FF43", pIconPath: "iconMoney");
         if (EmpireCraft.Scripts.GeneralSystems.TreasurySystem.Enabled(metaObject))
         {

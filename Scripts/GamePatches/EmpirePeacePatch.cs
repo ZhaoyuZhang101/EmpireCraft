@@ -77,11 +77,14 @@ public class EmpirePeacePatch : GamePatch
     }
 
     // 听命于中央的成员：没有自主外交权的成员，或朝廷任命(不世袭)的行政区、军府；
-    // 世袭的藩镇、封国保留自主外交与兵权，正在叛乱的也不算
+    // 世袭的藩镇、封国保留自主外交与兵权，正在叛乱的也不算；
+    // 分裂进程里割据的成员(见 SchismSystem，用户 2026-10-21 选"先割据后独立")名存实亡，也不算——议和不随中央停战、
+    // 中央不替它付饷、不奉诏出征、不求援勤王都经这里
     public static bool Obeys(Empire empire, Kingdom member)
     {
         if (member?.data == null || member.isRekt() || member == empire.CoreKingdom || member.GetEmpire() != empire ||
             member.IsFactionRebelling() || member.IsLocalRebelling()) return false;
+        if (EmpireCraft.Scripts.GeneralSystems.SchismSystem.IsBreakaway(member)) return false;
         Regime regime = member.GetRegime();
         if (regime == null) return false;
         // 选帝制下皇帝家族领地薄弱：比皇帝自家领国城多的诸侯不听调遣
@@ -105,8 +108,9 @@ public class EmpirePeacePatch : GamePatch
             member.GetEmpire() != empire || member.IsFactionRebelling() || member.IsLocalRebelling() ||
             member.isInWarWith(core)) return false;
         if (core.GetRegime()?.type != RegimeType.Feudalism) return false;
-        // 选帝制下不听调遣的大诸侯(见 HolyRomanSystem.Defies)守土也不随征
-        if (EmpireCraft.Scripts.GeneralSystems.HolyRomanSystem.Defies(empire, member)) return false;
+        // 选帝制下不听调遣的大诸侯(见 HolyRomanSystem.Defies)、分裂进程里割据的诸侯(见 SchismSystem)守土也不随征
+        if (EmpireCraft.Scripts.GeneralSystems.HolyRomanSystem.Defies(empire, member) ||
+            EmpireCraft.Scripts.GeneralSystems.SchismSystem.IsBreakaway(member)) return false;
         Kingdom attacker = war.getMainAttacker();
         return war.getMainDefender() == core && attacker?.data != null && !attacker.isRekt() && attacker.GetEmpire() != empire &&
                war.getAsset() != WarTypeLibrary.rebellion && !NotDefence.Contains(war.GetEmpireWarType());

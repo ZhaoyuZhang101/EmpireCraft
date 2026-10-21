@@ -17,6 +17,9 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 单次上限：一次带走的城不超过事件开始时帝国总城数(含成员)的 CapShare，雄主身后那一回 HeroCapShare；
 //     按各路径原有的次序(离心度、远近等)逐个放走，下一家放进来就超过上限时就停。
 //     土崩瓦解不受这个上限(否则帝国永远倒不了)，它的收束另见 ProvincialCollapseSystem.TryFall。
+// 分裂进程(同日用户反馈"突然裂开这个设定很突兀"，选"预警前兆、先割据后独立、争位内战代替集体出走、连锁观望"，见 SchismSystem)：
+//   更替之乱、应仁之乱、雄主身后、土崩瓦解不再当月成批独立，改为开一个进程(预警 → 割据 → 破局 → 结局)；单次上限照旧在选不稳成员时守住；
+//   进程进行中算在 Blocked 里；进程以争位内战、相持分裂、土崩瓦解首义收场才记时间，中途化解不记。
 public static class UpheavalGuard
 {
     public const int CooldownYears = 15;
@@ -34,22 +37,25 @@ public static class UpheavalGuard
         return World.world.getCurWorldTime() >= at && Date.getYearsSince(at) < CooldownYears;
     }
 
-    // 这时不判更替之乱、应仁之乱、宗室另立：大分裂冷却里，或土崩瓦解正在收束。why 给日志用
+    // 这时不判更替之乱、应仁之乱、宗室另立、土崩瓦解首义：大分裂冷却里，或土崩瓦解正在收束，或已有分裂进程
+    // (预警、割据、争位都算，一个帝国同时只走一个，见 SchismSystem)。why 给日志用
     public static bool Blocked(Empire empire, out string why)
     {
         why = null;
         if (InCooldown(empire)) why = $"大分裂冷却中(上次在 {Date.getYearsSince(empire.data.last_upheaval_at)} 年前，冷却 {CooldownYears} 年)";
         else if (ProvincialCollapseSystem.Active(empire)) why = "土崩瓦解收束期内";
+        else if (SchismSystem.Active(empire)) why = $"已有分裂进程({SchismSystem.Describe(empire)})";
         return why != null;
     }
 
-    // 真走掉了成员：记下时间。occasion 为空时不记日志(土崩瓦解各省响应时刷新时间用)
-    public static void Mark(Empire empire, string occasion = null, Budget budget = null)
+    // 真走掉了成员、或分裂进程以争位收场：记下时间。occasion 为空时不记日志(土崩瓦解各省响应时刷新时间用)；
+    // detail 代替上限说明(分裂进程收场时给，见 SchismSystem)
+    public static void Mark(Empire empire, string occasion = null, Budget budget = null, string detail = null)
     {
         if (empire?.data == null || World.world == null) return;
         empire.data.last_upheaval_at = World.world.getCurWorldTime();
         if (occasion == null) return;
-        string cap = budget == null ? "不设上限" : $"带走 {budget.Taken} 城，上限 {budget.Cap}/{budget.Total} 城{(budget.Capped ? "，已到上限" : "")}";
+        string cap = detail ?? (budget == null ? "不设上限" : $"带走 {budget.Taken} 城，上限 {budget.Cap}/{budget.Total} 城{(budget.Capped ? "，已到上限" : "")}");
         LogService.LogInfo($"[EmpireCraft][大分裂冷却] {empire.GetEmpireName()} {occasion}({cap})，此后 {CooldownYears} 年不再判大分裂");
     }
 

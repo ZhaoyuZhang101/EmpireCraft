@@ -255,6 +255,10 @@ public static class KingdomExtension
         public int shuitu_regime = -1;
         // 埃米尔世袭(或以世袭成员身份第一次被看到)的时间：世袭满十五年才可能割据(见 EmirateSystem)；-1 = 不是世袭的埃米尔
         public double emirate_hereditary_at = -1d;
+        // 分裂进程里割据(见 SchismSystem，用户 2026-10-21 选"先割据后独立")：割据起始时间与所属帝国；-1 = 没割据。
+        // 割据的成员仍在帝国里、地图颜色不变，但不向中央缴税、不随征、不奉诏；进程化解或收场时清掉
+        public double schism_breakaway_at = -1d;
+        public long schism_breakaway_empire_id = -1L;
         // 去留冷却(见 MembershipCooldown)：神力从哪个帝国、哪位宗主放出，何时；神力拉入哪个帝国、归哪位宗主，何时；
         // 最近一次离开的帝国与时间(不论何因)。-1 = 没有
         public long manual_release_empire_id = -1L;
