@@ -951,16 +951,6 @@ public static class TerritoryLabelRenderer
             }
 
             Camera camera = World.world.camera;
-            // 城市图层不分级(同道路)
-            float zoomVisibility = EmpireCraft.Scripts.Layer.CityViewMap.Active
-                ? 1f
-                : TerritoryLabelProjection.ZoomVisibility(MapZoomTier.PixelsPerTile(camera), MapZoomTier.Near,
-                    MapZoomTier.Street);
-            if (zoomVisibility <= 0f)
-            {
-                Hide();
-                return;
-            }
             Vector3 centerScreen = camera.WorldToScreenPoint(_placement.center);
             Vector3 alongScreen = camera.WorldToScreenPoint(_placement.center + _placement.axis * _placement.half_width);
             Vector3 acrossScreen = camera.WorldToScreenPoint(_placement.center + _placement.normal * _placement.half_height);
@@ -1057,7 +1047,7 @@ public static class TerritoryLabelRenderer
             float scale = TerritoryLabelProjection.FitScale(availableWidth, availableHeight,
                 _reference_width, _reference_height, style.size_multiplier, style.max_font_size,
                 outlineDistance);
-            float visibility = TerritoryLabelProjection.Visibility(scale, style.min_font_size) * zoomVisibility;
+            float visibility = TerritoryLabelProjection.Visibility(scale, style.min_font_size);
             if (visibility <= 0f) { Hide(); return; }
             float renderedFontPixels = scale * TerritoryLabelProjection.ReferenceFontSize * canvasScale;
             bool displayCultureLock = showCultureLock && (fullyOpaque || renderedFontPixels >= 14f);

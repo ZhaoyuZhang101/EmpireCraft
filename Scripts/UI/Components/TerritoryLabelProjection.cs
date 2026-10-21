@@ -35,18 +35,6 @@ namespace EmpireCraft.Scripts.UI.Components
             return 1f - 0.82f * smooth;
         }
 
-        // 镜头拉近时让出城市(用户 2026-10-21 反馈国名、藩属小字压住城市群)：像电子地图，城市精细层出现(近景门槛上下两成)
-        // 时渐淡到两成，到街区级(出街道名)完全隐藏。pixelsPerTile 等门槛见 MapZoomTier
-        public const float NearZoomAlpha = 0.2f;
-
-        public static float ZoomVisibility(float pixelsPerTile, float near, float street)
-        {
-            if (near <= 0f || street <= 0f) return 1f;
-            float fade = Math.Max(0f, Math.Min(1f, (pixelsPerTile - near * 0.8f) / (near * 0.4f)));
-            float gone = Math.Max(0f, Math.Min(1f, (pixelsPerTile - street * 0.8f) / (street * 0.2f)));
-            return (1f - (1f - NearZoomAlpha) * fade) * (1f - gone);
-        }
-
         public static bool OrientedRectanglesOverlap(float firstX, float firstY,
             float firstHalfWidth, float firstHalfHeight, float firstRadians,
             float secondX, float secondY, float secondHalfWidth, float secondHalfHeight,
