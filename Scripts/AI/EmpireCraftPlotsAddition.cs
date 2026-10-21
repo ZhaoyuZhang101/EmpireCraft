@@ -1621,9 +1621,9 @@ namespace EmpireCraft.Scripts.AI
                     if (!regime.IsAllowArmy()) return false;
                     if (regime.GetLeaderSelectMethod() != LeaderSelectMethod.Succession) return false;
                     if (regime.IsAllowSupportCenterArmy() && !template.secede_ignores_central_army) return false;
-                    // 向背：去掉同帝国、受封两项名分好感，正统按离自立门槛远近算(见 RebellionSystem.SecessionAllegiance)；
+                    // 向背：去掉同帝国、受封两项名分好感，正统按离自立门槛远近算，明显离心才自立(见 RebellionSystem.SecessionAllegiance)；
                     // 以前看整个好感，名分两项 +200 压着，正统掉到个位数也自立不了
-                    if (RebellionSystem.SecessionAllegiance(kingdom, empire) >= 0) return false;
+                    if (RebellionSystem.SecessionAllegiance(kingdom, empire) >= RebellionSystem.SecessionThreshold) return false;
                     return true;
                 },
                 check_should_continue = actor => actor?.isKing() == true &&
@@ -2781,7 +2781,9 @@ namespace EmpireCraft.Scripts.AI
             using ListPool<Kingdom> neutral = DiplomacyHelpers.wars.getNeutralKingdoms(
                 pInitiatorKingdom, false, false);
             return neutral.Where(target => IsValidModWarTarget(pInitiatorKingdom, target))
-                .OrderBy(target => Kingdom.distanceBetweenKingdom(pInitiatorKingdom, target))
+                // 先收法理：占着本国法理城的邻国排在前面(见 DeJureAgenda)
+                .OrderByDescending(target => DeJureAgenda.HasClaimOn(pInitiatorKingdom, target))
+                .ThenBy(target => Kingdom.distanceBetweenKingdom(pInitiatorKingdom, target))
                 .ThenBy(target => World.world.diplomacy?.getOpinion(pInitiatorKingdom, target)?.total ?? 0)
                 .ThenBy(target => target.id)
                 .FirstOrDefault();

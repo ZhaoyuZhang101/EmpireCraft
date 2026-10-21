@@ -11,7 +11,8 @@ using NeoModLoader.services;
 
 namespace EmpireCraft.Scripts.GeneralSystems;
 
-// 帝国解体(封建制帝国，见 HasDiet)：帝国权威长期很低时，帝国外的强国做诸侯同盟的保护人，拉走一批成员。
+// 帝国解体(选帝制的封建帝国，见 IsElective；用户 2026-10-21 选"神罗衰落只限选帝制"，普通封建帝国照样有议会、权威，
+// 但不走保护同盟、退位解散)：帝国权威长期很低时，帝国外的强国做诸侯同盟的保护人，拉走一批成员。
 //   · 条件：权威低于 20 连续满 12 年(回到 25 以上才重计，见 authority_low_since)；每年一成；两批之间至少 20 年；
 //   · 保护人：帝国外的独立国家或别的帝国中央(不是别国的成员、不是教廷)，不与中央交战，与至少一个成员接壤，
 //     国力(帝国按整个帝国算)是中央的 1.2 倍以上；同宗教的优先，再按国力；
@@ -66,7 +67,7 @@ public static partial class HolyRomanSystem
         if (authority < CollapseAuthority && state.authority_collapse_since < 0d)
             state.authority_collapse_since = World.world.getCurWorldTime();
         else if (authority >= CollapseRecover) state.authority_collapse_since = -1d;
-        if (!DissolutionEnabled) return false;
+        if (!DissolutionEnabled || !IsElective(empire)) return false;
         if (state.authority_low_since >= 0d && Date.getYearsSince(state.authority_low_since) >= ProtectorLowYears &&
             (state.last_protector_at < 0d || Date.getYearsSince(state.last_protector_at) >= ProtectorGapYears) &&
             UnityEngine.Random.value < ProtectorChance)
@@ -79,6 +80,7 @@ public static partial class HolyRomanSystem
     // 退位解散还差什么(年度诊断、界面用)，条件已齐时为 null
     public static string AbdicationBlocker(Empire empire, HolyRomanState state)
     {
+        if (!IsElective(empire)) return LM.Get("hre_dissolve_need_elective");
         if (state.authority_collapse_since < 0d) return string.Format(LM.Get("hre_dissolve_need_low"), CollapseAuthority);
         int years = Date.getYearsSince(state.authority_collapse_since);
         if (years < CollapseYears) return string.Format(LM.Get("hre_dissolve_need_years"), CollapseAuthority, years, CollapseYears);

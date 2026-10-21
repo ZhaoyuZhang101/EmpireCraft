@@ -16,7 +16,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //       收人头税(特性 poll_tax：阿拉伯人丁税制)——稳定度少 6，情绪每年 +1，每座异教之城每年多交一笔人头税；
 //         交了人头税就豁免兵役：异教之城的人口只征 DhimmiLevy(同野人，见 CorpsSystem.Mobilize)，打下异教之地添税不添兵；
 //       不宽容(其余)——稳定度少 10，情绪每年 +2；
-//   · 宗教叛乱：不宽容的国家，异教之城稳定度低于起事线时每年有两成机会举教起事(新国奉本城之教，十年内同城不再起事)；
+//   · 宗教叛乱：不宽容的国家，异教之城稳定度低于起事线时每年有半成机会举教起事(新国奉本城之教，十年内同城不再起事)；
 //   · 圣战(见 EmpireCraftKingdomBehCheckPlots.CheckJoinReligionWar)：同教的国家要对发起者有好感、不与被攻者同属一个帝国、
 //     都城离被攻者都城不太远，一场圣战攻方最多六国。
 public static class ReligiousTension
@@ -26,7 +26,8 @@ public static class ReligiousTension
     // 收人头税的国家，异教之城的人口征兵只征几成
     public const float DhimmiLevy = 0.25f;
     public const float HolyWarReach = 160f;
-    private const float RevoltChance = 0.2f;
+    // 每年两成 → 半成(玩家 2026-10-21 反馈"除了阿拉伯和游牧，其他国家很容易分裂"：西欧、华夏长期不宽容，异教城一乱就起事)
+    private const float RevoltChance = 0.05f;
     private const int RevoltCooldownYears = 10;
     private static double _lastScan = -1d;
 

@@ -26,7 +26,8 @@ public static class EmpireBankruptcySystem
     private const float ChancePerYear = 0.04f;
     private const float MaxChance = 0.75f;
     private const float JiedushiFactor = 2f;
-    private const float AutonomousFactor = 1.5f;
+    // 自主性强的成员(多是封建封地)离去 1.5 → 0.75 倍(用户 2026-10-21 选"破产离散降频")
+    private const float AutonomousFactor = 0.75f;
     private const float StrandedFactor = 0.25f;
     private const float MaxLossShare = 0.5f;
     private const float NearbyRebelDistance = 60f;

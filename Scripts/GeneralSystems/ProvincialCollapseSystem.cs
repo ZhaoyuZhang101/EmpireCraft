@@ -18,17 +18,18 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 内忧(0~1)：正统 50 以下、王朝积弊 40 以上、国库亏空或欠饷、阶层怨气 60 以上、篡位之君在位(十年内 0.5)、
 //     朝政积弊六条平均 50 以上(90 满，见 MaladySystem.CollapseFactor)，
 //     取最重的一项再加其余的四分之一；
-//   · 首义(每年)：概率 = 内忧 × 0.5；离心最重、离心度不低于 0.5 的一省宣布独立。
+//   · 首义(每年)：概率 = 内忧 × 0.25；离心最重、离心度不低于 0.5 的一省宣布独立。
 //     离心度 = (1 − 行政控制力) + 都城稳定不足 70 的部分/70，近代再看革新理念，异文化再加 0.3，
 //     手握重兵的藩镇(节度使、都护府)、世袭的埃米尔再加 0.3(军阀割据)，正自顾打仗的减 0.2；
 //     开国雄主登基头 15 年、上次瓦解结束后 15 年内不发生；周制春秋战国另有规则，不在此列；
-//   · 响应(此后两年，每月)：各省按 0.06 × 内忧(至少 0.35) × 离心度 检定，与已独立之省接壤的再乘 1.6，单月最多 35%；
+//   · 响应(此后两年，每月)：离心度不低于 0.5 的各省按 0.06 × 内忧(至少 0.35) × 离心度 检定，与已独立之省接壤的再乘 1.6，单月最多 35%；
+//     (玩家 2026-10-21 反馈"除了阿拉伯和游牧，其他国家很容易分裂"，用户选"土崩瓦解降频"：首义 0.5 → 0.25，响应以前不看离心门槛，一次约走一半成员)
 //   · 近代(本文化可废君主，或已入工业时代且开放了党禁——先要立宪)：各省合组革命同盟与朝廷开战，沿用地方共和同盟的结局(见 RepublicSystem)：
 //       独立各省的城过半即逼皇帝退位、帝国改行共和；打赢同样退位；议和且三省以上则联合建立共和国；打输各省回归；
 //   · 古代：各省各自宣布独立、与朝廷开战(地方独立)，群雄割据；两年收束时帝国剩下的城不到瓦解前四分之一的，帝国灭亡。
 public static class ProvincialCollapseSystem
 {
-    private const float RiseChance = 0.5f;
+    private const float RiseChance = 0.25f;
     private const float MinDisaffection = 0.5f;
     private const int CascadeMonths = 24;
     private const float ResponseChance = 0.06f;
@@ -171,6 +172,7 @@ public static class ProvincialCollapseSystem
             foreach (Kingdom province in Provinces(empire))
             {
                 float value = Disaffection(empire, province, state.collapse_modern, ideology);
+                if (value < MinDisaffection) continue;
                 bool near = risen.Any(other => other.IsNeighbourWith(province));
                 float chance = Mathf.Min(MaxResponse, ResponseChance * crisis * value * (near ? NeighbourBoost : 1f));
                 if (UnityEngine.Random.value < chance && Rise(empire, state, province, ideology, first: false))

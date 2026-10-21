@@ -43,6 +43,7 @@ public class TempFac_扩张地盘 : TemporaryFaction
         Empire empire = GetEmpire();
         if (empire == null || empire.isRekt() || empire.CoreKingdom == null || empire.CoreKingdom.isRekt()) return false;
         if (empire.CoreKingdom.hasEnemies()) return false;
+        Kingdom target = null;
         foreach (var kingdom in World.world.kingdoms)
         {
             if (kingdom.IsInSameEmpire(empire.CoreKingdom)) continue;
@@ -53,11 +54,18 @@ public class TempFac_扩张地盘 : TemporaryFaction
                 if (kingdom.isInWarWith(empire.CoreKingdom)) continue;
                 if (empire.CoreKingdom.isOpinionTowardsKingdomGood(kingdom)) continue;
                 if (!GeneralSystems.WarGate.CanDeclare(empire.CoreKingdom, kingdom)) continue;
-                SetKingdomTarget(kingdom);
-                Acc = 30;
-                return true;
+                // 先收法理：占着本帝国法理城的邻国优先(见 DeJureAgenda)
+                if (GeneralSystems.DeJureAgenda.HasClaimOn(empire.CoreKingdom, kingdom))
+                {
+                    target = kingdom;
+                    break;
+                }
+                target ??= kingdom;
             }
         }
-        return false;
+        if (target == null) return false;
+        SetKingdomTarget(target);
+        Acc = 30;
+        return true;
     }
 }

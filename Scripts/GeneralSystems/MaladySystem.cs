@@ -24,7 +24,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //       冗费——每年多支 12%×s 年度经常收入(行政开支)；武备——本帝国各军战力 ×(1−0.25s)，禁军空饷再多两成×s，
 //         兵源(可征之兵)×(1−0.3s)，组织度上限 100−20s、休整恢复 ×(1−0.3s)(用户 2026-10-20 选"积弊动真格")；
 //       党争——奏议准奏率 -15%×s，各派怨望每年 +8×s；苛捐——苛政 +15×s；
-//       合计——王朝积弊(周期压力)每年多涨 六条平均×1.5；正统 −(平均−30)×0.25；平均过五十推高土崩瓦解的内忧，
+//       合计——王朝积弊(周期压力)每年多涨 六条平均×1.5；正统 −(平均−30)×0.1；平均过五十推高土崩瓦解的内忧，
 //         平均七十以上算危局，苛政民变打仗时也会爆发(见 MonarchyLegitimacy、ProvincialCollapseSystem、HarshRuleSystem)。
 // 只有传统君主制有(同王朝周期，见 DynasticCycleSystem.Applies)。
 public static class MaladySystem
@@ -40,8 +40,9 @@ public static class MaladySystem
     private const float ApprovalPenalty = 0.15f, FactionGrievance = 3f, LeviesBurden = 15f, StrainShare = 1.5f;
     // 武备废弛：兵源、组织度上限、休整恢复(用户 2026-10-20 选"积弊动真格"：以前只打战力七五折，积弊满格的游牧照样打赢)
     private const float LevyPenalty = 0.3f, OrgCapPenalty = 20f, RecoveryPenalty = 0.3f;
-    // 合计：正统 −(平均−LegitimacyFloor)×LegitimacyRate；平均过 CollapseFloor 推高土崩瓦解的内忧；平均 CrisisAverage 以上算危局
-    private const float LegitimacyFloor = 30f, LegitimacyRate = 0.25f, CollapseFloor = 50f, CollapseSpan = 40f, CrisisAverage = 70f;
+    // 合计：正统 −(平均−LegitimacyFloor)×LegitimacyRate；平均过 CollapseFloor 推高土崩瓦解的内忧；平均 CrisisAverage 以上算危局。
+    // 积弊已经经王朝积弊(StrainShare)压正统，这里再直接扣是第二份：LegitimacyRate 0.25 → 0.1(用户 2026-10-21 选"积弊不再双扣正统")
+    private const float LegitimacyFloor = 30f, LegitimacyRate = 0.1f, CollapseFloor = 50f, CollapseSpan = 40f, CrisisAverage = 70f;
 
     public static bool Applies(Empire empire) => empire?.data != null && DynasticCycleSystem.Applies(empire);
 

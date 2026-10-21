@@ -12,7 +12,7 @@ using NeoModLoader.services;
 
 namespace EmpireCraft.Scripts.GeneralSystems;
 
-// 水土的出路(用户 2026-10-20 问答定，AI 会走)：到第一档后每年按 OutletChance×档位 的机会挑一条(按局势)，
+// 水土的出路(用户 2026-10-20 问答定，AI 会走)：到第一档后每年按 OutletChance×档位(定居入草按 SettledOutletChance)的机会挑一条(按局势)，
 // 走成了 OutletCooldownYears 年内不再走；打着仗不走。改了政体(不再是游牧/只宜农地)、回到旱地，计时自然清零。
 //   游牧离草：
 //     1. 从俗：复合帝国"采纳属地制度""从俗"的门槛按离草档位放宽、对一切定居文化都肯(见 CompositeEmpireService)，不在这里走；
@@ -32,6 +32,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 public static partial class ShuiTuSystem
 {
     private const float OutletChance = 0.15f;
+    // 定居入草的出路都是把旱地城交出去(羁縻、改从游牧、交当地首领)：15% → 5%×档位(用户 2026-10-21 选"水土旱地出走降频")
+    private const float SettledOutletChance = 0.05f;
     private const int OutletCooldownYears = 10;
     public const int RetreatTier = 2;
     private const string SettledNode = "youmu_settled_bureaucracy";
@@ -55,7 +57,7 @@ public static partial class ShuiTuSystem
         double now = World.world.getCurWorldTime();
         if (extra.shuitu_outlet_at >= 0d && now >= extra.shuitu_outlet_at && Date.getYearsSince(extra.shuitu_outlet_at) < OutletCooldownYears)
             return;
-        if (UnityEngine.Random.value >= OutletChance * (nomad ? info.OffTier : info.UnfitTop)) return;
+        if (UnityEngine.Random.value >= (nomad ? OutletChance * info.OffTier : SettledOutletChance * info.UnfitTop)) return;
         string taken = nomad ? NomadOutlet(unit, info, kingdoms, cities) : SettledOutlet(unit, info, cities);
         if (taken == null) return;
         extra.shuitu_outlet_at = now;

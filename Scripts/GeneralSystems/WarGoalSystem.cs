@@ -218,8 +218,8 @@ public static class WarGoalSystem
             data.war_goal_capital_id = war.main_defender.capital.id;
     }
 
-    // cities 里法理主国(或法理持有人所在国)是攻方一方(帝国按整个帝国算)的城
-    private static List<City> Claimed(Kingdom claimant, IEnumerable<City> cities)
+    // cities 里法理主国(或法理持有人所在国)是攻方一方(帝国按整个帝国算)的城；挑宣战目标也按它先收法理(见 DeJureAgenda)
+    internal static List<City> Claimed(Kingdom claimant, IEnumerable<City> cities)
     {
         var result = new List<City>();
         Kingdom realm = FrontSystem.Realm(claimant);

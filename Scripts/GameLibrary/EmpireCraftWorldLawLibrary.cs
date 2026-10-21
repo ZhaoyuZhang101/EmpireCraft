@@ -29,6 +29,7 @@ public static class EmpireCraftWorldLawLibrary
     public static WorldLawAsset empirecraft_law_no_commoners;
     public static WorldLawAsset empirecraft_law_fixed_settlements;
     public static WorldLawAsset empirecraft_law_surname_dynasty;
+    public static WorldLawAsset empirecraft_law_dejure_first;
     public static void init()
     {
         LogService.LogInfo("加载帝国世界规则");
@@ -211,6 +212,14 @@ public static class EmpireCraftWorldLawLibrary
             group_id = "EmpireCraftCommonSetting",
             icon_path = "ui/icons/iconClan",
             default_state = false
+        });
+        // 先收法理(默认开启)：挑宣战目标时占着本国法理城的邻国优先，没有才照常扩张(见 DeJureAgenda)
+        AssetManager.world_laws_library.add(empirecraft_law_dejure_first = new WorldLawAsset()
+        {
+            id = nameof(empirecraft_law_dejure_first),
+            group_id = "EmpireCraftCommonSetting",
+            icon_path = "ui/icons/iconKingdom",
+            default_state = true
         });
         
     }

@@ -30,8 +30,12 @@ public static class RebellionSystem
     // 拥兵自立的向背(用户 2026-10-20 定"拥兵自立失效要修")：对朝廷的好感里去掉"同帝国 +100""受封五十年内 +100"两项名分——
     // 它们只说明是成员、不说明忠心；"正统 (正统−50)×5"一项改按离自立门槛的远近算 (正统 − 门槛)×5，门槛照
     // NomadCycleSystem.SecessionGate(平时 40，汗国兵败每丢一成城抬 10、至多 70)。其余好感(同文化同宗教、宗族、
-    // 法理被占、派系不同……)照旧。合计小于 0 才肯拥兵自立。以前名分两项就有 +200，正统掉到个位数好感仍为正，自立从来过不了
+    // 法理被占、派系不同……)照旧。合计低于 SecessionThreshold 才肯拥兵自立。以前名分两项就有 +200，正统掉到个位数好感仍为正，自立从来过不了
     public const int SecessionLegitimacyWeight = 5;
+    // 自立的向背门槛(玩家 2026-10-21 反馈"除了阿拉伯和游牧，其他国家很容易分裂"，用户选"拥兵自立加忠诚余量")：
+    // 以前合计小于 0 就自立，正统一跌到门槛，好感平平的封地几年内几乎全走；改为明显离心(−50 以下)才自立——
+    // 正统每低于门槛 1 点抵 5 点好感，好感平平(0)的封地要正统跌到 30 以下才走
+    public const int SecessionThreshold = -50;
     private static readonly HashSet<string> SecessionIgnoredOpinions = new()
         { "opinion_in_same_empire", "opinion_just_enfeoff", "opinion_empire_loyalty" };
 
