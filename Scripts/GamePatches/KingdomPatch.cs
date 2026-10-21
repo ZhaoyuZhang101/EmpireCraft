@@ -165,6 +165,8 @@ public class KingdomPatch : GamePatch
             // 即位时姓本族的姓(华夏宗族)，世系、年号诏书上不会写成随错的姓
             pActor.CheckSpecificClan(false);
             SurnameInheritanceSystem.EnforceClanSurname(pActor.GetPersonalIdentity());
+            // 周制、只有贵族称姓的时代：平民起名时无氏，即位后按君主身份补上(读档时也补，修旧档里已在位的)
+            PrehistoricClanSystem.RefreshShownSurname(pActor);
         }
         if (!pFromLoad && !ModClass.IS_CLEAR && __instance.IsEmpire()) LogEmperorChange(__instance, pActor, __state);
         if (!ModClass.IS_CLEAR)

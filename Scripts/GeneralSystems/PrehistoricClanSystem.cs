@@ -235,6 +235,16 @@ public static class PrehistoricClanSystem
         }
     }
 
+    // 身份变了(即位)：周制、只有贵族称姓的时代，名字上显不显示姓随身份走，名字却是起名时定的——平民起名时无氏，
+    // 当上君主照旧只称名(玩家 2026-10-21 反馈"有的皇帝掉姓")。重起一次名按新身份补上
+    public static void RefreshShownSurname(Actor actor)
+    {
+        if (actor?.data == null || EraOf(TechnologySystem.GetCultureOf(actor)) is not (SurnameEra.ZhouShi or SurnameEra.EliteOnly)) return;
+        Name name = actor.GetModName();
+        if (name == null || !name.hasFamilyName(actor)) return;
+        name.SetName(actor);
+    }
+
     // 每年(科技年度结算时)看本文化的姓氏时代变没变，变了就把本文化在世的人重新起一次名
     public static void YearlyCheck(string culture)
     {
