@@ -608,7 +608,7 @@ public static class BugReportService
         string worldBoxVersion
     )
     {
-        ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
+        EmpireCraftUpdateService.EnableTls12();
 
         string boundary =
             "----------------EmpireCraft" +

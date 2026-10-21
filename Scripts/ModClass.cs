@@ -293,7 +293,15 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
             }
         }
         AncientWarfareIsolation.EnableWhenAvailable();
-        EmpireCraftUpdateService.Initialize();
+        // 在线更新只是附带功能：初始化出错(手机版网络库不全之类)不能拖垮整个模组加载
+        try
+        {
+            EmpireCraftUpdateService.Initialize();
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft] 在线更新初始化失败，跳过: {exception.Message}");
+        }
     }
 
     public void LoadUI()

@@ -98,7 +98,7 @@ public static class EmpireCraftUpdateService
 
     public static void Initialize()
     {
-        ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
+        EnableTls12();
         (bool manualPackageMode, bool archiveCurrentVersion) = ReadUpdateSettings();
         lock (Sync)
         {
@@ -241,6 +241,20 @@ public static class EmpireCraftUpdateService
         {
             LogService.LogWarning("EmpireCraft could not open the archive directory: " + error.Message);
             return false;
+        }
+    }
+
+    // 打开 TLS 1.2。手机版(安卓)上 ServicePointManager 的静态构造会抛异常(2026-10-22 手机版读模组时报
+    // "The type initializer for 'System.Net.ServicePointManager' threw an exception"，整个模组加载失败)：设不上就用默认协议
+    internal static void EnableTls12()
+    {
+        try
+        {
+            ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
+        }
+        catch (Exception)
+        {
+            // 设不上照常走默认协议；真连不上由检查更新、上传报错各自报失败
         }
     }
 
