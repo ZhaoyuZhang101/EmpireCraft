@@ -58,7 +58,8 @@ public class WarMarkerPatch : GamePatch
             }
         foreach (War war in World.world.wars)
         {
-            if (war.hasEnded() || war.isTotalWar()) continue;
+            // 两边够不着的不画(见 WarReach，久不接触自会判和)
+            if (war.hasEnded() || war.isTotalWar() || EmpireCraft.Scripts.GeneralSystems.WarReach.IsFar(war)) continue;
             float alpha = 1f;
             if (hovered != null)
             {

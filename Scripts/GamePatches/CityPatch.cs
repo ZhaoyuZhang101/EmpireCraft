@@ -1197,10 +1197,11 @@ public class CityPatch : GamePatch
         InstitutionSystem.TryYearlyKingdomScan,
         PapacySystem.TryYearlyDiagnose,
         LegacyInstitutionSystem.TryYearlyScan,
-        NomadRaidSystem.TryMonthlyScan
+        NomadRaidSystem.TryMonthlyScan,
+        WarReach.TryMonthlyScan
     };
     private static readonly string[] WorldYearlyScanNames =
-        { "宗族分支", "理念传播", "科技", "制度漂移", "苛政", "核威慑", "文化近代化", "失都改称", "战后分配", "羁縻边防", "行政区划界", "国债", "还于旧都", "战争赔款", "海上商路", "附庸描边", "封建贡赋", "名将名臣", "和亲互市", "宗教", "大国通好", "制度接触", "制度·王国", "教廷诊断", "旧制", "游牧劫掠" };
+        { "宗族分支", "理念传播", "科技", "制度漂移", "苛政", "核威慑", "文化近代化", "失都改称", "战后分配", "羁縻边防", "行政区划界", "国债", "还于旧都", "战争赔款", "海上商路", "附庸描边", "封建贡赋", "名将名臣", "和亲互市", "宗教", "大国通好", "制度接触", "制度·王国", "教廷诊断", "旧制", "游牧劫掠", "远战清理" };
     // 计时标签预先拼好(以前每帧拼一次"年度扫描·"+名字)
     private static readonly string[] WorldYearlyScanLabels = WorldYearlyScanNames.Select(name => "年度扫描·" + name).ToArray();
     private static int _worldScanFrame = -1;

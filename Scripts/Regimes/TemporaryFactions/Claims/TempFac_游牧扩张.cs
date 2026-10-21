@@ -37,7 +37,7 @@ public class TempFac_游牧扩张 : TemporaryFaction
         if (target != null)
         {
             var war = DiplomacyHelpers.wars.newWar(empire.CoreKingdom, target, WarTypeLibrary.normal);
-            war.SetEmpireWarType(EmpireWarType.游牧扩张);
+            war?.SetEmpireWarType(EmpireWarType.游牧扩张);
         }
         // 平时八年一次(用户 2026-10-17 选"游牧扩张加冷却比兵力"时是五年，2026-10-20 定平时不大扩张)；雄主在位两年一次
         CountDown = empire?.CoreKingdom != null && RulerTraitSystem.FounderReigns(empire.CoreKingdom) ? HeroCooldownYears : NormalCooldownYears;

@@ -1341,6 +1341,7 @@ namespace EmpireCraft.Scripts.AI
                             !religion.kingdoms.Contains(k) && HolyWarNeighbour(kingdom, k));
                         if (target == null) return false;
                         var war = DiplomacyHelpers.wars.newWar(kingdom, target, WarTypeLibrary.normal);
+                        if (war == null) return false;
                         war.SetEmpireWarType(EmpireWarType.神圣, pre:religion.name);
                         regime.religion_point -= 1000;
                         return true;

@@ -47,6 +47,8 @@ public static class ImperialLegitimacyChallengeService
         foreach (Empire incumbent in sameCultureEmpires.OrderByDescending(empire => empire.GetNationalPower()))
         {
             if (incumbent.data.legitimacy_rivalry_recognized) continue;
+            // 够不着的不挑(见 WarReach)：先立了帝国再开不成战，又得把它解散
+            if (!WarReach.Reachable(kingdom, incumbent.CoreKingdom)) continue;
             if (!ImperialLegitimacyRules.CanChallenge(power, incumbent.GetNationalPower(), sameCultureEmpires.Count,
                     !kingdom.IsInEmpire(), SharesLandBorder(kingdom, incumbent))) continue;
             target = incumbent;
