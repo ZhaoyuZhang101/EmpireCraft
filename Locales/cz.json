@@ -1051,6 +1051,7 @@
   "rebellion_reason_collapse": "朝廷失驭，各省离心",
   "collapse_first_history": "{0}首义，宣布脱离{1}独立，各省震动。",
   "collapse_respond_history": "{0}响应起义，宣布脱离{1}独立。",
+  "collapse_fall_history": "群雄割据，{0}只剩{1}城(瓦解前{2}城)，帝国灭亡。",
   "collapse_war_name": "{0}起义",
   "coup_history": "{0}兵变：众将拥立{1}，黄袍加身，{2}禅位，国号{3}。",
   "personal_history_coup_leader": "于{0}兵变，被众将拥立，取代{1}",

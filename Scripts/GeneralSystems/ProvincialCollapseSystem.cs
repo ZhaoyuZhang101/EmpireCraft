@@ -25,7 +25,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 响应(此后两年，每月)：各省按 0.06 × 内忧(至少 0.35) × 离心度 检定，与已独立之省接壤的再乘 1.6，单月最多 35%；
 //   · 近代(本文化可废君主，或已入工业时代且开放了党禁——先要立宪)：各省合组革命同盟与朝廷开战，沿用地方共和同盟的结局(见 RepublicSystem)：
 //       独立各省的城过半即逼皇帝退位、帝国改行共和；打赢同样退位；议和且三省以上则联合建立共和国；打输各省回归；
-//   · 古代：各省各自宣布独立、与朝廷开战(地方独立)，群雄割据。
+//   · 古代：各省各自宣布独立、与朝廷开战(地方独立)，群雄割据；两年收束时帝国剩下的城不到瓦解前四分之一的，帝国灭亡。
 public static class ProvincialCollapseSystem
 {
     private const float RiseChance = 0.5f;
@@ -37,6 +37,7 @@ public static class ProvincialCollapseSystem
     private const float MaxResponse = 0.35f;
     private const int CooldownYears = 15;
     private const float AbdicationShare = 0.5f;
+    private const float FallShare = 0.25f;
     private const int ModernEraTier = 7;
     private const double SecondsPerMonth = 5d;
 
@@ -152,7 +153,9 @@ public static class ProvincialCollapseSystem
             if (!Applies(empire) || now < state.collapse_started_at ||
                 Date.getMonthsSince(state.collapse_started_at) >= CascadeMonths)
             {
+                bool completed = Applies(empire) && now >= state.collapse_started_at;
                 End(state);
+                if (completed) TryFall(empire, state);
                 return;
             }
             War war = state.collapse_modern ? World.world.wars.get(state.collapse_war_id) : null;
@@ -179,6 +182,21 @@ public static class ProvincialCollapseSystem
         {
             LogService.LogWarning($"[EmpireCraft][土崩瓦解] 响应失败: {exception.Message}");
         }
+    }
+
+    // 古代瓦解收束：朝廷(连同仍留在帝国里的各省)剩下的城不到瓦解前的四分之一，帝国就此灭亡，中央降为普通王国。
+    // 以前收束只清计时，朝廷剩几座城也一直算现存帝国，地图上早已四分五裂
+    private static bool TryFall(Empire empire, ConstitutionalEconomyState state)
+    {
+        if (state.collapse_modern || state.collapse_origin_cities <= 0 || empire?.data == null || empire.IsArchived() ||
+            empire.CoreKingdom == null || empire.CoreKingdom.isRekt()) return false;
+        int held = empire.kingdoms_list.Where(kingdom => kingdom?.cities != null && !kingdom.isRekt())
+            .Sum(kingdom => kingdom.cities.Count);
+        if (held >= state.collapse_origin_cities * FallShare) return false;
+        EventRecorder.Record(empire, actor: empire.Emperor, logKingdom: empire.CoreKingdom, text: string.Format(
+            LM.Get("collapse_fall_history"), empire.GetEmpireFullName(), held, state.collapse_origin_cities));
+        ModClass.EMPIRE_MANAGER?.dissolveEmpire(empire);
+        return true;
     }
 
     private static void End(ConstitutionalEconomyState state)

@@ -32,57 +32,74 @@ namespace EmpireCraft.Scripts.UI.Windows
         private Filter _filter = Filter.Alive;
         // 空 = 全部文化
         private string _culture = "";
-        private List<Empire> _alive = new(), _archived = new();
-        private List<IGrouping<string, Empire>> _groups = new();
+        private List<Empire> _alive = new();
+        // 已亡帝国按名录取(解散的帝国已从帝国管理器移除，见 FallenEmpireRecords)
+        private List<FallenEmpireRecord> _fallen = new();
+        // 按文化归组(筛选之后)：现存帝国、已亡名录各一份
+        private readonly Dictionary<string, List<Empire>> _aliveByCulture = new();
+        private readonly Dictionary<string, List<FallenEmpireRecord>> _fallenByCulture = new();
+        private List<string> _cultures = new();
 
         // ───────── 数据(每次重画前取一遍) ─────────
         protected override void Prepare()
         {
-            List<Empire> all = ModClass.EMPIRE_MANAGER.Where(empire => empire?.data != null).ToList();
-            _alive = all.Where(empire => !empire.IsArchived()).ToList();
-            _archived = all.Where(empire => empire.IsArchived()).ToList();
-            List<Empire> byFilter = _filter switch
-            {
-                Filter.Alive => _alive,
-                Filter.Archived => _archived,
-                _ => all
-            };
-            _groups = byFilter.GroupBy(GetEmpireCulture)
-                .OrderByDescending(group => group.Count(empire => !empire.IsArchived()))
-                .ThenByDescending(group => group.Count())
-                .ThenBy(group => GetCultureDisplayName(group.Key)).ToList();
-            if (!string.IsNullOrEmpty(_culture) && _groups.All(group => group.Key != _culture)) _culture = "";
+            _alive = ModClass.EMPIRE_MANAGER.Where(empire => empire?.data != null && !empire.IsArchived()).ToList();
+            _fallen = FallenEmpireRecords.Records.Where(record => record != null).ToList();
+            _aliveByCulture.Clear();
+            _fallenByCulture.Clear();
+            if (_filter != Filter.Archived)
+                foreach (Empire empire in _alive) Bucket(_aliveByCulture, GetEmpireCulture(empire)).Add(empire);
+            if (_filter != Filter.Alive)
+                foreach (FallenEmpireRecord record in _fallen) Bucket(_fallenByCulture, GetRecordCulture(record)).Add(record);
+            _cultures = _aliveByCulture.Keys.Union(_fallenByCulture.Keys)
+                .OrderByDescending(culture => AliveIn(culture).Count)
+                .ThenByDescending(culture => CountIn(culture))
+                .ThenBy(culture => GetCultureDisplayName(culture)).ToList();
+            if (!string.IsNullOrEmpty(_culture) && !_cultures.Contains(_culture)) _culture = "";
         }
+
+        private static List<T> Bucket<T>(Dictionary<string, List<T>> buckets, string culture)
+        {
+            if (!buckets.TryGetValue(culture, out List<T> list)) buckets[culture] = list = new List<T>();
+            return list;
+        }
+
+        private List<Empire> AliveIn(string culture) =>
+            _aliveByCulture.TryGetValue(culture, out List<Empire> list) ? list : new List<Empire>();
+
+        private List<FallenEmpireRecord> FallenIn(string culture) =>
+            _fallenByCulture.TryGetValue(culture, out List<FallenEmpireRecord> list) ? list : new List<FallenEmpireRecord>();
+
+        private int CountIn(string culture) => AliveIn(culture).Count + FallenIn(culture).Count;
 
         // ───────── 左栏 ─────────
         protected override void DrawRail(AutoVertLayoutGroup rail)
         {
             rail.AddRailTitle(LM.Get("empire_list_rail_title"),
-                string.Format(LM.Get("empire_list_rail_summary"), _alive.Count, _archived.Count));
+                string.Format(LM.Get("empire_list_rail_summary"), _alive.Count, _fallen.Count));
 
             var filters = rail.BeginRailMenu();
             filters.AddRailOption(Icon("filter_alive"), LM.Get("empire_list_current"), _alive.Count.ToString(),
                 _filter == Filter.Alive, () => SetFilter(Filter.Alive), 0);
-            filters.AddRailOption(Icon("filter_archived"), LM.Get("empire_list_archived"), _archived.Count.ToString(),
+            filters.AddRailOption(Icon("filter_archived"), LM.Get("empire_list_archived"), _fallen.Count.ToString(),
                 _filter == Filter.Archived, () => SetFilter(Filter.Archived), 1);
-            filters.AddRailOption(Icon("filter_all"), LM.Get("empire_list_all"), (_alive.Count + _archived.Count).ToString(),
+            filters.AddRailOption(Icon("filter_all"), LM.Get("empire_list_all"), (_alive.Count + _fallen.Count).ToString(),
                 _filter == Filter.All, () => SetFilter(Filter.All), 2);
 
-            if (_groups.Count > 1)
+            if (_cultures.Count > 1)
             {
                 var cultures = rail.BeginRailMenu(LM.Get("empire_list_cultures"));
-                cultures.AddRailOption(null, LM.Get("empire_list_all_cultures"), _groups.Sum(group => group.Count()).ToString(),
+                cultures.AddRailOption(null, LM.Get("empire_list_all_cultures"), _cultures.Sum(culture => CountIn(culture)).ToString(),
                     string.IsNullOrEmpty(_culture), () => SetCulture(""), 0);
                 int index = 1;
-                foreach (var group in _groups.Take(RailCultureRows))
+                foreach (string culture in _cultures.Take(RailCultureRows))
                 {
-                    string culture = group.Key;
-                    cultures.AddRailOption(CultureIcons.Get(culture), GetCultureDisplayName(culture), group.Count().ToString(),
+                    cultures.AddRailOption(CultureIcons.Get(culture), GetCultureDisplayName(culture), CountIn(culture).ToString(),
                         _culture == culture, () => SetCulture(culture), index++);
                 }
             }
 
-            if (_filter != Filter.Alive && _archived.Count > 0)
+            if (_filter != Filter.Alive && _fallen.Count > 0)
                 rail.AddRailButton("purge_recent_100_years", LM.Get("purge_recent_100_years"), () =>
                 {
                     ModClass.EMPIRE_MANAGER.PurgeArchivedOlderThanYears(100);
@@ -108,9 +125,9 @@ namespace EmpireCraft.Scripts.UI.Windows
         // ───────── 右栏 ─────────
         protected override void DrawPage(AutoVertLayoutGroup page)
         {
-            var groups = string.IsNullOrEmpty(_culture) ? _groups : _groups.Where(group => group.Key == _culture).ToList();
-            List<Empire> shown = groups.SelectMany(group => group).ToList();
-            List<Empire> living = shown.Where(empire => !empire.IsArchived()).ToList();
+            List<string> cultures = string.IsNullOrEmpty(_culture) ? _cultures : _cultures.Where(culture => culture == _culture).ToList();
+            int shown = cultures.Sum(culture => CountIn(culture));
+            List<Empire> living = cultures.SelectMany(culture => AliveIn(culture)).ToList();
             string title = _filter switch
             {
                 Filter.Alive => LM.Get("empire_list_current"),
@@ -118,9 +135,9 @@ namespace EmpireCraft.Scripts.UI.Windows
                 _ => LM.Get("empire_list_window")
             };
             if (!string.IsNullOrEmpty(_culture)) title = GetCultureDisplayName(_culture) + " · " + title;
-            page.AddPageHeader(PageWidth, title, string.Format(LM.Get("empire_list_chip_count"), shown.Count));
+            page.AddPageHeader(PageWidth, title, string.Format(LM.Get("empire_list_chip_count"), shown));
 
-            if (shown.Count == 0)
+            if (shown == 0)
             {
                 bool archivedOnly = _filter == Filter.Archived;
                 page.AddEmptyCard(PageWidth, archivedOnly ? "empire_list_empty_archived" : "empire_list_empty",
@@ -137,15 +154,14 @@ namespace EmpireCraft.Scripts.UI.Windows
                     (LM.Get("empire_list_kpi_oldest"), $"{Years(oldest)}{LM.Get("Year")}", WideKit.Gold));
             }
 
-            foreach (var group in groups)
+            foreach (string culture in cultures)
             {
-                page.AddSectionHeader(PageWidth, $"{GetCultureDisplayName(group.Key)}  ×{group.Count()}", WideKit.Cyan, false,
-                    "ui/icons/cultures/" + group.Key);
-                List<Empire> current = group.Where(empire => !empire.IsArchived())
-                    .OrderByDescending(ZhouEraSystem.SphereCities).ToList();
+                page.AddSectionHeader(PageWidth, $"{GetCultureDisplayName(culture)}  ×{CountIn(culture)}", WideKit.Cyan, false,
+                    "ui/icons/cultures/" + culture);
+                List<Empire> current = AliveIn(culture).OrderByDescending(ZhouEraSystem.SphereCities).ToList();
                 page.AddCardGrid(PageWidth, current, 2, AddAliveCard);
-                List<Empire> fallen = group.Where(empire => empire.IsArchived())
-                    .OrderByDescending(empire => empire.data.timestamp_established_time).ToList();
+                List<FallenEmpireRecord> fallen = FallenIn(culture).OrderByDescending(record => record.fallen_at)
+                    .ThenByDescending(record => record.established_at).ToList();
                 if (fallen.Count > 0) AddArchivedCard(page, fallen);
             }
         }
@@ -187,21 +203,19 @@ namespace EmpireCraft.Scripts.UI.Windows
         }
 
         // 已亡帝国：一张卡，一行一国，点开史书
-        private void AddArchivedCard(AutoVertLayoutGroup page, List<Empire> fallen)
+        private void AddArchivedCard(AutoVertLayoutGroup page, List<FallenEmpireRecord> fallen)
         {
             var card = page.BeginCard(PageWidth, "empire_list_archived", WideKit.Muted, fallen.Count.ToString(),
                 IconPath + "filter_archived");
             Sprite tablet = Icon("filter_archived");
             for (int i = 0; i < fallen.Count; i++)
             {
-                Empire empire = fallen[i];
-                EmpireCraftHistory last = GetRepresentativeHistory(empire);
-                string founded = empire.data.timestamp_established_time > 0
-                    ? HistoryDateFormatter.GetYear(empire.data.timestamp_established_time) : "";
-                string line = $"{founded} · {LM.Get("empire_core_history_duration")} {GetEmpireRecordedDuration(empire)}{LM.Get("Year")}";
-                if (!string.IsNullOrWhiteSpace(last?.emperor))
-                    line += $" · {LM.Get("empire_list_last_ruler")} {last.emperor}";
-                card.AddListRow(PageWidth, i, tablet, empire.GetEmpireFullName(), line, () => OpenEmpireHistory(empire));
+                FallenEmpireRecord record = fallen[i];
+                string founded = record.established_at > 0 ? HistoryDateFormatter.GetYear(record.established_at) : "";
+                string line = $"{founded} · {LM.Get("empire_core_history_duration")} {Mathf.Max(1, record.years)}{LM.Get("Year")}";
+                if (!string.IsNullOrWhiteSpace(record.last_ruler))
+                    line += $" · {LM.Get("empire_list_last_ruler")} {record.last_ruler}";
+                card.AddListRow(PageWidth, i, tablet, record.name, line, () => OpenFallenHistory(record));
             }
         }
 
@@ -219,14 +233,6 @@ namespace EmpireCraft.Scripts.UI.Windows
         private static int Years(Empire empire) => empire.data.timestamp_established_time > 0
             ? Mathf.Max(1, Date.getYearsSince(empire.data.timestamp_established_time) + 1) : 1;
 
-        private static int GetEmpireRecordedDuration(Empire empire)
-        {
-            int duration = 0;
-            foreach (EmpireCraftHistory history in empire.data.history ?? new List<EmpireCraftHistory>())
-                duration += history?.total_time ?? 0;
-            return Mathf.Max(1, duration);
-        }
-
         private string GetEmpireCulture(Empire empire)
         {
             try
@@ -240,6 +246,15 @@ namespace EmpireCraft.Scripts.UI.Windows
             }
             EmpireCraftHistory history = GetRepresentativeHistory(empire);
             PersonalClanIdentity identity = FindPersonByActorId(history?.id ?? empire.data.emperor, history?.emperor);
+            return string.IsNullOrWhiteSpace(identity?.culture) ? "unknown" : identity.culture;
+        }
+
+        private static string GetRecordCulture(FallenEmpireRecord record)
+        {
+            if (!string.IsNullOrWhiteSpace(record.culture)) return record.culture;
+            // 旧档补记的取不到文化：退回末代君主的文化
+            EmpireCraftHistory last = FallenEmpireRecords.Histories(record).LastOrDefault();
+            PersonalClanIdentity identity = FindPersonByActorId(last?.id ?? -1L, last?.emperor);
             return string.IsNullOrWhiteSpace(identity?.culture) ? "unknown" : identity.culture;
         }
 
@@ -280,6 +295,18 @@ namespace EmpireCraft.Scripts.UI.Windows
             EmpireCraftMetaTypeLibrary.selected_empire = empire;
             ConfigData.CURRENT_SELECTED_HISTORY = GetRepresentativeHistory(empire);
             ScrollWindow.showWindow(nameof(EmpireHistoryWindow));
+        }
+
+        private static void OpenFallenHistory(FallenEmpireRecord record)
+        {
+            // 旧档里还留在管理器中的已亡帝国，照旧按帝国对象打开
+            Empire legacy = ModClass.EMPIRE_MANAGER.get(record.id);
+            if (legacy?.data != null)
+            {
+                OpenEmpireHistory(legacy);
+                return;
+            }
+            EmpireHistoryWindow.ShowArchived(record.name, FallenEmpireRecords.Histories(record));
         }
     }
 }

@@ -222,6 +222,8 @@ public static class ConstitutionalEconomySystem
         NationalSentimentSystem.UpdateWorld();
         // 土崩瓦解：各省响应(自带月度计时)
         ProvincialCollapseSystem.Monthly(empire);
+        // 瓦解收束时帝国可能就此灭亡(见 ProvincialCollapseSystem.TryFall)
+        if (empire.IsArchived()) return;
         // 新国家的年度结算错开一年里的随机时点：现代一下子建政的一大批国家不再挤在同一时刻结算(以前一到年底就卡)
         if (state.last_economy_update < 0)
             state.last_economy_update = World.world.getCurWorldTime() - UnityEngine.Random.value * FirstYearSpreadSeconds;

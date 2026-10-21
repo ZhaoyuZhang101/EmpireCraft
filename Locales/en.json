@@ -1048,6 +1048,7 @@
   "rebellion_reason_collapse": "The court has lost its grip and the provinces drift away",
   "collapse_first_history": "{0} rises first and declares independence from {1}; the provinces are shaken.",
   "collapse_respond_history": "{0} answers the uprising and declares independence from {1}.",
+  "collapse_fall_history": "The realm is carved up among warlords: {0} keeps only {1} cities of the {2} it held before the collapse, and the empire falls.",
   "collapse_war_name": "The {0} Uprising",
   "coup_history": "Mutiny at {0}: the generals acclaim {1} and drape him in the imperial robe; {2} abdicates, and the realm is now {3}.",
   "personal_history_coup_leader": "Acclaimed by the generals in the mutiny at {0}, replacing {1}",

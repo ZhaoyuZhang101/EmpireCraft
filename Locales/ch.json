@@ -1050,6 +1050,7 @@
   "rebellion_reason_collapse": "朝廷失馭，各省離心",
   "collapse_first_history": "{0}首義，宣布脫離{1}獨立，各省震動。",
   "collapse_respond_history": "{0}響應起義，宣布脫離{1}獨立。",
+  "collapse_fall_history": "群雄割據，{0}只剩{1}城(瓦解前{2}城)，帝國滅亡。",
   "collapse_war_name": "{0}起義",
   "coup_history": "{0}兵變：衆將擁立{1}，黃袍加身，{2}禪位，國號{3}。",
   "personal_history_coup_leader": "於{0}兵變，被衆將擁立，取代{1}",

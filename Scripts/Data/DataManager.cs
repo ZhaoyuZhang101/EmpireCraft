@@ -185,6 +185,9 @@ public static class DataManager
                 religion.SyncData(entry);
         }
         LogService.LogInfo("Sync Religion Data");
+        // 史书与已亡帝国名录先读进来：下面整理帝国时就可能有帝国解散，要记进这两处(见 EmpireManager.dissolveEmpire)
+        ModClass.ALL_HISTORY_DATA = saveData.all_history;
+        FallenEmpireRecords.Load(saveData.fallen_empires);
         EmpireMembershipService.NormalizeLoadedMembership(saveData.empireDatas, World.world.kingdoms,
             new HashSet<long>(saveData.kingdomExtraData.Where(entry => entry != null).Select(entry => entry.id)));
         foreach (EmpireData empireData in saveData.empireDatas)
@@ -217,6 +220,7 @@ public static class DataManager
         }
         // 只整理成员与核心国，不跑帝国月度更新：帝国核心、法理、宗族等还在后面才读(见 EmpireManager.RepairAfterLoad)
         ModClass.EMPIRE_MANAGER.RepairAfterLoad();
+        FallenEmpireRecords.AdoptArchived(ModClass.EMPIRE_MANAGER);
         LogService.LogInfo("Sync Empire Data");
         BookNamingSystem.RepairLegacyNames();
         EmpireCoreManager.EmpireCores = BuildEmpireCoreMap(saveData.empireCoreDatas);
@@ -283,7 +287,6 @@ public static class DataManager
         LogService.LogInfo("Sync Titles Data");
         ConfigData.yearNameSubspecies = saveData.yearNameSubspecies;
         LogService.LogInfo("Sync history Data");
-        ModClass.ALL_HISTORY_DATA = saveData.all_history;
         ModClass.CULTURE_NO_EMPIRE_SINCE = saveData.culture_no_empire_since ?? new Dictionary<string, double>();
         ModClass.FEUDAL_EMPIRE_LINEAGE = saveData.feudal_empire_lineage ?? new Dictionary<string, List<long>>();
         ModClass.MOD_ALLIANCE_IDS = new HashSet<long>(saveData.mod_alliance_ids ?? new List<long>());
@@ -459,6 +462,7 @@ public static class DataManager
         }
         saveData.yearNameSubspecies = ConfigData.yearNameSubspecies;
         saveData.all_history = ModClass.ALL_HISTORY_DATA;
+        saveData.fallen_empires = FallenEmpireRecords.Save();
         saveData.culture_no_empire_since = ModClass.CULTURE_NO_EMPIRE_SINCE;
         saveData.feudal_empire_lineage = ModClass.FEUDAL_EMPIRE_LINEAGE;
         saveData.mod_alliance_ids = ModClass.MOD_ALLIANCE_IDS.ToList();

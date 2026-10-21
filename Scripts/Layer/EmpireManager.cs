@@ -174,11 +174,15 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
     }
 
 
-    public void dissolveEmpire(Empire pEmpire)
+    // continued：皇族王国接续(见 Empire.ReplaceEmpire)，同一帝国换了中央，不记进已亡帝国名录
+    public void dissolveEmpire(Empire pEmpire, bool continued = false)
     {
         if (pEmpire == null) return;
         // 帝国只从这里解散：记下是谁、由哪几层调用解散的(见 EmpireLossDiagnostics)
         EmpireCraft.Scripts.Diagnostics.EmpireLossDiagnostics.OnDissolving(pEmpire);
+        // 末代君主的在位记录收进史书(移除后只剩 ALL_HISTORY_DATA 里的史书可查)；趁核心国还在记进已亡名录
+        pEmpire.CloseCurrentReignRecord();
+        if (!continued) FallenEmpireRecords.Record(pEmpire);
         EmpireCore falseCore = EmpireCoreManager.Get(pEmpire);
         bool destroyFalseCore = falseCore?.false_core_against_empire_id > 0 &&
                                 !EmpireCoreManager.GetEmpires(falseCore)
@@ -238,6 +242,7 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
     
     public void PurgeArchivedOlderThanYears(int years)
     {
+        FallenEmpireRecords.PurgeOlderThanYears(years);
         var list = this.ToList();
         foreach (var e in list)
         {

@@ -954,6 +954,20 @@ public class Empire : MetaObject<EmpireData>
         return false;
     }
 
+    // 帝国解散：末代君主的在位记录还挂在 currentHistory 上，收进史书再随帝国归档(见 Dispose、EmpireManager.dissolveEmpire)
+    public void CloseCurrentReignRecord()
+    {
+        if (data?.currentHistory == null) return;
+        data.history ??= new List<EmpireCraftHistory>();
+        if (!data.history.Contains(data.currentHistory))
+        {
+            if (data.newEmperor_timestamp > 0d)
+                data.currentHistory.total_time = Date.getYearsSince(data.newEmperor_timestamp);
+            data.history.Add(data.currentHistory);
+        }
+        data.currentHistory = null;
+    }
+
     public void EmperorLeft()
     {
         Actor emperor = Emperor;
@@ -1601,7 +1615,7 @@ public class Empire : MetaObject<EmpireData>
         }
         
         newKingdom.SetKingdomCoreName(newEmpire.GetEmpireName(), newEmpire.data.name);
-        ModClass.EMPIRE_MANAGER.dissolveEmpire(this);
+        ModClass.EMPIRE_MANAGER.dissolveEmpire(this, continued: true);
         return true;
     }
     public sealed override void setDefaultValues()
@@ -1813,6 +1827,8 @@ public class Empire : MetaObject<EmpireData>
         Regime regime = coreKingdom.GetRegime();
         CompositeEmpireService.Update(this);
         ConstitutionalEconomySystem.Update(this);
+        // 土崩瓦解收束时可能就此灭亡，后面的更新不再跑
+        if (IsArchived()) return;
         InstitutionSystem.Update(this);
         // 上面的制度更新可能在本帧直接完成改制。后续行为必须读取新政体，
         // 否则刚进入现代的国家还会按旧郡县制配置再册封一次。

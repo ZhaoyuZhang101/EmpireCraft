@@ -239,6 +239,7 @@ public class SaveManagerPatch : GamePatch
         ModClass.EMPIRE_MANAGER = new EmpireManager();
         ModClass.KINGDOM_TITLE_MANAGER = new KingdomTitleManager();
         ModClass.ALL_HISTORY_DATA = new Dictionary<long, List<EmpireCraftHistory>>();
+        FallenEmpireRecords.ResetWorldState();
         ModClass.CULTURE_NO_EMPIRE_SINCE = new Dictionary<string, double>();
         ModClass.FEUDAL_EMPIRE_LINEAGE = new Dictionary<string, List<long>>();
         ModClass.MOD_ALLIANCE_IDS = new HashSet<long>();

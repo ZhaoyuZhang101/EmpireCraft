@@ -33,6 +33,11 @@ namespace EmpireCraft.Scripts.UI.Windows
         private int _page;
         private int _generation;
         private Empire _empire;
+        // 已亡帝国(已从帝国管理器移除，只剩 ALL_HISTORY_DATA 里的史书，见 FallenEmpireRecords)：按名录打开
+        private static string _pendingArchivedName;
+        private static List<EmpireCraftHistory> _pendingArchivedHistories;
+        private string _archivedName;
+        private List<EmpireCraftHistory> _archivedHistories;
         private EmpireCraftHistory _expandedHistory;
         // 横屏主从布局：左栏固定的历代名单(分页)，右侧是选中这一位的详情与记事
         private AutoVertLayoutGroup _rail;
@@ -61,6 +66,20 @@ namespace EmpireCraft.Scripts.UI.Windows
             UIHelper.FixWideWindowScrollArea(BackgroundTransform);
             StartCoroutine(UIHelper.StabilizeWideWindowScrollArea(BackgroundTransform));
             _empire = EmpireCraftMetaTypeLibrary.selected_empire;
+            if (_pendingArchivedHistories != null)
+            {
+                _archivedName = _pendingArchivedName;
+                _archivedHistories = _pendingArchivedHistories;
+                _pendingArchivedName = null;
+                _pendingArchivedHistories = null;
+            }
+            // 打开的是别的帝国、别处的史书时不再沿用上回的已亡帝国(从子窗口返回时选中的仍在其中，照旧保留)
+            else if (_empire != null || _archivedHistories == null ||
+                     !_archivedHistories.Contains(ConfigData.CURRENT_SELECTED_HISTORY))
+            {
+                _archivedName = null;
+                _archivedHistories = null;
+            }
             _histories.Clear();
             _histories.AddRange(GetDisplayHistories());
             _eventPages.Clear();
@@ -70,6 +89,15 @@ namespace EmpireCraft.Scripts.UI.Windows
             BuildIdentityIndex();
             ShowPersonalHistory();
         }
+        public static void ShowArchived(string name, List<EmpireCraftHistory> histories)
+        {
+            _pendingArchivedName = name ?? "";
+            _pendingArchivedHistories = histories ?? new List<EmpireCraftHistory>();
+            EmpireCraftMetaTypeLibrary.selected_empire = null;
+            ConfigData.CURRENT_SELECTED_HISTORY = _pendingArchivedHistories.LastOrDefault();
+            ScrollWindow.showWindow(nameof(EmpireHistoryWindow));
+        }
+
         public void ShowPersonalHistory(Vector3? restorePosition = null)
         {
             Clear();
@@ -109,7 +137,10 @@ namespace EmpireCraft.Scripts.UI.Windows
             UIHelper.ClearRail(_rail);
             if (_rail == null) return;
             var list = _rail.BeginRailCard("FactionFrame_dominate");
-            list.AddRailText((_empire?.GetEmpireFullName() ?? LM.Get("label_none")).ColorString("#F3C34A"), 9, 13f);
+            string title = _empire?.GetEmpireFullName();
+            if (string.IsNullOrWhiteSpace(title)) title = _archivedName;
+            if (string.IsNullOrWhiteSpace(title)) title = LM.Get("label_none");
+            list.AddRailText(title.ColorString("#F3C34A"), 9, 13f);
             list.AddRailText(string.Format(LM.Get("lineage_chip_total"), _histories.Count).ColorString("#8FA0A8"), 6, 9f);
             int start = _page * PageSize;
             int end = Mathf.Min(_histories.Count, start + PageSize);
@@ -251,6 +282,14 @@ namespace EmpireCraft.Scripts.UI.Windows
                 for (int i = _empire.data.history.Count - 1; i >= 0; i--)
                 {
                     EmpireCraftHistory history = _empire.data.history[i];
+                    if (history != null && seen.Add(history)) result.Add(history);
+                }
+            }
+            if (_archivedHistories != null)
+            {
+                for (int i = _archivedHistories.Count - 1; i >= 0; i--)
+                {
+                    EmpireCraftHistory history = _archivedHistories[i];
                     if (history != null && seen.Add(history)) result.Add(history);
                 }
             }

@@ -550,9 +550,10 @@ public static class EmpireCoreManager
     {
         if (empire?.CoreKingdom == null || title?.title_capital?.kingdom == null) return int.MaxValue;
         Kingdom source = title.title_capital.kingdom;
+        // 越亲近越好收：异文化最贵、异种其次、同种同文化最便宜(以前反过来，同文化要一万，几乎收不进来)
+        if (source.GetEmpireCraftCulture() != empire.CoreKingdom.GetEmpireCraftCulture()) return 10000;
         if (source.getSpecies() != empire.CoreKingdom.getSpecies()) return 3000;
-        if (source.GetEmpireCraftCulture() != empire.CoreKingdom.GetEmpireCraftCulture()) return 1500;
-        return 10000;
+        return 1500;
     }
 
     public static bool TryAbsorbTitle(Empire empire, KingdomTitle title)

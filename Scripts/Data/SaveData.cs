@@ -38,6 +38,8 @@ public class SaveData
     public TalentSaveData famousTalents = new TalentSaveData();
     public List<string> yearNameSubspecies = new List<string>();
     public Dictionary<long, List<EmpireCraftHistory>> all_history;
+    // 已亡帝国名录(见 FallenEmpireRecords)
+    public List<FallenEmpireRecord> fallen_empires = new List<FallenEmpireRecord>();
     public Dictionary<string, double> culture_no_empire_since = new Dictionary<string, double>();
     public Dictionary<string, List<long>> feudal_empire_lineage = new Dictionary<string, List<long>>();
     public List<long> mod_alliance_ids = new List<long>();

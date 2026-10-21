@@ -176,6 +176,16 @@ public class EmpireCraftKingdomBehCheckKing : GameAIKingdomBase
                 Empire empire = pKingdom.GetEmpire();
                 if (empire != null && !empire.isRekt() && !empire.IsArchived())
                 {
+                    // 继承人的本国在帝国之外(非华夏可由外国君主入继，见 ForeignRuler)：先编入帝国再立为中央。
+                    // 以前直接改中央，新中央不是成员，旧中央的城并过去后帝国名存实亡，地图上看已经没了
+                    if (!empire.hasKingdom(lastKingdom))
+                        empire.join(lastKingdom, pForce: true, pLegitimacyTransfer: true);
+                    if (!empire.hasKingdom(lastKingdom))
+                    {
+                        pKingdom.RemoveHeir();
+                        pKingdom.StartToChooseHeir();
+                        return;
+                    }
                     empire.CoreKingdom = lastKingdom;
                     // 继承人带着自己的封国入继大统：国号不随他的封国改(换了皇族的，由 Empire.NewEmperor 的篡位分支另定国号)
                     empire.KeepNameOnNewCore();
