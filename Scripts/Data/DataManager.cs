@@ -262,6 +262,7 @@ public static class DataManager
         // 修复：临时子核心抢走的原核心城市归还原核心(见 EmpireCoreManager.RestoreParentCities)
         EmpireCoreManager.RepairContestedCoreOwners();
         EmpireCoreManager.RestoreAllParentCities();
+        EmpireCoreManager.RepairUntitledCoreCities();
         EmpireCoreManager.ReconcileCityCores();
         CultureService.MigrateWorldCultureData();
         SpecificClanManager._specificClans = saveData.specificClans;

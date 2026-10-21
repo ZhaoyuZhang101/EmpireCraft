@@ -2054,17 +2054,7 @@ namespace EmpireCraft.Scripts.AI
                     TranslateHelper.LogCreateTitle(kingdom, title);
                     title.owner = pActor;
                     pActor.AddOwnedTitle(title);
-                    var emp = kingdom.GetEmpire();
-                    foreach(City c in kingdom.cities)
-                    {
-                        if (!c.hasTitle())
-                        {
-                            if (!KingdomTitleManager.HasRoomFor(title)) break;
-                            title.addCity(c);
-                            TranslateHelper.LogCityAddToTitle(c, title);
-                            var emp2 = kingdom.GetEmpire();
-                        }
-                    }
+                    KingdomTitleManager.AddUntitledCities(title, kingdom);
                     return true;
                 }
             });
@@ -2093,13 +2083,7 @@ namespace EmpireCraft.Scripts.AI
                     Kingdom kingdom = pActor.kingdom;
                     var mainTitle = kingdom.GetMainTitle();
                     if (mainTitle == null) return false;
-                    var noneTitleCities = kingdom.cities.FindAll(c => !c.hasTitle());
-                    foreach (City city in noneTitleCities)
-                    {
-                        if (!KingdomTitleManager.HasRoomFor(mainTitle)) break;
-                        mainTitle.addCity(city);
-                        TranslateHelper.LogCityAddToTitle(city, mainTitle);
-                    }
+                    KingdomTitleManager.AddUntitledCities(mainTitle, kingdom);
                     return true;
                 }
             });

@@ -77,6 +77,24 @@ public class KingdomTitleManager : MetaSystemManager<KingdomTitle, KingdomTitleD
         return max <= 0 || title == null || CountTitleCities(title) + adding <= max;
     }
 
+    // 把本国还没有法理的城市并进指定法理(受单个法理城市上限约束)，返回并入城数。
+    // 新立的法理只收都城一座；称帝时按国家持有的法理登记帝国法理，漏掉其余城市，帝国法理、天下就只剩都城一块地
+    public static int AddUntitledCities(KingdomTitle title, Kingdom kingdom, bool log = true)
+    {
+        if (title == null || title.isRekt() || kingdom == null || kingdom.isRekt() || kingdom.cities == null) return 0;
+        int added = 0;
+        foreach (City city in kingdom.cities.ToList())
+        {
+            if (city == null || city.isRekt() || city.hasTitle() ||
+                EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(city)) continue;
+            if (!HasRoomFor(title)) break;
+            title.addCity(city);
+            if (log) TranslateHelper.LogCityAddToTitle(city, title);
+            added++;
+        }
+        return added;
+    }
+
     public void AddCityToTitle(KingdomTitle pTitle, City pCity)
     {
         if (pTitle != null && pCity != null)

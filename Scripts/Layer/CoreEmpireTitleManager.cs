@@ -241,6 +241,26 @@ public static class EmpireCoreManager
         return fixedCount;
     }
 
+    // 读档修复：0.4.7Beta1 称帝前补立的首府法理只收了都城，帝国法理、天下都只剩一块地。
+    // 现存帝国本国还没有法理的城并进主法理(主法理须在本帝国法理里)，只动无法理的城，不改既有法理
+    public static int RepairUntitledCoreCities()
+    {
+        if (ModClass.EMPIRE_MANAGER == null || ModClass.KINGDOM_TITLE_MANAGER == null) return 0;
+        int added = 0;
+        foreach (Empire empire in ModClass.EMPIRE_MANAGER.ToList())
+        {
+            if (empire == null || empire.isRekt() || empire.IsArchived()) continue;
+            Kingdom kingdom = empire.CoreKingdom;
+            if (kingdom == null || kingdom.isRekt() ||
+                EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(kingdom)) continue;
+            KingdomTitle title = kingdom.GetMainTitle();
+            if (title == null || !ContainsTitle(Get(empire), title)) continue;
+            added += KingdomTitleManager.AddUntitledCities(title, kingdom, log: false);
+        }
+        if (added > 0) NeoModLoader.services.LogService.LogInfo($"[EmpireCraft][法理] 帝国本国无法理的城已并入主法理 {added} 座");
+        return added;
+    }
+
     public static List<Empire> GetEmpires(EmpireCore core)
     {
         if (core == null) return new List<Empire>();

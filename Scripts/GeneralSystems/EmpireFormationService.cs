@@ -87,6 +87,8 @@ public static class EmpireFormationService
         kingdom.king.AddOwnedTitle(title);
         kingdom.SetMainTitle(title);
         EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogCreateTitle(kingdom, title);
+        // 同"立法理"谋划：本国其余无法理的城一并收进来，否则称帝后帝国法理只有都城一座
+        KingdomTitleManager.AddUntitledCities(title, kingdom);
         return kingdom.HasMainTitle();
     }
 

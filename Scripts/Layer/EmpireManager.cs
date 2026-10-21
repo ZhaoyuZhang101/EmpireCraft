@@ -303,6 +303,9 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
         empire.data.timestamp_given_time = World.world.getCurWorldTime();
         // 立国时间(开国气象 Empire.InFoundingGrace 用)
         empire.data.created_time = World.world.getCurWorldTime();
+        // 帝国法理按本国持有的法理登记：先把本国还没有法理的城收进主法理，免得帝国法理、天下只剩都城一块地
+        KingdomTitle foundingTitle = pKingdom.GetMainTitle();
+        if (foundingTitle != null) KingdomTitleManager.AddUntitledCities(foundingTitle, pKingdom);
         // bindCore：称帝时指定绑哪个帝国法理(据有法理，见 RealmNamingSystem.PlanDominionBinding)
         var riseCore = forceNewCore ? null : bindCore ?? EmpireCoreManager.GetRiseCandidateCore(pKingdom);
         // 候选核心已归属别的现存帝国时不能抢过来(主法理在别国核心里的根本不能称帝，见 EmpireFormationService)；
