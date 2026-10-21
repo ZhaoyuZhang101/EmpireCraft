@@ -91,6 +91,8 @@ public static class EmpireCraftStrategicScheduler
         kingdomManager?.checkLists();
         IList<Kingdom> kingdoms = kingdomManager?.list;
         var empireManager = ModClass.EMPIRE_MANAGER;
+        // 每月整理一次帝国存续：没有领土的帝国就此解散(见 EmpireManager.CheckLiveness)；放在取帝国列表之前
+        using (FrameProfiler.Measure("帝国存续")) empireManager?.CheckLiveness();
         empireManager?.checkLists();
         IList<Empire> empires = empireManager?.list;
 

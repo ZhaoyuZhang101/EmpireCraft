@@ -47,6 +47,20 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
         Process(runEmpireUpdates: false);
     }
 
+    private double _lastLivenessCheck = -1d;
+
+    // 战略调度每帧调用，自带月度计时：整理成员与核心国、解散已没有领土的帝国(同读档时，不跑帝国月度更新)。
+    // 帝国管理器不在原版的管理器列表里，update 只在存档、读档时跑：核心国丢光城池、各省都已独立的帝国，
+    // 地图上早已解体，帝国界面却一直显示现存，要到下次存档才解散
+    public void CheckLiveness()
+    {
+        double now = World.world?.getCurWorldTime() ?? -1d;
+        if (now < 0d) return;
+        if (_lastLivenessCheck >= 0d && now >= _lastLivenessCheck && Date.getMonthsSince(_lastLivenessCheck) < 1) return;
+        _lastLivenessCheck = now;
+        Process(runEmpireUpdates: false);
+    }
+
     private void Process(bool runEmpireUpdates)
     {
         // 创建集合副本进行遍历
