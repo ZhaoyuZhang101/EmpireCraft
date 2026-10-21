@@ -14,7 +14,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 
 // 埃米尔坐大(用户 2026-10-17 转群友"游牧太强了几乎不会分封""还有阿拉伯"，选"埃米尔行省世袭坐大")：
 //   · 阿拉伯政体的帝国打下的法理设为行省，由朝廷派的埃米尔治理(考选、不世袭、不通外交，见 Empire.update 的领土分封)；
-//   · 哈里发正统不到 50 时，每个行省每年有 (50 − 正统)% 的机会埃米尔世袭其位：法理归他所有，改为世袭、通外交、
+//   · 哈里发正统不到 65 时(以前 50：正常的哈里发正统七八十，行省从不坐大；用户 2026-10-21 选"平常年景也坐大")，
+//     每个行省每年有 (65 − 正统)% 的机会埃米尔世袭其位：法理归他所有(没有行政法理的行省也会坐大)，改为世袭、通外交、
 //     不再支援中央军——正统再掉到 40 以下就能拥兵自立为苏丹国(见 kingdom_allow_independent)；
 //   · 鞭长莫及(用户 2026-10-19 选"鞭长莫及也会坐大""按帝国大小算")：正统再高，边远的行省也会坐大——各行省按都城离
 //     帝国都城的远近排位，最远的三成才有份：排在七成处为 0，越往外越高，最远的到顶；顶多少看帝国多大，
@@ -23,25 +24,28 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 埃米尔割据(用户 2026-10-20 选"阿拉伯也照游牧那样修"；以前世袭的埃米尔照旧缴两成税，"拥兵自立"又要正统 40 以下、
 //   都城不稳、对朝廷没有好感——同帝国 +100、受封五十年内 +100、圣城 +200 起，正统掉到个位数都自立不了，哈里发国从不分裂)：
 //   · 世袭的埃米尔(阿拉伯政体、世袭、通外交的成员)只向中央缴 HereditaryCentralPercent 的税(见 TreasurySystem.TaxShares)；
-//     行省缴 ProvinceCentralPercent(以前与世袭诸侯同为两成、本省留五成五，行省既听调遣又养得起兵，打起仗来比律令的道多出一两倍兵)；
+//     行省缴 ProvinceCentralPercent(以前与世袭诸侯同为两成、本省留五成五，行省既听调遣又养得起兵，打起仗来比律令的道多出一两倍兵；
+//     2026-10-21 由四成再提到五成，本省留两成五)；
+//   · 边远的行省(远近排位在 DistantPercentile 以外)不奉诏远征，仗打到家门口才就近应战(见 DistantProvinces、WarScopeSystem.OrderMembers)；
 //   · 世袭满 BreakawayTenureYears 年的，每年按 边远(鞭长莫及那一项)×0.5 + (55 − 正统)×0.5 + 每丢一成城 3 掷一次(%)，
 //     兵力占帝国一成半以上再 ×1.5，至多 15%；每个帝国每年至多一家，苏丹(权臣)自己的国、开国气象里不割据；
-//   · 正统 50 以上：和平脱离——名义上仍奉哈里发，改为朝贡国(还没有朝贡制度的改为附庸，再不行就自立)；
-//     正统不到 50：举兵自立，与朝廷开战(地方独立，同汗位更替之乱，见 NomadCycleSystem.DeclareIndependence)。
+//   · 正统 65 以上：和平脱离——名义上仍奉哈里发，改为朝贡国(还没有朝贡制度的改为附庸，再不行就自立)；
+//     正统不到 65(以前 50；用户 2026-10-21 选"割据真丢地")：举兵自立，与朝廷开战(地方独立，同汗位更替之乱，见 NomadCycleSystem.DeclareIndependence)。
 // 苏丹架空哈里发(用户 2026-10-19 选"补……苏丹架空哈里发""改用权臣机制")：本文化施行"苏丹官僚"后，哈里发照旧在位、
 // 成为傀儡，苏丹以权臣掌实权、在本家承袭(同幕府的征夷大将军，见 MilitaryRegency)；离开阿拉伯政体时不再有苏丹。
 public static class EmirateSystem
 {
-    public const int WeakLegitimacy = 50, StrongLegitimacy = 60;
+    public const int WeakLegitimacy = 65, StrongLegitimacy = 60;
     // 鞭长莫及：远近排位在 DistantPercentile 以外的行省有份；最远的每年机会(%)按帝国城数从 SmallMax 平滑升到 LargeMax
     public const float DistantPercentile = 0.7f;
     public const float DistantSmallMax = 4f, DistantLargeMax = 10f;
     public const int DistantSmallCities = 8, DistantLargeCities = 40;
-    // 央地分成(见 TreasurySystem.TaxShares)：行省向中央缴四成(本省留三成五)，世袭的埃米尔缴一成二
-    // (用户 2026-10-20 定：以前只缴半成，哈里发的钱袋被世袭埃米尔掏空，阿拉伯中央财政四系最薄)
-    public const int ProvinceCentralPercent = 40, HereditaryCentralPercent = 12;
+    // 央地分成(见 TreasurySystem.TaxShares)：行省向中央缴五成(本省留两成五，略多于律令的道)，世袭的埃米尔缴一成二
+    // (用户 2026-10-20 定：以前只缴半成，哈里发的钱袋被世袭埃米尔掏空，阿拉伯中央财政四系最薄；
+    //  2026-10-21 用户选"行省少留钱养兵"：行省四成 → 五成，兵额按本省财力算，行省的军约少三成)
+    public const int ProvinceCentralPercent = 50, HereditaryCentralPercent = 12;
     // 割据：世袭满几年才有份；正统到多少以上和平脱离、改为朝贡；各项系数
-    public const int BreakawayTenureYears = 15, PeacefulLegitimacy = 50, BreakawayWeakLegitimacy = 55;
+    public const int BreakawayTenureYears = 15, PeacefulLegitimacy = 65, BreakawayWeakLegitimacy = 55;
     public const float BreakawayDistantShare = 0.5f, BreakawayWeakShare = 0.5f, BreakawayPerLostTenth = 3f,
         BreakawayStrongShare = 0.15f, BreakawayStrongFactor = 1.5f, BreakawayMax = 15f;
     public const string SecessionReason = "rebellion_reason_emirate_secession";
@@ -87,15 +91,20 @@ public static class EmirateSystem
             if (kingdom?.data == null || kingdom.isRekt() || kingdom == empire.CoreKingdom || kingdom.king == null) continue;
             Regime regime = kingdom.GetRegime();
             KingdomTitle title = kingdom.GetAdministrativeTitle();
-            if (regime?.type != RegimeType.Arabic || title == null || kingdom.GetMainTitle() != null) continue;
+            // 没有行政法理的行省(飞地拆出来的)以前永远不会坐大；已世袭的不再重复
+            if (regime?.type != RegimeType.Arabic || kingdom.GetMainTitle() != null || IsHereditaryEmir(empire, kingdom) ||
+                title == null && kingdom.GetKingdomType() != KingdomType.Arabic_province) continue;
             distantChances.TryGetValue(kingdom.id, out float distantChance);
             if (UnityEngine.Random.value * 100f >= global::System.Math.Max(weakChance, distantChance)) continue;
             // 史书按主因写：远在边陲写鞭长莫及，否则写朝廷衰微
             bool distant = distantChance > weakChance;
             try
             {
-                kingdom.king.AddOwnedTitle(title);
-                kingdom.SetMainTitle(title);
+                if (title != null)
+                {
+                    kingdom.king.AddOwnedTitle(title);
+                    kingdom.SetMainTitle(title);
+                }
                 regime.SetLeaderSelectMethod(LeaderSelectMethod.Succession);
                 regime.SetAllowDiplomacy(true);
                 regime.SetAllowSupportCenterArmy(false);
@@ -229,6 +238,12 @@ public static class EmirateSystem
         }
         return result;
     }
+
+    // 边远的行省：远近排位在 DistantPercentile 以外的阿拉伯政体成员，不奉诏远征(见 WarScopeSystem.OrderMembers)
+    public static HashSet<long> DistantProvinces(Empire empire) =>
+        empire?.data == null || empire.CoreKingdom == null || !Applies(empire)
+            ? new HashSet<long>()
+            : new HashSet<long>(DistantChances(empire).Keys);
 
     // 最远行省每年的机会(%)：城数从 DistantSmallCities 到 DistantLargeCities 按 smoothstep 由 SmallMax 升到 LargeMax
     public static float DistantMax(int cities)

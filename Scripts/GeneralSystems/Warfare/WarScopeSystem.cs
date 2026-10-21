@@ -225,6 +225,8 @@ public static class WarScopeSystem
         Empire empire = core.GetEmpire();
         if (empire?.CoreKingdom != core || empire.kingdoms_list == null || ZhouEraSystem.Era(empire) >= ZhouEraSystem.Warring)
             return;
+        // 哈里发国边远的行省不奉诏远征，仗打到家门口才就近应战(用户 2026-10-21 选"边远行省不听调遣"，见 EmirateSystem.DistantProvinces)
+        HashSet<long> distant = EmirateSystem.DistantProvinces(empire);
         foreach (War war in core.getWars().ToList())
         {
             if (Alive(war) == null) continue;
@@ -232,7 +234,7 @@ public static class WarScopeSystem
             foreach (Kingdom member in empire.kingdoms_list.ToList())
             {
                 if (member?.data == null || member == core || member.isRekt() || member.IsFactionRebelling() ||
-                    member.IsLocalRebelling() || !EmpirePeacePatch.Obeys(empire, member) ||
+                    member.IsLocalRebelling() || !EmpirePeacePatch.Obeys(empire, member) || distant.Contains(member.id) ||
                     !(attacking ? war.isAttacker(member) : war.isDefender(member)) || !Dispatch(member, war)) continue;
                 FrontSystem.Log(core, string.Format(LM.Get("corps_log_court_order"), member.GetKingdomName()));
                 FrontSystem.Log(member, LM.Get("corps_log_obey_order"));

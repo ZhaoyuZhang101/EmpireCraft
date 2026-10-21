@@ -38,8 +38,8 @@ public static class NomadCycleSystem
     // 雄主之后第一次汗位更替：每部起码的机会(平时 BaseSplit)、上限
     private const float HeroBaseSplit = 0.4f, HeroSplitCap = 0.75f;
     public const string HeroSuccessionReason = "rebellion_reason_hero_khan_succession";
-    // 哈里发更替之乱：正统门槛、机会(比汗国轻)
-    private const int ArabicCrisisLegitimacy = 55;
+    // 哈里发更替之乱：正统门槛、机会(比汗国轻)；门槛 55 → 70(用户 2026-10-21 选"平常年景也坐大"：正常的哈里发正统七八十，以前从不发作)
+    private const int ArabicCrisisLegitimacy = 70;
     private const float ArabicBaseSplit = 0.1f, ArabicMaladySplit = 0.4f;
     public const string FitnaReason = "rebellion_reason_emirate_fitna";
 
