@@ -53,7 +53,7 @@ public static class DynasticCycleSystem
         change += FactionBalanceSystem.StrainDelta(empire);
         // 连年饥荒(见 FamineUnrestSystem)
         change += FamineUnrestSystem.StrainDelta(empire);
-        // 历史周期律：积弊随王朝年岁慢慢沉积，开国气象里不涨、立国头 50 年四分之一、百年内六成(同 MaladySystem.Pace)
+        // 历史周期律：积弊随王朝年岁慢慢沉积，开国气象里不涨、立国头 80 年二成、160 年内四成五(同 MaladySystem.Pace)
         if (change > 0f) change *= MaladySystem.Pace(empire);
         state.dynastic_strain = DynasticCycleRules.Advance(state.dynastic_strain, change);
         MonarchyLegitimacy.Invalidate(empire);

@@ -39,6 +39,8 @@ public static class EmpireFormationService
     public const int MinimumCities = 3;
     private const int FallbackYears = 50;
     private const int RestorationYears = 100;
+    // 亡国后至少这么多年才能复国(乱世最短时长，见 MeetsRestoration)
+    private const int RestorationMinYears = 20;
     private const float HegemonyRatio = 2f;
     private const int FailureCooldownYears = 10;
     private const int FailureRenownPenalty = 30;
@@ -130,7 +132,10 @@ public static class EmpireFormationService
             if (empire == null || empire.isRekt() || empire.IsArchived() || empire.CoreKingdom == null ||
                 empire.CoreKingdom == kingdom || kingdom.GetEmpire() == empire) continue;
             if (!string.Equals(CultureService.GetRealmCulture(empire.CoreKingdom), culture, StringComparison.Ordinal)) continue;
-            double total = empire.kingdoms_list?.Where(member => member != null && !member.isRekt())
+            // 哈里发国只算本国与行省：世袭的埃米尔各行其是，不替哈里发挡着(用户 2026-10-21 选"空壳可取代"：
+            // 强埃米尔可另立哈里发，布韦希、法蒂玛式)
+            double total = empire.kingdoms_list?.Where(member => member != null && !member.isRekt() &&
+                                                                  !EmirateSystem.IsHereditaryEmir(empire, member))
                 .Sum(member => member.GetNationalPower()) ?? 0d;
             if (power <= total) return true;
         }
@@ -163,6 +168,8 @@ public static class EmpireFormationService
         if (clan == null || !clan.HasHistoryEmpire()) return false;
         if (clan.empire_fall_timestamp < 0 || Date.getYearsSince(clan.empire_fall_timestamp) > RestorationYears)
             return false;
+        // 亡国不满 RestorationMinYears 年不能复国(用户 2026-10-21 选"乱世最短时长"：以前旧家一到五年就借复国再称帝，乱世一转眼就过去)
+        if (Date.getYearsSince(clan.empire_fall_timestamp) < RestorationMinYears) return false;
         return ModClass.EMPIRE_MANAGER == null ||
                !ModClass.EMPIRE_MANAGER.Any(empire => empire != null && !empire.isRekt() &&
                                                       SpecificClanManager.SameLineage(empire.EmpireSpecificClan, clan));

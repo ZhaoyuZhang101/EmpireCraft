@@ -36,6 +36,12 @@ public static class RebellionSystem
     // 以前合计小于 0 就自立，正统一跌到门槛，好感平平的封地几年内几乎全走；改为明显离心(−50 以下)才自立——
     // 正统每低于门槛 1 点抵 5 点好感，好感平平(0)的封地要正统跌到 30 以下才走
     public const int SecessionThreshold = -50;
+    // 汗国的兀鲁思本就松散：向背低于 −20 就肯自立(用户 2026-10-21 选"游牧雄主死后真分裂")
+    public const int UlusSecessionThreshold = -20;
+
+    public static int SecessionThresholdFor(Kingdom kingdom, Empire empire) =>
+        NomadCycleSystem.IsKhanate(empire) && kingdom?.GetRegime()?.type == EmpireCraft.Scripts.Regimes.RegimeType.YouMu
+            ? UlusSecessionThreshold : SecessionThreshold;
     private static readonly HashSet<string> SecessionIgnoredOpinions = new()
         { "opinion_in_same_empire", "opinion_just_enfeoff", "opinion_empire_loyalty" };
 

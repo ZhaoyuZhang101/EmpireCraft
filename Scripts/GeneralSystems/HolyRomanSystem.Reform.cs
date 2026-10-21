@@ -18,12 +18,13 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 帝国大区：成员国按都城所在分成几个大区(每四国一区，至多十区)，大区诸侯应征、缴摊派更可靠(抗命几率减半)，
 //     帝国禁令由被禁者所在大区最强的诸侯执行；
 //   · 议会投票整体 +0.1(诸侯认这套规矩)，正统 +3。
-// 分割继承(原型神圣罗马帝国的小邦林立)：封建制帝国里世袭诸侯死后，有几个儿子就有三成五可能把领国分给诸子
+// 分割继承(原型神圣罗马帝国的小邦林立)：封建制帝国里世袭诸侯死后，有几个儿子就有两成可能把领国分给诸子
 //   (长子承袭封国，其余城市按重要程度分给诸子，见 GraceEdictService)；选帝侯的领国不可分割(原型金玺诏书)。
 public static partial class HolyRomanSystem
 {
     public const string NodeImperialReform = "western_imperial_reform";
-    private const float PartibleChance = 0.35f;
+    // 三成五 → 两成：诸侯国越分越碎，王国一层永远整合不起来(用户 2026-10-21 选"减少碎片")
+    private const float PartibleChance = 0.2f;
     private const int MembersPerCircle = 4, MaxCircles = 10, CircleRefreshYears = 10;
     public const int ReformLegitimacy = 3;
 
@@ -39,14 +40,16 @@ public static partial class HolyRomanSystem
     public static bool ReformNodeEnacted(Empire empire) =>
         empire?.data != null && InstitutionSystem.IsEnacted(empire, NodeImperialReform);
 
-    // AI 选改革的加分(见 InstitutionSystem.TryStartAiReform)：有帝国议会的封建制帝国偏向帝国改革、避开与之互斥的
-    // 中央集权君主制，选帝制更甚。两者同在第五档，中央集权所需的官僚、常备军技术先到，以前多半先推了它，帝国改革就永远推不了
+    // AI 选改革的加分(见 InstitutionSystem.TryStartAiReform)：有帝国议会的选帝制帝国偏向先推帝国改革、后推中央集权君主制
+    // (两者同在第五档，中央集权所需的官僚、常备军技术先到)。两者已不再互斥，先推哪个都不锁死另一个；加分由选帝制 30、
+    // 世袭制 12 减为 15、0——以前加分再加互斥，西方文化一推帝国改革就永远推不了中央集权，王国一层整合不起来
+    // (用户 2026-10-21 选"西欧能整合、帝国能倒")
     public const string NodeCentralizedMonarchy = "western_centralized_monarchy";
 
     public static float ReformBias(Empire empire, InstitutionNodeConfig node)
     {
         if (node == null || node.id != NodeImperialReform && node.id != NodeCentralizedMonarchy || !HasDiet(empire)) return 0f;
-        float lean = IsElective(empire) ? 30f : 12f;
+        float lean = IsElective(empire) ? 15f : 0f;
         return node.id == NodeImperialReform ? lean : -lean;
     }
 
@@ -119,7 +122,7 @@ public static partial class HolyRomanSystem
         bool rolled = blocked == null && UnityEngine.Random.value < PartibleChance;
         PartibleTally.TryGetValue(empire.data.id, out var tally);
         PartibleTally[empire.data.id] = (tally.vacant + 1, tally.rolled + (rolled ? 1 : 0),
-            rolled ? tally.blocked : blocked ?? "没掷中(三成五)");
+            rolled ? tally.blocked : blocked ?? "没掷中(两成)");
         return rolled;
     }
 

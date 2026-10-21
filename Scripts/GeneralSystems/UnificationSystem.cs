@@ -18,10 +18,13 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // (领地接壤，或同一块陆地上相距不远)，隔着别的文化、隔得远的是另一个天下。
 // 一家 = 一个独立国家连同它的附庸；帝国连同各成员国、附庸算一家。都城在这片里的才是天下的一家
 // (用户 2026-10-15："到处都是统一战争，有的甚至跨文化跨地域打")：别的文化的国家占着几座城，不算天下的人，不是统一的对象。
-//   · 乱世：天下至少八座城、三家以上，没有哪家占到三成——群雄互伐，饥荒、民变照常；
-//   · 统一战争：一家占到三成，或国力是第二名的两倍(且至少占 8%)——天命所归，目标二十年内打完：
+//   · 乱世：天下至少八座城、三家以上，没有哪家占到四成——群雄互伐，饥荒、民变照常；
+//   · 统一战争：一家占到四成，或国力是第二名的两倍(且至少占 8%)——天命所归，目标二十年内打完：
+//       - 前朝(失了这个天下天命的，或宗族的帝国亡了的)失命、亡国后 FormerLockYears 年内(华夏 HuaxiaFormerLockYears)
+//         不能马上再问鼎，中兴之主在位除外(用户 2026-10-21 选"乱世最短时长""华夏有真乱世"：以前失命当年残部占三成就
+//         重启统一、统一期间又受开国气象庇护，乱世往往不到十年)；
 //       - 统一者每月挑接壤(或隔海相望)的一家开战(目标吞并)，同时可打四场，不必休战，不受三十年强制停战；
-//         天下里的别家都够不着、手上也没有统一战争，连着三年就算统一了能统一的；
+//         天下里的别家都够不着、手上也没有统一战争，连着三年就算统一了能统一的(要占到五成，不到就算统一受阻)；
 //       - 兵败如山倒(用户 2026-10-19："不要整个国家一次性把土地判过去，至少做成战线快速推进")：对方正规军打到剩不到
 //         满编一成半，又丢了都城或三分之一的城，仗打久了国内稳定度很差(各城平均不到 25，久战疲敝逐年压低)，
 //         连着两个月没缓过来——战线崩溃、推进快一倍，城仍一座座打(见 FrontCollapse)；
@@ -31,7 +34,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //         (以前不交战的也算，"不到统一者十分之一"也算打垮)；
 //       - 战线推进加快一半，十年后加倍(见 FrontSystem.PushFactor)；
 //       - 统一者处在开国气象里(见 InGrace)：积弊不涨、不起事、不分裂；
-//   · 统一完成(占到九成，或天下再没有别的独立势力)：开国气象延续三十年；之后积弊按王朝年岁慢慢沉积(见 MaladySystem.Pace)，
+//   · 统一完成(占到九成，或天下再没有别的独立势力)：开国气象延续三十年(同一家第二次统一只有十年)；之后积弊按王朝年岁慢慢沉积(见 MaladySystem.Pace)，
 //     末世崩溃，天下重回乱世，再出新的统一者。一个王朝只统一一次(改朝换代才能再来，见 OnDynastyChanged)；
 //   · 天命已失、统一中辍：地盘跌到 6% 以下，或不到两成、而且已不是天下国力最强的一家；天下里有别家的地盘比统一者还大；
 //     或打满三十年还没统一(玩家日志 2026-10-16：有的统一战争打了一百七十多年，一直处在开国气象里，不起事、不分裂)——
@@ -47,7 +50,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 周室分封(ZhouEraSystem)的天下另有一套春秋战国，不在这里管。
 public static class UnificationSystem
 {
-    private const float ContenderShare = 0.3f, PowerLead = 2f, PowerLeadMinShare = 0.08f, UnifiedShare = 0.9f,
+    private const float ContenderShare = 0.4f, PowerLead = 2f, PowerLeadMinShare = 0.08f, UnifiedShare = 0.9f,
         LostShare = 0.2f, CollapsedShare = 0.06f;
     // 两家就可以争(南北对峙、分治的两朝也要能统一，以前要三家，两强对峙永远不打统一战)
     private const int GraceYears = 30, MaxWars = 4, LateYears = 10, MinCities = 8, MinContenders = 2;
@@ -68,6 +71,12 @@ public static class UnificationSystem
     // 统一者连着几年够不着天下里的任何一家(也没在打)
     private static readonly Dictionary<long, int> Stalled = new();
     private const int StallYears = 3;
+    // 连着三年够不着别家时，要占到这么多才算统一完成，不到就是统一受阻
+    private const float StallUnifiedShare = 0.5f;
+    // 同一家第二次统一的开国气象(年)
+    private const int RepeatGraceYears = 10;
+    // 前朝失命、亡国后多少年内不能再问鼎(华夏另计)
+    private const int FormerLockYears = 20, HuaxiaFormerLockYears = 40;
     // 上次年度统计的天下：统一者 → 它天下里的别家(按都城距离排好)
     private static readonly Dictionary<long, List<Kingdom>> Rivals = new();
     // 诊断限频：游牧无雄主不能统一(国 → 上回记的时间)；统一满十年开国气象到期(国 → 记过的那次统一时间)
@@ -111,9 +120,13 @@ public static class UnificationSystem
         if (!InGrace(kingdom)) return -1;
         Kingdom sovereign = Sovereign(kingdom);
         var data = sovereign.GetOrCreate();
-        int years = IsNomad(sovereign) ? NomadGraceYears : GraceYears;
+        int years = GraceYearsOf(sovereign);
         return data.unified_at < 0d ? -1 : Math.Max(0, years - Date.getYearsSince(data.unified_at));
     }
+
+    // 统一后的开国气象有几年：游牧 NomadGraceYears；同一家第二次统一 RepeatGraceYears(用户 2026-10-21 选"华夏有真乱世")；其余 GraceYears
+    private static int GraceYearsOf(Kingdom sovereign) =>
+        IsNomad(sovereign) ? NomadGraceYears : sovereign.GetOrCreate().unify_repeat ? RepeatGraceYears : GraceYears;
 
     // 开国气象：统一战争期间、统一后三十年(见 Empire.InFoundingGrace、RebellionSystem.CanAttempt)；
     // 游牧政权只在记下的雄主在位时有，统一后至多 NomadGraceYears 年(见文件头游牧难一统)
@@ -127,7 +140,7 @@ public static class UnificationSystem
         if (nomad && !HeroReigns(sovereign)) return false;
         if (data.unify_since >= 0d) return true;
         if (World.world.getCurWorldTime() < data.unified_at ||
-            Date.getYearsSince(data.unified_at) >= (nomad ? NomadGraceYears : GraceYears)) return false;
+            Date.getYearsSince(data.unified_at) >= GraceYearsOf(sovereign)) return false;
         // 统一后的开国气象就是受天命的治世开头(用户 2026-10-19 选"以天命为准")：天命丢了气象就散了——
         // 以前统一"完成"却没受天命，天下显示乱世，开国气象却还在
         return TianxiaSystem.LeadOf(sovereign.capital) == null || TianxiaSystem.MandateOf(sovereign) != null;
@@ -198,6 +211,22 @@ public static class UnificationSystem
         var data = core.GetOrCreate();
         data.unify_since = -1d;
         data.unified_at = -1d;
+        data.unify_repeat = false;
+    }
+
+    // 前朝不能马上再问鼎：失了这个天下天命的那一国，或君主宗族的帝国亡了不久的，FormerLockYears 年内(华夏 HuaxiaFormerLockYears)
+    // 不发动统一战争；中兴之主(含中兴雄主)在位不在此限
+    private static bool FormerLocked(Realm realm, Kingdom top)
+    {
+        if (!Alive(top) || World.world == null) return false;
+        if (RulerTraitSystem.ReignedBy(top, RulerTraitSystem.Restorer) || RulerTraitSystem.ReignedBy(top, RulerTraitSystem.GreatRestorer))
+            return false;
+        int lockYears = LineOf(CultureService.GetRealmCulture(top)) == "Huaxia" ? HuaxiaFormerLockYears : FormerLockYears;
+        double now = World.world.getCurWorldTime();
+        bool Recent(double at) => at >= 0d && now >= at && Date.getYearsSince(at) < lockYears;
+        if (realm.lead != null && realm.lead.mandate_former_kingdom_id == top.id && Recent(realm.lead.mandate_lost_at)) return true;
+        SpecificClan clan = top.king?.GetSpecificClan();
+        return clan != null && Recent(clan.empire_fall_timestamp);
     }
 
     #endregion
@@ -228,8 +257,8 @@ public static class UnificationSystem
         return emperor != null && emperor.isAlive() && emperor.id == state.nomad_hero_id && RulerTraitSystem.FounderReigns(sovereign);
     }
 
-    // 发动统一战争时记下在位的雄主
-    private static void RememberHero(Kingdom sovereign)
+    // 发动统一战争时记下在位的雄主；袭掠成名的雄主、开国的大汗也记(见 NomadRaidSystem.Hero，用户 2026-10-21 选"游牧雄主死后真分裂")
+    internal static void RememberHero(Kingdom sovereign)
     {
         EmpireData state = HeroState(sovereign);
         Actor hero = sovereign.GetEmpire()?.Emperor;
@@ -339,6 +368,16 @@ public static class UnificationSystem
 
     // 新汗即位时问(见 NomadCycleSystem.OnKhanSucceeded)：是不是雄主之后第一次汗位更替。记下的雄主这才不在位的先按 HeroFell 收场
     // (统一中辍、气象散)；问过就清掉，之后的汗位更替照常。hero 是那位雄主的名字
+    // 这次换汗是不是雄主之后第一次(只看不改记录)：Empire.CompleteSuccession 据此先分兀鲁思、再判汗位更替之乱
+    public static bool HeroTurmoilPending(Empire empire)
+    {
+        if (empire?.data == null || empire.isRekt() || World.world == null) return false;
+        EmpireData state = empire.data;
+        Kingdom core = empire.CoreKingdom;
+        if (!Alive(core) || !IsNomad(core)) return false;
+        return state.nomad_hero_fell_at >= 0d || state.nomad_hero_id >= 0L && !HeroReigns(core);
+    }
+
     public static bool TakeHeroTurmoil(Empire empire, out string hero)
     {
         hero = "";
@@ -718,6 +757,12 @@ public static class UnificationSystem
                     Stalled.Remove(unifier.id);
                     Rivals.Remove(unifier.id);
                     data.unify_since = -1d;
+                    // 够不着的只是一小半：统一受阻，不算统一完成、不受天命(以前三年停滞就算统一，占三成也给三十年开国气象)
+                    if (share < StallUnifiedShare)
+                    {
+                        Record(unifier, "unify_stall_history", unifier.GetKingdomName());
+                        continue;
+                    }
                     data.unified_at = now;
                     Record(unifier, "unify_done_history", unifier.GetKingdomName());
                     if (realm.lead != null) TianxiaSystem.Grant(realm.lead, unifier, realm.held[unifier], realm.total, realm.line);
@@ -730,6 +775,8 @@ public static class UnificationSystem
             var ranked = powers.Where(holder => !Exempt(holder)).OrderByDescending(holder => realm.held[holder]).ToList();
             if (ranked.Count < MinContenders) continue;
             Kingdom top = ranked[0];
+            // 前朝失命、亡国后若干年内不能马上再问鼎(见文件头)：乱世至少这么久
+            if (FormerLocked(realm, top)) continue;
             // 还在开国气象里的统一者不再起统一战；气象过了，旧王朝(崩了以后的残部)也能重新问鼎——以前"统一过"的标记永远不清，
             // 残部仍是最大一家时谁都发不起统一战，天下永远乱世
             if (InGrace(top)) continue;
@@ -749,7 +796,10 @@ public static class UnificationSystem
                 LogNoHero(top, realm, topShare);
                 continue;
             }
-            top.GetOrCreate().unify_since = now;
+            var topData = top.GetOrCreate();
+            // 以前统一过(改朝换代会清掉，见 OnDynastyChanged)：这是同一家第二次统一
+            topData.unify_repeat = topData.unified_at >= 0d;
+            topData.unify_since = now;
             tracked.Add(top);
             if (nomad)
             {

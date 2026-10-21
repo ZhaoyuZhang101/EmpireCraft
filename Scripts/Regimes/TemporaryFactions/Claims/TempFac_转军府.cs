@@ -35,13 +35,18 @@ public class TempFac_转军府 : TemporaryFaction
         End();
     }
 
+    private const int RegionalCommandLegitimacy = 60;
+
     public override bool CheckCondition()
     {
         //
         Empire empire = GetEmpire();
         if (empire == null) return false;
-        // 律令制不允许军府借由转制取得独立国家地位。
-        if (empire.CoreKingdom?.GetRegime()?.type == RegimeType.LvLing) return false;
+        // 律令制不允许军府借由转制取得独立国家地位；行了"军镇强藩"、正统跌到 60 以下的例外——边镇坐大成藩镇
+        // (用户 2026-10-21 选"华夏有真乱世"：以前这个节点只改兵制，从不出藩镇)
+        if (empire.CoreKingdom?.GetRegime()?.type == RegimeType.LvLing &&
+            (!InstitutionSystem.HasFeature(empire, CityPopulationSystem.FeatureRegional) ||
+             empire.Legitimacy >= RegionalCommandLegitimacy)) return false;
         foreach (var k in empire.kingdoms_list)
         {
             if (k.IsEmpire()) continue;

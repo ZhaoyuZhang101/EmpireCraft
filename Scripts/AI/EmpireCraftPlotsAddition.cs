@@ -1507,7 +1507,11 @@ namespace EmpireCraft.Scripts.AI
                     if (regime == null) return false;
                     if (!regime.IsAllowArmy()) return false;
                     if (regime.IsAllowDiplomacy()) return false;
-                    if (kingdom.isOpinionTowardsKingdomGood(empire.CoreKingdom)) return false;
+                    // 律令制看去掉名分的向背(见 RebellionSystem.SecessionAllegiance)：同帝国、受封两项名分 +200 压着，
+                    // 以前藩镇这一步正统跌到 30 以下才迈得出去(用户 2026-10-21 选"华夏有真乱世")
+                    if (empire.CoreKingdom?.GetRegime()?.type == RegimeType.LvLing
+                            ? RebellionSystem.SecessionAllegiance(kingdom, empire) >= 0
+                            : kingdom.isOpinionTowardsKingdomGood(empire.CoreKingdom)) return false;
                     return true;
                 },
                 action = delegate(Actor pActor) 
@@ -1623,7 +1627,7 @@ namespace EmpireCraft.Scripts.AI
                     if (regime.IsAllowSupportCenterArmy() && !template.secede_ignores_central_army) return false;
                     // 向背：去掉同帝国、受封两项名分好感，正统按离自立门槛远近算，明显离心才自立(见 RebellionSystem.SecessionAllegiance)；
                     // 以前看整个好感，名分两项 +200 压着，正统掉到个位数也自立不了
-                    if (RebellionSystem.SecessionAllegiance(kingdom, empire) >= RebellionSystem.SecessionThreshold) return false;
+                    if (RebellionSystem.SecessionAllegiance(kingdom, empire) >= RebellionSystem.SecessionThresholdFor(kingdom, empire)) return false;
                     return true;
                 },
                 check_should_continue = actor => actor?.isKing() == true &&

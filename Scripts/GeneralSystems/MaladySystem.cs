@@ -15,8 +15,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     权臣外戚挟制 +1.5、开国气象 -2；各条另看实情：
 //       吏治 +中央腐败×8(荒淫 +1)；兼并 +无地农民比例×10(荒淫 +1)；冗费 +王朝年岁/100×2(最多 3，庸弱昏聩 +1)；
 //       武备 +禁军空饷×6(昏聩荒淫 +1)；党争 +各派最大怨望/25(庸弱 +2、被挟制 +1)；苛捐 暴虐 +4、荒淫 +2、国库亏空 +3；
-//   · 历史周期律(用户 2026-10-14)：积弊随王朝年岁慢慢沉积——立国头 50 年只按四分之一的速度滋生，50~100 年六成，
-//     百年后才全速；开国气象(统一战争期间、统一后 30 年，见 Empire.InFoundingGrace)里不滋生；消退照常；
+//   · 历史周期律(用户 2026-10-14)：积弊随王朝年岁慢慢沉积——立国头 80 年只按二成的速度滋生，80~160 年四成五，
+//     一百六十年后才全速；开国气象(统一战争期间、统一后 30 年，见 Empire.InFoundingGrace)里不滋生；消退照常；
 //   · 革除：明君、中兴之主在位逐年消退；整顿吏治告成 吏治 -15；改朝换代旧弊一扫而空(各留两成)——
 //     权臣篡位、外戚代立是朝廷里的易代，积弊原样留下(玩家建议"如司马故事"，见 DynasticCycleSystem.OnDynastyChanged)；
 //   · 效果(轻重 s = 积弊/100)：
@@ -24,7 +24,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //       冗费——每年多支 12%×s 年度经常收入(行政开支)；武备——本帝国各军战力 ×(1−0.25s)，禁军空饷再多两成×s，
 //         兵源(可征之兵)×(1−0.3s)，组织度上限 100−20s、休整恢复 ×(1−0.3s)(用户 2026-10-20 选"积弊动真格")；
 //       党争——奏议准奏率 -15%×s，各派怨望每年 +8×s；苛捐——苛政 +15×s；
-//       合计——王朝积弊(周期压力)每年多涨 六条平均×1.5；正统 −(平均−30)×0.1；平均过五十推高土崩瓦解的内忧，
+//       合计——王朝积弊(周期压力)每年多涨 六条平均×1.0；正统 −(平均−30)×0.1；平均过五十推高土崩瓦解的内忧，
 //         平均七十以上算危局，苛政民变打仗时也会爆发(见 MonarchyLegitimacy、ProvincialCollapseSystem、HarshRuleSystem)。
 // 只有传统君主制有(同王朝周期，见 DynasticCycleSystem.Applies)。
 public static class MaladySystem
@@ -37,7 +37,8 @@ public static class MaladySystem
     private const float GraftCorruption = 0.012f, BloatCost = 0.12f, MilitaryPenalty = 0.25f, PhantomShare = 0.2f;
     // 党争给各派怨望的年增：不超过每年自然回落的 4(见 CourtSystem.Income)，否则党争与怨望互相推高、各派永远罢朝
     // (用户 2026-10-17 "全罢朝了是什么意思"，选"拆掉，党争只推怨望不超过每年回落")
-    private const float ApprovalPenalty = 0.15f, FactionGrievance = 3f, LeviesBurden = 15f, StrainShare = 1.5f;
+    // StrainShare：积弊推高王朝积弊的系数，1.5 → 1.0(用户 2026-10-21 选"放慢衰落")
+    private const float ApprovalPenalty = 0.15f, FactionGrievance = 3f, LeviesBurden = 15f, StrainShare = 1.0f;
     // 武备废弛：兵源、组织度上限、休整恢复(用户 2026-10-20 选"积弊动真格"：以前只打战力七五折，积弊满格的游牧照样打赢)
     private const float LevyPenalty = 0.3f, OrgCapPenalty = 20f, RecoveryPenalty = 0.3f;
     // 合计：正统 −(平均−LegitimacyFloor)×LegitimacyRate；平均过 CollapseFloor 推高土崩瓦解的内忧；平均 CrisisAverage 以上算危局。
@@ -99,7 +100,9 @@ public static class MaladySystem
 
     private static void Grow(Empire empire)
     {
-        Actor ruler = empire.Emperor;
+        // 幕府：天皇是傀儡，朝政由将军掌着，积弊看将军的资质(用户 2026-10-21 选"幕府会倒、应仁之乱"：以前按傀儡天皇算)
+        bool shogunate = MilitaryRegency.KindOf(empire) == MilitaryRegency.Shogun;
+        Actor ruler = shogunate ? MilitaryRegency.Regent(empire) ?? empire.Emperor : empire.Emperor;
         RulerQualitySystem.Grade grade = RulerQualitySystem.Of(ruler);
         bool restorer = ruler != null && (ruler.hasTrait(RulerTraitSystem.Restorer) || ruler.hasTrait(RulerTraitSystem.GreatRestorer));
         float common = restorer ? -6f : grade switch
@@ -112,7 +115,8 @@ public static class MaladySystem
             _ => 1f
         };
         bool controlled = empire.data.is_been_controlled;
-        if (controlled) common += 1.5f;
+        // 幕府的天皇永远"受挟制"，那是常态而非权臣乱政：只加 0.5
+        if (controlled) common += shogunate ? 0.5f : 1.5f;
         if (empire.InFoundingGrace) common -= 2f;
         bool dissolute = grade == RulerQualitySystem.Grade.Dissolute;
         bool neglect = grade is RulerQualitySystem.Grade.Fatuous or RulerQualitySystem.Grade.Dissolute;
@@ -135,9 +139,10 @@ public static class MaladySystem
                                      (EmpireBankruptcySystem.IsBankrupt(empire) ? 3f : 0f)));
     }
 
-    // 积弊滋生的快慢(历史周期律)：开国气象里不滋生；立国头 50 年四分之一，50~100 年六成，百年后全速
-    private const int EarlyYears = 50, MiddleYears = 100;
-    private const float EarlyPace = 0.25f, MiddlePace = 0.6f;
+    // 积弊滋生的快慢(历史周期律)：开国气象里不滋生；立国头 80 年二成，80~160 年四成五，之后全速
+    // (用户 2026-10-21 选"放慢衰落"：以前 50/100 年、0.25/0.6，百年时几项同时加速，平庸之君的王朝 110 年正统就跌破 40)
+    private const int EarlyYears = 80, MiddleYears = 160;
+    private const float EarlyPace = 0.2f, MiddlePace = 0.45f;
 
     public static float Pace(Empire empire)
     {

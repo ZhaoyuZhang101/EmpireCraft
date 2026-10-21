@@ -1737,6 +1737,7 @@
   "unify_submit_history": "{0}望风归附，举国并入{1}",
   "unify_done_history": "{0}统一天下",
   "unify_lost_history": "{0}失地过半，统一大业中辍",
+  "unify_stall_history": "{0}久战不能尽收天下，统一大业受阻",
   "harem_power_title": "后宫干政",
   "terrain_relief": "地形浮雕",
   "terrain_relief_description": "开着时国色上叠地形明暗(山地压暗、高差打光)，并画出城市与道路；关掉只剩纯平的国色(城市图层照常显示城市与道路)",

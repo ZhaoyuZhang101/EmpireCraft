@@ -13,7 +13,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 共主联盟(西方古典共和城邦 + 西方封建制)：一个人可以同时是好几个王国的君主。
 //   · 同一君主名下、都不在帝国里的王国自动结成原版联盟，以盟主国的名字命名(帝国和联盟不兼容，
 //     帝国里的王国只共用君主、不结盟)；
-//   · 城邦：分割继承法解锁前，只有影响力达到500的子嗣能续任共主，否则各城邦另立本地君主；
+//   · 城邦：分割继承法解锁前，只有影响力达到200的子嗣能续任共主，否则各城邦另立本地君主；
 //     解锁后，其余入盟城邦跟随盟主城邦选出的新君主；
 //   · 封建：共主去世后按长幼每人一国(不分男女)，长子女得最主要的王国，王国比子女多时多出的归长子女；
 //   · 封建王国的继承人本就是别国君主时，不再把两国合并，而是由他兼领(共主)；
@@ -112,13 +112,14 @@ public static class PersonalUnionService
             bool partitionUnlocked = SuccessionLawSystem.IsSuccessionLawUnlocked(cityHome,
                 SuccessionLawType.分割继承法);
             Actor qualifiedChild = null;
+            // 续任共主的影响力门槛 500 → 200：以前子嗣多半够不着，城邦共主一代就散(用户 2026-10-21 选"减少碎片")
             if (!partitionUnlocked && ruler.GetPersonalIdentity() is PersonalClanIdentity cityIdentity)
                 qualifiedChild = VirtualGenealogySystem.RealizeFirst(SpecificClanManager.getChildren(cityIdentity)
                         .Select(item => item.Item2)
                         .Where(person => person != null && person.is_alive)
                         .OrderBy(person => person.rank),
                     child => !child.isRekt() && child.isAlive() && child.isUnitFitToRule() &&
-                             (child.data?.renown ?? 0) >= 500);
+                             (child.data?.renown ?? 0) >= 200);
 
             if (!partitionUnlocked && qualifiedChild == null)
                 DissolveCityStateUnion(cityRealms);

@@ -339,7 +339,7 @@ public static partial class PapacySystem
         empire.RecordHistory(directContent: text, actorId: emperor.id, kingdomId: empire.CoreKingdom.id);
         TranslateHelper.LogEventMessage(text, empire.CoreKingdom);
         emperor.RecordPersonalHistory(text);
-        // 封建制帝国的帝国权威：教宗加冕 +15、自行加冕 +8(每位皇帝一次)
+        // 封建制帝国的帝国权威：教宗加冕、自行加冕都是 +8(每位皇帝一次)
         HolyRomanSystem.OnCrowned(empire, emperor, self);
         MonarchyLegitimacy.Invalidate(empire);
     }

@@ -20,13 +20,14 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     取最重的一项再加其余的四分之一；
 //   · 首义(每年)：概率 = 内忧 × 0.25；离心最重、离心度不低于 0.5 的一省宣布独立。
 //     离心度 = (1 − 行政控制力) + 都城稳定不足 70 的部分/70，近代再看革新理念，异文化再加 0.3，
-//     手握重兵的藩镇(节度使、都护府)、世袭的埃米尔再加 0.3(军阀割据)，正自顾打仗的减 0.2；
+//     手握重兵的藩镇(节度使、都护府)、世袭的埃米尔再加 0.3(军阀割据)，天命动荡或权臣掌朝时的道、行了军镇强藩的幕府之藩
+//     再加 0.2，正自顾打仗的减 0.2；古典共和(未行元首制)、原始政体首义与响应的机会减半；
 //     开国雄主登基头 15 年、上次瓦解结束后 15 年内不发生；周制春秋战国另有规则，不在此列；
 //   · 响应(此后两年，每月)：离心度不低于 0.5 的各省按 0.06 × 内忧(至少 0.35) × 离心度 检定，与已独立之省接壤的再乘 1.6，单月最多 35%；
 //     (玩家 2026-10-21 反馈"除了阿拉伯和游牧，其他国家很容易分裂"，用户选"土崩瓦解降频"：首义 0.5 → 0.25，响应以前不看离心门槛，一次约走一半成员)
 //   · 近代(本文化可废君主，或已入工业时代且开放了党禁——先要立宪)：各省合组革命同盟与朝廷开战，沿用地方共和同盟的结局(见 RepublicSystem)：
 //       独立各省的城过半即逼皇帝退位、帝国改行共和；打赢同样退位；议和且三省以上则联合建立共和国；打输各省回归；
-//   · 古代：各省各自宣布独立、与朝廷开战(地方独立)，群雄割据；两年收束时帝国剩下的城不到瓦解前四分之一的，帝国灭亡。
+//   · 古代：各省各自宣布独立、与朝廷开战(地方独立)，群雄割据；两年收束时帝国剩下的城不到瓦解前四分之一的(封建帝国四成)，帝国灭亡。
 public static class ProvincialCollapseSystem
 {
     private const float RiseChance = 0.25f;
@@ -38,7 +39,9 @@ public static class ProvincialCollapseSystem
     private const float MaxResponse = 0.35f;
     private const int CooldownYears = 15;
     private const float AbdicationShare = 0.5f;
-    private const float FallShare = 0.25f;
+    private const float FallShare = 0.25f, FeudalFallShare = 0.4f;
+    // 道在动荡、权臣掌朝时，幕府的藩在军镇强藩下，离心度另加
+    private const float ProvinceUnrest = 0.2f;
     private const int ModernEraTier = 7;
     private const double SecondsPerMonth = 5d;
 
@@ -50,9 +53,23 @@ public static class ProvincialCollapseSystem
     // 门槛、机会与君主制一样。以前古典共和不算君主制，元首制帝国从不瓦解)
     private static bool Applies(Empire empire) =>
         empire?.data != null && !empire.isRekt() && !empire.IsArchived() && empire.CoreKingdom != null &&
-        !empire.CoreKingdom.isRekt() && !RepublicSystem.IsRepublic(empire) &&
-        (RegimeManager.IsMonarchy(empire.CoreKingdom.GetRegime()?.type) || empire.IsPrincipate()) &&
+        !empire.CoreKingdom.isRekt() && !RepublicSystem.IsRepublic(empire) && RegimeFactor(empire) > 0f &&
         !ZhouEraSystem.RoyalReclaimBlocked(empire) && !AncientWarfareCompatibility.Owns(empire.CoreKingdom);
+
+    // 首义、响应机会的政体系数：君主制、元首制照常；古典共和(未行元首制)、原始政体也有王朝积弊，以前却没有任何
+    // 崩溃出口、成了僵尸国，现在也会瓦解、机会减半，只走古代(各省自立)那一路(用户 2026-10-21 选"古典共和/原始政体能瓦解")
+    private const float MinorRegimeFactor = 0.5f;
+
+    private static float RegimeFactor(Empire empire)
+    {
+        RegimeType? type = empire?.CoreKingdom?.GetRegime()?.type;
+        if (RegimeManager.IsMonarchy(type) || empire.IsPrincipate()) return 1f;
+        return type == RegimeType.ClassicalRepublic || RegimeManager.IsPrimitive(type) ? MinorRegimeFactor : 0f;
+    }
+
+    // 瓦解收束时剩下的城不到瓦解前的多少就灭亡：封建帝国四成(诸侯本就各自为政，名号最难死；用户 2026-10-21 选"西欧能整合、帝国能倒")，其余四分之一
+    private static float FallShareOf(Empire empire) =>
+        empire?.CoreKingdom?.GetRegime()?.type == RegimeType.Feudalism ? FeudalFallShare : FallShare;
 
     // 以前只看技术进了工业时代：制度还停在三省六部、没立宪的帝国，一次土崩瓦解就成了共和革命，全文化跟着进入现代
     private static bool Modern(Empire empire) =>
@@ -99,6 +116,14 @@ public static class ProvincialCollapseSystem
         // 军阀割据：手握重兵的藩镇；世袭的埃米尔同样(见 EmirateSystem)
         if (province.GetKingdomType() is KingdomType.LvLing_jiedushi or KingdomType.LvLing_duhufu ||
             EmirateSystem.IsHereditaryEmir(empire, province)) value += 0.3f;
+        // 天命动荡、权臣掌朝时，朝廷派的道也人心思变(用户 2026-10-21 选"华夏有真乱世"：以前道控制力满、稳定不差，几乎从不响应)
+        else if (province.GetKingdomType() == KingdomType.LvLing_province &&
+                 (empire.data.is_been_controlled || TianxiaSystem.PhaseOf(empire.CoreKingdom) == TianxiaSystem.Unrest))
+            value += ProvinceUnrest;
+        // 行了"军镇强藩"的幕府，大名的藩手握重兵(用户 2026-10-21 选"幕府会倒、应仁之乱")
+        else if (province.GetKingdomType() == KingdomType.Bakufu_han &&
+                 InstitutionSystem.HasFeature(empire, CityPopulationSystem.FeatureRegional))
+            value += ProvinceUnrest;
         if (province.getWars().Any(war => war != null && !war.hasEnded())) value -= 0.2f;
         return Mathf.Max(0f, value);
     }
@@ -116,8 +141,9 @@ public static class ProvincialCollapseSystem
                 Date.getYearsSince(state.collapse_ended_at) < CooldownYears) return;
             if (!RebellionSystem.CanAttempt(empire.CoreKingdom)) return;
             float crisis = Crisis(empire);
-            if (crisis <= 0f || UnityEngine.Random.value >= crisis * RiseChance) return;
-            bool modern = Modern(empire);
+            float factor = RegimeFactor(empire);
+            if (crisis <= 0f || UnityEngine.Random.value >= crisis * RiseChance * factor) return;
+            bool modern = factor >= 1f && Modern(empire);
             if (modern && RepublicSystem.HasActiveRevolutionWar(empire)) return;
             PartyIdeology ideology = RepublicSystem.ReformIdeology(empire);
             Kingdom first = Provinces(empire)
@@ -174,7 +200,8 @@ public static class ProvincialCollapseSystem
                 float value = Disaffection(empire, province, state.collapse_modern, ideology);
                 if (value < MinDisaffection) continue;
                 bool near = risen.Any(other => other.IsNeighbourWith(province));
-                float chance = Mathf.Min(MaxResponse, ResponseChance * crisis * value * (near ? NeighbourBoost : 1f));
+                float chance = Mathf.Min(MaxResponse, ResponseChance * crisis * value * (near ? NeighbourBoost : 1f)) *
+                               RegimeFactor(empire);
                 if (UnityEngine.Random.value < chance && Rise(empire, state, province, ideology, first: false))
                     risen.Add(province);
             }
@@ -194,7 +221,7 @@ public static class ProvincialCollapseSystem
             empire.CoreKingdom == null || empire.CoreKingdom.isRekt()) return false;
         int held = empire.kingdoms_list.Where(kingdom => kingdom?.cities != null && !kingdom.isRekt())
             .Sum(kingdom => kingdom.cities.Count);
-        if (held >= state.collapse_origin_cities * FallShare) return false;
+        if (held >= state.collapse_origin_cities * FallShareOf(empire)) return false;
         EventRecorder.Record(empire, actor: empire.Emperor, logKingdom: empire.CoreKingdom, text: string.Format(
             LM.Get("collapse_fall_history"), empire.GetEmpireFullName(), held, state.collapse_origin_cities));
         ModClass.EMPIRE_MANAGER?.dissolveEmpire(empire);

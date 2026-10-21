@@ -123,8 +123,25 @@ public class Empire : MetaObject<EmpireData>
     // 统一战争期间、统一天下后三十年同样是开国气象(历史周期律，见 UnificationSystem)
     public bool InFoundingGrace => data != null &&
                                    (data.created_time > 0d && Date.getYearsSince(data.created_time) < FoundingGraceYears ||
-                                    RulerTraitSystem.FounderReigns(CoreKingdom) ||
+                                    FounderGrace() ||
                                     EmpireCraft.Scripts.GeneralSystems.UnificationSystem.InGrace(CoreKingdom));
+
+    // 开国雄主(或中兴雄主)在位的开国气象：只到登基后 FounderGraceYears 年；朝廷里篡位上来的(本帝国不是他开的)、
+    // 绝嗣裂土时据地称帝承接旧朝廷的(inherited_decline)没有——积弊原样留着
+    // (用户 2026-10-21 选"收窄开国气象"：以前雄主在位一直算，每个新开国之君都完整重置，积弊不长、乱世一转眼就过去)
+    public const int FounderGraceYears = 25;
+
+    private bool FounderGrace()
+    {
+        if (!RulerTraitSystem.FounderReigns(CoreKingdom)) return false;
+        Actor emperor = Emperor;
+        if (emperor == null) return false;
+        bool greatRestorer = emperor.hasTrait(RulerTraitSystem.GreatRestorer);
+        if (!greatRestorer && (data.inherited_decline || emperor.id != data.founder_actor_id)) return false;
+        double since = data.newEmperor_timestamp;
+        return since < 0d || World.world == null || World.world.getCurWorldTime() < since ||
+               Date.getYearsSince(since) < FounderGraceYears;
+    }
 
     public void AddMandate(int change)
     {
@@ -619,15 +636,19 @@ public class Empire : MetaObject<EmpireData>
         if (!RepublicSystem.IsRepublic(this))
             emperor.RecordPersonalHistory(string.Format(LM.Get("personal_history_became_emperor"), GetEmpireName()));
         CoreKingdom?.RemoveHeir();
+        // 雄主之后第一次换汗：先按法理分兀鲁思给新汗的兄弟，再判汗位更替之乱——雄主一死，诸子各据一方
+        // (用户 2026-10-21 选"游牧雄主死后真分裂"：以前先判后分，新分的兀鲁思不在其列，雄主死了只丢一成)
+        bool heroSplit = UnificationSystem.HeroTurmoilPending(this);
+        if (heroSplit) EnfeoffmentHelper.OnEmperorSucceeded(this);
         // 汗国新汗即位：积弊深重或正统低落时各兀鲁思可能据地自立(雄主之后第一次换汗必乱，见 NomadCycleSystem)，
-        // 先于即位分封——这一回新分出去的兄弟不在其列
+        // 平常先于即位分封——这一回新分出去的兄弟不在其列
         NomadCycleSystem.OnKhanSucceeded(this);
         // 新哈里发即位：积弊深重或正统低落时世袭的埃米尔可能举兵自立(哈里发更替之乱，见 NomadCycleSystem)
         NomadCycleSystem.OnCaliphSucceeded(this);
         // 定居帝国换了君主：改从游牧的成员逢乱可能据地自立(见 ShuiTuSystem)
         ShuiTuSystem.OnSuzerainSucceeded(this);
-        // 即位分封(按法理把土地封给新君的兄弟)
-        EnfeoffmentHelper.OnEmperorSucceeded(this);
+        // 即位分封(按法理把土地封给新君的兄弟)；雄主之后的那一次已在上面分过
+        if (!heroSplit) EnfeoffmentHelper.OnEmperorSucceeded(this);
     }
 
     // 共和国元首更替、复辟迎回旧君：不是篡位，不触发分裂、内战、改国号那一套

@@ -12,19 +12,21 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 
 // 帝国权威(封建制帝国、有帝国议会的，见 HasDiet)：一根贯穿的皇权刻度 0~100，算式见 ImperialAuthorityRules。
 //   · 起算：新帝国 50；旧档第一次年结按现状折算(加冕、改革、和约、家族领地、让步)，不记事件；
-//   · 涨：教宗加冕 +15(自行加冕 +8，每位皇帝一次)；护佑诸侯——中央应求援加入成员守方，守方胜 +6、议和而成员没丢城 +2；
+//   · 涨：教宗加冕 +8(自行加冕同为 +8，每位皇帝一次)；护佑诸侯——中央应求援加入成员守方，守方胜 +6、议和而成员没丢城 +2；
 //         帝国战争胜 +8；禁令执行成功 +6；宗教战争皇帝胜 +10；同族连任或储君即位 +3；
 //   · 跌：选举让步 −4/项；诸侯抗命 −2/次(每年至多 −8)；帝国战争负 −8；禁令失败 −10；订立和约 −30；
 //         成员被帝国外的人吞并 −8/国、城被外人拿走 −1/城(每年至多 −6)、成员离开帝国 −5/国(年结比对上年快照)；
 //   · 每年：太平(本年没有禁令战、宗教战、成员叛乱，也没失城)+1；选帝制家族领地四成以上 +1、一成以下 −1；
-//         成员超过 12 国 −1；已订和约 −1；到 80 以上所有涨幅减半；
+//         成员超过 8 国 −1；已订和约 −1；到 80 以上所有涨幅减半；
 //   · 花：颁行帝国改革(门槛 60、花 30，改为议会议案，见 Diet)；颁布帝国治安令(50/25)；确认诸侯特权(花 5)；
 //         提请帝国禁令(花 10，AI 权威不到 20 不提)；恢复世袭皇权(80/50)。神力按钮照扣，扣到 0 为止，不因权威不够拦下；
 //   · 作用：议会每票 +(权威−50)/200；抗命几率 ×(1.5 − 权威/100)；正统 80 以上 +5、20 以下 −5。
 // 权威每笔变动只走 ChangeAuthority(记账、诊断)。
 public static partial class HolyRomanSystem
 {
-    public const int AuthCoronation = 15, AuthSelfCoronation = 8, AuthProtected = 6, AuthProtectedPeace = 2;
+    // 教宗加冕 15 → 8、小邦林立门槛 12 → 8 国：以前权威涨得多、跌得少，西方帝国名号太难倒
+    // (用户 2026-10-21 选"西欧能整合、帝国能倒")
+    public const int AuthCoronation = 8, AuthSelfCoronation = 8, AuthProtected = 6, AuthProtectedPeace = 2;
     public const int AuthImperialWarWin = 8, AuthImperialWarLoss = -8, AuthBanExecuted = 6, AuthBanFailed = -10;
     public const int AuthLeagueCrushed = 10, AuthReligiousPeace = -30, AuthContinuity = 3, AuthConcession = -4;
     public const int AuthDefiance = -2, AuthDefianceCap = 8, AuthAnnexed = -8, AuthCityLost = -1, AuthCityLossCap = 6;
@@ -36,7 +38,7 @@ public static partial class HolyRomanSystem
     public const int AuthorityLegitimacyHigh = 5, AuthorityLegitimacyLow = -5;
     // 每年漂移：家族领地厚薄、小邦林立
     private const float DriftHouseStrong = 0.4f, DriftHouseWeak = 0.1f;
-    private const int CrowdedMembers = 12;
+    private const int CrowdedMembers = 8;
     // 权威低于此起算"式微年数"，回到 LowRecover 以上重计
     public const int LowAuthority = 20, LowRecover = 25;
     private const int AuthorityLogSize = 16, LegacyAuthority = -2;
@@ -112,7 +114,7 @@ public static partial class HolyRomanSystem
         ChangeAuthority(empire, -loss, "hre_auth_defiance", kingdom.GetKingdomName());
     }
 
-    // 加冕(PapacySystem.Crown 调用)：教宗加冕 +15、自行加冕 +8，每位皇帝只计一次
+    // 加冕(PapacySystem.Crown 调用)：教宗加冕、自行加冕都是 +8，每位皇帝只计一次
     public static void OnCrowned(Empire empire, Actor emperor, bool self)
     {
         try

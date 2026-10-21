@@ -17,7 +17,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 归附的国家基本自由：保留外交权和军队，居民按低税率纳税、不向中央输兵，原王室照旧世袭；
 //   · 本文化已施行分封类制度(开启"分封"诉求的制度)后，可以直接把该国君位封给皇子，
 //     原国君迁往王畿安置。
-//   · 西方封建制攻下别国都城后，归还对方法理城市并建立直属附庸关系，原王室保留；
+//   · 西方封建制攻下别国都城后，归还对方法理城市并建立直属附庸关系，原王室保留；例外：一城小国照普通攻城
+//     易主(整国并入)，攻方中央集权后三城以内的整国并入，别的帝国的成员国照普通攻城只易主都城、不收附庸；
 //   · 叛乱者也一样：分封制下攻下叛军都城，叛乱即告平定、对方重新归附("叛过就永不得回归"
 //     是律令制的规矩，不适用于分封制)，但原叛君被废，由帝国强制扶立一位本地贵族为君；
 //     分封之后优先改封皇子，没有合适的皇子才立本地贵族。
@@ -63,6 +64,9 @@ public static class FeudalConquestService
         if (conquered.IsEmpire() || (empire != null && conquered.GetEmpire() == empire) || conquered.capital != city)
             return false;
         if (conquered.GetEmpire() != null && !RealmDiplomacySystem.CanChooseOverlord(conquered)) return false;
+        // 一城小国(只剩都城)：不论集权与否都不再留作附庸，照普通攻城易主——这座城就是它的全部，等于整国并入，
+        // 民心、天命、新征服城的治理度照普通攻城算(用户 2026-10-21 选"西欧能整合、帝国能倒")
+        if (western && conquered.countCities() <= 1) return false;
         // 中央集权以后(direct_administration，如中央集权君主制)：攻下三城以内小国的都城整国并入——以前西方封建
         // 攻城永远只收附庸，整合太慢(复查 2026-10-17)
         if (western && conquered.countCities() <= CentralizedAnnexMaxCities &&
@@ -72,6 +76,9 @@ public static class FeudalConquestService
                 if (part != null && !part.isRekt()) part.joinAnotherKingdom(captor);
             return true;
         }
+        // 帝国成员的都城被帝国外的封建君主攻下(同一帝国的在上面已交普通攻城)：照普通攻城只易主这一城，不收作附庸——
+        // 收附庸会把整个成员国连同其余城市拉出帝国，帝国被外人一座都城一座都城地掏空(用户 2026-10-21 选"堵住成员流失")
+        if (western && conquered.IsInEmpire()) return false;
         if (western && (!conquered.hasKing() || !FeudalVassalService.CanBind(captor, conquered))) return false;
         bool rebel = empire != null &&
                      (conquered.HasRebelledAgainst(empire) ||

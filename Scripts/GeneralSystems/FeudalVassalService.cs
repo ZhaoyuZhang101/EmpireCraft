@@ -283,11 +283,12 @@ public static class FeudalVassalService
     }
 
     // 吞并附庸：控制度练满(三级满进度)照旧可以；此外附庸满十年后——
-    //   · 宗主(连同治下各国)实力达到附庸三倍以上；
+    //   · 宗主(连同治下各国)实力达到附庸两倍以上；
     //   · 或宗主施行了能容纳多个法理与城市的制度(西方的中央集权君主制等"直辖治理")，实力达到附庸一倍半以上；
-    // 双方都没在打仗。吞并是一次尝试，会失败(见 Annex)，失败后十年内不能再试
+    // 双方都没在打仗。吞并是一次尝试，会失败(见 Annex)，失败后十年内不能再试。
+    // 三倍 → 两倍：以前附庸收了就几乎吞不掉，王国一层整合不起来(用户 2026-10-21 选"西欧能整合、帝国能倒")
     private const int AnnexMinYears = 10, AnnexRetryYears = 10;
-    private const double AnnexPowerRatio = 3d, CentralizedAnnexPowerRatio = 1.5d;
+    private const double AnnexPowerRatio = 2d, CentralizedAnnexPowerRatio = 1.5d;
 
     // 能容纳多个法理与城市：施行了"直辖治理"特性的制度(西方中央集权君主制、神权国家)
     public static bool HasDirectAdministration(Kingdom kingdom)

@@ -823,11 +823,10 @@
       ],
       "exclusive_with": [
         "western_clerical_supremacy",
-        "western_theocratic_state",
-        "western_imperial_reform"
+        "western_theocratic_state"
       ],
       "research": {
-        "mandate_required": 70
+        "mandate_required": 60
       },
       "reform": {
         "base_progress_per_year": 6.0,
@@ -1030,9 +1029,6 @@
       "advancement": 5,
       "requires": [
         "western_feudal_contract"
-      ],
-      "exclusive_with": [
-        "western_centralized_monarchy"
       ],
       "research": {
         "mandate_required": 50

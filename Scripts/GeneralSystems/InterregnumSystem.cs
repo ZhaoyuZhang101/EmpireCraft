@@ -48,6 +48,18 @@ public static class InterregnumSystem
         }
     }
 
+    // 据地称帝的新帝国承接旧朝廷的积弊与王朝积弊，开国之君不得开国气象(见 Empire.FounderGrace)
+    private static void InheritDecline(Empire from, Empire to)
+    {
+        if (from?.data == null || to?.data == null) return;
+        to.data.inherited_decline = true;
+        to.data.maladies = new Dictionary<string, float>(from.data.maladies ?? new Dictionary<string, float>());
+        ConstitutionalEconomyState source = from.data.constitutional_economy;
+        if (source == null) return;
+        ConstitutionalEconomyState target = to.data.constitutional_economy ??= new ConstitutionalEconomyState();
+        target.dynastic_strain = Mathf.Max(target.dynastic_strain, source.dynastic_strain);
+    }
+
     // 议立开列不出宗室时调用(SuccessionCouncilSystem.Open)，或权臣废帝而宗室无人可立(EmpirePartitionSystem)：
     // 裂土成了返回真(京城已立新君，议立作罢)；opening 为空时史册开头写"某崩，皇族绝嗣"
     public static bool TryFracture(Empire empire, PersonalClanIdentity predecessor, Actor court, string opening = null)
@@ -89,6 +101,8 @@ public static class InterregnumSystem
             {
                 LogService.LogWarning($"[EmpireCraft][绝嗣裂土] {region.name} 称帝失败: {exception.Message}");
             }
+            // 争位的各方承接的是同一个衰败的朝廷：积弊、王朝积弊照旧(用户 2026-10-21 选"收窄开国气象")
+            InheritDecline(empire, rival);
             // 一片地一个帝国法理(用户 2026-10-20 定)：据地称帝者另立的法理只是与京城朝廷并立时的伪法理，
             // 不把旧法理的王国法理挖走；朝廷亡了、自己据有旧法理过半时并回旧法理(见 ImperialLegitimacyChallengeService.TryLegitimizeFalseCore)
             RealmNamingSystem.MarkProvisionalCore(rival, empire);

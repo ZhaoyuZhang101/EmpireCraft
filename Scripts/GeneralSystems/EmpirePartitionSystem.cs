@@ -733,7 +733,8 @@ public static class EmpirePartitionSystem
         bool ministerUsurpation)
     {
         if (empire?.data == null || previousClan == null || World.world == null) return;
-        float chance = Mathf.Clamp01((mandate - 30f) / 60f) * 0.425f * (ministerUsurpation ? 0.5f : 1f);
+        // 权臣篡位与外姓篡位同等(以前权臣篡位减半；用户 2026-10-21 选"华夏有真乱世"：东晋、南明式的宗室另立)
+        float chance = Mathf.Clamp01((mandate - 30f) / 60f) * 0.425f;
         if (UnityEngine.Random.value >= chance) return;
         Restorations[empire.data.id] = (previousClan.id, previousName ?? "", World.world.getCurWorldTime());
     }

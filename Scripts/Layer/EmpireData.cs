@@ -68,6 +68,8 @@ public class EmpireData : MetaObjectData
     public long founder_actor_id { get; set; } = -1L;
     [DefaultValue(-1L)]
     public long dynasty_founder_actor_id { get; set; } = -1L;
+    // 绝嗣裂土时据地称帝、承接了旧朝廷的积弊(见 InterregnumSystem.InheritDecline)：开国之君没有开国气象
+    public bool inherited_decline { get; set; }
     public string founder_kingdom_name { get; set; }
     public string year_name = "";
     public List<EmpireCraftHistory> history = new List<EmpireCraftHistory>();

@@ -1734,6 +1734,7 @@
   "unify_submit_history": "{0} submits without a fight and is annexed whole into {1}",
   "unify_done_history": "{0} unifies the realm",
   "unify_lost_history": "{0} loses most of its land; its war of unification falters",
+  "unify_stall_history": "{0} cannot reach the rest of the realm; the unification stalls short of completion",
   "harem_power_title": "Harem Power",
   "terrain_relief": "Terrain Relief",
   "terrain_relief_description": "Shade the realm colours with terrain (darker mountains, slope lighting) and draw cities and roads; turn off for flat colours only (the city layer still shows cities and roads)",

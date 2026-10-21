@@ -24,7 +24,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 public static partial class HolyRomanSystem
 {
     public const int EstateNone = 0, EstateFreeCity = 1, EstateChurch = 2;
-    private const float FreeCityChance = 0.12f, ChurchChance = 0.1f, PawnChance = 0.25f;
+    // 自由城市每年特许几率一成二 → 6%：一城一国越封越多，小邦林立(用户 2026-10-21 选"减少碎片")
+    private const float FreeCityChance = 0.06f, ChurchChance = 0.1f, PawnChance = 0.25f;
     private const int MaxChurchPrinces = 3, MinFreeCityCap = 2, ChurchMinCoreCities = 3, ChurchMinEmpireCities = 6;
     private const float FreeCityTax = 0.1f, PawnYears = 3f;
 
