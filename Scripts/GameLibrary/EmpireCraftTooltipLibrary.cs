@@ -204,11 +204,11 @@ public static class EmpireCraftTooltipLibrary
     private static void showLeader(Tooltip pTooltip, string pType, TooltipData pData)
     {
 	    string subTitle = "";
-	    if (pData.actor.hasCity())
+	    if (pData?.actor?.hasCity() == true)
 	    {  
 		    City city = pData.actor.city;
-		    OfficeObject office = city.GetOffice();
-		    subTitle = office.GetName(city);
+		    // 官职对象可能还没建好(或已失效)：没有就用原版的"城主"
+		    subTitle = city.GetOffice()?.GetName(city) ?? "";
 	    }
 	    AssetManager.tooltips.showActor(string.IsNullOrEmpty(subTitle)?"village_statistics_leader":subTitle, pTooltip, pData);
         AddActorIdeology(pTooltip, pData?.actor);
@@ -217,11 +217,11 @@ public static class EmpireCraftTooltipLibrary
     private static void showKing(Tooltip pTooltip, string pType, TooltipData pData)
     {
 	    string subTitle = "";
-	    if (pData.actor.hasKingdom())
+	    if (pData?.actor?.hasKingdom() == true)
 	    {
 		    Kingdom kingdom = pData.actor.kingdom;
-		    OfficeObject office = kingdom.GetOffice();
-		    subTitle = office.GetName(kingdom);
+		    // 官职对象可能还没建好(或已失效)：没有就用原版的"国王"
+		    subTitle = kingdom.GetOffice()?.GetName(kingdom) ?? "";
 	    }
 	    AssetManager.tooltips.showActor(string.IsNullOrEmpty(subTitle)?"village_statistics_king":subTitle, pTooltip, pData);
         AddActorIdeology(pTooltip, pData?.actor);

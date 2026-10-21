@@ -468,7 +468,7 @@ public abstract class TemporaryFaction
             if (leader != null)
             {
                 var cause = RebellionSystem.Capture(kingdom, kingdom.capital, "rebellion_reason_faction",
-                    targetFaction?.Name ?? kingdom.GetOffice().GetName());
+                    targetFaction?.Name ?? kingdom.GetOffice()?.GetName() ?? kingdom.GetKingdomName());
                 var war = World.world.diplomacy.startWar(kingdom, empire.CoreKingdom,
                     WarTypeLibrary.normal);
                 if (war == null)
@@ -489,7 +489,7 @@ public abstract class TemporaryFaction
                 }
                 else
                 {
-                    war.data.name = kingdom.GetOffice().GetName() + "\u200A" + "叛乱";
+                    war.data.name = (kingdom.GetOffice()?.GetName() ?? kingdom.GetKingdomName()) + "\u200A" + "叛乱";
                 }
                 return true;
             }
