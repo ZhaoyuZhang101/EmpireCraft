@@ -69,9 +69,6 @@ public static partial class CourtSystem
             War war = World.world.diplomacy.startWar(leader, core, WarTypeLibrary.normal);
             if (war == null) { leader.EndFactionRebelling(); return false; }
             war.SetEmpireWarType(EmpireWarType.派系叛乱);
-            // 派系写进战争名(国名不改，见 StartFactionRebelling)
-            string banner = leader.king.GetFaction()?.Name;
-            if (!string.IsNullOrWhiteSpace(banner)) war.data.name = string.Format(LM.Get("faction_rebellion_war_name"), banner);
             var risen = new List<Kingdom> { leader };
             foreach (Kingdom province in provinces.Skip(1))
             {
@@ -80,6 +77,9 @@ public static partial class CourtSystem
                 if (war._list_attackers.Contains(province)) risen.Add(province);
                 else province.EndFactionRebelling();
             }
+            // 战争按首领与家数起名(见 FactionRebelNaming)
+            string warName = FactionRebelNaming.WarName(risen);
+            if (!string.IsNullOrWhiteSpace(warName)) war.data.name = warName;
             foreach (Kingdom province in risen) RebellionStartupService.RaiseUprisingMilitia(province, power / 100f);
             (state.crisis_rebels ??= new List<long>()).AddRange(risen.Select(province => province.id));
             RebellionSystem.Record(leader, war, cause);

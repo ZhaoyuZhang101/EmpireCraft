@@ -1605,8 +1605,8 @@ public static class KingdomExtension
         k.GetOrCreate().CenterArmID = army.getID();
     }
 
-    // 派系起兵：据地称"某军"(用户 2026-10-22 见几个响应的行省同叫"世族"分不清，选"地名加军"，同节度使军府的叫法)，
-    // 派系写进战争名(见 CourtSystem)；原名记在 faction_rebel_original_name，停战改回。地名取起兵前的国名(先取、再记叛乱)
+    // 派系起兵：以统兵者官爵相称(见 FactionRebelNaming；以前改成派系名，几个响应的行省同叫"世族"分不清)，
+    // 战争按首领与家数起名(见 CourtSystem)；原名记在 faction_rebel_original_name，停战改回。称呼按起兵前的名号算(先取、再记叛乱)
     public static void StartFactionRebelling(this Kingdom k, FixedFaction faction)
     {
         if (k?.data == null) return;
@@ -1614,13 +1614,11 @@ public static class KingdomExtension
         var extra = k.GetOrCreate();
         if (string.IsNullOrWhiteSpace(extra.faction_rebel_original_name))
             extra.faction_rebel_original_name = k.data.name ?? k.name ?? "";
-        string front = k.GetKingdomName();
-        if (string.IsNullOrWhiteSpace(front)) front = k.capital?.GetCityName() ?? extra.faction_rebel_original_name;
-        k.data.name = string.Format(LM.Get("faction_rebel_army_name"), front);
+        k.data.name = EmpireCraft.Scripts.GeneralSystems.FactionRebelNaming.RebelName(k);
         extra.isFactionRebelling = true;
     }
 
-    // 读档：以前叛乱期间改成派系名的(还在叛乱)改称"某军"；不在叛乱却还记着原名的改回原名
+    // 读档：以前叛乱期间改成派系名的(还在叛乱)改称统兵者官爵；不在叛乱却还记着原名的改回原名
     public static void NormalizeFactionRebelName(this Kingdom k)
     {
         if (k?.data == null) return;
@@ -1629,7 +1627,7 @@ public static class KingdomExtension
         if (string.IsNullOrWhiteSpace(original)) return;
         if (extra.isFactionRebelling)
         {
-            k.data.name = string.Format(LM.Get("faction_rebel_army_name"), original);
+            k.data.name = EmpireCraft.Scripts.GeneralSystems.FactionRebelNaming.RebelName(k);
             return;
         }
         k.data.name = original;

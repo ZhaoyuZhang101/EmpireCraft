@@ -353,8 +353,9 @@ public static partial class CourtSystem
                 continue;
             }
             war.SetEmpireWarType(EmpireWarType.派系叛乱);
-            // 派系写进战争名(国名不改，见 StartFactionRebelling)
-            if (!string.IsNullOrWhiteSpace(faction?.Name)) war.data.name = string.Format(LM.Get("faction_rebellion_war_name"), faction.Name);
+            // 战争按首领起名(见 FactionRebelNaming)
+            string warName = FactionRebelNaming.WarName(new[] { rebel });
+            if (!string.IsNullOrWhiteSpace(warName)) war.data.name = warName;
             RebellionSystem.Record(rebel, war, cause);
             // 郡县多不许养兵，起兵时就地武装义军(见 RebellionStartupService)，按怨望定规模
             RebellionStartupService.RaiseUprisingMilitia(rebel, data.grievance / 100f);
