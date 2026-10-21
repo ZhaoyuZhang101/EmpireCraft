@@ -46,10 +46,10 @@ public class KingdomTitleManager : MetaSystemManager<KingdomTitle, KingdomTitleD
     public override void startCollectHistoryData()
     {
     }
+    // 国君空缺(老君死了新君未立)也能建：以前要求有国王，手动建法理赶上空位期就点了没反应(用户 2026-10-22 转群友"有时候无法建立法理")
     public KingdomTitle newKingdomTitle(City pCity)
     {
         if (pCity == null || pCity.isRekt() || pCity.kingdom == null || pCity.kingdom.isRekt() ||
-            pCity.kingdom.king == null || pCity.kingdom.king.isRekt() || pCity.kingdom.king.asset == null ||
             EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(pCity)) return null;
         long id = OverallHelperFunc.IdGenerator.NextId();
         KingdomTitle title = base.newObjectFromID(id);

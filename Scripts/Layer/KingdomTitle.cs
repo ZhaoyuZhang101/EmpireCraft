@@ -45,11 +45,12 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
     }
     public void newKingdomTitle(City city)
     {
-        if (city == null || city.isRekt() || city.kingdom == null || city.kingdom.isRekt() ||
-            city.kingdom.king == null || city.kingdom.king.isRekt() || city.kingdom.king.asset == null) return;
+        if (city == null || city.isRekt() || city.kingdom == null || city.kingdom.isRekt()) return;
+        // 国君空缺时开创者留空、物种取这个国家的开国物种
+        Actor king = city.kingdom.king != null && !city.kingdom.king.isRekt() ? city.kingdom.king : null;
         this.title_capital = city;
-        this.data.founder_actor_id = city.kingdom.king.getID();
-        this.data.founder_actor_name = city.kingdom.king.name;
+        this.data.founder_actor_id = king?.getID() ?? -1L;
+        this.data.founder_actor_name = king?.name ?? "";
         this.data.created_time = World.world.getCurWorldTime();
         this.data.banner_icon_id = city.kingdom.data.banner_icon_id;
         this.data.banner_background_id = city.kingdom.data.banner_background_id;
@@ -62,7 +63,7 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
         data.province_name = title_capital.GetCityName();
         this.data.name = !string.IsNullOrEmpty(kingdomName) ? kingdomName : city.kingdom.GetKingdomName();
         this.addCity(city);
-        data.original_actor_asset = city.kingdom.king.asset.id;
+        data.original_actor_asset = king?.asset?.id ?? city.kingdom.data.original_actor_asset;
         CultureService.InitializeTitleCulture(this);
         recalculate();
         generateColor();
