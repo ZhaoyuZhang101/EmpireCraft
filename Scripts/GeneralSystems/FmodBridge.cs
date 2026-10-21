@@ -33,6 +33,8 @@ internal static class FmodBridge
         public static MethodInfo SoundGetLength, SoundHasHandle;
         public static MethodInfo ChannelSetVolume, ChannelSetPan, ChannelSetPitch, ChannelSetPosition, ChannelSetPaused,
             ChannelIsPlaying, ChannelStop, ChannelHasHandle;
+        // 可选：读播放位置(文明乐续播用)，没有就从头放
+        public static MethodInfo ChannelGetPosition;
         public static Type ModeType, ExInfoType;
         public static object TimeUnitMs, LowpassType;
         public static int LowpassCutoff, DspHead;
@@ -87,6 +89,8 @@ internal static class FmodBridge
             ChannelIsPlaying = Need(channel, "isPlaying", missing, typeof(bool).MakeByRefType());
             ChannelStop = Need(channel, "stop", missing);
             ChannelHasHandle = Need(channel, "hasHandle", missing);
+            ChannelGetPosition = channel.GetMethod("getPosition", BindingFlags.Public | BindingFlags.Instance, null,
+                new[] { typeof(uint).MakeByRefType(), timeUnit }, null);
 
             TimeUnitMs = EnumValue(timeUnit, "MS", missing);
             LowpassType = EnumValue(dspType, "LOWPASS_SIMPLE", missing);
@@ -335,6 +339,25 @@ internal static class FmodBridge
         bool playing = ok && Args1[0] is bool value && value;
         Args1[0] = null;
         return playing;
+    }
+
+    // 放到哪了(毫秒)；读不到返回 false
+    internal static bool TryPositionMs(object channel, out uint ms)
+    {
+        ms = 0u;
+        if (Api.ChannelGetPosition == null || !Valid(channel)) return false;
+        Args2[0] = null;
+        Args2[1] = Api.TimeUnitMs;
+        bool ok = Ok(Api.ChannelGetPosition, channel, Args2);
+        if (ok && Args2[0] is uint value) ms = value;
+        else ok = false;
+        Args2[0] = Args2[1] = null;
+        return ok;
+    }
+
+    internal static void Seek(object channel, uint ms)
+    {
+        if (Valid(channel)) Ok2(Api.ChannelSetPosition, channel, ms, Api.TimeUnitMs);
     }
 
     internal static void SetVolume(object channel, float volume)

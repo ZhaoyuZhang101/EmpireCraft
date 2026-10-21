@@ -16,8 +16,10 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     中心算两票，同一系拿到三票以上才算(在边界上不来回跳)。文化 → 系见 Family。
 //   镜头：拉近到中等缩放以内才放(比战声宽)，进出带一点回差；拉到看得见大半张图就不放。
 //   滞后：新的结果(换一系、或者没有)要在屏幕中心持续 SettleSeconds 秒才换，免得扫过边界时来回抖。
-//   切换：新曲淡入、旧曲淡出(FadeSeconds 秒交叉)，原版背景音乐同时淡出/淡回；同一系有两首，一首放完一遍换另一首，
-//     每次进这一系也从下一首开始。
+//   切换：新曲淡入(FadeInSeconds)、旧曲淡出(FadeOutSeconds)，原版背景音乐同时淡出/淡回；响度走 Gain 的 S 形曲线，
+//     从无声慢慢起来、收尾不顿(用户 2026-10-22 嫌渐入渐出突兀)。
+//   续播：淡出停下时记下这首放到哪，再进这一系接着放上次那首、从停下的地方续上(用户嫌每次拉近都从头放)；
+//     同一系有两首的，一首放完一遍才换另一首。
 //   暂停、开窗口照常放(原版背景音乐也是)；与战声各用各的通道组，互不影响。
 //   音量 = 原版音乐音量(× 主音量) × Level；显示栏"文明乐"开关(玩家设置，默认开，见 SwitchCivMusicButton)。
 //   原版背景音乐的淡出：乘在原版音乐事件自己的音量上(原版只调音乐 VCA，不动它，见 FmodBridge.SetVanillaMusicVolume)。
@@ -28,7 +30,7 @@ public static class CivMusic
     private const float Level = 0.8f;
     private const float SampleSeconds = 0.5f;
     private const float SettleSeconds = 3f;
-    private const float FadeSeconds = 4f;
+    private const float FadeInSeconds = 7f, FadeOutSeconds = 5f;
     // 正交尺寸(半个屏幕高多少格)：小于 EnterOrtho 开始放，大于 LeaveOrtho 不放；小地图按最大缩放的比例收紧
     private const float EnterOrtho = 200f, LeaveOrtho = 240f;
     private const int MaxVoices = 3;
@@ -38,11 +40,15 @@ public static class CivMusic
         public string Family, Track;
         public object Channel;
         public float Volume, Target, StartedAt, LengthSeconds;
+        // 放完一遍、换了下一首：下次从头放，不记位置
+        public bool Finished;
     }
 
     private static readonly Dictionary<string, List<string>> Tracks = new();
     private static readonly Dictionary<string, object> Streams = new();
-    private static readonly Dictionary<string, int> Rotation = new();
+    // 系 → 上次在放的那首；曲子 → 淡出停下时放到哪(毫秒)
+    private static readonly Dictionary<string, string> Current = new();
+    private static readonly Dictionary<string, uint> Positions = new();
     private static readonly List<Voice> Voices = new();
     private static readonly HashSet<string> Reported = new();
     private static readonly Dictionary<string, int> Votes = new();
@@ -124,14 +130,14 @@ public static class CivMusic
 
         // 原版背景音乐：文明乐真放起来了就淡到 0，没有就淡回
         float vanillaTarget = Active != null ? 0f : 1f;
-        _vanilla = Mathf.MoveTowards(_vanilla, vanillaTarget, dt / FadeSeconds);
+        _vanilla = Mathf.MoveTowards(_vanilla, vanillaTarget, dt / (vanillaTarget > _vanilla ? FadeInSeconds : FadeOutSeconds));
         // 变了就发(至多每 0.05 秒一次)；压着的时候每两秒补发一次(原版万一重建了音乐事件，新的那个也压住)
         bool changed = Mathf.Abs(_vanilla - _lastVanillaSent) > 0.002f;
         if (!_vanillaBroken && (changed && now - _vanillaSentAt >= 0.05f || _vanilla < 1f && now - _vanillaSentAt > 2f ||
                                 changed && _vanilla >= 1f))
         {
             _vanillaSentAt = now;
-            if (FmodBridge.SetVanillaMusicVolume(_vanilla, out string why)) _lastVanillaSent = _vanilla;
+            if (FmodBridge.SetVanillaMusicVolume(Gain(_vanilla), out string why)) _lastVanillaSent = _vanilla;
             else if (why != null)
             {
                 _vanillaBroken = true;
@@ -321,7 +327,7 @@ public static class CivMusic
 
     private static Voice Active => Voices.Count > 0 && Voices[Voices.Count - 1].Target > 0f ? Voices[Voices.Count - 1] : null;
 
-    // 按目标调度：换系就开新曲、旧的淡出；同一系一首放完一遍换下一首
+    // 按目标调度：换系就开新曲(接着上次那首)、旧的淡出；同一系一首放完一遍换下一首
     private static void Steer(float now)
     {
         Voice active = Active;
@@ -332,10 +338,16 @@ public static class CivMusic
         }
         if (active != null && active.Family == _target)
         {
-            // 一首放完一遍(提前一个淡出的工夫)就换同系的下一首
-            if (Tracks[_target].Count > 1 && active.LengthSeconds > FadeSeconds * 2f &&
-                now - active.StartedAt >= active.LengthSeconds - FadeSeconds)
-                Start(_target, now);
+            // 一首放到快完(留一个淡出的工夫)就换同系的下一首；读不到位置就按开播以来的时间算
+            if (Tracks[_target].Count > 1 && !active.Finished && active.LengthSeconds > FadeOutSeconds * 2f)
+            {
+                float played = FmodBridge.TryPositionMs(active.Channel, out uint ms) ? ms / 1000f : now - active.StartedAt;
+                if (played >= active.LengthSeconds - FadeOutSeconds)
+                {
+                    active.Finished = true;
+                    Start(_target, now, true);
+                }
+            }
             return;
         }
         // 正在淡出的同系那一路接着用(来回切时不重开)
@@ -349,16 +361,18 @@ public static class CivMusic
             Voices.Add(voice);
             return;
         }
-        Start(_target, now);
+        Start(_target, now, false);
     }
 
-    private static void Start(string family, float now)
+    // advance：上一首放完了，换下一首；否则接着放这一系上次那首
+    private static void Start(string family, float now, bool advance)
     {
         List<string> list = Tracks[family];
-        Rotation.TryGetValue(family, out int next);
+        int first = Current.TryGetValue(family, out string last) ? Mathf.Max(0, list.IndexOf(last)) : 0;
+        if (advance && last != null) first++;
         for (int tried = 0; tried < list.Count; tried++)
         {
-            string path = list[(next + tried) % list.Count];
+            string path = list[(first + tried) % list.Count];
             // 同一首还在淡出的话流只能放一路，换不了，留着它
             if (Voices.Exists(voice => voice.Track == path && FmodBridge.Playing(voice.Channel))) continue;
             object sound = Stream(path);
@@ -369,7 +383,13 @@ public static class CivMusic
                 Report("play:" + path, $"放不了 {Path.GetFileName(path)}({result})");
                 continue;
             }
-            Rotation[family] = (next + tried + 1) % list.Count;
+            Current[family] = path;
+            // 开播时音量是 0，跳到上次停下的地方听不出来
+            if (Positions.TryGetValue(path, out uint resume))
+            {
+                Positions.Remove(path);
+                if (resume > 0u) FmodBridge.Seek(channel, resume);
+            }
             foreach (Voice other in Voices) other.Target = 0f;
             Voices.Add(new Voice
             {
@@ -384,6 +404,7 @@ public static class CivMusic
             // 同时至多 MaxVoices 路：最老的直接停
             while (Voices.Count > MaxVoices)
             {
+                Park(Voices[0]);
                 FmodBridge.Stop(Voices[0].Channel);
                 Voices.RemoveAt(0);
             }
@@ -396,16 +417,32 @@ public static class CivMusic
         for (int i = Voices.Count - 1; i >= 0; i--)
         {
             Voice voice = Voices[i];
-            voice.Volume = Mathf.MoveTowards(voice.Volume, voice.Target, dt / FadeSeconds);
+            voice.Volume = Mathf.MoveTowards(voice.Volume, voice.Target,
+                dt / (voice.Target > voice.Volume ? FadeInSeconds : FadeOutSeconds));
             if (voice.Volume <= 0f && voice.Target <= 0f || !FmodBridge.Valid(voice.Channel))
             {
+                Park(voice);
                 FmodBridge.Stop(voice.Channel);
                 Voices.RemoveAt(i);
                 continue;
             }
-            // 等功率：两路交叉时总响度不塌下去
-            FmodBridge.SetVolume(voice.Channel, Mathf.Sin(voice.Volume * Mathf.PI * 0.5f));
+            FmodBridge.SetVolume(voice.Channel, Gain(voice.Volume));
         }
+    }
+
+    // 停下前记住放到哪，下次接着放；放完一遍换了下一首的从头来
+    private static void Park(Voice voice)
+    {
+        if (voice.Finished) Positions.Remove(voice.Track);
+        else if (FmodBridge.TryPositionMs(voice.Channel, out uint ms)) Positions[voice.Track] = ms;
+    }
+
+    // 淡入淡出的响度：S 形再平方，开头从无声慢慢起来、到顶不顿；两路交叉的中点各约 -12 dB
+    private static float Gain(float fade)
+    {
+        fade = Mathf.Clamp01(fade);
+        float s = fade * fade * (3f - 2f * fade);
+        return s * s;
     }
 
     #endregion
