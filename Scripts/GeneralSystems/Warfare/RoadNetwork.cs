@@ -93,6 +93,14 @@ public static class RoadNetwork
 
     public static void MarkDirty() => _dirty = true;
 
+    // 神力修了、画了路(见 RoadBuildingSystem.ConnectByPower、RoadPaintSystem)：当场重收路格、换版本号，不等下一秒的结算
+    public static void RefreshNow()
+    {
+        if (World.world?.tiles_list == null) return;
+        CollectRoads();
+        Version++;
+    }
+
     // 地形变了(图层城墙转换、还原)：路线全部重算(修了的路照旧保留，只是重新找路)
     public static void Replan()
     {
@@ -223,6 +231,18 @@ public static class RoadNetwork
                 for (int i = 0; i < built; i++)
                     if (!TileGrades.ContainsKey(plan.tiles[i])) BuildingTiles.Add(plan.tiles[i]);
             }
+        }
+        // 神力画的路(见 RoadPaintSystem)：按格并进来
+        foreach (var pair in RoadPaintSystem.Tiles)
+        {
+            WorldTile tile = RoadPaintSystem.TileOf(pair.Key);
+            if (tile?.zone == null || pair.Value.grade <= 0) continue;
+            int grade = pair.Value.grade, zone = tile.zone.id;
+            RoadTiles.Add(pair.Key);
+            RoadZones.Add(zone);
+            BuildingTiles.Remove(pair.Key);
+            TileGrades[pair.Key] = TileGrades.TryGetValue(pair.Key, out int had) ? Math.Max(had, grade) : grade;
+            ZoneGrades[zone] = ZoneGrades.TryGetValue(zone, out int zoneHad) ? Math.Max(zoneHad, grade) : grade;
         }
     }
 

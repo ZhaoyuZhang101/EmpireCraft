@@ -45,6 +45,9 @@ public class SaveData
     public List<long> mod_alliance_ids = new List<long>();
     // 图层城墙(纯净地图把原版城墙转成的数据，格编号 → 城墙种类，见 MapWallSystem)
     public Dictionary<int, string> map_walls = new Dictionary<int, string>();
+    // 神力画的路(格编号 → 等级、路况，见 RoadPaintSystem)
+    public Dictionary<int, EmpireCraft.Scripts.GeneralSystems.PaintedRoad> painted_roads =
+        new Dictionary<int, EmpireCraft.Scripts.GeneralSystems.PaintedRoad>();
     // 城郊的镇村(钉在地图上，见 RuralSettlementSystem)
     public List<RuralSettlement> rural_settlements = new List<RuralSettlement>();
     // 工厂(钉在地图上，见 FactorySystem)

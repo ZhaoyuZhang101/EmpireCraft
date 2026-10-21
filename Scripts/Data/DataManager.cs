@@ -41,6 +41,7 @@ public static class DataManager
         FamousTalentSystem.ResetWorldState();
         CityPopulationSystem.ResetWorldState();
         MapWallSystem.ResetWorldState();
+        RoadPaintSystem.ResetWorldState();
         string loadPath = Path.Combine(loadRootPath, EmpireCraftSaveFileName);
         CurrentSaveDataPath = loadPath;
         NormalizeLoadedNameSeparators();
@@ -291,6 +292,7 @@ public static class DataManager
         ModClass.FEUDAL_EMPIRE_LINEAGE = saveData.feudal_empire_lineage ?? new Dictionary<string, List<long>>();
         ModClass.MOD_ALLIANCE_IDS = new HashSet<long>(saveData.mod_alliance_ids ?? new List<long>());
         MapWallSystem.Load(saveData.map_walls);
+        RoadPaintSystem.Load(saveData.painted_roads);
         RuralSettlementSystem.Load(saveData.rural_settlements);
         FactorySystem.Load(saveData.factories);
         RoadTreatySystem.Load(saveData.road_treaties);
@@ -467,6 +469,7 @@ public static class DataManager
         saveData.feudal_empire_lineage = ModClass.FEUDAL_EMPIRE_LINEAGE;
         saveData.mod_alliance_ids = ModClass.MOD_ALLIANCE_IDS.ToList();
         saveData.map_walls = MapWallSystem.Save();
+        saveData.painted_roads = RoadPaintSystem.Save();
         saveData.rural_settlements = RuralSettlementSystem.Save();
         saveData.factories = FactorySystem.Save();
         saveData.road_treaties = RoadTreatySystem.Save();

@@ -72,7 +72,10 @@ public static class RoadOverlay
             _drawnAt = Mathf.Min(_drawnAt, now - RedrawSeconds + 0.5f);
         }
         float since = now - _drawnAt;
-        bool due = since < 0f || since >= RedrawSeconds || _drawnVersion != RoadNetwork.Version && since >= MinRedrawSeconds;
+        // 神力画、擦了路：当场并进路网、马上重画(画的时候至多每四分之一秒一次，见 RoadPaintSystem)
+        bool painted = RoadPaintSystem.TakeRedraw(now);
+        bool due = painted || since < 0f || since >= RedrawSeconds ||
+                   _drawnVersion != RoadNetwork.Version && since >= MinRedrawSeconds;
         if (!due) return;
         _drawnVersion = RoadNetwork.Version;
         _drawnAt = now;

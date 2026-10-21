@@ -30,6 +30,7 @@ public sealed class RoadLink
 //   · 统一了的帝国(用户 2026-10-17 "统一了也能使用国库的钱来修路和维护道路""把不连通的联通")：帝国核心也出钱修境内
 //     任意两城之间的路，工程数按全帝国的城数算；地方出不起养路钱的由中央国库代付；春秋、战国的周室不算统一。
 //   · 把不连通的连通：挑新工程时，一头已通到本国(帝国)都城的路网、一头还没通的路最优先。
+//   · 神力：连路(点两座城当场修通一串干道，见 ConnectByPower)；笔刷画的路按格另存，同样养护(见 RoadPaintSystem)。
 // 路的走向见 RoadNetwork(路网规划)，画法见 RoadOverlay，行军走路见 CorpsSystem。
 public static class RoadBuildingSystem
 {
@@ -73,6 +74,17 @@ public static class RoadBuildingSystem
     }
 
     public static RoadLink Get((long, long) key) => Links.TryGetValue(key, out RoadLink link) ? link : null;
+
+    // 神力画的路(见 RoadPaintSystem)：一格一年的养路钱(同等级干道一个地形单位的养路钱按格折算)
+    internal static float UpkeepPerTile(int grade) =>
+        Cost[Mathf.Clamp(grade, 0, MaxGrade)] * UpkeepShare / RoadPaintSystem.TilesPerUnit;
+
+    // 统一了的帝国替地方代付养路钱的中央；没有为 null
+    internal static Kingdom CentralPayer(Kingdom payer)
+    {
+        Kingdom core = payer?.GetEmpire()?.CoreKingdom;
+        return core != null && core != payer && CenterOf(core) != null ? core : null;
+    }
 
     // 从各城的存档重建索引(城没了的路随之消失)
     public static void Refresh()
@@ -164,6 +176,7 @@ public static class RoadBuildingSystem
             int slots = 1 + cities / CitiesPerProject;
             if (projects.Count(project => project.Value.building > 0) < slots) changed |= StartProject(kingdom);
         }
+        changed |= RoadPaintSystem.MonthlyWarDamage(WarDamagePerMonth);
         if (changed) RoadNetwork.MarkDirty();
     }
 
@@ -318,7 +331,88 @@ public static class RoadBuildingSystem
             }
             changed |= Damage(link, DecayPerYear);
         }
+        changed |= RoadPaintSystem.YearlyUpkeep(DecayPerYear);
         if (changed) RoadNetwork.MarkDirty();
+    }
+
+    // 神力连路(用户 2026-10-22，选"当场修通一串干道""照常养护")：从 from 沿规划好的相邻城干道找代价最小的一串到 to，
+    // 当场修通、不要钱，之后照常养护。每段按两头国家科技能修的最高一级(不超过城市风格上限)，地形太险修不通的往上提到
+    // 修得通的那一级，还修不通的段不走；已修到这一级的路走起来便宜(尽量沿旧路)，比要修的等级高的不降。
+    // 返回这一串共几段(连不上为 -1)；built 是新修或加修的段数
+    public static int ConnectByPower(City from, City to, out int built)
+    {
+        built = 0;
+        if (from?.data == null || to?.data == null || from == to || World.world?.cities == null) return -1;
+        Refresh();
+        var edges = new Dictionary<long, List<(long other, (long, long) key, int grade, float cost)>>();
+        void Add(long a, long b, (long, long) key, int grade, float cost)
+        {
+            if (!edges.TryGetValue(a, out var list)) edges[a] = list = new List<(long, (long, long), int, float)>();
+            list.Add((b, key, grade, cost));
+        }
+        foreach (var pair in RoadNetwork.Plans)
+        {
+            int grade = PowerGrade(pair.Key, pair.Value);
+            if (grade <= 0) continue;
+            RoadLink existing = Get(pair.Key);
+            float cost = Mathf.Max(0.1f, pair.Value.terrain) * (existing != null && existing.grade >= grade ? 0.3f : 1f);
+            Add(pair.Key.Item1, pair.Key.Item2, pair.Key, grade, cost);
+            Add(pair.Key.Item2, pair.Key.Item1, pair.Key, grade, cost);
+        }
+        // 城数不过几百：朴素的最短路就够
+        long start = from.data.id, goal = to.data.id;
+        var distance = new Dictionary<long, float> { [start] = 0f };
+        var back = new Dictionary<long, (long previous, (long, long) key, int grade)>();
+        var done = new HashSet<long>();
+        while (true)
+        {
+            long node = -1L;
+            float best = float.MaxValue;
+            foreach (var pair in distance)
+                if (!done.Contains(pair.Key) && pair.Value < best)
+                {
+                    best = pair.Value;
+                    node = pair.Key;
+                }
+            if (node < 0 || node == goal) break;
+            done.Add(node);
+            if (!edges.TryGetValue(node, out var list)) continue;
+            foreach (var (other, key, grade, cost) in list)
+            {
+                if (done.Contains(other) || distance.TryGetValue(other, out float known) && known <= best + cost) continue;
+                distance[other] = best + cost;
+                back[other] = (node, key, grade);
+            }
+        }
+        if (!back.ContainsKey(goal)) return -1;
+        int segments = 0;
+        for (long node = goal; node != start; node = back[node].previous)
+        {
+            var (_, key, grade) = back[node];
+            segments++;
+            RoadLink link = Get(key) ?? Create(key);
+            if (link == null || link.grade >= grade) continue;
+            link.grade = grade;
+            link.building = 0;
+            link.progress = 0f;
+            link.condition = 1f;
+            built++;
+        }
+        RoadNetwork.MarkDirty();
+        RoadNetwork.RefreshNow();
+        RoadPaintSystem.RequestRedraw();
+        return segments;
+    }
+
+    // 神力修这段路的等级：两头国家科技能修的最高一级，修不通往上提，到城市风格上限还修不通为 0
+    private static int PowerGrade((long, long) key, RoadNetwork.RoadPlan plan)
+    {
+        int cap = RoadNetwork.GradeCap(key);
+        if (cap <= 0 || plan.zones.Count == 0) return 0;
+        Kingdom a = World.world.cities.get(key.Item1)?.kingdom, b = World.world.cities.get(key.Item2)?.kingdom;
+        int grade = Mathf.Clamp(Math.Max(GradeFor(a), GradeFor(b)), 1, cap);
+        while (grade < cap && !plan.Buildable(grade)) grade++;
+        return plan.Buildable(grade) ? grade : 0;
     }
 
     // 路况变差；坏到底降一等(土路就荒了)

@@ -1764,6 +1764,38 @@ def obj_civ_music(img):
 
 
 GODPOWERS["civ_music"] = (obj_civ_music, None)
+
+
+def obj_road_paint(img):
+    """绘制道路：左下一段缩小的透视石板路(同街道)，一支大毛笔从右上角往左下落笔，旧铜笔箍、黑漆笔尖点在路边。"""
+    road = canvas()
+    obj_street(road)
+    over(img, inset(road, 0.74, 92, 156))
+    over(img, shade(lines([[(240, 14), (186, 96)]], 36), WOOD, bevel=8, grain=0.35))             # 笔杆
+    over(img, shade(lines([[(194, 86), (172, 118)]], 42), BRASS, bevel=4, gloss=0.9))             # 笔箍
+    over(img, shade(poly([(152, 100), (198, 128), (170, 166), (140, 188), (144, 148)]), LACQ, bevel=7, gloss=0.5))  # 笔尖
+
+
+def obj_road_connect(img):
+    """连路：左下、右上两座枪灰小城(雉堞、黑漆城门)，中间一条宽石板路弯着连起来，路心一道道骨白虚线。"""
+    path = [(70, 190), (110, 150), (150, 128), (186, 70)]
+    over(img, shade(lines([path], 44), STEEL, bevel=9, grain=0.3))
+    for a, b in ((path[0], path[1]), (path[1], path[2]), (path[2], path[3])):
+        mx, my = (a[0] + b[0]) / 2, (a[1] + b[1]) / 2
+        dx, dy = (b[0] - a[0]) * 0.22, (b[1] - a[1]) * 0.22
+        over(img, shade(lines([[(mx - dx, my - dy), (mx + dx, my + dy)]], 8), BONE, bevel=2, flat=True))
+    for x, y in ((2, 138), (142, 2)):
+        over(img, shade(rrect([x, y + 30, x + 112, y + 114], 5), STEEL, bevel=12, grain=0.4))
+        for k in range(4):
+            over(img, shade(rrect([x + k * 32, y + 6, x + k * 32 + 18, y + 34], 2), STEEL, bevel=5, grain=0.3))
+        over(img, shade(rrect([x + 38, y + 66, x + 74, y + 114], 16), LACQ, bevel=5))
+
+
+GODPOWERS.update({
+    "road_paint": (obj_road_paint, None),
+    "road_erase": (obj_street, "cross"),
+    "road_connect": (obj_road_connect, None),
+})
 # 制度窗口左栏的两枚文化按钮：浏览别的文化(法典 + 放大镜)、改从文化(旗帜 + 互换)
 GODPOWERS.update({
     "institution_browse_culture": (obj_book, "lens"),

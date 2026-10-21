@@ -436,6 +436,10 @@ internal static class MainTab
         AddButton(BUILD_GROUP,
             PowerButtonCreator.CreateGodPowerButton("dissolve_city",
                 SpriteTextureLoader.getSprite("ui/icons/godpowers/dissolve_city")));
+        // 道路：绘制、擦除(笔刷)，连路(先后点两座城)，见 RoadPowers
+        RoadPowers.Init();
+        foreach (string id in RoadPowers.Ids)
+            AddButton(BUILD_GROUP, PowerButtonCreator.CreateGodPowerButton(id, SpriteTextureLoader.getSprite("ui/icons/godpowers/" + id)));
 
         // ---- 易俗：点城一键改换文化，本国最后一座城连国家制度一并改(见 CityCulturePower) ----
         // 举国 / 举朝易俗开关与复旧法理(见 RealmCulturePowers)放在各文化笔刷前面
