@@ -59,7 +59,7 @@
 | `provincial_administration` | 游牧政体打下的法理设行省(行省制度) |
 | `sultanate` | 苏丹架空哈里发(阿拉伯政体) |
 | `principate` | 元首制：古典共和的首领在家族里相传，核心打下的城设行省 |
-| `caravan_trade` | 陆路商路：与异族邻国相安时每年得市易之利(多五成，见 FrontierRelations) |
+| `caravan_trade` | 陆路商路：与异族邻国相安时每年得市易之利(多两成半，见 FrontierRelations；用户 2026-10-21 选"阿拉伯财政降一档"，以前五成) |
 | `religious_tolerance` / `poll_tax` | 宗教政策：宽容(异教之城稳定少 3)、收人头税(稳定少 6，异教之城纳人头税)；都没有为不宽容(稳定少 10、会有宗教叛乱，见 ReligiousTension) |
 | `theocratic_state` | 神权国家 |
 | `claim_reform:<诉求名>` | 派系诉求（如 `开科取士`、`转天朝制度`）推动的改革目标 |

@@ -765,7 +765,8 @@
     {
       "id": "huaxia_military_garrison", "requires_techs": ["standing_army"],
       "features": {
-        "army_prefecture": 1
+        "army_prefecture": 1,
+        "army_mobilization": 0.12
       },
       "name_key": "institution_huaxia_military_garrison",
       "description_key": "institution_huaxia_military_garrison_desc",
@@ -976,6 +977,60 @@
         "huaxia_recommendation",
         "huaxia_nine_rank"
       ]
+    },
+    {
+      "id": "huaxia_three_teachings", "requires_techs": ["canon_law"],
+      "name_key": "institution_huaxia_three_teachings",
+      "description_key": "institution_huaxia_three_teachings_desc",
+      "branch": "society",
+      "advancement": 6,
+      "requires": [
+        "huaxia_prefecture_county_bureaucracy"
+      ],
+      "research": {
+        "mandate_required": 50
+      },
+      "reform": {
+        "base_progress_per_year": 7.0,
+        "minimum_years": 10,
+        "force_radicalism": 22.0
+      },
+      "resistance": {
+        "base_radicalism": 9.0,
+        "vested_interest_radicalism": 12.0,
+        "rebellion_threshold": 75.0,
+        "opposition_faction_growth": 1,
+        "reason_key": "institution_resistance_reason_religious_reform"
+      },
+      "politics": {
+        "support_classes": {
+          "Peasant": 0.6,
+          "Merchant": 0.6,
+          "Noble": 0.3
+        },
+        "oppose_classes": {
+          "Officer": 0.3
+        },
+        "support_factions": {
+          "绥靖": 0.8
+        },
+        "oppose_factions": {
+          "攘夷": 0.5
+        }
+      },
+      "effects_on_complete": [
+        {
+          "type": "modify_faction_power",
+          "int_value": 3,
+          "faction": "绥靖"
+        }
+      ],
+      "features": {
+        "religious_tolerance": 1
+      },
+      "absorb": {
+        "enabled": false
+      }
     },
     {
       "id": "huaxia_grand_secretariat", "requires_techs": ["civil_examination", "printing"],
@@ -1279,7 +1334,8 @@
     {
       "id": "huaxia_recruited_army", "requires_techs": ["standing_army"],
       "features": {
-        "army_standing": 1
+        "army_standing": 1,
+        "army_mobilization": 0.13
       },
       "name_key": "institution_huaxia_recruited_army",
       "description_key": "institution_huaxia_recruited_army_desc",

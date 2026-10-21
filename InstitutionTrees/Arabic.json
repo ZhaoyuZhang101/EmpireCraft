@@ -40,7 +40,7 @@
       },
       "features": {
         "army_standing": 1,
-        "army_mobilization": 0.15
+        "army_mobilization": 0.18
       }
     },
     {
@@ -54,7 +54,8 @@
       "advancement": 6,
       "requires": [
         "arabic_iqta_military_fiscal",
-        "arabic_sultanate_bureaucracy"
+        "arabic_sultanate_bureaucracy",
+        "arabic_bayt_al_mal"
       ],
       "research": {
         "mandate_required": 50
@@ -78,6 +79,12 @@
           "Landlord": 0.6
         }
       },
+      "effects_on_complete": [
+        {
+          "type": "change_tax_level",
+          "value": "High"
+        }
+      ],
       "replaces": [
         "arabic_iqta_military_fiscal"
       ],
@@ -207,8 +214,7 @@
       },
       "absorb": {
         "enabled": false
-      },
-      "regime": "Arabic"
+      }
     },
     {
       "id": "arabic_caliphal_diwan", "requires_techs": ["bureaucracy"],
@@ -252,7 +258,8 @@
           "type": "unlock_succession_law",
           "value": "分割继承法"
         }
-      ]
+      ],
+      "regime": "Arabic"
     },
     {
       "id": "arabic_caravan_trade", "requires_techs": ["currency"],
@@ -440,7 +447,7 @@
       "effects_on_complete": [
         {
           "type": "change_tax_level",
-          "value": "High"
+          "value": "Medium"
         },
         {
           "type": "modify_faction_power",
@@ -573,7 +580,8 @@
         "constitution_basis_administration": 1,
         "vassal_authority": 100,
         "sultanate": 1
-      }
+      },
+      "regime": "Arabic"
     },
     {
       "id": "arabic_caliphal_theocracy", "requires_techs": ["canon_law"],
@@ -648,7 +656,8 @@
           "type": "add_mandate",
           "int_value": -6
         }
-      ]
+      ],
+      "regime": "Arabic"
     },
     {
       "id": "arabic_bayt_al_mal", "requires_techs": ["taxation"],

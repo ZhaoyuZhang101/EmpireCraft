@@ -25,6 +25,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 定居入草(按城)：只适应农地的政权直辖的每座旱地城，记下占有起始时间与政权(易主按新主人重新计时)；
 //   · 分档：满 FirstTierYears(20)年第一档，之后每满 TierStepYears(10)年加一档，最多 MaxTier(3)档。
 //     旧档读进来没有这些时间的从第一次结算起算，不会一读档就到档；
+//   · 逐步适应(用户 2026-10-21 选文明平衡 A3)：定居入草的旱地城，城里主流文化已是统治者文化的，占满 AdaptYears(60)年起
+//     每 AdaptStepYears(10)年退一档，到 80 年不再罚(计时仍是占城起算的那一个，见 UnfitTierOf)；游牧离草不变；
 //   · 每个政权每年结算一次(分帧，每帧至多一个)：走档、离草结束记入史书；Player.log 诊断行 [水土](到档的每国每年一行，状态变了也记一行)；
 //   · 效果见"效果"一节，出路见 ShuiTuSystem.Outlets。
 public static partial class ShuiTuSystem
@@ -39,6 +41,9 @@ public static partial class ShuiTuSystem
     // 分档
     private const int FirstTierYears = 20, TierStepYears = 10;
     public const int MaxTier = 3;
+    // 定居入草逐步适应(用户 2026-10-21 选文明平衡 A3"水土收窄")：城里主流文化已是统治者文化的旱地城，
+    // 占满 AdaptYears 年起每 AdaptStepYears 年退一档(60 年第二档、70 年第一档、80 年不罚)
+    private const int AdaptYears = 60, AdaptStepYears = 10;
     // 本族故地在旱地：文化带 dry_native，或以该文化为主流的城里旱地城占 DryNativeShare 以上
     private const float DryNativeShare = 0.5f;
     // 一年约 60 秒世界时间(5 秒一个月)
@@ -50,8 +55,8 @@ public static partial class ShuiTuSystem
         public int Direct, Dry;
         public bool OffGrass;
         public int OffYears, OffTier;
-        // 不服水土的旱地城：座数、最久的年数、最高档、各档座数
-        public int Unfit, UnfitYears, UnfitTop;
+        // 不服水土的旱地城：座数、最久的年数、最高档、各档座数；Adapted 是其中逐步适应、已往回退了档的座数
+        public int Unfit, UnfitYears, UnfitTop, Adapted;
         public readonly int[] TierCounts = new int[MaxTier + 1];
         public double At = -1d;
         public string Logged = "";
@@ -107,6 +112,22 @@ public static partial class ShuiTuSystem
     public static int TierOf(int years) =>
         years < FirstTierYears ? 0 : Math.Min(MaxTier, 1 + (years - FirstTierYears) / TierStepYears);
 
+    // 城里主流文化就是统治者文化
+    private static bool RulersCulture(string cityCulture, string rulingCulture) =>
+        CultureService.IsValidCulture(rulingCulture) && string.Equals(cityCulture, rulingCulture, StringComparison.Ordinal);
+
+    // 这座不服水土的旱地城在逐步适应：城里主流文化就是统治者文化，且已占满 AdaptYears 年
+    private static bool Adapting(int years, string cityCulture, string rulingCulture) =>
+        years >= AdaptYears && RulersCulture(cityCulture, rulingCulture);
+
+    // 不服水土的旱地城的档位：按占了多少年走档(TierOf)，在适应的按年退档；出路(交出城)、屯田都照这个档
+    private static int UnfitTierOf(int years, string cityCulture, string rulingCulture)
+    {
+        int tier = TierOf(years);
+        if (!Adapting(years, cityCulture, rulingCulture)) return tier;
+        return Math.Max(0, tier - 1 - (years - AdaptYears) / AdaptStepYears);
+    }
+
     #region 档位系数
 
     // 游牧离草：农地城的征兵比例按档往 BaseLevyShare(一般的一成)回落，第三档回落到底；
@@ -114,8 +135,10 @@ public static partial class ShuiTuSystem
     private const float BaseLevyShare = 0.1f;
     private static readonly float[] NomadCombat = { 1f, 0.93f, 0.86f, 0.80f };
     private static readonly float[] StabilityByTier = { 0f, 4f, 8f, 12f };
-    // 定居入草：旱地城兵源、赋税按档打折，自然稳定度同上；在旱地地块上交战按不服水土的旱地城里最高的档打折
-    private static readonly float[] SettledLevy = { 1f, 0.8f, 0.6f, 0.4f };
+    // 定居入草：旱地城兵源、赋税按档打折，自然稳定度同上；在旱地地块上交战按不服水土的旱地城里最高的档打折。
+    // 兵源 ×0.8/0.6/0.4 → ×0.8/0.7/0.6(用户 2026-10-21 选文明平衡 A3"水土收窄"：只豁免阿拉伯三族，别人守不住它们的旱地老家)；
+    // 税、稳定、交战系数不变
+    private static readonly float[] SettledLevy = { 1f, 0.8f, 0.7f, 0.6f };
     private static readonly float[] SettledTax = { 1f, 0.9f, 0.8f, 0.7f };
     private static readonly float[] SettledCombat = { 1f, 0.92f, 0.85f, 0.78f };
 
@@ -364,13 +387,15 @@ public static partial class ShuiTuSystem
         info.Fit = fit;
         info.At = now;
         info.Direct = cities.Count;
-        info.Dry = info.Unfit = info.UnfitYears = info.UnfitTop = 0;
+        info.Dry = info.Unfit = info.UnfitYears = info.UnfitTop = info.Adapted = 0;
         Array.Clear(info.TierCounts, 0, info.TierCounts.Length);
+        string ruling = CultureService.GetRealmCulture(unit);
         foreach (City city in cities)
         {
             bool dry = IsDryCity(city);
             if (dry) info.Dry++;
             var data = city.GetOrCreate();
+            string culture = CultureService.GetMainCulture(city, initialize: false);
             int years = 0, tier = 0;
             if (fit == Fit.Farm && dry)
             {
@@ -381,7 +406,9 @@ public static partial class ShuiTuSystem
                     data.shuitu_since = now;
                 }
                 years = YearsSince(data.shuitu_since);
-                tier = TierOf(years);
+                // 计时照旧从占城起算(易主重计)，城里主流文化成了本族、满 60 年后逐年退档
+                tier = UnfitTierOf(years, culture, ruling);
+                if (tier < TierOf(years)) info.Adapted++;
                 info.Unfit++;
                 info.TierCounts[tier]++;
                 info.UnfitYears = Math.Max(info.UnfitYears, years);
@@ -395,7 +422,7 @@ public static partial class ShuiTuSystem
             CityInfos[city.id] = new CityInfo
             {
                 Kingdom = city.kingdom.id, Unit = unit.id, Dry = dry, Tier = tier, Years = years,
-                Culture = CultureService.GetMainCulture(city, initialize: false)
+                Culture = culture
             };
         }
 
@@ -473,7 +500,8 @@ public static partial class ShuiTuSystem
                                $"稳定−{StabilityFor(info.OffTier):0} 非旱地交战×{NomadCombatFor(info.OffTier):0.00}");
         else
             LogService.LogInfo($"[EmpireCraft][水土] {unit.GetKingdomName()} 定居入草 直辖{info.Direct}城 不服水土旱地{info.Unfit}城" +
-                               $"(未到档{info.TierCounts[0]}/一档{info.TierCounts[1]}/二档{info.TierCounts[2]}/三档{info.TierCounts[3]}) " +
+                               $"(未到档{info.TierCounts[0]}/一档{info.TierCounts[1]}/二档{info.TierCounts[2]}/三档{info.TierCounts[3]}，" +
+                               $"适应退档{info.Adapted}) " +
                                $"最久{info.UnfitYears}年 最高第{info.UnfitTop}档 旱地城兵源×{SettledLevyFor(info.UnfitTop):0.0} " +
                                $"赋税×{SettledTaxFor(info.UnfitTop):0.0} 旱地交战×{SettledCombatFor(info.UnfitTop):0.00}");
     }

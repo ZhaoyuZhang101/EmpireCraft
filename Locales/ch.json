@@ -2939,6 +2939,8 @@
   "shuitu_state_pending": "新主人尚未結算",
   "shuitu_state_offgrass": "離草{0}年，{1}",
   "shuitu_state_unfit": "不服水土{0}年，{1}",
+  "shuitu_state_adapting": "不服水土{0}年，漸服水土，{1}",
+  "shuitu_state_adapted": "在此{0}年，已服水土",
   "shuitu_state_unfit_kingdom": "不服水土的旱地城{0}座，最久{1}年，最高{2}",
   "shuitu_state_steppe": "在草原，旱地過六成",
   "shuitu_state_exempt": "不論水土",

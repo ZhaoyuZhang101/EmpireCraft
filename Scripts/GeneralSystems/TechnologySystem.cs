@@ -380,6 +380,7 @@ public static class TechnologySystem
         ResearchedCache.Clear();
         Contacts.Clear();
         WarContacts.Clear();
+        StraitNeighbours.Clear();
         _lastScan = -1d;
     }
 
@@ -1229,6 +1230,14 @@ public static class TechnologySystem
                     Link(Contacts, pair.Key, influence.Key);
                     Link(Contacts, influence.Key, pair.Key);
                 }
+            // 列岛文化：隔海相望的外国也算接触(见 CitiesAcrossStrait)。只记列岛这一边，对岸的文化不因此多出接触
+            if (TianxiaSystem.IsArchipelago(pair.Key))
+                foreach (City across in CitiesAcrossStrait(city))
+                {
+                    if (across.isRekt() || across.kingdom == city.kingdom) continue;
+                    string other = GetCultureOf(across);
+                    if (CultureService.IsValidCulture(other)) Link(Contacts, pair.Key, other);
+                }
             long empireId = city.kingdom?.GetEmpireID() ?? -1L;
             // 朝贡国与宗主也算一家(以前注释说含朝贡国，代码只看帝国成员；见 TributaryRelations)
             if (empireId < 0 && city.kingdom?.GetTakenAllianceEmpire() is { } suzerain) empireId = suzerain.id;
@@ -1241,6 +1250,50 @@ public static class TechnologySystem
         foreach (string a in cultures)
         foreach (string b in cultures)
             Link(Contacts, a, b);
+    }
+
+    // 列岛文化(CultureRule 标了 archipelago 的，见 TianxiaSystem.IsArchipelago)隔海相望的近邻(用户 2026-10-21 选文明平衡 D2"日本能出岛")：
+    // 岛上没有接壤的外国，以前既没有技术扩散，也拿不到"接壤更先进的异文化"的改革加速(见 InstitutionSystem.CountAdvancedBorderEmpires)。
+    // 照 StraitReach 的近海判定——两城临海的海岸落在同一片水域(隔着大陆的另一片海不算)、相距不过 ArchipelagoStraitRadius 格——
+    // 但不要水师：不看有没有到水师时代、有没有码头和战舰(渔船、商船也渡得过窄海)。半径同水师起步的最远辐射(NavySystem.ReachBase)。
+    // 按城缓存一年；对岸的城任何文化、任何国家都列出来，调用方自己挑外国
+    public const float ArchipelagoStraitRadius = 48f;
+    private static readonly Dictionary<long, (double at, List<City> cities)> StraitNeighbours = new();
+
+    public static IReadOnlyList<City> CitiesAcrossStrait(City city)
+    {
+        if (city?.data == null || city.isRekt() || World.world?.cities == null) return Array.Empty<City>();
+        double now = World.world.getCurWorldTime();
+        if (StraitNeighbours.TryGetValue(city.id, out var hit) && now >= hit.at && Date.getYearsSince(hit.at) < 1)
+            return hit.cities;
+        var result = new List<City>();
+        SeaRegionSystem.Shore own = SeaRegionSystem.ShoreOf(city);
+        if (own.Points.Count > 0)
+        {
+            float limit = ArchipelagoStraitRadius * ArchipelagoStraitRadius;
+            foreach (City other in World.world.cities.list)
+            {
+                if (other?.data == null || other == city || other.isRekt()) continue;
+                SeaRegionSystem.Shore shore = SeaRegionSystem.ShoreOf(other);
+                if (shore.Points.Count == 0) continue;
+                // 先按城心粗筛(两边海岸离各自城心最远的那一处加上半径)，再逐处量海岸
+                float rough = ArchipelagoStraitRadius + own.Offset + shore.Offset;
+                if ((other.city_center - city.city_center).sqrMagnitude > rough * rough) continue;
+                if (ShoresFacing(own, shore, limit)) result.Add(other);
+            }
+        }
+        if (StraitNeighbours.Count > 4096) StraitNeighbours.Clear();
+        StraitNeighbours[city.id] = (now, result);
+        return result;
+    }
+
+    // 两城的海岸有一处同在一片水域、相距不过 sqrt(limit) 格
+    private static bool ShoresFacing(SeaRegionSystem.Shore a, SeaRegionSystem.Shore b, float limit)
+    {
+        foreach (var (at, basin) in a.Points)
+        foreach (var (other, otherBasin) in b.Points)
+            if (basin == otherBasin && (at - other).sqrMagnitude <= limit) return true;
+        return false;
     }
 
     private static void Link(Dictionary<string, HashSet<string>> map, string a, string b)

@@ -18,13 +18,14 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     有一定机会和亲——君主的女儿或宗室女嫁给可汗或其储君(找不到合适的人也照样议和)，此后每年送岁币
 //     (见 KingdomExtension.JoinGivenAlliance，二十年；岁币两国互不开战，见 WarGate)，正打着的仗就此罢兵；
 //   · 互市：游牧与定居的邻国相安(不在打仗、近五年没劫掠过)，两边每年各得一笔市易之利，按两国中较少的人口算；
-//     本文化施行了商队贸易(特性 caravan_trade)的，与任何异族邻国都有陆路商路，所得多五成；
+//     本文化施行了商队贸易(特性 caravan_trade)的，与任何异族邻国都有陆路商路，所得多两成半
+//     (以前多五成；用户 2026-10-21 选文明平衡 A2"阿拉伯财政降一档"：互市、人头税、早早到高税叠在一起，前中期最富)；
 //   · 降部戍边：游牧政权战败、要向施行了羁縻的帝国称臣时，改为内附——整部并入帝国为羁縻州，承担边防(见 WarGoalSystem、
 //     JimiSystem 的边防义务)。
 public static class FrontierRelations
 {
     public const string CaravanFeature = "caravan_trade";
-    private const float HeqinChance = 0.2f, HeqinPowerShare = 0.8f, CaravanBonus = 1.5f;
+    private const float HeqinChance = 0.2f, HeqinPowerShare = 0.8f, CaravanBonus = 1.25f;
     private const int HeqinRaidYears = 10, MarketRaidYears = 5;
     private static double _lastScan = -1d;
 

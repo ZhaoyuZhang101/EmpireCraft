@@ -403,6 +403,9 @@ public static partial class InstitutionSystem
     // 最高的那个；一个都没有就用本线根节点声明的政体——也就是**一级制度决定初始政体**，
     // 所以华夏开局是周制而不是律令制，律令要等郡县官僚（等级 5）研究出来。
     // 只看本线节点：从别的线吸收来的制度不该把本文化的政体形态也换掉。
+    // 被取代的节点不算已掌握：取代了声明政体的节点的，自己也得声明政体，否则一取代就退回根节点的原始政体。
+    // 阿拉伯线的阿拉伯政体从部族舒拉挪到哈里发官署(迪万)(用户 2026-10-21 选文明平衡 A1"推迟行省窗口"：以前青铜加文字就有
+    // 听调、缴五成的行省)：舒拉施行后、迪万施行前按根节点仍是原始政体(部落)；取代迪万的苏丹官僚、哈里发神权也声明阿拉伯政体。
     // 仍在现存君主国里的成员国：跟随帝国核心的政体，不按文化直接变成现代政体(君主国的改制走 RepublicSystem)
     public static RegimeType AdjustForMonarchyEmpire(Kingdom kingdom, RegimeType regime)
     {
@@ -1070,19 +1073,26 @@ public static partial class InstitutionSystem
         return result;
     }
 
-    // 接壤的、文明等级更高的异文化政权数(帝国按全体成员的边境算；邻国是帝国的算帝国，自己推制度的独立王国也算一个)
+    // 接壤的、文明等级更高的异文化政权数(帝国按全体成员的边境算；邻国是帝国的算帝国，自己推制度的独立王国也算一个)。
+    // 列岛文化隔海相望的外国也算接壤(用户 2026-10-21 选文明平衡 D2：岛上没有接壤的外国，以前拿不到这份加速；
+    // 不要水师，见 TechnologySystem.CitiesAcrossStrait)，别的文化照旧只认陆上接壤
     private static int CountAdvancedBorderEmpires(InstitutionRealm realm, string culture)
     {
         if (realm == null || realm.IsEmpire && realm.Empire.kingdoms_list == null) return 0;
         IEnumerable<Kingdom> members = realm.IsEmpire ? realm.Empire.kingdoms_list : realm.Scope;
         int ownLevel = GetCultureRanking(culture).Level;
+        bool archipelago = TianxiaSystem.IsArchipelago(culture);
         var neighbours = new HashSet<string>(StringComparer.Ordinal);
         foreach (Kingdom member in members.Where(kingdom => kingdom != null && !kingdom.isRekt()))
         {
             foreach (City city in (member.cities ?? Enumerable.Empty<City>()).Where(city =>
-                         city != null && !city.isRekt() && city.neighbours_kingdoms != null))
+                         city != null && !city.isRekt() && (city.neighbours_kingdoms != null || archipelago)))
             {
-                foreach (Kingdom neighbour in city.neighbours_kingdoms)
+                IEnumerable<Kingdom> bordering = city.neighbours_kingdoms ?? Enumerable.Empty<Kingdom>();
+                if (archipelago)
+                    bordering = bordering.Concat(TechnologySystem.CitiesAcrossStrait(city)
+                        .Where(across => !across.isRekt()).Select(across => across.kingdom));
+                foreach (Kingdom neighbour in bordering)
                 {
                     if (neighbour == null || neighbour.isRekt() || neighbour == member) continue;
                     Empire neighbourEmpire = neighbour.GetEmpire();

@@ -41,8 +41,12 @@ public static partial class ShuiTuSystem
         }
         else if (unit.Fit == Fit.Farm && info.Dry)
         {
-            state = string.Format(LM.Get("shuitu_state_unfit"), info.Years, TierText(info.Tier));
-            color = info.Tier > 0 ? ColorStrained : ColorTiming;
+            // 本族为主、占满 AdaptYears 年的城逐年退档(见 UnfitTierOf，用户 2026-10-21 选"水土收窄")：退了档的写"渐服水土"，
+            // 退完的写"已服水土"——以前只有"不服水土 N 年，未到档"，看不出是还没到档还是已经适应
+            bool adapting = info.Tier < TierOf(info.Years);
+            state = adapting && info.Tier <= 0 ? string.Format(LM.Get("shuitu_state_adapted"), info.Years)
+                : string.Format(LM.Get(adapting ? "shuitu_state_adapting" : "shuitu_state_unfit"), info.Years, TierText(info.Tier));
+            color = info.Tier > 0 ? ColorStrained : adapting ? ColorCalm : ColorTiming;
             if (info.Tier > 0)
                 effect = string.Format(LM.Get("shuitu_effect_unfit_city"), SettledLevyFor(info.Tier), StabilityFor(info.Tier),
                     SettledTaxFor(info.Tier));

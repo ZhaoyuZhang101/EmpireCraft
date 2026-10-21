@@ -2937,6 +2937,8 @@
   "shuitu_state_pending": "not yet assessed for the new ruler",
   "shuitu_state_offgrass": "off the steppe {0} years, {1}",
   "shuitu_state_unfit": "ill-suited for {0} years, {1}",
+  "shuitu_state_adapting": "ill-suited for {0} years, adapting, {1}",
+  "shuitu_state_adapted": "settled for {0} years, now adapted",
   "shuitu_state_unfit_kingdom": "{0} ill-suited dry cities, longest {1} years, highest {2}",
   "shuitu_state_steppe": "on the steppe, over 60% dry land",
   "shuitu_state_exempt": "not bound by land",

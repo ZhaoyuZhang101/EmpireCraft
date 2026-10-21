@@ -27,7 +27,9 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //        当地首领立为游牧之国——在帝国里就留作游牧成员(自主外交、世袭，自成一体)，不是帝国就做附庸；
 //        这种成员带着游牧易散的毛病：宗主更替逢积弊深重或正统低落，按汗位更替之乱的机会据地自立(见 OnSuzerainSucceeded)；
 //     4. 交当地首领(第二档起)：按政体文化转为朝贡国、附庸(同"扩张上限"，见 AdministrativeControlSystem.ReleaseToLocal)；
-//     5. 屯田只拖延：屯田实边把不服水土的旱地城的计时往回拨 DelayYears 年(不晚于现在)，免不掉(见 Delay)。
+//     5. 屯田只拖延：屯田实边把不服水土的旱地城的计时往回拨 DelayYears 年(不晚于现在)，免不掉(见 Delay)；本族为主、已过顶档的城不拨(拨了只推迟适应)。
+//     以上档位都按逐步适应退过之后的算(用户 2026-10-21 选 A3，见 UnfitTierOf)：本族为主、占满 60 年的城逐年退档，
+//     退到不罚的城不再算"到档"、不会被交出去，出路的机会、交当地首领要第二档也照退过的最高档。
 // 出路改的政体记在 shuitu_regime 并当作手选(regime_manually_selected)，免得制度同步按文化又改回去；玩家手选的政体不动。
 public static partial class ShuiTuSystem
 {
@@ -401,21 +403,27 @@ public static partial class ShuiTuSystem
         double now = World.world.getCurWorldTime();
         var kingdoms = new List<Kingdom>();
         int delayed = 0;
+        string ruling = CultureService.GetRealmCulture(unit);
         foreach (City city in DirectCities(unit, kingdoms))
         {
             var data = city.GetOrCreate();
             if (data.shuitu_owner != unit.id || data.shuitu_since < 0d) continue;
+            // 本族为主、计时已过顶档(40 年)的城不往回拨：此后计时是在往逐步适应走(见 UnfitTierOf)，
+            // 拨回去只会推迟适应，满了 60 年的还会把退下的档又拨上来
+            string culture = CultureService.GetMainCulture(city, initialize: false);
+            if (TierOf(YearsSince(data.shuitu_since)) >= MaxTier && RulersCulture(culture, ruling)) continue;
             data.shuitu_since = Math.Min(now, data.shuitu_since + DelayYears * SecondsPerYear);
             delayed++;
             if (!CityInfos.TryGetValue(city.id, out CityInfo info)) continue;
             info.Years = YearsSince(data.shuitu_since);
-            info.Tier = TierOf(info.Years);
+            info.Tier = UnfitTierOf(info.Years, culture, ruling);
+            info.Culture = culture;
             CityInfos[city.id] = info;
         }
         // 政权的最高档当即按拨过的重算
         if (delayed > 0 && Units.TryGetValue(unit.id, out UnitInfo unitInfo))
         {
-            unitInfo.UnfitTop = unitInfo.UnfitYears = 0;
+            unitInfo.UnfitTop = unitInfo.UnfitYears = unitInfo.Adapted = 0;
             Array.Clear(unitInfo.TierCounts, 0, unitInfo.TierCounts.Length);
             foreach (long id in unitInfo.CityIds)
             {
@@ -423,6 +431,7 @@ public static partial class ShuiTuSystem
                 unitInfo.TierCounts[info.Tier]++;
                 unitInfo.UnfitTop = Math.Max(unitInfo.UnfitTop, info.Tier);
                 unitInfo.UnfitYears = Math.Max(unitInfo.UnfitYears, info.Years);
+                if (info.Tier < TierOf(info.Years)) unitInfo.Adapted++;
             }
         }
         if (delayed > 0) LogService.LogInfo($"[EmpireCraft][水土] {unit.GetKingdomName()} 屯田实边，{delayed} 座旱地城的计时往回拨 {DelayYears} 年");
