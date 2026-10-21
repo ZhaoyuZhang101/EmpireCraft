@@ -90,6 +90,7 @@ public static partial class ShuiTuSystem
 
     public static void ResetWorldState()
     {
+        RevertChecked.Clear();
         Units.Clear();
         KingdomUnits.Clear();
         CityInfos.Clear();
@@ -371,6 +372,7 @@ public static partial class ShuiTuSystem
         double now = World.world.getCurWorldTime();
         var kingdoms = new List<Kingdom>();
         List<City> cities = DirectCities(unit, kingdoms);
+        RevertUnfounded(unit, kingdoms, cities);
         Fit fit = FitOf(unit);
         if (!Units.TryGetValue(unit.id, out UnitInfo info)) Units[unit.id] = info = new UnitInfo();
         // 上一趟记下、这一趟不在本政权的城与国除去(还记在本政权名下的)

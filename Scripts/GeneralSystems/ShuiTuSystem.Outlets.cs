@@ -22,12 +22,14 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     4. 封建化(第二档起)：改行封建，兀鲁思(同一制度线的成员)随之改为封建诸侯。旱地还占三成以上的先北归，否则先封建化；
 //   定居入草：
 //     1. 羁縻：施行了羁縻制度的帝国先把到档的旱地城(连成一片的至多六座)交当地首领设羁縻州；
-//     2. 整国游牧化：直辖城旱地六成以上的先改行游牧(五到六成的别的路都走不了才改)；
-//     3. 改从游牧：到档的旱地城连成一片、邻近有游牧文化(没有就找本文化制度线上的游牧文化)，主流文化改成它、城外村镇改放牧(城池建筑照旧，不改建营地)，
+//     2. 整国游牧化：直辖城旱地六成以上的先改行游牧(五到六成的别的路都走不了才改)；附近要有游牧(见 NomadNearby)；
+//     3. 改从游牧：到档的旱地城连成一片、邻近有游牧文化，主流文化改成它、城外村镇改放牧(城池建筑照旧，不改建营地)，
 //        当地首领立为游牧之国——在帝国里就留作游牧成员(自主外交、世袭，自成一体)，不是帝国就做附庸；
 //        这种成员带着游牧易散的毛病：宗主更替逢积弊深重或正统低落，按汗位更替之乱的机会据地自立(见 OnSuzerainSucceeded)；
 //     4. 交当地首领(第二档起)：按政体文化转为朝贡国、附庸(同"扩张上限"，见 AdministrativeControlSystem.ReleaseToLocal)；
 //     5. 屯田只拖延：屯田实边把不服水土的旱地城的计时往回拨 DelayYears 年(不晚于现在)，免不掉(见 Delay)；本族为主、已过顶档的城不拨(拨了只推迟适应)。
+//     整国游牧化、改从游牧都是学邻居的活法：附近没有游牧就不走(用户 2026-10-22 "整个地图都没有游牧制度他会变成游牧"，
+//     以前改从游牧附近没有时找本文化制度线上的游牧文化，整国游牧化不看)；以前这样游牧化的，读档后头一趟改回(见 RevertUnfounded)。
 //     以上档位都按逐步适应退过之后的算(用户 2026-10-21 选 A3，见 UnfitTierOf)：本族为主、占满 60 年的城逐年退档，
 //     退到不罚的城不再算"到档"、不会被交出去，出路的机会、交当地首领要第二档也照退过的最高档。
 // 出路改的政体记在 shuitu_regime 并当作手选(regime_manually_selected)，免得制度同步按文化又改回去；玩家手选的政体不动。
@@ -94,9 +96,10 @@ public static partial class ShuiTuSystem
         // 到档的旱地城(各国都城不动)
         List<City> unfit = cities.Where(city => UnfitTier(city) > 0 && city.kingdom.capital != city).ToList();
         if (empire != null && JimiSystem.Enacted(empire) && unfit.Count > 0 && Release(unit, unfit)) return "羁縻";
-        if (free && share >= SteppeShare && Nomadize(unit)) return "整国游牧化";
-        if (unfit.Count > 0 && TurnNomad(unit, unfit)) return "改从游牧";
-        if (free && share >= NomadizeShare && Nomadize(unit)) return "整国游牧化";
+        bool nomadNear = NomadNearby(unit, cities);
+        if (nomadNear && free && share >= SteppeShare && Nomadize(unit)) return "整国游牧化";
+        if (nomadNear && unfit.Count > 0 && TurnNomad(unit, unfit)) return "改从游牧";
+        if (nomadNear && free && share >= NomadizeShare && Nomadize(unit)) return "整国游牧化";
         if (info.UnfitTop >= 2 && unfit.Count > 0 && Release(unit, unfit)) return "交当地首领";
         return null;
     }
@@ -185,6 +188,58 @@ public static partial class ShuiTuSystem
         EventRecorder.Record(unit, string.Format(LM.Get("shuitu_nomadize_history"), name,
             CompositeEmpireService.GetRegimeName(RegimeType.YouMu)));
         return true;
+    }
+
+    // 附近有游牧：本国直辖城或与之相邻的城里有游牧文化为主的城，或接壤、隔海相望的国家是游牧文化
+    private static bool NomadNearby(Kingdom unit, List<City> cities)
+    {
+        foreach (City city in cities)
+        {
+            if (NomadicCity(city)) return true;
+            foreach (City next in (IEnumerable<City>)city.neighbours_cities ?? Array.Empty<City>())
+                if (NomadicCity(next)) return true;
+        }
+        foreach (Kingdom other in World.world.kingdoms)
+            if (other != unit && Valid(other) && other.hasCities() &&
+                CompositeEmpireService.IsNomadicCulture(CultureService.GetRealmCulture(other)) && StraitReach.Near(unit, other))
+                return true;
+        return false;
+    }
+
+    private static bool NomadicCity(City city) =>
+        city?.data != null && !city.isRekt() &&
+        CompositeEmpireService.IsNomadicCulture(CultureService.GetMainCulture(city, initialize: false));
+
+    // 读档后每个政权头一趟：以前附近没有游牧也"整国游牧化"了的定居文化国，附近确实没有游牧的改回本文化眼下应有的政体，
+    // 国号、君主称号随政体恢复(用户 2026-10-22 选"读档时改回原政体")
+    private static readonly HashSet<long> RevertChecked = new();
+
+    private static void RevertUnfounded(Kingdom unit, List<Kingdom> kingdoms, List<City> cities)
+    {
+        if (!RevertChecked.Add(unit.id)) return;
+        var extra = unit.GetOrCreate();
+        if (extra.shuitu_regime != (int)RegimeType.YouMu || unit.GetRegime()?.type != RegimeType.YouMu) return;
+        if (CompositeEmpireService.IsNomadicCulture(CultureService.GetRealmCulture(unit)) || NomadNearby(unit, cities)) return;
+        string institution = CultureService.GetInstitutionCulture(unit);
+        RegimeType target = InstitutionSystem.TryResolveCultureRegime(institution, out RegimeType resolved)
+            ? resolved
+            : OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(institution, out Setting setting) ? setting.regime : RegimeType.Feudalism;
+        target = InstitutionSystem.AdjustForMonarchyEmpire(unit, target);
+        if (KingdomExtension.IsNomadTaxRegime(target)) return;
+        string name = unit.GetKingdomName();
+        if (ChangeRegime(unit, target) < 0) return;
+        // 改回的是本文化自己的政体，不当手选，之后照常随制度同步
+        foreach (Kingdom kingdom in kingdoms)
+        {
+            if (kingdom?.data == null || kingdom.isRekt()) continue;
+            var data = kingdom.GetOrCreate();
+            if (data.shuitu_regime != (int)target) continue;
+            data.shuitu_regime = -1;
+            data.regime_manually_selected = false;
+        }
+        EventRecorder.Record(unit, string.Format(LM.Get("shuitu_denomadize_history"), name,
+            CompositeEmpireService.GetRegimeName(target)));
+        LogService.LogInfo($"[EmpireCraft][水土] {name} 附近没有游牧，撤回整国游牧化，改回{CompositeEmpireService.GetRegimeName(target)}");
     }
 
     // 走了出路的离草清零(到过档的已记过史书，这里不再记"离草结束")
@@ -309,7 +364,7 @@ public static partial class ShuiTuSystem
         List<City> candidates = unfit.Where(city => !CultureService.IsCityMainCultureLocked(city)).ToList();
         if (candidates.Count == 0) return false;
         List<City> cluster = UnfitCluster(candidates);
-        string nomad = NomadCultureNear(cluster, CultureService.GetRealmCulture(unit));
+        string nomad = NomadCultureNear(cluster);
         if (nomad == null) return false;
         Kingdom realm = unit.GetEmpire()?.CoreKingdom ?? unit;
         string name = realm.GetKingdomName();
@@ -372,7 +427,7 @@ public static partial class ShuiTuSystem
     }
 
     // 邻近的游牧文化：这片城与它们的邻城里的主流文化(这片城自己的算两份)；没有就找本文化制度线上的游牧文化
-    private static string NomadCultureNear(List<City> cluster, string realmCulture)
+    private static string NomadCultureNear(List<City> cluster)
     {
         var counts = new Dictionary<string, int>(StringComparer.Ordinal);
         void Count(City city, int weight)
@@ -387,12 +442,10 @@ public static partial class ShuiTuSystem
             Count(city, 2);
             foreach (City next in (IEnumerable<City>)city.neighbours_cities ?? Array.Empty<City>()) Count(next, 1);
         }
-        if (counts.Count > 0)
-            return counts.OrderByDescending(pair => pair.Value).ThenBy(pair => pair.Key, StringComparer.Ordinal).First().Key;
-        if (!CultureService.IsValidCulture(realmCulture)) return null;
-        string line = InstitutionSystem.GetCultureLine(realmCulture);
-        return OnomasticsRule.ALL_CULTURE_RULE.Keys.OrderBy(key => key, StringComparer.Ordinal)
-            .FirstOrDefault(key => CompositeEmpireService.IsNomadicCulture(key) && InstitutionSystem.GetCultureLine(key) == line);
+        // 附近没有游牧文化就不改从游牧(以前找本文化制度线上的游牧文化顶上)
+        return counts.Count > 0
+            ? counts.OrderByDescending(pair => pair.Value).ThenBy(pair => pair.Key, StringComparer.Ordinal).First().Key
+            : null;
     }
 
     // 屯田实边(见 TempFac_屯田实边)：本国不服水土的旱地城计时往回拨 DelayYears 年(不晚于现在)，返回拨了几座
