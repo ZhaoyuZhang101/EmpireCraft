@@ -184,7 +184,10 @@ public class EmpireCraftKingdomBehCheckPlots : GameAIKingdomBase
         // 成员挨打向中央求援、邻近成员挨打议驰援(中央不再自动援助成员，见 MemberWarAid)
         if (!pKingdom.IsEmpire()) MemberWarAid.TryRaise(pKingdom);
         if (empire.CoreKingdom.getWars().Any(w=>w.GetEmpireWarType()== EmpireWarType.藩王索取皇位)) return;
+        // 帝国一级的冷却(timestamp_invite_war_cool_down)照旧看：称帝之初、中央应成员求援出兵后三个月内成员不随征
+        // (见 Empire.CreateNewEmpire、MemberWarAid.AnswerRequest)。成员随征不再记在帝国上，改记在各成员自己身上，见 JoinCoolingDown
         if (!empire.CanJoinWar()) return;
+        if (JoinCoolingDown(pKingdom)) return;
         // 战国：诸侯已称王自立，天子与诸侯不再自动互相参战(合纵连横见 ZhouEraSystem)
         if (ZhouEraSystem.Era(empire) >= ZhouEraSystem.Warring) return;
         if (empire.isRekt() || pKingdom.IsEmpire()) return;
@@ -193,7 +196,9 @@ public class EmpireCraftKingdomBehCheckPlots : GameAIKingdomBase
         if (pKingdom.isInWarOnSameSide(coreKingdom)) return;
         if (pKingdom.getWars().Any()) return;
         if (!coreKingdom.hasEnemies()) return;
-        // 听命于中央的成员(行政区、军府等没有自主外交权的)是中央的一部分，中央开战一律随征，不看好感
+        // 听命于中央的成员(行政区、军府等没有自主外交权的)是中央的一部分，中央开战一律随征，不看好感。
+        // 有自主外交的诸侯这里本来就放行(进攻、守土都随征，只要自己没在打仗、不在冷却)；封建帝国别国打上门时诸侯开战当时就随征，
+        // 不等这里每月一查(用户 2026-10-21 选"称帝后动员不变差"，见 EmpirePeacePatch.FollowsIntoWar、FeudalVassalService.ExpandSide)
         if (!GamePatches.EmpirePeacePatch.Obeys(empire, pKingdom) &&
             !pKingdom.isOpinionTowardsKingdomGood(coreKingdom) && !regime.IsAllowDiplomacy()) return;
         bool joinedAny = false;
@@ -205,9 +210,31 @@ public class EmpireCraftKingdomBehCheckPlots : GameAIKingdomBase
         }
         if (joinedAny)
         {
-            empire.data.timestamp_invite_war_cool_down = World.world.getCurWorldTime();
+            // 西欧封建帝国按成员各自记；别的帝国照旧记在帝国上、一家随征后全帝国三个月(用户只给西欧放开，
+            // 免得阿拉伯的世袭埃米尔、游牧兀鲁思随征也变快，抵消削弱阿拉伯)
+            if (PerMemberJoin(empire)) JoinedWarAt[pKingdom.id] = World.world.getCurWorldTime();
+            else empire.data.timestamp_invite_war_cool_down = World.world.getCurWorldTime();
             TranslateHelper.LogJoinEmpireWar(pKingdom, empire);
         }
+    }
+
+    // 成员随中央参战的冷却：西欧封建帝国每个成员各自三个月(用户 2026-10-21 选"称帝后动员不变差")。以前记在帝国上
+    // (timestamp_invite_war_cool_down)，一家成员随征后全帝国三个月内别家都不随征——称帝前附庸网是一齐参战的，
+    // 称帝后反倒每三个月才进来一家。不存档：读档、换世界时清掉(见 ResetWorldState)，读档后各成员可以马上随征
+    private static readonly Dictionary<long, double> JoinedWarAt = new();
+    private const int JoinWarCooldownMonths = 3;
+
+    public static void ResetWorldState() => JoinedWarAt.Clear();
+
+    private static bool PerMemberJoin(Empire empire) => empire?.CoreKingdom?.GetRegime()?.type == RegimeType.Feudalism;
+
+    private static bool JoinCoolingDown(Kingdom kingdom)
+    {
+        if (!JoinedWarAt.TryGetValue(kingdom.id, out double at)) return false;
+        // 记的时间晚于现在(换了世界没清到)按没有记过算
+        if (World.world.getCurWorldTime() >= at && Date.getMonthsSince(at) < JoinWarCooldownMonths) return true;
+        JoinedWarAt.Remove(kingdom.id);
+        return false;
     }
 
     private static bool TryJoinWarOnSameSide(War war, Kingdom sideKingdom, Kingdom joiningKingdom)

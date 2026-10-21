@@ -13,12 +13,12 @@ using NeoModLoader.services;
 namespace EmpireCraft.Scripts.GeneralSystems;
 
 // 开战目标(战后分配的一部分，参照钢铁雄心：战时占领与最终归属分开)：国战开打时按形势定一个目标，议和时按目标结算——
-//   · 吞并：攻方兵力两倍以上、与对方接壤、对方是小国；
+//   · 吞并：攻方兵力两倍以上、与对方接壤、对方是小国(西欧封建只认三城以内，周制不吞并)；
 //   · 割地(局部入侵)：接壤、兵力相当；
 //   · 赔款：不接壤(跨海)或攻方兵力不如对方；
 //   · 劫掠：原有的劫掠战争(洗劫第一座城即收兵，见 CityPatch)；
 //   · 收复：对方手里有我方法理(法理主国是我方)的城，且接壤——优先于其他目标；
-//   · 迫使附庸：攻方兵力一倍半以上、对方不是帝国，攻方行分封(封建、分封制)或对方大到吞不下；
+//   · 迫使附庸：攻方兵力两倍以上(周制一倍半)、对方不是帝国、吞不下；
 //   · 改宗：圣战且两边宗教不同——对方连同各城改奉攻方的宗教；
 //   · 通商：跨海打不下城、兵力够、两边都有港口，对方锁国或攻方兵力两倍以上——对方被迫开港，与攻方通商二十年(锁国也开)；
 //   · 扶立：兵力一倍半以上、对方不是帝国，攻方对那国王位有血亲宣称或对方君主年幼——从对方宗室里另立一位成年人为君，
@@ -37,8 +37,13 @@ public static class WarGoalSystem
     private const int AnnexSmallCities = 3;
     // 割地：攻方兵力至少是对方几成
     private const float ConquestStrength = 0.8f;
-    // 迫使附庸：攻方兵力至少是对方几倍
-    private const float VassalStrength = 1.5f;
+    // 迫使附庸：攻方兵力至少是对方几倍。一倍半 → 两倍(用户 2026-10-21 选"封建能吞小国")：迫使附庸是死战目标(见 Excessive)，
+    // 以前行分封的攻方兵力一倍半就定迫使附庸，本该只求割地的仗反把对方逼得困兽犹斗；一倍半到两倍之间改求割地
+    private const float VassalStrength = 2f;
+    // 扶立君主：攻方兵力至少是对方几倍(仍是一倍半，不随迫使附庸提到两倍——用户只定了迫使附庸的门槛)
+    private const float InstallStrength = 1.5f;
+    // 周制(华夏分封)的迫使附庸照旧一倍半：周室与诸侯有自己的兼并规则(见 ZhouEraSystem)，用户这次只放开西欧封建
+    private const float ZhouVassalStrength = 1.5f;
     // 战争窗口里轮换的顺序(劫掠不参与)
     private static readonly WarGoal[] Cycle =
         { WarGoal.吞并, WarGoal.割地, WarGoal.收复, WarGoal.迫使附庸, WarGoal.扶立, WarGoal.改宗, WarGoal.通商, WarGoal.赔款 };
@@ -96,13 +101,20 @@ public static class WarGoalSystem
         RegimeType? regime = attacker.GetRegime()?.type;
         bool feudal = regime == RegimeType.Feudalism || regime == RegimeType.ZhouFeudalism;
         bool small = theirs <= AnnexSmallCities || theirs * 2 <= ours;
+        // 西欧封建以前永不选吞并，打赢了只得附庸，核心永远只有几座城(用户 2026-10-21 选"封建能吞小国")：
+        // 兵力两倍以上、对方三城以内的也吞并。别的政体的"小国"还含不到攻方一半大的；封建不含，城多的照旧收作附庸。
+        // 周制照旧不吞并、一倍半就迫使附庸(只放开西欧)
+        bool zhou = regime == RegimeType.ZhouFeudalism;
+        bool annexable = zhou ? false : feudal ? theirs <= AnnexSmallCities : small;
+        float vassalAt = zhou ? ZhouVassalStrength : VassalStrength;
         // 战国诸侯互伐：兵力够就以兼并(对方小)或割地为务，不再只求赔款
         if (borders && ZhouEraSystem.WarringRivals(attacker, defender) && Claimed(attacker, defender.cities).Count == 0)
             data.war_goal = strength >= ConquestStrength ? small ? WarGoal.吞并 : WarGoal.割地 : WarGoal.赔款;
+        // 迫使附庸与吞并的兵力门槛现在都是两倍(以前行分封的一倍半就迫使附庸；周制照旧一倍半)：吞不下的、不是帝国的，迫其为附庸
         else data.war_goal = !borders ? OverseasGoal(attacker, defender, strength, small)
             : Claimed(attacker, defender.cities).Count > 0 ? WarGoal.收复
-            : strength >= AnnexStrength && small && !feudal ? WarGoal.吞并
-            : strength >= VassalStrength && !defender.IsEmpire() && (feudal || strength >= AnnexStrength) ? WarGoal.迫使附庸
+            : strength >= AnnexStrength && annexable ? WarGoal.吞并
+            : strength >= vassalAt && !defender.IsEmpire() ? WarGoal.迫使附庸
             : strength >= ConquestStrength ? WarGoal.割地
             : WarGoal.赔款;
         // 扩张上限：已经过度扩张，或对方都城远在本国控制范围之外，不谋土地，改为迫其称臣(帝国则求赔款)
@@ -112,7 +124,7 @@ public static class WarGoalSystem
         // 圣战且两边宗教不同：要对方改宗
         if (war.GetEmpireWarType() == EmpireWarType.神圣 && Convertible(attacker, defender)) data.war_goal = WarGoal.改宗;
         // 扶立君主：对那国王位有血亲宣称、或对方君主年幼，又找得到人扶立
-        else if (data.war_goal is WarGoal.迫使附庸 or WarGoal.割地 && strength >= VassalStrength && !defender.IsEmpire() &&
+        else if (data.war_goal is WarGoal.迫使附庸 or WarGoal.割地 && strength >= InstallStrength && !defender.IsEmpire() &&
                  (RoyalMarriageSystem.HasClaim(attacker, defender) || defender.king?.isAdult() == false) &&
                  InstallCandidate(defender) != null)
             data.war_goal = WarGoal.扶立;
@@ -384,7 +396,10 @@ public static class WarGoalSystem
         return true;
     }
 
-    // 守方认输的代价太大：要吞并、要逼成附庸(帝国不会整个沦为附庸，只赔款)、割地要拿走都城或一半以上的城
+    // 守方认输的代价太大：要吞并、要逼成附庸(帝国不会整个沦为附庸，只赔款)、割地要拿走都城或一半以上的城。
+    // 2026-10-21 核对(封建能吞小国)：按兵力定的吞并、迫使附庸现在都要攻方两倍以上，死战落在被两倍兵力压着的国家身上，照旧合理；
+    // 行分封的攻方兵力一倍半到两倍之间改求割地，对方只在都城或半数城被占时才死战，不再一开打就困兽犹斗。
+    // 没动的：扶立仍是一倍半；过度扩张改迫使附庸、战国诸侯兼并、跨海吞并照旧
     private static bool Excessive(War war, Kingdom defender)
     {
         WarGoal goal = Get(war);

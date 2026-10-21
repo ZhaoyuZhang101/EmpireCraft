@@ -282,12 +282,13 @@ public static class FeudalVassalService
         return true;
     }
 
-    // 吞并附庸：控制度练满(三级满进度)照旧可以；此外附庸满十年后——
+    // 吞并附庸：控制度练满(三级满进度)照旧可以；此外附庸满六年后——
     //   · 宗主(连同治下各国)实力达到附庸两倍以上；
     //   · 或宗主施行了能容纳多个法理与城市的制度(西方的中央集权君主制等"直辖治理")，实力达到附庸一倍半以上；
     // 双方都没在打仗。吞并是一次尝试，会失败(见 Annex)，失败后十年内不能再试。
     // 三倍 → 两倍：以前附庸收了就几乎吞不掉，王国一层整合不起来(用户 2026-10-21 选"西欧能整合、帝国能倒")
-    private const int AnnexMinYears = 10, AnnexRetryYears = 10;
+    // 满十年 → 满六年(用户 2026-10-21 选"附庸并入加快")：十年里宗主、附庸只要有一方在打仗就试不成，西欧整合最慢
+    private const int AnnexMinYears = 6, AnnexRetryYears = 10;
     private const double AnnexPowerRatio = 2d, CentralizedAnnexPowerRatio = 1.5d;
 
     // 能容纳多个法理与城市：施行了"直辖治理"特性的制度(西方中央集权君主制、神权国家)
@@ -315,13 +316,16 @@ public static class FeudalVassalService
         return ratio >= (HasDirectAdministration(lord) ? CentralizedAnnexPowerRatio : AnnexPowerRatio);
     }
 
-    // 吞并的成算：控制度越高、实力越悬殊、宗主集权越易成；控制度练满的必成
+    // 吞并的成算：控制度越高、实力越悬殊、宗主集权越易成；控制度练满的必成。
+    // 基数 0.4 → 0.5(用户 2026-10-21 选"附庸并入加快")：以前一级控制度、实力刚够两倍的只有四成出头，失败了又要等十年
+    private const float AnnexChanceBase = 0.5f;
+
     public static float AnnexChance(Kingdom lord, Kingdom subject)
     {
         var data = subject.GetOrCreate();
         if (data.feudal_vassal_level == 3 && data.feudal_vassal_progress >= ProgressPerLevel) return 1f;
         double ratio = GetWarPower(lord, false, subject) / Math.Max(1d, GetWarPower(subject, false));
-        float chance = 0.4f + 0.12f * (data.feudal_vassal_level - 1) + (float)Math.Min(0.3d, (ratio - 1.5d) * 0.06d);
+        float chance = AnnexChanceBase + 0.12f * (data.feudal_vassal_level - 1) + (float)Math.Min(0.3d, (ratio - 1.5d) * 0.06d);
         if (HasDirectAdministration(lord)) chance += 0.15f;
         return UnityEngine.Mathf.Clamp(chance, 0.2f, 0.9f);
     }
@@ -615,13 +619,14 @@ public static class FeudalVassalService
             if (current == null || current.isRekt() || !visited.Add(current.id)) continue;
             var followers = GetDirectVassals(current).ToList();
             // 帝国：只有中央自己的仗，听命于中央的成员才随征；成员的仗中央不插手(要求援，见 MemberWarAid)，
-            // 有自主外交的诸侯、藩镇看好感自己决定(见 CheckJoinWar)；战国周室不再号令诸侯
+            // 有自主外交的诸侯、藩镇看好感自己决定(见 CheckJoinWar)；战国周室不再号令诸侯。
+            // 封建帝国别国打上门、中央是主守方时，诸侯也随征(用户 2026-10-21 选"称帝后动员不变差"，见 EmpirePeacePatch.FollowsIntoWar)
             Empire empire = current.GetEmpire();
             if (empire != null && current == empire.CoreKingdom && war.getMainAttacker() != null &&
                 war.getMainDefender() != null && !war.getMainAttacker().IsInSameEmpire(war.getMainDefender()) &&
                 !MemberWarAid.IsMemberWar(war, empire, attackers) && ZhouEraSystem.Era(empire) < ZhouEraSystem.Warring)
                 followers.AddRange(empire.kingdoms_list.Where(member => member != null && member != current &&
-                    EmpirePeacePatch.Obeys(empire, member) && !EmpirePeacePatch.HasLeft(member, war, attackers)));
+                    EmpirePeacePatch.FollowsIntoWar(empire, member, war) && !EmpirePeacePatch.HasLeft(member, war, attackers)));
             bool directIndependence = GetOverlord(war.getMainAttacker()) == war.getMainDefender();
             if (!attackers && !directIndependence && GetOverlord(current) is Kingdom protector)
                 followers.Add(protector);

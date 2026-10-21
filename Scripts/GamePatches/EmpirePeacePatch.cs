@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.Regimes;
@@ -88,6 +89,37 @@ public class EmpirePeacePatch : GamePatch
         if (!regime.IsAllowDiplomacy()) return true;
         return member.IsAdministrativeKingdomType() && regime.GetLeaderSelectMethod() != LeaderSelectMethod.Succession;
     }
+
+    // 随中央参战(只用于"随不随征"这一处判定：开战、有人加入时当场拉人的 FeudalVassalService.ExpandSide)：
+    // 听命的成员之外，封建帝国(中央行西方封建)的诸侯在中央守土的仗里——别国打上门来、中央是主守方——也随中央参战
+    // (用户 2026-10-21 选"称帝后动员不变差")。称帝前附庸网打仗是一个整体，宗主挨打附庸一齐上阵；称帝后诸侯有自主外交、
+    // 不算听命，只能等王国 AI 每月逐个随征(见 CheckJoinWar)，帝国反倒比附庸网难动员。进攻战照旧(听命的当场随征，诸侯走 CheckJoinWar)。
+    // 不改 Obeys 本身：议和连带停战、中央代付军饷、奉诏出征、求援与驰援都看 Obeys，改了诸侯守土时这些也会跟着变
+    // (中央替诸侯付饷、调走诸侯的兵)，诸侯在这些事上的自主照旧
+    public static bool FollowsIntoWar(Empire empire, Kingdom member, War war)
+    {
+        if (empire?.CoreKingdom == null) return false;
+        if (Obeys(empire, member)) return true;
+        Kingdom core = empire.CoreKingdom;
+        if (war?.data == null || war.hasEnded() || member?.data == null || member.isRekt() || member == core ||
+            member.GetEmpire() != empire || member.IsFactionRebelling() || member.IsLocalRebelling() ||
+            member.isInWarWith(core)) return false;
+        if (core.GetRegime()?.type != RegimeType.Feudalism) return false;
+        // 选帝制下不听调遣的大诸侯(见 HolyRomanSystem.Defies)守土也不随征
+        if (EmpireCraft.Scripts.GeneralSystems.HolyRomanSystem.Defies(empire, member)) return false;
+        Kingdom attacker = war.getMainAttacker();
+        return war.getMainDefender() == core && attacker?.data != null && !attacker.isRekt() && attacker.GetEmpire() != empire &&
+               war.getAsset() != WarTypeLibrary.rebellion && !NotDefence.Contains(war.GetEmpireWarType());
+    }
+
+    // 中央是主守方但不算"别国打上门"的仗：劫掠来去一阵风(王国 AI 随征本来就不进劫掠之战，见 CheckJoinWar)；
+    // 叛乱、独立、争位这些家里的事诸侯不必一齐上阵
+    private static readonly HashSet<EmpireWarType> NotDefence = new()
+    {
+        EmpireWarType.劫掠, EmpireWarType.地方独立, EmpireWarType.派系叛乱, EmpireWarType.地方叛乱, EmpireWarType.民族叛乱,
+        EmpireWarType.宗教叛乱, EmpireWarType.清君侧, EmpireWarType.藩王索取皇位, EmpireWarType.附庸独立, EmpireWarType.不奉诏,
+        EmpireWarType.对立国王, EmpireWarType.私战
+    };
 
     private static void Cascade(Snapshot snapshot)
     {

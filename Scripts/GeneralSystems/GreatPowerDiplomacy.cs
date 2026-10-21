@@ -13,7 +13,7 @@ using UnityEngine;
 namespace EmpireCraft.Scripts.GeneralSystems;
 
 // 跨文明大国外交(用户 2026-10-19 选"跨文明大国外交"；以前同物种的两个帝国一律 -999 好感、帝国之间不能结好)：
-//   · 两个皇帝：同一文明(同天下，见 CultureService.SameKin)的两个帝国照旧势不两立；不同文明的帝国按远近相忌——
+//   · 两个皇帝：同一文明(同天下，见 CultureService.SameKin)的两个帝国是宿敌(-200)；不同文明的帝国按远近相忌——
 //     都城相距远的几乎无碍(-5)，中等(-20)，近的(-50)；
 //   · 通好：不同文明的两个帝国不在打仗、好感不太坏时，每年有机会遣使通好(有共同的敌人时更容易)——互认对方的称号
 //     (皇帝、大可汗、哈里发、元首……)，三十年内互不侵犯(见 WarGate、WarTargetPatch)、好感 +40；
@@ -22,6 +22,9 @@ public static class GreatPowerDiplomacy
 {
     private const int PactYears = 30, PactOpinion = 40;
     private const float PactChance = 0.08f, CommonEnemyChance = 0.4f, AidChance = 0.15f, MinOpinion = -60f;
+    // 同一天下的两个皇帝：-999 → -200(用户 2026-10-21 选"同天下帝国不再死斗")。仍是宿敌、好感照样压到谈不拢，
+    // 但不再是什么都抵不过的死仇；罗马天下有六个文化、最多并立六个帝国，以前彼此 -999，西欧内耗最重。华夏、乌玛一样
+    private const int SameCivilizationRivalry = -200;
     private static double _lastScan = -1d;
 
     public static void ResetWorldState() => _lastScan = -1d;
@@ -46,7 +49,7 @@ public static class GreatPowerDiplomacy
     public static int EmperorRivalry(Kingdom a, Kingdom b)
     {
         if (Bound(a, b)) return 0;
-        if (SameCivilization(a, b)) return -999;
+        if (SameCivilization(a, b)) return SameCivilizationRivalry;
         if (a.capital == null || b.capital == null) return -20;
         float distance = Vector2.Distance(a.capital.city_center, b.capital.city_center);
         return distance > 300f ? -5 : distance > 150f ? -20 : -50;

@@ -570,7 +570,7 @@ public class CityPatch : GamePatch
                 ClearResolvedCaptureProgress(__instance);
                 return false;
             }
-            // 分封制帝国攻下别国都城：对方称臣归附，已占的该国法理之地全部归还，城市不易主
+            // 分封制帝国攻下别国都城：对方称臣归附，已占的该国法理之地归还(西欧封建只还都城那一片)，城市不易主
             if (!legitimacyWar &&
                 FeudalConquestService.TryResolveCapitalConquest(__instance, joinAfterCapture, oldKingdom))
             {

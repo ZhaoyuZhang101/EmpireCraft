@@ -17,8 +17,9 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 归附的国家基本自由：保留外交权和军队，居民按低税率纳税、不向中央输兵，原王室照旧世袭；
 //   · 本文化已施行分封类制度(开启"分封"诉求的制度)后，可以直接把该国君位封给皇子，
 //     原国君迁往王畿安置。
-//   · 西方封建制攻下别国都城后，归还对方法理城市并建立直属附庸关系，原王室保留；例外：一城小国照普通攻城
-//     易主(整国并入)，攻方中央集权后三城以内的整国并入，别的帝国的成员国照普通攻城只易主都城、不收附庸；
+//   · 西方封建制攻下别国都城后，只归还对方都城所在那一片王国法理里被占去的城，其余已占的城留给攻方，并建立直属附庸
+//     关系，原王室保留；例外：一城小国照普通攻城易主(整国并入)，攻方中央集权后五城以内的整国并入，别的帝国的成员国
+//     照普通攻城只易主都城、不收附庸；
 //   · 叛乱者也一样：分封制下攻下叛军都城，叛乱即告平定、对方重新归附("叛过就永不得回归"
 //     是律令制的规矩，不适用于分封制)，但原叛君被废，由帝国强制扶立一位本地贵族为君；
 //     分封之后优先改封皇子，没有合适的皇子才立本地贵族。
@@ -49,7 +50,8 @@ public static class FeudalConquestService
                 effect.type == "enable_claim" && effect.value == "分封"));
     }
 
-    private const int CentralizedAnnexMaxCities = 3;
+    // 中央集权后攻下都城整国并入的上限：三城 → 五城(用户 2026-10-21 选"攻下都城只退都城那一片法理")
+    private const int CentralizedAnnexMaxCities = 5;
 
     // 由 CityPatch.FinishedCapture 调用。返回 true 表示已按征服规则处理，城市不再易主。
     public static bool TryResolveCapitalConquest(City city, Kingdom captor, Kingdom conquered)
@@ -67,8 +69,8 @@ public static class FeudalConquestService
         // 一城小国(只剩都城)：不论集权与否都不再留作附庸，照普通攻城易主——这座城就是它的全部，等于整国并入，
         // 民心、天命、新征服城的治理度照普通攻城算(用户 2026-10-21 选"西欧能整合、帝国能倒")
         if (western && conquered.countCities() <= 1) return false;
-        // 中央集权以后(direct_administration，如中央集权君主制)：攻下三城以内小国的都城整国并入——以前西方封建
-        // 攻城永远只收附庸，整合太慢(复查 2026-10-17)
+        // 中央集权以后(direct_administration，如中央集权君主制)：攻下五城以内(见 CentralizedAnnexMaxCities)小国的都城
+        // 整国并入——以前西方封建攻城永远只收附庸，整合太慢(复查 2026-10-17)
         if (western && conquered.countCities() <= CentralizedAnnexMaxCities &&
             InstitutionSystem.GetFeature(CultureService.GetInstitutionCulture(captor), InstitutionFeatures.DirectAdministration) > 0f)
         {
@@ -76,6 +78,10 @@ public static class FeudalConquestService
                 if (part != null && !part.isRekt()) part.joinAnotherKingdom(captor);
             return true;
         }
+        // 这场仗的目标是吞并(如行分封的攻方兵力两倍以上打三城以内的小国，用户 2026-10-21 选"封建能吞小国"，
+        // 见 WarGoalSystem.Ensure)：攻下都城不收附庸、不退城，照普通攻城易主，议和时按吞并把余下的城一并收走。
+        // 不让开的话这里先收附庸、退城，紧接着本函数里 lostWar 结算和约多半又按吞并整国收走，史书先记称臣、后记吞并
+        if (AnnexWar(captor, conquered)) return false;
         // 帝国成员的都城被帝国外的封建君主攻下(同一帝国的在上面已交普通攻城)：照普通攻城只易主这一城，不收作附庸——
         // 收附庸会把整个成员国连同其余城市拉出帝国，帝国被外人一座都城一座都城地掏空(用户 2026-10-21 选"堵住成员流失")
         if (western && conquered.IsInEmpire()) return false;
@@ -88,10 +94,20 @@ public static class FeudalConquestService
         // 叛乱平定后可以重新归附：清掉"曾反叛本帝国"的记录，否则 join 会按律令制的规矩拒绝
         if (rebel) conquered.GetOrCreate().rebellion_origin_empire_ids?.Remove(empire.getID());
 
-        // 该国名下的法理：已经被帝国占去的这些城市全部归还
+        // 该国名下的法理：已经被帝国占去的这些城市全部归还(分封制)
         HashSet<long> realmTitles = conquered.GetRealmTitleIds().ToHashSet();
         KingdomTitle mainTitle = conquered.GetMainTitle();
         if (mainTitle != null) realmTitles.Add(mainTitle.id);
+        // 西方封建：只归还对方都城所在那一片王国法理里被占去的城，其余已占的城留给攻方(用户 2026-10-21 选"攻下都城只退
+        // 都城那一片法理")。以前该国名下的法理全部归还，打了几年只换来一个附庸，西欧核心永远只有几座城。
+        // 都城那片法理不是该国名下的(都城设在别人的法理里)，就一座也不退——不能把别人的法理城退给它
+        if (western)
+        {
+            KingdomTitle seat = city.GetTitle();
+            bool ownSeat = seat != null && !seat.isRekt() && realmTitles.Contains(seat.id);
+            realmTitles.Clear();
+            if (ownSeat) realmTitles.Add(seat.id);
+        }
         foreach (City held in captor.cities.ToList())
         {
             KingdomTitle title = held?.GetTitle();
@@ -100,6 +116,10 @@ public static class FeudalConquestService
             held.joinAnotherKingdom(conquered);
         }
 
+        // 都城按征服规则处理(称臣归附、城不易主)：先清掉它的占领再了结战事。否则下面 lostWar 当场结算和约时，割地、收复按
+        // "占了一半以上地块"把都城也割给攻方，新附庸连都城都没了(CityPatch 返回后本来也会清，只是晚了一步)。
+        // 封建攻方兵力一倍半到两倍之间改求割地(用户 2026-10-21 选"封建能吞小国"，见 WarGoalSystem.VassalStrength)，这种仗变多，先堵上
+        city.ClearOccupiedStatus();
         foreach (War war in conquered.getWars().ToList())
         {
             bool opposing = (war._list_attackers.Contains(captor) && war._list_defenders.Contains(conquered)) ||
@@ -219,6 +239,11 @@ public static class FeudalConquestService
             conquered.GetKingdomName(), formerKing?.getName() ?? "");
         return true;
     }
+
+    // 攻方一边正以吞并为目标攻打这个国家(它是主守方)
+    private static bool AnnexWar(Kingdom captor, Kingdom conquered) =>
+        conquered.getWars().Any(war => war?.data != null && !war.hasEnded() && war.main_defender == conquered &&
+                                       war.isAttacker(captor) && WarGoalSystem.Get(war) == WarGoal.吞并);
 
     private static bool IsRebellionWar(War war) => war.GetEmpireWarType() is EmpireWarType.派系叛乱
         or EmpireWarType.地方叛乱 or EmpireWarType.地方独立 or EmpireWarType.民族叛乱 or EmpireWarType.宗教叛乱
