@@ -378,8 +378,11 @@ public partial class PureMapPatch
         UrbanFabric.Geometry fabric = plan.fabric;
         bool modern = fabric != null && fabric.Modern;
         bool palace = DetailedPalace(plan);
+        // 其余文化系的都城地标也画精细版，只占城心正中一块(见 PureMapPatch.Landmark)
+        LandmarkArea site = default;
+        bool landmarked = !palace && LandmarkSite(plan, out site);
         int size = Config.CITY_ZONE_SIZE;
-        // ① 逐格铺底：城里的地、地标(照一格一像素的画法放大)、护城河、水渠、大街；城墙、城心建筑后画
+        // ① 逐格铺底：城里的地、地标(宫城、精细地标先占住，没有精细画法的照一格一像素的画法放大)、护城河、水渠、大街；城墙、城心建筑后画
         for (int ty = 0; ty < c.H; ty++)
         for (int tx = 0; tx < c.W; tx++)
         {
@@ -410,16 +413,27 @@ public partial class PureMapPatch
             if (plan.landmark.Contains(tile.zone.id))
             {
                 // 华夏都城宫城画精细版(见 PureMapPatch.Palace)，先占住
-                if (palace)
+                if (palace || landmarked && site.Contains(tile))
                 {
                     Fill(c, tx, ty, block, KFixed);
                     continue;
                 }
-                Slot[] slots = plan.zones.TryGetValue(tile.zone.id, out Slot[] found) ? found : null;
-                Color32 coarse = Plan(tile, tint, FarmlandSystem.IsPlanned(c.City, tile.zone), slots,
-                    tile.x - tile.zone.x * size, tile.y - tile.zone.y * size, plan, tile.zone);
-                Fill(c, tx, ty, coarse, KFixed);
-                continue;
+                // 埃及金字塔在城外，那块地其余的格是沙地
+                if (landmarked && plan.family == "egypt")
+                {
+                    Fill(c, tx, ty, Lerp(tint, Rgb(222, 200, 146), 0.8f), KPlaza);
+                    continue;
+                }
+                // 没有精细画法的文化系照粗图放大
+                if (!landmarked)
+                {
+                    Slot[] slots = plan.zones.TryGetValue(tile.zone.id, out Slot[] found) ? found : null;
+                    Color32 coarse = Plan(tile, tint, FarmlandSystem.IsPlanned(c.City, tile.zone), slots,
+                        tile.x - tile.zone.x * size, tile.y - tile.zone.y * size, plan, tile.zone);
+                    Fill(c, tx, ty, coarse, KFixed);
+                    continue;
+                }
+                // 地标那块地其余的格往下照常画(大街、城墙、街坊)
             }
             if (modern)
             {
@@ -486,9 +500,10 @@ public partial class PureMapPatch
                 MazeStreets(c, plan, seed, street);
                 break;
         }
-        // ③ 城心的标志性建筑(两条中线交口)
+        // ③ 城心的标志性建筑(两条中线交口)；城心立着都城地标的不画
         if (plan.gateX != int.MinValue && plan.built.Count >= 2 && !(modern && World.world.GetTile(plan.gateX, plan.gateY) is WorldTile center &&
-                UrbanFabric.PartAt(fabric, center, out _) != UrbanFabric.Part.None))
+                UrbanFabric.PartAt(fabric, center, out _) != UrbanFabric.Part.None) &&
+            !(World.world.GetTile(plan.gateX, plan.gateY)?.zone is TileZone gateZone && plan.landmark.Contains(gateZone.id)))
             DrawCenter(c, style, wallColor, tint, (plan.gateX - c.X0) * s + s / 2, (plan.gateY - c.Y0) * s + s / 2, seed);
         // ④ 街坊：被街围出的一片片，逐片切宅基地、盖房子
         Blocks(c, plan, style, seed);
@@ -502,8 +517,9 @@ public partial class PureMapPatch
                     c.Kind(px, py + 1) is KStreet or KAvenue || c.Kind(px, py - 1) is KStreet or KAvenue)
                     c.Put(px, py, TreeDark, KGround);
             }
-        // ⑥ 都城宫城
+        // ⑥ 都城宫城、地标
         if (palace) DrawPalace(c, plan, tint, seed);
+        else if (landmarked) DrawLandmark(c, plan, style, tint, seed, site);
         // ⑦ 城墙
         if (wallsUp) Walls(c, plan, style, wallColor.Value);
     }

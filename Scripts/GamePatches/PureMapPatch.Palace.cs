@@ -10,7 +10,7 @@ namespace EmpireCraft.Scripts.GamePatches;
 //   · 两侧是宫院(红墙围着，北边正殿，南边小院)与长廊；宫城左边空出的几像素是宫墙外的街和一行树
 //     (城心那块地的中轴在第 4 格，宫城左右对称，左边比右边多出四像素)；
 //   · 庑殿顶：太阳在西北，北坡、西头亮，南坡、东头暗，正脊一道亮线；重檐的殿外圈多一道下檐；殿影落在东南的铺地上。
-// 下面的 y 是从宫城北沿往南数的行(与演示版一致)，落到画布上翻过来(画布的行往北增)。其余文化系的都城地标仍是粗图放大。
+// 下面的 y 是从宫城北沿往南数的行(与演示版一致)，落到画布上翻过来(画布的行往北增)。其余文化系的都城地标见 PureMapPatch.Landmark。
 public partial class PureMapPatch
 {
     private static readonly Color32 PalaceRed = Rgb(176, 62, 46), PalaceCoping = Rgb(212, 164, 74), PalaceRoof = Rgb(226, 176, 64),
