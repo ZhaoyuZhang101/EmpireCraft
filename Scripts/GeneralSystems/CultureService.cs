@@ -216,28 +216,57 @@ public static class CultureService
         kingdom.LoadRegime();
     }
 
-    private static void RepairForeignDefaultRegime(Kingdom kingdom)
+    // 修复默认值污染的政体(读档迁移、新建国家收尾、国家例行检查身份时调用)：
+    //   · 阿拉伯：历史上的阿拉伯默认值污染；
+    //   · 律令：政体类型的默认值(枚举首项)就是律令，没装过政体的国家(立国时文化还没定下、或别处先调了 GetRegime)一取政体
+    //     就按默认装成律令制；而政体迁移遇到原始政体的目标一律跳过(见 InstitutionSystem.TryAdvanceRegimeTransition)，
+    //     开局各文化还在原始政体，这些国家就一直是律令制(玩家 2026-10-22 反馈"全图律令制")。
+    // 正常改革、手动指定、共和锁定、复合帝国的区域制度、水土改制另有规则，都不动
+    public static void RepairDefaultRegime(Kingdom kingdom)
     {
         if (kingdom?.data == null || kingdom.isRekt() ||
             EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(kingdom)) return;
         KingdomExtension.KingdomExtraData data = kingdom.GetOrCreate();
-        // 只修复历史上的阿拉伯默认值污染；正常改革、手动指定及复合帝国的区域制度另有规则。
-        if (data.regimeType != RegimeType.Arabic || data.regime_manually_selected ||
-            RepublicSystem.IsRegimeLocked(kingdom) || CompositeEmpireService.IsComposite(kingdom.GetEmpire())) return;
-        // 旧制犹存的按旧制所属文化看(阿拉伯旧制的不算污染)
+        if (data.regimeType != RegimeType.Arabic && data.regimeType != RegimeType.LvLing) return;
+        if (data.regime_manually_selected || RepublicSystem.IsRegimeLocked(kingdom) ||
+            CompositeEmpireService.IsComposite(kingdom.GetEmpire())) return;
+        // 旧制犹存的按旧制所属文化看(旧制本身的政体不算污染)
         string culture = GetInstitutionCulture(kingdom);
         if (!IsValidCulture(culture)) return;
-        string line = culture.GetInstitutionLine();
-        if (InstitutionDefinitionRegistry.HasLine(line) &&
-            InstitutionDefinitionRegistry.GetForLine(line).Any(node =>
-                InstitutionDefinitionRegistry.TryGetNodeRegime(node, out RegimeType type) && type == RegimeType.Arabic)) return;
-        if (OnomasticsRule.ALL_CULTURE_RULE[culture].regime == RegimeType.Arabic) return;
-        if (!ApplyCulturePoliticalSystem(kingdom, culture)) return;
+        RegimeType polluted = data.regimeType;
+        if (polluted == RegimeType.LvLing ? !DefaultLvLing(kingdom, data, culture) : !DefaultArabic(culture)) return;
+        if (!ApplyCulturePoliticalSystem(kingdom, culture) || data.regimeType == polluted) return;
         EmpireCraft.Scripts.AI.KingdomAI.EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(kingdom);
         Empire empire = kingdom.GetEmpire();
         if (empire?.CoreKingdom == kingdom && empire.data?.centerOffice != null)
             empire.data.centerOffice.Init(kingdom);
-        LogService.LogInfo($"[EmpireCraft] 修复国家 {kingdom.id} 的外文化默认政体: Arabic -> {data.regimeType}，绑定文化 {culture}");
+        LogService.LogInfo($"[EmpireCraft] 修复国家 {kingdom.id} 的默认值政体: {polluted} -> {data.regimeType}，绑定文化 {culture}");
+    }
+
+    private static bool LineDeclares(string culture, RegimeType regime)
+    {
+        string line = culture.GetInstitutionLine();
+        return InstitutionDefinitionRegistry.HasLine(line) &&
+               InstitutionDefinitionRegistry.GetForLine(line).Any(node =>
+                   InstitutionDefinitionRegistry.TryGetNodeRegime(node, out RegimeType type) && type == regime);
+    }
+
+    private static bool DefaultArabic(string culture) =>
+        !LineDeclares(culture, RegimeType.Arabic) &&
+        !(OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(culture, out Setting setting) && setting.regime == RegimeType.Arabic);
+
+    // 律令是默认值污染：按本文化(连同所在帝国)此刻该是律令的不算——帝国成员随核心(AdjustForMonarchyEmpire)、本文化制度树已走到律令；
+    // 余下的，本文化制度树里根本没有律令，或本文化此刻还在原始政体(开局；周制改郡县这类正当的律令都在原始政体之后)，才算污染。
+    // 水土出路改过政体的不动
+    private static bool DefaultLvLing(Kingdom kingdom, KingdomExtension.KingdomExtraData data, string culture)
+    {
+        if (data.shuitu_regime >= 0) return false;
+        RegimeType expected = InstitutionSystem.TryResolveCultureRegime(culture, out RegimeType resolved)
+            ? resolved
+            : OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(culture, out Setting setting) ? setting.regime : RegimeType.Feudalism;
+        expected = InstitutionSystem.AdjustForMonarchyEmpire(kingdom, expected);
+        if (expected == RegimeType.LvLing) return false;
+        return !LineDeclares(culture, RegimeType.LvLing) || RegimeManager.IsPrimitive(expected);
     }
 
     public static bool ApplyCulturePoliticalSystem(Kingdom kingdom, string culture)
@@ -774,7 +803,7 @@ public static class CultureService
         {
             GetRealmCulture(kingdom);
             RepairUnavailableSavedRegime(kingdom);
-            RepairForeignDefaultRegime(kingdom);
+            RepairDefaultRegime(kingdom);
         }
     }
 
