@@ -331,8 +331,8 @@ public static class MineralResourceSystem
     {
         FlushDigest();
         SmeltSteel(city, data, years);
-        // 旧档里以前硬派的矿村(本城没有开得了的矿、四周也不是山)改回按地形定的生计，见 LivelihoodSystem
-        LivelihoodSystem.RecheckForcedMines(city);
+        // 旧档按旧规则定的生计(硬派的矿村、沙漠里的农村)改回按地形定，见 LivelihoodSystem
+        LivelihoodSystem.RecheckOldRules(city);
         int tier = MineTier(city);
         if (tier <= 0) return;
         float output = IndustryBuildingSystem.MineOutputFactor(city);

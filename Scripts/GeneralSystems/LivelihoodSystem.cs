@@ -17,7 +17,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 一份(村 1、镇 3，有墙大镇也是 3)折成半座原来的矿场、伐木场、牧场，乘科技等级的倍数，本城有厂区再多两成五；
 // 田、牧按农具，鱼按渔船，也随科技换代(见 FarmlandSystem.FarmTools)。
 // 生计按村镇四周的地形定(地形归类见 LandKinds)：山多为矿；本城务农的不到四成时能耕的地先务农；本城有眼下开得了的矿藏
-// 却还没有矿村时先开一处矿；靠海为渔；密林(桦、枫、魔法林、丛林)为林；荒漠、稀树草原、荒原为牧(这些地方不算能耕，
+// 却还没有矿村时先开一处矿；靠海为渔；密林(桦、枫、魔法林、丛林)为林；荒漠、稀树草原、荒原、沙地为牧(这些地方不算能耕，
 // 先牧后农，只在本城几乎没有产粮的镇村时才旱作)；草地、橡树松树疏林也能放牧、伐木，但宜农，本城产粮的够六成才轮到；
 // 定了存进存档(RuralSettlement.trade)，小窗口里可以手动改(手动改过的不再自动改)。AI 立的毡帐村镇只放牧，手动的能改行。
 // 原版的矿场、伐木场、牧场、屠宰场在纯净地图下不再建，旧有的清掉(见 Replaces)；非纯净地图(开小人)照旧走原版建筑。
@@ -48,8 +48,8 @@ public static class LivelihoodSystem
     // 是产业(林、矿、牧)：分官营民营，官营的利润上缴(见 EnterpriseSystem)
     public static bool IsEnterprise(int trade) => trade is Forest or Mine or Pasture;
 
-    // 生计规则的版本：旧档按旧规则定的镇村是 0(见 RecheckForcedMines)
-    public const int RulesVersion = 1;
+    // 生计规则的版本：旧档按旧规则定的镇村是 0、1(见 RecheckOldRules)
+    public const int RulesVersion = 2;
 
     // 这处镇村的生计(关城没有，-1)；还没定的按地形定下、存进存档
     public static int Of(RuralSettlement settlement)
@@ -115,7 +115,9 @@ public static class LivelihoodSystem
             if ((kinds & LandKinds.Forest) != 0) forest++;
             if ((kinds & LandKinds.Woodland) != 0) woodland++;
             if ((kinds & LandKinds.Grass) != 0) grass++;
-            if ((kinds & LandKinds.Dry) != 0) dry++;
+            // 沙地(原版光秃的沙子，地图上画成大片沙漠的就是它)同荒漠算旱地。以前两头都不算，
+            // 一片沙漠里的村落到最后一条"都不是就务农"，满眼条田(用户 2026-10-22 "这种草原为什么会有耕田")
+            if ((kinds & (LandKinds.Dry | LandKinds.Sand)) != 0) dry++;
             if ((kinds & LandKinds.Arable) != 0) arable++;
         }
         float total = Mathf.Max(1, land);
@@ -150,10 +152,12 @@ public static class LivelihoodSystem
         return Farm;
     }
 
-    // 旧档：以前本城有任何矿藏(连同还开不了的铀、石油)就硬派一处矿村，平地上也是。按新规则(地形归类、只看开得了的矿)
-    // 重查一次：没在窗口里手动改过、四周山石不到两成半、本城眼下没有开得了的矿藏的矿村，改按地形重定生计。
+    // 旧档按旧规则定的生计重查一次(没在窗口里手动改过的)：
+    //   · 第 0 版：以前本城有任何矿藏(连同还开不了的铀、石油)就硬派一处矿村，平地上也是——四周山石不到两成半、
+    //     本城眼下没有开得了的矿藏的矿村，改按地形重定；
+    //   · 第 0、1 版：沙地不算旱地，沙漠里的村都落成务农——四周旱地(连同沙地)过半的农村改按地形重定(先牧后农)。
     // 由人口经济结算调用(那时科技已读好)，每处镇村只查一次
-    public static void RecheckForcedMines(City city)
+    public static void RecheckOldRules(City city)
     {
         if (!Active || city?.data == null) return;
         bool? minable = null;
@@ -161,12 +165,18 @@ public static class LivelihoodSystem
         foreach (RuralSettlement settlement in RuralSettlementSystem.InCity(city))
         {
             if (settlement.trade_rules >= RulesVersion) continue;
+            int rules = settlement.trade_rules;
             settlement.trade_rules = RulesVersion;
-            if (settlement.fort || settlement.trade_manual || settlement.trade != Mine) continue;
-            minable ??= MineralResourceSystem.HasMinableDeposit(city);
-            if (minable.Value || Survey(settlement).Rough >= 0.25f) continue;
+            if (settlement.fort || settlement.trade_manual) continue;
+            if (rules < 1 && settlement.trade == Mine)
+            {
+                minable ??= MineralResourceSystem.HasMinableDeposit(city);
+                if (minable.Value || Survey(settlement).Rough >= 0.25f) continue;
+            }
+            else if (settlement.trade != Farm || Survey(settlement).Dry < 0.5f) continue;
+            int before = settlement.trade;
             settlement.trade = Classify(settlement);
-            if (settlement.trade != Mine) changed = true;
+            if (settlement.trade != before) changed = true;
         }
         if (changed) RuralSettlementSystem.TradeChanged(city);
     }
