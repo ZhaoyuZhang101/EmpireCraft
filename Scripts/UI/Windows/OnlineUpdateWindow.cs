@@ -228,6 +228,7 @@ public class OnlineUpdateWindow : AutoLayoutWindow<OnlineUpdateWindow>
             EmpireCraftUpdateStatus.Downloading => string.Format(LM.Get("online_update_downloading"), snapshot.ProgressPercent),
             EmpireCraftUpdateStatus.InstallScheduled => LM.Get("online_update_install_scheduled"),
             EmpireCraftUpdateStatus.InstallPending => LM.Get("online_update_install_pending"),
+            EmpireCraftUpdateStatus.Installing => LM.Get("online_update_installing"),
             EmpireCraftUpdateStatus.InstallSucceeded => LM.Get("online_update_install_succeeded"),
             EmpireCraftUpdateStatus.InstallFailed => string.Format(
                 LM.Get("online_update_install_failed"), snapshot.LocalPackagePath ?? ""),

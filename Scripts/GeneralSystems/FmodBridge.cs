@@ -31,6 +31,8 @@ internal static class FmodBridge
             GroupStop, GroupHasHandle;
         public static MethodInfo DspSetParameterFloat;
         public static MethodInfo SoundGetLength, SoundHasHandle;
+        // 可选：放掉声音(文明乐的流开着曲子文件，在线更新换文件前要关，见 CivMusic.ReleaseFiles)
+        public static MethodInfo SoundRelease;
         public static MethodInfo ChannelSetVolume, ChannelSetPan, ChannelSetPitch, ChannelSetPosition, ChannelSetPaused,
             ChannelIsPlaying, ChannelStop, ChannelHasHandle;
         // 可选：读播放位置(文明乐续播用)，没有就从头放
@@ -80,6 +82,7 @@ internal static class FmodBridge
             DspSetParameterFloat = Need(dsp, "setParameterFloat", missing, typeof(int), typeof(float));
             SoundGetLength = Need(sound, "getLength", missing, typeof(uint).MakeByRefType(), timeUnit);
             SoundHasHandle = Need(sound, "hasHandle", missing);
+            SoundRelease = sound.GetMethod("release", BindingFlags.Public | BindingFlags.Instance, null, Type.EmptyTypes, null);
 
             ChannelSetVolume = Need(channel, "setVolume", missing, typeof(float));
             ChannelSetPan = Need(channel, "setPan", missing, typeof(float));
@@ -368,6 +371,12 @@ internal static class FmodBridge
     internal static void SetPan(object channel, float pan)
     {
         if (Valid(channel)) Ok1(Api.ChannelSetPan, channel, pan);
+    }
+
+    internal static void Release(object sound)
+    {
+        if (_state == 2 && sound != null && Api.SoundRelease != null && Has(Api.SoundHasHandle, sound))
+            Api.SoundRelease.Invoke(sound, null);
     }
 
     internal static void Stop(object channel)

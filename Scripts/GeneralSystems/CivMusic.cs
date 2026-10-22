@@ -430,6 +430,21 @@ public static class CivMusic
         }
     }
 
+    // 在线更新换文件前(见 EmpireCraftUpdateService.MainThreadTick)：停掉在放的曲子、关掉曲子流——FMOD 开着曲子文件，
+    // 模组目录改不了名；之后用到再重开，接着停下的地方放
+    internal static void ReleaseFiles()
+    {
+        if (Voices.Count == 0 && Streams.Count == 0) return;
+        foreach (Voice voice in Voices)
+        {
+            Park(voice);
+            FmodBridge.Stop(voice.Channel);
+        }
+        Voices.Clear();
+        foreach (object sound in Streams.Values) FmodBridge.Release(sound);
+        Streams.Clear();
+    }
+
     // 停下前记住放到哪，下次接着放；放完一遍换了下一首的从头来
     private static void Park(Voice voice)
     {

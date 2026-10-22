@@ -25,6 +25,7 @@ public enum EmpireCraftUpdateStatus
     Downloading,
     InstallScheduled,
     InstallPending,
+    Installing,
     InstallSucceeded,
     InstallFailed,
     ManualPackageReady,
@@ -89,6 +90,11 @@ public static class EmpireCraftUpdateService
 
     public static void Initialize()
     {
+        // 安卓等平台不自动换文件(没验证过)，转手动安装；在主线程取平台
+        UnityEngine.RuntimePlatform platform = UnityEngine.Application.platform;
+        _autoInstallSupported = platform is UnityEngine.RuntimePlatform.WindowsPlayer or UnityEngine.RuntimePlatform.WindowsEditor or
+            UnityEngine.RuntimePlatform.OSXPlayer or UnityEngine.RuntimePlatform.OSXEditor or UnityEngine.RuntimePlatform.LinuxPlayer or
+            UnityEngine.RuntimePlatform.LinuxEditor;
         EnableTls12();
         (bool manualPackageMode, bool archiveCurrentVersion) = ReadUpdateSettings();
         lock (Sync)
@@ -338,8 +344,10 @@ public static class EmpireCraftUpdateService
                 return;
             }
 
-            InstallNow(packageRoot, modFolder, updateRoot, manifest.Version, packagePath, archiveCurrentVersion);
-            Complete(EmpireCraftUpdateStatus.InstallScheduled, packagePath, null);
+            // 拼好候选交给主线程对调，对调完由 FinishInstall 报装好(见 MainThreadTick)
+            if (!PrepareInstall(packageRoot, modFolder, updateRoot, manifest.Version, packagePath, archiveCurrentVersion,
+                    out string reason))
+                Complete(EmpireCraftUpdateStatus.ManualInstallRequired, packagePath, reason);
         }
         catch (Exception error)
         {
@@ -595,111 +603,274 @@ public static class EmpireCraftUpdateService
 
     // 当场换上新版(用户 2026-10-22 转"自动更新程序有问题，更新完重启没生效"，选"游戏里当场替换")：以前等游戏退出后由
     // 隐藏窗口、绕过执行策略的 PowerShell 脚本替换，常被杀毒软件拦下、或随游戏进程一起被结束，文件根本没换上。
-    // 现在下载校验完就在这个后台线程里换：
-    //   · 候选：旧目录整个拷一份，新版的各目录整个换掉、新版的顶层文件覆盖。玩家的设置不在模组目录里(NML 存在
-//     mods_config/<模组>.config，文化物种配对、派系、官职等存在 Mods 目录下)，一概不动；模组自带的 default_config.json
-//     只是设置项与默认值，换成新版的，新加的设置项才出得来(以前留旧的，新开关在玩家那里缺项)；
-    //   · 对调：旧目录改名成备份、候选改名成模组目录(都在 Mods 外面的同一层，只是改名)；
-    //   · 对调不了(正在放的曲子等文件被占用)：旧目录先整拷成备份，再把候选逐个文件同步进去(内容一样的跳过、多余的删掉)，
-    //     被占用又不同的记下(deferred-install.json)，下次启动一开始补上；
-    //   · 动手前记下进度(install-state.json)：游戏中途被关、没换完的，下次启动从备份恢复旧版；
+    //   · 后台线程拼候选目录：旧目录整个拷一份，新版的各目录整个换掉、新版的顶层文件覆盖。玩家的设置不在模组目录里
+    //     (NML 存在 mods_config/<模组>.config，文化物种配对、派系、官职等存在 Mods 目录下)，一概不动；模组自带的
+    //     default_config.json 只是设置项与默认值，换成新版的，新加的设置项才出得来(以前留旧的，新开关在玩家那里缺项)；
+    //   · 主线程对调(只是改名，一瞬间)：先停掉在放的文明乐、关掉曲子文件(FMOD 开着它们，目录改不了名)，
+    //     整个模组目录改名成备份、候选改名成模组目录；整夹改不了名就按顶层一个个对调，哪一个换不了就把换过的全部换回去，
+    //     模组目录始终是整套旧版或整套新版；一时被占用的隔一帧再试，试满 SwapAttempts 次还不行就报安装失败(可手动安装)；
+    //     以前对调不了就逐个文件同步、备份拷到一半出错时"恢复"会把模组目录删空(审查发现)，现在不再逐个文件改；
+    //   · 动手前记下进度(install-state.json)：游戏中途被关的，下次启动按记录换回旧版或确认装好；
     //   · 换完写安装结果，下次启动核对加载的版本(见 RestoreInstallResult)。正在运行的这局照旧用已经编译好的旧版，
-    //     重启后 NML 发现文件变了重新编译。
-    private const string DeferredInstallFileName = "deferred-install.json";
+    //     之后才读的数据文件已经是新版的，所以提示尽快重启；重启后 NML 发现文件变了重新编译。
+    //   · 候选、备份放在 Mods 外面的同一层(以点开头，不会被当成模组)；模组目录是链接(junction)的、在安卓上的，转手动安装。
     private const string InstallStateFileName = "install-state.json";
+    private const int SwapAttempts = 30;
 
-    private static void InstallNow(string source, string target, string updateRoot, string version, string packagePath,
-        bool archiveCurrentVersion)
+    private sealed class PendingSwap
     {
+        public string Target, Candidate, Backup, Version, PackagePath, UpdateRoot, ModsPath, InstallId;
+        public bool Archive;
+        public int Attempts;
+    }
+
+    private static PendingSwap _swap;
+    private static bool _autoInstallSupported = true;
+
+    // 后台线程：拼好候选目录，交给主线程对调；不能自动安装的返回 false
+    private static bool PrepareInstall(string source, string target, string updateRoot, string version, string packagePath,
+        bool archiveCurrentVersion, out string reason)
+    {
+        reason = null;
         string targetPath = Path.GetFullPath(target).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        if (!_autoInstallSupported)
+        {
+            reason = "Automatic installation is not available on this platform.";
+            return false;
+        }
+        if ((File.GetAttributes(targetPath) & FileAttributes.ReparsePoint) != 0)
+        {
+            reason = "The mod folder is a link; automatic replacement is disabled.";
+            return false;
+        }
         string modsPath = Path.GetDirectoryName(targetPath) ??
                           throw new InvalidOperationException("The mod folder has no parent directory.");
         string workRoot = Path.GetDirectoryName(modsPath) ??
                           throw new InvalidOperationException("The Mods folder has no parent directory.");
         string installId = Guid.NewGuid().ToString("N");
         string name = Path.GetFileName(targetPath);
-        string candidate = Path.Combine(workRoot, "." + name + ".update-" + installId);
-        string backup = Path.Combine(workRoot, "." + name + ".backup-" + installId);
         string stateRoot = GetUpdatesRoot();
         Directory.CreateDirectory(stateRoot);
-        string statePath = Path.Combine(stateRoot, InstallStateFileName);
-        string resultPath = Path.Combine(stateRoot, InstallResultFileName);
-        TryDeleteFile(resultPath);
-
-        BuildCandidate(source, targetPath, candidate, version);
-        List<string> deferred = null;
-        var state = new JObject
-        {
-            ["target"] = targetPath, ["backup"] = backup, ["candidate"] = candidate, ["version"] = version, ["phase"] = "moving"
-        };
-        WriteJson(statePath, state);
-        bool swapped = TryMoveDirectory(targetPath, backup);
+        TryDeleteFile(Path.Combine(stateRoot, InstallResultFileName));
+        CleanLeftovers(workRoot, name);
+        string candidate = Path.Combine(workRoot, "." + name + ".update-" + installId);
         try
         {
-            if (swapped)
-            {
-                SetPhase(statePath, state, "swapped");
-                Directory.Move(candidate, targetPath);
-            }
-            else
-            {
-                SetPhase(statePath, state, "backup");
-                CopyDirectory(targetPath, backup);
-                SetPhase(statePath, state, "syncing");
-                deferred = SyncDirectory(candidate, targetPath);
-            }
-            string installed = ReadModVersion(targetPath);
-            if (!string.Equals(installed, version, StringComparison.OrdinalIgnoreCase))
-                throw new Exception("Installed version mismatch. Expected " + version + ", found " + installed);
-        }
-        catch (Exception error)
-        {
-            string restored = RestoreFromBackup(targetPath, backup, swapped) ? " Previous installation restored." : "";
-            TryDeleteFile(statePath);
-            TryDeleteDirectory(candidate);
-            throw new Exception(error.Message + restored, error);
-        }
-
-        if (deferred != null && deferred.Count > 0)
-            WriteJson(Path.Combine(stateRoot, DeferredInstallFileName), new JObject
-            {
-                ["target"] = targetPath, ["candidate"] = candidate, ["entries"] = new JArray(deferred)
-            });
-        else TryDeleteDirectory(candidate);
-        TryDeleteFile(statePath);
-
-        string archivePath = null;
-        if (archiveCurrentVersion)
-        {
-            try
-            {
-                archivePath = ArchiveBackup(backup, modsPath, installId);
-            }
-            catch (Exception error)
-            {
-                LogService.LogWarning("EmpireCraft could not archive the replaced version: " + error.Message);
-            }
-        }
-        TryDeleteDirectory(backup);
-        try
-        {
-            File.WriteAllText(Path.Combine(updateRoot, "install.log"),
-                "Installed " + version + " at " + DateTime.Now.ToString("o", CultureInfo.InvariantCulture) + " into " + targetPath +
-                (swapped ? "" : "; synced file by file, deferred " + (deferred?.Count ?? 0)) +
-                (archivePath != null ? "; archive: " + archivePath : ""), new UTF8Encoding(false));
+            BuildCandidate(source, targetPath, candidate, version);
         }
         catch
         {
-            // 只是记录
+            TryDeleteDirectory(candidate);
+            throw;
         }
-        WriteJson(resultPath, new JObject
+        lock (Sync)
         {
-            ["status"] = "success", ["version"] = version, ["packagePath"] = packagePath, ["targetPath"] = targetPath,
-            ["detail"] = archivePath != null ? "Archive: " + archivePath : "",
-            ["completedAt"] = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture)
-        });
-        LogService.LogInfo("EmpireCraft update " + version + " installed into " + targetPath +
-                           (swapped ? "" : " (file by file, deferred " + (deferred?.Count ?? 0) + ")") + "; restart to load it");
+            _swap = new PendingSwap
+            {
+                Target = targetPath, Candidate = candidate, Backup = Path.Combine(workRoot, "." + name + ".backup-" + installId),
+                Version = version, PackagePath = packagePath, UpdateRoot = updateRoot, ModsPath = modsPath, InstallId = installId,
+                Archive = archiveCurrentVersion
+            };
+            PublishLocked(EmpireCraftUpdateStatus.Installing);
+        }
+        return true;
+    }
+
+    // 主线程每帧(ModClass.Update)：有拼好的候选就对调
+    public static void MainThreadTick()
+    {
+        PendingSwap swap;
+        lock (Sync) swap = _swap;
+        if (swap == null) return;
+        swap.Attempts++;
+        string busy;
+        try
+        {
+            EmpireCraft.Scripts.GeneralSystems.CivMusic.ReleaseFiles();
+            busy = SwapIn(swap);
+        }
+        catch (Exception error)
+        {
+            lock (Sync) _swap = null;
+            TryDeleteDirectory(swap.Candidate);
+            InstallFailedWith(swap.PackagePath, error.Message);
+            return;
+        }
+        if (busy == null)
+        {
+            lock (Sync) _swap = null;
+            ThreadPool.QueueUserWorkItem(_ => FinishInstall(swap));
+            return;
+        }
+        if (swap.Attempts < SwapAttempts) return;
+        lock (Sync) _swap = null;
+        TryDeleteDirectory(swap.Candidate);
+        InstallFailedWith(swap.PackagePath, "Mod files are in use (" + busy + "); restart the game and update again, " +
+                                             "or install the downloaded package manually.");
+    }
+
+    private static void InstallFailedWith(string packagePath, string detail)
+    {
+        Complete(EmpireCraftUpdateStatus.InstallFailed, packagePath, detail);
+        LogService.LogWarning("EmpireCraft update installation failed: " + detail);
+    }
+
+    // 对调：整夹改名，不行就按顶层一个个对调；被占用(什么也没改)返回占用的名字，换好了返回 null
+    private static string SwapIn(PendingSwap swap)
+    {
+        string statePath = Path.Combine(GetUpdatesRoot(), InstallStateFileName);
+        var state = new JObject
+        {
+            ["target"] = swap.Target, ["backup"] = swap.Backup, ["candidate"] = swap.Candidate, ["version"] = swap.Version,
+            ["packagePath"] = swap.PackagePath, ["phase"] = "whole"
+        };
+        WriteJson(statePath, state);
+        if (TryMoveDirectory(swap.Target, swap.Backup))
+        {
+            try
+            {
+                Directory.Move(swap.Candidate, swap.Target);
+            }
+            catch
+            {
+                Directory.Move(swap.Backup, swap.Target);
+                TryDeleteFile(statePath);
+                throw;
+            }
+            state["phase"] = "swapped";
+            WriteJson(statePath, state);
+            return null;
+        }
+        // 按顶层一个个对调：旧的挪进备份、新的挪进模组目录；记下换过的，哪一个换不了就全部换回去
+        Directory.CreateDirectory(swap.Backup);
+        var moved = new JArray();
+        state["phase"] = "parts";
+        state["moved"] = moved;
+        WriteJson(statePath, state);
+        string busy = null;
+        try
+        {
+            foreach (string entry in Directory.GetFileSystemEntries(swap.Candidate))
+            {
+                string name = Path.GetFileName(entry), live = Path.Combine(swap.Target, name), old = Path.Combine(swap.Backup, name);
+                bool hadOld = Exists(live);
+                try
+                {
+                    if (hadOld) MoveEntry(live, old);
+                }
+                catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+                {
+                    busy = name;
+                    break;
+                }
+                try
+                {
+                    MoveEntry(entry, live);
+                }
+                catch
+                {
+                    if (hadOld) MoveEntry(old, live);
+                    throw;
+                }
+                moved.Add(name);
+                WriteJson(statePath, state);
+            }
+        }
+        catch
+        {
+            // 换到一半出了别的错：换过的全部换回去，模组目录仍是整套旧版
+            UndoParts(swap.Target, swap.Backup, swap.Candidate, moved.Values<string>());
+            TryDeleteDirectory(swap.Backup);
+            TryDeleteFile(statePath);
+            throw;
+        }
+        if (busy != null)
+        {
+            UndoParts(swap.Target, swap.Backup, swap.Candidate, moved.Values<string>());
+            TryDeleteDirectory(swap.Backup);
+            TryDeleteFile(statePath);
+            return busy;
+        }
+        state["phase"] = "swapped";
+        WriteJson(statePath, state);
+        return null;
+    }
+
+    // 按顶层对调到一半：换过的倒着换回去(新的挪回候选，旧的从备份挪回模组目录)
+    private static void UndoParts(string target, string backup, string candidate, IEnumerable<string> moved)
+    {
+        foreach (string name in moved.Reverse())
+        {
+            string live = Path.Combine(target, name), old = Path.Combine(backup, name);
+            if (Exists(live))
+            {
+                if (candidate != null && Directory.Exists(candidate)) MoveEntry(live, Path.Combine(candidate, name));
+                else DeleteEntry(live);
+            }
+            if (Exists(old)) MoveEntry(old, live);
+        }
+    }
+
+    private static bool Exists(string path) => File.Exists(path) || Directory.Exists(path);
+
+    private static void MoveEntry(string from, string to)
+    {
+        if (Directory.Exists(from)) Directory.Move(from, to);
+        else File.Move(from, to);
+    }
+
+    private static void DeleteEntry(string path)
+    {
+        if (Directory.Exists(path)) Directory.Delete(path, true);
+        else if (File.Exists(path)) File.Delete(path);
+    }
+
+    // 对调好了(后台线程)：核对版本、按设置存档旧版、清掉备份、写安装结果
+    private static void FinishInstall(PendingSwap swap)
+    {
+        string stateRoot = GetUpdatesRoot();
+        try
+        {
+            string installed = ReadModVersion(swap.Target);
+            if (!string.Equals(installed, swap.Version, StringComparison.OrdinalIgnoreCase))
+                throw new Exception("Installed version mismatch. Expected " + swap.Version + ", found " + installed);
+            string archivePath = null;
+            if (swap.Archive)
+            {
+                try
+                {
+                    archivePath = ArchiveBackup(swap.Backup, swap.ModsPath, swap.InstallId);
+                }
+                catch (Exception error)
+                {
+                    LogService.LogWarning("EmpireCraft could not archive the replaced version: " + error.Message);
+                }
+            }
+            TryDeleteDirectory(swap.Backup);
+            TryDeleteFile(Path.Combine(stateRoot, InstallStateFileName));
+            try
+            {
+                File.WriteAllText(Path.Combine(swap.UpdateRoot, "install.log"),
+                    "Installed " + swap.Version + " at " + DateTime.Now.ToString("o", CultureInfo.InvariantCulture) + " into " +
+                    swap.Target + (archivePath != null ? "; archive: " + archivePath : ""), new UTF8Encoding(false));
+            }
+            catch
+            {
+                // 只是记录
+            }
+            WriteJson(Path.Combine(stateRoot, InstallResultFileName), new JObject
+            {
+                ["status"] = "success", ["version"] = swap.Version, ["packagePath"] = swap.PackagePath, ["targetPath"] = swap.Target,
+                ["detail"] = archivePath != null ? "Archive: " + archivePath : "",
+                ["completedAt"] = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture)
+            });
+            Complete(EmpireCraftUpdateStatus.InstallScheduled, swap.PackagePath, null);
+            LogService.LogInfo("EmpireCraft update " + swap.Version + " installed into " + swap.Target + "; restart to load it");
+        }
+        catch (Exception error)
+        {
+            InstallFailedWith(swap.PackagePath, error.Message);
+        }
     }
 
     // 候选目录：旧目录整拷一份，新版的各目录整个换掉，新版的顶层文件覆盖(旧版独有的顶层文件留着)
@@ -723,12 +894,6 @@ public static class EmpireCraftUpdateService
             throw new Exception("Candidate update is missing Scripts.");
         if (!string.Equals(ReadModVersion(candidate), version, StringComparison.OrdinalIgnoreCase))
             throw new Exception("Candidate update version mismatch.");
-    }
-
-    private static void SetPhase(string statePath, JObject state, string phase)
-    {
-        state["phase"] = phase;
-        WriteJson(statePath, state);
     }
 
     private static bool TryMoveDirectory(string from, string to)
@@ -757,107 +922,20 @@ public static class EmpireCraftUpdateService
             CopyDirectory(directory, Path.Combine(to, Path.GetFileName(directory)));
     }
 
-    // 把 from 逐个文件同步进 to：内容一样的跳过，不同的覆盖，to 里多出来的删掉；被占用的记下("copy|相对路径"/"delete|相对路径")
-    private static List<string> SyncDirectory(string from, string to)
+    // 以前装完没删掉的候选、备份(没有进行中的安装时)
+    private static void CleanLeftovers(string workRoot, string name)
     {
-        var deferred = new List<string>();
-        string fromRoot = Path.GetFullPath(from).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
-        string toRoot = Path.GetFullPath(to).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
-        foreach (string file in Directory.GetFiles(fromRoot, "*", SearchOption.AllDirectories))
-        {
-            string relative = file.Substring(fromRoot.Length);
-            string destination = Path.Combine(toRoot, relative);
-            if (File.Exists(destination) && SameContent(file, destination)) continue;
-            try
-            {
-                Directory.CreateDirectory(Path.GetDirectoryName(destination));
-                File.Copy(file, destination, true);
-            }
-            catch (IOException)
-            {
-                deferred.Add("copy|" + relative);
-            }
-        }
-        foreach (string file in Directory.GetFiles(toRoot, "*", SearchOption.AllDirectories))
-        {
-            string relative = file.Substring(toRoot.Length);
-            if (File.Exists(Path.Combine(fromRoot, relative))) continue;
-            try
-            {
-                File.Delete(file);
-            }
-            catch (IOException)
-            {
-                deferred.Add("delete|" + relative);
-            }
-        }
-        foreach (string directory in Directory.GetDirectories(toRoot, "*", SearchOption.AllDirectories)
-                     .OrderByDescending(path => path.Length))
-        {
-            if (Directory.Exists(Path.Combine(fromRoot, directory.Substring(toRoot.Length)))) continue;
-            try
-            {
-                if (Directory.GetFileSystemEntries(directory).Length == 0) Directory.Delete(directory);
-            }
-            catch (IOException)
-            {
-                // 空目录删不掉无妨
-            }
-        }
-        return deferred;
-    }
-
-    private static bool SameContent(string left, string right)
-    {
-        var a = new FileInfo(left);
-        var b = new FileInfo(right);
-        if (a.Length != b.Length) return false;
-        using FileStream x = File.OpenRead(left);
-        using FileStream y = new FileStream(right, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
-        var bufferA = new byte[64 * 1024];
-        var bufferB = new byte[64 * 1024];
-        while (true)
-        {
-            int read = x.Read(bufferA, 0, bufferA.Length);
-            if (read == 0) return true;
-            int offset = 0;
-            while (offset < read)
-            {
-                int got = y.Read(bufferB, offset, read - offset);
-                if (got == 0) return false;
-                offset += got;
-            }
-            for (int i = 0; i < read; i++)
-                if (bufferA[i] != bufferB[i]) return false;
-        }
-    }
-
-    // 换坏了：换回备份(整夹对调的把备份改名回来；逐个同步的把备份同步回去)
-    private static bool RestoreFromBackup(string target, string backup, bool swapped)
-    {
+        if (File.Exists(Path.Combine(GetUpdatesRoot(), InstallStateFileName))) return;
         try
         {
-            if (!Directory.Exists(backup)) return false;
-            if (swapped)
-            {
-                if (Directory.Exists(target))
-                {
-                    string failed = backup + ".failed";
-                    TryDeleteDirectory(failed);
-                    Directory.Move(target, failed);
-                    TryDeleteDirectory(failed);
-                }
-                Directory.Move(backup, target);
-                return true;
-            }
-            SyncDirectory(backup, target);
-            TryDeleteDirectory(backup);
-            return true;
+            foreach (string directory in Directory.GetDirectories(workRoot, "." + name + ".update-*"))
+                TryDeleteDirectory(directory);
+            foreach (string directory in Directory.GetDirectories(workRoot, "." + name + ".backup-*"))
+                TryDeleteDirectory(directory);
         }
-        catch (Exception error)
+        catch
         {
-            LogService.LogWarning("EmpireCraft could not restore the previous installation from " + backup + ": " + error.Message);
-            return false;
+            // 只是清理
         }
     }
 
@@ -898,7 +976,7 @@ public static class EmpireCraftUpdateService
     {
         try
         {
-            if (Directory.Exists(path)) Directory.Delete(path, true);
+            if (!string.IsNullOrEmpty(path) && Directory.Exists(path)) Directory.Delete(path, true);
         }
         catch
         {
@@ -906,96 +984,50 @@ public static class EmpireCraftUpdateService
         }
     }
 
-    // 启动时：上次当场替换中途被打断的从备份恢复旧版；被占用没换上的文件补上。旧版本(脚本安装)留下的待安装记录清掉
+    // 启动时：上次对调中途被关的，按记录换回旧版或确认装好；旧版本(脚本安装、逐个文件补)留下的记录清掉
     private static void FinishInterruptedInstall()
     {
         string stateRoot = GetUpdatesRoot();
         TryDeleteFile(Path.Combine(stateRoot, PendingInstallFileName));
+        TryDeleteFile(Path.Combine(stateRoot, "deferred-install.json"));
         string statePath = Path.Combine(stateRoot, InstallStateFileName);
-        if (File.Exists(statePath))
-        {
-            try
-            {
-                JObject state = JObject.Parse(File.ReadAllText(statePath));
-                string target = state.Value<string>("target"), backup = state.Value<string>("backup");
-                string version = state.Value<string>("version"), phase = state.Value<string>("phase");
-                bool installed = Directory.Exists(target) &&
-                                 string.Equals(ReadModVersion(target), version, StringComparison.OrdinalIgnoreCase);
-                // 整夹对调已经完成、只差收尾：算装好了
-                if (phase == "swapped" && installed)
-                {
-                    TryDeleteDirectory(backup);
-                    WriteJson(Path.Combine(stateRoot, InstallResultFileName), new JObject
-                    {
-                        ["status"] = "success", ["version"] = version, ["targetPath"] = target, ["detail"] = ""
-                    });
-                }
-                // 还在整拷备份：旧目录没动过，丢掉半份备份
-                else if (phase == "backup") TryDeleteDirectory(backup);
-                else
-                {
-                    bool restored = !Directory.Exists(target)
-                        ? RestoreFromBackup(target, backup, true)
-                        : phase == "syncing" && RestoreFromBackup(target, backup, false);
-                    WriteJson(Path.Combine(stateRoot, InstallResultFileName), new JObject
-                    {
-                        ["status"] = "failure", ["version"] = version, ["targetPath"] = target,
-                        ["detail"] = "The game closed while the update was being installed." +
-                                     (restored ? " Previous installation restored." : "")
-                    });
-                }
-                TryDeleteDirectory(state.Value<string>("candidate"));
-            }
-            catch (Exception error)
-            {
-                LogService.LogWarning("EmpireCraft could not recover an interrupted update: " + error.Message);
-            }
-            TryDeleteFile(statePath);
-        }
-        string deferredPath = Path.Combine(stateRoot, DeferredInstallFileName);
-        if (!File.Exists(deferredPath)) return;
+        if (!File.Exists(statePath)) return;
         try
         {
-            JObject deferred = JObject.Parse(File.ReadAllText(deferredPath));
-            string target = deferred.Value<string>("target"), candidate = deferred.Value<string>("candidate");
-            if (!PathsEqual(target, ModClass._declare?.FolderPath ?? ""))
+            JObject state = JObject.Parse(File.ReadAllText(statePath));
+            string target = state.Value<string>("target"), backup = state.Value<string>("backup");
+            string candidate = state.Value<string>("candidate"), version = state.Value<string>("version");
+            string phase = state.Value<string>("phase");
+            bool installed = Directory.Exists(target) &&
+                             string.Equals(ReadModVersion(target), version, StringComparison.OrdinalIgnoreCase);
+            string detail;
+            if (phase == "swapped" && installed)
             {
-                TryDeleteFile(deferredPath);
-                return;
+                // 对调已经完成、只差收尾：算装好了
+                TryDeleteDirectory(backup);
+                detail = null;
             }
-            var left = new JArray();
-            foreach (string entry in deferred.Value<JArray>("entries")?.Values<string>() ?? Array.Empty<string>())
+            else
             {
-                int cut = entry.IndexOf('|');
-                if (cut <= 0) continue;
-                string relative = entry.Substring(cut + 1), destination = Path.Combine(target, relative);
-                try
-                {
-                    if (entry.StartsWith("copy|", StringComparison.Ordinal))
-                    {
-                        Directory.CreateDirectory(Path.GetDirectoryName(destination));
-                        File.Copy(Path.Combine(candidate, relative), destination, true);
-                    }
-                    else if (File.Exists(destination)) File.Delete(destination);
-                }
-                catch (IOException)
-                {
-                    left.Add(entry);
-                }
-            }
-            if (left.Count > 0)
-            {
-                deferred["entries"] = left;
-                WriteJson(deferredPath, deferred);
-                return;
+                if (phase == "parts")
+                    UndoParts(target, backup, candidate, state.Value<JArray>("moved")?.Values<string>() ?? Array.Empty<string>());
+                else if (!Directory.Exists(target) && Directory.Exists(backup))
+                    Directory.Move(backup, target);
+                detail = "The game closed while the update was being installed; the previous installation was kept.";
             }
             TryDeleteDirectory(candidate);
-            TryDeleteFile(deferredPath);
+            if (detail != null) TryDeleteDirectory(backup);
+            WriteJson(Path.Combine(stateRoot, InstallResultFileName), new JObject
+            {
+                ["status"] = detail == null ? "success" : "failure", ["version"] = version,
+                ["packagePath"] = state.Value<string>("packagePath"), ["targetPath"] = target, ["detail"] = detail ?? ""
+            });
         }
         catch (Exception error)
         {
-            LogService.LogWarning("EmpireCraft could not finish deferred update files: " + error.Message);
+            LogService.LogWarning("EmpireCraft could not recover an interrupted update: " + error.Message);
         }
+        TryDeleteFile(statePath);
     }
 
     private static bool RestoreInstallState()
@@ -1019,13 +1051,13 @@ public static class EmpireCraftUpdateService
             string detail = result.Value<string>("detail")?.Trim();
             string currentVersion = ReadInstalledVersion();
             string currentTarget = Path.GetFullPath(ModClass._declare?.FolderPath ?? "");
-            bool helperReportedSuccess = string.Equals(status, "success", StringComparison.OrdinalIgnoreCase);
+            bool reportedSuccess = string.Equals(status, "success", StringComparison.OrdinalIgnoreCase);
             bool versionMatches = !string.IsNullOrWhiteSpace(version) &&
                                   CompareVersions(currentVersion, version) >= 0;
             bool targetMatches = !string.IsNullOrWhiteSpace(targetPath) && PathsEqual(currentTarget, targetPath);
 
             EmpireCraftUpdateStatus restoredStatus;
-            if (helperReportedSuccess && versionMatches && targetMatches)
+            if (reportedSuccess && versionMatches && targetMatches)
             {
                 restoredStatus = EmpireCraftUpdateStatus.InstallSucceeded;
                 detail = null;
@@ -1033,7 +1065,7 @@ public static class EmpireCraftUpdateService
             else
             {
                 restoredStatus = EmpireCraftUpdateStatus.InstallFailed;
-                if (helperReportedSuccess)
+                if (reportedSuccess)
                 {
                     detail = "The updater replaced " + targetPath + " with " + version +
                              ", but the game loaded " + currentVersion + " from " + currentTarget +
@@ -1041,7 +1073,7 @@ public static class EmpireCraftUpdateService
                 }
                 else if (string.IsNullOrWhiteSpace(detail))
                 {
-                    detail = "The external installer reported a failure without an error message.";
+                    detail = "The installer reported a failure without an error message.";
                 }
             }
 
@@ -1051,7 +1083,7 @@ public static class EmpireCraftUpdateService
                 _snapshot.AvailableVersion = version;
                 _snapshot.LocalPackagePath = packagePath;
                 _snapshot.Error = detail;
-                _snapshot.ProgressPercent = helperReportedSuccess ? 100 : 0;
+                _snapshot.ProgressPercent = reportedSuccess ? 100 : 0;
                 PublishLocked(restoredStatus);
             }
 
