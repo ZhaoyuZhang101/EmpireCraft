@@ -416,6 +416,9 @@ public partial class EmpireBeaurauWindow : AbstractWideWindow<EmpireBeaurauWindo
             case RegimeType.ZhouFeudalism:
                 InitialTopPartInfoZhou();
                 break;
+            case RegimeType.HuaxiaOrigin when GeneralSystems.TribalCouncilSystem.Active(_empire):
+                InitialTopPartInfoTribalCouncil();
+                break;
             default:
                 InitialTopPartInfoNormal();
                 break;

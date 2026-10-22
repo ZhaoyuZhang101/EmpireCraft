@@ -14,6 +14,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 施行了「部落联合」以后：守方奉胜者为共主(成为共事的成员部落，见 TribalFissionService.Incorporate)，同样了结战事、
 //     退还占地；胜者由此称部落联盟(见 DynastyNaming.HuaxiaOriginEmpireKey)。胜者管不过来、离得太远就照旧只拿赔款。
 //   只管双方都是原始政体的部落(见 CityPatch.FinishedCapture，原版小人破城与模组占领都走那里)。
+//   华夏开局就能联合诸部(用户 2026-10-22 "开局就可以部落联合")，原「部落联合」节点改为设立诸部议事会(见 TribalCouncilSystem)。
 public static class TribalWarSystem
 {
     private const float TributeShare = 0.3f;
@@ -27,7 +28,7 @@ public static class TribalWarSystem
         bool Known(string node) => InstitutionSystem.IsEnacted(culture, node) || InstitutionSystem.IsSuperseded(culture, node);
         return line switch
         {
-            "Huaxia" => Known("huaxia_tribal_alliance") || Known("huaxia_hereditary_kingship"),
+            "Huaxia" => true,
             "Japan" => Known("japan_yayoi_kuni") || Known("japan_yamato_kingship"),
             "Youmu" => Known("youmu_clan_union") || Known("youmu_tribal_confederation"),
             "Arabic" => Known("arabic_tribal_union") || Known("arabic_tribal_shura"),

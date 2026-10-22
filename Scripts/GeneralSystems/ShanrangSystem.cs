@@ -15,6 +15,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 推出的是别部首领：那一部入部落联盟为共主之部(帝国核心移过去)，原来的共主之部改为共事新共主(见 TribalFissionService)；
 //     推出的是本部的城主：本部改立他为首领；
 //   · 换了氏族也不算篡位(见 Empire.NewEmperor)，不改国号、不扣篡位的正统；施行世袭王权以后父子相传(家天下)。
+//   · 设了诸部议事会(施行「诸部议事」以后，见 TribalCouncilSystem)：改由议事会投票推举，不再按分数比——共主崩时原定继位的也在候选之列，
+//     议事会认了他就不换；年老让位的不在候选之列；
 //   · 共主崩后原版先按世袭立的那位(原定继位的)，当月就被推举换下的，只是待推举的人，不算一代共主，世系图里不列他
 //     (用户 2026-10-17 "为什么这么多在位0年的"：以前他也记了一任，在位 0 年；旧存档读档后清一次，见 DropInterimReigns)。
 public static class ShanrangSystem
@@ -53,9 +55,25 @@ public static class ShanrangSystem
             bool succeeded = known && last.id != ruler.data.id;
             bool abdicate = !succeeded && ruler.getAge() >= AbdicateAge && Random.value < AbdicateChance;
             if (!succeeded && !abdicate) continue;
-            (Actor best, Kingdom tribe) = Worthiest(empire, ruler);
-            if (best == null || best == ruler || tribe == null) continue;
-            if (Score(best, tribe) < Score(ruler, empire.CoreKingdom) * Margin + MarginFlat) continue;
+            Actor best;
+            Kingdom tribe;
+            int votes = -1;
+            if (TribalCouncilSystem.Active(empire) && TribalCouncilSystem.Members(empire).Count > 0)
+            {
+                List<(Actor actor, Kingdom tribe)> candidates = Candidates(empire, ruler);
+                if (succeeded) candidates.Insert(0, (ruler, empire.CoreKingdom));
+                var tally = TribalCouncilSystem.Tally(empire, candidates);
+                if (tally.Count == 0) continue;
+                (best, tribe, votes) = tally[0];
+                // 议事会认了原定继位的：不换
+                if (best == null || best == ruler || tribe == null) continue;
+            }
+            else
+            {
+                (best, tribe) = Worthiest(empire, ruler);
+                if (best == null || best == ruler || tribe == null) continue;
+                if (Score(best, tribe) < Score(ruler, empire.CoreKingdom) * Margin + MarginFlat) continue;
+            }
             string previous = abdicate ? ruler.getName() : last.name;
             string chosen = tribe == empire.CoreKingdom ? best.getName() : tribe.GetKingdomName() + best.getName();
             try
@@ -70,7 +88,9 @@ public static class ShanrangSystem
             Actor installed = empire.Emperor ?? best;
             if (succeeded && installed != ruler) DropInterimReign(empire, ruler.data.id, ruler.name);
             LastRuler[empire.id] = (installed.data.id, installed.getName());
-            string content = string.Format(LM.Get(abdicate ? "shanrang_abdicate_history" : "shanrang_elect_history"), previous, chosen);
+            string content = votes >= 0
+                ? string.Format(LM.Get(abdicate ? "tribal_council_abdicate_history" : "tribal_council_elect_history"), previous, chosen, votes)
+                : string.Format(LM.Get(abdicate ? "shanrang_abdicate_history" : "shanrang_elect_history"), previous, chosen);
             LogService.LogInfo("[EmpireCraft][禅让] " + content);
             empire.RecordHistory(directContent: content, actorId: best.data.id, kingdomId: tribe.id);
         }
@@ -107,7 +127,7 @@ public static class ShanrangSystem
     }
 
     // 推举的分数：威望、所在之部的城数，正当壮年加分、年过七十减分
-    private static float Score(Actor actor, Kingdom tribe)
+    internal static float Score(Actor actor, Kingdom tribe)
     {
         if (actor?.data == null) return 0f;
         int age = actor.getAge();
@@ -118,17 +138,20 @@ public static class ShanrangSystem
     private static bool Fit(Actor actor) =>
         actor?.data != null && !actor.isRekt() && actor.isAlive() && actor.isAdult() && actor.isUnitFitToRule();
 
-    // 候选：共主之部各城的城主、共事它的各部首领
-    private static (Actor actor, Kingdom tribe) Worthiest(Empire empire, Actor ruler)
+    // 候选：共主之部各城的城主、共事它的各部首领(不含 ruler)
+    internal static List<(Actor actor, Kingdom tribe)> Candidates(Empire empire, Actor ruler)
     {
         Kingdom core = empire.CoreKingdom;
         var candidates = new List<(Actor actor, Kingdom tribe)>();
         foreach (City city in core?.cities ?? new List<City>())
             if (Fit(city?.leader) && city.leader != ruler && !city.leader.isKing()) candidates.Add((city.leader, core));
         foreach (Kingdom tribe in TribalFissionService.VassalsOf(empire))
-            if (Fit(tribe.king) && tribe.hasCapital()) candidates.Add((tribe.king, tribe));
-        return candidates.OrderByDescending(entry => Score(entry.actor, entry.tribe)).FirstOrDefault();
+            if (Fit(tribe.king) && tribe.hasCapital() && tribe.king != ruler) candidates.Add((tribe.king, tribe));
+        return candidates;
     }
+
+    private static (Actor actor, Kingdom tribe) Worthiest(Empire empire, Actor ruler) =>
+        Candidates(empire, ruler).OrderByDescending(entry => Score(entry.actor, entry.tribe)).FirstOrDefault();
 
     private static bool Install(Empire empire, Actor best, Kingdom tribe)
     {

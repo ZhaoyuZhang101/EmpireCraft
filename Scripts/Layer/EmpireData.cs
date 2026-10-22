@@ -26,6 +26,9 @@ public class EmpireData : MetaObjectData
     public int banner_icon_id { get; set; }
     public int Mandate { get; set; } = 100; // 原始事件法统；综合正统由 MonarchyLegitimacy 计算
     public List<long> CabinetMembers { get; set; } = new List<long>();
+    // 华夏部落联盟的诸部议事会(见 TribalCouncilSystem)：议事的人
+    public List<long> tribal_council { get; set; }
+    public bool ShouldSerializetribal_council() => tribal_council != null && tribal_council.Count > 0;
     // 朝堂博弈(见 CourtSystem)
     public CourtState court = new();
     // 周制的天下大势：西周、春秋、战国(见 ZhouEraSystem)

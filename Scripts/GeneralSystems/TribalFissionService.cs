@@ -161,6 +161,7 @@ public static class TribalFissionService
         try
         {
             Migrate();
+            TribalCouncilSystem.Monthly();
             ShanrangSystem.Monthly();
             DetachMembers();
             DissolveSettledTribes();
