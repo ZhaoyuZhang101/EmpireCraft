@@ -1170,41 +1170,38 @@ public class CityPatch : GamePatch
 
     // 全世界的年度扫描：以前挂在每座城的更新里，第一座城一到期就七个一起跑，叠成大顿挫。
     // 现在每帧只轮到其中一个(各扫描自己仍按"一年一次"判断是否到期)，到期的扫描最多晚几帧执行
-    private static readonly Action[] WorldYearlyScans =
+    // 名字与扫描写在一起(以前分两张表，加扫描漏加名字就错位越界)
+    private static readonly (string label, Action scan)[] WorldYearlyScans =
     {
-        ClanBranchSystem.TryYearlyScan,
-        DeJureShareSystem.TryYearlyScan,
-        IdeologySpreadSystem.TryYearlyScan,
-        TechnologySystem.TryYearlyScan,
-        InstitutionSystem.TryYearlyCultureDrift,
-        HarshRuleSystem.TryYearlyKingdomScan,
-        EmpireCraft.Scripts.Compatibility.NuclearDoctrineSystem.TryYearlyScan,
-        CultureModernizationSystem.TryYearlyRealmTransitionScan,
-        CapitalLossNamingSystem.TryYearlyScan,
-        WartimeCustodySystem.TryMonthlyScan,
-        JimiSystem.TryMonthlyScan,
-        InternalBoundarySystem.TryYearlyScan,
-        StateDebtSystem.TryMonthlyScan,
-        CoreCapitalRestorationSystem.TryMonthlyScan,
-        WarReparationsSystem.TryMonthlyScan,
-        TradeRouteSystem.TryMonthlyScan,
-        VassalColorService.TickReassert,
-        FeudalVassalService.TryYearlyTribute,
-        FamousTalentSystem.TryYearlyScan,
-        FrontierRelations.TryYearlyScan,
-        ReligiousTension.TryYearlyScan,
-        GreatPowerDiplomacy.TryYearlyScan,
-        InstitutionSystem.TryYearlyWorldPass,
-        InstitutionSystem.TryYearlyKingdomScan,
-        PapacySystem.TryYearlyDiagnose,
-        LegacyInstitutionSystem.TryYearlyScan,
-        NomadRaidSystem.TryMonthlyScan,
-        WarReach.TryMonthlyScan
+        ("年度扫描·宗族分支", ClanBranchSystem.TryYearlyScan),
+        ("年度扫描·兼属", DeJureShareSystem.TryYearlyScan),
+        ("年度扫描·理念传播", IdeologySpreadSystem.TryYearlyScan),
+        ("年度扫描·科技", TechnologySystem.TryYearlyScan),
+        ("年度扫描·制度漂移", InstitutionSystem.TryYearlyCultureDrift),
+        ("年度扫描·苛政", HarshRuleSystem.TryYearlyKingdomScan),
+        ("年度扫描·核威慑", EmpireCraft.Scripts.Compatibility.NuclearDoctrineSystem.TryYearlyScan),
+        ("年度扫描·文化近代化", CultureModernizationSystem.TryYearlyRealmTransitionScan),
+        ("年度扫描·失都改称", CapitalLossNamingSystem.TryYearlyScan),
+        ("年度扫描·战后分配", WartimeCustodySystem.TryMonthlyScan),
+        ("年度扫描·羁縻边防", JimiSystem.TryMonthlyScan),
+        ("年度扫描·行政区划界", InternalBoundarySystem.TryYearlyScan),
+        ("年度扫描·国债", StateDebtSystem.TryMonthlyScan),
+        ("年度扫描·还于旧都", CoreCapitalRestorationSystem.TryMonthlyScan),
+        ("年度扫描·战争赔款", WarReparationsSystem.TryMonthlyScan),
+        ("年度扫描·海上商路", TradeRouteSystem.TryMonthlyScan),
+        ("年度扫描·附庸描边", VassalColorService.TickReassert),
+        ("年度扫描·封建贡赋", FeudalVassalService.TryYearlyTribute),
+        ("年度扫描·名将名臣", FamousTalentSystem.TryYearlyScan),
+        ("年度扫描·和亲互市", FrontierRelations.TryYearlyScan),
+        ("年度扫描·宗教", ReligiousTension.TryYearlyScan),
+        ("年度扫描·大国通好", GreatPowerDiplomacy.TryYearlyScan),
+        ("年度扫描·制度接触", InstitutionSystem.TryYearlyWorldPass),
+        ("年度扫描·制度·王国", InstitutionSystem.TryYearlyKingdomScan),
+        ("年度扫描·教廷诊断", PapacySystem.TryYearlyDiagnose),
+        ("年度扫描·旧制", LegacyInstitutionSystem.TryYearlyScan),
+        ("年度扫描·游牧劫掠", NomadRaidSystem.TryMonthlyScan),
+        ("年度扫描·远战清理", WarReach.TryMonthlyScan)
     };
-    private static readonly string[] WorldYearlyScanNames =
-        { "宗族分支", "理念传播", "科技", "制度漂移", "苛政", "核威慑", "文化近代化", "失都改称", "战后分配", "羁縻边防", "行政区划界", "国债", "还于旧都", "战争赔款", "海上商路", "附庸描边", "封建贡赋", "名将名臣", "和亲互市", "宗教", "大国通好", "制度接触", "制度·王国", "教廷诊断", "旧制", "游牧劫掠", "远战清理" };
-    // 计时标签预先拼好(以前每帧拼一次"年度扫描·"+名字)
-    private static readonly string[] WorldYearlyScanLabels = WorldYearlyScanNames.Select(name => "年度扫描·" + name).ToArray();
     private static int _worldScanFrame = -1;
     private const int SurrenderCheckEvery = 10;
     private const int SlowHookCitiesPerFrame = 3;
@@ -1215,7 +1212,7 @@ public class CityPatch : GamePatch
         if (frame == _worldScanFrame) return;
         _worldScanFrame = frame;
         int index = frame % WorldYearlyScans.Length;
-        using (FrameProfiler.Measure(WorldYearlyScanLabels[index])) WorldYearlyScans[index]();
+        using (FrameProfiler.Measure(WorldYearlyScans[index].label)) WorldYearlyScans[index].scan();
     }
 
     public static void city_update(City __instance, float pElapsed)
