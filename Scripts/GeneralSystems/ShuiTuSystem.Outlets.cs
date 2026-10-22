@@ -149,6 +149,7 @@ public static partial class ShuiTuSystem
             var extra = kingdom.GetOrCreate();
             extra.regime_manually_selected = true;
             extra.shuitu_regime = (int)target;
+            extra.shuitu_nomad_justified = target == RegimeType.YouMu;
             extra.last_kingdom_status_ts = -1d;
             EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(kingdom);
             if (kingdom != unit) members++;
@@ -218,18 +219,23 @@ public static partial class ShuiTuSystem
     {
         if (!RevertChecked.Add(unit.id)) return;
         var extra = unit.GetOrCreate();
-        if (extra.shuitu_regime != (int)RegimeType.YouMu || unit.GetRegime()?.type != RegimeType.YouMu) return;
+        if (extra.shuitu_regime != (int)RegimeType.YouMu || extra.shuitu_nomad_justified ||
+            unit.GetRegime()?.type != RegimeType.YouMu) return;
         if (CompositeEmpireService.IsNomadicCulture(CultureService.GetRealmCulture(unit)) || NomadNearby(unit, cities)) return;
         string institution = CultureService.GetInstitutionCulture(unit);
         RegimeType target = InstitutionSystem.TryResolveCultureRegime(institution, out RegimeType resolved)
             ? resolved
             : OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(institution, out Setting setting) ? setting.regime : RegimeType.Feudalism;
         target = InstitutionSystem.AdjustForMonarchyEmpire(unit, target);
-        if (KingdomExtension.IsNomadTaxRegime(target)) return;
+        // 同制度同步的防护(见 InstitutionSystem.SyncForeignRegime)：本文化还在原始阶段的不改回部落，共和、现代另有专管
+        if (KingdomExtension.IsNomadTaxRegime(target) || RegimeManager.IsPrimitive(target) ||
+            target is RegimeType.Modern or RegimeType.Republic) return;
         string name = unit.GetKingdomName();
         if (ChangeRegime(unit, target) < 0) return;
-        // 改回的是本文化自己的政体，不当手选，之后照常随制度同步
-        foreach (Kingdom kingdom in kingdoms)
+        // 改回的是本文化自己的政体，不当手选，之后照常随制度同步(帝国的话连同间接成员，ChangeRegime 改的是全体成员)
+        var realm = new List<Kingdom>(kingdoms);
+        if (unit.GetEmpire()?.kingdoms_list is List<Kingdom> members) realm.AddRange(members);
+        foreach (Kingdom kingdom in realm)
         {
             if (kingdom?.data == null || kingdom.isRekt()) continue;
             var data = kingdom.GetOrCreate();

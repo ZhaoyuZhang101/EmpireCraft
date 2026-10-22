@@ -809,6 +809,9 @@ public static partial class WarlordEraSystem
         members.Remove(leaderKingdom);
         members.Insert(0, leaderKingdom);
         Dictionary<long, string> memberNames = members.ToDictionary(member => member.id, HolderName);
+        // 够不着中央的先不组建：以前组建了、开战被远战闸拦下又解散，下回再来一遍，史书里白记"组建政府"
+        if (FindActiveWar(leaderKingdom, centralKingdom) == null &&
+            !WarReach.MayDeclare(leaderKingdom, centralKingdom, WarTypeLibrary.normal)) return null;
         Empire leader = ModernStateFormationSystem.FormGovernment(leaderKingdom);
         if (leader == null) return null;
         EmpireCore provisionalCore = EmpireCoreManager.Get(leader);

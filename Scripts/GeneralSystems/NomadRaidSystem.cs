@@ -393,7 +393,8 @@ public static partial class NomadRaidSystem
         if (target.GetOrCreate().raided_at >= 0d && YearsSince(target.GetOrCreate().raided_at) < VictimImmunityYears) return false;
         if (target.getWars().Any(war => war?.data != null && !war.hasEnded() && war.GetEmpireWarType() == EmpireWarType.劫掠 &&
                                        war.isDefender(target))) return false;
-        return WarGate.CanDeclare(leader, target);
+        // 开战的是盟主：目标只挨着盟里远处的某部、盟主够不着的，开战会被远战闸拦下(见 WarReach)，劫掠白白作罢
+        return WarGate.CanDeclare(leader, target) && WarReach.Reachable(leader, target);
     }
 
     // 财富：国库 + 存粮 + 户数(同一量级的粗算)

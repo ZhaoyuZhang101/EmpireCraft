@@ -253,6 +253,8 @@ public static class KingdomExtension
         public double shuitu_nomadized_at = -1d;
         // 水土出路改的政体(封建化、本族定居、整国游牧化)：记下以免制度同步按文化改回去；-1 = 没改过
         public int shuitu_regime = -1;
+        // 按新规矩(附近有游牧)整国游牧化的：读档改回只管没有这个记号的旧档国家(见 ShuiTuSystem.RevertUnfounded)
+        public bool shuitu_nomad_justified;
         // 埃米尔世袭(或以世袭成员身份第一次被看到)的时间：世袭满十五年才可能割据(见 EmirateSystem)；-1 = 不是世袭的埃米尔
         public double emirate_hereditary_at = -1d;
         // 分裂进程里割据(见 SchismSystem，用户 2026-10-21 选"先割据后独立")：割据起始时间与所属帝国；-1 = 没割据。
@@ -511,6 +513,8 @@ public static class KingdomExtension
         //玩家/派系可见的继承法,决定 HeirLaw 级联的起点与特殊继承行为
         public SuccessionLawType SuccessionLaw = SuccessionLawType.嫡长子继承法;
         public string faction_rebel_original_name = "";
+        // 起兵时定下的称呼：读档照用，不再重算(叛乱期间核心名缓存与起兵前取的名号可能不同，重算会变名)
+        public string faction_rebel_display = "";
         public LawType main_crime = default;
         public bool main_crime_recorded;
         public long main_crime_actor_id = -1L;
@@ -1614,7 +1618,7 @@ public static class KingdomExtension
         var extra = k.GetOrCreate();
         if (string.IsNullOrWhiteSpace(extra.faction_rebel_original_name))
             extra.faction_rebel_original_name = k.data.name ?? k.name ?? "";
-        k.data.name = EmpireCraft.Scripts.GeneralSystems.FactionRebelNaming.RebelName(k);
+        k.data.name = extra.faction_rebel_display = EmpireCraft.Scripts.GeneralSystems.FactionRebelNaming.RebelName(k);
         extra.isFactionRebelling = true;
     }
 
@@ -1627,11 +1631,14 @@ public static class KingdomExtension
         if (string.IsNullOrWhiteSpace(original)) return;
         if (extra.isFactionRebelling)
         {
-            k.data.name = EmpireCraft.Scripts.GeneralSystems.FactionRebelNaming.RebelName(k);
+            if (string.IsNullOrWhiteSpace(extra.faction_rebel_display))
+                extra.faction_rebel_display = EmpireCraft.Scripts.GeneralSystems.FactionRebelNaming.RebelName(k);
+            k.data.name = extra.faction_rebel_display;
             return;
         }
         k.data.name = original;
         extra.faction_rebel_original_name = "";
+        extra.faction_rebel_display = "";
     }
 
     public static void EndFactionRebelling(this Kingdom k)
@@ -1642,6 +1649,7 @@ public static class KingdomExtension
             k.data.name = k.GetOrCreate().faction_rebel_original_name;
         }
         k.GetOrCreate().faction_rebel_original_name = "";
+        k.GetOrCreate().faction_rebel_display = "";
     }
 
     public static void ClearRebellionStatus(this Kingdom k)
@@ -1785,6 +1793,16 @@ public static class KingdomExtension
     {
         if (kingdom == null || empire == null) return;
         kingdom.GetOrCreate().rebellion_origin_empire_ids?.Remove(empire.getID());
+    }
+
+    // 最近一次起兵所反的、还在的帝国(派系起兵打赢后按它接管，见 WarPatch)
+    public static Empire RebellionOriginEmpire(this Kingdom kingdom)
+    {
+        List<long> ids = kingdom?.GetOrCreate().rebellion_origin_empire_ids;
+        if (ids == null || ModClass.EMPIRE_MANAGER == null) return null;
+        for (int i = ids.Count - 1; i >= 0; i--)
+            if (ModClass.EMPIRE_MANAGER.get(ids[i]) is Empire empire && !empire.isRekt() && !empire.IsArchived()) return empire;
+        return null;
     }
 
     public static bool HasRebelledAgainst(this Kingdom kingdom, Empire empire)

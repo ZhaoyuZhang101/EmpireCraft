@@ -47,12 +47,33 @@ public static class WarReach
         type != null && (type.total_war || type == WarTypeLibrary.rebellion || type == WarTypeLibrary.inspire ||
                          type == WarTypeLibrary.whisper_of_war);
 
-    // 同一帝国内、封建上下级
+    // 同一帝国内、封建上下级；刚离开对方帝国(起兵、叛离、独立，一年内)或反过对方帝国的
+    // (好几处先请出帝国再开战，以前因此被当成两个外国拦下：成员直接独立、没有战争，史书照写起兵)
     private static bool Related(Kingdom a, Kingdom b)
     {
         Empire empire = a.GetEmpire();
         if (empire != null && !empire.isRekt() && empire == b.GetEmpire()) return true;
-        return FeudalVassalService.GetOverlord(a) == b || FeudalVassalService.GetOverlord(b) == a;
+        if (FeudalVassalService.GetOverlord(a) == b || FeudalVassalService.GetOverlord(b) == a) return true;
+        return LeftFrom(a, b) || LeftFrom(b, a);
+    }
+
+    private static bool LeftFrom(Kingdom kingdom, Kingdom other)
+    {
+        Empire empire = other.GetEmpire();
+        if (empire == null || empire.isRekt()) return false;
+        if (kingdom.HasRebelledAgainst(empire)) return true;
+        var data = kingdom.GetOrCreate();
+        return data.left_empire_id == empire.id && data.left_empire_at >= 0d &&
+               World.world.getCurWorldTime() >= data.left_empire_at && Date.getYearsSince(data.left_empire_at) < 1f;
+    }
+
+    // 读档：上一个存档的标记与计数作废(读档时世界对象不换，战争编号又从头来)
+    public static void ResetWorldState()
+    {
+        _world = null;
+        _lastMonth = -1d;
+        Far.Clear();
+        FarMonths.Clear();
     }
 
     private static bool Young(Kingdom kingdom) => Date.getYearsSince(kingdom.data.created_time) < 1f;
@@ -195,15 +216,25 @@ public static class WarReach
         foreach (long id in FarMonths.Keys.Where(id => !alive.Contains(id)).ToList()) FarMonths.Remove(id);
     }
 
-    // 主攻主守之外，两边的参战国有一对够得着(盟友在打)就不算久不接触
+    // 主攻主守之外，两边的参战国有一对够得着(盟友在打)就不算久不接触。按政权去重(同一帝国的成员算一家，
+    // Reachable 本来就按全体成员算)，主攻主守那一对已经算过
     private static bool AnyPairReachable(War war)
     {
-        List<Kingdom> attackers = war._list_attackers?.Where(Alive).ToList() ?? new List<Kingdom>();
-        List<Kingdom> defenders = war._list_defenders?.Where(Alive).ToList() ?? new List<Kingdom>();
+        List<Kingdom> attackers = Distinct(war._list_attackers), defenders = Distinct(war._list_defenders);
+        Kingdom mainA = RealmOf(war.main_attacker), mainD = RealmOf(war.main_defender);
         foreach (Kingdom a in attackers)
         foreach (Kingdom d in defenders)
-            if ((a != war.main_attacker || d != war.main_defender) && Reachable(a, d)) return true;
+            if ((a != mainA || d != mainD) && Reachable(a, d)) return true;
         return false;
+    }
+
+    private static List<Kingdom> Distinct(List<Kingdom> side) =>
+        side?.Where(Alive).Select(RealmOf).Distinct().ToList() ?? new List<Kingdom>();
+
+    private static Kingdom RealmOf(Kingdom kingdom)
+    {
+        Empire empire = kingdom?.GetEmpire();
+        return empire != null && !empire.isRekt() && empire.CoreKingdom != null ? empire.CoreKingdom : kingdom;
     }
 
     private static bool Alive(Kingdom kingdom) => kingdom?.data != null && !kingdom.isRekt();

@@ -81,6 +81,8 @@ public static partial class RealmNamingSystem
     {
         var state = empire.data.constitutional_economy;
         if (state == null || !IsHuaxia(empire)) return;
+        // 同名相争里让出了名号的不再改称天下基名(以前改回、再撞名、再让出，每年一轮，同普世之名，见 Contest)
+        if (empire.data.title_claim_yielded) return;
         EmpireCore own = EmpireCoreManager.Get(empire);
         EmpireCore lead = own == null ? null : TianxiaSystem.Lead(own);
         bool quiet = QuietYear();

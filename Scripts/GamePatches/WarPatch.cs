@@ -311,11 +311,14 @@ public class WarPatch: GamePatch
                     LandEconomySystem.ResolvePeasantLandRebellion(pWar, pWinner);
                     if (RepublicSystem.IsRevolutionWar(pWar))
                         RepublicSystem.ResolveRevolutionWar(pWar, pWinner);
-                    else if (pWinner == WarWinner.Attackers)
+                    else if (pWinner == WarWinner.Attackers && attacker != null)
                     {
                         // 先改回原名再接管帝国：接管时的迁都、换法理日志写真名，接管后起的国号也不被停战改回去
                         attacker.EndFactionRebelling();
-                        attacker.GetEmpire().ReplaceEmpire(attacker);
+                        // 起兵的行省多半已因"反过本帝国"被请出帝国(见 KingdomExtension.CheckEmpire)，按起兵时记下的帝国接管；
+                        // 以前直接取 attacker.GetEmpire() 为空，这里报空引用，后面响应者的临时国名也没改回(日志 WarPatch.cs:316)
+                        Empire origin = attacker.GetEmpire() ?? attacker.RebellionOriginEmpire();
+                        origin?.ReplaceEmpire(attacker);
                     }
                     // 联省兵谏的响应者也有叛乱状态与临时国名，停战时一并清理。
                     foreach (Kingdom participant in pWar._list_attackers.ToList()) participant?.EndFactionRebelling();

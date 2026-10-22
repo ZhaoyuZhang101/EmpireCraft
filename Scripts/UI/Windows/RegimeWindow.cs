@@ -504,6 +504,8 @@ public class RegimeWindow : AbstractWideWindow<RegimeWindow>
         {
             _kingdom.SetRegimeType(pType);
             _kingdom.GetOrCreate().regime_manually_selected = true;
+            // 手选的不再算水土出路改的(读档改回、出路的政体判断都按手选对待)
+            _kingdom.GetOrCreate().shuitu_regime = -1;
             _kingdom.LoadRegime();
         });
         if (empire != null && empire.CoreKingdom == _kingdom)

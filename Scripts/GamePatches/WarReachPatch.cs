@@ -15,16 +15,32 @@ public class WarReachPatch : GamePatch
     {
         var harmony = new Harmony(nameof(WarReachPatch));
         harmony.Patch(AccessTools.Method(typeof(DiplomacyManager), nameof(DiplomacyManager.startWar)),
-            prefix: new HarmonyMethod(typeof(WarReachPatch), nameof(BeforeStartWar)));
+            prefix: new HarmonyMethod(typeof(WarReachPatch), nameof(BeforeStartWar)),
+            postfix: new HarmonyMethod(typeof(WarReachPatch), nameof(AfterStartWar)));
         harmony.Patch(AccessTools.Method(typeof(WarManager), nameof(WarManager.newWar)),
             prefix: new HarmonyMethod(typeof(WarReachPatch), nameof(BeforeNewWar)));
     }
 
-    public static bool BeforeStartWar(Kingdom pAttacker, Kingdom pDefender, WarTypeAsset pAsset, ref War __result) =>
-        Allow(pAttacker, pDefender, pAsset, ref __result);
+    // startWar 已经放行的这一次，里面调的 newWar 不再算一遍(两个前缀以前各算一次)
+    private static bool _passed;
 
-    public static bool BeforeNewWar(Kingdom pAttacker, Kingdom pDefender, WarTypeAsset pType, ref War __result) =>
-        Allow(pAttacker, pDefender, pType, ref __result);
+    public static bool BeforeStartWar(Kingdom pAttacker, Kingdom pDefender, WarTypeAsset pAsset, ref War __result)
+    {
+        _passed = Allow(pAttacker, pDefender, pAsset, ref __result);
+        return _passed;
+    }
+
+    public static void AfterStartWar() => _passed = false;
+
+    public static bool BeforeNewWar(Kingdom pAttacker, Kingdom pDefender, WarTypeAsset pType, ref War __result)
+    {
+        if (_passed)
+        {
+            _passed = false;
+            return true;
+        }
+        return Allow(pAttacker, pDefender, pType, ref __result);
+    }
 
     private static bool Allow(Kingdom attacker, Kingdom defender, WarTypeAsset type, ref War result)
     {
