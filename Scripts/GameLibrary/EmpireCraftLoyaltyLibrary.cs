@@ -50,16 +50,7 @@ public static class EmpireCraftLoyaltyLibrary
         {
             id = "local_politics",
             translation_key = "local_politics_loyalty",
-            calc = delegate(City pCity)
-            {
-                Kingdom province = pCity?.kingdom;
-                EmpireCraft.Scripts.Layer.Empire empire = province != null && province.IsInEmpire() ? province.GetEmpire() : null;
-                if (empire == null || EmpireCraft.Scripts.GeneralSystems.ProvincialPoliticsSystem.GetGoverningParty(empire, province) == null)
-                    return 0;
-                return EmpireCraft.Scripts.GeneralSystems.ProvincialPoliticsSystem.IsOppositionHeld(empire, province)
-                    ? EmpireCraft.Scripts.GeneralSystems.ProvincialPoliticsSystem.OppositionLoyalty
-                    : EmpireCraft.Scripts.GeneralSystems.ProvincialPoliticsSystem.GoverningLoyalty;
-            }
+            calc = pCity => EmpireCraft.Scripts.GeneralSystems.ProvincialPoliticsSystem.LoyaltyBonus(pCity?.kingdom)
         });
         // 苛政：前现代帝国的城市忠诚随苛政下降(见 HarshRuleSystem；现代国家改为街头抗争)
         lib.add(new LoyaltyAsset()

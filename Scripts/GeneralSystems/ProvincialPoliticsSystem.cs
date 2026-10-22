@@ -27,10 +27,29 @@ public static class ProvincialPoliticsSystem
 
     #region 查询
 
+    // 便宜的先查(议会、一党、过渡都是读存档字段)，最贵的政党政治放后面
     public static bool HasLocalElections(Empire empire) =>
-        empire?.CoreKingdom != null && PartySystem.IsActive(empire) && ParliamentSystem.HasParliament(empire) &&
-        !RepublicSystem.IsOneParty(empire) && !PartyBanSystem.UsesDemocraticCentralism(empire) &&
-        !RepublicSystem.IsTransitioning(empire);
+        empire?.CoreKingdom != null && ParliamentSystem.HasParliament(empire) && !RepublicSystem.IsOneParty(empire) &&
+        !RepublicSystem.IsTransitioning(empire) && PartySystem.IsActive(empire) &&
+        !PartyBanSystem.UsesDemocraticCentralism(empire);
+
+    // 城市忠诚的"地方政治"一项：执政联盟执政的行政区 +3，在野党执政的 -5，没有地方选举 0。
+    // 每座城算忠诚都要问，同一行政区的城结果一样：按行政区缓存 2 个游戏秒
+    public static int LoyaltyBonus(Kingdom province)
+    {
+        Empire empire = province != null && province.IsInEmpire() ? province.GetEmpire() : null;
+        if (empire?.data == null || province.data == null) return 0;
+        double now = World.world?.getCurWorldTime() ?? 0d;
+        if (LoyaltyCache.TryGetValue(province.data.id, out var hit) && hit.empire == empire.data.id && now >= hit.at &&
+            now - hit.at < LoyaltyCacheSeconds) return hit.value;
+        int value = GetGoverningParty(empire, province) == null ? 0
+            : IsOppositionHeld(empire, province) ? OppositionLoyalty : GoverningLoyalty;
+        LoyaltyCache[province.data.id] = (value, empire.data.id, now);
+        return value;
+    }
+
+    private const double LoyaltyCacheSeconds = 2d;
+    private static readonly Dictionary<long, (int value, long empire, double at)> LoyaltyCache = new();
 
     public static bool IsProvince(Empire empire, Kingdom kingdom) =>
         empire != null && kingdom != null && !kingdom.isRekt() && kingdom != empire.CoreKingdom &&

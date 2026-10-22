@@ -622,6 +622,7 @@ public static class UIHelper
         layout.spacing = 4f;
         layout.padding = new RectOffset(0, 0, 0, 0);
         FixPanelWidth(railObject.transform, width);
+        railObject.AddComponent<RailSettler>();
         return rail;
     }
 

@@ -227,10 +227,37 @@ public static class PartySystem
     // 开放党禁 + 本文化至少解锁了一种理念(理念由制度树"意识形态"车道的节点解锁)。
     // 不必等议会：没有议会时政党像派系一样按中央占比在朝中博弈，开了议会(立宪/共和)才按选举分议席。
     // 被战胜国强行改造的(见 ConstitutionalEconomySystem.ImposeModernization)不等制度，直接开放党禁。
-    public static bool IsActive(Empire empire) =>
-        !TechnologySystem.PremodernLocked && empire?.CoreKingdom != null &&
-        (InstitutionSystem.GetFeature(empire, FeaturePartyPolitics) > 0f || ConstitutionalEconomySystem.IsForcedModernized(empire)) &&
-        UnlockedIdeologies(empire).Count > 0;
+    // 城市忠诚(地方政治)等每座城都要问一遍，逐个理念查科技、名著一次约 1 毫秒，城多时一帧上百毫秒：
+    // 按帝国缓存 2 个游戏秒(制度、理念不会在这么短里变)
+    public static bool IsActive(Empire empire)
+    {
+        if (TechnologySystem.PremodernLocked || empire?.CoreKingdom == null || empire.data == null) return false;
+        double now = World.world?.getCurWorldTime() ?? 0d;
+        if (ActiveCache.TryGetValue(empire.data.id, out var hit) && now >= hit.at && now - hit.at < ActiveCacheSeconds)
+            return hit.active;
+        bool active = (InstitutionSystem.GetFeature(empire, FeaturePartyPolitics) > 0f ||
+                       ConstitutionalEconomySystem.IsForcedModernized(empire)) && AnyIdeologyUnlocked(empire);
+        ActiveCache[empire.data.id] = (active, now);
+        return active;
+    }
+
+    private const double ActiveCacheSeconds = 2d;
+    private static readonly Dictionary<long, (bool active, double at)> ActiveCache = new();
+    private static readonly PartyIdeology[] AllIdeologies = (PartyIdeology[])Enum.GetValues(typeof(PartyIdeology));
+
+    // 有没有一种理念可组党(与 UnlockedIdeologies 非空同义；文化只取一次，碰到一个就停)
+    private static bool AnyIdeologyUnlocked(Empire empire)
+    {
+        string culture = InstitutionSystem.GetPrimaryCulture(empire);
+        string imposer = ConstitutionalEconomySystem.IsForcedModernized(empire) ? ConstitutionalEconomySystem.ForcedByCulture(empire) : "";
+        foreach (PartyIdeology ideology in AllIdeologies)
+        {
+            if (IdeologyFamilies.IsAncient(ideology)) continue;
+            if (IdeologyPopulationSystem.IsIdeaAvailable(culture, ideology) ||
+                !string.IsNullOrEmpty(imposer) && IdeologyPopulationSystem.IsIdeaAvailable(imposer, ideology)) return true;
+        }
+        return false;
+    }
 
     // 民间已接触到理念就能组织政党；理念制度由执政党推进，不能反过来作为建党的前提。
     public static bool IsIdeologyUnlocked(Empire empire, PartyIdeology ideology)

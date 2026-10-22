@@ -41,6 +41,8 @@ public partial class SpecificClanWindow : WideScrollWindow<SpecificClanWindow>
     // 每次重画前取一遍：全族(历代)与在世族人、门第名牌、本宗往下的支数(后两样要扫全部宗族，不在画的时候各算一遍)
     private List<PersonalClanIdentity> _people = new(), _living = new();
     private (string text, string hex) _standing;
+    // 这一族所属的在位皇室的帝国(皇族不评门第)
+    private Empire _ruling;
     private int _branchCount;
 
     // identity 为空(这人没有族谱)也打开，显示空状态，不留上一次的宗族
@@ -102,7 +104,8 @@ public partial class SpecificClanWindow : WideScrollWindow<SpecificClanWindow>
     {
         _people = _sc?.SnapshotPeople().Where(person => person != null).ToList() ?? new List<PersonalClanIdentity>();
         _living = _sc?.LivingPeople ?? new List<PersonalClanIdentity>();
-        _standing = _sc == null ? ("", WideKit.Muted) : Standing(_sc, RulingEmpire(_sc));
+        _ruling = RulingEmpire(_sc);
+        _standing = _sc == null ? ("", WideKit.Muted) : Standing(_sc, _ruling);
         _branchCount = BranchCount();
         if (_page == Page.Branches) PrepareBranches();
     }
@@ -254,11 +257,18 @@ public partial class SpecificClanWindow : WideScrollWindow<SpecificClanWindow>
     private static string Year(double time) =>
         time < 0d ? "?" : string.Format(LM.Get("clan_lineage_year"), Date.getYear(time));
 
-    // 生卒："276生 · 今年46岁" / "245—301 · 享年56"
+    // 生卒(只写年，格子里放得下)："11289年生 · 今年68岁" / "11245年—11301年 · 享年56"
     private static string Life(PersonalClanIdentity person) => person.is_alive
-        ? string.Format(LM.Get("clan_lineage_life_alive"), person.birthday ?? "?", person.age)
-        : string.Format(LM.Get("clan_lineage_life_dead"), person.birthday ?? "?", person.deathday ?? "?",
+        ? string.Format(LM.Get("clan_lineage_life_alive"), YearOf(person.birthday), person.age)
+        : string.Format(LM.Get("clan_lineage_life_dead"), YearOf(person.birthday), YearOf(person.deathday),
             person.recordedAge >= 0 ? person.recordedAge : person.age);
+
+    private static string YearOf(string date)
+    {
+        if (string.IsNullOrWhiteSpace(date)) return "?";
+        string year = HistoryDateFormatter.GetYear(-1d, date);
+        return string.IsNullOrWhiteSpace(year) ? date : year.Replace(",", "");
+    }
 
     internal static bool OnOffice(PersonalClanIdentity person)
     {

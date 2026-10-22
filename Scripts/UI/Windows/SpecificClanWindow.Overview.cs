@@ -33,8 +33,8 @@ public partial class SpecificClanWindow
         page.AddKpiRow(PageWidth,
             (string.Format(LM.Get("clan_kpi_living"), UIHelper.ShortCount(_people.Count)), UIHelper.ShortCount(_living.Count),
                 _living.Count > 0 ? WideKit.Green : WideKit.Red),
-            (LM.Get("clan_kpi_pedigree"), _sc.gentry_assessed ? Mathf.RoundToInt(GentrySystem.Pedigree(_sc)).ToString() : "—",
-                standingHex),
+            (LM.Get("clan_kpi_pedigree"), _sc.gentry_assessed && _ruling == null
+                ? Mathf.RoundToInt(GentrySystem.Pedigree(_sc)).ToString() : "—", standingHex),
             (string.Format(LM.Get("clan_kpi_land"), share.ToString("0.#")), string.Format(LM.Get("clan_kpi_cities"), holdings.Count),
                 WideKit.Cyan),
             (LM.Get("clan_kpi_officials"), string.Format(LM.Get("clan_kpi_people"), officials), WideKit.Gold));
@@ -90,7 +90,8 @@ public partial class SpecificClanWindow
         float width = UIHelper.PageColumnWidth;
         int index = 0;
         card.AddValueRow(width, index++, LM.Get("clan_pedigree_status"), standing, standingHex);
-        if (_sc.gentry_assessed)
+        // 在位皇室不评门第(见 GentrySystem)，存着的门第分是登基前的旧数，不显示
+        if (_sc.gentry_assessed && _ruling == null)
         {
             card.AddValueRow(width, index++, LM.Get("clan_pedigree_seat"), GentrySystem.JunWang(_sc), WideKit.Gold);
             float pedigree = GentrySystem.Pedigree(_sc);
@@ -103,7 +104,7 @@ public partial class SpecificClanWindow
             card.AddValueRow(width, index++, LM.Get("clan_pedigree_patron"), patron.GetEmpireName(), WideKit.Value);
         if (_sc.HasHistoryEmpire())
             card.AddValueRow(width, index++, LM.Get("clan_pedigree_empire"), _sc.empire_name, WideKit.Red);
-        if (!_sc.gentry_assessed)
+        if (!_sc.gentry_assessed || _ruling != null)
             card.AddParagraph(width, LM.Get("clan_pedigree_unassessed_hint"), 6, WideKit.Muted);
     }
 
@@ -148,7 +149,8 @@ public partial class SpecificClanWindow
         List<int> values = _sc.pedigree_values ?? new List<int>();
         int count = Mathf.Min(years.Count, values.Count);
         // 没评过门第、或门第不到 20 的寒门(不记走势，见 GentrySystem.TrendFloor)，不画这张卡
-        if (count == 0 && (!_sc.gentry_assessed || !_sc.gentry && GentrySystem.Pedigree(_sc) < GentrySystem.TrendFloor)) return;
+        if (count == 0 && (!_sc.gentry_assessed || _ruling != null ||
+                           !_sc.gentry && GentrySystem.Pedigree(_sc) < GentrySystem.TrendFloor)) return;
         var card = page.BeginCard(PageWidth, LM.Get("clan_card_trend"), WideKit.Gold,
             count == 0 ? null : string.Format(LM.Get("clan_card_trend_span"), count), "ui/icons/iconMoneyFlow");
         if (count < 2)
