@@ -109,8 +109,8 @@ public static class SmoothBorders
     private static IMetaObject RealmMeta(MetaTypeAsset layer, Kingdom kingdom)
     {
         if (kingdom?.data == null || kingdom.isRekt()) return null;
-        if (layer.map_mode == MetaTypeExtension.Empire && kingdom.IsInEmpire() && kingdom.GetEmpire() is Empire empire &&
-            !empire.IsArchived()) return empire;
+        if (layer.map_mode == MetaTypeExtension.Empire && EmpireMembershipService.MapEmpire(kingdom) is Empire empire)
+            return empire;
         return kingdom;
     }
 
@@ -168,7 +168,7 @@ public static class SmoothBorders
     {
         if (layer.map_mode != MetaTypeExtension.Empire || option != 0) return null;
         Kingdom kingdom = World.world.getMouseTilePosCachedFrame()?.zone_city?.kingdom;
-        return kingdom != null && kingdom.isAlive() && kingdom.IsInEmpire() ? kingdom : null;
+        return kingdom != null && kingdom.isAlive() && EmpireMembershipService.MapEmpire(kingdom) != null ? kingdom : null;
     }
 
     // 悬停的省、刚移开的省：它们的地块(连同四周，平滑的边伸进邻块)上色优先，鼠标一动就跟上(见 ZonePaintBudget)
@@ -202,7 +202,7 @@ public static class SmoothBorders
     private static IMetaObject ShadeOf(TileZone zone, IMetaObject real)
     {
         if (_hover == null || real == null || zone?.city?.kingdom != _hover || !(real is Empire empire) ||
-            _hover.GetEmpire() != empire) return real;
+            EmpireMembershipService.MapEmpire(_hover) != empire) return real;
         _hoverRealm = real;
         return _hover;
     }
@@ -2128,7 +2128,7 @@ public static class SmoothBorders
         if (meta is not Kingdom kingdom) return null;
         Empire sphere = ZhouEraSystem.SphereOf(kingdom);
         if (sphere != null && ZhouEraSystem.Era(sphere) >= ZhouEraSystem.Warring) return sphere;
-        return PureMapMode.Enabled ? kingdom.GetEmpire() : null;
+        return PureMapMode.Enabled ? EmpireMembershipService.MapEmpire(kingdom) : null;
     }
 
     private static bool EmpireDiffers(Empire empire, int x, int y, int width, int height) =>
@@ -2166,7 +2166,7 @@ public static class SmoothBorders
         int option = layer.getZoneOptionState();
         IMetaObject meta = RealMetaOf(layer, option, zone);
         Kingdom hover = HoveredProvince(layer, option);
-        if (meta is Empire empire && hover == zone.city?.kingdom && hover != null && hover.GetEmpire() == empire)
+        if (meta is Empire empire && hover == zone.city?.kingdom && hover != null && EmpireMembershipService.MapEmpire(hover) == empire)
             meta = hover;
         return SafeColor(meta);
     }

@@ -343,6 +343,22 @@ public static class EmpireCraftMetaTypeLibrary
               { 
                 if (kingdom.IsInEmpire()) continue;
                 covered.UnionWith(kingdom.cities);
+                // 帝国核心、成员国的封建附庸画进帝国版图(悬停的那一国显示本国颜色，同成员国)
+                if (EmpireMembershipService.MapEmpire(kingdom) is Empire lordEmpire)
+                {
+                  bool hoveredVassal = World.world.getMouseTilePosCachedFrame()?.zone_city?.kingdom == kingdom;
+                  foreach (City city in kingdom.cities)
+                  {
+                    foreach (TileZone zone in city.zones)
+                    {
+                      zone_manager.drawBegin();
+                      if (hoveredVassal) drawZoneSelectedEmpireWithKingdomBorder(zone, kingdom);
+                      else drawZoneEmpireWithKingdomBorder(zone, lordEmpire);
+                      zone_manager.drawEnd(zone);
+                    }
+                  }
+                  continue;
+                }
                 if (kingdom.HasTakenAlliance())
                 {
                   var takenEmpire = kingdom.GetTakenAllianceEmpire();
@@ -859,10 +875,8 @@ public static class EmpireCraftMetaTypeLibrary
 
       if (pZoneOption == 0)
       {
-        Empire memberEmpire = kingdom.IsInEmpire() ? kingdom.GetEmpire() : null;
-        return memberEmpire != null && !memberEmpire.isRekt() && !memberEmpire.IsArchived()
-          ? memberEmpire
-          : kingdom;
+        // 成员国、连同核心与成员国的封建附庸都算帝国(见 EmpireMembershipService.MapEmpire)
+        return (IMetaObject)EmpireMembershipService.MapEmpire(kingdom) ?? kingdom;
       }
 
       Empire relatedEmpire = null;
@@ -930,6 +944,10 @@ public static class EmpireCraftMetaTypeLibrary
         if (city == null || city.isRekt()) continue;
         QuantumSpriteLibrary.colorZones(pQAsset, city.zones, color);
       }
+
+      if (pZoneOption == 0)
+        foreach (Kingdom vassal in EmpireMembershipService.MapVassals(empire))
+          highlightKingdomZones(vassal, pQAsset, color);
 
       List<Kingdom> associatedKingdoms = pZoneOption == 1
         ? empire.taken_Kingdoms

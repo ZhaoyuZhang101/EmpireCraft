@@ -362,7 +362,7 @@ public partial class PureMapPatch : GamePatch
         if (kingdom == null || !kingdomLayer && !empireLayer) return;
         Empire sphere = ZhouEraSystem.SphereOf(kingdom);
         bool bold = sphere != null && ZhouEraSystem.Era(sphere) >= ZhouEraSystem.Warring;
-        Empire empire = bold ? sphere : PureMapMode.Enabled && kingdomLayer ? kingdom.GetEmpire() : null;
+        Empire empire = bold ? sphere : PureMapMode.Enabled && kingdomLayer ? EmpireMembershipService.MapEmpire(kingdom) : null;
         if (empire == null) return;
         bool up = pUp && Outside(pZone.zone_up, empire), down = pDown && Outside(pZone.zone_down, empire);
         bool left = pLeft && Outside(pZone.zone_left, empire), right = pRight && Outside(pZone.zone_right, empire);
@@ -512,8 +512,8 @@ public partial class PureMapPatch : GamePatch
         if (occupier?.data == null || occupier.isRekt() || occupier == city.kingdom || occupier.isInWarOnSameSide(city.kingdom) ||
             !FrontSystem.Hostile(city.kingdom, occupier))
             return null;
-        Empire empire = empireLayer && occupier.IsInEmpire() ? occupier.GetEmpire() : null;
-        object meta = empire != null && !empire.IsArchived() ? empire : occupier;
+        Empire empire = empireLayer ? EmpireMembershipService.MapEmpire(occupier) : null;
+        object meta = empire != null ? empire : occupier;
         ColorAsset color = CustomColorSystem.Of(meta) ?? (meta is Empire owner ? owner.getColor() : occupier.getColor());
         if (color == null) return null;
         Color32 fill = color.getColorBorderInsideAlpha32();
@@ -1368,7 +1368,7 @@ public partial class PureMapPatch : GamePatch
     {
         Kingdom other = zone?.city?.kingdom;
         if (other == null) return false;
-        return (ZhouEraSystem.SphereOf(other) ?? other.GetEmpire()) != empire;
+        return (ZhouEraSystem.SphereOf(other) ?? EmpireMembershipService.MapEmpire(other)) != empire;
     }
 
     // 鼠标只认得船

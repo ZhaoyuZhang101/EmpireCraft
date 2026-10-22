@@ -214,7 +214,7 @@ public static class EmpireCraftNamePlateLibrary
                             _cached_kingdoms.Clear();
                             foreach (Kingdom kingdom in World.world.kingdoms)
                             {
-                                if (!kingdom.IsEmpire() && kingdom.hasCapital() && (kingdom.IsInEmpire() || kingdom.HasTakenAlliance()) && isWithinCamera(kingdom.capital.city_center))
+                                if (!kingdom.IsEmpire() && kingdom.hasCapital() && (kingdom.IsInEmpire() || kingdom.HasTakenAlliance() || EmpireMembershipService.MapEmpire(kingdom) != null) && isWithinCamera(kingdom.capital.city_center))
                                 {
 
                                     _cached_kingdoms_no_back.Add(kingdom);
@@ -222,7 +222,7 @@ public static class EmpireCraftNamePlateLibrary
                             }
                             foreach (Kingdom kingdom in World.world.kingdoms)
                             {
-                                if (kingdom.hasCapital() && !kingdom.IsInEmpire() && !kingdom.HasTakenAlliance() && isWithinCamera(kingdom.capital.city_center))
+                                if (kingdom.hasCapital() && !kingdom.IsInEmpire() && !kingdom.HasTakenAlliance() && EmpireMembershipService.MapEmpire(kingdom) == null && isWithinCamera(kingdom.capital.city_center))
                                 {
                                     _cached_kingdoms.Add(kingdom);
                                 }
@@ -236,14 +236,14 @@ public static class EmpireCraftNamePlateLibrary
                             _cached_kingdoms.Clear();
                             foreach (Kingdom kingdom in World.world.kingdoms)
                             {
-                                if (!kingdom.IsEmpire() && kingdom.hasCapital() && (kingdom.IsInEmpire() || kingdom.HasTakenAlliance()) && isWithinCamera(kingdom.capital.city_center))
+                                if (!kingdom.IsEmpire() && kingdom.hasCapital() && (kingdom.IsInEmpire() || kingdom.HasTakenAlliance() || EmpireMembershipService.MapEmpire(kingdom) != null) && isWithinCamera(kingdom.capital.city_center))
                                 {
                                     _cached_kingdoms_no_back.Add(kingdom);
                                 }
                             }
                             foreach (Kingdom kingdom in World.world.kingdoms)
                             {
-                                if (kingdom.hasCapital() && !kingdom.IsInEmpire() && !kingdom.HasTakenAlliance() && isWithinCamera(kingdom.capital.city_center))
+                                if (kingdom.hasCapital() && !kingdom.IsInEmpire() && !kingdom.HasTakenAlliance() && EmpireMembershipService.MapEmpire(kingdom) == null && isWithinCamera(kingdom.capital.city_center))
                                 {
                                     _cached_kingdoms.Add(kingdom);
                                 }
@@ -310,14 +310,10 @@ public static class EmpireCraftNamePlateLibrary
                 {
                     Kingdom kingdom = _render_kingdoms_no_back_buffer[i];
                     if (kingdom == null || kingdom.isRekt() || !kingdom.hasCapital()) continue;
-                    if (kingdom.IsInEmpire())
+                    if (EmpireMembershipService.MapEmpire(kingdom) is Empire plateEmpire)
                     {
-                        WorldTile mouseTilePosCachedFrame = World.world.getMouseTilePosCachedFrame();
-                        if ((!mouseTilePosCachedFrame?.zone_city?.kingdom?.GetEmpire()?.kingdoms_list?.Contains(kingdom)) ??
-                            true)
-                        {
-                            continue;
-                        }
+                        Kingdom hoveredPlate = World.world.getMouseTilePosCachedFrame()?.zone_city?.kingdom;
+                        if (hoveredPlate == null || EmpireMembershipService.MapEmpire(hoveredPlate) != plateEmpire) continue;
                     }
                     NameplateText nameplateText = pManager.prepareNext(AssetManager.nameplates_library._plate_kingdom, kingdom);
                     nameplateText._showing = true;
@@ -1216,8 +1212,10 @@ public static class EmpireCraftNamePlateLibrary
             foreach (Kingdom kingdom in World.world.kingdoms)
             {
                 if (!IsRenderableKingdom(kingdom)) continue;
-                bool belongsToHoveredEmpire = kingdom.IsInEmpire() && kingdom.GetEmpire() == hoveredEmpire;
-                if (kingdom.IsInEmpire() && !belongsToHoveredEmpire) continue;
+                // 封建附庸画进了宗主的帝国版图，同成员国一样只在悬停那个帝国时显示
+                Empire mapEmpire = EmpireMembershipService.MapEmpire(kingdom);
+                bool belongsToHoveredEmpire = mapEmpire != null && mapEmpire == hoveredEmpire;
+                if (mapEmpire != null && !belongsToHoveredEmpire) continue;
                 bool belongsToHoveredAlliance = hoveredAlliance != null && kingdom.getAlliance() == hoveredAlliance;
                 if (showAlliances && !kingdom.IsInEmpire() && kingdom.hasAlliance() && !belongsToHoveredAlliance) continue;
                 belongsToHoveredEmpire |= belongsToHoveredAlliance;
@@ -1346,6 +1344,7 @@ public static class EmpireCraftNamePlateLibrary
         if (kingdom == null) return null;
         Empire empire = kingdom.IsInEmpire() ? kingdom.GetEmpire() : view switch
         {
+            0 => EmpireMembershipService.MapEmpire(kingdom),
             1 when kingdom.HasTakenAlliance() => kingdom.GetTakenAllianceEmpire(),
             2 when kingdom.HasGivenAlliance() => kingdom.GetGivenAllianceEmpire(),
             _ => null
@@ -1358,6 +1357,13 @@ public static class EmpireCraftNamePlateLibrary
         HashSet<City> yieldedCities = new HashSet<City>();
         foreach (City city in EmpireMembershipService.EnumerateCities(empire))
             if (yieldedCities.Add(city)) yield return city;
+        if (view == 0)
+            foreach (Kingdom vassal in EmpireMembershipService.MapVassals(empire))
+            {
+                if (!IsRenderableKingdom(vassal)) continue;
+                foreach (City city in vassal.cities)
+                    if (city != null && !city.isRekt() && city.kingdom == vassal && yieldedCities.Add(city)) yield return city;
+            }
 
         List<Kingdom> associatedKingdoms = view == 1 ? empire.taken_Kingdoms :
             view == 2 ? empire.given_Kingdoms : null;

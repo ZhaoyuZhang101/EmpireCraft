@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using EmpireCraft.Scripts.Compatibility;
 using EmpireCraft.Scripts.GameClassExtensions;
-
+using EmpireCraft.Scripts.GeneralSystems;
 namespace EmpireCraft.Scripts.Layer;
 
 // 国家保存的 EmpireID 是运行时归属的唯一来源；帝国名单和城市名单只是派生数据。
@@ -11,6 +11,26 @@ public static class EmpireMembershipService
     public static bool BelongsTo(Empire empire, Kingdom kingdom) =>
         empire?.data != null && !empire.IsArchived() && kingdom?.data != null && !kingdom.isRekt() &&
         kingdom.GetEmpireID() == empire.id;
+
+    // 帝国图层上的归属(用户 2026-10-22 "帝国内部的国家附庸外部的也应该纳入帝国版图")：成员国算它的帝国；
+    // 帝国核心或成员国的封建附庸(附庸的附庸也算)也画进宗主所在帝国的版图。只管地图显示，附庸照旧不进成员名单、自有军政外交
+    public static Empire MapEmpire(Kingdom kingdom)
+    {
+        if (kingdom?.data == null || kingdom.isRekt()) return null;
+        Empire empire = kingdom.IsInEmpire() ? kingdom.GetEmpire() : null;
+        if (empire == null && FeudalVassalService.GetOverlord(kingdom) != null)
+            empire = EmpireCoreControl.Sovereign(kingdom)?.GetEmpire();
+        return empire?.data != null && !empire.isRekt() && !empire.IsArchived() ? empire : null;
+    }
+
+    // 帝国图层上画进这个帝国、却不是成员的附庸国
+    public static IEnumerable<Kingdom> MapVassals(Empire empire)
+    {
+        if (empire?.data == null || World.world?.kingdoms == null) yield break;
+        foreach (Kingdom kingdom in World.world.kingdoms)
+            if (kingdom?.data != null && !kingdom.isRekt() && !kingdom.IsInEmpire() && MapEmpire(kingdom) == empire)
+                yield return kingdom;
+    }
 
     public static IEnumerable<City> EnumerateCities(Empire empire)
     {
