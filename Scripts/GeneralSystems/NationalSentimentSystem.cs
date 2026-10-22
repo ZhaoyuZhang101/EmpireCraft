@@ -317,8 +317,10 @@ public static class NationalSentimentSystem
                          governments.OrderByDescending(government => government.countCities()).First();
         Empire rival = governments.Where(government => government != central)
             .OrderByDescending(government => government.countCities()).First();
-        if (!central.CoreKingdom.isInWarWith(rival.CoreKingdom))
-            World.world.diplomacy.startWar(rival.CoreKingdom, central.CoreKingdom, WarTypeLibrary.normal);
+        // 仗真开起来了(或本来就在打)才记"内战重启"(开战可能被拦下，见 WarReach)
+        bool fighting = central.CoreKingdom.isInWarWith(rival.CoreKingdom) ||
+                        World.world.diplomacy.startWar(rival.CoreKingdom, central.CoreKingdom, WarTypeLibrary.normal) != null;
+        if (!fighting) return;
         EventRecorder.Record(central, string.Format(LM.Get("nation_front_broken_history"),
             central.GetEmpireFullName(), rival.GetEmpireFullName()));
     }

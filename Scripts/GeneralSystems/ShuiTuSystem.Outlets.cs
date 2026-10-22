@@ -243,6 +243,8 @@ public static partial class ShuiTuSystem
             data.shuitu_regime = -1;
             data.regime_manually_selected = false;
         }
+        // 离草计时一并清零：改了政体，同一趟结算里不再另记一条"离草结束"
+        ClearOffGrass(unit);
         EventRecorder.Record(unit, string.Format(LM.Get("shuitu_denomadize_history"), name,
             CompositeEmpireService.GetRegimeName(target)));
         LogService.LogInfo($"[EmpireCraft][水土] {name} 附近没有游牧，撤回整国游牧化，改回{CompositeEmpireService.GetRegimeName(target)}");

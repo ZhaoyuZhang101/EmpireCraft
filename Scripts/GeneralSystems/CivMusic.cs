@@ -430,7 +430,7 @@ public static class CivMusic
         }
     }
 
-    // 在线更新换文件前(见 EmpireCraftUpdateService.MainThreadTick)：停掉在放的曲子、关掉曲子流——FMOD 开着曲子文件，
+    // 在线更新退出时换文件前(见 EmpireCraftUpdateService.OnQuitting)：停掉在放的曲子、关掉曲子流——FMOD 开着曲子文件，
     // 模组目录改不了名；之后用到再重开，接着停下的地方放
     internal static void ReleaseFiles()
     {

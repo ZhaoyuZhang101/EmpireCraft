@@ -99,8 +99,6 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
     private void Update()
     {
         FrameProfiler.FrameTick();
-        // 在线更新：拼好的新版在主线程对调(见 EmpireCraftUpdateService)
-        EmpireCraft.Scripts.Diagnostics.EmpireCraftUpdateService.MainThreadTick();
         EmpireCraft.Scripts.GeneralSystems.StableFrameRate.Tick();
         EmpireCraft.Scripts.GeneralSystems.SmoothBorders.FrameTick();
         using (FrameProfiler.Measure("后台·原生植被")) EmpireCraft.Scripts.GeneralSystems.NativeVegetationScheduler.Tick();

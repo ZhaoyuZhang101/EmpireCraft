@@ -2238,6 +2238,8 @@ public static partial class InstitutionSystem
             return false;
         }
         war.SetEmpireWarType(EmpireWarType.派系叛乱);
+        // 战争名写明哪一派反哪项改革(起兵的行省以统兵者官爵相称，派系不在国名里了，见 FactionRebelNaming)
+        war.data.name = string.Format(LM.Get("reform_rebellion_war_name"), opposition.Name, GetNodeName(empire, node));
         RebellionSystem.Record(rebel, war, cause);
         // 郡县多不许养兵，起兵时就地武装义军(见 RebellionStartupService)
         RebellionStartupService.RaiseUprisingMilitia(rebel, 0.5f);
