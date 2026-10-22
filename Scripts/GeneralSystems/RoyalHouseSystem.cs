@@ -35,7 +35,10 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     不另落成新人)；成年、生母不过 RoyalBirthAgeMax 岁的，每年按 RoyalBirthChance 添一胎，按古代幼儿夭折(ChildhoodDeath)
 //     掷过活下来的记入族谱为虚拟子嗣——平均成年子女四五个，
 //     不生出实体，继位、分封要用时再落成(见 VirtualGenealogySystem.AddRoyalChild、RealizeHeir)；没有配偶的生母不入谱。
-//     不育、一年半一胎、子女上限照旧(见 CanBirth，虚拟子女也算)。
+//     不育、一年半一胎、子女上限照旧(见 CanBirth，虚拟子女也算)；
+//   · 后宫添丁(用户 2026-10-22"那么多妃子的情况下子嗣应该不可能少")：男君主、储君的妃嫔(族谱里的妾室，后宫官职选进来的，
+//     见 OfficeSelector.TryGetHarem)各按自己的年龄、一年半一胎每年按 HaremBirthChance 生育，不受正妻那份间隔限制；
+//     有后宫的君主子女上限放宽到 HaremMaxChildren。
 public static class RoyalHouseSystem
 {
     private const float BirthIntervalYears = 1.5f;
@@ -145,6 +148,9 @@ public static class RoyalHouseSystem
     // 每年添丁的机会；虚拟子嗣只有老死一种死法，出生时就按古代幼儿夭折掷一次(约三分之一活不到成年，
     // 工业化、电气、计算机逐级降低，同 InfantMortality)：一位君主平均成年子女四五个
     private const float RoyalBirthChance = 0.25f, ChildhoodDeath = 0.34f;
+    // 后宫每位妃嫔每年添丁的机会；有后宫的君主在世子女上限
+    private const float HaremBirthChance = 0.2f;
+    private const int HaremMaxChildren = 40;
 
     private static void RoyalFamily(Kingdom kingdom)
     {
@@ -170,18 +176,65 @@ public static class RoyalHouseSystem
         }
         // 添丁：记入族谱为虚拟子嗣。生母的年龄：君主是女子看她自己，否则看配偶；没有配偶的按宫人所出，
         // 父亲不过 RoyalFatherAgeMax 岁
+        // 后宫各妃嫔自己算，不受正妻年纪、正妻那份间隔的限制
+        if (royal.data.sex != ActorSex.Female && age >= RoyalMarryAge) TendHarem(royal, age, lover);
         if (age < RoyalMarryAge || lover != null && lover.getAge() < RoyalMarryAge) return;
         bool queen = royal.data.sex == ActorSex.Female;
         if (queen ? age > RoyalBirthAgeMax : lover != null ? lover.getAge() > RoyalBirthAgeMax : age > RoyalFatherAgeMax) return;
         if (!CanBirth(royal) || lover != null && !CanBirth(lover) || UnityEngine.Random.value >= RoyalBirthChance) return;
         // 这一胎算数(一年半内不再添丁)；夭折的不入谱
         NoteBirth(royal, lover);
+        if (UnityEngine.Random.value < ChildDeathChance(royal)) return;
+        VirtualGenealogySystem.AddRoyalChild(royal, lover);
+    }
+
+    // 古代幼儿夭折(出生时掷一次)，工业化、电气、计算机逐级降低
+    private static float ChildDeathChance(Actor royal)
+    {
         float death = ChildhoodDeath;
         if (Has(royal, "industrialization")) death *= 0.6f;
         if (Has(royal, "electricity")) death *= 0.6f;
         if (Has(royal, "computing")) death *= 0.5f;
-        if (UnityEngine.Random.value < death) return;
-        VirtualGenealogySystem.AddRoyalChild(royal, lover);
+        return death;
+    }
+
+    // 后宫添丁：每位妃嫔(活着、女子、16~45 岁、能生育)按自己的一年半一胎、每年 HaremBirthChance；正妻另算(见上)
+    private static void TendHarem(Actor royal, int age, Actor wife)
+    {
+        if (age > RoyalFatherAgeMax || Infertile(royal)) return;
+        PersonalClanIdentity person = royal.GetPersonalIdentity();
+        if (person?.concubines == null || person.concubines.Count == 0) return;
+        int living = LivingChildren(royal);
+        double now = World.world.getCurWorldTime();
+        foreach ((long _, long id) in person.concubines.ToList())
+        {
+            if (living >= HaremMaxChildren) return;
+            Actor consort = SpecificClanManager.getPerson(id)?._actor;
+            if (consort?.data == null || consort.isRekt() || !consort.isAlive() || consort == wife ||
+                consort.data.sex != ActorSex.Female || Infertile(consort)) continue;
+            int consortAge = consort.getAge();
+            if (consortAge < RoyalMarryAge || consortAge > RoyalBirthAgeMax) continue;
+            double last = consort.GetOrCreate().last_royal_birth;
+            if (last >= 0d && now >= last && Date.getYearsSince(last) < BirthIntervalYears) continue;
+            if (UnityEngine.Random.value >= HaremBirthChance) continue;
+            consort.GetOrCreate().last_royal_birth = now;
+            if (UnityEngine.Random.value < ChildDeathChance(royal)) continue;
+            if (VirtualGenealogySystem.AddRoyalChild(royal, consort)) living++;
+        }
+    }
+
+    // 约一成二的人不育(按人定，不会每年重掷)
+    private static bool Infertile(Actor actor) =>
+        ((ulong)actor.id * 0xD6E8FEB86659FD93UL >> 40) % 100UL < InfertilePercent;
+
+    // 在世子女(实体与虚拟子嗣取多的那个)
+    private static int LivingChildren(Actor parent)
+    {
+        int living = parent.getChildren(false)?.Count(child => child?.data != null && !child.isRekt() && child.isAlive()) ?? 0;
+        PersonalClanIdentity person = parent.GetPersonalIdentity();
+        if (person?.children != null)
+            living = Math.Max(living, person.children.Count(id => SpecificClanManager.getPerson(id)?.is_alive == true));
+        return living;
     }
 
     // 本国在世的人物里挑配偶：异性、同种族、成年未婚、非近亲，名望高的优先
@@ -213,15 +266,12 @@ public static class RoyalHouseSystem
     public static bool CanBirth(Actor parent)
     {
         if (!IsRoyal(parent)) return true;
-        if (((ulong)parent.id * 0xD6E8FEB86659FD93UL >> 40) % 100UL < InfertilePercent) return false;
+        if (Infertile(parent)) return false;
         double last = parent.GetOrCreate().last_royal_birth;
         if (last >= 0d && World.world.getCurWorldTime() >= last && Date.getYearsSince(last) < BirthIntervalYears) return false;
-        int living = parent.getChildren(false)?.Count(child => child?.data != null && !child.isRekt() && child.isAlive()) ?? 0;
-        // 虚拟子嗣也算(见 VirtualGenealogySystem.AddRoyalChild)
-        PersonalClanIdentity person = parent.GetPersonalIdentity();
-        if (person?.children != null)
-            living = Math.Max(living, person.children.Count(id => SpecificClanManager.getPerson(id)?.is_alive == true));
-        return living < MaxChildren;
+        // 虚拟子嗣也算(见 VirtualGenealogySystem.AddRoyalChild)；有后宫的上限放宽
+        bool harem = parent.GetPersonalIdentity()?.concubines?.Count > 0;
+        return LivingChildren(parent) < (harem ? HaremMaxChildren : MaxChildren);
     }
 
     // 添了孩子(BabyHelperPatch.MakeBaby)：记下君主、储君添孩子的时间

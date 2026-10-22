@@ -954,18 +954,24 @@ public static class VirtualGenealogySystem
     private const int MaxClanAlive = 30;
     // 统治世系的宗族(皇族本宗与诸王各支)上限放宽，支脉才能一代代传下去
     private const int MaxRulingClanAlive = 80;
+    // 宗室(统治世系)多妻妾，生得多：每年机会、子女上限、生育年龄上限都放宽(各支再按 MaxRulingClanAlive 封顶，
+    // 人多了靠别子为祖、五服分支分出去，见 ClanBranchSystem)
+    private const float RoyalBirthChance = 0.16f;
+    private const int RoyalMaxChildren = 8, RoyalBirthMaxAge = 50;
 
     private static void TryBirth(PersonalClanIdentity parent)
     {
         if (!CityPopulationSystem.AbstractPopulationEnabled || !parent.is_main || !parent.IsHeirPriority()) return;
-        int age = parent.age;
-        if (age < BirthMinAge || age > BirthMaxAge || UnityEngine.Random.value >= BirthChance) return;
         SpecificClan clan = parent._specificClan;
         if (clan == null) return;
+        bool royal = IsRulingLineage(clan);
+        int age = parent.age;
+        if (age < BirthMinAge || age > (royal ? RoyalBirthMaxAge : BirthMaxAge) ||
+            UnityEngine.Random.value >= (royal ? RoyalBirthChance : BirthChance)) return;
         int living = parent.children.Count(id => SpecificClanManager.getPerson(id)?.is_alive == true);
-        if (living >= MaxChildren) return;
+        if (living >= (royal ? RoyalMaxChildren : MaxChildren)) return;
         int alive = clan.SnapshotPeople().Count(person => person.is_alive);
-        if (alive >= MaxRulingClanAlive || alive >= MaxClanAlive && !IsRulingLineage(clan)) return;
+        if (alive >= MaxRulingClanAlive || alive >= MaxClanAlive && !royal) return;
         double now = World.world.getCurWorldTime();
         var child = new PersonalClanIdentity
         {
