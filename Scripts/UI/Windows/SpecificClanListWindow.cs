@@ -2,233 +2,285 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GameClassExtensions;
-using EmpireCraft.Scripts.GameLibrary;
+using EmpireCraft.Scripts.GeneralSystems;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.System;
 using EmpireCraft.Scripts.UI.Components;
-using NeoModLoader.api.attributes;
 using NeoModLoader.General;
-using NeoModLoader.General.UI.Window;
 using NeoModLoader.General.UI.Window.Layout;
 using NeoModLoader.General.UI.Window.Utils.Extensions;
-using NeoModLoader.services;
 using UnityEngine;
 
 namespace EmpireCraft.Scripts.UI.Windows;
 
-public class SpecificClanListWindow : AutoLayoutWindow<SpecificClanListWindow>
+// 天下宗族(「卷册」宽窗口，用户 2026-10-22 定，示意图 Tasks/ui-mockups/clan-wide.png ①)：
+//   · 左栏：天下宗族(现存几族 · 族人几何) → 筛选(全部宗族、帝王之家、世家、已绝嗣) → 按物种(有宗族的物种，带族数) → 搜索；
+//   · 右栏：页头(筛选 · 物种 · 族数) → 主指标(最大宗族、世家、帝王之家) → 按姓归并分节(分了支的姓各一节，本宗在前；
+//     其余单独的宗族一节)，每节两栏宗族卡(族色条、族名与门第、宗子头像与官职、在世/世代/田产/居官)，整卡点开宗族总览；每页 12 族。
+// 各族的人数、物种、门第在打开窗口时算一遍(族多时逐族取族人要些工夫)，筛选翻页只用算好的。
+public class SpecificClanListWindow : WideScrollWindow<SpecificClanListWindow>
 {
-    public List<GameObject> _groups =  new List<GameObject>();
-    public AutoVertLayoutGroup _content;
-    public string _lastSearchContent = "";
-    [Hotfixable]
-    protected override void Init()
+    private enum Filter { All, Ruling, Gentry, Extinct }
+
+    private sealed class Entry
     {
-        layout.spacing = 3;
-        layout.padding = new RectOffset(3, 3, 82, 3);
-        _content = this.BeginVertGroup();
+        public SpecificClan clan;
+        public int living;
+        public string species;
+        public Empire ruling;
+        public long group;
     }
 
-    public void Clear()
-    {
-        foreach (var group in _groups)
-        {
-            Destroy(group.gameObject);
-        }
-        _groups.Clear();
-    } 
-    
-    public override void OnNormalDisable()
-    {
-        base.OnNormalDisable();
-        _lastSearchContent = "";
-    }
+    private const int PerPage = 12, RailSpecies = 6;
 
-    [Hotfixable]
-    public override void OnNormalEnable()
-    {
-        base.OnNormalEnable();
-        layout.spacing = 3;
-        layout.padding = new RectOffset(3, 3, 82, 3);
-        Clear();
-        ShowTopPart();
-        InitialSearchSpace();
-        StartCoroutine(ShowSpecificClanList());
-    }
-    [Hotfixable]
-    public void ShowTopPart()
-    {
-        var topSpace = this.BeginVertGroup();
-        var gridGroup = topSpace.BeginGridGroup(10, pCellSize: new Vector2(18, 15));
-        foreach (var species in ConfigData.AllCivSpecies)
-        {
-            var asset = AssetManager.actor_library.list.Find(a => a.id == species.id);
-            gridGroup.AddButtonIntoGirdLayout(species.getLocaleID(), "", ()=>RefreshAccordingToSpecies(species.id), asset.getSpriteIcon(), size:new Vector2(18, 15), showTip:true);
-        }
-        topSpace.transform.AddStretchBackground("clanFrame", new Vector2(220, 80));
-        topSpace.gameObject.AdjustTopPart(transform.parent.transform);
-        _groups.Add(topSpace.gameObject);
-    }
-    [Hotfixable]
-    public void InitialSearchSpace()
-    {
-        var topSearchSpace = this.BeginHoriGroup();
-        
-        //搜索框
-        UIHelper.GenerateTextInput(topSearchSpace.transform, action:StartSearchSpecificClan, default_text:_lastSearchContent);
-        topSearchSpace.gameObject.AdjustTopPart(transform.parent.transform, Vector2.down*67);
-        _groups.Add(topSearchSpace.gameObject);
-    }
-    public void StartSearchSpecificClan(string content)
-    {
-        _lastSearchContent = content;
-        var result = SpecificClanManager._specificClans.FindAll(a => a.Count>0&&((a.asset?.getLocaleID() ?? "")
-                                                                     +(a.asset?.getLocalizedName() ?? "")
-                                                                     +(a.asset?.getLocalizedDescription() ?? "")
-                                                                     +a.name
-                                                                     +a.branch_label
-                                                                     +a.empire_name
-                                                                     +a.id
-                                                                     +a.founder
-                                                                     +string.Join(",", a._cache.Values.Select(v=>v.name).ToArray())
-                                                                     +string.Join(",", a.AllAliveMembers.Select(u=>(u?.city?.GetCityName()??"")+(u?.kingdom?.GetKingdomName()??"")).ToArray())
-                                                                     +a.empire_name
-                                                                     +a.capital_city_id
-                                                                     +(World.world.cities.get(a.capital_city_id)?.name??"")
-                                                                     ).Contains(content));
-        RefreshAccordingToSpecies("", result, true);
-    }
+    private Filter _filter = Filter.All;
+    // 空 = 全部物种
+    private string _species = "";
+    private string _search = "";
+    private int _page;
+    private readonly List<Entry> _entries = new();
+    private List<Entry> _shown = new();
+    // 本次筛出来的各姓有几族(分节用)、有没有分了支的姓
+    private readonly Dictionary<long, int> _groupSize = new();
+    private bool _anyMulti;
 
-    public void RefreshAccordingToSpecies(string species, List<SpecificClan> list = null, bool search = false)
-    {
-        var result = list??SpecificClanManager._specificClans.ToList().FindAll(s => IsSpecies(s, species));
-        Clear();
-        ShowTopPart();
-        InitialSearchSpace();
-        StartCoroutine(ShowSpecificClanList(species, result, search));
-    }
+    // 每次打开(含从宗族窗口返回)重算各族数据；筛选、页码保留
+    protected override void OnOpen() => Collect();
 
-    public IEnumerator ShowSpecificClanList(string speciesName = "human", List<SpecificClan> specificClans = null,
-        bool search = false)
+    private void Collect()
     {
-        var title = _content.AddTextIntoVertLayout(search?LM.Get("title_search_result"):$"{LM.Get(speciesName)}宗族", anchor:TextAnchor.MiddleCenter, size:new Vector2(60, 20), hideBackground:true);
-        _groups.Add(title.gameObject);
-        yield return CoroutineHelper.wait_for_next_frame;
-        var list = specificClans ?? SpecificClanManager._specificClans.ToList().FindAll(s => IsSpecies(s, "human"));
-        // 实体宗族在前，整族虚拟的宗族排在后面
-        list = list.Where(s => s != null && s.LivingPeople.Count > 0)
-            .OrderByDescending(s => s.AllAliveMembers.Count > 0).ToList();
-        // 按姓归类(见 SpecificClan.SurnameRoot)：分出了氏、支的姓各占一组(本宗在前)，其余单独的宗族放在最后一组
-        var groups = list.GroupBy(s => s.SurnameRoot()?.id ?? s.id).Select(group => group.ToList()).ToList();
-        var multi = groups.Where(group => group.Count > 1)
-            .OrderByDescending(group => group.Sum(s => s.LivingPeople.Count)).ToList();
-        var singles = groups.Where(group => group.Count == 1).SelectMany(group => group).ToList();
-        foreach (var group in multi)
-        {
-            SpecificClan root = group[0].SurnameRoot() ?? group[0];
-            var ordered = group.OrderBy(s => s == root ? 0 : 1).ThenBy(s => s.established_timestamp).ToList();
-            var header = _content.AddTextIntoVertLayout(string.Format(LM.Get("clan_group_header"), root.GetDisplayName(), group.Count),
-                anchor:TextAnchor.MiddleCenter, size:new Vector2(120, 12), hideBackground:true);
-            _groups.Add(header.gameObject);
-            yield return StartCoroutine(ShowClanGrid(ordered));
-        }
-        if (singles.Count > 0)
-        {
-            if (multi.Count > 0)
+        _entries.Clear();
+        // 在位皇室按始祖宗族记一次(同一始祖的各支都算这家)
+        var ruling = new Dictionary<SpecificClan, Empire>();
+        if (ModClass.EMPIRE_MANAGER != null)
+            foreach (Empire empire in ModClass.EMPIRE_MANAGER)
             {
-                var header = _content.AddTextIntoVertLayout(LM.Get("clan_group_others"), anchor:TextAnchor.MiddleCenter,
-                    size:new Vector2(120, 12), hideBackground:true);
-                _groups.Add(header.gameObject);
+                if (empire?.data == null || empire.isRekt() || empire.IsArchived() || empire.EmpireSpecificClan == null) continue;
+                SpecificClan root = empire.EmpireSpecificClan.GetRootClan();
+                if (root != null && !ruling.ContainsKey(root)) ruling[root] = empire;
             }
-            yield return StartCoroutine(ShowClanGrid(singles));
+        foreach (SpecificClan clan in SpecificClanManager._specificClans.ToList())
+        {
+            if (clan == null) continue;
+            List<PersonalClanIdentity> living = clan.LivingPeople;
+            PersonalClanIdentity sample = living.FirstOrDefault(person => !string.IsNullOrEmpty(person.species)) ??
+                                          clan.SnapshotPeople().FirstOrDefault(person => person != null && !string.IsNullOrEmpty(person.species));
+            if (sample == null) continue;
+            SpecificClan clanRoot = clan.GetRootClan();
+            ruling.TryGetValue(clanRoot ?? clan, out Empire empire);
+            _entries.Add(new Entry
+            {
+                clan = clan, living = living.Count, species = sample.species, ruling = empire,
+                group = clan.SurnameRoot()?.id ?? clan.id
+            });
         }
     }
 
-    private IEnumerator ShowClanGrid(List<SpecificClan> clans)
+    // ───────── 数据(每次重画前按筛选取一遍) ─────────
+    protected override void Prepare()
     {
-        AutoGridLayoutGroup specificClanGrid = _content.BeginGridGroup(4, pCellSize: new Vector2(55, 90), pSpacing:new Vector2(0, 0));
-        _groups.Add(specificClanGrid.gameObject);
-        yield return CoroutineHelper.wait_for_next_frame;
-        foreach (var sc in clans)
+        IEnumerable<Entry> list = _entries.Where(entry => _species.Length == 0 || entry.species == _species);
+        list = _filter switch
         {
-            ShowSpecificClan(sc, specificClanGrid);
-            yield return CoroutineHelper.wait_for_next_frame;
+            Filter.Ruling => list.Where(entry => entry.ruling != null),
+            Filter.Gentry => list.Where(entry => entry.clan.gentry),
+            Filter.Extinct => list.Where(entry => entry.living == 0),
+            _ => list.Where(entry => entry.living > 0)
+        };
+        if (_search.Length > 0) list = list.Where(entry => Matches(entry.clan, _search));
+        // 按姓归并：分了支的姓各占一组(人多的姓在前，组里本宗在前、再按分出先后)，单独的宗族排在最后
+        List<List<Entry>> groups = list.GroupBy(entry => entry.group).Select(group => group.ToList()).ToList();
+        _shown = groups.Where(group => group.Count > 1).OrderByDescending(group => group.Sum(entry => entry.living))
+            .SelectMany(group => group.OrderBy(entry => entry.clan.id == entry.group ? 0 : 1)
+                .ThenBy(entry => entry.clan.established_timestamp))
+            .Concat(groups.Where(group => group.Count == 1).SelectMany(group => group)
+                .OrderByDescending(entry => entry.living).ThenBy(entry => entry.clan.established_timestamp))
+            .ToList();
+        _groupSize.Clear();
+        foreach (Entry entry in _shown)
+            _groupSize[entry.group] = _groupSize.TryGetValue(entry.group, out int size) ? size + 1 : 1;
+        _anyMulti = _groupSize.Values.Any(size => size > 1);
+        _page = Mathf.Clamp(_page, 0, Mathf.Max(0, Pages - 1));
+    }
+
+    private int Pages => Mathf.Max(1, Mathf.CeilToInt(_shown.Count / (float)PerPage));
+
+    private static bool Matches(SpecificClan clan, string text)
+    {
+        bool Has(string value) => !string.IsNullOrEmpty(value) && value.IndexOf(text, StringComparison.OrdinalIgnoreCase) >= 0;
+        if (Has(clan.GetDisplayName()) || Has(clan.name) || Has(clan.branch_label) || Has(clan.empire_name) ||
+            clan.gentry_assessed && Has(GentrySystem.JunWang(clan))) return true;
+        return clan.SnapshotPeople().Any(person => person != null && (Has(person.name) || Has(person.cityName) || Has(person.kingdomName)));
+    }
+
+    // ───────── 左栏 ─────────
+    protected override void DrawRail(AutoVertLayoutGroup rail)
+    {
+        List<Entry> alive = _entries.Where(entry => entry.living > 0).ToList();
+        rail.AddRailTitle(LM.Get("clan_list_title"), string.Format(LM.Get("clan_list_summary"), alive.Count,
+            UIHelper.ShortCount(alive.Sum(entry => entry.living))));
+
+        var filters = rail.BeginRailMenu();
+        int index = 0;
+        foreach ((Filter filter, string key, string icon, int count) in new[]
+                 {
+                     (Filter.All, "clan_list_all", "iconFamilyList", alive.Count),
+                     (Filter.Ruling, "clan_list_ruling", "iconCrown", _entries.Count(entry => entry.ruling != null)),
+                     (Filter.Gentry, "clan_list_gentry", "iconKingdom", _entries.Count(entry => entry.clan.gentry)),
+                     (Filter.Extinct, "clan_list_extinct", "iconFamilyDestroyed", _entries.Count(entry => entry.living == 0))
+                 })
+        {
+            Filter target = filter;
+            filters.AddRailOption(SpriteTextureLoader.getSprite("ui/icons/" + icon), LM.Get(key), count.ToString(), _filter == filter,
+                () => SetFilter(target), index++);
         }
-        var res = 4 - clans.Count % 4;
-        if (res != 4)
+
+        List<(string species, int count)> species = _entries.Where(entry => entry.living > 0).GroupBy(entry => entry.species)
+            .Select(group => (group.Key, group.Count())).OrderByDescending(item => item.Item2).ToList();
+        if (species.Count > 1)
         {
-            for (var i = 0; i < res; i++)
+            var menu = rail.BeginRailMenu(LM.Get("clan_list_species"));
+            menu.AddRailOption(null, LM.Get("clan_list_all_species"), alive.Count.ToString(), _species.Length == 0,
+                () => SetSpecies(""), 0);
+            index = 1;
+            foreach ((string id, int count) in species.Take(RailSpecies))
             {
-                var button = specificClanGrid.AddTextIntoGridLayout("", hideBackground:true);
-                _groups.Add(button.gameObject);
-                yield return CoroutineHelper.wait_for_next_frame;
+                ActorAsset asset = AssetManager.actor_library.get(id);
+                string target = id;
+                menu.AddRailOption(asset?.getSpriteIcon(), asset != null ? LM.Get(asset.getLocaleID()) : id, count.ToString(),
+                    _species == id, () => SetSpecies(target), index++);
             }
         }
-    }
-    [Hotfixable]
-    public void ShowSpecificClan(SpecificClan specificClan, AutoGridLayoutGroup grid)
-    {
-        var vertCard = grid.BeginVertGroup(pAlignment: TextAnchor.MiddleCenter);
-        Empire empire = ModClass.EMPIRE_MANAGER.ToList().Find(e => e.EmpireSpecificClan == specificClan && !e.IsArchived());
-        bool hasActiveEmpire = empire != null && !empire.isRekt() && empire.CoreKingdom != null;
-        string empireLabel = hasActiveEmpire
-            ? ("(" + empire.GetEmpireName() + "皇室)").ColorString(pColor: empire.CoreKingdom.getColor()._color_main)
-            : "";
-        vertCard.AddTextIntoVertLayout((specificClan?.GetDisplayName() ?? "") + empireLabel,
-            hideBackground:true, TextAnchor.MiddleCenter, size:new Vector2(49, 10));
-        var actor = specificClan.AllAliveMembers.ToList()?.OrderByDescending(a => a?.age??0)?
-            .FirstOrDefault();
-        List<PersonalClanIdentity> living = specificClan.LivingPeople;
-        int virtuals = living.Count(person => person.is_virtual);
-        // 整族虚拟：没有实体头像，显示一行"虚拟宗族"和族中最年长者
-        PersonalClanIdentity eldest = living.OrderByDescending(person => person.age).FirstOrDefault();
-        if (actor != null) vertCard.AddActorViewIntoVertLayout(actor);
-        else
-            vertCard.AddTextIntoVertLayout($"{LM.Get("virtual_clan_label")}\n{eldest?.name ?? ""}",
-                size:new Vector2(49, 30), hideBackground:true, anchor:TextAnchor.MiddleCenter);
-        string founderName = SpecificClanManager.getPerson(specificClan.founder)?.name ?? LM.Get("none");
-        vertCard.AddTextIntoVertLayout($"{LM.Get("i_founder")}：{founderName}", size:new Vector2(49, 8), hideBackground:true, anchor:TextAnchor.MiddleCenter);
-        vertCard.AddTextIntoVertLayout($"{LM.Get("total_sc_count")}：{living.Count}/{specificClan._cache.Count}", size:new Vector2(49, 8), hideBackground:true, anchor:TextAnchor.MiddleCenter);
-        if (virtuals > 0)
-            vertCard.AddTextIntoVertLayout(string.Format(LM.Get("virtual_clan_members"), virtuals), size:new Vector2(49, 8),
-                hideBackground:true, anchor:TextAnchor.MiddleCenter);
-        var hori = vertCard.BeginHoriGroup(pAlignment: TextAnchor.MiddleCenter);
-        if (empire != null && !empire.isRekt())
+
+        var search = rail.BeginRailCard();
+        search.AddRailInput(LM.Get("clan_list_search"), _search, text =>
         {
-            hori.AddButtonIntoHoriLayout("enter_empire", "帝国", () =>
-            {
-                EmpireCraftMetaTypeLibrary.selected_empire = empire;
-                SelectedMetas.selected_kingdom = empire.CoreKingdom;
-                ScrollWindow.showWindow(nameof(EmpireWindow));
-            }, size:new Vector2(15, 10));
+            string value = (text ?? "").Trim();
+            if (value == _search) return;
+            _search = value;
+            _page = 0;
+            // 下一帧再重画，不在输入框自己的事件里把它拆掉
+            if (gameObject.activeInHierarchy) StartCoroutine(RefreshNextFrame());
+        });
+    }
+
+    private IEnumerator RefreshNextFrame()
+    {
+        yield return null;
+        Refresh(resetScroll: true);
+    }
+
+    private void SetFilter(Filter filter)
+    {
+        if (_filter == filter) return;
+        _filter = filter;
+        _page = 0;
+        Refresh(resetScroll: true);
+    }
+
+    private void SetSpecies(string species)
+    {
+        if (_species == species) return;
+        _species = species;
+        _page = 0;
+        Refresh(resetScroll: true);
+    }
+
+    // ───────── 右栏 ─────────
+    protected override void DrawPage(AutoVertLayoutGroup page)
+    {
+        string speciesName = _species.Length == 0 ? null
+            : AssetManager.actor_library.get(_species) is ActorAsset asset ? LM.Get(asset.getLocaleID()) : _species;
+        page.AddPageHeader(PageWidth, LM.Get(_search.Length > 0 ? "title_search_result" : FilterKey(_filter)), speciesName,
+            string.Format(LM.Get("clan_list_count"), _shown.Count));
+
+        List<Entry> alive = _entries.Where(entry => entry.living > 0 && (_species.Length == 0 || entry.species == _species)).ToList();
+        Entry largest = alive.OrderByDescending(entry => entry.living).FirstOrDefault();
+        page.AddKpiRow(PageWidth,
+            (largest == null ? LM.Get("clan_list_largest") : string.Format(LM.Get("clan_list_largest_named"), largest.clan.GetDisplayName()),
+                largest == null ? "—" : string.Format(LM.Get("clan_kpi_people"), UIHelper.ShortCount(largest.living)), WideKit.Gold),
+            (LM.Get("clan_list_gentry"), string.Format(LM.Get("clan_list_count"), alive.Count(entry => entry.clan.gentry)), WideKit.Orange),
+            (LM.Get("clan_list_ruling"), string.Format(LM.Get("clan_list_count"), alive.Count(entry => entry.ruling != null)), WideKit.Red));
+
+        if (_shown.Count == 0)
+        {
+            page.AddEmptyCard(PageWidth, LM.Get("clan_list_none"));
+            return;
         }
-        
-        hori.AddButtonIntoHoriLayout("enter_empire", "详情", ()=>
+        List<Entry> slice = _shown.Skip(_page * PerPage).Take(PerPage).ToList();
+        long currentGroup = long.MinValue;
+        bool othersHeader = false;
+        var row = (AutoHoriLayoutGroup)null;
+        int inRow = 0;
+        foreach (Entry entry in slice)
         {
-            if (actor != null) OpenWindow(actor);
-            else if (eldest != null) OpenIdentity(eldest);
-        }, size:new Vector2(15, 10));
-        vertCard.transform.AddStretchBackground("clanFrame", size:new Vector2(50, 90));
-        _groups.Add(vertCard.gameObject);
+            int groupSize = _groupSize.TryGetValue(entry.group, out int size) ? size : 1;
+            if (groupSize > 1 && entry.group != currentGroup)
+            {
+                currentGroup = entry.group;
+                SpecificClan root = SpecificClanManager.Get(entry.group) ?? entry.clan;
+                page.AddSectionHeader(PageWidth, string.Format(LM.Get("clan_group_header"), root.GetDisplayName(), groupSize),
+                    WideKit.Cyan, false, "ui/icons/iconFamily");
+                row = null;
+            }
+            else if (groupSize == 1 && !othersHeader)
+            {
+                othersHeader = true;
+                currentGroup = long.MinValue;
+                if (_anyMulti)
+                    page.AddSectionHeader(PageWidth, LM.Get("clan_group_others"), WideKit.Cyan, false, "ui/icons/iconFamilyList");
+                row = null;
+            }
+            if (row == null || inRow == 2)
+            {
+                row = page.BeginColumns(PageWidth);
+                inRow = 0;
+            }
+            DrawClanCard(row, UIHelper.PageColumnWidth, entry);
+            inRow++;
+        }
+        page.AddPager(PageWidth, _page, Pages, LM.Get("clan_pager"), target =>
+        {
+            _page = target;
+            Refresh(resetScroll: true);
+        });
     }
 
-    private static bool IsSpecies(SpecificClan clan, string species) =>
-        clan != null && (clan.AllAliveMembers.Any(a => a?.asset?.id == species) ||
-                         clan.LivingPeople.Any(person => person.is_virtual && person.species == species));
-
-    // 整族虚拟的宗族：按族谱身份打开宗族窗口
-    public void OpenIdentity(PersonalClanIdentity identity)
+    private static string FilterKey(Filter filter) => filter switch
     {
-        SpecificClanWindow.OpenIdentity = identity;
-        SelectedUnit._unit_main = null;
-        ScrollWindow.showWindow(nameof(SpecificClanWindow));
-    }
+        Filter.Ruling => "clan_list_ruling",
+        Filter.Gentry => "clan_list_gentry",
+        Filter.Extinct => "clan_list_extinct",
+        _ => "clan_list_all"
+    };
 
-    public void OpenWindow(Actor pActor)
+    // 宗族卡：族色条、族名(右边门第)、宗子行、在世/世代/田产/居官；整卡点开宗族总览
+    private static void DrawClanCard(AutoHoriLayoutGroup row, float width, Entry entry)
     {
-        SelectedUnit._unit_main = pActor;
-        ScrollWindow.showWindow(nameof(SpecificClanWindow));
+        SpecificClan clan = entry.clan;
+        var card = row.BeginColumnCard(width);
+        if (ColorUtility.TryParseHtmlString(SpecificClanWindow.ClanHex(clan), out Color color)) card.AddColorStrip(width, color);
+        (string standing, string standingHex) = SpecificClanWindow.Standing(clan, entry.ruling);
+        UIHelper.AddCardTitle(card, width, clan.GetDisplayName(), WideKit.Gold, standing.ColorString(standingHex), 0f);
+
+        PersonalClanIdentity heir = SpecificClanWindow.Heir(clan) ?? SpecificClanManager.getPerson(clan.founder);
+        string caption = entry.living > 0 ? LM.Get("clan_list_heir") : LM.Get("clan_list_last");
+        if (clan.gentry_assessed) caption += " · " + string.Format(LM.Get("clan_list_seat"), GentrySystem.JunWang(clan));
+        if (heir != null) card.AddIdentityRow(width, heir, caption, SpecificClanWindow.Post(heir), () => SpecificClanWindow.ShowClan(clan));
+
+        List<PersonalClanIdentity> people = clan.SnapshotPeople().Where(person => person != null).ToList();
+        PersonalClanIdentity founder = SpecificClanManager.getPerson(clan.founder);
+        int generations = people.Count == 0 ? 0 : people.Max(person =>
+            founder != null && founder.generation > 0 && person.generation >= founder.generation
+                ? person.generation - founder.generation + 1 : Mathf.Max(1, person.generation));
+        int land = LandEconomySystem.GetSpecificClanHoldings(clan).Count;
+        int officials = clan.LivingPeople.Count(SpecificClanWindow.OnOffice);
+        card.AddMetricRow(width,
+            (LM.Get("clan_list_living"), UIHelper.ShortCount(entry.living), entry.living > 0 ? WideKit.Green : WideKit.Red),
+            (LM.Get("clan_list_generations"), generations.ToString(), WideKit.Value),
+            (LM.Get("clan_list_land"), string.Format(LM.Get("clan_kpi_cities"), land), WideKit.Cyan),
+            (LM.Get("clan_list_officials"), officials.ToString(), WideKit.Gold));
+        UIHelper.MakeClickable(card.gameObject, () => SpecificClanWindow.ShowClan(clan));
     }
 }

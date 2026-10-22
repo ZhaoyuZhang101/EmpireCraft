@@ -90,11 +90,7 @@ namespace EmpireCraft.Scripts.UI.Windows
 
         private static void OpenClan(SpecificClan clan)
         {
-            PersonalClanIdentity identity = clan.LivingPeople.FirstOrDefault() ?? SpecificClanManager.getPerson(clan.founder);
-            if (identity == null) return;
-            SpecificClanWindow.OpenIdentity = identity;
-            SelectedUnit._unit_main = null;
-            ScrollWindow.showWindow(nameof(SpecificClanWindow));
+            SpecificClanWindow.ShowClan(clan);
         }
     }
 }

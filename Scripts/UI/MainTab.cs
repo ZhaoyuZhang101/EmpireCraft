@@ -113,8 +113,8 @@ internal static class MainTab
         EmpireBeaurauWindow.CreateAndInit(nameof(EmpireBeaurauWindow), new Vector2(480f, 380f));
         ChangeUnitWindow.CreateWindow(nameof(ChangeUnitWindow),
             nameof(ChangeUnitWindow) + "Title");
-        SpecificClanWindow.CreateWindow(nameof(SpecificClanWindow),
-            nameof(SpecificClanWindow) + "Title");
+        // 宗族与天下宗族名册：卷册宽窗口(支派、族谱树都并在宗族窗口里)，标题用 "<窗口id> Title" 约定 key
+        SpecificClanWindow.CreateAndInit(nameof(SpecificClanWindow), new Vector2(480f, 380f));
         // 设置窗口换宽窗口(标题用 "<窗口id> Title" 约定 key)，内容只有两张卡，窗口矮一些
         EmpireSettingWindow.CreateAndInit(nameof(EmpireSettingWindow), new Vector2(480f, 180f));
         // 村镇小窗口(点地图上的镇村打开)
@@ -125,8 +125,7 @@ internal static class MainTab
             nameof(MetaColorWindow) + "Title");
         // 政体、派系详情改宽窗口(标题用 "<窗口id> Title" 约定 key)
         RegimeWindow.CreateAndInit(nameof(RegimeWindow), new Vector2(480f, 380f));
-        SpecificClanListWindow.CreateWindow(nameof(SpecificClanListWindow),
-            nameof(SpecificClanListWindow) + "Title");
+        SpecificClanListWindow.CreateAndInit(nameof(SpecificClanListWindow), new Vector2(480f, 380f));
         FactionDetailWindow.CreateAndInit(nameof(FactionDetailWindow), new Vector2(480f, 380f));
         TraitsSelectWindow.CreateWindow(nameof(TraitsSelectWindow),
             nameof(TraitsSelectWindow) + "Title");
@@ -151,10 +150,6 @@ internal static class MainTab
         // AutoLayoutWindow<T> 窗口不一样：CreateAndInit 只认 (窗口id, 尺寸)，标题固定用
         // "<窗口id> Title"(带空格)这个约定 key，不能像 CreateWindow 那样自己传 titleKey。
         InstitutionWindow.CreateAndInit(nameof(InstitutionWindow), new Vector2(480f, 380f));
-        // 族谱树是单独的宽窗口，标题固定用 "<窗口id> Title" 约定 key(见上面 InstitutionWindow)。
-        SpecificClanTreeWindow.CreateAndInit(nameof(SpecificClanTreeWindow), new Vector2(500f, 400f));
-        // 支派(一姓的分支与宗子世系，见 ClanLineageWindow)
-        ClanLineageWindow.CreateAndInit(nameof(ClanLineageWindow), new Vector2(480f, 380f));
         // 模组文化窗口（点击文化图层/原版文化链接时打开，见 CultureWindowRedirectPatch）
         CultureInfoWindow.CreateAndInit(nameof(CultureInfoWindow), new Vector2(480f, 380f));
         IdeologyInfoWindow.CreateAndInit(nameof(IdeologyInfoWindow), new Vector2(480f, 380f));
@@ -184,7 +179,8 @@ internal static class MainTab
             [nameof(EmpireListWindow)] = "iconKingdomList",
             [nameof(EmpireHistoryWindow)] = "iconClock",
             [nameof(DynastyLineageWindow)] = "iconFamily",
-            [nameof(ClanLineageWindow)] = "iconFamily",
+            [nameof(SpecificClanWindow)] = "iconFamily",
+            [nameof(SpecificClanListWindow)] = "iconFamilyList",
             [nameof(InstitutionWindow)] = "iconKnowledge",
             [nameof(FactionDetailWindow)] = "iconFamily",
             [nameof(RegimeWindow)] = "iconBooks",

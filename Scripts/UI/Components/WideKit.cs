@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.System;
 using NeoModLoader.General.UI.Prefabs;
 using NeoModLoader.General.UI.Window.Layout;
 using NeoModLoader.General.UI.Window.Utils.Extensions;
@@ -310,6 +311,224 @@ public static class WideKit
                 .UseFixedFontSize(6, HorizontalWrapMode.Wrap);
         control = row.BeginHoriGroup(new Vector2(SettingControlWidth, 16f), TextAnchor.MiddleRight, 2, new RectOffset(0, 0, 0, 0));
         return row;
+    }
+
+    // 族谱头像(在世、已故、虚拟族人都行)：外面包一层定宽竖排组，直接塞进横排会错位
+    public static void AddIdentityAvatar(this AutoHoriLayoutGroup row, PersonalClanIdentity person, UnityAction click,
+        float size = 30f)
+    {
+        var holder = row.BeginVertGroup(new Vector2(size, size), pSpacing: 0, pAlignment: TextAnchor.MiddleCenter,
+            pPadding: new RectOffset(0, 0, 0, 0));
+        if (person == null) return;
+        SimpleButton frame = UIHelper.CreateAvatarView(person.actor_id, click, person.is_alive, person);
+        holder.AddChild(frame.gameObject);
+        if (size != 30f) frame.transform.localScale = Vector3.one * (size / 30f);
+        holder.transform.localPosition = Vector3.zero;
+    }
+
+    // 族谱人物行(在世、已故、虚拟族人都行)：头像 + 小灰称谓 / 姓名(在世金、已故灰) / 一行说明
+    public static AutoHoriLayoutGroup AddIdentityRow(this AutoVertLayoutGroup card, float cardWidth, PersonalClanIdentity person,
+        string caption, string detail, UnityAction click = null)
+    {
+        float inner = cardWidth - CardPadding;
+        var row = card.BeginHoriGroup(new Vector2(inner, 32f), TextAnchor.MiddleLeft, 4, new RectOffset(0, 0, 0, 0));
+        row.AddIdentityAvatar(person, click);
+        float textWidth = inner - 34f;
+        var lines = row.BeginVertGroup(new Vector2(textWidth, 30f), pSpacing: 0, pAlignment: TextAnchor.MiddleLeft,
+            pPadding: new RectOffset(0, 0, 0, 0));
+        if (!string.IsNullOrEmpty(caption))
+        {
+            var captionText = lines.AddTextIntoVertLayout(caption.ColorString(Muted), true, TextAnchor.MiddleLeft,
+                new Vector2(textWidth, 9f));
+            captionText.UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+            HoverMarqueeText.Attach(captionText);
+        }
+        var nameText = lines.AddTextIntoVertLayout((person?.name ?? "?").ColorString(person?.is_alive == true ? Gold : Soft), true,
+            TextAnchor.MiddleLeft, new Vector2(textWidth, 12f));
+        nameText.UseFixedFontSize(9, HorizontalWrapMode.Overflow);
+        HoverMarqueeText.Attach(nameText);
+        if (!string.IsNullOrEmpty(detail))
+        {
+            var detailText = lines.AddTextIntoVertLayout(detail.ColorString(Soft), true, TextAnchor.MiddleLeft,
+                new Vector2(textWidth, 9f));
+            detailText.UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+            HoverMarqueeText.Attach(detailText);
+        }
+        return row;
+    }
+
+    // 人物格(网格里一格)：像素框 + 头像 + 三行(称谓·姓名 / 生卒 / 官职)；highlighted 用金框标"当前这个人"
+    public static AutoVertLayoutGroup AddPersonTile(this AutoHoriLayoutGroup row, float width, PersonalClanIdentity person,
+        string tag, string tagHex, string life, string post, string postHex, bool highlighted, UnityAction click)
+    {
+        var tile = row.BeginVertGroup(pSpacing: 0, pAlignment: TextAnchor.MiddleLeft, pPadding: new RectOffset(4, 4, 4, 4));
+        UIHelper.FixPanelWidth(tile.transform, width);
+        UIHelper.AddCardFrame(tile.transform, highlighted ? "FactionFrame_dominate" : "FactionFrame");
+        float inner = width - 8f;
+        var line = tile.BeginHoriGroup(new Vector2(inner, 28f), TextAnchor.MiddleLeft, 3, new RectOffset(0, 0, 0, 0));
+        line.AddIdentityAvatar(person, click, 26f);
+        float textWidth = inner - 29f;
+        var lines = line.BeginVertGroup(new Vector2(textWidth, 28f), pSpacing: 0, pAlignment: TextAnchor.MiddleLeft,
+            pPadding: new RectOffset(0, 0, 0, 0));
+        string head = (string.IsNullOrEmpty(tag) ? "" : tag.ColorString(tagHex) + " ") +
+                      (person?.name ?? "?").ColorString(person?.is_alive == true ? Value : Soft);
+        var name = lines.AddTextIntoVertLayout(head, true, TextAnchor.MiddleLeft, new Vector2(textWidth, 10f));
+        name.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
+        HoverMarqueeText.Attach(name);
+        lines.AddTextIntoVertLayout((life ?? "").ColorString(Muted), true, TextAnchor.MiddleLeft, new Vector2(textWidth, 8f))
+            .UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+        var postText = lines.AddTextIntoVertLayout((post ?? "").ColorString(postHex ?? Muted), true, TextAnchor.MiddleLeft,
+            new Vector2(textWidth, 8f));
+        postText.UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+        HoverMarqueeText.Attach(postText);
+        UIHelper.MakeClickable(tile.gameObject, click);
+        return tile;
+    }
+
+    // 一排小切换块(筛选、排序、本家/父系/母系)：选中的金字描边；返回这一排，调用方可在尾部再加东西
+    public static AutoHoriLayoutGroup AddChipRow(this AutoVertLayoutGroup parent, float width,
+        params (string label, bool on, UnityAction action)[] chips)
+    {
+        var row = parent.BeginHoriGroup(new Vector2(width, 15f), TextAnchor.MiddleLeft, 3, new RectOffset(0, 0, 0, 0));
+        foreach ((string label, bool on, UnityAction action) in chips) AddChip(row, label, on, action);
+        return row;
+    }
+
+    public static void AddChip(this AutoHoriLayoutGroup row, string label, bool on, UnityAction action)
+    {
+        float width = Mathf.Max(26f, UIHelper.EstimateTextWidth(label, 7) + 12f);
+        var chip = row.BeginHoriGroup(new Vector2(width, 14f), TextAnchor.MiddleCenter, 0, new RectOffset(0, 0, 0, 0));
+        UIHelper.AddInsetBackground(chip, new Vector2(width, 14f));
+        chip.AddTextIntoHoriLayout((label ?? "").ColorString(on ? Gold : Soft), true, TextAnchor.MiddleCenter,
+            new Vector2(width, 13f)).UseFixedFontSize(7, HorizontalWrapMode.Overflow);
+        UIHelper.MakeClickable(chip.gameObject, action);
+    }
+
+    // 翻页：‹ 第 2 / 5 页 ›，只有一页时不画
+    public static void AddPager(this AutoVertLayoutGroup parent, float width, int page, int pages, string format,
+        UnityAction<int> go)
+    {
+        if (pages <= 1) return;
+        var row = parent.BeginHoriGroup(new Vector2(width, 16f), TextAnchor.MiddleCenter, 6, new RectOffset(0, 0, 0, 0));
+        row.AddButtonIntoHoriLayout("wide_page_prev", "<", () => go(Mathf.Max(0, page - 1)), size: new Vector2(18f, 14f));
+        row.AddTextIntoHoriLayout(string.Format(format, page + 1, pages).ColorString(Soft), true, TextAnchor.MiddleCenter,
+            new Vector2(70f, 13f)).UseFixedFontSize(7, HorizontalWrapMode.Overflow);
+        row.AddButtonIntoHoriLayout("wide_page_next", ">", () => go(Mathf.Min(pages - 1, page + 1)), size: new Vector2(18f, 14f));
+    }
+
+    // 成段文字(列传、说明)：按字数估行数定高，自动折行
+    public static SimpleText AddParagraph(this AutoVertLayoutGroup card, float cardWidth, string text, int fontSize = 7,
+        string hex = Soft)
+    {
+        float width = cardWidth - CardPadding;
+        float lineHeight = fontSize + 2.5f;
+        float height = Mathf.Ceil((UIHelper.EstimateTextWidth(text ?? "", fontSize) * 1.08f + fontSize) / width) * lineHeight + 2f;
+        var label = card.AddTextIntoVertLayout((text ?? "").ColorString(hex), true, TextAnchor.UpperLeft,
+            new Vector2(width, Mathf.Max(lineHeight, height)));
+        label.UseFixedFontSize(fontSize, HorizontalWrapMode.Wrap);
+        return label;
+    }
+
+    // 键值行：左灰标签、右彩色数值，隔行垫底，可点
+    public static AutoHoriLayoutGroup AddValueRow(this AutoVertLayoutGroup card, float cardWidth, int index, string label,
+        string value, string hex = Value, UnityAction action = null, float labelWidth = 0f)
+    {
+        float inner = cardWidth - CardPadding;
+        var row = card.BeginHoriGroup(new Vector2(inner, 13f), TextAnchor.MiddleLeft, 2, new RectOffset(3, 3, 0, 0));
+        if (index % 2 == 0) UIHelper.AddInsetBackground(row, new Vector2(inner, 13f));
+        if (labelWidth <= 0f) labelWidth = (inner - 8f) * 0.42f;
+        var left = row.AddTextIntoHoriLayout((label ?? "").ColorString(Muted), true, TextAnchor.MiddleLeft,
+            new Vector2(labelWidth, 12f));
+        left.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
+        HoverMarqueeText.Attach(left);
+        var right = row.AddTextIntoHoriLayout((value ?? "").ColorString(hex), true, TextAnchor.MiddleRight,
+            new Vector2(inner - 8f - labelWidth, 12f));
+        right.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
+        HoverMarqueeText.Attach(right);
+        if (action != null) UIHelper.MakeClickable(row.gameObject, action);
+        return row;
+    }
+
+    // 柱状走势(门第、人口这类逐年的数)：深色底上一排细柱，柱高按 max 折算；guides 画几条淡横线(等第分界)
+    public static void AddColumnChart(this AutoVertLayoutGroup card, float cardWidth, IList<float> values, float max,
+        string hex, float height = 34f, IList<float> guides = null)
+    {
+        float inner = cardWidth - CardPadding;
+        var box = new GameObject("ColumnChart", typeof(RectTransform), typeof(LayoutElement));
+        var rect = box.GetComponent<RectTransform>();
+        rect.SetParent(card.transform, false);
+        rect.sizeDelta = new Vector2(inner, height);
+        LayoutElement layout = box.GetComponent<LayoutElement>();
+        layout.minWidth = layout.preferredWidth = inner;
+        layout.minHeight = layout.preferredHeight = height;
+        Plain(rect, Vector2.zero, new Vector2(inner, height), new Color(0.137f, 0.153f, 0.122f, 1f));
+        if (guides != null && max > 0f)
+            foreach (float guide in guides)
+                Plain(rect, new Vector2(0f, Mathf.Clamp01(guide / max) * (height - 2f) + 1f), new Vector2(inner, 1f),
+                    new Color(0.56f, 0.63f, 0.66f, 0.25f));
+        if (values == null || values.Count == 0 || max <= 0f) return;
+        ColorUtility.TryParseHtmlString(hex, out Color color);
+        float step = inner / values.Count;
+        float bar = Mathf.Max(1f, step - (step >= 3f ? 1f : 0f));
+        for (int i = 0; i < values.Count; i++)
+        {
+            float h = Mathf.Max(1f, Mathf.Clamp01(values[i] / max) * (height - 2f));
+            Plain(rect, new Vector2(i * step, 1f), new Vector2(bar, h), color);
+        }
+    }
+
+    // 左下角定位的纯色块(图表用)
+    private static void Plain(RectTransform parent, Vector2 position, Vector2 size, Color color)
+    {
+        var block = new GameObject("Block", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        var rect = block.GetComponent<RectTransform>();
+        rect.SetParent(parent, false);
+        rect.anchorMin = rect.anchorMax = Vector2.zero;
+        rect.pivot = Vector2.zero;
+        rect.anchoredPosition = position;
+        rect.sizeDelta = size;
+        Image image = block.GetComponent<Image>();
+        image.color = color;
+        image.raycastTarget = false;
+    }
+
+    // 编年一行：左边日期(青)，右边事件(按字数折行定高)，隔行垫底，可点
+    // extra：行尾再放一个小图标按钮(比如"打开史书")，跟整行的 action 各管各的
+    public static AutoHoriLayoutGroup AddTimelineRow(this AutoVertLayoutGroup card, float cardWidth, int index, string date,
+        string text, string hex = Soft, UnityAction action = null, float dateWidth = 44f, UnityAction extra = null,
+        Sprite extraIcon = null)
+    {
+        float inner = cardWidth - CardPadding;
+        float textWidth = inner - 6f - 3f - dateWidth - (extra != null ? 15f : 0f);
+        float height = Mathf.Max(12f,
+            Mathf.Ceil((UIHelper.EstimateTextWidth(text ?? "", 7) * 1.08f + 7f) / textWidth) * 9.5f + 2f);
+        var row = card.BeginHoriGroup(new Vector2(inner, height), TextAnchor.UpperLeft, 3, new RectOffset(3, 3, 1, 1));
+        if (index % 2 == 0) UIHelper.AddInsetBackground(row, new Vector2(inner, height));
+        row.AddTextIntoHoriLayout((date ?? "").ColorString(Cyan), true, TextAnchor.UpperLeft, new Vector2(dateWidth, 10f))
+            .UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+        row.AddTextIntoHoriLayout((text ?? "").ColorString(hex), true, TextAnchor.UpperLeft, new Vector2(textWidth, height - 2f))
+            .UseFixedFontSize(7, HorizontalWrapMode.Wrap);
+        if (extra != null)
+            row.AddButtonIntoHoriLayout("wide_timeline_extra", "", extra, extraIcon, size: new Vector2(12f, 12f), showTip: false);
+        if (action != null) UIHelper.MakeClickable(row.gameObject, action);
+        return row;
+    }
+
+    // 页面里的搜索框：整宽，回车或离开时交给 commit
+    public static TextInput AddSearchInput(this AutoVertLayoutGroup parent, float width, string value, UnityAction<string> commit)
+    {
+        TextInput input = UnityEngine.Object.Instantiate(TextInput.Prefab, null);
+        input.Setup(value ?? "", commit);
+        input.SetSize(new Vector2(width, 16f));
+        Text text = input.input.textComponent;
+        if (text != null)
+        {
+            text.resizeTextMinSize = 6;
+            text.resizeTextMaxSize = 9;
+        }
+        input.input.characterLimit = 24;
+        parent.AddChild(input.gameObject);
+        return input;
     }
 
     // 小色点(开关状态灯)

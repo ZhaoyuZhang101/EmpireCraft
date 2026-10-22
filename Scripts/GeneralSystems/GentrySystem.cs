@@ -511,6 +511,7 @@ public static class GentrySystem
             clan.gentry_pedigree = target;
             clan.gentry = target >= EnterAt;
             if (clan.gentry) clan.gentry_since = World.world.getCurWorldTime();
+            NoteTrend(clan);
             return;
         }
         float pedigree = clan.gentry_pedigree;
@@ -518,13 +519,18 @@ public static class GentrySystem
         float fall = FallRate * (InstitutionSystem.IsEnacted(CultureService.GetMainCulture(seat, initialize: false), NineRankNode) ? 0.5f : 1f);
         pedigree += (target - pedigree) * (target > pedigree ? RiseRate : fall);
         clan.gentry_pedigree = Mathf.Clamp(pedigree, 0f, 100f);
+        NoteTrend(clan);
         if (!clan.gentry && clan.gentry_pedigree >= EnterAt)
         {
             clan.gentry = true;
             clan.gentry_since = World.world.getCurWorldTime();
-            Record(seat, string.Format(LM.Get("gentry_rise_history"), JunWang(clan), GradeName(clan)));
+            string rise = string.Format(LM.Get("gentry_rise_history"), JunWang(clan), GradeName(clan));
+            Record(seat, rise);
+            NoteClan(clan, "clan_history_gentry_rise", rise);
+            clan.gentry_noted_grade = Grade(clan.gentry_pedigree);
         }
         else if (clan.gentry && clan.gentry_pedigree < LeaveAt) Decline(clan, extinct: false);
+        else if (clan.gentry) NoteGrade(clan);
         if (clan.gentry) TryAutonomy(clan, seat);
     }
 
@@ -533,7 +539,69 @@ public static class GentrySystem
         string name = JunWang(clan);
         City seat = Seat(clan);
         clan.gentry = false;
-        Record(seat, string.Format(LM.Get(extinct ? "gentry_extinct_history" : "gentry_decline_history"), name));
+        string text = string.Format(LM.Get(extinct ? "gentry_extinct_history" : "gentry_decline_history"), name);
+        Record(seat, text);
+        NoteClan(clan, "clan_history_gentry_decline", text);
+    }
+
+    private const int TrendYears = 80, ClanHistoryCap = 40;
+    // 门第走势只给世家与够得着世家的(门第 20 以上)记，跌到 20 以下再记一笔就停，免得每个寒门都存八十年
+    public const float TrendFloor = 20f;
+    private const float GradeMargin = 2f;
+
+    // 门第换了等(离分界 2 分以上才算，回落、被括户抑豪强压下去的也在这里记)
+    private static void NoteGrade(SpecificClan clan)
+    {
+        float pedigree = clan.gentry_pedigree;
+        int grade = Grade(pedigree);
+        if (Grade(pedigree + GradeMargin) != grade || Grade(pedigree - GradeMargin) != grade) return;
+        int noted = clan.gentry_noted_grade;
+        clan.gentry_noted_grade = grade;
+        if (noted <= 0 || noted == grade) return;
+        NoteClan(clan, "clan_history_gentry_grade", string.Format(LM.Get(grade < noted ? "clan_history_grade_up" : "clan_history_grade_down"),
+            JunWang(clan), GradeName(clan)));
+    }
+
+    // 门第走势记一笔：同一年只留一笔(读档重算、补算时覆盖)
+    private static void NoteTrend(SpecificClan clan)
+    {
+        int year = Date.getCurrentYear();
+        int value = Mathf.RoundToInt(clan.gentry_pedigree);
+        int last = (clan.pedigree_years?.Count ?? 0) - 1;
+        bool recording = last >= 0 && clan.pedigree_years[last] >= year - 1;
+        if (!clan.gentry && clan.gentry_pedigree < TrendFloor && !recording) return;
+        clan.pedigree_years ??= new List<int>();
+        clan.pedigree_values ??= new List<int>();
+        if (clan.pedigree_values.Count != clan.pedigree_years.Count)
+        {
+            clan.pedigree_years.Clear();
+            clan.pedigree_values.Clear();
+            last = -1;
+        }
+        if (last >= 0 && clan.pedigree_years[last] == year)
+        {
+            clan.pedigree_values[last] = value;
+            return;
+        }
+        clan.pedigree_years.Add(year);
+        clan.pedigree_values.Add(value);
+        while (clan.pedigree_years.Count > TrendYears)
+        {
+            clan.pedigree_years.RemoveAt(0);
+            clan.pedigree_values.RemoveAt(0);
+        }
+    }
+
+    // 宗族大事记一条(宗族窗口大事记用)
+    private static void NoteClan(SpecificClan clan, string key, string content)
+    {
+        clan.clan_history ??= new List<PersonalHistoryRecord>();
+        clan.clan_history.Add(new PersonalHistoryRecord
+        {
+            timestamp = World.world.getCurWorldTime(), date = Date.getDate(World.world.getCurWorldTime()),
+            content = content, event_key = key, major = true
+        });
+        if (clan.clan_history.Count > ClanHistoryCap) clan.clan_history.RemoveAt(0);
     }
 
     // 郡望：田产最多的城；没有田产按祖籍；再没有按族人最多的城

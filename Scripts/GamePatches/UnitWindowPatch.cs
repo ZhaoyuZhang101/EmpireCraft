@@ -118,7 +118,7 @@ public class UnitWindowPatch: GamePatch
 
     private static void ShowSpecificClan(Actor actor)
     {
-        ScrollWindow.showWindow(nameof(SpecificClanWindow));
+        SpecificClanWindow.ShowFor(actor != null && actor.HasSpecificClan() ? actor.GetPersonalIdentity() : null);
         LogService.LogInfo($"开启SpecificClanWindow");
     }
 

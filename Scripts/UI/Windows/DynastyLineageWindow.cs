@@ -23,7 +23,7 @@ namespace EmpireCraft.Scripts.UI.Windows;
 //   · 方框上行是庙号(没有庙号写谥号，在位的写"今上"，非君主的祖先写其封号、官职)，中行是名字，
 //     君主下行写怎么继的位——对上一位君主是长子、第几子、孙、兄弟、侄、旁支入继、易姓，废立、兵变、争位、宫变上台的
 //     另标红字(见 PrinceStruggleSystem)；君主金框，祖先灰框；
-//   · 可拖拽、滚轮缩放；点方框打开这个人的族谱树(见 SpecificClanTreeWindow)；顶上一排按钮切换朝代。
+//   · 可拖拽、滚轮缩放；点方框打开这个人的族谱树(宗族窗口的族谱树页)；顶上一排按钮切换朝代。
 // 从历代君主窗口(EmpireHistoryWindow)左栏的"世系图"按钮打开。
 public class DynastyLineageWindow : AbstractWideWindow<DynastyLineageWindow>
 {
@@ -414,7 +414,7 @@ public class DynastyLineageWindow : AbstractWideWindow<DynastyLineageWindow>
         PersonalClanIdentity identity = node.identity;
         Button button = nodeObject.AddComponent<Button>();
         button.transition = Selectable.Transition.None;
-        button.onClick.AddListener(() => SpecificClanTreeWindow.ShowFor(identity));
+        button.onClick.AddListener(() => SpecificClanWindow.ShowFor(identity, SpecificClanWindow.Page.Tree));
     }
 
     // 怎么继的位：对上一位君主的亲属关系，废立、兵变、争位、宫变另标

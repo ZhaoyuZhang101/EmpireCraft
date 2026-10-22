@@ -116,6 +116,17 @@ public class SpecificClan
     public double gentry_retainers_at { get; set; } = -1d;
     // 依附的帝国(两朝并立、天下裂土时择主，见 GentrySystem.ChooseSides)
     public long gentry_patron_empire_id { get; set; } = -1L;
+    // 门第走势：每年评门第时记一笔(年份、门第分取整)，留最近 80 年(见 GentrySystem.NoteTrend、宗族窗口总览)
+    public List<int> pedigree_years { get; set; }
+    public List<int> pedigree_values { get; set; }
+    public bool ShouldSerializepedigree_years() => pedigree_years != null && pedigree_years.Count > 0;
+    public bool ShouldSerializepedigree_values() => pedigree_values != null && pedigree_values.Count > 0;
+    // 大事记上次记下的门第等第(1 甲 ~ 4 丁，0 = 还没记过)：离分界 2 分以上才算换了等，免得在分界上下晃时年年记
+    public int gentry_noted_grade { get; set; }
+    public bool ShouldSerializegentry_noted_grade() => gentry_noted_grade > 0;
+    // 宗族一级的大事(列为世家、门第升降一等、家道中落)，族人生平里查不到，留最近 40 条(见 GentrySystem、宗族窗口大事记)
+    public List<PersonalHistoryRecord> clan_history { get; set; }
+    public bool ShouldSerializeclan_history() => clan_history != null && clan_history.Count > 0;
 
     // 姓氏体系(华夏，用户 2026-10-16 选定"姓—氏两层")：始祖宗族是"姓"(姬姓)，支脉是"氏"(鲁氏)，原版氏族是每个氏的实体；
     // 姓氏合一(郡县)以后，有氏的支脉升为新的姓(鲁氏宗族，出自姬姓)，再往下分的是郡望、房支。见 PrehistoricClanSystem
