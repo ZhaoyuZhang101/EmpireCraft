@@ -9,7 +9,8 @@ namespace EmpireCraft.Scripts.UI.Components;
 // 翻的时候底下的色块画成压暗的样子(牌翘起来的缝，见 SmoothBorders)。镜头外的不画；拉得越远一张牌切得越少。
 public static class ZoneFlipOverlay
 {
-    private const int Zone = Config.CITY_ZONE_SIZE, AtlasSize = 512, SlotsPerRow = AtlasSize / Zone, MaxSlots = SlotsPerRow * SlotsPerRow;
+    // 图集 1024：全屏一起翻时拉远看大地图，同时翻的牌能上四千多张(以前 512 只放得下两千张，多出来的不画牌直接变色)
+    private const int Zone = Config.CITY_ZONE_SIZE, AtlasSize = 1024, SlotsPerRow = AtlasSize / Zone, MaxSlots = SlotsPerRow * SlotsPerRow;
     // 透视(视距是牌宽的几倍)、转到侧面时暗多少
     private const float Perspective = 2.6f, SideShade = 0.38f;
 

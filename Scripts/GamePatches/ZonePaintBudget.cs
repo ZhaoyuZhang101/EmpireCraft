@@ -110,7 +110,14 @@ public class ZonePaintBudget : GamePatch
         Round++;
         _roundChecks = 0;
         _roundDeferredView = 0;
-        if (!Active || _lastRoundFrame == Time.frameCount || __instance._redraw_timer <= 0f) return;
+        if (!Active) return;
+        // 这一帧已经巡检过一轮(全图换色补跑的，或模拟加速时一帧跑两步)：这一轮跳过，一帧至多一轮
+        if (_lastRoundFrame == Time.frameCount)
+        {
+            __instance._redraw_timer = Mathf.Max(__instance._redraw_timer, RedrawInterval);
+            return;
+        }
+        if (__instance._redraw_timer <= 0f) return;
         if (SmoothBorders.WantsEveryRound) __instance._redraw_timer = 0f;
     }
 

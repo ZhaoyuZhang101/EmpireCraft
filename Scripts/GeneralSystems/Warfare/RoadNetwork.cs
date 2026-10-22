@@ -97,6 +97,7 @@ public static class RoadNetwork
     public static void RefreshNow()
     {
         if (World.world?.tiles_list == null) return;
+        _dirty = false;
         CollectRoads();
         Version++;
     }
@@ -249,8 +250,8 @@ public static class RoadNetwork
 
     // 只有一个角相接的两格路(格子寻路八方向、直线落格，斜着走的地方就是这样)：画出来是断的，路两侧还描着深色的边，
     // 一格一格像虚线(用户 2026-10-22 "无论是大路还是小路总是保证他们是连接的""不要有断开")。
-    // 在两格共有的两个正邻格里补一格把它们接成边挨边的：先挑陆地，水面要能架桥的等级(官道起)才补，山、城墙不补；
-    // 等级取两格较低的。大路、小路、神力画的路一视同仁
+    // 在两格共有的两个正邻格里补一格把它们接成边挨边的：先挑陆地，河湖要能架桥的等级(官道起)才补，海面、山、城墙不补；
+    // 等级取两格较低的。大路、小路、神力画的路一视同仁。接头只管画(路格)，不算进有路的地块(不改行军、教化、后勤)
     private const int BridgeGrade = 3;
 
     private static void ConnectCorners()
@@ -282,9 +283,6 @@ public static class RoadNetwork
             RoadTiles.Add(pair.Key);
             BuildingTiles.Remove(pair.Key);
             TileGrades[pair.Key] = pair.Value;
-            if (tile.zone == null) continue;
-            RoadZones.Add(tile.zone.id);
-            ZoneGrades[tile.zone.id] = ZoneGrades.TryGetValue(tile.zone.id, out int had) ? Math.Max(had, pair.Value) : pair.Value;
         }
     }
 
@@ -293,7 +291,7 @@ public static class RoadNetwork
     // 能补成接头的格：走得了(不是山、城墙、岩浆)；water 为假时只要陆地，为真时水面要能架桥的等级
     private static WorldTile JointTile(WorldTile tile, int grade, bool water = false)
     {
-        if (tile?.data == null || tile.zone == null || TileStep(tile) < 0f) return null;
+        if (tile?.data == null || tile.zone == null || tile.Type.ocean || TileStep(tile) < 0f) return null;
         bool wet = tile.Type.liquid;
         if (!water) return wet ? null : tile;
         return wet && grade >= BridgeGrade ? tile : null;

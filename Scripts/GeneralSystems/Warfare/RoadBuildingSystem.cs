@@ -393,12 +393,15 @@ public static class RoadBuildingSystem
             RoadLink link = Get(key) ?? Create(key);
             if (link == null || link.grade >= grade) continue;
             link.grade = grade;
-            link.building = 0;
-            link.progress = 0f;
+            // 在修更高一级的工程照修(以前一律清掉，已花的钱和进度白丢)
+            if (link.building <= grade)
+            {
+                link.building = 0;
+                link.progress = 0f;
+            }
             link.condition = 1f;
             built++;
         }
-        RoadNetwork.MarkDirty();
         RoadNetwork.RefreshNow();
         RoadPaintSystem.RequestRedraw();
         return segments;

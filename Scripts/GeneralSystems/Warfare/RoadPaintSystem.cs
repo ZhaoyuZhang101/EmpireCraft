@@ -26,7 +26,8 @@ public static class RoadPaintSystem
 {
     public const int TilesPerUnit = 8;
     private const int BridgeGrade = 3;
-    private const float RedrawSeconds = 0.25f;
+    // 画的时候至多隔这么久整套重收一次路格、重画一次路网图层(整张贴图上传不便宜)
+    private const float RedrawSeconds = 0.5f;
 
     private static Dictionary<int, PaintedRoad> _tiles = new();
     private static bool _pending;
@@ -62,6 +63,8 @@ public static class RoadPaintSystem
     {
         if (tile?.data == null || tile.Type == null || tile.Type.ocean || Blocked(tile)) return false;
         City city = tile.zone_city;
+        // 不修路的城(游牧营地等)的领地上不画，同修路的规矩(见 RoadBuildingSystem.Refresh)
+        if (city?.data != null && !city.isRekt() && CityStyleSystem.Roadless(city)) return false;
         int cap = city?.data != null && !city.isRekt() ? CityStyleSystem.RoadGradeCap(city) : RoadBuildingSystem.MaxGrade;
         int grade = Mathf.Min(city?.kingdom != null && !city.kingdom.wild ? RoadBuildingSystem.GradeFor(city.kingdom) : 1, cap);
         if (grade <= 0) return false;

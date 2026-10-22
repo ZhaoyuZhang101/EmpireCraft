@@ -755,6 +755,7 @@ public static class SmoothBorders
 
     private static void ResetTransitions()
     {
+        SettleFaces();
         Shown.Clear();
         NativeShown.Clear();
         PendingSweep.Clear();
@@ -763,6 +764,39 @@ public static class SmoothBorders
         Plans.Clear();
         _scannedAt = -10f;
         _layerFlip = null;
+    }
+
+    // 正翻到一半(底下压暗)的块：作废前按眼下那一面写回不压暗的样子，免得换图层时被当成旧样子记下、留一片暗块
+    private static void SettleFaces()
+    {
+        ZoneCalculator calc = World.world?.zone_calculator;
+        Color32[] pixels = calc?.pixels;
+        if (pixels == null || Transitions.Count == 0) return;
+        bool wrote = false;
+        foreach (KeyValuePair<int, Transition> pair in Transitions)
+        {
+            Transition transition = pair.Value;
+            if (transition.phase is not (1 or 2)) continue;
+            Color32[] face = transition.phase == 1 ? transition.oldPixels : transition.newPixels;
+            TileZone zone = calc.getZoneByID(pair.Key);
+            if (face == null || zone?.tiles == null) continue;
+            int[] ids = PixelIds(zone);
+            BeginLift();
+            for (int i = 0; i < ids.Length && i < face.Length; i++)
+            {
+                int id = ids[i];
+                if (id < 0 || id >= pixels.Length) continue;
+                if (transition.raw || id >= _base.Length)
+                {
+                    pixels[id] = face[i];
+                    continue;
+                }
+                _base[id] = face[i];
+                pixels[id] = Lifted(id);
+            }
+            wrote = true;
+        }
+        if (wrote) calc.setDirty();
     }
 
     // 新世界也可能复用同一个 MapBox；读档/重建时显式清掉旧画面与未结束的换色。
@@ -784,6 +818,8 @@ public static class SmoothBorders
         _paintedZone = _restoredZone = -1;
         _pendingKey = 0L;
         _entryPending = true;
+        // 记下这是哪个世界：以前留空，读档后头一块地上色时 PrepareLayerSwitch 又整套重置一遍，进图那次全图换色白跑
+        _transitionWorld = World.world;
         ZoneFlipOverlay.Hide();
     }
 
@@ -1262,6 +1298,9 @@ public static class SmoothBorders
         if (!Enabled || calc?.pixels == null || layer == null) return;
         EnsurePixelState(calc.pixels);
         ResetTransitions();
+        // 记下眼下的图层：进图时不记的话，头一块地上色时 CheckLayer 当成头一回见到图层，把这次全图换色清掉
+        _sweepLayer = layer;
+        _sweepOption = layer.getZoneOptionState();
         // 整图都要重画：不再因为"本块归属变了"让四周八块跟着重画，否则每块要多画好几遍
         LastMeta.Clear();
         if (invalidate)
