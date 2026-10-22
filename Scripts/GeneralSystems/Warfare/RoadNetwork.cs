@@ -244,6 +244,59 @@ public static class RoadNetwork
             TileGrades[pair.Key] = TileGrades.TryGetValue(pair.Key, out int had) ? Math.Max(had, grade) : grade;
             ZoneGrades[zone] = ZoneGrades.TryGetValue(zone, out int zoneHad) ? Math.Max(zoneHad, grade) : grade;
         }
+        ConnectCorners();
+    }
+
+    // 只有一个角相接的两格路(格子寻路八方向、直线落格，斜着走的地方就是这样)：画出来是断的，路两侧还描着深色的边，
+    // 一格一格像虚线(用户 2026-10-22 "无论是大路还是小路总是保证他们是连接的""不要有断开")。
+    // 在两格共有的两个正邻格里补一格把它们接成边挨边的：先挑陆地，水面要能架桥的等级(官道起)才补，山、城墙不补；
+    // 等级取两格较低的。大路、小路、神力画的路一视同仁
+    private const int BridgeGrade = 3;
+
+    private static void ConnectCorners()
+    {
+        if (World.world?.tiles_list == null || TileGrades.Count == 0) return;
+        var joints = new Dictionary<int, int>();
+        foreach (var pair in TileGrades)
+        {
+            WorldTile tile = World.world.tiles_list[pair.Key];
+            if (tile == null) continue;
+            // 每对斜邻只看一次(右上、右下)
+            for (int dy = -1; dy <= 1; dy += 2)
+            {
+                WorldTile corner = World.world.GetTile(tile.x + 1, tile.y + dy);
+                if (corner?.data == null || !TileGrades.TryGetValue(corner.data.tile_id, out int other)) continue;
+                WorldTile side = World.world.GetTile(tile.x + 1, tile.y), across = World.world.GetTile(tile.x, tile.y + dy);
+                if (IsRoadTile(side) || IsRoadTile(across) || side != null && joints.ContainsKey(side.data.tile_id) ||
+                    across != null && joints.ContainsKey(across.data.tile_id)) continue;
+                int grade = Math.Min(pair.Value, other);
+                WorldTile joint = JointTile(side, grade) ?? JointTile(across, grade);
+                if (joint == null && JointTile(side, grade, water: true) is WorldTile wet) joint = wet;
+                else if (joint == null) joint = JointTile(across, grade, water: true);
+                if (joint != null) joints[joint.data.tile_id] = grade;
+            }
+        }
+        foreach (var pair in joints)
+        {
+            WorldTile tile = World.world.tiles_list[pair.Key];
+            RoadTiles.Add(pair.Key);
+            BuildingTiles.Remove(pair.Key);
+            TileGrades[pair.Key] = pair.Value;
+            if (tile.zone == null) continue;
+            RoadZones.Add(tile.zone.id);
+            ZoneGrades[tile.zone.id] = ZoneGrades.TryGetValue(tile.zone.id, out int had) ? Math.Max(had, pair.Value) : pair.Value;
+        }
+    }
+
+    private static bool IsRoadTile(WorldTile tile) => tile?.data != null && TileGrades.ContainsKey(tile.data.tile_id);
+
+    // 能补成接头的格：走得了(不是山、城墙、岩浆)；water 为假时只要陆地，为真时水面要能架桥的等级
+    private static WorldTile JointTile(WorldTile tile, int grade, bool water = false)
+    {
+        if (tile?.data == null || tile.zone == null || TileStep(tile) < 0f) return null;
+        bool wet = tile.Type.liquid;
+        if (!water) return wet ? null : tile;
+        return wet && grade >= BridgeGrade ? tile : null;
     }
 
     private static bool Fresh(Dictionary<(long, long), RoadPlan> routes, (long, long) key, float now) =>
