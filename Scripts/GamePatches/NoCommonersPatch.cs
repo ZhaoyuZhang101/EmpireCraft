@@ -736,7 +736,13 @@ public class NoCommonersPatch : GamePatch
                 if (actor != null && !actor.isRekt() && actor.isAlive()) units++;
         __instance.status.population = units + background;
         __instance.status.population_adults = Math.Max(0, __instance.status.population - __instance.status.population_children);
-        __instance.status.housing_occupied = Math.Min(__instance.status.housing_total, __instance.status.population);
-        __instance.status.housing_free = Math.Max(0, __instance.status.housing_total - __instance.status.population);
+        // 住房按位数算：游牧营地一位只住得下 CapacityFactor 户(见 CityPatch.getPopulationMaximum)，户数折回住房位再比；
+        // 以前直接拿户数比，营地的户数最多到住房位的四成，空房位永远剩六成，原版"空房不超过 10 位才盖新房"一直不成立，
+        // 营地盖到十几个住房位就停了
+        float factor = CityStyleSystem.CapacityFactor(__instance);
+        int occupied = factor >= 0.999f ? __instance.status.population
+            : (int)Math.Min(int.MaxValue, Math.Ceiling(__instance.status.population / (double)Math.Max(0.01f, factor)));
+        __instance.status.housing_occupied = Math.Min(__instance.status.housing_total, occupied);
+        __instance.status.housing_free = Math.Max(0, __instance.status.housing_total - occupied);
     }
 }
