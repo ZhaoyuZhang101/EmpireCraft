@@ -138,6 +138,8 @@ internal static class MainTab
         DynastyLineageWindow.CreateAndInit(nameof(DynastyLineageWindow), new Vector2(480f, 380f));
         EmpireCoreWindow.CreateAndInit(nameof(EmpireCoreWindow), new Vector2(480f, 380f));
         TianxiaWindow.CreateAndInit(nameof(TianxiaWindow), new Vector2(480f, 380f));
+        // 加载器模组列表里「设置」按钮打开的分类设置窗口(见 ModSettingsPatch)
+        ModSettingsWindow.CreateAndInit(nameof(ModSettingsWindow), new Vector2(480f, 380f));
         BugReportWindow.CreateWindow(nameof(BugReportWindow),
             "bug_report_window_title");
         PureMapNoticeWindow.CreateWindow(nameof(PureMapNoticeWindow), "pure_map_notice_title");

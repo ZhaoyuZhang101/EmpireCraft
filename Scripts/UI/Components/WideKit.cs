@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using EmpireCraft.Scripts.GameClassExtensions;
+using NeoModLoader.General.UI.Prefabs;
 using NeoModLoader.General.UI.Window.Layout;
 using NeoModLoader.General.UI.Window.Utils.Extensions;
 using UnityEngine;
@@ -34,6 +35,8 @@ namespace EmpireCraft.Scripts.UI.Components;
 //   card.AddButtonRow(PageWidth, ("act_a", "加冕", () => {...}), ("act_b", "绝罚", () => {...}));
 //   card.AddTableRow(PageWidth, -1, null, "物资", 80f, ("年产", null), ("年需", null));          // 表头
 //   card.AddTableRow(PageWidth, 0, icon, "粮食", 80f, ("1.2万", WideKit.Value), ("1.5万", WideKit.Red));
+//   card.AddToggleRow(PageWidth, 0, "平滑国界", "国界逐像素判定……", on, "开启", () => {...}, "重启生效");   // 设置页开关
+//   card.AddStepperRow(PageWidth, 1, "战争强制结束", "打满这么多年……", "10", "年", text => {...}, () => {...}, () => {...});
 public static class WideKit
 {
     public const string Gold = "#F3C34A", Cyan = "#7FD8EA", Muted = "#8FA0A8", Green = "#65D66E",
@@ -234,6 +237,94 @@ public static class WideKit
         }
         if (action != null) UIHelper.MakeClickable(row.gameObject, action);
         return row;
+    }
+
+    // 开关行(设置页)：名称(可带橙色小标，如"重启生效") + 灰色说明 | 右侧开关块(色点 + 状态字)；整行可点
+    public static AutoHoriLayoutGroup AddToggleRow(this AutoVertLayoutGroup card, float cardWidth, int index, string title,
+        string detail, bool on, string state, UnityAction toggle, string badge = null)
+    {
+        var row = BeginSettingRow(card, cardWidth, index, title, detail, badge, out AutoHoriLayoutGroup control);
+        const float width = 46f;
+        var pill = control.BeginHoriGroup(new Vector2(width, 14f), TextAnchor.MiddleLeft, 3, new RectOffset(5, 3, 0, 0));
+        UIHelper.AddInsetBackground(pill, new Vector2(width, 14f));
+        AddDot(pill.transform, on ? Green : Muted, 5f);
+        pill.AddTextIntoHoriLayout((state ?? "").ColorString(on ? Green : Muted), true, TextAnchor.MiddleLeft,
+            new Vector2(width - 16f, 13f)).UseFixedFontSize(7, HorizontalWrapMode.Overflow);
+        UIHelper.MakeClickable(row.gameObject, toggle);
+        return row;
+    }
+
+    // 数值行(设置页)：名称 + 灰色说明 | 右侧 [-] 输入框 [+] 单位；输入框只收整数，回车或离开时交给 commit
+    public static TextInput AddStepperRow(this AutoVertLayoutGroup card, float cardWidth, int index, string title,
+        string detail, string value, string unit, UnityAction<string> commit, UnityAction minus, UnityAction plus,
+        string badge = null)
+    {
+        BeginSettingRow(card, cardWidth, index, title, detail, badge, out AutoHoriLayoutGroup control);
+        control.AddButtonIntoHoriLayout("wide_step_minus", "-", minus, size: new Vector2(13f, 14f));
+        TextInput input = UnityEngine.Object.Instantiate(TextInput.Prefab, null);
+        input.Setup(value ?? "", commit);
+        const float inputWidth = 30f, inputHeight = 16f;
+        input.SetSize(new Vector2(inputWidth, inputHeight));
+        // 窄框里不要右侧的笔形图标，文字铺满居中
+        input.icon.gameObject.SetActive(false);
+        Text text = input.input.textComponent;
+        if (text != null)
+        {
+            text.resizeTextMinSize = 6;
+            text.resizeTextMaxSize = 9;
+            text.alignment = TextAnchor.MiddleCenter;
+            text.rectTransform.sizeDelta = new Vector2(inputWidth - 4f, inputHeight - 2f);
+            text.transform.localPosition = new Vector3(-inputWidth / 2f + 2f, 0f);
+        }
+        input.input.contentType = InputField.ContentType.IntegerNumber;
+        input.input.characterLimit = 6;
+        control.AddChild(input.gameObject);
+        control.AddButtonIntoHoriLayout("wide_step_plus", "+", plus, size: new Vector2(13f, 14f));
+        control.AddTextIntoHoriLayout((unit ?? "").ColorString(Muted), true, TextAnchor.MiddleLeft,
+            new Vector2(SettingControlWidth - 13f * 2f - inputWidth - 2f * 3f, 13f)).UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+        return input;
+    }
+
+    private const float SettingControlWidth = 80f;
+
+    // 设置行骨架：隔行垫底；左边名称与说明(说明按字数估行数定高，不会压到下一行)，右边留出控件区
+    private static AutoHoriLayoutGroup BeginSettingRow(AutoVertLayoutGroup card, float cardWidth, int index, string title,
+        string detail, string badge, out AutoHoriLayoutGroup control)
+    {
+        float inner = cardWidth - CardPadding;
+        float textWidth = inner - 6f - 4f - SettingControlWidth;
+        float detailHeight = string.IsNullOrEmpty(detail) ? 0f
+            : Mathf.Ceil((UIHelper.EstimateTextWidth(detail, 6) * 1.1f + 6f) / textWidth) * 8f;
+        float height = Mathf.Max(18f, 12f + detailHeight + 5f);
+        var row = card.BeginHoriGroup(new Vector2(inner, height), TextAnchor.MiddleLeft, 4, new RectOffset(3, 3, 2, 3));
+        if (index % 2 == 0) UIHelper.AddInsetBackground(row, new Vector2(inner, height));
+        var lines = row.BeginVertGroup(new Vector2(textWidth, height - 5f), pSpacing: 0, pAlignment: TextAnchor.MiddleLeft,
+            pPadding: new RectOffset(0, 0, 0, 0));
+        string name = (title ?? "").ColorString(Value);
+        if (!string.IsNullOrEmpty(badge)) name += "  " + badge.ColorString(Orange);
+        var nameText = lines.AddTextIntoVertLayout(name, true, TextAnchor.MiddleLeft, new Vector2(textWidth, 12f));
+        nameText.UseFixedFontSize(8, HorizontalWrapMode.Overflow);
+        HoverMarqueeText.Attach(nameText);
+        if (detailHeight > 0f)
+            lines.AddTextIntoVertLayout(detail.ColorString(Muted), true, TextAnchor.UpperLeft, new Vector2(textWidth, detailHeight))
+                .UseFixedFontSize(6, HorizontalWrapMode.Wrap);
+        control = row.BeginHoriGroup(new Vector2(SettingControlWidth, 16f), TextAnchor.MiddleRight, 2, new RectOffset(0, 0, 0, 0));
+        return row;
+    }
+
+    // 小色点(开关状态灯)
+    private static void AddDot(Transform parent, string hex, float size)
+    {
+        var dot = new GameObject("Dot", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(LayoutElement));
+        var rect = dot.GetComponent<RectTransform>();
+        rect.SetParent(parent, false);
+        rect.sizeDelta = new Vector2(size, size);
+        Image image = dot.GetComponent<Image>();
+        image.color = ColorUtility.TryParseHtmlString(hex, out Color color) ? color : Color.white;
+        image.raycastTarget = false;
+        LayoutElement layout = dot.GetComponent<LayoutElement>();
+        layout.minWidth = layout.preferredWidth = size;
+        layout.minHeight = layout.preferredHeight = size;
     }
 
     // 表格行：图标 + 名称(定宽) + 其余各列等分、右对齐；index 为 -1 是表头(灰色小字、不垫底)，否则隔行垫底
