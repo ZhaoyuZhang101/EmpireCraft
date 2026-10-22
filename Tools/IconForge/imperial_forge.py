@@ -1267,6 +1267,7 @@ TOOLS = {
     # 天下(帝国核心之上，见 TianxiaSystem)：并入、退出联合天下
     "iconToolTianxiaJoin": (obj_ding, "arrow"),
     "iconToolTianxiaLeave": (obj_ding, "minus"),
+    "iconToolContested": (obj_banners, "swap"),
     "iconNationLayer": (obj_heat_flag, None),
 }
 

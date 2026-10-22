@@ -662,6 +662,11 @@ public static class EmpireCraftTooltipLibrary
         {
             pTooltip.addLineText("empire_core_current_empires", string.Join(" / ", empires), colorText, false, true, 21);
         }
+        // 争议地带：这座城另有哪家核心宣称为故地(见 ContestedLandSystem)
+        List<EmpireCore> claimants = ContestedLandSystem.Claimants(city);
+        if (claimants.Count > 0)
+            pTooltip.addLineText("empire_core_contested",
+                string.Join(" / ", claimants.Select(EmpireCoreManager.GetStatusDisplayName)), "#E9A85B", false, true, 21);
     }
     private static void showOfficer(Tooltip pTooltip, string pType, TooltipData pData)
     {

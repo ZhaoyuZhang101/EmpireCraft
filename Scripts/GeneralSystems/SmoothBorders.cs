@@ -1766,6 +1766,8 @@ public static class SmoothBorders
                 (PureMapPatch.CitiesShown ? 32 : 0));
             Add(CorpsSystem.Enabled && ControlLayer(layer) ? FrontSignature() : 0);
             Add(PureMapPatch.CitiesShown ? PureMapPatch.StampOf(zone.city) : 0);
+            // 争议地带的斜纹(见 ContestedLandSystem)：宣称方或它的颜色变了要重画
+            Add(ContestedLandSystem.StripeKey(zone.city));
             return key == 0L ? 1L : key;
         }
     }

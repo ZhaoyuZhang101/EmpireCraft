@@ -270,6 +270,11 @@ internal static class MainTab
         AddButton(EMPIRE_CORE_GROUP,
             PowerButtonCreator.CreateGodPowerButton("tianxia_leave",
                 SpriteTextureLoader.getSprite("ui/icons/iconToolTianxiaLeave.png")));
+        // 争议地带：一座城另记别家帝国核心的故地宣称(见 ContestedLandSystem)
+        ContestedPowers.init();
+        AddButton(EMPIRE_CORE_GROUP,
+            PowerButtonCreator.CreateGodPowerButton(ContestedPowers.Id,
+                SpriteTextureLoader.getSprite("ui/icons/iconToolContested.png")));
 
         // ---- 帝国：图层、称帝与解散、分封、列表、人物建国 ----
         PowerButton pb = FixFunctions.CreateLayerButton(MetaTypeExtension.Empire,

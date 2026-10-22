@@ -1173,6 +1173,7 @@ public class CityPatch : GamePatch
     private static readonly Action[] WorldYearlyScans =
     {
         ClanBranchSystem.TryYearlyScan,
+        ContestedLandSystem.TryYearlyScan,
         IdeologySpreadSystem.TryYearlyScan,
         TechnologySystem.TryYearlyScan,
         InstitutionSystem.TryYearlyCultureDrift,

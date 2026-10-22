@@ -127,9 +127,20 @@ public static class TianxiaSystem
             {
                 if (city?.data == null || city.isRekt()) continue;
                 EmpireCore owner = LeadOf(city);
-                if (owner == null) continue;
-                if (!CitiesByLead.TryGetValue(owner.id, out List<City> list)) CitiesByLead[owner.id] = list = new List<City>();
-                list.Add(city);
+                if (owner != null)
+                {
+                    if (!CitiesByLead.TryGetValue(owner.id, out List<City> list)) CitiesByLead[owner.id] = list = new List<City>();
+                    list.Add(city);
+                }
+                // 争议地带：宣称方所在的天下也算这座城(统一占比、统一战争的目标，见 ContestedLandSystem)
+                if (!ContestedLandSystem.HasClaims(city)) continue;
+                foreach (EmpireCore claimant in ContestedLandSystem.Claimants(city))
+                {
+                    EmpireCore other = Lead(claimant);
+                    if (other == null || other == owner) continue;
+                    if (!CitiesByLead.TryGetValue(other.id, out List<City> claimed)) CitiesByLead[other.id] = claimed = new List<City>();
+                    if (!claimed.Contains(city)) claimed.Add(city);
+                }
             }
         }
         return CitiesByLead.TryGetValue(lead.id, out List<City> found) ? found : new List<City>();
