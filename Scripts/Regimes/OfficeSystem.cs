@@ -347,7 +347,8 @@ public class OfficeObject
         // once instead of creating a second king/leader-specific history entry.
         string officeHistoryKey = isReappointment ? "personal_history_office_reappointed" : "personal_history_office_started";
         actor.RecordPersonalHistory(string.Format(LM.Get(officeHistoryKey), GetName(meta_object)));
-        if(!is_local) return;
+        // 本地官职还没挂回所属的城、国(meta_object 不进存档，读档后要等各自的行为检查挂回)：只记任职，不就位
+        if(!is_local || meta_object == null) return;
         switch (meta_object.meta_type)
         {
             case MetaType.City:

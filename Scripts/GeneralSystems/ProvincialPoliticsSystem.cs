@@ -278,6 +278,8 @@ public static class ProvincialPoliticsSystem
             }
         }
         if (candidate == null) return;
+        // 官职挂的国家不进存档(meta_object 读档后为空，要等国家行为检查国君时才挂回)：这里先挂上本省
+        office.meta_object ??= province;
         office.SetActor(candidate);
         if (office.GetActor() == candidate)
             candidate.RecordPersonalHistory(string.Format(LM.Get("local_election_governor_personal"),
