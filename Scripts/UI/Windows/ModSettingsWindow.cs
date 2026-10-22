@@ -169,6 +169,7 @@ public class ModSettingsWindow : WideScrollWindow<ModSettingsWindow>
                     Key = "mod_settings_card_city", Icon = "ui/icons/iconCityZones", Items = new[]
                     {
                         Number("City_Max_Zones_Text", 100, 0, 99999, 10, "mod_settings_unit_zones", "mod_settings_unlimited"),
+                        Number("Barren_Zone_Multiplier_Text", 2, 1, 10, 1, "mod_settings_unit_times"),
                     }
                 },
                 new Card

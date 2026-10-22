@@ -439,7 +439,8 @@ public static class UrbanFabric
             int size = tier >= 3 ? (H(g.Seed, attempt, 63) < 0.5f ? 4 : 5) : 3;
             bool edge = !Open(g, x, y) && Edge(x, y);
             if (!Open(g, x, y) && !edge || g.Towns.Exists(t => Mathf.Abs(t.x - x) + Mathf.Abs(t.y - y) < t.size + size + 6) ||
-                Taken(x, y, size + 4) || yurts && !RuralSettlementSystem.YurtGround(x, y, true, size)) continue;
+                Taken(x, y, size + 4) || yurts && !RuralSettlementSystem.YurtGround(x, y, true, size) ||
+                BarrenLandSystem.BarrenAt(x, y)) continue;
             bool walled = !yurts && tier >= 3 && H(g.Seed, attempt, 64) < 0.45f;
             // 设镇要出钱(国库或民间投资池)，出不起就不建
             if (!RuralSettlementSystem.Fund(g.City, true, walled, initial, out bool state)) break;
@@ -493,7 +494,9 @@ public static class UrbanFabric
             return best >= 3;
         }
         // 毡帐只立在旱地上(用户 2026-10-20 "蒙古包只能留在沙漠，或者荒原之类的地形")
-        bool Ground(int x, int y, bool town, int size) => !yurts || RuralSettlementSystem.YurtGround(x, y, town, size);
+        // 纯沙漠、纯冻土上不立村镇(见 BarrenLandSystem)
+        bool Ground(int x, int y, bool town, int size) =>
+            !BarrenLandSystem.BarrenAt(x, y) && (!yurts || RuralSettlementSystem.YurtGround(x, y, town, size));
         // 游牧的毡帐镇：挑村址(由近及远)，本城地上没有就城外紧挨着的一处(同农耕城的镇)
         if (nomad)
             foreach ((int x, int y, _) in sites)

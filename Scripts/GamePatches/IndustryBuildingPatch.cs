@@ -42,6 +42,12 @@ public class IndustryBuildingPatch : GamePatch
 
     public static void AfterIsGoodTile(WorldTile pTile, BuildingAsset pAsset, City pCity, ref bool __result)
     {
+        // 纯沙漠、纯冻土(城心那块除外)建不了任何建筑(见 BarrenLandSystem)
+        if (__result && pTile?.zone != null && BarrenLandSystem.Barren(pTile.zone))
+        {
+            __result = false;
+            return;
+        }
         // 民居先盖在住得下人的地上(用户 2026-10-22"建造建筑也要区分什么地块可以建造建筑")：城里宜居的地合起来够一块半整块草地，
         // 沙漠、荒原、山石、沙地的格子就不盖民居；整座城都是荒地的照旧能盖(见 TerrainSystem.LivableWeight)
         if (__result && pTile != null && pAsset != null && pCity?.data != null &&

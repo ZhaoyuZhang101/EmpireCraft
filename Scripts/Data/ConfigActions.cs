@@ -27,6 +27,7 @@ namespace EmpireCraft.Scripts.Data
         private static int SettlementValue(string text, int fallback, int min, int max = 100000) =>
             int.TryParse(text, out int value) ? Math.Min(max, Math.Max(min, value)) : fallback;
         public static void SettlementBaseGoldCallBack(string v) => ModClass.SETTLEMENT_BASE_GOLD = SettlementValue(v, 200, 50);
+        public static void BarrenZoneMultiplierCallBack(string v) => ModClass.BARREN_ZONE_MULTIPLIER = SettlementValue(v, 2, 1, 10);
         public static void SettlementPerCityGoldCallBack(string v) => ModClass.SETTLEMENT_PER_CITY_GOLD = SettlementValue(v, 25, 0);
         public static void SettlementReserveGoldCallBack(string v) => ModClass.SETTLEMENT_RESERVE_GOLD = SettlementValue(v, 200, 0);
         public static void SettlementWoodCallBack(string v) => ModClass.SETTLEMENT_WOOD = SettlementValue(v, 20, 1);

@@ -218,6 +218,7 @@ public class SaveManagerPatch : GamePatch
         EmpireCraft.Scripts.GeneralSystems.SmoothBorders.ResetWorldState();
         EmpireCraft.Scripts.GeneralSystems.WarReach.ResetWorldState();
         EmpireCraft.Scripts.GeneralSystems.DeJureShareSystem.ResetWorldState();
+        EmpireCraft.Scripts.GeneralSystems.BarrenLandSystem.ResetWorldState();
         EmpireCraft.Scripts.UI.Components.CityDetailOverlay.ResetWorldState();
     }
 

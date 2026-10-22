@@ -47,6 +47,8 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
     public static int TITLE_MAX_CITIES = 5;
     // 和平扩张时单座城市的区域数上限；0 = 不限，不限制战争占领或玩家改地。
     public static int CITY_MAX_ZONES = 50;
+    // 游牧营地、斯拉夫文化的城领纯沙漠、纯冻土时地块上限与远近放宽几倍(见 BarrenLandSystem)
+    public static int BARREN_ZONE_MULTIPLIER = 2;
     public static int SETTLEMENT_BASE_GOLD = 200;
     public static int SETTLEMENT_PER_CITY_GOLD = 25;
     public static int SETTLEMENT_RESERVE_GOLD = 200;

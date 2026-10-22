@@ -595,6 +595,8 @@ public static class RuralSettlementSystem
         WorldTile gate = fort ? WallGateSystem.SnapToWall(tile) : null;
         if (gate != null) tile = gate;
         if (!UrbanFabric.ManualGround(tile, gate != null)) return LM.Get("settlement_place_no_land");
+        // 纯沙漠、纯冻土住不了人(见 BarrenLandSystem)；关城是驻军，照常筑
+        if (!fort && BarrenLandSystem.Barren(tile.zone)) return LM.Get("settlement_place_barren");
         TileZone zone = tile.zone;
         City city = zone.city;
         bool claim = city == null;

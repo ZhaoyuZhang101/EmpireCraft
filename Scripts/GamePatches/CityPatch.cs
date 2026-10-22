@@ -1175,6 +1175,7 @@ public class CityPatch : GamePatch
     {
         ("年度扫描·宗族分支", ClanBranchSystem.TryYearlyScan),
         ("年度扫描·兼属", DeJureShareSystem.TryYearlyScan),
+        ("年度扫描·荒漠冻土", BarrenLandSystem.TryMonthlyScan),
         ("年度扫描·理念传播", IdeologySpreadSystem.TryYearlyScan),
         ("年度扫描·科技", TechnologySystem.TryYearlyScan),
         ("年度扫描·制度漂移", InstitutionSystem.TryYearlyCultureDrift),

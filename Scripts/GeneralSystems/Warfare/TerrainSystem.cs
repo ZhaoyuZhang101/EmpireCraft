@@ -52,8 +52,8 @@ public static class TerrainSystem
         public double At;
         public FrontTerrain Terrain;
         public bool Impassable, Known;
-        // 陆地格数、旱地格数(一块地 64 格)；宜居格(按地面加权 × LivableScale)、可耕格
-        public byte Land, Dry, Livable, Arable;
+        // 陆地格数、旱地格数(一块地 64 格)；宜居格(按地面加权 × LivableScale)、可耕格；纯沙漠 1、纯冻土 2(见 BarrenKind)
+        public byte Land, Dry, Livable, Arable, Barren;
     }
 
     private const int RefreshMonths = 48, RefreshSpreadMonths = 24;
@@ -106,8 +106,13 @@ public static class TerrainSystem
 
     // 宜居度(0~1，用户 2026-10-22 见荒漠帐比中原城人多："设置的地块大是因为他是沙漠和荒原，实际居住面积应该很小")：
     // 一块地 64 格按地面加权(见 LivableWeight)。民居上限按它折算(见 NoCommonersPatch.AfterRecalculateMaxHouses)
+    // 纯沙漠、纯冻土(城心那块除外)住不了人，为零(见 BarrenLandSystem)
     public static float Livability(TileZone zone) =>
-        zone == null ? 0f : Math.Min(1f, Lookup(zone).Livable / (64f * LivableScale));
+        zone == null || BarrenLandSystem.Barren(zone) ? 0f : Math.Min(1f, Lookup(zone).Livable / (64f * LivableScale));
+
+    // 陆地全是沙地、荒漠为 1(纯沙漠)，全是冻土(连冻住的沙地)为 2(纯冻土)，混着别的地、没有陆地为 0。
+    // 只看地形；城心那块不算的口径见 BarrenLandSystem.KindOf
+    public static int BarrenKind(TileZone zone) => zone == null ? 0 : Lookup(zone).Barren;
 
     // 陆地格数与其中的可耕格数(城郊收成按可耕比例折算，见 FarmlandSystem)
     public static (int land, int arable) ArableCounts(TileZone zone)
@@ -256,19 +261,20 @@ public static class TerrainSystem
     // 门槛按本地大地图实测：城市地块里平原约四成，丛林、雪原、水网、山地、丘陵各占一到两成(视地图而定)
     private static Entry Classify(TileZone zone)
     {
-        (FrontTerrain terrain, bool impassable, int land, int dry, int livable, int arable) = ClassifyTiles(zone);
+        (FrontTerrain terrain, bool impassable, int land, int dry, int livable, int arable, int barren) = ClassifyTiles(zone);
         return new Entry
         {
             Terrain = terrain, Impassable = impassable,
             Land = (byte)Math.Min(byte.MaxValue, land), Dry = (byte)Math.Min(byte.MaxValue, dry),
-            Livable = (byte)Math.Min(byte.MaxValue, livable), Arable = (byte)Math.Min(byte.MaxValue, arable)
+            Livable = (byte)Math.Min(byte.MaxValue, livable), Arable = (byte)Math.Min(byte.MaxValue, arable),
+            Barren = (byte)barren
         };
     }
 
-    private static (FrontTerrain terrain, bool impassable, int land, int dry, int livable, int arable) ClassifyTiles(TileZone zone)
+    private static (FrontTerrain terrain, bool impassable, int land, int dry, int livable, int arable, int barren) ClassifyTiles(TileZone zone)
     {
         int total = 0, water = 0, mountain = 0, hills = 0, trees = 0, woods = 0, swamp = 0, jungle = 0, desert = 0, snow = 0,
-            blocked = 0, land = 0, dry = 0, arable = 0;
+            blocked = 0, land = 0, dry = 0, arable = 0, sandy = 0, frozen = 0;
         float livableSum = 0f;
         foreach (WorldTile tile in zone.tiles)
         {
@@ -283,6 +289,11 @@ public static class TerrainSystem
                 if ((kinds & LandKinds.Dry) != 0) dry++;
                 if ((kinds & LandKinds.Arable) != 0) arable++;
                 livableSum += LivableWeight(type);
+                // 纯沙漠、纯冻土(见 BarrenLandSystem)：沙地(连海滩)、荒漠；冻土(冻住的沙地也是冻土)。
+                // 路、田、墙铺在上面的看底下的地面(沙漠里修了路、开过田也还是沙漠)
+                TileTypeBase ground = (type.road || type.farm_field || type.wall) && tile.main_type != null ? tile.main_type : type;
+                if (ground.biome_id == "biome_permafrost") frozen++;
+                else if (ground.biome_id is "biome_sand" or "biome_desert") sandy++;
             }
             int marks = Marks(type);
             if ((marks & MarkWater) != 0)
@@ -305,18 +316,19 @@ public static class TerrainSystem
             if (flora != null && flora.flora && flora.flora_type == FloraType.Tree) trees++;
         }
         int livable = (int)Math.Round(livableSum * LivableScale);
-        if (total == 0) return (FrontTerrain.Plains, false, land, dry, livable, arable);
+        int barren = land == 0 || sandy + frozen < land ? 0 : sandy >= frozen ? 1 : 2;
+        if (total == 0) return (FrontTerrain.Plains, false, land, dry, livable, arable, barren);
         bool impassable = blocked >= total * 0.75f;
         float Share(int count) => count / (float)total;
-        if (Share(mountain) >= 0.25f) return (FrontTerrain.Mountain, impassable, land, dry, livable, arable);
-        if (Share(mountain + hills) >= 0.3f) return (FrontTerrain.Hills, impassable, land, dry, livable, arable);
-        if (Share(swamp) >= 0.3f) return (FrontTerrain.Swamp, impassable, land, dry, livable, arable);
-        if (Share(water) >= 0.15f) return (FrontTerrain.River, impassable, land, dry, livable, arable);
-        if (Share(jungle) >= 0.3f) return (FrontTerrain.Jungle, impassable, land, dry, livable, arable);
+        if (Share(mountain) >= 0.25f) return (FrontTerrain.Mountain, impassable, land, dry, livable, arable, barren);
+        if (Share(mountain + hills) >= 0.3f) return (FrontTerrain.Hills, impassable, land, dry, livable, arable, barren);
+        if (Share(swamp) >= 0.3f) return (FrontTerrain.Swamp, impassable, land, dry, livable, arable, barren);
+        if (Share(water) >= 0.15f) return (FrontTerrain.River, impassable, land, dry, livable, arable, barren);
+        if (Share(jungle) >= 0.3f) return (FrontTerrain.Jungle, impassable, land, dry, livable, arable, barren);
         // 城市周边的树大多被砍过，一块地里有四棵树(约 6%)就算林地；桦树林、枫树林等林地生物群系按面积算
-        if (Share(trees) >= 0.06f || Share(woods) >= 0.3f) return (FrontTerrain.Forest, impassable, land, dry, livable, arable);
-        if (Share(desert) >= 0.4f) return (FrontTerrain.Desert, impassable, land, dry, livable, arable);
-        if (Share(snow) >= 0.4f) return (FrontTerrain.Snow, impassable, land, dry, livable, arable);
-        return (FrontTerrain.Plains, impassable, land, dry, livable, arable);
+        if (Share(trees) >= 0.06f || Share(woods) >= 0.3f) return (FrontTerrain.Forest, impassable, land, dry, livable, arable, barren);
+        if (Share(desert) >= 0.4f) return (FrontTerrain.Desert, impassable, land, dry, livable, arable, barren);
+        if (Share(snow) >= 0.4f) return (FrontTerrain.Snow, impassable, land, dry, livable, arable, barren);
+        return (FrontTerrain.Plains, impassable, land, dry, livable, arable, barren);
     }
 }

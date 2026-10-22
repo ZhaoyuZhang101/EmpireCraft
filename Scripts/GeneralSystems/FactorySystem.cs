@@ -392,6 +392,8 @@ public static class FactorySystem
         bool claim = manual && city == null && tile?.zone != null;
         if (claim) city = RuralSettlementSystem.NearestCity(tile.zone, tile);
         if (city?.data == null || city.isRekt()) return LM.Get("factory_place_no_city");
+        // 纯沙漠、纯冻土建不了东西(见 BarrenLandSystem)
+        if (BarrenLandSystem.Barren(tile.zone)) return LM.Get("settlement_place_barren");
         List<string> unlocked = manual ? AllTypes() : Unlocked(city);
         if (unlocked.Count == 0) return string.Format(LM.Get("factory_place_no_tech"), city.GetCityName());
         if (!manual) unlocked = Preferred(unlocked);
