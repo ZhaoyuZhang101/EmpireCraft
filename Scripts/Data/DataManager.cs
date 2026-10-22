@@ -68,11 +68,20 @@ public static class DataManager
         LogService.LogInfo("初始化模组数据模板");
         bool isOldSave = saveData == null || saveData.mod_version < ModClass.MOD_DATA_VERSION;
 
-        if (saveData == null || saveData.actorsExtraData == null || saveData.actorsExtraData.Count == 0)
+        // 一份模组数据都读不出来(文件损坏)：同没有存档文件，按文化给各国定政体(以前直接返回，政体留在默认值律令)
+        if (saveData == null)
         {
+            foreach (var worldKingdom in World.world.kingdoms)
+            {
+                worldKingdom.InitialRegime();
+            }
             LogService.LogInfo("没有找到任何保存数据。");
             return;
         }
+        // 人物附加数据为空不等于没有存档：世上一个实体小人都没有的世界(无小人、人口全在背景里)存不出人物数据，
+        // 以前在这里整个返回，国家、城市、文化、人口、法理一概没读——全图律令制(政体默认值)、国名被改、文化图层没颜色、
+        // 人口不长(玩家 2026-10-22 反馈，最新版读旧档)。现在只跳过人物这一段
+        if (saveData.actorsExtraData.Count == 0) LogService.LogInfo("存档里没有人物附加数据(世上没有实体小人)，其余照常读取。");
         List<string> a = new List<string>();
         var unitById = World.world.units.ToDictionary(u => u.getID());
         var kingdomById = World.world.kingdoms.ToDictionary(k => k.getID());
