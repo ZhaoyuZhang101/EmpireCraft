@@ -106,7 +106,7 @@ public class OnlineUpdateWindow : AutoLayoutWindow<OnlineUpdateWindow>
         _downloadButton = buttons.AddButtonIntoHoriLayout(
             "online_update_download",
             GetDownloadButtonText(),
-            EmpireCraftUpdateService.DownloadAndInstallOnExit,
+            EmpireCraftUpdateService.DownloadAndInstall,
             size: new Vector2(92, 20),
             showTip: true);
 
