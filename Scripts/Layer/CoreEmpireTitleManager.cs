@@ -16,7 +16,8 @@ public static class EmpireCoreManager
     public static void SyncCitiesFromTitles(EmpireCore core, bool preserveOccupiedCore = false)
     {
         if (core == null) return;
-        HashSet<City> targetCities = GetCities(core).Where(c => c != null && !c.isRekt()).ToHashSet();
+        // 只按本来的法理(兼属进来的城各有本来的核心，不能抢过来，见 DeJureShareSystem)
+        HashSet<City> targetCities = EnumerateOwnCities(core).Where(c => c != null && !c.isRekt()).ToHashSet();
 
         foreach (var city in World.world.cities.list)
         {
@@ -154,7 +155,25 @@ public static class EmpireCoreManager
         return cities;
     }
 
+    // 帝国法理的城：本来的法理的城，连同兼属进来的(见 DeJureShareSystem：兼属本法理各王国法理的城、兼属本法理的王国法理的城)
     public static IEnumerable<City> EnumerateCities(EmpireCore core)
+    {
+        foreach (City city in EnumerateOwnCities(core)) yield return city;
+        if (core?.titlesRecord == null || core.false_core_against_empire_id > 0 || core.warlord_parent_core_id > 0 ||
+            !DeJureShareSystem.Any) yield break;
+        foreach (var record in core.titlesRecord.ToList())
+        {
+            KingdomTitle title = ModClass.KINGDOM_TITLE_MANAGER.get(record.titleId);
+            if (title == null || title.isRekt()) continue;
+            foreach (City city in DeJureShareSystem.SharedCities(title)) yield return city;
+        }
+        foreach (KingdomTitle title in DeJureShareSystem.SharedTitles(core))
+            foreach (City city in DeJureShareSystem.AllCities(title))
+                if (city != null && !city.isRekt()) yield return city;
+    }
+
+    // 只是本来的法理的城(不含兼属进来的)
+    public static IEnumerable<City> EnumerateOwnCities(EmpireCore core)
     {
         if (core?.titlesRecord == null) yield break;
         bool provisional = core.false_core_against_empire_id > 0 || core.warlord_parent_core_id > 0;

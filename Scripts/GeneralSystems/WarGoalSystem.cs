@@ -239,8 +239,8 @@ public static class WarGoalSystem
         foreach (City city in cities)
         {
             if (city?.data == null || city.isRekt()) continue;
-            // 争议地带：攻方帝国的核心宣称这座城为故地，也算收复(见 ContestedLandSystem)
-            if (ContestedLandSystem.ClaimedBy(city, realm))
+            // 兼属：这座城兼属的王国法理、帝国法理在攻方一方，也算收复(见 DeJureShareSystem)
+            if (DeJureShareSystem.ClaimedBy(city, realm))
             {
                 result.Add(city);
                 continue;

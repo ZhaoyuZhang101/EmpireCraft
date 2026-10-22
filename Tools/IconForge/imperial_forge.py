@@ -1267,7 +1267,11 @@ TOOLS = {
     # 天下(帝国核心之上，见 TianxiaSystem)：并入、退出联合天下
     "iconToolTianxiaJoin": (obj_ding, "arrow"),
     "iconToolTianxiaLeave": (obj_ding, "minus"),
-    "iconToolContested": (obj_banners, "swap"),
+    # 兼属(见 DeJureShareSystem)：一座城、一个王国法理、一个帝国法理另挂一个上级
+    "iconToolTitleShare": (obj_title, "plus"),
+    "iconToolCoreLayer": (obj_seal, None),
+    "iconToolCoreShare": (obj_seal, "plus"),
+    "iconToolTianxiaShare": (obj_ding, "plus"),
     "iconNationLayer": (obj_heat_flag, None),
 }
 

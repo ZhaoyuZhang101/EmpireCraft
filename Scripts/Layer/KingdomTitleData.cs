@@ -39,6 +39,9 @@ public class KingdomTitleData: MetaObjectData
     public List<string> history_emperrors;
     public List<KingdomTitleJurisdictionRecord> jurisdiction_history = new List<KingdomTitleJurisdictionRecord>();
     public long main_kingdom { get; set; } = -1L;
+    // 年度扫描上次看到的所属帝国法理(看换没换，见 DeJureShareSystem)
+    public long dejure_last_core = -1L;
+    public bool ShouldSerializedejure_last_core() => dejure_last_core >= 0;
 
     public double timestamp_been_controlled;
 

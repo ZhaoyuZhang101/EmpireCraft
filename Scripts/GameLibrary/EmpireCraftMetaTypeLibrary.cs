@@ -707,7 +707,7 @@ public static class EmpireCraftMetaTypeLibrary
             }
             if (!city11.hasTitle())
               return;
-            foreach (City city12 in city11.GetTitle()?.getCities()?? new List<City>())
+            foreach (City city12 in EmpireCraft.Scripts.GeneralSystems.DeJureShareSystem.AllCities(city11.GetTitle()))
               QuantumSpriteLibrary.colorZones(pQAsset, city12.zones, color);
           }
           else

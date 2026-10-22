@@ -80,11 +80,14 @@ public static class CityExtension
         public string kingdom_names = "";
         public long title_id = -1L;
         public long empire_core_id = -1L;
-        // 争议地带(见 ContestedLandSystem)：另有哪几个帝国核心宣称这座城为故地；年度扫描上次看到的本城核心(看核心换没换)
+        // 兼属的王国法理(见 DeJureShareSystem)；年度扫描上次看到的本城王国法理(看换没换)；
+        // 旧存档的争议地带宣称(读档时折成兼属后清空)
+        public List<EmpireCraft.Scripts.GeneralSystems.DeJureShare> shared_titles;
+        public long dejure_last_title = -1L;
         public List<EmpireCraft.Scripts.GeneralSystems.ContestClaim> contested_claims;
-        public long contested_last_core = -1L;
+        public bool ShouldSerializeshared_titles() => shared_titles != null && shared_titles.Count > 0;
+        public bool ShouldSerializedejure_last_title() => dejure_last_title >= 0;
         public bool ShouldSerializecontested_claims() => contested_claims != null && contested_claims.Count > 0;
-        public bool ShouldSerializecontested_last_core() => contested_last_core >= 0;
         public List<long> exam_pass_person = new List<long>();
         public int MAX_POPULATION = 100;
         public bool MAX_POPULATION_LIMIT = false;

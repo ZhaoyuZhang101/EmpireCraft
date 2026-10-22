@@ -17,12 +17,12 @@ namespace EmpireCraft.Scripts.UI;
 
 internal static class MainTab
 {
-    public const string KINGDOM_TITLE_GROUP = "kingdom_title_group";
-    // 两个标签页，各按类别分组(同原版标签页，组与组之间有分隔线)：
-    //   帝国：法理与行政区 | 帝国核心 | 帝国 | 显示与工具
+    // 三个标签页，各按类别分组(同原版标签页，组与组之间有分隔线)：
+    //   帝国：王国法理 | 帝国法理 | 天下 | 行政区 | 帝国 | 显示与工具(法理三层按层排，每层 图层·建立·加入·兼属·移出)
     //   文化与规划：文化理念等图层 | 城市规划 | 理念种子
-    public const string TITLE_GROUP = "title_group";
+    public const string KINGDOM_TITLE_GROUP = "kingdom_title_group";
     public const string EMPIRE_CORE_GROUP = "empire_core_group";
+    public const string TIANXIA_GROUP = "tianxia_group";
     public const string EMPIRE_GROUP = "empire_layer_group";
     public const string CULTURE_GROUP = "culture_ideology_group";
     public const string BUILD_GROUP = "city_building_group";
@@ -50,8 +50,10 @@ internal static class MainTab
         // 设置标签页的布局. 布局是一个字符串列表, 每个字符串是一个分类. 每个分类的名字不重要.
         tab.SetLayout(new List<string>()
         {
-            TITLE_GROUP,
+            KINGDOM_TITLE_GROUP,
             EMPIRE_CORE_GROUP,
+            TIANXIA_GROUP,
+            PROVINCE_GROUP,
             EMPIRE_GROUP,
             DISPLAY_GROUP,
         });
@@ -198,51 +200,58 @@ internal static class MainTab
     [Hotfixable]
     private static void _addButtons()
     {
-        // ---- 法理与行政区：图层与法理、省份的增删，羁縻规划 ----
+        // ---- 王国法理：图层、建立、加入、兼属、移出 ----
         PowerButton pb0 = FixFunctions.CreateLayerButton(MetaTypeExtension.KingdomTitle,
                  SpriteTextureLoader.getSprite("ui/icons/iconToolTitleLayer.png"));
-        AddButton(TITLE_GROUP, pb0);
+        AddButton(KINGDOM_TITLE_GROUP, pb0);
 
         CreateTitleButton.init();
-        AddButton(TITLE_GROUP,
+        AddButton(KINGDOM_TITLE_GROUP,
             PowerButtonCreator.CreateGodPowerButton("create_title",
                   SpriteTextureLoader.getSprite("ui/icons/iconToolTitleCreate.png")));
 
         AddTitleButton.init();
-        AddButton(TITLE_GROUP,
+        AddButton(KINGDOM_TITLE_GROUP,
             PowerButtonCreator.CreateGodPowerButton("add_title",
                 SpriteTextureLoader.getSprite("ui/icons/iconToolTitleAdd.png")));
 
+        // 兼属(城另挂一个王国法理、王国法理另挂一个帝国法理、帝国法理另挂一个天下，见 DeJureShareSystem)
+        DeJureSharePowers.init();
+        AddButton(KINGDOM_TITLE_GROUP,
+            PowerButtonCreator.CreateGodPowerButton(DeJureSharePowers.TitleShare,
+                SpriteTextureLoader.getSprite("ui/icons/iconToolTitleShare.png")));
+
         RemoveTitleButton.init();
-        AddButton(TITLE_GROUP,
+        AddButton(KINGDOM_TITLE_GROUP,
             PowerButtonCreator.CreateGodPowerButton("remove_title",
                 SpriteTextureLoader.getSprite("ui/icons/iconToolTitleRemove.png")));
 
+        // ---- 行政区：省份的增删，羁縻规划 ----
         CreateProvinceButton.init();
-        AddButton(TITLE_GROUP,
+        AddButton(PROVINCE_GROUP,
             PowerButtonCreator.CreateGodPowerButton("create_province",
                 SpriteTextureLoader.getSprite("ui/icons/iconToolProvinceCreate.png")));
 
         AddProvinceButton.init();
-        AddButton(TITLE_GROUP,
+        AddButton(PROVINCE_GROUP,
             PowerButtonCreator.CreateGodPowerButton("add_province",
                 SpriteTextureLoader.getSprite("ui/icons/iconToolProvinceAdd.png")));
 
         RemoveProvinceButton.init();
-        AddButton(TITLE_GROUP,
+        AddButton(PROVINCE_GROUP,
             PowerButtonCreator.CreateGodPowerButton("remove_province",
                 SpriteTextureLoader.getSprite("ui/icons/iconToolProvinceRemove.png")));
 
         JimiPolicyPower.Init();
-        AddButton(TITLE_GROUP,
+        AddButton(PROVINCE_GROUP,
             PowerButtonCreator.CreateGodPowerButton("jimi_policy",
                 SpriteTextureLoader.getSprite("ui/icons/godpowers/jimi_policy")));
 
-        // ---- 帝国核心 ----
+        // ---- 帝国法理(帝国核心)：图层(法理图层的帝国法理显示)、建立、加入、兼属、移出、销毁 ----
         CreateEmpireCoreButton.init();
-        // 天下图层：按天下给城上色(模式二按各家据有着色)，点城打开天下窗口(见 TianxiaMap)
-        AddButton(EMPIRE_CORE_GROUP, FixFunctions.CreateLayerButton(MetaTypeExtension.Tianxia,
-            SpriteTextureLoader.getSprite("ui/icons/godpowers/tianxia_layer"), maxOption: 2));
+        AddButton(EMPIRE_CORE_GROUP,
+            PowerButtonCreator.CreateGodPowerButton(DeJureSharePowers.CoreLayer,
+                SpriteTextureLoader.getSprite("ui/icons/iconToolCoreLayer.png")));
         AddButton(EMPIRE_CORE_GROUP,
             PowerButtonCreator.CreateGodPowerButton("create_empire_core",
                 SpriteTextureLoader.getSprite("ui/icons/iconToolCoreCreate.png")));
@@ -251,6 +260,9 @@ internal static class MainTab
         AddButton(EMPIRE_CORE_GROUP,
             PowerButtonCreator.CreateGodPowerButton("add_title_to_empire_core",
                 SpriteTextureLoader.getSprite("ui/icons/iconToolCoreAddTitle.png")));
+        AddButton(EMPIRE_CORE_GROUP,
+            PowerButtonCreator.CreateGodPowerButton(DeJureSharePowers.CoreShare,
+                SpriteTextureLoader.getSprite("ui/icons/iconToolCoreShare.png")));
 
         RemoveTitleFromEmpireCoreButton.init();
         AddButton(EMPIRE_CORE_GROUP,
@@ -262,19 +274,19 @@ internal static class MainTab
             PowerButtonCreator.CreateGodPowerButton("destroy_empire_core",
                 SpriteTextureLoader.getSprite("ui/icons/iconToolCoreDestroy.png")));
 
-        // 天下：几个帝国核心并成联合天下、退出(见 TianxiaSystem；图层按钮在本组开头)
+        // ---- 天下：图层(按天下给城上色，模式二按各家据有着色，点城打开天下窗口，见 TianxiaMap)、并入、兼属、退出 ----
+        AddButton(TIANXIA_GROUP, FixFunctions.CreateLayerButton(MetaTypeExtension.Tianxia,
+            SpriteTextureLoader.getSprite("ui/icons/godpowers/tianxia_layer"), maxOption: 2));
         TianxiaPowers.init();
-        AddButton(EMPIRE_CORE_GROUP,
+        AddButton(TIANXIA_GROUP,
             PowerButtonCreator.CreateGodPowerButton("tianxia_join",
                 SpriteTextureLoader.getSprite("ui/icons/iconToolTianxiaJoin.png")));
-        AddButton(EMPIRE_CORE_GROUP,
+        AddButton(TIANXIA_GROUP,
+            PowerButtonCreator.CreateGodPowerButton(DeJureSharePowers.TianxiaShare,
+                SpriteTextureLoader.getSprite("ui/icons/iconToolTianxiaShare.png")));
+        AddButton(TIANXIA_GROUP,
             PowerButtonCreator.CreateGodPowerButton("tianxia_leave",
                 SpriteTextureLoader.getSprite("ui/icons/iconToolTianxiaLeave.png")));
-        // 争议地带：一座城另记别家帝国核心的故地宣称(见 ContestedLandSystem)
-        ContestedPowers.init();
-        AddButton(EMPIRE_CORE_GROUP,
-            PowerButtonCreator.CreateGodPowerButton(ContestedPowers.Id,
-                SpriteTextureLoader.getSprite("ui/icons/iconToolContested.png")));
 
         // ---- 帝国：图层、称帝与解散、分封、列表、人物建国 ----
         PowerButton pb = FixFunctions.CreateLayerButton(MetaTypeExtension.Empire,

@@ -56,6 +56,11 @@ public class EmpireCore
     public double tianxia_phase_since { get; set; } = -1d;
     // 历代受天命者(天下窗口"历代共主")
     public List<MandateRecord> mandate_history { get; set; }
+    // 兼属(见 DeJureShareSystem)：另算进本帝国法理的王国法理；本帝国法理另兼属的天下(记主核心)
+    public List<EmpireCraft.Scripts.GeneralSystems.DeJureShare> shared_titles { get; set; }
+    public List<EmpireCraft.Scripts.GeneralSystems.DeJureShare> shared_tianxia { get; set; }
+    public bool ShouldSerializeshared_titles() => shared_titles != null && shared_titles.Count > 0;
+    public bool ShouldSerializeshared_tianxia() => shared_tianxia != null && shared_tianxia.Count > 0;
 
     public bool SetCoreCapital(City city)
     {

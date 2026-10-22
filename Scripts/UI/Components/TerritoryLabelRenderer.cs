@@ -776,7 +776,8 @@ public static class TerritoryLabelRenderer
             bool inputsChanged = PlacementInputsChanged(text, style);
             if (!_has_geometry_result || inputsChanged || Time.unscaledTime >= _next_geometry_refresh)
             {
-                CollectCityZones(EmpireCoreManager.EnumerateCities(core), _zones, _zone_ids);
+                // 地名只铺在本来的城上(兼属的城两家都算，铺上去名字会压到别家)
+                CollectCityZones(EmpireCoreManager.EnumerateOwnCities(core), _zones, _zone_ids);
                 RefreshZonePlacement(text, style, inputsChanged);
             }
             QueueRender(text, style, fullyOpaque);

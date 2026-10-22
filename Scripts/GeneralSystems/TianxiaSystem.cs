@@ -132,14 +132,15 @@ public static class TianxiaSystem
                     if (!CitiesByLead.TryGetValue(owner.id, out List<City> list)) CitiesByLead[owner.id] = list = new List<City>();
                     list.Add(city);
                 }
-                // 争议地带：宣称方所在的天下也算这座城(统一占比、统一战争的目标，见 ContestedLandSystem)
-                if (!ContestedLandSystem.HasClaims(city)) continue;
-                foreach (EmpireCore claimant in ContestedLandSystem.Claimants(city))
+                // 兼属：兼属的王国法理、帝国法理所在的天下，兼属的天下，也都算这座城(统一占比、统一战争的目标，见 DeJureShareSystem)
+                if (!DeJureShareSystem.Involved(city)) continue;
+                List<EmpireCore> leads = DeJureShareSystem.LeadsOf(city);
+                for (int i = 0; i < leads.Count; i++)
                 {
-                    EmpireCore other = Lead(claimant);
+                    EmpireCore other = leads[i];
                     if (other == null || other == owner) continue;
-                    if (!CitiesByLead.TryGetValue(other.id, out List<City> claimed)) CitiesByLead[other.id] = claimed = new List<City>();
-                    if (!claimed.Contains(city)) claimed.Add(city);
+                    if (!CitiesByLead.TryGetValue(other.id, out List<City> shared)) CitiesByLead[other.id] = shared = new List<City>();
+                    if (!shared.Contains(city)) shared.Add(city);
                 }
             }
         }

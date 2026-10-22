@@ -269,6 +269,8 @@ public static class DataManager
         EmpireCoreManager.RestoreAllParentCities();
         EmpireCoreManager.RepairUntitledCoreCities();
         EmpireCoreManager.ReconcileCityCores();
+        // 兼属的反查表重建；旧存档的争议地带宣称折成兼属(见 DeJureShareSystem)
+        DeJureShareSystem.AfterLoad();
         CultureService.MigrateWorldCultureData();
         SpecificClanManager._specificClans = saveData.specificClans;
         SpecificClanManager.RebuildCache();

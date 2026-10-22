@@ -420,8 +420,8 @@ public partial class PureMapPatch : GamePatch
         Slot[] slots = plan != null && plan.zones.TryGetValue(zone.id, out Slot[] found) ? found : null;
         int ox = zone.x * Config.CITY_ZONE_SIZE, oy = zone.y * Config.CITY_ZONE_SIZE;
         Color32? occupied = OccupierFill(city, zone);
-        // 争议地带：法理图层的帝国核心显示、天下图层上画宣称方颜色的斜纹(见 ContestedLandSystem)
-        Color32? contested = city == null ? null : ContestedLandSystem.StripeColor(city);
+        // 兼属：王国法理、帝国法理、天下图层上画兼属方颜色的斜纹(见 DeJureShareSystem)
+        Color32[] stripes = city == null ? null : DeJureShareSystem.StripeColors(city);
         // 平滑国界：被占的地、逐格推进吃下的格子直接按控制方上色(见 SmoothBorders)，这里不再画占领斜纹
         bool smooth = SmoothBorders.Enabled;
         if (smooth) occupied = null;
@@ -485,8 +485,8 @@ public partial class PureMapPatch : GamePatch
             if (edge) continue;
             // 被敌军占着的地块：涂占领方的颜色，留一道道原主颜色的细斜纹
             if (occupied is Color32 fill && (tile.x + tile.y) % 4 != 0) pixels[id] = fill;
-            // 争议地带：两格本色、两格宣称方的颜色相间
-            if (contested is Color32 second && ContestedLandSystem.StripeAt(tile)) pixels[id] = second;
+            // 兼属：每两格换一种颜色，本色与兼属方的颜色轮流
+            if (stripes != null && DeJureShareSystem.Band(tile, stripes.Length) is int band && band > 0) pixels[id] = stripes[band - 1];
             Color32 shaded = Shade(tile, pixels[id]);
             pixels[id] = detail ? Plan(tile, shaded, farm, slots, tile.x - ox, tile.y - oy, plan, zone) : shaded;
         }

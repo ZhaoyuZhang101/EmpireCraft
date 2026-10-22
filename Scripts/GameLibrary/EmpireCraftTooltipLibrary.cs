@@ -662,11 +662,19 @@ public static class EmpireCraftTooltipLibrary
         {
             pTooltip.addLineText("empire_core_current_empires", string.Join(" / ", empires), colorText, false, true, 21);
         }
-        // 争议地带：这座城另有哪家核心宣称为故地(见 ContestedLandSystem)
-        List<EmpireCore> claimants = ContestedLandSystem.Claimants(city);
-        if (claimants.Count > 0)
-            pTooltip.addLineText("empire_core_contested",
-                string.Join(" / ", claimants.Select(EmpireCoreManager.GetStatusDisplayName)), "#E9A85B", false, true, 21);
+        // 兼属：这座城兼属的王国法理、另算进的帝国法理与天下(见 DeJureShareSystem)
+        List<KingdomTitle> sharedTitles = DeJureShareSystem.SharedTitles(city);
+        if (sharedTitles.Count > 0)
+            pTooltip.addLineText("dejure_share_titles", string.Join(" / ", sharedTitles.Select(title => title.data.name)),
+                "#E9A85B", false, true, 21);
+        List<EmpireCore> sharedCores = DeJureShareSystem.CoresOf(city).Where(other => other != core).ToList();
+        if (sharedCores.Count > 0)
+            pTooltip.addLineText("dejure_share_cores",
+                string.Join(" / ", sharedCores.Select(EmpireCoreManager.GetStatusDisplayName)), "#E9A85B", false, true, 21);
+        List<EmpireCore> leads = DeJureShareSystem.LeadsOf(city);
+        if (leads.Count > 1)
+            pTooltip.addLineText("dejure_share_tianxia", string.Join(" / ", leads.Skip(1).Select(TianxiaSystem.Name)),
+                "#E9A85B", false, true, 21);
     }
     private static void showOfficer(Tooltip pTooltip, string pType, TooltipData pData)
     {
