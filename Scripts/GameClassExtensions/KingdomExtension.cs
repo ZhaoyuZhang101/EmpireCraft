@@ -531,6 +531,8 @@ public static class KingdomExtension
         public double last_kingdom_status_ts = -1L;
         // 羁縻规划(见 JimiSystem)：0 自动(按文化/种族) 1 羁縻 2 直辖
         public int jimi_mode;
+        // 读档查过"本朝法理里的羁縻改回直辖"没有(见 ShuiTuSystem.RestoreHomelandJimi)；神力、交当地首领设的羁縻一并记上，不再改回
+        public bool jimi_homeland_checked;
         public double last_tf_check_ts = -1L;
         public double last_plots_check_ts = -1L;
         public double last_cabinet_check_ts = -1L;

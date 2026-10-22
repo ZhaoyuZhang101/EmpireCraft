@@ -271,6 +271,8 @@ public static class DataManager
         EmpireCoreManager.ReconcileCityCores();
         // 兼属的反查表重建；旧存档的争议地带宣称折成兼属(见 DeJureShareSystem)
         DeJureShareSystem.AfterLoad();
+        // 本朝法理里因水土设的羁縻改回直辖(一次)
+        ShuiTuSystem.RestoreHomelandJimi();
         CultureService.MigrateWorldCultureData();
         SpecificClanManager._specificClans = saveData.specificClans;
         SpecificClanManager.RebuildCache();

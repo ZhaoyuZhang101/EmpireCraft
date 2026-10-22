@@ -596,6 +596,7 @@ public static class AdministrativeControlSystem
             {
                 var data = local.GetOrCreate();
                 data.jimi_mode = (int)JimiMode.Jimi;
+                data.jimi_homeland_checked = true;
                 data.last_kingdom_status_ts = -1d;
                 EmpireCraft.Scripts.AI.KingdomAI.EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(local);
                 return "jimi";

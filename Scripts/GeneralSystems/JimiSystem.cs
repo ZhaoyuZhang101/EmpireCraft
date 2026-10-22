@@ -70,6 +70,7 @@ public static class JimiSystem
             return string.Format(LM.Get("jimi_policy_unavailable"), empire.GetEmpireFullName());
         var data = kingdom.GetOrCreate();
         data.jimi_mode = ((int)Mode(kingdom) + 1) % 3;
+        data.jimi_homeland_checked = true;
         // 下次政体检查立即按新设定重判政区类型
         data.last_kingdom_status_ts = -1d;
         EmpireCraft.Scripts.AI.KingdomAI.EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(kingdom);

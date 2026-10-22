@@ -23,6 +23,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 游牧离草(政权级)：直辖城(羁縻、附庸不算，口径同 AdministrativeControlSystem.IsIndirect)里旱地城不到 SteppeShare(六成)起算，
 //     回到六成以上、或改了政体(不再是游牧)就清零；
 //   · 定居入草(按城)：只适应农地的政权直辖的每座旱地城，记下占有起始时间与政权(易主按新主人重新计时)；
+//     本朝帝国法理(核心，连同兼属)里的城是故土，不论水土(用户 2026-10-22 见中原画成稀树草原、开封都司被设成羁縻：
+//     "为什么一个帝国法理核心里面的城市会变成羁縻"，问答选"本朝法理核心的城不论水土"，见 Homeland)；
 //   · 分档：满 FirstTierYears(20)年第一档，之后每满 TierStepYears(10)年加一档，最多 MaxTier(3)档。
 //     旧档读进来没有这些时间的从第一次结算起算，不会一读档就到档；
 //   · 逐步适应(用户 2026-10-21 选文明平衡 A3)：定居入草的旱地城，城里主流文化已是统治者文化的，占满 AdaptYears(60)年起
@@ -230,6 +232,50 @@ public static partial class ShuiTuSystem
     // 旱地城(按城缓存)
     public static bool IsDryCity(City city) => Dry(city).Dry;
 
+    // 本朝故土：城在统治它的帝国自己的帝国法理里(本来的或兼属的，见 DeJureShareSystem.CoresOf)
+    public static bool Homeland(Kingdom unit, City city)
+    {
+        Empire empire = unit?.GetEmpire() ?? city?.kingdom?.GetEmpire();
+        EmpireCore core = empire == null || empire.isRekt() || empire.IsArchived() ? null : EmpireCoreManager.Get(empire);
+        return core != null && city?.data != null && DeJureShareSystem.CoresOf(city).Contains(core);
+    }
+
+    // 读档时一次(按国家记 jimi_homeland_checked)：以前不服水土交出去的羁縻地区，城都在宗主帝国自己的法理里、
+    // 按文化种族本该直辖的，改回直辖的州郡(不准外交、科举任命)。神力指定的、后来新设的羁縻不动(见 JimiSystem.Cycle、
+    // AdministrativeControlSystem.Subordinate 设羁縻时一并记上)
+    public static void RestoreHomelandJimi()
+    {
+        if (World.world?.kingdoms == null) return;
+        int restored = 0;
+        foreach (Kingdom kingdom in World.world.kingdoms.ToList())
+        {
+            if (kingdom?.data == null || kingdom.isRekt()) continue;
+            var data = kingdom.GetOrCreate();
+            if (data.jimi_homeland_checked) continue;
+            data.jimi_homeland_checked = true;
+            if (data.jimi_mode != (int)JimiMode.Jimi || !JimiSystem.IsJimiAdministration(kingdom)) continue;
+            Empire empire = kingdom.GetEmpire();
+            if (empire == null || kingdom.IsEmpire() || kingdom.cities.Count == 0 ||
+                !kingdom.cities.All(city => Homeland(empire.CoreKingdom, city))) continue;
+            data.jimi_mode = (int)JimiMode.Auto;
+            if (JimiSystem.IsJimiRegion(kingdom, empire))
+            {
+                data.jimi_mode = (int)JimiMode.Jimi;
+                continue;
+            }
+            Regime regime = kingdom.GetRegime();
+            if (regime != null)
+            {
+                regime.SetAllowDiplomacy(false);
+                regime.SetLeaderSelectMethod(LeaderSelectMethod.Exam);
+            }
+            data.last_kingdom_status_ts = -1d;
+            EmpireCraft.Scripts.AI.KingdomAI.EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(kingdom);
+            restored++;
+        }
+        if (restored > 0) LogService.LogInfo($"[EmpireCraft][水土] 本朝法理里的羁縻地区改回直辖 {restored} 处");
+    }
+
     // 城领土陆地里旱地占几成(显示用)
     public static float DryShare(City city) => Dry(city).Share;
 
@@ -399,7 +445,7 @@ public static partial class ShuiTuSystem
             var data = city.GetOrCreate();
             string culture = CultureService.GetMainCulture(city, initialize: false);
             int years = 0, tier = 0;
-            if (fit == Fit.Farm && dry)
+            if (fit == Fit.Farm && dry && !Homeland(unit, city))
             {
                 // 新占的、易主的(按新主人)、旧档没记的，从现在起算
                 if (data.shuitu_owner != unit.id || data.shuitu_since < 0d || data.shuitu_since > now)
