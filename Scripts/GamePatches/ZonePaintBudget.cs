@@ -15,8 +15,8 @@ namespace EmpireCraft.Scripts.GamePatches;
 //   · 空白地块(不在"已画"名单里：刚建的城、读档后头一遍)预算宽得多(BlankBudgetMs)，尽快画上，但也不再不限量；
 //   · 全图重画、清空已画地块(原版 clearCurrentDrawnZones：切换图层选项、选中对象变了、缩放跨过远景门槛)时不先把色块清成透明
 //     (原版先清空再重画，分帧画会露出一块块空白)，旧颜色留到新颜色画上为止，不再归任何对象的地块照原版在下一轮清掉；
-//   · 平滑国界全图换色(换图层、初次进图，见 SmoothBorders.RepaintAll)：边算边翻——算色期间要一起翻的范围里离波心不过算色前沿的
-//     按 LayerPrecomputeBudgetMs 画、前沿以外与范围外的不画，每帧都巡检(原版跟着模拟步走、不一定每帧一轮，没巡检的那一帧补跑一轮，
+//   · 平滑国界全图换色(换图层、初次进图，见 SmoothBorders.RepaintAll)：先算齐再一起翻——算色期间要一起翻的范围里的
+//     按 LayerPrecomputeBudgetMs 画、范围外的不画，每帧都巡检(原版跟着模拟步走、不一定每帧一轮，没巡检的那一帧补跑一轮，
 //     见 ForceRound)；算齐后镜头外按 CatchUpBudgetMs 补画；
 //   · 原版每轮都从头按国、按城巡检，预算总被排在前面的地块用掉：镜头外自身归属或颜色变了的、排了 AgedSeconds 秒还没画的
 //     预算放宽到 CatchUpBudgetMs，不让排在后面的地块几十秒轮不到(图层诊断"没刷新的色块")。
@@ -31,8 +31,8 @@ public class ZonePaintBudget : GamePatch
     // 空白地块：以前当帧不限量全部画上，读档、缩放跨过远景门槛(原版清空整图)时五千多块挤在一帧，
     // 性能日志"原版·updateMapLayers"一帧 500~570 毫秒；现在每帧画到 40 毫秒为止，余下的下一帧接着按这个预算画
     private const double BlankBudgetMs = 40d;
-    // 全图换色算色期间前沿以内每帧画多少：那道波跟着算色往外推，每帧都画、不一次画完(用户 2026-10-22 "一次性算完颜色会造成卡顿")；
-    // 以前先算齐再翻时每轮 24 毫秒，原版又隔一帧才巡检一轮。补画镜头外、镜头外自身变了色的、排得太久的：低于镜头里的预算，
+    // 全图换色算色期间范围里每帧画多少：每帧都画、不一次画完(用户 2026-10-22 "一次性算完颜色会造成卡顿")；
+    // 以前每轮 24 毫秒，原版又隔一帧才巡检一轮。补画镜头外、镜头外自身变了色的、排得太久的：低于镜头里的预算，
     // 但不再只有 6 毫秒、排在后面的总轮不到
     private const double LayerPrecomputeBudgetMs = 16d, CatchUpBudgetMs = 12d;
     private const float AgedSeconds = 2f;
@@ -59,9 +59,7 @@ public class ZonePaintBudget : GamePatch
 
     // 原版巡检的轮次(redrawZones 每调一次加一，见 BeforeRedraw)；这一轮巡检了几块、要一起翻的范围里因预算延后了几块
     public static int Round { get; private set; }
-    private static int _roundChecks, _roundDeferredView, _roundBeyond, _lastRoundFrame = -1;
-    // 这一轮前沿以内因预算没画的块里离波心最近的那块有多远(见 SmoothBorders.LayerDue)
-    private static float _roundNearest = float.MaxValue;
+    private static int _roundChecks, _roundDeferredView, _lastRoundFrame = -1;
     // 原版 redrawZones 画完一轮把计时设成这个数(隔一帧才画下一轮)
     private const float RedrawInterval = 0.01f;
 
@@ -112,8 +110,6 @@ public class ZonePaintBudget : GamePatch
         Round++;
         _roundChecks = 0;
         _roundDeferredView = 0;
-        _roundBeyond = 0;
-        _roundNearest = float.MaxValue;
         if (!Active || _lastRoundFrame == Time.frameCount || __instance._redraw_timer <= 0f) return;
         if (SmoothBorders.WantsEveryRound) __instance._redraw_timer = 0f;
     }
@@ -125,10 +121,10 @@ public class ZonePaintBudget : GamePatch
         _lastRoundFrame = Time.frameCount;
         if (!Active) return;
         SmoothBorders.LayerRoundEnd(Round, ReferenceEquals(__instance._mode_asset, World.world?.getCachedMapMetaAsset()),
-            _roundDeferredView, _roundNearest, _roundBeyond, _layerPendingCount);
+            _roundDeferredView, _layerPendingCount);
     }
 
-    // 全图换色算色期间这一帧原版还没巡检(原版巡检跟着模拟步走，不一定每帧一轮)：补跑一轮，那道波每帧都有进展
+    // 全图换色算色期间这一帧原版还没巡检(原版巡检跟着模拟步走，不一定每帧一轮)：补跑一轮，每帧都有进展
     public static void ForceRound(ZoneCalculator calc)
     {
         if (!Active || calc == null || _lastRoundFrame == Time.frameCount || calc._mode_asset == null ||
@@ -288,24 +284,16 @@ public class ZonePaintBudget : GamePatch
             return;
         }
         double spent = _spent / TicksPerMs;
-        // 全图换色还在算色：要一起翻的范围里由近到远，离波心不过算色前沿的按算色预算画；前沿以外的等前沿推过来，
-        // 范围外的一概留到算齐之后(算力全给镜头里)
+        // 全图换色还在算色：要一起翻的范围里的按算色预算画，范围外的一概留到算齐之后(算力全给镜头里)
         if (SmoothBorders.LayerPrecomputing)
         {
             bool view = SmoothBorders.InLayerView(__instance);
-            float distance = 0f;
-            bool due = view && SmoothBorders.LayerDue(__instance, out distance);
-            if (due && (_painted < MinZonesPerFrame || spent < LayerPrecomputeBudgetMs))
+            if (view && (_painted < MinZonesPerFrame || spent < LayerPrecomputeBudgetMs))
             {
                 Painting(__instance);
                 return;
             }
-            if (due)
-            {
-                _roundDeferredView++;
-                if (distance < _roundNearest) _roundNearest = distance;
-            }
-            else if (view) _roundBeyond++;
+            if (view) _roundDeferredView++;
             int id = __instance.id;
             if (id >= 0 && id < _layerPending.Length && !_layerPending[id])
             {

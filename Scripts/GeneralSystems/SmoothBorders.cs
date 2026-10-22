@@ -1197,17 +1197,17 @@ public static class SmoothBorders
     // 全图换色(换图层、初次进图都走 RepaintAll)：
     //   用户 2026-10-16："我切换图层的时候不能用全图翻转吗"；10-21："每次切换图层的时候都先检测，然后一次性从中间也好、从左往右也好转换"；
     //   10-22："读取颜色这一步会有些迟钝"、"写个公共方法，每次切换层级只用调用这一个方法"、"初次进入地图也要来一遍"、
-    //   "一次性算完颜色会造成卡顿"，选"边算边翻"。
-    //   · 起翻：调用那一刻就从镜头中心起一道波(满速约 LayerRegionSeconds 秒到镜头边上)，旧图留着；
-    //   · 边算：镜头里(外扩一块；算色期间镜头移到哪也并进来)的地块由近到远分帧画新样子——只画离波心不过"算色前沿"的，
-    //     一轮里前沿以内全画完了前沿就往外推(推得越来越快)，预算用完就停在那里下一帧接着画(见 ZonePaintBudget)；
-    //     原版巡检跟着模拟步走、不一定每帧一轮，算色期间没巡检的那一帧这里补跑一轮；镜头外的这时一概不画；
-    //   · 那道波只推到已经算好的那一圈(前沿以内没有一块因预算延后)，算得快就是满速，算得慢就跟着算色走，不出现一块块乱翻；
-    //   · 补画：镜头里算齐后镜头外的按放宽的预算补画、直接换(看不见)；补画期间进了镜头的块也翻。
-    // 以前(10-21)先算齐再起翻：镜头里四千块要等原版巡检二十多轮，切到帝国图层空等两秒多。
+    //   "一次性算完颜色会造成卡顿"；试过边算边翻(波跟着算色一圈圈推)，用户嫌"没有使用反转而是直接一圈一圈的改色"，
+    //   选回"先算齐再全屏翻"。
+    //   · 算色：旧图留着，镜头里(外扩一块；算色期间镜头移到哪也并进来)的地块分帧画新样子，每帧至多 16 毫秒(见 ZonePaintBudget)；
+    //     原版巡检跟着模拟步走、不一定每帧一轮，算色期间没巡检的那一帧这里补跑一轮(以前隔帧才一轮，镜头里四千块空等两秒多)；
+    //     镜头外的这时一概不画；
+    //   · 起翻：镜头里一块不差就从镜头中心一道波全屏翻开(约 LayerRegionSeconds 秒到镜头边上，几千张牌几乎同时翻)；
+    //     至多算 LayerComputeMaxSeconds 秒，还没算齐也起翻，没画好的块画好时接着翻；
+    //   · 补画：算齐后镜头外的按放宽的预算补画、直接换(看不见)；补画期间进了镜头的块也翻。
     // 教化、政令这类原版画法的图层一样(见 CaptureRaw)。
     private const float LayerComputeMaxSeconds = 4f, LayerRegionSeconds = 0.2f, LayerBackfillMaxSeconds = 12f,
-        LayerFlipMaxSeconds = 20f, FrontierStartZones = 3f, FrontierMaxZones = 5f;
+        LayerFlipMaxSeconds = 20f;
 
     private sealed class LayerFlip
     {
@@ -1219,8 +1219,8 @@ public static class SmoothBorders
         public readonly HashSet<int> seen = new();
         // 记下了旧样子、等那道波推过来的块
         public readonly List<int> waiting = new();
-        // 那道波：中心、满速(每秒几格)、眼下推到多远；算色前沿与每次外推多少、已算好的半径、范围里最远的一块有多远
-        public float cx, cy, speed, wave, frontier, band, ready, reach;
+        // 那道波：中心、每秒几格、眼下推到多远(算齐了才动)、范围里最远的一块有多远
+        public float cx, cy, speed, wave, reach;
         public bool Computing => computedAt < 0f;
         public bool Backfilling => computedAt >= 0f && backfilledAt < 0f;
     }
@@ -1229,7 +1229,7 @@ public static class SmoothBorders
     // 初次进图：读档完、地图画得出来时来一遍全图换色(见 FrameTick)
     private static bool _entryPending;
 
-    // 还在算镜头里的颜色(镜头里的由近到远画、镜头外的不画)；算齐后还在补画镜头外(见 ZonePaintBudget)
+    // 还在算镜头里的颜色(镜头外的不画)；算齐后还在补画镜头外(见 ZonePaintBudget)
     public static bool LayerPrecomputing => Enabled && _layerFlip != null && _layerFlip.Computing;
     public static bool LayerBackfilling => Enabled && _layerFlip != null && _layerFlip.Backfilling;
 
@@ -1239,16 +1239,6 @@ public static class SmoothBorders
         LayerFlip flip = _layerFlip;
         return flip != null && zone != null &&
                flip.view.Contains(new Vector2(zone.x * ZoneSize + ZoneSize / 2f, zone.y * ZoneSize + ZoneSize / 2f));
-    }
-
-    // 算色期间这块地轮到了没有(离波心不过算色前沿)；distance 是它离波心多远
-    public static bool LayerDue(TileZone zone, out float distance)
-    {
-        LayerFlip flip = _layerFlip;
-        distance = 0f;
-        if (flip == null || zone == null) return true;
-        distance = WaveDistance(flip, zone);
-        return distance <= flip.frontier;
     }
 
     private static float WaveDistance(LayerFlip flip, TileZone zone)
@@ -1262,7 +1252,7 @@ public static class SmoothBorders
         Enabled && (_layerFlip != null && (_layerFlip.Computing || _layerFlip.Backfilling) ||
                     Transitions.Count > 0 && (PendingSweep.Count > 0 || PendingFollow.Count > 0));
 
-    // 全图换色：旧图留着，从镜头中心由近到远分帧算新颜色，一道波从中心推开、只推到已经算好的那一圈；镜头外的随后补画、直接换。
+    // 全图换色：旧图留着，镜头里的分帧算齐新颜色，再从镜头中心一道波全屏翻开；镜头外的随后补画、直接换。
     // 换图层(CheckLayer)、初次进图(FrameTick)都调这一个；invalidate：让全图各块下一轮重画
     // (换图层时原版清图那一步已经让各块重画了，见 ZonePaintBudget.BeforeClearAll)
     public static void RepaintAll(string reason, bool invalidate = true)
@@ -1289,7 +1279,6 @@ public static class SmoothBorders
         };
         flip.reach = Reach(flip);
         flip.speed = Mathf.Max(40f, flip.reach / LayerRegionSeconds);
-        flip.band = flip.frontier = FrontierStartZones * ZoneSize;
         _layerFlip = flip;
         ZonePaintBudget.ResetLayerPending();
     }
@@ -1316,7 +1305,7 @@ public static class SmoothBorders
         else
         {
             flip.late++;
-            Schedule(transition, zone, flip.cx, flip.cy, flip.start, flip.speed, Time.unscaledTime);
+            Schedule(transition, zone, flip.cx, flip.cy, flip.computedAt, flip.speed, Time.unscaledTime);
         }
         return transition;
     }
@@ -1329,10 +1318,9 @@ public static class SmoothBorders
         Orient(transition, dx, dy, zone);
     }
 
-    // 原版巡检完一轮(见 ZonePaintBudget.AfterRedraw)：deferredInView 是这一轮前沿以内因预算没画的块(nearest 是其中离波心最近的)，
-    // beyond 是范围里还在前沿以外、没轮到的块，pending 是换色以来延后过、还没画上新样子的块。
-    // 前沿以内一块不差就把前沿往外推；范围里一块不差就是算齐了，转去补画镜头外
-    internal static void LayerRoundEnd(int round, bool modeCurrent, int deferredInView, float nearest, int beyond, int pending)
+    // 原版巡检完一轮(见 ZonePaintBudget.AfterRedraw)：deferredInView 是这一轮范围里因预算没画的块，
+    // pending 是换色以来延后过、还没画上新样子的块。范围里一块不差就是算齐了：起翻，转去补画镜头外
+    internal static void LayerRoundEnd(int round, bool modeCurrent, int deferredInView, int pending)
     {
         LayerFlip flip = _layerFlip;
         if (!Enabled || flip == null || round <= flip.startRound || !modeCurrent) return;
@@ -1345,22 +1333,9 @@ public static class SmoothBorders
             flip.view = Rect.MinMaxRect(Mathf.Min(flip.view.xMin, view.xMin), Mathf.Min(flip.view.yMin, view.yMin),
                 Mathf.Max(flip.view.xMax, view.xMax), Mathf.Max(flip.view.yMax, view.yMax));
             flip.reach = Reach(flip);
-            if (deferredInView > 0)
-            {
-                // 预算用完了：离波心最近的那块没画的以内都算好了，前沿不动、下一帧接着画
-                flip.ready = Mathf.Max(flip.ready, nearest - 0.01f);
-                return;
-            }
-            flip.ready = Mathf.Max(flip.ready, flip.frontier);
-            if (beyond > 0 && flip.frontier < flip.reach && now - flip.start < LayerComputeMaxSeconds)
-            {
-                // 前沿以内都画完了、预算还有富余：往外推，下一圈宽一些(至多 FrontierMaxZones 块：太厚的话一圈里没有远近之分，
-                // 波要等整圈画完才动，一顿一顿的)
-                flip.frontier += flip.band;
-                flip.band = Mathf.Min(flip.band * 1.3f, FrontierMaxZones * ZoneSize);
-                return;
-            }
-            Computed(flip, now, beyond);
+            flip.speed = Mathf.Max(40f, flip.reach / LayerRegionSeconds);
+            if (deferredInView > 0 && now - flip.start < LayerComputeMaxSeconds) return;
+            Computed(flip, now, deferredInView);
             return;
         }
         if (!flip.Backfilling || pending > 0 && now - flip.computedAt < LayerBackfillMaxSeconds) return;
@@ -1370,18 +1345,18 @@ public static class SmoothBorders
                            $"{(now - flip.computedAt) * 1000f:0} 毫秒；算齐后才画到、在镜头里接着翻的 {flip.late} 块");
     }
 
-    // 镜头里算齐了(或算满 LayerComputeMaxSeconds 秒)：波不再等算色，满速推完；没画好的块画好时接着翻
+    // 镜头里算齐了(或算满 LayerComputeMaxSeconds 秒)：起翻，那道波从镜头中心推开；没画好的块画好时接着翻
     private static void Computed(LayerFlip flip, float now, int unpainted)
     {
         flip.computedAt = now;
         flip.computedFrame = Time.frameCount;
-        flip.ready = float.MaxValue;
-        string ready = unpainted > 0 ? $"；算满 {LayerComputeMaxSeconds} 秒还有 {unpainted} 块没轮到(画好时接着翻)" : "";
-        LogService.LogInfo($"[EmpireCraft][全图换色] {flip.layer}({flip.reason})：镜头里 {flip.seen.Count} 块边算边翻，算齐用了 " +
+        flip.lastTick = now;
+        string ready = unpainted > 0 ? $"；算满 {LayerComputeMaxSeconds} 秒还有 {unpainted} 块没画(画好时接着翻)" : "";
+        LogService.LogInfo($"[EmpireCraft][全图换色] {flip.layer}({flip.reason})：镜头里 {flip.seen.Count} 块算齐后一起翻，算齐用了 " +
                            $"{Time.frameCount - flip.startFrame} 帧、巡检 {flip.rounds} 轮、{(now - flip.start) * 1000f:0} 毫秒{ready}");
     }
 
-    // 每帧：算色期间原版没巡检就补一轮；那道波往外推(不超过已算好的那一圈)，推过的、画好了的块翻；到时收尾
+    // 每帧：算色期间原版没巡检就补一轮；算齐后那道波往外推，推过的块翻；到时收尾
     private static void LayerTick(float now)
     {
         LayerFlip flip = _layerFlip;
@@ -1394,7 +1369,7 @@ public static class SmoothBorders
         }
         float dt = Mathf.Clamp(now - flip.lastTick, 0f, 0.1f);
         flip.lastTick = now;
-        flip.wave = Mathf.Min(flip.wave + flip.speed * dt, flip.ready);
+        if (!flip.Computing) flip.wave += flip.speed * dt;
         if (flip.waiting.Count > 0 && calc != null)
         {
             for (int i = flip.waiting.Count - 1; i >= 0; i--)
