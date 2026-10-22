@@ -1690,7 +1690,64 @@ def obj_bomber(img):
     over(img, shade(ellipse([116, 28, 140, 52]), NAVY, bevel=4, gloss=1.0))
 
 
+def obj_kiln(img):
+    """窑场：一座馒头窑，窑口透出火光，窑顶一缕烟。"""
+    over(img, shade(union(ellipse([44, 60, 212, 228]), rrect([44, 144, 212, 228], 8)), OCHRE, bevel=12, grain=0.5))
+    over(img, shade(union(ellipse([100, 146, 156, 202]), rrect([100, 174, 156, 228], 2)), AMBER, bevel=6, gloss=1.0))
+    over(img, shade(lines([[(128, 60), (112, 38), (134, 16)]], 12), STEEL, bevel=2, flat=True))
+
+
+def obj_cash_coins(img):
+    """铸钱局：三枚方孔铜钱叠着。"""
+    for x, y in ((40, 120), (100, 70), (120, 140)):
+        coin = sub(ellipse([x, y, x + 96, y + 96]), rrect([x + 36, y + 36, x + 60, y + 60], 2))
+        over(img, shade(coin, GILT, bevel=8, gloss=0.9))
+
+
+def obj_paper_sheet(img):
+    """造纸坊：竹帘上抄起一张纸，两头木杠。"""
+    over(img, shade(rrect([56, 52, 200, 204], 6), PARCH, bevel=6, grain=0.5))
+    over(img, shade(rrect([40, 36, 216, 54], 6), WOOD, bevel=5, grain=0.4))
+    over(img, shade(rrect([40, 202, 216, 220], 6), WOOD, bevel=5, grain=0.4))
+    over(img, shade(lines([[(80, 90), (176, 90)], [(80, 128), (176, 128)], [(80, 166), (176, 166)]], 4), BRASS, bevel=1, flat=True))
+
+
+def obj_anvil(img):
+    """冶铁坊：铁砧上一块烧红的铁坯。"""
+    anvil = poly([(36, 120), (220, 120), (196, 150), (164, 150), (164, 186), (200, 224), (56, 224), (92, 186), (92, 150), (60, 150)])
+    over(img, shade(anvil, IRON, bevel=10, gloss=0.6))
+    over(img, shade(rrect([84, 88, 180, 116], 8), AMBER, bevel=6, gloss=1.0))
+    over(img, shade(lines([[(196, 40), (150, 92)]], 14), WOOD, bevel=3))
+    over(img, shade(rrect([180, 22, 228, 56], 6), STEEL, bevel=5, gloss=0.7))
+
+
+def obj_hull_slip(img):
+    """木船坞：滑道上一具还没上帆的木船体，船肋露着。"""
+    over(img, shade(poly([(24, 120), (232, 120), (200, 184), (56, 184)]), WOOD, bevel=10, grain=0.5))
+    over(img, shade(lines([[(72, 120), (72, 176)], [(112, 120), (112, 182)], [(152, 120), (152, 182)], [(192, 120), (188, 176)]], 6),
+                    OCHRE, bevel=2, flat=True))
+    over(img, shade(rrect([16, 196, 240, 214], 4), OCHRE, bevel=5, grain=0.4))
+    for x in (56, 128, 200):
+        over(img, shade(rrect([x - 8, 180, x + 8, 200], 2), WOOD, bevel=3))
+
+
+def obj_open_book(img):
+    """印书坊：摊开的一部刻本，书页上几行墨字。"""
+    over(img, shade(poly([(24, 64), (124, 84), (124, 212), (24, 192)]), PARCH, bevel=8, grain=0.4))
+    over(img, shade(poly([(132, 84), (232, 64), (232, 192), (132, 212)]), PARCH, bevel=8, grain=0.4))
+    over(img, shade(rrect([120, 80, 136, 218], 4), LACQ, bevel=4))
+    for k in range(3):
+        over(img, shade(lines([[(48, 104 + k * 30), (104, 116 + k * 30)], [(152, 116 + k * 30), (208, 104 + k * 30)]], 6),
+                        IRON, bevel=1, flat=True))
+
+
 FACTORY_TYPES = {
+    "kiln": obj_kiln,
+    "mint": obj_cash_coins,
+    "paper_mill": obj_paper_sheet,
+    "iron_foundry": obj_anvil,
+    "wooden_shipyard": obj_hull_slip,
+    "print_shop": obj_open_book,
     "gunpowder_mill": obj_powder_barrel,
     "steel_mill": obj_furnace,
     "light_factory": obj_loom,

@@ -128,6 +128,70 @@ public partial class PureMapPatch
         }
         switch (unit.type)
         {
+            case "kiln":
+            {
+                // 馒头窑：一两座土红的窑包，窑口一点火光，窑顶冒烟；旁边码着青瓦
+                int kilns = unit.level >= 3 && bw >= 5 ? 2 : 1;
+                int kw = Mathf.Max(2, (bw - (kilns - 1)) / kilns);
+                for (int k = 0; k < kilns; k++)
+                {
+                    int kx = bx0 + k * (kw + 1);
+                    Rect(kx, by0, kw, bh, Rgb(156, 96, 66));
+                    Rect(kx, by0 + bh - 1, kw, 1, Rgb(178, 116, 80));
+                    put(kx + kw / 2, by0, Rgb(236, 128, 40));
+                    Smoke(kx + kw / 2, by0 + bh - 1);
+                }
+                Rect(left ? x1 : x0, y0, 1, Mathf.Min(2, h), Rgb(84, 92, 100));
+                break;
+            }
+            case "mint":
+            {
+                // 铸钱局：灰瓦院落，院里几点铜色(钱范、钱串)
+                Rect(bx0, by0, bw, bh, Rgb(108, 104, 98));
+                Rect(bx0, by0 + bh - 1, bw, 1, Rgb(84, 80, 76));
+                for (int k = 0; k < Mathf.Clamp(unit.level, 1, 3); k++)
+                    put(bx0 + 1 + k * 2, by0 + Mathf.Max(0, bh / 2 - 1), Rgb(214, 176, 60));
+                break;
+            }
+            case "paper_mill":
+            {
+                // 造纸坊：一道水渠，渠边一排排晾着的白纸
+                Rect(x0, y0, w, 1, Rgb(108, 150, 196));
+                for (int py = by0 + 1; py < by0 + bh; py += 2)
+                    Rect(bx0, py, bw, 1, Rgb(232, 226, 206));
+                Rect(left ? x1 : x0, y0 + 1, 1, Mathf.Max(1, h - 1), Rgb(126, 92, 62));
+                break;
+            }
+            case "iron_foundry":
+            {
+                // 冶铁坊：一座矮炉(炉口通红)冒烟，旁边一间棚子
+                int fx = left ? x1 - 1 : x0;
+                Rect(fx, y0, 2, Mathf.Max(2, h - 1), Rgb(70, 64, 62));
+                put(fx, y0 + Mathf.Max(1, h - 2), Rgb(236, 128, 40));
+                Smoke(fx + 1, y0 + Mathf.Max(1, h - 2));
+                Rect(left ? x0 : x0 + 3, by0, Mathf.Max(2, w - 4), bh, Rgb(126, 92, 62));
+                break;
+            }
+            case "wooden_shipyard":
+            {
+                // 木船坞：一条船槽，槽里一具木船体，旁边码着木料
+                Rect(x0, y0, w, h, Rgb(108, 150, 196));
+                int hw = Mathf.Max(2, w - 3), hh = Mathf.Max(2, Mathf.RoundToInt(h * 0.4f));
+                int hx = x0 + (w - hw) / 2, hy = y0 + (h - hh) / 2;
+                Rect(hx, hy, hw, hh, Rgb(150, 108, 70));
+                for (int px = hx + 1; px < hx + hw - 1; px += 2) put(px, hy + hh - 1, Rgb(110, 76, 48));
+                Rect(left ? x1 : x0, y1, 1, 1, Rgb(126, 92, 62));
+                break;
+            }
+            case "print_shop":
+            {
+                // 印书坊：黑瓦长屋，屋脊一道亮线，门前几摞白书
+                Rect(bx0, by0, bw, bh, Rgb(70, 74, 82));
+                Rect(bx0, by0 + bh - 1, bw, 1, Rgb(110, 114, 122));
+                for (int k = 0; k < Mathf.Clamp(unit.level, 1, 3); k++)
+                    put(bx0 + k * 2, by0 > y0 ? by0 - 1 : by0, Rgb(232, 226, 206));
+                break;
+            }
             case "gunpowder_mill":
             {
                 // 土堤隔开的几间小库房，门前几只桶

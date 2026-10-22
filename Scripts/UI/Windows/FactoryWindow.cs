@@ -164,9 +164,20 @@ public class FactoryWindow : AbstractWideWindow<FactoryWindow>
         {
             List<string> unlocked = FactorySystem.AllTypes();
             Line(list, LM.Get("factory_window_add").ColorString("#8FA0A8"), 6, 10f);
-            var add = list.BeginHoriGroup(new Vector2(RowWidth, 16f), TextAnchor.MiddleLeft, 2, new RectOffset(0, 0, 0, 0));
+            // 古代工场一排、近代厂一排(一排至多 8 个图标，多了折行)
+            AutoHoriLayoutGroup add = null;
+            int inRow = 0;
+            bool? ancientRow = null;
             foreach (string type in unlocked)
             {
+                bool ancient = FactorySystem.Ancient.Contains(type);
+                if (add == null || inRow >= 8 || ancientRow != ancient)
+                {
+                    add = list.BeginHoriGroup(new Vector2(RowWidth, 16f), TextAnchor.MiddleLeft, 2, new RectOffset(0, 0, 0, 0));
+                    inRow = 0;
+                    ancientRow = ancient;
+                }
+                inRow++;
                 string chosen = type;
                 add.AddButtonIntoHoriLayout("factory_type_" + type, "", () =>
                 {

@@ -13,8 +13,12 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 归落在谁的地上的城。
 //   · 放：营建页的小、中、大厂区神力(边长 4、6、8 格，至多 2、4、6 座厂)，点城的地放下一整片成品——
 //     从本城已解锁的门类里随机挑满(见 Place)；不能压在城区、别的厂区、镇村上；
-//   · 厂：八类，同虚拟工厂(见 VirtualIndustrySystem)——火药厂(火药)、钢铁厂(工业化)、轻工厂与轻型船厂(摩托化)、
-//     重工厂与重型船厂(装甲战)、轻型飞机厂(航空)、重型飞机厂(战略航空)；船厂要城里有码头。每座 1~3 级；
+//   · 厂：古代手工工场六类(用户 2026-10-22 见厂区清一色火药厂，选"加古代手工工场")——窑场(砖瓦民居)、铸钱局(铸币)、
+//     造纸坊(造纸术)、冶铁坊(冶铁)、木船坞(沿岸领航)、印书坊(雕版印刷)；近代八类同虚拟工厂(见 VirtualIndustrySystem)——
+//     火药厂(火药)、钢铁厂(工业化)、轻工厂与轻型船厂(摩托化)、重工厂与重型船厂(装甲战)、轻型飞机厂(航空)、
+//     重型飞机厂(战略航空)；船坞、船厂要城里有码头。每座 1~3 级；
+//   · 新旧交替(问答选"AI 逐步改建成近代厂")：本城解锁了钢铁厂以后的近代门类，AI 添厂、新建只挑近代的，
+//     每年先把一座古代工场改建成近代厂(火药厂不算古代工场，照旧留着)；
 //   · 产出：每座每级给城里 jobs_per_factory 个工场岗位(见 UrbanEmploymentSystem)，每年按门类出一份产值(进税基，见 Produce)；
 //   · 本城有厂区：矿场、伐木场能升到第三级以上，产出多两成五；每片厂区多许建一座矿场、伐木场、屠宰场(至多三座)；
 //   · 点厂区打开小窗口(见 FactoryWindow)：改名、扩建缩建、换个样子，厂的升级降级、添加拆除，看产出；
@@ -30,6 +34,12 @@ public static class FactorySystem
     // 门类：建筑 id、解锁它的科技、每级每年的产值
     public static readonly (string id, string tech, float value)[] Types =
     {
+        ("kiln", "tiled_housing", 20f),
+        ("mint", "currency", 25f),
+        ("paper_mill", "paper", 25f),
+        ("iron_foundry", "ironworking", 30f),
+        ("wooden_shipyard", "coastal_pilotage", 30f),
+        ("print_shop", "printing", 30f),
         ("gunpowder_mill", "gunpowder", 40f),
         ("steel_mill", "industrialization", 60f),
         ("light_factory", "motorization", 50f),
@@ -39,6 +49,20 @@ public static class FactorySystem
         ("light_aircraft_factory", "aviation", 100f),
         ("heavy_aircraft_factory", "strategic_aviation", 120f)
     };
+
+    // 古代手工工场(有了近代厂 AI 会逐步改建掉)
+    public static readonly HashSet<string> Ancient = new()
+        { "kiln", "mint", "paper_mill", "iron_foundry", "wooden_shipyard", "print_shop" };
+
+    // 近代厂：工业化以后的门类(火药厂既不算古代也不算近代)
+    public static bool IsModern(string type) => !Ancient.Contains(type) && type != "gunpowder_mill";
+
+    // AI 挑门类：有近代的只挑近代的
+    private static List<string> Preferred(List<string> unlocked)
+    {
+        List<string> modern = unlocked.Where(IsModern).ToList();
+        return modern.Count > 0 ? modern : unlocked;
+    }
 
     public const int MaxSize = 3, MaxLevel = 3;
     public static int Capacity(int size) => Math.Max(1, size) * 2;
@@ -285,12 +309,27 @@ public static class FactorySystem
         int wanted = tier >= 4 ? 3 : tier >= 3 ? 2 : tier >= 2 ? 1 : 0;
         List<FactorySite> sites = InCity(city);
         if (wanted == 0 && sites.Count == 0) return;
+        List<string> preferred = Preferred(unlocked);
+        // 有了近代厂：先把一座古代工场(等级低的先)改建成近代厂，慢慢换代
+        if (preferred.Any(IsModern))
+        {
+            var old = sites.SelectMany(site => site.units.Select((unit, index) => (site, unit, index)))
+                .Where(entry => Ancient.Contains(entry.unit.type)).OrderBy(entry => entry.unit.level).FirstOrDefault();
+            if (old.site != null)
+            {
+                List<string> missing = preferred.Where(type => !old.site.units.Exists(unit => unit.type == type)).ToList();
+                List<string> choices = missing.Count > 0 ? missing : preferred;
+                string type = choices[UnityEngine.Random.Range(0, choices.Count)];
+                if (EnterpriseSystem.FundOwned(city, UnitCost(type, 1), old.site.state)) Rebuild(old.site, old.index, type);
+                return;
+            }
+        }
         // 没满的厂区添一座(先挑区里还没有的门类)
         FactorySite open = sites.FirstOrDefault(site => site.units.Count < Capacity(site.size));
         if (open != null)
         {
-            List<string> fresh = unlocked.Where(type => !open.units.Exists(unit => unit.type == type)).ToList();
-            List<string> pool = fresh.Count > 0 ? fresh : unlocked;
+            List<string> fresh = preferred.Where(type => !open.units.Exists(unit => unit.type == type)).ToList();
+            List<string> pool = fresh.Count > 0 ? fresh : preferred;
             string type = pool[UnityEngine.Random.Range(0, pool.Count)];
             if (EnterpriseSystem.FundOwned(city, UnitCost(type, 1), open.state)) AddUnit(open, type);
             return;
@@ -355,6 +394,7 @@ public static class FactorySystem
         if (city?.data == null || city.isRekt()) return LM.Get("factory_place_no_city");
         List<string> unlocked = manual ? AllTypes() : Unlocked(city);
         if (unlocked.Count == 0) return string.Format(LM.Get("factory_place_no_tech"), city.GetCityName());
+        if (!manual) unlocked = Preferred(unlocked);
         string refusal = manual ? CheckManual(tile.x, tile.y, size, null) : CheckFootprint(city, tile.x, tile.y, size, null);
         if (refusal != null) return refusal;
         if (claim)
@@ -493,6 +533,14 @@ public static class FactorySystem
     {
         if (site == null || index < 0 || index >= site.units.Count) return;
         site.units.RemoveAt(index);
+        Changed(site);
+    }
+
+    // 改建：这一座拆了原地另建一座别的门类(从一级起)
+    public static void Rebuild(FactorySite site, int index, string type)
+    {
+        if (site == null || index < 0 || index >= site.units.Count || TypeIndex(type) < 0) return;
+        site.units[index] = new FactoryUnit { type = type, level = 1 };
         Changed(site);
     }
 
