@@ -116,7 +116,8 @@ public static class AnimalHusbandrySystem
         double now = World.world.getCurWorldTime();
         if (Terrain.TryGetValue(city, out (double at, float range, float wild) cached) && now >= cached.at &&
             Date.getMonthsSince(cached.at) < 1) return cached;
-        int tiles = 0, open = 0, trees = 0;
+        int tiles = 0, trees = 0;
+        float open = 0f;
         foreach (TileZone zone in city.zones)
         {
             if (zone?.tiles == null) continue;
@@ -125,15 +126,32 @@ public static class AnimalHusbandrySystem
             {
                 if (tile?.Type == null || tile.Type.liquid) continue;
                 tiles++;
-                // 可放牧：能耕(草地、荒漠、稀树草原……)又没开成田、没盖房的空地；山石(连同岩地、冰封丘陵)不算，同 LandKinds
+                // 可放牧：能耕(草地、荒漠、稀树草原……)又没开成田、没盖房的空地；山石(连同岩地、冰封丘陵)不算，同 LandKinds。
+                // 按水草算：草地一整格，稀树草原、林地八成，沼泽四成，荒原两成五，沙漠一成五，沙地一成
                 if (tile.Type.can_be_farm && !tile.Type.farm_field && !tile.hasBuilding() && !LandKinds.Is(tile.Type, LandKinds.Rough))
-                    open++;
+                    open += Grazing(tile.Type);
             }
         }
-        (double, float, float) result = (now, tiles == 0 ? 0f : (float)open / tiles,
+        (double, float, float) result = (now, tiles == 0 ? 0f : open / tiles,
             Mathf.Clamp01(trees / (city.zones.Count * 8f)));
         Terrain[city] = result;
         return result;
+    }
+
+    private static float Grazing(TileTypeBase type)
+    {
+        switch (type.biome_id)
+        {
+            case "biome_desert": return 0.15f;
+            case "biome_wasteland": return 0.25f;
+            case "biome_savanna": return 0.8f;
+            case "biome_sand": return 0.1f;
+        }
+        int kinds = LandKinds.Of(type);
+        if ((kinds & LandKinds.Sand) != 0) return 0.1f;
+        if ((kinds & LandKinds.Wet) != 0) return 0.4f;
+        if ((kinds & (LandKinds.Forest | LandKinds.Woodland)) != 0) return 0.8f;
+        return 1f;
     }
 
     // 狩猎：每座屠宰场每月按山林程度猎得的野味(折合中型野兽只数)

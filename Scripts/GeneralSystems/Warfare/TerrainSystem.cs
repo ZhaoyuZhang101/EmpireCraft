@@ -52,8 +52,8 @@ public static class TerrainSystem
         public double At;
         public FrontTerrain Terrain;
         public bool Impassable, Known;
-        // 陆地格数、旱地格数(一块地 64 格)
-        public byte Land, Dry;
+        // 陆地格数、旱地格数(一块地 64 格)；宜居格(按地面加权 × LivableScale)、可耕格
+        public byte Land, Dry, Livable, Arable;
     }
 
     private const int RefreshMonths = 48, RefreshSpreadMonths = 24;
@@ -62,6 +62,7 @@ public static class TerrainSystem
     public static void ResetWorldState()
     {
         _cache = new Entry[0];
+        CityLivable.Clear();
         _marks = new int[0];
         _markTypes = new TileTypeBase[0];
     }
@@ -101,6 +102,62 @@ public static class TerrainSystem
     {
         (int land, int dry) = DryCounts(zone);
         return land > 0 && dry * 2 > land;
+    }
+
+    // 宜居度(0~1，用户 2026-10-22 见荒漠帐比中原城人多："设置的地块大是因为他是沙漠和荒原，实际居住面积应该很小")：
+    // 一块地 64 格按地面加权(见 LivableWeight)。民居上限按它折算(见 NoCommonersPatch.AfterRecalculateMaxHouses)
+    public static float Livability(TileZone zone) =>
+        zone == null ? 0f : Math.Min(1f, Lookup(zone).Livable / (64f * LivableScale));
+
+    // 陆地格数与其中的可耕格数(城郊收成按可耕比例折算，见 FarmlandSystem)
+    public static (int land, int arable) ArableCounts(TileZone zone)
+    {
+        if (zone == null) return (0, 0);
+        Entry entry = Lookup(zone);
+        return (entry.Land, entry.Arable);
+    }
+
+    private const float LivableScale = 3f;
+    // 荒地格：一格宜居度低于这个(沙漠、荒原、山石、沙地、地狱)
+    public const float BarrenWeight = 0.3f;
+
+    // 一座城的地块宜居度合计(几块"整块草地")：盖房上限、民居选址都要用，按城缓存几秒(真实时间)
+    private static readonly Dictionary<City, (float value, float at)> CityLivable = new();
+
+    public static float CityLivability(City city)
+    {
+        if (city?.zones == null) return 0f;
+        float now = UnityEngine.Time.realtimeSinceStartup;
+        if (CityLivable.TryGetValue(city, out var hit) && now - hit.at < 5f && now >= hit.at) return hit.value;
+        float sum = 0f;
+        foreach (TileZone zone in city.zones) sum += Livability(zone);
+        if (CityLivable.Count > 4096) CityLivable.Clear();
+        CityLivable[city] = (sum, now);
+        return sum;
+    }
+
+    // 一格地能住多少人(相对草地)：草地、可耕地 1，林地 0.8，丛林 0.6，稀树草原 0.5，沼泽 0.4，冻土 0.3，
+    // 丘陵山石、沙地 0.2，荒原 0.2，沙漠 0.15，地狱 0.05，水、岩浆 0
+    public static float LivableWeight(TileTypeBase type)
+    {
+        if (type == null) return 0f;
+        int kinds = LandKinds.Of(type);
+        if ((kinds & (LandKinds.Water | LandKinds.Lava)) != 0) return 0f;
+        if ((kinds & LandKinds.Infernal) != 0) return 0.05f;
+        if ((kinds & LandKinds.Rough) != 0) return 0.2f;
+        switch (type.biome_id)
+        {
+            case "biome_desert": return 0.15f;
+            case "biome_wasteland": return 0.2f;
+            case "biome_savanna": return 0.5f;
+            case "biome_permafrost": return 0.3f;
+        }
+        if ((kinds & LandKinds.Sand) != 0) return 0.2f;
+        if ((kinds & LandKinds.Forest) != 0) return (kinds & LandKinds.Wet) != 0 ? 0.6f : 0.8f;
+        if ((kinds & LandKinds.Wet) != 0) return 0.4f;
+        if ((kinds & LandKinds.Woodland) != 0) return 0.8f;
+        if ((kinds & (LandKinds.Grass | LandKinds.Arable)) != 0) return 1f;
+        return 0.5f;
     }
 
     private static Entry Lookup(TileZone zone)
@@ -199,18 +256,20 @@ public static class TerrainSystem
     // 门槛按本地大地图实测：城市地块里平原约四成，丛林、雪原、水网、山地、丘陵各占一到两成(视地图而定)
     private static Entry Classify(TileZone zone)
     {
-        (FrontTerrain terrain, bool impassable, int land, int dry) = ClassifyTiles(zone);
+        (FrontTerrain terrain, bool impassable, int land, int dry, int livable, int arable) = ClassifyTiles(zone);
         return new Entry
         {
             Terrain = terrain, Impassable = impassable,
-            Land = (byte)Math.Min(byte.MaxValue, land), Dry = (byte)Math.Min(byte.MaxValue, dry)
+            Land = (byte)Math.Min(byte.MaxValue, land), Dry = (byte)Math.Min(byte.MaxValue, dry),
+            Livable = (byte)Math.Min(byte.MaxValue, livable), Arable = (byte)Math.Min(byte.MaxValue, arable)
         };
     }
 
-    private static (FrontTerrain terrain, bool impassable, int land, int dry) ClassifyTiles(TileZone zone)
+    private static (FrontTerrain terrain, bool impassable, int land, int dry, int livable, int arable) ClassifyTiles(TileZone zone)
     {
         int total = 0, water = 0, mountain = 0, hills = 0, trees = 0, woods = 0, swamp = 0, jungle = 0, desert = 0, snow = 0,
-            blocked = 0, land = 0, dry = 0;
+            blocked = 0, land = 0, dry = 0, arable = 0;
+        float livableSum = 0f;
         foreach (WorldTile tile in zone.tiles)
         {
             TileTypeBase type = tile?.Type;
@@ -222,6 +281,8 @@ public static class TerrainSystem
             {
                 land++;
                 if ((kinds & LandKinds.Dry) != 0) dry++;
+                if ((kinds & LandKinds.Arable) != 0) arable++;
+                livableSum += LivableWeight(type);
             }
             int marks = Marks(type);
             if ((marks & MarkWater) != 0)
@@ -243,18 +304,19 @@ public static class TerrainSystem
             BuildingAsset flora = tile.building?.asset;
             if (flora != null && flora.flora && flora.flora_type == FloraType.Tree) trees++;
         }
-        if (total == 0) return (FrontTerrain.Plains, false, land, dry);
+        int livable = (int)Math.Round(livableSum * LivableScale);
+        if (total == 0) return (FrontTerrain.Plains, false, land, dry, livable, arable);
         bool impassable = blocked >= total * 0.75f;
         float Share(int count) => count / (float)total;
-        if (Share(mountain) >= 0.25f) return (FrontTerrain.Mountain, impassable, land, dry);
-        if (Share(mountain + hills) >= 0.3f) return (FrontTerrain.Hills, impassable, land, dry);
-        if (Share(swamp) >= 0.3f) return (FrontTerrain.Swamp, impassable, land, dry);
-        if (Share(water) >= 0.15f) return (FrontTerrain.River, impassable, land, dry);
-        if (Share(jungle) >= 0.3f) return (FrontTerrain.Jungle, impassable, land, dry);
+        if (Share(mountain) >= 0.25f) return (FrontTerrain.Mountain, impassable, land, dry, livable, arable);
+        if (Share(mountain + hills) >= 0.3f) return (FrontTerrain.Hills, impassable, land, dry, livable, arable);
+        if (Share(swamp) >= 0.3f) return (FrontTerrain.Swamp, impassable, land, dry, livable, arable);
+        if (Share(water) >= 0.15f) return (FrontTerrain.River, impassable, land, dry, livable, arable);
+        if (Share(jungle) >= 0.3f) return (FrontTerrain.Jungle, impassable, land, dry, livable, arable);
         // 城市周边的树大多被砍过，一块地里有四棵树(约 6%)就算林地；桦树林、枫树林等林地生物群系按面积算
-        if (Share(trees) >= 0.06f || Share(woods) >= 0.3f) return (FrontTerrain.Forest, impassable, land, dry);
-        if (Share(desert) >= 0.4f) return (FrontTerrain.Desert, impassable, land, dry);
-        if (Share(snow) >= 0.4f) return (FrontTerrain.Snow, impassable, land, dry);
-        return (FrontTerrain.Plains, impassable, land, dry);
+        if (Share(trees) >= 0.06f || Share(woods) >= 0.3f) return (FrontTerrain.Forest, impassable, land, dry, livable, arable);
+        if (Share(desert) >= 0.4f) return (FrontTerrain.Desert, impassable, land, dry, livable, arable);
+        if (Share(snow) >= 0.4f) return (FrontTerrain.Snow, impassable, land, dry, livable, arable);
+        return (FrontTerrain.Plains, impassable, land, dry, livable, arable);
     }
 }

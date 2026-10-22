@@ -220,15 +220,28 @@ public class NoCommonersPatch : GamePatch
     }
 
 
-    // 民居上限 × (1 + 富庶度)：最富的城可以盖到两倍的民居
+    // 民居上限：原版每块地许盖一座民居(文化特性另乘)，这里每块地按宜居度折算——草地、可耕地算一整块，
+    // 沙漠、荒原、山石只算零点几块(见 TerrainSystem.Livability；用户 2026-10-22 见荒漠帐地大房多、人比中原还多)；
+    // 篝火、水井、神殿这些建筑许的民居照旧。再 × (1 + 富庶度)：最富的城可以盖到两倍的民居
     public static void AfterRecalculateMaxHouses(City __instance)
     {
         using var timing = FrameProfiler.Measure("建造钩子·房屋上限加成");
-        if (!CityPopulationSystem.AbstractPopulationEnabled || __instance?.status == null ||
-            EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
-        __instance.status.houses_max = Mathf.RoundToInt(__instance.status.houses_max *
-                                                        (1f + CityConstructionSystem.Wealth(__instance) +
-                                                         CityConstructionSystem.SeatBonus(__instance)));
+        if (!CityPopulationSystem.AbstractPopulationEnabled || __instance?.status == null || __instance.zones == null ||
+            EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance) ||
+            DebugConfig.isOn(DebugOption.CityUnlimitedHouses)) return;
+        float livable = TerrainSystem.CityLivability(__instance);
+        float perZone = 1f;
+        if (__instance.hasCulture())
+        {
+            if (__instance.culture.hasTrait("dense_dwellings")) perZone = 2f;
+            if (__instance.culture.hasTrait("solitude_seekers")) perZone = 1f / 3f;
+            if (__instance.culture.hasTrait("hive_society")) perZone = 3f;
+        }
+        float houses = Mathf.Max(1f, livable) * perZone;
+        foreach (Building building in __instance.buildings)
+            if (building?.asset != null) houses += building.asset.max_houses;
+        __instance.status.houses_max = Mathf.RoundToInt(houses * (1f + CityConstructionSystem.Wealth(__instance) +
+                                                                  CityConstructionSystem.SeatBonus(__instance)));
     }
 
     // 纯净地图下规划农田区开田不看风车(见 FarmlandSystem)，可原版"田地荒废"每一两秒抽十格田，不在风车九格内的就退成裸土；

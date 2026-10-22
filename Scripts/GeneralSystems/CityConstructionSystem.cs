@@ -152,7 +152,33 @@ public static class CityConstructionSystem
         BuildRoads(city, rate);
         UpgradeHousing(city, rate);
         Pioneer(city);
+        AbandonBarrenHouses(city);
         if (!HasConstruction(city)) StartNext(city);
+    }
+
+    // 荒地上的民居：民居上限按地块宜居度折算以后(见 NoCommonersPatch.AfterRecalculateMaxHouses)，以前在沙漠、荒原、
+    // 山石上盖多了的城，民居超出上限时每月四分之一的机会拆掉一座立在最贫瘠地上的(等级低的先，约一年三座)，
+    // 人口随住房慢慢回落；草地上的不拆
+    private static void AbandonBarrenHouses(City city)
+    {
+        if (city.status == null || UnityEngine.Random.value >= 0.25f) return;
+        if (city.countBuildingsType("type_house", false) <= city.status.houses_max + 1) return;
+        Building worst = null;
+        float worstWeight = TerrainSystem.BarrenWeight;
+        foreach (Building building in city.buildings)
+        {
+            if (building?.asset == null || building.asset.type != "type_house" || building.isRekt() || building.current_tile == null)
+                continue;
+            float weight = TerrainSystem.LivableWeight(building.current_tile.Type);
+            if (weight >= TerrainSystem.BarrenWeight) continue;
+            if (worst == null || weight < worstWeight ||
+                Mathf.Approximately(weight, worstWeight) && building.asset.upgrade_level < worst.asset.upgrade_level)
+            {
+                worst = building;
+                worstWeight = weight;
+            }
+        }
+        worst?.startDestroyBuilding();
     }
 
     // ---- 拓荒 ----

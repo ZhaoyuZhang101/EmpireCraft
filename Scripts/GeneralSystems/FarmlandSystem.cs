@@ -365,9 +365,23 @@ public static class FarmlandSystem
         float farmers = households * (farms + cityWeight * CitySuburbFarmShare) / (cityWeight + living + ruined);
         CityPopulationData population = CityPopulationSystem.Get(city);
         if (population != null) population.farm_jobs = (farmers + LivelihoodSystem.Workers(city, LivelihoodSystem.Fish)) * 0.6f;
-        float food = farmers * RuralYield * Productivity(city);
+        float food = farmers * RuralYield * Productivity(city) * ArableFactor(city);
         if (World.world_era != null && !World.world_era.flag_crops_grow) food *= 0.5f;
         return food / 12f;
+    }
+
+    // 可耕地的多少：城的陆地里可耕格占到六成以上照常收，越少收得越少，最少三成(沙漠、荒原的城靠绿洲、河谷一点地)
+    private static float ArableFactor(City city)
+    {
+        if (city?.zones == null) return 1f;
+        int land = 0, arable = 0;
+        foreach (TileZone zone in city.zones)
+        {
+            (int zoneLand, int zoneArable) = TerrainSystem.ArableCounts(zone);
+            land += zoneLand;
+            arable += zoneArable;
+        }
+        return land <= 0 ? 1f : Mathf.Clamp(arable / (land * 0.6f), 0.3f, 1f);
     }
 
     // 旧存档里划的农耕区(AI 缺粮时划的、原来规划笔刷刷的)一并退掉(纯净地图的田是农村的田)
