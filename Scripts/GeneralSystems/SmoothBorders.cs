@@ -78,6 +78,11 @@ public static class SmoothBorders
     private static IMetaObject LayerMeta(MetaTypeAsset layer, int option, TileZone zone)
     {
         if (zone == null) return null;
+        // 文化图层(按城市那几档)按模组记的主流文化取归属，同它的 draw_zones(见 EmpireCraftNamePlateLibrary)：原版按城市
+        // 身上的原版文化取，没对上原版文化对象的城平滑成了透明，文化图层只剩名字没有颜色
+        if (layer.map_mode == MetaType.Culture && !layer.isMetaZoneOptionSelectedFluid() &&
+            EmpireCraft.Scripts.GameLibrary.EmpireCraftNamePlateLibrary.TryCultureLayerMeta(zone, out IMetaObject culture))
+            return culture;
         IMetaObject meta = layer.map_mode == MetaType.City ? zone.city
             : layer.map_mode == MetaType.Alliance ? AllianceMeta(zone, option)
             : layer.tile_get_metaobject?.Invoke(zone, option);

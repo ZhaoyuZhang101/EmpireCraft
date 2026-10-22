@@ -25,6 +25,28 @@ public class KingdomWindowPatch: GamePatch
             AccessTools.Method(typeof(KingdomWindow), nameof(KingdomWindow.showStatsRows)),
             prefix: new HarmonyMethod(GetType(), nameof(showStatsRows))
         );     
+        // 原版王国窗口改名只写 data.name，每月 SetKingdomName 又按法理把它改回自动名：改的名记成自定国名，
+        // 同政体窗口的国名输入框(见 RegimeWindow.ChangeKingdomName)
+        var rename = AccessTools.Method(typeof(KingdomWindow), "onNameChange");
+        if (rename != null)
+            new Harmony(nameof(BeforeKingdomRename)).Patch(rename,
+                prefix: new HarmonyMethod(GetType(), nameof(BeforeKingdomRename)));
+        else LogService.LogWarning("[EmpireCraft] 没找到原版王国窗口的改名方法，原版窗口改的国名仍会被自动国名覆盖");
+    }
+
+    // 这个方法可能是各窗口共用的基类方法：只管王国窗口；参数按位置取，不依赖原版的参数名
+    public static void BeforeKingdomRename(object __instance, object[] __args)
+    {
+        if (__instance is not KingdomWindow || __args == null || __args.Length == 0 || __args[0] is not string input) return;
+        Kingdom kingdom = SelectedMetas.selected_kingdom;
+        if (kingdom?.data == null || kingdom.isRekt() ||
+            EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(kingdom)) return;
+        string name = input.Trim();
+        // 打开窗口时往输入框里填现名也可能走到这里：和现名一样的不算改名，免得把自动国名定死
+        if (name.Length == 0 || name == kingdom.data.name || name == kingdom.GetKingdomName() ||
+            name == kingdom.GetKingdomFullName()) return;
+        kingdom.SetCustomCountryName(name);
+        kingdom.SetCustomCountrySuffix("");
     }
 
     public static void OnEnable(KingdomWindow __instance)

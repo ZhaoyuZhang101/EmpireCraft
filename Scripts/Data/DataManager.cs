@@ -47,16 +47,21 @@ public static class DataManager
         NormalizeLoadedNameSeparators();
         if (!File.Exists(loadPath))
         {
-            foreach (var worldKingdom in World.world.kingdoms)
-            {
-                worldKingdom.InitialRegime();
-            }
+            InitialRegimeForAll();
             LogService.LogInfo("没有找到任何保存数据。");
             return;
         }
-        var json = File.ReadAllText(loadPath);
         FactionRatioConverter.ResetLegacyDiscardCount();
-        var saveData = JsonConvert.DeserializeObject<SaveData>(json);
+        SaveData saveData = null;
+        // 文件截断、格式坏了时 JsonConvert 抛异常而不是返回空：接住，当作读不出来(下面按文化给各国定政体)
+        try
+        {
+            saveData = JsonConvert.DeserializeObject<SaveData>(File.ReadAllText(loadPath));
+        }
+        catch (Exception e)
+        {
+            LogService.LogError($"模组存档读不出来(文件损坏？)，各国按文化重定政体: {e}");
+        }
         NormalizeSaveData(saveData);
         InstitutionSystem.ImportCultureStates(saveData?.cultureInstitutionStates);
         TechnologySystem.ImportStates(saveData?.cultureTechStates);
@@ -71,10 +76,7 @@ public static class DataManager
         // 一份模组数据都读不出来(文件损坏)：同没有存档文件，按文化给各国定政体(以前直接返回，政体留在默认值律令)
         if (saveData == null)
         {
-            foreach (var worldKingdom in World.world.kingdoms)
-            {
-                worldKingdom.InitialRegime();
-            }
+            InitialRegimeForAll();
             LogService.LogInfo("没有找到任何保存数据。");
             return;
         }
@@ -105,29 +107,36 @@ public static class DataManager
         foreach (var entry in saveData.kingdomExtraData)
         {
             if (entry == null) continue;
-            if (kingdomById.TryGetValue(entry.id, out var kingdom))
+            try
             {
-                if (entry.saved_regime_options == null) legacyRegimeKingdoms.Add(entry.id);
-                kingdom.SyncData(entry);
-                if (kingdom.GetOfficeID() == -1L)
+                if (kingdomById.TryGetValue(entry.id, out var kingdom))
                 {
-                    bool manuallySelected = kingdom.GetOrCreate().regime_manually_selected;
-                    // 旧制犹存的按旧制所属的文化(见 LegacyInstitutionSystem)
-                    var culture = CultureService.GetInstitutionCulture(kingdom);
-                    RegimeType regimeType = InstitutionSystem.TryResolveCultureRegime(culture, out RegimeType resolvedRegime)
-            ? resolvedRegime
-            : OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(culture, out Setting setting)
-                ? setting.regime
-                : RegimeType.Feudalism;
-                    if (manuallySelected || RepublicSystem.IsRegimeLocked(kingdom))
-                        regimeType = kingdom.GetOrCreate().regimeType;
-                    // 君主制帝国里的成员不因本文化已废君主制而成了现代政体(同 CultureService 的政体换算)
-                    else regimeType = InstitutionSystem.AdjustForMonarchyEmpire(kingdom, regimeType);
-                    kingdom.SetRegimeType(regimeType);
-                    kingdom.GetOrCreate().regime_manually_selected = manuallySelected;
-                    kingdom.LoadRegime();
-                    EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(kingdom);
+                    if (entry.saved_regime_options == null) legacyRegimeKingdoms.Add(entry.id);
+                    kingdom.SyncData(entry);
+                    if (kingdom.GetOfficeID() == -1L)
+                    {
+                        bool manuallySelected = kingdom.GetOrCreate().regime_manually_selected;
+                        // 旧制犹存的按旧制所属的文化(见 LegacyInstitutionSystem)
+                        var culture = CultureService.GetInstitutionCulture(kingdom);
+                        RegimeType regimeType = InstitutionSystem.TryResolveCultureRegime(culture, out RegimeType resolvedRegime)
+                ? resolvedRegime
+                : OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(culture, out Setting setting)
+                    ? setting.regime
+                    : RegimeType.Feudalism;
+                        if (manuallySelected || RepublicSystem.IsRegimeLocked(kingdom))
+                            regimeType = kingdom.GetOrCreate().regimeType;
+                        // 君主制帝国里的成员不因本文化已废君主制而成了现代政体(同 CultureService 的政体换算)
+                        else regimeType = InstitutionSystem.AdjustForMonarchyEmpire(kingdom, regimeType);
+                        kingdom.SetRegimeType(regimeType);
+                        kingdom.GetOrCreate().regime_manually_selected = manuallySelected;
+                        kingdom.LoadRegime();
+                        EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(kingdom);
+                    }
                 }
+            }
+            catch (Exception e)
+            {
+                LogService.LogError($"读取国家 {entry.id} 的模组数据失败，已跳过: {e}");
             }
         }
         LogService.LogInfo("Sync Kingdom Data");
@@ -198,8 +207,9 @@ public static class DataManager
         // 史书与已亡帝国名录先读进来：下面整理帝国时就可能有帝国解散，要记进这两处(见 EmpireManager.dissolveEmpire)
         ModClass.ALL_HISTORY_DATA = saveData.all_history;
         FallenEmpireRecords.Load(saveData.fallen_empires);
-        EmpireMembershipService.NormalizeLoadedMembership(saveData.empireDatas, World.world.kingdoms,
-            new HashSet<long>(saveData.kingdomExtraData.Where(entry => entry != null).Select(entry => entry.id)));
+        Guarded("整理帝国成员", () => EmpireMembershipService.NormalizeLoadedMembership(saveData.empireDatas,
+            World.world.kingdoms,
+            new HashSet<long>(saveData.kingdomExtraData.Where(entry => entry != null).Select(entry => entry.id))));
         foreach (EmpireData empireData in saveData.empireDatas)
         {
             if (empireData == null) continue;
@@ -229,8 +239,8 @@ public static class DataManager
             }
         }
         // 只整理成员与核心国，不跑帝国月度更新：帝国核心、法理、宗族等还在后面才读(见 EmpireManager.RepairAfterLoad)
-        ModClass.EMPIRE_MANAGER.RepairAfterLoad();
-        FallenEmpireRecords.AdoptArchived(ModClass.EMPIRE_MANAGER);
+        Guarded("整理帝国", () => ModClass.EMPIRE_MANAGER.RepairAfterLoad());
+        Guarded("已亡帝国名录", () => FallenEmpireRecords.AdoptArchived(ModClass.EMPIRE_MANAGER));
         LogService.LogInfo("Sync Empire Data");
         BookNamingSystem.RepairLegacyNames();
         EmpireCoreManager.EmpireCores = BuildEmpireCoreMap(saveData.empireCoreDatas);
@@ -274,15 +284,18 @@ public static class DataManager
         foreach (KingdomTitle title in ModClass.KINGDOM_TITLE_MANAGER.ToList())
             CultureService.RememberInitialTitleCulture(title);
         // 修复：临时子核心抢走的原核心城市归还原核心(见 EmpireCoreManager.RestoreParentCities)
-        EmpireCoreManager.RepairContestedCoreOwners();
-        EmpireCoreManager.RestoreAllParentCities();
-        EmpireCoreManager.RepairUntitledCoreCities();
-        EmpireCoreManager.ReconcileCityCores();
+        Guarded("帝国核心修复", () =>
+        {
+            EmpireCoreManager.RepairContestedCoreOwners();
+            EmpireCoreManager.RestoreAllParentCities();
+            EmpireCoreManager.RepairUntitledCoreCities();
+            EmpireCoreManager.ReconcileCityCores();
+        });
         // 兼属的反查表重建；旧存档的争议地带宣称折成兼属(见 DeJureShareSystem)
-        DeJureShareSystem.AfterLoad();
+        Guarded("兼属", DeJureShareSystem.AfterLoad);
         // 本朝法理里因水土设的羁縻改回直辖(一次)
-        ShuiTuSystem.RestoreHomelandJimi();
-        CultureService.MigrateWorldCultureData();
+        Guarded("水土羁縻", ShuiTuSystem.RestoreHomelandJimi);
+        Guarded("文化数据迁移", CultureService.MigrateWorldCultureData);
         SpecificClanManager._specificClans = saveData.specificClans;
         SpecificClanManager.RebuildCache();
         // Run after culture bindings, extra data and genealogy links are restored.
@@ -328,17 +341,24 @@ public static class DataManager
         {
             if (worldKingdom == null || worldKingdom.isRekt()) continue;
             if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(worldKingdom)) continue;
-            if (isOldSave)
+            try
             {
-                worldKingdom.InitialRegime();
+                if (isOldSave)
+                {
+                    worldKingdom.InitialRegime();
+                }
+                worldKingdom.NormalizeFactionRebelName();
+                worldKingdom.SyncRealmTitlesFromRuler();
+                if (worldKingdom.hasKing()) worldKingdom.TransferRealmTitlesToRuler(worldKingdom.king);
+                worldKingdom.ReconcileMainTitle();
+                worldKingdom.GetInitialRandomKingdomName();
+                if (legacyRegimeKingdoms.Contains(worldKingdom.id)) worldKingdom.RepairLegacyRegimeRole();
+                EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(worldKingdom);
             }
-            worldKingdom.NormalizeFactionRebelName();
-            worldKingdom.SyncRealmTitlesFromRuler();
-            if (worldKingdom.hasKing()) worldKingdom.TransferRealmTitlesToRuler(worldKingdom.king);
-            worldKingdom.ReconcileMainTitle();
-            worldKingdom.GetInitialRandomKingdomName();
-            if (legacyRegimeKingdoms.Contains(worldKingdom.id)) worldKingdom.RepairLegacyRegimeRole();
-            EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(worldKingdom);
+            catch (Exception e)
+            {
+                LogService.LogError($"读档整理国家 {worldKingdom.id} 失败，已跳过: {e}");
+            }
         }
         NomadFeudalismSystem.RepairAfterLoad();
         OfficeManager.Prune();
@@ -356,6 +376,11 @@ public static class DataManager
                 LogService.LogError($"帝国文化与制度存档迁移失败，保留原制度: {exception}");
             }
         }
+        Guarded("空世界补人口", () =>
+        {
+            int seeded = CityPopulationSystem.ReseedEmptyWorld();
+            if (seeded > 0) LogService.LogWarning($"全世界的城都没有人口(旧版读档丢了人口又存过档)，已给 {seeded} 座城各补一户");
+        });
         // 只读的一致性检查：把帝国/王国/诉求/议会的状态错乱统一以 [存档检查] 写进日志
         try
         {
@@ -367,6 +392,36 @@ public static class DataManager
         }
         // 给读进来的各帝国记底，读档后按月对账(见 EmpireLossDiagnostics)
         EmpireCraft.Scripts.Diagnostics.EmpireLossDiagnostics.OnLoaded();
+    }
+
+    // 没有模组存档、或读不出来：各国按文化定政体(古战模组的国家不归本模组管)
+    private static void InitialRegimeForAll()
+    {
+        foreach (var worldKingdom in World.world.kingdoms)
+        {
+            if (worldKingdom == null || worldKingdom.isRekt() || AncientWarfareCompatibility.Owns(worldKingdom)) continue;
+            try
+            {
+                worldKingdom.InitialRegime();
+            }
+            catch (Exception e)
+            {
+                LogService.LogError($"国家 {worldKingdom.id} 按文化定政体失败: {e}");
+            }
+        }
+    }
+
+    // 读档链上的一段出错只记日志：以前整个读档只有最外面一层 try，一段抛异常，后面定政体、国名、帝国迁移全部跳过
+    private static void Guarded(string what, Action action)
+    {
+        try
+        {
+            action();
+        }
+        catch (Exception e)
+        {
+            LogService.LogError($"读档[{what}]失败，已跳过这一段: {e}");
+        }
     }
 
     private static void NormalizeLoadedNameSeparators()
