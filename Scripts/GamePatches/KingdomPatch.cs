@@ -343,6 +343,8 @@ public class KingdomPatch : GamePatch
         if (regime == null) return;
         regime.SetAllowDiplomacy(true);
         regime.SetAllowArmy(true);
+        // 立国时文化没定下(或之前已有人取过政体)，政体会按默认值装成律令制(玩家 2026-10-22 反馈"全图律令制")：按文化改回
+        CultureService.RepairDefaultRegime(__instance);
     }
     public static void RemovePatchData(Kingdom __instance)
     {

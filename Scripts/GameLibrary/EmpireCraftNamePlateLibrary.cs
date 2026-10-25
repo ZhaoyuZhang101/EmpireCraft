@@ -967,13 +967,21 @@ public static class EmpireCraftNamePlateLibrary
                 if (AncientWarfareCompatibility.OwnsObject(city)) continue;
                 string cultureKey = LayerCityCache.Culture(city);
                 if (!CultureService.IsValidCulture(cultureKey)) continue;
-                Culture nativeCulture = CultureService.GetNativeCultureObject(cultureKey);
-                if (nativeCulture == null) continue;
+                Culture nativeCulture = NativeCultureThisFrame(cultureKey);
+                // 找不到原版文化对象(世上没有实体小人的世界建不出来，坏版本里存过的档已经丢了)：按铭牌用的文化色画，
+                // 以前整城跳过，文化图层只剩名字没有颜色
+                CultureMapColor fallbackColor = nativeCulture == null ? CultureMapColorOf(cultureKey) : null;
+                if (nativeCulture == null && fallbackColor == null) continue;
 
                 foreach (TileZone zone in city.zones)
                 {
                     EmpireCraftMetaTypeLibrary.zone_manager.drawBegin();
-                    drawZoneCultureWithCityBorder(zone, cultureKey, nativeCulture, pMetaTypeAsset);
+                    if (nativeCulture != null) drawZoneCultureWithCityBorder(zone, cultureKey, nativeCulture, pMetaTypeAsset);
+                    else
+                        EmpireCraftMetaTypeLibrary.zone_manager.drawZoneMeta(fallbackColor, zone,
+                            isBorderColor_culture(zone.zone_up, cultureKey), isBorderColor_culture(zone.zone_down, cultureKey),
+                            isBorderColor_culture(zone.zone_left, cultureKey), isBorderColor_culture(zone.zone_right, cultureKey),
+                            fallbackColor.data, pMetaTypeAsset);
                     EmpireCraftMetaTypeLibrary.zone_manager.drawEnd(zone);
                 }
             }
@@ -1157,6 +1165,62 @@ public static class EmpireCraftNamePlateLibrary
         if (list == null || list.Count == 0) return null;
         int idx = Math.Abs(cultureKey.GetHashCode()) % list.Count;
         return AssetManager.culture_colors_library.getColorByIndex(idx);
+    }
+
+    // 文化图层的备用色：颜色序号同 GetCultureBannerColor，铭牌和地块一个颜色。不进世界的文化集合，也不存档
+    private sealed class CultureMapColor : MetaObject<IdeologyMapColorData>
+    {
+        public override MetaType meta_type => MetaType.Culture;
+        public override ColorLibrary getColorLibrary() => AssetManager.culture_colors_library;
+    }
+
+    private static readonly Dictionary<string, CultureMapColor> _culture_map_colors = new();
+
+    // 平滑国界取文化图层每格的归属(见 SmoothBorders.LayerMeta)：古战模组的城照原版取；其余按模组主流文化，
+    // 有原版文化对象用它，没有用备用色，不是哪种文化的城为空
+    public static bool TryCultureLayerMeta(TileZone zone, out IMetaObject meta)
+    {
+        meta = null;
+        City city = zone?.city;
+        if (city != null && !city.isRekt() && AncientWarfareCompatibility.OwnsObject(city)) return false;
+        if (city == null || city.isRekt()) return true;
+        string cultureKey = LayerCityCache.Culture(city);
+        if (!CultureService.IsValidCulture(cultureKey)) return true;
+        Culture nativeCulture = NativeCultureThisFrame(cultureKey);
+        meta = nativeCulture != null && nativeCulture.isAlive() ? (IMetaObject)nativeCulture : CultureMapColorOf(cultureKey);
+        return true;
+    }
+
+    // 查原版文化对象要把世上的文化挨个看一遍，平滑国界每块地要查二十几次：同一帧里记下查过的
+    private static readonly Dictionary<string, Culture> _native_culture_this_frame = new();
+    private static int _native_culture_frame = -1;
+
+    private static Culture NativeCultureThisFrame(string cultureKey)
+    {
+        if (_native_culture_frame != Time.frameCount)
+        {
+            _native_culture_this_frame.Clear();
+            _native_culture_frame = Time.frameCount;
+        }
+        if (!_native_culture_this_frame.TryGetValue(cultureKey, out Culture culture))
+        {
+            culture = CultureService.GetNativeCultureObject(cultureKey);
+            _native_culture_this_frame[cultureKey] = culture;
+        }
+        return culture;
+    }
+
+    private static CultureMapColor CultureMapColorOf(string cultureKey)
+    {
+        if (_culture_map_colors.TryGetValue(cultureKey, out CultureMapColor cached)) return cached;
+        List<ColorAsset> list = AssetManager.culture_colors_library?.list;
+        if (list == null || list.Count == 0) return null;
+        var data = new IdeologyMapColorData { name = cultureKey };
+        data.setColorID(Math.Abs(cultureKey.GetHashCode()) % list.Count);
+        var color = new CultureMapColor();
+        color.loadData(data);
+        _culture_map_colors[cultureKey] = color;
+        return color;
     }
 
     private static void RenderSimplifiedEmpireLayer()

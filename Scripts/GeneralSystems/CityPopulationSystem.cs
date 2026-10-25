@@ -2563,6 +2563,40 @@ public static class CityPopulationSystem
             IdeologyPopulationSystem.GetDominant(city), missing);
     }
 
+    // 读档兜底：全世界的城一个人都没有(背景人口为 0、也没有实体居民)——旧版读档时人口没读进来(见 DataManager.LoadAll)
+    // 又存过档——按"空城等移民"的规矩(见 EnsureFloor)谁也长不起来。这种档给每座城按保底补一户；
+    // 只要还有一座城有人就不动，照常等移民
+    public static int ReseedEmptyWorld()
+    {
+        if (!AbstractPopulationEnabled || World.world?.cities == null) return 0;
+        List<City> cities = World.world.cities.Where(city => city?.data != null && !city.isRekt() &&
+            city.kingdom != null && !city.kingdom.wild &&
+            !EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(city)).ToList();
+        if (cities.Count == 0) return 0;
+        foreach (City city in cities)
+            if (GetTotal(city) >= 1f || city.units?.Any(actor => actor != null && !actor.isRekt() && actor.isAlive()) == true)
+                return 0;
+        int seeded = 0;
+        foreach (City city in cities)
+        {
+            if (Get(city)?.spontaneous_settlement == true || StateSettlementSystem.AwaitingPopulation(city)) continue;
+            string species = null;
+            try
+            {
+                species = city.getSpecies();
+            }
+            catch
+            {
+                // 取不到物种就不补
+            }
+            if (string.IsNullOrEmpty(species)) continue;
+            AddBackground(city, SocialClass.Peasant, CultureService.GetMainCulture(city, initialize: false) ?? "", species,
+                IdeologyPopulationSystem.GetDominant(city), MinimumHouseholds * PeoplePerSlot(city));
+            seeded++;
+        }
+        return seeded;
+    }
+
     // 城主空缺时立即补位(每帧由城市更新调用)：先按官职选人，选不到就从背景人口里生成一人接任
     public static void EnsureLeader(City city)
     {

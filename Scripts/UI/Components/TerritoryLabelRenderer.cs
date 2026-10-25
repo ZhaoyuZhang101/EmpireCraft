@@ -67,6 +67,44 @@ public static class TerritoryLabelRenderer
         "Segoe UI"
     };
 
+    // 铭牌最后的兜底不直接用游戏的铭牌字体：那是原版城名、界面共用的动态字体，按 128 号字往里拼上百个国名用字，
+    // 图集(最大 4096)装不下，Unity 每帧报 "Failed to update dynamic font (Roboto-Bold) texture"，原版的字也跟着
+    // 变空白、掉帧(玩家日志 2026-10-22)。改用模组自己建的一份本机字体，图集单独一张，装满了也只影响领土铭牌
+    private static readonly string[] LabelFallbackFontNames =
+    {
+        "Microsoft YaHei",
+        "Microsoft YaHei UI",
+        "SimHei",
+        "PingFang SC",
+        "Hiragino Sans GB",
+        "Noto Sans CJK SC",
+        "Source Han Sans SC",
+        "WenQuanYi Micro Hei",
+        "Arial Unicode MS",
+        "Arial"
+    };
+    private static Font _label_fallback_font;
+
+    private static Font LabelFallbackFont(Font gameFont)
+    {
+        if (_label_fallback_font != null) return _label_fallback_font;
+        try
+        {
+            var names = new List<string>();
+            if (gameFont?.fontNames != null)
+                foreach (string name in gameFont.fontNames)
+                    if (!string.IsNullOrEmpty(name) && !names.Contains(name)) names.Add(name);
+            foreach (string name in LabelFallbackFontNames)
+                if (!names.Contains(name)) names.Add(name);
+            _label_fallback_font = Font.CreateDynamicFontFromOSFont(names.ToArray(), 64);
+        }
+        catch (Exception exception)
+        {
+            Debug.LogWarning($"EmpireCraft could not create territory fallback font: {exception.Message}");
+        }
+        return _label_fallback_font != null ? _label_fallback_font : gameFont;
+    }
+
     public static readonly TerritoryLabelStyle EmpireStyle = new TerritoryLabelStyle
     {
         text_color = new Color(1f, 1f, 1f, 0.8f),
@@ -1168,7 +1206,7 @@ public static class TerritoryLabelRenderer
             textObject.transform.SetParent(_root, false);
             _text = textObject.GetComponent<Text>();
             Text template = GetTextTemplate();
-            Font fallbackFont = template?.font ?? Resources.GetBuiltinResource<Font>("Arial.ttf");
+            Font fallbackFont = LabelFallbackFont(template?.font ?? Resources.GetBuiltinResource<Font>("Arial.ttf"));
             _fallback_font = fallbackFont;
             _text.font = fallbackFont;
             _text.fontSize = TerritoryLabelProjection.ReferenceFontSize;

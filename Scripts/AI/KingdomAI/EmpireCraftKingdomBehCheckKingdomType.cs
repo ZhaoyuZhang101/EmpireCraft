@@ -272,6 +272,9 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
             }
         }
         FeudalVassalService.Sync(pKingdom);
+        // 按默认值装成律令制(或阿拉伯)的改回本文化的政体(见 CultureService.RepairDefaultRegime；玩家 2026-10-22 反馈"全图律令制")。
+        // 每月一次、多数国家第一行就返回；新开的图上已经装错的国家由这里陆续纠正
+        CultureService.RepairDefaultRegime(pKingdom);
         InstitutionSystem.TryAdvanceRegimeTransition(pKingdom);
         SyncKingdomStatus(pKingdom);
         // 周制诸侯各用各的颜色(帝国仍是天子的颜色)
