@@ -15,6 +15,8 @@ public sealed class FactorySite
     public long seed;
     // 官营(国库出钱建的，见 EnterpriseSystem.Fund)；民营为 false
     public bool state;
+    // 神力手动放的(营地里也不拆，见 FactorySystem.Grow)
+    public bool manual;
     // 区里的厂
     public List<FactoryUnit> units = new();
 }

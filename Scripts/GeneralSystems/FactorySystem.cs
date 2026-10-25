@@ -301,9 +301,27 @@ public static class FactorySystem
         }
     }
 
+    // 营地(游牧、林地)不建古代工场(用户 2026-10-22 "游牧哪里来的作坊"，问答选"古代不建，近代才建")：
+    // 有了近代厂才建、只建近代厂；之前 AI 建下的古代工场、火药坊拆掉(神力手动放的厂区不动，见 FactorySite.manual)
+    private static bool Camp(City city) => CityStyleSystem.Camp(CityStyleSystem.Established(city));
+
     private static void Grow(City city)
     {
         List<string> unlocked = Unlocked(city);
+        if (Camp(city))
+        {
+            if (!unlocked.Any(IsModern))
+            {
+                foreach (FactorySite site in InCity(city).Where(site => !site.manual).ToList())
+                {
+                    site.units.RemoveAll(unit => !IsModern(unit.type));
+                    if (site.units.Count == 0) Remove(site);
+                    else Changed(site);
+                }
+                return;
+            }
+            unlocked = unlocked.Where(IsModern).ToList();
+        }
         if (unlocked.Count == 0) return;
         int tier = city.GetOrCreate().urban_tier;
         int wanted = tier >= 4 ? 3 : tier >= 3 ? 2 : tier >= 2 ? 1 : 0;
@@ -407,7 +425,7 @@ public static class FactorySystem
             CityDistricts.Reset();
         }
         placed = new FactorySite { id = _nextId++, x = tile.x, y = tile.y, size = Math.Max(1, Math.Min(MaxSize, size)),
-            founded = World.world.getCurWorldTime() };
+            founded = World.world.getCurWorldTime(), manual = manual };
         // 一整片成品：从已解锁的门类里随机挑满，尽量不重样
         var pool = new List<string>(unlocked);
         for (int k = 0; k < Capacity(placed.size); k++)

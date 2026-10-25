@@ -8,13 +8,29 @@ namespace EmpireCraft.Scripts.GamePatches;
 //   火药厂是土堤隔开的几间小库房；钢铁厂是高炉加长厂房；轻工厂是锯齿屋顶的车间；船厂是临水的滑道和船体(重型的船大、有行车)；
 //   重工厂是大厂房、两根烟囱、门式起重机；飞机厂是拱顶机库加停机坪。等级越高厂房占的地越满；布局按厂区自己的种子随机。
 //   粗图(一格一像素)：围墙、厂内道路、屋顶、烟囱点。
+//   区里没有近代厂(只有古代手工工场、火药坊)的画成作坊院(用户 2026-10-22 "工厂区在古代为什么这么现代的感觉"，
+//   问答选"照各城的文化系")：夯土墙(平顶土屋的文化是土坯墙)、夯土地坪、土路，屋顶用本城文化系的瓦色，粗图不画烟囱点、不通铁路。
 public partial class PureMapPatch
 {
     private static readonly Color32 FactoryFence = new(70, 70, 74, 255), FactoryRoad = new(92, 92, 96, 255),
         FactoryYard = new(150, 148, 140, 255), FactoryRoofA = new(118, 124, 132, 255), FactoryRoofB = new(150, 156, 164, 255),
         FactoryChimney = new(52, 46, 44, 255);
+    // 作坊院：夯土墙(土坯墙)、夯土地坪、土路
+    private static readonly Color32 WorkshopWall = new(138, 116, 88, 255), WorkshopMudWall = new(198, 176, 136, 255),
+        WorkshopYard = new(178, 158, 122, 255), WorkshopRoad = new(160, 138, 104, 255);
 
     private static long FactoryKey(FactorySite site) => site.seed + site.id * 7919L + UrbanFabric.PosKey(site.x, site.y);
+
+    // 区里没有近代厂：画成作坊院
+    private static bool IsWorkshopYard(FactorySite site) => !site.units.Exists(unit => FactorySystem.IsModern(unit.type));
+
+    // 本城文化系的画法(瓦色、是不是平顶土屋)；营地、没有的按华夏
+    private static DetailStyle WorkshopStyle(FactorySite site)
+    {
+        City city = FactorySystem.CityOf(site);
+        DetailStyle style = city?.data == null ? null : StyleOf(CityStyleSystem.Established(city));
+        return style == null || style.Camp ? Styles["huaxia"] : style;
+    }
 
     // 粗图上的一格
     private static Color32? FactoryCoarse(WorldTile tile, Color32 color, CityPlan plan)
@@ -24,6 +40,16 @@ public partial class PureMapPatch
             if (!FactorySystem.Covers(site, tile.x, tile.y)) continue;
             (int x0, int y0, int side) = FactorySystem.Footprint(site);
             int lx = tile.x - x0, ly = tile.y - y0;
+            if (IsWorkshopYard(site))
+            {
+                DetailStyle style = WorkshopStyle(site);
+                Color32 wall = style.FlatRoofs ? WorkshopMudWall : WorkshopWall;
+                if (lx == 0 || ly == 0 || lx == side - 1 || ly == side - 1)
+                    return lx == side / 2 && ly == 0 ? Lerp(color, WorkshopRoad, 0.85f) : Lerp(color, wall, 0.85f);
+                if (ly == side / 2 || lx == side / 2 && ly < side / 2) return Lerp(color, WorkshopRoad, 0.85f);
+                Color32[] roofs = style.Roofs;
+                return Lerp(color, roofs[(int)(DetailHash(FactoryKey(site), lx, ly, 803) * roofs.Length) % roofs.Length], 0.85f);
+            }
             if (lx == 0 || ly == 0 || lx == side - 1 || ly == side - 1)
                 return lx == side / 2 && ly == 0 ? Lerp(color, FactoryRoad, 0.85f) : Lerp(color, FactoryFence, 0.85f);
             if (ly == side / 2 || lx == side / 2 && ly < side / 2) return Lerp(color, FactoryRoad, 0.85f);
@@ -51,30 +77,36 @@ public partial class PureMapPatch
             {
                 if (Dry(px, py)) c.Put(px, py, color, KFixed);
             }
-            // 地坪(水泥地，一点斑驳)
+            // 作坊院(区里没有近代厂)：夯土墙、夯土地坪、土路，屋顶照本城文化系；近代厂区是水泥地、铁栅、柏油路
+            bool workshop = IsWorkshopYard(site);
+            DetailStyle style = workshop ? WorkshopStyle(site) : null;
+            Color32 yard = workshop ? WorkshopYard : FactoryYard;
+            Color32 fence = workshop ? style.FlatRoofs ? WorkshopMudWall : WorkshopWall : FactoryFence;
+            Color32 road = workshop ? WorkshopRoad : FactoryRoad;
+            // 地坪(水泥地或夯土，一点斑驳)
             for (int py = y0; py < y0 + w; py++)
             for (int px = x0; px < x0 + w; px++)
-                Put(px, py, DetailHash(key, px, py, 802) < 0.15f ? Darker(FactoryYard, 0.92f) : FactoryYard);
+                Put(px, py, DetailHash(key, px, py, 802) < 0.15f ? Darker(yard, 0.92f) : yard);
             // 围墙，南面正中开大门
             int gate = x0 + w / 2;
             for (int k = 0; k < w; k++)
             {
-                Put(x0 + k, y0 + w - 1, FactoryFence);
-                Put(x0, y0 + k, FactoryFence);
-                Put(x0 + w - 1, y0 + k, FactoryFence);
-                if (Mathf.Abs(x0 + k - gate) > 1) Put(x0 + k, y0, FactoryFence);
+                Put(x0 + k, y0 + w - 1, fence);
+                Put(x0, y0 + k, fence);
+                Put(x0 + w - 1, y0 + k, fence);
+                if (Mathf.Abs(x0 + k - gate) > 1) Put(x0 + k, y0, fence);
             }
             // 厂内道路：大门往北一条，正中横贯一条
             int roadY = y0 + w / 2;
             for (int px = x0 + 1; px < x0 + w - 1; px++)
             {
-                Put(px, roadY, FactoryRoad);
-                Put(px, roadY - 1, FactoryRoad);
+                Put(px, roadY, road);
+                Put(px, roadY - 1, road);
             }
             for (int py = y0; py < roadY; py++)
             {
-                Put(gate, py, FactoryRoad);
-                Put(gate - 1, py, FactoryRoad);
+                Put(gate, py, road);
+                Put(gate - 1, py, road);
             }
             // 有钢铁厂、重工厂的通一条铁路专用线(沿北墙内侧)
             if (site.units.Exists(unit => unit.type is "steel_mill" or "heavy_factory"))
@@ -95,7 +127,7 @@ public partial class PureMapPatch
                 int sy0 = row == 0 ? roadY + 2 : y0 + 2, sy1 = row == 0 ? y0 + w - 5 : roadY - 3;
                 if (row == 0 && !site.units.Exists(unit => unit.type is "steel_mill" or "heavy_factory")) sy1 = y0 + w - 3;
                 if (sx1 <= sx0 || sy1 <= sy0) continue;
-                DrawWorks(c, site.units[i], sx0, sy0, sx1, sy1, key + i * 131L, Put);
+                DrawWorks(c, site.units[i], sx0, sy0, sx1, sy1, key + i * 131L, Put, style);
             }
         }
     }
@@ -103,8 +135,11 @@ public partial class PureMapPatch
     private delegate void PutPixel(int px, int py, Color32 color);
 
     // 一座厂：在 [x0, x1]×[y0, y1] 这一格位里画；等级越高占得越满
-    private static void DrawWorks(Canvas c, FactoryUnit unit, int x0, int y0, int x1, int y1, long key, PutPixel put)
+    // style：作坊院的文化系画法(铸钱局、印书坊的屋顶用它的瓦色)；近代厂区为空
+    private static void DrawWorks(Canvas c, FactoryUnit unit, int x0, int y0, int x1, int y1, long key, PutPixel put,
+        DetailStyle style = null)
     {
+        Color32 tile = style == null ? Rgb(108, 104, 98) : style.Roofs[(int)(DetailHash(key, 3) * style.Roofs.Length) % style.Roofs.Length];
         float fill = 0.55f + 0.15f * Mathf.Clamp(unit.level, 1, 3);
         int w = x1 - x0 + 1, h = y1 - y0 + 1;
         int bw = Mathf.Max(2, Mathf.RoundToInt(w * fill)), bh = Mathf.Max(2, Mathf.RoundToInt(h * fill));
@@ -146,9 +181,9 @@ public partial class PureMapPatch
             }
             case "mint":
             {
-                // 铸钱局：灰瓦院落，院里几点铜色(钱范、钱串)
-                Rect(bx0, by0, bw, bh, Rgb(108, 104, 98));
-                Rect(bx0, by0 + bh - 1, bw, 1, Rgb(84, 80, 76));
+                // 铸钱局：瓦顶院落(瓦色照本城文化系)，院里几点铜色(钱范、钱串)
+                Rect(bx0, by0, bw, bh, tile);
+                Rect(bx0, by0 + bh - 1, bw, 1, Darker(tile, 0.8f));
                 for (int k = 0; k < Mathf.Clamp(unit.level, 1, 3); k++)
                     put(bx0 + 1 + k * 2, by0 + Mathf.Max(0, bh / 2 - 1), Rgb(214, 176, 60));
                 break;
@@ -185,9 +220,9 @@ public partial class PureMapPatch
             }
             case "print_shop":
             {
-                // 印书坊：黑瓦长屋，屋脊一道亮线，门前几摞白书
-                Rect(bx0, by0, bw, bh, Rgb(70, 74, 82));
-                Rect(bx0, by0 + bh - 1, bw, 1, Rgb(110, 114, 122));
+                // 印书坊：瓦顶长屋(瓦色照本城文化系)，屋脊一道亮线，门前几摞白书
+                Rect(bx0, by0, bw, bh, Darker(tile, 0.8f));
+                Rect(bx0, by0 + bh - 1, bw, 1, tile);
                 for (int k = 0; k < Mathf.Clamp(unit.level, 1, 3); k++)
                     put(bx0 + k * 2, by0 > y0 ? by0 - 1 : by0, Rgb(232, 226, 206));
                 break;
