@@ -117,8 +117,55 @@ public class ZonePaintBudget : GamePatch
             __instance._redraw_timer = Mathf.Max(__instance._redraw_timer, RedrawInterval);
             return;
         }
+        // 地形队列每帧放出一点(这一轮跳过也放，下一轮照样画)
+        ReleaseTerrain(__instance);
         if (__instance._redraw_timer <= 0f) return;
         if (SmoothBorders.WantsEveryRound) __instance._redraw_timer = 0f;
+    }
+
+    // 地形变了要重画的地块(见 TerrainChanged)：草木蔓生、结霜化冻、烧荒这些顶层格变得很勤，以前一变就整块重画，纯净地图下
+    // 一阵子每帧五六十块(性能日志"纯净地图·地块上色"一段 21502 次)，上色预算被它吃光，换图层、悬停、易主这些真正的换色
+    // 排在后面迟迟画不上、看着一块块没变(用户 2026-10-26 "只要是涉及到颜色切换的都卡""残留是部分没变")。
+    // 改成记下来，每轮巡检开始时放出一点去重画：镜头里的至多 TerrainVisiblePerRound 块、镜头外的至多 TerrainHiddenPerRound 块；
+    // 全图换色算色期间先不放。水陆变了(海岸线、边框跟着变)照旧当场重画
+    private const int TerrainVisiblePerRound = 10, TerrainHiddenPerRound = 3, TerrainScanPerRound = 256;
+    private static readonly HashSet<int> TerrainDirty = new();
+    private static readonly Queue<int> TerrainQueue = new();
+    private static object _terrainWorld;
+
+    private static void QueueTerrain(TileZone zone)
+    {
+        if (!ReferenceEquals(_terrainWorld, World.world))
+        {
+            _terrainWorld = World.world;
+            TerrainDirty.Clear();
+            TerrainQueue.Clear();
+        }
+        if (TerrainDirty.Add(zone.id)) TerrainQueue.Enqueue(zone.id);
+    }
+
+    private static void ReleaseTerrain(ZoneCalculator calc)
+    {
+        if (TerrainQueue.Count == 0 || SmoothBorders.LayerPrecomputing || !ReferenceEquals(_terrainWorld, World.world)) return;
+        int visible = 0, hidden = 0, scan = global::System.Math.Min(TerrainQueue.Count, TerrainScanPerRound);
+        for (int i = 0; i < scan && (visible < TerrainVisiblePerRound || hidden < TerrainHiddenPerRound); i++)
+        {
+            int id = TerrainQueue.Dequeue();
+            TileZone zone = calc.getZoneByID(id);
+            if (zone == null)
+            {
+                TerrainDirty.Remove(id);
+                continue;
+            }
+            bool release = zone.visible ? visible++ < TerrainVisiblePerRound : hidden++ < TerrainHiddenPerRound;
+            if (!release)
+            {
+                TerrainQueue.Enqueue(id);
+                continue;
+            }
+            TerrainDirty.Remove(id);
+            Repaint(zone);
+        }
     }
 
     // 原版巡检完一轮：告诉平滑国界这一轮要一起翻的范围里还差几块(算齐了就起翻)
@@ -207,8 +254,13 @@ public class ZonePaintBudget : GamePatch
             World.world?.zone_calculator == null) return;
         bool water = Water(before) != Water(after);
         if (!PureMapMode.Enabled && !Layer.CityViewMap.Active && !(SmoothBorders.Enabled && water)) return;
+        // 只是地面样子变了：排进地形队列，每轮放出一点(见 ReleaseTerrain)
+        if (!water)
+        {
+            QueueTerrain(tile.zone);
+            return;
+        }
         Repaint(tile.zone);
-        if (!water) return;
         Repaint(tile.tile_up?.zone, tile.zone);
         Repaint(tile.tile_down?.zone, tile.zone);
         Repaint(tile.tile_left?.zone, tile.zone);
