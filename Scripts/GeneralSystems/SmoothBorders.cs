@@ -1763,8 +1763,8 @@ public static class SmoothBorders
                 Add(city == null ? 0 : global::System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(city));
                 Add(meta == null ? 0 : global::System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(meta));
                 Add(ColorKey(SafeColor(meta)));
-                // 帝国金边看各国属于哪个帝国
-                if (meta is Kingdom kingdom) Add(kingdom.GetEmpireID());
+                // 帝国金边看各国属于哪个帝国(附庸算宗主的帝国，同 EmpireOf)
+                if (meta is Kingdom kingdom) Add(EmpireMembershipService.MapEmpire(kingdom)?.id ?? -1L);
             }
             Add((CorpsSystem.Enabled ? 1 : 0) | (PureMapMode.Enabled ? 2 : 0) |
                 (PureMapPatch.DetailShown ? 8 : 0) | (PureMapPatch.Relief ? 16 : 0) |
@@ -1972,7 +1972,8 @@ public static class SmoothBorders
     private static int AppearanceKey(IMetaObject meta)
     {
         int key = ColorKey(SafeColor(meta));
-        return meta is Kingdom kingdom ? unchecked(key * 31 + (int)kingdom.GetEmpireID()) : key;
+        // 金边看附庸算进宗主的帝国(见 EmpireOf)：以前只比成员名单，附庸归附、离开时金边不重画，留下残线
+        return meta is Kingdom kingdom ? unchecked(key * 31 + (int)(EmpireMembershipService.MapEmpire(kingdom)?.id ?? -1L)) : key;
     }
 
     // 图层诊断用(见 LayerDiagnostics)：色块没刷新——这块地上次画成的归属或颜色与眼下的实际归属对不上，原版却没来重画
