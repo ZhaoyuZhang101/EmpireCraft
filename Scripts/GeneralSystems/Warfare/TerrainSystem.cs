@@ -7,7 +7,10 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 战线地形(借鉴钢铁雄心)：每块地块按格子构成定一种地形(格子改了当场重判，否则 4~6 年重判一次，见 Lookup)。
 // 交战时看攻方要推进的那块地：攻方战力打折、双方额外掉组织度(补给难)、每月最多推进几块；
 // 山地、沼泽、丛林行军慢一半。城中心那块地算城池。
-// 原版最高的地形(山地、山巅是阻挡格，地面单位走不了)占到四分之三的地块不可通行：军团绕行，战线不从这里推进。
+// 不可通行的地块(军团绕行，战线不从这里推进)：原版最高的地形(山地、山巅是阻挡格，地面单位走不了)占到四分之三，
+// 或者山以外的地(平地、丘陵、水面)在地块里被山隔成了几片、或通不到两条边(用户 2026-10-26 "山地军队不应该通行"，
+// 问答选"按实际走不走得通"：山脊拦腰切断的过不去，有山口、谷地连成一片的照旧能过，同原版小人翻不过山)；
+// 不到 4 格的山间小块不算一片。本地中国图上不可通行的地块由 166 块增到 310 块。城心那一块总能进。
 // 同一份缓存还记着地块里的陆地格数与旱地格数(水土用，见 ShuiTuSystem、DryCounts)：旱地按 LandKinds.Dry(荒漠、稀树草原、荒原)，
 // 陆地不含水、岩浆——同毡帐村镇的口径(RuralSettlementSystem.YurtGround)；这里的"沙漠"地形连海滩沙地也算，水土不用它
 public enum FrontTerrain { Plains, Forest, Jungle, Hills, Mountain, River, Swamp, Desert, Snow, Urban }
@@ -82,12 +85,14 @@ public static class TerrainSystem
     public static FrontTerrain Of(TileZone zone, out bool impassable)
     {
         Entry entry = Lookup(zone);
-        impassable = zone != null && entry.Impassable;
+        impassable = zone != null && entry.Impassable && !Seat(zone);
         return entry.Terrain;
     }
 
-    // 原版最高的地形：山地、山巅(阻挡格)占到四分之三的地块，军团绕行、战线不从这里推进
-    public static bool Impassable(TileZone zone) => zone != null && Lookup(zone).Impassable;
+    // 不可通行(见类头)：军团绕行、战线不从这里推进；城心那一块总能进
+    public static bool Impassable(TileZone zone) => zone != null && Lookup(zone).Impassable && !Seat(zone);
+
+    private static bool Seat(TileZone zone) => zone.city != null && zone.city.getTile()?.zone == zone;
 
     // 地块里的陆地格数与旱地格数(水土，见 ShuiTuSystem)
     public static (int land, int dry) DryCounts(TileZone zone)
@@ -257,6 +262,50 @@ public static class TerrainSystem
         return marks;
     }
 
+    // 山间小块：不到这么多格的一片不算(碰着边也不算把地块隔开)
+    private const int PocketCells = 4;
+
+    // 山以外的地(四邻相连)碰得到地块边的只有一片(不到 PocketCells 格的不算)，且这一片碰得到两条边：能从一边走到另一边。
+    // 被山脊隔成两片(各自碰着边)的、只通一条边的死胡同都过不去
+    private static bool Crossable(bool[] open, int size)
+    {
+        var seen = new bool[open.Length];
+        var stack = new Stack<int>();
+        int pieces = 0;
+        bool through = false;
+        for (int start = 0; start < open.Length; start++)
+        {
+            if (!open[start] || seen[start]) continue;
+            int edges = 0, cells = 0;
+            seen[start] = true;
+            stack.Push(start);
+            while (stack.Count > 0)
+            {
+                int cell = stack.Pop(), x = cell % size, y = cell / size;
+                cells++;
+                if (x == 0) edges |= 1;
+                if (x == size - 1) edges |= 2;
+                if (y == 0) edges |= 4;
+                if (y == size - 1) edges |= 8;
+                if (x > 0) Visit(cell - 1);
+                if (x < size - 1) Visit(cell + 1);
+                if (y > 0) Visit(cell - size);
+                if (y < size - 1) Visit(cell + size);
+            }
+            if (edges == 0 || cells < PocketCells) continue;
+            pieces++;
+            through |= (edges & (edges - 1)) != 0;
+        }
+        return pieces == 1 && through;
+
+        void Visit(int cell)
+        {
+            if (!open[cell] || seen[cell]) return;
+            seen[cell] = true;
+            stack.Push(cell);
+        }
+    }
+
     // 按地块里 64 格的构成判定：山多为山地，山与丘陵多为丘陵，其次沼泽、水网(河湖)、丛林、森林、沙漠、雪原，都不够为平原。
     // 门槛按本地大地图实测：城市地块里平原约四成，丛林、雪原、水网、山地、丘陵各占一到两成(视地图而定)
     private static Entry Classify(TileZone zone)
@@ -276,6 +325,14 @@ public static class TerrainSystem
         int total = 0, water = 0, mountain = 0, hills = 0, trees = 0, woods = 0, swamp = 0, jungle = 0, desert = 0, snow = 0,
             blocked = 0, land = 0, dry = 0, arable = 0, sandy = 0, frozen = 0;
         float livableSum = 0f;
+        // 地块里哪些格走得了(不是山地、山巅)，看山以外的地连不连得过去(见 Crossable)
+        int size = Config.CITY_ZONE_SIZE, ox = zone.x * size, oy = zone.y * size;
+        var open = new bool[size * size];
+        void Open(WorldTile at, bool walkable)
+        {
+            int lx = at.x - ox, ly = at.y - oy;
+            if (lx >= 0 && ly >= 0 && lx < size && ly < size) open[ly * size + lx] = walkable;
+        }
         foreach (WorldTile tile in zone.tiles)
         {
             TileTypeBase type = tile?.Type;
@@ -299,12 +356,15 @@ public static class TerrainSystem
             if ((marks & MarkWater) != 0)
             {
                 water++;
+                Open(tile, true);
                 continue;
             }
             // 底下的地面格只看阻挡、山地，丘陵只认 hills
             TileTypeBase main = tile.main_type;
             int under = main != null ? Marks(main) : 0;
-            if (((marks | under) & MarkBlock) != 0) blocked++;
+            bool block = ((marks | under) & MarkBlock) != 0;
+            if (block) blocked++;
+            Open(tile, !block);
             if (((marks | under) & MarkMountain) != 0) mountain++;
             else if ((marks & (MarkHills | MarkSnowHills)) != 0 || (under & MarkHills) != 0) hills++;
             if ((marks & MarkSwamp) != 0) swamp++;
@@ -318,7 +378,7 @@ public static class TerrainSystem
         int livable = (int)Math.Round(livableSum * LivableScale);
         int barren = land == 0 || sandy + frozen < land ? 0 : sandy >= frozen ? 1 : 2;
         if (total == 0) return (FrontTerrain.Plains, false, land, dry, livable, arable, barren);
-        bool impassable = blocked >= total * 0.75f;
+        bool impassable = blocked >= total * 0.75f || blocked > 0 && !Crossable(open, size);
         float Share(int count) => count / (float)total;
         if (Share(mountain) >= 0.25f) return (FrontTerrain.Mountain, impassable, land, dry, livable, arable, barren);
         if (Share(mountain + hills) >= 0.3f) return (FrontTerrain.Hills, impassable, land, dry, livable, arable, barren);
