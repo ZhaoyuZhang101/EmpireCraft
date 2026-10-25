@@ -8,7 +8,8 @@ namespace EmpireCraft.Scripts.GamePatches;
 // 不要求接壤，近处没有合适目标时就会远距离宣战。这里要求目标与本国(或本国所在帝国)接壤或隔海相望(见 StraitReach)：
 // 原版挑中的目标不近、或原版没挑出目标(隔海的小岛陆路不可达，原版不挑)时，按原版同样的条件改从近邻里挑；没有合适的就不宣战。
 // (帝国与帝国成员的宣战走 EmpireCraftPlotsAddition.GetWarTarget，本来就要求接壤)
-// 先收法理(世界法则，见 DeJureAgenda)：同样条件下，占着本国法理城的邻国优先于原版挑的目标。
+// 先收法理(世界法则，见 DeJureAgenda)：同样条件下，占着本国法理城的邻国优先于原版挑的目标，
+// 其次是占着本国所在帝国法理里城的邻国。
 public class WarTargetPatch : GamePatch
 {
     public ModDeclare declare { get; set; }
@@ -36,7 +37,8 @@ public class WarTargetPatch : GamePatch
         }
         if (GeneralSystems.DeJureAgenda.Enabled)
         {
-            Kingdom claim = NearestNeighbourTarget(pInitiatorKingdom, claimsOnly: true);
+            Kingdom claim = NearestNeighbourTarget(pInitiatorKingdom, claimsOnly: true) ??
+                            NearestNeighbourTarget(pInitiatorKingdom, coreOnly: true);
             if (claim != null)
             {
                 __result = claim;
@@ -53,8 +55,8 @@ public class WarTargetPatch : GamePatch
 
     private static bool IsNeighbour(Kingdom initiator, Kingdom target) => GeneralSystems.StraitReach.Near(initiator, target);
 
-    // 与原版 getWarTarget 相同的条件，只是限定接壤；claimsOnly：只挑占着本国法理城的
-    private static Kingdom NearestNeighbourTarget(Kingdom initiator, bool claimsOnly = false)
+    // 与原版 getWarTarget 相同的条件，只是限定接壤；claimsOnly：只挑占着本国法理城的；coreOnly：只挑占着本国所在帝国法理里城的
+    private static Kingdom NearestNeighbourTarget(Kingdom initiator, bool claimsOnly = false, bool coreOnly = false)
     {
         if (initiator.capital == null) return null;
         int ours = initiator.hasAlliance() ? initiator.getAlliance().countWarriors() : initiator.countTotalWarriors();
@@ -75,7 +77,8 @@ public class WarTargetPatch : GamePatch
                 Date.getYearsSince(DiplomacyHelpers.diplomacy.getRelation(initiator, target).data.timestamp_last_war_ended) <
                 SimGlobals.m.minimum_years_between_wars ||
                 friendly && ours < theirs * 2 && !GeneralSystems.RoyalMarriageSystem.HasClaim(initiator, target) ||
-                claimsOnly && !GeneralSystems.DeJureAgenda.HasClaimOn(initiator, target))
+                claimsOnly && !GeneralSystems.DeJureAgenda.HasClaimOn(initiator, target) ||
+                coreOnly && !GeneralSystems.DeJureAgenda.HoldsCoreOf(initiator, target))
                 continue;
             float distance = Kingdom.distanceBetweenKingdom(initiator, target);
             if (distance >= bestDistance) continue;

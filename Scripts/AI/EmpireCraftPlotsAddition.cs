@@ -2788,6 +2788,8 @@ namespace EmpireCraft.Scripts.AI
             return neutral.Where(target => IsValidModWarTarget(pInitiatorKingdom, target))
                 // 先收法理：占着本国法理城的邻国排在前面(见 DeJureAgenda)
                 .OrderByDescending(target => DeJureAgenda.HasClaimOn(pInitiatorKingdom, target))
+                // 其次占着本国所在帝国法理里城的
+                .ThenByDescending(target => DeJureAgenda.HoldsCoreOf(pInitiatorKingdom, target))
                 .ThenBy(target => Kingdom.distanceBetweenKingdom(pInitiatorKingdom, target))
                 .ThenBy(target => World.world.diplomacy?.getOpinion(pInitiatorKingdom, target)?.total ?? 0)
                 .ThenBy(target => target.id)

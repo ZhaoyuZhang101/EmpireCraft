@@ -17,7 +17,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 割地(局部入侵)：接壤、兵力相当；
 //   · 赔款：不接壤(跨海)或攻方兵力不如对方；
 //   · 劫掠：原有的劫掠战争(洗劫第一座城即收兵，见 CityPatch)；
-//   · 收复：对方手里有我方法理(法理主国是我方)的城，且接壤——优先于其他目标；
+//   · 收复：对方手里有我方法理的城(宣称口径见 ClaimsTitle)，且接壤——优先于其他目标；
 //   · 迫使附庸：攻方兵力两倍以上(周制一倍半)、对方不是帝国、吞不下；
 //   · 改宗：圣战且两边宗教不同——对方连同各城改奉攻方的宗教；
 //   · 通商：跨海打不下城、兵力够、两边都有港口，对方锁国或攻方兵力两倍以上——对方被迫开港，与攻方通商二十年(锁国也开)；
@@ -230,7 +230,7 @@ public static class WarGoalSystem
             data.war_goal_capital_id = war.main_defender.capital.id;
     }
 
-    // cities 里法理主国(或法理持有人所在国)是攻方一方(帝国按整个帝国算)的城；挑宣战目标也按它先收法理(见 DeJureAgenda)
+    // cities 里攻方一方(帝国按整个帝国算)有宣称的、不在攻方一方手里的城；挑宣战目标也按它先收法理(见 DeJureAgenda)
     internal static List<City> Claimed(Kingdom claimant, IEnumerable<City> cities)
     {
         var result = new List<City>();
@@ -238,20 +238,58 @@ public static class WarGoalSystem
         if (cities == null || realm == null) return result;
         foreach (City city in cities)
         {
-            if (city?.data == null || city.isRekt()) continue;
+            if (city?.data == null || city.isRekt() || city.kingdom != null && FrontSystem.Realm(city.kingdom) == realm) continue;
             // 兼属：这座城兼属的王国法理、帝国法理在攻方一方，也算收复(见 DeJureShareSystem)
             if (DeJureShareSystem.ClaimedBy(city, realm))
             {
                 result.Add(city);
                 continue;
             }
-            var title = city.GetTitle();
-            if (title == null || title.isRekt()) continue;
-            Kingdom holder = title.main_kingdom ?? title.owner?.kingdom;
-            if (holder?.data != null && !holder.isRekt() && holder != city.kingdom && FrontSystem.Realm(holder) == realm)
-                result.Add(city);
+            KingdomTitle title = city.GetTitle();
+            if (title != null && !title.isRekt() && ClaimsTitle(realm, title)) result.Add(city);
         }
         return result;
+    }
+
+    // 这一方(帝国按整个帝国算)对这个王国法理有宣称(用户 2026-10-26 "感觉所有国家都没有按照法理扩张"，
+    // 问答选"握都城或过半就宣称整个法理"；以前只认法理主国，全图多半法理没有主国，宣称几乎没有)：
+    // 法理主国或持有人在这一方；以它为行政法理的省份在这一方；法理都城在这一方手里；这一方占着它过半的城
+    public static bool ClaimsTitle(Kingdom realm, KingdomTitle title)
+    {
+        if (realm == null || title == null || title.isRekt()) return false;
+        Kingdom holder = title.main_kingdom ?? title.owner?.kingdom;
+        if (holder?.data != null && !holder.isRekt() && FrontSystem.Realm(holder) == realm) return true;
+        if (AdminHolder(title) is Kingdom admin && FrontSystem.Realm(admin) == realm) return true;
+        City capital = title.title_capital;
+        if (capital?.kingdom != null && !capital.isRekt() && FrontSystem.Realm(capital.kingdom) == realm) return true;
+        int total = 0, ours = 0;
+        foreach (City city in title.getCities())
+        {
+            if (city?.data == null || city.isRekt()) continue;
+            total++;
+            if (city.kingdom != null && FrontSystem.Realm(city.kingdom) == realm) ours++;
+        }
+        return ours * 2 > total;
+    }
+
+    // 以这个王国法理为行政法理的省份(一帧查一次表)
+    private static int _adminFrame = -1;
+    private static readonly Dictionary<long, Kingdom> AdminTitles = new();
+
+    private static Kingdom AdminHolder(KingdomTitle title)
+    {
+        if (_adminFrame != UnityEngine.Time.frameCount)
+        {
+            _adminFrame = UnityEngine.Time.frameCount;
+            AdminTitles.Clear();
+            foreach (Kingdom kingdom in World.world.kingdoms)
+            {
+                if (kingdom?.data == null || kingdom.isRekt()) continue;
+                long id = kingdom.GetOrCreate().AdministrativeTitle;
+                if (id >= 0) AdminTitles[id] = kingdom;
+            }
+        }
+        return AdminTitles.TryGetValue(title.id, out Kingdom found) ? found : null;
     }
 
     public static string Name(WarGoal goal) => LM.Get("war_goal_" + goal);
@@ -465,9 +503,38 @@ public static class WarGoalSystem
                 return;
             }
         }
+        ceded += CompleteTitles(war, attacker, held);
         if (ceded > 0)
             TranslateHelper.LogEventMessage(string.Format(LM.Get("war_peace_ceded"), attacker.GetKingdomName(),
                 defender.GetKingdomName(), ceded), attacker);
+    }
+
+    // 割地把法理补完整(用户 2026-10-26 问答选"占了的照割，法理城优先")：割完以后攻方一方握着哪个王国法理的都城、或占了它过半的城，
+    // 守方一方手里这个法理余下的城一并割给主攻方。返回多割了几座
+    private static int CompleteTitles(War war, Kingdom attacker, List<(City city, Kingdom holder)> held)
+    {
+        Kingdom realm = FrontSystem.Realm(attacker);
+        if (realm == null || held.Count == 0) return 0;
+        var ceded = new HashSet<long>(held.Select(entry => entry.city.id));
+        var defenders = new HashSet<Kingdom>(war._list_defenders.Where(kingdom => kingdom?.data != null));
+        bool Ours(City city) => ceded.Contains(city.id) || city.kingdom != null && FrontSystem.Realm(city.kingdom) == realm;
+        int added = 0;
+        foreach (KingdomTitle title in held.Select(entry => entry.city.GetTitle()).Where(title => title != null && !title.isRekt())
+                     .Distinct().ToList())
+        {
+            List<City> cities = title.getCities().Where(city => city?.data != null && !city.isRekt()).ToList();
+            City capital = title.title_capital;
+            bool claimed = capital?.data != null && !capital.isRekt() && Ours(capital) || cities.Count(Ours) * 2 > cities.Count;
+            if (!claimed) continue;
+            foreach (City city in cities)
+            {
+                if (Ours(city) || city.kingdom == null || !defenders.Contains(city.kingdom)) continue;
+                ceded.Add(city.id);
+                PendingCessions.Add((city.id, attacker.id));
+                added++;
+            }
+        }
+        return added;
     }
 
     // 收复：我方法理的城里占了一半以上的归还占领者；占了法理城的一半以上时全部归还主攻方。对方手里没有我方法理的城时按割地
