@@ -217,7 +217,7 @@
       }
     },
     {
-      "id": "arabic_caliphal_diwan", "requires_techs": ["bureaucracy"],
+      "id": "arabic_caliphal_diwan", "requires_techs": ["bureaucracy", "postal_roads"],
       "name_key": "institution_arabic_caliphal_diwan",
       "description_key": "institution_arabic_caliphal_diwan_desc",
       "branch": "administration",
@@ -226,11 +226,11 @@
         "arabic_tribal_shura"
       ],
       "research": {
-        "mandate_required": 28
+        "mandate_required": 60
       },
       "reform": {
-        "base_progress_per_year": 9.0,
-        "minimum_years": 6
+        "base_progress_per_year": 6.5,
+        "minimum_years": 12
       },
       "resistance": {
         "base_radicalism": 6.0,
@@ -257,6 +257,10 @@
         {
           "type": "unlock_succession_law",
           "value": "分割继承法"
+        },
+        {
+          "type": "add_mandate",
+          "int_value": -5
         }
       ],
       "regime": "Arabic"
