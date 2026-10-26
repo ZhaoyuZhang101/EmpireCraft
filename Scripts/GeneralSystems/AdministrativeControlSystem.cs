@@ -18,7 +18,9 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     山地 4、过河 +2、翻长城 +6，有路减半——山后、长城外的城鞭长莫及，驿道通到的地方管得远；
 //     港口之间在本国水师辐射内(见 StraitReach)可走海路(上船 2，航程每 16 格 +1)，隔海的城最多六成五(工业时代起八成)。
 //     时代越新管得越远(满控路程 10 + 2×时代，律令制再远一成，分封、封建近一成)，超出部分每多走满控路程的两倍降到一成；
-//     陆路海路都不通的飞地按直线距离的 1.4 倍再加 8 计，最多八成；
+//     陆路海路都不通的飞地按直线走过去的地形阻力(见 TerrainResistance.LineCost)的 1.15 倍再加 8 计，最多八成——
+//     以前按直线距离的 1.4 倍，隔着没人占的雪山、大漠也照平地算(用户 2026-10-26："印度打不到西藏")；
+//     山地、冻土、沙漠连成的天堑腹地越往里越难走(见 TerrainResistance.BarrierDepth)；
 //   · 效果：控制力低的城自然稳定度下降(满控不减，最低扣 20)；赋税收不齐(满控全收，最低收一半，见 TreasurySystem)；
 //     征兵也少从这样的城里抽(见 CorpsSystem.Mobilize、CityPopulationSystem.DrawKingdomCity)；地图上见政令图层；
 //     领土不在这里变动：扩张、边界侵蚀都按原版(侵蚀受原版"边界侵蚀"开关管、只在交战双方之间，见 CityExpansionPatch)。
@@ -49,7 +51,9 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 public static class AdministrativeControlSystem
 {
     private const int MemberSeatOffset = 4;
-    private const float ExclaveFactor = 1.4f;
+    // 沿直线估路程(飞地、开战定目标)：地形阻力照实算，再加一成五绕路；只估离得最近的几处
+    private const float LineDetour = 1.15f;
+    private const int LineCandidates = 3;
     private const int ExclavePenalty = 8;
     private const float ExclaveCap = 0.8f, OverseasCap = 0.65f, ModernOverseasCap = 0.8f;
     private const float MinControl = 0.1f;
@@ -67,8 +71,6 @@ public static class AdministrativeControlSystem
     private const float RecentConquestYears = 30f;
     private const int ReleaseClusterMax = 6;
     private const float OverextensionPenalty = 15f;
-    // 开战估算路程：直线距离按平均地形阻力折算
-    private const float EstimateTerrain = 1.4f;
     // 游牧低控制：直辖容量、满控路程、硬限门槛
     private const float NomadCapacity = 0.6f, NomadReach = 1.1f, NomadHardLimit = 0.45f;
     // 律令制管得远、直辖得多：满控路程、直辖容量各 ×1.1(以前 ×1.15、×1.2)。用户 2026-10-21 选"华夏兵多一点、地吐一点"：
@@ -155,7 +157,8 @@ public static class AdministrativeControlSystem
         data.conquered_by = Realm(receiver).id;
     }
 
-    // 开战定目标用：对方都城是否远在本国控制范围之外(按本国离它最近的城的路程加直线距离估算)，或本国已过度扩张
+    // 开战定目标用：对方都城是否远在本国控制范围之外(按本国离它最近的城的路程，加从那座城沿直线过去的地形阻力估算，
+    // 见 TerrainResistance.LineCost——隔着雪山、大漠的不再当平地，用户 2026-10-26)，或本国已过度扩张
     public static bool BeyondReach(Kingdom attacker, City target)
     {
         Kingdom realm = Realm(attacker);
@@ -163,16 +166,19 @@ public static class AdministrativeControlSystem
         if (realm.GetOrCreate().admin_overextension > 0f) return true;
         TileZone goal = CenterZone(target);
         if (goal == null) return false;
-        float best = float.MaxValue;
+        // 先按直线挑最近的几座，再按地形阻力细算
+        var near = new List<(float rough, float admin, TileZone from)>();
         foreach (City city in Cities(realm))
         {
             if (!Known(city)) continue;
             TileZone from = CenterZone(city);
             if (from == null) continue;
-            float cost = city.GetOrCreate().admin_distance +
-                         Vector2.Distance(new Vector2(from.x, from.y), new Vector2(goal.x, goal.y)) * EstimateTerrain;
-            if (cost < best) best = cost;
+            float admin = city.GetOrCreate().admin_distance;
+            near.Add((admin + Vector2.Distance(new Vector2(from.x, from.y), new Vector2(goal.x, goal.y)), admin, from));
         }
+        float best = float.MaxValue;
+        foreach ((float _, float admin, TileZone from) in near.OrderBy(entry => entry.rough).Take(LineCandidates))
+            best = Mathf.Min(best, admin + TerrainResistance.LineCost(from, goal, realm) * LineDetour);
         return best < float.MaxValue && Control(best, Reach(realm)) < HardLimit;
     }
 
@@ -464,17 +470,18 @@ public static class AdministrativeControlSystem
                 data.admin_control = across ? Mathf.Min(modern ? ModernOverseasCap : OverseasCap, control) : control;
                 continue;
             }
-            // 陆路不通：按到最近治所的直线距离折算
-            float best = float.MaxValue;
+            // 陆路不通：按到最近几处治所沿直线过去的地形阻力折算(雪山、大漠照实算，见 TerrainResistance.LineCost)
             bool overseas = true;
-            foreach ((TileZone seat, int offset) in seats)
-            {
-                float straight = Vector2.Distance(new Vector2(seat.x, seat.y), new Vector2(center.x, center.y)) + offset;
-                if (straight < best) best = straight;
+            foreach ((TileZone seat, int _) in seats)
                 if (seat.centerTile != null && center.centerTile != null && seat.centerTile.isSameIsland(center.centerTile))
                     overseas = false;
-            }
-            int far = Mathf.RoundToInt(best * ExclaveFactor) + ExclavePenalty;
+            float best = float.MaxValue;
+            foreach ((TileZone seat, int offset) in seats
+                         .OrderBy(entry => Vector2.Distance(new Vector2(entry.zone.x, entry.zone.y), new Vector2(center.x, center.y)) +
+                                           entry.offset)
+                         .Take(LineCandidates))
+                best = Mathf.Min(best, TerrainResistance.LineCost(seat, center, realm) * LineDetour + offset);
+            int far = Mathf.RoundToInt(best) + ExclavePenalty;
             data.admin_distance = far;
             data.admin_exclave = true;
             data.admin_overseas = overseas;
