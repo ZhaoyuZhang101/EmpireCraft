@@ -104,6 +104,8 @@ namespace EmpireCraft.Scripts.GamePatches
 
         public static bool Prefix_CivilianAi(Actor __instance)
         {
+            // 无小人模式留在地图上的朝堂中人不寻敌(见 DormantActorAI)
+            if (__instance != null && GeneralSystems.DormantActorAI.Dormant(__instance)) return false;
             if (!_throttleCivilianAi || __instance == null)
                 return true;
 
@@ -129,13 +131,22 @@ namespace EmpireCraft.Scripts.GamePatches
 
         public static bool Prefix_CivilianDecision(Actor __instance)
         {
-            if (!ModClass.PERFORMANCE_HIGH_POPULATION_MODE || __instance == null || World.world?.units == null)
-                return true;
-            int units = World.world.units.Count;
-            if (units < DecisionThrottleThreshold) return true;
+            if (__instance == null || World.world?.units == null) return true;
             // 原版这一帧本来就不决策的情况照原版处理
             if (__instance._update_done || __instance._beh_skip || __instance.is_unconscious ||
                 __instance._has_status_possessed || !__instance.asset.has_ai_system) return true;
+            // 无小人模式留在地图上的朝堂中人少走原版决策：每月跑一次模组的人物逻辑、每半年让原版决策一次，其余时间闲居
+            // (见 DormantActorAI)
+            if (GeneralSystems.DormantActorAI.Dormant(__instance))
+            {
+                string task = GeneralSystems.DormantActorAI.NextTask(__instance);
+                if (task == null) return true;
+                __instance.setTask(task);
+                return false;
+            }
+            if (!ModClass.PERFORMANCE_HIGH_POPULATION_MODE) return true;
+            int units = World.world.units.Count;
+            if (units < DecisionThrottleThreshold) return true;
             if (!__instance.hasCity() || __instance.hasArmy() || __instance.isWarrior() || __instance.isKing() ||
                 __instance.isCityLeader() || __instance.isFavorite() || __instance.isCameraFollowingUnit())
                 return true;

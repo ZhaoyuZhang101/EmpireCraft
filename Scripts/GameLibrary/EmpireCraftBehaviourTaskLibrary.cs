@@ -18,6 +18,13 @@ public static class EmpireCraftBehaviourTaskLibrary
         obj.addBeh(new BehRandomWait(0.3f));
         AssetManager.tasks_actor.add(obj);
         AssetManager.job_actor.t.addTask("do_mod_actor_beh");
+        // 无小人模式留在地图上的朝堂中人闲居：只等几秒再决策，不走原版的决策(见 DormantActorAI)
+        BehaviourTaskActor dormant = new BehaviourTaskActor()
+        {
+            id = GeneralSystems.DormantActorAI.DormantTask,
+        };
+        dormant.addBeh(new BehRandomWait(4f));
+        AssetManager.tasks_actor.add(dormant);
         
         //城市
         BehaviourTaskCity obj2 = new BehaviourTaskCity()
