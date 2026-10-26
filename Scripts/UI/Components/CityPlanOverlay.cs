@@ -267,8 +267,9 @@ public static class CityPlanOverlay
             if (chunk.Renderer.enabled != on) chunk.Renderer.enabled = on;
             if (!on) continue;
             chunk.Renderer.sortingLayerID = source.sortingLayerID;
-            // 色块之下、地形之上
-            chunk.Renderer.sortingOrder = source.sortingOrder - 1;
+            // 色块之下、地形之上；拉远到原版小地图模式时色块不透明度是 1(原版 minimap_opacity)，压在下面整张看不见
+            // (用户 2026-10-27 "简略城市和主干道在拉远后不见了""以前同样远看得见"：以前平面图画进色块里)，这时改到色块之上
+            chunk.Renderer.sortingOrder = MapBox.isRenderMiniMap() ? source.sortingOrder + 1 : source.sortingOrder - 1;
         }
     }
 

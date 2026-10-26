@@ -69,7 +69,7 @@ namespace EmpireCraft.Scripts.UI.Windows
                 return;
             }
             War war = _war;
-            float cardWidth = UIHelper.RailWidth + 4f, rowWidth = UIHelper.RailWidth - 8f;
+            float cardWidth = UIHelper.RailWidth + 4f;
             var head = rail.BeginRailCard("FactionFrame_dominate");
             head.AddRailText(war.data.name.ColorString(WideKit.Gold), 9, 24f);
             string kinds = WarCatalog.Kind(war).ColorString(WarCatalog.Color(war));
