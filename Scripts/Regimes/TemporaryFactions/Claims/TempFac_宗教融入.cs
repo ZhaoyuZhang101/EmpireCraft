@@ -27,6 +27,8 @@ public class TempFac_宗教融入 : TemporaryFaction
         {
             empire.CoreKingdom.setReligion(religion);
             empire.CoreKingdom.units.ForEach(a=>a.setReligion(religion));
+            // 帝国国教一并改(宗教同化、神授君权、恢复圣地都看它；以前留着旧教，宗教同化反把成员推回核心弃掉的旧教)
+            empire.Religion = religion;
         }
         End();
     }

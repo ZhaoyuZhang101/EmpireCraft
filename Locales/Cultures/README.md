@@ -36,6 +36,9 @@ Locales/Cultures/
         "tianxia": "Huaxia",// 天下标识：写同一标识的文化同属一个天下，相邻的帝国法理自动并成一个天下；留空 = 本文化自成一个天下
         "archipelago": false,// 列岛天下(可省略)：true 时隔着海峡、在水师辐射里的同标识天下也自动相并，帝国法理也收隔海的同文化法理(日本用)
         "start_institution": "",     // 开局阶段：本线的一个制度节点，开局即施行它和它的全部前置；留空从根节点起步(华夏线是原始群)
+        "faith": "",                 // 本文化创的宗教的类型(可省略，见 Scripts/GeneralSystems/ReligionFaith.cs)：Folk 多神民间、Church 普世教会、
+                                     // Islam 伊斯兰、Judaism 犹太、Dharmic 法教、Sanjiao 华夏三教、Shinto 神道、Tengri 草原萨满；
+                                     // 留空按天下标识取(Roma→Church、Umma→Islam、Kosher→Judaism、India→Dharmic、Huaxia→Sanjiao、Tenka→Shinto、Steppe→Tengri，其余 Folk)
         "surname_evolution": true,   // 姓氏演变(只对华夏线有效)：原始群无姓→母系有姓→贵族分氏→周制男子称氏女子称姓、平民无氏→郡县后姓氏合一
         "traits": ["patriarchy"],    // 文化特质 id
         "political_traits": ["strong_unification"], // 模组政治特质：strong_unification 强统一诉求(唯一中央、易帜、临时政府、统一继承)；

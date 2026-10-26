@@ -290,7 +290,8 @@ public class ActorPatch : GamePatch
     }
     public static void UpdateReligion(Actor __instance, Religion pObject)
     {
-        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
+        // 原版遗忘宗教时 setReligion(null)
+        if (pObject?.data == null || EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
         if (__instance.hasCity())
         {
             if (pObject.GetCity() == null)

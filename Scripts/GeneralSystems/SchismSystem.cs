@@ -384,6 +384,8 @@ public static class SchismSystem
             war.joinAttackers(member);
             if (war.isAttacker(member)) followers.Add(member);
         }
+        // 哈里发、苏丹争位：争位一方可能另奉什叶派(见 ReligionSchismSystem)
+        ReligionSchismSystem.OnSuccessionContest(empire, kind, claimant, followers);
         var listed = new HashSet<long>(data.schism_members);
         var loyal = new List<Kingdom>();
         foreach (Kingdom member in empire.kingdoms_list.ToList())

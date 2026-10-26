@@ -276,6 +276,9 @@ public static class KingdomExtension
         public double trade_treaty_at = -1d;
         public long installed_by_kingdom_id = -1L;
         public double installed_at = -1d;
+        // 宗教(见 ReligionConversionSystem、ReligiousPersecution)：君主率国皈依的时间、上次迫害或驱逐异教的时间
+        public double religion_converted_at = -1d;
+        public double persecution_at = -1d;
         public long HeirID = -1L;
         // 上次记入日志的接班人(族谱身份编号)：同一人反复复查不再重复记"已选定接班人"
         public long logged_heir_identity = -1L;

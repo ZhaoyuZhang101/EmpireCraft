@@ -85,19 +85,25 @@ public static partial class PapacySystem
     // 宗教改革脱离罗马：另立国教会
     private static void TryBreakWithRome(Empire empire)
     {
+        if (InstitutionSystem.IsEnacted(empire, NodeReformation)) BreakWithRome(empire);
+    }
+
+    // 另立国教会：本文化施行宗教改革时(TryBreakWithRome)；教权低落、圣战屡败时也会提早(见 ReligionSchismSystem)
+    public static bool BreakWithRome(Empire empire)
+    {
         // 选帝制帝国的皇帝不随宗教改革脱离罗马，由诸侯另立新教会(见 HolyRomanSystem.SeedReformation)
-        if (!IsWestern(empire) || !InstitutionSystem.IsEnacted(empire, NodeReformation) || HolyRomanSystem.KeepsOldFaith(empire)) return;
+        if (!IsWestern(empire) || HolyRomanSystem.KeepsOldFaith(empire)) return false;
         PapalRelationState state = State(empire);
         Religion old = ReligionOf(empire);
-        if (state == null || state.national_church_id >= 0 || old == null) return;
+        if (state == null || state.national_church_id >= 0 || old == null) return false;
         Kingdom papacy = Papacy(old);
-        if (papacy == null || Realm(papacy) == empire.CoreKingdom || papacy.GetEmpire() == empire) return;
+        if (papacy == null || Realm(papacy) == empire.CoreKingdom || papacy.GetEmpire() == empire) return false;
         Actor head = empire.Emperor;
         City capital = empire.CoreKingdom.capital;
-        if (head == null || capital == null) return;
+        if (head == null || capital == null) return false;
         head.joinCity(capital);
         Religion church = World.world.religions.newReligion(head, false);
-        if (church?.data == null) return;
+        if (church?.data == null) return false;
         church.data.name = string.Format(LM.Get("national_church_name"), empire.GetEmpireName());
         church.SetCity(capital);
         var churchData = church.GetOrCreate();
@@ -116,11 +122,13 @@ public static partial class PapacySystem
                     if (actor?.data != null && !actor.isRekt() && actor.religion == old) actor.setReligion(church);
             }
         }
+        empire.Religion = church;
         long lands = (long)(StateDebtSystem.AnnualStableIncome(empire.CoreKingdom) * ChurchLandsYears);
         if (lands > 0) empire.CoreKingdom.AddMoney((int)Math.Min(int.MaxValue, lands), TreasuryCategory.RecoveredFunds);
         AddAuthority(old, -8f);
         Record(empire, string.Format(LM.Get("papal_reformation_history"), empire.GetEmpireFullName(), old.name, church.name,
             MoneyDisplay.Format(lands)));
+        return true;
     }
 
     // 讨伐异端的目标：从本宗教分出去、30 年内、不在"教随国定"期间

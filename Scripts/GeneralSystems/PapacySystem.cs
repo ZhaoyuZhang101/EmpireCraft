@@ -60,11 +60,13 @@ public static partial class PapacySystem
     public static bool IsWestern(Empire empire) =>
         empire?.data != null && InstitutionSystem.GetCultureLine(InstitutionSystem.GetCustomsCulture(empire)) == Line;
 
-    // 有教廷可言：西方文化、君主制、奉一个有圣地的宗教
+    // 有教廷可言：西方文化、君主制、奉一个有圣地的普世教会(同天下的地方教会没有教廷，见 ReligionSphere；
+    // 别的类型的宗教没有教廷，见 ReligionFaith——犹太文化走罗马制度线也没有)
     public static bool Applies(Empire empire) =>
         empire?.data != null && !empire.isRekt() && !empire.IsArchived() && empire.CoreKingdom != null &&
         !empire.CoreKingdom.isRekt() && IsWestern(empire) && !RepublicSystem.IsRepublic(empire) &&
-        RegimeManager.IsMonarchy(empire.CoreKingdom.GetRegime()?.type) && HolyCity(ReligionOf(empire)) != null;
+        RegimeManager.IsMonarchy(empire.CoreKingdom.GetRegime()?.type) && HolyCity(ReligionOf(empire)) != null &&
+        ReligionFaith.IsPapal(ReligionOf(empire)) && !ReligionSphere.IsLocalChurch(ReligionOf(empire));
 
     public static City HolyCity(Religion religion)
     {
@@ -72,9 +74,11 @@ public static partial class PapacySystem
         return city?.data != null && !city.isRekt() && city.kingdom != null && !city.kingdom.wild ? city : null;
     }
 
-    // 教廷：控制圣地的国家(须奉本宗教)
+    // 教廷：控制圣地的国家(须奉本宗教)；只有普世教会、伊斯兰有教阶(见 ReligionFaith)，
+    // 同天下的地方教会没有教廷(一个天下只有正教有教宗、哈里发座，见 ReligionSphere)
     public static Kingdom Papacy(Religion religion)
     {
+        if (!ReligionFaith.HasHierarchy(religion) || ReligionSphere.IsLocalChurch(religion)) return null;
         Kingdom holder = HolyCity(religion)?.kingdom;
         return holder?.data != null && !holder.isRekt() && holder.religion == religion ? holder : null;
     }
@@ -85,11 +89,12 @@ public static partial class PapacySystem
         return king?.data != null && !king.isRekt() && king.isAlive() ? king : null;
     }
 
-    // 教廷落在世俗强国手里：圣地所在国不是教皇国，而且是帝国的一部分
+    // 教廷落在世俗强国手里：圣地所在国不是教皇国，而且是帝国的一部分；皇帝兼管的教会(正教会)不算
     public static bool IsCaptive(Religion religion)
     {
         Kingdom holder = Papacy(religion);
-        return holder != null && holder.GetKingdomType() != KingdomType.Feudalism_papal_state && holder.GetEmpire() != null;
+        return holder != null && holder.GetKingdomType() != KingdomType.Feudalism_papal_state && holder.GetEmpire() != null &&
+               !religion.GetOrCreate().Caesaropapist;
     }
 
     public static float Authority(Religion religion) => religion?.data == null ? 0f : religion.GetOrCreate().PapalAuthority;
@@ -104,7 +109,8 @@ public static partial class PapacySystem
     // 脱离罗马(宗教改革)或世俗化。选帝制帝国的皇帝不随宗教改革脱离罗马(由诸侯改宗，见 HolyRomanSystem.KeepsOldFaith)
     public static bool BrokeWithRome(Empire empire) =>
         InstitutionSystem.IsEnacted(empire, NodeSecularization) ||
-        InstitutionSystem.IsEnacted(empire, NodeReformation) && !HolyRomanSystem.KeepsOldFaith(empire);
+        InstitutionSystem.IsEnacted(empire, NodeReformation) && !HolyRomanSystem.KeepsOldFaith(empire) ||
+        (State(empire)?.national_church_id ?? -1L) >= 0;
 
     public static int Investiture(Empire empire)
     {
@@ -254,8 +260,9 @@ public static partial class PapacySystem
         if (papacy == null)
         {
             Kingdom strongest = Strongest(religion);
-            // 圣战：罗马一线、阿拉伯一线(法教传统的除外，见 WagesHolyWar)
-            if (strongest != null && WagesHolyWar(CultureService.GetRealmCulture(strongest))) TryCrusade(religion);
+            // 圣战：普世教会、伊斯兰(见 ReligionFaith)，地方教会不号召
+            if (strongest != null && ReligionFaith.WagesHolyWar(religion) && !ReligionSphere.IsLocalChurch(religion))
+                TryCrusade(religion);
             UpdateOrders(religion);
             return;
         }
@@ -276,8 +283,8 @@ public static partial class PapacySystem
         if (IsCaptive(religion)) target -= CaptivityPenalty;
         if (data.Schism) target -= SchismPenalty;
         data.PapalAuthority = Mathf.Clamp(data.PapalAuthority + (target - data.PapalAuthority) * AuthorityDrift, 0f, 100f);
-        // 圣战：西方(与阿拉伯的吉哈德)才有，法教传统的不打(见 WagesHolyWar)
-        if (WagesHolyWar(CultureService.GetRealmCulture(papacy))) TryCrusade(religion);
+        // 圣战：普世教会的十字军、伊斯兰的吉哈德(见 ReligionFaith)
+        if (ReligionFaith.WagesHolyWar(religion)) TryCrusade(religion);
         UpdateOrders(religion);
     }
 

@@ -28,6 +28,15 @@ public static class ReligionExtension
         public long ParentReligionId = -1L;
         public double SplitAt = -1d;
         public double ReligiousPeaceUntil = -1d;
+        // 所属天下(创教者文化的天下标识，见 ReligionSphere)；旧档空着，头一次查时补上
+        public string Sphere = "";
+        // 宗教类型(FaithType 的名字，见 ReligionFaith)；旧档空着，头一次查时补上
+        public string Faith = "";
+        // 皇帝兼管教会(东西教会大分裂分出的正教会，见 ReligionSchismSystem)：圣地在皇帝手里不算教廷之囚
+        public bool Caesaropapist;
+        // 本宗教已分出过正教会、什叶派(各一次)
+        public bool EasternSplit;
+        public bool ShiaSplit;
     }
     public static ReligionExtraData GetOrCreate(this Religion a, bool isSave = false)
     {

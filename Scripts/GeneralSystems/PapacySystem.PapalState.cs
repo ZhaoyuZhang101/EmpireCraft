@@ -23,10 +23,11 @@ public static partial class PapacySystem
         empire == null || InstitutionSystem.IsEnacted(empire, NodeClerical) ||
         InstitutionSystem.HasFeature(empire, InstitutionFeatures.TheocraticState);
 
-    // 握有本国所奉宗教的圣地
+    // 握有本国所奉宗教的圣地(没有教阶的宗教、地方教会的圣地不算，见 ReligionFaith、ReligionSphere)
     public static bool HoldsHolyCity(Kingdom kingdom)
     {
-        if (kingdom?.data == null || kingdom.isRekt() || !kingdom.hasReligion()) return false;
+        if (kingdom?.data == null || kingdom.isRekt() || !kingdom.hasReligion() ||
+            !ReligionFaith.HasHierarchy(kingdom.religion) || ReligionSphere.IsLocalChurch(kingdom.religion)) return false;
         City holy = kingdom.religion.GetCity();
         return holy?.data != null && !holy.isRekt() && holy.kingdom == kingdom;
     }

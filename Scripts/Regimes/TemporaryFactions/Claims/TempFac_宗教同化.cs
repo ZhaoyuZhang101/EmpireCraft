@@ -1,3 +1,5 @@
+using System.Linq;
+using EmpireCraft.Scripts.GeneralSystems;
 using EmpireCraft.Scripts.Layer;
 using NeoModLoader.services;
 
@@ -29,6 +31,10 @@ public class TempFac_宗教同化 : TemporaryFaction
             {
                 if (u?.data != null && !u.isRekt()) u.setReligion(empire.Religion);
             });
+            // 城一并改宗(以前只改国，城个个成了异教之城)
+            foreach (City city in kingdom.cities.ToList())
+                if (city?.data != null && !city.isRekt() && city.religion != empire.Religion)
+                    BackgroundReligionSystem.Convert(city, empire.Religion, city.religion);
         }
         End();
     }

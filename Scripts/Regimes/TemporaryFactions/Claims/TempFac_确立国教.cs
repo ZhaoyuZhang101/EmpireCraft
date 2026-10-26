@@ -27,10 +27,7 @@ public class TempFac_确立国教 : TemporaryFaction
     public override bool CheckCondition()
     {
         Empire empire = GetEmpire();
-        if (empire.Religion.isRekt()&&empire.CoreKingdom.hasReligion())
-        {
-            return true;
-        }
-        return false;
+        return empire?.CoreKingdom != null && (empire.Religion == null || empire.Religion.isRekt()) &&
+               empire.CoreKingdom.hasReligion();
     }
 }

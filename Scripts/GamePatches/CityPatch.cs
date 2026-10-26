@@ -1852,13 +1852,8 @@ public class CityPatch : GamePatch
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return true;
         foreach (var religion in World.world.religions)
         {
-            if (religion.GetCity() == __instance)
-            {
-                if (religion.getCities().Count() > 0)
-                {
-                    religion.SetCity(religion.cities.First());
-                }
-            }
+            // 圣地毁了，迁到信众最多的城(以前取列表头一个)
+            if (religion.GetCity() == __instance) ReligionSphere.RelocateHolyCity(religion, __instance);
         }
 
         if (__instance.hasKingdom())

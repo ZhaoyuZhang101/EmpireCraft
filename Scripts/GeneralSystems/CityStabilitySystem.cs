@@ -254,6 +254,13 @@ public static class CityStabilitySystem
             natural = CityStabilityRules.Clamp(natural - faith);
             Note(ref detail, ReligiousTension.Describe(city));
         }
+        // 遭迫害的城(见 ReligiousPersecution)
+        float persecuted = ReligiousPersecution.StabilityLoss(city);
+        if (persecuted > 0f)
+        {
+            natural = CityStabilityRules.Clamp(natural - persecuted);
+            Note(ref detail, LM.Get("stability_persecution_detail"));
+        }
         // 水土不服(见 ShuiTuSystem)：离草游牧治下的农地城、只宜农地的政权治下的旱地城
         float soil = ShuiTuSystem.StabilityLoss(city);
         if (soil > 0f)

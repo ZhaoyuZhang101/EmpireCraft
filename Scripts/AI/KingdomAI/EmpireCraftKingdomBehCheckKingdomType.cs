@@ -231,11 +231,9 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
                 }
                 case ConditionType.holy_city:
                 {
-                    // 握有本国所奉宗教的圣地(教宗国只认圣城之主，见 Feudalism 配置与 PapacySystem)
+                    // 握有本国所奉宗教的圣地(教宗国只认圣城之主，地方教会的不算，见 Feudalism 配置与 PapacySystem.HoldsHolyCity)
                     var expect = val.Equals("true", StringComparison.OrdinalIgnoreCase);
-                    City holy = kingdom.hasReligion() ? kingdom.religion.GetCity() : null;
-                    var actual = holy?.data != null && !holy.isRekt() && holy.kingdom == kingdom;
-                    if (actual != expect) return false;
+                    if (PapacySystem.HoldsHolyCity(kingdom) != expect) return false;
                     break;
                 }
                 case ConditionType.papal_rule:

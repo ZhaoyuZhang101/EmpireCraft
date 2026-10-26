@@ -49,6 +49,9 @@ public class Setting
     // 开局阶段：写本线的一个制度节点，文化开局时这个节点及其全部前置都已施行(被它取代的不算)；
     // 留空从本线的根节点起步(华夏线是原始群)
     public string start_institution = "";
+    // 本文化创的宗教的类型(见 ReligionFaith：Folk/Church/Islam/Judaism/Dharmic/Sanjiao/Shinto/Tengri)；
+    // 留空按天下标识取(罗马 → Church、乌玛 → Islam……，其余 Folk)
+    public string faith = "";
     // 姓氏演变(只对华夏线有效，见 PrehistoricClanSystem)：原始群无姓、宗法时男子称氏女子称姓、平民无氏，郡县后姓氏合一；
     // false 时一直正常称姓
     public bool surname_evolution;

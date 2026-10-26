@@ -49,7 +49,8 @@ public static partial class PapacySystem
     // 圣战告捷后成立骑士团
     private static void TryFoundOrder(Religion religion, Kingdom host)
     {
-        if (host?.data == null || host.isRekt() || Orders(religion).Count() >= MaxOrders ||
+        // 骑士团只有普世教会有(吉哈德告捷不建圣殿、医院骑士团，见 ReligionFaith)
+        if (host?.data == null || host.isRekt() || !ReligionFaith.FoundsOrders(religion) || Orders(religion).Count() >= MaxOrders ||
             UnityEngine.Random.value >= OrderFoundChance) return;
         var data = religion.GetOrCreate();
         data.Orders ??= new List<KnightOrderData>();
