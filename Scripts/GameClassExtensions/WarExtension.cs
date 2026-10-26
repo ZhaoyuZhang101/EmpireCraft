@@ -122,6 +122,24 @@ public static class WarExtension
         public long peasant_land_rebellion_origin_city_id = -1L;
         public string peasant_land_rebellion_cause = "";
         public float peasant_landless_ratio;
+        // 具体目标(见 WarObjective)：要的城、主城池(攻下即算拿到)、要的王国法理、争的资源、继承宣称者；拿到了没有
+        public List<long> goal_city_ids = new List<long>();
+        public long goal_main_city_id = -1L;
+        public long goal_title_id = -1L;
+        public string goal_resource = "";
+        public long goal_claimant_id = -1L;
+        public bool goal_achieved;
+        // 宣战已记进战报(见 WarChronicle.Declared)；战争名是按目标、类型起的(窗口里换目标时才跟着改名)
+        public bool declared;
+        public bool goal_named;
+        // 开战缘由(攘夷、帝国扩张、游牧扩张)与大势标签(统一天下、诸王之乱)，只作标签显示(见 WarCatalog)
+        public string war_cause = "";
+        public string war_label = "";
+        // 军团战死(军团制下原版的阵亡数不记军团，见 WarChronicle.Casualties)
+        public float attacker_losses;
+        public float defender_losses;
+        // 战报(旧的在前，至多 WarChronicle.Max 条)
+        public List<EmpireCraft.Scripts.Data.WarChronicleEntry> chronicle = new List<EmpireCraft.Scripts.Data.WarChronicleEntry>();
     }
 
     // 战争名里的国名与地图铭牌一致

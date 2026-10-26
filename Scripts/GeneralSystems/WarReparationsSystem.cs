@@ -53,6 +53,7 @@ public static class WarReparationsSystem
     public static void TryMonthlyScan()
     {
         if (World.world?.kingdoms == null || ModClass.IS_CLEAR) return;
+        ResourceTributeSystem.TryMonthlyScan();
         double now = World.world.getCurWorldTime();
         if (_lastScan >= 0d && now >= _lastScan && Date.getMonthsSince(_lastScan) < 1) return;
         _lastScan = now;

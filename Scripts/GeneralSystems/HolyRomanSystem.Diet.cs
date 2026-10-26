@@ -352,7 +352,7 @@ public static partial class HolyRomanSystem
                 War war = World.world.diplomacy.startWar(executor, subject, WarTypeLibrary.normal);
                 if (war?.data == null) return LM.Get("hre_diet_ban_no_executor");
                 war.SetEmpireWarType(EmpireWarType.伐不臣);
-                war.GetOrCreate().war_goal = WarGoal.割地;
+                WarGoalSystem.Preset(war, WarGoal.割地);
                 war.data.name = string.Format(LM.Get("hre_ban_war_name"), subject.GetKingdomName());
                 state.ban_war_id = war.data.id;
                 foreach (Kingdom member in Members(empire).Where(member => member != executor && member != subject &&

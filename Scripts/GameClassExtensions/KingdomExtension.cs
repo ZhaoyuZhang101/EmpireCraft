@@ -482,6 +482,8 @@ public static class KingdomExtension
         public List<string> posthumous_used = new List<string>();
         // 战争赔款(见 WarReparationsSystem)：败方按月付给胜方
         public List<EmpireCraft.Scripts.Data.WarReparation> war_reparations = new List<EmpireCraft.Scripts.Data.WarReparation>();
+        // 岁供(争夺资源之战的和约，见 ResourceTributeSystem)
+        public List<EmpireCraft.Scripts.Data.ResourceTribute> resource_tributes = new List<EmpireCraft.Scripts.Data.ResourceTribute>();
         // 国债(见 StateDebtSystem)：各笔借款、最近一次违约时间
         public List<EmpireCraft.Scripts.Data.StateBond> state_bonds = new List<EmpireCraft.Scripts.Data.StateBond>();
         public double state_debt_default_at = -1d;

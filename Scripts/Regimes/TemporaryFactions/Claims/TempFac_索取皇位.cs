@@ -105,6 +105,8 @@ public class TempFac_索取皇位 : TemporaryFaction
 
                 if (war != null)
                 {
+                    // 两家以上藩王一同起兵：诸王之乱(只作标签，见 WarCatalog)
+                    if (war._list_attackers.Count >= 2) war.GetOrCreate().war_label = "princes";
                     End();
                     return;
                 }

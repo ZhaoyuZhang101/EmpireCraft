@@ -131,6 +131,13 @@ public static class EmpireCraftTooltipLibrary
             prefab_id = "tooltips/tooltip_normal",
             callback = EmpireCraft.Scripts.Layer.ReligionMap.ShowReligionTooltip
         });
+        // 原版战争提示框换成模组的：类型、目标与主城池进度、战局、伤亡、战线(见 WarDisplay)
+        AddOrReplace(tl, new TooltipAsset
+        {
+            id = "war",
+            prefab_id = "tooltips/tooltip_normal",
+            callback = UI.Windows.WarDisplay.ShowTooltip
+        });
         AddOrReplace(tl, new TooltipAsset
         {
             id = EmpireCraft.Scripts.Layer.TianxiaMap.TooltipType,

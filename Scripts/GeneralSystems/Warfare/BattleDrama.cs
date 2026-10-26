@@ -168,6 +168,7 @@ public static class BattleDrama
     private static void Report(Kingdom kingdom, Actor general, string text, bool force = false)
     {
         FrontSystem.Log(kingdom, text);
+        WarChronicle.RecordFor(kingdom, WarChronicle.Commander, text);
         bool notable = force || general.isKing() || FamousTalentSystem.IsFamous(general) ||
                        kingdom.HasHeir() && kingdom.GetHeir() == general;
         if (!notable) return;

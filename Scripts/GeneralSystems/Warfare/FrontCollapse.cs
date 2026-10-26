@@ -88,7 +88,9 @@ public static class FrontCollapse
         if (months < ConfirmMonths) return;
         Pending.Remove(a.id);
         Collapsed[a.id] = b.id;
-        Record(b, string.Format(LM.Get("front_collapse_history"), a.GetKingdomName(), reason, b.GetKingdomName()));
+        string collapse = string.Format(LM.Get("front_collapse_history"), a.GetKingdomName(), reason, b.GetKingdomName());
+        Record(b, collapse);
+        WarChronicle.Record(a, b, WarChronicle.Collapse, collapse);
         LogService.LogInfo($"[EmpireCraft][兵败如山倒] {a.GetKingdomName()} 被 {b.GetKingdomName()} 打垮({reason})");
     }
 

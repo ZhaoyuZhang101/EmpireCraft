@@ -21,10 +21,21 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 诸王争位(骤然驾崩或寿终而没有册立储君，见 RoyalHouseSystem)：一个月后新君已立，兄弟里最强的一位若不弱于新君八成，
 //     有机会起兵——按实力比定胜负，胜则弑新君自立，败则被诛；新君年幼时他更敢动手；
 //   · 怎么继的位记在纪年上(EmpireCraftHistory.succession_note)，世系图里标出来(见 DynastyLineageWindow)。
+// 宫门之变(用户 2026-10-27 举"玄武门之变"，游戏里不写史名，按都城起名"某城宫门之变")：兵变夺位不再一掷成事——
+//   皇子率本部(是军团统领的按所统军团的兵力，否则按实力折算的亲兵)伏于都城宫门，与京城禁军(空饷的不算，不奉诏的不出力)对垒，
+//   伏击者占先手(兵力按一倍半算)：胜则诛太子、逼皇帝退位；败则皇子伏诛。胜负、兵力写进史书。
+// 诸王之乱(用户举"八王之乱"，游戏里叫"诸王之乱")：诸王争位时，宗室里就藩为王(做着帝国成员国君主)的，实力不弱于新君六成的
+//   各自起兵(至多四家，各打一场"某王争位之战"，标"诸王之乱")——谁攻下京城谁即位(见 CityPatch 藩王索取皇位)，余下的接着打新君；
+//   没有就藩之王才照旧由最强的兄弟一掷定胜负。
 public static class PrinceStruggleSystem
 {
     private const float DeposeChance = 0.03f, CoupChance = 0.015f, ContestChance = 0.35f;
     private const int PendingMonths = 6;
+    // 宫门之变：伏击者先手的兵力倍数、胜率上下限；没统兵的皇子每点实力折多少亲兵
+    private const float AmbushFactor = 1.5f, MinCoupOdds = 0.15f, MaxCoupOdds = 0.9f, RetainersPerStrength = 40f;
+    // 诸王之乱：起兵的门槛(实力是新君的几成)与至多几家
+    private const float PrinceRiseRatio = 0.6f;
+    private const int MaxPrinces = 4;
 
     public const string NoteDeposed = "deposed", NoteCoup = "coup", NoteStrife = "strife", NotePalaceCoup = "palace_coup",
         NoteUsurp = "usurp", NoteMilitaryCoup = "military_coup", NoteCourtChoice = "court_choice", NoteAcclaimed = "acclaimed",
@@ -78,14 +89,11 @@ public static class PrinceStruggleSystem
         Actor rival = princes.Where(prince => prince != heir).OrderByDescending(Strength).First();
         float ratio = Strength(rival) / Mathf.Max(1f, Strength(heir));
         float mood = Mood(emperor);
-        // 兵变夺位
+        // 兵变夺位(宫门之变)
         if (emperor.getAge() >= 45 && (CorpsSystem.IsGeneral(rival) || ratio >= 1.5f) &&
             UnityEngine.Random.value < CoupChance * (mood > 1f ? 2f : 1f))
         {
-            Record(empire, string.Format(LM.Get("prince_coup_history"), rival.getName(), heir.getName(), emperor.getName()), rival);
-            BiographySystem.Note(rival, BiographySystem.Format("bio_prince_coup_winner", heir.getName()), heir);
-            BiographySystem.Kill(heir, BiographySystem.Format("death_cause_coup", rival.getName()), rival);
-            Install(empire, rival, NoteCoup);
+            GateCoup(empire, core, emperor, heir, rival);
             return;
         }
         // 废太子
@@ -104,6 +112,88 @@ public static class PrinceStruggleSystem
                 BiographySystem.Kill(heir, BiographySystem.Format("death_cause_deposed_heir", emperor.getName()), emperor, executed: true);
             }
         }
+    }
+
+    // 宫门之变：皇子本部对京城禁军
+    private static void GateCoup(Empire empire, Kingdom core, Actor emperor, Actor heir, Actor rival)
+    {
+        float rebels = PrinceForce(rival) * AmbushFactor, guards = GuardForce(core);
+        float odds = Mathf.Clamp(rebels / Mathf.Max(1f, rebels + guards), MinCoupOdds, MaxCoupOdds);
+        string gate = string.Format(LM.Get("palace_gate_coup_name"), core.capital?.GetCityName() ?? core.GetKingdomName());
+        if (UnityEngine.Random.value < odds)
+        {
+            Record(empire, string.Format(LM.Get("palace_gate_coup_history"), gate, rival.getName(), heir.getName(), emperor.getName(),
+                CorpsSystem.ShortStrength(rebels / AmbushFactor), CorpsSystem.ShortStrength(guards)), rival);
+            BiographySystem.Note(rival, BiographySystem.Format("bio_prince_coup_winner", heir.getName()), heir);
+            BiographySystem.Kill(heir, BiographySystem.Format("death_cause_coup", rival.getName()), rival);
+            Install(empire, rival, NoteCoup);
+        }
+        else
+        {
+            Record(empire, string.Format(LM.Get("palace_gate_coup_failed_history"), gate, rival.getName(),
+                CorpsSystem.ShortStrength(rebels / AmbushFactor), CorpsSystem.ShortStrength(guards)), rival);
+            BiographySystem.Kill(rival, BiographySystem.Format("death_cause_strife_lost", emperor.getName()), emperor, executed: true);
+        }
+        foreach (City city in core.cities?.ToList() ?? new List<City>())
+        {
+            CityStabilityData state = city?.data == null ? null : CityStabilitySystem.State(city);
+            if (state != null) state.stability = Mathf.Max(0f, state.stability - 4f);
+        }
+    }
+
+    // 皇子的本部：统兵的按所统军团，没统兵的按实力折算亲兵
+    private static float PrinceForce(Actor prince)
+    {
+        CorpsData corps = CorpsSystem.CorpsOf(prince);
+        return corps != null ? Mathf.Max(corps.strength, 1f) : Mathf.Max(1f, Strength(prince) * RetainersPerStrength);
+    }
+
+    // 京城禁军：空饷的不算，不奉诏的不出力
+    private static float GuardForce(Kingdom core)
+    {
+        float sum = 0f;
+        foreach (CorpsData corps in PalaceArmySystem.Palace(core))
+            if (!PalaceArmySystem.Refuses(corps)) sum += corps.strength * PalaceArmySystem.RealShare(corps);
+        return sum;
+    }
+
+    // 诸王之乱：宗室里就藩为王的各自起兵争位；返回起兵了几家
+    private static int RiseOfPrinces(Empire empire, Actor emperor, float severity)
+    {
+        Kingdom core = empire.CoreKingdom;
+        SpecificClan clan = empire.EmpireSpecificClan ?? emperor.GetSpecificClan();
+        if (core?.data == null || clan?.AllAliveMembers == null) return 0;
+        float emperorStrength = Mathf.Max(1f, Strength(emperor)) / (emperor.isAdult() ? 1f : 1.5f);
+        List<Actor> princes = clan.AllAliveMembers
+            .Where(actor => actor?.data != null && !actor.isRekt() && actor.isAlive() && actor.isAdult() && actor != emperor &&
+                            actor.isKing() && actor.kingdom != null && actor.kingdom != core && actor.kingdom.GetEmpire() == empire &&
+                            Strength(actor) >= emperorStrength * PrinceRiseRatio)
+            .OrderByDescending(Strength).Take(MaxPrinces).ToList();
+        var risen = new List<Actor>();
+        // 已被卷进这一轮别的王的争位之战(结盟、附庸跟着参战)的不再另起：另起会让那一场作罢(见 StartLocalRebelling)
+        var engaged = new HashSet<Kingdom>();
+        foreach (Actor prince in princes)
+        {
+            if (UnityEngine.Random.value >= ContestChance * severity) continue;
+            Kingdom fief = prince.kingdom;
+            if (engaged.Contains(fief)) continue;
+            if (!fief.StartLocalRebelling(EmpireCraft.Scripts.Enums.EmpireWarType.藩王索取皇位)) continue;
+            War war = World.world.diplomacy.startWar(fief, core, WarTypeLibrary.normal);
+            if (war?.data == null) continue;
+            war.SetEmpireWarType(EmpireCraft.Scripts.Enums.EmpireWarType.藩王索取皇位);
+            war.GetOrCreate().war_label = "princes";
+            foreach (Kingdom kingdom in war._list_attackers.Concat(war._list_defenders)) engaged.Add(kingdom);
+            WarCatalog.ApplyName(war);
+            WarChronicle.Record(war, WarChronicle.Declare, string.Format(LM.Get("war_log_prince_rose"), prince.getName(),
+                fief.GetKingdomName(), emperor.getName()));
+            risen.Add(prince);
+        }
+        if (risen.Count >= 2)
+            Record(empire, string.Format(LM.Get("princes_strife_history"), empire.GetEmpireName(),
+                string.Join(LM.Get("list_separator"), risen.Select(prince => prince.getName()))), risen[0]);
+        else if (risen.Count == 1)
+            Record(empire, string.Format(LM.Get("prince_rose_history"), risen[0].getName(), emperor.getName()), risen[0]);
+        return risen.Count;
     }
 
     // 诸王争位：新君即位一个月后结算；半年内一直没有新君就作罢
@@ -126,6 +216,8 @@ public static class PrinceStruggleSystem
 
     private static void Contest(Empire empire, Actor emperor, float severity)
     {
+        // 有就藩之王的，起兵打仗(诸王之乱)
+        if (RiseOfPrinces(empire, emperor, severity) > 0) return;
         PersonalClanIdentity identity = emperor.GetPersonalIdentity();
         if (identity == null) return;
         Actor rival = SpecificClanManager.GetSiblingsWithRelation(identity).Select(pair => pair.Item2)

@@ -54,7 +54,8 @@ public static class UnificationSystem
     private const float ContenderShare = 0.4f, PowerLead = 2f, PowerLeadMinShare = 0.08f, UnifiedShare = 0.9f,
         LostShare = 0.2f, CollapsedShare = 0.06f;
     // 两家就可以争(南北对峙、分治的两朝也要能统一，以前要三家，两强对峙永远不打统一战)
-    private const int GraceYears = 30, MaxWars = 4, LateYears = 10, MinCities = 8, MinContenders = 2;
+    // 同时至多两场统一战争(用户 2026-10-27 嫌"统一战争太多了"，以前四场)
+    private const int GraceYears = 30, MaxWars = 2, LateYears = 10, MinCities = 8, MinContenders = 2;
     // 统一战争最多打这么多年；到期地盘过半算统一了，不到就中辍
     private const int MaxUnifyYears = 30;
     private const float LateUnifiedShare = 0.5f;
@@ -902,7 +903,8 @@ public static class UnificationSystem
         }
     }
 
-    // 开战：手上的统一战争不到四场、养得起兵，就挑接壤(或隔海相望)的一家开战(目标吞并)，每月至多一场；不隔着别国远征
+    // 开战：手上的统一战争不到两场、养得起兵，就挑接壤(或隔海相望)的一家开战(目标吞并)，每月至多一场；不隔着别国远征。
+    // 战争名按目标起(某某灭某国之战)，"统一天下"只作标签(见 WarCatalog)
     private static void Declare(Kingdom unifier)
     {
         if (!Rivals.TryGetValue(unifier.id, out List<Kingdom> rivals) || rivals.Count == 0) return;
@@ -916,9 +918,7 @@ public static class UnificationSystem
         War war = World.world.diplomacy.startWar(unifier, target, WarTypeLibrary.normal);
         if (war?.data == null) return;
         war.SetEmpireWarType(EmpireWarType.统一);
-        var data = war.GetOrCreate();
-        data.war_goal = WarGoal.吞并;
-        data.war_goal_capital_id = target.capital?.data != null ? target.capital.id : -1L;
+        WarGoalSystem.Preset(war, WarGoal.吞并);
     }
 
     // 举国并入统一者：结束两家的战争，对方(帝国连同各成员国)所有的城逐帧移交

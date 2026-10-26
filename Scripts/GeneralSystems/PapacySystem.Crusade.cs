@@ -111,7 +111,7 @@ public static partial class PapacySystem
         snapshot.crusade_religion_id = religion.data.id;
         snapshot.crusade_kind = kind;
         snapshot.crusade_city_id = religion.GetCity()?.data?.id ?? -1L;
-        snapshot.war_goal = WarGoal.割地;
+        WarGoalSystem.Preset(war, WarGoal.割地);
         war.data.name = string.Format(LM.Get("crusade_war_name"), data.CrusadeCount, religion.name);
         string goal = kind switch
         {

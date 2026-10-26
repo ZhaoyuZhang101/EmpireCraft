@@ -932,6 +932,8 @@ public static class CorpsSystem
     public static void Casualties(CorpsData corps, float dead)
     {
         if (corps == null || dead <= 0f) return;
+        // 记进这国参与的各场仗(战争窗口的伤亡，见 WarChronicle)
+        WarChronicle.Casualties(corps.kingdom_id, Mathf.Min(dead, corps.strength));
         corps.strength = Mathf.Max(0f, corps.strength - dead);
         LegionPopulationRules.ReduceTo(corps.population, corps.strength);
     }

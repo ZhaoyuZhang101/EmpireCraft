@@ -70,6 +70,7 @@ public static class WarGoalSystem
     {
         PendingCessions.Clear();
         PendingVassals.Clear();
+        WarObjective.ResetWorldState();
     }
 
     private static bool Applies(War war) =>
@@ -80,6 +81,20 @@ public static class WarGoalSystem
         if (war?.data == null) return WarGoal.None;
         if (war.GetEmpireWarType() == EmpireWarType.劫掠) return WarGoal.劫掠;
         return Applies(war) ? war.GetOrCreate().war_goal : WarGoal.None;
+    }
+
+    // 别的系统开战时直接定了目标(天下统一、雄主统一、圣战、帝国禁令)：照样落到具体目标上、起名、记宣战
+    public static void Preset(War war, WarGoal goal)
+    {
+        if (war?.data == null) return;
+        var data = war.GetOrCreate();
+        data.war_goal = goal;
+        Kingdom attacker = war.main_attacker, defender = war.main_defender;
+        if (attacker?.data == null || defender?.data == null || attacker.isRekt() || defender.isRekt()) return;
+        data.war_goal_capital_id = defender.capital?.data != null ? defender.capital.id : -1L;
+        WarObjective.Refine(war, attacker, defender, WarSituation.StrengthRatio(defender, attacker), substitute: false);
+        WarCatalog.ApplyName(war);
+        WarChronicle.Declared(war);
     }
 
     // 开打时定目标(WarPatch.update 每场仗第一次结算时调用)；读档后已定的不变
@@ -129,8 +144,12 @@ public static class WarGoalSystem
                  InstallCandidate(defender) != null)
             data.war_goal = WarGoal.扶立;
         data.war_goal_capital_id = defender.capital?.data != null ? defender.capital.id : -1L;
+        // 落到具体的城、法理上(夺城、侵略、争法理、争夺资源、继承、羁縻……见 WarObjective)，按目标起战争名
+        WarObjective.Refine(war, attacker, defender, strength);
+        WarCatalog.ApplyName(war);
+        WarChronicle.Declared(war);
         TranslateHelper.LogEventMessage(string.Format(LM.Get("war_goal_declared"), attacker.GetKingdomName(),
-            defender.GetKingdomName(), Name(data.war_goal, attacker)), attacker);
+            defender.GetKingdomName(), WarCatalog.GoalText(war)), attacker);
         // 开打即拜统帅(谋划开战时已拜的不变，见 WarCommandSystem)
         WarCommandSystem.MonthTick(FrontSystem.Realm(attacker));
         WarCommandSystem.MonthTick(FrontSystem.Realm(defender));
@@ -184,6 +203,16 @@ public static class WarGoalSystem
             .OrderByDescending(actor => actor.data?.renown ?? 0).FirstOrDefault();
     }
 
+    // 继承之战兼领不成时退为扶立(见 WarObjective.SettleWin)
+    internal static bool TryInstall(Kingdom attacker, Kingdom defender) =>
+        attacker?.data != null && defender?.data != null && !defender.isRekt() && !defender.IsEmpire() && Install(attacker, defender);
+
+    // 立附庸、称臣纳贡排进队列(羁縻、继承不成时的退路，见 WarObjective.SettleWin)
+    internal static void QueueVassal(Kingdom lord, Kingdom subject)
+    {
+        if (lord?.data != null && subject?.data != null) PendingVassals.Add((lord.id, subject.id));
+    }
+
     private static bool Install(Kingdom attacker, Kingdom defender)
     {
         Actor candidate = InstallCandidate(defender);
@@ -224,10 +253,18 @@ public static class WarGoalSystem
     {
         if (!Switchable(war)) return;
         var data = war.GetOrCreate();
-        int index = Array.IndexOf(Cycle, data.war_goal);
+        // 夺城、侵略、争法理、争夺资源都是割地落到具体上的，轮换时按割地算
+        WarGoal current = data.war_goal is WarGoal.夺城 or WarGoal.侵略 or WarGoal.争法理 or WarGoal.争夺资源 ? WarGoal.割地
+            : data.war_goal is WarGoal.羁縻 or WarGoal.继承 ? WarGoal.迫使附庸 : data.war_goal;
+        int index = Array.IndexOf(Cycle, current);
         data.war_goal = Cycle[(index + 1) % Cycle.Length];
         if (data.war_goal_capital_id < 0 && war.main_defender?.capital?.data != null)
             data.war_goal_capital_id = war.main_defender.capital.id;
+        Kingdom attacker = war.main_attacker, defender = war.main_defender;
+        if (attacker?.data == null || defender?.data == null || attacker.isRekt() || defender.isRekt()) return;
+        WarObjective.Refine(war, attacker, defender, WarSituation.StrengthRatio(defender, attacker), substitute: false);
+        // 名字是按目标起的才跟着改(圣战、禁令、革命这类专名不动)
+        if (data.goal_named) WarCatalog.ApplyName(war, force: true);
     }
 
     // cities 里攻方一方(帝国按整个帝国算)有宣称的、不在攻方一方手里的城；挑宣战目标也按它先收法理(见 DeJureAgenda)
@@ -305,9 +342,9 @@ public static class WarGoalSystem
     {
         WarGoal goal = Get(war);
         if (goal == WarGoal.None) return null;
-        if (war.hasEnded()) return Name(goal, war.main_attacker);
+        if (war.hasEnded()) return WarCatalog.GoalText(war);
         (int attackerGain, int defenderGain) = Gains(war);
-        return string.Format(LM.Get("war_goal_standing"), Name(goal, war.main_attacker), attackerGain, defenderGain);
+        return string.Format(LM.Get("war_goal_standing"), WarCatalog.GoalText(war), attackerGain, defenderGain);
     }
 
     // 攻守双方在这场仗里各得几城：对方参战以来少了的城 + 己方占了一半以上地块的对方城市
@@ -369,6 +406,7 @@ public static class WarGoalSystem
             if (attackersWon)
             {
                 if (defender.isRekt()) return;
+                if (!WarObjective.SettleWin(war, attacker, defender, goal))
                 switch (goal)
                 {
                     case WarGoal.赔款:
@@ -447,8 +485,12 @@ public static class WarGoalSystem
     private static bool Excessive(War war, Kingdom defender)
     {
         WarGoal goal = Get(war);
-        if (goal == WarGoal.吞并 || (goal == WarGoal.迫使附庸 || goal == WarGoal.扶立) && !defender.IsEmpire()) return true;
-        if (goal != WarGoal.割地) return false;
+        if (goal == WarGoal.吞并 || goal is WarGoal.迫使附庸 or WarGoal.扶立 or WarGoal.羁縻 or WarGoal.继承 && !defender.IsEmpire())
+            return true;
+        // 具体目标里含对方都城的，同割地拿走都城一样死战
+        if (goal is WarGoal.夺城 or WarGoal.侵略 or WarGoal.争法理 or WarGoal.争夺资源 &&
+            war.GetOrCreate().goal_city_ids?.Contains(defender.capital?.id ?? -1L) == true) return true;
+        if (goal is not (WarGoal.割地 or WarGoal.夺城 or WarGoal.侵略 or WarGoal.争法理 or WarGoal.争夺资源)) return false;
         List<(City city, Kingdom holder)> held = HeldCities(war, new[] { defender }, war._list_attackers);
         int cities = defender.cities?.Count ?? 0;
         return held.Exists(entry => entry.city == defender.capital) || held.Count * 2 >= Math.Max(1, cities);
@@ -553,7 +595,7 @@ public static class WarGoalSystem
         var queued = new HashSet<long>();
         foreach ((City city, Kingdom holder) in held)
             if (queued.Add(city.id)) PendingCessions.Add((city.id, holder.id));
-        if (held.Count * 2 >= claimed.Count)
+        if (held.Count * 2 >= claimed.Count || war.GetOrCreate().goal_achieved)
             foreach (City city in claimed)
                 if (queued.Add(city.id)) PendingCessions.Add((city.id, attacker.id));
         if (queued.Count > 0)
@@ -586,6 +628,7 @@ public static class WarGoalSystem
     public static void Tick()
     {
         if (World.world == null) return;
+        WarObjective.Tick();
         while (PendingVassals.Count > 0)
         {
             (long lordId, long subjectId) = PendingVassals[0];

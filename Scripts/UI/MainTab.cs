@@ -157,6 +157,8 @@ internal static class MainTab
         // 宗教窗口(点宗教图层、原版宗教链接时打开，见 ReligionWindowRedirectPatch)与天下宗教名册
         ReligionInfoWindow.CreateAndInit(nameof(ReligionInfoWindow), new Vector2(480f, 380f));
         WorldReligionsWindow.CreateAndInit(nameof(WorldReligionsWindow), new Vector2(480f, 380f));
+        // 战争窗口(原版战争链接、战争徽标、战争列表打开，见 WarWindowRedirectPatch)
+        WarInfoWindow.CreateAndInit(nameof(WarInfoWindow), new Vector2(480f, 380f));
         IdeologyInfoWindow.CreateAndInit(nameof(IdeologyInfoWindow), new Vector2(480f, 380f));
         TechWindow.CreateAndInit(nameof(TechWindow), new Vector2(480f, 380f));
         // 一国的军事(不属于帝国的王国点地图兵牌时、原版王国窗口"军事"页签打开)
@@ -194,6 +196,7 @@ internal static class MainTab
             [nameof(FamousTalentWindow)] = "iconKings",
             [nameof(ReligionInfoWindow)] = "iconReligion",
             [nameof(WorldReligionsWindow)] = "iconReligion",
+            [nameof(WarInfoWindow)] = "iconWar",
         };
         foreach (KeyValuePair<string, string> pair in icons)
         {

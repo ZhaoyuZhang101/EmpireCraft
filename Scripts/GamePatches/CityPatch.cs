@@ -590,6 +590,7 @@ public class CityPatch : GamePatch
             else WartimeCustodySystem.Clear(__instance);
             __instance.removeSoldiers();
             AdministrativeControlSystem.MarkConquered(__instance, joinAfterCapture);
+            WarChronicle.CityTaken(__instance, oldKingdom, joinAfterCapture);
             __instance.joinAnotherKingdom(joinAfterCapture, true);
         }
 

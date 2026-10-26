@@ -56,6 +56,11 @@ public class WarPatch: GamePatch
             AccessTools.Method(typeof(WarManager), nameof(WarManager.newWar)),
             postfix: new HarmonyLib.HarmonyMethod(GetType(), nameof(new_war))
         );
+        // 战报：退出、亡于此战(见 WarChronicle)
+        new Harmony(nameof(BeforeLeaveWar)).Patch(AccessTools.Method(typeof(War), nameof(War.leaveWar)),
+            prefix: new HarmonyLib.HarmonyMethod(GetType(), nameof(BeforeLeaveWar)));
+        new Harmony(nameof(BeforeLostWar)).Patch(AccessTools.Method(typeof(War), nameof(War.lostWar)),
+            prefix: new HarmonyLib.HarmonyMethod(GetType(), nameof(BeforeLostWar)));
         new Harmony(nameof(join_war_side)).Patch(
             AccessTools.Method(typeof(War), nameof(War.joinAttackers), new[] { typeof(Kingdom) }),
             prefix: new HarmonyLib.HarmonyMethod(GetType(), nameof(BeforeJoinAttackers)),
@@ -70,6 +75,16 @@ public class WarPatch: GamePatch
     }
     
     private static readonly HashSet<long> _brokenWarsLogged = new();
+
+    public static void BeforeLeaveWar(War __instance, Kingdom pKingdom)
+    {
+        if (__instance?.hasKingdom(pKingdom) == true) WarChronicle.Left(__instance, pKingdom);
+    }
+
+    public static void BeforeLostWar(War __instance, Kingdom pKingdom)
+    {
+        if (__instance?.hasKingdom(pKingdom) == true && !__instance.hasEnded()) WarChronicle.Fallen(__instance, pKingdom);
+    }
 
     // 原版 War.update 默认主攻方、主守方都在：任何一方的王国查不到(比如开战时守方传了 null，
     // 或者王国在同一帧被革命/叛乱抹掉)就会在 main_defender.isAlive() 上崩，而且战争永远结束不了，每帧报一次。
@@ -100,8 +115,33 @@ public class WarPatch: GamePatch
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
         if (__instance.getMainAttacker() == null) return; // 坏战争，前置已经处理
 
-        EmpireCraft.Scripts.GeneralSystems.WarGoalSystem.Ensure(__instance);
+        try
+        {
+            EmpireCraft.Scripts.GeneralSystems.WarGoalSystem.Ensure(__instance);
+            // 没有开战目标的仗(叛乱、独立、争位……)：开打头一回按类型起名、记宣战(有目标的在 Ensure 里做了)，记下守方京城
+            // (叛乱攻下它即胜，见 WarObjective.RebelTarget)；读档前就在打的旧仗不补
+            var extra = __instance.GetOrCreate();
+            if (!extra.declared)
+            {
+                if (__instance.getAge() < 1)
+                {
+                    if (extra.war_goal_capital_id < 0 && __instance.main_defender?.capital?.data != null)
+                        extra.war_goal_capital_id = __instance.main_defender.capital.id;
+                    WarCatalog.ApplyName(__instance);
+                    WarChronicle.Declared(__instance);
+                }
+                extra.declared = true;
+            }
+        }
+        catch (Exception exception)
+        {
+            if (_brokenWarsLogged.Add(__instance.data.id))
+                LogService.LogWarning($"[EmpireCraft][战争目标] {__instance.data.name} 定目标、起名失败: {exception.Message}");
+        }
         RecordWarDeclared(__instance);
+        // 攻下主城池即拿到目标、叛乱攻下京城即胜(见 WarObjective)
+        WarObjective.Check(__instance);
+        if (__instance.hasEnded()) return;
         if (!EmpireCraft.Scripts.GeneralSystems.HolyRomanSystem.ContainedWar(__instance)) WorldWarSystem.TryEscalate(__instance);
         if (!__instance.hasEnded() && __instance.GetEmpireWarType() == EmpireWarType.索取法理)
         {
@@ -208,6 +248,7 @@ public class WarPatch: GamePatch
             CaptureWarRoyalHouses(pWar);
             RememberDefeatedWarHouses(pWar, pWinner);
             RecordWarEnded(pWar, pWinner);
+            WarChronicle.Ended(pWar, pWinner);
             // 按开战目标结算和约(赔款、割地、吞并，见 WarGoalSystem)
             EmpireCraft.Scripts.GeneralSystems.WarGoalSystem.Settle(pWar, pWinner);
             // 圣战：圣地交接、教权与正统
@@ -528,6 +569,7 @@ public class WarPatch: GamePatch
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
 
         WarSituation.RecordParticipant(__instance, pKingdom);
+        WarChronicle.Joined(__instance, pKingdom);
         ExpandFeudalWar(__instance);
         CaptureWarRoyalHouses(__instance);
         DetachHostileTributaries(__instance);

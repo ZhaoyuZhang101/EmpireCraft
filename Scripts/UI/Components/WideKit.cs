@@ -449,6 +449,56 @@ public static class WideKit
         return row;
     }
 
+    // 对比行(两军对比)：左边一方的值(靠右)、中间灰色项目名、右边另一方的值(靠左)，隔行垫底
+    public static AutoHoriLayoutGroup AddVersusRow(this AutoVertLayoutGroup card, float cardWidth, int index, string left,
+        string label, string right, string leftHex = Value, string rightHex = Value, float labelWidth = 52f)
+    {
+        float inner = cardWidth - CardPadding;
+        var row = card.BeginHoriGroup(new Vector2(inner, 13f), TextAnchor.MiddleLeft, 2, new RectOffset(3, 3, 0, 0));
+        if (index % 2 == 0) UIHelper.AddInsetBackground(row, new Vector2(inner, 13f));
+        float side = (inner - 6f - labelWidth - 4f) / 2f;
+        var a = row.AddTextIntoHoriLayout((left ?? "").ColorString(leftHex), true, TextAnchor.MiddleRight, new Vector2(side, 12f));
+        a.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
+        HoverMarqueeText.Attach(a);
+        row.AddTextIntoHoriLayout((label ?? "").ColorString(Muted), true, TextAnchor.MiddleCenter, new Vector2(labelWidth, 12f))
+            .UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+        var b = row.AddTextIntoHoriLayout((right ?? "").ColorString(rightHex), true, TextAnchor.MiddleLeft, new Vector2(side, 12f));
+        b.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
+        HoverMarqueeText.Attach(b);
+        return row;
+    }
+
+    // 进度条行：左边名称(定宽) + 双色条(share 一段用 fillHex，其余 restHex) + 右边说明；隔行垫底，可点
+    public static AutoHoriLayoutGroup AddBarRow(this AutoVertLayoutGroup card, float cardWidth, int index, string label,
+        float share, string value, string valueHex, string fillHex, string restHex, UnityAction action = null,
+        float labelWidth = 56f, float barWidth = 90f)
+    {
+        float inner = cardWidth - CardPadding;
+        var row = card.BeginHoriGroup(new Vector2(inner, 13f), TextAnchor.MiddleLeft, 3, new RectOffset(3, 3, 0, 0));
+        if (index % 2 == 0) UIHelper.AddInsetBackground(row, new Vector2(inner, 13f));
+        var name = row.AddTextIntoHoriLayout((label ?? "").ColorString(Soft), true, TextAnchor.MiddleLeft, new Vector2(labelWidth, 12f));
+        name.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
+        HoverMarqueeText.Attach(name);
+        var box = new GameObject("Bar", typeof(RectTransform), typeof(LayoutElement));
+        var rect = box.GetComponent<RectTransform>();
+        rect.SetParent(row.transform, false);
+        rect.sizeDelta = new Vector2(barWidth, 5f);
+        LayoutElement layout = box.GetComponent<LayoutElement>();
+        layout.minWidth = layout.preferredWidth = barWidth;
+        layout.minHeight = layout.preferredHeight = 5f;
+        ColorUtility.TryParseHtmlString(restHex, out Color rest);
+        ColorUtility.TryParseHtmlString(fillHex, out Color fill);
+        Plain(rect, Vector2.zero, new Vector2(barWidth, 5f), rest);
+        float filled = Mathf.Clamp01(share) * barWidth;
+        if (filled >= 1f) Plain(rect, Vector2.zero, new Vector2(filled, 5f), fill);
+        var text = row.AddTextIntoHoriLayout((value ?? "").ColorString(valueHex), true, TextAnchor.MiddleRight,
+            new Vector2(Mathf.Max(10f, inner - 6f - 6f - labelWidth - barWidth), 12f));
+        text.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
+        HoverMarqueeText.Attach(text);
+        if (action != null) UIHelper.MakeClickable(row.gameObject, action);
+        return row;
+    }
+
     // 柱状走势(门第、人口这类逐年的数)：深色底上一排细柱，柱高按 max 折算；guides 画几条淡横线(等第分界)
     public static void AddColumnChart(this AutoVertLayoutGroup card, float cardWidth, IList<float> values, float max,
         string hex, float height = 34f, IList<float> guides = null)
