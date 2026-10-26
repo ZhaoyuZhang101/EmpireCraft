@@ -11,7 +11,8 @@ public static class CultureShareRules
     // 城市层面：挑战文化必须形成稳定多数，并明显领先当前官方主流文化。
     public const float CityCultureShiftThreshold = 55f;
     public const float CityCultureShiftLeadMargin = 15f;
-    public const int CityCultureShiftStableYears = 5;
+    // 稳定期与占领冲击(用户 2026-10-27 反馈文化传播太快)：以前 5 年、一占领就 30 个百分点，攻下的城二三十年就改从征服者之俗
+    public const int CityCultureShiftStableYears = 10;
     // 新生儿采用出生城市官方文化的概率。70% 是制度教育提供的基础值，官方文化相对
     // 最强竞争文化的领先越明显，概率越接近 100%；未触发时保留父母继承出的文化。
     public const float NewbornLocalCultureBaseChance = 0.70f;
@@ -25,7 +26,7 @@ public static class CultureShareRules
     // 官方文化守不住多数，城会慢慢改从多数之俗(用户 2026-10-19 选"可和平同化、留少数族群"；以前一律保底 55，
     // 挑战者最多 45，迁徙、教化永远翻不了城)
     public const float OfficialCultureInstitutionalLift = 25f;
-    public const float ForeignOccupationCultureShock = 30f;
+    public const float ForeignOccupationCultureShock = 15f;
     public const float ForeignOccupationCultureTarget = 60f;
     // 王国/帝国法理层面：某文化需要成为法理辖下至少这个比例的城市的主流文化（且是首都的主流文化）
     // 才允许“文治”派系发起“改变法理主流文化”的决议。

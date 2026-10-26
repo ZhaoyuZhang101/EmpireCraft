@@ -869,9 +869,11 @@ public static class CityPopulationSystem
         if (push <= 0.05f) return;
         City destination = null;
         float best = 0.1f;
-        foreach (City other in city.kingdom.cities)
+        // 只往相邻的本国城迁(用户 2026-10-27 反馈文化跨距离传播)：以前挑全国拉力最大的城，百姓一迁就跨过半个国家，
+        // 人口里的文化跟着跳到远方。远处的城要靠一城传一城
+        foreach (City other in city.neighbours_cities_kingdom)
         {
-            if (other == null || other == city || other.isRekt()) continue;
+            if (other == null || other == city || other.isRekt() || other.kingdom != city.kingdom) continue;
             CityPopulationData otherData = Get(other);
             if (otherData == null) continue;
             float pull = Pull(other, otherData);

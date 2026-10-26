@@ -5816,7 +5816,7 @@
   "temporary_faction_claim_53": "文化归化",
   "title_all_inherited_notice": "{0}消灭了{1}，继承了其全部法理。",
   "empirecraft_law_fixed_de_jure_culture_title": "固定法理文化",
-  "empirecraft_law_fixed_de_jure_culture_description": "开启：法理文化、官方名称及辖内城市主流文化保持固定；居民文化与人口流动仍会正常变化。关闭（默认）：法理与城市主流文化均可通过决议转变。",
+  "empirecraft_law_fixed_de_jure_culture_description": "开启：法理文化、官方名称及各城主流文化保持固定(没归进法理的城也一样，占领也不改)；居民文化与人口流动仍会正常变化。关闭（默认）：法理与城市主流文化均可通过决议转变。",
   "de_jure_culture_changed_log": "$title$法理的默认文化由$old_culture$转变为$new_culture$。",
   "de_jure_culture_changed_tip": "一项王国法理的默认文化已经转变",
   "plot_empirecraft_city_culture_shift": "更改城市主流文化",

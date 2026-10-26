@@ -834,13 +834,15 @@ public static class CultureService
 
     /// <summary>
     /// 法理文化锁定会向下锁住辖内城市的官方主流文化，但不冻结居民个人文化、
-    /// 人口迁徙或 culture_shares。无所属法理的城市不受该世界法则影响。
+    /// 人口迁徙或 culture_shares。世界法则"固定法理文化"开着时不论有没有法理一律锁住
+    /// (以前没归进法理的城不受影响，开局、新拓的城大多还没有法理，照样改从别的文化)。
     /// </summary>
     public static bool IsCityMainCultureLocked(City city)
     {
-        KingdomTitle title = city?.GetTitle();
-        if (title?.data == null || title.isRekt()) return false;
-        return IsFixedDeJureCultureEnabled() || title.data.culture_locked;
+        if (city?.data == null) return false;
+        if (IsFixedDeJureCultureEnabled()) return true;
+        KingdomTitle title = city.GetTitle();
+        return title?.data != null && !title.isRekt() && title.data.culture_locked;
     }
 
     /// <summary>
@@ -1020,6 +1022,8 @@ public static class CultureService
         }
 
         if (string.Equals(newCulture, oldCulture, StringComparison.Ordinal)) return false;
+        // 主流文化锁着：占领不改它(见 TryGetActiveOccupationCulture)，文化比例也不跳
+        if (IsCityMainCultureLocked(city)) return false;
         if (!IsValidCulture(data.restoration_culture)) data.restoration_culture = oldCulture;
         data.culture_restoration_available = false;
         data.occupation_pressure_culture = newCulture;
@@ -1628,7 +1632,7 @@ public static class CultureService
 
     /// <summary>
     /// 被指定长官每座城市每年最多推进一次。达到 55% 且领先现主流文化 15 个百分点后，
-    /// 行政推动停止，城市转入五年的自然巩固阶段，最后仍由城市主流文化 Plot 正式承认。
+    /// 行政推动停止，城市转入十年的自然巩固阶段，最后仍由城市主流文化 Plot 正式承认。
     /// </summary>
     public static bool FindCulturalAssimilationDutyCandidate(City city, out string targetCulture)
     {

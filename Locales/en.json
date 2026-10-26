@@ -5802,7 +5802,7 @@
   "temporary_faction_claim_53": "Culture Assimilation",
   "title_all_inherited_notice": "{0} destroyed {1} and inherited all of its de jure titles.",
   "empirecraft_law_fixed_de_jure_culture_title": "Fixed De Jure Culture",
-  "empirecraft_law_fixed_de_jure_culture_description": "On: de jure culture, official names, and the main cultures of its cities remain fixed; residents and population movement still change normally. Off (default): de jure and city main cultures may change through decisions.",
+  "empirecraft_law_fixed_de_jure_culture_description": "On: de jure culture, official names, and every city's main culture remain fixed (including cities outside any de jure title, and after conquest); residents and population movement still change normally. Off (default): de jure and city main cultures may change through decisions.",
   "de_jure_culture_changed_log": "The default culture of $title$ changed from $old_culture$ to $new_culture$.",
   "de_jure_culture_changed_tip": "A de jure kingdom has adopted a new default culture",
   "plot_empirecraft_city_culture_shift": "Change City's Main Culture",
