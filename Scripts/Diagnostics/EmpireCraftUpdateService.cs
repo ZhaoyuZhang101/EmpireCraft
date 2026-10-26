@@ -1107,6 +1107,24 @@ public static class EmpireCraftUpdateService
         return File.Exists(resultPath) && RestoreInstallResult(resultPath, pendingPath);
     }
 
+    // 在线更新刚换下的旧版里的 default_config.json(玩家的设置以前存在那里，见 ModClass.LoadSettings)：
+    // 安装结果里记着备份目录，这次启动稍后才清掉(RestoreInstallResult)；没有就返回 null
+    public static string ReplacedConfigPath()
+    {
+        try
+        {
+            string resultPath = Path.Combine(GetUpdatesRoot(), InstallResultFileName);
+            if (!File.Exists(resultPath)) return null;
+            string backup = JObject.Parse(File.ReadAllText(resultPath)).Value<string>("backup");
+            string path = string.IsNullOrEmpty(backup) ? null : Path.Combine(backup, "default_config.json");
+            return path != null && File.Exists(path) ? path : null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     private static bool RestoreInstallResult(string resultPath, string pendingPath)
     {
         try

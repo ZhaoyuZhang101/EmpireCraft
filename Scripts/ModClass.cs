@@ -235,7 +235,7 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
         LoadUI();
         prefab_library = new GameObject("PrefabLibrary").transform;
         prefab_library.SetParent(transform);
-        modConfig = new ModConfig(_declare.FolderPath + "/default_config.json", true);
+        modConfig = LoadSettings();
         // 新版加载器读配置只还原值、不调用回调；IConfigurable 自行管理的配置必须主动应用。
         // 否则界面显示开启，PURE_MAP_MODE 等运行标记仍是默认值，建筑和人物继续显示。
         // 旧版与手机版加载器没有 ApplyCallbacks(读配置时已自己调回调)，按反射找，找不到就跳过，免得编不过
@@ -329,6 +329,57 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
     public string GetLocaleFilesDirectory(ModDeclare pModDeclare)
     {
         return pModDeclare.FolderPath + "/Locales/"; // Return the directory where your mod's locale files are located
+    }
+
+    // 玩家的设置(用户 2026-10-27 转玩家反馈"每次模组更新都会导致设置重置")：以前直接读写模组目录里的 default_config.json，
+    // 玩家改的设置存进了模组自带的默认文件，一更新(在线更新、创意工坊、手动覆盖)就被新版的默认值盖掉。现在照加载器的规矩：
+    // 玩家的设置存在游戏存档目录的 mods_config/<模组 UID>.config，不随模组更新；default_config.json 只当设置项与默认值，
+    // 读的时候合并(新加的设置项用默认值，删掉的去掉)。
+    // 头一回(还没有 mods_config 文件)从旧设置迁过来：在线更新刚换下的旧版备份里的 default_config.json(更新时整个换掉了，
+    // 备份要等这次启动稍后才清掉，见 EmpireCraftUpdateService.ReplacedConfigPath)；没有就用模组目录里的(没换过的、从 git 拉的，
+    // 里面就是玩家的设置)。加载器没有合并接口(旧版、手机版)的照旧读写 default_config.json
+    private static ModConfig LoadSettings()
+    {
+        string defaults = Path.Combine(_declare.FolderPath, "default_config.json");
+        MethodInfo merge = typeof(ModConfig).GetMethod("MergeWith", new[] { typeof(ModConfig) });
+        string folder = ModsConfigFolder();
+        if (merge == null || string.IsNullOrEmpty(folder) || string.IsNullOrEmpty(_declare.UID))
+            return new ModConfig(defaults, true);
+        try
+        {
+            string user = Path.Combine(folder, _declare.UID + ".config");
+            if (!File.Exists(user))
+            {
+                string legacy = EmpireCraftUpdateService.ReplacedConfigPath() ?? defaults;
+                Directory.CreateDirectory(folder);
+                if (File.Exists(legacy)) File.Copy(legacy, user);
+                LogService.LogInfo($"[EmpireCraft][配置] 设置改存到 {user}，从 {legacy} 迁入");
+            }
+            var config = new ModConfig(user, true);
+            if (File.Exists(defaults)) merge.Invoke(config, new object[] { new ModConfig(defaults, true) });
+            config.Save();
+            return config;
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft][配置] 读取玩家设置失败，改用模组目录里的: {exception.Message}");
+            return new ModConfig(defaults, true);
+        }
+    }
+
+    // 加载器存各模组设置的目录(NeoModLoader.constants.Paths.ModsConfigPath；按名字找，手机版没有就用存档目录下的 mods_config)
+    private static string ModsConfigFolder()
+    {
+        try
+        {
+            object path = Type.GetType("NeoModLoader.constants.Paths, NeoModLoader")?.GetField("ModsConfigPath")?.GetValue(null);
+            if (path is string found && !string.IsNullOrEmpty(found)) return found;
+        }
+        catch
+        {
+            // 按名字找不到就用下面的
+        }
+        return Path.Combine(Application.persistentDataPath, "mods_config");
     }
 
     public ModConfig GetConfig()
