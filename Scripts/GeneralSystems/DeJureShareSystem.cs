@@ -25,7 +25,7 @@ public class ContestClaim
 
 // 兼属(用户 2026-10-22 "对刚刚的争议地带，允许一个城市拥有两个王国法理就是了""帝国核心和天下本来就是基于王国法理来的"
 // "一个王国法理可以拥有多个帝国法理""帝国法理也可以属于多个天下"；问答选：三层按钮按层排、另设「兼属」按钮、
-// 各层图层画斜纹叠色、旧争议地带并进来)。城→王国法理→帝国法理→天下，每一层除了本来的归属，另可兼属至多两个上级：
+// 各层图层画斜纹叠色、旧争议地带并进来)。城→王国法理→帝国法理→天下，三层兼属上限分别由设置控制：
 //   · 城兼属王国法理：记在城上(CityExtraData.shared_titles)；那个王国法理的城、它所在帝国法理与天下的城都算这座城；
 //   · 王国法理兼属帝国法理：记在帝国核心上(EmpireCore.shared_titles)；那个帝国法理的城都算这个王国法理的城；
 //   · 帝国法理兼属天下：记在帝国核心上(EmpireCore.shared_tianxia)；那个天下的城都算这个帝国法理的城。
@@ -38,7 +38,12 @@ public class ContestClaim
 //   · 失效：上级没了、成了本来的归属；自动留下的满百年淡忘(手动挂的不过期)；开着冻结法理时一律不淡忘，永远挂着双法理。
 public static class DeJureShareSystem
 {
-    public const int MaxShares = 2;
+    public static int TitleShareLimit = 2;
+    public static int CoreShareLimit = 5;
+    public static int TianxiaShareLimit = 2;
+    private static int MaxShares => global::System.Math.Max(TitleShareLimit,
+        global::System.Math.Max(CoreShareLimit, TianxiaShareLimit));
+    public static void RefreshShareLimits() => Changed();
     private const int ForgetYears = 100;
     private static double _lastScan = -1d;
 
@@ -104,7 +109,7 @@ public static class DeJureShareSystem
     }
 
     // 记一份(已有就不重记；满了挤掉最早的)
-    private static bool Add(List<DeJureShare> shares, long id, bool manual, double since)
+    private static bool Add(List<DeJureShare> shares, long id, bool manual, double since, int limit)
     {
         DeJureShare existing = shares.Find(share => share?.id == id);
         if (existing != null)
@@ -112,7 +117,7 @@ public static class DeJureShareSystem
             existing.manual |= manual;
             return false;
         }
-        while (shares.Count >= MaxShares) shares.RemoveAt(0);
+        while (shares.Count >= global::System.Math.Max(1, limit)) shares.RemoveAt(0);
         shares.Add(new DeJureShare { id = id, since = since >= 0d ? since : World.world.getCurWorldTime(), manual = manual });
         return true;
     }
@@ -164,7 +169,7 @@ public static class DeJureShareSystem
         if (!Valid(city) || title == null || title.isRekt() || city.GetTitleID() == title.id) return false;
         var data = city.GetOrCreate();
         data.shared_titles ??= new List<DeJureShare>();
-        if (!Add(data.shared_titles, title.id, manual, since)) return false;
+        if (!Add(data.shared_titles, title.id, manual, since, TitleShareLimit)) return false;
         Touch(city);
         Changed();
         return true;
@@ -222,7 +227,7 @@ public static class DeJureShareSystem
     {
         if (title == null || title.isRekt() || core == null || EmpireCoreManager.ContainsTitle(core, title)) return false;
         core.shared_titles ??= new List<DeJureShare>();
-        if (!Add(core.shared_titles, title.id, manual, since)) return false;
+        if (!Add(core.shared_titles, title.id, manual, since, CoreShareLimit)) return false;
         Touch(title);
         Changed();
         return true;
@@ -277,7 +282,7 @@ public static class DeJureShareSystem
         lead = TianxiaSystem.Lead(lead);
         if (core == null || lead == null || TianxiaSystem.Lead(core) == lead) return false;
         core.shared_tianxia ??= new List<DeJureShare>();
-        if (!Add(core.shared_tianxia, lead.id, manual, since)) return false;
+        if (!Add(core.shared_tianxia, lead.id, manual, since, TianxiaShareLimit)) return false;
         Touch(core);
         Changed();
         return true;
@@ -526,7 +531,7 @@ public static class DeJureShareSystem
     private static object _stripeLayer;
     private static readonly Dictionary<long, Color32[]> StripeCache = new();
 
-    // 当前图层上这座城另画的颜色(至多两种，本色之外)；王国法理图层(按法理)看王国法理、帝国法理显示看帝国法理、天下图层看天下。
+    // 当前图层上这座城另画的颜色(本色之外，数量随兼属设置)；王国法理图层(按法理)看王国法理、帝国法理显示看帝国法理、天下图层看天下。
     // 别的图层、没有兼属的为空
     public static Color32[] StripeColors(City city)
     {

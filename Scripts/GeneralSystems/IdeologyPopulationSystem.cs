@@ -724,10 +724,11 @@ public static partial class IdeologyPopulationSystem
         if (!state.discovered_ideologies.Contains(key)) state.discovered_ideologies.Add(key);
     }
 
-    // 理念要靠书传开：开放党禁时就有的几种基本理念以外，本文化要先有这个理念的奠基名著
+    // 理念要靠书传开：开放党禁带来的基本理念、启蒙科技带来的自由主义以外，本文化要先有这个理念的奠基名著
     // (自己写出来，或书从外面传进来、被读到，见 LandmarkBookSystem)才会有人信奉
     public static bool HasIdeaBook(string culture, PartyIdeology ideology) =>
-        PartySystem.BaseIdeologies.Contains(ideology) || LandmarkBookSystem.FoundingBook(ideology) == null ||
+        PartySystem.BaseIdeologies.Contains(ideology) || PartySystem.IsEnlightenmentIdeology(ideology) ||
+        LandmarkBookSystem.FoundingBook(ideology) == null ||
         LandmarkBookSystem.HasFoundingBook(culture, ideology);
 
     public static bool IsIdeaAvailable(string culture, PartyIdeology ideology) =>

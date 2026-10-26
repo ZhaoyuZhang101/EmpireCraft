@@ -529,25 +529,40 @@ public static class LandEconomySystem
     private static void ProcessLandPurchases(City city, Dictionary<string, List<Actor>> households)
     {
         CityExtension.CityExtraData data = EnsureData(city);
+        // 有收入不代表不缺钱：原先要求全族每个人上一年收入都为零，正常耕作的氏族几乎永远不会卖地。
+        // 按背景人口相同的基础兼并速度，让非商户持地氏族每年有小概率出售一份地。
+        float saleChance = Mathf.Clamp01(BaseConcentration * MaladySystem.AnnexationFactor(city.kingdom));
         List<string> sellers = households.Where(pair => GetHouseholdShare(city, pair.Key) > 0f &&
-                                                        !pair.Value.Any(actor => actor.GetOrCreate()
-                                                            .economic_income_previous_year > 0) &&
-                                                        !IsPrivilegedHousehold(pair.Value))
+                                                        !IsPrivilegedHousehold(pair.Value) &&
+                                                        !pair.Value.Any(actor => actor.GetOrCreate().is_economic_merchant) &&
+                                                        UnityEngine.Random.value < saleChance)
+            .OrderBy(pair => SelectRepresentative(pair.Value)?.money ?? int.MaxValue)
             .Select(pair => pair.Key).ToList();
+        List<int> purses = households.Values.Select(SelectRepresentative).Where(actor => actor != null)
+            .Select(actor => actor.money).OrderBy(money => money).ToList();
+        int medianPurse = purses.Count > 0 ? purses[(purses.Count - 1) / 2] : 0;
         foreach (KeyValuePair<string, List<Actor>> buyerHousehold in households
-                     .Where(pair => pair.Value.Any(actor => actor.GetOrCreate().is_economic_merchant))
+                     .Where(pair => pair.Value.Any(actor => actor.GetOrCreate().is_economic_merchant) ||
+                                    (SelectRepresentative(pair.Value)?.money ?? 0) >= LandPurchasePrice * 2 &&
+                                    (long)(SelectRepresentative(pair.Value)?.money ?? 0) >=
+                                    (long)medianPurse + LandPurchasePrice)
                      .OrderByDescending(pair => SelectRepresentative(pair.Value)?.money ?? 0))
         {
             Actor buyer = SelectRepresentative(buyerHousehold.Value);
             if (buyer == null || buyer.money <= 0) continue;
-            if (sellers.Count == 0)
+            int sellerIndex = sellers.FindIndex(key => key != buyerHousehold.Key &&
+                ResolveRepresentative(data, key) is Actor seller && IsLivingResident(seller) &&
+                buyer.money > seller.money);
+            if (sellerIndex < 0)
             {
                 // 无小人模式：实体卖家卖完了，向背景人口里的有地农民买(同一片地，两本账合一)
-                if (!BuyFromBackground(city, data, buyer, buyerHousehold.Key)) break;
+                // 富户参与实体土地交易；背景购地仍只由商户出资，避免大量富户每年直接买空背景私田。
+                if (buyerHousehold.Value.Any(actor => actor.GetOrCreate().is_economic_merchant))
+                    BuyFromBackground(city, data, buyer, buyerHousehold.Key);
                 continue;
             }
-            string sellerKey = sellers[0];
-            sellers.RemoveAt(0);
+            string sellerKey = sellers[sellerIndex];
+            sellers.RemoveAt(sellerIndex);
             Actor seller = ResolveRepresentative(data, sellerKey);
             float amount = Math.Min(HouseholdBaseShare, GetHouseholdShare(city, sellerKey));
             if (amount <= 0f || !IsLivingResident(seller) || sellerKey == buyerHousehold.Key) continue;

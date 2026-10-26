@@ -83,7 +83,7 @@
       ]
     },
     {
-      "id": "lift_party_ban", "requires_techs": ["constitutionalism"],
+      "id": "lift_party_ban", "requires_techs": ["estates_assembly"],
       "name_key": "institution_lift_party_ban",
       "description_key": "institution_lift_party_ban_desc",
       "research": {
@@ -130,8 +130,6 @@
         "party_politics": 1,
         "claim_reform:开放党禁": 1,
         "ideology:Conservatism": 1,
-        "ideology:ConservativeLiberalism": 1,
-        "ideology:SocialLiberalism": 1,
         "ideology:Centrism": 1
       }
     },

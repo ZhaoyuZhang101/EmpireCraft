@@ -923,9 +923,7 @@
       "id": "youmu_lift_party_ban",
       "branch": "administration",
       "advancement": 5,
-      "requires": [
-        "youmu_dual_administration"
-      ]
+      "requires": []
     },
     {
       "template": "universal_suffrage",

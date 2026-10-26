@@ -138,6 +138,9 @@ public class ModSettingsWindow : WideScrollWindow<ModSettingsWindow>
                         Switch("Title_Freeze_Toggle", true),
                         Number("Title_Been_Destroy_Text", 50, 1, 9999, 10, "mod_settings_unit_years"),
                         Number("Title_Max_Cities_Text", 3, 0, 999, 1, "mod_settings_unit_cities", "mod_settings_unlimited"),
+                        Number("Title_Share_Limit_Text", 2, 1, 99, 1, "mod_settings_unit_shares"),
+                        Number("Core_Share_Limit_Text", 5, 1, 99, 1, "mod_settings_unit_shares"),
+                        Number("Tianxia_Share_Limit_Text", 2, 1, 99, 1, "mod_settings_unit_shares"),
                     }
                 },
             }

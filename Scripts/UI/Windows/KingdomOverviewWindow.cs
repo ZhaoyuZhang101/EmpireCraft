@@ -204,15 +204,19 @@ public class KingdomOverviewWindow : WideScrollWindow<KingdomOverviewWindow>
             (LM.Get("kov_tech_era"), TechnologySystem.GetEraName(culture), WideKit.Gold),
             (LM.Get("kov_tech_researched"), $"{state?.researched_techs?.Count ?? 0}/{total}", WideKit.Value),
             (LM.Get("kov_tech_points"), (state?.last_yearly_points ?? 0f).ToString("0.#"), WideKit.Green));
-        string current = state?.current_tech;
-        string detail = LM.Get("kov_tech_idle");
-        if (!string.IsNullOrEmpty(current) && TechnologySystem.TryGetTech(current, out TechNodeConfig tech))
+        var targets = TechnologySystem.GetResearchTargets(culture);
+        if (targets.Count == 0)
+            card.AddListRow(PageWidth, 0, null, LM.Get("kov_tech_current"), LM.Get("kov_tech_idle"),
+                () => TechWindow.Open(kingdom), WideKit.Cyan, 70f);
+        for (int i = 0; i < targets.Count; i++)
         {
+            TechNodeConfig tech = targets[i];
             float cost = TechnologySystem.GetCost(culture, tech);
-            float share = cost <= 0f ? 0f : TechnologySystem.GetProgress(culture, current) / cost;
-            detail = $"{TechnologySystem.GetTechName(current)}  {UnityEngine.Mathf.Clamp01(share):P0}";
+            float share = cost <= 0f ? 0f : TechnologySystem.GetProgress(culture, tech.id) / cost;
+            string detail = $"{TechnologySystem.GetTechName(tech.id)}  {UnityEngine.Mathf.Clamp01(share):P0}";
+            card.AddListRow(PageWidth, i, null, LM.Get("kov_tech_current"), detail,
+                () => TechWindow.Open(kingdom), WideKit.Cyan, 70f);
         }
-        card.AddListRow(PageWidth, 0, null, LM.Get("kov_tech_current"), detail, () => TechWindow.Open(kingdom), WideKit.Cyan, 70f);
     }
 
     // 战事：一场一行(攻守、对手、年数、双方死伤)，点开战争详情

@@ -1280,7 +1280,7 @@
       }
     },
     {
-      "id": "huaxia_constitutional_preparation", "requires_techs": ["constitutionalism"],
+      "id": "huaxia_constitutional_preparation", "requires_techs": ["secular_philosophy"],
       "name_key": "institution_huaxia_constitutional_preparation",
       "description_key": "institution_huaxia_constitutional_preparation_desc",
       "branch": "administration",
@@ -1456,9 +1456,7 @@
       "id": "huaxia_lift_party_ban",
       "branch": "administration",
       "advancement": 8,
-      "requires": [
-        "huaxia_constitutional_preparation"
-      ]
+      "requires": []
     },
     {
       "template": "universal_suffrage",

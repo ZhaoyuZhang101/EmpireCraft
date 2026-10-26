@@ -13,6 +13,9 @@ public sealed class CultureTechState
     public float progress;
     // 玩家在科技窗口里指定的目标；为空时由 AI 自动选择
     public string player_target = "";
+    // 同时推进的研究、玩家指定目标；旧的单目标字段保留为首项，兼容已有存档和调用。
+    public List<string> current_techs = new();
+    public List<string> player_targets = new();
     // 各项材料/技术的获得时间，只用于窗口显示
     public Dictionary<string, double> timestamps = new();
     // 最近一年的研究点产出，只用于窗口显示(不必每次打开窗口都全图重算)
@@ -66,9 +69,10 @@ public sealed class RealmTechState
 
     public bool Has(string techId)
     {
+        techId = EmpireCraft.Scripts.GeneralSystems.TechnologyStateRules.Canonical(techId);
         if (_set == null || _count != adopted.Count)
         {
-            _set = new HashSet<string>(adopted);
+            _set = new HashSet<string>(adopted.ConvertAll(EmpireCraft.Scripts.GeneralSystems.TechnologyStateRules.Canonical));
             _count = adopted.Count;
         }
         return _set.Contains(techId);
@@ -76,6 +80,7 @@ public sealed class RealmTechState
 
     public void Adopt(string techId)
     {
+        techId = EmpireCraft.Scripts.GeneralSystems.TechnologyStateRules.Canonical(techId);
         if (!Has(techId)) adopted.Add(techId);
         progress.Remove(techId);
     }

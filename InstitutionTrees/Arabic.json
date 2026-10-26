@@ -97,7 +97,7 @@
     {
       "id": "arabic_reorganization",
       "requires_techs": [
-        "constitutionalism"
+        "secular_philosophy"
       ],
       "name_key": "institution_arabic_reorganization",
       "description_key": "institution_arabic_reorganization_desc",
@@ -833,9 +833,7 @@
       "id": "arabic_lift_party_ban",
       "branch": "administration",
       "advancement": 5,
-      "requires": [
-        "arabic_bayt_al_mal"
-      ]
+      "requires": []
     },
     {
       "template": "universal_suffrage",

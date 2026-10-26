@@ -148,8 +148,9 @@ public class TechWindow : AbstractWideWindow<TechWindow>
         int materialCount = TechnologySystem.Materials.Count();
         string colorHex = "#" + ColorUtility.ToHtmlStringRGB(_culture.GetCultureColor());
         float bonus = TechnologySystem.GetResearchBonus(_culture);
+        List<TechNodeConfig> activeResearch = TechnologySystem.GetResearchTargets(_culture);
 
-        var panel = BeginSection(76f, "FactionFrame_dominate");
+        var panel = BeginSection(76f + 14f * Math.Max(0, activeResearch.Count - 1), "FactionFrame_dominate");
         var tags = panel.BeginHoriGroup(new Vector2(PanelWidth - 10f, 13), TextAnchor.MiddleCenter, 6);
         AddTag(tags, TechGraphView.Icon("ui/icons/iconCulture"), _culture.GetCultureTranslate(), colorHex);
         AddTag(tags, TechGraphView.Icon("ui/icons/iconKnowledge"), TechnologySystem.GetEraName(_culture), "#F3C34A");
@@ -158,7 +159,8 @@ public class TechWindow : AbstractWideWindow<TechWindow>
                 (bonus * 100f).ToString("0")), "#7FD8EA");
 
         AddLine(panel, string.Format(LM.Get("tech_overview_counts"),
-            state.researched_techs.Count, techCount, state.discovered_materials.Count, materialCount));
+            state.researched_techs.Count, techCount, state.discovered_materials.Count, materialCount) + "  " +
+            string.Format(LM.Get("tech_parallel_hint"), TechnologySystem.GetResearchSlots(_culture)));
         // 文化发明、国家采纳：本国还没采纳的科技
         if (_kingdom != null)
         {
@@ -196,16 +198,16 @@ public class TechWindow : AbstractWideWindow<TechWindow>
             bankLine += "  " + LM.Get("tech_unfunded").ColorString("#E9A85B");
         AddLine(panel, bankLine.ColorString("#B8C6CC"), 11f, 6);
 
-        var researchRow = panel.BeginHoriGroup(new Vector2(PanelWidth - 10f, 11), TextAnchor.MiddleCenter, 4);
-        if (TechnologySystem.TryGetTech(state.current_tech, out TechNodeConfig current))
+        foreach (TechNodeConfig current in activeResearch)
         {
+            var researchRow = panel.BeginHoriGroup(new Vector2(PanelWidth - 10f, 11), TextAnchor.MiddleCenter, 4);
             float cost = TechnologySystem.GetCost(_culture, current);
             float done = TechnologySystem.GetProgress(_culture, current.id);
             string eta = state.last_yearly_points > 0.01f
                 ? string.Format(LM.Get("tech_eta_years"),
-                    Mathf.CeilToInt(Math.Max(0f, cost - done) / state.last_yearly_points))
+                    Mathf.CeilToInt(Math.Max(0f, cost - done) * activeResearch.Count / state.last_yearly_points))
                 : LM.Get("tech_eta_unknown");
-            string target = !string.IsNullOrEmpty(state.player_target) && state.player_target != current.id
+            string target = !string.IsNullOrEmpty(state.player_target) && state.player_target != current.id && current == activeResearch[0]
                 ? "  " + string.Format(LM.Get("tech_player_target_line"),
                     TechnologySystem.GetTechName(state.player_target)).ColorString("#C9A7E8")
                 : "";
@@ -215,8 +217,9 @@ public class TechWindow : AbstractWideWindow<TechWindow>
                 new Color(0.40f, 0.84f, 0.77f));
             AddRowLabel(researchRow, $"{done:0}/{cost:0} {eta}", 90f, TextAnchor.MiddleLeft);
         }
-        else
+        if (activeResearch.Count == 0)
         {
+            var researchRow = panel.BeginHoriGroup(new Vector2(PanelWidth - 10f, 11), TextAnchor.MiddleCenter, 4);
             AddRowLabel(researchRow, LM.Get("tech_no_research"), PanelWidth - 20f, TextAnchor.MiddleCenter);
         }
 
@@ -364,7 +367,7 @@ public class TechWindow : AbstractWideWindow<TechWindow>
                 : $"{LM.Get("tech_cost")} {cost:0}";
             if (state.boosted.Contains(tech.id) && status != TechNodeStatus.Researched)
                 info = LM.Get("tech_boost_mark").ColorString("#FFD273") + info;
-            if (state.player_target == tech.id) info = "★ " + info;
+            if (state.player_targets.Contains(tech.id)) info = "★ " + info;
             var requires = tech.requires_techs.Concat(tech.requires_materials.Select(m => TechGraphView.MaterialPrefix + m))
                 .ToList();
             (string title, string body) = BuildTechTooltip(tech, status);
@@ -550,6 +553,8 @@ public class TechWindow : AbstractWideWindow<TechWindow>
         }
         if (tech.research_bonus > 0f)
             unlocks.Add(string.Format(LM.Get("tech_research_bonus"), (tech.research_bonus * 100f).ToString("0")));
+        if (tech.research_slots > 0)
+            unlocks.Add(string.Format(LM.Get("tech_research_slots"), tech.research_slots));
         unlocks.AddRange(TechnologySystem.DescribeNaval(tech).Select(line => line.ColorString("#7FD8EA")));
         // 解锁内容并成一两行，详情框放得下(以前一项一行，长的科技溢出框外)
         if (unlocks.Count > 0) lines.Add(LM.Get("tech_unlocks") + string.Join("；", unlocks));

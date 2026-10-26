@@ -315,15 +315,18 @@ public static class PartySystem
 
     public static string GetRouteName(IdeologyRoute route) => LM.Get($"ideology_route_{route}");
 
-    // 开放党禁本身就带来最基本的几种理念(保守、保守自由、社会自由、中间)，党禁一开就能组党；
+    // 开放党禁带来保守、中间理念；两种自由主义由启蒙与宪政科技带来。
     // 其余理念通过名著、外来传播或思想爆发进入民间；对应制度仍由执政党推动。
     public static readonly HashSet<PartyIdeology> BaseIdeologies = new()
     {
-        PartyIdeology.Conservatism, PartyIdeology.ConservativeLiberalism,
-        PartyIdeology.SocialLiberalism, PartyIdeology.Centrism
+        PartyIdeology.Conservatism, PartyIdeology.Centrism
     };
 
+    public static bool IsEnlightenmentIdeology(PartyIdeology ideology) =>
+        ideology is PartyIdeology.ConservativeLiberalism or PartyIdeology.SocialLiberalism;
+
     public static bool IsResearched(string culture, PartyIdeology ideology) =>
+        IsEnlightenmentIdeology(ideology) && TechnologySystem.HasTech(culture, TechnologyStateRules.Enlightenment) ||
         InstitutionSystem.GetFeature(culture, IdeologySpreadSystem.FeatureKey(ideology)) > 0f ||
         BaseIdeologies.Contains(ideology) && InstitutionSystem.GetFeature(culture, FeaturePartyPolitics) > 0f;
 

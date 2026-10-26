@@ -1330,9 +1330,7 @@
       "id": "roma_lift_party_ban",
       "branch": "administration",
       "advancement": 6,
-      "requires": [
-        "western_parliamentary_taxation"
-      ]
+      "requires": []
     },
     {
       "template": "universal_suffrage",

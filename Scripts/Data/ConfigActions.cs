@@ -20,6 +20,21 @@ namespace EmpireCraft.Scripts.Data
         {
             ModClass.TITLE_MAX_CITIES = int.TryParse(count, out int value) ? Math.Max(0, value) : 0;
         }
+        public static void TitleShareLimitCallBack(string count)
+        {
+            GeneralSystems.DeJureShareSystem.TitleShareLimit = SettlementValue(count, 2, 1, 99);
+            GeneralSystems.DeJureShareSystem.RefreshShareLimits();
+        }
+        public static void CoreShareLimitCallBack(string count)
+        {
+            GeneralSystems.DeJureShareSystem.CoreShareLimit = SettlementValue(count, 5, 1, 99);
+            GeneralSystems.DeJureShareSystem.RefreshShareLimits();
+        }
+        public static void TianxiaShareLimitCallBack(string count)
+        {
+            GeneralSystems.DeJureShareSystem.TianxiaShareLimit = SettlementValue(count, 2, 1, 99);
+            GeneralSystems.DeJureShareSystem.RefreshShareLimits();
+        }
         public static void CityMaxZonesCallBack(string count)
         {
             ModClass.CITY_MAX_ZONES = int.TryParse(count, out int value) ? Math.Max(0, value) : 50;

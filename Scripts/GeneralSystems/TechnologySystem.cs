@@ -125,6 +125,7 @@ public sealed class TechNodeConfig
     // 解锁单位(别的模组的载具：坦克、飞机、炮艇等 ActorAsset id)
     public List<string> unlock_units = new();
     public float research_bonus;
+    public int research_slots;
     public List<TechBoostConfig> boosts = new();
     // 海军科技线(branch = naval，见 NavySystem)：水师辐射 +格数、舰船战力 +比例、舰种(战力倍率 1.5/2.5/4，取已研究的最高)
     public float naval_reach;
@@ -360,7 +361,7 @@ public static class TechnologySystem
     public static bool TryGetTech(string id, out TechNodeConfig tech)
     {
         EnsureLoaded();
-        return _techs.TryGetValue(id ?? "", out tech);
+        return _techs.TryGetValue(TechnologyStateRules.Canonical(id) ?? "", out tech);
     }
 
     public static bool TryGetMaterial(string id, out TechMaterialConfig material)
@@ -405,11 +406,7 @@ public static class TechnologySystem
             pair.Value.last_income ??= new Dictionary<string, float>();
             pair.Value.landmark_books ??= new List<string>();
             pair.Value.known_books ??= new List<string>();
-            if (pair.Value.progress > 0f && !string.IsNullOrEmpty(pair.Value.current_tech))
-            {
-                pair.Value.tech_progress[pair.Value.current_tech] = pair.Value.progress;
-                pair.Value.progress = 0f;
-            }
+            TechnologyStateRules.Normalize(pair.Value);
             _states[pair.Key] = pair.Value;
         }
     }
@@ -441,7 +438,7 @@ public static class TechnologySystem
 
     #region 查询
 
-    public static bool HasTech(string culture, string techId) => Researched(culture).Contains(techId);
+    public static bool HasTech(string culture, string techId) => Researched(culture).Contains(TechnologyStateRules.Canonical(techId));
 
     public static bool HasMaterial(string culture, string materialId) =>
         GetState(culture).discovered_materials.Contains(materialId);
@@ -495,6 +492,12 @@ public static class TechnologySystem
         RealmTechState state = empire?.data != null
             ? empire.data.realm_tech ??= new RealmTechState()
             : kingdom.GetOrCreate().realm_tech ??= new RealmTechState();
+        if (state.progress.TryGetValue("constitutionalism", out float legacyProgress))
+        {
+            state.progress.Remove("constitutionalism");
+            state.progress.TryGetValue(TechnologyStateRules.Enlightenment, out float existing);
+            state.progress[TechnologyStateRules.Enlightenment] = Math.Max(existing, legacyProgress);
+        }
         if (!state.initialized)
         {
             string culture = GetCultureOf(kingdom);
@@ -684,7 +687,7 @@ public static class TechnologySystem
     {
         if (HasTech(culture, tech.id)) return TechNodeStatus.Researched;
         if (!ArePrerequisitesMet(culture, tech)) return TechNodeStatus.Locked;
-        return GetState(culture).current_tech == tech.id ? TechNodeStatus.Researching : TechNodeStatus.Available;
+        return GetState(culture).current_techs.Contains(tech.id) ? TechNodeStatus.Researching : TechNodeStatus.Available;
     }
 
     public static TechNodeStatus GetMaterialStatus(string culture, TechMaterialConfig material) =>
@@ -713,7 +716,7 @@ public static class TechnologySystem
     }
 
     public static float GetProgress(string culture, string techId) =>
-        GetState(culture).tech_progress.TryGetValue(techId ?? "", out float value) ? value : 0f;
+        GetState(culture).tech_progress.TryGetValue(TechnologyStateRules.Canonical(techId) ?? "", out float value) ? value : 0f;
 
     public static bool IsKnownElsewhere(string culture, string techId) => CountContactsKnowing(culture, techId) > 0;
 
@@ -744,8 +747,8 @@ public static class TechnologySystem
         return era == null ? LM.Get("tech_era_primitive") : LM.Get(era.key);
     }
 
-    public static string GetTechName(string id) => LM.Get($"tech_{id}");
-    public static string GetTechDescription(string id) => LM.Get($"tech_{id}_desc");
+    public static string GetTechName(string id) => LM.Get($"tech_{TechnologyStateRules.Canonical(id)}");
+    public static string GetTechDescription(string id) => LM.Get($"tech_{TechnologyStateRules.Canonical(id)}_desc");
 
     // 海军科技线(用户 2026-10-15："可以加海军科技线""通过海军军事科技的升级提高这个半径")
     public static float NavalReach(string culture) => SumNaval(culture, tech => tech.naval_reach);
@@ -1436,29 +1439,30 @@ public static class TechnologySystem
     private static float AddResearch(string culture, float points, List<City> cities)
     {
         CultureTechState state = GetState(culture);
-        // 储备可能够研究好几项低级技术，溢出的点数顺延给下一项
+        // 本轮预算在各研究之间平分；完成后的余款继续分配，科技点和研究经费都只扣一次。
         for (int guard = 0; guard < 8 && points > 0f; guard++)
         {
-            TechNodeConfig target = PickTarget(culture);
-            if (target == null)
+            List<TechNodeConfig> targets = GetResearchTargets(culture);
+            if (targets.Count == 0) return points;
+            float share = points / targets.Count;
+            float spent = 0f;
+            foreach (TechNodeConfig target in targets)
             {
-                state.current_tech = "";
-                return points;
+                float cost = GetCost(culture, target);
+                float progress = GetProgress(culture, target.id);
+                float used = Math.Min(share, Math.Max(0f, cost - progress));
+                spent += used;
+                if (progress + used < cost) state.tech_progress[target.id] = progress + used;
+                else
+                {
+                    bool worldFirst = !_states.Any(pair => pair.Key != culture && pair.Value.researched_techs.Contains(target.id));
+                    CompleteTech(culture, target.id);
+                    OnResearched(culture, target, worldFirst, cities);
+                }
             }
-            state.current_tech = target.id;
-            float cost = GetCost(culture, target);
-            float progress = GetProgress(culture, target.id);
-            float needed = cost - progress;
-            if (points < needed)
-            {
-                state.tech_progress[target.id] = progress + points;
-                return 0f;
-            }
-            points -= Math.Max(0f, needed);
-            bool worldFirst = !_states.Any(pair => pair.Key != culture && pair.Value.researched_techs.Contains(target.id));
-            CompleteTech(culture, target.id);
-            OnResearched(culture, target, worldFirst, cities);
+            points = Math.Max(0f, points - spent);
         }
+        GetResearchTargets(culture);
         return points;
     }
 
@@ -1617,6 +1621,7 @@ public static class TechnologySystem
     // 玩家手动把储备投进某项技术(前置要满足，国库要付得起)
     public static bool Invest(string culture, string techId)
     {
+        techId = TechnologyStateRules.Canonical(techId);
         if (!CultureService.IsValidCulture(culture) || !_techs.TryGetValue(techId ?? "", out TechNodeConfig tech) ||
             HasTech(culture, techId) || !ArePrerequisitesMet(culture, tech)) return false;
         CultureTechState state = GetState(culture);
@@ -1747,30 +1752,36 @@ public static class TechnologySystem
     #endregion
 
     // 玩家指定的目标优先(目标还没满足前置时，先研究它缺的那一项可研究前置)；否则 AI 选最便宜的
-    private static TechNodeConfig PickTarget(string culture)
+    public static int GetResearchSlots(string culture) => Math.Max(1,
+        Researched(culture).Select(id => TryGetTech(id, out TechNodeConfig tech) ? tech.research_slots : 0)
+            .DefaultIfEmpty(1).Max());
+
+    public static List<TechNodeConfig> GetResearchTargets(string culture)
     {
         CultureTechState state = GetState(culture);
-        if (!string.IsNullOrEmpty(state.player_target))
+        int slots = GetResearchSlots(culture);
+        var selected = new List<TechNodeConfig>();
+        void Add(TechNodeConfig tech)
         {
-            if (HasTech(culture, state.player_target)) state.player_target = "";
-            else
-            {
-                TechNodeConfig step = FindNextStepToward(culture, state.player_target, new HashSet<string>());
-                if (step != null) return step;
-            }
+            if (tech != null && selected.Count < slots && !selected.Any(item => item.id == tech.id) &&
+                !HasTech(culture, tech.id) && ArePrerequisitesMet(culture, tech)) selected.Add(tech);
         }
-        if (!string.IsNullOrEmpty(state.current_tech) && _techs.TryGetValue(state.current_tech, out TechNodeConfig current) &&
-            !HasTech(culture, current.id) && ArePrerequisitesMet(culture, current))
-            return current;
+        state.player_targets.RemoveAll(id => HasTech(culture, id) || !_techs.ContainsKey(id));
+        foreach (string target in state.player_targets.Take(slots))
+            Add(FindNextStepToward(culture, target, new HashSet<string>()));
+        foreach (string id in state.current_techs)
+            if (_techs.TryGetValue(id, out TechNodeConfig current)) Add(current);
         List<TechNodeConfig> open = Config.techs.Where(tech => !HasTech(culture, tech.id) && ArePrerequisitesMet(culture, tech)).ToList();
         // 没有港口的文化不研究海军科技(别的都研究完了才轮到)
         if (open.Any(tech => tech.branch == NavalBranch) && open.Any(tech => tech.branch != NavalBranch) &&
             !CitiesOf(culture).Any(city => city.countBuildingsType("type_docks") > 0))
             open = open.Where(tech => tech.branch != NavalBranch).ToList();
-        return open
-            .OrderBy(tech => GetCost(culture, tech) / (tech.research_bonus > 0f ? 1.3f : 1f))
-            .ThenBy(tech => tech.id, StringComparer.Ordinal)
-            .FirstOrDefault();
+        foreach (TechNodeConfig tech in open
+                     .OrderBy(tech => GetCost(culture, tech) / (tech.research_bonus > 0f || tech.research_slots > slots ? 1.3f : 1f))
+                     .ThenBy(tech => tech.id, StringComparer.Ordinal)) Add(tech);
+        state.current_techs = selected.Select(tech => tech.id).ToList();
+        TechnologyStateRules.SyncLegacy(state);
+        return selected;
     }
 
     private static TechNodeConfig FindNextStepToward(string culture, string techId, HashSet<string> visited)
@@ -1791,9 +1802,10 @@ public static class TechnologySystem
         CultureTechState state = GetState(culture);
         if (!state.researched_techs.Contains(techId)) state.researched_techs.Add(techId);
         state.timestamps[$"tech:{techId}"] = World.world?.getCurWorldTime() ?? 0d;
-        if (state.current_tech == techId) state.current_tech = "";
+        state.current_techs.Remove(techId);
         state.tech_progress.Remove(techId);
-        if (state.player_target == techId) state.player_target = "";
+        state.player_targets.Remove(techId);
+        TechnologyStateRules.SyncLegacy(state);
         ResearchedCache.Remove(culture);
     }
 
@@ -1805,15 +1817,24 @@ public static class TechnologySystem
     {
         if (!CultureService.IsValidCulture(culture)) return;
         CultureTechState state = GetState(culture);
-        state.player_target = techId ?? "";
-        // 换目标不丢进度：已经投进去的研究点按技术各自保存
-        if (_techs.TryGetValue(techId ?? "", out TechNodeConfig tech) && ArePrerequisitesMet(culture, tech))
-            state.current_tech = techId;
+        techId = TechnologyStateRules.Canonical(techId);
+        if (string.IsNullOrEmpty(techId)) state.player_targets.Clear();
+        else if (_techs.ContainsKey(techId) && !HasTech(culture, techId))
+        {
+            if (!state.player_targets.Remove(techId))
+            {
+                int slots = GetResearchSlots(culture);
+                while (state.player_targets.Count >= slots) state.player_targets.RemoveAt(0);
+                state.player_targets.Add(techId);
+            }
+        }
+        GetResearchTargets(culture);
     }
 
     // 上帝模式：直接完成(连同缺的前置技术和材料)
     public static void ForceResearch(string culture, string techId)
     {
+        techId = TechnologyStateRules.Canonical(techId);
         if (!CultureService.IsValidCulture(culture) || !_techs.TryGetValue(techId ?? "", out TechNodeConfig tech)) return;
         ForceResearchRecursive(culture, tech, new HashSet<string>());
     }
@@ -1847,6 +1868,7 @@ public static class TechnologySystem
     // 已投入的研究点保留，重新研究时不必从头再来。返回回退的技术数
     public static int ForceRevoke(string culture, string techId)
     {
+        techId = TechnologyStateRules.Canonical(techId);
         if (!CultureService.IsValidCulture(culture) || !HasTech(culture, techId ?? "")) return 0;
         return RevokeWithDependents(culture, new[] { techId });
     }
@@ -1882,8 +1904,9 @@ public static class TechnologySystem
             state.researched_techs.Remove(id);
             state.timestamps.Remove($"tech:{id}");
         }
-        if (revoked.Contains(state.current_tech)) state.current_tech = "";
+        state.current_techs.RemoveAll(revoked.Contains);
         ResearchedCache.Remove(culture);
+        GetResearchTargets(culture);
         return revoked.Count;
     }
 
