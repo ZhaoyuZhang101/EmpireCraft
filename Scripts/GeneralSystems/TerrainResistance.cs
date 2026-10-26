@@ -17,17 +17,21 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   有城的地块(绿洲、山口)不算天堑，驿道照旧减半。控制力、文化辐射、开战够不够得着都按这个算(见 LineCost)。
 //   真游牧(游牧政体加游牧文化，见 KingdomExtension.IsTrueNomad；用户 2026-10-26 选"游牧免大漠冻土")逐水草而居、惯走大漠冻原：
 //   过沙漠、冻土不按深浅加码(每块照旧 2)，天堑深浅只按山地算；山脉照样挡游牧。
+//   阿拉伯制度线(部族、哈里发……，用户 2026-10-26 追加"还有阿拉伯")驼队惯走沙漠：过沙漠不按深浅加码，冻土、山脉照旧。
+//   按走的一方判(见 Habit)；游牧又是阿拉伯的按游牧算。
 public static class TerrainResistance
 {
     public const float RiverCrossing = 2f, WallCrossing = 6f, RoadFactor = 0.5f, Ridge = 8f;
     // 天堑腹地的阻力倍数：第二层、第三层起；往里看三层就够
     private const float SecondLayer = 2f, InnerLayer = 4f;
     private const int MaxDepth = 3;
-    // 天堑深浅缓存(按地块编号，0 没算过；[0] 山地、冻土、沙漠都算，[1] 只算山地，游牧用)：地形一年里难得变，一年重算一次；
+    // 走的一方惯走哪些天堑(见 Habit)：定居、惯走沙漠(阿拉伯)、惯走沙漠冻土(真游牧)
+    private const int Settled = 0, DesertWise = 1, Nomadic = 2;
+    // 天堑深浅缓存(按地块编号，0 没算过；按 Habit 分三份：惯走的那几样不算天堑)：地形一年里难得变，一年重算一次；
     // 城墙格那两处改动当场作废那一块(见 InvalidateWall)
     private const int DepthRefreshMonths = 12;
-    private static readonly sbyte[][] _depth = { new sbyte[0], new sbyte[0] };
-    private static readonly double[][] _depthAt = { new double[0], new double[0] };
+    private static readonly sbyte[][] _depth = { new sbyte[0], new sbyte[0], new sbyte[0] };
+    private static readonly double[][] _depthAt = { new double[0], new double[0], new double[0] };
     // 地块里有没有城墙(按地块编号，0 没查过、1 有、2 有而且有关门、-1 没有)：原版城墙格只经设地面格、顶层格两处变(城墙格不会冻上)，
     // 那两处一改就把这块地作废(见 MapWallPatch)；图层长城、关门变了全部重查。以前每块地一分钟(真实时间)就过期重扫 64 格
     private static sbyte[] _walls = new sbyte[0];
@@ -42,7 +46,7 @@ public static class TerrainResistance
             _depth[kind] = new sbyte[0];
             _depthAt[kind] = new double[0];
         }
-        _nomad = null;
+        _habitOf = null;
         WallPassage.ResetWorldState();
     }
 
@@ -75,11 +79,11 @@ public static class TerrainResistance
         float cost = impassable ? Ridge : Base(terrain);
         if (BarrierTerrain(terrain, impassable))
         {
-            // 游牧过大漠冻土不加码，深浅只按山地算
-            bool nomad = TrueNomad(traveller);
-            if (Barrier(zone, terrain, impassable, nomad))
+            // 游牧过大漠冻土、阿拉伯过沙漠不加码，深浅也不把这几样算进去
+            int habit = Habit(traveller);
+            if (Barrier(zone, terrain, impassable, habit))
             {
-                int depth = BarrierDepth(zone, nomad);
+                int depth = BarrierDepth(zone, habit);
                 cost *= depth >= MaxDepth ? InnerLayer : depth == 2 ? SecondLayer : 1f;
             }
         }
@@ -95,39 +99,42 @@ public static class TerrainResistance
     private static bool BarrierTerrain(FrontTerrain terrain, bool impassable) =>
         impassable || terrain is FrontTerrain.Mountain or FrontTerrain.Snow or FrontTerrain.Desert;
 
-    // 天堑地块：山地、走不通的高山、雪原冻土、沙漠(mountainsOnly 只算前两样，游牧用)；城心所在的地块(绿洲、山口的城)不算
-    private static bool Barrier(TileZone zone, FrontTerrain terrain, bool impassable, bool mountainsOnly) =>
-        (impassable || terrain == FrontTerrain.Mountain || !mountainsOnly && terrain is FrontTerrain.Snow or FrontTerrain.Desert) &&
+    // 天堑地块：山地、走不通的高山、雪原冻土、沙漠——惯走的那几样不算(见 Habit)；城心所在的地块(绿洲、山口的城)不算
+    private static bool Barrier(TileZone zone, FrontTerrain terrain, bool impassable, int habit) =>
+        (impassable || terrain == FrontTerrain.Mountain || terrain == FrontTerrain.Desert && habit == Settled ||
+         terrain == FrontTerrain.Snow && habit != Nomadic) &&
         !(zone.city != null && zone.city.getTile()?.zone == zone);
 
-    private static bool Barrier(TileZone zone, bool mountainsOnly)
+    private static bool Barrier(TileZone zone, int habit)
     {
         if (zone == null || zone.world_edge || SeaRegionSystem.IsSea(zone)) return false;
         FrontTerrain terrain = TerrainSystem.Of(zone, out bool impassable);
-        return Barrier(zone, terrain, impassable, mountainsOnly);
+        return Barrier(zone, terrain, impassable, habit);
     }
 
-    // 真游牧(见 KingdomExtension.IsTrueNomad)：同一帧里同一国只判一次(控制力、教化、开战闸一趟会问很多块地)
-    private static Kingdom _nomad;
-    private static bool _nomadValue;
-    private static int _nomadFrame = -1;
+    // 走的一方惯走哪些天堑：真游牧(见 KingdomExtension.IsTrueNomad)沙漠冻土，阿拉伯制度线沙漠，别的都不惯；
+    // 同一帧里同一国只判一次(控制力、教化、开战闸一趟会问很多块地)
+    private static Kingdom _habitOf;
+    private static int _habit, _habitFrame = -1;
 
-    private static bool TrueNomad(Kingdom kingdom)
+    private static int Habit(Kingdom kingdom)
     {
-        if (kingdom?.data == null) return false;
+        if (kingdom?.data == null) return Settled;
         int frame = Time.frameCount;
-        if (ReferenceEquals(kingdom, _nomad) && frame == _nomadFrame) return _nomadValue;
-        _nomad = kingdom;
-        _nomadFrame = frame;
-        return _nomadValue = KingdomExtension.IsTrueNomad(kingdom);
+        if (ReferenceEquals(kingdom, _habitOf) && frame == _habitFrame) return _habit;
+        _habitOf = kingdom;
+        _habitFrame = frame;
+        return _habit = KingdomExtension.IsTrueNomad(kingdom) ? Nomadic
+            : InstitutionSystem.GetCultureLine(CultureService.GetRealmCulture(kingdom)) == "Arabic" ? DesertWise
+            : Settled;
     }
 
     // 天堑深浅：不是天堑 0；离这片天堑的边(别的地形、有城的地块、海)隔几层——挨着边的 1，往里 2，再往里 3(封顶)。
-    // 地图边缘不算边。mountainsOnly：只把山地当天堑(游牧，大漠冻土算边)
-    public static int BarrierDepth(TileZone zone, bool mountainsOnly = false)
+    // 地图边缘不算边。habit：走的一方惯走的那几样不算天堑、算边(见 Habit)
+    public static int BarrierDepth(TileZone zone, int habit = Settled)
     {
         if (zone == null || zone.id < 0) return 0;
-        int id = zone.id, kind = mountainsOnly ? 1 : 0;
+        int id = zone.id, kind = habit;
         sbyte[] cache = _depth[kind];
         double[] at = _depthAt[kind];
         if (id >= cache.Length)
@@ -140,7 +147,7 @@ public static class TerrainResistance
         }
         double now = World.world?.getCurWorldTime() ?? 0d;
         if (cache[id] != 0 && now >= at[id] && Date.getMonthsSince(at[id]) < DepthRefreshMonths) return cache[id] - 1;
-        int depth = MeasureDepth(zone, mountainsOnly);
+        int depth = MeasureDepth(zone, habit);
         cache[id] = (sbyte)(depth + 1);
         at[id] = now;
         return depth;
@@ -150,9 +157,9 @@ public static class TerrainResistance
     private static readonly HashSet<TileZone> Seen = new();
 
     // 一层层往外找天堑的边，找到第几层就是几；三层内都是天堑的算 3
-    private static int MeasureDepth(TileZone zone, bool mountainsOnly)
+    private static int MeasureDepth(TileZone zone, int habit)
     {
-        if (!Barrier(zone, mountainsOnly)) return 0;
+        if (!Barrier(zone, habit)) return 0;
         Ring.Clear();
         Seen.Clear();
         Ring.Add(zone);
@@ -164,7 +171,7 @@ public static class TerrainResistance
                 foreach (TileZone next in current.neighbours ?? Array.Empty<TileZone>())
                 {
                     if (next == null || next.world_edge || !Seen.Add(next)) continue;
-                    if (!Barrier(next, mountainsOnly)) return layer;
+                    if (!Barrier(next, habit)) return layer;
                     NextRing.Add(next);
                 }
             Ring.Clear();
