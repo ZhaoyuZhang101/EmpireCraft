@@ -225,7 +225,8 @@ namespace EmpireCraft.Scripts.HelperFunc
         // 世界日志里的事件也写进这国所属帝国的史书(已经写过同一句的不重复写；独立王国没有史书)
         public static void LogEventMessage(string content, Kingdom kingdom = null)
         {
-            LogEventOnly(content, kingdom);
+            // 进史书的：屏幕提示只上帝国、大国的(见 ScreenFeedPatch)
+            Log(content, kingdom, EmpireCraft.Scripts.GamePatches.ScreenFeedPatch.Level.History);
             if (string.IsNullOrWhiteSpace(content) || kingdom?.data == null || kingdom.isRekt()) return;
             EmpireCraft.Scripts.Layer.Empire empire = kingdom.GetEmpire();
             if (empire?.data != null && !empire.isRekt()) empire.RecordHistory(directContent: content);
@@ -236,19 +237,36 @@ namespace EmpireCraft.Scripts.HelperFunc
         private const float RepeatYears = 3f;
         private static readonly Dictionary<string, double> LastLogged = new();
 
-        public static void LogEventOnly(string content, Kingdom kingdom = null)
+        public static void LogEventOnly(string content, Kingdom kingdom = null) =>
+            Log(content, kingdom, EmpireCraft.Scripts.GamePatches.ScreenFeedPatch.Level.Minor);
+
+        // 不论哪国都上屏的大事
+        public static void LogMajor(string content, Kingdom kingdom = null) =>
+            Log(content, kingdom, EmpireCraft.Scripts.GamePatches.ScreenFeedPatch.Level.Major);
+
+        private static void Log(string content, Kingdom kingdom, EmpireCraft.Scripts.GamePatches.ScreenFeedPatch.Level level)
         {
             if (string.IsNullOrWhiteSpace(content)) return;
             double now = World.world.getCurWorldTime();
             if (LastLogged.TryGetValue(content, out double last) && now >= last && Date.getYearsSince(last) < RepeatYears) return;
             if (LastLogged.Count > 2000) LastLogged.Clear();
             LastLogged[content] = now;
-            new WorldLogMessage(EmpireCraftWorldLogLibrary.empirecraft_event_log, content)
+            EmpireCraft.Scripts.GamePatches.ScreenFeedPatch.Pending = level;
+            EmpireCraft.Scripts.GamePatches.ScreenFeedPatch.PendingKingdom = kingdom;
+            try
             {
-                color_special1 = kingdom != null && !kingdom.isRekt()
-                    ? kingdom.getColor()._color_text
-                    : Toolbox.color_log_good
-            }.add();
+                new WorldLogMessage(EmpireCraftWorldLogLibrary.empirecraft_event_log, content)
+                {
+                    color_special1 = kingdom != null && !kingdom.isRekt()
+                        ? kingdom.getColor()._color_text
+                        : Toolbox.color_log_good
+                }.add();
+            }
+            finally
+            {
+                EmpireCraft.Scripts.GamePatches.ScreenFeedPatch.Pending = EmpireCraft.Scripts.GamePatches.ScreenFeedPatch.Level.None;
+                EmpireCraft.Scripts.GamePatches.ScreenFeedPatch.PendingKingdom = null;
+            }
         }
 
         public static void RecordIntoEmpire(this WorldLogMessage worldLog, Empire pEmpire = null)
