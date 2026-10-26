@@ -70,7 +70,8 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
     // 纯净地图模式(模组设置，下次启动生效，见 PureMapMode)
     public static bool PURE_MAP_MODE;
     public static bool PERFORMANCE_SKIP_NAMEPLATE_OVERLAP = true;
-    // 独立王国、部落以简化朝堂推制度改革(见 InstitutionSystem.Realm.cs)；关掉就只有帝国推。
+    // 独立王国、部落以简化朝堂推制度改革(见 InstitutionSystem.Realm.cs)；关掉就只有帝国推——原始政体的部落除外，
+    // 部落不再是帝国，原始改革只能由各部推，关了照样推(见 InstitutionSystem.KingdomReformsEnabledFor)。
     // 设置里没有这一项(旧的 default_config.json)时按默认开
     public static bool KINGDOM_INSTITUTION_REFORMS = true;
     public static ModDeclare _declare;

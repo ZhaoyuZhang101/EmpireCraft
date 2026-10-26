@@ -849,11 +849,8 @@ public class Empire : MetaObject<EmpireData>
             data.year_name = "";
             data.newEmperor_timestamp = World.world.getCurWorldTime();
         }
-        else if (TribalFissionService.IsLoneTribe(this))
-        {
-            // 一部自立的部落换首领：不刷继位的世界提示(部落很多，见 TribalFissionService.FormTribes)
-            create_year_name();
-        }
+        // 以前一部自立的部落(帝国)换首领不刷继位提示；10-26 起单个部落不再是帝国(见 TribalFissionService)，
+        // 部落换首领走原版王国的继位，这里只剩部落联盟，照常提示
         else if (data.has_year_name)
         {
             create_year_name();

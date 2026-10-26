@@ -582,7 +582,13 @@ public static class EmpireCoreManager
         if (ModClass.KINGDOM_TITLE_FREEZE) return false;
         EmpireCore core = Get(empire) ?? newEmpireCore(empire);
         if (ContainsTitle(core, title)) return false;
-        if (EmpireCores.Values.Any(other => other != null && other.id != core.id && ContainsTitle(other, title))) return false;
+        // 已在别的帝国法理里的不收；部落时代、宗法分封之初放开(用户 2026-10-26 选"法理随共事转移")：部落联盟、周室收共事部落、
+        // 旧部落帝国留下的法理(那个帝国法理已没有现存帝国、或只有部落联盟用着，见 TribalFissionService.YieldsTitle)，
+        // 收空了的帝国法理随即销毁。以前每个部落自立时各建了一个帝国法理，诸侯的法理永远进不了周室
+        EmpireCore yielding = EmpireCores.Values.FirstOrDefault(other => other != null && other.id != core.id && ContainsTitle(other, title));
+        if (yielding != null && (!TribalFissionService.YieldsTitle(yielding, empire) ||
+                                 EmpireCores.Values.Any(other => other != null && other.id != core.id && other != yielding &&
+                                                                 ContainsTitle(other, title)))) return false;
         if (!empire.kingdoms_hashset.Any(k => k != null && !k.isRekt() && title.getCities().Any(c => c != null && !c.isRekt() && c.kingdom == k))) return false;
         // 帝国核心法理可以自由扩张(不受王国法理的城市上限约束)，但只能扩张到同文化的法理，异族文化的法理吸收不进来
         string empireCulture = CultureService.GetEmpireDefaultCulture(empire);
@@ -603,6 +609,7 @@ public static class EmpireCoreManager
         if (result)
         {
             TranslateHelper.LogEmpireCoreAbsorbTitle(empire, title, core);
+            TribalFissionService.DropEmptyCore(yielding);
         }
         return result;
     }

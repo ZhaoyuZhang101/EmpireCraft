@@ -203,7 +203,9 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
         if (_realm.IsEmpire) InstitutionSystem.MigrateEmpire(_empire);
         else InstitutionSystem.EnsureRealmState(_realm);
         // 浏览别的文化：只看不改
-        _readOnly = _browsing || !_realm.IsEmpire && (!InstitutionSystem.KingdomReformsEnabled || !_realm.IsSovereign);
+        // 推制度的开关关了也能推的：原始政体的部落(见 InstitutionSystem.KingdomReformsEnabledFor)
+        _readOnly = _browsing || !_realm.IsEmpire &&
+            (!InstitutionSystem.KingdomReformsEnabledFor(_realm.Kingdom) || !_realm.IsSovereign);
         _culture = _realm.Culture;
         _lineViews = InstitutionSystem.BuildLineView(_realm);
         _foreignViews = InstitutionSystem.BuildCultureForeignView(_culture);
@@ -359,7 +361,7 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
         if (_readOnly && !_browsing)
         {
             var locked = _rail.BeginRailCard();
-            locked.AddRailText(LM.Get(InstitutionSystem.KingdomReformsEnabled
+            locked.AddRailText(LM.Get(InstitutionSystem.KingdomReformsEnabledFor(_realm.Kingdom)
                 ? "institution_realm_not_sovereign"
                 : "institution_kingdom_reforms_off").ColorString("#D98C8C"), 6, 30f, wrap: true);
         }

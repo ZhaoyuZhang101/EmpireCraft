@@ -99,13 +99,28 @@ public static class ZhouEraSystem
     }
 
     // 周制下一个文化只有一个天下共主：本文化的周制王朝(没有返回 null)
-    public static Empire RealmOfCulture(string culture)
+    public static Empire RealmOfCulture(string culture) => Realms(culture).FirstOrDefault();
+
+    // 本天下的各周制王朝，正统的在前：按资历定下的王室(见 TribalFissionService.SettleRoyalHouse)，其次先立的。
+    // 以前取遍历到的第一个，几个部落联盟同时改了周制时谁是周室说不准(用户 2026-10-26 选"按资历定唯一王室")
+    private static IEnumerable<Empire> Realms(string culture)
     {
-        if (!CultureService.IsValidCulture(culture) || ModClass.EMPIRE_MANAGER == null) return null;
+        if (!CultureService.IsValidCulture(culture) || ModClass.EMPIRE_MANAGER == null) return Enumerable.Empty<Empire>();
         // 按天下(同文化或同天下标识，见 CultureService.SameKin)：华夏、山海……同一天下里只有一个周室(以前按文化一字不差)
-        return ModClass.EMPIRE_MANAGER.FirstOrDefault(empire => Applies(empire) &&
-            CultureService.SameKin(CultureService.GetEmpireDefaultCulture(empire), culture));
+        return ModClass.EMPIRE_MANAGER.Where(empire => Applies(empire) &&
+                                                       CultureService.SameKin(CultureService.GetEmpireDefaultCulture(empire), culture))
+            .OrderByDescending(empire => State(empire).royal_settled_at >= 0d)
+            .ThenBy(empire => empire.data.created_time).ThenBy(empire => empire.id);
     }
+
+    // 本天下已有定下的周室(不再按资历另定)：按资历定的，或已走过西周初年 freshYears 年的(旧档、别的文化先进了周制)
+    public static bool HasSettledRealm(string culture, int freshYears) =>
+        Realms(culture).Any(empire =>
+        {
+            ZhouEraState state = State(empire);
+            return state.royal_settled_at >= 0d || state.era > WesternZhou ||
+                   state.era_since >= 0d && World.world != null && Date.getYearsSince(state.era_since) >= freshYears;
+        });
 
     // 本文化已有周制王朝、这国又不是它的王畿：不能另行称帝或发动正统之争，天下只有一个正统核心。
     // 这样的国家只能受封为诸侯(春秋战国照样可以称王)；取周而代之要攻下王畿(见 Unified)
@@ -153,6 +168,27 @@ public static class ZhouEraSystem
         a != null && b != null && a != b && SphereOf(a) is Empire empire && SphereOf(b) == empire && State(empire).era == Warring;
 
     public static bool IsDetachedVassal(Kingdom kingdom) => kingdom?.GetEmpire() == null && SphereOf(kingdom) != null;
+
+    // 进宗法分封时按共事年数定下的爵位(用户 2026-10-26 选"爵位按资历"，见 TribalFissionService.Enfeoff；国家类别见
+    // EmpireCraftKingdomBehCheckKingdomType.CalcKingdomType)：周制、在周室之内的诸侯照定下的，不再按城数、族属改；
+    // 宗室(公)、郡照政体配置；离了周室仍是周制的(独立、不服王化)暂不用，再受封时照旧；改了政体的作废
+    public static KingdomType? SeniorPeerage(Kingdom kingdom, Regime regime)
+    {
+        if (kingdom?.data == null || regime == null) return null;
+        KingdomExtension.KingdomExtraData data = kingdom.GetOrCreate();
+        if (string.IsNullOrEmpty(data.tribal_peerage) || !Enum.TryParse(data.tribal_peerage, out KingdomType rank)) return null;
+        if (regime.type != RegimeType.ZhouFeudalism)
+        {
+            data.tribal_peerage = "";
+            return null;
+        }
+        Empire empire = SphereOf(kingdom);
+        if (empire == null || kingdom == empire.CoreKingdom || regime.bureau_config?.kingdoms?.ContainsKey(rank) != true) return null;
+        // 郡(不世袭、不通外交)照政体配置
+        if (regime.GetLeaderSelectMethod() != LeaderSelectMethod.Succession && !regime.IsAllowDiplomacy()) return null;
+        if (SpecificClanManager.SameLineage(kingdom.GetSpecificClan(), empire.EmpireSpecificClan)) return null;
+        return rank;
+    }
 
     public static IEnumerable<Kingdom> Vassals(Empire empire)
     {
@@ -511,7 +547,7 @@ public static class ZhouEraSystem
             case WesternZhou:
                 // 王畿失陷照样东迁；没有青铜铸造就停在西周，科技到了再入春秋
                 bool moved = EastwardMove(empire, state);
-                if (TechReady(empire, WesternZhou) && (moved || state.eastward_at >= 0d || WeakRoyalty(empire)))
+                if (TechReady(empire, WesternZhou) && (moved || state.eastward_at >= 0d || WeakRoyalty(empire, state)))
                     EnterSpring(empire, state);
                 break;
             case Spring:
@@ -541,12 +577,21 @@ public static class ZhouEraSystem
         return true;
     }
 
-    // 王畿兵力不及最强诸侯(只比兵力)，或天命低于 60(有了冶铁 70)
-    private static bool WeakRoyalty(Empire empire)
+    // 王畿兵力不及最强诸侯(只比兵力)，或天命低于 60(有了冶铁 70)。
+    // 王畿连同王室直辖的郡一起算(用户 2026-10-26 选"王畿不止一城"：进宗法分封时最早共事的几部改为王室直辖的郡，
+    // 见 TribalFissionService.SettleRoyalHouse；郡本就不离王畿，见 Detach)，只跟郡以外的诸侯比；
+    // 开国保护期：改周制后 RoyalGraceYears 年内王室不算衰微(以前王畿只有一城，多半转周第一年就入春秋)，王畿失陷照样东迁
+    public const int RoyalGraceYears = 30;
+
+    private static bool WeakRoyalty(Empire empire, ZhouEraState state)
     {
-        int royal = empire.CoreKingdom.countTotalWarriors();
+        if (state.era_since >= 0d && World.world.getCurWorldTime() >= state.era_since &&
+            Date.getYearsSince(state.era_since) < RoyalGraceYears) return false;
+        List<Kingdom> vassals = Vassals(empire).ToList();
+        int royal = empire.CoreKingdom.countTotalWarriors() +
+                    vassals.Where(vassal => vassal.GetKingdomType() == KingdomType.ZhouFeudalism_jun).Sum(vassal => vassal.countTotalWarriors());
         return empire.Mandate < (Knows(empire, WarringTech) ? 70 : 60) ||
-               Vassals(empire).Any(vassal => vassal.countTotalWarriors() > royal);
+               vassals.Any(vassal => vassal.GetKingdomType() != KingdomType.ZhouFeudalism_jun && vassal.countTotalWarriors() > royal);
     }
 
     public static void EnterSpring(Empire empire, ZhouEraState state)
@@ -1022,6 +1067,28 @@ public static class ZhouEraSystem
         Announce(empire, string.Format(LM.Get("zhou_log_zuo"), core.GetKingdomName(), vassal.GetKingdomName()), vassal,
             history: true);
         return true;
+    }
+
+    // 进宗法分封时长期共事、按资历受封为侯的部落当即受胙(见 TribalFissionService.Enfeoff；用户 2026-10-26 选"爵位按资历")：
+    // 不花国库、不加天命，十年内尊王，同天子赐胙
+    public static void GrantFoundingZuo(Empire empire, List<Kingdom> vassals)
+    {
+        if (!Applies(empire) || vassals == null) return;
+        ZhouEraState state = State(empire);
+        if (state.era > Spring) return;
+        state.zuo ??= new Dictionary<long, double>();
+        double now = World.world.getCurWorldTime();
+        var names = new List<string>();
+        foreach (Kingdom vassal in vassals)
+        {
+            if (vassal?.data == null || vassal.isRekt() || SphereOf(vassal) != empire || vassal == empire.CoreKingdom) continue;
+            state.zuo[vassal.id] = now;
+            state.defiant.Remove(vassal.id);
+            names.Add(vassal.GetKingdomName());
+        }
+        if (names.Count == 0) return;
+        Announce(empire, string.Format(LM.Get("zhou_log_founding_zuo"), empire.CoreKingdom.GetKingdomName(), string.Join("、", names)),
+            history: true);
     }
 
     // 天子每年有一成二的机会赐胙于霸主或最强的诸侯(国库至少留三倍)

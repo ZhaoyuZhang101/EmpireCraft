@@ -59,6 +59,14 @@ public static class EmpireCraftOpinionAddition
             translation_key = "opinion_zhou_zuo",
             calc = EmpireCraft.Scripts.GeneralSystems.ZhouEraSystem.ZuoOpinionOf
         });
+        // 会盟：当年来朝的部落与共主彼此好感 +10；屡次不朝、记为不臣的，共主对它好感 -25(见 TribalAssemblySystem)
+        opl.add(new OpinionAsset
+        {
+            id = "opinion_tribal_assembly",
+            translation_key = "opinion_tribal_assembly",
+            translation_key_negative = "opinion_tribal_defiance",
+            calc = EmpireCraft.Scripts.GeneralSystems.TribalAssemblySystem.OpinionOf
+        });
         opl.add(new OpinionAsset
         {
             id = "opinion_false_empire_core",

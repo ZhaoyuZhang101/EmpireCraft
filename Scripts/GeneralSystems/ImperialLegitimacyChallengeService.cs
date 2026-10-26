@@ -28,6 +28,9 @@ public static class ImperialLegitimacyChallengeService
         if (kingdom.GetRegime()?.type == RegimeType.Modern) return false;
         // 战国的周诸侯仍奉王室，只称王不称帝；王畿只剩几城，按国力比较人人都能压倒它(王室亡了才各自独立)
         if (ZhouEraSystem.IsDetachedVassal(kingdom)) return false;
+        // 原始政体的部落不僭越称帝(用户 2026-10-26 选"部落不再是帝国")：只能打赢收部结成部落联盟(见 TribalFissionService.Incorporate)。
+        // 以前每个部落本来就是帝国(上面 IsEmpire 挡下)，如今是国，同文化出了部落联盟就会来争正统
+        if (TribalFissionService.IsTribal(kingdom)) return false;
         // 周制下一个文化只有一个正统核心：同文化之国不能另立帝国与周室争正统，只能受封为诸侯
         if (ZhouEraSystem.BlocksRivalEmpire(kingdom)) return false;
         if (!kingdom.HasMainTitle() && !kingdom.GetControlledTitle().Any()) return false;

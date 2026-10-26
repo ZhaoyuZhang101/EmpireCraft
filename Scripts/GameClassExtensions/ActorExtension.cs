@@ -687,21 +687,31 @@ public static class ActorExtension
     {
         return a.GetOrCreate().has_become_cleric = true;
     }
+    // 先查本国所在的那个帝国(派系成员几乎都在这里)，查不到再逐个帝国找。以前每次都把全部帝国的派系扫一遍，
+    // 派系年度整理(FixedFaction.Update)对每个成员都调、每死一个文明人也调，帝国一多(部落时代)就是帝国数 × 人数
+    // (用户 2026-10-26 嫌卡)。派系编号都是新生成的 GUID(见 FixedFaction.Clone、DeepClone 与各处新建)，各帝国不重，
+    // 先查哪家结果都一样；没入派系的(编号为空串)对不上任何派系，直接返回
     public static FixedFaction GetFaction(this Actor a)
     {
+        string factionId = a.GetOrCreate()?.factionID;
+        if (factionId == "" || ModClass.EMPIRE_MANAGER == null) return null;
+        Empire own = a.kingdom?.GetEmpire();
+        if (own != null && !own.IsArchived() && FactionInEmpire(own, factionId) is FixedFaction mine) return mine;
         foreach (var empire in ModClass.EMPIRE_MANAGER)
         {
-            if (empire == null || empire.IsArchived()) continue;
-            var regime = empire.CoreKingdom?.GetRegime();
-            if (regime == null) continue;
-            foreach (var faction in regime.GetPlayerFactions())
-            {
-                var id = faction?.GetID();
-                if (id == a.GetOrCreate()?.factionID)
-                {
-                    return faction;
-                }
-            }
+            if (empire == null || empire == own || empire.IsArchived()) continue;
+            if (FactionInEmpire(empire, factionId) is FixedFaction faction) return faction;
+        }
+        return null;
+    }
+
+    private static FixedFaction FactionInEmpire(Empire empire, string factionId)
+    {
+        var regime = empire.CoreKingdom?.GetRegime();
+        if (regime == null) return null;
+        foreach (var faction in regime.GetPlayerFactions())
+        {
+            if (faction?.GetID() == factionId) return faction;
         }
         return null;
     }

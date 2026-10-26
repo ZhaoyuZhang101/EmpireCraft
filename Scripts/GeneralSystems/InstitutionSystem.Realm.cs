@@ -21,13 +21,20 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 规则一：本文化有帝国时，王国不推改政体、废君主的制度——那要帝国来推；部落时代没有帝国，哪个部落都能推部落联合之类；
 //   · AI：与帝国同样的间隔，按国家编号错开年份；叛乱未平不推；同文化别的政权在推的不重复推；每个文化同时在推的
 //     王国家数 = 独立王国和部落数 ÷ 4，夹在 3~6 之间(见 ConcurrentReformLimit)；
-//     部落(原始政体的帝国，见 IsTribalEmpire)也照这几条，与王国合占名额；
+//     部落联盟(原始政体的帝国，见 IsTribalEmpire)也照这几条，与王国合占名额；
+//   · 部落(原始政体的国)：10-26 起单个部落不再是帝国(见 TribalFissionService)，原始改革全靠各部自己推，
+//     所以推制度的总开关关了也照样推(见 KingdomReformsEnabledFor)；
 //   · 扫描分帧排队，一轮可能不止一年：改革进度按两次扫描之间实际过去的年数补足；
 //   · 称帝时进行中的改革带进帝国(落地记录不带)，帝国解散时交回核心王国。
 public static partial class InstitutionSystem
 {
     // 总开关(模组设置，见 ConfigActions.KingdomInstitutionReformsCallBack)
     public static bool KingdomReformsEnabled => ModClass.KINGDOM_INSTITUTION_REFORMS;
+
+    // 这一国推不推制度：总开关开着，或是原始政体的部落——部落不再是帝国(用户 2026-10-26 选"部落不再是帝国")，
+    // 原始改革(华夏母系氏族至家天下、日本绳文至大和、游牧与阿拉伯的部落阶段)只能由各部自己推，关了开关就没人推了
+    public static bool KingdomReformsEnabledFor(Kingdom kingdom) =>
+        KingdomReformsEnabled || TribalFissionService.IsTribal(kingdom);
 
     private const long KingdomScanBudgetMs = 3;
     private const int SeededFactionRatio = 60;
@@ -63,15 +70,16 @@ public static partial class InstitutionSystem
         {
             if (Date.getYearsSince(_lastKingdomScan) < 1) return;
             _lastKingdomScan = now;
-            if (!KingdomReformsEnabled) return;
-            foreach (Kingdom kingdom in World.world.kingdoms.list.ToList()) KingdomScanQueue.Enqueue(kingdom);
+            // 开关关了只排部落(见 KingdomReformsEnabledFor)
+            foreach (Kingdom kingdom in World.world.kingdoms.list.ToList())
+                if (KingdomReformsEnabledFor(kingdom)) KingdomScanQueue.Enqueue(kingdom);
             _kingdomPassSize = KingdomScanQueue.Count;
         }
         var budget = global::System.Diagnostics.Stopwatch.StartNew();
         while (KingdomScanQueue.Count > 0 && budget.ElapsedMilliseconds < KingdomScanBudgetMs)
         {
             Kingdom kingdom = KingdomScanQueue.Dequeue();
-            if (kingdom?.data == null || kingdom.isRekt() || !KingdomReformsEnabled) continue;
+            if (kingdom?.data == null || kingdom.isRekt() || !KingdomReformsEnabledFor(kingdom)) continue;
             try
             {
                 UpdateKingdom(kingdom);
@@ -175,7 +183,7 @@ public static partial class InstitutionSystem
         out string reason)
     {
         reason = "";
-        if (!KingdomReformsEnabled)
+        if (!KingdomReformsEnabledFor(realm.Kingdom))
         {
             reason = "institution_kingdom_reforms_off";
             return false;
@@ -204,10 +212,11 @@ public static partial class InstitutionSystem
     private static List<Kingdom> CultureKingdomRealms(string culture)
     {
         var result = new List<Kingdom>();
-        if (!KingdomReformsEnabled || World.world?.kingdoms == null || !CultureService.IsValidCulture(culture)) return result;
+        if (World.world?.kingdoms == null || !CultureService.IsValidCulture(culture)) return result;
         foreach (Kingdom kingdom in World.world.kingdoms.list)
         {
-            if (kingdom?.data == null || kingdom.isRekt() || !(kingdom.cities?.Count > 0)) continue;
+            if (kingdom?.data == null || kingdom.isRekt() || !(kingdom.cities?.Count > 0) ||
+                !KingdomReformsEnabledFor(kingdom)) continue;
             if (!string.Equals(CultureService.GetInstitutionCulture(kingdom), culture, StringComparison.Ordinal)) continue;
             if (InstitutionRealm.IsSovereignKingdom(kingdom)) result.Add(kingdom);
         }
@@ -230,9 +239,9 @@ public static partial class InstitutionSystem
         }
     }
 
-    // 部落(原始政体的帝国)：部落分迁让每个独立部落自立为"某某部落"(帝国，见 TribalFissionService.FormTribes)，
-    // 其实是一城一部的小政权。推制度按王国的规矩：错开年份、同文化别家在推的不重复推、与王国合占同推的名额。
-    // 以前按帝国算，一个文化十几个部落同一年一齐推同一项(诸部联合)，满屏"开始推动"，推完一家其余跟着算完
+    // 部落联盟(原始政体的帝国)：推制度按王国的规矩：错开年份、同文化别家在推的不重复推、与王国合占同推的名额。
+    // 以前每个独立部落都自立为"某某部落"帝国(TribalFissionService.FormTribes，10-26 去掉，单个部落如今就是王国)，
+    // 按帝国算时一个文化十几个部落同一年一齐推同一项(诸部联合)，满屏"开始推动"，推完一家其余跟着算完
     private static bool IsTribalEmpire(Empire empire) =>
         empire?.data != null && !empire.IsArchived() && !empire.isRekt() && TribalFissionService.IsTribal(empire.CoreKingdom);
 
@@ -240,7 +249,7 @@ public static partial class InstitutionSystem
     private static bool FollowsKingdomRules(InstitutionRealm realm) =>
         realm != null && (!realm.IsEmpire || IsTribalEmpire(realm.Empire));
 
-    // 本文化的部落(原始政体的帝国)数
+    // 本文化的部落联盟(原始政体的帝国)数
     private static int CultureTribeCount(string culture) =>
         (ModClass.EMPIRE_MANAGER ?? Enumerable.Empty<Empire>()).Count(empire =>
             IsTribalEmpire(empire) && string.Equals(GetPrimaryCulture(empire), culture, StringComparison.Ordinal));
@@ -269,7 +278,7 @@ public static partial class InstitutionSystem
         return count;
     }
 
-    // 本文化各部落正在推的改革(部落那一国, 节点)
+    // 本文化各部落联盟正在推的改革(共主那一国, 节点)
     private static IEnumerable<(Kingdom kingdom, string nodeId)> CultureTribeReforms(string culture)
     {
         foreach (Empire empire in ModClass.EMPIRE_MANAGER ?? Enumerable.Empty<Empire>())

@@ -191,8 +191,12 @@ public class EmpireData : MetaObjectData
     public double newEmperor_timestamp { get; set; }
     // newEmperor_timestamp 是哪位君主即位登记时记下的(见 Empire.NewEmperor、RepairUnregisteredEmperor)；-1 为旧档
     public long reign_emperor_id { get; set; } = -1L;
-    // 一部自立的部落(见 TribalFissionService.FormTribes)：走出原始阶段时若没有并入别的国就撤掉帝国；有了共事的部落改为 false
+    // 旧档里一部自立的部落帝国(以前的 TribalFissionService.FormTribes，10-26 去掉)：读档后、每月撤去
+    // (见 TribalFissionService.DissolveSettledTribes)；有了共事的部落改为 false。只留作旧档迁移，新立的帝国不再记
     public bool formed_as_tribe { get; set; }
+    // 部落联盟的战功(部落之战每胜一场、每收一部记一分，见 TribalWarSystem.Concede)：换天命，进宗法分封时按资历定王室用
+    // (见 TribalFissionService.SettleRoyalHouse)
+    public int tribal_war_merit { get; set; }
     // 禅让旧档清理做过了(见 ShanrangSystem.DropInterimReigns)
     public bool shanrang_cleaned { get; set; }
     public double center_loss_timestamp { get; set; } = -1L;

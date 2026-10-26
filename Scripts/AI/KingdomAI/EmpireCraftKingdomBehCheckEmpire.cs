@@ -258,6 +258,9 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
         if (pKingdom == null || pKingdom.isRekt()) return false;
         // 现代政体没有称帝：政权只能经 ModernStateFormationSystem 组建政府(所有文化；华夏条件更苛刻)
         if (pKingdom.GetRegime()?.type == RegimeType.Modern) return false;
+        // 原始政体的部落不称帝，只能打赢收部结成部落联盟(用户 2026-10-26 选"部落不再是帝国"，见 TribalFissionService)；
+        // 先挡在这里，免得每回 AI 检查都去补立法理(RepairFoundingTitle)
+        if (TribalFissionService.IsTribal(pKingdom)) return false;
         // 本文化已废除君主制：不再有人称帝
         if (CultureAbolishedMonarchy(pKingdom)) return false;
         // 周制下一个文化只有一个正统核心：本文化已有周制王朝时，别国不能称帝(只能受封为诸侯，战国称王)

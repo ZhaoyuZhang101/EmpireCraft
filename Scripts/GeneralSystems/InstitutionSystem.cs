@@ -1106,7 +1106,7 @@ public static partial class InstitutionSystem
                         key = "e" + neighbourEmpire.id;
                         neighbourCulture = GetPrimaryCulture(neighbourEmpire);
                     }
-                    else if (KingdomReformsEnabled && neighbour != realm.Kingdom &&
+                    else if (KingdomReformsEnabledFor(neighbour) && neighbour != realm.Kingdom &&
                              InstitutionRealm.IsSovereignKingdom(neighbour))
                     {
                         key = "k" + neighbour.id;
@@ -1454,8 +1454,11 @@ public static partial class InstitutionSystem
         List<Kingdom> kingdomRealms = CultureKingdomRealms(culture);
         if (kingdomRealms.Any(kingdom => kingdom.GetOrCreate().institution_state?.active_reform != null)) return;
 
+        // 部落不再是帝国(用户 2026-10-26)：只剩部落、没有部落联盟时 empires 为空，也不许潮流替各部改政体
+        // (以前每个部落都是帝国，原始阶段从来轮不到潮流改政体；原始改革由各部自己推，见 KingdomReformsEnabledFor)
+        bool regimeByRealm = empires.Count > 0 || kingdomRealms.Any(TribalFissionService.IsTribal);
         InstitutionNodeConfig target = GetForLine(culture)
-            .Where(node => IsDriftCandidate(culture, state, node) && (empires.Count == 0 || !ChangesRegime(node)))
+            .Where(node => IsDriftCandidate(culture, state, node) && (!regimeByRealm || !ChangesRegime(node)))
             .OrderByDescending(node => TechnologySystem.GetInstitutionPush(culture, node))
             .ThenBy(node => node.advancement)
             // 西方教会、世俗两条路：教权高先倒向教会，低先倒向世俗(以前按字母顺序，永远先选教会)

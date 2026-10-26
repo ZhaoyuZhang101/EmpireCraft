@@ -309,6 +309,7 @@ public static class RoyalHouseSystem
             EmpirePartitionSystem.Monthly();
             CityStateService.EnforceOneCity();
             TribalFissionService.EnforceOneCity();
+            TribalAssemblySystem.Monthly();
             RoyalMarriageSystem.Monthly();
             WarlordEraSystem.FounderCapitulation();
             if (++_months % 12 != 0) return;

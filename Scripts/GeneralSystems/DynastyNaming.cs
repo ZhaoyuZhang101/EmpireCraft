@@ -95,7 +95,9 @@ public static class DynastyNaming
         return InstitutionSystem.GetCultureLine(CultureService.GetRealmCulture(kingdom)) is "Youmu" or "Arabic";
     }
 
-    // 帝国名的类别：一部自立称部落，有了共事的部落称部落联盟(见 TribalFissionService.Incorporate)；进入家天下后称"朝"(夏、商)
+    // 帝国名的类别：有共事的部落称部落联盟(见 TribalFissionService.Incorporate)，共事的部落都散了只称部落；进入家天下后称"朝"(夏、商)。
+    // 10-26 起单个部落不再是帝国(只是国，国名后缀"部落"见 Origin/OfficialType.csv)，帝国只剩部落联盟；
+    // 共事的部落取按月缓存的反查表(见 TribalFissionService.VassalsOf)，帝号每年重取一回也不再扫全部王国
     public static string HuaxiaOriginEmpireKey(Kingdom core) =>
         TribalFissionService.VassalsOf(core?.GetEmpire()).Count == 0 ? "Origin_empire_huaxia_tribe"
         : InstitutionSystem.IsEnacted(CultureService.GetRealmCulture(core), "huaxia_hereditary_kingship")

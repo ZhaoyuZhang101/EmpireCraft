@@ -88,26 +88,29 @@ public static class KingdomColorService
         ApplyFamily(sphere, ZhouEraSystem.Vassals(sphere));
     }
 
-    // 每月(TribalFissionService.EnforceOneCity)：各有共事部落的部落联盟
+    // 每月(TribalFissionService.EnforceOneCity)：各有共事部落的部落联盟。换了色返回 true，由调用方重画
+    // (每月整理的整图重画并到末尾一次，见 TribalFissionService.Redraw；以前每换一家就整图重画一遍)
     // 这一轮配色里各家只算一遍(见 Families；轮外不缓存)
     private static List<(Empire head, IEnumerable<Kingdom> members)> _families;
 
-    public static void ApplyTribalFamilies()
+    public static bool ApplyTribalFamilies()
     {
         _families = BuildFamilies();
+        bool changed = false;
         try
         {
             var confederations = new HashSet<Empire>(TribalFissionService.Confederations());
             foreach ((Empire head, IEnumerable<Kingdom> members) in _families.ToList())
-                if (confederations.Contains(head)) ApplyFamily(head, members);
+                if (confederations.Contains(head)) changed |= ApplyFamily(head, members, redraw: false);
         }
         finally
         {
             _families = null;
         }
+        return changed;
     }
 
-    // 一家(周室或有共事部落的部落联盟)：基准帝国与它的诸侯、共事的部落(一部自立、没有共事部落的不算一家)
+    // 一家(周室或有共事部落的部落联盟)：基准帝国与它的诸侯、共事的部落(没有共事部落的部落联盟不算一家)
     private static List<(Empire head, IEnumerable<Kingdom> members)> Families() => _families ?? BuildFamilies();
 
     private static List<(Empire head, IEnumerable<Kingdom> members)> BuildFamilies()
@@ -125,17 +128,18 @@ public static class KingdomColorService
         return result;
     }
 
-    private static void ApplyFamily(Empire sphere, IEnumerable<Kingdom> members)
+    // redraw：换了色当场整图重画；false 时只返回换没换(由调用方并着画)
+    private static bool ApplyFamily(Empire sphere, IEnumerable<Kingdom> members, bool redraw = true)
     {
         Kingdom core = sphere?.CoreKingdom;
-        if (core?.data == null || core.isRekt() || AncientWarfareCompatibility.Owns(core)) return;
+        if (core?.data == null || core.isRekt() || AncientWarfareCompatibility.Owns(core)) return false;
         List<Kingdom> vassals = members
             .Where(kingdom => kingdom?.data != null && !kingdom.isRekt() && kingdom != core && !AncientWarfareCompatibility.Owns(kingdom))
             .OrderBy(kingdom => kingdom.id).ToList();
-        if (vassals.Count == 0) return;
+        if (vassals.Count == 0) return false;
         List<ColorAsset> colors = core.getColorLibrary()?.list;
         ColorAsset royal = sphere.getColor() ?? core.getColor();
-        if (colors == null || colors.Count == 0 || royal == null) return;
+        if (colors == null || colors.Count == 0 || royal == null) return false;
         Color.RGBToHSV(royal.getColorMain(), out float hue, out float saturation, out float value);
         bool grayBase = saturation < GraySaturation || value < DarkValue;
         var excluded = new HashSet<ColorAsset> { royal, core.getColor() };
@@ -168,7 +172,8 @@ public static class KingdomColorService
             vassal.updateColor(next);
             changed = true;
         }
-        if (changed) World.world?.zone_calculator?.dirtyAndClear();
+        if (changed && redraw) World.world?.zone_calculator?.dirtyAndClear();
+        return changed;
     }
 
     // 与基准色相的距离(0~0.5，按色环取近的一侧)；灰白黑排在最后(天子是灰色系时反过来)

@@ -376,14 +376,18 @@ public class ActorPatch : GamePatch
             }
         }
 
-        foreach (var pEmpire in ModClass.EMPIRE_MANAGER.ToList().Where(e => !e.IsArchived()))
+        // 内阁(选帝侯、元老、宗教领袖)、法定爵位里的人不一定是本帝国的，仍逐个帝国查；每死一个文明人都跑，
+        // 不再先抄一份帝国列表、逐人逐帝国现取编号(用户 2026-10-26 嫌卡；部落不再是帝国以后帝国也少了)
+        long deadId = __instance.getID();
+        foreach (var pEmpire in ModClass.EMPIRE_MANAGER)
         {
+            if (pEmpire?.data == null || pEmpire.IsArchived()) continue;
             var list = pEmpire.data.CabinetMembers;
-            if (list.Any(id => id == __instance.getID()))
+            if (list != null && list.Contains(deadId))
             {
-                list.Remove(__instance.getID());
+                list.Remove(deadId);
             }
-            if (pEmpire.data.legal_peerage_holders?.ContainsValue(__instance.getID()) == true)
+            if (pEmpire.data.legal_peerage_holders?.ContainsValue(deadId) == true)
             {
                 // Let the empire resolve this vacancy on its next update instead of waiting a full year.
                 pEmpire.data.last_legal_peerage_timestamp = -1L;

@@ -335,6 +335,17 @@ public static class KingdomExtension
         public long zhou_sphere_id = -1L;
         // 原始政体的部落奉谁为共主(部落联盟帝国 id，帝国之外的独立之国，见 TribalFissionService.OverlordOf)
         public long tribal_overlord_id = -1L;
+        // 奉这个共主为共主的时间(共事年数定爵，见 TribalFissionService.Enfeoff)；-1 = 旧档，按读档后第一次看到时算
+        public double tribal_submitted_at = -1d;
+        // 并入周室时按资历定下的爵位(KingdomType 名，见 ZhouEraSystem.SeniorPeerage)；空 = 照政体配置
+        public string tribal_peerage = "";
+        // 年度会盟(见 TribalAssemblySystem)：共主上次会盟的时间、会过几次；共事部落的记录对应哪个共主、上次来朝的时间、
+        // 连续不朝的次数(两次以上为不臣)
+        public double tribal_assembly_held_at = -1d;
+        public int tribal_assembly_count;
+        public long tribal_assembly_lord_id = -1L;
+        public double tribal_attended_at = -1d;
+        public int tribal_missed_assemblies;
         public long war_quartermaster_id = -1L;
         public string war_quartermaster_title = "";
         public double forage_until = -1d;

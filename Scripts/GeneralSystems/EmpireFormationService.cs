@@ -401,6 +401,7 @@ public static class EmpireFormationService
         if (kingdom.king.kingdom != kingdom) return "君主兼领、本国另在别处";
         if (Compatibility.AncientWarfareCompatibility.BlocksEmpireFormation(kingdom)) return "古战兼容不许称帝";
         if (ZhouEraSystem.IsDetachedVassal(kingdom)) return "战国周诸侯(只称王)";
+        if (TribalFissionService.IsTribal(kingdom)) return "原始政体的部落(只能打赢收部结成部落联盟)";
         if (EmpireCraftWorldLawLibrary.empirecraft_law_ban_empire.isEnabled()) return "世界法则禁止称帝";
         if (kingdom.GetMoney() < 0) return $"国库为负({kingdom.GetMoney()})";
         if (FeudalVassalService.GetOverlord(kingdom) != null) return "是别国的附庸";
@@ -427,6 +428,10 @@ public static class EmpireFormationService
         if (Compatibility.AncientWarfareCompatibility.BlocksEmpireFormation(kingdom)) return false;
         // 战国的周诸侯只称王，不另行称帝(统一后才各自独立)
         if (ZhouEraSystem.IsDetachedVassal(kingdom)) return false;
+        // 原始政体的部落不走称帝的路(用户 2026-10-26 选"部落不再是帝国")：只能打赢、收了共事的部落结成部落联盟
+        // (见 TribalFissionService.Incorporate)。以前每个部落本来就是帝国，碰不到这里；如今是一城的国，
+        // 本文化百年无帝国时(见下 overdue)一城的部落也够得上称帝
+        if (TribalFissionService.IsTribal(kingdom)) return false;
         if (EmpireCraftWorldLawLibrary.empirecraft_law_ban_empire.isEnabled()) return false;
         if (requireNonNegativeTreasury && kingdom.GetMoney() < 0) return false;
         if (!kingdom.hasKing() || kingdom.king == null || kingdom.king.isRekt()) return false;

@@ -11,7 +11,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 
 // 制度进度诊断(群友："真的只有游牧在攀制度，其他文化搁那岁月静好了")：每年每个文化一行 [EmpireCraft][制度进度]，
 // 进游戏看日志就知道各文化在推什么、卡在哪：
-//   · 政权：帝国几个(其中部落几个)、自己推制度的王国几个、帝国里同文化成员国几个；王国扫描一轮用了几年
+//   · 政权：帝国几个(其中部落联盟几个；单个部落 10-26 起算王国)、自己推制度的王国几个、帝国里同文化成员国几个；王国扫描一轮用了几年
 //     (王国多、游戏开得快时不止一年)；改革环境：折算的政权数、提速倍数、最短年数；王国、部落同推名额；
 //   · 在推：谁在推哪项、进度、推了几年(至多列四项)；
 //   · 前沿：前置已齐、还没施行的节点几项，其中几项本文化还没发明所需科技(列出缺的科技)；
@@ -192,7 +192,7 @@ public static partial class InstitutionSystem
         text.Append("[EmpireCraft][制度进度] ").Append(CultureLabel(culture)).Append('(').Append(culture).Append('·')
             .Append(GetCultureLine(culture)).Append("线) 文明").Append(GetCultureLevel(culture)).Append("级 科技")
             .Append(TechnologySystem.GetEraTier(culture)).Append("代 已施行").Append(state.enacted_node_ids.Count).Append("项");
-        text.Append("｜政权：帝国").Append(empires.Count).Append("(部落").Append(tribes).Append(") 王国").Append(kingdoms.Count);
+        text.Append("｜政权：帝国").Append(empires.Count).Append("(部落联盟").Append(tribes).Append(") 王国").Append(kingdoms.Count);
         if (kingdoms.Count > 0 && _kingdomPassYears >= 0)
             text.Append("，王国扫描一轮").Append(_kingdomPassYears.ToString("0.0")).Append("年(").Append(_kingdomPassSize).Append("国)");
         // 改革环境按成员最多的帝国看(各政权只差接壤先进异族那一项)，没有帝国就按第一个王国

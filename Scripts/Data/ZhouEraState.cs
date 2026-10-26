@@ -35,4 +35,7 @@ public sealed class ZhouEraState
     // 受胙的诸侯(国 id → 赐胙的时间)；天子上回兴师讨伐夷狄的时间(见 ZhouEraSystem.GrantZuo、CallToRepel)
     public Dictionary<long, double> zuo = new();
     public double repel_called_at = -1d;
+    // 本文化第一次进宗法分封时按资历选定为唯一王室的时间(-1 = 不是这样定的，旧档或别的途径改的周制；
+    // 见 TribalFissionService.SettleRoyalHouse、ZhouEraSystem.RealmOfCulture)
+    public double royal_settled_at = -1d;
 }

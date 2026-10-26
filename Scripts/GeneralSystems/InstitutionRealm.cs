@@ -9,7 +9,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 
 // 推行制度改革的"政权"：帝国，或独立王国/部落(简化朝堂：君主亲裁，以君威代替正统，见 RealmAuthority)。
 // 制度仍然归文化所有(见 InstitutionSystem)，政权只持有"正在推的这一次改革"和"本政权落地过哪些节点的持久效果"；
-// 以前只有帝国能推，部落时代只好把每个独立的部落都建成帝国(见 TribalFissionService.FormTribes)。
+// 以前只有帝国能推，部落时代只好把每个独立的部落都建成帝国(TribalFissionService.FormTribes)；10-26 起部落不再是帝国，
+// 原始改革由各部落按王国推(用户 2026-10-26 选"部落不再是帝国")。
 // 只是个轻量包装，用时现取，不进存档：帝国的状态存在 EmpireData，王国的存在 KingdomExtraData.institution_state。
 public sealed class InstitutionRealm
 {

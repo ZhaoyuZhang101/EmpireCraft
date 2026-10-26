@@ -376,6 +376,9 @@ public static class DataManager
                 LogService.LogError($"帝国文化与制度存档迁移失败，保留原制度: {exception}");
             }
         }
+        // 旧档里一部自立的部落帝国静默撤去(部落不再是帝国，用户 2026-10-26)；要在帝国、法理、制度都读进来以后、
+        // 解散诊断记底(EmpireLossDiagnostics.OnLoaded)之前
+        Guarded("部落帝国迁移", TribalFissionService.AfterLoad);
         Guarded("空世界补人口", () =>
         {
             int seeded = CityPopulationSystem.ReseedEmptyWorld();

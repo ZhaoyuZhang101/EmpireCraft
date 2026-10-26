@@ -45,6 +45,8 @@
 
 ## 第 3~5 步(第 0~2 步验证后再做)
 - 3 部落：拿掉 FormTribes；单国部落帝国解散；部落联盟标 tribal_origin，定居后够 3 成员或 8 城且文化圈无别的帝国才保留帝号
+  - 2026-10-26 已做前两项(见 TribalFissionService 文件头、Docs/test-checklist-2026-10-26.md「部落不再是帝国」)：旧档一部自立的部落帝国静默撤去；
+    定居后去留改为进宗法分封时按资历定唯一周室、其余联盟并入或不服王化(SettleRoyalHouse)，共事部落散光的联盟走出原始阶段时撤号
 - 4 称帝门槛：EmpireProclamationRules(国家阶段、规模、文化圈唯一)接进 EmpireFormationService.MeetsBaseRequirements/GetBestRoute/Diagnose、称帝谋划、正统挑战；诉求战输了去帝号；STRICT_EMPIRE_PROCLAMATION/EMPIRE_MIN_CITIES/EMPIRE_MIN_SUBJECTS 设置
 - 5 旧存档：一次性迁移(SaveData.realm_reform_migration)；微帝国(≤2 城无成员)连续 10 年去帝号(EmpireDemotionService，保留法理、政体、王朝，不开宗室复国)
 

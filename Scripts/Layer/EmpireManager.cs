@@ -49,6 +49,14 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
 
     private double _lastLivenessCheck = -1d;
 
+    // 存续检查分帧(用户 2026-10-26 反馈"原始部落帝国太多会造成卡顿")：以前到月就在一帧里逐帝国逐城点人口、查存续，
+    // 帝国一多那一帧就卡一下；现在到月把帝国排成队，每帧至多 LivenessBudgetMs 毫秒(至少做一个)，没做完的下一帧接着做。
+    // 每个帝国做的事、先后(先点人口再查存续，整轮查完才解散)与以前一样，只是摊到几帧里
+    private const double LivenessBudgetMs = 1.5d;
+    private readonly Queue<Empire> _livenessQueue = new();
+    private readonly List<Empire> _livenessDissolve = new();
+    private bool _livenessStats;
+
     // 战略调度每帧调用，自带月度计时：整理成员与核心国、解散已没有领土的帝国(同读档时，不跑帝国月度更新)。
     // 帝国管理器不在原版的管理器列表里，update 只在存档、读档时跑：核心国丢光城池、各省都已独立的帝国，
     // 地图上早已解体，帝国界面却一直显示现存，要到下次存档才解散
@@ -56,13 +64,63 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
     {
         double now = World.world?.getCurWorldTime() ?? -1d;
         if (now < 0d) return;
-        if (_lastLivenessCheck >= 0d && now >= _lastLivenessCheck && Date.getMonthsSince(_lastLivenessCheck) < 1) return;
-        _lastLivenessCheck = now;
-        Process(runEmpireUpdates: false);
+        // 时间倒退(换了世界)：上一轮没做完的作废
+        if (_lastLivenessCheck >= 0d && now < _lastLivenessCheck)
+        {
+            DropLivenessPass();
+            _lastLivenessCheck = -1d;
+        }
+        if (_livenessQueue.Count == 0 && _livenessDissolve.Count == 0)
+        {
+            if (_lastLivenessCheck >= 0d && now >= _lastLivenessCheck && Date.getMonthsSince(_lastLivenessCheck) < 1) return;
+            _lastLivenessCheck = now;
+            BeginLivenessPass(now);
+        }
+        var budget = global::System.Diagnostics.Stopwatch.StartNew();
+        do
+        {
+            if (_livenessQueue.Count == 0) break;
+            Empire current = _livenessQueue.Dequeue();
+            // 排队以后已解散、已移出的跳过
+            if (current?.data == null || current.IsArchived() || get(current.id) != current) continue;
+            if (_livenessStats) RefreshStats(current, World.world.getCurWorldTime());
+            CheckOne(current, false, _livenessDissolve);
+        } while (budget.Elapsed.TotalMilliseconds < LivenessBudgetMs);
+        if (_livenessQueue.Count > 0) return;
+        // 整轮查完：解散没有领土的帝国(同以前，查完才解散)
+        foreach (Empire item in _livenessDissolve.ToList())
+            if (item != null && !item.IsArchived()) dissolveEmpire(item);
+        _livenessDissolve.Clear();
+    }
+
+    // 到月开一轮：整理同盟、正统对手这些全局的当帧做完，各帝国排队(见 CheckLiveness)
+    private void BeginLivenessPass(double worldTime)
+    {
+        _livenessQueue.Clear();
+        _livenessDissolve.Clear();
+        _empiresToProcess.Clear();
+        foreach (Empire empire in this)
+        {
+            if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(empire)) continue;
+            empire.RefreshCompatibilityMembership();
+            _empiresToProcess.Add(empire);
+        }
+        ClearStaleLegitimacyRivalries();
+        foreach (Empire empire in _empiresToProcess) _livenessQueue.Enqueue(empire);
+        _empiresToProcess.Clear();
+        _livenessStats = BeginStatsRefresh(worldTime);
+    }
+
+    private void DropLivenessPass()
+    {
+        _livenessQueue.Clear();
+        _livenessDissolve.Clear();
     }
 
     private void Process(bool runEmpireUpdates)
     {
+        // 读档、存档时整轮一次做完，还没做完的分帧存续检查就此作废
+        DropLivenessPass();
         // 创建集合副本进行遍历
         _empiresToProcess.Clear();
         foreach (Empire empire in this)
@@ -73,73 +131,12 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
         }
         ClearStaleLegitimacyRivalries();
         double worldTime = World.world.getCurWorldTime();
-        if (_dirty_cities || _lastStatsCacheTimestamp <= 0 || worldTime < _lastStatsCacheTimestamp ||
-            Date.getMonthsSince(_lastStatsCacheTimestamp) >= 1)
-        {
-            // 禁止原版结盟时，旧存档遗留或其他途径漏进来的原版同盟也一并清掉(模组同盟与神力强制同盟保留)
-            if (ModAllianceService.IsVanillaAllianceBanned()) ModAllianceService.DissolveVanillaAlliances();
-            // 帝国本身及其成员国不留在同盟里(兜底：称帝、继承、读档等途径进帝国的)
-            ModAllianceService.RemoveEmpireMembersFromAlliances();
+        if (BeginStatsRefresh(worldTime))
             foreach (Empire e in _empiresToProcess)
-            {
-                if (e.IsArchived()) continue;
-                e.recalculate();
-                int pop = 0;
-                int warriors = 0;
-                int warriorsMax = 0;
-                var tKingdoms = e.kingdoms_list;
-                for (int i = 0; i < tKingdoms.Count; i++)
-                {
-                    var k = tKingdoms[i];
-                    if (!EmpireMembershipService.BelongsTo(e, k)) continue;
-                    var ked = KingdomExtension.GetOrCreate(k);
-                    ked.last_cached_timestamp = -1L;
-                    int kp = k.getPopulationPeople();
-                    int kw = k.countTotalWarriors();
-                    int km = k.countWarriorsMax();
-                    pop += kp;
-                    warriors += kw;
-                    warriorsMax += km;
-                    ked.cached_population = kp;
-                    ked.cached_warriors = kw;
-                    ked.last_cached_timestamp = worldTime;
-                    var cities = k.cities;
-                    for (int j = 0; j < cities.Count; j++)
-                    {
-                        var c = cities[j];
-                        var ced = CityExtension.GetOrCreate(c);
-                        ced.last_cached_timestamp = -1L;
-                        ced.cached_population = c.CountLivingPopulation();
-                        ced.cached_warriors = c.CountLivingWarriors();
-                        ced.last_cached_timestamp = worldTime;
-                    }
-                }
-                e.data.cached_population = pop;
-                e.data.cached_warriors = warriors;
-                e.data.cached_warriors_max = warriorsMax;
-                e.data.last_cached_timestamp = worldTime;
-            }
-            _lastStatsCacheTimestamp = worldTime;
-            _dirty_cities = false;
-        }
+                RefreshStats(e, worldTime);
 
         foreach (Empire current in _empiresToProcess)
-        {
-            if (current.IsArchived() || _to_dissolve.Contains(current)) continue;
-            current.clearCursorOver();
-
-            if (!current.checkActive())
-            {
-                if (!current.TryRepairState("EmpireManager.update fallback"))
-                {
-                    _to_dissolve.Add(current);
-                }
-            }
-            else if (runEmpireUpdates)
-            {
-                current.update();
-            }
-        }
+            CheckOne(current, runEmpireUpdates, _to_dissolve);
         // 处理需要解散的帝国
         foreach (Empire item in _to_dissolve)
         {
@@ -147,6 +144,80 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
         }
         _to_dissolve.Clear();
         _empiresToProcess.Clear();
+    }
+
+    // 这一轮要不要重点人口(城变了、或满一个月)：要点就先清同盟(全局，当帧做完)，记下点过的时间
+    private bool BeginStatsRefresh(double worldTime)
+    {
+        if (!_dirty_cities && _lastStatsCacheTimestamp > 0 && worldTime >= _lastStatsCacheTimestamp &&
+            Date.getMonthsSince(_lastStatsCacheTimestamp) < 1) return false;
+        // 禁止原版结盟时，旧存档遗留或其他途径漏进来的原版同盟也一并清掉(模组同盟与神力强制同盟保留)
+        if (ModAllianceService.IsVanillaAllianceBanned()) ModAllianceService.DissolveVanillaAlliances();
+        // 帝国本身及其成员国不留在同盟里(兜底：称帝、继承、读档等途径进帝国的)
+        ModAllianceService.RemoveEmpireMembersFromAlliances();
+        _lastStatsCacheTimestamp = worldTime;
+        _dirty_cities = false;
+        return true;
+    }
+
+    // 点一个帝国的人口、兵力(各成员国、各城一并记下)
+    private static void RefreshStats(Empire e, double worldTime)
+    {
+        if (e.IsArchived()) return;
+        e.recalculate();
+        int pop = 0;
+        int warriors = 0;
+        int warriorsMax = 0;
+        var tKingdoms = e.kingdoms_list;
+        for (int i = 0; i < tKingdoms.Count; i++)
+        {
+            var k = tKingdoms[i];
+            if (!EmpireMembershipService.BelongsTo(e, k)) continue;
+            var ked = KingdomExtension.GetOrCreate(k);
+            ked.last_cached_timestamp = -1L;
+            int kp = k.getPopulationPeople();
+            int kw = k.countTotalWarriors();
+            int km = k.countWarriorsMax();
+            pop += kp;
+            warriors += kw;
+            warriorsMax += km;
+            ked.cached_population = kp;
+            ked.cached_warriors = kw;
+            ked.last_cached_timestamp = worldTime;
+            var cities = k.cities;
+            for (int j = 0; j < cities.Count; j++)
+            {
+                var c = cities[j];
+                var ced = CityExtension.GetOrCreate(c);
+                ced.last_cached_timestamp = -1L;
+                ced.cached_population = c.CountLivingPopulation();
+                ced.cached_warriors = c.CountLivingWarriors();
+                ced.last_cached_timestamp = worldTime;
+            }
+        }
+        e.data.cached_population = pop;
+        e.data.cached_warriors = warriors;
+        e.data.cached_warriors_max = warriorsMax;
+        e.data.last_cached_timestamp = worldTime;
+    }
+
+    // 查一个帝国还在不在：修不好的记进 dissolve(整轮查完再解散)；runEmpireUpdates 时顺带跑月度更新
+    private static void CheckOne(Empire current, bool runEmpireUpdates, List<Empire> dissolve)
+    {
+        if (current.IsArchived() || dissolve.Contains(current)) return;
+        current.clearCursorOver();
+
+        if (!current.checkActive())
+        {
+            if (!current.TryRepairState("EmpireManager.update fallback"))
+            {
+                dissolve.Add(current);
+            }
+        }
+        else if (runEmpireUpdates)
+        {
+            current.update();
+        }
     }
 
     // 清理失效的正统对手，并为旧存档中的既有僭越者补齐伪法理标记。
@@ -174,29 +245,71 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
     }
 
 
-    // continued：皇族王国接续(见 Empire.ReplaceEmpire)，同一帝国换了中央，不记进已亡帝国名录
-    public void dissolveEmpire(Empire pEmpire, bool continued = false)
+    // continued：皇族王国接续(见 Empire.ReplaceEmpire)，同一帝国换了中央，不记进已亡帝国名录。
+    // silent：静默撤去(旧档里一部自立的部落帝国，部落不再是帝国，见 TribalFissionService.DissolveSettledTribes)——
+    // 不记已亡帝国名录、不收进史书、不记皇族亡国与"本文化无帝国"的计时、不留解散诊断；进行中的制度改革照样交回核心王国；
+    // 只属于它自己的帝国法理(空出来的 EmpireCore，见 OwnsCoreAlone)一并销毁
+    public void dissolveEmpire(Empire pEmpire, bool continued = false, bool silent = false)
     {
         if (pEmpire == null) return;
-        // 帝国只从这里解散：记下是谁、由哪几层调用解散的(见 EmpireLossDiagnostics)
-        EmpireCraft.Scripts.Diagnostics.EmpireLossDiagnostics.OnDissolving(pEmpire);
-        // 末代君主的在位记录收进史书(移除后只剩 ALL_HISTORY_DATA 里的史书可查)；趁核心国还在记进已亡名录
-        pEmpire.CloseCurrentReignRecord();
-        if (!continued) FallenEmpireRecords.Record(pEmpire);
+        if (!silent)
+        {
+            // 帝国只从这里解散：记下是谁、由哪几层调用解散的(见 EmpireLossDiagnostics)
+            EmpireCraft.Scripts.Diagnostics.EmpireLossDiagnostics.OnDissolving(pEmpire);
+            // 末代君主的在位记录收进史书(移除后只剩 ALL_HISTORY_DATA 里的史书可查)；趁核心国还在记进已亡名录
+            pEmpire.CloseCurrentReignRecord();
+            if (!continued) FallenEmpireRecords.Record(pEmpire);
+        }
         EmpireCore falseCore = EmpireCoreManager.Get(pEmpire);
         bool destroyFalseCore = falseCore?.false_core_against_empire_id > 0 &&
                                 !EmpireCoreManager.GetEmpires(falseCore)
                                     .Any(other => other != pEmpire && !other.IsArchived());
-        EmpireFormationService.OnEmpireDissolving(pEmpire);
+        bool destroyOwnCore = silent && OwnsCoreAlone(pEmpire, falseCore);
+        if (!silent) EmpireFormationService.OnEmpireDissolving(pEmpire);
+        // 静默撤去的部落帝国：科技采纳记在帝国身上(见 TechnologySystem.GetRealmState)，交回本国，不退回它自立前的旧记录
+        else HandBackRealmTech(pEmpire);
         // 进行中的制度改革交回核心王国(见 InstitutionSystem.Realm.cs)
         InstitutionSystem.OnEmpireDissolving(pEmpire);
+        bool hadHistory = pEmpire.data != null && ModClass.ALL_HISTORY_DATA.ContainsKey(pEmpire.data.id);
         pEmpire.dissolve();
         pEmpire.Dispose();
+        // Dispose 把史书收进 ALL_HISTORY_DATA；静默撤去的不留
+        if (silent && !hadHistory && pEmpire.data != null) ModClass.ALL_HISTORY_DATA.Remove(pEmpire.data.id);
         pEmpire.Archive();
         removeObject(pEmpire);
         // 伪核心只是僭称者自行制造的主张，不是可被后继国家继承的历史法理。
-        if (destroyFalseCore && EmpireCoreManager.Get(falseCore.id) == falseCore)
+        if ((destroyFalseCore || destroyOwnCore) && EmpireCoreManager.Get(falseCore.id) == falseCore)
             EmpireCoreManager.DestroyEmpireCore(falseCore);
+    }
+
+    // 帝国的科技采纳并进核心王国(本国没记过的整份交回；记过的补上已采纳的，采纳中的取进度大的)
+    private static void HandBackRealmTech(Empire empire)
+    {
+        EmpireCraft.Scripts.Data.RealmTechState from = empire?.data?.realm_tech;
+        Kingdom core = empire?.CoreKingdom;
+        if (from == null || !from.initialized || core?.data == null || core.isRekt()) return;
+        KingdomExtension.KingdomExtraData extra = KingdomExtension.GetOrCreate(core);
+        EmpireCraft.Scripts.Data.RealmTechState to = extra.realm_tech;
+        if (to == null || !to.initialized)
+        {
+            extra.realm_tech = from;
+            return;
+        }
+        foreach (string tech in from.adopted.ToList()) to.Adopt(tech);
+        foreach (KeyValuePair<string, float> entry in from.progress)
+            if (!to.Has(entry.Key) && (!to.progress.TryGetValue(entry.Key, out float own) || own < entry.Value))
+                to.progress[entry.Key] = entry.Value;
+    }
+
+    // 帝国法理只是它自己的：绑着它、没记过别的帝国、没有别的现存帝国用着，也不是别的法理的割据母核心
+    // (部落自立时随帝国新建的那种；绑了前朝旧法理的不算，那是历史法理，要留着)
+    private static bool OwnsCoreAlone(Empire empire, EmpireCore core)
+    {
+        if (empire == null || core == null || core.false_core_against_empire_id > 0 || core.empire_id != empire.id) return false;
+        if (core.empire_history_ids != null && core.empire_history_ids.Any(id => id != empire.id)) return false;
+        if (EmpireCoreManager.GetEmpires(core).Any(other => other != empire && !other.IsArchived())) return false;
+        return !EmpireCoreManager.EmpireCores.Values.Any(other => other != null && other != core &&
+                                                                  other.warlord_parent_core_id == core.id);
     }
 
     private List<Empire> _to_dissolve = new List<Empire>();

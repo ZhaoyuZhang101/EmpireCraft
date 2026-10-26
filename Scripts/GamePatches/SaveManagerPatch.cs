@@ -219,6 +219,8 @@ public class SaveManagerPatch : GamePatch
         EmpireCraft.Scripts.GeneralSystems.WarReach.ResetWorldState();
         EmpireCraft.Scripts.GeneralSystems.DeJureShareSystem.ResetWorldState();
         EmpireCraft.Scripts.GeneralSystems.BarrenLandSystem.ResetWorldState();
+        // 共事关系的按月反查表(见 TribalFissionService.VassalIndex)
+        EmpireCraft.Scripts.GeneralSystems.TribalFissionService.ResetWorldState();
         EmpireCraft.Scripts.UI.Components.CityDetailOverlay.ResetWorldState();
         EmpireCraft.Scripts.UI.Components.CityPlanOverlay.ResetWorldState();
     }
