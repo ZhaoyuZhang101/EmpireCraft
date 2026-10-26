@@ -25,6 +25,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     才首义(门槛过了不再掷机会)；破产、正统低、篡位这些单项照旧推高内忧(响应、化解用)，不再单独触发律令制的瓦解。
 //     游牧、阿拉伯、日本、封建各线照旧按内忧；
 //     离心度 = (1 − 行政控制力) + 都城稳定不足 70 的部分/70，近代再看革新理念，异文化再加 0.3，
+//     不与京畿(核心王国、陪都)接壤再加 0.1，边疆(与帝国外的国家接壤，朝贡国、附庸不算)再加 0.2(与下面藩镇的 0.3 只取大)，
 //     手握重兵的藩镇(节度使、都护府)、世袭的埃米尔再加 0.3(军阀割据)，天命动荡或权臣掌朝时的道、行了军镇强藩的幕府之藩
 //     再加 0.2，正自顾打仗的减 0.2；古典共和(未行元首制)、原始政体首义与响应的机会减半；
 //     开国雄主登基头 15 年、上次瓦解结束后 15 年内不发生；周制春秋战国另有规则，不在此列；
@@ -56,6 +57,13 @@ public static class ProvincialCollapseSystem
     private const float FallShare = 0.25f, FeudalFallShare = 0.25f;
     // 道在动荡、权臣掌朝时，幕府的藩在军镇强藩下，离心度另加
     private const float ProvinceUnrest = 0.2f;
+    // 远近(用户 2026-10-27 转群友提议"边疆行省、不与京畿接壤的行省更易叛"，选加在离心度上)：控制力从最近的治所算，
+    // 行省自己的都城、陪都都算治所，远方的行省离自家省会近，离京城再远也不显得离心，京城在哪定不出帝国的疆域。现在：
+    //   · 不与京畿(核心王国的城、陪都)接壤的省 +RemoteDisaffection；
+    //   · 边疆省(与帝国以外的国家接壤；本帝国的朝贡国、附庸是缓冲，不算)+FrontierDisaffection，
+    //     与藩镇、世袭埃米尔的军阀割据加成(WarlordDisaffection)只取较大的一项，免得边镇一下加满；
+    //   离心度只在土崩瓦解里用，照旧要有内忧(正统低、积弊重、亏空……)才会首义、响应；天下一统没有外国就没有边疆
+    private const float RemoteDisaffection = 0.1f, FrontierDisaffection = 0.2f, WarlordDisaffection = 0.3f;
     private const int ModernEraTier = 7;
     private const double SecondsPerMonth = 5d;
     // 分裂进程的化解门槛(见 SchismSystem)：内忧里正统一项从 50 以下算起、朝政积弊一项从 50 以上算起
@@ -143,6 +151,38 @@ public static class ProvincialCollapseSystem
                                               !kingdom.IsFactionRebelling() && !kingdom.IsLocalRebelling() &&
                                               RebellionSystem.CanAttempt(kingdom)).ToList();
 
+    // 与京畿接壤：省里有城是陪都，或挨着核心王国的城、陪都
+    private static bool NearCapital(Empire empire, Kingdom province)
+    {
+        Kingdom core = empire.CoreKingdom;
+        var jing = new HashSet<City>(MultiCapitalSystem.AuxiliaryCities(core));
+        foreach (City city in province.cities)
+        {
+            if (city?.data == null) continue;
+            if (jing.Contains(city)) return true;
+            foreach (City neighbour in city.neighbours_cities)
+                if (neighbour?.data != null && (neighbour.kingdom == core || jing.Contains(neighbour))) return true;
+        }
+        return false;
+    }
+
+    // 边疆：省里有城挨着帝国以外的国家；本帝国的朝贡国、附庸不算
+    private static bool Frontier(Empire empire, Kingdom province)
+    {
+        foreach (City city in province.cities)
+        {
+            if (city?.data == null) continue;
+            foreach (City neighbour in city.neighbours_cities)
+            {
+                Kingdom other = neighbour?.kingdom;
+                if (other?.data == null || other.isRekt() || other.wild || other.GetEmpire() == empire ||
+                    other.GetTakenAllianceEmpire() == empire || FeudalVassalService.GetOverlord(other)?.GetEmpire() == empire) continue;
+                return true;
+            }
+        }
+        return false;
+    }
+
     private static float Disaffection(Empire empire, Kingdom province, bool modern, PartyIdeology ideology)
     {
         float control = province.cities.Average(AdministrativeControlSystem.Get);
@@ -153,17 +193,24 @@ public static class ProvincialCollapseSystem
         string ruling = CompositeEmpireService.GetRulingCulture(empire);
         string local = CultureService.GetMainCulture(capital);
         if (CultureService.IsValidCulture(local) && !string.Equals(local, ruling, StringComparison.Ordinal)) value += 0.3f;
-        // 军阀割据：手握重兵的藩镇；世袭的埃米尔同样(见 EmirateSystem)
+        // 远离京畿(见 RemoteDisaffection)
+        if (!NearCapital(empire, province)) value += RemoteDisaffection;
+        // 军阀割据：手握重兵的藩镇；世袭的埃米尔同样(见 EmirateSystem)。本就是边镇之意，边疆不再另加
         if (province.GetKingdomType() is KingdomType.LvLing_jiedushi or KingdomType.LvLing_duhufu ||
-            EmirateSystem.IsHereditaryEmir(empire, province)) value += 0.3f;
-        // 天命动荡、权臣掌朝时，朝廷派的道也人心思变(用户 2026-10-21 选"华夏有真乱世"：以前道控制力满、稳定不差，几乎从不响应)
-        else if (province.GetKingdomType() == KingdomType.LvLing_province &&
-                 (empire.data.is_been_controlled || TianxiaSystem.PhaseOf(empire.CoreKingdom) == TianxiaSystem.Unrest))
-            value += ProvinceUnrest;
-        // 行了"军镇强藩"的幕府，大名的藩手握重兵(用户 2026-10-21 选"幕府会倒、应仁之乱")
-        else if (province.GetKingdomType() == KingdomType.Bakufu_han &&
-                 InstitutionSystem.HasFeature(empire, CityPopulationSystem.FeatureRegional))
-            value += ProvinceUnrest;
+            EmirateSystem.IsHereditaryEmir(empire, province)) value += WarlordDisaffection;
+        else
+        {
+            // 边疆(见 FrontierDisaffection)
+            if (Frontier(empire, province)) value += FrontierDisaffection;
+            // 天命动荡、权臣掌朝时，朝廷派的道也人心思变(用户 2026-10-21 选"华夏有真乱世"：以前道控制力满、稳定不差，几乎从不响应)
+            if (province.GetKingdomType() == KingdomType.LvLing_province &&
+                (empire.data.is_been_controlled || TianxiaSystem.PhaseOf(empire.CoreKingdom) == TianxiaSystem.Unrest))
+                value += ProvinceUnrest;
+            // 行了"军镇强藩"的幕府，大名的藩手握重兵(用户 2026-10-21 选"幕府会倒、应仁之乱")
+            else if (province.GetKingdomType() == KingdomType.Bakufu_han &&
+                     InstitutionSystem.HasFeature(empire, CityPopulationSystem.FeatureRegional))
+                value += ProvinceUnrest;
+        }
         if (province.getWars().Any(war => war != null && !war.hasEnded())) value -= 0.2f;
         return Mathf.Max(0f, value);
     }
