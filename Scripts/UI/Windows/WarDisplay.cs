@@ -132,11 +132,14 @@ namespace EmpireCraft.Scripts.UI.Windows
 
         public static string Started(War war) => string.Format(LM.Get("war_started_years"), war.getYearStarted(), war.getDuration());
 
-        // 战争提示框(原版"war"提示框换成模组的，示意图 ⑤⑨)
-        private const string Plain = "#D8D2B8", Bad = "#E07A5F", Good = "#7CD27C";
+        // 战争提示框(原版"war"提示框换成模组的，示意图 ⑤⑨)。原版逐行的值超过 21 个字就截断加"..."、值一栏折行会和左边的名目错行，
+        // 截断还会把值里的颜色标签截坏，整个提示框从那里起显示成标签原文(玩家截图)：长的(类型与标签、目标、主城池、拿到会怎样、
+        // 兵败如山倒)都写进上面的说明段(自动折行、不截断)；逐行的只放短值，颜色走参数，不在值里嵌标签
+        private const string Plain = "#D8D2B8", Bad = "#E07A5F";
+        private const int LineLimit = 18;
 
         private static void Line(Tooltip tooltip, string labelKey, string value, string hex = Plain) =>
-            tooltip.addLineText(LM.Get(labelKey), value, hex, pPercent: false, pLocalize: false);
+            tooltip.addLineText(LM.Get(labelKey), value, hex, pPercent: false, pLocalize: false, pLimitValue: LineLimit);
 
         public static void ShowTooltip(Tooltip tooltip, string type, TooltipData data)
         {
@@ -144,50 +147,60 @@ namespace EmpireCraft.Scripts.UI.Windows
             if (!Alive(war)) return;
             tooltip.clear();
             tooltip.setTitle(war.data.name, "war", WideKit.Gold);
+            var lines = new List<string>();
             var head = new List<string> { WarCatalog.Kind(war).ColorString(WarCatalog.Color(war)) };
             head.AddRange(WarCatalog.Tags(war).Select(tag => tag.ColorString(WideKit.Cyan)));
-            head.Add(war.hasEnded() ? string.Format(LM.Get("war_tip_ended"), war.getYearEnded()) : string.Format(LM.Get("war_tip_year"), war.getDuration() + 1));
-            tooltip.addLineText(LM.Get("war_tip_kind"), string.Join(" · ", head), Plain, pPercent: false, pLocalize: false);
-            List<Kingdom> attackers = Side(war, true), defenders = Side(war, false);
-            Line(tooltip, "war_tip_attackers", SideText(war.main_attacker, attackers.Count, Army(war, true)), AttackText);
-            Line(tooltip, "war_tip_defenders", SideText(war.main_defender, defenders.Count, Army(war, false)), DefendText);
+            head.Add((war.hasEnded() ? string.Format(LM.Get("war_tip_ended"), war.getYearEnded())
+                : string.Format(LM.Get("war_tip_year"), war.getDuration() + 1)).ColorString(WideKit.Muted));
+            lines.Add(string.Join(" · ", head));
             WarExtension.WarExtraData extra = war.GetOrCreate();
             City main = WarObjective.Main(extra);
             if (WarGoalSystem.Get(war) != WarGoal.None)
             {
-                Line(tooltip, "war_tip_goal", WarCatalog.GoalText(war), WideKit.Gold);
+                lines.Add(LM.Get("war_tip_goal").ColorString(WideKit.Muted) + " " + WarCatalog.GoalText(war).ColorString(WideKit.Gold));
                 if (main != null && !war.hasEnded())
                 {
                     (_, string text, string hex) = Progress(war, main);
-                    Line(tooltip, "war_tip_main_city", $"{main.GetCityName()} · {text}", hex);
+                    lines.Add(LM.Get("war_tip_main_city").ColorString(WideKit.Muted) + " " + main.GetCityName() + " · " + text.ColorString(hex));
                 }
             }
-            else if (WarObjective.RebelWar(war) && war.main_defender?.capital is City capital && !war.hasEnded())
+            else if (WarObjective.RebelWar(war) && WarObjective.RebelTarget(war) is City capital && !war.hasEnded())
             {
                 (_, string text, string hex) = Progress(war, capital);
-                Line(tooltip, "war_tip_capital", $"{capital.GetCityName()} · {text}", hex);
+                lines.Add(LM.Get("war_tip_capital").ColorString(WideKit.Muted) + " " + capital.GetCityName() + " · " + text.ColorString(hex));
             }
+            if (!war.hasEnded() && war.main_defender != null && war.main_attacker != null)
+            {
+                Kingdom attackerRealm = FrontSystem.Realm(war.main_attacker), defenderRealm = FrontSystem.Realm(war.main_defender);
+                if (FrontCollapse.Collapsing(defenderRealm, attackerRealm))
+                    lines.Add(string.Format(LM.Get("war_tip_collapse"), war.main_defender.GetKingdomName()).ColorString(WideKit.Red));
+                else if (FrontCollapse.Collapsing(attackerRealm, defenderRealm))
+                    lines.Add(string.Format(LM.Get("war_tip_collapse"), war.main_attacker.GetKingdomName()).ColorString(WideKit.Red));
+            }
+            tooltip.addDescription(string.Join("\n", lines));
+
+            List<Kingdom> attackers = Side(war, true), defenders = Side(war, false);
+            Line(tooltip, "war_tip_attackers", SideText(war.main_attacker, attackers.Count), AttackText);
+            Line(tooltip, "war_tip_defenders", SideText(war.main_defender, defenders.Count), DefendText);
+            Line(tooltip, "war_tip_army", $"{Count(Army(war, true))} / {Count(Army(war, false))}");
             (string standing, string standingHex) = Standing(war);
-            Line(tooltip, "war_tip_standing", string.Format(LM.Get("war_tip_standing_value"), standing, CitiesLost(war, true),
-                CitiesLost(war, false)), standingHex);
-            Line(tooltip, "war_tip_losses", string.Format(LM.Get("war_tip_losses_value"), Losses(war, true), Losses(war, false)));
+            Line(tooltip, "war_tip_standing", standing, standingHex);
+            Line(tooltip, "war_tip_lost_cities", $"{CitiesLost(war, true)} / {CitiesLost(war, false)}");
+            Line(tooltip, "war_tip_losses", $"{Losses(war, true)} / {Losses(war, false)}");
             if (!war.hasEnded())
             {
                 int fronts = Battles(war).Count;
-                string front = string.Format(LM.Get("war_tip_fronts_value"), fronts);
-                if (war.main_defender != null && war.main_attacker != null &&
-                    FrontCollapse.Collapsing(FrontSystem.Realm(war.main_defender), FrontSystem.Realm(war.main_attacker)))
-                    front += " · " + string.Format(LM.Get("war_tip_collapse"), war.main_defender.GetKingdomName());
-                else if (war.main_defender != null && war.main_attacker != null &&
-                         FrontCollapse.Collapsing(FrontSystem.Realm(war.main_attacker), FrontSystem.Realm(war.main_defender)))
-                    front += " · " + string.Format(LM.Get("war_tip_collapse"), war.main_attacker.GetKingdomName());
-                Line(tooltip, "war_tip_fronts", front, fronts > 0 ? Bad : Plain);
+                Line(tooltip, "war_tip_fronts", string.Format(LM.Get("war_tip_fronts_value"), fronts), fronts > 0 ? Bad : Plain);
             }
             string outcome = WarCatalog.Outcome(war);
             tooltip.addBottomDescription((string.IsNullOrEmpty(outcome) ? "" : outcome + "\n") + LM.Get("war_tip_footer"));
         }
 
-        private static string SideText(Kingdom main, int count, float army) =>
-            string.Format(LM.Get(count > 1 ? "war_tip_side_many" : "war_tip_side_one"), main?.GetKingdomName() ?? "—", count, Count(army));
+        // 一边的主国(几国的标 +几)：只放名字，兵力另起一行
+        private static string SideText(Kingdom main, int count)
+        {
+            string name = main?.GetKingdomName() ?? "—";
+            return count > 1 ? name + "+" + (count - 1) : name;
+        }
     }
 }

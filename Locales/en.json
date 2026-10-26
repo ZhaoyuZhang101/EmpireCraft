@@ -8434,7 +8434,7 @@
   "war_tip_capital": "Capital",
   "war_tip_standing": "Standing",
   "war_tip_standing_value": "{0} · lost {1} / {2}",
-  "war_tip_losses": "Losses",
+  "war_tip_losses": "Losses att/def",
   "war_tip_losses_value": "Att {0} · Def {1}",
   "war_tip_fronts": "Fronts",
   "war_tip_fronts_value": "{0} battles",
@@ -8517,5 +8517,7 @@
   "war_log_filter_diplomacy": "Diplomacy",
   "war_card_chronicle": "Chronicle",
   "war_log_none": "No entries yet",
-  "war_log_surrendered": "{0} concedes and leaves the war"
+  "war_log_surrendered": "{0} concedes and leaves the war",
+  "war_tip_army": "Army att/def",
+  "war_tip_lost_cities": "Lost att/def"
 }

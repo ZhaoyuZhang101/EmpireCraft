@@ -8448,7 +8448,7 @@
   "war_tip_capital": "京城",
   "war_tip_standing": "战局",
   "war_tip_standing_value": "{0} · 失城 {1} / {2}",
-  "war_tip_losses": "伤亡",
+  "war_tip_losses": "伤亡 攻/守",
   "war_tip_losses_value": "攻 {0} · 守 {1}",
   "war_tip_fronts": "战线",
   "war_tip_fronts_value": "{0} 处交战",
@@ -8531,5 +8531,7 @@
   "war_log_filter_diplomacy": "外交",
   "war_card_chronicle": "编年",
   "war_log_none": "还没有战报",
-  "war_log_surrendered": "{0}认输，退出战争"
+  "war_log_surrendered": "{0}认输，退出战争",
+  "war_tip_army": "兵力 攻/守",
+  "war_tip_lost_cities": "失城 攻/守"
 }
