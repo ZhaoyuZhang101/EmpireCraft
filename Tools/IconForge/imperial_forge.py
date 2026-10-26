@@ -1166,15 +1166,6 @@ def obj_bridle(img):
     over(img, shade(lines([[(204, 160), (214, 196), (190, 220), (220, 246)]], 12), BONE, bevel=4, grain=0.3))
 
 
-def obj_relief(img):
-    """地形浮雕：旧铜底座上浮起的铁灰山峦(骨白雪顶)，山前一道暗翠丘陵——像沙盘一样的立体地形。"""
-    over(img, shade(rrect([22, 160, 234, 226], 10), BRASS, bevel=12, gloss=0.8))
-    over(img, shade(poly([(34, 182), (96, 62), (146, 150), (186, 92), (228, 182)]), IRON, bevel=18, gloss=0.6, grain=0.4))
-    over(img, shade(poly([(80, 92), (96, 62), (112, 92)]), BONE, bevel=6, gloss=0.8))
-    over(img, shade(poly([(174, 112), (186, 92), (198, 112)]), BONE, bevel=5, gloss=0.8))
-    over(img, shade(poly([(28, 196), (84, 160), (146, 182), (228, 194), (228, 210), (28, 210)]), JADE, bevel=10, gloss=0.4, grain=0.3))
-
-
 def obj_edification(img):
     """教化图层：摊开的骨白书卷(暗红封皮)，上方三道由近及远、由浓到淡的旧铜弧——教化四方远播。"""
     for k, (r, w) in enumerate(((60, 16), (92, 14), (122, 12))):
@@ -1199,7 +1190,6 @@ def obj_governance(img):
 
 
 GODPOWERS = {
-    "terrain_relief": (obj_relief, None),
     "edification_layer": (obj_edification, None),
     "governance_layer": (obj_governance, None),
     "zhou_conference": (obj_banners, "plus"),

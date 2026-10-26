@@ -9,7 +9,7 @@ namespace EmpireCraft.Scripts.UI.Components;
 // (不是一串虚点)；隔六格左右一座敌楼(3×3 的方台：深色外圈、浅色楼顶)；东南一侧落一道影子。单独一张与地图等大的贴图，盖在色块与路网之上(无主的荒地、山上也画得出)，远近都画——
 // 长城是地标，拉远也看得见。城墙变了才重画
 // 关城压在城墙上是关门(见 WallGateSystem)：关城方城那几格不画墙身、影子、转角砖，城墙画到关城两侧，关城(画在色块与精细层里)露出来；
-// 敌楼离关城至少 TowerSpacing 格。城市不显示(地形浮雕关了)时关城不画，城墙照常画满
+// 敌楼离关城至少 TowerSpacing 格
 public static class MapWallOverlay
 {
     private static readonly Color32 StoneLight = new(214, 204, 180, 255), StoneDark = new(172, 160, 134, 255),

@@ -10,7 +10,7 @@ public static class SwitchCivMusicButton
 
     public static void init()
     {
-        // OptionAsset 要自己登记(理由见 SwitchTerrainReliefButton)
+        // OptionAsset 要自己登记(理由见 SwitchBattleSoundButton)
         if (!AssetManager.options_library.has(Option))
             AssetManager.options_library.add(new OptionAsset { id = Option, type = OptionType.Bool, default_bool = true });
         if (!PlayerConfig.dict.ContainsKey(Option))

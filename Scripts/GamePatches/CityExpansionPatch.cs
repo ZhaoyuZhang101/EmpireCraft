@@ -89,7 +89,7 @@ public class CityExpansionPatch : GamePatch
     public static bool Settled(City city, TileZone zone)
     {
         if (!PureMapMode.Enabled || zone == null || zone.city != null || city?.zones == null) return true;
-        // 这座城的平面图还没算过(关着地形浮雕、不画城市时不算，村镇也不会新建)：照原版领地，不限在村镇附近
+        // 这座城的平面图还没算过(刚读档、还没轮到时不算，村镇也不会新建)：照原版领地，不限在村镇附近
         HashSet<int> built = PureMapPatch.BuiltZones(city);
         if (built == null) return true;
         if (Sandwiched(zone)) return NearestNeighbourCity(city, zone);

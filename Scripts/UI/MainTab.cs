@@ -531,12 +531,6 @@ internal static class MainTab
         AddButton(DISPLAY_GROUP, PowerButtonCreator.CreateToggleButton("show_garrison",
             SpriteTextureLoader.getSprite("ui/icons/iconWar")));
 
-        // 地形浮雕：国色上叠不叠地形明暗
-        SwitchTerrainReliefButton.init();
-        PowerButton reliefButton = PowerButtonCreator.CreateToggleButton("terrain_relief",
-            SpriteTextureLoader.getSprite("ui/icons/godpowers/terrain_relief"));
-        AddButton(DISPLAY_GROUP, reliefButton);
-
         // 战声：镜头拉近到交战处时听得到厮杀声(见 BattleSound)
         SwitchBattleSoundButton.init();
         AddButton(DISPLAY_GROUP, PowerButtonCreator.CreateToggleButton("battle_sound",

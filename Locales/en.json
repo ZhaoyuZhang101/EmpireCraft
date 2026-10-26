@@ -1779,8 +1779,6 @@
   "unify_lost_history": "{0} loses most of its land; its war of unification falters",
   "unify_stall_history": "{0} cannot reach the rest of the realm; the unification stalls short of completion",
   "harem_power_title": "Harem Power",
-  "terrain_relief": "Terrain & Cities",
-  "terrain_relief_description": "Realm colours are see-through so the terrain shows, and cities and roads are drawn; turn off for flat opaque colours without cities or roads (the city layer still shows cities and roads)",
   "tech_branch_naval": "Naval",
   "tech_naval_reach": "Naval reach +{0} tiles",
   "tech_naval_power": "Warship strength +{0}%",

@@ -1781,8 +1781,6 @@
   "unify_lost_history": "{0}失地過半，統一大業中輟",
   "unify_stall_history": "{0}久戰不能盡收天下，統一大業受阻",
   "harem_power_title": "後宮幹政",
-  "terrain_relief": "地形與城市",
-  "terrain_relief_description": "開著時國色半透明、露出地形，並畫出城市與道路；關掉是純平不透明的國色，城市與道路也不畫(城市圖層照常顯示城市與道路)",
   "tech_branch_naval": "海軍",
   "tech_naval_reach": "水師輻射 +{0} 格",
   "tech_naval_power": "艦船戰力 +{0}%",

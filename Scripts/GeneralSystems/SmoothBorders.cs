@@ -28,7 +28,7 @@ public static class SmoothBorders
 
     public static bool Enabled { get; private set; }
 
-    // 本次画过的像素：边框(地形浮雕、占领条纹不覆盖)、归别人的(城市平面图不画在上面)
+    // 本次画过的像素：边框(占领纹、兼属纹不覆盖)、归别人的(本块的斜纹不画在上面)
     private static bool[] _outline = Array.Empty<bool>(), _foreign = Array.Empty<bool>();
     // 每格上次画的归属与不带高亮的底色(高亮开关时直接改这几格的颜色，不必重画地块)
     private static IMetaObject[] _owner = Array.Empty<IMetaObject>();
@@ -1718,7 +1718,7 @@ public static class SmoothBorders
     // 帝国图层上悬停帝国里的成员国时，它的地块换成本国颜色、移开又换回帝国颜色；平滑国界下邻块跟着变，
     // 每次都要整块重画(逐格平滑)，大国一换就是几百块地，鼠标一动卡一下。
     // 同样的输入画出同样的像素：每块地记下最近画过的两版，再遇到同样的输入直接拷回，当帧就好、几乎不花时间，画面不变。
-    // 输入：两种颜色、周围 5×5 块的归属及其颜色与所属帝国、图层与选项、战线开关、这几方两两是否交战、兼属斜纹、纯净地图与地形浮雕开关；
+    // 输入：两种颜色、周围 5×5 块的归属及其颜色与所属帝国、图层与选项、战线开关、这几方两两是否交战、兼属斜纹、纯净地图；
     // 地形、城市平面图不画进色块(见 PureMapPatch.FinishZone、CityPlanOverlay)，不必算进去；
     // 周围有逐格推进的地块不缓存；缓存三十秒过期(没算进去的变化至多三十秒后补上；水陆变了当场丢掉那块的，见 ForgetSnapshot)
     private const float CacheSeconds = 30f;
@@ -1767,8 +1767,8 @@ public static class SmoothBorders
                 // 帝国金边看各国属于哪个帝国(附庸算宗主的帝国，同 EmpireOf)
                 if (meta is Kingdom kingdom) Add(EmpireMembershipService.MapEmpire(kingdom)?.id ?? -1L);
             }
-            // 地形浮雕开关定国色透不透明；城市平面图另成一层(见 CityPlanOverlay)，色块不随城市变
-            Add((CorpsSystem.Enabled ? 1 : 0) | (PureMapMode.Enabled ? 2 : 0) | (PureMapPatch.Relief ? 16 : 0));
+            // 城市平面图另成一层(见 CityPlanOverlay)，色块不随城市变
+            Add((CorpsSystem.Enabled ? 1 : 0) | (PureMapMode.Enabled ? 2 : 0));
             Add(CorpsSystem.Enabled && ControlLayer(layer) ? FrontSignature() : 0);
             // 兼属的斜纹(见 DeJureShareSystem)：兼属方或它的颜色变了要重画
             Add(DeJureShareSystem.StripeKey(zone.city));
@@ -2181,7 +2181,6 @@ public static class SmoothBorders
         if (color == null) return;
         inside = clearInside ? new Color32(0, 0, 0, 0) : color.getColorBorderInsideAlpha32();
         outside = color.getColorMainSecond32();
-        if (PureMapMode.Enabled) PureMapPatch.PureColors(ref inside, ref outside);
     }
 
     // 宣战、议和后战线(边框朱红)要变：双方各城的地块重画(WarPatch)；上色缓存按周围几方是否交战取(见 FrontSignature)，

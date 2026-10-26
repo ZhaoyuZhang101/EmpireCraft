@@ -1,6 +1,6 @@
 namespace EmpireCraft.Scripts.GodPowers;
 
-// 玩家显示偏好，默认关闭；与地形浮雕一样随玩家设置保存。
+// 玩家显示偏好，默认关闭；与战声开关一样随玩家设置保存。
 public static class SwitchGarrisonButton
 {
     public const string Option = "switch_show_garrison";

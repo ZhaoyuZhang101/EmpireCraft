@@ -76,7 +76,7 @@ public static class CityDetailOverlay
         ZoneCalculator zones = world?.zone_calculator;
         SpriteRenderer source = zones?.sprRnd;
         Camera camera = world?.camera;
-        if (source?.sprite == null || camera == null || !source.enabled || !GeneralSystems.PureMapMode.Enabled || !PureMapPatch.DetailShown ||
+        if (source?.sprite == null || camera == null || !source.enabled || !GeneralSystems.PureMapMode.Enabled ||
             Layer.CityViewMap.Active || PixelsPerTile(camera) < MinPixelsPerTile)
         {
             HideAll();

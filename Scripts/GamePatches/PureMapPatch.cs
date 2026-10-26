@@ -13,10 +13,9 @@ using UnityEngine;
 namespace EmpireCraft.Scripts.GamePatches;
 
 // 纯净地图模式(见 PureMapMode)：
-//   · 国家色块填满：原版近看时国家内部画成透明、只留边框；这里任何缩放都填满，内部半透明、露出原版地形，边框不透明
-//     (关掉"地形浮雕"开关是不透明的纯平国色；透明的清除色不动，否则空白处会变成白块；见 FillAlpha)；
-//     没选地图图层时默认显示国家图层、关了"地图图层"也照样显示；图层不随地图不透明度设置变淡
-//     (入夜也不变淡、不被夜色压暗，见 NightMapLayerPatch；云照旧)；
+//   · 国家色块填满：原版近看时国家内部画成透明、只留边框；这里任何缩放都填满。颜色、透明度同原版图层：半透明，露出原版地形，
+//     跟着地图不透明度设置(用户 2026-10-26 "去掉地形浮雕改为像原版的透明图层一样就好了"；以前色块不透明，地形明暗画进色块)；
+//     没选地图图层时默认显示国家图层、关了"地图图层"也照样显示；入夜不变淡、不被夜色压暗(见 NightMapLayerPatch；云照旧)；
 //   · 地形由原版自己画在半透明的色块底下，色块不随地形变(以前把地形明暗画进不透明的色块，结霜、长草都要重画)；
 //     块里的海、河、湖不涂国色，海岸线是真实的形状；
 //   · 城市平面图(仿电子地图，位置是模拟的；另成一层铺在色块之下，见 CityPlanOverlay)：
@@ -211,7 +210,7 @@ public partial class PureMapPatch : GamePatch
         return false;
     }
 
-    // 图层不随地图不透明度设置变淡(亮度照原版；夜色见 NightMapLayerPatch)
+    // 纯净地图的各层(城市平面图、精细层、路网、城墙、标注)每帧跟着色块图层更新
     private static void AfterZoneAnimations(ZoneCalculator __instance)
     {
         if (__instance.sprRnd == null) return;
@@ -223,9 +222,6 @@ public partial class PureMapPatch : GamePatch
             UI.Components.CityDetailOverlay.Update();
             return;
         }
-        Color color = __instance.sprRnd.color;
-        color.a = 1f;
-        __instance.sprRnd.color = color;
         RefreshUrbanSlice();
         UI.Components.CityPlanOverlay.Update();
         UI.Components.CityDetailOverlay.Update();
@@ -391,31 +387,8 @@ public partial class PureMapPatch : GamePatch
         SmoothBorders.Finish(__instance.pixels, pZone);
     }
 
-    // 地形浮雕开关同时控制城市和路网；道路仍按自己的缩放档位显示。
-    public static bool DetailShown => Relief;
-
-    // 城市图层专看城市，不管开关
-    public static bool CitiesShown => DetailShown || Layer.CityViewMap.Active;
-
-    // 地形浮雕(见 SwitchTerrainReliefButton)：开着时国色半透明、露出原版地形，并画出城市与道路；
-    // 关掉是纯平不透明的国色，城市与道路也不画
-    public static bool Relief = true;
-
-    // 纯净地图国色内部的不透明度(用户 2026-10-26："地形浮雕去掉之后为什么不可以直接用透明色显示地形呢"
-    // "不然每次地形变更都要同步格子，那就会经常出现国家颜色不刷新的问题")：以前色块不透明，地形明暗、城市平面图都画进色块，
-    // 结一次霜、长一片草、城里盖一栋房，整块色块就要重画，和换图层、易主这些真正的换色抢每帧的上色预算。
-    // 现在内部半透明，地形由原版自己画在底下；城市平面图另成一层铺在色块之下(见 CityPlanOverlay)；色块只随归属、颜色变。
-    // 国界、金边照旧不透明，压在最上面
-    private const byte ReliefFillAlpha = 150;
-
-    internal static byte FillAlpha => Relief ? ReliefFillAlpha : byte.MaxValue;
-
-    // 纯净地图的内部色、边框色(透明的清除色不动，否则空白处会变成白块)
-    internal static void PureColors(ref Color32 inside, ref Color32 outside)
-    {
-        if (inside.a > 0) inside.a = FillAlpha;
-        if (outside.a > 0) outside.a = byte.MaxValue;
-    }
+    // 城市与道路：纯净地图下一直画；城市图层不论纯净地图开没开都画
+    public static bool CitiesShown => PureMapMode.Enabled || Layer.CityViewMap.Active;
 
     // ───────── 地形明暗(只给城市精细层的路面用，见 PureMapPatch.Detail；国家色块不再画地形) ─────────
     // 掺地表本色的比例；块里的水掺水色的比例；高差打光的强度与上限
@@ -467,7 +440,7 @@ public partial class PureMapPatch : GamePatch
             else edge = border != null && border.border && (up && border.border_up || down && border.border_down ||
                                                             left && border.border_left || right && border.border_right);
             if (edge) continue;
-            // 斜纹同国色一样半透明
+            // 斜纹同国色一样的透明度
             byte alpha = pixels[id].a;
             // 被敌军占着的地块：涂占领方的颜色，留一道道原主颜色的细斜纹
             if (occupied is Color32 fill && (tile.x + tile.y) % 4 != 0) pixels[id] = new Color32(fill.r, fill.g, fill.b, alpha);
@@ -1357,7 +1330,6 @@ public partial class PureMapPatch : GamePatch
         if (type == null) return color;
         if (type.lava) return Lerp(color, type.color, WaterTint);
         if (type.liquid) return Lerp(color, Water, WaterTint);
-        if (!Relief) return color;
         // 路格(以前实际铺下的路)当普通地面，不掺路的颜色
         TileTypeBase surface = type.road ? null : tile.top_type != null ? tile.top_type : type;
         float light = Light(type);
@@ -1456,7 +1428,6 @@ public partial class PureMapPatch : GamePatch
             if (pColorInside.a > 0) pColorInside = Recolor(pColorInside, custom.getColorBorderInsideAlpha32());
             if (pColorOutside.a > 0) pColorOutside = Recolor(pColorOutside, custom.getColorMainSecond32());
         }
-        if (PureMapMode.Enabled) PureColors(ref pColorInside, ref pColorOutside);
     }
 
     private static bool SmoothPaint(ZoneCalculator __instance, TileZone pZone, ref Color32 pColorInside, ref Color32 pColorOutside)
@@ -1472,12 +1443,10 @@ public partial class PureMapPatch : GamePatch
         SmoothBorders.CaptureRaw(pZone);
         ColorAsset custom = CustomColor(pZone);
         if (custom != null && pColor.a > 0) pColor = Recolor(pColor, custom.getColorBorderInsideAlpha32());
-        if (PureMapMode.Enabled && pColor.a > 0) pColor.a = FillAlpha;
     }
 
     private static bool BeforeColorZone(ZoneCalculator __instance, TileZone pZone, ref Color32 pColor)
     {
-        if (PureMapMode.Enabled && pColor.a > 0) pColor.a = FillAlpha;
         if ((!PureMapMode.Enabled && !SmoothBorders.Enabled) || pZone?.tiles == null || __instance.pixels == null) return true;
         SmoothBorders.CaptureRaw(pZone);
         // 原版只比较第一格，第一格已透明就跳过整块清色。平滑后同一块里颜色不同，

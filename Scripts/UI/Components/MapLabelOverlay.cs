@@ -79,7 +79,7 @@ public static class MapLabelOverlay
         SpriteRenderer source = world?.zone_calculator?.sprRnd;
         Camera camera = world?.camera;
         float ppt = MapZoomTier.PixelsPerTile(camera);
-        if (source?.sprite == null || camera == null || !source.enabled || !PureMapMode.Enabled || !PureMapPatch.DetailShown ||
+        if (source?.sprite == null || camera == null || !source.enabled || !PureMapMode.Enabled ||
             EmpireCraft.Scripts.Layer.CityViewMap.Active || ppt < MapZoomTier.Street)
         {
             HideAll();

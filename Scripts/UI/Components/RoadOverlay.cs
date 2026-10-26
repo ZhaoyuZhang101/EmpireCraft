@@ -12,7 +12,7 @@ namespace EmpireCraft.Scripts.UI.Components;
 // 高德式(2026-10-14 用户选定)：土路浅灰、驿道白、官道浅黄、公路黄、柏油公路橙；驿道以上两侧描一道深色细边，
 // 任何国色上都看得清；
 // 换了地图图层(底色全变)半秒后重画一次。
-// 地形浮雕关掉就不画(见 PureMapPatch.CitiesShown)；城市图层也画(不要求纯净地图)。
+// 纯净地图下一直画；城市图层也画(不要求纯净地图，见 PureMapPatch.CitiesShown)。
 // 分级显示(见 MapZoomTier)：干线(官道、公路、柏油公路)一张图，中景起出现；支线(土路、驿道)与城外的巷子、零散房屋另一张图，
 // 近景起出现。城市图层不分级，一直全显示。
 public static class RoadOverlay

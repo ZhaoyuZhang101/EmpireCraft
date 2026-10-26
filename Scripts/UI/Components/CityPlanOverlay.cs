@@ -11,13 +11,13 @@ namespace EmpireCraft.Scripts.UI.Components;
 // 城市平面图层(用户 2026-10-26："城市浮雕可以单独拉出来做""不然每次地形变更都要同步格子，那就会经常出现国家颜色不刷新的问题")：
 // 一格一像素的城市平面图(城墙、街巷、建筑、城外的镇村田块，画法见 PureMapPatch.Plan)以前直接画进国家色块，
 // 城里盖一栋房、城市格局一变，整城的色块都要重画，和换图层、易主这些真正的换色抢每帧的上色预算。现在单独一层：
-//   · 铺在国家色块之下、原版地形之上(地形是第 0 层、色块是第 2 层，见 NightMapLayerPatch)：纯净地图的国色半透明
-//     (见 PureMapPatch.FillAlpha)，盖在城市和地形上，国界照旧压在最上面；城市图层色块全透明，城市直接露出来(画得鲜艳些)；
+//   · 铺在国家色块之下、原版地形之上(地形是第 0 层、色块是第 2 层，见 NightMapLayerPatch)：纯净地图的国色同原版图层一样半透明，
+//     盖在城市和地形上，国界照旧压在最上面；城市图层色块全透明，城市直接露出来(画得鲜艳些)；
 //   · 按地块重画：平面图变了(按轮重建，见 PureMapPatch.RefreshUrbanSlice)、换了城市格局、城里的地块水陆或山地变了，
 //     才重画那座城(那块地)；每帧画到 BuildBudgetMs 为止，镜头里的先画；
 //   · 另每帧顺手核对一段地块(SweepPerFrame)：画成的城与眼下的城对不上(城没了、地块换了城、还没画过)就重画，不靠各处记得通知；
 //   · 地图切成 ChunkTiles×ChunkTiles 格一张的小贴图，只上传改过的几张(整张地图一张贴图上传不便宜)，没画东西的不显示。
-// 纯净地图开着"地形浮雕"时显示(同路网)，城市图层不论纯净地图开没开都显示
+// 纯净地图下一直显示(同路网)，城市图层不论纯净地图开没开都显示
 public static class CityPlanOverlay
 {
     private const int ChunkTiles = 64;
@@ -117,9 +117,9 @@ public static class CityPlanOverlay
         SpriteRenderer source = calc?.sprRnd;
         bool cityLayer = CityViewMap.Active;
         if (source?.sprite == null || !source.enabled || _width <= 0 || _height <= 0 ||
-            !cityLayer && !(PureMapMode.Enabled && PureMapPatch.DetailShown))
+            !cityLayer && !PureMapMode.Enabled)
         {
-            // 不显示期间平面图不按轮重建，再显示时整张重画
+            // 不显示期间平面图不按轮重建(没开纯净地图时)，再显示时整张重画
             _primed = false;
             Hide();
             return;

@@ -149,7 +149,7 @@ public partial class PureMapPatch
     // 画这座城的精细图吗：纯净地图画城市时(改建中的城照旧)
     internal static bool DetailEligible(City city)
     {
-        if (city?.data == null || city.isRekt() || !PureMapMode.Enabled || !DetailShown || Layer.CityViewMap.Active) return false;
+        if (city?.data == null || city.isRekt() || !PureMapMode.Enabled || Layer.CityViewMap.Active) return false;
         CityPlan plan = PlanFor(city);
         UrbanFabric.Geometry g = plan.fabric;
         return g != null && StyleOf(plan.family) != null && plan.target == null && plan.built.Count > 0;
