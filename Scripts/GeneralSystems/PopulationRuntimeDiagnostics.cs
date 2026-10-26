@@ -14,7 +14,8 @@ public static class PopulationRuntimeDiagnostics
     public static void Reset() { _world = null; _active = false; _at = 0f; }
     public static void Tick()
     {
-        if (!CityPopulationSystem.AbstractPopulationEnabled) { _active = false; return; }
+        // 性能诊断日志关着时不记(见 FrameProfiler.Enabled)
+        if (!CityPopulationSystem.AbstractPopulationEnabled || !FrameProfiler.Enabled) { _active = false; return; }
         if (World.world?.cities == null || !Config.game_loaded || Config.paused || SmoothLoader.isLoading()) return;
         bool started = !_active || !ReferenceEquals(_world, World.world) || Time.unscaledTime < _at;
         if (started)

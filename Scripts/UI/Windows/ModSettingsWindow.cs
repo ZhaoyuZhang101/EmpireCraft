@@ -82,6 +82,7 @@ public class ModSettingsWindow : WideScrollWindow<ModSettingsWindow>
                         Switch("performance_adaptive_throughput_toggle", true),
                         Switch("performance_hidden_visuals_toggle", true),
                         Switch("performance_nameplate_overlap_toggle", true),
+                        Switch("performance_diagnostics_toggle", false),
                     }
                 },
                 new Card

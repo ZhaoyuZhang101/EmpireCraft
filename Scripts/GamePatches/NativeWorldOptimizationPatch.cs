@@ -33,7 +33,7 @@ public class NativeWorldOptimizationPatch : GamePatch
     private static volatile bool _recordBuildingThreads;
     private static int _mainThread;
     public static int LastBuildingBackgroundThreads { get; private set; }
-    private static bool Profiling => CityPopulationSystem.AbstractPopulationEnabled &&
+    private static bool Profiling => FrameProfiler.Enabled && CityPopulationSystem.AbstractPopulationEnabled &&
         Config.game_loaded && !Config.paused && !SmoothLoader.isLoading();
     // 原版随地图大小涨的整图开销(小地图、地形边缘、地块重绘、各图层贴图上传，见 RenderThrottlePatch)：以前只在无小人模式下省，
     // 巨大及以上的地图(边长 384 格起)不开无小人也省(用户 2026-10-27 反馈什么都不放、地图够大也掉帧)；小图照原版

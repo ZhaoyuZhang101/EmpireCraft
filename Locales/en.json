@@ -8519,5 +8519,7 @@
   "war_log_none": "No entries yet",
   "war_log_surrendered": "{0} concedes and leaves the war",
   "war_tip_army": "Army att/def",
-  "war_tip_lost_cities": "Lost att/def"
+  "war_tip_lost_cities": "Lost att/def",
+  "performance_diagnostics_toggle": "Performance diagnostics log",
+  "performance_diagnostics_toggle Description": "Every 10 seconds, log per-section timings, frame rate and spike frames for tracking down lag; the timing itself costs frames, so keep it off normally. Takes effect immediately."
 }

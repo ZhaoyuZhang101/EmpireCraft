@@ -117,6 +117,11 @@ namespace EmpireCraft.Scripts.Data
         {
             EmpireCraft.Scripts.GeneralSystems.SmoothBorders.Set(on);
         }
+        // 性能诊断日志：每 10 秒记各段耗时、帧率、尖峰帧(见 FrameProfiler)，计时本身也占帧数，平时关着
+        public static void PerformanceDiagnosticsCallBack(bool on)
+        {
+            FrameProfiler.SetEnabled(on);
+        }
         // 稳定帧率：锁每秒 30 帧、关垂直同步(见 StableFrameRate)
         public static void StableFrameRateCallBack(bool on)
         {

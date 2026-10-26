@@ -8524,5 +8524,7 @@
   "war_log_none": "還沒有戰報",
   "war_log_surrendered": "{0}認輸，退出戰爭",
   "war_tip_army": "兵力 攻/守",
-  "war_tip_lost_cities": "失城 攻/守"
+  "war_tip_lost_cities": "失城 攻/守",
+  "performance_diagnostics_toggle": "性能診斷日誌",
+  "performance_diagnostics_toggle Description": "每 10 秒在日誌裡記各段耗時、幀率與尖峰幀，查卡頓時用；計時本身也佔幀數，平時關著。隨時開關，不用重啟。"
 }

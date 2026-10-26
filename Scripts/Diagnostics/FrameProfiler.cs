@@ -66,11 +66,29 @@ public static class FrameProfiler
         }
     }
 
-    public static Scope Measure(string label) => new(label);
+    // 性能诊断日志开关(模组设置"性能诊断日志"，随时开关，默认关；用户 2026-10-27 "这个也会掉帧，加个开关让我随时能够开关")：
+    // 关着时各计时段不计时、不报每帧耗时与帧率、尖峰帧，原版各处的计时补丁也不计(见 NativeWorldOptimizationPatch、RenderThrottlePatch)；
+    // 栈保护照常探(防原生崩溃，见 StackGuard)
+    public static bool Enabled;
+
+    public static void SetEnabled(bool on)
+    {
+        if (Enabled == on) return;
+        Enabled = on;
+        Reset();
+    }
+
+    public static Scope Measure(string label)
+    {
+        if (Enabled) return new(label);
+        EmpireCraft.Scripts.Diagnostics.StackGuard.Probe();
+        return default;
+    }
 
     // 记一段在别处量好的耗时(跨前缀、后缀量的，比如地块上色)
     public static void Record(string label, long elapsed)
     {
+        if (!Enabled) return;
         EnsureFrame();
         Ticks.TryGetValue(label, out Sample sample);
         sample.Ticks += elapsed;
@@ -87,6 +105,7 @@ public static class FrameProfiler
     // 每帧由 ModClass.Update 最先调用：结算刚结束的那一帧
     public static void FrameTick()
     {
+        if (!Enabled) return;
         EnsureFrame();
         Report();
     }
