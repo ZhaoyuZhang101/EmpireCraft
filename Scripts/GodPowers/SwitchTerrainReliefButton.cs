@@ -3,8 +3,8 @@ using EmpireCraft.Scripts.GamePatches;
 namespace EmpireCraft.Scripts.GodPowers;
 
 // 地形浮雕开关(用户 2026-10-15："城市和道路永久显示，power 上给个开关是否开启浮雕")：
-// 开着时国色上叠地形明暗(山地压暗、高差打光、掺一点地表本色)，并画出城市与道路；
-// 关掉是纯平的国色，城市与道路也不画(用户 2026-10-15："地形浮雕要连城市和道路也隐藏")，城市图层照画。
+// 开着时国色半透明、露出原版地形(用户 2026-10-26 改：以前是把地形明暗画进不透明的色块，见 PureMapPatch.FillAlpha)，
+// 并画出城市与道路；关掉是纯平不透明的国色，城市与道路也不画(用户 2026-10-15："地形浮雕要连城市和道路也隐藏")，城市图层照画。
 // 跟着玩家设置保存，换存档不用重开，默认开
 public static class SwitchTerrainReliefButton
 {
@@ -29,7 +29,7 @@ public static class SwitchTerrainReliefButton
         });
     }
 
-    // 原版先调这里、再翻转开关值：按翻转后的值处理，整张图重画
+    // 原版先调这里、再翻转开关值：按翻转后的值处理，整张图重画(国色透不透明跟着变)；城市平面图层再显示时自己整张重画
     private static void toggleAction(string pPower)
     {
         PureMapPatch.Relief = !PlayerConfig.dict[Option].boolVal;

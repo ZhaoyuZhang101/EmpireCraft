@@ -3,7 +3,7 @@ using NeoModLoader.services;
 
 namespace EmpireCraft.Scripts.GeneralSystems;
 
-// 纯净地图模式(模组设置，下次启动生效，见 ConfigActions.PureMapCallBack)：地图上只留不透明的国家色块。
+// 纯净地图模式(模组设置，下次启动生效，见 ConfigActions.PureMapCallBack)：地图上只留国家色块。
 //   · 开启后自动打开无小人模式与占领模式，关掉军团统领实体与小人社交(开着本模式时改回去也会被再改过来)；
 //   · 全图没有植物：树、灌木、花草、菌菇、庄稼分帧清掉，原版的植物蔓延、随机播种、生物群系蔓生停掉；
 //     木头改由伐木场按产能直接产出(见 IndustryBuildingSystem.HarvestTrees)，粮食按田里的种植位折算(见 FarmlandSystem)；
@@ -11,7 +11,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     (见 PureMapPatch)；君主、官员、家族、谋划照常作为数据运作。船照常显示、航行，海军旗舰不随统领实体开关撤掉；
 //   · 不画任何建筑(建筑本体、仓库堆货、建筑阴影、城墙)，建筑照常作为数据运作(仓储、住房、岗位、码头、寺庙……)；
 //     雕像、训练木桩、花园、喷泉等纯装饰建筑清掉、不再建造(见 PureMapPatch)，野外粪便一并清掉；
-//   · 国家色块完全不透明，任何缩放都填满(水面、无主地照常显示地形)；
+//   · 国家色块任何缩放都填满，内部半透明、露出原版地形(关掉"地形浮雕"开关是不透明的纯平国色，见 PureMapPatch.FillAlpha)，
+//     水面、无主地照常显示地形；城市平面图另成一层铺在色块之下(见 CityPlanOverlay)；
 //   · 实体一次清：读档后、积压时不是名人的普通人当场并回人口(几帧清完)，之后每 10 秒清一次零头，不等月度结算慢慢回收。
 public static class PureMapMode
 {

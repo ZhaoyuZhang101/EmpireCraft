@@ -117,55 +117,8 @@ public class ZonePaintBudget : GamePatch
             __instance._redraw_timer = Mathf.Max(__instance._redraw_timer, RedrawInterval);
             return;
         }
-        // 地形队列每帧放出一点(这一轮跳过也放，下一轮照样画)
-        ReleaseTerrain(__instance);
         if (__instance._redraw_timer <= 0f) return;
         if (SmoothBorders.WantsEveryRound) __instance._redraw_timer = 0f;
-    }
-
-    // 地形变了要重画的地块(见 TerrainChanged)：草木蔓生、结霜化冻、烧荒这些顶层格变得很勤，以前一变就整块重画，纯净地图下
-    // 一阵子每帧五六十块(性能日志"纯净地图·地块上色"一段 21502 次)，上色预算被它吃光，换图层、悬停、易主这些真正的换色
-    // 排在后面迟迟画不上、看着一块块没变(用户 2026-10-26 "只要是涉及到颜色切换的都卡""残留是部分没变")。
-    // 改成记下来，每轮巡检开始时放出一点去重画：镜头里的至多 TerrainVisiblePerRound 块、镜头外的至多 TerrainHiddenPerRound 块；
-    // 全图换色算色期间先不放。水陆变了(海岸线、边框跟着变)照旧当场重画
-    private const int TerrainVisiblePerRound = 10, TerrainHiddenPerRound = 3, TerrainScanPerRound = 256;
-    private static readonly HashSet<int> TerrainDirty = new();
-    private static readonly Queue<int> TerrainQueue = new();
-    private static object _terrainWorld;
-
-    private static void QueueTerrain(TileZone zone)
-    {
-        if (!ReferenceEquals(_terrainWorld, World.world))
-        {
-            _terrainWorld = World.world;
-            TerrainDirty.Clear();
-            TerrainQueue.Clear();
-        }
-        if (TerrainDirty.Add(zone.id)) TerrainQueue.Enqueue(zone.id);
-    }
-
-    private static void ReleaseTerrain(ZoneCalculator calc)
-    {
-        if (TerrainQueue.Count == 0 || SmoothBorders.LayerPrecomputing || !ReferenceEquals(_terrainWorld, World.world)) return;
-        int visible = 0, hidden = 0, scan = global::System.Math.Min(TerrainQueue.Count, TerrainScanPerRound);
-        for (int i = 0; i < scan && (visible < TerrainVisiblePerRound || hidden < TerrainHiddenPerRound); i++)
-        {
-            int id = TerrainQueue.Dequeue();
-            TileZone zone = calc.getZoneByID(id);
-            if (zone == null)
-            {
-                TerrainDirty.Remove(id);
-                continue;
-            }
-            bool release = zone.visible ? visible++ < TerrainVisiblePerRound : hidden++ < TerrainHiddenPerRound;
-            if (!release)
-            {
-                TerrainQueue.Enqueue(id);
-                continue;
-            }
-            TerrainDirty.Remove(id);
-            Repaint(zone);
-        }
     }
 
     // 原版巡检完一轮：告诉平滑国界这一轮要一起翻的范围里还差几块(算齐了就起翻)
@@ -240,26 +193,21 @@ public class ZonePaintBudget : GamePatch
         return waited > 0f ? $"({where}，排着等上色 {waited:0.0} 秒)" : $"({where}，没在排队：原版没来重画)";
     }
 
-    // 一格的样子变了(设地面格、顶层格前后 Type 不同，见 MapWallPatch：水桶抽水抽岩浆、镐铲斧、画地形、岩浆冷却、海水回灌、开田退耕……)。
-    // 原版的图层色块只是盖在地形上的一层半透明颜色，地形另由原版地块层画，所以原版只在归属、颜色变了才重画色块；
-    // 纯净地图(城市图层同样)把地形浮雕、水面画进不透明的色块里(见 PureMapPatch.ShadeTerrain)，平滑国界按水陆定归属与边框
-    // (水面不归谁、透明)，地形变了色块却不重画：自家地上的岩浆用水桶浇了还是岩浆，抽干的湖一直是灰坑不成陆地
-    // (玩家反馈"油桶也用不了")。平滑国界的上色缓存(SmoothBorders 的 Snapshots)也不含地形，就算重画也会拷回旧样子。
-    // 这里让这块地下一轮重画并丢掉它的上色缓存；水陆变了，这一格四邻落在别的块上的，那块的边框也跟着重画。
-    // 只开平滑国界(色块不带地形)时只管水陆变化：原版草木蔓生时顶层格变得很勤，不能每次都重画
+    // 一格的样子变了(设地面格、顶层格前后 Type 不同，见 MapWallPatch：水桶抽水抽岩浆、镐铲斧、画地形、岩浆冷却、海水回灌、开田退耕、
+    // 结霜化冻……)。图层色块只是盖在地形上的一层半透明颜色，地形由原版自己画在底下(纯净地图也是，见 PureMapPatch.FillAlpha；
+    // 以前纯净地图把地形明暗画进不透明的色块，结一次霜就要整块重画，和换色抢上色预算，用户 2026-10-26 "不然每次地形变更都要同步格子，
+    // 那就会经常出现国家颜色不刷新的问题")，所以地面样子变了色块不必重画。只有水陆变了要重画：纯净地图、平滑国界下水面不涂国色、
+    // 国界贴着海岸走(抽干的湖不重画就一直是空的)，这一格四邻落在别的块上的，那块的边框也跟着重画；平滑国界的上色缓存不含地形，一并丢掉。
+    // 城里的地块水陆、山地、阻挡变了，城市平面图跟着重排(桥、城墙、街巷避开水和山)，只重画城市平面图层的那块地(见 CityPlanOverlay)
     public static void TerrainChanged(WorldTile tile, TileTypeBase before)
     {
         TileTypeBase after = tile?.Type;
         if (ReferenceEquals(before, after) || tile.zone == null || !Config.game_loaded || SmoothLoader.isLoading() ||
             World.world?.zone_calculator == null) return;
         bool water = Water(before) != Water(after);
-        if (!PureMapMode.Enabled && !Layer.CityViewMap.Active && !(SmoothBorders.Enabled && water)) return;
-        // 只是地面样子变了：排进地形队列，每轮放出一点(见 ReleaseTerrain)
-        if (!water)
-        {
-            QueueTerrain(tile.zone);
-            return;
-        }
+        if (tile.zone.city != null && (water || PlanTerrain(before) != PlanTerrain(after)))
+            EmpireCraft.Scripts.UI.Components.CityPlanOverlay.MarkZone(tile.zone);
+        if (!water || !PureMapMode.Enabled && !SmoothBorders.Enabled) return;
         Repaint(tile.zone);
         Repaint(tile.tile_up?.zone, tile.zone);
         Repaint(tile.tile_down?.zone, tile.zone);
@@ -267,8 +215,12 @@ public class ZonePaintBudget : GamePatch
         Repaint(tile.tile_right?.zone, tile.zone);
     }
 
-    // 水面(同 SmoothBorders.IsWater、PureMapPatch.ShadeTerrain：岩浆不算水，照常归地块的主人)
+    // 水面(同 SmoothBorders.IsWater、PureMapPatch.FinishZone：岩浆不算水，照常归地块的主人)
     private static bool Water(TileTypeBase type) => type != null && (type.ocean || type.liquid && !type.lava);
+
+    // 城市平面图看的地形：液体、山地、阻挡格
+    private static int PlanTerrain(TileTypeBase type) =>
+        type == null ? 0 : (type.liquid ? 1 : 0) | (type.mountains ? 2 : 0) | (type.block ? 4 : 0);
 
     private static void Repaint(TileZone zone, TileZone skip = null)
     {

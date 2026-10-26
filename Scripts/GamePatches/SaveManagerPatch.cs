@@ -220,6 +220,7 @@ public class SaveManagerPatch : GamePatch
         EmpireCraft.Scripts.GeneralSystems.DeJureShareSystem.ResetWorldState();
         EmpireCraft.Scripts.GeneralSystems.BarrenLandSystem.ResetWorldState();
         EmpireCraft.Scripts.UI.Components.CityDetailOverlay.ResetWorldState();
+        EmpireCraft.Scripts.UI.Components.CityPlanOverlay.ResetWorldState();
     }
 
     private static void ClearPersistentWorldState()

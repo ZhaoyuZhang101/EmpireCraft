@@ -1249,7 +1249,7 @@ public static class UrbanFabric
     // 山地、岩地：不起楼，留成原样
     private static bool Rough(WorldTile tile) => tile.Type != null && (tile.Type.mountains || tile.Type.rocks || tile.Type.block);
 
-    // 河上过桥：干道、环路跨水处(ShadeTerrain 的水面分支调用)
+    // 河上过桥：干道、环路跨水处(城市平面图层的水面分支调用，见 PureMapPatch.PlanZone)
     public static bool Bridge(Geometry g, WorldTile tile) => Primary(g, tile);
 
     public static Color32 BridgeColor => BridgeDeck;

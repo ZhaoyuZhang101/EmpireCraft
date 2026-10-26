@@ -25,7 +25,7 @@ public sealed class CityViewColor : MetaObject<IdeologyMapColorData>
 }
 
 // 城市图层(MetaTypeExtension.CityView)：只显示模拟的城市——不涂国家颜色，露出原本的地形；
-// 城(城墙、街巷、建筑、新城区)、出城的路、关厢、镇、村、田块、林子照各自的颜色画在地形上(见 PureMapPatch.ShadeTerrain)，
+// 城(城墙、街巷、建筑、新城区)、出城的路、关厢、镇、村、田块、林子照各自的颜色画在地形上(城市平面图层，见 CityPlanOverlay；色块全透明)，
 // 国界、城界都不画，也不画铭牌。悬停高亮整座城
 public static class CityViewMap
 {
