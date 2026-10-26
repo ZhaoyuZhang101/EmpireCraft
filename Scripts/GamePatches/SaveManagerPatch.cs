@@ -243,6 +243,7 @@ public class SaveManagerPatch : GamePatch
         EmpireCraft.Scripts.GeneralSystems.FrontierRelations.ResetWorldState();
         EmpireCraft.Scripts.GeneralSystems.ReligiousTension.ResetWorldState();
         EmpireCraft.Scripts.GeneralSystems.ReligionSphere.ResetWorldState();
+        EmpireCraft.Scripts.Layer.ReligionMap.ResetWorldState();
         EmpireCraft.Scripts.GeneralSystems.GreatPowerDiplomacy.ResetWorldState();
         EmpireCraft.Scripts.GeneralSystems.UnificationSystem.ResetWorldState();
         EmpireCraft.Scripts.GeneralSystems.BiographySystem.ResetWorldState();

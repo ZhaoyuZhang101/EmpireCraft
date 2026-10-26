@@ -52,6 +52,8 @@ public class EmpireCraftKingdomBehCheckKing : GameAIKingdomBase
         }
         // 第二直隶：储君就藩，没有储君就空着，不选任(见 MultiCapitalSystem.Zhili)
         if (MultiCapitalSystem.HoldsVacancy(pKingdom)) return BehResult.Continue;
+        // 教宗国：教宗出缺由枢机推举或世俗强立，不传子孙(见 PapalElection)
+        if (PapalElection.TryHandleVacancy(pKingdom)) return BehResult.Continue;
         if (ConstitutionalSuccessionSystem.TryHandleVacancy(pKingdom)) return BehResult.Continue;
         // 共主联盟：城邦跟随盟主新君、封建共主的王国按长幼分给子女
         if (PersonalUnionService.TryHandleVacancy(pKingdom))

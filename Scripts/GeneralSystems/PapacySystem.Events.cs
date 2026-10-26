@@ -38,37 +38,42 @@ public static partial class PapacySystem
         return papacy != null && empire?.CoreKingdom == papacy && papacy.GetKingdomType() == KingdomType.Feudalism_papal_state;
     }
 
-    // 每年随 UpdateReligion：教廷之囚的起止、大分裂
+    // 每年随 UpdateReligion：教廷之囚的起止、大分裂(对立教宗)。
+    // 对立教宗：教廷之囚满 SchismYears 年，或教宗正统低于 PopeLegitimacy.AntipopeBelow 时每年 AntipopeChance；
+    // 教廷脱困、教宗正统(不计对立教宗那一项)回到 PopeLegitimacy.HealedAt 以上才弥合(见 PopeLegitimacy)
     private static void UpdateCaptivity(Religion religion)
     {
         var data = religion.GetOrCreate();
         double now = World.world.getCurWorldTime();
-        if (!IsCaptive(religion))
-        {
-            if (data.CaptiveSince >= 0d)
-            {
-                data.CaptiveSince = -1d;
-                if (data.Schism)
-                {
-                    data.Schism = false;
-                    TranslateHelper.LogEventMessage(string.Format(LM.Get("papal_schism_ended_log"), religion.name), Papacy(religion));
-                }
-            }
-            return;
-        }
-        if (data.CaptiveSince < 0d)
+        bool captive = IsCaptive(religion);
+        if (!captive && data.CaptiveSince >= 0d) data.CaptiveSince = -1d;
+        else if (captive && data.CaptiveSince < 0d)
         {
             data.CaptiveSince = now;
             Kingdom captor = Realm(Papacy(religion));
-            TranslateHelper.LogEventMessage(string.Format(LM.Get("papal_captivity_log"), religion.name,
-                captor?.GetKingdomName() ?? ""), captor);
+            string text = string.Format(LM.Get("papal_captivity_log"), religion.name, captor?.GetKingdomName() ?? "");
+            TranslateHelper.LogEventMessage(text, captor);
+            ReligionChronicle.Record(religion, ReligionChronicle.KindPapacy, text);
             return;
         }
-        if (!data.Schism && now >= data.CaptiveSince && Date.getYearsSince(data.CaptiveSince) >= SchismYears)
+        bool papal = PopeLegitimacy.Applies(religion);
+        if (data.Schism)
         {
-            data.Schism = true;
-            TranslateHelper.LogEventMessage(string.Format(LM.Get("papal_schism_log"), religion.name), Papacy(religion));
+            if (captive || papal && PopeLegitimacy.Get(religion, countSchism: false) < PopeLegitimacy.HealedAt) return;
+            data.Schism = false;
+            string ended = string.Format(LM.Get("papal_schism_ended_log"), religion.name);
+            TranslateHelper.LogEventMessage(ended, Papacy(religion));
+            ReligionChronicle.Record(religion, ReligionChronicle.KindPapacy, ended);
+            return;
         }
+        bool longCaptive = captive && now >= data.CaptiveSince && Date.getYearsSince(data.CaptiveSince) >= SchismYears;
+        bool weakPope = papal && PopeLegitimacy.Get(religion) < PopeLegitimacy.AntipopeBelow &&
+                        UnityEngine.Random.value < PopeLegitimacy.AntipopeChance;
+        if (!longCaptive && !weakPope) return;
+        data.Schism = true;
+        string schism = string.Format(LM.Get("papal_schism_log"), religion.name);
+        TranslateHelper.LogEventMessage(schism, Papacy(religion));
+        ReligionChronicle.Record(religion, ReligionChronicle.KindPapacy, schism);
     }
 
     // 教宗受挟：与挟持者交战的帝国遭绝罚
@@ -126,8 +131,11 @@ public static partial class PapacySystem
         long lands = (long)(StateDebtSystem.AnnualStableIncome(empire.CoreKingdom) * ChurchLandsYears);
         if (lands > 0) empire.CoreKingdom.AddMoney((int)Math.Min(int.MaxValue, lands), TreasuryCategory.RecoveredFunds);
         AddAuthority(old, -8f);
-        Record(empire, string.Format(LM.Get("papal_reformation_history"), empire.GetEmpireFullName(), old.name, church.name,
-            MoneyDisplay.Format(lands)));
+        string text = string.Format(LM.Get("papal_reformation_history"), empire.GetEmpireFullName(), old.name, church.name,
+            MoneyDisplay.Format(lands));
+        Record(empire, text);
+        ReligionChronicle.Clear(church);
+        ReligionChronicle.Record(old, church, ReligionChronicle.KindSchism, text);
         return true;
     }
 

@@ -77,6 +77,10 @@ public class ReligionPatch : GamePatch
             else InsertReligionNameTemplate(__instance, culture);
             ReligionSphere.Record(__instance, culture);
         }
+        City birthplace = pActor?.city ?? pActor?.current_tile?.zone_city;
+        if (pActor != null && birthplace?.data != null)
+            ReligionChronicle.Record(__instance, ReligionChronicle.KindFounding, string.Format(LM.Get("religion_founded_log"),
+                pActor.getName(), birthplace.GetCityName(), __instance.data.name));
         else
         {
             InsertReligionNameTemplate(__instance, "Western");

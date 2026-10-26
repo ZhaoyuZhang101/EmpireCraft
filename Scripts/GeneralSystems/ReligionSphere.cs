@@ -230,6 +230,11 @@ public static class ReligionSphere
             if (actor?.data != null && !actor.isRekt() && actor.isAlive() && actor.religion == local) actor.setReligion(orthodox);
         string text = string.Format(LM.Get("religion_merged_log"), local.name, orthodox.name);
         TranslateHelper.LogEventMessage(text, witness);
+        ReligionChronicle.Record(orthodox, local, ReligionChronicle.KindConversion, text);
+        ReligionExtension.ReligionExtraData data = orthodox.GetOrCreate();
+        data.Absorbed ??= new List<ReligionExtension.ReligionEventData>();
+        data.Absorbed.Add(new ReligionExtension.ReligionEventData
+            { at = World.world.getCurWorldTime(), kind = ReligionChronicle.KindConversion, text = local.name });
         LogService.LogInfo($"[EmpireCraft][宗教] {local.name} 并入本天下正教 {orthodox.name}");
     }
 

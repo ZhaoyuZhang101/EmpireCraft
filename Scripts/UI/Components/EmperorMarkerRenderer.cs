@@ -397,6 +397,14 @@ public static class EmperorMarkerRenderer
         float authority = PapacySystem.Authority(religion);
         tooltip.addLineText(LM.Get("papacy_authority"), $"{authority:0}",
             authority >= 60f ? "#7CD27C" : authority >= 35f ? Plain : "#E07A5F", pPercent: false, pLocalize: false);
+        // 教宗本人的正统(见 PopeLegitimacy)
+        if (PopeLegitimacy.Applies(religion))
+        {
+            int legitimacy = PopeLegitimacy.Get(religion);
+            tooltip.addLineText(LM.Get("religion_pope_legitimacy"), legitimacy.ToString(),
+                legitimacy >= 60 ? "#7CD27C" : legitimacy >= PopeLegitimacy.AntipopeBelow ? Plain : "#E07A5F", pPercent: false,
+                pLocalize: false);
+        }
         bool captive = PapacySystem.IsCaptive(religion);
         tooltip.addLineText(LM.Get("papacy_state"), SeeState(religion, papacy, captive), captive ? "#E07A5F" : "#7CD27C",
             pPercent: false, pLocalize: false);

@@ -111,6 +111,7 @@ public static class ReligiousPersecution
         if (seized > 0) realm.AddMoney((int)Mathf.Min(int.MaxValue, seized), TreasuryCategory.RecoveredFunds);
         string text = string.Format(LM.Get("persecution_log"), realm.GetKingdomName(), faith.name, MoneyDisplay.Format(seized), converted);
         TranslateHelper.LogEventMessage(text, realm);
+        ReligionChronicle.Record(faith, realm.religion, ReligionChronicle.KindConversion, text);
         LogService.LogInfo($"[EmpireCraft][宗教] {realm.GetKingdomName()} 迫害{faith.name}：{cities.Count} 城，没收 {seized}，改宗 {converted} 城");
     }
 
@@ -131,6 +132,7 @@ public static class ReligiousPersecution
                 MigrationRelations.Expelled(other, realm);
         string text = string.Format(LM.Get("expulsion_log"), realm.GetKingdomName(), faith.name, cities.Count);
         TranslateHelper.LogEventMessage(text, realm);
+        ReligionChronicle.Record(faith, realm.religion, ReligionChronicle.KindConversion, text);
         LogService.LogInfo($"[EmpireCraft][宗教] {realm.GetKingdomName()} 驱逐{faith.name}信众：{cities.Count} 城");
     }
 

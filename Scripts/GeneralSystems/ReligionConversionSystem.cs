@@ -132,6 +132,7 @@ public static class ReligionConversionSystem
         string text = string.Format(LM.Get("ruler_conversion_log"), king.getName(), realm.GetKingdomName(), faith.name);
         TranslateHelper.LogEventMessage(text, realm);
         king.RecordPersonalHistory(text);
+        ReligionChronicle.Record(faith, old, ReligionChronicle.KindConversion, text);
         LogService.LogInfo($"[EmpireCraft][宗教] {realm.GetKingdomName()} 由{old?.name ?? "无教"}皈依{faith.name}");
     }
 

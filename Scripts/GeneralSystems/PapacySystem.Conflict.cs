@@ -98,8 +98,10 @@ public static partial class PapacySystem
         state.excommunicated_at = World.world.getCurWorldTime();
         state.excommunicated_ruler_id = emperor.id;
         state.excommunication_reason = reasonKey;
-        Record(empire, string.Format(LM.Get("papal_ban_history"), Pope(religion)?.getName() ?? LM.Get("label_none"),
-            emperor.getName(), empire.GetEmpireFullName(), LM.Get(reasonKey)));
+        string text = string.Format(LM.Get("papal_ban_history"), Pope(religion)?.getName() ?? LM.Get("label_none"),
+            emperor.getName(), empire.GetEmpireFullName(), LM.Get(reasonKey));
+        Record(empire, text);
+        ReligionChronicle.Record(religion, ReligionChronicle.KindPapacy, text);
         emperor.RecordPersonalHistory(string.Format(LM.Get("personal_history_excommunicated"), LM.Get(reasonKey)));
         MonarchyLegitimacy.Invalidate(empire);
     }
@@ -109,7 +111,9 @@ public static partial class PapacySystem
         state.excommunicated_at = -1d;
         state.excommunicated_ruler_id = -1L;
         state.excommunication_reason = "";
-        Record(empire, text.Contains("{0}") ? string.Format(text, empire.GetEmpireFullName()) : text);
+        string line = text.Contains("{0}") ? string.Format(text, empire.GetEmpireFullName()) : text;
+        Record(empire, line);
+        ReligionChronicle.Record(ReligionOf(empire), ReligionChronicle.KindPapacy, line);
         MonarchyLegitimacy.Invalidate(empire);
     }
 

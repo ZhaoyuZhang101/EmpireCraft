@@ -118,6 +118,19 @@ public static class EmpireCraftTooltipLibrary
             prefab_id = "tooltips/tooltip_normal",
             callback = EmpireCraft.Scripts.Layer.MineralMap.ShowTooltip
         });
+        // 宗教图层悬停城市；原版宗教提示框换成模组的(见 Layer/ReligionMap)
+        AddOrReplace(tl, new TooltipAsset
+        {
+            id = EmpireCraft.Scripts.Layer.ReligionMap.TooltipType,
+            prefab_id = "tooltips/tooltip_normal",
+            callback = EmpireCraft.Scripts.Layer.ReligionMap.ShowTooltip
+        });
+        AddOrReplace(tl, new TooltipAsset
+        {
+            id = "religion",
+            prefab_id = "tooltips/tooltip_normal",
+            callback = EmpireCraft.Scripts.Layer.ReligionMap.ShowReligionTooltip
+        });
         AddOrReplace(tl, new TooltipAsset
         {
             id = EmpireCraft.Scripts.Layer.TianxiaMap.TooltipType,

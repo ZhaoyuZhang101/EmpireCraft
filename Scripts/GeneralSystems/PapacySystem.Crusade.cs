@@ -125,8 +125,9 @@ public static partial class PapacySystem
             : caller.GetKingdomName();
         TranslateHelper.LogEventMessage(string.Format(LM.Get("crusade_called_history"), caller_name, goal,
             target.GetKingdomName(), religion.name), caller);
-        RecordReligion(caller, string.Format(LM.Get("crusade_called_history"), caller_name, goal, target.GetKingdomName(),
-            religion.name));
+        string calledText = string.Format(LM.Get("crusade_called_history"), caller_name, goal, target.GetKingdomName(), religion.name);
+        RecordReligion(caller, calledText);
+        ReligionChronicle.Record(religion, ReligionChronicle.KindHolyWar, calledText);
         Rally(religion, war, caller, target);
     }
 
@@ -134,6 +135,9 @@ public static partial class PapacySystem
     {
         City seat = caller.capital;
         int joined = 0;
+        // 教宗正统高，响应的多(见 PopeLegitimacy)
+        float popeBonus = PopeLegitimacy.Applies(religion)
+            ? (PopeLegitimacy.Get(religion) - 50) * PopeLegitimacy.RallyPerPoint : 0f;
         foreach (Kingdom kingdom in World.world.kingdoms.ToList())
         {
             if (joined >= MaxResponders) break;
@@ -142,7 +146,7 @@ public static partial class PapacySystem
                 kingdom.isInWarWith(caller)) continue;
             Empire empire = kingdom.GetEmpire();
             if (empire != null && IsExcommunicated(empire)) continue;
-            float chance = 0.35f;
+            float chance = 0.35f + popeBonus;
             if (empire != null && IsCrowned(empire) && !State(empire).self_crowned) chance += 0.25f;
             // 西方文化、阿拉伯一线(吉哈德)的集结机会多一成
             if (empire != null ? IsWestern(empire) || IsCaliphal(empire)
@@ -210,6 +214,8 @@ public static partial class PapacySystem
                 if (caller?.data != null && !caller.isRekt() && caller.religion == religion) TryFoundOrder(religion, caller);
                 if (caller?.data != null && !caller.isRekt())
                     RecordReligion(caller, string.Format(LM.Get("crusade_won_history"), war.data.name, religion.name));
+                ReligionChronicle.Record(religion, ReligionChronicle.KindHolyWar,
+                    string.Format(LM.Get("crusade_won_history"), war.data.name, religion.name));
             }
             else
             {
@@ -217,6 +223,8 @@ public static partial class PapacySystem
                 data.CrusadeLosses++;
                 if (caller?.data != null && !caller.isRekt())
                     RecordReligion(caller, string.Format(LM.Get("crusade_lost_history"), war.data.name, religion.name));
+                ReligionChronicle.Record(religion, ReligionChronicle.KindHolyWar,
+                    string.Format(LM.Get("crusade_lost_history"), war.data.name, religion.name));
             }
         }
         catch (Exception exception)

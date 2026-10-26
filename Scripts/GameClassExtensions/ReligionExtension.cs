@@ -37,6 +37,21 @@ public static class ReligionExtension
         // 本宗教已分出过正教会、什叶派(各一次)
         public bool EasternSplit;
         public bool ShiaSplit;
+        // 教宗(见 PapalElection；LeaderID 记现任教宗)：怎么选立的(0 未记、1 枢机推举、2 世俗强立)、选立时间
+        public int PopeChosenBy;
+        public double PopeChosenAt = -1d;
+        // 大事记(见 ReligionChronicle)：旧的在前，至多 ReligionChronicle.MaxEvents 条
+        public List<ReligionEventData> Chronicle = new();
+        // 并入本教的地方教会(见 ReligionSphere.Absorb)：名字与并入时间，宗教窗口谱系页列出
+        public List<ReligionEventData> Absorbed = new();
+    }
+
+    // 宗教大事记的一条：时间、类别(ReligionChronicle.Kind*)、已拼好的文字
+    public class ReligionEventData
+    {
+        public double at;
+        public int kind;
+        public string text = "";
     }
     public static ReligionExtraData GetOrCreate(this Religion a, bool isSave = false)
     {

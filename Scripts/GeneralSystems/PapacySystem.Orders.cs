@@ -69,6 +69,8 @@ public static partial class PapacySystem
         RecordReligion(host, string.Format(LM.Get("knight_order_founded_history"), order.name, host.GetKingdomName()));
         TranslateHelper.LogEventMessage(string.Format(LM.Get("knight_order_founded_history"), order.name,
             host.GetKingdomName()), host);
+        ReligionChronicle.Record(religion, ReligionChronicle.KindHolyWar,
+            string.Format(LM.Get("knight_order_founded_history"), order.name, host.GetKingdomName()));
     }
 
     private static void PickGrandMaster(KnightOrderData order, Kingdom host)

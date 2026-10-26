@@ -125,7 +125,10 @@ public static partial class HolyRomanSystem
         data.ParentReligionId = old.data.id;
         data.SplitAt = World.world.getCurWorldTime();
         Convert(founder, old, church);
-        Record(empire, string.Format(LM.Get("hre_reformation_founded_history"), founder.GetKingdomName(), church.name, old.name));
+        string text = string.Format(LM.Get("hre_reformation_founded_history"), founder.GetKingdomName(), church.name, old.name);
+        Record(empire, text);
+        ReligionChronicle.Clear(church);
+        ReligionChronicle.Record(old, church, ReligionChronicle.KindSchism, text);
     }
 
     // 诸侯改宗：改奉从皇帝所奉宗教分出去的新教会

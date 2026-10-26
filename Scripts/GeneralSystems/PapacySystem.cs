@@ -280,6 +280,8 @@ public static partial class PapacySystem
             };
         }
         target += Mathf.Clamp(stance, -20f, 20f);
+        // 教宗本人的正统(见 PopeLegitimacy)
+        if (PopeLegitimacy.Applies(religion)) target += (PopeLegitimacy.Get(religion) - 50) / 5f;
         if (IsCaptive(religion)) target -= CaptivityPenalty;
         if (data.Schism) target -= SchismPenalty;
         data.PapalAuthority = Mathf.Clamp(data.PapalAuthority + (target - data.PapalAuthority) * AuthorityDrift, 0f, 100f);
@@ -309,6 +311,8 @@ public static partial class PapacySystem
             RealmNamingSystem.OnPapalCoronation(empire, RealmNamingSystem.CoronationVia(empire, papacy, false));
             return;
         }
+        // 教宗正统太低(见 PopeLegitimacy)：各帝国不赴其加冕
+        if (PopeLegitimacy.Applies(religion) && PopeLegitimacy.Get(religion) < PopeLegitimacy.CoronationBelow) return;
         // 皇帝要远征教廷，一年后到达才加冕(见 HolyRomanSystem.Romzug)；到了却与教廷开战就作罢
         int romzug = HolyRomanSystem.Romzug(empire);
         if (romzug == HolyRomanSystem.RomzugTravelling) return;
@@ -346,6 +350,7 @@ public static partial class PapacySystem
         empire.RecordHistory(directContent: text, actorId: emperor.id, kingdomId: empire.CoreKingdom.id);
         TranslateHelper.LogEventMessage(text, empire.CoreKingdom);
         emperor.RecordPersonalHistory(text);
+        ReligionChronicle.Record(religion, ReligionChronicle.KindPapacy, text);
         // 封建制帝国的帝国权威：教宗加冕、自行加冕都是 +8(每位皇帝一次)
         HolyRomanSystem.OnCrowned(empire, emperor, self);
         MonarchyLegitimacy.Invalidate(empire);

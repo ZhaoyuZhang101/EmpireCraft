@@ -111,6 +111,8 @@ public static class ReligionSchismSystem
         PapacySystem.AddAuthority(old, -10f);
         string text = string.Format(LM.Get("great_schism_log"), empire.GetEmpireFullName(), oldHoly.GetCityName(), church.name);
         TranslateHelper.LogEventMessage(text, core);
+        ReligionChronicle.Clear(church);
+        ReligionChronicle.Record(old, church, ReligionChronicle.KindSchism, text);
         LogService.LogInfo($"[EmpireCraft][宗教] 东西教会大分裂：{empire.GetEmpireName()} 另立{church.name}，随之 {followers} 国");
         return true;
     }
@@ -146,6 +148,8 @@ public static class ReligionSchismSystem
             if (Alive(follower) && follower.religion == old) ConvertKingdom(follower, old, shia);
         string text = string.Format(LM.Get("shia_split_log"), claimant.GetKingdomName(), shia.name, old.name);
         TranslateHelper.LogEventMessage(text, claimant);
+        ReligionChronicle.Clear(shia);
+        ReligionChronicle.Record(old, shia, ReligionChronicle.KindSchism, text);
         if (empire.data != null) empire.RecordHistory(directContent: text, actorId: head.id, kingdomId: claimant.id);
         LogService.LogInfo($"[EmpireCraft][宗教] {claimant.GetKingdomName()} 争位，另奉{shia.name}(分自{old.name})");
     }

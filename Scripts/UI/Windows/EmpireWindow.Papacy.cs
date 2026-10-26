@@ -59,6 +59,10 @@ namespace EmpireCraft.Scripts.UI.Windows
             see.AddListRow(HalfWidth, 1, null, LM.Get("papacy_state"), PapacyStatus(religion), titleWidth: 50f);
             if (papacy != null)
                 see.AddListRow(HalfWidth, 2, null, LM.Get("papacy_see_treasury"), MoneyDisplay.Format(papacy.GetMoney()), titleWidth: 50f);
+            // 教宗本人的正统(见 PopeLegitimacy)
+            if (PopeLegitimacy.Applies(religion))
+                see.AddListRow(HalfWidth, 3, null, LM.Get("religion_pope_legitimacy"), PopeLegitimacy.Get(religion).ToString(),
+                    titleWidth: 50f);
 
             var realm = columns.BeginColumnCard(HalfWidth, "papacy_realm_title", WideKit.Cyan);
             string contest = PapacySystem.InContest(_empire)
@@ -128,8 +132,13 @@ namespace EmpireCraft.Scripts.UI.Windows
                 }),
                 ("papacy_act_crusade", LM.Get("papacy_act_crusade"), () => { if (PapacySystem.ActCrusade(_empire)) ShowPapacy(pArg0); }),
                 ("papacy_act_order", LM.Get("papacy_act_order"), () => { if (PapacySystem.ActFoundOrder(_empire)) ShowPapacy(pArg0); }));
-            // 普世之名：直接授(须在天下里、天下没有别的普世皇帝)、收回
+            // 普世之名：直接授(须在天下里、天下没有别的普世皇帝)、收回；神圣之名：授予(没由教宗加冕的先加冕)、去掉
             actions.AddButtonRow(MainWidth,
+                ("papacy_act_holy", LM.Get(PapacySystem.HasHolyName(_empire) ? "papacy_act_holy_revoke" : "papacy_act_holy"), () =>
+                {
+                    if (PapacySystem.ActHoly(_empire)) ShowPapacy(pArg0);
+                    else ShowPapacyBlocked(PapacySystem.HolyBlocker(_empire));
+                }),
                 ("papacy_act_universal", LM.Get("papacy_act_universal"), () =>
                 {
                     if (RealmNamingSystem.DecreeUniversal(_empire)) ShowPapacy(pArg0);

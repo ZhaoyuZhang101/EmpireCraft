@@ -1,7 +1,9 @@
 using System.Linq;
 using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
+using EmpireCraft.Scripts.System;
 using NeoModLoader.General;
 
 namespace EmpireCraft.Scripts.GeneralSystems;
@@ -42,6 +44,80 @@ public static partial class PapacySystem
         if (IsExcommunicated(empire)) Lift(empire, state, LM.Get("realm_coerce_ban_lifted_history"));
         if (!IsCrowned(empire) || state.self_crowned) Crown(empire, state, empire.Emperor, self: false, papacy);
         return true;
+    }
+
+    // 神圣之名(用户 2026-10-27 要"让帝国加上神圣前缀的按钮"，并补上加冕称神圣帝国的事件；以前只有神授君权决议能给，
+    // 那条决议要教宗国就在本帝国里，又读空的帝国国教，几乎从不触发)：
+    //   · 授名：没由教宗加冕过的先加冕(教廷不在、已脱离罗马的自行加冕)，国号加"神圣"前缀；天下之名关着时国号取教廷都城的法理
+    //     (原型"神圣罗马")；史书、世界日志记"教宗为某加冕，尊为某某人的皇帝，某某自此称神圣某某"；
+    //   · 去名：前缀还原为授名前的(方位、"大"等)；
+    //   · 神授君权决议(见 TempFac_神授君权)与教廷页的按钮共用这里。
+    public static bool HasHolyName(Empire empire) =>
+        empire?.data != null && empire.data.directPre == OverallHelperFunc.HolyPrefixKey;
+
+    // 授不了神圣之名的缘由(同 CrownBlocker)
+    public static string HolyBlocker(Empire empire)
+    {
+        if (!Applies(empire)) return "papacy_block_regime";
+        if (IsHolySee(empire)) return "papacy_block_holy_see";
+        if (empire.Emperor == null) return "papacy_crown_block_vacant";
+        if (IsExcommunicated(empire)) return "papacy_crown_block_banned";
+        return null;
+    }
+
+    // 教廷页按钮：有神圣之名的去掉，没有的授予
+    public static bool ActHoly(Empire empire)
+    {
+        if (HasHolyName(empire))
+        {
+            RevokeHoly(empire);
+            return true;
+        }
+        if (HolyBlocker(empire) != null) return false;
+        GrantHoly(empire);
+        return true;
+    }
+
+    public static void GrantHoly(Empire empire)
+    {
+        Religion religion = ReligionOf(empire);
+        Kingdom papacy = Papacy(religion);
+        PapalRelationState state = State(empire);
+        Actor emperor = empire.Emperor;
+        bool self = BrokeWithRome(empire) || papacy == null;
+        if (!IsCrowned(empire) || state.self_crowned && !self)
+        {
+            Crown(empire, state, emperor, self, papacy);
+            if (!self) RealmNamingSystem.OnPapalCoronation(empire, RealmNamingSystem.CoronationVia(empire, papacy, false));
+        }
+        string before = empire.GetEmpireFullName();
+        string people = RealmNamingSystem.PeopleName(empire);
+        if (!HasHolyName(empire)) state.holy_previous_prefix = empire.data.directPre ?? "";
+        empire.data.directPre = OverallHelperFunc.HolyPrefixKey;
+        string seatName = RealmNamingSystem.Enabled ? null : papacy?.capital?.GetTitle()?.name;
+        empire.SetEmpireName(string.IsNullOrWhiteSpace(seatName) ? empire.GetEmpireName() : seatName);
+        Actor pope = Pope(religion);
+        string text = self || pope == null
+            ? string.Format(LM.Get("holy_name_self_history"), emperor.getName(), people, before, empire.GetEmpireFullName())
+            : string.Format(LM.Get("holy_name_granted_history"), pope.getName(), emperor.getName(), people, before,
+                empire.GetEmpireFullName());
+        EventRecorder.Record(empire, text);
+        emperor.RecordPersonalHistory(text);
+        ReligionChronicle.Record(religion, ReligionChronicle.KindPapacy, text);
+        MonarchyLegitimacy.Invalidate(empire);
+        NeoModLoader.services.LogService.LogInfo($"[EmpireCraft][教廷] {before} 得神圣之名，称 {empire.GetEmpireFullName()}");
+    }
+
+    public static void RevokeHoly(Empire empire)
+    {
+        if (!HasHolyName(empire)) return;
+        PapalRelationState state = State(empire);
+        string before = empire.GetEmpireFullName();
+        empire.data.directPre = state?.holy_previous_prefix ?? "";
+        if (state != null) state.holy_previous_prefix = "";
+        empire.SetEmpireName(empire.GetEmpireName());
+        EventRecorder.Record(empire, string.Format(LM.Get("holy_name_revoked_history"), before, empire.GetEmpireFullName()));
+        MonarchyLegitimacy.Invalidate(empire);
     }
 
     // 绝罚、解除绝罚做不了的缘由(同 CrownBlocker)

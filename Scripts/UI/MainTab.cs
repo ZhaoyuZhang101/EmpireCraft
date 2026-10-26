@@ -154,6 +154,9 @@ internal static class MainTab
         InstitutionWindow.CreateAndInit(nameof(InstitutionWindow), new Vector2(480f, 380f));
         // 模组文化窗口（点击文化图层/原版文化链接时打开，见 CultureWindowRedirectPatch）
         CultureInfoWindow.CreateAndInit(nameof(CultureInfoWindow), new Vector2(480f, 380f));
+        // 宗教窗口(点宗教图层、原版宗教链接时打开，见 ReligionWindowRedirectPatch)与天下宗教名册
+        ReligionInfoWindow.CreateAndInit(nameof(ReligionInfoWindow), new Vector2(480f, 380f));
+        WorldReligionsWindow.CreateAndInit(nameof(WorldReligionsWindow), new Vector2(480f, 380f));
         IdeologyInfoWindow.CreateAndInit(nameof(IdeologyInfoWindow), new Vector2(480f, 380f));
         TechWindow.CreateAndInit(nameof(TechWindow), new Vector2(480f, 380f));
         // 一国的军事(不属于帝国的王国点地图兵牌时、原版王国窗口"军事"页签打开)
@@ -189,6 +192,8 @@ internal static class MainTab
             [nameof(KingdomMilitaryWindow)] = "iconWar",
             [nameof(KingdomOverviewWindow)] = "iconKingdom",
             [nameof(FamousTalentWindow)] = "iconKings",
+            [nameof(ReligionInfoWindow)] = "iconReligion",
+            [nameof(WorldReligionsWindow)] = "iconReligion",
         };
         foreach (KeyValuePair<string, string> pair in icons)
         {
@@ -395,6 +400,23 @@ internal static class MainTab
         PowerButton cultureLayer = FixFunctions.CloneExistingLayerButton(MetaType.Culture,
                  SpriteTextureLoader.getSprite("ui/icons/iconCulture"));
         if (cultureLayer != null) AddButton(CULTURE_GROUP, cultureLayer);
+
+        // 宗教图层(原版图层，铭牌换成模组文字铭牌，见 EmpireCraftNamePlateLibrary)与天下宗教名册
+        PowerButton religionLayer = FixFunctions.CloneExistingLayerButton(MetaType.Religion,
+                 SpriteTextureLoader.getSprite("ui/icons/iconReligion"));
+        if (religionLayer != null) AddButton(CULTURE_GROUP, religionLayer);
+        var worldReligionsButton = PowerButtonCreator.CreateWindowButton("world_religions", nameof(WorldReligionsWindow),
+            SpriteTextureLoader.getSprite("ui/icons/iconReligion"));
+        worldReligionsButton._button.OnHover(() =>
+        {
+            Tooltip.show(worldReligionsButton, "normal", new TooltipData()
+            {
+                tip_name = "show_world_religions",
+                tip_description = "show_world_religions_description"
+            });
+        });
+        worldReligionsButton._button.OnHoverOut(Tooltip.hideTooltip);
+        AddButton(CULTURE_GROUP, worldReligionsButton);
 
         // 理念图层(独立于原版宗教图层)
         PowerButton ideologyLayer = FixFunctions.CreateLayerButton(MetaTypeExtension.Ideology,

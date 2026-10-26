@@ -49,6 +49,14 @@ public static partial class RealmNamingSystem
         return own == null ? null : TianxiaSystem.Lead(own);
     }
 
+    // "某某人的皇帝"里的某某(神圣之名的史书用，见 PapacySystem.GrantHoly)：本帝国所在天下的基名，取不到用本帝国国号
+    public static string PeopleName(Empire empire)
+    {
+        EmpireCore lead = UniversalLead(empire);
+        string baseName = lead == null ? null : TianxiaBaseName(lead);
+        return string.IsNullOrWhiteSpace(baseName) ? empire.GetEmpireName() : baseName;
+    }
+
     // 同一天下里另一位未失格的普世皇帝
     public static Empire OtherUniversal(EmpireCore lead, Empire except)
     {

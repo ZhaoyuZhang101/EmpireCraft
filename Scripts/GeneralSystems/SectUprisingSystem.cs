@@ -43,6 +43,15 @@ public static class SectUprisingSystem
         }
     }
 
+    // 宗教图层提示用：华夏一线、末世饥荒苛政有其一、稳定低于起事线(教门可能趁乱起事)
+    public static bool AtRisk(City city)
+    {
+        Kingdom kingdom = city?.kingdom;
+        if (city?.data == null || city.isRekt() || kingdom?.data == null || kingdom.wild) return false;
+        return InstitutionSystem.GetCultureLine(CultureService.GetRealmCulture(Realm(kingdom))) == "Huaxia" && Distressed(city, kingdom) &&
+               CityStabilitySystem.Effective(city) < CityStabilityRules.RebellionThreshold;
+    }
+
     // 末世、饥荒、苛政有其一
     private static bool Distressed(City city, Kingdom kingdom)
     {

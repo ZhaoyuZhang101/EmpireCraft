@@ -595,6 +595,25 @@ public static class EmpireCraftNamePlateLibrary
         // check_cursor_highlight 字段），下面单独接管它。
         HookVanillaCultureMapModeColoring();
 
+        // 宗教图层：原版方框铭牌换成模组文字铭牌，每教一条(见 Layer/ReligionMap)；悬停城市出模组提示
+        NameplateAsset assetReligion = new NameplateAsset
+        {
+            id = "plate_religion",
+            path_sprite = "ui/nameplates/nameplate_kingdom",
+            map_mode = MetaType.Religion,
+            action_main = (manager, asset) =>
+            {
+                if (!IsNameplateReady) return;
+                TerritoryLabelRenderer.BeginFrame(MetaType.Religion);
+                ReligionMap.SubmitLabels();
+                TerritoryLabelRenderer.EndFrame();
+            }
+        };
+        AssetManager.nameplates_library.dict.Remove("Religion");
+        AssetManager.nameplates_library.map_modes_nameplates[assetReligion.map_mode] = assetReligion;
+        AssetManager.nameplates_library.dict["Religion"] = assetReligion;
+        ReligionMap.Configure();
+
         NameplateAsset assetIdeology = new NameplateAsset
         {
             id = "plate_ideology",
