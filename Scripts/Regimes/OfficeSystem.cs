@@ -208,7 +208,9 @@ public class OfficeObject
                     var kingdom = (Kingdom) meta_object;
                     if (kingdom != null)
                     {
-                        if (OverallHelperFunc.HasChangeToGiveBirth(officer, kingdom.king) && RoyalHouseSystem.CanBirth(kingdom.king))
+                        // 原版几岁就算成年：君主与女官都到生养的年纪(见 RealisticAgeSystem.MinParentAge)
+                        if (RealisticAgeSystem.OldEnoughToParent(officer) && RealisticAgeSystem.OldEnoughToParent(kingdom.king) &&
+                            OverallHelperFunc.HasChangeToGiveBirth(officer, kingdom.king) && RoyalHouseSystem.CanBirth(kingdom.king))
                         {
                             BabyMaker.makeBaby(kingdom.king, officer); 
                         } 

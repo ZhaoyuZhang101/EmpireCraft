@@ -14,7 +14,8 @@ public class EmpireCraftActorAddLover:GameAIActorBase
     public override BehResult execute(Actor pActor)
     {
         if (!pActor.isUnitFitToRule()) return BehResult.Continue;
-        if (!pActor.isAdult()) return BehResult.Continue;
+        // 原版几岁就算成年：到了生养的年纪才纳妾、娶妻(见 RealisticAgeSystem.MinParentAge)
+        if (!pActor.isAdult() || !GeneralSystems.RealisticAgeSystem.OldEnoughToParent(pActor)) return BehResult.Continue;
         if (!pActor.hasKingdom()) return BehResult.Continue;
         if (pActor.IsEmperor()) return BehResult.Continue;
         var culture = pActor.culture;
@@ -34,7 +35,8 @@ public class EmpireCraftActorAddLover:GameAIActorBase
                 var cActor = cIdentity._actor;
                 if (cActor != null)
                 {
-                    if (OverallHelperFunc.HasChangeToGiveBirth(cActor, pActor)&&cActor.IsNeedToGiveBirth()&&
+                    if (GeneralSystems.RealisticAgeSystem.OldEnoughToParent(cActor) &&
+                        OverallHelperFunc.HasChangeToGiveBirth(cActor, pActor)&&cActor.IsNeedToGiveBirth()&&
                         EmpireCraft.Scripts.GeneralSystems.RoyalHouseSystem.CanBirth(pActor))
                     {
                         BabyMaker.makeBaby(pActor, cActor); 
@@ -53,6 +55,7 @@ public class EmpireCraftActorAddLover:GameAIActorBase
                 // 原版的恋人与模组家族里的配偶/妾都要空着(只看原版会把别人的妻妾挑走)
                 var actor = pActor.kingdom.units.Find(a => a.data.sex == loverSex
                                                               && a.age <= 35 && a.isAdult()
+                                                              && GeneralSystems.RealisticAgeSystem.OldEnoughToParent(a)
                                                               && !a.hasLover()
                                                               && a.GetPersonalIdentity()?.IsFreeToMarry(identity.id) != false
                                                               && !GeneralSystems.KinshipRules.AreCloseKin(pActor, a));

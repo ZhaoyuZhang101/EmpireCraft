@@ -34,6 +34,22 @@ public static class RealisticAgeSystem
         return false;
     }
 
+    // 生养子女的最低年纪(用户 2026-10-26 "会出现儿子比父亲大，以及3岁就有儿子")：原版几岁就算成年，模组的生育入口
+    // (原版怀孕判定的替换、妻妾添丁、君主无子强制生育、司生育的女官)以前只看成年，几岁的人也生养。
+    // 智慧种族十六岁起：开着真实年龄一律按人类；关着按物种寿命折算(同 CityPopulationSystem.AssignAdultAge)
+    public const int ParentAge = 16;
+
+    public static int MinParentAge(Actor actor)
+    {
+        if (actor?.data == null || !actor.isSapient()) return 0;
+        if (Enabled) return ParentAge;
+        float lifespan = actor.stats?["lifespan"] ?? 0f;
+        return lifespan > 0f && lifespan < 80f ? Math.Max(1, (int)Math.Round(ParentAge * lifespan / 80f)) : ParentAge;
+    }
+
+    // 没有这个人(单亲生育、对方空着)算够
+    public static bool OldEnoughToParent(Actor actor) => actor?.data == null || actor.getAge() >= MinParentAge(actor);
+
     // 君主、储君按古代的天年(见 RoyalHouseSystem.RoyalDeathAge，成为君主、储君时已近天年的另定，见 RoyalLifespan)，
     // 其余六十到八十
     public static int DeathAge(Actor actor) => RoyalHouseSystem.IsRoyal(actor)

@@ -221,7 +221,9 @@ public class BabyHelperPatch : GamePatch
     public static bool CanMakeBabies(Actor pActor, ref bool __result)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(pActor)) return true;
-        if (!pActor.isAdult())
+        // 原版几岁就算成年：本人与伴侣都要到生养的年纪(见 RealisticAgeSystem.MinParentAge)
+        if (!pActor.isAdult() || !EmpireCraft.Scripts.GeneralSystems.RealisticAgeSystem.OldEnoughToParent(pActor) ||
+            !EmpireCraft.Scripts.GeneralSystems.RealisticAgeSystem.OldEnoughToParent(pActor.lover))
         {
             __result = false;
             return false;

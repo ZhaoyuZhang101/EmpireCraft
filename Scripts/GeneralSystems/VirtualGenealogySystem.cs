@@ -45,6 +45,9 @@ public static class VirtualGenealogySystem
         if (ReferenceEquals(_world, World.world)) return;
         _world = World.world;
         VirtualIds.Clear();
+        // 亲子年纪颠倒的先修(要赶在下面按年纪改生日之前，生日还能作证)
+        int ordered = RepairAgeOrder();
+        if (ordered > 0) LogService.LogInfo($"[EmpireCraft][虚拟族谱] 亲子年纪颠倒、几岁生养的改正 {ordered} 处");
         int repaired = 0;
         foreach (PersonalClanIdentity person in SpecificClanManager._globalPersonLookup.Values)
         {
@@ -114,6 +117,78 @@ public static class VirtualGenealogySystem
         if (clanSurnames > 0) LogService.LogInfo($"[EmpireCraft][虚拟族谱] 华夏宗族里不姓本族姓的改回 {clanSurnames} 人");
         int vanillaNames = SpecificClanManager.SyncAllVanillaClanNames();
         if (vanillaNames > 0) LogService.LogInfo($"[EmpireCraft][虚拟族谱] 原版氏族名跟随宗族、支脉改名 {vanillaNames} 个");
+    }
+
+    // 亲子年纪的修补(用户 2026-10-26 "会出现儿子比父亲大，以及3岁就有儿子")：以前不满一岁的虚拟族人落成时年龄设不回零岁，
+    // 按平民落成成了二三十岁，再并回人口就记成这个岁数；原版几岁就算成年，几岁的人也生养(现在十六岁起，见
+    // RealisticAgeSystem.OldEnoughToParent)。读档时在世的人按年纪从小到大逐个和父母比，比父母小不到十六岁的：
+    //   · 自己的生日对得上(按生日比父母小十六岁以上)：年纪按生日改回(落成的婴儿多半生日还是对的)；
+    //   · 还比父母大：改成比父母小十八岁(至少零岁)；
+    //   · 仍小不到十六岁、父母在世(几岁就生养的那一代)：父母的年纪抬到比他大十八岁；父母已故的不动。
+    // 抬了年纪的父母轮到他时再和祖父母比
+    private const int ParentGapYears = RealisticAgeSystem.ParentAge, FixedGapYears = 18;
+
+    private static int RepairAgeOrder()
+    {
+        if (World.world == null) return 0;
+        double now = World.world.getCurWorldTime();
+        int fixedCount = 0;
+        List<PersonalClanIdentity> living = SpecificClanManager._globalPersonLookup.Values
+            .Where(person => person != null && person.is_alive && (person.father > 0 || person.mother > 0))
+            .OrderBy(person => person.age).ToList();
+        foreach (PersonalClanIdentity child in living)
+        {
+            foreach (long parentId in new[] { child.father, child.mother })
+            {
+                PersonalClanIdentity parent = parentId > 0 ? SpecificClanManager.getPerson(parentId) : null;
+                if (parent == null || parent.id == child.id) continue;
+                double parentBorn = BornTime(parent, now), childBorn = BornTime(child, now);
+                if (double.IsNaN(parentBorn) || double.IsNaN(childBorn) ||
+                    childBorn - parentBorn >= (ParentGapYears - 1) * 60d) continue;
+                if (HistoryDateFormatter.TryParseTime(child.birthday, out double born) && born <= now &&
+                    born - parentBorn >= ParentGapYears * 60d && Math.Abs(born - childBorn) > 90d)
+                {
+                    SetPersonAge(child, Date.getYearsSince(born), now);
+                    fixedCount++;
+                    continue;
+                }
+                if (childBorn <= parentBorn)
+                {
+                    SetPersonAge(child, Math.Max(0, (int)((now - parentBorn) / 60d) - FixedGapYears), now);
+                    fixedCount++;
+                    childBorn = BornTime(child, now);
+                    if (childBorn - parentBorn >= (ParentGapYears - 1) * 60d) continue;
+                }
+                if (!parent.is_alive) continue;
+                SetPersonAge(parent, Math.Max(0, (int)((now - childBorn) / 60d)) + FixedGapYears, now);
+                fixedCount++;
+            }
+        }
+        return fixedCount;
+    }
+
+    // 出生时间：在世有实体的看实体，虚拟族人按眼下年纪倒推，已故的看生日(没有就卒年减享年)；算不出为 NaN
+    private static double BornTime(PersonalClanIdentity person, double now)
+    {
+        Actor actor = person.is_alive && !person.is_virtual ? person._actor : null;
+        if (actor?.data != null && person.actor_id == actor.id) return now - actor.getAge() * 60d;
+        if (person.is_alive) return now - person.age * 60d;
+        if (HistoryDateFormatter.TryParseTime(person.birthday, out double born)) return born;
+        return person.recordedAge >= 0 && HistoryDateFormatter.TryParseTime(person.deathday, out double died)
+            ? died - person.recordedAge * 60d : double.NaN;
+    }
+
+    // 改在世的人的年纪：有实体的改实体，虚拟族人改记下的年纪；生日跟着
+    private static void SetPersonAge(PersonalClanIdentity person, int years, double now)
+    {
+        Actor actor = person.is_virtual ? null : person._actor;
+        if (actor?.data != null && person.actor_id == actor.id && !actor.isRekt()) SetAge(actor, years);
+        else
+        {
+            person.recordedAge = years;
+            person.virtual_since = now;
+        }
+        person.birthday = Date.getDate(now - years * 60d);
     }
 
     // 读档校正旧存档的生日：成年落地的人以前把落地日记成生日(见 ActorExtension.TrueBirthTime)，族谱上父母只比子女大
@@ -371,10 +446,12 @@ public static class VirtualGenealogySystem
     private static object[] Args(global::System.Reflection.MethodInfo method, object first) =>
         method.GetParameters().Select((parameter, index) => index == 0 ? first : parameter.DefaultValue).ToArray();
 
-    // 把单位的年龄调到 target：优先改"额外年龄"，否则把出生时间往前推(按实际 getAge() 结果二分查找，不依赖每年秒数)
+    // 把单位的年龄调到 target：优先改"额外年龄"，否则把出生时间往前推(按实际 getAge() 结果二分查找，不依赖每年秒数)。
+    // 零岁也要设：不满一岁的虚拟族人落成时，以前跳过零岁，按平民落成成了二三十岁(见 CityPopulationSystem.SpawnFromGroup)，
+    // 再并回人口就记成这个岁数，族谱里儿子比父亲还大(用户 2026-10-26)
     public static void SetAge(Actor actor, int target)
     {
-        if (actor?.data == null || target <= 0) return;
+        if (actor?.data == null || target < 0) return;
         try
         {
             // 原版年龄 = 出生至今的年数 + 额外年龄
