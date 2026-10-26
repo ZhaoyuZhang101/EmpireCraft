@@ -37,6 +37,12 @@ public class ZonePaintBudget : GamePatch
     private const double LayerPrecomputeBudgetMs = 16d, CatchUpBudgetMs = 12d;
     private const float AgedSeconds = 2f;
     private const int MinZonesPerFrame = 6;
+    // 排了太久的(StarveSeconds 以上)不看预算先画，每帧至多镜头里 StarvedVisiblePerFrame 块、镜头外 StarvedHiddenPerFrame 块
+    // (用户 2026-10-27 截图"颜色还是存在残留"：图层诊断里镜头里的块排着等上色 90~140 秒、镜头外 400 秒——原版每轮从头按国、
+    // 按城巡检，预算总被排在前面、一直在变的地块(战线推进、翻牌)用掉，排了 2 秒的只多给 2 毫秒，大地图上排在后面的一直轮不到)
+    private const float StarveSeconds = 4f;
+    private const int StarvedVisiblePerFrame = 10, StarvedHiddenPerFrame = 4;
+    private static int _starvedVisible, _starvedHidden;
     private static readonly double TicksPerMs = Stopwatch.Frequency / 1000d;
 
     private static int _frame = -1, _painted, _deferredFrame = -10;
@@ -255,6 +261,7 @@ public class ZonePaintBudget : GamePatch
         _frame = frame;
         _painted = 0;
         _spent = 0L;
+        _starvedVisible = _starvedHidden = 0;
         // 隔一阵没有延后的空白地块才算画完(原版隔一帧才巡检一轮，隔两帧就记，一阵分帧被拆成一帧一行)
         if (_blankFrames > 0 && frame - _blankLastFrame > 30) ReportBlank();
         // 一阵子没有延后的空白地块：清掉残留的记号(延后后又不归谁、不再画的块)
@@ -312,6 +319,14 @@ public class ZonePaintBudget : GamePatch
                 _layerPendingCount++;
             }
             Defer(__instance, ref __result);
+            return;
+        }
+        // 饿了太久的先画(见 StarveSeconds)
+        if (Waited(__instance) >= StarveSeconds &&
+            (__instance.visible ? _starvedVisible++ < StarvedVisiblePerFrame : _starvedHidden++ < StarvedHiddenPerFrame))
+        {
+            if (Blank.Count > 0) Blank.Remove(__instance.id);
+            Painting(__instance);
             return;
         }
         if (_painted < MinZonesPerFrame)
