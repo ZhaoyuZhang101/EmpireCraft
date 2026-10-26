@@ -233,6 +233,17 @@ public sealed class ConstitutionalEconomyState
     public double last_dynastic_uprising_attempt = -1d;
     public float dynastic_strain;
     public bool dynastic_crisis_announced;
+    // 王朝积弊满额(用户 2026-10-26，见 DynasticCycleSystem)：到满额的时间(-1 = 未满额；积弊只在改朝换代时降回去才清)；
+    // 满额后第一场民变的时间(-1 = 还没起)与那时本帝国原有的城数(连同本朝民变已占去的；律令制群雄割据的五成线，见 ProvincialCollapseSystem)。旧档 -1 / 0
+    public double dynastic_saturated_since = -1d;
+    public double saturated_uprising_at = -1d;
+    public int saturated_origin_cities;
+    // 君主早逝、皇位更迭频繁(用户 2026-10-26)：记下的在位君主、他的即位时间与即位时的年纪；本朝近 20 年各次换君的时间。
+    // 旧档 -1：头一次年度结算按当今补记(见 DynasticCycleSystem.TrackRuler)
+    public long reign_ruler_id = -1L;
+    public double reign_ruler_since = -1d;
+    public int reign_ruler_start_age = -1;
+    public List<double> recent_successions = new();
     // 封国/城市腐败按户加权的年度快照；中央腐败仍实时读取原值。-1 兼容旧档。
     public double local_corruption_snapshot = -1d;
     public double last_corruption_snapshot = -1d;
@@ -242,6 +253,10 @@ public sealed class ConstitutionalEconomyState
     public float harsh_other_burden = -1f;
     public float harsh_burden;
     public string harsh_main_cause = "";
+    // 徭役与大兴土木(见 CorveeSystem)：工役累计、其中的大工程、上次结算衰减的时间。旧档 0 / -1
+    public float corvee_load;
+    public float grand_works;
+    public double corvee_updated = -1d;
     // 现代国家的街头抗争：0 平静 / 1 游行示威 / 2 冲突 / 3 大规模暴乱；暴乱持续年数、连续镇压年数
     public int street_unrest_stage;
     public int street_unrest_years;

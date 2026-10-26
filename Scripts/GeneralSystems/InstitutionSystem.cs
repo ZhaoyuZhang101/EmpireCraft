@@ -1722,6 +1722,11 @@ public static partial class InstitutionSystem
         }
     }
 
+    // 危局时怨气回落的速度(×0.5，即每年 16% → 8%)；平民怨气下限：积弊 60 时 20，每多一点 +1
+    private const float CrisisFallFactor = 0.5f;
+    private const float CrisisGrievanceFloor = 20f;
+    private const float CrisisFloorPerStrain = 1f;
+
     private static void UpdateSocialUnrest(Empire empire)
     {
         InstitutionSocialUnrestConfig config = InstitutionDefinitionRegistry.Global.social_unrest;
@@ -1739,6 +1744,16 @@ public static partial class InstitutionSystem
         state.avg_city_stability = living.Stability;
         state.arrears_months = living.ArrearsMonths;
         MonarchyLegitimacy.Invalidate(empire);
+        // 徭役(见 CorveeSystem)：农民、国人、野人的怨气目标值按每城摊到的工役加，最多 +10
+        float corvee = CorveeSystem.PeasantPressure(empire);
+        // 危局(王朝积弊 ≥ 60，见 DynasticCycleSystem)：用户 2026-10-26"积弊满额之后，民怨只升不降"，按对照方案改为
+        // 各阶层怨气往下回落的速度减半(往上照旧)，平民(PopularGrievance.IsCommoner)的怨气另有下限：
+        // 积弊 60 时 20，每多一点 +1，满额 100 时 60(仍低于阶层起义的 75)。改革阵痛、整顿吏治等照旧
+        bool crisis = DynasticCycleSystem.InCrisis(empire);
+        float crisisFloor = crisis
+            ? CrisisGrievanceFloor + Math.Max(0f, DynasticCycleSystem.GetPressure(empire) -
+                                                 DynasticCycleRules.CrisisPressure) * CrisisFloorPerStrain
+            : 0f;
 
         foreach (SocialClass socialClass in Enum.GetValues(typeof(SocialClass)).Cast<SocialClass>())
         {
@@ -1777,13 +1792,33 @@ public static partial class InstitutionSystem
                 strongestPressure = float.MaxValue;
                 strongestCause = material.Cause;
             }
+            if (corvee > 0f && socialClass.IsPeasantry())
+            {
+                target = InstitutionRules.Clamp100(target + corvee);
+                if (corvee > institutionalPressure && corvee > material.Pressure)
+                {
+                    strongestPressure = float.MaxValue;
+                    strongestCause = "material:corvee";
+                }
+            }
             if (empire.data?.constitutional_economy?.welfare_funded == true &&
                 (socialClass == SocialClass.Labour || socialClass.IsPeasantry()))
                 target = InstitutionRules.Clamp100(target -
                     8f * empire.data.constitutional_economy.welfare_level);
             float current = state.class_grievances[socialClass];
+            float adjustment = config.annual_adjustment_rate;
+            if (crisis)
+            {
+                if (PopularGrievance.IsCommoner(socialClass) && crisisFloor > target)
+                {
+                    target = crisisFloor;
+                    strongestPressure = float.MaxValue;
+                    strongestCause = "material:crisis";
+                }
+                if (target < current) adjustment *= CrisisFallFactor;
+            }
             state.class_grievances[socialClass] = InstitutionRules.Clamp100(
-                current + (target - current) * config.annual_adjustment_rate);
+                current + (target - current) * adjustment);
             bool regressionShockFaded = state.class_grievance_causes[socialClass]
                                             ?.StartsWith("regression:", StringComparison.Ordinal) == true &&
                                         state.class_grievances[socialClass] <= target + 5f;

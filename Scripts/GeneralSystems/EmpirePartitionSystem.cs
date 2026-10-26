@@ -24,6 +24,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //      权臣在京城另立宗室；或强藩在自己的地盘拥立一位宗室。两朝同一国号加方位，各由权臣把持，互争正统、开战。
 //   ③ 宗室另立(篡位后)：外姓篡位时，先朝宗室有一定可能(看原来的法统)在离篡位者都城最远的那一半起兵称帝，
 //      延续旧国号加方位；已经叛离篡位者的宗室诸王归附。互争正统、开战。下个月起事。
+//      先朝的王朝积弊、六弊按篡位前的减半承接，王朝年岁从头算(用户 2026-10-26 改朝换代三档，见 DynasticCycleSystem)；
+//      ①② 两朝同一王朝，积弊、六弊、王朝年岁原样承接。
 //      归大分裂冷却管(见 UpheavalGuard，用户 2026-10-21 选)：上次大分裂 15 年内、土崩瓦解收束期内不另立；
 //      一次至多带走篡位帝国三分之一的城(见 Trim)。
 // 划分：以两朝都城为两极，成员国按自己的都城离哪边近整国划走，京畿(核心王国)的城逐城划分。
@@ -43,8 +45,8 @@ public static class EmpirePartitionSystem
     private const float WillBaseChance = 0.01f, MinisterChance = 0.06f, WillSpanShare = 0.3f, StrongmanDistanceShare = 0.3f,
         StrongmanMightShare = 0.15f;
 
-    // 篡位后待起事的先朝宗室(帝国 id → 先朝宗族、旧国号、篡位时间)
-    private static readonly Dictionary<long, (long clan, string name, double at)> Restorations = new();
+    // 篡位后待起事的先朝宗室(帝国 id → 先朝宗族、旧国号、篡位时间、篡位前先朝的积弊家底)
+    private static readonly Dictionary<long, (long clan, string name, double at, DynasticCycleSystem.Legacy legacy)> Restorations = new();
 
     #region 查询
 
@@ -380,6 +382,9 @@ public static class EmpirePartitionSystem
         {
             LogService.LogWarning($"[EmpireCraft][分裂] 承袭制度失败: {exception.Message}");
         }
+        // 王朝积弊随制度整份抄来(王朝年岁、满额照旧)；六弊以前不带，补上(改朝换代三档之"保留"，用户 2026-10-26)。
+        // 宗室另立的一朝另按篡位前的家底减半(见 Restore)；新朝的换君、满额民变记录从头记
+        DynasticCycleSystem.Inherit(twin, DynasticCycleSystem.Capture(source), DynasticCycleSystem.Transition.Keep);
     }
 
     private static T Clone<T>(T value) where T : class =>
@@ -422,7 +427,7 @@ public static class EmpirePartitionSystem
             Restorations.Remove(pair.Key);
             try
             {
-                Restore(ModClass.EMPIRE_MANAGER?.get(pair.Key), pair.Value.clan, pair.Value.name);
+                Restore(ModClass.EMPIRE_MANAGER?.get(pair.Key), pair.Value.clan, pair.Value.name, pair.Value.legacy);
             }
             catch (Exception exception)
             {
@@ -739,10 +744,12 @@ public static class EmpirePartitionSystem
         // 玩家随即反馈"帝国容易突然碎一地"，用户选回调：恢复减半
         float chance = Mathf.Clamp01((mandate - 30f) / 60f) * 0.425f * (ministerUsurpation ? 0.5f : 1f);
         if (UnityEngine.Random.value >= chance) return;
-        Restorations[empire.data.id] = (previousClan.id, previousName ?? "", World.world.getCurWorldTime());
+        // 篡位前先朝的积弊家底(这时篡位者还没按改朝换代清掉)：另立的一朝按"减半"承接(用户 2026-10-26)
+        Restorations[empire.data.id] = (previousClan.id, previousName ?? "", World.world.getCurWorldTime(),
+            DynasticCycleSystem.Capture(empire));
     }
 
-    private static void Restore(Empire usurper, long clanId, string oldName)
+    private static void Restore(Empire usurper, long clanId, string oldName, DynasticCycleSystem.Legacy legacy)
     {
         if (usurper?.data == null || usurper.isRekt() || usurper.IsArchived() || Twin(usurper) != null) return;
         Kingdom core = usurper.CoreKingdom;
@@ -804,6 +811,9 @@ public static class EmpirePartitionSystem
         Empire loyal = Split(usurper, claimant, seat, plan, KindRestoration, PrinceStruggleSystem.NoteRestoration, name,
             renameSource: false, ownKingdom: leader);
         if (loyal == null) return;
+        // 宗室另立(东晋、南宋式)：先朝的王朝积弊、六弊减半，王朝年岁从头算(改朝换代三档之"减半"，用户 2026-10-26)。
+        // 以前整份抄走篡位者的(外姓篡位时已清过、权臣篡位时原样)，六弊不带
+        if (legacy != null) DynasticCycleSystem.Inherit(loyal, legacy, DynasticCycleSystem.Transition.Halve);
         // 篡位的帝国真丢了城才记为大分裂(宗室诸王都已在帝国外、只是自立称帝的不算)
         if (UpheavalGuard.Cities(usurper) < before) UpheavalGuard.Mark(usurper, "宗室另立", budget);
         foreach (Kingdom prince in princes)

@@ -48,16 +48,13 @@ public static class InterregnumSystem
         }
     }
 
-    // 据地称帝的新帝国承接旧朝廷的积弊与王朝积弊，开国之君不得开国气象(见 Empire.FounderGrace)
+    // 据地称帝的新帝国承接旧朝廷的积弊与王朝积弊，开国之君不得开国气象(见 Empire.FounderGrace)；
+    // 王朝年岁也接着算(改朝换代三档之"保留"，用户 2026-10-26：以前称帝时归零，按新朝慢速滋生)
     private static void InheritDecline(Empire from, Empire to)
     {
         if (from?.data == null || to?.data == null) return;
         to.data.inherited_decline = true;
-        to.data.maladies = new Dictionary<string, float>(from.data.maladies ?? new Dictionary<string, float>());
-        ConstitutionalEconomyState source = from.data.constitutional_economy;
-        if (source == null) return;
-        ConstitutionalEconomyState target = to.data.constitutional_economy ??= new ConstitutionalEconomyState();
-        target.dynastic_strain = Mathf.Max(target.dynastic_strain, source.dynastic_strain);
+        DynasticCycleSystem.Inherit(to, DynasticCycleSystem.Capture(from), DynasticCycleSystem.Transition.Keep);
     }
 
     // 议立开列不出宗室时调用(SuccessionCouncilSystem.Open)，或权臣废帝而宗室无人可立(EmpirePartitionSystem)：

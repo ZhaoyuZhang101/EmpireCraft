@@ -10,7 +10,7 @@ using UnityEngine;
 
 namespace EmpireCraft.Scripts.Regimes.TemporaryFactions.Claims;
 
-// 兴修水利(清流、重农派、节用派的朝堂议题)：户数最多的八座城开渠灌田，各添粮储(每户约三成)；农民怨气 -4、地主 -2；十年一次
+// 兴修水利(清流、重农派、节用派的朝堂议题)：户数最多的八座城开渠灌田，各添粮储(每户约三成)；农民怨气 -4、地主 -2；征发民力记工役(见 CorveeSystem)；十年一次
 public class TempFac_兴修水利 : TemporaryFaction
 {
     public override TemporaryFaction Clone(FixedFaction faction)
@@ -40,6 +40,8 @@ public class TempFac_兴修水利 : TemporaryFaction
                 city.addResourcesToRandomStockpile("bread", amount);
                 grain += amount;
             }
+            // 开渠要征发民力：每座开渠的城记一笔工役(徭役，不算大兴土木，见 CorveeSystem)
+            CorveeSystem.Add(empire.CoreKingdom, cities.Count * CorveeSystem.IrrigationPerCity, false);
             ClaimPolicySystem.AddGrievance(empire, SocialClass.Peasant, -4f);
             ClaimPolicySystem.AddGrievance(empire, SocialClass.Landlord, -2f);
             CompletionOutcome = string.Format(LM.Get("claim_outcome_兴修水利_done"), cities.Count, grain);

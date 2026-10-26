@@ -10,7 +10,7 @@ using UnityEngine;
 
 namespace EmpireCraft.Scripts.Regimes.TemporaryFactions.Claims;
 
-// 封禅(方士、巫祝、天子派的朝堂议题)：受了天命(见 TianxiaSystem)或在开国气象里、天子成年，才封禅告成于天——法统 +5，劳民伤财，农民怨气 +3；五十年一次
+// 封禅(方士、巫祝、天子派的朝堂议题)：受了天命(见 TianxiaSystem)或在开国气象里、天子成年，才封禅告成于天——法统 +5，劳民伤财，农民怨气 +3、记工役(大兴土木，见 CorveeSystem)；五十年一次
 public class TempFac_封禅 : TemporaryFaction
 {
     public override TemporaryFaction Clone(FixedFaction faction)
@@ -34,6 +34,8 @@ public class TempFac_封禅 : TemporaryFaction
         {
             empire.AddMandate(5);
             ClaimPolicySystem.AddGrievance(empire, SocialClass.Peasant, 3f);
+            // 筑坛修道、仪仗扈从，全境征发民力：按城数记工役，算大兴土木(见 CorveeSystem)
+            CorveeSystem.AddPerCity(empire.CoreKingdom, CorveeSystem.FengshanPerCity, true);
             CompletionOutcome = GeneralSystems.CultureDoctrines.Text("claim_outcome_封禅_done", GetEmpire());
         }
         End();

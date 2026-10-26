@@ -129,6 +129,13 @@ public static class CityExtension
         public List<RoadLink> road_links;
         // 连荒了几年(见 FamineUnrestSystem)
         public int famine_years;
+        // 灾年(见 DisasterSystem)：受灾等级(0 没灾，1 小、2 中、3 大)、减产到什么时候、灾名；旧档没有这几项，按没灾
+        public int disaster_level;
+        public double disaster_until = -1d;
+        public string disaster_kind = "";
+        public bool ShouldSerializedisaster_level() => disaster_level > 0;
+        public bool ShouldSerializedisaster_until() => disaster_level > 0;
+        public bool ShouldSerializedisaster_kind() => disaster_level > 0;
         // 城市肌理(纯净地图，见 UrbanFabric)：格局的随机种子(0 = 用城的编号)、工业化那时的旧城半径
         public long urban_seed;
         // 营建页「建城」手动建的(见 CityPlacementSystem)：部落、城邦的"一城"规矩不把它分出去

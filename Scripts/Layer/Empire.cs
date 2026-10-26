@@ -827,7 +827,8 @@ public class Empire : MetaObject<EmpireData>
         {
             data.dynasty_founder_actor_id = actor.id;
             // 改朝换代：前朝最后一位皇帝即末代之君(谥法另论，见 PosthumousNameGenerator)。
-            // 权臣篡位、外戚代立、太后另立、复辟是朝廷里的易代：朝政积弊原样留下(如司马代魏)
+            // 王朝积弊按三档承接(用户 2026-10-26，见 DynasticCycleSystem.OnDynastyChanged)：权臣篡位、外戚代立、太后另立、
+            // 议立外姓、争位得胜是朝廷里的易代——保留(如司马代魏)；兵变禅让(MilitaryCoupSystem 声明)——减半；其余清空
             if (!IsRepublicState) ReignRecordSystem.OnDynastyChanged(this, actor, _completingMinisterUsurpation);
         }
         EmpireClan = actor.clan;
@@ -871,6 +872,8 @@ public class Empire : MetaObject<EmpireData>
         //记录历史
         this.RecordNewEmperorHistory(isNew);
         RulerTraitSystem.OnCrowned(this, actor);
+        // 君主早逝、皇位更迭频繁推高王朝积弊(用户 2026-10-26，见 DynasticCycleSystem.OnSuccession)
+        if (!IsRepublicState) DynasticCycleSystem.OnSuccession(this, actor, isNew);
     }
 
     private bool IsDynasticSuccessor(Actor actor, SpecificClan previousRoyalClan, Clan previousEmpireClan)
@@ -1610,6 +1613,10 @@ public class Empire : MetaObject<EmpireData>
                 newEmpire.data.directPre = RealmNamingSystem.Enabled && RealmNamingSystem.IsHuaxia(newKingdom)
                     ? "" : newEmpire.GetDir(this._empireCenter);
                 newEmpire.SetEmpireName(GetEmpireName());
+                // 皇族王国延续、中兴(南宋式)：王朝积弊、六弊减半，王朝年岁从头算(改朝换代三档之"减半"，用户 2026-10-26)。
+                // 以前新帝国从零算，京城一丢积弊一笔勾销
+                if (!IsRepublicState)
+                    DynasticCycleSystem.Inherit(newEmpire, DynasticCycleSystem.Capture(this), DynasticCycleSystem.Transition.Halve);
             }
         }
         if (newKingdom.king.HasSpecificClan())

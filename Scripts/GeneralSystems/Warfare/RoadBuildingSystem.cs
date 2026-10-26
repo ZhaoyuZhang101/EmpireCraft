@@ -20,8 +20,9 @@ public sealed class RoadLink
 // 修路与养路：路不是生来就有的，要国家出钱一段一段修，修好了每年还要出钱养护。
 //   · 等级按本文化的科技：土路(起初) → 石板驿道(砌石) → 官道(营造，能架桥) → 碎石公路(工业化，能开隧道) → 柏油公路(摩托化)；
 //     等级越高造价越高，能翻越的地形越难(地形代价可以是直线距离的 1.5 → 3.5 倍)，所以早期只有平原谷地有路，山区后来才通；
-//   · 修路(每月)：各国同时开几项工程(一项起，每八座城多一项)，先修通都城的、人口多的、好修的；
+//   · 修路(每月)：各国同时开几项工程(一项起，每八座城多一项，好大喜功之君再多一项)，先修通都城的、人口多的、好修的；
 //     每月按等级施工几个地形单位，按造价从国库出(建造)，钱不够就停工；修到头这条路才通(升级时旧路照常用)；
+//     施工要征发民力，按施工的地形单位记工役(徭役，见 CorveeSystem)；
 //     一条路两头都是本国的城，或另一头是同一帝国的城，才由本国来修；
 //   · 养路(每年)：造价的 5% 由路一头所在的国家出(维护)，付不起路况变差，三年失修降一等，土路失修就荒了；
 //     两头有战事的路每月受损；
@@ -173,7 +174,8 @@ public static class RoadBuildingSystem
             // 统一了的帝国：中央的工程数按全帝国的城数算
             int cities = CenterOf(kingdom) is Layer.Empire center
                 ? center.kingdoms_list.Sum(member => member?.cities?.Count ?? 0) : kingdom.cities.Count;
-            int slots = 1 + cities / CitiesPerProject;
+            // 好大喜功之君多开一项工程(见 CorveeSystem)
+            int slots = 1 + cities / CitiesPerProject + CorveeSystem.ExtraRoadProjects(kingdom);
             if (projects.Count(project => project.Value.building > 0) < slots) changed |= StartProject(kingdom);
         }
         changed |= RoadPaintSystem.MonthlyWarDamage(WarDamagePerMonth);
@@ -199,6 +201,8 @@ public static class RoadBuildingSystem
         if (cost - share > 0) kingdom.SubMoney(cost - share, TreasuryCategory.Construction);
         if (share > 0) partner.SubMoney(share, TreasuryCategory.Construction);
         link.progress += step;
+        // 修路征发民力：按这个月施工的地形单位记工役(见 CorveeSystem)
+        CorveeSystem.Add(kingdom, step * CorveeSystem.RoadPerTerrain, false);
         if (link.progress < plan.terrain - 0.01f) return true;
         link.grade = link.building;
         link.building = 0;

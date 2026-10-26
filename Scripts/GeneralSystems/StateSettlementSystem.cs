@@ -648,6 +648,8 @@ public static class StateSettlementSystem
                 payer.SubMoney(project.gold - startup, TreasuryCategory.Construction);
                 payer.SubMoney(startup, TreasuryCategory.InternalTransfer);
                 project.paid = true;
+                // 官办建城征发民力筑城：记一笔工役，算大兴土木(自发移民不算，见 CorveeSystem)
+                if (!project.spontaneous) CorveeSystem.Add(payer, CorveeSystem.NewCity, true);
             }
             ReserveForProject(state, 0);
             if (!project.startup_paid) { city.AddMoney(project.startup_gold, TreasuryCategory.InternalTransfer); project.startup_paid = true; }

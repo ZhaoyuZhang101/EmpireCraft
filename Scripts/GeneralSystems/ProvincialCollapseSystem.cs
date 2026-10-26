@@ -19,6 +19,11 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     朝政积弊六条平均 50 以上(90 满，见 MaladySystem.CollapseFactor)，
 //     取最重的一项再加其余的四分之一；
 //   · 首义(每年)：概率 = 内忧 × 0.25；离心最重、离心度不低于 0.5 的一省宣布独立。
+//     律令制(王朝积弊适用的中央集权官僚帝国)另有入口(用户 2026-10-26："只有当朝廷积弊满额时的民变触发后，满足任意一条，
+//     则君权下放、地方权力扩张，军阀崛起，进入割据混战阶段：① 持续 10 年无法平定叛乱；② 民变规模达到总数 50%")：
+//     积弊满额、满额民变已起之后，本朝民变/起义立的国最早一场满 10 年还没平定，或它们占的城达满额民变起时原有城数的五成，
+//     才首义(门槛过了不再掷机会)；破产、正统低、篡位这些单项照旧推高内忧(响应、化解用)，不再单独触发律令制的瓦解。
+//     游牧、阿拉伯、日本、封建各线照旧按内忧；
 //     离心度 = (1 − 行政控制力) + 都城稳定不足 70 的部分/70，近代再看革新理念，异文化再加 0.3，
 //     手握重兵的藩镇(节度使、都护府)、世袭的埃米尔再加 0.3(军阀割据)，天命动荡或权臣掌朝时的道、行了军镇强藩的幕府之藩
 //     再加 0.2，正自顾打仗的减 0.2；古典共和(未行元首制)、原始政体首义与响应的机会减半；
@@ -56,6 +61,9 @@ public static class ProvincialCollapseSystem
     // 分裂进程的化解门槛(见 SchismSystem)：内忧里正统一项从 50 以下算起、朝政积弊一项从 50 以上算起
     private const int GateLegitimacy = 50;
     private const float GateMalady = 50f;
+    // 律令制群雄割据的入口：民变满 WarlordRebellionYears 年不平，或叛军占了原有城数的 WarlordRebelShare
+    private const int WarlordRebellionYears = 10;
+    private const float WarlordRebelShare = 0.5f;
 
     private static ConstitutionalEconomyState State(Empire empire) => empire?.data?.constitutional_economy;
 
@@ -91,11 +99,12 @@ public static class ProvincialCollapseSystem
                                               TechnologySystem.GetEraTier(InstitutionSystem.GetPrimaryCulture(empire)) >= ModernEraTier &&
                                               InstitutionSystem.GetFeature(InstitutionSystem.GetPrimaryCulture(empire), PartySystem.FeaturePartyPolitics) > 0f);
 
-    public static float Crisis(Empire empire)
+    // excludeStrain：不算王朝积弊一项(它只增不减，分裂进程的化解不能等它回落，见 SchismSystem.Resolution)
+    public static float Crisis(Empire empire, bool excludeStrain = false)
     {
         if (empire?.data == null) return 0f;
         float legitimacy = Mathf.Clamp01((50f - empire.Legitimacy) / 40f);
-        float strain = Mathf.Clamp01((DynasticCycleSystem.GetPressure(empire) - 40f) / 40f);
+        float strain = excludeStrain ? 0f : Mathf.Clamp01((DynasticCycleSystem.GetPressure(empire) - 40f) / 40f);
         float fiscal = EmpireBankruptcySystem.IsBankrupt(empire) ? 0.6f : 0f;
         float grievance = Mathf.Clamp01((InstitutionSystem.GetClassGrievances(empire).Values.DefaultIfEmpty(0f).Max() - 60f) / 40f);
         // 权臣、外戚篡位登基，十年内人心未附
@@ -109,6 +118,23 @@ public static class ProvincialCollapseSystem
         float top = Mathf.Max(Mathf.Max(Mathf.Max(legitimacy, strain), Mathf.Max(fiscal, grievance)),
             Mathf.Max(Mathf.Max(usurped, faction), malady));
         return Mathf.Clamp01(top + 0.25f * (legitimacy + strain + fiscal + grievance + usurped + faction + malady - top));
+    }
+
+    // 律令制、王朝积弊适用(立宪等不适用的照旧按内忧，否则积弊恒为零、永不瓦解)
+    private static bool Centralized(Empire empire) =>
+        empire.CoreKingdom?.GetRegime()?.type == RegimeType.LvLing && DynasticCycleSystem.Applies(empire);
+
+    // 律令制群雄割据的门槛：积弊满额、满额民变已起，且 ① 本朝民变/起义最早一场满 10 年还没平定(立的国还在、没回归本帝国)，
+    // 或 ② 它们占的城达满额民变起时原有城数的五成。过了返回缘由(日志用)，没过返回 null
+    private static string WarlordGate(Empire empire)
+    {
+        ConstitutionalEconomyState state = State(empire);
+        if (state == null || !DynasticCycleSystem.SaturatedUprisingStarted(empire)) return null;
+        (int _, int cities, int years) = DynasticCycleSystem.PopularRebellions(empire);
+        if (years >= WarlordRebellionYears) return $"民变{years}年不平";
+        int origin = state.saturated_origin_cities;
+        if (origin > 0 && cities >= origin * WarlordRebelShare) return $"叛军据{cities}城(原有{origin}城)";
+        return null;
     }
 
     private static List<Kingdom> Provinces(Empire empire) =>
@@ -156,7 +182,14 @@ public static class ProvincialCollapseSystem
             if (!RebellionSystem.CanAttempt(empire.CoreKingdom)) return;
             float crisis = Crisis(empire);
             float factor = RegimeFactor(empire);
-            if (crisis <= 0f || UnityEngine.Random.value >= crisis * RiseChance * factor) return;
+            // 律令制：只认积弊满额后的民变(见文件头)，门槛过了不再掷机会；其余照旧按内忧
+            string warlords = null;
+            if (Centralized(empire))
+            {
+                warlords = WarlordGate(empire);
+                if (warlords == null) return;
+            }
+            else if (crisis <= 0f || UnityEngine.Random.value >= crisis * RiseChance * factor) return;
             // 大分裂冷却里、已有分裂进程时不首义(见 UpheavalGuard)；瓦解进行中的情形上面 Active 已挡
             if (UpheavalGuard.Blocked(empire, out string why))
             {
@@ -174,8 +207,10 @@ public static class ProvincialCollapseSystem
             // 分裂进程(用户 2026-10-21 选"预警前兆、先割据后独立、连锁观望"，见 SchismSystem)：以前这里当场由离心最重的一省首义；
             // 现在离心度够的各省先列为不稳之省、进入预警("天下骚然")，割据之后才由其中离心最重的一省首义(BeginRising)，其余观望。
             // 不受单次上限(否则帝国永远倒不了，见 UpheavalGuard)；化解门槛按内忧的两项：正统 50、积弊均值 50(另要内忧平息，见 SchismSystem)
-            SchismSystem.Begin(empire, SchismSystem.Collapse, unstable, GateLegitimacy, GateMalady, empire.Emperor,
-                $"内忧{crisis:0.00}{(modern ? "，近代" : "")}");
+            bool begun = SchismSystem.Begin(empire, SchismSystem.Collapse, unstable, GateLegitimacy, GateMalady, empire.Emperor,
+                $"内忧{crisis:0.00}{(modern ? "，近代" : "")}{(warlords != null ? "，" + warlords : "")}");
+            if (begun && warlords != null)
+                EventRecorder.Record(empire, string.Format(LM.Get("collapse_warlord_history"), empire.GetEmpireFullName()));
         }
         catch (Exception exception)
         {

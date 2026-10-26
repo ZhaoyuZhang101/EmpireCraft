@@ -11,13 +11,16 @@ using UnityEngine;
 
 namespace EmpireCraft.Scripts.GeneralSystems;
 
-// 苛政与民怨。每年按赋税、腐败、国库亏空、战争征兵、饥荒、土地兼并、言论管制算出"苛政"(0~100)，
-// 帝国按整个帝国结算，没有加入帝国的独立王国按本国结算。前现代与现代国家的后果不同：
+// 苛政与民怨。每年按赋税、腐败、国库亏空、战争征兵、饥荒、土地兼并、言论管制、
+// 徭役与大兴土木、好大喜功之君(见 CorveeSystem)算出"苛政"(0~100)，
+// 帝国按整个帝国结算，没有加入帝国的独立王国按本国结算。与阶层怨气合成的民怨指数见 PopularGrievance。
+// 前现代与现代国家的后果不同：
 //
 //   前现代(以及独立王国)——官逼民反：
 //     · 各城忠诚随苛政下降(苛政超过 20 后每点 -0.5，最多 -30)；
 //     · 苛政 ≥ 60 时每年有机会爆发民变：最不忠诚的城市揭竿而起，打起"某城民变"的旗号。
 //       现代政体的独立王国(没有组建政府的地方势力)同样会民变，但要先过现代治理能力的门槛(ModernStability)。
+//       王朝积弊满额后不看苛政：每年必有民变，起事城数随满额年数、民怨增多(用户 2026-10-26，见 DynasticCycleRules.UprisingWaves)。
 //     · 与土地兼并打通(见 LandEconomySystem)：无地农民多的政权苛政更重；苛政越重，农民土地起义的门槛越低；
 //       民变的城市若土地兼并严重，就打出"均田"的旗号，成为农民土地起义(胜利后重分土地)。
 //       现代国家因土地兼并而让步或政府倒台时，在兼并最严重的城市重分土地。
@@ -118,6 +121,12 @@ public static class HarshRuleSystem
         // 暴虐之君(见 RulerQualitySystem)；苛捐杂税的积弊(见 MaladySystem)
         Add("harsh_tyranny", RulerQualitySystem.TyrannyBurden(core.king));
         Add("harsh_levies", MaladySystem.LeviesHarsh(core));
+        // 重徭役(最多 +20)、大兴土木(工程扎堆，最多 +15)、好大喜功之君(+5)，见 CorveeSystem
+        // (用户 2026-10-26"好大喜功类君主、大兴土木、重赋税、重徭役")；战时征兵仍算上面的兵役
+        int cities = realms.Sum(kingdom => kingdom.cities?.Count ?? 0);
+        Add("harsh_corvee", CorveeSystem.CorveeBurden(core, cities));
+        Add("harsh_construction", CorveeSystem.ConstructionBurden(core, cities));
+        Add("harsh_ambition", CorveeSystem.AmbitionBurden(core.king));
         return items.OrderByDescending(item => item.value).ToList();
     }
 
@@ -261,9 +270,12 @@ public static class HarshRuleSystem
     private static void TryUprising(IEnumerable<Kingdom> realms, float burden, string causeKey, Empire empire,
         bool modern)
     {
-        if (burden < UprisingBurden) return;
+        // 王朝积弊满额(用户 2026-10-26)：每年必有民变尝试，不看苛政门槛与机会；一次起事的城数随满额年数增多、民怨鼎沸再加
+        // (见 DynasticCycleRules.UprisingWaves)。逐城的检查(忠诚、冷却、首都不起事)照旧
+        bool saturated = !modern && empire != null && DynasticCycleSystem.IsSaturated(empire);
+        if (!saturated && burden < UprisingBurden) return;
         // 王朝积弊入危机，或朝政积弊六条平均七十以上(见 MaladySystem.InCrisis)：打仗时民变照样爆发
-        bool crisis = !modern && (DynasticCycleSystem.InCrisis(empire) || MaladySystem.InCrisis(empire));
+        bool crisis = saturated || !modern && (DynasticCycleSystem.InCrisis(empire) || MaladySystem.InCrisis(empire));
         if (crisis && State(empire) is ConstitutionalEconomyState state)
         {
             double now = World.world.getCurWorldTime();
@@ -271,13 +283,15 @@ public static class HarshRuleSystem
                 Date.getYearsSince(state.last_dynastic_uprising_attempt) < 1) return;
             state.last_dynastic_uprising_attempt = now;
         }
-        if (UnityEngine.Random.value >= (burden - 50f) / 100f) return;
-        int waves = crisis ? DynasticCycleRules.UprisingWaves(DynasticCycleSystem.GetPressure(empire), burden) : 1;
+        if (!saturated && UnityEngine.Random.value >= (burden - 50f) / 100f) return;
+        int waves = crisis ? DynasticCycleRules.UprisingWaves(DynasticCycleSystem.GetPressure(empire), burden,
+            DynasticCycleSystem.SaturatedYears(empire), PopularGrievance.Index(empire?.CoreKingdom)) : 1;
         List<City> cities = (realms ?? Enumerable.Empty<Kingdom>())
             .Where(kingdom => RebellionSystem.CanAttempt(kingdom) && (crisis || !kingdom.getWars().Any()))
             .SelectMany(kingdom => kingdom.cities.Where(c => c != null && !c.isRekt() && c != kingdom.capital))
             .Where(c => c.getLoyalty() < (crisis ? 20 : 10) && CanRiseAgain(c) && CityStabilitySystem.CanRise(c))
             .OrderBy(c => c.getLoyalty()).Take(waves).ToList();
+        int risen = 0;
         foreach (City city in cities)
         {
             // 第一批起事的原版/模组回调可能改动后一座城，逐城重验归属和首都保护。
@@ -290,11 +304,14 @@ public static class HarshRuleSystem
                 LandEconomySystem.TryStartPeasantLandRebellion(city))
             {
                 city.GetOrCreate().last_harsh_uprising = World.world.getCurWorldTime();
+                risen++;
                 continue;
             }
             if (!ModernStability.PassRebellionGate(city.kingdom)) continue;
-            StartUprising(empire, city, burden, causeKey);
+            if (StartUprising(empire, city, burden, causeKey)) risen++;
         }
+        // 满额后的第一场民变：记下时间与本帝国原有的城数(律令制群雄割据的入口，见 ProvincialCollapseSystem)
+        if (saturated && risen > 0) DynasticCycleSystem.OnSaturatedUprising(empire);
     }
 
     private static bool CanRiseAgain(City city)
@@ -303,7 +320,8 @@ public static class HarshRuleSystem
         return last < 0d || Date.getYearsSince(last) >= UprisingCooldownYears;
     }
 
-    private static void StartUprising(Empire empire, City city, float burden, string causeKey)
+    // 起事成了返回真(满额民变要据此记下第一场的时间)
+    private static bool StartUprising(Empire empire, City city, float burden, string causeKey)
     {
         Kingdom origin = city.kingdom;
         Actor leader = city.units?.Where(actor => actor != null && !actor.isRekt() && actor.isAlive() &&
@@ -312,15 +330,15 @@ public static class HarshRuleSystem
         // 无小人模式：民变由百姓带头，不由城里的官员、城主带头
         if (CityPopulationSystem.AbstractPopulationEnabled)
             leader = CityPopulationSystem.SpawnRebelLeader(city) ?? leader;
-        if (leader == null) return;
+        if (leader == null) return false;
         RebellionCauseData cause = RebellionSystem.Capture(origin, city, "rebellion_reason_harsh_rule",
             string.Format(LM.Get("rebellion_harsh_detail"), Cause(causeKey), Mathf.RoundToInt(burden)));
         Kingdom rebel = city.makeOwnKingdom(leader, pRebellion: true);
-        if (rebel == null) return;
+        if (rebel == null) return false;
         if (!rebel.StartLocalRebelling(EmpireWarType.地方叛乱))
         {
             RebellionStartupService.RollbackCitySplit(city, origin, rebel);
-            return;
+            return false;
         }
         string cityName = city.GetCityName();
         rebel.data.name = string.Format(LM.Get("harsh_uprising_kingdom_name"), cityName);
@@ -328,7 +346,7 @@ public static class HarshRuleSystem
         if (war == null)
         {
             RebellionStartupService.RollbackCitySplit(city, origin, rebel);
-            return;
+            return false;
         }
         war.SetEmpireWarType(EmpireWarType.地方叛乱);
         RebellionSystem.Record(rebel, war, cause);
@@ -339,6 +357,7 @@ public static class HarshRuleSystem
             Mathf.RoundToInt(burden));
         if (empire != null) EventRecorder.Record(empire, history, leader, origin);
         else EventRecorder.Record(origin, history, leader);
+        return true;
     }
 
     #endregion

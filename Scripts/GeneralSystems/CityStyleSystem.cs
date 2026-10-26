@@ -10,7 +10,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 
 // 城市风格(纯净地图城市平面图用，见 PureMapPatch)：每座城记住自己是按哪一系文化的风格建起来的(CityExtraData.map_style)。
 //   · 文化变了(被征服、同化、易俗)不会自动改：照旧按原风格建，新街区也是旧风格；
-//   · 本国君主走"改建城池"决议(每座要改的城花国库 CostPerCity)，各城才按现文化风格逐年翻新——
+//   · 本国君主走"改建城池"决议(每座要改的城花国库 CostPerCity，并记工役、算大兴土木，见 CorveeSystem)，各城才按现文化风格逐年翻新——
 //     先拆旧、起工地，再建成新式，新旧混杂，约 RebuildYears 年改完(布局逐个地块改，城墙与都城地标改完才换)。
 // 文化系：华夏(华夏、中国、山海)、日本、西欧(西方、法兰克、日耳曼、斯拉夫、精灵)、罗马、维京、阿拉伯(阿拉伯、犹太)、
 //   波斯、埃及、印度、阿兹特克、游牧(游牧文化，及制度线属游牧的各文化)、林地(奥吉布瓦)；其余按华夏的通用图块画。
@@ -141,6 +141,8 @@ public static class CityStyleSystem
         if (!CanRebuild(king)) return false;
         List<City> cities = Stale(kingdom);
         kingdom.SubMoney(cities.Count * CostPerCity, TreasuryCategory.Construction);
+        // 拆旧起新要征发民力：每座城记一笔工役，算大兴土木(见 CorveeSystem)
+        CorveeSystem.Add(kingdom, cities.Count * CorveeSystem.RestylePerCity, true);
         double now = World.world.getCurWorldTime();
         foreach (City city in cities)
         {

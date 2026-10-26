@@ -768,6 +768,8 @@ namespace EmpireCraft.Scripts.AI
                     if (empire == null || target == null) return false;
                     bool returning = IsReturningCapital(empire, target, pActor);
                     kingdom.setCapital(target);
+                    // 迁都营建宫室、官署，征发民力：记工役，算大兴土木；还于旧都宫室尚在，减半(见 CorveeSystem)
+                    CorveeSystem.Add(kingdom, returning ? CorveeSystem.CapitalMove * 0.5f : CorveeSystem.CapitalMove, true);
                     EventRecorder.Record(empire, string.Format(LM.Get(returning ? "empire_return_capital_history"
                         : "empire_move_capital_history"), empire.GetEmpireFullName(), target.GetCityName()), pActor);
                     return true;
@@ -1980,6 +1982,8 @@ namespace EmpireCraft.Scripts.AI
                     Kingdom kingdom = pActor.kingdom;
                     if (EmpireCraft.Scripts.GeneralSystems.CoreCapitalRestorationSystem.IsAnchored(kingdom)) return true;
                     kingdom.setCapital(kingdom.GetMainTitle().title_capital);
+                    // 迁都封号首府：记工役，算大兴土木(见 CorveeSystem)
+                    CorveeSystem.Add(kingdom, CorveeSystem.CapitalMove, true);
                     TranslateHelper.LogKingdomChangeCapitalToTitle(kingdom, kingdom.GetMainTitle());
                     var emp = kingdom.GetEmpire();
                     return true;

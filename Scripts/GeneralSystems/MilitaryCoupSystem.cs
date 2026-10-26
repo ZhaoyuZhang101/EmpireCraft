@@ -20,7 +20,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     开国雄主登基头 15 年、上次兵变后 20 年内不发生。
 //     以前没有由头也行、基数大：两三座城的小国一员大将统领全军(兵权 1)，正统 30 就每年四成概率兵变；
 //   · 发动：大将入主都城登基(照常走易姓的后果：旧宗室诸侯起兵、新朝开国)，
-//     以大将驻地(所统最大军团的驻城)的法理名号为新国号，没有就沿用旧号。
+//     以大将驻地(所统最大军团的驻城)的法理名号为新国号，没有就沿用旧号；
+//     王朝积弊、六弊减半(改朝换代三档之"减半"，用户 2026-10-26，见 DynasticCycleSystem)。
 public static class MilitaryCoupSystem
 {
     private const int LegitimacyLine = 50;
@@ -139,7 +140,9 @@ public static class MilitaryCoupSystem
         if (former != null && former.id != general.id) core.removeKing();
         general.joinCity(capital);
         general.setKingdom(core);
-        core.setKing(general);
+        // 军阀兵变禅让上位(赵匡胤式)：改朝换代按"减半"一档，王朝积弊、六弊减半，另加篡位的一笔
+        // (用户 2026-10-26，见 DynasticCycleSystem.OnDynastyChanged)
+        DynasticCycleSystem.Expect(empire, DynasticCycleSystem.Transition.Halve, () => core.setKing(general));
         if (empire.Emperor?.id != general.id) return;
         if (!string.IsNullOrWhiteSpace(newName) && newName != oldName)
         {

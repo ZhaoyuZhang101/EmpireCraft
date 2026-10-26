@@ -294,6 +294,14 @@ public static class KingdomExtension
         public long succession_note_actor = -1L;
         // 正在闹大饥荒(三成以上的城连荒两年，见 FamineUnrestSystem)
         public bool great_famine;
+        // 灾年轮次(见 DisasterSystem；按政权，帝国记在核心王国)：上次判定、上次中灾以上、上次大灾、上次作为政权被看到的时间；
+        // -1 = 还没计(旧档、新国从第一次看到时起算，不补灾)
+        public double disaster_last_roll = -1d;
+        public double disaster_last_mid = -1d;
+        public double disaster_last_major = -1d;
+        public double disaster_seen = -1d;
+        // 饥民军(见 LandEconomySystem.StartFamineRebellion)：接壤的连荒城可以入伙
+        public bool is_famine_rebellion;
         // 自定义地图色(#RRGGBB，空为原版颜色，见 CustomColorSystem)
         public string custom_color = "";
         public int Level = 2;
@@ -424,6 +432,10 @@ public static class KingdomExtension
         // 独立王国的苛政(见 HarshRuleSystem；帝国成员按帝国结算)
         public float harsh_burden;
         public string harsh_main_cause = "";
+        // 独立王国的徭役与大兴土木(见 CorveeSystem；帝国成员记在帝国)：工役累计、其中的大工程、上次结算衰减的时间
+        public float corvee_load;
+        public float grand_works;
+        public double corvee_updated = -1d;
         public double last_exam_timestamp = -1L;
         public bool isFactionRebelling = false;
         public bool isLocalRebelling = false;

@@ -351,7 +351,8 @@ public static class FarmlandSystem
                 if (!IsCropSpot(tile, pair.Key)) crop.startDestroyBuilding();
             }
         }
-        return food;
+        // 灾年减产(见 DisasterSystem)
+        return food > 0f ? food * DisasterSystem.HarvestFactor(city) : food;
     }
 
     // 纯净地图：一个月的收成——住在完好农村里的农户、城郊种地的城里人(林场、矿、牧、渔村不种田，见 LivelihoodSystem；
@@ -367,6 +368,8 @@ public static class FarmlandSystem
         if (population != null) population.farm_jobs = (farmers + LivelihoodSystem.Workers(city, LivelihoodSystem.Fish)) * 0.6f;
         float food = farmers * RuralYield * Productivity(city) * ArableFactor(city);
         if (World.world_era != null && !World.world_era.flag_crops_grow) food *= 0.5f;
+        // 灾年减产(见 DisasterSystem)
+        food *= DisasterSystem.HarvestFactor(city);
         return food / 12f;
     }
 
@@ -404,7 +407,8 @@ public static class FarmlandSystem
         if (spots == 0) return 0f;
         float food = spots * FoodPerCrop * Productivity(city) / CropCycleMonths();
         if (World.world_era != null && !World.world_era.flag_crops_grow) food *= 0.5f;
-        return food;
+        // 灾年减产(见 DisasterSystem)
+        return food * DisasterSystem.HarvestFactor(city);
     }
 
     private static float CropCycleMonths()

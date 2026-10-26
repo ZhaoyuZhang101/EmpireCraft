@@ -560,7 +560,9 @@ public static partial class CourtSystem
             TemporaryFactionType.允许诸侯自由开战 or TemporaryFactionType.颁布金玺诏书;
         bool centralise = issue is TemporaryFactionType.削藩 or TemporaryFactionType.夺取诸侯开战权 or
             TemporaryFactionType.恢复世袭皇权 or TemporaryFactionType.颁布帝国治安令;
-        if (emperor.hasTrait("ambitious")) stance += expansion ? 1f : appeasement ? -1f : 0f;
+        // 好大喜功(见 CorveeSystem)：也更爱封禅、兴修水利这类工程
+        if (emperor.hasTrait("ambitious")) stance += expansion ? 1f : appeasement ? -1f :
+            issue == TemporaryFactionType.封禅 ? 1f : issue == TemporaryFactionType.兴修水利 ? 0.5f : 0f;
         if (emperor.hasTrait("greedy")) stance += issue == TemporaryFactionType.提高赋税 ? 1f :
             issue is TemporaryFactionType.降低赋税 ? -1f : issue == TemporaryFactionType.赈济灾荒 ? -0.5f : 0f;
         if (emperor.hasTrait("content")) stance += appeasement ? 0.5f : expansion ? -0.5f : 0f;

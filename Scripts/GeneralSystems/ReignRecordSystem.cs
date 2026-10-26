@@ -114,7 +114,7 @@ public static class ReignRecordSystem
         return last;
     }
 
-    // inheritCourt：朝廷里的易代(权臣篡位、外戚代立等)，积弊原样留下(见 DynasticCycleSystem.OnDynastyChanged)
+    // inheritCourt：朝廷里的易代(权臣篡位、外戚代立等)，积弊原样留下、王朝年岁接着算(三档之"保留"，见 DynasticCycleSystem.OnDynastyChanged)
     public static void OnDynastyChanged(Empire empire, Actor newEmperor, bool inheritCourt = false)
     {
         DynasticCycleSystem.OnDynastyChanged(empire, inheritCourt);

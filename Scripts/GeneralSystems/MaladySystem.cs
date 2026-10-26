@@ -18,7 +18,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 历史周期律(用户 2026-10-14)：积弊随王朝年岁慢慢沉积——立国头 80 年只按二成的速度滋生，80~160 年四成五，
 //     一百六十年后才全速；开国气象(统一战争期间、统一后 30 年，见 Empire.InFoundingGrace)里不滋生；消退照常；
 //   · 革除：明君、中兴之主在位逐年消退；整顿吏治告成 吏治 -15；改朝换代旧弊一扫而空(各留两成)——
-//     权臣篡位、外戚代立是朝廷里的易代，积弊原样留下(玩家建议"如司马故事"，见 DynasticCycleSystem.OnDynastyChanged)；
+//     权臣篡位、外戚代立是朝廷里的易代，积弊原样留下(玩家建议"如司马故事")；兵变禅让、宗室另立或复国减半
+//     (用户 2026-10-26 改朝换代三档，见 DynasticCycleSystem.OnDynastyChanged)。六弊照旧可治可降，王朝积弊却只能延缓；
 //   · 效果(轻重 s = 积弊/100)：
 //       吏治——帝国各城、各成员国腐败每年 +1.2%×s；兼并——有地农民卖地的速度 ×(1+s)；
 //       冗费——每年多支 12%×s 年度经常收入(行政开支)；武备——本帝国各军战力 ×(1−0.25s)，禁军空饷再多两成×s，
@@ -71,11 +72,11 @@ public static class MaladySystem
         if (Applies(empire)) Add(empire, key, Mathf.Abs(amount));
     }
 
-    // 改朝换代：旧弊一扫而空，各留两成
-    public static void OnDynastyChanged(Empire empire)
+    // 改朝换代：旧弊一扫而空，各留两成；兵变禅让、宗室复国减半(keep 0.5，用户 2026-10-26，见 DynasticCycleSystem.OnDynastyChanged)
+    public static void OnDynastyChanged(Empire empire, float keep = 0.2f)
     {
         if (empire?.data?.maladies == null) return;
-        foreach (string key in All) empire.data.maladies[key] = Get(empire, key) * 0.2f;
+        foreach (string key in All) empire.data.maladies[key] = Get(empire, key) * Mathf.Clamp01(keep);
     }
 
     #region 每年

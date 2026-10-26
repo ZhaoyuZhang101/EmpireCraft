@@ -63,6 +63,8 @@ public static class LandEconomySystem
     private const int MerchantExitYears = 3;
     private const int LandPurchasePrice = 25;
     private const int RebellionCooldownYears = 10;
+    // 受中灾、大灾的城起饥民起义，与土地起义共用的冷却减为五年(见 StartFamineRebellion)
+    private const int DisasterRebellionCooldownYears = 5;
 
     public static void RecordIncome(Actor actor, int amount)
     {
@@ -354,6 +356,7 @@ public static class LandEconomySystem
         {
             KingdomExtension.KingdomExtraData rebelData = rebel.GetOrCreate();
             rebelData.is_peasant_land_rebellion = false;
+            rebelData.is_famine_rebellion = false;
             rebelData.peasant_land_rebellion_war_id = -1L;
             rebelData.peasant_land_rebellion_origin_kingdom_id = -1L;
         }
@@ -898,57 +901,114 @@ public static class LandEconomySystem
     }
 
     // 饥民起义(连年饥荒，见 FamineUnrestSystem)：照农民起义的流程，但不看无地比例，打仗时照样会起
-    public static bool TryStartFamineRebellion(City city, int years)
+    public static bool TryStartFamineRebellion(City city, int years) => StartFamineRebellion(city, years, false) != null;
+
+    // disaster：受中灾、大灾(见 DisasterSystem)、赈灾后仍在饥荒的城——冷却减为五年，起因写灾名，烈度中灾 +0.1、大灾 +0.2。
+    // 饥民军烈度再乘民怨系数 0.8 + 民怨/100(用户 2026-10-26 "饥民军规模 = 基础 × 民怨系数"，见 FamineUnrestSystem.FervorFactor)，
+    // 仍受每城义军上限(见 RebellionStartupService)。返回饥民军，没起成返回空
+    public static Kingdom StartFamineRebellion(City city, int years, bool disaster)
     {
         if (city == null || city.isRekt() || city.kingdom == null || city.kingdom.isRekt() || city == city.kingdom.capital ||
-            !RebellionSystem.CanAttempt(city.kingdom) || !CityStabilitySystem.CanRise(city)) return false;
-        if (!ModernStability.PassRebellionGate(city.kingdom)) return false;
+            !RebellionSystem.CanAttempt(city.kingdom) || !CityStabilitySystem.CanRise(city)) return null;
+        if (!ModernStability.PassRebellionGate(city.kingdom)) return null;
         CityExtension.CityExtraData data = EnsureData(city);
+        int cooldown = disaster ? DisasterRebellionCooldownYears : RebellionCooldownYears;
         if (data.last_land_rebellion_timestamp >= 0d &&
-            Date.getYearsSince(data.last_land_rebellion_timestamp) < RebellionCooldownYears) return false;
+            Date.getYearsSince(data.last_land_rebellion_timestamp) < cooldown) return null;
         Actor leader = city.units?.Where(actor => IsLivingResident(actor) && IsAgrarianCommoner(actor) &&
                                                   actor.CanFoundCivKingdom())
             .OrderByDescending(actor => actor.data?.renown ?? 0).FirstOrDefault();
         leader ??= CityPopulationSystem.SpawnRebelLeader(city);
-        if (leader == null) return false;
+        if (leader == null) return null;
         Kingdom origin = city.kingdom;
-        string cause = string.Format(LM.Get("famine_rebellion_cause"), city.GetCityName(), years);
+        // 民怨、灾级在分城之前读(分出去以后本城就不归原国了)
+        float grievance = FamineUnrestSystem.FervorFactor(origin);
+        int level = disaster ? DisasterSystem.RecentLevel(city) : 0;
+        string cause = level >= DisasterSystem.Moderate
+            ? string.Format(LM.Get("disaster_rebellion_cause"), city.GetCityName(), DisasterSystem.KindName(city), years)
+            : string.Format(LM.Get("famine_rebellion_cause"), city.GetCityName(), years);
         RebellionCauseData rebellionCause = RebellionSystem.Capture(origin, city, "rebellion_reason_famine", cause);
         Kingdom rebel = city.makeOwnKingdom(leader, pRebellion: true);
-        if (rebel == null) return false;
+        if (rebel == null) return null;
         if (!rebel.StartLocalRebelling(EmpireWarType.地方叛乱))
         {
             RebellionStartupService.RollbackCitySplit(city, origin, rebel);
-            return false;
+            return null;
         }
         rebel.data.name = string.Format(LM.Get("famine_rebel_kingdom_name"), city.GetCityName());
         War war = World.world.diplomacy.startWar(rebel, origin, WarTypeLibrary.rebellion);
         if (war == null)
         {
             RebellionStartupService.RollbackCitySplit(city, origin, rebel);
-            return false;
+            return null;
         }
         war.SetEmpireWarType(EmpireWarType.地方叛乱);
         war.data.name = LM.Get("famine_rebellion_war_name");
         float ratio = CalculateLandlessPopulationRatio(city);
         MarkPeasantSocialRebellion(war, rebel, origin, city, ratio, cause);
+        rebel.GetOrCreate().is_famine_rebellion = true;
         RebellionSystem.Record(rebel, war, rebellionCause);
-        RebellionStartupService.RaiseUprisingMilitia(rebel, Mathf.Max(ratio, 0.2f + 0.05f * years));
+        float fervor = Mathf.Max(ratio, 0.2f + 0.05f * years + 0.1f * Mathf.Max(0, level - 1));
+        RebellionStartupService.RaiseUprisingMilitia(rebel, fervor * grievance);
         data.last_land_rebellion_timestamp = World.world.getCurWorldTime();
         RecordRebellionHistory(origin, cause, leader);
         EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventMessage(cause, origin);
+        return rebel;
+    }
+
+    // 饥民合流(用户 2026-10-26 "灾荒叛乱接壤的联合叛乱，不接壤各自起事")：接壤的连荒城开城投奔饥民军，就地武装义军。
+    // 门槛同起事(不是都城、能起事)，不看冷却；入伙后本城记起事冷却。announce：逐城报一笔(年度入伙)，
+    // 起事当年成片合流由 FamineUnrestSystem 合报一笔
+    public static bool JoinFamineRebellion(City city, Kingdom rebel, bool announce)
+    {
+        if (city?.data == null || city.isRekt() || rebel == null || rebel.isRekt()) return false;
+        Kingdom origin = city.kingdom;
+        if (origin == null || origin.isRekt() || origin == rebel || city == origin.capital ||
+            !RebellionSystem.CanAttempt(origin) || !CityStabilitySystem.CanRise(city)) return false;
+        KingdomExtension.KingdomExtraData rebelData = rebel.GetOrCreate();
+        if (!rebelData.is_famine_rebellion || rebelData.peasant_land_rebellion_war_id <= 0) return false;
+        War war = World.world?.wars?.get(rebelData.peasant_land_rebellion_war_id);
+        if (war == null || war.hasEnded() || !war.isDefender(origin)) return false;
+        float grievance = FamineUnrestSystem.FervorFactor(origin);
+        int years = city.GetOrCreate().famine_years;
+        city.joinAnotherKingdom(rebel, pCaptured: true, pRebellion: true);
+        if (city.kingdom != rebel) return false;
+        EnsureData(city).last_land_rebellion_timestamp = World.world.getCurWorldTime();
+        RebellionStartupService.RaiseUprisingMilitia(rebel, (0.2f + 0.05f * years) * grievance, new[] { city });
+        if (!announce) return true;
+        string history = string.Format(LM.Get("famine_rebellion_city_joined_history"), city.GetCityName(), years,
+            rebel.GetKingdomName());
+        RecordRebellionHistory(origin, history);
+        EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventMessage(history, origin);
         return true;
     }
 
     private static bool TryJoinAdjacentPeasantRebellion(City city, float ratio)
     {
-        if (city == null || ratio < ContagionLandlessThreshold || city.neighbours_cities == null ||
+        if (city == null || city.neighbours_cities == null ||
             !RebellionSystem.CanAttempt(city.kingdom) || !CityStabilitySystem.CanRise(city)) return false;
+        bool landless = ratio >= ContagionLandlessThreshold;
+        // 饥民军也拉连荒的邻城入伙(见 FamineUnrestSystem 的合流)：本城连荒、不是都城、本国今年卷入饥民起义的城还没到上限
+        bool hungry = !landless && city.GetOrCreate().famine_years >= 1 && city != city.kingdom.capital &&
+                      FamineUnrestSystem.RoomLeft(city.kingdom) > 0;
+        if (!landless && !hungry) return false;
+        bool? starving = null;
         foreach (City neighbour in city.neighbours_cities)
         {
             Kingdom rebel = neighbour?.kingdom;
             KingdomExtension.KingdomExtraData rebelData = rebel?.GetOrCreate();
             if (rebelData?.is_peasant_land_rebellion != true || rebelData.peasant_land_rebellion_war_id <= 0) continue;
+            if (!landless)
+            {
+                if (!rebelData.is_famine_rebellion) continue;
+                // 眼下还在饥荒(见 FamineUnrestSystem.InFamine，要算吃饱率)：接壤饥民军时才查，只查一次
+                starving ??= FamineUnrestSystem.InFamine(city);
+                if (starving != true) return false;
+                Kingdom origin = city.kingdom;
+                if (!JoinFamineRebellion(city, rebel, announce: true)) continue;
+                FamineUnrestSystem.CountRebelCities(origin, 1);
+                return true;
+            }
             War war = World.world?.wars?.get(rebelData.peasant_land_rebellion_war_id);
             if (war == null || war.hasEnded() || !war.isDefender(city.kingdom)) continue;
             city.joinAnotherKingdom(rebel, pCaptured: true, pRebellion: true);

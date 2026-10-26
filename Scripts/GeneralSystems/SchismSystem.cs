@@ -32,7 +32,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     土崩瓦解——两年收束时没响应的，帝国存续就复奉号令，灭亡就照 TryFall/Absorb 的直辖规则。
 //     以争位、分裂收场才记大分裂冷却(UpheavalGuard.Mark)，土崩瓦解每省起义各自记，中途化解不记。
 // 化解(预警、割据两阶段，每月)：正统回到该类门槛 +8 且积弊均值低于该类积弊门槛(土崩瓦解另要内忧降到 0.2 以下——它的首义看的是
-//   内忧，正统、积弊都不差、只因国库亏空之类起事的，光看这两项会一开就化解)；中央在本阶段开始后打赢一仗(主攻或主守且是胜方，
+//   内忧，正统、积弊都不差、只因国库亏空之类起事的，光看这两项会一开就化解；王朝积弊只增不减，这里的内忧不算它，用户 2026-10-26)；
+//   中央在本阶段开始后打赢一仗(主攻或主守且是胜方，
 //   见 OnWarEnded)；新君(新将军、新苏丹)在位满 3 年且正统不低于门槛(土崩瓦解不是换君引起的，进程里换了君才算)；
 //   不稳成员都已不在帝国里。雄主身后只认打赢一仗与成员都不在。
 // 一个帝国同时只走一个进程；进程进行中、大分裂冷却里不开新的(UpheavalGuard.Blocked)。旧档默认无进程，旧机制下已出走的成员不追认。
@@ -291,7 +292,8 @@ public static class SchismSystem
         {
             if (data.schism_kind != Collapse)
                 return $"正统回到{legitimacy}(门槛{gate}+{ResolveMargin})，积弊均{malady:0}(低于{data.schism_gate_malady:0})";
-            float crisis = ProvincialCollapseSystem.Crisis(empire);
+            // 王朝积弊只增不减(用户 2026-10-26)：内忧平息不再等它回落，只看其余各项；以前积弊过 48 这一路就永远化解不了
+            float crisis = ProvincialCollapseSystem.Crisis(empire, excludeStrain: true);
             if (crisis < CollapseCalm)
                 return $"正统回到{legitimacy}(门槛{gate}+{ResolveMargin})，积弊均{malady:0}(低于{data.schism_gate_malady:0})，" +
                        $"内忧{crisis:0.00}(低于{CollapseCalm:0.0})";
