@@ -10,7 +10,7 @@ using UnityEngine;
 
 namespace EmpireCraft.Scripts.GamePatches;
 
-// 大地图帧数(无小人模式)：
+// 大地图帧数(无小人模式，或巨大及以上的地图，见 NativeWorldOptimizationPatch.Throttled)：
 //   · 野外建筑清单：原版只要有一棵树长出或死掉，就把全图所有建筑(30×30 的图有三十万)整份重扫一遍，
 //     大地图上几乎每帧两次。野外清单只有金脑之类极少数行为用到，改为最多每 2 秒重建一次；
 //   · 地图图层(热量、区块、边界与各图层绘制)最多每秒 20 次，跳过的时间累计补上(火、热量照常推进)；
@@ -33,8 +33,7 @@ public class RenderThrottlePatch : GamePatch
     private static float _buildingsElapsed;
     private static bool _wrapped;
 
-    private static bool Active => CityPopulationSystem.AbstractPopulationEnabled && Config.game_loaded &&
-                                  !SmoothLoader.isLoading();
+    private static bool Active => NativeWorldOptimizationPatch.Throttled && Config.game_loaded && !SmoothLoader.isLoading();
 
     public void Initialize()
     {
@@ -105,7 +104,8 @@ public class RenderThrottlePatch : GamePatch
         return true;
     }
 
-    private static bool Profiling => Active && !Config.paused;
+    // 细分计时仍只在无小人模式下记
+    private static bool Profiling => CityPopulationSystem.AbstractPopulationEnabled && Active && !Config.paused;
 
     public static void BeforeStep(MethodBase __originalMethod, out FrameProfiler.Scope? __state) =>
         __state = Profiling ? FrameProfiler.Measure($"原版·{__originalMethod.DeclaringType?.Name}.{__originalMethod.Name}") : null;

@@ -79,6 +79,7 @@ public static class PopulationRuntimeDiagnostics
             $"{EmpireCraft.Scripts.GamePatches.NativeWorldOptimizationPatch.OriginalZoneChecks}；" +
             $"合并地图刷新 {EmpireCraft.Scripts.GamePatches.NativeWorldOptimizationPatch.DeferredMiniMaps}；" +
             $"省略空边缘上传 {EmpireCraft.Scripts.GamePatches.NativeWorldOptimizationPatch.SkippedEdgeUploads}；" +
+            $"边缘逐格重画 {EmpireCraft.Scripts.GamePatches.NativeWorldOptimizationPatch.PartialEdgeRedraws}；" +
             $"原版建筑并行帧 {EmpireCraft.Scripts.GamePatches.NativeWorldOptimizationPatch.BuildingParallelFrames}；" +
             $"最近建筑批次实际后台线程 {EmpireCraft.Scripts.GamePatches.NativeWorldOptimizationPatch.LastBuildingBackgroundThreads}；" +
             $"线程 {PopulationMathWorkers.WorkerCount}；举人排名后台命中/即时计算 " +

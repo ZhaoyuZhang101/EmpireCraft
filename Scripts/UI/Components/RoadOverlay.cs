@@ -38,6 +38,8 @@ public static class RoadOverlay
         public Texture2D Texture;
         public Color32[] Pixels;
         public readonly List<int> Painted = new();
+        // 上次上传时画了的格与指纹：这回画出来一样就不上传(整张与地图等大的贴图上传是大头，空地图、路没变时每 20 秒白传两张)
+        public int UploadedCount = -1, UploadedHash;
     }
 
     private static Sheet _major, _minor;
@@ -167,6 +169,16 @@ public static class RoadOverlay
 
     private static void Upload(Sheet sheet)
     {
+        int hash = 17;
+        foreach (int id in sheet.Painted)
+        {
+            Color32 color = sheet.Pixels[id];
+            hash = unchecked(hash * 31 + id);
+            hash = unchecked(hash * 31 + (color.r | color.g << 8 | color.b << 16 | color.a << 24));
+        }
+        if (sheet.UploadedCount == sheet.Painted.Count && sheet.UploadedHash == hash) return;
+        sheet.UploadedCount = sheet.Painted.Count;
+        sheet.UploadedHash = hash;
         sheet.Texture.SetPixels32(sheet.Pixels);
         sheet.Texture.Apply(false);
     }

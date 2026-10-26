@@ -13,10 +13,17 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     就算这一家的——画上它的颜色，图层的归属查询也返回它(平滑国界、悬停高亮、点选都按这个，边线自然消失)；
 //   · 被遗弃的空城不算无主地，不会被涂掉；一片太大的(超过 MaxZones 块)不补。
 // 每隔几秒重算一次，变了的地块连同四邻重画。
+// 开销(用户 2026-10-27 反馈"什么都不放、地图够大也卡")：以前每 5 秒对两个图层各把全图连成一片的无主地搜一遍(空地图整张图都是
+// 一片)，每次新建几千项的集合。现在只算正显示的图层(切过去当场重算)，没有城就不搜；只从挨着城的无主地起搜，一片通海、靠地图边、
+// 挨着两家、超过 MaxZones 块就当场作废，搜过的地块记着片号，别处连到作废的片也立刻作废；搜索用的集合复用。
 public static class EnclaveFill
 {
     private const float RefreshSeconds = 5f;
     private const int MaxZones = 400;
+    private static readonly Dictionary<TileZone, int> Seen = new();
+    private static readonly List<TileZone> Component = new();
+    private static readonly Queue<TileZone> Pending = new();
+    private static MetaTypeAsset _shown;
 
     private sealed class Layer
     {
@@ -92,11 +99,16 @@ public static class EnclaveFill
             _world = world;
         }
         float now = Time.unscaledTime;
-        if (now < _next && _next - now <= RefreshSeconds) return;
+        MetaTypeAsset shown = world.getCachedMapMetaAsset();
+        bool switched = !ReferenceEquals(shown, _shown);
+        _shown = shown;
+        if (!switched && now < _next && _next - now <= RefreshSeconds) return;
         _next = now + RefreshSeconds;
         try
         {
-            using (FrameProfiler.Measure("图层补洞")) foreach (Layer layer in Layers) Refresh(layer, world.zone_calculator.zones);
+            using (FrameProfiler.Measure("图层补洞"))
+                foreach (Layer layer in Layers)
+                    if (ReferenceEquals(layer.asset, shown)) Refresh(layer, world);
         }
         catch (Exception exception)
         {
@@ -104,46 +116,10 @@ public static class EnclaveFill
         }
     }
 
-    private static void Refresh(Layer layer, List<TileZone> zones)
+    private static void Refresh(Layer layer, MapBox world)
     {
         var fill = new Dictionary<TileZone, IMetaObject>();
-        var seen = new HashSet<TileZone>();
-        var component = new List<TileZone>();
-        var queue = new Queue<TileZone>();
-        foreach (TileZone start in zones)
-        {
-            if (start == null || start.city != null || !seen.Add(start)) continue;
-            component.Clear();
-            queue.Clear();
-            queue.Enqueue(start);
-            bool open = false;
-            IMetaObject owner = null;
-            bool mixed = false;
-            while (queue.Count > 0)
-            {
-                TileZone zone = queue.Dequeue();
-                component.Add(zone);
-                if (zone.world_edge || SeaRegionSystem.IsSea(zone)) open = true;
-                foreach (TileZone next in zone.neighbours ?? Array.Empty<TileZone>())
-                {
-                    if (next == null)
-                    {
-                        open = true;
-                        continue;
-                    }
-                    if (next.city == null)
-                    {
-                        if (seen.Add(next)) queue.Enqueue(next);
-                        continue;
-                    }
-                    IMetaObject meta = layer.simple(next);
-                    if (meta == null || owner != null && !ReferenceEquals(owner, meta)) mixed = true;
-                    else owner = meta;
-                }
-            }
-            if (open || mixed || owner == null || component.Count > MaxZones) continue;
-            foreach (TileZone zone in component) fill[zone] = owner;
-        }
+        if (world.cities.Count > 0) Search(layer, world.zone_calculator.zones, fill);
         // 变了的地块连同四邻重画(边线跟着变)
         var changed = new HashSet<TileZone>();
         foreach (var pair in layer.fill)
@@ -157,5 +133,72 @@ public static class EnclaveFill
             foreach (TileZone next in zone.neighbours ?? Array.Empty<TileZone>()) next?.resetRenderHelpers();
             if (!fill.ContainsKey(zone)) World.world.zone_calculator.drawZoneClear(zone);
         }
+    }
+
+    // 找被一家包住的无主地：只从挨着城的无主地起搜；一片作废时搜过的地块仍记着片号，别处连到它们也随之作废
+    private static void Search(Layer layer, List<TileZone> zones, Dictionary<TileZone, IMetaObject> fill)
+    {
+        Seen.Clear();
+        int id = 0;
+        foreach (TileZone start in zones)
+        {
+            if (start == null || start.city != null || Seen.ContainsKey(start) || !BordersCity(start)) continue;
+            id++;
+            Component.Clear();
+            Pending.Clear();
+            Pending.Enqueue(start);
+            Seen[start] = id;
+            bool rejected = false;
+            IMetaObject owner = null;
+            while (Pending.Count > 0 && !rejected)
+            {
+                TileZone zone = Pending.Dequeue();
+                Component.Add(zone);
+                if (zone.world_edge || SeaRegionSystem.IsSea(zone) || Component.Count + Pending.Count > MaxZones)
+                {
+                    rejected = true;
+                    break;
+                }
+                foreach (TileZone next in zone.neighbours ?? Array.Empty<TileZone>())
+                {
+                    if (next == null)
+                    {
+                        rejected = true;
+                        break;
+                    }
+                    if (next.city == null)
+                    {
+                        // 别的片搜过的：那片已作废(没作废的片是封闭的，连不到这里)
+                        if (Seen.TryGetValue(next, out int other))
+                        {
+                            if (other == id) continue;
+                            rejected = true;
+                            break;
+                        }
+                        Seen[next] = id;
+                        Pending.Enqueue(next);
+                        continue;
+                    }
+                    IMetaObject meta = layer.simple(next);
+                    if (meta == null || owner != null && !ReferenceEquals(owner, meta))
+                    {
+                        rejected = true;
+                        break;
+                    }
+                    owner = meta;
+                }
+            }
+            if (rejected || owner == null) continue;
+            foreach (TileZone zone in Component) fill[zone] = owner;
+        }
+        Component.Clear();
+        Pending.Clear();
+    }
+
+    private static bool BordersCity(TileZone zone)
+    {
+        foreach (TileZone next in zone.neighbours ?? Array.Empty<TileZone>())
+            if (next?.city != null) return true;
+        return false;
     }
 }

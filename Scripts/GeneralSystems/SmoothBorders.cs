@@ -31,7 +31,8 @@ public static class SmoothBorders
     // 本次画过的像素：边框(占领纹、兼属纹不覆盖)、归别人的(本块的斜纹不画在上面)
     private static bool[] _outline = Array.Empty<bool>(), _foreign = Array.Empty<bool>();
     // 每格上次画的归属与不带高亮的底色(高亮开关时直接改这几格的颜色，不必重画地块)
-    private static IMetaObject[] _owner = Array.Empty<IMetaObject>();
+    // 归属记编号(0 为无，见 OwnerTable)：与地图等大的对象引用数组每次垃圾回收都要整个扫一遍(用户 2026-10-27 反馈大地图卡)
+    private static int[] _owner = Array.Empty<int>();
     private static Color32[] _base = Array.Empty<Color32>();
     private static bool[] _hasBase = Array.Empty<bool>();
     private static int _paintedZone = -1;
@@ -53,7 +54,7 @@ public static class SmoothBorders
     internal static string Describe(int tileId, int zoneId)
     {
         if (!Enabled || tileId < 0 || tileId >= _owner.Length) return "平滑国界关";
-        IMetaObject owner = _owner[tileId];
+        IMetaObject owner = OwnerTable[_owner[tileId]];
         string name = owner is Kingdom kingdom ? kingdom.name : owner is City city ? city.name : owner?.GetType().Name ?? "无";
         return $"记下归属 {name}，边框 {_outline[tileId]}，归别人 {_foreign[tileId]}，有底色 {_hasBase[tileId]}，" +
                $"翻牌中 {Transitions.ContainsKey(zoneId)}，有快照 {Snapshots.ContainsKey(zoneId)}";
@@ -503,9 +504,65 @@ public static class SmoothBorders
         if (pixels == null || _outline.Length == pixels.Length) return;
         _outline = new bool[pixels.Length];
         _foreign = new bool[pixels.Length];
-        _owner = new IMetaObject[pixels.Length];
+        _owner = new int[pixels.Length];
         _base = new Color32[pixels.Length];
         _hasBase = new bool[pixels.Length];
+    }
+
+    // 归属编号表：编号只增不减，攒到 MaxOwners 个(亡国、旧城一直占着)就按眼下还记着的重排一遍，缓存的上色作废
+    private const int MaxOwners = 4096;
+    private static readonly List<IMetaObject> OwnerTable = new() { null };
+    private static readonly Dictionary<IMetaObject, int> OwnerIndex = new();
+    // 相邻的格大多同一归属：上一次查的记下，不逐格查字典
+    private static IMetaObject _indexedOwner;
+    private static int _indexed;
+
+    private static int IndexOf(IMetaObject owner)
+    {
+        if (owner == null) return 0;
+        if (ReferenceEquals(owner, _indexedOwner)) return _indexed;
+        if (!OwnerIndex.TryGetValue(owner, out int index))
+        {
+            if (OwnerTable.Count >= MaxOwners) CompactOwners();
+            index = OwnerTable.Count;
+            OwnerTable.Add(owner);
+            OwnerIndex[owner] = index;
+        }
+        _indexedOwner = owner;
+        _indexed = index;
+        return index;
+    }
+
+    private static void CompactOwners()
+    {
+        Snapshots.Clear();
+        var remap = new int[OwnerTable.Count];
+        var kept = new List<IMetaObject> { null };
+        OwnerIndex.Clear();
+        for (int id = 0; id < _owner.Length; id++)
+        {
+            int old = _owner[id];
+            if (old == 0) continue;
+            if (remap[old] == 0)
+            {
+                remap[old] = kept.Count;
+                OwnerIndex[OwnerTable[old]] = kept.Count;
+                kept.Add(OwnerTable[old]);
+            }
+            _owner[id] = remap[old];
+        }
+        OwnerTable.Clear();
+        OwnerTable.AddRange(kept);
+        _indexedOwner = null;
+    }
+
+    private static void ResetOwners()
+    {
+        Array.Clear(_owner, 0, _owner.Length);
+        OwnerTable.Clear();
+        OwnerTable.Add(null);
+        OwnerIndex.Clear();
+        _indexedOwner = null;
     }
 
     private static bool UniformWindow()
@@ -573,7 +630,7 @@ public static class SmoothBorders
                          Differs(owner, x, y + 1, width, height) || Differs(owner, x, y - 1, width, height));
             _foreign[id] = foreign;
             _outline[id] = edge;
-            _owner[id] = owner;
+            _owner[id] = IndexOf(owner);
             Color32 colorInside = inside, colorOutside = outside;
             if (!ReferenceEquals(owner, native)) ColorsOf(owner, clearInside, ref colorInside, ref colorOutside);
             Color32 color = edge ? colorOutside : colorInside;
@@ -636,15 +693,16 @@ public static class SmoothBorders
         ResetLit();
         BeginLift();
         bool changed = false;
-        IMetaObject runOwner = null;
+        int runOwner = 0;
         bool runHit = false;
         for (int id = 0; id < pixels.Length; id++)
         {
-            IMetaObject owner = _owner[id];
-            if (owner == null || !_hasBase[id] || pixels[id].a == 0) continue;
-            if (!ReferenceEquals(owner, runOwner))
+            int index = _owner[id];
+            if (index == 0 || !_hasBase[id] || pixels[id].a == 0) continue;
+            if (index != runOwner)
             {
-                runOwner = owner;
+                runOwner = index;
+                IMetaObject owner = OwnerTable[index];
                 IMetaObject realm = ReferenceEquals(owner, _hover) && _hoverRealm != null ? _hoverRealm : owner;
                 runHit = false;
                 foreach (object meta in metas)
@@ -814,7 +872,7 @@ public static class SmoothBorders
         LastMeta.Clear();
         Snapshots.Clear();
         Array.Clear(_hasBase, 0, _hasBase.Length);
-        Array.Clear(_owner, 0, _owner.Length);
+        ResetOwners();
         Array.Clear(_outline, 0, _outline.Length);
         Array.Clear(_foreign, 0, _foreign.Length);
         _pixelIds = Array.Empty<int[]>();
@@ -1032,7 +1090,7 @@ public static class SmoothBorders
         {
             if (id < 0 || id >= _hasBase.Length) continue;
             _hasBase[id] = false;
-            _owner[id] = null;
+            _owner[id] = 0;
         }
         if (!layerClear) Transitions.Remove(zone.id);
         PendingSweep.Remove(zone.id);
@@ -1729,7 +1787,7 @@ public static class SmoothBorders
         public long key;
         public float at;
         public Color32[] pixels;
-        public IMetaObject[] owners;
+        public int[] owners;
         public bool[] outline, foreign;
     }
 
@@ -1844,7 +1902,7 @@ public static class SmoothBorders
         if (shot.pixels == null || shot.pixels.Length != count)
         {
             shot.pixels = new Color32[count];
-            shot.owners = new IMetaObject[count];
+            shot.owners = new int[count];
             shot.outline = new bool[count];
             shot.foreign = new bool[count];
         }
@@ -1875,14 +1933,14 @@ public static class SmoothBorders
     {
         int id = tile?.data?.tile_id ?? -1;
         if (!Enabled || id < 0 || id >= _outline.Length || !_outline[id] || !_hasBase[id]) return false;
-        IMetaObject owner = _owner[id];
-        if (owner == null) return false;
+        int owner = _owner[id];
+        if (owner == 0) return false;
         foreach (WorldTile next in new[] { tile.tile_up, tile.tile_down, tile.tile_left, tile.tile_right })
         {
             if (next?.data == null) return false;
             int other = next.data.tile_id;
             if (IsWater(next.x, next.y)) continue;
-            if (other < 0 || other >= _owner.Length || !ReferenceEquals(_owner[other], owner)) return false;
+            if (other < 0 || other >= _owner.Length || _owner[other] != owner) return false;
         }
         return true;
     }
@@ -2055,9 +2113,9 @@ public static class SmoothBorders
     private static Color32 Lifted(int id)
     {
         Color32 color = _base[id];
-        IMetaObject owner = _owner[id];
-        if (_outline[id] || owner == null || color.a == 0) return color;
-        return Lit(owner) ? new Color32(LiftTable[color.r], LiftTable[color.g], LiftTable[color.b], color.a) : color;
+        int owner = _owner[id];
+        if (_outline[id] || owner == 0 || color.a == 0) return color;
+        return Lit(OwnerTable[owner]) ? new Color32(LiftTable[color.r], LiftTable[color.g], LiftTable[color.b], color.a) : color;
     }
 
     // 悬停的、选中的(原版选中后边框一闪一闪，这里改成常亮；选中变了原版会整图重画)。每帧按归属记一次，不逐格查；

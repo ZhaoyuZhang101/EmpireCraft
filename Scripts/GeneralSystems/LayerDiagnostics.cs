@@ -19,7 +19,9 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 说明还有指纹没算进去的变动(用户定"定时扫描只留作日志诊断"，不在这里补画，免得色块过十几秒突然跳)。
 public static class LayerDiagnostics
 {
-    private const float IntervalSeconds = 15f, FirstDelaySeconds = 15f;
+    // 上一轮什么都没查到就隔 QuietIntervalSeconds 再扫(用户 2026-10-27 反馈大地图卡：全图逐块扫、每块读 64 格，十五秒一轮太勤)；
+    // 世上没有城就不扫(色块只画有城的块，没什么可查)
+    private const float IntervalSeconds = 15f, QuietIntervalSeconds = 60f, FirstDelaySeconds = 15f;
     // 本轮修了几块(写进日志)；修过一回下一轮还在的不再修(是真的画法问题，不是残留，免得每十五秒重画一回)
     private static int _repaired;
     private static readonly HashSet<int> RepairedOnce = new(), GaveUp = new();
@@ -72,6 +74,11 @@ public static class LayerDiagnostics
         if (_cursor < 0)
         {
             if (Time.unscaledTime < _next) return;
+            if (world.cities.Count == 0)
+            {
+                _next = Time.unscaledTime + QuietIntervalSeconds;
+                return;
+            }
             _cursor = 0;
             _water = _land = _outline = _repaired = _stale = _staleUnqueued = 0;
             WaterExamples.Clear();
@@ -99,7 +106,8 @@ public static class LayerDiagnostics
         for (; _cursor < end; _cursor++) Check(zones[_cursor], pixels, layer, calc);
         if (_cursor < zones.Count) return;
         _cursor = -1;
-        _next = Time.unscaledTime + IntervalSeconds;
+        bool quiet = _water == 0 && _land == 0 && _outline == 0 && _repaired == 0 && _stale == 0;
+        _next = Time.unscaledTime + (quiet ? QuietIntervalSeconds : IntervalSeconds);
         string summary = $"图层 {layer.id}：水面上色 {_water} 块，无主陆地上色 {_land} 块，多余的边框 {_outline} 块，修了 {_repaired} 块残留边框，" +
                          $"没刷新的色块 {_stale} 块" + (_stale > 0 ? $"(其中原版没来重画的 {_staleUnqueued} 块，其余排着等上色)" : "");
         if (summary == _lastSummary) return;
