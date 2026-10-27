@@ -140,7 +140,8 @@ public static class WarGoalSystem
             if (AdministrativeControlSystem.BeyondReach(attacker, defender.capital) ||
                 AdministrativeControlSystem.GenerationExhausted(war, attacker, out generation))
             {
-                data.war_goal = defender.IsEmpire() ? WarGoal.赔款 : WarGoal.迫使附庸;
+                // 行封建附庸的，对方远在控制范围之外也收不成附庸(见 FeudalVassalService.TooFar)，只求赔款
+                data.war_goal = defender.IsEmpire() || FeudalVassalService.TooFar(attacker, defender) ? WarGoal.赔款 : WarGoal.迫使附庸;
                 if (generation != null)
                     LogService.LogInfo($"[EmpireCraft][扩张上限] {attacker.GetKingdomName()} 伐 {defender.GetKingdomName()}：{generation}，不谋土地");
             }
@@ -719,6 +720,8 @@ public static class WarGoalSystem
                             lord.GetEmpire()?.GetEmpireName() ?? lord.GetKingdomName()), lord);
                     else WarReparationsSystem.Impose(subject, lord);
                 }
+                // 鞭长莫及的不立封建附庸，改赔款(见 FeudalVassalService.TooFar)
+                else if (FeudalVassalService.TooFar(lord, subject)) WarReparationsSystem.Impose(subject, lord);
                 else if (FeudalVassalService.ForceBind(lord, subject))
                     TranslateHelper.LogEventMessage(string.Format(LM.Get("war_peace_vassalized"), subject.GetKingdomName(),
                         lord.GetKingdomName()), lord);

@@ -95,6 +95,7 @@ public static class SmallStateSubmissionSystem
     // 行封建附庸的为附庸，收朝贡的帝国为朝贡国；都不行就不归附
     private static bool Submit(Kingdom lord, Kingdom small)
     {
+        if (FeudalVassalService.TooFar(lord, small)) return false;
         bool bound = FeudalVassalService.UsesFeudalVassals(lord)
             ? FeudalVassalService.ForceBind(lord, small)
             : TributaryRelations.Submit(lord, small);

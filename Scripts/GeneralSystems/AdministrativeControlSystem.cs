@@ -26,8 +26,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     领土不在这里变动：扩张、边界侵蚀都按原版(侵蚀受原版"边界侵蚀"开关管、只在交战双方之间，见 CityExpansionPatch)。
 //     以前这里的"边地易手"(太平时互相侵蚀)、"被围空地并入"(把山地、隔水的地并进来)不守原版规矩，已删；
 //     旧存档里因此留下的山地、隔水地和飞地，读档后交给原版的"断开的地放弃"清掉(见 CityExpansionPatch.CheckAbandonOnLoad)；
-//     飞地易帜：陆路不通的飞地城(不是都城)控制力不到 0.45 时，每年有概率改投接壤最长的邻国(双方都不在打仗)，
-//     古典时代还有概率由当地首领自立为独立王国(见 EraSecession，近代以后不自立)。
+//     飞地自立：陆路不通的飞地城(不是都城)控制力不到 0.45 时，每年有概率由当地首领自立为独立王国，
+//     不改投邻国；古典时代更常见(见 EraSecession)。
 //
 // 扩张上限(用户 2026-10-16："扩张的毫无节制""远的扩张不到的就可以用羁縻统治，或者属国朝贡或者诸侯等，参考朝鲜和明朝的关系")：
 //   · 控制范围：满控路程除了时代，还看本国已采纳的科技(驿传、工业化、电报、摩托化、航空)、政体(律令远、封建近)
@@ -234,6 +234,14 @@ public static class AdministrativeControlSystem
         Kingdom realm = Realm(attacker);
         if (!Valid(realm) || target?.data == null || target.isRekt()) return false;
         if (realm.GetOrCreate().admin_overextension > 0f) return true;
+        return OutOfReach(realm, target);
+    }
+
+    // 只按路程：对方的城远在本国(帝国按中央，连同成员)控制范围之外(封建附庸用，见 FeudalVassalService.TooFar)
+    public static bool OutOfReach(Kingdom kingdom, City target)
+    {
+        Kingdom realm = Realm(kingdom);
+        if (!Valid(realm) || target?.data == null || target.isRekt()) return false;
         TileZone goal = CenterZone(target);
         if (goal == null) return false;
         // 先按直线挑最近的几座，再按地形阻力细算
@@ -728,9 +736,12 @@ public static class AdministrativeControlSystem
         return true;
     }
 
+    // 飞地直接自立(用户 2026-10-27 先选"飞地归包围它的国家"，随后改定"还是改成直接独立吧")：控制力不到 DefectThreshold 的
+    // 陆路飞地城，每年按控制力的缺口有概率由当地首领自立为国(连同挨着的同属一国的飞地城)，不再改投任何邻国；
+    // 时代越早越常见(EraSecession，近代以后按基础机会)
     private static void Defect(Kingdom realm, List<City> cities)
     {
-        float era = EraSecession(realm);
+        float era = Mathf.Max(1f, EraSecession(realm));
         foreach (City city in cities)
         {
             if (!Valid(city)) continue;
@@ -739,73 +750,9 @@ public static class AdministrativeControlSystem
                 city.kingdom.hasEnemies() || city.GetOrCreate().OccupiedStatus?.Count > 0 ||
                 UnificationSystem.InGrace(city.kingdom)) continue;
             float chance = (DefectThreshold - data.admin_control) * DefectChance;
-            // 陆上只挨着一家的飞地(被它包着)：改投那一家，不自立成一城小国(用户 2026-10-27 嫌版图太碎、选"飞地归包围它的国家")
-            Kingdom surrounding = Surrounding(city, realm);
-            if (surrounding != null)
-            {
-                if (UnityEngine.Random.value >= chance * Mathf.Max(1f, era)) continue;
-                if (Hand(realm, city, surrounding)) return; // 每国每年至多一座
-                continue;
-            }
-            if (era > 0f && UnityEngine.Random.value < chance * era)
-            {
-                if (Secede(realm, city)) return; // 每国每年至多一处
-                continue;
-            }
-            if (UnityEngine.Random.value >= chance) continue;
-            Kingdom receiver = Neighbour(city, realm);
-            if (receiver == null) continue;
-            if (Hand(realm, city, receiver)) return; // 每国每年至多一座
+            if (UnityEngine.Random.value >= chance * era) continue;
+            if (Secede(realm, city)) return; // 每国每年至多一处
         }
-    }
-
-    // 飞地改投 receiver
-    private static bool Hand(Kingdom realm, City city, Kingdom receiver)
-    {
-        Kingdom former = city.kingdom;
-        city.joinAnotherKingdom(receiver);
-        if (city.kingdom != receiver) return false;
-        city.GetOrCreate().admin_control = -1f;
-        if (former != realm && former.cities.Count == 0 && former.GetEmpire() == realm.GetEmpire())
-            former.GetEmpire()?.leave(former);
-        EventRecorder.Record(realm, string.Format(LM.Get("admin_control_defect_history"),
-            city.data.name, realm.data.name, receiver.data.name));
-        return true;
-    }
-
-    // 陆上只挨着一家(按宗主、帝国中央算)的飞地：返回那一家里和它接壤最长、不在打仗的国家；挨着几家、没有邻国的为空
-    private static Kingdom Surrounding(City city, Kingdom realm)
-    {
-        Kingdom top = null;
-        foreach (TileZone zone in city.border_zones)
-            foreach (TileZone next in zone?.neighbours ?? Array.Empty<TileZone>())
-            {
-                Kingdom neighbour = next?.city?.kingdom;
-                if (!Valid(neighbour) || Realm(neighbour) == realm || neighbour.wild) continue;
-                Kingdom sovereign = EmpireCoreControl.Sovereign(neighbour);
-                if (top == null) top = sovereign;
-                else if (sovereign != top) return null;
-            }
-        if (top == null) return null;
-        Kingdom receiver = Neighbour(city, realm);
-        return receiver != null && EmpireCoreControl.Sovereign(receiver) == top ? receiver : null;
-    }
-
-    // 和这座城接壤最长、不在打仗的邻国
-    private static Kingdom Neighbour(City city, Kingdom realm)
-    {
-        var contacts = new Dictionary<Kingdom, int>();
-        foreach (TileZone zone in city.border_zones)
-            foreach (TileZone next in zone?.neighbours ?? Array.Empty<TileZone>())
-            {
-                Kingdom neighbour = next?.city?.kingdom;
-                if (!Valid(neighbour) || Realm(neighbour) == realm || neighbour.hasEnemies() ||
-                    AncientWarfareCompatibility.OwnsObject(next.city)) continue;
-                contacts.TryGetValue(neighbour, out int border);
-                contacts[neighbour] = border + 1;
-            }
-        return contacts.OrderByDescending(pair => pair.Value).ThenBy(pair => pair.Key.id)
-            .Select(pair => pair.Key).FirstOrDefault();
     }
 
     #endregion

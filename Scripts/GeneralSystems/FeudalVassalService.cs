@@ -90,8 +90,17 @@ public static class FeudalVassalService
             IsInChain(lord, subject)) return false;
         // 神力放出的保护期内原宗主收不得(见 MembershipCooldown)；这里是挑对象，不记日志
         if (MembershipCooldown.BlocksVassal(subject, lord, log: false)) return false;
-        return UsesFeudalVassals(lord);
+        return UsesFeudalVassals(lord) && !TooFar(lord, subject);
     }
+
+    // 封建附庸鞭长莫及(用户 2026-10-27 截图乌拉尔斯克汗国挂着都城在斯德哥尔摩的神圣罗马帝国的附庸："在封建体制下，
+    // 离罗马中央很远的附庸应当不成立")：附庸的都城远在宗主(帝国按中央，连同成员)控制范围之外——封臣要亲身效忠、随征、
+    // 赴宫廷，隔着大半个大陆这层关系有名无实。行封建附庸的宗主收不得(开战改求赔款、和约不立附庸、和平称臣不受)，
+    // 已有的每年 DistantBreakChance 自行脱离(见 ReleaseDistantVassals)。朝贡体系(远方来朝)不在此列；神力强制附庸不拦
+    private const float DistantBreakChance = 0.3f;
+
+    public static bool TooFar(Kingdom lord, Kingdom subject) =>
+        UsesFeudalVassals(lord) && subject?.capital != null && AdministrativeControlSystem.OutOfReach(lord, subject.capital);
 
     // 行西方式附庸的：封建化了的文化，或废了君主制的(朝贡体系随之废除，改用附庸国)
     public static bool UsesFeudalVassals(Kingdom lord)
@@ -556,6 +565,25 @@ public static class FeudalVassalService
             subject.SubMoney(amount, TreasuryCategory.Tribute);
             lord.AddMoney(amount, TreasuryCategory.Tribute);
             FiscalDiagnostics.Count("封建贡赋");
+        }
+        ReleaseDistantVassals();
+    }
+
+    // 鞭长莫及的封建附庸每年 DistantBreakChance 自行脱离(见 TooFar)；神力强制附庸的保护期内不走
+    private static void ReleaseDistantVassals()
+    {
+        foreach (Kingdom subject in World.world.kingdoms.list.ToList())
+        {
+            if (subject?.data == null || subject.isRekt()) continue;
+            Kingdom lord = GetOverlord(subject);
+            if (lord == null || lord.isRekt() || AncientWarfareCompatibility.Owns(subject) || AncientWarfareCompatibility.Owns(lord) ||
+                MembershipCooldown.ManualJoinActive(subject) || !TooFar(lord, subject) ||
+                UnityEngine.Random.value >= DistantBreakChance) continue;
+            Break(subject);
+            string text = string.Format(LM.Get("feudal_distant_break_history"), subject.GetKingdomName(), lord.GetKingdomName());
+            EventRecorder.Record(lord, text);
+            EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventOnly(text, lord);
+            NeoModLoader.services.LogService.LogInfo($"[EmpireCraft][远方附庸] {subject.GetKingdomName()} 远在 {lord.GetKingdomName()} 控制范围之外，脱离附庸");
         }
     }
 

@@ -1056,6 +1056,7 @@
   "khanate_collapse_more": "{0}等{1}部",
   "nomad_appanage_history": "{0}新汗{1}即位，按草原旧俗分帐：{2}各领部众自立",
   "small_state_submit_history": "{0}势孤力弱，四邻尽属{1}，遣使称臣",
+  "feudal_distant_break_history": "{0}远在{1}鞭长莫及之处，封建臣属有名无实，自行脱离",
   "zhou_log_conquest": "{0}兴兵伐{1}，意在兼并",
   "zhou_log_submit": "{0}势孤力弱，举国降于{1}",
   "rebellion_reason_collapse": "朝廷失驭，各省离心",
