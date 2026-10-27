@@ -1052,6 +1052,7 @@
   "khanate_collapse_fall_history": "The khanship of {0} passes to {1}, but the court's word no longer carries: {2} each go their own way, leaving {0} with {3} cities, and the khanate is no more.",
   "khanate_collapse_more": "{0} and others ({1} in all)",
   "nomad_appanage_history": "As {1} takes the throne of {0}, the realm is divided by steppe custom: {2} each lead their own people",
+  "small_state_submit_history": "{0}, small and hemmed in on all sides by {1}, sends envoys to submit",
   "zhou_log_conquest": "{0} marches on {1}, bent on annexation",
   "zhou_log_submit": "{0}, isolated and weak, submits wholesale to {1}",
   "rebellion_reason_collapse": "The court has lost its grip and the provinces drift away",

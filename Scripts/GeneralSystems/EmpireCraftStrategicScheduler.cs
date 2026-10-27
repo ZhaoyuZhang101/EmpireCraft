@@ -66,6 +66,8 @@ public static class EmpireCraftStrategicScheduler
         using (FrameProfiler.Measure("异族之地")) ForeignLandSystem.Tick();
         // 独立的游牧国换君后诸子分帐(见 NomadAppanageSystem)
         NomadAppanageSystem.Tick();
+        // 一两城的小国被大国包着、国力悬殊时称臣(每年，见 SmallStateSubmissionSystem)
+        using (FrameProfiler.Measure("小国归附")) SmallStateSubmissionSystem.Tick();
         using (FrameProfiler.Measure("飞地年度维护")) ExclaveMaintenanceSystem.Tick();
         AdministrativeControlSystem.Tick();
         // 水土：游牧离草、定居入草(每帧至多一个政权，一年一次，见 ShuiTuSystem)

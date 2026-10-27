@@ -551,7 +551,13 @@ public static class WarGoalSystem
     // 割让攻方占了一半以上的城；吞并且对方丢了一半城或都城时，主守方余下的城一并归主攻方(帝国核心不整体吞并，只割城)
     private static void Cede(War war, Kingdom attacker, Kingdom defender, bool annex)
     {
-        List<(City city, Kingdom holder)> held = HeldCities(war, war._list_defenders, war._list_attackers);
+        List<(City city, Kingdom holder)> held = Contiguous(HeldCities(war, war._list_defenders, war._list_attackers), out int dropped);
+        // 连不上的城退还原主，改求赔款(见 Contiguous)
+        if (dropped > 0)
+        {
+            WarReparationsSystem.Impose(defender, attacker);
+            LogService.LogInfo($"[EmpireCraft][割地连片] {attacker.GetKingdomName()} 占了 {defender.GetKingdomName()} 的 {dropped} 座城连不上本国，退还原主、改求赔款");
+        }
         foreach ((City city, Kingdom holder) in held) PendingCessions.Add((city.id, holder.id));
         int ceded = held.Count;
         if (annex && !defender.IsEmpire())
@@ -575,6 +581,45 @@ public static class WarGoalSystem
         if (ceded > 0)
             TranslateHelper.LogEventMessage(string.Format(LM.Get("war_peace_ceded"), attacker.GetKingdomName(),
                 defender.GetKingdomName(), ceded), attacker);
+    }
+
+    // 割地只要连片的城(用户 2026-10-27 嫌版图太碎、问答选"割地只要连片的城")：占了的城挨着受让一方(按宗主、帝国中央算)
+    // 本来的城、或挨着已经割过去的城，才割；不在受让一方都城那片陆地上的(跨海征服，够不够得着归水师辐射管)照割。
+    // 连不上的(深入腹地、东一座西一座的)退还原主，由调用方改求赔款——以前占了哪座割哪座，和约一签就是一地飞地
+    private static List<(City city, Kingdom holder)> Contiguous(List<(City city, Kingdom holder)> held, out int dropped)
+    {
+        var accepted = new List<(City city, Kingdom holder)>();
+        var pending = new List<(City city, Kingdom holder)>(held);
+        var taken = new Dictionary<Kingdom, HashSet<City>>();
+        bool progress = true;
+        while (progress && pending.Count > 0)
+        {
+            progress = false;
+            for (int i = pending.Count - 1; i >= 0; i--)
+            {
+                (City city, Kingdom holder) = pending[i];
+                Kingdom realm = EmpireCoreControl.Sovereign(holder) ?? holder;
+                if (!taken.TryGetValue(realm, out HashSet<City> mine)) taken[realm] = mine = new HashSet<City>();
+                if (!Joined(city, realm, mine)) continue;
+                accepted.Add(pending[i]);
+                mine.Add(city);
+                pending.RemoveAt(i);
+                progress = true;
+            }
+        }
+        dropped = pending.Count;
+        return accepted;
+    }
+
+    private static bool Joined(City city, Kingdom realm, HashSet<City> taken)
+    {
+        if (realm?.capital?.getTile() is WorldTile seat && city.getTile() is WorldTile at && !at.isSameIsland(seat)) return true;
+        foreach (City next in (IEnumerable<City>)city.neighbours_cities ?? Array.Empty<City>())
+        {
+            if (next?.data == null || next.isRekt()) continue;
+            if (taken.Contains(next) || next.kingdom != null && EmpireCoreControl.Sovereign(next.kingdom) == realm) return true;
+        }
+        return false;
     }
 
     // 割地把法理补完整(用户 2026-10-26 问答选"占了的照割，法理城优先")：割完以后攻方一方握着哪个王国法理的都城、或占了它过半的城，

@@ -306,6 +306,10 @@ public static class CityStabilitySystem
         return false;
     }
 
+    // 人心已散：开着财政看实际稳定度不到起事门槛，不开看忠诚为负(自立成片用，见 SecessionSpread)
+    public static bool Disaffected(City city) => city?.data != null && !city.isRekt() &&
+        (TreasurySystem.Enabled(city) ? Effective(city) < CityStabilityRules.RebellionThreshold : city.getLoyalty() < 0);
+
     public static bool CanRise(City city) => city != null && !city.isRekt() &&
         (!TreasurySystem.Enabled(city) || Effective(city) < CityStabilityRules.RebellionThreshold);
     public static bool ControlsTax(City city)
@@ -610,6 +614,8 @@ public static class CityStabilitySystem
             if (independent == null) return;
             // 据城自立的取当地之俗(见 CultureService.ApplyLocalCulture)
             CultureService.ApplyLocalCulture(independent, city);
+            // 同一法理里挨着的、人心也散了的城一并跟着走(见 SecessionSpread)
+            SecessionSpread.Spread(independent, city, origin, rebellion: false);
         }
         independent.ClearAdministrativeTitle();
         independent.SetKingdomType(KingdomType.default_country_post);

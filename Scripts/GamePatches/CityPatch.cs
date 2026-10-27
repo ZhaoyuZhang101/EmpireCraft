@@ -1162,6 +1162,8 @@ public class CityPatch : GamePatch
         if (pRebellion) kingdom.SetRebellionOriginCityValue(rebellionOriginValue);
         // 分封制的诸侯国里起事：一城一邑的小乱(见 PettyRebellion)
         if (pRebellion) EmpireCraft.Scripts.GeneralSystems.PettyRebellion.Mark(kingdom, pKingdom);
+        // 起事按法理成片：同一法理里挨着的、人心也散了的城一并跟着走(见 SecessionSpread)
+        if (pRebellion) EmpireCraft.Scripts.GeneralSystems.SecessionSpread.Spread(kingdom, __instance, pKingdom);
         kingdom.InvalidateCityValueContext();
         __instance.InvalidateCityStrategicValue();
         __result = kingdom;

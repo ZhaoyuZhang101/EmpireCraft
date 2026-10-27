@@ -739,6 +739,14 @@ public static class AdministrativeControlSystem
                 city.kingdom.hasEnemies() || city.GetOrCreate().OccupiedStatus?.Count > 0 ||
                 UnificationSystem.InGrace(city.kingdom)) continue;
             float chance = (DefectThreshold - data.admin_control) * DefectChance;
+            // 陆上只挨着一家的飞地(被它包着)：改投那一家，不自立成一城小国(用户 2026-10-27 嫌版图太碎、选"飞地归包围它的国家")
+            Kingdom surrounding = Surrounding(city, realm);
+            if (surrounding != null)
+            {
+                if (UnityEngine.Random.value >= chance * Mathf.Max(1f, era)) continue;
+                if (Hand(realm, city, surrounding)) return; // 每国每年至多一座
+                continue;
+            }
             if (era > 0f && UnityEngine.Random.value < chance * era)
             {
                 if (Secede(realm, city)) return; // 每国每年至多一处
@@ -747,16 +755,40 @@ public static class AdministrativeControlSystem
             if (UnityEngine.Random.value >= chance) continue;
             Kingdom receiver = Neighbour(city, realm);
             if (receiver == null) continue;
-            Kingdom former = city.kingdom;
-            city.joinAnotherKingdom(receiver);
-            if (city.kingdom != receiver) continue;
-            data.admin_control = -1f;
-            if (former != realm && former.cities.Count == 0 && former.GetEmpire() == realm.GetEmpire())
-                former.GetEmpire()?.leave(former);
-            EventRecorder.Record(realm, string.Format(LM.Get("admin_control_defect_history"),
-                city.data.name, realm.data.name, receiver.data.name));
-            return; // 每国每年至多一座
+            if (Hand(realm, city, receiver)) return; // 每国每年至多一座
         }
+    }
+
+    // 飞地改投 receiver
+    private static bool Hand(Kingdom realm, City city, Kingdom receiver)
+    {
+        Kingdom former = city.kingdom;
+        city.joinAnotherKingdom(receiver);
+        if (city.kingdom != receiver) return false;
+        city.GetOrCreate().admin_control = -1f;
+        if (former != realm && former.cities.Count == 0 && former.GetEmpire() == realm.GetEmpire())
+            former.GetEmpire()?.leave(former);
+        EventRecorder.Record(realm, string.Format(LM.Get("admin_control_defect_history"),
+            city.data.name, realm.data.name, receiver.data.name));
+        return true;
+    }
+
+    // 陆上只挨着一家(按宗主、帝国中央算)的飞地：返回那一家里和它接壤最长、不在打仗的国家；挨着几家、没有邻国的为空
+    private static Kingdom Surrounding(City city, Kingdom realm)
+    {
+        Kingdom top = null;
+        foreach (TileZone zone in city.border_zones)
+            foreach (TileZone next in zone?.neighbours ?? Array.Empty<TileZone>())
+            {
+                Kingdom neighbour = next?.city?.kingdom;
+                if (!Valid(neighbour) || Realm(neighbour) == realm || neighbour.wild) continue;
+                Kingdom sovereign = EmpireCoreControl.Sovereign(neighbour);
+                if (top == null) top = sovereign;
+                else if (sovereign != top) return null;
+            }
+        if (top == null) return null;
+        Kingdom receiver = Neighbour(city, realm);
+        return receiver != null && EmpireCoreControl.Sovereign(receiver) == top ? receiver : null;
     }
 
     // 和这座城接壤最长、不在打仗的邻国
