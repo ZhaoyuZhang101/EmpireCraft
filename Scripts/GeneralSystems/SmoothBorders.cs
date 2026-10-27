@@ -20,7 +20,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 悬停、选中的高亮：原版给那国的每块地叠一张整块的半透明方片(QuantumSpriteLibrary.colorZones)，平滑后仍是方块；
 // 这里改为上色时把归它的像素提亮，形状与国界一致；高亮对象变了才重画相关的地块。
 // ZoneCalculator.applyMetaColorsToZone 的前缀调用(PureMapPatch)：画好这块地的每个像素后跳过原版。
-public static class SmoothBorders
+public static partial class SmoothBorders
 {
     private const int ZoneSize = Config.CITY_ZONE_SIZE;
     private const float NoiseAmplitude = 0.28f, NoiseCell = 6f;
@@ -46,6 +46,7 @@ public static class SmoothBorders
         LastMeta.Clear();
         ResetTransitions();
         _layerFlip = null;
+        DropLayerImages();
         ZoneFlipOverlay.Hide();
         // 画法变了而重画指纹不变(纯净地图开着时)：各块都要重画
         EmpireCraft.Scripts.GamePatches.ZonePaintBudget.RepaintEverything();
@@ -541,6 +542,7 @@ public static class SmoothBorders
     private static void CompactOwners()
     {
         Snapshots.Clear();
+        _ownerEpoch++;
         var remap = new int[OwnerTable.Count];
         var kept = new List<IMetaObject> { null };
         OwnerIndex.Clear();
@@ -563,6 +565,7 @@ public static class SmoothBorders
 
     private static void ResetOwners()
     {
+        _ownerEpoch++;
         Array.Clear(_owner, 0, _owner.Length);
         OwnerTable.Clear();
         OwnerTable.Add(null);
@@ -876,6 +879,7 @@ public static class SmoothBorders
         _sweepOption = int.MinValue;
         LastMeta.Clear();
         Snapshots.Clear();
+        DropLayerImages();
         Array.Clear(_hasBase, 0, _hasBase.Length);
         ResetOwners();
         Array.Clear(_outline, 0, _outline.Length);
@@ -945,6 +949,12 @@ public static class SmoothBorders
         }
         int option = layer.getZoneOptionState();
         bool changed = _sweepLayer != null && (!ReferenceEquals(layer, _sweepLayer) || option != _sweepOption);
+        // 换走的图层存下整张图；换到存过的图层整张拷回，不再分帧算色、一国一国地翻(见 SmoothBorders.LayerImage)
+        if (changed)
+        {
+            SaveLayerImage(calc);
+            if (Smoothable(layer) && RestoreLayerImage(calc, layer, option)) return true;
+        }
         CheckLayer(layer, option);
         return changed;
     }
@@ -1307,10 +1317,11 @@ public static class SmoothBorders
     //     原版巡检跟着模拟步走、不一定每帧一轮，算色期间没巡检的那一帧这里补跑一轮(以前隔帧才一轮，镜头里四千块空等两秒多)；
     //     镜头外的这时一概不画；
     //   · 起翻：镜头里一块不差就从镜头中心一道波全屏翻开(约 LayerRegionSeconds 秒到镜头边上，几千张牌几乎同时翻)；
-    //     至多算 LayerComputeMaxSeconds 秒，还没算齐也起翻，没画好的块画好时接着翻；
+    //     至多算 LayerComputeMaxSeconds 秒，还没算齐也起翻，没画好的块画好时接着翻(4 → 10 秒，用户 2026-10-27 不要"一个国家一个国家的慢慢变"：
+    //     大地图上 4 秒常算不齐，余下的按原版巡检次序一国一国翻；存过整层快照的图层不走这里，见 SmoothBorders.LayerImage)；
     //   · 补画：算齐后镜头外的按放宽的预算补画、直接换(看不见)；补画期间进了镜头的块也翻。
     // 教化、政令这类原版画法的图层一样(见 CaptureRaw)。
-    private const float LayerComputeMaxSeconds = 4f, LayerRegionSeconds = 0.2f, LayerBackfillMaxSeconds = 12f,
+    private const float LayerComputeMaxSeconds = 10f, LayerRegionSeconds = 0.2f, LayerBackfillMaxSeconds = 12f,
         LayerFlipMaxSeconds = 20f;
 
     private sealed class LayerFlip
@@ -1374,7 +1385,9 @@ public static class SmoothBorders
         if (invalidate)
         {
             calc.setDrawnZonesDirty();
+            QuietResets++;
             foreach (TileZone zone in calc._current_drawn_zones) zone.resetRenderHelpers();
+            QuietResets--;
             calc.clearAllRedrawTimers();
         }
         float now = Time.unscaledTime;

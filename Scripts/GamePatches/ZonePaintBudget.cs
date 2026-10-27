@@ -32,9 +32,10 @@ public class ZonePaintBudget : GamePatch
     // 性能日志"原版·updateMapLayers"一帧 500~570 毫秒；现在每帧画到 40 毫秒为止，余下的下一帧接着按这个预算画
     private const double BlankBudgetMs = 40d;
     // 全图换色算色期间范围里每帧画多少：每帧都画、不一次画完(用户 2026-10-22 "一次性算完颜色会造成卡顿")；
-    // 以前每轮 24 毫秒，原版又隔一帧才巡检一轮。补画镜头外、镜头外自身变了色的、排得太久的：低于镜头里的预算，
+    // 以前每轮 24 毫秒，原版又隔一帧才巡检一轮；16 → 30 毫秒(2026-10-27：头一回换到的图层要尽快算齐、整张一起翻，
+    // 算色只这一两秒，帧数低一点换来不一国一国地变)。补画镜头外、镜头外自身变了色的、排得太久的：低于镜头里的预算，
     // 但不再只有 6 毫秒、排在后面的总轮不到
-    private const double LayerPrecomputeBudgetMs = 16d, CatchUpBudgetMs = 12d;
+    private const double LayerPrecomputeBudgetMs = 30d, CatchUpBudgetMs = 12d;
     private const float AgedSeconds = 2f;
     private const int MinZonesPerFrame = 6;
     // 排了太久的(StarveSeconds 以上)不看预算先画，每帧至多镜头里 StarvedVisiblePerFrame 块、镜头外 StarvedHiddenPerFrame 块
@@ -99,7 +100,20 @@ public class ZonePaintBudget : GamePatch
             finalizer: new HarmonyMethod(typeof(ZonePaintBudget), nameof(AfterZoom)));
         harmony.Patch(AccessTools.Method(typeof(ZoneCalculator), "redrawZones"),
             prefix: new HarmonyMethod(typeof(ZonePaintBudget), nameof(BeforeRedraw)),
-            postfix: new HarmonyMethod(typeof(ZonePaintBudget), nameof(AfterRedraw)));
+            postfix: new HarmonyMethod(typeof(ZonePaintBudget), nameof(AfterRedraw)),
+            finalizer: new HarmonyMethod(typeof(ZonePaintBudget), nameof(RedrawFinally)));
+        // 重画记号：一块地被要求重画(整层快照拷回时它要重画，见 SmoothBorders.LayerImage)
+        harmony.Patch(AccessTools.Method(typeof(TileZone), nameof(TileZone.resetRenderHelpers)),
+            postfix: new HarmonyMethod(typeof(ZonePaintBudget), nameof(AfterZoneReset)));
+    }
+
+    private static void AfterZoneReset(TileZone __instance) => SmoothBorders.Stamp(__instance);
+
+    // 原版巡检一轮里的延后、清块都只关眼下这一层，不算重画记号(见 BeforeRedraw)
+    private static global::System.Exception RedrawFinally(global::System.Exception __exception)
+    {
+        if (SmoothBorders.QuietResets > 0) SmoothBorders.QuietResets--;
+        return __exception;
     }
 
     // 原版清空了一块地：平滑国界忘掉它记下的底色、渐变(见 SmoothBorders.Cleared)；它也不再排队等上色
@@ -113,6 +127,7 @@ public class ZonePaintBudget : GamePatch
     // (原版画完一轮计时设 0.01 秒、下一帧减掉帧时长就跳过，实际隔一帧才画一轮；一帧里模拟跑几次的也只多补这一次)
     private static void BeforeRedraw(ZoneCalculator __instance)
     {
+        SmoothBorders.QuietResets++;
         Round++;
         _roundChecks = 0;
         _roundDeferredView = 0;
@@ -248,7 +263,9 @@ public class ZonePaintBudget : GamePatch
     {
         if (!Active) return true;
         if (_zoomSwitch && PureMapMode.Enabled) return false;
+        SmoothBorders.QuietResets++;
         foreach (TileZone zone in __instance._current_drawn_zones) zone.resetRenderHelpers();
+        SmoothBorders.QuietResets--;
         if (pCleanTimer) __instance.clearAllRedrawTimers();
         _clearedAt = Time.unscaledTime;
         return false;
@@ -463,12 +480,18 @@ public class ZonePaintBudget : GamePatch
         int state = World.world?.getCachedMapMetaAsset()?.getZoneOptionState() ?? -1;
         bool option = state != -1 && state != __instance._last_zone_state;
         bool clearColor = __instance._last_should_be_clear_color != __instance._cached_should_be_clear_color;
-        // 切图层或改选项都保留旧图，目标画面分帧生成后，进入 SmoothBorders 的同一组全图翻转。
+        // 切图层或改选项都保留旧图，目标画面分帧生成后，进入 SmoothBorders 的同一组全图翻转；
+        // 从整层快照拷回的(见 SmoothBorders.LayerImage)各块指纹已对上，不再让全图重画
         if (smooth && (layerChanged || option && !clearColor))
         {
             __instance._selection_changed_dirty = false;
             __instance.setDrawnZonesDirty();
-            foreach (TileZone zone in __instance._current_drawn_zones) zone.resetRenderHelpers();
+            if (!SmoothBorders.TakeLayerRestored())
+            {
+                SmoothBorders.QuietResets++;
+                foreach (TileZone zone in __instance._current_drawn_zones) zone.resetRenderHelpers();
+                SmoothBorders.QuietResets--;
+            }
             __instance.clearAllRedrawTimers();
             return false;
         }
@@ -501,7 +524,11 @@ public class ZonePaintBudget : GamePatch
         _fullRequests++;
         __instance.setDrawnZonesDirty();
         if (!SmoothBorders.FingerprintCovers(__instance._mode_asset ?? World.world?.getCachedMapMetaAsset()))
+        {
+            SmoothBorders.QuietResets++;
             foreach (TileZone zone in __instance._current_drawn_zones) zone.resetRenderHelpers();
+            SmoothBorders.QuietResets--;
+        }
         __instance.clearAllRedrawTimers();
         return false;
     }
@@ -512,7 +539,9 @@ public class ZonePaintBudget : GamePatch
         ZoneCalculator calc = World.world?.zone_calculator;
         if (calc == null) return;
         calc.setDrawnZonesDirty();
+        SmoothBorders.QuietResets++;
         foreach (TileZone zone in calc._current_drawn_zones) zone.resetRenderHelpers();
+        SmoothBorders.QuietResets--;
         calc.clearAllRedrawTimers();
     }
 }

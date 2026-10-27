@@ -122,13 +122,24 @@ public static class ZhouEraSystem
                    state.era_since >= 0d && World.world != null && Date.getYearsSince(state.era_since) >= freshYears;
         });
 
-    // 本文化已有周制王朝、这国又不是它的王畿：不能另行称帝或发动正统之争，天下只有一个正统核心。
-    // 这样的国家只能受封为诸侯(春秋战国照样可以称王)；取周而代之要攻下王畿(见 Unified)
+    // 本天下已有周制王朝、这国又不是它的王畿：不能另行称帝或发动正统之争，天下只有一个正统核心。
+    // 这样的国家只能受封为诸侯(春秋战国照样可以称王)；取周而代之要攻下王畿(见 Unified)。
+    // 按所在的天下算(2026-10-27：赵受汉正统天命、据有九成八，却被远在高丽天下、一城不占的另一个华夏周室挡着，永远称不了帝——
+    // 以前按文化圈全世界只认一个周室，天下层出来以后一个文化圈可以有好几个天下)：周室与这国不在同一个天下就不挡；
+    // 这国不在任何天下里、或周室的天下认不出来，照旧按文化圈挡
     public static bool BlocksRivalEmpire(Kingdom kingdom)
     {
         if (kingdom?.data == null) return false;
-        Empire realm = RealmOfCulture(CultureService.GetRealmCulture(kingdom));
-        return realm != null && realm.CoreKingdom != kingdom;
+        EmpireCore mine = TianxiaSystem.MandateOf(kingdom) ?? TianxiaSystem.LeadOf(kingdom.capital);
+        return Realms(CultureService.GetRealmCulture(kingdom))
+            .Any(realm => realm.CoreKingdom != kingdom && SameTianxia(realm, mine));
+    }
+
+    private static bool SameTianxia(Empire realm, EmpireCore mine)
+    {
+        if (mine == null) return true;
+        EmpireCore theirs = TianxiaSystem.Lead(EmpireCoreManager.Get(realm)) ?? TianxiaSystem.LeadOf(realm.CoreKingdom?.capital);
+        return theirs == null || theirs == mine;
     }
 
     // 不服王化：与周室同文化，却不在周室之内(不是成员、也不是战国离开帝国的诸侯)、也没向别国称臣纳贡的独立之国
