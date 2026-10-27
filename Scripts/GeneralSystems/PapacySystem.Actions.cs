@@ -55,13 +55,17 @@ public static partial class PapacySystem
     public static bool HasHolyName(Empire empire) =>
         empire?.data != null && empire.data.directPre == OverallHelperFunc.HolyPrefixKey;
 
-    // 授不了神圣之名的缘由(同 CrownBlocker)
+    // 授不了神圣之名的缘由(同 CrownBlocker)。
+    // 神圣依附于普世之名(用户 2026-10-27 截图"神圣北海帝国"："没有了教宗授予的天下之名那么神圣也不会存在，建议收回")：
+    // 没持有教宗授予的普世之名(或因绝罚暂停)的称不得神圣——神授君权决议、教廷页按钮都按这里；收回普世之名时神圣一并去掉
+    // (见 RealmNamingSystem.RevokeUniversal)，每年核对时没有普世之名还挂着神圣的也去掉。天下之名规则关着时照旧不要求
     public static string HolyBlocker(Empire empire)
     {
         if (!Applies(empire)) return "papacy_block_regime";
         if (IsHolySee(empire)) return "papacy_block_holy_see";
         if (empire.Emperor == null) return "papacy_crown_block_vacant";
         if (IsExcommunicated(empire)) return "papacy_crown_block_banned";
+        if (RealmNamingSystem.Enabled && !RealmNamingSystem.HoldsUniversal(empire)) return "papacy_holy_block_universal";
         return null;
     }
 

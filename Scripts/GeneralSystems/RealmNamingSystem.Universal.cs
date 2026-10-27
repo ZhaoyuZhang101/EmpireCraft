@@ -233,6 +233,8 @@ public static partial class RealmNamingSystem
         // 绝罚暂废、悔罪恢复常常来回好几次，照旧只按帝国大小上屏；真失了普世之名是改国号的大事
         if (suspend) EventRecorder.Record(empire, text);
         else RecordRename(empire, text);
+        // 神圣依附于普世之名，一并去掉(见 PapacySystem.HolyBlocker)
+        if (PapacySystem.HasHolyName(empire)) PapacySystem.RevokeHoly(empire);
         LogService.LogInfo($"[EmpireCraft][普世之名] {before} 失普世之名({reasonKey}{(suspend ? "，暂停" : "")})，称 {empire.GetEmpireFullName()}");
     }
 
@@ -266,6 +268,8 @@ public static partial class RealmNamingSystem
     // 每年(RealmNamingSystem.Yearly)
     private static void YearlyUniversal(Empire empire)
     {
+        // 没有普世之名还挂着神圣的(旧档、别处授的)：神圣去掉(见 PapacySystem.HolyBlocker)
+        if (Enabled && PapacySystem.HasHolyName(empire) && !HoldsUniversal(empire)) PapacySystem.RevokeHoly(empire);
         PapalRelationState state = Papal(empire);
         if (state == null || !IsWestern(empire) && state.universal_lead_id < 0) return;
         if (!ReferenceEquals(_session, World.world))

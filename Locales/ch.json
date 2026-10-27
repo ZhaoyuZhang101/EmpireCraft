@@ -4041,6 +4041,7 @@
   "holy_name_self_history": "{0}自稱承天受命，爲{1}人的皇帝，{2}自此稱{3}。",
   "holy_name_revoked_history": "{0}去神聖之名，復稱{1}。",
   "papacy_universal_blocked": "{0}眼下取不得普世之名：須在西方的天下裡、天下沒有別的普世皇帝、未脫離羅馬、不是聖座帝國。",
+  "papacy_holy_block_universal": "{0}沒有教宗授予的普世之名，稱不得神聖。",
   "tianxia_base_input": "天下基名",
   "city_jing": "京",
   "jing_reason_zhili": "改設直隸，只留一京",

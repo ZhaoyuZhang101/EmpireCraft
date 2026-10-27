@@ -4025,6 +4025,7 @@
   "holy_name_self_history": "{0} proclaims a heavenly mandate as Emperor of the {1}; the {2} is henceforth the {3}.",
   "holy_name_revoked_history": "The {0} lays down its holy name and is again the {1}.",
   "papacy_universal_blocked": "{0} cannot take the universal name now: it must belong to a Western realm with no other universal emperor, keep with Rome, and not be the Holy See.",
+  "papacy_holy_block_universal": "{0} holds no universal name from the pope and cannot be styled Holy.",
   "tianxia_base_input": "Realm base name",
   "city_jing": "Capital",
   "jing_reason_zhili": "metropolitan provinces replace the multiple capitals; only one is kept",
