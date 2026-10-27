@@ -159,6 +159,27 @@ public static class UIHelper
         }
         LogService.LogInfo("点击角色");
     }
+    // 头像缩放兜底(用户 2026-10-27 截图：帝国窗口里皇帝头像连人带框大了好几倍)：别的种族模组(夏人种族)给君主用四倍像素的
+    // 高清身体帧，只在原版检视面板里缩回去，这里的头像就跟着放大。载入后按实际贴图大小把人缩进框里，框保持原版大小
+    // (原版的框反向缩放：框的缩放 × 头像的缩放 = AvatarFrameScale)
+    private const float AvatarFrameScale = 2.5f, AvatarMaxHeight = 40f;
+
+    private static void FitAvatar(UnitAvatarLoader loader)
+    {
+        if (loader == null) return;
+        Transform root = loader.transform;
+        float scale = root.localScale.x;
+        if (scale <= 0f) return;
+        Sprite sprite = loader._actor_image != null ? loader._actor_image.sprite : null;
+        float shown = sprite == null ? 0f : sprite.rect.height * scale;
+        if (shown > AvatarMaxHeight)
+        {
+            scale *= AvatarMaxHeight / shown;
+            root.localScale = new Vector3(scale, scale, 0f);
+        }
+        if (loader._frame != null) loader._frame.localScale = new Vector3(AvatarFrameScale / scale, AvatarFrameScale / scale, 0f);
+    }
+
     [Hotfixable]
     public static SimpleButton CreateAvatarView(long actor_id, UnityAction action=null, bool pIsAlive=true,
         PersonalClanIdentity pIdentity=null)
@@ -202,6 +223,7 @@ public static class UIHelper
         {
             unitLoader._actor_image.gameObject.SetActive(true);
             unitLoader.load(actor);
+            FitAvatar(unitLoader);
         }
         else
         {

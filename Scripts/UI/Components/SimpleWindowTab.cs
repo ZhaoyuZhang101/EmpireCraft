@@ -25,6 +25,22 @@ public class SimpleWindowTab : APrefab<SimpleWindowTab>
         _tab = transform.GetComponent<WindowMetaTab>();
     }
 
+    // 各窗口眼下切到的页签(自带动作的页签不经原版页签容器，容器记不下；返回时切回去，见 WindowBackState)
+    private static readonly Dictionary<int, string> Current = new();
+
+    // 窗口重新打开时忘掉(打开时画的是首页，不经页签)
+    public static void Forget(ScrollWindow window)
+    {
+        if (window != null) Current.Remove(window.GetInstanceID());
+    }
+
+    public static string CurrentOf(ScrollWindow window)
+    {
+        if (window == null) return null;
+        if (Current.TryGetValue(window.GetInstanceID(), out string name)) return name;
+        return window.tabs?._tab_last?.name;
+    }
+
     public void Setup(string pName, ScrollWindow window, List<Transform> contents = null, Sprite sprite = null, UnityAction<WindowMetaTab> action=null)
     {
         name = pName;
@@ -63,6 +79,7 @@ public class SimpleWindowTab : APrefab<SimpleWindowTab>
             {
                 window.tabs.disableTabs();
                 window.tabs.enableTab(_tab);
+                Current[window.GetInstanceID()] = pName;
             });
         } else
         {

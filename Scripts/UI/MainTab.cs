@@ -420,6 +420,11 @@ internal static class MainTab
         });
         worldReligionsButton._button.OnHoverOut(Tooltip.hideTooltip);
         AddButton(CULTURE_GROUP, worldReligionsButton);
+        // 指定圣地：点一座城，它成为它所奉宗教的圣地(见 HolyCityPower)
+        HolyCityPower.init();
+        AddButton(CULTURE_GROUP,
+            PowerButtonCreator.CreateGodPowerButton(HolyCityPower.Id,
+                SpriteTextureLoader.getSprite("ui/icons/iconToolHolyCity.png")));
 
         // 理念图层(独立于原版宗教图层)
         PowerButton ideologyLayer = FixFunctions.CreateLayerButton(MetaTypeExtension.Ideology,

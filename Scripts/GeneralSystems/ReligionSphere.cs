@@ -82,6 +82,22 @@ public static class ReligionSphere
 
     public static bool IsNative(Religion religion) => religion?.data != null && religion.GetOrCreate().ParentReligionId < 0;
 
+    // 跨文明传教的阻力(用户 2026-10-27 选"普世 ×0.25、民族 ×0.05")：城的天下与宗教的天下不同时势能打的折
+    public const float CrossUniversalFactor = 0.25f, CrossEthnicFactor = 0.05f;
+
+    public static float CrossFactor(Religion religion, string citySphere)
+    {
+        if (religion?.data == null || string.IsNullOrEmpty(citySphere)) return 1f;
+        string own = SphereOf(religion);
+        if (own.Length == 0 || own == citySphere) return 1f;
+        return ReligionFaith.IsUniversal(religion) ? CrossUniversalFactor : CrossEthnicFactor;
+    }
+
+    // 外来宗教进本天下：本天下已有本土大教(正教)时，改信、改宗的几率再减半
+    public static bool IsForeignToNativeLand(Religion religion, string citySphere) =>
+        religion?.data != null && !string.IsNullOrEmpty(citySphere) && SphereOf(religion) != citySphere &&
+        OrthodoxOf(citySphere) != null;
+
     public static Religion OrthodoxOf(string sphere)
     {
         if (string.IsNullOrEmpty(sphere)) return null;
@@ -179,6 +195,18 @@ public static class ReligionSphere
             best = city;
         }
         if (best != null) religion.SetCity(best);
+    }
+
+    // 上帝指定圣地(HolyCityPower)：记进本教大事记
+    public static void SetHolyCity(Religion religion, City city)
+    {
+        if (!Alive(religion) || city?.data == null || city.isRekt()) return;
+        City old = religion.GetCity();
+        religion.SetCity(city);
+        string from = old?.data != null && !old.isRekt() ? old.GetCityName() : LM.Get("label_none");
+        string text = string.Format(LM.Get("religion_holy_city_moved_log"), religion.name, from, city.GetCityName());
+        ReligionChronicle.Record(religion, ReligionChronicle.KindPapacy, text);
+        LogService.LogInfo($"[EmpireCraft][宗教] {text}");
     }
 
     #region 并入

@@ -33,7 +33,7 @@ public static partial class RealmNamingSystem
                 return LM.Get("realm_name_source_usurper");
             case SourceTianxia:
             {
-                EmpireCore lead = UniversalLead(empire);
+                EmpireCore lead = NamedTianxia(empire);
                 return lead == null ? "" : string.Format(LM.Get("realm_name_source_tianxia"), TianxiaSystem.Name(lead));
             }
             default:

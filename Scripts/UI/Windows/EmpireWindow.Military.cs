@@ -124,6 +124,17 @@ namespace EmpireCraft.Scripts.UI.Windows
             var front = columns.BeginColumnCard(halfWidth, "corps_front_title", "#E8584F",
                 string.Format(LM.Get("corps_front_header"), battles.Count), "ui/icons/iconWar");
             float half = halfWidth - 12f;
+            // 本国在打的各场战争：点名字打开战争窗口(用户 2026-10-27："帝国界面我希望能直接进入刚做的战争界面")
+            foreach (War war in realms.SelectMany(kingdom => kingdom.getWars()).Where(war => war?.data != null && !war.hasEnded())
+                         .Distinct().OrderByDescending(war => war.data.created_time))
+            {
+                War target = war;
+                var warText = front.AddTextIntoVertLayout($"{war.data.name.ColorString("#F3C34A")}  {LM.Get("war_open_window").ColorString("#8FA0A8")}",
+                    true, TextAnchor.MiddleLeft, new Vector2(half, 11f));
+                warText.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
+                HoverMarqueeText.Attach(warText);
+                UIHelper.MakeClickable(warText.gameObject, () => WarInfoWindow.Open(target));
+            }
             foreach (FrontSystem.BattleView battle in battles.OrderBy(battle => battle.city_id == focusCity ? 0 : 1)
                          .ThenByDescending(battle => battle.attack + battle.defend))
                 AddBattleRow(front, half, battle, realms, battle.city_id == focusCity);
@@ -403,6 +414,11 @@ namespace EmpireCraft.Scripts.UI.Windows
                 city.zones?.Count ?? 0);
             row.AddTextIntoHoriLayout(detail.ColorString("#C8C2B4"), true, TextAnchor.MiddleLeft,
                 new Vector2(width * 0.6f - 3f, 10f)).UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+            // 点这一处交战打开那场战争的战线页
+            War war = WarSituation.FindWar(attacker, defender);
+            if (war == null) return;
+            UIHelper.MakeClickable(titleText.gameObject, () => WarInfoWindow.Open(war, WarInfoWindow.Page.Fronts));
+            UIHelper.MakeClickable(row.gameObject, () => WarInfoWindow.Open(war, WarInfoWindow.Page.Fronts));
         }
     }
 }

@@ -27,7 +27,7 @@ using NeoModLoader.api.attributes;
 namespace EmpireCraft.Scripts.UI.Windows
 {
     // 宽窗口(480×380)：帝国窗口是内容最多的窗口，窄窗里财政、派系、行政区都要排长队
-    public partial class EmpireWindow : AbstractWideWindow<EmpireWindow>
+    public partial class EmpireWindow : AbstractWideWindow<EmpireWindow>, IBackRestorable
     {
         private AutoVertLayoutGroup _root;
         private ScrollWindow TabsWindow => GetComponent<ScrollWindow>();
@@ -1591,6 +1591,22 @@ namespace EmpireCraft.Scripts.UI.Windows
         }
         // 打开窗口时直接切到的页签(只用一次)，如地图兵牌点进来的军团页
         private static string _pendingTab;
+
+        // 返回时停在原来那页(见 WindowBackState)：记下在看的帝国与页签，返回时按待开页签切回
+        private sealed class BackState
+        {
+            public Empire empire;
+            public string tab;
+        }
+
+        public object CaptureBackState() => new BackState { empire = _empire, tab = SimpleWindowTab.CurrentOf(TabsWindow) };
+
+        public void PrepareBackRestore(object state)
+        {
+            if (state is not BackState back) return;
+            if (back.empire != null && !back.empire.isRekt()) EmpireCraftMetaTypeLibrary.selected_empire = back.empire;
+            _pendingTab = back.tab;
+        }
 
         public override void OnNormalEnable()
         {

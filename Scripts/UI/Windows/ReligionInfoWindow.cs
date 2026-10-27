@@ -23,7 +23,7 @@ namespace EmpireCraft.Scripts.UI.Windows
     {
         public enum Page { Overview, Papacy, Distribution, Lineage, HolyWar, Chronicle }
 
-        private const int MaxStates = 6, MaxHolders = 12, MaxEvents = ReligionChronicle.MaxEvents;
+        private const int MaxStates = 6, MaxHolders = 12, MaxEvents = ReligionChronicle.MaxEvents, MaxRealms = 8, MaxHeads = 20;
         private const float ColumnWidth = UIHelper.PageColumnWidth;
 
         private static Religion _pending;
@@ -36,6 +36,8 @@ namespace EmpireCraft.Scripts.UI.Windows
         private readonly List<City> _cities = new();
         private float _people, _worldPeople;
         private List<Kingdom> _states = new();
+        // 各天下：本教信众、天下总人口(概况页"奉本教的天下")
+        private readonly Dictionary<EmpireCore, float> _realmFollowers = new(), _realmPeople = new();
 
         public static void Open(Religion religion, Page page = Page.Overview)
         {
@@ -69,15 +71,27 @@ namespace EmpireCraft.Scripts.UI.Windows
             _cities.Clear();
             _people = _worldPeople = 0f;
             _states = new List<Kingdom>();
+            _realmFollowers.Clear();
+            _realmPeople.Clear();
             if (!ReligionDisplay.Alive(_religion)) return;
+            ReligionHeads.Note(_religion);
             foreach (City city in World.world.cities.list)
             {
                 if (city?.data == null || city.isRekt()) continue;
                 float count = city.CountLivingPopulation();
                 _worldPeople += count;
+                EmpireCore realm = TianxiaSystem.LeadOf(city);
+                if (realm != null)
+                {
+                    _realmPeople.TryGetValue(realm, out float all);
+                    _realmPeople[realm] = all + count;
+                }
                 if (city.religion != _religion) continue;
                 _cities.Add(city);
                 _people += count;
+                if (realm == null) continue;
+                _realmFollowers.TryGetValue(realm, out float followers);
+                _realmFollowers[realm] = followers + count;
             }
             _states = World.world.kingdoms.list.Where(kingdom => kingdom?.data != null && !kingdom.isRekt() && !kingdom.wild &&
                                                                   kingdom.religion == _religion)
@@ -214,6 +228,23 @@ namespace EmpireCraft.Scripts.UI.Windows
                 states.AddListRow(PageWidth, index++, null, kingdom.GetKingdomName(), StateDetail(kingdom), () => OpenKingdom(target),
                     WideKit.Hex(kingdom.getColor()?._color_text ?? Color.white), 110f);
             }
+
+            // 奉本教的天下：信众多的在前，教廷所在的标出来(天下之名只有它能授，见 RealmNamingSystem.SeeLead)
+            EmpireCore see = RealmNamingSystem.SeeLead(religion);
+            var realms = _realmFollowers.Where(pair => pair.Value > 0f).OrderByDescending(pair => pair.Value).ToList();
+            var realmCard = page.BeginCard(PageWidth, LM.Get("religion_card_realms"), WideKit.Gold, realms.Count.ToString());
+            if (realms.Count == 0) realmCard.AddParagraph(PageWidth, LM.Get("religion_realms_none"), hex: WideKit.Muted);
+            index = 0;
+            foreach (KeyValuePair<EmpireCore, float> pair in realms.Take(MaxRealms))
+            {
+                EmpireCore realm = pair.Key;
+                _realmPeople.TryGetValue(realm, out float all);
+                string detail = string.Format(LM.Get("religion_realm_detail"), UIHelper.ShortCount(pair.Value),
+                    all > 0f ? $"{pair.Value / all:P0}" : "—");
+                if (realm == see) detail += " · " + LM.Get("religion_realm_see");
+                realmCard.AddListRow(PageWidth, index++, null, TianxiaSystem.Name(realm), detail, () => TianxiaWindow.Open(realm),
+                    realm == see ? WideKit.Gold : WideKit.Soft, 110f);
+            }
         }
 
         private static string StateDetail(Kingdom kingdom)
@@ -277,6 +308,24 @@ namespace EmpireCraft.Scripts.UI.Windows
                 parts.AddValueRow(ColumnWidth, row++, LM.Get(key), value > 0 && key != "pope_legit_base" ? $"+{value}" : value.ToString(),
                     value < 0 ? WideKit.Red : key == "pope_legit_base" ? WideKit.Soft : WideKit.Green);
 
+            // 天下之名：只有教廷能授，也只授教廷所在天下这一个(见 RealmNamingSystem.SeeLead)
+            if (ReligionFaith.IsPapal(religion))
+            {
+                EmpireCore realm = RealmNamingSystem.SeeLead(religion);
+                Empire universal = realm == null ? null : RealmNamingSystem.OtherUniversal(realm, null);
+                string baseName = realm == null ? "" : RealmNamingSystem.TianxiaBaseName(realm);
+                var naming = page.BeginCard(PageWidth, LM.Get("religion_card_tianxia_name"), WideKit.Gold,
+                    string.IsNullOrWhiteSpace(baseName) ? LM.Get("label_none") : baseName);
+                naming.AddValueRow(PageWidth, 0, LM.Get("religion_row_see_realm"),
+                    realm == null ? LM.Get("label_none") : TianxiaSystem.Name(realm), WideKit.Gold);
+                naming.AddValueRow(PageWidth, 1, LM.Get("religion_row_grant_name"),
+                    string.IsNullOrWhiteSpace(baseName) ? LM.Get("label_none") : baseName, WideKit.Gold);
+                naming.AddValueRow(PageWidth, 2, LM.Get("religion_row_universal"),
+                    universal != null ? universal.GetEmpireFullName() : LM.Get("religion_universal_none"),
+                    universal != null ? WideKit.Cyan : WideKit.Soft);
+                naming.AddParagraph(PageWidth, LM.Get("religion_tianxia_name_hint"), hex: WideKit.Muted);
+            }
+
             var relations = page.BeginCard(PageWidth, LM.Get("religion_card_empires"), WideKit.Gold, empires.Count.ToString());
             if (empires.Count == 0) relations.AddParagraph(PageWidth, LM.Get("religion_empires_none"), hex: WideKit.Muted);
             int index = 0;
@@ -286,6 +335,30 @@ namespace EmpireCraft.Scripts.UI.Windows
                 relations.AddListRow(PageWidth, index++, null, empire.GetEmpireFullName(), EmpireDetail(empire),
                     () => OpenKingdom(core), WideKit.Hex(core?.getColor()?._color_text ?? Color.white), 120f);
             }
+
+            // 历代教首：新的在前
+            List<ReligionExtension.ReligionHeadRecord> heads = ReligionHeads.Of(religion);
+            var lineage = page.BeginCard(PageWidth, string.Format(LM.Get("religion_card_heads"), ReligionDisplay.HeadTitle(religion)),
+                WideKit.Gold, heads.Count.ToString());
+            if (heads.Count == 0) lineage.AddParagraph(PageWidth, LM.Get("religion_heads_none"), hex: WideKit.Muted);
+            index = 0;
+            foreach (ReligionExtension.ReligionHeadRecord record in Enumerable.Reverse(heads).Take(MaxHeads))
+            {
+                Actor person = World.world.units.get(record.actor_id);
+                bool alive = person?.data != null && !person.isRekt() && person.isAlive();
+                lineage.AddListRow(PageWidth, index++, null, alive ? person.getName() : record.name, HeadDetail(record), null,
+                    record.to < 0d ? WideKit.Gold : WideKit.Soft, 110f);
+            }
+        }
+
+        private static string HeadDetail(ReligionExtension.ReligionHeadRecord record)
+        {
+            bool reigning = record.to < 0d;
+            int years = reigning ? Date.getYearsSince(record.from) : Mathf.Max(0, Date.getYear(record.to) - Date.getYear(record.from));
+            string chosen = LM.Get(record.chosen_by > 0 ? "religion_chosen_" + record.chosen_by : "religion_head_succeeded");
+            string detail = string.Format(LM.Get("religion_head_detail"), HistoryDateFormatter.GetYear(record.from),
+                reigning ? LM.Get("religion_head_now") : HistoryDateFormatter.GetYear(record.to), years, chosen);
+            return reigning || string.IsNullOrEmpty(record.end) ? detail : detail + " · " + LM.Get(record.end);
         }
 
         private static string SeeState(Religion religion)

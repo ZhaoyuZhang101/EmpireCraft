@@ -44,6 +44,19 @@ public static class ReligionExtension
         public List<ReligionEventData> Chronicle = new();
         // 并入本教的地方教会(见 ReligionSphere.Absorb)：名字与并入时间，宗教窗口谱系页列出
         public List<ReligionEventData> Absorbed = new();
+        // 历代教首(见 ReligionHeads)：旧的在前，至多 ReligionHeads.MaxHeads 任
+        public List<ReligionHeadRecord> Heads = new();
+    }
+
+    // 历代教首的一任：人、在位起止(to = -1 在位)、怎么选立(PapalElection.By*，0 = 继位或未记)、怎么结束(文字键)
+    public class ReligionHeadRecord
+    {
+        public long actor_id = -1L;
+        public string name = "";
+        public double from;
+        public double to = -1d;
+        public int chosen_by;
+        public string end = "";
     }
 
     // 宗教大事记的一条：时间、类别(ReligionChronicle.Kind*)、已拼好的文字

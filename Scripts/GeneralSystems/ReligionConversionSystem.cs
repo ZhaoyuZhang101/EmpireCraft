@@ -18,8 +18,11 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     皈依后 CooldownYears 年不再皈依；
 //   · 皈依：君主、国家、都城改奉；帝国中央皈依的，帝国国教同改，成员国君主每年 MemberFollowChance 随之改宗；
 //     此后 ConversionPushYears 年国教势能加倍(无小人模式见 BackgroundReligionSystem.StateFactor；有小人时每年 ManualCityChance 逐城改宗)。
+//   · 入主从俗(用户 2026-10-27 选"做"，伊儿汗国改宗伊斯兰、元崇佛)：君主奉的是民族宗教(不是教会、伊斯兰、法教)，治下过半人口
+//     奉另一个天下的本土大教，每年 AdoptSubjectsChance 改奉治下的大教，不看皈依冷却；握着本教圣地的不改。
 public static class ReligionConversionSystem
 {
+    private const float AdoptSubjectsChance = 0.1f;
     public const int ConversionPushYears = 40;
     private const int CooldownYears = 50;
     private const float BaseChance = 0.02f;
@@ -64,7 +67,7 @@ public static class ReligionConversionSystem
         {
             try
             {
-                TryConvert(realm, realms);
+                if (!TryAdoptSubjectsFaith(realm)) TryConvert(realm, realms);
                 FollowRealm(realm);
             }
             catch (Exception exception)
@@ -109,6 +112,35 @@ public static class ReligionConversionSystem
         Convert(realm, best.Key, current);
     }
 
+    // 入主从俗：民族宗教的君主治下过半人口奉另一个天下的本土大教
+    private static bool TryAdoptSubjectsFaith(Kingdom realm)
+    {
+        Actor king = realm.king;
+        Religion current = realm.hasReligion() ? realm.religion : null;
+        if (king?.data == null || !king.isAlive() || current == null || ReligionFaith.IsUniversal(current) ||
+            PapacySystem.HoldsHolyCity(realm)) return false;
+        var people = new Dictionary<Religion, float>();
+        float total = 0f;
+        foreach (Kingdom member in Members(realm))
+        foreach (City city in member.cities)
+        {
+            if (city?.data == null || city.isRekt()) continue;
+            float count = Mathf.Max(1, city.CountLivingPopulation());
+            total += count;
+            if (!city.hasReligion()) continue;
+            people.TryGetValue(city.religion, out float sum);
+            people[city.religion] = sum + count;
+        }
+        if (people.Count == 0) return false;
+        KeyValuePair<Religion, float> top = people.OrderByDescending(pair => pair.Value).First();
+        Religion faith = top.Key;
+        if (faith == current || top.Value * 2f < total || !ReligionSphere.IsNative(faith) || ReligionSphere.IsLocalChurch(faith) ||
+            ReligionSphere.SphereOf(faith) == ReligionSphere.SphereOf(current)) return false;
+        if (UnityEngine.Random.value >= AdoptSubjectsChance) return false;
+        Convert(realm, faith, current, "ruler_adopts_subjects_log");
+        return true;
+    }
+
     private static bool Candidate(Religion religion) =>
         religion?.data != null && !religion.isRekt() && ReligionFaith.IsWorldFaith(religion) && !ReligionSphere.IsLocalChurch(religion);
 
@@ -119,7 +151,7 @@ public static class ReligionConversionSystem
     }
 
     // 君主率国皈依
-    private static void Convert(Kingdom realm, Religion faith, Religion old)
+    private static void Convert(Kingdom realm, Religion faith, Religion old, string textKey = "ruler_conversion_log")
     {
         Actor king = realm.king;
         king.setReligion(faith);
@@ -129,7 +161,7 @@ public static class ReligionConversionSystem
         Empire empire = realm.GetEmpire();
         if (empire != null && empire.CoreKingdom == realm) empire.Religion = faith;
         realm.GetOrCreate().religion_converted_at = World.world.getCurWorldTime();
-        string text = string.Format(LM.Get("ruler_conversion_log"), king.getName(), realm.GetKingdomName(), faith.name);
+        string text = string.Format(LM.Get(textKey), king.getName(), realm.GetKingdomName(), faith.name);
         TranslateHelper.LogEventMessage(text, realm);
         king.RecordPersonalHistory(text);
         ReligionChronicle.Record(faith, old, ReligionChronicle.KindConversion, text);

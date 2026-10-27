@@ -18,12 +18,12 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   城不改信，创教者一死宗教就被遗忘(存档里"创立 5、遗忘 3"，17 城只有 3 城有宗教)。
 // 这里改按背景人口算(城的宗教 = 城中背景人口所信，与 NoCommonersPatch 的信众统计同一口径)，
 // 每年结算一次(挂在 ReligiousTension 的年度扫描上)，只在无小人模式下生效：
-//   · 创教：无教之城(所在国也没有国教)，人口满 FoundMinPeople、建城满 FoundMinCityAge 年，
-//     每年以 FoundChance × min(1, 人口 / FoundRefPeople) 的几率由君主(都城)或城主创教，本城即圣地；
-//     全图上一个宗教创立后 FoundCooldownYears 年内不再创教，各城所奉的宗教不超过 1 + 城数 / CitiesPerReligion 种；
-//     本城文化的天下已有城奉本土宗教的不创(一个天下一个正教，见 ReligionSphere)。
-//     原版创教谋划在无小人模式下停用(见 PlotAssetPatch)，免得两条路叠在一起把节奏翻倍；
+//   · 创教：各文明的本土大教按科技时代在本天下最大的城立(见 NativeFaithSystem，有无小人都结算)。以前这里每城每年
+//     掷 0.8% 随机创教、还要本城无教，扩散远比创教快，第一个立起来的宗教铺满几个文明，被铺满的再也立不起本土宗教
+//     (用户 2026-10-27 截图：全图只剩基督教、蒙古萨满教)。原版创教谋划在无小人模式下停用(见 PlotAssetPatch)；
 //   · 传教：每城受国教、邻城的宗教势能(√人口；国教按本城人口算，邻城打 NeighbourWeight 折，圣地再 ×HolyCityFactor)；
+//     跨了天下(城的文化天下 ≠ 宗教的天下)的势能打折：普世宗教 ×0.25、民族宗教 ×0.05(ReligionSphere.CrossFactor)，
+//     本天下已有本土大教时外来宗教改信、改宗的几率再减半；
 //     本天下的无教之城与奉地方教会的城，正教势能 ×OrthodoxMissionFactor，无教之城另有一份正教势能(不必挨着)；
 //     势能都乘宗教的传教力、本城惯性乘惰性(见 ReligionFaith)，国教势能按宗教政策放大(见 StateFactor)：
 //       无教之城每年以 AdoptChance × 外来势能 / (外来势能 + FolkInertia × 本城势能) 的几率改信，按势能挑一支；
@@ -33,14 +33,6 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     按信众户数每年加 PointsPerHousehold，加上本年改信之城的户数。
 public static class BackgroundReligionSystem
 {
-    // 创教：一座无教之城每年创教的几率(人口到 FoundRefPeople 时)、人口与建城年数门槛
-    public const float FoundChance = 0.008f;
-    public const float FoundRefPeople = 10000f;
-    public const int FoundMinPeople = 2000;
-    public const int FoundMinCityAge = 20;
-    // 全图上一个宗教创立后几年内不再创教；每几座城才容得下一种宗教
-    public const int FoundCooldownYears = 5;
-    public const int CitiesPerReligion = 5;
     // 传教：无教之城改信几率的上限、本城的惯性；有教之城改宗几率的上限
     public const float AdoptChance = 0.15f;
     public const float FolkInertia = 0.5f;
@@ -51,6 +43,8 @@ public static class BackgroundReligionSystem
     public const float HolyCityFactor = 1.5f;
     // 宗教点数：每户信众每年
     public const float PointsPerHousehold = 0.05f;
+    // 本天下已有本土大教时，外来宗教改信、改宗的几率倍数
+    public const float ForeignChanceFactor = 0.5f;
 
     public static bool Active => CityPopulationSystem.AbstractPopulationEnabled;
 
@@ -76,27 +70,32 @@ public static class BackgroundReligionSystem
         // 势能按年初的宗教分布算：本年改信的城不当年就往下传
         var faith = new Dictionary<City, Religion>();
         var people = new Dictionary<City, float>();
+        var spheres = new Dictionary<City, string>();
         foreach (City city in cities)
         {
             faith[city] = city.hasReligion() ? city.religion : null;
             people[city] = Mathf.Max(1, city.CountLivingPopulation());
+            spheres[city] = ReligionSphere.SphereOfCity(city);
         }
 
-        int adopted = 0, converted = 0, founded = 0;
+        int adopted = 0, converted = 0, crossed = 0;
         // 本年改信之城的户数(宗教点数)
         var gained = new Dictionary<Religion, float>();
         foreach (City city in cities)
         {
             Religion current = faith[city];
-            Dictionary<Religion, float> pressure = Pressure(city, faith, people);
+            string sphere = spheres[city];
+            Dictionary<Religion, float> pressure = Pressure(city, faith, people, sphere);
             if (pressure.Count == 0) continue;
             float own = Mathf.Sqrt(people[city]);
             Religion target;
             if (current == null)
             {
                 float outside = pressure.Values.Sum();
-                if (UnityEngine.Random.value >= AdoptChance * outside / (outside + FolkInertia * own)) continue;
                 target = Pick(pressure);
+                float chance = AdoptChance * outside / (outside + FolkInertia * own);
+                if (ReligionSphere.IsForeignToNativeLand(target, sphere)) chance *= ForeignChanceFactor;
+                if (UnityEngine.Random.value >= chance) continue;
                 adopted++;
             }
             else
@@ -108,20 +107,21 @@ public static class BackgroundReligionSystem
                 KeyValuePair<Religion, float> rival = pressure.Where(pair => pair.Key != current)
                     .OrderByDescending(pair => pair.Value).FirstOrDefault();
                 if (rival.Key == null || rival.Value <= hold) continue;
-                if (UnityEngine.Random.value >= ConvertChance * (rival.Value - hold) / (rival.Value + hold)) continue;
+                float chance = ConvertChance * (rival.Value - hold) / (rival.Value + hold);
+                if (ReligionSphere.IsForeignToNativeLand(rival.Key, sphere)) chance *= ForeignChanceFactor;
+                if (UnityEngine.Random.value >= chance) continue;
                 target = rival.Key;
                 converted++;
             }
             if (target == null) continue;
+            if (ReligionSphere.CrossFactor(target, sphere) < 1f) crossed++;
             Convert(city, target, current);
             gained.TryGetValue(target, out float households);
             gained[target] = households + CityPopulationSystem.FiscalHouseholds(city);
         }
 
-        Religion newFaith = TryFound(cities, people);
-        if (newFaith != null) founded++;
         AccruePoints(cities, gained);
-        LogDiagnostics(cities, people, founded, adopted, converted);
+        LogDiagnostics(cities, people, adopted, converted, crossed);
     }
 
     // 国教势能按宗教政策放大：不宽容的国家改化异教城最力，收人头税的次之，宽容的最慢(以前国教势能恰好等于本城惯性，
@@ -137,23 +137,26 @@ public static class BackgroundReligionSystem
         return ReligionConversionSystem.RecentlyConverted(kingdom) ? factor * 2f : factor;
     }
 
-    // 势能：国教按本城人口算，邻城按各自人口打折，圣地加成；都乘宗教的传教力(见 ReligionFaith)
-    private static Dictionary<Religion, float> Pressure(City city, Dictionary<City, Religion> faith, Dictionary<City, float> people)
+    // 势能：国教按本城人口算，邻城按各自人口打折，圣地加成；都乘宗教的传教力(见 ReligionFaith)，跨了天下再打折(ReligionSphere.CrossFactor)
+    private static Dictionary<Religion, float> Pressure(City city, Dictionary<City, Religion> faith, Dictionary<City, float> people,
+        string sphere)
     {
         var pressure = new Dictionary<Religion, float>();
         Religion state = city.kingdom.hasReligion() ? city.kingdom.religion : null;
         if (state != null)
-            Add(pressure, state, StateWeight * StateFactor(city.kingdom) * ReligionFaith.Mission(state) * Mathf.Sqrt(people[city]));
+            Add(pressure, state, StateWeight * StateFactor(city.kingdom) * ReligionFaith.Mission(state) *
+                                 ReligionSphere.CrossFactor(state, sphere) * Mathf.Sqrt(people[city]));
         foreach (City neighbour in city.neighbours_cities)
         {
             if (neighbour == null || !faith.TryGetValue(neighbour, out Religion religion) || religion == null) continue;
-            float weight = NeighbourWeight * ReligionFaith.Mission(religion) * Mathf.Sqrt(people[neighbour]);
+            float weight = NeighbourWeight * ReligionFaith.Mission(religion) * ReligionSphere.CrossFactor(religion, sphere) *
+                           Mathf.Sqrt(people[neighbour]);
             if (religion.GetCity() == neighbour) weight *= HolyCityFactor;
             Add(pressure, religion, weight);
         }
         // 本天下的正教：无教之城、奉地方教会的城势能加倍；无教之城不挨着也有一份(分出去的教会、外天下的宗教不加)
         faith.TryGetValue(city, out Religion current);
-        Religion orthodox = ReligionSphere.OrthodoxOf(ReligionSphere.SphereOfCity(city));
+        Religion orthodox = ReligionSphere.OrthodoxOf(sphere);
         if (orthodox != null && orthodox != current && (current == null || ReligionSphere.IsLocalChurch(current)))
         {
             if (pressure.TryGetValue(orthodox, out float mission))
@@ -220,76 +223,6 @@ public static class BackgroundReligionSystem
 
     #endregion
 
-    #region 创教
-
-    private static Religion TryFound(List<City> cities, Dictionary<City, float> people)
-    {
-        // 各城所奉的宗教种数到上限、或上一个宗教创立未满几年，就不再创教
-        int living = cities.Where(city => city.hasReligion()).Select(city => city.religion).Distinct().Count();
-        if (living >= 1 + cities.Count / CitiesPerReligion) return null;
-        foreach (Religion religion in World.world.religions)
-            if (religion?.data != null && !religion.isRekt() && religion.getAge() < FoundCooldownYears) return null;
-        // 本天下已有城奉本土宗教的，不另创教(等正教传过来)
-        HashSet<string> followed = ReligionSphere.FollowedSpheres(cities);
-        var lots = new List<City>();
-        foreach (City city in cities)
-        {
-            if (city.hasReligion() || city.kingdom.hasReligion()) continue;
-            if (followed.Contains(ReligionSphere.SphereOfCity(city))) continue;
-            float population = people[city];
-            if (population < FoundMinPeople || city.getAge() < FoundMinCityAge) continue;
-            if (UnityEngine.Random.value < FoundChance * Mathf.Min(1f, population / FoundRefPeople)) lots.Add(city);
-        }
-        // 同一年至多一处
-        while (lots.Count > 0)
-        {
-            int index = UnityEngine.Random.Range(0, lots.Count);
-            Religion religion = Found(lots[index]);
-            if (religion != null) return religion;
-            lots.RemoveAt(index);
-        }
-        return null;
-    }
-
-    private static Religion Found(City city)
-    {
-        Actor founder = Founder(city);
-        if (founder == null) return null;
-        Religion religion;
-        try
-        {
-            religion = World.world.religions.newReligion(founder, pAddDefaultTraits: true);
-        }
-        catch (Exception exception)
-        {
-            LogService.LogWarning($"[EmpireCraft][宗教] {city.data.name} 创教失败: {exception.Message}");
-            return null;
-        }
-        if (religion?.data == null) return null;
-        founder.setReligion(religion);
-        // 圣地就是创教之城(ReligionPatch 按创教者当时所在的城设，人可能不在城里)
-        religion.SetCity(city);
-        Convert(city, religion, null);
-        string text = string.Format(LM.Get("religion_founded_log"), founder.getName(), city.GetCityName(), religion.name);
-        TranslateHelper.LogEventMessage(text, city.kingdom);
-        return religion;
-    }
-
-    // 创教者：都城由君主、其余由城主；要无教、有文化、有长记性(同原版创教谋划)
-    private static Actor Founder(City city)
-    {
-        Actor king = city.isCapitalCity() ? city.kingdom.king : null;
-        foreach (Actor candidate in new[] { king, city.leader })
-        {
-            if (!Alive(candidate) || candidate.hasReligion() || !candidate.hasCulture() || candidate.kingdom == null ||
-                candidate.current_tile == null || candidate.subspecies?.has_advanced_memory != true) continue;
-            return candidate;
-        }
-        return null;
-    }
-
-    #endregion
-
     #region 宗教点数
 
     // 教皇国(封建、神权至上、圣地即都城)的宗教点数：信众户数 × PointsPerHousehold + 本年改信之城的户数
@@ -317,7 +250,7 @@ public static class BackgroundReligionSystem
 
     #endregion
 
-    private static void LogDiagnostics(List<City> cities, Dictionary<City, float> people, int founded, int adopted, int converted)
+    private static void LogDiagnostics(List<City> cities, Dictionary<City, float> people, int adopted, int converted, int crossed)
     {
         var believers = new Dictionary<Religion, float>();
         var counts = new Dictionary<Religion, int>();
@@ -333,8 +266,8 @@ public static class BackgroundReligionSystem
         }
         KeyValuePair<Religion, float> top = believers.OrderByDescending(pair => pair.Value).FirstOrDefault();
         string largest = top.Key == null ? "无" : $"{top.Key.name} {counts[top.Key]} 城 {top.Value:0} 人";
-        LogService.LogInfo($"[EmpireCraft][宗教诊断] 各城所奉宗教 {believers.Count} 种(上限 {1 + cities.Count / CitiesPerReligion})；" +
+        LogService.LogInfo($"[EmpireCraft][宗教诊断] 各城所奉宗教 {believers.Count} 种；" +
                            $"有教之城 {counts.Values.Sum()}/{cities.Count}，信众 {faithful:0}/{total:0} 人；" +
-                           $"本年创教 {founded}、无教之城改信 {adopted}、改宗 {converted}；最大：{largest}");
+                           $"本年无教之城改信 {adopted}、改宗 {converted}(其中跨天下 {crossed})；最大：{largest}");
     }
 }

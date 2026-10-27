@@ -97,6 +97,13 @@ public static class ReligionFaith
     public static bool IsWorldFaith(Religion religion) =>
         Of(religion) is FaithType.Church or FaithType.Islam or FaithType.Dharmic or FaithType.Sanjiao;
 
+    // 普世宗教(向别的文明传教的：教会、伊斯兰、法教)；其余是民族宗教(三教、神道、腾格里、犹太、民间)，几乎不向外传
+    public static bool IsUniversal(Religion religion) =>
+        Of(religion) is FaithType.Church or FaithType.Islam or FaithType.Dharmic;
+
+    // 一神普世教(教会、伊斯兰)：史上出现得晚，本土立教要再研究冶铁(见 NativeFaithSystem)
+    public static bool IsLateFaith(FaithType type) => type is FaithType.Church or FaithType.Islam;
+
     public static float Mission(Religion religion) => Of(religion) switch
     {
         FaithType.Church or FaithType.Islam => 1f,

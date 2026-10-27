@@ -182,6 +182,10 @@ public static partial class RealmNamingSystem
     // 据有其一半以上城的那家：争天下之名看整个天下，争帝国法理名看那个帝国法理；恰好各半看天命；没人过半为 null
     private static Empire Legitimate(List<Empire> claimants, EmpireCore core, EmpireCore lead)
     {
+        // 天下之名只有教宗授得(见 Universal)：受着这个天下之名的普世皇帝就是正统，不看占了多少城
+        Empire crowned = lead == null ? null
+            : claimants.FirstOrDefault(empire => HoldsUniversal(empire) && Papal(empire).universal_lead_id == lead.id);
+        if (crowned != null) return crowned;
         bool tianxia = core == null || claimants.Any(empire => empire.data.name_source == SourceTianxia);
         Dictionary<Kingdom, int> held;
         int total;

@@ -1,5 +1,8 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
 using NeoModLoader.api;
 using NeoModLoader.General.UI.Window.Layout;
 using NeoModLoader.General.UI.Window.Utils.Extensions;
@@ -17,8 +20,42 @@ namespace EmpireCraft.Scripts.UI.Components;
 //   注册：MyWindow.CreateAndInit(nameof(MyWindow), new Vector2(480f, 380f))；标题用 "MyWindow Title" 本地化键。
 //   状态变了(筛选、翻页、选中)调 Refresh()：先 Prepare() 取数据，再清空左右两栏重画；打开窗口时自动画一次并回到顶部。
 // 部件见 WideKit(左栏选项、主指标排、卡片网格、国色条、人物行、指标行、列表行、空状态)与 UIHelper(卡片、页头、分节标题)。
-public abstract class WideScrollWindow<T> : AbstractWideWindow<T> where T : WideScrollWindow<T>
+//   返回(原版返回键)时停在原来那页：离开时记下子类的全部字段与滚动位置，返回时还原、不走 OnOpen(见 WindowBackState)。
+public abstract class WideScrollWindow<T> : AbstractWideWindow<T>, IBackRestorable where T : WideScrollWindow<T>
 {
+    // 返回时还原用：子类各层声明的实例字段(不含只读字段——那些是每次重画都会重算的缓存——与界面物件)、滚动位置
+    private sealed class BackState
+    {
+        public Dictionary<FieldInfo, object> fields;
+        public Vector3 scroll;
+    }
+
+    private BackState _backRestore;
+    private static List<FieldInfo> _stateFields;
+
+    private static List<FieldInfo> StateFields()
+    {
+        if (_stateFields != null) return _stateFields;
+        var fields = new List<FieldInfo>();
+        for (Type type = typeof(T); type != null && !(type.IsGenericType && type.GetGenericTypeDefinition() == typeof(WideScrollWindow<>));
+             type = type.BaseType)
+            fields.AddRange(type.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly)
+                .Where(field => !field.IsInitOnly && !typeof(UnityEngine.Object).IsAssignableFrom(field.FieldType)));
+        return _stateFields = fields;
+    }
+
+    public object CaptureBackState()
+    {
+        ScrollWindow window = GetComponent<ScrollWindow>();
+        return new BackState
+        {
+            fields = StateFields().ToDictionary(field => field, field => field.GetValue(this)),
+            scroll = window?.transform_content != null ? window.transform_content.localPosition : Vector3.zero
+        };
+    }
+
+    public void PrepareBackRestore(object state) => _backRestore = state as BackState;
+
     protected const float PageWidth = UIHelper.PageMainWidth;
 
     protected AutoVertLayoutGroup Rail { get; private set; }
@@ -42,8 +79,18 @@ public abstract class WideScrollWindow<T> : AbstractWideWindow<T> where T : Wide
         base.OnNormalEnable();
         UIHelper.FixWideWindowScrollArea(BackgroundTransform);
         StartCoroutine(UIHelper.StabilizeWideWindowScrollArea(BackgroundTransform));
-        OnOpen();
-        Refresh(resetScroll: true);
+        BackState restore = _backRestore;
+        _backRestore = null;
+        if (restore == null)
+        {
+            OnOpen();
+            Refresh(resetScroll: true);
+            return;
+        }
+        foreach (KeyValuePair<FieldInfo, object> pair in restore.fields) pair.Key.SetValue(this, pair.Value);
+        ScrollWindow window = GetComponent<ScrollWindow>();
+        if (window?.transform_content != null) window.transform_content.localPosition = restore.scroll;
+        Refresh();
     }
 
     // 打开窗口时、画之前(读选中对象、重置筛选等)

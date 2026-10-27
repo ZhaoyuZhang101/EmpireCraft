@@ -135,6 +135,8 @@ public static class ReligiousTension
         {
             LogService.LogWarning($"[EmpireCraft][宗教] 背景人口传教结算失败: {exception.Message}");
         }
+        // 各文明按时代立本土大教、外来民族宗教回流(见 NativeFaithSystem)
+        TryStep("本土立教", NativeFaithSystem.YearlyPass);
         // 同天下的地方教会并入正教(见 ReligionSphere)
         try
         {
@@ -149,6 +151,7 @@ public static class ReligiousTension
         TryStep("迫害与驱逐", ReligiousPersecution.YearlyPass);
         TryStep("宗教分裂", ReligionSchismSystem.YearlyPass);
         TryStep("民间教门", SectUprisingSystem.YearlyPass);
+        TryStep("历代教首", ReligionHeads.YearlyPass);
     }
 
     private static void TryStep(string name, Action step)

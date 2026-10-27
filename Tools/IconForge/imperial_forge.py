@@ -1263,6 +1263,8 @@ TOOLS = {
     "iconToolCoreShare": (obj_seal, "plus"),
     "iconToolTianxiaShare": (obj_ding, "plus"),
     "iconNationLayer": (obj_heat_flag, None),
+    # 指定圣地(见 HolyCityPower)
+    "iconToolHolyCity": (obj_temple, "arrow"),
 }
 
 

@@ -51,6 +51,7 @@ public static class PapalElection
             data.LeaderID = pick.id;
             data.PopeChosenBy = imposed ? ByImposition : ByConclave;
             data.PopeChosenAt = World.world.getCurWorldTime();
+            ReligionHeads.Note(religion);
             string text = imposed
                 ? string.Format(LM.Get("pope_imposed_history"), patron.Emperor?.getName() ?? patron.GetEmpireName(), pick.getName(),
                     religion.name)
