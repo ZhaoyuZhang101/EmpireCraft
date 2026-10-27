@@ -116,6 +116,9 @@ public class SpecificClan
     public double gentry_retainers_at { get; set; } = -1d;
     // 依附的帝国(两朝并立、天下裂土时择主，见 GentrySystem.ChooseSides)
     public long gentry_patron_empire_id { get; set; } = -1L;
+    // 上回灾年开仓赈济乡里的时间(见 GentrySystem.Events)
+    public double gentry_relief_at { get; set; } = -1d;
+    public bool ShouldSerializegentry_relief_at() => gentry_relief_at >= 0d;
     // 门第走势：每年评门第时记一笔(年份、门第分取整)，留最近 80 年(见 GentrySystem.NoteTrend、宗族窗口总览)
     public List<int> pedigree_years { get; set; }
     public List<int> pedigree_values { get; set; }

@@ -37,13 +37,14 @@ namespace EmpireCraft.Scripts.UI.Windows
                 (LM.Get("gentry_kpi_count"), clans.Count.ToString(), WideKit.Gold),
                 (LM.Get("gentry_kpi_first"), clans.Count(clan => GentrySystem.Grade(clan.gentry_pedigree) == 1).ToString(), WideKit.Orange),
                 (LM.Get("gentry_kpi_officials"), $"{officialShare * 100f:0}%", WideKit.Grade(officialShare * 100f, 60, 30, higherIsBetter: false)),
-                (LM.Get("gentry_kpi_land"), $"{stats.Sum(entry => entry.row.land):0.#}", WideKit.Cyan));
+                (LM.Get("gentry_kpi_land"), $"{stats.Sum(entry => entry.row.land):0.#}", WideKit.Cyan),
+                (LM.Get("gentry_kpi_favor"), FavorLabel(GentrySystem.Favor(_empire)), FavorHex(GentrySystem.Favor(_empire))));
 
             var table = page.BeginCard(MainWidth, "gentry_table_title", WideKit.Gold, clans.Count.ToString(), "TabGentry");
             const float NameWidth = 120f;
             table.AddTableRow(MainWidth, -1, null, LM.Get("gentry_col_name"), NameWidth,
                 (LM.Get("gentry_col_grade"), null), (LM.Get("gentry_col_members"), null), (LM.Get("gentry_col_office"), null),
-                (LM.Get("gentry_col_titles"), null), (LM.Get("gentry_col_land"), null));
+                (LM.Get("gentry_col_titles"), null), (LM.Get("gentry_col_land"), null), (LM.Get("gentry_col_stance"), null));
             for (int i = 0; i < stats.Count && i < GentryRows; i++)
             {
                 (SpecificClan clan, (int members, int office, int titles, float land) row) = stats[i];
@@ -52,7 +53,7 @@ namespace EmpireCraft.Scripts.UI.Windows
                 var line = table.AddTableRow(MainWidth, i, null, GentrySystem.JunWang(clan), NameWidth,
                     ($"{GentrySystem.GradeName(clan)} {Mathf.RoundToInt(clan.gentry_pedigree)}", gradeHex),
                     (row.members.ToString(), null), (row.office.ToString(), row.office > 0 ? WideKit.Green : WideKit.Muted),
-                    (row.titles.ToString(), null), ($"{row.land:0.#}", null));
+                    (row.titles.ToString(), null), ($"{row.land:0.#}", null), StanceCell(clan));
                 SpecificClan target = clan;
                 UIHelper.MakeClickable(line.gameObject, () => OpenClan(target));
             }
@@ -61,6 +62,8 @@ namespace EmpireCraft.Scripts.UI.Windows
                     true, TextAnchor.MiddleLeft, new Vector2(MainWidth - 12f, 10f)).UseFixedFontSize(6, HorizontalWrapMode.Overflow);
 
             page.AddTextIntoVertLayout(LM.Get("gentry_rules_hint").ColorString(WideKit.Muted), true, TextAnchor.UpperLeft,
+                new Vector2(MainWidth - 4f, 30f)).UseFixedFontSize(6, HorizontalWrapMode.Wrap);
+            page.AddTextIntoVertLayout(LM.Get("gentry_rules_hint_more").ColorString(WideKit.Muted), true, TextAnchor.UpperLeft,
                 new Vector2(MainWidth - 4f, 30f)).UseFixedFontSize(6, HorizontalWrapMode.Wrap);
             StartCoroutine(RefreshScrollLayout(resetToTop: true));
         }
@@ -86,6 +89,23 @@ namespace EmpireCraft.Scripts.UI.Windows
             }
             float land = LandEconomySystem.GetSpecificClanHoldings(clan).Sum(holding => holding.Share);
             return (living.Count, office, titles, land);
+        }
+
+        // 朝廷与世家：亲睦(40 以上)、猜忌(-40 以下)、平平
+        private static string FavorLabel(float favor) => string.Format(LM.Get(favor >= GentrySystem.FavorHigh ? "gentry_favor_close"
+            : favor <= GentrySystem.FavorLow ? "gentry_favor_tense" : "gentry_favor_neutral"), Mathf.RoundToInt(favor));
+
+        private static string FavorHex(float favor) =>
+            favor >= GentrySystem.FavorHigh ? WideKit.Green : favor <= GentrySystem.FavorLow ? WideKit.Orange : WideKit.Value;
+
+        // 立场(亲附、中立、离心)，筑了坞堡的标出
+        private (string, string) StanceCell(SpecificClan clan)
+        {
+            int stance = GentrySystem.Stance(clan, _empire);
+            string text = LM.Get(stance > 0 ? "gentry_stance_loyal" : stance < 0 ? "gentry_stance_estranged" : "gentry_stance_neutral");
+            City seat = GentrySystem.Seat(clan);
+            if (seat != null && GentrySystem.FortressOf(seat) == clan) text += "·" + LM.Get("gentry_fortress_mark");
+            return (text, stance > 0 ? WideKit.Green : stance < 0 ? WideKit.Orange : null);
         }
 
         private static void OpenClan(SpecificClan clan)

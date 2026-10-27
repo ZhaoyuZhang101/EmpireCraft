@@ -16,7 +16,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 调用 PersonalClanIdentity.Realize() 当场在原来所在的城里落成实体(从该城背景人口里扣一人，总人口不变)。
 // 虚拟族人每年按世界法则结算寿命：真实年龄开启时按本人文化的科技时代定天年(见 RealisticAgeSystem)，关闭时使用原种族寿命，
 // 写入个人经历，并从所在城的背景人口里减去这一人。
-public static class VirtualGenealogySystem
+public static partial class VirtualGenealogySystem
 {
     // 身故方式的概率：病逝、遇刺(其余为寿终)；有爵位或封号的人遇刺的概率加倍
     private const float IllnessChance = 0.4f;
@@ -1142,19 +1142,25 @@ public static class VirtualGenealogySystem
     private const float RoyalBirthChance = 0.16f;
     private const int RoyalMaxChildren = 8, RoyalBirthMaxAge = 50;
 
+    // 世家(见 GentrySystem)：妻妾多、子嗣多，生育按宗室与平民之间(用户 2026-10-27："世家……经常绝嗣"——
+    // 平民的生法每代平均只留下约一个儿子，世家几代就断)
+    private const float GentryBirthChance = 0.14f;
+    private const int GentryMaxChildren = 6, GentryBirthMaxAge = 45, MaxGentryClanAlive = 50;
+
     private static void TryBirth(PersonalClanIdentity parent)
     {
         if (!CityPopulationSystem.AbstractPopulationEnabled || !parent.is_main || !parent.IsHeirPriority()) return;
         SpecificClan clan = parent._specificClan;
         if (clan == null) return;
         bool royal = IsRulingLineage(clan);
+        bool gentry = !royal && clan.gentry;
         int age = parent.age;
-        if (age < BirthMinAge || age > (royal ? RoyalBirthMaxAge : BirthMaxAge) ||
-            UnityEngine.Random.value >= (royal ? RoyalBirthChance : BirthChance)) return;
+        if (age < BirthMinAge || age > (royal ? RoyalBirthMaxAge : gentry ? GentryBirthMaxAge : BirthMaxAge) ||
+            UnityEngine.Random.value >= (royal ? RoyalBirthChance : gentry ? GentryBirthChance : BirthChance)) return;
         int living = parent.children.Count(id => SpecificClanManager.getPerson(id)?.is_alive == true);
-        if (living >= (royal ? RoyalMaxChildren : MaxChildren)) return;
+        if (living >= (royal ? RoyalMaxChildren : gentry ? GentryMaxChildren : MaxChildren)) return;
         int alive = clan.SnapshotPeople().Count(person => person.is_alive);
-        if (alive >= MaxRulingClanAlive || alive >= MaxClanAlive && !royal) return;
+        if (alive >= MaxRulingClanAlive || alive >= (gentry ? MaxGentryClanAlive : MaxClanAlive) && !royal) return;
         double now = World.world.getCurWorldTime();
         var child = new PersonalClanIdentity
         {
@@ -1180,6 +1186,54 @@ public static class VirtualGenealogySystem
         SpecificClanManager._globalPersonLookup[child.id] = child;
         parent.children.Add(child.id);
         VirtualIds.Add(child.id);
+    }
+
+    // 过继(世家无男丁可承，见 GentrySystem.TryAdopt)：有支脉、旁系里未成年或年轻的男丁(不是本支的继承人)就把他过继过来，
+    // 记为养父之子(义父 father_in_law)；都没有就从族中远房记一位年轻的族子入谱。返回过继来的人
+    public static PersonalClanIdentity AdoptHeir(SpecificClan clan, PersonalClanIdentity adopter, IEnumerable<SpecificClan> kin)
+    {
+        if (clan == null || adopter == null || World.world == null) return null;
+        EnsureIndex();
+        PersonalClanIdentity heir = null;
+        foreach (SpecificClan branch in kin ?? Enumerable.Empty<SpecificClan>())
+        {
+            if (branch == null || branch == clan) continue;
+            List<PersonalClanIdentity> sons = branch.LivingPeople.Where(person => person.is_virtual && person.isMale() &&
+                                                                                 person.age >= 3 && person.age <= 25).ToList();
+            // 本支至少留一个男丁
+            if (sons.Count < 2) continue;
+            heir = sons.OrderBy(person => person.age).First();
+            SpecificClanManager.MoveToClan(heir, clan);
+            break;
+        }
+        if (heir == null)
+        {
+            double now = World.world.getCurWorldTime();
+            int years = UnityEngine.Random.Range(6, 19);
+            heir = new PersonalClanIdentity
+            {
+                id = OverallHelperFunc.IdGenerator.NextId(),
+                specific_clan_id = clan.id,
+                actor_id = -1L,
+                is_alive = true,
+                is_virtual = true,
+                virtual_since = now,
+                virtual_city_id = adopter.virtual_city_id > 0 ? adopter.virtual_city_id : adopter._actor?.city?.data?.id ?? -1L,
+                recordedAge = years,
+                birthday = Date.getDate(now - years * 60d),
+                sex = ActorSex.Male,
+                species = adopter.species,
+                culture = adopter.culture,
+                generation = adopter.generation + 1,
+                is_main = true
+            };
+            heir.name = ChildName(clan, heir, adopter);
+            clan.Upsert(heir);
+            SpecificClanManager._globalPersonLookup[heir.id] = heir;
+            VirtualIds.Add(heir.id);
+        }
+        heir.father_in_law = adopter.id;
+        return heir;
     }
 
     // 宗室添丁(无小人、纯净地图模式，见 RoyalHouseSystem)：在位君主、储君的子女直接记入族谱为虚拟子嗣，不生出实体；

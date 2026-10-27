@@ -305,7 +305,9 @@ public static class AdministrativeControlSystem
     }
 
     // 赋税、征兵能收上来几成(满控全收，最低一半)
-    public static float Yield(City city) => Known(city) ? MinYield + (1f - MinYield) * Get(city) : 1f;
+    // 世家筑了坞堡的城再打折(见 GentrySystem.Fortress)
+    public static float Yield(City city) =>
+        (Known(city) ? MinYield + (1f - MinYield) * Get(city) : 1f) * GentrySystem.YieldFactor(city);
 
     public static string Describe(City city)
     {

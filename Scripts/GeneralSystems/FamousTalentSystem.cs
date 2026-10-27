@@ -182,6 +182,8 @@ public static class FamousTalentSystem
     private static void Credit(Actor actor, TalentKind kind, float amount, string deed, string deedArg)
     {
         if (amount <= 0f || !IsRealActor(actor)) return;
+        // 家学渊源：世家子弟成名快一半(见 GentrySystem.Events)
+        amount *= GentrySystem.FameFactor(actor);
         TalentRecord record = Track(actor, kind);
         if (record == null || !record.alive) return;
         record.fame += amount;

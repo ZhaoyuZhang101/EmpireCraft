@@ -1027,6 +1027,9 @@ public static partial class FrontSystem
         foreach (TileZone target in TargetZones(attacker, city))
             if (Beside(spearheads, target)) fort = Mathf.Max(fort, RuralSettlementSystem.FortFactor(city, target));
         if (fort > 1f) defend *= breach ? 1f + (fort - 1f) * 0.5f : fort;
+        // 世家坞堡：郡望之城守势加成，破城时只剩一半(见 GentrySystem.Fortress)
+        float manor = GentrySystem.FortressFactor(city);
+        if (manor > 1f) defend *= breach ? 1f + (manor - 1f) * 0.5f : manor;
         float ratio = attack + defend <= 0f ? 0.5f : attack / (attack + defend);
         if (walled) LogWall(city, attacker, owner, breach, fort, ratio);
         // 校验平衡用：一方是游牧或阿拉伯政体时记一行战况分解(交战前的兵力，限频，见 WarBalanceDiagnostics)

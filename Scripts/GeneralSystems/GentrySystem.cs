@@ -38,7 +38,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 皇权压门阀：帝党、文官可请"修氏族志"(以当朝官爵重定门第：族中有人在朝的升、没人出仕的降，法统 +3，三十年一次)；
 //     法家、帝党可请"抑豪强"(抄没门第最高三家一半田产、家财入国库，这几家门第 -10，贵族地主怨、农民喜，二十年一次)。
 // 宗族成千上万，按帧分批算(见 Tick)。
-public static class GentrySystem
+public static partial class GentrySystem
 {
     public const float EnterAt = 30f, LeaveAt = 22f;
     public const string NineRankNode = "huaxia_nine_rank", RecommendationNode = "huaxia_recommendation",
@@ -181,7 +181,9 @@ public static class GentrySystem
         {
             SpecificClan clan = Weighted(clans);
             Actor member = Member(clan, kingdom, fit);
-            if (member != null) return member;
+            if (member == null) continue;
+            ShiftFavor(empire, FavorAppoint);
+            return member;
         }
         return null;
     }
@@ -283,15 +285,18 @@ public static class GentrySystem
         return true;
     }
 
-    // 乱世里的强宗：每年(Assess)
+    // 乱世里的强宗：每年(Assess)。筑了坞堡的丙等也算强宗、机会加倍；朝廷与世家交恶(关系 FavorLow 以下)机会再加倍
     private static void TryAutonomy(SpecificClan clan, City seat)
     {
-        if (Grade(clan.gentry_pedigree) > 2 || seat?.kingdom == null || seat.kingdom.capital == seat || !seat.kingdom.hasEnemies())
+        bool fortress = HasFortress(seat);
+        if (Grade(clan.gentry_pedigree) > (fortress ? 3 : 2) || seat?.kingdom == null || seat.kingdom.capital == seat ||
+            !seat.kingdom.hasEnemies())
             return;
         Empire realm = RealmOf(seat);
         bool weak = realm == null ? seat.kingdom.king == null
             : realm.Mandate <= AutonomyMandate || realm.Emperor == null || realm.Emperor.isRekt();
-        if (!weak || UnityEngine.Random.value >= AutonomyChance) return;
+        float chance = AutonomyChance * (fortress ? 2f : 1f) * (realm != null && Favor(realm) <= FavorLow ? 2f : 1f);
+        if (!weak || UnityEngine.Random.value >= chance) return;
         Autonomy(clan, seat, "gentry_autonomy_history");
     }
 
@@ -343,6 +348,7 @@ public static class GentrySystem
         if (clan != null && clan.gentry)
         {
             empire.AddMandate(UsurperGentryMandate);
+            ShiftFavor(empire, FavorGentryUsurper);
             content = string.Format(LM.Get("gentry_usurper_history"), JunWang(clan), usurper.getName());
         }
         else
@@ -350,6 +356,7 @@ public static class GentrySystem
             int proud = Of(empire).Count(other => Grade(other.gentry_pedigree) <= 2);
             if (proud == 0) return;
             empire.AddMandate(-Mathf.Min(UsurperDisdainMax, proud * UsurperDisdainPer));
+            ShiftFavor(empire, FavorUpstart);
             content = string.Format(LM.Get("gentry_upstart_history"), usurper.getName());
         }
         LogService.LogInfo("[EmpireCraft][世家] " + content);
@@ -384,6 +391,7 @@ public static class GentrySystem
             }
         }
         empire.AddMandate(3);
+        ShiftFavor(empire, raised * 2f - lowered * 3f);
         empire.RecordHistory(directContent: string.Format(LM.Get("gentry_register_history"), empire.GetEmpireFullName(), raised, lowered));
         return (raised, lowered);
     }
@@ -411,6 +419,7 @@ public static class GentrySystem
         }
         int money = targets.Count * CurbMoneyPerClan;
         if (money > 0) empire.CoreKingdom.AddMoney(money, TreasuryCategory.RecoveredFunds);
+        ShiftFavor(empire, FavorCurb);
         ClaimPolicySystem.AddGrievance(empire, SocialClass.Noble, 6f);
         ClaimPolicySystem.AddGrievance(empire, SocialClass.Landlord, 6f);
         ClaimPolicySystem.AddGrievance(empire, SocialClass.Peasant, -4f);
@@ -443,6 +452,8 @@ public static class GentrySystem
         BuildLand();
         BuildRuling();
         Recorded.Clear();
+        BuildFortresses();
+        YearlyCourt();
         Queue.Start(SpecificClanManager._specificClans.Where(clan => clan != null && clan.extinct_since < 0d)
             .Select(clan => clan.id).ToList());
         Queue.Tick();
@@ -498,10 +509,16 @@ public static class GentrySystem
         City seat = living.Count == 0 ? null : FindSeat(clan, living);
         if (living.Count == 0 || Ruling.Contains(clan) || !Huaxia(seat))
         {
-            if (clan.gentry && living.Count == 0) Decline(clan, extinct: true);
+            if (clan.gentry && living.Count == 0)
+            {
+                // 本宗凋尽：最大的一支承嗣，门第、郡望归之(见 GentrySystem.Lineage)
+                if (!BranchSucceeds(clan)) Decline(clan, extinct: true);
+            }
             else if (clan.gentry) clan.gentry = false;
             return;
         }
+        // 世家无男丁可承：从支脉或族中过继一人(见 GentrySystem.Lineage)
+        if (clan.gentry) TryAdopt(clan, living);
         clan.gentry_seat_city_id = seat.data.id;
         float target = Target(clan, living);
         if (!clan.gentry_assessed)
@@ -531,7 +548,11 @@ public static class GentrySystem
         }
         else if (clan.gentry && clan.gentry_pedigree < LeaveAt) Decline(clan, extinct: false);
         else if (clan.gentry) NoteGrade(clan);
-        if (clan.gentry) TryAutonomy(clan, seat);
+        if (clan.gentry)
+        {
+            TryRelief(clan, seat);
+            TryAutonomy(clan, seat);
+        }
     }
 
     private static void Decline(SpecificClan clan, bool extinct)

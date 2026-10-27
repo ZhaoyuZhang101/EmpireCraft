@@ -270,6 +270,13 @@ public static class CityStabilitySystem
             natural = CityStabilityRules.Clamp(natural - soil);
             Note(ref detail, ShuiTuSystem.DescribeStability(city));
         }
+        // 世家坞堡、世家赈济(见 GentrySystem.Fortress)
+        float gentry = GentrySystem.StabilityBonus(city, out string gentryDetail);
+        if (gentry > 0f)
+        {
+            natural = CityStabilityRules.Clamp(natural + gentry);
+            Note(ref detail, gentryDetail);
+        }
         // 京师、陪京(见 MultiCapitalSystem)：自然稳定 +5
         float jing = MultiCapitalSystem.StabilityBonus(city);
         if (jing > 0f)

@@ -2149,6 +2149,10 @@ public static partial class InstitutionSystem
         if (TechnologySystem.AreInstitutionTechsMet(culture, node, out _))
             result.Support += TrendSupportBase + TechnologySystem.GetInstitutionPush(culture, node) * TrendSupportPerPush +
                               EraLag(culture, node) * EraLagSupport;
+        // 世家在朝：触动世家利益的改革阻力更大，合世家心意的更易推(见 GentrySystem.Court)
+        (float gentrySupport, float gentryOpposition) = GentrySystem.ReformLean(realm, node);
+        result.Support += gentrySupport;
+        result.Opposition += gentryOpposition;
         result.Support = InstitutionRules.Clamp100(result.Support);
         result.Opposition = InstitutionRules.Clamp100(result.Opposition);
         return result;

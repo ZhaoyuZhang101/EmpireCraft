@@ -161,6 +161,26 @@ namespace EmpireCraft.Scripts.UI.Windows
             }
         }
 
+        // 制度上没有的页签不显示(用户 2026-10-27："如果一个帝国制度上就没有教廷之类的，那么他的卡片就不要加那个侧边按钮"
+        // "就像西方没有世家一样，也不要加上去")：教廷只给西方一系；帝国议会只给封建制帝国(教宗国除外)；
+        // 世家只给华夏一系(或本朝已有世家)；宪法只给已立宪的。每次打开、换帝国时重排
+        private void SyncTabs()
+        {
+            if (_empire?.data == null || _empire.CoreKingdom == null) return;
+            SetTab("empire_papacy", PapacySystem.IsWestern(_empire));
+            SetTab("empire_diet", _empire.CoreKingdom.GetRegime()?.type == EmpireCraft.Scripts.Regimes.RegimeType.Feudalism &&
+                                  !PapacySystem.IsHolySee(_empire));
+            SetTab("empire_gentry", InstitutionSystem.GetCultureLine(CultureService.GetInstitutionCulture(_empire.CoreKingdom)) == "Huaxia" ||
+                                    GentrySystem.Of(_empire).Count > 0);
+            SetTab("empire_constitution", ConstitutionSystem.Get(_empire) != null);
+        }
+
+        private void SetTab(string name, bool visible)
+        {
+            WindowMetaTab tab = TabsWindow.tabs._tabs.FirstOrDefault(item => item.name == name);
+            if (tab != null && tab.gameObject.activeSelf != visible) tab.gameObject.SetActive(visible);
+        }
+
         private void ShowKingdomListHelp(WindowMetaTab pArg0)
         {
             StartCoroutine(ShowKingdomList());
@@ -1591,6 +1611,7 @@ namespace EmpireCraft.Scripts.UI.Windows
             }
             SyncEmpireNameInput(forceValueSync: true);
             InitialTabButtons();
+            SyncTabs();
         }
         // 打开窗口时直接切到的页签(只用一次)，如地图兵牌点进来的军团页
         private static string _pendingTab;
@@ -1627,6 +1648,7 @@ namespace EmpireCraft.Scripts.UI.Windows
             // 国号可能在窗口关闭期间变了(军阀时期改称中央、临时政府等)，每次打开都按当前完整国号刷新
             SyncEmpireNameInput(forceValueSync: true);
             InitialTabButtons();
+            SyncTabs();
             StartCoroutine(pendingTab == null ? ShowKingdomList() : OpenTabNextFrame(pendingTab));
         }
 
@@ -1636,7 +1658,8 @@ namespace EmpireCraft.Scripts.UI.Windows
             Clear();
             yield return CoroutineHelper.wait_for_next_frame;
             WindowMetaTab tab = TabsWindow.tabs._tabs.FirstOrDefault(item => item.name == tabName);
-            if (tab != null) tab.doAction();
+            // 换了帝国、那一页制度上没有了(见 SyncTabs)：回主页
+            if (tab != null && tab.gameObject.activeSelf) tab.doAction();
             else yield return ShowKingdomList();
         }
 

@@ -66,6 +66,14 @@ public static class GranarySystem
         return harvest - levied;
     }
 
+    // 捐粮入国家粮仓(世家灾年赈济，见 GentrySystem.Events)；没有国家粮仓的不收
+    public static void Donate(Kingdom kingdom, float amount)
+    {
+        Kingdom realm = Realm(kingdom);
+        if (amount <= 0f || !Enabled(kingdom)) return;
+        realm.GetOrCreate().granary += amount;
+    }
+
     // 赈灾：缺粮的城市从国家粮仓调粮，返回调到的数量
     public static float Relieve(City city, float shortage)
     {
