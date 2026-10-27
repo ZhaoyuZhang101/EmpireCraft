@@ -126,7 +126,12 @@ public static class NomadCycleSystem
     }
 
     // 新哈里发即位：新君还没受册封，哈里发国与印度(没有册封)正统同在一条线上，门槛不分
-    public static void OnCaliphSucceeded(Empire empire) => Fitna(empire, null, "新哈里发即位", 0);
+    public static void OnCaliphSucceeded(Empire empire)
+    {
+        // 哈里发国大过都城管得到的：远方另立哈里发，这一回不再判更替之乱(见 EmpirePartitionSystem.CaliphateSplit)
+        if (EmpirePartitionSystem.CaliphateSplit(empire)) return;
+        Fitna(empire, null, "新哈里发即位", 0);
+    }
 
     // 苏丹身故，新苏丹承袭(见 MilitaryRegency.Succeed)：新苏丹的国与同族的埃米尔不反。
     // 哈里发照旧在位、多已受册封，印度没有那 +8，门槛对它减 8(见 EmirateSystem.InvestitureGap)

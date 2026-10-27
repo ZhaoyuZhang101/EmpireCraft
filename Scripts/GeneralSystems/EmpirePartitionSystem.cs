@@ -399,19 +399,26 @@ public static class EmpirePartitionSystem
 
     #endregion
 
-    #region ④ 大汗东西分立
+    #region ④ 大汗东西分立、哈里发并立
 
     // 汗国大过汗庭管得到的(用户 2026-10-27 截图匈奴汗国横跨大半张图："游牧也太大了, 就没有什么法理控制上限吗"，
     // 问答选"换汗即东西分裂")：草原法理本身就大，汗国多半在自己的法理里，法理上限卡不住。新汗即位时(见 NomadCycleSystem.OnKhanSucceeded)，
     // 汗国的城(成员国按都城整国算，汗庭直辖的逐城算)有 KhanSplitShare 以上在汗庭(本国都城，不借成员都城)的控制范围之外，
     // 就按东西(或南北)分为两个汗国——像突厥东西分立、蒙古四大汗国：远方那一半由那边最大的兀鲁思之主称汗(没有就由宗室)，
-    // 同一国号各加方位，兄弟之国四十年不互攻(同遗诏分治)。分出去的那一半占三成到六成；分治冷却、大分裂冷却里不分
+    // 同一国号各加方位，兄弟之国四十年不互攻(同遗诏分治)。分出去的那一半占三成到六成；分治冷却、大分裂冷却里不分。
+    // 哈里发并立(同日用户嫌"哈里发国也莫名其妙的大"，问答选"两样都做")：新哈里发即位(见 NomadCycleSystem.OnCaliphSucceeded)
+    // 照同样的条件分，远方那一半由那边最大的埃米尔(苏丹)另立为哈里发——像后倭马亚、法蒂玛：以他自己的国号立国(宗室另立的才沿用原号加方位)，
+    // 原朝不改名；两个哈里发互争正统，不是兄弟之国；开国气象里也照分
     private const float KhanSplitShare = 0.25f, KhanSplitMin = 0.3f, KhanSplitMax = 0.6f;
     private const int KhanSplitMinCities = 12;
 
-    public static bool KhanateSplit(Empire empire)
+    public static bool KhanateSplit(Empire empire) => NomadCycleSystem.IsKhanate(empire) && CourtSplit(empire, rival: false);
+
+    public static bool CaliphateSplit(Empire empire) => EmirateSystem.Applies(empire) && CourtSplit(empire, rival: true);
+
+    private static bool CourtSplit(Empire empire, bool rival)
     {
-        if (!NomadCycleSystem.IsKhanate(empire) || Twin(empire) != null) return false;
+        if (empire?.data == null || empire.isRekt() || empire.IsArchived() || Twin(empire) != null) return false;
         Kingdom core = empire.CoreKingdom;
         City capital = core?.capital;
         Actor khan = empire.Emperor;
@@ -442,11 +449,13 @@ public static class EmpirePartitionSystem
         City seat = null;
         Plan plan = null;
         Kingdom ownKingdom = null;
-        // 远方最大的兀鲁思之主就地称汗
+        // 远方最大的兀鲁思之主(埃米尔、苏丹)就地称汗(另立哈里发)；架空哈里发的苏丹本人不在此列
+        Kingdom regentSeat = rival ? MilitaryRegency.Regent(empire)?.kingdom : null;
         foreach (Kingdom member in remote.OrderByDescending(member => member.cities.Count).ThenByDescending(Might))
         {
             Actor lord = member.king;
-            if (lord?.data == null || !lord.isAlive() || !lord.isAdult() || member.IsFactionRebelling() || member.IsLocalRebelling()) continue;
+            if (lord?.data == null || !lord.isAlive() || !lord.isAdult() || member == regentSeat || member.IsFactionRebelling() ||
+                member.IsLocalRebelling()) continue;
             Plan candidate = Divide(empire, capital, member.capital);
             if (candidate.Share < KhanSplitMin || candidate.Share > KhanSplitMax) continue;
             (ruler, seat, plan, ownKingdom) = (lord, member.capital, candidate, member);
@@ -459,16 +468,34 @@ public static class EmpirePartitionSystem
         }
         if (ruler == null || seat == null || plan == null) return false;
         string khanName = khan.getName(), seatName = seat.GetCityName();
+        // 另立的哈里发以自己的国号立国，原朝不改名
+        string ownName = rival ? ownKingdom?.EnsureKingdomCoreName() : null;
+        bool renamed = !string.IsNullOrWhiteSpace(ownName);
         int before = UpheavalGuard.Cities(empire);
-        Empire twin = Split(empire, ruler, seat, plan, KindWill, PrinceStruggleSystem.NotePartition, empire.data.core_name,
-            renameSource: true, ownKingdom);
+        Empire twin = Split(empire, ruler, seat, plan, rival ? KindMinister : KindWill, PrinceStruggleSystem.NotePartition,
+            renamed ? ownName : empire.data.core_name, renameSource: !rival, ownKingdom);
         if (twin == null) return false;
-        empire.data.partition_amity = twin.data.partition_amity = true;
-        UpheavalGuard.Mark(empire, "大汗东西分立", detail: $"分走 {before - UpheavalGuard.Cities(empire)} 城");
-        Publish(empire, twin, string.Format(LM.Get("partition_khanate_history"), khanName, ruler.getName(), seatName,
-            empire.GetEmpireFullName(), twin.GetEmpireFullName()), khan);
-        LogService.LogInfo($"[EmpireCraft][大汗分立] {empire.GetEmpireFullName()} 新汗{khanName}即位，{far}/{total} 城在汗庭控制范围之外，" +
-                           $"{ruler.getName()} 据 {seatName} 称汗为 {twin.GetEmpireFullName()}(分走约{plan.Share:P0})");
+        if (renamed)
+        {
+            twin.data.directPre = "";
+            twin.SetEmpireName(ownName);
+        }
+        int moved = before - UpheavalGuard.Cities(empire);
+        if (rival)
+        {
+            empire.data.partition_amity = twin.data.partition_amity = false;
+            ImperialLegitimacyChallengeService.DeclareDynasticRivals(twin, empire, war: false);
+            UpheavalGuard.Mark(empire, "哈里发并立", detail: $"分走 {moved} 城");
+        }
+        else
+        {
+            empire.data.partition_amity = twin.data.partition_amity = true;
+            UpheavalGuard.Mark(empire, "大汗东西分立", detail: $"分走 {moved} 城");
+        }
+        Publish(empire, twin, string.Format(LM.Get(rival ? "partition_caliphate_history" : "partition_khanate_history"), khanName,
+            ruler.getName(), seatName, empire.GetEmpireFullName(), twin.GetEmpireFullName()), khan);
+        LogService.LogInfo($"[EmpireCraft][{(rival ? "哈里发并立" : "大汗分立")}] {empire.GetEmpireFullName()} 新君{khanName}即位，" +
+                           $"{far}/{total} 城在都城控制范围之外，{ruler.getName()} 据 {seatName} 另立为 {twin.GetEmpireFullName()}(分走 {moved} 城)");
         return true;
     }
 

@@ -34,6 +34,10 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     兵力占帝国一成半以上再 ×1.5，至多 15%；每个帝国每年至多一家，苏丹(权臣)自己的国、开国气象里不割据；
 //   · 正统 65 以上：和平脱离——名义上仍奉哈里发，改为朝贡国(还没有朝贡制度的改为附庸，再不行就自立)；
 //     正统不到 65(以前 50；用户 2026-10-21 选"割据真丢地")：举兵自立，与朝廷开战(地方独立，同汗位更替之乱，见 NomadCycleSystem.DeclareIndependence)。
+// 都城管不到的(用户 2026-10-27 嫌"哈里发国也莫名其妙的大"，问答选"两样都做"；另一样见 EmpirePartitionSystem.CaliphateSplit)：
+//   · 成员都城在哈里发都城控制范围之外的(只按哈里发都城算、不借别的成员都城，见 AdministrativeControlSystem.BeyondCourt)，
+//     行省当年就世袭为埃米尔；世袭满 BeyondTenureYears 年就有份割据，机会另加 BeyondBreakaway、至多 BeyondBreakawayMax，
+//     开国气象挡不住(开国雄主在位照旧不起事)。正统高的照旧和平脱离为朝贡国。
 // 苏丹架空哈里发(用户 2026-10-19 选"补……苏丹架空哈里发""改用权臣机制")：本文化施行"苏丹官僚"后，哈里发照旧在位、
 // 成为傀儡，苏丹以权臣掌实权、在本家承袭(同幕府的征夷大将军，见 MilitaryRegency)；离开阿拉伯政体时不再有苏丹。
 public static class EmirateSystem
@@ -55,6 +59,9 @@ public static class EmirateSystem
     public const float BreakawayDistantShare = 0.5f, BreakawayWeakShare = 0.5f, BreakawayPerLostTenth = 3f,
         BreakawayStrongShare = 0.15f, BreakawayStrongFactor = 1.5f, BreakawayMax = 15f;
     public const string SecessionReason = "rebellion_reason_emirate_secession";
+    // 都城管不到的埃米尔：世袭满几年就有份割据；割据机会另加多少、至多多少(%)
+    public const int BeyondTenureYears = 5;
+    public const float BeyondBreakaway = 10f, BeyondBreakawayMax = 25f;
     // 各帝国上次结算的时间(不存档：读档、换世界时清掉，重新计满一年)
     private static readonly Dictionary<long, double> LastYear = new();
 
@@ -97,6 +104,7 @@ public static class EmirateSystem
         int legitimacy = empire.Legitimacy;
         float weakChance = global::System.Math.Max(0, WeakLegitimacy - InvestitureGap(empire) - legitimacy) * WeakChanceShare;
         Dictionary<long, float> distantChances = DistantChances(empire);
+        HashSet<long> beyond = BeyondCourt(empire);
         foreach (Kingdom kingdom in empire.kingdoms_list.ToList())
         {
             if (kingdom?.data == null || kingdom.isRekt() || kingdom == empire.CoreKingdom || kingdom.king == null) continue;
@@ -106,9 +114,11 @@ public static class EmirateSystem
             if (regime?.type != RegimeType.Arabic || kingdom.GetMainTitle() != null || IsHereditaryEmir(empire, kingdom) ||
                 title == null && kingdom.GetKingdomType() != KingdomType.Arabic_province) continue;
             distantChances.TryGetValue(kingdom.id, out float distantChance);
-            if (UnityEngine.Random.value * 100f >= global::System.Math.Max(weakChance, distantChance)) continue;
+            // 都城管不到的当年就世袭
+            bool far = beyond.Contains(kingdom.id);
+            if (!far && UnityEngine.Random.value * 100f >= global::System.Math.Max(weakChance, distantChance)) continue;
             // 史书按主因写：远在边陲写鞭长莫及，否则写朝廷衰微
-            bool distant = distantChance > weakChance;
+            bool distant = far || distantChance > weakChance;
             try
             {
                 if (title != null)
@@ -131,13 +141,27 @@ public static class EmirateSystem
                 LogService.LogWarning($"[EmpireCraft][埃米尔] {kingdom.GetKingdomName()} 世袭失败: {exception.Message}");
             }
         }
-        Breakaway(empire, legitimacy, distantChances, now);
+        Breakaway(empire, legitimacy, distantChances, beyond, now);
+    }
+
+    // 都城在哈里发都城控制范围之外的成员(只按哈里发都城算，见 AdministrativeControlSystem.BeyondCourt)
+    private static HashSet<long> BeyondCourt(Empire empire)
+    {
+        var result = new HashSet<long>();
+        Kingdom core = empire.CoreKingdom;
+        if (core?.capital == null) return result;
+        foreach (Kingdom kingdom in empire.kingdoms_list)
+            if (kingdom?.data != null && !kingdom.isRekt() && kingdom != core && kingdom.capital != null &&
+                AdministrativeControlSystem.BeyondCourt(core, kingdom.capital))
+                result.Add(kingdom.id);
+        return result;
     }
 
     #region 割据
 
     // 世袭满年限的埃米尔各掷一次，机会大的先掷；每个帝国每年至多脱离一家
-    private static void Breakaway(Empire empire, int legitimacy, Dictionary<long, float> distantChances, double now)
+    private static void Breakaway(Empire empire, int legitimacy, Dictionary<long, float> distantChances, HashSet<long> beyond,
+        double now)
     {
         Kingdom core = empire.CoreKingdom;
         Kingdom regentSeat = MilitaryRegency.Regent(empire)?.kingdom;
@@ -160,15 +184,21 @@ public static class EmirateSystem
                 data.emirate_hereditary_at = now;
                 continue;
             }
-            if (Date.getYearsSince(data.emirate_hereditary_at) < BreakawayTenureYears) continue;
+            // 都城管不到的：世袭满 BeyondTenureYears 年就有份，开国气象挡不住(开国雄主在位、入伙宽限照旧)
+            bool far = beyond.Contains(kingdom.id);
+            if (Date.getYearsSince(data.emirate_hereditary_at) < (far ? BeyondTenureYears : BreakawayTenureYears)) continue;
+            bool allowed = far
+                ? RebellionSystem.GraceYearsRemaining(kingdom) == 0 && !RulerTraitSystem.FounderShield(kingdom) &&
+                  !MembershipCooldown.ManualJoinActive(kingdom)
+                : RebellionSystem.CanAttempt(kingdom);
             if (kingdom == regentSeat || kingdom.king == null || kingdom.capital == null || kingdom.IsFactionRebelling() ||
-                kingdom.IsLocalRebelling() || kingdom.isInWarWith(core) || !RebellionSystem.CanAttempt(kingdom)) continue;
+                kingdom.IsLocalRebelling() || kingdom.isInWarWith(core) || !allowed) continue;
             distantChances.TryGetValue(kingdom.id, out float distant);
-            float chance = distant * BreakawayDistantShare + weak + defeat;
+            float chance = distant * BreakawayDistantShare + weak + defeat + (far ? BeyondBreakaway : 0f);
             if (chance <= 0f) continue;
             if (total < 0f) total = empire.kingdoms_list.Sum(Might);
             if (total > 0f && Might(kingdom) >= total * BreakawayStrongShare) chance *= BreakawayStrongFactor;
-            candidates.Add((kingdom, UnityEngine.Mathf.Min(BreakawayMax, chance)));
+            candidates.Add((kingdom, UnityEngine.Mathf.Min(far ? BeyondBreakawayMax : BreakawayMax, chance)));
         }
         foreach ((Kingdom kingdom, float chance) in candidates.OrderByDescending(entry => entry.chance))
         {
