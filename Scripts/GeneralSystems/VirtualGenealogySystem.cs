@@ -14,7 +14,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 虚拟族谱(无小人模式)：族谱里的人被并入人口数据时不记为死亡，而是转为"虚拟族人"——
 // 仍算在世，只保留人名、出生地、受封(爵位/封号)；继承、分封、作乱等需要这个人时，
 // 调用 PersonalClanIdentity.Realize() 当场在原来所在的城里落成实体(从该城背景人口里扣一人，总人口不变)。
-// 虚拟族人每年按世界法则结算寿命：真实年龄开启时 60~80 岁，关闭时使用原种族寿命，
+// 虚拟族人每年按世界法则结算寿命：真实年龄开启时按本人文化的科技时代定天年(见 RealisticAgeSystem)，关闭时使用原种族寿命，
 // 写入个人经历，并从所在城的背景人口里减去这一人。
 public static class VirtualGenealogySystem
 {

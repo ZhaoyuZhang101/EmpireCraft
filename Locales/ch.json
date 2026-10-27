@@ -5148,7 +5148,7 @@
   "format_past_emperor": "歷經 {0} 帝",
   "empirecraft_laws_tab_common_setting": "帝國盒子基礎設置",
   "empirecraft_law_realistic_age_title": "真實年齡",
-  "empirecraft_law_realistic_age_description": "智慧種族使用60至80歲的人類壽命；關閉後恢復原種族壽命。實體與虛擬族人均適用，保留不朽特質；關閉原版老死法則時不因年齡死亡。",
+  "empirecraft_law_realistic_age_description": "智慧種族按本文化的科技時代定壽命：石器時代多在四五十歲老死，逐代延長，工業時代六十上下，未來時代八十上下；君主壽數另按資質加減。開啟時自管老死，不受原版老死法則影響；關閉後恢復原種族壽命。實體與虛擬族人均適用，保留不朽特質。",
   "world_law_civ_limit_population_50_title": "五十人",
   "world_law_civ_limit_population_50_description": "限制村鎮最大人口數為 50",
   "world_law_civ_limit_population_20_title": "二十人",

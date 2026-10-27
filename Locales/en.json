@@ -5005,7 +5005,7 @@
   "format_past_emperor": "Over {0} emperors",
   "empirecraft_laws_tab_common_setting": "Empire Box Basic Settings",
   "empirecraft_law_realistic_age_title": "Realistic Ages",
-  "empirecraft_law_realistic_age_description": "Sapient species use human lifetimes of 60–80 years; disabling restores native lifespans. Applies to physical and virtual clan members, preserves immortality and respects the base game's old-age law.",
+  "empirecraft_law_realistic_age_description": "Sapient species live according to their culture's technological era: most die of old age in their forties or fifties in the Stone Age, around sixty in the Industrial era and around eighty in the Future era; rulers gain or lose years by their quality. While enabled it handles old age itself, regardless of the base game's old-age law; disabling restores native lifespans. Applies to physical and virtual clan members and preserves immortality.",
   "world_law_civ_limit_population_50_title": "Fifty People",
   "world_law_civ_limit_population_50_description": "Limit maximum town population to 50",
   "world_law_civ_limit_population_20_title": "Twenty People",

@@ -1471,7 +1471,7 @@ public class PersonalClanIdentity
     public long virtual_city_id { get; set; } = -1L;
     // 成为虚拟族人的时间，用来推算年龄
     public double virtual_since { get; set; } = -1d;
-    // 真实年龄开启时的预定寿数(60~80)，切换法则不会重新抽取
+    // 旧档字段：以前真实年龄的预定寿数(60~80)；现在天年按科技时代现算(见 RealisticAgeSystem.NaturalDeathAge)，不再读写
     public int virtual_death_age { get; set; } = -1;
     // Native lifespan and immortality survive conversion; null is a legacy save.
     public float? virtual_native_lifespan { get; set; }

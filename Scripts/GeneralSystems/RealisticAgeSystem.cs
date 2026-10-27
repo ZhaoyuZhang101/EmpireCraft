@@ -14,25 +14,107 @@ public static class RealisticAgeSystem
     public static bool Enabled => EmpireCraftWorldLawLibrary.empirecraft_law_realistic_age?.isEnabled() == true;
     public static bool OldAgeEnabled => WorldLawLibrary.world_law_old_age?.isEnabled() == true;
 
-    public static int HumanDeathAge(long id, int recordedAge = -1)
-    {
-        if (recordedAge >= 60 && recordedAge <= 80) return recordedAge;
-        // Stable across frames and saves; no repeated random draw can extend life.
-        return 60 + (int)((ulong)id % 21UL);
-    }
-
+    // 开着真实年龄时老死全归年度检查(RoyalHouseSystem.OnBirthday → AgeDeathDue)，原版空闲时的老死检查不再跑：
+    // 它查得频繁，超龄错开(见 Due)每查一次掷一次就错不开了
     public static bool CheckNaturalDeath(Actor actor, ref bool result)
     {
         if (!Enabled || actor?.data == null || !actor.isSapient() ||
             EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(actor)) return true;
         result = false;
-        if (!OldAgeEnabled || !actor.isAlive() || actor.hasTrait("immortal")) return false;
-        if (actor.getAge() < DeathAge(actor)) return false;
-        if (RoyalHouseSystem.IsRoyal(actor)) LogRoyalDeath(actor, "原版空闲检查");
-        actor.getHitFullHealth(AttackType.Age);
-        result = true;
         return false;
     }
+
+    #region 天年随科技时代
+
+    // 用户 2026-10-27(截图：真实年龄开着，可汗 129 岁、在位 94 年，储君 83 岁)："明明开了真实年龄还是死的这么慢，
+    // 而且这可是古代，年龄应该随着科技增长"。
+    // 那张图把原版"老死"世界法则关了，以前真实年龄跟着它不老死(整张图最老的一百七十多岁)；现在开着真实年龄就自管老死，
+    // 不再看原版老死法则，想不老死关掉真实年龄或给不朽特质。
+    // 天年(老死的年纪)按本人文化的科技时代(TechTree.json 的 tier，见 TechnologySystem.GetEraTier)定平均，
+    // 按人散列上下浮动(近似正态，标准差 LifespanSd)：古代大多死在四十到六十几岁、极少过八十五，逐代延长到近现代；
+    // 君主、储君在这之上按资质加减(见 RoyalHouseSystem.RoyalMeanDeathAge)。没开科技树、文化还没用上科技树的按 NoTechMean。
+    // 实体与虚拟族人同一个散列(有族谱身份的按身份，落成、并回不变)，科技进步了天年跟着变长
+    public const float LifespanSd = 10f;
+    // 下标是时代 tier：0 还没研究出技术(同石器)、1 石器、2 铜器、3 青铜、4 铁器、5 中世纪、6 火药、7 工业、8 电气、9 现代、10 原子、11 未来
+    private static readonly float[] EraMean = { 46f, 46f, 48f, 50f, 53f, 55f, 58f, 62f, 67f, 72f, 76f, 80f };
+    private const float NoTechMean = 54f;
+    private const int DeathAgeFloor = 30, DeathAgeCap = 100;
+
+    public static float MeanDeathAge(string culture)
+    {
+        int tier = EraTier(culture);
+        return tier < 0 ? NoTechMean : EraMean[Math.Min(tier, EraMean.Length - 1)];
+    }
+
+    public static float MeanDeathAge(Actor actor) => MeanDeathAge(CultureOf(actor));
+
+    public static int MaxDeathAge(float mean) => Math.Min(DeathAgeCap, (int)Math.Round(mean + 3f * LifespanSd));
+    private static int MinDeathAge(float mean) => Math.Max(DeathAgeFloor, (int)Math.Round(mean - 2.5f * LifespanSd));
+
+    public static int NaturalDeathAge(long seed, float mean) =>
+        Math.Max(MinDeathAge(mean), Math.Min(MaxDeathAge(mean), (int)Math.Round(mean + LifespanSd * PersonZ(seed))));
+
+    // 有族谱身份的按身份(实体与虚拟族人是同一个人，落成后单位编号会换)，没有的按单位
+    public static long Seed(Actor actor) => actor.GetPersonalIdentity()?.id ?? actor.id;
+
+    // 按人散列出近似标准正态的数(四个均匀数相加，±3.46)：同一人每次都一样，不会每年重掷
+    private static float PersonZ(long seed)
+    {
+        double sum = 0d;
+        ulong x = (ulong)seed * 0x9E3779B97F4A7C15UL + 0x632BE59BD9B4E019UL;
+        for (int i = 0; i < 4; i++) sum += Unit(x + (ulong)i * 0xD1B54A32D192ED03UL);
+        return (float)((sum - 2d) * 1.7320508d);
+    }
+
+    // 本人文化用上了科技树按本人文化(改朝换代、被征服不跟着变)，否则按所在国、所在城
+    private static string CultureOf(Actor actor)
+    {
+        string own = CultureService.GetActorCulture(actor);
+        return TechnologySystem.IsActiveFor(own) ? own : TechnologySystem.GetCultureOf(actor);
+    }
+
+    private static string CultureOf(PersonalClanIdentity person)
+    {
+        if (TechnologySystem.IsActiveFor(person.culture)) return person.culture;
+        return person.virtual_city_id < 0 ? "" : TechnologySystem.GetCultureOf(World.world?.cities?.get(person.virtual_city_id));
+    }
+
+    // 每个文化的时代一年算一次(GetEraTier 要过一遍已研究的技术)；-1 没开科技树或这个文化还没用上
+    private static readonly Dictionary<string, (int year, int tier)> EraCache = new(StringComparer.Ordinal);
+    private static object _eraWorld;
+
+    private static int EraTier(string culture)
+    {
+        if (string.IsNullOrEmpty(culture) || !TechnologySystem.IsActiveFor(culture)) return -1;
+        if (!ReferenceEquals(_eraWorld, World.world))
+        {
+            _eraWorld = World.world;
+            EraCache.Clear();
+        }
+        int year = World.world == null ? 0 : Date.getCurrentYear();
+        if (EraCache.TryGetValue(culture, out (int year, int tier) cached) && cached.year == year) return cached.tier;
+        int tier = Math.Max(0, TechnologySystem.GetEraTier(culture));
+        EraCache[culture] = (year, tier);
+        return tier;
+    }
+
+    // 每年过生日查一次(RoyalHouseSystem.OnBirthday)：到了天年就寿终
+    public static bool AgeDeathDue(Actor actor)
+    {
+        if (actor.hasTrait("immortal")) return false;
+        if (RoyalHouseSystem.IsRoyal(actor)) return actor.getAge() >= RoyalLifespan(actor);
+        return Due(actor.getAge(), NaturalDeathAge(Seed(actor), MeanDeathAge(actor)));
+    }
+
+    // 过了天年 OverdueGraceYears 年以上的(法则刚接管、读旧档、换了文化、科技失传)每年 OverdueChance，
+    // 几年里错开，不在同一年成批寿终(君主、储君另有保底，见 RoyalLifespan)
+    private const int OverdueGraceYears = 1;
+    private const float OverdueChance = 0.35f;
+
+    private static bool Due(int age, int deathAge) =>
+        age >= deathAge && (age - deathAge <= OverdueGraceYears || UnityEngine.Random.value < OverdueChance);
+
+    #endregion
 
     // 生养子女的最低年纪(用户 2026-10-26 "会出现儿子比父亲大，以及3岁就有儿子")：原版几岁就算成年，模组的生育入口
     // (原版怀孕判定的替换、妻妾添丁、君主无子强制生育、司生育的女官)以前只看成年，几岁的人也生养。
@@ -50,12 +132,6 @@ public static class RealisticAgeSystem
     // 没有这个人(单亲生育、对方空着)算够
     public static bool OldEnoughToParent(Actor actor) => actor?.data == null || actor.getAge() >= MinParentAge(actor);
 
-    // 君主、储君按古代的天年(见 RoyalHouseSystem.RoyalDeathAge，成为君主、储君时已近天年的另定，见 RoyalLifespan)，
-    // 其余六十到八十
-    public static int DeathAge(Actor actor) => RoyalHouseSystem.IsRoyal(actor)
-        ? RoyalLifespan(actor)
-        : HumanDeathAge(actor.id, actor.GetPersonalIdentity()?.virtual_death_age ?? -1);
-
     #region 宗室天年：成为君主、储君时的年纪
 
     // 用户 2026-10-21 转群友："加了真实年龄后，经常一称帝没有一年就死，要不就是依旧活这么久"。
@@ -72,12 +148,14 @@ public static class RealisticAgeSystem
     //   · 没有即位那一下的(储君、旧档里在位的君主、真实年龄刚打开)：头一回年度检查时补定，保底 1~5 年按人错开，
     //     旧档里已经超龄的君主不会一读档就成批寿终；
     //   · 不再是君主、储君一年半以上又再立的，按再立时的年纪重新锚定(年度检查每年都会看到在位的人，隔了一年半说明中间不是)。
-    // 非人类物种、长寿亚种开着真实年龄时一样按这套天年(法则说明："智慧种族使用人类寿命")；不朽特质照旧不老死
+    // 2026-10-27 起君主、储君与常人同按科技时代定天年(见上)，只差资质加减；锚定照旧管资质减寿、超龄的人被立、
+    // 旧档里在位的超龄君主(原版老死关着时没查过的)。
+    // 非人类物种、长寿亚种开着真实年龄时一样按这套天年(法则说明："智慧种族按科技时代定天年")；不朽特质照旧不老死
     public const int AccessionMinYears = 3;
     private const int LateMinYears = 1, LateSpreadYears = 5;
     // 一年 60 秒：一年半没看到在位就算中断过
     private const double RoyalGapSeconds = 90d;
-    // 取样上限：截尾正态的极端尾巴不取(至多活到 95 岁，或锚定后再 15 年)
+    // 取样上限：截尾正态的极端尾巴不取(至多到本时代的天年上限 MaxDeathAge，或锚定后再 15 年)
     private const int SurvivorMaxYears = 15;
 
     public static int RoyalLifespan(Actor actor)
@@ -127,18 +205,18 @@ public static class RealisticAgeSystem
             $"另定 {settled}(余寿 {settled - age} 年，至少到 {data.royal_anchor_floor})");
     }
 
-    // 活到 anchor 岁的人的天年：正态 N(平均天年, 13) 截去 anchor 以下，按人(与锚定年纪)取一个上尾概率
+    // 活到 anchor 岁的人的天年：正态 N(平均天年, LifespanSd) 截去 anchor 以下，按人(与锚定年纪)取一个上尾概率
     public static int SurvivorDeathAge(Actor actor, int anchor)
     {
-        double mean = RoyalHouseSystem.RoyalMeanDeathAge(actor);
-        double sd = RoyalHouseSystem.RoyalDeathSd;
-        double u = Unit((ulong)actor.id * 0xC2B2AE3D27D4EB4FUL + (ulong)Math.Max(0, anchor) * 0x165667B19E3779F9UL);
+        float mean = RoyalHouseSystem.RoyalMeanDeathAge(actor);
+        double sd = LifespanSd;
+        double u = Unit((ulong)Seed(actor) * 0xC2B2AE3D27D4EB4FUL + (ulong)Math.Max(0, anchor) * 0x165667B19E3779F9UL);
         double tail = UpperTail((anchor - mean) / sd);
         // 远远超龄(旧档里一两百岁的人)：上尾小到算不准，一到四年按人错开
         if (tail < 1e-9) return anchor + 1 + (int)(u * 4d);
         double z = -InverseNormal(tail * (1d - u));
         int age = (int)Math.Ceiling(mean + sd * z);
-        return Math.Max(anchor, Math.Min(age, Math.Max(RoyalHouseSystem.RoyalDeathMax, anchor + SurvivorMaxYears)));
+        return Math.Max(anchor, Math.Min(age, Math.Max(MaxDeathAge(mean), anchor + SurvivorMaxYears)));
     }
 
     // 按人散列成 [0,1) 的数(splitmix64 收尾)
@@ -266,17 +344,14 @@ public static class RealisticAgeSystem
     {
         person.virtual_native_lifespan = actor.stats?["lifespan"] ?? 0f;
         person.virtual_immortal = actor.hasTrait("immortal");
-        person.virtual_death_age = HumanDeathAge(actor.id, person.virtual_death_age);
     }
 
+    // 真实年龄开着时按科技时代的天年(与实体同一个散列，见 Seed)，不看原版老死法则；关着时照原版
     public static bool IsVirtualAgeDeathDue(PersonalClanIdentity person)
     {
-        if (!OldAgeEnabled || person.virtual_immortal) return false;
-        if (Enabled)
-        {
-            person.virtual_death_age = HumanDeathAge(person.id, person.virtual_death_age);
-            return person.age >= person.virtual_death_age;
-        }
+        if (person.virtual_immortal) return false;
+        if (Enabled) return Due(person.age, NaturalDeathAge(person.id, MeanDeathAge(CultureOf(person))));
+        if (!OldAgeEnabled) return false;
         // 旧存档、虚拟出生的子女没记下寿命：按物种补上。以前读物种资产上的 lifespan，原版寿命其实写在亚种基因里、
         // 物种资产上是 0，按原版 0 即不老死，关了真实年龄时这些虚拟族人活到两三百岁还在议立新君的名单里
         if (!(person.virtual_native_lifespan > 0f)) person.virtual_native_lifespan = SpeciesLifespan(person.species);

@@ -12,9 +12,10 @@ using UnityEngine;
 namespace EmpireCraft.Scripts.GeneralSystems;
 
 // 宗室的生老病死(让王朝有起有落，不再代代父死子继、一帆风顺)：
-//   · 寿数(真实年龄法则开着时)：君主与储君按古代的分布定天年——平均五十二岁上下(标准差十三，二十二到九十五)，
-//     工业化、电气、计算机各加六岁；明君 +3，庸弱 -3，昏聩 -5，暴虐 -4，荒淫 -10；按人定死，不会每年重掷；
-//     其余的人照旧六十到八十岁(见 RealisticAgeSystem)；成为君主、储君时已到或将到天年的(年长的大臣、宿将被立)按那时的年纪
+//   · 寿数(真实年龄法则开着时，不看原版老死法则)：所有人按本人文化的科技时代定天年——石器平均四十六、中世纪五十五、
+//     工业六十二、现代七十二、未来八十(标准差十，见 RealisticAgeSystem.MeanDeathAge)；
+//     君主再按资质：明君 +3，庸弱 -3，昏聩 -5，暴虐 -4，荒淫 -10；按人定死，不会每年重掷；
+//     成为君主、储君时已到或将到天年的(年长的大臣、宿将被立)按那时的年纪
 //     另定余寿，即位后至少三年不寿终(见 RealisticAgeSystem.RoyalLifespan)；
 //   · 老死每年过生日时检查(原版只在人物空闲时查，纯净地图、无小人模式下几乎查不到，实体活到一两百岁)；
 //     真实年龄关着时这两种模式下按原版寿命曲线每年掷一次(见 RealisticAgeSystem.NativeAgeDeathDue)；
@@ -62,25 +63,14 @@ public static class RoyalHouseSystem
         return !string.IsNullOrEmpty(culture) && TechnologySystem.IsActiveFor(culture) && TechnologySystem.HasTech(culture, tech);
     }
 
-    // 君主、储君的天年：按人散列出近似正态的数，按时代与资质调整(成为君主、储君时已近天年的另定，见 RealisticAgeSystem.RoyalLifespan)
-    public const float RoyalDeathSd = 13f;
-    public const int RoyalDeathMin = 22, RoyalDeathMax = 95;
-
-    public static int RoyalDeathAge(Actor actor)
-    {
-        ulong hash = (ulong)actor.id * 0x9E3779B97F4A7C15UL + 0x632BE59BD9B4E019UL;
-        float sum = 0f;
-        for (int i = 0; i < 4; i++) sum += ((hash >> (i * 16)) & 0xFFFFUL) / 65535f;
-        float z = (sum - 2f) * 1.7320508f;
-        return Mathf.Clamp(Mathf.RoundToInt(RoyalMeanDeathAge(actor) + RoyalDeathSd * z), RoyalDeathMin, RoyalDeathMax);
-    }
+    // 君主、储君的天年：与常人同按科技时代与按人散列(见 RealisticAgeSystem.NaturalDeathAge)，君主再按资质加减
+    // (成为君主、储君时已近天年的另定，见 RealisticAgeSystem.RoyalLifespan)
+    public static int RoyalDeathAge(Actor actor) =>
+        RealisticAgeSystem.NaturalDeathAge(RealisticAgeSystem.Seed(actor), RoyalMeanDeathAge(actor));
 
     public static float RoyalMeanDeathAge(Actor actor)
     {
-        float mean = 52f;
-        if (Has(actor, "industrialization")) mean += 6f;
-        if (Has(actor, "electricity")) mean += 6f;
-        if (Has(actor, "computing")) mean += 6f;
+        float mean = RealisticAgeSystem.MeanDeathAge(actor);
         if (actor.isKing())
             mean += RulerQualitySystem.Of(actor) switch
             {
@@ -100,10 +90,9 @@ public static class RoyalHouseSystem
     {
         if (actor?.data == null || actor.isRekt() || !actor.isAlive() || !actor.isSapient()) return;
         RepairSurname(actor);
-        // 真实年龄关着时按原版寿命曲线每年掷一次(只在纯净地图、无小人模式，见 RealisticAgeSystem.NativeAgeDeathDue)
-        if (RealisticAgeSystem.Enabled
-                ? RealisticAgeSystem.OldAgeEnabled && !actor.hasTrait("immortal") && actor.getAge() >= RealisticAgeSystem.DeathAge(actor)
-                : RealisticAgeSystem.NativeAgeDeathDue(actor))
+        // 真实年龄开着时按科技时代的天年(不看原版老死法则，见 RealisticAgeSystem.AgeDeathDue)；
+        // 关着时按原版寿命曲线每年掷一次(只在纯净地图、无小人模式，见 RealisticAgeSystem.NativeAgeDeathDue)
+        if (RealisticAgeSystem.Enabled ? RealisticAgeSystem.AgeDeathDue(actor) : RealisticAgeSystem.NativeAgeDeathDue(actor))
         {
             Pending.Add((actor, Fate.Age));
             return;
