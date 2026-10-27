@@ -66,6 +66,8 @@ public static class EmpireCraftStrategicScheduler
         ShuiTuSystem.Tick();
         CultureRadiation.Tick();
         CityStabilitySystem.Tick();
+        // 府库积压：每年一次国库、城库余钱折损(见 TreasuryHoardSystem)
+        using (FrameProfiler.Measure("府库积压")) TreasuryHoardSystem.Tick();
         using (FrameProfiler.Measure("帝国改划")) AdministrationReorganizationSystem.Tick();
 
         float realtime = Time.realtimeSinceStartup;

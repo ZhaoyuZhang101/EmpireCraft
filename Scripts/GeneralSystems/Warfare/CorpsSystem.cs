@@ -328,6 +328,7 @@ public static class CorpsSystem
     }
 
     // 野战军饷：按人头每月发(见 CityStabilityRules.CorpsAnnual)，按兵种加权(装备越先进越贵，见 CorpsArmSystem)，本国先付，听命于中央的成员付不起由中央补；
+    // 听命于中央的成员，核心国库超出储备的余钱先替它发(中央养兵，见 TreasuryHoardSystem)；
     // 饷银发给各军的家乡城(回到民间)。发不出就军心涣散、兵丁逃散，久欠求和(见下方欠饷)。以前野战军不花一分钱。
     // 另收行军费：每人每走一块地块 MarchCostPerZone，离前线越远的军开过去越贵(所以动员只动就近的军)
     // 打仗的花销单记"战争开支"(TreasuryCategory.War，帝国收支里单列)：战时比平时多出来的军饷、行军费，
@@ -421,12 +422,22 @@ public static class CorpsSystem
                       Mathf.RoundToInt(marching * MarchCostPerZone) + Mathf.RoundToInt(engaged * BattleCostPerSoldier);
         int bill = baseBill + warBill;
         if (bill <= 0) return;
-        int paidBase = Draw(kingdom, baseBill, TreasuryCategory.Military);
-        int paidWar = Draw(kingdom, warBill, TreasuryCategory.War);
         Layer.Empire empire = kingdom.GetEmpire();
         Kingdom core = empire?.CoreKingdom;
-        if (paidBase + paidWar < bill && core != null && core != kingdom && TreasurySystem.Enabled(core) &&
-            GamePatches.EmpirePeacePatch.Obeys(empire, kingdom))
+        bool obeys = core != null && core != kingdom && TreasurySystem.Enabled(core) &&
+                     GamePatches.EmpirePeacePatch.Obeys(empire, kingdom);
+        int paidBase = 0, paidWar = 0;
+        // 中央养兵：核心国库超出储备的余钱先替听调遣的成员发饷(见 TreasuryHoardSystem)
+        if (obeys)
+        {
+            long spare = TreasuryHoardSystem.Surplus(core);
+            paidBase = Draw(core, (int)Math.Min(baseBill, spare), TreasuryCategory.Military);
+            paidWar = Draw(core, (int)Math.Min(warBill, spare - paidBase), TreasuryCategory.War);
+            TreasuryHoardSystem.RecordSubsidy(core, paidBase + paidWar);
+        }
+        paidBase += Draw(kingdom, baseBill - paidBase, TreasuryCategory.Military);
+        paidWar += Draw(kingdom, warBill - paidWar, TreasuryCategory.War);
+        if (paidBase + paidWar < bill && obeys)
         {
             paidBase += Draw(core, baseBill - paidBase, TreasuryCategory.Military);
             paidWar += Draw(core, warBill - paidWar, TreasuryCategory.War);

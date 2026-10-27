@@ -526,9 +526,7 @@ public static class CityStabilitySystem
     {
         Kingdom local = city.kingdom;
         if (local == null || !TreasurySystem.Enabled(local) || city.getLoyalty() <= 0 && !ControlsTax(city)) return;
-        long monthly = (long)state.governance_due + state.garrison_due + state.military_due;
-        long reserve = Math.Max(TreasurySystem.SafetyReserve(city), monthly * 24L);
-        long surplus = city.GetTreasuryBalance() - reserve;
+        long surplus = city.GetTreasuryBalance() - SurplusReserve(city, state);
         if (surplus < 10L) return;
         int remit = (int)Math.Min(int.MaxValue, surplus / 10L);
         Kingdom central = local.GetEmpire()?.CoreKingdom;
@@ -539,6 +537,20 @@ public static class CityStabilitySystem
         city.SubMoney(remit, TreasuryCategory.InternalTransfer);
         if (toCentral > 0) central.AddMoney(toCentral, TreasuryCategory.InternalTransfer);
         if (remit > toCentral) local.AddMoney(remit - toCentral, TreasuryCategory.InternalTransfer);
+    }
+
+    // 城库该留的钱：两年开支与安全储备取大的；多出来的是余钱(上缴见 RemitSurplus，积压损耗见 TreasuryHoardSystem)
+    public static long SurplusReserve(City city)
+    {
+        // 只读现有的账(换了主人的城下回结算时再重建，见 State)
+        CityStabilityData state = city.GetOrCreate().stability;
+        return SurplusReserve(city, state != null && state.owner_id == city.kingdom?.id ? state : null);
+    }
+
+    private static long SurplusReserve(City city, CityStabilityData state)
+    {
+        long monthly = state == null ? 0L : (long)state.governance_due + state.garrison_due + state.military_due;
+        return Math.Max(TreasurySystem.SafetyReserve(city), monthly * 24L);
     }
 
     private static void ReviewWithdrawal(City city, CityStabilityData state, double monthlyCost)
