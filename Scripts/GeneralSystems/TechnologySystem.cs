@@ -107,6 +107,14 @@ public sealed class TechInstitutionRequirement
     public float min_value = 1f;
 }
 
+// 按制度线换的名字与前置(称帝节点：华夏皇帝制度、罗马元首制……，用户 2026-10-27"每个文化都有自己的称帝条件"，
+// 选"一个节点、按文明换前置")：key 是名字与说明的语言键 tech_<key> / tech_<key>_desc
+public sealed class TechLineVariant
+{
+    public string key = "";
+    public List<string> requires_techs = new();
+}
+
 public sealed class TechNodeConfig
 {
     public List<TechInstitutionRequirement> requires_institutions = new();
@@ -131,6 +139,8 @@ public sealed class TechNodeConfig
     public float naval_reach;
     public float naval_power;
     public float naval_hull;
+    // 制度线 → 这条线上的名字与前置(没写的线用 requires_techs 与 tech_<id>，见 TechnologySystem.Requires)
+    public Dictionary<string, TechLineVariant> by_line = new();
 }
 
 // 别的模组里"能不能做某事"的布尔方法：本文化没研究对应技术时直接返回 false。
@@ -324,6 +334,9 @@ public static class TechnologySystem
             tech.unlock_units ??= new List<string>();
             tech.boosts ??= new List<TechBoostConfig>();
             tech.requires_institutions ??= new List<TechInstitutionRequirement>();
+            tech.by_line ??= new Dictionary<string, TechLineVariant>();
+            foreach (TechLineVariant variant in tech.by_line.Values)
+                if (variant != null) variant.requires_techs ??= new List<string>();
             _techs[tech.id] = tech;
         }
         _materials = new Dictionary<string, TechMaterialConfig>(StringComparer.Ordinal);
@@ -639,7 +652,7 @@ public static class TechnologySystem
     }
 
     public static bool ArePrerequisitesMet(string culture, TechNodeConfig tech) =>
-        tech.requires_techs.All(id => HasTech(culture, id)) &&
+        Requires(tech, culture).All(id => HasTech(culture, id)) &&
         tech.requires_materials.All(id => HasMaterial(culture, id)) &&
         AreCultureRequirementsMet(culture, tech);
 
@@ -749,6 +762,29 @@ public static class TechnologySystem
 
     public static string GetTechName(string id) => LM.Get($"tech_{TechnologyStateRules.Canonical(id)}");
     public static string GetTechDescription(string id) => LM.Get($"tech_{TechnologyStateRules.Canonical(id)}_desc");
+
+    // 本文化这条制度线上的写法(见 TechNodeConfig.by_line)；没有为空
+    private static TechLineVariant Variant(TechNodeConfig tech, string culture)
+    {
+        if (tech?.by_line == null || tech.by_line.Count == 0 || !CultureService.IsValidCulture(culture)) return null;
+        return tech.by_line.TryGetValue(culture.GetInstitutionLine(), out TechLineVariant variant) ? variant : null;
+    }
+
+    // 本文化研究这项科技要的前置
+    public static List<string> Requires(TechNodeConfig tech, string culture) =>
+        Variant(tech, culture)?.requires_techs ?? tech?.requires_techs ?? new List<string>();
+
+    public static string GetTechName(string id, string culture) =>
+        _techs != null && _techs.TryGetValue(TechnologyStateRules.Canonical(id), out TechNodeConfig tech) &&
+        Variant(tech, culture) is TechLineVariant variant && !string.IsNullOrEmpty(variant.key)
+            ? LM.Get($"tech_{variant.key}")
+            : GetTechName(id);
+
+    public static string GetTechDescription(string id, string culture) =>
+        _techs != null && _techs.TryGetValue(TechnologyStateRules.Canonical(id), out TechNodeConfig tech) &&
+        Variant(tech, culture) is TechLineVariant variant && !string.IsNullOrEmpty(variant.key)
+            ? LM.Get($"tech_{variant.key}_desc")
+            : GetTechDescription(id);
 
     // 海军科技线(用户 2026-10-15："可以加海军科技线""通过海军军事科技的升级提高这个半径")
     public static float NavalReach(string culture) => SumNaval(culture, tech => tech.naval_reach);
@@ -1789,7 +1825,7 @@ public static class TechnologySystem
         if (!visited.Add(techId) || !_techs.TryGetValue(techId, out TechNodeConfig tech) || HasTech(culture, techId))
             return null;
         if (ArePrerequisitesMet(culture, tech)) return tech;
-        foreach (string required in tech.requires_techs)
+        foreach (string required in Requires(tech, culture))
         {
             TechNodeConfig step = FindNextStepToward(culture, required, visited);
             if (step != null) return step;
@@ -1842,7 +1878,7 @@ public static class TechnologySystem
     private static void ForceResearchRecursive(string culture, TechNodeConfig tech, HashSet<string> visited)
     {
         if (!visited.Add(tech.id) || HasTech(culture, tech.id)) return;
-        foreach (string required in tech.requires_techs)
+        foreach (string required in Requires(tech, culture))
             if (_techs.TryGetValue(required, out TechNodeConfig parent)) ForceResearchRecursive(culture, parent, visited);
         foreach (string material in tech.requires_materials) ForceDiscover(culture, material);
         CompleteTech(culture, tech.id);
@@ -1896,7 +1932,7 @@ public static class TechnologySystem
             string id = queue.Dequeue();
             if (!state.researched_techs.Contains(id) || !revoked.Add(id)) continue;
             foreach (TechNodeConfig tech in Config.techs)
-                if (tech.requires_techs.Contains(id) && state.researched_techs.Contains(tech.id))
+                if (Requires(tech, culture).Contains(id) && state.researched_techs.Contains(tech.id))
                     queue.Enqueue(tech.id);
         }
         foreach (string id in revoked)

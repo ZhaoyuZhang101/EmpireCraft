@@ -368,10 +368,10 @@ public class TechWindow : AbstractWideWindow<TechWindow>
             if (state.boosted.Contains(tech.id) && status != TechNodeStatus.Researched)
                 info = LM.Get("tech_boost_mark").ColorString("#FFD273") + info;
             if (state.player_targets.Contains(tech.id)) info = "★ " + info;
-            var requires = tech.requires_techs.Concat(tech.requires_materials.Select(m => TechGraphView.MaterialPrefix + m))
+            var requires = TechnologySystem.Requires(tech, _culture).Concat(tech.requires_materials.Select(m => TechGraphView.MaterialPrefix + m))
                 .ToList();
             (string title, string body) = BuildTechTooltip(tech, status);
-            nodes.Add(new TechGraphView.NodeInfo(tech.id, tech.branch, tech.tier, TechnologySystem.GetTechName(tech.id),
+            nodes.Add(new TechGraphView.NodeInfo(tech.id, tech.branch, tech.tier, TechnologySystem.GetTechName(tech.id, _culture),
                 GetStatusName(status).ColorString(GetStatusHex(status)), info, status, progress,
                 TechGraphView.GetBranchIcon(tech.branch), requires, title, body));
         }
@@ -486,10 +486,10 @@ public class TechWindow : AbstractWideWindow<TechWindow>
 
     private (string title, string body) BuildTechTooltip(TechNodeConfig tech, TechNodeStatus status)
     {
-        string title = $"{TechnologySystem.GetTechName(tech.id).ColorString("#F3C34A")}  ·  " +
+        string title = $"{TechnologySystem.GetTechName(tech.id, _culture).ColorString("#F3C34A")}  ·  " +
                        $"{TechnologySystem.GetBranchName(tech.branch)}  ·  " +
                        $"{GetStatusName(status).ColorString(GetStatusHex(status))}";
-        var lines = new List<string> { TechnologySystem.GetTechDescription(tech.id) };
+        var lines = new List<string> { TechnologySystem.GetTechDescription(tech.id, _culture) };
         float cost = TechnologySystem.GetCost(_culture, tech);
         string costLine = $"{LM.Get("tech_cost")} {cost:0}";
         float stored = TechnologySystem.GetProgress(_culture, tech.id);
@@ -519,7 +519,7 @@ public class TechWindow : AbstractWideWindow<TechWindow>
             string boosts = string.Join(LM.Get("tech_or"), tech.boosts.Select(TechnologySystem.DescribeBoost));
             lines.Add((fired ? LM.Get("tech_boost_done") : LM.Get("tech_boost_pending")) + boosts);
         }
-        var requires = tech.requires_techs
+        var requires = TechnologySystem.Requires(tech, _culture)
             .Select(id => Mark(TechnologySystem.HasTech(_culture, id)) + TechnologySystem.GetTechName(id))
             .Concat(tech.requires_materials.Select(id =>
                 Mark(TechnologySystem.HasMaterial(_culture, id)) + TechnologySystem.GetMaterialName(id)))
@@ -579,13 +579,13 @@ public class TechWindow : AbstractWideWindow<TechWindow>
                 if (TechnologySystem.HasMaterial(_culture, material) || materials.Contains(material)) continue;
                 materials.Add(material);
             }
-            if (current != tech && current.requires_techs.All(id => TechnologySystem.HasTech(_culture, id)))
+            if (current != tech && TechnologySystem.Requires(current, _culture).All(id => TechnologySystem.HasTech(_culture, id)))
             {
-                if (TechnologySystem.ArePrerequisitesMet(_culture, current)) researchable.Add(TechnologySystem.GetTechName(current.id));
+                if (TechnologySystem.ArePrerequisitesMet(_culture, current)) researchable.Add(TechnologySystem.GetTechName(current.id, _culture));
                 else if (!TechnologySystem.AreCultureRequirementsMet(_culture, current))
                     blocked.Add(TechnologySystem.GetTechName(current.id));
             }
-            foreach (string id in current.requires_techs)
+            foreach (string id in TechnologySystem.Requires(current, _culture))
                 if (!TechnologySystem.HasTech(_culture, id) && TechnologySystem.TryGetTech(id, out TechNodeConfig next))
                     queue.Enqueue(next);
         }

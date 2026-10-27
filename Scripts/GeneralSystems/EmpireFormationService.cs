@@ -391,6 +391,15 @@ public static class EmpireFormationService
     public static bool MeetsBaseRequirements(Kingdom kingdom) =>
         MeetsBaseRequirements(kingdom, requireNonNegativeTreasury: true);
 
+    // 称帝要先有「帝制」(用户 2026-10-27："把称帝这个决议放到文明科技树里面吧，要研究且满足条件才可以解锁"
+    // "每个文化都有自己的称帝条件")：文明分支第四层一个节点，名字与前置按本文化的制度线换(见 TechTree.json 的 by_line)——
+    // 华夏「皇帝制度」律令法典+官僚文书+礼制，罗马「元首制」律令法典+兵籍军制，阿拉伯「哈里发制」律令法典+礼制，
+    // 游牧「可汗制」兵籍军制，日本「天皇制」律令法典+礼制+官僚文书，其余文化「帝制」同华夏。
+    // 本文化研究出来、本国(帝国按帝国)也采纳了才可称帝——AI 筹备称帝、称帝剧情(含上帝强制)都按它。没开科技树的照旧不拦
+    public const string ImperialTech = "imperial_rule";
+
+    public static bool HasImperialTech(Kingdom kingdom) => TechnologySystem.CanUseIn(kingdom, ImperialTech);
+
     // 诊断(见 FormationDiagnostics)：这个国家卡在称帝的哪一关，按称帝检查的先后逐条说
     public static string Diagnose(Kingdom kingdom)
     {
@@ -403,6 +412,8 @@ public static class EmpireFormationService
         if (ZhouEraSystem.IsDetachedVassal(kingdom)) return "战国周诸侯(只称王)";
         if (TribalFissionService.IsTribal(kingdom)) return "原始政体的部落(只能打赢收部结成部落联盟)";
         if (EmpireCraftWorldLawLibrary.empirecraft_law_ban_empire.isEnabled()) return "世界法则禁止称帝";
+        if (!HasImperialTech(kingdom))
+            return $"尚未研究或采纳科技「{TechnologySystem.GetTechName(ImperialTech, TechnologySystem.GetCultureOf(kingdom))}」";
         if (kingdom.GetMoney() < 0) return $"国库为负({kingdom.GetMoney()})";
         if (FeudalVassalService.GetOverlord(kingdom) != null) return "是别国的附庸";
         string culture = CultureService.GetRealmCulture(kingdom);
@@ -433,6 +444,8 @@ public static class EmpireFormationService
         // 本文化百年无帝国时(见下 overdue)一城的部落也够得上称帝
         if (TribalFissionService.IsTribal(kingdom)) return false;
         if (EmpireCraftWorldLawLibrary.empirecraft_law_ban_empire.isEnabled()) return false;
+        // 称帝要先研究「帝制」(见 HasImperialTech)
+        if (!HasImperialTech(kingdom)) return false;
         if (requireNonNegativeTreasury && kingdom.GetMoney() < 0) return false;
         if (!kingdom.hasKing() || kingdom.king == null || kingdom.king.isRekt()) return false;
         if (kingdom.IsEmpire() || kingdom.IsInEmpire() || FeudalVassalService.GetOverlord(kingdom) != null)

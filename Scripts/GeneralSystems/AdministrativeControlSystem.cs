@@ -694,6 +694,8 @@ public static class AdministrativeControlSystem
             local.JoinTakenAlliance(empire, pForce: true);
             if (local.HasTakenAlliance()) return "tributary";
         }
+        // 封建附庸鞭长莫及不成立(见 FeudalVassalService.TooFar)：管不到的地本来就远，够不着的直接自立
+        if (FeudalVassalService.TooFar(realm, local)) return "independent";
         return FeudalVassalService.ForceBind(realm, local) ? "vassal" : "independent";
     }
 
