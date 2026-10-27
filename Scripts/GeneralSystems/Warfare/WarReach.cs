@@ -17,7 +17,11 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   或隔海在水师辐射内(StraitReach)；
 //   内乱不拦：叛乱、煽动、挑拨(神力)、全面战争，同一帝国内，封建上下级，开国不满一年的新政权宣战(刚分出来的叛军、割据打原主)。
 // 已经开着的：每月看一次，两边所有参战国两两都够不着、连续 ClearMonths 个月就判和(劫掠之战有自己的期限，不管)；
-// 主攻主守够不着的战争不画箭头(见 WarMarkerPatch)
+// 主攻主守够不着的战争不画箭头(见 WarMarkerPatch)。
+// 远方的参战国(用户 2026-10-27 截图"为什么这里能够跨距离宣战")：几千年前开的扩张战争靠同盟援战滚成半个世界，原主攻主守都亡了，
+// 原版按军队多少另选主攻主守，选到隔着半个世界的两家，军团渡海往对面开；只要还有一对接壤就不判和。现在：
+//   · 主攻主守够不着、别的参战国有够得着的：换成够得着的一对(军队多的先)，目标与战名随之重定(WarGoalSystem.Refocus)；
+//   · 主攻主守以外的参战国连续 ClearMonths 个月一个敌方都够不着的，退出战争(远方盟友本来也不驰援，见 FrontSystem.InReach)
 public static class WarReach
 {
     public const float LandTiles = 80f;
@@ -31,6 +35,8 @@ public static class WarReach
     // 主攻主守够不着的战争(不画箭头)；全体参战国都够不着的已连着几个月
     private static readonly HashSet<long> Far = new();
     private static readonly Dictionary<long, int> FarMonths = new();
+    // 主攻主守以外的参战国一个敌方都够不着、已连着几个月(战争, 国家)
+    private static readonly Dictionary<(long war, long kingdom), int> AllyFarMonths = new();
     private static readonly HashSet<string> Reported = new(StringComparer.Ordinal);
 
     public static bool IsFar(War war) => war?.data != null && Far.Contains(war.data.id);
@@ -78,6 +84,7 @@ public static class WarReach
         _lastMonth = -1d;
         Far.Clear();
         FarMonths.Clear();
+        AllyFarMonths.Clear();
     }
 
     private static bool Young(Kingdom kingdom) => Date.getYearsSince(kingdom.data.created_time) < 1f;
@@ -165,6 +172,7 @@ public static class WarReach
             _lastMonth = -1d;
             Far.Clear();
             FarMonths.Clear();
+            AllyFarMonths.Clear();
         }
         double now = World.world.getCurWorldTime();
         if (_lastMonth >= 0d && now >= _lastMonth && Date.getMonthsSince(_lastMonth) < 1) return;
@@ -182,6 +190,8 @@ public static class WarReach
     private static void Sweep()
     {
         var alive = new HashSet<long>();
+        // 本月已算过的两家(按政权)是否够得着
+        var cache = new Dictionary<(long, long), bool>();
         foreach (War war in World.world.wars.list.ToList())
         {
             if (war?.data == null || !war.isAlive() || war.hasEnded() || war.isTotalWar()) continue;
@@ -195,7 +205,8 @@ public static class WarReach
                 FarMonths.Remove(id);
                 continue;
             }
-            if (Reachable(attacker, defender))
+            if (war.GetEmpireWarType() != EmpireWarType.劫掠) PruneDistant(war, cache);
+            if (Reachable(attacker, defender) || Refocus(war, attacker, defender, cache))
             {
                 Far.Remove(id);
                 FarMonths.Remove(id);
@@ -219,6 +230,82 @@ public static class WarReach
         }
         Far.RemoveWhere(id => !alive.Contains(id));
         foreach (long id in FarMonths.Keys.Where(id => !alive.Contains(id)).ToList()) FarMonths.Remove(id);
+        foreach (var key in AllyFarMonths.Keys.Where(key => !alive.Contains(key.war)).ToList()) AllyFarMonths.Remove(key);
+    }
+
+    private static bool Near(Kingdom a, Kingdom b, Dictionary<(long, long), bool> cache)
+    {
+        Kingdom x = RealmOf(a), y = RealmOf(b);
+        if (x == null || y == null) return false;
+        var key = x.id < y.id ? (x.id, y.id) : (y.id, x.id);
+        if (cache.TryGetValue(key, out bool near)) return near;
+        near = Related(a, b) || Reachable(a, b);
+        cache[key] = near;
+        return near;
+    }
+
+    // 主攻主守够不着：换成够得着的一对——先留主攻换主守，再留主守换主攻，再两家都换；各边军队多的先(同原版另选主攻主守)
+    private static bool Refocus(War war, Kingdom attacker, Kingdom defender, Dictionary<(long, long), bool> cache)
+    {
+        List<Kingdom> attackers = Ranked(war._list_attackers), defenders = Ranked(war._list_defenders);
+        Kingdom newAttacker = null, newDefender = defenders.FirstOrDefault(d => d != defender && Near(attacker, d, cache));
+        if (newDefender == null)
+        {
+            newAttacker = attackers.FirstOrDefault(a => a != attacker && Near(a, defender, cache));
+            if (newAttacker == null)
+                foreach (Kingdom a in attackers)
+                {
+                    newDefender = defenders.FirstOrDefault(d => Near(a, d, cache));
+                    if (newDefender == null) continue;
+                    newAttacker = a;
+                    break;
+                }
+        }
+        if (newAttacker == null && newDefender == null) return false;
+        string before = war.data.name;
+        if (newAttacker != null) war.data.main_attacker = newAttacker.id;
+        if (newDefender != null) war.data.main_defender = newDefender.id;
+        WarGoalSystem.Refocus(war);
+        LogService.LogInfo($"{LogTag} {before}：{attacker.GetKingdomName()} 与 {defender.GetKingdomName()} 够不着，" +
+                           $"主攻主守改为够得着的 {war.main_attacker.GetKingdomName()} 与 {war.main_defender.GetKingdomName()}(今称 {war.data.name})");
+        return true;
+    }
+
+    private static List<Kingdom> Ranked(List<Kingdom> side)
+    {
+        List<Kingdom> list = side?.Where(Alive).ToList() ?? new List<Kingdom>();
+        list.Sort(KingdomListComponent.sortByArmy);
+        return list;
+    }
+
+    // 主攻主守以外的参战国：连续 ClearMonths 个月一个敌方都够不着的退出战争
+    private static void PruneDistant(War war, Dictionary<(long, long), bool> cache)
+    {
+        Kingdom mainA = war.main_attacker, mainD = war.main_defender;
+        foreach (bool attackerSide in new[] { true, false })
+        {
+            List<Kingdom> own = (attackerSide ? war._list_attackers : war._list_defenders)?.Where(Alive).ToList() ?? new List<Kingdom>();
+            List<Kingdom> enemies = Distinct(attackerSide ? war._list_defenders : war._list_attackers);
+            foreach (Kingdom kingdom in own)
+            {
+                if (kingdom == mainA || kingdom == mainD) continue;
+                var key = (war.data.id, kingdom.id);
+                if (enemies.Any(enemy => Near(kingdom, enemy, cache)))
+                {
+                    AllyFarMonths.Remove(key);
+                    continue;
+                }
+                int months = AllyFarMonths.TryGetValue(key, out int count) ? count + 1 : 1;
+                if (months < ClearMonths)
+                {
+                    AllyFarMonths[key] = months;
+                    continue;
+                }
+                AllyFarMonths.Remove(key);
+                LogService.LogInfo($"{LogTag} {war.data.name}：{kingdom.GetKingdomName()} 连着 {ClearMonths} 个月一个敌方都够不着，退出战争");
+                war.leaveWar(kingdom);
+            }
+        }
     }
 
     // 主攻主守之外，两边的参战国有一对够得着(盟友在打)就不算久不接触。按政权去重(同一帝国的成员算一家，

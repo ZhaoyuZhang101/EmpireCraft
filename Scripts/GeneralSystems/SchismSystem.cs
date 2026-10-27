@@ -555,6 +555,27 @@ public static class SchismSystem
         }
         if (!present || winner == WarWinner.Defenders)
         {
+            // 汗位、雄主身后的争位兵败(用户 2026-10-27 选"远的兀鲁思不复归")：随之起事的部里离汗廷远的(连争位者自己)不再奉令，
+            // 各自为汗(离开帝国，不另开战)；近的复归
+            if (kind is Khan or Hero)
+            {
+                var distant = new List<Kingdom>(followers);
+                if (present) distant.Add(claimant);
+                distant = distant.Where(member => member.GetEmpire() == empire && member != empire.CoreKingdom &&
+                                                  NomadCycleSystem.FarFromCourt(empire, member)).ToList();
+                foreach (Kingdom member in distant)
+                {
+                    Unflag(member, empire);
+                    empire.leave(member, pRecalc: true, isLeave: true);
+                }
+                if (distant.Count > 0)
+                {
+                    string text = string.Format(LM.Get("schism_far_breakaway_history"), person, string.Join("、",
+                        distant.Select(member => member.GetKingdomName())), name);
+                    empire.RecordHistory(directContent: text);
+                    LogService.LogInfo($"{Tag} {name} {KindName(kind)}·争位兵败，离汗廷远的 {LogNames(distant)} 不复奉令，各自为汗");
+                }
+            }
             List<Kingdom> back = Members(empire);
             Restore(empire, back);
             if (winner == WarWinner.Defenders) empire.AddMandate(DefenderMandate);

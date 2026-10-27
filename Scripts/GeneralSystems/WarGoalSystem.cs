@@ -249,14 +249,27 @@ public static class WarGoalSystem
         return goal != WarGoal.None && goal != WarGoal.劫掠 && war?.data != null && !war.hasEnded();
     }
 
+    // 夺城、侵略、争法理、争夺资源都是割地落到具体上的，羁縻、继承是迫使附庸落到具体上的；轮换、重定目标时按大方向算
+    internal static WarGoal Coarse(WarGoal goal) =>
+        goal is WarGoal.夺城 or WarGoal.侵略 or WarGoal.争法理 or WarGoal.争夺资源 ? WarGoal.割地
+        : goal is WarGoal.羁縻 or WarGoal.继承 ? WarGoal.迫使附庸 : goal;
+
+    // 主攻主守换了一家(远战换成够得着的一家，见 WarReach)：目标按原来的大方向落到新的主攻主守之间，名字按目标起的跟着改
+    public static void Refocus(War war)
+    {
+        Kingdom attacker = war?.main_attacker, defender = war?.main_defender;
+        if (war?.data == null || attacker?.data == null || defender?.data == null || attacker.isRekt() || defender.isRekt()) return;
+        var data = war.GetOrCreate();
+        data.war_goal = Coarse(data.war_goal);
+        WarObjective.Refine(war, attacker, defender, WarSituation.StrengthRatio(defender, attacker), substitute: false);
+        if (data.goal_named) WarCatalog.ApplyName(war, force: true);
+    }
+
     public static void Next(War war)
     {
         if (!Switchable(war)) return;
         var data = war.GetOrCreate();
-        // 夺城、侵略、争法理、争夺资源都是割地落到具体上的，轮换时按割地算
-        WarGoal current = data.war_goal is WarGoal.夺城 or WarGoal.侵略 or WarGoal.争法理 or WarGoal.争夺资源 ? WarGoal.割地
-            : data.war_goal is WarGoal.羁縻 or WarGoal.继承 ? WarGoal.迫使附庸 : data.war_goal;
-        int index = Array.IndexOf(Cycle, current);
+        int index = Array.IndexOf(Cycle, Coarse(data.war_goal));
         data.war_goal = Cycle[(index + 1) % Cycle.Length];
         if (data.war_goal_capital_id < 0 && war.main_defender?.capital?.data != null)
             data.war_goal_capital_id = war.main_defender.capital.id;

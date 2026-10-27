@@ -26,7 +26,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     领土不在这里变动：扩张、边界侵蚀都按原版(侵蚀受原版"边界侵蚀"开关管、只在交战双方之间，见 CityExpansionPatch)。
 //     以前这里的"边地易手"(太平时互相侵蚀)、"被围空地并入"(把山地、隔水的地并进来)不守原版规矩，已删；
 //     旧存档里因此留下的山地、隔水地和飞地，读档后交给原版的"断开的地放弃"清掉(见 CityExpansionPatch.CheckAbandonOnLoad)；
-//     飞地易帜：陆路不通的飞地城(不是都城)控制力不到 0.45 时，每年有概率改投接壤最长的邻国(双方都不在打仗)。
+//     飞地易帜：陆路不通的飞地城(不是都城)控制力不到 0.45 时，每年有概率改投接壤最长的邻国(双方都不在打仗)，
+//     古典时代还有概率由当地首领自立为独立王国(见 EraSecession，近代以后不自立)。
 //
 // 扩张上限(用户 2026-10-16："扩张的毫无节制""远的扩张不到的就可以用羁縻统治，或者属国朝贡或者诸侯等，参考朝鲜和明朝的关系")：
 //   · 控制范围：满控路程除了时代，还看本国已采纳的科技(驿传、工业化、电报、摩托化、航空)、政体(律令远、封建近)
@@ -623,8 +624,44 @@ public static class AdministrativeControlSystem
 
     #region 飞地易帜
 
+    // 古典时代留不住飞地(用户 2026-10-27 选"飞地城自己自立")：陆路不通、控制力不到 DefectThreshold 的飞地城，
+    // 除了照旧改投邻国，还会由当地首领自立为独立王国——时代越早越常见(EraSecession)，近代以后不再自立
+    private const int PremodernTier = 5;
+
+    private static float EraSecession(Kingdom realm)
+    {
+        int tier = TechnologySystem.IsEnabled ? TechnologySystem.GetEraTier(TechnologySystem.GetCultureOf(realm)) : EarlyEraTier;
+        return tier <= EarlyEraTier ? 1.5f : tier <= PremodernTier ? 1f : tier <= PremodernTier + 2 ? 0.3f : 0f;
+    }
+
+    // 飞地自立：这座城连同挨着的、同属一国的飞地城(至多 ReleaseClusterMax 座)由当地首领自立为国，不再安置为附庸、朝贡
+    private static bool Secede(Kingdom realm, City seed)
+    {
+        Kingdom former = seed.kingdom;
+        var cluster = new List<City> { seed };
+        var seen = new HashSet<City> { seed };
+        for (int i = 0; i < cluster.Count && cluster.Count < ReleaseClusterMax; i++)
+            foreach (City next in (IEnumerable<City>)cluster[i].neighbours_cities ?? Array.Empty<City>())
+            {
+                if (cluster.Count >= ReleaseClusterMax) break;
+                if (next == null || !seen.Add(next) || next.kingdom != former || next.kingdom.capital == next ||
+                    !Valid(next) || !next.GetOrCreate().admin_exclave) continue;
+                cluster.Add(next);
+            }
+        string seedName = seed.data.name;
+        Kingdom local = ReleaseToLocal(realm, cluster, _ => "exclave", out _);
+        if (local == null) return false;
+        if (former != realm && former.cities.Count == 0 && former.GetEmpire() == realm.GetEmpire())
+            former.GetEmpire()?.leave(former);
+        EventRecorder.Record(realm, string.Format(LM.Get("admin_exclave_secede_history"), seedName, realm.GetKingdomName(),
+            local.GetKingdomName(), cluster.Count));
+        LogService.LogInfo($"[EmpireCraft][飞地自立] {realm.GetKingdomName()} 的飞地 {seedName} 等 {cluster.Count} 城自立为 {local.GetKingdomName()}");
+        return true;
+    }
+
     private static void Defect(Kingdom realm, List<City> cities)
     {
+        float era = EraSecession(realm);
         foreach (City city in cities)
         {
             if (!Valid(city)) continue;
@@ -632,7 +669,13 @@ public static class AdministrativeControlSystem
             if (!data.admin_exclave || data.admin_control >= DefectThreshold || city.kingdom.capital == city ||
                 city.kingdom.hasEnemies() || city.GetOrCreate().OccupiedStatus?.Count > 0 ||
                 UnificationSystem.InGrace(city.kingdom)) continue;
-            if (UnityEngine.Random.value >= (DefectThreshold - data.admin_control) * DefectChance) continue;
+            float chance = (DefectThreshold - data.admin_control) * DefectChance;
+            if (era > 0f && UnityEngine.Random.value < chance * era)
+            {
+                if (Secede(realm, city)) return; // 每国每年至多一处
+                continue;
+            }
+            if (UnityEngine.Random.value >= chance) continue;
             Kingdom receiver = Neighbour(city, realm);
             if (receiver == null) continue;
             Kingdom former = city.kingdom;

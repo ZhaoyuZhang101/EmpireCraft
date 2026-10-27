@@ -1890,6 +1890,8 @@ public class Empire : MetaObject<EmpireData>
             else if (IsNomadProvincial()) ProcessTerritorialAcquisitionEnfeoff();
             // 游牧兀鲁思：大汗死时正在打仗没分成的，停战后补分(见 EnfeoffmentHelper.UlusPartition)
             else if (regime?.type == RegimeType.YouMu) EnfeoffmentHelper.ResumeSuccessionEnfeoff(this);
+            // 兀鲁思渐行渐远：大汗弱时自主到顶的兀鲁思和平独立(见 NomadCycleSystem.UlusDrift)
+            if (regime?.type == RegimeType.YouMu) NomadCycleSystem.UlusDrift(this);
             // 哈里发弱时埃米尔世袭坐大
             if (regime?.type == RegimeType.Arabic) EmirateSystem.Tick(this);
             // 幕府将军、苏丹以权臣执政(见 MilitaryRegency)；别的非律令政体不设权臣
