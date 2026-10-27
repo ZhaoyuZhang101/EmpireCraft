@@ -48,6 +48,7 @@ public static class DataManager
         if (!File.Exists(loadPath))
         {
             InitialRegimeForAll();
+            RepairTemplateNamesWithoutSave();
             LogService.LogInfo("没有找到任何保存数据。");
             return;
         }
@@ -77,6 +78,7 @@ public static class DataManager
         if (saveData == null)
         {
             InitialRegimeForAll();
+            RepairTemplateNamesWithoutSave();
             LogService.LogInfo("没有找到任何保存数据。");
             return;
         }
@@ -92,6 +94,8 @@ public static class DataManager
         var warById = World.world.wars.ToDictionary(w => w.getID());
         var religionById = World.world.religions.ToDictionary(r => r.getID());
         CulturePatch.ImportCultureBindings(saveData.cultureBindings);
+        // 没记绑定的旧档里混进字表名的起名模板重套(见 TemplateNameRepair)
+        Guarded("起名模板修复", TemplateNameRepair.RepairCultures);
         LogService.LogInfo("准备各项数据");
         OfficeManager.Offices = saveData.officeObjects;
         // 批量同步
@@ -302,6 +306,8 @@ public static class DataManager
         foreach (Actor actor in World.world.units)
             if (actor?.data != null && !AncientWarfareCompatibility.OwnsObject(actor))
                 actor.GetModName()?.RepairOrder(actor);
+        // 已经按坏模板起出来的"Unitnamesmale1""Clannames"按文化重起(要在宗族、族谱读进来以后，整理国家之前)
+        Guarded("字表名修复", TemplateNameRepair.RepairNames);
         try
         {
             int spouseFixes = SpecificClanManager.RepairSpouseRecords();
@@ -412,6 +418,13 @@ public static class DataManager
                 LogService.LogError($"国家 {worldKingdom.id} 按文化定政体失败: {e}");
             }
         }
+    }
+
+    // 没有模组存档的图(原版图、模组数据丢了)也可能带着混进字表名的起名模板(见 TemplateNameRepair)
+    private static void RepairTemplateNamesWithoutSave()
+    {
+        Guarded("起名模板修复", TemplateNameRepair.RepairCultures);
+        Guarded("字表名修复", TemplateNameRepair.RepairNames);
     }
 
     // 读档链上的一段出错只记日志：以前整个读档只有最外面一层 try，一段抛异常，后面定政体、国名、帝国迁移全部跳过

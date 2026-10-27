@@ -343,43 +343,31 @@ public class CulturePatch : GamePatch
         }
 
 
-        OnomasticsHelper.Configure(
-            kindomData,
-            cultureName,
-            kingdomSetting.rule,
-            setGroup(kingdomSetting.groups, cultureName)
-            );
+        Apply(kindomData, MetaType.Kingdom, kingdomSetting.rule, kingdomSetting.groups);
+        Apply(familyData, MetaType.Family, familySetting.rule, familySetting.groups);
+        Apply(clanData, MetaType.Clan, clanSetting.rule, clanSetting.groups);
+        Apply(unitData, MetaType.Unit, unitSetting.rule, unitSetting.groups);
+        Apply(CityData, MetaType.City, citySetting.rule, citySetting.groups);
 
-        OnomasticsHelper.Configure(
-            familyData,
-            cultureName,
-            familySetting.rule,
-            setGroup(familySetting.groups, cultureName)
-            );
-
-        OnomasticsHelper.Configure(
-            clanData,
-            cultureName,
-            clanSetting.rule,
-            setGroup(clanSetting.groups, cultureName)
-            );
-
-        OnomasticsHelper.Configure(
-            unitData,
-            cultureName,
-            unitSetting.rule,
-            setGroup(unitSetting.groups, cultureName)
-            );
-
-        OnomasticsHelper.Configure(
-            CityData,
-            cultureName,
-            citySetting.rule,
-            setGroup(citySetting.groups, cultureName)
-            );
-
+        void Apply(OnomasticsData data, MetaType type, OnomasticsType[] rule, Dictionary<string, string> groupPair)
+        {
+            var groups = setGroup(groupPair, cultureName);
+            if (groups == null)
+            {
+                // 字表读不到时这一类不动，留着原来的模板(见 setGroup)
+                LogService.LogWarning($"[EmpireCraft] {cultureName} 文化的 {type} 起名字表读不到，起名模板保持原样");
+                return;
+            }
+            OnomasticsHelper.Configure(data, cultureName, rule, groups);
+        }
     }
 
+    // 字表名的样子(UnitNamesMale1、ClanNames)：不是字面内容也不是翻译键
+    private static readonly global::System.Text.RegularExpressions.Regex CharacterSetLike =
+        new("^[A-Za-z][A-Za-z0-9]*$");
+
+    // 读不到字表(且这个值也不是翻译键)时返回 null，调用方不改模板。以前退回 LM.Get(值)，把字表名本身写进了模板，
+    // 原版起名器照着起出"Unitnamesmale1""Clannames"(用户 2026-10-27 截图，见 TemplateNameRepair)
     public static (string groupName, string CharacterSetName, string definedContent)[] setGroup(Dictionary<string, string> groupPair, string culture)
     {
         (string groupName, string CharacterSetName, string definedContent)[] groups = Array.Empty<(string groupName, string CharacterSetName, string definedContent)>();
@@ -398,9 +386,13 @@ public class CulturePatch : GamePatch
             string ModPath = Path.Combine(ModClass._declare.FolderPath, "Locales");
             string culturePath = Path.Combine(ModPath, "Cultures", $"Culture_{culture}");
             string CharacterSetPath = Path.Combine(culturePath, String.Format("{0}{1}.csv", culture, value));
-            if (File.Exists(CharacterSetPath))
+            if (OnomasticsHelper.HasCharacterSet(CharacterSetPath))
             {
                 groups = groups.Append((key, value, null)).ToArray();
+            }
+            else if (CharacterSetLike.IsMatch(value) && !LocalizedTextManager.stringExists(value))
+            {
+                return null;
             }
             else
             {

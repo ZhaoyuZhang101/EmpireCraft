@@ -397,7 +397,15 @@ public static class SettlementNaming
         int cleared = 0;
         foreach (RuralSettlement settlement in settlements)
         {
-            if (settlement == null || settlement.naming_version >= Version || settlement.named_by_hand) continue;
+            if (settlement == null || settlement.named_by_hand) continue;
+            // 坏模板起出的"Clannames村"(见 TemplateNameRepair)不管版本都清掉重起
+            if (TemplateNameRepair.IsRaw(settlement.name))
+            {
+                settlement.name = "";
+                cleared++;
+                continue;
+            }
+            if (settlement.naming_version >= Version) continue;
             settlement.naming_version = Version;
             if (string.IsNullOrEmpty(settlement.name) || !OldNames().Contains(settlement.name)) continue;
             settlement.name = "";

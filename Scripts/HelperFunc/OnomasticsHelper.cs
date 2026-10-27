@@ -96,6 +96,14 @@ public static class OnomasticsHelper
     private static List<string> ReadKeys(string fullPath) => KeyCache.GetOrAdd(fullPath, path =>
         File.ReadAllLines(path).Skip(1).Select(line => line.Split(',')[0]).ToList());
 
+    // 字表在不在：先看启动时预读的缓存，再看磁盘(模组目录一时读不到时，预读过的照样认)
+    public static bool HasCharacterSet(string path)
+    {
+        if (string.IsNullOrEmpty(path)) return false;
+        string fullPath = Path.GetFullPath(path);
+        return KeyCache.ContainsKey(fullPath) || File.Exists(fullPath);
+    }
+
     public static List<string> getKeysFromPath(string path)
     {
         if (string.IsNullOrEmpty(path)) return null;

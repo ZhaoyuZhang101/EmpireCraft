@@ -92,6 +92,21 @@ public static class FamousTalentSystem
         last_founded = new Dictionary<string, double>(LastFounded)
     };
 
+    // 名册里存的人名坏了(stale 判定，见 TemplateNameRepair)而人还在世的，跟着人物现在的名字改
+    public static int RefreshNames(Func<string, bool> stale)
+    {
+        int count = 0;
+        foreach (TalentRecord record in Records)
+        {
+            if (record == null || !stale(record.name)) continue;
+            Actor actor = World.world?.units?.get(record.actor_id);
+            if (actor?.data == null || actor.isRekt() || stale(actor.getName())) continue;
+            record.name = actor.getName();
+            count++;
+        }
+        return count;
+    }
+
     public static IEnumerable<TalentRecord> Alive() =>
         Records.Where(record => record.alive && record.rank >= TalentRank.Fine);
 
