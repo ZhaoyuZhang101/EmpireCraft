@@ -27,6 +27,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     这一回新分的兄弟也算)与新近并入的别种政体成员各按 HeroBaseSplit + MaladySplit×积弊平均/100(至多 HeroSplitCap)的机会据地自立，
 //     入伙不满十年的也在内(见 CanRiseAfterHero)；汗国分封的帝国平时没有汗位更替之乱，这一回也有；
 //     之后的换汗照常。新汗若是新朝的开国雄主，登基头 15 年境内不起事(RulerTraitSystem.FounderShield)，这一回也就无人自立。
+//   · 汗国崩解(2026-10-27)：新汗即位时正统不到 CollapseLegitimacy，不走上面的汗位更替之乱，诸部当场各自为汗(见 KhanateCollapse)。
 // 哈里发更替之乱(阿拉伯政体，用户 2026-10-20 选"阿拉伯也照游牧那样修"，数字比汗国轻)：新哈里发即位(OnCaliphSucceeded)、
 //   苏丹(权臣)身故由新人承袭(OnSultanSucceeded，见 MilitaryRegency)时，积弊六条平均 ≥ ArabicCrisisMalady 或正统 < ArabicCrisisLegitimacy，
 //   世袭的埃米尔(见 EmirateSystem)与 AnnexedYears 年内并入的别种政体成员，各按 ArabicBaseSplit + ArabicMaladySplit×积弊平均/100
@@ -250,6 +251,100 @@ public static class NomadCycleSystem
         war.SetEmpireWarType(EmpireWarType.地方独立);
         RebellionSystem.Record(kingdom, war, cause);
         return true;
+    }
+
+    #endregion
+
+    #region 汗国崩解
+
+    // 汗国崩解(用户 2026-10-27："游牧像这种正统值低的只要大汗一死就应该帝国立刻爆炸"，选正统 30、诸部各立汗庭也分、各自为汗不开战；
+    // 以前正统个位数、积弊全满的汗国换汗照样只走汗位更替之乱——大分裂冷却里不判、只看兀鲁思不看领地、一次至多三分之一的城、
+    // 先预警再割据，一回只掉一两城)：汗国新汗即位时正统不到 CollapseLegitimacy，不预警、不看大分裂冷却与单次上限，当场崩解
+    // (见 Empire.CompleteSuccession，代替汗位更替之乱)：
+    //   · 先按法理把汗庭的地分给新汗的兄弟(兀鲁思分封，汗庭够 UlusMinCities 城时)；
+    //   · 兀鲁思(游牧政体的成员)、领地(本族定居分封的成员)、AnnexedYears 年内并入的别种政体成员，连同刚分出去的，一齐和平离开、各自为汗；
+    //     行省、羁縻留在汗庭；开国雄主登基头 15 年、开国气象里、神力拉入的成员不走(同雄主身后，见 CanRiseAfterHero)；
+    //   · 汗庭剩下的城不到崩解前的 FallShare，汗国名号作废：听命的直辖成员并入汗庭，汗庭降为普通王国(同土崩瓦解的帝国灭亡)；
+    //   · 走了人才记大分裂冷却；雄主身后的必乱一并取走。争位之战正打着的不判(仗打完才见分晓)，开国雄主新即位的不判
+    private const int CollapseLegitimacy = 30;
+    private const float FallShare = 0.25f;
+    private const int NamesShown = 4;
+
+    // 这回换汗是否当场崩解：新汗即位登记之后、即位分封之前问(分封论功给的天命不算)
+    public static bool CollapseDue(Empire empire)
+    {
+        if (!IsKhanate(empire) || World.world == null || empire.Legitimacy >= CollapseLegitimacy) return false;
+        Kingdom core = empire.CoreKingdom;
+        if (core == null || RulerTraitSystem.FounderShield(core)) return false;
+        if (SchismSystem.StageOf(empire) != SchismSystem.Contest) return true;
+        LogService.LogInfo($"[EmpireCraft][汗国崩解] {empire.GetEmpireName()} 新汗即位(正统{empire.Legitimacy})，争位之战正打着，不判崩解");
+        return false;
+    }
+
+    // 当场崩解(汗庭的地已先分给新汗的兄弟)；legitimacy 是分封之前的正统，只进日志
+    public static void KhanateCollapse(Empire empire, int legitimacy)
+    {
+        try
+        {
+            if (empire?.data == null || empire.isRekt() || empire.IsArchived() || World.world == null) return;
+            Kingdom core = empire.CoreKingdom;
+            if (core == null) return;
+            bool heroic = UnificationSystem.TakeHeroTurmoil(empire, out string hero);
+            string realm = empire.GetEmpireName(), khan = empire.Emperor?.getName() ?? "";
+            int total = UpheavalGuard.Cities(empire);
+            var gone = new List<Kingdom>();
+            foreach (Kingdom member in empire.kingdoms_list.ToList())
+            {
+                if (!Scatters(empire, member)) continue;
+                member.FinishedSelfPlot();
+                empire.leave(member, true, false);
+                if (member.IsInEmpire()) continue;
+                EmpireCraft.Scripts.AI.KingdomAI.EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(member);
+                gone.Add(member);
+            }
+            int remaining = UpheavalGuard.Cities(empire), taken = gone.Sum(kingdom => kingdom.cities?.Count ?? 0);
+            string detail = $"{(heroic ? $"雄主{hero}之后，" : "")}新汗{khan}，正统{legitimacy}(不到{CollapseLegitimacy})，" +
+                            $"积弊均{MaladySystem.Average(empire):0}";
+            if (gone.Count == 0)
+            {
+                LogService.LogInfo($"[EmpireCraft][汗国崩解] {realm} {detail}，没有可散的部(兀鲁思、领地都不在或走不了)");
+                return;
+            }
+            bool fell = remaining < total * FallShare;
+            UpheavalGuard.Mark(empire, "汗国崩解", detail: $"走 {gone.Count} 部 {taken} 城，剩 {remaining}/{total} 城");
+            string names = string.Join(LM.Get("schism_name_separator"), gone.Take(NamesShown).Select(kingdom => kingdom.GetKingdomName()));
+            if (gone.Count > NamesShown) names = string.Format(LM.Get("khanate_collapse_more"), names, gone.Count);
+            string content = string.Format(LM.Get(fell ? "khanate_collapse_fall_history" : "khanate_collapse_history"),
+                realm, khan, names, remaining);
+            empire.RecordHistory(directContent: content);
+            EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogMajor(content, core);
+            LogService.LogInfo($"[EmpireCraft][汗国崩解] {realm} {detail}：{string.Join("、", gone.Select(kingdom => kingdom.GetKingdomName()))}" +
+                               $"(共 {gone.Count} 部 {taken} 城)各自为汗，汗庭剩 {remaining}/{total} 城" +
+                               $"{(fell ? $"，不到{FallShare:P0}，汗国名号作废" : "")}");
+            if (!fell) return;
+            ProvincialCollapseSystem.Absorb(empire, null, "[EmpireCraft][汗国崩解]");
+            ModClass.EMPIRE_MANAGER?.dissolveEmpire(empire);
+        }
+        catch (global::System.Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft][汗国崩解] 结算失败: {exception.Message}");
+        }
+    }
+
+    // 汗国崩解时走的成员：兀鲁思、领地(游牧政体、本族定居分封的成员)，或 AnnexedYears 年内并入的别种政体成员；
+    // 行省、羁縻、起事中的、正与汗庭交战的留下
+    private static bool Scatters(Empire empire, Kingdom member)
+    {
+        if (member?.data == null || member.isRekt() || member == empire.CoreKingdom || member.GetEmpire() != empire ||
+            !member.hasKing() || member.capital == null || member.cities == null || member.cities.Count == 0 ||
+            member.IsFactionRebelling() || member.IsLocalRebelling() || member.isInWarWith(empire.CoreKingdom) ||
+            !CanRiseAfterHero(member)) return false;
+        if (member.GetKingdomType() == KingdomType.YouMu_province || JimiSystem.IsJimiAdministration(member) ||
+            JimiSystem.IsJimiRegion(member, empire)) return false;
+        RegimeType? type = member.GetRegime()?.type;
+        if (type == RegimeType.YouMu || type == RegimeType.NomadFeudalism) return true;
+        double joined = member.GetTimestampEmpire();
+        return joined >= 0d && World.world.getCurWorldTime() >= joined && Date.getYearsSince(joined) < AnnexedYears;
     }
 
     #endregion

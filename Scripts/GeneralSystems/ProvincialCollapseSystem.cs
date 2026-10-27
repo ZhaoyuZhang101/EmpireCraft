@@ -393,7 +393,7 @@ public static class ProvincialCollapseSystem
         // 史书照实记帝国眼下还有几座城
         EventRecorder.Record(empire, actor: empire.Emperor, logKingdom: empire.CoreKingdom, text: string.Format(
             LM.Get("collapse_fall_history"), empire.GetEmpireFullName(), remaining, state.collapse_origin_cities));
-        Absorb(empire, state);
+        Absorb(empire, state.collapse_risen);
         ModClass.EMPIRE_MANAGER?.dissolveEmpire(empire);
         return true;
     }
@@ -409,11 +409,11 @@ public static class ProvincialCollapseSystem
 
     // 帝国灭亡时，没有响应起义、听命于中央的直辖成员(道、阿拉伯行省、元首制行省、军府等没有自主外交权、朝廷任命的，
     // 见 EmpirePeacePatch.Obeys)把城并入核心王国，不再随解散各自独立(用户 2026-10-21 选"瓦解收束不再全散")；
-    // 羁縻(异族自治)、自治、封建、附庸类成员照旧独立
-    private static void Absorb(Empire empire, ConstitutionalEconomyState state)
+    // 羁縻(异族自治)、自治、封建、附庸类成员照旧独立。汗国崩解、名号作废时也用(见 NomadCycleSystem.KhanateCollapse)，risen 给空、日志换 tag
+    public static void Absorb(Empire empire, IEnumerable<long> risenIds, string tag = "[EmpireCraft][土崩瓦解]")
     {
         Kingdom core = empire.CoreKingdom;
-        var risen = new HashSet<long>(state.collapse_risen ?? new List<long>());
+        var risen = new HashSet<long>(risenIds ?? new List<long>());
         var absorbed = new List<string>();
         int moved = 0;
         foreach (Kingdom member in empire.kingdoms_list.ToList())
@@ -430,7 +430,7 @@ public static class ProvincialCollapseSystem
             moved += count;
         }
         if (absorbed.Count > 0)
-            LogService.LogInfo($"[EmpireCraft][土崩瓦解] {empire.GetEmpireName()} 灭亡前，直辖的 {string.Join("、", absorbed)} 共 {moved} 城并入" +
+            LogService.LogInfo($"{tag} {empire.GetEmpireName()} 灭亡前，直辖的 {string.Join("、", absorbed)} 共 {moved} 城并入" +
                                $"{core.GetKingdomName()}，不随解散独立");
     }
 

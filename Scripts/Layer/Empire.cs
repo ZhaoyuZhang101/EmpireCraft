@@ -639,19 +639,29 @@ public class Empire : MetaObject<EmpireData>
         // 雄主之后第一次换汗：先按法理分兀鲁思给新汗的兄弟，再判汗位更替之乱——雄主一死，诸子各据一方
         // (用户 2026-10-21 选"游牧雄主死后真分裂"：以前先判后分，新分的兀鲁思不在其列，雄主死了只丢一成)
         bool heroSplit = UnificationSystem.HeroTurmoilPending(this);
-        if (heroSplit) EnfeoffmentHelper.OnEmperorSucceeded(this);
+        // 汗国崩解：正统太低的汗国大汗一死，同样先分兀鲁思，再让诸部(连同新分的)当场各自为汗，代替汗位更替之乱
+        // (见 NomadCycleSystem.KhanateCollapse)。正统在分封之前看，分封论功给的天命不算
+        int legitimacy = Legitimacy;
+        bool collapse = NomadCycleSystem.CollapseDue(this);
+        if (heroSplit || collapse)
+        {
+            EnfeoffmentHelper.OnEmperorSucceeded(this);
+            // 原版各国的城市名单要到下一帧才重排：先排好，新分的兀鲁思才数得出城、算得进下面的自立与崩解
+            World.world?.kingdoms?.beginChecksCities();
+        }
         // 汗国新汗即位：积弊深重或正统低落时各兀鲁思可能据地自立(雄主之后第一次换汗必乱，见 NomadCycleSystem)，
         // 平常先于即位分封——这一回新分出去的兄弟不在其列。
         // 汗位更替之乱、哈里发更替之乱各自查大分裂冷却(见 UpheavalGuard，用户 2026-10-21 选)：前一路开了分裂进程(预警，
         // 见 SchismSystem)，后一路随即被"已有分裂进程"挡住，同一次即位不再叠加；土崩瓦解收束期内两路都不判。
         // 水土(ShuiTuSystem)不算大分裂，不在此列
-        NomadCycleSystem.OnKhanSucceeded(this);
+        if (collapse) NomadCycleSystem.KhanateCollapse(this, legitimacy);
+        else NomadCycleSystem.OnKhanSucceeded(this);
         // 新哈里发即位：积弊深重或正统低落时世袭的埃米尔可能举兵自立(哈里发更替之乱，见 NomadCycleSystem)
         NomadCycleSystem.OnCaliphSucceeded(this);
         // 定居帝国换了君主：改从游牧的成员逢乱可能据地自立(见 ShuiTuSystem)
         ShuiTuSystem.OnSuzerainSucceeded(this);
         // 即位分封(按法理把土地封给新君的兄弟)；雄主之后的那一次已在上面分过
-        if (!heroSplit) EnfeoffmentHelper.OnEmperorSucceeded(this);
+        if (!heroSplit && !collapse) EnfeoffmentHelper.OnEmperorSucceeded(this);
     }
 
     // 共和国元首更替、复辟迎回旧君：不是篡位，不触发分裂、内战、改国号那一套
