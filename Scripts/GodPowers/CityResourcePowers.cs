@@ -13,12 +13,15 @@ namespace EmpireCraft.Scripts.GodPowers;
 //   · 增加人口 / 减少人口：按住在城市领地上刷，笔刷盖到的每座城每 0.12 秒增减现有人口的 4%(至少 50 人)，
 //     按原有的阶层、文化、种族、理念比例增减；空城按本城主文化加农民；
 //   · 矿藏笔刷(铜、煤、硝石、硫磺、石油、铝土、稀土、铀各一个)：刷到的城有了这种矿藏、储量回满，固定下来
-//     (同读档后的矿藏一样不再随地形变)；"清除矿藏"刷到的城去掉全部战略矿藏。
+//     (同读档后的矿藏一样不再随地形变)；"清除矿藏"刷到的城去掉全部战略矿藏；
+//   · 繁荣(用户 2026-10-27，群友问罗马发展不如别城、"有没有升级城市的选项")：刷到的城在建的当场建完、接着开工几座也当场建完，
+//     各建筑升一级到本文化科技许可的最高一级(见 CityConstructionSystem.Flourish)；同一座城隔 FlourishInterval 秒才再刷一次。
 public static class CityResourcePowers
 {
-    public const string PopulationAdd = "population_add", PopulationRemove = "population_remove", DepositClear = "deposit_clear";
+    public const string PopulationAdd = "population_add", PopulationRemove = "population_remove", DepositClear = "deposit_clear",
+        Flourish = "city_flourish";
     private const string DepositPrefix = "deposit_";
-    private const float StepShare = 0.04f, MinStep = 50f, Interval = 0.12f;
+    private const float StepShare = 0.04f, MinStep = 50f, Interval = 0.12f, FlourishInterval = 0.4f;
     private static readonly Dictionary<long, float> LastStroke = new();
     private static readonly HashSet<City> Brushed = new();
     private static readonly Dictionary<string, string> Minerals = new();
@@ -31,7 +34,8 @@ public static class CityResourcePowers
         var result = new List<(string, string)>
         {
             (PopulationAdd, "ui/icons/godpowers/" + PopulationAdd),
-            (PopulationRemove, "ui/icons/godpowers/" + PopulationRemove)
+            (PopulationRemove, "ui/icons/godpowers/" + PopulationRemove),
+            (Flourish, "ui/icons/godpowers/" + Flourish)
         };
         foreach ((string mineral, _, _, _) in MineralResourceSystem.Minerals)
         {
@@ -80,7 +84,7 @@ public static class CityResourcePowers
         foreach (City city in Brushed.ToList())
         {
             long key = city.data.id * 31L + power.id.GetHashCode();
-            if (LastStroke.TryGetValue(key, out float last) && now - last < Interval) continue;
+            if (LastStroke.TryGetValue(key, out float last) && now - last < (power.id == Flourish ? FlourishInterval : Interval)) continue;
             LastStroke[key] = now;
             changed |= Apply(city, power.id);
         }
@@ -94,6 +98,18 @@ public static class CityResourcePowers
         {
             case PopulationAdd: return ChangePopulation(city, true);
             case PopulationRemove: return ChangePopulation(city, false);
+            case Flourish:
+            {
+                (int built, int upgraded) = CityConstructionSystem.Flourish(city);
+                if (built + upgraded == 0)
+                {
+                    Tip(city, LM.Get("city_flourish_full"));
+                    return false;
+                }
+                LayerCityCache.Invalidate(city);
+                Tip(city, string.Format(LM.Get("city_flourish_done"), built, upgraded));
+                return true;
+            }
             case DepositClear:
             {
                 CityPopulationData data = CityPopulationSystem.Get(city);

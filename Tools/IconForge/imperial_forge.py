@@ -1762,6 +1762,8 @@ GODPOWERS.update({
     "population_add": (obj_people, "plus"),
     "population_remove": (obj_people, "minus"),
     "deposit_clear": (obj_res_copper, "cross"),
+    # 繁荣笔刷：城池 + 向上
+    "city_flourish": (obj_city, "up"),
     # 名臣名将窗口按钮
     "famous_talents": (obj_swords, "crown"),
     "bestow_famous_general": (obj_sword, "up"),

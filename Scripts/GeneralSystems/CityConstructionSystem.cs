@@ -491,6 +491,52 @@ public static class CityConstructionSystem
         StartNext(city);
     }
 
+    // ---- 繁荣(神力笔刷，见 GodPowers/CityResourcePowers) ----
+    // 用户 2026-10-27(群友："作为罗马居然发展还不如其他的城市"，问"有没有升级城市的选项")：刷一下——
+    //   · 在建的当场建完；
+    //   · 原版城市规划接着开工的新建筑(民居没盖满时多是民居)当场建完，一下至多 FlourishBuilds 座，建材由神力补上；
+    //   · 各建筑(民居与别的)升一级，到本文化科技许可的最高一级为止(见 TechnologySystem.CanBuild)，不花钱、不要建材。
+    // 按住多刷几下就一级级升上去。返回 (新建, 升级) 座数
+    private const int FlourishBuilds = 4, FlourishWood = 60, FlourishStone = 40, FlourishMetal = 20;
+
+    public static (int built, int upgraded) Flourish(City city)
+    {
+        if (city?.data == null || city.isRekt() || city.buildings == null) return (0, 0);
+        int built = 0, upgraded = 0;
+        try
+        {
+            Advance(city, int.MaxValue / 4);
+            city.under_construction_building = null;
+            for (int i = 0; i < FlourishBuilds; i++)
+            {
+                Building storage = city.getRandomStockpile();
+                if (storage != null)
+                {
+                    Gather(city, storage, "wood", FlourishWood, FlourishWood);
+                    Gather(city, storage, "stone", FlourishStone, FlourishStone);
+                    Gather(city, storage, "common_metals", FlourishMetal, FlourishMetal);
+                }
+                CityBehBuild.buildTick(city);
+                if (!HasConstruction(city)) break;
+                Advance(city, int.MaxValue / 4);
+                city.under_construction_building = null;
+                built++;
+            }
+            foreach (Building building in new List<Building>(city.buildings))
+            {
+                if (building?.asset == null || building.isRekt() || building.isUnderConstruction() || !building.canBeUpgraded()) continue;
+                BuildingAsset target = AssetManager.buildings.get(building.asset.upgrade_to ?? "");
+                if (target == null || !TechnologySystem.CanBuild(city, target.id)) continue;
+                if (building.upgradeBuilding()) upgraded++;
+            }
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft][城市建设] 繁荣失败({city.data?.name}): {exception.Message}");
+        }
+        return (built, upgraded);
+    }
+
     // 升级：在原版允许的升级订单里(资源够、科技已解锁)挑一个，花原版资源外再花钱(城市国库优先，不够国家出)
     private static bool TryUpgrade(City city)
     {
