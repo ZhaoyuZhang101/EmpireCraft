@@ -40,6 +40,9 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //       - 统一者处在开国气象里(见 InGrace)：积弊不涨、不起事、不分裂；
 //   · 统一完成(占到九成，或天下再没有别的独立势力)：开国气象延续三十年(同一家第二次统一只有十年)；之后积弊按王朝年岁慢慢沉积(见 MaladySystem.Pace)，
 //     末世崩溃，天下重回乱世，再出新的统一者。一个王朝只统一一次(改朝换代才能再来，见 OnDynastyChanged)；
+//   · 收拾残局(用户 2026-10-27 问"为什么迟迟不打燕国"，选"共主平定残余")：统一完成后天下里还剩的接壤独立之国，
+//     受了天命的共主每年有机会先索称臣纳贡、不从就兴师平定(见 Pacify)——以前统一一完就不再起统一战争，
+//     皇帝本人又多过不了原版开战谋划的门槛(无小人模式)，朝堂扩张要中央一场仗都没有，残余之国一留就是几十年；
 //   · 天命已失、统一中辍：地盘跌到 6% 以下，或不到两成、而且已不是天下国力最强的一家；天下里有别家的地盘比统一者还大；
 //     或打满三十年还没统一(玩家日志 2026-10-16：有的统一战争打了一百七十多年，一直处在开国气象里，不起事、不分裂)——
 //     打满三十年时地盘过半算统一了(能统一的都统一了)，不到一半就中辍。
@@ -844,6 +847,10 @@ public static class UnificationSystem
             Record(top, "unify_start_history", top.GetKingdomName(), $"{topShare:P0}");
             Rivals[top.id] = Opponents(top, realm);
         }
+        // 收拾残局：受了天命的共主平定天下里剩下的接壤独立之国(见 Pacify)
+        using (FrameProfiler.Measure("天下大势·收拾残局"))
+            foreach (Realm realm in realms)
+                Pacify(realm);
         // 天下散了(都城不在任何一片天下里、天下不到八座城)的统一者：统一中辍，不再算在统一战争里
         foreach (Kingdom kingdom in World.world.kingdoms.list)
         {
@@ -901,6 +908,54 @@ public static class UnificationSystem
             if (UnityEngine.Random.value >= chance) continue;
             Annex(unifier, rival, null, "unify_submit_history");
         }
+    }
+
+    // 收拾残局：受了这个天下天命的共主(帝国，不在统一战争里，不是周室一系)，每年 PacifyChance 的机会对天下里剩下的一家动手——
+    // 接壤(或隔海相望)、都城在这片天下里、不是它的朝贡国、岁币之国、附庸，过得了开战闸门(停战、联姻、扶立……见 WarGate)、
+    // 够得着(见 WarReach)的，离共主都城近的先：
+    //   · 先索称臣纳贡：对方不是帝国、国力不到共主的 PacifyYieldShare，按国力悬殊有机会称臣(至多 PacifyYieldChance，
+    //     见 TributaryRelations.Submit；共主没有朝贡制度的收不成，照样开战)；
+    //   · 不从就兴师平定(帝国扩张)：养得起兵、不在死战、手上不到两场仗(见 WarSituation.TooBusyForWar)；
+    //     目标照常由 WarGoalSystem 按强弱定(小国吞并，都城鞭长莫及、隔着天堑的改为迫其称臣，见 AdministrativeControlSystem.BeyondReach)。
+    // 每年至多动一家
+    private const float PacifyChance = 0.35f, PacifyYieldShare = 0.35f, PacifyYieldChance = 0.5f;
+
+    private static void Pacify(Realm realm)
+    {
+        if (realm.lead == null) return;
+        Kingdom holder = realm.members.FirstOrDefault(member => TianxiaSystem.MandateOf(member) == realm.lead);
+        if (!Alive(holder) || Sovereign(holder) != holder || holder.GetOrCreate().unify_since >= 0d || Exempt(holder) ||
+            EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(holder)) return;
+        Empire empire = holder.GetEmpire();
+        if (empire == null || empire.isRekt() || empire.IsArchived()) return;
+        if (UnityEngine.Random.value >= PacifyChance) return;
+        if (WarSituation.TooBusyForWar(holder) || CorpsSystem.CannotFundWar(holder)) return;
+        WorldTile home = holder.capital?.getTile();
+        Kingdom target = realm.members
+            .Where(member => member != holder && Alive(member) && Sovereign(member) == member && !Exempt(member) &&
+                             !holder.isInWarWith(member) && Borders(holder, member) &&
+                             !EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(member) &&
+                             WarGate.CanDeclare(holder, member) && WarReach.Reachable(holder, member))
+            .OrderBy(member => home == null || member.capital?.getTile() == null ? float.MaxValue
+                : Toolbox.SquaredDistTile(home, member.capital.getTile()))
+            .FirstOrDefault();
+        if (target == null) return;
+        string name = target.GetKingdomName(), dynasty = empire.GetEmpireName();
+        double ours = WarSituation.Power(holder), theirs = WarSituation.Power(target);
+        float ratio = ours > 0d ? (float)(theirs / ours) : 1f;
+        if (!target.IsEmpire() && ratio < PacifyYieldShare &&
+            UnityEngine.Random.value < PacifyYieldChance * (1f - ratio / PacifyYieldShare) &&
+            TributaryRelations.Submit(holder, target))
+        {
+            LogService.LogInfo($"[EmpireCraft][天下大势] {realm.line}：{name} 慑于共主 {dynasty}(国力 {ratio:P0})，称臣纳贡");
+            Record(holder, "unify_pacify_tribute_history", name, dynasty);
+            return;
+        }
+        War war = World.world.diplomacy.startWar(holder, target, WarTypeLibrary.normal);
+        if (war?.data == null) return;
+        war.SetEmpireWarType(EmpireWarType.帝国扩张);
+        LogService.LogInfo($"[EmpireCraft][天下大势] {realm.line}：共主 {dynasty} 兴师平定 {name}(国力 {ratio:P0})");
+        Record(holder, "unify_pacify_war_history", dynasty, name);
     }
 
     // 一家的正规军(帝国连同各成员国)：现有兵力与满编；没有军团制时按士兵与历来最多的士兵

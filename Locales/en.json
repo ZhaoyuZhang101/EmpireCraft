@@ -1805,6 +1805,8 @@
   "unify_annex_history": "With its regular army destroyed, {0} is annexed whole into {1}",
   "unify_submit_history": "{0} submits without a fight and is annexed whole into {1}",
   "unify_done_history": "{0} unifies the realm",
+  "unify_pacify_tribute_history": "{0}, awed by {1}, submits as a tributary",
+  "unify_pacify_war_history": "{0}, holding the Mandate, marches to pacify {1}",
   "unify_lost_history": "{0} loses most of its land; its war of unification falters",
   "unify_stall_history": "{0} cannot reach the rest of the realm; the unification stalls short of completion",
   "harem_power_title": "Harem Power",

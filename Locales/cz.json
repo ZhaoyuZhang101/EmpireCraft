@@ -1808,6 +1808,8 @@
   "unify_annex_history": "{0}正规军尽没，举国并入{1}",
   "unify_submit_history": "{0}望风归附，举国并入{1}",
   "unify_done_history": "{0}统一天下",
+  "unify_pacify_tribute_history": "{0}慑于{1}天威，称臣纳贡",
+  "unify_pacify_war_history": "{0}奉天命，兴师平定{1}",
   "unify_lost_history": "{0}失地过半，统一大业中辍",
   "unify_stall_history": "{0}久战不能尽收天下，统一大业受阻",
   "harem_power_title": "后宫干政",

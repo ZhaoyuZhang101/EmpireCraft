@@ -1807,6 +1807,8 @@
   "unify_annex_history": "{0}正規軍盡沒，舉國併入{1}",
   "unify_submit_history": "{0}望風歸附，舉國併入{1}",
   "unify_done_history": "{0}統一天下",
+  "unify_pacify_tribute_history": "{0}懾於{1}天威，稱臣納貢",
+  "unify_pacify_war_history": "{0}奉天命，興師平定{1}",
   "unify_lost_history": "{0}失地過半，統一大業中輟",
   "unify_stall_history": "{0}久戰不能盡收天下，統一大業受阻",
   "harem_power_title": "後宮幹政",
