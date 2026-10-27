@@ -1289,10 +1289,11 @@ public class CityPatch : GamePatch
             _imperialArrivalSurrenderCooldown.Remove(city);
         }
 
-        // 不再使用 city.kingdom.hasEnemies() 作为前置条件。
-        // 帝国战争可能只登记在帝国核心国上，地方王国本身未必 hasEnemies()。
-
+        // 不再只看 city.kingdom.hasEnemies()：帝国战争可能只登记在帝国核心国上，地方王国本身未必 hasEnemies()。
+        // 本国与所在帝国的中央都没有敌国的城不查(以前每座城每十帧都把全国兵力、动员余量算一遍，性能日志里每帧 7 毫秒)
         Kingdom defenderKingdom = city.kingdom;
+        Kingdom realmCore = FrontSystem.Realm(defenderKingdom);
+        if (!defenderKingdom.hasEnemies() && (realmCore == null || !realmCore.hasEnemies())) return;
 
         // 独立国按全国兵力；帝国成员按全帝国兵力，避免弱小诸侯在两支帝国军之间反复归附。
         Empire defendingEmpire = defenderKingdom.GetEmpire();

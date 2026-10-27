@@ -167,6 +167,10 @@ public static class CorpsSystem
             if (_monthPhase != MonthPhase.Idle) AdvanceMonth(unbounded: true);
             bool first = _lastMonth < 0d;
             _lastMonth = now;
+            int frame = Time.frameCount;
+            if (_monthStartFrame >= 0 && frame > _monthStartFrame)
+                _framesPerMonth = Mathf.Lerp(_framesPerMonth, frame - _monthStartFrame, 0.3f);
+            _monthStartFrame = frame;
             BeginMonthCycle(now, first);
         }
         if (_monthPhase != MonthPhase.Idle) AdvanceMonth(unbounded: false);
@@ -203,10 +207,32 @@ public static class CorpsSystem
     // 月度结算分帧：以前月初一帧里把全世界各国的征召补员后勤、海军、战线分派与交战一次结完，大图开战时那一帧卡几百毫秒。
     // 现在月初把各国排队，每帧结几国(本段不过 MonthSliceMilliseconds，至少一国)，
     // 各国都结完再结海军(一次)、战线(开头一次，逐国分派，交战结算一次)，最后重建计兵数缓存；先后次序与以前一样。
-    // 下个月到了上个月还没结完，先当场结完上个月
+    // 下个月到了上个月还没结完，先当场结完上个月。
+    // 每帧的时间片按"这个月还剩几帧、还剩几步"自适应(至少 MonthSliceMilliseconds，至多 MaxMonthSliceMilliseconds)，
+    // 赶在下个月之前均匀结完(用户 2026-10-27 性能日志：游戏开得快、一个月只有几帧时，固定 3 毫秒总结不完，
+    // 下个月一到就当场一口气结完上百国，后台·军团战线单帧峰值两秒多)
     private enum MonthPhase { Idle, Kingdoms, Navy, FrontBegin, FrontAssign, FrontEnd }
 
-    private const double MonthSliceMilliseconds = 3d;
+    private const double MonthSliceMilliseconds = 3d, MaxMonthSliceMilliseconds = 30d;
+    // 每步(一国征召或分派)平均耗时、一个月有几帧：滑动平均
+    private static double _stepMs = 0.5d;
+    private static float _framesPerMonth = 30f;
+    private static int _monthStartFrame = -1;
+
+    private static double MonthSlice()
+    {
+        int remaining = _monthPhase switch
+        {
+            MonthPhase.Kingdoms => MonthQueue.Count + (World.world?.kingdoms?.Count ?? 0) + 3,
+            MonthPhase.Navy or MonthPhase.FrontBegin => (World.world?.kingdoms?.Count ?? 0) + 2,
+            MonthPhase.FrontAssign => MonthQueue.Count + 1,
+            _ => 1
+        };
+        int elapsed = _monthStartFrame < 0 ? 0 : Time.frameCount - _monthStartFrame;
+        float framesLeft = Mathf.Max(1f, _framesPerMonth - elapsed - 1f);
+        double wanted = remaining * _stepMs / framesLeft;
+        return wanted < MonthSliceMilliseconds ? MonthSliceMilliseconds : wanted > MaxMonthSliceMilliseconds ? MaxMonthSliceMilliseconds : wanted;
+    }
     private static MonthPhase _monthPhase = MonthPhase.Idle;
     private static readonly Queue<Kingdom> MonthQueue = new();
     private static double _monthAt;
@@ -231,11 +257,16 @@ public static class CorpsSystem
     {
         var watch = global::System.Diagnostics.Stopwatch.StartNew();
         int done = 0;
+        double slice = unbounded ? double.MaxValue : MonthSlice();
         while (_monthPhase != MonthPhase.Idle)
         {
             // 只看本段自己的用时：后台共用预算(SimulationFrameBudget)在这之前多已被人口等队列用完，看它就只能一帧一国，
             // 几百国的大图一个月结不完
-            if (!unbounded && done > 0 && watch.Elapsed.TotalMilliseconds >= MonthSliceMilliseconds) return;
+            if (!unbounded && done > 0 && watch.Elapsed.TotalMilliseconds >= slice)
+            {
+                _stepMs = _stepMs * 0.8d + watch.Elapsed.TotalMilliseconds / done * 0.2d;
+                return;
+            }
             done++;
             switch (_monthPhase)
             {
@@ -310,18 +341,19 @@ public static class CorpsSystem
     {
         if (kingdom?.data == null || kingdom.isRekt() || kingdom.isNeutral() ||
             Compatibility.AncientWarfareCompatibility.OwnsObject(kingdom)) return;
-        WarScopeSystem.MonthTick(kingdom);
-        WarCommandSystem.MonthTick(kingdom);
+        // 各步分开计时(性能诊断日志"军团·月度征召"每帧近 10 毫秒、分配 6 MB，看是哪一步)
+        using (FrameProfiler.Measure("征召·动员范围")) WarScopeSystem.MonthTick(kingdom);
+        using (FrameProfiler.Measure("征召·统帅")) WarCommandSystem.MonthTick(kingdom);
         List<CorpsData> list = kingdom.GetOrCreate().corps;
         bool posts = kingdom.cities?.Any(city => city != null && !city.isRekt() &&
             CityPopulationSystem.PostOf(city, CityPopulationSystem.DoctrineOf(kingdom)) != CityPopulationSystem.ArmyPost.None) == true;
         if (!posts && (list == null || list.Count == 0)) return;
-        Mobilize(kingdom, now);
+        using (FrameProfiler.Measure("征召·补员")) Mobilize(kingdom, now);
         using (FrameProfiler.Measure("军团·后勤")) LogisticsSystem.MonthTick(kingdom);
-        Recover(kingdom);
-        PayUpkeep(kingdom);
+        using (FrameProfiler.Measure("征召·休整")) Recover(kingdom);
+        using (FrameProfiler.Measure("征召·军饷")) PayUpkeep(kingdom);
         // 视财力换装一支(见 CorpsArmSystem)
-        CorpsArmSystem.Monthly(kingdom, kingdom.GetOrCreate().corps);
+        using (FrameProfiler.Measure("征召·换装")) CorpsArmSystem.Monthly(kingdom, kingdom.GetOrCreate().corps);
         AbsorbLegacyLegions(kingdom);
         // 禁军空饷、忠诚、不奉诏
         PalaceArmySystem.Monthly(kingdom);

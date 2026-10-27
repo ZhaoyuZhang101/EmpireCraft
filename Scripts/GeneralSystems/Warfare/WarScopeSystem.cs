@@ -81,7 +81,8 @@ public static class WarScopeSystem
     {
         if (city?.data == null || city.kingdom == null || World.world == null) return false;
         double now = World.world.getCurWorldTime();
-        if (!ReferenceEquals(_world, World.world) || _builtAt < 0d || now < _builtAt || now - _builtAt >= 1d)
+        // 每个游戏月重算一次(征兵按月结；以前每个游戏秒，开快时一秒重算好几次，性能日志里每帧 6.5 毫秒)
+        if (!ReferenceEquals(_world, World.world) || _builtAt < 0d || now < _builtAt || now - _builtAt >= RebuildSeconds)
         {
             _world = World.world;
             _builtAt = now;
@@ -97,11 +98,13 @@ public static class WarScopeSystem
     private static bool Occupied(City city) =>
         city?.data != null && !city.isRekt() && city.GetOrCreate().OccupiedStatus?.Any(pair => pair.Value?.Count > 0) == true;
 
+    private const double RebuildSeconds = 5d;
+
     private static void Rebuild()
     {
         using var timing = FrameProfiler.Measure("就近动员·重算");
         Scope.Clear();
-        var warring = new List<Kingdom>();
+        var warring = new HashSet<Kingdom>();
         foreach (Kingdom kingdom in World.world.kingdoms)
             if (kingdom?.data != null && !kingdom.isRekt() && !kingdom.isNeutral() && AtWar(kingdom)) warring.Add(kingdom);
         foreach (Kingdom kingdom in World.world.kingdoms)
