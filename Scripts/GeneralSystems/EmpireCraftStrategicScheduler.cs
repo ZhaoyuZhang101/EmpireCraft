@@ -60,6 +60,12 @@ public static class EmpireCraftStrategicScheduler
         using (FrameProfiler.Measure("宗室·生老病死")) RoyalHouseSystem.Tick();
         using (FrameProfiler.Measure("饥荒动荡")) FamineUnrestSystem.Tick();
         using (FrameProfiler.Measure("天下大势")) UnificationSystem.Tick();
+        // 本土帝国抵御异族入侵：号召同族来援(每月，见 NativeDefenseSystem)
+        using (FrameProfiler.Measure("御侮")) NativeDefenseSystem.Tick();
+        // 异族之地：年度扫描、正统跌破五十时镇压或自立(见 ForeignLandSystem)
+        using (FrameProfiler.Measure("异族之地")) ForeignLandSystem.Tick();
+        // 独立的游牧国换君后诸子分帐(见 NomadAppanageSystem)
+        NomadAppanageSystem.Tick();
         using (FrameProfiler.Measure("飞地年度维护")) ExclaveMaintenanceSystem.Tick();
         AdministrativeControlSystem.Tick();
         // 水土：游牧离草、定居入草(每帧至多一个政权，一年一次，见 ShuiTuSystem)

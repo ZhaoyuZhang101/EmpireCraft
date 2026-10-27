@@ -210,6 +210,23 @@ public class WarPatch: GamePatch
     }
 
     // 战争结束：一方的城市里清掉另一方(这场战争的对手)留下的占领；若城主与该占领者还有别的战争在打，保留
+    // 幼主在位、权臣或太后辅政时打了胜仗(用户 2026-10-27 转玩家截图"七岁皇帝亲征把威权拉满""威权也应该涨权臣的")：
+    // 名望归辅政者，权臣的挟制进度涨 RegentProgress(太后 DowagerProgress，至多 99，不凭一仗挟制朝廷)，正统加成减半。
+    // 不是这种情形返回 false，照旧记给皇帝
+    private const int RegentProgress = 5, DowagerProgress = 2;
+
+    private static bool RegencyGlory(Empire empire, int renown, int mandate)
+    {
+        if (empire?.data == null || !empire.data.powerful_minister_is_regent || !RealisticAgeSystem.IsMinor(empire.Emperor)) return false;
+        Actor regent = empire.GetPowerfulMinister();
+        if (regent?.data == null || regent.isRekt() || !regent.isAlive()) return false;
+        regent.editRenown(renown);
+        int gain = empire.data.powerful_minister_is_empress_dowager ? DowagerProgress : RegentProgress;
+        empire.data.powerful_minister_progress = Math.Min(99, Math.Max(empire.data.powerful_minister_progress, empire.data.powerful_minister_progress + gain));
+        if (mandate > 0) empire.AddMandate(mandate / 2);
+        return true;
+    }
+
     private static void ClearOccupationAfterWar(War endedWar, List<Kingdom> owners, List<Kingdom> opponents)
     {
         foreach (Kingdom owner in owners)
@@ -291,11 +308,15 @@ public class WarPatch: GamePatch
                 if (aKingdom.IsEmpire())
                 {
                     Empire empire = aKingdom.GetEmpire();
-                    if (empire.Emperor != null)
+                    // 幼主在位、权臣太后辅政：战功归辅政者(见 RegencyGlory)
+                    if (!RegencyGlory(empire, 30, 10))
                     {
-                        empire.Emperor.editRenown(30);
+                        if (empire.Emperor != null)
+                        {
+                            empire.Emperor.editRenown(30);
+                        }
+                        empire.AddMandate(10);
                     }
-                    empire.AddMandate(10);
                     empire.AddRenown(100);
                 }
                 if (dKingdom.IsEmpire())
@@ -312,7 +333,7 @@ public class WarPatch: GamePatch
                 if (dKingdom.IsEmpire())
                 {
                     Empire empire = dKingdom.GetEmpire();
-                    if (empire.Emperor!=null)
+                    if (!RegencyGlory(empire, 30, 0) && empire.Emperor!=null)
                     {
                         empire.Emperor.editRenown(30);
 

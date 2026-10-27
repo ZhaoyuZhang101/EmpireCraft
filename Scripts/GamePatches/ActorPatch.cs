@@ -70,6 +70,8 @@ public class ActorPatch : GamePatch
             postfix: new HarmonyMethod(GetType(), nameof(set_actor_peerages)));
         new Harmony(nameof(removeData)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.Dispose)),
             postfix: new HarmonyMethod(GetType(), nameof(removeData)));
+        new Harmony(nameof(beforeDispose)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.Dispose)),
+            prefix: new HarmonyMethod(GetType(), nameof(beforeDispose)));
         new Harmony(nameof(Die)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.die)),
             prefix: new HarmonyMethod(GetType(), nameof(Die)));
         new Harmony(nameof(setArmy)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.setArmy)),
@@ -630,6 +632,27 @@ public class ActorPatch : GamePatch
         }
 
     }
+    // 原版 Dispose 先把 data 置空，removeData(postfix)里的 recordAllInfo 从来不跑：族谱的"享年"停在入谱时的年纪
+    // (四岁即位、活到五十多的皇帝，世系图仍写四岁，又有儿子，看着像"四岁皇帝生子"，用户 2026-10-27 转玩家截图)。
+    // 在 Dispose 之前先记下年纪与身后的生平
+    public static void beforeDispose(Actor __instance)
+    {
+        if (__instance?.data == null || ModClass.IS_CLEAR) return;
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance) || !__instance.HasSpecificClan()) return;
+        PersonalClanIdentity pci = __instance.GetPersonalIdentity();
+        if (pci == null) return;
+        pci.recordedAge = __instance.getAge();
+        if (__instance.kingdom?.data == null) return;
+        try
+        {
+            pci.recordAllInfo();
+        }
+        catch (Exception)
+        {
+            // 生平里的官职、爵位记不全不碍事，年纪已经记下
+        }
+    }
+
     public static void removeData(Actor __instance)
     {
         EmpireCraft.Scripts.HelperFunc.OfficeCandidateRoster.Invalidate();

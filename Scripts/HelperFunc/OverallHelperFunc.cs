@@ -310,14 +310,35 @@ namespace EmpireCraft.Scripts.HelperFunc
             return (DirectPrefixKeyMap.TryGetValue(raw, out string mapped) ? mapped : raw) == HolyPrefixKey;
         }
 
+        // 国号冠的是开国之君的姓(前朝用过的国号再用、世界法则「姓氏国号」开着，见 RealmNamingSystem.ReusePrefix)：
+        // 不当前缀，放在国号后面的括号里，如"秦朝(刘)"(用户 2026-10-27 定)。姓不是方位、"后"、"神圣"这类前缀词，也没有翻译键
+        public static string SurnameOf(EmpireData data)
+        {
+            if (data == null || data.prefix_manual) return "";
+            string raw = data.directPre?.Trim();
+            if (string.IsNullOrEmpty(raw) || !string.Equals(raw, data.founding_prefix?.Trim(), StringComparison.Ordinal)) return "";
+            if (DirectPrefixKeyMap.ContainsKey(raw) || raw == HolyPrefixKey || LocalizedTextManager.stringExists(raw)) return "";
+            return raw;
+        }
+
+        // 国号后面的"(姓)"，没有为空
+        public static string SurnameSuffix(EmpireData data)
+        {
+            string surname = SurnameOf(data);
+            return surname.Length == 0 ? "" : "(" + surname + ")";
+        }
+
         public static string LocalizeDirectPrefix(EmpireData data)
         {
             // 帝国设置里手选了前缀：以它为准，系统自动加的方位词不再生效
             string chosen = data?.prefix_manual == true ? data.prefix_choice : data?.directPre;
             if (data == null || string.IsNullOrWhiteSpace(chosen)) return "";
+            // 开国之君的姓放在国号后面(见 SurnameSuffix)
+            if (SurnameOf(data).Length > 0) return "";
             string raw = chosen.Trim();
             string key = DirectPrefixKeyMap.TryGetValue(raw, out string mapped) ? mapped : raw;
-            string translated = LM.Get(key);
+            // 没有这个翻译键的不查(查了原版要报"missing text")
+            string translated = LocalizedTextManager.stringExists(key) ? LM.Get(key) : "";
             if (!string.IsNullOrWhiteSpace(translated) && !string.Equals(translated, key, StringComparison.Ordinal))
             {
                 return translated;

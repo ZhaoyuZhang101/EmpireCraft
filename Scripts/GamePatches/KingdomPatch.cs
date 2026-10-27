@@ -228,8 +228,12 @@ public class KingdomPatch : GamePatch
                 __instance.RemoveHeir();
                 return;
             }
-            // 不是帝国的宗主换了君主：改从游牧的附庸可能起兵独立(见 ShuiTuSystem)
-            if (!pFromLoad && (__state == null || __state.id != pActor.id)) ShuiTuSystem.OnOverlordSucceeded(__instance);
+            // 不是帝国的宗主换了君主：改从游牧的附庸可能起兵独立(见 ShuiTuSystem)；独立的游牧国按草原旧俗诸子分帐(见 NomadAppanageSystem)
+            if (!pFromLoad && (__state == null || __state.id != pActor.id))
+            {
+                ShuiTuSystem.OnOverlordSucceeded(__instance);
+                NomadAppanageSystem.OnChieftainSucceeded(__instance, pActor);
+            }
             __instance.RemoveHeir();
         }
     }

@@ -132,10 +132,19 @@ public static class WarGoalSystem
             : strength >= vassalAt && !defender.IsEmpire() ? WarGoal.迫使附庸
             : strength >= ConquestStrength ? WarGoal.割地
             : WarGoal.赔款;
-        // 扩张上限：已经过度扩张，或对方都城远在本国控制范围之外，不谋土地，改为迫其称臣(帝国则求赔款)
-        if ((data.war_goal == WarGoal.吞并 || data.war_goal == WarGoal.割地) &&
-            AdministrativeControlSystem.BeyondReach(attacker, defender.capital))
-            data.war_goal = defender.IsEmpire() ? WarGoal.赔款 : WarGoal.迫使附庸;
+        // 扩张上限：已经过度扩张，或对方都城远在本国控制范围之外，或这一代人侵占的法理已满(统一战争不限，
+        // 见 AdministrativeControlSystem.GenerationExhausted)，不谋土地，改为迫其称臣(帝国则求赔款)
+        if (data.war_goal is WarGoal.吞并 or WarGoal.割地)
+        {
+            string generation = null;
+            if (AdministrativeControlSystem.BeyondReach(attacker, defender.capital) ||
+                AdministrativeControlSystem.GenerationExhausted(war, attacker, out generation))
+            {
+                data.war_goal = defender.IsEmpire() ? WarGoal.赔款 : WarGoal.迫使附庸;
+                if (generation != null)
+                    LogService.LogInfo($"[EmpireCraft][扩张上限] {attacker.GetKingdomName()} 伐 {defender.GetKingdomName()}：{generation}，不谋土地");
+            }
+        }
         // 圣战且两边宗教不同：要对方改宗
         if (war.GetEmpireWarType() == EmpireWarType.神圣 && Convertible(attacker, defender)) data.war_goal = WarGoal.改宗;
         // 扶立君主：对那国王位有血亲宣称、或对方君主年幼，又找得到人扶立
@@ -486,7 +495,8 @@ public static class WarGoalSystem
             World.world.wars.endWar(war, WarWinner.Peace);
             return true;
         }
-        if (broke != defender || Excessive(war, defender)) return false;
+        // 本土帝国抵御异族入侵不求和(见 NativeDefenseSystem)
+        if (broke != defender || Excessive(war, defender) || NativeDefenseSystem.Resisting(defender, attacker)) return false;
         World.world.wars.endWar(war, WarWinner.Attackers);
         return true;
     }
@@ -509,7 +519,8 @@ public static class WarGoalSystem
         return held.Exists(entry => entry.city == defender.capital) || held.Count * 2 >= Math.Max(1, cities);
     }
 
-    // 正被全面侵略：作为主守方的仗求不了和(对方条件过分，或是叛乱、独立、争位这类)，或在打全面战争。欠饷也困兽犹斗
+    // 正被全面侵略：作为主守方的仗求不了和(对方条件过分，或是叛乱、独立、争位这类)，或在打全面战争，
+    // 或是本土帝国(连同成员)抵御异族入侵。欠饷也困兽犹斗
     public static bool FightingForSurvival(Kingdom kingdom)
     {
         if (kingdom == null) return false;
@@ -517,6 +528,8 @@ public static class WarGoalSystem
         {
             if (war?.data == null || war.hasEnded() || !war.isDefender(kingdom)) continue;
             if (war.isTotalWar()) return true;
+            // 本土帝国抵御异族入侵，倾国而战(见 NativeDefenseSystem)
+            if (NativeDefenseSystem.Resisting(kingdom, war.main_attacker)) return true;
             if (war.main_defender != kingdom) continue;
             if (!Applies(war) && war.GetEmpireWarType() != EmpireWarType.劫掠 || Excessive(war, kingdom)) return true;
         }

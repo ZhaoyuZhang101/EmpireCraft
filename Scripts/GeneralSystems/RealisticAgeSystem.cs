@@ -132,6 +132,23 @@ public static class RealisticAgeSystem
     // 没有这个人(单亲生育、对方空着)算够
     public static bool OldEnoughToParent(Actor actor) => actor?.data == null || actor.getAge() >= MinParentAge(actor);
 
+    // 生养的最高年纪：母亲不过 MotherAgeMax、父亲不过 FatherAgeMax(同 RoyalHouseSystem 宗室添丁)；关着真实年龄时按物种寿命折算。
+    // 君主无子强制生育、司生育的女官以前只看下限，六七十岁照样生
+    public const int MotherAgeMax = 45, FatherAgeMax = 60;
+
+    public static bool YoungEnoughToParent(Actor actor)
+    {
+        if (actor?.data == null || !actor.isSapient()) return true;
+        int max = actor.data.sex == ActorSex.Female ? MotherAgeMax : FatherAgeMax;
+        float lifespan = actor.stats?["lifespan"] ?? 0f;
+        if (!Enabled && lifespan > 0f) max = Math.Max(MinParentAge(actor) + 1, (int)Math.Round(max * lifespan / 80f));
+        return actor.getAge() <= max;
+    }
+
+    // 君主未成年(亲政的年纪同生养，见 MinParentAge)。原版 isAdult 按亚种的成年年龄，几岁就算成年：七岁的皇帝没人辅政、
+    // 亲征当统帅、战功全记在自己头上(用户 2026-10-27 转玩家截图"幼儿即位应权臣太后主政""威权也应该涨权臣的")
+    public static bool IsMinor(Actor actor) => actor?.data != null && (!actor.isAdult() || actor.getAge() < MinParentAge(actor));
+
     #region 宗室天年：成为君主、储君时的年纪
 
     // 用户 2026-10-21 转群友："加了真实年龄后，经常一称帝没有一年就死，要不就是依旧活这么久"。

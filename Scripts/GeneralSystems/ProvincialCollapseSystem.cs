@@ -82,7 +82,14 @@ public static class ProvincialCollapseSystem
     private static bool Applies(Empire empire) =>
         empire?.data != null && !empire.isRekt() && !empire.IsArchived() && empire.CoreKingdom != null &&
         !empire.CoreKingdom.isRekt() && !RepublicSystem.IsRepublic(empire) && RegimeFactor(empire) > 0f &&
-        !ZhouEraSystem.RoyalReclaimBlocked(empire) && !AncientWarfareCompatibility.Owns(empire.CoreKingdom);
+        !ZhouShielded(empire) && !AncientWarfareCompatibility.Owns(empire.CoreKingdom);
+
+    // 周制：春秋诸侯尊王，周室不瓦解，正统跌破 ZhouSpringCollapseLegitimacy 例外；战国(只剩王畿诸郡，郡也会割据)、
+    // 一统之后照常(用户 2026-10-27 截图西大和朝、赵朝：以前春秋、战国整段豁免，周室正统 0、积弊满额也没有出口)
+    private const int ZhouSpringCollapseLegitimacy = 30;
+
+    private static bool ZhouShielded(Empire empire) =>
+        ZhouEraSystem.Era(empire) == ZhouEraSystem.Spring && empire.Legitimacy >= ZhouSpringCollapseLegitimacy;
 
     // 首义、响应机会的政体系数：君主制、元首制照常；古典共和(未行元首制)、原始政体也有王朝积弊，以前却没有任何
     // 崩溃出口、成了僵尸国，现在也会瓦解、机会减半，只走古代(各省自立)那一路(用户 2026-10-21 选"古典共和/原始政体能瓦解")

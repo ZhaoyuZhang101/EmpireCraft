@@ -174,8 +174,10 @@ public static class CourtPanel
         string strategy = string.IsNullOrEmpty(state.strategy) ? "" : LM.Get("court_strategy_" + state.strategy);
         string target = CourtSystem.FindFaction(empire, state.strategy_target)?.Name;
         if (!string.IsNullOrEmpty(target)) strategy += $"({target})";
-        SimpleText strategyLine = AddLine(text, textWidth, string.Format(LM.Get("court_decider_line"), strategy,
-            empire.Legitimacy).ColorString("#C8C2B4"), 6);
+        // 权臣、太后代批时显示的是辅政者的权势(挟制进度)，不是皇帝的威权
+        bool regency = role == "minister" && empire.GetPowerfulMinister() is Actor minister && minister == decider;
+        SimpleText strategyLine = AddLine(text, textWidth, string.Format(LM.Get(regency ? "court_decider_line_minister" : "court_decider_line"),
+            strategy, regency ? empire.data.powerful_minister_progress : empire.Legitimacy).ColorString("#C8C2B4"), 6);
         if (!string.IsNullOrEmpty(state.strategy))
             UIHelper.AttachTextTooltip(strategyLine.gameObject, $"court_strategy_{empire.id}",
                 LM.Get("court_strategy_" + state.strategy), LM.Get("court_strategy_desc_" + state.strategy));

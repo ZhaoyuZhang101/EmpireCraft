@@ -1651,7 +1651,13 @@ namespace EmpireCraft.Scripts.UI.Windows
         {
             if (IsRepublicRecord(h)) return RepublicGroupKey;
             var s = string.IsNullOrEmpty(h.royal_surname) ? "" : h.royal_surname;
-            return string.IsNullOrEmpty(s) ? h.empire_name : string.Join("·", s, h.empire_name);
+            if (string.IsNullOrEmpty(s)) return h.empire_name;
+            // 国号冠了开国之君的姓(前朝用过的国号再用)：同国号一样把姓放在后面的括号里，如"汉(方)"
+            string full = h.empire_full_name ?? "";
+            if (full.EndsWith("(" + s + ")", StringComparison.Ordinal) ||
+                full.StartsWith(s, StringComparison.Ordinal) && !(h.empire_name ?? "").StartsWith(s, StringComparison.Ordinal))
+                return h.empire_name + "(" + s + ")";
+            return string.Join("·", s, h.empire_name);
         }
 
         // 共和组的标题：现在仍是共和国就用现国号，否则用最后一任元首时的国号

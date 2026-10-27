@@ -494,7 +494,7 @@ public static partial class CourtSystem
     public static (Actor decider, string role) Decider(Empire empire)
     {
         Actor emperor = empire?.Emperor;
-        bool emperorRules = emperor?.data != null && !emperor.isRekt() && emperor.isAlive() && emperor.isAdult() &&
+        bool emperorRules = emperor?.data != null && !emperor.isRekt() && emperor.isAlive() && !RealisticAgeSystem.IsMinor(emperor) &&
                             !empire.data.is_been_controlled && !RulerQualitySystem.Neglects(emperor);
         if (emperorRules) return (emperor, "emperor");
         Actor minister = empire?.GetPowerfulMinister();

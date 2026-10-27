@@ -134,6 +134,10 @@ public class EmpireData : MetaObjectData
     // 大分裂冷却(见 UpheavalGuard，用户 2026-10-21 选)：最近一次大分裂(汗位/哈里发/苏丹更替之乱、雄主身后分裂、应仁之乱、
     // 土崩瓦解、宗室另立)真走掉成员的时间；-1 没有(旧档读进来也是 -1)
     public double last_upheaval_at = -1d;
+    // 异族之地(见 ForeignLandSystem)：未同化的异族人口占治下人口几成(隔海的加权，年度快照，扣正统用)；
+    // 正统跌破五十时出兵镇压三代未附之地的时间(压住一年)
+    public float foreign_land_share;
+    public double foreign_suppressed_at = -1d;
     // 土崩瓦解(见 ProvincialCollapseSystem.TryFall)：这一回起义各省(首义 + 响应)离开时带走的城数，收束时只按它算帝国还剩多少；
     // -1 为没记过(旧档瓦解进行到一半读进来，收束时按起义各省眼下的城数估)，首义时清零
     public int collapse_risen_cities = -1;

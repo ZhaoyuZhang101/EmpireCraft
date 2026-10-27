@@ -79,6 +79,11 @@ public static class CityExtension
         public double shuitu_since = -1d;
         public long shuitu_owner = -1L;
         public long conquered_by = -1L;
+        // 那次是在统一战争里打下的(不算"一代人侵占"的数，见 AdministrativeControlSystem.GenerationConquests)
+        public bool conquered_unification;
+        // 异族之地(见 ForeignLandSystem)：归这个帝国(按中央记)的时间与帝国中央；-1 = 不是异族之地
+        public double foreign_since = -1d;
+        public long foreign_realm = -1L;
         public string kingdom_names = "";
         public long title_id = -1L;
         public long empire_core_id = -1L;

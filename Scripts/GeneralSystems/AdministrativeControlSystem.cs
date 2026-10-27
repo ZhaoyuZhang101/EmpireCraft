@@ -156,7 +156,76 @@ public static class AdministrativeControlSystem
         var data = city.GetOrCreate();
         data.conquered_at = World.world.getCurWorldTime();
         data.conquered_by = Realm(receiver).id;
+        // 调用时城还在原主手里
+        data.conquered_unification = UnificationBetween(receiver, city.kingdom);
     }
+
+    // 两国(连同所在帝国的中央)之间正打着统一战争
+    private static bool UnificationBetween(Kingdom receiver, Kingdom loser)
+    {
+        if (receiver?.data == null || loser?.data == null) return false;
+        Kingdom realm = Realm(receiver), other = Realm(loser);
+        foreach (Kingdom side in new[] { receiver, realm })
+            foreach (War war in side.getWars())
+            {
+                if (war?.data == null || war.hasEnded() || !UnificationSystem.IsUnificationWar(war)) continue;
+                bool attacker = war.isAttacker(side);
+                if (attacker ? war.isDefender(loser) || war.isDefender(other) : war.isAttacker(loser) || war.isAttacker(other))
+                    return true;
+            }
+        return false;
+    }
+
+    #region 代际扩张上限
+
+    // 一代人能侵占多少(用户 2026-10-27："一代人只能侵占一个帝国核心、3 个王国核心""除非是统一战争"；截图里瑞典帝国
+    // 横跨欧洲、北非、西亚 98 城，维京本族只有 9 城，古典、现代制度都维持不了)：GenerationYears 年内打下(含割让)、眼下仍在本国的城，
+    // 涉及的王国法理满 KingdomCoresPerGeneration 个，或因此据有了别人的一个帝国法理(三分之二)，再开战不谋土地，
+    // 改为迫其称臣(帝国则求赔款)，同过度扩张(见 WarGoalSystem.Ensure)。统一战争里打下的不算，统一战争也不受限
+    public const float GenerationYears = 30f;
+    public const int KingdomCoresPerGeneration = 3, EmpireCoresPerGeneration = 1;
+
+    // 本国(帝国按中央，连同成员)这一代人侵占的王国法理、帝国法理各几个
+    public static (int kingdoms, int empires) GenerationConquests(Kingdom kingdom)
+    {
+        Kingdom realm = Realm(kingdom);
+        if (!Valid(realm) || World.world?.cities == null) return (0, 0);
+        var titles = new HashSet<long>();
+        var cores = new HashSet<EmpireCore>();
+        EmpireCore own = realm.GetEmpire() is Empire empire ? EmpireCoreManager.Get(empire) : null;
+        double now = World.world.getCurWorldTime();
+        foreach (City city in World.world.cities.list)
+        {
+            if (city?.data == null || city.isRekt() || city.kingdom?.data == null || Realm(city.kingdom) != realm) continue;
+            var data = city.GetOrCreate();
+            if (data.conquered_by != realm.id || data.conquered_unification || data.conquered_at < 0d || now < data.conquered_at ||
+                Date.getYearsSince(data.conquered_at) >= GenerationYears) continue;
+            KingdomTitle title = city.GetTitle();
+            if (title?.data != null) titles.Add(title.id);
+            EmpireCore core = city.GetEmpireCore();
+            if (core != null && core != own) cores.Add(core);
+        }
+        int empires = 0;
+        foreach (EmpireCore core in cores)
+        {
+            (int held, int total) = RealmNamingSystem.Holding(core, realm);
+            if (RealmNameRules.HoldsShare(held, total)) empires++;
+        }
+        return (titles.Count, empires);
+    }
+
+    // 这一代人的侵占已满(统一战争不算)
+    public static bool GenerationExhausted(War war, Kingdom attacker, out string why)
+    {
+        why = null;
+        if (UnificationSystem.IsUnificationWar(war)) return false;
+        (int kingdoms, int empires) = GenerationConquests(attacker);
+        if (kingdoms < KingdomCoresPerGeneration && empires < EmpireCoresPerGeneration) return false;
+        why = $"{GenerationYears:0} 年内已侵占王国法理 {kingdoms} 个、帝国法理 {empires} 个";
+        return true;
+    }
+
+    #endregion
 
     // 开战定目标用：对方都城是否远在本国控制范围之外(按本国离它最近的城的路程，加从那座城沿直线过去的地形阻力估算，
     // 见 TerrainResistance.LineCost——隔着雪山、大漠的不再当平地，用户 2026-10-26)，或本国已过度扩张

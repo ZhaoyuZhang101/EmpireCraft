@@ -173,11 +173,11 @@ public class Name
                 actor.data.name = firstName;
             }
         }
-        // 西方帝国皇帝的王号：名 + 罗马数字序数(不带姓)
+        // 西方帝国皇帝的王号：名 + 序数(不带姓；中文"二世"，别的语言罗马数字，见 RegnalNameService.Display)
         string regnalSuffix = actor.GetOrCreate()?.regnal_suffix;
         if (!string.IsNullOrWhiteSpace(regnalSuffix) && hasFirstName(actor))
         {
-            actor.data.name = OverallHelperFunc.JoinNameParts(firstName, regnalSuffix);
+            actor.data.name = OverallHelperFunc.JoinNameParts(firstName, RegnalNameService.Display(regnalSuffix));
             PersonalClanIdentity regnalIdentity = actor.GetPersonalIdentity();
             if (regnalIdentity != null) regnalIdentity.name = actor.data.name;
         }

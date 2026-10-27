@@ -32,8 +32,9 @@ public static class CityStabilityRules
         return bill;
     }
 
-    public static float Advance(float stability, float natural, float governanceQuality) =>
-        Clamp(stability + Clamp(Clamp(natural + Clamp(governanceQuality) * 0.12f) - stability, -2f, 2f));
+    // 每月朝自然稳定度走至多 2 点；months = 这回补算的月数(见 CityStabilitySystem.UpdatePrepared)
+    public static float Advance(float stability, float natural, float governanceQuality, int months = 1) =>
+        Clamp(stability + Clamp(Clamp(natural + Clamp(governanceQuality) * 0.12f) - stability, -2f * months, 2f * months));
     public static float Suppression(int actual, int required, float funding) => required <= 0 ? 0f :
         20f * Clamp(actual / (float)required, 0f, 1f) * Clamp(funding, 0f, 1f);
     public static bool ShouldWithdraw(int months, float stability, float change, bool annualAccounts,

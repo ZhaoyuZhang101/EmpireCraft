@@ -53,7 +53,7 @@ public static class MilitaryCoupSystem
             (Actor general, float share, City seat) = Strongest(empire);
             if (general == null || share < PowerLine) return;
             Actor emperor = empire.Emperor;
-            bool minor = emperor != null && !emperor.isAdult();
+            bool minor = RealisticAgeSystem.IsMinor(emperor);
             // 由头：主少国疑、欠饷军心浮动、将领功高震主，至少占两条
             int pretexts = (minor ? 1 : 0) + (!CorpsSystem.WellPaid(empire.CoreKingdom) ? 1 : 0) +
                            (emperor == null || general.renown > emperor.renown ? 1 : 0);

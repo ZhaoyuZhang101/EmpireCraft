@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
@@ -19,7 +20,13 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 逊尼什叶分裂(每个伊斯兰教一次)：哈里发、苏丹更替之乱破局开争位之战时(SchismSystem.Proclaim)，ShiaChance 机会
 //     争位者另奉什叶派(圣地在其都城，自有伊玛目——哈里发座)，随攻方的割据成员同改；
 //   · 宗教改革提早：普世教会教权低于 EarlyReformAuthority、圣战失利满 EarlyReformLosses 次，仍交什一税的西方帝国
-//     每年 EarlyReformChance 机会提前脱离罗马(PapacySystem.BreakWithRome，不必等本文化施行宗教改革)。
+//     每年 EarlyReformChance 机会提前脱离罗马(PapacySystem.BreakWithRome，不必等本文化施行宗教改革)；
+//   · 异文明立教(用户 2026-10-27 截图全图基督教 397/404 城："不同文化的帝国应该有自己创建宗教的机会，甚至分裂宗教""为什么没有触发"，
+//     选"复归本土或另立教会""约五十年一次")：各文明的本土大教立在最大的城就停在那一城——外来宗教是全境的国教、邻城又同教，
+//     势能压得住；君主皈依只看邻国、境内已奉的世界性宗教；大分裂只给奉教廷的西方帝国。现在奉外来宗教(不是本文明的)、
+//     SchismMinCities 城以上、没握着它圣地的帝国，每年 NativeTurnChance：本文明已有本土大教的 NativeRevertShare 复归——
+//     皇帝率帝国改奉(成员国陆续随之，城里人按国教势能加倍慢慢改，见 ReligionConversionSystem)；否则从外来宗教分出本国教会：
+//     圣地在帝都，记母宗教、天下记本文明，帝国各国各城当场改奉，普世教会的由皇帝兼管。皈依、立教后 TurnCooldownYears 年不再判。
 public static class ReligionSchismSystem
 {
     private const int SchismMinAge = 100;
@@ -33,6 +40,8 @@ public static class ReligionSchismSystem
     private const float EarlyReformAuthority = 35f;
     private const int EarlyReformLosses = 2;
     private const float EarlyReformChance = 0.03f;
+    private const float NativeTurnChance = 0.02f, NativeRevertShare = 0.6f;
+    private const int TurnCooldownYears = 50;
 
     private static bool Alive(Kingdom kingdom) => kingdom?.data != null && !kingdom.isRekt() && !kingdom.wild;
 
@@ -47,7 +56,76 @@ public static class ReligionSchismSystem
             TryGreatSchism(religion);
             TryEarlyReformation(religion);
         }
+        TryNativeTurns();
     }
+
+    #region 异文明立教
+
+    private static void TryNativeTurns()
+    {
+        foreach (Empire empire in ModClass.EMPIRE_MANAGER?.ToList() ?? new List<Empire>())
+        {
+            Kingdom core = empire?.CoreKingdom;
+            if (empire?.data == null || empire.isRekt() || empire.IsArchived() || !Alive(core) || !core.hasReligion() ||
+                core.capital == null || empire.Emperor?.data == null || !empire.Emperor.isAlive() ||
+                Compatibility.AncientWarfareCompatibility.Owns(core) || empire.countCities() < SchismMinCities) continue;
+            Religion current = core.religion;
+            string sphere = ReligionSphere.SphereOfCulture(CultureService.GetRealmCulture(core));
+            if (sphere.Length == 0 || ReligionSphere.SphereOf(current) == sphere) continue;
+            // 握着本教圣地的不改
+            City holy = current.GetCity();
+            if (holy?.kingdom != null && Realm(holy.kingdom) == core) continue;
+            double converted = core.GetOrCreate().religion_converted_at;
+            if (converted >= 0d && World.world.getCurWorldTime() >= converted && Date.getYearsSince(converted) < TurnCooldownYears) continue;
+            if (UnityEngine.Random.value >= NativeTurnChance) continue;
+            Religion native = ReligionSphere.OrthodoxOf(sphere);
+            if (native != null && native != current && UnityEngine.Random.value < NativeRevertShare)
+            {
+                ReligionConversionSystem.Convert(core, native, current, "native_revert_log");
+                continue;
+            }
+            NationalChurch(empire, current, sphere);
+        }
+    }
+
+    // 从外来宗教分出本国教会：圣地在帝都，天下记本文明，帝国各国各城当场改奉
+    private static void NationalChurch(Empire empire, Religion old, string sphere)
+    {
+        Kingdom core = empire.CoreKingdom;
+        Actor head = empire.Emperor;
+        City capital = core.capital;
+        if (head.city != capital) head.joinCity(capital);
+        Religion church = World.world.religions.newReligion(head, false);
+        if (church?.data == null) return;
+        string culture = CultureService.GetRealmCulture(core);
+        string people = CultureService.IsValidCulture(culture) ? culture.GetCultureTranslate() : core.GetKingdomName();
+        FaithType faith = ReligionFaith.Of(old);
+        church.data.name = faith == FaithType.Church
+            ? string.Format(LM.Get("national_church_name_church"), people)
+            : string.Format(LM.Get("national_branch_name"), people, old.name);
+        church.SetCity(capital);
+        double now = World.world.getCurWorldTime();
+        var data = church.GetOrCreate();
+        data.ParentReligionId = old.data.id;
+        data.SplitAt = now;
+        data.Caesaropapist = faith == FaithType.Church;
+        data.Faith = faith.ToString();
+        data.Sphere = sphere;
+        foreach (Kingdom kingdom in empire.kingdoms_list.ToList())
+            if (Alive(kingdom) && kingdom.religion == old) ConvertKingdom(kingdom, old, church);
+        if (core.religion != church) ConvertKingdom(core, core.religion, church);
+        empire.Religion = church;
+        core.GetOrCreate().religion_converted_at = now;
+        if (PapacySystem.Papacy(old) != null) PapacySystem.AddAuthority(old, -5f);
+        string text = string.Format(LM.Get("national_church_log"), empire.GetEmpireFullName(), old.name, capital.GetCityName(),
+            church.name);
+        EventRecorder.Record(empire, text, head);
+        ReligionChronicle.Clear(church);
+        ReligionChronicle.Record(old, church, ReligionChronicle.KindSchism, text);
+        LogService.LogInfo($"[EmpireCraft][宗教] {empire.GetEmpireName()}(天下 {sphere})不奉外来的{old.name}，另立{church.name}");
+    }
+
+    #endregion
 
     #region 东西教会大分裂
 

@@ -61,8 +61,11 @@ public static class RoadOverlay
         float shown = PureMapPatch.CitiesShown ? 1f : 0f;
         // 城市图层不分级
         bool tiered = !EmpireCraft.Scripts.Layer.CityViewMap.Active;
-        Show(_major, source, shown, 3);
-        Show(_minor, source, shown * (tiered ? MapZoomTier.Past(MapZoomTier.Near) : 1f), 3);
+        // 路在城市之下(用户 2026-10-27 "路应该在城市下面")：平常在城市平面图层(色块之下，见 CityPlanOverlay)之下；
+        // 拉远到原版小地图模式时色块不透明，路放到色块之上、城市平面图之下
+        int order = MapBox.isRenderMiniMap() ? 1 : -2;
+        Show(_major, source, shown, order);
+        Show(_minor, source, shown * (tiered ? MapZoomTier.Past(MapZoomTier.Near) : 1f), order);
         float now = Time.unscaledTime;
         // 换了地图图层：底色全变，半秒后(色块重画完)重画路
         MetaTypeAsset layer = World.world.getCachedMapMetaAsset();
@@ -89,7 +92,6 @@ public static class RoadOverlay
         sheet.Renderer.enabled = source.enabled && alpha > 0.01f;
         sheet.Renderer.color = new Color(1f, 1f, 1f, alpha);
         sheet.Renderer.sortingLayerID = source.sortingLayerID;
-        // 地形底(+1)、城市精细层(+2，见 CityDetailOverlay)之上
         sheet.Renderer.sortingOrder = source.sortingOrder + order;
     }
 

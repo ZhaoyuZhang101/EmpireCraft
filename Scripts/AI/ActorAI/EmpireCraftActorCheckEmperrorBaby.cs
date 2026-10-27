@@ -27,7 +27,9 @@ public class EmpireCraftActorCheckEmperorBaby: GameAIActorBase
         var lover = pActor.lover;
         // 原版几岁就算成年：君主与配偶都到生养的年纪才强制生育(见 RealisticAgeSystem.MinParentAge)
         if (!EmpireCraft.Scripts.GeneralSystems.RealisticAgeSystem.OldEnoughToParent(pActor) ||
-            !EmpireCraft.Scripts.GeneralSystems.RealisticAgeSystem.OldEnoughToParent(lover)) return BehResult.Continue;
+            !EmpireCraft.Scripts.GeneralSystems.RealisticAgeSystem.OldEnoughToParent(lover) ||
+            !EmpireCraft.Scripts.GeneralSystems.RealisticAgeSystem.YoungEnoughToParent(pActor) ||
+            !EmpireCraft.Scripts.GeneralSystems.RealisticAgeSystem.YoungEnoughToParent(lover)) return BehResult.Continue;
         var lsc = lover.GetPersonalIdentity();
         if (lsc == null) return BehResult.Continue;
         lsc.is_main = false;

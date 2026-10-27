@@ -210,20 +210,7 @@
           "select_from_local": false,
           "leader_select_method": "Default",
           "require_traits": [],
-          "condition": ["controlled_titles:>=|1", "empire_center:false"],
-          "city_type": "Feudalism_city"
-        },
-        "Feudalism_county": {
-          "pre": "",
-          "type": 7,
-          "description": "",
-          "powers": [],
-          "merit": -1,
-          "honorary": -1,
-          "select_from_local": false,
-          "leader_select_method": "Default",
-          "require_traits": [],
-          "condition": ["controlled_titles:>=|1", "empire_center:false"],
+          "condition": ["controlled_titles:>=|1", "cities_count:>=|3", "empire_center:false"],
           "city_type": "Feudalism_city"
         },
         "Feudalism_march": {
@@ -237,6 +224,19 @@
           "leader_select_method": "Default",
           "require_traits": [],
           "condition": ["is_border:true", "empire_center:false"],
+          "city_type": "Feudalism_city"
+        },
+        "Feudalism_county": {
+          "pre": "",
+          "type": 7,
+          "description": "",
+          "powers": [],
+          "merit": -1,
+          "honorary": -1,
+          "select_from_local": false,
+          "leader_select_method": "Default",
+          "require_traits": [],
+          "condition": ["empire_center:false"],
           "city_type": "Feudalism_city"
         },
         "Feudalism_empire": {

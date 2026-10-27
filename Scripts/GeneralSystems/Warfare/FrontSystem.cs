@@ -978,10 +978,12 @@ public static partial class FrontSystem
         // 补给不足打折(见 LogisticsSystem)
         // 骑士团的军是精锐(见 PapacySystem.Orders)
         // 开国雄主的军队锐不可当(见 RulerTraitSystem.FounderCombat)
+        // 本土帝国在本族的城上抵御异族入侵，战斗欲望更强(见 NativeDefenseSystem)
         float attack = attackers.Sum(entry => Effective(entry.corps) * Firepower(entry.kingdom, entry.corps) *
                                               WarCommandSystem.Factor(entry.kingdom) * LogisticsSystem.AttackFactor(entry.corps) *
                                               PapacySystem.OrderFactor(entry.corps) * RulerTraitSystem.FounderCombat(entry.kingdom) *
-                                              ShuiTuSystem.CombatFactor(entry.kingdom, dryGround)) *
+                                              ShuiTuSystem.CombatFactor(entry.kingdom, dryGround) *
+                                              NativeDefenseSystem.CombatFactor(entry.kingdom, owner, city)) *
                        (landing ? LandingAttack : 1f) * ground.Attack;
         // 叛乱初起还在集结的守方仓促应战(见 MusterSystem)
         // 红夷大炮破城：攻方有重炮营，城池守势减弱、堑壕只剩一半、团练抵抗剩七成
@@ -995,10 +997,13 @@ public static partial class FrontSystem
                                             WarCommandSystem.Factor(entry.kingdom) * LogisticsSystem.AttackFactor(entry.corps) *
                                             PapacySystem.OrderFactor(entry.corps) * RulerTraitSystem.FounderCombat(entry.kingdom) *
                                             ShuiTuSystem.CombatFactor(entry.kingdom, dryGround) *
+                                            NativeDefenseSystem.CombatFactor(entry.kingdom, attacker, city) *
                                             (breach ? BreachedDefenderBonus + entry.corps.entrench * BreachedEntrench
                                                 : DefenderBonus + entry.corps.entrench) *
                                             MusterSystem.DefenseFactor(entry.kingdom, attacker)) * remnant;
-        float militia = holders.Count == 0 ? Militia(city, attacker) * (breach ? BreachedMilitia : 1f) : 0f;
+        float militia = holders.Count == 0
+            ? Militia(city, attacker) * (breach ? BreachedMilitia : 1f) * NativeDefenseSystem.CombatFactor(owner, attacker, city)
+            : 0f;
         defend += militia;
         // 关城守御：攻方军团够得着的地(同 Advance 挑的)里有关城那一片的，守方按等级加成；红夷大炮破城时只剩一半
         // (见 RuralSettlementSystem.FortFactor)

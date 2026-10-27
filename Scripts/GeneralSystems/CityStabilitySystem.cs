@@ -132,6 +132,8 @@ public static class CityStabilitySystem
         }
     }
 
+    private const int CatchUpMonths = 24;
+
     private static bool Due(CityStabilityData state) => state != null &&
         (state.last_update < 0d || Date.getMonthsSince(state.last_update) >= 1);
 
@@ -446,6 +448,13 @@ public static class CityStabilitySystem
             }
             state.military_fiscal_units_version = 1;
         }
+        // 隔了几个月才轮到这座城(全图一帧至多一城，还要等帧预算；帧率低时一轮要好几年)：稳定度、治理质量、恐惧按经过的
+        // 月数补，至多 CatchUpMonths(用户 2026-10-27 截图西大和朝正统 0、苛政 100，赵朝正统 29，都没人造反：存档里近半的城
+        // 四年多没结算过，26 年里稳定度只动了 8 点，自然稳定度只有个位数的城实际还停在四五十，起事门槛 40 永远够不着)。
+        // 军饷、治理费照旧按一个月开票(补收会一下子掏空国库)
+        double previous = state.last_update;
+        int months = previous < 0d || World.world.getCurWorldTime() < previous ? 1
+            : Mathf.Clamp(Date.getMonthsSince(previous), 1, CatchUpMonths);
         state.last_update = World.world.getCurWorldTime();
         string pressure = Pressure(input);
         state.natural_stability = LocalPressures(city, budget.Natural, ref pressure);
@@ -457,7 +466,7 @@ public static class CityStabilitySystem
         state.governance_paid = Pay(city, state.governance_due, TreasuryCategory.Governance, true);
         float governanceFunding = governance > 0f ? Funding(state.governance_due, state.governance_paid, municipalBudget) : 0f;
         state.governance_quality = CityStabilityRules.Clamp(state.governance_quality +
-            (governanceFunding >= 0.99f ? 2f * governance : -2f));
+            (governanceFunding >= 0.99f ? 2f * governance : -2f) * months);
         state.garrison_required = budget.Guards;
         CorpsSystem.SyncVirtualGarrison(city, state);
         Counts(city, out int assigned, out _, refresh: true);
@@ -508,14 +517,14 @@ public static class CityStabilitySystem
         state.suppression = CityStabilityRules.Suppression(present, state.garrison_required, guardFunding);
         bool unsupported = state.garrison_required > 0 && (!guardBudget || guardFunding < 0.99f) ||
             governance > 0f && governanceFunding < 0.99f || state.military_paid < state.military_due;
-        state.unfunded_months = unsupported ? Math.Min(1200, state.unfunded_months + 1) : 0;
+        state.unfunded_months = unsupported ? Math.Min(1200, state.unfunded_months + months) : 0;
         float before = state.stability;
-        state.stability = CityStabilityRules.Advance(before, state.natural_stability, state.governance_quality);
+        state.stability = CityStabilityRules.Advance(before, state.natural_stability, state.governance_quality, months);
         state.last_change = state.stability - before;
         var extra = city.GetOrCreate();
         if (MassacreSystem.LoyaltyPenalty(city) < 0 && extra.massacre_last > state.last_massacre)
         { state.last_massacre = extra.massacre_last; state.fear = 15f; }
-        else state.fear = Mathf.Max(0f, state.fear - 0.5f);
+        else state.fear = Mathf.Max(0f, state.fear - 0.5f * months);
         RemitSurplus(city, state);
         ReviewWithdrawal(city, state, plannedMonthly + governanceAnnual / 12d);
     }

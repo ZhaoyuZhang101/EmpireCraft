@@ -1525,13 +1525,13 @@ public static class EmpireCraftNamePlateLibrary
         // 篆书国号不带后缀
         if (UseSealName(empire.CoreKingdom) && empire.CoreKingdom?.HasCustomCountryNaming() != true)
             return OverallHelperFunc.JoinNameParts(OverallHelperFunc.LocalizeDirectPrefix(empire.data),
-                empire.GetEmpireName());
+                empire.GetEmpireName()) + OverallHelperFunc.SurnameSuffix(empire.data);
         if (empire.CoreKingdom?.GetRegime()?.type == RegimeType.Modern) return empireName;
         if (!ModClass.SIMPLE_NAMEPLATE_SWITCH) return empireName;
         if (empire.CoreKingdom?.HasCustomCountryNaming() == true) return empire.GetEmpireName();
         if (empire.ShowsWesternOrdinal()) return empireName;
         return OverallHelperFunc.JoinNameParts(OverallHelperFunc.LocalizeDirectPrefix(empire.data),
-            empire.GetEmpireName());
+            empire.GetEmpireName()) + OverallHelperFunc.SurnameSuffix(empire.data);
     }
 
     private static string GetSafeKingdomName(Kingdom kingdom)

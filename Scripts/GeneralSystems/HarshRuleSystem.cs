@@ -288,7 +288,9 @@ public static class HarshRuleSystem
             DynasticCycleSystem.SaturatedYears(empire), PopularGrievance.Index(empire?.CoreKingdom)) : 1;
         List<City> cities = (realms ?? Enumerable.Empty<Kingdom>())
             .Where(kingdom => RebellionSystem.CanAttempt(kingdom) && (crisis || !kingdom.getWars().Any()))
-            .SelectMany(kingdom => kingdom.cities.Where(c => c != null && !c.isRekt() && c != kingdom.capital))
+            // 都城不起事；危局里成员国(一城的郡、小国)的都城照样起事，只护着中央的京城
+            .SelectMany(kingdom => kingdom.cities.Where(c => c != null && !c.isRekt() &&
+                                                             (c != kingdom.capital || crisis && kingdom != empire?.CoreKingdom)))
             .Where(c => c.getLoyalty() < (crisis ? 20 : 10) && CanRiseAgain(c) && CityStabilitySystem.CanRise(c))
             .OrderBy(c => c.getLoyalty()).Take(waves).ToList();
         int risen = 0;

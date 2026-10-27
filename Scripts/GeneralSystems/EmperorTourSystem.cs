@@ -110,7 +110,7 @@ public static class EmperorTourSystem
     private static void TryDepart(Empire empire, Actor emperor, TileZone home)
     {
         var data = empire.data;
-        if (!emperor.isAdult() || data.tour_last >= 0d && Date.getYearsSince(data.tour_last) < CooldownYears) return;
+        if (RealisticAgeSystem.IsMinor(emperor) || data.tour_last >= 0d && Date.getYearsSince(data.tour_last) < CooldownYears) return;
         Kingdom core = empire.CoreKingdom;
         if (core?.data == null) return;
         float mood = RulerQualitySystem.Of(emperor) switch

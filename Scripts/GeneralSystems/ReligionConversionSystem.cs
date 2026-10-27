@@ -150,8 +150,8 @@ public static class ReligionConversionSystem
         weights[religion] = current + weight;
     }
 
-    // 君主率国皈依
-    private static void Convert(Kingdom realm, Religion faith, Religion old, string textKey = "ruler_conversion_log")
+    // 君主率国皈依(异文明帝国复归本土大教也走这里，见 ReligionSchismSystem.TryNativeTurns)
+    internal static void Convert(Kingdom realm, Religion faith, Religion old, string textKey = "ruler_conversion_log")
     {
         Actor king = realm.king;
         king.setReligion(faith);

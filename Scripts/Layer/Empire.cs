@@ -447,7 +447,8 @@ public class Empire : MetaObject<EmpireData>
                 typeName = GetOrdinalText(data.western_ordinal) + typeName;
                 if (!OverallHelperFunc.IsHolyPrefix(data)) localizedPrefix = "";
             }
-            return OverallHelperFunc.FormatEmpireFullName(coreName, typeName, localizedPrefix, GetNamingCulture());
+            return OverallHelperFunc.FormatEmpireFullName(coreName, typeName, localizedPrefix, GetNamingCulture()) +
+                   OverallHelperFunc.SurnameSuffix(data);
         }
         catch
         {
@@ -1418,7 +1419,8 @@ public class Empire : MetaObject<EmpireData>
             }
         }
         data.core_name = name;
-        data.name = OverallHelperFunc.FormatEmpireFullName(name, typeName, localizedPrefix, GetNamingCulture());
+        data.name = OverallHelperFunc.FormatEmpireFullName(name, typeName, localizedPrefix, GetNamingCulture()) +
+                    OverallHelperFunc.SurnameSuffix(data);
         if (core.data != null) core.SetKingdomCoreName(name, data.name);
         if (data.currentHistory != null && data.currentHistory.id == Emperor?.id)
             data.currentHistory.empire_full_name = GetEmpireFullName();
@@ -3437,7 +3439,7 @@ public class Empire : MetaObject<EmpireData>
     {
         return IsEmpressDowager(actor) ||
                (data.powerful_minister_is_consort_kin && IsCurrentPowerfulMinister(actor) && ConsortKinSystem.Backed(this)) ||
-               (data.powerful_minister_is_regent && Emperor?.isAdult() == false &&
+               (data.powerful_minister_is_regent && RealisticAgeSystem.IsMinor(Emperor) &&
                 IsCurrentPowerfulMinister(actor)) || HasCentralMinisterSupport(actor, currentRegime);
     }
 
@@ -3447,14 +3449,14 @@ public class Empire : MetaObject<EmpireData>
         // 外戚专权不必身居中枢
         if (data.powerful_minister_is_consort_kin && IsCurrentPowerfulMinister(actor) && IsValidRegencyCandidate(actor) &&
             ConsortKinSystem.Backed(this)) return true;
-        return data.powerful_minister_is_regent && Emperor?.isAdult() == false &&
+        return data.powerful_minister_is_regent && RealisticAgeSystem.IsMinor(Emperor) &&
                IsCurrentPowerfulMinister(actor) && IsValidRegencyCandidate(actor);
     }
 
     private bool HasStrongEmperor()
     {
         Actor emperor = Emperor;
-        return emperor != null && !emperor.isRekt() && emperor.isAdult() && Mandate >= 80 &&
+        return emperor != null && !emperor.isRekt() && !RealisticAgeSystem.IsMinor(emperor) && Mandate >= 80 &&
             emperor.stewardship >= 10 && !HasVulnerableNewEmperor();
     }
 
@@ -3478,7 +3480,7 @@ public class Empire : MetaObject<EmpireData>
         isRegent = false;
         if (!IsCentralMinister(actor) || currentRegime?.type != RegimeType.LvLing) return false;
         Actor cabinetLeader = GetCabinetLeader();
-        isRegent = Emperor != null && !Emperor.isRekt() && !Emperor.isAdult() &&
+        isRegent = Emperor != null && !Emperor.isRekt() && RealisticAgeSystem.IsMinor(Emperor) &&
             cabinetLeader?.id == actor.id;
         if (isRegent) return true;
         bool isFactionLeader = actor.GetFaction()?.GetLeader()?.id == actor.id;
@@ -3505,7 +3507,7 @@ public class Empire : MetaObject<EmpireData>
             Actor lockedCurrent = World.world.units.get(data.powerful_minister_id);
             if (lockedCurrent != null && !lockedCurrent.isRekt())
             {
-                isRegent = Emperor != null && !Emperor.isRekt() && !Emperor.isAdult();
+                isRegent = Emperor != null && !Emperor.isRekt() && RealisticAgeSystem.IsMinor(Emperor);
                 isEmpressDowager = data.powerful_minister_is_empress_dowager;
                 isFormerEmpress = data.powerful_minister_is_former_empress ||
                     (isEmpressDowager && GetPreviousEmperorWife()?.id == lockedCurrent.id);
@@ -3514,7 +3516,7 @@ public class Empire : MetaObject<EmpireData>
         }
 
         Actor cabinetLeader = GetCabinetLeader();
-        bool minorEmperor = Emperor != null && !Emperor.isRekt() && !Emperor.isAdult();
+        bool minorEmperor = Emperor != null && !Emperor.isRekt() && RealisticAgeSystem.IsMinor(Emperor);
         var centralCandidates = data.centerOffice == null ? new List<Actor>() :
             data.centerOffice.CoreOffices.Concat(data.centerOffice.Divisions).Concat(data.centerOffice.Harems)
             .Distinct()
@@ -3632,7 +3634,7 @@ public class Empire : MetaObject<EmpireData>
             return;
         }
 
-        isRegent = !emperor.isAdult();
+        isRegent = RealisticAgeSystem.IsMinor(emperor);
         if (data.powerful_minister_is_regent && !isRegent)
         {
             data.powerful_minister_regency_end_timestamp = World.world.getCurWorldTime();
@@ -3748,7 +3750,7 @@ public class Empire : MetaObject<EmpireData>
             currentRegime?.type != RegimeType.LvLing || Emperor == null || Emperor.isRekt() ||
             data.powerful_minister_emperor_id != Emperor.id ||
             data.powerful_minister_stage_timestamp < 0) return false;
-        bool regencyEnding = IsRegencyEnding() || (data.powerful_minister_is_regent && Emperor.isAdult());
+        bool regencyEnding = IsRegencyEnding() || (data.powerful_minister_is_regent && !RealisticAgeSystem.IsMinor(Emperor));
         return PowerfulMinisterRules.CanAdvance(data.is_been_controlled, data.powerful_minister_progress,
             HasPowerfulMinisterSupport(actor, currentRegime), HasStrongEmperor(), regencyEnding,
             HasUsurpingDisposition(actor), Date.getMonthsSince(data.powerful_minister_stage_timestamp),

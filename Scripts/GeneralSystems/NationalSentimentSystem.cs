@@ -16,7 +16,10 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     · 受异族统治(城市主流文化 ≠ 统治者的文化)：+6；宪法"民族主义立国"的同化压力再 +3，"多民族共存"则 -3；
 //     · 遭外族入侵(本国正被异族国家进攻)：+8；城里有异族军队占领：再 +4；宪法"民族主义立国"时入侵激起的情绪翻倍；
 //     · 以上都没有：回落 5(退潮)。
-// 二、独立运动：帝国成员国的都城民族情绪 ≥ 70、文化又不同于统治者时，每年有概率宣布独立并与中央开战。
+// 二、独立运动：帝国成员国的都城民族情绪 ≥ 70、文化又不同于统治者时，每年有概率宣布独立并与中央开战；
+//     每个帝国每年至多一家(都城情绪最高的先判)。随帝国参战不妨碍(宣布独立时先退出与中央同一边的仗)，
+//     自己是一场仗的主攻、主守的不判(用户 2026-10-27 截图"民族情绪这么高还不发生点什么"：以前成员一打仗就不判，
+//     帝国的成员几乎总被拉进帝国的仗里，异族统治的成员情绪满格多年也从不独立)。
 // 三、民族统一战线：同一帝国核心里有多个理念的政府(见 WarlordEraSystem)，遇外族入侵且民族情绪高涨时，
 //     各政府停止内战、共同抗敌(加入同一阵营)，期间互不宣战；外敌消失满 FrontCooldownYears 年，统一战线破裂，内战重启。
 // 四、民族主义色彩(政党)：国家民族情绪越高、理念越偏民族主义越浓；色彩浓的政党在民族情绪高时多拿票(PartySystem)。
@@ -192,10 +195,11 @@ public static class NationalSentimentSystem
             if (empire?.CoreKingdom == null || empire.isRekt() || empire.IsArchived()) continue;
             string rulerCulture = CompositeEmpireService.GetRulingCulture(empire);
             Kingdom core = empire.CoreKingdom;
-            foreach (Kingdom member in empire.kingdoms_list.ToList())
+            foreach (Kingdom member in empire.kingdoms_list.Where(member => member?.capital != null)
+                         .OrderByDescending(member => GetCity(member.capital)).ToList())
             {
                 if (member == null || member.isRekt() || member == core || !member.hasKing() || member.capital == null ||
-                    member.IsFactionRebelling() || member.IsLocalRebelling() || member.getWars().Any()) continue;
+                    member.IsFactionRebelling() || member.IsLocalRebelling() || FightsOwnWar(member)) continue;
                 if (!RebellionSystem.CanAttempt(member) || !CityStabilitySystem.CanRise(member.capital)) continue;
                 float sentiment = GetCity(member.capital);
                 if (sentiment < IndependenceThreshold) continue;
@@ -208,6 +212,11 @@ public static class NationalSentimentSystem
                 RebellionCauseData cause = RebellionSystem.Capture(member, member.capital,
                     "rebellion_reason_national", string.Format(LM.Get("rebellion_national_detail"),
                         memberCulture.GetCultureTranslate(), sentiment));
+                // 先退出随中央打的仗(与中央同一边的)
+                foreach (War joined in member.getWars().ToList())
+                    if (joined != null && !joined.hasEnded() &&
+                        (joined.isAttacker(member) && joined.isAttacker(core) || joined.isDefender(member) && joined.isDefender(core)))
+                        joined.leaveWar(member);
                 War war = DiplomacyHelpers.wars.newWar(member, core, WarTypeLibrary.normal);
                 if (war == null) continue;
                 empire.leave(member, true, true);
@@ -216,9 +225,15 @@ public static class NationalSentimentSystem
                 EventRecorder.Record(empire, actor: member.king, logKingdom: member, text: string.Format(
                     LM.Get("nation_independence_history"), member.GetKingdomFullName(),
                     memberCulture.GetCultureTranslate(), empire.GetEmpireFullName()));
+                // 每个帝国每年至多一家
+                break;
             }
         }
     }
+
+    // 自己是一场仗的主攻或主守(自家的仗打完再说)；随中央参战的不算
+    private static bool FightsOwnWar(Kingdom member) =>
+        member.getWars().Any(war => war != null && !war.hasEnded() && (war.isMainAttacker(member) || war.isMainDefender(member)));
 
     #endregion
 

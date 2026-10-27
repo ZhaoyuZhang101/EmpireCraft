@@ -4,6 +4,7 @@ using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.HelperFunc;
+using EmpireCraft.Scripts.Layer;
 using NeoModLoader.General;
 using UnityEngine;
 
@@ -109,10 +110,15 @@ public static class WarCommandSystem
     {
         if (kingdom?.data == null || kingdom.isRekt() || kingdom.units == null) return;
         Actor pick = Best(kingdom, actor => actor.warfare, -1L);
-        // 君主兵略最好(或无人可用)时御驾亲征
+        // 君主兵略最好(或无人可用)时御驾亲征；幼主、被挟制的不亲征，帝国的辅政权臣兵略够就由他挂帅
         Actor king = kingdom.king;
-        if (king?.data != null && !king.isRekt() && king.isAlive() &&
+        Empire empire = kingdom.GetEmpire();
+        bool sidelined = RealisticAgeSystem.IsMinor(king) || empire?.CoreKingdom == kingdom && empire.data.is_been_controlled;
+        if (king?.data != null && !king.isRekt() && king.isAlive() && !sidelined &&
             (pick == null || king.warfare >= pick.warfare)) pick = king;
+        Actor regent = sidelined && empire?.CoreKingdom == kingdom ? empire.GetPowerfulMinister() : null;
+        if (regent?.data != null && !regent.isRekt() && regent.isAlive() && regent.kingdom == kingdom && !RealisticAgeSystem.IsMinor(regent) &&
+            (pick == null || regent.warfare >= pick.warfare)) pick = regent;
         if (pick == null) return;
         var data = kingdom.GetOrCreate();
         data.war_commander_id = pick.id;
