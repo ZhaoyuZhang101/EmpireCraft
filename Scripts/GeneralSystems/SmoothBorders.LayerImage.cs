@@ -48,7 +48,10 @@ public static partial class SmoothBorders
     // 一块地被要求重画(TileZone.resetRenderHelpers 的后缀，见 ZonePaintBudget)
     internal static void Stamp(TileZone zone)
     {
-        if (QuietResets > 0 || LayerImages.Count == 0 || zone == null) return;
+        if (QuietResets > 0 || zone == null) return;
+        // 整图画布：记成要重画的块(下一帧画)
+        CanvasMark(zone);
+        if (LayerImages.Count == 0) return;
         int id = zone.id;
         if (id < 0) return;
         if (id >= _resetStamp.Length)
@@ -86,7 +89,7 @@ public static partial class SmoothBorders
         Color32[] pixels = calc?.pixels;
         List<TileZone> zones = calc?.zones;
         if (!Enabled || layer == null || !Smoothable(layer) || pixels == null || zones == null || pixels.Length != _base.Length ||
-            _layerFlip != null && _layerFlip.Computing) return;
+            _layerFlip != null && _layerFlip.Computing || CanvasHandles(layer, _sweepOption)) return;
         // 正翻到一半的块按眼下那一面写回不压暗的样子(这些块拷回时照样重画)
         SettleFaces();
         LayerImage image = FindImage(layer, _sweepOption);

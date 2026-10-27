@@ -47,6 +47,7 @@ public static partial class SmoothBorders
         ResetTransitions();
         _layerFlip = null;
         DropLayerImages();
+        CanvasReset();
         ZoneFlipOverlay.Hide();
         // 画法变了而重画指纹不变(纯净地图开着时)：各块都要重画
         EmpireCraft.Scripts.GamePatches.ZonePaintBudget.RepaintEverything();
@@ -376,7 +377,9 @@ public static partial class SmoothBorders
             World.world?.getCachedMapMetaAsset() != null && World.world.zone_calculator?._mode_asset != null)
         {
             _entryPending = false;
-            RepaintAll("进图");
+            // 整图画布接手的图层自己整张画(见 CanvasDraw)
+            MetaTypeAsset entry = World.world.getCachedMapMetaAsset();
+            if (!CanvasHandles(entry, entry.getZoneOptionState())) RepaintAll("进图");
         }
         TrackHover();
         SweepTick();
@@ -543,6 +546,8 @@ public static partial class SmoothBorders
     {
         Snapshots.Clear();
         _ownerEpoch++;
+        // 整图画布各块、各城记的归属编号随之作废：下一帧整张重画
+        _canvasReady = false;
         var remap = new int[OwnerTable.Count];
         var kept = new List<IMetaObject> { null };
         OwnerIndex.Clear();
@@ -566,6 +571,7 @@ public static partial class SmoothBorders
     private static void ResetOwners()
     {
         _ownerEpoch++;
+        _canvasReady = false;
         Array.Clear(_owner, 0, _owner.Length);
         OwnerTable.Clear();
         OwnerTable.Add(null);
@@ -880,6 +886,7 @@ public static partial class SmoothBorders
         LastMeta.Clear();
         Snapshots.Clear();
         DropLayerImages();
+        CanvasReset();
         Array.Clear(_hasBase, 0, _hasBase.Length);
         ResetOwners();
         Array.Clear(_outline, 0, _outline.Length);
@@ -949,6 +956,20 @@ public static partial class SmoothBorders
         }
         int option = layer.getZoneOptionState();
         bool changed = _sweepLayer != null && (!ReferenceEquals(layer, _sweepLayer) || option != _sweepOption);
+        // 整图画布接手的图层：原版巡检之前它自己整张画好(见 SmoothBorders.Canvas)，不走全图换色、翻牌
+        if (CanvasHandles(layer, option))
+        {
+            if (changed || _layerFlip != null)
+            {
+                ResetTransitions();
+                ZoneFlipOverlay.Hide();
+            }
+            _sweepLayer = layer;
+            _sweepOption = option;
+            return changed;
+        }
+        // 从画布接手的图层换出来：画布让出，下次回来整张重画
+        if (_canvasLayer != null) CanvasRelease();
         // 换走的图层存下整张图；换到存过的图层整张拷回，不再分帧算色、一国一国地翻(见 SmoothBorders.LayerImage)
         if (changed)
         {
@@ -1188,6 +1209,14 @@ public static partial class SmoothBorders
     // 当场换成新样子——以前直接丢掉渐变，这块地就一直留着旧颜色(它已经画过，原版不会再重画)
     public static void Settle(TileZone zone)
     {
+        // 整图画布：这块地这一轮直接换，不翻牌
+        if (CanvasActive && zone != null)
+        {
+            Transitions.Remove(zone.id);
+            CanvasNoFlip.Add(zone.id);
+            CanvasMark(zone);
+            return;
+        }
         MetaTypeAsset layer = World.world?.getCachedMapMetaAsset();
         // 战线推进只处理国家/帝国的显示；不能撤销城市图层的状态或写回别的图层留下的颜色。
         if (zone == null || layer == null || !ControlLayer(layer) || !ReferenceEquals(layer, _sweepLayer)) return;
@@ -2057,6 +2086,8 @@ public static partial class SmoothBorders
     internal static bool StaleOwner(MetaTypeAsset layer, TileZone zone, Color32[] pixels, out string detail)
     {
         detail = null;
+        // 整图画布不排队：变了的块下一帧就画(不记 LastMeta)
+        if (CanvasActive) return false;
         if (!Enabled || layer == null || zone?.tiles == null || !Smoothable(layer) || Transitions.ContainsKey(zone.id) ||
             PendingSweep.Contains(zone.id)) return false;
         IMetaObject real = RealMetaOf(layer, layer.getZoneOptionState(), zone);

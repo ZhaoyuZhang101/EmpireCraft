@@ -322,6 +322,12 @@ public static partial class FrontSystem
     #region 画(SmoothBorders)
 
     // 这块地正在被逐格推进：推进方、是否收复
+    // 正在逐格推进的块(整图画布每帧对一遍推进方，见 SmoothBorders.Canvas)
+    internal static void CopyPushZones(List<int> into)
+    {
+        foreach (int id in PushByZone.Keys) into.Add(id);
+    }
+
     public static bool SmoothPushOn(TileZone zone, out Kingdom side, out bool retake)
     {
         side = null;

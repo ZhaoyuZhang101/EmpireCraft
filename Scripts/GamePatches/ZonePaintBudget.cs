@@ -125,21 +125,24 @@ public class ZonePaintBudget : GamePatch
 
     // 原版巡检一轮之前：换图层、换主的地块等着画新样子好一起翻时，每帧都巡检
     // (原版画完一轮计时设 0.01 秒、下一帧减掉帧时长就跳过，实际隔一帧才画一轮；一帧里模拟跑几次的也只多补这一次)
-    private static void BeforeRedraw(ZoneCalculator __instance)
+    private static bool BeforeRedraw(ZoneCalculator __instance)
     {
         SmoothBorders.QuietResets++;
         Round++;
         _roundChecks = 0;
         _roundDeferredView = 0;
-        if (!Active) return;
+        // 平滑国界接手的图层由整图画布直接画，不走原版巡检(见 SmoothBorders.Canvas)
+        if (SmoothBorders.CanvasDraw(__instance)) return false;
+        if (!Active) return true;
         // 这一帧已经巡检过一轮(全图换色补跑的，或模拟加速时一帧跑两步)：这一轮跳过，一帧至多一轮
         if (_lastRoundFrame == Time.frameCount)
         {
             __instance._redraw_timer = Mathf.Max(__instance._redraw_timer, RedrawInterval);
-            return;
+            return true;
         }
-        if (__instance._redraw_timer <= 0f) return;
+        if (__instance._redraw_timer <= 0f) return true;
         if (SmoothBorders.WantsEveryRound) __instance._redraw_timer = 0f;
+        return true;
     }
 
     // 原版巡检完一轮：告诉平滑国界这一轮要一起翻的范围里还差几块(算齐了就起翻)
