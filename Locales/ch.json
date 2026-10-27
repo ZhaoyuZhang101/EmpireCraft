@@ -1480,6 +1480,8 @@
   "kov_standing_zhou": "{0}諸侯",
   "kov_standing_tributary": "{0}的朝貢國",
   "kov_standing_vassal": "{0}的附庸",
+  "kov_standing_empire_core": "{0}之主",
+  "kov_standing_empire_member": "{0}治下",
   "kov_regime": "政體",
   "kov_culture": "文化",
   "kov_religion": "宗教",

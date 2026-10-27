@@ -1478,6 +1478,8 @@
   "kov_standing_zhou": "Vassal state of {0}",
   "kov_standing_tributary": "Tributary of {0}",
   "kov_standing_vassal": "Vassal of {0}",
+  "kov_standing_empire_core": "Ruler of {0}",
+  "kov_standing_empire_member": "Under {0}",
   "kov_regime": "Regime",
   "kov_culture": "Culture",
   "kov_religion": "Religion",
