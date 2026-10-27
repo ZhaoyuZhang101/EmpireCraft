@@ -112,7 +112,8 @@ public static class LayerDiagnostics
                          $"没刷新的色块 {_stale} 块" + (_stale > 0 ? $"(其中原版没来重画的 {_staleUnqueued} 块，其余排着等上色)" : "");
         if (summary == _lastSummary) return;
         _lastSummary = summary;
-        var text = new StringBuilder("[EmpireCraft][图层诊断] ").Append(summary);
+        var text = new StringBuilder("[EmpireCraft][图层诊断] ").Append(summary)
+            .Append($"；上次报告以来全图重画请求 {EmpireCraft.Scripts.GamePatches.ZonePaintBudget.TakeFullRequests()} 次");
         Append(text, "水面上色", WaterExamples);
         Append(text, "无主陆地上色", LandExamples);
         Append(text, "多余的边框", OutlineExamples);

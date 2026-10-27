@@ -481,13 +481,38 @@ public class ZonePaintBudget : GamePatch
         return false;
     }
 
-    // 全图重画：只让各地块下一轮重画，不先清成透明
+    // 全图重画请求(原版 dirtyAndClear：帝国变动、换色、分封划分……)的次数，图层诊断报一次清一次
+    private static int _fullRequests;
+
+    internal static int TakeFullRequests()
+    {
+        int count = _fullRequests;
+        _fullRequests = 0;
+        return count;
+    }
+
+    // 全图重画：不先清成透明，只让下一轮立刻巡检。图层的重画指纹看得出实际归属、颜色、所属帝国时(见 SmoothBorders.Fingerprint)，
+    // 真变了的块自己重画，没变的不画；指纹管不到的图层照旧让各块下一轮全部重画。
+    // 以前每次都清掉全图各块的指纹、整张重画(两万多块)：各帝国每月划分、成员进出帝国都请求，上色预算常年被整张重画占满，
+    // 排在巡检后面的地块几百秒轮不到(用户 2026-10-27 "图层永远不是实时刷新"，图层诊断里镜头里的块排着等上色 331 秒)
     private static bool BeforeDirtyAndClear(ZoneCalculator __instance)
     {
         if (!Active) return true;
+        _fullRequests++;
         __instance.setDrawnZonesDirty();
-        foreach (TileZone zone in __instance._current_drawn_zones) zone.resetRenderHelpers();
+        if (!SmoothBorders.FingerprintCovers(__instance._mode_asset ?? World.world?.getCachedMapMetaAsset()))
+            foreach (TileZone zone in __instance._current_drawn_zones) zone.resetRenderHelpers();
         __instance.clearAllRedrawTimers();
         return false;
+    }
+
+    // 真要整张重画(平滑国界开关：画法变了，指纹却没变)
+    public static void RepaintEverything()
+    {
+        ZoneCalculator calc = World.world?.zone_calculator;
+        if (calc == null) return;
+        calc.setDrawnZonesDirty();
+        foreach (TileZone zone in calc._current_drawn_zones) zone.resetRenderHelpers();
+        calc.clearAllRedrawTimers();
     }
 }

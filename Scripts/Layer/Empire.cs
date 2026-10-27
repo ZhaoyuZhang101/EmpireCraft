@@ -4342,10 +4342,10 @@ public class Empire : MetaObject<EmpireData>
     // 划分时城易主的次数，用来判断这趟有没有动过版图
     private int _partitionMoves;
 
-    // 战时前线的地留着，每月都会再来一趟；什么都没动就不重画地图
+    // 每月都会再来一趟：这趟没有城易主就不重画地图(以前太平时不论动没动都整张重画，帝国一多，每月十几次)
     private void RedrawAfterPartition(bool atWar, int movesBefore)
     {
-        if (!atWar || _partitionMoves != movesBefore) World.world.zone_calculator.dirtyAndClear();
+        if (_partitionMoves != movesBefore) World.world.zone_calculator.dirtyAndClear();
     }
 
     // 这趟划分要跳过的城(见 EnfeoffmentHelper.DeferCity)；跳过了就挂起，等下一趟

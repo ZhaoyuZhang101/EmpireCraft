@@ -47,6 +47,8 @@ public static class SmoothBorders
         ResetTransitions();
         _layerFlip = null;
         ZoneFlipOverlay.Hide();
+        // 画法变了而重画指纹不变(纯净地图开着时)：各块都要重画
+        EmpireCraft.Scripts.GamePatches.ZonePaintBudget.RepaintEverything();
         World.world?.zone_calculator?.dirtyAndClear();
     }
 
@@ -107,6 +109,9 @@ public static class SmoothBorders
     // 平滑国界接手的图层：城市、联盟，以及原版按地块取归属的图层
     private static bool Smoothable(MetaTypeAsset layer) =>
         layer != null && (layer.map_mode == MetaType.City || layer.map_mode == MetaType.Alliance || layer.tile_get_metaobject != null);
+
+    // 这一层的重画指纹折进了实际归属、颜色、所属帝国(见 Fingerprint)：全图重画请求只需让下一轮巡检(见 ZonePaintBudget.BeforeDirtyAndClear)
+    internal static bool FingerprintCovers(MetaTypeAsset layer) => Smoothable(layer);
 
     private static bool ControlLayer(MetaTypeAsset layer) =>
         layer.map_mode == MetaType.Kingdom || layer.map_mode == MetaTypeExtension.Empire;
