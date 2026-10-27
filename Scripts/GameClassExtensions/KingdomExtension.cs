@@ -1524,8 +1524,8 @@ public static class KingdomExtension
         if (k.HasRebelledAgainst(empire) || !RealmDiplomacySystem.CanChooseOverlord(k)) return;
         // 神力放出的国保护期内原帝国收不得朝贡(战后称臣、危急除外)；自己离开不到十年的不自愿回来称臣(见 MembershipCooldown)
         if (MembershipCooldown.BlocksTributary(k, empire, pForce)) return;
-        // 没施行朝贡体系类制度的帝国一律不收朝贡国(强制也不行)
-        if (!FeudalConquestService.HasTributeInstitution(empire)) return;
+        // 没施行朝贡体系类制度的帝国一律不收朝贡国(强制也不行)；西方帝国没有朝贡(见 TributaryRelations.IsWestern)
+        if (!FeudalConquestService.HasTributeInstitution(empire) || TributaryRelations.IsWestern(empire)) return;
         // 战国的周诸侯仍奉王室，不做任何帝国的朝贡国(强制也不行)
         if (ZhouEraSystem.IsDetachedVassal(k)) return;
         // 废除君主制后朝贡体系随之废除，改用附庸国(见 TributaryAbolitionService)
@@ -1605,7 +1605,8 @@ public static class KingdomExtension
     {
         if (!k.HasTakenAlliance()) return false;
         Empire empire = k.GetTakenAllianceEmpire();
-        return empire == null||k.IsInEmpire()||!RealmDiplomacySystem.CanChooseOverlord(k);
+        // 西方帝国名下的朝贡国解除(见 TributaryRelations.IsWestern)
+        return empire == null||k.IsInEmpire()||!RealmDiplomacySystem.CanChooseOverlord(k) || TributaryRelations.IsWestern(empire);
     }
 
     // updateColor is used by older releases when a tributary joins. Restore the persistent

@@ -546,7 +546,7 @@ public static class EmpireFormationService
                 }
                 key = "empire_formation_ally_joined";
             }
-            else if (opinion >= 0 && FeudalConquestService.HasTributeInstitution(empire))
+            else if (opinion >= 0 && FeudalConquestService.HasTributeInstitution(empire) && !TributaryRelations.IsWestern(empire))
             {
                 LeaveFoundingAlliance(alliance, member);
                 member.JoinTakenAlliance(empire, pForce: true);

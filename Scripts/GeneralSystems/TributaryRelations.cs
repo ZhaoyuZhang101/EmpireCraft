@@ -1,4 +1,5 @@
 using System.Linq;
+using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GamePatches;
@@ -57,6 +58,19 @@ public static class TributaryRelations
         var extra = tributary.GetOrCreate();
         extra.leave_taken_alliance_preference = UnityEngine.Mathf.Max(0f, extra.leave_taken_alliance_preference - GiftLoyalty);
         empire.AddMandate(1);
+    }
+
+    // 西方没有朝贡(用户 2026-10-27 截图乌拉尔斯克"朝贡于神圣罗马帝国"："西方没有朝贡")：行封建附庸的、统治文化或制度文化
+    // 属罗马一系的帝国一律不收朝贡国(强制也不行，见 KingdomExtension.JoinTakenAlliance)，已有的在例行检查时解除
+    // (见 NeedToRemoveTakenAlliance)。以前只看帝国主文化施行没施行带"迫使朝贡"的制度，维京统治、兼采斯拉夫之制的
+    // 复合帝国按主文化取到了游牧一系的制度，照样收朝贡
+    public static bool IsWestern(Empire empire)
+    {
+        Kingdom core = empire?.CoreKingdom;
+        if (core?.data == null || core.isRekt()) return false;
+        if (FeudalVassalService.UsesFeudalVassals(core)) return true;
+        return CultureService.GetRealmCulture(core).GetInstitutionLine() == "Roma" ||
+               CultureService.GetInstitutionCulture(core).GetInstitutionLine() == "Roma";
     }
 
     // 称臣纳贡和约：胜者所在帝国收得了朝贡就让对方称臣；返回是否成了
