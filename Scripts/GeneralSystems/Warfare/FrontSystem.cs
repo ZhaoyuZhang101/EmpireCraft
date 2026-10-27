@@ -589,7 +589,9 @@ public static partial class FrontSystem
             }
             return;
         }
-        foreach (Sector sector in sectors.Where(sector => sector.Landing)) landingSectors[sector.City.id] = true;
+        // 真要渡海的才按登陆结算(攻方打折、标"登陆")：与都城同一片陆地、陆路走得通的远征也走登陆战线挑城(没接壤的敌国)，
+        // 以前一并算登陆，同一块大陆上的远征也挂"登陆"、吃登陆折扣(用户 2026-10-27 截图莱昂帝国遍地"登陆 100%")
+        foreach (Sector sector in sectors.Where(sector => sector.Landing && !sector.Overland)) landingSectors[sector.City.id] = true;
         var assigned = new HashSet<CorpsData>();
         // ① 守城：本国受攻的城按攻势分兵(就近)
         var threatened = (kingdom.cities ?? new List<City>())

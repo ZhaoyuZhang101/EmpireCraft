@@ -1260,9 +1260,10 @@ namespace EmpireCraft.Scripts.UI.Windows
 
         private void AddDependencyRow(EmpireCraftStatsRow rows, Kingdom kingdom, string value, string name = null)
         {
-            // 正在打仗的国家行首换成战争图标，点图标看战争详情(见 WarBadge)；点行打开国家窗口
+            // 正在打仗的国家行首换成战争图标，点图标看战争详情(见 WarBadge)；点行打开国家窗口。
+            // 名字是现成的国名(陪臣带"└"缩进)，不当翻译键查(以前每行都报 missing text)
             KeyValueField field = rows.IShowStatsRow(name ?? kingdom.GetKingdomName(), value, kingdom.getColor().color_text,
-                pIconPath: WarBadge.IconFor(kingdom, "iconKings"), action: () =>
+                pIconPath: WarBadge.IconFor(kingdom, "iconKings"), pLocalize: false, action: () =>
                 {
                     if (kingdom == null || kingdom.isRekt()) return;
                     SelectedMetas.selected_kingdom = kingdom;
