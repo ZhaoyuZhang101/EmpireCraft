@@ -167,6 +167,8 @@ public class KingdomPatch : GamePatch
             SurnameInheritanceSystem.EnforceClanSurname(pActor.GetPersonalIdentity());
             // 周制、只有贵族称姓的时代：平民起名时无氏，即位后按君主身份补上(读档时也补，修旧档里已在位的)
             PrehistoricClanSystem.RefreshShownSurname(pActor);
+            // 外族出身的新君改从本国之俗(国家文化同化君主，不是君主改国家，见 CultureService.AssimilateRuler)
+            if (!pFromLoad) CultureService.AssimilateRuler(__instance, pActor);
         }
         if (!pFromLoad && !ModClass.IS_CLEAR && __instance.IsEmpire()) LogEmperorChange(__instance, pActor, __state);
         if (!ModClass.IS_CLEAR)
