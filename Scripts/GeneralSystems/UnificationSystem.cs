@@ -712,7 +712,7 @@ public static class UnificationSystem
             {
                 _lastYear = now;
                 // 先把城记的核心按法理对齐，天下才认得全(见 EmpireCoreManager.ReconcileCityCores)
-                EmpireCoreManager.ReconcileCityCores();
+                using (FrameProfiler.Measure("天下大势·法理对齐")) EmpireCoreManager.ReconcileCityCores();
                 Yearly();
             }
             if (_lastMonth < 0d || now < _lastMonth || Date.getMonthsSince(_lastMonth) >= 1)
@@ -729,15 +729,17 @@ public static class UnificationSystem
 
     private static void Yearly()
     {
-        // 称帝、开战卡在哪一关(诊断，只记日志)
-        FormationDiagnostics.Yearly();
+        // 称帝、开战卡在哪一关(诊断，只记日志)；各步分开计时(性能日志里"天下大势"每年那一下峰值一秒多)
+        using (FrameProfiler.Measure("天下大势·称帝诊断")) FormationDiagnostics.Yearly();
         Rivals.Clear();
         double now = World.world.getCurWorldTime();
         // 天下自动并分(按文化配置的天下标识，见 TianxiaSystem.AutoArrange)
-        TianxiaSystem.AutoArrange();
-        List<Realm> realms = Survey();
+        using (FrameProfiler.Measure("天下大势·自动并分")) TianxiaSystem.AutoArrange();
+        List<Realm> realms;
+        using (FrameProfiler.Measure("天下大势·清点")) realms = Survey();
         RememberUncored(realms);
-        Diagnose(realms);
+        using (FrameProfiler.Measure("天下大势·诊断")) Diagnose(realms);
+        using var settle = FrameProfiler.Measure("天下大势·统一结算");
         var tracked = new HashSet<Kingdom>();
         foreach (Realm realm in realms)
         {

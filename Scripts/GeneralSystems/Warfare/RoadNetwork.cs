@@ -26,7 +26,9 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 每条路线算一次就缓存，过期才重算；每秒只花几毫秒补算(刚进图时几秒内铺满)，不会卡顿。
 public static class RoadNetwork
 {
-    private const float TickSeconds = 1f, ScanSeconds = 5f, StaleSeconds = 180f, PortSeconds = 30f;
+    // 没修的路线过 StaleSeconds 才重新找路(已有的路变了，路线可能更顺)；以前三分钟，大图上后台一直在重算，
+    // 一条路两回格子寻路就几十上百毫秒(性能日志"路网·结算"每帧近 6 毫秒)
+    private const float TickSeconds = 1f, ScanSeconds = 5f, StaleSeconds = 1200f, PortSeconds = 30f;
     // 每次 Tick 补算路线最多花几毫秒；寻路最多展开几块
     private const long BudgetMs = 6;
     private const int MaxSearch = 5000;
@@ -183,8 +185,11 @@ public static class RoadNetwork
             RoadBuildingSystem.Tick();
             if (!_dirty) return;
             _dirty = false;
-            CollectRoads();
-            Collect(Lanes, LaneZones, LaneTiles);
+            using (FrameProfiler.Measure("路网·收路格"))
+            {
+                CollectRoads();
+                Collect(Lanes, LaneZones, LaneTiles);
+            }
             Version++;
         }
         catch (Exception exception)
@@ -351,10 +356,12 @@ public static class RoadNetwork
         bool built = RoadBuildingSystem.Get(key) is { } link && (link.grade > 0 || link.building > 0);
         if (Roads.ContainsKey(key) && (built || Fresh(Roads, key, now))) return false;
         if (Spent(budget)) return true;
-        RoadPlan plan = BuildRoad(from, to, now);
+        RoadPlan plan;
+        using (FrameProfiler.Measure("路网·陆路找路")) plan = BuildRoad(from, to, now);
         plan.cities = key;
         Roads[key] = plan;
-        _dirty = true;
+        // 只有修了(在修)的路要重收路格；没修的路线不画，不必重收
+        if (built) _dirty = true;
         return false;
     }
 
@@ -646,7 +653,7 @@ public static class RoadNetwork
             {
                 var key = port.data.id < other.data.id ? (port.data.id, other.data.id) : (other.data.id, port.data.id);
                 if (!wanted.Add(key) || Spent(budget) || Fresh(Lanes, key, now)) continue;
-                Lanes[key] = BuildLane(port, other, now);
+                using (FrameProfiler.Measure("路网·航线找路")) Lanes[key] = BuildLane(port, other, now);
                 _dirty = true;
             }
         }

@@ -71,7 +71,7 @@ public static partial class NomadRaidSystem
         if (first) return;
         try
         {
-            YearTick();
+            using (FrameProfiler.Measure("游牧劫掠·年度")) YearTick();
         }
         catch (Exception exception)
         {
@@ -253,7 +253,7 @@ public static partial class NomadRaidSystem
                                (state.prestige > 0 ? $" 盟主威望{state.prestige}" : ""));
         }
         // 草原常态：争草场等(见 SteppeOrderSystem)
-        SteppeOrderSystem.Yearly(raiders);
+        using (FrameProfiler.Measure("游牧劫掠·草原常态")) SteppeOrderSystem.Yearly(raiders);
         var assigned = new HashSet<Kingdom>();
         foreach (Kingdom leader in raiders.Where(kingdom => IsRealm(kingdom) && State(kingdom).pressure >= SteppeRules.RaidThreshold)
                      .OrderByDescending(PowerOf).ToList())

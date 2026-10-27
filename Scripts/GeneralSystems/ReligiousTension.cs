@@ -129,7 +129,7 @@ public static class ReligiousTension
         // 无小人模式：按背景人口创教、传教(见 BackgroundReligionSystem)
         try
         {
-            BackgroundReligionSystem.YearlyPass();
+            using (FrameProfiler.Measure("宗教·背景人口传教")) BackgroundReligionSystem.YearlyPass();
         }
         catch (Exception exception)
         {

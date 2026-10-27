@@ -161,25 +161,82 @@ public static class RoadBuildingSystem
 
     private static void MonthTick()
     {
+        using var timing = FrameProfiler.Measure("路网·修路月结");
         bool changed = false;
         // 战事毁路
         foreach (var pair in Links)
             if (pair.Value.grade > 0 && (FrontSystem.Battles.ContainsKey(pair.Key.Item1) || FrontSystem.Battles.ContainsKey(pair.Key.Item2)))
                 changed |= Damage(pair.Value, WarDamagePerMonth);
+        // 在修的工程按出资国分好、能修的路线按国家分好、修通的路连成的图，每月各建一次
+        // (以前每国各扫一遍全部工程与全部路线、各建一遍图，二百多国的大图每月上百毫秒，性能日志"路网·结算"峰值四百多毫秒)
+        var projectsBy = new Dictionary<long, List<(long, long)>>();
+        foreach (var pair in Links)
+        {
+            if (pair.Value.building <= 0) continue;
+            if (!projectsBy.TryGetValue(pair.Value.payer, out List<(long, long)> list)) projectsBy[pair.Value.payer] = list = new List<(long, long)>();
+            list.Add(pair.Key);
+        }
+        Dictionary<Kingdom, List<(long, long)>> candidates = Candidates();
+        Dictionary<long, List<long>> graph = Graph();
+        var reachedBy = new Dictionary<long, HashSet<long>>();
         foreach (Kingdom kingdom in World.world.kingdoms.list.ToList())
         {
             if (kingdom?.data == null || kingdom.isRekt() || kingdom.wild || kingdom.cities == null || kingdom.cities.Count == 0) continue;
-            var projects = Links.Where(pair => pair.Value.building > 0 && pair.Value.payer == kingdom.id).ToList();
-            foreach (var project in projects) changed |= Advance(kingdom, project.Key, project.Value);
+            int active = 0;
+            if (projectsBy.TryGetValue(kingdom.id, out List<(long, long)> projects))
+                foreach ((long, long) key in projects)
+                {
+                    RoadLink link = Links[key];
+                    changed |= Advance(kingdom, key, link);
+                    if (link.building > 0) active++;
+                }
             // 统一了的帝国：中央的工程数按全帝国的城数算
             int cities = CenterOf(kingdom) is Layer.Empire center
                 ? center.kingdoms_list.Sum(member => member?.cities?.Count ?? 0) : kingdom.cities.Count;
             // 好大喜功之君多开一项工程(见 CorveeSystem)
             int slots = 1 + cities / CitiesPerProject + CorveeSystem.ExtraRoadProjects(kingdom);
-            if (projects.Count(project => project.Value.building > 0) < slots) changed |= StartProject(kingdom);
+            if (active < slots && candidates.TryGetValue(kingdom, out List<(long, long)> plans))
+                changed |= StartProject(kingdom, plans, graph, reachedBy);
         }
         changed |= RoadPaintSystem.MonthlyWarDamage(WarDamagePerMonth);
         if (changed) RoadNetwork.MarkDirty();
+    }
+
+    // 各国可能修的路线：一头的城归它的(本国、同帝国、通路之约的都在其中)，统一了的帝国的中央另收境内全部路线；是否真能修仍看 Owns
+    private static Dictionary<Kingdom, List<(long, long)>> Candidates()
+    {
+        var result = new Dictionary<Kingdom, List<(long, long)>>();
+        void Add(Kingdom kingdom, (long, long) key)
+        {
+            if (kingdom == null) return;
+            if (!result.TryGetValue(kingdom, out List<(long, long)> list)) result[kingdom] = list = new List<(long, long)>();
+            if (list.Count == 0 || list[list.Count - 1] != key) list.Add(key);
+        }
+        foreach (var pair in RoadNetwork.Plans)
+        {
+            if (pair.Value.zones.Count == 0) continue;
+            Kingdom a = World.world.cities.get(pair.Key.Item1)?.kingdom, b = World.world.cities.get(pair.Key.Item2)?.kingdom;
+            Add(a, pair.Key);
+            Add(b, pair.Key);
+            Kingdom core = a?.GetEmpire()?.CoreKingdom;
+            if (core != null && core != a && core != b && CenterOf(core) != null) Add(core, pair.Key);
+        }
+        return result;
+    }
+
+    // 修通的路(任何等级)连成的图
+    private static Dictionary<long, List<long>> Graph()
+    {
+        var next = new Dictionary<long, List<long>>();
+        foreach (var pair in Links)
+        {
+            if (pair.Value.grade <= 0) continue;
+            if (!next.TryGetValue(pair.Key.Item1, out List<long> a)) next[pair.Key.Item1] = a = new List<long>();
+            if (!next.TryGetValue(pair.Key.Item2, out List<long> b)) next[pair.Key.Item2] = b = new List<long>();
+            a.Add(pair.Key.Item2);
+            b.Add(pair.Key.Item1);
+        }
+        return next;
     }
 
     private static bool Advance(Kingdom kingdom, (long, long) key, RoadLink link)
@@ -212,18 +269,22 @@ public static class RoadBuildingSystem
     }
 
     // 挑一项新工程：先修通都城的、人口多的、好修的；国库至少要够三个月的施工费
-    private static bool StartProject(Kingdom kingdom)
+    private static bool StartProject(Kingdom kingdom, List<(long, long)> keys, Dictionary<long, List<long>> graph,
+        Dictionary<long, HashSet<long>> reachedBy)
     {
         int target = GradeFor(kingdom);
         City capital = kingdom.capital;
-        // 把不连通的连通：已经由修通的路连到都城的城(帝国用帝国核心的都城)
-        HashSet<long> reached = Reached(kingdom.GetEmpire()?.CoreKingdom?.capital ?? capital);
+        // 把不连通的连通：已经由修通的路连到都城的城(帝国用帝国核心的都城)；同一都城这个月只算一遍
+        City from = kingdom.GetEmpire()?.CoreKingdom?.capital ?? capital;
+        long fromId = from?.data?.id ?? -1L;
+        if (!reachedBy.TryGetValue(fromId, out HashSet<long> reached)) reachedBy[fromId] = reached = Reached(from, graph);
         (long, long) best = default;
         float bestScore = float.MinValue;
         int bestGrade = target;
-        foreach (var pair in RoadNetwork.Plans)
+        foreach ((long, long) key in keys)
         {
-            RoadNetwork.RoadPlan plan = pair.Value;
+            if (RoadNetwork.PlanOf(key) is not RoadNetwork.RoadPlan plan) continue;
+            var pair = new KeyValuePair<(long, long), RoadNetwork.RoadPlan>(key, plan);
             // 每条路按两头城市风格能修的最高一级(林地只修土路，见 RoadNetwork.GradeCap)：本国路级高了也照修这一级，不整条跳过
             int grade = Mathf.Min(target, RoadNetwork.GradeCap(pair.Key));
             if (plan.zones.Count == 0 || grade <= 0 || !plan.Buildable(grade) || !Owns(kingdom, pair.Key)) continue;
@@ -284,19 +345,10 @@ public static class RoadBuildingSystem
     }
 
     // 由修通的路(任何等级)连到 from 的城
-    private static HashSet<long> Reached(City from)
+    private static HashSet<long> Reached(City from, Dictionary<long, List<long>> next)
     {
         var reached = new HashSet<long>();
         if (from?.data == null) return reached;
-        var next = new Dictionary<long, List<long>>();
-        foreach (var pair in Links)
-        {
-            if (pair.Value.grade <= 0) continue;
-            if (!next.TryGetValue(pair.Key.Item1, out List<long> a)) next[pair.Key.Item1] = a = new List<long>();
-            if (!next.TryGetValue(pair.Key.Item2, out List<long> b)) next[pair.Key.Item2] = b = new List<long>();
-            a.Add(pair.Key.Item2);
-            b.Add(pair.Key.Item1);
-        }
         var queue = new Queue<long>();
         reached.Add(from.data.id);
         queue.Enqueue(from.data.id);

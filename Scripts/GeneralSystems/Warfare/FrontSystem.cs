@@ -221,8 +221,10 @@ public static partial class FrontSystem
     private static List<Kingdom> _atWar = new();
 
     // 一个月内敌对国一样的国家(同一帝国的成员通常如此)共用一份陆上战线段。以前帝国每个成员都把全部敌城的地块扫一遍，
-    // 几十个成员时月度结算一次卡几百毫秒。跨海登陆点按各国的都城与航线算，不共用
-    private static readonly Dictionary<string, List<Sector>> SectorCache = new();
+    // 几十个成员时月度结算一次卡几百毫秒。跨海登陆点按各国的都城与航线算，不共用：
+    // 陆上那份照旧共用，只有登陆另算(以前只要有一国算出了登陆，同签名的各国连陆上战线段一起每国重算一遍)；
+    // 同签名第一国没算出登陆的，后面的国也不另算登陆(同以前)
+    private static readonly Dictionary<string, (List<Sector> land, bool landing)> SectorCache = new();
 
     private static List<Sector> CachedSectors(Kingdom side)
     {
@@ -231,13 +233,12 @@ public static partial class FrontSystem
         foreach (Kingdom other in _atWar)
             if (Hostile(side, other)) key.Append(other.id).Append(',');
         string signature = key.ToString();
-        if (SectorCache.TryGetValue(signature, out List<Sector> shared))
-        {
-            NavySystem.DesiredLanding.Remove(side.id);
-            return shared;
-        }
-        List<Sector> sectors = Sectors(side);
-        if (!sectors.Any(sector => sector.Landing)) SectorCache[signature] = sectors;
+        NavySystem.DesiredLanding.Remove(side.id);
+        if (SectorCache.TryGetValue(signature, out var shared))
+            return shared.landing ? WithLandings(side, shared.land) : shared.land;
+        List<Sector> land = LandSectors(side);
+        List<Sector> sectors = WithLandings(side, land);
+        SectorCache[signature] = (land, sectors.Count > land.Count);
         return sectors;
     }
 
@@ -319,9 +320,9 @@ public static partial class FrontSystem
         return found;
     }
 
-    private static List<Sector> Sectors(Kingdom side)
+    // 陆上战线段：敌城(连同己方被占去地块要收复的城)里够得着的
+    private static List<Sector> LandSectors(Kingdom side)
     {
-        NavySystem.DesiredLanding.Remove(side.id);
         var sectors = new Dictionary<City, Sector>();
         HashSet<City> home = HomeCities(side);
         void Collect(City city)
@@ -345,8 +346,21 @@ public static partial class FrontSystem
         foreach (Kingdom friend in _atWar.Where(other => Friendly(side, other)))
             foreach (City city in friend.cities ?? new List<City>())
                 if (city?.GetOrCreate().OccupiedStatus?.Count > 0) Collect(city);
+        return sectors.Values.ToList();
+    }
+
+    // 陆上战线段之外，按本国都城另开的登陆战线；没有登陆时原样返回陆上那份
+    private static List<Sector> WithLandings(Kingdom side, List<Sector> land)
+    {
         WorldTile origin = side.capital?.getTile();
-        if (hostiles.Count == 0 || origin == null) return sectors.Values.ToList();
+        var hostiles = _atWar.Where(other => Hostile(side, other)).ToList();
+        if (hostiles.Count == 0 || origin == null) return land;
+        long signature = Realm(side).id;
+        foreach (Kingdom hostile in hostiles) signature = unchecked(signature * 31 + hostile.id);
+        _routeSignature = signature;
+        HashSet<City> home = HomeCities(side);
+        var sectors = new Dictionary<City, Sector>();
+        foreach (Sector sector in land) sectors[sector.City] = sector;
         // 与本方没有陆上接触的敌国(隔海、隔着荒野)：各开一路登陆，就算别处还有陆上战线。
         // 玩家反馈"远洋打仗还是有问题，两个隔海的国家一千五百年没打下来"：以前本方只要还有一条陆上战线(连同帝国别处的仗、
         // 要收复的盟城)就不登陆，而且只试离都城最近的一座城，那座城航线不通就整个放弃
@@ -373,7 +387,7 @@ public static partial class FrontSystem
             sectors[beachhead.City] = beachhead;
             fronts++;
         }
-        return sectors.Values.ToList();
+        return fronts == 0 ? land : sectors.Values.ToList();
     }
 
     // 每月至多另开几路登陆；每个敌国至多试几座跨海的城
