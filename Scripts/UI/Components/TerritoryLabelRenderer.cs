@@ -414,6 +414,35 @@ public static class TerritoryLabelRenderer
             ? RasterSteps[step]
             : TerritoryLabelProjection.ReferenceFontSize;
 
+    // 先估后拼(玩家截图 2026-10-27：读档后 STLiti 还是连报 37 次)：以前要等 Unity 拼字失败(报一次错)才降一档，
+    // 大图上几百张铭牌同时排字，各档都先撞一次满。现在记下每个本机字体用到的字(去重)，按某档字号估这些字拼进 4096 图集
+    // 要占多少(每字按字号的 1.1 倍见方加 2 像素空隙，只用 AtlasUse 那么多——留给小字行、粗体与装箱空隙)，装不下就先降档再拼
+    private const int AtlasSize = 4096;
+    private const float AtlasUse = 0.55f;
+    private static readonly Dictionary<Font, HashSet<char>> _font_glyphs = new();
+
+    private static int AtlasCapacity(int size)
+    {
+        float cell = size * 1.1f + 2f;
+        return Mathf.FloorToInt(AtlasUse * (AtlasSize / cell) * (AtlasSize / cell));
+    }
+
+    private static void Reserve(Font font, string glyphs)
+    {
+        if (font == null || !font.dynamic || string.IsNullOrEmpty(glyphs)) return;
+        if (!_font_glyphs.TryGetValue(font, out HashSet<char> used)) _font_glyphs[font] = used = new HashSet<char>();
+        int before = used.Count;
+        foreach (char character in glyphs)
+            if (!char.IsWhiteSpace(character)) used.Add(character);
+        if (used.Count == before) return;
+        _raster_step.TryGetValue(font, out int step);
+        int start = step;
+        while (step < RasterSteps.Length - 1 && used.Count > AtlasCapacity(RasterSteps[step])) step++;
+        if (step == start) return;
+        _raster_step[font] = step;
+        Debug.Log($"[EmpireCraft][铭牌字体] {font.name} 已用 {used.Count} 个字，按图集容量预先把拼字字号降到 {RasterSteps[step]}");
+    }
+
     // 降一档；已是最低档返回 false
     private static bool StepDown(Font font)
     {
@@ -544,6 +573,7 @@ public static class TerritoryLabelRenderer
             BakedGlyphFont baked = BundledTerritoryFonts.BakedOf(font);
             if (baked != null) return baked.Ensure(glyphs);
             if (Exhausted(font)) return false;
+            Reserve(font, glyphs);
             while (true)
             {
                 int size = RasterSize(font);
@@ -602,6 +632,7 @@ public static class TerritoryLabelRenderer
         _resolve_cache.Clear();
         // 换了字体设置：拼字字号回到参考字号，装不下再降(见 RasterSize)
         _raster_step.Clear();
+        _font_glyphs.Clear();
         foreach (RuntimeLabel label in _labels.Values) label.InvalidateFont();
     }
 
@@ -1121,8 +1152,9 @@ public static class TerritoryLabelRenderer
                 }
                 else
                 {
-                    // 图集装不下就降档重拼(见 RasterSize)
+                    // 图集装不下就降档重拼(见 RasterSize)；先按这个字体用到的字数估一遍(见 Reserve)
                     string glyphs = StripTags(mainLine);
+                    Reserve(_text.font, glyphs);
                     while (true)
                     {
                         raster = RasterSize(_text.font);

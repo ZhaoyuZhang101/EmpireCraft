@@ -34,7 +34,35 @@ public static class DataManager
         CurrentSaveDataPath = "";
     }
 
+    // 读档各段耗时(玩家截图 2026-10-27：读档里"LOADING EMPIRE MOD DATA"一步 8.7 秒)：结束时一行日志 [读档耗时]
+    private static global::System.Diagnostics.Stopwatch _loadWatch;
+    private static global::System.Text.StringBuilder _loadLaps;
+
+    private static void Lap(string phase)
+    {
+        if (_loadWatch == null) return;
+        _loadLaps.Append(phase).Append(' ').Append((_loadWatch.ElapsedMilliseconds / 1000d).ToString("0.00")).Append("秒；");
+        _loadWatch.Restart();
+    }
+
     public static void LoadAll(string loadRootPath)
+    {
+        _loadWatch = global::System.Diagnostics.Stopwatch.StartNew();
+        _loadLaps = new global::System.Text.StringBuilder();
+        try
+        {
+            LoadAllCore(loadRootPath);
+        }
+        finally
+        {
+            Lap("其余整理");
+            LogService.LogInfo($"[EmpireCraft][读档耗时] {_loadLaps}");
+            _loadWatch = null;
+            _loadLaps = null;
+        }
+    }
+
+    private static void LoadAllCore(string loadRootPath)
     {
         InstitutionSystem.ResetWorldState();
         TechnologySystem.ResetWorldState();
@@ -55,14 +83,19 @@ public static class DataManager
         FactionRatioConverter.ResetLegacyDiscardCount();
         SaveData saveData = null;
         // 文件截断、格式坏了时 JsonConvert 抛异常而不是返回空：接住，当作读不出来(下面按文化给各国定政体)
+        // 边读边解析(以前先把整个文件读成一个字符串，上百兆的存档要多占两三百兆内存，读完还要回收)
         try
         {
-            saveData = JsonConvert.DeserializeObject<SaveData>(File.ReadAllText(loadPath));
+            using var stream = new FileStream(loadPath, FileMode.Open, FileAccess.Read, FileShare.Read, 1 << 16);
+            using var reader = new StreamReader(stream, global::System.Text.Encoding.UTF8, true, 1 << 16);
+            using var json = new JsonTextReader(reader);
+            saveData = JsonSerializer.CreateDefault().Deserialize<SaveData>(json);
         }
         catch (Exception e)
         {
             LogService.LogError($"模组存档读不出来(文件损坏？)，各国按文化重定政体: {e}");
         }
+        Lap("解析");
         NormalizeSaveData(saveData);
         InstitutionSystem.ImportCultureStates(saveData?.cultureInstitutionStates);
         TechnologySystem.ImportStates(saveData?.cultureTechStates);
@@ -106,6 +139,7 @@ public static class DataManager
                 actor.SyncData(entry);
         }
         LogService.LogInfo("Sync Actor Data");
+        Lap("人物");
         // 没存过政体选项的旧存档，读完后按封号修复成员地位(见 RepairLegacyRegimeRole)
         var legacyRegimeKingdoms = new HashSet<long>();
         foreach (var entry in saveData.kingdomExtraData)
@@ -144,6 +178,7 @@ public static class DataManager
             }
         }
         LogService.LogInfo("Sync Kingdom Data");
+        Lap("国家");
         foreach (var entry in saveData.cityExtraData)
         {
             if (entry == null) continue;
@@ -178,6 +213,7 @@ public static class DataManager
             }
         }
         LogService.LogInfo("Sync City Data");
+        Lap("城市");
         foreach (var entry in saveData.clanExtraData)
         {
             if (entry == null) continue;
@@ -185,6 +221,7 @@ public static class DataManager
                 clan.SyncData(entry);
         }
         LogService.LogInfo("Sync Clan Data");
+        Lap("氏族");
         if (saveData.bookExtraData != null && saveData.bookExtraData.Count > 0)
         {
             var bookById = World.world.books.ToDictionary(b => b.getID());
@@ -246,6 +283,7 @@ public static class DataManager
         Guarded("整理帝国", () => ModClass.EMPIRE_MANAGER.RepairAfterLoad());
         Guarded("已亡帝国名录", () => FallenEmpireRecords.AdoptArchived(ModClass.EMPIRE_MANAGER));
         LogService.LogInfo("Sync Empire Data");
+        Lap("战争宗教帝国");
         BookNamingSystem.RepairLegacyNames();
         EmpireCoreManager.EmpireCores = BuildEmpireCoreMap(saveData.empireCoreDatas);
 
@@ -318,6 +356,7 @@ public static class DataManager
             LogService.LogError($"修复配偶记录失败，已跳过: {e}");
         }
         LogService.LogInfo("Sync Titles Data");
+        Lap("法理");
         ConfigData.yearNameSubspecies = saveData.yearNameSubspecies;
         LogService.LogInfo("Sync history Data");
         ModClass.CULTURE_NO_EMPIRE_SINCE = saveData.culture_no_empire_since ?? new Dictionary<string, double>();

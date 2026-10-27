@@ -534,6 +534,8 @@ namespace EmpireCraft.Scripts.UI.Windows
                 SchismPanel.Render(parent, renderedEmpire, MainWidth);
                 // 朝政积弊(见 MaladySystem)
                 MaladyPanel.Render(parent, renderedEmpire, MainWidth);
+                // 游牧汗国：草原形势(纪元、草原压力、依附来的兀鲁思，见 SteppePanel)
+                SteppePanel.Render(parent, renderedEmpire, MainWidth);
                 // 周制：天下大势(春秋战国)
                 ZhouPanel.Render(parent, renderedEmpire, MainWidth, () => StartCoroutine(ShowKingdomList()));
                 AddClassAlignmentOverview(parent, renderedEmpire);

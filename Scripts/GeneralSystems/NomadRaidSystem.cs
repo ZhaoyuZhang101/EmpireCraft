@@ -56,6 +56,7 @@ public static partial class NomadRaidSystem
         double now = World.world.getCurWorldTime();
         if (_lastMonth >= 0d && now >= _lastMonth && Date.getMonthsSince(_lastMonth) < 1) return;
         _lastMonth = now;
+        NoticeEra();
         try
         {
             MonthTick();
@@ -77,6 +78,29 @@ public static partial class NomadRaidSystem
         {
             LogService.LogWarning($"{LogTag} 年度结算失败: {exception.Message}");
         }
+    }
+
+    // 纪元转入、转出苦寒(寒冬、五谷不生)时提示一句(用户 2026-10-27："冰封纪元……要给提醒……不然玩家不知道什么原因")：
+    // 世上有游牧政权才提示；读档后第一次只记下当前纪元
+    private static string _lastAge;
+    private static bool _lastHard;
+
+    private static void NoticeEra()
+    {
+        WorldAgeAsset age = World.world_era;
+        if (age == null) return;
+        bool hard = SteppeRules.HardEra(age.flag_winter, age.flag_crops_grow);
+        string previous = _lastAge;
+        bool wasHard = _lastHard;
+        _lastAge = age.id;
+        _lastHard = hard;
+        if (previous == null || previous == age.id || hard == wasHard && !hard) return;
+        if (!World.world.kingdoms.list.Any(kingdom => Alive(kingdom) && IsNomad(kingdom))) return;
+        string name = LocalizedTextManager.getText(age.getLocaleID());
+        string key = hard ? age.flag_winter ? "steppe_era_notice_winter" : "steppe_era_notice_dark" : "steppe_era_notice_relief";
+        string text = string.Format(LM.Get(key), name);
+        TranslateHelper.LogMajor(text);
+        LogService.LogInfo($"{LogTag} 纪元转为 {name}({age.id})：{text}");
     }
 
     #region 身份

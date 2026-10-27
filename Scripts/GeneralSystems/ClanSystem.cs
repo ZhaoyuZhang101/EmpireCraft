@@ -1482,6 +1482,51 @@ public class PersonalClanIdentity
     public bool ShouldSerializewallet_reserve() => wallet_reserve != null &&
         (wallet_reserve.cash != 0L || wallet_reserve.loot != 0L);
 
+    // 存档时省略仍是初始值的字段(读档按初始值还原；用户 2026-10-27 存档 154MB、族谱 4.5 万人，这一项约省 30MB)
+    private static bool Set(string value) => !string.IsNullOrEmpty(value);
+    private static bool Any<T>(List<T> list) => list != null && list.Count > 0;
+    public bool ShouldSerializemerit() => Set(merit);
+    public bool ShouldSerializehonoraryOfficial() => Set(honoraryOfficial);
+    public bool ShouldSerializePeeragesLevel() => Set(PeeragesLevel);
+    public bool ShouldSerializeofficialLevel() => Set(officialLevel);
+    public bool ShouldSerializekingdomName() => Set(kingdomName);
+    public bool ShouldSerializecityName() => Set(cityName);
+    public bool ShouldSerializeeducationLevel() => Set(educationLevel);
+    public bool ShouldSerializeofficeName() => Set(officeName);
+    public bool ShouldSerializefullOfficeName() => Set(fullOfficeName);
+    public bool ShouldSerializeposthumous_name() => Set(posthumous_name);
+    public bool ShouldSerializeprince_title() => Set(prince_title);
+    public bool ShouldSerializeclanName() => Set(clanName);
+    public bool ShouldSerializefamilyName() => Set(familyName);
+    public bool ShouldSerializefactionName() => Set(factionName);
+    public bool ShouldSerializegiven_name() => Set(given_name);
+    public bool ShouldSerializesurname() => Set(surname);
+    public bool ShouldSerializebirthplace() => Set(birthplace);
+    public bool ShouldSerializeownedTitleNames() => Any(ownedTitleNames);
+    public bool ShouldSerializeconcubines() => Any(concubines);
+    public bool ShouldSerializechildren() => Any(children);
+    public bool ShouldSerializecrime_records() => Any(crime_records);
+    public bool ShouldSerializepersonal_history() => Any(personal_history);
+    public bool ShouldSerializepending_child_birth_history_parents() => Any(pending_child_birth_history_parents);
+    public bool ShouldSerializematrilineal_birth() => matrilineal_birth;
+    public bool ShouldSerializeis_concubine() => is_concubine;
+    public bool ShouldSerializeis_main() => !is_main;
+    public bool ShouldSerializedeath_history_recorded() => death_history_recorded;
+    public bool ShouldSerializeis_virtual() => is_virtual;
+    public bool ShouldSerializevirtual_immortal() => virtual_immortal;
+    public bool ShouldSerializerank() => rank != 1;
+    public bool ShouldSerializerecordedAge() => recordedAge != -1;
+    public bool ShouldSerializegeneration() => generation != 0;
+    public bool ShouldSerializefather() => father != -1L;
+    public bool ShouldSerializemother() => mother != -1L;
+    public bool ShouldSerializefather_in_law() => father_in_law != -1L;
+    public bool ShouldSerializemother_in_law() => mother_in_law != -1L;
+    public bool ShouldSerializelover() => lover.specific_clan != -1L || lover.identity != -1L;
+    public bool ShouldSerializevirtual_city_id() => virtual_city_id != -1L;
+    public bool ShouldSerializevirtual_since() => virtual_since != -1d;
+    public bool ShouldSerializevirtual_death_age() => virtual_death_age != -1;
+    public bool ShouldSerializevirtual_native_lifespan() => virtual_native_lifespan.HasValue;
+
     // 需要这个人(继承、分封、作乱……)时调用：虚拟族人当场落成实体，否则返回现有实体
     public Actor Realize() => is_alive ? VirtualGenealogySystem.Realize(this) : _actor;
 
@@ -1896,7 +1941,8 @@ public class PersonalHistoryRecord
     public bool ShouldSerializeevent_key() => !string.IsNullOrEmpty(event_key);
     public bool ShouldSerializerelated_actor_id() => related_actor_id != -1L;
     public bool ShouldSerializerelated_personal_identity_id() => related_personal_identity_id != -1L;
-    public bool ShouldSerializeowner_personal_identity_id() => owner_personal_identity_id != -1L;
+    // 主人读档时按族谱重设(见 SpecificClanManager.RebuildCache)，不存
+    public bool ShouldSerializeowner_personal_identity_id() => false;
     public bool ShouldSerializemajor() => major;
 }
 

@@ -91,8 +91,12 @@ public static class SteppeRules
         return crisis ? share * 0.5f : share;
     }
 
-    // 弱部依附强汗国的机会(每年)：0.12，草原压力 30 以上 +0.1
-    public static float AttachChance(float pressure) => 0.12f + (pressure >= 30f ? 0.1f : 0f);
+    // 弱部依附强汗国的机会(每年)：0.12，草原压力 AttachPressure(30)以上 +0.1
+    public const float AttachPressure = 30f;
+    public static float AttachChance(float pressure) => 0.12f + (pressure >= AttachPressure ? 0.1f : 0f);
+
+    // 草原苦寒的纪元：寒冬(冰封、悲怆)或五谷不生(黑暗)
+    public static bool HardEra(bool winter, bool cropsGrow) => winter || !cropsGrow;
 
     // 盟主转雄主的机会(每回得胜之后掷一次)：威望 2 起 10%，每多一回 +10%，至多 60%
     public static float HeroChance(int prestige) => prestige < 2 ? 0f : Math.Min(0.6f, 0.1f * (prestige - 1));

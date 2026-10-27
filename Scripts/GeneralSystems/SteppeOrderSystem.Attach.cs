@@ -15,13 +15,21 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //    若即若离，每年看一回自愿依附来的兀鲁思：
 //      · 大汗换了人(老汗死了、被废)：这一回按 LeaveOnSuccession 的机会散去(每换一位汗掷一次)；
 //      · 汗国衰落——附从长到汗国国力的 OutgrowShare 以上、汗国正统不到 LowLegitimacy、或汗国这些仗里丢了两成以上的城
-//        (见 NomadCycleSystem.LostShare)：每年按 LeaveOnDecline 的机会散去。
+//        (见 NomadCycleSystem.LostShare)：每年按 LeaveOnDecline 的机会散去；
+//      · 灾年过去(用户 2026-10-27："都悲怆纪元了为什么不解散"——悲怆也是寒冬纪元，压力没降；寒冬过去以后以前也不散)：
+//        附从自己的草原压力回落到 AttachPressure 以下、依附满 ReliefYears 年，每年按 LeaveOnRelief 的机会散去。
 //    散去是和平离开汗国(不开战)；汗位更替之乱里据地自立的照旧(见 NomadCycleSystem)。
 public static partial class SteppeOrderSystem
 {
     private const float AttachPowerShare = 0.35f, OutgrowShare = 0.6f, LeaveOnSuccession = 0.35f, LeaveOnDecline = 0.25f,
-        DeclineLostShare = 0.2f;
+        DeclineLostShare = 0.2f, LeaveOnRelief = 0.15f;
+    private const int ReliefYears = 10;
     private const int LowLegitimacy = 40, AttachOpinion = 0;
+
+    // 依附来的兀鲁思(汗国主页草原形势卡用，见 SteppePanel)
+    public static int AttachedCount(Empire empire) =>
+        empire?.kingdoms_list?.Count(kingdom => kingdom?.data != null && !kingdom.isRekt() &&
+                                                NomadRaidSystem.State(kingdom).attached_empire_id == empire.id) ?? 0;
 
     // 汗国：核心是走出部落阶段的游牧政权的帝国
     private static bool IsKhanate(Empire empire) =>
@@ -102,6 +110,12 @@ public static partial class SteppeOrderSystem
             key = "steppe_detach_decline_history";
             chance = LeaveOnDecline;
         }
+        else if (state.pressure_at >= 0d && state.pressure < SteppeRules.AttachPressure && state.attached_at >= 0d &&
+                 World.world.getCurWorldTime() >= state.attached_at && Date.getYearsSince(state.attached_at) >= ReliefYears)
+        {
+            key = "steppe_detach_relief_history";
+            chance = LeaveOnRelief;
+        }
         if (key == null || UnityEngine.Random.value >= chance) return;
         empire.leave(kingdom, true, true);
         if (kingdom.GetEmpire() == empire) return;
@@ -109,6 +123,6 @@ public static partial class SteppeOrderSystem
         state.attached_at = -1d;
         Chronicle(string.Format(LM.Get(key), kingdom.GetKingdomName(), empire.GetEmpireName()), kingdom, empire.CoreKingdom);
         LogService.LogInfo($"{LogTag} 附从散去：{kingdom.GetKingdomName()} 离开{empire.GetEmpireName()}" +
-                           $"({(key == "steppe_detach_succession_history" ? "易汗" : $"汗国势衰，正统{empire.Legitimacy}")})");
+                           $"({(key == "steppe_detach_succession_history" ? "易汗" : key == "steppe_detach_relief_history" ? $"灾年已过，压力{state.pressure:0}" : $"汗国势衰，正统{empire.Legitimacy}")})");
     }
 }
