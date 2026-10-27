@@ -21,6 +21,9 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 国家文化、法理文化(未锁定、未开固定法理文化时)改为这个文化，政体随之改为该文化的政体
 //     (帝国核心由制度系统重算)；征服王朝融合一步到位；
 //   · 王族与旧俗出身的在任官员改从新俗；宗族本非这个文化的，整支改用新文化的姓氏(改姓)；
+//   · 只改这次改俗涉及的国家(本国；帝国核心连同各成员国，见 ScopeOf)里的族人：宗族、世系跨国的，别国的族人(连在位的君主)不动，
+//     有族人在别国的那一支只改本国族人的风俗、不整支改姓，与本国无关的同宗分支不动——以前按整个宗族、整个世系改
+//     (玩家："我给精灵帝国改文化，结果华夏皇帝变成西方文化了"，用户 2026-10-27 转：精灵国有官员与华夏皇族同宗)；
 //   · 旧俗为主的城市一时不安。
 // 只有游牧(国家文化、征服王朝的统治族群文化是游牧政体的文化)走这条决议(玩家："那么大一个游牧汗国直接变成法兰克了"
 // "能不能让别的文化不要参与改朝换代"；用户 2026-10-17："除了游牧，游牧的改朝换代是决议不是自动的")；
@@ -139,11 +142,12 @@ public static class CultureReformSystem
             : CultureService.GetNativeCultureObject(target);
         var taken = new HashSet<string>(SpecificClanManager._specificClans.Where(c => c != null && !string.IsNullOrWhiteSpace(c.name))
             .Select(c => c.name), StringComparer.Ordinal);
+        HashSet<Kingdom> scope = ScopeOf(kingdom);
         string royalSurname = null;
-        if (royal != null && renameRoyal) royalSurname = RenameLineage(royal, target, native, taken, king.getID());
-        else if (royal != null) Convert(royal, target, native, null);
+        if (royal != null && renameRoyal) royalSurname = RenameLineage(royal, target, native, taken, king.getID(), scope);
+        else if (royal != null) Convert(royal, target, native, null, scope, home: true);
         else if (king != null) Convert(king, target, native, null);
-        ConvertOfficials(kingdom, previous, target, native, taken, royal);
+        ConvertOfficials(kingdom, previous, target, native, taken, royal, scope);
 
         foreach (City city in kingdom.cities ?? new List<City>())
         {
@@ -161,10 +165,11 @@ public static class CultureReformSystem
     }
 
     // 一键易俗(见 RealmCultureSystem)：君主一家与在任官员，不论原来是什么文化，一律改从 target——
-    // 宗族本非同一文化圈的整支改姓(同 Apply)；返回王族的新姓(没改姓为空)
-    public static string ConvertRulers(Kingdom kingdom, string target)
+    // 宗族本非同一文化圈的整支改姓(同 Apply)；返回王族的新姓(没改姓为空)。scope：这次易俗的各国(举朝为整个帝国)，空则只本国
+    public static string ConvertRulers(Kingdom kingdom, string target, IEnumerable<Kingdom> scope = null)
     {
         if (kingdom?.data == null || kingdom.isRekt() || !CultureService.IsValidCulture(target)) return null;
+        var within = new HashSet<Kingdom>(scope ?? Enumerable.Empty<Kingdom>()) { kingdom };
         Actor king = kingdom.king != null && !kingdom.king.isRekt() && kingdom.king.isAlive() ? kingdom.king : null;
         Culture native = string.Equals(CulturePatch.GetInjectedCultureName(kingdom.culture), target, StringComparison.Ordinal)
             ? kingdom.culture
@@ -181,8 +186,8 @@ public static class CultureReformSystem
             {
                 done.Add(Root(royal).id);
                 if (ForeignOrigin(royal, CultureService.GetActorCulture(king), target))
-                    royalSurname = RenameLineage(royal, target, native, taken, king.getID());
-                else Convert(royal, target, native, null);
+                    royalSurname = RenameLineage(royal, target, native, taken, king.getID(), within);
+                else Convert(royal, target, native, null, within, home: true);
             }
         }
         foreach (Actor actor in kingdom.units.ToList())
@@ -197,8 +202,8 @@ public static class CultureReformSystem
             }
             if (!done.Add(Root(clan).id)) continue;
             if (done.Count <= MaxRenamedClans + 1 && ForeignOrigin(clan, CultureService.GetActorCulture(actor), target))
-                RenameLineage(clan, target, native, taken, actor.getID());
-            else Convert(clan, target, native, null);
+                RenameLineage(clan, target, native, taken, actor.getID(), within);
+            else Convert(clan, target, native, null, within, home: true);
         }
         return royalSurname;
     }
@@ -216,7 +221,7 @@ public static class CultureReformSystem
 
     // 旧俗出身的在任官员改从新俗；宗族本非新文化的整支改姓
     private static void ConvertOfficials(Kingdom kingdom, string previous, string target, Culture native, HashSet<string> taken,
-        SpecificClan royal)
+        SpecificClan royal, HashSet<Kingdom> scope)
     {
         var done = new HashSet<long>();
         if (royal != null) done.Add(Root(royal).id);
@@ -232,10 +237,42 @@ public static class CultureReformSystem
             }
             if (!done.Add(Root(clan).id)) continue;
             if (done.Count <= MaxRenamedClans + 1 && ForeignOrigin(clan, previous, target))
-                RenameLineage(clan, target, native, taken, actor.getID());
-            else Convert(clan, target, native, null);
+                RenameLineage(clan, target, native, taken, actor.getID(), scope);
+            else Convert(clan, target, native, null, scope, home: true);
         }
     }
+
+    // 这次改俗涉及的国家：本国；是帝国核心的连同各成员国(宗室封国随帝室一起改)
+    private static HashSet<Kingdom> ScopeOf(Kingdom kingdom)
+    {
+        var scope = new HashSet<Kingdom> { kingdom };
+        Empire empire = kingdom.GetEmpire();
+        if (empire?.kingdoms_list != null && empire.CoreKingdom == kingdom && !empire.isRekt() && !empire.IsArchived())
+            foreach (Kingdom member in empire.kingdoms_list)
+                if (member?.data != null && !member.isRekt()) scope.Add(member);
+        return scope;
+    }
+
+    // 族人在哪一国：有实体看实体，虚拟族人看族谱记的城；不明的为空
+    private static Kingdom KingdomOf(PersonalClanIdentity person)
+    {
+        if (person == null) return null;
+        if (person.is_virtual)
+        {
+            City city = person.virtual_city_id > 0 ? World.world.cities.get(person.virtual_city_id) : null;
+            return city?.data != null && !city.isRekt() ? city.kingdom : null;
+        }
+        Actor actor = person._actor;
+        return actor?.data != null && !actor.isRekt() ? actor.kingdom : null;
+    }
+
+    // 这一支有族人在 scope 之外的国家(别国的君主、官员、百姓)
+    private static bool Spans(SpecificClan clan, HashSet<Kingdom> scope) =>
+        clan.LivingPeople.Any(person => KingdomOf(person) is Kingdom where && !scope.Contains(where));
+
+    // 这一支有族人在 scope 里的国家
+    private static bool Touches(SpecificClan clan, HashSet<Kingdom> scope) =>
+        clan.LivingPeople.Any(person => KingdomOf(person) is Kingdom where && scope.Contains(where));
 
     private static SpecificClan Root(SpecificClan clan)
     {
@@ -249,31 +286,45 @@ public static class CultureReformSystem
         return root;
     }
 
-    // 同一世系(同一始祖宗族分出来的)且同姓的各支一起改姓
-    private static string RenameLineage(SpecificClan clan, string target, Culture native, HashSet<string> taken, long seed)
+    // 同一世系(同一始祖宗族分出来的)且同姓的各支一起改姓——只限 scope 里的(见类头)：有族人在别国的那一支只改本国族人的风俗、
+    // 不改姓，与本国无关的同宗分支不动。返回新姓(一支也没改姓为空)
+    private static string RenameLineage(SpecificClan clan, string target, Culture native, HashSet<string> taken, long seed,
+        HashSet<Kingdom> scope)
     {
         string surname = NewSurname(target, native, taken, seed);
         if (string.IsNullOrWhiteSpace(surname))
         {
-            Convert(clan, target, native, null);
+            Convert(clan, target, native, null, scope, home: true);
             return null;
         }
         string old = clan.name;
         long root = Root(clan).id;
+        bool renamed = false;
         foreach (SpecificClan branch in SpecificClanManager._specificClans.ToList())
         {
             if (branch == null || branch != clan && (!string.Equals(branch.name, old, StringComparison.Ordinal) || Root(branch).id != root))
                 continue;
-            Convert(branch, target, native, surname);
+            bool home = branch == clan;
+            if (Spans(branch, scope))
+            {
+                Convert(branch, target, native, null, scope, home);
+                continue;
+            }
+            if (!home && !Touches(branch, scope)) continue;
+            Convert(branch, target, native, surname, scope, home);
             branch.name = surname;
+            renamed = true;
         }
-        return surname;
+        return renamed ? surname : null;
     }
 
-    private static void Convert(SpecificClan clan, string target, Culture native, string surname)
+    // 一支族人改从新俗：只改 scope 里的国家的族人；home(这次要改的那一支)所在不明的族人随它改，别的支所在不明的不动
+    private static void Convert(SpecificClan clan, string target, Culture native, string surname, HashSet<Kingdom> scope, bool home)
     {
         foreach (PersonalClanIdentity person in clan.LivingPeople)
         {
+            Kingdom where = KingdomOf(person);
+            if (where != null ? !scope.Contains(where) : !home) continue;
             Actor actor = person._actor;
             if (actor?.data != null && !actor.isRekt())
             {

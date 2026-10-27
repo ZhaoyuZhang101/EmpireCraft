@@ -39,7 +39,7 @@ public static class RealmCultureSystem
         {
             try
             {
-                cities += ConvertKingdom(member, culture, onlyFrom);
+                cities += ConvertKingdom(member, culture, onlyFrom, scope);
             }
             catch (Exception exception)
             {
@@ -52,12 +52,13 @@ public static class RealmCultureSystem
         return (scope.Count, cities);
     }
 
-    private static int ConvertKingdom(Kingdom kingdom, string culture, string onlyFrom = null)
+    // scope：这次易俗的各国(举朝为整个帝国)；宗族跨国的只改这些国家里的族人(见 CultureReformSystem 类头)
+    private static int ConvertKingdom(Kingdom kingdom, string culture, string onlyFrom, IEnumerable<Kingdom> scope)
     {
         // 先改国家文化、政体、君主与旧俗官员(见 CultureReformSystem.Force)，国家本已是这个文化的、别的文化出身的官员另行改过来，
         // 再改各城——以前先改城，城里的君主、官员已随百姓改了文化，改姓、宗族记的文化都判成"不用改"，异族出身的整支不改姓
         CultureReformSystem.Force(kingdom, culture);
-        CultureReformSystem.ConvertRulers(kingdom, culture);
+        CultureReformSystem.ConvertRulers(kingdom, culture, scope);
         int cities = 0;
         foreach (City city in (kingdom.cities ?? new List<City>()).ToList())
         {
