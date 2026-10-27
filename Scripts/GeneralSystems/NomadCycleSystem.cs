@@ -78,6 +78,8 @@ public static class NomadCycleSystem
             // 雄主之后第一次汗位更替：不看积弊、正统，必乱(见 UnificationSystem.TakeHeroTurmoil)
             bool heroic = UnificationSystem.TakeHeroTurmoil(empire, out string hero);
             if (!heroic && !IsKhanate(empire)) return;
+            // 汗国大过汗庭管得到的：先按东西(南北)分为两个汗国，这一回不再判汗位更替之乱(见 EmpirePartitionSystem.KhanateSplit)
+            if (EmpirePartitionSystem.KhanateSplit(empire)) return;
             float average = MaladySystem.Average(empire);
             int legitimacy = empire.Legitimacy;
             // 每次换汗都可能争位(用户 2026-10-27 选；以前要积弊均值 ≥ CrisisMalady 或正统 < CrisisLegitimacy 才乱，

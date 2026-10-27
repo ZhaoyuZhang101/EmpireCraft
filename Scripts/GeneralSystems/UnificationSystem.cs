@@ -21,6 +21,9 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // (用户 2026-10-15："到处都是统一战争，有的甚至跨文化跨地域打")：别的文化的国家占着几座城，不算天下的人，不是统一的对象。
 //   · 乱世：天下至少八座城、三家以上，没有哪家占到四成——群雄互伐，饥荒、民变照常；
 //   · 统一战争：一家占到四成，或国力是第二名的两倍(且至少占 8%)——天命所归，目标二十年内打完：
+//       - 久乱思治(华夏，用户 2026-10-27："华夏几乎没有统一过"，问答选"久乱思治"：汉正统 41 城分在十四五家，最大的一家才一成五，
+//         乱了两百多年没人够得上门槛)：从上一位坐稳了的共主(受天命满 SteadyMandateYears 年)失命算起，乱世满 LongChaosYears 年后，
+//         门槛在 ChaosEaseYears 年里逐年降到占两成、或国力是第二名的 1.3 倍；
 //       - 前朝(失了这个天下天命的，或宗族的帝国亡了的)失命、亡国后 FormerLockYears 年内(华夏 HuaxiaFormerLockYears)
 //         不能马上再问鼎，中兴之主在位除外(用户 2026-10-21 选"乱世最短时长""华夏有真乱世"：以前失命当年残部占三成就
 //         重启统一、统一期间又受开国气象庇护，乱世往往不到十年)；
@@ -77,6 +80,9 @@ public static class UnificationSystem
     private const float StallUnifiedShare = 0.5f;
     // 同一家第二次统一的开国气象(年)
     private const int RepeatGraceYears = 10;
+    // 久乱思治(华夏)：乱世满这么多年起门槛逐年降，再过这么多年降到底；一时得而复失(受天命不满 SteadyMandateYears 年)的不算坐稳
+    private const float LongChaosYears = 40f, ChaosEaseYears = 60f, EasedContenderShare = 0.2f, EasedPowerLead = 1.3f,
+        SteadyMandateYears = 10f;
     // 前朝失命、亡国后多少年内不能再问鼎(华夏另计)
     private const int FormerLockYears = 20, HuaxiaFormerLockYears = 40;
     // 上次年度统计的天下：统一者 → 它天下里的别家(按都城距离排好)
@@ -218,6 +224,31 @@ public static class UnificationSystem
 
     // 前朝不能马上再问鼎：失了这个天下天命的那一国，或君主宗族的帝国亡了不久的，FormerLockYears 年内(华夏 HuaxiaFormerLockYears)
     // 不发动统一战争；中兴之主(含中兴雄主)在位不在此限
+    // 问鼎的门槛(占比、国力是第二名的几倍)：华夏久乱思治逐年降(见文件头)
+    private static (float share, float lead) Bars(Realm realm, Kingdom top)
+    {
+        if (LineOf(CultureService.GetRealmCulture(top)) != "Huaxia") return (ContenderShare, PowerLead);
+        float ease = Mathf.Clamp01((ChaosYears(realm) - LongChaosYears) / ChaosEaseYears);
+        return (Mathf.Lerp(ContenderShare, EasedContenderShare, ease), Mathf.Lerp(PowerLead, EasedPowerLead, ease));
+    }
+
+    // 乱了几年：从上一位坐稳了的共主失命算起；从没有过坐稳的共主就从天下(帝国法理)立起算；天命有主时为 0
+    private static float ChaosYears(Realm realm)
+    {
+        EmpireCore lead = realm.lead;
+        if (lead == null || World.world == null) return 0f;
+        double since = -1d;
+        foreach (MandateRecord record in lead.mandate_history ?? new List<MandateRecord>())
+        {
+            if (record.lost_at < 0d) return 0f;
+            if (record.claimed_at >= 0d && Date.getYearsSince(record.claimed_at) - Date.getYearsSince(record.lost_at) >= SteadyMandateYears)
+                since = Math.Max(since, record.lost_at);
+        }
+        if (since < 0d) since = lead.create_timestamp;
+        double now = World.world.getCurWorldTime();
+        return since < 0d || now < since ? 0f : Date.getYearsSince(since);
+    }
+
     private static bool FormerLocked(Realm realm, Kingdom top)
     {
         if (!Alive(top) || World.world == null) return false;
@@ -786,7 +817,8 @@ public static class UnificationSystem
             float topShare = realm.held[top] / (float)realm.total;
             double topPower = WarSituation.Power(top);
             double second = ranked.Skip(1).Select(holder => WarSituation.Power(holder)).DefaultIfEmpty(0d).Max();
-            bool leads = topShare >= ContenderShare || topShare >= PowerLeadMinShare && topPower >= second * PowerLead;
+            (float shareBar, float leadBar) = Bars(realm, top);
+            bool leads = topShare >= shareBar || topShare >= PowerLeadMinShare && topPower >= second * leadBar;
             if (!leads) continue;
             // 天下有主(治世、动荡)：别家不能问鼎，只有乱世才有统一战争(见 TianxiaSystem 天命周期)
             if (realm.lead != null && TianxiaSystem.BarsContender(realm.lead, top)) continue;

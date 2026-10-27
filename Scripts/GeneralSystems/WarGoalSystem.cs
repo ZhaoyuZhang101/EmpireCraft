@@ -570,9 +570,17 @@ public static class WarGoalSystem
             bool capitalTaken = capital?.data != null && (capital.kingdom != defender || held.Any(entry => entry.city == capital));
             if (capitalTaken || before > 0 && lost * 2 >= before)
             {
+                // 吞并也只收连片的(用户 2026-10-27 截图拜占庭的行省远在东方："他离拜占庭中间还隔了一个国家"——罗马吞并铁河公国，
+                // 把铁河远在东方的三座城一并收进中央，又分成了行省)：连不上的、隔海又在控制范围之外的留给原主，原主在那里延续
                 var queued = new HashSet<long>(held.Select(entry => entry.city.id));
-                foreach (City city in defender.cities.ToList())
-                    if (city?.data != null && !city.isRekt() && queued.Add(city.id)) PendingCessions.Add((city.id, attacker.id));
+                var rest = defender.cities.Where(city => city?.data != null && !city.isRekt() && !queued.Contains(city.id) &&
+                                                         !(Overseas(attacker, city) && AdministrativeControlSystem.OutOfReach(attacker, city)))
+                    .Select(city => (city, attacker)).ToList();
+                foreach ((City city, Kingdom _) in Contiguous(held.Concat(rest).ToList(), out _).Where(entry => !queued.Contains(entry.city.id)))
+                    if (queued.Add(city.id)) PendingCessions.Add((city.id, attacker.id));
+                int kept = defender.cities.Count(city => city?.data != null && !queued.Contains(city.id));
+                if (kept > 0)
+                    LogService.LogInfo($"[EmpireCraft][吞并连片] {attacker.GetKingdomName()} 吞并 {defender.GetKingdomName()}，{kept} 座城连不上、留给原主");
                 TranslateHelper.LogEventMessage(string.Format(LM.Get("war_peace_annexed"), attacker.GetKingdomName(),
                     defender.GetKingdomName()), attacker);
                 return;
@@ -610,6 +618,12 @@ public static class WarGoalSystem
         }
         dropped = pending.Count;
         return accepted;
+    }
+
+    private static bool Overseas(Kingdom kingdom, City city)
+    {
+        Kingdom realm = EmpireCoreControl.Sovereign(kingdom) ?? kingdom;
+        return realm?.capital?.getTile() is WorldTile seat && city.getTile() is WorldTile at && !at.isSameIsland(seat);
     }
 
     private static bool Joined(City city, Kingdom realm, HashSet<City> taken)

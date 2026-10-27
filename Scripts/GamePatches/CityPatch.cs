@@ -1204,7 +1204,8 @@ public class CityPatch : GamePatch
         ("年度扫描·教廷诊断", PapacySystem.TryYearlyDiagnose),
         ("年度扫描·旧制", LegacyInstitutionSystem.TryYearlyScan),
         ("年度扫描·游牧劫掠", NomadRaidSystem.TryMonthlyScan),
-        ("年度扫描·远战清理", WarReach.TryMonthlyScan)
+        ("年度扫描·远战清理", WarReach.TryMonthlyScan),
+        ("年度扫描·国号文化", NameCultureRepair.TryYearlyScan)
     };
     private static int _worldScanFrame = -1;
     private const int SurrenderCheckEvery = 10;

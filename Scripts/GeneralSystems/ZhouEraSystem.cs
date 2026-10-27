@@ -1028,15 +1028,22 @@ public static class ZhouEraSystem
         empire.data.centerOffice?.Init(core);
         core.SystemChange();
         Announce(empire, string.Format(LM.Get("zhou_log_unified"), core.GetKingdomName()), core);
-        // 秦式统一：同统一战争给开国气象、受天命(用户 2026-10-19 选"以天命为准"；以前取周统一不算统一，没有开国气象)
+        // 秦式统一：同统一战争给开国气象、受天命(用户 2026-10-19 选"以天命为准"；以前取周统一不算统一，没有开国气象)。
+        // 要据有所在天下过半才算：周室只是天下一角的小圈子时，取周统一只是改行郡县(用户 2026-10-27 存档：晋取周统一时
+        // 只据有汉正统 7%，也受了天命、得了开国气象，半年就失命，华夏的乱世从头算起)
         var unifiedData = core.GetOrCreate();
         unifiedData.unify_since = -1d;
-        unifiedData.unified_at = World.world.getCurWorldTime();
         if (TianxiaSystem.LeadOf(core.capital) is EmpireCore lead)
         {
             (Dictionary<Kingdom, int> held, int total) = TianxiaSystem.Holdings(lead);
-            TianxiaSystem.Grant(lead, core, held.TryGetValue(core, out int count) ? count : 0, total, TianxiaSystem.Name(lead));
+            int count = held.TryGetValue(core, out int owned) ? owned : 0;
+            if (total > 0 && count * 2 > total)
+            {
+                unifiedData.unified_at = World.world.getCurWorldTime();
+                TianxiaSystem.Grant(lead, core, count, total, TianxiaSystem.Name(lead));
+            }
         }
+        else unifiedData.unified_at = World.world.getCurWorldTime();
         empire.RecordHistory(directContent: string.Format(LM.Get("zhou_history_unified"), core.GetKingdomName(),
             empire.GetEmpireName()), kingdomId: core.id);
     }

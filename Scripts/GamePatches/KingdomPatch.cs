@@ -337,6 +337,8 @@ public class KingdomPatch : GamePatch
         __instance.SetLevel(4);
         __instance.SetEmpireID(-1L);
         CultureService.ApplyFounderCulture(__instance, pActor, preferDeJure: true);
+        // 国号按立国者本人的原版文化起，文化定下后不合的按本国文化重起(见 NameCultureRepair)
+        NameCultureRepair.RepairKingdom(__instance);
         Regime regime = __instance.GetRegime();
         if (regime == null)
         {

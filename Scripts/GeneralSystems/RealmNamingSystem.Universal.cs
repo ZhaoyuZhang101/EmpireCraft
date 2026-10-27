@@ -162,12 +162,13 @@ public static partial class RealmNamingSystem
         if (!Enabled || empire?.data == null || empire.Emperor == null) return;
         PapalRelationState state = Papal(empire);
         if (state == null) return;
-        if (state.universal_lead_id >= 0)
-        {
-            state.universal_emperor_id = empire.Emperor.id;
-            return;
-        }
-        TryGrantUniversal(empire, via);
+        if (state.universal_lead_id >= 0) state.universal_emperor_id = empire.Emperor.id;
+        else TryGrantUniversal(empire, via);
+        // 持有普世之名的帝国由教宗加冕，即称神圣(用户 2026-10-27"加上：持有普世之名的帝国由教宗加冕时自动称神圣")；
+        // 从"授神圣之名"那边进来的加冕不再重复授
+        if (HoldsUniversal(empire) && !PapacySystem.GrantingHoly && !PapacySystem.HasHolyName(empire) &&
+            PapacySystem.HolyBlocker(empire) == null)
+            PapacySystem.GrantHoly(empire);
     }
 
     // 授普世之名；quiet = 读档追授，只记史册不上公告

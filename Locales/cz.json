@@ -1733,6 +1733,7 @@
   "lineage_note_court_choice": "议立",
   "lineage_note_acclaimed": "劝进",
   "partition_will_history": "{0}以疆域辽阔难以兼治，诏分天下为二：储君{1}守京城，{2}坐镇{3}称帝，自此有{4}与{5}",
+  "partition_khanate_history": "{0}即汗位，汗国绵延万里，汗庭鞭长莫及：{1}据{2}自立为汗，自此有{3}与{4}，兄弟相约互不攻伐",
   "partition_flee_history": "皇帝{0}不堪{1}挟制，出奔{2}投靠{3}；{1}在京城另立{4}为帝，自此{5}与{6}并立",
   "partition_raise_history": "{0}在{1}拥立宗室{2}为帝，与{3}把持的朝廷分庭抗礼，自此{4}与{5}并立",
   "partition_restoration_history": "{0}篡位后，先朝宗室{1}在{2}起兵称帝，延续{3}国祚，是为{4}",

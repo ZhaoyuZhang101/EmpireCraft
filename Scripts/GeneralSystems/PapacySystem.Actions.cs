@@ -51,7 +51,7 @@ public static partial class PapacySystem
     //   · 授名：没由教宗加冕过的先加冕(教廷不在、已脱离罗马的自行加冕)，国号加"神圣"前缀；天下之名关着时国号取教廷都城的法理
     //     (原型"神圣罗马")；史书、世界日志记"教宗为某加冕，尊为某某人的皇帝，某某自此称神圣某某"；
     //   · 去名：前缀还原为授名前的(方位、"大"等)；
-    //   · 神授君权决议(见 TempFac_神授君权)与教廷页的按钮共用这里。
+    //   · 神授君权决议(见 TempFac_神授君权)与教廷页的按钮共用这里；持有普世之名的帝国由教宗加冕时也自动授(见 RealmNamingSystem.OnPapalCoronation)。
     public static bool HasHolyName(Empire empire) =>
         empire?.data != null && empire.data.directPre == OverallHelperFunc.HolyPrefixKey;
 
@@ -82,7 +82,18 @@ public static partial class PapacySystem
         return true;
     }
 
+    // 正在授神圣之名(授名途中顺带的加冕不再触发自动授名，见 RealmNamingSystem.OnPapalCoronation)
+    internal static bool GrantingHoly { get; private set; }
+
     public static void GrantHoly(Empire empire)
+    {
+        if (GrantingHoly) return;
+        GrantingHoly = true;
+        try { GrantHolyCore(empire); }
+        finally { GrantingHoly = false; }
+    }
+
+    private static void GrantHolyCore(Empire empire)
     {
         Religion religion = ReligionOf(empire);
         Kingdom papacy = Papacy(religion);

@@ -281,6 +281,17 @@ public static class AdministrativeControlSystem
         return best < float.MaxValue && Control(best, Reach(realm)) < HardLimit;
     }
 
+    // 只按都城(汗庭)算、不借成员国的都城：对方的城在都城的控制范围之外(按沿直线的地形阻力估路程；大汗东西分立用，
+    // 见 EmpirePartitionSystem.KhanateSplit)
+    public static bool BeyondCourt(Kingdom kingdom, City target)
+    {
+        Kingdom realm = Realm(kingdom);
+        if (!Valid(realm) || realm.capital == null || target?.data == null || target.isRekt()) return false;
+        TileZone from = CenterZone(realm.capital), goal = CenterZone(target);
+        if (from == null || goal == null) return false;
+        return Control(TerrainResistance.LineCost(from, goal, realm) * LineDetour, Reach(realm)) < HardLimit;
+    }
+
     public static string DescribeCapacity(Kingdom kingdom)
     {
         Kingdom realm = Realm(kingdom);

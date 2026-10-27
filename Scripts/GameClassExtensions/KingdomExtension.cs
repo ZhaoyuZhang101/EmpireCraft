@@ -3409,7 +3409,17 @@ public static class KingdomExtension
             string name = GetKingdomFrontFallback(kingdom);
             if (!string.IsNullOrWhiteSpace(name)) return name;
         }
-        return kingdom.EnsureKingdomCoreName();
+        string coreName = kingdom.EnsureKingdomCoreName();
+        // 成员国与朝代同名(燕朝底下的燕国)：改以都城为名(北平国)；独立了、或朝代改名不再叫这个，自然恢复原名
+        // (用户 2026-10-27 截图燕朝分出"燕国"："可以给他改名，使用省份名称加国，除非他独立或者改朝换代不用燕为朝代名称了")
+        if (!kingdom.isRekt() && !kingdom.IsEmpire() && kingdom.capital != null && !string.IsNullOrWhiteSpace(coreName) &&
+            kingdom.GetEmpire() is Empire empire && !empire.isRekt() && !empire.IsArchived() &&
+            string.Equals(coreName, empire.GetEmpireName(), StringComparison.Ordinal))
+        {
+            string place = kingdom.capital.GetCityName();
+            if (!string.IsNullOrWhiteSpace(place) && !string.Equals(place, coreName, StringComparison.Ordinal)) return place;
+        }
+        return coreName;
     }
 
     public static string GetKingdomName(this Kingdom kingdom)

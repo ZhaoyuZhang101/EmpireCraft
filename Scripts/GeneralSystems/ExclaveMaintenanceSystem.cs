@@ -236,14 +236,24 @@ public static class ExclaveMaintenanceSystem
                            string.Join("、", gone.Select(member => member.GetKingdomName())));
     }
 
+    private static bool Front(City city, Kingdom realm)
+    {
+        if (!city.kingdom.hasEnemies() && !realm.hasEnemies()) return false;
+        foreach (City next in (IEnumerable<City>)city.neighbours_cities ?? Array.Empty<City>())
+            if (next?.kingdom != null && !next.isRekt() && (next.kingdom.isInWarWith(city.kingdom) || next.kingdom.isInWarWith(realm)))
+                return true;
+        return false;
+    }
+
     // 一片飞地整片自立：整个在这片里的成员国连国离开帝国，其余的城按原属国各自由当地首领立国；返回是否走了
     private static bool Secede(Audit work, List<TileZone> part)
     {
         var zones = new HashSet<TileZone>(part);
         var cities = part.Select(zone => zone.city).Where(city => city != null).Distinct().ToList();
         if (cities.Count == 0) return false;
-        // 神力拉入未满期的成员不走(见 MembershipCooldown)；正在打仗、被占领的今年不动；城的地跨了几片的不动
-        if (cities.Any(city => !Valid(city, work.realm) || city == work.realm.capital || city.kingdom.hasEnemies() ||
+        // 神力拉入未满期的成员不走(见 MembershipCooldown)；挨着敌国(前线上)、被占领的今年不动；城的地跨了几片的不动。
+        // 以前只要在打仗就不动，帝国常年有仗，远方的飞地就年年留着(用户 2026-10-27 截图拜占庭远在东方的行省)
+        if (cities.Any(city => !Valid(city, work.realm) || city == work.realm.capital || Front(city, work.realm) ||
                                city.GetOrCreate().OccupiedStatus.Count > 0 || MembershipCooldown.ManualJoinActive(city.kingdom) ||
                                city.zones.Any(zone => zone.tiles_with_ground > 0 && !zones.Contains(zone)))) return false;
         var gone = new List<string>();

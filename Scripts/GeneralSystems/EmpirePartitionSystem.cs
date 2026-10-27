@@ -399,6 +399,81 @@ public static class EmpirePartitionSystem
 
     #endregion
 
+    #region ④ 大汗东西分立
+
+    // 汗国大过汗庭管得到的(用户 2026-10-27 截图匈奴汗国横跨大半张图："游牧也太大了, 就没有什么法理控制上限吗"，
+    // 问答选"换汗即东西分裂")：草原法理本身就大，汗国多半在自己的法理里，法理上限卡不住。新汗即位时(见 NomadCycleSystem.OnKhanSucceeded)，
+    // 汗国的城(成员国按都城整国算，汗庭直辖的逐城算)有 KhanSplitShare 以上在汗庭(本国都城，不借成员都城)的控制范围之外，
+    // 就按东西(或南北)分为两个汗国——像突厥东西分立、蒙古四大汗国：远方那一半由那边最大的兀鲁思之主称汗(没有就由宗室)，
+    // 同一国号各加方位，兄弟之国四十年不互攻(同遗诏分治)。分出去的那一半占三成到六成；分治冷却、大分裂冷却里不分
+    private const float KhanSplitShare = 0.25f, KhanSplitMin = 0.3f, KhanSplitMax = 0.6f;
+    private const int KhanSplitMinCities = 12;
+
+    public static bool KhanateSplit(Empire empire)
+    {
+        if (!NomadCycleSystem.IsKhanate(empire) || Twin(empire) != null) return false;
+        Kingdom core = empire.CoreKingdom;
+        City capital = core?.capital;
+        Actor khan = empire.Emperor;
+        if (capital == null || khan?.data == null) return false;
+        double since = empire.data.partition_time;
+        if (since >= 0d && Date.getYearsSince(since) < CooldownYears || UpheavalGuard.Blocked(empire, out _)) return false;
+        int total = 0, far = 0;
+        var remote = new List<Kingdom>();
+        foreach (Kingdom kingdom in empire.kingdoms_list.ToList())
+        {
+            if (kingdom?.data == null || kingdom.isRekt() || kingdom.cities == null) continue;
+            if (kingdom == core)
+            {
+                foreach (City city in core.cities.ToList())
+                {
+                    total++;
+                    if (city != capital && AdministrativeControlSystem.BeyondCourt(core, city)) far++;
+                }
+                continue;
+            }
+            total += kingdom.cities.Count;
+            if (kingdom.capital == null || !AdministrativeControlSystem.BeyondCourt(core, kingdom.capital)) continue;
+            far += kingdom.cities.Count;
+            remote.Add(kingdom);
+        }
+        if (total < KhanSplitMinCities || far < total * KhanSplitShare) return false;
+        Actor ruler = null;
+        City seat = null;
+        Plan plan = null;
+        Kingdom ownKingdom = null;
+        // 远方最大的兀鲁思之主就地称汗
+        foreach (Kingdom member in remote.OrderByDescending(member => member.cities.Count).ThenByDescending(Might))
+        {
+            Actor lord = member.king;
+            if (lord?.data == null || !lord.isAlive() || !lord.isAdult() || member.IsFactionRebelling() || member.IsLocalRebelling()) continue;
+            Plan candidate = Divide(empire, capital, member.capital);
+            if (candidate.Share < KhanSplitMin || candidate.Share > KhanSplitMax) continue;
+            (ruler, seat, plan, ownKingdom) = (lord, member.capital, candidate, member);
+            break;
+        }
+        if (ruler == null)
+        {
+            seat = FarSeat(empire, capital.city_center, KhanSplitMin, KhanSplitMax, out plan);
+            ruler = seat == null ? null : PickRoyal(empire, khan, preferYoung: false);
+        }
+        if (ruler == null || seat == null || plan == null) return false;
+        string khanName = khan.getName(), seatName = seat.GetCityName();
+        int before = UpheavalGuard.Cities(empire);
+        Empire twin = Split(empire, ruler, seat, plan, KindWill, PrinceStruggleSystem.NotePartition, empire.data.core_name,
+            renameSource: true, ownKingdom);
+        if (twin == null) return false;
+        empire.data.partition_amity = twin.data.partition_amity = true;
+        UpheavalGuard.Mark(empire, "大汗东西分立", detail: $"分走 {before - UpheavalGuard.Cities(empire)} 城");
+        Publish(empire, twin, string.Format(LM.Get("partition_khanate_history"), khanName, ruler.getName(), seatName,
+            empire.GetEmpireFullName(), twin.GetEmpireFullName()), khan);
+        LogService.LogInfo($"[EmpireCraft][大汗分立] {empire.GetEmpireFullName()} 新汗{khanName}即位，{far}/{total} 城在汗庭控制范围之外，" +
+                           $"{ruler.getName()} 据 {seatName} 称汗为 {twin.GetEmpireFullName()}(分走约{plan.Share:P0})");
+        return true;
+    }
+
+    #endregion
+
     #region 每年、每月(RoyalHouseSystem.Tick)
 
     public static void Yearly(Empire empire)
