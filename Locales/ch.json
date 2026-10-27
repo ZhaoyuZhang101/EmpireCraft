@@ -7695,6 +7695,8 @@
   "exclave_maintenance_format": "{0} 區域 · {1}/年",
   "exclave_unpaid_format": "未付 {0}",
   "exclave_release_history": "{0}連年財政吃緊，放棄對飛地{1}的管轄，將其交接給接壤的{2}。",
+  "exclave_independence_history": "{0}的飛地{1}與本土隔絕，自立為{2}。",
+  "faltering_members_history": "{0}正統崩壞(正統{1})，號令不出法理之地，{2}各自獨立",
   "city_pop_savings_format": "{0}（年消費 {1}）",
   "territory_font_seal_huaxia_on": "華夏國號用篆書：開（無後綴）",
   "territory_font_seal_huaxia_off": "華夏國號用篆書：關",

@@ -5,7 +5,10 @@ namespace EmpireCraft.Scripts.UI.Components
     public static class TerritoryLabelProjection
     {
         public const int ReferenceFontSize = 128;
-        public const float OutlineDistance = 1f;
+        // 描边粗细(参考字号的单位，128 号字上 3 个单位)；屏幕上至少 MinOutlinePixels(见 TerritoryLabelRenderer)。
+        // 用户 2026-10-27"文字黑边能不能加粗"：以前 1 个单位，小字号铭牌上不到一像素
+        public const float OutlineDistance = 3f;
+        public const float MinOutlinePixels = 1.2f;
 
         public static float FitScale(float width, float height, float textWidth, float textHeight,
             float sizeMultiplier, int maxFontSize, float outlineDistance = OutlineDistance)

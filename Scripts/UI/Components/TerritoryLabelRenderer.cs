@@ -805,12 +805,12 @@ public static class TerritoryLabelRenderer
         private Text _text;
         // 字形包字体的第二行小字(宗主、周诸侯金字)：字形包字体不认 <size>、量不出行高，两行会叠在一起，拆出来另画在名字下面
         private Text _sub_text;
-        private Outline _sub_outline;
+        private TerritoryLabelOutline _sub_outline;
         private const float SubLineScale = 70f / 128f;
         private Image _culture_lock_badge;
         private Image _leading_icon;
         private TerritoryLabelGoldGradient _gold_gradient;
-        private Outline _outline;
+        private TerritoryLabelOutline _outline;
         private int _source_signature;
         private string _placement_text;
         private TerritoryLabelOrientation _placement_orientation;
@@ -944,7 +944,7 @@ public static class TerritoryLabelRenderer
                 _sub_text.resizeTextForBestFit = false;
                 _sub_text.supportRichText = true;
                 _sub_text.raycastTarget = false;
-                _sub_outline = child.AddComponent<Outline>();
+                _sub_outline = child.AddComponent<TerritoryLabelOutline>();
                 RectTransform childRect = _sub_text.rectTransform;
                 childRect.anchorMin = childRect.anchorMax = childRect.pivot = new Vector2(0.5f, 0.5f);
             }
@@ -1191,7 +1191,12 @@ public static class TerritoryLabelRenderer
             Color subOutlineColor = outlineColor;
             outlineColor.a *= visibility;
             _outline.effectColor = outlineColor;
-            _outline.effectDistance = new Vector2(outlineDistance, -outlineDistance) / _raster_factor;
+            // 描边按拼字字号的本地单位；放得小时屏幕上至少 MinOutlinePixels
+            float outlineLocal = outlineDistance / _raster_factor;
+            float pixelsPerLocal = scale * _raster_factor * canvasScale;
+            if (pixelsPerLocal > 0f)
+                outlineLocal = Mathf.Max(outlineLocal, TerritoryLabelProjection.MinOutlinePixels / pixelsPerLocal);
+            _outline.effectDistance = new Vector2(outlineLocal, -outlineLocal);
             bool hasSubLine = _sub_text != null && _sub_text.gameObject.activeSelf;
             if (hasSubLine)
             {
@@ -1296,7 +1301,7 @@ public static class TerritoryLabelRenderer
             rect.anchorMax = new Vector2(0.5f, 0.5f);
             rect.pivot = new Vector2(0.5f, 0.5f);
             _gold_gradient = textObject.AddComponent<TerritoryLabelGoldGradient>();
-            _outline = textObject.AddComponent<Outline>();
+            _outline = textObject.AddComponent<TerritoryLabelOutline>();
             textObject.AddComponent<TerritoryLabelArc>();
         }
 
@@ -2009,6 +2014,66 @@ public sealed class TerritoryLabelGoldGradient : BaseMeshEffect
 }
 
 // Bends the baseline along the territory-specific path calculated by TerritoryLabelRenderer.
+// 领土铭牌的描边：八个方向各描一份(原版 Outline 只描四个斜角，描粗了横竖笔画边上会露缝)，
+// 颜色的透明度乘上字本身的透明度(同原版 useGraphicAlpha)
+public sealed class TerritoryLabelOutline : BaseMeshEffect
+{
+    private const float Axis = 1.41421356f;
+    private static readonly Vector2[] Directions =
+    {
+        new(1f, 1f), new(1f, -1f), new(-1f, 1f), new(-1f, -1f),
+        new(Axis, 0f), new(-Axis, 0f), new(0f, Axis), new(0f, -Axis)
+    };
+    private static readonly List<UIVertex> Source = new(), Output = new();
+    private Color _color = Color.black;
+    private Vector2 _distance = Vector2.one;
+
+    public Color effectColor
+    {
+        get => _color;
+        set
+        {
+            if (_color == value) return;
+            _color = value;
+            if (graphic != null) graphic.SetVerticesDirty();
+        }
+    }
+
+    public Vector2 effectDistance
+    {
+        get => _distance;
+        set
+        {
+            if (_distance == value) return;
+            _distance = value;
+            if (graphic != null) graphic.SetVerticesDirty();
+        }
+    }
+
+    public override void ModifyMesh(VertexHelper vertexHelper)
+    {
+        if (!IsActive() || vertexHelper.currentVertCount == 0) return;
+        Source.Clear();
+        vertexHelper.GetUIVertexStream(Source);
+        Output.Clear();
+        float dx = Mathf.Abs(_distance.x), dy = Mathf.Abs(_distance.y);
+        foreach (Vector2 direction in Directions)
+            foreach (UIVertex vertex in Source)
+            {
+                UIVertex copy = vertex;
+                copy.position.x += direction.x * dx;
+                copy.position.y += direction.y * dy;
+                Color32 color = _color;
+                color.a = (byte)(color.a * vertex.color.a / 255);
+                copy.color = color;
+                Output.Add(copy);
+            }
+        Output.AddRange(Source);
+        vertexHelper.Clear();
+        vertexHelper.AddUIVertexTriangleStream(Output);
+    }
+}
+
 public sealed class TerritoryLabelArc : BaseMeshEffect
 {
     private float _curvature;

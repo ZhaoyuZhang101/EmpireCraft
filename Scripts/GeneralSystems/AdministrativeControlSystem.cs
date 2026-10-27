@@ -158,6 +158,27 @@ public static class AdministrativeControlSystem
         data.conquered_by = Realm(receiver).id;
         // 调用时城还在原主手里
         data.conquered_unification = UnificationBetween(receiver, city.kingdom);
+        Empire empire = Realm(receiver).GetEmpire();
+        data.recaptured_from_rebels = empire != null && city.kingdom?.data != null && city.kingdom.HasRebelledAgainst(empire);
+    }
+
+    // 招安要根源已消(用户 2026-10-27 转群友"农民军刚刚起义就接受诏安变成都司了"，"如果根本问题没解决招安也不行")：
+    // 官军收复叛军的城以前也记成新征服地，帝国一过度扩张，扩张上限就把它放给当地首领立国，律令制施行羁縻的编成羁縻州
+    // (明制叫都司)——看着像起义军刚起事就受了招安，民变也随之不算数，王朝很难倒。现在收复的叛军之城，起事的根源都消了
+    // (王朝积弊、朝政积弊不在危局，苛政、民怨不到 RootBurden/RootGrievance，这座城人心不散、没有失地过半、不在饥荒)
+    // 才可能这样放出去；否则只收回直辖，矛盾照旧，过了冷却期照样再起
+    private const float RootBurden = 60f, RootGrievance = 60f;
+
+    public static bool RootCauseResolved(Kingdom realm, City city)
+    {
+        Empire empire = Realm(realm)?.GetEmpire();
+        if (empire != null && (DynasticCycleSystem.InCrisis(empire) || MaladySystem.InCrisis(empire) ||
+                               HarshRuleSystem.GetBurden(empire) >= RootBurden)) return false;
+        if (PopularGrievance.Index(Realm(realm)) >= RootGrievance) return false;
+        if (city?.data == null) return true;
+        if (TreasurySystem.Enabled(city) && CityStabilitySystem.CanRise(city)) return false;
+        if (LandEconomySystem.GetLandlessRatio(city) >= LandEconomySystem.EffectiveRebellionThreshold(city)) return false;
+        return !FamineUnrestSystem.InFamine(city);
     }
 
     // 两国(连同所在帝国的中央)之间正打着统一战争
@@ -198,7 +219,7 @@ public static class AdministrativeControlSystem
         {
             if (city?.data == null || city.isRekt() || city.kingdom?.data == null || Realm(city.kingdom) != realm) continue;
             var data = city.GetOrCreate();
-            if (data.conquered_by != realm.id || data.conquered_unification || data.conquered_at < 0d || now < data.conquered_at ||
+            if (data.conquered_by != realm.id || data.conquered_unification || data.recaptured_from_rebels || data.conquered_at < 0d || now < data.conquered_at ||
                 Date.getYearsSince(data.conquered_at) >= GenerationYears) continue;
             KingdomTitle title = city.GetTitle();
             if (title?.data != null) titles.Add(title.id);
@@ -465,23 +486,30 @@ public static class AdministrativeControlSystem
         return step;
     }
 
+    // 从都城那块起，经本国(连同本帝国成员)的地、本国水师辐射内港口间的海路走得到的地块
+    private static HashSet<int> Linked(TileZone home, Dictionary<TileZone, (City city, HashSet<int> basins)> ports, float radius)
+    {
+        var seen = new HashSet<int> { home.id };
+        var frontier = new Queue<TileZone>();
+        frontier.Enqueue(home);
+        while (frontier.Count > 0)
+        {
+            TileZone zone = frontier.Dequeue();
+            foreach (TileZone next in zone.neighbours ?? Array.Empty<TileZone>())
+                if (next != null && Member(next) && seen.Add(next.id)) frontier.Enqueue(next);
+            if (ports.Count == 0 || !ports.TryGetValue(zone, out var from)) continue;
+            foreach (KeyValuePair<TileZone, (City city, HashSet<int> basins)> to in ports)
+            {
+                if (to.Key == zone || seen.Contains(to.Key.id) || !from.basins.Overlaps(to.Value.basins)) continue;
+                if ((from.city.city_center - to.Value.city.city_center).magnitude <= radius && seen.Add(to.Key.id))
+                    frontier.Enqueue(to.Key);
+            }
+        }
+        return seen;
+    }
+
     private static void Compute(Kingdom realm, List<City> cities)
     {
-        var seats = new List<(TileZone zone, int offset)>();
-        foreach (City city in cities)
-        {
-            Kingdom owner = city.kingdom;
-            if (owner.capital != city) continue;
-            TileZone zone = CenterZone(city);
-            if (zone != null) seats.Add((zone, owner == realm ? 0 : MemberSeatOffset));
-        }
-        // 陪京(见 MultiCapitalSystem)：与都城同起点
-        foreach (City jing in MultiCapitalSystem.AuxiliaryCities(realm))
-        {
-            TileZone zone = jing.kingdom != null && cities.Contains(jing) ? CenterZone(jing) : null;
-            if (zone != null) seats.Add((zone, 0));
-        }
-        if (seats.Count == 0) return;
         BeginPass();
         foreach (City city in cities)
             foreach (TileZone zone in city.zones)
@@ -501,6 +529,27 @@ public static class AdministrativeControlSystem
                 var basins = new HashSet<int>(SeaRegionSystem.RegionsAround(city).Select(region => region.Basin));
                 if (zone != null && basins.Count > 0) ports[zone] = (city, basins);
             }
+        // 治所：都城从 0 起；成员国都城、陪京要与都城连得上(陆路经本国连同本帝国的地，或本国水师辐射内的海路)才算——
+        // 隔着别国的远方成员以前从自己的都城起算，控制力照样满(用户 2026-10-27 问"怎么判断的控制力高于0.45，
+        // 首先他们就不接壤，然后中间还隔了那么大的国家")，现在按陆路不通的飞地折算
+        TileZone home = realm.capital != null && cities.Contains(realm.capital) ? CenterZone(realm.capital) : null;
+        HashSet<int> linked = home != null ? Linked(home, ports, radius) : null;
+        var seats = new List<(TileZone zone, int offset)>();
+        foreach (City city in cities)
+        {
+            Kingdom owner = city.kingdom;
+            if (owner.capital != city) continue;
+            TileZone zone = CenterZone(city);
+            if (zone == null || owner != realm && linked != null && !linked.Contains(zone.id)) continue;
+            seats.Add((zone, owner == realm ? 0 : MemberSeatOffset));
+        }
+        // 陪京(见 MultiCapitalSystem)：与都城同起点
+        foreach (City jing in MultiCapitalSystem.AuxiliaryCities(realm))
+        {
+            TileZone zone = jing.kingdom != null && cities.Contains(jing) ? CenterZone(jing) : null;
+            if (zone != null && (linked == null || linked.Contains(zone.id))) seats.Add((zone, 0));
+        }
+        if (seats.Count == 0) return;
         // 多源最短路(按地形阻力)：都城从 0 起、成员国都城从 4 起；记下路上有没有走过海路。
         // 每块地的阻力一趟只算一次(以前四邻各推一次就现算一次)
         Heap.Clear();
@@ -579,7 +628,9 @@ public static class AdministrativeControlSystem
         return data.conquered_at >= 0d && data.conquered_by == realm.id && data.admin_control >= 0f &&
                data.admin_control < limit && World.world.getCurWorldTime() >= data.conquered_at &&
                Date.getYearsSince(data.conquered_at) < RecentConquestYears &&
-               !(data.OccupiedStatus?.Count > 0) && !city.kingdom.hasEnemies() && !IsIndirect(city.kingdom);
+               !(data.OccupiedStatus?.Count > 0) && !city.kingdom.hasEnemies() && !IsIndirect(city.kingdom) &&
+               // 收复的叛军之城：根源没消不放(见 RootCauseResolved)
+               (!data.recaptured_from_rebels || RootCauseResolved(realm, city));
     }
 
     // 管不到的新征服之地：由当地首领自立，按政体文化转为羁縻州、附庸诸侯或朝贡国

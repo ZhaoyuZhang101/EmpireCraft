@@ -81,6 +81,8 @@ public static class CityExtension
         public long conquered_by = -1L;
         // 那次是在统一战争里打下的(不算"一代人侵占"的数，见 AdministrativeControlSystem.GenerationConquests)
         public bool conquered_unification;
+        // 那次是从反叛本帝国的叛军手里收复的(不算"一代人侵占"，根源没消也不放作羁縻都司，见 AdministrativeControlSystem.RootCauseResolved)
+        public bool recaptured_from_rebels;
         // 异族之地(见 ForeignLandSystem)：归这个帝国(按中央记)的时间与帝国中央；-1 = 不是异族之地
         public double foreign_since = -1d;
         public long foreign_realm = -1L;

@@ -7681,6 +7681,8 @@
   "exclave_maintenance_format": "{0} zones · {1}/yr",
   "exclave_unpaid_format": "Unpaid {0}",
   "exclave_release_history": "After prolonged fiscal pressure, {0} relinquished the exclave {1} to bordering {2}.",
+  "exclave_independence_history": "{0}'s exclave {1}, cut off from the homeland, breaks away as {2}.",
+  "faltering_members_history": "{0}'s authority has collapsed (legitimacy {1}); its writ no longer runs beyond its own lands, and {2} go their own way",
   "city_pop_savings_format": "{0} (spending {1}/yr)",
   "territory_font_seal_huaxia_on": "Huaxia names in seal script: On (no suffix)",
   "territory_font_seal_huaxia_off": "Huaxia names in seal script: Off",
