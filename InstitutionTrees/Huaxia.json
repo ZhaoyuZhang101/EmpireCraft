@@ -170,7 +170,7 @@
         }
       ]
     },
-    {"id": "huaxia_nine_rank", "name_key": "institution_huaxia_nine_rank", "description_key": "institution_huaxia_nine_rank_desc", "branch": "society", "advancement": 4, "requires": ["huaxia_recommendation"], "exclusive_with": ["huaxia_examination_officialdom"], "requires_techs": ["paper"], "reform": {"base_progress_per_year": 8.0, "minimum_years": 8, "force_radicalism": 20.0}, "resistance": {"base_radicalism": 6.0, "vested_interest_radicalism": 8.0, "rebellion_threshold": 78.0}, "politics": {"support_classes": {"Noble": 1.2, "Landlord": 0.6, "SlaveOwner": 0.4}, "oppose_classes": {"Peasant": 0.4, "Officer": 0.3}}, "features": {"nine_rank": 1}, "absorb": {"enabled": false}},
+    {"id": "huaxia_nine_rank", "name_key": "institution_huaxia_nine_rank", "description_key": "institution_huaxia_nine_rank_desc", "branch": "society", "advancement": 5, "requires": ["huaxia_recommendation"], "exclusive_with": ["huaxia_examination_officialdom"], "requires_techs": ["paper"], "reform": {"base_progress_per_year": 8.0, "minimum_years": 8, "force_radicalism": 20.0}, "resistance": {"base_radicalism": 6.0, "vested_interest_radicalism": 8.0, "rebellion_threshold": 78.0}, "politics": {"support_classes": {"Noble": 1.2, "Landlord": 0.6, "SlaveOwner": 0.4}, "oppose_classes": {"Peasant": 0.4, "Officer": 0.3}}, "features": {"nine_rank": 1}, "absorb": {"enabled": false}},
     {
       "id": "zhou_enfeoffment", "requires_techs": ["ritual_rites"],
       "name_key": "institution_zhou_enfeoffment",
