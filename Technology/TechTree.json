@@ -200,14 +200,6 @@
     { "id": "postal_roads", "branch": "civics", "tier": 4, "cost": 155, "requires_techs": ["bureaucracy", "masonry"] },
     { "id": "charter_towns", "branch": "civics", "tier": 4, "cost": 155, "requires_techs": ["currency", "law_code"] },
     { "id": "standing_army", "branch": "civics", "tier": 4, "cost": 155, "requires_techs": ["military_register", "taxation"] },
-    { "id": "imperial_rule", "branch": "civics", "tier": 4, "cost": 155, "requires_techs": ["law_code", "bureaucracy", "ritual_rites"],
-      "by_line": {
-        "Huaxia": { "key": "imperial_rule_huaxia", "requires_techs": ["law_code", "bureaucracy", "ritual_rites"] },
-        "Roma": { "key": "imperial_rule_roma", "requires_techs": ["law_code", "military_register"] },
-        "Arabic": { "key": "imperial_rule_arabic", "requires_techs": ["law_code", "ritual_rites"] },
-        "Youmu": { "key": "imperial_rule_youmu", "requires_techs": ["military_register"] },
-        "Japan": { "key": "imperial_rule_japan", "requires_techs": ["law_code", "ritual_rites", "bureaucracy"] }
-      } },
     { "id": "civil_examination", "branch": "civics", "tier": 5, "cost": 260, "requires_techs": ["paper", "bureaucracy"] },
     { "id": "estates_assembly", "branch": "civics", "tier": 5, "cost": 260, "requires_techs": ["law_code", "charter_towns"] },
     { "id": "fiscal_reform", "branch": "civics", "tier": 6, "cost": 420, "requires_techs": ["taxation", "bureaucracy"] },

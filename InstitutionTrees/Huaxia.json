@@ -5,6 +5,38 @@
   ],
   "nodes": [
     {
+      "id": "huaxia_imperial_rule",
+      "name_key": "institution_huaxia_imperial_rule",
+      "description_key": "institution_huaxia_imperial_rule_desc",
+      "branch": "administration",
+      "advancement": 3,
+      "requires": [
+        "huaxia_hereditary_kingship"
+      ],
+      "requires_techs": [
+        "law_code",
+        "bureaucracy",
+        "ritual_rites"
+      ],
+      "reform": {
+        "base_progress_per_year": 12.0,
+        "minimum_years": 4
+      },
+      "resistance": {
+        "base_radicalism": 3.0,
+        "rebellion_threshold": 85.0
+      },
+      "politics": {
+        "support_classes": {
+          "Officer": 0.6,
+          "Noble": 0.4
+        }
+      },
+      "features": {
+        "imperial_rule": 1
+      }
+    },
+    {
       "id": "huaxia_self_strengthening",
       "requires_techs": [
         "industrialization"

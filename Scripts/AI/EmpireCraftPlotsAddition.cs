@@ -445,9 +445,9 @@ namespace EmpireCraft.Scripts.AI
                 progress_needed = 60f,
                 can_be_done_by_king = true,
                 check_is_possible = pActor => false,
-                // 上帝强制也要本国已有「帝制」(见 EmpireFormationService.HasImperialTech)
+                // 上帝强制也要本文化已推行称帝制度(见 EmpireFormationService.HasImperialRule)
                 check_can_be_forced = pActor => !EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.BlocksEmpireFormation(pActor?.kingdom) &&
-                                                EmpireFormationService.HasImperialTech(pActor?.kingdom),
+                                                EmpireFormationService.HasImperialRule(pActor?.kingdom),
                 try_to_start_advanced = TryStartSimplePlot,
                 // 筹备期：打败仗、国库转负、被同文化别国超过、不再满足路线都会让称帝失败(进入冷却)
                 check_should_continue = EmpireFormationService.ShouldContinuePreparation,

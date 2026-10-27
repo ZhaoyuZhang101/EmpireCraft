@@ -159,25 +159,20 @@ public static class UIHelper
         }
         LogService.LogInfo("点击角色");
     }
-    // 头像缩放兜底(用户 2026-10-27 截图：帝国窗口里皇帝头像连人带框大了好几倍)：别的种族模组(夏人种族)给君主用四倍像素的
-    // 高清身体帧，只在原版检视面板里缩回去，这里的头像就跟着放大。载入后按实际贴图大小把人缩进框里，框保持原版大小
-    // (原版的框反向缩放：框的缩放 × 头像的缩放 = AvatarFrameScale)
-    private const float AvatarFrameScale = 2.5f, AvatarMaxHeight = 40f;
+    // 头像缩放(用户 2026-10-27 两次截图：帝国窗口里皇帝头像连人带框大了好几倍；官制品级图里行政区长官的卡被头像框撑满)：
+    // 别的种族模组(夏人种族)给君主用四倍像素的高清身体帧，只在原版检视面板里缩回去。这里一律按 AvatarScale 显示、
+    // 框也按 AvatarScale(框的缩放 × 头像的缩放 = AvatarScale)；身体帧高过 AvatarRefHeight 像素的(高清帧)按比例缩回去，框不跟着变。
+    // 以前先按种族缩放收、再在末尾把整体缩放硬改回 1.2，框却还按收小的倍数反放大，高清帧的人框大了四五倍
+    private const float AvatarScale = 1.2f, AvatarRefHeight = 16f;
 
     private static void FitAvatar(UnitAvatarLoader loader)
     {
         if (loader == null) return;
-        Transform root = loader.transform;
-        float scale = root.localScale.x;
-        if (scale <= 0f) return;
         Sprite sprite = loader._actor_image != null ? loader._actor_image.sprite : null;
-        float shown = sprite == null ? 0f : sprite.rect.height * scale;
-        if (shown > AvatarMaxHeight)
-        {
-            scale *= AvatarMaxHeight / shown;
-            root.localScale = new Vector3(scale, scale, 0f);
-        }
-        if (loader._frame != null) loader._frame.localScale = new Vector3(AvatarFrameScale / scale, AvatarFrameScale / scale, 0f);
+        float height = sprite == null ? 0f : sprite.rect.height;
+        float scale = height > AvatarRefHeight ? AvatarScale * AvatarRefHeight / height : AvatarScale;
+        loader.transform.localScale = new Vector3(scale, scale, 0f);
+        if (loader._frame != null) loader._frame.localScale = new Vector3(AvatarScale / scale, AvatarScale / scale, 0f);
     }
 
     [Hotfixable]
@@ -187,6 +182,8 @@ public static class UIHelper
         UnitAvatarLoader pPrefab = Resources.Load<UnitAvatarLoader>($"ui/AvatarLoaderFramed");
         SimpleButton clickFrame = UnityEngine.Object.Instantiate(SimpleButton.Prefab);
         UnitAvatarLoader unitLoader = UnityEngine.Object.Instantiate(pPrefab, clickFrame.transform, true);
+        // 没有人(空缺、已故、虚拟族人)时按 AvatarScale 显示；有人时载入后按身体帧大小定(见 FitAvatar)
+        unitLoader.transform.localScale = new Vector2(AvatarScale, AvatarScale);
         RectTransform rt = clickFrame.GetComponent<RectTransform>();
         rt.anchorMin = Vector2.zero;
         rt.anchorMax = Vector2.one;
@@ -245,7 +242,6 @@ public static class UIHelper
         }
 
         unitLoader.transform.SetAsLastSibling();
-        unitLoader.transform.localScale = new Vector2(1.2f, 1.2f);
         return clickFrame;
     }
     // AbstractWideWindow<T> 不像 AutoLayoutWindow<T> 那样把窗口自身就做成一个 AutoVertLayoutGroup——

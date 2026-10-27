@@ -1529,6 +1529,11 @@ public static partial class InstitutionSystem
 
     private const int BasicsSlack = 2;
 
+    // 称帝制度：王国(不是帝国)、城数够称帝的才优先推
+    private static bool ImperialPriority(InstitutionRealm realm, InstitutionNodeConfig node) =>
+        !realm.IsEmpire && realm.Kingdom?.cities != null && realm.Kingdom.cities.Count >= EmpireFormationService.MinimumCities &&
+        node.features != null && node.features.TryGetValue(EmpireFormationService.ImperialFeature, out float value) && value > 0f;
+
     private static void TryStartAiReform(InstitutionRealm realm, Dictionary<SocialClass, float> shares = null)
     {
         if (!InstitutionDefinitionRegistry.Global.ai_enabled) return;
@@ -1555,6 +1560,7 @@ public static partial class InstitutionSystem
         int era = TechnologySystem.GetEraTier(primaryCulture);
         CultureInstitutionState cultureState = GetOrCreateCultureState(primaryCulture);
         var candidates = new List<(InstitutionNodeConfig node, float score)>();
+        InstitutionNodeConfig imperial = null;
         foreach (InstitutionNodeConfig node in InstitutionDefinitionRegistry.GetForLine(
                      GetCultureLine(primaryCulture)))
         {
@@ -1583,7 +1589,18 @@ public static partial class InstitutionSystem
                           TechnologySystem.GetInstitutionPush(primaryCulture, node) * 40f +
                           (realm.IsEmpire ? PapacySystem.ReformBias(realm.Empire, node) +
                                             HolyRomanSystem.ReformBias(realm.Empire, node) : 0f);
+            // 称帝制度(见 EmpireFormationService.HasImperialRule)：够得上称帝规模的王国最先推，不受"先推基础的"那一档限制
+            if (ImperialPriority(realm, node))
+            {
+                imperial = node;
+                break;
+            }
             candidates.Add((node, score));
+        }
+        if (imperial != null)
+        {
+            if (StartReform(realm, imperial.id)) NoteAiStart(primaryCulture);
+            return;
         }
         if (candidates.Count == 0) return;
         int basic = candidates.Min(entry => entry.node.advancement) + BasicsSlack;

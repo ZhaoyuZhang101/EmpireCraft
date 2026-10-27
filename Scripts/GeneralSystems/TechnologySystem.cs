@@ -1163,12 +1163,10 @@ public static class TechnologySystem
         }
     }
 
-    // 称帝要先研究"皇帝制度"(见 EmpireFormationService.HasImperialTech)，可前代有过帝国的文化不必从头再研究一遍
-    // (用户 2026-10-27 截图楚国占了大半个华夏却不称帝：日志"尚未研究或采纳科技「皇帝制度」"，华夏前置都有，
-    // 这一项按五十多城算要三千多点，每年二十来点，得研究几百年)：本文化有过帝国(现存的、亡了留下记录的)，皇帝制度承袭前代，直接补上
+    // 称帝要先推行本文明的称帝制度(见 EmpireFormationService.HasImperialRule)，可前代有过帝国的文化不必从头再推一遍
+    // (用户 2026-10-27 截图楚国占了大半个华夏却不称帝)：本文化有过帝国(现存的、亡了留下记录的)、制度前置都齐的，承袭前代，直接施行
     private static void ImperialPrecedent()
     {
-        const string tech = EmpireFormationService.ImperialTech;
         var cultures = new HashSet<string>(StringComparer.Ordinal);
         foreach (Layer.FallenEmpireRecord record in Layer.FallenEmpireRecords.Records ?? new List<Layer.FallenEmpireRecord>())
             if (!string.IsNullOrEmpty(record?.culture)) cultures.Add(record.culture);
@@ -1178,10 +1176,12 @@ public static class TechnologySystem
                     cultures.Add(GetCultureOf(empire.CoreKingdom));
         foreach (string culture in cultures)
         {
-            if (!CultureService.IsValidCulture(culture) || !IsActiveFor(culture) || HasTech(culture, tech)) continue;
-            ForceResearch(culture, tech);
-            if (HasTech(culture, tech))
-                LogService.LogInfo($"[EmpireCraft][科技] {culture} 前代有过帝国，「{GetTechName(tech, culture)}」承袭前代，补为已研究");
+            if (!CultureService.IsValidCulture(culture) || InstitutionSystem.HasFeature(culture, EmpireFormationService.ImperialFeature)) continue;
+            InstitutionNodeConfig node = EmpireFormationService.ImperialNode(culture);
+            if (node == null || !InstitutionDefinitionRegistry.ArePrerequisitesMet(node, id => InstitutionSystem.IsPrerequisiteHeld(culture, id)))
+                continue;
+            if (InstitutionSystem.ForceEnactNode(culture, node.id) > 0)
+                LogService.LogInfo($"[EmpireCraft][制度] {culture} 前代有过帝国，「{InstitutionSystem.GetNodeName(node)}」承袭前代，直接施行");
         }
     }
 
