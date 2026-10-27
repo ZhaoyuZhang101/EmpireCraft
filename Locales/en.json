@@ -1386,6 +1386,7 @@
   "malady_title": "Accumulated maladies",
   "malady_header": "Average {0}",
   "malady_none": "Government is clean; no maladies have taken root",
+  "malady_strain_note": "builds with the dynasty's age and can only be slowed; the six ills below can be cured",
   "malady_graft": "Corrupt officials",
   "malady_annexation": "Land annexation",
   "malady_bloat": "Bloated offices",
