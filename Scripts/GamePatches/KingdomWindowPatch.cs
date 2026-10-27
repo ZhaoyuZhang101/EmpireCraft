@@ -142,6 +142,15 @@ public class KingdomWindowPatch: GamePatch
                 EmpireCraft.Scripts.GeneralSystems.FeudalVassalService.GetDirectVassals(metaObject));
             if (directVassals > 0)
                 __instance.showStatRow("feudal_vassals", directVassals.ToString(), "#D9B36A", pIconPath: "iconKings");
+            // 帝国中央之国：名下的朝贡国(以前只列附庸，小国称臣为朝贡国后宗主这边看不出来，玩家："也没有进附庸和属国")
+            var tributeEmpire = metaObject.GetEmpire();
+            if (tributeEmpire != null && tributeEmpire.CoreKingdom == metaObject && !tributeEmpire.isRekt())
+            {
+                int tributaries = global::System.Linq.Enumerable.Count(World.world.kingdoms, kingdom =>
+                    kingdom?.data != null && !kingdom.isRekt() && kingdom.GetTakenAllianceEmpire() == tributeEmpire);
+                if (tributaries > 0)
+                    __instance.showStatRow("tributary_kingdoms", tributaries.ToString(), "#D9B36A", pIconPath: "iconKings");
+            }
             var reparations = EmpireCraft.Scripts.GeneralSystems.WarReparationsSystem.Owed(metaObject);
             if (reparations.monthly > 0L)
                 __instance.showStatRow("war_reparations", string.Format(NeoModLoader.General.LM.Get("war_reparations_format"),

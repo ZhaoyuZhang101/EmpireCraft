@@ -179,6 +179,7 @@
   "feudal_overlord_format": "{0}（控制等级 {1}/3）",
   "tribute_overlord": "朝贡宗主",
   "feudal_vassals": "直属附庸",
+  "tributary_kingdoms": "朝贡国",
   "city_trade_route": "海上商路",
   "trade_route_status": "{0}（+{1}/月）",
   "trade_route_embargo": "{0}（交战禁运中）",
