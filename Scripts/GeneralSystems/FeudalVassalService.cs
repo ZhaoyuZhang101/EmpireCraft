@@ -97,10 +97,31 @@ public static class FeudalVassalService
     // 离罗马中央很远的附庸应当不成立")：附庸的都城远在宗主(帝国按中央，连同成员)控制范围之外——封臣要亲身效忠、随征、
     // 赴宫廷，隔着大半个大陆这层关系有名无实。行封建附庸的宗主收不得(开战改求赔款、和约不立附庸、和平称臣不受)，
     // 已有的每年结算时一律当场脱离(见 ReleaseDistantVassals；以前每年三成，截图里的乌拉尔斯克要等好几年才走，用户问"这个附庸为什么不解除")。
-    // 朝贡体系(远方来朝)不在此列；神力强制附庸不拦
+    // 朝贡体系(远方来朝)不在此列；神力强制附庸不拦。
+    // 不接壤也一样(同日截图佛利斯公国是陶瓦夫公国的附庸："这个也是，与宗主国都不接壤")：附庸的地陆上不挨着宗主一系
+    // (宗主本国连同所在帝国的成员、同一宗主名下别的附庸；它自己的陪臣不算)，就算路程不远也不成立。跨海的(都城与宗主一系
+    // 之首不在同一片陆地)只看路程
 
     public static bool TooFar(Kingdom lord, Kingdom subject) =>
-        UsesFeudalVassals(lord) && subject?.capital != null && AdministrativeControlSystem.OutOfReach(lord, subject.capital);
+        UsesFeudalVassals(lord) && subject?.capital != null &&
+        (Detached(lord, subject) || AdministrativeControlSystem.OutOfReach(lord, subject.capital));
+
+    // 陆上不挨着宗主一系(见 TooFar)
+    public static bool Detached(Kingdom lord, Kingdom subject)
+    {
+        if (lord?.data == null || subject?.cities == null || subject.cities.Count == 0) return false;
+        Kingdom top = EmpireCoreControl.Sovereign(lord) ?? lord;
+        if (subject.capital?.getTile() is WorldTile at && top.capital?.getTile() is WorldTile seat && !at.isSameIsland(seat)) return false;
+        foreach (City city in subject.cities)
+            foreach (TileZone zone in city?.border_zones ?? new HashSet<TileZone>())
+                foreach (TileZone next in zone?.neighbours ?? Array.Empty<TileZone>())
+                {
+                    Kingdom other = next?.city?.kingdom;
+                    if (other?.data == null || other == subject || other.isRekt() || IsInChain(other, subject)) continue;
+                    if (other == lord || EmpireCoreControl.Sovereign(other) == top) return false;
+                }
+        return true;
+    }
 
     // 行西方式附庸的：封建化了的文化，或废了君主制的(朝贡体系随之废除，改用附庸国)
     public static bool UsesFeudalVassals(Kingdom lord)
@@ -243,11 +264,11 @@ public static class FeudalVassalService
     {
         if (lord == null || World.world?.kingdoms == null) return null;
         double lordPower = GetWarPower(lord, false);
+        // 先用便宜的条件筛(接壤、好感、国力)，CanBind 里的路程与接壤判定放最后
         return World.world.kingdoms.Where(subject => subject != null && subject.hasKing() &&
-                GetOverlord(subject) == null && CanBind(lord, subject) &&
-                lord.IsNeighbourWith(subject) &&
+                GetOverlord(subject) == null && lord.IsNeighbourWith(subject) &&
                 (World.world.diplomacy?.getOpinion(subject, lord)?.total ?? 0) >= 50 &&
-                lordPower > GetWarPower(subject, true))
+                lordPower > GetWarPower(subject, true) && CanBind(lord, subject))
             .OrderByDescending(subject => World.world.diplomacy.getOpinion(subject, lord).total)
             .FirstOrDefault();
     }
@@ -578,11 +599,14 @@ public static class FeudalVassalService
             Kingdom lord = GetOverlord(subject);
             if (lord == null || lord.isRekt() || AncientWarfareCompatibility.Owns(subject) || AncientWarfareCompatibility.Owns(lord) ||
                 MembershipCooldown.ManualJoinActive(subject) || !TooFar(lord, subject)) continue;
+            bool detached = Detached(lord, subject);
             Break(subject);
-            string text = string.Format(LM.Get("feudal_distant_break_history"), subject.GetKingdomName(), lord.GetKingdomName());
+            string text = string.Format(LM.Get(detached ? "feudal_detached_break_history" : "feudal_distant_break_history"),
+                subject.GetKingdomName(), lord.GetKingdomName());
             EventRecorder.Record(lord, text);
             EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventOnly(text, lord);
-            NeoModLoader.services.LogService.LogInfo($"[EmpireCraft][远方附庸] {subject.GetKingdomName()} 远在 {lord.GetKingdomName()} 控制范围之外，脱离附庸");
+            NeoModLoader.services.LogService.LogInfo($"[EmpireCraft][远方附庸] {subject.GetKingdomName()} " +
+                                                     $"{(detached ? "与" + lord.GetKingdomName() + " 一系不接壤" : "远在 " + lord.GetKingdomName() + " 控制范围之外")}，脱离附庸");
         }
     }
 

@@ -1056,6 +1056,7 @@
   "nomad_appanage_history": "{0}新汗{1}即位，按草原舊俗分帳：{2}各領部眾自立",
   "small_state_submit_history": "{0}勢孤力弱，四鄰盡屬{1}，遣使稱臣",
   "feudal_distant_break_history": "{0}遠在{1}鞭長莫及之處，封建臣屬有名無實，自行脫離",
+  "feudal_detached_break_history": "{0}與宗主{1}之地並不相連，封建臣屬難以為繼，自行脫離",
   "zhou_log_conquest": "{0}興兵伐{1}，意在兼併",
   "zhou_log_submit": "{0}勢孤力弱，舉國降於{1}",
   "rebellion_reason_collapse": "朝廷失馭，各省離心",
