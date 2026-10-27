@@ -287,8 +287,11 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
         }
         else if (pKingdom.HasTakenAlliance())
         {
-            // Repair tributaries saved by older versions that were recolored as imperial land.
-            pKingdom.RestoreOriginalKingdomColor();
+            // 朝贡国挂着自己与宗主各半的合成色(见 VassalColorService；旧版整个染成帝国色的它会先换回原色)。
+            // 以前这里每次都 RestoreOriginalKingdomColor：合成色被抹掉、整图重画，两秒后 TickReassert 又套上、再整图重画，
+            // 朝贡国颜色一直变来变去(用户 2026-10-27)
+            Kingdom suzerain = pKingdom.GetTakenAllianceEmpire()?.CoreKingdom;
+            if (suzerain != null) VassalColorService.Apply(pKingdom, suzerain);
         }
         if (pKingdom.NeedToRemoveGivenAlliance())
         {

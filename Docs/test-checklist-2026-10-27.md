@@ -686,3 +686,9 @@
 - 图标 `GameResources/ui/icons/godpowers/city_flourish.png`(IconForge 城池 + 向上，`imperial_forge.py` 已登记)。
 - 验收：刷罗马几下，民居盖到上限、建筑逐级升到本国科技的最高一级；城市平面图与地图上城的样子跟着变；搭配"增加人口""营宫殿"一起用最快。
 - 已知取舍：民居上限仍按地块宜居度、富庶度与是否都城算，多山的城盖不到平原城那么多；补的建材剩下的留在城里仓库。
+
+## 朝贡国颜色一直变来变去
+
+- 原因：王国 AI 例行检查(`EmpireCraftKingdomBehCheckEmpire.CheckEmpireAlliance`)对每个朝贡国都"修旧档颜色"(`RestoreOriginalKingdomColor`)，把自己与宗主各半的合成色(`VassalColorService`)抹掉、整图重画；两秒后 `VassalColorService.TickReassert` 又套上、再整图重画，来回闪。
+- 现在例行检查只套合成色(`VassalColorService.Apply` 本身会把旧版整个染成宗主色的先换回原色)，不再先抹掉。
+- 验收：朝贡国一直是混了宗主色的底色、边框是宗主色，不再闪；整图重画次数(性能日志)下降。
