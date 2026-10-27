@@ -103,6 +103,8 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
     {
         FrameProfiler.FrameTick();
         EmpireCraft.Scripts.GeneralSystems.StableFrameRate.Tick();
+        // 增量 GC 跟不上分配时加大每帧时间片，免得整段停顿一两秒(见 GcPacing)
+        EmpireCraft.Scripts.GeneralSystems.GcPacing.Tick();
         EmpireCraft.Scripts.GeneralSystems.SmoothBorders.FrameTick();
         using (FrameProfiler.Measure("后台·原生植被")) EmpireCraft.Scripts.GeneralSystems.NativeVegetationScheduler.Tick();
         using (FrameProfiler.Measure("后台·纯净地图")) EmpireCraft.Scripts.GeneralSystems.PureMapMode.Tick();

@@ -9,6 +9,8 @@ using UnityEngine;
 // 用法：using (FrameProfiler.Measure("标签")) { ... }
 // 另外做帧率体检(定位"帧数一直在跳")：每个窗口报 均帧/最差帧/卡顿帧占比/GC 次数，
 // 并对 ≥50ms 的尖峰帧逐帧归因——列出当帧各计时段的耗时，剩下的就是模组计时段之外(原版或 GC)。
+// 各计时段另记托管堆增量(段内没发生 GC 时就是段内分配的内存)，单列"每帧分配"排行：托管堆每 10 秒涨几百 MB、
+// 隔一会儿就有一两秒的 GC 停顿时，用它找是谁在大量分配。
 // ModClass.Update 每帧先调 FrameTick()。
 public static class FrameProfiler
 {
@@ -20,7 +22,7 @@ public static class FrameProfiler
 
     private struct Sample
     {
-        internal long Ticks, Peak;
+        internal long Ticks, Peak, Alloc;
         internal int Calls;
     }
     private static readonly Dictionary<string, Sample> Ticks = new();
@@ -41,13 +43,14 @@ public static class FrameProfiler
     public readonly struct Scope : System.IDisposable
     {
         private readonly string _label;
-        private readonly long _started;
+        private readonly long _started, _heap;
 
         public Scope(string label)
         {
             EmpireCraft.Scripts.Diagnostics.StackGuard.Probe();
             EnsureFrame();
             _label = label;
+            _heap = System.GC.GetTotalMemory(false);
             _started = Stopwatch.GetTimestamp();
         }
 
@@ -55,7 +58,10 @@ public static class FrameProfiler
         {
             if (_label == null) return;
             long elapsed = Stopwatch.GetTimestamp() - _started;
+            // 段内发生了 GC 时增量为负，不计
+            long allocated = System.GC.GetTotalMemory(false) - _heap;
             Ticks.TryGetValue(_label, out Sample sample);
+            if (allocated > 0) sample.Alloc += allocated;
             sample.Ticks += elapsed;
             sample.Peak = System.Math.Max(sample.Peak, elapsed);
             sample.Calls++;
@@ -217,6 +223,19 @@ public static class FrameProfiler
         }
         string report = $"[EmpireCraft][每帧耗时] {line}";
         if (line.Length > 0) LogService.LogWarning(report);
+        // 每帧分配排行(嵌套的段会重复计入外层)
+        ordered.Sort((a, b) => b.Value.Alloc.CompareTo(a.Value.Alloc));
+        var alloc = new StringBuilder();
+        int shown = 0;
+        foreach (KeyValuePair<string, Sample> pair in ordered)
+        {
+            double kb = pair.Value.Alloc / 1024d / frames;
+            if (kb < 4d || shown >= 12) break;
+            shown++;
+            alloc.Append($"{pair.Key} {kb:0} KB/帧；");
+        }
+        string allocReport = alloc.Length > 0 ? $"[EmpireCraft][每帧分配] {alloc}" : null;
+        if (allocReport != null) LogService.LogWarning(allocReport);
         // 帧率体检行：每个窗口必报(写性能日志)；帧数明显在跳时同时进游戏日志
         string health = BuildFrameHealthLine();
         bool unstable = _spikes > 0 || (_frames > 0 && _slowFrames * 20 >= _frames);
@@ -225,6 +244,7 @@ public static class FrameProfiler
         {
             EmpireCraft.Scripts.Diagnostics.PerformanceTraceFile.Record(line.Length > 0 ? report :
                 "[EmpireCraft][每帧耗时] 被计时片段均低于 0.3 ms/帧且单次峰值低于 4 ms");
+            if (allocReport != null) EmpireCraft.Scripts.Diagnostics.PerformanceTraceFile.Record(allocReport);
             if (health != null)
                 EmpireCraft.Scripts.Diagnostics.PerformanceTraceFile.Record(health + SpikeDetail);
         }
