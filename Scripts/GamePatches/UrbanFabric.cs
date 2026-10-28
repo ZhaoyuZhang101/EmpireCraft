@@ -73,6 +73,8 @@ public static class UrbanFabric
         internal readonly Dictionary<int, Rural> Rurals = new();
         public City City;
         public HashSet<int> Built, Landmark;
+        // 手动并入城区的地块(见 CityPlanEditing)：整块算城里，不看城的轮廓
+        public HashSet<int> Forced;
         // 各地块画成什么、开发了没有(按地块算一次)
         public readonly Dictionary<int, (Kind kind, bool developed)> Zones = new();
         public bool WallsDown => Progress >= 0.2f;
@@ -117,8 +119,15 @@ public static class UrbanFabric
 
     #region 种子
 
-    // 本城的种子：没换过就是城的编号
+    // 本城的种子：没换过就是城的编号；城池全图里「换个样子」再错开一份(手动规划的布局种子偏移，见 CityPlanEditing.Reroll)
     public static long SeedOf(City city)
+    {
+        CityExtension.CityExtraData data = city.GetOrCreate();
+        return unchecked(BaseSeedOf(city) + data.plan_seed_offset * 0x2545F4914F6CDD1DL);
+    }
+
+    // 不算「换个样子」的种子：两城共用的官道按它弯(换样子只换本城，不牵动邻城那一截)
+    private static long BaseSeedOf(City city)
     {
         CityExtension.CityExtraData data = city.GetOrCreate();
         return data.urban_seed != 0L ? data.urban_seed : city.data.id;
@@ -168,16 +177,23 @@ public static class UrbanFabric
 
     #region 每座城的格局(随平面图每五秒重算)
 
+    // forced：手动并入城区的地块(整块算城里)；townX、townY：城的轮廓以哪里为中(手动挪了中轴交点、四门时，城的轮廓不跟着挪；
+    // 不给就以城门两条中线的交点为中，同以前)
     public static Geometry Build(City city, HashSet<int> built, HashSet<int> landmark, string family, string culture,
-        int gateX, int gateY)
+        int gateX, int gateY, HashSet<int> forced = null, int townX = int.MinValue, int townY = int.MinValue)
     {
         WorldTile center = city?.getTile();
         if (center == null || city.zones == null) return null;
         long seed = SeedOf(city);
+        if (townX == int.MinValue || townY == int.MinValue)
+        {
+            townX = gateX;
+            townY = gateY;
+        }
         var g = new Geometry
         {
-            Seed = seed, Cx = gateX == int.MinValue ? center.x : gateX, Cy = gateY == int.MinValue ? center.y : gateY,
-            City = city, Built = built, Landmark = landmark,
+            Seed = seed, Cx = townX == int.MinValue ? center.x : townX, Cy = townY == int.MinValue ? center.y : townY,
+            City = city, Built = built, Landmark = landmark, Forced = forced != null && forced.Count > 0 ? forced : null,
             Perimeter = family is "western" or "roma" or "viking",
             Nomad = family == "nomad"
         };
@@ -315,6 +331,7 @@ public static class UrbanFabric
     public static bool InTown(Geometry g, WorldTile tile)
     {
         if (g == null) return true;
+        if (Forced(g, tile)) return true;
         float dx = tile.x - g.Cx, dy = tile.y - g.Cy, d2 = dx * dx + dy * dy;
         if (d2 <= g.FootMin * g.FootMin) return true;
         if (d2 > g.FootMax * g.FootMax) return false;
@@ -329,9 +346,16 @@ public static class UrbanFabric
     public static bool NearOutline(Geometry g, WorldTile tile)
     {
         if (g == null) return true;
+        // 手动并入的地块伸出城的轮廓：它四周也算轮廓线附近
+        if (g.Forced != null && (Forced(g, tile) || Forced(g, tile.tile_up) || Forced(g, tile.tile_down) ||
+                                 Forced(g, tile.tile_left) || Forced(g, tile.tile_right)))
+            return true;
         float dx = tile.x - g.Cx, dy = tile.y - g.Cy, d2 = dx * dx + dy * dy, lo = Mathf.Max(0f, g.FootMin - 2f), hi = g.FootMax + 2f;
         return d2 >= lo * lo && d2 <= hi * hi;
     }
+
+    // 这一格落在手动并入城区的地块里
+    private static bool Forced(Geometry g, WorldTile tile) => g.Forced != null && tile?.zone != null && g.Forced.Contains(tile.zone.id);
 
     private static bool Urban(Geometry g, WorldTile tile) =>
         tile?.zone != null && tile.zone.city == g.City && g.Built.Contains(tile.zone.id) &&
@@ -1016,7 +1040,7 @@ public static class UrbanFabric
             }
             if (between) continue;
             float length = Mathf.Sqrt(d2);
-            long sa = SeedOf(ca), sb = SeedOf(cb);
+            long sa = BaseSeedOf(ca), sb = BaseSeedOf(cb);
             var road = new Road
             {
                 X = ax, Y = ay, Dx = dx / length, Dy = dy / length, Length = Mathf.RoundToInt(length), Link = true,

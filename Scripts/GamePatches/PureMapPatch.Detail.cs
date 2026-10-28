@@ -280,8 +280,10 @@ public partial class PureMapPatch
 
     #endregion
 
-    // 画一座城的精细图(连同城外的关厢、镇、村)
-    internal static DetailImage BuildDetail(City city, Color32 tint)
+    // 画一座城的精细图(连同城外的关厢、镇、村)。maxTiles：图最多多大(格)，太大就以城心为中截一块；
+    // 城池全图的预览(见 CityPlanEditing.RenderPreview)放宽到整座城，地图上照旧 MaxDetailTiles。
+    // 只有地图上那一版(照旧的上限)记标注落点，预览的图范围不同，不记
+    internal static DetailImage BuildDetail(City city, Color32 tint, int maxTiles = MaxDetailTiles)
     {
         CityPlan plan = PlanFor(city);
         UrbanFabric.Geometry g = plan.fabric;
@@ -330,10 +332,12 @@ public partial class PureMapPatch
             }
         // 太大就以城心为中心截一块
         int cx = g.Cx, cy = g.Cy;
-        x0 = Mathf.Max(Mathf.Max(x0, cx - MaxDetailTiles / 2), 0);
-        y0 = Mathf.Max(Mathf.Max(y0, cy - MaxDetailTiles / 2), 0);
-        x1 = Mathf.Min(Mathf.Min(x1, cx + MaxDetailTiles / 2 - 1), MapBox.width - 1);
-        y1 = Mathf.Min(Mathf.Min(y1, cy + MaxDetailTiles / 2 - 1), MapBox.height - 1);
+        bool record = maxTiles == MaxDetailTiles;
+        maxTiles = Mathf.Max(8, maxTiles);
+        x0 = Mathf.Max(Mathf.Max(x0, cx - maxTiles / 2), 0);
+        y0 = Mathf.Max(Mathf.Max(y0, cy - maxTiles / 2), 0);
+        x1 = Mathf.Min(Mathf.Min(x1, cx + maxTiles / 2 - 1), MapBox.width - 1);
+        y1 = Mathf.Min(Mathf.Min(y1, cy + maxTiles / 2 - 1), MapBox.height - 1);
         if (x1 < x0 || y1 < y0) return null;
         var c = new Canvas(city, x0, y0, x1 - x0 + 1, y1 - y0 + 1);
         long seed = UrbanFabric.SeedOf(city);
@@ -355,10 +359,13 @@ public partial class PureMapPatch
         // 厂区：营地、原始聚落里手动放的也画(见 FactorySystem.Place)
         DrawFactories(c, plan);
         List<DetailLabel> labels = ReduceLabels(c.Labels);
-        DrawnLabels[city.data.id] = (StampOf(city), labels);
-        if (DrawnLabels.Count > 64)
-            foreach (long stale in new List<long>(DrawnLabels.Keys))
-                if (World.world.cities.get(stale) == null) DrawnLabels.Remove(stale);
+        if (record)
+        {
+            DrawnLabels[city.data.id] = (StampOf(city), labels);
+            if (DrawnLabels.Count > 64)
+                foreach (long stale in new List<long>(DrawnLabels.Keys))
+                    if (World.world.cities.get(stale) == null) DrawnLabels.Remove(stale);
+        }
         return new DetailImage { X0 = x0, Y0 = y0, W = c.W, H = c.H, Pixels = c.Pixels, Key = DetailKey(city, tint), Labels = labels };
     }
 
@@ -491,6 +498,14 @@ public partial class PureMapPatch
             case "grid":
                 for (int line = c.X0 / size + 1; line <= (c.X0 + c.W) / size; line++) StreetLine(c, true, line * size - c.X0, plan, style, seed, line, street);
                 for (int line = c.Y0 / size + 1; line <= (c.Y0 + c.H) / size; line++) StreetLine(c, false, line * size - c.Y0, plan, style, seed, line, street);
+                // 坊市密(手动规划，见 CityPlanEditing.CycleBlocks)：每块地正中再穿一纵一横两条街，一坊切成四个小坊
+                if (plan.blocks == 1)
+                {
+                    for (int line = c.X0 / size; line <= (c.X0 + c.W) / size; line++)
+                        StreetLine(c, true, line * size + size / 2 - c.X0, plan, style, seed, line + MidStreetKey, street);
+                    for (int line = c.Y0 / size; line <= (c.Y0 + c.H) / size; line++)
+                        StreetLine(c, false, line * size + size / 2 - c.Y0, plan, style, seed, line + MidStreetKey, street);
+                }
                 if (DetailHash(seed, 7) < 0.4f) Diagonal(c, seed, street);
                 break;
             case "organic":
@@ -538,11 +553,16 @@ public partial class PureMapPatch
             c.Put(tx * DetailScale + sx, ty * DetailScale + sy, color, kind);
     }
 
-    // 一条次级街道(格坐标 at 处的地块边)：不修、只修半截(到中线为止)、错位、宽 2(偶尔 3)、沿途微弯——各系比例不同
+    // 坊市密时地块正中那几条街的编号(与地块边的街错开，各自起种子)
+    private const int MidStreetKey = 1 << 20;
+
+    // 一条次级街道(格坐标 at 处的地块边)：不修、只修半截(到中线为止)、错位、宽 2(偶尔 3)、沿途微弯——各系比例不同；
+    // 坊市疏密(手动规划)：密的街几乎都修，疏的多一些不修(坊连成大坊)
     private static void StreetLine(Canvas c, bool vertical, int at, CityPlan plan, DetailStyle style, long seed, int line, Color32 street)
     {
         long id = seed * 7 + (vertical ? 1000 : 2000) + line;
-        if (DetailHash(id, 1) < style.Skip) return;
+        float skip = plan.blocks == 1 ? style.Skip * 0.3f : plan.blocks == 2 ? Mathf.Min(0.8f, style.Skip + 0.35f) : style.Skip;
+        if (DetailHash(id, 1) < skip) return;
         int s = DetailScale;
         int length = vertical ? c.PH : c.PW;
         int from = 0, to = length - 1;
@@ -994,19 +1014,22 @@ public partial class PureMapPatch
         }
     }
 
-    // 一刀刀切：沿长边在 35%~65% 处切开，大块偶尔留一条胡同(迷宫式的城胡同多、常常是死胡同)；够小或随机停下就盖房
+    // 一刀刀切：沿长边在 35%~65% 处切开，大块偶尔留一条胡同(迷宫式的城胡同多、常常是死胡同)；够小或随机停下就盖房。
+    // 坊市疏密(手动规划，见 CityPlanEditing.CycleBlocks)：密的宅基地切得小(约一半大)、胡同多；疏的切得大(约两倍)、胡同少
     private static void Subdivide(Canvas c, CityPlan plan, DetailStyle style, int x0, int y0, int x1, int y1, int depth, long seed)
     {
         int w = x1 - x0 + 1, h = y1 - y0 + 1;
         if (w < 3 || h < 3) return;
         int area = w * h;
         bool maze = style.Layout == "maze";
-        if (area <= (maze ? 60 : 90) || area <= 200 && DetailHash(seed, depth, 1) < 0.45f || depth > 9)
+        float lot = plan.blocks == 1 ? 0.55f : plan.blocks == 2 ? 1.9f : 1f;
+        float alleyP = plan.blocks == 1 ? Mathf.Min(0.95f, style.AlleyP + 0.3f) : plan.blocks == 2 ? style.AlleyP * 0.4f : style.AlleyP;
+        if (area <= (maze ? 60 : 90) * lot || area <= 200 * lot && DetailHash(seed, depth, 1) < 0.45f || depth > 9)
         {
             Lot(c, plan, style, x0, y0, x1, y1, seed);
             return;
         }
-        bool alley = area > (maze ? 140 : 260) && DetailHash(seed, depth, 2) < (maze ? 0.85f : style.AlleyP);
+        bool alley = area > (maze ? 140 : 260) * lot && DetailHash(seed, depth, 2) < (maze ? 0.85f : alleyP);
         bool deadEnd = maze && DetailHash(seed, depth, 4) < 0.5f;
         float cut = 0.35f + 0.3f * DetailHash(seed, depth, 3);
         Color32 alleyColor = Lerp(c.Block, White, maze ? 0.55f : 0.45f);
