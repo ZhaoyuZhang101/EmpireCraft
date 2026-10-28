@@ -1,7 +1,7 @@
 # 更新内容 (Update Features)
 
-2026-10-27 · 0.4.7Beta3
+2026-10-29 · 0.4.7Beta4
 
-战争重做：具体目标、攻下主城池即胜、战争宽窗。宗教按文明立本土大教，教宗推举，神圣之名依附普世之名。真实年龄接管老死。版图收碎：割地、吞并只收连片的城，飞地自立，远方附庸解除。汗国、哈里发国过大时换君即分立；华夏久乱思治。称帝须推行制度树里的称帝制度。世家防绝嗣、有朝堂话语权与坞堡。平滑国界改整图画布，多项帧数、读档优化与存档瘦身。设置改存玩家目录，更新不再重置。
+新世界窗口加「世界地图」：按地球地形生成，七个时代剧本(战国、三国、盛唐、罗马、查理曼、十字军、临高 1628)按史摆国、法理、天下、人口与名臣名将。新增外交窗口、商品市场与市场图层；穿越政体、殖民总督府与特许公司。城池全图可真改城区、城墙与道路。山脊不通行，城不翻山扩张。年号庙号只给华夏、日本；外族入主定国号；王朝积弊与六弊互为表里。
 
-Wars reworked with concrete goals, victory on taking the main city and a wide war window. Native faiths per civilisation, papal elections, holy titles tied to universal names. Realistic ages govern natural death. Tidier maps: cessions and annexations take only contiguous cities, exclaves break away, distant vassals are released. Oversized khanates and caliphates split on succession; long chaos eases Huaxia unification. Proclaiming an empire needs the imperial institution. Great clans gain heirs, court influence and manor forts. Borders drawn as one canvas; faster frames, loading and smaller saves. Settings now survive updates.
+New World Map in the new-world window: Earth terrain with seven historical scenarios (Warring States, Three Kingdoms, High Tang, Rome, Charlemagne, Crusades, Lingao 1628) placing states, de jure titles, tianxia, population and famous figures. New diplomacy window, commodity markets and market layer; transmigrant regime, colonial governorates and chartered companies. The city map now really edits districts, walls and roads. Ridges block movement and city growth. Era and temple names only for Huaxia and Japan; conquest dynasties choose their names; dynastic decay and the six ills feed each other.
