@@ -10,7 +10,8 @@ using NeoModLoader.services;
 namespace EmpireCraft.Scripts.GeneralSystems;
 
 // 王朝积弊(0~100)：王朝存续期间只涨不降(用户 2026-10-26："积弊无法削减，仅可延缓增长")，治世、中兴、明君只给增长打折
-// (见 DynasticCycleRules)；六条朝政积弊(MaladySystem)照旧可治、可降，治下来只是不再推高。
+// (见 DynasticCycleRules)；六条朝政弊病(MaladySystem)照旧可治、可降，治下来只是不再推高——但王朝积弊越深，
+// 六弊滋生越快、也治不到它的一半以下(用户 2026-10-27 要两者有关联，见 MaladySystem.Floor)。
 //   · 加速：庸昏暴之君、六弊、派系失衡、连年饥荒；君主早逝一次 +2.5、近 20 年换了 3 位以上君主每年 +0.3、禅让篡位一次 +5；
 //   · 满额(≥99.5)：记下满额起始时间(SaturatedYears)，每年必有民变(见 HarshRuleSystem.TryUprising)，满额后第一场民变记下时间与
 //     原有城数——律令制群雄割据的入口(见 ProvincialCollapseSystem)；
