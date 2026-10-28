@@ -142,9 +142,10 @@ public static class CityResourcePowers
         return true;
     }
 
-    // 按原有的阶层、文化、种族、理念比例增减；空城按本城主文化加农民
-    private static bool ChangePopulation(City city, bool add)
+    // 按原有的阶层、文化、种族、理念比例增减；空城按本城主文化加农民(城池小窗口的加减人口也走这里，见 CityStyleWindow)
+    public static bool ChangePopulation(City city, bool add)
     {
+        if (city?.data == null || city.isRekt()) return false;
         CityPopulationData data = CityPopulationSystem.Get(city);
         if (data?.groups == null) return false;
         float total = CityPopulationSystem.GetBackgroundTotal(city);

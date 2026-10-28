@@ -364,7 +364,14 @@ public static class MapLabelOverlay
             return;
         }
         RuralSettlement settlement = RuralSettlementSystem.Near(clicked);
-        if (settlement == null) return;
+        if (settlement == null)
+        {
+            // 点到主城的城区：打开城池小窗口(同村镇小窗口，见 CityStyleWindow；用户 2026-10-28 转群友"可以给主城设置一个界面吗")
+            City urban = clicked?.zone?.city;
+            if (urban?.data != null && !urban.isRekt() && PureMapPatch.UrbanTile(clicked))
+                EmpireCraft.Scripts.UI.Windows.CityStyleWindow.Open(urban);
+            return;
+        }
         // 名字头一回标注以前就点开的：先按标注的规矩起好(见 NameOf)
         City city = World.world.GetTile(settlement.x, settlement.y)?.zone?.city;
         bool huaxia = city != null && PureMapPatch.LabelsOf(city)?.Family == "huaxia";

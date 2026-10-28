@@ -11,17 +11,20 @@ using UnityEngine;
 
 namespace EmpireCraft.Scripts.UI.Windows;
 
-// 城貌小窗口(用户 2026-10-20 "什么文化风格都可以转换")：营建页「城貌」神力点一座城打开(见 SettlementPowers)。
-// 宽窗口 480×200、两张半宽卡，同村镇小窗口——
+// 城池小窗口(用户 2026-10-20 "什么文化风格都可以转换"；2026-10-28 转群友"可以给主城设置一个界面吗……村庄界面……可以直接修改样式那个界面"，
+// 要"和农村一样的界面")：营建页「城貌」神力点一座城打开(见 SettlementPowers)，纯净地图拉近到街道一级点主城城区也打开(见 MapLabelOverlay.HandleClick)。
+// 宽窗口 480×200，同村镇小窗口(SettlementWindow)——
 //   左「城池」：城名与国家、现在的城貌(手动选定 / 按文化定型 / 改建中)、现文化的风格、随风格走的规矩；
-//   右「城貌」：各文化系的画法(华夏、日本、西欧、罗马、维京、阿拉伯、波斯、埃及、印度、阿兹特克、毡帐营地、冬营地、林间营地)，
+//   右「营建」：人口与住房上限、民居座数与富庶，城郊各生计的村镇份数；繁荣(同神力笔刷刷一下，见 CityConstructionSystem.Flourish)、
+//     加减人口(同神力笔刷，见 CityResourcePowers.ChangePopulation)、营宫殿(同神力，五秒内再点一次才营建，见 CityPlacementSystem.BuildPalace)；
+//   下「城貌」：各文化系的画法(华夏、日本、西欧、罗马、维京、阿拉伯、波斯、埃及、印度、阿兹特克、毡帐营地、冬营地、林间营地)，
 //     点哪个当场换成哪个、记进存档并记作手动选定(改建决议、冬营地判定、水土改从游牧都不再改它)；「照现文化」当场照现文化改过来、
 //     交还规矩(见 CityStyleSystem.SetByHand、FollowCulture)。
 public class CityStyleWindow : AbstractWideWindow<CityStyleWindow>
 {
     private const float CardWidth = (UIHelper.WidePanelWidth - UIHelper.CardGap) / 2f;
     private const float RowWidth = CardWidth - 12f;
-    private const int PerRow = 3;
+    private const int PerRow = 5;
     private static long _selected = -1L;
     private AutoVertLayoutGroup _root;
 
@@ -88,13 +91,59 @@ public class CityStyleWindow : AbstractWideWindow<CityStyleWindow>
         Line(info, LM.Get(effect).ColorString("#8FA0A8"), 6, 10f);
         if (!PureMapMode.Enabled) Line(info, LM.Get("city_style_need_pure_map").ColorString("#E9A85B"), 6, 10f);
 
-        // 城貌
-        var styles = columns.BeginColumnCard(CardWidth, "city_style_window_styles", icons: "ui/icons/godpowers/restyle_city");
-        float buttonWidth = (RowWidth - (PerRow - 1) * 3f) / PerRow;
+        // 营建：人口、住房、富庶、城郊生计，繁荣、加减人口、营宫殿
+        var build = columns.BeginColumnCard(CardWidth, "city_window_build", icons: "ui/icons/godpowers/city_flourish");
+        Line(build, string.Format(LM.Get("city_window_people"), Mathf.RoundToInt(CityPopulationSystem.GetTotal(city)),
+            CityPopulationSystem.Households(city), city.getPopulationMaximum()).ColorString("#65D66E"));
+        Line(build, string.Format(LM.Get("city_window_houses"), city.countBuildingsType("type_house", false),
+            city.status?.houses_max ?? 0, Mathf.RoundToInt(CityConstructionSystem.Wealth(city) * 100f)).ColorString("#F2EEE2"));
+        var trades = new global::System.Collections.Generic.List<string>();
+        for (int trade = 0; trade < LivelihoodSystem.Count; trade++)
+        {
+            float shares = LivelihoodSystem.Shares(city, trade);
+            if (shares > 0f) trades.Add(LivelihoodSystem.Name(trade) + " " + shares.ToString("0"));
+        }
+        Line(build, (trades.Count == 0 ? LM.Get("city_window_trades_none")
+            : string.Format(LM.Get("city_window_trades"), string.Join(LM.Get("city_window_trades_separator"), trades))).ColorString("#7FD8EA"));
+        var actions = build.BeginHoriGroup(new Vector2(RowWidth, 16f), TextAnchor.MiddleLeft, 3, new RectOffset(0, 0, 0, 0));
+        float actionWidth = (RowWidth - 3f * 3f) / 4f;
+        actions.AddButtonIntoHoriLayout("city_window_flourish", LM.Get("city_flourish"), () =>
+        {
+            City now = World.world?.cities?.get(_selected);
+            if (now == null) return;
+            (int built, int upgraded) = CityConstructionSystem.Flourish(now);
+            WorldTip.showNow(built + upgraded == 0 ? LM.Get("city_flourish_full")
+                : string.Format(LM.Get("city_flourish_done"), built, upgraded), false, "top", 2f);
+            Draw();
+        }, size: new Vector2(actionWidth, 14f));
+        actions.AddButtonIntoHoriLayout("city_window_people_add", LM.Get("city_window_people_add"), () =>
+        {
+            EmpireCraft.Scripts.GodPowers.CityResourcePowers.ChangePopulation(World.world?.cities?.get(_selected), true);
+            Draw();
+        }, size: new Vector2(actionWidth, 14f));
+        actions.AddButtonIntoHoriLayout("city_window_people_remove", LM.Get("city_window_people_remove"), () =>
+        {
+            EmpireCraft.Scripts.GodPowers.CityResourcePowers.ChangePopulation(World.world?.cities?.get(_selected), false);
+            Draw();
+        }, size: new Vector2(actionWidth, 14f));
+        actions.AddButtonIntoHoriLayout("city_window_palace", LM.Get("build_palace"), () =>
+        {
+            City now = World.world?.cities?.get(_selected);
+            if (now == null) return;
+            string tip = CityPlacementSystem.BuildPalace(now.getTile());
+            if (!string.IsNullOrEmpty(tip)) WorldTip.showNow(tip, false, "top", 3f);
+            Draw();
+        }, size: new Vector2(actionWidth, 14f));
+        Line(build, LM.Get("city_window_hint").ColorString("#8FA0A8"), 6, 10f);
+
+        // 城貌(整宽)
+        const float Inner = UIHelper.WidePanelWidth - 12f;
+        var styles = _root.BeginCard(UIHelper.WidePanelWidth, "city_style_window_styles", icons: "ui/icons/godpowers/restyle_city");
+        float buttonWidth = (Inner - (PerRow - 1) * 3f) / PerRow;
         string[] options = CityStyleSystem.ManualStyles;
         for (int i = 0; i <= options.Length; i += PerRow)
         {
-            var row = styles.BeginHoriGroup(new Vector2(RowWidth, 16f), TextAnchor.MiddleLeft, 3, new RectOffset(0, 0, 0, 0));
+            var row = styles.BeginHoriGroup(new Vector2(Inner, 16f), TextAnchor.MiddleLeft, 3, new RectOffset(0, 0, 0, 0));
             for (int k = i; k < Mathf.Min(options.Length + 1, i + PerRow); k++)
             {
                 // 末尾一个是「照现文化」
@@ -117,6 +166,7 @@ public class CityStyleWindow : AbstractWideWindow<CityStyleWindow>
                 }, size: new Vector2(buttonWidth, 14f));
             }
         }
-        Line(styles, LM.Get("city_style_window_hint").ColorString("#8FA0A8"), 6, 10f);
+        styles.AddTextIntoVertLayout(LM.Get("city_style_window_hint").ColorString("#8FA0A8"), true, TextAnchor.MiddleLeft,
+            new Vector2(Inner, 10f)).UseFixedFontSize(6, HorizontalWrapMode.Overflow);
     }
 }
