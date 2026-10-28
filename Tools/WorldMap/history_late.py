@@ -75,9 +75,9 @@ def add(D, R, P, find):
     ])
 
     mg = D("ming", "明|Ming", "Huaxia", ["youyan", "jiangdong"], "朱|Zhu")
-    P(mg, "mg_shizhen", "朱世珍|Zhu Shizhen")
-    P(mg, "mg_biao", "朱标|Zhu Biao", "mg01")
-    P(mg, "mg_youyuan", "朱祐杬|Zhu Youyuan", "mg08")
+    P(mg, "mg_shizhen", "朱世珍|Zhu Shizhen", "", "明仁祖|Renzu of Ming")
+    P(mg, "mg_biao", "朱标|Zhu Biao", "mg01", "懿文太子|Crown Prince Yiwen")
+    P(mg, "mg_youyuan", "朱祐杬|Zhu Youyuan", "mg08", "明睿宗|Ruizong of Ming")
     han(mg, [
         ("朱元璋|Zhu Yuanzhang", 1368, 1398, "高", "太祖", "洪武", "mg01", "mg_shizhen", ""),
         ("朱允炆|Zhu Yunwen", 1398, 1402, "", "", "建文", "mg02", "mg_biao", "建文帝|Jianwen Emperor"),

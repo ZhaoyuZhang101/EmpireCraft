@@ -27,10 +27,14 @@ internal static class WorldMapHistory
 
     private const double SecondsPerYear = 60d;
 
+    // 族谱编号 → 这位君主在史书里的记录编号(族谱里的已故族人记这个编号，宗族窗口就显示庙号谥号，见 SpecificClanWindow.Post)
+    private static readonly Dictionary<string, long> _recordIds = new();
+
     public static void Apply(WorldMapEra era, List<Realm> realms, IReadOnlyDictionary<string, EmpireCore> coreByRegion)
     {
         if (WorldMapData.Dynasties.Count == 0) return;
         RegisterTexts();
+        _recordIds.Clear();
         var used = new HashSet<string>(realms.Select(realm => realm.data?.dynasty).Where(id => !string.IsNullOrEmpty(id)));
         // 开局还活着的君主(前史里另有一段在位的)：别家族谱里不把他记成已故
         var living = new HashSet<string>(realms.Select(realm => realm.data?.ruler?.self).Where(id => !string.IsNullOrEmpty(id)));
@@ -65,14 +69,6 @@ internal static class WorldMapHistory
             catch (Exception exception)
             {
                 LogService.LogWarning($"[EmpireCraft][世界地图] {dynasty.id} 先帝入史失败: {exception.Message}");
-            }
-            try
-            {
-                Genealogy(realm, era.year, living);
-            }
-            catch (Exception exception)
-            {
-                LogService.LogWarning($"[EmpireCraft][世界地图] {dynasty.id} 族谱失败: {exception.Message}");
             }
         }
         // 先朝：已亡的称帝王朝，按开国先后挂到帝国法理的历代帝国里：都城所在地区的帝国法理，
@@ -118,6 +114,31 @@ internal static class WorldMapHistory
         }
         foreach (KeyValuePair<EmpireCore, List<long>> entry in fallenByCore)
             entry.Key.empire_history_ids = entry.Value.Concat(entry.Key.empire_history_ids ?? new List<long>()).Distinct().ToList();
+        foreach (Realm realm in realms.Where(realm => realm.data?.ruler != null && realm.kingdom != null && !realm.kingdom.isRekt()))
+        {
+            try
+            {
+                NameHouse(realm);
+                if (!string.IsNullOrEmpty(realm.data.dynasty)) Genealogy(realm, era.year, living);
+            }
+            catch (Exception exception)
+            {
+                LogService.LogWarning($"[EmpireCraft][世界地图] {realm.data.dynasty} 族谱失败: {exception}");
+            }
+        }
+    }
+
+    // 皇室、王室的宗族叫剧本的家族名(哈布斯堡氏、萨法维氏)：以前取的是造人时原版按种族起的氏族名(施赖伯氏、大流士班家)
+    private static void NameHouse(Realm realm)
+    {
+        string family = WorldMapData.PickParts(realm.data.ruler.fam);
+        Actor ruler = realm.kingdom.king;
+        if (string.IsNullOrWhiteSpace(family) || ruler == null || ruler.isRekt()) return;
+        ruler.CheckSpecificClan();
+        SpecificClan clan = ruler.GetSpecificClan();
+        if (clan == null || clan.name == family) return;
+        clan.name = family;
+        if (ruler.clan != null) SpecificClanManager.SyncVanillaClanName(ruler.clan);
     }
 
     // 中途开局(117 年的汉安帝)：开国之君是史书里的第一位，今上不算开国(没有开国之君特质、开国宽限，身后不按开国定谥)，按常例重评
@@ -163,6 +184,7 @@ internal static class WorldMapHistory
                 }
             }
         };
+        if (!string.IsNullOrEmpty(reign.p)) _recordIds[reign.p] = history.id;
         if (chinese && !string.IsNullOrEmpty(reign.shi))
         {
             history.shihao_name = ShiKey(reign.shi);
@@ -236,14 +258,22 @@ internal static class WorldMapHistory
         PersonalClanIdentity me = ruler.GetPersonalIdentity();
         if (clan == null || me == null) return;
 
-        // 全部族谱编号 → (朝代, 姓名, 父亲)
-        var people = new Dictionary<string, (WorldMapDynasty dynasty, string name, string father)>();
+        // 全部族谱编号 → 族人(朝代、姓名、父亲、称号、卒年)
+        var people = new Dictionary<string, Ancestor>();
         foreach (WorldMapDynasty dynasty in WorldMapData.Dynasties)
         {
             foreach (WorldMapAncestor ancestor in dynasty.people)
-                if (!string.IsNullOrEmpty(ancestor.p)) people[ancestor.p] = (dynasty, ancestor.n, ancestor.f);
+                if (!string.IsNullOrEmpty(ancestor.p))
+                    people[ancestor.p] = new Ancestor { dynasty = dynasty, name = ancestor.n, father = ancestor.f, title = WorldMapData.PickParts(ancestor.t) };
             foreach (WorldMapReign reign in dynasty.rulers)
-                if (!string.IsNullOrEmpty(reign.p) && !people.ContainsKey(reign.p)) people[reign.p] = (dynasty, reign.n, reign.f);
+            {
+                if (string.IsNullOrEmpty(reign.p)) continue;
+                if (!people.TryGetValue(reign.p, out Ancestor known))
+                    people[reign.p] = known = new Ancestor { dynasty = dynasty, name = reign.n, father = reign.f };
+                known.died = Math.Max(known.died, reign.b);
+                if (string.IsNullOrEmpty(known.title))
+                    known.title = !string.IsNullOrEmpty(reign.t) ? WorldMapData.PickParts(reign.t) : dynasty.Name + LM.Get("king");
+            }
         }
         if (!people.ContainsKey(fatherPid)) return;
         // 入谱：今上直系往上的每一代，连同这几朝开局前已在位、父系往上接得到这条直系的先帝和他们那一支的祖先(兄弟叔伯、各支先帝)；
@@ -251,7 +281,7 @@ internal static class WorldMapHistory
         var dynasties = new HashSet<WorldMapDynasty>();
         var members = new HashSet<string>();
         int steps = 0;
-        for (string pid = fatherPid; !string.IsNullOrEmpty(pid) && people.ContainsKey(pid) && members.Add(pid) && steps++ < 80; pid = people[pid].father)
+        for (string pid = fatherPid; !string.IsNullOrEmpty(pid) && people.ContainsKey(pid) && members.Add(pid) && steps++ < 80; pid = people[pid].Father)
             dynasties.Add(people[pid].dynasty);
         foreach (string seed in dynasties.SelectMany(dynasty => dynasty.rulers)
                      .Where(reign => !string.IsNullOrEmpty(reign.p) && reign.a < eraYear && reign.b <= eraYear).Select(reign => reign.p))
@@ -262,7 +292,7 @@ internal static class WorldMapHistory
             while (!string.IsNullOrEmpty(pid) && people.ContainsKey(pid) && !members.Contains(pid) && steps++ < 80)
             {
                 branch.Add(pid);
-                pid = people[pid].father;
+                pid = people[pid].Father;
             }
             if (!string.IsNullOrEmpty(pid) && members.Contains(pid)) members.UnionWith(branch);
         }
@@ -273,7 +303,9 @@ internal static class WorldMapHistory
         var made = new Dictionary<string, PersonalClanIdentity>();
         foreach (string pid in members)
         {
-            (WorldMapDynasty dynasty, string name, string _) = people[pid];
+            Ancestor ancestor = people[pid];
+            WorldMapDynasty dynasty = ancestor.dynasty;
+            string name = ancestor.name;
             // 姓：名字以本朝姓开头的才算(西方君主、谱上的外姓先人没有姓)
             string full = WorldMapData.PickParts(name);
             string surname = WorldMapData.PickParts(dynasty.fam);
@@ -282,7 +314,6 @@ internal static class WorldMapHistory
             {
                 id = OverallHelperFunc.IdGenerator.NextId(),
                 specific_clan_id = clan.id,
-                actor_id = -1L,
                 is_alive = false,
                 is_virtual = false,
                 recordedAge = -1,
@@ -292,7 +323,11 @@ internal static class WorldMapHistory
                 is_main = true,
                 name = full,
                 surname = surname,
-                given_name = surname.Length > 0 ? full.Substring(surname.Length) : full
+                given_name = surname.Length > 0 ? full.Substring(surname.Length) : full,
+                // 当过皇帝的连到史书记录(宗族窗口显示庙号谥号)；没有史书记录的(王国的先王、不在位的祖先)记剧本称号
+                actor_id = _recordIds.TryGetValue(pid, out long record) ? record : -1L,
+                posthumous_name = _recordIds.ContainsKey(pid) ? "" : ancestor.title ?? "",
+                deathday = ancestor.died > int.MinValue ? YearText(ancestor.died) : ""
             };
             clan.Upsert(person);
             SpecificClanManager._globalPersonLookup[person.id] = person;
@@ -300,7 +335,7 @@ internal static class WorldMapHistory
         }
         foreach (KeyValuePair<string, PersonalClanIdentity> entry in made.ToList())
         {
-            string father = people[entry.Key].father;
+            string father = people[entry.Key].Father;
             if (!string.IsNullOrEmpty(selfPid) && father == selfPid)
             {
                 Adopt(me, entry.Value);
@@ -328,7 +363,7 @@ internal static class WorldMapHistory
         int Depth(string pid, int guard)
         {
             if (depth.TryGetValue(pid, out int known)) return known;
-            string father = people[pid].father;
+            string father = people[pid].Father;
             int value = guard > 60 || string.IsNullOrEmpty(father) || !made.ContainsKey(father) ? 1 : Depth(father, guard + 1) + 1;
             depth[pid] = value;
             return value;
@@ -339,10 +374,18 @@ internal static class WorldMapHistory
             foreach (PersonalClanIdentity identity in household) identity.generation += shift;
         // 始祖记为宗族始祖
         string root = fatherPid;
-        for (int guard = 0; guard < 60 && !string.IsNullOrEmpty(people[root].father) && made.ContainsKey(people[root].father); guard++)
-            root = people[root].father;
+        for (int guard = 0; guard < 60 && !string.IsNullOrEmpty(people[root].Father) && made.ContainsKey(people[root].Father); guard++)
+            root = people[root].Father;
         clan.founder = made[root].id;
         clan.InvalidatePeople();
+    }
+
+    private sealed class Ancestor
+    {
+        public WorldMapDynasty dynasty;
+        public string name, father, title;
+        public int died = int.MinValue;
+        public string Father => father;
     }
 
     private static void Adopt(PersonalClanIdentity father, PersonalClanIdentity child)

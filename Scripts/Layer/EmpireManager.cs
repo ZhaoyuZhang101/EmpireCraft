@@ -89,8 +89,19 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
         if (_livenessQueue.Count > 0) return;
         // 整轮查完：解散没有领土的帝国(同以前，查完才解散)
         foreach (Empire item in _livenessDissolve.ToList())
-            if (item != null && !item.IsArchived()) dissolveEmpire(item);
+            if (item != null && !item.IsArchived() && !CoreStillHolds(item)) dissolveEmpire(item);
         _livenessDissolve.Clear();
+    }
+
+    // 存续检查分几帧做完、整轮查完才解散：查的那一帧判了空壳，到解散时中央还在、有城、还挂着本帝国编号的不解散
+    // (出过世界地图开局一个月大明被当空壳解散：解散时中央明明 59 城、还归大明)；修一遍，记下当时各项供查
+    private static bool CoreStillHolds(Empire empire)
+    {
+        Kingdom core = empire.CoreKingdom;
+        if (core?.data == null || core.isRekt() || (core.cities?.Count ?? 0) <= 0 || core.GetEmpireID() != empire.id) return false;
+        bool repaired = empire.TryRepairState("liveness recheck");
+        EmpireCraft.Scripts.Diagnostics.EmpireLossDiagnostics.OnDissolveSkipped(empire, repaired);
+        return true;
     }
 
     // 到月开一轮：整理同盟、正统对手这些全局的当帧做完，各帝国排队(见 CheckLiveness)

@@ -47,10 +47,12 @@ def R(d, n, a, b, shi="", miao="", era="", t="", p="", f="", dyn=""):
     d["rulers"].append(r)
 
 
-def P(d, p, n, f=""):
+def P(d, p, n, f="", t=""):
     e = {"p": p, "n": n}
     if f:
         e["f"] = f
+    if t:
+        e["t"] = t
     d["people"].append(e)
 
 
@@ -568,7 +570,25 @@ IMPERIAL = {"zhou", "qin", "han", "xin", "cao_wei", "shu_han", "sun_wu", "jin", 
             "mughal", "safavid", "mamluk", "ottoman", "tsardom"}
 
 
+# 不在位的祖先的称号(族谱里显示，不写的显示"白身")
+PEOPLE_TITLES = {
+    "han_qing": "清河孝王|Prince Xiao of Qinghe", "han_ju": "戾太子|Crown Prince Li", "han_jin": "史皇孙|Imperial Grandson Shi",
+    "han_fa": "长沙定王|Prince Ding of Changsha", "han_qin": "南顿君|Lord of Nandun", "han_taigong": "太上皇|Taishang Huang",
+    "tang_bing": "唐世祖|Shizu of Tang", "sg_hongyin": "宋宣祖|Xuanzu of Song", "sg_yunrang": "濮安懿王|Prince Anyi of Pu",
+    "sg_zicheng": "秀安僖王|Prince Anxi of Xiu", "jj_yungong": "金显宗|Xianzong of Jin", "yu_tolui": "元睿宗|Ruizong of Yuan",
+    "yu_zhenjin": "元裕宗|Yuzong of Yuan", "yu_darmabala": "元顺宗|Shunzong of Yuan", "yu_gamala": "晋王|Prince of Jin",
+    "yu_yesugei": "元烈祖|Liezu of Yuan", "js_jeongwon": "定远君|Grand Prince Jeongwon",
+    "js_deokheung": "德兴大院君|Grand Internal Prince Deokheung", "hb_charles2": "内奥地利大公|Archduke of Inner Austria",
+    "hb_philip1": "卡斯蒂利亚国王|King of Castile", "cp_antoine": "纳瓦拉国王|King of Navarre", "en_darnley": "达恩利勋爵|Lord Darnley",
+    "en_black_prince": "威尔士亲王|Prince of Wales", "en_gaunt": "兰开斯特公爵|Duke of Lancaster", "car_martel": "宫相|Mayor of the Palace",
+}
+
+
 def finish():
+    for d in DYNASTIES:
+        for e in d["people"]:
+            if e["p"] in PEOPLE_TITLES and not e.get("t"):
+                e["t"] = PEOPLE_TITLES[e["p"]]
     for d in DYNASTIES:
         d["emp"] = d["id"] in IMPERIAL
     # 长谥号以"皇"收尾，显示时再拼"帝"(唐至道大圣大明孝皇帝、宋英武圣文神德皇帝)

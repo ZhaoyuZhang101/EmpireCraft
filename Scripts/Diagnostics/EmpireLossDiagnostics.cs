@@ -75,6 +75,22 @@ public static class EmpireLossDiagnostics
         }
     }
 
+    // 存续检查判了空壳、解散前复查中央还在(见 EmpireManager.CoreStillHolds)：记下各项，查是哪一项让它被判空壳
+    public static void OnDissolveSkipped(Empire empire, bool repaired)
+    {
+        try
+        {
+            Kingdom core = empire.CoreKingdom;
+            LogService.LogInfo($"{Tag} {Name(empire)}({empire.id}) 存续检查判了空壳，解散前复查中央 {Describe(core)} 还在，不解散；" +
+                               $"成员 {empire.kingdoms_list?.Count ?? 0} 国(含中央 {empire.kingdoms_list?.Contains(core) == true})、" +
+                               $"{empire.cities_list?.Count ?? 0} 城，修复 {(repaired ? "成" : "未成")}");
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"{Tag} 记录复查失败: {exception.Message}");
+        }
+    }
+
     // 解散帝国之前(见 EmpireManager.dissolveEmpire)
     public static void OnDissolving(Empire empire)
     {

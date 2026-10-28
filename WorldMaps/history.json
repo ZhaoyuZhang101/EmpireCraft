@@ -703,17 +703,20 @@
    "people": [
     {
      "p": "han_taigong",
-     "n": "刘太公|Liu Taigong|劉太公"
+     "n": "刘太公|Liu Taigong|劉太公",
+     "t": "太上皇|Taishang Huang|太上皇"
     },
     {
      "p": "han_ju",
      "n": "刘据|Liu Ju|劉據",
-     "f": "hl07"
+     "f": "hl07",
+     "t": "戾太子|Crown Prince Li|戾太子"
     },
     {
      "p": "han_jin",
      "n": "刘进|Liu Jin|劉進",
-     "f": "han_ju"
+     "f": "han_ju",
+     "t": "史皇孙|Imperial Grandson Shi|史皇孫"
     },
     {
      "p": "han_kang",
@@ -743,7 +746,8 @@
     {
      "p": "han_fa",
      "n": "刘发|Liu Fa|劉發",
-     "f": "hl06"
+     "f": "hl06",
+     "t": "长沙定王|Prince Ding of Changsha|長沙定王"
     },
     {
      "p": "han_mai",
@@ -763,12 +767,14 @@
     {
      "p": "han_qin",
      "n": "刘钦|Liu Qin|劉欽",
-     "f": "han_hui"
+     "f": "han_hui",
+     "t": "南顿君|Lord of Nandun|南頓君"
     },
     {
      "p": "han_qing",
      "n": "刘庆|Liu Qing|劉慶",
-     "f": "hl17"
+     "f": "hl17",
+     "t": "清河孝王|Prince Xiao of Qinghe|清河孝王"
     },
     {
      "p": "han_shou",
@@ -2239,7 +2245,8 @@
    "people": [
     {
      "p": "tang_bing",
-     "n": "李昞|Li Bing|李昞"
+     "n": "李昞|Li Bing|李昞",
+     "t": "唐世祖|Shizu of Tang|唐世祖"
     }
    ],
    "emp": true,
@@ -2818,7 +2825,8 @@
    "people": [
     {
      "p": "sg_hongyin",
-     "n": "赵弘殷|Zhao Hongyin|趙弘殷"
+     "n": "赵弘殷|Zhao Hongyin|趙弘殷",
+     "t": "宋宣祖|Xuanzu of Song|宋宣祖"
     },
     {
      "p": "sg_yuanfen",
@@ -2828,7 +2836,8 @@
     {
      "p": "sg_yunrang",
      "n": "赵允让|Zhao Yunrang|趙允讓",
-     "f": "sg_yuanfen"
+     "f": "sg_yuanfen",
+     "t": "濮安懿王|Prince Anyi of Pu|濮安懿王"
     },
     {
      "p": "sg_defang",
@@ -2858,7 +2867,8 @@
     {
      "p": "sg_zicheng",
      "n": "赵子偁|Zhao Zicheng|趙子偁",
-     "f": "sg_lingzhan"
+     "f": "sg_lingzhan",
+     "t": "秀安僖王|Prince Anxi of Xiu|秀安僖王"
     },
     {
      "p": "sg_xilu",
@@ -3016,7 +3026,8 @@
     {
      "p": "jj_yungong",
      "n": "完颜允恭|Wanyan Yungong|完顏允恭",
-     "f": "jj05"
+     "f": "jj05",
+     "t": "金显宗|Xianzong of Jin|金顯宗"
     }
    ],
    "emp": true,
@@ -4837,7 +4848,8 @@
    "people": [
     {
      "p": "car_martel",
-     "n": "查理·马特|Charles Martel|查理·馬特"
+     "n": "查理·马特|Charles Martel|查理·馬特",
+     "t": "宫相|Mayor of the Palace|宮相"
     },
     {
      "p": "car_louis_german",
@@ -5094,12 +5106,14 @@
     {
      "p": "hb_philip1",
      "n": "美男子腓力|Philip the Handsome|美男子腓力",
-     "f": "hb06"
+     "f": "hb06",
+     "t": "卡斯蒂利亚国王|King of Castile|卡斯蒂利亞國王"
     },
     {
      "p": "hb_charles2",
      "n": "内奥地利的卡尔二世|Charles II of Inner Austria|內奧地利的卡爾二世",
-     "f": "hb08"
+     "f": "hb08",
+     "t": "内奥地利大公|Archduke of Inner Austria|內奧地利大公"
     }
    ],
    "full": "神圣罗马|Holy Roman Empire|神聖羅馬",
@@ -5541,7 +5555,8 @@
     {
      "p": "cp_antoine",
      "n": "安托万|Antoine of Navarre|安托萬",
-     "f": "cp_charles_vendome"
+     "f": "cp_charles_vendome",
+     "t": "纳瓦拉国王|King of Navarre|納瓦拉國王"
     }
    ],
    "emp": false,
@@ -5785,12 +5800,14 @@
     {
      "p": "en_black_prince",
      "n": "黑太子爱德华|Edward the Black Prince|黑太子愛德華",
-     "f": "en_e3"
+     "f": "en_e3",
+     "t": "威尔士亲王|Prince of Wales|威爾士親王"
     },
     {
      "p": "en_gaunt",
      "n": "冈特的约翰|John of Gaunt|岡特的約翰",
-     "f": "en_e3"
+     "f": "en_e3",
+     "t": "兰开斯特公爵|Duke of Lancaster|蘭開斯特公爵"
     },
     {
      "p": "en_langley",
@@ -5818,7 +5835,8 @@
     {
      "p": "en_darnley",
      "n": "达恩利勋爵亨利|Henry Stuart, Lord Darnley|達恩利勳爵亨利",
-     "f": "en_lennox"
+     "f": "en_lennox",
+     "t": "达恩利勋爵|Lord Darnley|達恩利勳爵"
     }
    ],
    "emp": false,
@@ -7391,27 +7409,32 @@
    "people": [
     {
      "p": "yu_yesugei",
-     "n": "也速该|Yesügei|也速該"
+     "n": "也速该|Yesügei|也速該",
+     "t": "元烈祖|Liezu of Yuan|元烈祖"
     },
     {
      "p": "yu_tolui",
      "n": "拖雷|Tolui|拖雷",
-     "f": "yu01"
+     "f": "yu01",
+     "t": "元睿宗|Ruizong of Yuan|元睿宗"
     },
     {
      "p": "yu_zhenjin",
      "n": "真金|Zhenjin|真金",
-     "f": "yu05"
+     "f": "yu05",
+     "t": "元裕宗|Yuzong of Yuan|元裕宗"
     },
     {
      "p": "yu_gamala",
      "n": "甘麻剌|Gammala|甘麻剌",
-     "f": "yu_zhenjin"
+     "f": "yu_zhenjin",
+     "t": "晋王|Prince of Jin|晉王"
     },
     {
      "p": "yu_darmabala",
      "n": "答剌麻八剌|Darmabala|答剌麻八剌",
-     "f": "yu_zhenjin"
+     "f": "yu_zhenjin",
+     "t": "元顺宗|Shunzong of Yuan|元順宗"
     }
    ],
    "emp": true,
@@ -7636,17 +7659,20 @@
    "people": [
     {
      "p": "mg_shizhen",
-     "n": "朱世珍|Zhu Shizhen|朱世珍"
+     "n": "朱世珍|Zhu Shizhen|朱世珍",
+     "t": "明仁祖|Renzu of Ming|明仁祖"
     },
     {
      "p": "mg_biao",
      "n": "朱标|Zhu Biao|朱標",
-     "f": "mg01"
+     "f": "mg01",
+     "t": "懿文太子|Crown Prince Yiwen|懿文太子"
     },
     {
      "p": "mg_youyuan",
      "n": "朱祐杬|Zhu Youyuan|朱祐杬",
-     "f": "mg08"
+     "f": "mg08",
+     "t": "明睿宗|Ruizong of Ming|明睿宗"
     }
    ],
    "emp": true,
@@ -7832,12 +7858,14 @@
     {
      "p": "js_deokheung",
      "n": "李岹|Yi Cho|李岹",
-     "f": "js11"
+     "f": "js11",
+     "t": "德兴大院君|Grand Internal Prince Deokheung|德興大院君"
     },
     {
      "p": "js_jeongwon",
      "n": "李琈|Yi Bu|李琈",
-     "f": "js14"
+     "f": "js14",
+     "t": "定远君|Grand Prince Jeongwon|定遠君"
     }
    ],
    "emp": false,

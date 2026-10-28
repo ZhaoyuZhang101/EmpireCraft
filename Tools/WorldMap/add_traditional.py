@@ -115,6 +115,8 @@ def fix_history(path):
                     r[key + "_tw"] = tw(r[key])
         for p in d["people"]:
             p["n"] = triple(p["n"])
+            if p.get("t"):
+                p["t"] = triple(p["t"])
     with open(path, "w", encoding="utf-8", newline="\n") as f:
         json.dump(data, f, ensure_ascii=False, indent=1)
 

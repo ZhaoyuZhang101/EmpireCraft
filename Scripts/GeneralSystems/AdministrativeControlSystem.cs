@@ -812,7 +812,9 @@ public static class AdministrativeControlSystem
         {
             if (!Valid(city)) continue;
             var data = city.GetOrCreate();
+            // 殖民地的海外据点本来就是飞地(见 ColonySystem)，不自立
             if (!data.admin_exclave || data.admin_control >= DefectThreshold || city.kingdom.capital == city ||
+                ColonySystem.IsColony(city.kingdom) ||
                 city.kingdom.hasEnemies() || city.GetOrCreate().OccupiedStatus?.Count > 0 ||
                 UnificationSystem.InGrace(city.kingdom)) continue;
             float chance = (DefectThreshold - data.admin_control) * DefectChance;

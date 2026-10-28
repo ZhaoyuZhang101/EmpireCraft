@@ -261,7 +261,7 @@ public partial class SpecificClanWindow : WideScrollWindow<SpecificClanWindow>
     private static string Life(PersonalClanIdentity person) => person.is_alive
         ? string.Format(LM.Get("clan_lineage_life_alive"), YearOf(person.birthday), person.age)
         : string.Format(LM.Get("clan_lineage_life_dead"), YearOf(person.birthday), YearOf(person.deathday),
-            person.recordedAge >= 0 ? person.recordedAge : person.age);
+            person.recordedAge >= 0 ? person.recordedAge.ToString() : person.age >= 0 ? person.age.ToString() : "?");
 
     private static string YearOf(string date)
     {

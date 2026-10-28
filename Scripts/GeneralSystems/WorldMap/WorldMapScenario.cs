@@ -458,7 +458,10 @@ public static class WorldMapScenario
         {
             if (ConfigData.speciesCulturePair.TryGetValue("human", out string human) && human == culture) return "human";
             foreach (KeyValuePair<string, string> pair in ConfigData.speciesCulturePair)
-                if (pair.Value == culture && AssetManager.actor_library.get(pair.Key) != null)
+                if (pair.Value == culture && AssetManager.actor_library.get(pair.Key) != null &&
+                    // 夏人只在装了古战三(连同夏人种族)时才算华夏，见 AncientWarfareCompatibility
+                    (pair.Key != EmpireCraft.Scripts.Compatibility.AncientWarfareRules.XiaSpecies ||
+                     EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Loaded))
                     return pair.Key;
         }
         catch
@@ -658,6 +661,39 @@ public static class WorldMapScenario
     #region 王国法理与帝国法理
 
     private static readonly Dictionary<string, KingdomTitle> _titleByRegion = new();
+    private static readonly List<(string region, KingdomTitle title)> _ownTitles = new();
+
+    // 都城不是地区法理首府的剧本国家(神罗里的巴伐利亚、萨克森，意大利的萨伏依、热那亚……)：没有法理就按都城城名起国号
+    // (慕尼黑国、德累斯顿国)。以都城连同本国在这个地区的城另立一块王国法理、叫国名，这些城兼属原地区的法理(争议法理)
+    private static void OwnTitles()
+    {
+        _ownTitles.Clear();
+        foreach (PlannedPolity polity in _polities.Where(polity => polity.data != null && !polity.data.empire && polity.kingdom != null &&
+                                                                  polity.capital?.city != null && !polity.capital.city.isRekt()))
+        {
+            if (polity.kingdom.GetMainTitle() != null) continue;
+            City capital = polity.capital.city;
+            KingdomTitle regional = _titleByRegion.TryGetValue(polity.capital.region.id, out KingdomTitle found) ? found : null;
+            KingdomTitle own = ModClass.KINGDOM_TITLE_MANAGER.newKingdomTitle(capital);
+            if (own == null) continue;
+            foreach (PlannedCity city in polity.cities.Where(city => city != polity.capital && city.city != null &&
+                                                                     city.region == polity.capital.region))
+                own.addCity(city.city);
+            own.data.name = polity.name;
+            own.data.province_name = polity.capital.region.Name;
+            if (CultureService.IsValidCulture(polity.culture)) CultureService.SetTitleCulture(own, polity.culture, true, false);
+            if (polity.kingdom.hasKing())
+            {
+                own.owner = polity.kingdom.king;
+                polity.kingdom.king.AddOwnedTitle(own);
+                polity.kingdom.SetMainTitle(own);
+            }
+            if (regional != null && !regional.isRekt())
+                foreach (City city in own.getCities().ToList())
+                    DeJureShareSystem.ShareTitle(city, regional, true);
+            _ownTitles.Add((polity.capital.region.id, own));
+        }
+    }
     private static readonly Dictionary<string, EmpireCore> _coreById = new();
     private static readonly Dictionary<string, EmpireCore> _coreByRegion = new();
     private static readonly List<(WorldMapCore data, EmpireCore core)> _cores = new();
@@ -682,7 +718,10 @@ public static class WorldMapScenario
                 KingdomTitle title = ModClass.KINGDOM_TITLE_MANAGER.newKingdomTitle(seat.city);
                 if (title == null) continue;
                 foreach (PlannedCity city in group.Where(city => city != seat)) title.addCity(city.city);
-                title.data.name = seat.region.TitleName;
+                // 剧本国家(不是帝国)以都城所在地区的王国法理为主法理时，法理叫国名(东吁、阿瑜陀耶、朝鲜……)：
+                // 国名照主法理定(见 EmpireCraftKingdomBehCheckKingdomType)，不然显示成地区法理名(骠国、堕罗钵底、辰韩)
+                PlannedPolity realm = seat.owner;
+                title.data.name = realm?.data != null && !realm.data.empire && realm.capital == seat ? realm.name : seat.region.TitleName;
                 title.data.province_name = seat.region.Name;
                 if (CultureService.IsValidCulture(seat.culture)) CultureService.SetTitleCulture(title, seat.culture, true, false);
                 Kingdom kingdom = seat.city.kingdom;
@@ -703,6 +742,7 @@ public static class WorldMapScenario
             foreach (string region in planned.data.share)
                 if (_titleByRegion.TryGetValue(region, out KingdomTitle shared))
                     Guard($"城 {planned.name} 兼属 {region}", () => DeJureShareSystem.ShareTitle(planned.city, shared, true));
+        Guard("封国法理", OwnTitles);
 
         var taken = new HashSet<string>();
         foreach (WorldMapCore data in _era.cores.Concat(WorldMapData.Cores))
@@ -738,6 +778,10 @@ public static class WorldMapScenario
                 LogService.LogWarning($"[EmpireCraft][世界地图] 帝国法理 {data.id} 失败: {exception.Message}");
             }
         }
+        // 封国自立的法理也归所在地区的帝国法理
+        foreach ((string region, KingdomTitle title) in _ownTitles)
+            if (_coreByRegion.TryGetValue(region, out EmpireCore owner))
+                Guard($"封国法理 {title.data.name} 入帝国法理", () => EmpireCoreManager.AddTitleToCore(owner, title));
         // 争议法理：帝国法理兼收邻区的王国法理(漢兼收雍、秦兼收梁与蜀、德意志兼收伦巴第……)
         foreach ((WorldMapCore data, EmpireCore core) in _cores)
             foreach (string region in data.share)
@@ -912,7 +956,11 @@ public static class WorldMapScenario
             List<(WorldMapDivision data, List<City> cities)> divisions = p.data.divisions
                 .Select(division => (division, CitiesOf(division.cities))).Where(entry => entry.Item2.Count > 0).ToList();
             if (divisions.Count > 0 && p.empire != null)
-                _afterLoad.Add(($"{p.name} 行政区", () => Divide(p.empire, divisions)));
+                _afterLoad.Add(($"{p.name} 行政区", () =>
+                {
+                    Divide(p.empire, divisions);
+                    if (!_divided) Reorganize(p.empire);
+                }));
             foreach (WorldMapColony colony in p.data.colonies)
             {
                 WorldMapColony c = colony;
@@ -926,9 +974,13 @@ public static class WorldMapScenario
                 _afterLoad.Add(($"{p.name} 神圣之名", () => Hallow(p.empire, lead)));
             }
         }
+        // 别的帝国(剧本没写行政区的)按王国法理设行政区，走帝国自己的行政区重组(见 AdministrationReorganizationSystem)
+        var explicitDivisions = new HashSet<Empire>(_polities.Where(polity => polity.empire != null && polity.data?.divisions.Count > 0)
+            .Select(polity => polity.empire));
         foreach ((Kingdom _, Empire empire) in _scenarioEmpires)
         {
             Empire e = empire;
+            if (!explicitDivisions.Contains(e)) _afterLoad.Add(("行政区重组", () => Reorganize(e)));
             _afterLoad.Add(("多京", () => MultiCapitalSystem.Yearly(e)));
         }
         if (!string.IsNullOrEmpty(_era?.transmigrant))
@@ -956,8 +1008,11 @@ public static class WorldMapScenario
     }
 
     // 行政区：核心王国直辖的城按剧本划省(明两京十三布政使司；陪京那一省多京时改为直隶，见 MultiCapitalSystem.Zhili)
+    private static bool _divided;
+
     private static void Divide(Empire empire, List<(WorldMapDivision data, List<City> cities)> divisions)
     {
+        _divided = false;
         if (empire?.CoreKingdom == null || empire.isRekt()) return;
         var titled = new HashSet<KingdomTitle>();
         foreach ((WorldMapDivision data, List<City> cities) in divisions)
@@ -969,11 +1024,30 @@ public static class WorldMapScenario
             Kingdom province = empire.EstablishAdministrativeDivision(region, title);
             if (province == null)
             {
-                LogService.LogInfo($"[EmpireCraft][世界地图] {empire.GetEmpireName()} 的政体不设行政区，{data.Name} 留在直辖");
-                return;
+                HashSet<long> kept = empire.GetProtectedDirectCityIds();
+                LogService.LogWarning($"[EmpireCraft][世界地图] {empire.GetEmpireName()} 设 {data.Name} 没成：{region.Count} 城，" +
+                                      $"京畿留着的 {region.Count(city => kept.Contains(city.id))} 城，战时 {empire.HasTerritorialWar()}，" +
+                                      $"政体 {empire.CoreKingdom.GetRegime()?.type}，城里可任官的人 {region.Sum(city => city.units?.Count(unit => unit != null && unit.isAlive() && unit.isAdult() && !unit.isKing()) ?? 0)}");
+                continue;
             }
             province.SetKingdomName(data.Name);
+            _divided = true;
         }
+    }
+
+    // 剧本没写行政区的帝国：核心王国直辖的城按王国法理划出去(同行政区重组，见 AdministrationReorganizationSystem；
+    // 重组要正统八十以上、不在打仗，开局的帝国多半够不上)，京畿(都城与主法理)留在直辖；行政区还是封国照各政体的规矩
+    private static void Reorganize(Empire empire)
+    {
+        if (empire?.CoreKingdom == null || empire.isRekt() || empire.IsArchived()) return;
+        Kingdom core = empire.CoreKingdom;
+        HashSet<long> kept = empire.GetProtectedDirectCityIds();
+        int made = 0;
+        foreach (IGrouping<KingdomTitle, City> group in core.cities.ToList()
+                     .Where(city => city != null && !city.isRekt() && city != core.capital && !kept.Contains(city.id) && city.hasTitle())
+                     .GroupBy(city => city.GetTitle()).Where(group => group.Key != null && !group.Key.isRekt()).ToList())
+            if (empire.EstablishTerritorialDivision(group.ToList(), group.Key) != null) made++;
+        LogService.LogInfo($"[EmpireCraft][世界地图] {empire.GetEmpireName()} 按王国法理划出 {made} 块(行政区或封国)，直辖留 {core.cities.Count} 城");
     }
 
     private static void FoundColony(Kingdom metropole, WorldMapColony data, List<City> cities)

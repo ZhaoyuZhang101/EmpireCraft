@@ -64,7 +64,7 @@ public static class ExclaveMaintenanceSystem
     public static void Check(Kingdom kingdom)
     {
         if (kingdom?.data == null || kingdom.isRekt() ||
-            AncientWarfareCompatibility.Owns(kingdom) || Realm(kingdom) != kingdom ||
+            AncientWarfareCompatibility.Owns(kingdom) || Realm(kingdom) != kingdom || ColonySystem.IsColony(kingdom) ||
             !Valid(kingdom.capital, kingdom) || Audits.ContainsKey(kingdom.id)) return;
         ExclaveMaintenanceData state = kingdom.GetOrCreate().exclave_maintenance;
         double now = World.world.getCurWorldTime();

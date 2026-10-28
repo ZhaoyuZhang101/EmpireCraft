@@ -204,7 +204,7 @@ public sealed class WorldMapReign
 
 public sealed class WorldMapAncestor
 {
-    public string p = "", n = "", f = "";
+    public string p = "", n = "", f = "", t = "";
 }
 
 public sealed class WorldMapDynasty
