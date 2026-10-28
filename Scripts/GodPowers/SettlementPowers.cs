@@ -12,7 +12,7 @@ namespace EmpireCraft.Scripts.GodPowers;
 //   毁弃：点一处村镇，完好的毁为废墟，对废墟再点一下彻底抹去；
 //   改隶：先点一处村镇，再点一座接壤的城，村镇连同它那一片地改归那座城(点别处取消，半分钟不点也取消)；
 //   小、中、大厂区：点城的地放下一整片成品厂区(见 FactorySystem.Place)；毁弃也能拆厂区；
-//   城貌：点一座城打开城貌小窗口，从各文化风格里任选一种(见 CityStyleWindow)。
+//   城貌：点一座城打开城貌小窗口，从各文化风格里任选一种(见 CityStyleWindow)；纯净地图开着时打开城池全图(见 CityPlanScreen)。
 // 这些都是手动的，上帝说了算(用户 2026-10-20 "手动放置建筑时候不要有任何限制")：不看科技、文化、地形类别、钱、战争、法则、数量、距离，
 // 只留真做不到的(各系统开头写着)；AI 自己营建照旧守规矩。
 public static class SettlementPowers
@@ -55,12 +55,14 @@ public static class SettlementPowers
         if (window != null && SpriteTextureLoader.getSprite("ui/Icons/iconCity") != null) window.icon_path = "iconCity";
     }
 
-    // 城貌：点一座城(它地界里任一块地)打开城貌小窗口
+    // 城貌：点一座城(它地界里任一块地)打开城貌小窗口；纯净地图开着时打开城池全图
+    // (用户 2026-10-28 "窗口全屏，整座城显示完整"，见 CityPlanScreen)
     private static bool ClickRestyle(WorldTile tile, string power)
     {
         City city = tile?.zone?.city;
         if (city?.data == null || city.isRekt()) return Tip(LM.Get("city_style_no_city"));
-        CityStyleWindow.Open(city);
+        if (PureMapMode.Enabled) CityPlanScreen.Open(city);
+        else CityStyleWindow.Open(city);
         return true;
     }
 

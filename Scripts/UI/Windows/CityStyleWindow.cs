@@ -12,7 +12,8 @@ using UnityEngine;
 namespace EmpireCraft.Scripts.UI.Windows;
 
 // 城池小窗口(用户 2026-10-20 "什么文化风格都可以转换"；2026-10-28 转群友"可以给主城设置一个界面吗……村庄界面……可以直接修改样式那个界面"，
-// 要"和农村一样的界面")：营建页「城貌」神力点一座城打开(见 SettlementPowers)，纯净地图拉近到街道一级点主城城区也打开(见 MapLabelOverlay.HandleClick)。
+// 要"和农村一样的界面")：纯净地图没开时营建页「城貌」神力点一座城打开(见 SettlementPowers)；纯净地图开着时神力与街道一级点主城城区
+// 都改开全屏的城池全图(见 CityPlanScreen)，小窗口里「全城规划」也能切过去。
 // 宽窗口 480×200，同村镇小窗口(SettlementWindow)——
 //   左「城池」：城名与国家、现在的城貌(手动选定 / 按文化定型 / 改建中)、现文化的风格、随风格走的规矩；
 //   右「营建」：人口与住房上限、民居座数与富庶，城郊各生计的村镇份数；繁荣(同神力笔刷刷一下，见 CityConstructionSystem.Flourish)、
@@ -90,6 +91,15 @@ public class CityStyleWindow : AbstractWideWindow<CityStyleWindow>
         };
         Line(info, LM.Get(effect).ColorString("#8FA0A8"), 6, 10f);
         if (!PureMapMode.Enabled) Line(info, LM.Get("city_style_need_pure_map").ColorString("#E9A85B"), 6, 10f);
+        // 全城规划(用户 2026-10-28 "能不能在宽窗口直接显示这个城镇的形状和完整城市样式, 然后允许玩家随意修改")：
+        // 关掉小窗口，打开城池全图(见 CityPlanScreen)；纯净地图下街道级点城区、城貌神力也直接开全图
+        info.AddButtonIntoVertLayout("city_window_plan", LM.Get("city_plan_ui_open"), () =>
+        {
+            City now = World.world?.cities?.get(_selected);
+            if (now?.data == null || now.isRekt()) return;
+            ScrollWindow.hideAllEvent();
+            CityPlanScreen.Open(now);
+        }, size: new Vector2(RowWidth, 14f));
 
         // 营建：人口、住房、富庶、城郊生计，繁荣、加减人口、营宫殿
         var build = columns.BeginColumnCard(CardWidth, "city_window_build", icons: "ui/icons/godpowers/city_flourish");
