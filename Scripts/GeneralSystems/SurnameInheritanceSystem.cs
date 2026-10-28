@@ -32,11 +32,51 @@ public static class SurnameInheritanceSystem
         return kingdom?.data != null && !kingdom.isRekt() && kingdom.GetOrCreate().HeirID == actor.getID();
     }
 
+    // 宗室：生在统治某国、某帝国的世系里(本宗主位，不含嫁入的、妾)，又是这一族继承的性别(男先的族里是男子)。
+    // 返回 2 帝国皇族世系、1 王族世系、0 不是。宗室的子女入宗室、随宗室的姓——以前只有在位君主、储君一方算，
+    // 皇子还没立储时生的孩子，非华夏的宗族按原版入了母亲那一族、随母姓，日后即位，皇室就随母换了姓
+    // (用户 2026-10-28 转群友"这种现象确实挺常见，皇帝开始换姓了"，问"为什么皇帝会换姓")
+    public static int Dynasty(PersonalClanIdentity person) =>
+        person?._specificClan == null || !person.is_main || person.is_concubine || !person.IsHeirPriority() ? 0
+            : RulingRank(person._specificClan);
+
+    // 统治世系(始祖宗族 → 2 帝国、1 王国)：几秒重算一次，逐个出生时不必每次扫一遍所有国家
+    private static readonly Dictionary<long, int> RulingRanks = new();
+    private static float _rulingAt = -100f;
+    private static object _rulingWorld;
+
+    private static int RulingRank(SpecificClan clan)
+    {
+        if (clan == null || World.world?.kingdoms == null) return 0;
+        float now = UnityEngine.Time.realtimeSinceStartup;
+        if (!ReferenceEquals(_rulingWorld, World.world) || now - _rulingAt > 5f || now < _rulingAt)
+        {
+            _rulingWorld = World.world;
+            _rulingAt = now;
+            RulingRanks.Clear();
+            foreach (Kingdom kingdom in World.world.kingdoms)
+            {
+                if (kingdom?.data == null || kingdom.isRekt()) continue;
+                bool empire = kingdom.IsEmpire();
+                SpecificClan ruling = empire ? kingdom.GetEmpire()?.EmpireSpecificClan : null;
+                ruling ??= kingdom.king != null && !kingdom.king.isRekt() ? kingdom.king.GetSpecificClan() : null;
+                if (ruling == null) continue;
+                long root = ruling.GetRootClan().id;
+                int rank = empire ? 2 : 1;
+                if (!RulingRanks.TryGetValue(root, out int had) || had < rank) RulingRanks[root] = rank;
+            }
+        }
+        return RulingRanks.TryGetValue(clan.GetRootClan().id, out int value) ? value : 0;
+    }
+
     private static int ParentPriority(Actor parent)
     {
         // 君主、储君的子女随君主姓(女帝与皇夫所生的也是皇族，以前跟了皇夫的姓，帝系断开、姓氏跳来跳去)
         if (Reigns(parent)) return 1000 + (parent.isSexMale() ? 10 : 0);
         var identity = parent.GetPersonalIdentity();
+        // 宗室的子女随宗室的姓(见 Dynasty)；两边都是宗室的，帝国皇族先于王族
+        int dynasty = Dynasty(identity);
+        if (dynasty > 0) return 800 + dynasty * 20 + (parent.isSexMale() ? 10 : 0);
         // 华夏一系宗法父系：随父姓(入赘的除外)。以前"婚姻有记录的一方"优先，生母有婚姻记录、生父没有时，
         // 皇子随了生母的姓(聂志之子成了欧阳朗，此后一路姓欧阳)
         if (parent.isSexMale() && identity?._specificClan?.Patrilineal() == true && identity.is_main) return 500;
@@ -90,7 +130,7 @@ public static class SurnameInheritanceSystem
         }
     }
 
-    // 孩子入哪一族、随谁的姓：在位君主、储君一方；华夏一系宗法父系随父(入赘的除外)；
+    // 孩子入哪一族、随谁的姓：在位君主、储君一方；宗室一方；华夏一系宗法父系随父(入赘的除外)；
     // 其余是婚姻里为主、又是本宗继承性别的一方。都不是返回 null(按原版的氏族)
     public static PersonalClanIdentity ClanParent(IEnumerable<PersonalClanIdentity> parents)
     {
@@ -98,6 +138,10 @@ public static class SurnameInheritanceSystem
                                           new List<PersonalClanIdentity>();
         PersonalClanIdentity reigning = list.FirstOrDefault(parent => parent.is_alive && !parent.is_virtual && Reigns(parent._actor));
         if (reigning != null) return reigning;
+        // 宗室一方(见 Dynasty)：两边都是宗室的，帝国皇族先于王族，再按父亲
+        PersonalClanIdentity dynast = list.Where(parent => Dynasty(parent) > 0).OrderByDescending(Dynasty)
+            .ThenByDescending(parent => parent.sex == ActorSex.Male).FirstOrDefault();
+        if (dynast != null) return dynast;
         PersonalClanIdentity father = list.FirstOrDefault(parent => parent.sex == ActorSex.Male && parent.is_main &&
                                                                      parent._specificClan.Patrilineal());
         if (father != null) return father;

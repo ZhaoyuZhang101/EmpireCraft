@@ -947,7 +947,10 @@ public class Empire : MetaObject<EmpireData>
             .Select(member => member.GetPersonalIdentity()?.surname).FirstOrDefault(name => !string.IsNullOrWhiteSpace(name));
         royalSurname ??= SpecificClanManager.getPerson(identity?.father ?? -1L)?.surname;
         if (string.IsNullOrWhiteSpace(royalSurname)) royalSurname = previousRoyalClan.name;
-        if (previousRoyalClan.Patrilineal()) SurnameInheritanceSystem.ApplySurname(identity, royalSurname);
+        // 以前只有华夏一系(宗法父系)改姓：别的文化入了皇族、名字却还挂着母亲的姓，帝王表上一代一个姓
+        // (用户 2026-10-28 问"为什么皇帝会换姓")。名字里本来有姓的都改随皇族；本来不带姓的文化不硬加
+        if (previousRoyalClan.Patrilineal() || !string.IsNullOrWhiteSpace(actor.GetModName()?.familyName))
+            SurnameInheritanceSystem.ApplySurname(identity, royalSurname);
         return previousRoyalClan;
     }
     public bool IsNeedToChooseLovers()
