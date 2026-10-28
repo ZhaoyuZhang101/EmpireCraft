@@ -8,7 +8,8 @@ using UnityEngine;
 namespace EmpireCraft.Scripts.GeneralSystems;
 
 // 国家粮仓(无小人模式)：按粮食征收政策(宪法条款，见 ConstitutionGrain；没有宪法的国家按"征收粮赋")，
-// 各城收割的粮食一部分交国家粮仓——留归地方 0、征收粮赋三成、统购统销七成。
+// 各城收割的余粮一部分交国家粮仓——留归地方 0、征收粮赋三成、统购统销七成。先留足本城的口粮，只从余粮里征
+// (用户 2026-10-28：以前按收成整份抽，农田村越多被抽得越多，种粮的城自己不够吃、再靠打了折的赈灾调回来，见 SurplusShare)。
 // 粮仓按帝国(没有帝国就按王国)存放，每年损耗 SpoilagePerYear；饥荒时开仓赈灾，向缺粮的城市调粮，每年记一次赈灾。
 // 赈灾随积弊变差(见 ReliefEfficiency)：调粮按缺口 × 赈灾效率，粮仓存粮仍是上限。
 // 粮食单位与城市仓库相同(户数尺度)。
@@ -54,16 +55,29 @@ public static class GranarySystem
         return realm == null || realm.isRekt() ? 0f : realm.GetOrCreate().granary;
     }
 
-    // 收成：按政策交国家粮仓的部分存进粮仓，返回留给本城的部分
-    public static float Collect(City city, float harvest)
+    // 收成：按政策交国家粮仓的部分存进粮仓，返回留给本城的部分。只从余粮里征(见 SurplusShare)
+    public static float Collect(City city, float harvest, CityPopulationData data = null)
     {
         Kingdom realm = Realm(city?.kingdom);
         if (harvest <= 0f || !Enabled(city?.kingdom)) return harvest;
-        float levied = harvest * LevyShare(Policy(city.kingdom));
+        float levied = harvest * LevyShare(Policy(city.kingdom)) * SurplusShare(city, data);
         if (levied <= 0f) return harvest;
         Spoil(realm);
         realm.GetOrCreate().granary += levied;
         return harvest - levied;
+    }
+
+    // 收成里余粮的比例：本城一年要吃的粮(每户 1，其中半份由菜园渔猎自给，余下的靠收成)比上年的收成(交粮仓之前)，
+    // 余下的才是余粮；上年收成还没结算过的不征
+    private const float HarvestNeedPerHousehold = 0.5f;
+
+    public static float SurplusShare(City city, CityPopulationData data = null)
+    {
+        data ??= CityPopulationSystem.Get(city);
+        float gross = data?.last_harvest_gross ?? -1f;
+        if (gross <= 0f) return 0f;
+        float need = CityPopulationSystem.BackgroundHouseholds(city) * HarvestNeedPerHousehold;
+        return Mathf.Clamp01(1f - need / gross);
     }
 
     // 捐粮入国家粮仓(世家灾年赈济，见 GentrySystem.Events)；没有国家粮仓的不收

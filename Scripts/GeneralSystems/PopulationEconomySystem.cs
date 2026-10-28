@@ -91,6 +91,12 @@ public static class PopulationEconomySystem
         // 农田自动耕作(开田、播种、收割)，粮食来自实际收割的麦子(见 FarmlandSystem)
         // 收成按粮食征收政策一部分交国家粮仓(见 GranarySystem)，其余留在本城
         float harvested = farmHarvest ?? DepositFarmHarvest(city, data, FarmlandSystem.Settle(city, data));
+        // 这次结算以来的收成折成每年(按余粮征粮赋用，见 GranarySystem.Collect)
+        if (years > 0f)
+        {
+            data.last_harvest_gross = data.harvest_gross_pending / years;
+            data.harvest_gross_pending = 0f;
+        }
         if (background <= 0f) return;
         // 耕牛：犁田的役畜老了宰掉，皮子做衣履鞍具，按收成折算(见 DraftHidesPerHarvest)
         if (harvested > 0f && AssetManager.resources?.get("leather") != null)
@@ -247,7 +253,8 @@ public static class PopulationEconomySystem
     {
         if (rawHarvest <= 0f) return 0f;
         ResolveReflection();
-        float harvested = GranarySystem.Collect(city, rawHarvest);
+        data.harvest_gross_pending += rawHarvest;
+        float harvested = GranarySystem.Collect(city, rawHarvest, data);
         // 产出：交国家粮仓的那份(也是本城种出来的)，加上实际存进本城的(见 Deposit)
         GoodsLedger.Made(city, _foodId ?? "wheat", rawHarvest - harvested);
         if (harvested > 0f) Deposit(city, data, _foodId ?? "wheat", harvested);

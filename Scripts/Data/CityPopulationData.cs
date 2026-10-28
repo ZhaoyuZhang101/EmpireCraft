@@ -64,6 +64,9 @@ public class CityPopulationData
     public float construction_carry;
     // 神力"增加人口"刷上去、超出住房的那部分人另给的容量(人)：留得住，不按超员回落(见 CityResourcePowers、CityPatch.getPopulationMaximum)
     public float brush_capacity;
+    // 收成(交粮仓之前)：本次经济结算以来收下的，与上次结算折成每年的(按余粮征粮赋用，见 GranarySystem.Collect；-1 = 还没结算过)
+    public float harvest_gross_pending;
+    public float last_harvest_gross = -1f;
     // 上次结算城市建设(施工)的世界时间
     public double last_construction = -1d;
     // 上一次结算的结果(每年折算)，给界面和日志看
