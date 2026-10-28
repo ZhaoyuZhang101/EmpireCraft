@@ -117,6 +117,9 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
 
     public override ColorAsset getColor()
     {
+        // 王国法理用自己那套设色、接壤的不同色(见 DeJureMap)，不再与国家同一个色库
+        ColorAsset own = DeJureMap.TitleColor(this);
+        if (own != null) return own;
         if (_cached_color == null)
         {
             _cached_color = getColorLibrary().list[data.color_id];

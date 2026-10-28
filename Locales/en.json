@@ -8982,5 +8982,18 @@
   "world_map_stage_fill": "Filling empty lands with minor realms",
   "world_map_stage_dejure": "Establishing de jure kingdoms and empires",
   "world_map_stage_empires": "Crowning emperors and vassals",
-  "world_map_stage_finish": "Arranging the tianxia"
+  "world_map_stage_finish": "Arranging the tianxia",
+  "kov_standing_colony": "Colony of {0}",
+  "kov_standing_company": "Chartered company of {0}",
+  "kov_colonies": "Colonies",
+  "kov_colony_count": "{0}",
+  "kov_colony_metropole": "Metropole",
+  "kov_colony_kind": "Form",
+  "kov_colony_kind_0": "Governorate",
+  "kov_colony_kind_1": "Chartered company",
+  "kov_colony_governor": "Governor",
+  "kov_colony_autonomy": "Autonomy",
+  "kov_colony_row": "{0} · {1} cities · autonomy {2:0}",
+  "kov_colony_more": " and others ({0})",
+  "world_map_stage_after": "Setting up provinces, armies and offices"
 }

@@ -19,8 +19,13 @@ public class WorldMapLoadingScreen : MonoBehaviour
     private float _progress;
     private string _stageKey = "world_map_stage_prepare";
     private bool _closing;
-    // 点下生成后原版先播过场动画，加载队列这时还没开始；看到过加载才算开工，之后加载走完就淡出
+    // 点下生成后原版先播过场动画，加载队列这时还没开始；看到过加载才算开工
     private bool _sawLoading;
+    // 加载队列走完后还要等进世界的安排(行政区、多京、殖民地、兵力、名人)做完再揭开(用户 2026-10-29："为什么地图不加载进去就已经是
+    // 规划好行政区的，非要进去之后才开始……画")，最多等 AfterLoadSeconds
+    private bool _markedDone;
+    private float _doneAt;
+    private const float AfterLoadSeconds = 30f;
 
     // 加载步骤 id(见 WorldMapGenerator、WorldMapScenario) → 阶段文字
     private static readonly Dictionary<string, string> Stages = new()
@@ -65,6 +70,7 @@ public class WorldMapLoadingScreen : MonoBehaviour
         _instance.gameObject.SetActive(true);
         _instance._closing = false;
         _instance._sawLoading = false;
+        _instance._markedDone = false;
         _instance._progress = 0f;
         _instance._stageKey = "world_map_stage_prepare";
         _instance._group.alpha = 1f;
@@ -139,12 +145,19 @@ public class WorldMapLoadingScreen : MonoBehaviour
         int count = SmoothLoader._actions?.Count ?? 0;
         if (count > 0) _progress = Mathf.Max(_progress, Mathf.Clamp01(SmoothLoader._index / (float)count));
         if (Stages.TryGetValue(SmoothLoader.latest_called_id ?? "", out string key)) _stageKey = key;
-        // 生成流程走完(含原版收尾)，或中途出错被原版重开世界：淡出
+        // 生成流程走完(含原版收尾)，或中途出错被原版重开世界：先做进世界的安排，做完淡出
         if (SmoothLoader.isLoading()) _sawLoading = true;
         else if (_sawLoading)
         {
-            _closing = true;
-            WorldMapGenerator.MarkDone();
+            if (!_markedDone)
+            {
+                _markedDone = true;
+                _doneAt = Time.realtimeSinceStartup;
+                WorldMapGenerator.MarkDone();
+            }
+            _stageKey = "world_map_stage_after";
+            _progress = Mathf.Max(_progress, 0.97f);
+            if (!WorldMapScenario.AfterLoadPending || Time.realtimeSinceStartup - _doneAt > AfterLoadSeconds) _closing = true;
         }
         Refresh();
     }

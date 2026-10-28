@@ -581,13 +581,8 @@ public static class DeJureShareSystem
         return colors.Count == 0 ? null : colors.ToArray();
     }
 
-    // 帝国法理在法理图层上显示成什么：它的帝国还在就是帝国，否则是代表它的王国法理
-    private static object CoreMeta(EmpireCore core)
-    {
-        if (core == null) return null;
-        Empire empire = ModClass.EMPIRE_MANAGER?.get(core.empire_id);
-        return empire != null && !empire.isRekt() && !empire.IsArchived() ? empire : EmpireCoreManager.GetColorTitle(core);
-    }
+    // 帝国法理在法理图层上显示成什么：帝国法理自己的纹章色(见 DeJureMap)，与它本身那片同色
+    private static object CoreMeta(EmpireCore core) => DeJureMap.CoreMeta(core);
 
     private static Color32? Opaque(object meta)
     {

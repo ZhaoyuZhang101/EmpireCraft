@@ -51,6 +51,13 @@ internal static class WorldMapHistory
                     realm.empire.data.history ??= new List<EmpireCraftHistory>();
                     realm.empire.data.history.InsertRange(0, records);
                     if (records.Count > 0) NotFounder(realm.empire, records[0]);
+                    // 今上开局前的在位大事记进本朝当前的史书
+                    WorldMapReign reigning = dynasty.rulers.LastOrDefault(reign => reign.a <= era.year && reign.b > era.year);
+                    if (reigning != null && realm.empire.data.currentHistory != null)
+                    {
+                        realm.empire.data.currentHistory.descriptions ??= new List<HistoryDescription>();
+                        realm.empire.data.currentHistory.descriptions.AddRange(Events(reigning, era.year));
+                    }
                 }
                 else
                 {
@@ -136,8 +143,9 @@ internal static class WorldMapHistory
         if (string.IsNullOrWhiteSpace(family) || ruler == null || ruler.isRekt()) return;
         ruler.CheckSpecificClan();
         SpecificClan clan = ruler.GetSpecificClan();
-        if (clan == null || clan.name == family) return;
-        clan.name = family;
+        // 帝国记的皇室(称帝时记下的宗族，见 Empire.EmpireSpecificClan)可能不是今上眼下挂的那一族，两个都改
+        foreach (SpecificClan house in new[] { clan, realm.empire?.EmpireSpecificClan }.Where(house => house != null).Distinct())
+            if (house.name != family) house.name = family;
         if (ruler.clan != null) SpecificClanManager.SyncVanillaClanName(ruler.clan);
     }
 
@@ -184,6 +192,7 @@ internal static class WorldMapHistory
                 }
             }
         };
+        history.descriptions.AddRange(Events(reign, eraYear));
         if (!string.IsNullOrEmpty(reign.p)) _recordIds[reign.p] = history.id;
         if (chinese && !string.IsNullOrEmpty(reign.shi))
         {
@@ -201,6 +210,13 @@ internal static class WorldMapHistory
         }
         return history;
     }
+
+    // 在位大事(开局年以前的)：一条一事，按年排
+    private static IEnumerable<HistoryDescription> Events(WorldMapReign reign, int eraYear) =>
+        reign.Events(eraYear).OrderBy(item => item.year).Select(item => new HistoryDescription
+        {
+            time = YearText(item.year), cities = new List<string>(), description = item.text
+        });
 
     // 谥号、庙号前字的语言键：史书各处按 LM.Get(键) 显示，存档里只有键，所以启动时、每次换语言后都把剧本里的全部谥号庙号登记一遍
     private const string ShiPrefix = "world_map_shi_", MiaoPrefix = "world_map_miao_";

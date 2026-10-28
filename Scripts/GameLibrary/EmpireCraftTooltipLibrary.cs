@@ -273,6 +273,20 @@ public static class EmpireCraftTooltipLibrary
 				$"{feudalLord.GetKingdomName()} ({fealty.feudal_vassal_level}, {fealty.feudal_vassal_progress}/{FeudalVassalService.ProgressPerLevel})",
 				"#FF5555");
 		}
+		// 殖民关系：殖民地写宗主国(总督府/特许公司、离心)，宗主国写各殖民地
+		Kingdom metropole = ColonySystem.MetropoleOf(kingdom);
+		if (metropole != null)
+		{
+			var colonyState = ColonySystem.Of(kingdom);
+			pTooltip.addLineText("kov_colony_metropole",
+				$"{metropole.GetKingdomName()} · {LM.Get("kov_colony_kind_" + (colonyState?.kind ?? 0))} · {LM.Get("kov_colony_autonomy")} {colonyState?.autonomy ?? 0f:0}",
+				metropole.getColor()?.color_text);
+		}
+		List<Kingdom> colonyList = ColonySystem.ColoniesOf(kingdom).ToList();
+		if (colonyList.Count > 0)
+			pTooltip.addLineText("kov_colonies",
+				string.Join("、", colonyList.Take(3).Select(colony => colony.GetKingdomName())) +
+				(colonyList.Count > 3 ? string.Format(LM.Get("kov_colony_more"), colonyList.Count) : ""), "#7FD8EA");
 		// 分裂进程里的处境：离心、割据、割据观望、举兵争位(见 SchismSystem)
 		if (SchismSystem.StatusText(kingdom) is string schismStatus)
 			pTooltip.addLineText("schism_member_status", schismStatus,

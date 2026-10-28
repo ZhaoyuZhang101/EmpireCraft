@@ -438,8 +438,12 @@ public static class FamousTalentSystem
         record.title_arg = record.deed_arg ?? "";
     }
 
+    // 剧本开局成批册封时不逐个播报(见 WorldMapScenario.SeatFamous)
+    public static bool Quiet { get; set; }
+
     private static void Announce(TalentRecord record, Actor actor, string key)
     {
+        if (Quiet) return;
         string content = string.Format(LM.Get(key), record.name, TitleText(record), RankName(record.rank), record.realm_name);
         TranslateHelper.LogEventMessage(content, actor.kingdom);
     }

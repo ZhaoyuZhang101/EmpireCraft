@@ -599,6 +599,9 @@ def finish():
                 r["shi"] = shi + "皇"
     hl14 = next(r for r in next(d for d in DYNASTIES if d["id"] == "han")["rulers"] if r.get("p") == "hl14")
     hl14["t"] = "孺子|Ruzi"
+    import history_events  # noqa: E402
+    for key, year, text in history_events.attach(DYNASTIES):
+        print("大事没挂上:", key, year, text)
 
 
 def main():

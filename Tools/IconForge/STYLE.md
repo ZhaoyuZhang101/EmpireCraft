@@ -27,6 +27,7 @@
 | 理念徽章 | 保留原设计，在原图上调色(降饱和、冷色再去色、金色转旧铜、纯黑描边) | `regrade_badge` | 母版在 `Tools/IconForge/source/` |
 | 各文化的古代学说徽章 | 同一格理念与华夏那枚同底色，换成本文化的通用意象(十字、新月、狼首、法轮、鸟居、羽蛇……，不画人物与史名)；细节笔画至少 30(256 画布)才看得见 | `doctrine_forge.py`(单独脚本，预览 `doctrine_preview.png`) | `ui/icons/actor_traits/ideology_<理念>_<谱系或文化>` |
 | 卷册卡片框(九宫格 36×36) | 深橄榄底；普通=橄榄青铜边+金回纹角(中心朱红)，高亮=金边，选中=朱漆边，宗族=缠枝纹角 | `frame_forge.py`(单独脚本) | `GameResources/ui/FactionFrame*.png`、`regimeFrame.png`、`clanFrame.png` |
+| 国旗(各文明古典旗、现代理念旗) | 3:2 正式国旗，不要旗杆流苏布褶；在 60×40 像素格上成图、按旗限色、纹样一格浮雕、1px 深框与投影，最近邻放大两倍(120×120)、游戏里最近邻显示；兽纹照公有领域纹章底稿(source/heraldry/SOURCES.md)；不排出像现代国旗的配色 | `flag_formal.py`(纹样画法在 `flag_forge.py`，预览 `flag_preview.png`) | `GameResources/ui/flags/culture_<文化>.png`、`ideology_<理念>.png` |
 | 世界提示 | 直接复用上面的图标，`path_icon` 指过去 | —— | —— |
 | 纯净地图城市平面图的建筑图块(3×3 像素，按时代分代) | 平涂像素图块，"." 透明露出街区底色 | `citymap_forge.py`(单独脚本) | `GameResources/ui/citymap/<名>.png` |
 | 纯净地图皇帝、教宗标记 | 两层叠画：骨白圆形印面(游戏里按帝国、教廷所在国颜色染色) + 旧铜环与冠(印面处透明)；冠按文化取(华夏冕 `marker`、西方帝冠 `marker_roma`)，教宗三重冕 `marker_pope`；十字、拱架这类一两像素宽的细部按 28 像素格子画 | `emperor_marker_forge.py`(单独脚本，`CROWNS` 表) | `GameResources/ui/icons/emperor/marker*.png` |

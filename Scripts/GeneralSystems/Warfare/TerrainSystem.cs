@@ -323,7 +323,7 @@ public static class TerrainSystem
     private static (FrontTerrain terrain, bool impassable, int land, int dry, int livable, int arable, int barren) ClassifyTiles(TileZone zone)
     {
         int total = 0, water = 0, mountain = 0, hills = 0, trees = 0, woods = 0, swamp = 0, jungle = 0, desert = 0, snow = 0,
-            blocked = 0, land = 0, dry = 0, arable = 0, sandy = 0, frozen = 0;
+            blocked = 0, land = 0, dry = 0, arable = 0, sandy = 0, frozen = 0, snowHills = 0;
         float livableSum = 0f;
         // 地块里哪些格走得了(不是山地、山巅)，看山以外的地连不连得过去(见 Crossable)
         int size = Config.CITY_ZONE_SIZE, ox = zone.x * size, oy = zone.y * size;
@@ -367,6 +367,7 @@ public static class TerrainSystem
             Open(tile, !block);
             if (((marks | under) & MarkMountain) != 0) mountain++;
             else if ((marks & (MarkHills | MarkSnowHills)) != 0 || (under & MarkHills) != 0) hills++;
+            if ((marks & MarkSnowHills) != 0) snowHills++;
             if ((marks & MarkSwamp) != 0) swamp++;
             else if ((marks & MarkJungle) != 0) jungle++;
             else if ((marks & MarkWoods) != 0) woods++;
@@ -381,6 +382,8 @@ public static class TerrainSystem
         bool impassable = blocked >= total * 0.75f || blocked > 0 && !Crossable(open, size);
         float Share(int count) => count / (float)total;
         if (Share(mountain) >= 0.25f) return (FrontTerrain.Mountain, impassable, land, dry, livable, arable, barren);
+        // 雪丘连片(青藏、帕米尔高原面)是雪原天堑，不是丘陵(用户 2026-10-29："控制力……完全没有体现地形的影响")
+        if (Share(snowHills) >= 0.4f) return (FrontTerrain.Snow, impassable, land, dry, livable, arable, barren);
         if (Share(mountain + hills) >= 0.3f) return (FrontTerrain.Hills, impassable, land, dry, livable, arable, barren);
         if (Share(swamp) >= 0.3f) return (FrontTerrain.Swamp, impassable, land, dry, livable, arable, barren);
         if (Share(water) >= 0.15f) return (FrontTerrain.River, impassable, land, dry, livable, arable, barren);

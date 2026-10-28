@@ -418,7 +418,9 @@ public static class TerritoryLabelRenderer
     // 大图上几百张铭牌同时排字，各档都先撞一次满。现在记下每个本机字体用到的字(去重)，按某档字号估这些字拼进 4096 图集
     // 要占多少(每字按字号的 1.1 倍见方加 2 像素空隙，只用 AtlasUse 那么多——留给小字行、粗体与装箱空隙)，装不下就先降档再拼
     private const int AtlasSize = 4096;
-    private const float AtlasUse = 0.55f;
+    // 只算三成：同一张图集里还有小字行(70 号)、粗体两份字形与装箱空隙；以前算五成五，世界地图五百多城时
+    // 估着还装得下、Unity 先报"do not fit"(玩家截图 2026-10-29，报了三十多次)才降档
+    private const float AtlasUse = 0.3f;
     private static readonly Dictionary<Font, HashSet<char>> _font_glyphs = new();
 
     private static int AtlasCapacity(int size)

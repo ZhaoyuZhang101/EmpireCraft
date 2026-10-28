@@ -4,12 +4,13 @@ using EmpireCraft.Scripts.GameClassExtensions;
 
 namespace EmpireCraft.Scripts.GeneralSystems;
 
-// 外部附属国(封建附庸、朝贡国)：底色往宗主色靠一半(用户 2026-10-27 嫌"朝贡没换色"，选"底色混入宗主色"：
+// 外部附属国(封建附庸、殖民地；朝贡国见下)：底色往宗主色靠一半(用户 2026-10-27 嫌"朝贡没换色"，选"底色混入宗主色"：
 // 以前只把边框换成宗主色，平滑国界下边框只有一格宽，远看看不出)，边框用宗主色，旗帜照旧是自己的：
 //   原版地图用 color_main 填色、color_main_2 描外边框(见 ZoneCalculator.drawZoneMeta)，
 //   所以给附属国一个"自己与宗主各半的 color_main + 宗主的 color_main_2 + 自己的旗帜"的合成颜色。
 //   合成颜色只放在运行时缓存 _cached_color 里，存档里的 color_id 仍是附属国自己的颜色；
 //   读档或被原版改色后由月度同步(FeudalVassalService.Sync)重新套上，独立时 KingdomColorService.Restore 清掉。
+// 朝贡国底色整个用帝国的颜色(用户 2026-10-29)，退出朝贡照样由 Restore 换回自己的颜色。
 public static class VassalColorService
 {
     private static readonly Dictionary<string, ColorAsset> Composites = new();
@@ -33,7 +34,9 @@ public static class VassalColorService
             own = subject.data.color_id;
         }
         if (own < 0 || own >= colors.Count || colors[own] == null) return;
-        ColorAsset composite = Composite(colors[own], lordColor);
+        // 朝贡国底色整个换成帝国的颜色(用户 2026-10-29："朝贡还是直接改为和帝国同色吧，退出朝贡才恢复")；封建附庸、殖民地仍各半
+        bool tributary = subject.HasTakenAlliance() && subject.GetTakenAllianceEmpire()?.CoreKingdom == lord;
+        ColorAsset composite = Composite(colors[own], lordColor, tributary ? 1f : LordBlend);
         if (subject._cached_color == composite) return;
         subject._cached_color = composite;
         World.world?.zone_calculator?.dirtyAndClear();
@@ -65,7 +68,7 @@ public static class VassalColorService
             if (lord == null && subject.HasTakenAlliance()) lord = subject.GetTakenAllianceEmpire()?.CoreKingdom;
             lord ??= ColonySystem.MetropoleOf(subject);
             if (lord == null || lord.isRekt()) continue;
-            if (IsComposite(subject._cached_color)) continue;
+            // 已套着合成色的也再套一遍(Apply 里同一合成色直接返回)：附庸改为朝贡、朝贡改为附庸时深浅要跟着换
             Apply(subject, lord);
         }
     }
@@ -74,14 +77,14 @@ public static class VassalColorService
     // 底色往宗主色靠多少
     private const float LordBlend = 0.5f;
 
-    private static ColorAsset Composite(ColorAsset own, ColorAsset lord)
+    private static ColorAsset Composite(ColorAsset own, ColorAsset lord, float blend)
     {
-        string key = own.color_main + "|" + lord.color_main;
+        string key = own.color_main + "|" + lord.color_main + "|" + blend.ToString("0.##");
         if (Composites.TryGetValue(key, out ColorAsset cached)) return cached;
         var color = new ColorAsset
         {
             id = "vassal_" + key,
-            color_main = Blend(own.color_main, lord.color_main, LordBlend),
+            color_main = Blend(own.color_main, lord.color_main, blend),
             color_main_2 = lord.color_main,
             color_banner = own.color_banner,
             color_text = own.color_text,

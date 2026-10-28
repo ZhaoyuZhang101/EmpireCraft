@@ -30,7 +30,9 @@ public sealed class TianxiaMapColor : MetaObject<IdeologyMapColorData>
         ColorAsset asset = ColorAsset.tryMakeNewColorAsset(hex);
         asset.initColor();
         var color = new TianxiaMapColor { _color = asset };
-        color.loadData(new IdeologyMapColorData { name = "tianxia_" + index });
+        color.loadData(new IdeologyMapColorData { name = "tianxia_" + index, id = 7_100_000_000_000L + index });
+        // 原版按哈希码判同一对象：不给的话各天下都是 0，平滑国界会把它们当成同一片
+        color.setHash(BaseSystemManager._latest_hash++);
         return color;
     }
 }
@@ -39,16 +41,18 @@ public static class TianxiaMap
 {
     public const string TooltipType = "empirecraft_tianxia";
 
-    // 古旧的绢本色：赭、石青、石绿、朱砂、藤黄、黛、赤金……相邻的天下按主核心编号轮着取
+    // 鲜亮的设色：朱、石青、藤黄、品紫、碧、桃红、橘、群青、青绿、胭脂、天青、宝蓝。相邻的天下按主核心编号轮着取。
+    // 色块半透明(同原版)，以前的绢本色偏暗偏素，叠在真实地形(世界地图的山地、草原、沙漠)上几乎看不出来(用户 10-29 选"换亮色配色")；
+    // 不用黄绿一带的颜色，免得和草地混在一起
     private static readonly string[] Palette =
     {
-        "#b5653c", "#3f7f9e", "#5d9a5a", "#b8423a", "#c9a23a", "#5b5f8f", "#9a6a9a", "#4d8f86", "#a8743f", "#7a8f3a",
-        "#8f4f62", "#4f6fae"
+        "#ee5a2f", "#2f86e6", "#f7c21c", "#cf47e0", "#14b8b8", "#ff63b2", "#ff8f24", "#7b5cf5", "#12c9a2", "#e0336a",
+        "#4fd2f2", "#5a7cff"
     };
 
     private static TianxiaMapColor[] _colors;
-    // 未立核心的天下：素绢色
-    private const string UncoredHex = "#8a8170";
+    // 未立核心的天下：浅灰紫的素色(以前的灰褐色和地形分不开)
+    private const string UncoredHex = "#b6b4cc";
     private static TianxiaMapColor _uncoredColor;
 
     private static TianxiaMapColor UncoredColor() => _uncoredColor ??= TianxiaMapColor.Create(Palette.Length, UncoredHex);
@@ -153,6 +157,10 @@ public static class TianxiaMap
             QuantumSpriteLibrary.colorZones(highlight, cities.Where(city => city != null && !city.isRekt())
                 .SelectMany(city => city.zones).ToList(), highlight.color);
         });
+        // 按地块取归属：平滑国界(整图画布)要它才画得出来(见 SmoothBorders.Smoothable)——以前没给，平滑国界下天下图层只有铭牌、没有颜色
+        asset.tile_get_metaobject = (zone, option) => MetaOf(zone?.city, option);
+        asset.tile_get_metaobject_0 = zone => MetaOf(zone?.city, 0);
+        asset.tile_get_metaobject_1 = zone => MetaOf(zone?.city, 1);
         // 原版每帧无条件调用这两个委托，不设会每帧抛空引用
         asset.check_tile_has_meta = (MetaZoneTooltipAction)((zone, meta, option) => Shown(zone?.city));
         asset.check_cursor_tooltip = (zone, meta, option) =>
@@ -173,6 +181,15 @@ public static class TianxiaMap
             TianxiaWindow.Open(lead);
             return true;
         });
+    }
+
+    // 一块地在天下图层上归谁：0 天下(未立核心的用素绢色)、1 诸家(据有者)
+    private static IMetaObject MetaOf(City city, int mode)
+    {
+        if (!Shown(city)) return null;
+        if (mode == 1 && EmpireCoreControl.Sovereign(city.kingdom) is Kingdom holder) return holder;
+        EmpireCore lead = TianxiaSystem.LeadOf(city);
+        return lead == null ? UncoredColor() : ColorOf(lead);
     }
 
     private static bool TianxiaBorder(TileZone neighbour, EmpireCore lead) => TianxiaSystem.LeadOf(neighbour?.city) != lead;

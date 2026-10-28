@@ -119,6 +119,10 @@ public class KingdomOverviewWindow : WideScrollWindow<KingdomOverviewWindow>
                 empire.GetEmpireName());
         Empire suzerain = kingdom.HasTakenAlliance() ? kingdom.GetTakenAllianceEmpire() : null;
         if (suzerain != null && !suzerain.isRekt()) return string.Format(LM.Get("kov_standing_tributary"), suzerain.GetEmpireName());
+        Kingdom metropole = ColonySystem.MetropoleOf(kingdom);
+        if (Alive(metropole))
+            return string.Format(LM.Get(ColonySystem.Of(kingdom)?.kind == ColonyState.Company ? "kov_standing_company" : "kov_standing_colony"),
+                metropole.GetKingdomName());
         Kingdom lord = FeudalVassalService.GetOverlord(kingdom);
         if (Alive(lord)) return string.Format(LM.Get("kov_standing_vassal"), lord.GetKingdomName());
         return LM.Get("kov_standing_independent");
@@ -155,8 +159,40 @@ public class KingdomOverviewWindow : WideScrollWindow<KingdomOverviewWindow>
         DrawStrength(columns.BeginColumnCard(HalfWidth, "kov_strength", WideKit.Orange, null, "ui/icons/iconWar"), kingdom);
         DrawEconomy(columns.BeginColumnCard(HalfWidth, "kov_economy", WideKit.Green, null, "ui/icons/iconMoney"), kingdom);
         GoodsCard.Draw(page, PageWidth, kingdom.cities, GranarySystem.Stock(kingdom));
+        DrawColonies(page, kingdom);
         DrawTech(page, kingdom);
         DrawWars(page, kingdom);
+    }
+
+    // 殖民关系：殖民地写宗主国、总督府还是特许公司、现任总督、离心；宗主国列出各殖民地。点一行打开那一国(用户："我没法看到殖民政府和宗主国的关系")
+    private static void DrawColonies(AutoVertLayoutGroup page, Kingdom kingdom)
+    {
+        Kingdom metropole = ColonySystem.MetropoleOf(kingdom);
+        List<Kingdom> colonies = ColonySystem.ColoniesOf(kingdom).Where(colony => Alive(colony)).ToList();
+        if (!Alive(metropole) && colonies.Count == 0) return;
+        var card = page.BeginCard(PageWidth, "kov_colonies", WideKit.Cyan,
+            Alive(metropole) ? metropole.GetKingdomName() : string.Format(LM.Get("kov_colony_count"), colonies.Count), "ui/icons/iconKingdom");
+        if (Alive(metropole))
+        {
+            ColonyState state = ColonySystem.Of(kingdom);
+            Kingdom lord = metropole;
+            card.AddListRow(PageWidth, 0, null, LM.Get("kov_colony_metropole"), metropole.GetKingdomFullName(),
+                () => Open(lord), WideKit.Cyan, 90f);
+            Actor governor = state == null ? null : World.world.units.get(state.governor_id);
+            card.AddMetricRow(PageWidth,
+                (LM.Get("kov_colony_kind"), LM.Get("kov_colony_kind_" + (state?.kind ?? ColonyState.Governorate)), WideKit.Gold),
+                (LM.Get("kov_colony_governor"), governor != null && !governor.isRekt() ? governor.getName() : LM.Get("label_none"), WideKit.Value),
+                (LM.Get("kov_colony_autonomy"), $"{state?.autonomy ?? 0f:0}", (state?.autonomy ?? 0f) >= 60f ? WideKit.Red : WideKit.Value));
+            return;
+        }
+        for (int i = 0; i < colonies.Count; i++)
+        {
+            Kingdom colony = colonies[i];
+            ColonyState state = ColonySystem.Of(colony);
+            string detail = string.Format(LM.Get("kov_colony_row"), LM.Get("kov_colony_kind_" + (state?.kind ?? ColonyState.Governorate)),
+                colony.countCities(), state?.autonomy ?? 0f);
+            card.AddListRow(PageWidth, i, null, colony.GetKingdomName(), detail, () => Open(colony), WideKit.Cyan, 160f);
+        }
     }
 
     private static void DrawStrength(AutoVertLayoutGroup card, Kingdom kingdom)

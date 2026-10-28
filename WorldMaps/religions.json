@@ -1,0 +1,1778 @@
+{
+ "_note": "各时代宗教(由 Tools/WorldMap/religion.py 生成，勿手改)",
+ "years": [
+  -260,
+  117,
+  230,
+  750,
+  800,
+  1190,
+  1628
+ ],
+ "religions": [
+  {
+   "id": "huaxia",
+   "n": [
+    [
+     -9999,
+     "周礼|Rites of Zhou|周禮"
+    ],
+    [
+     -200,
+     "儒教|Confucianism|儒教"
+    ],
+    [
+     600,
+     "三教|Three Teachings|三教"
+    ],
+    [
+     1368,
+     "儒教|Confucianism|儒教"
+    ]
+   ],
+   "faith": "Sanjiao",
+   "sphere": "Huaxia",
+   "holy": [
+    [
+     -9999,
+     "qufu"
+    ]
+   ],
+   "parent": "",
+   "caesaro": false,
+   "split": ""
+  },
+  {
+   "id": "hellenic",
+   "n": [
+    [
+     -9999,
+     "希腊罗马诸神|Graeco-Roman Gods|希臘羅馬諸神"
+    ]
+   ],
+   "faith": "Folk",
+   "sphere": "Roma",
+   "holy": [
+    [
+     -9999,
+     "athens"
+    ],
+    [
+     -30,
+     "rome"
+    ]
+   ],
+   "parent": "",
+   "caesaro": false,
+   "split": ""
+  },
+  {
+   "id": "celtic",
+   "n": [
+    [
+     -9999,
+     "德鲁伊教|Druidism|德魯伊教"
+    ]
+   ],
+   "faith": "Folk",
+   "sphere": "Roma",
+   "holy": [
+    [
+     -9999,
+     "orleans"
+    ],
+    [
+     0,
+     "tara"
+    ]
+   ],
+   "parent": "",
+   "caesaro": false,
+   "split": ""
+  },
+  {
+   "id": "germanic",
+   "n": [
+    [
+     -9999,
+     "日耳曼诸神|Germanic Paganism|日耳曼諸神"
+    ]
+   ],
+   "faith": "Folk",
+   "sphere": "Roma",
+   "holy": [
+    [
+     -9999,
+     "uppsala"
+    ]
+   ],
+   "parent": "",
+   "caesaro": false,
+   "split": ""
+  },
+  {
+   "id": "slavic",
+   "n": [
+    [
+     -9999,
+     "斯拉夫诸神|Slavic Paganism|斯拉夫諸神"
+    ]
+   ],
+   "faith": "Folk",
+   "sphere": "Roma",
+   "holy": [
+    [
+     -9999,
+     "kiev"
+    ]
+   ],
+   "parent": "",
+   "caesaro": false,
+   "split": ""
+  },
+  {
+   "id": "tengri",
+   "n": [
+    [
+     -9999,
+     "腾格里教|Tengrism|騰格里教"
+    ]
+   ],
+   "faith": "Tengri",
+   "sphere": "Steppe",
+   "holy": [
+    [
+     -9999,
+     "onon"
+    ]
+   ],
+   "parent": "",
+   "caesaro": false,
+   "split": ""
+  },
+  {
+   "id": "shamanism",
+   "n": [
+    [
+     -9999,
+     "萨满教|Shamanism|薩滿教"
+    ]
+   ],
+   "faith": "Tengri",
+   "sphere": "Steppe",
+   "holy": [
+    [
+     -9999,
+     "fuyu"
+    ]
+   ],
+   "parent": "tengri",
+   "caesaro": false,
+   "split": ""
+  },
+  {
+   "id": "bon",
+   "n": [
+    [
+     -9999,
+     "苯教|Bon|苯教"
+    ]
+   ],
+   "faith": "Folk",
+   "sphere": "Steppe",
+   "holy": [
+    [
+     -9999,
+     "qonggyai"
+    ]
+   ],
+   "parent": "",
+   "caesaro": false,
+   "split": ""
+  },
+  {
+   "id": "manichaean",
+   "n": [
+    [
+     -9999,
+     "摩尼教|Manichaeism|摩尼教"
+    ]
+   ],
+   "faith": "Folk",
+   "sphere": "Steppe",
+   "holy": [
+    [
+     -9999,
+     "ordu"
+    ]
+   ],
+   "parent": "",
+   "caesaro": false,
+   "split": ""
+  },
+  {
+   "id": "zoroastrian",
+   "n": [
+    [
+     -9999,
+     "琐罗亚斯德教|Zoroastrianism|瑣羅亞斯德教"
+    ]
+   ],
+   "faith": "Folk",
+   "sphere": "Umma",
+   "holy": [
+    [
+     -9999,
+     "fars"
+    ]
+   ],
+   "parent": "",
+   "caesaro": false,
+   "split": ""
+  },
+  {
+   "id": "arab_pagan",
+   "n": [
+    [
+     -9999,
+     "阿拉伯诸神|Arabian Polytheism|阿拉伯諸神"
+    ]
+   ],
+   "faith": "Folk",
+   "sphere": "Umma",
+   "holy": [
+    [
+     -9999,
+     "mecca"
+    ]
+   ],
+   "parent": "",
+   "caesaro": false,
+   "split": ""
+  },
+  {
+   "id": "egyptian",
+   "n": [
+    [
+     -9999,
+     "埃及诸神|Egyptian Religion|埃及諸神"
+    ]
+   ],
+   "faith": "Folk",
+   "sphere": "Umma",
+   "holy": [
+    [
+     -9999,
+     "thebes"
+    ]
+   ],
+   "parent": "",
+   "caesaro": false,
+   "split": ""
+  },
+  {
+   "id": "punic",
+   "n": [
+    [
+     -9999,
+     "迦太基诸神|Punic Religion|迦太基諸神"
+    ]
+   ],
+   "faith": "Folk",
+   "sphere": "Umma",
+   "holy": [
+    [
+     -9999,
+     "carthage"
+    ]
+   ],
+   "parent": "",
+   "caesaro": false,
+   "split": ""
+  },
+  {
+   "id": "african",
+   "n": [
+    [
+     -9999,
+     "非洲传统信仰|African Traditional Religion|非洲傳統信仰"
+    ]
+   ],
+   "faith": "Folk",
+   "sphere": "Umma",
+   "holy": [
+    [
+     -9999,
+     "djenne"
+    ]
+   ],
+   "parent": "",
+   "caesaro": false,
+   "split": ""
+  },
+  {
+   "id": "islam",
+   "n": [
+    [
+     -9999,
+     "伊斯兰教|Islam|伊斯蘭教"
+    ]
+   ],
+   "faith": "Islam",
+   "sphere": "Umma",
+   "holy": [
+    [
+     -9999,
+     "mecca"
+    ]
+   ],
+   "parent": "",
+   "caesaro": false,
+   "split": ""
+  },
+  {
+   "id": "shia",
+   "n": [
+    [
+     -9999,
+     "什叶派|Shia Islam|什葉派"
+    ]
+   ],
+   "faith": "Islam",
+   "sphere": "Umma",
+   "holy": [
+    [
+     -9999,
+     "kufa"
+    ]
+   ],
+   "parent": "islam",
+   "caesaro": false,
+   "split": "shia"
+  },
+  {
+   "id": "judaism",
+   "n": [
+    [
+     -9999,
+     "犹太教|Judaism|猶太教"
+    ]
+   ],
+   "faith": "Judaism",
+   "sphere": "Kosher",
+   "holy": [
+    [
+     -9999,
+     "jerusalem"
+    ]
+   ],
+   "parent": "",
+   "caesaro": false,
+   "split": ""
+  },
+  {
+   "id": "catholic",
+   "n": [
+    [
+     -9999,
+     "大公教会|Catholic Church|大公教會"
+    ],
+    [
+     1054,
+     "天主教会|Roman Catholic Church|天主教會"
+    ]
+   ],
+   "faith": "Church",
+   "sphere": "Roma",
+   "holy": [
+    [
+     -9999,
+     "rome"
+    ]
+   ],
+   "parent": "",
+   "caesaro": false,
+   "split": ""
+  },
+  {
+   "id": "orthodox",
+   "n": [
+    [
+     -9999,
+     "东正教会|Eastern Orthodox Church|東正教會"
+    ]
+   ],
+   "faith": "Church",
+   "sphere": "Roma",
+   "holy": [
+    [
+     -9999,
+     "byzantium"
+    ]
+   ],
+   "parent": "catholic",
+   "caesaro": true,
+   "split": "eastern"
+  },
+  {
+   "id": "armenian",
+   "n": [
+    [
+     -9999,
+     "亚美尼亚使徒教会|Armenian Apostolic Church|亞美尼亞使徒教會"
+    ]
+   ],
+   "faith": "Church",
+   "sphere": "Roma",
+   "holy": [
+    [
+     -9999,
+     "artaxata"
+    ]
+   ],
+   "parent": "catholic",
+   "caesaro": false,
+   "split": ""
+  },
+  {
+   "id": "coptic",
+   "n": [
+    [
+     -9999,
+     "科普特教会|Coptic Church|科普特教會"
+    ]
+   ],
+   "faith": "Church",
+   "sphere": "Roma",
+   "holy": [
+    [
+     -9999,
+     "alexandria"
+    ]
+   ],
+   "parent": "catholic",
+   "caesaro": false,
+   "split": ""
+  },
+  {
+   "id": "lutheran",
+   "n": [
+    [
+     -9999,
+     "路德宗|Lutheran Church|路德宗"
+    ]
+   ],
+   "faith": "Church",
+   "sphere": "Roma",
+   "holy": [
+    [
+     -9999,
+     "magdeburg"
+    ]
+   ],
+   "parent": "catholic",
+   "caesaro": false,
+   "split": ""
+  },
+  {
+   "id": "anglican",
+   "n": [
+    [
+     -9999,
+     "英格兰国教会|Church of England|英格蘭國教會"
+    ]
+   ],
+   "faith": "Church",
+   "sphere": "Roma",
+   "holy": [
+    [
+     -9999,
+     "london"
+    ]
+   ],
+   "parent": "catholic",
+   "caesaro": false,
+   "split": ""
+  },
+  {
+   "id": "reformed",
+   "n": [
+    [
+     -9999,
+     "归正宗|Reformed Church|歸正宗"
+    ]
+   ],
+   "faith": "Church",
+   "sphere": "Roma",
+   "holy": [
+    [
+     -9999,
+     "amsterdam"
+    ]
+   ],
+   "parent": "catholic",
+   "caesaro": false,
+   "split": ""
+  },
+  {
+   "id": "hindu",
+   "n": [
+    [
+     -9999,
+     "婆罗门教|Brahmanism|婆羅門教"
+    ],
+    [
+     500,
+     "印度教|Hinduism|印度教"
+    ]
+   ],
+   "faith": "Dharmic",
+   "sphere": "India",
+   "holy": [
+    [
+     -9999,
+     "varanasi"
+    ]
+   ],
+   "parent": "",
+   "caesaro": false,
+   "split": ""
+  },
+  {
+   "id": "buddhism",
+   "n": [
+    [
+     -9999,
+     "佛教|Buddhism|佛教"
+    ]
+   ],
+   "faith": "Dharmic",
+   "sphere": "India",
+   "holy": [
+    [
+     -9999,
+     "pataliputra"
+    ],
+    [
+     1300,
+     "lhasa"
+    ]
+   ],
+   "parent": "hindu",
+   "caesaro": false,
+   "split": ""
+  },
+  {
+   "id": "animism",
+   "n": [
+    [
+     -9999,
+     "万物有灵|Animism|萬物有靈"
+    ]
+   ],
+   "faith": "Folk",
+   "sphere": "Nanyang",
+   "holy": [],
+   "parent": "",
+   "caesaro": false,
+   "split": ""
+  },
+  {
+   "id": "shinto",
+   "n": [
+    [
+     -9999,
+     "神道|Shinto|神道"
+    ]
+   ],
+   "faith": "Shinto",
+   "sphere": "Tenka",
+   "holy": [
+    [
+     -9999,
+     "izumo"
+    ]
+   ],
+   "parent": "",
+   "caesaro": false,
+   "split": ""
+  }
+ ],
+ "regions": {
+  "guanzhong": [
+   "huaxia",
+   "huaxia",
+   "huaxia",
+   "huaxia",
+   "huaxia",
+   "huaxia",
+   "huaxia"
+  ],
+  "longxi": [
+   "huaxia",
+   "huaxia",
+   "huaxia",
+   "huaxia",
+   "huaxia",
+   "huaxia",
+   "huaxia"
+  ],
+  "hanzhong": [
+   "huaxia",
+   "huaxia",
+   "huaxia",
+   "huaxia",
+   "huaxia",
+   "huaxia",
+   "huaxia"
+  ],
+  "bashu": [
+   "huaxia",
+   "huaxia",
+   "huaxia",
+   "huaxia",
+   "huaxia",
+   "huaxia",
+   "huaxia"
+  ],
+  "hedong": [
+   "huaxia",
+   "huaxia",
+   "huaxia",
+   "huaxia",
+   "huaxia",
+   "huaxia",
+   "huaxia"
+  ],
+  "henan": [
+   "huaxia",
+   "huaxia",
+   "huaxia",
+   "huaxia",
+   "huaxia",
+   "huaxia",
+   "huaxia"
+  ],
+  "hebei": [
+   "huaxia",
+   "huaxia",
+   "huaxia",
+   "huaxia",
+   "huaxia",
+   "huaxia",
+   "huaxia"
+  ],
+  "youyan": [
+   "huaxia",
+   "huaxia",
+   "huaxia",
+   "huaxia",
+   "huaxia",
+   "huaxia",
+   "huaxia"
+  ],
+  "qilu": [
+   "huaxia",
+   "huaxia",
+   "huaxia",
+   "huaxia",
+   "huaxia",
+   "huaxia",
+   "huaxia"
+  ],
+  "huaisi": [
+   "huaxia",
+   "huaxia",
+   "huaxia",
+   "huaxia",
+   "huaxia",
+   "huaxia",
+   "huaxia"
+  ],
+  "jingchu": [
+   "huaxia",
+   "huaxia",
+   "huaxia",
+   "huaxia",
+   "huaxia",
+   "huaxia",
+   "huaxia"
+  ],
+  "jiangdong": [
+   "huaxia",
+   "huaxia",
+   "huaxia",
+   "huaxia",
+   "huaxia",
+   "huaxia",
+   "huaxia"
+  ],
+  "jiangxi": [
+   "huaxia",
+   "huaxia",
+   "huaxia",
+   "huaxia",
+   "huaxia",
+   "huaxia",
+   "huaxia"
+  ],
+  "hexi": [
+   "tengri",
+   "huaxia",
+   "huaxia",
+   "huaxia",
+   "buddhism",
+   "buddhism",
+   "huaxia"
+  ],
+  "nanzhong": [
+   "animism",
+   "animism",
+   "animism",
+   "animism",
+   "buddhism",
+   "buddhism",
+   "huaxia"
+  ],
+  "liaodong": [
+   "huaxia",
+   "huaxia",
+   "huaxia",
+   "huaxia",
+   "buddhism",
+   "huaxia",
+   "huaxia"
+  ],
+  "minyue": [
+   "animism",
+   "huaxia",
+   "huaxia",
+   "huaxia",
+   "huaxia",
+   "huaxia",
+   "huaxia"
+  ],
+  "lingnan": [
+   "animism",
+   "huaxia",
+   "huaxia",
+   "huaxia",
+   "huaxia",
+   "huaxia",
+   "huaxia"
+  ],
+  "jiaozhi": [
+   "animism",
+   "huaxia",
+   "huaxia",
+   "huaxia",
+   "huaxia",
+   "buddhism",
+   "huaxia"
+  ],
+  "hetao": [
+   "tengri",
+   "huaxia",
+   "tengri",
+   "huaxia",
+   "huaxia",
+   "buddhism",
+   "buddhism"
+  ],
+  "korea_n": [
+   "shamanism",
+   "shamanism",
+   "shamanism",
+   "buddhism",
+   "buddhism",
+   "buddhism",
+   "huaxia"
+  ],
+  "korea_s": [
+   "shamanism",
+   "shamanism",
+   "shamanism",
+   "buddhism",
+   "buddhism",
+   "buddhism",
+   "huaxia"
+  ],
+  "japan_kyushu": [
+   "shinto",
+   "shinto",
+   "shinto",
+   "shinto",
+   "shinto",
+   "shinto",
+   "shinto"
+  ],
+  "japan_kinai": [
+   "shinto",
+   "shinto",
+   "shinto",
+   "shinto",
+   "shinto",
+   "shinto",
+   "shinto"
+  ],
+  "japan_kanto": [
+   "shinto",
+   "shinto",
+   "shinto",
+   "shinto",
+   "shinto",
+   "shinto",
+   "shinto"
+  ],
+  "japan_tohoku": [
+   "animism",
+   "animism",
+   "animism",
+   "animism",
+   "shinto",
+   "shinto",
+   "shinto"
+  ],
+  "ryukyu": [
+   "animism",
+   "animism",
+   "animism",
+   "animism",
+   "animism",
+   "animism",
+   "animism"
+  ],
+  "taiwan": [
+   "animism",
+   "animism",
+   "animism",
+   "animism",
+   "animism",
+   "animism",
+   "animism"
+  ],
+  "monan": [
+   "tengri",
+   "tengri",
+   "tengri",
+   "tengri",
+   "tengri",
+   "huaxia",
+   "buddhism"
+  ],
+  "mobei": [
+   "tengri",
+   "tengri",
+   "tengri",
+   "tengri",
+   "manichaean",
+   "tengri",
+   "buddhism"
+  ],
+  "manchuria": [
+   "shamanism",
+   "shamanism",
+   "shamanism",
+   "shamanism",
+   "shamanism",
+   "shamanism",
+   "shamanism"
+  ],
+  "xiyu": [
+   "tengri",
+   "buddhism",
+   "buddhism",
+   "buddhism",
+   "buddhism",
+   "buddhism",
+   "islam"
+  ],
+  "dzungaria": [
+   "tengri",
+   "tengri",
+   "tengri",
+   "tengri",
+   "tengri",
+   "buddhism",
+   "buddhism"
+  ],
+  "kazakh": [
+   "tengri",
+   "tengri",
+   "tengri",
+   "tengri",
+   "tengri",
+   "islam",
+   "islam"
+  ],
+  "siberia": [
+   "shamanism",
+   "shamanism",
+   "shamanism",
+   "shamanism",
+   "shamanism",
+   "shamanism",
+   "shamanism"
+  ],
+  "tibet": [
+   "bon",
+   "bon",
+   "bon",
+   "bon",
+   "buddhism",
+   "buddhism",
+   "buddhism"
+  ],
+  "qinghai": [
+   "bon",
+   "bon",
+   "bon",
+   "bon",
+   "buddhism",
+   "buddhism",
+   "buddhism"
+  ],
+  "sogdiana": [
+   "zoroastrian",
+   "zoroastrian",
+   "zoroastrian",
+   "zoroastrian",
+   "islam",
+   "islam",
+   "islam"
+  ],
+  "ferghana": [
+   "zoroastrian",
+   "zoroastrian",
+   "zoroastrian",
+   "zoroastrian",
+   "zoroastrian",
+   "islam",
+   "islam"
+  ],
+  "khwarazm": [
+   "zoroastrian",
+   "zoroastrian",
+   "zoroastrian",
+   "zoroastrian",
+   "islam",
+   "islam",
+   "islam"
+  ],
+  "bactria": [
+   "zoroastrian",
+   "buddhism",
+   "buddhism",
+   "buddhism",
+   "islam",
+   "islam",
+   "islam"
+  ],
+  "khorasan": [
+   "zoroastrian",
+   "zoroastrian",
+   "zoroastrian",
+   "islam",
+   "islam",
+   "islam",
+   "shia"
+  ],
+  "arachosia": [
+   "zoroastrian",
+   "buddhism",
+   "buddhism",
+   "hindu",
+   "hindu",
+   "islam",
+   "islam"
+  ],
+  "persis": [
+   "zoroastrian",
+   "zoroastrian",
+   "zoroastrian",
+   "zoroastrian",
+   "zoroastrian",
+   "islam",
+   "shia"
+  ],
+  "media": [
+   "zoroastrian",
+   "zoroastrian",
+   "zoroastrian",
+   "islam",
+   "islam",
+   "islam",
+   "shia"
+  ],
+  "mesopotamia": [
+   "zoroastrian",
+   "zoroastrian",
+   "zoroastrian",
+   "islam",
+   "islam",
+   "islam",
+   "islam"
+  ],
+  "arabia": [
+   "arab_pagan",
+   "arab_pagan",
+   "arab_pagan",
+   "islam",
+   "islam",
+   "islam",
+   "islam"
+  ],
+  "syria": [
+   "hellenic",
+   "hellenic",
+   "hellenic",
+   "islam",
+   "islam",
+   "islam",
+   "islam"
+  ],
+  "palestine": [
+   "judaism",
+   "judaism",
+   "judaism",
+   "islam",
+   "islam",
+   "islam",
+   "islam"
+  ],
+  "cyprus": [
+   "hellenic",
+   "hellenic",
+   "hellenic",
+   "catholic",
+   "catholic",
+   "orthodox",
+   "orthodox"
+  ],
+  "armenia": [
+   "zoroastrian",
+   "zoroastrian",
+   "zoroastrian",
+   "armenian",
+   "armenian",
+   "armenian",
+   "armenian"
+  ],
+  "caucasus": [
+   "zoroastrian",
+   "zoroastrian",
+   "zoroastrian",
+   "catholic",
+   "catholic",
+   "orthodox",
+   "orthodox"
+  ],
+  "asia_minor": [
+   "hellenic",
+   "hellenic",
+   "hellenic",
+   "catholic",
+   "catholic",
+   "orthodox",
+   "islam"
+  ],
+  "cappadocia": [
+   "hellenic",
+   "hellenic",
+   "hellenic",
+   "catholic",
+   "catholic",
+   "islam",
+   "islam"
+  ],
+  "egypt": [
+   "egyptian",
+   "egyptian",
+   "egyptian",
+   "coptic",
+   "coptic",
+   "islam",
+   "islam"
+  ],
+  "nubia": [
+   "egyptian",
+   "egyptian",
+   "egyptian",
+   "coptic",
+   "coptic",
+   "coptic",
+   "islam"
+  ],
+  "aksum": [
+   "african",
+   "african",
+   "african",
+   "coptic",
+   "coptic",
+   "coptic",
+   "coptic"
+  ],
+  "cyrenaica": [
+   "hellenic",
+   "hellenic",
+   "hellenic",
+   "islam",
+   "islam",
+   "islam",
+   "islam"
+  ],
+  "africa": [
+   "punic",
+   "hellenic",
+   "hellenic",
+   "islam",
+   "islam",
+   "islam",
+   "islam"
+  ],
+  "numidia": [
+   "punic",
+   "hellenic",
+   "hellenic",
+   "islam",
+   "islam",
+   "islam",
+   "islam"
+  ],
+  "mauretania": [
+   "punic",
+   "hellenic",
+   "hellenic",
+   "islam",
+   "islam",
+   "islam",
+   "islam"
+  ],
+  "sahel": [
+   "african",
+   "african",
+   "african",
+   "african",
+   "african",
+   "african",
+   "islam"
+  ],
+  "swahili": [
+   "african",
+   "african",
+   "african",
+   "african",
+   "african",
+   "islam",
+   "islam"
+  ],
+  "italy_n": [
+   "hellenic",
+   "hellenic",
+   "hellenic",
+   "catholic",
+   "catholic",
+   "catholic",
+   "catholic"
+  ],
+  "italy_c": [
+   "hellenic",
+   "hellenic",
+   "hellenic",
+   "catholic",
+   "catholic",
+   "catholic",
+   "catholic"
+  ],
+  "italy_s": [
+   "hellenic",
+   "hellenic",
+   "hellenic",
+   "catholic",
+   "catholic",
+   "catholic",
+   "catholic"
+  ],
+  "sicily": [
+   "hellenic",
+   "hellenic",
+   "hellenic",
+   "catholic",
+   "catholic",
+   "catholic",
+   "catholic"
+  ],
+  "sardinia": [
+   "punic",
+   "hellenic",
+   "hellenic",
+   "catholic",
+   "catholic",
+   "catholic",
+   "catholic"
+  ],
+  "greece": [
+   "hellenic",
+   "hellenic",
+   "hellenic",
+   "catholic",
+   "catholic",
+   "orthodox",
+   "orthodox"
+  ],
+  "macedonia": [
+   "hellenic",
+   "hellenic",
+   "hellenic",
+   "catholic",
+   "catholic",
+   "orthodox",
+   "orthodox"
+  ],
+  "thrace": [
+   "hellenic",
+   "hellenic",
+   "hellenic",
+   "catholic",
+   "catholic",
+   "orthodox",
+   "islam"
+  ],
+  "moesia": [
+   "hellenic",
+   "hellenic",
+   "hellenic",
+   "tengri",
+   "tengri",
+   "orthodox",
+   "orthodox"
+  ],
+  "dacia": [
+   "hellenic",
+   "hellenic",
+   "hellenic",
+   "slavic",
+   "slavic",
+   "orthodox",
+   "orthodox"
+  ],
+  "illyria": [
+   "hellenic",
+   "hellenic",
+   "hellenic",
+   "catholic",
+   "catholic",
+   "catholic",
+   "catholic"
+  ],
+  "pannonia": [
+   "celtic",
+   "hellenic",
+   "hellenic",
+   "tengri",
+   "tengri",
+   "catholic",
+   "catholic"
+  ],
+  "bavaria": [
+   "celtic",
+   "hellenic",
+   "hellenic",
+   "catholic",
+   "catholic",
+   "catholic",
+   "catholic"
+  ],
+  "rhine": [
+   "celtic",
+   "hellenic",
+   "hellenic",
+   "catholic",
+   "catholic",
+   "catholic",
+   "catholic"
+  ],
+  "germania": [
+   "germanic",
+   "germanic",
+   "germanic",
+   "germanic",
+   "catholic",
+   "catholic",
+   "lutheran"
+  ],
+  "bohemia": [
+   "celtic",
+   "germanic",
+   "germanic",
+   "slavic",
+   "slavic",
+   "catholic",
+   "catholic"
+  ],
+  "poland": [
+   "germanic",
+   "germanic",
+   "germanic",
+   "slavic",
+   "slavic",
+   "catholic",
+   "catholic"
+  ],
+  "gaul_n": [
+   "celtic",
+   "hellenic",
+   "hellenic",
+   "catholic",
+   "catholic",
+   "catholic",
+   "catholic"
+  ],
+  "gaul_s": [
+   "celtic",
+   "hellenic",
+   "hellenic",
+   "catholic",
+   "catholic",
+   "catholic",
+   "catholic"
+  ],
+  "hispania_n": [
+   "celtic",
+   "hellenic",
+   "hellenic",
+   "catholic",
+   "catholic",
+   "catholic",
+   "catholic"
+  ],
+  "hispania_s": [
+   "punic",
+   "hellenic",
+   "hellenic",
+   "islam",
+   "islam",
+   "islam",
+   "catholic"
+  ],
+  "britain_s": [
+   "celtic",
+   "hellenic",
+   "hellenic",
+   "catholic",
+   "catholic",
+   "catholic",
+   "anglican"
+  ],
+  "britain_n": [
+   "celtic",
+   "celtic",
+   "celtic",
+   "catholic",
+   "catholic",
+   "catholic",
+   "reformed"
+  ],
+  "ireland": [
+   "celtic",
+   "celtic",
+   "celtic",
+   "catholic",
+   "catholic",
+   "catholic",
+   "catholic"
+  ],
+  "denmark": [
+   "germanic",
+   "germanic",
+   "germanic",
+   "germanic",
+   "germanic",
+   "catholic",
+   "lutheran"
+  ],
+  "norway": [
+   "germanic",
+   "germanic",
+   "germanic",
+   "germanic",
+   "germanic",
+   "catholic",
+   "lutheran"
+  ],
+  "sweden": [
+   "germanic",
+   "germanic",
+   "germanic",
+   "germanic",
+   "germanic",
+   "catholic",
+   "lutheran"
+  ],
+  "rus_n": [
+   "slavic",
+   "slavic",
+   "slavic",
+   "slavic",
+   "slavic",
+   "orthodox",
+   "orthodox"
+  ],
+  "rus_c": [
+   "slavic",
+   "slavic",
+   "slavic",
+   "slavic",
+   "slavic",
+   "orthodox",
+   "orthodox"
+  ],
+  "rus_s": [
+   "tengri",
+   "tengri",
+   "tengri",
+   "slavic",
+   "slavic",
+   "orthodox",
+   "orthodox"
+  ],
+  "pontic": [
+   "tengri",
+   "tengri",
+   "tengri",
+   "tengri",
+   "tengri",
+   "tengri",
+   "islam"
+  ],
+  "crimea": [
+   "hellenic",
+   "hellenic",
+   "hellenic",
+   "catholic",
+   "catholic",
+   "orthodox",
+   "islam"
+  ],
+  "volga": [
+   "tengri",
+   "tengri",
+   "tengri",
+   "judaism",
+   "judaism",
+   "islam",
+   "islam"
+  ],
+  "gandhara": [
+   "hindu",
+   "buddhism",
+   "buddhism",
+   "hindu",
+   "hindu",
+   "islam",
+   "islam"
+  ],
+  "punjab": [
+   "hindu",
+   "hindu",
+   "hindu",
+   "hindu",
+   "hindu",
+   "hindu",
+   "islam"
+  ],
+  "sindh": [
+   "hindu",
+   "buddhism",
+   "buddhism",
+   "islam",
+   "islam",
+   "islam",
+   "islam"
+  ],
+  "hindustan": [
+   "hindu",
+   "hindu",
+   "hindu",
+   "hindu",
+   "hindu",
+   "hindu",
+   "hindu"
+  ],
+  "magadha": [
+   "buddhism",
+   "buddhism",
+   "hindu",
+   "buddhism",
+   "buddhism",
+   "buddhism",
+   "hindu"
+  ],
+  "bengal": [
+   "hindu",
+   "hindu",
+   "hindu",
+   "buddhism",
+   "buddhism",
+   "hindu",
+   "hindu"
+  ],
+  "gujarat": [
+   "hindu",
+   "hindu",
+   "hindu",
+   "hindu",
+   "hindu",
+   "hindu",
+   "hindu"
+  ],
+  "malwa": [
+   "hindu",
+   "hindu",
+   "hindu",
+   "hindu",
+   "hindu",
+   "hindu",
+   "hindu"
+  ],
+  "deccan": [
+   "hindu",
+   "hindu",
+   "hindu",
+   "hindu",
+   "hindu",
+   "hindu",
+   "hindu"
+  ],
+  "tamil": [
+   "hindu",
+   "hindu",
+   "hindu",
+   "hindu",
+   "hindu",
+   "hindu",
+   "hindu"
+  ],
+  "kalinga": [
+   "hindu",
+   "buddhism",
+   "buddhism",
+   "hindu",
+   "hindu",
+   "hindu",
+   "hindu"
+  ],
+  "lanka": [
+   "buddhism",
+   "buddhism",
+   "buddhism",
+   "buddhism",
+   "buddhism",
+   "buddhism",
+   "buddhism"
+  ],
+  "burma": [
+   "animism",
+   "buddhism",
+   "buddhism",
+   "buddhism",
+   "buddhism",
+   "buddhism",
+   "buddhism"
+  ],
+  "khmer": [
+   "animism",
+   "hindu",
+   "hindu",
+   "hindu",
+   "hindu",
+   "buddhism",
+   "buddhism"
+  ],
+  "champa": [
+   "animism",
+   "hindu",
+   "hindu",
+   "hindu",
+   "hindu",
+   "hindu",
+   "huaxia"
+  ],
+  "dvaravati": [
+   "animism",
+   "buddhism",
+   "buddhism",
+   "buddhism",
+   "buddhism",
+   "buddhism",
+   "buddhism"
+  ],
+  "malaya": [
+   "animism",
+   "hindu",
+   "hindu",
+   "buddhism",
+   "buddhism",
+   "buddhism",
+   "islam"
+  ],
+  "sumatra": [
+   "animism",
+   "animism",
+   "hindu",
+   "buddhism",
+   "buddhism",
+   "buddhism",
+   "islam"
+  ],
+  "java": [
+   "animism",
+   "animism",
+   "hindu",
+   "hindu",
+   "buddhism",
+   "hindu",
+   "islam"
+  ],
+  "luzon": [
+   "animism",
+   "animism",
+   "animism",
+   "animism",
+   "animism",
+   "animism",
+   "catholic"
+  ]
+ },
+ "cities": {
+  "massilia": {
+   "-260": "hellenic"
+  },
+  "alexandria": {
+   "-260": "hellenic",
+   "117": "hellenic",
+   "230": "hellenic"
+  },
+  "olbia": {
+   "-260": "hellenic",
+   "117": "hellenic",
+   "230": "hellenic"
+  },
+  "tanais": {
+   "-260": "hellenic",
+   "117": "hellenic",
+   "230": "hellenic"
+  },
+  "lilybaeum": {
+   "-260": "punic"
+  },
+  "varanasi": {
+   "-260": "hindu",
+   "117": "hindu",
+   "230": "hindu",
+   "750": "hindu",
+   "800": "hindu",
+   "1190": "hindu",
+   "1628": "hindu"
+  },
+  "kashgar": {
+   "1190": "islam"
+  },
+  "balasagun": {
+   "1190": "buddhism"
+  },
+  "antioch": {
+   "1190": "catholic"
+  },
+  "acre": {
+   "1190": "catholic"
+  },
+  "tyre": {
+   "1190": "catholic"
+  },
+  "tripoli_lb": {
+   "1190": "catholic"
+  },
+  "lisbon": {
+   "1190": "catholic"
+  },
+  "toledo": {
+   "1190": "catholic"
+  },
+  "trebizond": {
+   "1190": "orthodox"
+  },
+  "derbent": {
+   "750": "islam",
+   "800": "islam",
+   "1190": "islam",
+   "1628": "islam"
+  },
+  "erzurum": {
+   "1628": "islam"
+  },
+  "philippopolis": {
+   "1628": "orthodox"
+  },
+  "lviv": {
+   "1628": "catholic"
+  },
+  "amsterdam": {
+   "1628": "reformed"
+  },
+  "apulum": {
+   "1628": "reformed"
+  },
+  "batavia": {
+   "1628": "reformed"
+  },
+  "tayouan": {
+   "1628": "reformed"
+  },
+  "keelung": {
+   "1628": "catholic"
+  },
+  "colombo": {
+   "1628": "catholic"
+  },
+  "goa": {
+   "1628": "catholic"
+  },
+  "malacca": {
+   "1628": "catholic"
+  },
+  "macau": {
+   "1628": "catholic"
+  },
+  "agra": {
+   "1628": "islam"
+  },
+  "delhi": {
+   "1628": "islam"
+  },
+  "dhaka": {
+   "1628": "islam"
+  },
+  "ahmedabad": {
+   "1628": "islam"
+  },
+  "bijapur": {
+   "1628": "islam"
+  },
+  "golconda": {
+   "1628": "islam"
+  },
+  "ahmednagar": {
+   "1628": "islam"
+  },
+  "devagiri": {
+   "1628": "islam"
+  },
+  "srinagar": {
+   "1628": "islam"
+  },
+  "champa": {
+   "1628": "hindu"
+  }
+ }
+}

@@ -8987,5 +8987,18 @@
   "world_map_stage_fill": "補齊空地上的小國",
   "world_map_stage_dejure": "立王國與帝國法理",
   "world_map_stage_empires": "稱帝與宗藩",
-  "world_map_stage_finish": "排定天下"
+  "world_map_stage_finish": "排定天下",
+  "kov_standing_colony": "{0}的殖民地",
+  "kov_standing_company": "{0}的特許公司",
+  "kov_colonies": "殖民地",
+  "kov_colony_count": "{0} 處",
+  "kov_colony_metropole": "宗主國",
+  "kov_colony_kind": "體制",
+  "kov_colony_kind_0": "總督府",
+  "kov_colony_kind_1": "特許公司",
+  "kov_colony_governor": "總督",
+  "kov_colony_autonomy": "離心",
+  "kov_colony_row": "{0} · {1} 城 · 離心 {2:0}",
+  "kov_colony_more": "等 {0} 處",
+  "world_map_stage_after": "劃定行政區、編軍、任官"
 }

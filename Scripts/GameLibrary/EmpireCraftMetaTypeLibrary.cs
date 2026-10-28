@@ -718,6 +718,8 @@ public static class EmpireCraftMetaTypeLibrary
           City cityOnZone = pZone.city;
           if (cityOnZone==null)
             return null;
+          // 帝国法理那一档按帝国法理取(平滑国界照它着色)：以前不分档都给王国法理，帝国法理视图画成了王国法理的颜色
+          if (pZoneOption == 0) return getKingdomTitleLayerMeta0(pZone);
           return cityOnZone.hasTitle() ? cityOnZone.GetTitle(): null;
         });
         pAsset13.tile_get_metaobject_0 = (MetaZoneGetMetaSimple) (pZone =>
@@ -729,6 +731,7 @@ public static class EmpireCraftMetaTypeLibrary
         pAsset13.check_tile_has_meta = (MetaZoneTooltipAction) ((pZone, pAsset, pZoneOption) =>
         {
           IMetaObject metaObject = pAsset.tile_get_metaobject(pZone, pZoneOption);
+          if (metaObject is DeJureCoreColor) return true;
           Empire empireMeta = metaObject as Empire;
           if (empireMeta != null) return !empireMeta.isRekt() && !empireMeta.IsArchived();
           KingdomTitle kt = metaObject as KingdomTitle;
@@ -756,6 +759,8 @@ public static class EmpireCraftMetaTypeLibrary
         };
         pAsset13.cursor_tooltip_action = (MetaTooltipShowAction) (pMeta =>
         {
+          // 帝国法理的着色对象：悬停提示走 check_cursor_tooltip 的帝国法理提示，这里不再另弹
+          if (pMeta is DeJureCoreColor) return;
           if (pMeta is Empire empireMeta)
           {
             if (empireMeta.isRekt() || empireMeta.IsArchived())
@@ -1058,18 +1063,10 @@ public static class EmpireCraftMetaTypeLibrary
       City city = pZone?.city;
       if (city == null) return null;
       KingdomTitle title = city.GetTitle();
-      EmpireCore core = city.GetEmpireCore();
-      if (core != null && title != null && EmpireCoreManager.ContainsTitle(core, title))
-      {
-        Empire empireMeta = ModClass.EMPIRE_MANAGER.get(core.empire_id);
-        if (empireMeta != null && !empireMeta.isRekt() && !empireMeta.IsArchived())
-        {
-          return empireMeta;
-        }
-        // A de jure empire exists before (and after) its political empire. Use one shared
-        // representative meta object so both fill colors and internal borders stay unified.
-        return EmpireCoreManager.GetColorTitle(core) ?? title;
-      }
+      // 帝国法理一片一个着色对象(有没有帝国都一样)，用帝国法理自己那套纹章色(见 DeJureMap)：
+      // 以前有帝国取帝国的颜色(就是国家图层的颜色)、没帝国取代表它的王国法理的颜色，三层看不出分别
+      EmpireCore core = DeJureMap.CoreOf(city);
+      if (core != null) return DeJureMap.CoreMeta(core) ?? (IMetaObject) title;
       return title;
     }
 

@@ -6,6 +6,7 @@ using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GamePatches;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
+using EmpireCraft.Scripts.Regimes;
 using NeoModLoader.services;
 using UnityEngine;
 
@@ -22,6 +23,13 @@ public static class WorldMapScenario
     public static bool Building { get; private set; }
 
     private static readonly int[] Households = { 12, 12, 7, 4 };
+    // 开局人口：本地区当年的史载人口(见 WorldMapData.RegionPopulation)按城的等级分给本地区各城，
+    // 再按 PeopleScale 折成游戏里的人数(一城装不下一州一府的人)，限在 MinPeople~MaxPeople；没有史料的地区照旧按等级给几户
+    private const float PeopleScale = 100f, MinPeople = 300f, MaxPeople = 60000f;
+    private static readonly float[] RankWeight = { 3f, 2f, 1.2f, 0.8f };
+    private static readonly Dictionary<string, float> _regionWeight = new();
+    // 开局要按人口盖房、补粮的城(进世界后分帧做，见 TickDevelop)
+    private static readonly Queue<(City city, float people)> _develop = new();
     // 分城时从都城往外算地形代价的上限(区块代价，平原一块算 1)
     private const float CostLimit = 600f;
     // 开局辖地：按城的等级能铺多远(地形代价)、最多几块(再受模组设置的每城上限)
@@ -53,6 +61,7 @@ public static class WorldMapScenario
         public Kingdom kingdom;
         public Empire empire;
         public readonly List<(Actor actor, WorldMapPerson person)> kin = new();
+        public readonly List<(Actor actor, WorldMapFamous person)> famous = new();
     }
 
     private static WorldMapEra _era;
@@ -86,6 +95,10 @@ public static class WorldMapScenario
     private static void Plan(WorldMapFrame frame, Vector2Int size, int sizeIndex, WorldMapEra era)
     {
         _era = era;
+        frame.Bounds(size, out _, out float degreesPerTile);
+        WorldMapScale.SetFromFrame(degreesPerTile);
+        _regionWeight.Clear();
+        _develop.Clear();
         _sizeIndex = sizeIndex;
         _fillerStart = 0;
         _cities = new List<PlannedCity>();
@@ -259,6 +272,7 @@ public static class WorldMapScenario
                 if (zone == null) continue;
                 _usedZones.Add(zone);
                 MakeOasis(zone);
+                MakeValley(zone);
                 WorldTile tile = LandTile(zone);
                 string species = SpeciesFor(polity.kingdom == null ? polity.culture : planned.culture);
                 Actor actor = Spawn(species, tile);
@@ -274,6 +288,9 @@ public static class WorldMapScenario
                     ApplyNames(actor, ruler?.fam, ruler?.giv);
                     actor.createDefaultCultureAndLanguageAndClan(planned.city.name);
                     if (ruler?.fam == "") actor.GetModName().familyName = "";
+                    // 剧本没写姓的：姓取自家族(郁久闾氏的郁久闾)
+                    else if (string.IsNullOrEmpty(actor.GetModName().familyName) && actor.clan != null)
+                        actor.GetModName().familyName = actor.clan.GetMemberSurname();
                     polity.kingdom.setUnitMetas(actor);
                     planned.city.setUnitMetas(actor);
                     actor.GetModName().SetName(actor);
@@ -294,6 +311,7 @@ public static class WorldMapScenario
             }
             if (polity.kingdom != null && polity.capital?.city != null) polity.kingdom.setCapital(polity.capital.city);
             if (founder != null && polity.capital?.city != null && polity.data?.kin?.Count > 0) CreateKin(polity, founder);
+            if (founder != null && polity.capital?.city != null && polity.data?.famous?.Count > 0) CreateFamous(polity, founder);
         }
         catch (Exception exception)
         {
@@ -344,6 +362,100 @@ public static class WorldMapScenario
         }
     }
 
+    // 名将名臣：生在都城、照剧本起名(各自一家，不入宗室)；进世界后再任官、统兵、坐镇(见 SeatFamous)
+    private static void CreateFamous(PlannedPolity polity, Actor founder)
+    {
+        City seat = polity.capital.city;
+        foreach (WorldMapFamous person in polity.data.famous)
+        {
+            try
+            {
+                Actor actor = Spawn(SpeciesFor(polity.culture), seat.getTile() ?? founder.current_tile);
+                if (actor == null) continue;
+                SetSexAge(actor, person.AsPerson(), false);
+                actor.joinKingdom(polity.kingdom);
+                actor.joinCity(seat);
+                PrepareName(actor, polity.culture);
+                ApplyNames(actor, person.fam, person.giv);
+                if (string.IsNullOrEmpty(WorldMapData.PickParts(person.fam))) actor.GetModName().familyName = "";
+                actor.GetModName().SetName(actor);
+                polity.famous.Add((actor, person));
+            }
+            catch (Exception exception)
+            {
+                LogService.LogWarning($"[EmpireCraft][世界地图] {polity.name} 名人 {person.giv} 失败: {exception.Message}");
+            }
+        }
+    }
+
+    // 进世界后(各国有城、有军、有官署了)：名臣任中枢要职，名将统一支军或坐镇一城，并记成名将名臣(照剧本的良才、名、国柱)
+    private static void SeatFamous(Kingdom kingdom, Empire empire, List<(Actor actor, WorldMapFamous person)> people)
+    {
+        CenterOffice center = empire?.data?.centerOffice;
+        var used = new HashSet<long>();
+        bool OfficeFree(long id) => !used.Contains(id) && OfficeManager.Offices.TryGetValue(id, out OfficeObject office) &&
+                                    office.GetActor() == null;
+        FamousTalentSystem.Quiet = true;
+        try
+        {
+            foreach ((Actor actor, WorldMapFamous person) in people)
+            {
+                if (actor?.data == null || actor.isRekt() || !actor.isAlive()) continue;
+                try
+                {
+                    TalentKind kind = person.kind == "general" ? TalentKind.General : TalentKind.Minister;
+                    for (int i = 0; i <= Mathf.Clamp(person.rank, 0, 2); i++) FamousTalentSystem.Bestow(actor, kind);
+                    switch (person.post)
+                    {
+                        case "chief":
+                        case "core":
+                        case "div":
+                        {
+                            List<long> pool = person.post == "div" ? center?.Divisions : center?.CoreOffices;
+                            long id = pool == null ? -1L
+                                : person.post == "chief" && pool.Count > 0 && OfficeFree(pool[0]) ? pool[0]
+                                : pool.FirstOrDefault(OfficeFree);
+                            if (pool != null && pool.Contains(id) && OfficeManager.Offices.TryGetValue(id, out OfficeObject office))
+                            {
+                                office.SetActor(actor);
+                                used.Add(id);
+                            }
+                            break;
+                        }
+                        case "general":
+                        {
+                            CorpsData corps = CorpsSystem.Of(kingdom).Where(entry => entry.general_id < 0 && !entry.militia && entry.order_id < 0)
+                                .OrderByDescending(entry => entry.strength).FirstOrDefault();
+                            if (corps != null) CorpsSystem.AssignGeneral(kingdom, corps, actor);
+                            break;
+                        }
+                        default:
+                        {
+                            City city = _famousCities.TryGetValue(person.post, out City found) ? found : null;
+                            if (city?.data == null || city.isRekt() || city.kingdom == null) break;
+                            if (actor.kingdom != city.kingdom) actor.joinKingdom(city.kingdom);
+                            actor.joinCity(city);
+                            city.GetOffice()?.SetActor(actor);
+                            if (city.leader != actor) city.setLeader(actor, true);
+                            break;
+                        }
+                    }
+                }
+                catch (Exception exception)
+                {
+                    LogService.LogWarning($"[EmpireCraft][世界地图] 名人 {actor.getName()} 任职失败: {exception.Message}");
+                }
+            }
+        }
+        finally
+        {
+            FamousTalentSystem.Quiet = false;
+        }
+    }
+
+    // 名人坐镇的城(城 id → 城)：收尾时清掉剧本的城表前记下
+    private static readonly Dictionary<string, City> _famousCities = new();
+
     private static void SetSexAge(Actor actor, WorldMapPerson person, bool monarch)
     {
         if (person != null && person.Female) actor.data.sex = ActorSex.Female;
@@ -362,6 +474,13 @@ public static class WorldMapScenario
         name.familyName = null;
         if (native != null && actor.culture != native) actor.setCulture(native);
         actor.initializeActorName();
+        // 中文界面：原版按种族起的名(兽人的"Zoko Bak")混进来就成了"Zoko Bak乌吉斯古楞"，拉丁字母的名、姓都不要，
+        // 名按本国文化重起，姓随后取自家族(见 BuildPolity)
+        if (WorldMapData.ChineseUi)
+        {
+            if (Latin(name.familyName)) name.familyName = null;
+            if (Latin(name.firstName)) name.firstName = null;
+        }
         if (!name.hasFirstName(actor) && native != null)
         {
             string first = CulturePatch.GetOnomasticDataSafe(native, MetaType.Unit)
@@ -369,6 +488,8 @@ public static class WorldMapScenario
             if (!string.IsNullOrEmpty(first)) actor.SetFirstName(first.UseLocalizedNameSeparator());
         }
     }
+
+    private static bool Latin(string text) => !string.IsNullOrEmpty(text) && text.Any(c => c < 128 && char.IsLetter(c));
 
     private static void ApplyNames(Actor actor, string family, string given)
     {
@@ -388,17 +509,21 @@ public static class WorldMapScenario
         return native;
     }
 
-    // 目标格所在区块附近找一块空地：先找四周都还没城的，再退一步只要本区块空着
+    // 目标格所在区块附近找一块空地：先找四周都还没城的，再退一步只要本区块空着。
+    // 平地优先(用户 2026-10-29："为什么城市会建造在山上")：以前丘陵、雪丘也算能建的地，又在找到的第一圈就停，
+    // 克什米尔谷地这类被山夹着的城常落在山坡上；现在在找到的那一圈再往外看两圈，按平地多少、山多少、离史实位置多远挑
+    private const int MinFlat = 16;
+
     private static TileZone FindZone(Vector2Int tile)
     {
         int zx = tile.x / 8, zy = tile.y / 8;
         for (int pass = 0; pass < 2; pass++)
         {
             int limit = pass == 0 ? 3 : 6;
-            for (int radius = 0; radius <= limit; radius++)
+            TileZone best = null;
+            int bestScore = int.MinValue, stopAt = int.MaxValue;
+            for (int radius = 0; radius <= limit && radius <= stopAt; radius++)
             {
-                TileZone best = null;
-                int bestScore = int.MinValue;
                 for (int dx = -radius; dx <= radius; dx++)
                 for (int dy = -radius; dy <= radius; dy++)
                 {
@@ -406,19 +531,54 @@ public static class WorldMapScenario
                     TileZone zone = ZoneAt(zx + dx, zy + dy);
                     if (zone == null || zone.city != null || _usedZones.Contains(zone)) continue;
                     if (pass == 0 && zone.neighbours_all.Any(near => near.city != null)) continue;
-                    int land = zone.tiles.Count(Buildable);
+                    int land = 0, flat = 0, rough = 0;
+                    foreach (WorldTile t in zone.tiles)
+                    {
+                        if (Buildable(t))
+                        {
+                            land++;
+                            if (Flat(t)) flat++;
+                        }
+                        else if (t?.Type != null && (t.Type.mountains || t.Type.summit)) rough++;
+                    }
                     if (land < 32 || !Buildable(zone.centerTile)) continue;
-                    int score = land - (Mathf.Abs(dx) + Mathf.Abs(dy)) * 4;
+                    int score = flat * 3 + land - rough * 2 - (Mathf.Abs(dx) + Mathf.Abs(dy)) * 30 - (flat < MinFlat ? 120 : 0);
                     if (score > bestScore)
                     {
                         bestScore = score;
                         best = zone;
                     }
                 }
-                if (best != null) return best;
+                if (best != null && stopAt == int.MaxValue) stopAt = radius + 1;
             }
+            if (best != null) return best;
         }
         return null;
+    }
+
+    // 平地：能建、不是丘陵雪丘碎石
+    private static bool Flat(WorldTile tile) =>
+        Buildable(tile) && !tile.Type.rocks && tile.Type.id != "hills" && tile.Type.id != "snow_hills" && tile.main_type?.id != "hills";
+
+    // 城心一带仍是山坡(四面是山的谷地城)：城心四五格内的山、丘陵平成河谷台地，城建在平地上
+    private static void MakeValley(TileZone zone)
+    {
+        WorldTile center = zone?.centerTile;
+        if (center == null || zone.tiles.Count(Flat) >= MinFlat * 2) return;
+        TopTileType grass = AssetManager.top_tiles.get("grass_high") ?? AssetManager.top_tiles.get("grass_low");
+        if (grass == null) return;
+        for (int dx = -6; dx <= 6; dx++)
+        for (int dy = -6; dy <= 6; dy++)
+        {
+            float r = 4.2f + 0.9f * Mathf.Sin(dx * 1.7f + dy * 0.9f);
+            if (dx * dx + dy * dy > r * r) continue;
+            WorldTile tile = World.world.GetTileSimple(center.x + dx, center.y + dy);
+            TileTypeBase type = tile?.Type;
+            if (type == null || type.liquid || type.lava || Flat(tile)) continue;
+            if (!(type.mountains || type.summit || type.rocks || type.id == "hills" || type.id == "snow_hills")) continue;
+            tile.setTileTypes("soil_high", grass);
+            tile.Height = tile.Type.height_min;
+        }
     }
 
     private static TileZone ZoneAt(int zx, int zy)
@@ -485,6 +645,24 @@ public static class WorldMapScenario
 
     #region 定名、文化、人口
 
+    private static float TargetPeople(PlannedCity planned, City city)
+    {
+        float fallback = Households[Mathf.Clamp(planned.rank, 0, 3)] * CityPopulationSystem.PeoplePerSlot(city);
+        string region = planned.region?.id ?? planned.data?.region;
+        float real = WorldMapData.RegionPopulation(region, _era.year);
+        if (real <= 0f) return fallback;
+        if (_regionWeight.Count == 0)
+            foreach (PlannedCity other in _cities)
+            {
+                string key = other.region?.id ?? other.data?.region;
+                if (key == null) continue;
+                _regionWeight.TryGetValue(key, out float sum);
+                _regionWeight[key] = sum + RankWeight[Mathf.Clamp(other.rank, 0, 3)];
+            }
+        float total = _regionWeight.TryGetValue(region, out float weight) && weight > 0f ? weight : 1f;
+        return Mathf.Clamp(real * RankWeight[Mathf.Clamp(planned.rank, 0, 3)] / total / PeopleScale, MinPeople, MaxPeople);
+    }
+
     private static void SettleRealms(int start)
     {
         foreach (PlannedPolity polity in _polities.Skip(start))
@@ -503,9 +681,14 @@ public static class WorldMapScenario
                     extra.core_name_source = planned.name;
                     if (CultureService.IsValidCulture(planned.culture)) CultureService.ForceCityCulture(city, planned.culture);
                     if (CityPopulationSystem.AbstractPopulationEnabled)
-                        CityPopulationSystem.AddBackground(city, SocialClass.Peasant, planned.culture ?? "",
-                            city.leader?.asset?.id ?? SpeciesFor(planned.culture), IdeologyPopulationSystem.GetDominant(city),
-                            Households[Mathf.Clamp(planned.rank, 0, 3)] * CityPopulationSystem.PeoplePerSlot(city));
+                    {
+                        float people = TargetPeople(planned, city);
+                        float missing = people - CityPopulationSystem.GetTotal(city);
+                        if (missing > 0f)
+                            CityPopulationSystem.AddBackground(city, SocialClass.Peasant, planned.culture ?? "",
+                                city.leader?.asset?.id ?? SpeciesFor(planned.culture), IdeologyPopulationSystem.GetDominant(city), missing);
+                        _develop.Enqueue((city, people));
+                    }
                 }
                 catch (Exception exception)
                 {
@@ -527,13 +710,53 @@ public static class WorldMapScenario
     }
 
     // 随机小国：城名、国名按本地文化的起名模板起；一国自成一个王国法理(地区名记都城名，法理名记国名)
+    // 补空小国的名字不许撞上剧本里的真地名、真国名(用户 2026-10-29 "有些位置是不对的"：华夏起名模板里有"朝鲜""夏"这类古国名，
+    // 补在黑龙江、中亚的小国就叫了朝鲜、夏，看着像剧本把朝鲜、西夏摆错了地方)；撞上就重起，起几次都撞就用原版起的名
+    private static HashSet<string> _reservedNames;
+
+    private static HashSet<string> ReservedNames()
+    {
+        if (_reservedNames != null) return _reservedNames;
+        var names = new HashSet<string>();
+        void Add(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text)) return;
+            foreach (string part in text.Split('|')) if (!string.IsNullOrWhiteSpace(part)) names.Add(part.Trim());
+        }
+        foreach (WorldMapRegion region in WorldMapData.Regions)
+        {
+            Add(region.zh); Add(region.tw); Add(region.title);
+        }
+        foreach (WorldMapCity city in WorldMapData.Cities)
+        {
+            Add(city.zh); Add(city.tw);
+            foreach (string alt in city.alt ?? new List<string>()) Add(alt.Substring(alt.IndexOf('|') + 1));
+        }
+        foreach (WorldMapCore core in WorldMapData.Cores) { Add(core.zh); Add(core.tw); }
+        foreach (WorldMapEra era in WorldMapData.Eras)
+            foreach (WorldMapPolity polity in era.polities) { Add(polity.zh); Add(polity.tw); }
+        foreach (WorldMapDynasty dynasty in WorldMapData.Dynasties) { Add(dynasty.zh); Add(dynasty.tw); Add(dynasty.full); }
+        return _reservedNames = names;
+    }
+
+    private static string FreshName(Culture native, MetaType type)
+    {
+        string name = null;
+        for (int i = 0; i < 8; i++)
+        {
+            name = Generate(native, type);
+            if (string.IsNullOrWhiteSpace(name) || !ReservedNames().Contains(name.Trim())) return name;
+        }
+        return null;
+    }
+
     private static void RandomNames(PlannedCity planned, PlannedPolity polity)
     {
         Culture native = NativeCulture(planned.culture, null) ?? planned.city.getCulture();
-        string city = Generate(native, MetaType.City);
+        string city = FreshName(native, MetaType.City);
         planned.name = string.IsNullOrWhiteSpace(city) ? planned.city.data.name : city;
         if (planned != polity.capital) return;
-        string kingdom = Generate(native, MetaType.Kingdom);
+        string kingdom = FreshName(native, MetaType.Kingdom);
         polity.name = string.IsNullOrWhiteSpace(kingdom) ? planned.name : kingdom;
         planned.region.zh = planned.region.tw = planned.region.en = planned.name;
         planned.region.title = polity.name;
@@ -633,7 +856,9 @@ public static class WorldMapScenario
         WorldMapZones.Build();
         claimed += WorldMapZones.FillAll(
             (city, zone) => city.zones.Count < (TerrainSystem.BarrenKind(zone) != BarrenLandSystem.None ? BarrenLandSystem.Limit : limit),
-            (city, zone) => city.addZone(zone));
+            (city, zone) => city.addZone(zone),
+            // 最后一轮：同侧的城可超上限一半把剩下的领完(不翻山)，免得留给山那边的城
+            (city, zone) => city.zones.Count < (TerrainSystem.BarrenKind(zone) != BarrenLandSystem.None ? BarrenLandSystem.Limit : limit) * 3 / 2);
         World.world.zone_calculator?.setDrawnZonesDirty();
         LogService.LogInfo($"[EmpireCraft][世界地图] 铺满又分了 {claimed} 块");
     }
@@ -649,6 +874,8 @@ public static class WorldMapScenario
                 Mathf.Min(limit, TerritoryCap[Mathf.Clamp(planned.rank, 0, 3)])))
             .ToList();
         int claimed = 0;
+        // 建城时改过地块(绿洲、平出河谷)：按现在的地形重算区块代价
+        WorldMapZones.Build();
         WorldMapZones.Fill(seeds, (city, zone) =>
         {
             city.addZone(zone);
@@ -778,6 +1005,18 @@ public static class WorldMapScenario
                 LogService.LogWarning($"[EmpireCraft][世界地图] 帝国法理 {data.id} 失败: {exception.Message}");
             }
         }
+        // 补空小国的王国法理归最近的剧本地区的帝国法理(西伯利亚归蒙古、非洲腹地归苏丹、僧祇……)，天下也就跟着那边：
+        // 以前一个也不归，天下图层上整片是"游牧(未立核心)""埃及(未立核心)"
+        var anchors = _cities.Where(city => !city.random && city.city != null && _coreByRegion.ContainsKey(city.region.id)).ToList();
+        foreach (IGrouping<string, PlannedCity> filler in _cities.Where(city => city.random && city.city != null).GroupBy(city => city.region.id))
+        {
+            if (!_titleByRegion.TryGetValue(filler.Key, out KingdomTitle title) || anchors.Count == 0) continue;
+            Vector2Int at = filler.First().tile;
+            PlannedCity nearest = anchors.OrderBy(city => (city.tile - at).sqrMagnitude).First();
+            if ((nearest.tile - at).magnitude > FillerCoreTiles) continue;
+            EmpireCore near = _coreByRegion[nearest.region.id];
+            Guard($"补空法理 {title.data.name} 入帝国法理", () => EmpireCoreManager.AddTitleToCore(near, title));
+        }
         // 封国自立的法理也归所在地区的帝国法理
         foreach ((string region, KingdomTitle title) in _ownTitles)
             if (_coreByRegion.TryGetValue(region, out EmpireCore owner))
@@ -789,6 +1028,9 @@ public static class WorldMapScenario
                     (!_coreByRegion.TryGetValue(region, out EmpireCore owner) || owner != core))
                     Guard($"{data.id} 兼收 {region}", () => DeJureShareSystem.ShareCore(title, core, true));
     }
+
+    // 补空小国离最近的剧本城多远以内才归那边的帝国法理(格)
+    private const float FillerCoreTiles = 420f;
 
     private static void Guard(string what, Func<bool> action) => Guard(what, () => { action(); });
 
@@ -900,6 +1142,12 @@ public static class WorldMapScenario
         {
             data = polity.data, kingdom = polity.kingdom, empire = polity.empire, kin = polity.kin.ToList()
         }).ToList(), _coreByRegion));
+        Guard("宗教", () => WorldMapReligion.Apply(_era.year,
+            _cities.Where(planned => planned.city != null).Select(planned => new WorldMapReligion.Place
+            {
+                id = planned.data.id, region = planned.region?.id ?? planned.data.region, rank = planned.rank, city = planned.city
+            }).ToList(),
+            _polities.Where(polity => polity.kingdom != null).Select(polity => (polity.kingdom, polity.capital?.city, polity.empire)).ToList()));
         Guard("天下", ArrangeTianxia);
         Guard("科技首扫", TechnologySystem.TryYearlyScan);
         Guard("帝国归属核对", () => VerifyEmpires("收尾"));
@@ -989,14 +1237,106 @@ public static class WorldMapScenario
             if (site != null) _afterLoad.Add(("穿越者降临", () => LandTransmigrants(site)));
         }
         _afterLoad.Add(("帝国归属核对", () => VerifyEmpires("进世界")));
+        // 名将名臣：在开局兵力之后(统兵要有军可统)
+        _famousCities.Clear();
+        foreach (PlannedPolity polity in _polities.Where(polity => polity.famous.Count > 0 && polity.kingdom != null))
+        {
+            foreach ((Actor _, WorldMapFamous person) in polity.famous)
+            {
+                City city = CitiesOf(new[] { person.post }).FirstOrDefault();
+                if (city != null) _famousCities[person.post] = city;
+            }
+        }
+        // 开局兵力：各国照本国军制当场编军、补满(以前要等每月一成成补员，开局各国一兵没有)。人口照史料给了，兵也就照人口、军制有多有少
+        _afterLoad.Add(("开局兵力", () =>
+        {
+            int realms = 0;
+            float men = 0f;
+            foreach (Kingdom kingdom in World.world.kingdoms.ToList())
+            {
+                if (kingdom?.data == null || kingdom.isRekt() || kingdom.wild || kingdom.isNeutral()) continue;
+                men += CorpsSystem.Prefill(kingdom);
+                realms++;
+            }
+            LogService.LogInfo($"[EmpireCraft][世界地图] 开局兵力：{realms} 国共 {men:0} 人");
+        }));
+        foreach (PlannedPolity polity in _polities.Where(polity => polity.famous.Count > 0 && polity.kingdom != null))
+        {
+            PlannedPolity p = polity;
+            var people = p.famous.ToList();
+            _afterLoad.Add(($"{p.name} 名将名臣", () => SeatFamous(p.kingdom, p.empire, people)));
+        }
     }
+
+    // 开局按人口盖房(繁荣)：人口越多的城盖得越多、民居升得越高(到本文化科技许可的一级为止)，住房装不下的另给容量(同神力"增加人口")；
+    // 再给一年口粮，免得一开局就闹饥荒。一帧只做几毫秒(四五百座城一次做完要卡好几秒)
+    private const float PeoplePerFlourish = 8000f, DevelopMilliseconds = 6f;
+    private const int MaxFlourish = 6;
+
+    private static void TickDevelop()
+    {
+        if (_develop.Count == 0) return;
+        var watch = global::System.Diagnostics.Stopwatch.StartNew();
+        while (_develop.Count > 0 && watch.Elapsed.TotalMilliseconds < DevelopMilliseconds)
+        {
+            (City city, float people) = _develop.Dequeue();
+            if (city?.data == null || city.isRekt()) continue;
+            try
+            {
+                int rounds = Mathf.Clamp(Mathf.CeilToInt(people / PeoplePerFlourish), 1, MaxFlourish);
+                for (int i = 0; i < rounds; i++) CityConstructionSystem.Flourish(city);
+                CityPopulationData data = city.GetOrCreate().population;
+                if (data == null) continue;
+                float housing = Mathf.Max(0f, city.getPopulationMaximum() - Mathf.Max(0f, data.brush_capacity));
+                data.brush_capacity = Mathf.Max(data.brush_capacity, CityPopulationSystem.GetTotal(city) - housing);
+                float households = CityPopulationSystem.GetTotal(city) / Mathf.Max(1, CityPopulationSystem.PeoplePerSlot(city));
+                if (households >= 1f) PopulationEconomySystem.Deposit(city, data, "wheat", households, income: false, made: false);
+            }
+            catch (Exception exception)
+            {
+                LogService.LogWarning($"[EmpireCraft][世界地图] {city.data?.name} 开局发展失败: {exception.Message}");
+            }
+        }
+    }
+
+    // 加载走完时原版还没重排各国的城、各城的人(王国的城表、城里的人要过一两帧才有)，这时划行政区一座城也划不出、
+    // 一个可任官的人也没有，存续检查也会把帝国当成空城(试玩日志：大明"直辖留 0 城""城里可任官的人 0")。
+    // 所以加载走完只是记下，等进了世界、剧本各帝国的中央都有城了再做(最多等 20 秒)，由战略调度每帧问一次
+    private static bool _afterLoadArmed;
+    private static float _afterLoadArmedAt;
+    private const float AfterLoadWaitSeconds = 20f;
+
+    // 加载界面揭开前要等的进世界安排还没做完(见 WorldMapLoadingScreen)
+    public static bool AfterLoadPending => _afterLoadArmed;
 
     public static void RunAfterLoad()
     {
         if (_afterLoad.Count == 0) return;
+        _afterLoadArmed = true;
+        _afterLoadArmedAt = Time.realtimeSinceStartup;
+    }
+
+    public static void TickAfterLoad()
+    {
+        if (!_afterLoadArmed) return;
+        if (!ReferenceEquals(_afterLoadWorld, World.world))
+        {
+            _afterLoadArmed = false;
+            _afterLoad.Clear();
+            _develop.Clear();
+            return;
+        }
+        bool ready = _scenarioEmpires.All(entry => entry.kingdom == null || entry.kingdom.isRekt() || entry.kingdom.cities?.Count > 0);
+        if (!ready && Time.realtimeSinceStartup - _afterLoadArmedAt < AfterLoadWaitSeconds) return;
+        // 先把各城的房盖好、粮补上，再划行政区、编军
+        if (_develop.Count > 0)
+        {
+            TickDevelop();
+            return;
+        }
+        _afterLoadArmed = false;
         List<(string what, Action action)> actions = _afterLoad.ToList();
         _afterLoad.Clear();
-        if (!ReferenceEquals(_afterLoadWorld, World.world)) return;
         foreach ((string what, Action action) in actions) Guard(what, action);
     }
 
@@ -1019,6 +1359,8 @@ public static class WorldMapScenario
         {
             List<City> region = cities.Where(city => city.kingdom == empire.CoreKingdom && city != empire.CoreKingdom.capital).ToList();
             if (region.Count == 0) continue;
+            // 行政区要有人主政(城主或城里的人)：无小人模式下城里多半只有背景人口，先补城主
+            foreach (City city in region) CityPopulationSystem.EnsureLeader(city);
             KingdomTitle title = region[0].GetTitle();
             if (title == null || title.isRekt() || !titled.Add(title)) title = null;
             Kingdom province = empire.EstablishAdministrativeDivision(region, title);
@@ -1046,7 +1388,10 @@ public static class WorldMapScenario
         foreach (IGrouping<KingdomTitle, City> group in core.cities.ToList()
                      .Where(city => city != null && !city.isRekt() && city != core.capital && !kept.Contains(city.id) && city.hasTitle())
                      .GroupBy(city => city.GetTitle()).Where(group => group.Key != null && !group.Key.isRekt()).ToList())
+        {
+            foreach (City city in group) CityPopulationSystem.EnsureLeader(city);
             if (empire.EstablishTerritorialDivision(group.ToList(), group.Key) != null) made++;
+        }
         LogService.LogInfo($"[EmpireCraft][世界地图] {empire.GetEmpireName()} 按王国法理划出 {made} 块(行政区或封国)，直辖留 {core.cities.Count} 城");
     }
 

@@ -82,7 +82,7 @@ def fix_era(path):
     for polity in data.get("polities", []):
         if polity.get("ruler"):
             fix_person(polity["ruler"])
-        for person in polity.get("kin", []):
+        for person in polity.get("kin", []) + polity.get("famous", []):
             fix_person(person)
         if polity.get("era_name"):
             polity["era_name"] = triple(polity["era_name"])
@@ -113,6 +113,8 @@ def fix_history(path):
             for key in ("shi", "miao", "era"):
                 if r.get(key):
                     r[key + "_tw"] = tw(r[key])
+            if r.get("ev"):
+                r["ev"] = [e.split("|", 1)[0] + "|" + triple(e.split("|", 1)[1]) for e in r["ev"]]
         for p in d["people"]:
             p["n"] = triple(p["n"])
             if p.get("t"):

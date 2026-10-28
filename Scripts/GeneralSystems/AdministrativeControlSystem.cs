@@ -411,7 +411,8 @@ public static class AdministrativeControlSystem
             RegimeType.Feudalism or RegimeType.ZhouFeudalism or RegimeType.Bakufu => 0.9f,
             _ => 1f
         };
-        return reach * RulerFactor(realm);
+        // 世界地图：区块大，按比例尺把半径折回去(见 WorldMapScale)
+        return reach * RulerFactor(realm) * WorldMap.WorldMapScale.ReachFactor;
     }
 
     public static int Capacity(Kingdom realm)
@@ -547,14 +548,15 @@ public static class AdministrativeControlSystem
         // 首先他们就不接壤，然后中间还隔了那么大的国家")，现在按陆路不通的飞地折算
         TileZone home = realm.capital != null && cities.Contains(realm.capital) ? CenterZone(realm.capital) : null;
         HashSet<int> linked = home != null ? Linked(home, ports, radius) : null;
-        var seats = new List<(TileZone zone, int offset)>();
+        var seats = new List<(TileZone zone, float offset)>();
         foreach (City city in cities)
         {
             Kingdom owner = city.kingdom;
             if (owner.capital != city) continue;
             TileZone zone = CenterZone(city);
             if (zone == null || owner != realm && linked != null && !linked.Contains(zone.id)) continue;
-            seats.Add((zone, owner == realm ? 0 : MemberSeatOffset));
+            // 成员国(行政区、封国)的治所比都城远一截：至少 MemberSeatOffset，半径大时按半径的四成
+            seats.Add((zone, owner == realm ? 0 : Mathf.Max(MemberSeatOffset, 0.4f * Reach(realm))));
         }
         // 陪京(见 MultiCapitalSystem)：与都城同起点
         foreach (City jing in MultiCapitalSystem.AuxiliaryCities(realm))
@@ -566,7 +568,7 @@ public static class AdministrativeControlSystem
         // 多源最短路(按地形阻力)：都城从 0 起、成员国都城从 4 起；记下路上有没有走过海路。
         // 每块地的阻力一趟只算一次(以前四邻各推一次就现算一次)
         Heap.Clear();
-        foreach ((TileZone zone, int offset) in seats) Heap.Push(offset, (zone, false));
+        foreach ((TileZone zone, float offset) in seats) Heap.Push(offset, (zone, false));
         while (Heap.Count > 0)
         {
             (float cost, (TileZone zone, bool sea)) = Heap.Pop();
@@ -612,11 +614,11 @@ public static class AdministrativeControlSystem
             }
             // 陆路不通：按到最近几处治所沿直线过去的地形阻力折算(雪山、大漠照实算，见 TerrainResistance.LineCost)
             bool overseas = true;
-            foreach ((TileZone seat, int _) in seats)
+            foreach ((TileZone seat, float _) in seats)
                 if (seat.centerTile != null && center.centerTile != null && seat.centerTile.isSameIsland(center.centerTile))
                     overseas = false;
             float best = float.MaxValue;
-            foreach ((TileZone seat, int offset) in seats
+            foreach ((TileZone seat, float offset) in seats
                          .OrderBy(entry => Vector2.Distance(new Vector2(entry.zone.x, entry.zone.y), new Vector2(center.x, center.y)) +
                                            entry.offset)
                          .Take(LineCandidates))

@@ -6,7 +6,12 @@ namespace EmpireCraft.Scripts.GeneralSystems.WorldMap;
 
 // 世界地图开局用的区块地形代价(一区块 8×8 格)，口径同 TerrainResistance：平原 1、林地 1.3、丘陵 1.6、沙漠冻土 2(整块荒漠 3)、
 // 丛林沼泽 2.5、山地 6；海上只在分城时算(跨海 6)。先按各城的预算铺(山、海、整块荒漠都铺不过去，国界顺着山脊、大漠、海峡走)，
-// 剩下离谁都远的空地补立随机小国(Gaps)，最后把山地、荒漠、沿海零碎地块也分给走得到的最近的城(FillAll)，开局整片陆地铺满
+// 剩下离谁都远的空地补立随机小国(Gaps)，最后把山地、荒漠、沿海零碎地块也分给走得到的最近的城(FillAll)，开局整片陆地铺满。
+// 国界要顺着地形走(用户 2026-10-29："你这个国土怎么完全没按照地形来")：
+//   · 区块在"弹出"时才定归属(真正的多源最短路；以前一推进队列就归先到的那家，同代价的大漠、高原分成横平竖直、45 度的直线)；
+//   · 走一步的代价按要进的那块算，越往山里越贵(山脉腹地 ×2)，过河(河湖占一成多的内陆区块)另加；
+//   · 代价上叠一层平滑起伏(几块区块一个起伏，±25%)，均匀的大漠、高原上国界也弯弯曲曲；
+//   · 铺满分两轮：头一轮山脉只领不越，两边都有城时山脊就是国界，第二轮再把剩下的分完
 internal static class WorldMapZones
 {
     public static int Width { get; private set; }
@@ -15,8 +20,11 @@ internal static class WorldMapZones
     private static float[] _travel = new float[0];
     private static bool[] _claimable = new bool[0];
     private static int[] _land = new int[0];
+    private static float[] _noise = new float[0];
+    private static bool[] _river = new bool[0];
 
     public const float SeaCost = 6f;
+    private const float Mountain = 6f, RiverCost = 1.5f, NoiseCell = 4f, NoiseAmplitude = 0.25f;
 
     public static void Build()
     {
@@ -27,41 +35,96 @@ internal static class WorldMapZones
         _travel = new float[count];
         _claimable = new bool[count];
         _land = new int[count];
+        _river = new bool[count];
+        var water = new int[count];
         for (int zy = 0; zy < Height; zy++)
         for (int zx = 0; zx < Width; zx++)
         {
             int index = zy * Width + zx;
             TileZone zone = World.world.GetTileSimple(zx * 8 + 4, zy * 8 + 4)?.zone;
             _zones[index] = zone;
-            Classify(zone, out _travel[index], out _claimable[index], out _land[index]);
+            Classify(zone, out _travel[index], out _claimable[index], out _land[index], out water[index]);
+        }
+        // 河湖：内陆(四周都是陆地区块)里水面占一成多到四成多的区块，过去要多费点事，河常常成了国界
+        for (int i = 0; i < count; i++)
+        {
+            int total = _land[i] + water[i];
+            if (_land[i] < 32 || total == 0) continue;
+            float share = water[i] / (float)total;
+            if (share < 0.12f || share > 0.45f) continue;
+            bool inland = true;
+            foreach (int next in Neighbours(i))
+                if (_land[next] < 32)
+                {
+                    inland = false;
+                    break;
+                }
+            _river[i] = inland;
+        }
+        BuildNoise(count);
+    }
+
+    // 平滑起伏(值噪声：每 NoiseCell 块一个格点，格点间双线性插值)
+    private static void BuildNoise(int count)
+    {
+        _noise = new float[count];
+        var random = new global::System.Random(Environment.TickCount);
+        int gw = Mathf.CeilToInt(Width / NoiseCell) + 2, gh = Mathf.CeilToInt(Height / NoiseCell) + 2;
+        var grid = new float[gw * gh];
+        for (int i = 0; i < grid.Length; i++) grid[i] = (float)random.NextDouble() * 2f - 1f;
+        for (int zy = 0; zy < Height; zy++)
+        for (int zx = 0; zx < Width; zx++)
+        {
+            float fx = zx / NoiseCell, fy = zy / NoiseCell;
+            int x0 = (int)fx, y0 = (int)fy;
+            float tx = fx - x0, ty = fy - y0;
+            tx = tx * tx * (3f - 2f * tx);
+            ty = ty * ty * (3f - 2f * ty);
+            float a = Mathf.Lerp(grid[y0 * gw + x0], grid[y0 * gw + x0 + 1], tx);
+            float b = Mathf.Lerp(grid[(y0 + 1) * gw + x0], grid[(y0 + 1) * gw + x0 + 1], tx);
+            _noise[zy * Width + zx] = 1f + NoiseAmplitude * Mathf.Lerp(a, b, ty);
         }
     }
 
-    private static void Classify(TileZone zone, out float travel, out bool claimable, out int land)
+    // 从 a 走到相邻的 b：按要进的那块的地形，山脉腹地(从山里再往山里走)加倍，过河另加，再乘平滑起伏
+    private static float Step(int a, int b)
+    {
+        float travel = _travel[b];
+        if (travel >= Mountain && _travel[a] >= Mountain) travel *= 2f;
+        else if (!_claimable[b] && !_claimable[a]) travel *= 1.4f;
+        float step = (travel * 0.7f + _travel[a] * 0.3f) * (Diagonal(a, b) ? 1.414f : 1f);
+        if (_river[b] && !_river[a]) step += RiverCost;
+        return step * (b < _noise.Length ? _noise[b] : 1f);
+    }
+
+    private static void Classify(TileZone zone, out float travel, out bool claimable, out int land, out int water)
     {
         travel = SeaCost;
         claimable = false;
         land = 0;
+        water = 0;
         if (zone?.tiles == null) return;
         int mountain = 0, hills = 0, desert = 0, frozen = 0, wet = 0, forest = 0;
         foreach (WorldTile tile in zone.tiles)
         {
             TileTypeBase type = tile?.Type;
             TileType main = tile?.main_type;
-            if (type == null || type.liquid || main != null && main.liquid) continue;
+            if (type == null) continue;
+            if (type.liquid || main != null && main.liquid)
+            {
+                water++;
+                continue;
+            }
             land++;
-            // 雪盖的山(山顶雪)、雪丘：主地块仍是山、丘陵；雪丘算冻土(青藏高原面)
+            // 雪盖的山(山顶雪)、雪丘：主地块仍是山、丘陵；雪丘算冻土(青藏高原面)。冻土只记一次(雪丘的生物群系也是永冻土，以前记了两次)
             if (type.mountains || type.summit || main != null && (main.mountains || main.summit)) mountain++;
             else if (type.rocks || type.id == "hills" || type.id == "snow_hills" || main?.id == "hills") hills++;
-            if (type.id == "snow_hills" || type.id == "snow_block") frozen++;
+            if (type.id == "snow_hills" || type.id == "snow_block" || type.biome_id == "biome_permafrost") frozen++;
             switch (type.biome_id)
             {
                 case "biome_desert":
                 case "biome_sand":
                     desert++;
-                    break;
-                case "biome_permafrost":
-                    frozen++;
                     break;
                 case "biome_jungle":
                 case "biome_swamp":
@@ -119,8 +182,7 @@ internal static class WorldMapZones
             if (at > cost[index] || at > limit) continue;
             foreach (int next in Neighbours(index))
             {
-                float step = (_travel[index] + _travel[next]) * 0.5f * (Diagonal(index, next) ? 1.414f : 1f);
-                float total = at + step;
+                float total = at + Step(index, next);
                 if (total >= cost[next]) continue;
                 cost[next] = total;
                 heap.Push(total, next);
@@ -129,14 +191,16 @@ internal static class WorldMapZones
         return cost;
     }
 
-    // 铺辖地：各城同时从自己的城区往外扩，先到先得；budget 为每城能走的地形代价，cap 为每城最多几块
+    // 铺辖地：各城同时从自己的城区往外扩，按地形代价谁近归谁(弹出时才定)；budget 为每城能走的地形代价，cap 为每城最多几块
     public static void Fill(List<(City city, float budget, int cap)> seeds, Action<City, TileZone> claim)
     {
         var owner = new int[_travel.Length];
+        var tentative = new int[_travel.Length];
         var cost = new float[_travel.Length];
         for (int i = 0; i < owner.Length; i++)
         {
             owner[i] = -1;
+            tentative[i] = -1;
             cost[i] = float.PositiveInfinity;
         }
         var counts = new int[seeds.Count];
@@ -160,19 +224,24 @@ internal static class WorldMapZones
             heap.Pop(out float at, out int index);
             if (at > cost[index]) continue;
             int s = owner[index];
-            if (s < 0) continue;
-            foreach (int next in Neighbours(index))
+            if (s < 0)
             {
-                if (!_claimable[next] || owner[next] >= 0 && cost[next] <= at) continue;
-                TileZone zone = _zones[next];
-                if (zone == null || zone.city != null) continue;
-                float total = at + (_travel[index] + _travel[next]) * 0.5f * (Diagonal(index, next) ? 1.414f : 1f);
-                if (total > seeds[s].budget || counts[s] >= seeds[s].cap || total >= cost[next]) continue;
-                if (owner[next] >= 0) continue;
-                owner[next] = s;
-                cost[next] = total;
+                s = tentative[index];
+                TileZone zone = _zones[index];
+                if (s < 0 || zone == null || zone.city != null || counts[s] >= seeds[s].cap) continue;
+                owner[index] = s;
                 counts[s]++;
                 claim(seeds[s].city, zone);
+            }
+            foreach (int next in Neighbours(index))
+            {
+                if (!_claimable[next] || owner[next] >= 0) continue;
+                TileZone zone = _zones[next];
+                if (zone == null || zone.city != null) continue;
+                float total = at + Step(index, next);
+                if (total > seeds[s].budget || total >= cost[next]) continue;
+                cost[next] = total;
+                tentative[next] = s;
                 heap.Push(total, next);
             }
         }
@@ -223,7 +292,7 @@ internal static class WorldMapZones
             if (at > cost[index]) continue;
             foreach (int next in Neighbours(index))
             {
-                float total = at + (_travel[index] + _travel[next]) * 0.5f * (Diagonal(index, next) ? 1.414f : 1f);
+                float total = at + Step(index, next);
                 if (total >= cost[next]) continue;
                 cost[next] = total;
                 heap.Push(total, next);
@@ -232,13 +301,29 @@ internal static class WorldMapZones
     }
 
     // 铺满：剩下有陆地的区块(山地、整块荒漠、沿海零碎地块都算)归走得到的最近的城，只走陆路(隔海的岛靠 Gaps 补的城)；
-    // allow 判断这座城还能不能再领这块(地块上限)
-    public static int FillAll(Func<City, TileZone, bool> allow, Action<City, TileZone> claim)
+    // allow 判断这座城还能不能再领这块(地块上限)。头一轮山脉只领不越(山脊作国界)，之后几轮把剩下的分完；
+    // 哪一轮都不许从山里往下进平地、高原(用户 2026-10-29 "依旧还有跨地形国土")：以前山这边的城领满了上限，
+    // 留下的平地第二轮被山那边的城翻过山脊领走(吐蕃翻过喜马拉雅占了恒河边)。最后一轮放宽上限(relaxed)，让同侧的城把剩下的领完
+    public static int FillAll(Func<City, TileZone, bool> allow, Action<City, TileZone> claim, Func<City, TileZone, bool> relaxed = null)
     {
-        var owner = new City[_travel.Length];
-        var cost = new float[_travel.Length];
+        int claimed = 0;
+        for (int round = 0; round < 4; round++)
+        {
+            int got = FillRound(round == 3 && relaxed != null ? relaxed : allow, claim, round == 0);
+            claimed += got;
+            if (got == 0 && round > 0 && round < 2) round = 2;
+        }
+        return claimed;
+    }
+
+    private static int FillRound(Func<City, TileZone, bool> allow, Action<City, TileZone> claim, bool stopAtRidges)
+    {
+        int count = _travel.Length;
+        var owner = new City[count];
+        var tentative = new City[count];
+        var cost = new float[count];
         var heap = new MinHeap();
-        for (int i = 0; i < owner.Length; i++)
+        for (int i = 0; i < count; i++)
         {
             cost[i] = float.PositiveInfinity;
             City city = _zones[i]?.city;
@@ -251,17 +336,32 @@ internal static class WorldMapZones
         while (heap.Count > 0)
         {
             heap.Pop(out float at, out int index);
-            if (at > cost[index] || owner[index] == null) continue;
+            if (at > cost[index]) continue;
+            City from = owner[index];
+            if (from == null)
+            {
+                City candidate = tentative[index];
+                TileZone zone = _zones[index];
+                // 这家领满了：这一块留给下一轮别家来分
+                if (candidate == null || zone == null || zone.city != null || !allow(candidate, zone)) continue;
+                owner[index] = candidate;
+                claim(candidate, zone);
+                claimed++;
+                from = candidate;
+                if (stopAtRidges && _travel[index] >= Mountain) continue;
+            }
             foreach (int next in Neighbours(index))
             {
                 if (owner[next] != null || _land[next] < MinLand) continue;
+                // 从山里只往山里走，不翻过山脊下到另一边的平地、高原
+                if (_travel[index] >= Mountain && _travel[next] < Mountain) continue;
                 TileZone zone = _zones[next];
-                if (zone == null || zone.city != null || !allow(owner[index], zone)) continue;
-                owner[next] = owner[index];
-                cost[next] = at + (_travel[index] + _travel[next]) * 0.5f * (Diagonal(index, next) ? 1.414f : 1f);
-                claim(owner[index], zone);
-                claimed++;
-                heap.Push(cost[next], next);
+                if (zone == null || zone.city != null) continue;
+                float total = at + Step(index, next);
+                if (total >= cost[next]) continue;
+                cost[next] = total;
+                tentative[next] = from;
+                heap.Push(total, next);
             }
         }
         return claimed;

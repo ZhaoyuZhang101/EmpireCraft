@@ -92,6 +92,21 @@ public sealed class WorldMapPerson
     public bool ChildOfLine => rel is "son" or "daughter" or "grandson" or "granddaughter";
 }
 
+// 名将名臣(见 Tools/WorldMap/famous_source.py)：kind general/minister，rank 0 良才 1 名 2 国柱，
+// post chief 首席朝官 / core 中枢要职 / div 部寺 / general 统一支军 / 城 id 坐镇该城
+public sealed class WorldMapFamous
+{
+    public string fam;
+    public string giv;
+    public int age = -1;
+    public string sex = "";
+    public string kind = "minister";
+    public int rank;
+    public string post = "";
+
+    public WorldMapPerson AsPerson() => new() { fam = fam, giv = giv, age = age, sex = sex };
+}
+
 public sealed class WorldMapPolity
 {
     public string id = "";
@@ -128,6 +143,8 @@ public sealed class WorldMapPolity
     public List<WorldMapDivision> divisions = new();
     // 开局的殖民地(荷兰东印度公司、菲律宾总督府……)
     public List<WorldMapColony> colonies = new();
+    // 开局在世的名将名臣
+    public List<WorldMapFamous> famous = new();
 
     public string Name => WorldMapData.Pick(zh, tw, en);
 }
@@ -200,6 +217,19 @@ public sealed class WorldMapReign
 {
     public string n = "", t = "", dyn = "", shi = "", shi_tw = "", miao = "", miao_tw = "", era = "", era_tw = "", p = "", f = "";
     public int a, b;
+    // 在位大事："年|简体|英文|繁体"
+    public List<string> ev = new();
+
+    public IEnumerable<(int year, string text)> Events(int untilYear)
+    {
+        foreach (string entry in ev ?? new List<string>())
+        {
+            int cut = entry.IndexOf('|');
+            if (cut <= 0 || !int.TryParse(entry.Substring(0, cut), out int year) || year > untilYear) continue;
+            string text = WorldMapData.PickParts(entry.Substring(cut + 1));
+            if (!string.IsNullOrWhiteSpace(text)) yield return (year, text);
+        }
+    }
 }
 
 public sealed class WorldMapAncestor
@@ -242,6 +272,31 @@ public static class WorldMapData
     private sealed class HistoryFile
     {
         public List<WorldMapDynasty> dynasties = new();
+    }
+
+    // 各地区史载人口(万人，WorldMaps/demography.json，由 Tools/WorldMap/demography.py 生成)：开局按它定各城人口
+    private sealed class DemographyFile
+    {
+        public List<int> years = new();
+        public Dictionary<string, List<float>> pop = new();
+    }
+
+    private static DemographyFile _demography;
+
+    // 某地区某年的人口(人)：表上两年之间按前后插值，表外取两端；没有数据为 0
+    public static float RegionPopulation(string region, int year)
+    {
+        List<int> years = _demography?.years;
+        if (years == null || years.Count == 0 || region == null || _demography.pop == null ||
+            !_demography.pop.TryGetValue(region, out List<float> row) || row == null || row.Count != years.Count) return 0f;
+        if (year <= years[0]) return row[0] * 10000f;
+        for (int i = 1; i < years.Count; i++)
+        {
+            if (year > years[i]) continue;
+            float t = (year - years[i - 1]) / (float)Math.Max(1, years[i] - years[i - 1]);
+            return (row[i - 1] + (row[i] - row[i - 1]) * t) * 10000f;
+        }
+        return row[row.Count - 1] * 10000f;
     }
     public static List<WorldMapEra> Eras { get; private set; } = new();
     private static Dictionary<string, WorldMapRegion> _regionById = new();
@@ -315,6 +370,9 @@ public static class WorldMapData
             string historyPath = Path.Combine(Folder, "history.json");
             if (File.Exists(historyPath))
                 Dynasties = JsonConvert.DeserializeObject<HistoryFile>(File.ReadAllText(historyPath))?.dynasties ?? new List<WorldMapDynasty>();
+            string demographyPath = Path.Combine(Folder, "demography.json");
+            if (File.Exists(demographyPath))
+                _demography = JsonConvert.DeserializeObject<DemographyFile>(File.ReadAllText(demographyPath));
             var eras = new List<WorldMapEra>();
             string eraFolder = Path.Combine(Folder, "eras");
             if (Directory.Exists(eraFolder))

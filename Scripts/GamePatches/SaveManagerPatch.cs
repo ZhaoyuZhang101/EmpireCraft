@@ -228,6 +228,7 @@ public class SaveManagerPatch : GamePatch
     private static void ClearPersistentWorldState()
     {
         DataManager.ResetCurrentSaveDataPath();
+        EmpireCraft.Scripts.GeneralSystems.WorldMap.WorldMapScale.ZoneKm = 0f;
         CulturePatch.ResetWorldState();
         EmpireCraft.Scripts.GeneralSystems.AnimalHusbandrySystem.ResetWorldState();
         EmpireCraft.Scripts.GeneralSystems.MapWallSystem.ResetWorldState();

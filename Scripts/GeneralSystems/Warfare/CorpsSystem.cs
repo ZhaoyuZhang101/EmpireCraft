@@ -787,6 +787,18 @@ public static class CorpsSystem
         kingdom != null && (kingdom.hasEnemies() || CityPopulationSystem.IsMobilizing(kingdom) ||
                             FrontSystem.Realm(kingdom) is Kingdom realm && realm != kingdom && realm.hasEnemies());
 
+    // 开局即有兵(世界地图剧本，见 WorldMapScenario)：照常按军制定各军镇的兵额、编军，编好的当场补满。返回全国兵力
+    public static float Prefill(Kingdom kingdom)
+    {
+        if (!Enabled || kingdom?.data == null || kingdom.isRekt() || kingdom.isNeutral() ||
+            Compatibility.AncientWarfareCompatibility.OwnsObject(kingdom)) return 0f;
+        Mobilize(kingdom, World.world.getCurWorldTime());
+        foreach (CorpsData corps in Of(kingdom).Where(corps => !corps.militia && corps.order_id < 0 && corps.strength < corps.full).ToList())
+            Reinforce(kingdom, corps, corps.full - corps.strength);
+        RebuildIndex();
+        return Of(kingdom).Sum(corps => corps.strength);
+    }
+
     private static int NextSerial(Kingdom kingdom)
     {
         var data = kingdom.GetOrCreate();

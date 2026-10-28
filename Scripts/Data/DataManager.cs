@@ -372,6 +372,7 @@ public static class DataManager
             realNumOption.boolVal = saveData.switch_real_num;
         }
         ModClass.REAL_NUM_SWITCH = saveData.switch_real_num;
+        EmpireCraft.Scripts.GeneralSystems.WorldMap.WorldMapScale.ZoneKm = saveData.world_map_zone_km;
         if (PlayerConfig.dict.TryGetValue("switch_simple_nameplate", out PlayerOptionData simpleNameplateOption))
         {
             simpleNameplateOption.boolVal = saveData.switch_simple_nameplate;
@@ -600,6 +601,7 @@ public static class DataManager
         saveData.road_treaties = RoadTreatySystem.Save();
         saveData.specificClans = SpecificClanManager._specificClans;
         saveData.switch_real_num = ModClass.REAL_NUM_SWITCH;
+        saveData.world_map_zone_km = EmpireCraft.Scripts.GeneralSystems.WorldMap.WorldMapScale.ZoneKm;
         saveData.switch_simple_nameplate = ModClass.SIMPLE_NAMEPLATE_SWITCH;
         saveData.switch_empire_show_alliance = ModClass.EMPIRE_SHOW_ALLIANCE_SWITCH;
         double collectMs = saveTimer.Elapsed.TotalMilliseconds;
