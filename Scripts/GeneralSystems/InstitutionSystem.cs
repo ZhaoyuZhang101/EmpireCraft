@@ -497,8 +497,9 @@ public static partial class InstitutionSystem
         // 周室之内：只认还在的周室(战国离开帝国、所属周室仍是周制的诸侯)。zhou_sphere_id 只在周被代、统一时清，
         // 周室亡于外族、改行律令或解散后还留着，以前凭它一概不动，这些旧诸侯就永远停在周制
         if (extra.regime_manually_selected || ZhouEraSystem.IsDetachedVassal(kingdom) || RepublicSystem.IsRegimeLocked(kingdom)) return;
-        // 旧制犹存的跟旧制所属的文化(见 LegacyInstitutionSystem)，不跟着落后的新文化退回去
-        string culture = CultureService.GetInstitutionCulture(kingdom);
+        // 旧制犹存的跟旧制所属的文化(见 LegacyInstitutionSystem)，不跟着落后的新文化退回去；帝国核心跟帝国的制度文化
+        // (不跟核心王国自己的，见 CultureService.GetRegimeCulture)
+        string culture = CultureService.GetRegimeCulture(kingdom);
         if (!CultureService.IsValidCulture(culture) || !TryResolveCultureRegime(culture, out RegimeType target) ||
             target == current || RegimeManager.IsPrimitive(target) || target is RegimeType.Modern or RegimeType.Republic ||
             !RegimeManager.regimes.TryGetValue(target, out Regime targetRegime) || targetRegime == null) return;

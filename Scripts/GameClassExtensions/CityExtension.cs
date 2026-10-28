@@ -153,6 +153,27 @@ public static class CityExtension
         // 城郊档位(见 EconomicCircleSystem.RegionTier；-1 = 还没定)与上次升降的时间
         public int urban_tier = -1;
         public double urban_tier_at = -1d;
+        // 手动规划(城池全图里玩家改的平面图画法，见 CityPlanEditing、PureMapPatch.ApplyManual)：只改画法，不改领地与原版建筑；
+        // 城市以后长大、改建不覆盖，交还规矩才清掉。旧档没有这几项，都是自动：
+        // 并入、划出城区的地块(地块 id)；宫城地块(-1 自动)；城墙、护城河、中轴(-1 自动，0 关，1 开)；
+        // 中轴交点(格坐标，int.MinValue 为自动，四门跟着交点走)；坊市疏密(0 自动，1 密，2 疏)；布局种子偏移(0 不偏，见 UrbanFabric.SeedOf)
+        public List<int> plan_zones_in;
+        public List<int> plan_zones_out;
+        public int plan_palace_zone = -1;
+        public int plan_walls = -1, plan_moat = -1, plan_axis = -1;
+        public int plan_axis_x = int.MinValue, plan_axis_y = int.MinValue;
+        public int plan_blocks;
+        public long plan_seed_offset;
+        public bool ShouldSerializeplan_zones_in() => plan_zones_in != null && plan_zones_in.Count > 0;
+        public bool ShouldSerializeplan_zones_out() => plan_zones_out != null && plan_zones_out.Count > 0;
+        public bool ShouldSerializeplan_palace_zone() => plan_palace_zone >= 0;
+        public bool ShouldSerializeplan_walls() => plan_walls >= 0;
+        public bool ShouldSerializeplan_moat() => plan_moat >= 0;
+        public bool ShouldSerializeplan_axis() => plan_axis >= 0;
+        public bool ShouldSerializeplan_axis_x() => plan_axis_x != int.MinValue;
+        public bool ShouldSerializeplan_axis_y() => plan_axis_x != int.MinValue;
+        public bool ShouldSerializeplan_blocks() => plan_blocks != 0;
+        public bool ShouldSerializeplan_seed_offset() => plan_seed_offset != 0L;
         public int massacre_victims;
         public double massacre_last = -1d;
         // 战时中央代管(见 WartimeCustodySystem)：打下本城的成员国、原属国、所在战争；-1 = 不在代管中

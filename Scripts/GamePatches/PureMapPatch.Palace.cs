@@ -149,7 +149,9 @@ public partial class PureMapPatch
             zy1 = Mathf.Max(zy1, zone.y);
         }
         if (zx0 == int.MaxValue) return;
-        int axisX = plan.axis ? plan.axisX : zx0 * size + 4;
+        // 宫城以所在地块第 4 格为中轴(左右对称，见上)：自动规划时宫城在城心、中轴正是这一列；
+        // 手动挪了宫城或中轴(见 ApplyManual)，中轴不一定从这里过，宫城照样画在自己那块地正中，不跟着中轴挪出地块
+        int axisX = zx0 * size + 4;
         int x0 = (zx0 * size - c.X0) * s, bottom = (zy0 * size - c.Y0) * s, top = ((zy1 * size + size - 1) - c.Y0) * s + s - 1;
         var p = new PalaceBrush { C = c, A0 = (axisX - c.X0) * s, Top = top, H2 = top - bottom + 1, Tint = tint, Seed = seed };
         int h = p.H2;

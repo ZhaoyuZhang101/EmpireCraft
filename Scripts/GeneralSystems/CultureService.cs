@@ -117,6 +117,41 @@ public static class CultureService
         return !string.IsNullOrEmpty(legacy) && IsValidCulture(legacy) ? legacy : realm;
     }
 
+    // 政体按哪个文化定：帝国核心按帝国的制度文化(见 InstitutionSystem.GetPrimaryCulture)——核心王国自己的文化可能与帝国不同
+    // (外族成员接任中央、旧档)，以前每月按核心自己的文化改政体、每年又按帝国的改回，帝国的政体来回跳(用户 2026-10-27："一个汉族世袭
+    // 传的好好的国家……突然因为一个皇帝的文化转了政体")；别的国按本国的制度文化
+    public static string GetRegimeCulture(Kingdom kingdom)
+    {
+        Empire empire = kingdom?.GetEmpire();
+        if (empire?.data != null && !empire.isRekt() && !empire.IsArchived() && empire.CoreKingdom == kingdom)
+        {
+            string imperial = InstitutionSystem.GetPrimaryCulture(empire);
+            if (IsValidCulture(imperial)) return imperial;
+        }
+        return GetInstitutionCulture(kingdom);
+    }
+
+    // 君主改从本国之俗(用户 2026-10-27："为什么皇帝的个人文化会直接改变政体，这不合理，应该根据国家文化反向影响皇帝个人")：
+    // 外族出身的君主(联姻、入继、外姓议立、受封……)即位，他本人改从本国(征服王朝的帝国核心看统治文化)之俗——只改本人的文化、
+    // 名字的写法，不改姓、不动宗族别的人；国家的文化、政体不随君主个人变(见 Empire.CreateNewEmpire)
+    public static void AssimilateRuler(Kingdom kingdom, Actor ruler)
+    {
+        if (kingdom?.data == null || kingdom.isRekt() || ruler?.data == null || ruler.isRekt() ||
+            EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(kingdom)) return;
+        Empire empire = kingdom.GetEmpire();
+        string culture = empire != null && !empire.isRekt() && empire.CoreKingdom == kingdom && CompositeEmpireService.IsComposite(empire)
+            ? CompositeEmpireService.GetRulingCulture(empire)
+            : GetRealmCulture(kingdom);
+        string own = GetActorCulture(ruler);
+        if (!IsValidCulture(culture) || string.Equals(own, culture, StringComparison.Ordinal)) return;
+        Culture native = GetNativeCultureObject(culture);
+        if (native != null && ruler.culture != native) ruler.setCulture(native);
+        var identity = ruler.GetPersonalIdentity();
+        if (identity != null) identity.culture = culture;
+        ruler.GetModName()?.SetName(ruler);
+        LogService.LogInfo($"[EmpireCraft][君主从俗] {kingdom.GetKingdomName()} 新君 {ruler.getName()} {own} → {culture}");
+    }
+
     // allowLegacyInstitutions：换成文明等级更低的文化时旧制犹存(见 LegacyInstitutionSystem)，政体不按新文化改；
     // 叛乱自立、征服王朝、神力改俗、归化改制传 false(不保留，原有的旧制也一并作罢)。立国不满一年的新国
     // (分封、水土胡化分出来的游牧之国……)由 LegacyInstitutionSystem 自己排除。
@@ -171,7 +206,8 @@ public static class CultureService
     // 正在自成一国的城(City.makeOwnKingdom 期间，见 CulturePatch)
     internal static City PendingSeat;
 
-    // 已有的国家称帝时改从君主的文化，换成落后的文化照样旧制犹存；新立之国(立国不满一年)没有旧制可沿(见 LegacyInstitutionSystem)。
+    // 立国：新立之国(立国不满一年)没有旧制可沿(见 LegacyInstitutionSystem)。已有的国家称帝不再走这里(以前改从君主的文化，
+    // 用户 2026-10-27 定国家文化反过来同化君主，见 Empire.CreateNewEmpire、AssimilateRuler)。
     // preferDeJure：新立的国家(KingdomPatch.NewCivKingdom)按立国之城的法理文化定文化与政体，没有法理才看立国者本人
     // (玩家反馈"新建立的国家有些会不根据本地法理建议政体"，用户 2026-10-21 选"按立国之城的法理文化"：以前一律按立国者，
     // 外族官员在别的文化的法理上自立，政体跟着他本人走)；称帝不走这条，征服王朝照旧保留征服者的文化(见 CompositeEmpireService)
@@ -230,8 +266,8 @@ public static class CultureService
         if (data.regimeType != RegimeType.Arabic && data.regimeType != RegimeType.LvLing) return;
         if (data.regime_manually_selected || RepublicSystem.IsRegimeLocked(kingdom) ||
             CompositeEmpireService.IsComposite(kingdom.GetEmpire())) return;
-        // 旧制犹存的按旧制所属文化看(旧制本身的政体不算污染)
-        string culture = GetInstitutionCulture(kingdom);
+        // 旧制犹存的按旧制所属文化看(旧制本身的政体不算污染)；帝国核心按帝国的制度文化(见 GetRegimeCulture)
+        string culture = GetRegimeCulture(kingdom);
         if (!IsValidCulture(culture)) return;
         RegimeType polluted = data.regimeType;
         if (polluted == RegimeType.LvLing ? !DefaultLvLing(kingdom, data, culture) : !DefaultArabic(culture)) return;

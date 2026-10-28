@@ -829,6 +829,13 @@ public static class CityPopulationSystem
         data.named_units = named;
     }
 
+    // 神力"增加人口"另给的容量(人，见 CityPopulationData.brush_capacity)
+    public static float BrushCapacity(City city)
+    {
+        CityPopulationData data = city?.data == null ? null : city.GetOrCreate().population;
+        return data == null ? 0f : Mathf.Max(0f, data.brush_capacity);
+    }
+
     // ---- 城市间迁徙(无小人模式) ----
     // 原版迁徙只搬实体单位。背景人口每月从"推力"大的城(过挤、缺粮、失业)流向本国"拉力"大的城
     // (空房多、不缺粮、就业好)，每月最多迁出 MaxMigrationRate × 推力。颁布逃人法的国家禁止流动

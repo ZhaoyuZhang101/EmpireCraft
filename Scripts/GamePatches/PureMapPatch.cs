@@ -319,6 +319,10 @@ public partial class PureMapPatch : GamePatch
             // 城心那块地与城门中线(迁城后整座城换地方，见 CityRelocationSystem)
             Add(plan.centerZone * 131 + 7);
             Add(plan.gateX * 73 + plan.gateY * 37);
+            // 手动规划：中轴交点、整块并入的地块、坊市疏密(建成地块、宫城、城墙、城门、种子上面都已算进去)
+            Add(plan.axisX * 61 + plan.axisY * 29);
+            foreach (int id in plan.forced) Add(id * 15485863);
+            Add(plan.blocks * 977 + 5);
             if (plan.fabric != null)
             {
                 // 官道(邻城迁了城心，接过来的官道换了走向)
@@ -561,6 +565,9 @@ public partial class PureMapPatch : GamePatch
         public bool winter;
         // 平面图的指纹(见 Stamp；平滑国界的上色缓存用)
         public int stamp = int.MinValue;
+        // 手动规划(见 ApplyManual)：手动并入城区的地块(整块画成城区)、坊市疏密(0 照常，1 密，2 疏，见 PureMapPatch.Detail 的 Subdivide)
+        public readonly HashSet<int> forced = new();
+        public int blocks;
     }
 
     // 本城平面图的指纹(没有城为 0)
@@ -896,7 +903,12 @@ public partial class PureMapPatch : GamePatch
             plan.walled = plan.moat = plan.axis = false;
             plan.landmark.Clear();
         }
-        plan.fabric = UrbanFabric.Build(city, plan.built, plan.landmark, plan.family, culture, plan.gateX, plan.gateY);
+        // 手动规划(城池全图里玩家改的，见 CityPlanEditing)：自动算完再按玩家的改动改，城市以后长大、改建不覆盖。
+        // 挪了中轴交点、四门，城的轮廓仍以城心那块地的中线交点为中(不跟着挪)
+        int townX = plan.gateX, townY = plan.gateY;
+        ApplyManual(plan, city, extra);
+        plan.fabric = UrbanFabric.Build(city, plan.built, plan.landmark, plan.family, culture, plan.gateX, plan.gateY,
+            plan.forced, townX, townY);
     }
 
     // 画不画宫城：大城的都城、皇宫(帝国核心的默认首都)照旧画。易主不拆宫城(用户 2026-10-20 "游牧入主中原这种情况，不能改变中原
@@ -1228,7 +1240,8 @@ public partial class PureMapPatch : GamePatch
             "woodland" => ("woodland_landmark", null, new Color32(170, 150, 120, 255)),
             _ => ("palace_hall", (Color32?)PalaceWall, Marble)
         };
-        bool gateColumn = plan.axis ? tile.x == plan.axisX : lx == 4;
+        // 中轴穿过这块地标才在中轴上开门(手动挪了宫城、中轴的，中轴不一定穿过宫城，见 ApplyManual)，不然在这块地正中开门
+        bool gateColumn = plan.axis && plan.axisX >= 0 && plan.axisX / Config.CITY_ZONE_SIZE == tile.zone.x ? tile.x == plan.axisX : lx == 4;
         if (OnEdge(tile, plan.landmark, plan.city))
         {
             // 日本天守外有护城河

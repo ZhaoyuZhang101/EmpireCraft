@@ -35,7 +35,8 @@ public class TempFac_迫使朝贡 : TemporaryFaction
     public override bool CheckCondition()
     {
         Empire empire = GetEmpire();
-        if (empire?.CoreKingdom?.hasEnemies()??true) return false;
+        // 只在忙不过来时不提(同扩张地盘，见 WarSituation.TooBusyForWar；以前中央手上有一场仗就不提)
+        if (empire?.CoreKingdom == null || WarSituation.TooBusyForWar(empire.CoreKingdom)) return false;
         if (!FeudalConquestService.HasTributeInstitution(empire)) return false;
         foreach (var kingdom in World.world.kingdoms)
         {

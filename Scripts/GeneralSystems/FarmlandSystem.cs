@@ -373,12 +373,26 @@ public static class FarmlandSystem
         return food / 12f;
     }
 
-    // 可耕地的多少：城的陆地里可耕格占到六成以上照常收，越少收得越少，最少三成(沙漠、荒原的城靠绿洲、河谷一点地)
+    // 可耕地的多少：看田在哪——各完好农村所在的地块连同本城的四邻地块，加上城郊(城心地块连同四邻)；这些地里可耕格占到六成以上照常收，
+    // 越少收得越少，最少三成(沙漠、荒原的城靠绿洲、河谷一点地)。以前按全城陆地算，城一扩张多了山林，所有农村的收成都被拉低
+    // (用户 2026-10-28 转群友"三个农田村的城市只有个位数人口")
     private static float ArableFactor(City city)
     {
         if (city?.zones == null) return 1f;
+        var fields = new HashSet<TileZone>();
+        void Around(TileZone zone)
+        {
+            if (zone == null) return;
+            fields.Add(zone);
+            foreach (TileZone next in zone.neighbours ?? Array.Empty<TileZone>())
+                if (next != null && next.city == city) fields.Add(next);
+        }
+        Around(city.getTile()?.zone);
+        foreach (RuralSettlement settlement in RuralSettlementSystem.InCity(city))
+            if (settlement.ruined_at < 0d && !settlement.fort && LivelihoodSystem.Of(settlement) == LivelihoodSystem.Farm)
+                Around(World.world.GetTile(settlement.x, settlement.y)?.zone);
         int land = 0, arable = 0;
-        foreach (TileZone zone in city.zones)
+        foreach (TileZone zone in fields)
         {
             (int zoneLand, int zoneArable) = TerrainSystem.ArableCounts(zone);
             land += zoneLand;

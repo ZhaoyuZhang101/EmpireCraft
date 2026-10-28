@@ -912,7 +912,11 @@ public class CityPatch : GamePatch
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return true;
         if (__instance.GetMaxPopulationLimitStats())
         {
-            __result = __instance.GetMaxPopulation();
+            // 玩家设的人口上限按"户"(和单位个数同一量级，见 CityExtension.HasReachedPlayerPopLimit)；无小人模式下换成人数，
+            // 以前直接当人数返回，开了上限的城被锁在一百来人
+            __result = __instance.GetMaxPopulation() *
+                       (CityPopulationSystem.AbstractPopulationEnabled && !CityPopulationSystem.VanillaScale
+                           ? CityPopulationSystem.PeoplePerSlot(__instance) : 1);
             return false;
         }
         // 先按住房量给一个基础上限
@@ -932,7 +936,8 @@ public class CityPatch : GamePatch
         // 游牧营地只算四成(见 CityStyleSystem.CapacityFactor)；原版按住房位数读的不打折，免得原版以为住满了一直盖房
         if (CityPopulationSystem.VanillaScale) __result = cap;
         else if (!CityPopulationSystem.AbstractPopulationEnabled) __result = cap * CityPopulationSystem.PeoplePerSlot(__instance);
-        else __result = Mathf.CeilToInt(cap * CityPopulationSystem.PeoplePerSlot(__instance) * CityStyleSystem.CapacityFactor(__instance));
+        else __result = Mathf.CeilToInt(cap * CityPopulationSystem.PeoplePerSlot(__instance) * CityStyleSystem.CapacityFactor(__instance) +
+                                        CityPopulationSystem.BrushCapacity(__instance));
         return false;
     }
     public static bool HasReachedWorldLawLimit(City __instance, ref bool __result)

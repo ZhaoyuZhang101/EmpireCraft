@@ -423,7 +423,7 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
         }
         long id = OverallHelperFunc.IdGenerator.NextId();
         var empire = newObjectFromID(id);
-        empire.CreateNewEmpire(pKingdom, isSplit);
+        empire.CreateNewEmpire(pKingdom, isSplit, replacingEmpire);
         if (empire.CoreKingdom == null)
         {
             LogService.LogWarning($"[EmpireManager] Failed to initialize empire core kingdom for {pKingdom?.name}.");

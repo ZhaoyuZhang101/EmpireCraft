@@ -44,7 +44,9 @@ public class TempFac_扩张地盘 : TemporaryFaction
     {
         Empire empire = GetEmpire();
         if (empire == null || empire.isRekt() || empire.CoreKingdom == null || empire.CoreKingdom.isRekt()) return false;
-        if (empire.CoreKingdom.hasEnemies()) return false;
+        // 只在忙不过来(手上已有两场仗、或正被全面侵略)时不提；以前中央手上有一场仗(平叛、边境冲突、游牧来扰)就不提，
+        // 大帝国几乎总在打点什么，邻国一直没人去打(用户 2026-10-27 问"为什么迟迟不打燕国"，选"朝堂扩张放宽")
+        if (WarSituation.TooBusyForWar(empire.CoreKingdom)) return false;
         Kingdom target = null;
         foreach (var kingdom in World.world.kingdoms)
         {

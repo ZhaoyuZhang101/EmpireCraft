@@ -92,12 +92,15 @@ public static class SmallStateSubmissionSystem
         return WarSituation.Power(lord) >= WarSituation.Power(small) * PowerRatio ? lord : null;
     }
 
-    // 行封建附庸的为附庸，收朝贡的帝国为朝贡国；都不行就不归附
+    // 行封建附庸的为附庸，收朝贡的帝国为朝贡国；都不行就不归附。
+    // 附庸按和平收附庸的规矩(FeudalVassalService.Bind：宗主收得了附庸、层级、冷却……)——以前用强制附庸，宗主文化行封建附庸、
+    // 政体却不是封建的(收不得附庸)，当月月度同步就把它放了，不留记录：世界日志说称臣、地图上仍是独立之国
+    // (玩家："就是这样称臣又独立""也没有进附庸和属国"，用户 2026-10-27 转)
     private static bool Submit(Kingdom lord, Kingdom small)
     {
         if (FeudalVassalService.TooFar(lord, small)) return false;
         bool bound = FeudalVassalService.UsesFeudalVassals(lord)
-            ? FeudalVassalService.ForceBind(lord, small)
+            ? FeudalVassalService.Bind(lord, small)
             : TributaryRelations.Submit(lord, small);
         if (!bound) return false;
         string lordName = lord.GetEmpire()?.GetEmpireName() ?? lord.GetKingdomName();

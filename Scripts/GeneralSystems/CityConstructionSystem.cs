@@ -41,6 +41,8 @@ public static class CityConstructionSystem
     // 首都、首府优先：建设力更高、更倾向于升级、房屋更密集
     private const float CapitalBonus = 0.6f;
     private const float ProvincialSeatBonus = 0.3f;
+    // 人口到住房上限的这么多以后先盖民居(见 StartNext)
+    private const float HomesFirstShare = 0.9f;
 
     // 首都 0.6，首府(帝国内藩属王国/行省的首都)0.3，其余 0
     public static float SeatBonus(City city)
@@ -474,7 +476,11 @@ public static class CityConstructionSystem
         try
         {
             city.under_construction_building = null;
-            if (UnityEngine.Random.value < 0.3f + 0.6f * Wealth(city) + SeatBonus(city) && TryUpgrade(city)) return;
+            // 住满了、民居又还没盖到上限：先盖房，不去升级别的建筑——首都的升级偏好(0.3 + 0.6×富庶 + 0.6)以前几乎回回先升级，
+            // 唯一的开工名额和木石常被挪走，首都人口反倒不如别城(用户 2026-10-28 转群友"城市A还是帝国首都……人口只有一千多")
+            bool homesFirst = city.status != null && city.countBuildingsType("type_house", false) < city.status.houses_max &&
+                              CityPopulationSystem.GetTotal(city) >= city.getPopulationMaximum() * HomesFirstShare;
+            if (!homesFirst && UnityEngine.Random.value < 0.3f + 0.6f * Wealth(city) + SeatBonus(city) && TryUpgrade(city)) return;
             CityBehBuild.buildTick(city);
             EnterpriseSystem.OnConstructionStarted(city, city.under_construction_building);
         }
@@ -489,6 +495,52 @@ public static class CityConstructionSystem
         if (city == null || city.isRekt() || HasConstruction(city)) return;
         // 新城没有可升级建筑，正常建造顺序先安置居民和农业，后续按月施工。
         StartNext(city);
+    }
+
+    // ---- 繁荣(神力笔刷，见 GodPowers/CityResourcePowers) ----
+    // 用户 2026-10-27(群友："作为罗马居然发展还不如其他的城市"，问"有没有升级城市的选项")：刷一下——
+    //   · 在建的当场建完；
+    //   · 原版城市规划接着开工的新建筑(民居没盖满时多是民居)当场建完，一下至多 FlourishBuilds 座，建材由神力补上；
+    //   · 各建筑(民居与别的)升一级，到本文化科技许可的最高一级为止(见 TechnologySystem.CanBuild)，不花钱、不要建材。
+    // 按住多刷几下就一级级升上去。返回 (新建, 升级) 座数
+    private const int FlourishBuilds = 4, FlourishWood = 60, FlourishStone = 40, FlourishMetal = 20;
+
+    public static (int built, int upgraded) Flourish(City city)
+    {
+        if (city?.data == null || city.isRekt() || city.buildings == null) return (0, 0);
+        int built = 0, upgraded = 0;
+        try
+        {
+            Advance(city, int.MaxValue / 4);
+            city.under_construction_building = null;
+            for (int i = 0; i < FlourishBuilds; i++)
+            {
+                Building storage = city.getRandomStockpile();
+                if (storage != null)
+                {
+                    Gather(city, storage, "wood", FlourishWood, FlourishWood);
+                    Gather(city, storage, "stone", FlourishStone, FlourishStone);
+                    Gather(city, storage, "common_metals", FlourishMetal, FlourishMetal);
+                }
+                CityBehBuild.buildTick(city);
+                if (!HasConstruction(city)) break;
+                Advance(city, int.MaxValue / 4);
+                city.under_construction_building = null;
+                built++;
+            }
+            foreach (Building building in new List<Building>(city.buildings))
+            {
+                if (building?.asset == null || building.isRekt() || building.isUnderConstruction() || !building.canBeUpgraded()) continue;
+                BuildingAsset target = AssetManager.buildings.get(building.asset.upgrade_to ?? "");
+                if (target == null || !TechnologySystem.CanBuild(city, target.id)) continue;
+                if (building.upgradeBuilding()) upgraded++;
+            }
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft][城市建设] 繁荣失败({city.data?.name}): {exception.Message}");
+        }
+        return (built, upgraded);
     }
 
     // 升级：在原版允许的升级订单里(资源够、科技已解锁)挑一个，花原版资源外再花钱(城市国库优先，不够国家出)

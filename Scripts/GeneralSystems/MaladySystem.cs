@@ -25,6 +25,9 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //       冗费——每年多支 12%×s 年度经常收入(行政开支)；武备——本帝国各军战力 ×(1−0.25s)，禁军空饷再多两成×s，
 //         兵源(可征之兵)×(1−0.3s)，组织度上限 100−20s、休整恢复 ×(1−0.3s)(用户 2026-10-20 选"积弊动真格")；
 //       党争——奏议准奏率 -15%×s，各派怨望每年 +8×s；苛捐——苛政 +15×s；
+//   · 与王朝积弊互为表里(用户 2026-10-27："但是这俩个也应该是有关联的才对"——以前只有六弊推高王朝积弊，国祚近两百年、
+//     王朝积弊 11.8，六弊却能全被明君治到零)：王朝积弊越深，六弊滋生越快(×(1 + 积弊/100))，也治不干净——每条至多降到
+//     王朝积弊的 StrainFloorShare(积弊 60 的危局里各条至少 30)，年底低于这条线的浮上来(见 Floor)；
 //       合计——王朝积弊(周期压力)每年多涨 六条平均×1.0；正统 −(平均−30)×0.1；平均过五十推高土崩瓦解的内忧，
 //         平均七十以上算危局，苛政民变打仗时也会爆发(见 MonarchyLegitimacy、ProvincialCollapseSystem、HarshRuleSystem)。
 // 只有传统君主制有(同王朝周期，见 DynasticCycleSystem.Applies)。
@@ -55,10 +58,18 @@ public static class MaladySystem
 
     public static float Average(Empire empire) => Applies(empire) ? All.Average(key => Get(empire, key)) : 0f;
 
+    // 王朝积弊托着的底：六弊治不到这条线以下(见类头)
+    private const float StrainFloorShare = 0.5f;
+
+    public static float Floor(Empire empire) => DynasticCycleSystem.GetPressure(empire) * StrainFloorShare;
+
+    // 减的时候至多减到王朝积弊托着的底(本来就在底下的不再往下减)
     private static void Add(Empire empire, string key, float delta)
     {
         empire.data.maladies ??= new Dictionary<string, float>();
-        empire.data.maladies[key] = Mathf.Clamp(Get(empire, key) + delta, 0f, 100f);
+        float current = Get(empire, key);
+        float min = delta < 0f ? Mathf.Min(current, Floor(empire)) : 0f;
+        empire.data.maladies[key] = Mathf.Clamp(current + delta, min, 100f);
     }
 
     public static void Relieve(Empire empire, string key, float amount)
@@ -127,8 +138,8 @@ public static class MaladySystem
         float phantom = PalaceArmySystem.Palace(core).Select(corps => corps.phantom).DefaultIfEmpty(0f).Max();
         // 盛世(明君、中兴)时各条按同一速度消退，实情只在滋生时加码
         float Extra(float value) => common > 0f ? value : 0f;
-        // 滋生的快慢按王朝年岁(见 Pace)；消退不打折
-        float pace = Pace(empire);
+        // 滋生的快慢按王朝年岁(见 Pace)，王朝积弊越深越快；消退不打折
+        float pace = Pace(empire) * (1f + DynasticCycleSystem.GetPressure(empire) / 100f);
         void Grow1(string key, float delta) => Add(empire, key, delta > 0f ? delta * pace : delta);
         Grow1(Graft, common + Extra((float)CorruptionSystem.GetRate(empire) * 8f + (dissolute ? 1f : 0f)));
         Grow1(Annexation, common + Extra(LandEconomySystem.GetRealmLandlessRatio(core) * 10f + (dissolute ? 1f : 0f)));
@@ -138,6 +149,10 @@ public static class MaladySystem
                                            (controlled ? 1f : 0f)));
         Grow1(Levies, common + Extra((grade == RulerQualitySystem.Grade.Tyrant ? 4f : 0f) + (dissolute ? 2f : 0f) +
                                      (EmpireBankruptcySystem.IsBankrupt(empire) ? 3f : 0f)));
+        // 王朝积弊托着的底：低于这条线的浮上来(旧档、改朝换代后各弊先减了、王朝积弊留着的)
+        float floor = Floor(empire);
+        foreach (string key in All)
+            if (Get(empire, key) < floor) empire.data.maladies[key] = floor;
     }
 
     // 积弊滋生的快慢(历史周期律)：开国气象里不滋生；立国头 80 年二成，80~160 年四成五，之后全速

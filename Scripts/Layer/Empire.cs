@@ -1168,15 +1168,35 @@ public class Empire : MetaObject<EmpireData>
         return Date.getMonthsSince(data.timestamp_invite_war_cool_down)>=3;
     }
 
-    public void CreateNewEmpire(Kingdom kingdom, bool isSplit = false)
+    // continuing：同一帝国换了中央接续(皇族王国接续、派系胜方接管，见 ReplaceEmpire)
+    public void CreateNewEmpire(Kingdom kingdom, bool isSplit = false, Empire continuing = null)
     {
         if (kingdom == null) return;
         if (kingdom.data == null) return;
         if (!kingdom.isAlive()) return;
         if (!kingdom.hasKing()) return;
         kingdom.ai.setTask("do_mod_empire_beh");
-        CultureService.ApplyFounderCulture(kingdom, kingdom.king);
-        string founderCulture = CultureService.GetFounderCulture(kingdom.king);
+        // 帝国的文化按立国之国本身的文化，不按君主个人的(用户 2026-10-27："为什么皇帝的个人文化会直接改变政体……
+        // 应该根据国家文化反向影响皇帝个人")：以前称帝、接续都改从君主个人之俗，外族出身的新君一登基，整个国家连政体都换了。
+        // 接续的：新中央不是原帝国这一文化圈的，改从原帝国的文化(帝国还是那个帝国)。君主个人改从本国之俗见 CultureService.AssimilateRuler
+        string founderCulture = CultureService.GetRealmCulture(kingdom);
+        string kept = continuing == null ? null
+            : CompositeEmpireService.IsComposite(continuing) ? CompositeEmpireService.GetRulingCulture(continuing)
+            : InstitutionSystem.GetCustomsCulture(continuing);
+        if (CultureService.IsValidCulture(kept) && (!CultureService.IsValidCulture(founderCulture) ||
+                                                    InstitutionSystem.GetCultureLine(kept) != InstitutionSystem.GetCultureLine(founderCulture)))
+        {
+            CultureService.SetRealmCulture(kingdom, kept, updatePoliticalSystem: true, allowLegacyInstitutions: false);
+            founderCulture = kept;
+        }
+        else if (CultureService.IsValidCulture(founderCulture))
+            CultureService.SetRealmCulture(kingdom, founderCulture, updatePoliticalSystem: true);
+        else
+        {
+            CultureService.ApplyFounderCulture(kingdom, kingdom.king);
+            founderCulture = CultureService.GetFounderCulture(kingdom.king);
+        }
+        CultureService.AssimilateRuler(kingdom, kingdom.king);
         if (CultureService.IsValidCulture(founderCulture))
         {
             data.conquest_founder_culture = founderCulture;
@@ -1563,8 +1583,10 @@ public class Empire : MetaObject<EmpireData>
         newCore.GetRegime()?.SetLeaderSelectMethod(method);
         newCore.ai.setTask("do_mod_empire_beh");
         newCore.SetLevel(0);
+        string imperial = InstitutionSystem.GetCustomsCulture(this);
         CoreKingdom = newCore;
         SyncCoreKingdomReference();
+        AlignCoreCulture(imperial);
         data.centerOffice?.Init(CoreKingdom);
         recalculate();
         // 先定国号再登基：即位的史书、世界提示用的是照旧的国号
@@ -1574,6 +1596,24 @@ public class Empire : MetaObject<EmpireData>
         try { NewEmperor(newCore.king); }
         finally { _completingMinisterUsurpation = completing; }
         return true;
+    }
+
+    // 换了中央(原中央丢光城池、选帝、争位……)：新中央的国家文化不是本帝国这一文化圈的，改从帝国的文化(imperial：换中央之前取下的)——
+    // 帝国还是那个帝国，不因接任中央的成员国(外族的都护府、改从游牧的成员)换文化、换政体(用户 2026-10-27："应该根据国家文化反向影响皇帝个人")；
+    // 同一文化圈的(选帝制下各诸侯)不动；征服王朝另有统治文化之分，不动
+    private void AlignCoreCulture(string imperial)
+    {
+        Kingdom core = CoreKingdom;
+        if (core?.data == null || core.isRekt() || !CultureService.IsValidCulture(imperial) ||
+            CompositeEmpireService.IsComposite(this)) return;
+        string own = CultureService.GetRealmCulture(core);
+        if (CultureService.IsValidCulture(own) &&
+            (string.Equals(own, imperial, StringComparison.Ordinal) ||
+             InstitutionSystem.GetCultureLine(own) == InstitutionSystem.GetCultureLine(imperial))) return;
+        CultureService.SetRealmCulture(core, imperial, updatePoliticalSystem: false, allowLegacyInstitutions: false);
+        InstitutionSystem.ResyncCulture(this);
+        CultureService.AssimilateRuler(core, core.king);
+        LogService.LogInfo($"[EmpireCraft][帝国文化] {GetEmpireName()} 新中央 {core.GetKingdomName()} {own} → {imperial}，改从帝国之俗");
     }
 
     public bool ReplaceEmpire(Kingdom newKingdom)
@@ -2165,8 +2205,10 @@ public class Empire : MetaObject<EmpireData>
             if (candidate != null)
             {
                 coreChanged = candidate != currentCore;
+                string imperial = coreChanged ? InstitutionSystem.GetCustomsCulture(this) : null;
                 CoreKingdom = candidate;
                 SyncCoreKingdomReference();
+                if (coreChanged) AlignCoreCulture(imperial);
                 // 原中央灭亡或丢光城池、就地改立中央：同一个帝国，国号不随新中央改
                 if (coreChanged && currentCore != null) KeepNameOnNewCore();
                 repaired = true;
@@ -2345,8 +2387,10 @@ public class Empire : MetaObject<EmpireData>
                 }
                 if (candidate != null)
                 {
+                    string imperial = InstitutionSystem.GetCustomsCulture(this);
                     CoreKingdom = candidate;
                     SyncCoreKingdomReference();
+                    AlignCoreCulture(imperial);
                     data.centerOffice.Init(CoreKingdom);
                     KeepNameOnNewCore();
                     if (originalEmperor != null && !originalEmperor.isRekt())

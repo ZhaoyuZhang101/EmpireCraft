@@ -253,8 +253,10 @@ public static class PopulationMathWorkers
                 Math.Max(0f, input.Capacity - input.Total) * InflowShare) * input.Years);
         float change = births - background * input.DeathRate * input.Years;
         if (change > 0f) change = Math.Min(change, Math.Max(0f, input.Capacity - input.Total));
+        // 超员回落：每年回落超出部分的四分之一，按经过的年数复利(1 − 0.75^年数)。以前按年数线性乘，
+        // 游戏开快、一座城隔一年多才轮到一次结算时一步就把超出的全砍掉，神力加的人一走时间就跌回(用户 2026-10-28 转群友)
         if (input.Total > input.Capacity)
-            change -= Math.Min(background, (input.Total - input.Capacity) * 0.25f * input.Years);
+            change -= Math.Min(background, (input.Total - input.Capacity) * (1f - (float)Math.Pow(0.75d, Math.Max(0f, input.Years))));
         change = Math.Max(change, -background);
         if (Math.Abs(change) < 0.001f) return result;
         if (background <= 0f)

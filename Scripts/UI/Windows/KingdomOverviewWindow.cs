@@ -107,11 +107,16 @@ public class KingdomOverviewWindow : WideScrollWindow<KingdomOverviewWindow>
         });
     }
 
-    // 身份：周室诸侯 / 朝贡国 / 封建附庸 / 独立
+    // 身份：周室诸侯 / 帝国之主、帝国治下 / 朝贡国 / 封建附庸 / 独立。
+    // 以前不看帝国：律令制的封国、藩王(国名同样带"国")在帝国里也显示"独立之国"(用户 2026-10-27 问"为什么迟迟不打燕国""他是独立国")
     private static string Standing(Kingdom kingdom)
     {
         Empire sphere = ZhouEraSystem.SphereOf(kingdom);
         if (sphere != null) return string.Format(LM.Get("kov_standing_zhou"), sphere.GetEmpireName());
+        Empire empire = kingdom.GetEmpire();
+        if (empire != null && !empire.isRekt() && !empire.IsArchived())
+            return string.Format(LM.Get(empire.CoreKingdom == kingdom ? "kov_standing_empire_core" : "kov_standing_empire_member"),
+                empire.GetEmpireName());
         Empire suzerain = kingdom.HasTakenAlliance() ? kingdom.GetTakenAllianceEmpire() : null;
         if (suzerain != null && !suzerain.isRekt()) return string.Format(LM.Get("kov_standing_tributary"), suzerain.GetEmpireName());
         Kingdom lord = FeudalVassalService.GetOverlord(kingdom);
