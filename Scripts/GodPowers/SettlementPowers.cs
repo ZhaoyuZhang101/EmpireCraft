@@ -29,25 +29,16 @@ public static class SettlementPowers
     public static void Init()
     {
         if (AssetManager.powers.get(Village) != null) return;
-        AssetManager.powers.add(new GodPower { id = Village, name = Village, click_action = (tile, _) => Tip(RuralSettlementSystem.Place(tile, false)) });
-        AssetManager.powers.add(new GodPower { id = Town, name = Town, click_action = (tile, _) => Tip(RuralSettlementSystem.Place(tile, true)) });
-        AssetManager.powers.add(new GodPower { id = Fort, name = Fort, click_action = (tile, _) => Tip(RuralSettlementSystem.Place(tile, false, true)) });
+        AssetManager.powers.add(new GodPower { id = Village, name = Village, click_action = (tile, _) => Tip(Build(tile, "village")) });
+        AssetManager.powers.add(new GodPower { id = Town, name = Town, click_action = (tile, _) => Tip(Build(tile, "town")) });
+        AssetManager.powers.add(new GodPower { id = Fort, name = Fort, click_action = (tile, _) => Tip(Build(tile, "fort")) });
         AssetManager.powers.add(new GodPower { id = NewCity, name = NewCity, click_action = (tile, _) => Tip(CityPlacementSystem.PlaceCity(tile)) });
         AssetManager.powers.add(new GodPower { id = Palace, name = Palace, click_action = (tile, _) => Tip(CityPlacementSystem.BuildPalace(tile)) });
         AssetManager.powers.add(new GodPower { id = Relocate, name = Relocate, click_action = (tile, _) => Tip(CityRelocationSystem.Click(tile)) });
         AssetManager.powers.add(new GodPower { id = Restyle, name = Restyle, click_action = ClickRestyle });
-        AssetManager.powers.add(new GodPower
-        {
-            id = Raze, name = Raze,
-            click_action = (tile, _) => Tip(RuralSettlementSystem.Raze(tile) ?? FactorySystem.Remove(FactorySystem.At(tile)) ??
-                                             LM.Get("settlement_none"))
-        });
-        foreach ((string id, int size) in new[] { (FactorySmall, 1), (FactoryMedium, 2), (FactoryLarge, 3) })
-            AssetManager.powers.add(new GodPower
-            {
-                id = id, name = id,
-                click_action = (tile, power) => Tip(FactorySystem.Place(tile, size, out _, true))
-            });
+        AssetManager.powers.add(new GodPower { id = Raze, name = Raze, click_action = (tile, _) => Tip(RazeAt(tile)) });
+        foreach (string id in new[] { FactorySmall, FactoryMedium, FactoryLarge })
+            AssetManager.powers.add(new GodPower { id = id, name = id, click_action = (tile, power) => Tip(Build(tile, id)) });
         AssetManager.powers.add(new GodPower { id = Assign, name = Assign, click_action = ClickAssign });
         // 城貌小窗口随营建神力一起注册(标题用 "<窗口id> Title" 约定 key；返回按钮显示城市图标)
         CityStyleWindow.CreateAndInit(nameof(CityStyleWindow), new Vector2(480f, 200f));
@@ -64,6 +55,31 @@ public static class SettlementPowers
         if (PureMapMode.Enabled) CityPlanScreen.Open(city);
         else CityStyleWindow.Open(city);
         return true;
+    }
+
+    // 立村、设镇、筑关、放小中大厂区(神力与城池全图共用，见 CityPlanWorks.PlaceSettlement)：
+    // kind 为 village、town、fort、factory_small、factory_medium、factory_large；返回提示文字，认不得的 kind 返回 null
+    internal static string Build(WorldTile tile, string kind) => kind switch
+    {
+        "village" => RuralSettlementSystem.Place(tile, false),
+        "town" => RuralSettlementSystem.Place(tile, true),
+        "fort" => RuralSettlementSystem.Place(tile, false, true),
+        FactorySmall => FactorySystem.Place(tile, 1, out _, true),
+        FactoryMedium => FactorySystem.Place(tile, 2, out _, true),
+        FactoryLarge => FactorySystem.Place(tile, 3, out _, true),
+        _ => null
+    };
+
+    // 毁弃(神力与城池全图共用，见 CityPlanWorks.Raze)：点到的镇村完好的毁为废墟、废墟彻底抹去，点到的不是镇村就拆厂区；
+    // only 给了就只认落在这座城地上的(点到别城的报不归本城)
+    internal static string RazeAt(WorldTile tile, City only = null)
+    {
+        RuralSettlement settlement = RuralSettlementSystem.Near(tile);
+        FactorySite site = settlement == null ? FactorySystem.At(tile) : null;
+        if (only != null && (settlement != null && RuralSettlementSystem.CityOf(settlement) != only ||
+                             site != null && FactorySystem.CityOf(site) != only))
+            return LM.Get("city_plan_works_not_own");
+        return RuralSettlementSystem.Raze(settlement) ?? FactorySystem.Remove(site) ?? LM.Get("settlement_none");
     }
 
     private static bool Tip(string text)

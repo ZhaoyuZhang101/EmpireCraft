@@ -50,15 +50,33 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
             kingdom.StartToChooseHeir();
             return;
         }
+        // 先君的亲生子女落在别的宗族(生时随了母亲或父亲那一族)：立为储君就认祖归宗，入先君的宗族、随先君的姓，
+        // 帝系、王系不随储君的生母换姓(用户 2026-10-28 问"为什么皇帝会换姓")
+        heir.actor.CheckSpecificClan(false);
+        ReturnToLine(PredecessorOf(kingdom), heir.actor);
         kingdom.SetHeir(heir.actor);
         kingdom.ChooseHeirFinished();
         // 按族谱身份比较：背景人口里的子孙每次复查可能被重新落成新的单位，单位编号会变，人还是那个人
-        heir.actor.CheckSpecificClan(false);
         long identity = heir.actor.GetPersonalIdentity()?.id ?? -heir.actor.getID() - 2;
         var data = kingdom.GetOrCreate();
         if (data.logged_heir_identity == identity) return;
         data.logged_heir_identity = identity;
         TranslateHelper.LogKingChooseHeir(kingdom, heir.relation, heir.actor);
+    }
+
+    // 认祖归宗：储君是先君(本宗主位)的亲生子女、却在另一个世系里，挪进先君的宗族、随先君的姓(名字本来不带姓的文化不加姓)。
+    // 外家入继的(先君外嫁女儿的后代)、兄弟旁支不是先君亲生的，不挪
+    private static void ReturnToLine(PersonalClanIdentity parent, Actor heir)
+    {
+        PersonalClanIdentity child = heir?.GetPersonalIdentity();
+        SpecificClan line = parent?._specificClan;
+        if (child == null || line == null || !parent.is_main || parent.is_concubine || child.id == parent.id ||
+            child.father != parent.id && child.mother != parent.id && !parent.children.Contains(child.id) ||
+            SpecificClanManager.SameLineage(child._specificClan, line)) return;
+        SpecificClanManager.MoveToClan(child, line);
+        string surname = !string.IsNullOrWhiteSpace(parent.surname) ? parent.surname : SurnameInheritanceSystem.SurnameOf(parent);
+        if (line.Patrilineal() || line.Matrilineal() || !string.IsNullOrWhiteSpace(heir.GetModName()?.familyName))
+            SurnameInheritanceSystem.ApplySurname(child, surname);
     }
 
     // 死亡、退位和真正的王位空缺才允许兄弟→孙辈→宗族→官员的原有兜底。
@@ -172,6 +190,10 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
         return children.Values.ToList();
     }
 
+    // 在先君的世系里(本宗或分出去的诸王各支)：立储时先于生在别的宗族的子女——那样的子女即位，皇室就换了姓
+    private static bool InLine(PersonalClanIdentity person, PersonalClanIdentity parent) =>
+        SpecificClanManager.SameLineage(person?._specificClan, parent?._specificClan);
+
     private static bool IsEligibleRelative(PersonalClanIdentity person, PersonalClanIdentity parent, bool allowFemale) =>
         person != null && person.id != parent?.id && person.is_alive && !person.is_concubine &&
         person._specificClan != null && (person.CanHeir(parent) || allowFemale && person.sex == ActorSex.Female);
@@ -275,7 +297,8 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
                 if (selection == EmpireHeirLawType.eldest_child && law == SuccessionLawType.嫡长子继承法)
                 {
                     PersonalClanIdentity first = ChildrenOf(parent).Where(person => person.IsHeirPriority() && !person.is_concubine)
-                        .OrderByDescending(person => IsBornOfPrimarySpouse(parent, person)).ThenBy(BirthKey).FirstOrDefault();
+                        .OrderByDescending(person => InLine(person, parent))
+                        .ThenByDescending(person => IsBornOfPrimarySpouse(parent, person)).ThenBy(BirthKey).FirstOrDefault();
                     if (first != null && !first.is_alive)
                     {
                         var grandsons = ChildrenOf(first).Where(person => IsEligibleRelative(person, first, allowFemale))
@@ -288,7 +311,8 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
                 }
                 var children = ChildrenOf(parent).Where(person => IsEligibleRelative(person, parent, allowFemale));
                 // 嫡子优先，嫡系没有合适儿子时仍在自己的子嗣中接续，不提前跳到叔伯。
-                var ordered = children.OrderByDescending(person => person.IsHeirPriority())
+                // 本宗世系里的子女先于生在别的宗族的(见 InLine)
+                var ordered = children.OrderByDescending(person => InLine(person, parent)).ThenByDescending(person => person.IsHeirPriority())
                     .ThenByDescending(person => law == SuccessionLawType.嫡长子继承法 && IsBornOfPrimarySpouse(parent, person));
                 candidates = selection == EmpireHeirLawType.smallest_child
                     ? ordered.ThenBy(person => person.age).ThenByDescending(person => person.rank).ThenBy(person => person.id)

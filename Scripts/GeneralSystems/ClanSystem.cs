@@ -1275,7 +1275,7 @@ public static class SpecificClanManager
             return;
         }
 
-        // 先按宗法定入哪一族：在位君主、储君一方，华夏一系随父，其余婚姻为主的一方。
+        // 先按宗法定入哪一族：在位君主、储君一方，宗室一方，华夏一系随父，其余婚姻为主的一方。
         // 以前先看原版分给孩子的氏族——原版常把孩子分在母亲的氏族，皇子就随母姓、入了母亲那一族
         List<PersonalClanIdentity> recordedParents = RecordedParents(actor);
         PersonalClanIdentity clanParent = SurnameInheritanceSystem.ClanParent(recordedParents);
@@ -1290,7 +1290,7 @@ public static class SpecificClanManager
                 Actor parentActor = clanParent.is_alive && !clanParent.is_virtual ? clanParent._actor : null;
                 SyncVanillaClan(actor);
                 if (clanParent._specificClan.Patrilineal() || clanParent._specificClan.Matrilineal() ||
-                    SurnameInheritanceSystem.Reigns(parentActor))
+                    SurnameInheritanceSystem.Reigns(parentActor) || SurnameInheritanceSystem.Dynasty(clanParent) > 0)
                     SurnameInheritanceSystem.ApplySurname(created,
                         !string.IsNullOrWhiteSpace(clanParent.surname) ? clanParent.surname : clanParent._specificClan.name);
                 return;

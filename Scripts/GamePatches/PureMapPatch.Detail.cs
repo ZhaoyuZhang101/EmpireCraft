@@ -1071,7 +1071,9 @@ public partial class PureMapPatch
         int size = Config.CITY_ZONE_SIZE, lx = tile.x - zone.x * size, ly = tile.y - zone.y * size;
         int quarter = (ly >= size / 2 ? 2 : 0) + (lx >= size / 2 ? 1 : 0);
         Slot[] slots = plan.zones.TryGetValue(zone.id, out Slot[] found) ? found : null;
-        string icon = slots != null && quarter < slots.Length && slots[quarter].used ? slots[quarter].icon : null;
+        // 用哪个建筑位(坊市密的六个位、疏的三个位见 SlotIndex)；标注仍按四角编号
+        int index = slots == null ? quarter : SlotIndex(slots.Length, lx, ly);
+        string icon = slots != null && index < slots.Length && slots[index].used ? slots[index].icon : null;
         float r = DetailHash(seed, 11);
         if (icon == null && r < 0.3f)
         {

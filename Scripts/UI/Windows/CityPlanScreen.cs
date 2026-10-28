@@ -14,15 +14,26 @@ namespace EmpireCraft.Scripts.UI.Windows;
 // 城池全图(用户 2026-10-28 "能不能在宽窗口直接显示这个城镇的形状和完整城市样式, 然后允许玩家随意修改"，确认示意后要
 // "窗口全屏，整座城显示完整")：自建一块全屏画布(不用 ScrollWindow，那个窗口大小固定)，盖在原版界面之上，深色底板挡住地图点击——
 //   左「城池全图」：打开时缩放到整座城连同城郊村镇田路都看得见(纹理见 CityPlanEditing.RenderPreview)；滚轮以光标为中心缩放，
-//     右键、中键拖动平移(选「查看」时左键也拖)；上方工具栏：查看、城区画/擦、宫城、城墙、护城河、中轴·城门、坊市疏密、换个样子、
-//     看全城、撤销、交还规矩(五秒内再点一次才交还)；城区按住拖着刷，一笔只记一步撤销，宫城工具下右键点一下宫城交还规矩。
-//     改动都走 CityPlanEditing，返回的提示写在底部状态栏；改不了时工具栏变灰、状态栏写原因，右栏照常能用；
+//     右键、中键拖动平移(选「查看」时左键也拖)；上方工具栏两行——
+//       规划行：查看、城区、宫城、城墙、护城河、中轴·城门、坊市疏密、换个样子 | 看全城、撤销、交还规矩(五秒内再点一次才交还)；
+//         城区按住拖着刷，一笔只记一步撤销；宫城工具下右键点一下宫城交还规矩；
+//       营建行(用户 2026-10-28 "修建的建筑都会改变实际人口也会影响城市功能的"，"道路可以自动链接也可以手动"，
+//         "画完村镇和城市后可以一键自动连接")：市集、寺庙、书院、兵营、码头、拆(点城区里一块地) | 村、镇、关、厂区(小/中/大)、
+//         毁弃(点本城城郊一格) | 画路、擦路(按住拖，笔刷 3×3)、一键连路(立即)；营建都是真盖真拆，不能撤销。
+//     规划走 CityPlanEditing、营建走 CityPlanEditing/CityPlanWorks，返回的提示写在底部状态栏；改不了时工具栏变灰、状态栏写原因，右栏照常能用；
 //   右窄栏(可收成一道边)：概况、营建、城貌，取数与按钮同城池小窗口(CityStyleWindow)；
 //   纯净地图下街道一级点主城城区、「城貌」神力点城打开(见 MapLabelOverlay.HandleClick、SettlementPowers.ClickRestyle)，
 //   城池小窗口里「全城规划」也打开；Esc、右上角关闭；城没了、换存档时自己关掉。
 public static class CityPlanScreen
 {
-    private enum Tool { View, Zone, Palace, Axis }
+    // 规划：查看、城区、宫城、中轴；营建：功能建筑(种类见 _buildKind)、拆、村镇(种类见 _settleKind)、毁弃、画路、擦路
+    // (营建的都排在 Building 及以后，见 ToolHint)
+    private enum Tool { View, Zone, Palace, Axis, Building, Demolish, Settle, Raze, Road, RoadErase }
+
+    // 功能建筑与村镇的种类(CityPlanEditing.PlaceBuilding、CityPlanWorks.PlaceSettlement 认的名字，按钮文字 city_plan_ui_b_ + 名字)
+    private static readonly string[] BuildKinds = { "market", "temple", "library", "barracks", "docks" };
+    private static readonly string[] SettleKinds = { "village", "town", "fort" };
+    private static readonly string[] FactoryKinds = { "factory_small", "factory_medium", "factory_large" };
 
     // 画布按 1600×900 参考、只照高度缩放：1080p 下一单位 1.2 像素，正文 15 号约 18 像素高；宽屏、窄屏高度都是 900 单位
     private const float RefWidth = 1600f, RefHeight = 900f;
@@ -31,9 +42,12 @@ public static class CityPlanScreen
     private const float RenderSeconds = 5f, PanelSeconds = 1f, ConfirmSeconds = 5f, MessageSeconds = 6f;
     // 拖着刷城区时每块地都改一次，全图(一次几十到一百多毫秒)至多每 0.3 秒重画一次，松手立刻补画
     private const float StrokeRenderSeconds = 0.3f;
-    // 按下到松开挪动不超过这么多屏幕像素算点一下(宫城、中轴)
+    // 按下到松开挪动不超过这么多屏幕像素算点一下(宫城、中轴、功能建筑、拆、村镇、毁弃)
     private const float ClickSlop = 6f;
-    private const int FlagEditable = 1, FlagTown = 2;
+    // 画路、擦路的笔刷半径(格)：1 即光标所在格连同四周一圈，3×3
+    private const int RoadBrush = 1;
+    // 地块标记：能并入/划出、眼下是城区、归本城、能盖眼下选的功能建筑(只在功能建筑工具下问)
+    private const int FlagEditable = 1, FlagTown = 2, FlagOwn = 4, FlagAllowed = 8;
 
     private static readonly Color Backdrop = new Color(0.06f, 0.07f, 0.07f, 0.92f);
     private static readonly Color PanelColor = new Color(0.14f, 0.15f, 0.14f, 0.97f);
@@ -41,8 +55,10 @@ public static class CityPlanScreen
     private static readonly Color MapBack = new Color(0.04f, 0.05f, 0.04f, 1f);
     private static readonly Color StatusBack = new Color(0.1f, 0.11f, 0.1f, 0.97f);
     private static readonly Color TipBack = new Color(0.03f, 0.03f, 0.03f, 0.9f);
-    // 红：工具；橙：选中的工具、现城貌；蓝灰：看全城、撤销、交还规矩、关闭；褐灰：开关关着
+    // 红：工具；绿褐：营建(真盖真拆)；橙：选中的工具、现城貌；蓝灰：看全城、撤销、交还规矩、关闭；褐灰：开关关着
     private static readonly Color ToolColor = new Color(0.66f, 0.2f, 0.16f, 1f);
+    private static readonly Color WorksColor = new Color(0.33f, 0.43f, 0.2f, 1f);
+    private static readonly Color DividerColor = new Color(0.78f, 0.62f, 0.26f, 0.45f);
     private static readonly Color ActiveColor = new Color(0.86f, 0.58f, 0.22f, 1f);
     private static readonly Color ViewColor = new Color(0.23f, 0.35f, 0.47f, 1f);
     private static readonly Color OffColor = new Color(0.36f, 0.31f, 0.29f, 1f);
@@ -52,20 +68,24 @@ public static class CityPlanScreen
     private static readonly Color HeadColor = new Color(0.55f, 0.84f, 0.56f, 1f);
     private static readonly Color CyanText = new Color(0.5f, 0.85f, 0.92f, 1f);
 
-    // 叠加层(每格一像素)：城区——可并入的淡绿、可划出的淡红、地块网格；宫城——本城的地淡金、现宫城红底金边；中轴——现中轴两条金线
+    // 叠加层(每格一像素)：城区——可并入的淡绿、可划出的淡红、地块网格；宫城——本城的地淡金、现宫城红底金边；中轴——现中轴两条金线；
+    // 功能建筑——能盖的城区地块淡绿；拆——本城城区淡红；村镇、毁弃——本城城郊淡绿、城区灰；画路、擦路——本城领地淡黄
     private static readonly Color32 Clear = new Color32(0, 0, 0, 0);
     private static readonly Color32 GridLine = new Color32(255, 255, 255, 34);
     private static readonly Color32 AddTint = new Color32(90, 220, 110, 46);
     private static readonly Color32 EraseTint = new Color32(235, 90, 70, 40);
     private static readonly Color32 OwnTint = new Color32(240, 200, 90, 34);
+    private static readonly Color32 TownGray = new Color32(150, 150, 150, 72);
+    private static readonly Color32 RoadTint = new Color32(250, 228, 100, 40);
     private static readonly Color32 PalaceFill = new Color32(220, 60, 50, 110);
     private static readonly Color32 AxisLine = new Color32(255, 214, 90, 120);
-    // 光标下：地块描边与底色、中轴十字
+    // 光标下：地块描边与底色、中轴十字、村镇落点、路的笔刷
     private static readonly Color32 AddEdge = new Color32(110, 255, 130, 235), AddFill = new Color32(110, 255, 130, 70);
     private static readonly Color32 EraseEdge = new Color32(255, 110, 90, 235), EraseFill = new Color32(255, 110, 90, 70);
     private static readonly Color32 LockedEdge = new Color32(170, 170, 170, 200), LockedFill = new Color32(120, 120, 120, 50);
     private static readonly Color32 PalaceEdge = new Color32(255, 210, 90, 235), PalaceHover = new Color32(255, 210, 90, 70);
     private static readonly Color32 CrossLine = new Color32(255, 255, 255, 90), CrossCenter = new Color32(255, 230, 120, 255);
+    private static readonly Color32 RoadBrushColor = new Color32(255, 225, 110, 170), RoadEraseColor = new Color32(255, 110, 90, 170);
 
     private sealed class Btn
     {
@@ -87,12 +107,18 @@ public static class CityPlanScreen
     private static RawImage _map, _over;
     private static Text _title, _subtitle, _status, _tipText, _empty, _overviewName, _overview, _mapHint;
     private static Btn _viewBtn, _zoneBtn, _palaceBtn, _wallsBtn, _moatBtn, _axisBtn, _blocksBtn, _rerollBtn, _fitBtn, _undoBtn, _resetBtn;
+    private static Btn _demolishBtn, _factoryBtn, _razeBtn, _roadBtn, _roadEraseBtn, _connectBtn;
     private static readonly List<(string option, Btn button)> StyleButtons = new List<(string option, Btn button)>();
+    private static readonly List<(string kind, Btn button)> BuildButtons = new List<(string kind, Btn button)>();
+    private static readonly List<(string kind, Btn button)> SettleButtons = new List<(string kind, Btn button)>();
 
     private static City _city;
     private static long _cityId = -1L;
     private static bool _folded;
     private static Tool _tool = Tool.View;
+    // 功能建筑工具盖哪种；村镇工具建哪种("factory" 是厂区，档位见 _factory：0 小、1 中、2 大，关窗也记着)
+    private static string _buildKind = "market", _settleKind = "village";
+    private static int _factory;
     private static bool _editable;
     private static string _reason, _message, _option, _styleLine;
     private static float _messageAt = -100f, _renderedAt = -100f, _panelAt = -100f, _resetArmedAt = -100f;
@@ -113,14 +139,25 @@ public static class CityPlanScreen
     private static bool _baseDirty;
     private static int _baseSerial = -1, _hoverKey = int.MinValue, _palaceZone = -1;
     private static Tool _baseTool = Tool.View;
+    // 底层按哪种功能建筑铺的(能不能盖随种类变，换种类也得重建)
+    private static string _baseKind;
     private static readonly Dictionary<int, int> ZoneFlags = new Dictionary<int, int>();
 
-    // 鼠标：平移用哪个键、上一帧的视口坐标；左键按下的位置；城区拖着画时的模式与上一处
+    // 鼠标：平移用哪个键、上一帧的视口坐标；左键按下的位置；城区、路拖着画时的模式与上一处
     private static WorldTile _hoverTile;
     private static int _dragButton = -1;
     private static Vector2 _dragLast, _pressAt, _rightAt, _paintWorld;
     private static bool _pressed, _rightPressed, _painting, _paintAdd;
     private static TileZone _paintZone;
+    // 拖着画路(擦路)：这一笔是路不是城区；笔刷扫过的格(一笔里每格只问一次)；铺上(擦掉)了几格；笔刷中心上一格
+    private static bool _roading;
+    private static readonly HashSet<int> RoadDone = new HashSet<int>();
+    private static int _roadCount, _roadLast = int.MinValue;
+
+    // 悬停提示里这块地的建筑(CityPlanEditing.ZoneInfo)：同一块地、没改动时至多每秒问一次
+    private static string _infoText;
+    private static int _infoZone = int.MinValue, _infoRevision;
+    private static float _infoAt = -100f;
 
     public static bool IsOpen => _root != null;
 
@@ -170,7 +207,12 @@ public static class CityPlanScreen
         _message = null;
         _resetArmedAt = -100f;
         _revision = int.MinValue;
+        _baseKind = null;
+        _infoText = null;
+        _infoZone = int.MinValue;
         StyleButtons.Clear();
+        BuildButtons.Clear();
+        SettleButtons.Clear();
         ZoneFlags.Clear();
     }
 
@@ -243,10 +285,11 @@ public static class CityPlanScreen
         Place(_mapHint.rectTransform, new Vector2(0f, 1f), Vector2.one, new Vector2(120f, -32f), new Vector2(-10f, -4f));
         _mapHint.text = LM.Get("city_plan_ui_map_hint");
 
-        // 工具栏：左边是改的，右边是看的与撤回的
+        // 工具栏两行。规划行：左边是改画法的，右边是看的与撤回的
         RectTransform bar = Child("Toolbar", _mapArea);
         Place(bar, new Vector2(0f, 1f), Vector2.one, new Vector2(8f, -68f), new Vector2(-8f, -36f));
         Row(bar, 6f, new RectOffset(0, 0, 0, 0));
+        RowTitle(bar, LM.Get("city_plan_ui_row_plan"));
         _viewBtn = MakeButton(bar, LM.Get("city_plan_ui_tool_view"), ToolColor, () => SetTool(Tool.View));
         _zoneBtn = MakeButton(bar, LM.Get("city_plan_ui_tool_zone"), ToolColor, () => SetTool(Tool.Zone));
         _palaceBtn = MakeButton(bar, LM.Get("city_plan_ui_tool_palace"), ToolColor, () => SetTool(Tool.Palace));
@@ -262,17 +305,70 @@ public static class CityPlanScreen
         _rerollBtn = MakeButton(bar, LM.Get("city_plan_ui_reroll"), ToolColor, () => Act(CityPlanEditing.Reroll(_city)));
         Spacer(bar);
         _fitBtn = MakeButton(bar, LM.Get("city_plan_ui_fit"), ViewColor, Fit);
+        // 撤销只撤规划；营建是真盖真拆，提示里顺带说一句撤不回
         _undoBtn = MakeButton(bar, LM.Get("city_plan_ui_undo"), ViewColor, () =>
         {
             if (_city == null) return;
-            Say(LM.Get(CityPlanEditing.Undo(_city) ? "city_plan_ui_undo_done" : "city_plan_ui_undo_none"));
+            Say(LM.Get(CityPlanEditing.Undo(_city) ? "city_plan_ui_undo_done" : "city_plan_ui_undo_none") + "  " +
+                LM.Get("city_plan_ui_works_no_undo").ColorString("#8FA0A8"));
             RefreshToolbar();
         });
         _resetBtn = MakeButton(bar, LM.Get("city_plan_ui_reset"), ViewColor, ClickReset);
 
+        // 营建行：功能建筑与拆 | 村镇、厂区与毁弃 | 画路、擦路、一键连路；除一键连路外都是选了再点(拖)地图
+        RectTransform works = Child("Works", _mapArea);
+        Place(works, new Vector2(0f, 1f), Vector2.one, new Vector2(8f, -102f), new Vector2(-8f, -70f));
+        Row(works, 6f, new RectOffset(0, 0, 0, 0));
+        RowTitle(works, LM.Get("city_plan_ui_row_works"));
+        BuildButtons.Clear();
+        foreach (string kind in BuildKinds)
+        {
+            string choice = kind;
+            BuildButtons.Add((choice, MakeButton(works, LM.Get("city_plan_ui_b_" + choice), WorksColor, () =>
+            {
+                _buildKind = choice;
+                SetTool(Tool.Building);
+            })));
+        }
+        _demolishBtn = MakeButton(works, LM.Get("city_plan_ui_demolish"), WorksColor, () => SetTool(Tool.Demolish));
+        Divider(works);
+        SettleButtons.Clear();
+        foreach (string kind in SettleKinds)
+        {
+            string choice = kind;
+            SettleButtons.Add((choice, MakeButton(works, LM.Get("city_plan_ui_s_" + choice), WorksColor, () =>
+            {
+                _settleKind = choice;
+                SetTool(Tool.Settle);
+            })));
+        }
+        // 厂区：头一下选这个工具(照上回的档)，已选着再点一下在小、中、大三档间轮换
+        _factoryBtn = MakeButton(works, FactoryLabel(), WorksColor, () =>
+        {
+            if (_tool == Tool.Settle && _settleKind == "factory")
+            {
+                _factory = (_factory + 1) % FactoryKinds.Length;
+                _message = null;
+                RefreshToolbar();
+            }
+            else
+            {
+                _settleKind = "factory";
+                SetTool(Tool.Settle);
+            }
+        });
+        _razeBtn = MakeButton(works, LM.Get("city_plan_ui_raze"), WorksColor, () => SetTool(Tool.Raze));
+        Divider(works);
+        _roadBtn = MakeButton(works, LM.Get("city_plan_ui_road"), WorksColor, () => SetTool(Tool.Road));
+        _roadEraseBtn = MakeButton(works, LM.Get("city_plan_ui_road_erase"), WorksColor, () => SetTool(Tool.RoadErase));
+        _connectBtn = MakeButton(works, LM.Get("city_plan_ui_connect"), WorksColor, () =>
+        {
+            if (_city != null) Works(CityPlanWorks.ConnectAll(_city));
+        });
+
         // 视口：裁掉放大后伸出去的部分；预览与叠加层同尺寸叠在一起，按视图摆放(见 Layout)
         _viewport = Child("Viewport", _mapArea);
-        Place(_viewport, Vector2.zero, Vector2.one, new Vector2(8f, 8f), new Vector2(-8f, -74f));
+        Place(_viewport, Vector2.zero, Vector2.one, new Vector2(8f, 8f), new Vector2(-8f, -108f));
         Fill(_viewport, MapBack, true);
         _viewport.gameObject.AddComponent<RectMask2D>();
         RectTransform preview = Child("Preview", _viewport);
@@ -301,7 +397,7 @@ public static class CityPlanScreen
         column.childForceExpandHeight = false;
         MakeButton(_side, LM.Get("city_plan_ui_fold"), ViewColor, () => Fold(true), 14, 26f);
 
-        // 概况：城名、国家、人口与上限、民居与富庶、城郊生计、现城貌、规划
+        // 概况：城名、国家、人口与上限、民居与富庶、城区容量、城郊生计、现城貌、规划
         RectTransform overview = Card(_side, LM.Get("city_plan_ui_overview"));
         _overviewName = Label(overview, "Name", 20, TextColor, TextAnchor.MiddleLeft, true);
         _overview = Label(overview, "Lines", 15, TextColor, TextAnchor.UpperLeft, true);
@@ -378,6 +474,23 @@ public static class CityPlanScreen
     }
 
     private static void Spacer(RectTransform parent) => Child("Spacer", parent).gameObject.AddComponent<LayoutElement>().flexibleWidth = 1f;
+
+    // 工具栏一行打头的小字(规划、营建)
+    private static void RowTitle(RectTransform parent, string text)
+    {
+        Text title = Label(parent, "RowTitle", 13, HeadColor, TextAnchor.MiddleLeft);
+        title.text = text;
+    }
+
+    // 工具栏里分组的竖线
+    private static void Divider(RectTransform parent)
+    {
+        RectTransform line = Child("Divider", parent);
+        Fill(line, DividerColor);
+        LayoutElement element = line.gameObject.AddComponent<LayoutElement>();
+        element.minWidth = element.preferredWidth = 2f;
+        element.minHeight = element.preferredHeight = 22f;
+    }
 
     private static Text Label(Transform parent, string name, int size, Color color, TextAnchor anchor, bool wrap = false)
     {
@@ -602,6 +715,17 @@ public static class CityPlanScreen
                 CityPlanEditing.BeginStroke(_city);
                 PaintZone(zone);
             }
+            // 画路、擦路：按下就在光标处刷一笔刷，拖着一路刷(营建不记撤销，不开 BeginStroke)
+            else if ((_tool == Tool.Road || _tool == Tool.RoadErase) && onTile && ScreenToWorld(mouse, out _paintWorld))
+            {
+                EndPaint();
+                _painting = _roading = true;
+                _paintAdd = _tool == Tool.Road;
+                RoadDone.Clear();
+                _roadCount = 0;
+                _roadLast = int.MinValue;
+                Brush(tx, ty);
+            }
         }
         // 拖到视口外(看不见的地方)不画，只跟着记位置
         if (_painting)
@@ -613,20 +737,46 @@ public static class CityPlanScreen
         if (!Input.GetMouseButtonUp(0) || !_pressed) return;
         _pressed = false;
         if (!onTile || (mouse - _pressAt).sqrMagnitude > ClickSlop * ClickSlop) return;
-        if (_tool == Tool.Palace && zone != null) Act(CityPlanEditing.MovePalace(_city, zone));
-        else if (_tool == Tool.Axis) Act(CityPlanEditing.MoveAxis(_city, tx, ty));
+        switch (_tool)
+        {
+            case Tool.Palace when zone != null:
+                Act(CityPlanEditing.MovePalace(_city, zone));
+                break;
+            case Tool.Axis:
+                Act(CityPlanEditing.MoveAxis(_city, tx, ty));
+                break;
+            case Tool.Building when zone != null:
+                Works(CityPlanEditing.PlaceBuilding(_city, zone, _buildKind));
+                break;
+            case Tool.Demolish when zone != null:
+                Works(CityPlanEditing.Demolish(_city, zone));
+                break;
+            case Tool.Settle when _hoverTile != null:
+                Works(CityPlanWorks.PlaceSettlement(_city, _hoverTile, SettleKind()));
+                break;
+            case Tool.Raze when _hoverTile != null:
+                Works(CityPlanWorks.Raze(_city, _hoverTile));
+                break;
+        }
     }
 
-    // 拖着画城区：从上一处到光标逐段取格(一帧挪得远也不漏地块)，只动与这回模式不符、又能改的地块
+    // 拖着画城区(路)：从上一处到光标逐段取格(一帧挪得远也不漏地块、不断路)；城区只动与这回模式不符、又能改的地块，
+    // 路每过一格(间隔一格取点，3×3 笔刷连得上)刷一次笔刷
     private static void PaintTo(Vector2 screen)
     {
         if (!ScreenToWorld(screen, out Vector2 world)) return;
-        int steps = Mathf.Clamp(Mathf.CeilToInt(Vector2.Distance(_paintWorld, world) / 2f), 1, 256);
+        float stride = _roading ? 1f : 2f;
+        int steps = Mathf.Clamp(Mathf.CeilToInt(Vector2.Distance(_paintWorld, world) / stride), 1, 512);
         for (int i = 1; i <= steps; i++)
         {
             Vector2 at = Vector2.Lerp(_paintWorld, world, i / (float)steps);
             int x = Mathf.FloorToInt(at.x), y = Mathf.FloorToInt(at.y);
             if (x < _x0 || y < _y0 || x >= _x0 + _w || y >= _y0 + _h) continue;
+            if (_roading)
+            {
+                Brush(x, y);
+                continue;
+            }
             TileZone zone = World.world.GetTile(x, y)?.zone;
             if (zone == null || zone == _paintZone) continue;
             _paintZone = zone;
@@ -645,13 +795,41 @@ public static class CityPlanScreen
         _baseDirty = true;
     }
 
-    // 一笔画完(松手、换工具、关窗)：整笔记作一步撤销(见 CityPlanEditing.BeginStroke)，全图下一帧补画
+    // 路的笔刷：以 (cx, cy) 为中心 (2·RoadBrush+1)² 格，每格调一次 PaintRoad/EraseRoad(一笔里同一格只调一次)；
+    // 铺上(擦掉)了就数一格，预览等 Revision 变了按限流重画(见 Tick)
+    private static void Brush(int cx, int cy)
+    {
+        int center = cx * 65536 + cy;
+        if (center == _roadLast) return;
+        _roadLast = center;
+        for (int dy = -RoadBrush; dy <= RoadBrush; dy++)
+        for (int dx = -RoadBrush; dx <= RoadBrush; dx++)
+        {
+            int x = cx + dx, y = cy + dy;
+            if (x < _x0 || y < _y0 || x >= _x0 + _w || y >= _y0 + _h || !RoadDone.Add(x * 65536 + y)) continue;
+            WorldTile tile = World.world.GetTile(x, y);
+            if (tile == null) continue;
+            if (_paintAdd ? CityPlanWorks.PaintRoad(_city, tile) : CityPlanWorks.EraseRoad(_city, tile)) _roadCount++;
+        }
+    }
+
+    // 一笔画完(松手、换工具、关窗)：城区整笔记作一步撤销(见 CityPlanEditing.BeginStroke)，路这一笔说一句铺了(擦了)几格；全图下一帧补画
     private static void EndPaint()
     {
         if (!_painting) return;
         _painting = false;
         _paintZone = null;
-        CityPlanEditing.EndStroke();
+        _panelAt = -100f;
+        if (!_roading)
+        {
+            CityPlanEditing.EndStroke();
+            return;
+        }
+        _roading = false;
+        RoadDone.Clear();
+        _roadLast = int.MinValue;
+        Say(_roadCount > 0 ? string.Format(LM.Get(_paintAdd ? "city_plan_ui_road_painted" : "city_plan_ui_road_erased"), _roadCount)
+            : LM.Get(_paintAdd ? "city_plan_ui_road_none" : "city_plan_ui_road_erase_none"));
     }
 
     // 屏幕点 → 预览上的格：RawImage 局部点 → 纹理像素 → 世界格(x0 + px/scale, y0 + py/scale)；Overlay 画布不传相机
@@ -773,7 +951,7 @@ public static class CityPlanScreen
             if (_over.enabled) _over.enabled = false;
             return;
         }
-        bool fresh = _baseSerial != _renderSerial || _baseTool != _tool || _base == null;
+        bool fresh = _baseSerial != _renderSerial || _baseTool != _tool || _baseKind != BaseKind() || _base == null;
         bool rebuilt = fresh || _baseDirty;
         if (rebuilt) BuildBase(fresh);
         int hover = HoverKey();
@@ -787,12 +965,16 @@ public static class CityPlanScreen
         _over.enabled = true;
     }
 
-    // 底层：每格一像素铺满预览范围；fresh(重画过、换了工具)时各地块重新问一遍
+    // 底层按哪种功能建筑铺(只有功能建筑工具的底层随种类变)
+    private static string BaseKind() => _tool == Tool.Building ? _buildKind : null;
+
+    // 底层：每格一像素铺满预览范围；fresh(重画过、换了工具或功能建筑种类)时各地块重新问一遍
     private static void BuildBase(bool fresh)
     {
         _baseDirty = false;
         _baseSerial = _renderSerial;
         _baseTool = _tool;
+        _baseKind = BaseKind();
         if (_overlay == null || _overlay.width != _w || _overlay.height != _h)
         {
             if (_overlay != null) Object.Destroy(_overlay);
@@ -839,24 +1021,55 @@ public static class CityPlanScreen
                     case Tool.Axis:
                         if (state.axis && (tile.x == state.axisX || tile.y == state.axisY)) color = AxisLine;
                         break;
+                    // 功能建筑：能盖的地块淡绿；拆：本城城区淡红；都带地块网格
+                    case Tool.Building:
+                        if ((Flags(zone) & FlagAllowed) != 0) color = AddTint;
+                        if (grid) color = GridLine;
+                        break;
+                    case Tool.Demolish:
+                    {
+                        int flags = Flags(zone);
+                        if ((flags & (FlagOwn | FlagTown)) == (FlagOwn | FlagTown)) color = EraseTint;
+                        if (grid) color = GridLine;
+                        break;
+                    }
+                    // 村镇、毁弃：本城城郊淡绿、城区灰
+                    case Tool.Settle:
+                    case Tool.Raze:
+                    {
+                        int flags = Flags(zone);
+                        if ((flags & FlagOwn) != 0) color = (flags & FlagTown) != 0 ? TownGray : AddTint;
+                        break;
+                    }
+                    // 画路、擦路：本城领地淡黄
+                    case Tool.Road:
+                    case Tool.RoadErase:
+                        if (zone.city == _city) color = RoadTint;
+                        break;
                 }
             }
             _base[y * _w + x] = color;
         }
     }
 
-    // 这块地能不能改、眼下是不是城区(一次底层重建里每块地只问一次)
+    // 这块地能不能改、眼下是不是城区、归不归本城、能不能盖眼下选的功能建筑(一次底层重建里每块地只问一次；
+    // 换工具、换种类、重画都清掉重问，见 UpdateOverlay)
     private static int Flags(TileZone zone)
     {
         if (zone == null) return 0;
         if (ZoneFlags.TryGetValue(zone.id, out int flags)) return flags;
-        flags = (CityPlanEditing.ZoneEditable(_city, zone) ? FlagEditable : 0) | (CityPlanEditing.InTown(_city, zone) ? FlagTown : 0);
+        flags = (CityPlanEditing.ZoneEditable(_city, zone) ? FlagEditable : 0) | (CityPlanEditing.InTown(_city, zone) ? FlagTown : 0) |
+                (zone.city == _city ? FlagOwn : 0);
+        if (_tool == Tool.Building && (flags & FlagOwn) != 0 && CityPlanEditing.BuildingAllowed(_city, zone, _buildKind)) flags |= FlagAllowed;
         ZoneFlags[zone.id] = flags;
         return flags;
     }
 
+    // 点格的工具(中轴、村镇、毁弃、路)按格换，点地块的按地块换
+    private static bool TileTool => _tool is Tool.Axis or Tool.Settle or Tool.Raze or Tool.Road or Tool.RoadErase;
+
     private static int HoverKey() => _hoverTile == null ? -1
-        : _tool == Tool.Axis ? _hoverTile.x * 65536 + _hoverTile.y : _hoverTile.zone?.id ?? -1;
+        : TileTool ? _hoverTile.x * 65536 + _hoverTile.y : _hoverTile.zone?.id ?? -1;
 
     private static void DrawHover()
     {
@@ -881,6 +1094,43 @@ public static class CityPlanScreen
                 for (int x = 0; x < _w; x++) _pixels[hy * _w + x] = CrossLine;
                 for (int y = 0; y < _h; y++) _pixels[y * _w + hx] = CrossLine;
                 _pixels[hy * _w + hx] = CrossCenter;
+                break;
+            }
+            // 功能建筑：能盖绿边、盖不了灰边；拆：本城城区红边，别处灰边
+            case Tool.Building:
+            {
+                bool allowed = (Flags(zone) & FlagAllowed) != 0;
+                OutlineZone(zone, allowed ? AddEdge : LockedEdge, allowed ? AddFill : LockedFill);
+                break;
+            }
+            case Tool.Demolish:
+            {
+                bool town = (Flags(zone) & (FlagOwn | FlagTown)) == (FlagOwn | FlagTown);
+                OutlineZone(zone, town ? EraseEdge : LockedEdge, town ? EraseFill : LockedFill);
+                break;
+            }
+            // 村镇、毁弃：本城城郊的地块描边(村镇绿、毁弃红)，城区与别处灰；光标那一格点亮(落点)
+            case Tool.Settle:
+            case Tool.Raze:
+            {
+                int flags = Flags(zone);
+                bool suburb = (flags & FlagOwn) != 0 && (flags & FlagTown) == 0, settle = _tool == Tool.Settle;
+                OutlineZone(zone, !suburb ? LockedEdge : settle ? AddEdge : EraseEdge, !suburb ? LockedFill : settle ? AddFill : EraseFill);
+                int hx = _hoverTile.x - _x0, hy = _hoverTile.y - _y0;
+                if (hx >= 0 && hy >= 0 && hx < _w && hy < _h) _pixels[hy * _w + hx] = CrossCenter;
+                break;
+            }
+            // 画路、擦路：笔刷那 3×3 格
+            case Tool.Road:
+            case Tool.RoadErase:
+            {
+                Color32 brush = _tool == Tool.Road ? RoadBrushColor : RoadEraseColor;
+                for (int dy = -RoadBrush; dy <= RoadBrush; dy++)
+                for (int dx = -RoadBrush; dx <= RoadBrush; dx++)
+                {
+                    int x = _hoverTile.x + dx - _x0, y = _hoverTile.y + dy - _y0;
+                    if (x >= 0 && y >= 0 && x < _w && y < _h) _pixels[y * _w + x] = brush;
+                }
                 break;
             }
         }
@@ -912,8 +1162,8 @@ public static class CityPlanScreen
         if (_tipText.text != text) _tipText.text = text;
         if (!_tip.gameObject.activeSelf) _tip.gameObject.SetActive(true);
         if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(_canvasRect, Input.mousePosition, null, out Vector2 local)) return;
-        // 靠右边时提示翻到光标左边
-        bool flip = local.x > _canvasRect.rect.xMax - 280f;
+        // 靠右边时提示翻到光标左边(多了一行建筑，提示可能更宽，按实际宽度算)
+        bool flip = local.x > _canvasRect.rect.xMax - Mathf.Max(280f, _tip.rect.width + 24f);
         _tip.pivot = new Vector2(flip ? 1f : 0f, 1f);
         _tip.anchoredPosition = local + new Vector2(flip ? -14f : 18f, -18f);
     }
@@ -927,17 +1177,46 @@ public static class CityPlanScreen
             case Tool.Zone:
             {
                 int flags = Flags(zone);
-                return LM.Get((flags & FlagEditable) == 0 ? "city_plan_ui_tip_locked"
-                    : (flags & FlagTown) != 0 ? "city_plan_ui_tip_remove" : "city_plan_ui_tip_add");
+                return WithInfo(zone, LM.Get((flags & FlagEditable) == 0 ? "city_plan_ui_tip_locked"
+                    : (flags & FlagTown) != 0 ? "city_plan_ui_tip_remove" : "city_plan_ui_tip_add"));
             }
             case Tool.Palace:
                 return LM.Get(zone.id == _palaceZone ? "city_plan_ui_tip_palace_here"
                     : zone.city == _city ? "city_plan_ui_tip_palace" : "city_plan_ui_tip_not_own");
             case Tool.Axis:
                 return LM.Get("city_plan_ui_tip_axis");
+            case Tool.Building:
+                if (zone.city != _city) return LM.Get("city_plan_ui_tip_not_own");
+                return WithInfo(zone, string.Format(LM.Get((Flags(zone) & FlagAllowed) != 0 ? "city_plan_ui_tip_build" : "city_plan_ui_tip_build_no"),
+                    LM.Get("city_plan_ui_b_" + _buildKind)));
+            case Tool.Demolish:
+                if (zone.city != _city) return LM.Get("city_plan_ui_tip_not_own");
+                return WithInfo(zone, LM.Get("city_plan_ui_tip_demolish"));
+            case Tool.Settle:
+            case Tool.Raze:
+            {
+                if (zone.city != _city) return LM.Get("city_plan_ui_tip_not_own");
+                bool town = (Flags(zone) & FlagTown) != 0, settle = _tool == Tool.Settle;
+                if (town) return LM.Get(settle ? "city_plan_ui_tip_settle_town" : "city_plan_ui_tip_raze_town");
+                return settle ? string.Format(LM.Get("city_plan_ui_tip_settle"), SettleName()) : LM.Get("city_plan_ui_tip_raze");
+            }
             default:
                 return null;
         }
+    }
+
+    // 悬停提示下面再写一行这块地的建筑(CityPlanEditing.ZoneInfo；没有就不写)
+    private static string WithInfo(TileZone zone, string line)
+    {
+        float now = Time.unscaledTime;
+        if (zone.id != _infoZone || _infoRevision != CityPlanEditing.Revision || now - _infoAt >= PanelSeconds)
+        {
+            _infoZone = zone.id;
+            _infoRevision = CityPlanEditing.Revision;
+            _infoAt = now;
+            _infoText = CityPlanEditing.ZoneInfo(_city, zone);
+        }
+        return string.IsNullOrEmpty(_infoText) ? line : line + "\n" + _infoText.ColorString("#B9C4C8");
     }
 
     #endregion
@@ -960,6 +1239,21 @@ public static class CityPlanScreen
         if (!string.IsNullOrEmpty(tip)) Say(tip);
         RefreshToolbar();
     }
+
+    // 营建(功能建筑、拆、村镇、毁弃、连路)：同 Act，人口、民居、城区容量跟着变，右栏当场刷新
+    private static void Works(string tip)
+    {
+        Act(tip);
+        RefreshPanel();
+    }
+
+    // 村镇工具眼下建哪种(厂区按档)、叫什么；厂区按钮上带当前档
+    private static string SettleKind() => _settleKind == "factory" ? FactoryKinds[Mathf.Clamp(_factory, 0, FactoryKinds.Length - 1)] : _settleKind;
+
+    private static string SettleName() => _settleKind == "factory" ? FactoryLabel() : LM.Get("city_plan_ui_s_" + _settleKind);
+
+    private static string FactoryLabel() =>
+        string.Format(LM.Get("city_plan_ui_s_factory"), LM.Get("city_plan_ui_s_factory_" + Mathf.Clamp(_factory, 0, FactoryKinds.Length - 1)));
 
     private static void Say(string text)
     {
@@ -1015,15 +1309,38 @@ public static class CityPlanScreen
         _fitBtn.Set(LM.Get("city_plan_ui_fit"), ViewColor, true);
         _undoBtn.Set(LM.Get("city_plan_ui_undo"), ViewColor, _editable);
         _resetBtn.Set(LM.Get("city_plan_ui_reset"), armed ? ActiveColor : ViewColor, _editable && CityPlanEditing.IsManual(_city));
+        // 营建行：选着的工具(种类)橙色
+        foreach ((string kind, Btn button) in BuildButtons)
+            button.Set(LM.Get("city_plan_ui_b_" + kind), _tool == Tool.Building && _buildKind == kind ? ActiveColor : WorksColor, _editable);
+        _demolishBtn.Set(LM.Get("city_plan_ui_demolish"), _tool == Tool.Demolish ? ActiveColor : WorksColor, _editable);
+        foreach ((string kind, Btn button) in SettleButtons)
+            button.Set(LM.Get("city_plan_ui_s_" + kind), _tool == Tool.Settle && _settleKind == kind ? ActiveColor : WorksColor, _editable);
+        _factoryBtn.Set(FactoryLabel(), _tool == Tool.Settle && _settleKind == "factory" ? ActiveColor : WorksColor, _editable);
+        _razeBtn.Set(LM.Get("city_plan_ui_raze"), _tool == Tool.Raze ? ActiveColor : WorksColor, _editable);
+        _roadBtn.Set(LM.Get("city_plan_ui_road"), _tool == Tool.Road ? ActiveColor : WorksColor, _editable);
+        _roadEraseBtn.Set(LM.Get("city_plan_ui_road_erase"), _tool == Tool.RoadErase ? ActiveColor : WorksColor, _editable);
+        _connectBtn.Set(LM.Get("city_plan_ui_connect"), WorksColor, _editable);
     }
 
-    private static string ToolHint() => LM.Get(_tool switch
+    // 状态栏里当前工具怎么用；营建工具后面再说一句营建撤销不了
+    private static string ToolHint()
     {
-        Tool.Zone => "city_plan_ui_hint_zone",
-        Tool.Palace => "city_plan_ui_hint_palace",
-        Tool.Axis => "city_plan_ui_hint_axis",
-        _ => "city_plan_ui_hint_view"
-    });
+        string hint = _tool switch
+        {
+            Tool.Zone => LM.Get("city_plan_ui_hint_zone"),
+            Tool.Palace => LM.Get("city_plan_ui_hint_palace"),
+            Tool.Axis => LM.Get("city_plan_ui_hint_axis"),
+            Tool.Building => string.Format(LM.Get("city_plan_ui_hint_building"), LM.Get("city_plan_ui_b_" + _buildKind)),
+            Tool.Demolish => LM.Get("city_plan_ui_hint_demolish"),
+            Tool.Settle when _settleKind == "factory" => string.Format(LM.Get("city_plan_ui_hint_factory"), SettleName()),
+            Tool.Settle => string.Format(LM.Get("city_plan_ui_hint_settle"), SettleName()),
+            Tool.Raze => LM.Get("city_plan_ui_hint_raze"),
+            Tool.Road => LM.Get("city_plan_ui_hint_road"),
+            Tool.RoadErase => LM.Get("city_plan_ui_hint_road_erase"),
+            _ => LM.Get("city_plan_ui_hint_view")
+        };
+        return _tool >= Tool.Building ? hint + "  " + LM.Get("city_plan_ui_works_no_undo").ColorString("#C9A76B") : hint;
+    }
 
     // 状态栏：刚返回的提示 > 改不了的原因 > 当前工具怎么用
     private static void UpdateStatus()
@@ -1036,6 +1353,14 @@ public static class CityPlanScreen
 
     private static string PeopleLine(City city) => string.Format(LM.Get("city_window_people"),
         Mathf.RoundToInt(CityPopulationSystem.GetTotal(city)), CityPopulationSystem.Households(city), city.getPopulationMaximum());
+
+    // 城区容量：城区几块、能放几座建筑、民居盖了几座/能盖几座(城区并入当场盖满、划出当场拆，见 CityPlanEditing.Capacity)
+    private static string CapacityLine(City city)
+    {
+        if (!CityPlanEditing.Editable(city, out _)) return null;
+        (int zones, int slots, int houses, int housesMax) = CityPlanEditing.Capacity(city);
+        return string.Format(LM.Get("city_plan_ui_capacity"), zones, slots, houses, housesMax);
+    }
 
     // 标题与右栏文字(每秒一次，营建、城貌按过当场)：取数同城池小窗口(CityStyleWindow.Draw)
     private static void RefreshPanel()
@@ -1070,6 +1395,9 @@ public static class CityPlanScreen
                 : string.Format(LM.Get("city_window_trades"), string.Join(LM.Get("city_window_trades_separator"), trades))).ColorString("#7FD8EA"),
             _styleLine.ColorString("#65D66E")
         };
+        // 城区容量接在民居那行后面(纯净地图没开、城没了时不写)
+        string capacity = CapacityLine(city);
+        if (capacity != null) lines.Insert(3, capacity.ColorString("#F2EEE2"));
         if (target != null)
             lines.Add(string.Format(LM.Get("city_style_rebuilding"), CityStyleSystem.StyleName(target), Mathf.RoundToInt(progress * 100f))
                 .ColorString("#E9A85B"));
@@ -1086,9 +1414,10 @@ public static class CityPlanScreen
         }
     }
 
-    // 营建、城貌动了城里的房子与画法：右栏当场刷新，全图下一帧重画
+    // 营建、城貌动了城里的房子与画法：知会平面图重算(CityPlanEditing.Touch)，右栏当场刷新，全图下一帧重画
     private static void AfterWorks()
     {
+        if (_city != null) CityPlanEditing.Touch(_city);
         _renderDue = true;
         RefreshPanel();
     }

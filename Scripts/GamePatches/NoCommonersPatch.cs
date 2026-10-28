@@ -59,7 +59,7 @@ public class NoCommonersPatch : GamePatch
         }
         try
         {
-            // 耕地红线：规划农田区里不盖建筑
+            // 耕地红线：规划农田区里不盖建筑；手动城区的城只在城区里盖(见 CityZoningSystem)
             new Harmony(nameof(NoCommonersPatch) + ".Farmland").Patch(
                 AccessTools.Method(typeof(City), nameof(City.planAllowsToPlaceBuildingInZone)),
                 postfix: new HarmonyMethod(typeof(NoCommonersPatch), nameof(AfterPlanAllowsBuilding)));
@@ -222,13 +222,20 @@ public class NoCommonersPatch : GamePatch
 
     // 民居上限：原版每块地许盖一座民居(文化特性另乘)，这里每块地按宜居度折算——草地、可耕地算一整块，
     // 沙漠、荒原、山石只算零点几块(见 TerrainSystem.Livability；用户 2026-10-22 见荒漠帐地大房多、人比中原还多)；
-    // 篝火、水井、神殿这些建筑许的民居照旧。再 × (1 + 富庶度)：最富的城可以盖到两倍的民居
+    // 篝火、水井、神殿这些建筑许的民居照旧。再 × (1 + 富庶度)：最富的城可以盖到两倍的民居。
+    // 手动城区的城(城池全图里改过规划，见 CityZoningSystem)：城区建筑位 − 非民居建筑，不看宜居、富庶，由玩家定
     public static void AfterRecalculateMaxHouses(City __instance)
     {
         using var timing = FrameProfiler.Measure("建造钩子·房屋上限加成");
-        if (!CityPopulationSystem.AbstractPopulationEnabled || __instance?.status == null || __instance.zones == null ||
+        if (__instance?.status == null || __instance.zones == null ||
             EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance) ||
             DebugConfig.isOn(DebugOption.CityUnlimitedHouses)) return;
+        if (CityZoningSystem.Manual(__instance))
+        {
+            __instance.status.houses_max = Mathf.Max(0, CityZoningSystem.HousesMax(__instance));
+            return;
+        }
+        if (!CityPopulationSystem.AbstractPopulationEnabled) return;
         float livable = TerrainSystem.CityLivability(__instance);
         float perZone = 1f;
         if (__instance.hasCulture())
@@ -276,9 +283,15 @@ public class NoCommonersPatch : GamePatch
         return false;
     }
 
+    // 耕地红线：规划农田区里不盖建筑；手动城区的城(见 CityZoningSystem)：只在城区里还有空位的地块上盖
     public static void AfterPlanAllowsBuilding(City __instance, TileZone pZone, ref bool __result)
     {
         if (!__result || pZone == null || __instance == null) return;
+        if (!CityZoningSystem.AllowsBuilding(__instance, pZone))
+        {
+            __result = false;
+            return;
+        }
         if (FarmlandSystem.IsProtected(__instance) && FarmlandSystem.IsPlanned(__instance, pZone) &&
             FarmlandSystem.HasFarmArea(__instance, pZone)) __result = false;
     }

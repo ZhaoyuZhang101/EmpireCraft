@@ -173,7 +173,8 @@ public partial class PureMapPatch : GamePatch
         for (int i = 0; i < slots.Length; i++)
         {
             if (!slots[i].used || plan.ruin > 0f && Hash01(zone.id * 4L + i + 7L) < plan.ruin) continue;
-            int x = ox + i % 2 * 4 + 2, y = oy + i / 2 * 4 + 2;
+            Vector2 spot = SlotSpot(i);
+            int x = ox + (int)spot.x, y = oy + (int)spot.y;
             WorldTile at = World.world.GetTile(x, y);
             if (at != null && !UrbanFabric.InTown(plan.fabric, at)) continue;
             lights ??= new List<(Vector2, float)>(slots.Length);
@@ -286,6 +287,7 @@ public partial class PureMapPatch : GamePatch
         RoadNetwork.Tick();
         RuralSettlementSystem.Tick();
         FactorySystem.Tick();
+        CityZoningSystem.Tick();
     }
 
     // 平面图的指纹：画出来的样子会变的东西都算进去
@@ -568,6 +570,26 @@ public partial class PureMapPatch : GamePatch
         // 手动规划(见 ApplyManual)：手动并入城区的地块(整块画成城区)、坊市疏密(0 照常，1 密，2 疏，见 PureMapPatch.Detail 的 Subdivide)
         public readonly HashSet<int> forced = new();
         public int blocks;
+        // 每块地几个建筑位：自动的城 4；手动城区的城照坊市疏密 4、6、3(见 CityZoningSystem.SlotsPerZone、SlotIndex)
+        public int slotCount = 4;
+    }
+
+    // 一块地里第几个建筑位的中心(地块内的格坐标，粗图、灯光、标注用)：前四个是四角的街区(西南、东南、西北、东北)，
+    // 坊市密的第五、六个在正中一列的南、北(粗图只画得下四角，五、六只在精细图里画，见 SlotIndex)
+    private static Vector2 SlotSpot(int index)
+    {
+        int half = Config.CITY_ZONE_SIZE / 2;
+        if (index >= 4) return new Vector2(half, (index - 4) * half + half / 2f);
+        return new Vector2(index % 2 * half + half / 2f, index / 2 * half + half / 2f);
+    }
+
+    // 精细图里一块宅基地(落在地块内 lx、ly 格)用第几个建筑位：四个位的按四角；六个位的(坊市密)东西两边按四角、正中一列(lx 3~5)
+    // 南北各一个；三个位的(坊市疏)东北角那个位空着，多半画成树、园子、菜地(见 PureMapPatch.Detail 的 Lot)
+    private static int SlotIndex(int count, int lx, int ly)
+    {
+        int half = Config.CITY_ZONE_SIZE / 2, row = ly >= half ? 1 : 0;
+        if (count >= 6 && lx >= half - 1 && lx <= half + 1) return 4 + row;
+        return row * 2 + (lx >= half ? 1 : 0);
     }
 
     // 本城平面图的指纹(没有城为 0)
@@ -710,6 +732,9 @@ public partial class PureMapPatch : GamePatch
     private static CityPlan CachedPlan(City city) =>
         city?.data != null && Plans.TryGetValue(city.data.id, out CityPlan plan) && ReferenceEquals(plan.city, city) ? plan : null;
 
+    // 已经算好的平面图的城市肌理(城郊的路、村镇小路；城池全图一键连路沿着它走，见 CityPlanWorks)：不现算，没有为 null
+    internal static UrbanFabric.Geometry FabricOf(City city) => CachedPlan(city)?.fabric;
+
     // 按轮重建(见 RefreshUrbanSlice)：丢掉旧的现算一份，顺带记下指纹
     private static CityPlan RebuildPlan(City city)
     {
@@ -740,17 +765,22 @@ public partial class PureMapPatch : GamePatch
         if (peak.urban_peak_progress >= 1f) industryEra = 2;
         else if (peak.urban_peak_progress > 0f) industryEra = Mathf.Max(industryEra, 1);
         int modern = industryEra >= 2 ? 1 : 0;
-        // 各类建筑数(按数据)；没装工厂模组时的虚拟工厂也算
+        // 手动城区(见 CityZoningSystem)：建筑按实际所在的地块画，每块地的建筑位照坊市疏密；自动的城为 null
+        HashSet<int> urban = CityZoningSystem.UrbanSet(city);
+        plan.slotCount = urban != null ? CityZoningSystem.SlotsPerZone(city) : 4;
+        // 各类建筑数(按数据；正在拆的不算)；没装工厂模组时的虚拟工厂也算
         var counts = new Dictionary<Kind, int>();
         foreach (Kind kind in Enum.GetValues(typeof(Kind))) counts[kind] = 0;
+        var standing = new List<Building>();
         foreach (Building building in city.buildings ?? new List<Building>())
         {
-            if (building?.asset == null || building.isRekt() || building.isUnderConstruction() ||
-                building.asset.building_type != BuildingType.Building_Civ || PureMapMode.IsDecor(building.asset)) continue;
+            if (!Drawn(building)) continue;
             counts[KindOf(building.asset)]++;
+            standing.Add(building);
         }
         counts[Kind.Industry] += VirtualIndustrySystem.Factories(city);
-        counts[Kind.Civic] = Mathf.Min(counts[Kind.Civic], MaxCivic);
+        // 官署至多画两座；手动城区的城每座都占一个建筑位，照实画
+        if (urban == null) counts[Kind.Civic] = Mathf.Min(counts[Kind.Civic], MaxCivic);
         // 排队：民居从最高代排起(城心先放)，城越大最高代的楼越多
         var queues = new Dictionary<Kind, Queue<string>>();
         foreach (Kind kind in Enum.GetValues(typeof(Kind))) queues[kind] = new Queue<string>();
@@ -770,6 +800,12 @@ public partial class PureMapPatch : GamePatch
         TileZone centerZone = city.getTile()?.zone;
         List<TileZone> zones = city.zones.Where(zone => zone != null).OrderBy(zone => centerZone == null ? 0
             : (zone.x - centerZone.x) * (zone.x - centerZone.x) + (zone.y - centerZone.y) * (zone.y - centerZone.y)).ToList();
+        if (urban != null)
+        {
+            PlaceActual(plan, standing, queues, zones, urban, centerZone);
+            Layout(plan, city, culture, centerZone);
+            return plan;
+        }
         // 自动规划按城的格局(用户 2026-10-16 选"自动规划按时代")：方格城是坊市制，自然生长的城城心是集市(见 AutoWants)
         string established = CityStyleSystem.Established(city);
         bool grid = StyleOf(established)?.Layout is "grid" or "canal";
@@ -821,6 +857,8 @@ public partial class PureMapPatch : GamePatch
         (plan.target, plan.rebuild) = CityStyleSystem.Rebuild(city);
         CityExtension.CityExtraData extra = city.GetOrCreate();
         foreach (int id in plan.zones.Keys) plan.built.Add(id);
+        // 手动城区：城区地块(没有建筑的也算)一开始就算建成，城墙、中轴、宫城按它定，埃及的金字塔不落在城区里
+        if (CityZoningSystem.UrbanSet(city) is HashSet<int> urban) plan.built.UnionWith(urban);
         plan.factories.AddRange(FactorySystem.InCity(city));
         if (centerZone != null && centerZone.city == city) plan.built.Add(centerZone.id);
         bool camp = Camp(plan.family);
@@ -908,7 +946,7 @@ public partial class PureMapPatch : GamePatch
         int townX = plan.gateX, townY = plan.gateY;
         ApplyManual(plan, city, extra);
         plan.fabric = UrbanFabric.Build(city, plan.built, plan.landmark, plan.family, culture, plan.gateX, plan.gateY,
-            plan.forced, townX, townY);
+            plan.forced, townX, townY, extra.plan_urban != null);
     }
 
     // 画不画宫城：大城的都城、皇宫(帝国核心的默认首都)照旧画。易主不拆宫城(用户 2026-10-20 "游牧入主中原这种情况，不能改变中原
@@ -953,10 +991,70 @@ public partial class PureMapPatch : GamePatch
     // 0~1 的稳定散列(地块、街区按它决定先后转现代、是否成废墟)
     private static float Hash01(long value) => (uint)(value * 2654435761L) / 4294967296f;
 
+    // 平面图上画的建筑：建成的城市建筑(纯装饰、在建、正在拆的不画)
+    private static bool Drawn(Building building) =>
+        building?.asset != null && !building.isRekt() && !building.isOnRemove() && !building.isUnderConstruction() &&
+        building.asset.building_type == BuildingType.Building_Civ && !PureMapMode.IsDecor(building.asset);
+
+    // 手动城区的城(见 CityZoningSystem)：各建筑按实际所在的地块放进那块地的建筑位，离城心近的先放(民居照排好的代数由高到低)；
+    // 不在城区的、不占建筑位的(仓库、矿场之类，见 CityZoningSystem.Managed)、没有实际位置的(虚拟工厂)放进离它最近、还有空位的城区地块，
+    // 都满了就不画。城区地块整块算城区(见 ApplyManual)，没有建筑的城区地块也画成城区
+    private static void PlaceActual(CityPlan plan, List<Building> standing, Dictionary<Kind, Queue<string>> queues, List<TileZone> zones,
+        HashSet<int> urban, TileZone centerZone)
+    {
+        var rank = new Dictionary<int, int>();
+        for (int i = 0; i < zones.Count; i++) rank[zones[i].id] = i;
+        int RankOf(Building building) =>
+            building.current_tile?.zone is TileZone zone && rank.TryGetValue(zone.id, out int r) ? r : int.MaxValue;
+        standing.Sort((a, b) => RankOf(a).CompareTo(RankOf(b)));
+        var spill = new List<(string icon, TileZone near)>();
+        foreach (Building building in standing)
+        {
+            Queue<string> queue = queues[KindOf(building.asset)];
+            if (queue.Count == 0) continue;
+            string icon = queue.Dequeue();
+            TileZone zone = building.current_tile?.zone;
+            if (zone != null && urban.Contains(zone.id) && CityZoningSystem.Managed(building) && PutSlot(plan, zone.id, icon)) continue;
+            spill.Add((icon, zone));
+        }
+        // 没有实际位置的(虚拟工厂)
+        foreach (Queue<string> queue in queues.Values)
+            while (queue.Count > 0) spill.Add((queue.Dequeue(), null));
+        foreach ((string icon, TileZone near) in spill)
+        {
+            TileZone from = near ?? centerZone;
+            TileZone best = null;
+            int bestDistance = int.MaxValue;
+            foreach (TileZone zone in zones)
+            {
+                if (!urban.Contains(zone.id) || plan.zones.TryGetValue(zone.id, out Slot[] used) && Array.TrueForAll(used, slot => slot.used))
+                    continue;
+                int distance = from == null ? 0 : (zone.x - from.x) * (zone.x - from.x) + (zone.y - from.y) * (zone.y - from.y);
+                if (distance >= bestDistance) continue;
+                bestDistance = distance;
+                best = zone;
+            }
+            if (best != null) PutSlot(plan, best.id, icon);
+        }
+    }
+
+    // 放进这块地头一个空着的建筑位；满了返回 false
+    private static bool PutSlot(CityPlan plan, int zoneId, string icon)
+    {
+        if (!plan.zones.TryGetValue(zoneId, out Slot[] slots)) plan.zones[zoneId] = slots = new Slot[plan.slotCount];
+        for (int i = 0; i < slots.Length; i++)
+        {
+            if (slots[i].used) continue;
+            slots[i] = new Slot { icon = icon, used = true };
+            return true;
+        }
+        return false;
+    }
+
     private static void Fill(CityPlan plan, TileZone zone, Dictionary<Kind, Queue<string>> queues, Kind[] wants)
     {
         if (wants.Length == 0) return;
-        if (!plan.zones.TryGetValue(zone.id, out Slot[] slots)) slots = new Slot[4];
+        if (!plan.zones.TryGetValue(zone.id, out Slot[] slots)) slots = new Slot[plan.slotCount];
         bool changed = false;
         for (int i = 0; i < slots.Length; i++)
         {

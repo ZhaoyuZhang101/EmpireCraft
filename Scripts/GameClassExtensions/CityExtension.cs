@@ -174,6 +174,19 @@ public static class CityExtension
         public bool ShouldSerializeplan_axis_y() => plan_axis_x != int.MinValue;
         public bool ShouldSerializeplan_blocks() => plan_blocks != 0;
         public bool ShouldSerializeplan_seed_offset() => plan_seed_offset != 0L;
+        // 手动城区(见 CityZoningSystem；用户 2026-10-28 "要实际改变实际领地的……修建的建筑都会改变实际人口也会影响城市功能的")：
+        // 城里能盖房的地块(地块 id)。null 为自动(旧档没有)；在城池全图里头一回改规划时按当时画成城区的地块记下，
+        // 之后城长大不自己扩城区，原版建筑只盖在这些地块上，交还规矩才清掉。改了它的同时上面的并入、划出两项不再起作用
+        public List<int> plan_urban;
+        public bool ShouldSerializeplan_urban() => plan_urban != null;
+        // 城池全图真筑的城墙(见 CityPlanWorks.SyncWalls；用户 2026-10-28 "城墙变真的")：编辑器筑下的图层城墙格(格编号，拆时只拆这些)、
+        // 城门格(城墙上的关门，本方与友邦放行)、这一圈的指纹(0 没筑)。旧档没有这几项，都是空的
+        public List<int> plan_wall_tiles;
+        public List<int> plan_gate_tiles;
+        public int plan_wall_key;
+        public bool ShouldSerializeplan_wall_tiles() => plan_wall_tiles != null && plan_wall_tiles.Count > 0;
+        public bool ShouldSerializeplan_gate_tiles() => plan_gate_tiles != null && plan_gate_tiles.Count > 0;
+        public bool ShouldSerializeplan_wall_key() => plan_wall_key != 0;
         public int massacre_victims;
         public double massacre_last = -1d;
         // 战时中央代管(见 WartimeCustodySystem)：打下本城的成员国、原属国、所在战争；-1 = 不在代管中
