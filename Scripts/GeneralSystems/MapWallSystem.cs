@@ -9,6 +9,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 图层城墙按像素画成长城的样子(见 MapWallOverlay)，路网与城郊的路绕开它(见 RoadNetwork、UrbanFabric)。
 // 关掉纯净地图后读档，图层城墙还原成原版的城墙格，玩家画的城墙不会丢。
 // 关城压着的城墙格是关门(见 WallGateSystem)：数据照旧留着，路从这里过墙；普通地图下这几格的原版城墙让开，关城没了再合上。
+// 城池全图开了城墙的城(见 CityPlanWorks.SyncWalls)沿城区外沿真筑一圈图层城墙(Add)，与神力画的一样挡兵、关上普通地图后还原成原版城墙；
+// 四门是关门；这一圈由城市平面图画(MapWallOverlay 不再画成长城)。
 public static class MapWallSystem
 {
     // 格编号 → 原版城墙种类(顶层格 id)，随存档保存(SaveData.map_walls)
@@ -26,6 +28,9 @@ public static class MapWallSystem
     public static int Revision { get; private set; }
 
     public static IReadOnlyDictionary<int, string> Walls => _walls;
+
+    // 读档后已同步过(纯净地图下原版城墙都转成了图层城墙)：这之前城墙数据不全，城池全图不对账(见 CityPlanWorks)
+    public static bool Ready => _synced && ReferenceEquals(_world, World.world);
 
     public static bool Contains(int tileId) => _walls.Count > 0 && _walls.ContainsKey(tileId);
 
@@ -48,6 +53,7 @@ public static class MapWallSystem
         _synced = false;
         Version++;
         Revision++;
+        CityPlanWorks.ResetWorldState();
     }
 
     public static void Load(Dictionary<int, string> saved)
@@ -58,6 +64,7 @@ public static class MapWallSystem
         _synced = false;
         Version++;
         Revision++;
+        CityPlanWorks.ResetWorldState();
     }
 
     public static Dictionary<int, string> Save() => _walls;
@@ -76,6 +83,8 @@ public static class MapWallSystem
         if (!_synced)
         {
             _synced = true;
+            // 各城城池全图筑的城门按城的存档重收(读档途中收的可能还缺城)，再转换、还原(还原时城门要让开)
+            CityPlanWorks.ResetWorldState();
             if (PureMapMode.Enabled) ConvertAll();
             else RestoreAll();
             return;
@@ -85,7 +94,9 @@ public static class MapWallSystem
             _dirty = false;
             Changed();
         }
-        // 关门变了(筑关、毁关、升级、画墙穿过关城、关城那片地易主)：重画城墙、重新找路；普通地图下原版城墙跟着让开、合上
+        // 城池全图开了城墙的城：城区、城墙开关变了就重筑、拆(隔几秒对一次账，见 CityPlanWorks)
+        CityPlanWorks.Tick();
+        // 关门变了(筑关、毁关、升级、画墙穿过关城、关城那片地易主、城池全图的城门)：重画城墙、重新找路；普通地图下原版城墙跟着让开、合上
         // (关门没变、只是在关门上又画了一道原版城墙的，也要让开)
         bool gatesChanged = WallGateSystem.Refresh();
         if (!PureMapMode.Enabled && (gatesChanged || _vanillaDrawn)) SyncVanillaGates();
@@ -115,6 +126,23 @@ public static class MapWallSystem
     public static bool Remove(WorldTile tile)
     {
         if (_converting || tile?.data == null || !_walls.Remove(tile.data.tile_id)) return false;
+        Revision++;
+        _dirty = true;
+        if (tile.zone != null)
+        {
+            TerrainSystem.Invalidate(tile.zone);
+            TerrainResistance.InvalidateWall(tile.zone);
+        }
+        return true;
+    }
+
+    // 筑一格图层城墙(城池全图筑城墙，见 CityPlanWorks.SyncWalls)：只在纯净地图下(普通地图下城墙是原版的格子，读档时才转换)；
+    // 水、岩浆上不筑，已有城墙(图层的或原版的)的格不动；筑上了返回 true。同 Remove，路网、关门、城墙阻力与军团过墙下一帧跟着重算
+    public static bool Add(WorldTile tile, string type)
+    {
+        if (_converting || !PureMapMode.Enabled || tile?.data == null || tile.Type == null || tile.Type.liquid || tile.Type.lava ||
+            tile.Type.wall || string.IsNullOrEmpty(type) || _walls.ContainsKey(tile.data.tile_id)) return false;
+        _walls[tile.data.tile_id] = type;
         Revision++;
         _dirty = true;
         if (tile.zone != null)

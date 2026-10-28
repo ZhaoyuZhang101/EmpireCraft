@@ -15,6 +15,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //       - 再在走廊(路线经过的地块及其一圈)里按格子寻路：山、高峰、原版城墙的格子一律不走，丘陵可以走(代价加倍)，
 //         过河过湖算架桥(代价高，画成桥)，已有的路便宜；城墙是一格宽的线，横在走廊里绕不过去时把走廊放宽到三圈再找，
 //         还绕不过(山挡住、城被墙围死)的不修；城墙上筑了关城的，路从关门过墙(见 WallGateSystem)；斜接的城墙缝钻不过去；
+//         城池全图筑了城墙的城从城门进出，城门离走廊远的把两头城的地全算进走廊再找(见 CityPlanWorks)；
 //     规划好的路要各国出钱修、每年出钱养(见 RoadBuildingSystem)，修通的路才画出来、才能走；
 //     行军(见 CorpsSystem)：寻路时路上的地块代价低、路外按兵种加价，路外行军按兵种打折(见 CorpsArmSystem.OffRoad)；城心也算有路。
 //   · 海路：港口城之间的航线——每座港口连最近的两座港口，另连一座别的陆地上最近的港口。按地块在海面上寻路，
@@ -393,8 +394,11 @@ public static class RoadNetwork
         route.terrain = Mathf.Max(1f, terrain);
         route.straight = Mathf.Max(1f, Distance(from.zone, goal));
         if (route.terrain > route.straight * RoadBuildingSystem.DetourLimit(RoadBuildingSystem.MaxGrade)) return route;
-        // 格子一级：走廊里绕不过山的不修
+        // 格子一级：走廊里绕不过山的不修。城池全图筑了城墙的城只从城门进出(见 CityPlanWorks)，大城的城门可能在走廊三圈以外，
+        // 再把两头城的地全算进走廊找一回
         List<WorldTile> tiles = FindTiles(from, to, Corridor(path, 1)) ?? FindTiles(from, to, Corridor(path, WideCorridor));
+        if (tiles == null && (CityPlanWorks.Walled(from.zone?.city) || CityPlanWorks.Walled(to.zone?.city)))
+            tiles = FindTiles(from, to, WithCities(Corridor(path, WideCorridor), from, to));
         if (tiles == null) return new RoadPlan { at = now };
         foreach (WorldTile tile in tiles)
             if (tile.zone != null && (route.zones.Count == 0 || route.zones[route.zones.Count - 1] != tile.zone.id) &&
@@ -449,6 +453,19 @@ public static class RoadNetwork
             for (int dx = -ring; dx <= ring; dx++)
                 for (int dy = -ring; dy <= ring; dy++)
                     if (zones.getZone(zone.x + dx, zone.y + dy) is TileZone next) corridor.Add(next.id);
+        return corridor;
+    }
+
+    // 走廊加上两头城的全部地块(城门落在本城的地上)
+    private static HashSet<int> WithCities(HashSet<int> corridor, WorldTile from, WorldTile to)
+    {
+        foreach (WorldTile end in new[] { from, to })
+        {
+            City city = end?.zone?.city;
+            if (city?.zones == null) continue;
+            foreach (TileZone zone in city.zones)
+                if (zone != null) corridor.Add(zone.id);
+        }
         return corridor;
     }
 

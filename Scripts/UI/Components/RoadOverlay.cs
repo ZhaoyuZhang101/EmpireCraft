@@ -28,6 +28,10 @@ public static class RoadOverlay
     private const int MajorGrade = 3;
     // 描边(驿道以上)
     private static readonly Color32 Casing = new(110, 92, 74, 120);
+
+    // 各级路的颜色、描边(城池全图的预览照这个画，见 CityPlanWorks.DrawOverPreview)
+    internal static Color32 GradeColor(int grade) => Grades[Mathf.Clamp(grade, 1, Grades.Length - 1)];
+    internal static Color32 CasingColor => Casing;
     private static object _layer;
     private static int _layerOption = -1;
 

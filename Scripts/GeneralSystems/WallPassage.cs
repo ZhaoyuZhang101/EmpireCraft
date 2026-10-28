@@ -14,7 +14,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     走不到、但打开某座关城的关门(关城压着的城墙格，见 WallGateSystem)就走得到——隔墙有关门，记下是哪座关城；
 //     开哪座关城都走不到——隔墙无关门。没有主体的地块：两块里有关门算有关门，否则隔墙；
 //   · 关门放行同 WallGateSystem.LetsThrough，按关城所在那块地：它的控制者(被敌军占着就是占领者)与同一势力、
-//     并肩作战的友邦、同盟才放，别人(连同不知是谁的)不放——关城那块地易手，关门就归新主人。
+//     并肩作战的友邦、同盟才放，别人(连同不知是谁的)不放——关城那块地易手，关门就归新主人；
+//     城池全图筑的城墙上的城门(见 CityPlanWorks)同关门，按城门所在那块地放行。
 // 用的地方：军团寻路(CorpsSystem.FindPath / Nearer / NextStep，飞机不受限，海上运兵不受影响)、
 //   战线隔城墙攻坚(FrontSystem.WallBetween)。纯净地图与普通地图都一样判(普通地图下原版城墙格本来就挡人)。
 // 每对地块算一次记下(地块编号 × 9 个方向的一张表，查表 O(1))；有城墙的地块先列一张表，窗口里都没有城墙的直接算不隔墙。
@@ -353,7 +354,8 @@ public static class WallPassage
         return mask;
     }
 
-    // 关门归哪座关城：方城(中心起 WallGateSystem.Reach 格)盖着它、同一座城的那座(同 WallGateSystem 的算法)；返回关城所在地块
+    // 关门归哪座关城：方城(中心起 WallGateSystem.Reach 格)盖着它、同一座城的那座(同 WallGateSystem 的算法)；返回关城所在地块。
+    // 城池全图筑的城门没有关城，返回城门所在的地块
     private static TileZone KeeperOf(WorldTile tile)
     {
         if (_forts == null)
@@ -372,7 +374,8 @@ public static class WallPassage
         if (at == null) return null;
         foreach ((int x, int y, int reach, City city, TileZone zone) in _forts)
             if (city == at && Math.Abs(tile.x - x) <= reach && Math.Abs(tile.y - y) <= reach) return zone;
-        return null;
+        // 城池全图筑的城墙上的城门(见 CityPlanWorks)：守门的是城门所在那块地(被敌军占着就归占领者)
+        return WallGateSystem.IsCityGate(tile) ? tile.zone : null;
     }
 
     // 地块的主体：非城墙格里最大的一片(四方向连通)；一样大取先找到的

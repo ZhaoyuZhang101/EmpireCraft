@@ -9,7 +9,8 @@ namespace EmpireCraft.Scripts.UI.Components;
 // (不是一串虚点)；隔六格左右一座敌楼(3×3 的方台：深色外圈、浅色楼顶)；东南一侧落一道影子。单独一张与地图等大的贴图，盖在色块与路网之上(无主的荒地、山上也画得出)，远近都画——
 // 长城是地标，拉远也看得见。城墙变了才重画
 // 关城压在城墙上是关门(见 WallGateSystem)：关城方城那几格不画墙身、影子、转角砖，城墙画到关城两侧，关城(画在色块与精细层里)露出来；
-// 敌楼离关城至少 TowerSpacing 格
+// 敌楼离关城至少 TowerSpacing 格。
+// 城池全图真筑的城墙(见 CityPlanWorks)：城市平面图本来就画着这一圈城墙(城门楼、墩台)，这里不再画成长城，免得画两遍
 public static class MapWallOverlay
 {
     private static readonly Color32 StoneLight = new(214, 204, 180, 255), StoneDark = new(172, 160, 134, 255),
@@ -78,7 +79,10 @@ public static class MapWallOverlay
         Painted.Clear();
         WorldTile[] tiles = World.world.tiles_list;
         var walls = new List<int>(MapWallSystem.Walls.Keys);
+        // 城池全图筑的城墙归城市平面图画
+        walls.RemoveAll(CityPlanWorks.Planned);
         walls.Sort();
+        bool Wall(WorldTile tile) => MapWallSystem.Contains(tile) && !CityPlanWorks.Planned(tile.data.tile_id);
         // 关城方城那几格让给关城
         bool Covered(WorldTile tile) => gates && tile?.data != null && WallGateSystem.Covered(tile.data.tile_id);
         // 影子：墙东南一格
@@ -118,7 +122,7 @@ public static class MapWallOverlay
         {
             WorldTile tile = Tile(tiles, id);
             if (tile == null || Covered(tile)) continue;
-            Paint(id, (tile.x + tile.y) % 2 == 0 ? StoneLight : StoneDark);
+            Paint(id, StoneAt(tile.x, tile.y));
         }
         // 转角砖：两格墙只斜着相连(中间两格都不是墙)时补上一格，墙身连成一线
         foreach (int id in walls)
@@ -128,9 +132,9 @@ public static class MapWallOverlay
             for (int dx = -1; dx <= 1; dx += 2)
             {
                 WorldTile diagonal = World.world.GetTile(tile.x + dx, tile.y + 1);
-                if (diagonal == null || !MapWallSystem.Contains(diagonal)) continue;
+                if (diagonal == null || !Wall(diagonal)) continue;
                 WorldTile side = World.world.GetTile(tile.x + dx, tile.y), up = World.world.GetTile(tile.x, tile.y + 1);
-                if (side == null || up == null || MapWallSystem.Contains(side) || MapWallSystem.Contains(up)) continue;
+                if (side == null || up == null || Wall(side) || Wall(up)) continue;
                 WorldTile corner = side.Type?.liquid != true ? side : up;
                 if (!Covered(corner)) Paint(corner.data.tile_id, StoneDark);
             }
@@ -149,6 +153,9 @@ public static class MapWallOverlay
         _texture.SetPixels32(_pixels);
         _texture.Apply(false);
     }
+
+    // 墙身的颜色：垛口一明一暗(城池全图的预览照这个画，见 CityPlanWorks.DrawOverPreview)
+    internal static Color32 StoneAt(int x, int y) => (x + y) % 2 == 0 ? StoneLight : StoneDark;
 
     private static WorldTile Tile(WorldTile[] tiles, int id) => tiles != null && id >= 0 && id < tiles.Length ? tiles[id] : null;
 

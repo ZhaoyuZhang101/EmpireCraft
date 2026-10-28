@@ -7,13 +7,14 @@ namespace EmpireCraft.Scripts.GamePatches;
 
 // 手动规划(城池全图，见 CityPlanEditing；用户 2026-10-28 要一个全屏的城池界面，"随意改城的画法")：
 // 存档里记着玩家的改动(CityExtraData.plan_*)，自动规划算完之后、铺城市肌理之前照改(见 Layout)：
-//   · 划出：城心、宫城所在的地块不划；划出的地块不画成城区(上面排的建筑不另挪地方，只是不画)；
-//   · 并入：只认本城自己的地块，整块画成城区(不看城的轮廓，见 UrbanFabric.InTown)；
-//   · 宫城挪到指定的地块(并入城区；不是都城也照画——上帝工具)，大城照旧连北面一块；
+//   · 手动城区(见 CityZoningSystem；用户 2026-10-28 "要显示出城市的实际面积形状")：城区就是城区表里本城的地块连同城心，
+//     整块画成城区(不看城的轮廓，见 UrbanFabric.InTown)，城长大不再自己往外画；建筑按实际所在的地块画(见 PlaceActual)；
+//   · 旧档只有并入、划出两张表(还没进手动城区)的照旧：划出的地块不画成城区(城心、宫城不划)，并入的本城地块整块画成城区；
+//   · 宫城挪到指定的地块(并入城区；不是都城也照画——上帝工具)，大城照旧连北面一块(手动城区要北面那块也在城区里)；
 //   · 城墙(这一系没有城墙画法的强开无效)、护城河(要有城墙)、中轴开关；
 //   · 中轴交点：城门中线跟着交点走，四门开在中轴与城墙相交处；城的轮廓仍以城心那块地为中，不跟着挪；
 //   · 原始聚落照旧不画城墙、中轴、宫城；营地(游牧、林地)没有中轴。
-// 只改平面图的画法，城市实际的领地、原版建筑都不动；城市以后长大、改建不覆盖这些改动，交还规矩才清掉
+// 城市以后长大、改建不覆盖这些改动，交还规矩才清掉；领地不变，原版建筑跟着城区表盖拆(见 CityZoningSystem.Sync)
 public partial class PureMapPatch
 {
     private static void ApplyManual(CityPlan plan, City city, CityExtension.CityExtraData extra)
@@ -27,29 +28,45 @@ public partial class PureMapPatch
             TileZone zone = id >= 0 ? calc.getZoneByID(id) : null;
             return zone != null && zone.city == city ? zone : null;
         }
-        HashSet<int> excluded = extra.plan_zones_out != null && extra.plan_zones_out.Count > 0
+        HashSet<int> urban = CityZoningSystem.UrbanSet(city);
+        HashSet<int> excluded = urban == null && extra.plan_zones_out != null && extra.plan_zones_out.Count > 0
             ? new HashSet<int>(extra.plan_zones_out) : null;
         bool tribal = plan.tribal >= 0;
+        // 手动城区：城区按表(连同城心)整块画；自动定的宫城北面那块不在城区里就不连(埃及城外的金字塔照旧画在城外)
+        if (urban != null)
+        {
+            plan.built.Clear();
+            plan.forced.Clear();
+            foreach (int id in urban)
+            {
+                plan.built.Add(id);
+                plan.forced.Add(id);
+            }
+            if (plan.family == "egypt")
+                foreach (int id in plan.landmark) plan.built.Add(id);
+            else plan.landmark.RemoveWhere(id => !urban.Contains(id));
+        }
         // 宫城挪到指定的地块：原来只为宫城才算建成的地块(都城大城北面那块、埃及城外的金字塔)退回去
         if (!tribal && Own(extra.plan_palace_zone) is TileZone palace)
         {
             foreach (int id in plan.landmark)
-                if (id != plan.centerZone && !plan.zones.ContainsKey(id)) plan.built.Remove(id);
+                if (id != plan.centerZone && !plan.zones.ContainsKey(id) && urban?.Contains(id) != true) plan.built.Remove(id);
             plan.landmark.Clear();
             plan.landmark.Add(palace.id);
             plan.built.Add(palace.id);
             TileZone north = calc.getZone(palace.x, palace.y + 1);
-            if (Arranged(plan.family) && plan.built.Count >= 9 && north != null && north.city == city && excluded?.Contains(north.id) != true)
+            if (Arranged(plan.family) && plan.built.Count >= 9 && north != null && north.city == city && excluded?.Contains(north.id) != true &&
+                urban?.Contains(north.id) != false)
             {
                 plan.landmark.Add(north.id);
                 plan.built.Add(north.id);
             }
         }
-        // 划出(城心、宫城不划)，再并入(只认本城的地块，划出的不并)
+        // 划出(城心、宫城不划)，再并入(只认本城的地块，划出的不并)；手动城区上面已按表画过
         if (excluded != null)
             foreach (int id in excluded)
                 if (id != plan.centerZone && !plan.landmark.Contains(id)) plan.built.Remove(id);
-        if (extra.plan_zones_in != null)
+        if (urban == null && extra.plan_zones_in != null)
             foreach (int id in extra.plan_zones_in)
                 if (excluded?.Contains(id) != true && Own(id) != null)
                 {
@@ -125,6 +142,31 @@ public partial class PureMapPatch
         foreach (WorldTile tile in zone.tiles)
             if (tile != null && Urban(tile, plan)) return true;
         return false;
+    }
+
+    // 眼下画成城区的地块(城池全图头一回改规划时记成手动城区，见 CityZoningSystem.Enter)：同 ZoneInTown；埃及城外的金字塔不算
+    internal static List<int> TownZoneIds(City city)
+    {
+        var ids = new List<int>();
+        if (city?.data == null || city.isRekt() || city.zones == null) return ids;
+        CityPlan plan = CachedPlan(city) ?? PlanFor(city);
+        foreach (TileZone zone in city.zones)
+        {
+            if (zone?.tiles == null || !plan.built.Contains(zone.id)) continue;
+            if (plan.landmark.Contains(zone.id))
+            {
+                if (plan.family != "egypt" || zone.id == plan.centerZone) ids.Add(zone.id);
+                continue;
+            }
+            bool town = plan.forced.Contains(zone.id);
+            foreach (WorldTile tile in zone.tiles)
+            {
+                if (town) break;
+                town = tile != null && Urban(tile, plan);
+            }
+            if (town) ids.Add(zone.id);
+        }
+        return ids;
     }
 
     // 这块地是宫城(都城地标)的一部分

@@ -56,8 +56,8 @@ public partial class PureMapPatch
             {
                 if (!slots[i].used || string.IsNullOrEmpty(slots[i].icon)) continue;
                 if (plan.ruin > 0f && Hash01(zone.id * 4L + i + 7L) < plan.ruin) continue;
-                result.Slots.Add(new LabelSlot(new Vector2(ox + i % 2 * half + half / 2f, oy + i / 2 * half + half / 2f),
-                    slots[i].icon, zone.id, i));
+                Vector2 spot = SlotSpot(i);
+                result.Slots.Add(new LabelSlot(new Vector2(ox + spot.x, oy + spot.y), slots[i].icon, zone.id, i));
             }
         }
         // 城名：城心那一列上、建成地块北沿再往上两格

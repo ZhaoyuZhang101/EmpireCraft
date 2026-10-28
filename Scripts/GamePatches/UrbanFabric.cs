@@ -75,6 +75,8 @@ public static class UrbanFabric
         public HashSet<int> Built, Landmark;
         // 手动并入城区的地块(见 CityPlanEditing)：整块算城里，不看城的轮廓
         public HashSet<int> Forced;
+        // 手动城区(见 CityZoningSystem)：近代以后的新城区只在城区地块里长，不往城区外的地上长(城的实际面积由玩家定)
+        public bool Manual;
         // 各地块画成什么、开发了没有(按地块算一次)
         public readonly Dictionary<int, (Kind kind, bool developed)> Zones = new();
         public bool WallsDown => Progress >= 0.2f;
@@ -178,9 +180,9 @@ public static class UrbanFabric
     #region 每座城的格局(随平面图每五秒重算)
 
     // forced：手动并入城区的地块(整块算城里)；townX、townY：城的轮廓以哪里为中(手动挪了中轴交点、四门时，城的轮廓不跟着挪；
-    // 不给就以城门两条中线的交点为中，同以前)
+    // 不给就以城门两条中线的交点为中，同以前)；manual：手动城区(新城区不长到城区外)
     public static Geometry Build(City city, HashSet<int> built, HashSet<int> landmark, string family, string culture,
-        int gateX, int gateY, HashSet<int> forced = null, int townX = int.MinValue, int townY = int.MinValue)
+        int gateX, int gateY, HashSet<int> forced = null, int townX = int.MinValue, int townY = int.MinValue, bool manual = false)
     {
         WorldTile center = city?.getTile();
         if (center == null || city.zones == null) return null;
@@ -193,7 +195,7 @@ public static class UrbanFabric
         var g = new Geometry
         {
             Seed = seed, Cx = townX == int.MinValue ? center.x : townX, Cy = townY == int.MinValue ? center.y : townY,
-            City = city, Built = built, Landmark = landmark, Forced = forced != null && forced.Count > 0 ? forced : null,
+            City = city, Built = built, Landmark = landmark, Forced = forced != null && forced.Count > 0 ? forced : null, Manual = manual,
             Perimeter = family is "western" or "roma" or "viking",
             Nomad = family == "nomad"
         };
@@ -1320,9 +1322,10 @@ public static class UrbanFabric
                      0.1f * H(g.Seed, zone.id, 7);
         // 老城外、轮廓里的本城地块是新长出来的城区：一进工业化就整片开发，田地也盖上房子(照演示版)。
         // 以前按用途分先后——工厂先起、住宅要到电气以后、田地永远不盖，城里东一块厂房西一块空地，露出底下的国色
-        bool newTown = g.Modern && !g.Built.Contains(zone.id) && r < edge;
+        // 手动城区：城区外的地不开发(照城郊画)
+        bool newTown = g.Modern && !g.Manual && !g.Built.Contains(zone.id) && r < edge;
         if (newTown && kind == Kind.Farm) kind = industrySide ? Kind.Industry : Kind.Housing;
-        var result = (kind, g.Modern && (newTown && kind != Kind.Tower || g.Progress >= need));
+        var result = (kind, g.Modern && (!g.Manual || g.Built.Contains(zone.id)) && (newTown && kind != Kind.Tower || g.Progress >= need));
         g.Zones[zone.id] = result;
         return result;
     }

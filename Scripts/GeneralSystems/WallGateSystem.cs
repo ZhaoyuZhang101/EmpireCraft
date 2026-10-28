@@ -15,7 +15,10 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 地形阻力：守关一方(关城所在地块的控制者)与同一势力、并肩作战的友邦、同盟过关不加城墙阻力，别人照旧(见 TerrainResistance)；
 //   · 纯净地图下城墙只是图层数据，人马本来就走得过；普通地图下原版城墙是挡路的格子，关门那几格的原版城墙让开(见 MapWallSystem)。
 // 只算关城自己城的地：关城画在本城的地上(别城、无主的地上画不出来)，那里的城墙仍照常画、照常挡路。
-// 关门不存档：读档后按关城位置与城墙现算。
+// 城门(用户 2026-10-28 问答拍板"城墙变真的……挡兵、四门是关门")：城池全图真筑的城墙(见 CityPlanWorks.SyncWalls)上，
+//   城门中线与城墙相交的那几格也是关门——放行、阻力、军团过墙同关城，守门的是城门所在那块地的控制者(见 WallPassage)；
+//   画法归城市平面图(城门楼)，不是关城，不让城墙(Covered、Centers 只管关城)。
+// 关门不存档：读档后按关城位置与城墙现算；城门按各城存档里记下的城门格(CityExtraData.plan_gate_tiles)，城墙还在的才算。
 public static class WallGateSystem
 {
     // 点在城墙边几格以内就吸到墙上(关城中心落在墙上，方城总压着墙；方城改成 5×5 后吸附半径照旧 5 格)
@@ -23,9 +26,9 @@ public static class WallGateSystem
     // 关城那片地易主、城毁了都不经过关城的增删，隔一会儿重算一遍(关城只能手动筑，没几座，很便宜)
     private const float RefreshSeconds = 2f;
 
-    private static HashSet<int> _gates = new(), _covered = new();
+    private static HashSet<int> _gates = new(), _covered = new(), _cityGates = new();
     private static List<(int x, int y)> _centers = new();
-    private static int _settlementRevision = int.MinValue, _wallRevision = int.MinValue;
+    private static int _settlementRevision = int.MinValue, _wallRevision = int.MinValue, _cityRevision = int.MinValue;
     private static object _world;
     private static float _refreshedAt = -1000f;
     private static bool _changed;
@@ -61,6 +64,13 @@ public static class WallGateSystem
 
     public static bool IsGate(WorldTile tile) => tile?.data != null && IsGate(tile.data.tile_id);
 
+    // 城池全图筑的城墙上的城门(不是关城压着的关门；守门的是这一格所在的地块，见 WallPassage)
+    public static bool IsCityGate(WorldTile tile)
+    {
+        Ensure();
+        return tile?.data != null && _cityGates.Count > 0 && _cityGates.Contains(tile.data.tile_id);
+    }
+
     // (x, y) 这座关城压着几格关门(城市平面图的指纹用)
     public static int GatesAround(int x, int y)
     {
@@ -82,7 +92,8 @@ public static class WallGateSystem
     }
 
     // 筑关吸附：点的这一格或四周 Snap 格以内最近的一格城墙(只排除水面：长城多沿山脊，关隘本在山口，山上、岩石上的墙也吸；
-    // 关城画在山格上照画，见 PureMapPatch.Fort)；优先落在点的那座城的地上。没有返回 null
+    // 关城画在山格上照画，见 PureMapPatch.Fort)；优先落在点的那座城的地上。城池全图筑的城墙(城区外沿那一圈，自有城门，见 CityPlanWorks)
+    // 不吸：在城外贴着城墙筑关，关城落在点的地方。没有返回 null
     public static WorldTile SnapToWall(WorldTile tile)
     {
         if (tile?.zone == null || MapWallSystem.Walls.Count == 0) return null;
@@ -93,7 +104,8 @@ public static class WallGateSystem
         for (int dx = -Snap; dx <= Snap; dx++)
         {
             WorldTile wall = World.world.GetTile(tile.x + dx, tile.y + dy);
-            if (wall?.zone == null || !MapWallSystem.Contains(wall) || wall.Type == null || wall.Type.liquid) continue;
+            if (wall?.zone == null || !MapWallSystem.Contains(wall) || wall.Type == null || wall.Type.liquid ||
+                CityPlanWorks.Planned(wall.data.tile_id)) continue;
             float score = dx * dx + dy * dy + (clicked != null && wall.zone.city != clicked ? 1000f : 0f);
             if (score >= bestScore) continue;
             bestScore = score;
@@ -133,7 +145,7 @@ public static class WallGateSystem
     private static void Ensure()
     {
         if (ReferenceEquals(_world, World.world) && _settlementRevision == RuralSettlementSystem.Revision &&
-            _wallRevision == MapWallSystem.Revision) return;
+            _wallRevision == MapWallSystem.Revision && _cityRevision == CityPlanWorks.WallRevision) return;
         Rebuild();
     }
 
@@ -142,7 +154,9 @@ public static class WallGateSystem
         _world = World.world;
         _settlementRevision = RuralSettlementSystem.Revision;
         _wallRevision = MapWallSystem.Revision;
+        _cityRevision = CityPlanWorks.WallRevision;
         var gates = new HashSet<int>();
+        var cityGates = new HashSet<int>();
         var covered = new HashSet<int>();
         var centers = new List<(int x, int y)>();
         MapBox world = World.world;
@@ -170,7 +184,17 @@ public static class WallGateSystem
                 covered.UnionWith(area);
                 centers.Add((fort.x, fort.y));
             }
+        // 城池全图筑的城墙上的城门：城墙还在(图层的或原版的)才算
+        if (world?.tiles_list != null)
+            foreach (int id in CityPlanWorks.PlannedGates)
+            {
+                WorldTile tile = id >= 0 && id < world.tiles_list.Length ? world.tiles_list[id] : null;
+                if (tile?.data == null || !MapWallSystem.Contains(tile) && tile.Type?.wall != true) continue;
+                cityGates.Add(id);
+                gates.Add(id);
+            }
         if (!gates.SetEquals(_gates) || !covered.SetEquals(_covered)) _changed = true;
+        _cityGates = cityGates;
         _gates = gates;
         _covered = covered;
         _centers = centers;

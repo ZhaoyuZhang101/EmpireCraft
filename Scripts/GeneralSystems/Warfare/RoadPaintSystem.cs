@@ -58,18 +58,25 @@ public static class RoadPaintSystem
         return list != null && id >= 0 && id < list.Length ? list[id] : null;
     }
 
+    // 这一格画路画几等(画不上为 0)：画路与城池全图一键连路的寻路(见 CityPlanWorks.ConnectAll)同一个规矩
+    public static int GradeAt(WorldTile tile)
+    {
+        if (tile?.data == null || tile.Type == null || tile.Type.ocean || Blocked(tile)) return 0;
+        City city = tile.zone_city;
+        // 不修路的城(游牧营地等)的领地上不画，同修路的规矩(见 RoadBuildingSystem.Refresh)
+        if (city?.data != null && !city.isRekt() && CityStyleSystem.Roadless(city)) return 0;
+        int cap = city?.data != null && !city.isRekt() ? CityStyleSystem.RoadGradeCap(city) : RoadBuildingSystem.MaxGrade;
+        int grade = Mathf.Min(city?.kingdom != null && !city.kingdom.wild ? RoadBuildingSystem.GradeFor(city.kingdom) : 1, cap);
+        if (grade <= 0) return 0;
+        // 河湖浅水：能架桥的等级才画得过去
+        return tile.Type.liquid && grade < BridgeGrade ? 0 : grade;
+    }
+
     // 画一格；画上了(或升了等级)返回 true
     public static bool Paint(WorldTile tile)
     {
-        if (tile?.data == null || tile.Type == null || tile.Type.ocean || Blocked(tile)) return false;
-        City city = tile.zone_city;
-        // 不修路的城(游牧营地等)的领地上不画，同修路的规矩(见 RoadBuildingSystem.Refresh)
-        if (city?.data != null && !city.isRekt() && CityStyleSystem.Roadless(city)) return false;
-        int cap = city?.data != null && !city.isRekt() ? CityStyleSystem.RoadGradeCap(city) : RoadBuildingSystem.MaxGrade;
-        int grade = Mathf.Min(city?.kingdom != null && !city.kingdom.wild ? RoadBuildingSystem.GradeFor(city.kingdom) : 1, cap);
+        int grade = GradeAt(tile);
         if (grade <= 0) return false;
-        // 河湖浅水：能架桥的等级才画得过去
-        if (tile.Type.liquid && grade < BridgeGrade) return false;
         int id = tile.data.tile_id;
         if (_tiles.TryGetValue(id, out PaintedRoad road) && road.grade >= grade) return false;
         _tiles[id] = new PaintedRoad { grade = grade };
