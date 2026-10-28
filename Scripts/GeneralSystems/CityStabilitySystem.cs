@@ -284,6 +284,13 @@ public static class CityStabilitySystem
             natural = CityStabilityRules.Clamp(natural + jing);
             Note(ref detail, MultiCapitalSystem.DescribeStability(city));
         }
+        // 奢侈品(见 CommodityMarketSystem)：本国市场买得到丝绸、茶、香料、糖……稳定 +4，全缺 -4
+        float luxury = CommodityMarketSystem.LuxuryStability(city);
+        if (Mathf.Abs(luxury) >= 1f)
+        {
+            natural = CityStabilityRules.Clamp(natural + luxury);
+            Note(ref detail, string.Format(LM.Get("stability_luxury_detail"), Mathf.RoundToInt(CommodityMarketSystem.LuxurySatisfaction(city) * 100f)));
+        }
         // 鞭长莫及：行政控制力低的城自然稳定度下降
         float remote = AdministrativeControlSystem.StabilityLoss(city);
         if (remote < 1f) return natural;

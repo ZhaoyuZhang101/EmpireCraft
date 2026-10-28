@@ -40,6 +40,8 @@ public static class WarGate
         if (attacker.hasAlliance() && target.hasAlliance() && attacker.getAlliance() == target.getAlliance()) return true;
         if (RoyalMarriageSystem.Allied(attacker, target)) return true;
         if (FeudalVassalService.IsInChain(attacker, target) || FeudalVassalService.IsInChain(target, attacker)) return true;
+        // 宗主与殖民地、同一宗主的殖民地(见 ColonySystem)
+        if (ColonySystem.Bound(attacker, target)) return true;
         // 保护约三十年：保护人与被保护者互不攻伐(见 HolyRomanSystem.Decline)
         if (HolyRomanSystem.ProtectedBy(attacker, target) || HolyRomanSystem.ProtectedBy(target, attacker)) return true;
         // 神力放出的国十年内原帝国、原宗主不打它(它去打原主不拦，见 MembershipCooldown.TruceForbids)

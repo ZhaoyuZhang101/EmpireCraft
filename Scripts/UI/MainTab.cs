@@ -144,6 +144,8 @@ internal static class MainTab
         BugReportWindow.CreateWindow(nameof(BugReportWindow),
             "bug_report_window_title");
         PureMapNoticeWindow.CreateWindow(nameof(PureMapNoticeWindow), "pure_map_notice_title");
+        // 世界地图(原版新世界窗口的模板按钮打开，见 WorldMapTemplatePatch)
+        WorldMapWindow.CreateWindow(nameof(WorldMapWindow), "world_map_title");
         TerritoryFontWindow.CreateWindow(nameof(TerritoryFontWindow),
             "territory_font_window_title");
         OnlineUpdateWindow.CreateWindow(nameof(OnlineUpdateWindow),
@@ -168,6 +170,8 @@ internal static class MainTab
         CultureBooksWindow.CreateAndInit(nameof(CultureBooksWindow), new Vector2(480f, 380f));
         // 名臣名将名册(见 FamousTalentSystem)
         FamousTalentWindow.CreateAndInit(nameof(FamousTalentWindow), new Vector2(480f, 380f));
+        // 元老院名册(见 TransmigrantSystem)
+        SenateWindow.CreateAndInit(nameof(SenateWindow), new Vector2(480f, 380f));
         SetWindowIcons();
     }
 
@@ -194,6 +198,7 @@ internal static class MainTab
             [nameof(KingdomMilitaryWindow)] = "iconWar",
             [nameof(KingdomOverviewWindow)] = "iconKingdom",
             [nameof(FamousTalentWindow)] = "iconKings",
+            [nameof(SenateWindow)] = "iconKings",
             [nameof(ReligionInfoWindow)] = "iconReligion",
             [nameof(WorldReligionsWindow)] = "iconReligion",
             [nameof(WarInfoWindow)] = "iconWar",
@@ -396,6 +401,32 @@ internal static class MainTab
         AddButton(EMPIRE_GROUP,
             PowerButtonCreator.CreateGodPowerButton("actor_create_kingdom",
                SpriteTextureLoader.getSprite("ui/icons/godpowers/actor_create_kingdom")));
+        // 穿越降临：五百二十一名穿越者连同城、船、枪与物资凭空出现(见 TransmigrantSystem)
+        EmpireCraft.Scripts.GeneralSystems.TransmigrantSystem.InitPower();
+        PowerButton landing = PowerButtonCreator.CreateGodPowerButton(EmpireCraft.Scripts.GeneralSystems.TransmigrantSystem.PowerId,
+            SpriteTextureLoader.getSprite("ui/icons/godpowers/" + EmpireCraft.Scripts.GeneralSystems.TransmigrantSystem.PowerId));
+        TipButton landingTip = landing?.GetComponent<TipButton>();
+        if (landingTip != null)
+        {
+            landingTip.textOnClick = EmpireCraft.Scripts.GeneralSystems.TransmigrantSystem.PowerId;
+            landingTip.textOnClickDescription = EmpireCraft.Scripts.GeneralSystems.TransmigrantSystem.PowerId + "_description";
+            landingTip.text_description_2 = "";
+            landingTip.type = "normal";
+        }
+        AddButton(EMPIRE_GROUP, landing);
+        // 元老院名册
+        var senateButton = PowerButtonCreator.CreateWindowButton("transmigrant_senate", nameof(SenateWindow),
+            SpriteTextureLoader.getSprite("ui/icons/godpowers/transmigrant_senate"));
+        AddButton(EMPIRE_GROUP, senateButton);
+        senateButton._button.OnHover(() =>
+        {
+            Tooltip.show(senateButton, "normal", new TooltipData()
+            {
+                tip_name = "show_transmigrant_senate",
+                tip_description = "show_transmigrant_senate_description"
+            });
+        });
+        senateButton._button.OnHoverOut(Tooltip.hideTooltip);
         
         // ---- 文化与理念：图层与文化配置 ----
         // 原版文化图层的第二个入口：复用同一个 GodPower/OptionAsset，因此这里与

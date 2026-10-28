@@ -1,0 +1,8643 @@
+{
+ "_note": "世界地图的前史(由 Tools/WorldMap/history_source.py 生成，勿手改；改完跑 add_traditional.py)",
+ "dynasties": [
+  {
+   "id": "zhou",
+   "zh": "周",
+   "en": "Zhou",
+   "c": "Huaxia",
+   "seat": [
+    "henan",
+    "guanzhong"
+   ],
+   "fam": "姬|Ji|姬",
+   "west": false,
+   "rulers": [
+    {
+     "n": "姬发|Ji Fa|姬發",
+     "a": -1046,
+     "b": -1043,
+     "t": "周武王|King Wu|周武王",
+     "p": "zw01",
+     "f": "zhou_wen"
+    },
+    {
+     "n": "姬诵|Ji Song|姬誦",
+     "a": -1042,
+     "b": -1021,
+     "t": "周成王|King Cheng|周成王",
+     "p": "zw02",
+     "f": "zw01"
+    },
+    {
+     "n": "姬钊|Ji Zhao|姬釗",
+     "a": -1020,
+     "b": -996,
+     "t": "周康王|King Kang|周康王",
+     "p": "zw03",
+     "f": "zw02"
+    },
+    {
+     "n": "姬瑕|Ji Xia|姬瑕",
+     "a": -995,
+     "b": -977,
+     "t": "周昭王|King Zhao|周昭王",
+     "p": "zw04",
+     "f": "zw03"
+    },
+    {
+     "n": "姬满|Ji Man|姬滿",
+     "a": -976,
+     "b": -922,
+     "t": "周穆王|King Mu|周穆王",
+     "p": "zw05",
+     "f": "zw04"
+    },
+    {
+     "n": "姬繄扈|Ji Yihu|姬繄扈",
+     "a": -922,
+     "b": -900,
+     "t": "周共王|King Gong|周共王",
+     "p": "zw06",
+     "f": "zw05"
+    },
+    {
+     "n": "姬囏|Ji Jian|姬囏",
+     "a": -899,
+     "b": -892,
+     "t": "周懿王|King Yi|周懿王",
+     "p": "zw07",
+     "f": "zw06"
+    },
+    {
+     "n": "姬辟方|Ji Pifang|姬闢方",
+     "a": -891,
+     "b": -886,
+     "t": "周孝王|King Xiao|周孝王",
+     "p": "zw08",
+     "f": "zw05"
+    },
+    {
+     "n": "姬燮|Ji Xie|姬燮",
+     "a": -885,
+     "b": -878,
+     "t": "周夷王|King Yi|周夷王",
+     "p": "zw09",
+     "f": "zw07"
+    },
+    {
+     "n": "姬胡|Ji Hu|姬胡",
+     "a": -877,
+     "b": -841,
+     "t": "周厉王|King Li|周厲王",
+     "p": "zw10",
+     "f": "zw09"
+    },
+    {
+     "n": "姬静|Ji Jing|姬靜",
+     "a": -827,
+     "b": -782,
+     "t": "周宣王|King Xuan|周宣王",
+     "p": "zw11",
+     "f": "zw10"
+    },
+    {
+     "n": "姬宫湦|Ji Gongsheng|姬宮湦",
+     "a": -781,
+     "b": -771,
+     "t": "周幽王|King You|周幽王",
+     "p": "zw12",
+     "f": "zw11"
+    },
+    {
+     "n": "姬宜臼|Ji Yijiu|姬宜臼",
+     "a": -770,
+     "b": -720,
+     "t": "周平王|King Ping|周平王",
+     "p": "zw13",
+     "f": "zw12"
+    },
+    {
+     "n": "姬林|Ji Lin|姬林",
+     "a": -719,
+     "b": -697,
+     "t": "周桓王|King Huan|周桓王",
+     "p": "zw14",
+     "f": "zhou_xiefu"
+    },
+    {
+     "n": "姬佗|Ji Tuo|姬佗",
+     "a": -696,
+     "b": -682,
+     "t": "周庄王|King Zhuang|周莊王",
+     "p": "zw15",
+     "f": "zw14"
+    },
+    {
+     "n": "姬胡齐|Ji Huqi|姬胡齊",
+     "a": -681,
+     "b": -677,
+     "t": "周釐王|King Xi|周釐王",
+     "p": "zw16",
+     "f": "zw15"
+    },
+    {
+     "n": "姬阆|Ji Lang|姬閬",
+     "a": -676,
+     "b": -652,
+     "t": "周惠王|King Hui|周惠王",
+     "p": "zw17",
+     "f": "zw16"
+    },
+    {
+     "n": "姬郑|Ji Zheng|姬鄭",
+     "a": -651,
+     "b": -619,
+     "t": "周襄王|King Xiang|周襄王",
+     "p": "zw18",
+     "f": "zw17"
+    },
+    {
+     "n": "姬壬臣|Ji Renchen|姬壬臣",
+     "a": -618,
+     "b": -613,
+     "t": "周顷王|King Qing|周頃王",
+     "p": "zw19",
+     "f": "zw18"
+    },
+    {
+     "n": "姬班|Ji Ban|姬班",
+     "a": -612,
+     "b": -607,
+     "t": "周匡王|King Kuang|周匡王",
+     "p": "zw20",
+     "f": "zw19"
+    },
+    {
+     "n": "姬瑜|Ji Yu|姬瑜",
+     "a": -606,
+     "b": -586,
+     "t": "周定王|King Ding|周定王",
+     "p": "zw21",
+     "f": "zw19"
+    },
+    {
+     "n": "姬夷|Ji Yi|姬夷",
+     "a": -585,
+     "b": -572,
+     "t": "周简王|King Jian|周簡王",
+     "p": "zw22",
+     "f": "zw21"
+    },
+    {
+     "n": "姬泄心|Ji Xiexin|姬泄心",
+     "a": -571,
+     "b": -545,
+     "t": "周灵王|King Ling|周靈王",
+     "p": "zw23",
+     "f": "zw22"
+    },
+    {
+     "n": "姬贵|Ji Gui|姬貴",
+     "a": -544,
+     "b": -520,
+     "t": "周景王|King Jing|周景王",
+     "p": "zw24",
+     "f": "zw23"
+    },
+    {
+     "n": "姬匄|Ji Gai|姬匄",
+     "a": -519,
+     "b": -476,
+     "t": "周敬王|King Jing|周敬王",
+     "p": "zw25",
+     "f": "zw24"
+    },
+    {
+     "n": "姬仁|Ji Ren|姬仁",
+     "a": -475,
+     "b": -469,
+     "t": "周元王|King Yuan|周元王",
+     "p": "zw26",
+     "f": "zw25"
+    },
+    {
+     "n": "姬介|Ji Jie|姬介",
+     "a": -468,
+     "b": -441,
+     "t": "周贞定王|King Zhending|周貞定王",
+     "p": "zw27",
+     "f": "zw26"
+    },
+    {
+     "n": "姬嵬|Ji Wei|姬嵬",
+     "a": -440,
+     "b": -426,
+     "t": "周考王|King Kao|周考王",
+     "p": "zw28",
+     "f": "zw27"
+    },
+    {
+     "n": "姬午|Ji Wu|姬午",
+     "a": -425,
+     "b": -402,
+     "t": "周威烈王|King Weilie|周威烈王",
+     "p": "zw29",
+     "f": "zw28"
+    },
+    {
+     "n": "姬骄|Ji Jiao|姬驕",
+     "a": -401,
+     "b": -376,
+     "t": "周安王|King An|周安王",
+     "p": "zw30",
+     "f": "zw29"
+    },
+    {
+     "n": "姬喜|Ji Xi|姬喜",
+     "a": -375,
+     "b": -369,
+     "t": "周烈王|King Lie|周烈王",
+     "p": "zw31",
+     "f": "zw30"
+    },
+    {
+     "n": "姬扁|Ji Bian|姬扁",
+     "a": -368,
+     "b": -321,
+     "t": "周显王|King Xian|周顯王",
+     "p": "zw32",
+     "f": "zw30"
+    },
+    {
+     "n": "姬定|Ji Ding|姬定",
+     "a": -320,
+     "b": -315,
+     "t": "周慎靓王|King Shenjing|周慎靚王",
+     "p": "zw33",
+     "f": "zw32"
+    },
+    {
+     "n": "姬延|Ji Yan|姬延",
+     "a": -314,
+     "b": -256,
+     "t": "周赧王|King Nan|周赧王",
+     "p": "zw34",
+     "f": "zw33"
+    }
+   ],
+   "people": [
+    {
+     "p": "zhou_wen",
+     "n": "姬昌|Ji Chang|姬昌"
+    },
+    {
+     "p": "zhou_xiefu",
+     "n": "姬泄父|Ji Xiefu|姬泄父",
+     "f": "zw13"
+    }
+   ],
+   "emp": true,
+   "tw": "周"
+  },
+  {
+   "id": "qin",
+   "zh": "秦",
+   "en": "Qin",
+   "c": "Huaxia",
+   "seat": [
+    "guanzhong"
+   ],
+   "fam": "嬴|Ying|嬴",
+   "west": false,
+   "rulers": [
+    {
+     "n": "嬴政|Ying Zheng|嬴政",
+     "a": -221,
+     "b": -210,
+     "shi": "始皇",
+     "p": "qin_shihuang",
+     "f": "qin_zhuangxiang",
+     "shi_tw": "始皇"
+    },
+    {
+     "n": "嬴胡亥|Ying Huhai|嬴胡亥",
+     "a": -210,
+     "b": -207,
+     "shi": "二世皇",
+     "p": "qin_ershi",
+     "f": "qin_shihuang",
+     "shi_tw": "二世皇"
+    },
+    {
+     "n": "嬴子婴|Ying Ziying|嬴子嬰",
+     "a": -207,
+     "b": -207,
+     "t": "秦王|King of Qin|秦王",
+     "p": "qin_ziying"
+    }
+   ],
+   "people": [
+    {
+     "p": "qin_xiao",
+     "n": "嬴渠梁|Ying Quliang|嬴渠梁"
+    },
+    {
+     "p": "qin_huiwen",
+     "n": "嬴驷|Ying Si|嬴駟",
+     "f": "qin_xiao"
+    },
+    {
+     "p": "qin_zhaoxiang",
+     "n": "嬴稷|Ying Ji|嬴稷",
+     "f": "qin_huiwen"
+    },
+    {
+     "p": "qin_xiaowen",
+     "n": "嬴柱|Ying Zhu|嬴柱",
+     "f": "qin_zhaoxiang"
+    },
+    {
+     "p": "qin_zhuangxiang",
+     "n": "嬴异人|Ying Yiren|嬴異人",
+     "f": "qin_xiaowen"
+    }
+   ],
+   "emp": true,
+   "tw": "秦"
+  },
+  {
+   "id": "han",
+   "zh": "汉",
+   "en": "Han",
+   "c": "Huaxia",
+   "seat": [
+    "guanzhong",
+    "henan"
+   ],
+   "fam": "刘|Liu|劉",
+   "west": false,
+   "rulers": [
+    {
+     "n": "刘邦|Liu Bang|劉邦",
+     "a": -202,
+     "b": -195,
+     "shi": "高",
+     "miao": "太祖",
+     "p": "hl01",
+     "f": "han_taigong",
+     "shi_tw": "高",
+     "miao_tw": "太祖"
+    },
+    {
+     "n": "刘盈|Liu Ying|劉盈",
+     "a": -195,
+     "b": -188,
+     "shi": "惠",
+     "p": "hl02",
+     "f": "hl01",
+     "shi_tw": "惠"
+    },
+    {
+     "n": "刘恭|Liu Gong|劉恭",
+     "a": -188,
+     "b": -184,
+     "shi": "前少",
+     "p": "hl03",
+     "f": "hl02",
+     "shi_tw": "前少"
+    },
+    {
+     "n": "刘弘|Liu Hong|劉弘",
+     "a": -184,
+     "b": -180,
+     "shi": "后少",
+     "p": "hl04",
+     "f": "hl02",
+     "shi_tw": "後少"
+    },
+    {
+     "n": "刘恒|Liu Heng|劉恆",
+     "a": -180,
+     "b": -157,
+     "shi": "文",
+     "miao": "太宗",
+     "p": "hl05",
+     "f": "hl01",
+     "shi_tw": "文",
+     "miao_tw": "太宗"
+    },
+    {
+     "n": "刘启|Liu Qi|劉啓",
+     "a": -157,
+     "b": -141,
+     "shi": "景",
+     "p": "hl06",
+     "f": "hl05",
+     "shi_tw": "景"
+    },
+    {
+     "n": "刘彻|Liu Che|劉徹",
+     "a": -141,
+     "b": -87,
+     "shi": "武",
+     "miao": "世宗",
+     "era": "建元",
+     "p": "hl07",
+     "f": "hl06",
+     "shi_tw": "武",
+     "miao_tw": "世宗",
+     "era_tw": "建元"
+    },
+    {
+     "n": "刘弗陵|Liu Fuling|劉弗陵",
+     "a": -87,
+     "b": -74,
+     "shi": "昭",
+     "era": "始元",
+     "p": "hl08",
+     "f": "hl07",
+     "shi_tw": "昭",
+     "era_tw": "始元"
+    },
+    {
+     "n": "刘询|Liu Xun|劉詢",
+     "a": -74,
+     "b": -48,
+     "shi": "宣",
+     "miao": "中宗",
+     "era": "本始",
+     "p": "hl09",
+     "f": "han_jin",
+     "shi_tw": "宣",
+     "miao_tw": "中宗",
+     "era_tw": "本始"
+    },
+    {
+     "n": "刘奭|Liu Shi|劉奭",
+     "a": -48,
+     "b": -33,
+     "shi": "元",
+     "miao": "高宗",
+     "era": "初元",
+     "p": "hl10",
+     "f": "hl09",
+     "shi_tw": "元",
+     "miao_tw": "高宗",
+     "era_tw": "初元"
+    },
+    {
+     "n": "刘骜|Liu Ao|劉驁",
+     "a": -33,
+     "b": -7,
+     "shi": "成",
+     "miao": "统宗",
+     "era": "建始",
+     "p": "hl11",
+     "f": "hl10",
+     "shi_tw": "成",
+     "miao_tw": "統宗",
+     "era_tw": "建始"
+    },
+    {
+     "n": "刘欣|Liu Xin|劉欣",
+     "a": -7,
+     "b": -1,
+     "shi": "哀",
+     "era": "建平",
+     "p": "hl12",
+     "f": "han_kang",
+     "shi_tw": "哀",
+     "era_tw": "建平"
+    },
+    {
+     "n": "刘衎|Liu Kan|劉衎",
+     "a": -1,
+     "b": 5,
+     "shi": "平",
+     "miao": "元宗",
+     "era": "元始",
+     "p": "hl13",
+     "f": "han_xing",
+     "shi_tw": "平",
+     "miao_tw": "元宗",
+     "era_tw": "元始"
+    },
+    {
+     "n": "刘婴|Liu Ying|劉嬰",
+     "a": 6,
+     "b": 8,
+     "era": "居摄",
+     "p": "hl14",
+     "f": "han_xian",
+     "t": "孺子|Ruzi|孺子",
+     "era_tw": "居攝"
+    },
+    {
+     "n": "刘秀|Liu Xiu|劉秀",
+     "a": 25,
+     "b": 57,
+     "shi": "光武",
+     "miao": "世祖",
+     "era": "建武",
+     "p": "hl15",
+     "f": "han_qin",
+     "shi_tw": "光武",
+     "miao_tw": "世祖",
+     "era_tw": "建武"
+    },
+    {
+     "n": "刘庄|Liu Zhuang|劉莊",
+     "a": 57,
+     "b": 75,
+     "shi": "明",
+     "miao": "显宗",
+     "era": "永平",
+     "p": "hl16",
+     "f": "hl15",
+     "shi_tw": "明",
+     "miao_tw": "顯宗",
+     "era_tw": "永平"
+    },
+    {
+     "n": "刘炟|Liu Da|劉炟",
+     "a": 75,
+     "b": 88,
+     "shi": "章",
+     "miao": "肃宗",
+     "era": "建初",
+     "p": "hl17",
+     "f": "hl16",
+     "shi_tw": "章",
+     "miao_tw": "肅宗",
+     "era_tw": "建初"
+    },
+    {
+     "n": "刘肇|Liu Zhao|劉肇",
+     "a": 88,
+     "b": 105,
+     "shi": "和",
+     "miao": "穆宗",
+     "era": "永元",
+     "p": "hl18",
+     "f": "hl17",
+     "shi_tw": "和",
+     "miao_tw": "穆宗",
+     "era_tw": "永元"
+    },
+    {
+     "n": "刘隆|Liu Long|劉隆",
+     "a": 105,
+     "b": 106,
+     "shi": "殇",
+     "era": "延平",
+     "p": "hl19",
+     "f": "hl18",
+     "shi_tw": "殤",
+     "era_tw": "延平"
+    },
+    {
+     "n": "刘祜|Liu Hu|劉祜",
+     "a": 106,
+     "b": 125,
+     "shi": "安",
+     "miao": "恭宗",
+     "era": "永初",
+     "p": "hl20",
+     "f": "han_qing",
+     "shi_tw": "安",
+     "miao_tw": "恭宗",
+     "era_tw": "永初"
+    },
+    {
+     "n": "刘懿|Liu Yi|劉懿",
+     "a": 125,
+     "b": 125,
+     "shi": "少",
+     "p": "hl21",
+     "f": "han_shou",
+     "shi_tw": "少"
+    },
+    {
+     "n": "刘保|Liu Bao|劉保",
+     "a": 125,
+     "b": 144,
+     "shi": "顺",
+     "miao": "敬宗",
+     "era": "永建",
+     "p": "hl22",
+     "f": "hl20",
+     "shi_tw": "順",
+     "miao_tw": "敬宗",
+     "era_tw": "永建"
+    },
+    {
+     "n": "刘炳|Liu Bing|劉炳",
+     "a": 144,
+     "b": 145,
+     "shi": "冲",
+     "era": "永嘉",
+     "p": "hl23",
+     "f": "hl22",
+     "shi_tw": "衝",
+     "era_tw": "永嘉"
+    },
+    {
+     "n": "刘缵|Liu Zuan|劉纘",
+     "a": 145,
+     "b": 146,
+     "shi": "质",
+     "era": "本初",
+     "p": "hl24",
+     "f": "han_hong2",
+     "shi_tw": "質",
+     "era_tw": "本初"
+    },
+    {
+     "n": "刘志|Liu Zhi|劉志",
+     "a": 146,
+     "b": 167,
+     "shi": "桓",
+     "miao": "威宗",
+     "era": "建和",
+     "p": "hl25",
+     "f": "han_yi2",
+     "shi_tw": "桓",
+     "miao_tw": "威宗",
+     "era_tw": "建和"
+    },
+    {
+     "n": "刘宏|Liu Hong|劉宏",
+     "a": 168,
+     "b": 189,
+     "shi": "灵",
+     "era": "建宁",
+     "p": "hl26",
+     "f": "han_chang",
+     "shi_tw": "靈",
+     "era_tw": "建寧"
+    },
+    {
+     "n": "刘辩|Liu Bian|劉辯",
+     "a": 189,
+     "b": 189,
+     "shi": "少",
+     "era": "光熹",
+     "p": "hl27",
+     "f": "hl26",
+     "shi_tw": "少",
+     "era_tw": "光熹"
+    },
+    {
+     "n": "刘协|Liu Xie|劉協",
+     "a": 189,
+     "b": 220,
+     "shi": "献",
+     "era": "初平",
+     "p": "hl28",
+     "f": "hl26",
+     "shi_tw": "獻",
+     "era_tw": "初平"
+    }
+   ],
+   "people": [
+    {
+     "p": "han_taigong",
+     "n": "刘太公|Liu Taigong|劉太公"
+    },
+    {
+     "p": "han_ju",
+     "n": "刘据|Liu Ju|劉據",
+     "f": "hl07"
+    },
+    {
+     "p": "han_jin",
+     "n": "刘进|Liu Jin|劉進",
+     "f": "han_ju"
+    },
+    {
+     "p": "han_kang",
+     "n": "刘康|Liu Kang|劉康",
+     "f": "hl10"
+    },
+    {
+     "p": "han_xing",
+     "n": "刘兴|Liu Xing|劉興",
+     "f": "hl10"
+    },
+    {
+     "p": "han_xiao",
+     "n": "刘嚣|Liu Xiao|劉囂",
+     "f": "hl09"
+    },
+    {
+     "p": "han_xun",
+     "n": "刘勋|Liu Xun|劉勳",
+     "f": "han_xiao"
+    },
+    {
+     "p": "han_xian",
+     "n": "刘显|Liu Xian|劉顯",
+     "f": "han_xun"
+    },
+    {
+     "p": "han_fa",
+     "n": "刘发|Liu Fa|劉發",
+     "f": "hl06"
+    },
+    {
+     "p": "han_mai",
+     "n": "刘买|Liu Mai|劉買",
+     "f": "han_fa"
+    },
+    {
+     "p": "han_wai",
+     "n": "刘外|Liu Wai|劉外",
+     "f": "han_mai"
+    },
+    {
+     "p": "han_hui",
+     "n": "刘回|Liu Hui|劉回",
+     "f": "han_wai"
+    },
+    {
+     "p": "han_qin",
+     "n": "刘钦|Liu Qin|劉欽",
+     "f": "han_hui"
+    },
+    {
+     "p": "han_qing",
+     "n": "刘庆|Liu Qing|劉慶",
+     "f": "hl17"
+    },
+    {
+     "p": "han_shou",
+     "n": "刘寿|Liu Shou|劉壽",
+     "f": "hl17"
+    },
+    {
+     "p": "han_kang2",
+     "n": "刘伉|Liu Kang|劉伉",
+     "f": "hl17"
+    },
+    {
+     "p": "han_chong",
+     "n": "刘宠|Liu Chong|劉寵",
+     "f": "han_kang2"
+    },
+    {
+     "p": "han_hong2",
+     "n": "刘鸿|Liu Hong|劉鴻",
+     "f": "han_chong"
+    },
+    {
+     "p": "han_kai",
+     "n": "刘开|Liu Kai|劉開",
+     "f": "hl17"
+    },
+    {
+     "p": "han_yi2",
+     "n": "刘翼|Liu Yi|劉翼",
+     "f": "han_kai"
+    },
+    {
+     "p": "han_shu",
+     "n": "刘淑|Liu Shu|劉淑",
+     "f": "han_kai"
+    },
+    {
+     "p": "han_chang",
+     "n": "刘苌|Liu Chang|劉萇",
+     "f": "han_shu"
+    },
+    {
+     "p": "han_sheng",
+     "n": "刘胜|Liu Sheng|劉勝",
+     "f": "hl06"
+    }
+   ],
+   "emp": true,
+   "tw": "漢"
+  },
+  {
+   "id": "xin",
+   "zh": "新",
+   "en": "Xin",
+   "c": "Huaxia",
+   "seat": [
+    "guanzhong"
+   ],
+   "fam": "王|Wang|王",
+   "west": false,
+   "rulers": [
+    {
+     "n": "王莽|Wang Mang|王莽",
+     "a": 9,
+     "b": 23,
+     "era": "始建国",
+     "t": "新帝|Emperor of Xin|新帝",
+     "p": "xin_wangmang",
+     "era_tw": "始建國"
+    }
+   ],
+   "people": [],
+   "emp": true,
+   "tw": "新"
+  },
+  {
+   "id": "cao_wei",
+   "zh": "魏",
+   "en": "Wei",
+   "c": "Huaxia",
+   "seat": [
+    "henan"
+   ],
+   "fam": "曹|Cao|曹",
+   "west": false,
+   "rulers": [
+    {
+     "n": "曹丕|Cao Pi|曹丕",
+     "a": 220,
+     "b": 226,
+     "shi": "文",
+     "miao": "高祖",
+     "era": "黄初",
+     "p": "cw01",
+     "f": "cw_cao",
+     "shi_tw": "文",
+     "miao_tw": "高祖",
+     "era_tw": "黃初"
+    },
+    {
+     "n": "曹叡|Cao Rui|曹叡",
+     "a": 226,
+     "b": 239,
+     "shi": "明",
+     "miao": "烈祖",
+     "era": "太和",
+     "p": "cw02",
+     "f": "cw01",
+     "shi_tw": "明",
+     "miao_tw": "烈祖",
+     "era_tw": "太和"
+    },
+    {
+     "n": "曹芳|Cao Fang|曹芳",
+     "a": 239,
+     "b": 254,
+     "era": "正始",
+     "p": "cw03",
+     "f": "cw_kai",
+     "era_tw": "正始"
+    },
+    {
+     "n": "曹髦|Cao Mao|曹髦",
+     "a": 254,
+     "b": 260,
+     "era": "正元",
+     "p": "cw04",
+     "f": "cw_lin",
+     "era_tw": "正元"
+    },
+    {
+     "n": "曹奂|Cao Huan|曹奐",
+     "a": 260,
+     "b": 266,
+     "shi": "元",
+     "era": "景元",
+     "p": "cw05",
+     "f": "cw_yu",
+     "shi_tw": "元",
+     "era_tw": "景元"
+    }
+   ],
+   "people": [
+    {
+     "p": "cw_song",
+     "n": "曹嵩|Cao Song|曹嵩"
+    },
+    {
+     "p": "cw_cao",
+     "n": "曹操|Cao Cao|曹操",
+     "f": "cw_song"
+    },
+    {
+     "p": "cw_kai",
+     "n": "曹楷|Cao Kai|曹楷",
+     "f": "cw_cao"
+    },
+    {
+     "p": "cw_lin",
+     "n": "曹霖|Cao Lin|曹霖",
+     "f": "cw01"
+    },
+    {
+     "p": "cw_yu",
+     "n": "曹宇|Cao Yu|曹宇",
+     "f": "cw_cao"
+    }
+   ],
+   "full": "曹魏|Cao Wei|曹魏",
+   "emp": true,
+   "tw": "魏"
+  },
+  {
+   "id": "shu_han",
+   "zh": "汉",
+   "en": "Shu Han",
+   "c": "Huaxia",
+   "seat": [
+    "bashu"
+   ],
+   "fam": "刘|Liu|劉",
+   "west": false,
+   "rulers": [
+    {
+     "n": "刘备|Liu Bei|劉備",
+     "a": 221,
+     "b": 223,
+     "shi": "昭烈",
+     "miao": "烈祖",
+     "era": "章武",
+     "p": "sh01",
+     "f": "sh_hong",
+     "shi_tw": "昭烈",
+     "miao_tw": "烈祖",
+     "era_tw": "章武"
+    },
+    {
+     "n": "刘禅|Liu Shan|劉禪",
+     "a": 223,
+     "b": 263,
+     "shi": "孝怀",
+     "era": "建兴",
+     "p": "sh02",
+     "f": "sh01",
+     "shi_tw": "孝懷",
+     "era_tw": "建興"
+    }
+   ],
+   "people": [
+    {
+     "p": "sh_hong",
+     "n": "刘弘|Liu Hong|劉弘"
+    }
+   ],
+   "full": "蜀汉|Shu Han|蜀漢",
+   "emp": true,
+   "tw": "漢"
+  },
+  {
+   "id": "sun_wu",
+   "zh": "吴",
+   "en": "Wu",
+   "c": "Huaxia",
+   "seat": [
+    "jiangdong"
+   ],
+   "fam": "孙|Sun|孫",
+   "west": false,
+   "rulers": [
+    {
+     "n": "孙权|Sun Quan|孫權",
+     "a": 229,
+     "b": 252,
+     "shi": "大",
+     "miao": "太祖",
+     "era": "黄龙",
+     "p": "sw01",
+     "f": "sw_jian",
+     "shi_tw": "大",
+     "miao_tw": "太祖",
+     "era_tw": "黃龍"
+    },
+    {
+     "n": "孙亮|Sun Liang|孫亮",
+     "a": 252,
+     "b": 258,
+     "era": "建兴",
+     "p": "sw02",
+     "f": "sw01",
+     "era_tw": "建興"
+    },
+    {
+     "n": "孙休|Sun Xiu|孫休",
+     "a": 258,
+     "b": 264,
+     "shi": "景",
+     "era": "永安",
+     "p": "sw03",
+     "f": "sw01",
+     "shi_tw": "景",
+     "era_tw": "永安"
+    },
+    {
+     "n": "孙皓|Sun Hao|孫皓",
+     "a": 264,
+     "b": 280,
+     "era": "元兴",
+     "p": "sw04",
+     "f": "sw_he",
+     "era_tw": "元興"
+    }
+   ],
+   "people": [
+    {
+     "p": "sw_jian",
+     "n": "孙坚|Sun Jian|孫堅"
+    },
+    {
+     "p": "sw_ce",
+     "n": "孙策|Sun Ce|孫策",
+     "f": "sw_jian"
+    },
+    {
+     "p": "sw_he",
+     "n": "孙和|Sun He|孫和",
+     "f": "sw01"
+    }
+   ],
+   "full": "东吴|Eastern Wu|東吳",
+   "emp": true,
+   "tw": "吳"
+  },
+  {
+   "id": "jin",
+   "zh": "晋",
+   "en": "Jin",
+   "c": "Huaxia",
+   "seat": [
+    "henan",
+    "jiangdong"
+   ],
+   "fam": "司马|Sima|司馬",
+   "west": false,
+   "rulers": [
+    {
+     "n": "司马炎|Sima Yan|司馬炎",
+     "a": 266,
+     "b": 290,
+     "shi": "武",
+     "miao": "世祖",
+     "era": "泰始",
+     "p": "jn01",
+     "f": "jin_zhao",
+     "shi_tw": "武",
+     "miao_tw": "世祖",
+     "era_tw": "泰始"
+    },
+    {
+     "n": "司马衷|Sima Zhong|司馬衷",
+     "a": 290,
+     "b": 307,
+     "shi": "惠",
+     "era": "永熙",
+     "p": "jn02",
+     "f": "jn01",
+     "shi_tw": "惠",
+     "era_tw": "永熙"
+    },
+    {
+     "n": "司马炽|Sima Chi|司馬熾",
+     "a": 307,
+     "b": 311,
+     "shi": "怀",
+     "era": "永嘉",
+     "p": "jn03",
+     "f": "jn01",
+     "shi_tw": "懷",
+     "era_tw": "永嘉"
+    },
+    {
+     "n": "司马邺|Sima Ye|司馬鄴",
+     "a": 313,
+     "b": 316,
+     "shi": "愍",
+     "era": "建兴",
+     "p": "jn04",
+     "f": "jin_yan",
+     "shi_tw": "愍",
+     "era_tw": "建興"
+    },
+    {
+     "n": "司马睿|Sima Rui|司馬睿",
+     "a": 317,
+     "b": 323,
+     "shi": "元",
+     "miao": "中宗",
+     "era": "建武",
+     "p": "jn05",
+     "f": "jin_jin",
+     "shi_tw": "元",
+     "miao_tw": "中宗",
+     "era_tw": "建武"
+    },
+    {
+     "n": "司马绍|Sima Shao|司馬紹",
+     "a": 323,
+     "b": 325,
+     "shi": "明",
+     "miao": "肃宗",
+     "era": "太宁",
+     "p": "jn06",
+     "f": "jn05",
+     "shi_tw": "明",
+     "miao_tw": "肅宗",
+     "era_tw": "太寧"
+    },
+    {
+     "n": "司马衍|Sima Yan|司馬衍",
+     "a": 325,
+     "b": 342,
+     "shi": "成",
+     "miao": "显宗",
+     "era": "咸和",
+     "p": "jn07",
+     "f": "jn06",
+     "shi_tw": "成",
+     "miao_tw": "顯宗",
+     "era_tw": "鹹和"
+    },
+    {
+     "n": "司马岳|Sima Yue|司馬嶽",
+     "a": 342,
+     "b": 344,
+     "shi": "康",
+     "era": "建元",
+     "p": "jn08",
+     "f": "jn06",
+     "shi_tw": "康",
+     "era_tw": "建元"
+    },
+    {
+     "n": "司马聃|Sima Dan|司馬聃",
+     "a": 344,
+     "b": 361,
+     "shi": "穆",
+     "miao": "孝宗",
+     "era": "永和",
+     "p": "jn09",
+     "f": "jn08",
+     "shi_tw": "穆",
+     "miao_tw": "孝宗",
+     "era_tw": "永和"
+    },
+    {
+     "n": "司马丕|Sima Pi|司馬丕",
+     "a": 361,
+     "b": 365,
+     "shi": "哀",
+     "era": "隆和",
+     "p": "jn10",
+     "f": "jn07",
+     "shi_tw": "哀",
+     "era_tw": "隆和"
+    },
+    {
+     "n": "司马奕|Sima Yi|司馬奕",
+     "a": 365,
+     "b": 371,
+     "shi": "废",
+     "era": "太和",
+     "p": "jn11",
+     "f": "jn07",
+     "shi_tw": "廢",
+     "era_tw": "太和"
+    },
+    {
+     "n": "司马昱|Sima Yu|司馬昱",
+     "a": 371,
+     "b": 372,
+     "shi": "简文",
+     "miao": "太宗",
+     "era": "咸安",
+     "p": "jn12",
+     "f": "jn05",
+     "shi_tw": "簡文",
+     "miao_tw": "太宗",
+     "era_tw": "鹹安"
+    },
+    {
+     "n": "司马曜|Sima Yao|司馬曜",
+     "a": 372,
+     "b": 396,
+     "shi": "孝武",
+     "miao": "烈宗",
+     "era": "宁康",
+     "p": "jn13",
+     "f": "jn12",
+     "shi_tw": "孝武",
+     "miao_tw": "烈宗",
+     "era_tw": "寧康"
+    },
+    {
+     "n": "司马德宗|Sima Dezong|司馬德宗",
+     "a": 396,
+     "b": 418,
+     "shi": "安",
+     "era": "隆安",
+     "p": "jn14",
+     "f": "jn13",
+     "shi_tw": "安",
+     "era_tw": "隆安"
+    },
+    {
+     "n": "司马德文|Sima Dewen|司馬德文",
+     "a": 418,
+     "b": 420,
+     "shi": "恭",
+     "era": "元熙",
+     "p": "jn15",
+     "f": "jn13",
+     "shi_tw": "恭",
+     "era_tw": "元熙"
+    }
+   ],
+   "people": [
+    {
+     "p": "jin_yi",
+     "n": "司马懿|Sima Yi|司馬懿"
+    },
+    {
+     "p": "jin_zhao",
+     "n": "司马昭|Sima Zhao|司馬昭",
+     "f": "jin_yi"
+    },
+    {
+     "p": "jin_yan",
+     "n": "司马晏|Sima Yan|司馬晏",
+     "f": "jn01"
+    },
+    {
+     "p": "jin_zhou",
+     "n": "司马伷|Sima Zhou|司馬伷",
+     "f": "jin_yi"
+    },
+    {
+     "p": "jin_jin",
+     "n": "司马觐|Sima Jin|司馬覲",
+     "f": "jin_zhou"
+    }
+   ],
+   "emp": true,
+   "tw": "晉"
+  },
+  {
+   "id": "liu_song",
+   "zh": "宋",
+   "en": "Song",
+   "c": "Huaxia",
+   "seat": [
+    "jiangdong"
+   ],
+   "fam": "刘|Liu|劉",
+   "west": false,
+   "rulers": [
+    {
+     "n": "刘裕|Liu Yu|劉裕",
+     "a": 420,
+     "b": 422,
+     "shi": "武",
+     "miao": "高祖",
+     "era": "永初",
+     "p": "ls01",
+     "shi_tw": "武",
+     "miao_tw": "高祖",
+     "era_tw": "永初"
+    },
+    {
+     "n": "刘义符|Liu Yifu|劉義符",
+     "a": 422,
+     "b": 424,
+     "shi": "少",
+     "era": "景平",
+     "p": "ls02",
+     "f": "ls01",
+     "shi_tw": "少",
+     "era_tw": "景平"
+    },
+    {
+     "n": "刘义隆|Liu Yilong|劉義隆",
+     "a": 424,
+     "b": 453,
+     "shi": "文",
+     "miao": "太祖",
+     "era": "元嘉",
+     "p": "ls03",
+     "f": "ls01",
+     "shi_tw": "文",
+     "miao_tw": "太祖",
+     "era_tw": "元嘉"
+    },
+    {
+     "n": "刘骏|Liu Jun|劉駿",
+     "a": 453,
+     "b": 464,
+     "shi": "孝武",
+     "miao": "世祖",
+     "era": "孝建",
+     "p": "ls04",
+     "f": "ls03",
+     "shi_tw": "孝武",
+     "miao_tw": "世祖",
+     "era_tw": "孝建"
+    },
+    {
+     "n": "刘子业|Liu Ziye|劉子業",
+     "a": 464,
+     "b": 465,
+     "shi": "前废",
+     "era": "永光",
+     "p": "ls05",
+     "f": "ls04",
+     "shi_tw": "前廢",
+     "era_tw": "永光"
+    },
+    {
+     "n": "刘彧|Liu Yu|劉彧",
+     "a": 465,
+     "b": 472,
+     "shi": "明",
+     "miao": "太宗",
+     "era": "泰始",
+     "p": "ls06",
+     "f": "ls03",
+     "shi_tw": "明",
+     "miao_tw": "太宗",
+     "era_tw": "泰始"
+    },
+    {
+     "n": "刘昱|Liu Yu|劉昱",
+     "a": 472,
+     "b": 477,
+     "shi": "后废",
+     "era": "元徽",
+     "p": "ls07",
+     "f": "ls06",
+     "shi_tw": "後廢",
+     "era_tw": "元徽"
+    },
+    {
+     "n": "刘准|Liu Zhun|劉準",
+     "a": 477,
+     "b": 479,
+     "shi": "顺",
+     "era": "昇明",
+     "p": "ls08",
+     "f": "ls06",
+     "shi_tw": "順",
+     "era_tw": "昇明"
+    }
+   ],
+   "people": [],
+   "full": "刘宋|Liu Song|劉宋",
+   "emp": true,
+   "tw": "宋"
+  },
+  {
+   "id": "nan_qi",
+   "zh": "齐",
+   "en": "Qi",
+   "c": "Huaxia",
+   "seat": [
+    "jiangdong"
+   ],
+   "fam": "萧|Xiao|蕭",
+   "west": false,
+   "rulers": [
+    {
+     "n": "萧道成|Xiao Daocheng|蕭道成",
+     "a": 479,
+     "b": 482,
+     "shi": "高",
+     "miao": "太祖",
+     "era": "建元",
+     "shi_tw": "高",
+     "miao_tw": "太祖",
+     "era_tw": "建元"
+    },
+    {
+     "n": "萧赜|Xiao Ze|蕭賾",
+     "a": 482,
+     "b": 493,
+     "shi": "武",
+     "miao": "世祖",
+     "era": "永明",
+     "shi_tw": "武",
+     "miao_tw": "世祖",
+     "era_tw": "永明"
+    },
+    {
+     "n": "萧昭业|Xiao Zhaoye|蕭昭業",
+     "a": 493,
+     "b": 494,
+     "era": "隆昌",
+     "era_tw": "隆昌"
+    },
+    {
+     "n": "萧鸾|Xiao Luan|蕭鸞",
+     "a": 494,
+     "b": 498,
+     "shi": "明",
+     "miao": "高宗",
+     "era": "建武",
+     "shi_tw": "明",
+     "miao_tw": "高宗",
+     "era_tw": "建武"
+    },
+    {
+     "n": "萧宝卷|Xiao Baojuan|蕭寶卷",
+     "a": 498,
+     "b": 501,
+     "era": "永元",
+     "era_tw": "永元"
+    },
+    {
+     "n": "萧宝融|Xiao Baorong|蕭寶融",
+     "a": 501,
+     "b": 502,
+     "shi": "和",
+     "era": "中兴",
+     "shi_tw": "和",
+     "era_tw": "中興"
+    }
+   ],
+   "people": [],
+   "full": "南齐|Southern Qi|南齊",
+   "emp": true,
+   "tw": "齊"
+  },
+  {
+   "id": "liang",
+   "zh": "梁",
+   "en": "Liang",
+   "c": "Huaxia",
+   "seat": [
+    "jiangdong"
+   ],
+   "fam": "萧|Xiao|蕭",
+   "west": false,
+   "rulers": [
+    {
+     "n": "萧衍|Xiao Yan|蕭衍",
+     "a": 502,
+     "b": 549,
+     "shi": "武",
+     "miao": "高祖",
+     "era": "天监",
+     "shi_tw": "武",
+     "miao_tw": "高祖",
+     "era_tw": "天監"
+    },
+    {
+     "n": "萧纲|Xiao Gang|蕭綱",
+     "a": 549,
+     "b": 551,
+     "shi": "简文",
+     "miao": "太宗",
+     "era": "大宝",
+     "shi_tw": "簡文",
+     "miao_tw": "太宗",
+     "era_tw": "大寶"
+    },
+    {
+     "n": "萧绎|Xiao Yi|蕭繹",
+     "a": 552,
+     "b": 555,
+     "shi": "元",
+     "miao": "世祖",
+     "era": "承圣",
+     "shi_tw": "元",
+     "miao_tw": "世祖",
+     "era_tw": "承聖"
+    },
+    {
+     "n": "萧方智|Xiao Fangzhi|蕭方智",
+     "a": 555,
+     "b": 557,
+     "shi": "敬",
+     "era": "绍泰",
+     "shi_tw": "敬",
+     "era_tw": "紹泰"
+    }
+   ],
+   "people": [],
+   "full": "南梁|Southern Liang|南梁",
+   "emp": true,
+   "tw": "梁"
+  },
+  {
+   "id": "chen",
+   "zh": "陈",
+   "en": "Chen",
+   "c": "Huaxia",
+   "seat": [
+    "jiangdong"
+   ],
+   "fam": "陈|Chen|陳",
+   "west": false,
+   "rulers": [
+    {
+     "n": "陈霸先|Chen Baxian|陳霸先",
+     "a": 557,
+     "b": 559,
+     "shi": "武",
+     "miao": "高祖",
+     "era": "永定",
+     "shi_tw": "武",
+     "miao_tw": "高祖",
+     "era_tw": "永定"
+    },
+    {
+     "n": "陈蒨|Chen Qian|陳蒨",
+     "a": 559,
+     "b": 566,
+     "shi": "文",
+     "miao": "世祖",
+     "era": "天嘉",
+     "shi_tw": "文",
+     "miao_tw": "世祖",
+     "era_tw": "天嘉"
+    },
+    {
+     "n": "陈伯宗|Chen Bozong|陳伯宗",
+     "a": 566,
+     "b": 568,
+     "shi": "废",
+     "era": "光大",
+     "shi_tw": "廢",
+     "era_tw": "光大"
+    },
+    {
+     "n": "陈顼|Chen Xu|陳頊",
+     "a": 569,
+     "b": 582,
+     "shi": "宣",
+     "miao": "高宗",
+     "era": "太建",
+     "shi_tw": "宣",
+     "miao_tw": "高宗",
+     "era_tw": "太建"
+    },
+    {
+     "n": "陈叔宝|Chen Shubao|陳叔寶",
+     "a": 582,
+     "b": 589,
+     "era": "至德",
+     "era_tw": "至德"
+    }
+   ],
+   "people": [],
+   "full": "南陈|Southern Chen|南陳",
+   "emp": true,
+   "tw": "陳"
+  },
+  {
+   "id": "bei_wei",
+   "zh": "魏",
+   "en": "Northern Wei",
+   "c": "Huaxia",
+   "seat": [
+    "hedong",
+    "henan"
+   ],
+   "fam": "拓跋|Tuoba|拓跋",
+   "west": false,
+   "rulers": [
+    {
+     "n": "拓跋珪|Tuoba Gui|拓跋珪",
+     "a": 386,
+     "b": 409,
+     "shi": "道武",
+     "miao": "太祖",
+     "era": "登国",
+     "shi_tw": "道武",
+     "miao_tw": "太祖",
+     "era_tw": "登國"
+    },
+    {
+     "n": "拓跋嗣|Tuoba Si|拓跋嗣",
+     "a": 409,
+     "b": 423,
+     "shi": "明元",
+     "miao": "太宗",
+     "era": "永兴",
+     "shi_tw": "明元",
+     "miao_tw": "太宗",
+     "era_tw": "永興"
+    },
+    {
+     "n": "拓跋焘|Tuoba Tao|拓跋燾",
+     "a": 423,
+     "b": 452,
+     "shi": "太武",
+     "miao": "世祖",
+     "era": "始光",
+     "shi_tw": "太武",
+     "miao_tw": "世祖",
+     "era_tw": "始光"
+    },
+    {
+     "n": "拓跋濬|Tuoba Jun|拓跋濬",
+     "a": 452,
+     "b": 465,
+     "shi": "文成",
+     "miao": "高宗",
+     "era": "兴安",
+     "shi_tw": "文成",
+     "miao_tw": "高宗",
+     "era_tw": "興安"
+    },
+    {
+     "n": "拓跋弘|Tuoba Hong|拓跋弘",
+     "a": 465,
+     "b": 471,
+     "shi": "献文",
+     "miao": "显祖",
+     "era": "天安",
+     "shi_tw": "獻文",
+     "miao_tw": "顯祖",
+     "era_tw": "天安"
+    },
+    {
+     "n": "元宏|Yuan Hong|元宏",
+     "a": 471,
+     "b": 499,
+     "shi": "孝文",
+     "miao": "高祖",
+     "era": "延兴",
+     "shi_tw": "孝文",
+     "miao_tw": "高祖",
+     "era_tw": "延興"
+    },
+    {
+     "n": "元恪|Yuan Ke|元恪",
+     "a": 499,
+     "b": 515,
+     "shi": "宣武",
+     "miao": "世宗",
+     "era": "景明",
+     "shi_tw": "宣武",
+     "miao_tw": "世宗",
+     "era_tw": "景明"
+    },
+    {
+     "n": "元诩|Yuan Xu|元詡",
+     "a": 515,
+     "b": 528,
+     "shi": "孝明",
+     "miao": "肃宗",
+     "era": "熙平",
+     "shi_tw": "孝明",
+     "miao_tw": "肅宗",
+     "era_tw": "熙平"
+    },
+    {
+     "n": "元子攸|Yuan Ziyou|元子攸",
+     "a": 528,
+     "b": 530,
+     "shi": "孝庄",
+     "miao": "敬宗",
+     "era": "建义",
+     "shi_tw": "孝莊",
+     "miao_tw": "敬宗",
+     "era_tw": "建義"
+    },
+    {
+     "n": "元修|Yuan Xiu|元修",
+     "a": 532,
+     "b": 534,
+     "shi": "孝武",
+     "era": "太昌",
+     "shi_tw": "孝武",
+     "era_tw": "太昌"
+    }
+   ],
+   "people": [],
+   "full": "北魏|Northern Wei|北魏",
+   "emp": true,
+   "tw": "魏"
+  },
+  {
+   "id": "bei_qi",
+   "zh": "齐",
+   "en": "Northern Qi",
+   "c": "Huaxia",
+   "seat": [
+    "hebei"
+   ],
+   "fam": "高|Gao|高",
+   "west": false,
+   "rulers": [
+    {
+     "n": "高洋|Gao Yang|高洋",
+     "a": 550,
+     "b": 559,
+     "shi": "文宣",
+     "miao": "显祖",
+     "era": "天保",
+     "shi_tw": "文宣",
+     "miao_tw": "顯祖",
+     "era_tw": "天保"
+    },
+    {
+     "n": "高殷|Gao Yin|高殷",
+     "a": 559,
+     "b": 560,
+     "shi": "废",
+     "era": "乾明",
+     "shi_tw": "廢",
+     "era_tw": "乾明"
+    },
+    {
+     "n": "高演|Gao Yan|高演",
+     "a": 560,
+     "b": 561,
+     "shi": "孝昭",
+     "miao": "肃宗",
+     "era": "皇建",
+     "shi_tw": "孝昭",
+     "miao_tw": "肅宗",
+     "era_tw": "皇建"
+    },
+    {
+     "n": "高湛|Gao Zhan|高湛",
+     "a": 561,
+     "b": 565,
+     "shi": "武成",
+     "miao": "世祖",
+     "era": "太宁",
+     "shi_tw": "武成",
+     "miao_tw": "世祖",
+     "era_tw": "太寧"
+    },
+    {
+     "n": "高纬|Gao Wei|高緯",
+     "a": 565,
+     "b": 577,
+     "era": "天统",
+     "era_tw": "天統"
+    }
+   ],
+   "people": [],
+   "full": "北齐|Northern Qi|北齊",
+   "emp": true,
+   "tw": "齊"
+  },
+  {
+   "id": "bei_zhou",
+   "zh": "周",
+   "en": "Northern Zhou",
+   "c": "Huaxia",
+   "seat": [
+    "guanzhong"
+   ],
+   "fam": "宇文|Yuwen|宇文",
+   "west": false,
+   "rulers": [
+    {
+     "n": "宇文觉|Yuwen Jue|宇文覺",
+     "a": 557,
+     "b": 557,
+     "shi": "孝闵",
+     "shi_tw": "孝閔"
+    },
+    {
+     "n": "宇文毓|Yuwen Yu|宇文毓",
+     "a": 557,
+     "b": 560,
+     "shi": "明",
+     "miao": "世宗",
+     "era": "武成",
+     "shi_tw": "明",
+     "miao_tw": "世宗",
+     "era_tw": "武成"
+    },
+    {
+     "n": "宇文邕|Yuwen Yong|宇文邕",
+     "a": 560,
+     "b": 578,
+     "shi": "武",
+     "miao": "高祖",
+     "era": "保定",
+     "shi_tw": "武",
+     "miao_tw": "高祖",
+     "era_tw": "保定"
+    },
+    {
+     "n": "宇文赟|Yuwen Yun|宇文贇",
+     "a": 578,
+     "b": 579,
+     "shi": "宣",
+     "era": "宣政",
+     "shi_tw": "宣",
+     "era_tw": "宣政"
+    },
+    {
+     "n": "宇文阐|Yuwen Chan|宇文闡",
+     "a": 579,
+     "b": 581,
+     "shi": "静",
+     "era": "大象",
+     "shi_tw": "靜",
+     "era_tw": "大象"
+    }
+   ],
+   "people": [],
+   "full": "北周|Northern Zhou|北周",
+   "emp": true,
+   "tw": "周"
+  },
+  {
+   "id": "sui",
+   "zh": "隋",
+   "en": "Sui",
+   "c": "Huaxia",
+   "seat": [
+    "guanzhong"
+   ],
+   "fam": "杨|Yang|楊",
+   "west": false,
+   "rulers": [
+    {
+     "n": "杨坚|Yang Jian|楊堅",
+     "a": 581,
+     "b": 604,
+     "shi": "文",
+     "miao": "高祖",
+     "era": "开皇",
+     "p": "su01",
+     "shi_tw": "文",
+     "miao_tw": "高祖",
+     "era_tw": "開皇"
+    },
+    {
+     "n": "杨广|Yang Guang|楊廣",
+     "a": 604,
+     "b": 618,
+     "shi": "炀",
+     "era": "大业",
+     "p": "su02",
+     "f": "su01",
+     "shi_tw": "煬",
+     "era_tw": "大業"
+    },
+    {
+     "n": "杨侑|Yang You|楊侑",
+     "a": 617,
+     "b": 618,
+     "shi": "恭",
+     "era": "义宁",
+     "p": "su03",
+     "f": "su_zhao",
+     "shi_tw": "恭",
+     "era_tw": "義寧"
+    }
+   ],
+   "people": [
+    {
+     "p": "su_zhao",
+     "n": "杨昭|Yang Zhao|楊昭",
+     "f": "su02"
+    }
+   ],
+   "emp": true,
+   "tw": "隋"
+  },
+  {
+   "id": "wu_zhou",
+   "zh": "周",
+   "en": "Wu Zhou",
+   "c": "Huaxia",
+   "seat": [
+    "henan"
+   ],
+   "fam": "武|Wu|武",
+   "west": false,
+   "rulers": [
+    {
+     "n": "武曌|Wu Zhao|武曌",
+     "a": 690,
+     "b": 705,
+     "era": "天授",
+     "t": "圣神皇帝|Emperor Shengshen|聖神皇帝",
+     "era_tw": "天授"
+    }
+   ],
+   "people": [],
+   "full": "武周|Wu Zhou|武周",
+   "emp": true,
+   "tw": "周"
+  },
+  {
+   "id": "tang",
+   "zh": "唐",
+   "en": "Tang",
+   "c": "Huaxia",
+   "seat": [
+    "guanzhong"
+   ],
+   "fam": "李|Li|李",
+   "west": false,
+   "rulers": [
+    {
+     "n": "李渊|Li Yuan|李淵",
+     "a": 618,
+     "b": 626,
+     "shi": "神尧大圣大光孝皇",
+     "miao": "高祖",
+     "era": "武德",
+     "p": "tg01",
+     "f": "tang_bing",
+     "shi_tw": "神堯大聖大光孝皇",
+     "miao_tw": "高祖",
+     "era_tw": "武德"
+    },
+    {
+     "n": "李世民|Li Shimin|李世民",
+     "a": 626,
+     "b": 649,
+     "shi": "文武大圣大广孝皇",
+     "miao": "太宗",
+     "era": "贞观",
+     "p": "tg02",
+     "f": "tg01",
+     "shi_tw": "文武大聖大廣孝皇",
+     "miao_tw": "太宗",
+     "era_tw": "貞觀"
+    },
+    {
+     "n": "李治|Li Zhi|李治",
+     "a": 649,
+     "b": 683,
+     "shi": "天皇大圣大弘孝皇",
+     "miao": "高宗",
+     "era": "永徽",
+     "p": "tg03",
+     "f": "tg02",
+     "shi_tw": "天皇大聖大弘孝皇",
+     "miao_tw": "高宗",
+     "era_tw": "永徽"
+    },
+    {
+     "n": "李显|Li Xian|李顯",
+     "a": 684,
+     "b": 684,
+     "shi": "大和大圣大昭孝皇",
+     "miao": "中宗",
+     "era": "嗣圣",
+     "p": "tg04",
+     "f": "tg03",
+     "shi_tw": "大和大聖大昭孝皇",
+     "miao_tw": "中宗",
+     "era_tw": "嗣聖"
+    },
+    {
+     "n": "李旦|Li Dan|李旦",
+     "a": 684,
+     "b": 690,
+     "shi": "玄真大圣大兴孝皇",
+     "miao": "睿宗",
+     "era": "文明",
+     "p": "tg05",
+     "f": "tg03",
+     "shi_tw": "玄真大聖大興孝皇",
+     "miao_tw": "睿宗",
+     "era_tw": "文明"
+    },
+    {
+     "n": "李显|Li Xian|李顯",
+     "a": 705,
+     "b": 710,
+     "shi": "大和大圣大昭孝皇",
+     "miao": "中宗",
+     "era": "神龙",
+     "p": "tg04",
+     "f": "tg03",
+     "shi_tw": "大和大聖大昭孝皇",
+     "miao_tw": "中宗",
+     "era_tw": "神龍"
+    },
+    {
+     "n": "李重茂|Li Chongmao|李重茂",
+     "a": 710,
+     "b": 710,
+     "shi": "殇",
+     "era": "唐隆",
+     "p": "tg06",
+     "f": "tg04",
+     "shi_tw": "殤",
+     "era_tw": "唐隆"
+    },
+    {
+     "n": "李旦|Li Dan|李旦",
+     "a": 710,
+     "b": 712,
+     "shi": "玄真大圣大兴孝皇",
+     "miao": "睿宗",
+     "era": "景云",
+     "p": "tg05",
+     "f": "tg03",
+     "shi_tw": "玄真大聖大興孝皇",
+     "miao_tw": "睿宗",
+     "era_tw": "景雲"
+    },
+    {
+     "n": "李隆基|Li Longji|李隆基",
+     "a": 712,
+     "b": 756,
+     "shi": "至道大圣大明孝皇",
+     "miao": "玄宗",
+     "era": "先天",
+     "p": "tg07",
+     "f": "tg05",
+     "shi_tw": "至道大聖大明孝皇",
+     "miao_tw": "玄宗",
+     "era_tw": "先天"
+    },
+    {
+     "n": "李亨|Li Heng|李亨",
+     "a": 756,
+     "b": 762,
+     "shi": "文明武德大圣大宣孝皇",
+     "miao": "肃宗",
+     "era": "至德",
+     "p": "tg08",
+     "f": "tg07",
+     "shi_tw": "文明武德大聖大宣孝皇",
+     "miao_tw": "肅宗",
+     "era_tw": "至德"
+    },
+    {
+     "n": "李豫|Li Yu|李豫",
+     "a": 762,
+     "b": 779,
+     "shi": "睿文孝武皇",
+     "miao": "代宗",
+     "era": "宝应",
+     "p": "tg09",
+     "f": "tg08",
+     "shi_tw": "睿文孝武皇",
+     "miao_tw": "代宗",
+     "era_tw": "寶應"
+    },
+    {
+     "n": "李适|Li Kuo|李适",
+     "a": 779,
+     "b": 805,
+     "shi": "神武孝文皇",
+     "miao": "德宗",
+     "era": "建中",
+     "p": "tg10",
+     "f": "tg09",
+     "shi_tw": "神武孝文皇",
+     "miao_tw": "德宗",
+     "era_tw": "建中"
+    },
+    {
+     "n": "李诵|Li Song|李誦",
+     "a": 805,
+     "b": 805,
+     "shi": "至德大圣大安孝皇",
+     "miao": "顺宗",
+     "era": "永贞",
+     "p": "tg11",
+     "f": "tg10",
+     "shi_tw": "至德大聖大安孝皇",
+     "miao_tw": "順宗",
+     "era_tw": "永貞"
+    },
+    {
+     "n": "李纯|Li Chun|李純",
+     "a": 805,
+     "b": 820,
+     "shi": "圣神章武孝皇",
+     "miao": "宪宗",
+     "era": "元和",
+     "p": "tg12",
+     "f": "tg11",
+     "shi_tw": "聖神章武孝皇",
+     "miao_tw": "憲宗",
+     "era_tw": "元和"
+    },
+    {
+     "n": "李恒|Li Heng|李恆",
+     "a": 820,
+     "b": 824,
+     "shi": "睿圣文惠孝皇",
+     "miao": "穆宗",
+     "era": "长庆",
+     "p": "tg13",
+     "f": "tg12",
+     "shi_tw": "睿聖文惠孝皇",
+     "miao_tw": "穆宗",
+     "era_tw": "長慶"
+    },
+    {
+     "n": "李湛|Li Zhan|李湛",
+     "a": 824,
+     "b": 826,
+     "shi": "睿武昭愍孝皇",
+     "miao": "敬宗",
+     "era": "宝历",
+     "p": "tg14",
+     "f": "tg13",
+     "shi_tw": "睿武昭愍孝皇",
+     "miao_tw": "敬宗",
+     "era_tw": "寶曆"
+    },
+    {
+     "n": "李昂|Li Ang|李昂",
+     "a": 826,
+     "b": 840,
+     "shi": "元圣昭献孝皇",
+     "miao": "文宗",
+     "era": "太和",
+     "p": "tg15",
+     "f": "tg13",
+     "shi_tw": "元聖昭獻孝皇",
+     "miao_tw": "文宗",
+     "era_tw": "太和"
+    },
+    {
+     "n": "李炎|Li Yan|李炎",
+     "a": 840,
+     "b": 846,
+     "shi": "至道昭肃孝皇",
+     "miao": "武宗",
+     "era": "会昌",
+     "p": "tg16",
+     "f": "tg13",
+     "shi_tw": "至道昭肅孝皇",
+     "miao_tw": "武宗",
+     "era_tw": "會昌"
+    },
+    {
+     "n": "李忱|Li Chen|李忱",
+     "a": 846,
+     "b": 859,
+     "shi": "圣武献文孝皇",
+     "miao": "宣宗",
+     "era": "大中",
+     "p": "tg17",
+     "f": "tg12",
+     "shi_tw": "聖武獻文孝皇",
+     "miao_tw": "宣宗",
+     "era_tw": "大中"
+    },
+    {
+     "n": "李漼|Li Cui|李漼",
+     "a": 859,
+     "b": 873,
+     "shi": "昭圣恭惠孝皇",
+     "miao": "懿宗",
+     "era": "咸通",
+     "p": "tg18",
+     "f": "tg17",
+     "shi_tw": "昭聖恭惠孝皇",
+     "miao_tw": "懿宗",
+     "era_tw": "鹹通"
+    },
+    {
+     "n": "李儇|Li Xuan|李儇",
+     "a": 873,
+     "b": 888,
+     "shi": "惠圣恭定孝皇",
+     "miao": "僖宗",
+     "era": "乾符",
+     "p": "tg19",
+     "f": "tg18",
+     "shi_tw": "惠聖恭定孝皇",
+     "miao_tw": "僖宗",
+     "era_tw": "乾符"
+    },
+    {
+     "n": "李晔|Li Ye|李曄",
+     "a": 888,
+     "b": 904,
+     "shi": "圣穆景文孝皇",
+     "miao": "昭宗",
+     "era": "龙纪",
+     "p": "tg20",
+     "f": "tg18",
+     "shi_tw": "聖穆景文孝皇",
+     "miao_tw": "昭宗",
+     "era_tw": "龍紀"
+    },
+    {
+     "n": "李柷|Li Zhu|李柷",
+     "a": 904,
+     "b": 907,
+     "shi": "哀",
+     "era": "天祐",
+     "p": "tg21",
+     "f": "tg20",
+     "shi_tw": "哀",
+     "era_tw": "天祐"
+    }
+   ],
+   "people": [
+    {
+     "p": "tang_bing",
+     "n": "李昞|Li Bing|李昞"
+    }
+   ],
+   "emp": true,
+   "tw": "唐"
+  },
+  {
+   "id": "hou_liang",
+   "zh": "梁",
+   "en": "Later Liang",
+   "c": "Huaxia",
+   "seat": [
+    "henan"
+   ],
+   "fam": "朱|Zhu|朱",
+   "west": false,
+   "rulers": [
+    {
+     "n": "朱温|Zhu Wen|朱溫",
+     "a": 907,
+     "b": 912,
+     "shi": "神武元圣孝皇",
+     "miao": "太祖",
+     "era": "开平",
+     "shi_tw": "神武元聖孝皇",
+     "miao_tw": "太祖",
+     "era_tw": "開平"
+    },
+    {
+     "n": "朱友珪|Zhu Yougui|朱友珪",
+     "a": 912,
+     "b": 913,
+     "era": "凤历",
+     "era_tw": "鳳歷"
+    },
+    {
+     "n": "朱友贞|Zhu Youzhen|朱友貞",
+     "a": 913,
+     "b": 923,
+     "era": "乾化",
+     "era_tw": "乾化"
+    }
+   ],
+   "people": [],
+   "full": "后梁|Later Liang|後梁",
+   "emp": true,
+   "tw": "梁"
+  },
+  {
+   "id": "hou_tang",
+   "zh": "唐",
+   "en": "Later Tang",
+   "c": "Huaxia",
+   "seat": [
+    "henan"
+   ],
+   "fam": "李|Li|李",
+   "west": false,
+   "rulers": [
+    {
+     "n": "李存勖|Li Cunxu|李存勖",
+     "a": 923,
+     "b": 926,
+     "shi": "光圣神闵孝皇",
+     "miao": "庄宗",
+     "era": "同光",
+     "shi_tw": "光聖神閔孝皇",
+     "miao_tw": "莊宗",
+     "era_tw": "同光"
+    },
+    {
+     "n": "李嗣源|Li Siyuan|李嗣源",
+     "a": 926,
+     "b": 933,
+     "shi": "圣德和武钦孝皇",
+     "miao": "明宗",
+     "era": "天成",
+     "shi_tw": "聖德和武欽孝皇",
+     "miao_tw": "明宗",
+     "era_tw": "天成"
+    },
+    {
+     "n": "李从厚|Li Conghou|李從厚",
+     "a": 933,
+     "b": 934,
+     "shi": "闵",
+     "era": "应顺",
+     "shi_tw": "閔",
+     "era_tw": "應順"
+    },
+    {
+     "n": "李从珂|Li Congke|李從珂",
+     "a": 934,
+     "b": 937,
+     "era": "清泰",
+     "era_tw": "清泰"
+    }
+   ],
+   "people": [],
+   "full": "后唐|Later Tang|後唐",
+   "emp": true,
+   "tw": "唐"
+  },
+  {
+   "id": "hou_jin",
+   "zh": "晋",
+   "en": "Later Jin",
+   "c": "Huaxia",
+   "seat": [
+    "henan"
+   ],
+   "fam": "石|Shi|石",
+   "west": false,
+   "rulers": [
+    {
+     "n": "石敬瑭|Shi Jingtang|石敬瑭",
+     "a": 936,
+     "b": 942,
+     "shi": "圣文章武明德孝皇",
+     "miao": "高祖",
+     "era": "天福",
+     "shi_tw": "聖文章武明德孝皇",
+     "miao_tw": "高祖",
+     "era_tw": "天福"
+    },
+    {
+     "n": "石重贵|Shi Chonggui|石重貴",
+     "a": 942,
+     "b": 947,
+     "era": "开运",
+     "era_tw": "開運"
+    }
+   ],
+   "people": [],
+   "full": "后晋|Later Jin|後晉",
+   "emp": true,
+   "tw": "晉"
+  },
+  {
+   "id": "hou_han",
+   "zh": "汉",
+   "en": "Later Han",
+   "c": "Huaxia",
+   "seat": [
+    "henan"
+   ],
+   "fam": "刘|Liu|劉",
+   "west": false,
+   "rulers": [
+    {
+     "n": "刘知远|Liu Zhiyuan|劉知遠",
+     "a": 947,
+     "b": 948,
+     "shi": "睿文圣武昭肃孝皇",
+     "miao": "高祖",
+     "era": "天福",
+     "shi_tw": "睿文聖武昭肅孝皇",
+     "miao_tw": "高祖",
+     "era_tw": "天福"
+    },
+    {
+     "n": "刘承祐|Liu Chengyou|劉承祐",
+     "a": 948,
+     "b": 951,
+     "shi": "隐",
+     "era": "乾祐",
+     "shi_tw": "隱",
+     "era_tw": "乾祐"
+    }
+   ],
+   "people": [],
+   "full": "后汉|Later Han|後漢",
+   "emp": true,
+   "tw": "漢"
+  },
+  {
+   "id": "hou_zhou",
+   "zh": "周",
+   "en": "Later Zhou",
+   "c": "Huaxia",
+   "seat": [
+    "henan"
+   ],
+   "fam": "郭|Guo|郭",
+   "west": false,
+   "rulers": [
+    {
+     "n": "郭威|Guo Wei|郭威",
+     "a": 951,
+     "b": 954,
+     "shi": "圣神恭肃文武孝皇",
+     "miao": "太祖",
+     "era": "广顺",
+     "shi_tw": "聖神恭肅文武孝皇",
+     "miao_tw": "太祖",
+     "era_tw": "廣順"
+    },
+    {
+     "n": "柴荣|Chai Rong|柴榮",
+     "a": 954,
+     "b": 959,
+     "shi": "睿武孝文皇",
+     "miao": "世宗",
+     "era": "显德",
+     "shi_tw": "睿武孝文皇",
+     "miao_tw": "世宗",
+     "era_tw": "顯德"
+    },
+    {
+     "n": "柴宗训|Chai Zongxun|柴宗訓",
+     "a": 959,
+     "b": 960,
+     "shi": "恭",
+     "era": "显德",
+     "shi_tw": "恭",
+     "era_tw": "顯德"
+    }
+   ],
+   "people": [],
+   "full": "后周|Later Zhou|後周",
+   "emp": true,
+   "tw": "周"
+  },
+  {
+   "id": "liao",
+   "zh": "辽",
+   "en": "Liao",
+   "c": "Youmu",
+   "seat": [
+    "monan"
+   ],
+   "fam": "耶律|Yelü|耶律",
+   "west": false,
+   "rulers": [
+    {
+     "n": "耶律阿保机|Yelü Abaoji|耶律阿保機",
+     "a": 916,
+     "b": 926,
+     "shi": "大圣大明神烈天皇",
+     "miao": "太祖",
+     "era": "神册",
+     "shi_tw": "大聖大明神烈天皇",
+     "miao_tw": "太祖",
+     "era_tw": "神冊"
+    },
+    {
+     "n": "耶律德光|Yelü Deguang|耶律德光",
+     "a": 926,
+     "b": 947,
+     "shi": "孝武惠文皇",
+     "miao": "太宗",
+     "era": "天显",
+     "shi_tw": "孝武惠文皇",
+     "miao_tw": "太宗",
+     "era_tw": "天顯"
+    },
+    {
+     "n": "耶律阮|Yelü Ruan|耶律阮",
+     "a": 947,
+     "b": 951,
+     "shi": "孝和庄宪皇",
+     "miao": "世宗",
+     "era": "天禄",
+     "shi_tw": "孝和莊憲皇",
+     "miao_tw": "世宗",
+     "era_tw": "天祿"
+    },
+    {
+     "n": "耶律璟|Yelü Jing|耶律璟",
+     "a": 951,
+     "b": 969,
+     "shi": "孝安敬正皇",
+     "miao": "穆宗",
+     "era": "应历",
+     "shi_tw": "孝安敬正皇",
+     "miao_tw": "穆宗",
+     "era_tw": "應歷"
+    },
+    {
+     "n": "耶律贤|Yelü Xian|耶律賢",
+     "a": 969,
+     "b": 982,
+     "shi": "孝成康靖皇",
+     "miao": "景宗",
+     "era": "保宁",
+     "shi_tw": "孝成康靖皇",
+     "miao_tw": "景宗",
+     "era_tw": "保寧"
+    },
+    {
+     "n": "耶律隆绪|Yelü Longxu|耶律隆緒",
+     "a": 982,
+     "b": 1031,
+     "shi": "文武大孝宣皇",
+     "miao": "圣宗",
+     "era": "统和",
+     "shi_tw": "文武大孝宣皇",
+     "miao_tw": "聖宗",
+     "era_tw": "統和"
+    },
+    {
+     "n": "耶律宗真|Yelü Zongzhen|耶律宗真",
+     "a": 1031,
+     "b": 1055,
+     "shi": "神圣孝章皇",
+     "miao": "兴宗",
+     "era": "景福",
+     "shi_tw": "神聖孝章皇",
+     "miao_tw": "興宗",
+     "era_tw": "景福"
+    },
+    {
+     "n": "耶律洪基|Yelü Hongji|耶律洪基",
+     "a": 1055,
+     "b": 1101,
+     "shi": "仁圣大孝文皇",
+     "miao": "道宗",
+     "era": "清宁",
+     "shi_tw": "仁聖大孝文皇",
+     "miao_tw": "道宗",
+     "era_tw": "清寧"
+    },
+    {
+     "n": "耶律延禧|Yelü Yanxi|耶律延禧",
+     "a": 1101,
+     "b": 1125,
+     "era": "乾统",
+     "era_tw": "乾統"
+    }
+   ],
+   "people": [],
+   "emp": true,
+   "tw": "遼"
+  },
+  {
+   "id": "song",
+   "zh": "宋",
+   "en": "Song",
+   "c": "Huaxia",
+   "seat": [
+    "henan",
+    "jiangdong"
+   ],
+   "fam": "赵|Zhao|趙",
+   "west": false,
+   "rulers": [
+    {
+     "n": "赵匡胤|Zhao Kuangyin|趙匡胤",
+     "a": 960,
+     "b": 976,
+     "shi": "英武圣文神德皇",
+     "miao": "太祖",
+     "era": "建隆",
+     "p": "sg01",
+     "f": "sg_hongyin",
+     "shi_tw": "英武聖文神德皇",
+     "miao_tw": "太祖",
+     "era_tw": "建隆"
+    },
+    {
+     "n": "赵光义|Zhao Guangyi|趙光義",
+     "a": 976,
+     "b": 997,
+     "shi": "神功圣德文武皇",
+     "miao": "太宗",
+     "era": "太平兴国",
+     "p": "sg02",
+     "f": "sg_hongyin",
+     "shi_tw": "神功聖德文武皇",
+     "miao_tw": "太宗",
+     "era_tw": "太平興國"
+    },
+    {
+     "n": "赵恒|Zhao Heng|趙恆",
+     "a": 997,
+     "b": 1022,
+     "shi": "文明章圣元孝皇",
+     "miao": "真宗",
+     "era": "咸平",
+     "p": "sg03",
+     "f": "sg02",
+     "shi_tw": "文明章聖元孝皇",
+     "miao_tw": "真宗",
+     "era_tw": "鹹平"
+    },
+    {
+     "n": "赵祯|Zhao Zhen|趙禎",
+     "a": 1022,
+     "b": 1063,
+     "shi": "体天法道极功全德神文圣武睿哲明孝皇",
+     "miao": "仁宗",
+     "era": "天圣",
+     "p": "sg04",
+     "f": "sg03",
+     "shi_tw": "體天法道極功全德神文聖武睿哲明孝皇",
+     "miao_tw": "仁宗",
+     "era_tw": "天聖"
+    },
+    {
+     "n": "赵曙|Zhao Shu|趙曙",
+     "a": 1063,
+     "b": 1067,
+     "shi": "体乾膺历隆功盛德宪文肃武睿圣宣孝皇",
+     "miao": "英宗",
+     "era": "治平",
+     "p": "sg05",
+     "f": "sg_yunrang",
+     "shi_tw": "體乾膺歷隆功盛德憲文肅武睿聖宣孝皇",
+     "miao_tw": "英宗",
+     "era_tw": "治平"
+    },
+    {
+     "n": "赵顼|Zhao Xu|趙頊",
+     "a": 1067,
+     "b": 1085,
+     "shi": "体元显道法古立宪帝德王功英文烈武钦仁圣孝皇",
+     "miao": "神宗",
+     "era": "熙宁",
+     "p": "sg06",
+     "f": "sg05",
+     "shi_tw": "體元顯道法古立憲帝德王功英文烈武欽仁聖孝皇",
+     "miao_tw": "神宗",
+     "era_tw": "熙寧"
+    },
+    {
+     "n": "赵煦|Zhao Xu|趙煦",
+     "a": 1085,
+     "b": 1100,
+     "shi": "宪元继道显德定功钦文睿武齐圣昭孝皇",
+     "miao": "哲宗",
+     "era": "元祐",
+     "p": "sg07",
+     "f": "sg06",
+     "shi_tw": "憲元繼道顯德定功欽文睿武齊聖昭孝皇",
+     "miao_tw": "哲宗",
+     "era_tw": "元祐"
+    },
+    {
+     "n": "赵佶|Zhao Ji|趙佶",
+     "a": 1100,
+     "b": 1126,
+     "shi": "体神合道骏烈逊功圣文仁德宪慈显孝皇",
+     "miao": "徽宗",
+     "era": "建中靖国",
+     "p": "sg08",
+     "f": "sg06",
+     "shi_tw": "體神合道駿烈遜功聖文仁德憲慈顯孝皇",
+     "miao_tw": "徽宗",
+     "era_tw": "建中靖國"
+    },
+    {
+     "n": "赵桓|Zhao Huan|趙桓",
+     "a": 1126,
+     "b": 1127,
+     "shi": "恭文顺德仁孝皇",
+     "miao": "钦宗",
+     "era": "靖康",
+     "p": "sg09",
+     "f": "sg08",
+     "shi_tw": "恭文順德仁孝皇",
+     "miao_tw": "欽宗",
+     "era_tw": "靖康"
+    },
+    {
+     "n": "赵构|Zhao Gou|趙構",
+     "a": 1127,
+     "b": 1162,
+     "shi": "受命中兴全功至德圣神武文昭仁宪孝皇",
+     "miao": "高宗",
+     "era": "建炎",
+     "p": "sg10",
+     "f": "sg08",
+     "shi_tw": "受命中興全功至德聖神武文昭仁憲孝皇",
+     "miao_tw": "高宗",
+     "era_tw": "建炎"
+    },
+    {
+     "n": "赵昚|Zhao Shen|趙昚",
+     "a": 1162,
+     "b": 1189,
+     "shi": "绍统同道冠德昭功哲文神武明圣成孝皇",
+     "miao": "孝宗",
+     "era": "隆兴",
+     "p": "sg11",
+     "f": "sg_zicheng",
+     "shi_tw": "紹統同道冠德昭功哲文神武明聖成孝皇",
+     "miao_tw": "孝宗",
+     "era_tw": "隆興"
+    },
+    {
+     "n": "赵惇|Zhao Dun|趙惇",
+     "a": 1189,
+     "b": 1194,
+     "shi": "循道宪仁明功茂德温文顺武圣哲慈孝皇",
+     "miao": "光宗",
+     "era": "绍熙",
+     "p": "sg12",
+     "f": "sg11",
+     "shi_tw": "循道憲仁明功茂德溫文順武聖哲慈孝皇",
+     "miao_tw": "光宗",
+     "era_tw": "紹熙"
+    },
+    {
+     "n": "赵扩|Zhao Kuo|趙擴",
+     "a": 1194,
+     "b": 1224,
+     "shi": "法天备道纯德茂功仁文哲武圣睿恭孝皇",
+     "miao": "宁宗",
+     "era": "庆元",
+     "p": "sg13",
+     "f": "sg12",
+     "shi_tw": "法天備道純德茂功仁文哲武聖睿恭孝皇",
+     "miao_tw": "寧宗",
+     "era_tw": "慶元"
+    },
+    {
+     "n": "赵昀|Zhao Yun|趙昀",
+     "a": 1224,
+     "b": 1264,
+     "shi": "建道备德大功复兴烈文仁武圣明安孝皇",
+     "miao": "理宗",
+     "era": "宝庆",
+     "p": "sg14",
+     "f": "sg_xilu",
+     "shi_tw": "建道備德大功復興烈文仁武聖明安孝皇",
+     "miao_tw": "理宗",
+     "era_tw": "寶慶"
+    },
+    {
+     "n": "赵禥|Zhao Qi|趙禥",
+     "a": 1264,
+     "b": 1274,
+     "shi": "端文明武景孝皇",
+     "miao": "度宗",
+     "era": "咸淳",
+     "p": "sg15",
+     "f": "sg_yurui",
+     "shi_tw": "端文明武景孝皇",
+     "miao_tw": "度宗",
+     "era_tw": "鹹淳"
+    },
+    {
+     "n": "赵显|Zhao Xian|趙顯",
+     "a": 1274,
+     "b": 1276,
+     "shi": "恭",
+     "era": "德祐",
+     "p": "sg16",
+     "f": "sg15",
+     "shi_tw": "恭",
+     "era_tw": "德祐"
+    },
+    {
+     "n": "赵昰|Zhao Shi|趙昰",
+     "a": 1276,
+     "b": 1278,
+     "shi": "裕文昭武愍孝皇",
+     "miao": "端宗",
+     "era": "景炎",
+     "p": "sg17",
+     "f": "sg15",
+     "shi_tw": "裕文昭武愍孝皇",
+     "miao_tw": "端宗",
+     "era_tw": "景炎"
+    },
+    {
+     "n": "赵昺|Zhao Bing|趙昺",
+     "a": 1278,
+     "b": 1279,
+     "era": "祥兴",
+     "t": "帝昺|Emperor Bing|帝昺",
+     "p": "sg18",
+     "f": "sg15",
+     "era_tw": "祥興"
+    }
+   ],
+   "people": [
+    {
+     "p": "sg_hongyin",
+     "n": "赵弘殷|Zhao Hongyin|趙弘殷"
+    },
+    {
+     "p": "sg_yuanfen",
+     "n": "赵元份|Zhao Yuanfen|趙元份",
+     "f": "sg02"
+    },
+    {
+     "p": "sg_yunrang",
+     "n": "赵允让|Zhao Yunrang|趙允讓",
+     "f": "sg_yuanfen"
+    },
+    {
+     "p": "sg_defang",
+     "n": "赵德芳|Zhao Defang|趙德芳",
+     "f": "sg01"
+    },
+    {
+     "p": "sg_weixian",
+     "n": "赵惟宪|Zhao Weixian|趙惟憲",
+     "f": "sg_defang"
+    },
+    {
+     "p": "sg_congyu",
+     "n": "赵从郁|Zhao Congyu|趙從鬱",
+     "f": "sg_weixian"
+    },
+    {
+     "p": "sg_shijiang",
+     "n": "赵世将|Zhao Shijiang|趙世將",
+     "f": "sg_congyu"
+    },
+    {
+     "p": "sg_lingzhan",
+     "n": "赵令詹|Zhao Lingzhan|趙令詹",
+     "f": "sg_shijiang"
+    },
+    {
+     "p": "sg_zicheng",
+     "n": "赵子偁|Zhao Zicheng|趙子偁",
+     "f": "sg_lingzhan"
+    },
+    {
+     "p": "sg_xilu",
+     "n": "赵希瓐|Zhao Xilu|趙希瓐"
+    },
+    {
+     "p": "sg_yurui",
+     "n": "赵与芮|Zhao Yurui|趙與芮",
+     "f": "sg_xilu"
+    }
+   ],
+   "emp": true,
+   "tw": "宋"
+  },
+  {
+   "id": "jurchen_jin",
+   "zh": "金",
+   "en": "Jin",
+   "c": "Youmu",
+   "seat": [
+    "youyan",
+    "manchuria"
+   ],
+   "fam": "完颜|Wanyan|完顏",
+   "west": false,
+   "rulers": [
+    {
+     "n": "完颜阿骨打|Wanyan Aguda|完顏阿骨打",
+     "a": 1115,
+     "b": 1123,
+     "shi": "应乾兴运昭德定功仁明庄孝大圣武元皇",
+     "miao": "太祖",
+     "era": "收国",
+     "p": "jj01",
+     "f": "jj_helibo",
+     "shi_tw": "應乾興運昭德定功仁明莊孝大聖武元皇",
+     "miao_tw": "太祖",
+     "era_tw": "收國"
+    },
+    {
+     "n": "完颜吴乞买|Wanyan Wuqimai|完顏吳乞買",
+     "a": 1123,
+     "b": 1135,
+     "shi": "体元应运世德昭功哲惠仁圣文烈皇",
+     "miao": "太宗",
+     "era": "天会",
+     "p": "jj02",
+     "f": "jj_helibo",
+     "shi_tw": "體元應運世德昭功哲惠仁聖文烈皇",
+     "miao_tw": "太宗",
+     "era_tw": "天會"
+    },
+    {
+     "n": "完颜亶|Wanyan Dan|完顏亶",
+     "a": 1135,
+     "b": 1149,
+     "shi": "弘基缵武庄靖孝成皇",
+     "miao": "熙宗",
+     "era": "天眷",
+     "p": "jj03",
+     "f": "jj_zongjun",
+     "shi_tw": "弘基纘武莊靖孝成皇",
+     "miao_tw": "熙宗",
+     "era_tw": "天眷"
+    },
+    {
+     "n": "完颜亮|Wanyan Liang|完顏亮",
+     "a": 1149,
+     "b": 1161,
+     "era": "天德",
+     "p": "jj04",
+     "f": "jj_zonggan",
+     "era_tw": "天德"
+    },
+    {
+     "n": "完颜雍|Wanyan Yong|完顏雍",
+     "a": 1161,
+     "b": 1189,
+     "shi": "光天兴运文德武功圣明仁孝皇",
+     "miao": "世宗",
+     "era": "大定",
+     "p": "jj05",
+     "f": "jj_zongfu",
+     "shi_tw": "光天興運文德武功聖明仁孝皇",
+     "miao_tw": "世宗",
+     "era_tw": "大定"
+    },
+    {
+     "n": "完颜璟|Wanyan Jing|完顏璟",
+     "a": 1189,
+     "b": 1208,
+     "shi": "宪天光运仁文义武神圣英孝皇",
+     "miao": "章宗",
+     "era": "明昌",
+     "p": "jj06",
+     "f": "jj_yungong",
+     "shi_tw": "憲天光運仁文義武神聖英孝皇",
+     "miao_tw": "章宗",
+     "era_tw": "明昌"
+    },
+    {
+     "n": "完颜永济|Wanyan Yongji|完顏永濟",
+     "a": 1208,
+     "b": 1213,
+     "era": "大安",
+     "t": "卫绍王|Prince Shao of Wei|衛紹王",
+     "p": "jj07",
+     "f": "jj05",
+     "era_tw": "大安"
+    },
+    {
+     "n": "完颜珣|Wanyan Xun|完顏珣",
+     "a": 1213,
+     "b": 1224,
+     "shi": "继天兴统述道勤仁英武圣孝皇",
+     "miao": "宣宗",
+     "era": "贞祐",
+     "p": "jj08",
+     "f": "jj_yungong",
+     "shi_tw": "繼天興統述道勤仁英武聖孝皇",
+     "miao_tw": "宣宗",
+     "era_tw": "貞祐"
+    },
+    {
+     "n": "完颜守绪|Wanyan Shouxu|完顏守緒",
+     "a": 1224,
+     "b": 1234,
+     "era": "正大",
+     "t": "金哀宗|Emperor Aizong of Jin|金哀宗",
+     "p": "jj09",
+     "f": "jj08",
+     "era_tw": "正大"
+    }
+   ],
+   "people": [
+    {
+     "p": "jj_helibo",
+     "n": "完颜劾里钵|Wanyan Helibo|完顏劾裏鉢"
+    },
+    {
+     "p": "jj_zongjun",
+     "n": "完颜宗峻|Wanyan Zongjun|完顏宗峻",
+     "f": "jj01"
+    },
+    {
+     "p": "jj_zonggan",
+     "n": "完颜宗干|Wanyan Zonggan|完顏宗干",
+     "f": "jj01"
+    },
+    {
+     "p": "jj_zongfu",
+     "n": "完颜宗辅|Wanyan Zongfu|完顏宗輔",
+     "f": "jj01"
+    },
+    {
+     "p": "jj_yungong",
+     "n": "完颜允恭|Wanyan Yungong|完顏允恭",
+     "f": "jj05"
+    }
+   ],
+   "emp": true,
+   "tw": "金"
+  },
+  {
+   "id": "xixia",
+   "zh": "夏",
+   "en": "Western Xia",
+   "c": "Youmu",
+   "seat": [
+    "hetao"
+   ],
+   "fam": "嵬名|Weiming|嵬名",
+   "west": false,
+   "rulers": [
+    {
+     "n": "嵬名元昊|Weiming Yuanhao|嵬名元昊",
+     "a": 1038,
+     "b": 1048,
+     "shi": "武烈",
+     "miao": "景宗",
+     "era": "天授礼法延祚",
+     "p": "xx01",
+     "shi_tw": "武烈",
+     "miao_tw": "景宗",
+     "era_tw": "天授禮法延祚"
+    },
+    {
+     "n": "嵬名谅祚|Weiming Liangzuo|嵬名諒祚",
+     "a": 1048,
+     "b": 1067,
+     "shi": "昭英",
+     "miao": "毅宗",
+     "era": "延嗣宁国",
+     "p": "xx02",
+     "f": "xx01",
+     "shi_tw": "昭英",
+     "miao_tw": "毅宗",
+     "era_tw": "延嗣寧國"
+    },
+    {
+     "n": "嵬名秉常|Weiming Bingchang|嵬名秉常",
+     "a": 1067,
+     "b": 1086,
+     "shi": "康靖",
+     "miao": "惠宗",
+     "era": "乾道",
+     "p": "xx03",
+     "f": "xx02",
+     "shi_tw": "康靖",
+     "miao_tw": "惠宗",
+     "era_tw": "乾道"
+    },
+    {
+     "n": "嵬名乾顺|Weiming Qianshun|嵬名乾順",
+     "a": 1086,
+     "b": 1139,
+     "shi": "圣文",
+     "miao": "崇宗",
+     "era": "天仪治平",
+     "p": "xx04",
+     "f": "xx03",
+     "shi_tw": "聖文",
+     "miao_tw": "崇宗",
+     "era_tw": "天儀治平"
+    },
+    {
+     "n": "嵬名仁孝|Weiming Renxiao|嵬名仁孝",
+     "a": 1139,
+     "b": 1193,
+     "shi": "圣德",
+     "miao": "仁宗",
+     "era": "大庆",
+     "p": "xx05",
+     "f": "xx04",
+     "shi_tw": "聖德",
+     "miao_tw": "仁宗",
+     "era_tw": "大慶"
+    },
+    {
+     "n": "嵬名纯祐|Weiming Chunyou|嵬名純祐",
+     "a": 1193,
+     "b": 1206,
+     "shi": "昭简",
+     "miao": "桓宗",
+     "era": "天庆",
+     "p": "xx06",
+     "f": "xx05",
+     "shi_tw": "昭簡",
+     "miao_tw": "桓宗",
+     "era_tw": "天慶"
+    },
+    {
+     "n": "嵬名安全|Weiming Anquan|嵬名安全",
+     "a": 1206,
+     "b": 1211,
+     "shi": "敬穆",
+     "miao": "襄宗",
+     "era": "应天",
+     "p": "xx07",
+     "f": "xx_renyou",
+     "shi_tw": "敬穆",
+     "miao_tw": "襄宗",
+     "era_tw": "應天"
+    },
+    {
+     "n": "嵬名遵顼|Weiming Zunxu|嵬名遵頊",
+     "a": 1211,
+     "b": 1223,
+     "shi": "英文",
+     "miao": "神宗",
+     "era": "光定",
+     "p": "xx08",
+     "shi_tw": "英文",
+     "miao_tw": "神宗",
+     "era_tw": "光定"
+    },
+    {
+     "n": "嵬名德旺|Weiming Dewang|嵬名德旺",
+     "a": 1223,
+     "b": 1226,
+     "era": "乾定",
+     "t": "夏献宗|Emperor Xianzong of Xia|夏獻宗",
+     "p": "xx09",
+     "f": "xx08",
+     "era_tw": "乾定"
+    },
+    {
+     "n": "嵬名睍|Weiming Xian|嵬名睍",
+     "a": 1226,
+     "b": 1227,
+     "era": "宝义",
+     "t": "夏末主|Last Emperor of Xia|夏末主",
+     "p": "xx10",
+     "era_tw": "寶義"
+    }
+   ],
+   "people": [
+    {
+     "p": "xx_renyou",
+     "n": "嵬名仁友|Weiming Renyou|嵬名仁友",
+     "f": "xx04"
+    }
+   ],
+   "full": "西夏|Western Xia|西夏",
+   "emp": true,
+   "tw": "夏"
+  },
+  {
+   "id": "qin_state",
+   "zh": "秦",
+   "en": "Qin",
+   "c": "Huaxia",
+   "seat": [
+    "guanzhong"
+   ],
+   "fam": "嬴|Ying|嬴",
+   "west": false,
+   "rulers": [
+    {
+     "n": "嬴渠梁|Ying Quliang|嬴渠梁",
+     "a": -361,
+     "b": -338,
+     "t": "秦孝公|Duke Xiao of Qin|秦孝公",
+     "p": "qs01"
+    },
+    {
+     "n": "嬴驷|Ying Si|嬴駟",
+     "a": -338,
+     "b": -311,
+     "t": "秦惠文王|King Huiwen of Qin|秦惠文王",
+     "p": "qs02",
+     "f": "qs01"
+    },
+    {
+     "n": "嬴荡|Ying Dang|嬴蕩",
+     "a": -311,
+     "b": -307,
+     "t": "秦武王|King Wu of Qin|秦武王",
+     "p": "qs03",
+     "f": "qs02"
+    }
+   ],
+   "people": [],
+   "full": "秦国|State of Qin|秦國",
+   "emp": false,
+   "tw": "秦"
+  },
+  {
+   "id": "achaemenid",
+   "zh": "阿契美尼德",
+   "en": "Achaemenid",
+   "c": "Persepolis",
+   "seat": [
+    "persis"
+   ],
+   "fam": "阿契美尼德|Achaemenid|阿契美尼德",
+   "west": true,
+   "rulers": [
+    {
+     "n": "居鲁士二世|Cyrus II|居魯士二世",
+     "a": -550,
+     "b": -530
+    },
+    {
+     "n": "冈比西斯二世|Cambyses II|岡比西斯二世",
+     "a": -530,
+     "b": -522
+    },
+    {
+     "n": "大流士一世|Darius I|大流士一世",
+     "a": -522,
+     "b": -486
+    },
+    {
+     "n": "薛西斯一世|Xerxes I|薛西斯一世",
+     "a": -486,
+     "b": -465
+    },
+    {
+     "n": "阿尔塔薛西斯一世|Artaxerxes I|阿爾塔薛西斯一世",
+     "a": -465,
+     "b": -424
+    },
+    {
+     "n": "大流士二世|Darius II|大流士二世",
+     "a": -423,
+     "b": -405
+    },
+    {
+     "n": "阿尔塔薛西斯二世|Artaxerxes II|阿爾塔薛西斯二世",
+     "a": -405,
+     "b": -358
+    },
+    {
+     "n": "阿尔塔薛西斯三世|Artaxerxes III|阿爾塔薛西斯三世",
+     "a": -358,
+     "b": -338
+    },
+    {
+     "n": "大流士三世|Darius III|大流士三世",
+     "a": -336,
+     "b": -330
+    }
+   ],
+   "people": [],
+   "emp": true,
+   "tw": "阿契美尼德"
+  },
+  {
+   "id": "argead",
+   "zh": "马其顿",
+   "en": "Macedon",
+   "c": "Roma",
+   "seat": [
+    "macedonia"
+   ],
+   "fam": "阿吉德|Argead|阿吉德",
+   "west": true,
+   "rulers": [
+    {
+     "n": "腓力二世|Philip II|腓力二世",
+     "a": -359,
+     "b": -336
+    },
+    {
+     "n": "亚历山大三世|Alexander III|亞歷山大三世",
+     "a": -336,
+     "b": -323
+    },
+    {
+     "n": "腓力三世|Philip III|腓力三世",
+     "a": -323,
+     "b": -317
+    },
+    {
+     "n": "亚历山大四世|Alexander IV|亞歷山大四世",
+     "a": -317,
+     "b": -309
+    }
+   ],
+   "people": [],
+   "emp": true,
+   "tw": "馬其頓"
+  },
+  {
+   "id": "seleucid",
+   "zh": "塞琉古",
+   "en": "Seleucid",
+   "c": "Persepolis",
+   "seat": [
+    "syria",
+    "mesopotamia"
+   ],
+   "fam": "塞琉古|Seleucid|塞琉古",
+   "west": true,
+   "rulers": [
+    {
+     "n": "塞琉古一世|Seleucus I|塞琉古一世",
+     "a": -305,
+     "b": -281
+    },
+    {
+     "n": "安条克一世|Antiochus I|安條克一世",
+     "a": -281,
+     "b": -261
+    },
+    {
+     "n": "安条克二世|Antiochus II|安條克二世",
+     "a": -261,
+     "b": -246
+    },
+    {
+     "n": "塞琉古二世|Seleucus II|塞琉古二世",
+     "a": -246,
+     "b": -225
+    },
+    {
+     "n": "塞琉古三世|Seleucus III|塞琉古三世",
+     "a": -225,
+     "b": -223
+    },
+    {
+     "n": "安条克三世|Antiochus III|安條克三世",
+     "a": -223,
+     "b": -187
+    },
+    {
+     "n": "塞琉古四世|Seleucus IV|塞琉古四世",
+     "a": -187,
+     "b": -175
+    },
+    {
+     "n": "安条克四世|Antiochus IV|安條克四世",
+     "a": -175,
+     "b": -164
+    },
+    {
+     "n": "德米特里一世|Demetrius I|德米特裏一世",
+     "a": -162,
+     "b": -150
+    },
+    {
+     "n": "德米特里二世|Demetrius II|德米特裏二世",
+     "a": -145,
+     "b": -138
+    },
+    {
+     "n": "安条克七世|Antiochus VII|安條克七世",
+     "a": -138,
+     "b": -129
+    },
+    {
+     "n": "安条克八世|Antiochus VIII|安條克八世",
+     "a": -125,
+     "b": -96
+    },
+    {
+     "n": "安条克十三世|Antiochus XIII|安條克十三世",
+     "a": -69,
+     "b": -64
+    }
+   ],
+   "people": [],
+   "emp": true,
+   "tw": "塞琉古"
+  },
+  {
+   "id": "ptolemaic",
+   "zh": "托勒密",
+   "en": "Ptolemaic",
+   "c": "Egypt",
+   "seat": [
+    "egypt"
+   ],
+   "fam": "拉吉德|Lagid|拉吉德",
+   "west": true,
+   "rulers": [
+    {
+     "n": "托勒密一世|Ptolemy I|托勒密一世",
+     "a": -305,
+     "b": -283
+    },
+    {
+     "n": "托勒密二世|Ptolemy II|托勒密二世",
+     "a": -283,
+     "b": -246
+    },
+    {
+     "n": "托勒密三世|Ptolemy III|托勒密三世",
+     "a": -246,
+     "b": -222
+    },
+    {
+     "n": "托勒密四世|Ptolemy IV|托勒密四世",
+     "a": -222,
+     "b": -204
+    },
+    {
+     "n": "托勒密五世|Ptolemy V|托勒密五世",
+     "a": -204,
+     "b": -180
+    },
+    {
+     "n": "托勒密六世|Ptolemy VI|托勒密六世",
+     "a": -180,
+     "b": -145
+    },
+    {
+     "n": "托勒密八世|Ptolemy VIII|托勒密八世",
+     "a": -145,
+     "b": -116
+    },
+    {
+     "n": "托勒密九世|Ptolemy IX|托勒密九世",
+     "a": -116,
+     "b": -80
+    },
+    {
+     "n": "托勒密十二世|Ptolemy XII|托勒密十二世",
+     "a": -80,
+     "b": -51
+    },
+    {
+     "n": "克娄巴特拉七世|Cleopatra VII|克婁巴特拉七世",
+     "a": -51,
+     "b": -30
+    }
+   ],
+   "people": [],
+   "emp": true,
+   "tw": "托勒密"
+  },
+  {
+   "id": "maurya",
+   "zh": "孔雀",
+   "en": "Maurya",
+   "c": "India",
+   "seat": [
+    "magadha"
+   ],
+   "fam": "孔雀|Maurya|孔雀",
+   "west": true,
+   "rulers": [
+    {
+     "n": "旃陀罗笈多|Chandragupta|旃陀羅笈多",
+     "a": -322,
+     "b": -298
+    },
+    {
+     "n": "宾头沙罗|Bindusara|賓頭沙羅",
+     "a": -298,
+     "b": -273
+    },
+    {
+     "n": "阿育|Ashoka|阿育",
+     "a": -268,
+     "b": -232
+    },
+    {
+     "n": "十车|Dasharatha|十車",
+     "a": -232,
+     "b": -224
+    },
+    {
+     "n": "三钵罗底|Samprati|三鉢羅底",
+     "a": -224,
+     "b": -215
+    },
+    {
+     "n": "巨车|Brihadratha|巨車",
+     "a": -187,
+     "b": -185
+    }
+   ],
+   "people": [],
+   "emp": true,
+   "tw": "孔雀"
+  },
+  {
+   "id": "parthia",
+   "zh": "帕提亚",
+   "en": "Parthia",
+   "c": "Persepolis",
+   "seat": [
+    "media",
+    "khorasan"
+   ],
+   "fam": "阿尔沙克|Arsacid|阿爾沙克",
+   "west": true,
+   "rulers": [
+    {
+     "n": "阿尔沙克一世|Arsaces I|阿爾沙克一世",
+     "a": -247,
+     "b": -217
+    },
+    {
+     "n": "米特里达梯一世|Mithridates I|米特裏達梯一世",
+     "a": -171,
+     "b": -132
+    },
+    {
+     "n": "弗拉特斯二世|Phraates II|弗拉特斯二世",
+     "a": -132,
+     "b": -127
+    },
+    {
+     "n": "米特里达梯二世|Mithridates II|米特裏達梯二世",
+     "a": -124,
+     "b": -88
+    },
+    {
+     "n": "奥罗德斯二世|Orodes II|奧羅德斯二世",
+     "a": -57,
+     "b": -37
+    },
+    {
+     "n": "弗拉特斯四世|Phraates IV|弗拉特斯四世",
+     "a": -37,
+     "b": -2
+    },
+    {
+     "n": "阿尔塔巴努斯二世|Artabanus II|阿爾塔巴努斯二世",
+     "a": 12,
+     "b": 38
+    },
+    {
+     "n": "沃洛吉斯一世|Vologases I|沃洛吉斯一世",
+     "a": 51,
+     "b": 78
+    },
+    {
+     "n": "帕科鲁斯二世|Pacorus II|帕科魯斯二世",
+     "a": 78,
+     "b": 110
+    },
+    {
+     "n": "奥斯罗埃斯|Osroes I|奧斯羅埃斯",
+     "a": 109,
+     "b": 129
+    },
+    {
+     "n": "沃洛吉斯三世|Vologases III|沃洛吉斯三世",
+     "a": 110,
+     "b": 147
+    },
+    {
+     "n": "沃洛吉斯四世|Vologases IV|沃洛吉斯四世",
+     "a": 147,
+     "b": 191
+    },
+    {
+     "n": "沃洛吉斯五世|Vologases V|沃洛吉斯五世",
+     "a": 191,
+     "b": 208
+    },
+    {
+     "n": "阿尔塔巴努斯四世|Artabanus IV|阿爾塔巴努斯四世",
+     "a": 213,
+     "b": 224
+    }
+   ],
+   "people": [],
+   "emp": true,
+   "tw": "帕提亞"
+  },
+  {
+   "id": "sasanian",
+   "zh": "萨珊",
+   "en": "Sasanian",
+   "c": "Persepolis",
+   "seat": [
+    "mesopotamia",
+    "persis"
+   ],
+   "fam": "萨珊|Sasan|薩珊",
+   "west": true,
+   "rulers": [
+    {
+     "n": "阿尔达希尔一世|Ardashir I|阿爾達希爾一世",
+     "a": 224,
+     "b": 242
+    },
+    {
+     "n": "沙普尔一世|Shapur I|沙普爾一世",
+     "a": 242,
+     "b": 270
+    },
+    {
+     "n": "沙普尔二世|Shapur II|沙普爾二世",
+     "a": 309,
+     "b": 379
+    },
+    {
+     "n": "巴赫拉姆五世|Bahram V|巴赫拉姆五世",
+     "a": 420,
+     "b": 438
+    },
+    {
+     "n": "卑路斯一世|Peroz I|卑路斯一世",
+     "a": 459,
+     "b": 484
+    },
+    {
+     "n": "喀瓦德一世|Kavad I|喀瓦德一世",
+     "a": 488,
+     "b": 531
+    },
+    {
+     "n": "霍斯劳一世|Khosrow I|霍斯勞一世",
+     "a": 531,
+     "b": 579
+    },
+    {
+     "n": "霍斯劳二世|Khosrow II|霍斯勞二世",
+     "a": 590,
+     "b": 628
+    },
+    {
+     "n": "伊嗣俟三世|Yazdegerd III|伊嗣俟三世",
+     "a": 632,
+     "b": 651
+    }
+   ],
+   "people": [],
+   "emp": true,
+   "tw": "薩珊"
+  },
+  {
+   "id": "kushan",
+   "zh": "贵霜",
+   "en": "Kushan",
+   "c": "India",
+   "seat": [
+    "gandhara"
+   ],
+   "fam": "贵霜|Kushan|貴霜",
+   "west": true,
+   "rulers": [
+    {
+     "n": "丘就却|Kujula Kadphises|丘就卻",
+     "a": 30,
+     "b": 80
+    },
+    {
+     "n": "维玛·塔克图|Vima Takto|維瑪·塔克圖",
+     "a": 80,
+     "b": 105
+    },
+    {
+     "n": "维玛|Vima Kadphises|維瑪",
+     "a": 105,
+     "b": 127
+    },
+    {
+     "n": "迦腻色伽|Kanishka|迦膩色伽",
+     "a": 127,
+     "b": 150
+    },
+    {
+     "n": "胡维色伽|Huvishka|胡維色伽",
+     "a": 150,
+     "b": 190
+    },
+    {
+     "n": "韦苏提婆|Vasudeva|韋蘇提婆",
+     "a": 190,
+     "b": 230
+    }
+   ],
+   "people": [],
+   "emp": true,
+   "tw": "貴霜"
+  },
+  {
+   "id": "rome",
+   "zh": "罗马",
+   "en": "Rome",
+   "c": "Roma",
+   "seat": [
+    "italy_c"
+   ],
+   "fam": "",
+   "west": true,
+   "rulers": [
+    {
+     "n": "奥古斯都|Augustus|奧古斯都",
+     "a": -27,
+     "b": 14,
+     "dyn": "尤利乌斯-克劳狄|Julio-Claudian|尤利烏斯-克勞狄"
+    },
+    {
+     "n": "提比略|Tiberius|提比略",
+     "a": 14,
+     "b": 37,
+     "dyn": "尤利乌斯-克劳狄|Julio-Claudian|尤利烏斯-克勞狄"
+    },
+    {
+     "n": "卡利古拉|Caligula|卡利古拉",
+     "a": 37,
+     "b": 41,
+     "dyn": "尤利乌斯-克劳狄|Julio-Claudian|尤利烏斯-克勞狄"
+    },
+    {
+     "n": "克劳狄|Claudius|克勞狄",
+     "a": 41,
+     "b": 54,
+     "dyn": "尤利乌斯-克劳狄|Julio-Claudian|尤利烏斯-克勞狄"
+    },
+    {
+     "n": "尼禄|Nero|尼祿",
+     "a": 54,
+     "b": 68,
+     "dyn": "尤利乌斯-克劳狄|Julio-Claudian|尤利烏斯-克勞狄"
+    },
+    {
+     "n": "加尔巴|Galba|加爾巴",
+     "a": 68,
+     "b": 69
+    },
+    {
+     "n": "奥托|Otho|奧托",
+     "a": 69,
+     "b": 69
+    },
+    {
+     "n": "维特里乌斯|Vitellius|維特裏烏斯",
+     "a": 69,
+     "b": 69
+    },
+    {
+     "n": "韦斯巴芗|Vespasian|韋斯巴薌",
+     "a": 69,
+     "b": 79,
+     "dyn": "弗拉维|Flavian|弗拉維"
+    },
+    {
+     "n": "提图斯|Titus|提圖斯",
+     "a": 79,
+     "b": 81,
+     "dyn": "弗拉维|Flavian|弗拉維"
+    },
+    {
+     "n": "图密善|Domitian|圖密善",
+     "a": 81,
+     "b": 96,
+     "dyn": "弗拉维|Flavian|弗拉維"
+    },
+    {
+     "n": "涅尔瓦|Nerva|涅爾瓦",
+     "a": 96,
+     "b": 98,
+     "dyn": "涅尔瓦-安敦尼|Nerva-Antonine|涅爾瓦-安敦尼"
+    },
+    {
+     "n": "图拉真|Trajan|圖拉真",
+     "a": 98,
+     "b": 117,
+     "dyn": "涅尔瓦-安敦尼|Nerva-Antonine|涅爾瓦-安敦尼"
+    },
+    {
+     "n": "哈德良|Hadrian|哈德良",
+     "a": 117,
+     "b": 138,
+     "dyn": "涅尔瓦-安敦尼|Nerva-Antonine|涅爾瓦-安敦尼"
+    },
+    {
+     "n": "安敦宁·毕尤|Antoninus Pius|安敦寧·畢尤",
+     "a": 138,
+     "b": 161,
+     "dyn": "涅尔瓦-安敦尼|Nerva-Antonine|涅爾瓦-安敦尼"
+    },
+    {
+     "n": "马可·奥勒留|Marcus Aurelius|馬可·奧勒留",
+     "a": 161,
+     "b": 180,
+     "dyn": "涅尔瓦-安敦尼|Nerva-Antonine|涅爾瓦-安敦尼"
+    },
+    {
+     "n": "康茂德|Commodus|康茂德",
+     "a": 180,
+     "b": 192,
+     "dyn": "涅尔瓦-安敦尼|Nerva-Antonine|涅爾瓦-安敦尼"
+    },
+    {
+     "n": "佩蒂纳克斯|Pertinax|佩蒂納克斯",
+     "a": 193,
+     "b": 193
+    },
+    {
+     "n": "尤利安努斯|Didius Julianus|尤利安努斯",
+     "a": 193,
+     "b": 193
+    },
+    {
+     "n": "塞普蒂米乌斯·塞维鲁|Septimius Severus|塞普蒂米烏斯·塞維魯",
+     "a": 193,
+     "b": 211,
+     "dyn": "塞维鲁|Severan|塞維魯"
+    },
+    {
+     "n": "卡拉卡拉|Caracalla|卡拉卡拉",
+     "a": 211,
+     "b": 217,
+     "dyn": "塞维鲁|Severan|塞維魯"
+    },
+    {
+     "n": "马克里努斯|Macrinus|馬克裏努斯",
+     "a": 217,
+     "b": 218
+    },
+    {
+     "n": "埃拉伽巴路斯|Elagabalus|埃拉伽巴路斯",
+     "a": 218,
+     "b": 222,
+     "dyn": "塞维鲁|Severan|塞維魯"
+    },
+    {
+     "n": "塞维鲁·亚历山大|Severus Alexander|塞維魯·亞歷山大",
+     "a": 222,
+     "b": 235,
+     "dyn": "塞维鲁|Severan|塞維魯"
+    },
+    {
+     "n": "马克西米努斯|Maximinus Thrax|馬克西米努斯",
+     "a": 235,
+     "b": 238
+    },
+    {
+     "n": "戈尔迪安三世|Gordian III|戈爾迪安三世",
+     "a": 238,
+     "b": 244
+    },
+    {
+     "n": "阿拉伯人腓力|Philip the Arab|阿拉伯人腓力",
+     "a": 244,
+     "b": 249
+    },
+    {
+     "n": "德基乌斯|Decius|德基烏斯",
+     "a": 249,
+     "b": 251
+    },
+    {
+     "n": "瓦勒良|Valerian|瓦勒良",
+     "a": 253,
+     "b": 260
+    },
+    {
+     "n": "加里恩努斯|Gallienus|加裏恩努斯",
+     "a": 253,
+     "b": 268
+    },
+    {
+     "n": "奥勒良|Aurelian|奧勒良",
+     "a": 270,
+     "b": 275
+    },
+    {
+     "n": "普罗布斯|Probus|普羅布斯",
+     "a": 276,
+     "b": 282
+    },
+    {
+     "n": "戴克里先|Diocletian|戴克裏先",
+     "a": 284,
+     "b": 305
+    },
+    {
+     "n": "君士坦丁一世|Constantine I|君士坦丁一世",
+     "a": 306,
+     "b": 337,
+     "dyn": "君士坦丁|Constantinian|君士坦丁"
+    },
+    {
+     "n": "君士坦提乌斯二世|Constantius II|君士坦提烏斯二世",
+     "a": 337,
+     "b": 361,
+     "dyn": "君士坦丁|Constantinian|君士坦丁"
+    },
+    {
+     "n": "尤利安|Julian|尤利安",
+     "a": 361,
+     "b": 363,
+     "dyn": "君士坦丁|Constantinian|君士坦丁"
+    },
+    {
+     "n": "约维安|Jovian|約維安",
+     "a": 363,
+     "b": 364
+    },
+    {
+     "n": "瓦伦斯|Valens|瓦倫斯",
+     "a": 364,
+     "b": 378,
+     "dyn": "瓦伦提尼安|Valentinianic|瓦倫提尼安"
+    },
+    {
+     "n": "狄奥多西一世|Theodosius I|狄奧多西一世",
+     "a": 379,
+     "b": 395,
+     "dyn": "狄奥多西|Theodosian|狄奧多西"
+    }
+   ],
+   "people": [],
+   "emp": true,
+   "tw": "羅馬"
+  },
+  {
+   "id": "west_rome",
+   "zh": "西罗马",
+   "en": "Western Rome",
+   "c": "Roma",
+   "seat": [
+    "italy_n"
+   ],
+   "fam": "",
+   "west": true,
+   "rulers": [
+    {
+     "n": "霍诺留|Honorius|霍諾留",
+     "a": 395,
+     "b": 423
+    },
+    {
+     "n": "瓦伦提尼安三世|Valentinian III|瓦倫提尼安三世",
+     "a": 425,
+     "b": 455
+    },
+    {
+     "n": "马约里安|Majorian|馬約裏安",
+     "a": 457,
+     "b": 461
+    },
+    {
+     "n": "安特米乌斯|Anthemius|安特米烏斯",
+     "a": 467,
+     "b": 472
+    },
+    {
+     "n": "尤利乌斯·尼波斯|Julius Nepos|尤利烏斯·尼波斯",
+     "a": 474,
+     "b": 475
+    },
+    {
+     "n": "罗慕路斯·奥古斯都|Romulus Augustulus|羅慕路斯·奧古斯都",
+     "a": 475,
+     "b": 476
+    }
+   ],
+   "people": [],
+   "emp": true,
+   "tw": "西羅馬"
+  },
+  {
+   "id": "byzantium",
+   "zh": "罗马",
+   "en": "Rome",
+   "c": "Roma",
+   "seat": [
+    "thrace"
+   ],
+   "fam": "",
+   "west": true,
+   "rulers": [
+    {
+     "n": "阿卡狄乌斯|Arcadius|阿卡狄烏斯",
+     "a": 395,
+     "b": 408,
+     "dyn": "狄奥多西|Theodosian|狄奧多西"
+    },
+    {
+     "n": "狄奥多西二世|Theodosius II|狄奧多西二世",
+     "a": 408,
+     "b": 450,
+     "dyn": "狄奥多西|Theodosian|狄奧多西"
+    },
+    {
+     "n": "马尔西安|Marcian|馬爾西安",
+     "a": 450,
+     "b": 457,
+     "dyn": "狄奥多西|Theodosian|狄奧多西"
+    },
+    {
+     "n": "利奥一世|Leo I|利奧一世",
+     "a": 457,
+     "b": 474,
+     "dyn": "利奥|Leonid|利奧"
+    },
+    {
+     "n": "芝诺|Zeno|芝諾",
+     "a": 474,
+     "b": 491,
+     "dyn": "利奥|Leonid|利奧"
+    },
+    {
+     "n": "阿纳斯塔修斯一世|Anastasius I|阿納斯塔修斯一世",
+     "a": 491,
+     "b": 518,
+     "dyn": "利奥|Leonid|利奧"
+    },
+    {
+     "n": "查士丁一世|Justin I|查士丁一世",
+     "a": 518,
+     "b": 527,
+     "dyn": "查士丁尼|Justinian|查士丁尼"
+    },
+    {
+     "n": "查士丁尼一世|Justinian I|查士丁尼一世",
+     "a": 527,
+     "b": 565,
+     "dyn": "查士丁尼|Justinian|查士丁尼"
+    },
+    {
+     "n": "查士丁二世|Justin II|查士丁二世",
+     "a": 565,
+     "b": 578,
+     "dyn": "查士丁尼|Justinian|查士丁尼"
+    },
+    {
+     "n": "提比略二世|Tiberius II|提比略二世",
+     "a": 578,
+     "b": 582,
+     "dyn": "查士丁尼|Justinian|查士丁尼"
+    },
+    {
+     "n": "莫里斯|Maurice|莫裏斯",
+     "a": 582,
+     "b": 602,
+     "dyn": "查士丁尼|Justinian|查士丁尼"
+    },
+    {
+     "n": "福卡斯|Phocas|福卡斯",
+     "a": 602,
+     "b": 610
+    },
+    {
+     "n": "希拉克略|Heraclius|希拉克略",
+     "a": 610,
+     "b": 641,
+     "dyn": "希拉克略|Heraclian|希拉克略"
+    },
+    {
+     "n": "君士坦斯二世|Constans II|君士坦斯二世",
+     "a": 641,
+     "b": 668,
+     "dyn": "希拉克略|Heraclian|希拉克略"
+    },
+    {
+     "n": "君士坦丁四世|Constantine IV|君士坦丁四世",
+     "a": 668,
+     "b": 685,
+     "dyn": "希拉克略|Heraclian|希拉克略"
+    },
+    {
+     "n": "查士丁尼二世|Justinian II|查士丁尼二世",
+     "a": 685,
+     "b": 695,
+     "dyn": "希拉克略|Heraclian|希拉克略"
+    },
+    {
+     "n": "利昂提奥斯|Leontios|利昂提奧斯",
+     "a": 695,
+     "b": 698
+    },
+    {
+     "n": "提比略三世|Tiberios III|提比略三世",
+     "a": 698,
+     "b": 705
+    },
+    {
+     "n": "查士丁尼二世|Justinian II|查士丁尼二世",
+     "a": 705,
+     "b": 711,
+     "dyn": "希拉克略|Heraclian|希拉克略"
+    },
+    {
+     "n": "菲利皮库斯|Philippikos|菲利皮庫斯",
+     "a": 711,
+     "b": 713
+    },
+    {
+     "n": "阿纳斯塔修斯二世|Anastasios II|阿納斯塔修斯二世",
+     "a": 713,
+     "b": 715
+    },
+    {
+     "n": "狄奥多西三世|Theodosios III|狄奧多西三世",
+     "a": 715,
+     "b": 717
+    },
+    {
+     "n": "利奥三世|Leo III|利奧三世",
+     "a": 717,
+     "b": 741,
+     "dyn": "伊苏里亚|Isaurian|伊蘇裏亞"
+    },
+    {
+     "n": "君士坦丁五世|Constantine V|君士坦丁五世",
+     "a": 741,
+     "b": 775,
+     "dyn": "伊苏里亚|Isaurian|伊蘇裏亞"
+    },
+    {
+     "n": "利奥四世|Leo IV|利奧四世",
+     "a": 775,
+     "b": 780,
+     "dyn": "伊苏里亚|Isaurian|伊蘇裏亞"
+    },
+    {
+     "n": "君士坦丁六世|Constantine VI|君士坦丁六世",
+     "a": 780,
+     "b": 797,
+     "dyn": "伊苏里亚|Isaurian|伊蘇裏亞"
+    },
+    {
+     "n": "伊琳娜|Irene|伊琳娜",
+     "a": 797,
+     "b": 802,
+     "dyn": "伊苏里亚|Isaurian|伊蘇裏亞"
+    },
+    {
+     "n": "尼基弗鲁斯一世|Nikephoros I|尼基弗魯斯一世",
+     "a": 802,
+     "b": 811,
+     "dyn": "尼基弗鲁斯|Nikephorian|尼基弗魯斯"
+    },
+    {
+     "n": "米海尔一世|Michael I|米海爾一世",
+     "a": 811,
+     "b": 813,
+     "dyn": "尼基弗鲁斯|Nikephorian|尼基弗魯斯"
+    },
+    {
+     "n": "利奥五世|Leo V|利奧五世",
+     "a": 813,
+     "b": 820
+    },
+    {
+     "n": "米海尔二世|Michael II|米海爾二世",
+     "a": 820,
+     "b": 829,
+     "dyn": "阿莫里亚|Amorian|阿莫裏亞"
+    },
+    {
+     "n": "狄奥斐卢斯|Theophilos|狄奧斐盧斯",
+     "a": 829,
+     "b": 842,
+     "dyn": "阿莫里亚|Amorian|阿莫裏亞"
+    },
+    {
+     "n": "米海尔三世|Michael III|米海爾三世",
+     "a": 842,
+     "b": 867,
+     "dyn": "阿莫里亚|Amorian|阿莫裏亞"
+    },
+    {
+     "n": "巴西尔一世|Basil I|巴西爾一世",
+     "a": 867,
+     "b": 886,
+     "dyn": "马其顿|Macedonian|馬其頓"
+    },
+    {
+     "n": "利奥六世|Leo VI|利奧六世",
+     "a": 886,
+     "b": 912,
+     "dyn": "马其顿|Macedonian|馬其頓"
+    },
+    {
+     "n": "君士坦丁七世|Constantine VII|君士坦丁七世",
+     "a": 913,
+     "b": 959,
+     "dyn": "马其顿|Macedonian|馬其頓"
+    },
+    {
+     "n": "罗曼努斯一世|Romanos I|羅曼努斯一世",
+     "a": 920,
+     "b": 944,
+     "dyn": "利卡潘努斯|Lekapenos|利卡潘努斯"
+    },
+    {
+     "n": "罗曼努斯二世|Romanos II|羅曼努斯二世",
+     "a": 959,
+     "b": 963,
+     "dyn": "马其顿|Macedonian|馬其頓"
+    },
+    {
+     "n": "尼基弗鲁斯二世|Nikephoros II|尼基弗魯斯二世",
+     "a": 963,
+     "b": 969,
+     "dyn": "福卡斯|Phokas|福卡斯"
+    },
+    {
+     "n": "约翰一世|John I|約翰一世",
+     "a": 969,
+     "b": 976
+    },
+    {
+     "n": "巴西尔二世|Basil II|巴西爾二世",
+     "a": 976,
+     "b": 1025,
+     "dyn": "马其顿|Macedonian|馬其頓"
+    },
+    {
+     "n": "君士坦丁八世|Constantine VIII|君士坦丁八世",
+     "a": 1025,
+     "b": 1028,
+     "dyn": "马其顿|Macedonian|馬其頓"
+    },
+    {
+     "n": "罗曼努斯三世|Romanos III|羅曼努斯三世",
+     "a": 1028,
+     "b": 1034
+    },
+    {
+     "n": "米海尔四世|Michael IV|米海爾四世",
+     "a": 1034,
+     "b": 1041
+    },
+    {
+     "n": "君士坦丁九世|Constantine IX|君士坦丁九世",
+     "a": 1042,
+     "b": 1055
+    },
+    {
+     "n": "狄奥多拉|Theodora|狄奧多拉",
+     "a": 1055,
+     "b": 1056,
+     "dyn": "马其顿|Macedonian|馬其頓"
+    },
+    {
+     "n": "伊萨克一世|Isaac I|伊薩克一世",
+     "a": 1057,
+     "b": 1059,
+     "dyn": "科穆宁|Komnenos|科穆寧"
+    },
+    {
+     "n": "君士坦丁十世|Constantine X|君士坦丁十世",
+     "a": 1059,
+     "b": 1067,
+     "dyn": "杜卡斯|Doukas|杜卡斯"
+    },
+    {
+     "n": "罗曼努斯四世|Romanos IV|羅曼努斯四世",
+     "a": 1068,
+     "b": 1071
+    },
+    {
+     "n": "米海尔七世|Michael VII|米海爾七世",
+     "a": 1071,
+     "b": 1078,
+     "dyn": "杜卡斯|Doukas|杜卡斯"
+    },
+    {
+     "n": "尼基弗鲁斯三世|Nikephoros III|尼基弗魯斯三世",
+     "a": 1078,
+     "b": 1081
+    },
+    {
+     "n": "阿莱克修斯一世|Alexios I|阿萊克修斯一世",
+     "a": 1081,
+     "b": 1118,
+     "dyn": "科穆宁|Komnenos|科穆寧"
+    },
+    {
+     "n": "约翰二世|John II|約翰二世",
+     "a": 1118,
+     "b": 1143,
+     "dyn": "科穆宁|Komnenos|科穆寧"
+    },
+    {
+     "n": "曼努埃尔一世|Manuel I|曼努埃爾一世",
+     "a": 1143,
+     "b": 1180,
+     "dyn": "科穆宁|Komnenos|科穆寧"
+    },
+    {
+     "n": "阿莱克修斯二世|Alexios II|阿萊克修斯二世",
+     "a": 1180,
+     "b": 1183,
+     "dyn": "科穆宁|Komnenos|科穆寧"
+    },
+    {
+     "n": "安德洛尼卡一世|Andronikos I|安德洛尼卡一世",
+     "a": 1183,
+     "b": 1185,
+     "dyn": "科穆宁|Komnenos|科穆寧"
+    },
+    {
+     "n": "伊萨克二世|Isaac II|伊薩克二世",
+     "a": 1185,
+     "b": 1195,
+     "dyn": "安格洛斯|Angelos|安格洛斯"
+    },
+    {
+     "n": "阿莱克修斯三世|Alexios III|阿萊克修斯三世",
+     "a": 1195,
+     "b": 1203,
+     "dyn": "安格洛斯|Angelos|安格洛斯"
+    },
+    {
+     "n": "阿莱克修斯四世|Alexios IV|阿萊克修斯四世",
+     "a": 1203,
+     "b": 1204,
+     "dyn": "安格洛斯|Angelos|安格洛斯"
+    },
+    {
+     "n": "阿莱克修斯五世|Alexios V|阿萊克修斯五世",
+     "a": 1204,
+     "b": 1204
+    },
+    {
+     "n": "狄奥多尔一世|Theodore I|狄奧多爾一世",
+     "a": 1205,
+     "b": 1221,
+     "dyn": "拉斯卡里斯|Laskaris|拉斯卡裏斯"
+    },
+    {
+     "n": "约翰三世|John III|約翰三世",
+     "a": 1221,
+     "b": 1254,
+     "dyn": "拉斯卡里斯|Laskaris|拉斯卡裏斯"
+    },
+    {
+     "n": "狄奥多尔二世|Theodore II|狄奧多爾二世",
+     "a": 1254,
+     "b": 1258,
+     "dyn": "拉斯卡里斯|Laskaris|拉斯卡裏斯"
+    },
+    {
+     "n": "约翰四世|John IV|約翰四世",
+     "a": 1258,
+     "b": 1261,
+     "dyn": "拉斯卡里斯|Laskaris|拉斯卡裏斯"
+    },
+    {
+     "n": "米海尔八世|Michael VIII|米海爾八世",
+     "a": 1259,
+     "b": 1282,
+     "dyn": "巴列奥略|Palaiologos|巴列奧略"
+    },
+    {
+     "n": "安德洛尼卡二世|Andronikos II|安德洛尼卡二世",
+     "a": 1282,
+     "b": 1328,
+     "dyn": "巴列奥略|Palaiologos|巴列奧略"
+    },
+    {
+     "n": "安德洛尼卡三世|Andronikos III|安德洛尼卡三世",
+     "a": 1328,
+     "b": 1341,
+     "dyn": "巴列奥略|Palaiologos|巴列奧略"
+    },
+    {
+     "n": "约翰五世|John V|約翰五世",
+     "a": 1341,
+     "b": 1391,
+     "dyn": "巴列奥略|Palaiologos|巴列奧略"
+    },
+    {
+     "n": "约翰六世|John VI|約翰六世",
+     "a": 1347,
+     "b": 1354,
+     "dyn": "坎塔库泽努斯|Kantakouzenos|坎塔庫澤努斯"
+    },
+    {
+     "n": "曼努埃尔二世|Manuel II|曼努埃爾二世",
+     "a": 1391,
+     "b": 1425,
+     "dyn": "巴列奥略|Palaiologos|巴列奧略"
+    },
+    {
+     "n": "约翰八世|John VIII|約翰八世",
+     "a": 1425,
+     "b": 1448,
+     "dyn": "巴列奥略|Palaiologos|巴列奧略"
+    },
+    {
+     "n": "君士坦丁十一世|Constantine XI|君士坦丁十一世",
+     "a": 1449,
+     "b": 1453,
+     "dyn": "巴列奥略|Palaiologos|巴列奧略"
+    }
+   ],
+   "people": [],
+   "full": "东罗马|Eastern Rome|東羅馬",
+   "emp": true,
+   "tw": "羅馬"
+  },
+  {
+   "id": "rashidun",
+   "zh": "正统哈里发",
+   "en": "Rashidun",
+   "c": "Arab",
+   "seat": [
+    "arabia"
+   ],
+   "fam": "",
+   "west": true,
+   "rulers": [
+    {
+     "n": "阿布·伯克尔|Abu Bakr|阿布·伯克爾",
+     "a": 632,
+     "b": 634
+    },
+    {
+     "n": "欧麦尔|Umar|歐麥爾",
+     "a": 634,
+     "b": 644
+    },
+    {
+     "n": "奥斯曼|Uthman|奧斯曼",
+     "a": 644,
+     "b": 656
+    },
+    {
+     "n": "阿里|Ali|阿里",
+     "a": 656,
+     "b": 661
+    }
+   ],
+   "people": [],
+   "emp": true,
+   "tw": "正統哈裏發"
+  },
+  {
+   "id": "umayyad",
+   "zh": "倭马亚",
+   "en": "Umayyad",
+   "c": "Arab",
+   "seat": [
+    "syria"
+   ],
+   "fam": "倭马亚|Umayyad|倭馬亞",
+   "west": true,
+   "rulers": [
+    {
+     "n": "穆阿维叶一世|Muawiya I|穆阿維葉一世",
+     "a": 661,
+     "b": 680
+    },
+    {
+     "n": "叶齐德一世|Yazid I|葉齊德一世",
+     "a": 680,
+     "b": 683
+    },
+    {
+     "n": "马尔万一世|Marwan I|馬爾萬一世",
+     "a": 684,
+     "b": 685
+    },
+    {
+     "n": "阿卜杜勒·马利克|Abd al-Malik|阿卜杜勒·馬利克",
+     "a": 685,
+     "b": 705
+    },
+    {
+     "n": "瓦利德一世|al-Walid I|瓦利德一世",
+     "a": 705,
+     "b": 715
+    },
+    {
+     "n": "苏莱曼|Sulayman|蘇萊曼",
+     "a": 715,
+     "b": 717
+    },
+    {
+     "n": "欧麦尔二世|Umar II|歐麥爾二世",
+     "a": 717,
+     "b": 720
+    },
+    {
+     "n": "叶齐德二世|Yazid II|葉齊德二世",
+     "a": 720,
+     "b": 724
+    },
+    {
+     "n": "希沙姆|Hisham|希沙姆",
+     "a": 724,
+     "b": 743
+    },
+    {
+     "n": "瓦利德二世|al-Walid II|瓦利德二世",
+     "a": 743,
+     "b": 744
+    },
+    {
+     "n": "马尔万二世|Marwan II|馬爾萬二世",
+     "a": 744,
+     "b": 750
+    }
+   ],
+   "people": [],
+   "emp": true,
+   "tw": "倭馬亞"
+  },
+  {
+   "id": "abbasid",
+   "zh": "阿拔斯",
+   "en": "Abbasid",
+   "c": "Arab",
+   "seat": [
+    "mesopotamia"
+   ],
+   "fam": "阿拔斯|Abbasid|阿拔斯",
+   "west": true,
+   "rulers": [
+    {
+     "n": "萨法赫|al-Saffah|薩法赫",
+     "a": 750,
+     "b": 754,
+     "p": "ab01",
+     "f": "ab_ali"
+    },
+    {
+     "n": "曼苏尔|al-Mansur|曼蘇爾",
+     "a": 754,
+     "b": 775,
+     "p": "ab02",
+     "f": "ab_ali"
+    },
+    {
+     "n": "马赫迪|al-Mahdi|馬赫迪",
+     "a": 775,
+     "b": 785,
+     "p": "ab03",
+     "f": "ab02"
+    },
+    {
+     "n": "哈迪|al-Hadi|哈迪",
+     "a": 785,
+     "b": 786,
+     "p": "ab04",
+     "f": "ab03"
+    },
+    {
+     "n": "哈伦|Harun|哈倫",
+     "a": 786,
+     "b": 809,
+     "p": "ab05",
+     "f": "ab03"
+    },
+    {
+     "n": "阿明|al-Amin|阿明",
+     "a": 809,
+     "b": 813
+    },
+    {
+     "n": "马蒙|al-Ma'mun|馬蒙",
+     "a": 813,
+     "b": 833
+    },
+    {
+     "n": "穆阿台绥姆|al-Mu'tasim|穆阿臺綏姆",
+     "a": 833,
+     "b": 842
+    },
+    {
+     "n": "瓦西格|al-Wathiq|瓦西格",
+     "a": 842,
+     "b": 847
+    },
+    {
+     "n": "穆塔瓦基勒|al-Mutawakkil|穆塔瓦基勒",
+     "a": 847,
+     "b": 861
+    },
+    {
+     "n": "穆尔台迪德|al-Mu'tadid|穆爾臺迪德",
+     "a": 892,
+     "b": 902
+    },
+    {
+     "n": "穆格台迪尔|al-Muqtadir|穆格臺迪爾",
+     "a": 908,
+     "b": 932
+    },
+    {
+     "n": "拉迪|al-Radi|拉迪",
+     "a": 934,
+     "b": 940
+    },
+    {
+     "n": "穆提|al-Muti|穆提",
+     "a": 946,
+     "b": 974
+    },
+    {
+     "n": "卡迪尔|al-Qadir|卡迪爾",
+     "a": 991,
+     "b": 1031
+    },
+    {
+     "n": "卡伊姆|al-Qa'im|卡伊姆",
+     "a": 1031,
+     "b": 1075
+    },
+    {
+     "n": "穆格台迪|al-Muqtadi|穆格臺迪",
+     "a": 1075,
+     "b": 1094
+    },
+    {
+     "n": "穆斯塔齐尔|al-Mustazhir|穆斯塔齊爾",
+     "a": 1094,
+     "b": 1118
+    },
+    {
+     "n": "穆斯塔尔希德|al-Mustarshid|穆斯塔爾希德",
+     "a": 1118,
+     "b": 1135
+    },
+    {
+     "n": "穆格塔菲|al-Muqtafi|穆格塔菲",
+     "a": 1136,
+     "b": 1160
+    },
+    {
+     "n": "穆斯坦吉德|al-Mustanjid|穆斯坦吉德",
+     "a": 1160,
+     "b": 1170
+    },
+    {
+     "n": "穆斯塔迪|al-Mustadi|穆斯塔迪",
+     "a": 1170,
+     "b": 1180
+    },
+    {
+     "n": "纳绥尔|al-Nasir|納綏爾",
+     "a": 1180,
+     "b": 1225
+    },
+    {
+     "n": "扎希尔|al-Zahir|扎希爾",
+     "a": 1225,
+     "b": 1226
+    },
+    {
+     "n": "穆斯坦绥尔|al-Mustansir|穆斯坦綏爾",
+     "a": 1226,
+     "b": 1242
+    },
+    {
+     "n": "穆斯台绥姆|al-Musta'sim|穆斯臺綏姆",
+     "a": 1242,
+     "b": 1258
+    }
+   ],
+   "people": [
+    {
+     "p": "ab_ali",
+     "n": "穆罕默德·本·阿里|Muhammad ibn Ali|穆罕默德·本·阿里"
+    }
+   ],
+   "emp": true,
+   "tw": "阿拔斯"
+  },
+  {
+   "id": "fatimid",
+   "zh": "法蒂玛",
+   "en": "Fatimid",
+   "c": "Arab",
+   "seat": [
+    "egypt"
+   ],
+   "fam": "法蒂玛|Fatimid|法蒂瑪",
+   "west": true,
+   "rulers": [
+    {
+     "n": "马赫迪|al-Mahdi Billah|馬赫迪",
+     "a": 909,
+     "b": 934
+    },
+    {
+     "n": "穆仪兹|al-Mu'izz|穆儀茲",
+     "a": 953,
+     "b": 975
+    },
+    {
+     "n": "阿齐兹|al-Aziz|阿齊茲",
+     "a": 975,
+     "b": 996
+    },
+    {
+     "n": "哈基姆|al-Hakim|哈基姆",
+     "a": 996,
+     "b": 1021
+    },
+    {
+     "n": "穆斯坦绥尔|al-Mustansir|穆斯坦綏爾",
+     "a": 1036,
+     "b": 1094
+    },
+    {
+     "n": "阿迪德|al-Adid|阿迪德",
+     "a": 1160,
+     "b": 1171
+    }
+   ],
+   "people": [],
+   "emp": true,
+   "tw": "法蒂瑪"
+  },
+  {
+   "id": "merovingian",
+   "zh": "法兰克",
+   "en": "Francia",
+   "c": "Frankish",
+   "seat": [
+    "gaul_n"
+   ],
+   "fam": "墨洛温|Merovingian|墨洛溫",
+   "west": true,
+   "rulers": [
+    {
+     "n": "克洛维一世|Clovis I|克洛維一世",
+     "a": 481,
+     "b": 511
+    },
+    {
+     "n": "克洛泰尔一世|Chlothar I|克洛泰爾一世",
+     "a": 558,
+     "b": 561
+    },
+    {
+     "n": "克洛泰尔二世|Chlothar II|克洛泰爾二世",
+     "a": 613,
+     "b": 629
+    },
+    {
+     "n": "达戈贝尔特一世|Dagobert I|達戈貝爾特一世",
+     "a": 629,
+     "b": 639
+    },
+    {
+     "n": "克洛维二世|Clovis II|克洛維二世",
+     "a": 639,
+     "b": 657
+    },
+    {
+     "n": "提乌德里克三世|Theuderic III|提烏德裏克三世",
+     "a": 675,
+     "b": 691
+    },
+    {
+     "n": "希尔德里克三世|Childeric III|希爾德裏克三世",
+     "a": 743,
+     "b": 751
+    }
+   ],
+   "people": [],
+   "emp": false,
+   "tw": "法蘭克"
+  },
+  {
+   "id": "carolingian",
+   "zh": "法兰克",
+   "en": "Francia",
+   "c": "Frankish",
+   "seat": [
+    "rhine",
+    "gaul_n"
+   ],
+   "fam": "加洛林|Carolingian|加洛林",
+   "west": true,
+   "rulers": [
+    {
+     "n": "丕平|Pepin|丕平",
+     "a": 751,
+     "b": 768,
+     "p": "cr01",
+     "f": "car_martel"
+    },
+    {
+     "n": "查理|Charles|查理",
+     "a": 768,
+     "b": 814,
+     "p": "cr02",
+     "f": "cr01"
+    },
+    {
+     "n": "路易|Louis|路易",
+     "a": 814,
+     "b": 840,
+     "p": "cr03",
+     "f": "cr02"
+    },
+    {
+     "n": "洛泰尔|Lothair|洛泰爾",
+     "a": 840,
+     "b": 855,
+     "p": "cr04",
+     "f": "cr03"
+    },
+    {
+     "n": "路易|Louis II|路易",
+     "a": 855,
+     "b": 875,
+     "p": "cr05",
+     "f": "cr04"
+    },
+    {
+     "n": "秃头查理|Charles the Bald|禿頭查理",
+     "a": 875,
+     "b": 877,
+     "p": "cr06",
+     "f": "cr03"
+    },
+    {
+     "n": "胖子查理|Charles the Fat|胖子查理",
+     "a": 881,
+     "b": 888,
+     "p": "cr07",
+     "f": "car_louis_german"
+    }
+   ],
+   "people": [
+    {
+     "p": "car_martel",
+     "n": "查理·马特|Charles Martel|查理·馬特"
+    },
+    {
+     "p": "car_louis_german",
+     "n": "日耳曼人路易|Louis the German|日耳曼人路易",
+     "f": "cr03"
+    }
+   ],
+   "emp": true,
+   "tw": "法蘭克"
+  },
+  {
+   "id": "hre",
+   "zh": "罗马",
+   "en": "Rome",
+   "c": "Germanic",
+   "seat": [
+    "germania"
+   ],
+   "fam": "",
+   "west": true,
+   "rulers": [
+    {
+     "n": "奥托一世|Otto I|奧托一世",
+     "a": 962,
+     "b": 973,
+     "dyn": "奥托|Ottonian|奧托"
+    },
+    {
+     "n": "奥托二世|Otto II|奧托二世",
+     "a": 973,
+     "b": 983,
+     "dyn": "奥托|Ottonian|奧托"
+    },
+    {
+     "n": "奥托三世|Otto III|奧托三世",
+     "a": 983,
+     "b": 1002,
+     "dyn": "奥托|Ottonian|奧托"
+    },
+    {
+     "n": "亨利二世|Henry II|亨利二世",
+     "a": 1002,
+     "b": 1024,
+     "dyn": "奥托|Ottonian|奧托"
+    },
+    {
+     "n": "康拉德二世|Conrad II|康拉德二世",
+     "a": 1024,
+     "b": 1039,
+     "dyn": "萨利安|Salian|薩利安"
+    },
+    {
+     "n": "亨利三世|Henry III|亨利三世",
+     "a": 1039,
+     "b": 1056,
+     "dyn": "萨利安|Salian|薩利安"
+    },
+    {
+     "n": "亨利四世|Henry IV|亨利四世",
+     "a": 1056,
+     "b": 1105,
+     "dyn": "萨利安|Salian|薩利安"
+    },
+    {
+     "n": "亨利五世|Henry V|亨利五世",
+     "a": 1105,
+     "b": 1125,
+     "dyn": "萨利安|Salian|薩利安"
+    },
+    {
+     "n": "洛泰尔三世|Lothair III|洛泰爾三世",
+     "a": 1125,
+     "b": 1137,
+     "dyn": "苏普林堡|Supplinburg|蘇普林堡"
+    },
+    {
+     "n": "康拉德三世|Conrad III|康拉德三世",
+     "a": 1138,
+     "b": 1152,
+     "dyn": "霍亨施陶芬|Hohenstaufen|霍亨施陶芬"
+    },
+    {
+     "n": "腓特烈一世|Frederick I|腓特烈一世",
+     "a": 1152,
+     "b": 1190,
+     "dyn": "霍亨施陶芬|Hohenstaufen|霍亨施陶芬"
+    },
+    {
+     "n": "亨利六世|Henry VI|亨利六世",
+     "a": 1191,
+     "b": 1197,
+     "dyn": "霍亨施陶芬|Hohenstaufen|霍亨施陶芬"
+    },
+    {
+     "n": "奥托四世|Otto IV|奧托四世",
+     "a": 1209,
+     "b": 1215,
+     "dyn": "韦尔夫|Welf|韋爾夫"
+    },
+    {
+     "n": "腓特烈二世|Frederick II|腓特烈二世",
+     "a": 1220,
+     "b": 1250,
+     "dyn": "霍亨施陶芬|Hohenstaufen|霍亨施陶芬"
+    },
+    {
+     "n": "鲁道夫一世|Rudolf I|魯道夫一世",
+     "a": 1273,
+     "b": 1291,
+     "p": "hb01",
+     "dyn": "哈布斯堡|Habsburg|哈布斯堡"
+    },
+    {
+     "n": "阿道夫|Adolf|阿道夫",
+     "a": 1292,
+     "b": 1298,
+     "dyn": "拿骚|Nassau|拿騷"
+    },
+    {
+     "n": "阿尔布雷希特一世|Albert I|阿爾布雷希特一世",
+     "a": 1298,
+     "b": 1308,
+     "p": "hb02",
+     "f": "hb01",
+     "dyn": "哈布斯堡|Habsburg|哈布斯堡"
+    },
+    {
+     "n": "亨利七世|Henry VII|亨利七世",
+     "a": 1312,
+     "b": 1313,
+     "dyn": "卢森堡|Luxembourg|盧森堡"
+    },
+    {
+     "n": "路易四世|Louis IV|路易四世",
+     "a": 1328,
+     "b": 1347,
+     "dyn": "维特尔斯巴赫|Wittelsbach|維特爾斯巴赫"
+    },
+    {
+     "n": "查理四世|Charles IV|查理四世",
+     "a": 1355,
+     "b": 1378,
+     "dyn": "卢森堡|Luxembourg|盧森堡"
+    },
+    {
+     "n": "文策尔|Wenceslaus|文策爾",
+     "a": 1378,
+     "b": 1400,
+     "dyn": "卢森堡|Luxembourg|盧森堡"
+    },
+    {
+     "n": "鲁普雷希特|Rupert|魯普雷希特",
+     "a": 1400,
+     "b": 1410,
+     "dyn": "维特尔斯巴赫|Wittelsbach|維特爾斯巴赫"
+    },
+    {
+     "n": "西吉斯蒙德|Sigismund|西吉斯蒙德",
+     "a": 1433,
+     "b": 1437,
+     "dyn": "卢森堡|Luxembourg|盧森堡"
+    },
+    {
+     "n": "阿尔布雷希特二世|Albert II|阿爾布雷希特二世",
+     "a": 1438,
+     "b": 1439,
+     "p": "hb_a2",
+     "f": "hb_alb4",
+     "dyn": "哈布斯堡|Habsburg|哈布斯堡"
+    },
+    {
+     "n": "腓特烈三世|Frederick III|腓特烈三世",
+     "a": 1452,
+     "b": 1493,
+     "p": "hb05",
+     "f": "hb_ernest",
+     "dyn": "哈布斯堡|Habsburg|哈布斯堡"
+    },
+    {
+     "n": "马克西米利安一世|Maximilian I|馬克西米利安一世",
+     "a": 1508,
+     "b": 1519,
+     "p": "hb06",
+     "f": "hb05",
+     "dyn": "哈布斯堡|Habsburg|哈布斯堡"
+    },
+    {
+     "n": "查理五世|Charles V|查理五世",
+     "a": 1519,
+     "b": 1556,
+     "p": "hb07",
+     "f": "hb_philip1",
+     "dyn": "哈布斯堡|Habsburg|哈布斯堡"
+    },
+    {
+     "n": "斐迪南一世|Ferdinand I|斐迪南一世",
+     "a": 1556,
+     "b": 1564,
+     "p": "hb08",
+     "f": "hb_philip1",
+     "dyn": "哈布斯堡|Habsburg|哈布斯堡"
+    },
+    {
+     "n": "马克西米利安二世|Maximilian II|馬克西米利安二世",
+     "a": 1564,
+     "b": 1576,
+     "p": "hb09",
+     "f": "hb08",
+     "dyn": "哈布斯堡|Habsburg|哈布斯堡"
+    },
+    {
+     "n": "鲁道夫二世|Rudolf II|魯道夫二世",
+     "a": 1576,
+     "b": 1612,
+     "p": "hb10",
+     "f": "hb09",
+     "dyn": "哈布斯堡|Habsburg|哈布斯堡"
+    },
+    {
+     "n": "马蒂亚斯|Matthias|馬蒂亞斯",
+     "a": 1612,
+     "b": 1619,
+     "p": "hb11",
+     "f": "hb09",
+     "dyn": "哈布斯堡|Habsburg|哈布斯堡"
+    }
+   ],
+   "people": [
+    {
+     "p": "hb_alb2duke",
+     "n": "阿尔布雷希特二世(奥地利公爵)|Albert II of Austria|阿爾布雷希特二世(奧地利公爵)",
+     "f": "hb02"
+    },
+    {
+     "p": "hb_alb3",
+     "n": "阿尔布雷希特三世(奥地利公爵)|Albert III of Austria|阿爾布雷希特三世(奧地利公爵)",
+     "f": "hb_alb2duke"
+    },
+    {
+     "p": "hb_alb4",
+     "n": "阿尔布雷希特四世(奥地利公爵)|Albert IV of Austria|阿爾布雷希特四世(奧地利公爵)",
+     "f": "hb_alb3"
+    },
+    {
+     "p": "hb_leo3",
+     "n": "利奥波德三世(奥地利公爵)|Leopold III of Austria|利奧波德三世(奧地利公爵)",
+     "f": "hb_alb2duke"
+    },
+    {
+     "p": "hb_ernest",
+     "n": "铁腕恩斯特|Ernest the Iron|鐵腕恩斯特",
+     "f": "hb_leo3"
+    },
+    {
+     "p": "hb_philip1",
+     "n": "美男子腓力|Philip the Handsome|美男子腓力",
+     "f": "hb06"
+    },
+    {
+     "p": "hb_charles2",
+     "n": "内奥地利的卡尔二世|Charles II of Inner Austria|內奧地利的卡爾二世",
+     "f": "hb08"
+    }
+   ],
+   "full": "神圣罗马|Holy Roman Empire|神聖羅馬",
+   "emp": true,
+   "tw": "羅馬"
+  },
+  {
+   "id": "tibet",
+   "zh": "吐蕃",
+   "en": "Tibet",
+   "c": "Youmu",
+   "seat": [
+    "tibet"
+   ],
+   "fam": "悉补野|Pugyal|悉補野",
+   "west": false,
+   "rulers": [
+    {
+     "n": "松赞干布|Songtsen Gampo|松贊干布",
+     "a": 618,
+     "b": 650
+    },
+    {
+     "n": "芒松芒赞|Mangsong Mangtsen|芒松芒贊",
+     "a": 650,
+     "b": 676
+    },
+    {
+     "n": "赤都松赞|Tridu Songtsen|赤都松贊",
+     "a": 676,
+     "b": 704
+    },
+    {
+     "n": "赤德祖赞|Tride Tsuktsen|赤德祖贊",
+     "a": 704,
+     "b": 754
+    },
+    {
+     "n": "赤松德赞|Trisong Detsen|赤松德贊",
+     "a": 755,
+     "b": 797
+    },
+    {
+     "n": "牟尼赞普|Muné Tsenpo|牟尼贊普",
+     "a": 797,
+     "b": 799
+    },
+    {
+     "n": "赤德松赞|Tride Songtsen|赤德松贊",
+     "a": 799,
+     "b": 815
+    },
+    {
+     "n": "赤祖德赞|Ralpacan|赤祖德贊",
+     "a": 815,
+     "b": 838
+    },
+    {
+     "n": "朗达玛|Langdarma|朗達瑪",
+     "a": 838,
+     "b": 842
+    }
+   ],
+   "people": [],
+   "emp": true,
+   "tw": "吐蕃"
+  },
+  {
+   "id": "uyghur",
+   "zh": "回鹘",
+   "en": "Uyghur",
+   "c": "Youmu",
+   "seat": [
+    "mobei"
+   ],
+   "fam": "药罗葛|Yaglakar|藥羅葛",
+   "west": false,
+   "rulers": [
+    {
+     "n": "骨力裴罗|Kutlug Bilge|骨力裴羅",
+     "a": 744,
+     "b": 747
+    },
+    {
+     "n": "磨延啜|Bayanchur|磨延啜",
+     "a": 747,
+     "b": 759
+    },
+    {
+     "n": "牟羽可汗|Bögü|牟羽可汗",
+     "a": 759,
+     "b": 779
+    },
+    {
+     "n": "顿莫贺|Alp Qutlugh|頓莫賀",
+     "a": 779,
+     "b": 789
+    },
+    {
+     "n": "怀信可汗|Qutlugh Bilge|懷信可汗",
+     "a": 795,
+     "b": 805
+    }
+   ],
+   "people": [],
+   "emp": true,
+   "tw": "回鶻"
+  },
+  {
+   "id": "qara_khitai",
+   "zh": "西辽",
+   "en": "Qara Khitai",
+   "c": "Youmu",
+   "seat": [
+    "kazakh"
+   ],
+   "fam": "耶律|Yelü|耶律",
+   "west": false,
+   "rulers": [
+    {
+     "n": "耶律大石|Yelü Dashi|耶律大石",
+     "a": 1124,
+     "b": 1143
+    },
+    {
+     "n": "萧塔不烟|Xiao Tabuyan|蕭塔不煙",
+     "a": 1143,
+     "b": 1150
+    },
+    {
+     "n": "耶律夷列|Yelü Yilie|耶律夷列",
+     "a": 1150,
+     "b": 1163
+    },
+    {
+     "n": "耶律普速完|Yelü Pusuwan|耶律普速完",
+     "a": 1163,
+     "b": 1177
+    }
+   ],
+   "people": [],
+   "emp": true,
+   "tw": "西遼"
+  },
+  {
+   "id": "capetian",
+   "zh": "法兰西",
+   "en": "France",
+   "c": "Frankish",
+   "seat": [
+    "gaul_n"
+   ],
+   "fam": "卡佩|Capet|卡佩",
+   "west": true,
+   "rulers": [
+    {
+     "n": "于格|Hugh|于格",
+     "a": 987,
+     "b": 996,
+     "p": "cp01"
+    },
+    {
+     "n": "罗贝尔|Robert|羅貝爾",
+     "a": 996,
+     "b": 1031,
+     "p": "cp02",
+     "f": "cp01"
+    },
+    {
+     "n": "亨利|Henry|亨利",
+     "a": 1031,
+     "b": 1060,
+     "p": "cp03",
+     "f": "cp02"
+    },
+    {
+     "n": "腓力|Philip|腓力",
+     "a": 1060,
+     "b": 1108,
+     "p": "cp04",
+     "f": "cp03"
+    },
+    {
+     "n": "路易|Louis VI|路易",
+     "a": 1108,
+     "b": 1137,
+     "p": "cp05",
+     "f": "cp04"
+    },
+    {
+     "n": "路易|Louis VII|路易",
+     "a": 1137,
+     "b": 1180,
+     "p": "cp06",
+     "f": "cp05"
+    },
+    {
+     "n": "腓力|Philip II|腓力",
+     "a": 1180,
+     "b": 1223,
+     "p": "cp07",
+     "f": "cp06"
+    },
+    {
+     "n": "路易|Louis VIII|路易",
+     "a": 1223,
+     "b": 1226,
+     "p": "cp08",
+     "f": "cp07"
+    },
+    {
+     "n": "路易|Louis IX|路易",
+     "a": 1226,
+     "b": 1270,
+     "p": "cp09",
+     "f": "cp08"
+    },
+    {
+     "n": "腓力|Philip III|腓力",
+     "a": 1270,
+     "b": 1285,
+     "p": "cp10",
+     "f": "cp09"
+    },
+    {
+     "n": "腓力|Philip IV|腓力",
+     "a": 1285,
+     "b": 1314,
+     "p": "cp11",
+     "f": "cp10"
+    },
+    {
+     "n": "路易|Louis X|路易",
+     "a": 1314,
+     "b": 1316,
+     "p": "cp12",
+     "f": "cp11"
+    },
+    {
+     "n": "约翰|John I|約翰",
+     "a": 1316,
+     "b": 1316,
+     "p": "cp13",
+     "f": "cp12"
+    },
+    {
+     "n": "腓力|Philip V|腓力",
+     "a": 1316,
+     "b": 1322,
+     "p": "cp14",
+     "f": "cp11"
+    },
+    {
+     "n": "查理|Charles IV|查理",
+     "a": 1322,
+     "b": 1328,
+     "p": "cp15",
+     "f": "cp11"
+    },
+    {
+     "n": "腓力|Philip VI|腓力",
+     "a": 1328,
+     "b": 1350,
+     "p": "cp16",
+     "f": "cp_charles_valois",
+     "dyn": "瓦卢瓦|Valois|瓦盧瓦"
+    },
+    {
+     "n": "约翰|John II|約翰",
+     "a": 1350,
+     "b": 1364,
+     "p": "cp17",
+     "f": "cp16",
+     "dyn": "瓦卢瓦|Valois|瓦盧瓦"
+    },
+    {
+     "n": "查理|Charles V|查理",
+     "a": 1364,
+     "b": 1380,
+     "p": "cp18",
+     "f": "cp17",
+     "dyn": "瓦卢瓦|Valois|瓦盧瓦"
+    },
+    {
+     "n": "查理|Charles VI|查理",
+     "a": 1380,
+     "b": 1422,
+     "p": "cp19",
+     "f": "cp18",
+     "dyn": "瓦卢瓦|Valois|瓦盧瓦"
+    },
+    {
+     "n": "查理|Charles VII|查理",
+     "a": 1422,
+     "b": 1461,
+     "p": "cp20",
+     "f": "cp19",
+     "dyn": "瓦卢瓦|Valois|瓦盧瓦"
+    },
+    {
+     "n": "路易|Louis XI|路易",
+     "a": 1461,
+     "b": 1483,
+     "p": "cp21",
+     "f": "cp20",
+     "dyn": "瓦卢瓦|Valois|瓦盧瓦"
+    },
+    {
+     "n": "查理|Charles VIII|查理",
+     "a": 1483,
+     "b": 1498,
+     "p": "cp22",
+     "f": "cp21",
+     "dyn": "瓦卢瓦|Valois|瓦盧瓦"
+    },
+    {
+     "n": "路易|Louis XII|路易",
+     "a": 1498,
+     "b": 1515,
+     "p": "cp23",
+     "f": "cp_charles_orleans",
+     "dyn": "瓦卢瓦|Valois|瓦盧瓦"
+    },
+    {
+     "n": "弗朗索瓦|Francis I|弗朗索瓦",
+     "a": 1515,
+     "b": 1547,
+     "p": "cp24",
+     "f": "cp_charles_angouleme",
+     "dyn": "瓦卢瓦|Valois|瓦盧瓦"
+    },
+    {
+     "n": "亨利|Henry II|亨利",
+     "a": 1547,
+     "b": 1559,
+     "p": "cp25",
+     "f": "cp24",
+     "dyn": "瓦卢瓦|Valois|瓦盧瓦"
+    },
+    {
+     "n": "弗朗索瓦|Francis II|弗朗索瓦",
+     "a": 1559,
+     "b": 1560,
+     "p": "cp26",
+     "f": "cp25",
+     "dyn": "瓦卢瓦|Valois|瓦盧瓦"
+    },
+    {
+     "n": "查理|Charles IX|查理",
+     "a": 1560,
+     "b": 1574,
+     "p": "cp27",
+     "f": "cp25",
+     "dyn": "瓦卢瓦|Valois|瓦盧瓦"
+    },
+    {
+     "n": "亨利|Henry III|亨利",
+     "a": 1574,
+     "b": 1589,
+     "p": "cp28",
+     "f": "cp25",
+     "dyn": "瓦卢瓦|Valois|瓦盧瓦"
+    },
+    {
+     "n": "亨利|Henry IV|亨利",
+     "a": 1589,
+     "b": 1610,
+     "p": "cp29",
+     "f": "cp_antoine",
+     "dyn": "波旁|Bourbon|波旁"
+    }
+   ],
+   "people": [
+    {
+     "p": "cp_charles_valois",
+     "n": "瓦卢瓦的查理|Charles of Valois|瓦盧瓦的查理",
+     "f": "cp10"
+    },
+    {
+     "p": "cp_louis_orleans",
+     "n": "奥尔良的路易|Louis of Orléans|奧爾良的路易",
+     "f": "cp18"
+    },
+    {
+     "p": "cp_charles_orleans",
+     "n": "奥尔良的查理|Charles of Orléans|奧爾良的查理",
+     "f": "cp_louis_orleans"
+    },
+    {
+     "p": "cp_john_angouleme",
+     "n": "昂古莱姆的约翰|John of Angoulême|昂古萊姆的約翰",
+     "f": "cp_louis_orleans"
+    },
+    {
+     "p": "cp_charles_angouleme",
+     "n": "昂古莱姆的查理|Charles of Angoulême|昂古萊姆的查理",
+     "f": "cp_john_angouleme"
+    },
+    {
+     "p": "cp_robert_clermont",
+     "n": "克莱蒙的罗贝尔|Robert of Clermont|克萊蒙的羅貝爾",
+     "f": "cp09"
+    },
+    {
+     "p": "cp_louis_bourbon",
+     "n": "波旁的路易|Louis I of Bourbon|波旁的路易",
+     "f": "cp_robert_clermont"
+    },
+    {
+     "p": "cp_jacques",
+     "n": "拉马什的雅克|James I of La Marche|拉馬什的雅克",
+     "f": "cp_louis_bourbon"
+    },
+    {
+     "p": "cp_jean1",
+     "n": "拉马什的让|John I of La Marche|拉馬什的讓",
+     "f": "cp_jacques"
+    },
+    {
+     "p": "cp_louis_vendome",
+     "n": "旺多姆的路易|Louis of Vendôme|旺多姆的路易",
+     "f": "cp_jean1"
+    },
+    {
+     "p": "cp_jean8",
+     "n": "旺多姆的让|John VIII of Vendôme|旺多姆的讓",
+     "f": "cp_louis_vendome"
+    },
+    {
+     "p": "cp_francois",
+     "n": "旺多姆的弗朗索瓦|Francis of Vendôme|旺多姆的弗朗索瓦",
+     "f": "cp_jean8"
+    },
+    {
+     "p": "cp_charles_vendome",
+     "n": "旺多姆的查理|Charles of Vendôme|旺多姆的查理",
+     "f": "cp_francois"
+    },
+    {
+     "p": "cp_antoine",
+     "n": "安托万|Antoine of Navarre|安托萬",
+     "f": "cp_charles_vendome"
+    }
+   ],
+   "emp": false,
+   "tw": "法蘭西"
+  },
+  {
+   "id": "england",
+   "zh": "英格兰",
+   "en": "England",
+   "c": "Germanic",
+   "seat": [
+    "britain_s"
+   ],
+   "fam": "",
+   "west": true,
+   "rulers": [
+    {
+     "n": "埃塞尔斯坦|Aethelstan|埃塞爾斯坦",
+     "a": 927,
+     "b": 939,
+     "dyn": "威塞克斯|Wessex|威塞克斯"
+    },
+    {
+     "n": "埃德加|Edgar|埃德加",
+     "a": 959,
+     "b": 975,
+     "dyn": "威塞克斯|Wessex|威塞克斯"
+    },
+    {
+     "n": "埃塞尔雷德|Aethelred|埃塞爾雷德",
+     "a": 978,
+     "b": 1016,
+     "dyn": "威塞克斯|Wessex|威塞克斯"
+    },
+    {
+     "n": "克努特|Cnut|克努特",
+     "a": 1016,
+     "b": 1035,
+     "dyn": "克尼特林|Knýtlinga|克尼特林"
+    },
+    {
+     "n": "忏悔者爱德华|Edward the Confessor|懺悔者愛德華",
+     "a": 1042,
+     "b": 1066,
+     "dyn": "威塞克斯|Wessex|威塞克斯"
+    },
+    {
+     "n": "哈罗德|Harold II|哈羅德",
+     "a": 1066,
+     "b": 1066,
+     "dyn": "戈德温|Godwin|戈德溫"
+    },
+    {
+     "n": "威廉|William I|威廉",
+     "a": 1066,
+     "b": 1087,
+     "p": "en_w1",
+     "dyn": "诺曼|Norman|諾曼"
+    },
+    {
+     "n": "威廉|William II|威廉",
+     "a": 1087,
+     "b": 1100,
+     "p": "en_w2",
+     "f": "en_w1",
+     "dyn": "诺曼|Norman|諾曼"
+    },
+    {
+     "n": "亨利|Henry I|亨利",
+     "a": 1100,
+     "b": 1135,
+     "p": "en_h1",
+     "f": "en_w1",
+     "dyn": "诺曼|Norman|諾曼"
+    },
+    {
+     "n": "斯蒂芬|Stephen|斯蒂芬",
+     "a": 1135,
+     "b": 1154,
+     "dyn": "布卢瓦|Blois|布盧瓦"
+    },
+    {
+     "n": "亨利|Henry II|亨利",
+     "a": 1154,
+     "b": 1189,
+     "p": "en_henry2",
+     "f": "en_geoffrey",
+     "dyn": "金雀花|Plantagenet|金雀花"
+    },
+    {
+     "n": "理查|Richard I|理查",
+     "a": 1189,
+     "b": 1199,
+     "p": "en_r1",
+     "f": "en_henry2",
+     "dyn": "金雀花|Plantagenet|金雀花"
+    },
+    {
+     "n": "约翰|John|約翰",
+     "a": 1199,
+     "b": 1216,
+     "p": "en_john",
+     "f": "en_henry2",
+     "dyn": "金雀花|Plantagenet|金雀花"
+    },
+    {
+     "n": "亨利|Henry III|亨利",
+     "a": 1216,
+     "b": 1272,
+     "p": "en_h3",
+     "f": "en_john",
+     "dyn": "金雀花|Plantagenet|金雀花"
+    },
+    {
+     "n": "爱德华|Edward I|愛德華",
+     "a": 1272,
+     "b": 1307,
+     "p": "en_e1",
+     "f": "en_h3",
+     "dyn": "金雀花|Plantagenet|金雀花"
+    },
+    {
+     "n": "爱德华|Edward II|愛德華",
+     "a": 1307,
+     "b": 1327,
+     "p": "en_e2",
+     "f": "en_e1",
+     "dyn": "金雀花|Plantagenet|金雀花"
+    },
+    {
+     "n": "爱德华|Edward III|愛德華",
+     "a": 1327,
+     "b": 1377,
+     "p": "en_e3",
+     "f": "en_e2",
+     "dyn": "金雀花|Plantagenet|金雀花"
+    },
+    {
+     "n": "理查|Richard II|理查",
+     "a": 1377,
+     "b": 1399,
+     "p": "en_r2",
+     "f": "en_black_prince",
+     "dyn": "金雀花|Plantagenet|金雀花"
+    },
+    {
+     "n": "亨利|Henry IV|亨利",
+     "a": 1399,
+     "b": 1413,
+     "p": "en_h4",
+     "f": "en_gaunt",
+     "dyn": "兰开斯特|Lancaster|蘭開斯特"
+    },
+    {
+     "n": "亨利|Henry V|亨利",
+     "a": 1413,
+     "b": 1422,
+     "p": "en_h5",
+     "f": "en_h4",
+     "dyn": "兰开斯特|Lancaster|蘭開斯特"
+    },
+    {
+     "n": "亨利|Henry VI|亨利",
+     "a": 1422,
+     "b": 1461,
+     "p": "en_h6",
+     "f": "en_h5",
+     "dyn": "兰开斯特|Lancaster|蘭開斯特"
+    },
+    {
+     "n": "爱德华|Edward IV|愛德華",
+     "a": 1461,
+     "b": 1483,
+     "p": "en_e4",
+     "f": "en_richard_york",
+     "dyn": "约克|York|約克"
+    },
+    {
+     "n": "理查|Richard III|理查",
+     "a": 1483,
+     "b": 1485,
+     "p": "en_r3",
+     "f": "en_richard_york",
+     "dyn": "约克|York|約克"
+    },
+    {
+     "n": "亨利|Henry VII|亨利",
+     "a": 1485,
+     "b": 1509,
+     "p": "en_h7",
+     "f": "en_edmund_tudor",
+     "dyn": "都铎|Tudor|都鐸"
+    },
+    {
+     "n": "亨利|Henry VIII|亨利",
+     "a": 1509,
+     "b": 1547,
+     "p": "en_h8",
+     "f": "en_h7",
+     "dyn": "都铎|Tudor|都鐸"
+    },
+    {
+     "n": "爱德华|Edward VI|愛德華",
+     "a": 1547,
+     "b": 1553,
+     "p": "en_e6",
+     "f": "en_h8",
+     "dyn": "都铎|Tudor|都鐸"
+    },
+    {
+     "n": "玛丽|Mary I|瑪麗",
+     "a": 1553,
+     "b": 1558,
+     "dyn": "都铎|Tudor|都鐸"
+    },
+    {
+     "n": "伊丽莎白|Elizabeth I|伊麗莎白",
+     "a": 1558,
+     "b": 1603,
+     "dyn": "都铎|Tudor|都鐸"
+    },
+    {
+     "n": "詹姆斯|James I|詹姆斯",
+     "a": 1603,
+     "b": 1625,
+     "p": "en_james1",
+     "f": "en_darnley",
+     "dyn": "斯图亚特|Stuart|斯圖亞特"
+    }
+   ],
+   "people": [
+    {
+     "p": "en_matilda",
+     "n": "玛蒂尔达|Matilda|瑪蒂爾達",
+     "f": "en_h1"
+    },
+    {
+     "p": "en_geoffrey",
+     "n": "若弗鲁瓦|Geoffrey Plantagenet|若弗魯瓦"
+    },
+    {
+     "p": "en_black_prince",
+     "n": "黑太子爱德华|Edward the Black Prince|黑太子愛德華",
+     "f": "en_e3"
+    },
+    {
+     "p": "en_gaunt",
+     "n": "冈特的约翰|John of Gaunt|岡特的約翰",
+     "f": "en_e3"
+    },
+    {
+     "p": "en_langley",
+     "n": "兰利的埃德蒙|Edmund of Langley|蘭利的埃德蒙",
+     "f": "en_e3"
+    },
+    {
+     "p": "en_conisburgh",
+     "n": "科尼斯堡的理查|Richard of Conisburgh|科尼斯堡的理查",
+     "f": "en_langley"
+    },
+    {
+     "p": "en_richard_york",
+     "n": "约克公爵理查|Richard of York|約克公爵理查",
+     "f": "en_conisburgh"
+    },
+    {
+     "p": "en_edmund_tudor",
+     "n": "埃德蒙·都铎|Edmund Tudor|埃德蒙·都鐸"
+    },
+    {
+     "p": "en_lennox",
+     "n": "伦诺克斯伯爵马修|Matthew Stewart|倫諾克斯伯爵馬修"
+    },
+    {
+     "p": "en_darnley",
+     "n": "达恩利勋爵亨利|Henry Stuart, Lord Darnley|達恩利勳爵亨利",
+     "f": "en_lennox"
+    }
+   ],
+   "emp": false,
+   "tw": "英格蘭"
+  },
+  {
+   "id": "scotland",
+   "zh": "苏格兰",
+   "en": "Scotland",
+   "c": "Frankish",
+   "seat": [
+    "britain_n"
+   ],
+   "fam": "邓凯尔德|Dunkeld|鄧凱爾德",
+   "west": true,
+   "rulers": [
+    {
+     "n": "肯尼思|Kenneth I|肯尼思",
+     "a": 843,
+     "b": 858
+    },
+    {
+     "n": "马尔科姆|Malcolm II|馬爾科姆",
+     "a": 1005,
+     "b": 1034
+    },
+    {
+     "n": "邓肯|Duncan I|鄧肯",
+     "a": 1034,
+     "b": 1040
+    },
+    {
+     "n": "麦克白|Macbeth|麥克白",
+     "a": 1040,
+     "b": 1057
+    },
+    {
+     "n": "马尔科姆|Malcolm III|馬爾科姆",
+     "a": 1058,
+     "b": 1093,
+     "p": "sc_m3"
+    },
+    {
+     "n": "大卫|David I|大衛",
+     "a": 1124,
+     "b": 1153,
+     "p": "sc_d1",
+     "f": "sc_m3"
+    },
+    {
+     "n": "马尔科姆|Malcolm IV|馬爾科姆",
+     "a": 1153,
+     "b": 1165,
+     "p": "sc_m4",
+     "f": "sc_henry"
+    }
+   ],
+   "people": [
+    {
+     "p": "sc_henry",
+     "n": "亨利|Henry of Scotland|亨利",
+     "f": "sc_d1"
+    }
+   ],
+   "emp": false,
+   "tw": "蘇格蘭"
+  },
+  {
+   "id": "asturias",
+   "zh": "阿斯图里亚斯",
+   "en": "Asturias",
+   "c": "Frankish",
+   "seat": [
+    "hispania_n"
+   ],
+   "fam": "佩拉约|Pelagian|佩拉約",
+   "west": true,
+   "rulers": [
+    {
+     "n": "佩拉约|Pelagius|佩拉約",
+     "a": 718,
+     "b": 737
+    },
+    {
+     "n": "法维拉|Favila|法維拉",
+     "a": 737,
+     "b": 739
+    },
+    {
+     "n": "阿方索|Alfonso I|阿方索",
+     "a": 739,
+     "b": 757
+    },
+    {
+     "n": "弗鲁埃拉|Fruela I|弗魯埃拉",
+     "a": 757,
+     "b": 768
+    },
+    {
+     "n": "贝尔穆多|Bermudo I|貝爾穆多",
+     "a": 789,
+     "b": 791
+    },
+    {
+     "n": "阿方索|Alfonso II|阿方索",
+     "a": 791,
+     "b": 842
+    },
+    {
+     "n": "拉米罗|Ramiro I|拉米羅",
+     "a": 842,
+     "b": 850
+    },
+    {
+     "n": "奥尔多尼奥|Ordoño I|奧爾多尼奧",
+     "a": 850,
+     "b": 866
+    },
+    {
+     "n": "阿方索|Alfonso III|阿方索",
+     "a": 866,
+     "b": 910
+    },
+    {
+     "n": "阿方索|Alfonso VI|阿方索",
+     "a": 1065,
+     "b": 1109
+    },
+    {
+     "n": "乌拉卡|Urraca|烏拉卡",
+     "a": 1109,
+     "b": 1126
+    },
+    {
+     "n": "阿方索|Alfonso VII|阿方索",
+     "a": 1126,
+     "b": 1157,
+     "p": "as_a7"
+    },
+    {
+     "n": "费尔南多|Ferdinand II|費爾南多",
+     "a": 1157,
+     "b": 1188,
+     "p": "as_ferdinand2",
+     "f": "as_a7"
+    }
+   ],
+   "people": [],
+   "emp": false,
+   "tw": "阿斯圖裏亞斯"
+  },
+  {
+   "id": "castile",
+   "zh": "卡斯蒂利亚",
+   "en": "Castile",
+   "c": "Frankish",
+   "seat": [
+    "hispania_s"
+   ],
+   "fam": "伊夫雷亚|Ivrea|伊夫雷亞",
+   "west": true,
+   "rulers": [
+    {
+     "n": "桑乔|Sancho III|桑喬",
+     "a": 1157,
+     "b": 1158,
+     "p": "ca_sancho3",
+     "f": "as_a7"
+    }
+   ],
+   "people": [],
+   "emp": false,
+   "tw": "卡斯蒂利亞"
+  },
+  {
+   "id": "portugal",
+   "zh": "葡萄牙",
+   "en": "Portugal",
+   "c": "Frankish",
+   "seat": [
+    "hispania_n"
+   ],
+   "fam": "勃艮第|Burgundy|勃艮第",
+   "west": true,
+   "rulers": [
+    {
+     "n": "阿方索|Afonso I|阿方索",
+     "a": 1139,
+     "b": 1185,
+     "p": "pt01"
+    }
+   ],
+   "people": [],
+   "emp": false,
+   "tw": "葡萄牙"
+  },
+  {
+   "id": "aragon",
+   "zh": "阿拉贡",
+   "en": "Aragon",
+   "c": "Frankish",
+   "seat": [
+    "hispania_n"
+   ],
+   "fam": "巴塞罗那|Barcelona|巴塞羅那",
+   "west": true,
+   "rulers": [
+    {
+     "n": "拉米罗|Ramiro I|拉米羅",
+     "a": 1035,
+     "b": 1063
+    },
+    {
+     "n": "佩德罗|Peter I|佩德羅",
+     "a": 1094,
+     "b": 1104
+    },
+    {
+     "n": "阿方索|Alfonso I|阿方索",
+     "a": 1104,
+     "b": 1134
+    },
+    {
+     "n": "拉米罗|Ramiro II|拉米羅",
+     "a": 1134,
+     "b": 1137
+    },
+    {
+     "n": "佩特罗尼拉|Petronilla|佩特羅尼拉",
+     "a": 1137,
+     "b": 1164
+    }
+   ],
+   "people": [],
+   "emp": false,
+   "tw": "阿拉貢"
+  },
+  {
+   "id": "navarre",
+   "zh": "纳瓦拉",
+   "en": "Navarre",
+   "c": "Frankish",
+   "seat": [
+    "hispania_n"
+   ],
+   "fam": "希门尼斯|Jimenez|希門尼斯",
+   "west": true,
+   "rulers": [
+    {
+     "n": "桑乔|Sancho III|桑喬",
+     "a": 1004,
+     "b": 1035
+    },
+    {
+     "n": "加西亚|García III|加西亞",
+     "a": 1035,
+     "b": 1054
+    },
+    {
+     "n": "加西亚|García Ramírez|加西亞",
+     "a": 1134,
+     "b": 1150
+    }
+   ],
+   "people": [],
+   "emp": false,
+   "tw": "納瓦拉"
+  },
+  {
+   "id": "hauteville",
+   "zh": "西西里",
+   "en": "Sicily",
+   "c": "Roma",
+   "seat": [
+    "sicily"
+   ],
+   "fam": "欧特维尔|Hauteville|歐特維爾",
+   "west": true,
+   "rulers": [
+    {
+     "n": "罗杰|Roger II|羅傑",
+     "a": 1130,
+     "b": 1154,
+     "p": "ha_r2"
+    },
+    {
+     "n": "威廉|William I|威廉",
+     "a": 1154,
+     "b": 1166,
+     "p": "ha_w1",
+     "f": "ha_r2"
+    },
+    {
+     "n": "威廉|William II|威廉",
+     "a": 1166,
+     "b": 1189,
+     "p": "ha_w2",
+     "f": "ha_w1"
+    }
+   ],
+   "people": [
+    {
+     "p": "ha_roger3",
+     "n": "罗杰|Roger III|羅傑",
+     "f": "ha_r2"
+    }
+   ],
+   "emp": false,
+   "tw": "西西里"
+  },
+  {
+   "id": "arpad",
+   "zh": "匈牙利",
+   "en": "Hungary",
+   "c": "Slavonic",
+   "seat": [
+    "pannonia"
+   ],
+   "fam": "阿尔帕德|Arpad|阿爾帕德",
+   "west": true,
+   "rulers": [
+    {
+     "n": "斯蒂芬|Stephen I|斯蒂芬",
+     "a": 1000,
+     "b": 1038
+    },
+    {
+     "n": "安德烈|Andrew I|安德烈",
+     "a": 1046,
+     "b": 1060
+    },
+    {
+     "n": "贝拉|Béla I|貝拉",
+     "a": 1060,
+     "b": 1063
+    },
+    {
+     "n": "拉迪斯劳斯|Ladislaus I|拉迪斯勞斯",
+     "a": 1077,
+     "b": 1095
+    },
+    {
+     "n": "卡尔曼|Coloman|卡爾曼",
+     "a": 1095,
+     "b": 1116
+    },
+    {
+     "n": "斯蒂芬|Stephen II|斯蒂芬",
+     "a": 1116,
+     "b": 1131
+    },
+    {
+     "n": "贝拉|Béla II|貝拉",
+     "a": 1131,
+     "b": 1141,
+     "p": "ar_b2"
+    },
+    {
+     "n": "盖萨|Géza II|蓋薩",
+     "a": 1141,
+     "b": 1162,
+     "p": "ar_geza2",
+     "f": "ar_b2"
+    },
+    {
+     "n": "斯蒂芬|Stephen III|斯蒂芬",
+     "a": 1162,
+     "b": 1172,
+     "p": "ar_s3",
+     "f": "ar_geza2"
+    }
+   ],
+   "people": [],
+   "emp": false,
+   "tw": "匈牙利"
+  },
+  {
+   "id": "piast",
+   "zh": "波兰",
+   "en": "Poland",
+   "c": "Slavonic",
+   "seat": [
+    "poland"
+   ],
+   "fam": "皮雅斯特|Piast|皮雅斯特",
+   "west": true,
+   "rulers": [
+    {
+     "n": "梅什科|Mieszko I|梅什科",
+     "a": 960,
+     "b": 992
+    },
+    {
+     "n": "波列斯瓦夫|Bolesław I|波列斯瓦夫",
+     "a": 992,
+     "b": 1025
+    },
+    {
+     "n": "梅什科|Mieszko II|梅什科",
+     "a": 1025,
+     "b": 1034
+    },
+    {
+     "n": "卡齐米日|Casimir I|卡齊米日",
+     "a": 1039,
+     "b": 1058
+    },
+    {
+     "n": "波列斯瓦夫|Bolesław II|波列斯瓦夫",
+     "a": 1058,
+     "b": 1079
+    },
+    {
+     "n": "弗瓦迪斯瓦夫|Władysław I|弗瓦迪斯瓦夫",
+     "a": 1079,
+     "b": 1102,
+     "p": "pi_w1"
+    },
+    {
+     "n": "波列斯瓦夫|Bolesław III|波列斯瓦夫",
+     "a": 1107,
+     "b": 1138,
+     "p": "pi_boleslaw3",
+     "f": "pi_w1"
+    },
+    {
+     "n": "弗瓦迪斯瓦夫|Władysław II|弗瓦迪斯瓦夫",
+     "a": 1138,
+     "b": 1146,
+     "f": "pi_boleslaw3"
+    },
+    {
+     "n": "波列斯瓦夫|Bolesław IV|波列斯瓦夫",
+     "a": 1146,
+     "b": 1173,
+     "f": "pi_boleslaw3"
+    },
+    {
+     "n": "梅什科|Mieszko III|梅什科",
+     "a": 1173,
+     "b": 1177,
+     "f": "pi_boleslaw3"
+    }
+   ],
+   "people": [],
+   "emp": false,
+   "tw": "波蘭"
+  },
+  {
+   "id": "denmark",
+   "zh": "丹麦",
+   "en": "Denmark",
+   "c": "Viking",
+   "seat": [
+    "denmark"
+   ],
+   "fam": "埃斯特里德森|Estridsen|埃斯特裏德森",
+   "west": true,
+   "rulers": [
+    {
+     "n": "戈姆|Gorm|戈姆",
+     "a": 936,
+     "b": 958,
+     "dyn": "耶灵|Jelling|耶靈"
+    },
+    {
+     "n": "蓝牙哈拉尔|Harald Bluetooth|藍牙哈拉爾",
+     "a": 958,
+     "b": 986,
+     "dyn": "耶灵|Jelling|耶靈"
+    },
+    {
+     "n": "斯韦恩|Sweyn Forkbeard|斯韋恩",
+     "a": 986,
+     "b": 1014,
+     "dyn": "耶灵|Jelling|耶靈"
+    },
+    {
+     "n": "克努特|Cnut the Great|克努特",
+     "a": 1018,
+     "b": 1035,
+     "dyn": "耶灵|Jelling|耶靈"
+    },
+    {
+     "n": "斯韦恩|Sweyn II|斯韋恩",
+     "a": 1047,
+     "b": 1076
+    },
+    {
+     "n": "瓦尔德马|Valdemar I|瓦爾德馬",
+     "a": 1157,
+     "b": 1182,
+     "p": "dk_valdemar1"
+    },
+    {
+     "n": "克努特六世|Cnut VI|克努特六世",
+     "a": 1182,
+     "b": 1202
+    },
+    {
+     "n": "瓦尔德马二世|Valdemar II|瓦爾德馬二世",
+     "a": 1202,
+     "b": 1241
+    },
+    {
+     "n": "埃里克四世|Eric IV|埃裏克四世",
+     "a": 1241,
+     "b": 1250
+    },
+    {
+     "n": "阿贝尔|Abel|阿貝爾",
+     "a": 1250,
+     "b": 1252
+    },
+    {
+     "n": "克里斯托弗一世|Christopher I|克裏斯托弗一世",
+     "a": 1252,
+     "b": 1259
+    },
+    {
+     "n": "埃里克五世|Eric V|埃裏克五世",
+     "a": 1259,
+     "b": 1286
+    },
+    {
+     "n": "埃里克六世|Eric VI|埃裏克六世",
+     "a": 1286,
+     "b": 1319
+    },
+    {
+     "n": "克里斯托弗二世|Christopher II|克裏斯托弗二世",
+     "a": 1320,
+     "b": 1332
+    },
+    {
+     "n": "瓦尔德马四世|Valdemar IV|瓦爾德馬四世",
+     "a": 1340,
+     "b": 1375
+    },
+    {
+     "n": "奥拉夫二世|Olaf II|奧拉夫二世",
+     "a": 1376,
+     "b": 1387
+    },
+    {
+     "n": "玛格丽特一世|Margaret I|瑪格麗特一世",
+     "a": 1387,
+     "b": 1412
+    },
+    {
+     "n": "波美拉尼亚的埃里克|Eric of Pomerania|波美拉尼亞的埃裏克",
+     "a": 1396,
+     "b": 1439
+    },
+    {
+     "n": "巴伐利亚的克里斯托弗|Christopher of Bavaria|巴伐利亞的克裏斯托弗",
+     "a": 1440,
+     "b": 1448
+    },
+    {
+     "n": "克里斯蒂安一世|Christian I|克裏斯蒂安一世",
+     "a": 1448,
+     "b": 1481,
+     "p": "dk_c1",
+     "dyn": "奥尔登堡|Oldenburg|奧爾登堡"
+    },
+    {
+     "n": "汉斯|Hans|漢斯",
+     "a": 1481,
+     "b": 1513,
+     "p": "dk_hans",
+     "f": "dk_c1",
+     "dyn": "奥尔登堡|Oldenburg|奧爾登堡"
+    },
+    {
+     "n": "克里斯蒂安二世|Christian II|克裏斯蒂安二世",
+     "a": 1513,
+     "b": 1523,
+     "p": "dk_c2",
+     "f": "dk_hans",
+     "dyn": "奥尔登堡|Oldenburg|奧爾登堡"
+    },
+    {
+     "n": "腓特烈一世|Frederick I|腓特烈一世",
+     "a": 1523,
+     "b": 1533,
+     "p": "dk_f1",
+     "f": "dk_c1",
+     "dyn": "奥尔登堡|Oldenburg|奧爾登堡"
+    },
+    {
+     "n": "克里斯蒂安三世|Christian III|克裏斯蒂安三世",
+     "a": 1534,
+     "b": 1559,
+     "p": "dk_c3",
+     "f": "dk_f1",
+     "dyn": "奥尔登堡|Oldenburg|奧爾登堡"
+    },
+    {
+     "n": "腓特烈二世|Frederick II|腓特烈二世",
+     "a": 1559,
+     "b": 1588,
+     "p": "dk_frederick2",
+     "f": "dk_c3",
+     "dyn": "奥尔登堡|Oldenburg|奧爾登堡"
+    }
+   ],
+   "people": [],
+   "emp": false,
+   "tw": "丹麥"
+  },
+  {
+   "id": "norway",
+   "zh": "挪威",
+   "en": "Norway",
+   "c": "Viking",
+   "seat": [
+    "norway"
+   ],
+   "fam": "",
+   "west": true,
+   "rulers": [
+    {
+     "n": "金发哈拉尔|Harald Fairhair|金髮哈拉爾",
+     "a": 872,
+     "b": 932
+    },
+    {
+     "n": "哈康|Haakon I|哈康",
+     "a": 934,
+     "b": 961
+    },
+    {
+     "n": "奥拉夫|Olaf I|奧拉夫",
+     "a": 995,
+     "b": 1000
+    },
+    {
+     "n": "奥拉夫|Olaf II|奧拉夫",
+     "a": 1015,
+     "b": 1028
+    },
+    {
+     "n": "哈拉尔|Harald Hardrada|哈拉爾",
+     "a": 1046,
+     "b": 1066
+    },
+    {
+     "n": "马格努斯|Magnus III|馬格努斯",
+     "a": 1093,
+     "b": 1103
+    },
+    {
+     "n": "西居尔|Sigurd I|西居爾",
+     "a": 1103,
+     "b": 1130
+    },
+    {
+     "n": "马格努斯|Magnus V|馬格努斯",
+     "a": 1161,
+     "b": 1184
+    }
+   ],
+   "people": [],
+   "emp": false,
+   "tw": "挪威"
+  },
+  {
+   "id": "sweden",
+   "zh": "瑞典",
+   "en": "Sweden",
+   "c": "Viking",
+   "seat": [
+    "sweden"
+   ],
+   "fam": "埃里克|Eric|埃裏克",
+   "west": true,
+   "rulers": [
+    {
+     "n": "胜利者埃里克|Eric the Victorious|勝利者埃裏克",
+     "a": 970,
+     "b": 995
+    },
+    {
+     "n": "奥洛夫|Olof Skötkonung|奧洛夫",
+     "a": 995,
+     "b": 1022
+    },
+    {
+     "n": "英格|Inge I|英格",
+     "a": 1079,
+     "b": 1105
+    },
+    {
+     "n": "埃里克|Eric IX|埃裏克",
+     "a": 1156,
+     "b": 1160,
+     "p": "sw_eric9"
+    },
+    {
+     "n": "卡尔|Charles VII|卡爾",
+     "a": 1161,
+     "b": 1167
+    },
+    {
+     "n": "马格努斯·埃里克松|Magnus Eriksson|馬格努斯·埃裏克松",
+     "a": 1319,
+     "b": 1364
+    },
+    {
+     "n": "阿尔布雷希特|Albert of Mecklenburg|阿爾布雷希特",
+     "a": 1364,
+     "b": 1389
+    },
+    {
+     "n": "古斯塔夫一世|Gustav I|古斯塔夫一世",
+     "a": 1523,
+     "b": 1560,
+     "p": "sw_g1",
+     "dyn": "瓦萨|Vasa|瓦薩"
+    },
+    {
+     "n": "埃里克十四世|Eric XIV|埃裏克十四世",
+     "a": 1560,
+     "b": 1568,
+     "p": "sw_e14",
+     "f": "sw_g1",
+     "dyn": "瓦萨|Vasa|瓦薩"
+    },
+    {
+     "n": "约翰三世|John III|約翰三世",
+     "a": 1568,
+     "b": 1592,
+     "p": "sw_john3",
+     "f": "sw_g1",
+     "dyn": "瓦萨|Vasa|瓦薩"
+    },
+    {
+     "n": "西吉斯蒙德|Sigismund|西吉斯蒙德",
+     "a": 1592,
+     "b": 1599,
+     "p": "sw_sig",
+     "f": "sw_john3",
+     "dyn": "瓦萨|Vasa|瓦薩"
+    },
+    {
+     "n": "查理九世|Charles IX|查理九世",
+     "a": 1604,
+     "b": 1611,
+     "p": "sw_charles9",
+     "f": "sw_g1",
+     "dyn": "瓦萨|Vasa|瓦薩"
+    }
+   ],
+   "people": [],
+   "emp": false,
+   "tw": "瑞典"
+  },
+  {
+   "id": "rurikid",
+   "zh": "基辅",
+   "en": "Kiev",
+   "c": "Slavonic",
+   "seat": [
+    "rus_s"
+   ],
+   "fam": "留里克|Rurik|留裏克",
+   "west": true,
+   "rulers": [
+    {
+     "n": "留里克|Rurik|留裏克",
+     "a": 862,
+     "b": 879,
+     "p": "rk01"
+    },
+    {
+     "n": "奥列格|Oleg|奧列格",
+     "a": 879,
+     "b": 912
+    },
+    {
+     "n": "伊戈尔|Igor|伊戈爾",
+     "a": 912,
+     "b": 945,
+     "p": "rk03",
+     "f": "rk01"
+    },
+    {
+     "n": "斯维亚托斯拉夫|Sviatoslav I|斯維亞托斯拉夫",
+     "a": 945,
+     "b": 972,
+     "p": "rk04",
+     "f": "rk03"
+    },
+    {
+     "n": "弗拉基米尔|Vladimir I|弗拉基米爾",
+     "a": 980,
+     "b": 1015,
+     "p": "rk05",
+     "f": "rk04"
+    },
+    {
+     "n": "雅罗斯拉夫|Yaroslav I|雅羅斯拉夫",
+     "a": 1019,
+     "b": 1054,
+     "p": "rk06",
+     "f": "rk05"
+    },
+    {
+     "n": "伊贾斯拉夫|Iziaslav I|伊賈斯拉夫",
+     "a": 1054,
+     "b": 1078,
+     "f": "rk06"
+    },
+    {
+     "n": "弗谢沃洛德|Vsevolod I|弗謝沃洛德",
+     "a": 1078,
+     "b": 1093,
+     "p": "rk08",
+     "f": "rk06"
+    },
+    {
+     "n": "斯维亚托波尔克|Sviatopolk II|斯維亞托波爾克",
+     "a": 1093,
+     "b": 1113
+    },
+    {
+     "n": "弗拉基米尔·莫诺马赫|Vladimir Monomakh|弗拉基米爾·莫諾馬赫",
+     "a": 1113,
+     "b": 1125,
+     "p": "rk10",
+     "f": "rk08"
+    },
+    {
+     "n": "姆斯季斯拉夫|Mstislav I|姆斯季斯拉夫",
+     "a": 1125,
+     "b": 1132,
+     "f": "rk10"
+    },
+    {
+     "n": "尤里·多尔戈鲁基|Yuri Dolgoruky|尤裏·多爾戈魯基",
+     "a": 1155,
+     "b": 1157,
+     "p": "vs_yuri",
+     "f": "rk10"
+    }
+   ],
+   "people": [],
+   "emp": false,
+   "tw": "基輔"
+  },
+  {
+   "id": "vladimir_suzdal",
+   "zh": "弗拉基米尔",
+   "en": "Vladimir",
+   "c": "Slavonic",
+   "seat": [
+    "rus_c"
+   ],
+   "fam": "留里克|Rurik|留裏克",
+   "west": true,
+   "rulers": [
+    {
+     "n": "安德烈·博戈柳布斯基|Andrey Bogolyubsky|安德烈·博戈柳布斯基",
+     "a": 1157,
+     "b": 1174,
+     "f": "vs_yuri"
+    },
+    {
+     "n": "米哈伊尔|Mikhail|米哈伊爾",
+     "a": 1174,
+     "b": 1176,
+     "f": "vs_yuri"
+    }
+   ],
+   "people": [],
+   "emp": false,
+   "tw": "弗拉基米爾"
+  },
+  {
+   "id": "first_bulgaria",
+   "zh": "保加利亚",
+   "en": "Bulgaria",
+   "c": "Youmu",
+   "seat": [
+    "moesia"
+   ],
+   "fam": "杜洛|Dulo|杜洛",
+   "west": true,
+   "rulers": [
+    {
+     "n": "阿斯帕鲁赫|Asparukh|阿斯帕魯赫",
+     "a": 681,
+     "b": 700
+    },
+    {
+     "n": "特尔维尔|Tervel|特爾維爾",
+     "a": 700,
+     "b": 721
+    },
+    {
+     "n": "科尔梅西|Kormesiy|科爾梅西",
+     "a": 721,
+     "b": 738
+    },
+    {
+     "n": "塞文|Sevar|塞文",
+     "a": 738,
+     "b": 753
+    },
+    {
+     "n": "泰莱茨|Telets|泰萊茨",
+     "a": 762,
+     "b": 765
+    },
+    {
+     "n": "卡尔达姆|Kardam|卡爾達姆",
+     "a": 777,
+     "b": 803
+    },
+    {
+     "n": "克鲁姆|Krum|克魯姆",
+     "a": 803,
+     "b": 814
+    },
+    {
+     "n": "奥穆尔塔格|Omurtag|奧穆爾塔格",
+     "a": 814,
+     "b": 831
+    },
+    {
+     "n": "鲍里斯|Boris I|鮑裏斯",
+     "a": 852,
+     "b": 889
+    },
+    {
+     "n": "西美昂|Simeon I|西美昂",
+     "a": 893,
+     "b": 927
+    },
+    {
+     "n": "彼得|Peter I|彼得",
+     "a": 927,
+     "b": 969
+    },
+    {
+     "n": "萨穆伊尔|Samuel|薩穆伊爾",
+     "a": 997,
+     "b": 1014
+    }
+   ],
+   "people": [],
+   "emp": true,
+   "tw": "保加利亞"
+  },
+  {
+   "id": "georgia",
+   "zh": "格鲁吉亚",
+   "en": "Georgia",
+   "c": "Roma",
+   "seat": [
+    "caucasus"
+   ],
+   "fam": "巴格拉季昂|Bagrationi|巴格拉季昂",
+   "west": true,
+   "rulers": [
+    {
+     "n": "巴格拉特|Bagrat III|巴格拉特",
+     "a": 1008,
+     "b": 1014
+    },
+    {
+     "n": "大卫|David IV|大衛",
+     "a": 1089,
+     "b": 1125,
+     "p": "ge01"
+    },
+    {
+     "n": "德米特里|Demetrius I|德米特裏",
+     "a": 1125,
+     "b": 1156,
+     "p": "ge02",
+     "f": "ge01"
+    },
+    {
+     "n": "格奥尔基|George III|格奧爾基",
+     "a": 1156,
+     "b": 1184,
+     "p": "ge03",
+     "f": "ge02"
+    }
+   ],
+   "people": [],
+   "emp": false,
+   "tw": "格魯吉亞"
+  },
+  {
+   "id": "jerusalem",
+   "zh": "耶路撒冷",
+   "en": "Jerusalem",
+   "c": "Frankish",
+   "seat": [
+    "palestine"
+   ],
+   "fam": "",
+   "west": true,
+   "rulers": [
+    {
+     "n": "戈弗雷|Godfrey|戈弗雷",
+     "a": 1099,
+     "b": 1100
+    },
+    {
+     "n": "鲍德温|Baldwin I|鮑德溫",
+     "a": 1100,
+     "b": 1118
+    },
+    {
+     "n": "鲍德温|Baldwin II|鮑德溫",
+     "a": 1118,
+     "b": 1131
+    },
+    {
+     "n": "富尔克|Fulk|富爾克",
+     "a": 1131,
+     "b": 1143
+    },
+    {
+     "n": "鲍德温|Baldwin III|鮑德溫",
+     "a": 1143,
+     "b": 1163
+    },
+    {
+     "n": "阿马里克|Amalric|阿馬裏克",
+     "a": 1163,
+     "b": 1174
+    },
+    {
+     "n": "鲍德温|Baldwin IV|鮑德溫",
+     "a": 1174,
+     "b": 1185
+    },
+    {
+     "n": "鲍德温|Baldwin V|鮑德溫",
+     "a": 1185,
+     "b": 1186
+    },
+    {
+     "n": "西比拉|Sibylla|西比拉",
+     "a": 1186,
+     "b": 1190
+    }
+   ],
+   "people": [],
+   "emp": false,
+   "tw": "耶路撒冷"
+  },
+  {
+   "id": "seljuk",
+   "zh": "塞尔柱",
+   "en": "Seljuk",
+   "c": "Persepolis",
+   "seat": [
+    "media",
+    "khorasan"
+   ],
+   "fam": "塞尔柱|Seljuk|塞爾柱",
+   "west": true,
+   "rulers": [
+    {
+     "n": "图格鲁勒|Tughril|圖格魯勒",
+     "a": 1037,
+     "b": 1063
+    },
+    {
+     "n": "阿尔普·阿尔斯兰|Alp Arslan|阿爾普·阿爾斯蘭",
+     "a": 1063,
+     "b": 1072
+    },
+    {
+     "n": "马立克沙|Malik-Shah I|馬立克沙",
+     "a": 1072,
+     "b": 1092
+    },
+    {
+     "n": "巴尔基雅鲁克|Berkyaruq|巴爾基雅魯克",
+     "a": 1094,
+     "b": 1105
+    },
+    {
+     "n": "穆罕默德|Muhammad I|穆罕默德",
+     "a": 1105,
+     "b": 1118
+    },
+    {
+     "n": "桑贾尔|Sanjar|桑賈爾",
+     "a": 1118,
+     "b": 1157
+    },
+    {
+     "n": "阿尔斯兰沙|Arslan Shah|阿爾斯蘭沙",
+     "a": 1161,
+     "b": 1176
+    }
+   ],
+   "people": [],
+   "emp": true,
+   "tw": "塞爾柱"
+  },
+  {
+   "id": "seljuk_rum",
+   "zh": "罗姆",
+   "en": "Rum",
+   "c": "Youmu",
+   "seat": [
+    "cappadocia"
+   ],
+   "fam": "塞尔柱|Seljuk|塞爾柱",
+   "west": true,
+   "rulers": [
+    {
+     "n": "苏莱曼|Suleiman I|蘇萊曼",
+     "a": 1077,
+     "b": 1086,
+     "p": "rm01"
+    },
+    {
+     "n": "基利杰·阿尔斯兰|Kilij Arslan I|基利傑·阿爾斯蘭",
+     "a": 1092,
+     "b": 1107,
+     "p": "rm02",
+     "f": "rm01"
+    },
+    {
+     "n": "马立克沙|Malik Shah|馬立克沙",
+     "a": 1110,
+     "b": 1116,
+     "f": "rm02"
+    },
+    {
+     "n": "麦苏德|Mesud I|麥蘇德",
+     "a": 1116,
+     "b": 1156,
+     "p": "rm04",
+     "f": "rm02"
+    }
+   ],
+   "people": [],
+   "emp": false,
+   "tw": "羅姆"
+  },
+  {
+   "id": "khwarazm",
+   "zh": "花剌子模",
+   "en": "Khwarazm",
+   "c": "Persepolis",
+   "seat": [
+    "khwarazm"
+   ],
+   "fam": "阿努什特勤|Anushtegin|阿努什特勤",
+   "west": true,
+   "rulers": [
+    {
+     "n": "库特布丁·穆罕默德|Qutb al-Din Muhammad|庫特布丁·穆罕默德",
+     "a": 1097,
+     "b": 1127,
+     "p": "kh01"
+    },
+    {
+     "n": "阿即思|Atsiz|阿即思",
+     "a": 1127,
+     "b": 1156,
+     "p": "kh02",
+     "f": "kh01"
+    },
+    {
+     "n": "伊勒·阿尔斯兰|Il-Arslan|伊勒·阿爾斯蘭",
+     "a": 1156,
+     "b": 1172,
+     "p": "kh03",
+     "f": "kh02"
+    }
+   ],
+   "people": [],
+   "emp": false,
+   "tw": "花剌子模"
+  },
+  {
+   "id": "ayyubid",
+   "zh": "阿尤布",
+   "en": "Ayyubid",
+   "c": "Arab",
+   "seat": [
+    "egypt"
+   ],
+   "fam": "阿尤布|Ayyubid|阿尤布",
+   "west": true,
+   "rulers": [],
+   "people": [
+    {
+     "p": "ay_ayyub",
+     "n": "纳吉姆丁·阿尤布|Najm al-Din Ayyub|納吉姆丁·阿尤布"
+    }
+   ],
+   "emp": false,
+   "tw": "阿尤布"
+  },
+  {
+   "id": "lombards",
+   "zh": "伦巴第",
+   "en": "Lombards",
+   "c": "Roma",
+   "seat": [
+    "italy_n"
+   ],
+   "fam": "",
+   "west": true,
+   "rulers": [
+    {
+     "n": "阿尔博因|Alboin|阿爾博因",
+     "a": 568,
+     "b": 572
+    },
+    {
+     "n": "奥塔里|Authari|奧塔裏",
+     "a": 584,
+     "b": 590
+    },
+    {
+     "n": "阿吉卢尔夫|Agilulf|阿吉盧爾夫",
+     "a": 591,
+     "b": 616
+    },
+    {
+     "n": "罗萨里|Rothari|羅薩裏",
+     "a": 636,
+     "b": 652
+    },
+    {
+     "n": "格里莫尔德|Grimoald|格裏莫爾德",
+     "a": 662,
+     "b": 671
+    },
+    {
+     "n": "利乌特普兰德|Liutprand|利烏特普蘭德",
+     "a": 712,
+     "b": 744
+    },
+    {
+     "n": "拉奇斯|Ratchis|拉奇斯",
+     "a": 744,
+     "b": 749
+    }
+   ],
+   "people": [],
+   "emp": false,
+   "tw": "倫巴第"
+  },
+  {
+   "id": "mercia",
+   "zh": "麦西亚",
+   "en": "Mercia",
+   "c": "Germanic",
+   "seat": [
+    "britain_s"
+   ],
+   "fam": "伊克林|Iclingas|伊克林",
+   "west": true,
+   "rulers": [
+    {
+     "n": "彭达|Penda|彭達",
+     "a": 626,
+     "b": 655
+    },
+    {
+     "n": "伍尔夫希尔|Wulfhere|伍爾夫希爾",
+     "a": 658,
+     "b": 675
+    },
+    {
+     "n": "埃塞尔雷德|Aethelred|埃塞爾雷德",
+     "a": 675,
+     "b": 704
+    },
+    {
+     "n": "切奥尔雷德|Ceolred|切奧爾雷德",
+     "a": 709,
+     "b": 716
+    },
+    {
+     "n": "埃塞尔博尔德|Aethelbald|埃塞爾博爾德",
+     "a": 716,
+     "b": 757
+    },
+    {
+     "n": "奥法|Offa|奧法",
+     "a": 757,
+     "b": 796
+    }
+   ],
+   "people": [],
+   "emp": false,
+   "tw": "麥西亞"
+  },
+  {
+   "id": "wessex",
+   "zh": "威塞克斯",
+   "en": "Wessex",
+   "c": "Germanic",
+   "seat": [
+    "britain_s"
+   ],
+   "fam": "威塞克斯|Wessex|威塞克斯",
+   "west": true,
+   "rulers": [
+    {
+     "n": "切尔迪克|Cerdic|切爾迪克",
+     "a": 519,
+     "b": 534
+    },
+    {
+     "n": "卡德瓦拉|Caedwalla|卡德瓦拉",
+     "a": 685,
+     "b": 688
+    },
+    {
+     "n": "伊内|Ine|伊內",
+     "a": 688,
+     "b": 726
+    },
+    {
+     "n": "埃塞尔赫德|Aethelheard|埃塞爾赫德",
+     "a": 726,
+     "b": 740
+    },
+    {
+     "n": "卡思雷德|Cuthred|卡思雷德",
+     "a": 740,
+     "b": 756
+    },
+    {
+     "n": "贝奥赫特里克|Beorhtric|貝奧赫特裏克",
+     "a": 786,
+     "b": 802
+    }
+   ],
+   "people": [],
+   "emp": false,
+   "tw": "威塞克斯"
+  },
+  {
+   "id": "cordoba",
+   "zh": "科尔多瓦",
+   "en": "Cordoba",
+   "c": "Arab",
+   "seat": [
+    "hispania_s"
+   ],
+   "fam": "倭马亚|Umayyad|倭馬亞",
+   "west": true,
+   "rulers": [
+    {
+     "n": "阿卜杜·拉赫曼|Abd al-Rahman I|阿卜杜·拉赫曼",
+     "a": 756,
+     "b": 788,
+     "p": "cd01"
+    },
+    {
+     "n": "希沙姆|Hisham I|希沙姆",
+     "a": 788,
+     "b": 796,
+     "p": "cd02",
+     "f": "cd01"
+    }
+   ],
+   "people": [],
+   "emp": false,
+   "tw": "科爾多瓦"
+  },
+  {
+   "id": "yuan",
+   "zh": "元",
+   "en": "Yuan",
+   "c": "Youmu",
+   "seat": [
+    "youyan",
+    "mobei"
+   ],
+   "fam": "孛儿只斤|Borjigin|孛兒只斤",
+   "west": true,
+   "rulers": [
+    {
+     "n": "铁木真|Temüjin|鐵木真",
+     "a": 1206,
+     "b": 1227,
+     "shi": "法天启运圣武皇",
+     "miao": "太祖",
+     "p": "yu01",
+     "f": "yu_yesugei",
+     "shi_tw": "法天啓運聖武皇",
+     "miao_tw": "太祖"
+    },
+    {
+     "n": "窝阔台|Ögedei|窩闊臺",
+     "a": 1229,
+     "b": 1241,
+     "shi": "英文",
+     "miao": "太宗",
+     "p": "yu02",
+     "f": "yu01",
+     "shi_tw": "英文",
+     "miao_tw": "太宗"
+    },
+    {
+     "n": "贵由|Güyük|貴由",
+     "a": 1246,
+     "b": 1248,
+     "shi": "简平",
+     "miao": "定宗",
+     "p": "yu03",
+     "f": "yu02",
+     "shi_tw": "簡平",
+     "miao_tw": "定宗"
+    },
+    {
+     "n": "蒙哥|Möngke|蒙哥",
+     "a": 1251,
+     "b": 1259,
+     "shi": "桓肃",
+     "miao": "宪宗",
+     "p": "yu04",
+     "f": "yu_tolui",
+     "shi_tw": "桓肅",
+     "miao_tw": "憲宗"
+    },
+    {
+     "n": "忽必烈|Kublai|忽必烈",
+     "a": 1260,
+     "b": 1294,
+     "shi": "圣德神功文武皇",
+     "miao": "世祖",
+     "era": "中统",
+     "p": "yu05",
+     "f": "yu_tolui",
+     "shi_tw": "聖德神功文武皇",
+     "miao_tw": "世祖",
+     "era_tw": "中統"
+    },
+    {
+     "n": "铁穆耳|Temür|鐵穆耳",
+     "a": 1294,
+     "b": 1307,
+     "shi": "钦明广孝皇",
+     "miao": "成宗",
+     "era": "元贞",
+     "p": "yu06",
+     "f": "yu_zhenjin",
+     "shi_tw": "欽明廣孝皇",
+     "miao_tw": "成宗",
+     "era_tw": "元貞"
+    },
+    {
+     "n": "海山|Külüg|海山",
+     "a": 1307,
+     "b": 1311,
+     "shi": "仁惠宣孝皇",
+     "miao": "武宗",
+     "era": "至大",
+     "p": "yu07",
+     "f": "yu_darmabala",
+     "shi_tw": "仁惠宣孝皇",
+     "miao_tw": "武宗",
+     "era_tw": "至大"
+    },
+    {
+     "n": "爱育黎拔力八达|Ayurbarwada|愛育黎拔力八達",
+     "a": 1311,
+     "b": 1320,
+     "shi": "圣文钦孝皇",
+     "miao": "仁宗",
+     "era": "皇庆",
+     "p": "yu08",
+     "f": "yu_darmabala",
+     "shi_tw": "聖文欽孝皇",
+     "miao_tw": "仁宗",
+     "era_tw": "皇慶"
+    },
+    {
+     "n": "硕德八剌|Shidebala|碩德八剌",
+     "a": 1320,
+     "b": 1323,
+     "shi": "睿圣文孝皇",
+     "miao": "英宗",
+     "era": "至治",
+     "p": "yu09",
+     "f": "yu08",
+     "shi_tw": "睿聖文孝皇",
+     "miao_tw": "英宗",
+     "era_tw": "至治"
+    },
+    {
+     "n": "也孙铁木儿|Yesün Temür|也孫鐵木兒",
+     "a": 1323,
+     "b": 1328,
+     "era": "泰定",
+     "t": "泰定帝|Taiding Emperor|泰定帝",
+     "p": "yu10",
+     "f": "yu_gamala",
+     "era_tw": "泰定"
+    },
+    {
+     "n": "阿速吉八|Ragibagh|阿速吉八",
+     "a": 1328,
+     "b": 1328,
+     "era": "天顺",
+     "t": "天顺帝|Tianshun Emperor|天順帝",
+     "p": "yu11",
+     "f": "yu10",
+     "era_tw": "天順"
+    },
+    {
+     "n": "图帖睦尔|Tugh Temür|圖帖睦爾",
+     "a": 1328,
+     "b": 1332,
+     "shi": "圣明元孝皇",
+     "miao": "文宗",
+     "era": "天历",
+     "p": "yu12",
+     "f": "yu07",
+     "shi_tw": "聖明元孝皇",
+     "miao_tw": "文宗",
+     "era_tw": "天曆"
+    },
+    {
+     "n": "和世剌|Khutughtu|和世剌",
+     "a": 1329,
+     "b": 1329,
+     "shi": "翼献景孝皇",
+     "miao": "明宗",
+     "p": "yu13",
+     "f": "yu07",
+     "shi_tw": "翼獻景孝皇",
+     "miao_tw": "明宗"
+    },
+    {
+     "n": "懿璘质班|Rinchinbal|懿璘質班",
+     "a": 1332,
+     "b": 1332,
+     "shi": "冲圣嗣孝皇",
+     "miao": "宁宗",
+     "p": "yu14",
+     "f": "yu13",
+     "shi_tw": "衝聖嗣孝皇",
+     "miao_tw": "寧宗"
+    },
+    {
+     "n": "妥懽帖睦尔|Toghon Temür|妥懽帖睦爾",
+     "a": 1333,
+     "b": 1368,
+     "shi": "宣仁普孝皇",
+     "miao": "惠宗",
+     "era": "元统",
+     "p": "yu15",
+     "f": "yu13",
+     "shi_tw": "宣仁普孝皇",
+     "miao_tw": "惠宗",
+     "era_tw": "元統"
+    }
+   ],
+   "people": [
+    {
+     "p": "yu_yesugei",
+     "n": "也速该|Yesügei|也速該"
+    },
+    {
+     "p": "yu_tolui",
+     "n": "拖雷|Tolui|拖雷",
+     "f": "yu01"
+    },
+    {
+     "p": "yu_zhenjin",
+     "n": "真金|Zhenjin|真金",
+     "f": "yu05"
+    },
+    {
+     "p": "yu_gamala",
+     "n": "甘麻剌|Gammala|甘麻剌",
+     "f": "yu_zhenjin"
+    },
+    {
+     "p": "yu_darmabala",
+     "n": "答剌麻八剌|Darmabala|答剌麻八剌",
+     "f": "yu_zhenjin"
+    }
+   ],
+   "emp": true,
+   "tw": "元"
+  },
+  {
+   "id": "ming",
+   "zh": "明",
+   "en": "Ming",
+   "c": "Huaxia",
+   "seat": [
+    "youyan",
+    "jiangdong"
+   ],
+   "fam": "朱|Zhu|朱",
+   "west": false,
+   "rulers": [
+    {
+     "n": "朱元璋|Zhu Yuanzhang|朱元璋",
+     "a": 1368,
+     "b": 1398,
+     "shi": "高",
+     "miao": "太祖",
+     "era": "洪武",
+     "p": "mg01",
+     "f": "mg_shizhen",
+     "shi_tw": "高",
+     "miao_tw": "太祖",
+     "era_tw": "洪武"
+    },
+    {
+     "n": "朱允炆|Zhu Yunwen|朱允炆",
+     "a": 1398,
+     "b": 1402,
+     "era": "建文",
+     "t": "建文帝|Jianwen Emperor|建文帝",
+     "p": "mg02",
+     "f": "mg_biao",
+     "era_tw": "建文"
+    },
+    {
+     "n": "朱棣|Zhu Di|朱棣",
+     "a": 1402,
+     "b": 1424,
+     "shi": "文",
+     "miao": "成祖",
+     "era": "永乐",
+     "p": "mg03",
+     "f": "mg01",
+     "shi_tw": "文",
+     "miao_tw": "成祖",
+     "era_tw": "永樂"
+    },
+    {
+     "n": "朱高炽|Zhu Gaochi|朱高熾",
+     "a": 1424,
+     "b": 1425,
+     "shi": "昭",
+     "miao": "仁宗",
+     "era": "洪熙",
+     "p": "mg04",
+     "f": "mg03",
+     "shi_tw": "昭",
+     "miao_tw": "仁宗",
+     "era_tw": "洪熙"
+    },
+    {
+     "n": "朱瞻基|Zhu Zhanji|朱瞻基",
+     "a": 1425,
+     "b": 1435,
+     "shi": "章",
+     "miao": "宣宗",
+     "era": "宣德",
+     "p": "mg05",
+     "f": "mg04",
+     "shi_tw": "章",
+     "miao_tw": "宣宗",
+     "era_tw": "宣德"
+    },
+    {
+     "n": "朱祁镇|Zhu Qizhen|朱祁鎮",
+     "a": 1435,
+     "b": 1449,
+     "shi": "睿",
+     "miao": "英宗",
+     "era": "正统",
+     "p": "mg06",
+     "f": "mg05",
+     "shi_tw": "睿",
+     "miao_tw": "英宗",
+     "era_tw": "正統"
+    },
+    {
+     "n": "朱祁钰|Zhu Qiyu|朱祁鈺",
+     "a": 1449,
+     "b": 1457,
+     "shi": "景",
+     "era": "景泰",
+     "p": "mg07",
+     "f": "mg05",
+     "shi_tw": "景",
+     "era_tw": "景泰"
+    },
+    {
+     "n": "朱祁镇|Zhu Qizhen|朱祁鎮",
+     "a": 1457,
+     "b": 1464,
+     "shi": "睿",
+     "miao": "英宗",
+     "era": "天顺",
+     "p": "mg06",
+     "f": "mg05",
+     "shi_tw": "睿",
+     "miao_tw": "英宗",
+     "era_tw": "天順"
+    },
+    {
+     "n": "朱见深|Zhu Jianshen|朱見深",
+     "a": 1464,
+     "b": 1487,
+     "shi": "纯",
+     "miao": "宪宗",
+     "era": "成化",
+     "p": "mg08",
+     "f": "mg06",
+     "shi_tw": "純",
+     "miao_tw": "憲宗",
+     "era_tw": "成化"
+    },
+    {
+     "n": "朱祐樘|Zhu Youtang|朱祐樘",
+     "a": 1487,
+     "b": 1505,
+     "shi": "敬",
+     "miao": "孝宗",
+     "era": "弘治",
+     "p": "mg09",
+     "f": "mg08",
+     "shi_tw": "敬",
+     "miao_tw": "孝宗",
+     "era_tw": "弘治"
+    },
+    {
+     "n": "朱厚照|Zhu Houzhao|朱厚照",
+     "a": 1505,
+     "b": 1521,
+     "shi": "毅",
+     "miao": "武宗",
+     "era": "正德",
+     "p": "mg10",
+     "f": "mg09",
+     "shi_tw": "毅",
+     "miao_tw": "武宗",
+     "era_tw": "正德"
+    },
+    {
+     "n": "朱厚熜|Zhu Houcong|朱厚熜",
+     "a": 1521,
+     "b": 1567,
+     "shi": "肃",
+     "miao": "世宗",
+     "era": "嘉靖",
+     "p": "mg11",
+     "f": "mg_youyuan",
+     "shi_tw": "肅",
+     "miao_tw": "世宗",
+     "era_tw": "嘉靖"
+    },
+    {
+     "n": "朱载坖|Zhu Zaiji|朱載坖",
+     "a": 1567,
+     "b": 1572,
+     "shi": "庄",
+     "miao": "穆宗",
+     "era": "隆庆",
+     "p": "mg12",
+     "f": "mg11",
+     "shi_tw": "莊",
+     "miao_tw": "穆宗",
+     "era_tw": "隆慶"
+    },
+    {
+     "n": "朱翊钧|Zhu Yijun|朱翊鈞",
+     "a": 1572,
+     "b": 1620,
+     "shi": "显",
+     "miao": "神宗",
+     "era": "万历",
+     "p": "mg13",
+     "f": "mg12",
+     "shi_tw": "顯",
+     "miao_tw": "神宗",
+     "era_tw": "萬曆"
+    },
+    {
+     "n": "朱常洛|Zhu Changluo|朱常洛",
+     "a": 1620,
+     "b": 1620,
+     "shi": "贞",
+     "miao": "光宗",
+     "era": "泰昌",
+     "p": "mg14",
+     "f": "mg13",
+     "shi_tw": "貞",
+     "miao_tw": "光宗",
+     "era_tw": "泰昌"
+    },
+    {
+     "n": "朱由校|Zhu Youjiao|朱由校",
+     "a": 1620,
+     "b": 1627,
+     "shi": "悊",
+     "miao": "熹宗",
+     "era": "天启",
+     "p": "mg15",
+     "f": "mg14",
+     "shi_tw": "悊",
+     "miao_tw": "熹宗",
+     "era_tw": "天啓"
+    }
+   ],
+   "people": [
+    {
+     "p": "mg_shizhen",
+     "n": "朱世珍|Zhu Shizhen|朱世珍"
+    },
+    {
+     "p": "mg_biao",
+     "n": "朱标|Zhu Biao|朱標",
+     "f": "mg01"
+    },
+    {
+     "p": "mg_youyuan",
+     "n": "朱祐杬|Zhu Youyuan|朱祐杬",
+     "f": "mg08"
+    }
+   ],
+   "emp": true,
+   "tw": "明"
+  },
+  {
+   "id": "aisin_gioro",
+   "zh": "金",
+   "en": "Later Jin",
+   "c": "Youmu",
+   "seat": [
+    "manchuria"
+   ],
+   "fam": "爱新觉罗|Aisin Gioro|愛新覺羅",
+   "west": false,
+   "rulers": [
+    {
+     "n": "努尔哈赤|Nurhaci|努爾哈赤",
+     "a": 1616,
+     "b": 1626,
+     "shi": "武",
+     "miao": "太祖",
+     "era": "天命",
+     "p": "ag01",
+     "f": "ag_taksi",
+     "shi_tw": "武",
+     "miao_tw": "太祖",
+     "era_tw": "天命"
+    }
+   ],
+   "people": [
+    {
+     "p": "ag_giocangga",
+     "n": "觉昌安|Giocangga|覺昌安"
+    },
+    {
+     "p": "ag_taksi",
+     "n": "塔克世|Taksi|塔克世",
+     "f": "ag_giocangga"
+    }
+   ],
+   "full": "后金|Later Jin|後金",
+   "emp": false,
+   "tw": "金"
+  },
+  {
+   "id": "joseon",
+   "zh": "朝鲜",
+   "en": "Joseon",
+   "c": "Huaxia",
+   "seat": [
+    "korea_s"
+   ],
+   "fam": "李|Yi|李",
+   "west": false,
+   "rulers": [
+    {
+     "n": "李成桂|Yi Seong-gye|李成桂",
+     "a": 1392,
+     "b": 1398,
+     "t": "朝鲜太祖|Taejo of Joseon|朝鮮太祖",
+     "p": "js01"
+    },
+    {
+     "n": "李芳果|Yi Bang-gwa|李芳果",
+     "a": 1398,
+     "b": 1400,
+     "t": "朝鲜定宗|Jeongjong of Joseon|朝鮮定宗",
+     "p": "js02",
+     "f": "js01"
+    },
+    {
+     "n": "李芳远|Yi Bang-won|李芳遠",
+     "a": 1400,
+     "b": 1418,
+     "t": "朝鲜太宗|Taejong of Joseon|朝鮮太宗",
+     "p": "js03",
+     "f": "js01"
+    },
+    {
+     "n": "李祹|Yi Do|李祹",
+     "a": 1418,
+     "b": 1450,
+     "t": "朝鲜世宗|Sejong of Joseon|朝鮮世宗",
+     "p": "js04",
+     "f": "js03"
+    },
+    {
+     "n": "李珦|Yi Hyang|李珦",
+     "a": 1450,
+     "b": 1452,
+     "t": "朝鲜文宗|Munjong of Joseon|朝鮮文宗",
+     "p": "js05",
+     "f": "js04"
+    },
+    {
+     "n": "李弘暐|Yi Hong-wi|李弘暐",
+     "a": 1452,
+     "b": 1455,
+     "t": "鲁山君|Nosan-gun|魯山君",
+     "p": "js06",
+     "f": "js05"
+    },
+    {
+     "n": "李瑈|Yi Yu|李瑈",
+     "a": 1455,
+     "b": 1468,
+     "t": "朝鲜世祖|Sejo of Joseon|朝鮮世祖",
+     "p": "js07",
+     "f": "js04"
+    },
+    {
+     "n": "李晄|Yi Hwang|李晄",
+     "a": 1468,
+     "b": 1469,
+     "t": "朝鲜睿宗|Yejong of Joseon|朝鮮睿宗",
+     "p": "js08",
+     "f": "js07"
+    },
+    {
+     "n": "李娎|Yi Hyeol|李娎",
+     "a": 1469,
+     "b": 1494,
+     "t": "朝鲜成宗|Seongjong of Joseon|朝鮮成宗",
+     "p": "js09",
+     "f": "js_dowon"
+    },
+    {
+     "n": "燕山君|Yeonsan-gun|燕山君",
+     "a": 1494,
+     "b": 1506,
+     "t": "燕山君|Yeonsan-gun|燕山君",
+     "p": "js10",
+     "f": "js09"
+    },
+    {
+     "n": "李怿|Yi Yeok|李懌",
+     "a": 1506,
+     "b": 1544,
+     "t": "朝鲜中宗|Jungjong of Joseon|朝鮮中宗",
+     "p": "js11",
+     "f": "js09"
+    },
+    {
+     "n": "李峼|Yi Ho|李峼",
+     "a": 1544,
+     "b": 1545,
+     "t": "朝鲜仁宗|Injong of Joseon|朝鮮仁宗",
+     "p": "js12",
+     "f": "js11"
+    },
+    {
+     "n": "李峘|Yi Hwan|李峘",
+     "a": 1545,
+     "b": 1567,
+     "t": "朝鲜明宗|Myeongjong of Joseon|朝鮮明宗",
+     "p": "js13",
+     "f": "js11"
+    },
+    {
+     "n": "李昖|Yi Yeon|李昖",
+     "a": 1567,
+     "b": 1608,
+     "t": "朝鲜宣祖|Seonjo of Joseon|朝鮮宣祖",
+     "p": "js14",
+     "f": "js_deokheung"
+    },
+    {
+     "n": "李珲|Yi Hon|李琿",
+     "a": 1608,
+     "b": 1623,
+     "t": "光海君|Gwanghae-gun|光海君",
+     "p": "js15",
+     "f": "js14"
+    }
+   ],
+   "people": [
+    {
+     "p": "js_dowon",
+     "n": "李暲|Yi Jang|李暲",
+     "f": "js07"
+    },
+    {
+     "p": "js_deokheung",
+     "n": "李岹|Yi Cho|李岹",
+     "f": "js11"
+    },
+    {
+     "p": "js_jeongwon",
+     "n": "李琈|Yi Bu|李琈",
+     "f": "js14"
+    }
+   ],
+   "emp": false,
+   "tw": "朝鮮"
+  },
+  {
+   "id": "tokugawa",
+   "zh": "日本",
+   "en": "Japan",
+   "c": "Japan",
+   "seat": [
+    "japan_kanto"
+   ],
+   "fam": "德川|Tokugawa|德川",
+   "west": false,
+   "rulers": [
+    {
+     "n": "德川家康|Tokugawa Ieyasu|德川家康",
+     "a": 1603,
+     "b": 1605,
+     "t": "征夷大将军|Shogun|徵夷大將軍",
+     "p": "tk01",
+     "f": "tk_hirotada"
+    },
+    {
+     "n": "德川秀忠|Tokugawa Hidetada|德川秀忠",
+     "a": 1605,
+     "b": 1623,
+     "t": "征夷大将军|Shogun|徵夷大將軍",
+     "p": "tk02",
+     "f": "tk01"
+    }
+   ],
+   "people": [
+    {
+     "p": "tk_hirotada",
+     "n": "松平广忠|Matsudaira Hirotada|松平廣忠"
+    }
+   ],
+   "emp": false,
+   "tw": "日本"
+  },
+  {
+   "id": "ilkhanate",
+   "zh": "伊儿汗国",
+   "en": "Ilkhanate",
+   "c": "Persepolis",
+   "seat": [
+    "media",
+    "persis"
+   ],
+   "fam": "孛儿只斤|Borjigin|孛兒只斤",
+   "west": true,
+   "rulers": [
+    {
+     "n": "旭烈兀|Hulagu|旭烈兀",
+     "a": 1256,
+     "b": 1265,
+     "p": "il01",
+     "f": "yu_tolui"
+    },
+    {
+     "n": "阿八哈|Abaqa|阿八哈",
+     "a": 1265,
+     "b": 1282,
+     "p": "il02",
+     "f": "il01"
+    },
+    {
+     "n": "帖古迭儿|Tekuder|帖古迭兒",
+     "a": 1282,
+     "b": 1284,
+     "p": "il_tekuder",
+     "f": "il01"
+    },
+    {
+     "n": "阿鲁浑|Arghun|阿魯渾",
+     "a": 1284,
+     "b": 1291,
+     "p": "il03",
+     "f": "il02"
+    },
+    {
+     "n": "乞合都|Gaykhatu|乞合都",
+     "a": 1291,
+     "b": 1295,
+     "p": "il_gaykhatu",
+     "f": "il02"
+    },
+    {
+     "n": "合赞|Ghazan|合贊",
+     "a": 1295,
+     "b": 1304,
+     "p": "il04",
+     "f": "il03"
+    },
+    {
+     "n": "完者都|Öljaitü|完者都",
+     "a": 1304,
+     "b": 1316,
+     "p": "il05",
+     "f": "il03"
+    },
+    {
+     "n": "不赛因|Abu Sa'id|不賽因",
+     "a": 1316,
+     "b": 1335,
+     "p": "il06",
+     "f": "il05"
+    }
+   ],
+   "people": [],
+   "emp": true,
+   "tw": "伊兒汗國"
+  },
+  {
+   "id": "timurid",
+   "zh": "帖木儿",
+   "en": "Timurid",
+   "c": "Persepolis",
+   "seat": [
+    "sogdiana",
+    "khorasan"
+   ],
+   "fam": "帖木儿|Timurid|帖木兒",
+   "west": true,
+   "rulers": [
+    {
+     "n": "帖木儿|Timur|帖木兒",
+     "a": 1370,
+     "b": 1405,
+     "p": "ti01"
+    },
+    {
+     "n": "哈里|Khalil Sultan|哈裏",
+     "a": 1405,
+     "b": 1409,
+     "p": "ti_khalil",
+     "f": "ti_miranshah"
+    },
+    {
+     "n": "沙哈鲁|Shah Rukh|沙哈魯",
+     "a": 1409,
+     "b": 1447,
+     "p": "ti02",
+     "f": "ti01"
+    },
+    {
+     "n": "兀鲁伯|Ulugh Beg|兀魯伯",
+     "a": 1447,
+     "b": 1449,
+     "p": "ti03",
+     "f": "ti02"
+    },
+    {
+     "n": "卜撒因|Abu Sa'id|卜撒因",
+     "a": 1451,
+     "b": 1469,
+     "p": "ti05",
+     "f": "ti_sultan_muhammad"
+    },
+    {
+     "n": "忽辛·拜哈拉|Husayn Bayqara|忽辛·拜哈拉",
+     "a": 1469,
+     "b": 1506
+    }
+   ],
+   "people": [
+    {
+     "p": "ti_miranshah",
+     "n": "米兰沙|Miran Shah|米蘭沙",
+     "f": "ti01"
+    },
+    {
+     "p": "ti_sultan_muhammad",
+     "n": "苏丹·穆罕默德|Sultan Muhammad|蘇丹·穆罕默德",
+     "f": "ti_miranshah"
+    }
+   ],
+   "full": "帖木儿帝国|Timurid Empire|帖木兒帝國",
+   "emp": true,
+   "tw": "帖木兒"
+  },
+  {
+   "id": "delhi",
+   "zh": "德里",
+   "en": "Delhi",
+   "c": "India",
+   "seat": [
+    "hindustan"
+   ],
+   "fam": "",
+   "west": true,
+   "rulers": [
+    {
+     "n": "库特布丁·艾伊拜克|Qutb ud-Din Aibak|庫特布丁·艾伊拜克",
+     "a": 1206,
+     "b": 1210,
+     "dyn": "奴隶|Mamluk|奴隸"
+    },
+    {
+     "n": "伊勒图特米什|Iltutmish|伊勒圖特米什",
+     "a": 1211,
+     "b": 1236,
+     "dyn": "奴隶|Mamluk|奴隸"
+    },
+    {
+     "n": "巴勒班|Balban|巴勒班",
+     "a": 1266,
+     "b": 1287,
+     "dyn": "奴隶|Mamluk|奴隸"
+    },
+    {
+     "n": "阿拉丁·卡尔吉|Alauddin Khalji|阿拉丁·卡爾吉",
+     "a": 1296,
+     "b": 1316,
+     "dyn": "卡尔吉|Khalji|卡爾吉"
+    },
+    {
+     "n": "穆罕默德·本·图格鲁克|Muhammad bin Tughluq|穆罕默德·本·圖格魯克",
+     "a": 1325,
+     "b": 1351,
+     "dyn": "图格鲁克|Tughluq|圖格魯克"
+    },
+    {
+     "n": "菲鲁兹·沙|Firuz Shah|菲魯茲·沙",
+     "a": 1351,
+     "b": 1388,
+     "dyn": "图格鲁克|Tughluq|圖格魯克"
+    },
+    {
+     "n": "希兹尔汗|Khizr Khan|希茲爾汗",
+     "a": 1414,
+     "b": 1421,
+     "dyn": "赛义德|Sayyid|賽義德"
+    },
+    {
+     "n": "巴赫卢尔·洛迪|Bahlul Lodi|巴赫盧爾·洛迪",
+     "a": 1451,
+     "b": 1489,
+     "dyn": "洛迪|Lodi|洛迪"
+    },
+    {
+     "n": "西坎德尔·洛迪|Sikandar Lodi|西坎德爾·洛迪",
+     "a": 1489,
+     "b": 1517,
+     "dyn": "洛迪|Lodi|洛迪"
+    },
+    {
+     "n": "易卜拉欣·洛迪|Ibrahim Lodi|易卜拉欣·洛迪",
+     "a": 1517,
+     "b": 1526,
+     "dyn": "洛迪|Lodi|洛迪"
+    }
+   ],
+   "people": [],
+   "full": "德里苏丹国|Delhi Sultanate|德裏蘇丹國",
+   "emp": true,
+   "tw": "德裏"
+  },
+  {
+   "id": "mughal",
+   "zh": "莫卧儿",
+   "en": "Mughal",
+   "c": "India",
+   "seat": [
+    "hindustan"
+   ],
+   "fam": "帖木儿|Timurid|帖木兒",
+   "west": true,
+   "rulers": [
+    {
+     "n": "巴布尔|Babur|巴布爾",
+     "a": 1526,
+     "b": 1530,
+     "p": "mu01",
+     "f": "mu_umar"
+    },
+    {
+     "n": "胡马雍|Humayun|胡馬雍",
+     "a": 1530,
+     "b": 1540,
+     "p": "mu02",
+     "f": "mu01"
+    },
+    {
+     "n": "胡马雍|Humayun|胡馬雍",
+     "a": 1555,
+     "b": 1556,
+     "p": "mu02",
+     "f": "mu01"
+    },
+    {
+     "n": "阿克巴|Akbar|阿克巴",
+     "a": 1556,
+     "b": 1605,
+     "p": "mu03",
+     "f": "mu02"
+    },
+    {
+     "n": "贾汉吉尔|Jahangir|賈漢吉爾",
+     "a": 1605,
+     "b": 1627,
+     "p": "mu04",
+     "f": "mu03"
+    }
+   ],
+   "people": [
+    {
+     "p": "mu_umar",
+     "n": "乌马尔·谢赫|Umar Shaikh|烏馬爾·謝赫",
+     "f": "ti05"
+    }
+   ],
+   "full": "莫卧儿帝国|Mughal Empire|莫臥兒帝國",
+   "emp": true,
+   "tw": "莫臥兒"
+  },
+  {
+   "id": "safavid",
+   "zh": "波斯",
+   "en": "Persia",
+   "c": "Persepolis",
+   "seat": [
+    "persis",
+    "media"
+   ],
+   "fam": "萨法维|Safavid|薩法維",
+   "west": true,
+   "rulers": [
+    {
+     "n": "伊斯玛仪一世|Ismail I|伊斯瑪儀一世",
+     "a": 1501,
+     "b": 1524,
+     "p": "sf01"
+    },
+    {
+     "n": "塔赫马斯普一世|Tahmasp I|塔赫馬斯普一世",
+     "a": 1524,
+     "b": 1576,
+     "p": "sf02",
+     "f": "sf01"
+    },
+    {
+     "n": "伊斯玛仪二世|Ismail II|伊斯瑪儀二世",
+     "a": 1576,
+     "b": 1577,
+     "p": "sf03",
+     "f": "sf02"
+    },
+    {
+     "n": "穆罕默德·胡达班德|Mohammad Khodabanda|穆罕默德·胡達班德",
+     "a": 1578,
+     "b": 1587,
+     "p": "sf04",
+     "f": "sf02"
+    }
+   ],
+   "people": [],
+   "full": "萨法维|Safavid|薩法維",
+   "emp": true,
+   "tw": "波斯"
+  },
+  {
+   "id": "mamluk",
+   "zh": "马穆鲁克",
+   "en": "Mamluk",
+   "c": "Arab",
+   "seat": [
+    "egypt"
+   ],
+   "fam": "",
+   "west": true,
+   "rulers": [
+    {
+     "n": "艾伊贝克|Aybak|艾伊貝克",
+     "a": 1250,
+     "b": 1257,
+     "dyn": "伯海里|Bahri|伯海裏"
+    },
+    {
+     "n": "忽都思|Qutuz|忽都思",
+     "a": 1259,
+     "b": 1260,
+     "dyn": "伯海里|Bahri|伯海裏"
+    },
+    {
+     "n": "拜巴尔斯|Baybars|拜巴爾斯",
+     "a": 1260,
+     "b": 1277,
+     "dyn": "伯海里|Bahri|伯海裏"
+    },
+    {
+     "n": "嘉拉温|Qalawun|嘉拉溫",
+     "a": 1279,
+     "b": 1290,
+     "dyn": "嘉拉温|Qalawunid|嘉拉溫"
+    },
+    {
+     "n": "纳绥尔·穆罕默德|al-Nasir Muhammad|納綏爾·穆罕默德",
+     "a": 1310,
+     "b": 1341,
+     "dyn": "嘉拉温|Qalawunid|嘉拉溫"
+    },
+    {
+     "n": "巴尔库克|Barquq|巴爾庫克",
+     "a": 1382,
+     "b": 1399,
+     "dyn": "布尔吉|Burji|布爾吉"
+    },
+    {
+     "n": "拜尔斯拜|Barsbay|拜爾斯拜",
+     "a": 1422,
+     "b": 1438,
+     "dyn": "布尔吉|Burji|布爾吉"
+    },
+    {
+     "n": "盖特贝伊|Qaitbay|蓋特貝伊",
+     "a": 1468,
+     "b": 1496,
+     "dyn": "布尔吉|Burji|布爾吉"
+    },
+    {
+     "n": "坎苏·高里|Qansuh al-Ghawri|坎蘇·高裏",
+     "a": 1501,
+     "b": 1516,
+     "dyn": "布尔吉|Burji|布爾吉"
+    },
+    {
+     "n": "图曼贝伊二世|Tuman Bay II|圖曼貝伊二世",
+     "a": 1516,
+     "b": 1517,
+     "dyn": "布尔吉|Burji|布爾吉"
+    }
+   ],
+   "people": [],
+   "full": "马穆鲁克苏丹国|Mamluk Sultanate|馬穆魯克蘇丹國",
+   "emp": true,
+   "tw": "馬穆魯克"
+  },
+  {
+   "id": "ottoman",
+   "zh": "奥斯曼",
+   "en": "Ottoman",
+   "c": "Arab",
+   "seat": [
+    "thrace",
+    "asia_minor"
+   ],
+   "fam": "奥斯曼|Osman|奧斯曼",
+   "west": true,
+   "rulers": [
+    {
+     "n": "奥斯曼一世|Osman I|奧斯曼一世",
+     "a": 1299,
+     "b": 1324,
+     "p": "ot01",
+     "f": "ot_ertugrul"
+    },
+    {
+     "n": "奥尔汗|Orhan|奧爾汗",
+     "a": 1324,
+     "b": 1362,
+     "p": "ot02",
+     "f": "ot01"
+    },
+    {
+     "n": "穆拉德一世|Murad I|穆拉德一世",
+     "a": 1362,
+     "b": 1389,
+     "p": "ot03",
+     "f": "ot02"
+    },
+    {
+     "n": "巴耶济德一世|Bayezid I|巴耶濟德一世",
+     "a": 1389,
+     "b": 1402,
+     "p": "ot04",
+     "f": "ot03"
+    },
+    {
+     "n": "穆罕默德一世|Mehmed I|穆罕默德一世",
+     "a": 1413,
+     "b": 1421,
+     "p": "ot05",
+     "f": "ot04"
+    },
+    {
+     "n": "穆拉德二世|Murad II|穆拉德二世",
+     "a": 1421,
+     "b": 1444,
+     "p": "ot06",
+     "f": "ot05"
+    },
+    {
+     "n": "穆罕默德二世|Mehmed II|穆罕默德二世",
+     "a": 1444,
+     "b": 1446,
+     "p": "ot07",
+     "f": "ot06"
+    },
+    {
+     "n": "穆拉德二世|Murad II|穆拉德二世",
+     "a": 1446,
+     "b": 1451,
+     "p": "ot06",
+     "f": "ot05"
+    },
+    {
+     "n": "穆罕默德二世|Mehmed II|穆罕默德二世",
+     "a": 1451,
+     "b": 1481,
+     "p": "ot07",
+     "f": "ot06"
+    },
+    {
+     "n": "巴耶济德二世|Bayezid II|巴耶濟德二世",
+     "a": 1481,
+     "b": 1512,
+     "p": "ot08",
+     "f": "ot07"
+    },
+    {
+     "n": "塞利姆一世|Selim I|塞利姆一世",
+     "a": 1512,
+     "b": 1520,
+     "p": "ot09",
+     "f": "ot08"
+    },
+    {
+     "n": "苏莱曼一世|Suleiman I|蘇萊曼一世",
+     "a": 1520,
+     "b": 1566,
+     "p": "ot10",
+     "f": "ot09"
+    },
+    {
+     "n": "塞利姆二世|Selim II|塞利姆二世",
+     "a": 1566,
+     "b": 1574,
+     "p": "ot11",
+     "f": "ot10"
+    },
+    {
+     "n": "穆拉德三世|Murad III|穆拉德三世",
+     "a": 1574,
+     "b": 1595,
+     "p": "ot12",
+     "f": "ot11"
+    },
+    {
+     "n": "穆罕默德三世|Mehmed III|穆罕默德三世",
+     "a": 1595,
+     "b": 1603,
+     "p": "ot13",
+     "f": "ot12"
+    },
+    {
+     "n": "艾哈迈德一世|Ahmed I|艾哈邁德一世",
+     "a": 1603,
+     "b": 1617,
+     "p": "ot14",
+     "f": "ot13"
+    },
+    {
+     "n": "穆斯塔法一世|Mustafa I|穆斯塔法一世",
+     "a": 1617,
+     "b": 1618,
+     "p": "ot15",
+     "f": "ot13"
+    },
+    {
+     "n": "奥斯曼二世|Osman II|奧斯曼二世",
+     "a": 1618,
+     "b": 1622,
+     "p": "ot16",
+     "f": "ot14"
+    },
+    {
+     "n": "穆斯塔法一世|Mustafa I|穆斯塔法一世",
+     "a": 1622,
+     "b": 1623,
+     "p": "ot15",
+     "f": "ot13"
+    }
+   ],
+   "people": [
+    {
+     "p": "ot_ertugrul",
+     "n": "埃尔图鲁尔|Ertuğrul|埃爾圖魯爾"
+    }
+   ],
+   "full": "奥斯曼帝国|Ottoman Empire|奧斯曼帝國",
+   "emp": true,
+   "tw": "奧斯曼"
+  },
+  {
+   "id": "spain",
+   "zh": "西班牙",
+   "en": "Spain",
+   "c": "Frankish",
+   "seat": [
+    "hispania_s"
+   ],
+   "fam": "哈布斯堡|Habsburg|哈布斯堡",
+   "west": true,
+   "rulers": [
+    {
+     "n": "伊莎贝拉一世|Isabella I|伊莎貝拉一世",
+     "a": 1474,
+     "b": 1504,
+     "dyn": "特拉斯塔马拉|Trastámara|特拉斯塔馬拉"
+    },
+    {
+     "n": "斐迪南二世|Ferdinand II|斐迪南二世",
+     "a": 1479,
+     "b": 1516,
+     "dyn": "特拉斯塔马拉|Trastámara|特拉斯塔馬拉"
+    },
+    {
+     "n": "查理一世|Charles I|查理一世",
+     "a": 1516,
+     "b": 1556,
+     "p": "hb07",
+     "f": "hb_philip1"
+    },
+    {
+     "n": "腓力二世|Philip II|腓力二世",
+     "a": 1556,
+     "b": 1598,
+     "p": "sp02",
+     "f": "hb07"
+    },
+    {
+     "n": "腓力三世|Philip III|腓力三世",
+     "a": 1598,
+     "b": 1621,
+     "p": "sp03",
+     "f": "sp02"
+    }
+   ],
+   "people": [],
+   "emp": false,
+   "tw": "西班牙"
+  },
+  {
+   "id": "poland",
+   "zh": "波兰",
+   "en": "Poland",
+   "c": "Slavonic",
+   "seat": [
+    "poland"
+   ],
+   "fam": "",
+   "west": true,
+   "rulers": [
+    {
+     "n": "瓦迪斯瓦夫二世|Władysław II Jagiełło|瓦迪斯瓦夫二世",
+     "a": 1386,
+     "b": 1434,
+     "p": "pl_j1",
+     "dyn": "雅盖隆|Jagiellon|雅蓋隆"
+    },
+    {
+     "n": "瓦迪斯瓦夫三世|Władysław III|瓦迪斯瓦夫三世",
+     "a": 1434,
+     "b": 1444,
+     "p": "pl_j2",
+     "f": "pl_j1",
+     "dyn": "雅盖隆|Jagiellon|雅蓋隆"
+    },
+    {
+     "n": "卡齐米日四世|Casimir IV|卡齊米日四世",
+     "a": 1447,
+     "b": 1492,
+     "p": "pl_c4",
+     "f": "pl_j1",
+     "dyn": "雅盖隆|Jagiellon|雅蓋隆"
+    },
+    {
+     "n": "约翰一世·阿尔布雷希特|John I Albert|約翰一世·阿爾布雷希特",
+     "a": 1492,
+     "b": 1501,
+     "p": "pl_ja",
+     "f": "pl_c4",
+     "dyn": "雅盖隆|Jagiellon|雅蓋隆"
+    },
+    {
+     "n": "亚历山大|Alexander|亞歷山大",
+     "a": 1501,
+     "b": 1506,
+     "p": "pl_al",
+     "f": "pl_c4",
+     "dyn": "雅盖隆|Jagiellon|雅蓋隆"
+    },
+    {
+     "n": "西吉斯蒙德一世|Sigismund I|西吉斯蒙德一世",
+     "a": 1507,
+     "b": 1548,
+     "p": "pl_s1",
+     "f": "pl_c4",
+     "dyn": "雅盖隆|Jagiellon|雅蓋隆"
+    },
+    {
+     "n": "西吉斯蒙德二世|Sigismund II Augustus|西吉斯蒙德二世",
+     "a": 1548,
+     "b": 1572,
+     "p": "pl_s2",
+     "f": "pl_s1",
+     "dyn": "雅盖隆|Jagiellon|雅蓋隆"
+    },
+    {
+     "n": "亨利|Henry of Valois|亨利",
+     "a": 1573,
+     "b": 1574,
+     "p": "cp28",
+     "f": "cp25",
+     "dyn": "瓦卢瓦|Valois|瓦盧瓦"
+    },
+    {
+     "n": "斯特凡·巴托里|Stephen Báthory|斯特凡·巴托裏",
+     "a": 1576,
+     "b": 1586,
+     "dyn": "巴托里|Báthory|巴托裏"
+    }
+   ],
+   "people": [],
+   "emp": false,
+   "tw": "波蘭"
+  },
+  {
+   "id": "tsardom",
+   "zh": "俄罗斯",
+   "en": "Russia",
+   "c": "Slavonic",
+   "seat": [
+    "rus_c"
+   ],
+   "fam": "",
+   "west": true,
+   "rulers": [
+    {
+     "n": "伊凡三世|Ivan III|伊凡三世",
+     "a": 1462,
+     "b": 1505,
+     "p": "ru_i3",
+     "dyn": "留里克|Rurik|留裏克"
+    },
+    {
+     "n": "瓦西里三世|Vasili III|瓦西裏三世",
+     "a": 1505,
+     "b": 1533,
+     "p": "ru_v3",
+     "f": "ru_i3",
+     "dyn": "留里克|Rurik|留裏克"
+    },
+    {
+     "n": "伊凡四世|Ivan IV|伊凡四世",
+     "a": 1533,
+     "b": 1584,
+     "p": "ru_i4",
+     "f": "ru_v3",
+     "dyn": "留里克|Rurik|留裏克"
+    },
+    {
+     "n": "费奥多尔一世|Feodor I|費奧多爾一世",
+     "a": 1584,
+     "b": 1598,
+     "p": "ru_f1",
+     "f": "ru_i4",
+     "dyn": "留里克|Rurik|留裏克"
+    },
+    {
+     "n": "鲍里斯·戈杜诺夫|Boris Godunov|鮑裏斯·戈杜諾夫",
+     "a": 1598,
+     "b": 1605,
+     "dyn": "戈杜诺夫|Godunov|戈杜諾夫"
+    },
+    {
+     "n": "费奥多尔二世|Feodor II|費奧多爾二世",
+     "a": 1605,
+     "b": 1605,
+     "dyn": "戈杜诺夫|Godunov|戈杜諾夫"
+    },
+    {
+     "n": "伪德米特里一世|False Dmitry I|僞德米特裏一世",
+     "a": 1605,
+     "b": 1606
+    },
+    {
+     "n": "瓦西里四世|Vasili IV|瓦西裏四世",
+     "a": 1606,
+     "b": 1610,
+     "dyn": "舒伊斯基|Shuisky|舒伊斯基"
+    }
+   ],
+   "people": [],
+   "full": "俄罗斯沙皇国|Tsardom of Russia|俄羅斯沙皇國",
+   "emp": true,
+   "tw": "俄羅斯"
+  }
+ ]
+}

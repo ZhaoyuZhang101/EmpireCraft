@@ -43,6 +43,12 @@ public static class OfficeSelector
         if (regime?.type == RegimeType.ClassicalRepublic && pKingdom.IsEmpire() && office == pKingdom.GetOffice())
             method = pKingdom.GetEmpire()?.IsPrincipate() == true ? LeaderSelectMethod.Succession
                 : CityStateService.HasSenate(pKingdom.GetEmpire()) ? LeaderSelectMethod.Vote : LeaderSelectMethod.Army;
+        // 殖民地总督府：总督由宗主国派(见 ColonySystem.PickGovernor)；特许公司照投票由董事会选
+        if (office == pKingdom.GetOffice() && ColonySystem.PickGovernor(pKingdom) is Actor governor)
+        {
+            office.SetActor(governor);
+            return;
+        }
         switch (method)
         {
             case LeaderSelectMethod.Exam:
@@ -55,7 +61,9 @@ public static class OfficeSelector
                         ?? TryGetClanOfficer(pKingdom)??TryGetProfessionOfficer(pKingdom);
                 break;
             case LeaderSelectMethod.Vote:
-                actor = TryGetFeudalElectiveRuler(office, pKingdom) ?? TryGetProfessionOfficer(pKingdom);
+                // 穿越政体：执委会主席由元老院全体大会从元老里选(见 TransmigrantSystem.ElectChairman)
+                actor = (office == pKingdom.GetOffice() ? TransmigrantSystem.ElectChairman(pKingdom) : null) ??
+                        TryGetFeudalElectiveRuler(office, pKingdom) ?? TryGetProfessionOfficer(pKingdom);
                 break;
             case LeaderSelectMethod.Army:
                 actor = TryGetStrongerLeader(office, pKingdom)??TryGetProfessionOfficer(pKingdom);
@@ -74,7 +82,8 @@ public static class OfficeSelector
 
         // 前现代父系(母系)文化：选出的人不合择官偏好时，无小人模式先从人口里补一名合偏好的人，补不出才用原人选
         // (选帝侯预先选立的储君不换人)
-        if (actor != null && method != LeaderSelectMethod.Harem && !IsPreferredOfficeCandidate(actor, pKingdom) &&
+        if (actor != null && method != LeaderSelectMethod.Harem && regime?.type != RegimeType.Transmigrant &&
+            !IsPreferredOfficeCandidate(actor, pKingdom) &&
             actor != HolyRomanSystem.KingOfRomans(pKingdom.GetEmpire()))
             actor = CityPopulationSystem.SpawnForOffice(office, pKingdom, preferredOnly: true) ?? actor;
 

@@ -211,6 +211,23 @@ public static partial class RealmNamingSystem
         return true;
     }
 
+    // 剧本开局即持某个天下的普世之名(世界地图：十字军、临高两档的神圣罗马)：不经教宗加冕，按天授记，不上公告
+    public static void GrantUniversalAtStart(Empire empire, EmpireCore lead)
+    {
+        PapalRelationState state = Papal(empire);
+        string baseName = lead == null ? null : TianxiaBaseName(lead);
+        if (state == null || empire.CoreKingdom == null || string.IsNullOrWhiteSpace(baseName)) return;
+        if (empire.data.name_source != SourceTianxia) empire.data.pre_tianxia_name = empire.data.core_name ?? "";
+        state.universal_lead_id = lead.id;
+        state.universal_via = ViaDecree;
+        state.universal_at = World.world.getCurWorldTime();
+        state.universal_emperor_id = empire.Emperor?.id ?? -1L;
+        state.universal_suspended = false;
+        empire.data.name_source = SourceTianxia;
+        empire.SetEmpireName(baseName, preserveEmpireType: true);
+        state.universal_name = empire.data.core_name ?? "";
+    }
+
     // 收回(suspend = 绝罚暂停，悔罪后恢复)
     public static void RevokeUniversal(Empire empire, string reasonKey, bool suspend = false)
     {

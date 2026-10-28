@@ -245,6 +245,18 @@ public static class KingdomExtension
         public double nomad_split_at = -1d;
         // 草原压力、盟主威望、岁币互市的记录(见 NomadRaidSystem)；没有劫掠传统的国家为空
         public EmpireCraft.Scripts.Data.SteppeState steppe;
+        // 穿越政体(见 TransmigrantSystem)：元老院席位、执委会主席任期、阶段与出版指导小组；别的国家为空
+        public EmpireCraft.Scripts.Data.TransmigrantState transmigrant;
+        public bool ShouldSerializetransmigrant() => transmigrant != null;
+        // 殖民地(见 ColonySystem)：宗主国、总督府还是特许公司、总督、离心；不是殖民地的为空
+        public EmpireCraft.Scripts.Data.ColonyState colony;
+        public bool ShouldSerializecolony() => colony != null;
+        // 宗主国下回派殖民船的时间、在途殖民船的目的地块与抵达时间(见 ColonySystem.Voyage)
+        public double colonial_voyage_at = -1d;
+        public int colonial_voyage_zone = -1;
+        public double colonial_voyage_arrive = -1d;
+        // 关税同盟：并入了哪个大国的市场(见 CommodityMarketSystem)；-1 没有
+        public long market_union_leader_id = -1L;
         // 水土(见 ShuiTuSystem)：游牧离草的起始时间(-1 = 不在离草；旧档没有这项，从第一次结算起算)、已记入史书的离草档位、
         // 不服水土的旱地城已记入史书的最高档位、上次走出路的时间
         public double shuitu_offgrass_since = -1d;
@@ -3515,6 +3527,8 @@ public static class KingdomExtension
         if (kingdom == null) return;
         KingdomExtraData extra = GetOrCreate(kingdom);
         if (extra.EmpireID == value) return;
+        // 帝国的中央(核心王国)被改挂、摘掉帝国编号：记下调用处(出过开局明朝核心国被摘、帝国当空壳解散的事，见 EmpireLossDiagnostics)
+        if (extra.isEmpire && extra.EmpireID > 0) EmpireCraft.Scripts.Diagnostics.EmpireLossDiagnostics.OnCoreMoved(kingdom, extra.EmpireID, value);
         extra.EmpireID = value;
         if (ModClass.EMPIRE_MANAGER != null) ModClass.EMPIRE_MANAGER._dirty_cities = true;
         World.world?.zone_calculator?.dirtyAndClear();

@@ -102,6 +102,8 @@ public static class RealisticAgeSystem
     public static bool AgeDeathDue(Actor actor)
     {
         if (actor.hasTrait("immortal")) return false;
+        // 穿越政权的元老按席位的天年(现代人的寿数，见 TransmigrantSystem.SenatorDeathAge)
+        if (TransmigrantSystem.SenatorDeathAge(actor, out int senatorAge)) return Due(actor.getAge(), senatorAge);
         if (RoyalHouseSystem.IsRoyal(actor)) return actor.getAge() >= RoyalLifespan(actor);
         return Due(actor.getAge(), NaturalDeathAge(Seed(actor), MeanDeathAge(actor)));
     }
@@ -223,11 +225,13 @@ public static class RealisticAgeSystem
     }
 
     // 活到 anchor 岁的人的天年：正态 N(平均天年, LifespanSd) 截去 anchor 以下，按人(与锚定年纪)取一个上尾概率
-    public static int SurvivorDeathAge(Actor actor, int anchor)
+    public static int SurvivorDeathAge(Actor actor, int anchor) =>
+        SurvivorDeathAge(Seed(actor), RoyalHouseSystem.RoyalMeanDeathAge(actor), anchor);
+
+    public static int SurvivorDeathAge(long seed, float mean, int anchor)
     {
-        float mean = RoyalHouseSystem.RoyalMeanDeathAge(actor);
         double sd = LifespanSd;
-        double u = Unit((ulong)Seed(actor) * 0xC2B2AE3D27D4EB4FUL + (ulong)Math.Max(0, anchor) * 0x165667B19E3779F9UL);
+        double u = Unit((ulong)seed * 0xC2B2AE3D27D4EB4FUL + (ulong)Math.Max(0, anchor) * 0x165667B19E3779F9UL);
         double tail = UpperTail((anchor - mean) / sd);
         // 远远超龄(旧档里一两百岁的人)：上尾小到算不准，一到四年按人错开
         if (tail < 1e-9) return anchor + 1 + (int)(u * 4d);

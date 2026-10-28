@@ -2494,6 +2494,8 @@ public class Empire : MetaObject<EmpireData>
         if (MembershipCooldown.BlocksVoluntary(pKingdom, this)) return false;
         // 已有封建宗主的国家不能再自愿加入帝国：要么先独立，要么被宗主放还(避免双重从属)
         if (GeneralSystems.FeudalVassalService.GetOverlord(pKingdom) != null) return false;
+        // 殖民地只认自己的宗主国(见 ColonySystem)
+        if (GeneralSystems.ColonySystem.IsColony(pKingdom)) return false;
         if (!ContainsKingdomCapitalInCore(pKingdom) || !MeetsSubmissionPowerThreshold(pKingdom)) return false;
         if (!pKingdom.isOpinionTowardsKingdomGood(CoreKingdom))
         {

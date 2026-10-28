@@ -60,6 +60,21 @@ public static class EmpireLossDiagnostics
         }
     }
 
+    // 帝国的中央被改挂、摘掉帝国编号(见 KingdomExtension.SetEmpireID)：帝国还在的话记一行，带调用处
+    public static void OnCoreMoved(Kingdom kingdom, long from, long to)
+    {
+        try
+        {
+            Empire empire = ModClass.EMPIRE_MANAGER?.get(from);
+            if (empire?.data == null || empire.IsArchived() || empire.CoreKingdom != kingdom) return;
+            LogService.LogInfo($"{Tag} {Name(empire)}({from}) 的中央 {Describe(kingdom)} 帝国编号改为 {to}；调用：{CallSite(3, 6)}");
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"{Tag} 记录中央改挂失败: {exception.Message}");
+        }
+    }
+
     // 解散帝国之前(见 EmpireManager.dissolveEmpire)
     public static void OnDissolving(Empire empire)
     {

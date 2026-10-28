@@ -139,6 +139,8 @@ public static class CityPlacementSystem
                 : string.Format(LM.Get("palace_confirm"), city.GetCityName(), empire.GetEmpireName());
         }
         _armedPalace = -1L;
+        if (current != null && current != city) empireCore.former_capital = current.data.id;
+        else if (empireCore.former_capital == city.data.id) empireCore.former_capital = -1L;
         empireCore.SetCoreCapital(city);
         core.setCapital(city);
         PureMapPatch.Redraw(city);

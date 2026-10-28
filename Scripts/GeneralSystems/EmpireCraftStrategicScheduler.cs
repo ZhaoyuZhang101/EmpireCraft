@@ -76,6 +76,12 @@ public static class EmpireCraftStrategicScheduler
         CityStabilitySystem.Tick();
         // 府库积压：每年一次国库、城库余钱折损(见 TreasuryHoardSystem)
         using (FrameProfiler.Measure("府库积压")) TreasuryHoardSystem.Tick();
+        // 穿越政体：元老院席位继承、执委会主席改选、阶段、出版指导小组(每年一次，见 TransmigrantSystem)
+        using (FrameProfiler.Measure("穿越政体")) TransmigrantSystem.Tick();
+        // 殖民：海外城编入殖民地、总督任期、解送分红、离心独立、殖民船(每年一次分帧，见 ColonySystem)
+        using (FrameProfiler.Measure("殖民")) ColonySystem.Tick();
+        // 商品市场：各城记账、市场结算、市场间贸易、关税同盟(每年一次分帧，见 CommodityMarketSystem)
+        using (FrameProfiler.Measure("商品市场")) CommodityMarketSystem.Tick();
         using (FrameProfiler.Measure("帝国改划")) AdministrationReorganizationSystem.Tick();
 
         float realtime = Time.realtimeSinceStartup;

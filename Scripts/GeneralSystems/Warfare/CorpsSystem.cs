@@ -760,6 +760,17 @@ public static class CorpsSystem
         return corps;
     }
 
+    // 穿越降临带来的军(见 TransmigrantSystem.Land)：在落脚的城就地成军，按手动组建的军算(不按军制裁撤)，兵种直接给定
+    public static CorpsData RaiseLanding(Kingdom kingdom, City home, float people, CorpsArmSystem.Arm arm)
+    {
+        if (!Enabled || kingdom == null || home == null) return null;
+        CorpsData corps = Raise(kingdom, home, LegionsPerCorps, people, World.world.getCurWorldTime());
+        if (corps == null) return null;
+        corps.manual = true;
+        corps.arm = (int)arm;
+        return corps;
+    }
+
     // 手动解散(交战中的不能解散)
     public static bool DisbandManual(Kingdom kingdom, CorpsData corps)
     {

@@ -63,6 +63,9 @@ public enum KingdomType
     NomadFeudalism_centre, // 本族定居分封的汗庭；只追加，不改变旧档枚举值
     NomadFeudalism_lordship,
     LvLing_zhili, // 内阁阶段归储君的第二直隶(见 MultiCapitalSystem.Zhili)；只追加，不改变旧档枚举值
+    Transmigrant_senate, // 穿越政体的元老院国家(见 TransmigrantSystem)；只追加，不改变旧档枚举值
+    Colonial_governorate, // 殖民地政府的总督府(见 ColonySystem)；只追加
+    Company_charter, // 特许公司(见 ColonySystem)；只追加
 }
 
 public enum ArmyOfficialType
@@ -87,6 +90,9 @@ public enum CityType
     ClassicalRepublic_city,
     Bakufu_city, // 城下町；追加在末尾以保持旧存档枚举值稳定
     NomadFeudalism_city,
+    Transmigrant_city, // 穿越政体的县；只追加
+    Colonial_city, // 殖民地的城；只追加
+    Company_factory, // 特许公司的商馆；只追加
 }
 public enum TaxLevel
 {
@@ -120,7 +126,10 @@ public enum RegimeType
     ClassicalRepublic, //古典城邦共和；追加在末尾以保持旧存档枚举值稳定
     Bakufu, //幕府：天皇为虚君、征夷大将军掌实权、大名世袭各藩(日本)
     HuaxiaOrigin, //华夏原始政体：诸部议事、推举共主、禅让传贤(见 ShanrangSystem)，世袭王权以后家天下；追加在末尾
-    NomadFeudalism // 本族定居后由部族领主分土世袭；不附带西方教廷、选帝侯与神罗制度
+    NomadFeudalism, // 本族定居后由部族领主分土世袭；不附带西方教廷、选帝侯与神罗制度
+    Transmigrant, // 穿越政体：元老院为最高权力、执委会主席由元老院选出，无君主天命(见 TransmigrantSystem)；追加在末尾
+    Colonial, // 殖民地政府：宗主国任免总督的海外附属政权(见 ColonySystem)；追加在末尾
+    Company // 特许公司：金融以后宗主国特许设立，董事会选总督、利润分红给宗主国(见 ColonySystem)；追加在末尾
 }
 
 public enum ReligionLevel

@@ -1,0 +1,93 @@
+{
+    // 澳洲人：穿越降临的五百二十一名穿越者与归化民(见 TransmigrantSystem)。
+    // 起名词库借用现代中国("China:词库名"，见 CulturePatch.setGroup)；不写 species，不抢物种映射
+    "name": "Aosong",
+    "color": "#22337A",
+    "translate_cz": "澳洲人",
+    "translate_ch": "澳洲人",
+    "translate_en": "Aosong",
+    "setting": {
+        "regime": "Transmigrant",
+        // 自成一条制度线：元老院、执委会、共同纲领、大宋澳洲行在(见 InstitutionTrees/Aosong.json)
+        "institution_line": "Aosong",
+        "tianxia": "Huaxia",
+        "start_institution": "aosong_senate",
+        "surname_evolution": false,
+        "Settlement": {
+            "village_modes": { "surname": 3, "terrain": 2, "words": 1 },
+            "town_modes": { "terrain": 1, "words": 2 },
+            "fort_modes": { "terrain": 1, "words": 1 },
+            "village_words": "Huaxia:VillageWords",
+            "village_suffix": "Huaxia:VillageSuffix",
+            "surname_suffix": "Huaxia:SurnameSuffix",
+            "town_words": "Huaxia:TownWords",
+            "town_suffix": "Huaxia:TownSuffix",
+            "fort_words": "Huaxia:TownWords",
+            "fort_suffix": "Huaxia:FortSuffix",
+            "terrain_prefix": "Huaxia:TerrainPrefix",
+            "terrain_suffix": "Huaxia:TerrainSuffix",
+            "terrain": { "mountain": "Huaxia:TerrainMountain", "hill": "Huaxia:TerrainHill", "water": "Huaxia:TerrainWater", "coast": "Huaxia:TerrainCoast", "forest": "Huaxia:TerrainForest", "plain": "Huaxia:TerrainPlain", "desert": "Huaxia:TerrainDesert", "swamp": "Huaxia:TerrainSwamp" }
+        },
+        "City": {
+            "groups": {
+                "group_1": "China:CityNames1"
+            },
+            "rule": [ "group_1" ],
+            "name_pos": 0
+        },
+        "Clan": {
+            "groups": {
+                "group_1": "China:ClanNames",
+                "group_2": " ",
+                "group_3": "Clan"
+            },
+            "rule": [ "group_1", "group_2", "group_3" ],
+            "name_pos": 0,
+            "has_sex_post": false,
+            "use_local_as_lastname": false,
+            "sex_post_Male": ["", "", ""],
+            "sex_post_Female": ["", "", ""]
+        },
+        "Family": {
+            "groups": {
+                "group_1": "China:FamilyNames",
+                "group_2": " ",
+                "group_3": "Family"
+            },
+            "rule": [ "group_1", "group_2", "group_3" ],
+            "name_pos": 0,
+            "has_sex_post": false,
+            "use_local_as_lastname": false
+        },
+        "Unit": {
+            "groups": {
+                "group_1": "China:UnitNamesMale1",
+                "group_2": "China:UnitNamesMale2",
+                "group_3": "China:UnitNamesFemale1",
+                "group_4": "China:UnitNamesFemale2"
+            },
+            "rule": [
+                "group_1",
+                "sex_male",
+                "coin_flip",
+                "group_2",
+                "sex_male",
+                "group_3",
+                "sex_female",
+                "coin_flip",
+                "group_4",
+                "sex_female"
+            ],
+            "name_pos": 1,
+            "is_invert": false
+        },
+        "Kingdom": {
+            "groups": {
+                "group_1": "China:CountryNames"
+            },
+            "rule": [ "group_1" ],
+            "name_pos": 0,
+            "english_type_prefix": true
+        }
+    }
+}

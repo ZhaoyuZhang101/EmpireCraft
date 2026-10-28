@@ -79,10 +79,8 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
                 empire.data.directPre = "";
                 var nameEmpire = pKingdom.king.culture.getOnomasticData(MetaType.Kingdom).generateName();
                 empire.SetEmpireName(nameEmpire);
-                if (pKingdom.king.HasSpecificClan())
-                {
-                    pKingdom.king.GetSpecificClan().RecordHistoryEmpire(empire, pKingdom.capital);
-                }
+                // 有宗族编号不等于宗族还在(旧档里身份上的宗族可能已经没了)
+                pKingdom.king.GetSpecificClan()?.RecordHistoryEmpire(empire, pKingdom.capital);
             }
         }
 
@@ -91,7 +89,7 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
             if (pKingdom.king.HasSpecificClan())
             {
                 var specificClan = pKingdom.king.GetSpecificClan();
-                if (!specificClan.HasHistoryEmpire())
+                if (specificClan != null && !specificClan.HasHistoryEmpire())
                 {
                     specificClan.RecordHistoryEmpire(empire, pKingdom.capital);
                 }
@@ -258,6 +256,10 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
         if (pKingdom == null || pKingdom.isRekt()) return false;
         // 现代政体没有称帝：政权只能经 ModernStateFormationSystem 组建政府(所有文化；华夏条件更苛刻)
         if (pKingdom.GetRegime()?.type == RegimeType.Modern) return false;
+        // 穿越政体没有君主：元老院国家不称帝(见 TransmigrantSystem)
+        if (pKingdom.GetRegime()?.type == RegimeType.Transmigrant) return false;
+        // 殖民地(总督府、特许公司)不称帝(见 ColonySystem)
+        if (ColonySystem.IsColony(pKingdom)) return false;
         // 原始政体的部落不称帝，只能打赢收部结成部落联盟(用户 2026-10-26 选"部落不再是帝国"，见 TribalFissionService)；
         // 先挡在这里，免得每回 AI 检查都去补立法理(RepairFoundingTitle)
         if (TribalFissionService.IsTribal(pKingdom)) return false;

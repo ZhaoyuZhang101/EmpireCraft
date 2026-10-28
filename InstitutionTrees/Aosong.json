@@ -1,0 +1,367 @@
+{
+  "name_key": "institution_line_aosong",
+  "root_nodes": [
+    "aosong_senate"
+  ],
+  "default_resistance_reason_key": "institution_resistance_reason_tribal_privilege",
+  "constitution": {
+    "enabled": false
+  },
+  "nodes": [
+    {
+      "id": "aosong_senate",
+      "name_key": "institution_aosong_senate",
+      "description_key": "institution_aosong_senate_desc",
+      "branch": "administration",
+      "advancement": 1,
+      "cultures": [
+        "Aosong"
+      ],
+      "reform": {
+        "minimum_years": 1,
+        "allow_force": false
+      },
+      "politics": {
+        "support_classes": {
+          "Noble": 0.6,
+          "Officer": 0.4
+        }
+      },
+      "absorb": {
+        "enabled": false
+      },
+      "regime": "Transmigrant"
+    },
+    {
+      "id": "aosong_first_committee",
+      "name_key": "institution_aosong_first_committee",
+      "description_key": "institution_aosong_first_committee_desc",
+      "branch": "administration",
+      "advancement": 2,
+      "cultures": [
+        "Aosong"
+      ],
+      "requires": [
+        "aosong_senate"
+      ],
+      "requires_cities": 2,
+      "reform": {
+        "base_progress_per_year": 25.0,
+        "minimum_years": 2,
+        "allow_force": false
+      },
+      "politics": {
+        "support_classes": {
+          "Officer": 0.8,
+          "Peasant": 0.3
+        }
+      },
+      "absorb": {
+        "enabled": false
+      },
+      "effects_on_complete": [
+        {
+          "type": "relieve_malady",
+          "value": "graft",
+          "int_value": 10
+        }
+      ]
+    },
+    {
+      "id": "aosong_fubo_army",
+      "name_key": "institution_aosong_fubo_army",
+      "description_key": "institution_aosong_fubo_army_desc",
+      "branch": "military",
+      "advancement": 2,
+      "cultures": [
+        "Aosong"
+      ],
+      "requires": [
+        "aosong_senate"
+      ],
+      "features": {
+        "army_standing": 1
+      },
+      "reform": {
+        "base_progress_per_year": 25.0,
+        "minimum_years": 2,
+        "allow_force": false
+      },
+      "politics": {
+        "support_classes": {
+          "Army": 1.0,
+          "Officer": 0.3
+        },
+        "support_factions": {
+          "攘夷": 0.8
+        }
+      },
+      "absorb": {
+        "enabled": false
+      }
+    },
+    {
+      "id": "aosong_publishing",
+      "name_key": "institution_aosong_publishing",
+      "description_key": "institution_aosong_publishing_desc",
+      "branch": "society",
+      "advancement": 2,
+      "cultures": [
+        "Aosong"
+      ],
+      "requires": [
+        "aosong_senate"
+      ],
+      "requires_techs": [
+        "printing"
+      ],
+      "reform": {
+        "base_progress_per_year": 25.0,
+        "minimum_years": 2,
+        "allow_force": false
+      },
+      "politics": {
+        "support_classes": {
+          "Officer": 0.6,
+          "Citizen": 0.4
+        }
+      },
+      "absorb": {
+        "enabled": false
+      }
+    },
+    {
+      "id": "aosong_common_program",
+      "name_key": "institution_aosong_common_program",
+      "description_key": "institution_aosong_common_program_desc",
+      "branch": "administration",
+      "advancement": 3,
+      "cultures": [
+        "Aosong"
+      ],
+      "requires": [
+        "aosong_first_committee"
+      ],
+      "requires_cities": 5,
+      "reform": {
+        "base_progress_per_year": 20.0,
+        "minimum_years": 3,
+        "allow_force": false
+      },
+      "politics": {
+        "support_classes": {
+          "Noble": 0.6,
+          "Officer": 0.6
+        },
+        "support_factions": {
+          "民主": 0.6
+        }
+      },
+      "absorb": {
+        "enabled": false
+      },
+      "effects_on_complete": [
+        {
+          "type": "relieve_malady",
+          "value": "factionalism",
+          "int_value": 15
+        }
+      ]
+    },
+    {
+      "id": "aosong_planning_institute",
+      "name_key": "institution_aosong_planning_institute",
+      "description_key": "institution_aosong_planning_institute_desc",
+      "branch": "finance",
+      "advancement": 3,
+      "cultures": [
+        "Aosong"
+      ],
+      "requires": [
+        "aosong_common_program"
+      ],
+      "features": {
+        "state_granary": 1
+      },
+      "reform": {
+        "base_progress_per_year": 20.0,
+        "minimum_years": 3,
+        "allow_force": false
+      },
+      "politics": {
+        "support_classes": {
+          "Officer": 0.8
+        },
+        "support_factions": {
+          "同化": 0.6
+        }
+      },
+      "absorb": {
+        "enabled": false
+      }
+    },
+    {
+      "id": "aosong_political_security",
+      "name_key": "institution_aosong_political_security",
+      "description_key": "institution_aosong_political_security_desc",
+      "branch": "administration",
+      "advancement": 3,
+      "cultures": [
+        "Aosong"
+      ],
+      "requires": [
+        "aosong_common_program"
+      ],
+      "reform": {
+        "base_progress_per_year": 20.0,
+        "minimum_years": 3,
+        "allow_force": false
+      },
+      "politics": {
+        "support_classes": {
+          "Officer": 0.6,
+          "Army": 0.4
+        }
+      },
+      "absorb": {
+        "enabled": false
+      },
+      "effects_on_complete": [
+        {
+          "type": "relieve_malady",
+          "value": "graft",
+          "int_value": 15
+        }
+      ]
+    },
+    {
+      "id": "aosong_great_song",
+      "name_key": "institution_aosong_great_song",
+      "description_key": "institution_aosong_great_song_desc",
+      "branch": "administration",
+      "advancement": 4,
+      "cultures": [
+        "Aosong"
+      ],
+      "requires": [
+        "aosong_common_program"
+      ],
+      "requires_cities": 10,
+      "reform": {
+        "base_progress_per_year": 20.0,
+        "minimum_years": 3,
+        "allow_force": false
+      },
+      "politics": {
+        "support_classes": {
+          "Noble": 0.6,
+          "Officer": 0.6,
+          "Citizen": 0.3
+        },
+        "support_factions": {
+          "同化": 0.8
+        }
+      },
+      "absorb": {
+        "enabled": false
+      }
+    },
+    {
+      "id": "aosong_foreign_intelligence",
+      "name_key": "institution_aosong_foreign_intelligence",
+      "description_key": "institution_aosong_foreign_intelligence_desc",
+      "branch": "administration",
+      "advancement": 4,
+      "cultures": [
+        "Aosong"
+      ],
+      "requires": [
+        "aosong_great_song"
+      ],
+      "reform": {
+        "base_progress_per_year": 20.0,
+        "minimum_years": 3,
+        "allow_force": false
+      },
+      "politics": {
+        "support_classes": {
+          "Officer": 0.6
+        }
+      },
+      "absorb": {
+        "enabled": false
+      }
+    },
+    {
+      "id": "aosong_cabinet",
+      "name_key": "institution_aosong_cabinet",
+      "description_key": "institution_aosong_cabinet_desc",
+      "branch": "administration",
+      "advancement": 5,
+      "cultures": [
+        "Aosong"
+      ],
+      "requires": [
+        "aosong_great_song"
+      ],
+      "requires_cities": 20,
+      "reform": {
+        "base_progress_per_year": 18.0,
+        "minimum_years": 3,
+        "allow_force": false
+      },
+      "politics": {
+        "support_classes": {
+          "Noble": 0.8,
+          "Officer": 0.6
+        },
+        "support_factions": {
+          "民主": 0.8
+        }
+      },
+      "absorb": {
+        "enabled": false
+      },
+      "effects_on_complete": [
+        {
+          "type": "relieve_malady",
+          "value": "bloat",
+          "int_value": 15
+        }
+      ]
+    },
+    {
+      "id": "aosong_restoration",
+      "name_key": "institution_aosong_restoration",
+      "description_key": "institution_aosong_restoration_desc",
+      "branch": "military",
+      "advancement": 5,
+      "cultures": [
+        "Aosong"
+      ],
+      "requires": [
+        "aosong_cabinet"
+      ],
+      "requires_cities": 30,
+      "reform": {
+        "base_progress_per_year": 18.0,
+        "minimum_years": 3,
+        "allow_force": false
+      },
+      "politics": {
+        "support_classes": {
+          "Army": 0.8,
+          "Noble": 0.5,
+          "Citizen": 0.4
+        },
+        "support_factions": {
+          "同化": 0.8,
+          "攘夷": 0.6
+        }
+      },
+      "absorb": {
+        "enabled": false
+      }
+    }
+  ]
+}

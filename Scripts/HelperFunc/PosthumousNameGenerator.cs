@@ -246,9 +246,13 @@ namespace EmpireCraft.Scripts.HelperFunc
         }
 
         // 谥号的显示：帝国设置开了长谥号、有长谥且在中文下为"……孝某皇帝"，否则"国号某帝"
+        // 世界地图前史里没有中式谥号的君主(周天子、罗马皇帝……)：谥号记此标记，称号照剧本(office_title)显示，也不再自动定谥
+        public const string ScriptedTitle = "world_map_scripted_title";
+
         public static string ShiTitle(EmpireCraftHistory history, Empire empire = null)
         {
             if (history == null || string.IsNullOrEmpty(history.shihao_name)) return "";
+            if (history.shihao_name == ScriptedTitle) return string.IsNullOrEmpty(history.office_title) ? history.emperor ?? "" : history.office_title;
             if (history.shihao_long is { Count: > 0 } && ChineseLocale() && (empire ?? EmpireOf(history))?.data?.show_long_posthumous == true)
                 return string.Concat(history.shihao_long.Select(LM.Get)) + LM.Get("emperor_suffix_long");
             return history.empire_name + LM.Get(history.shihao_name) + LM.Get("emperor_suffix");

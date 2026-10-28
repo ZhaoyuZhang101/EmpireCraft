@@ -51,6 +51,8 @@ public sealed class InstitutionRealm
         if (kingdom.IsEmpire() || kingdom.IsInEmpire()) return false;
         if (FeudalVassalService.GetOverlord(kingdom) != null) return false;
         if (TribalFissionService.OverlordOf(kingdom) != null) return false;
+        // 殖民地的制度随宗主国，不自己推(见 ColonySystem)
+        if (ColonySystem.IsColony(kingdom)) return false;
 #pragma warning disable CS0162
         if (!DetachedZhouVassalsAreSovereign && ZhouEraSystem.IsDetachedVassal(kingdom)) return false;
 #pragma warning restore CS0162

@@ -143,6 +143,9 @@ public static class DynastyNaming
     {
         string key = $"{regime}_officiallevel_{officeType}";
         Kingdom owner = meta switch { Kingdom k => k, City town => town.kingdom, Army army => army.getKingdom(), _ => null };
+        // 穿越政体废执委会改元老院内阁以后，首领称元老院主席(见 TransmigrantSystem)
+        if (officeType == 0 && regime == RegimeType.Transmigrant && TransmigrantSystem.StageOf(owner) >= 5 && LM.Has(key + "_cabinet"))
+            return key + "_cabinet";
         // 元首制：帝国核心的首领称元首(见 Empire.IsPrincipate)
         if (officeType == 0 && regime == RegimeType.ClassicalRepublic && owner?.GetEmpire() is Empire ownerEmpire &&
             ownerEmpire.CoreKingdom == owner && ownerEmpire.IsPrincipate() && LM.Has(key + "_principate")) key += "_principate";
@@ -189,6 +192,8 @@ public static class DynastyNaming
         Regime regime = kingdom?.GetRegime();
         if (regime == null) return null;
         if (regime.type == RegimeType.ZhouFeudalism || HuaxiaOrigin(kingdom)) return "city_suffix_yi";
+        // 穿越政体元老院内阁以后：都城与经济重镇设特别市(见 TransmigrantSystem.SpecialCity)
+        if (regime.type == RegimeType.Transmigrant && TransmigrantSystem.SpecialCity(city)) return "city_suffix_special_city";
         if (regime.type == RegimeType.LvLing && kingdom.GetKingdomType() != KingdomType.LvLing_jimizhou &&
             StageOf(kingdom) == HuaxiaCourtStage.Han) return "city_suffix_commandery";
         return null;

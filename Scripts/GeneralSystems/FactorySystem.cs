@@ -250,7 +250,7 @@ public static class FactorySystem
         float value = 0f;
         foreach (FactorySite site in InCity(city))
             foreach (FactoryUnit unit in site.units)
-                value += ValueOf(unit);
+                value += ValueOf(unit) * CommodityMarketSystem.FactoryFactor(city, unit.type);
         if (value <= 0f) return;
         // 记进工业那一栏(交工业税，官营的那份利润从这里拿，见 EnterpriseSystem.TakePublicProfit)
         float made = value * years;

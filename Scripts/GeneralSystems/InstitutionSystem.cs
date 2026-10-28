@@ -889,6 +889,11 @@ public static partial class InstitutionSystem
             reason = "institution_reform_requires_composite_empire";
             return false;
         }
+        if (node.requires_cities > 0 && RealmCityCount(realm) < node.requires_cities)
+        {
+            reason = "institution_reform_requires_cities";
+            return false;
+        }
         if (node.exclusive_with.Any(cultureState.enacted_node_ids.Contains))
         {
             reason = "institution_reform_exclusive";
@@ -1494,13 +1499,18 @@ public static partial class InstitutionSystem
     private static IEnumerable<InstitutionNodeConfig> GetForLine(string culture) =>
         InstitutionDefinitionRegistry.GetForLine(GetCultureLine(culture));
 
+    // 推制度的政权有几座城(帝国按全帝国)
+    private static int RealmCityCount(InstitutionRealm realm) => realm.IsEmpire
+        ? realm.Empire.kingdoms_list?.Where(kingdom => kingdom != null && !kingdom.isRekt()).Sum(kingdom => kingdom.cities?.Count ?? 0) ?? 0
+        : realm.Kingdom?.cities?.Count ?? 0;
+
     // 与帝国改革同样的门槛(本线、未确立、未被取代、前置、技术、互斥、禁止近代化)，
     // 意识形态车道与需要复合帝国的制度除外——那些必须由政权推动
     private static bool IsDriftCandidate(string culture, CultureInstitutionState state, InstitutionNodeConfig node)
     {
         if (node == null || !InstitutionDefinitionRegistry.IsValid(node)) return false;
         if (node.branch == IdeologyBranch || IdeologyInstitutionPaths.TryGetIdeology(node.branch, out _)) return false;
-        if (node.requires_composite_empire) return false;
+        if (node.requires_composite_empire || node.requires_cities > 0) return false;
         if (state.enacted_node_ids.Contains(node.id) || IsSuperseded(state, node.id)) return false;
         if (!InstitutionDefinitionRegistry.ArePrerequisitesMet(node, id => IsPrerequisiteHeld(state, id))) return false;
         if (node.exclusive_with.Any(state.enacted_node_ids.Contains)) return false;

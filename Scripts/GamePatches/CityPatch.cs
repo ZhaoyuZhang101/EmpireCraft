@@ -1830,6 +1830,9 @@ public class CityPatch : GamePatch
     {
         if (StateSettlementSystem.CreatingCity) return; // 国家移民安置完毕后再处理城邦独立。
         if (CityPlacementSystem.Placing) return; // 营建页「建城」：新城归所点地方的国家，不独立、不分部落
+        if (TransmigrantSystem.Landing) return; // 穿越降临：落脚的城就是新国家的都城(见 TransmigrantSystem.Land)
+        if (ColonySystem.Founding) return; // 殖民船建的城：编进殖民地(见 ColonySystem.Arrive)
+        if (EmpireCraft.Scripts.GeneralSystems.WorldMap.WorldMapScenario.Building) return; // 世界地图开局摆城：按时代格局归国，不分部落、不分殖民城邦
         if (__result == null || EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__result)) return;
         CityStateService.OnCityBuilt(__result, pActor);
         // 部落、方国的族人新建的城分出去成为新部落(见 TribalFissionService)

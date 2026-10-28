@@ -12,6 +12,7 @@ public static class EmpireCraftWorldLawLibrary
     public static WorldLawAsset world_law_civ_limit_population_50;
     public static WorldLawAsset world_law_civ_limit_population_20;
     public static WorldLawAsset empirecraft_law_realistic_age;
+    public static WorldLawAsset empirecraft_law_transmigrant_arrival;
     public static WorldLawAsset empirecraft_law_prevent_city_destroy;
     public static WorldLawAsset empirecraft_law_ban_empire;
     public static WorldLawAsset empirecraft_law_simplify_nameplates;
@@ -69,6 +70,14 @@ public static class EmpireCraftWorldLawLibrary
             group_id = "EmpireCraftCommonSetting",
             icon_path = "ui/Icons/actor_traits/iconDeathMark",
             default_state = true
+        });
+        //穿越者随机降临(见 TransmigrantSystem.TryRandomArrival)
+        AssetManager.world_laws_library.add(empirecraft_law_transmigrant_arrival = new WorldLawAsset()
+        {
+            id = nameof(empirecraft_law_transmigrant_arrival),
+            group_id = "EmpireCraftCommonSetting",
+            icon_path = "ui/icons/godpowers/transmigrant_landing",
+            default_state = false
         });
         //阻止城市毁灭
         AssetManager.world_laws_library.add(empirecraft_law_prevent_city_destroy= new WorldLawAsset()

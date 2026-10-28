@@ -194,6 +194,8 @@ public sealed class InstitutionNodeConfig
     public int advancement = 1;
     // 某些游牧制度只有完成多元帝国整合后才具备实施条件。
     public bool requires_composite_empire = false;
+    // 本国(帝国按全帝国)至少有几座城才能推行：穿越政体的县治、立国等阶段(见 InstitutionTrees/Aosong.json)；0 不限
+    public int requires_cities = 0;
     // 这个制度对应的政体形态（RegimeType 名，留空表示"不改变政体"）。
     //
     // 两个用途：①一条线的**根节点**（等级 1）声明的政体，就是该线所有文化的**初始政体**

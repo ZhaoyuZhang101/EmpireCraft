@@ -533,6 +533,8 @@ public class WarPatch: GamePatch
         if (__result.data != null)
             __result.data.name = WorldLogNamePatch.UseDisplayNames(__result.data.name,
                 __result.main_attacker, __result.main_defender);
+        // 华夏诸国打穿越政体：剿髡(见 TransmigrantSystem.NameWar)
+        TransmigrantSystem.NameWar(__result);
         ExpandFeudalWar(__result);
         RecordWarDeclared(__result);
         DetachHostileTributaries(__result);
@@ -580,6 +582,8 @@ public class WarPatch: GamePatch
         // Native joins only check the destination list; alliance auto-joining can otherwise
         // put one polity on both sides, even when feudal expansion itself filters correctly.
         var opposite = attackers ? war.data.list_defenders : war.data.list_attackers;
+        // 不站到自己宗主、自己殖民地的对面(见 ColonySystem)
+        if (ColonySystem.JoinsAgainstKin(war, kingdom, attackers)) return false;
         return opposite?.Contains(kingdom.id) != true;
     }
 

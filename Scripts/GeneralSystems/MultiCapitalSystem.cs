@@ -107,6 +107,10 @@ public static partial class MultiCapitalSystem
         EmpireCore lead = RealmLead(empire);
         City main = empire.CoreKingdom.capital;
         if (lead == null || main == null) return new List<(EmpireCore, City)>();
+        // 迁过都的(明成祖迁北京)：本帝国法理的旧都留作陪京，排在最前(南京)
+        City old = own == null || own.former_capital < 0 ? null : World.world?.cities?.get(own.former_capital);
+        if (old?.data != null && !old.isRekt() && old != main && old.kingdom?.GetEmpire() == empire)
+            result.Add((own, old, int.MaxValue));
         foreach (EmpireCore core in TianxiaSystem.Members(lead))
         {
             if (core == own || !RealmNamingSystem.IsFormalCore(core)) continue;

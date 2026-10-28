@@ -9,6 +9,8 @@ public static class RealmDiplomacySystem
     public static bool CanChooseOverlord(Kingdom kingdom)
     {
         if (kingdom == null || kingdom.isRekt()) return false;
+        // 殖民地只认自己的宗主国(见 ColonySystem)
+        if (ColonySystem.IsColony(kingdom)) return false;
         if (kingdom.IsEmpire()) return true;
         var empire = kingdom.GetEmpire();
         if (kingdom.IsAdministrativeKingdomType() || (empire != null && kingdom.GetOrCreate().AdministrativeTitle >= 0)) return false;

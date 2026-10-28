@@ -63,6 +63,7 @@ public static class VassalColorService
             if (subject?.data == null || subject.isRekt()) continue;
             Kingdom lord = FeudalVassalService.GetOverlord(subject);
             if (lord == null && subject.HasTakenAlliance()) lord = subject.GetTakenAllianceEmpire()?.CoreKingdom;
+            lord ??= ColonySystem.MetropoleOf(subject);
             if (lord == null || lord.isRekt()) continue;
             if (IsComposite(subject._cached_color)) continue;
             Apply(subject, lord);

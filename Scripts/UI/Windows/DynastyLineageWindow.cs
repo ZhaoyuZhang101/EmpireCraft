@@ -423,6 +423,7 @@ public class DynastyLineageWindow : AbstractWideWindow<DynastyLineageWindow>
     {
         if (history == null) return null;
         if (!string.IsNullOrEmpty(history.miaohao_name)) return LM.Get(history.miaohao_name) + LM.Get(history.miaohao_suffix);
+        if (history.shihao_name == PosthumousNameGenerator.ScriptedTitle) return PosthumousNameGenerator.ShiTitle(history);
         if (!string.IsNullOrEmpty(history.shihao_name)) return history.empire_name + LM.Get(history.shihao_name) + LM.Get("emperor_suffix");
         return history.emperor;
     }

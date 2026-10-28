@@ -61,6 +61,7 @@ public static partial class InstitutionSystem
         "institution_reform_missing_requirement",
         "institution_reform_premodern",
         "institution_reform_requires_composite_empire",
+        "institution_reform_requires_cities",
         "institution_reform_exclusive"
     };
 

@@ -214,7 +214,8 @@ public static class FeudalVassalService
         if (subject?.data == null || subject.isRekt()) return;
         if (subject.GetOrCreate().feudal_overlord_kingdom_id < 0)
         {
-            Kingdom suzerain = subject.HasTakenAlliance() ? subject.GetTakenAllianceEmpire()?.CoreKingdom : null;
+            Kingdom suzerain = subject.HasTakenAlliance() ? subject.GetTakenAllianceEmpire()?.CoreKingdom
+                : ColonySystem.MetropoleOf(subject);
             if (suzerain != null) VassalColorService.Apply(subject, suzerain);
             else VassalColorService.Clear(subject);
             return;
@@ -519,7 +520,7 @@ public static class FeudalVassalService
     {
         if (attacker == null || target == null || attacker == target || !target.isAlive() ||
             attacker.IsInSameEmpire(target) || RoyalMarriageSystem.Allied(attacker, target) ||
-            IsInChain(attacker, target) || IsInChain(target, attacker) ||
+            IsInChain(attacker, target) || IsInChain(target, attacker) || ColonySystem.Bound(attacker, target) ||
             attacker.king != null && attacker.king == target.king ||
             attacker.hasAlliance() && attacker.getAlliance() == target.getAlliance()) return false;
         Kingdom attackerRoot = GetFeudalRoot(attacker);
@@ -646,6 +647,8 @@ public static class FeudalVassalService
 
     public static void ResolveIndependenceWar(War war, WarWinner winner)
     {
+        // 殖民地起兵独立(见 ColonySystem)
+        ColonySystem.ResolveIndependenceWar(war, winner);
         if (war?.GetEmpireWarType() != EmpireWarType.附庸独立 || winner != WarWinner.Attackers) return;
         Kingdom subject = war.getMainAttacker();
         if (GetOverlord(subject) == war.getMainDefender()) Break(subject);
@@ -669,6 +672,8 @@ public static class FeudalVassalService
             Kingdom current = queue.Dequeue();
             if (current == null || current.isRekt() || !visited.Add(current.id)) continue;
             var followers = GetDirectVassals(current).ToList();
+            // 殖民地随宗主出征(殖民地自己的独立战争除外，见 ColonySystem)
+            if (!ColonySystem.IsIndependenceWar(war)) followers.AddRange(ColonySystem.ColoniesOf(current));
             // 帝国：只有中央自己的仗，听命于中央的成员才随征；成员的仗中央不插手(要求援，见 MemberWarAid)，
             // 有自主外交的诸侯、藩镇看好感自己决定(见 CheckJoinWar)；战国周室不再号令诸侯。
             // 封建帝国别国打上门、中央是主守方时，诸侯也随征(用户 2026-10-21 选"称帝后动员不变差"，见 EmpirePeacePatch.FollowsIntoWar)
@@ -678,9 +683,13 @@ public static class FeudalVassalService
                 !MemberWarAid.IsMemberWar(war, empire, attackers) && ZhouEraSystem.Era(empire) < ZhouEraSystem.Warring)
                 followers.AddRange(empire.kingdoms_list.Where(member => member != null && member != current &&
                     EmpirePeacePatch.FollowsIntoWar(empire, member, war) && !EmpirePeacePatch.HasLeft(member, war, attackers)));
-            bool directIndependence = GetOverlord(war.getMainAttacker()) == war.getMainDefender();
+            bool directIndependence = GetOverlord(war.getMainAttacker()) == war.getMainDefender() ||
+                                      ColonySystem.IsIndependenceWar(war);
             if (!attackers && !directIndependence && GetOverlord(current) is Kingdom protector)
                 followers.Add(protector);
+            // 宗主保护殖民地
+            if (!attackers && !directIndependence && ColonySystem.MetropoleOf(current) is Kingdom metropole)
+                followers.Add(metropole);
             if (current.king != null) followers.AddRange(PersonalUnionService.GetRealms(current.king));
             foreach (Kingdom follower in followers)
             {

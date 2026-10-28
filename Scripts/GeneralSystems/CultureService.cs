@@ -103,6 +103,7 @@ public static class CultureService
             // Old saves only knew a species-to-template association. This is migration-only.
             culture = OverallHelperFunc.GetCultureFromSpecies(kingdom.getSpecies());
         }
+        culture = TransmigrantSystem.AdoptableCulture(kingdom, culture);
         if (IsValidCulture(culture)) data.realm_culture = culture;
         return culture;
     }
@@ -161,6 +162,8 @@ public static class CultureService
     public static bool SetRealmCulture(Kingdom kingdom, string culture, bool updatePoliticalSystem = false,
         bool allowLegacyInstitutions = true, string previousInstitutionCulture = null, bool activeReform = false)
     {
+        // 澳洲人文化只归穿越政权与它的殖民地(见 TransmigrantSystem.AdoptableCulture)
+        culture = TransmigrantSystem.AdoptableCulture(kingdom, culture);
         if (kingdom?.data == null || kingdom.isRekt() || !IsValidCulture(culture)) return false;
         KingdomExtension.KingdomExtraData data = kingdom.GetOrCreate();
         bool changed = !string.Equals(data.realm_culture, culture, StringComparison.Ordinal);
@@ -257,6 +260,7 @@ public static class CultureService
     //   · 律令：政体类型的默认值(枚举首项)就是律令，没装过政体的国家(立国时文化还没定下、或别处先调了 GetRegime)一取政体
     //     就按默认装成律令制；而政体迁移遇到原始政体的目标一律跳过(见 InstitutionSystem.TryAdvanceRegimeTransition)，
     //     开局各文化还在原始政体，这些国家就一直是律令制(玩家 2026-10-22 反馈"全图律令制")。
+    //     读进来的旧档要等补记完制度才判断(见 TechnologySystem.AwaitingRegimeBackfill)。
     // 正常改革、手动指定、共和锁定、复合帝国的区域制度、水土改制另有规则，都不动
     public static void RepairDefaultRegime(Kingdom kingdom)
     {
@@ -269,6 +273,9 @@ public static class CultureService
         // 旧制犹存的按旧制所属文化看(旧制本身的政体不算污染)；帝国核心按帝国的制度文化(见 GetRegimeCulture)
         string culture = GetRegimeCulture(kingdom);
         if (!IsValidCulture(culture)) return;
+        // 旧档(制度还没跟政体挂钩的版本)的律令制是真推行过的：等科技那边按现行政体补记完制度再判断，
+        // 以前读档先把律令改回原始政体，补记时就只剩原始政体，整张旧图的国家都退成了部落
+        if (TechnologySystem.AwaitingRegimeBackfill(culture)) return;
         RegimeType polluted = data.regimeType;
         if (polluted == RegimeType.LvLing ? !DefaultLvLing(kingdom, data, culture) : !DefaultArabic(culture)) return;
         if (!ApplyCulturePoliticalSystem(kingdom, culture) || data.regimeType == polluted) return;

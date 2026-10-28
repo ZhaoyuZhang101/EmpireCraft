@@ -321,9 +321,11 @@ public class ActorPatch : GamePatch
             }
         }
     }
-    public static void Die(Actor __instance, bool pDestroy = false, AttackType pType = AttackType.Other, bool pCountDeath = true,
+    public static bool Die(Actor __instance, bool pDestroy = false, AttackType pType = AttackType.Other, bool pCountDeath = true,
         bool pLogFavorite = true)
     {
+        // 穿越政权的元老几乎杀不死：挡下的不死，后面的身后事都不做(见 TransmigrantSystem.Shield)
+        if (TransmigrantSystem.Shield(__instance, pType, pCountDeath)) return false;
         // Vanilla only unloads passengers from the boat's death callbacks, which run
         // when it is killed by damage. A direct die()/dieAndDestroy() skips them and
         // leaves passengers pointing at a disposed boat (NRE in u1_checkInside).
@@ -331,18 +333,20 @@ public class ActorPatch : GamePatch
         {
             __instance.getSimpleComponent<Boat>()?.unloadPassengers(__instance.current_tile, pRandomForce: true);
         }
-        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return true;
         // 舰队旗舰(原版运兵船)沉没
         NavySystem.OnFlagshipDied(__instance);
         // 动物、怪物没有官职爵位族谱：直接跳过(一次清掉几万只时，逐个遍历各帝国内阁会卡死)
         if (__instance.asset != null && !__instance.asset.civ && !__instance.isKing() &&
-            __instance.GetPersonalIdentity() == null) return;
+            __instance.GetPersonalIdentity() == null) return true;
         // 无小人模式：征召兵战死，他代表的军团一并从人口里扣掉
         CityPopulationSystem.OnSoldierDied(__instance);
         CorpsSystem.OnGeneralDied(__instance);
         // 名将名臣：已成名的转入青史，候选清掉(见 FamousTalentSystem)
         FamousTalentSystem.OnActorDied(__instance, pType);
         VirtualGenealogySystem.OnActorDied(__instance, pType);
+        // 元老故去：元老院席位由子女继承(见 TransmigrantSystem)
+        TransmigrantSystem.OnActorDied(__instance);
         Kingdom rulingKingdom = __instance.isKing() ? __instance.kingdom : null;
         if (rulingKingdom != null)
             rulingKingdom.GetOrCreate().last_ruler_identity_id = __instance.GetPersonalIdentity()?.id ?? -1L;
@@ -443,6 +447,7 @@ public class ActorPatch : GamePatch
         // 头衔/继承人交接逻辑先在王国领土还完整时跑完，再决定谁接手领土。
         __instance.TryResolveCityLeaderDeathAnnexation();
         __instance.TryResolveKingDeathAnnexation();
+        return true;
     }
 
     public static void UpdateAge(Actor __instance)

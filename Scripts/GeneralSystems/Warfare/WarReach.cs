@@ -45,6 +45,8 @@ public static class WarReach
     public static bool MayDeclare(Kingdom attacker, Kingdom defender, WarTypeAsset type)
     {
         if (attacker?.data == null || defender?.data == null || attacker == defender) return true;
+        // 宗主与殖民地、同一宗主的殖民地不开战(殖民地起兵独立、神力开战除外，见 ColonySystem)
+        if (!ExemptType(type) && !ColonySystem.Rising && ColonySystem.Bound(attacker, defender)) return false;
         if (ExemptType(type) || Related(attacker, defender) || Young(attacker)) return true;
         if (Reachable(attacker, defender)) return true;
         string caller = Caller();
@@ -64,6 +66,7 @@ public static class WarReach
         Empire empire = a.GetEmpire();
         if (empire != null && !empire.isRekt() && empire == b.GetEmpire()) return true;
         if (FeudalVassalService.GetOverlord(a) == b || FeudalVassalService.GetOverlord(b) == a) return true;
+        if (ColonySystem.MetropoleOf(a) == b || ColonySystem.MetropoleOf(b) == a) return true;
         return LeftFrom(a, b) || LeftFrom(b, a);
     }
 

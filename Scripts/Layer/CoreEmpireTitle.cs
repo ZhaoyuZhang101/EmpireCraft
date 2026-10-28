@@ -14,6 +14,8 @@ public class EmpireCore
     public string name { get; set; }
     public double create_timestamp { get; set; }
     public long CoreCapital { get; set; }
+    // 迁都前的都城(营宫殿迁都时记下；世界地图剧本里明的南京)：留都，行多京时作陪京(见 MultiCapitalSystem.CandidateCapitals)；-1 没有
+    public long former_capital { get; set; } = -1L;
     public List<(double time, long titleId)> titlesRecord;
     public List<long> empire_history_ids = new List<long>();
     // —— 军阀时期(见 WarlordEraSystem) ——

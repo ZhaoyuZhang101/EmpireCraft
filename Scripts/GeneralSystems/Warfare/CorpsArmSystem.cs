@@ -158,7 +158,15 @@ public static class CorpsArmSystem
         }
     }
 
-    public static Arm UpgradeOf(CorpsData corps) => corps == null || corps.militia ? Arm.Militia : Upgrade(Of(corps), Culture(corps));
+    // 换装要的物资(军械、硝石、钢、石油、橡胶)本国市场缺过一半就换不了(见 CommodityMarketSystem.CanEquip)
+    public static Arm UpgradeOf(CorpsData corps)
+    {
+        if (corps == null || corps.militia) return Arm.Militia;
+        Arm current = Of(corps), next = Upgrade(current, Culture(corps));
+        if (next == current) return current;
+        Kingdom kingdom = World.world?.kingdoms?.get(corps.kingdom_id);
+        return CommodityMarketSystem.CanEquip(kingdom, next.ToString()) ? next : current;
+    }
 
     public static bool CanRefit(CorpsData corps) => corps != null && !corps.militia && UpgradeOf(corps) != Of(corps);
 

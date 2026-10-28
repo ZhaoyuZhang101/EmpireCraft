@@ -19,7 +19,9 @@ public static class EmpireCoreControl
     {
         if (kingdom == null || kingdom.isRekt()) return null;
         // 往上找宗主(至多 16 层防循环；天下结算、图层每帧大量调用，不再每次新建集合)
-        for (int hops = 0; hops < 16 && FeudalVassalService.GetOverlord(kingdom) is Kingdom lord && lord != kingdom; hops++)
+        // 殖民地也往上算到宗主国(见 ColonySystem)
+        for (int hops = 0; hops < 16 && (FeudalVassalService.GetOverlord(kingdom) ?? ColonySystem.MetropoleOf(kingdom)) is Kingdom lord &&
+                           lord != kingdom; hops++)
             kingdom = lord;
         Empire empire = kingdom.GetEmpire();
         return empire != null && !empire.isRekt() && !empire.IsArchived() && empire.CoreKingdom != null

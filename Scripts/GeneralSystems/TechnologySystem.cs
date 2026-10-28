@@ -401,6 +401,10 @@ public static class TechnologySystem
     // 这个世界是读档读进来的(不是新开的)：读档后各文化按现行政体补记一次制度与科技(见 BackfillRegimes)
     private static bool _loadedFromSave;
 
+    // 读进来的旧档，这个文化还没按各国现行政体补记过制度(补记在读档后第一次科技扫描里，见 BackfillRegimes)
+    public static bool AwaitingRegimeBackfill(string culture) =>
+        _loadedFromSave && !(_states.TryGetValue(culture ?? "", out CultureTechState state) && state.regime_line);
+
     public static void ImportStates(Dictionary<string, CultureTechState> states)
     {
         ResetWorldState();
@@ -1511,7 +1515,9 @@ public static class TechnologySystem
                 float progress = GetProgress(culture, target.id);
                 float used = Math.Min(share, Math.Max(0f, cost - progress));
                 spent += used;
-                if (progress + used < cost) state.tech_progress[target.id] = progress + used;
+                // 离不开的物资本国市场缺，研究进度打折(点数照扣，见 CommodityMarketSystem.ResearchFactor)
+                float gain = used * CommodityMarketSystem.ResearchFactor(culture, target.id);
+                if (progress + gain < cost) state.tech_progress[target.id] = progress + gain;
                 else
                 {
                     bool worldFirst = !_states.Any(pair => pair.Key != culture && pair.Value.researched_techs.Contains(target.id));
@@ -1662,13 +1668,14 @@ public static class TechnologySystem
             float cost = GetCost(culture, tech);
             float progress = GetProgress(culture, techId);
             used = Math.Min(budget, Math.Max(0f, cost - progress));
-            if (progress + used >= cost)
+            float gain = used * CommodityMarketSystem.ResearchFactor(culture, techId);
+            if (progress + gain >= cost)
             {
                 bool worldFirst = !_states.Any(pair => pair.Key != culture && pair.Value.researched_techs.Contains(techId));
                 CompleteTech(culture, techId);
                 OnResearched(culture, tech, worldFirst, cities);
             }
-            else state.tech_progress[techId] = progress + used;
+            else state.tech_progress[techId] = progress + gain;
         }
         state.research_bank -= used;
         PayFor(cities, used, automatic);

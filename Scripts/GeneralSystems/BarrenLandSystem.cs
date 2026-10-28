@@ -18,7 +18,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     原有的村镇荒废、房屋拆掉(每月一批，见 Clear)；
 //   · 归属：游牧营地收沙漠与冻土，斯拉夫文化的城收冻土，阿拉伯文化的城收沙漠("沙地也可以加给阿拉伯")。
 //     挨着这种地的这类城直接领下，不必先立村镇(见 Claim)：
-//     无主的谁挨着、城心离得最近谁领(隔水翻山走不到的不领，关了国家扩张的世界法则不领)；
+//     无主的谁挨着、城心离得最近谁领(隔水翻山走不到的不领，关了国家扩张的世界法则不领，挨着的别国城更近的留给别国)；
 //     有主的只给本国的(这类城自己的不动，城心、被敌军占着的、划走会把那座城断开的也不动)；
 //     能领到常规地块上限的 2 倍(超出常规上限的只能是这种地，原版扩张照旧停在常规上限)，离城心的远近也放宽到 2 倍；
 //     倍数在模组设置里调(BARREN_ZONE_MULTIPLIER)。
@@ -155,7 +155,7 @@ public static class BarrenLandSystem
                 City holder = zone.city;
                 if (holder == null)
                 {
-                    if (!expansion || !CityExpansionPatch.Reachable(zone, city)) continue;
+                    if (!expansion || !CityExpansionPatch.Reachable(zone, city) || ForeignCloser(city, zone)) continue;
                 }
                 else if (!Transferable(holder, zone, city, kind)) continue;
                 // 挨着它的这类城里城心离得最近的来领
@@ -208,6 +208,22 @@ public static class BarrenLandSystem
             if (seat != null && Distance(seat, zone) < mine) return false;
         }
         return true;
+    }
+
+    // 挨着别国城的无主地，那座别国城的城心比 taker 近就留给它(用户 2026-10-28 "外长可以，但是不要把别国的土地也给吞了")：
+    // 以前只跟收这种地的城比远近，游牧营地放宽了两倍远近，别国城门口的无主沙漠也一并圈走
+    private static bool ForeignCloser(City taker, TileZone zone)
+    {
+        float mine = Distance(taker.getTile(), zone);
+        if (zone.neighbours_all == null) return false;
+        foreach (TileZone next in zone.neighbours_all)
+        {
+            City other = next?.city;
+            if (other?.data == null || other.isRekt() || other.kingdom == taker.kingdom) continue;
+            WorldTile seat = other.getTile();
+            if (seat != null && Distance(seat, zone) <= mine) return true;
+        }
+        return false;
     }
 
     private static float Distance(WorldTile seat, TileZone zone)

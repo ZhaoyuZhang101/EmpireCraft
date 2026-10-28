@@ -181,6 +181,9 @@ public static class WarCatalog
 
     private static string Compose(War war)
     {
+        // 华夏诸国打穿越政权：剿髡(见 TransmigrantSystem.WarName)
+        string kun = TransmigrantSystem.WarName(war);
+        if (kun != null) return kun;
         WarExtension.WarExtraData data = war.GetOrCreate();
         string attacker = Display(war.main_attacker), defender = Display(war.main_defender);
         string main = WarObjective.Main(data)?.GetCityName() ?? war.main_defender?.capital?.GetCityName() ?? "";

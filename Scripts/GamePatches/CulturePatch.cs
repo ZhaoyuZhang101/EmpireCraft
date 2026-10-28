@@ -383,6 +383,15 @@ public class CulturePatch : GamePatch
                 continue;
             }
 
+            // "别的文化:词库名"：借用那个文化的词库(如澳洲人用现代中国的人名，见 Culture_Aosong)
+            if (value.IndexOf(':') > 0)
+            {
+                List<string> words = PartySystem.GetCultureWordPool(culture, value);
+                if (words.Count == 0) return null;
+                groups = groups.Append((key, null, string.Join(" ", words))).ToArray();
+                continue;
+            }
+
             string ModPath = Path.Combine(ModClass._declare.FolderPath, "Locales");
             string culturePath = Path.Combine(ModPath, "Cultures", $"Culture_{culture}");
             string CharacterSetPath = Path.Combine(culturePath, String.Format("{0}{1}.csv", culture, value));
