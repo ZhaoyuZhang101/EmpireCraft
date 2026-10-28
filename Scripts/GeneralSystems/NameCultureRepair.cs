@@ -84,6 +84,18 @@ public static class NameCultureRepair
                                                              line.Length > 0 && owner.GetInstitutionLine() == line);
     }
 
+    // 这个名字出自某条文明线(制度线)的国名词库(连同去掉"国"字的)
+    public static bool FromLine(string name, string line)
+    {
+        if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(line)) return false;
+        Dictionary<string, HashSet<string>> owners = Owners();
+        string trimmed = name.Trim();
+        foreach (string candidate in new[] { trimmed, trimmed.TrimEnd('国', '國') })
+            if (candidate.Length > 0 && owners.TryGetValue(candidate, out HashSet<string> set) &&
+                set.Any(owner => owner.GetInstitutionLine() == line)) return true;
+        return false;
+    }
+
     // 按这个文化的国号规则起一个合本文化的名字；起不出返回 null
     private static string Fresh(string culture)
     {

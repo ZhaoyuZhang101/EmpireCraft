@@ -695,23 +695,71 @@ public static partial class CompositeEmpireService
         institutionalShare = total > 0d ? (float)(institutional / total) : 0f;
     }
 
+    // 朝廷用中原制度的外族王朝(用户 2026-10-27："明明使用了中原制度却又不改国号还顶着游牧名称")：复合帝国走兼用、从俗
+    // (分治的朝廷照本族旧制，不算)、制度文化是华夏一系；或不是复合帝国，制度文化是华夏一系而统治文化不是
+    private static bool CentralPlainsCourt(Empire empire, out string culture)
+    {
+        culture = null;
+        Kingdom core = empire?.CoreKingdom;
+        if (core?.data == null || core.isRekt()) return false;
+        if (IsComposite(empire))
+        {
+            culture = GetInstitutionalCulture(empire);
+            return GetRoute(empire) != RouteDual && InstitutionSystem.GetCultureLine(culture) == "Huaxia";
+        }
+        culture = CultureService.GetInstitutionCulture(core);
+        return InstitutionSystem.GetCultureLine(culture) == "Huaxia" &&
+               InstitutionSystem.GetCultureLine(CultureService.GetRealmCulture(core)) != "Huaxia";
+    }
+
+    // 国号是华夏选号规则定的(法理名、复国、起义旗号、篡位者封国、美号；见 RealmNamingSystem)：华夏人在华夏法理下称帝，
+    // 文化算出来是游牧也不再改成美号(用户 2026-10-27："华夏人在华夏法理下称帝也会因为文化是游牧……莫名其妙的用美号")
+    private static bool HuaxiaFounded(Empire empire) =>
+        empire.data.name_source is RealmNamingSystem.SourceKingdomTitle or RealmNamingSystem.SourceEmpireTitle or
+            RealmNamingSystem.SourceRestoration or RealmNamingSystem.SourceRebelBanner or RealmNamingSystem.SourceUsurper or
+            RealmNamingSystem.SourceGrandName;
+
+    // 国号已是汉名(出自华夏国名词库、美号词库)
+    private static bool HanName(string name, string culture) =>
+        !string.IsNullOrWhiteSpace(name) &&
+        (NameCultureRepair.FromLine(name, "Huaxia") || !string.IsNullOrWhiteSpace(RealmNamingSystem.GrandNameMeaning(culture, name)));
+
     public static bool TryAdoptInstitutionalCultureName(Empire empire)
     {
-        if (!IsComposite(empire) || empire.data.composite_cultural_name_adopted || GetRoute(empire) == RouteDual ||
-            empire.data.composite_integration < CulturalNameIntegrationThreshold ||
-            empire.CoreKingdom?.data == null || empire.CoreKingdom.isRekt() ||
+        // 朝廷用了中原制度就当场改号，不等融合度(以前要融合度到 60、分治的永远不改，外族王朝顶着游牧国号用中原制度好些年)；
+        // 别的制度线照旧等融合度
+        bool central = CentralPlainsCourt(empire, out string courtCulture);
+        if (!central && (!IsComposite(empire) || GetRoute(empire) == RouteDual ||
+                         empire.data.composite_integration < CulturalNameIntegrationThreshold))
+            return false;
+        if (empire.data.composite_cultural_name_adopted || empire.CoreKingdom?.data == null || empire.CoreKingdom.isRekt() ||
             empire.CoreKingdom.HasCustomCountryNaming())
         {
             return false;
         }
 
-        string culture = GetInstitutionalCulture(empire);
+        string culture = central ? courtCulture : GetInstitutionalCulture(empire);
         if (!CultureService.IsValidCulture(culture)) return false;
-        // 入主中原采纳中原制度(兼用、从俗)：改用美号(见 RealmNamingSystem.Founding)
-        string grand = RealmNamingSystem.ConquestGrandName(empire, culture);
-        CulturalNameCandidate candidate = !string.IsNullOrWhiteSpace(grand)
-            ? NewNameCandidate(grand, "grand_name")
-            : SelectInstitutionalCultureName(empire, culture);
+        // 国号本来就是汉名的(入主前就用着中原的法理名、美号)：不改，记下即可
+        if (central && (HanName(empire.data.core_name, culture) || HuaxiaFounded(empire)))
+        {
+            empire.data.composite_cultural_name_adopted = true;
+            empire.data.composite_cultural_name = empire.GetEmpireName();
+            empire.data.composite_cultural_name_culture = culture;
+            empire.data.composite_cultural_name_source = "han_name";
+            empire.data.composite_cultural_name_adopted_timestamp = World.world?.getCurWorldTime() ?? -1L;
+            return true;
+        }
+        // 入主中原采纳中原制度(兼用、从俗)：主法理本有汉名的直接沿用(用户 2026-10-27："如果那个异族的主法理原本就有漢名直接延用就好")，
+        // 没有才改用美号(见 RealmNamingSystem.Founding)
+        CulturalNameCandidate candidate = HanTitleName(empire, culture);
+        if (candidate == null)
+        {
+            string grand = RealmNamingSystem.ConquestGrandName(empire, culture);
+            candidate = !string.IsNullOrWhiteSpace(grand)
+                ? NewNameCandidate(grand, "grand_name")
+                : SelectInstitutionalCultureName(empire, culture);
+        }
         if (candidate == null || string.IsNullOrWhiteSpace(candidate.Name)) return false;
 
         string oldName = empire.GetEmpireName();
@@ -725,8 +773,53 @@ public static partial class CompositeEmpireService
         empire.data.composite_cultural_name_source = candidate.Source;
         empire.data.composite_cultural_name_adopted_timestamp = World.world?.getCurWorldTime() ?? -1L;
         if (!string.Equals(oldName, adoptedName, StringComparison.Ordinal))
+        {
             TranslateHelper.LogCompositeEmpireCulturalNameAdopted(empire, adoptedName, culture);
+            NoticeConquestName(empire, oldName, adoptedName, culture, candidate.Source);
+        }
         return true;
+    }
+
+    // 主法理的汉名：主法理在华夏文化里的旧称；或主法理本身就是华夏一系的王国法理(名字出自华夏国名词库、法理文化是华夏一系)。
+    // 有现存帝国在用这个名字的不取
+    private static CulturalNameCandidate HanTitleName(Empire empire, string culture)
+    {
+        if (InstitutionSystem.GetCultureLine(culture) != "Huaxia") return null;
+        KingdomTitle main = empire.CoreKingdom.GetMainTitle();
+        if (main?.data == null || main.isRekt()) main = empire.CoreKingdom.capital?.GetTitle();
+        if (main?.data == null || main.isRekt()) return null;
+        string historic = CultureService.GetTitleCulturalName(main, culture);
+        string own = EmpireCoreManager.NormalizeCoreName(main.data.name);
+        bool han = !string.IsNullOrWhiteSpace(own) &&
+                   (InstitutionSystem.GetCultureLine(CultureService.GetEffectiveTitleCulture(main)) == "Huaxia" ||
+                    NameCultureRepair.FromLine(own, "Huaxia"));
+        string name = !string.IsNullOrWhiteSpace(historic) ? historic.Trim() : han ? own : null;
+        if (string.IsNullOrWhiteSpace(name) || ModClass.EMPIRE_MANAGER?.Any(other => other?.data != null && other != empire &&
+                !other.isRekt() && !other.IsArchived() && string.Equals(other.GetEmpireName(), name, StringComparison.Ordinal)) == true)
+            return null;
+        return NewNameCandidate(name, "main_title_han");
+    }
+
+    // 入主中原定国号的出处上屏幕(用户 2026-10-27："异族入主华夏取吉祥名字的时候也应该有提示，说明他的国号来源")：
+    // 美号写取义，沿用主法理的写沿用旧名，按所据之地改的写以地为号
+    private static void NoticeConquestName(Empire empire, string oldName, string newName, string culture, string source)
+    {
+        string text;
+        if (source == "grand_name")
+        {
+            string meaning = RealmNamingSystem.GrandNameMeaning(culture, newName);
+            // 美号显示连前缀"大"一起(有效国号是一个字)
+            if (!string.IsNullOrWhiteSpace(empire.data.directPre)) newName = LM.Get(empire.data.directPre) + newName;
+            text = string.Format(LM.Get(string.IsNullOrWhiteSpace(meaning) ? "conquest_name_grand_plain_notice" : "conquest_name_grand_notice"),
+                oldName, newName, meaning);
+        }
+        else if (source is "main_title_han" or "main_title_history")
+            text = string.Format(LM.Get("conquest_name_title_notice"), oldName, newName);
+        else
+            text = string.Format(LM.Get("conquest_name_land_notice"), oldName, newName);
+        TranslateHelper.LogMajor(text, empire.CoreKingdom);
+        empire.RecordHistory(directContent: text);
+        NeoModLoader.services.LogService.LogInfo($"[EmpireCraft][入主定号] {text}({source})");
     }
 
     private static CulturalNameCandidate SelectInstitutionalCultureName(Empire empire, string culture)

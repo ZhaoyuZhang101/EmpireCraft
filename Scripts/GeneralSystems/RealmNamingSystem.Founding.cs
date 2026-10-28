@@ -18,7 +18,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   ② 帝国法理：据有它三分之二、占着它的首府(旧都)、它眼下无主且这个名字没人在用 → 用帝国法理名；几个都够格取主法理所在的那个；
 //      名字已有人用、或它还归现存帝国 → 算挑战、僭越(建伪法理)，转③；挑战、去帝号战争、绝嗣裂土等非称帝剧情的不走这一步；
 //   ③ 自家王国法理名：主法理，其次都城所在的王国法理(据点)；起义军打了前朝旗号的用前朝号；
-//   ④ 美号："大"加一个吉字，取本文化美号词库(没有就用华夏的)，本天下用过的跳过；
+//   ④ 美号："大"加一个吉字，取本文化美号词库(没有就用华夏的)，本天下用过的跳过；有效国号是那一个字，"大"是前缀
+//      (directPre "great"，用户 2026-10-27："国号不是大什么什么的，大应该为前缀""有效国号就应该是一个字")；
 //   ⑤ 查重：本天下前朝(已亡帝国)用过的国号再用加"后"(世界法则「姓氏国号」开着时改加开国之君的姓，同姓用方位，方位也算不出加"后")；
 //      同时并存的同名照同名相争(见 RealmNamingSystem.Contest)。
 // 不论选哪个名都绑脚下的帝国法理(见 EmpireManager.NewEmpire)，帝国法理名第一次生成时定下，此后不改。
@@ -81,10 +82,10 @@ public static partial class RealmNamingSystem
             return new EmpireFoundingNameChoice(own, EmpireFoundingNameSource.MainTitle);
         }
         // ④ 美号
-        string grand = PickGrandName(CultureService.GetRealmCulture(kingdom), lead, kingdom.id);
+        string grand = PickGrandName(CultureService.GetRealmCulture(kingdom), lead, kingdom.id, out string grandPrefix);
         if (string.IsNullOrWhiteSpace(grand)) return null;
         empire.data.name_source = SourceGrandName;
-        empire.data.directPre = "";
+        empire.data.directPre = grandPrefix;
         LogService.LogInfo($"[EmpireCraft][选定国号] {kingdom.GetKingdomName()} 无王国法理可用，取美号 {grand}");
         return new EmpireFoundingNameChoice(grand, EmpireFoundingNameSource.GrandName);
     }
@@ -130,20 +131,111 @@ public static partial class RealmNamingSystem
         return "";
     }
 
-    // ④ 美号：本文化美号词库，没有就用华夏的；本天下用过的(现存、前朝)跳过
-    public static string PickGrandName(string culture, EmpireCore lead, long seed)
+    // ④ 美号：本文化美号词库，没有就用华夏的；本天下用过的(现存、前朝)跳过。返回去掉前缀字的有效国号(大乾 → 乾)，
+    // 前缀由 prefix 带回，调用方设成 directPre。词库、前缀可在文化规则里配(Setting.GrandName，政体编辑器"命名规则"页)：
+    // 词库默认 GrandNames，前缀默认 great(大)，写 none 不加前缀；取义另放一个词库，key 是美号词条的 key 加 _meaning
+    public const string GrandPrefix = "great", NoPrefix = "none", DefaultGrandGroup = "GrandNames";
+
+    private static EmpireCraft.Scripts.Data.GrandNameSetting GrandSetting(string culture) =>
+        !string.IsNullOrWhiteSpace(culture) && EmpireCraft.Scripts.Data.OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(culture, out EmpireCraft.Scripts.Data.Setting setting)
+            ? setting?.GrandName : null;
+
+    // 美号词库的词条(key, 美号)：本文化的，没有就用华夏的；owner 是用上的那个文化(定前缀)
+    private static List<(string key, string name)> GrandPool(string culture, out string owner)
     {
-        List<string> pool = PartySystem.GetCultureWordPool(culture, "GrandNames");
-        if (pool.Count == 0) pool = PartySystem.GetCultureWordPool(HuaxiaLine, "GrandNames");
+        string root = global::System.IO.Path.Combine(ModClass._declare.FolderPath, "Locales", "Cultures");
+        foreach (string candidate in new[] { culture, HuaxiaLine })
+        {
+            if (string.IsNullOrWhiteSpace(candidate)) continue;
+            string group = GrandSetting(candidate)?.group?.Trim();
+            if (string.IsNullOrWhiteSpace(group)) group = DefaultGrandGroup;
+            // "别的文化:词库名"
+            string fileOwner = candidate;
+            int colon = group.IndexOf(':');
+            if (colon > 0)
+            {
+                fileOwner = group.Substring(0, colon).Trim();
+                group = group.Substring(colon + 1).Trim();
+            }
+            string path = global::System.IO.Path.Combine(root, $"Culture_{fileOwner}", $"{fileOwner}{group}.csv");
+            if (!global::System.IO.File.Exists(path)) continue;
+            var pool = new List<(string, string)>();
+            foreach (string key in OnomasticsHelper.getKeysFromPath(path) ?? new List<string>())
+            {
+                if (string.IsNullOrWhiteSpace(key) || key.EndsWith("_meaning", StringComparison.Ordinal)) continue;
+                string name = LM.Get(key)?.Trim();
+                if (!string.IsNullOrWhiteSpace(name) && name != key) pool.Add((key, name));
+            }
+            if (pool.Count == 0) continue;
+            owner = candidate;
+            return pool;
+        }
+        owner = HuaxiaLine;
+        return new List<(string, string)>();
+    }
+
+    // 这个文化的美号前缀：没配用 great，写 none 不加
+    public static string GrandPrefixOf(string culture)
+    {
+        string prefix = GrandSetting(culture)?.prefix;
+        if (prefix == null) return GrandPrefix;
+        prefix = prefix.Trim();
+        return prefix.Length == 0 || prefix.Equals(NoPrefix, StringComparison.OrdinalIgnoreCase) ? "" : prefix;
+    }
+
+    // 去掉前缀字的有效国号：词库里的词以前缀字(great → 大)开头的去掉那个字
+    public static string GrandCore(string pooled, string prefix = GrandPrefix)
+    {
+        string name = pooled?.Trim() ?? "";
+        if (string.IsNullOrEmpty(prefix)) return name;
+        string text = LM.Get(prefix);
+        if (string.IsNullOrWhiteSpace(text) || text == prefix) return name;
+        return name.Length > text.Length && name.StartsWith(text, StringComparison.Ordinal) ? name.Substring(text.Length) : name;
+    }
+
+    public static string PickGrandName(string culture, EmpireCore lead, long seed, out string prefix)
+    {
+        List<(string key, string name)> pool = GrandPool(culture, out string owner);
+        prefix = GrandPrefixOf(owner);
         if (pool.Count == 0) return "";
-        var used = new HashSet<string>(FallenDynasties(lead).Keys);
+        var used = new HashSet<string>();
+        foreach (string name in FallenDynasties(lead).Keys) used.Add(GrandCore(name, prefix));
         foreach (Empire empire in ModClass.EMPIRE_MANAGER?.ToList() ?? new List<Empire>())
-            if (empire?.data != null && !empire.isRekt() && !empire.IsArchived()) used.Add(empire.GetEmpireName());
+            if (empire?.data != null && !empire.isRekt() && !empire.IsArchived()) used.Add(GrandCore(empire.GetEmpireName(), prefix));
         int start = (int)(Math.Abs(seed) % pool.Count);
         for (int i = 0; i < pool.Count; i++)
         {
-            string name = pool[(start + i) % pool.Count]?.Trim();
+            string name = GrandCore(pool[(start + i) % pool.Count].name, prefix);
             if (!string.IsNullOrWhiteSpace(name) && !used.Contains(name)) return name;
+        }
+        return "";
+    }
+
+    // 旧存档里国号整个记成"大某"的美号：改成去掉前缀字的有效国号、前缀照本文化美号前缀(读档时，见 DataManager)
+    public static void NormalizeGrandName(Empire empire)
+    {
+        if (empire?.data == null || empire.CoreKingdom == null || empire.isRekt() || empire.IsArchived()) return;
+        string name = empire.data.core_name?.Trim() ?? "";
+        List<(string key, string name)> pool = GrandPool(CultureService.GetRealmCulture(empire.CoreKingdom), out string owner);
+        string prefix = GrandPrefixOf(owner);
+        string core = GrandCore(name, prefix);
+        if (core == name || !pool.Any(entry => entry.name == name)) return;
+        empire.data.directPre = prefix;
+        empire.SetEmpireName(core, preserveEmpireType: true);
+    }
+
+    // 美号的取义(取义词库或语言文件里，key 是美号词条的 key 加 _meaning，如"取《易》'大哉乾元'之义")；没有返回空
+    public static string GrandNameMeaning(string culture, string name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return "";
+        List<(string key, string name)> pool = GrandPool(culture, out string owner);
+        string prefix = GrandPrefixOf(owner);
+        string core = GrandCore(name, prefix);
+        foreach ((string key, string entry) in pool)
+        {
+            if (entry != name.Trim() && GrandCore(entry, prefix) != core) continue;
+            string meaning = LM.Get(key + "_meaning");
+            return string.IsNullOrWhiteSpace(meaning) || meaning == key + "_meaning" ? "" : meaning;
         }
         return "";
     }
@@ -298,9 +390,9 @@ public static partial class RealmNamingSystem
         }
         else
         {
-            fief = PickGrandName(CultureService.GetRealmCulture(empire.CoreKingdom), lead, usurper?.id ?? empire.id);
+            fief = PickGrandName(CultureService.GetRealmCulture(empire.CoreKingdom), lead, usurper?.id ?? empire.id, out string grandPrefix);
             if (string.IsNullOrWhiteSpace(fief)) return false;
-            empire.data.directPre = "";
+            empire.data.directPre = grandPrefix;
             empire.data.name_source = SourceGrandName;
         }
         empire.SetEmpireName(fief);
@@ -314,9 +406,9 @@ public static partial class RealmNamingSystem
     public static string ConquestGrandName(Empire empire, string institutionalCulture)
     {
         if (!Enabled || empire?.data == null || InstitutionSystem.GetCultureLine(institutionalCulture) != HuaxiaLine) return null;
-        string grand = PickGrandName(institutionalCulture, TianxiaSystem.Lead(EmpireCoreManager.Get(empire)), empire.id);
+        string grand = PickGrandName(institutionalCulture, TianxiaSystem.Lead(EmpireCoreManager.Get(empire)), empire.id, out string grandPrefix);
         if (string.IsNullOrWhiteSpace(grand)) return null;
-        empire.data.directPre = "";
+        empire.data.directPre = grandPrefix;
         empire.data.name_source = SourceGrandName;
         return grand;
     }

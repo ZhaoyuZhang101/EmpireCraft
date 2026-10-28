@@ -67,6 +67,19 @@ public class Setting
     public ConstitutionSetting Constitution;
     // 村镇命名(见 SettlementNaming)：命名方式的分量与各词库；没配的项用 Locales/Cultures/Settlements/ 里的通用词库
     public SettlementSetting Settlement;
+    // 美号(见 RealmNamingSystem.Founding)：词库与前缀
+    public GrandNameSetting GrandName;
+}
+
+// 美号：称帝没有王国法理可用、篡位者没有封国、外族入主改行本文化制度而没有本文化的主法理时，取美号作国号
+// (用户 2026-10-27："我的政体编辑里面也要把这套规则加进去允许玩家自定义")
+public class GrandNameSetting
+{
+    // 美号词库(本文件夹 <文化><词库名>.csv，可写"别的文化:词库名")；没配用 GrandNames，本文化没有这个词库用华夏的
+    public string group = "";
+    // 前缀(帝国名前缀：great 大、Former 前、Later 后……)；不写默认 great，写 none 不加前缀。
+    // 词库里的词以前缀字开头的，有效国号去掉那个字(大乾 → 前缀"大" + 国号"乾")
+    public string prefix;
 }
 
 // 村镇命名(用户 2026-10-19："按照 Locales/Cultures 里面的名词库来，依据自己的文化；文化配置里加几种村镇命名方式，

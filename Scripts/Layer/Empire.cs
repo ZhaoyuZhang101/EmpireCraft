@@ -1872,6 +1872,8 @@ public class Empire : MetaObject<EmpireData>
         RepairUnregisteredEmperor();
         Regime regime = coreKingdom.GetRegime();
         CompositeEmpireService.Update(this);
+        // 朝廷用了中原制度的外族王朝改汉名国号(复合帝国每年结算时也查；不是复合帝国的只在这里查，见 CompositeEmpireService)
+        CompositeEmpireService.TryAdoptInstitutionalCultureName(this);
         ConstitutionalEconomySystem.Update(this);
         // 土崩瓦解收束时可能就此灭亡，后面的更新不再跑
         if (IsArchived()) return;

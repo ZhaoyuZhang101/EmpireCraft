@@ -413,6 +413,7 @@ public static class DataManager
             try
             {
                 CompositeEmpireService.SynchronizeRegionalInstitutions(empire);
+                RealmNamingSystem.NormalizeGrandName(empire);
                 CompositeEmpireService.TryAdoptInstitutionalCultureName(empire);
                 InstitutionSystem.MigrateEmpire(empire);
             }

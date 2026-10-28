@@ -176,6 +176,8 @@
       d.setting.Constitution.name_group = d.setting.Constitution.name_group || "";
       d.setting.Constitution.provisional_name_group = d.setting.Constitution.provisional_name_group || "";
       d.setting.Constitution.clauses = d.setting.Constitution.clauses || {};
+      d.setting.GrandName = d.setting.GrandName || {};
+      d.setting.GrandName.group = d.setting.GrandName.group || "";
     }
 
     function markDirty() {
@@ -190,7 +192,7 @@
       const main = document.getElementById("main");
       const c = S.current;
       if (!c) return;
-      const tabs = [["basic", "基本信息", "iconMainInfo"], ["naming", "命名规则", "iconCityName"], ["party", "政党", "iconPlot"], ["constitution", "宪法", "iconBooks"],
+      const tabs = [["basic", "基本信息", "iconMainInfo"], ["naming", "命名规则", "iconCityName"], ["grand", "国号美号", "iconKingdom"], ["party", "政党", "iconPlot"], ["constitution", "宪法", "iconBooks"],
         ["books", "书籍词库", "iconBooks"], ["files", "全部词库", "iconCultureList"], ["raw", "JSON 原文", "iconEdit"]];
       main.innerHTML = `
         <h2><span class="dot" style="display:inline-block;width:18px;height:18px;border-radius:4px;background:${esc(S.data?.color || "#ccc")}"></span>
@@ -209,7 +211,7 @@
       if (S.dirty) document.getElementById("saveBtn").classList.add("dirty");
       const body = document.getElementById("tabBody");
       if (!S.data && S.tab !== "raw" && S.tab !== "files" && S.tab !== "books") { S.tab = "raw"; return renderMain(); }
-      ({ basic: renderBasic, naming: renderNaming, party: renderParty, constitution: renderConstitution, books: renderBooks, files: renderFiles, raw: renderRaw })[S.tab](body);
+      ({ basic: renderBasic, naming: renderNaming, grand: renderGrand, party: renderParty, constitution: renderConstitution, books: renderBooks, files: renderFiles, raw: renderRaw })[S.tab](body);
     }
 
     function bindInput(el, getter, setter) {
@@ -341,6 +343,51 @@
       body.querySelector("#partyFill").onclick = () => { IDEOLOGIES.forEach(id => p.groups[id] = p.groups[id] || `Party${id}`); markDirty(); renderParty(body); };
     }
 
+    // 国号美号(对应 CultureRules.cs 的 GrandNameSetting、RealmNamingSystem.Founding)
+    const GRAND_PREFIXES = [["", "默认(大)"], ["great", "大"], ["Former", "前"], ["Later", "后"], ["none", "不加前缀"]];
+
+    function renderGrand(body) {
+      const g = S.data.setting.GrandName;
+      body.innerHTML = `<div class="note">
+        <b>什么时候取美号</b>：称帝时没有王国法理可用、篡位者没有封国、外族入主改行本文化制度却没有本文化的主法理(有的话直接沿用主法理的名字)。
+        本天下前朝、现存帝国用过的跳过。<br>
+        <b>有效国号</b>：词库里的词若以前缀字开头(如前缀“大”、词条“大乾”)，国号只取后面的字(乾)，前缀单独显示(大乾)；
+        选“不加前缀”则整条作国号。<br>
+        <b>取义</b>：另建一个取义词库，每条的 key 写美号词条的 key 加 <code>_meaning</code>，值写取义(如“取《易》'大哉乾元'之义”)；
+        外族入主定号时屏幕提示会带上。<br>
+        美号词库留空用本文件夹的 <code>${esc(S.current.name)}GrandNames.csv</code>，本文化没有就用华夏的；也可写 <code>别的文化:词库名</code>。</div>
+        <table class="sheet" style="margin-top:10px"><tr><th>项目</th><th>设置</th><th></th></tr>
+          <tr><td style="padding:2px 6px">美号词库</td><td><input id="gGroup" value="${esc(g.group || "")}" placeholder="(默认 GrandNames)"></td>${partyLinkCell(g.group || "GrandNames")}</tr>
+          <tr><td style="padding:2px 6px">前缀</td><td><select id="gPrefix">${GRAND_PREFIXES.map(([v, label]) =>
+            `<option value="${esc(v)}" ${(g.prefix || "") === v ? "selected" : ""}>${esc(label)}</option>`).join("")}</select></td><td></td></tr>
+          <tr><td style="padding:2px 6px">取义词库</td><td class="muted" style="padding:2px 6px">key = 美号词条的 key + _meaning</td>${partyLinkCell("GrandNameMeanings")}</tr>
+        </table>
+        <div class="toolbar" style="margin-top:8px"><button id="gMeaningFill">按美号词库补齐取义条目</button></div>
+        <div id="csvEditor" style="margin-top:12px"></div>`;
+      body.querySelector("#gGroup").onchange = e => { g.group = e.target.value.trim(); markDirty(); renderGrand(body); };
+      body.querySelector("#gPrefix").onchange = e => { if (e.target.value) g.prefix = e.target.value; else delete g.prefix; markDirty(); };
+      // 取义词库里给美号词库的每一条补一行(key 加 _meaning)，已有的不动；补完打开取义词库，填好再保存 csv
+      body.querySelector("#gMeaningFill").onclick = async () => {
+        const group = g.group || "GrandNames";
+        if (group.includes(":")) return toast("美号词库引用了别的文化，取义请到那个文化里补", true);
+        const names = await api.readText(csvPath(group));
+        if (!names.exists) return toast(`还没有 ${group} 词库`, true);
+        await openCsv("GrandNameMeanings", body.querySelector("#csvEditor"));
+        const c = S.csv, have = new Set(c.rows.map(r => r[0]));
+        let added = 0;
+        for (const row of parseCsv(names.text).rows) {
+          const key = (row[0] || "").trim();
+          if (!key || key.endsWith("_meaning") || have.has(key + "_meaning")) continue;
+          const r = new Array(c.header.length).fill(""); r[0] = key + "_meaning"; c.rows.push(r); added++;
+        }
+        if (added) c.dirty = true;
+        renderCsvEditor(body.querySelector("#csvEditor"));
+        toast(added ? `补了 ${added} 条，填好取义后点“保存 csv”` : "取义条目已齐");
+      };
+      body.querySelectorAll("a[data-open]").forEach(a => a.onclick = e => { e.preventDefault(); openCsv(a.dataset.open, body.querySelector("#csvEditor")); });
+      if (S.csv) renderCsvEditor(body.querySelector("#csvEditor"));
+    }
+
     function renderConstitution(body) {
       const c = S.data.setting.Constitution;
       const nameRow = (field, label, fallback) => `<tr><td style="padding:2px 6px">${label}</td>
@@ -438,6 +485,12 @@
       for (const key of Object.keys(NAMING)) {
         const cfg = out.setting[key];
         if (cfg && !Object.keys(cfg.groups).length && !cfg.rule.length) delete out.setting[key];
+      }
+      const grand = out.setting.GrandName;
+      if (grand) {
+        if (!grand.group) delete grand.group;
+        if (grand.prefix === undefined || grand.prefix === null || grand.prefix === "") delete grand.prefix;
+        if (!Object.keys(grand).length) delete out.setting.GrandName;
       }
       return out;
     }
