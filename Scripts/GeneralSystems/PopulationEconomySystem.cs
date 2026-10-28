@@ -150,6 +150,7 @@ public static class PopulationEconomySystem
         // 伐木场砍本城领地里的树出木头(见 IndustryBuildingSystem.HarvestTrees)
         float wood = IndustryBuildingSystem.HarvestTrees(city, years) / Mathf.Max(0.0001f, years);
         if (wood > 0f && AssetManager.resources?.get("wood") != null) Deposit(city, data, "wood", wood * years);
+        Glean(city, data, background / Mathf.Max(1f, perSlot), years);
         // 劳动力的市场收入(佃作、手工、零工)：按劳动力人数计，只计产值(进税基与民间资产估值)，不生成实物。
         // 以前产出只按原版岗位数算、跟人口多少无关(上面算出的就业效率 productivity 也没用上)，
         // 本地存档里 6.6 万人的京城一年产值才一百来金，全国背景人口的税连各城治理费都付不起
@@ -321,6 +322,26 @@ public static class PopulationEconomySystem
             : sums.Select(pair => (pair.Key, pair.Value / ores * OreExtractionsPerSlotYear)).ToArray();
         OreOutputs[city] = (now, result);
         return result;
+    }
+
+    // 拾柴采石(用户 2026-10-28 转群友："面积差不多，三个农田村的城市只有个位数人口，只有一个农田其他都是采矿伐木村的城市人口破千了")：
+    // 纯净地图没有树，盖房、升民居的木头石头只能靠伐木村、采矿村，平原上全是农田村的城盖不起房，人口卡在住房上涨不上去。
+    // 百姓农闲自己拾柴、取土采石：每户每年木 GleanWoodPerHousehold、石 GleanStonePerHousehold，仓库里存到 GleanWoodCap / GleanStoneCap
+    // 为止(只够自家盖房，不成产业、不计产值)；有伐木村、采矿村的城仓库早过这条线，不多给
+    private const float GleanWoodPerHousehold = 1f, GleanStonePerHousehold = 0.5f;
+    private const int GleanWoodCap = 40, GleanStoneCap = 30;
+
+    private static void Glean(City city, CityPopulationData data, float households, float years)
+    {
+        if (households <= 0f || years <= 0f) return;
+        foreach ((string resource, float perHousehold, int cap) in new[]
+                 { ("wood", GleanWoodPerHousehold, GleanWoodCap), ("stone", GleanStonePerHousehold, GleanStoneCap) })
+        {
+            if (AssetManager.resources?.get(resource) == null) continue;
+            int room = cap - city.getResourcesAmount(resource);
+            if (room <= 0) continue;
+            Deposit(city, data, resource, Mathf.Min(room, households * perHousehold * years), income: false);
+        }
     }
 
     // 每座矿场每年的固定产出

@@ -11,7 +11,8 @@ namespace EmpireCraft.Scripts.GodPowers;
 
 // 人口、矿藏笔刷(玩家："可以自定义人口、资源分布吗"，用户 2026-10-16 选神力笔刷)：
 //   · 增加人口 / 减少人口：按住在城市领地上刷，笔刷盖到的每座城每 0.12 秒增减现有人口的 4%(至少 50 人)，
-//     按原有的阶层、文化、种族、理念比例增减；空城按本城主文化加农民；
+//     按原有的阶层、文化、种族、理念比例增减；空城按本城主文化加农民。刷到住房装不下的那部分另给容量(CityPopulationData.brush_capacity)，
+//     留得住、不按超员回落(用户 2026-10-28 转群友："我用工具调整人口，时间一走人口就立刻下跌回来了")；减少人口同步收回；
 //   · 矿藏笔刷(铜、煤、硝石、硫磺、石油、铝土、稀土、铀各一个)：刷到的城有了这种矿藏、储量回满，固定下来
 //     (同读档后的矿藏一样不再随地形变)；"清除矿藏"刷到的城去掉全部战略矿藏；
 //   · 繁荣(用户 2026-10-27，群友问罗马发展不如别城、"有没有升级城市的选项")：刷到的城在建的当场建完、接着开工几座也当场建完，
@@ -167,6 +168,12 @@ public static class CityResourcePowers
             foreach (PopGroup group in data.groups.ToList())
                 if (group != null && group.Background > 0f) CityPopulationSystem.RemoveBackground(group, group.Background / total * amount);
         }
+        // 住房装不下的那部分另给容量(见类头)：上限里扣掉原有的另给，剩下的就是住房给的
+        float after = CityPopulationSystem.GetTotal(city);
+        float housing = Mathf.Max(0f, city.getPopulationMaximum() - Mathf.Max(0f, data.brush_capacity));
+        data.brush_capacity = add
+            ? Mathf.Max(data.brush_capacity, after - housing)
+            : Mathf.Clamp(after - housing, 0f, Mathf.Max(0f, data.brush_capacity));
         LayerCityCache.Invalidate(city);
         Tip(city, string.Format(LM.Get("population_power_done"), Mathf.RoundToInt(CityPopulationSystem.GetBackgroundTotal(city))));
         return true;

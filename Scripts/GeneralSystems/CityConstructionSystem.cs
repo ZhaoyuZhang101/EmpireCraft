@@ -41,6 +41,8 @@ public static class CityConstructionSystem
     // 首都、首府优先：建设力更高、更倾向于升级、房屋更密集
     private const float CapitalBonus = 0.6f;
     private const float ProvincialSeatBonus = 0.3f;
+    // 人口到住房上限的这么多以后先盖民居(见 StartNext)
+    private const float HomesFirstShare = 0.9f;
 
     // 首都 0.6，首府(帝国内藩属王国/行省的首都)0.3，其余 0
     public static float SeatBonus(City city)
@@ -474,7 +476,11 @@ public static class CityConstructionSystem
         try
         {
             city.under_construction_building = null;
-            if (UnityEngine.Random.value < 0.3f + 0.6f * Wealth(city) + SeatBonus(city) && TryUpgrade(city)) return;
+            // 住满了、民居又还没盖到上限：先盖房，不去升级别的建筑——首都的升级偏好(0.3 + 0.6×富庶 + 0.6)以前几乎回回先升级，
+            // 唯一的开工名额和木石常被挪走，首都人口反倒不如别城(用户 2026-10-28 转群友"城市A还是帝国首都……人口只有一千多")
+            bool homesFirst = city.status != null && city.countBuildingsType("type_house", false) < city.status.houses_max &&
+                              CityPopulationSystem.GetTotal(city) >= city.getPopulationMaximum() * HomesFirstShare;
+            if (!homesFirst && UnityEngine.Random.value < 0.3f + 0.6f * Wealth(city) + SeatBonus(city) && TryUpgrade(city)) return;
             CityBehBuild.buildTick(city);
             EnterpriseSystem.OnConstructionStarted(city, city.under_construction_building);
         }
