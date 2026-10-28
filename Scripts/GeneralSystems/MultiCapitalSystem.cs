@@ -36,8 +36,9 @@ public static partial class MultiCapitalSystem
         RealmNamingSystem.MultiCapitalEnabled && empire?.data != null && !empire.isRekt() && !empire.IsArchived() &&
         empire.CoreKingdom?.capital != null && empire.CoreKingdom.GetRegime()?.type == RegimeType.LvLing &&
         RealmNamingSystem.IsHuaxia(empire) && !RepublicSystem.IsRepublic(empire) && RealmLead(empire) != null &&
-        // 天下的正统(据有整个天下一半以上城)才行多京(用户 2026-10-20 定)
-        RealmNamingSystem.HoldsHalfOfRealm(empire, RealmLead(empire));
+        // 天下的正统(据有整个天下一半以上城)才行多京(用户 2026-10-20 定)；剧本定下的两京不看这条(用户 10-29 "我大明的南直隶呢"：
+        // 1628 的中华连后金算进去，明不到一半，开局设的南京第二年就撤了)，京城失了照样撤
+        (empire.data.scripted_jing || RealmNamingSystem.HoldsHalfOfRealm(empire, RealmLead(empire)));
 
     // 这座城是京(京师或陪京)
     public static bool IsJing(City city)

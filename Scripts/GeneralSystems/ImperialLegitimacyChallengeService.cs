@@ -33,6 +33,8 @@ public static class ImperialLegitimacyChallengeService
         if (TribalFissionService.IsTribal(kingdom)) return false;
         // 周制下一个文化只有一个正统核心：同文化之国不能另立帝国与周室争正统，只能受封为诸侯
         if (ZhouEraSystem.BlocksRivalEmpire(kingdom)) return false;
+        // 万世一系：已有天皇在位，别家不另立天皇争正统
+        if (ConstitutionalSuccessionSystem.BlocksRivalThrone(kingdom)) return false;
         if (!kingdom.HasMainTitle() && !kingdom.GetControlledTitle().Any()) return false;
 
         string culture = CultureService.GetRealmCulture(kingdom);

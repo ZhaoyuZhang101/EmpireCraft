@@ -122,7 +122,9 @@ public class Empire : MetaObject<EmpireData>
 
     // 统一战争期间、统一天下后三十年同样是开国气象(历史周期律，见 UnificationSystem)
     public bool InFoundingGrace => data != null &&
-                                   (data.created_time > 0d && Date.getYearsSince(data.created_time) < FoundingGraceYears ||
+                                   // 剧本开局的老王朝(国祚按史实接着算，见 ConstitutionalEconomyState.dynastic_age_offset)不算新开国
+                                   (data.created_time > 0d && Date.getYearsSince(data.created_time) +
+                                    (data.constitutional_economy?.dynastic_age_offset ?? 0) < FoundingGraceYears ||
                                     FounderGrace() ||
                                     EmpireCraft.Scripts.GeneralSystems.UnificationSystem.InGrace(CoreKingdom));
 
@@ -671,7 +673,7 @@ public class Empire : MetaObject<EmpireData>
         Kingdom core = CoreKingdom;
         City capital = core?.capital;
         if (actor == null || actor.isRekt() || !actor.isAlive() || core == null || capital == null) return false;
-        if (ConstitutionalSuccessionSystem.IsProtected(this) &&
+        if (ConstitutionalSuccessionSystem.ThroneBound(this) &&
             !ConstitutionalSuccessionSystem.CanInherit(this, actor)) return false;
         if (Emperor?.id == actor.id) return true;
         Actor previousHead = Emperor;
@@ -720,16 +722,18 @@ public class Empire : MetaObject<EmpireData>
     }
 
     private bool IsRepublicState => data?.constitutional_economy?.is_republic == true;
+    // 没有王朝的国家：共和国，以及穿越政权(元老院选主席，见 TransmigrantSystem.Governs)——不定年号、不算篡位改朝、不改国号
+    private bool NoDynasty => IsRepublicState || TransmigrantSystem.Governs(this);
 
     public void NewEmperor(Actor actor, bool isNew = false)
     {
         if (actor == null) return;
-        if (ConstitutionalSuccessionSystem.IsProtected(this) &&
+        if (ConstitutionalSuccessionSystem.ThroneBound(this) &&
             !ConstitutionalSuccessionSystem.CanInherit(this, actor)) return;
         actor.SetEmpire(this);
-        if (!IsRepublicState) RegnalNameService.OnEmperorCrowned(this, actor);
-        // 共和国元首按选举更替，不扣正统
-        if (IsRepublicState) isNew = true;
+        if (!NoDynasty) RegnalNameService.OnEmperorCrowned(this, actor);
+        // 共和国元首、穿越政权的主席按选举更替，不扣正统
+        if (NoDynasty) isNew = true;
         // 选帝侯推举的皇帝(选帝制)是正常换届，不吃普通即位的 -20；篡位、政变、权臣代立不走选举，照旧扣
         if (!isNew && !HolyRomanSystem.Electing)
         {
@@ -757,7 +761,7 @@ public class Empire : MetaObject<EmpireData>
         // 选帝制(神圣罗马式)换了家族是正常换届，不算篡位
         // 华夏原始政体推举共主(禅让，见 ShanrangSystem)：换了氏族也是正常换届
         bool usurpation = currentSpecificClan != previousRoyalClan && data.empire_specific_clan != -1L &&
-                          !IsRepublicState && !HolyRomanSystem.IsElective(this) && !ShanrangSystem.Elective(this);
+                          !NoDynasty && !HolyRomanSystem.IsElective(this) && !ShanrangSystem.Elective(this);
         try
         {
             if (usurpation)
@@ -840,12 +844,12 @@ public class Empire : MetaObject<EmpireData>
             // 改朝换代：前朝最后一位皇帝即末代之君(谥法另论，见 PosthumousNameGenerator)。
             // 王朝积弊按三档承接(用户 2026-10-26，见 DynasticCycleSystem.OnDynastyChanged)：权臣篡位、外戚代立、太后另立、
             // 议立外姓、争位得胜是朝廷里的易代——保留(如司马代魏)；兵变禅让(MilitaryCoupSystem 声明)——减半；其余清空
-            if (!IsRepublicState) ReignRecordSystem.OnDynastyChanged(this, actor, _completingMinisterUsurpation);
+            if (!NoDynasty) ReignRecordSystem.OnDynastyChanged(this, actor, _completingMinisterUsurpation);
         }
         EmpireClan = actor.clan;
         CoreKingdom?.SetSpecificClan(currentSpecificClan);
         // 开国之君族里没有成年男丁的，补记已成年的子孙(见 VirtualGenealogySystem.EnsureFounderHouse)
-        if (isNew && !IsRepublicState) VirtualGenealogySystem.EnsureFounderHouse(actor);
+        if (isNew && !NoDynasty) VirtualGenealogySystem.EnsureFounderHouse(actor);
         //设定天子身份并移居首都
         if (actor.isOfficer())
         {
@@ -855,7 +859,7 @@ public class Empire : MetaObject<EmpireData>
         
         actor.data.renown += 20;
         MoveToEmpireCapital(actor);
-        if (IsRepublicState)
+        if (NoDynasty)
         {
             data.year_name = "";
             data.newEmperor_timestamp = World.world.getCurWorldTime();
@@ -881,7 +885,7 @@ public class Empire : MetaObject<EmpireData>
         this.RecordNewEmperorHistory(isNew);
         RulerTraitSystem.OnCrowned(this, actor);
         // 君主早逝、皇位更迭频繁推高王朝积弊(用户 2026-10-26，见 DynasticCycleSystem.OnSuccession)
-        if (!IsRepublicState) DynasticCycleSystem.OnSuccession(this, actor, isNew);
+        if (!NoDynasty) DynasticCycleSystem.OnSuccession(this, actor, isNew);
     }
 
     private bool IsDynasticSuccessor(Actor actor, SpecificClan previousRoyalClan, Clan previousEmpireClan)
@@ -1010,7 +1014,7 @@ public class Empire : MetaObject<EmpireData>
     {
         Actor emperor = Emperor;
         if (emperor?.data == null) return;
-        bool protectedDynasty = ConstitutionalSuccessionSystem.IsProtected(this);
+        bool protectedDynasty = ConstitutionalSuccessionSystem.ThroneBound(this);
         SpecificClan previousClan = emperor.GetSpecificClan();
         data.currentHistory ??= new EmpireCraftHistory
         {
@@ -1024,11 +1028,12 @@ public class Empire : MetaObject<EmpireData>
             miaohao_name = "",
             shihao_name = "",
             descriptions = new List<HistoryDescription>(),
-            is_republic = IsRepublicState,
-            office_title = IsRepublicState ? RepublicSystem.GetHeadOfStateTitle(this) : ""
+            is_republic = NoDynasty,
+            office_title = IsRepublicState ? RepublicSystem.GetHeadOfStateTitle(this)
+                : NoDynasty ? LM.Get(DynastyNaming.RankKey(RegimeType.Transmigrant, 0, CoreKingdom)) : ""
         };
         RepairFoundingEmperorMarker();
-        if (!IsRepublicState)
+        if (!NoDynasty)
             this.RecordHistory(
                 emperor.isAlive() ? EmpireHistoryType.emperor_left_history : EmpireHistoryType.emperor_die_history,
                 new Dictionary<string, string>()
@@ -1052,7 +1057,27 @@ public class Empire : MetaObject<EmpireData>
     }
     // 追封先帝(谥号、庙号)是君主制的礼制：共和国与现代政体不追封，历史记录里的前朝皇帝也不例外
     public bool AllowsPosthumousNames() =>
-        !RepublicSystem.IsRepublic(this) && CoreKingdom?.GetRegime()?.type != RegimeType.Modern;
+        !RepublicSystem.IsRepublic(this) && CoreKingdom?.GetRegime()?.type != RegimeType.Modern &&
+        EmpireCraft.Scripts.GeneralSystems.RealmNamingSystem.UsesCourtNames(this);
+
+    // 不用年号、庙号、谥号的帝国(华夏、日本以外的文化线，见 RealmNamingSystem.UsesCourtNames)：关掉年号，
+    // 撤掉以前按政体给先帝定的庙号谥号、记的年号(世界地图剧本写的史实称号 ScriptedTitle 留着)；每年定谥时顺带查一次
+    public void DropCourtNames()
+    {
+        if (data == null || EmpireCraft.Scripts.GeneralSystems.RealmNamingSystem.UsesCourtNames(this)) return;
+        data.has_year_name = false;
+        data.year_name = "";
+        foreach (EmpireCraftHistory history in data.history ?? new List<EmpireCraftHistory>())
+        {
+            if (history == null) continue;
+            history.year_name = "";
+            if (history.shihao_name == PosthumousNameGenerator.ScriptedTitle) continue;
+            history.shihao_name = "";
+            history.shihao_long = null;
+            history.miaohao_name = "";
+            history.miaohao_suffix = "";
+        }
+    }
 
     // 为本朝还没定谥的先帝定谥号、庙号(谥法见 PosthumousNameGenerator)，conferrer 为定谥的今上；返回定了几位。
     // 用户 2026-10-17 "藩王都是有谥号的""皇帝也要显示一样的"：以前只有今上发起"追封"决议才定，无小人时这条决议
@@ -1060,6 +1085,7 @@ public class Empire : MetaObject<EmpireData>
     // 自动定谥一次补了好几位(旧存档)时只为最近的一位弹提示，史册照记每一位
     public int ConferPosthumousNames(Actor conferrer, bool announceAll = false)
     {
+        DropCourtNames();
         if (conferrer?.data == null || !AllowsPosthumousNames()) return 0;
         var pending = new List<EmpireCraftHistory>();
         foreach (EmpireCraftHistory cHistory in data.history)
@@ -1142,6 +1168,8 @@ public class Empire : MetaObject<EmpireData>
     public string GetYearNameWithTime()
     {
         if (IsRepublicState) return RepublicSystem.GetCalendarText(this);
+        // 穿越政权用公元纪年
+        if (NoDynasty) return string.Format(LM.Get("republic_common_era_format"), Date.getYearsSince(0d) + 1);
         if (this.data.has_year_name)
         {
             if (this.Emperor!=null)
@@ -1218,7 +1246,7 @@ public class Empire : MetaObject<EmpireData>
             {
                 data.directPre = "great";
             }
-            data.has_year_name = regime.HasEraName();
+            data.has_year_name = regime.HasEraName() && EmpireCraft.Scripts.GeneralSystems.RealmNamingSystem.UsesCourtNames(this);
             regime.GetPlayerFactions().ForEach(f=>
             {
                 f.EmpireId = this.getID();
@@ -1303,11 +1331,11 @@ public class Empire : MetaObject<EmpireData>
 
     public bool IsAllowToMakeYearName ()
     {
-        return !IsRepublicState && this.data.has_year_name;
+        return !NoDynasty && this.data.has_year_name;
     }
     public bool HasYearName()
     {
-        return !IsRepublicState && !string.IsNullOrEmpty(this.data.year_name);
+        return !NoDynasty && !string.IsNullOrEmpty(this.data.year_name);
     }
 
     public void create_year_name()
@@ -1940,8 +1968,9 @@ public class Empire : MetaObject<EmpireData>
             // 阿拉伯：打下的法理设行省派埃米尔(见 EmirateSystem)
             // 元首制：核心打下的城设行省
             // 哪些政体划分打下的法理读政体配置(partition_conquests)：封建、周制、阿拉伯、幕府……
+            // 穿越政体：共同纲领以后打下的法理划成大区(见 TransmigrantSystem.Partitions)
             if (IsWesternCentralized() || RegimeManager.GetTemplate(regime?.type)?.partition_conquests == true ||
-                IsPrincipate())
+                IsPrincipate() || TransmigrantSystem.Partitions(this))
                 ProcessTerritorialAcquisitionEnfeoff();
             // 游牧施行行省制度后，打下的法理设行省(那一步里也补分兀鲁思)
             else if (IsNomadProvincial()) ProcessTerritorialAcquisitionEnfeoff();
@@ -3795,7 +3824,7 @@ public class Empire : MetaObject<EmpireData>
 
     private bool CanAdvanceMinisterPlot(Actor actor)
     {
-        if (ConstitutionalSuccessionSystem.IsProtected(this)) return false;
+        if (ConstitutionalSuccessionSystem.ThroneBound(this)) return false;
         Regime currentRegime = CoreKingdom?.GetRegime();
         if (!IsCurrentPowerfulMinister(actor) || !IsValidPowerfulMinister(actor) ||
             currentRegime?.type != RegimeType.LvLing || Emperor == null || Emperor.isRekt() ||
@@ -3931,7 +3960,7 @@ public class Empire : MetaObject<EmpireData>
             }
         if (heir == null) return null;
         // 宪政继承受保护的、新君过不了继承规矩的不废(否则废了立不上，皇位落空)
-        if (ConstitutionalSuccessionSystem.IsProtected(this) && !ConstitutionalSuccessionSystem.CanInherit(this, heir)) return null;
+        if (ConstitutionalSuccessionSystem.ThroneBound(this) && !ConstitutionalSuccessionSystem.CanInherit(this, heir)) return null;
         string content = string.Format(LM.Get("court_history_palace_coup"), faction.Name, deposed.getName(), heir.getName());
         TranslateHelper.LogEventOnly(content, core);
         this.RecordHistory(directContent: content, actorId: heir.id);
@@ -4371,6 +4400,8 @@ public class Empire : MetaObject<EmpireData>
         int moves = _partitionMoves;
         Regime regime = coreKingdom.GetRegime();
         if (regime == null) return;
+        // 穿越政体不分封：共同纲领以前执委会直辖，以后只划大区
+        if (regime.type == RegimeType.Transmigrant && !TransmigrantSystem.Partitions(this)) return;
 
         // LvLing's unlanded peerages do not replace its territorial circuits.
         if (regime?.type == RegimeType.LvLing)
@@ -4387,7 +4418,8 @@ public class Empire : MetaObject<EmpireData>
         // 西方中央集权君主制/神权国家：新得的土地不再分封，改设辖区/教区；游牧要施行了行省制度、古典共和要施行了元首制才设行省
         // 幕府：打下的地设天领，由奉行直辖(以前从不生成天领)
         bool provinces = RegimeSupportsProvince(regime) && (regime.type != RegimeType.YouMu || IsNomadProvincial()) &&
-                         (regime.type != RegimeType.ClassicalRepublic || IsPrincipate()) || regime.type == RegimeType.Bakufu;
+                         (regime.type != RegimeType.ClassicalRepublic || IsPrincipate()) || regime.type == RegimeType.Bakufu ||
+                         regime.type == RegimeType.Transmigrant;
         AutoEstablishTerritorialDivisions(regime, provinces || IsWesternCentralized(), atWar);
         RedrawAfterPartition(atWar, moves);
     }

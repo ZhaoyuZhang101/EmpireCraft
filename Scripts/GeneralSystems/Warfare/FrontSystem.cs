@@ -193,7 +193,8 @@ public static partial class FrontSystem
             if (zone == null || !Hostile(side, Controller(zone)) || TerrainSystem.Impassable(zone)) continue;
             foreach (TileZone neighbour in zone.neighbours ?? Array.Empty<TileZone>())
             {
-                if (neighbour == null || neighbour.world_edge || TerrainSystem.Impassable(neighbour)) continue;
+                if (neighbour == null || neighbour.world_edge || TerrainSystem.Impassable(neighbour) ||
+                    !TerrainSystem.Crossable(neighbour, zone)) continue;
                 Kingdom controller = Controller(neighbour);
                 if (controller == null || !Friendly(side, controller)) continue;
                 result.Add(zone);
@@ -307,7 +308,8 @@ public static partial class FrontSystem
             foreach (TileZone next in zone.neighbours_all ?? Array.Empty<TileZone>())
             {
                 if (next == null || !seen.Add(next.id)) continue;
-                if (Controller(next) is Kingdom owner && Friendly(side, owner) && !TerrainSystem.Impassable(next))
+                if (Controller(next) is Kingdom owner && Friendly(side, owner) && !TerrainSystem.Impassable(next) &&
+                    TerrainSystem.Crossable(next, zone))
                 {
                     found = true;
                     break;
@@ -831,7 +833,8 @@ public static partial class FrontSystem
         foreach (TileZone zone in city.zones)
         {
             if (zone == null || !Friendly(kingdom, Controller(zone)) || TerrainSystem.Impassable(zone)) continue;
-            if ((zone.neighbours ?? Array.Empty<TileZone>()).Any(neighbour => Hostile(kingdom, Controller(neighbour))))
+            if ((zone.neighbours ?? Array.Empty<TileZone>()).Any(neighbour =>
+                    Hostile(kingdom, Controller(neighbour)) && TerrainSystem.Crossable(zone, neighbour)))
                 line.Add(zone);
         }
         return line;
@@ -844,7 +847,8 @@ public static partial class FrontSystem
             foreach (TileZone zone in city.zones)
             {
                 if (zone == null || !Friendly(kingdom, Controller(zone)) || TerrainSystem.Impassable(zone)) continue;
-                if ((zone.neighbours ?? Array.Empty<TileZone>()).Any(neighbour => Hostile(kingdom, Controller(neighbour))))
+                if ((zone.neighbours ?? Array.Empty<TileZone>()).Any(neighbour =>
+                        Hostile(kingdom, Controller(neighbour)) && TerrainSystem.Crossable(zone, neighbour)))
                     return zone;
             }
         return city?.getTile()?.zone;
@@ -995,9 +999,11 @@ public static partial class FrontSystem
         // 骑士团的军是精锐(见 PapacySystem.Orders)
         // 开国雄主的军队锐不可当(见 RulerTraitSystem.FounderCombat)
         // 本土帝国在本族的城上抵御异族入侵，战斗欲望更强(见 NativeDefenseSystem)
+        // 穿越政权的新式操典与组织(见 TransmigrantSystem.CombatFactor)
         float attack = attackers.Sum(entry => Effective(entry.corps) * Firepower(entry.kingdom, entry.corps) *
                                               WarCommandSystem.Factor(entry.kingdom) * LogisticsSystem.AttackFactor(entry.corps) *
                                               PapacySystem.OrderFactor(entry.corps) * RulerTraitSystem.FounderCombat(entry.kingdom) *
+                                              TransmigrantSystem.CombatFactor(entry.kingdom) *
                                               ShuiTuSystem.CombatFactor(entry.kingdom, dryGround) *
                                               NativeDefenseSystem.CombatFactor(entry.kingdom, owner, city)) *
                        (landing ? LandingAttack : 1f) * ground.Attack;
@@ -1012,6 +1018,7 @@ public static partial class FrontSystem
         float defend = holders.Sum(entry => Effective(entry.corps) * Firepower(entry.kingdom, entry.corps) *
                                             WarCommandSystem.Factor(entry.kingdom) * LogisticsSystem.AttackFactor(entry.corps) *
                                             PapacySystem.OrderFactor(entry.corps) * RulerTraitSystem.FounderCombat(entry.kingdom) *
+                                            TransmigrantSystem.CombatFactor(entry.kingdom) *
                                             ShuiTuSystem.CombatFactor(entry.kingdom, dryGround) *
                                             NativeDefenseSystem.CombatFactor(entry.kingdom, attacker, city) *
                                             (breach ? BreachedDefenderBonus + entry.corps.entrench * BreachedEntrench

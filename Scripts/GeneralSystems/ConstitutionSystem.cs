@@ -160,6 +160,10 @@ public static class ConstitutionSystem
     // 共和：过渡期为临时约法，过渡结束为正式宪法；君主立宪：议会召开或已完成立宪
     private static Kind RequiredKind(Empire empire, ConstitutionalEconomyState state)
     {
+        // 穿越政权(用户 10-29 "以及他为什么没有宪法""这个穿越政体完全是个现代国家""这个宪法也不对，应该是共同纲领")：
+        // 宪法就是《共同纲领》，元老院通过共同纲领(制度 aosong_common_program)起施行；以前由临时执委会议决，没有宪法
+        if (TransmigrantSystem.Governs(empire))
+            return InstitutionSystem.IsEnacted(TransmigrantSystem.Culture, "aosong_common_program") ? Kind.Full : Kind.None;
         // 共和过渡期、以及军阀时期另立的临时政府：施行临时约法；取胜成为中央后颁布正式宪法
         if (state.is_republic)
             return state.republic_transition_stage > 0 || WarlordEraSystem.IsProvisionalGovernment(empire)
@@ -325,6 +329,8 @@ public static class ConstitutionSystem
     // 宪法名称：本文化词库里随机取一条({0} 代入国号)，没配用默认
     private static string ConstitutionName(Empire empire, bool provisional)
     {
+        // 穿越政权的宪法是《共同纲领》
+        if (TransmigrantSystem.Governs(empire)) return LM.Get("constitution_transmigrant_name");
         // 宪法名称是词库，照风俗文化(见 InstitutionSystem.GetCustomsCulture)
         string culture = InstitutionSystem.GetCustomsCulture(empire);
         ConstitutionSetting setting = CultureSetting(culture);
@@ -357,7 +363,7 @@ public static class ConstitutionSystem
     // 没有政党时由执政理念一方拟定。返回得票最多的政党名(史书用)，没有政党返回空
     private static string DraftByConvention(Empire empire, ConstitutionalEconomyState state, ConstitutionClauses clauses)
     {
-        bool monarchy = !state.is_republic;
+        bool monarchy = !state.is_republic && !TransmigrantSystem.Governs(empire);
         bool oneParty = RepublicSystem.IsOneParty(empire);
         string culture = InstitutionSystem.GetPrimaryCulture(empire);
         int totalSeats = state.parliament_seats?.Count ?? 0;
@@ -406,9 +412,12 @@ public static class ConstitutionSystem
         ConstitutionClauses clauses = constitution.clauses ??= new ConstitutionClauses { term_rescaled = true };
         constitution.player_locked ??= new List<string>();
         constitution.amendments ??= new List<ConstitutionAmendmentRecord>();
-        bool monarchy = !state.is_republic;
+        bool monarchy = !state.is_republic && !TransmigrantSystem.Governs(empire);
         ConstitutionHeadSelection head = DeriveHeadSelection(empire, monarchy);
-        clauses.founding_ideology = monarchy ? IdeologyFamilies.StateIdeology(empire) : state.republic_ideology;
+        clauses.founding_ideology = monarchy || !state.is_republic ? IdeologyFamilies.StateIdeology(empire) : state.republic_ideology;
+        // 穿越政权是现代国家：主席个人的理念若是诸子百家这类古代理念(以前立国理念成了"黄老")，立国理念记作中间派
+        if (TransmigrantSystem.Governs(empire) && clauses.founding_ideology >= PartyIdeology.Confucianism)
+            clauses.founding_ideology = PartyIdeology.Centrism;
         Set(constitution, ClauseFormOfState, clauses.form_of_state,
             monarchy ? ConstitutionFormOfState.ConstitutionalMonarchy : ConstitutionFormOfState.Republic,
             value => clauses.form_of_state = value, record);

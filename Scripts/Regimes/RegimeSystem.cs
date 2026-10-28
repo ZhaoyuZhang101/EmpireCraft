@@ -66,6 +66,7 @@ public enum KingdomType
     Transmigrant_senate, // 穿越政体的元老院国家(见 TransmigrantSystem)；只追加，不改变旧档枚举值
     Colonial_governorate, // 殖民地政府的总督府(见 ColonySystem)；只追加
     Company_charter, // 特许公司(见 ColonySystem)；只追加
+    Transmigrant_region, // 穿越政体的大区(早期叫特区，见 TransmigrantSystem.IsRegion)；只追加
 }
 
 public enum ArmyOfficialType

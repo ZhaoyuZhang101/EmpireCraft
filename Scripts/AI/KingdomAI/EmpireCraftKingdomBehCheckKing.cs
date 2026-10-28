@@ -52,6 +52,8 @@ public class EmpireCraftKingdomBehCheckKing : GameAIKingdomBase
         }
         // 第二直隶：储君就藩，没有储君就空着，不选任(见 MultiCapitalSystem.Zhili)
         if (MultiCapitalSystem.HoldsVacancy(pKingdom)) return BehResult.Continue;
+        // 穿越政权：执委会主席出缺由元老院从元老里选，不走继承(见 TransmigrantSystem.TryHandleVacancy)
+        if (TransmigrantSystem.TryHandleVacancy(pKingdom)) return BehResult.Continue;
         // 教宗国：教宗出缺由枢机推举或世俗强立，不传子孙(见 PapalElection)
         if (PapalElection.TryHandleVacancy(pKingdom)) return BehResult.Continue;
         if (ConstitutionalSuccessionSystem.TryHandleVacancy(pKingdom)) return BehResult.Continue;
@@ -121,7 +123,7 @@ public class EmpireCraftKingdomBehCheckKing : GameAIKingdomBase
 
     public static bool NeedSuccession(Kingdom pKingdom)
     {
-        if (pKingdom.IsEmpire() && ConstitutionalSuccessionSystem.IsProtected(pKingdom.GetEmpire())) return true;
+        if (pKingdom.IsEmpire() && ConstitutionalSuccessionSystem.ThroneBound(pKingdom.GetEmpire())) return true;
         // 帝国核心的君主世袭(旧档改制时被重置成"科举选任"的修回来，见 EnsureHereditaryThrone)
         if (pKingdom.IsEmpire()) pKingdom.EnsureHereditaryThrone();
         Regime regime = pKingdom.GetRegime();

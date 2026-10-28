@@ -16,7 +16,9 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 国号却是日本令制国名；立了法理，法理名也就叫"远江国"，此后的主人一并沿用。
 //   · 各文化的国名词库(文化配置 Kingdom 的各词库与 ancient_group)建一张"名字 → 出自哪些文化"的表；
 //   · 国号(没手动改名、没在起事)、法理名只出自不同族文化的词库、不在本文化词库里的，按本国(法理按法理文化)文化重起；
-//   · 新立之国定下文化后当场查(KingdomPatch.NewCivKingdom)，各国与各法理每年查一遍(年度扫描)。
+//   · 新立之国定下文化后当场查(KingdomPatch.NewCivKingdom)，各国与各法理每年查一遍(年度扫描)；
+//   · 只在立国、立法理时核对改名；年检只给没核对过的(旧档)打上标记、不改名：用户 10-29 "为什么西方篡位会改国号""不要让他改"——
+//     法兰西被印度文化的人篡位、国家文化随之变了，年检以为"法兰西"不合本国文化，改称"达希纳"。定下来的国号以后文化变了也不改。
 public static class NameCultureRepair
 {
     private static Dictionary<string, HashSet<string>> _owners;
@@ -111,12 +113,16 @@ public static class NameCultureRepair
         return null;
     }
 
-    // 国号不合本国文化：按本国文化重起
-    public static bool RepairKingdom(Kingdom kingdom)
+    // 国号不合本国文化：按本国文化重起。founding 为假(年检)时只给没核对过的打标记、不改名
+    public static bool RepairKingdom(Kingdom kingdom, bool founding = true)
     {
         if (kingdom?.data == null || kingdom.isRekt() || kingdom.wild || kingdom.HasCustomCountryNaming() ||
             kingdom.IsFactionRebelling() || kingdom.IsLocalRebelling() ||
             Compatibility.AncientWarfareCompatibility.Owns(kingdom)) return false;
+        var checkedData = kingdom.GetOrCreate();
+        if (checkedData.name_culture_checked) return false;
+        checkedData.name_culture_checked = true;
+        if (!founding) return false;
         string culture = CultureService.GetRealmCulture(kingdom);
         string before = kingdom.EnsureKingdomCoreName();
         if (!Foreign(before, culture)) return false;
@@ -132,11 +138,13 @@ public static class NameCultureRepair
         return true;
     }
 
-    // 法理名不合法理文化：按法理文化重起(原来带"国"字的照样带)
-    private static bool RepairTitle(KingdomTitle title)
+    // 法理名不合法理文化：按法理文化重起(原来带"国"字的照样带)。founding 为假(年检)时只打标记、不改名
+    public static bool RepairTitle(KingdomTitle title, bool founding = true)
     {
         string name = title?.data?.name;
-        if (string.IsNullOrWhiteSpace(name) || title.isRekt()) return false;
+        if (string.IsNullOrWhiteSpace(name) || title.isRekt() || title.data.name_culture_checked) return false;
+        title.data.name_culture_checked = true;
+        if (!founding) return false;
         string culture = CultureService.GetEffectiveTitleCulture(title);
         if (!Foreign(name, culture)) return false;
         string fresh = Fresh(culture);
@@ -163,8 +171,10 @@ public static class NameCultureRepair
         _lastYear = now;
         try
         {
-            foreach (KingdomTitle title in ModClass.KINGDOM_TITLE_MANAGER?.ToList() ?? new List<KingdomTitle>()) RepairTitle(title);
-            foreach (Kingdom kingdom in World.world.kingdoms.list.ToList()) RepairKingdom(kingdom);
+            foreach (KingdomTitle title in ModClass.KINGDOM_TITLE_MANAGER?.ToList() ?? new List<KingdomTitle>()) RepairTitle(title, false);
+            foreach (Kingdom kingdom in World.world.kingdoms.list.ToList()) RepairKingdom(kingdom, false);
+            // 原版按物种起的英文姓名、氏族名按文明重起(见 TemplateNameRepair)
+            TemplateNameRepair.RepairNames();
         }
         catch (Exception exception)
         {

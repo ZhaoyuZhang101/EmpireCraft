@@ -16,6 +16,22 @@ public static class EmpireCraftOpinionAddition
     public static void init()
     {
         OpinionLibrary opl = AssetManager.opinion_library;
+        // 神力修正的好感(外交界面，见 DiplomacyActions.GodOpinion)
+        opl.add(new OpinionAsset
+        {
+            id = "opinion_god_favor",
+            translation_key = "opinion_god_favor",
+            translation_key_negative = "opinion_god_disfavor",
+            calc = EmpireCraft.Scripts.GeneralSystems.DiplomacyActions.GodOpinion
+        });
+        // 剧本开局的旧谊、宿怨(世界地图剧本按史实设，六十年内淡去)
+        opl.add(new OpinionAsset
+        {
+            id = "opinion_history_ties",
+            translation_key = "opinion_history_ties",
+            translation_key_negative = "opinion_history_feud",
+            calc = EmpireCraft.Scripts.GeneralSystems.DiplomacyActions.HistoryOpinion
+        });
         // 对某国称帝不服：对其帝国核心王国好感大降，二十年内逐渐恢复(武力霸权称帝降得更多)
         opl.add(new OpinionAsset
         {

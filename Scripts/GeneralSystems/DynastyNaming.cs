@@ -47,8 +47,10 @@ public static class DynastyNaming
     public static bool HuaxiaOriginEmpire(Empire empire) =>
         empire?.CoreKingdom?.GetRegime()?.type == RegimeType.HuaxiaOrigin;
 
+    // 穿越政权(元老院选主席)：在位主席、历任主席(见 TransmigrantSystem.Governs)
     public static string Term(Empire empire, string key) =>
-        HuaxiaOriginEmpire(empire) && LM.Has(key + "_huaxia_origin") ? key + "_huaxia_origin" : key;
+        TransmigrantSystem.Governs(empire) && LM.Has(key + "_transmigrant") ? key + "_transmigrant"
+        : HuaxiaOriginEmpire(empire) && LM.Has(key + "_huaxia_origin") ? key + "_huaxia_origin" : key;
 
     // 制度线专属称谓：日本线的国家类别、官名在文本键后加 "_japan"(天皇、国司、大名、国……见各政体 OfficialType.csv)
     public static string LineSuffix(Kingdom kingdom)
@@ -106,6 +108,8 @@ public static class DynastyNaming
 
     public static string KingdomTypeKey(Kingdom kingdom, KingdomType type)
     {
+        // 穿越政体的大区：共同纲领以前叫特区(见 TransmigrantSystem.IsZone)
+        if (type == KingdomType.Transmigrant_region && TransmigrantSystem.IsZone(kingdom)) return "Transmigrant_region_zone";
         // 元首制：核心改称帝国(见 Empire.IsPrincipate)
         if (type == KingdomType.ClassicalRepublic_centre && kingdom?.GetEmpire() is Empire principate &&
             principate.CoreKingdom == kingdom && principate.IsPrincipate() && LM.Has(type + "_principate"))
@@ -143,6 +147,9 @@ public static class DynastyNaming
     {
         string key = $"{regime}_officiallevel_{officeType}";
         Kingdom owner = meta switch { Kingdom k => k, City town => town.kingdom, Army army => army.getKingdom(), _ => null };
+        // 穿越政体的大区区长：共同纲领以前是特区区长
+        if (officeType == 4 && regime == RegimeType.Transmigrant && TransmigrantSystem.IsZone(owner) && LM.Has(key + "_zone"))
+            return key + "_zone";
         // 穿越政体废执委会改元老院内阁以后，首领称元老院主席(见 TransmigrantSystem)
         if (officeType == 0 && regime == RegimeType.Transmigrant && TransmigrantSystem.StageOf(owner) >= 5 && LM.Has(key + "_cabinet"))
             return key + "_cabinet";

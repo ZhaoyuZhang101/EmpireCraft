@@ -25,13 +25,15 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
     {
         if (kingdom?.data == null || EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(kingdom))
             return BehResult.Continue;
+        // 穿越政权不立储：主席由元老院选(见 TransmigrantSystem.TryHandleVacancy)
+        if (EmpireCraft.Scripts.GeneralSystems.TransmigrantSystem.IsTransmigrant(kingdom)) return BehResult.Continue;
         if (!EmpireCraftKingdomBehCheckKing.NeedSuccession(kingdom))
         {
             kingdom.RecoverToDefaultHeir();
             return BehResult.Continue;
         }
         bool vacancy = kingdom.king == null || kingdom.king.isRekt() || !kingdom.king.isAlive();
-        if (vacancy && kingdom.IsEmpire() && ConstitutionalSuccessionSystem.IsProtected(kingdom.GetEmpire()))
+        if (vacancy && kingdom.IsEmpire() && ConstitutionalSuccessionSystem.ThroneBound(kingdom.GetEmpire()))
         {
             ConstitutionalSuccessionSystem.TryHandleVacancy(kingdom);
             return BehResult.Continue;
@@ -208,7 +210,7 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
         PersonalClanIdentity identity = actor?.GetPersonalIdentity();
         bool valid = identity != null && actor != kingdom.king && IsFitCandidate(actor, parent) && !ForeignRuler(kingdom, actor) &&
                      ChildrenOf(parent).Any(child => child.id == identity.id) &&
-                     (!kingdom.IsEmpire() || !ConstitutionalSuccessionSystem.IsProtected(kingdom.GetEmpire()) ||
+                     (!kingdom.IsEmpire() || !ConstitutionalSuccessionSystem.ThroneBound(kingdom.GetEmpire()) ||
                       ConstitutionalSuccessionSystem.CanInherit(kingdom.GetEmpire(), actor));
         if (!valid) data.designated_heir_id = -1L;
         return valid ? actor : null;
@@ -270,7 +272,7 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
     private static Actor Pick(Kingdom kingdom, IEnumerable<PersonalClanIdentity> candidates, PersonalClanIdentity parent,
         out PersonalClanIdentity selected)
     {
-        bool protectedDynasty = kingdom.IsEmpire() && ConstitutionalSuccessionSystem.IsProtected(kingdom.GetEmpire());
+        bool protectedDynasty = kingdom.IsEmpire() && ConstitutionalSuccessionSystem.ThroneBound(kingdom.GetEmpire());
         foreach (PersonalClanIdentity person in candidates)
         {
             Actor actor = person.Realize();
@@ -332,7 +334,7 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
                     .OrderByDescending(person => person.IsHeirPriority()).ThenByDescending(person => person.age).ThenBy(person => person.id);
                 break;
             case EmpireHeirLawType.random:
-                if (kingdom.IsEmpire() && ConstitutionalSuccessionSystem.IsProtected(kingdom.GetEmpire()))
+                if (kingdom.IsEmpire() && ConstitutionalSuccessionSystem.ThroneBound(kingdom.GetEmpire()))
                     return (ConstitutionalSuccessionSystem.SelectRoyalHeir(kingdom.GetEmpire()), ConstitutionalSuccessionSystem.SelectionRelation(kingdom.GetEmpire()));
                 // 绝嗣：从宗室里按亲疏找人入继(隔几代找到共同的祖先)，同样亲疏的先立成年的、三十岁上下的
                 // (帝国皇位另由群臣议立，见 SuccessionCouncilSystem)
@@ -356,7 +358,7 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
     // 外家入继：沿父母、子女找先君六步以内的血亲(含外嫁女子的后代)，近的在前；入继者本是别国君主的两国共主
     private static (Actor actor, string relation) CognaticHeir(Kingdom kingdom, PersonalClanIdentity parent)
     {
-        bool protectedDynasty = kingdom.IsEmpire() && ConstitutionalSuccessionSystem.IsProtected(kingdom.GetEmpire());
+        bool protectedDynasty = kingdom.IsEmpire() && ConstitutionalSuccessionSystem.ThroneBound(kingdom.GetEmpire());
         int realized = 0;
         foreach ((PersonalClanIdentity person, int _) in RoyalMarriageSystem.Cognates(parent, 6))
         {

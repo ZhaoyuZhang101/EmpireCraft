@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace EmpireCraft.Scripts.GamePatches;
 
-// 国旗：原版旗帜(铭牌、提示框、各窗口里的 KingdomBanner)按国家颜色给底、纹两层染色；有国旗的国家换成整面原色旗(见 KingdomFlagSystem)
+// 国旗：原版旗帜(铭牌、提示框、各窗口里的 KingdomBanner)按国家颜色给底、纹两层染色；有国旗的国家换成国旗的圆形徽章(见 KingdomFlagSystem)
 public class KingdomFlagPatch : GamePatch
 {
     public ModDeclare declare { get; set; }
@@ -20,7 +20,7 @@ public class KingdomFlagPatch : GamePatch
     public static void AfterSetup(KingdomBanner __instance)
     {
         Kingdom kingdom = __instance?.meta_object;
-        Sprite flag = KingdomFlagSystem.FlagOf(kingdom);
+        Sprite flag = KingdomFlagSystem.BadgeOf(kingdom);
         if (flag == null || __instance.part_background == null) return;
         __instance.part_background.sprite = flag;
         __instance.part_background.color = Color.white;

@@ -101,6 +101,23 @@
           "condition": [],
           "city_type": "Transmigrant_city",
           "city_suffix_key": "city_suffix_county"
+        },
+        // 大区(共同纲领以前叫特区)：本元老院国家底下的行政区，区长由元老院委任，不能外交、不世袭；
+        // 类别由代码定(EmpireCraftKingdomBehCheckKingdomType.CalcKingdomType → TransmigrantSystem.IsRegion)，条件留空
+        "Transmigrant_region": {
+          "pre": "",
+          "type": 4,
+          "description": "",
+          "powers": ["执行"],
+          "merit": -1,
+          "honorary": -1,
+          "peerageType": "Civil",
+          "select_from_local": false,
+          "leader_select_method": "Exam",
+          "require_traits": [],
+          "condition": [],
+          "city_type": "Transmigrant_city",
+          "city_suffix_key": "city_suffix_county"
         }
       },
       "cities": {

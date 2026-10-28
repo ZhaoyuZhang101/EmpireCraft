@@ -201,7 +201,8 @@ public static class LogisticsSystem
             if (depth >= MaxSupplyDepth) continue;
             foreach (TileZone next in zone.neighbours_all ?? Array.Empty<TileZone>())
             {
-                if (next == null || Closed(next) || SeaRegionSystem.IsSea(next) || TerrainSystem.Impassable(next)) continue;
+                if (next == null || Closed(next) || SeaRegionSystem.IsSea(next) || TerrainSystem.Impassable(next) ||
+                    !TerrainSystem.Crossable(zone, next)) continue;
                 float loss = Loss(kingdom, next, depth + 1);
                 if (loss >= 1f) continue;
                 float total = key - Mathf.Log(1f - loss);

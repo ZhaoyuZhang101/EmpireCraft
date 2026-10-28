@@ -13,7 +13,8 @@ namespace EmpireCraft.Scripts.GamePatches;
 //   · 波斯百柱殿：北边台基上一座柱网方殿(四角塔楼，南面大台阶)，南边四分园(十字水渠、当中水池)；
 //   · 印度门塔神庙：院墙，南面门塔(脊上一排金顶)，正中层层收进的塔殿(金顶)，前面柱厅，东北角阶梯水池，大城北面再一座门塔；
 //   · 埃及金字塔：在城外那块地，占 6×6 格，北面最亮、西面次之，东、南两面背阴，塔尖金顶，四周沙地；
-//   · 阿兹特克大神庙：蛇墙围着的广场，偏东一座阶梯金字塔(西面并排两道台阶)，顶上北蓝(雨神)南红(战神)两座神殿，西边圆形风神庙。
+//   · 阿兹特克大神庙：蛇墙围着的广场，偏东一座阶梯金字塔(西面并排两道台阶)，顶上北蓝(雨神)南红(战神)两座神殿，西边圆形风神庙；
+//   · 教廷驻地大教堂(不论文化系，见 PapalCathedral)：北面拉丁十字大殿，南边柱廊环抱的椭圆广场。
 // 下面的 y 是从地标北沿往南数的行(同宫城)，落到画布上翻过来。营地(游牧、林地)另画(见 DrawCamp)，不走这里
 public partial class PureMapPatch
 {
@@ -30,7 +31,7 @@ public partial class PureMapPatch
     private static bool LandmarkSite(CityPlan plan, out LandmarkArea area)
     {
         area = default;
-        if (plan.landmark.Count == 0 || !DetailedLandmark(plan.family) || plan.city?.zones == null) return false;
+        if (plan.landmark.Count == 0 || !(plan.papal || DetailedLandmark(plan.family)) || plan.city?.zones == null) return false;
         int size = Config.CITY_ZONE_SIZE;
         int zx = int.MaxValue, zy0 = int.MaxValue, zy1 = int.MinValue;
         foreach (TileZone zone in plan.city.zones)
@@ -42,7 +43,7 @@ public partial class PureMapPatch
         }
         if (zx == int.MaxValue) return false;
         int cx = zx * size + 4, cy = zy0 * size + 4;
-        if (plan.family == "egypt") area = new LandmarkArea { X0 = cx - 3, Y0 = cy - 3, X1 = cx + 2, Y1 = cy + 2 };
+        if (plan.family == "egypt" && !plan.papal) area = new LandmarkArea { X0 = cx - 3, Y0 = cy - 3, X1 = cx + 2, Y1 = cy + 2 };
         else if (zy1 > zy0) area = new LandmarkArea { X0 = cx - 3, Y0 = cy - 1, X1 = cx + 3, Y1 = cy + 7 };
         else area = new LandmarkArea { X0 = cx - 2, Y0 = cy - 2, X1 = cx + 2, Y1 = cy + 2 };
         return true;
@@ -224,6 +225,12 @@ public partial class PureMapPatch
         };
         // 街区级标注(名字按各文化系的词库，见 UrbanLabelNaming)：宫室叫宫，庙宇叫庙；金字塔是陵墓，不标
         string icon = null;
+        if (plan.papal)
+        {
+            PapalCathedral(p);
+            icon = "temple";
+        }
+        else
         switch (plan.family)
         {
             case "western": WesternCastle(p); icon = "palace"; break;
@@ -241,6 +248,95 @@ public partial class PureMapPatch
             {
                 Tile = c.TileAt(p.L + p.W / 2f, p.Top - p.H / 2f), Icon = icon, Key = site.X0 * 7919L + site.Y0, Weight = p.W * p.H
             });
+    }
+
+    // 教廷驻地大教堂(用户 10-29 "给教堂做一个专属建筑"，选"教廷驻地大教堂")，不论文化系都画这个：
+    //   · 北面拉丁十字大殿：正殿南北向(铅灰两坡顶)，北端半圆后殿，东西伸出横厅，交叉处一座大穹顶(铜绿，顶上金色采光亭)；
+    //   · 南立面浅色石墙、正中大门，两侧各一座钟楼(四坡顶、金色尖)，门前一道台阶；
+    //   · 南边椭圆广场：两道柱廊像双臂环抱(外圈石顶、内圈一根根柱子)，北面接大殿、南口敞开接城门大道；
+    //     铺地按八个方向放射(小的只有纵横两道)，正中一座方尖碑(影子落在东南)，东西两侧各一座喷泉；后殿两旁几棵树
+    private static void PapalCathedral(LandmarkBrush p)
+    {
+        int W = p.W, H = p.H;
+        bool big = H >= 32;
+        Color32 paving = Rgb(232, 226, 212), travertine = Rgb(208, 198, 176), column = Rgb(246, 242, 232),
+            lead = Rgb(118, 122, 136), copper = Rgb(96, 150, 128), front = Rgb(238, 230, 210), gold = Rgb(236, 196, 84),
+            obelisk = Rgb(170, 150, 118);
+        p.Box(0, 0, W - 1, H - 1, paving, KPlaza);
+        float fx = (W - 1) / 2f;
+        int cx = W / 2;
+        // 正殿(半宽)、北端、南立面；横厅中线、半长、半宽
+        int nave = big ? 4 : 3, ny0 = big ? 5 : 4, ny1 = H * 56 / 100;
+        int ty = ny0 + (ny1 - ny0) / 3, arm = W / 2 - (big ? 3 : 2), tw = big ? 3 : 2;
+        // 后殿两旁的树
+        p.Tree(1, 1);
+        p.Tree(W - 3, 1);
+        if (big)
+        {
+            p.Tree(3, 2);
+            p.Tree(W - 5, 2);
+        }
+        // 后殿：正殿北端的半圆
+        for (int y = ny0 - nave; y <= ny0; y++)
+        for (int x = cx - nave; x < cx + nave; x++)
+        {
+            float dx = x - fx, dy = y - ny0;
+            if (dx * dx + dy * dy <= nave * nave) p.Put(x, y, Darker(lead, dx + dy < 0f ? 1.1f : 0.85f));
+        }
+        p.Gable(cx - nave, ny0, cx + nave - 1, ny1, lead, false);
+        p.Gable(cx - arm, ty - tw, cx + arm - 1, ty + tw - 1, lead, true);
+        // 交叉处的大穹顶与采光亭
+        p.Dome(fx, ty - 0.5f, nave + (big ? 0.2f : -0.4f), copper);
+        p.Put(cx - 1, ty - 1, gold);
+        p.Put(cx, ty - 1, gold);
+        if (big)
+        {
+            p.Put(cx - 1, ty, gold);
+            p.Put(cx, ty, gold);
+        }
+        // 南立面、大门、两座钟楼、台阶
+        int ts = big ? 3 : 2;
+        p.Box(cx - nave, ny1 - 1, cx + nave - 1, ny1, front);
+        p.Put(cx - 1, ny1, Door);
+        p.Put(cx, ny1, Door);
+        foreach (int x0 in new[] { cx - nave - ts, cx + nave })
+        {
+            p.Hip(x0, ny1 - ts, x0 + ts - 1, ny1, lead);
+            p.Put(x0 + ts / 2, ny1 - ts / 2 - (big ? 1 : 0), gold);
+        }
+        p.Box(cx - nave - ts, ny1 + 1, cx + nave + ts - 1, ny1 + 1, travertine, KPlaza);
+        // 椭圆广场与两道柱廊
+        int py0 = ny1 + 2;
+        float pcy = (py0 + H - 1) / 2f, rx = W / 2f - 1f, ry = (H - 1 - py0) / 2f + 0.5f;
+        for (int y = py0; y < H; y++)
+        for (int x = 0; x < W; x++)
+        {
+            float dx = x - fx, dy = y - pcy, e = Mathf.Sqrt(dx * dx / (rx * rx) + dy * dy / (ry * ry));
+            if (e > 1f) continue;
+            // 北面接大殿、南口接大道：柱廊在这两处断开
+            bool opening = dy < -ry * 0.55f && Mathf.Abs(dx) <= nave + ts || dy > ry * 0.55f && Mathf.Abs(dx) <= rx * 0.4f;
+            if (e >= 0.86f && !opening) p.Put(x, y, travertine);
+            else if (e >= 0.74f && !opening) p.Put(x, y, (x + y) % 2 == 0 ? column : paving, KPlaza);
+            else if (Mathf.Abs(dx) < 0.6f || Mathf.Abs(dy) < 0.6f || big && Mathf.Abs(Mathf.Abs(dx) - Mathf.Abs(dy) * rx / ry) < 0.6f)
+                p.Put(x, y, travertine, KPlaza);
+        }
+        int oy = Mathf.RoundToInt(pcy);
+        p.Put(cx - 1, oy, obelisk);
+        p.Put(cx, oy, obelisk);
+        p.Put(cx, oy + 1, new Color32(40, 28, 20, 56), KPlaza);
+        foreach (float side in new[] { -1f, 1f })
+        {
+            int wx = Mathf.RoundToInt(fx + side * rx * 0.48f);
+            p.Put(wx, oy, WaterBlue);
+            p.Put(wx - 1, oy, column);
+            p.Put(wx + 1, oy, column);
+            if (big)
+            {
+                p.Put(wx, oy - 1, column);
+                p.Put(wx, oy + 1, column);
+            }
+        }
+        p.Gates(2, paving);
     }
 
     private static void WesternCastle(LandmarkBrush p)

@@ -185,6 +185,35 @@ public static class ColonySystem
         return colony;
     }
 
+    // 外交界面(见 DiplomacyActions)：把现成的一国设为殖民地；立即改派总督；特许公司立即收归国有
+    public static void Annex(Kingdom metropole, Kingdom kingdom, bool company) =>
+        Setup(kingdom, metropole, company ? ColonyState.Company : ColonyState.Governorate);
+
+    public static bool RotateGovernor(Kingdom colony)
+    {
+        ColonyState state = Of(colony);
+        Kingdom metropole = MetropoleOf(colony);
+        if (state == null || metropole == null || state.kind != ColonyState.Governorate) return false;
+        Actor next = AppointGovernor(colony, metropole);
+        if (next == null) return false;
+        string former = colony.king?.getName() ?? "";
+        TransmigrantSystem.InstallRuler(colony, next);
+        state.governor_id = next.id;
+        state.governor_since = World.world.getCurWorldTime();
+        TranslateHelper.LogEventOnly(string.Format(LM.Get("colony_governor_rotated"), colony.GetKingdomFullName(),
+            next.getName(), former), metropole);
+        return true;
+    }
+
+    public static bool NationalizeNow(Kingdom colony)
+    {
+        ColonyState state = Of(colony);
+        Kingdom metropole = MetropoleOf(colony);
+        if (state == null || metropole == null || state.kind != ColonyState.Company) return false;
+        Nationalize(colony, metropole, state);
+        return true;
+    }
+
     // 一组城拆出去立为殖民地(总督府或特许公司)
     private static Kingdom Found(Kingdom metropole, List<City> cities, int kind) =>
         AdministrativeControlSystem.ReleaseToLocal(metropole, cities, colony => Setup(colony, metropole, kind), out _);

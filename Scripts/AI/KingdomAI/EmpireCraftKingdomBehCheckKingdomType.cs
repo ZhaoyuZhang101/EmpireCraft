@@ -372,6 +372,9 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
         // 第二直隶以京名为号("某京直隶"，见 MultiCapitalSystem.Zhili)
         string zhiliFront = MultiCapitalSystem.ZhiliFront(pKingdom);
         if (!string.IsNullOrWhiteSpace(zhiliFront)) kingdomFront = zhiliFront;
+        // 穿越政体的大区：第三次全体大会以前以治所城名为号(三亚大区)，以后照地区名(广东大区，见 TransmigrantSystem.RegionFront)
+        string regionFront = TransmigrantSystem.RegionFront(pKingdom);
+        if (!string.IsNullOrWhiteSpace(regionFront)) kingdomFront = regionFront;
 
         if (pKingdom.IsEmpire())
         {
@@ -460,6 +463,9 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
         if (ZhouEraSystem.SeniorPeerage(kingdom, regime) is KingdomType senior) return senior;
         // 军府(节度使、都护府)世袭之后仍是藩镇：照旧称"某某军"，不因父死子继改成封国
         if (IsHereditaryGarrison(kingdom, regime)) return kingdom.GetOrCreate().kingdomType;
+        // 穿越政体：本元老院国家底下的成员是大区(早期叫特区)；元老院自己(帝国核心、伪装成别国属国时)仍是元老院国家
+        if (regime.type == RegimeType.Transmigrant)
+            return TransmigrantSystem.IsRegion(kingdom) ? KingdomType.Transmigrant_region : KingdomType.Transmigrant_senate;
         // A hereditary landed title is a vassal kingdom, never an administrative
         // circuit or military governorship left over from an earlier configuration.
         if (regime.type == RegimeType.LvLing && !kingdom.IsEmpire() && kingdom.HasMainTitle() &&

@@ -93,6 +93,8 @@ public class KingdomOverviewWindow : WideScrollWindow<KingdomOverviewWindow>
         });
         colorInput.input.characterLimit = 7;
         rail.AddRailButton("kov_open_military", LM.Get("kingdom_military"), () => KingdomMilitaryWindow.Open(kingdom));
+        rail.AddRailButton("kov_open_diplomacy", LM.Get("diplomacy_window"), () => DiplomacyWindow.Open(kingdom));
+        rail.AddRailButton("kov_open_market", LM.Get("market_window"), () => MarketWindow.Open(kingdom));
         rail.AddRailButton("kov_open_regime", LM.Get("kov_open_regime"), () =>
         {
             SelectedMetas.selected_kingdom = kingdom;

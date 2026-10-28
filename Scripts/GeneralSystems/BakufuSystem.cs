@@ -50,10 +50,16 @@ public static class BakufuSystem
         empire.data.court_emperor_id = -1L;
         if (court == null || emperor == null || emperor == core.king) return;
         Actor shogun = core.king;
+        // 先把皇室记回天皇家(万世一系只许皇室一系坐皇位，见 MilitaryRegency.Migrate)
+        long shogunHouse = empire.data.empire_specific_clan;
+        empire.data.empire_specific_clan = court.id;
         core.GetOffice().meta_object = core;
         core.GetOffice().SetActor(emperor);
-        if (core.king != emperor) return;
-        empire.data.empire_specific_clan = court.id;
+        if (core.king != emperor)
+        {
+            empire.data.empire_specific_clan = shogunHouse;
+            return;
+        }
         Record(empire, string.Format(LM.Get("bakufu_restoration_history"), empire.GetEmpireName(), shogun?.getName() ?? "",
             emperor.getName()));
     }

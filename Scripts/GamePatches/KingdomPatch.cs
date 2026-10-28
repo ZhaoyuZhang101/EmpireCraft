@@ -277,7 +277,7 @@ public class KingdomPatch : GamePatch
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return true;
         if (ModClass.IS_CLEAR || __instance == null) return true;
         Empire empire = __instance.IsEmpire() ? __instance.GetEmpire() : null;
-        if (ConstitutionalSuccessionSystem.IsProtected(empire) &&
+        if (ConstitutionalSuccessionSystem.ThroneBound(empire) &&
             !ConstitutionalSuccessionSystem.CanInherit(empire, pActor)) return false;
         __instance.SyncRealmTitlesFromRuler(__instance.king);
         return true;

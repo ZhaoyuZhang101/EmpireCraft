@@ -29,6 +29,7 @@ public static class EmpireCraftMetaTypeLibrary
       AddMineralMeta();
       AddCityViewMeta();
       AddTianxiaMeta();
+      AddMarketMeta();
       AssetManager.meta_type_library.linkAssets();
     }
 
@@ -41,6 +42,7 @@ public static class EmpireCraftMetaTypeLibrary
     public static MetaTypeAsset mineral;
     public static MetaTypeAsset cityView;
     public static MetaTypeAsset tianxia;
+    public static MetaTypeAsset market;
 
     // 天下图层：按天下给城上色(见 Layer/TianxiaMap.cs)
     public static void AddTianxiaMeta()
@@ -244,6 +246,14 @@ public static class EmpireCraftMetaTypeLibrary
         MetaTypeAsset asset = AddRadianceMeta("edification", "ui/icons/godpowers/edification_layer", MetaTypeExtension.Edification, "Edification");
         EmpireCraft.Scripts.Layer.EdificationMap.Configure(asset);
         edification = AssetManager.meta_type_library.add(asset);
+    }
+
+    // 商品市场图层：结构同教化、政令图层(见 Layer/MarketMap.cs)
+    public static void AddMarketMeta()
+    {
+        MetaTypeAsset asset = AddRadianceMeta("market", "ui/icons/godpowers/market_layer", MetaTypeExtension.Market, "Market");
+        EmpireCraft.Scripts.Layer.MarketMap.Configure(asset);
+        market = AssetManager.meta_type_library.add(asset);
     }
 
     public static void AddGovernanceMeta()

@@ -55,8 +55,12 @@ public static class DynasticCycleSystem
         if (World.world == null || empire?.data == null) return 0;
         double since = empire.data.constitutional_economy?.dynastic_since ?? -1d;
         if (since < 0d) since = empire.data.created_time;
-        return since >= 0d ? Math.Max(0, Date.getYearsSince(since)) : 0;
+        int offset = Math.Max(0, empire.data.constitutional_economy?.dynastic_age_offset ?? 0);
+        return (since >= 0d ? Math.Max(0, Date.getYearsSince(since)) : 0) + offset;
     }
+
+    // 补底的诊断只记一次(每个帝国、每次进游戏)
+    private static readonly HashSet<long> CatchUpLogged = new();
 
     // 每年在苛政结算中调用；传入的负担不包含本系统自己的贡献。
     public static void Update(Empire empire, ConstitutionalEconomyState state, float governanceBurden)
@@ -92,6 +96,19 @@ public static class DynasticCycleSystem
         // 皇位更迭频繁：近 20 年换了 3 位以上君主，每年另加(不随王朝年岁打折，开国气象里照旧不涨)
         if (pace > 0f && RecentSuccessions(state, now) >= DynasticCycleRules.ChurnSuccessions)
             change += DynasticCycleRules.ChurnStrain;
+        // 旧档补底：积弊低于同岁数最少该有的(以前治世会往回降、旧档读进来只补了一部分)，每年另补，补到为止
+        if (pace > 0f)
+        {
+            float floor = DynasticCycleRules.AgeFloor(GetAge(empire));
+            float gap = floor - (state.dynastic_strain + change);
+            if (gap > 0f)
+            {
+                change += Math.Min(gap, DynasticCycleRules.CatchUpPerYear);
+                if (CatchUpLogged.Add(empire.id))
+                    NeoModLoader.services.LogService.LogInfo($"[EmpireCraft][王朝积弊] {empire.GetEmpireFullName()} 国祚{GetAge(empire)}年，" +
+                        $"积弊{state.dynastic_strain:0.0}低于同岁数最少该有的{floor:0.0}，每年补{DynasticCycleRules.CatchUpPerYear}直到补上");
+            }
+        }
         state.dynastic_strain = DynasticCycleRules.Advance(state.dynastic_strain, Math.Max(0f, change));
         MonarchyLegitimacy.Invalidate(empire);
         Settle(empire, state, now);
@@ -236,6 +253,7 @@ public static class DynasticCycleSystem
             // 清空、减半：王朝年岁从头算，在位与换君的记录从新朝开国之君重新记(谥法一个帝国只由皇帝定一次，不随改朝换代重来，
             // 见 PosthumousNameGenerator)
             state.dynastic_since = now;
+            state.dynastic_age_offset = 0;
             state.last_dynastic_update = now;
             state.dynastic_strain = DynasticCycleRules.Carry(state.dynastic_strain, transition);
             MaladySystem.OnDynastyChanged(empire, DynasticCycleRules.MaladyShare(transition));
@@ -268,6 +286,7 @@ public static class DynasticCycleSystem
     {
         public float strain;
         public double since = -1d;
+        public int age_offset;
         public double saturated_since = -1d;
         public Dictionary<string, float> maladies = new();
     }
@@ -279,6 +298,7 @@ public static class DynasticCycleSystem
         {
             strain = Math.Max(0f, Math.Min(100f, state?.dynastic_strain ?? 0f)),
             since = state?.dynastic_since ?? -1d,
+            age_offset = state?.dynastic_age_offset ?? 0,
             saturated_since = state?.dynastic_saturated_since ?? -1d,
             maladies = new Dictionary<string, float>(empire?.data?.maladies ?? new Dictionary<string, float>())
         };
@@ -299,11 +319,13 @@ public static class DynasticCycleSystem
         if (transition == Transition.Keep && legacy.since >= 0d)
         {
             state.dynastic_since = legacy.since;
+            state.dynastic_age_offset = legacy.age_offset;
             state.dynastic_saturated_since = legacy.saturated_since;
         }
         else
         {
             state.dynastic_since = now;
+            state.dynastic_age_offset = 0;
             state.last_dynastic_update = now;
             state.dynastic_saturated_since = -1d;
         }

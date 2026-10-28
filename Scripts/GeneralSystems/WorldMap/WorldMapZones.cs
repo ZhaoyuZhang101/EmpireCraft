@@ -12,6 +12,9 @@ namespace EmpireCraft.Scripts.GeneralSystems.WorldMap;
 //   · 走一步的代价按要进的那块算，越往山里越贵(山脉腹地 ×2)，过河(河湖占一成多的内陆区块)另加；
 //   · 代价上叠一层平滑起伏(几块区块一个起伏，±25%)，均匀的大漠、高原上国界也弯弯曲曲；
 //   · 铺满分两轮：头一轮山脉只领不越，两边都有城时山脊就是国界，第二轮再把剩下的分完
+// 铺满也守地形(用户 2026-10-29："预设地图的地形完全没有对国土造成限制"，开局按地形铺了两千块，铺满又不论地形分了一万多块，
+// 青藏、大漠都归了最近的明城)：整块荒漠、冻土照荒地规矩只归收这种地的城(游牧营地、阿拉伯一系收沙漠，游牧、斯拉夫收冻土，
+// 见 BarrenLandSystem.Accepts)，别的城不进也不穿过去；山里至多往里领两块(头一轮一块)，大山腹地留作无主之地
 internal static class WorldMapZones
 {
     public static int Width { get; private set; }
@@ -22,12 +25,16 @@ internal static class WorldMapZones
     private static int[] _land = new int[0];
     private static float[] _noise = new float[0];
     private static bool[] _river = new bool[0];
+    // 整块荒漠(BarrenLandSystem.Desert)、冻土(Frozen)，别的为 0
+    private static int[] _barren = new int[0];
 
     public const float SeaCost = 6f;
     private const float Mountain = 6f, RiverCost = 1.5f, NoiseCell = 4f, NoiseAmplitude = 0.25f;
 
     public static void Build()
     {
+        // 路口按这张图重判(上一张图、立城平谷以前算的不作数，见 Open)
+        TerrainSystem.Invalidate(null);
         Width = MapBox.width / 8;
         Height = MapBox.height / 8;
         int count = Width * Height;
@@ -36,6 +43,7 @@ internal static class WorldMapZones
         _claimable = new bool[count];
         _land = new int[count];
         _river = new bool[count];
+        _barren = new int[count];
         var water = new int[count];
         for (int zy = 0; zy < Height; zy++)
         for (int zx = 0; zx < Width; zx++)
@@ -43,7 +51,7 @@ internal static class WorldMapZones
             int index = zy * Width + zx;
             TileZone zone = World.world.GetTileSimple(zx * 8 + 4, zy * 8 + 4)?.zone;
             _zones[index] = zone;
-            Classify(zone, out _travel[index], out _claimable[index], out _land[index], out water[index]);
+            Classify(zone, out _travel[index], out _claimable[index], out _land[index], out water[index], out _barren[index]);
         }
         // 河湖：内陆(四周都是陆地区块)里水面占一成多到四成多的区块，过去要多费点事，河常常成了国界
         for (int i = 0; i < count; i++)
@@ -97,12 +105,13 @@ internal static class WorldMapZones
         return step * (b < _noise.Length ? _noise[b] : 1f);
     }
 
-    private static void Classify(TileZone zone, out float travel, out bool claimable, out int land, out int water)
+    private static void Classify(TileZone zone, out float travel, out bool claimable, out int land, out int water, out int barrenKind)
     {
         travel = SeaCost;
         claimable = false;
         land = 0;
         water = 0;
+        barrenKind = BarrenLandSystem.None;
         if (zone?.tiles == null) return;
         int mountain = 0, hills = 0, desert = 0, frozen = 0, wet = 0, forest = 0;
         foreach (WorldTile tile in zone.tiles)
@@ -151,6 +160,7 @@ internal static class WorldMapZones
         else if (share(forest) >= 0.5f) travel = 1.3f;
         else travel = 1f;
         claimable = !mountainous && !barren;
+        if (barren && !mountainous) barrenKind = desert >= frozen ? BarrenLandSystem.Desert : BarrenLandSystem.Frozen;
     }
 
     public static int IndexOf(Vector2Int tile)
@@ -237,7 +247,7 @@ internal static class WorldMapZones
             {
                 if (!_claimable[next] || owner[next] >= 0) continue;
                 TileZone zone = _zones[next];
-                if (zone == null || zone.city != null) continue;
+                if (zone == null || zone.city != null || !Open(index, next)) continue;
                 float total = at + Step(index, next);
                 if (total > seeds[s].budget || total >= cost[next]) continue;
                 cost[next] = total;
@@ -300,28 +310,41 @@ internal static class WorldMapZones
         }
     }
 
-    // 铺满：剩下有陆地的区块(山地、整块荒漠、沿海零碎地块都算)归走得到的最近的城，只走陆路(隔海的岛靠 Gaps 补的城)；
+    // 铺满：剩下有陆地的区块(山地、整块荒漠、沿海零碎地块都算)归走得到的最近的城，只走陆路(隔海的岛靠 Gaps 补的城)，
+    // 每一步都要交界有路口(见 Open)，走不进去的山腹不分；
     // allow 判断这座城还能不能再领这块(地块上限)。头一轮山脉只领不越(山脊作国界)，之后几轮把剩下的分完；
     // 哪一轮都不许从山里往下进平地、高原(用户 2026-10-29 "依旧还有跨地形国土")：以前山这边的城领满了上限，
     // 留下的平地第二轮被山那边的城翻过山脊领走(吐蕃翻过喜马拉雅占了恒河边)。最后一轮放宽上限(relaxed)，让同侧的城把剩下的领完
     public static int FillAll(Func<City, TileZone, bool> allow, Action<City, TileZone> claim, Func<City, TileZone, bool> relaxed = null)
     {
         int claimed = 0;
+        // 收不收荒漠、冻土按城算一次(每块地要问很多遍)
+        var takes = new Dictionary<(City, int), bool>();
+        bool Takes(City city, int kind)
+        {
+            if (!takes.TryGetValue((city, kind), out bool yes)) takes[(city, kind)] = yes = BarrenLandSystem.Accepts(city, kind);
+            return yes;
+        }
         for (int round = 0; round < 4; round++)
         {
-            int got = FillRound(round == 3 && relaxed != null ? relaxed : allow, claim, round == 0);
+            int got = FillRound(round == 3 && relaxed != null ? relaxed : allow, claim, Takes, round == 0 ? 1 : MountainDepth);
             claimed += got;
             if (got == 0 && round > 0 && round < 2) round = 2;
         }
         return claimed;
     }
 
-    private static int FillRound(Func<City, TileZone, bool> allow, Action<City, TileZone> claim, bool stopAtRidges)
+    // 山里至多往里领几块(从平地算起)
+    private const int MountainDepth = 2;
+
+    private static int FillRound(Func<City, TileZone, bool> allow, Action<City, TileZone> claim, Func<City, int, bool> takes, int mountainDepth)
     {
         int count = _travel.Length;
         var owner = new City[count];
         var tentative = new City[count];
         var cost = new float[count];
+        // 进山第几块(城自己的地块算 0)
+        var depth = new int[count];
         var heap = new MinHeap();
         for (int i = 0; i < count; i++)
         {
@@ -348,24 +371,37 @@ internal static class WorldMapZones
                 claim(candidate, zone);
                 claimed++;
                 from = candidate;
-                if (stopAtRidges && _travel[index] >= Mountain) continue;
             }
             foreach (int next in Neighbours(index))
             {
                 if (owner[next] != null || _land[next] < MinLand) continue;
-                // 从山里只往山里走，不翻过山脊下到另一边的平地、高原
-                if (_travel[index] >= Mountain && _travel[next] < Mountain) continue;
+                // 从山里只往山里走，不翻过山脊下到另一边的平地、高原；山里至多往里领 mountainDepth 块
+                if (depth[index] > 0 && _travel[next] < Mountain) continue;
+                int inward = _travel[next] >= Mountain ? depth[index] + 1 : 0;
+                if (inward > mountainDepth) continue;
+                // 整块荒漠、冻土只归收这种地的城，别的城不进也不穿过去
+                if (_barren[next] != BarrenLandSystem.None && !takes(from, _barren[next])) continue;
                 TileZone zone = _zones[next];
                 if (zone == null || zone.city != null) continue;
+                // 进哪块地都要交界有路口(用户 10-29 "为什么你这个城市边界总是会跨山""印度都管到西藏去了，这么大个喜马拉雅")：
+                // 以前进山不看路口，山两边的城各往山里领两块，在山脊上碰头，喜马拉雅整片分给了南北两边的城；
+                // 现在走不进去的山腹留空，成了天然的界
+                if (!Open(index, next)) continue;
                 float total = at + Step(index, next);
                 if (total >= cost[next]) continue;
                 cost[next] = total;
                 tentative[next] = from;
+                depth[next] = inward;
                 heap.Push(total, next);
             }
         }
         return claimed;
     }
+
+    // 交界有没有路口(用户 10-29 "军队不应该跨越"山、"不仅国土跨越了军队也跨越了"，口径同军团寻路、战线、城市扩张，
+    // 见 TerrainSystem.Crossable)：铺辖地、铺满都只从有路口的交界扩过去，翻过山脊才到的地不领(留给山那边的城或空着)；
+    // 城心那块也照交界算(seatOpen:false)，紧挨城心的一圈同样不隔脊领地
+    private static bool Open(int a, int b) => TerrainSystem.Crossable(_zones[a], _zones[b], seatOpen: false);
 
     // 区块里至少这么多格陆地才算陆地(一格两格的礁石、沙洲不领)
     private const int MinLand = 6;
@@ -386,7 +422,7 @@ internal static class WorldMapZones
     }
 
     // 二叉堆(运行库里没有现成的优先队列)
-    private sealed class MinHeap
+    internal sealed class MinHeap
     {
         private readonly List<(float key, int value)> _items = new();
         public int Count => _items.Count;

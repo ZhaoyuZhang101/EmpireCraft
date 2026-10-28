@@ -1,4 +1,4 @@
-# 外交界面方案(待穿越政体与殖民体系完工后开工)
+# 外交界面方案(10-29 已做第一、二期，未进游戏验证)
 
 ## 要解决什么
 
@@ -60,3 +60,9 @@
 
 - 操作按钮是否全部开放，还是只开放"不破坏存档平衡"的几项。
 - 往来大事年表从多远开始抽(全部 / 近一百年)。
+
+## 进度(10-29)
+
+- 待定两项已问：操作按钮全部开放；往来大事全部列出。
+- 一、二期都已写：`UI/Windows/DiplomacyWindow.cs`(五页)、`GeneralSystems/DiplomacyLedger.cs`(关系账)、`GeneralSystems/DiplomacyActions.cs`(操作与原因)、`GodPowers/DiplomacyPower.cs`(入口权能，图标 Tools/IconForge/diplomacy_forge.py)、国情窗口左栏按钮；市场系统补了公开接口(AllGoods、UnionOf、JoinUnion、LeaveUnion、全国奢侈品)；殖民系统补了 Annex、RotateGovernor、NationalizeNow；好感修正 god_opinion + 好感项 opinion_god_favor。
+- 已知局限：往来大事只能从还留着的战争(原版只留最近二十场结束的)和帝国史册里抽，独立王国没有史册；停战、通好、保护约直接写各系统字段。

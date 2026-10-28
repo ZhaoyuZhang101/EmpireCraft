@@ -32,7 +32,7 @@ public class TempFac_索取皇位 : TemporaryFaction
     public override void Execute()
     {
         Empire constitutionalEmpire = GetEmpire();
-        if (ConstitutionalSuccessionSystem.IsProtected(constitutionalEmpire))
+        if (ConstitutionalSuccessionSystem.ThroneBound(constitutionalEmpire))
         {
             ConstitutionalSuccessionSystem.TryHandleVacancy(constitutionalEmpire.CoreKingdom);
             End();
@@ -144,13 +144,13 @@ public class TempFac_索取皇位 : TemporaryFaction
     public override bool CheckContinue()
     {
         Empire empire = GetEmpire();
-        if (ConstitutionalSuccessionSystem.IsProtected(empire)) return false;
+        if (ConstitutionalSuccessionSystem.ThroneBound(empire)) return false;
         return empire?.Emperor == null;
     }
     public override bool CheckCondition()
     {
         Empire empire = GetEmpire();
-        if (ConstitutionalSuccessionSystem.IsProtected(empire)) return false;
+        if (ConstitutionalSuccessionSystem.ThroneBound(empire)) return false;
         if (empire != null)
         {
             if (empire.getWars().Any(w=>w.GetEmpireWarType()== EmpireWarType.藩王索取皇位)) return false;

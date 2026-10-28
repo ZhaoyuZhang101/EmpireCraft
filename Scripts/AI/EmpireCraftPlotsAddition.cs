@@ -1370,14 +1370,14 @@ namespace EmpireCraft.Scripts.AI
                     if (!pActor.HasSpecificClan()) return false;
                     if (!kingdom.IsEmpire()) return false;
                     if (kingdom.hasEnemies()) return false;
-                    if (ConstitutionalSuccessionSystem.IsProtected(kingdom.GetEmpire())) return false;
+                    if (ConstitutionalSuccessionSystem.ThroneBound(kingdom.GetEmpire())) return false;
                     if (!kingdom.GetEmpire().IsRoyalBeenChanged()) return false;
                     if (Date.getYearsSince(kingdom.GetEmpire().data.original_royal_been_changed_timestamp)<=5) return false;
                     return true;
                 },
                 action = delegate (Actor pActor)
                 {
-                    if (ConstitutionalSuccessionSystem.IsProtected(pActor.kingdom?.GetEmpire())) return false;
+                    if (ConstitutionalSuccessionSystem.ThroneBound(pActor.kingdom?.GetEmpire())) return false;
                     pActor.CheckSpecificClan();
                     Kingdom kingdom = pActor.kingdom;
                     Empire empire = kingdom.GetEmpire();

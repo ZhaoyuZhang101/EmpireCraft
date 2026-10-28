@@ -151,16 +151,29 @@ public static class MilitaryRegency
         Assert(empire);
     }
 
-    private static void Establish(Empire empire, int kind)
+    // 剧本开局就有的将军、苏丹(世界地图临高剧本的德川家光)：指定此人当场就任，不看开国之君在位(见 WorldMapScenario.Shogunate)
+    public static bool Appoint(Empire empire, Actor regent)
+    {
+        if (empire?.data == null || empire.CoreKingdom == null || World.world == null) return false;
+        int kind = Wanted(empire);
+        if (kind == None || !Eligible(empire, regent)) return false;
+        if (Active(empire) && Regent(empire) == regent) return true;
+        if (!Establish(empire, kind, regent)) return false;
+        LastCheck[empire.id] = World.world.getCurWorldTime();
+        return true;
+    }
+
+    private static bool Establish(Empire empire, int kind, Actor chosen = null)
     {
         Actor emperor = empire.Emperor;
-        Actor regent = Pick(empire, kind);
-        if (emperor?.data == null || regent == null) return;
+        Actor regent = chosen ?? Pick(empire, kind);
+        if (emperor?.data == null || regent == null) return false;
         Install(empire, regent, kind);
         string culture = CultureService.GetRealmCulture(empire.CoreKingdom);
         string key = kind == Shogun ? "bakufu_established_history" : "sultanate_established_history";
         Record(empire, string.Format(LM.Get(DynastyNaming.CultureVariant(key, culture) ?? key), empire.GetEmpireName(),
             regent.getName(), emperor.getName()));
+        return true;
     }
 
     // 承袭：家族里辈分最高的成年男子；家族绝了另择一家。
@@ -337,10 +350,17 @@ public static class MilitaryRegency
         data.court_emperor_id = -1L;
         if (court == null || emperor?.data == null || shogun?.data == null || emperor == shogun) return;
         Kingdom core = empire.CoreKingdom;
+        // 先把皇室记回天皇家再请他复位：万世一系(ConstitutionalSuccessionSystem.ThroneBound)只许皇室一系坐皇位，
+        // 皇室还记着将军家时天皇会被挡下
+        long shogunHouse = data.empire_specific_clan;
+        data.empire_specific_clan = court.id;
         core.GetOffice().meta_object = core;
         core.GetOffice().SetActor(emperor);
-        if (core.king != emperor) return;
-        data.empire_specific_clan = court.id;
+        if (core.king != emperor)
+        {
+            data.empire_specific_clan = shogunHouse;
+            return;
+        }
         if (Eligible(empire, shogun)) Install(empire, shogun, Wanted(empire) == None ? Shogun : Wanted(empire));
         LogService.LogInfo($"[EmpireCraft][武家执政] {empire.GetEmpireName()} 旧档迁移：{emperor.getName()} 复位，{shogun.getName()} 为权臣");
     }

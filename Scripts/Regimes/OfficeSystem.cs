@@ -279,7 +279,7 @@ public class OfficeObject
         if (is_local && meta_object is Kingdom electedSeat &&
             EmpireCraft.Scripts.GeneralSystems.HolyRomanSystem.TryElectHouse(electedSeat, actor)) return;
         if (is_local && meta_object is Kingdom constitutionalCore && constitutionalCore.IsEmpire() &&
-            ConstitutionalSuccessionSystem.IsProtected(constitutionalCore.GetEmpire()) &&
+            ConstitutionalSuccessionSystem.ThroneBound(constitutionalCore.GetEmpire()) &&
             !ConstitutionalSuccessionSystem.CanInherit(constitutionalCore.GetEmpire(), actor)) return;
         if (actor == null || !actor.CanServeOffice(GetOfficeKingdom(actor))) return;
         // 君主之位以外的官职(城主、朝官)只任成年人；君主可以是幼主(用户 2026-10-17 选"国君可以是幼主，城主不行")

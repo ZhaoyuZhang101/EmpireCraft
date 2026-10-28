@@ -28,8 +28,15 @@ public static partial class MultiCapitalSystem
 
     public static bool IsVacantZhili(Kingdom kingdom) => IsZhili(kingdom) && !kingdom.hasKing();
 
-    // 名号前缀：京名(如"南京"，配类别"直隶")
-    public static string ZhiliFront(Kingdom kingdom) => IsZhili(kingdom) ? JingNameOf(kingdom.capital) : null;
+    // 名号前缀：南北两京照明制称"南直隶""北直隶"(用户 10-29 "我大明的南直隶呢"，文本 zhili_front_方位)；东西两京仍是京名(东京直隶)
+    public static string ZhiliFront(Kingdom kingdom)
+    {
+        if (!IsZhili(kingdom)) return null;
+        long seat = kingdom.capital?.data?.id ?? -1L;
+        EmpireCraft.Scripts.Data.JingRecord record = kingdom.GetEmpire()?.data?.jing?.FirstOrDefault(r => r != null && r.city_id == seat);
+        string key = record == null || string.IsNullOrEmpty(record.direction) ? null : "zhili_front_" + record.direction;
+        return key != null && LM.Has(key) ? LM.Get(key) : JingNameOf(kingdom.capital);
+    }
 
     private static Kingdom CurrentZhili(Empire empire)
     {

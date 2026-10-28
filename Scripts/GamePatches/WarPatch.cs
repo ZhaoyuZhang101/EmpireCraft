@@ -584,6 +584,8 @@ public class WarPatch: GamePatch
         var opposite = attackers ? war.data.list_defenders : war.data.list_attackers;
         // 不站到自己宗主、自己殖民地的对面(见 ColonySystem)
         if (ColonySystem.JoinsAgainstKin(war, kingdom, attackers)) return false;
+        // 穿越政权伪装期间打某省，朝廷本部和别的省不掺和(见 TransmigrantSystem.DisguiseStaysOut)
+        if (TransmigrantSystem.DisguiseStaysOut(war, kingdom)) return false;
         return opposite?.Contains(kingdom.id) != true;
     }
 

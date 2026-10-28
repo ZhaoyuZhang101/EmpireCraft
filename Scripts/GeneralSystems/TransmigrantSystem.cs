@@ -65,6 +65,53 @@ public static partial class TransmigrantSystem
 
     public static bool IsTransmigrant(Kingdom kingdom) => Of(kingdom) != null;
 
+    // 颁布正式宪法的阶段：共同纲领(阶段 3，见 StageNodes)；以前施行临时约法(见 ConstitutionSystem.RequiredKind)
+    public const int ConstitutionStage = 3;
+
+    // 澳洲人的制度改革每项最多几年(见 InstitutionSystem.GetReformEnvironment)；小说里的大事一到当场施行(见 Milestones)
+    public const int MaxReformYears = 5;
+
+    // 这个帝国是穿越政权(中央是元老院，或成员里有元老院那一国——旧档里中央被外人夺走的也算)：现代国家，
+    // 没有皇帝、宗族王朝、年号、篡位改朝与改国号(见 Empire.NoDynasty、EmpirePartitionSystem、ConstitutionSystem)
+    public static bool Governs(Empire empire) =>
+        empire?.data != null && (IsTransmigrant(empire.CoreKingdom) || empire.kingdoms_hashset.Any(IsTransmigrant));
+
+    // 主席出缺(见 EmpireCraftKingdomBehCheckKing)：只从元老里选，选不出就空着下回再选
+    // (用户 10-29 "这是个什么鬼""国号不可能改的"：以前选不出元老就照常规挑人，一个归化民当了"皇帝"，
+    // 跟着篡位、改朝、定年号、改国号，元老院成了"大巴元老院国家")
+    public static bool TryHandleVacancy(Kingdom kingdom)
+    {
+        if (Of(kingdom) == null) return false;
+        if (kingdom.hasKing() && kingdom.king.isAlive()) return false;
+        Actor chairman = ElectChairman(kingdom);
+        if (chairman != null) InstallRuler(kingdom, chairman);
+        return true;
+    }
+
+    // 旧档修复：元老院那一国被挤出帝国中央、或首领不是元老的，中央交回元老院、首领从元老里改选、国号照元老院的叫法
+    private static void Restore(Kingdom kingdom, TransmigrantState state)
+    {
+        Empire empire = kingdom.GetEmpire();
+        if (empire != null && empire.CoreKingdom != kingdom)
+        {
+            if (!(kingdom.hasKing() && IsSenator(kingdom.king)) && ElectChairman(kingdom) is Actor chair) InstallRuler(kingdom, chair);
+            if (kingdom.hasKing() && empire.TransferCoreTo(kingdom))
+                LogService.LogInfo($"[EmpireCraft][穿越] {kingdom.data.name} 被挤出中央，交回元老院");
+        }
+        if (kingdom.hasKing() && !IsSenator(kingdom.king) && ElectChairman(kingdom) is Actor senator)
+        {
+            InstallRuler(kingdom, senator);
+            LogService.LogInfo($"[EmpireCraft][穿越] {kingdom.data.name} 首领不是元老，改选 {senator.getName()}");
+        }
+        empire = kingdom.GetEmpire();
+        if (empire?.CoreKingdom == kingdom)
+        {
+            empire.data.directPre = "";
+            empire.data.year_name = "";
+            SyncEmpireName(kingdom);
+        }
+    }
+
     public static Kingdom Active() =>
         World.world?.kingdoms?.list?.FirstOrDefault(kingdom => kingdom != null && !kingdom.isRekt() && Of(kingdom) != null);
 
@@ -182,6 +229,7 @@ public static partial class TransmigrantSystem
         CreateSeats(kingdom, state, year);
         BindLeaders(kingdom, state, city, founder);
         FormGovernment(kingdom);
+        Disguise(kingdom, state);
         CorpsSystem.RaiseLanding(kingdom, city, ArmyStrength, CorpsArmSystem.Arm.Rifle);
         LaunchFleet(kingdom, city);
 
@@ -679,6 +727,7 @@ public static partial class TransmigrantSystem
         {
             _homeCheckAt = now;
             KeepSenatorsHome();
+            Supply();
         }
         if (year == _year) return;
         _year = year;
@@ -701,6 +750,7 @@ public static partial class TransmigrantSystem
 
     private static void Yearly(Kingdom kingdom, TransmigrantState state, int year)
     {
+        Restore(kingdom, state);
         int inherited = 0;
         foreach (SenatorSeat seat in state.seats)
         {
@@ -720,10 +770,50 @@ public static partial class TransmigrantSystem
         if (World.world.getCurWorldTime() - state.chairman_elected_at >= ChairmanTermYears * 60d)
             InstallRuler(kingdom, Elect(kingdom, state, termEnd: true));
         FormGovernment(kingdom);
+        Milestones(kingdom, state, year);
         Stage(kingdom, state);
+        SyncRegions(kingdom);
         Publish(kingdom, state);
-        Naturalize(kingdom);
-        Grow(kingdom, state);
+        float naturalized = Naturalize(kingdom);
+        Grow(kingdom, state, naturalized);
+    }
+
+    // 照小说的大事，条件一达成就当场施行那项制度(连同没施行的前置)，不再一项项熬年限
+    // (用户 10-29 "很多是有条件的，条件达成就可以立刻改""参考小说剧情")：
+    //   · 伏波军：降临当年就组建(有了伏波军)；
+    //   · 第一届执委会、出版指导小组：降临第二年元老院全体大会选出第一届执委会，同年办报出书；
+    //   · 共同纲领：降临第三年(第二次全体大会)、已出临高(两城以上)；
+    //   · 政治保卫总局：共同纲领以后，归化民过两千(要防奸细、管治安)；
+    //   · 企划院：共同纲领以后，有了厂区或已有四城(要统一规划工业)；
+    //   · 大宋澳洲行在：撕破伪装、打出大宋旗号那年(见 Reveal)；对外情报局：同年设立；
+    //   · 元老院内阁制：大宋以后疆域过二十城；
+    //   · 北伐功成：内阁以后，当年称臣的宗主(明)已经灭亡
+    private static void Milestones(Kingdom kingdom, TransmigrantState state, int year)
+    {
+        int age = year - state.landed_year;
+        int cities = (kingdom.GetEmpire()?.kingdoms_hashset ?? new HashSet<Kingdom> { kingdom })
+            .Sum(member => member?.cities?.Count ?? 0);
+        bool Enacted(string node) => InstitutionSystem.IsEnacted(Culture, node);
+        Kingdom lord = state.disguise_lord_id >= 0 ? World.world.kingdoms.get(state.disguise_lord_id) : null;
+        var due = new List<string>();
+        if (Fubo(kingdom) != null) due.Add("aosong_fubo_army");
+        if (age >= 1) due.Add("aosong_first_committee");
+        if (age >= 1) due.Add("aosong_publishing");
+        if (age >= 2 && cities >= 2) due.Add("aosong_common_program");
+        if (Enacted("aosong_common_program") && NaturalizedPopulation(kingdom) >= 2000f) due.Add("aosong_political_security");
+        if (Enacted("aosong_common_program") && (cities >= 4 || kingdom.cities.Any(city => FactorySystem.InCity(city).Any())))
+            due.Add("aosong_planning_institute");
+        if (state.revealed) due.Add("aosong_great_song");
+        if (state.revealed) due.Add("aosong_foreign_intelligence");
+        if (Enacted("aosong_great_song") && cities >= 20) due.Add("aosong_cabinet");
+        if (Enacted("aosong_cabinet") && state.disguise_lord_id >= 0 && (lord == null || lord.isRekt() || lord.cities.Count == 0))
+            due.Add("aosong_restoration");
+        foreach (string node in due)
+        {
+            if (Enacted(node)) continue;
+            if (InstitutionSystem.ForceEnactNode(Culture, node) > 0)
+                LogService.LogInfo($"[EmpireCraft][穿越] {kingdom.GetKingdomFullName()} 条件达成，施行 {LM.Get("institution_" + node)}");
+        }
     }
 
     private static readonly string[] StageNodes =
@@ -731,6 +821,70 @@ public static partial class TransmigrantSystem
     private const string RosterChairman = "元老院主席";
 
     public static int StageOf(Kingdom kingdom) => Of(kingdom)?.stage ?? 0;
+
+    #region 大区与特别市
+
+    // 地方建制照原著沿革(用户 10-29 "我的大区和特别市什么的体制呢""按照小说的历史和政体规划一步步来")：
+    //   · 临时执委会、第一届执委会：执委会直辖，各城设县(驻县办)，不划行政区；别处并进来的成员叫"某城特区"、
+    //     首领特区区长(原著榆林堡升格三亚特区)；
+    //   · 共同纲领起：首都法理以外打下的法理划成大区，以治所城名为号(原著 1630 年三亚大区，王洛宾任区长)；
+    //   · 元老院内阁起(第三次全体大会)：大区照地区改称(海南大区、广东大区)，都城、大区治所与大城设特别市(见 SpecialCity)。
+    //   大区是行政区：不能外交，区长由元老院委任、不世袭；以前按封国分出去的成员("某元老院")每年改成大区
+    public const int RegionStage = 3, RegionRenameStage = 5;
+
+    // 成员所属的元老院国家(帝国核心是穿越政权时)；自己就是元老院国家时返回自己
+    public static Kingdom SenateOf(Kingdom kingdom)
+    {
+        if (kingdom?.data == null || kingdom.isRekt()) return null;
+        if (Of(kingdom) != null) return kingdom;
+        Kingdom core = kingdom.GetEmpire()?.CoreKingdom;
+        return core != null && core != kingdom && Of(core) != null ? core : null;
+    }
+
+    public static bool IsRegion(Kingdom kingdom) =>
+        kingdom?.data != null && !kingdom.isRekt() && !kingdom.IsEmpire() && Of(kingdom) == null && SenateOf(kingdom) != null;
+
+    // 共同纲领以前的大区叫特区
+    public static bool IsZone(Kingdom kingdom) => IsRegion(kingdom) && StageOf(SenateOf(kingdom)) < RegionStage;
+
+    public static bool Partitions(Empire empire) =>
+        empire?.CoreKingdom is Kingdom core && !core.isRekt() && StageOf(core) >= RegionStage;
+
+    // 大区的名号：第三次全体大会以前用治所城名，以后照法理地区名(返回 null)
+    public static string RegionFront(Kingdom kingdom)
+    {
+        if (!IsRegion(kingdom) || StageOf(SenateOf(kingdom)) >= RegionRenameStage) return null;
+        City seat = kingdom.capital;
+        return seat == null || seat.isRekt() ? null : seat.GetCityName();
+    }
+
+    // 每年：以前按封国分出去的成员(能外交、世袭、握着法理)改成大区；各大区照阶段重定名号与城名
+    private static void SyncRegions(Kingdom kingdom)
+    {
+        Empire empire = kingdom?.GetEmpire();
+        if (empire == null || empire.CoreKingdom != kingdom) return;
+        foreach (Kingdom member in empire.kingdoms_list.ToList())
+        {
+            if (!IsRegion(member)) continue;
+            Regime regime = member.GetRegime();
+            if (regime?.type != RegimeType.Transmigrant) continue;
+            if (regime.IsAllowDiplomacy() || regime.GetLeaderSelectMethod() != LeaderSelectMethod.Exam || member.HasMainTitle())
+            {
+                regime.SetAllowDiplomacy(false);
+                regime.SetLeaderSelectMethod(LeaderSelectMethod.Exam);
+                KingdomTitle title = member.GetMainTitle();
+                if (title != null)
+                {
+                    member.RemoveMainTitle();
+                    member.SetAdministrativeTitle(title);
+                }
+                LogService.LogInfo($"[EmpireCraft][穿越] {member.GetKingdomFullName()} 由封国改为行政区");
+            }
+            EmpireCraft.Scripts.AI.KingdomAI.EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(member);
+        }
+    }
+
+    #endregion
 
     // 阶段对应的制度节点(第一阶段是降临时的元老院)，名册窗口用
     public static string StageNode(int stage) =>
@@ -754,9 +908,9 @@ public static partial class TransmigrantSystem
 
     public static int AgeOf(SenatorSeat seat) => seat == null ? 0 : Mathf.Max(0, Date.getCurrentYear() - seat.birth_year);
 
-    // 特别市：元老院内阁以后的都城与经济重镇(一万五千人以上)
+    // 特别市：元老院内阁以后的都城、各大区治所与经济重镇(一万五千人以上)；大区的城按元老院的阶段算
     public static bool SpecialCity(City city) =>
-        city?.kingdom != null && StageOf(city.kingdom) >= 5 &&
+        city?.kingdom != null && StageOf(SenateOf(city.kingdom)) >= RegionRenameStage &&
         (city.isCapitalCity() || CityPopulationSystem.GetTotal(city) >= 15000f);
 
     private static void Stage(Kingdom kingdom, TransmigrantState state)
@@ -784,12 +938,13 @@ public static partial class TransmigrantSystem
         }
     }
 
-    // 检疫营(第一届执委会以后)：本国与殖民地各城每年把 NaturalizeShare 的外族背景人口编为归化民(澳洲人)，城的文化占比随之挪
-    private const float NaturalizeShare = 0.08f, NaturalizeShift = 4f;
+    // 检疫营：本国与殖民地各城每年把 NaturalizeShare 的外族背景人口编为归化民(澳洲人)，城的文化占比随之挪；
+    // 降临起就有，第一届执委会颁行以前减半(用户 10-29 "收拢流民、吸纳归化民、暴兵这套也没有")
+    private const float NaturalizeShare = 0.08f, NaturalizeShift = 4f, NaturalizeLogMin = 50f;
 
-    private static void Naturalize(Kingdom kingdom)
+    private static float Naturalize(Kingdom kingdom)
     {
-        if (!InstitutionSystem.IsEnacted(Culture, "aosong_first_committee")) return;
+        float rate = InstitutionSystem.IsEnacted(Culture, "aosong_first_committee") ? 1f : 0.5f;
         var realms = new List<Kingdom> { kingdom };
         realms.AddRange(ColonySystem.ColoniesOf(kingdom));
         float moved = 0f;
@@ -800,14 +955,18 @@ public static partial class TransmigrantSystem
                 if (data?.groups == null) continue;
                 foreach (PopGroup group in data.groups.Where(group => group != null && group.culture != Culture && group.Background > 0f).ToList())
                 {
-                    float removed = CityPopulationSystem.RemoveBackground(group, group.Background * NaturalizeShare);
+                    float removed = CityPopulationSystem.RemoveBackground(group, group.Background * NaturalizeShare * rate);
                     if (removed <= 0f) continue;
                     CityPopulationSystem.AddBackground(city, group.social_class, Culture, group.species, group.ideology, removed);
                     moved += removed;
                 }
-                CultureService.ApplyAssimilation(city, Culture, NaturalizeShift);
+                CultureService.ApplyAssimilation(city, Culture, NaturalizeShift * rate);
             }
         if (moved >= 1f) CityPopulationSystem.InvalidateHouseholdCaches();
+        if (moved >= NaturalizeLogMin)
+            TranslateHelper.LogEventOnly(string.Format(LM.Get("transmigrant_naturalized_history"), kingdom.GetKingdomFullName(),
+                Mathf.RoundToInt(moved)), kingdom);
+        return moved;
     }
 
     // 华夏诸国(穿越者以外的华夏天下文化)打穿越政体：剿髡之战

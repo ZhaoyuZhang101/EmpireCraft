@@ -64,6 +64,8 @@ public static class TerrainSystem
 
     public static void ResetWorldState()
     {
+        Edges.Clear();
+        MountainZones.Clear();
         _cache = new Entry[0];
         CityLivable.Clear();
         _marks = new int[0];
@@ -74,6 +76,88 @@ public static class TerrainSystem
     public static void Invalidate(TileZone zone)
     {
         if (zone != null && zone.id >= 0 && zone.id < _cache.Length) _cache[zone.id].Known = false;
+        // 交界的路口跟着重判(地形难得改，整表清掉)
+        Edges.Clear();
+        MountainZones.Clear();
+    }
+
+    // 山地区块：原版山地、山巅格占两成以上(同 WorldMapZones.Classify 的 mountainous)。城市扩张进这种地块要更严(见 CityExpansionPatch.Bordering)
+    private const float MountainShare = 0.2f;
+    private static readonly Dictionary<int, bool> MountainZones = new();
+
+    public static bool Mountainous(TileZone zone)
+    {
+        if (zone?.tiles == null) return false;
+        if (MountainZones.TryGetValue(zone.id, out bool cached)) return cached;
+        int total = 0, mountain = 0;
+        foreach (WorldTile tile in zone.tiles)
+        {
+            TileTypeBase type = tile?.Type;
+            if (type == null) continue;
+            total++;
+            int marks = Marks(type) | (tile.main_type != null ? Marks(tile.main_type) : 0);
+            if ((marks & MarkMountain) != 0) mountain++;
+        }
+        bool result = total > 0 && mountain >= total * MountainShare;
+        if (MountainZones.Count > 100_000) MountainZones.Clear();
+        MountainZones[zone.id] = result;
+        return result;
+    }
+
+    // 两块相邻的地之间走不走得过去(用户 10-29 "军队不应该跨越"山、"不仅国土跨越了军队也跨越了")：
+    // 以前只看一块地本身(山占四分之三、或里面被山隔断)，两块都能走、交界却是一道山脊时，军团照样翻过去、战线照样推过去。
+    // 现在看交界：两边贴着交界的格子至少有 MinPass 对都不是阻挡格(原版山地、山巅，同 Impassable)才算有路口；
+    // 斜着走要经过旁边一块能走、两段交界都有路口的地，不从两道山的夹角钻过去。城心那一块总能进(同 Impassable)；
+    // seatOpen 为假时城心也照交界算(剧本开局铺辖地用，见 WorldMapZones：紧挨城心的一圈也不隔脊领地)
+    private const int MinPass = 2;
+    private static readonly Dictionary<long, bool> Edges = new();
+
+    public static bool Crossable(TileZone a, TileZone b, bool seatOpen = true)
+    {
+        if (a == null || b == null) return false;
+        if (a == b) return true;
+        int dx = b.x - a.x, dy = b.y - a.y;
+        if (Math.Abs(dx) > 1 || Math.Abs(dy) > 1) return true;
+        if (seatOpen && (Seat(a) || Seat(b))) return true;
+        // 不看城心时，城心那块的交界另记一份(与总能进的那份分开)
+        bool seat = !seatOpen && (Seat(a) || Seat(b));
+        long key = (a.id < b.id ? (long)a.id * 1_000_000L + b.id : (long)b.id * 1_000_000L + a.id) * (seat ? -1L : 1L);
+        if (Edges.TryGetValue(key, out bool cached)) return cached;
+        bool open;
+        if (dx != 0 && dy != 0)
+        {
+            ZoneCalculator zones = World.world.zone_calculator;
+            bool Via(TileZone side) => side != null && !Impassable(side) && Crossable(a, side, seatOpen) && Crossable(side, b, seatOpen);
+            open = Via(zones.getZone(a.x + dx, a.y)) || Via(zones.getZone(a.x, a.y + dy));
+        }
+        else open = OpenPairs(a, dx, dy) >= MinPass;
+        if (Edges.Count > 200_000) Edges.Clear();
+        Edges[key] = open;
+        return open;
+    }
+
+    // a 朝 (dx, dy) 那一边的交界上，两边都不是阻挡格的格子对数
+    private static int OpenPairs(TileZone a, int dx, int dy)
+    {
+        int size = Config.CITY_ZONE_SIZE, ox = a.x * size, oy = a.y * size, count = 0;
+        for (int i = 0; i < size; i++)
+        {
+            int x = dx > 0 ? ox + size - 1 : dx < 0 ? ox : ox + i;
+            int y = dy > 0 ? oy + size - 1 : dy < 0 ? oy : oy + i;
+            if (!Blocks(World.world.GetTile(x, y)) && !Blocks(World.world.GetTile(x + dx, y + dy))) count++;
+        }
+        return count;
+    }
+
+    // 一格挡不挡路：原版的阻挡格(山地、山巅)，看地面层与顶层(同 ClassifyTiles)
+    private static bool Blocks(WorldTile tile)
+    {
+        TileTypeBase type = tile?.Type;
+        if (type == null) return true;
+        int marks = Marks(type);
+        if ((marks & MarkWater) != 0) return false;
+        int under = tile.main_type != null ? Marks(tile.main_type) : 0;
+        return ((marks | under) & MarkBlock) != 0;
     }
 
     public static TerrainEffect Effect(FrontTerrain terrain) =>

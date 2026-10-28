@@ -245,6 +245,8 @@ namespace EmpireCraft.Scripts.UI.Windows
         private void DrawRail(AutoVertLayoutGroup rail)
         {
             bool republic = RepublicSystem.IsRepublic(_empire);
+            // 穿越政体(元老院国家)：没有君主、皇室、年号(见 TransmigrantSystem)
+            bool transmigrant = _empire.CoreKingdom.GetRegime()?.type == RegimeType.Transmigrant;
             float inner = RailWidth - 10f;
 
             var identity = rail.BeginVertGroup(pSpacing: 0, pAlignment: TextAnchor.UpperLeft, pPadding: new RectOffset(5, 5, 4, 5));
@@ -284,11 +286,13 @@ namespace EmpireCraft.Scripts.UI.Windows
                 HoverMarqueeText.Attach(realmLine);
             }
             // 共和国显示其选定的纪年方式
-            string yearText = republic ? RepublicSystem.GetCalendarText(_empire) : _empire.GetYearNameWithTime();
+            string yearText = republic ? RepublicSystem.GetCalendarText(_empire)
+                : transmigrant ? string.Format(LM.Get("republic_common_era_format"), Date.getYearsSince(0d) + 1)
+                : _empire.GetYearNameWithTime();
             identity.AddTextIntoVertLayout(yearText.ColorString(pColor: _empire.getColor()._color_text), true,
                 TextAnchor.MiddleLeft, new Vector2(inner, 11f)).UseFixedFontSize(8, HorizontalWrapMode.Overflow);
             // 君主国再标历代君主数(共和国的纪年行已经是"共和 N 年"，不重复)
-            if (!republic)
+            if (!republic && !transmigrant)
                 identity.AddTextIntoVertLayout("format_past_emperor".LocalFormat(_empire?.data?.history_emperrors?.Count ?? 0)
                     .ColorString("#8FA0A8"), true, TextAnchor.MiddleLeft, new Vector2(inner, 9f))
                     .UseFixedFontSize(6, HorizontalWrapMode.Overflow);
@@ -297,14 +301,22 @@ namespace EmpireCraft.Scripts.UI.Windows
             var people = rail.BeginVertGroup(pSpacing: 2, pAlignment: TextAnchor.UpperLeft, pPadding: new RectOffset(4, 4, 4, 4));
             UIHelper.FixPanelWidth(people.transform, RailWidth);
             UIHelper.AddCardFrame(people.transform);
+            RegimeType regimeType = _empire.CoreKingdom.GetRegime()?.type ?? RegimeType.Feudalism;
             string rulerRole = republic
                 ? RepublicSystem.GetHeadOfStateTitle(_empire)
-                : _empire.CoreKingdom.GetRegime()?.type == RegimeType.ClassicalRepublic
-                    ? LM.Get(DynastyNaming.RankKey(RegimeType.ClassicalRepublic, 0, _empire.CoreKingdom))
-                    : LM.Get(_empire.Emperor?.isSexFemale() == true ? "actor_emperor_G" : "actor_emperor_B");
+                : regimeType is RegimeType.ClassicalRepublic or RegimeType.Transmigrant
+                    ? LM.Get(DynastyNaming.RankKey(regimeType, 0, _empire.CoreKingdom))
+                    // 日本一系的君主称天皇
+                    : InstitutionSystem.GetCultureLine(CultureService.GetRealmCulture(_empire.CoreKingdom)) == "Japan"
+                        ? LM.Get("bakufu_emperor")
+                        : LM.Get(_empire.Emperor?.isSexFemale() == true ? "actor_emperor_G" : "actor_emperor_B");
             if (_empire.data.is_been_controlled) rulerRole += " · " + LM.Get("powerful_minister_status_puppet");
             int peopleRows = 0;
-            if (AddPersonRow(people, _empire.Emperor, rulerRole, "#FFCC00", true)) peopleRows++;
+            // 幕府：征夷大将军掌实权排在最上，天皇挂在他下面(用户 2026-10-29 "这里的皇帝应该变成将军""然后天皇挂在他的下面")
+            Actor shogun = !republic && !transmigrant && MilitaryRegency.KindOf(_empire) == MilitaryRegency.Shogun
+                ? MilitaryRegency.Regent(_empire) : null;
+            if (shogun != null && AddPersonRow(people, shogun, LM.Get(MilitaryRegency.TitleKey(_empire)), "#FFCC00", true)) peopleRows++;
+            if (AddPersonRow(people, _empire.Emperor, rulerRole, shogun != null ? "#E0B0FF" : "#FFCC00", true)) peopleRows++;
             if (republic)
             {
                 // 一党领导、统一战线、民主集中制没有反对党(其他党派参加政治协商)
@@ -312,7 +324,8 @@ namespace EmpireCraft.Scripts.UI.Windows
                 if (!congress && AddPersonRow(people, RepublicSystem.GetOppositionLeader(_empire),
                         LM.Get("republic_opposition_leader"), "#59D9FF")) peopleRows++;
             }
-            else
+            // 穿越政体没有储君、权臣、后宫
+            else if (!transmigrant)
             {
                 if (AddPersonRow(people, _empire.CoreKingdom.GetHeir(), LM.Get("empire_heir"), "#CC66FF")) peopleRows++;
                 if (ParliamentSystem.HasParliament(_empire))
@@ -337,7 +350,8 @@ namespace EmpireCraft.Scripts.UI.Windows
                             : "powerful_minister_title");
                     string status = _empire.GetPowerfulMinisterStatusText();
                     if (!string.IsNullOrWhiteSpace(status)) role += " · " + status;
-                    if (AddPersonRow(people, _empire.GetPowerfulMinister(), role, "#FF8C1A")) peopleRows++;
+                    // 将军已排在最上
+                    if (shogun == null && AddPersonRow(people, _empire.GetPowerfulMinister(), role, "#FF8C1A")) peopleRows++;
                 }
                 Actor lover = _empire.Emperor?.lover;
                 if (AddPersonRow(people, lover, LM.Get(lover?.isSexFemale() == false ? "empire_lover_B" : "empire_lover_G"), "#FF4D94")) peopleRows++;
@@ -356,6 +370,12 @@ namespace EmpireCraft.Scripts.UI.Windows
                 FixedFaction governing = ParliamentSystem.GetGoverningFaction(_empire) ??
                                          _empire.CoreKingdom.GetRegime()?.GetDominateFaction();
                 Stat(LM.Get("republic_ruling_party"), governing?.Name ?? LM.Get("label_none"), "#C9A7E8");
+            }
+            else if (transmigrant)
+            {
+                // 元老院席数代替皇室
+                Stat(LM.Get("transmigrant_senate_window"), string.Format(LM.Get("transmigrant_senate_chip_seats"),
+                    TransmigrantSystem.Of(_empire.CoreKingdom)?.seats.Count ?? 0), "#7FD8EA");
             }
             else
             {
@@ -807,7 +827,7 @@ namespace EmpireCraft.Scripts.UI.Windows
             Clear();
             int pages = Math.Max(1, (_lineage.Count + LineagePageSize - 1) / LineagePageSize);
             _lineagePage = Math.Max(0, Math.Min(pages - 1, _lineagePage));
-            var parent = BeginPage("past_emperors", string.Format(LM.Get("lineage_chip_total"), _lineage.Count));
+            var parent = BeginPage(DynastyNaming.Term(_empire, "past_emperors"), string.Format(LM.Get("lineage_chip_total"), _lineage.Count));
 
             // 在位者卡：标题条是称号，内容是头像 + 姓名 + 在位年数，点"个人史"打开本朝记事
             bool republicNow = RepublicSystem.IsRepublic(_empire);

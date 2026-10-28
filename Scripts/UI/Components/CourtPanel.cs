@@ -166,7 +166,10 @@ public static class CourtPanel
         var text = row.BeginVertGroup(new Vector2(textWidth, 30f), pSpacing: 0, pAlignment: TextAnchor.MiddleLeft,
             pPadding: new RectOffset(0, 0, 0, 0));
         text.transform.localPosition = Vector3.zero;
-        string roleName = role == "emperor"
+        // 穿越政权的首领是执委会主席(元老院主席)，不是皇帝
+        string roleName = role == "emperor" && GeneralSystems.TransmigrantSystem.Governs(empire)
+            ? LM.Get(GeneralSystems.DynastyNaming.RankKey(Regimes.RegimeType.Transmigrant, 0, empire.CoreKingdom))
+            : role == "emperor"
             ? LM.Get(decider?.isSexFemale() == true ? "actor_emperor_G" : "actor_emperor_B")
             : LM.Get("court_decider_" + role);
         string name = decider?.getName() ?? LM.Get("label_none");

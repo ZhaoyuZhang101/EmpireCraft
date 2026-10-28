@@ -37,7 +37,7 @@ public static class SuccessionCouncilSystem
         Regime regime = kingdom.GetRegime();
         return empire?.data != null && regime != null && RegimeManager.IsMonarchy(regime.type) &&
                CourtSystem.Applies(empire) && !RepublicSystem.IsRepublic(empire) &&
-               !HolyRomanSystem.IsElective(empire) && !ConstitutionalSuccessionSystem.IsProtected(empire);
+               !HolyRomanSystem.IsElective(empire) && !ConstitutionalSuccessionSystem.ThroneBound(empire);
     }
 
     public static CourtSuccession Current(Empire empire) => empire?.data?.court?.succession;

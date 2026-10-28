@@ -257,6 +257,15 @@ public static class KingdomExtension
         public double colonial_voyage_arrive = -1d;
         // 关税同盟：并入了哪个大国的市场(见 CommodityMarketSystem)；-1 没有
         public long market_union_leader_id = -1L;
+        // 国号合不合本国文化已经核对过(见 NameCultureRepair)：只在立国、或旧档头一次核对，以后文化变了国号也不改
+        public bool name_culture_checked;
+        // 外交界面的好感修正(神力所为，见 DiplomacyActions)：对方国家编号 → 修正值
+        public Dictionary<long, int> god_opinion;
+        public bool ShouldSerializegod_opinion() => god_opinion != null && god_opinion.Count > 0;
+        // 剧本开局的旧谊、宿怨(见 DiplomacyActions.ApplyScenario)：对方国家编号 → 修正值，从开局起六十年内淡去
+        public Dictionary<long, int> history_opinion;
+        public bool ShouldSerializehistory_opinion() => history_opinion != null && history_opinion.Count > 0;
+        public double history_opinion_at = -1d;
         // 水土(见 ShuiTuSystem)：游牧离草的起始时间(-1 = 不在离草；旧档没有这项，从第一次结算起算)、已记入史书的离草档位、
         // 不服水土的旱地城已记入史书的最高档位、上次走出路的时间
         public double shuitu_offgrass_since = -1d;
@@ -2804,7 +2813,8 @@ public static class KingdomExtension
                kingdomType == KingdomType.YouMu_province ||
                kingdomType == KingdomType.ClassicalRepublic_province ||
                kingdomType == KingdomType.Bakufu_tenryo ||
-               kingdomType == KingdomType.LvLing_zhili;
+               kingdomType == KingdomType.LvLing_zhili ||
+               kingdomType == KingdomType.Transmigrant_region;
     }
 
     public static string GetAdministrativeProvinceName(this Kingdom kingdom)

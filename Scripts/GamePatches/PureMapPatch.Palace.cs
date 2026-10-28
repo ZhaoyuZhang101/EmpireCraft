@@ -21,7 +21,7 @@ public partial class PureMapPatch
         PalaceStreet = Rgb(246, 244, 240);
 
     // 这座城的都城地标画精细版宫城吗(先做了华夏)
-    private static bool DetailedPalace(CityPlan plan) => plan.family == "huaxia" && plan.landmark.Count > 0;
+    private static bool DetailedPalace(CityPlan plan) => plan.family == "huaxia" && plan.landmark.Count > 0 && !plan.papal;
 
     private sealed class PalaceBrush
     {

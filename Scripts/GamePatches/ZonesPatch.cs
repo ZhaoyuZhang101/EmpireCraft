@@ -130,6 +130,11 @@ public class ZonesPatch:GamePatch
             __result = MetaTypeExtension.Tianxia;
             return false;
         }
+        if (EmpireCraftMetaTypeLibrary.market?.isActive(pCheckOnlyOption) == true)
+        {
+            __result = MetaTypeExtension.Market;
+            return false;
+        }
         __result = MetaType.City;
         return false;
     }

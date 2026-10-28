@@ -101,7 +101,16 @@ public static class CommodityMarketSystem
         public bool great;
         public double power;
         public float trade_value;
+        // 市场汇总窗口用(见 MarketWindow)：共有几城；各成员国一年的产出、需求(按底价折钱)；
+        // 与各市场的买卖(对方领衔国编号 → 买进付的钱、卖出收的钱)；陆上接壤或商路相连、能通商的市场(领衔国编号)
+        public int cities;
+        public readonly Dictionary<long, (float made, float wanted)> memberValue = new();
+        public readonly Dictionary<long, float> boughtFrom = new(), soldTo = new();
+        public readonly HashSet<long> linked = new();
     }
+
+    // 一样物资的底价(没有这样物资按 1)
+    public static float BasePrice(string good) => Goods.TryGetValue(good ?? "", out CommodityConfig config) ? config.price : 1f;
 
     private static readonly Dictionary<long, Market> Markets = new();
     private static readonly Dictionary<long, long> MarketOfKingdom = new();
@@ -135,6 +144,45 @@ public static class CommodityMarketSystem
     }
 
     public static IEnumerable<Market> AllMarkets => Markets.Values;
+
+    // 外交界面的市场页用(见 DiplomacyWindow)
+    public static IEnumerable<CommodityConfig> AllGoods => Goods.Values;
+    public static bool Ready => _ready;
+
+    // 关税同盟的盟主(没有返回 null)
+    public static Kingdom UnionOf(Kingdom kingdom) => kingdom?.data == null ? null : UnionLeader(kingdom);
+
+    // 签关税同盟、退出(外交界面的操作；AI 每年自己签退见 Unions)：返回没办成的原因键，办成返回 null
+    public static string JoinUnion(Kingdom kingdom, Kingdom leader)
+    {
+        if (kingdom?.data == null || leader?.data == null || kingdom.isRekt() || leader.isRekt() || kingdom == leader)
+            return "diplomacy_reason_invalid";
+        if (kingdom.isEnemy(leader)) return "diplomacy_reason_at_war";
+        if (RootOf(kingdom) == RootOf(leader)) return "diplomacy_reason_same_market";
+        kingdom.GetOrCreate().market_union_leader_id = leader.id;
+        TranslateHelper.LogEventOnly(string.Format(LM.Get("market_union_joined"), kingdom.GetKingdomFullName(),
+            leader.GetKingdomFullName()), kingdom);
+        return null;
+    }
+
+    public static string LeaveUnion(Kingdom kingdom)
+    {
+        Kingdom leader = UnionOf(kingdom);
+        if (leader == null) return "diplomacy_reason_no_union";
+        kingdom.GetOrCreate().market_union_leader_id = -1L;
+        TranslateHelper.LogEventOnly(string.Format(LM.Get("market_union_left"), kingdom.GetKingdomFullName(),
+            leader.GetKingdomFullName()), kingdom);
+        return null;
+    }
+
+    // 一国各城奢侈品满足度的平均(0~1)
+    public static float LuxurySatisfaction(Kingdom kingdom)
+    {
+        if (kingdom?.cities == null || kingdom.cities.Count == 0) return 1f;
+        float total = 0f;
+        foreach (City city in kingdom.cities) total += LuxurySatisfaction(city);
+        return total / kingdom.cities.Count;
+    }
 
     // 这个国家所在市场某样物资的缺口(0 不缺 ~ 1 全无)；还没算出来按不缺
     public static float Shortage(Kingdom kingdom, string good) =>
@@ -236,6 +284,52 @@ public static class CommodityMarketSystem
     private static readonly Dictionary<long, CityBook> Books = new();
     private const int CitiesPerFrame = 24;
 
+    // 读档、换地图时清掉上一张图的市场(原版读档不换 MapBox，Tick 里按世界对象判断不出换了图：
+    // 以前新图的头一轮结算前，市场图层、外交界面拿旧图的市场按国家编号对上新图的国家)
+    public static void ResetWorldState()
+    {
+        _world = null;
+        _year = int.MinValue;
+        _ready = false;
+        Markets.Clear();
+        MarketOfKingdom.Clear();
+        Pending.Clear();
+        Books.Clear();
+        BiomeCache.Clear();
+        CultureRealm.Clear();
+    }
+
+    // 当场把全图结算一轮(剧本开局各城房子盖好、兵编好之后调，见 WorldMapScenario)：
+    // 平时按帧分批记账、一年一结；剧本开局要市场图层、外交界面的市场页一进世界就有数
+    public static void SettleNow()
+    {
+        if (World.world?.cities == null) return;
+        _world = World.world;
+        _year = Date.getCurrentYear();
+        Pending.Clear();
+        Books.Clear();
+        foreach (City city in World.world.cities.list)
+        {
+            if (city?.data == null || city.isRekt() || city.kingdom == null || !city.kingdom.isCiv()) continue;
+            try
+            {
+                Books[city.id] = Book(city);
+            }
+            catch (Exception exception)
+            {
+                LogService.LogWarning($"[EmpireCraft][市场] {city.GetCityName()} 记账失败: {exception.Message}");
+            }
+        }
+        try
+        {
+            Settle();
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft][市场] 开局结算失败: {exception.Message}");
+        }
+    }
+
     public static void Tick()
     {
         if (World.world == null) return;
@@ -280,7 +374,7 @@ public static class CommodityMarketSystem
         }
         catch (Exception exception)
         {
-            LogService.LogWarning($"[EmpireCraft][市场] 年度结算失败: {exception.Message}");
+            LogService.LogWarning($"[EmpireCraft][市场] 年度结算失败: {exception}");
         }
     }
 
@@ -295,36 +389,59 @@ public static class CommodityMarketSystem
         string culture = CultureService.GetMainCulture(city);
         foreach (CommodityConfig good in Goods.Values)
         {
-            float made = 0f;
-            if (ledger != null)
-                foreach (KeyValuePair<string, float> pair in ledger)
-                {
-                    if (good.resources.TryGetValue(pair.Key, out float rate)) made += pair.Value * rate;
-                    else if (good.resources.TryGetValue("food", out float foodRate) && IsFood(pair.Key)) made += pair.Value * foodRate;
-                }
+            float made = FromLedger(ledger, good);
             foreach (KeyValuePair<string, float> pair in good.biomes)
                 if (biomes.TryGetValue(pair.Key, out int tiles)) made += tiles * pair.Value * hands;
             if (good.craft_per_thousand > 0f && (good.craft_cultures.Count == 0 || good.craft_cultures.Contains(culture)))
                 made += people / 1000f * good.craft_per_thousand;
             if (made > 0f) Add(book.made, good.id, made);
         }
+        // 基础物资(粮、木、石、金属)的需求按物资账本的消耗加缺口(见 GoodsLedger)，与产出同一本账：
+        // 以前按各阶层每千人的定额算(每千人每年吃粮 900)，产出却是账本上的实际收成，两边差两百多倍，
+        // 各市场都缺粮九成以上、谁也没有余粮可卖(用户 10-29 "既然什么都缺为什么不去买入卖出呢")。
+        // 没有账本(原版小人自己采集吃饭，不记账)的城基础物资不记产需
+        bool ledgered = ledger != null;
+        if (ledgered)
+            foreach (CommodityConfig good in Goods.Values)
+                if (Basic(good)) Add(book.wanted, good.id, FromLedger(data.goods_used, good) + FromLedger(data.goods_short, good));
         if (data?.groups != null)
             foreach (PopGroup group in data.groups)
             {
                 if (group == null || group.size <= 0f) continue;
                 string cls = group.social_class.ToString();
                 foreach (CommodityConfig good in Goods.Values)
-                    if (good.needs.TryGetValue(cls, out float need)) Add(book.wanted, good.id, group.size / 1000f * need);
+                    if (!Basic(good) && good.needs.TryGetValue(cls, out float need)) Add(book.wanted, good.id, group.size / 1000f * need);
             }
+        // 穿越政权的工业(见 TransmigrantSystem.IndustryFactor)：厂区产量翻倍，归化民按人头另出布匹、工具、军械、钢材、糖
+        float industry = TransmigrantSystem.IndustryFactor(city);
         foreach (FactorySite site in FactorySystem.InCity(city))
             foreach (FactoryUnit unit in site.units)
             {
                 if (!Config.factories.TryGetValue(unit.type ?? "", out CommodityRecipe recipe)) continue;
                 float level = Mathf.Max(1, unit.level);
                 foreach (KeyValuePair<string, float> input in recipe.inputs) Add(book.wanted, input.Key, input.Value * level);
-                foreach (KeyValuePair<string, float> output in recipe.outputs) Add(book.made, output.Key, output.Value * level);
+                foreach (KeyValuePair<string, float> output in recipe.outputs) Add(book.made, output.Key, output.Value * level * industry);
             }
+        if (industry > 1f)
+            foreach ((string good, float amount) in TransmigrantSystem.IndustryOutput(city))
+                if (Goods.ContainsKey(good)) Add(book.made, good, amount);
         return book;
+    }
+
+    // 基础物资：粮、木、石、金属(商品表里 tier 为 basic、按账本资源折算的)
+    private static bool Basic(CommodityConfig good) => good.tier == "basic" && good.resources.Count > 0;
+
+    // 账本(产出、消耗或缺口)按这样物资的资源折算(各种粮食都算粮)
+    private static float FromLedger(Dictionary<string, float> ledger, CommodityConfig good)
+    {
+        if (ledger == null || good.resources.Count == 0) return 0f;
+        float total = 0f;
+        foreach (KeyValuePair<string, float> pair in ledger)
+        {
+            if (good.resources.TryGetValue(pair.Key, out float rate)) total += pair.Value * rate;
+            else if (good.resources.TryGetValue("food", out float foodRate) && IsFood(pair.Key)) total += pair.Value * foodRate;
+        }
+        return total;
     }
 
     private static void Add(Dictionary<string, float> map, string key, float amount)
@@ -369,6 +486,15 @@ public static class CommodityMarketSystem
         return string.IsNullOrEmpty(ground.biome_id) ? null : ground.biome_id;
     }
 
+    // 结算各步出错各记一次(连调用栈)，不让一步出错连累后面：以前贸易一步抛空引用，缺口、价格、进出口整年都没算，
+    // 市场页缺口全 0%、价格是底价、进出口全空(用户 10-29 截图"进口缺口呢"，日志里年年"年度结算失败")
+    private static readonly HashSet<string> WarnedSteps = new();
+
+    private static void Warn(string step, Exception exception)
+    {
+        if (WarnedSteps.Add(step)) LogService.LogWarning($"[EmpireCraft][市场] {step}出错(本局只记一次): {exception}");
+    }
+
     private static void Settle()
     {
         Markets.Clear();
@@ -376,24 +502,25 @@ public static class CommodityMarketSystem
         foreach (Kingdom kingdom in World.world.kingdoms.list)
         {
             if (kingdom?.data == null || kingdom.isRekt() || !kingdom.isCiv()) continue;
-            Kingdom root = RootOf(kingdom) ?? kingdom;
-            if (!Markets.TryGetValue(root.id, out Market market)) Markets[root.id] = market = new Market { leader = root };
-            market.members.Add(kingdom);
-            MarketOfKingdom[kingdom.id] = root.id;
-            market.power += kingdom.GetNationalPower();
-            foreach (City city in kingdom.cities)
+            try
             {
-                if (city == null || !Books.TryGetValue(city.id, out CityBook book)) continue;
-                foreach (KeyValuePair<string, float> pair in book.made) Add(market.supply, pair.Key, pair.Value);
-                foreach (KeyValuePair<string, float> pair in book.wanted) Add(market.demand, pair.Key, pair.Value);
+                Enter(kingdom);
             }
-            float soldiers = CorpsSystem.Of(kingdom).Sum(corps => Mathf.Max(0f, corps.strength)) * (kingdom.hasEnemies() ? 2f : 1f);
-            foreach (CommodityConfig good in Goods.Values)
-                if (good.per_soldier > 0f) Add(market.demand, good.id, soldiers * good.per_soldier);
+            catch (Exception exception)
+            {
+                Warn("记国家账", exception);
+            }
         }
         foreach (Market market in Markets.Values.OrderByDescending(market => market.power).Take(Mathf.Max(1, Config.great_powers)))
             market.great = true;
-        Trade();
+        try
+        {
+            Trade();
+        }
+        catch (Exception exception)
+        {
+            Warn("市场间贸易", exception);
+        }
         foreach (Market market in Markets.Values)
             foreach (CommodityConfig good in Goods.Values)
             {
@@ -407,13 +534,82 @@ public static class CommodityMarketSystem
             }
         _ready = true;
         CultureRealm.Clear();
-        Unions();
-        Log();
+        try
+        {
+            Unions();
+        }
+        catch (Exception exception)
+        {
+            Warn("关税同盟", exception);
+        }
+        try
+        {
+            Log();
+        }
+        catch (Exception exception)
+        {
+            Warn("结算日志", exception);
+        }
+    }
+
+    // 一国记进它所在的市场：产量、需求、军需
+    private static void Enter(Kingdom kingdom)
+    {
+        Kingdom root = RootOf(kingdom) ?? kingdom;
+        if (!Markets.TryGetValue(root.id, out Market market)) Markets[root.id] = market = new Market { leader = root };
+        market.members.Add(kingdom);
+        MarketOfKingdom[kingdom.id] = root.id;
+        market.power += kingdom.GetNationalPower();
+        float madeValue = 0f, wantedValue = 0f;
+        if (kingdom.cities != null)
+        {
+            market.cities += kingdom.cities.Count;
+            foreach (City city in kingdom.cities)
+            {
+                if (city == null || !Books.TryGetValue(city.id, out CityBook book)) continue;
+                foreach (KeyValuePair<string, float> pair in book.made)
+                {
+                    Add(market.supply, pair.Key, pair.Value);
+                    madeValue += pair.Value * BasePrice(pair.Key);
+                }
+                foreach (KeyValuePair<string, float> pair in book.wanted)
+                {
+                    Add(market.demand, pair.Key, pair.Value);
+                    wantedValue += pair.Value * BasePrice(pair.Key);
+                }
+            }
+        }
+        market.memberValue[kingdom.id] = (madeValue, wantedValue);
+        float soldiers = (CorpsSystem.Of(kingdom)?.Sum(corps => Mathf.Max(0f, corps?.strength ?? 0f)) ?? 0f) * (kingdom.hasEnemies() ? 2f : 1f);
+        foreach (CommodityConfig good in Goods.Values)
+            if (good.per_soldier > 0f) Add(market.demand, good.id, soldiers * good.per_soldier);
     }
 
     // 市场之间：陆上接壤或商路相连的，缺的向有余的买(按价差、余量)，付价款加关税，记公家贸易
+    // 技术差(用户 10-29 "临高政体应当靠着技术差赚着比这个世界任何国家的钱都要多")：卖方科技比买方高几个时代，
+    // 每高一代价钱加 EdgePremium(至多 EdgePremiumMax 倍)，本地有货也能挤进去卖掉需求的 EdgeDisplace(至多 EdgeDisplaceMax)——
+    // 机器货又好又便宜；领先的卖方先卖。穿越政权另有船队海路(见 TransmigrantSystem.SeaTradePartners)
+    private const float EdgePremium = 0.5f, EdgePremiumMax = 3f, EdgeDisplace = 0.15f, EdgeDisplaceMax = 0.6f;
+    private static readonly Dictionary<long, int> EraTiers = new();
+
+    private static int EraTier(Kingdom kingdom)
+    {
+        if (kingdom?.data == null) return 0;
+        if (EraTiers.TryGetValue(kingdom.id, out int tier)) return tier;
+        string culture = CultureService.GetRealmCulture(kingdom);
+        tier = string.IsNullOrEmpty(culture) ? 0 : TechnologySystem.GetEraTier(culture);
+        EraTiers[kingdom.id] = tier;
+        return tier;
+    }
+
+    // 基础物资(粮、木、石、金属)跨市场买卖另加的运费(占底价)
+    private const float BasicFreight = 0.5f;
+
+    private static int TechEdge(Market seller, Market buyer) => Math.Max(0, EraTier(seller.leader) - EraTier(buyer.leader));
+
     private static void Trade()
     {
+        EraTiers.Clear();
         var links = new Dictionary<long, HashSet<long>>();
         void Link(long a, long b)
         {
@@ -423,41 +619,70 @@ public static class CommodityMarketSystem
         }
         foreach (City city in World.world.cities.list)
         {
-            if (city?.kingdom == null || !MarketOfKingdom.TryGetValue(city.kingdom.id, out long own)) continue;
-            foreach (Kingdom neighbour in city.neighbours_kingdoms)
-                if (neighbour != null && MarketOfKingdom.TryGetValue(neighbour.id, out long other) && !neighbour.isEnemy(city.kingdom))
-                    Link(own, other);
-            long partnerId = TradeRouteSystem.PartnerOf(city);
-            City partner = partnerId >= 0 ? World.world.cities.get(partnerId) : null;
-            if (partner?.kingdom != null && MarketOfKingdom.TryGetValue(partner.kingdom.id, out long overseas)) Link(own, overseas);
+            if (city?.data == null || city.kingdom?.data == null || !MarketOfKingdom.TryGetValue(city.kingdom.id, out long own)) continue;
+            try
+            {
+                if (city.neighbours_kingdoms != null)
+                    foreach (Kingdom neighbour in city.neighbours_kingdoms)
+                        if (neighbour?.data != null && !neighbour.isRekt() && MarketOfKingdom.TryGetValue(neighbour.id, out long other) &&
+                            !neighbour.isEnemy(city.kingdom))
+                            Link(own, other);
+                long partnerId = TradeRouteSystem.PartnerOf(city);
+                City partner = partnerId >= 0 ? World.world.cities.get(partnerId) : null;
+                if (partner?.kingdom?.data != null && MarketOfKingdom.TryGetValue(partner.kingdom.id, out long overseas)) Link(own, overseas);
+            }
+            catch (Exception exception)
+            {
+                Warn("商路连线", exception);
+            }
         }
+        Kingdom lingao = TransmigrantSystem.Active();
+        if (lingao != null && MarketOfKingdom.TryGetValue(lingao.id, out long home))
+            foreach (Kingdom partner in TransmigrantSystem.SeaTradePartners(lingao))
+                if (MarketOfKingdom.TryGetValue(partner.id, out long other) && !partner.isEnemy(lingao))
+                    Link(home, other);
+        foreach (Market market in Markets.Values)
+            if (market.leader != null && links.TryGetValue(market.leader.id, out HashSet<long> set))
+                market.linked.UnionWith(set);
         foreach (CommodityConfig good in Goods.Values)
         {
-            if (good.tier == "basic") continue;
+            // 基础物资也买卖(以前不许，缺粮的市场买不到邻国的余粮)，又重又贱，另加运费
+            float freight = good.tier == "basic" ? BasicFreight : 0f;
             foreach (Market buyer in Markets.Values)
             {
                 buyer.supply.TryGetValue(good.id, out float supply);
                 buyer.demand.TryGetValue(good.id, out float demand);
-                float need = demand - supply;
-                if (need <= 0f || !links.TryGetValue(buyer.leader.id, out var partners)) continue;
-                foreach (long id in partners.OrderByDescending(id => Surplus(Markets[id], good.id)))
+                float need = Mathf.Max(0f, demand - supply);
+                if (demand <= 0f || buyer.leader?.data == null || buyer.leader.isRekt() || !links.TryGetValue(buyer.leader.id, out var partners))
+                    continue;
+                float displaced = 0f;
+                foreach (long id in partners.Where(Markets.ContainsKey)
+                             .OrderByDescending(id => TechEdge(Markets[id], buyer)).ThenByDescending(id => Surplus(Markets[id], good.id)))
                 {
                     Market seller = Markets[id];
+                    if (seller.leader?.data == null || seller.leader.isRekt()) continue;
+                    int edge = TechEdge(seller, buyer);
+                    float room = need + Mathf.Max(0f, demand * Mathf.Min(EdgeDisplaceMax, edge * EdgeDisplace) - displaced);
                     float spare = Surplus(seller, good.id);
-                    if (spare <= 0f || need <= 0f) continue;
-                    float unit = good.price * (1f + Config.tariff);
+                    if (spare <= 0f || room <= 0f) continue;
+                    float markup = Mathf.Min(EdgePremiumMax, 1f + edge * EdgePremium);
+                    float unit = good.price * markup * (1f + Config.tariff + freight);
                     float affordable = Mathf.Max(0f, buyer.leader.GetMoney()) / Mathf.Max(0.01f, unit);
-                    float amount = Mathf.Min(need, Mathf.Min(spare, affordable));
+                    float amount = Mathf.Min(room, Mathf.Min(spare, affordable));
                     if (amount < 0.5f) continue;
                     int paid = Mathf.RoundToInt(amount * unit);
-                    int earned = Mathf.RoundToInt(amount * good.price);
+                    int earned = Mathf.RoundToInt(amount * good.price * markup);
                     buyer.leader.SubMoney(paid, TreasuryCategory.PublicTrade);
                     seller.leader.AddMoney(earned, TreasuryCategory.PublicTrade);
                     Add(buyer.imports, good.id, amount);
                     Add(seller.exports, good.id, amount);
                     buyer.trade_value += paid;
                     seller.trade_value += earned;
-                    need -= amount;
+                    buyer.boughtFrom[seller.leader.id] = (buyer.boughtFrom.TryGetValue(seller.leader.id, out float spent) ? spent : 0f) + paid;
+                    seller.soldTo[buyer.leader.id] = (seller.soldTo.TryGetValue(buyer.leader.id, out float got) ? got : 0f) + earned;
+                    float filled = Mathf.Min(amount, need);
+                    need -= filled;
+                    displaced += amount - filled;
                 }
             }
         }

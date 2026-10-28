@@ -394,15 +394,61 @@ public partial class EmpireBeaurauWindow : AbstractWideWindow<EmpireBeaurauWindo
         return result;
     }
 
+    // 一段一段地画：哪一段读到空值抛错，只丢这一段(原处写一行"没画出来")，后面的照画，错误连调用栈记进日志
+    // (用户 10-29 "有时候行政界面不显示完全应该是哪一步读取出了空值被卡住了"：以前一处出错，后面整页都不画、也没留下线索)
+    private void Section(string name, Action build)
+    {
+        try
+        {
+            build();
+        }
+        catch (Exception exception)
+        {
+            LogService.LogError($"[EmpireCraft][行政界面] {_empire?.data?.name}「{name}」没画出来: {exception}");
+            try
+            {
+                SimpleText notice = _root.AddTextIntoVertLayout(string.Format(LM.Get("bureau_section_failed"), name)
+                    .ColorString("#E07A5F"), true, TextAnchor.MiddleCenter, new Vector2(_contentWidth, 12f));
+                notice.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
+                pool.Add(notice.gameObject);
+            }
+            catch (Exception)
+            {
+                // 连提示都写不上就算了，日志里已有
+            }
+        }
+    }
+
+    // 官制品级里的一张卡出错只丢这一张
+    private GameObject SafeNode(string name, Func<GameObject> build)
+    {
+        try
+        {
+            return build();
+        }
+        catch (Exception exception)
+        {
+            LogService.LogError($"[EmpireCraft][行政界面] {_empire?.data?.name} 官制品级「{name}」卡片没画出来: {exception}");
+            return null;
+        }
+    }
+
     private void BuildBureauPage()
     {
+        if (_empire?.data == null || _empire.isRekt() || _empire.CoreKingdom == null) return;
         // 宽窗口：顶部框作为滚动内容的第一项，跟着正文一起滚动
+        Section(LM.Get("bureau_section_top"), BuildTopPart);
+        Section(LM.Get("bureau_office_pyramid"), ShowOfficePyramid);
+    }
+
+    private void BuildTopPart()
+    {
         Regime regime = _empire.CoreKingdom.GetRegime();
         if (GeneralSystems.ParliamentSystem.HasParliament(_empire))
         {
             InitialTopPartInfoParliament();
         }
-        else switch (regime.type)
+        else switch (regime?.type)
         {
             case RegimeType.Feudalism:
                 InitialTopPartInfoFeudalism();
@@ -412,6 +458,9 @@ public partial class EmpireBeaurauWindow : AbstractWideWindow<EmpireBeaurauWindo
                 break;
             case RegimeType.ClassicalRepublic:
                 InitialTopPartInfoSenate();
+                break;
+            case RegimeType.Transmigrant:
+                InitialTopPartInfoTransmigrant();
                 break;
             case RegimeType.ZhouFeudalism:
                 InitialTopPartInfoZhou();
@@ -423,7 +472,6 @@ public partial class EmpireBeaurauWindow : AbstractWideWindow<EmpireBeaurauWindo
                 InitialTopPartInfoNormal();
                 break;
         }
-        ShowOfficePyramid();
     }
 
     public override void OnNormalEnable()
@@ -586,8 +634,13 @@ public partial class EmpireBeaurauWindow : AbstractWideWindow<EmpireBeaurauWindo
     {
         Actor emperor = _empire.Emperor;
         string name = emperor == null ? LM.Get("office_vacant") : emperor.getName();
-        return BuildNode(GeneralSystems.RepublicSystem.IsRepublic(_empire)
-                ? GeneralSystems.RepublicSystem.GetHeadOfStateTitle(_empire) : LM.Get("bureau_sovereign"), "#F3C34A", emperor,
+        string title = GeneralSystems.RepublicSystem.IsRepublic(_empire)
+            ? GeneralSystems.RepublicSystem.GetHeadOfStateTitle(_empire)
+            // 穿越政体没有君主：执委会主席(元老院主席)
+            : _empire.CoreKingdom.GetRegime()?.type == RegimeType.Transmigrant
+                ? LM.Get(GeneralSystems.DynastyNaming.RankKey(RegimeType.Transmigrant, 0, _empire.CoreKingdom))
+                : LM.Get("bureau_sovereign");
+        return BuildNode(title, "#F3C34A", emperor,
             name.ColorString(emperor == null ? "#8FA0A8" : "#F2EEE2"),
             _empire.GetEmpireName().ColorString("#65D6C4"), "", $"sovereign_{_empire.id}",
             $"{name}\n{_empire.GetEmpireName()}", null, highlight: true);
@@ -690,12 +743,21 @@ public partial class EmpireBeaurauWindow : AbstractWideWindow<EmpireBeaurauWindo
             List<GameObject> built = cards.Where(card => card != null).ToList();
             if (built.Count > 0) tiers.Add((LM.Get(labelKey), built));
         }
-        CenterOffice office = _empire.data.centerOffice;
-        AddTier("Harems", office.Harems.Select(oid => BuildOfficeNode(oid, HaremTitleHex)));
-        AddTier("CoreOffice", office.CoreOffices.Select(oid => BuildOfficeNode(oid, OfficeTitleHex)));
-        AddTier("Divisions", office.Divisions.Select(oid => BuildOfficeNode(oid, OfficeTitleHex)));
-        AddTier("province", _empire.kingdoms_hashset.Select(kingdom =>
-            BuildOfficeNode(kingdom.GetOfficeID(), OfficeTitleHex, kingdom)));
+        CenterOffice office = _empire.data.centerOffice ?? new CenterOffice();
+        AddTier("Harems", (office.Harems ?? new List<long>()).Select(oid => SafeNode(LM.Get("Harems"), () => BuildOfficeNode(oid, HaremTitleHex))));
+        // 穿越政体：主席下面一层是执委会(临时执委会、元老院内阁)各成员，与顶部名单一致
+        // (用户 10-29 "临高政体的下面的官职怎么和上面的说明对不上"：以前这里只有主席和行政区)
+        if (GeneralSystems.TransmigrantSystem.Of(_empire.CoreKingdom) is TransmigrantState transmigrant)
+        {
+            List<GameObject> committee = CommitteeNodes(transmigrant).Where(card => card != null).ToList();
+            if (committee.Count > 0) tiers.Add((LM.Get(CommitteeKey(transmigrant.stage)), committee));
+        }
+        AddTier("CoreOffice", (office.CoreOffices ?? new List<long>()).Select(oid =>
+            SafeNode(LM.Get("CoreOffice"), () => BuildOfficeNode(oid, OfficeTitleHex))));
+        AddTier("Divisions", (office.Divisions ?? new List<long>()).Select(oid =>
+            SafeNode(LM.Get("Divisions"), () => BuildOfficeNode(oid, OfficeTitleHex))));
+        AddTier("province", _empire.kingdoms_hashset.Where(kingdom => kingdom?.data != null && !kingdom.isRekt()).Select(kingdom =>
+            SafeNode(kingdom.data.name, () => BuildOfficeNode(kingdom.GetOfficeID(), OfficeTitleHex, kingdom))));
         LayoutPyramid(tiers);
     }
 

@@ -61,9 +61,14 @@ public static class OfficeSelector
                         ?? TryGetClanOfficer(pKingdom)??TryGetProfessionOfficer(pKingdom);
                 break;
             case LeaderSelectMethod.Vote:
-                // 穿越政体：执委会主席由元老院全体大会从元老里选(见 TransmigrantSystem.ElectChairman)
-                actor = (office == pKingdom.GetOffice() ? TransmigrantSystem.ElectChairman(pKingdom) : null) ??
-                        TryGetFeudalElectiveRuler(office, pKingdom) ?? TryGetProfessionOfficer(pKingdom);
+                // 穿越政体：执委会主席由元老院全体大会从元老里选(见 TransmigrantSystem.ElectChairman)，选不出也不找外人
+                if (office == pKingdom.GetOffice() && TransmigrantSystem.IsTransmigrant(pKingdom))
+                {
+                    actor = TransmigrantSystem.ElectChairman(pKingdom);
+                    if (actor == null) return;
+                    break;
+                }
+                actor = TryGetFeudalElectiveRuler(office, pKingdom) ?? TryGetProfessionOfficer(pKingdom);
                 break;
             case LeaderSelectMethod.Army:
                 actor = TryGetStrongerLeader(office, pKingdom)??TryGetProfessionOfficer(pKingdom);

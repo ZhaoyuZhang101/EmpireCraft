@@ -17,7 +17,9 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 文化起名模板的各组本该是字表(Locales/Cultures/Culture_X/XUnitNamesMale1.csv)里的字，读不到字表时以前把字表名本身
 // 写进了模板(见 CulturePatch.setGroup)，原版起名器照着起出"Unitnamesmale1""Clannames 氏""Countrynames"。
 // 模板随原版存档存下，读档只给记了绑定的文化重套模板，没记绑定的旧档就一直坏着，新生的人、新起的氏族都是这种名字。
-// 读档时：坏了的模板重套；在世的人、氏族、家族、宗族与族谱、名册里的这类名字按各自文化重起。史书里已写下的旧名不改
+// 读档时：坏了的模板重套；在世的人、氏族、家族、宗族与族谱、名册里的这类名字按各自文化重起。史书里已写下的旧名不改。
+// 原版按物种起的英文名(Foxen、Vien……)同样算没按文明起名(用户 10-29 "姓氏为什么始终没有按照文明来同步"：日本的征夷大将军叫
+// "Foxen正")：中文界面下各文明的名都是汉字，名字里带英文字母的就是原版起的，按本人文明重起；除读档外每年也查一遍(见 NameCultureRepair)
 public static class TemplateNameRepair
 {
     private static readonly Regex RawName = new("(?:unit|clan|city|country|family|middenclan)(?:nick)?names",
@@ -27,8 +29,18 @@ public static class TemplateNameRepair
 
     // 读档时族谱里每个人都要看几遍：先按子串粗筛，含"names"的才上正则
     public static bool IsRaw(string name) => !string.IsNullOrEmpty(name) &&
-                                             name.IndexOf("names", StringComparison.OrdinalIgnoreCase) >= 0 &&
-                                             RawName.IsMatch(name);
+                                             (name.IndexOf("names", StringComparison.OrdinalIgnoreCase) >= 0 && RawName.IsMatch(name) ||
+                                              Vanilla(name));
+
+    // 中文界面下带英文字母的名字：原版按物种起的，没按文明起名(英文界面各文明的名本来就是字母，不算)
+    private static bool Vanilla(string name)
+    {
+        string language = LocalizedTextManager.instance?.language;
+        if (language != "cz" && language != "ch") return false;
+        foreach (char c in name)
+            if (c is >= 'A' and <= 'Z' or >= 'a' and <= 'z') return true;
+        return false;
+    }
 
     // 起名模板坏了的文化重套模板(读档读完文化绑定之后)
     public static void RepairCultures()
@@ -135,7 +147,8 @@ public static class TemplateNameRepair
         {
             if (family?.data == null || !IsRaw(family.data.name)) continue;
             Actor member = family.units.FirstOrDefault(actor => actor?.data != null && !actor.isRekt());
-            if (member == null || AncientWarfareCompatibility.OwnsObject(member)) continue;
+            // 动物的群(原版也叫家族)不按文明起名
+            if (member == null || AncientWarfareCompatibility.OwnsObject(member) || member.kingdom?.isCiv() != true) continue;
             string surname = member.hasClan() ? member.clan.GetMemberSurname() : null;
             string name;
             if (!string.IsNullOrEmpty(surname) && !IsRaw(surname))
@@ -164,6 +177,8 @@ public static class TemplateNameRepair
         foreach (Actor actor in World.world.units)
         {
             if (actor?.data == null || actor.isRekt() || AncientWarfareCompatibility.OwnsObject(actor)) continue;
+            // 动物不按文明起名
+            if (actor.kingdom?.isCiv() != true) continue;
             Name name = actor.GetModName();
             if (name == null) continue;
             bool first = IsRaw(name.firstName), family = IsRaw(name.familyName);

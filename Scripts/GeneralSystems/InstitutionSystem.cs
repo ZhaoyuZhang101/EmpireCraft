@@ -1010,9 +1010,12 @@ public static partial class InstitutionSystem
         float techPush = TechnologySystem.GetInstitutionPush(culture, node);
         // 时代落差越大，改革越快(最短年限每档减一年，最少一年)
         int minimumYears = Math.Max(1, environment.EffectiveMinimumYears - EraLag(culture, node));
-        reform.progress = Math.Min(100f, reform.progress + InstitutionRules.CalculateDurationScaledAnnualProgress(
+        float advance = InstitutionRules.CalculateDurationScaledAnnualProgress(
             node.reform.base_progress_per_year, balance.Support, balance.Opposition,
-            minimumYears) * (1f + techPush) * years);
+            minimumYears) * (1f + techPush) * years;
+        // 澳洲人的改革不论支持反对，最多 MaxReformYears 年推完
+        if (culture == TransmigrantSystem.Culture) advance = Math.Max(advance, 100f / TransmigrantSystem.MaxReformYears * years);
+        reform.progress = Math.Min(100f, reform.progress + advance);
         reform.radicalism = InstitutionRules.Clamp100(reform.radicalism +
             InstitutionRules.CalculateAnnualRadicalism(balance.Support, balance.Opposition,
                 replacesVestedInterest, reform.forced) * years);
@@ -1076,6 +1079,10 @@ public static partial class InstitutionSystem
             1f + countryBonus + empireBonus + borderBonus));
         result.EffectiveMinimumYears = Math.Max(nativeMinimum,
             (int)Math.Ceiling(config.isolated_duration_years / result.SpeedMultiplier));
+        // 穿越者的文化(澳洲人)：带着现代的知识与组织，每项改革最多 TransmigrantSystem.MaxReformYears 年
+        // (用户 10-29 "临高政权的科技速度研究太慢了""每项改革最多5年")。以前只有临高一家，按孤立文化每项至少二十五年
+        if (culture == TransmigrantSystem.Culture)
+            result.EffectiveMinimumYears = Math.Min(result.EffectiveMinimumYears, TransmigrantSystem.MaxReformYears);
         return result;
     }
 

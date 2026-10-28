@@ -126,6 +126,7 @@ public static class CorpsSystem
         GeneralMoves.Clear();
         Paths.Clear();
         MarchRates.Clear();
+        MarchBlocked.Clear();
         PathFailures.Clear();
         EmbarkRetry.Clear();
         RoadNetwork.ResetWorldState();
@@ -868,6 +869,15 @@ public static class CorpsSystem
         return result;
     }
 
+    // 募兵：从指定的城(可以是别国的城)招人补进这支军，来源随军记着，退伍时还回去(见 TransmigrantSystem.Recruit)
+    public static float Enlist(Kingdom kingdom, CorpsData corps, City from, float amount)
+    {
+        if (kingdom?.data == null || corps == null || from?.data == null || from.isRekt()) return 0f;
+        float before = corps.strength;
+        Reinforce(kingdom, corps, amount, from);
+        return corps.strength - before;
+    }
+
     private static void Reinforce(Kingdom kingdom, CorpsData corps, float amount, City only = null)
     {
         float need = Mathf.Min(amount, corps.full - corps.strength);
@@ -1206,12 +1216,20 @@ public static class CorpsSystem
             {
                 // 兵种定行军速度；山地、沼泽、丛林按兵种减速，离开道路再按兵种减速，飞机不受地形影响(见 CorpsArmSystem、RoadNetwork)
                 CorpsArmSystem.Arm arm = CorpsArmSystem.Of(corps);
-                float speed = MarchZonesPerSecond * CorpsArmSystem.Speed(arm);
-                TileZone here = Zone(corps);
-                if (TerrainSystem.SlowsMarch(here)) speed *= CorpsArmSystem.Rough(arm);
-                if (!CorpsArmSystem.Flies(arm) && !RoadNetwork.IsRoad(here)) speed *= CorpsArmSystem.OffRoad(arm);
+                float SpeedIn(TileZone zone)
+                {
+                    float value = MarchZonesPerSecond * CorpsArmSystem.Speed(arm);
+                    if (TerrainSystem.SlowsMarch(zone)) value *= CorpsArmSystem.Rough(arm);
+                    if (!CorpsArmSystem.Flies(arm) && !RoadNetwork.IsRoad(zone)) value *= CorpsArmSystem.OffRoad(arm);
+                    return value;
+                }
+                float speed = SpeedIn(Zone(corps));
                 corps.march_progress += speed;
-                MarchRates[corps.id] = speed;
+                int target = FrontSystem.TargetZone(corps)?.id ?? -1;
+                bool blocked = MarchBlocked.TryGetValue(corps.id, out int blockedAt) && blockedAt == target;
+                if (!blocked) MarchBlocked.Remove(corps.id);
+                if (blocked) MarchRates.Remove(corps.id);
+                else MarchRates[corps.id] = speed;
                 while (corps.march_progress >= 1f)
                 {
                     corps.march_progress -= 1f;
@@ -1231,10 +1249,15 @@ public static class CorpsSystem
                     if (corps.embarked || corps.zone_id == before)
                     {
                         corps.march_progress = 0f;
-                        // 停下了(到了、走不动)：兵牌不往前插值
+                        // 停下了(到了、走不动)：兵牌不往前插值，目标不变就一直不插值
                         MarchRates.Remove(corps.id);
+                        if (!corps.embarked) MarchBlocked[corps.id] = target;
                         break;
                     }
+                    // 迈进了新的一块：下一拍按新地块的速度走，兵牌也按它往前插值(以前照旧地块的速度，
+                    // 从大路走进山地、荒野时兵牌先冲过头、结算后再往回拉)
+                    MarchBlocked.Remove(corps.id);
+                    MarchRates[corps.id] = SpeedIn(Zone(corps));
                 }
             }
             MoveGeneral(corps);
@@ -1594,6 +1617,10 @@ public static class CorpsSystem
     private static readonly Dictionary<long, (int target, List<int> path)> Paths = new();
     // 各军这一拍的行军速度(块/秒)：兵牌按节拍里过了几成往前插值(见 DrawPosition)；停下的不记
     private static readonly Dictionary<long, float> MarchRates = new();
+    // 上回往前走不动(到了、被挡、没路)的军，记着当时的目标块：目标没变就不往前插值。
+    // 以前走不动的军每拍照样记速度，兵牌朝下一块滑十来秒、攒满一步走不过去就清零，从半路弹回本块，
+    // 前线上的军一顿一顿地进了又退(用户 10-29 "为什么所有军队都会走着走着突然回退一下")
+    private static readonly Dictionary<long, int> MarchBlocked = new();
 
     // 寻路失败(多是够不着，要搜满 6000 块)的军：同一目标隔 PathRetrySeconds(世界时间)再寻，其间就近挪。
     // 每秒行军结算里寻路至少 PathsPerTick 次，再多只在本秒寻路累计不到 PathTickMilliseconds 时寻，其余的军这一步等到下一秒
@@ -1713,7 +1740,7 @@ public static class CorpsSystem
                     enclosed = false;
                     break;
                 }
-                if (TerrainSystem.Impassable(next) || SeaRegionSystem.IsSea(next)) continue;
+                if (TerrainSystem.Impassable(next) || SeaRegionSystem.IsSea(next) || !TerrainSystem.Crossable(zone, next)) continue;
                 EnclosureSeen.Add(next.id);
                 EnclosureQueue.Enqueue(next);
             }
@@ -1754,6 +1781,8 @@ public static class CorpsSystem
                 if (neighbour == null || PathClosed(neighbour)) continue;
                 // 陆军不走海面(跨海见 Embark)
                 if (neighbour != to && (TerrainSystem.Impassable(neighbour) || SeaRegionSystem.IsSea(neighbour))) continue;
+                // 交界是山脊、没有路口的不翻(见 TerrainSystem.Crossable)
+                if (!TerrainSystem.Crossable(zone, neighbour)) continue;
                 // 城墙：只从对本方开着的关门过
                 if (walls && WallPassage.BlocksKnown(zone, neighbour, side))
                 {
@@ -1930,6 +1959,7 @@ public static class CorpsSystem
         {
             if (neighbour == null || neighbour != target && (TerrainSystem.Impassable(neighbour) || SeaRegionSystem.IsSea(neighbour)))
                 continue;
+            if (!TerrainSystem.Crossable(current, neighbour)) continue;
             if (walls && WallPassage.BlocksKnown(current, neighbour, side)) continue;
             float distance = ZoneDistance(neighbour, target);
             if (distance < bestDistance)

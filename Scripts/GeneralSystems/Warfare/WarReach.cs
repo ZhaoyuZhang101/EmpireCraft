@@ -47,6 +47,8 @@ public static class WarReach
         if (attacker?.data == null || defender?.data == null || attacker == defender) return true;
         // 宗主与殖民地、同一宗主的殖民地不开战(殖民地起兵独立、神力开战除外，见 ColonySystem)
         if (!ExemptType(type) && !ColonySystem.Rising && ColonySystem.Bound(attacker, defender)) return false;
+        // 穿越政权伪装成属国期间：朝廷与各省(连统一战争)不来开战(见 TransmigrantSystem.DisguiseForbids)
+        if (!ExemptType(type) && TransmigrantSystem.DisguiseForbids(attacker, defender)) return false;
         if (ExemptType(type) || Related(attacker, defender) || Young(attacker)) return true;
         if (Reachable(attacker, defender)) return true;
         string caller = Caller();

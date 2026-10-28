@@ -299,6 +299,7 @@ public partial class PureMapPatch : GamePatch
             void Add(int value) => hash = hash * 31 + value;
             foreach (int id in plan.built) Add(id * 7919);
             foreach (int id in plan.landmark) Add(id * 104729);
+            Add(plan.papal ? 1 : 0);
             foreach (KeyValuePair<int, Slot[]> pair in plan.zones)
                 foreach (Slot slot in pair.Value)
                     Add(pair.Key ^ (slot.icon?.GetHashCode() ?? 0));
@@ -549,6 +550,8 @@ public partial class PureMapPatch : GamePatch
         // 本城的工厂区(见 FactorySystem、PureMapPatch.Factory)
         public readonly List<FactorySite> factories = new();
         public bool walled, axis, burning, moat;
+        // 教廷驻地(普世教会的圣城、教廷握着)：城心地标画大教堂(见 PureMapPatch.Landmark 的 PapalCathedral)
+        public bool papal;
         public int axisX = int.MinValue, axisY = int.MinValue;
         // 城心那块地的中线：城门只开在这两条线与城墙相交处(东西南北四门)，钟鼓楼、广场、清真寺在两线交点
         public int gateX = int.MinValue, gateY = int.MinValue, centerZone = -1;
@@ -881,11 +884,12 @@ public partial class PureMapPatch : GamePatch
             plan.axisY = centerZone.y * Config.CITY_ZONE_SIZE + 4;
         }
         // 都城地标(宫城)：大城的都城；帝国核心的默认首都即皇宫，不论大小都有(见 CityPlacementSystem.BuildPalace)；
-        // 易主后、手动营的宫城留着(见 HasPalace)
-        if (centerZone != null && HasPalace(city, extra, grand))
+        // 易主后、手动营的宫城留着(见 HasPalace)。教廷驻地不论大小、是不是都城，城心都是大教堂(营地除外)
+        plan.papal = centerZone != null && !camp && PapalSeat(city);
+        if (centerZone != null && (plan.papal || HasPalace(city, extra, grand)))
         {
             // 埃及的金字塔在城外(城里第一块没建成的地块)，其余在城心；拼块式的地标大城连北面一块
-            if (plan.family == "egypt")
+            if (plan.family == "egypt" && !plan.papal)
             {
                 TileZone outside = city.zones.Where(zone => zone != null && !plan.built.Contains(zone.id))
                     .OrderBy(zone => (zone.x - centerZone.x) * (zone.x - centerZone.x) + (zone.y - centerZone.y) * (zone.y - centerZone.y))
@@ -981,6 +985,17 @@ public partial class PureMapPatch : GamePatch
         city.kingdom.GetRegime() is EmpireCraft.Scripts.Regimes.Regime regime && !Regimes.RegimeManager.IsPrimitive(regime.type);
 
     // 皇宫：帝国核心记的默认首都(一个帝国只有一座)
+    // 教廷驻地：普世教会(有教宗的那一路，见 ReligionFaith.IsPapal)的圣城，且教廷还在(圣城握在奉本教的国家手里，见 PapacySystem.Papacy)
+    private static bool PapalSeat(City city)
+    {
+        if (city?.data == null || World.world?.religions == null) return false;
+        foreach (Religion religion in World.world.religions)
+            if (religion?.data != null && !religion.isRekt() && ReligionFaith.IsPapal(religion) &&
+                PapacySystem.HolyCity(religion) == city && PapacySystem.Papacy(religion) != null)
+                return true;
+        return false;
+    }
+
     private static bool IsPalace(City city)
     {
         Empire empire = city?.kingdom?.GetEmpire();
@@ -1318,7 +1333,8 @@ public partial class PureMapPatch : GamePatch
     // 埃及金字塔、阿兹特克阶梯金字塔、游牧汗帐整块画
     private static Color32 Landmark(WorldTile tile, Color32 color, CityPlan plan, int lx, int ly)
     {
-        string family = plan.family;
+        // 教廷驻地：大教堂拼块(尖塔教堂)，柱廊广场不设围墙
+        string family = plan.papal ? "papal" : plan.family;
         switch (family)
         {
             case "egypt": return Pyramid(color, lx, ly);
@@ -1336,6 +1352,7 @@ public partial class PureMapPatch : GamePatch
             "persia" => ("persia_landmark", new Color32(150, 145, 135, 255), new Color32(200, 190, 170, 255)),
             "india" => ("india_landmark", new Color32(200, 150, 90, 255), new Color32(214, 200, 176, 255)),
             "woodland" => ("woodland_landmark", null, new Color32(170, 150, 120, 255)),
+            "papal" => ("western_temple", null, Marble),
             _ => ("palace_hall", (Color32?)PalaceWall, Marble)
         };
         // 中轴穿过这块地标才在中轴上开门(手动挪了宫城、中轴的，中轴不一定穿过宫城，见 ApplyManual)，不然在这块地正中开门

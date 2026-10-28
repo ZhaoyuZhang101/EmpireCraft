@@ -54,6 +54,8 @@ public class KingdomTitleManager : MetaSystemManager<KingdomTitle, KingdomTitleD
         long id = OverallHelperFunc.IdGenerator.NextId();
         KingdomTitle title = base.newObjectFromID(id);
         title.newKingdomTitle(pCity);
+        // 新立的法理名不合法理文化的当场按法理文化重起(只这一次，见 NameCultureRepair)
+        GeneralSystems.NameCultureRepair.RepairTitle(title);
 
         return title;
     }

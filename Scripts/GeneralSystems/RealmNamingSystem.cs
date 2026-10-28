@@ -43,6 +43,11 @@ public static partial class RealmNamingSystem
     public static bool IsHuaxia(Kingdom kingdom) => LineOf(kingdom) == HuaxiaLine;
     public static bool IsHuaxia(Empire empire) => empire?.data != null && IsHuaxia(empire.CoreKingdom);
 
+    // 年号、庙号、谥号只属于华夏、日本两条文化线(用户 10-29 "你这个西方的年号和庙号什么的就很出戏")：
+    // 以前按政体给(郡县制、周制、幕府都有年号，凡君主制先帝都定谥)，西方文化的帝国用了郡县制也有"年号明宜""法兰西懿宗"
+    public static bool UsesCourtNames(Kingdom kingdom) => LineOf(kingdom) is HuaxiaLine or "Japan";
+    public static bool UsesCourtNames(Empire empire) => empire?.data != null && UsesCourtNames(empire.CoreKingdom);
+
     // 西方：奉不奉教廷照风俗文化(同 PapacySystem.IsWestern)
     public static bool IsWestern(Empire empire) => empire?.data != null && PapacySystem.IsWestern(empire);
     public static bool IsWestern(Kingdom kingdom) => LineOf(kingdom) == WesternLine;

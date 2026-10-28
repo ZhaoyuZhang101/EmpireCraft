@@ -19,6 +19,8 @@ public static class MetaTypeExtension
     public const MetaType Governance = (MetaType)108;
     // 天下图层(见 Layer/TianxiaMap.cs)
     public const MetaType Tianxia = (MetaType)109;
+    // 商品市场图层(见 Layer/MarketMap.cs)
+    public const MetaType Market = (MetaType)110;
     
     public static string ToMetaString(this MetaType type)
     {
@@ -44,6 +46,8 @@ public static class MetaTypeExtension
                 return "Governance";
             case (MetaType)109:
                 return "Tianxia";
+            case (MetaType)110:
+                return "Market";
             default:
                 return type.ToString();
         }

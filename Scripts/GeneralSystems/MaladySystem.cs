@@ -160,11 +160,13 @@ public static class MaladySystem
     private const int EarlyYears = 80, MiddleYears = 160;
     private const float EarlyPace = 0.2f, MiddlePace = 0.45f;
 
+    // 王朝年岁的快慢(不含开国气象与天命动荡)；王朝积弊的同岁数补底也照它算(见 DynasticCycleRules.AgeFloor)
+    public static float PaceAt(int age) => age < EarlyYears ? EarlyPace : age < MiddleYears ? MiddlePace : 1f;
+
     public static float Pace(Empire empire)
     {
         if (empire.InFoundingGrace) return 0f;
-        int age = DynasticCycleSystem.GetAge(empire);
-        float pace = age < EarlyYears ? EarlyPace : age < MiddleYears ? MiddlePace : 1f;
+        float pace = PaceAt(DynasticCycleSystem.GetAge(empire));
         // 天命动荡时积弊长得快一半(用户 2026-10-19 选"以天命为准")
         return TianxiaSystem.PhaseOf(empire.CoreKingdom) == TianxiaSystem.Unrest ? pace * 1.5f : pace;
     }

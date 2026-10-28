@@ -229,6 +229,8 @@ public sealed class ConstitutionalEconomyState
     // —— 苛政与民怨(见 HarshRuleSystem)——
     // 王朝积弊：前现代按年累积/整顿，现代与过渡政体不适用。保存年标记防止读档重复结算。
     public double dynastic_since = -1d;
+    // 进这个世界以前王朝已立国的年数(世界地图剧本按史实给，见 WorldMapScenario.ApplyDecline)；改朝换代归零
+    public int dynastic_age_offset;
     public double last_dynastic_update = -1d;
     public double last_dynastic_uprising_attempt = -1d;
     public float dynastic_strain;

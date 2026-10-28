@@ -34,6 +34,8 @@ public class KingdomTitleData: MetaObjectData
 
     public long owner = -1L;
     public string province_name { get; set; }
+    // 法理名合不合法理文化已经核对过(见 NameCultureRepair)：只核对一次，以后法理文化变了名字也不改
+    public bool name_culture_checked;
 
     public List<long> cities;
     public List<string> history_emperrors;

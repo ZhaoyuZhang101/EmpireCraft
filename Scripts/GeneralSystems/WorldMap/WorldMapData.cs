@@ -92,6 +92,32 @@ public sealed class WorldMapPerson
     public bool ChildOfLine => rel is "son" or "daughter" or "grandson" or "granddaughter";
 }
 
+// 开局外交关系(见 Tools/WorldMap/relations_source.py)：a、b 是本档的国 id；kind 见 DiplomacyActions.ApplyScenario；
+// goal 战争目标(WarGoal 的名字，如"夺城")，value 旧谊/宿怨的分量
+// 长城、边墙：name "简体|英文|繁体"，pts 是 [经度, 纬度] 折线(两点之间铺墙时沿山脊找路)
+public sealed class WorldMapWall
+{
+    public string name = "";
+    public List<float[]> pts = new();
+
+    public string Name => WorldMapData.PickParts(name);
+}
+
+// 关隘：at 是 [经度, 纬度]，筑关城时吸到最近的城墙格作关门
+public sealed class WorldMapPass
+{
+    public string name = "";
+    public float[] at;
+
+    public string Name => WorldMapData.PickParts(name);
+}
+
+public sealed class WorldMapRelation
+{
+    public string a = "", b = "", kind = "", goal = "";
+    public int value;
+}
+
 // 名将名臣(见 Tools/WorldMap/famous_source.py)：kind general/minister，rank 0 良才 1 名 2 国柱，
 // post chief 首席朝官 / core 中枢要职 / div 部寺 / general 统一支军 / 城 id 坐镇该城
 public sealed class WorldMapFamous
@@ -121,6 +147,8 @@ public sealed class WorldMapPolity
     [JsonProperty("of")] public string overlord = "";
     // 开局即称帝(本模组帝国)
     [JsonProperty("emp")] public bool empire;
+    // 幕府将军家(临高的德川)：本国君主进世界后就任宗主帝国的征夷大将军，天皇照旧在位当虚君(见 MilitaryRegency.Appoint)
+    public bool shogun;
     public string core = "";
     // 周室：开局把周室的阶段设到这里("warring" = 战国)
     public string zhou = "";
@@ -145,6 +173,9 @@ public sealed class WorldMapPolity
     public List<WorldMapColony> colonies = new();
     // 开局在世的名将名臣
     public List<WorldMapFamous> famous = new();
+    // 开局的王朝积弊("strain")与六弊(graft、annexation、bloat、military、factionalism、levies，0~100；明末之类，
+    // 见 WorldMapScenario.ApplyDecline)；不写的照国祚给同岁数最少该有的
+    public Dictionary<string, float> decline = new();
 
     public string Name => WorldMapData.Pick(zh, tw, en);
 }
@@ -168,6 +199,11 @@ public sealed class WorldMapColony
 
 public sealed class WorldMapEra
 {
+    // 开局外交关系(在打的仗、朝贡、和亲、同盟、旧谊宿怨)
+    public List<WorldMapRelation> relations = new();
+    // 长城、边墙与关隘(见 Tools/WorldMap/walls_source.py、WorldMapWalls)
+    public List<WorldMapWall> walls = new();
+    public List<WorldMapPass> passes = new();
     public string id = "";
     public int year;
     public string focus = "east";

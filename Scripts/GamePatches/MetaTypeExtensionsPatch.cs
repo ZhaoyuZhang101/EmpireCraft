@@ -101,6 +101,9 @@ public class MetaTypeExtensionsPatch:GamePatch
             case MetaTypeExtension.Tianxia:
                 __result = "tianxia";
                 return false;
+            case MetaTypeExtension.Market:
+                __result = "market";
+                return false;
             default:
                 Debug.LogError((object) ("MetaTypeExtensions.AsString missing option for : " + pType.ToString()));
                 __result = pType.ToString().ToLower();

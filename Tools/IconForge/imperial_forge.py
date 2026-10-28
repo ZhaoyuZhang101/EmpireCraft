@@ -1189,8 +1189,25 @@ def obj_governance(img):
     over(img, shade(rrect([122, 128, 134, 158], 2), BONE, bevel=2))
 
 
+def obj_market(img):
+    """商品市场图层：旧铜天平，黑铁立柱，左盘一匹暗红布、右盘一摞旧铜钱——两地货物互通有无。"""
+    over(img, shade(rrect([76, 210, 180, 234], 6), BRASS, bevel=6, gloss=0.7))
+    over(img, shade(rrect([120, 56, 136, 214], 4), IRON, bevel=5, gloss=0.6, grain=0.2))
+    over(img, shade(rrect([30, 64, 226, 80], 6), BRASS, bevel=6, gloss=0.9))
+    over(img, shade(ellipse([112, 34, 144, 66]), BRASS, bevel=6, gloss=0.9))
+    over(img, shade(lines([[(40, 78), (16, 150)], [(40, 78), (76, 150)], [(216, 78), (180, 150)], [(216, 78), (240, 150)]], 5),
+                    STEEL, bevel=2))
+    for x0 in (8, 172):
+        over(img, shade(poly([(x0, 148), (x0 + 76, 148), (x0 + 62, 172), (x0 + 14, 172)]), BRASS, bevel=6, gloss=0.8))
+    over(img, shade(rrect([20, 112, 72, 150], 6), RED, bevel=8, gloss=0.5, grain=0.3))
+    over(img, shade(rrect([40, 112, 50, 150], 2), BONE, bevel=2))
+    for y in (136, 122, 108):
+        over(img, shade(ellipse([186, y, 234, y + 16]), BRASS, bevel=4, gloss=0.9))
+
+
 GODPOWERS = {
     "edification_layer": (obj_edification, None),
+    "market_layer": (obj_market, None),
     "governance_layer": (obj_governance, None),
     "zhou_conference": (obj_banners, "plus"),
     "zhou_bestow": (obj_ding, "up"),

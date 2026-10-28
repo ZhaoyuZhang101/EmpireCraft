@@ -42,7 +42,7 @@ public partial class PureMapPatch
                 plan.built.Add(id);
                 plan.forced.Add(id);
             }
-            if (plan.family == "egypt")
+            if (plan.family == "egypt" && !plan.papal)
                 foreach (int id in plan.landmark) plan.built.Add(id);
             else plan.landmark.RemoveWhere(id => !urban.Contains(id));
         }

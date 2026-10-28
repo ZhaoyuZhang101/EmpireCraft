@@ -135,10 +135,11 @@ internal static class WorldMapHistory
         }
     }
 
-    // 皇室、王室的宗族叫剧本的家族名(哈布斯堡氏、萨法维氏)：以前取的是造人时原版按种族起的氏族名(施赖伯氏、大流士班家)
+    // 皇室、王室的宗族叫剧本的家族名(哈布斯堡氏、萨法维氏)：以前取的是造人时原版按种族起的氏族名(施赖伯氏、大流士班家)；
+    // 君主没写姓的取前史里本朝的家族名(杜洛、药罗葛，见 WorldMapScenario.HouseOf)
     private static void NameHouse(Realm realm)
     {
-        string family = WorldMapData.PickParts(realm.data.ruler.fam);
+        string family = WorldMapScenario.HouseOf(realm.data);
         Actor ruler = realm.kingdom.king;
         if (string.IsNullOrWhiteSpace(family) || ruler == null || ruler.isRekt()) return;
         ruler.CheckSpecificClan();

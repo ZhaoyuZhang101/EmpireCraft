@@ -116,6 +116,8 @@ public class EmpireData : MetaObjectData
     // 多京(见 MultiCapitalSystem)：各京(主京在前)；行省阶段归太子的第二直隶
     public List<JingRecord> jing = new List<JingRecord>();
     public long zhili_kingdom_id = -1L;
+    // 剧本定下的两京(世界地图明的南北两京，见 WorldMapScenario.AnchorCapital)：不看据不据有天下一半，京城还在手里就一直行多京
+    public bool scripted_jing;
     // 幕府(见 BakufuSystem)：开幕时的天皇家(宗族)与当时的天皇；天皇为虚君，明治维新时大政奉还
     public long court_clan_id = -1L;
     public long court_emperor_id = -1L;

@@ -1027,7 +1027,7 @@ public static class RepublicSystem
         state.republic_first_election_pending = false;
         empire.CoreKingdom.GetOrCreate().ideology_country_suffix = "";
         TransitionRegime(empire, previous);
-        empire.data.has_year_name = empire.CoreKingdom.GetRegime()?.HasEraName() == true;
+        empire.data.has_year_name = empire.CoreKingdom.GetRegime()?.HasEraName() == true && RealmNamingSystem.UsesCourtNames(empire);
         // 原皇族有能继承的在世者就迎回，否则由执政的保守党领袖登基
         Actor monarch = VirtualGenealogySystem.RealizeFirst(SpecificClanManager.Get(state.deposed_royal_clan_id)
                                 ?.all_valid_members.OrderByDescending(identity => identity.age),
@@ -1062,7 +1062,7 @@ public static class RepublicSystem
         state.republic_first_election_pending = false;
         empire.CoreKingdom.GetOrCreate().ideology_country_suffix = "";
         TransitionRegime(empire, previous);
-        empire.data.has_year_name = empire.CoreKingdom.GetRegime()?.HasEraName() == true;
+        empire.data.has_year_name = empire.CoreKingdom.GetRegime()?.HasEraName() == true && RealmNamingSystem.UsesCourtNames(empire);
         if (monarch != null && !monarch.isRekt())
         {
             if (empire.Emperor?.id == monarch.id)
@@ -1255,7 +1255,7 @@ public static class RepublicSystem
             state.republic_first_election_pending = false;
             empire.CoreKingdom.GetOrCreate().ideology_country_suffix = "";
             empire.data.empire_type_key = "";
-            empire.data.has_year_name = empire.CoreKingdom.GetRegime()?.HasEraName() == true;
+            empire.data.has_year_name = empire.CoreKingdom.GetRegime()?.HasEraName() == true && RealmNamingSystem.UsesCourtNames(empire);
             Actor monarch = empire.Emperor;
             if (monarch != null && !monarch.isRekt())
             {

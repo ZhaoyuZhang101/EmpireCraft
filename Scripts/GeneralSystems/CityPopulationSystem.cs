@@ -121,6 +121,9 @@ public static class CityPopulationSystem
         bool regional = valid && InstitutionSystem.HasFeature(culture, FeatureRegional);
         float share = valid ? InstitutionSystem.GetFeature(culture, FeatureMobilization) : 0f;
         if (share <= 0f) share = MaxLevyShare;
+        // 穿越政权与它的殖民地：现代动员，征兵比例更高(见 TransmigrantSystem.LevyShare)
+        if (TransmigrantSystem.Mobilizes(realm))
+            return new ArmyDoctrine(false, true, true, regional, Mathf.Max(share, TransmigrantSystem.LevyShare));
         if (ModernStability.IsModern(kingdom))
             return new ArmyDoctrine(false, true, true, regional, Mathf.Max(share, ModernLevyShare));
         // 募兵制取代府兵制：有了职业常备军，军府不再出兵

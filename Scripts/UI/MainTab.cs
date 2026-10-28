@@ -172,6 +172,10 @@ internal static class MainTab
         FamousTalentWindow.CreateAndInit(nameof(FamousTalentWindow), new Vector2(480f, 380f));
         // 元老院名册(见 TransmigrantSystem)
         SenateWindow.CreateAndInit(nameof(SenateWindow), new Vector2(480f, 380f));
+        // 外交(见 DiplomacyLedger、DiplomacyActions)
+        DiplomacyWindow.CreateAndInit(nameof(DiplomacyWindow), new Vector2(480f, 380f));
+        // 市场汇总(见 CommodityMarketSystem、MarketWindow)
+        MarketWindow.CreateAndInit(nameof(MarketWindow), new Vector2(480f, 380f));
         SetWindowIcons();
     }
 
@@ -199,6 +203,8 @@ internal static class MainTab
             [nameof(KingdomOverviewWindow)] = "iconKingdom",
             [nameof(FamousTalentWindow)] = "iconKings",
             [nameof(SenateWindow)] = "iconKings",
+            [nameof(DiplomacyWindow)] = "iconKingdom",
+            [nameof(MarketWindow)] = "iconMoney",
             [nameof(ReligionInfoWindow)] = "iconReligion",
             [nameof(WorldReligionsWindow)] = "iconReligion",
             [nameof(WarInfoWindow)] = "iconWar",
@@ -427,6 +433,10 @@ internal static class MainTab
             });
         });
         senateButton._button.OnHoverOut(Tooltip.hideTooltip);
+        // 外交：点地图上的国家打开外交界面
+        DiplomacyPower.Init();
+        AddButton(EMPIRE_GROUP, PowerButtonCreator.CreateGodPowerButton(DiplomacyPower.Id,
+            SpriteTextureLoader.getSprite("ui/icons/godpowers/" + DiplomacyPower.Id)));
         
         // ---- 文化与理念：图层与文化配置 ----
         // 原版文化图层的第二个入口：复用同一个 GodPower/OptionAsset，因此这里与
@@ -471,6 +481,11 @@ internal static class MainTab
         PowerButton wealthLayer = FixFunctions.CreateLayerButton(MetaTypeExtension.Wealth,
                  SpriteTextureLoader.getSprite("ui/icons/godpowers/wealth_layer"), maxOption: 3);
         AddButton(CULTURE_GROUP, wealthLayer);
+
+        // 商品市场图层：按市场着色 / 按市场物资缺口着色
+        PowerButton marketLayer = FixFunctions.CreateLayerButton(MetaTypeExtension.Market,
+                 SpriteTextureLoader.getSprite("ui/icons/godpowers/market_layer"), maxOption: 2);
+        AddButton(CULTURE_GROUP, marketLayer);
 
         // 教化图层(四方文化教化所及)、政令图层(行政控制力，鞭长莫及)
         PowerButton edificationLayer = FixFunctions.CreateLayerButton(MetaTypeExtension.Edification,

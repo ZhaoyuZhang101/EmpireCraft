@@ -26,6 +26,9 @@ public sealed class TransmigrantState
     // 扩张：下回可以用兵的时间、开拓的新城数(见 TransmigrantSystem.Growth)
     public double next_campaign_at = -1d;
     public int towns_founded;
+    // 伪装：名义上的宗主(帝国编号，-1 没有)、是否已撕破脸(见 TransmigrantSystem.Reveal)
+    public long disguise_lord_id = -1L;
+    public bool revealed;
 }
 
 public sealed class SenatorSeat

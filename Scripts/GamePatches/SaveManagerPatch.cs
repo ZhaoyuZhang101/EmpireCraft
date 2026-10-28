@@ -213,6 +213,8 @@ public class SaveManagerPatch : GamePatch
         // 读档时世界对象不换(MapBox 还是同一个)，军团、战线、海军的运行记录要在这里清
         // (群友 2026-10-16："换了好几个档这个交战居然还在追我")
         EmpireCraft.Scripts.GeneralSystems.CorpsSystem.ResetWorldState();
+        // 商品市场同理(市场图层、外交界面的市场页按国家编号取市场)
+        EmpireCraft.Scripts.GeneralSystems.CommodityMarketSystem.ResetWorldState();
         EmpireCraft.Scripts.GeneralSystems.CultureRadiation.ResetWorldState();
         EmpireCraft.Scripts.GeneralSystems.TerrainResistance.ResetWorldState();
         EmpireCraft.Scripts.GeneralSystems.SmoothBorders.ResetWorldState();

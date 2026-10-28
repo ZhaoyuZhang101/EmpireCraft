@@ -158,6 +158,12 @@ public static class EmpireCraftTooltipLibrary
         });
         AddOrReplace(tl, new TooltipAsset
         {
+            id = EmpireCraft.Scripts.Layer.MarketMap.TooltipType,
+            prefab_id = "tooltips/tooltip_normal",
+            callback = EmpireCraft.Scripts.Layer.MarketMap.ShowTooltip
+        });
+        AddOrReplace(tl, new TooltipAsset
+        {
             id = EmpireCraft.Scripts.Layer.EdificationMap.TooltipType,
             prefab_id = "tooltips/tooltip_normal",
             callback = EmpireCraft.Scripts.Layer.EdificationMap.ShowTooltip

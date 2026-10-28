@@ -31,7 +31,8 @@ public static partial class FrontSystem
         bool approached = false;
         foreach (TileZone neighbour in target.neighbours_all ?? Array.Empty<TileZone>())
         {
-            if (neighbour == null || neighbour.world_edge || TerrainSystem.Impassable(neighbour)) continue;
+            if (neighbour == null || neighbour.world_edge || TerrainSystem.Impassable(neighbour) ||
+                !TerrainSystem.Crossable(neighbour, target)) continue;
             Kingdom controller = Controller(neighbour);
             if (controller == null || !Friendly(side, controller)) continue;
             approached = true;

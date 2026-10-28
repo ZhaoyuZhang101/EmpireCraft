@@ -12,7 +12,7 @@ namespace EmpireCraft.Scripts.GamePatches;
 // 用的是同一份平面图(城的轮廓、城墙、四门与中轴、各坊用途与建筑、城外的路与村镇)，只是画得细：
 //   · 骨架规划：城墙、护城河、通城门的大街与中轴、城心的标志性建筑，规整；
 //   · 肌理自然：街巷错位、弯折，宅基地一刀刀切得大小不一，留胡同，宅子临街开门，夹着菜园、空地、树；
-//     坊里有什么建筑(见 Fill)决定画宅子、铺面、衙署、庙、营房还是作坊，坊里建筑少就多空地；
+//     坊里有什么建筑(见 Fill)决定画宅子、铺面、衙署、庙、营房还是作坊，没排建筑的宅基地盖寻常民居(房子少的城也挤满人家)；
 //   · 城外：关厢、镇(十字街、集市、沿街房子、小庙、矮墙)、村(打谷场、人家、池塘、菜园、小路)、格子田。
 // 各文化系各有画法(第二步，用户 2026-10-16 看过演示版定下)：街(方格 / 放射弯街 / 迷宫 / 水渠 / 营地)、
 // 房子(华夏宅院、日本町家、西欧尖顶排屋、罗马公寓、维京长屋、阿拉伯与波斯平顶天井、埃及泥砖房、印度大宅)、
@@ -426,7 +426,7 @@ public partial class PureMapPatch
                     continue;
                 }
                 // 埃及金字塔在城外，那块地其余的格是沙地
-                if (landmarked && plan.family == "egypt")
+                if (landmarked && plan.family == "egypt" && !plan.papal)
                 {
                     Fill(c, tx, ty, Lerp(tint, Rgb(222, 200, 146), 0.8f), KPlaza);
                     continue;
@@ -1059,7 +1059,10 @@ public partial class PureMapPatch
         }
     }
 
-    // 这块宅基地盖什么：看它落在哪个地块、哪一角，那一角排的是什么建筑(见 Fill)；没排建筑的多半空着
+    // 没排建筑的宅基地多大就再切成几户(像素面积)
+    private const int SmallLot = 64;
+
+    // 这块宅基地盖什么：看它落在哪个地块、哪一角，那一角排的是什么建筑(见 Fill)；没排建筑的盖寻常民居
     private static void Lot(Canvas c, CityPlan plan, DetailStyle style, int x0, int y0, int x1, int y1, long seed)
     {
         int w = x1 - x0 + 1, h = y1 - y0 + 1;
@@ -1075,13 +1078,47 @@ public partial class PureMapPatch
         int index = slots == null ? quarter : SlotIndex(slots.Length, lx, ly);
         string icon = slots != null && index < slots.Length && slots[index].used ? slots[index].icon : null;
         float r = DetailHash(seed, 11);
-        if (icon == null && r < 0.3f)
+        // 没排建筑的宅基地(房子少的城大半是这样)：以前三成种树、两成多画菜畦、余下才盖一户，城里大片空着，
+        // 拉近看像粗图放大(用户 10-29 "非繁荣的主城像素是否太低了")。改成城墙里照样挤满小户人家：
+        // 大块先切成几户(各自再看落在哪个建筑位)，一成种树、不到一成菜畦，其余盖民居
+        if (icon == null && !farm)
+        {
+            if (r < 0.1f)
+            {
+                if (style.Gardens && w >= 9 && h >= 9) Charbagh(c, x0, y0, x1, y1);
+                else Trees(c, style, x0, y0, x1, y1, seed);
+                return;
+            }
+            if (r < 0.18f)
+            {
+                Plots(c, x0, y0, x1, y1, w > h, seed);
+                return;
+            }
+            if (w * h > SmallLot && Mathf.Max(w, h) >= 9)
+            {
+                if (w >= h)
+                {
+                    int m = x0 + (int)(w * (0.4f + 0.2f * DetailHash(seed, 14)));
+                    Lot(c, plan, style, x0, y0, m - 1, y1, seed * 7 + 1);
+                    Lot(c, plan, style, m, y0, x1, y1, seed * 7 + 2);
+                }
+                else
+                {
+                    int m = y0 + (int)(h * (0.4f + 0.2f * DetailHash(seed, 14)));
+                    Lot(c, plan, style, x0, y0, x1, m - 1, seed * 7 + 1);
+                    Lot(c, plan, style, x0, m, x1, y1, seed * 7 + 2);
+                }
+                return;
+            }
+        }
+        // 农耕区的地块照旧：三成林子，其余菜畦条田
+        if (icon == null && farm && r < 0.3f)
         {
             if (style.Gardens && w >= 9 && h >= 9) Charbagh(c, x0, y0, x1, y1);
             else Trees(c, style, x0, y0, x1, y1, seed);
             return;
         }
-        if (farm || icon == null && r < 0.55f)
+        if (farm)
         {
             Plots(c, x0, y0, x1, y1, w > h, seed);
             return;
@@ -1092,7 +1129,8 @@ public partial class PureMapPatch
             return;
         }
         Color32 roof = Pick(style.Roofs, DetailHash(seed, 13));
-        string kind = icon ?? "house_1";
+        // 没排建筑的宅基地盖寻常民居：按本城住房研究的代数，至多三代(三合院)
+        string kind = icon ?? "house_" + Mathf.Clamp(plan.housing, 1, 3);
         // 下面各分支都盖房：记标注落点(街区编号 = 地块×4 + 哪一角)
         c.Labels.Add(new DetailLabel
         {

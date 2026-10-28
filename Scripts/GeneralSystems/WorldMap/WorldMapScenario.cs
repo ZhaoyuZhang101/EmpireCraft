@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using EmpireCraft.Scripts.Data;
+using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GamePatches;
 using EmpireCraft.Scripts.HelperFunc;
@@ -65,6 +66,9 @@ public static class WorldMapScenario
     }
 
     private static WorldMapEra _era;
+    // 这张图的经纬框与区块数(长城、关隘按经纬度落格，见 WorldMapWalls)
+    private static WorldMapFrame _frame;
+    private static Vector2Int _size;
     private static int _sizeIndex;
     private static int _fillerStart;
     private static List<PlannedCity> _cities = new();
@@ -95,6 +99,8 @@ public static class WorldMapScenario
     private static void Plan(WorldMapFrame frame, Vector2Int size, int sizeIndex, WorldMapEra era)
     {
         _era = era;
+        _frame = frame;
+        _size = size;
         frame.Bounds(size, out _, out float degreesPerTile);
         WorldMapScale.SetFromFrame(degreesPerTile);
         _regionWeight.Clear();
@@ -285,9 +291,17 @@ public static class WorldMapScenario
                     planned.city = World.world.cities.buildFirstCivilizationCity(actor);
                     // 先换成本国文化、按本国模板起名，再建家族：家族名取这人的姓，起名前没换文化就成了种族默认的西式姓
                     PrepareName(actor, polity.culture);
-                    ApplyNames(actor, ruler?.fam, ruler?.giv);
+                    // 剧本没写姓、前史里本朝有家族名的，姓就取家族名(不留模板起的姓，免得人与王室宗族对不上)
+                    string house = ruler?.fam == null ? HouseOf(polity.data) : null;
+                    ApplyNames(actor, ruler?.fam ?? (string.IsNullOrEmpty(house) ? null : house), ruler?.giv);
                     actor.createDefaultCultureAndLanguageAndClan(planned.city.name);
-                    if (ruler?.fam == "") actor.GetModName().familyName = "";
+                    if (ruler?.fam == "")
+                    {
+                        // 没有姓的君主(保加利亚、回鹘……)：本人不带姓，家族叫前史里的家族名(杜洛、药罗葛)；
+                        // 以前家族按造人时模板起的姓叫，人和家族对不上
+                        actor.GetModName().familyName = "";
+                        NameClan(actor.clan, HouseOf(polity.data));
+                    }
                     // 剧本没写姓的：姓取自家族(郁久闾氏的郁久闾)
                     else if (string.IsNullOrEmpty(actor.GetModName().familyName) && actor.clan != null)
                         actor.GetModName().familyName = actor.clan.GetMemberSurname();
@@ -343,7 +357,8 @@ public static class WorldMapScenario
                     PrepareName(actor, polity.culture);
                     if (founder.clan != null) actor.setClan(founder.clan);
                     ApplyNames(actor, person.fam ?? surname, person.giv);
-                    if (person.fam == "") actor.GetModName().familyName = "";
+                    // 君主没有姓的，宗室也不带模板起的姓(以前同一家族里各姓各的)
+                    if (person.fam == "" || person.fam == null && string.IsNullOrEmpty(surname)) actor.GetModName().familyName = "";
                     if (person.ChildOfLine)
                     {
                         Actor parent = person.of >= 0 && person.of < made.Count ? made[person.of] : founder;
@@ -377,7 +392,15 @@ public static class WorldMapScenario
                 actor.joinCity(seat);
                 PrepareName(actor, polity.culture);
                 ApplyNames(actor, person.fam, person.giv);
-                if (string.IsNullOrEmpty(WorldMapData.PickParts(person.fam))) actor.GetModName().familyName = "";
+                // 当场立家族，家族名就是剧本的姓(诸葛亮入诸葛氏)：以前等任官时才立，没姓的(扬古利)被安上模板起的家族名与姓
+                string family = WorldMapData.PickParts(person.fam);
+                if (string.IsNullOrEmpty(family)) actor.GetModName().familyName = "";
+                if (actor.clan == null) World.world.clans.newClan(actor, true);
+                if (string.IsNullOrEmpty(family))
+                {
+                    actor.GetModName().familyName = "";
+                    NameClan(actor.clan, WorldMapData.PickParts(person.giv));
+                }
                 actor.GetModName().SetName(actor);
                 polity.famous.Add((actor, person));
             }
@@ -453,6 +476,61 @@ public static class WorldMapScenario
         }
     }
 
+    // 老王朝(前史里开国早于开局年)：国祚接着算(dynastic_age_offset)，不算新开国、没有开国气象；王朝积弊取剧本给的，
+    // 没给照同岁数最少该有的；六弊取剧本给的，没给的补到积弊对应的底线
+    private static void ApplyDecline(List<PlannedPolity> polities)
+    {
+        foreach (PlannedPolity polity in polities)
+        {
+            Empire empire = polity.empire;
+            if (empire?.data == null || empire.isRekt() || !DynasticCycleSystem.Applies(empire)) continue;
+            WorldMapDynasty dynasty = string.IsNullOrEmpty(polity.data.dynasty) ? null
+                : WorldMapData.Dynasties.FirstOrDefault(item => item.id == polity.data.dynasty && item.rulers.Count > 0);
+            var decline = polity.data.decline ?? new Dictionary<string, float>();
+            // 前史里一个朝代跨了几个王室的(拜占庭、神圣罗马、东汉接西汉)，剧本另给"age"：现王室立了多少年
+            int age = decline.TryGetValue("age", out float setAge) ? Mathf.RoundToInt(setAge)
+                : dynasty == null || _era == null ? 0 : Math.Max(0, _era.year - dynasty.rulers.Min(reign => reign.a));
+            if (age <= 0 && decline.Count == 0) continue;
+            ConstitutionalEconomyState state = empire.data.constitutional_economy ??= new ConstitutionalEconomyState();
+            double now = World.world.getCurWorldTime();
+            state.dynastic_since = now;
+            state.dynastic_age_offset = age;
+            state.last_dynastic_update = now;
+            if (age > Empire.FounderGraceYears) empire.data.inherited_decline = true;
+            float strain = decline.TryGetValue("strain", out float given) ? given : DynasticCycleRules.AgeFloor(age);
+            state.dynastic_strain = Mathf.Clamp(Mathf.Max(state.dynastic_strain, strain), 0f, 100f);
+            empire.data.maladies ??= new Dictionary<string, float>();
+            float floor = MaladySystem.Floor(empire);
+            foreach (string key in MaladySystem.All)
+            {
+                float value = decline.TryGetValue(key, out float set) ? set : floor;
+                empire.data.maladies[key] = Mathf.Clamp(Mathf.Max(MaladySystem.Get(empire, key), value), 0f, 100f);
+            }
+            MonarchyLegitimacy.Invalidate(empire);
+            LogService.LogInfo($"[EmpireCraft][世界地图] {empire.GetEmpireFullName()} 国祚 {age} 年，王朝积弊 {state.dynastic_strain:0}，" +
+                               $"六弊均 {MaladySystem.Average(empire):0}");
+        }
+    }
+
+    private static void ApplyRelations(List<WorldMapRelation> relations, Dictionary<string, Kingdom> realms)
+    {
+        int done = 0;
+        foreach (WorldMapRelation relation in relations)
+        {
+            if (!realms.TryGetValue(relation.a ?? "", out Kingdom a) || !realms.TryGetValue(relation.b ?? "", out Kingdom b) ||
+                a?.data == null || b?.data == null || a.isRekt() || b.isRekt())
+            {
+                LogService.LogInfo($"[EmpireCraft][世界地图] 开局外交 {relation.a}→{relation.b} {relation.kind}：国不在");
+                continue;
+            }
+            WarGoal goal = Enum.TryParse(relation.goal ?? "", out WarGoal parsed) ? parsed : WarGoal.夺城;
+            string reason = DiplomacyActions.ApplyScenario(relation.kind, a, b, goal, relation.value);
+            if (reason == null) done++;
+            else LogService.LogInfo($"[EmpireCraft][世界地图] 开局外交 {a.GetKingdomName()}→{b.GetKingdomName()} {relation.kind} 没成：{reason}");
+        }
+        LogService.LogInfo($"[EmpireCraft][世界地图] 开局外交：{done}/{relations.Count} 条");
+    }
+
     // 名人坐镇的城(城 id → 城)：收尾时清掉剧本的城表前记下
     private static readonly Dictionary<string, City> _famousCities = new();
 
@@ -490,6 +568,21 @@ public static class WorldMapScenario
     }
 
     private static bool Latin(string text) => !string.IsNullOrEmpty(text) && text.Any(c => c < 128 && char.IsLetter(c));
+
+    // 这一国王室的家族名：剧本写的姓，没写取前史里本朝的家族名(杜洛、药罗葛)
+    internal static string HouseOf(WorldMapPolity polity)
+    {
+        string family = WorldMapData.PickParts(polity?.ruler?.fam);
+        if (!string.IsNullOrEmpty(family) || string.IsNullOrEmpty(polity?.dynasty)) return family;
+        return WorldMapData.PickParts(WorldMapData.Dynasties.FirstOrDefault(dynasty => dynasty.id == polity.dynasty)?.fam);
+    }
+
+    // 原版氏族改叫这个家族名(某某氏/家)；宗族另由 WorldMapHistory.NameHouse 改
+    private static void NameClan(Clan clan, string house)
+    {
+        if (clan?.data == null || string.IsNullOrWhiteSpace(house)) return;
+        clan.data.name = OverallHelperFunc.JoinNameParts(house, NeoModLoader.General.LM.Get("Clan"));
+    }
 
     private static void ApplyNames(Actor actor, string family, string given)
     {
@@ -835,7 +928,8 @@ public static class WorldMapScenario
         LogService.LogInfo($"[EmpireCraft][世界地图] 补空立了 {fillers.Count} 国 {gaps.Count} 城");
     }
 
-    // 补的小国先按小城的预算铺自己的辖地，再把剩下有陆地的区块(连山地、荒漠、沿海零碎地块)分给走得到的最近的城；
+    // 补的小国先按小城的预算铺自己的辖地，再把剩下有陆地的区块(山麓、沿海零碎地块，荒漠冻土只给收这种地的城)分给走得到的
+    // 最近的城，大山腹地与没人收的荒漠、冻土留空(见 WorldMapZones.FillAll)；
     // 地块上限照模组设置，纯沙漠、纯冻土照荒地规矩可到上限的倍数(见 BarrenLandSystem)
     private static void FillTerritory()
     {
@@ -1131,6 +1225,8 @@ public static class WorldMapScenario
         if (core == null || capital == null || capital.isRekt()) return;
         City old = _cities.FirstOrDefault(city => city.data.id == polity.data.oldCapital)?.city;
         core.former_capital = old != null && !old.isRekt() && old != capital ? old.id : -1L;
+        // 剧本的两京：多京不看据不据有天下一半(见 MultiCapitalSystem.Eligible)
+        polity.empire.data.scripted_jing = core.former_capital >= 0;
         core.SetCoreCapital(capital);
     }
 
@@ -1215,6 +1311,8 @@ public static class WorldMapScenario
                 List<City> cities = CitiesOf(c.cities);
                 if (cities.Count > 0) _afterLoad.Add(($"{p.name} 殖民地 {c.Name}", () => FoundColony(p.kingdom, c, cities)));
             }
+            // 幕府：将军家的君主就任征夷大将军(天皇是宗主帝国的君主；开国之君在位本来不立幕府，剧本照史当场立)
+            if (p.data.shogun) _afterLoad.Add(($"{p.name} 征夷大将军", () => Shogunate(p)));
             if (p.data.holy && p.empire != null)
             {
                 EmpireCore lead = _tianxiaLeads.TryGetValue("Roma", out EmpireCore roma) ? roma
@@ -1247,6 +1345,18 @@ public static class WorldMapScenario
                 if (city != null) _famousCities[person.post] = city;
             }
         }
+        // 长城与关隘：先铺墙后筑关(关城压着城墙的那格成关门，见 WorldMapWalls)
+        if (_era != null && (_era.walls.Count > 0 || _era.passes.Count > 0))
+        {
+            WorldMapEra wallEra = _era;
+            WorldMapFrame wallFrame = _frame;
+            Vector2Int wallSize = _size;
+            _afterLoad.Add(("长城关隘", () => WorldMapWalls.Build(wallEra, wallFrame, wallSize)));
+        }
+        // 王朝积弊：老王朝国祚照史实接着算，积弊、六弊照时代给(用户 10-29 "这个是明末, 明朝过于强了点, 这个弊政都是0")。
+        // 放在开局兵力之前：武备废弛压兵源
+        var declining = _polities.Where(polity => polity.data != null && polity.empire != null).ToList();
+        if (declining.Count > 0) _afterLoad.Add(("王朝积弊", () => ApplyDecline(declining)));
         // 开局兵力：各国照本国军制当场编军、补满(以前要等每月一成成补员，开局各国一兵没有)。人口照史料给了，兵也就照人口、军制有多有少
         _afterLoad.Add(("开局兵力", () =>
         {
@@ -1266,6 +1376,23 @@ public static class WorldMapScenario
             var people = p.famous.ToList();
             _afterLoad.Add(($"{p.name} 名将名臣", () => SeatFamous(p.kingdom, p.empire, people)));
         }
+        // 开局外交(照史实：在打的仗、朝贡圈、和亲、同盟、旧谊宿怨)：称帝、宗藩、殖民、编军都做完之后逐条套，走外交界面同一套判定
+        var realms = _polities.Where(polity => polity.data != null && polity.kingdom != null)
+            .GroupBy(polity => polity.data.id).ToDictionary(group => group.Key, group => group.First().kingdom);
+        var relations = _era?.relations?.ToList() ?? new List<WorldMapRelation>();
+        if (relations.Count > 0) _afterLoad.Add(("开局外交", () => ApplyRelations(relations, realms)));
+        // 商品市场当场结算一轮：市场图层、外交界面的市场页一进世界就有数
+        _afterLoad.Add(("市场开市", CommodityMarketSystem.SettleNow));
+    }
+
+    // 用户 2026-10-29 "日本幕府的天皇去哪儿了""天皇不应该是万世一系的吗"：以前德川家光直接坐了日本的君位，天皇家没生出来
+    private static void Shogunate(PlannedPolity polity)
+    {
+        Empire empire = polity.kingdom?.GetEmpire();
+        Actor shogun = polity.kingdom?.king;
+        if (empire != null && shogun != null && MilitaryRegency.Appoint(empire, shogun)) return;
+        LogService.LogInfo($"[EmpireCraft][世界地图] {polity.name} 就任将军没成：帝国 {empire?.GetEmpireName() ?? "无"}，" +
+                           $"政体 {empire?.CoreKingdom?.GetRegime()?.type}，君主 {shogun?.getName() ?? "无"}");
     }
 
     // 开局按人口盖房(繁荣)：人口越多的城盖得越多、民居升得越高(到本文化科技许可的一级为止)，住房装不下的另给容量(同神力"增加人口")；
@@ -1423,7 +1550,9 @@ public static class WorldMapScenario
 
     // 天下：剧本的帝国法理按分组(cities.json 的 tx)并成联合天下——华夏七法理同属中华、游牧诸法理同属草原、
     // 阿拉伯波斯埃及同属阿拉伯、拉丁欧洲同属罗马、斯拉夫诸法理同属斯拉夫……；以据城最多的法理作主，按剧本给名；
-    // 锁定(年度自动并分不再动它，见 TianxiaSystem.AutoArrange)。不在组里的(兼属中华的西域、蒙古……)兼属所写的天下
+    // 锁定(年度自动并分不再动它，见 TianxiaSystem.AutoArrange)。另写了 tianxia 的(西域兼属中华与阿拉伯)兼属所写的天下。
+    // 中华与草原只在长城一线兼属(用户 10-29 "中华和草原的天下重叠也太大了")：漠南(晋兼收)、河套、辽东、河西、河湟(秦兼收)
+    // 两边的帝国法理都算，漠北、准噶尔、满洲、卫藏不再整块挂进中华
     private static readonly Dictionary<string, EmpireCore> _tianxiaLeads = new();
 
     private static void ArrangeTianxia()

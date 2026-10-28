@@ -688,6 +688,23 @@ public static class EmpireCraftNamePlateLibrary
         AssetManager.nameplates_library.map_modes_nameplates[assetTianxia.map_mode] = assetTianxia;
         AssetManager.nameplates_library.dict["Tianxia"] = assetTianxia;
 
+        // 商品市场图层：不止一国的市场一枚纯文字铭牌，写"某某市场"(见 MarketMap.SubmitLabels)
+        NameplateAsset assetMarket = new NameplateAsset
+        {
+            id = "plate_market",
+            path_sprite = "ui/nameplates/nameplate_kingdom",
+            map_mode = MetaTypeExtension.Market,
+            action_main = (manager, asset) =>
+            {
+                if (!IsNameplateReady) return;
+                TerritoryLabelRenderer.BeginFrame(MetaTypeExtension.Market);
+                EmpireCraft.Scripts.Layer.MarketMap.SubmitLabels();
+                TerritoryLabelRenderer.EndFrame();
+            }
+        };
+        AssetManager.nameplates_library.map_modes_nameplates[assetMarket.map_mode] = assetMarket;
+        AssetManager.nameplates_library.dict["Market"] = assetMarket;
+
         // 教化图层、政令图层也只看色块与悬停提示，不画铭牌(没登记原版每帧抛异常，见上)
         foreach ((MetaType mode, string id) in new[] { (MetaTypeExtension.Edification, "Edification"), (MetaTypeExtension.Governance, "Governance") })
         {

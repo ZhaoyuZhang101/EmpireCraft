@@ -186,6 +186,25 @@ public class CityExpansionPatch : GamePatch
     // 走得到：原版是小人走到那块地里去领(BehActorCheckZoneTarget 在区块里找一格与自己同岛的地)，
     // 山地是阻挡层、水面是液体层，都不在地面单位的"岛"里，所以隔水、翻山的地原版领不到。
     // 无小人模式没有人走这一趟，按同一条核对：区块里至少有一格与城心同岛
+    // 与本城接壤、且交界有路口(不隔着山脊，见 TerrainSystem.Crossable)：领地不翻山
+    // (用户 10-29 "不仅国土跨越了军队也跨越了"：以前只看接壤、同岛，山脊另一边经别处山口连得上的地照样领过去)。
+    // 山地区块(山地格两成以上)更严(用户 10-29 "为什么你这个城市边界总是会跨山""印度都管到西藏去了，这么大个喜马拉雅")：
+    // 城心那块也照交界算，且只从本城的平地(或城心那块，山城也能领到城边一圈)往山里领一圈，不从山里接着往山里领——
+    // 山腹留空，不会过几十年把整条山脉领满
+    public static bool Bordering(City city, TileZone zone)
+    {
+        if (city == null || zone?.neighbours == null) return false;
+        bool mountainous = GeneralSystems.TerrainSystem.Mountainous(zone);
+        TileZone seat = city.getTile()?.zone;
+        foreach (TileZone neighbour in zone.neighbours)
+        {
+            if (neighbour?.city != city) continue;
+            if (mountainous && neighbour != seat && GeneralSystems.TerrainSystem.Mountainous(neighbour)) continue;
+            if (GeneralSystems.TerrainSystem.Crossable(neighbour, zone, seatOpen: !mountainous)) return true;
+        }
+        return false;
+    }
+
     public static bool Reachable(TileZone zone, City city)
     {
         WorldTile origin = city?.getTile();
@@ -216,7 +235,7 @@ public class CityExpansionPatch : GamePatch
         // 无主之地只领城区、村镇附近的(见 Settled)
         if (__result != null)
         {
-            if (CanClaimZone(pCity, __result) && Settled(pCity, __result)) return;
+            if (CanClaimZone(pCity, __result) && Settled(pCity, __result) && Bordering(pCity, __result)) return;
             __result = null;
         }
         if (!pCity.canGrowZones()) return;
@@ -231,10 +250,7 @@ public class CityExpansionPatch : GamePatch
             if (candidate == null || candidate.city != null || candidate.tiles_with_ground == 0 ||
                 !candidate.canBeClaimedByCity(pCity) || !Settled(pCity, candidate) ||
                 (pActor?.subspecies != null && !candidate.checkCanSettleInThisBiomes(pActor.subspecies))) continue;
-            bool adjacent = false;
-            foreach (TileZone neighbour in candidate.neighbours)
-                if (neighbour?.city == pCity) { adjacent = true; break; }
-            if (!adjacent) continue;
+            if (!Bordering(pCity, candidate)) continue;
             foreach (WorldTile tile in candidate.tiles)
             {
                 if (tile != null && tile.isSameIsland(origin))
@@ -247,7 +263,7 @@ public class CityExpansionPatch : GamePatch
         // 波搜索可能提早停在第一个空区，再尝试原版完整的边界邻接检查。
         TileZone fallback = __instance.getRandomZone(pCity);
         if (fallback?.city == null && fallback?.centerTile != null &&
-            fallback.centerTile.isSameIsland(origin) && Settled(pCity, fallback) &&
+            fallback.centerTile.isSameIsland(origin) && Settled(pCity, fallback) && Bordering(pCity, fallback) &&
             (pActor?.subspecies == null || fallback.checkCanSettleInThisBiomes(pActor.subspecies)))
             __result = fallback;
     }
@@ -272,7 +288,7 @@ public class CityExpansionPatch : GamePatch
         {
             TileZone target = growth.getZoneToClaim(actor, city);
             if (target == null) return;
-            if (!CanClaimZone(city, target) || !Reachable(target, city)) continue;
+            if (!CanClaimZone(city, target) || !Reachable(target, city) || !Bordering(city, target)) continue;
             bool good = actor != null
                 ? city.isZoneToClaimStillGood(actor, target, origin)
                 : target.canBeClaimedByCity(city) && target.neighbours.Any(neighbour => neighbour?.city == city);

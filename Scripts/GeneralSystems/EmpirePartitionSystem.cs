@@ -82,6 +82,8 @@ public static class EmpirePartitionSystem
         // 元首制(古典共和施行元首制，元首家传)同君主制可分治(用户 2026-10-20 定"罗马元首制也会分裂")，倍数读古典共和配置(×1)
         if (core == null || core.isRekt() || core.capital == null ||
             !SuccessionCouncilSystem.Applies(core) && !empire.IsPrincipate()) return false;
+        // 穿越政权不分东西两朝(元老院一个，见 TransmigrantSystem.Governs)
+        if (TransmigrantSystem.Governs(empire)) return false;
         // 开国气象(统一战争期间、统一后三十年)不分治、不分立(见 UnificationSystem)
         if (UnificationSystem.InGrace(core)) return false;
         if (Twin(empire) != null) return false;
@@ -842,6 +844,7 @@ public static class EmpirePartitionSystem
         bool ministerUsurpation)
     {
         if (empire?.data == null || previousClan == null || World.world == null) return;
+        if (TransmigrantSystem.Governs(empire)) return;
         // 权臣篡位减半。同日曾改为与外姓篡位同等(用户 2026-10-21 选"华夏有真乱世"：东晋、南明式的宗室另立)，
         // 玩家随即反馈"帝国容易突然碎一地"，用户选回调：恢复减半
         float chance = Mathf.Clamp01((mandate - 30f) / 60f) * 0.425f * (ministerUsurpation ? 0.5f : 1f);

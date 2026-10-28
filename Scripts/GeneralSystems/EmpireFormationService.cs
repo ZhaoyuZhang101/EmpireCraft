@@ -424,6 +424,7 @@ public static class EmpireFormationService
         if (!kingdom.hasKing() || kingdom.king == null || kingdom.king.isRekt()) return "没有君主";
         if (kingdom.GetRegime()?.type == EmpireCraft.Scripts.Regimes.RegimeType.Modern) return "现代政体(不称帝，走组建政府)";
         if (ZhouEraSystem.BlocksRivalEmpire(kingdom)) return "周制：本文化已有周王朝";
+        if (ConstitutionalSuccessionSystem.BlocksRivalThrone(kingdom)) return "万世一系：同一天下已有天皇在位(只能当将军)";
         if (kingdom.king.kingdom != kingdom) return "君主兼领、本国另在别处";
         if (Compatibility.AncientWarfareCompatibility.BlocksEmpireFormation(kingdom)) return "古战兼容不许称帝";
         if (ZhouEraSystem.IsDetachedVassal(kingdom)) return "战国周诸侯(只称王)";
