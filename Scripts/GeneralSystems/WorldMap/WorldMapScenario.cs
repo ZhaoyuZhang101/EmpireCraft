@@ -1216,6 +1216,21 @@ public static class WorldMapScenario
         }
     }
 
+    // 剧本定下的入主(用户 10-29 "剧本里面让后金入关后走中华体制百分百叫大清")：记在本国上，据有那座城(北京)即算入关，
+    // 采纳华夏制度走兼用，国号照剧本(见 CompositeEmpireService.ScriptedConquestName)
+    private static void ScriptConquests()
+    {
+        foreach (PlannedPolity polity in _polities)
+        {
+            if (polity.kingdom?.data == null || string.IsNullOrEmpty(polity.data?.conquest)) continue;
+            City seat = _cities.FirstOrDefault(city => city.data.id == polity.data.conquestCity)?.city;
+            var extra = polity.kingdom.GetOrCreate();
+            extra.scripted_conquest_name = WorldMapData.PickParts(polity.data.conquest);
+            extra.scripted_conquest_city_id = seat?.data != null && !seat.isRekt() ? seat.data.id : -1L;
+            LogService.LogInfo($"[EmpireCraft][世界地图] {polity.name} 入主国号 {extra.scripted_conquest_name}，据 {seat?.GetCityName() ?? "无"} 即入关");
+        }
+    }
+
     // 帝国法理记的都城(EmpireCore.CoreCapital，"还于旧都"、多京以它为京师)照开局实际的都城——等于开局之前已经迁过都
     // (明成祖迁北京)；剧本另记旧都的(明的南京)记成留都，多京时作陪京(见 MultiCapitalSystem.CandidateCapitals)
     private static void AnchorCapital(PlannedPolity polity)
@@ -1233,6 +1248,7 @@ public static class WorldMapScenario
     private static void Finish()
     {
         Guard("法理更新", () => ModClass.KINGDOM_TITLE_MANAGER?.update(-1f));
+        Guard("入主国号", ScriptConquests);
         Guard("城的帝国法理", () => { EmpireCoreManager.ReconcileCityCores(); });
         Guard("前史", () => WorldMapHistory.Apply(_era, _polities.Select(polity => new WorldMapHistory.Realm
         {

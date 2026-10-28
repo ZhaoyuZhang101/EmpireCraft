@@ -484,6 +484,9 @@ public static class KingdomExtension
         // 天下大势(见 UnificationSystem)：开始统一战争的时间、统一完成的时间(-1 没有)
         public double unify_since = -1d;
         public double unified_at = -1d;
+        // 剧本定下的入主(世界地图后金入关称大清，见 CompositeEmpireService.ScriptedConquestName)：入主华夏时的国号、据有即算入关的城
+        public string scripted_conquest_name = "";
+        public long scripted_conquest_city_id = -1L;
         // 这一回是同一家第二次统一(以前统一过，见 UnificationSystem.GraceYearsOf)：开国气象只给 RepeatGraceYears 年
         public bool unify_repeat;
         // 分封制下的小乱(见 PettyRebellion)：原主国家与起事时间(-1 不是)

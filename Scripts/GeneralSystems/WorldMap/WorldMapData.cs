@@ -173,6 +173,9 @@ public sealed class WorldMapPolity
     public List<WorldMapColony> colonies = new();
     // 开局在世的名将名臣
     public List<WorldMapFamous> famous = new();
+    // 入主华夏时的国号(美号，加"大")与据有即算入关的城(后金：清、北京，见 WorldMapScenario.ScriptConquests)
+    public string conquest = "";
+    [JsonProperty("conquest_city")] public string conquestCity = "";
     // 开局的王朝积弊("strain")与六弊(graft、annexation、bloat、military、factionalism、levies，0~100；明末之类，
     // 见 WorldMapScenario.ApplyDecline)；不写的照国祚给同岁数最少该有的
     public Dictionary<string, float> decline = new();

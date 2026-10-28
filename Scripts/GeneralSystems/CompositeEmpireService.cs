@@ -128,6 +128,8 @@ public static partial class CompositeEmpireService
                  (DrawnToConquered(empire, ruling, institutional) || offGrass > 0 && !IsNomadicCulture(institutional)) &&
                  homeland < (current == RouteAdopt ? 0.20f : 0.15f) + push) next = RouteAdopt;
         else next = RouteJoint;
+        // 剧本定下入主国号的(世界地图后金)：入关就走兼用(金清兼用)，不行分治
+        if (next == RouteDual && ScriptedConquestName(empire) != null) next = RouteJoint;
         if (next == current) return;
         empire.data.composite_route = next;
         empire.data.composite_route_since = World.world?.getCurWorldTime() ?? -1d;
@@ -315,10 +317,30 @@ public static partial class CompositeEmpireService
         // 受着被征服文化那个天下的天命，也触发采纳(外族入主，用户 2026-10-19 选"可受天命、本族可光复")
         bool mandateTrigger = TianxiaSystem.MandateOf(empire.CoreKingdom) is EmpireCore lead &&
                               CultureService.SameKin(lead.default_culture, status.InstitutionalCulture);
+        // 剧本定下的入主(世界地图后金)：据有那座城(北京)即算入关，采纳华夏制度不看据城过半与天命
+        bool scriptedTrigger = ScriptedConquestReady(empire) && InstitutionSystem.GetCultureLine(status.InstitutionalCulture) == "Huaxia";
         status.IsEligible = status.HasDistinctCultures && status.Applicable &&
-                            (status.HasRequiredControl || mandateTrigger) &&
-                            status.HasRequiredMandate;
+                            (status.HasRequiredControl || mandateTrigger || scriptedTrigger) &&
+                            (status.HasRequiredMandate || scriptedTrigger);
         return status;
+    }
+
+    // 剧本定下的入主国号(用户 10-29 "剧本里面让后金入关后走中华体制百分百叫大清"，见 KingdomExtraData.scripted_conquest_name)
+    public static string ScriptedConquestName(Empire empire)
+    {
+        string name = empire?.CoreKingdom?.data == null || empire.CoreKingdom.isRekt() ? null
+            : empire.CoreKingdom.GetOrCreate().scripted_conquest_name;
+        return string.IsNullOrWhiteSpace(name) ? null : name.Trim();
+    }
+
+    // 据有剧本记的那座城(北京)：算入关
+    private static bool ScriptedConquestReady(Empire empire)
+    {
+        if (ScriptedConquestName(empire) == null) return false;
+        long id = empire.CoreKingdom.GetOrCreate().scripted_conquest_city_id;
+        City city = id < 0 ? null : World.world?.cities?.get(id);
+        return city?.kingdom?.data != null && !city.isRekt() &&
+               (city.kingdom == empire.CoreKingdom || city.kingdom.GetEmpire() == empire);
     }
 
     // 被征服文化比本族先进：科技时代更晚，或同一时代文明等级更高
@@ -740,8 +762,10 @@ public static partial class CompositeEmpireService
 
         string culture = central ? courtCulture : GetInstitutionalCulture(empire);
         if (!CultureService.IsValidCulture(culture)) return false;
+        // 剧本定下的入主国号(后金入关称大清)：照它定，加"大"，不看本来是不是汉名、不另挑
+        string scripted = central ? ScriptedConquestName(empire) : null;
         // 国号本来就是汉名的(入主前就用着中原的法理名、美号)：不改，记下即可
-        if (central && (HanName(empire.data.core_name, culture) || HuaxiaFounded(empire)))
+        if (scripted == null && central && (HanName(empire.data.core_name, culture) || HuaxiaFounded(empire)))
         {
             empire.data.composite_cultural_name_adopted = true;
             empire.data.composite_cultural_name = empire.GetEmpireName();
@@ -752,7 +776,14 @@ public static partial class CompositeEmpireService
         }
         // 入主中原采纳中原制度(兼用、从俗)：主法理本有汉名的直接沿用(用户 2026-10-27："如果那个异族的主法理原本就有漢名直接延用就好")，
         // 没有才改用美号(见 RealmNamingSystem.Founding)
-        CulturalNameCandidate candidate = HanTitleName(empire, culture);
+        CulturalNameCandidate candidate = null;
+        if (scripted != null)
+        {
+            empire.data.directPre = RealmNamingSystem.GrandPrefix;
+            empire.data.name_source = RealmNamingSystem.SourceGrandName;
+            candidate = NewNameCandidate(scripted, "grand_name");
+        }
+        candidate ??= HanTitleName(empire, culture);
         if (candidate == null)
         {
             string grand = RealmNamingSystem.ConquestGrandName(empire, culture);
