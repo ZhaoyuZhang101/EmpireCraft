@@ -9,10 +9,12 @@ using NeoModLoader.services;
 
 namespace EmpireCraft.Scripts.GeneralSystems;
 
-// 现代：华夏的唯一合法政府以天下之名为国号(方案第 7 步，用户 2026-10-20 拍板)。
-//   · 唯一合法政府：现代政体或改制共和的华夏政权，受着本帝国法理所在天下的天命，且天下里没有别的已组建政府(中央或临时政府)；
-//   · 国号：天下基名 + 执政理念后缀(后缀照原规则)，不再用帝国法理名；
-//   · 失去唯一地位：只要仍是本法理的中央就留着天下名；丢了天命、中央之位又被别家取代，才改回原名(帝国法理名)；
+// 现代：华夏的唯一合法政府以天下之名为国号(方案第 7 步，用户 2026-10-20 拍板；10-29 "现代制度下华夏要用天下名称作国号，
+// 不再依赖帝国法理""唯一中央政府也只看天下")。
+//   · 唯一合法政府：现代政体或改制共和的华夏政权，是本天下的中央(军阀时期以天下为单位，见 WarlordEraSystem)，
+//     或天下里没有别的已组建的现代政府；不再要受天命；
+//   · 国号：天下基名 + 执政理念后缀(后缀照原规则)，不再用帝国法理名；军阀时期的中央直接按天下名显示(见 ModernRealmName)；
+//   · 失去唯一地位：只要仍是本天下的中央就留着天下名；丢了天命、中央之位又被别家取代，才改回原名(帝国法理名)；
 //     与之对立的临时政府据法统过半时以天下名自居并括注都城(见 WarlordEraSystem.ProvisionalSeat)；
 //   · 现代国号本就不带方位前缀；复辟帝制自然称"{天下基名}帝国"。
 public static partial class RealmNamingSystem
@@ -26,14 +28,22 @@ public static partial class RealmNamingSystem
     public static bool NamedAfterTianxia(Empire empire) =>
         empire?.data?.constitutional_economy?.named_after_tianxia_lead_id >= 0;
 
-    // 唯一合法政府：受本天下天命，天下里没有别的已组建的现代政府
+    // 唯一合法政府：是本天下的中央(不是临时政府)，或天下里没有别的已组建的现代政府
     public static bool SoleGovernment(Empire empire, EmpireCore lead)
     {
         if (!Enabled || lead == null || !IsHuaxia(empire) || !IsModernGovernment(empire)) return false;
-        if (TianxiaSystem.MandateOf(empire.CoreKingdom) != lead) return false;
+        if (WarlordEraSystem.CentralOf(lead) == empire) return !WarlordEraSystem.IsProvisionalGovernment(empire);
         return ModClass.EMPIRE_MANAGER?.Any(other => other != empire && IsModernGovernment(other) &&
                                                      other.CoreKingdom.capital != null &&
                                                      TianxiaSystem.LeadOf(other.CoreKingdom.capital) == lead) != true;
+    }
+
+    // 华夏现代政府以天下为号时用的天下基名(中央、以法统自居的临时政府)；不是华夏现代政府返回 null
+    public static string ModernRealmName(Empire empire, EmpireCore anyCore)
+    {
+        if (!Enabled || anyCore == null || !IsHuaxia(empire) || !IsModernGovernment(empire)) return null;
+        string name = TianxiaBaseName(anyCore);
+        return string.IsNullOrWhiteSpace(name) ? null : name;
     }
 
     // 现代中央以帝国法理名作国号时(WarlordEraSystem.CentralStyleName)：已用天下名的用天下基名
@@ -76,6 +86,30 @@ public static partial class RealmNamingSystem
         else EventRecorder.Record(empire, text);
     }
 
+    // 唯一合法政府改称天下基名(每年；组建政府、统一天下时当即，见 ModernStateFormationSystem.FormGovernment、
+    // WarlordEraSystem.CompleteUnification)：改了返回 true
+    public static bool ClaimModernRealmName(Empire empire, bool? quiet = null)
+    {
+        var state = empire?.data?.constitutional_economy;
+        if (!Enabled || state == null || !IsHuaxia(empire) || empire.data.title_claim_yielded ||
+            state.named_after_tianxia_lead_id >= 0) return false;
+        EmpireCore own = EmpireCoreManager.Get(empire);
+        EmpireCore lead = own == null ? null : TianxiaSystem.Lead(own);
+        if (!SoleGovernment(empire, lead) || empire.CoreKingdom.HasCustomCountryNaming()) return false;
+        string baseName = TianxiaBaseName(lead);
+        if (string.IsNullOrWhiteSpace(baseName)) return false;
+        string before = empire.GetEmpireFullName();
+        empire.data.pre_tianxia_name = empire.data.core_name ?? "";
+        state.named_after_tianxia_lead_id = lead.id;
+        empire.data.name_source = SourceTianxia;
+        empire.SetEmpireName(baseName, preserveEmpireType: true);
+        if (string.Equals(before, empire.GetEmpireFullName(), StringComparison.Ordinal)) return true;
+        RecordName(empire, string.Format(LM.Get("realm_tianxia_government_history"), before,
+            TianxiaSystem.Name(lead), empire.GetEmpireFullName()), quiet ?? QuietYear());
+        LogService.LogInfo($"[EmpireCraft][天下国号] {before} 为 {TianxiaSystem.Name(lead)} 唯一合法政府，改称 {empire.GetEmpireFullName()}");
+        return true;
+    }
+
     // 每年(RealmNamingSystem.Yearly)
     private static void YearlyModern(Empire empire)
     {
@@ -88,24 +122,13 @@ public static partial class RealmNamingSystem
         bool quiet = QuietYear();
         if (state.named_after_tianxia_lead_id < 0)
         {
-            if (!SoleGovernment(empire, lead) || empire.CoreKingdom.HasCustomCountryNaming()) return;
-            string baseName = TianxiaBaseName(lead);
-            if (string.IsNullOrWhiteSpace(baseName)) return;
-            string before = empire.GetEmpireFullName();
-            empire.data.pre_tianxia_name = empire.data.core_name ?? "";
-            state.named_after_tianxia_lead_id = lead.id;
-            empire.data.name_source = SourceTianxia;
-            empire.SetEmpireName(baseName, preserveEmpireType: true);
-            if (string.Equals(before, empire.GetEmpireFullName(), StringComparison.Ordinal)) return;
-            RecordName(empire, string.Format(LM.Get("realm_tianxia_government_history"), before,
-                TianxiaSystem.Name(lead), empire.GetEmpireFullName()), quiet);
-            LogService.LogInfo($"[EmpireCraft][天下国号] {before} 为 {TianxiaSystem.Name(lead)} 唯一合法政府，改称 {empire.GetEmpireFullName()}");
+            ClaimModernRealmName(empire, quiet);
             return;
         }
-        // 已用天下名：仍是本法理的中央、或仍受着天命就留着；改了政体、离了那个天下、丢了天命又失了中央之位才改回
+        // 已用天下名：仍是本天下的中央、或仍受着天命就留着；改了政体、离了那个天下、丢了天命又失了中央之位才改回
         bool sameRealm = lead != null && lead.id == state.named_after_tianxia_lead_id;
         bool mandate = sameRealm && TianxiaSystem.MandateOf(empire.CoreKingdom) == lead;
-        bool central = own != null && (own.central_empire_id <= 0 || own.central_empire_id == empire.id);
+        bool central = lead != null && (lead.central_empire_id <= 0 || lead.central_empire_id == empire.id);
         if (Enabled && sameRealm && IsModernGovernment(empire) && (mandate || central))
         {
             // 天下基名改了(天下窗口里改基名)：跟着改

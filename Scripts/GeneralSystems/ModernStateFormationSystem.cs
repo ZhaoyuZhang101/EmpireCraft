@@ -38,7 +38,7 @@ public static class ModernStateFormationSystem
             return false;
         }
         kingdom.GetOrCreate().ideology_country_suffix = "";
-        // 强统一文化组建政府的条件更苛刻：只有帝国核心内最强者(中央)或统一者才能组建，
+        // 强统一文化组建政府的条件更苛刻：只有天下里最强者(中央)或统一者才能组建，
         // 其余有法理的只是军阀；由 CultureRule.jsonc 的 strong_unification 政治特质启用。
         if (!WarlordEraSystem.CanFormGovernment(kingdom))
         {
@@ -97,6 +97,8 @@ public static class ModernStateFormationSystem
         PartyIdeology ideology = ResolveGovernmentIdeology(kingdom);
         RepublicSystem.SyncWithRegime(empire, foundingIdeology: ideology);
         MergeSameCoreVassals(empire);
+        // 华夏的唯一合法政府当即以天下之名为号(见 RealmNamingSystem.ClaimModernRealmName)
+        RealmNamingSystem.ClaimModernRealmName(empire);
         EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(kingdom);
         string text = string.Format(LM.Get("modern_state_founded_log"),
             kingdom.king?.getName() ?? LM.Get("label_none"), empire.GetEmpireFullName());
@@ -105,25 +107,21 @@ public static class ModernStateFormationSystem
         return empire;
     }
 
+    // 法统 = 天下(军阀时期以天下为单位，见 WarlordEraSystem)：主法理所在核心的天下
     private static EmpireCore LawfulCore(Kingdom kingdom)
     {
         EmpireCore core = EmpireCoreManager.GetRiseCandidateCore(kingdom);
         if (core?.false_core_against_empire_id > 0) return null;
-        return core?.warlord_parent_core_id > 0
-            ? EmpireCoreManager.Get(core.warlord_parent_core_id)
-            : core;
+        return TianxiaSystem.Lead(core);
     }
 
-    // 是否同属一个法统：政府按上级核心算，地方势力的主法理与都城可能落在不同核心里，任一处在政府法统内即算
+    // 是否同属一个法统(天下)：主法理与都城可能落在不同核心里，任一处在政府的天下里即算
     private static bool SameLawfulCore(Kingdom governmentKingdom, Kingdom subject)
     {
         EmpireCore lawful = LawfulCore(governmentKingdom);
         if (lawful == null) return false;
         if (LawfulCore(subject) == lawful) return true;
-        EmpireCore capitalCore = subject?.capital?.GetEmpireCore();
-        if (capitalCore?.warlord_parent_core_id > 0)
-            capitalCore = EmpireCoreManager.Get(capitalCore.warlord_parent_core_id) ?? capitalCore;
-        return capitalCore == lawful;
+        return subject?.capital != null && TianxiaSystem.LeadOf(subject.capital) == lawful;
     }
 
     private static bool TryGetSameCoreOverlord(Kingdom subject, out Kingdom overlord)

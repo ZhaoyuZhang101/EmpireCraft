@@ -10,7 +10,7 @@ using UnityEngine;
 
 namespace EmpireCraft.Scripts.GeneralSystems;
 
-// 军阀时期的统一进程(参照北伐、解放战争)，每年随 UpdateCore 结算一次：
+// 军阀时期的统一进程(参照北伐、解放战争)，以天下为单位，每年随 UpdateRealm 结算一次：
 //   1. 内战打到底：同一法统内部的战争(IsCivilWar)不受"战争年限强制停战"和原版议和限制(见 WarPatch、attacker_stop_war)；
 //   2. 中央主动统一：中央每年可对接壤的法统内对手发动统一战争，不受开战间隔限制，最多同时 MaxCivilWars 场；
 //      与中央交战的一方地盘被中央占得越多越可能举国归附(每月，见 FounderCapitulation)；
@@ -45,19 +45,15 @@ public static partial class WarlordEraSystem
                attacker.fragmented_since >= 0d && !attacker.split_recognized;
     }
 
-    private static EmpireCore LawfulCoreOf(Kingdom kingdom)
-    {
-        EmpireCore core = kingdom?.capital?.GetEmpireCore();
-        return core?.warlord_parent_core_id > 0 ? EmpireCoreManager.Get(core.warlord_parent_core_id) ?? core : core;
-    }
+    // 法统 = 都城所在的天下(军阀时期以天下为单位，见 WarlordEraSystem 文件头)
+    private static EmpireCore LawfulCoreOf(Kingdom kingdom) => RealmOf(kingdom);
 
     private static void UpdateUnification(EmpireCore core, Dictionary<Kingdom, int> held, int total, Empire central,
         HashSet<Empire> representatives)
     {
         if (central == null || central.isRekt() || central.IsArchived() || total <= 0) return;
-        List<City> cities = EmpireCoreManager.GetTitles(core).Where(title => title != null && !title.isRekt())
-            .SelectMany(title => title.city_list).Where(city => city != null && !city.isRekt() && city.kingdom != null)
-            .Distinct().ToList();
+        List<City> cities = TianxiaSystem.Cities(core).Where(city => city != null && !city.isRekt() && city.kingdom != null)
+            .ToList();
         if (cities.Count == 0) return;
 
         AlignMandates(cities, representatives);
@@ -213,11 +209,11 @@ public static partial class WarlordEraSystem
     private const int BandwagonMaxCities = 2;
     private static void FounderBandwagon(EmpireCore core, Dictionary<Kingdom, int> held, int total)
     {
-        if (total <= 0 || NationalSentimentSystem.InUnitedFront(core)) return;
+        if (total <= 0 || NationalSentimentSystem.InUnitedFront(TianxiaSystem.Lead(core))) return;
         Kingdom founderKingdom = held.Keys
             .Where(kingdom => kingdom != null && !kingdom.isRekt() && kingdom.IsEmpire() &&
                               kingdom.GetEmpire()?.CoreKingdom == kingdom && RulerTraitSystem.FounderReigns(kingdom) &&
-                              IsLocalHolder(core, kingdom))
+                              IsCoreHolder(core, kingdom))
             .OrderByDescending(kingdom => held[kingdom]).FirstOrDefault();
         if (founderKingdom == null) return;
         Empire founder = founderKingdom.GetEmpire();
@@ -227,7 +223,7 @@ public static partial class WarlordEraSystem
         foreach (Kingdom holder in held.Keys.ToList())
         {
             if (holder == null || holder == founderKingdom || holder.isRekt() || !holder.hasKing() ||
-                !IsLocalHolder(core, holder) || holder.IsInEmpire() || FeudalVassalService.GetOverlord(holder) != null ||
+                !IsCoreHolder(core, holder) || holder.IsInEmpire() || FeudalVassalService.GetOverlord(holder) != null ||
                 holder.GetRegime()?.type == RegimeType.Modern || (holder.cities?.Count ?? 0) > BandwagonMaxCities ||
                 !Borders(holder, founder) || Random.value >= chance) continue;
             War war = FindActiveWar(holder, founderKingdom);
@@ -249,18 +245,18 @@ public static partial class WarlordEraSystem
 
     private static void FounderDrive(EmpireCore core, Dictionary<Kingdom, int> held)
     {
-        if (NationalSentimentSystem.InUnitedFront(core)) return;
+        if (NationalSentimentSystem.InUnitedFront(TianxiaSystem.Lead(core))) return;
         Kingdom founderKingdom = held.Keys
             .Where(kingdom => kingdom != null && !kingdom.isRekt() && kingdom.IsEmpire() && kingdom.hasKing() &&
                               kingdom.GetEmpire()?.CoreKingdom == kingdom && RulerTraitSystem.FounderReigns(kingdom) &&
-                              IsLocalHolder(core, kingdom))
+                              IsCoreHolder(core, kingdom))
             .OrderByDescending(kingdom => held[kingdom]).FirstOrDefault();
         if (founderKingdom == null || CorpsSystem.CannotFundWar(founderKingdom)) return;
         Empire founder = founderKingdom.GetEmpire();
         int wars = founderKingdom.getWars().Count(RulerTraitSystem.IsFounderUnificationWar);
         foreach (Kingdom target in held.Keys
                      .Where(holder => holder != null && holder != founderKingdom && !holder.isRekt() && holder.hasKing() &&
-                                      IsLocalHolder(core, holder) && holder.GetEmpire() != founder &&
+                                      IsCoreHolder(core, holder) && holder.GetEmpire() != founder &&
                                       FeudalVassalService.GetOverlord(holder) != founderKingdom &&
                                       !holder.isEnemy(founderKingdom) && !InTruce(founderKingdom, holder, founder) &&
                                       Borders(holder, founder) &&

@@ -60,7 +60,10 @@ public static class EmpireCoreManager
     public static bool IsClaimedByContest(EmpireCore core, Empire except = null)
     {
         if (core == null || ModClass.EMPIRE_MANAGER == null) return false;
-        Empire central = core.central_empire_id > 0 ? ModClass.EMPIRE_MANAGER.get(core.central_empire_id) : null;
+        // 军阀时期以天下为单位，中央记在天下的主核心上(见 WarlordEraSystem)
+        EmpireCore lead = EmpireCraft.Scripts.GeneralSystems.TianxiaSystem.Lead(core) ?? core;
+        long centralId = lead.central_empire_id > 0 ? lead.central_empire_id : core.central_empire_id;
+        Empire central = centralId > 0 ? ModClass.EMPIRE_MANAGER.get(centralId) : null;
         if (central != null && central != except && !central.isRekt() && !central.IsArchived()) return true;
         return ModClass.EMPIRE_MANAGER.Any(empire => empire != null && empire != except && !empire.isRekt() &&
                                                      !empire.IsArchived() &&

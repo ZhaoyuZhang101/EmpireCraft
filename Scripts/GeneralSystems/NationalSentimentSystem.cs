@@ -239,13 +239,9 @@ public static class NationalSentimentSystem
 
     #region 民族统一战线
 
-    // 统一战线以帝国核心为单位：军阀时期另立的政府挂在父核心下(warlord_parent_core_id)
-    private static EmpireCore FrontCore(Empire empire)
-    {
-        EmpireCore core = empire == null ? null : EmpireCoreManager.Get(empire);
-        if (core?.warlord_parent_core_id > 0) return EmpireCoreManager.Get(core.warlord_parent_core_id) ?? core;
-        return core;
-    }
+    // 统一战线以天下为单位(同军阀时期，见 WarlordEraSystem)：军阀时期另立的政府挂在父核心下，归父核心的天下
+    private static EmpireCore FrontCore(Empire empire) =>
+        empire == null ? null : TianxiaSystem.Lead(EmpireCoreManager.Get(empire));
 
     private static List<Empire> CoreGovernments(EmpireCore core) =>
         ModClass.EMPIRE_MANAGER.Where(empire => empire?.CoreKingdom != null && !empire.isRekt() && !empire.IsArchived() &&
@@ -255,7 +251,7 @@ public static class NationalSentimentSystem
     {
         foreach (EmpireCore core in EmpireCoreManager.EmpireCores.Values.ToList())
         {
-            if (core == null || core.warlord_parent_core_id > 0) continue;
+            if (core == null || core.warlord_parent_core_id > 0 || TianxiaSystem.Lead(core) != core) continue;
             List<Empire> governments = CoreGovernments(core);
             if (governments.Count < 2)
             {
