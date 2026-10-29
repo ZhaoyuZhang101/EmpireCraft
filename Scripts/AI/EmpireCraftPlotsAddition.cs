@@ -1121,6 +1121,22 @@ namespace EmpireCraft.Scripts.AI
                 check_should_continue = CityStyleSystem.CanRebuild,
                 action = CityStyleSystem.Enact
             });
+            // 开发边地(秦戍五岭、汉魏屯田)：国君对一片本国前沿的雨林、大泽下诏，每年出钱，这一片开发加快(见 WildernessDevelopmentSystem)；
+            // AI 在国库宽裕、前沿的城人多地少、科技够时下诏，玩家可从原版谋划强行发起(只看有没有够格的前沿、国库够不够一年)
+            AssetManager.plots_library.add(new PlotAsset
+            {
+                id = WildernessDevelopmentSystem.Plot,
+                path_icon = "ui/icons/plots/plot_" + WildernessDevelopmentSystem.Plot,
+                group_id = "empirecraft_diplomacy",
+                is_basic_plot = true,
+                min_level = 1,
+                progress_needed = 20f,
+                can_be_done_by_king = true,
+                check_is_possible = WildernessDevelopmentSystem.WantsDecree,
+                check_can_be_forced = WildernessDevelopmentSystem.CanDecree,
+                check_should_continue = WildernessDevelopmentSystem.CanDecree,
+                action = WildernessDevelopmentSystem.Decree
+            });
             // 成员向中央求援、驰援邻近成员(见 MemberWarAid)：中央与别的成员不再自动插手成员的仗
             AssetManager.plots_library.add(new PlotAsset
             {

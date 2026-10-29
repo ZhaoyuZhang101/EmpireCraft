@@ -482,6 +482,8 @@ PLOTS = {
     "member_aid_neighbour": (obj_swords, "arrow"),
     "member_aid_center": (obj_banners, "up"),
     "war_forage": (lambda i: obj_farmland(i), "minus"),
+    # 开发边地(决议)：田地 + 印(诏令)
+    "develop_wilderness": (lambda i: obj_farmland(i), "seal"),
 }
 
 
@@ -1783,6 +1785,8 @@ GODPOWERS.update({
     "city_flourish": (obj_city, "up"),
     # 中立区：白旗(无人区设为永久中立)
     "wild_neutral": (obj_whiteflag, None),
+    # 开发：田地 + 向上(雨林、大泽无人区刷开发度，见 WildernessDevelopmentSystem)
+    "wild_develop": (lambda i: obj_farmland(i), "up"),
     # 名臣名将窗口按钮
     "famous_talents": (obj_swords, "crown"),
     "bestow_famous_general": (obj_sword, "up"),

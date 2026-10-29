@@ -57,6 +57,9 @@ public class SaveData
     public List<EmpireCraft.Scripts.GeneralSystems.WildRegionData> wild_regions =
         new List<EmpireCraft.Scripts.GeneralSystems.WildRegionData>();
     public int wild_next_id = 1;
+    // 雨林、大泽无人区的开发度(按地块)与朝廷的开发诏令(见 WildernessDevelopmentSystem)。旧档没有，从零开发
+    public EmpireCraft.Scripts.GeneralSystems.WildDevelopmentData wild_development =
+        new EmpireCraft.Scripts.GeneralSystems.WildDevelopmentData();
     // 通路之约：两国交好的年数、有过友好时期的、议定的(见 RoadTreatySystem)
     public RoadTreatyData road_treaties = new RoadTreatyData();
     public bool switch_real_num = false;

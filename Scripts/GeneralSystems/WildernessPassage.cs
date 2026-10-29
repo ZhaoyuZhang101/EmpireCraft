@@ -10,12 +10,13 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 无人区(见 WildernessSystem)里有修通的路的地块能走——各国修通的干道、神力画的路(都并在路网里，见 RoadNetwork.IsRoad)；
 //   · 没路的：山脉、丛林、沼泽谁都过不去；沙漠真游牧(游牧政体加游牧文化，见 KingdomExtension.IsTrueNomad)与阿拉伯制度线
 //     过得去，冻土雪原真游牧过得去(同以前天堑的规矩，按走的一方判；游牧又是阿拉伯的按游牧算)；
-//   · 不在无人区里的地块都能走(山、沙照旧只按地形阻力，见 TerrainResistance)；本国的无人区(挂在本国法理上)也一样按这个判。
+//   · 不在无人区里的地块都能走(山、沙照旧只按地形阻力，见 TerrainResistance)；本国的无人区(挂在本国法理上)也一样按这个判；
+//   · 开发度过半的雨林、大泽地块(见 WildernessDevelopmentSystem)有了小路，同有路，谁都能走。
 // 用的地方：行政控制力与飞地、开战够不够得着、开战定目标(AdministrativeControlSystem、WarReach，替掉以前量天堑深浅的那套)，
 //   教化的路(TerrainResistance.Step 走不了)，军团寻路、战线、补给线(CorpsSystem、FrontSystem、LogisticsSystem；飞机、海运不受限)。
-// 缓存：按地块编号记哪几种走法过不去(一字节)，无人区(WildernessSystem.Version)或路网(RoadNetwork.Version，神力画路也经它换版本)
-//   变了才整张重算，查询 O(1)。绕不绕得过去(Reachable)：各走法把不隔无人区的陆地连成片(八方向，同军团寻路)，用到时才算，
-//   过不去的地块真变了才重算。开关(WildernessSystem.Enabled)关掉时处处能走。不存档：读档后现算。
+// 缓存：按地块编号记哪几种走法过不去(一字节)，无人区(WildernessSystem.Version)、路网(RoadNetwork.Version，神力画路也经它换版本)
+//   或过半的开发地块(WildernessDevelopmentSystem.Version)变了才整张重算，查询 O(1)。绕不绕得过去(Reachable)：各走法把不隔无人区的
+//   陆地连成片(八方向，同军团寻路)，用到时才算，过不去的地块真变了才重算。开关(WildernessSystem.Enabled)关掉时处处能走。不存档：读档后现算。
 public static class WildernessPassage
 {
     // 走的一方惯走哪几样(见 Habit)：定居、惯走沙漠(阿拉伯)、惯走沙漠冻土(真游牧)；连片按这三种走法各一份，另一份(Land)不看无人区
@@ -29,7 +30,7 @@ public static class WildernessPassage
     // 按地块编号：哪几种走法过不去(0 处处能走)
     private static byte[] _block = new byte[0];
     private static object _world;
-    private static int _wildVersion = int.MinValue, _roadVersion = int.MinValue, _zoneCount = -1;
+    private static int _wildVersion = int.MinValue, _roadVersion = int.MinValue, _devVersion = int.MinValue, _zoneCount = -1;
     private static bool _enabled, _any;
     // _block 真变了一次加一(连片据此作废)；陆地的连片只在无人区、世界变了时作废(路网变了不影响)
     private static int _blockRevision, _landRevision;
@@ -42,7 +43,7 @@ public static class WildernessPassage
     {
         _block = new byte[0];
         _world = null;
-        _wildVersion = _roadVersion = int.MinValue;
+        _wildVersion = _roadVersion = _devVersion = int.MinValue;
         _zoneCount = -1;
         _enabled = _any = false;
         _blockRevision++;
@@ -98,7 +99,8 @@ public static class WildernessPassage
         if (zones == null) return false;
         bool enabled = WildernessSystem.Enabled;
         if (ReferenceEquals(_world, world) && enabled == _enabled && _wildVersion == WildernessSystem.Version &&
-            _roadVersion == RoadNetwork.Version && _zoneCount == zones.Count) return _any;
+            _roadVersion == RoadNetwork.Version && _devVersion == WildernessDevelopmentSystem.Version && _zoneCount == zones.Count)
+            return _any;
         Rebuild(world, zones, enabled);
         return _any;
     }
@@ -117,6 +119,7 @@ public static class WildernessPassage
         _enabled = enabled;
         _wildVersion = WildernessSystem.Version;
         _roadVersion = RoadNetwork.Version;
+        _devVersion = WildernessDevelopmentSystem.Version;
         _zoneCount = zones.Count;
         int size = zones.Count;
         foreach (TileZone zone in zones)
@@ -143,7 +146,7 @@ public static class WildernessPassage
     private static byte Blocking(TileZone zone)
     {
         WildKind kind = WildernessSystem.KindOf(zone);
-        if (kind == WildKind.None || RoadNetwork.IsRoad(zone)) return 0;
+        if (kind == WildKind.None || RoadNetwork.IsRoad(zone) || WildernessDevelopmentSystem.Passable(zone)) return 0;
         return kind switch
         {
             WildKind.Desert => DesertBlocks,

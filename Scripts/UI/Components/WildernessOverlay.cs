@@ -28,7 +28,8 @@ namespace EmpireCraft.Scripts.UI.Components;
 //   · 区域变了(WildernessSystem.Version)、换图层、换画法时整片重画(镜头里的先画)，每帧画到 BuildBudgetMs 为止；
 //     另每帧核对一段地块(SweepPerFrame)：样子对不上(并进、脱离国土，挨着的地块有了城；贴地形时是这块重算过)的连同四邻重画；
 //     贴地形时格子变了由 WildernessShape 通知，画布上的归属变了由画布通知(见 SmoothBorders.CanvasProcess)；
-//   · 悬停(点一下也行)无人区：提示名字、类型、多少地块、归属哪国(哪个法理)与"没修路的地方军队过不去"。
+//   · 悬停(点一下也行)无人区：提示名字、类型、多少地块、归属哪国(哪个法理)与"没修路的地方军队过不去"；
+//     雨林、大泽另有开发度与谁在开发(见 WildernessDevelopmentSystem)，开发中的地块底色淡一点(类型色画法)。
 // 无人区关着(WildernessSystem.Enabled 为假)或没有区域时什么都不画
 public static class WildernessOverlay
 {
@@ -282,7 +283,8 @@ public static class WildernessOverlay
         Alphas();
         bool province = _look == Look.Province;
         Color32 fill = ColorOf(region);
-        fill.a = province ? _inside : (byte)(_inside * FillShare);
+        // 开发中的雨林大泽淡一点(见 WildernessDevelopmentSystem.Fade)
+        fill.a = province ? _inside : (byte)(_inside * FillShare * WildernessDevelopmentSystem.Fade(zone));
         // 城界画法：深一档的实线；类型色画法：浅色虚线
         Color32 edge = province ? Shade(fill, 0.62f) : Mix(fill, new Color32(255, 255, 255, 255), 0.55f);
         edge.a = province ? _edge : (byte)(_edge * 0.8f);
@@ -352,6 +354,7 @@ public static class WildernessOverlay
         }
         Alphas();
         bool province = _look == Look.Province, marks = !province && !_bare;
+        float fade = WildernessDevelopmentSystem.Fade(zone);
         WildRegion region = null;
         int shown = 0;
         Color32 fill = Clear, edge = Clear, mark = Clear, faint = Clear;
@@ -374,7 +377,7 @@ public static class WildernessOverlay
                 if (region != null)
                 {
                     fill = ColorOf(region);
-                    fill.a = province ? _inside : (byte)(_inside * FillShare);
+                    fill.a = province ? _inside : (byte)(_inside * FillShare * fade);
                     edge = province ? Shade(fill, 0.62f) : Mix(fill, new Color32(255, 255, 255, 255), 0.55f);
                     edge.a = province ? _edge : (byte)(_edge * 0.8f);
                     mark = MarkOf(region.Kind);
@@ -595,6 +598,8 @@ public static class WildernessOverlay
     private static WildRegion _tip;
     private static TileZone _tipZone;
     private static Kingdom _tipOwner;
+    // 开发度与开发状态(见 WildernessDevelopmentSystem.TipKey)：同一片里换到开发不同的地块也重显
+    private static int _tipDev = -1;
     private static Vector3 _pressedAt;
     private static bool _pressed, _tipsOn;
 
@@ -620,13 +625,15 @@ public static class WildernessOverlay
         WildRegion region = zone != null && zone.city == null ? WildernessSystem.RegionOf(zone) : null;
         if (region != null && region.Kind == WildKind.None) region = null;
         Kingdom owner = region != null ? WildernessSystem.OwnerOf(zone) : null;
-        if (ReferenceEquals(region, _tip) && owner == _tipOwner && !clicked) return;
+        int dev = region != null ? WildernessDevelopmentSystem.TipKey(zone) : -1;
+        if (ReferenceEquals(region, _tip) && owner == _tipOwner && dev == _tipDev && !clicked) return;
         HideTip();
         if (region == null) return;
         EnsureTooltip();
         _tip = region;
         _tipZone = zone;
         _tipOwner = owner;
+        _tipDev = dev;
         Tooltip.show(region, TooltipType, new TooltipData { tooltip_scale = 0.7f, is_sim_tooltip = true });
     }
 
@@ -664,6 +671,7 @@ public static class WildernessOverlay
         _tip = null;
         _tipZone = null;
         _tipOwner = null;
+        _tipDev = -1;
     }
 
     private static void EnsureTooltip()
@@ -717,6 +725,14 @@ public static class WildernessOverlay
             if (title != null)
                 tooltip.addLineText(NeoModLoader.General.LM.Get("wild_tooltip_holder"),
                     holder?.name ?? NeoModLoader.General.LM.Get("wild_tooltip_holder_none"), "#D9C79A", pPercent: false, pLocalize: false);
+        }
+        // 开发度(雨林、大泽，见 WildernessDevelopmentSystem)：百分比；谁在开发(奉诏)、缺什么科技、归了别国、过半能走
+        if (_tipZone != null && WildernessDevelopmentSystem.Describe(_tipZone, out string percent, out string status))
+        {
+            tooltip.addLineText(NeoModLoader.General.LM.Get("wild_tooltip_development"), percent, "#9FD38A", pPercent: false,
+                pLocalize: false);
+            tooltip.addLineText(NeoModLoader.General.LM.Get("wild_tooltip_development_status"), status, "#9FD38A", pPercent: false,
+                pLocalize: false);
         }
         tooltip.addBottomDescription(NeoModLoader.General.LM.Get("wild_tooltip_hint"));
     }

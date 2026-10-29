@@ -36,6 +36,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     读档、新开地图、换世界后(剧本开局连同进世界安排都做完)头一帧当即划，读档先按存档恢复编号、名字、法理再按地形校一遍；
 //     设地面格、顶层格(见 MapWallPatch)记下那几块，停手 DebounceSeconds 秒后重判这几块，类型真变了才重划
 //     (神力刷一片也只在停手后划一次)；村镇、厂区变了(RuralSettlementSystem.Revision、FactorySystem.Revision)至多每年重划一次；
+//   · 开发(见 WildernessDevelopmentSystem)：雨林、大泽的地块按开发度一批批改成草地；开发中的照开发时的类型留在无人区(Reclassify)，
+//     开满的留给城(同城心、村镇，见 Regroup 的 anchored)，城照常扩张领进去；山脉、沙漠、冻原固定不开发；
 //   · 模组设置「无人区」(默认开)：关掉时没有无人区(Regions 为空、IsWild 全为假；已划出来的地块不还给城，城照常再扩回去)。
 // 全图归类只在读档与开关打开时做(每块地 64 格扫一遍)；连片、对旧区域、收地只看地块，几万块地几毫秒。
 public enum WildKind { None = 0, Mountain = 1, Desert = 2, Tundra = 3, Jungle = 4, Swamp = 5 }
@@ -252,6 +254,15 @@ public static class WildernessSystem
         Version++;
     }
 
+    // 一块地开发满了(或开满的又改回去，见 WildernessDevelopmentSystem)：停手后重划，开满的留给城
+    public static void OnDeveloped(TileZone zone)
+    {
+        if (!_built || zone == null || zone.id < 0) return;
+        Dirty.Add(zone.id);
+        _regroup = true;
+        Pending();
+    }
+
     // 设地面格、顶层格之后(见 MapWallPatch)：记下这块地，停手后重判(加载、建图时设的格不管，那时还没划区)
     public static void OnTileChanged(TileZone zone)
     {
@@ -388,6 +399,8 @@ public static class WildernessSystem
                 var used = new HashSet<string>(_regions.Where(region => !string.IsNullOrEmpty(region.Name)).Select(region => region.Name));
                 if (NameAll(_regions, used)) Version++;
             }
+            // 雨林、大泽的开发(每年一推、每帧改一批格子；出错自己兜着，不连累划区)
+            WildernessDevelopmentSystem.Tick();
         }
         catch (Exception exception)
         {
@@ -545,7 +558,12 @@ public static class WildernessSystem
     private static bool Reclassify(TileZone zone)
     {
         if (zone == null || zone.id < 0 || zone.id >= _kind.Length) return false;
-        byte kind = (byte)Classify(zone, (WildKind)_kind[zone.id]);
+        WildKind previous = (WildKind)_kind[zone.id];
+        byte kind = (byte)Classify(zone, previous);
+        // 开发中的雨林大泽(见 WildernessDevelopmentSystem)：格子一批批改成草地，按地形早够不上门槛，没开满不掉出无人区——
+        // 照原来的类型(没判过的按开发时记的)留着；已归了城的(那一片小得不成无人区后城扩进去的)不留，免得又从城里划出来
+        WildKind held = kind == 0 && zone.city == null ? WildernessDevelopmentSystem.HeldKind(zone.id) : WildKind.None;
+        if (held != WildKind.None) kind = (byte)(previous is WildKind.Jungle or WildKind.Swamp ? previous : held);
         if (kind == _kind[zone.id]) return false;
         _kind[zone.id] = kind;
         return true;
@@ -649,7 +667,7 @@ public static class WildernessSystem
             }
         }
 
-        // 留给城的地块：城心那块、有村镇(含废墟、关城)的、厂区占着的；古战争兼容模组的城整座不动
+        // 留给城的地块：城心那块、有村镇(含废墟、关城)的、厂区占着的、开发满了的；古战争兼容模组的城整座不动
         var anchored = new bool[size];
         foreach (City city in World.world.cities)
         {
@@ -666,6 +684,9 @@ public static class WildernessSystem
         foreach (int id in RuralSettlementSystem.SettledZones())
             if (id >= 0 && id < size) anchored[id] = true;
         foreach (int id in FactorySystem.CoveredZones())
+            if (id >= 0 && id < size) anchored[id] = true;
+        // 开发满了的雨林大泽(见 WildernessDevelopmentSystem)：退出无人区，草木再蔓生回来也不再划进来
+        foreach (int id in WildernessDevelopmentSystem.DevelopedZones())
             if (id >= 0 && id < size) anchored[id] = true;
 
         // 连片：同类型四邻相连

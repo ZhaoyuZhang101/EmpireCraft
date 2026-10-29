@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GeneralSystems;
 using EmpireCraft.Scripts.UI.Windows;
@@ -13,7 +14,8 @@ namespace EmpireCraft.Scripts.GodPowers;
 //   改隶：先点一处村镇，再点一座接壤的城，村镇连同它那一片地改归那座城(点别处取消，半分钟不点也取消)；
 //   小、中、大厂区：点城的地放下一整片成品厂区(见 FactorySystem.Place)；毁弃也能拆厂区；
 //   城貌：点一座城打开城貌小窗口，从各文化风格里任选一种(见 CityStyleWindow)；纯净地图开着时打开城池全图(见 CityPlanScreen)；
-//   中立区：点一片无人区设为永久中立区，再点取消(见 WildernessSystem.ToggleNeutral)。
+//   中立区：点一片无人区设为永久中立区，再点取消(见 WildernessSystem.ToggleNeutral)；
+//   开发：按住刷雨林、大泽无人区，刷到的地块开发度涨一截，格子一批批改成草地，开满退出无人区(见 WildernessDevelopmentSystem.Brush)。
 // 这些都是手动的，上帝说了算(用户 2026-10-20 "手动放置建筑时候不要有任何限制")：不看科技、文化、地形类别、钱、战争、法则、数量、距离，
 // 只留真做不到的(各系统开头写着)；AI 自己营建照旧守规矩。
 public static class SettlementPowers
@@ -23,9 +25,16 @@ public static class SettlementPowers
     public const string FactorySmall = "factory_small", FactoryMedium = "factory_medium", FactoryLarge = "factory_large";
     // 中立区：点一片无人区设为永久中立区，再点取消(见 WildernessSystem.ToggleNeutral)
     public const string WildNeutral = "wild_neutral";
+    // 开发：按住刷雨林、大泽无人区(笔刷大小用原版的)，不看科技与归属(见 WildernessDevelopmentSystem.Brush)
+    public const string WildDevelop = "wild_develop";
     public static readonly string[] Ids =
-        { Village, Town, Fort, NewCity, Relocate, Palace, Restyle, FactorySmall, FactoryMedium, FactoryLarge, Raze, Assign, WildNeutral };
-    private const float PickSeconds = 30f;
+    {
+        Village, Town, Fort, NewCity, Relocate, Palace, Restyle, FactorySmall, FactoryMedium, FactoryLarge, Raze, Assign, WildNeutral,
+        WildDevelop
+    };
+    private const float PickSeconds = 30f, DevelopTipSeconds = 0.25f;
+    private static readonly HashSet<TileZone> Brushed = new();
+    private static float _developTipAt = -100f;
     private static int _picked = -1;
     private static float _pickedAt = -100f;
 
@@ -41,6 +50,16 @@ public static class SettlementPowers
         AssetManager.powers.add(new GodPower { id = Restyle, name = Restyle, click_action = ClickRestyle });
         AssetManager.powers.add(new GodPower { id = Raze, name = Raze, click_action = (tile, _) => Tip(RazeAt(tile)) });
         AssetManager.powers.add(new GodPower { id = WildNeutral, name = WildNeutral, click_action = (tile, _) => Tip(ToggleNeutral(tile)) });
+        AssetManager.powers.add(new GodPower
+        {
+            id = WildDevelop,
+            name = WildDevelop,
+            hold_action = true,
+            show_tool_sizes = true,
+            unselect_when_window = true,
+            click_power_action = CollectWild,
+            click_power_brush_action = StrokeWild
+        });
         foreach (string id in new[] { FactorySmall, FactoryMedium, FactoryLarge })
             AssetManager.powers.add(new GodPower { id = id, name = id, click_action = (tile, power) => Tip(Build(tile, id)) });
         AssetManager.powers.add(new GodPower { id = Assign, name = Assign, click_action = ClickAssign });
@@ -93,6 +112,34 @@ public static class SettlementPowers
         WildRegion region = WildernessSystem.ToggleNeutral(tile?.zone);
         if (region == null) return LM.Get("wild_neutral_none");
         return string.Format(LM.Get(region.Neutral ? "wild_neutral_on" : "wild_neutral_off"), WildernessSystem.DisplayName(region));
+    }
+
+    // 开发(用户 2026-10-29 要雨林、大泽有开发度，神力手动刷——"手动放置建筑时候不要有任何限制")：笔刷盖到的地块记下，
+    // 按住时每帧各刷一次(同一块隔一会儿才再涨，见 WildernessDevelopmentSystem.Brush)；提示笔刷中心那块的开发度
+    private static bool CollectWild(WorldTile tile, GodPower power)
+    {
+        if (tile?.zone != null) Brushed.Add(tile.zone);
+        return true;
+    }
+
+    private static bool StrokeWild(WorldTile center, GodPower power)
+    {
+        if (center == null || power == null || World.world == null) return false;
+        Brushed.Clear();
+        World.world.loopWithBrush(center, global::Brush.get(Config.current_brush), CollectWild, power);
+        bool any = false;
+        foreach (TileZone zone in Brushed) any |= WildernessDevelopmentSystem.Brush(zone);
+        Brushed.Clear();
+        float now = Time.unscaledTime;
+        if (now - _developTipAt < DevelopTipSeconds && now >= _developTipAt) return any;
+        _developTipAt = now;
+        WildRegion region = WildernessSystem.RegionOf(center.zone);
+        string text = region != null && WildernessDevelopmentSystem.Develops(region.Kind)
+            ? string.Format(LM.Get("wild_develop_brush"), WildernessSystem.DisplayName(region),
+                Mathf.FloorToInt(WildernessDevelopmentSystem.DevelopmentOf(center.zone)))
+            : any ? null : LM.Get("wild_develop_none");
+        if (!string.IsNullOrEmpty(text)) WorldTip.showNow(text, false, "top", 1.5f);
+        return any;
     }
 
     private static bool Tip(string text)
