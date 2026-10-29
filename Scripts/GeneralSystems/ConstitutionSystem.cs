@@ -134,7 +134,9 @@ public static class ConstitutionSystem
             if (current != null) Abolish(empire, state);
             return;
         }
-        ConstitutionFormOfState form = state.is_republic ? ConstitutionFormOfState.Republic
+        // 穿越政权的国体是共和(同 SyncDerived)：以前这里只看共和国标记，判成君主立宪，与宪法里写的共和对不上，
+        // 每年都当国体变了废旧宪、颁新宪(玩家 10-30 反馈"澳宋每年都颁布新宪法")
+        ConstitutionFormOfState form = state.is_republic || TransmigrantSystem.Governs(empire) ? ConstitutionFormOfState.Republic
             : ConstitutionFormOfState.ConstitutionalMonarchy;
         bool needNew = current == null ||
                        current.provisional != (kind == Kind.Provisional) ||
