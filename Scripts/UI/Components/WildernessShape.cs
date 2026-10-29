@@ -466,7 +466,9 @@ public static class WildernessShape
         switch (kind)
         {
             case WildKind.Mountain:
-                return (cls & ClsRock) != 0 || (cls & ClsHills) != 0 && RockNear(x, y);
+                // 无人区地块里的丘陵都算山脉(地块按山地连同丘陵过半收进来的，见 WildernessSystem 外沿放宽；以前只认挨着山的，
+                // 山脚的丘陵带收进来了却不涂，用户 2026-10-29 "你这无人区也没覆盖完全啊")；往外伸时仍只伸挨着山的丘陵
+                return (cls & ClsRock) != 0 || (cls & ClsHills) != 0 && (!strict || RockNear(x, y));
             case WildKind.Desert:
                 return ground == (int)WildKind.Desert || !strict && ground == (int)WildKind.Tundra;
             case WildKind.Tundra:

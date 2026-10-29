@@ -4,6 +4,7 @@ using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GeneralSystems;
 using EmpireCraft.Scripts.Layer;
 using UnityEngine;
+using UnityEngine.EventSystems;
 
 namespace EmpireCraft.Scripts.UI.Components;
 
@@ -62,7 +63,7 @@ public static class WildernessOverlay
     private static object _world;
     private static int _width, _height, _cols, _sweep, _option, _version = int.MinValue;
     private static Look _look;
-    private static bool _bare, _primed, _fitted;
+    private static bool _bare, _primed, _fitted, _canvas;
     private static MetaTypeAsset _layer;
 
     public static void ResetWorldState()
@@ -128,11 +129,14 @@ public static class WildernessOverlay
         int option = layer?.getZoneOptionState() ?? 0;
         // 普通地图拉近时原版国土只画边框(色块内部透明)：无人区也只画边线
         bool bare = !PureMapMode.Enabled && calc._cached_should_be_clear_color;
-        // 平滑国界下由整图画布画的图层：按格贴地形画(先对上这一帧的格子)
+        // 平滑国界开着：哪个图层都按格贴地形画(先对上这一帧的格子)。以前只在整图画布画的图层(国家、帝国、城市、联盟)上贴，
+        // 别的图层又退回按地块的方格(用户 2026-10-29 "而且我都开了平滑了""这怎么还是方的")；
+        // 画布画这个图层时才看画布上的归属(并进国土的只留纹样)，不画时没有国土可并
         WildernessShape.Tick();
-        bool fitted = WildernessShape.Active && SmoothBorders.CanvasDraws(layer);
+        bool fitted = WildernessShape.Active;
+        bool canvas = fitted && SmoothBorders.CanvasDraws(layer);
         if (!_primed || look != _look || bare != _bare || !ReferenceEquals(layer, _layer) || option != _option ||
-            WildernessSystem.Version != _version || fitted != _fitted)
+            WildernessSystem.Version != _version || fitted != _fitted || canvas != _canvas)
         {
             _primed = true;
             _look = look;
@@ -141,6 +145,7 @@ public static class WildernessOverlay
             _option = option;
             _version = WildernessSystem.Version;
             _fitted = fitted;
+            _canvas = canvas;
             MarkAll(calc);
         }
         using (FrameProfiler.Measure("无人区图层·重画"))
@@ -383,7 +388,7 @@ public static class WildernessOverlay
                 Put(tile, Clear);
                 continue;
             }
-            bool absorbed = SmoothBorders.CanvasOwns(id);
+            bool absorbed = Owned(id);
             Color32 color = absorbed || _bare ? Clear : fill;
             if (marks && !hole && Mark(region.Kind, tile.x, tile.y)) color = absorbed ? faint : mark;
             if (!absorbed && (province || ((tile.x + tile.y) >> 1 & 1) == 0) &&
@@ -401,8 +406,11 @@ public static class WildernessOverlay
         if (next?.data == null || Water(next)) return false;
         int id = next.data.tile_id;
         if (WildernessShape.AreaAt(id) == slot) return false;
-        return province || !SmoothBorders.CanvasOwns(id);
+        return province || !Owned(id);
     }
+
+    // 画布上这一格归了谁(只在画布画眼下这个图层时算；别的图层画布上是上一个图层的归属，不算)
+    private static bool Owned(int tileId) => _canvas && SmoothBorders.CanvasOwns(tileId);
 
     // ───────── 颜色与纹样 ─────────
 
@@ -607,7 +615,7 @@ public static class WildernessOverlay
             _pressed = false;
             clicked = (Input.mousePosition - _pressedAt).sqrMagnitude <= 64f;
         }
-        WorldTile tile = World.world.isOverUI() ? null : World.world.getMouseTilePosCachedFrame();
+        WorldTile tile = OverPanels() ? null : World.world.getMouseTilePosCachedFrame();
         TileZone zone = tile?.zone;
         WildRegion region = zone != null && zone.city == null ? WildernessSystem.RegionOf(zone) : null;
         if (region != null && region.Kind == WildKind.None) region = null;
@@ -620,6 +628,34 @@ public static class WildernessOverlay
         _tipZone = zone;
         _tipOwner = owner;
         Tooltip.show(region, TooltipType, new TooltipData { tooltip_scale = 0.7f, is_sim_tooltip = true });
+    }
+
+    private static PointerEventData _pointer;
+    private static readonly List<RaycastResult> Hits = new();
+
+    // 鼠标压在界面面板上(不算提示框自己、不算地图浮层)。提示框一弹出来就在鼠标底下，以前按 isOverUI 一律算压在界面上，
+    // 提示随即收起、下一帧又弹，闪个不停(用户 2026-10-29 "我鼠标放上去都没有tooltips 刚显示出来就闪没了")
+    private static bool OverPanels()
+    {
+        if (!World.world.isOverUI()) return false;
+        if (EventSystem.current == null) return true;
+        _pointer ??= new PointerEventData(EventSystem.current);
+        _pointer.position = Input.mousePosition;
+        Hits.Clear();
+        EventSystem.current.RaycastAll(_pointer, Hits);
+        foreach (RaycastResult hit in Hits)
+            if (hit.gameObject != null && !InTooltip(hit.gameObject.transform) && !MapOverlayCanvas.IsMap(hit.gameObject.transform))
+                return true;
+        return false;
+    }
+
+    // 是提示框(原版提示框挂着 Tooltip，预制体名也带 tooltip)
+    private static bool InTooltip(Transform at)
+    {
+        if (at.GetComponentInParent<Tooltip>() != null) return true;
+        for (Transform t = at; t != null; t = t.parent)
+            if (t.name.IndexOf("tooltip", global::System.StringComparison.OrdinalIgnoreCase) >= 0) return true;
+        return false;
     }
 
     private static void HideTip()

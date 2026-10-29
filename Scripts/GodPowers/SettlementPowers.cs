@@ -92,7 +92,7 @@ public static class SettlementPowers
     {
         WildRegion region = WildernessSystem.ToggleNeutral(tile?.zone);
         if (region == null) return LM.Get("wild_neutral_none");
-        return string.Format(LM.Get(region.Neutral ? "wild_neutral_on" : "wild_neutral_off"), region.Name);
+        return string.Format(LM.Get(region.Neutral ? "wild_neutral_on" : "wild_neutral_off"), WildernessSystem.DisplayName(region));
     }
 
     private static bool Tip(string text)

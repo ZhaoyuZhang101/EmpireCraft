@@ -811,7 +811,8 @@ public static class TerritoryLabelRenderer
         foreach (WildEntry entry in _wild_entries)
         {
             if (entry.zones.Count < least || !entry.bounds.Overlaps(view)) continue;
-            string name = entry.region.Name;
+            // 还没有文明起名的只标类型(见 WildernessSystem.DisplayName)
+            string name = WildernessSystem.DisplayName(entry.region);
             if (string.IsNullOrWhiteSpace(name)) continue;
             if (!string.Equals(name, entry.name, StringComparison.Ordinal))
             {

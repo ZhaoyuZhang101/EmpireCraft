@@ -85,6 +85,9 @@ public static class WorldMapWilderness
 
     private static bool Active => _state != null && _frame != null;
 
+    // 这一局是世界地图(真实地球)：开局就有文明，无人区照起真实地名(见 WildernessSystem.NameAll)
+    internal static bool OnEarth => Active;
+
     #region 开局、存读档
 
     // 剧本摆好时(WorldMapScenario.Finish)：记下范围、大小、时代，史实归属先记都城

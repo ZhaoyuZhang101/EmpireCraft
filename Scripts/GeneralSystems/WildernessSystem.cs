@@ -91,6 +91,11 @@ public static class WildernessSystem
     private const float Hysteresis = 0.1f;
     // 至少几块连成一片才算无人区
     public const int MinZones = 4;
+    // 外沿放宽(用户 2026-10-29 "你这无人区也没覆盖完全啊")：核心按上面的严门槛定，再一圈圈往外收这一类地形过半的地块
+    // (山脉连同丘陵石地，沙漠冻原连同两样，雨林大泽连同两样)，直到收不动——山脚的丘陵带、沙漠丛林的外沿都并进来；
+    // 平滑国界下只涂这一类地形的格子(见 WildernessShape)，收进来的地块里别的格交给邻城、露地形；
+    // 已是这一片的地块门槛再降一成(同 Hysteresis)
+    private const float EdgeShare = 0.5f;
     // 改地形停手几秒后重判；一直有格子在变(草木蔓生)时至多等几秒；法理挂接与主人几秒核对一次(真实时间)
     private const float DebounceSeconds = 1.5f, MaxWaitSeconds = 10f, RefreshSeconds = 2f, RetrySeconds = 30f;
     // 村镇、厂区变了至多隔几年重划一次
@@ -367,6 +372,13 @@ public static class WildernessSystem
                 _nextRefresh = now + RefreshSeconds;
                 RefreshTitles();
             }
+            // 附近有了文明的无名荒地起名(见 NameAll)
+            if (now >= _nameAt)
+            {
+                _nameAt = now + NameSeconds;
+                var used = new HashSet<string>(_regions.Where(region => !string.IsNullOrEmpty(region.Name)).Select(region => region.Name));
+                if (NameAll(_regions, used)) Version++;
+            }
         }
         catch (Exception exception)
         {
@@ -459,9 +471,15 @@ public static class WildernessSystem
     internal static WildKind ClassifyFresh(TileZone zone) => Classify(zone, WildKind.None);
 
     // 这块地按地形算哪一类无人区(门槛见类头的常量)；previous 是上回判的，已是那一类的门槛降一成
-    private static WildKind Classify(TileZone zone, WildKind previous)
+    private struct Counts
     {
-        if (zone?.tiles == null) return WildKind.None;
+        public int Total, Water, Rock, Hills, Frozen, Sand, Jungle, Swamp;
+        public int Land => Total - Water;
+    }
+
+    // 一块地各类格子数(水、山地山巅、丘陵石地、冻土雪地、沙地荒漠、丛林、沼泽)
+    private static Counts Count(TileZone zone)
+    {
         int total = 0, water = 0, rock = 0, hills = 0, frozen = 0, sand = 0, jungle = 0, swamp = 0;
         foreach (WorldTile tile in zone.tiles)
         {
@@ -488,6 +506,18 @@ public static class WildernessSystem
             else if ((ground & MarkJungle) != 0) jungle++;
             else if ((ground & MarkSwamp) != 0) swamp++;
         }
+        return new Counts
+        {
+            Total = total, Water = water, Rock = rock, Hills = hills, Frozen = frozen, Sand = sand, Jungle = jungle, Swamp = swamp
+        };
+    }
+
+    private static WildKind Classify(TileZone zone, WildKind previous)
+    {
+        if (zone?.tiles == null) return WildKind.None;
+        Counts c = Count(zone);
+        int total = c.Total, water = c.Water, rock = c.Rock, hills = c.Hills, frozen = c.Frozen, sand = c.Sand,
+            jungle = c.Jungle, swamp = c.Swamp;
         int land = total - water;
         if (land < MinLand || water > total * MaxWater) return WildKind.None;
         float Need(bool was, float share) => land * (was ? share - Hysteresis : share);
@@ -660,6 +690,62 @@ public static class WildernessSystem
             groups.Add((zones, (WildKind)kind));
         }
 
+        // 外沿放宽：大的先长，同一块地只归先长到的那片；长到同类、还没长过的小片就把它整片并进来(核心之间隔着外沿的)；
+        // 长完再按 MinZones 去掉太小的
+        var counted = new Dictionary<int, Counts>();
+        var grown = new bool[groups.Count];
+        foreach (int g in Enumerable.Range(0, groups.Count).OrderByDescending(index => groups[index].zones.Count).ToList())
+        {
+            if (groups[g].zones.Count == 0) continue;
+            grown[g] = true;
+            WildKind kind = groups[g].kind;
+            List<int> zones = groups[g].zones;
+            queue.Clear();
+            foreach (int id in zones) queue.Enqueue(id);
+            while (queue.Count > 0)
+            {
+                TileZone[] neighbours = _zones[queue.Dequeue()].neighbours;
+                if (neighbours == null) continue;
+                foreach (TileZone next in neighbours)
+                {
+                    if (next?.tiles == null || next.id < 0 || next.id >= size) continue;
+                    int nid = next.id;
+                    int other = piece[nid];
+                    if (other >= 0)
+                    {
+                        if (other == g || grown[other] || groups[other].kind != kind) continue;
+                        foreach (int id in groups[other].zones)
+                        {
+                            piece[id] = g;
+                            zones.Add(id);
+                            queue.Enqueue(id);
+                        }
+                        groups[other].zones.Clear();
+                        grown[other] = true;
+                        continue;
+                    }
+                    if (anchored[nid]) continue;
+                    if (!counted.TryGetValue(nid, out Counts c))
+                    {
+                        c = Count(next);
+                        counted[nid] = c;
+                    }
+                    if (c.Land < MinLand) continue;
+                    int share = kind switch
+                    {
+                        WildKind.Mountain => c.Rock + c.Hills,
+                        WildKind.Desert or WildKind.Tundra => c.Sand + c.Frozen,
+                        _ => c.Jungle + c.Swamp
+                    };
+                    bool was = oldOf[nid] >= 0 && olds[oldOf[nid]].Kind == kind;
+                    if (share < c.Land * (was ? EdgeShare - Hysteresis : EdgeShare)) continue;
+                    piece[nid] = g;
+                    zones.Add(nid);
+                    queue.Enqueue(nid);
+                }
+            }
+        }
+
         // 对旧区域：重叠最多的先配，一片旧区域只配一片(分成几片的大的那片沿用，并起来的沿用重叠多的那片)
         var overlap = new Dictionary<long, int>();
         var kept = new List<int>();
@@ -747,17 +833,8 @@ public static class WildernessSystem
         foreach (WildRegion region in regions) IdIndex[region.Id] = region;
         Shape(regions, regionOf);
 
-        // 起名：新的一片(大的先挑)，以及起名时还没有文化、现在有了的
-        List<(int x, int y, string culture)> seats = Seats(out string common);
-        foreach (WildRegion region in regions.Where(region => string.IsNullOrEmpty(region.Name) ||
-                                                              string.IsNullOrEmpty(region.Culture) && common != null)
-                     .OrderByDescending(region => region.Zones.Count).ThenBy(region => region.Id).ToList())
-        {
-            if (!string.IsNullOrEmpty(region.Name)) used.Remove(region.Name);
-            region.Culture = CultureNear(region, seats, common);
-            region.Name = NameOf(region, used);
-            used.Add(region.Name);
-        }
+        // 起名(见 NameAll)
+        NameAll(regions, used);
 
         // 挂法理：沿用原先挂的；城或法理变了全部重挂，没挂的补挂
         var titles = new KingdomTitle[size];
@@ -885,13 +962,61 @@ public static class WildernessSystem
         return seats;
     }
 
-    // 离区域中心最近的城的主流文化；没有城取全图最常见的
-    private static string CultureNear(WildRegion region, List<(int x, int y, string culture)> seats, string common)
+    // 起名要有文明(用户 2026-10-29 "这些初始名称应该是没有, 只显示地形类别, 等有文明了才会取名")：区域中心 NameReach 块以内
+    // 有城(有主流文化)才按最近那座城的文化起名；没有就不起名，地图上只标类型(山脉、沙漠……，见 DisplayName)，等附近有了城再起
+    // (隔 NameSeconds 秒看一次，见 Refresh)。以前没有城时按通用词库先起了名，有了城再按文化改——读档时这样的名一并去掉。
+    // 世界地图(真实地球)开局就有文明，真实地名照起(见 WorldMap.WorldMapWilderness)
+    private const int NameReach = 48;
+    private const float NameSeconds = 10f;
+    private static float _nameAt;
+
+    // 标在地图上、提示里的名字：起了名的用名字，还没有文明起名的只写类型
+    public static string DisplayName(WildRegion region) =>
+        region == null ? "" : !string.IsNullOrEmpty(region.Name) ? region.Name : WildernessNaming.KindName(region.Kind) ?? "";
+
+    // 给没起名(或以前没有文化时按通用词库起的)的各片起名：大的先挑；附近没有文明的不起(名字去掉)。有变化返回 true
+    private static bool NameAll(List<WildRegion> regions, HashSet<string> used)
+    {
+        List<WildRegion> pending = regions.Where(region => string.IsNullOrEmpty(region.Name) || string.IsNullOrEmpty(region.Culture))
+            .OrderByDescending(region => region.Zones.Count).ThenBy(region => region.Id).ToList();
+        if (pending.Count == 0) return false;
+        bool earth = WorldMap.WorldMapWilderness.OnEarth;
+        List<(int x, int y, string culture)> seats = Seats(out string common);
+        float reach = earth ? float.MaxValue : NameReach * Config.CITY_ZONE_SIZE;
+        bool changed = false;
+        foreach (WildRegion region in pending)
+        {
+            string culture = CultureNear(region, seats, earth ? common : null, reach);
+            if (culture == null && !earth)
+            {
+                if (string.IsNullOrEmpty(region.Name)) continue;
+                used.Remove(region.Name);
+                region.Name = null;
+                region.Culture = null;
+                changed = true;
+                continue;
+            }
+            if (!string.IsNullOrEmpty(region.Name))
+            {
+                // 世界地图上没有文化也照起的真实地名，文化还是没有就不必重起
+                if (culture == null) continue;
+                used.Remove(region.Name);
+            }
+            region.Culture = culture;
+            region.Name = NameOf(region, used);
+            used.Add(region.Name);
+            changed = true;
+        }
+        return changed;
+    }
+
+    // 离区域中心最近(reach 格以内)的城的主流文化；没有为 fallback
+    private static string CultureNear(WildRegion region, List<(int x, int y, string culture)> seats, string fallback, float reach)
     {
         WorldTile center = region.Center?.centerTile;
-        if (center == null || seats.Count == 0) return common;
-        string best = common;
-        float bestDistance = float.MaxValue;
+        if (center == null || seats.Count == 0) return fallback;
+        string best = fallback;
+        float bestDistance = reach >= float.MaxValue ? float.MaxValue : reach * reach;
         foreach ((int x, int y, string culture) in seats)
         {
             float distance = (float)(x - center.x) * (x - center.x) + (float)(y - center.y) * (y - center.y);
