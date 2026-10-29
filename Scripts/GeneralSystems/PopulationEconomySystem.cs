@@ -361,7 +361,8 @@ public static class PopulationEconomySystem
     // 再由城市上交国家；完整现金财政接入时须替换这个税基，不能同时再征新销售所得税。
     private static void PayTaxes(City city, CityPopulationData data, float years)
     {
-        float income = Mathf.Max(0f, data.produced_value);
+        // 本国市场缺工具：各城产出打折(见 CommodityMarketSystem.OutputFactor)
+        float income = Mathf.Max(0f, data.produced_value) * CommodityMarketSystem.OutputFactor(city);
         data.produced_value = 0f;
         // 官营产业的利润归国库，不进民间收入、不再征工业税(见 EnterpriseSystem)
         if (city.kingdom != null && !city.kingdom.wild)
@@ -546,7 +547,9 @@ public static class PopulationEconomySystem
             }
         }
         if (good.HasValue) return good.Value == MarketSystem.Good.Metal ? 3f : good.Value == MarketSystem.Good.Stone ? 1.5f : 1f;
-        return FixedValue.TryGetValue(resource, out float value) ? value : StrategicMineralValue;
+        // 粮木石金属以外的物资(皮革、茶、香料、宝石、煤、硝石……)照所在商品市场的市价指数计产值：缺货涨价、产地多收
+        float baseValue = FixedValue.TryGetValue(resource, out float value) ? value : StrategicMineralValue;
+        return baseValue * CommodityMarketSystem.ResourcePriceIndex(city, resource);
     }
 
     // 加工用掉的原料：从收入里扣掉原料的价值，只算加工增加的那部分

@@ -161,6 +161,7 @@ public class KingdomOverviewWindow : WideScrollWindow<KingdomOverviewWindow>
         DrawStrength(columns.BeginColumnCard(HalfWidth, "kov_strength", WideKit.Orange, null, "ui/icons/iconWar"), kingdom);
         DrawEconomy(columns.BeginColumnCard(HalfWidth, "kov_economy", WideKit.Green, null, "ui/icons/iconMoney"), kingdom);
         GoodsCard.Draw(page, PageWidth, kingdom.cities, GranarySystem.Stock(kingdom));
+        MarketCard.Draw(page, PageWidth, kingdom, new[] { kingdom });
         DrawColonies(page, kingdom);
         DrawTech(page, kingdom);
         DrawWars(page, kingdom);

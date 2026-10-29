@@ -23,7 +23,9 @@ public enum TreasuryCategory
     // 战争开支：战时多出来的军饷、行军费、前线交战的粮秣军械损耗(见 CorpsSystem.PayUpkeep)
     War,
     // 岁祭(见 RitesSystem)
-    Rites
+    Rites,
+    // 关税：外国货物进口，进口国按货价抽的税(见 CommodityMarketSystem.Trade)
+    Customs
 }
 
 public sealed class TreasuryReport
@@ -227,7 +229,9 @@ public static class TreasuryRules
         key == nameof(TreasuryCategory.ResidentTax) || key == nameof(TreasuryCategory.LandTax) ||
         key == nameof(TreasuryCategory.IndustrialTax) || key == nameof(TreasuryCategory.CommercialTax) ||
         key == nameof(TreasuryCategory.InternalTransfer) || key == nameof(TreasuryCategory.PublicTrade) ||
-        key == nameof(TreasuryCategory.Tribute) || key == nameof(TreasuryCategory.PublicEnterprise);
+        key == nameof(TreasuryCategory.Tribute) || key == nameof(TreasuryCategory.PublicEnterprise) ||
+        // 关税(见 CommodityMarketSystem.Trade)：年年都有的外贸税，算经常收入
+        key == nameof(TreasuryCategory.Customs);
 
     // 整数分摊以总账单为准，余数按大小及输入顺序稳定分配。
     public static int[] Allocate(int bill, IReadOnlyList<int> budgets)

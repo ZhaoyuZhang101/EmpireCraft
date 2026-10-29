@@ -1106,6 +1106,8 @@ namespace EmpireCraft.Scripts.UI.Windows
                                     ?? new List<Kingdom>();
             GoodsCard.Draw(parent, MainWidth, members.SelectMany(kingdom => kingdom.cities),
                 members.Sum(kingdom => GranarySystem.Stock(kingdom)));
+            // 所在商品市场：物价、全境的出口进口关税、最缺的物资与对本国的影响(见 MarketCard)
+            MarketCard.Draw(parent, MainWidth, empire?.CoreKingdom, members);
         }
 
         // 国库对账：账期初的国库 + 其间全部收入(含央地拨款、举债) − 全部支出(含还本付息) = 现在的国库。

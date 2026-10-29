@@ -107,6 +107,8 @@ public static class CommodityMarketSystem
         public readonly Dictionary<long, (float made, float wanted)> memberValue = new();
         public readonly Dictionary<long, float> boughtFrom = new(), soldTo = new();
         public readonly HashSet<long> linked = new();
+        // 各成员国一年的外贸(国家编号 → 出口收入、进口花费、关税收入)，财政页、国情窗口的市场卡用(见 MarketCard)
+        public readonly Dictionary<long, float> memberExports = new(), memberImports = new(), memberCustoms = new();
     }
 
     // 一样物资的底价(没有这样物资按 1)
@@ -248,6 +250,89 @@ public static class CommodityMarketSystem
 
     // 税收：奢侈品买得到，商人、市民手头活络，税多收一点(±5%)
     public static float LuxuryTaxFactor(City city) => 0.95f + 0.1f * LuxurySatisfaction(city);
+
+    // ───────── 市价与国家经济(用户 10-29 "现在的市场系统无法真正影响国家的经济，甚至帝国的经济界面和这些市场完全无关") ─────────
+    // 市价指数：本国所在市场某物资的价格 ÷ 底价(还没结算按 1)：缺货涨、过剩跌，城里的产出按它计产值、交税(见 PopulationEconomySystem.UnitValue、FactorySystem.Produce)
+    public static float PriceIndex(Kingdom kingdom, string good)
+    {
+        if (string.IsNullOrEmpty(good) || MarketOf(kingdom) is not Market market || !market.price.TryGetValue(good, out float price))
+            return 1f;
+        float basePrice = BasePrice(good);
+        return basePrice <= 0f ? 1f : Mathf.Clamp(price / basePrice, 0.25f, 4f);
+    }
+
+    // 原版资源 → 商品(粮木石金属由原来的实物市场定价，不在这里；同一资源出好几样的取第一样)
+    private static Dictionary<string, string> _resourceGoods;
+
+    private static string GoodOfResource(string resource)
+    {
+        if (_resourceGoods == null)
+        {
+            _resourceGoods = new Dictionary<string, string>();
+            foreach (CommodityConfig good in Goods.Values)
+            {
+                if (Basic(good)) continue;
+                foreach (string key in good.resources.Keys)
+                    if (!_resourceGoods.ContainsKey(key)) _resourceGoods[key] = good.id;
+            }
+        }
+        return _resourceGoods.TryGetValue(resource ?? "", out string id) ? id : null;
+    }
+
+    public static float ResourcePriceIndex(City city, string resource) =>
+        GoodOfResource(resource) is string good ? PriceIndex(city?.kingdom, good) : 1f;
+
+    // 厂区一年产值按产品的市价指数折算(几样产品按产量加权)
+    public static float FactoryPriceIndex(City city, string unitType)
+    {
+        if (!Config.factories.TryGetValue(unitType ?? "", out CommodityRecipe recipe) || recipe.outputs.Count == 0) return 1f;
+        float weighted = 0f, total = 0f;
+        foreach (KeyValuePair<string, float> output in recipe.outputs)
+        {
+            float weight = output.Value * BasePrice(output.Key);
+            weighted += weight * PriceIndex(city?.kingdom, output.Key);
+            total += weight;
+        }
+        return total > 0f ? weighted / total : 1f;
+    }
+
+    // 物价水平：各物资市价指数按需求额加权(1 = 照底价)
+    public static float PriceLevel(Kingdom kingdom)
+    {
+        if (MarketOf(kingdom) is not Market market) return 1f;
+        float weighted = 0f, total = 0f;
+        foreach (CommodityConfig good in Goods.Values)
+        {
+            if (!market.demand.TryGetValue(good.id, out float demand) || demand <= 0f) continue;
+            float weight = demand * good.price;
+            weighted += weight * PriceIndex(kingdom, good.id);
+            total += weight;
+        }
+        return total > 0f ? weighted / total : 1f;
+    }
+
+    // 缺工具：各城产出打折，全缺 -ToolsPenalty(见 PopulationEconomySystem.PayTaxes)
+    private const float ToolsPenalty = 0.25f;
+    public static float OutputFactor(City city) => 1f - ToolsPenalty * Shortage(city?.kingdom, "tools");
+
+    // 缺布匹、缺粮：民生用品买不到，稳定下降，全缺 -NecessityPenalty(见 CityStabilitySystem)
+    private const float NecessityPenalty = 4f;
+    public static float NecessityStability(City city) =>
+        -NecessityPenalty * Mathf.Max(Shortage(city?.kingdom, "cloth"), Shortage(city?.kingdom, "grain"));
+
+    // 一国(或一组国家)一年的出口收入、进口花费、关税收入
+    public static (float exports, float imports, float customs) TradeOf(IEnumerable<Kingdom> realm)
+    {
+        float exports = 0f, imports = 0f, customs = 0f;
+        foreach (Kingdom kingdom in realm ?? Enumerable.Empty<Kingdom>())
+        {
+            if (kingdom?.data == null || MarketOf(kingdom) is not Market market) continue;
+            if (market.memberExports.TryGetValue(kingdom.id, out float sold)) exports += sold;
+            if (market.memberImports.TryGetValue(kingdom.id, out float bought)) imports += bought;
+            if (market.memberCustoms.TryGetValue(kingdom.id, out float duty)) customs += duty;
+        }
+        return (exports, imports, customs);
+    }
 
     // 殖民的去处：本国市场缺、这块地出的物资(0~1)
     public static float ColonyDemand(Kingdom realm, TileZone zone)
@@ -644,6 +729,29 @@ public static class CommodityMarketSystem
         foreach (Market market in Markets.Values)
             if (market.leader != null && links.TryGetValue(market.leader.id, out HashSet<long> set))
                 market.linked.UnionWith(set);
+        // 各市场本年能花在进口上的民间存款(各成员城存款的 ImportBudgetShare)，以及按需求额摊付的各城
+        var purses = new Dictionary<Market, float>();
+        var payers = new Dictionary<Market, List<(City city, Kingdom kingdom, CityPopulationData data, float weight)>>();
+        foreach (Market market in Markets.Values)
+        {
+            var list = new List<(City, Kingdom, CityPopulationData, float)>();
+            float purse = 0f;
+            foreach (Kingdom member in market.members)
+            {
+                if (member?.cities == null) continue;
+                foreach (City city in member.cities)
+                {
+                    CityPopulationData data = city?.data == null ? null : CityPopulationSystem.Get(city);
+                    if (data == null || !Books.TryGetValue(city.id, out CityBook book)) continue;
+                    float weight = book.wanted.Sum(pair => pair.Value * BasePrice(pair.Key));
+                    if (weight <= 0f) continue;
+                    list.Add((city, member, data, weight));
+                    purse += Mathf.Max(0f, data.private_savings) * ImportBudgetShare;
+                }
+            }
+            purses[market] = purse;
+            payers[market] = list;
+        }
         foreach (CommodityConfig good in Goods.Values)
         {
             // 基础物资也买卖(以前不许，缺粮的市场买不到邻国的余粮)，又重又贱，另加运费
@@ -667,13 +775,24 @@ public static class CommodityMarketSystem
                     if (spare <= 0f || room <= 0f) continue;
                     float markup = Mathf.Min(EdgePremiumMax, 1f + edge * EdgePremium);
                     float unit = good.price * markup * (1f + Config.tariff + freight);
-                    float affordable = Mathf.Max(0f, buyer.leader.GetMoney()) / Mathf.Max(0.01f, unit);
+                    // 进口是民间的买卖：货款(连关税、运费)从买方各城的民间存款出；没有背景人口(原版小人)的市场照旧由领衔国国库出
+                    bool privateTrade = purses.TryGetValue(buyer, out float purse) && purse > 0f;
+                    float affordable = (privateTrade ? purse : Mathf.Max(0f, buyer.leader.GetMoney())) / Mathf.Max(0.01f, unit);
                     float amount = Mathf.Min(room, Mathf.Min(spare, affordable));
                     if (amount < 0.5f) continue;
                     int paid = Mathf.RoundToInt(amount * unit);
                     int earned = Mathf.RoundToInt(amount * good.price * markup);
-                    buyer.leader.SubMoney(paid, TreasuryCategory.PublicTrade);
-                    seller.leader.AddMoney(earned, TreasuryCategory.PublicTrade);
+                    if (privateTrade)
+                    {
+                        purses[buyer] = purse - paid;
+                        PayImports(buyer, payers[buyer], paid, amount * good.price * markup * Config.tariff);
+                    }
+                    else
+                    {
+                        buyer.leader.SubMoney(paid, TreasuryCategory.PublicTrade);
+                        buyer.memberImports[buyer.leader.id] = (buyer.memberImports.TryGetValue(buyer.leader.id, out float spentBefore) ? spentBefore : 0f) + paid;
+                    }
+                    ReceiveExports(seller, good, earned);
                     Add(buyer.imports, good.id, amount);
                     Add(seller.exports, good.id, amount);
                     buyer.trade_value += paid;
@@ -685,6 +804,69 @@ public static class CommodityMarketSystem
                     displaced += amount - filled;
                 }
             }
+        }
+    }
+
+    // 进口花在各城民间存款上的份额(本年)
+    private const float ImportBudgetShare = 0.3f;
+
+    // 进口货款按各城的需求额摊到各城民间存款；关税(货价 × 关税率)按同样的份额归各城所属的国库
+    private static void PayImports(Market buyer, List<(City city, Kingdom kingdom, CityPopulationData data, float weight)> cities,
+        float paid, float duty)
+    {
+        float total = cities.Sum(entry => entry.weight);
+        if (total <= 0f) return;
+        var dutyOf = new Dictionary<Kingdom, float>();
+        foreach ((City city, Kingdom kingdom, CityPopulationData data, float weight) in cities)
+        {
+            float share = weight / total;
+            float pay = paid * share;
+            data.private_savings = Mathf.Max(0f, Mathf.Max(0f, data.private_savings) - pay);
+            buyer.memberImports[kingdom.id] = (buyer.memberImports.TryGetValue(kingdom.id, out float before) ? before : 0f) + pay;
+            dutyOf[kingdom] = (dutyOf.TryGetValue(kingdom, out float sum) ? sum : 0f) + duty * share;
+        }
+        foreach (KeyValuePair<Kingdom, float> pair in dutyOf)
+        {
+            int whole = Mathf.RoundToInt(pair.Value);
+            if (whole <= 0 || pair.Key?.data == null || pair.Key.isRekt()) continue;
+            pair.Key.AddMoney(whole, TreasuryCategory.Customs);
+            buyer.memberCustoms[pair.Key.id] = (buyer.memberCustoms.TryGetValue(pair.Key.id, out float before) ? before : 0f) + whole;
+        }
+    }
+
+    // 出口收入按各城这样物资的产量记进各城产值(交工商税、进民间收入，见 PopulationEconomySystem.PayTaxes)；
+    // 没有背景人口的市场照旧进领衔国国库
+    private static void ReceiveExports(Market seller, CommodityConfig good, float earned)
+    {
+        if (earned <= 0f) return;
+        var makers = new List<(City city, Kingdom kingdom, CityPopulationData data, float made)>();
+        foreach (Kingdom member in seller.members)
+        {
+            if (member?.cities == null) continue;
+            foreach (City city in member.cities)
+            {
+                CityPopulationData data = city?.data == null ? null : CityPopulationSystem.Get(city);
+                if (data == null || !Books.TryGetValue(city.id, out CityBook book) || !book.made.TryGetValue(good.id, out float made) || made <= 0f)
+                    continue;
+                makers.Add((city, member, data, made));
+            }
+        }
+        float total = makers.Sum(entry => entry.made);
+        if (total <= 0f)
+        {
+            seller.leader.AddMoney(Mathf.RoundToInt(earned), TreasuryCategory.PublicTrade);
+            seller.memberExports[seller.leader.id] = (seller.memberExports.TryGetValue(seller.leader.id, out float before) ? before : 0f) + earned;
+            return;
+        }
+        string sector = (good.tier == "basic" && good.id == "grain" ? TreasuryCategory.LandTax : TreasuryCategory.IndustrialTax).ToString();
+        foreach ((City city, Kingdom kingdom, CityPopulationData data, float made) in makers)
+        {
+            float income = earned * made / total;
+            data.produced_value += income;
+            var sectors = data.produced_sector_values ??= new Dictionary<string, float>();
+            sectors.TryGetValue(sector, out float previous);
+            sectors[sector] = previous + income;
+            seller.memberExports[kingdom.id] = (seller.memberExports.TryGetValue(kingdom.id, out float before) ? before : 0f) + income;
         }
     }
 
