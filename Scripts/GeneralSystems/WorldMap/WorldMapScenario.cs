@@ -1547,6 +1547,8 @@ public static class WorldMapScenario
     // 神圣罗马：开局即持所在联合天下(罗马)的普世之名，再授神圣(教廷在就由教宗加冕，不在就自行加冕，见 PapacySystem.GrantHoly)
     private static void Hallow(Empire empire, EmpireCore lead)
     {
+        // 金玺诏书以后开局的先改选帝制(见 HolyRomanSystem.GoldenBullAtStart)
+        HolyRomanSystem.GoldenBullAtStart(empire, _era?.year ?? 0);
         if (empire?.data == null || empire.isRekt() || lead == null) return;
         RealmNamingSystem.GrantUniversalAtStart(empire, lead);
         PapacySystem.GrantHoly(empire);

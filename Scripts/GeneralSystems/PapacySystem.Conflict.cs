@@ -68,7 +68,9 @@ public static partial class PapacySystem
         // 叙任权之争
         if (!InContest(empire))
         {
-            if (IsSecularPath(empire) && Investiture(empire) != InvestitureCrown && UnityEngine.Random.value < ContestChance)
+            // 只有仍是教会叙任的才争：施行了政教协约的，叙任权之争已经妥协(沃尔姆斯 1122)。以前协约之后照样争，临高开局(1628)的神罗
+            // 没几年就叙任权之争、遭绝罚，普世之名暂停、国号退回"德意志"(用户 2026-10-29 "每次神罗没过多久就会推到德意志帝国了")
+            if (IsSecularPath(empire) && Investiture(empire) == InvestitureChurch && UnityEngine.Random.value < ContestChance)
             {
                 state.investiture_contest_at = World.world.getCurWorldTime();
                 Record(empire, string.Format(LM.Get("papal_contest_started_history"), empire.GetEmpireFullName(),

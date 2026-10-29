@@ -51,6 +51,24 @@ public static partial class HolyRomanSystem
         return regime?.type == RegimeType.Feudalism && regime.GetLeaderSelectMethod() == LeaderSelectMethod.Vote;
     }
 
+    // 金玺诏书(1356)以后开局的剧本(临高 1628)：神罗开局即是选帝制(用户 2026-10-29 "为什么临高剧本里面每次神罗没过多久就会推到
+    // 德意志帝国了，这不符合史实吧")。以前开局是世袭，日耳曼文化又已施行宗教改革，皇帝开局即算脱离罗马(见 PapacySystem.BrokeWithRome)：
+    // 头一回年度结算就另立国教会、整个帝国改宗，普世之名随之收回，国号退回帝国法理名"德意志"。
+    // 做法同诉求「颁布金玺诏书」：封建制、有君的诸侯至少两家时帝位改由选帝侯选举；世俗选帝侯席位按剧本在座的诸侯填好(见 EnsureSeats)。
+    // 要在授神圣之名之前(WorldMapScenario.Hallow)：选帝制的皇帝不随宗教改革脱离罗马，才由教宗加冕
+    public const int GoldenBullYear = 1356;
+
+    public static bool GoldenBullAtStart(Empire empire, int year)
+    {
+        if (year < GoldenBullYear || empire?.data == null || empire.isRekt()) return false;
+        Regime regime = empire.CoreKingdom?.GetRegime();
+        if (regime?.type != RegimeType.Feudalism || Members(empire).Count(member => member.hasKing()) < 2) return false;
+        regime.SetLeaderSelectMethod(LeaderSelectMethod.Vote);
+        if (HasDiet(empire)) SecularElectorKings(empire);
+        LogService.LogInfo($"[EmpireCraft][神罗] {empire.GetEmpireFullName()} 开局({year} 年)已颁金玺诏书，帝位由选帝侯选举");
+        return true;
+    }
+
     // 家族领地：中央(皇帝自家领国)的城占帝国城数的比例
     public static float HouseShare(Empire empire)
     {

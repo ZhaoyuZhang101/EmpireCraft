@@ -26,6 +26,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //          本国就是教宗国的是圣座帝国，照旧称"某某圣座"，不另取；
 //   · 同一天下只一位普世皇帝：已有未失格的，教宗不给别家授名(加冕照旧)；
 //   · 收回：绝罚期间暂停(名字退回本名，悔罪、解除后恢复)；脱离罗马、不再是西方即收回；换皇帝不收回，新君三年仍未由教宗加冕才收回；
+//     选帝制的帝国、天授的普世之名，新君当选即承袭，不待教宗加冕(见 InheritsUniversal)；天授的名教廷暂时不在时也不收回；
 //     收回后改回取得前的本名，那本名若也是天下之名(旧规则下得来的)，改用本帝国法理名；
 //   · 教宗收回、转授(用户 2026-10-27 截图小小的西罗马帝国："为什么普世之名一直没被回收，明明他对教宗一点影响力都没有"
 //     "应该加个收回普世之名的决议，或者转授的")：教廷在、教宗不是别家的囚徒时，普世皇帝既不控制教宗国、也不能兵临城下施压，
@@ -59,6 +60,12 @@ public static partial class RealmNamingSystem
     }
 
     private static PapalRelationState Papal(Empire empire) => empire?.data == null ? null : PapacySystem.State(empire);
+
+    // 新君即承袭普世之名(连同神圣)，不因未经教宗加冕而收回(用户 2026-10-29 "临高剧本里面每次神罗没过多久就会推到德意志帝国了，
+    // 这不符合史实吧")：选帝制的帝国——1508 年马克西米利安一世起当选即称"当选罗马皇帝"，查理五世(1530)以后再没有教宗加冕，国号照旧；
+    // 天授的(剧本开局即持的、上帝视角授的)。世袭的照旧：新君三年仍未由教宗加冕才收回(用户 2026-10-27 定)
+    private static bool InheritsUniversal(Empire empire, PapalRelationState state) =>
+        state.universal_via == ViaDecree || HolyRomanSystem.IsElective(empire);
 
     // 普世之名生效中(取得且未因绝罚暂停)
     public static bool HoldsUniversal(Empire empire)
@@ -321,7 +328,8 @@ public static partial class RealmNamingSystem
             return;
         }
         EmpireCore see = SeeLead(empire);
-        if (see == null || see.id != state.universal_lead_id)
+        // 天授的名：教廷暂时不在(圣地毁弃、所奉之教没有圣地)不收回；教廷换了天下照旧改授
+        if (see == null ? state.universal_via != ViaDecree : see.id != state.universal_lead_id)
         {
             if (!Rehome(empire, state, see)) RevokeUniversal(empire, "realm_universal_reason_see");
             return;
@@ -340,7 +348,7 @@ public static partial class RealmNamingSystem
         if (emperor == null) return;
         if (state.universal_emperor_id != emperor.id)
         {
-            if (PapacySystem.IsCrowned(empire) && !state.self_crowned)
+            if (PapacySystem.IsCrowned(empire) && !state.self_crowned || InheritsUniversal(empire, state))
             {
                 state.universal_emperor_id = emperor.id;
                 return;
