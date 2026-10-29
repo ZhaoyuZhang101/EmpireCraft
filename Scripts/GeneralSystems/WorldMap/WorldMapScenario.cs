@@ -63,6 +63,8 @@ public static class WorldMapScenario
         public Empire empire;
         public readonly List<(Actor actor, WorldMapPerson person)> kin = new();
         public readonly List<(Actor actor, WorldMapFamous person)> famous = new();
+        // 原始部落圈里立的部落(进世界后改原始政体，见 MakeTribes)
+        public bool tribe;
     }
 
     private static WorldMapEra _era;
@@ -886,18 +888,20 @@ public static class WorldMapScenario
         // 地形缓存按区块编号存，可能还是上一个世界的(城心改成绿洲也没刷新)，先清掉再判荒地
         TerrainSystem.ResetWorldState();
         WorldMapZones.Build();
+        PlanTribes();
         var centers = _cities.Where(city => city.city != null && !city.random && CultureService.IsValidCulture(city.culture))
             .GroupBy(city => city.region.id)
             .Select(group => (culture: group.First().culture, x: (float)group.Average(city => city.tile.x),
                 y: (float)group.Average(city => city.tile.y)))
             .ToList();
         if (centers.Count == 0) return;
+        // 原始部落圈里不另补小国(圈里只有部落)，补空时离部落也要够远
         List<int> gaps = WorldMapZones.Gaps(GapCost, MaxFillers[Mathf.Clamp(_sizeIndex, 0, MaxFillers.Length - 1)], index =>
         {
             TileZone zone = WorldMapZones.Zone(index);
-            return zone?.centerTile != null && !_usedZones.Contains(zone) && Buildable(zone.centerTile) &&
+            return zone?.centerTile != null && !_usedZones.Contains(zone) && !_tribeArea.Contains(index) && Buildable(zone.centerTile) &&
                    zone.tiles.Count(Buildable) >= 32 && BarrenLandSystem.KindOf(zone) == BarrenLandSystem.None;
-        });
+        }, _tribeSeeds);
         var fillers = new List<PlannedPolity>();
         foreach (int index in gaps)
         {
@@ -926,6 +930,117 @@ public static class WorldMapScenario
             _cities.Add(planned);
         }
         LogService.LogInfo($"[EmpireCraft][世界地图] 补空立了 {fillers.Count} 国 {gaps.Count} 城");
+    }
+
+    // 原始部落圈(剧本编辑器「部落」工具)：圈里挑能建城的空地(离别的城至少 TribeSpacing 块)，各立一个那种文化的部落，
+    // 照补空小国一起建；进世界后改原始政体(华夏一系为华夏原始政体，见 MakeTribes)。count 为 0 时按圈里空地多少定(每 25 块一个，1~12)
+    private const int TribeSpacing = 3;
+    private static readonly HashSet<int> _tribeArea = new();
+    private static readonly List<int> _tribeSeeds = new();
+
+    private static void PlanTribes()
+    {
+        _tribeArea.Clear();
+        _tribeSeeds.Clear();
+        if (_era?.tribes == null || _era.tribes.Count == 0 || _frame == null) return;
+        _frame.Bounds(_size, out float bottom, out float degrees);
+        int zw = MapBox.width / 8, zh = MapBox.height / 8;
+        var taken = _cities.Select(city => city.tile).ToList();
+        int made = 0;
+        foreach (WorldMapTribes area in _era.tribes)
+        {
+            if (area?.at == null || area.at.Length < 2 || area.radius <= 0f || !CultureService.IsValidCulture(area.culture)) continue;
+            var candidates = new List<(TileZone zone, Vector2Int tile)>();
+            for (int zy = 0; zy < zh; zy++)
+            for (int zx = 0; zx < zw; zx++)
+            {
+                var tile = new Vector2Int(zx * 8 + 4, zy * 8 + 4);
+                float lon = _frame.west + tile.x * degrees, lat = bottom + tile.y * degrees;
+                float dx = (lon - area.at[0]) * Mathf.Cos(lat * Mathf.Deg2Rad), dy = lat - area.at[1];
+                if (dx * dx + dy * dy > area.radius * area.radius) continue;
+                TileZone zone = ZoneAt(zx, zy);
+                if (zone != null) _tribeArea.Add(WorldMapZones.IndexOf(zone));
+                if (zone?.centerTile == null || zone.city != null || _usedZones.Contains(zone) || !Buildable(zone.centerTile) ||
+                    zone.tiles.Count(Buildable) < 32) continue;
+                candidates.Add((zone, tile));
+            }
+            int want = area.count > 0 ? area.count : Mathf.Clamp(Mathf.RoundToInt(candidates.Count / 25f), 1, 12);
+            for (int i = candidates.Count - 1; i > 0; i--)
+            {
+                int j = Randy.randomInt(0, i + 1);
+                (candidates[i], candidates[j]) = (candidates[j], candidates[i]);
+            }
+            int placed = 0;
+            foreach ((TileZone zone, Vector2Int tile) in candidates)
+            {
+                if (placed >= want) break;
+                if (taken.Any(other => (other - tile).sqrMagnitude < TribeSpacing * 8 * TribeSpacing * 8)) continue;
+                string id = "tribe_" + made;
+                var region = new WorldMapRegion { id = id, culture = area.culture };
+                var planned = new PlannedCity
+                {
+                    data = new WorldMapCity { id = id, region = id, rank = 3 }, rank = 3, region = region, tile = tile,
+                    culture = area.culture, random = true
+                };
+                var polity = new PlannedPolity { culture = area.culture, capital = planned, tribe = true };
+                planned.owner = polity;
+                polity.cities.Add(planned);
+                _cities.Add(planned);
+                _polities.Add(polity);
+                _usedZones.Add(zone);
+                _tribeSeeds.Add(WorldMapZones.IndexOf(zone));
+                taken.Add(tile);
+                placed++;
+                made++;
+            }
+        }
+        if (made > 0) LogService.LogInfo($"[EmpireCraft][世界地图] 原始部落圈立了 {made} 个部落");
+    }
+
+    // 部落改原始政体(华夏一系为华夏原始政体)
+    private static void MakeTribes(List<Kingdom> kingdoms)
+    {
+        foreach (Kingdom kingdom in kingdoms)
+        {
+            if (kingdom?.data == null || kingdom.isRekt()) continue;
+            string culture = CultureService.GetRealmCulture(kingdom);
+            kingdom.SetRegimeType(InstitutionSystem.GetCultureLine(culture) == "Huaxia" ? RegimeType.HuaxiaOrigin : RegimeType.Origin);
+            kingdom.LoadRegime();
+            EmpireCraft.Scripts.AI.KingdomAI.EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(kingdom);
+        }
+    }
+
+    // 剧本编辑器刷的地块归属(见 ScenarioCells)：刷了的地块先归那国(或那块王国法理)离它最近的城，铺辖地时别家不再领
+    private static int PaintTerritory()
+    {
+        Dictionary<int, string> paint = ScenarioCells.ToMap(_era?.paint);
+        if (paint.Count == 0 || _frame == null) return 0;
+        _frame.Bounds(_size, out float bottom, out float degrees);
+        var byPolity = new Dictionary<string, List<PlannedCity>>();
+        var byRegion = new Dictionary<string, List<PlannedCity>>();
+        foreach (PlannedCity city in _cities.Where(city => city.city != null && !city.city.isRekt()))
+        {
+            if (city.owner?.data != null)
+                (byPolity.TryGetValue(city.owner.data.id, out var list) ? list : byPolity[city.owner.data.id] = new List<PlannedCity>()).Add(city);
+            (byRegion.TryGetValue(city.region.id, out var members) ? members : byRegion[city.region.id] = new List<PlannedCity>()).Add(city);
+        }
+        int zw = MapBox.width / 8, zh = MapBox.height / 8, claimed = 0;
+        for (int zy = 0; zy < zh; zy++)
+        for (int zx = 0; zx < zw; zx++)
+        {
+            var tile = new Vector2Int(zx * 8 + 4, zy * 8 + 4);
+            if (!paint.TryGetValue(ScenarioCells.Key(_frame.west + tile.x * degrees, bottom + tile.y * degrees, ScenarioCells.LandStep),
+                    out string key) || key.Length < 3) continue;
+            List<PlannedCity> owners = key.StartsWith("p:") ? byPolity.TryGetValue(key.Substring(2), out var p) ? p : null
+                : key.StartsWith("r:") ? byRegion.TryGetValue(key.Substring(2), out var r) ? r : null : null;
+            TileZone zone = ZoneAt(zx, zy);
+            if (owners == null || owners.Count == 0 || zone?.centerTile == null || zone.city != null || zone.centerTile.Type?.liquid == true) continue;
+            PlannedCity nearest = owners.OrderBy(city => (city.tile - tile).sqrMagnitude).First();
+            nearest.city.addZone(zone);
+            claimed++;
+        }
+        if (claimed > 0) LogService.LogInfo($"[EmpireCraft][世界地图] 剧本刷的地块归属 {claimed} 块");
+        return claimed;
     }
 
     // 补的小国先按小城的预算铺自己的辖地，再把剩下有陆地的区块(山麓、沿海零碎地块)分给走得到的最近的城，
@@ -966,7 +1081,8 @@ public static class WorldMapScenario
             .Select(planned => (planned.city, TerritoryBudget[Mathf.Clamp(planned.rank, 0, 3)],
                 Mathf.Min(limit, TerritoryCap[Mathf.Clamp(planned.rank, 0, 3)])))
             .ToList();
-        int claimed = 0;
+        // 剧本编辑器刷的地块先归刷给的那国或那块法理
+        int claimed = PaintTerritory();
         // 建城时改过地块(绿洲、平出河谷)：按现在的地形重算区块代价
         WorldMapZones.Build();
         WorldMapZones.Fill(seeds, (city, zone) =>
@@ -1033,7 +1149,10 @@ public static class WorldMapScenario
         {
             try
             {
-                PlannedCity seat = group.Where(city => city.owner?.capital == city).OrderBy(city => city.rank).FirstOrDefault() ??
+                // 法理首都：剧本定了的(剧本编辑器)，再是地区里的国都，再是最大的城
+                string chosen = group.First().region.capital;
+                PlannedCity seat = (string.IsNullOrEmpty(chosen) ? null : group.FirstOrDefault(city => city.data.id == chosen)) ??
+                                   group.Where(city => city.owner?.capital == city).OrderBy(city => city.rank).FirstOrDefault() ??
                                    group.OrderBy(city => city.rank).First();
                 KingdomTitle title = ModClass.KINGDOM_TITLE_MANAGER.newKingdomTitle(seat.city);
                 if (title == null) continue;
@@ -1264,9 +1383,18 @@ public static class WorldMapScenario
         Guard("帝国归属核对", () => VerifyEmpires("收尾"));
         Guard("进世界后的安排", QueueAfterLoad);
         // 无人区的真实地名与史实归属：记下范围、大小、时代与各政权都城(进世界划区时起名、挂法理，见 WorldMapWilderness)
+        // 导入地图不是地球，无人区不按地球地理起名(照常走 WildernessNaming)
+        if (!EarthTerrain.Imported)
         Guard("无人区地名与归属", () => WorldMapWilderness.Begin(_frame, _size, _era, _polities
             .Where(polity => polity.data != null && polity.capital?.city != null && !polity.capital.city.isRekt())
             .GroupBy(polity => polity.data.id).ToDictionary(group => group.Key, group => group.First().capital.city)));
+        // 剧情事件：记下剧本里的国、城、地区各对上了哪个国家、城、王国法理(见 ScenarioEventSystem)
+        Guard("剧情事件", () => ScenarioEventSystem.Begin(_era,
+            _polities.Where(polity => polity.data != null && polity.kingdom?.data != null)
+                .GroupBy(polity => polity.data.id).ToDictionary(group => group.Key, group => group.First().kingdom.data.id),
+            _cities.Where(city => city.city?.data != null).GroupBy(city => city.data.id)
+                .ToDictionary(group => group.Key, group => group.First().city.data.id),
+            _titleByRegion.Where(pair => pair.Value?.data != null).ToDictionary(pair => pair.Key, pair => pair.Value.data.id)));
         LogService.LogInfo($"[EmpireCraft][世界地图] {_era?.id} 摆好：{World.world.kingdoms.Count()} 国，{World.world.cities.Count()} 城");
         _cities = new List<PlannedCity>();
         _polities = new List<PlannedPolity>();
@@ -1366,6 +1494,9 @@ public static class WorldMapScenario
                 if (city != null) _famousCities[person.post] = city;
             }
         }
+        // 原始部落圈里立的部落：改原始政体
+        List<Kingdom> tribes = _polities.Where(polity => polity.tribe && polity.kingdom?.data != null).Select(polity => polity.kingdom).ToList();
+        if (tribes.Count > 0) _afterLoad.Add(("原始部落", () => MakeTribes(tribes)));
         // 长城与关隘：先铺墙后筑关(关城压着城墙的那格成关门，见 WorldMapWalls)
         if (_era != null && (_era.walls.Count > 0 || _era.passes.Count > 0))
         {

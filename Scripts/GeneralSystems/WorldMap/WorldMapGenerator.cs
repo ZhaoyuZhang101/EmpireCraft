@@ -27,6 +27,23 @@ public static class WorldMapGenerator
             WorldTip.showNow("world_map_data_missing", true, "top", 4f);
             return;
         }
+        // 自定剧本带了自己的城表就换上，否则用内置的(见 WorldMapData.Activate)
+        WorldMapData.Activate(era);
+        // 导入地图：换上剧本的地表网格，范围、大小照图(见 WorldMapImporter)；别的剧本用地球网格
+        if (WorldMapImporter.Uses(era))
+        {
+            WorldMapImporter.Loaded loaded = WorldMapImporter.Load(era, out string error);
+            if (loaded == null)
+            {
+                WorldTip.showNow(error, true, "top", 4f);
+                return;
+            }
+            EarthTerrain.UseGrid(loaded.grid, loaded.cols, loaded.rows, WorldMapImporter.Step);
+            frame = loaded.frame;
+        }
+        else EarthTerrain.UseEarth();
+        // 剧本编辑器刷的地形盖过网格(只有自定剧本有)
+        EarthTerrain.SetOverrides(era.Custom ? ScenarioCells.ToMap(era.terrain) : null);
         sizeIndex = Mathf.Clamp(sizeIndex, 0, frame.sizes.Length - 1);
         Vector2Int size = frame.sizes[sizeIndex];
         Generating = true;
@@ -85,7 +102,8 @@ public static class WorldMapGenerator
         WindowPreloader.addWaitForWindowResources();
         Step(() => world.era_manager.setDefaultAges(), "World Map: Ages");
         Step(() => EarthTerrain.Fill(frame, size), "World Map: Terrain", true);
-        Step(() => EarthTerrain.DrawRivers(frame, size), "World Map: Rivers");
+        // 导入地图没有河流图，不画地球的大河
+        if (!EarthTerrain.Imported) Step(() => EarthTerrain.DrawRivers(frame, size), "World Map: Rivers");
         Step(() =>
         {
             AssetManager.tiles.setListTo(DepthGeneratorType.Gameplay);

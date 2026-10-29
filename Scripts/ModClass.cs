@@ -370,7 +370,7 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
     }
 
     // 加载器存各模组设置的目录(NeoModLoader.constants.Paths.ModsConfigPath；按名字找，手机版没有就用存档目录下的 mods_config)
-    private static string ModsConfigFolder()
+    internal static string ModsConfigFolder()
     {
         try
         {

@@ -47,7 +47,21 @@ public static class EarthTerrain
         sizes = new[] { new Vector2Int(14, 9), new Vector2Int(28, 18), new Vector2Int(34, 22) }
     };
 
-    public static readonly WorldMapFrame[] Frames = { Eurasia, OldWorld };
+    // 半幅(用户 10-30 "仅东亚还是仅欧非西亚，可以把预设的地图从中间对半砍")：从中间(约东经 63°)劈开，同样的区块数看半边，细一倍。
+    // 东亚：中亚东半、南亚、东亚、东南亚北半，北到贝加尔湖一线；欧非西亚：欧洲、全非洲、西亚到伊朗
+    public static readonly WorldMapFrame EastAsia = new()
+    {
+        id = "eastasia", west = 62f, east = 152f, top = 62f,
+        sizes = new[] { new Vector2Int(14, 10), new Vector2Int(28, 20), new Vector2Int(32, 23) }
+    };
+
+    public static readonly WorldMapFrame WestWorld = new()
+    {
+        id = "westworld", west = -26f, east = 64f, centerLat = 21f,
+        sizes = new[] { new Vector2Int(10, 13), new Vector2Int(20, 25), new Vector2Int(24, 30) }
+    };
+
+    public static readonly WorldMapFrame[] Frames = { Eurasia, OldWorld, EastAsia, WestWorld };
 
     private static int _cols, _rows;
     private static float _lon0, _lat0, _step;
@@ -96,9 +110,156 @@ public static class EarthTerrain
         }
     }
 
+    // 剧本刷的地形(ScenarioCells.TerrainStep 一格 → 地块写法，见 ScenarioEditing)：铺地表时盖过网格
+    private static Dictionary<int, string> _overrides;
+
+    public static void SetOverrides(Dictionary<int, string> overrides) => _overrides = overrides is { Count: > 0 } ? overrides : null;
+
+    // 导入地图(剧本编辑器第五期，见 WorldMapImporter)：换上导入的网格(经纬度从 0 起)，UseEarth 换回地球网格
+    private static byte[] _earthGrid;
+    private static int _earthCols, _earthRows;
+    private static float _earthLon0, _earthLat0, _earthStep;
+
+    public static bool Imported { get; private set; }
+
+    public static string[] Types => _types ?? new string[0];
+
+    public static int CodeOf(string type) => _types == null ? -1 : Array.IndexOf(_types, type);
+
+    public static Color32 PreviewColorOf(string type) => PreviewColor(type ?? "");
+
+    public static void UseGrid(byte[] grid, int cols, int rows, float step)
+    {
+        if (grid == null || !EnsureLoaded()) return;
+        if (!Imported)
+        {
+            _earthGrid = _grid;
+            _earthCols = _cols;
+            _earthRows = _rows;
+            _earthLon0 = _lon0;
+            _earthLat0 = _lat0;
+            _earthStep = _step;
+        }
+        _grid = grid;
+        _cols = cols;
+        _rows = rows;
+        _lon0 = 0f;
+        _lat0 = 0f;
+        _step = step;
+        Imported = true;
+    }
+
+    public static void UseEarth()
+    {
+        if (!Imported) return;
+        _grid = _earthGrid;
+        _cols = _earthCols;
+        _rows = _earthRows;
+        _lon0 = _earthLon0;
+        _lat0 = _earthLat0;
+        _step = _earthStep;
+        Imported = false;
+    }
+
+    // 剧本编辑器的地形预览(见 ScenarioEditorScreen)：整张地表网格每 stride 格取一格，一格一像素(第 0 行在最下面)；
+    // 另给陆地标记(铺国家颜色只铺陆地)。颜色同 Tools/WorldMap/build_earth.py 的预览图
+    public static bool Preview(int stride, out Color32[] pixels, out bool[] land, out int width, out int height,
+        out float lon0, out float lat0, out float step)
+    {
+        pixels = null;
+        land = null;
+        width = height = 0;
+        lon0 = lat0 = step = 0f;
+        if (!EnsureLoaded() || stride < 1) return false;
+        width = _cols / stride;
+        height = _rows / stride;
+        lon0 = _lon0;
+        lat0 = _lat0;
+        step = _step * stride;
+        var lut = new Color32[_types.Length];
+        var dry = new bool[_types.Length];
+        for (int i = 0; i < _types.Length; i++)
+        {
+            lut[i] = PreviewColor(_types[i]);
+            dry[i] = !_types[i].Contains("ocean") && !_types[i].Contains("waters");
+        }
+        pixels = new Color32[width * height];
+        land = new bool[width * height];
+        for (int y = 0; y < height; y++)
+        for (int x = 0; x < width; x++)
+        {
+            byte code = _grid[y * stride * _cols + x * stride];
+            int index = y * width + x;
+            if (code >= lut.Length) code = 0;
+            pixels[index] = lut[code];
+            land[index] = dry[code];
+        }
+        return true;
+    }
+
+    // 地形大类(剧本编辑器铺图层颜色按它算代价)：0 水，1 平原，2 高原，3 丘陵，4 山地，5 雪山，6 荒漠冻土，7 雪丘
+    public static byte ClassOf(string type)
+    {
+        if (string.IsNullOrEmpty(type) || type.Contains("ocean") || type.Contains("waters")) return 0;
+        switch (type)
+        {
+            case "mountains": return 4;
+            case "mountains:snow_block": return 5;
+            case "hills": return 3;
+            case "hills:snow_hills": return 7;
+        }
+        if (type.Contains("desert") || type.Contains("permafrost")) return 6;
+        return type.EndsWith("_high") ? (byte)2 : (byte)1;
+    }
+
+    // 与 Preview 同样取样的地形大类
+    public static byte[] PreviewClasses(int stride)
+    {
+        if (!EnsureLoaded() || stride < 1) return null;
+        int width = _cols / stride, height = _rows / stride;
+        var lut = new byte[_types.Length];
+        for (int i = 0; i < _types.Length; i++) lut[i] = ClassOf(_types[i]);
+        var classes = new byte[width * height];
+        for (int y = 0; y < height; y++)
+        for (int x = 0; x < width; x++)
+        {
+            byte code = _grid[y * stride * _cols + x * stride];
+            classes[y * width + x] = code < lut.Length ? lut[code] : (byte)0;
+        }
+        return classes;
+    }
+
+    private static Color32 PreviewColor(string type)
+    {
+        switch (type)
+        {
+            case "deep_ocean": return new Color32(40, 90, 190, 255);
+            case "close_ocean": return new Color32(55, 120, 220, 255);
+            case "shallow_waters": return new Color32(80, 170, 240, 255);
+            case "sand": return new Color32(240, 220, 150, 255);
+            case "mountains": return new Color32(90, 90, 90, 255);
+            case "mountains:snow_block": return new Color32(245, 245, 250, 255);
+            case "hills": return new Color32(130, 125, 110, 255);
+            case "hills:snow_hills": return new Color32(215, 220, 230, 255);
+        }
+        bool high = type.EndsWith("_high");
+        string biome = type.Contains(":") ? type.Substring(type.IndexOf(':') + 1) : type;
+        if (biome.Contains("grass")) return high ? new Color32(70, 130, 45, 255) : new Color32(96, 160, 60, 255);
+        if (biome.Contains("savanna")) return high ? new Color32(180, 160, 70, 255) : new Color32(200, 190, 90, 255);
+        if (biome.Contains("jungle")) return high ? new Color32(30, 100, 30, 255) : new Color32(40, 120, 40, 255);
+        if (biome.Contains("desert")) return high ? new Color32(225, 195, 110, 255) : new Color32(245, 225, 150, 255);
+        if (biome.Contains("permafrost")) return high ? new Color32(180, 195, 210, 255) : new Color32(200, 215, 225, 255);
+        if (biome.Contains("birch")) return high ? new Color32(90, 130, 75, 255) : new Color32(110, 150, 90, 255);
+        if (biome.Contains("maple")) return high ? new Color32(110, 140, 60, 255) : new Color32(130, 160, 70, 255);
+        if (biome.Contains("swamp")) return high ? new Color32(80, 100, 50, 255) : new Color32(90, 110, 60, 255);
+        return new Color32(96, 160, 60, 255);
+    }
+
     // 经纬度处的地块写法(超出网格按深海)
     public static string TypeAt(float lon, float lat)
     {
+        if (_overrides != null && _overrides.TryGetValue(ScenarioCells.Key(lon, lat, ScenarioCells.TerrainStep), out string painted))
+            return painted;
         int col = Mathf.RoundToInt((lon - _lon0) / _step);
         int row = Mathf.RoundToInt((lat - _lat0) / _step);
         if (_grid == null || col < 0 || row < 0 || col >= _cols || row >= _rows) return "deep_ocean";

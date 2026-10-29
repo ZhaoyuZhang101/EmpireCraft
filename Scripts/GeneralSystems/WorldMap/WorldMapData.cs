@@ -18,6 +18,8 @@ public sealed class WorldMapRegion
     [JsonProperty("c")] public string culture = "";
     // 王国法理名(华夏为单字国名，如关中=雍、巴蜀=蜀)："简体|英文|繁体"；地区名本身记作法理的省份名
     [JsonProperty("t")] public string title = "";
+    // 王国法理的首都(城编号，剧本编辑器里定；不写取地区里的国都，再不然最大的城，见 WorldMapScenario.BuildTitles)
+    [JsonProperty("cap")] public string capital = "";
 
     public string Name => WorldMapData.Pick(zh, tw, en);
     public string TitleName => string.IsNullOrEmpty(title) ? Name : WorldMapData.PickParts(title);
@@ -94,6 +96,81 @@ public sealed class WorldMapPerson
 
 // 开局外交关系(见 Tools/WorldMap/relations_source.py)：a、b 是本档的国 id；kind 见 DiplomacyActions.ApplyScenario；
 // goal 战争目标(WarGoal 的名字，如"夺城")，value 旧谊/宿怨的分量
+// 笔刷记的一种归属或地形与它的格子(格子编号见 ScenarioCells.Pack)
+public sealed class WorldMapPaint
+{
+    public string key = "";
+    public List<int> cells = new();
+}
+
+// 原始部落圈(用户 10-30 转述："画一个圈，里面就是相对文化的原始部落")：圆心经纬度、半径(度)、文化、几个部落(0 按圈的大小自动)
+public sealed class WorldMapTribes
+{
+    public float[] at;
+    public float radius = 3f;
+    public string culture = "";
+    public int count;
+}
+
+// 笔刷的格子：按经纬度的绝对网格编号(与地图范围无关)，地块归属 0.2° 一格、地形 0.1° 一格
+public static class ScenarioCells
+{
+    public const float LandStep = 0.2f, TerrainStep = 0.1f;
+
+    public static int Pack(int i, int j) => (j + 2000) * 10000 + (i + 5000);
+
+    public static void Unpack(int key, out int i, out int j)
+    {
+        i = key % 10000 - 5000;
+        j = key / 10000 - 2000;
+    }
+
+    public static int Key(float lon, float lat, float step) => Pack((int)Math.Floor(lon / step), (int)Math.Floor(lat / step));
+
+    public static Dictionary<int, string> ToMap(List<WorldMapPaint> list)
+    {
+        var map = new Dictionary<int, string>();
+        foreach (WorldMapPaint paint in list ?? new List<WorldMapPaint>())
+            if (paint?.cells != null && !string.IsNullOrEmpty(paint.key))
+                foreach (int cell in paint.cells) map[cell] = paint.key;
+        return map;
+    }
+
+    public static List<WorldMapPaint> FromMap(Dictionary<int, string> map) =>
+        map == null || map.Count == 0 ? null
+        : map.GroupBy(pair => pair.Value).OrderBy(group => group.Key, StringComparer.Ordinal)
+            .Select(group => new WorldMapPaint { key = group.Key, cells = group.Select(pair => pair.Key).OrderBy(cell => cell).ToList() })
+            .ToList();
+}
+
+// 剧情事件(剧本编辑器第四期，用户 10-30 "剧情事件：要，选项拼搭")：时机 + 条件(全部满足) + 结果，进世界后每年查一次
+// (见 ScenarioEventSystem)。after 为开局后第几年起；repeat 为满足就再触发(否则只触发一次)；text 写进史书与屏幕提示(空的用 name)
+public sealed class WorldMapEvent
+{
+    public string name = "";
+    public string text = "";
+    public int after;
+    public bool repeat;
+    public List<WorldMapEventStep> when = new();
+    public List<WorldMapEventStep> then = new();
+}
+
+// 事件的一条条件或结果：kind 定种类，其余按种类用(a、b 国家编号，city 城编号，region 地区编号，value 数，name 国号，
+// relation 关系种类、goal 战争目标，culture 文化)
+public sealed class WorldMapEventStep
+{
+    public string kind = "";
+    public string a = "";
+    public string b = "";
+    public string city = "";
+    public string region = "";
+    public int value;
+    public string name = "";
+    public string relation = "";
+    public string goal = "";
+    public string culture = "";
+}
+
 // 长城、边墙：name "简体|英文|繁体"，pts 是 [经度, 纬度] 折线(两点之间铺墙时沿山脊找路)
 public sealed class WorldMapWall
 {
@@ -202,10 +279,33 @@ public sealed class WorldMapColony
 
 public sealed class WorldMapEra
 {
+    // 自定剧本(剧本编辑器，见 Docs/plan-scenario-editor.md、WorldMapData.LoadCustom)：作者；另带的整套城表(架空地图，
+    // 不带的用内置 cities.json；带了的帝国法理写在本剧本的 cores 里)；以下三项内置时代文件都不写
+    public string author = "";
+    public List<WorldMapRegion> regions;
+    public List<WorldMapCity> cities;
+    public Dictionary<string, string> tianxia;
+    // 导入地图(剧本文件夹里的 map.png，见 WorldMapImporter)；不写用地球地图
+    public WorldMapImport map;
+    // 剧本编辑器的笔刷(见 ScenarioCells)：刷的地块归属(0.2° 一格，key 为 "p:国家编号" 或 "r:地区编号"，开局先归那国或那块法理最近的城)
+    // 与地形(0.1° 一格，key 为地块写法，开局铺地表时盖过网格)；原始部落圈(见 WorldMapScenario.PlanTribes)
+    public List<WorldMapPaint> paint;
+    public List<WorldMapPaint> terrain;
+    public List<WorldMapTribes> tribes;
+    // 地图范围(EarthTerrain.Frames 的编号)：选这个剧本时默认选这档，编辑器里画出框；不写不改
+    public string frame;
+    // 读进来时定：剧本文件夹(内置时代为空)、对不上的地方(开局时跳过)
+    [JsonIgnore] public string folder = "";
+    [JsonIgnore] public List<string> problems = new();
+    [JsonIgnore] public bool Custom => !string.IsNullOrEmpty(folder);
+    // 自带城表：写了城，或用导入地图(导入地图上没有内置的地球城，城表可以是空的)
+    [JsonIgnore] public bool OwnWorld => cities != null && (cities.Count > 0 || map != null);
     // 开局外交关系(在打的仗、朝贡、和亲、同盟、旧谊宿怨)
     public List<WorldMapRelation> relations = new();
     // 长城、边墙与关隘(见 Tools/WorldMap/walls_source.py、WorldMapWalls)
     public List<WorldMapWall> walls = new();
+    // 剧情事件(剧本编辑器第四期，见 ScenarioEventSystem)
+    public List<WorldMapEvent> events = new();
     public List<WorldMapPass> passes = new();
     public string id = "";
     public int year;
@@ -396,6 +496,132 @@ public static class WorldMapData
     public static WorldMapRegion Region(string id) =>
         id != null && _regionById.TryGetValue(id, out WorldMapRegion region) ? region : null;
 
+    // 内置的城表(切到带自己城表的自定剧本再切回来用)
+    private static List<WorldMapRegion> _builtinRegions = new();
+    private static List<WorldMapCity> _builtinCities = new();
+    private static List<WorldMapCore> _builtinCores = new();
+    private static Dictionary<string, string> _builtinTianxia = new();
+
+    // 内置城表(剧本编辑器头一回改城时整套拷进剧本，见 ScenarioEditing.EnsureOwnWorld)
+    public static List<WorldMapRegion> BuiltinRegions => _builtinRegions;
+    public static List<WorldMapCity> BuiltinCities => _builtinCities;
+    public static List<WorldMapCore> BuiltinCores => _builtinCores;
+    public static Dictionary<string, string> BuiltinTianxia => _builtinTianxia;
+
+    // 开局用哪套城表：自定剧本带了自己的城表就用它的(帝国法理只用剧本里的)，否则用内置的
+    public static void Activate(WorldMapEra era)
+    {
+        if (!EnsureLoaded()) return;
+        bool own = era?.OwnWorld == true;
+        Regions = own ? era.regions ?? new List<WorldMapRegion>() : _builtinRegions;
+        Cities = own ? era.cities : _builtinCities;
+        Cores = own ? new List<WorldMapCore>() : _builtinCores;
+        TianxiaNames = own && era.tianxia != null ? era.tianxia : _builtinTianxia;
+        _regionById = Regions.Where(region => !string.IsNullOrEmpty(region.id))
+            .GroupBy(region => region.id).ToDictionary(group => group.Key, group => group.First());
+    }
+
+    #region 自定剧本
+
+    // 自定剧本(剧本编辑器第一期，见 Docs/plan-scenario-editor.md)：mods_config/EmpireCraft/scenarios/<剧本名>/scenario.json，
+    // 写法同一个时代文件(eras/*.json)，可另带作者与自己的城表；整个文件夹拷给别人放进同一目录就能用
+    public const string CustomFile = "scenario.json";
+    public static List<WorldMapEra> Custom { get; private set; } = new();
+
+    public static string CustomFolder => Path.Combine(ModClass.ModsConfigFolder(), "EmpireCraft", "scenarios");
+
+    // 重新扫一遍剧本文件夹(打开世界地图窗口、点刷新时)
+    public static void LoadCustom()
+    {
+        var list = new List<WorldMapEra>();
+        try
+        {
+            if (Directory.Exists(CustomFolder))
+                foreach (string dir in Directory.GetDirectories(CustomFolder).OrderBy(path => path, StringComparer.Ordinal))
+                {
+                    string path = Path.Combine(dir, CustomFile);
+                    if (!File.Exists(path)) continue;
+                    try
+                    {
+                        WorldMapEra era = JsonConvert.DeserializeObject<WorldMapEra>(File.ReadAllText(path));
+                        if (era == null) continue;
+                        era.folder = dir;
+                        era.id = "custom/" + Path.GetFileName(dir);
+                        if (string.IsNullOrEmpty(era.zh) && string.IsNullOrEmpty(era.en)) era.zh = era.en = era.tw = Path.GetFileName(dir);
+                        era.problems = Check(era);
+                        list.Add(era);
+                    }
+                    catch (Exception exception)
+                    {
+                        LogService.LogWarning($"[EmpireCraft][世界地图] 自定剧本读不出来 {path}: {exception.Message}");
+                    }
+                }
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft][世界地图] 剧本文件夹读不出来 {CustomFolder}: {exception.Message}");
+        }
+        Custom = list;
+    }
+
+    // 剧本里对不上的地方(都城、地区不在城表里，国家编号重复，关系里写了不存在的国家)：只提示，开局时那几条跳过
+    private static List<string> Check(WorldMapEra era)
+    {
+        var problems = new List<string>();
+        IEnumerable<WorldMapCity> cities = era.OwnWorld ? era.cities : _builtinCities;
+        IEnumerable<WorldMapRegion> regions = era.OwnWorld ? era.regions ?? new List<WorldMapRegion>() : _builtinRegions;
+        var cityIds = new HashSet<string>(cities.Select(city => city.id));
+        var regionIds = new HashSet<string>(regions.Select(region => region.id));
+        var polityIds = new HashSet<string>();
+        foreach (WorldMapPolity polity in era.polities ?? new List<WorldMapPolity>())
+        {
+            if (!polityIds.Add(polity.id))
+                problems.Add(string.Format(NeoModLoader.General.LM.Get("world_map_custom_problem_duplicate"), polity.id));
+            if (!string.IsNullOrEmpty(polity.capital) && !cityIds.Contains(polity.capital))
+                problems.Add(string.Format(NeoModLoader.General.LM.Get("world_map_custom_problem_capital"), polity.Name, polity.capital));
+            foreach (string region in polity.regions ?? new List<string>())
+                if (!regionIds.Contains(region))
+                    problems.Add(string.Format(NeoModLoader.General.LM.Get("world_map_custom_problem_region"), polity.Name, region));
+        }
+        foreach (WorldMapRelation relation in era.relations ?? new List<WorldMapRelation>())
+            foreach (string id in new[] { relation.a, relation.b })
+                if (!polityIds.Contains(id ?? ""))
+                    problems.Add(string.Format(NeoModLoader.General.LM.Get("world_map_custom_problem_relation"), id));
+        return problems.Distinct().ToList();
+    }
+
+    // 把一个预设剧本复制成自定剧本(原样拷时代文件，改编号、剧本名，加作者一栏)；返回新剧本的文件夹名，失败返回 null
+    public static string CopyAsCustom(WorldMapEra preset, string frame = null)
+    {
+        if (preset == null || preset.Custom) return null;
+        try
+        {
+            string source = Path.Combine(Folder, "eras", preset.id + ".json");
+            if (!File.Exists(source)) return null;
+            Directory.CreateDirectory(CustomFolder);
+            string name = preset.id;
+            for (int i = 2; Directory.Exists(Path.Combine(CustomFolder, name)); i++) name = preset.id + "_" + i;
+            string dir = Path.Combine(CustomFolder, name);
+            Directory.CreateDirectory(dir);
+            var data = Newtonsoft.Json.Linq.JObject.Parse(File.ReadAllText(source));
+            data["id"] = name;
+            string suffix = NeoModLoader.General.LM.Get("world_map_custom_copy_suffix");
+            foreach (string key in new[] { "zh", "tw", "en" })
+                if (data[key] != null) data[key] = (string)data[key] + suffix;
+            data["author"] = "";
+            if (!string.IsNullOrEmpty(frame)) data["frame"] = frame;
+            File.WriteAllText(Path.Combine(dir, CustomFile), data.ToString(Formatting.Indented));
+            return name;
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft][世界地图] 存为自定剧本失败: {exception.Message}");
+            return null;
+        }
+    }
+
+    #endregion
+
     public static bool EnsureLoaded()
     {
         if (_loaded) return Eras.Count > 0 && Cities.Count > 0;
@@ -407,6 +633,10 @@ public static class WorldMapData
             Cities = cityFile?.cities ?? new List<WorldMapCity>();
             Cores = cityFile?.cores ?? new List<WorldMapCore>();
             TianxiaNames = cityFile?.tianxia ?? new Dictionary<string, string>();
+            _builtinRegions = Regions;
+            _builtinCities = Cities;
+            _builtinCores = Cores;
+            _builtinTianxia = TianxiaNames;
             _regionById = Regions.Where(region => !string.IsNullOrEmpty(region.id))
                 .GroupBy(region => region.id).ToDictionary(group => group.Key, group => group.First());
             string historyPath = Path.Combine(Folder, "history.json");

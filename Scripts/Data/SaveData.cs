@@ -72,4 +72,6 @@ public class SaveData
     public float world_map_zone_km = 0f;
     // 世界地图的范围、大小、时代、开局年份与无人区的史实归属(见 WorldMapWilderness；不是世界地图为 null)
     public EmpireCraft.Scripts.GeneralSystems.WorldMap.WorldMapWildSave world_map_wild;
+    // 自定剧本的剧情事件与剧本里的国、城、地区对上的编号、触发过的(见 ScenarioEventSystem；没有剧情事件为 null)
+    public EmpireCraft.Scripts.GeneralSystems.WorldMap.ScenarioEventSave world_map_events;
 }

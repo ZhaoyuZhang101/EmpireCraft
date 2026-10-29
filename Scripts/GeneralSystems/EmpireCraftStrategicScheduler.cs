@@ -54,6 +54,8 @@ public static class EmpireCraftStrategicScheduler
         // 加载界面等它做完才揭开，暂停着也照做
         EmpireCraft.Scripts.GeneralSystems.WorldMap.WorldMapScenario.TickAfterLoad();
         if (Config.paused) return;
+        // 自定剧本的剧情事件(每年查一次，见 ScenarioEventSystem)
+        EmpireCraft.Scripts.GeneralSystems.WorldMap.ScenarioEventSystem.Tick();
         // 读档后第 1、6、12、36 个月对一次帝国的账(见 EmpireLossDiagnostics)，平时第一行就返回
         EmpireCraft.Scripts.Diagnostics.EmpireLossDiagnostics.Tick();
         // 计时标签都是字面量(不每帧拼字符串)；路网、行政控制力、文化辐射、地方稳定与财政在各自里面计时

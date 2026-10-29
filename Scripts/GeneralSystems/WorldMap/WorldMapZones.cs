@@ -263,7 +263,8 @@ internal static class WorldMapZones
 
     // 补空：离已有辖地(按地形代价，含跨海)最远的无主宜居区块，一块块挑出来立新城，直到处处离辖地都不到 minCost；
     // 挑一块就从它往外重算一遍远近。usable 判断这块能不能立城(开头判一次)
-    public static List<int> Gaps(float minCost, int max, Func<int, bool> usable)
+    // seeds：还没建成城、但已占定的区块(原始部落圈立的部落)，补空时离它们也要够远
+    public static List<int> Gaps(float minCost, int max, Func<int, bool> usable, IEnumerable<int> seeds = null)
     {
         var cost = new float[_travel.Length];
         var heap = new MinHeap();
@@ -273,6 +274,12 @@ internal static class WorldMapZones
             if (_zones[i]?.city == null) continue;
             cost[i] = 0f;
             heap.Push(0f, i);
+        }
+        foreach (int seed in seeds ?? Array.Empty<int>())
+        {
+            if (seed < 0 || seed >= cost.Length || cost[seed] == 0f) continue;
+            cost[seed] = 0f;
+            heap.Push(0f, seed);
         }
         Relax(cost, heap);
         var candidates = new List<int>();
