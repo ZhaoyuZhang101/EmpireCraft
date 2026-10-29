@@ -182,6 +182,13 @@ public static class WildernessSystem
         return around != null && !around.isRekt() ? around : null;
     }
 
+    // 取得这块无人区所挂法理的国家(不管永久中立、周边的城；悬停提示里写明法理归谁，看得出为什么没并进国土)
+    public static Kingdom HolderOf(TileZone zone)
+    {
+        KingdomTitle title = TitleOf(zone);
+        return title != null && Owners.TryGetValue(title, out Kingdom holder) && holder != null && !holder.isRekt() ? holder : null;
+    }
+
     // 这块无人区是因取得法理而归属的(不是因周边的城同属一国)：悬停提示里写明是哪个法理
     public static bool OwnedByTitle(TileZone zone)
     {

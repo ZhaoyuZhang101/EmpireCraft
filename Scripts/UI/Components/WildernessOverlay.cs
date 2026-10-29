@@ -706,6 +706,18 @@ public static class WildernessOverlay
             tooltip.addLineText(NeoModLoader.General.LM.Get("wild_tooltip_owner"), value, "#E6C27A", pPercent: false,
                 pLocalize: false);
         }
+        // 法理与取得法理的国家：没并进国土时看得出是没挂法理、法理无人取得，还是周边的城不同属一国(用户 2026-10-29
+        // "为什么这里的雨林明明属于广法理却没有被纳入广德国土显示呢")
+        if (_tipZone != null && !region.Neutral)
+        {
+            KingdomTitle title = WildernessSystem.TitleOf(_tipZone);
+            Kingdom holder = WildernessSystem.HolderOf(_tipZone);
+            tooltip.addLineText(NeoModLoader.General.LM.Get("wild_tooltip_title_line"),
+                title?.data?.name ?? NeoModLoader.General.LM.Get("wild_tooltip_title_none"), "#D9C79A", pPercent: false, pLocalize: false);
+            if (title != null)
+                tooltip.addLineText(NeoModLoader.General.LM.Get("wild_tooltip_holder"),
+                    holder?.name ?? NeoModLoader.General.LM.Get("wild_tooltip_holder_none"), "#D9C79A", pPercent: false, pLocalize: false);
+        }
         tooltip.addBottomDescription(NeoModLoader.General.LM.Get("wild_tooltip_hint"));
     }
 }
