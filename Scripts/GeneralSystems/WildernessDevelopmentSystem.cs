@@ -42,8 +42,9 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //         纯荒地为零的规矩(BarrenLandSystem)不动；
 //   · 神力「开发」(见 SettlementPowers)：刷到的雨林、大泽无人区地块开发度涨一截，不看科技与归属
 //     (用户 2026-10-20 "手动放置建筑时候不要有任何限制")；
-//   · 剧本(世界地图各时代)可直接设初始开发度(SetDevelopment，当场把格子改到相应比例)：进世界安排里、头一回划区之前设最好，
-//     划区时开发中的地块照记下的类型留在无人区，不必再等一次重划。
+//   · 剧本(世界地图各时代)可直接设初始开发度(SetDevelopment，当场把格子改到相应比例)：没归城的地块头一回划区之前设也行，
+//     划区时开发中的照记下的类型留在无人区；归了城的地块不照记下的类型留(见 WildernessSystem.Reclassify)，剧本开局铺满时
+//     地块多已归城，所以世界地图是先把地形改回丛林沼泽、当场划一次区(从城里划出来)再设(见 WorldMap.WorldMapDevelopment)。
 // 显示：悬停提示一行开发度与状态(见 WildernessOverlay.ShowTooltip)，图层上开发中的地块底色淡一点(见 Fade)。
 public class WildDevelopmentData
 {

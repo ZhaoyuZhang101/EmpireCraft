@@ -1406,6 +1406,15 @@ public static class WorldMapScenario
         _afterLoad.Add(("市场开市", CommodityMarketSystem.SettleNow));
         // 开局铺好相邻城之间的干道(路网规划算完后修通，见 RoadBuildingSystem.SeedAtScenarioStart)
         _afterLoad.Add(("开局干道", RoadBuildingSystem.SeedAtScenarioStart));
+        // 雨林大泽开发度按时代(用户 10-29 "沼泽雨林什么的开发度也要在剧本模式里面体现出来, 比如春秋战国到漢南方都没怎么开发的")：
+        // 当年没开出来的地改回丛林沼泽，当场划一次无人区再设开发度，所以排在最后(见 WorldMapDevelopment)
+        if (_era != null)
+        {
+            WorldMapEra devEra = _era;
+            WorldMapFrame devFrame = _frame;
+            Vector2Int devSize = _size;
+            _afterLoad.Add(("雨林大泽开发度", () => WorldMapDevelopment.Apply(devEra, devFrame, devSize)));
+        }
     }
 
     // 用户 2026-10-29 "日本幕府的天皇去哪儿了""天皇不应该是万世一系的吗"：以前德川家光直接坐了日本的君位，天皇家没生出来

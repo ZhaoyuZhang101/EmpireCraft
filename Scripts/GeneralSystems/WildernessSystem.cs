@@ -254,6 +254,13 @@ public static class WildernessSystem
         Version++;
     }
 
+    // 当场整图重判重划(剧本开局按时代改过地形后，见 WorldMap.WorldMapDevelopment)：不等进世界安排做完、不等停手，划过的也重划
+    public static void BuildNow()
+    {
+        if (!_enabled || World.world?.zone_calculator?.zones == null || World.world.cities == null) return;
+        using (FrameProfiler.Measure("无人区·划区")) Build(true, true);
+    }
+
     // 一块地开发满了(或开满的又改回去，见 WildernessDevelopmentSystem)：停手后重划，开满的留给城
     public static void OnDeveloped(TileZone zone)
     {

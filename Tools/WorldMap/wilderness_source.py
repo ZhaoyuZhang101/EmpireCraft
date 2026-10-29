@@ -277,6 +277,29 @@ U("wuyi", "M", "武夷山", "Wuyi Mountains", pts=[[116.8, 26.8], [117.6, 27.6],
 U("nanling", "M", "南岭", "Nanling Mountains", pts=[[110.2, 25.6], [111.8, 25.2], [113.3, 25], [114.8, 24.8]], r=0.7,
   c={"Huaxia": ["-220~|五岭|Five Ridges|五嶺"]})
 U("taiwan_central", "MJ", "中央山脉", "Central Mountain Range", pts=[[121.1, 24], [121, 23.2]], r=0.6)
+# 南方的雨林、大泽：地表网格是今天的草地，剧本按时代改回当年没开出来的丛林沼泽(WorldMaps/development.json，
+# 见 WorldMapDevelopment.cs)，这里给它们起真实地名(不给的话会被近处的长山山脉、中央山脉吸过去)
+U("yunmeng", "S", "云梦泽", "Yunmeng Marsh", box=[[112.3, 29.85, 114.2, 31.1]])
+U("dongting", "S", "洞庭湖区", "Dongting Lake Wetlands", box=[[111.8, 28.5, 113.2, 29.85]])
+# 《禹贡》"彭蠡既潴"；隋唐南扩，始称鄱阳湖
+U("pengli", "S", "鄱阳湖区", "Poyang Lake Wetlands", box=[[115.6, 28.5, 117.0, 30.0]], alt=["600|彭蠡泽|Pengli Marsh|彭蠡澤"])
+# 《禹贡》"震泽底定"
+U("taihu_marsh", "S", "太湖沼泽", "Lake Tai Marshes", box=[[118.9, 30.3, 121.9, 32.0]], alt=["600|震泽|Zhenze Marsh|震澤"])
+U("jianghuai_marsh", "S", "江淮湖荡", "Jianghuai Wetlands", box=[[116.6, 31.3, 121.0, 33.9]])
+# 孙吴屡讨丹阳、新都山越(《三国志·诸葛恪传》)
+U("wannan", "J", "皖南山地", "Southern Anhui Hills", box=[[117.2, 29.2, 120.0, 31.0]], alt=["-220~600|山越|Shanyue Highlands|山越"])
+U("zhenan", "J", "浙南山地", "Southern Zhejiang Hills", box=[[118.2, 27.2, 121.9, 29.6]])
+U("minzhong", "J", "闽中山地", "Fujian Uplands", box=[[115.9, 23.5, 120.6, 28.3]])
+U("jiangnan_hills", "J", "江南丘陵", "Jiangnan Hills", box=[[109.5, 24.5, 118.3, 29.9]])
+# 五溪蛮(《后汉书·南蛮传》)，雍正改土归流前多为土司
+U("wuling", "J", "武陵山区", "Wuling Mountains", box=[[108.3, 26.8, 110.9, 30.6]], alt=["1700|五溪|Wuxi|五溪"])
+U("lingnan_jungle", "J", "岭南丛林", "Lingnan Jungle", box=[[107.8, 20.2, 117.3, 26.3]])
+U("zuoyoujiang", "J", "左右江山林", "Zuo-You River Forests", box=[[104.5, 21.6, 107.8, 25.6]])
+U("qianzhong", "J", "黔中山林", "Guizhou Highland Forests", box=[[103.7, 24.8, 109.5, 29.5]])
+U("hainan_rainforest", "J", "海南雨林", "Hainan Rainforest", box=[[108.5, 18.1, 111.1, 20.2]])
+# 早期南方连成一大片丛林时的总名(百越之地，《汉书·地理志》颜注"自交阯至会稽七八千里，百越杂处")
+U("southern_forests", "J", "南方山林", "Southern China Forests", box=[[104.5, 20.2, 122.0, 31.0]],
+  alt=["600|百越山林|Baiyue Forests|百越山林"])
 # 《魏书·序纪》鲜卑先世"国有大鲜卑山"，嘎仙洞石室在大兴安岭北段
 U("greater_khingan", "MT", "大兴安岭", "Greater Khingan",
   pts=[[118, 44], [119.3, 45.6], [120.2, 47.3], [121, 49], [121.5, 50.8], [121.8, 52.5], [122.5, 53.3]], r=1.0,
