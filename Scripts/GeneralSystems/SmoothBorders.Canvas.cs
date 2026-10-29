@@ -21,7 +21,11 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     分几帧对一遍各块，变了的块连同四周重算；
 //   · 颜色：边框、战线朱红、帝国金边、兼属斜纹、提亮都按格现查，换图层整张一遍、当帧完成，不翻牌；
 //   · 城换了主(不算被占、收复)：镜头里的地块照旧翻牌，从新主人那边一圈圈翻过来(同 PlanSweeps)，挨着的邻块翻到一半时跟着换；
-//   · 原版各处让地块重画的信号(战线、兼属斜纹、水陆、占领、推进……，见 Stamp、Repaint)都记成要重画的块，下一帧画好。
+//   · 原版各处让地块重画的信号(战线、兼属斜纹、水陆、占领、推进……，见 Stamp、Repaint)都记成要重画的块，下一帧画好；
+//   · 无人区(用户 2026-10-29 "平滑模式下图层要完全贴合地形")：哪些格是无人区按格贴着地形定(见 UI.Components.WildernessShape)，
+//     这些格不归任何城(城的轮廓在那里让开，算轮廓时无人区的地块也不当候选，城的地盘一直伸到无人区的格为止，不留缝、不叠色)；
+//     国家、帝国图层(按城池归属那一档)上不归城的格按图层补的归属涂：并进国土的无人区(WildernessTerritory)按这片各块的持有国平滑、
+//     轮廓同样贴地形，被一国包住的无主地(EnclaveFill)按本块的——以前画布只认城，这两样在平滑国界下都是空的。
 // 原版画法的图层(教化、政令、财富这类热力图)照旧走原版巡检(ZonePaintBudget 分帧)。
 // 画布出错时本局退回原版巡检(见 CanvasDraw)。
 public static partial class SmoothBorders
@@ -42,6 +46,14 @@ public static partial class SmoothBorders
     private static int[] _zoneCity = Array.Empty<int>(), _zoneShade = Array.Empty<int>(), _zonePush = Array.Empty<int>(),
         _zoneOwner = Array.Empty<int>(), _zoneOwnerKey = Array.Empty<int>();
     private static bool[] _zoneSeen = Array.Empty<bool>();
+    // 不归城的块在国家、帝国图层(按城池归属那一档)上补的归属与它的样子(并进国土的无人区、被一国包住的无主地，见 FillAt)；
+    // 有补的块记成一串，几帧对一遍样子(持有国换色)
+    private static int[] _zoneFill = Array.Empty<int>(), _zoneFillKey = Array.Empty<int>();
+    private static bool[] _fillListed = Array.Empty<bool>();
+    private static readonly List<int> FillZones = new();
+    private static int _fillCursor;
+    // 无人区的格变了的块(见 WildReshaped)：城的轮廓要重算
+    private static readonly HashSet<int> CanvasReshape = new();
 
     // 城的编号表(与归属编号表分开：城的轮廓不随图层、不随归属编号表重排而变)
     private static readonly List<City> CityTable = new() { null };
@@ -77,6 +89,21 @@ public static partial class SmoothBorders
 
     internal static bool CanvasActive => _canvasLayer != null && _canvasReady;
 
+    // 这个图层由画布画(无人区图层据此按格贴地形画，见 WildernessOverlay)
+    internal static bool CanvasDraws(MetaTypeAsset layer) => layer != null && CanvasHandles(layer, layer.getZoneOptionState());
+
+    // 画布上这一格归了谁(无人区图层：无人区的格有归属是并进了国土，只留纹样；挨着有归属的格不描外沿)
+    internal static bool CanvasOwns(int tileId) =>
+        Enabled && _canvasLayer != null && (uint)tileId < (uint)_owner.Length && _owner[tileId] != 0;
+
+    // 这块地的无人区格子变了，或周围有地块成了、不再是无人区(见 WildernessShape)：下一帧重算城的轮廓、归属、颜色
+    internal static void WildReshaped(int zoneId)
+    {
+        if (!_geometryReady || zoneId < 0 || zoneId >= _zoneSeen.Length) return;
+        CanvasDirty.Add(zoneId);
+        CanvasReshape.Add(zoneId);
+    }
+
     private static void CanvasReset()
     {
         _canvasLayer = null;
@@ -85,6 +112,7 @@ public static partial class SmoothBorders
         _geometryReady = false;
         _canvasWorld = null;
         CanvasDirty.Clear();
+        CanvasReshape.Clear();
         CanvasNoFlip.Clear();
         CityTable.Clear();
         CityTable.Add(null);
@@ -175,6 +203,8 @@ public static partial class SmoothBorders
             return false;
         }
         using var timing = FrameProfiler.Measure("平滑国界·整图画布");
+        // 无人区按格贴地形：先对上这一帧的(变了的块记进 CanvasDirty，下面一起画)
+        WildernessShape.Tick();
         EnsurePixelState(calc.pixels);
         if (!ReferenceEquals(_canvasWorld, World.world) || _canvasW != MapBox.width || _canvasH != MapBox.height ||
             _zonesX != calc.zones_total_x || _zonesY != calc.zones_total_y)
@@ -228,8 +258,14 @@ public static partial class SmoothBorders
             _zoneOwnerKey = new int[zones];
             _zoneSeen = new bool[zones];
             _shapeKey = new int[zones];
+            _zoneFill = new int[zones];
+            _zoneFillKey = new int[zones];
+            _fillListed = new bool[zones];
             _geometryReady = false;
         }
+        // 补归属的块：下面各块重取时重记
+        FillZones.Clear();
+        Array.Clear(_fillListed, 0, _fillListed.Length);
         // 归属编号表攒多了：整张重画时清空重来(建的途中重排会打乱各块记下的编号)
         if (OwnerTable.Count > MaxOwners / 2)
         {
@@ -274,9 +310,11 @@ public static partial class SmoothBorders
             // 画布没开着时水陆变了的块(有重画信号)、周围的城变了的块(比轮廓记下的 3×3 块的城)：只重算这几块的轮廓
             foreach (int id in CanvasDirty)
                 if (RefreshWater(id)) MarkShapeAround(id);
+            // 无人区的格变了的块：轮廓指纹里有它的重算记号(见 ShapeKey)，下面一起补
             RepairCityShapes();
         }
         CanvasDirty.Clear();
+        CanvasReshape.Clear();
         _paletteStamp = PaletteStamp(calc);
         BeginCanvasColors();
         for (int zy = 0; zy < _zonesY; zy++)
@@ -287,6 +325,8 @@ public static partial class SmoothBorders
             ColorZone(calc.pixels, zx, zy);
         _canvasReady = true;
         calc.setDirty();
+        // 无人区图层看画布上各格归了谁(并进国土、挨着国土不描边)：整张画过，贴地形的那些块都重画
+        if (WildernessShape.Active) WildernessOverlay.CanvasRebuilt();
         double ms = (Stopwatch.GetTimestamp() - started) * 1000d / Stopwatch.Frequency;
         LogService.LogInfo($"[EmpireCraft][全图换色] {layer.id}：整图画布{(geometry ? "连同城的轮廓" : "")}整张画好，用了 {ms:0} 毫秒");
     }
@@ -316,6 +356,8 @@ public static partial class SmoothBorders
             for (int dy = -1; dy <= 1; dy++)
             for (int dx = -1; dx <= 1; dx++)
                 key = key * 31 + ZoneCityAt(zx + dx, zy + dy);
+            // 无人区的格、周围是不是无人区变了(这块重算一次记号加一，见 WildernessShape)
+            key = key * 31 + WildernessShape.ZoneStamp(zy * _zonesX + zx);
             return key == 0 ? 1 : key;
         }
     }
@@ -403,6 +445,30 @@ public static partial class SmoothBorders
                 City city = cities[_cityCursor++];
                 if (city?.zones == null || city.zones.Count == 0 || !city.isAlive()) continue;
                 ScanCity(layer, option, city);
+            }
+        }
+        // 补了归属的块(并进国土的无人区、被包住的无主地)：补的是谁由那两处变了时让地块重画(resetRenderHelpers)，
+        // 这里分几帧对一遍样子(持有国换色、进出帝国)
+        if (FillZones.Count > 0)
+        {
+            int count = Mathf.CeilToInt(FillZones.Count / (float)ZoneScanParts);
+            for (int i = 0; i < count && FillZones.Count > 0; i++)
+            {
+                if (_fillCursor >= FillZones.Count) _fillCursor = 0;
+                int id = FillZones[_fillCursor];
+                if (_zoneFill[id] == 0)
+                {
+                    // 不再补的：移出这一串
+                    _fillListed[id] = false;
+                    FillZones[_fillCursor] = FillZones[FillZones.Count - 1];
+                    FillZones.RemoveAt(FillZones.Count - 1);
+                    continue;
+                }
+                _fillCursor++;
+                TileZone zone = calc.getZone(id % _zonesX, id / _zonesX);
+                if (zone == null || zone.city != null) continue;
+                IMetaObject fill = LayerMeta(layer, option, zone);
+                if (IndexOf(fill) != _zoneFill[id] || CanvasOwnerKey(layer, fill) != _zoneFillKey[id]) CanvasDirty.Add(id);
             }
         }
         // 逐格推进的块：推进方变了的
@@ -502,8 +568,11 @@ public static partial class SmoothBorders
                 OwnerZones.Add(near);
             }
             if (political && !CanvasNoFlip.Contains(id)) LeadZones.Add(id);
+            // 无人区的格变了：只这块的城的轮廓重算(周围的块的轮廓若也跟着变，WildernessShape 一并记了)
+            if (_canvasCityKeyed && CanvasReshape.Contains(id)) ShapeZones.Add(id);
         }
         CanvasNoFlip.Clear();
+        CanvasReshape.Clear();
         foreach (int id in OwnerZones)
         {
             int zx = id % _zonesX, zy = id / _zonesX;
@@ -541,6 +610,10 @@ public static partial class SmoothBorders
         }
         if (flips) PlanCanvasFlips(calc);
         calc.setDirty();
+        // 无人区图层看画布上各格归了谁：重画过的块里有无人区格的跟着重画(挨着的块有变时它们也在 PaintZones 里)
+        if (WildernessShape.Active)
+            foreach (int id in PaintZones)
+                if (WildernessShape.ZoneTouched(id)) WildernessOverlay.MarkZone(calc.getZone(id % _zonesX, id / _zonesX));
     }
 
     // 这块地眼下看到的样子(正在翻的取看到的那一面)
@@ -582,6 +655,21 @@ public static partial class SmoothBorders
             ownerKey = _cityOwnerKey[city];
             shade = _cityContested[city] ? IndexOf(ShadeOf(zone, RealMetaOf(layer, option, zone))) : _cityShade[city];
             push = IndexOf(PushMetaOf(layer, zone));
+        }
+        // 不归城的块：国家、帝国图层(按城池归属那一档)上图层补的归属(见 FillAt)
+        int fill = 0, fillKey = 0;
+        if (_canvasCityKeyed && zone != null && zone.city == null && ControlLayer(layer))
+        {
+            IMetaObject meta = LayerMeta(layer, option, zone);
+            fill = IndexOf(meta);
+            fillKey = fill == 0 ? 0 : CanvasOwnerKey(layer, meta);
+        }
+        _zoneFill[id] = fill;
+        _zoneFillKey[id] = fillKey;
+        if (fill != 0 && !_fillListed[id])
+        {
+            _fillListed[id] = true;
+            FillZones.Add(id);
         }
         bool seen = _zoneSeen[id];
         cityChanged = !seen || _zoneCity[id] != city;
@@ -639,7 +727,8 @@ public static partial class SmoothBorders
 
     #region 形状与归属
 
-    // 一块地各格属于哪座城(同 SmoothedOwnerAt(x, y, cities: true))：周围 3×3 块同一座城(或都没有)直接填
+    // 一块地各格属于哪座城(同 SmoothedOwnerAt(x, y, cities: true))：周围 3×3 块同一座城(或都没有)直接填；
+    // 无人区的格(按格贴地形，见 WildernessShape)不归城
     private static void BuildCityShape(int zx, int zy)
     {
         _shapeKey[zy * _zonesX + zx] = ShapeKey(zx, zy);
@@ -656,7 +745,7 @@ public static partial class SmoothBorders
         for (int x = zx * ZoneSize; x < zx * ZoneSize + ZoneSize; x++)
         {
             int t = y * _canvasW + x;
-            _tileCity[t] = _water[t] ? (ushort)0 : uniform ? (ushort)center : (ushort)CityAt(x, y);
+            _tileCity[t] = _water[t] || WildernessShape.AreaAt(t) != 0 ? (ushort)0 : uniform ? (ushort)center : (ushort)CityAt(x, y);
         }
     }
 
@@ -665,19 +754,23 @@ public static partial class SmoothBorders
 
     private static readonly int[] CandidateIds = new int[9];
 
-    // B 样条加噪声：同 SmoothedOwnerAt，候选按城编号、噪声按城的散列
+    // B 样条加噪声：同 SmoothedOwnerAt，候选按城编号、噪声按城的散列。
+    // 无人区的地块不当候选(那里的格归不归城由 WildernessShape 定，地形不对、交给画布的格照样归邻城)：
+    // 城的地盘一直伸到无人区的格为止，不因为挨着无人区的地块往回缩出一道缝；周围全是无人区的格不归谁
     private static int CityAt(int x, int y)
     {
         int zx = x / ZoneSize, zy = y / ZoneSize;
         float tx = (x + 0.5f) / ZoneSize - zx - 0.5f, ty = (y + 0.5f) / ZoneSize - zy - 0.5f;
         float ax0 = 0.5f * (0.5f - tx) * (0.5f - tx), ax1 = 0.75f - tx * tx, ax2 = 0.5f * (0.5f + tx) * (0.5f + tx);
         float ay0 = 0.5f * (0.5f - ty) * (0.5f - ty), ay1 = 0.75f - ty * ty, ay2 = 0.5f * (0.5f + ty) * (0.5f + ty);
+        bool wild = WildernessShape.Active;
         int count = 0;
         for (int j = -1; j <= 1; j++)
         {
             float wy = j < 0 ? ay0 : j == 0 ? ay1 : ay2;
             for (int i = -1; i <= 1; i++)
             {
+                if (wild && WildAt(zx + i, zy + j)) continue;
                 int candidate = ZoneCityAt(zx + i, zy + j);
                 float w = wy * (i < 0 ? ax0 : i == 0 ? ax1 : ax2);
                 int k = 0;
@@ -704,6 +797,9 @@ public static partial class SmoothBorders
         return best;
     }
 
+    private static bool WildAt(int zx, int zy) =>
+        zx >= 0 && zx < _zonesX && zy >= 0 && zy < _zonesY && WildernessShape.ZoneWild(zy * _zonesX + zx);
+
     // 一块地各格归谁(同 OwnerAt)：先看城的轮廓，被占、逐格推进的城在轮廓里按各块的实际控制方平滑
     private static void OwnZone(int zx, int zy)
     {
@@ -722,7 +818,7 @@ public static partial class SmoothBorders
             int t = y * _canvasW + x;
             int city = _tileCity[t];
             int owner;
-            if (city == 0) owner = 0;
+            if (city == 0) owner = control && !_water[t] ? FillAt(x, y, t, zoneId) : 0;
             else if (!control) owner = IndexOf(CityTable[city]);
             else if (push != 0 && zoneCity == city && FrontSystem.SmoothCovers(zone, x, y)) owner = push;
             else if (!_cityContested[city]) owner = _cityShade[city];
@@ -731,7 +827,62 @@ public static partial class SmoothBorders
         }
     }
 
-    // 不按城的图层：每格按周围 3×3 块的归属平滑(同 SmoothedOwnerAt(x, y, false))；周围 3×3 块同属一方直接填
+    // 国家、帝国图层(按城池归属那一档)上不归城的格：图层补的归属。无人区判给这片的格(连同包在里面的洞、地形不对邻城又不要的)
+    // 按这片周围各块补的归属平滑——并进国土的无人区轮廓贴地形，一片分属几国时国界照样圆滑；
+    // 别的格看本块补的(被一国包住的无主地，见 EnclaveFill)，无人区的地块里 B 样条判给外面的格不补(无人区的边是圆的)
+    private static int FillAt(int x, int y, int t, int zoneId)
+    {
+        int slot = WildernessShape.SlotAt(t);
+        if (slot != 0) return WildFillAt(x, y, slot);
+        return WildernessShape.ZoneWild(zoneId) ? 0 : _zoneFill[zoneId];
+    }
+
+    // 同 ShadeAt，只看这片无人区的地块，候选是各块补的归属
+    private static int WildFillAt(int x, int y, int slot)
+    {
+        int zx = x / ZoneSize, zy = y / ZoneSize;
+        float tx = (x + 0.5f) / ZoneSize - zx - 0.5f, ty = (y + 0.5f) / ZoneSize - zy - 0.5f;
+        float ax0 = 0.5f * (0.5f - tx) * (0.5f - tx), ax1 = 0.75f - tx * tx, ax2 = 0.5f * (0.5f + tx) * (0.5f + tx);
+        float ay0 = 0.5f * (0.5f - ty) * (0.5f - ty), ay1 = 0.75f - ty * ty, ay2 = 0.5f * (0.5f + ty) * (0.5f + ty);
+        int count = 0;
+        for (int j = -1; j <= 1; j++)
+        {
+            float wy = j < 0 ? ay0 : j == 0 ? ay1 : ay2;
+            for (int i = -1; i <= 1; i++)
+            {
+                int nx = zx + i, ny = zy + j;
+                if (nx < 0 || nx >= _zonesX || ny < 0 || ny >= _zonesY) continue;
+                int near = ny * _zonesX + nx;
+                if (WildernessShape.ZoneSlot(near) != slot) continue;
+                int candidate = _zoneFill[near];
+                float w = wy * (i < 0 ? ax0 : i == 0 ? ax1 : ax2);
+                int k = 0;
+                while (k < count && CandidateIds[k] != candidate) k++;
+                if (k == count)
+                {
+                    CandidateIds[count] = candidate;
+                    Weights[count] = 0f;
+                    count++;
+                }
+                Weights[k] += w;
+            }
+        }
+        if (count == 0) return 0;
+        if (count == 1) return CandidateIds[0];
+        int best = 0;
+        float bestScore = float.MinValue;
+        for (int k = 0; k < count; k++)
+        {
+            float score = Weights[k] + NoiseAmplitude * (Noise(x, y, OwnerTable[CandidateIds[k]]?.GetHashCode() ?? 0) - 0.5f);
+            if (score <= bestScore) continue;
+            bestScore = score;
+            best = CandidateIds[k];
+        }
+        return best;
+    }
+
+    // 不按城的图层：每格按周围 3×3 块的归属平滑(同 SmoothedOwnerAt(x, y, false))；周围 3×3 块同属一方直接填。
+    // 无人区的格不归谁(这些图层上无人区的地块本来就没有归属)，平滑时也不把无人区的地块当候选(同 CityAt)
     private static void OwnZoneByZones(int zx, int zy)
     {
         int center = _zoneShade[zy * _zonesX + zx];
@@ -749,17 +900,19 @@ public static partial class SmoothBorders
         for (int x = zx * ZoneSize; x < zx * ZoneSize + ZoneSize; x++)
         {
             int t = y * _canvasW + x;
-            _owner[t] = _water[t] ? 0 : uniform ? center : ShadeAt(x, y, 0);
+            _owner[t] = _water[t] || WildernessShape.AreaAt(t) != 0 ? 0 : uniform ? center : ShadeAt(x, y, 0);
         }
     }
 
-    // 城的轮廓里按各块的实际控制方平滑(同 SmoothedOwnerAt(x, y, false, city))；city 为 0 时不限城(地图外的块算无主)
+    // 城的轮廓里按各块的实际控制方平滑(同 SmoothedOwnerAt(x, y, false, city))；city 为 0 时不限城(地图外的块算无主，
+    // 无人区的地块不当候选，同 CityAt)
     private static int ShadeAt(int x, int y, int city)
     {
         int zx = x / ZoneSize, zy = y / ZoneSize;
         float tx = (x + 0.5f) / ZoneSize - zx - 0.5f, ty = (y + 0.5f) / ZoneSize - zy - 0.5f;
         float ax0 = 0.5f * (0.5f - tx) * (0.5f - tx), ax1 = 0.75f - tx * tx, ax2 = 0.5f * (0.5f + tx) * (0.5f + tx);
         float ay0 = 0.5f * (0.5f - ty) * (0.5f - ty), ay1 = 0.75f - ty * ty, ay2 = 0.5f * (0.5f + ty) * (0.5f + ty);
+        bool wild = city == 0 && WildernessShape.Active;
         int count = 0;
         for (int j = -1; j <= 1; j++)
         {
@@ -769,6 +922,7 @@ public static partial class SmoothBorders
                 int nx = zx + i, ny = zy + j;
                 bool inside = nx >= 0 && nx < _zonesX && ny >= 0 && ny < _zonesY;
                 if (city != 0 && (!inside || _zoneCity[ny * _zonesX + nx] != city)) continue;
+                if (wild && inside && WildernessShape.ZoneWild(ny * _zonesX + nx)) continue;
                 int candidate = inside ? _zoneShade[ny * _zonesX + nx] : 0;
                 float w = wy * (i < 0 ? ax0 : i == 0 ? ax1 : ax2);
                 int k = 0;
@@ -935,6 +1089,9 @@ public static partial class SmoothBorders
                             color = new Color32(stripe.r, stripe.g, stripe.b, color.a);
                         }
                     }
+                    // 并进国土的无人区(同 PureMapPatch.FinishZone)：国色淡一些，底下无人区图层的类型纹样透上来
+                    if (_canvasPure && _canvasCityKeyed && color.a != 0 && _tileCity[t] == 0 && WildernessShape.SlotAt(t) != 0)
+                        color.a = (byte)(color.a * PureMapPatch.AbsorbedWildAlpha);
                 }
             }
             _base[t] = color;

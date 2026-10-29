@@ -1781,6 +1781,8 @@ GODPOWERS.update({
     "deposit_clear": (obj_res_copper, "cross"),
     # 繁荣笔刷：城池 + 向上
     "city_flourish": (obj_city, "up"),
+    # 中立区：白旗(无人区设为永久中立)
+    "wild_neutral": (obj_whiteflag, None),
     # 名臣名将窗口按钮
     "famous_talents": (obj_swords, "crown"),
     "bestow_famous_general": (obj_sword, "up"),

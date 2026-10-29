@@ -293,6 +293,10 @@ public static partial class SmoothBorders
     // 逐格占领推进线边缘的起伏(见 FrontSystem.Smooth)
     public static float FrontNoise(int x, int y) => Noise(x, y, 7919);
 
+    // 无人区按格贴地形(见 UI.Components.WildernessShape)：同一套低频噪声(0~1)与幅度，无人区的边与国界、城界一个样子
+    internal const float BorderNoiseAmplitude = NoiseAmplitude;
+    internal static float BorderNoise(int x, int y, int seed) => Noise(x, y, seed);
+
     // 低频值噪声(0~1)：格点间距 NoiseCell 个像素，双线性插值
     private static float Noise(int x, int y, int seed)
     {

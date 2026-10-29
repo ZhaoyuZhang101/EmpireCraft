@@ -51,6 +51,10 @@ public sealed class WildRegion
     public int MinX, MinY, MaxX, MaxY;   // 地块坐标外框
     // 这一片的底色(显示用)：按类型定色系，按编号微调，挨着的两片不至于一个颜色；编号不变颜色就不变
     public Color32 Color;
+    // 永久中立区(神力手动设的，见 WildernessSystem.ToggleNeutral)：不归任何国家，法理、周边的城都不管
+    public bool Neutral;
+    // 周边的城全属于同一个国家时就是它(见 OwnerOf)，否则为 null；随归属一起隔几秒核一次
+    public Kingdom Surround;
 }
 
 // 存档里的一片无人区(见 SaveData.wild_regions)
@@ -63,6 +67,9 @@ public class WildRegionData
     public List<int> zones = new List<int>();
     // 与 zones 一一对应：各块挂的法理编号(没挂为 -1)
     public List<long> titles = new List<long>();
+    // 永久中立区
+    public bool neutral;
+    public bool ShouldSerializeneutral() => neutral;
 }
 
 public static class WildernessSystem
@@ -149,12 +156,40 @@ public static class WildernessSystem
         return title == null || title.isRekt() ? null : title;
     }
 
-    // 持有这块无人区所挂法理的国家(没有为 null)
+    // 这块无人区归哪国(用户 2026-10-29 "关于并进哪个国家我建议用法理判断, 如果他属于一个法理那么一旦有国家获得这个法理
+    // 那么这个地会被百分百划入这个国家, 如果周边的几个城市全属于同一个国家这个无人区也会被划入, 否则他是中立的.
+    // 也可以手动将他设置成永久中立区")：
+    //   · 永久中立区(神力设的，见 ToggleNeutral)：不归任何国家；
+    //   · 挂了法理、法理有持有国(KingdomExtension.FindRealmTitleHolder)：归持有国；
+    //   · 否则这一片周边的城(与区域相邻的地块上的城)全属于同一个国家：归那个国家(见 RefreshOwners)；
+    //   · 都不是：中立(null)
     public static Kingdom OwnerOf(TileZone zone)
     {
+        int index = Index(zone);
+        if (index < 0) return null;
+        WildRegion region = _regions[index];
+        if (region.Neutral) return null;
         KingdomTitle title = TitleOf(zone);
-        if (title == null || !Owners.TryGetValue(title, out Kingdom kingdom) || kingdom == null || kingdom.isRekt()) return null;
-        return kingdom;
+        if (title != null && Owners.TryGetValue(title, out Kingdom holder) && holder != null && !holder.isRekt()) return holder;
+        Kingdom around = region.Surround;
+        return around != null && !around.isRekt() ? around : null;
+    }
+
+    // 这块无人区是因取得法理而归属的(不是因周边的城同属一国)：悬停提示里写明是哪个法理
+    public static bool OwnedByTitle(TileZone zone)
+    {
+        KingdomTitle title = TitleOf(zone);
+        return title != null && Owners.TryGetValue(title, out Kingdom holder) && holder != null && holder == OwnerOf(zone);
+    }
+
+    // 神力「中立区」：点一片无人区设为永久中立区，再点一次取消；返回那一片(不是无人区为 null)
+    public static WildRegion ToggleNeutral(TileZone zone)
+    {
+        WildRegion region = RegionOf(zone);
+        if (region == null) return null;
+        region.Neutral = !region.Neutral;
+        Version++;
+        return region;
     }
 
     // 一块地归城就不算无人区(两者互斥)：放行给城的那一刻到下次重划之间也照这个算
@@ -284,7 +319,8 @@ public static class WildernessSystem
         var result = new List<WildRegionData>(_regions.Count);
         foreach (WildRegion region in _regions)
         {
-            var data = new WildRegionData { id = region.Id, kind = (int)region.Kind, name = region.Name, culture = region.Culture };
+            var data = new WildRegionData { id = region.Id, kind = (int)region.Kind, name = region.Name, culture = region.Culture,
+                neutral = region.Neutral };
             foreach (int id in region.Zones)
             {
                 KingdomTitle title = id < _titles.Length ? _titles[id] : null;
@@ -395,6 +431,27 @@ public static class WildernessSystem
                 case "biome_swamp": marks |= MarkSwamp; break;
             }
         return marks;
+    }
+
+    // 一格的地形(平滑国界下无人区按格贴着地形画，见 UI.Components.WildernessShape)：口径同 Classify 的格子标记——
+    // 水面岩浆、开过的田什么都不算；路、城墙看底下的地面；rock 山地山巅，hills 丘陵石地(不是山地的)；
+    // 返回地面是哪一类荒地：冻土雪地为冻原，沙地荒漠为沙漠，丛林为雨林，沼泽为大泽，别的为 None(雪山既是 rock 又是冻原)
+    public static WildKind GroundKind(WorldTile tile, out bool rock, out bool hills)
+    {
+        rock = hills = false;
+        TileTypeBase type = tile?.Type;
+        if (type == null) return WildKind.None;
+        int marks = Marks(type);
+        TileTypeBase main = tile.main_type;
+        int under = main != null ? Marks(main) : 0;
+        if (((marks | under) & MarkWater) != 0 || (marks & MarkFarm) != 0) return WildKind.None;
+        rock = ((marks | under) & MarkRock) != 0;
+        hills = !rock && ((marks | under) & MarkHills) != 0;
+        int ground = (marks & MarkPaved) != 0 && main != null ? under : marks;
+        if ((ground & MarkFrozen) != 0) return WildKind.Tundra;
+        if ((ground & MarkSand) != 0) return WildKind.Desert;
+        if ((ground & MarkJungle) != 0) return WildKind.Jungle;
+        return (ground & MarkSwamp) != 0 ? WildKind.Swamp : WildKind.None;
     }
 
     // 剧本开局铺辖地(WorldMapZones)用：这块地按地形会不会是无人区、哪一类——两边同一套门槛，开局留空的地进世界后正好划成无人区，
@@ -509,6 +566,7 @@ public static class WildernessSystem
         public int Id;
         public WildKind Kind;
         public string Name, Culture;
+        public bool Neutral;
     }
 
     // 连片、对上旧区域(沿用编号名字)、起名、收地、挂法理；返回从城里划出的块数
@@ -525,7 +583,7 @@ public static class WildernessSystem
             foreach (WildRegionData data in _saved)
             {
                 int index = olds.Count;
-                olds.Add(new OldRegion { Id = data.id, Kind = (WildKind)data.kind, Name = data.name, Culture = data.culture });
+                olds.Add(new OldRegion { Id = data.id, Kind = (WildKind)data.kind, Name = data.name, Culture = data.culture, Neutral = data.neutral });
                 for (int k = 0; k < data.zones.Count; k++)
                 {
                     int id = data.zones[k];
@@ -542,7 +600,7 @@ public static class WildernessSystem
             for (int index = 0; index < _regions.Count; index++)
             {
                 WildRegion region = _regions[index];
-                olds.Add(new OldRegion { Id = region.Id, Kind = region.Kind, Name = region.Name, Culture = region.Culture });
+                olds.Add(new OldRegion { Id = region.Id, Kind = region.Kind, Name = region.Name, Culture = region.Culture, Neutral = region.Neutral });
                 foreach (int id in region.Zones)
                 {
                     if (id < 0 || id >= size) continue;
@@ -639,6 +697,7 @@ public static class WildernessSystem
                 region.Id = olds[old].Id;
                 region.Name = olds[old].Name;
                 region.Culture = olds[old].Culture;
+                region.Neutral = olds[old].Neutral;
                 if (!string.IsNullOrEmpty(region.Name)) used.Add(region.Name);
             }
             else region.Id = _nextId++;
@@ -962,6 +1021,48 @@ public static class WildernessSystem
             changed = true;
         }
         foreach (KingdomTitle stale in Owners.Keys.Where(title => !seen.Contains(title)).ToList()) Owners.Remove(stale);
+        if (RefreshSurround()) changed = true;
+        return changed;
+    }
+
+    // 各片周边的城(与区域相邻的地块上的城)是不是全属于同一个国家；有变化返回 true。
+    // 只看地块四邻八邻上的城，几万块地也只是几毫秒；周边一座城都没有的算中立
+    private static bool RefreshSurround()
+    {
+        bool changed = false;
+        foreach (WildRegion region in _regions)
+        {
+            Kingdom common = null;
+            bool mixed = false, any = false;
+            foreach (int id in region.Zones)
+            {
+                TileZone zone = id >= 0 && id < _zones.Length ? _zones[id] : null;
+                if (zone?.neighbours_all == null) continue;
+                foreach (TileZone next in zone.neighbours_all)
+                {
+                    City city = next?.city;
+                    if (city?.data == null || city.isRekt()) continue;
+                    Kingdom kingdom = city.kingdom;
+                    if (kingdom == null || kingdom.isRekt() || kingdom.wild)
+                    {
+                        mixed = true;
+                        break;
+                    }
+                    any = true;
+                    if (common == null) common = kingdom;
+                    else if (common != kingdom)
+                    {
+                        mixed = true;
+                        break;
+                    }
+                }
+                if (mixed) break;
+            }
+            Kingdom around = any && !mixed ? common : null;
+            if (region.Surround == around) continue;
+            region.Surround = around;
+            changed = true;
+        }
         return changed;
     }
 

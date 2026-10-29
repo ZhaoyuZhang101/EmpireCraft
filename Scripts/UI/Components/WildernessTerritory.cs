@@ -10,8 +10,10 @@ namespace EmpireCraft.Scripts.UI.Components;
 // 在国家图层、帝国图层上画成那一国的。做法同图层补洞(见 EnclaveFill)，套在这两个图层的归属查询外面：
 //   · 归属查询返回那一国(帝国图层取它的城在图层上的样子)：原版按它上色、算边线，国界把这些地块圈进去，国土与它的无人区之间不画线；
 //     平滑国界、悬停高亮、点选都按这个；只管"按城池归属"那一档；
-//   · 原版只画城的地块，画完本图层后补画这些地块；
-//   · 纯净地图下这些地块的国色淡一些，底下无人区图层的类型纹样透上来(见 PureMapPatch.FinishZone、WildernessOverlay)；
+//   · 原版只画城的地块，画完本图层后补画这些地块；平滑国界的整图画布不走原版巡检，按这里的归属逐格涂：
+//     无人区的格(按格贴地形，见 WildernessShape)连同包在里面的洞涂这片各块的持有国，轮廓同样贴着山脉、沙漠走(见 SmoothBorders.FillAt)；
+//   · 纯净地图下这些地块的国色淡一些，底下无人区图层的类型纹样透上来(见 PureMapPatch.FinishZone、WildernessOverlay；
+//     整图画布见 SmoothBorders.ColorZone)；
 //   · 悬停这些地块时原版的国家提示让给无人区提示(名字、类型，加一行归属，见 WildernessOverlay)。
 // 每 RefreshSeconds 秒、区域变了(Version)、换图层时重算正显示的那个图层；变了的地块连同四邻重画。
 // 区域变了时，划进、划出无人区的地块连同四邻重画色块与城市平面图层(城的地块被划走，城那一层的颜色、边界跟着变)
@@ -163,8 +165,10 @@ public static class WildernessTerritory
         zone.resetRenderHelpers();
         foreach (TileZone next in zone.neighbours ?? global::System.Array.Empty<TileZone>()) next?.resetRenderHelpers();
         CityPlanOverlay.MarkZone(zone);
-        // 没有城、图层上也不归谁的：清掉原来(城)的颜色
-        if (zone.city == null && shown?.tile_get_metaobject_0?.Invoke(zone) == null) calc.drawZoneClear(zone);
+        // 没有城、图层上也不归谁的：清掉原来(城)的颜色。整图画布画着时不清：画布自己按格重画(上面的重画记号)，
+        // 整块清掉会连邻城伸进这块的平滑边一起抹掉，闪一下
+        if (zone.city == null && !SmoothBorders.CanvasActive && shown?.tile_get_metaobject_0?.Invoke(zone) == null)
+            calc.drawZoneClear(zone);
     }
 
     private static void Refresh(Layer layer, MapBox world)
@@ -202,7 +206,8 @@ public static class WildernessTerritory
         {
             zone.resetRenderHelpers();
             foreach (TileZone next in zone.neighbours ?? global::System.Array.Empty<TileZone>()) next?.resetRenderHelpers();
-            if (!fill.ContainsKey(zone) && zone.city == null) calc.drawZoneClear(zone);
+            // 整图画布画着时不清(同 Repaint)
+            if (!fill.ContainsKey(zone) && zone.city == null && !SmoothBorders.CanvasActive) calc.drawZoneClear(zone);
             WildernessOverlay.MarkAround(zone);
         }
     }

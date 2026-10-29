@@ -407,8 +407,8 @@ public partial class PureMapPatch : GamePatch
     private const float TerrainTint = 0.1f, WaterTint = 0.85f, SlopeLight = 0.003f, SlopeCap = 0.06f;
     private static readonly Color32 Water = new(140, 185, 235, 255);
     private static readonly global::System.Collections.Generic.Dictionary<TileTypeBase, float> TypeLight = new();
-    // 并进国土的无人区国色的不透明度(城的地块的几成，见 FinishZone)
-    private const float AbsorbedWildAlpha = 0.7f;
+    // 并进国土的无人区国色的不透明度(城的地块的几成，见 FinishZone；平滑国界的整图画布同样淡，见 SmoothBorders.ColorZone)
+    internal const float AbsorbedWildAlpha = 0.7f;
 
     // 色块画完的收尾：水面不涂国色；被敌军占着的地块画占领纹，兼属画斜纹。边框像素(原版按 pUp…pRight 画的外框)不动，保持清楚。
     // 城市图层不涂国色，色块全透明：城市在城市平面图层里(见 CityPlanOverlay)，地形露出来

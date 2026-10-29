@@ -222,12 +222,14 @@ public class ZonePaintBudget : GamePatch
     // 以前纯净地图把地形明暗画进不透明的色块，结一次霜就要整块重画，和换色抢上色预算，用户 2026-10-26 "不然每次地形变更都要同步格子，
     // 那就会经常出现国家颜色不刷新的问题")，所以地面样子变了色块不必重画。只有水陆变了要重画：纯净地图、平滑国界下水面不涂国色、
     // 国界贴着海岸走(抽干的湖不重画就一直是空的)，这一格四邻落在别的块上的，那块的边框也跟着重画；平滑国界的上色缓存不含地形，一并丢掉。
-    // 城里的地块水陆、山地、阻挡变了，城市平面图跟着重排(桥、城墙、街巷避开水和山)，只重画城市平面图层的那块地(见 CityPlanOverlay)
+    // 城里的地块水陆、山地、阻挡变了，城市平面图跟着重排(桥、城墙、街巷避开水和山)，只重画城市平面图层的那块地(见 CityPlanOverlay)。
+    // 平滑国界下无人区按格贴着地形画(见 WildernessShape)：无人区附近的格子样子变了，攒一会儿重算那一带
     public static void TerrainChanged(WorldTile tile, TileTypeBase before)
     {
         TileTypeBase after = tile?.Type;
         if (ReferenceEquals(before, after) || tile.zone == null || !Config.game_loaded || SmoothLoader.isLoading() ||
             World.world?.zone_calculator == null) return;
+        EmpireCraft.Scripts.UI.Components.WildernessShape.TerrainChanged(tile);
         bool water = Water(before) != Water(after);
         if (tile.zone.city != null && (water || PlanTerrain(before) != PlanTerrain(after)))
             EmpireCraft.Scripts.UI.Components.CityPlanOverlay.MarkZone(tile.zone);

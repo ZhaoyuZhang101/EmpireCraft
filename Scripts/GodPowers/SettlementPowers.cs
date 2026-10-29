@@ -12,7 +12,8 @@ namespace EmpireCraft.Scripts.GodPowers;
 //   毁弃：点一处村镇，完好的毁为废墟，对废墟再点一下彻底抹去；
 //   改隶：先点一处村镇，再点一座接壤的城，村镇连同它那一片地改归那座城(点别处取消，半分钟不点也取消)；
 //   小、中、大厂区：点城的地放下一整片成品厂区(见 FactorySystem.Place)；毁弃也能拆厂区；
-//   城貌：点一座城打开城貌小窗口，从各文化风格里任选一种(见 CityStyleWindow)；纯净地图开着时打开城池全图(见 CityPlanScreen)。
+//   城貌：点一座城打开城貌小窗口，从各文化风格里任选一种(见 CityStyleWindow)；纯净地图开着时打开城池全图(见 CityPlanScreen)；
+//   中立区：点一片无人区设为永久中立区，再点取消(见 WildernessSystem.ToggleNeutral)。
 // 这些都是手动的，上帝说了算(用户 2026-10-20 "手动放置建筑时候不要有任何限制")：不看科技、文化、地形类别、钱、战争、法则、数量、距离，
 // 只留真做不到的(各系统开头写着)；AI 自己营建照旧守规矩。
 public static class SettlementPowers
@@ -20,8 +21,10 @@ public static class SettlementPowers
     public const string Village = "place_village", Town = "place_town", Fort = "place_fort", Raze = "raze_settlement", Assign = "assign_settlement";
     public const string NewCity = "place_city", Palace = "build_palace", Relocate = "relocate_city", Restyle = "restyle_city";
     public const string FactorySmall = "factory_small", FactoryMedium = "factory_medium", FactoryLarge = "factory_large";
+    // 中立区：点一片无人区设为永久中立区，再点取消(见 WildernessSystem.ToggleNeutral)
+    public const string WildNeutral = "wild_neutral";
     public static readonly string[] Ids =
-        { Village, Town, Fort, NewCity, Relocate, Palace, Restyle, FactorySmall, FactoryMedium, FactoryLarge, Raze, Assign };
+        { Village, Town, Fort, NewCity, Relocate, Palace, Restyle, FactorySmall, FactoryMedium, FactoryLarge, Raze, Assign, WildNeutral };
     private const float PickSeconds = 30f;
     private static int _picked = -1;
     private static float _pickedAt = -100f;
@@ -37,6 +40,7 @@ public static class SettlementPowers
         AssetManager.powers.add(new GodPower { id = Relocate, name = Relocate, click_action = (tile, _) => Tip(CityRelocationSystem.Click(tile)) });
         AssetManager.powers.add(new GodPower { id = Restyle, name = Restyle, click_action = ClickRestyle });
         AssetManager.powers.add(new GodPower { id = Raze, name = Raze, click_action = (tile, _) => Tip(RazeAt(tile)) });
+        AssetManager.powers.add(new GodPower { id = WildNeutral, name = WildNeutral, click_action = (tile, _) => Tip(ToggleNeutral(tile)) });
         foreach (string id in new[] { FactorySmall, FactoryMedium, FactoryLarge })
             AssetManager.powers.add(new GodPower { id = id, name = id, click_action = (tile, power) => Tip(Build(tile, id)) });
         AssetManager.powers.add(new GodPower { id = Assign, name = Assign, click_action = ClickAssign });
@@ -80,6 +84,15 @@ public static class SettlementPowers
                              site != null && FactorySystem.CityOf(site) != only))
             return LM.Get("city_plan_works_not_own");
         return RuralSettlementSystem.Raze(settlement) ?? FactorySystem.Remove(site) ?? LM.Get("settlement_none");
+    }
+
+    // 中立区(用户 2026-10-29 "也可以手动将他设置成永久中立区")：点一片无人区，设为永久中立区——不归任何国家，法理、周边的城都不管；
+    // 再点一次取消，照常按法理、周边的城定归属(见 WildernessSystem.OwnerOf)
+    private static string ToggleNeutral(WorldTile tile)
+    {
+        WildRegion region = WildernessSystem.ToggleNeutral(tile?.zone);
+        if (region == null) return LM.Get("wild_neutral_none");
+        return string.Format(LM.Get(region.Neutral ? "wild_neutral_on" : "wild_neutral_off"), region.Name);
     }
 
     private static bool Tip(string text)
