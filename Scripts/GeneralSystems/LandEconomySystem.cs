@@ -176,6 +176,7 @@ public static class LandEconomySystem
             using (FrameProfiler.Measure("土地经济·土地买卖"))
             {
                 if (data.land_redistribution_pending) RedistributeLand(city);
+                ReleaseExtinctLand(city, data);
                 EnsureInitialHouseholdShares(city, households);
                 ProcessLandPurchases(city, households);
                 TryMoveLandlessHousehold(city, households);
@@ -496,6 +497,44 @@ public static class LandEconomySystem
                 data.is_economic_merchant = merchant;
             }
             if (representative != null && merchant) representative.GetOrCreate().is_economic_merchant = true;
+        }
+    }
+
+    // 绝户田：宗族在世族人都没了，它在本城的私田归同一世系在本城有田的一支(田多的先承)，没有就归上头还有人的本宗，
+    // 都没有就退给背景农民(私田里实体家户没占的归背景人口，见 BackgroundLandPool)。以前绝户的份额一直挂着
+    // (玩家 10-30 存档：有私田的 710 族里在世的只有 37 族)，活着的宗族、世家没地可置
+    private static void ReleaseExtinctLand(City city, CityExtension.CityExtraData data)
+    {
+        List<(string key, SpecificClan clan)> extinct = null;
+        var landed = new List<(SpecificClan clan, float share)>();
+        foreach (KeyValuePair<string, float> pair in data.household_land_shares)
+        {
+            if (!pair.Key.StartsWith("s:", StringComparison.Ordinal) || !long.TryParse(pair.Key.Substring(2), out long clanId)) continue;
+            SpecificClan clan = SpecificClanManager.Get(clanId);
+            if (clan != null && clan.Count > 0)
+            {
+                if (pair.Value > 0f) landed.Add((clan, pair.Value));
+                continue;
+            }
+            (extinct ??= new List<(string, SpecificClan)>()).Add((pair.Key, clan));
+        }
+        if (extinct == null) return;
+        foreach ((string key, SpecificClan clan) in extinct)
+        {
+            float share = data.household_land_shares[key];
+            data.household_land_shares.Remove(key);
+            data.household_land_representatives.Remove(key);
+            if (share <= 0f || clan == null) continue;
+            SpecificClan heir = landed.Where(holder => SpecificClanManager.SameLineage(holder.clan, clan))
+                .OrderByDescending(holder => holder.share).Select(holder => holder.clan).FirstOrDefault();
+            var visited = new HashSet<long> { clan.id };
+            for (SpecificClan parent = clan.parent_clan_id >= 0 ? SpecificClanManager.Get(clan.parent_clan_id) : null;
+                 heir == null && parent != null && visited.Add(parent.id);
+                 parent = parent.parent_clan_id >= 0 ? SpecificClanManager.Get(parent.parent_clan_id) : null)
+                if (parent.Count > 0) heir = parent;
+            if (heir == null) continue;
+            string heirKey = $"s:{heir.id}";
+            data.household_land_shares[heirKey] = GetHouseholdShare(city, heirKey) + share;
         }
     }
 

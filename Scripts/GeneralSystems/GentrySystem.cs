@@ -15,8 +15,9 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 第一步——门第与郡望：
 //   · 每年给每个在世的华夏宗族(在位皇帝的宗室除外)算一回"门第"目标(0~100)：
 //       族人做官(在任官员每人 6，城主 4，诸侯王 12；虚拟族人记着官职的 3)、爵位与领有的头衔(每个 5，荣誉爵位 6，藩王 6)，
-//       这两项合计至多 60；郡望之城的田产(每占一分地 1.5，至多 15)；名望最高的三人(每 30 名望 1，至多 10)；
-//       族大(在世族人每人 0.4，至多 10)；年深(立族每 15 年 1，至多 10)；与世家、宗室联姻(每对 2，至多 8)；
+//       这两项合计至多 60；先世官爵(过世族人做过官、有爵位头衔、封过王的，每远一代打七折，至多 20，见 Ancestry)；
+//       郡望之城的田产(5×√份数，至多 15)；名望最高的三人(每 30 名望 1，至多 10)；
+//       族大(2×√在世族人，至多 10)；年深(立族每 15 年 1，至多 10)；与世家、宗室联姻(每对 2，至多 8)；
 //     门第向目标靠拢——升得快(每年一成五)、跌得慢(每年半成)：家道中落要好些年；
 //   · 门第到三十列为世家，跌到二十二以下不再是世家；七十以上甲等、五十五乙等、四十丙等，其余丁等；
 //   · 郡望：田产最多的城，没有田产按祖籍，再没有按族人最多的城；称"某城某氏"；
@@ -109,7 +110,7 @@ public static partial class GentrySystem
     {
         if (empire?.data == null) return new List<SpecificClan>();
         return SpecificClanManager._specificClans
-            .Where(clan => clan != null && clan.gentry && RealmOf(Seat(clan)) == empire)
+            .Where(clan => clan != null && clan.gentry && clan.Count > 0 && RealmOf(Seat(clan)) == empire)
             .OrderByDescending(clan => clan.gentry_pedigree).ToList();
     }
 
@@ -454,7 +455,9 @@ public static partial class GentrySystem
         Recorded.Clear();
         BuildFortresses();
         YearlyCourt();
-        Queue.Start(SpecificClanManager._specificClans.Where(clan => clan != null && clan.extinct_since < 0d)
+        // 已绝嗣的世家也要评：本宗凋尽由支脉承嗣或除名(以前只排没绝的宗族，绝了的世家一直挂在名录上，
+        // 玩家 10-30 反馈"经常 0 族人挂空在榜上")
+        Queue.Start(SpecificClanManager._specificClans.Where(clan => clan != null && (clan.extinct_since < 0d || clan.gentry))
             .Select(clan => clan.id).ToList());
         Queue.Tick();
     }
@@ -511,8 +514,11 @@ public static partial class GentrySystem
         {
             if (clan.gentry && living.Count == 0)
             {
+                // 旧档里早已绝嗣、一直没除名的：悄悄除名，不再补记史书
+                if (clan.extinct_since >= 0d && World.world.getCurWorldTime() >= clan.extinct_since &&
+                    Date.getYearsSince(clan.extinct_since) >= 2) clan.gentry = false;
                 // 本宗凋尽：最大的一支承嗣，门第、郡望归之(见 GentrySystem.Lineage)
-                if (!BranchSucceeds(clan)) Decline(clan, extinct: true);
+                else if (!BranchSucceeds(clan)) Decline(clan, extinct: true);
             }
             else if (clan.gentry) clan.gentry = false;
             return;
@@ -664,13 +670,35 @@ public static partial class GentrySystem
             SpecificClan spouse = person.lover.identity > 0 ? SpecificClanManager.getPerson(person.lover.identity)?._specificClan : null;
             if (spouse != null && spouse != clan && (spouse.gentry || Ruling.Contains(spouse))) marriage += 2f;
         }
-        float score = Mathf.Min(OfficeCap, office);
-        if (Land.TryGetValue(clan.id, out var held)) score += Mathf.Min(15f, held.share * 1.5f);
+        float score = Mathf.Min(OfficeCap, office) + Ancestry(clan, living);
+        // 田产、族大开方算：一族多是几个人、一两份地(玩家 10-30 存档：在世宗族九成五不到五人)，照人头、份数算到不了顶
+        if (Land.TryGetValue(clan.id, out var held)) score += Mathf.Min(15f, 5f * Mathf.Sqrt(held.share));
         score += Mathf.Min(10f, renown.OrderByDescending(value => value).Take(3).Sum() / 30f);
-        score += Mathf.Min(10f, living.Count * 0.4f);
+        score += Mathf.Min(10f, 2f * Mathf.Sqrt(living.Count));
         if (clan.established_timestamp > 0d) score += Mathf.Min(10f, Date.getYearsSince(clan.established_timestamp) / 15f);
         score += Mathf.Min(8f, marriage);
         return Mathf.Clamp(score, 0f, 100f);
+    }
+
+    private const float AncestorOffice = 5f, AncestorTitle = 3f, AncestorFade = 0.7f, AncestryCap = 20f;
+
+    // 先世官爵(累世公卿)：过世的族人做过官、有爵位(每人 5)、头衔(每个 3)、封过王(5)，离在世族人最晚一代每远一代打七折，
+    // 至多 AncestryCap。只是本人做官的寒门没有这一项；几代人接连做官，才够得上世家(玩家 10-30 反馈"世家根本起不来")
+    private static float Ancestry(SpecificClan clan, List<PersonalClanIdentity> living)
+    {
+        int latest = living.Max(person => person.generation);
+        float score = 0f;
+        foreach (PersonalClanIdentity person in clan.SnapshotPeople())
+        {
+            if (person == null || person.is_alive) continue;
+            float points = (string.IsNullOrEmpty(person.officeName) && string.IsNullOrEmpty(person.PeeragesLevel) ? 0f : AncestorOffice) +
+                           AncestorTitle * (person.ownedTitleNames?.Count ?? 0) +
+                           (string.IsNullOrEmpty(person.prince_title) ? 0f : AncestorOffice);
+            if (points <= 0f) continue;
+            score += points * Mathf.Pow(AncestorFade, Mathf.Max(0, latest - person.generation - 1));
+            if (score >= AncestryCap) return AncestryCap;
+        }
+        return score;
     }
 
     private static void Record(City seat, string content, bool force = false)

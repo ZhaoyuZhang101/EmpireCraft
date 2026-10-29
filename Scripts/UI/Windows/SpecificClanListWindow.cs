@@ -84,7 +84,7 @@ public class SpecificClanListWindow : WideScrollWindow<SpecificClanListWindow>
         list = _filter switch
         {
             Filter.Ruling => list.Where(entry => entry.ruling != null),
-            Filter.Gentry => list.Where(entry => entry.clan.gentry),
+            Filter.Gentry => list.Where(entry => entry.clan.gentry && entry.living > 0),
             Filter.Extinct => list.Where(entry => entry.living == 0),
             _ => list.Where(entry => entry.living > 0)
         };
@@ -127,7 +127,7 @@ public class SpecificClanListWindow : WideScrollWindow<SpecificClanListWindow>
                  {
                      (Filter.All, "clan_list_all", "iconFamilyList", alive.Count),
                      (Filter.Ruling, "clan_list_ruling", "iconCrown", _entries.Count(entry => entry.ruling != null)),
-                     (Filter.Gentry, "clan_list_gentry", "iconKingdom", _entries.Count(entry => entry.clan.gentry)),
+                     (Filter.Gentry, "clan_list_gentry", "iconKingdom", alive.Count(entry => entry.clan.gentry)),
                      (Filter.Extinct, "clan_list_extinct", "iconFamilyDestroyed", _entries.Count(entry => entry.living == 0))
                  })
         {
