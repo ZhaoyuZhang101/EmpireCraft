@@ -28,14 +28,14 @@ public static class EnclaveFill
     private sealed class Layer
     {
         public MetaTypeAsset asset;
-        public MetaZoneGetMeta full;
-        public MetaZoneGetMetaSimple simple;
-        public MetaZoneDrawAction draw;
+        // 套在里面的原委托；套上去的委托(每帧对一遍还是不是它，同 UI.Components.WildernessTerritory.Hook)
+        public MetaZoneGetMeta full, fullHook;
+        public MetaZoneGetMetaSimple simple, simpleHook;
+        public MetaZoneDrawAction drawHook;
         public Dictionary<TileZone, IMetaObject> fill = new();
     }
 
     private static readonly List<Layer> Layers = new();
-    private static bool _installed;
     private static float _next;
     private static object _world;
 
@@ -47,30 +47,63 @@ public static class EnclaveFill
     }
 
     // 套在国家图层、帝国图层上(只管"按城池归属"那一档)
+    // 每帧对一遍：自己套的那层不在眼下的委托里了(被别处换过，或头一回时还没有)就套在新的外面(见 LayerHooks)；
+    // 缺按块取归属、画法的也照样接管归属查询
+    // (以前只在头一回套、三样缺一样就整个图层不管)。里面那个记在本地，再套一层也不会自己调自己
     private static void Install()
     {
-        if (_installed || AssetManager.meta_type_library?.list == null) return;
-        _installed = true;
-        foreach (MetaTypeAsset asset in AssetManager.meta_type_library.list)
+        List<MetaTypeAsset> assets = AssetManager.meta_type_library?.list;
+        if (assets == null) return;
+        foreach (MetaTypeAsset asset in assets)
         {
             if (asset == null || asset.map_mode != MetaType.Kingdom && asset.map_mode != MetaTypeExtension.Empire) continue;
-            if (asset.tile_get_metaobject == null || asset.tile_get_metaobject_0 == null || asset.draw_zones == null) continue;
-            var layer = new Layer
+            Layer layer = null;
+            foreach (Layer known in Layers)
+                if (ReferenceEquals(known.asset, asset))
+                {
+                    layer = known;
+                    break;
+                }
+            if (layer == null)
             {
-                asset = asset, full = asset.tile_get_metaobject, simple = asset.tile_get_metaobject_0, draw = asset.draw_zones
-            };
-            Layers.Add(layer);
-            asset.tile_get_metaobject = (zone, option) =>
-                option == 0 && zone != null && layer.fill.TryGetValue(zone, out IMetaObject meta) ? meta : layer.full(zone, option);
-            asset.tile_get_metaobject_0 = zone =>
-                zone != null && layer.fill.TryGetValue(zone, out IMetaObject meta) ? meta : layer.simple(zone);
-            asset.draw_zones = current =>
+                if (asset.tile_get_metaobject == null) continue;
+                layer = new Layer { asset = asset };
+                Layers.Add(layer);
+            }
+            MetaZoneGetMeta full = asset.tile_get_metaobject;
+            if (full != null && !LayerHooks.Contains(full, layer.fullHook))
             {
-                layer.draw(current);
-                DrawFill(layer, current);
-            };
+                layer.full = full;
+                layer.fullHook = (zone, option) =>
+                    option == 0 && zone != null && layer.fill.TryGetValue(zone, out IMetaObject meta) ? meta : full(zone, option);
+                LayerHooks.Add(layer.fullHook, full);
+                asset.tile_get_metaobject = layer.fullHook;
+            }
+            MetaZoneGetMetaSimple simple = asset.tile_get_metaobject_0;
+            if (simple != null && !LayerHooks.Contains(simple, layer.simpleHook))
+            {
+                layer.simple = simple;
+                layer.simpleHook = zone => zone != null && layer.fill.TryGetValue(zone, out IMetaObject meta) ? meta : simple(zone);
+                LayerHooks.Add(layer.simpleHook, simple);
+                asset.tile_get_metaobject_0 = layer.simpleHook;
+            }
+            MetaZoneDrawAction draw = asset.draw_zones;
+            if (draw != null && !LayerHooks.Contains(draw, layer.drawHook))
+            {
+                layer.drawHook = current =>
+                {
+                    draw(current);
+                    DrawFill(layer, current);
+                };
+                LayerHooks.Add(layer.drawHook, draw);
+                asset.draw_zones = layer.drawHook;
+            }
         }
     }
+
+    // 图层本来按城池归属取的(套在里面的那个)
+    private static IMetaObject Original(Layer layer, TileZone zone) =>
+        layer.simple != null ? layer.simple(zone) : layer.full?.Invoke(zone, 0);
 
     // 原版画完本图层后补画包住的无主地(按城池归属那一档)
     private static void DrawFill(Layer layer, MetaTypeAsset asset)
@@ -79,6 +112,7 @@ public static class EnclaveFill
         ZoneCalculator zones = World.world?.zone_calculator;
         if (zones == null) return;
         MetaZoneGetMetaSimple getter = asset.tile_get_metaobject_0;
+        if (getter == null) return;
         foreach (TileZone zone in layer.fill.Keys)
         {
             zones.drawBegin();
@@ -99,7 +133,8 @@ public static class EnclaveFill
             _world = world;
         }
         float now = Time.unscaledTime;
-        MetaTypeAsset shown = world.getCachedMapMetaAsset();
+        // 与整图画布、原版巡检画的同一个图层(见 SmoothBorders.DrawCanvas)
+        MetaTypeAsset shown = world.zone_calculator._mode_asset ?? world.getCachedMapMetaAsset();
         bool switched = !ReferenceEquals(shown, _shown);
         _shown = shown;
         if (!switched && now < _next && _next - now <= RefreshSeconds) return;
@@ -179,7 +214,7 @@ public static class EnclaveFill
                         Pending.Enqueue(next);
                         continue;
                     }
-                    IMetaObject meta = layer.simple(next);
+                    IMetaObject meta = Original(layer, next);
                     if (meta == null || owner != null && !ReferenceEquals(owner, meta))
                     {
                         rejected = true;

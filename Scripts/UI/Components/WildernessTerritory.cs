@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GeneralSystems;
+using NeoModLoader.services;
 using UnityEngine;
 
 namespace EmpireCraft.Scripts.UI.Components;
@@ -16,6 +17,8 @@ namespace EmpireCraft.Scripts.UI.Components;
 //     整图画布见 SmoothBorders.ColorZone)；
 //   · 悬停这些地块时原版的国家提示让给无人区提示(名字、类型，加一行归属，见 WildernessOverlay)。
 // 每 RefreshSeconds 秒、区域变了(Version)、换图层时重算正显示的那个图层；变了的地块连同四邻重画。
+// 接管每帧对一遍(见 Hook、GeneralSystems.LayerHooks)：以前只在头一回套、三样委托缺一样就整个图层不接管，套上之后别处再换委托也不知道——
+// 提示里写着归了某国，国家图层上却没画进去(用户 2026-10-29 "可是这个山脉也没有归属""至少没有被纳入国家图层")。
 // 区域变了时，划进、划出无人区的地块连同四邻重画色块与城市平面图层(城的地块被划走，城那一层的颜色、边界跟着变)
 public static class WildernessTerritory
 {
@@ -24,18 +27,21 @@ public static class WildernessTerritory
     private sealed class Layer
     {
         public MetaTypeAsset asset;
-        public MetaZoneGetMeta full;
-        public MetaZoneGetMetaSimple simple;
-        public MetaZoneDrawAction draw;
+        // 套在里面的原委托(取一国在本图层上的样子用)；套上去的委托(对一遍还是不是它)
+        public MetaZoneGetMeta full, fullHook;
+        public MetaZoneGetMetaSimple simple, simpleHook;
+        public MetaZoneDrawAction drawHook;
         public Dictionary<TileZone, IMetaObject> fill = new();
         public Dictionary<TileZone, Kingdom> owners = new();
+        // 日志：上回记的并进块数、下回最早何时再记
+        public int logged = -1;
+        public float logAt;
     }
 
     private static readonly List<Layer> Layers = new();
     private static readonly Dictionary<Kingdom, IMetaObject> Metas = new();
     // 上次见到的划区(地块 → 区域编号)：区域变了时比出划进、划出的地块
     private static readonly Dictionary<int, int> Regions = new(), Fresh = new();
-    private static bool _installed;
     private static float _next;
     private static object _world;
     private static MetaTypeAsset _shown;
@@ -47,6 +53,7 @@ public static class WildernessTerritory
         {
             layer.fill.Clear();
             layer.owners.Clear();
+            layer.logged = -1;
         }
         Regions.Clear();
         _world = null;
@@ -64,30 +71,61 @@ public static class WildernessTerritory
         return null;
     }
 
-    private static void Install()
+    // 套在国家、帝国图层的归属查询、画法外面；每帧对一遍：自己套的那层不在眼下的委托里了(被别处换过，或头一回时还没有)
+    // 就套在新的外面(见 LayerHooks，图层补洞也套这几样)。里面那个记在本地(不经 Layer 的字段转)，再套一层也不会自己调自己
+    private static void Hook()
     {
-        if (_installed || AssetManager.meta_type_library?.list == null) return;
-        _installed = true;
-        foreach (MetaTypeAsset asset in AssetManager.meta_type_library.list)
+        List<MetaTypeAsset> assets = AssetManager.meta_type_library?.list;
+        if (assets == null) return;
+        foreach (MetaTypeAsset asset in assets)
         {
             if (asset == null || asset.map_mode != MetaType.Kingdom && asset.map_mode != MetaTypeExtension.Empire) continue;
-            if (asset.tile_get_metaobject == null || asset.tile_get_metaobject_0 == null || asset.draw_zones == null) continue;
-            var layer = new Layer
+            Layer layer = null;
+            foreach (Layer known in Layers)
+                if (ReferenceEquals(known.asset, asset))
+                {
+                    layer = known;
+                    break;
+                }
+            if (layer == null)
             {
-                asset = asset, full = asset.tile_get_metaobject, simple = asset.tile_get_metaobject_0, draw = asset.draw_zones
-            };
-            Layers.Add(layer);
-            asset.tile_get_metaobject = (zone, option) =>
-                option == 0 && Claimed(layer, zone) is IMetaObject meta ? meta : layer.full(zone, option);
-            asset.tile_get_metaobject_0 = zone => Claimed(layer, zone) ?? layer.simple(zone);
-            asset.draw_zones = current =>
+                if (asset.tile_get_metaobject == null) continue;
+                layer = new Layer { asset = asset };
+                Layers.Add(layer);
+                var tooltip = asset.check_cursor_tooltip;
+                if (tooltip != null)
+                    asset.check_cursor_tooltip = (zone, shown, option) => WildernessOverlay.TipShown(zone) || tooltip(zone, shown, option);
+                LogService.LogInfo($"[EmpireCraft][无人区并进国土] 接管图层 {asset.id}" +
+                                   $"(按块取归属{(asset.tile_get_metaobject_0 != null ? "有" : "无")}，画法{(asset.draw_zones != null ? "有" : "无")})");
+            }
+            MetaZoneGetMeta full = asset.tile_get_metaobject;
+            if (full != null && !LayerHooks.Contains(full, layer.fullHook))
             {
-                layer.draw(current);
-                DrawClaimed(layer, current);
-            };
-            var tooltip = asset.check_cursor_tooltip;
-            if (tooltip != null)
-                asset.check_cursor_tooltip = (zone, shown, option) => WildernessOverlay.TipShown(zone) || tooltip(zone, shown, option);
+                if (layer.fullHook != null) LogService.LogInfo($"[EmpireCraft][无人区并进国土] 图层 {asset.id} 的归属查询被换过，重新套上");
+                layer.full = full;
+                layer.fullHook = (zone, option) => option == 0 && Claimed(layer, zone) is IMetaObject meta ? meta : full(zone, option);
+                LayerHooks.Add(layer.fullHook, full);
+                asset.tile_get_metaobject = layer.fullHook;
+            }
+            MetaZoneGetMetaSimple simple = asset.tile_get_metaobject_0;
+            if (simple != null && !LayerHooks.Contains(simple, layer.simpleHook))
+            {
+                layer.simple = simple;
+                layer.simpleHook = zone => Claimed(layer, zone) ?? simple(zone);
+                LayerHooks.Add(layer.simpleHook, simple);
+                asset.tile_get_metaobject_0 = layer.simpleHook;
+            }
+            MetaZoneDrawAction draw = asset.draw_zones;
+            if (draw != null && !LayerHooks.Contains(draw, layer.drawHook))
+            {
+                layer.drawHook = current =>
+                {
+                    draw(current);
+                    DrawClaimed(layer, current);
+                };
+                LayerHooks.Add(layer.drawHook, draw);
+                asset.draw_zones = layer.drawHook;
+            }
         }
     }
 
@@ -104,6 +142,7 @@ public static class WildernessTerritory
         ZoneCalculator zones = World.world?.zone_calculator;
         if (zones == null) return;
         MetaZoneGetMetaSimple getter = asset.tile_get_metaobject_0;
+        if (getter == null) return;
         foreach (TileZone zone in layer.fill.Keys)
         {
             if (zone.city != null) continue;
@@ -118,13 +157,14 @@ public static class WildernessTerritory
     {
         MapBox world = World.world;
         if (world?.zone_calculator?.zones == null || !Config.game_loaded) return;
-        Install();
+        Hook();
         if (!ReferenceEquals(_world, world))
         {
             ResetWorldState();
             _world = world;
         }
-        MetaTypeAsset shown = world.getCachedMapMetaAsset();
+        // 与整图画布、原版巡检画的同一个图层(见 SmoothBorders.DrawCanvas)
+        MetaTypeAsset shown = world.zone_calculator._mode_asset ?? world.getCachedMapMetaAsset();
         bool switched = !ReferenceEquals(shown, _shown);
         _shown = shown;
         bool regions = WildernessSystem.Version != _version;
@@ -202,6 +242,14 @@ public static class WildernessTerritory
             if (!layer.fill.TryGetValue(pair.Key, out IMetaObject before) || !ReferenceEquals(before, pair.Value)) changed.Add(pair.Key);
         layer.fill = fill;
         layer.owners = owners;
+        // 日志：并进的块数变了记一条(至多半分钟一条)——图层上没画进去时据此分清是没算出归属，还是算出了没画上
+        float now = Time.unscaledTime;
+        if (fill.Count != layer.logged && now >= layer.logAt)
+        {
+            layer.logged = fill.Count;
+            layer.logAt = now + 30f;
+            LogService.LogInfo($"[EmpireCraft][无人区并进国土] {layer.asset.id}：{fill.Count} 块并进 {new HashSet<Kingdom>(owners.Values).Count} 国");
+        }
         foreach (TileZone zone in changed)
         {
             zone.resetRenderHelpers();
@@ -224,7 +272,7 @@ public static class WildernessTerritory
                     break;
                 }
         TileZone anchor = seat?.zones != null && seat.zones.Count > 0 ? seat.zones[0] : null;
-        IMetaObject meta = anchor != null ? layer.simple(anchor) : null;
+        IMetaObject meta = anchor == null ? null : layer.simple != null ? layer.simple(anchor) : layer.full?.Invoke(anchor, 0);
         return meta != null && meta.isAlive() ? meta : owner;
     }
 }

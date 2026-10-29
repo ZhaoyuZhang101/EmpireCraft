@@ -1060,7 +1060,7 @@ public static class WildernessSystem
 
     #region 法理
 
-    // 城与法理的对应变没变(建城、法理解散、城换法理)：按城累加，顺序无关
+    // 城与法理的对应变没变(建城、毁城、法理解散、城换法理)：按城累加，顺序无关。没有法理的城也算(它挡着远处的法理挂过来，见 Attach)
     private static long TitleSignature()
     {
         long sum = 0L;
@@ -1068,16 +1068,17 @@ public static class WildernessSystem
         {
             if (city?.data == null || city.isRekt()) continue;
             KingdomTitle title = city.GetTitle();
-            if (title == null || title.isRekt()) continue;
+            long titleId = title == null || title.isRekt() ? 0L : title.id;
             unchecked
             {
-                sum += city.id * 1_000_003L + title.id * 7_919L + 1L;
+                sum += city.id * 1_000_003L + titleId * 7_919L + 1L;
             }
         }
         return sum;
     }
 
-    // 从有法理的城的地块往外按地块走(四邻、不过海)，每块无人区挂先走到它的那个法理；full 为全部重挂，否则只挂没挂的
+    // 从各城的地块往外按地块走(四邻、不过海)，每块无人区挂最先走到它的那座城的法理(那座城没有法理就不挂)；
+    // full 为全部重挂，否则只挂没挂的
     private static void Attach(bool full)
     {
         int size = _zones.Length;
@@ -1096,7 +1097,8 @@ public static class WildernessSystem
                 if (title != null && title.isRekt()) title = null;
                 titleOf[city] = title;
             }
-            if (title == null) continue;
+            // 没有法理的城也从这里起步：离它最近的无人区不挂(由周边的城定归属)，不让远处有法理的城越过它挂过来——
+            // 以前只从有法理的城起步，紧挨着祭部落(没有法理)的雨林挂到了北边远处的顾法理上(用户 2026-10-29 截图)
             from[id] = title;
             step[id] = 0;
             queue.Enqueue(id);
