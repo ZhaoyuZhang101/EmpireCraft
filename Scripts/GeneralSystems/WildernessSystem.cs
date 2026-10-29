@@ -95,7 +95,9 @@ public static class WildernessSystem
     // (山脉连同丘陵石地，沙漠冻原连同两样，雨林大泽连同两样)，直到收不动——山脚的丘陵带、沙漠丛林的外沿都并进来；
     // 平滑国界下只涂这一类地形的格子(见 WildernessShape)，收进来的地块里别的格交给邻城、露地形；
     // 已是这一片的地块门槛再降一成(同 Hysteresis)
-    private const float EdgeShare = 0.5f;
+    // 山脉的外沿门槛高一档(六成)：五成时山西的太原、临汾、大同盆地被并进太行，安纳托利亚、伊朗、巴尔干的河谷也被收进去
+    // (按真实地形预演，见 Tools/WorldMap/preview_wilderness.py)
+    private const float EdgeShare = 0.5f, MountainEdgeShare = 0.6f;
     // 改地形停手几秒后重判；一直有格子在变(草木蔓生)时至多等几秒；法理挂接与主人几秒核对一次(真实时间)
     private const float DebounceSeconds = 1.5f, MaxWaitSeconds = 10f, RefreshSeconds = 2f, RetrySeconds = 30f;
     // 村镇、厂区变了至多隔几年重划一次
@@ -738,7 +740,8 @@ public static class WildernessSystem
                         _ => c.Jungle + c.Swamp
                     };
                     bool was = oldOf[nid] >= 0 && olds[oldOf[nid]].Kind == kind;
-                    if (share < c.Land * (was ? EdgeShare - Hysteresis : EdgeShare)) continue;
+                    float edge = kind == WildKind.Mountain ? MountainEdgeShare : EdgeShare;
+                    if (share < c.Land * (was ? edge - Hysteresis : edge)) continue;
                     piece[nid] = g;
                     zones.Add(nid);
                     queue.Enqueue(nid);

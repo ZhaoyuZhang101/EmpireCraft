@@ -32,7 +32,7 @@ public sealed class WorldMapFrame
 }
 
 // 地球地表网格(WorldMaps/earth.bytes，由 Tools/WorldMap/build_earth.py 从 ETOPO 高程、Natural Earth 海陆湖泊、
-// 柯本气候分区烘出)：每格 0.05°，存原版存档写法的地块编号；生成时按所选范围和大小逐格就近取样
+// 柯本气候分区烘出；2026-10-29 改用 AWS Terrarium 高程按相对起伏重烘山、丘陵、高地，气候沿用旧网格)：每格 0.05°，存原版存档写法的地块编号；生成时按所选范围和大小逐格就近取样
 public static class EarthTerrain
 {
     public static readonly WorldMapFrame Eurasia = new()

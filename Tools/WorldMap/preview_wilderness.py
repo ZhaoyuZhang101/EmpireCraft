@@ -4,7 +4,8 @@
   - 取样照 Scripts/GeneralSystems/WorldMap/EarthTerrain.cs：按范围与大小逐格就近取 earth.bytes，再按 rivers.bytes 画大河水道(留渡口)；
   - 归类、连片照 Scripts/GeneralSystems/WildernessSystem.cs(阈值常量照抄，改了那边这里也要改)：
     一块地 8×8 格，水面过四分之一、陆地不到 16 格的不算；山脉、沙漠冻原、沼泽丛林的门槛同 Classify；
-    同类型四邻相连，至少 4 块成一片；
+    同类型四邻相连成核心，再按 Regroup 的外沿放宽往外收(大的先长，这一类地形占陆地过半的地块并进来，长到同类的小片整片并进来)，
+    最后至少 4 块成一片；图上外沿收进来的地块淡一些、打斜线；
   - 起名照 Scripts/GeneralSystems/WorldMap/WorldMapWilderness.cs：地块换成经纬度，找同类型、与范围(锚点半径或经纬框)
     重合得最多的地理单元(盖住的块数占两者并集的比例，盖住区域过半的优先)；同一单元被拆成几片的，盖得最多的那片用原名，别的加方位(东段/东部、Eastern)，再撞名加"余脉""边缘"；
   - 给了 --era：剧本的城心那块留给城(同 Regroup 的 anchored，近似为城址所在那块)，名字按本时代年份取旧称、按最近城的文化取文化叫法，
@@ -33,6 +34,8 @@ MIN_LAND = 16
 MOUNTAIN_CORE, MOUNTAIN_FLANK, MOUNTAIN_RUGGED = 0.5, 0.35, 0.75
 BARREN_SHARE, SWAMP_SHARE, JUNGLE_SHARE = 0.85, 0.75, 0.85
 MIN_ZONES = 4
+EDGE_SHARE = 0.5   # 外沿放宽：这一类地形占陆地过半的地块往外收(WildernessSystem.EdgeShare)
+MOUNTAIN_EDGE_SHARE = 0.6   # 山脉高一档(WildernessSystem.MountainEdgeShare)
 ZONE = 8
 
 # ---- 拆片命名、匹配(照抄 WorldMapWilderness 的常量) ----
@@ -147,14 +150,14 @@ def sample(root, frame, size):
     return out, types, dpt, bottom
 
 
-def classify(tiles, types):
-    """逐块归类(照 WildernessSystem.Classify，开局没有上回的类型)：返回 [zy, zx] 的类型编号(0 不是)。"""
+def zone_counts(tiles, types):
+    """逐块数格子(照 WildernessSystem.Count)：返回 {水, 山, 丘, 冻, 沙, 丛林, 沼泽, 陆地} 各一张 [zy, zx] 网格。"""
     top = np.array([type_marks(t.split(":")[-1]) for t in types])
     under = np.array([type_marks(t.split(":")[0]) if ":" in t else 0 for t in types])
     h, w = tiles.shape
     zh, zw = h // ZONE, w // ZONE
-    m = top[tiles]
-    u = under[tiles]
+    m = top[tiles[:zh * ZONE, :zw * ZONE]]
+    u = under[tiles[:zh * ZONE, :zw * ZONE]]
     both = m | u
 
     def count(mask):
@@ -167,10 +170,18 @@ def classify(tiles, types):
     sand = ~water & ~frozen & ((m & SAND) != 0)
     jungle = ~water & ~frozen & ~sand & ((m & JUNGLE) != 0)
     swamp = ~water & ~frozen & ~sand & ~jungle & ((m & SWAMP) != 0)
+    c = {k: count(a) for k, a in (("water", water), ("rock", rock), ("hills", hills), ("frozen", frozen), ("sand", sand),
+                                  ("jungle", jungle), ("swamp", swamp))}
+    c["land"] = ZONE * ZONE - c["water"]
+    return c
+
+
+def classify(tiles, types, c=None):
+    """逐块归类(照 WildernessSystem.Classify，开局没有上回的类型)：返回 [zy, zx] 的类型编号(0 不是)。"""
+    c = c or zone_counts(tiles, types)
+    nw, nr, nh, nf, ns, nj, nsw, land = (c[k] for k in ("water", "rock", "hills", "frozen", "sand", "jungle", "swamp", "land"))
     total = ZONE * ZONE
-    nw, nr, nh, nf, ns, nj, nsw = (count(a) for a in (water, rock, hills, frozen, sand, jungle, swamp))
-    land = total - nw
-    kind = np.zeros((zh, zw), dtype=np.int8)
+    kind = np.zeros(land.shape, dtype=np.int8)
     ok = (land >= MIN_LAND) & (nw <= total * MAX_WATER)
     mountain = ok & ((nr >= land * MOUNTAIN_CORE) | ((nr >= land * MOUNTAIN_FLANK) & (nr + nh >= land * MOUNTAIN_RUGGED)))
     barren = ok & ~mountain & (nf + ns >= land * BARREN_SHARE)
@@ -185,29 +196,65 @@ def classify(tiles, types):
     return kind
 
 
-def regions_of(kind, anchored):
-    """同类型四邻连片，至少 MIN_ZONES 块；返回 [(类型, [(zx, zy), ...])]，大的在前。"""
+def regions_of(kind, anchored, c):
+    """照 WildernessSystem.Regroup(开局，没有旧区域)：同类型四邻连成核心；大的先长，往四邻收没被别片占、不留给城、
+    陆地够 MIN_LAND、这一类地形占陆地过半(山脉算山+丘，沙漠冻原算沙+冻，雨林大泽算丛林+沼泽；水面不设上限)的地块，
+    收到收不动；长到同类、还没长过的核心整片并进来；最后去掉不到 MIN_ZONES 块的。
+    返回 ([(类型, [(zx, zy), ...])], [外沿收进来的块集合])，大的在前。"""
     zh, zw = kind.shape
-    seen = np.zeros_like(kind, dtype=bool)
-    result = []
+    piece = -np.ones((zh, zw), dtype=np.int32)
+    groups = []
     for sy in range(zh):
         for sx in range(zw):
             k = kind[sy, sx]
-            if k == 0 or seen[sy, sx] or anchored[sy, sx]:
+            if k == 0 or piece[sy, sx] >= 0 or anchored[sy, sx]:
                 continue
+            mark = len(groups)
             stack, cells = [(sx, sy)], []
-            seen[sy, sx] = True
+            piece[sy, sx] = mark
             while stack:
                 x, y = stack.pop()
                 cells.append((x, y))
                 for nx, ny in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
-                    if 0 <= nx < zw and 0 <= ny < zh and not seen[ny, nx] and kind[ny, nx] == k and not anchored[ny, nx]:
-                        seen[ny, nx] = True
+                    if 0 <= nx < zw and 0 <= ny < zh and piece[ny, nx] < 0 and kind[ny, nx] == k and not anchored[ny, nx]:
+                        piece[ny, nx] = mark
                         stack.append((nx, ny))
-            if len(cells) >= MIN_ZONES:
-                result.append((int(k), cells))
-    result.sort(key=lambda r: -len(r[1]))
-    return result
+            groups.append([int(k), cells, set()])
+    share = {1: c["rock"] + c["hills"], 2: c["sand"] + c["frozen"], 3: c["sand"] + c["frozen"],
+             4: c["jungle"] + c["swamp"], 5: c["jungle"] + c["swamp"]}
+    grown = [False] * len(groups)
+    from collections import deque
+    for g in sorted(range(len(groups)), key=lambda i: -len(groups[i][1])):
+        k, cells, edge = groups[g]
+        if not cells:
+            continue
+        grown[g] = True
+        queue = deque(cells)
+        while queue:
+            x, y = queue.popleft()
+            for nx, ny in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
+                if not (0 <= nx < zw and 0 <= ny < zh):
+                    continue
+                other = piece[ny, nx]
+                if other >= 0:
+                    if other == g or grown[other] or groups[other][0] != k:
+                        continue
+                    for cell in groups[other][1]:
+                        piece[cell[1], cell[0]] = g
+                        cells.append(cell)
+                        queue.append(cell)
+                    edge |= groups[other][2]
+                    groups[other][1] = []
+                    grown[other] = True
+                    continue
+                if anchored[ny, nx] or c["land"][ny, nx] < MIN_LAND or share[k][ny, nx] < c["land"][ny, nx] * (MOUNTAIN_EDGE_SHARE if k == 1 else EDGE_SHARE):
+                    continue
+                piece[ny, nx] = g
+                cells.append((nx, ny))
+                edge.add((nx, ny))
+                queue.append((nx, ny))
+    result = sorted((g for g in groups if len(g[1]) >= MIN_ZONES), key=lambda r: -len(r[1]))
+    return [(k, cells) for k, cells, _ in result], [edge for _, _, edge in result]
 
 
 # ---------------- 地理单元：范围、匹配、起名(照 WorldMapWilderness) ----------------
@@ -443,7 +490,7 @@ def load_era(root, era_id, frame, size, size_index):
     return era, year, seats, owners
 
 
-def render(tiles, types, kind, regions, names, matches, owners_of, seats, path, title):
+def render(tiles, types, kind, regions, edges, names, matches, owners_of, seats, path, title):
     from PIL import Image, ImageDraw, ImageFont
     base = {
         "deep_ocean": (40, 90, 190), "close_ocean": (55, 120, 220), "shallow_waters": (80, 170, 240),
@@ -463,10 +510,22 @@ def render(tiles, types, kind, regions, names, matches, owners_of, seats, path, 
         for x, y in cells:
             region_of[y, x] = i
     up = np.kron(region_of, np.ones((ZONE, ZONE), dtype=np.int32))
+    # 外沿收进来的地块淡一些、打斜线(看收得对不对)
+    grown = np.zeros((zh, zw), dtype=bool)
+    for cells in edges:
+        for x, y in cells:
+            grown[y, x] = True
+    grown_up = np.kron(grown, np.ones((ZONE, ZONE), dtype=bool))
+    yy, xx = np.indices(up.shape)
+    hatch = grown_up & ((xx + yy) % 4 == 0)
     for i, (k, cells) in enumerate(regions):
         mask = up == i
         color = np.array(tint[k], dtype=np.float32) if names[i] else np.array((220, 40, 40), dtype=np.float32)
-        img[mask] = img[mask] * 0.35 + color * 0.65
+        core = mask & ~grown_up
+        img[core] = img[core] * 0.35 + color * 0.65
+        outer = mask & grown_up
+        img[outer] = img[outer] * 0.65 + color * 0.35
+        img[mask & hatch] = img[mask & hatch] * 0.45
     edge = np.zeros_like(up, dtype=bool)
     edge[:-1, :] |= up[:-1, :] != up[1:, :]
     edge[:, :-1] |= up[:, :-1] != up[:, 1:]
@@ -506,7 +565,8 @@ def preview(root, frame_id, size_index, era_id, out_path, list_only):
     frame = FRAMES[frame_id]
     size = frame["sizes"][size_index]
     tiles, types, dpt, bottom = sample(root, frame, size)
-    kind = classify(tiles, types)
+    counts = zone_counts(tiles, types)
+    kind = classify(tiles, types, counts)
     zh, zw = kind.shape
     anchored = np.zeros_like(kind, dtype=bool)
     year, seats, owners, era = 2000, [], {}, None
@@ -514,7 +574,7 @@ def preview(root, frame_id, size_index, era_id, out_path, list_only):
         era, year, seats, owners = load_era(root, era_id, frame, size, size_index)
         for x, y, _, _ in seats:
             anchored[y // ZONE, x // ZONE] = True
-    regions = regions_of(kind, anchored)
+    regions, edges = regions_of(kind, anchored, counts)
     units = load_units(root)
     unit_by_id = {u["id"]: u for u in units}
 
@@ -556,16 +616,17 @@ def preview(root, frame_id, size_index, era_id, out_path, list_only):
             wild[y, x] = True
     holes = int((barren & ~wild & ~anchored).sum())
     total = sum(len(c) for _, c in regions)
-    print("== %s %s %s：%d 片 %d 块无人区，对上地名 %d 片，没对上 %d 片；开局整块荒漠冻土留空却没成无人区 %d 块" % (
-        frame_id, size, era_id or "现代", len(regions), total, sum(1 for n in names if n), sum(1 for n in names if not n), holes))
+    print("== %s %s %s：%d 片 %d 块无人区(外沿收进 %d 块)，对上地名 %d 片，没对上 %d 片；开局整块荒漠冻土留空却没成无人区 %d 块" % (
+        frame_id, size, era_id or "现代", len(regions), total, sum(len(e) for e in edges), sum(1 for n in names if n),
+        sum(1 for n in names if not n), holes))
     for i, (k, cells) in enumerate(regions):
         lon, lat = (matches[i][3], matches[i][4]) if matches[i] else lonlat(*cells[0])
         unit = matches[i][0]["id"] if matches[i] else "-"
-        print("  %s %5d 块 (%6.1f,%5.1f) %-22s %s %s" % (KIND_ZH[k], len(cells), lon, lat, unit, names[i] or "(未配)",
-                                                    ("→" + owners_of(i)) if owners else ""))
+        print("  %s %5d 块(外沿 %4d) (%6.1f,%5.1f) %-22s %s %s" % (KIND_ZH[k], len(cells), len(edges[i]), lon, lat, unit,
+                                                              names[i] or "(未配)", ("→" + owners_of(i)) if owners else ""))
     if not list_only:
         title = "无人区预演 · %s %d×%d · %s" % (frame_id, size[0], size[1], (era["zh"] + " %d" % year) if era else "现代地名")
-        render(tiles, types, kind, regions, names, matches, owners_of, seats, out_path, title)
+        render(tiles, types, kind, regions, edges, names, matches, owners_of, seats, out_path, title)
 
 
 def main():
