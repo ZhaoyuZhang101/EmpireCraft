@@ -231,6 +231,7 @@ public class SaveManagerPatch : GamePatch
     {
         DataManager.ResetCurrentSaveDataPath();
         EmpireCraft.Scripts.GeneralSystems.WorldMap.WorldMapScale.ZoneKm = 0f;
+        EmpireCraft.Scripts.GeneralSystems.WorldMap.WorldMapWilderness.ResetWorldState();
         CulturePatch.ResetWorldState();
         EmpireCraft.Scripts.GeneralSystems.AnimalHusbandrySystem.ResetWorldState();
         EmpireCraft.Scripts.GeneralSystems.MapWallSystem.ResetWorldState();

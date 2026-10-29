@@ -139,6 +139,11 @@ public static class RoadBuildingSystem
     }
 
     // 旧存档：路网规划算完后一次按各国科技铺好
+    // 世界地图剧本开局：相邻城之间的干道按各国科技当场修通(同老世界补路，等路网规划算完)——丝路的河西走廊、尼罗河沿岸、
+    // 罗马大道当年都有路；无人区没路过不去(见 WildernessPassage)，开局没路，河西、尼罗河谷这类夹在荒漠里的走廊就断了
+    // (用户 2026-10-29 "然后要适配预设地图得历史设定")
+    public static void SeedAtScenarioStart() => _seed = true;
+
     public static void SeedIfOldWorld()
     {
         _seed ??= Links.Count == 0 && Date.getYearsSince(0d) > SeedAfterYears;

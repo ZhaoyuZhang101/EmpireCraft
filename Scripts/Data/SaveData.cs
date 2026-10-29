@@ -67,4 +67,6 @@ public class SaveData
     public int mod_version = 0;
     // 世界地图一块区块合多少公里(见 WorldMapScale；不是世界地图为 0)
     public float world_map_zone_km = 0f;
+    // 世界地图的范围、大小、时代、开局年份与无人区的史实归属(见 WorldMapWilderness；不是世界地图为 null)
+    public EmpireCraft.Scripts.GeneralSystems.WorldMap.WorldMapWildSave world_map_wild;
 }

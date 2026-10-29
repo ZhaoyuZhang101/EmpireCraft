@@ -397,6 +397,10 @@ public static class WildernessSystem
         return marks;
     }
 
+    // 剧本开局铺辖地(WorldMapZones)用：这块地按地形会不会是无人区、哪一类——两边同一套门槛，开局留空的地进世界后正好划成无人区，
+    // 不会留下既不归城、也不是无人区的空地
+    internal static WildKind ClassifyFresh(TileZone zone) => Classify(zone, WildKind.None);
+
     // 这块地按地形算哪一类无人区(门槛见类头的常量)；previous 是上回判的，已是那一类的门槛降一成
     private static WildKind Classify(TileZone zone, WildKind previous)
     {
@@ -844,7 +848,9 @@ public static class WildernessSystem
         string name = null;
         try
         {
-            name = WildernessNaming.Name(region.Kind, region.Culture ?? "", region.Id, used, region.Zones.Count);
+            // 世界地图先用真实地名(见 WorldMap.WorldMapWilderness；随机地图、没对上的为 null)
+            name = WorldMap.WorldMapWilderness.Name(region, used) ??
+                   WildernessNaming.Name(region.Kind, region.Culture ?? "", region.Id, used, region.Zones.Count);
         }
         catch (Exception exception)
         {
@@ -918,7 +924,8 @@ public static class WildernessSystem
         foreach (WildRegion region in _regions)
             foreach (int id in region.Zones)
                 if (full || _titles[id] == null || _titles[id].isRekt())
-                    _titles[id] = from[id];
+                    // 世界地图时代文件写了史实归属的先挂那个(见 WorldMap.WorldMapWilderness.TitleFor；随机地图为 null)
+                    _titles[id] = WorldMap.WorldMapWilderness.TitleFor(_zones[id]) ?? from[id];
     }
 
     private static bool Land(TileZone zone) => zone.tiles_with_ground > 0 && !SeaRegionSystem.IsSea(zone);

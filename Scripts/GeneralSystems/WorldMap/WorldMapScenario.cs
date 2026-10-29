@@ -1263,6 +1263,10 @@ public static class WorldMapScenario
         Guard("科技首扫", TechnologySystem.TryYearlyScan);
         Guard("帝国归属核对", () => VerifyEmpires("收尾"));
         Guard("进世界后的安排", QueueAfterLoad);
+        // 无人区的真实地名与史实归属：记下范围、大小、时代与各政权都城(进世界划区时起名、挂法理，见 WorldMapWilderness)
+        Guard("无人区地名与归属", () => WorldMapWilderness.Begin(_frame, _size, _era, _polities
+            .Where(polity => polity.data != null && polity.capital?.city != null && !polity.capital.city.isRekt())
+            .GroupBy(polity => polity.data.id).ToDictionary(group => group.Key, group => group.First().capital.city)));
         LogService.LogInfo($"[EmpireCraft][世界地图] {_era?.id} 摆好：{World.world.kingdoms.Count()} 国，{World.world.cities.Count()} 城");
         _cities = new List<PlannedCity>();
         _polities = new List<PlannedPolity>();
@@ -1309,6 +1313,8 @@ public static class WorldMapScenario
     {
         _afterLoad.Clear();
         _afterLoadWorld = World.world;
+        _afterLoadQueued = true;
+        _afterLoadQueuedAt = Time.realtimeSinceStartup;
         foreach (PlannedPolity polity in _polities.Where(polity => polity.data != null && polity.kingdom != null))
         {
             PlannedPolity p = polity;
@@ -1398,6 +1404,8 @@ public static class WorldMapScenario
         if (relations.Count > 0) _afterLoad.Add(("开局外交", () => ApplyRelations(relations, realms)));
         // 商品市场当场结算一轮：市场图层、外交界面的市场页一进世界就有数
         _afterLoad.Add(("市场开市", CommodityMarketSystem.SettleNow));
+        // 开局铺好相邻城之间的干道(路网规划算完后修通，见 RoadBuildingSystem.SeedAtScenarioStart)
+        _afterLoad.Add(("开局干道", RoadBuildingSystem.SeedAtScenarioStart));
     }
 
     // 用户 2026-10-29 "日本幕府的天皇去哪儿了""天皇不应该是万世一系的吗"：以前德川家光直接坐了日本的君位，天皇家没生出来
@@ -1448,11 +1456,20 @@ public static class WorldMapScenario
     private static float _afterLoadArmedAt;
     private const float AfterLoadWaitSeconds = 20f;
 
+    // 剧本摆好(QueueAfterLoad)到加载界面看到加载走完(MarkDone → RunAfterLoad)之间也算没做完：生成流程收尾的镜头那一步就复位了
+    // WorldMapGenerator.Generating，加载走完到加载界面来叫的这一两帧里，无人区(WildernessSystem.Tick 等它)会抢在进世界安排之前划区；
+    // 加载界面出了岔子不来叫的，过 QueuedWaitSeconds 也不再等
+    private static bool _afterLoadQueued;
+    private static float _afterLoadQueuedAt;
+    private const float QueuedWaitSeconds = 60f;
+
     // 加载界面揭开前要等的进世界安排还没做完(见 WorldMapLoadingScreen)
-    public static bool AfterLoadPending => _afterLoadArmed;
+    public static bool AfterLoadPending => _afterLoadArmed || _afterLoadQueued && ReferenceEquals(_afterLoadWorld, World.world) &&
+        Time.realtimeSinceStartup - _afterLoadQueuedAt < QueuedWaitSeconds;
 
     public static void RunAfterLoad()
     {
+        _afterLoadQueued = false;
         if (_afterLoad.Count == 0) return;
         _afterLoadArmed = true;
         _afterLoadArmedAt = Time.realtimeSinceStartup;
