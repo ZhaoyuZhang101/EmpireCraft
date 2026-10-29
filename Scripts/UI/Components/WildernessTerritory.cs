@@ -237,7 +237,7 @@ public static class WildernessTerritory
         // 变了的地块连同四邻重画(边线跟着变)
         var changed = new HashSet<TileZone>();
         foreach (KeyValuePair<TileZone, IMetaObject> pair in layer.fill)
-            if (!fill.TryGetValue(pair.Key, out IMetaObject now) || !ReferenceEquals(now, pair.Value)) changed.Add(pair.Key);
+            if (!fill.TryGetValue(pair.Key, out IMetaObject after) || !ReferenceEquals(after, pair.Value)) changed.Add(pair.Key);
         foreach (KeyValuePair<TileZone, IMetaObject> pair in fill)
             if (!layer.fill.TryGetValue(pair.Key, out IMetaObject before) || !ReferenceEquals(before, pair.Value)) changed.Add(pair.Key);
         layer.fill = fill;
