@@ -39,6 +39,11 @@
             "town_suffix": "TownSuffix",
             "fort_suffix": "FortSuffix"
         },
+        // 无人区命名(见 Locales/Cultures/README.md 无人区一节)：地名 + 类型后缀，乌拉尔山脉、咸海沙漠、西伯利亚冻原、乌苏里泰加林、普里皮亚季沼泽
+        "Wilderness": {
+            "words": { "mountain": "WildMountain", "desert": "WildDesert", "tundra": "WildTundra", "jungle": "WildJungle", "swamp": "WildSwamp" },
+            "suffix": { "jungle": "WildJungleSuffix" }
+        },
         "City": {
             "groups": {
                 "group_1": "CityNames1"

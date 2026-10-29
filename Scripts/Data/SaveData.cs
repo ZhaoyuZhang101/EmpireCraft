@@ -52,6 +52,11 @@ public class SaveData
     public List<RuralSettlement> rural_settlements = new List<RuralSettlement>();
     // 工厂(钉在地图上，见 FactorySystem)
     public List<FactorySite> factories = new List<FactorySite>();
+    // 无人区(连片的山脉、沙漠、冻土雪原、丛林、沼泽，见 WildernessSystem)：编号、类型、名字、起名的文化、地块与各块挂的法理；
+    // 下一片的编号。旧档没有，读档后按地形划
+    public List<EmpireCraft.Scripts.GeneralSystems.WildRegionData> wild_regions =
+        new List<EmpireCraft.Scripts.GeneralSystems.WildRegionData>();
+    public int wild_next_id = 1;
     // 通路之约：两国交好的年数、有过友好时期的、议定的(见 RoadTreatySystem)
     public RoadTreatyData road_treaties = new RoadTreatyData();
     public bool switch_real_num = false;

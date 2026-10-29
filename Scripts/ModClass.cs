@@ -47,8 +47,6 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
     public static int TITLE_MAX_CITIES = 5;
     // 和平扩张时单座城市的区域数上限；0 = 不限，不限制战争占领或玩家改地。
     public static int CITY_MAX_ZONES = 50;
-    // 游牧营地、斯拉夫文化的城领纯沙漠、纯冻土时地块上限与远近放宽几倍(见 BarrenLandSystem)
-    public static int BARREN_ZONE_MULTIPLIER = 2;
     public static int SETTLEMENT_BASE_GOLD = 200;
     public static int SETTLEMENT_PER_CITY_GOLD = 25;
     public static int SETTLEMENT_RESERVE_GOLD = 200;
@@ -109,6 +107,8 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
         using (FrameProfiler.Measure("后台·原生植被")) EmpireCraft.Scripts.GeneralSystems.NativeVegetationScheduler.Tick();
         using (FrameProfiler.Measure("后台·纯净地图")) EmpireCraft.Scripts.GeneralSystems.PureMapMode.Tick();
         EmpireCraft.Scripts.GeneralSystems.MapWallSystem.Tick();
+        // 无人区：加载完头一帧划区、改过地形停手后重划(暂停时也做，见 WildernessSystem.Tick)
+        EmpireCraft.Scripts.GeneralSystems.WildernessSystem.Tick();
         EmpireCraft.Scripts.GeneralSystems.LayerDiagnostics.Tick();
         EmpireCraft.Scripts.GeneralSystems.EnclaveFill.Tick();
         using (FrameProfiler.Measure("后台·官职清理")) EmpireCraft.Scripts.Regimes.OfficeManager.Tick();

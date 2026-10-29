@@ -12,7 +12,9 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 后勤补给(每月，CorpsSystem 月度结算里逐国调用，先于休整与补员)：
 //   · 补给线(0~1)：从军所在的地块往后方找一条运粮的路，到最近的己方(含友军)城为止，沿途每块地折损一点——
 //     有路的地块折损小(路越好越小)，路外大，山地、丛林、沼泽、沙漠、雪原的路外再加重；己方控制区折损最小、无主地次之；
-//     敌军控制的地块只有阵地前沿两块能穿过；找不到这样的路(被围、孤军深入、后路被截断)就是补给线被切断，补给为 0；
+//     敌军控制的地块只有阵地前沿两块能穿过；本国过不去的无人区(见 WildernessPassage，用户 2026-10-29)不经过，有路的、
+//     惯走的照走，军困在无人区里的(区域刚划出来时)可以经无人区运出去；
+//     找不到这样的路(被围、孤军深入、后路被截断)就是补给线被切断，补给为 0；
 //     海外靠海路：补给线可以到这片陆地上本国船到得了的岸边(己方控制、无主地或军脚下的海滩，从海上卸粮，见 SeaLanding)，
 //     最多七成五，超出舰种航程只剩四成；岸外海区都被敌方制海截断、或走不到岸边为 0；在船上八成；
 //     粮草官按治事加成(每点 +1%，最多 +20%，被围的不加)；就地征粮期间在敌境的军 +35%；
@@ -175,6 +177,9 @@ public static class LogisticsSystem
         }
         float here = Source(start);
         if (here >= 1f) return 1f;
+        // 无人区：本国过不去的不进；起点就在里面的可以在无人区里接着走，好运出去
+        bool wild = WildernessPassage.Active;
+        int way = WildernessPassage.Way(kingdom);
         BeginPass();
         Reach(start, 0f, 0);
         Open.Add((0f, start));
@@ -203,6 +208,7 @@ public static class LogisticsSystem
             {
                 if (next == null || Closed(next) || SeaRegionSystem.IsSea(next) || TerrainSystem.Impassable(next) ||
                     !TerrainSystem.Crossable(zone, next)) continue;
+                if (wild && !WildernessPassage.Open(next, way) && WildernessPassage.Open(zone, way)) continue;
                 float loss = Loss(kingdom, next, depth + 1);
                 if (loss >= 1f) continue;
                 float total = key - Mathf.Log(1f - loss);

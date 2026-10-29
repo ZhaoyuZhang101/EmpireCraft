@@ -21,6 +21,11 @@
             }
         },
         "traits": ["patriarchy"],
+        // 无人区命名(见 Locales/Cultures/README.md 无人区一节)：地名 + 类型后缀，拉丁地名：Mons Apenninus、格德罗西亚沙漠、许珀耳玻瑞亚冻原、赫西尼亚密林、蓬蒂内沼泽
+        "Wilderness": {
+            "words": { "mountain": "WildMountain", "desert": "WildDesert", "tundra": "WildTundra", "jungle": "WildJungle", "swamp": "WildSwamp" },
+            "suffix": { "mountain": "WildMountainSuffix", "jungle": "WildJungleSuffix" }
+        },
         "City": {
             "groups": {
                 "group_1": "CityNames1"

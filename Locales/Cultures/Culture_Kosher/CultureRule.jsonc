@@ -18,6 +18,11 @@
             }
         },
         "traits": ["patriarchy"],
+        // 无人区命名(见 Locales/Cultures/README.md 无人区一节)：地名 + 类型后缀，圣经地名：黑门山、寻的旷野、以法莲树林、胡拉沼泽；冻原引用斯拉夫的
+        "Wilderness": {
+            "words": { "mountain": "WildMountain", "desert": "WildDesert", "tundra": "Slavonic:WildTundra", "jungle": "WildJungle", "swamp": "WildSwamp" },
+            "suffix": { "mountain": "WildMountainSuffix", "desert": "WildDesertSuffix", "jungle": "WildJungleSuffix" }
+        },
         "City": {
             "groups": {
                 "group_1": "CityNames1",

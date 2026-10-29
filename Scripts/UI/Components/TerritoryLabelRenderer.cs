@@ -34,6 +34,10 @@ public sealed class TerritoryLabelStyle
     public bool bridge_internal_gaps;
     // Maximum bend for a baseline fitted from the territory's actual center line.
     public float arc_curvature;
+    // 让位：排在最后，撞上别的铭牌就不画(无人区名让国名、城名，见 SubmitWilderness)
+    public bool yields;
+    // 西文名用斜体(无人区名；中文按字间加空格疏排，见 WildText)
+    public bool latin_italic;
     public Color gold_top = new Color32(255, 244, 194, 255);
     public Color gold_bottom = new Color32(184, 156, 68, 255);
 }
@@ -326,8 +330,9 @@ public static class TerritoryLabelRenderer
     public static void EndFrame()
     {
         if (_submission_frame != Time.frameCount) return;
+        // 无人区名在 HostLateUpdate 里补交，这里不收(不然每帧先收后显，白白重建网格)
         foreach (RuntimeLabel label in _labels.Values)
-            if (label.last_seen_frame != _submission_frame) label.Hide();
+            if (label.last_seen_frame != _submission_frame && !label.wild) label.Hide();
     }
 
     private static bool ContainsLatin(string text, bool richText = false)
@@ -638,16 +643,25 @@ public static class TerritoryLabelRenderer
         foreach (RuntimeLabel label in _labels.Values) label.InvalidateFont();
     }
 
-    public static void HideAll()
+    // 图层收起自己的铭牌(不画领土大字的图层每帧都调)：无人区名由 HostLateUpdate 自己管，不在这里收
+    public static void HideAll() => HideLabels(false);
+
+    private static void HideLabels(bool wild)
     {
-        foreach (RuntimeLabel label in _labels.Values) label.Hide();
+        foreach (RuntimeLabel label in _labels.Values)
+            if (wild || !label.wild) label.Hide();
         _submission_frame = -1;
         _submission_mode = MetaType.None;
     }
 
+    // 无人区名要用宿主(每帧 HostLateUpdate)：没有哪个图层提交过铭牌时也建起来(见 WildernessOverlay.Update)
+    public static void KeepHost() => EnsureHost();
+
     public static void ResetWorldState()
     {
-        HideAll();
+        HideLabels(true);
+        _wild_entries.Clear();
+        _wild_version = int.MinValue;
         if (_root != null) UnityEngine.Object.Destroy(_root.gameObject);
         _host = null;
         _root = null;
@@ -662,15 +676,19 @@ public static class TerritoryLabelRenderer
         if (host != _host) return;
         Canvas canvas = CanvasMain.instance == null ? null : CanvasMain.instance.canvas_map_names;
         NameplateManager manager = canvas == null ? null : canvas.GetComponent<NameplateManager>();
-        if (_submission_frame < 0 || !Zones.showMapNames() || manager == null ||
-            manager.getCurrentMode() != _submission_mode)
+        bool names = manager != null && Zones.showMapNames();
+        // 无人区名：图层这帧交过铭牌就并进那一帧，没交(原版铭牌、城市图层)就单独开一帧(见 SubmitWilderness)
+        if (names) SubmitWilderness(manager.getCurrentMode());
+        if (_submission_frame < 0 || !names || manager.getCurrentMode() != _submission_mode)
         {
-            HideAll();
+            HideLabels(true);
             return;
         }
         _render_order.Clear();
+        // 不在这一帧的收起(换图层后无人区名单独开一帧时，上一个图层留下的也在这里收)
         foreach (RuntimeLabel label in _labels.Values)
             if (label.last_seen_frame == _submission_frame) _render_order.Add(label);
+            else label.Hide();
         _render_order.Sort((left, right) => right.RenderPriority.CompareTo(left.RenderPriority));
         _occupied_label_bounds.Clear();
         foreach (RuntimeLabel label in _render_order) label.RenderSubmitted(_submission_frame);
@@ -742,6 +760,148 @@ public static class TerritoryLabelRenderer
         _root.SetAsLastSibling();
         _host = rootObject.GetComponent<TerritoryLabelRendererHost>();
         return true;
+    }
+
+    // ───────── 无人区名 ─────────
+    // (用户 2026-10-29："……依据最近的文化进行命名比如撒哈拉 大沙漠，太行 山脉什么的")：每片无人区在自己的地块里标名字，
+    // 同国名一样按区域大小定字号、沿长轴排(按地块排版，见 UpdateFromZones)；字色按类型、偏淡，中文字间加空格疏排、西文斜体，
+    // 与国名区分；排在最后、撞上国名城名就让开(TerritoryLabelStyle.yields)。并进国土的照旧标无人区名。
+    // 不靠图层提交：HostLateUpdate 每帧补交——图层这帧交过铭牌就并进那一帧，没交(原版铭牌、城市图层)就单独开一帧。
+    // 纯净地图下哪个图层都标，普通地图下国家、帝国、城市图层标。远近分级(见 MapZoomTier)：远景只标 WildFarZones 块以上的，
+    // 中景 WildMidZones 块以上，近景都标；镜头外的不交
+    private const int WildFarZones = 16, WildMidZones = 3;
+
+    private sealed class WildEntry
+    {
+        public WildRegion region;
+        public readonly List<TileZone> zones = new();
+        public Rect bounds;
+        public string id, name, text;
+    }
+
+    private static readonly List<WildEntry> _wild_entries = new();
+    private static readonly Dictionary<WildKind, TerritoryLabelStyle> _wild_styles = new();
+    private static int _wild_version = int.MinValue;
+    private static object _wild_world;
+
+    private static bool WildernessShown(MetaType mode)
+    {
+        if (!WildernessSystem.Enabled || WildernessSystem.Regions.Count == 0) return false;
+        if (PureMapMode.Enabled) return mode != MetaType.None;
+        return mode == MetaType.Kingdom || mode == MetaTypeExtension.Empire || mode == MetaType.City ||
+               mode == MetaTypeExtension.CityView;
+    }
+
+    private static void SubmitWilderness(MetaType mode)
+    {
+        // 先都记作没交：这帧不标的(镜头外、拉远了太小、关了)不会沿用前几帧的帧号
+        foreach (RuntimeLabel label in _labels.Values)
+            if (label.wild) label.last_seen_frame = -2;
+        if (!WildernessShown(mode)) return;
+        RefreshWildEntries();
+        if (_wild_entries.Count == 0) return;
+        if (_submission_frame < 0 || _submission_mode != mode)
+        {
+            _submission_frame = Time.frameCount;
+            _submission_mode = mode;
+        }
+        Rect view = ZoneFlipOverlay.CameraView();
+        float ppt = MapZoomTier.Current;
+        int least = ppt < MapZoomTier.Mid ? WildFarZones : ppt < MapZoomTier.Near ? WildMidZones : 1;
+        foreach (WildEntry entry in _wild_entries)
+        {
+            if (entry.zones.Count < least || !entry.bounds.Overlaps(view)) continue;
+            string name = entry.region.Name;
+            if (string.IsNullOrWhiteSpace(name)) continue;
+            if (!string.Equals(name, entry.name, StringComparison.Ordinal))
+            {
+                entry.name = name;
+                entry.text = WildText(name);
+            }
+            RuntimeLabel label = GetOrCreateLabel(entry.id);
+            label.wild = true;
+            label.seal_font = false;
+            label.UpdateFromZones(entry.text, entry.zones, WildStyle(entry.region.Kind), false);
+            // 图层的铭牌是前几帧交的(这帧没交)：并进那一帧
+            label.last_seen_frame = _submission_frame;
+        }
+    }
+
+    // 区域变了(WildernessSystem.Version)才重新取各片的地块与范围
+    private static void RefreshWildEntries()
+    {
+        MapBox world = World.world;
+        if (WildernessSystem.Version == _wild_version && ReferenceEquals(_wild_world, world)) return;
+        _wild_version = WildernessSystem.Version;
+        _wild_world = world;
+        _wild_entries.Clear();
+        ZoneCalculator calc = world?.zone_calculator;
+        if (calc == null) return;
+        float size = Config.CITY_ZONE_SIZE;
+        foreach (WildRegion region in WildernessSystem.Regions)
+        {
+            if (region?.Zones == null || region.Zones.Count == 0 || region.Kind == WildKind.None) continue;
+            var entry = new WildEntry { region = region, id = "wild:" + region.Id };
+            float x0 = float.MaxValue, y0 = float.MaxValue, x1 = float.MinValue, y1 = float.MinValue;
+            foreach (int id in region.Zones)
+            {
+                TileZone zone = calc.getZoneByID(id);
+                if (zone == null) continue;
+                entry.zones.Add(zone);
+                x0 = Mathf.Min(x0, zone.x * size);
+                y0 = Mathf.Min(y0, zone.y * size);
+                x1 = Mathf.Max(x1, (zone.x + 1) * size);
+                y1 = Mathf.Max(y1, (zone.y + 1) * size);
+            }
+            if (entry.zones.Count == 0) continue;
+            entry.bounds = Rect.MinMaxRect(x0, y0, x1, y1);
+            _wild_entries.Add(entry);
+        }
+    }
+
+    // 中文名字间加空格疏排(地图上山名、沙漠名的老写法)；西文名照原样(斜体，见 TerritoryLabelStyle.latin_italic)；太长的不疏排
+    private static string WildText(string name)
+    {
+        name = name.Trim();
+        if (ContainsLatin(name) || name.Length > 8) return name;
+        var builder = new global::System.Text.StringBuilder(name.Length * 2);
+        foreach (char character in name)
+        {
+            if (char.IsWhiteSpace(character)) continue;
+            if (builder.Length > 0) builder.Append(' ');
+            builder.Append(character);
+        }
+        return builder.ToString();
+    }
+
+    // 字色按类型、偏淡，描边深一档的同色系
+    private static TerritoryLabelStyle WildStyle(WildKind kind)
+    {
+        if (_wild_styles.TryGetValue(kind, out TerritoryLabelStyle style)) return style;
+        (Color32 text, Color32 outline) = kind switch
+        {
+            WildKind.Mountain => (new Color32(238, 228, 210, 205), new Color32(72, 56, 40, 175)),
+            WildKind.Desert => (new Color32(255, 238, 192, 210), new Color32(118, 82, 28, 175)),
+            WildKind.Tundra => (new Color32(238, 247, 255, 210), new Color32(44, 68, 104, 175)),
+            WildKind.Jungle => (new Color32(210, 240, 198, 205), new Color32(20, 62, 30, 175)),
+            WildKind.Swamp => (new Color32(206, 238, 228, 205), new Color32(18, 68, 64, 175)),
+            _ => (new Color32(232, 232, 228, 200), new Color32(40, 40, 40, 170))
+        };
+        style = new TerritoryLabelStyle
+        {
+            text_color = text,
+            outline_color = outline,
+            size_multiplier = 0.8f,
+            territory_padding = 0.8f,
+            min_font_size = 6,
+            max_font_size = 224,
+            font_style = FontStyle.Normal,
+            arc_curvature = 0.12f,
+            yields = true,
+            latin_italic = true
+        };
+        _wild_styles[kind] = style;
+        return style;
     }
 
     private static Text GetTextTemplate()
@@ -868,13 +1028,16 @@ public static class TerritoryLabelRenderer
         private float _reference_width;
         private float _reference_height;
         public int last_seen_frame;
+        // 无人区名(见 SubmitWilderness)：不随图层的 HideAll、EndFrame 收起
+        public bool wild;
 
         public float RenderPriority
         {
             get
             {
                 float area = _placement.valid ? _placement.half_width * _placement.half_height : 0f;
-                return (_render_style?.wrap_english_name == true ? 1000000f : 0f) + area;
+                return (_render_style?.wrap_english_name == true ? 1000000f : 0f) + area -
+                       (_render_style?.yields == true ? 1000000000f : 0f);
             }
         }
 
@@ -1126,7 +1289,9 @@ public static class TerritoryLabelRenderer
                 _metrics_text = null;
             }
             bool containsLatin = ContainsLatin(trimmedValue, style.rich_text);
-            FontStyle effectiveFontStyle = containsLatin ? FontStyle.Bold : style.font_style;
+            FontStyle effectiveFontStyle = containsLatin
+                ? style.latin_italic ? FontStyle.BoldAndItalic : FontStyle.Bold
+                : style.font_style;
             if (_metrics_text != trimmedValue || _metrics_style != effectiveFontStyle || _metrics_font != _text.font ||
                 _metrics_raster != RasterSize(_text.font))
             {

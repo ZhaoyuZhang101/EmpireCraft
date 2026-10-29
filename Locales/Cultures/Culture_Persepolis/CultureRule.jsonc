@@ -21,6 +21,10 @@
             }
         },
         "traits": ["patriarchy"],
+        // 无人区命名(见 Locales/Cultures/README.md 无人区一节)：地名 + 类型后缀，扎格罗斯山脉、卡维尔沙漠、希尔卡尼亚雨林、哈蒙沼泽；冻原引用阿拉伯的
+        "Wilderness": {
+            "words": { "mountain": "WildMountain", "desert": "WildDesert", "tundra": "Arab:WildTundra", "jungle": "WildJungle", "swamp": "WildSwamp" }
+        },
         "City": {
             "groups": {
                 "group_1": "CityNames1"

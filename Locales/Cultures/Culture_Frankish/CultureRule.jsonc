@@ -40,6 +40,10 @@
             "fort_words": "VillageNames",
             "fort_suffix": "Western:FortSuffix"
         },
+        // 无人区命名(见 Locales/Cultures/README.md 无人区一节)：地名 + 类型后缀，孚日山脉、特内雷沙漠、马永贝雨林、卡马格沼泽；冻原引用西方的
+        "Wilderness": {
+            "words": { "mountain": "WildMountain", "desert": "WildDesert", "tundra": "Western:WildTundra", "jungle": "WildJungle", "swamp": "WildSwamp" }
+        },
         "City": {
             "groups": {
                 "group_1": "CityNames1",

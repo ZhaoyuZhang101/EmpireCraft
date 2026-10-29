@@ -20,7 +20,12 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     时代越新管得越远(满控路程 10 + 2×时代，律令制再远一成，分封、封建近一成)，超出部分每多走满控路程的两倍降到一成；
 //     陆路海路都不通的飞地按直线走过去的地形阻力(见 TerrainResistance.LineCost)的 1.15 倍再加 8 计，最多八成——
 //     以前按直线距离的 1.4 倍，隔着没人占的雪山、大漠也照平地算(用户 2026-10-26："印度打不到西藏")；
-//     山地、冻土、沙漠连成的天堑腹地越往里越难走(见 TerrainResistance.BarrierDepth)；
+//     无人区是天堑(用户 2026-10-29 "能更有效地阻隔国家军队和更容易计算控制力"，见 WildernessPassage)：路程只走本国过得去的地块
+//     (无人区里没修路的山脉、丛林、沼泽谁都过不去，真游牧惯走沙漠冻土、阿拉伯惯走沙漠)；同一片陆地上绕不过、也没路穿过去的城
+//     隔着无人区，控制力只剩一成(悬停写"隔着无人区")；绕得过去的按直线估，直线穿过的无人区按地形阻力两倍估绕路。
+//     本国的无人区(挂在本国法理上的，见 WildernessSystem.OwnerOf)算本国的地：只隔着它的城不算飞地，成员国的治所隔着它也连得上
+//     都城；军队过不去的本国无人区，政令按地形阻力的两倍穿过去(西藏、西伯利亚那样，管得弱、不至于断)。以前量天堑深浅(山地、冻土、沙漠连成片越往里越难走)的那套撤了，不在无人区里的山、沙
+//     只按地形阻力；
 //   · 效果：控制力低的城自然稳定度下降(满控不减，最低扣 20)；赋税收不齐(满控全收，最低收一半，见 TreasurySystem)；
 //     征兵也少从这样的城里抽(见 CorpsSystem.Mobilize、CityPopulationSystem.DrawKingdomCity)；地图上见政令图层；
 //     领土不在这里变动：扩张、边界侵蚀都按原版(侵蚀受原版"边界侵蚀"开关管、只在交战双方之间，见 CityExpansionPatch)。
@@ -56,8 +61,12 @@ public static class AdministrativeControlSystem
     private const float LineDetour = 1.15f;
     private const int LineCandidates = 3;
     private const int ExclavePenalty = 8;
+    // 隔着无人区(同一片陆地上绕不过、也没路穿过去，见 WildernessPassage)的城：路程记作 CutOff，控制力按最低算
+    private const int CutOff = -1;
     private const float ExclaveCap = 0.8f, OverseasCap = 0.65f, ModernOverseasCap = 0.8f;
     private const float MinControl = 0.1f;
+    // 本国的无人区里传政令：每块按地形阻力的几倍算(军队过不去，见 WildernessPassage)
+    private const float OwnWildFactor = 2f;
     private const float StabilityPenalty = 20f;
     private const float DefectThreshold = 0.45f;
     private const float DefectChance = 0.5f;
@@ -249,7 +258,8 @@ public static class AdministrativeControlSystem
     #endregion
 
     // 开战定目标用：对方都城是否远在本国控制范围之外(按本国离它最近的城的路程，加从那座城沿直线过去的地形阻力估算，
-    // 见 TerrainResistance.LineCost——隔着雪山、大漠的不再当平地，用户 2026-10-26)，或本国已过度扩张
+    // 见 TerrainResistance.LineCost——隔着雪山、大漠的不再当平地，用户 2026-10-26；隔着本国绕不过、也没路穿过去的无人区的
+    // 够不着，用户 2026-10-29，见 WildernessPassage)，或本国已过度扩张
     public static bool BeyondReach(Kingdom attacker, City target)
     {
         Kingdom realm = Realm(attacker);
@@ -265,30 +275,38 @@ public static class AdministrativeControlSystem
         if (!Valid(realm) || target?.data == null || target.isRekt()) return false;
         TileZone goal = CenterZone(target);
         if (goal == null) return false;
-        // 先按直线挑最近的几座，再按地形阻力细算
+        // 先按直线挑最近的几座，再按地形阻力细算；隔着无人区的城(路程记作 CutOff)不当出发点，
+        // 与目标之间隔着本国过不去、绕不过去的无人区的城够不着(见 WildernessPassage)
         var near = new List<(float rough, float admin, TileZone from)>();
+        bool known = false;
         foreach (City city in Cities(realm))
         {
             if (!Known(city)) continue;
             TileZone from = CenterZone(city);
             if (from == null) continue;
             float admin = city.GetOrCreate().admin_distance;
+            if (admin < 0f) continue;
+            known = true;
+            if (!WildernessPassage.Reachable(from, goal, realm)) continue;
             near.Add((admin + Vector2.Distance(new Vector2(from.x, from.y), new Vector2(goal.x, goal.y)), admin, from));
         }
+        if (!known) return false;
         float best = float.MaxValue;
         foreach ((float _, float admin, TileZone from) in near.OrderBy(entry => entry.rough).Take(LineCandidates))
             best = Mathf.Min(best, admin + TerrainResistance.LineCost(from, goal, realm) * LineDetour);
-        return best < float.MaxValue && Control(best, Reach(realm)) < HardLimit;
+        // 都够不着(best 还是最大值)：控制力按最低算，判在范围之外
+        return Control(best, Reach(realm)) < HardLimit;
     }
 
-    // 只按都城(汗庭)算、不借成员国的都城：对方的城在都城的控制范围之外(按沿直线的地形阻力估路程；大汗东西分立用，
-    // 见 EmpirePartitionSystem.KhanateSplit)
+    // 只按都城(汗庭)算、不借成员国的都城：对方的城在都城的控制范围之外(按沿直线的地形阻力估路程，隔着绕不过去的无人区的
+    // 算在外；大汗东西分立用，见 EmpirePartitionSystem.KhanateSplit)
     public static bool BeyondCourt(Kingdom kingdom, City target)
     {
         Kingdom realm = Realm(kingdom);
         if (!Valid(realm) || realm.capital == null || target?.data == null || target.isRekt()) return false;
         TileZone from = CenterZone(realm.capital), goal = CenterZone(target);
         if (from == null || goal == null) return false;
+        if (!WildernessPassage.Reachable(from, goal, realm)) return true;
         return Control(TerrainResistance.LineCost(from, goal, realm) * LineDetour, Reach(realm)) < HardLimit;
     }
 
@@ -313,7 +331,8 @@ public static class AdministrativeControlSystem
     {
         if (!Known(city)) return null;
         var data = city.GetOrCreate();
-        string where = data.admin_overseas ? LM.Get("admin_control_overseas")
+        string where = data.admin_distance == CutOff ? LM.Get("admin_control_wilderness")
+            : data.admin_overseas ? LM.Get("admin_control_overseas")
             : data.admin_exclave ? LM.Get("admin_control_exclave")
             : string.Format(LM.Get("admin_control_distance"), data.admin_distance);
         return $"{data.admin_control * 100f:0}% · {where}";
@@ -460,9 +479,11 @@ public static class AdministrativeControlSystem
     // 以前每趟新建以地块为键的 HashSet、Dictionary，大国一趟几千块地
     private static readonly MinHeap<(TileZone zone, bool sea)> Heap = new();
     private static int _pass;
-    private static int[] _member = new int[0], _done = new int[0], _stepPass = new int[0];
+    private static int[] _member = new int[0], _done = new int[0], _stepPass = new int[0], _wildPass = new int[0];
     private static float[] _cost = new float[0], _step = new float[0];
-    private static bool[] _sea = new bool[0];
+    private static bool[] _sea = new bool[0], _ownWild = new bool[0];
+    // 这一趟算的是哪国(本国的无人区按它判，见 OwnWild)
+    private static Kingdom _passRealm;
 
     private static void BeginPass()
     {
@@ -472,6 +493,7 @@ public static class AdministrativeControlSystem
         Array.Clear(_member, 0, _member.Length);
         Array.Clear(_done, 0, _done.Length);
         Array.Clear(_stepPass, 0, _stepPass.Length);
+        Array.Clear(_wildPass, 0, _wildPass.Length);
         _pass = 1;
     }
 
@@ -483,9 +505,27 @@ public static class AdministrativeControlSystem
         Array.Resize(ref _cost, size);
         Array.Resize(ref _step, size);
         Array.Resize(ref _sea, size);
+        Array.Resize(ref _wildPass, size);
+        Array.Resize(ref _ownWild, size);
     }
 
     private static bool Member(TileZone zone) => zone.id >= 0 && zone.id < _member.Length && _member[zone.id] == _pass;
+
+    // 本国的无人区(挂在本国连同本帝国成员的法理上，见 WildernessSystem.OwnerOf；用户 2026-10-29 追加"取得这个法理的国家
+    // 就把这些无人区算作本国范围")：算本国的地，一趟里每块只问一次
+    private static bool OwnWild(TileZone zone)
+    {
+        int id = zone.id;
+        if (id < 0 || !WildernessSystem.Enabled) return false;
+        if (id >= _wildPass.Length) GrowPass(id + 1);
+        if (_wildPass[id] == _pass) return _ownWild[id];
+        _wildPass[id] = _pass;
+        return _ownWild[id] = WildernessSystem.IsWild(zone) && WildernessSystem.OwnerOf(zone) is Kingdom owner &&
+                              Realm(owner) == _passRealm;
+    }
+
+    // 本国的地：本国(连同本帝国成员)城的地块、本国的无人区
+    private static bool Land(TileZone zone) => Member(zone) || OwnWild(zone);
 
     private static bool Reached(TileZone zone) => zone.id >= 0 && zone.id < _done.Length && _done[zone.id] == _pass;
 
@@ -500,7 +540,8 @@ public static class AdministrativeControlSystem
         return step;
     }
 
-    // 从都城那块起，经本国(连同本帝国成员)的地、本国水师辐射内港口间的海路走得到的地块
+    // 从都城那块起，经本国(连同本帝国成员)的地、本国水师辐射内港口间的海路走得到的地块。
+    // 本国的无人区算本国的地，过不过得去都算连着(只隔着它的不算飞地、成员国的治所照样连得上都城)；路程另按过得去的算
     private static HashSet<int> Linked(TileZone home, Dictionary<TileZone, (City city, HashSet<int> basins)> ports, float radius)
     {
         var seen = new HashSet<int> { home.id };
@@ -510,7 +551,7 @@ public static class AdministrativeControlSystem
         {
             TileZone zone = frontier.Dequeue();
             foreach (TileZone next in zone.neighbours ?? Array.Empty<TileZone>())
-                if (next != null && Member(next) && seen.Add(next.id)) frontier.Enqueue(next);
+                if (next != null && Land(next) && seen.Add(next.id)) frontier.Enqueue(next);
             if (ports.Count == 0 || !ports.TryGetValue(zone, out var from)) continue;
             foreach (KeyValuePair<TileZone, (City city, HashSet<int> basins)> to in ports)
             {
@@ -525,6 +566,7 @@ public static class AdministrativeControlSystem
     private static void Compute(Kingdom realm, List<City> cities)
     {
         BeginPass();
+        _passRealm = realm;
         foreach (City city in cities)
             foreach (TileZone zone in city.zones)
                 if (zone != null && zone.id >= 0)
@@ -543,7 +585,7 @@ public static class AdministrativeControlSystem
                 var basins = new HashSet<int>(SeaRegionSystem.RegionsAround(city).Select(region => region.Basin));
                 if (zone != null && basins.Count > 0) ports[zone] = (city, basins);
             }
-        // 治所：都城从 0 起；成员国都城、陪京要与都城连得上(陆路经本国连同本帝国的地，或本国水师辐射内的海路)才算——
+        // 治所：都城从 0 起；成员国都城、陪京要与都城连得上(陆路经本国连同本帝国的地、本国的无人区，或本国水师辐射内的海路)才算——
         // 隔着别国的远方成员以前从自己的都城起算，控制力照样满(用户 2026-10-27 问"怎么判断的控制力高于0.45，
         // 首先他们就不接壤，然后中间还隔了那么大的国家")，现在按陆路不通的飞地折算
         TileZone home = realm.capital != null && cities.Contains(realm.capital) ? CenterZone(realm.capital) : null;
@@ -566,7 +608,10 @@ public static class AdministrativeControlSystem
         }
         if (seats.Count == 0) return;
         // 多源最短路(按地形阻力)：都城从 0 起、成员国都城从 4 起；记下路上有没有走过海路。
-        // 每块地的阻力一趟只算一次(以前四邻各推一次就现算一次)
+        // 每块地的阻力一趟只算一次(以前四邻各推一次就现算一次)。
+        // 走本国的地(连同本国的无人区)，本国过不去的无人区不走(见 WildernessPassage；有路的、惯走的照走)
+        bool wild = WildernessPassage.Active;
+        int way = WildernessPassage.Way(realm);
         Heap.Clear();
         foreach ((TileZone zone, float offset) in seats) Heap.Push(offset, (zone, false));
         while (Heap.Count > 0)
@@ -579,8 +624,18 @@ public static class AdministrativeControlSystem
             _sea[zone.id] = sea;
             foreach (TileZone neighbour in zone.neighbours ?? Array.Empty<TileZone>())
             {
-                if (neighbour == null || !Member(neighbour) || Reached(neighbour)) continue;
-                float step = Step(neighbour, realm);
+                if (neighbour == null || !Land(neighbour) || Reached(neighbour)) continue;
+                float step;
+                if (wild && !WildernessPassage.Open(neighbour, way))
+                {
+                    // 本国的无人区军队过不去，政令照样传得过去，只是按地形阻力的 OwnWildFactor 倍算——西藏、西伯利亚那样的
+                    // 大片荒地在国境里，隔着它的城管得弱一些、远了照样鞭长莫及，不一刀切成"隔着无人区"(用户 2026-10-29
+                    // "主要是模拟西藏俄罗斯之类的")；别国的、无主的无人区不走
+                    if (!OwnWild(neighbour)) continue;
+                    float terrain = TerrainResistance.TerrainStep(neighbour);
+                    step = (terrain < 0f ? WaterStep : terrain) * OwnWildFactor;
+                }
+                else step = Step(neighbour, realm);
                 Heap.Push(cost + (step < 0f ? WaterStep : step), (neighbour, sea));
             }
             if (ports.Count == 0 || !ports.TryGetValue(zone, out var from)) continue;
@@ -612,22 +667,32 @@ public static class AdministrativeControlSystem
                 data.admin_control = across ? Mathf.Min(modern ? ModernOverseasCap : OverseasCap, control) : control;
                 continue;
             }
-            // 陆路不通：按到最近几处治所沿直线过去的地形阻力折算(雪山、大漠照实算，见 TerrainResistance.LineCost)
+            // 陆路不通：按到最近几处治所沿直线过去的地形阻力折算(雪山、大漠照实算，见 TerrainResistance.LineCost)。
+            // 只隔着本国过不去的无人区(经本国的地、本国的无人区连得上都城)的不算飞地，照样折算、不加飞地的那 8；
+            // 同一片陆地上与各治所都隔着绕不过、也没路穿过去的无人区(见 WildernessPassage)：隔着无人区，控制力按最低算
+            bool own = linked != null && linked.Contains(center.id);
             bool overseas = true;
             foreach ((TileZone seat, float _) in seats)
                 if (seat.centerTile != null && center.centerTile != null && seat.centerTile.isSameIsland(center.centerTile))
                     overseas = false;
             float best = float.MaxValue;
             foreach ((TileZone seat, float offset) in seats
+                         .Where(entry => WildernessPassage.Reachable(entry.zone, center, realm))
                          .OrderBy(entry => Vector2.Distance(new Vector2(entry.zone.x, entry.zone.y), new Vector2(center.x, center.y)) +
                                            entry.offset)
                          .Take(LineCandidates))
                 best = Mathf.Min(best, TerrainResistance.LineCost(seat, center, realm) * LineDetour + offset);
-            int far = Mathf.RoundToInt(best) + ExclavePenalty;
-            data.admin_distance = far;
-            data.admin_exclave = true;
+            data.admin_exclave = !own;
             data.admin_overseas = overseas;
-            float cap = overseas ? modern ? ModernOverseasCap : OverseasCap : ExclaveCap;
+            if (best == float.MaxValue)
+            {
+                data.admin_distance = CutOff;
+                data.admin_control = MinControl;
+                continue;
+            }
+            int far = Mathf.RoundToInt(best) + (own ? 0 : ExclavePenalty);
+            data.admin_distance = far;
+            float cap = overseas ? modern ? ModernOverseasCap : OverseasCap : own ? 1f : ExclaveCap;
             data.admin_control = Mathf.Min(cap, Control(far, reach));
         }
     }

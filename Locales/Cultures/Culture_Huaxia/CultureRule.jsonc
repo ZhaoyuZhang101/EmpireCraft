@@ -89,6 +89,12 @@
             "terrain_suffix": "TerrainSuffix",
             "terrain": { "mountain": "TerrainMountain", "hill": "TerrainHill", "water": "TerrainWater", "coast": "TerrainCoast", "forest": "TerrainForest", "plain": "TerrainPlain", "desert": "TerrainDesert", "swamp": "TerrainSwamp" }
         },
+        // 无人区命名(见 Locales/Cultures/README.md 无人区一节)：地名 + 类型后缀，太行山脉、塔克拉玛干大沙漠、北海冰原、交趾雨林、云梦大泽；末尾带"!"的是整名(秦岭、瀚海)
+        "Wilderness": {
+            "words": { "mountain": "WildMountain", "desert": "WildDesert", "tundra": "WildTundra", "jungle": "WildJungle", "swamp": "WildSwamp" },
+            "suffix": { "mountain": "WildMountainSuffix", "jungle": "WildJungleSuffix", "swamp": "WildSwampSuffix" },
+            "great_suffix": { "jungle": "WildJungleGreat", "swamp": "WildSwampGreat" }
+        },
         "City": {
             "groups": {
                 "group_1": "CityNames1",

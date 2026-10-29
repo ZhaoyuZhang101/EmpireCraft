@@ -46,6 +46,9 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   陆上不穿第三国(用户 2026-10-17 "又在跨国打架""军队还过不去")：同一块陆地上离得近，还要从本方控制的地块出发、
 //   只经过无主之地与本方、盟友、交战敌国的地块走得到那座城(见 LandRoute)；中间隔着不相干的第三国就够不着，
 //   军团行军也尽量绕开第三国的地(见 CorpsSystem.FindPath)。
+//   无人区(见 WildernessPassage；用户 2026-10-29 选军队"只能沿路过"，游牧过沙漠冻土、阿拉伯过沙漠不受限)：对本方过不去的无人区
+//   同高山——陆路不经过它(见 Passable、LandRoute：隔着它走不过去的城只能坐船去打)，战线段、防线不划在它上面，
+//   军团不派去隔着它绕不过去的战线与城(见 Assign)，战线朱红不画在它边上。
 // 军团须开到战线附近(两块地块以内)才参战。
 // 叛乱初起时被叛方有集结期(见 MusterSystem)：不反攻、只有附近的军能守城、守方战力打折。
 public static partial class FrontSystem
@@ -183,18 +186,20 @@ public static partial class FrontSystem
         public bool Overland = true;
     }
 
-    // 敌城里可以下手的地块：敌控、且与己方控制的地块相邻；不可通行的高山两边都不算(见 TerrainSystem.Impassable)
+    // 敌城里可以下手的地块：敌控、且与己方控制的地块相邻；不可通行的高山、本方过不去的无人区两边都不算
+    // (见 TerrainSystem.Impassable、WildernessPassage)
     private static List<TileZone> TargetZones(Kingdom side, City city)
     {
         var result = new List<TileZone>();
         if (city?.zones == null) return result;
         foreach (TileZone zone in city.zones)
         {
-            if (zone == null || !Hostile(side, Controller(zone)) || TerrainSystem.Impassable(zone)) continue;
+            if (zone == null || !Hostile(side, Controller(zone)) || TerrainSystem.Impassable(zone) ||
+                !WildernessPassage.Passable(zone, side)) continue;
             foreach (TileZone neighbour in zone.neighbours ?? Array.Empty<TileZone>())
             {
                 if (neighbour == null || neighbour.world_edge || TerrainSystem.Impassable(neighbour) ||
-                    !TerrainSystem.Crossable(neighbour, zone)) continue;
+                    !TerrainSystem.Crossable(neighbour, zone) || !WildernessPassage.Passable(neighbour, side)) continue;
                 Kingdom controller = Controller(neighbour);
                 if (controller == null || !Friendly(side, controller)) continue;
                 result.Add(zone);
@@ -282,10 +287,11 @@ public static partial class FrontSystem
     // 当前在算战线段的一方的敌国签名(见 Sectors)
     private static long _routeSignature;
 
-    // 能走的地块：陆地、不是高山，归属无主或本方、盟友、交战敌国(不相干的第三国不走)
+    // 能走的地块：陆地、不是高山、不是本方过不去的无人区(见 WildernessPassage)，归属无主或本方、盟友、交战敌国(不相干的第三国不走)
     public static bool Passable(Kingdom side, TileZone zone)
     {
-        if (zone == null || TerrainSystem.Impassable(zone) || SeaRegionSystem.IsSea(zone)) return false;
+        if (zone == null || TerrainSystem.Impassable(zone) || SeaRegionSystem.IsSea(zone) ||
+            !WildernessPassage.Passable(zone, side)) return false;
         Kingdom owner = Controller(zone);
         return owner == null || owner.wild || Friendly(side, owner) || Hostile(side, owner);
     }
@@ -309,7 +315,7 @@ public static partial class FrontSystem
             {
                 if (next == null || !seen.Add(next.id)) continue;
                 if (Controller(next) is Kingdom owner && Friendly(side, owner) && !TerrainSystem.Impassable(next) &&
-                    TerrainSystem.Crossable(next, zone))
+                    TerrainSystem.Crossable(next, zone) && WildernessPassage.Passable(next, side))
                 {
                     found = true;
                     break;
@@ -638,7 +644,7 @@ public static partial class FrontSystem
             List<TileZone> line = DefenseLine(kingdom, city);
             var lineLoad = new Dictionary<int, int>();
             bool surprised = Surprised(city);
-            foreach (CorpsData corps in ready.Where(corps => !assigned.Contains(corps) &&
+            foreach (CorpsData corps in ready.Where(corps => !assigned.Contains(corps) && Walkable(kingdom, corps, anchor) &&
                                                              (!surprised || corps.task == "defend" && corps.sector_city_id == city.id ||
                                                               CorpsSystem.ZoneDistance(CorpsSystem.Zone(corps), anchor) <= MusterSystem.LocalZones))
                          .OrderBy(corps => corps.task == "defend" && corps.sector_city_id == city.id ? -1f
@@ -682,8 +688,13 @@ public static partial class FrontSystem
             CorpsData corps = whole;
             Sector keep = corps.task == "attack" ? sectors.FirstOrDefault(sector => sector.City.id == corps.sector_city_id) : null;
             // 船不够、也分不出先遣军的登陆战线不去(已在船上的照旧开过去；本土没有能上船的港口的也不去)；登陆战线按装得上船的兵力估胜算
-            bool Boardable(Sector sector) => Ashore(corps, sector) || corps.embarked ||
-                                             Shippable(corps, shipping) > 0f && EmbarkPoint(kingdom, corps) != null;
+            // 走陆路去的(陆上战线、已在那片陆地上的登陆战线)隔着本方过不去、绕不过去的无人区的不去(见 Walkable)
+            bool Boardable(Sector sector)
+            {
+                if (!sector.Landing || Ashore(corps, sector))
+                    return Walkable(kingdom, corps, sector.Targets.Count > 0 ? sector.Targets[0] : sector.City.getTile()?.zone);
+                return corps.embarked || Shippable(corps, shipping) > 0f && EmbarkPoint(kingdom, corps) != null;
+            }
             if (keep != null && (!Boardable(keep) || focus != null && keep != focus)) keep = null;
             Sector choice = keep ?? (focus != null && Boardable(focus) ? focus : null) ?? sectors
                 // 三路攻势只算陆上的，登陆战线(每月至多两路)不占名额
@@ -728,6 +739,10 @@ public static partial class FrontSystem
             corps.target_zone_id = StationZone(corps, reserveStations);
         }
     }
+
+    // 这支军从所在地块走陆路绕得过、或沿路穿得过本方过不去的无人区到得了 goal(见 WildernessPassage.Reachable；隔海的不归这里管)
+    private static bool Walkable(Kingdom kingdom, CorpsData corps, TileZone goal) =>
+        corps.embarked || WildernessPassage.Reachable(CorpsSystem.Zone(corps), goal, kingdom);
 
     // 一国这次分派里各段的守势(上月守军 + 团练)：每支军挑段都要比一遍各段，团练要扫城里各地块的归属，算一次就够
     // (分派中途不改城的归属与人口)；每次分派开头清空
@@ -825,14 +840,15 @@ public static partial class FrontSystem
         return best;
     }
 
-    // 守城的防线：本城与敌控地块相邻的地块(按离城心远近)；没有就空
+    // 守城的防线：本城与敌控地块相邻的地块(按离城心远近；本方过不去的无人区不算)；没有就空
     private static List<TileZone> DefenseLine(Kingdom kingdom, City city)
     {
         var line = new List<TileZone>();
         if (city?.zones == null) return line;
         foreach (TileZone zone in city.zones)
         {
-            if (zone == null || !Friendly(kingdom, Controller(zone)) || TerrainSystem.Impassable(zone)) continue;
+            if (zone == null || !Friendly(kingdom, Controller(zone)) || TerrainSystem.Impassable(zone) ||
+                !WildernessPassage.Passable(zone, kingdom)) continue;
             if ((zone.neighbours ?? Array.Empty<TileZone>()).Any(neighbour =>
                     Hostile(kingdom, Controller(neighbour)) && TerrainSystem.Crossable(zone, neighbour)))
                 line.Add(zone);
@@ -846,7 +862,8 @@ public static partial class FrontSystem
         if (city?.zones != null)
             foreach (TileZone zone in city.zones)
             {
-                if (zone == null || !Friendly(kingdom, Controller(zone)) || TerrainSystem.Impassable(zone)) continue;
+                if (zone == null || !Friendly(kingdom, Controller(zone)) || TerrainSystem.Impassable(zone) ||
+                    !WildernessPassage.Passable(zone, kingdom)) continue;
                 if ((zone.neighbours ?? Array.Empty<TileZone>()).Any(neighbour =>
                         Hostile(kingdom, Controller(neighbour)) && TerrainSystem.Crossable(zone, neighbour)))
                     return zone;
@@ -1358,7 +1375,9 @@ public static partial class FrontSystem
                 {
                     if (neighbour == null) continue;
                     Kingdom other = Controller(neighbour);
-                    if (other != null && Hostile(controller, other)) _contested.Add((zone, neighbour));
+                    // 隔着过不去的无人区接不上火，不画
+                    if (other != null && Hostile(controller, other) && WildernessPassage.Passable(neighbour, controller) &&
+                        WildernessPassage.Passable(zone, other)) _contested.Add((zone, neighbour));
                 }
             }
         }

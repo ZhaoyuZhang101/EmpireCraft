@@ -54,6 +54,12 @@
             "terrain_suffix": "Huaxia:TerrainSuffix",
             "terrain": { "mountain": "Huaxia:TerrainMountain", "hill": "Huaxia:TerrainHill", "water": "Huaxia:TerrainWater", "coast": "Huaxia:TerrainCoast", "forest": "Huaxia:TerrainForest", "plain": "Huaxia:TerrainPlain", "desert": "Huaxia:TerrainDesert", "swamp": "Huaxia:TerrainSwamp" }
         },
+        // 无人区命名(见 Locales/Cultures/README.md 无人区一节)：地名 + 类型后缀，引用华夏的词库
+        "Wilderness": {
+            "words": { "mountain": "Huaxia:WildMountain", "desert": "Huaxia:WildDesert", "tundra": "Huaxia:WildTundra", "jungle": "Huaxia:WildJungle", "swamp": "Huaxia:WildSwamp" },
+            "suffix": { "mountain": "Huaxia:WildMountainSuffix", "jungle": "Huaxia:WildJungleSuffix", "swamp": "Huaxia:WildSwampSuffix" },
+            "great_suffix": { "jungle": "Huaxia:WildJungleGreat", "swamp": "Huaxia:WildSwampGreat" }
+        },
         "City": {
             "groups": {
                 "group_1": "CityNames1"

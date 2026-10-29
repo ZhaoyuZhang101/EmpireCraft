@@ -16,6 +16,8 @@ namespace EmpireCraft.Scripts.GamePatches;
 // 建成地块)或本城村镇两块地以内的(见 Settled)；再往外靠城外新建村镇划地(见 RuralSettlementSystem.Found)。
 // 夹在城与城之间的空地不受这些限制，由挨着它的城里离得最近的那座领下(见 Sandwiched)。
 // 已有城市的地不参与自动扩张：战争只记录临时占领，不能用边界侵蚀永久拆改城市辖区。
+// 无人区(见 WildernessSystem)与城互斥：把地给城的路子碰到无人区一律挡在 CanAddZone(原版 addZone 都经它)，新城不选在无人区里
+// (见 AfterCanStartCityHere)；神力手动营建、建城放行的那块地归城后当即退出无人区(见 AfterAddZone)
 public class CityExpansionPatch : GamePatch
 {
     public ModDeclare declare { get; set; }
@@ -32,6 +34,11 @@ public class CityExpansionPatch : GamePatch
             postfix: new HarmonyMethod(typeof(CityExpansionPatch), nameof(AfterGetZoneToClaim)));
         harmony.Patch(AccessTools.Method(typeof(CityZoneAbandon), nameof(CityZoneAbandon.check)),
             prefix: new HarmonyMethod(typeof(CityExpansionPatch), nameof(BeforeAbandonZones)));
+        // 无人区：地块归了城就退出无人区；新城(移民、殖民、穿越者降临、原版建城)不选在无人区里
+        harmony.Patch(AccessTools.Method(typeof(City), nameof(City.addZone)),
+            postfix: new HarmonyMethod(typeof(CityExpansionPatch), nameof(AfterAddZone)));
+        harmony.Patch(AccessTools.Method(typeof(TileZone), nameof(TileZone.canStartCityHere)),
+            postfix: new HarmonyMethod(typeof(CityExpansionPatch), nameof(AfterCanStartCityHere)));
         // 原版边界画笔(神力 border_brush)：画的这一下算神力手动划地，不受每城地块上限(见 CanAddZone)
         global::System.Reflection.MethodInfo brush = AccessTools.Method(typeof(PowerLibrary), "drawBorderBrush");
         if (brush != null)
@@ -67,12 +74,27 @@ public class CityExpansionPatch : GamePatch
 
     // 最后一道检查放在实际加地之前：领地人、村镇划地等自动入口都不能绕过设置；神力手动划地不受限(见 ManualClaim)。
     // 读档同样调用 addZone，但这里是在恢复原辖区，不能按新上限截断存档里的城市。
+    // 无人区(用户 2026-10-29 "无人区层基本和城市层级同级")：扩张、村镇划地、改隶、迁城、边界画笔都领不进去；
+    // 只放行神力手动立村设镇筑关、放厂区、建城与新城落脚的头一块地(见 WildernessSystem.CanTake)
     public static bool CanAddZone(City city, TileZone zone)
     {
         if (city == null || zone == null) return false;
         if (city.zones?.Contains(zone) == true || ModClass.IS_CLEAR || !Config.game_loaded || SmoothLoader.isLoading() ||
-            AncientWarfareCompatibility.OwnsObject(city) || ManualClaim) return true;
-        return !AtLimit(city);
+            AncientWarfareCompatibility.OwnsObject(city)) return true;
+        if (WildernessSystem.IsWild(zone) && !WildernessSystem.CanTake(city)) return false;
+        return ManualClaim || !AtLimit(city);
+    }
+
+    // 地块归了城：当即退出无人区(两者互斥；停手后重划，区域在那里断开)
+    public static void AfterAddZone(City __instance, TileZone pZone)
+    {
+        if (pZone != null && pZone.city == __instance) WildernessSystem.OnZoneTaken(pZone);
+    }
+
+    // 新城不选在无人区里(原版建城、国家移民、殖民、穿越者降临选址都问它)；神力手动建城不问它，照旧能建
+    public static void AfterCanStartCityHere(TileZone __instance, ref bool __result)
+    {
+        if (__result && WildernessSystem.IsWild(__instance)) __result = false;
     }
 
     // 自动领地只领无主地；与手动村镇改隶、建城、读档的 addZone 分开。
@@ -118,7 +140,8 @@ public class CityExpansionPatch : GamePatch
     // 夹在城与城之间的空地(用户 2026-10-19 选"夹在中间的补领"；以前城只领城心附近的地，城与城离得远，
     // 中间成片的空地永远没人领，纯净地图上一块块露着地形，像图层坏了)：往东西南北各走 SandwichReach 块地以内，
     // 都碰得到有主的地(或水、地图边)，就是国境里、城与城之间的空地，不受离城远近与村镇的限制。
-    // 往外伸的荒地总有一个方向碰不到有主的地，照旧受限，城界不会再伸成长条
+    // 往外伸的荒地总有一个方向碰不到有主的地，照旧受限，城界不会再伸成长条。
+    // 无人区(见 WildernessSystem)同水、地图边一样算碰到了：城与山脉、大漠之间的空地也补领，地图填得满
     public const int SandwichReach = 6;
     private static readonly (int dx, int dy)[] Directions = { (1, 0), (-1, 0), (0, 1), (0, -1) };
 
@@ -132,7 +155,7 @@ public class CityExpansionPatch : GamePatch
             for (int step = 1; step <= SandwichReach && !closed; step++)
             {
                 TileZone next = calc.getZone(zone.x + dx * step, zone.y + dy * step);
-                closed = next == null || next.tiles_with_ground == 0 || next.city != null;
+                closed = next == null || next.tiles_with_ground == 0 || next.city != null || WildernessSystem.IsWild(next);
             }
             if (!closed) return false;
         }

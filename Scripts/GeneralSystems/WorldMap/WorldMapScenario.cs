@@ -928,9 +928,8 @@ public static class WorldMapScenario
         LogService.LogInfo($"[EmpireCraft][世界地图] 补空立了 {fillers.Count} 国 {gaps.Count} 城");
     }
 
-    // 补的小国先按小城的预算铺自己的辖地，再把剩下有陆地的区块(山麓、沿海零碎地块，荒漠冻土只给收这种地的城)分给走得到的
-    // 最近的城，大山腹地与没人收的荒漠、冻土留空(见 WorldMapZones.FillAll)；
-    // 地块上限照模组设置，纯沙漠、纯冻土照荒地规矩可到上限的倍数(见 BarrenLandSystem)
+    // 补的小国先按小城的预算铺自己的辖地，再把剩下有陆地的区块(山麓、沿海零碎地块)分给走得到的最近的城，
+    // 大山腹地与整块的荒漠、冻土留空，进世界后划成无人区(见 WorldMapZones.FillAll、WildernessSystem)；地块上限照模组设置
     private static void FillTerritory()
     {
         int limit = ModClass.CITY_MAX_ZONES > 0 ? ModClass.CITY_MAX_ZONES : int.MaxValue;
@@ -949,10 +948,10 @@ public static class WorldMapScenario
         }
         WorldMapZones.Build();
         claimed += WorldMapZones.FillAll(
-            (city, zone) => city.zones.Count < (TerrainSystem.BarrenKind(zone) != BarrenLandSystem.None ? BarrenLandSystem.Limit : limit),
+            (city, zone) => city.zones.Count < limit,
             (city, zone) => city.addZone(zone),
             // 最后一轮：同侧的城可超上限一半把剩下的领完(不翻山)，免得留给山那边的城
-            (city, zone) => city.zones.Count < (TerrainSystem.BarrenKind(zone) != BarrenLandSystem.None ? BarrenLandSystem.Limit : limit) * 3 / 2);
+            (city, zone) => city.zones.Count < (limit == int.MaxValue ? limit : limit * 3 / 2));
         World.world.zone_calculator?.setDrawnZonesDirty();
         LogService.LogInfo($"[EmpireCraft][世界地图] 铺满又分了 {claimed} 块");
     }

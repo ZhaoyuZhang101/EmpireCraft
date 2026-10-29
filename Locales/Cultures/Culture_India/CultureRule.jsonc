@@ -24,6 +24,10 @@
         "traits": ["patriarchy"],
         // 法教传统：不发起圣战，宗教向来宽容(见 PapacySystem.DharmicTrait、ReligiousTension)
         "political_traits": ["dharmic"],
+        // 无人区命名(见 Locales/Cultures/README.md 无人区一节)：地名 + 类型后缀，温迪亚山脉、塔尔沙漠、北俱卢冻原、丹达卡雨林、孙德尔本斯沼泽
+        "Wilderness": {
+            "words": { "mountain": "WildMountain", "desert": "WildDesert", "tundra": "WildTundra", "jungle": "WildJungle", "swamp": "WildSwamp" }
+        },
         "City": {
             "groups": {
                 "group_1": "CityNames1"

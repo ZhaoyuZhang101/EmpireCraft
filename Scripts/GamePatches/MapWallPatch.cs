@@ -7,7 +7,8 @@ namespace EmpireCraft.Scripts.GamePatches;
 // 图层城墙：原版设顶层格(神力画城墙)之后，纯净地图下排队转成图层城墙；炸弹、擦除、画别的地形落在图层城墙上就把它毁掉
 // (见 MapWallSystem)
 // 设地面格、顶层格之后还把这块地的地形、城墙缓存作废(见 TerrainSystem、TerrainResistance)，那两份缓存因此不必定时过期；
-// 设地面格还看海区要不要重划(见 SeaRegionSystem)；格子的样子(Type)变了让图层色块重画(见 ZonePaintBudget.TerrainChanged)
+// 设地面格还看海区要不要重划(见 SeaRegionSystem)；格子的样子(Type)变了让图层色块重画(见 ZonePaintBudget.TerrainChanged)；
+// 设地面格、顶层格都记给无人区，停手后重判那几块(见 WildernessSystem.OnTileChanged)
 public class MapWallPatch : GamePatch
 {
     public ModDeclare declare { get; set; }
@@ -60,5 +61,6 @@ public class MapWallPatch : GamePatch
         if (zone == null) return;
         TerrainSystem.Invalidate(zone);
         TerrainResistance.InvalidateWall(zone);
+        WildernessSystem.OnTileChanged(zone);
     }
 }

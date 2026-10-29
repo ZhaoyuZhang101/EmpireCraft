@@ -27,6 +27,11 @@
             "yurt_village_suffix": "YurtVillageSuffix",
             "yurt_town_suffix": "YurtTownSuffix"
         },
+        // 无人区命名(见 Locales/Cultures/README.md 无人区一节)：地名 + 类型后缀，杭爱山脉、阿拉善戈壁、贝加尔冻原、查干淖尔；雨林取元代南征的安南、占城、八百媳妇
+        "Wilderness": {
+            "words": { "mountain": "WildMountain", "desert": "WildDesert", "tundra": "WildTundra", "jungle": "WildJungle", "swamp": "WildSwamp" },
+            "suffix": { "desert": "WildDesertSuffix", "swamp": "WildSwampSuffix" }
+        },
         "City": {
             "groups": {
                 "group_1": "CityNames1"

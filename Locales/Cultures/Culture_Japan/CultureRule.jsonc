@@ -48,6 +48,11 @@
             "terrain_suffix": "TerrainSuffix",
             "terrain": { "mountain": "TerrainMountain", "hill": "TerrainHill", "water": "TerrainWater", "coast": "TerrainCoast", "forest": "TerrainForest", "plain": "TerrainPlain", "desert": "TerrainDesert", "swamp": "TerrainSwamp" }
         },
+        // 无人区命名(见 Locales/Cultures/README.md 无人区一节)：地名 + 类型后缀，飞驒山脉、鸟取沙丘、知床冻原、屋久岛雨林、钏路湿原
+        "Wilderness": {
+            "words": { "mountain": "WildMountain", "desert": "WildDesert", "tundra": "WildTundra", "jungle": "WildJungle", "swamp": "WildSwamp" },
+            "suffix": { "mountain": "WildMountainSuffix", "desert": "WildDesertSuffix", "tundra": "WildTundraSuffix", "jungle": "WildJungleSuffix", "swamp": "WildSwampSuffix" }
+        },
         "City": {
             "groups": {
                 "group_1": "CityNames1",

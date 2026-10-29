@@ -15,6 +15,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 两种人口模式共用年度维护。按区域邻接分帧扫描，跨封国的帝国陆路也算连通。
 // 飞地独立(用户 2026-10-27 截图西辽汗国"飞地维护 202 区域"："都说了飞地要独立""这个西遼汗国的地盘隔这么远")：
 //   · 与都城同在一块陆地、却被别国隔开的陆上飞地，每年结算时整片自立——整个在这片里的成员国连国离开帝国，
+//     本国的无人区(挂在本国法理上的，见 WildernessSystem.OwnerOf；用户 2026-10-29 "取得这个法理的国家就把这些无人区算作本国范围")
+//     算本国的地，只隔着它的两片连着、不算飞地(它只用来连通，不算进哪一片、不收维护费)；
 //     其余的城按原属国各自由当地首领立国(都城、正在打仗、被占领、神力拉入保护期内的那片今年不动)；
 //   · 隔海的照旧交维护费，连年财政吃紧时也是整片自立，不再交给接壤的邻国(以前"交接给接壤的某国")；
 //   · 不开财政也照样审计、照样让陆上飞地自立，只是不收维护费；
@@ -41,6 +43,11 @@ public static class ExclaveMaintenanceSystem
     private static readonly Dictionary<long, Audit> Audits = new();
     private static readonly Queue<long> Pending = new();
     private static Kingdom Realm(Kingdom kingdom) => kingdom?.GetEmpire()?.CoreKingdom ?? kingdom;
+
+    // 本国(连同本帝国成员)法理上的无人区
+    private static bool OwnWild(TileZone zone, Kingdom realm) =>
+        WildernessSystem.IsWild(zone) && WildernessSystem.OwnerOf(zone) is Kingdom owner && Realm(owner) == realm;
+
     private static bool Valid(City city, Kingdom realm) => city?.data != null && !city.isRekt() &&
         !AncientWarfareCompatibility.OwnsObject(city) && Realm(city.kingdom) == realm;
 
@@ -128,10 +135,15 @@ public static class ExclaveMaintenanceSystem
                 work.seen.Add(root); work.frontier.Enqueue(root);
             }
             TileZone current = work.frontier.Dequeue();
-            if (!Valid(current.city, work.realm)) { Audits.Remove(id); return; }
-            work.component.Add(current);
+            // 本国的无人区只用来连通
+            if (work.zones.Contains(current))
+            {
+                if (!Valid(current.city, work.realm)) { Audits.Remove(id); return; }
+                work.component.Add(current);
+            }
             foreach (TileZone next in current.neighbours ?? Array.Empty<TileZone>())
-                if (next != null && work.zones.Contains(next) && work.seen.Add(next)) work.frontier.Enqueue(next);
+                if (next != null && (work.zones.Contains(next) || OwnWild(next, work.realm)) && work.seen.Add(next))
+                    work.frontier.Enqueue(next);
         }
         Pending.Enqueue(id);
     }

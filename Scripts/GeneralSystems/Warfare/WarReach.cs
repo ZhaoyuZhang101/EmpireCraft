@@ -12,9 +12,10 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 远距离不宣战(用户 2026-10-22 转群友截图"超长宣战"，选"统一拦下并清理"，名分之战也一样要够得着)：
 // 本模组十几处开战(诉求、帝号之争、逼冕、索取皇位、复国、朝贡、游牧、统一战争……)多不判远近，开起来两边打不着，
 // 只在地图上挂一条横跨大半张图的箭头。开战总入口统一过这道闸(见 WarReachPatch)：
-//   够得着 = 两边(帝国连同成员)接壤、同一块陆地上有两座城相距不过 LandTiles 格(同 FrontSystem)且中间不隔着天堑
-//   (沿直线的地形阻力不过 LandCost，见 TerrainResistance.LineCost；用户 2026-10-26："过厚的山脉，冻土与沙地也会阻隔……印度打不到西藏")，
-//   或隔海在水师辐射内(StraitReach)；
+//   够得着 = 两边(帝国连同成员)接壤、同一块陆地上有两座城相距不过 LandTiles 格(同 FrontSystem)且中间不隔着天堑——
+//   不隔着这一方过不去、又绕不过去的无人区(用户 2026-10-29 "能更有效地阻隔国家军队"，见 WildernessPassage；有路穿过、
+//   游牧过沙漠冻土、阿拉伯过沙漠的不算隔着)，沿直线的地形阻力也不过 LandCost(见 TerrainResistance.LineCost；
+//   用户 2026-10-26："印度打不到西藏"，以前量山地、冻土、沙漠的天堑深浅，已改成无人区)，或隔海在水师辐射内(StraitReach)；
 //   内乱不拦：叛乱、煽动、挑拨(神力)、全面战争，同一帝国内，封建上下级，开国不满一年的新政权宣战(刚分出来的叛军、割据打原主)。
 // 已经开着的：每月看一次，两边所有参战国两两都够不着、连续 ClearMonths 个月就判和(劫掠之战有自己的期限，不管)；
 // 主攻主守够不着的战争不画箭头(见 WarMarkerPatch)。
@@ -25,7 +26,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 public static class WarReach
 {
     public const float LandTiles = 80f;
-    // 不接壤的两城之间沿直线的地形阻力上限：十块平地 10、翻一道三层厚的山约 23 还够得着；四层厚的大山、五层宽的大漠够不着
+    // 不接壤的两城之间沿直线的地形阻力上限：十块平地 10、中间三四块山地(每块 4)还够得着；
+    // 直线穿过绕得过去的无人区按地形阻力两倍估，横着三块山脉无人区(每块 8)就够不着
     public const float LandCost = 24f;
     private const int ClearMonths = 12;
     private const string LogTag = "[EmpireCraft][远战]";
@@ -94,7 +96,7 @@ public static class WarReach
 
     private static bool Young(Kingdom kingdom) => Date.getYearsSince(kingdom.data.created_time) < 1f;
 
-    // 两边(帝国连同成员)有一对够得着：接壤、同一块陆地上相距不过 LandTiles 格，或任一边的水师够得着对方临海的城
+    // 两边(帝国连同成员)有一对够得着：接壤、同一块陆地上相距不过 LandTiles 格(不隔着绕不过去的无人区)，或任一边的水师够得着对方临海的城
     public static bool Reachable(Kingdom a, Kingdom b)
     {
         if (a?.data == null || b?.data == null || a.isRekt() || b.isRekt()) return false;
@@ -125,7 +127,7 @@ public static class WarReach
             {
                 if ((x.city_center - y.city_center).sqrMagnitude > limit) continue;
                 WorldTile tile = y.getTile();
-                if (tile != null && at.isSameIsland(tile) &&
+                if (tile != null && at.isSameIsland(tile) && WildernessPassage.Reachable(at.zone, tile.zone, x.kingdom) &&
                     TerrainResistance.LineCost(at.zone, tile.zone, x.kingdom) <= LandCost) return true;
             }
         }

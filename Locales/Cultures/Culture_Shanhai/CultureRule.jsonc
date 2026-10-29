@@ -53,6 +53,12 @@
             "terrain_suffix": "Huaxia:TerrainSuffix",
             "terrain": { "mountain": "Huaxia:TerrainMountain", "hill": "Huaxia:TerrainHill", "water": "Huaxia:TerrainWater", "coast": "Huaxia:TerrainCoast", "forest": "Huaxia:TerrainForest", "plain": "Huaxia:TerrainPlain", "desert": "Huaxia:TerrainDesert", "swamp": "Huaxia:TerrainSwamp" }
         },
+        // 无人区命名(见 Locales/Cultures/README.md 无人区一节)：地名 + 类型后缀，山海经的地名：招摇之山、大荒之野、幽都冰原、扶桑之林、雷泽
+        "Wilderness": {
+            "words": { "mountain": "WildMountain", "desert": "WildDesert", "tundra": "WildTundra", "jungle": "WildJungle", "swamp": "WildSwamp" },
+            "suffix": { "mountain": "WildMountainSuffix", "desert": "WildDesertSuffix", "tundra": "WildTundraSuffix", "jungle": "WildJungleSuffix", "swamp": "WildSwampSuffix" },
+            "great_suffix": { "swamp": "WildSwampGreat" }
+        },
         "City": {
             "groups": {
                 "group_1": "CityNames"

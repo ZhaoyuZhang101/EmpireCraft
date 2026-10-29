@@ -9,6 +9,10 @@
         // (没写的一个帝国法理一个天下，常常凑不满 8 城、没有天命，见 TianxiaSystem.AutoArrange)
         "tianxia": "ElfFancy",
         "traits": ["patriarchy"],
+        // 无人区命名(见 Locales/Cultures/README.md 无人区一节)：地名 + 类型后缀，星落山脉、金沙沙漠、永冬冻原、萤火雨林、迷雾沼泽
+        "Wilderness": {
+            "words": { "mountain": "WildMountain", "desert": "WildDesert", "tundra": "WildTundra", "jungle": "WildJungle", "swamp": "WildSwamp" }
+        },
         "City": {
             "groups": {
                 "group_1": "CityNames1",

@@ -22,6 +22,10 @@
             }
         },
         "traits": ["patriarchy"],
+        // 无人区命名(见 Locales/Cultures/README.md 无人区一节)：地名 + 类型后缀，希贾兹山脉、鲁卜哈利沙漠、巴塔伊赫沼泽；冻原取伊本·法德兰笔下的北方(不里阿耳、黑暗之地)
+        "Wilderness": {
+            "words": { "mountain": "WildMountain", "desert": "WildDesert", "tundra": "WildTundra", "jungle": "WildJungle", "swamp": "WildSwamp" }
+        },
         "City": {
             "groups": {
                 "group_1": "CityNames1",

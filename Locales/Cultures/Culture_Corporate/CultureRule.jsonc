@@ -17,6 +17,10 @@
             }
         },
         "traits": ["patriarchy"],
+        // 无人区命名(见 Locales/Cultures/README.md 无人区一节)：地名 + 类型后缀，引用西方的词库
+        "Wilderness": {
+            "words": { "mountain": "Western:WildMountain", "desert": "Western:WildDesert", "tundra": "Western:WildTundra", "jungle": "Western:WildJungle", "swamp": "Western:WildSwamp" }
+        },
         "City": {
             "groups": {
                 "group_1": "GreekLetters",

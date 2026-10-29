@@ -1612,7 +1612,11 @@ public static class CorpsSystem
     // 走偏了(撤退、改派)或目标变了再重算；找不到路就朝目标就近挪一块可走的地。
     // 城墙(见 WallPassage)：隔着城墙的两块地不能直接走，只从对本方开着的关门过(关城所在地块的控制者与同一势力、
     // 并肩作战的友邦、同盟)，敌军绕过城墙尽头走或先打下关城；就近挪也不穿墙。缓存的路线每走一步看下一步还走不走得通
-    // (关城易手、和战变了、新画了城墙)，走不通就重寻。飞机(FlyStep)不受城墙限制，海上运兵照旧
+    // (关城易手、和战变了、新画了城墙)，走不通就重寻。飞机(FlyStep)不受城墙限制，海上运兵照旧。
+    // 无人区(见 WildernessPassage；用户 2026-10-29 选军队"只能沿路过：没修路的地方过不去，修了路的地方(山口、商道)能走；
+    // 游牧过沙漠冻土、阿拉伯过沙漠照旧不受限")：对本方过不去的无人区不进(终点除外)，就近挪也不进；隔着过不去、绕不过去的
+    // 无人区的目标不寻路(不必搜满 MaxPathSearch)；缓存的路线下一步进了过不去的无人区(新划的区、路荒了)就重寻。
+    // 已经站在过不去的无人区里的(区域刚划出来时)可以在无人区里走、每步加重八倍，就近走出去，出去了就不再进。飞机、海运不受限
     private const int MaxPathSearch = 6000;
     private static readonly Dictionary<long, (int target, List<int> path)> Paths = new();
     // 各军这一拍的行军速度(块/秒)：兵牌按节拍里过了几成往前插值(见 DrawPosition)；停下的不记
@@ -1644,8 +1648,9 @@ public static class CorpsSystem
             cached.path[0] == current.id)
         {
             TileZone next = ZoneById(cached.path[1]);
-            // 下一步隔着城墙走不过去了(关门不再放行、新画了城墙)：重寻
-            if (next != null && (side == null || !WallPassage.Blocks(current, next, side)))
+            // 下一步隔着城墙走不过去了(关门不再放行、新画了城墙)、进了过不去的无人区(新划的区、路荒了)：重寻
+            if (next != null && (side == null || !WallPassage.Blocks(current, next, side) &&
+                                 (next == target || !WildBlocks(current, next, side))))
             {
                 cached.path.RemoveAt(0);
                 return next;
@@ -1701,7 +1706,8 @@ public static class CorpsSystem
 
     // 按代价寻路(八方向)：路上的地块代价 1，路外按兵种加价(OffRoad 的倒数)，山地、沼泽、丛林再按兵种加价(Rough 的倒数)，
     // 斜走乘 1.41；不可通行的地块与海面不进，终点除外。给了 side 时不相干的第三国的地加重八倍(能绕就绕，见 FrontSystem.Passable)，
-    // 隔着城墙的两块地不走(关门对 side 开着的除外，进终点也一样，见 WallPassage)；不给 side(皇帝出行等借用)不看城墙
+    // 隔着城墙的两块地不走(关门对 side 开着的除外，进终点也一样，见 WallPassage)；不给 side(皇帝出行等借用)不看城墙。
+    // 无人区同城墙只看给了 side 的：对 side 过不去的不进(终点除外)，困在里面的在无人区里每步加重 ForeignStep 倍走出去(见 WildBlocks)
     private const float ForeignStep = 8f;
     // 上一次寻路被城墙挡掉的走法数(诊断日志用)
     private static int _wallBlocked;
@@ -1712,7 +1718,8 @@ public static class CorpsSystem
     private static readonly HashSet<int> EnclosureSeen = new();
     private static readonly Queue<TileZone> EnclosureQueue = new();
 
-    private static bool Enclosed(TileZone from, TileZone to, Kingdom side)
+    // way：side 的无人区走法(见 WildernessPassage.Way)，0 不看无人区(困在无人区里的军，好往外走)
+    private static bool Enclosed(TileZone from, TileZone to, Kingdom side, int way)
     {
         EnclosureSeen.Clear();
         EnclosureQueue.Clear();
@@ -1741,6 +1748,7 @@ public static class CorpsSystem
                     break;
                 }
                 if (TerrainSystem.Impassable(next) || SeaRegionSystem.IsSea(next) || !TerrainSystem.Crossable(zone, next)) continue;
+                if (!WildernessPassage.Open(next, way)) continue;
                 EnclosureSeen.Add(next.id);
                 EnclosureQueue.Enqueue(next);
             }
@@ -1752,9 +1760,15 @@ public static class CorpsSystem
     private static List<int> FindPath(TileZone from, TileZone to, CorpsArmSystem.Arm arm, Kingdom side = null)
     {
         var passable = new Dictionary<long, bool>();
+        // 无人区：给了 side 才看；困在过不去的无人区里(stranded)的可以在无人区里走，好走出去
+        bool wild = side != null && WildernessPassage.Active;
+        int way = wild ? WildernessPassage.Way(side) : 0;
+        bool stranded = wild && !WildernessPassage.Open(from, way);
         bool Foreign(TileZone zone)
         {
             if (side == null) return false;
+            // 过不去的无人区(只有困在里面的才走到这里)另按 ForeignStep 加重，不拿它判这一家让不让过
+            if (wild && !WildernessPassage.Open(zone, way)) return false;
             Kingdom owner = FrontSystem.Controller(zone);
             if (owner == null) return false;
             if (!passable.TryGetValue(owner.id, out bool ok)) passable[owner.id] = ok = FrontSystem.Passable(side, zone);
@@ -1764,7 +1778,9 @@ public static class CorpsSystem
         float rough = 1f / Mathf.Max(0.1f, CorpsArmSystem.Rough(arm));
         bool walls = side != null && WallPassage.Active;
         _wallBlocked = 0;
-        if (walls && from != to && Enclosed(from, to, side)) return null;
+        // 隔着过不去、绕不过去的无人区：到不了，不必搜满 MaxPathSearch
+        if (wild && !stranded && from != to && !WildernessPassage.Reachable(from, to, side)) return null;
+        if (walls && from != to && Enclosed(from, to, side, stranded ? 0 : way)) return null;
         BeginPathPass();
         PathReach(from, 0f, -1);
         PathOpen.Add((0f, from));
@@ -1789,9 +1805,13 @@ public static class CorpsSystem
                     _wallBlocked++;
                     continue;
                 }
+                // 无人区：过不去的不进，困在里面的就近走出去
+                bool wilderness = wild && !WildernessPassage.Open(neighbour, way);
+                if (wilderness && neighbour != to && WildernessPassage.Open(zone, way)) continue;
                 float step = RoadNetwork.IsRoad(neighbour) ? 1f : offRoad;
                 if (TerrainSystem.SlowsMarch(neighbour)) step *= rough;
                 if (neighbour != to && Foreign(neighbour)) step *= ForeignStep;
+                if (wilderness) step *= ForeignStep;
                 if (neighbour.x != zone.x && neighbour.y != zone.y) step *= 1.41f;
                 float total = here + step;
                 if (PathSeen(neighbour) && _pathCost[neighbour.id] <= total) continue;
@@ -1949,7 +1969,7 @@ public static class CorpsSystem
     public static List<int> PathFor(TileZone from, TileZone to, CorpsArmSystem.Arm arm = CorpsArmSystem.Arm.Cavalry) =>
         from == null || to == null ? null : FindPath(from, to, arm);
 
-    // 朝目标就近挪一块(不进高山、海面；给了 side 时不穿城墙，见 WallPassage)
+    // 朝目标就近挪一块(不进高山、海面；给了 side 时不穿城墙、不进过不去的无人区，见 WallPassage、WildBlocks)
     private static TileZone Nearer(TileZone current, TileZone target, Kingdom side = null)
     {
         TileZone best = null;
@@ -1961,6 +1981,7 @@ public static class CorpsSystem
                 continue;
             if (!TerrainSystem.Crossable(current, neighbour)) continue;
             if (walls && WallPassage.BlocksKnown(current, neighbour, side)) continue;
+            if (neighbour != target && WildBlocks(current, neighbour, side)) continue;
             float distance = ZoneDistance(neighbour, target);
             if (distance < bestDistance)
             {
@@ -1970,6 +1991,11 @@ public static class CorpsSystem
         }
         return best;
     }
+
+    // 从 from 走进相邻的 to 被无人区挡住：to 是 side 过不去的无人区，from 不是(困在无人区里的可以接着在里面走，好走出去)；
+    // 不给 side 的不看(同城墙)
+    private static bool WildBlocks(TileZone from, TileZone to, Kingdom side) =>
+        side != null && !WildernessPassage.Passable(to, side) && WildernessPassage.Passable(from, side);
 
     // 诊断：寻路被城墙挡过的军(每 5 秒最多一行)
     private static void LogWallPath(CorpsData corps, Kingdom side, List<int> path, int blocked)

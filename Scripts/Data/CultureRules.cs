@@ -67,6 +67,8 @@ public class Setting
     public ConstitutionSetting Constitution;
     // 村镇命名(见 SettlementNaming)：命名方式的分量与各词库；没配的项用 Locales/Cultures/Settlements/ 里的通用词库
     public SettlementSetting Settlement;
+    // 无人区命名(见 WildernessNaming，用户 2026-10-29 "依据最近的文化进行命名")：各类型的地名词库与后缀；没配的用 Locales/Cultures/Wilderness/ 的通用词库
+    public EmpireCraft.Scripts.GeneralSystems.WildernessSetting Wilderness;
     // 美号(见 RealmNamingSystem.Founding)：词库与前缀
     public GrandNameSetting GrandName;
 }

@@ -9,6 +9,10 @@
         // (没写的一个帝国法理一个天下，常常凑不满 8 城、没有天命，见 TianxiaSystem.AutoArrange)
         "tianxia": "Ojibwe",
         "traits": ["patriarchy"],
+        // 无人区命名(见 Locales/Cultures/README.md 无人区一节)：地名 + 类型后缀，米萨比山脉、霍皮沙漠、努纳武特冻原、马斯基格沼泽；雨林引用阿兹特克的
+        "Wilderness": {
+            "words": { "mountain": "WildMountain", "desert": "WildDesert", "tundra": "WildTundra", "jungle": "Aztec:WildJungle", "swamp": "WildSwamp" }
+        },
         "City": {
             "groups": {
                 "group_1": "CityNames1"

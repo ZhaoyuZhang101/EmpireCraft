@@ -145,6 +145,13 @@ public static class RuralSettlementSystem
     public static List<RuralSettlement> InZone(TileZone zone) =>
         zone != null && ByZone().TryGetValue(zone.id, out List<RuralSettlement> list) ? list : new List<RuralSettlement>();
 
+    // 有镇村(含废墟、关城，不含彻底抹去的)的地块：留给城，无人区在它们周围断开(见 WildernessSystem)
+    public static IEnumerable<int> SettledZones()
+    {
+        foreach (KeyValuePair<int, List<RuralSettlement>> pair in ByZone())
+            if (pair.Value.Count > 0) yield return pair.Key;
+    }
+
     public static RuralSettlement Add(int x, int y, bool town, int size, bool walled)
     {
         var settlement = new RuralSettlement
@@ -588,7 +595,9 @@ public static class RuralSettlementSystem
     // 点在无主之地归挨着的城里城心最近的，四周没有城就归全图城心最近的(飞地)，那块地划进去，四周领得到的无主之地照旧一并划进。
     // 只留真做不到的：没开纯净地图(没有城市平面图，画不出来)；水、岩浆、山、高峰上(精细图在那几格不落笔，立了看不见也点不着，
     // 见 UrbanFabric.ManualGround)；城墙上(村镇压不上墙；筑关点在墙上或墙边 WallGateSystem.Snap 格内落到墙上当关门，山上的墙也行)；
-    // 城心与城区(那里画的是城区，村镇被盖住)；同一格已有一处(画法、点选都按格认)；全图一座城都没有
+    // 城心与城区(那里画的是城区，村镇被盖住)；同一格已有一处(画法、点选都按格认)；全图一座城都没有。
+    // 无人区里也能立(手动不设限，同上)：那一块地归城、退出无人区(见 WildernessSystem.Settle)；
+    // 四周的无人区不跟着划进去(ClaimAround 照原版规矩领，碰到无人区挡住)
     public static string Place(WorldTile tile, bool town, bool fort = false)
     {
         if (!PureMapMode.Enabled) return LM.Get("settlement_need_pure_map");
@@ -624,6 +633,7 @@ public static class RuralSettlementSystem
                     }
         if (claim)
             using (GamePatches.CityExpansionPatch.Manual())
+            using (WildernessSystem.Settle())
                 city.addZone(zone);
         if (zone.city != city) return LM.Get("settlement_place_no_city");
         RuralSettlement settlement = Add(tile.x, tile.y, town && !fort, size, false);

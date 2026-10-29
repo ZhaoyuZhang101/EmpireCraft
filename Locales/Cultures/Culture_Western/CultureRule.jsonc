@@ -38,6 +38,10 @@
             "fort_words": "VillageNames",
             "fort_suffix": "FortSuffix"
         },
+        // 无人区命名(见 Locales/Cultures/README.md 无人区一节)：地名 + 类型后缀，阿尔卑斯山脉、莫哈韦沙漠、格陵兰冻原、达连雨林、大沼泽地
+        "Wilderness": {
+            "words": { "mountain": "WildMountain", "desert": "WildDesert", "tundra": "WildTundra", "jungle": "WildJungle", "swamp": "WildSwamp" }
+        },
         "City": {
             "groups": {
                 "group_1": "CityNames1",

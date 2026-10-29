@@ -29,6 +29,11 @@
             "town_suffix": "TownSuffix",
             "fort_suffix": "FortSuffix"
         },
+        // 无人区命名(见 Locales/Cultures/README.md 无人区一节)：地名 + 类型后缀，约顿海门山脉、斯普伦吉桑迪沙原、尼弗尔海姆、文兰雨林、维尔德莫斯沼泽
+        "Wilderness": {
+            "words": { "mountain": "WildMountain", "desert": "WildDesert", "tundra": "WildTundra", "jungle": "WildJungle", "swamp": "WildSwamp" },
+            "suffix": { "desert": "WildDesertSuffix" }
+        },
         "City": {
             "groups": {
                 "group_1": "CityNames1",

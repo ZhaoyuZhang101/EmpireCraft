@@ -148,6 +148,24 @@ public static class FactorySystem
         return x >= x0 - margin && y >= y0 - margin && x < x0 + side + margin && y < y0 + side + margin;
     }
 
+    // 厂区压着的地块(一片边长至多 8 格，至多压着四块地)：留给城，无人区在它们周围断开(见 WildernessSystem)
+    public static HashSet<int> CoveredZones()
+    {
+        var result = new HashSet<int>();
+        if (World.world == null) return result;
+        foreach (FactorySite site in All.Values)
+        {
+            (int x0, int y0, int side) = Footprint(site);
+            int x1 = x0 + side - 1, y1 = y0 + side - 1;
+            foreach ((int x, int y) in new[] { (x0, y0), (x1, y0), (x0, y1), (x1, y1) })
+            {
+                TileZone zone = World.world.GetTile(x, y)?.zone;
+                if (zone != null) result.Add(zone.id);
+            }
+        }
+        return result;
+    }
+
     // (x, y) 落在哪片厂区(连同四周 margin 格)里：村镇选址、立村、建城避开(见 UrbanFabric、RuralSettlementSystem、CityPlacementSystem)
     public static bool Near(int x, int y, int margin)
     {
@@ -417,9 +435,11 @@ public static class FactorySystem
         if (!manual) unlocked = Preferred(unlocked);
         string refusal = manual ? CheckManual(tile.x, tile.y, size, null) : CheckFootprint(city, tile.x, tile.y, size, null);
         if (refusal != null) return refusal;
+        // 无人区里也能放(神力手动不设限)：那一块地归城、退出无人区(见 WildernessSystem.Settle)
         if (claim)
         {
             using (GamePatches.CityExpansionPatch.Manual())
+            using (WildernessSystem.Settle())
                 city.addZone(tile.zone);
             if (tile.zone.city != city) return LM.Get("factory_place_no_city");
             CityDistricts.Reset();
@@ -461,6 +481,8 @@ public static class FactorySystem
             if (at?.zone == null) return LM.Get("factory_place_no_room");
             if (at.zone == center || built != null && built.Contains(at.zone.id))
                 return string.Format(LM.Get("settlement_place_urban"), city.GetCityName());
+            // AI 自建、扩建不伸进无人区(见 WildernessSystem)
+            if (WildernessSystem.IsWild(at.zone)) return LM.Get("factory_place_no_room");
             FactorySite other = At(at);
             if (MapWallSystem.Contains(at) || other != null && other != self) return LM.Get("factory_place_no_room");
             if (at.zone.city == city && at.Type != null && !at.Type.liquid && !at.Type.mountains) land++;
