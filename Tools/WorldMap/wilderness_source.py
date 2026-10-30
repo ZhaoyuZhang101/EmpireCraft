@@ -10,7 +10,9 @@ WorldMaps/eras/*.json 的 "wilderness" 一节。游戏里由 Scripts/GeneralSyst
     (盖住的块数占"区域 + 单元范围"并起来的比例：一整片撒哈拉配撒哈拉，大框里拆出来的一小片配框得正好的细单元；
     盖住区域过半的单元优先，免得一个小圈只沾了边就把整片抢走)，一样多取范围小的；
   - alt：按年份的旧称，写法同 cities.json 的 alt("到某年为止|简体|英文|繁体"，也可写"某年~|…"自某年起、"某年~某年|…")，
-    不论起名文化，史书上那个年代通行的叫法(长白山在唐叫太白山)；
+    不论起名文化，史书上那个年代通行的叫法(长白山在唐叫太白山)；现代名是近代才起的(盖马高原、太白山脉、横断山脉……)而那个年代
+    又没有自己的叫法的，沿用更早见于史书的旧称(或区域里有名的山峰、地物的当时叫法)，免得剧本年份里冒出近代地名；
+    同一年代两个单元别给同一个名字(盛唐长白山叫太白山，太白山脉就用《三国史记》的太伯山)；
   - c：按文化的叫法，文化 id → 若干条(写法同上，前面不带年份的不限年份)，命中起名文化的先用：
     华夏(瀚海、大漠、流沙、葱岭、雪山、大雪山、金山、燕然山、北海、五岭、莫贺延碛、白龙堆)、
     罗马(荒漠阿拉伯、海摩斯山、帕罗帕米苏斯山、伊茂斯山、埃莫杜斯山、帕里亚德雷斯山、奥拉修斯山、麦罗埃岛)、
@@ -53,7 +55,8 @@ ARABIA_DESERTA = "荒漠阿拉伯|Arabia Deserta|荒漠阿拉伯"   # 托勒密�
 BEIHAI = "-100~|北海|Beihai|北海"                 # 《汉书·苏武传》"徙武北海上无人处"，即贝加尔湖一带
 
 # ---------------- 非洲 ----------------
-U("sahara", "D", "撒哈拉沙漠", "Sahara Desert", box=[[-17, 15, 33, 34]])
+# 撒哈拉是阿拉伯语"荒漠"，伊斯兰以后才这么叫；罗马时托勒密《地理学志》卷四称地中海沿岸以南为内利比亚(Libya Interior)
+U("sahara", "D", "撒哈拉沙漠", "Sahara Desert", box=[[-17, 15, 33, 34]], alt=["100~600|内利比亚|Libya Interior|內利比亞"])
 U("tenere", "D", "泰内雷沙漠", "Ténéré", box=[[8.5, 16, 13.5, 20.5]])
 U("tanezrouft", "D", "塔奈兹鲁夫特", "Tanezrouft", box=[[-2, 20, 3, 24.5]])
 U("erg_chech", "D", "舍什沙海", "Erg Chech", box=[[-5, 23, -0.5, 26.5]])
@@ -76,11 +79,14 @@ U("air", "MD", "阿伊尔山", "Aïr Mountains", box=[[7.5, 17, 9.8, 20.3]])
 U("ennedi", "MD", "恩内迪高原", "Ennedi Plateau", box=[[21, 16, 23.8, 18]])
 U("libyan_desert", "D", "利比亚沙漠", "Libyan Desert", box=[[24, 20, 31.5, 31]], c={"Egypt": [DESHRET]})
 U("nubian_desert", "D", "努比亚沙漠", "Nubian Desert", box=[[30.5, 18, 37.5, 22.5]])
-U("eastern_desert", "D", "东部沙漠", "Eastern Desert", box=[[31.3, 22, 35.5, 30.2]], c={"Egypt": [DESHRET]})
+# "东部沙漠"是近代叫法；希罗多德(卷二)以来希腊罗马人称尼罗河东岸的山地荒漠为阿拉伯山(Arabian mountains)
+U("eastern_desert", "D", "东部沙漠", "Eastern Desert", box=[[31.3, 22, 35.5, 30.2]], c={"Egypt": [DESHRET]},
+  alt=["-450~600|阿拉伯山|Arabian Mountains|阿拉伯山"])
 U("bayuda", "D", "拜尤达沙漠", "Bayuda Desert", box=[[31.8, 16.8, 34, 19]])
-# 阿特巴拉河、青尼罗河、尼罗河围起的布塔纳：希腊罗马人称"麦罗埃岛"(希罗多德、斯特拉波)
+# 阿特巴拉河、青尼罗河、尼罗河围起的布塔纳：希腊罗马人称"麦罗埃岛"(希罗多德、斯特拉波引埃拉托色尼)；
+# 布塔纳是后来的阿拉伯语名，库施(麦罗埃)王国时代不论文化都用麦罗埃岛
 U("butana", "D", "布塔纳", "Butana", box=[[33.3, 13.5, 36.5, 17.4]],
-  c={"Roma": ["麦罗埃岛|Island of Meroë|麥羅埃島"]})
+  alt=["-300~400|麦罗埃岛|Island of Meroë|麥羅埃島"], c={"Roma": ["麦罗埃岛|Island of Meroë|麥羅埃島"]})
 U("sinai", "D", "西奈沙漠", "Sinai Desert", box=[[32.5, 29, 34.6, 31.2]],
   c={"Arab": ["提赫荒原|Badiyat al-Tih|提赫荒原"], "Kosher": ["巴兰的旷野|Wilderness of Paran|巴蘭的曠野"]})
 U("sinai_mountains", "M", "西奈山", "Mount Sinai", pts=[[33.97, 28.54]], r=0.8,
@@ -126,7 +132,9 @@ U("inner_niger_delta", "S", "尼日尔河内陆三角洲", "Inner Niger Delta", 
 # 阿拉伯半岛：西北一框到波斯湾西岸，东南一框是阿曼(不框进伊朗南部)
 U("arabian_desert", "D", "阿拉伯沙漠", "Arabian Desert", box=[[36, 15, 52, 32], [52, 16, 59.5, 24.5]],
   c={"Roma": [ARABIA_DESERTA]})
-U("rub_al_khali", "D", "鲁卜哈利沙漠", "Rub' al Khali", box=[[44.5, 16.3, 56, 23.5]])
+# "鲁卜哈利"(空旷的四分之一)出处不明，近代才通行；《古兰经》第 46 章"沙丘"(al-Ahqaf，阿德人故地)，中古地理家把它放在这片大沙里
+U("rub_al_khali", "D", "鲁卜哈利沙漠", "Rub' al Khali", box=[[44.5, 16.3, 56, 23.5]],
+  alt=["630~1500|艾哈嘎夫沙丘|al-Ahqaf|艾哈嘎夫沙丘"])
 U("nafud", "D", "内夫得沙漠", "Nafud Desert", box=[[38, 26.5, 44.5, 29.8]], c={"Roma": [ARABIA_DESERTA]})
 U("dahna", "D", "代赫纳沙漠", "Ad-Dahna Desert", pts=[[44.8, 27], [46.3, 25.5], [47.5, 24], [48, 22.2]], r=0.8)
 U("hadramawt", "D", "哈德拉毛", "Hadhramaut", box=[[47, 14.5, 51.5, 16.5]])
@@ -142,16 +150,22 @@ U("mesopotamian_marshes", "S", "美索不达米亚沼泽", "Mesopotamian Marshes
   c={"Arab": ["630~|巴提哈沼泽|al-Bata'ih|巴提哈沼澤"]})
 U("zagros", "M", "扎格罗斯山脉", "Zagros Mountains",
   pts=[[45.5, 35.8], [46.5, 34.5], [47.8, 33.5], [49.5, 32.3], [51, 31], [52.5, 29.8], [54, 29], [56, 28.3]], r=1.3)
-U("hakkari", "M", "哈卡里山地", "Hakkâri Mountains", pts=[[43.7, 37.5]], r=1.0)
+# 哈卡里得名于中古的库尔德部落；此前色诺芬《长征记》的卡尔杜奇人山地、斯特拉波与托勒密的科尔杜内山(Gordyaean mountains)
+U("hakkari", "M", "哈卡里山地", "Hakkâri Mountains", pts=[[43.7, 37.5]], r=1.0,
+  alt=["-400~600|科尔杜内山|Gordyaean Mountains|科爾杜內山"])
 U("munzur", "M", "芒祖尔山脉", "Munzur Mountains", pts=[[38.7, 39.6], [39.5, 39.3]], r=0.7)
 U("alborz", "M", "厄尔布尔士山脉", "Alborz Mountains", pts=[[49.5, 36.6], [51, 36.3], [52.5, 36], [54, 36.4], [55.5, 37], [57, 37.3]], r=0.9)
 U("talysh", "M", "塔雷什山脉", "Talysh Mountains", pts=[[48.4, 38.3], [48.5, 37.5]], r=0.6)
 U("kuh_e_hazar", "M", "哈扎尔山", "Kuh-e Hazar", pts=[[57.3, 29.4], [57.6, 28.8]], r=0.7)
 U("dasht_e_kavir", "D", "卡维尔盐漠", "Dasht-e Kavir", box=[[51.5, 33.3, 57, 36]])
-U("dasht_e_lut", "D", "卢特荒漠", "Dasht-e Lut", box=[[56.5, 28.5, 60, 32.8]])
+# 托勒密《地理学志》卷六：卡尔马尼亚以北的荒漠卡尔马尼亚(Carmania Deserta)
+U("dasht_e_lut", "D", "卢特荒漠", "Dasht-e Lut", box=[[56.5, 28.5, 60, 32.8]],
+  alt=["100~600|荒漠卡尔马尼亚|Carmania Deserta|荒漠卡爾馬尼亞"])
 U("dasht_e_margo", "D", "马尔戈荒漠", "Dasht-e Margo", box=[[61.5, 29.8, 64, 31]])
 U("registan", "D", "雷吉斯坦沙漠", "Registan Desert", box=[[63.5, 29.5, 67, 31.6]])
-U("kharan", "D", "哈兰沙漠", "Kharan Desert", box=[[62.5, 27.5, 66, 29.3]])
+# 亚历山大回师所过的格德罗西亚荒漠(阿里安《亚历山大远征记》卷六、斯特拉波卷十五)
+U("kharan", "D", "哈兰沙漠", "Kharan Desert", box=[[62.5, 27.5, 66, 29.3]],
+  alt=["-330~600|格德罗西亚荒漠|Gedrosian Desert|格德羅西亞荒漠"])
 U("makran", "MD", "莫克兰山脉", "Makran Range", pts=[[58.5, 26.3], [60.5, 26.4], [62.5, 26.2], [64.5, 26], [65.5, 26.3]], r=0.7)
 U("kopet_dag", "M", "科佩特山脉", "Kopet Dag", pts=[[55.3, 38.3], [57, 37.9], [58.5, 37.5], [60, 36.8]], r=0.7)
 U("karakum", "D", "卡拉库姆沙漠", "Karakum Desert", box=[[53, 36.3, 65, 42]])
@@ -166,8 +180,10 @@ U("ryn", "D", "雷恩沙漠", "Ryn Desert", box=[[46, 46, 49.8, 48.6]])
 U("greater_caucasus", "M", "大高加索山脉", "Greater Caucasus",
   pts=[[38, 44.2], [40, 43.6], [42, 43.3], [43.5, 42.9], [45, 42.5], [46.5, 42], [48, 41.4], [49.2, 40.9]], r=0.9,
   c={"Arab": ["卡布克山|Jabal al-Qabq|卡布克山"]})
+# "小高加索"是近代分法；斯特拉波、托勒密称莫斯基山(Moschici montes，梅斯赫季一带)
 U("lesser_caucasus", "M", "小高加索山脉", "Lesser Caucasus",
-  pts=[[42.5, 41.3], [43.5, 41.1], [44.5, 41], [45.5, 40.7], [46.2, 40], [46, 39.3]], r=0.9)
+  pts=[[42.5, 41.3], [43.5, 41.1], [44.5, 41], [45.5, 40.7], [46.2, 40], [46, 39.3]], r=0.9,
+  alt=["-100~600|莫斯基山|Moschian Mountains|莫斯基山"])
 U("armenian_highlands", "M", "亚美尼亚高原", "Armenian Highlands", box=[[38, 37.8, 46.5, 41.2]])
 # 斯特拉波、托勒密：本都东段的 Paryadres
 U("pontic", "M", "本都山脉", "Pontic Mountains", pts=[[34, 41.5], [36.5, 40.8], [38.5, 40.6], [40.3, 40.7], [41.2, 41]], r=0.6,
@@ -182,13 +198,17 @@ U("thar", "D", "塔尔沙漠", "Thar Desert", box=[[68.5, 24, 75.2, 30.2]],
 U("cholistan", "D", "乔利斯坦沙漠", "Cholistan Desert", box=[[70.5, 27.5, 73.5, 29.6]])
 U("kachhi", "D", "卡奇平原", "Kachhi Plain", box=[[67.3, 27.8, 69.6, 30]])
 U("rann_of_kutch", "SD", "卡奇沼泽", "Rann of Kutch", box=[[68.5, 23, 71.5, 24.6]])
-# 玄奘《大唐西域记》的大雪山即兴都库什；亚历山大以来希腊人称 Paropamisus
+# 玄奘《大唐西域记》的大雪山即兴都库什；亚历山大以来希腊人称 Paropamisus(阿里安、斯特拉波，贵霜时代各家都只有这个叫法)；
+# "兴都库什"到伊本·白图泰(14 世纪)才见
 U("hindu_kush", "M", "兴都库什山脉", "Hindu Kush",
   pts=[[67.8, 34.8], [69.3, 35.3], [70.5, 35.7], [71.5, 36.2], [72.8, 36.6]], r=1.2,
+  alt=["-330~600|帕罗帕米苏斯山|Paropamisus|帕羅帕米蘇斯山"],
   c={"Huaxia": ["630~|大雪山|Great Snowy Mountains|大雪山"], "Roma": ["帕罗帕米苏斯山|Paropamisus|帕羅帕米蘇斯山"]})
 U("safid_kuh", "M", "萨菲德山脉", "Safid Kuh", pts=[[62.5, 34.6], [64.5, 34.7]], r=0.8)
 U("koh_i_baba", "M", "巴巴山脉", "Koh-i-Baba", pts=[[67.5, 34.6]], r=0.6)
-U("spin_ghar", "M", "斯平加尔山脉", "Spin Ghar", pts=[[70.5, 34.1]], r=0.5)
+# 法显《佛国记》自那竭国(贾拉拉巴德)"南度小雪山"，即此山
+U("spin_ghar", "M", "斯平加尔山脉", "Spin Ghar", pts=[[70.5, 34.1]], r=0.5,
+  c={"Huaxia": ["400~|小雪山|Lesser Snowy Mountains|小雪山"]})
 U("sulaiman", "M", "苏莱曼山脉", "Sulaiman Mountains", pts=[[69.8, 30], [69.9, 31.3], [69.6, 32.4]], r=0.8)
 U("kirthar", "M", "基尔塔尔山脉", "Kirthar Mountains", pts=[[67.4, 26.3], [67.3, 27.8]], r=0.6)
 # 张骞通西域以后称葱岭；托勒密的 Imaus
@@ -222,29 +242,40 @@ U("tianshan", "M", "天山山脉", "Tian Shan",
   pts=[[69.5, 41.8], [71.5, 41.8], [73.5, 41.6], [75.5, 41.5], [77.5, 42], [79.5, 42.1], [81.5, 42.6], [83.5, 43.1],
        [85.5, 43.4], [87.5, 43.3], [89.5, 43.4], [91.5, 43.3], [93.5, 43.2], [94.5, 43]], r=1.1)
 U("bogda", "M", "博格达山", "Bogda Shan", pts=[[88.3, 43.7], [89.5, 43.6], [90.3, 43.5]], r=0.6)
-U("karlik", "M", "哈尔里克山", "Karlik Tagh", pts=[[93.7, 43.3]], r=0.7)
+# 唐伊州北的天山别名白山、折罗漫山(《元和郡县图志·伊州》)；汉时就叫天山，与天山山脉撞名，不写
+U("karlik", "M", "哈尔里克山", "Karlik Tagh", pts=[[93.7, 43.3]], r=0.7, alt=["620~1000|折罗漫山|Zheluoman Mountain|折羅漫山"])
 U("dzungarian_alatau", "M", "准噶尔阿拉套山", "Dzungarian Alatau", pts=[[79, 45.1], [80.5, 45.1], [82, 44.9]], r=0.7)
 U("tarbagatai", "M", "塔尔巴哈台山", "Tarbagatai Mountains", pts=[[82.5, 47.2], [84.5, 47.4]], r=0.6)
-# 《北史·突厥传》"居金山之阳"；突厥碑铭 Altun Yish(金山)。元以后称按台、阿尔泰
+# 《北史·突厥传》"居金山之阳"；突厥碑铭 Altun Yish(金山)。元以后称按台、阿尔泰；
+# 此前东汉永元三年耿夔"大破之于金微山"(《后汉书·窦宪传》)，金微即阿尔泰
 U("altai", "M", "阿尔泰山脉", "Altai Mountains",
   pts=[[85.5, 50], [87.5, 49.6], [89, 49.1], [90.5, 48.4], [91.8, 47.6], [93.3, 46.7], [94.8, 46]], r=1.2,
+  alt=["-300~549|金微山|Jinwei Mountains|金微山", "550~1250|金山|Jinshan|金山"],
   c={"Huaxia": ["550~1250|金山|Jinshan|金山"], "Youmu": ["550~1250|金山|Altun Yish|金山"]})
 U("gobi_altai", "M", "戈壁阿尔泰山脉", "Gobi Altai", pts=[[96, 45.4], [98, 45], [100, 44.6], [102, 44.2], [104, 43.8]], r=0.8)
-# 《汉书》《后汉书》的燕然山(窦宪勒石)；突厥、回纥牙帐所在的于都斤山(Ötüken)
+# 《汉书》《后汉书》的燕然山(窦宪勒石)；突厥、回纥牙帐所在的于都斤山(Ötüken)。杭爱是元以后的蒙古语名，
+# 匈奴、鲜卑时代不论文化都用燕然山
 U("khangai", "M", "杭爱山脉", "Khangai Mountains", pts=[[97.5, 47.6], [99.3, 47.5], [101, 47.3], [102.2, 47]], r=1.0,
+  alt=["-300~549|燕然山|Yanran Mountains|燕然山"],
   c={"Huaxia": ["-100~|燕然山|Yanran Mountains|燕然山"], "Youmu": ["550~900|于都斤山|Ötüken|於都斤山"]})
-# 《蒙古秘史》的不儿罕合勒敦
+# 《蒙古秘史》的不儿罕合勒敦；此前霍去病"封狼居胥山"(《史记·卫将军骠骑列传》)，通行说法即肯特山
 U("khentii", "M", "肯特山脉", "Khentii Mountains", pts=[[108.3, 48.5], [109.5, 49], [110.5, 49.4]], r=0.8,
+  alt=["-300~1900|狼居胥山|Langjuxu Mountain|狼居胥山"],
   c={"Youmu": ["1100~|不儿罕山|Burkhan Khaldun|不兒罕山"]})
 U("gurbantunggut", "D", "古尔班通古特沙漠", "Gurbantünggüt Desert", box=[[84, 44.2, 91, 46.8]])
 # 《尚书·禹贡》"西被于流沙"，玄奘称大流沙
 U("taklamakan", "D", "塔克拉玛干沙漠", "Taklamakan Desert", box=[[76, 36.5, 89, 41.8]], c={"Huaxia": ["流沙|Liusha|流沙"]})
 U("lop_desert", "D", "罗布荒漠", "Lop Desert", box=[[88.3, 39.3, 91.8, 41.3]], c={"Huaxia": ["-100~|白龙堆|Bailongdui|白龍堆"]})
-# 法显"度沙河"；《慈恩传》"莫贺延碛，长八百余里，古曰沙河"
-U("kumtag", "D", "库姆塔格沙漠", "Kumtag Desert", box=[[89.5, 39, 94, 40.8]], c={"Huaxia": ["-100~629|沙河|Shahe|沙河"]})
-U("gashun_gobi", "D", "噶顺戈壁", "Gashun Gobi", box=[[91, 40.5, 96, 42.6]], c={"Huaxia": ["630~|莫贺延碛|Moheyan Desert|莫賀延磧"]})
-# 唐以后称瀚海(瀚海都护府、岑参"瀚海阑干百丈冰")，此前泛称大漠
+# 法显"度沙河"；《慈恩传》"莫贺延碛，长八百余里，古曰沙河"。唐以后沙河之名归莫贺延碛，
+# 这片东头敦煌南的鸣沙山(《元和郡县图志·沙州》"鸣沙山，一名神沙山")就是库姆塔格沙丘的东端
+U("kumtag", "D", "库姆塔格沙漠", "Kumtag Desert", box=[[89.5, 39, 94, 40.8]], alt=["630~1900|鸣沙山|Mingsha Mountain|鳴沙山"],
+  c={"Huaxia": ["-100~629|沙河|Shahe|沙河"]})
+# 噶顺是清代的蒙古语名，唐至元不论文化都用莫贺延碛
+U("gashun_gobi", "D", "噶顺戈壁", "Gashun Gobi", box=[[91, 40.5, 96, 42.6]], alt=["630~1300|莫贺延碛|Moheyan Desert|莫賀延磧"],
+  c={"Huaxia": ["630~|莫贺延碛|Moheyan Desert|莫賀延磧"]})
+# 唐以后称瀚海(瀚海都护府、岑参"瀚海阑干百丈冰")，此前泛称大漠；"戈壁"是蒙古语，清代才进汉文，匈奴、回纥时代不论文化都用这两个
 U("gobi", "D", "戈壁", "Gobi Desert", box=[[96, 40.5, 116, 46.5]],
+  alt=["649|大漠|Damo|大漠", "650~1400|瀚海|Hanhai|瀚海"],
   c={"Huaxia": ["650~|瀚海|Hanhai|瀚海", "大漠|Damo|大漠"]})
 U("badain_jaran", "D", "巴丹吉林沙漠", "Badain Jaran Desert", box=[[98.5, 39.3, 104, 42.3]])
 U("tengger", "D", "腾格里沙漠", "Tengger Desert", box=[[102.3, 37.4, 106, 40.2]])
@@ -252,24 +283,31 @@ U("ulan_buh", "D", "乌兰布和沙漠", "Ulan Buh Desert", box=[[105.8, 39.4, 1
 U("kubuqi", "D", "库布齐沙漠", "Kubuqi Desert", box=[[107, 39.8, 111.5, 40.8]])
 U("mu_us", "D", "毛乌素沙地", "Mu Us Desert", box=[[107, 37.4, 110.6, 39.7]])
 U("hunshandake", "D", "浑善达克沙地", "Otindag Sandy Land", box=[[112, 42, 117.5, 43.9]])
-U("horqin", "D", "科尔沁沙地", "Horqin Sandy Land", box=[[119, 42.5, 123.8, 44.5]])
+# 科尔沁是明末的部名；唐以契丹之地置松漠都督府(《新唐书·契丹传》)，南宋洪皓记金事的《松漠纪闻》仍用此名
+U("horqin", "D", "科尔沁沙地", "Horqin Sandy Land", box=[[119, 42.5, 123.8, 44.5]], alt=["640~1300|松漠|Songmo|松漠"])
 
 # ---------------- 华夏、东北亚 ----------------
-U("qinling", "M", "秦岭", "Qinling Mountains", pts=[[104.5, 34.2], [106.5, 33.9], [108.3, 33.9], [110.2, 33.8], [111.3, 33.7]], r=0.7)
+# "秦岭"之名汉代才见，先秦称终南山(《诗经·秦风·终南》"终南何有")
+U("qinling", "M", "秦岭", "Qinling Mountains", pts=[[104.5, 34.2], [106.5, 33.9], [108.3, 33.9], [110.2, 33.8], [111.3, 33.7]], r=0.7,
+  alt=["-200|终南山|Zhongnan Mountains|終南山"])
 U("daba", "M", "大巴山", "Daba Mountains", pts=[[106.5, 32.4], [108, 32.1], [109.3, 31.8], [110.4, 31.5]], r=0.6)
 U("min_shan", "M", "岷山", "Min Mountains", pts=[[103.8, 32.8], [104.1, 33.4]], r=0.7)
 U("qionglai", "M", "邛崃山", "Qionglai Mountains", pts=[[102.9, 30.9], [102.6, 31.4]], r=0.6)
 U("daxue_shan", "M", "大雪山", "Daxue Mountains", pts=[[101.8, 29.6], [101.7, 30.6]], r=0.6)
 U("shaluli", "M", "沙鲁里山", "Shaluli Mountains", pts=[[99.5, 30], [99.3, 31.5]], r=0.7)
 U("hengduan", "M", "横断山脉", "Hengduan Mountains", box=[[97.5, 24.5, 103, 33]])
-U("gaoligong", "M", "高黎贡山", "Gaoligong Mountains", pts=[[98.6, 24.7], [98.7, 25.8], [98.6, 27]], r=0.6)
+# 唐樊绰《蛮书》作高黎共山，明以后写高黎贡
+U("gaoligong", "M", "高黎贡山", "Gaoligong Mountains", pts=[[98.6, 24.7], [98.7, 25.8], [98.6, 27]], r=0.6,
+  alt=["700~1300|高黎共山|Gaoligong Mountain|高黎共山"])
 U("ailao", "M", "哀牢山", "Ailao Mountains", pts=[[101.2, 24.6], [102, 23.8], [102.8, 23.2], [103.5, 22.7]], r=0.6)
 U("wuliang", "M", "无量山", "Wuliang Mountains", pts=[[100.6, 24.5]], r=0.5)
 U("taihang", "M", "太行山", "Taihang Mountains", pts=[[113.3, 35.4], [113.8, 36.5], [114, 37.6], [114.4, 38.8], [114.8, 39.8]], r=0.6)
 U("luliang", "M", "吕梁山", "Lüliang Mountains", pts=[[111.3, 36.8], [111.4, 38], [111.6, 39]], r=0.6)
 U("yanshan", "M", "燕山", "Yan Mountains", pts=[[115.8, 40.6], [117.3, 40.5], [118.7, 40.3]], r=0.6)
-U("liupan", "M", "六盘山", "Liupan Mountains", pts=[[106.2, 35.6]], r=0.6)
-U("helan", "M", "贺兰山", "Helan Mountains", pts=[[105.9, 38.7]], r=0.6)
+# 六盘之名宋代才见(六盘关)；汉唐称陇山、陇坂(《后汉书·隗嚣传》陇坻)
+U("liupan", "M", "六盘山", "Liupan Mountains", pts=[[106.2, 35.6]], r=0.6, alt=["-300~1000|陇山|Long Mountains|隴山"])
+# 《汉书·地理志》北地郡廉县"卑移山在西北"，即贺兰山；贺兰得名于鲜卑贺兰部，隋唐始见
+U("helan", "M", "贺兰山", "Helan Mountains", pts=[[105.9, 38.7]], r=0.6, alt=["-300~580|卑移山|Beiyi Mountain|卑移山"])
 U("yinshan", "M", "阴山", "Yin Mountains", pts=[[107.5, 41.2], [109.2, 41.1], [110.8, 41.1], [112.5, 41.2]], r=0.7)
 U("dabie", "M", "大别山", "Dabie Mountains", pts=[[115.5, 31.2], [116.2, 31]], r=0.6)
 U("wuyi", "M", "武夷山", "Wuyi Mountains", pts=[[116.8, 26.8], [117.6, 27.6], [118.2, 28.2]], r=0.6)
@@ -286,9 +324,12 @@ U("pengli", "S", "鄱阳湖区", "Poyang Lake Wetlands", box=[[115.6, 28.5, 117.
 # 《禹贡》"震泽底定"
 U("taihu_marsh", "S", "太湖沼泽", "Lake Tai Marshes", box=[[118.9, 30.3, 121.9, 32.0]], alt=["600|震泽|Zhenze Marsh|震澤"])
 U("jianghuai_marsh", "S", "江淮湖荡", "Jianghuai Wetlands", box=[[116.6, 31.3, 121.0, 33.9]])
-# 孙吴屡讨丹阳、新都山越(《三国志·诸葛恪传》)
-U("wannan", "J", "皖南山地", "Southern Anhui Hills", box=[[117.2, 29.2, 120.0, 31.0]], alt=["-220~600|山越|Shanyue Highlands|山越"])
-U("zhenan", "J", "浙南山地", "Southern Zhejiang Hills", box=[[118.2, 27.2, 121.9, 29.6]])
+# 孙吴屡讨丹阳、新都山越(《三国志·诸葛恪传》)；"皖南"是近代省名的说法，唐天宝六年(747)改黟山为黄山，此后以黄山称这片山
+U("wannan", "J", "皖南山地", "Southern Anhui Hills", box=[[117.2, 29.2, 120.0, 31.0]],
+  alt=["-220~600|山越|Shanyue Highlands|山越", "747~1900|黄山|Huangshan Mountains|黃山"])
+# "浙南"是近代说法；区内的天台山东晋已有名(孙绰《游天台山赋》)
+U("zhenan", "J", "浙南山地", "Southern Zhejiang Hills", box=[[118.2, 27.2, 121.9, 29.6]],
+  alt=["300~1900|天台山|Tiantai Mountains|天台山"])
 U("minzhong", "J", "闽中山地", "Fujian Uplands", box=[[115.9, 23.5, 120.6, 28.3]])
 U("jiangnan_hills", "J", "江南丘陵", "Jiangnan Hills", box=[[109.5, 24.5, 118.3, 29.9]])
 # 五溪蛮(《后汉书·南蛮传》)，雍正改土归流前多为土司
@@ -308,20 +349,31 @@ U("lesser_khingan", "MT", "小兴安岭", "Lesser Khingan", pts=[[126.5, 49.8], 
 # 《山海经》《晋书·肃慎传》的不咸山；北魏徒太山、隋唐太白山(《新唐书·黑水靺鞨传》)；辽金以后称长白山
 U("changbai", "M", "长白山", "Changbai Mountains", pts=[[128.1, 42], [127.5, 41.5], [129, 42.6], [130, 43.5]], r=0.9,
   alt=["400|不咸山|Buxian Mountain|不咸山", "1100|太白山|Taibai Mountain|太白山"])
-# 《后汉书·东夷传》"东沃沮在高句骊盖马大山之东"
-U("kaema", "MT", "盖马高原", "Kaema Plateau", box=[[126.8, 40.3, 129, 41.6]], alt=["600|盖马大山|Gaima Mountains|蓋馬大山"])
-U("taebaek", "M", "太白山脉", "Taebaek Mountains", pts=[[128.3, 38.6], [128.8, 37.5], [129, 36.5]], r=0.6)
+# 《后汉书·东夷传》"东沃沮在高句骊盖马大山之东"，《三国志·东夷传》同；唐杜佑《通典·边防》(801)仍这么写。
+# "盖马高原"是 20 世纪的新名(由盖马大山改称)，此前这片高地没有别的专名，近代以前都用盖马大山
+U("kaema", "MT", "盖马高原", "Kaema Plateau", box=[[126.8, 40.3, 129, 41.6]], alt=["1900|盖马大山|Gaima Mountains|蓋馬大山"])
+# "太白山脉"是小藤文次郎 1903 年起的名。汉魏：乐浪东部的分界岭单单大领(《三国志·东夷传·濊》"自单单大山领以西属乐浪")；
+# 新罗：北岳太伯山(《三国史记·祭祀志》"北太伯山，奈已郡"，写作太伯，正好不与同时叫太白山的长白山撞名)；
+# 高丽、朝鲜：太白山(《新增东国舆地胜览·三陟》，长白山此时已改叫长白山)
+U("taebaek", "M", "太白山脉", "Taebaek Mountains", pts=[[128.3, 38.6], [128.8, 37.5], [129, 36.5]], r=0.6,
+  alt=["600|单单大领|Dandan Great Ridge|單單大領", "601~1100|太伯山|Mount Taebaek|太伯山",
+       "1101~1900|太白山|Mount Taebaek|太白山"])
 U("sikhote_alin", "MT", "锡霍特山脉", "Sikhote-Alin", pts=[[133.5, 43.8], [135.3, 45], [136.5, 46.3], [137.6, 47.6], [138.5, 49]], r=1.0)
 U("bureya", "MT", "布列亚山脉", "Bureya Mountains", pts=[[132.6, 51], [133.3, 52.5], [134.3, 53.8], [135.5, 54.5]], r=1.0)
 U("stanovoy", "MT", "外兴安岭", "Stanovoy Range", pts=[[119.5, 56.2], [122.5, 56], [125.5, 55.8], [128.5, 55.3], [131.5, 55]], r=1.0)
 U("dzhugdzhur", "MT", "朱格朱尔山脉", "Dzhugdzhur Mountains", pts=[[136.5, 57.5], [138, 58.5], [139.5, 59.3]], r=0.9)
-U("hida", "M", "飞驒山脉", "Hida Mountains", pts=[[137.6, 36.3], [137.7, 36.8]], r=0.5)
+# 日本列岛的"某某山脉、山地"都是明治以后的地理学名，古时只以区内名山相称：
+# 立山(《万叶集》卷十七大伴家持《立山赋》，747)
+U("hida", "M", "飞驒山脉", "Hida Mountains", pts=[[137.6, 36.3], [137.7, 36.8]], r=0.5, alt=["740~1900|立山|Tateyama|立山"])
 U("kiso", "M", "木曾山脉", "Kiso Mountains", pts=[[137.8, 35.7]], r=0.4)
 U("akaishi", "M", "赤石山脉", "Akaishi Mountains", pts=[[138.2, 35.4]], r=0.5)
 U("ou", "M", "奥羽山脉", "Ōu Mountains", pts=[[140.8, 40.5], [140.7, 39.5], [140.4, 38.3], [140.2, 37.5]], r=0.6)
-U("kii", "M", "纪伊山地", "Kii Mountains", pts=[[135.8, 34.1]], r=0.5)
-U("shikoku", "M", "四国山地", "Shikoku Mountains", pts=[[133.3, 33.8]], r=0.6)
-U("kyushu", "M", "九州山地", "Kyushu Mountains", pts=[[131.2, 32.4]], r=0.5)
+# 吉野山(《日本书纪》齐明二年作吉野宫，《万叶集》屡咏"吉野の山")
+U("kii", "M", "纪伊山地", "Kii Mountains", pts=[[135.8, 34.1]], r=0.5, alt=["650~1900|吉野山|Yoshino Mountains|吉野山"])
+# 石鎚山(《日本灵异记》下卷作石槌山，记孝谦朝寂仙修行事)
+U("shikoku", "M", "四国山地", "Shikoku Mountains", pts=[[133.3, 33.8]], r=0.6, alt=["700~1900|石鎚山|Mount Ishizuchi|石鎚山"])
+# 阿苏山(《隋书·倭国传》"有阿苏山，其石无故火起接天")
+U("kyushu", "M", "九州山地", "Kyushu Mountains", pts=[[131.2, 32.4]], r=0.5, alt=["600~1900|阿苏山|Mount Aso|阿蘇山"])
 U("ishikari", "MT", "石狩山地", "Ishikari Mountains", pts=[[142.9, 43.6]], r=0.7)
 
 # ---------------- 西伯利亚、北极 ----------------
@@ -362,36 +414,49 @@ U("khibiny", "MT", "希比内山", "Khibiny Mountains", pts=[[33.6, 67.7]], r=0.
 U("kola", "T", "科拉半岛", "Kola Peninsula", box=[[30, 66, 41.5, 70]])
 # 古诺尔斯语 Finnmǫrk(萨米人之地)，九世纪奥特雷的航行记已有
 U("lapland", "TM", "拉普兰", "Lapland", box=[[14, 66, 30, 71]], c={"Viking": ["800~|芬马克|Finnmork|芬馬克"]})
-# 古诺尔斯语 Kjǫlr(龙骨)，萨迦里分隔挪威与瑞典的山
+# 古诺尔斯语 Kjǫlr(龙骨)，萨迦里分隔挪威与瑞典的山(古诺尔斯语维京时代才有，此前不写)；
+# 罗马时老普林尼《博物志》卷四记斯堪的纳维亚有"塞沃山，极大，不小于里菲山"(Mons Saevo)
 U("scandinavian", "MT", "斯堪的纳维亚山脉", "Scandinavian Mountains",
   pts=[[6.8, 59.3], [7.8, 60.5], [8.8, 61.8], [10.5, 62.8], [12.5, 63.8], [14, 65.3], [16, 67], [18, 68.3], [20, 69.2]], r=1.1,
-  c={"Viking": ["基阿连山脉|Kjölen|基阿連山脈"]})
+  alt=["50~600|塞沃山|Mons Saevo|塞沃山"], c={"Viking": ["700~|基阿连山脉|Kjölen|基阿連山脈"]})
 U("jotunheimen", "MT", "尤通黑门山", "Jotunheimen", pts=[[8.3, 61.6]], r=0.6)
 U("iceland_highlands", "TM", "冰岛高地", "Icelandic Highlands", box=[[-24.5, 63.3, -13.5, 66.6]])
 U("vatnajokull", "T", "瓦特纳冰川", "Vatnajökull", pts=[[-16.7, 64.4]], r=0.6)
 U("greenland", "T", "格陵兰冰盖", "Greenland Ice Sheet", box=[[-35, 68, -10, 84]])
-U("svalbard", "T", "斯瓦尔巴群岛", "Svalbard", box=[[10, 76, 34, 81]])
+# 巴伦支 1596 年发现、命名为斯匹次卑尔根(尖山)；"斯瓦尔巴"1925 年才定为群岛名
+U("svalbard", "T", "斯瓦尔巴群岛", "Svalbard", box=[[10, 76, 34, 81]], alt=["1596~1920|斯匹次卑尔根|Spitsbergen|斯匹次卑爾根"])
 
 # ---------------- 欧洲 ----------------
 U("alps", "M", "阿尔卑斯山脉", "Alps",
   pts=[[6.8, 44.2], [6.9, 45.3], [7.6, 45.9], [8.8, 46.4], [10.2, 46.5], [11.5, 46.9], [12.8, 47.1], [14.2, 47.2], [15.5, 47.4]], r=0.9)
 U("pyrenees", "M", "比利牛斯山脉", "Pyrenees", pts=[[-1.6, 43], [-0.2, 42.8], [1, 42.7], [2.2, 42.5]], r=0.6)
-U("cantabrian", "M", "坎塔布里亚山脉", "Cantabrian Mountains", pts=[[-6.8, 42.9], [-5.3, 43], [-4, 43.1]], r=0.6)
+# 托勒密《地理学志》卷二的 Vindius 山
+U("cantabrian", "M", "坎塔布里亚山脉", "Cantabrian Mountains", pts=[[-6.8, 42.9], [-5.3, 43], [-4, 43.1]], r=0.6,
+  alt=["-30~600|文迪乌斯山|Mons Vindius|文迪烏斯山"])
 U("sistema_central", "M", "西班牙中央山脉", "Sistema Central", pts=[[-6, 40.2], [-5, 40.3], [-4, 40.8]], r=0.6)
-U("sierra_nevada_es", "M", "内华达山脉", "Sierra Nevada", pts=[[-3.3, 37.05]], r=0.5)
-U("massif_central", "M", "中央高原", "Massif Central", pts=[[2.9, 45.3], [3.5, 44.5]], r=0.9)
+# 老普林尼《博物志》卷三的 Solorius 山(巴灵顿古典地图集定在此)；安达卢斯的阿拉伯人沿其音称 Jabal Shulayr；
+# "内华达"(积雪)是 1492 年以后的西班牙语名
+U("sierra_nevada_es", "M", "内华达山脉", "Sierra Nevada", pts=[[-3.3, 37.05]], r=0.5,
+  alt=["1~710|索洛里乌斯山|Mons Solorius|索洛里烏斯山", "711~1492|苏莱尔山|Jabal Shulayr|蘇萊爾山"])
+# "中央高原"是 19 世纪地质学家起的名；恺撒《高卢战记》卷七的塞文山(Cebenna)、斯特拉波的 Kemmenon 山，中世纪仍称塞文
+U("massif_central", "M", "中央高原", "Massif Central", pts=[[2.9, 45.3], [3.5, 44.5]], r=0.9,
+  alt=["-60~600|塞文山|Mons Cebenna|塞文山", "601~1800|塞文山|Cévennes|塞文山"])
 U("apennines", "M", "亚平宁山脉", "Apennines",
   pts=[[9.5, 44.5], [11, 44.1], [12.5, 43.5], [13.4, 42.6], [14.2, 41.8], [15.3, 40.9], [16, 40], [16.2, 39]], r=0.6)
 U("dinaric", "M", "迪纳拉山脉", "Dinaric Alps", pts=[[15, 45], [16.3, 44.2], [17.5, 43.6], [18.7, 43], [19.8, 42.5]], r=0.7)
-# 希腊语 Haimos、拉丁语 Haemus Mons
+# 希腊语 Haimos、拉丁语 Haemus Mons(希罗多德卷四起见)，拜占庭史家一直沿用；"巴尔干"是奥斯曼时代的突厥语名，
+# 保加利亚、拜占庭时代不论文化都用海摩斯
 U("balkan_mountains", "M", "巴尔干山脉", "Balkan Mountains", pts=[[22.6, 43.5], [23.8, 43], [25, 42.8], [26.5, 42.7], [27.5, 42.7]], r=0.5,
-  c={"Roma": ["海摩斯山|Haemus|海摩斯山"]})
+  alt=["-500~1400|海摩斯山|Haemus|海摩斯山"], c={"Roma": ["海摩斯山|Haemus|海摩斯山"]})
 U("rhodope", "M", "罗多彼山脉", "Rhodope Mountains", pts=[[24.2, 41.7], [25.2, 41.6]], r=0.6)
 U("pindus", "M", "品都斯山脉", "Pindus Mountains", pts=[[20.8, 40.3], [21.3, 39.6], [21.6, 39]], r=0.6)
 U("carpathians", "M", "喀尔巴阡山脉", "Carpathian Mountains",
   pts=[[17.5, 48.8], [19.5, 49.2], [21.5, 49.2], [23.5, 48.6], [24.8, 47.8], [25.5, 46.8], [26, 45.6], [24.5, 45.4],
        [23, 45.3], [22.3, 45.5]], r=0.7)
-U("scottish_highlands", "M", "苏格兰高地", "Scottish Highlands", pts=[[-5.2, 57], [-4, 57.3], [-4.5, 58.2]], r=0.9)
+# "苏格兰"10 世纪以后才指这里。罗马：塔西佗《阿古利可拉传》的格劳皮乌斯山(Mons Graupius)；
+# 皮克特时代：阿多姆南《圣科伦巴传》(7 世纪末)的"不列颠之脊"(Dorsum Britanniae，盖尔语 Druim Alban)
+U("scottish_highlands", "M", "苏格兰高地", "Scottish Highlands", pts=[[-5.2, 57], [-4, 57.3], [-4.5, 58.2]], r=0.9,
+  alt=["80~500|格劳皮乌斯山|Mons Graupius|格勞皮烏斯山", "680~1200|不列颠之脊|Dorsum Britanniae|不列顛之脊"])
 U("pripet", "S", "平斯克沼泽", "Pripet Marshes", box=[[23.5, 51, 31, 53]], c={"Slavonic": ["波列西耶|Polesia|波列西耶"]})
 
 # ---------------- 东南亚、大洋洲 ----------------
@@ -411,7 +476,9 @@ U("barisan", "MJ", "巴里桑山脉", "Barisan Mountains",
   pts=[[96.5, 4], [98.5, 2], [100.3, -0.5], [101.8, -2.5], [103.5, -4.2], [104.5, -5.3]], r=0.6)
 U("borneo_rainforest", "J", "婆罗洲雨林", "Borneo Rainforest", box=[[108.5, -4.5, 119.5, 7.5]])
 U("java_rainforest", "J", "爪哇雨林", "Javan Rainforest", box=[[105, -8.8, 115, -5.8]])
-U("sulawesi_rainforest", "J", "苏拉威西雨林", "Sulawesi Rainforest", box=[[118.5, -6, 125.5, 2]])
+# 苏拉威西是印尼独立后的名字；16 世纪葡萄牙人起称西里伯斯(Celebes)
+U("sulawesi_rainforest", "J", "苏拉威西雨林", "Sulawesi Rainforest", box=[[118.5, -6, 125.5, 2]],
+  alt=["1520~1945|西里伯斯雨林|Celebes Rainforest|西里伯斯雨林"])
 U("mindanao_rainforest", "J", "棉兰老雨林", "Mindanao Rainforest", box=[[121.8, 5.5, 126.8, 10]])
 U("luzon_sierra_madre", "MJ", "马德雷山脉", "Sierra Madre", pts=[[122, 17.8], [121.8, 16.8], [121.5, 15.8], [121.4, 15]], r=0.6)
 U("zambales", "MJ", "三描礼士山脉", "Zambales Mountains", pts=[[120.1, 15.2], [120.2, 15.9]], r=0.6)
@@ -453,7 +520,9 @@ U("aravalli", "M", "阿拉瓦利山脉", "Aravalli Range", pts=[[72.8, 24.6], [7
   c={"India": ["帕里亚特拉山|Pariyatra|帕里亞特拉山"]})     # 七大山系的帕里亚特拉
 U("chota_nagpur", "MJ", "乔塔那格浦尔高原", "Chota Nagpur Plateau", box=[[83, 22.3, 87, 24.3]])
 U("sundarbans", "SJ", "孙德尔本斯", "Sundarbans", box=[[88, 21.5, 90, 22.6]])
-U("sri_lanka_highlands", "MJ", "斯里兰卡中央高地", "Central Highlands of Sri Lanka", pts=[[80.8, 7.0], [81.1, 7.5]], r=0.8)
+# "斯里兰卡"1972 年才定为国名；《大史》《小史》称岛中山地为马拉亚(Malaya，Malayarata)，康提王国时仍然
+U("sri_lanka_highlands", "MJ", "斯里兰卡中央高地", "Central Highlands of Sri Lanka", pts=[[80.8, 7.0], [81.1, 7.5]], r=0.8,
+  alt=["-300~1800|马拉亚山地|Malaya Rata|馬拉亞山地"])
 
 # 繁体：zhconv 转错的(咸 → 鹹、巴尔干的"幹"被 add_traditional 的通用修正改成"干")；
 # 音译的"里"不是"裏"，群岛、湿热、塔尔巴哈台照台湾通行写法
