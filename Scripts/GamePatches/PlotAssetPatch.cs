@@ -22,7 +22,7 @@ public class PlotAssetPatch : GamePatch
             prefix: new HarmonyMethod(GetType(), nameof(checkIsPossible)));
     }
 
-    // 开战谋划：无小人模式下独立王国不看君主本人的等级、武略、钱和国家声望(缘由见 EmpireCraftPlotsAddition.SkipsWarPlotRulerGate)，
+    // 开战谋划：无小人模式下能自己开战的国家(独立王国、帝国、附庸)不看君主本人的等级、武略、钱和国家声望(缘由见 EmpireCraftPlotsAddition.SkipsWarPlotRulerGate)，
     // 其余门槛与 check_is_possible 照原版 PlotAsset.checkIsPossible 的顺序查。
     // 原版创教谋划在无小人模式下停用，改按背景人口创教(见 BackgroundReligionSystem)；有小人时创教者的天下已有本土宗教也不创(见 ReligionSphere)
     public static bool checkIsPossible(PlotAsset __instance, Actor pActor, bool pWorldLawsCheck, ref bool __result)

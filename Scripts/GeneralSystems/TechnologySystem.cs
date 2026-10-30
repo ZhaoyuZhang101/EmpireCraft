@@ -63,6 +63,10 @@ public sealed class TechResearchConfig
     // 早期科技(时代档不超过 early_cost_max_tier：石器、铜器、青铜)的费用倍率
     public int early_cost_max_tier = 3;
     public float early_cost_multiplier = 0.5f;
+    // 产出随时代涨(用户 2026-10-30 选"产出随时代涨"：费用从铁器起每档约 ×1.5，产出只按城数户数线性，后期一项要几百上千年)：
+    // 已研最高时代档超过 era_output_from_tier 后，每高一档年产科技点多 era_output_per_tier 倍
+    public int era_output_from_tier = 2;
+    public float era_output_per_tier = 0.75f;
 }
 
 // 加速事件(文明六的"尤里卡")：本文化做到了某件事，对应技术立刻获得一部分研究进度
@@ -749,6 +753,11 @@ public static class TechnologySystem
         Researched(culture).Select(id => _techs.TryGetValue(id, out TechNodeConfig tech) ? tech.research_bonus : 0f)
             .Sum();
 
+    // 时代产出倍率(见 ResearchConfig.era_output_per_tier)：青铜 ×1.75、火药 ×4、电气 ×5.5、原子 ×7
+    public static float GetEraOutputMultiplier(string culture) =>
+        1f + Math.Max(0f, Config.research.era_output_per_tier) *
+        Math.Max(0, GetEraTier(culture) - Config.research.era_output_from_tier);
+
     public static int GetEraTier(string culture)
     {
         HashSet<string> researched = Researched(culture);
@@ -1246,7 +1255,7 @@ public static class TechnologySystem
 
             Dictionary<string, float> income;
             using (FrameProfiler.Measure("科技·研究点")) income = CollectIncome(culture, pair.Value);
-            float points = income.Values.Sum() * (1f + GetResearchBonus(culture));
+            float points = income.Values.Sum() * (1f + GetResearchBonus(culture)) * GetEraOutputMultiplier(culture);
             state.last_income = income;
             state.last_yearly_points = points;
             state.research_bank += points;
@@ -1501,34 +1510,41 @@ public static class TechnologySystem
     // 把 points 投进研究，返回没花掉的(没有可研究的技术时留在储备里)
     private static float AddResearch(string culture, float points, List<City> cities)
     {
-        CultureTechState state = GetState(culture);
-        // 本轮预算在各研究之间平分；完成后的余款继续分配，科技点和研究经费都只扣一次。
+        // 并行的每一项都拿到本轮全额(用户 2026-10-30："并行研究不是让你把科技点分摊，而是每条线都享有一样的"；
+        // 以前按项数平分，数学、科学方法以后每项只得一半、三分之一)；科技点和研究经费只按用得最多的那一项扣一次。
+        // 只有各项都完成、还有余款时才进下一轮，这时上一轮的都已研成，不会重复拿
         for (int guard = 0; guard < 8 && points > 0f; guard++)
         {
             List<TechNodeConfig> targets = GetResearchTargets(culture);
             if (targets.Count == 0) return points;
-            float share = points / targets.Count;
             float spent = 0f;
             foreach (TechNodeConfig target in targets)
-            {
-                float cost = GetCost(culture, target);
-                float progress = GetProgress(culture, target.id);
-                float used = Math.Min(share, Math.Max(0f, cost - progress));
-                spent += used;
-                // 离不开的物资本国市场缺，研究进度打折(点数照扣，见 CommodityMarketSystem.ResearchFactor)
-                float gain = used * CommodityMarketSystem.ResearchFactor(culture, target.id);
-                if (progress + gain < cost) state.tech_progress[target.id] = progress + gain;
-                else
-                {
-                    bool worldFirst = !_states.Any(pair => pair.Key != culture && pair.Value.researched_techs.Contains(target.id));
-                    CompleteTech(culture, target.id);
-                    OnResearched(culture, target, worldFirst, cities);
-                }
-            }
+                spent = Math.Max(spent, Advance(culture, target, points, cities));
             points = Math.Max(0f, points - spent);
         }
         GetResearchTargets(culture);
         return points;
+    }
+
+    // 给一项技术投至多 budget 点，返回用掉的。离不开的物资本国市场缺，研究进度打折(点数照扣，见 CommodityMarketSystem.ResearchFactor)：
+    // 先按折扣算还要投多少点才研成——以前按"用掉的 × 折扣"去逼近费用，折扣不到一就永远差一点，
+    // 存档里三条线卡在差 0.001 处，储备花不出去
+    private static float Advance(string culture, TechNodeConfig tech, float budget, List<City> cities)
+    {
+        CultureTechState state = GetState(culture);
+        float cost = GetCost(culture, tech);
+        float progress = GetProgress(culture, tech.id);
+        float factor = Math.Max(0.01f, CommodityMarketSystem.ResearchFactor(culture, tech.id));
+        float needed = Math.Max(0f, cost - progress) / factor;
+        if (budget < needed)
+        {
+            state.tech_progress[tech.id] = progress + budget * factor;
+            return budget;
+        }
+        bool worldFirst = !_states.Any(pair => pair.Key != culture && pair.Value.researched_techs.Contains(tech.id));
+        CompleteTech(culture, tech.id);
+        OnResearched(culture, tech, worldFirst, cities);
+        return needed;
     }
 
     // 各来源的科技点(未乘学术加成)。人口和城市只给很少的底数，主要靠著书、读书、战争实践和学府
@@ -1662,21 +1678,7 @@ public static class TechnologySystem
         {
             used = budget - AddResearch(culture, budget, cities);
         }
-        else
-        {
-            TechNodeConfig tech = _techs[techId];
-            float cost = GetCost(culture, tech);
-            float progress = GetProgress(culture, techId);
-            used = Math.Min(budget, Math.Max(0f, cost - progress));
-            float gain = used * CommodityMarketSystem.ResearchFactor(culture, techId);
-            if (progress + gain >= cost)
-            {
-                bool worldFirst = !_states.Any(pair => pair.Key != culture && pair.Value.researched_techs.Contains(techId));
-                CompleteTech(culture, techId);
-                OnResearched(culture, tech, worldFirst, cities);
-            }
-            else state.tech_progress[techId] = progress + gain;
-        }
+        else used = Advance(culture, _techs[techId], budget, cities);
         state.research_bank -= used;
         PayFor(cities, used, automatic);
         return used;

@@ -154,9 +154,11 @@ public class TechWindow : AbstractWideWindow<TechWindow>
         var tags = panel.BeginHoriGroup(new Vector2(PanelWidth - 10f, 13), TextAnchor.MiddleCenter, 6);
         AddTag(tags, TechGraphView.Icon("ui/icons/iconCulture"), _culture.GetCultureTranslate(), colorHex);
         AddTag(tags, TechGraphView.Icon("ui/icons/iconKnowledge"), TechnologySystem.GetEraName(_culture), "#F3C34A");
+        float eraOutput = TechnologySystem.GetEraOutputMultiplier(_culture);
         AddTag(tags, TechGraphView.Icon("ui/icons/iconBooks"),
             string.Format(LM.Get("tech_points_per_year"), state.last_yearly_points.ToString("0.#"),
-                (bonus * 100f).ToString("0")), "#7FD8EA");
+                (bonus * 100f).ToString("0")) +
+            (eraOutput > 1.001f ? " " + string.Format(LM.Get("tech_era_output"), eraOutput.ToString("0.##")) : ""), "#7FD8EA");
 
         AddLine(panel, string.Format(LM.Get("tech_overview_counts"),
             state.researched_techs.Count, techCount, state.discovered_materials.Count, materialCount) + "  " +
@@ -203,9 +205,11 @@ public class TechWindow : AbstractWideWindow<TechWindow>
             var researchRow = panel.BeginHoriGroup(new Vector2(PanelWidth - 10f, 11), TextAnchor.MiddleCenter, 4);
             float cost = TechnologySystem.GetCost(_culture, current);
             float done = TechnologySystem.GetProgress(_culture, current.id);
+            // 并行的每一项都拿全年科技点(见 TechnologySystem.AddResearch)；缺物资时进度打折，要多投相应的点
+            float factor = Math.Max(0.01f, CommodityMarketSystem.ResearchFactor(_culture, current.id));
             string eta = state.last_yearly_points > 0.01f
                 ? string.Format(LM.Get("tech_eta_years"),
-                    Mathf.CeilToInt(Math.Max(0f, cost - done) * activeResearch.Count / state.last_yearly_points))
+                    Mathf.CeilToInt(Math.Max(0f, cost - done) / factor / state.last_yearly_points))
                 : LM.Get("tech_eta_unknown");
             string target = !string.IsNullOrEmpty(state.player_target) && state.player_target != current.id && current == activeResearch[0]
                 ? "  " + string.Format(LM.Get("tech_player_target_line"),

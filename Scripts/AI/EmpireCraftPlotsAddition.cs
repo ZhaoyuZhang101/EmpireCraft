@@ -2784,11 +2784,13 @@ namespace EmpireCraft.Scripts.AI
         // 部落、小国的君主几十年过不了门槛，独立王国一直没有开战的谋划([开战诊断]："君主武略 3 < 6"、"君主的钱不够")。
         // 无小人模式下独立王国不看君主本人这几项(见 PlotAssetPatch.checkIsPossible)，照原版看国家要不要打(isWarNeeded)、
         // 打不打得起(CorpsSystem.CannotFundWar)、有没有对象(getWarTarget)；好和平的君主与文化照旧不打。
-        // 帝国、帝国成员、附庸另有开战途径，照旧看君主本人；兼容模组接管的国家也照原版
+        // 帝国、附庸、周室诸侯也一样免(用户 2026-10-30 转群友"外部帝国占了西南，华夏帝国几十年没有收复意图""分裂后周围好多
+        // 比他弱的小国，基本就是不打"：以前只免独立王国，帝国照旧看君主本人，几乎从不谋划开战，只剩朝堂奏议这一条路)；
+        // 帝国成员本来就不自己对外开战；兼容模组接管的国家照原版
         internal static bool SkipsWarPlotRulerGate(Actor actor) =>
             actor?.kingdom != null && CityPopulationSystem.AbstractPopulationEnabled &&
             !EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(actor) &&
-            IsIndependentWarRealm(actor.kingdom);
+            (CanInitiateNormalWar(actor.kingdom.IsEmpire(), actor.kingdom.IsInEmpire()) || ZhouEraSystem.VassalMayWage(actor.kingdom));
 
         // 宗教战争的对象：与发起国(或其所在帝国)接壤的异教国家，不是本帝国的成员
         private static bool HolyWarNeighbour(Kingdom kingdom, Kingdom target) =>
@@ -2848,9 +2850,10 @@ namespace EmpireCraft.Scripts.AI
             if (initiator.HasGivenAlliance() &&
                 target == initiator.GetGivenAllianceEmpire()?.CoreKingdom &&
                 !initiator.NeedToRemoveGivenAlliance()) return false;
-            // 接壤或隔海相望(见 StraitReach)
+            // 接壤或隔海相望(见 StraitReach)；附庸同样只打比自己弱的
             bool neighbours = StraitReach.Near(initiator, target);
-            return neighbours && FeudalVassalService.CanDeclareExternalWar(initiator, target);
+            return neighbours && WarSituation.Power(initiator) > WarSituation.Power(target) &&
+                   FeudalVassalService.CanDeclareExternalWar(initiator, target);
         }
 
         private static bool IsValidImperialWarTarget(Kingdom initiator, Kingdom target)
@@ -2865,6 +2868,9 @@ namespace EmpireCraft.Scripts.AI
                 !empire.IsNeighbourWith(target) && !StraitReach.Across(initiator, target)) return false;
             if (target.GetGivenAllianceEmpire() == empire || target.GetTakenAllianceEmpire() == empire)
                 return false;
+            // 只打比自己弱的(国力连同各成员国比，见 WarSituation.Power)：帝国开战不再先看君主本人(见 SkipsWarPlotRulerGate)，
+            // 原版挑目标那道"找比自己弱的"帝国这条路以前没有
+            if (WarSituation.Power(initiator) <= WarSituation.Power(target)) return false;
             // 岁币、朝贡反方向(本帝国给对方送岁币、称臣)也不打，同盟不打(见 WarGate)
             return WarGate.CanDeclare(initiator, target);
         }
