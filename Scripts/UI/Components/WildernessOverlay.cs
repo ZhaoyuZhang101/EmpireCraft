@@ -17,13 +17,14 @@ namespace EmpireCraft.Scripts.UI.Components;
 //       类型色(纯净地图下各图层；普通地图的国家、帝国、城市平面图层)：山脉灰褐、沙漠沙黄、冻原冰白偏蓝、雨林深绿、大泽青绿，
 //       半透明铺满(不透明度取国色的 FillShare)，再按类型撒纹样(山的人字、沙丘短纹、雪花、林团、沼泽横纹)；
 //       外沿画一道浅色虚线，只画在挨着无主地、别片无人区的边上(挨着国土的那边有国界，不再画)；
-//       并进国土的地块(挂了法理、被某国取得，见 WildernessTerritory)由国色画，这层只留纹样，看得出是这国的山脉、沙漠；
+//       并进国土的地块(挂了法理、被某国取得，见 WildernessTerritory)由国色画，这层什么都不画(用户 10-30 "像王国纳入帝国图层
+//       或者城市纳入王国一样")：同国土一个样，名字只在悬停时看；
 //       原版城市图层(用户 2026-10-29 "无人区层基本和城市层级同级，只要调到城市图层就会自动出现")：每片像一座城一样画成一块领地，
 //       整片底色(不透明度同国色)，边线同城界(实线、深一档)，没有纹样；
 //     普通地图拉近到原版只画边框(色块内部透明)时也只画边线；
 //   · 平滑国界下(由整图画布画的图层)按格贴着地形画(用户 2026-10-29 "平滑模式下图层要完全贴合地形"；范围见 WildernessShape)：
 //     无人区的格才填色、撒纹样，包在里面的洞露地形(城市图层上当领地一起填)；外沿虚线按格描，挨着同一片(连同洞)、水面、
-//     有归属的格(国界在那边，画布上的归属)不描；画布上有归属的无人区格是并进了国土，只留纹样。国、城的色块在这些格上让开(见画布)，
+//     有归属的格(国界在那边，画布上的归属)不描；画布上有归属的无人区格是并进了国土，不画。国、城的色块在这些格上让开(见画布)，
 //     两层不叠色、不留缝。平滑国界关着、别的图层上照旧按地块画；
 //   · 区域变了(WildernessSystem.Version)、换图层、换画法时整片重画(镜头里的先画)，每帧画到 BuildBudgetMs 为止；
 //     另每帧核对一段地块(SweepPerFrame)：样子对不上(并进、脱离国土，挨着的地块有了城；贴地形时是这块重算过)的连同四邻重画；
@@ -36,9 +37,9 @@ public static class WildernessOverlay
     private const int ChunkTiles = 64;
     private const double BuildBudgetMs = 2d;
     private const int SweepPerFrame = 256;
-    // 类型色铺满的不透明度占国色的几成(略淡于国土，国家仍是主角)；并进国土的地块纹样的不透明度
+    // 类型色铺满的不透明度占国色的几成(略淡于国土，国家仍是主角)；纹样的不透明度
     private const float FillShare = 0.85f;
-    private const byte MarkAlpha = 150, AbsorbedMarkAlpha = 120;
+    private const byte MarkAlpha = 150;
     private static readonly double TicksPerMs = Stopwatch.Frequency / 1000d;
     private static readonly Color32 Clear = new(0, 0, 0, 0);
 
@@ -289,8 +290,8 @@ public static class WildernessOverlay
         Color32 edge = province ? Shade(fill, 0.62f) : Mix(fill, new Color32(255, 255, 255, 255), 0.55f);
         edge.a = province ? _edge : (byte)(_edge * 0.8f);
         Color32 mark = MarkOf(region.Kind);
-        mark.a = absorbed ? AbsorbedMarkAlpha : MarkAlpha;
-        bool marks = !province && !_bare;
+        mark.a = MarkAlpha;
+        bool marks = !province && !_bare && !absorbed;
         bool up = Line(zone.zone_up, region), down = Line(zone.zone_down, region);
         bool left = Line(zone.zone_left, region), right = Line(zone.zone_right, region);
         foreach (WorldTile tile in zone.tiles)
@@ -357,7 +358,7 @@ public static class WildernessOverlay
         float fade = WildernessDevelopmentSystem.Fade(zone);
         WildRegion region = null;
         int shown = 0;
-        Color32 fill = Clear, edge = Clear, mark = Clear, faint = Clear;
+        Color32 fill = Clear, edge = Clear, mark = Clear;
         foreach (WorldTile tile in zone.tiles)
         {
             if (tile?.data == null) continue;
@@ -381,9 +382,7 @@ public static class WildernessOverlay
                     edge = province ? Shade(fill, 0.62f) : Mix(fill, new Color32(255, 255, 255, 255), 0.55f);
                     edge.a = province ? _edge : (byte)(_edge * 0.8f);
                     mark = MarkOf(region.Kind);
-                    faint = mark;
                     mark.a = MarkAlpha;
-                    faint.a = AbsorbedMarkAlpha;
                 }
             }
             if (region == null)
@@ -393,7 +392,7 @@ public static class WildernessOverlay
             }
             bool absorbed = Owned(id);
             Color32 color = absorbed || _bare ? Clear : fill;
-            if (marks && !hole && Mark(region.Kind, tile.x, tile.y)) color = absorbed ? faint : mark;
+            if (marks && !hole && !absorbed && Mark(region.Kind, tile.x, tile.y)) color = mark;
             if (!absorbed && (province || ((tile.x + tile.y) >> 1 & 1) == 0) &&
                 (FittedSide(tile.tile_up, slot, province) || FittedSide(tile.tile_down, slot, province) ||
                  FittedSide(tile.tile_left, slot, province) || FittedSide(tile.tile_right, slot, province)))

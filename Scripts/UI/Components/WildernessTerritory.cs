@@ -13,8 +13,9 @@ namespace EmpireCraft.Scripts.UI.Components;
 //     平滑国界、悬停高亮、点选都按这个；只管"按城池归属"那一档；
 //   · 原版只画城的地块，画完本图层后补画这些地块；平滑国界的整图画布不走原版巡检，按这里的归属逐格涂：
 //     无人区的格(按格贴地形，见 WildernessShape)连同包在里面的洞涂这片各块的持有国，轮廓同样贴着山脉、沙漠走(见 SmoothBorders.FillAt)；
-//   · 纯净地图下这些地块的国色淡一些，底下无人区图层的类型纹样透上来(见 PureMapPatch.FinishZone、WildernessOverlay；
-//     整图画布见 SmoothBorders.ColorZone)；
+//   · 同国土一个样(用户 10-30 "像王国纳入帝国图层或者城市纳入王国一样……平时只能看到帝国名称，鼠标放上去才会显示无人区的名字")：
+//     国色不淡、不撒纹样、不标无人区名(只标在没并进国土的那部分，见 TerritoryLabelRenderer.SubmitWilderness)；
+//     国名、帝国名的铭牌把并进的地块算进去排版(见 ZonesOf)；
 //   · 悬停这些地块时原版的国家提示让给无人区提示(名字、类型，加一行归属，见 WildernessOverlay)。
 // 每 RefreshSeconds 秒、区域变了(Version)、换图层时重算正显示的那个图层；变了的地块连同四邻重画。
 // 接管每帧对一遍(见 Hook、GeneralSystems.LayerHooks)：以前只在头一回套、三样委托缺一样就整个图层不接管，套上之后别处再换委托也不知道——
@@ -33,6 +34,8 @@ public static class WildernessTerritory
         public MetaZoneDrawAction drawHook;
         public Dictionary<TileZone, IMetaObject> fill = new();
         public Dictionary<TileZone, Kingdom> owners = new();
+        // 按国分的并进地块(铭牌排版用)
+        public Dictionary<Kingdom, List<TileZone>> byOwner = new();
         // 日志：上回记的并进块数、下回最早何时再记
         public int logged = -1;
         public float logAt;
@@ -47,12 +50,16 @@ public static class WildernessTerritory
     private static MetaTypeAsset _shown;
     private static int _version = int.MinValue;
 
+    // 正显示的图层上并进国土的地块变了、换了图层就加一(无人区名、国名铭牌据此重排)
+    internal static int Revision { get; private set; }
+
     public static void ResetWorldState()
     {
         foreach (Layer layer in Layers)
         {
             layer.fill.Clear();
             layer.owners.Clear();
+            layer.byOwner.Clear();
             layer.logged = -1;
         }
         Regions.Clear();
@@ -69,6 +76,18 @@ public static class WildernessTerritory
             if (ReferenceEquals(layer.asset, _shown))
                 return layer.owners.TryGetValue(zone, out Kingdom owner) && owner?.data != null && !owner.isRekt() ? owner : null;
         return null;
+    }
+
+    // 正显示的图层上并进这一国的无人区地块(没有为空)
+    private static readonly List<TileZone> None = new();
+
+    internal static List<TileZone> ZonesOf(Kingdom kingdom)
+    {
+        if (kingdom == null || _shown == null) return None;
+        foreach (Layer layer in Layers)
+            if (ReferenceEquals(layer.asset, _shown))
+                return layer.byOwner.TryGetValue(kingdom, out List<TileZone> zones) ? zones : None;
+        return None;
     }
 
     // 套在国家、帝国图层的归属查询、画法外面；每帧对一遍：自己套的那层不在眼下的委托里了(被别处换过，或头一回时还没有)
@@ -167,6 +186,7 @@ public static class WildernessTerritory
         MetaTypeAsset shown = world.zone_calculator._mode_asset ?? world.getCachedMapMetaAsset();
         bool switched = !ReferenceEquals(shown, _shown);
         _shown = shown;
+        if (switched) Revision++;
         bool regions = WildernessSystem.Version != _version;
         if (regions)
         {
@@ -242,6 +262,17 @@ public static class WildernessTerritory
             if (!layer.fill.TryGetValue(pair.Key, out IMetaObject before) || !ReferenceEquals(before, pair.Value)) changed.Add(pair.Key);
         layer.fill = fill;
         layer.owners = owners;
+        if (changed.Count > 0 || layer.byOwner.Count == 0 && owners.Count > 0)
+        {
+            var byOwner = new Dictionary<Kingdom, List<TileZone>>();
+            foreach (KeyValuePair<TileZone, Kingdom> pair in owners)
+            {
+                if (!byOwner.TryGetValue(pair.Value, out List<TileZone> zones)) byOwner[pair.Value] = zones = new List<TileZone>();
+                zones.Add(pair.Key);
+            }
+            layer.byOwner = byOwner;
+            Revision++;
+        }
         // 日志：并进的块数变了记一条(至多半分钟一条)——图层上没画进去时据此分清是没算出归属，还是算出了没画上
         float now = Time.unscaledTime;
         if (fill.Count != layer.logged && now >= layer.logAt)

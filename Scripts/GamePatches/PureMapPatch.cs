@@ -407,9 +407,6 @@ public partial class PureMapPatch : GamePatch
     private const float TerrainTint = 0.1f, WaterTint = 0.85f, SlopeLight = 0.003f, SlopeCap = 0.06f;
     private static readonly Color32 Water = new(140, 185, 235, 255);
     private static readonly global::System.Collections.Generic.Dictionary<TileTypeBase, float> TypeLight = new();
-    // 并进国土的无人区国色的不透明度(城的地块的几成，见 FinishZone；平滑国界的整图画布同样淡，见 SmoothBorders.ColorZone)
-    internal const float AbsorbedWildAlpha = 0.7f;
-
     // 色块画完的收尾：水面不涂国色；被敌军占着的地块画占领纹，兼属画斜纹。边框像素(原版按 pUp…pRight 画的外框)不动，保持清楚。
     // 城市图层不涂国色，色块全透明：城市在城市平面图层里(见 CityPlanOverlay)，地形露出来
     private static void FinishZone(Color32[] pixels, TileZone zone, bool up, bool down, bool left, bool right)
@@ -424,10 +421,8 @@ public partial class PureMapPatch : GamePatch
             return;
         }
         City city = zone.city != null && !zone.city.isRekt() ? zone.city : null;
-        // 并进国土的无人区(挂了法理被某国取得、被一国包住的，见 WildernessTerritory、EnclaveFill)：国色淡一些(AbsorbedWildAlpha)，
-        // 底下无人区图层的类型纹样透上来，看得出是这国的山脉、沙漠(用户 2026-10-29 "一旦任何一个国家获取了这个法理，那么这个无人地块
-        // 就会自动被纳入国家范围")；没有城的地块在这里有颜色，只能是并进国土的
-        bool wild = city == null && WildernessSystem.Enabled && WildernessSystem.IsWild(zone);
+        // 并进国土的无人区(挂了法理被某国取得、被一国包住的，见 WildernessTerritory、EnclaveFill)与国土同色，不淡、不透纹样
+        // (用户 10-30 "像王国纳入帝国图层或者城市纳入王国一样")
         Color32? occupied = OccupierFill(city, zone);
         // 兼属：王国法理、帝国法理、天下图层上画兼属方颜色的斜纹(见 DeJureShareSystem)
         Color32[] stripes = city == null ? null : DeJureShareSystem.StripeColors(city);
@@ -458,7 +453,6 @@ public partial class PureMapPatch : GamePatch
             else edge = border != null && border.border && (up && border.border_up || down && border.border_down ||
                                                             left && border.border_left || right && border.border_right);
             if (edge) continue;
-            if (wild) pixels[id].a = (byte)(pixels[id].a * AbsorbedWildAlpha);
             // 斜纹同国色一样的透明度
             byte alpha = pixels[id].a;
             // 被敌军占着的地块：涂占领方的颜色，留一道道原主颜色的细斜纹

@@ -1281,7 +1281,8 @@ public static class EmpireCraftNamePlateLibrary
                 EnumerateEmpireViewCities(empire, view),
                 style,
                 view != 0 && empire == hoveredEmpire,
-                sealFont: UseSealName(empire.CoreKingdom));
+                sealFont: UseSealName(empire.CoreKingdom),
+                withWilderness: true);
         }
 
         // 帝国视图的补充：同盟标签覆盖其(不在帝国里的)成员国，悬停时淡出并显示成员国
@@ -1338,7 +1339,8 @@ public static class EmpireCraftNamePlateLibrary
                     // its member administrative labels must render above it.
                     belongsToHoveredEmpire,
                     icon: showDirectSeat ? DirectSeatIcon : null,
-                    sealFont: UseSealName(kingdom));
+                    sealFont: UseSealName(kingdom),
+                    withWilderness: true);
             }
         }
         TerritoryLabelRenderer.EndFrame();
@@ -1365,7 +1367,8 @@ public static class EmpireCraftNamePlateLibrary
                 kingdom.cities,
                 empire == null ? GetTerritoryKingdomStyle(kingdom) : TerritoryLabelRenderer.EmpireStyle,
                 kingdom == hoveredKingdom,
-                sealFont: UseSealName(kingdom));
+                sealFont: UseSealName(kingdom),
+                withWilderness: true);
         }
         TerritoryLabelRenderer.EndFrame();
     }

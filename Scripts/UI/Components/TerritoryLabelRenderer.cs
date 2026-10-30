@@ -290,14 +290,16 @@ public static class TerritoryLabelRenderer
 
     // icon：可选，画在名字前面的小图标(如理念图层的理念徽章)，随文字一起旋转、缩放
     // sealFont：这个铭牌用内置篆书(华夏国号，见 TerritoryFontSettings.SealHuaxiaNames)
+    // withWilderness：国名、帝国名——这些城所属各国并进国土的无人区一起算进排版(见 WildernessTerritory.ZonesOf)
     public static void SubmitCities(string id, string text, IEnumerable<City> cities, TerritoryLabelStyle style,
         bool fullyOpaque = false, bool ignoreOverlap = false, bool showCultureLock = false, Sprite icon = null,
-        bool sealFont = false)
+        bool sealFont = false, bool withWilderness = false)
     {
         if (string.IsNullOrWhiteSpace(id) || cities == null || !EnsureHost()) return;
         MarkSubmissionFrame();
         RuntimeLabel label = GetOrCreateLabel(id);
         label.seal_font = sealFont;
+        label.with_wilderness = withWilderness;
         label.UpdateFromCities(text, cities, style ?? KingdomStyle, fullyOpaque, ignoreOverlap, showCultureLock, icon);
     }
 
@@ -661,7 +663,7 @@ public static class TerritoryLabelRenderer
     {
         HideLabels(true);
         _wild_entries.Clear();
-        _wild_version = int.MinValue;
+        _wild_version = _wild_free_version = int.MinValue;
         if (_root != null) UnityEngine.Object.Destroy(_root.gameObject);
         _host = null;
         _root = null;
@@ -765,7 +767,8 @@ public static class TerritoryLabelRenderer
     // ───────── 无人区名 ─────────
     // (用户 2026-10-29："……依据最近的文化进行命名比如撒哈拉 大沙漠，太行 山脉什么的")：每片无人区在自己的地块里标名字，
     // 同国名一样按区域大小定字号、沿长轴排(按地块排版，见 UpdateFromZones)；字色按类型、偏淡，中文字间加空格疏排、西文斜体，
-    // 与国名区分；排在最后、撞上国名城名就让开(TerritoryLabelStyle.yields)。并进国土的照旧标无人区名。
+    // 与国名区分；排在最后、撞上国名城名就让开(TerritoryLabelStyle.yields)。并进国土的部分不标(同国土一个样，只看得到国名、帝国名；
+// 用户 10-30 "平时只能看到帝国名称，鼠标放上去才会显示无人区的名字")，一片全并进了就不标，悬停照旧有无人区提示。
     // 不靠图层提交：HostLateUpdate 每帧补交——图层这帧交过铭牌就并进那一帧，没交(原版铭牌、城市图层)就单独开一帧。
     // 纯净地图下哪个图层都标，普通地图下国家、帝国、城市图层标。远近分级(见 MapZoomTier)：远景只标 WildFarZones 块以上的，
     // 中景 WildMidZones 块以上，近景都标；镜头外的不交
@@ -777,11 +780,14 @@ public static class TerritoryLabelRenderer
         public readonly List<TileZone> zones = new();
         public Rect bounds;
         public string id, name, text;
+        // 没并进国土的那部分与它的范围(见 RefreshWildFree)
+        public readonly List<TileZone> free = new();
+        public Rect freeBounds;
     }
 
     private static readonly List<WildEntry> _wild_entries = new();
     private static readonly Dictionary<WildKind, TerritoryLabelStyle> _wild_styles = new();
-    private static int _wild_version = int.MinValue;
+    private static int _wild_version = int.MinValue, _wild_free_version = int.MinValue;
     private static object _wild_world;
 
     private static bool WildernessShown(MetaType mode)
@@ -800,6 +806,7 @@ public static class TerritoryLabelRenderer
         if (!WildernessShown(mode)) return;
         RefreshWildEntries();
         if (_wild_entries.Count == 0) return;
+        RefreshWildFree();
         if (_submission_frame < 0 || _submission_mode != mode)
         {
             _submission_frame = Time.frameCount;
@@ -810,7 +817,7 @@ public static class TerritoryLabelRenderer
         int least = ppt < MapZoomTier.Mid ? WildFarZones : ppt < MapZoomTier.Near ? WildMidZones : 1;
         foreach (WildEntry entry in _wild_entries)
         {
-            if (entry.zones.Count < least || !entry.bounds.Overlaps(view)) continue;
+            if (entry.free.Count == 0 || entry.free.Count < least || !entry.freeBounds.Overlaps(view)) continue;
             // 还没有文明起名的只标类型(见 WildernessSystem.DisplayName)
             string name = WildernessSystem.DisplayName(entry.region);
             if (string.IsNullOrWhiteSpace(name)) continue;
@@ -822,9 +829,33 @@ public static class TerritoryLabelRenderer
             RuntimeLabel label = GetOrCreateLabel(entry.id);
             label.wild = true;
             label.seal_font = false;
-            label.UpdateFromZones(entry.text, entry.zones, WildStyle(entry.region.Kind), false);
+            label.UpdateFromZones(entry.text, entry.free, WildStyle(entry.region.Kind), false);
             // 图层的铭牌是前几帧交的(这帧没交)：并进那一帧
             label.last_seen_frame = _submission_frame;
+        }
+    }
+
+    // 各片没并进国土的部分：并进的地块变了、换了图层、区域变了才重取
+    private static void RefreshWildFree()
+    {
+        int version = WildernessTerritory.Revision * 31 + _wild_version;
+        if (version == _wild_free_version) return;
+        _wild_free_version = version;
+        float size = Config.CITY_ZONE_SIZE;
+        foreach (WildEntry entry in _wild_entries)
+        {
+            entry.free.Clear();
+            float x0 = float.MaxValue, y0 = float.MaxValue, x1 = float.MinValue, y1 = float.MinValue;
+            foreach (TileZone zone in entry.zones)
+            {
+                if (WildernessTerritory.Owner(zone) != null) continue;
+                entry.free.Add(zone);
+                x0 = Mathf.Min(x0, zone.x * size);
+                y0 = Mathf.Min(y0, zone.y * size);
+                x1 = Mathf.Max(x1, (zone.x + 1) * size);
+                y1 = Mathf.Max(y1, (zone.y + 1) * size);
+            }
+            entry.freeBounds = entry.free.Count == 0 ? default : Rect.MinMaxRect(x0, y0, x1, y1);
         }
     }
 
@@ -835,6 +866,7 @@ public static class TerritoryLabelRenderer
         if (WildernessSystem.Version == _wild_version && ReferenceEquals(_wild_world, world)) return;
         _wild_version = WildernessSystem.Version;
         _wild_world = world;
+        _wild_free_version = int.MinValue;
         _wild_entries.Clear();
         ZoneCalculator calc = world?.zone_calculator;
         if (calc == null) return;
@@ -1044,6 +1076,9 @@ public static class TerritoryLabelRenderer
 
         public RuntimeLabel(string id) => _id = id;
 
+        // 国名、帝国名：排版连同各国并进国土的无人区(见 SubmitCities)
+        public bool with_wilderness;
+
         public void UpdateFromCities(string text, IEnumerable<City> cities, TerritoryLabelStyle style,
             bool fullyOpaque, bool ignoreOverlap = false, bool showCultureLock = false, Sprite icon = null)
         {
@@ -1053,6 +1088,7 @@ public static class TerritoryLabelRenderer
             if (!_has_geometry_result || inputsChanged || Time.unscaledTime >= _next_geometry_refresh)
             {
                 CollectCityZones(cities, _zones, _zone_ids);
+                if (with_wilderness) CollectWildernessZones(_zones, _zone_ids);
                 RefreshZonePlacement(text, style, inputsChanged);
             }
             QueueRender(text, style, fullyOpaque, ignoreOverlap, showCultureLock, icon);
@@ -2071,6 +2107,23 @@ public static class TerritoryLabelRenderer
                 zones.Add(zone);
             }
         }
+    }
+
+    // 已收的城所属各国并进国土的无人区(正显示的图层上，见 WildernessTerritory.ZonesOf)
+    private static readonly HashSet<Kingdom> _wild_owners = new();
+
+    private static void CollectWildernessZones(List<TileZone> zones, HashSet<int> zoneIds)
+    {
+        _wild_owners.Clear();
+        int count = zones.Count;
+        for (int i = 0; i < count; i++)
+        {
+            Kingdom kingdom = zones[i].city?.kingdom;
+            if (kingdom == null || !_wild_owners.Add(kingdom)) continue;
+            foreach (TileZone zone in WildernessTerritory.ZonesOf(kingdom))
+                if (zone != null && zoneIds.Add(zone.id)) zones.Add(zone);
+        }
+        _wild_owners.Clear();
     }
 
     private static void CollectZones(IEnumerable<TileZone> source, List<TileZone> zones, HashSet<int> zoneIds)

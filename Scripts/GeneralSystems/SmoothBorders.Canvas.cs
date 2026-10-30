@@ -339,12 +339,12 @@ public static partial class SmoothBorders
             if (_shapeKey[zy * _zonesX + zx] != ShapeKey(zx, zy)) BuildCityShape(zx, zy);
     }
 
-    // 水陆变了：这块连同周围八块的轮廓作废(格的归属看周围 3×3 块)
+    // 水陆变了：这块连同周围两圈的轮廓作废(格的归属看周围 5×5 块，见 ZoneReach)
     private static void MarkShapeAround(int id)
     {
         int zx = id % _zonesX, zy = id / _zonesX;
-        for (int dy = -1; dy <= 1; dy++)
-        for (int dx = -1; dx <= 1; dx++)
+        for (int dy = -ZoneReach; dy <= ZoneReach; dy++)
+        for (int dx = -ZoneReach; dx <= ZoneReach; dx++)
             if (zx + dx >= 0 && zx + dx < _zonesX && zy + dy >= 0 && zy + dy < _zonesY) _shapeKey[(zy + dy) * _zonesX + zx + dx] = 0;
     }
 
@@ -353,8 +353,8 @@ public static partial class SmoothBorders
         unchecked
         {
             int key = 17;
-            for (int dy = -1; dy <= 1; dy++)
-            for (int dx = -1; dx <= 1; dx++)
+            for (int dy = -ZoneReach; dy <= ZoneReach; dy++)
+            for (int dx = -ZoneReach; dx <= ZoneReach; dx++)
                 key = key * 31 + ZoneCityAt(zx + dx, zy + dy);
             // 无人区的格、周围是不是无人区变了(这块重算一次记号加一，见 WildernessShape)
             key = key * 31 + WildernessShape.ZoneStamp(zy * _zonesX + zx);
@@ -558,8 +558,8 @@ public static partial class SmoothBorders
             bool waterChanged = RefreshWater(id);
             RefreshZone(calc, layer, option, id, out bool cityChanged, out _, out bool political);
             int zx = id % _zonesX, zy = id / _zonesX;
-            for (int dy = -1; dy <= 1; dy++)
-            for (int dx = -1; dx <= 1; dx++)
+            for (int dy = -ZoneReach; dy <= ZoneReach; dy++)
+            for (int dx = -ZoneReach; dx <= ZoneReach; dx++)
             {
                 int nx = zx + dx, ny = zy + dy;
                 if (nx < 0 || nx >= _zonesX || ny < 0 || ny >= _zonesY) continue;
@@ -727,15 +727,15 @@ public static partial class SmoothBorders
 
     #region 形状与归属
 
-    // 一块地各格属于哪座城(同 SmoothedOwnerAt(x, y, cities: true))：周围 3×3 块同一座城(或都没有)直接填；
+    // 一块地各格属于哪座城(同 SmoothedOwnerAt(x, y, cities: true))：周围 5×5 块同一座城(或都没有)直接填；
     // 无人区的格(按格贴地形，见 WildernessShape)不归城
     private static void BuildCityShape(int zx, int zy)
     {
         _shapeKey[zy * _zonesX + zx] = ShapeKey(zx, zy);
         int center = _zoneCity[zy * _zonesX + zx];
         bool uniform = true;
-        for (int dy = -1; dy <= 1 && uniform; dy++)
-        for (int dx = -1; dx <= 1; dx++)
+        for (int dy = -ZoneReach; dy <= ZoneReach && uniform; dy++)
+        for (int dx = -ZoneReach; dx <= ZoneReach; dx++)
             if (ZoneCityAt(zx + dx, zy + dy) != center)
             {
                 uniform = false;
@@ -759,8 +759,9 @@ public static partial class SmoothBorders
     // 城的地盘一直伸到无人区的格为止，不因为挨着无人区的地块往回缩出一道缝；周围全是无人区的格不归谁
     private static int CityAt(int x, int y)
     {
-        int zx = x / ZoneSize, zy = y / ZoneSize;
-        float tx = (x + 0.5f) / ZoneSize - zx - 0.5f, ty = (y + 0.5f) / ZoneSize - zy - 0.5f;
+        Warp(x, y, out float sx, out float sy);
+        int zx = Mathf.FloorToInt(sx / ZoneSize), zy = Mathf.FloorToInt(sy / ZoneSize);
+        float tx = (sx + 0.5f) / ZoneSize - zx - 0.5f, ty = (sy + 0.5f) / ZoneSize - zy - 0.5f;
         float ax0 = 0.5f * (0.5f - tx) * (0.5f - tx), ax1 = 0.75f - tx * tx, ax2 = 0.5f * (0.5f + tx) * (0.5f + tx);
         float ay0 = 0.5f * (0.5f - ty) * (0.5f - ty), ay1 = 0.75f - ty * ty, ay2 = 0.5f * (0.5f + ty) * (0.5f + ty);
         bool wild = WildernessShape.Active;
@@ -840,8 +841,9 @@ public static partial class SmoothBorders
     // 同 ShadeAt，只看这片无人区的地块，候选是各块补的归属
     private static int WildFillAt(int x, int y, int slot)
     {
-        int zx = x / ZoneSize, zy = y / ZoneSize;
-        float tx = (x + 0.5f) / ZoneSize - zx - 0.5f, ty = (y + 0.5f) / ZoneSize - zy - 0.5f;
+        Warp(x, y, out float sx, out float sy);
+        int zx = Mathf.FloorToInt(sx / ZoneSize), zy = Mathf.FloorToInt(sy / ZoneSize);
+        float tx = (sx + 0.5f) / ZoneSize - zx - 0.5f, ty = (sy + 0.5f) / ZoneSize - zy - 0.5f;
         float ax0 = 0.5f * (0.5f - tx) * (0.5f - tx), ax1 = 0.75f - tx * tx, ax2 = 0.5f * (0.5f + tx) * (0.5f + tx);
         float ay0 = 0.5f * (0.5f - ty) * (0.5f - ty), ay1 = 0.75f - ty * ty, ay2 = 0.5f * (0.5f + ty) * (0.5f + ty);
         int count = 0;
@@ -881,14 +883,14 @@ public static partial class SmoothBorders
         return best;
     }
 
-    // 不按城的图层：每格按周围 3×3 块的归属平滑(同 SmoothedOwnerAt(x, y, false))；周围 3×3 块同属一方直接填。
+    // 不按城的图层：每格按周围 3×3 块的归属平滑(同 SmoothedOwnerAt(x, y, false))；周围 5×5 块同属一方直接填(取样点会挪过块界)。
     // 无人区的格不归谁(这些图层上无人区的地块本来就没有归属)，平滑时也不把无人区的地块当候选(同 CityAt)
     private static void OwnZoneByZones(int zx, int zy)
     {
         int center = _zoneShade[zy * _zonesX + zx];
         bool uniform = true;
-        for (int dy = -1; dy <= 1 && uniform; dy++)
-        for (int dx = -1; dx <= 1; dx++)
+        for (int dy = -ZoneReach; dy <= ZoneReach && uniform; dy++)
+        for (int dx = -ZoneReach; dx <= ZoneReach; dx++)
         {
             int nx = zx + dx, ny = zy + dy;
             int near = nx < 0 || nx >= _zonesX || ny < 0 || ny >= _zonesY ? 0 : _zoneShade[ny * _zonesX + nx];
@@ -908,8 +910,9 @@ public static partial class SmoothBorders
     // 无人区的地块不当候选，同 CityAt)
     private static int ShadeAt(int x, int y, int city)
     {
-        int zx = x / ZoneSize, zy = y / ZoneSize;
-        float tx = (x + 0.5f) / ZoneSize - zx - 0.5f, ty = (y + 0.5f) / ZoneSize - zy - 0.5f;
+        Warp(x, y, out float sx, out float sy);
+        int zx = Mathf.FloorToInt(sx / ZoneSize), zy = Mathf.FloorToInt(sy / ZoneSize);
+        float tx = (sx + 0.5f) / ZoneSize - zx - 0.5f, ty = (sy + 0.5f) / ZoneSize - zy - 0.5f;
         float ax0 = 0.5f * (0.5f - tx) * (0.5f - tx), ax1 = 0.75f - tx * tx, ax2 = 0.5f * (0.5f + tx) * (0.5f + tx);
         float ay0 = 0.5f * (0.5f - ty) * (0.5f - ty), ay1 = 0.75f - ty * ty, ay2 = 0.5f * (0.5f + ty) * (0.5f + ty);
         bool wild = city == 0 && WildernessShape.Active;
@@ -1089,9 +1092,6 @@ public static partial class SmoothBorders
                             color = new Color32(stripe.r, stripe.g, stripe.b, color.a);
                         }
                     }
-                    // 并进国土的无人区(同 PureMapPatch.FinishZone)：国色淡一些，底下无人区图层的类型纹样透上来
-                    if (_canvasPure && _canvasCityKeyed && color.a != 0 && _tileCity[t] == 0 && WildernessShape.SlotAt(t) != 0)
-                        color.a = (byte)(color.a * PureMapPatch.AbsorbedWildAlpha);
                 }
             }
             _base[t] = color;
@@ -1165,8 +1165,8 @@ public static partial class SmoothBorders
             TileZone zone = calc.getZone(id % _zonesX, id / _zonesX);
             if (zone == null) continue;
             float at = float.MaxValue;
-            for (int dy = -1; dy <= 1; dy++)
-            for (int dx = -1; dx <= 1; dx++)
+            for (int dy = -ZoneReach; dy <= ZoneReach; dy++)
+            for (int dx = -ZoneReach; dx <= ZoneReach; dx++)
             {
                 int nx = zone.x + dx, ny = zone.y + dy;
                 if (nx < 0 || nx >= _zonesX || ny < 0 || ny >= _zonesY) continue;

@@ -11,8 +11,10 @@ using UnityEngine;
 namespace EmpireCraft.Scripts.GeneralSystems;
 
 // 平滑国界(模组设置「平滑国界」)：国界、城界不再沿 8×8 的地块方格走，而是逐个像素(地格)判定归属——
-// 每格按周围 3×3 块地的城市归属做二次 B 样条加权(块心权重最大，越靠边越接近一半一半)，再叠一层按城市散列的
-// 低频噪声，拐角变圆、斜边变顺、直边微微起伏；归属不同的相邻像素画边框。逻辑上的归属仍按地块(建城、
+// 每格先按三层噪声挪一挪取样点(Warp：大弯折、中起伏、小锯齿，至多 WarpPixels 格)，再按周围 3×3 块地的城市归属做二次
+// B 样条加权(块心权重最大，越靠边越接近一半一半)，再叠两层按城市散列的噪声：城界是参差的折线，像真的州县界，
+// 不是一个个圆团(用户 10-30 "城市界限也过于圆润了""这才是自然的城市形状"，附了地市分布图)。取样点挪过块界，
+// 一格的归属就看周围 5×5 块(ZoneReach)，块的归属变了周围两圈都重画；归属不同的相邻像素画边框。逻辑上的归属仍按地块(建城、
 // 征税、占领都按块)，这里只改画法。国家、帝国图层按实际控制方画：被敌军占着的地直接涂占领方的颜色(不画斜纹)，
 // 军团模式下逐格推进中已吃下的格子算推进方的(见 FrontSystem.Smooth)，国界跟着前线走；交战双方相接处的边框涂成战线的朱红
 // (原来沿地块边画的战线在平滑模式下不画，见 CorpsMapRenderer)。
@@ -23,7 +25,14 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 public static partial class SmoothBorders
 {
     private const int ZoneSize = Config.CITY_ZONE_SIZE;
-    private const float NoiseAmplitude = 0.28f, NoiseCell = 6f;
+    private const float NoiseAmplitude = 0.28f;
+    // 候选噪声两层(格距、占比)；取样点扭曲三层，挪动至多 WarpPixels 格——要小于一块地减一格(7)，
+    // 块外一圈的格挪过去也还在周围 5×5 块里(见 Fill 的窗口)
+    private static readonly (float cell, float share)[] NoiseOctaves = { (10f, 0.6f), (4f, 0.4f) };
+    private static readonly (float cell, float share)[] WarpOctaves = { (12f, 0.55f), (5f, 0.3f), (2f, 0.15f) };
+    private const float WarpPixels = 6f;
+    // 一格的归属看周围几圈块(取样点挪过块界，B 样条再看一圈)
+    internal const int ZoneReach = 2;
     private static readonly Color32 EmpireGold = new(232, 184, 64, 255), FrontRed = new(226, 64, 52, 255);
 
     public static bool Enabled { get; private set; }
@@ -203,8 +212,8 @@ public static partial class SmoothBorders
     public static bool HoverUrgent(TileZone zone)
     {
         if (!Enabled || zone == null || Time.unscaledTime - _hoverChangedAt > HoverUrgentSeconds) return false;
-        for (int dy = -1; dy <= 1; dy++)
-        for (int dx = -1; dx <= 1; dx++)
+        for (int dy = -ZoneReach; dy <= ZoneReach; dy++)
+        for (int dx = -ZoneReach; dx <= ZoneReach; dx++)
         {
             Kingdom kingdom = (dx == 0 && dy == 0 ? zone : World.world.zone_calculator.getZone(zone.x + dx, zone.y + dy))?.city?.kingdom;
             if (kingdom != null && (kingdom == _hoverNow || kingdom == _hoverBefore)) return true;
@@ -243,8 +252,9 @@ public static partial class SmoothBorders
 
     private static IMetaObject SmoothedOwnerAt(int x, int y, bool cities, City within = null)
     {
-        int zx = Mathf.FloorToInt((float)x / ZoneSize), zy = Mathf.FloorToInt((float)y / ZoneSize);
-        float tx = (x + 0.5f) / ZoneSize - zx - 0.5f, ty = (y + 0.5f) / ZoneSize - zy - 0.5f;
+        Warp(x, y, out float sx, out float sy);
+        int zx = Mathf.FloorToInt(sx / ZoneSize), zy = Mathf.FloorToInt(sy / ZoneSize);
+        float tx = (sx + 0.5f) / ZoneSize - zx - 0.5f, ty = (sy + 0.5f) / ZoneSize - zy - 0.5f;
         float ax0 = 0.5f * (0.5f - tx) * (0.5f - tx), ax1 = 0.75f - tx * tx, ax2 = 0.5f * (0.5f + tx) * (0.5f + tx);
         float ay0 = 0.5f * (0.5f - ty) * (0.5f - ty), ay1 = 0.75f - ty * ty, ay2 = 0.5f * (0.5f + ty) * (0.5f + ty);
         int count = 0;
@@ -297,10 +307,31 @@ public static partial class SmoothBorders
     internal const float BorderNoiseAmplitude = NoiseAmplitude;
     internal static float BorderNoise(int x, int y, int seed) => Noise(x, y, seed);
 
-    // 低频值噪声(0~1)：格点间距 NoiseCell 个像素，双线性插值
+    // 两层值噪声(0~1)：格距 10 格的起伏叠 4 格的小起伏
     private static float Noise(int x, int y, int seed)
     {
-        float fx = x / NoiseCell, fy = y / NoiseCell;
+        float sum = 0f;
+        foreach ((float cell, float share) in NoiseOctaves) sum += share * ValueNoise(x, y, seed, cell);
+        return sum;
+    }
+
+    // 取样点扭曲：三层噪声各给一个偏移(大弯折、中起伏、小锯齿)，至多 WarpPixels 格
+    internal static void Warp(int x, int y, out float wx, out float wy)
+    {
+        float dx = 0f, dy = 0f;
+        for (int i = 0; i < WarpOctaves.Length; i++)
+        {
+            dx += WarpOctaves[i].share * ValueNoise(x, y, 101 + i, WarpOctaves[i].cell);
+            dy += WarpOctaves[i].share * ValueNoise(x, y, 211 + i, WarpOctaves[i].cell);
+        }
+        wx = x + WarpPixels * (dx - 0.5f) * 2f;
+        wy = y + WarpPixels * (dy - 0.5f) * 2f;
+    }
+
+    // 值噪声(0~1)：格点间距 cell 个像素，平滑插值
+    private static float ValueNoise(int x, int y, int seed, float cell)
+    {
+        float fx = x / cell, fy = y / cell;
         int ix = Mathf.FloorToInt(fx), iy = Mathf.FloorToInt(fy);
         float sx = fx - ix, sy = fy - iy;
         sx = sx * sx * (3f - 2f * sx);
@@ -427,13 +458,13 @@ public static partial class SmoothBorders
         CollectZones.Clear();
     }
 
-    // 这块地连同四周八块按当前高亮重新提亮或还原(这一轮已经改过的块跳过)
+    // 这块地连同周围两圈(格的归属看周围 5×5 块，见 ZoneReach)按当前高亮重新提亮或还原(这一轮已经改过的块跳过)
     private static bool LiftAround(ZoneCalculator calc, Color32[] pixels, int zoneId, int stamp)
     {
         if (!calc._zones_dict_id.TryGetValue(zoneId, out TileZone zone) || zone == null) return false;
         bool changed = false;
-        for (int dy = -1; dy <= 1; dy++)
-        for (int dx = -1; dx <= 1; dx++)
+        for (int dy = -ZoneReach; dy <= ZoneReach; dy++)
+        for (int dx = -ZoneReach; dx <= ZoneReach; dx++)
         {
             TileZone near = calc.getZone(zone.x + dx, zone.y + dy);
             if (near?.tiles == null || near.id < 0 || near.id >= _zoneMark.Length || _zoneMark[near.id] == stamp) continue;
@@ -593,12 +624,9 @@ public static partial class SmoothBorders
                     Shades[12] != null && CityMetas[i] == null) return false;
             return true;
         }
-        for (int dy = 1; dy <= 3; dy++)
-        for (int dx = 1; dx <= 3; dx++)
-        {
-            int index = dy * 5 + dx;
+        // 取样点会挪过块界(见 Warp)：整个 5×5 窗口同属一方才能跳过
+        for (int index = 0; index < 25; index++)
             if (!ReferenceEquals(Shades[index], Shades[12]) || PushMetas[index] != null) return false;
-        }
         return true;
     }
 
@@ -1026,8 +1054,8 @@ public static partial class SmoothBorders
     {
         ZoneCalculator calc = World.world?.zone_calculator;
         if (calc == null) return;
-        for (int dy = -1; dy <= 1; dy++)
-        for (int dx = -1; dx <= 1; dx++)
+        for (int dy = -ZoneReach; dy <= ZoneReach; dy++)
+        for (int dx = -ZoneReach; dx <= ZoneReach; dx++)
         {
             if (dx == 0 && dy == 0) continue;
             TileZone near = calc.getZone(zone.x + dx, zone.y + dy);
@@ -1767,8 +1795,8 @@ public static partial class SmoothBorders
             TileZone zone = calc.getZoneByID(id);
             float at = float.MaxValue;
             if (zone != null)
-                for (int dy = -1; dy <= 1; dy++)
-                for (int dx = -1; dx <= 1; dx++)
+                for (int dy = -ZoneReach; dy <= ZoneReach; dy++)
+                for (int dx = -ZoneReach; dx <= ZoneReach; dx++)
                 {
                     TileZone near = dx == 0 && dy == 0 ? null : calc.getZone(zone.x + dx, zone.y + dy);
                     if (near != null && Transitions.TryGetValue(near.id, out Transition lead) && !lead.follow && lead.planned)
