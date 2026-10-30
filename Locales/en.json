@@ -3618,7 +3618,7 @@
   "palace_royal_already": "{0} already has a palace",
   "restyle_city": "City Style",
   "wilderness_toggle": "Wilderness",
-  "wilderness_toggle Description": "Contiguous mountains, deserts, tundra, jungles and swamps become wilderness: filled in as one region and named after the nearest culture. Wilderness belongs to no city; cities cannot expand into it, and villages and works are not founded there automatically (placing them by hand still works, and that zone goes to the city). Zones holding a city seat, village or works stay with their city. Wilderness is attached to the nearest city's de jure title, and the realm holding that title owns it. When off there is no wilderness; zones already taken out are not returned, and cities expand back as usual.",
+  "wilderness_toggle Description": "Contiguous mountains, deserts, tundra, jungles and swamps become wilderness: filled in as one region and named after the nearest culture. Wilderness belongs to no city; cities cannot expand into it, and villages and works are not founded there automatically (placing them by hand still works, and that zone goes to the city). Zones holding a city seat, village or works stay with their city. Wilderness is attached to the nearest city's de jure title, and the realm holding that title owns it. When off there is no wilderness; zones already taken out are not returned, and cities expand back as usual. Applies to your own maps only: world map preset scenarios always keep wilderness on (their historical ownership, place names and era development depend on it).",
   "wilderness_fallback_mountain": "Mountains",
   "wilderness_fallback_desert": "Desert",
   "wilderness_fallback_tundra": "Tundra",

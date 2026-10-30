@@ -38,7 +38,9 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     (神力刷一片也只在停手后划一次)；村镇、厂区变了(RuralSettlementSystem.Revision、FactorySystem.Revision)至多每年重划一次；
 //   · 开发(见 WildernessDevelopmentSystem)：雨林、大泽的地块按开发度一批批改成草地；开发中的照开发时的类型留在无人区(Reclassify)，
 //     开满的留给城(同城心、村镇，见 Regroup 的 anchored)，城照常扩张领进去；山脉、沙漠、冻原固定不开发；
-//   · 模组设置「无人区」(默认开)：关掉时没有无人区(Regions 为空、IsWild 全为假；已划出来的地块不还给城，城照常再扩回去)。
+//   · 模组设置「无人区」(默认开)：关掉时没有无人区(Regions 为空、IsWild 全为假；已划出来的地块不还给城，城照常再扩回去)；
+//     世界地图预设剧本(真实地球，见 WorldMap.WorldMapWilderness.OnEarth，随存档)不看这个设置，一直开着——剧本的史实归属、地名、
+//     各时代开发度都靠无人区；玩家自己的图按设置开关(用户 2026-10-30 "预设剧本是强制开的，但是玩家自己的图可以选择开关")。
 // 全图归类只在读档与开关打开时做(每块地 64 格扫一遍)；连片、对旧区域、收地只看地块，几万块地几毫秒。
 public enum WildKind { None = 0, Mountain = 1, Desert = 2, Tundra = 3, Jungle = 4, Swamp = 5 }
 
@@ -107,7 +109,8 @@ public static class WildernessSystem
     // 挂法理：从有法理的城的地块往外走，至多几块(不隔海)；再远的不挂
     private const int MaxAttachSteps = 64;
 
-    private static bool _enabled = true;
+    // 模组设置；眼下实际开着没有(设置开着，或这一局是世界地图预设剧本；变了由 Apply 清掉重划)
+    private static bool _setting = true, _enabled = true;
     private static List<WildRegion> _regions = new();
     private static readonly Dictionary<int, WildRegion> IdIndex = new();
     // 按地块编号：所在区域在 _regions 里的下标(-1 不是)、地形判的类型(没算过、不是都为 0)、挂的法理
@@ -130,7 +133,8 @@ public static class WildernessSystem
     private static readonly Dictionary<KingdomTitle, Kingdom> Owners = new();
     private static int _settling;
 
-    public static bool Enabled => _enabled;
+    // 开着没有：设置开着，或世界地图预设剧本(强制开，见类头)。内部按 Apply 对上的 _enabled，换局后头一帧对上
+    public static bool Enabled => _setting || WorldMap.WorldMapWilderness.OnEarth;
 
     // 区域每变一次 +1(显示、通行据此重算)；挂接或归属变了也 +1
     public static int Version { get; private set; }
@@ -257,6 +261,7 @@ public static class WildernessSystem
     // 当场整图重判重划(剧本开局按时代改过地形后，见 WorldMap.WorldMapDevelopment)：不等进世界安排做完、不等停手，划过的也重划
     public static void BuildNow()
     {
+        Apply();
         if (!_enabled || World.world?.zone_calculator?.zones == null || World.world.cities == null) return;
         using (FrameProfiler.Measure("无人区·划区")) Build(true, true);
     }
@@ -293,8 +298,17 @@ public static class WildernessSystem
 
     #region 开关、存读档
 
+    // 模组设置「无人区」(见 ConfigActions.WildernessCallBack)：世界地图预设剧本不受它管
     public static void SetEnabled(bool on)
     {
+        _setting = on;
+        Apply();
+    }
+
+    // 实际开关对上设置与这一局是不是预设剧本(每帧、当场划区前调)
+    private static void Apply()
+    {
+        bool on = Enabled;
         if (on == _enabled) return;
         // 关掉：编号、名字、法理存起来，再打开时沿用
         if (!on && _built) _saved = Save();
@@ -371,6 +385,7 @@ public static class WildernessSystem
     // 每帧(ModClass.Update)：加载完头一帧划区；改过地形的停手后重判；村镇厂区变了一年一划；法理挂接与主人几秒一核
     public static void Tick()
     {
+        Apply();
         if (!_enabled) return;
         MapBox world = World.world;
         if (world?.zone_calculator?.zones == null || world.cities == null || !Config.game_loaded || SmoothLoader.isLoading() ||
