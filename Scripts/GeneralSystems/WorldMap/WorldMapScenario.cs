@@ -109,6 +109,8 @@ public static class WorldMapScenario
         _develop.Clear();
         _sizeIndex = sizeIndex;
         _fillerStart = 0;
+        // 这一时代的长城、边墙作开局的农牧分界(见 WorldMapZones.SetWalls)
+        WorldMapZones.SetWalls(WallSegments(era, frame, size));
         _cities = new List<PlannedCity>();
         _polities = new List<PlannedPolity>();
         _subspecies.Clear();
@@ -895,6 +897,9 @@ public static class WorldMapScenario
                 y: (float)group.Average(city => city.tile.y)))
             .ToList();
         if (centers.Count == 0) return;
+        // 文化先取走得到的最近的剧本城(按地形代价、不过边墙：长城外的取草原那边的)，走不到的才按直线取最近的地区
+        List<PlannedCity> anchors = _cities.Where(city => city.city != null && !city.random && CultureService.IsValidCulture(city.culture)).ToList();
+        int[] reach = WorldMapZones.NearestOf(anchors.Select(city => WorldMapZones.IndexOf(city.tile)).ToList());
         // 原始部落圈里不另补小国(圈里只有部落)，补空时离部落也要够远
         List<int> gaps = WorldMapZones.Gaps(GapCost, MaxFillers[Mathf.Clamp(_sizeIndex, 0, MaxFillers.Length - 1)], index =>
         {
@@ -907,8 +912,10 @@ public static class WorldMapScenario
         {
             TileZone zone = WorldMapZones.Zone(index);
             var tile = new Vector2Int(zone.centerTile.x, zone.centerTile.y);
-            string culture = centers.OrderBy(center => (center.x - tile.x) * (center.x - tile.x) + (center.y - tile.y) * (center.y - tile.y))
-                .First().culture;
+            int from = index >= 0 && index < reach.Length ? reach[index] : -1;
+            string culture = from >= 0
+                ? anchors[from].culture
+                : centers.OrderBy(center => (center.x - tile.x) * (center.x - tile.x) + (center.y - tile.y) * (center.y - tile.y)).First().culture;
             PlannedPolity polity = fillers.Where(other => other.culture == culture && other.cities.Count < CitiesPerFiller &&
                                                           (other.capital.tile - tile).sqrMagnitude <= FillerJoinTiles * FillerJoinTiles)
                 .OrderBy(other => (other.capital.tile - tile).sqrMagnitude).FirstOrDefault();
@@ -1085,6 +1092,8 @@ public static class WorldMapScenario
         int claimed = PaintTerritory();
         // 建城时改过地块(绿洲、平出河谷)：按现在的地形重算区块代价
         WorldMapZones.Build();
+        // 补了州府治所锚点的国家先按锚点分好各行政区的地
+        claimed += AnchorTerritory();
         WorldMapZones.Fill(seeds, (city, zone) =>
         {
             city.addZone(zone);
@@ -1092,6 +1101,97 @@ public static class WorldMapScenario
         });
         World.world.zone_calculator?.setDrawnZonesDirty();
         LogService.LogInfo($"[EmpireCraft][世界地图] 开局辖地铺了 {claimed} 块");
+    }
+
+    // 州府治所锚点(用户 10-30 "同一时代下你的行政区划的位置和形状不符合历史"，选"补州府治所锚点"，"网上多对比对比已有的各个时代的
+    // 行政区划图")：剧本给国家的各行政区与都城直辖那一块补了当年州府治所的经纬度(divisions[].seats、polities[].seats，
+    // 见 Tools/WorldMap/anchors_source.py)。铺辖地前所有的城连同这些锚点一起按地形代价分地(不过边墙、交界要有路口，见
+    // WorldMapZones.Partition)：分给有锚点的国家某个行政区的地块，归那个行政区里离它最近的城(没有城的归都城一块)——行政区的位置、
+    // 形状照当年的州府走，不再由区里寥寥几座城的远近决定；别的国家的城也一起分，锚点不越过它们的城抢地。没补锚点的国家照旧按城铺。
+    // 锚点能走的远近同一座中等城；城的地块上限不管(行政区的地都给区里的城)
+    private const float SeatBudget = 7f;
+
+    private static int AnchorTerritory()
+    {
+        List<PlannedPolity> anchored = _polities.Where(polity => polity.data != null && polity.cities.Any(city => city.city != null) &&
+                                                                 (polity.data.seats is { Count: > 0 } ||
+                                                                  polity.data.divisions?.Any(division => division.seats is { Count: > 0 }) == true))
+            .ToList();
+        if (anchored.Count == 0 || _frame == null) return 0;
+        // 标签：有锚点的国家每个行政区一个(都城直辖记作 -1 号)，别的国家整国一个
+        var groups = new List<(PlannedPolity polity, int division)>();
+        var labels = new Dictionary<(PlannedPolity, int), int>();
+        int LabelOf(PlannedPolity polity, int division)
+        {
+            if (labels.TryGetValue((polity, division), out int label)) return label;
+            labels[(polity, division)] = label = groups.Count;
+            groups.Add((polity, division));
+            return label;
+        }
+        var anchoredSet = new HashSet<PlannedPolity>(anchored);
+        var seeds = new List<(int index, int label, float budget)>();
+        foreach (PlannedCity city in _cities.Where(city => city.city != null && !city.city.isRekt()))
+        {
+            int division = city.owner != null && anchoredSet.Contains(city.owner) ? DivisionOf(city.owner, city) : -2;
+            seeds.Add((WorldMapZones.IndexOf(city.tile), LabelOf(city.owner, division), TerritoryBudget[Mathf.Clamp(city.rank, 0, 3)]));
+        }
+        foreach (PlannedPolity polity in anchored)
+        {
+            AddSeats(seeds, polity.data.seats, LabelOf(polity, -1));
+            for (int d = 0; d < (polity.data.divisions?.Count ?? 0); d++)
+                AddSeats(seeds, polity.data.divisions[d].seats, LabelOf(polity, d));
+        }
+        int[] owner = WorldMapZones.Partition(seeds);
+        // 各行政区的城(都城直辖：都城与不属于任何行政区的城)
+        var members = new Dictionary<int, List<PlannedCity>>();
+        foreach (PlannedPolity polity in anchored)
+            foreach (PlannedCity city in polity.cities.Where(city => city.city != null && !city.city.isRekt()))
+            {
+                int label = LabelOf(polity, DivisionOf(polity, city));
+                (members.TryGetValue(label, out var list) ? list : members[label] = new List<PlannedCity>()).Add(city);
+            }
+        int claimed = 0;
+        for (int i = 0; i < owner.Length; i++)
+        {
+            int label = owner[i];
+            if (label < 0 || !anchoredSet.Contains(groups[label].polity)) continue;
+            TileZone zone = WorldMapZones.Zone(i);
+            if (zone?.centerTile == null || zone.city != null) continue;
+            if (!members.TryGetValue(label, out List<PlannedCity> cities) || cities.Count == 0)
+                cities = groups[label].polity.capital != null && groups[label].polity.capital.city != null
+                    ? new List<PlannedCity> { groups[label].polity.capital }
+                    : null;
+            if (cities == null) continue;
+            var at = new Vector2Int(zone.centerTile.x, zone.centerTile.y);
+            PlannedCity nearest = cities.OrderBy(city => (city.tile - at).sqrMagnitude).First();
+            nearest.city.addZone(zone);
+            claimed++;
+        }
+        LogService.LogInfo($"[EmpireCraft][世界地图] 州府治所锚点：{anchored.Count} 国 {seeds.Count} 个起点，分了 {claimed} 块");
+        return claimed;
+    }
+
+    private static void AddSeats(List<(int index, int label, float budget)> seeds, List<float[]> seats, int label)
+    {
+        if (seats == null) return;
+        foreach (float[] seat in seats)
+        {
+            if (seat == null || seat.Length < 2) continue;
+            // 范围外的锚点不要(IndexOf 会把它夹到地图边上)
+            Vector2Int tile = EarthTerrain.TileOf(_frame, _size, seat[0], seat[1]);
+            if (tile.x < 0 || tile.y < 0 || tile.x >= MapBox.width || tile.y >= MapBox.height) continue;
+            seeds.Add((WorldMapZones.IndexOf(tile), label, SeatBudget));
+        }
+    }
+
+    // 城属于这个国家的第几个行政区(都城与不在任何行政区的城为 -1)
+    private static int DivisionOf(PlannedPolity polity, PlannedCity city)
+    {
+        List<WorldMapDivision> divisions = polity?.data?.divisions;
+        if (divisions == null || city?.data == null || polity.capital == city) return -1;
+        for (int d = 0; d < divisions.Count; d++)
+            if (divisions[d].cities?.Contains(city.data.id) == true) return d;
+        return -1;
     }
 
     #region 王国法理与帝国法理
@@ -1219,12 +1319,17 @@ public static class WorldMapScenario
         }
         // 补空小国的王国法理归最近的剧本地区的帝国法理(西伯利亚归蒙古、非洲腹地归苏丹、僧祇……)，天下也就跟着那边：
         // 以前一个也不归，天下图层上整片是"游牧(未立核心)""埃及(未立核心)"
+        // 按走得到的最近(地形代价、不过边墙：长城外的归草原那边的帝国法理)，走不到的按直线
         var anchors = _cities.Where(city => !city.random && city.city != null && _coreByRegion.ContainsKey(city.region.id)).ToList();
+        int[] reach = anchors.Count == 0 ? new int[0] : WorldMapZones.NearestOf(anchors.Select(city => WorldMapZones.IndexOf(city.tile)).ToList());
         foreach (IGrouping<string, PlannedCity> filler in _cities.Where(city => city.random && city.city != null).GroupBy(city => city.region.id))
         {
             if (!_titleByRegion.TryGetValue(filler.Key, out KingdomTitle title) || anchors.Count == 0) continue;
             Vector2Int at = filler.First().tile;
-            PlannedCity nearest = anchors.OrderBy(city => (city.tile - at).sqrMagnitude).First();
+            int index = WorldMapZones.IndexOf(at);
+            PlannedCity nearest = index >= 0 && index < reach.Length && reach[index] >= 0
+                ? anchors[reach[index]]
+                : anchors.OrderBy(city => (city.tile - at).sqrMagnitude).First();
             if ((nearest.tile - at).magnitude > FillerCoreTiles) continue;
             EmpireCore near = _coreByRegion[nearest.region.id];
             Guard($"补空法理 {title.data.name} 入帝国法理", () => EmpireCoreManager.AddTitleToCore(near, title));
@@ -1243,6 +1348,25 @@ public static class WorldMapScenario
 
     // 补空小国离最近的剧本城多远以内才归那边的帝国法理(格)
     private const float FillerCoreTiles = 420f;
+
+    // 这一时代的长城、边墙(格坐标的线段)
+    private static List<(Vector2 a, Vector2 b)> WallSegments(WorldMapEra era, WorldMapFrame frame, Vector2Int size)
+    {
+        var segments = new List<(Vector2 a, Vector2 b)>();
+        foreach (WorldMapWall wall in era?.walls ?? new List<WorldMapWall>())
+        {
+            List<float[]> pts = wall?.pts;
+            if (pts == null) continue;
+            for (int i = 1; i < pts.Count; i++)
+            {
+                if (pts[i - 1] == null || pts[i - 1].Length < 2 || pts[i] == null || pts[i].Length < 2) continue;
+                Vector2Int a = EarthTerrain.TileOf(frame, size, pts[i - 1][0], pts[i - 1][1]);
+                Vector2Int b = EarthTerrain.TileOf(frame, size, pts[i][0], pts[i][1]);
+                segments.Add((a, b));
+            }
+        }
+        return segments;
+    }
 
     private static void Guard(string what, Func<bool> action) => Guard(what, () => { action(); });
 

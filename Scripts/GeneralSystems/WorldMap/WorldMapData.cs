@@ -220,6 +220,8 @@ public sealed class WorldMapPolity
     [JsonProperty("cap")] public string capital = "";
     [JsonProperty("r")] public List<string> regions = new();
     public List<string> cities = new();
+    // 都城直辖那一块(不属于任何行政区)的州府治所经纬度；没有行政区的国家写全境的(见 WorldMapScenario.AnchorTerritory)
+    public List<float[]> seats;
     // 宗主国(帝国)的 id：开局即为其成员
     [JsonProperty("of")] public string overlord = "";
     // 开局即称帝(本模组帝国)
@@ -264,6 +266,8 @@ public sealed class WorldMapDivision
 {
     public string name = "";
     public List<string> cities = new();
+    // 当年这个行政区各州府治所的经纬度(只用来划界，不建城；见 WorldMapScenario.AnchorTerritory、Tools/WorldMap/anchors_source.py)
+    public List<float[]> seats;
 
     public string Name => WorldMapData.PickParts(name);
 }

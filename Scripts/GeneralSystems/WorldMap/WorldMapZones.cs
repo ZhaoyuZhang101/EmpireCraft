@@ -15,7 +15,10 @@ namespace EmpireCraft.Scripts.GeneralSystems.WorldMap;
 // 铺满也守地形(用户 2026-10-29："预设地图的地形完全没有对国土造成限制"，开局按地形铺了两千块，铺满又不论地形分了一万多块，
 // 青藏、大漠都归了最近的明城)：整块荒漠、冻土哪座城都不进也不穿过去，留空，进世界后连同山腹划成无人区(见 WildernessSystem；
 // 以前归收这种地的游牧、阿拉伯、斯拉夫城，用户 2026-10-29 "之前的沙漠和冻土什么的地块扩展就算了"撤掉)；
-// 山里至多往里领两块(头一轮一块)，大山腹地留作无主之地
+// 山里至多往里领两块(头一轮一块)，大山腹地留作无主之地。
+// 长城、边墙作农牧分界(用户 10-30 "秦和晋的版图都延伸到哪儿去了""历史上的地块可不是这样子的"：中原的城顺着漠南的平地一路领到
+// 大漠边上，帝国法理秦、晋整片伸进草原)：剧本这一时代的边墙(见 SetWalls)两侧的区块之间不通——铺辖地、铺满、补空都不跨过去，
+// 墙外由草原那边的城与补空小国分；补空小国的文化、帝国法理也按不过墙走得到的最近的城定(见 NearestOf)
 internal static class WorldMapZones
 {
     public static int Width { get; private set; }
@@ -29,6 +32,11 @@ internal static class WorldMapZones
     // 整块荒漠(BarrenLandSystem.Desert)、冻土(Frozen)，别的为 0
     private static int[] _barren = new int[0];
 
+    // 边墙线段(格坐标)与被它隔开的相邻区块对(见 SetWalls、BuildBlocked)
+    private static readonly List<(Vector2 a, Vector2 b)> _walls = new();
+    private static readonly HashSet<long> _blocked = new();
+    private static readonly (int dx, int dy)[] HalfNeighbours = { (1, 0), (0, 1), (1, 1), (1, -1) };
+
     public const float SeaCost = 6f;
     private const float Mountain = 6f, RiverCost = 1.5f, NoiseCell = 4f, NoiseAmplitude = 0.25f;
 
@@ -38,6 +46,7 @@ internal static class WorldMapZones
         TerrainSystem.Invalidate(null);
         Width = MapBox.width / 8;
         Height = MapBox.height / 8;
+        BuildBlocked();
         int count = Width * Height;
         _zones = new TileZone[count];
         _travel = new float[count];
@@ -93,6 +102,121 @@ internal static class WorldMapZones
             float b = Mathf.Lerp(grid[(y0 + 1) * gw + x0], grid[(y0 + 1) * gw + x0 + 1], tx);
             _noise[zy * Width + zx] = 1f + NoiseAmplitude * Mathf.Lerp(a, b, ty);
         }
+    }
+
+    // 剧本开局前设这一时代的边墙(格坐标的线段；null 清掉)，之后每次 Build 按它重算哪些相邻区块被隔开
+    public static void SetWalls(IEnumerable<(Vector2 a, Vector2 b)> segments)
+    {
+        _walls.Clear();
+        if (segments != null) _walls.AddRange(segments);
+        _blocked.Clear();
+    }
+
+    // 区块中心连线与边墙线段相交的相邻区块对(八方向，记一半的邻居、两向通用)
+    private static void BuildBlocked()
+    {
+        _blocked.Clear();
+        foreach ((Vector2 p, Vector2 q) in _walls)
+        {
+            int x0 = Mathf.Max(0, Mathf.FloorToInt(Mathf.Min(p.x, q.x) / 8f) - 1), x1 = Mathf.Min(Width - 1, Mathf.FloorToInt(Mathf.Max(p.x, q.x) / 8f) + 1);
+            int y0 = Mathf.Max(0, Mathf.FloorToInt(Mathf.Min(p.y, q.y) / 8f) - 1), y1 = Mathf.Min(Height - 1, Mathf.FloorToInt(Mathf.Max(p.y, q.y) / 8f) + 1);
+            for (int zy = y0; zy <= y1; zy++)
+            for (int zx = x0; zx <= x1; zx++)
+            {
+                var center = new Vector2(zx * 8 + 4, zy * 8 + 4);
+                foreach ((int dx, int dy) in HalfNeighbours)
+                {
+                    int nx = zx + dx, ny = zy + dy;
+                    if (nx < 0 || ny < 0 || nx >= Width || ny >= Height) continue;
+                    if (Crosses(center, new Vector2(nx * 8 + 4, ny * 8 + 4), p, q)) _blocked.Add(PairKey(zy * Width + zx, ny * Width + nx));
+                }
+            }
+        }
+    }
+
+    private static long PairKey(int a, int b) => a < b ? (long)a << 32 | (uint)b : (long)b << 32 | (uint)a;
+
+    private static bool Blocked(int a, int b) => _blocked.Count > 0 && _blocked.Contains(PairKey(a, b));
+
+    // 两条线段相交
+    private static bool Crosses(Vector2 a, Vector2 b, Vector2 c, Vector2 d) =>
+        Side(c, d, a) > 0f != Side(c, d, b) > 0f && Side(a, b, c) > 0f != Side(a, b, d) > 0f;
+
+    private static float Side(Vector2 o, Vector2 p, Vector2 q) => (p.x - o.x) * (q.y - o.y) - (p.y - o.y) * (q.x - o.x);
+
+    // 按起点分地(州府治所锚点与各城，见 WorldMapScenario.AnchorTerritory)：各起点同时按地形代价往外走——只走能领的陆地、
+    // 交界要有路口、不过边墙(同 Fill)，每块地归先到的起点，各起点至多走 budget。返回各区块的标签，没走到为 -1
+    public static int[] Partition(List<(int index, int label, float budget)> seeds)
+    {
+        var label = new int[_travel.Length];
+        var cost = new float[_travel.Length];
+        var limit = new float[_travel.Length];
+        for (int i = 0; i < cost.Length; i++)
+        {
+            cost[i] = float.PositiveInfinity;
+            label[i] = -1;
+        }
+        var heap = new MinHeap();
+        foreach ((int index, int seedLabel, float budget) in seeds)
+        {
+            if (index < 0 || index >= cost.Length || cost[index] == 0f) continue;
+            cost[index] = 0f;
+            label[index] = seedLabel;
+            limit[index] = budget;
+            heap.Push(0f, index);
+        }
+        while (heap.Count > 0)
+        {
+            heap.Pop(out float at, out int index);
+            if (at > cost[index]) continue;
+            foreach (int next in Neighbours(index))
+            {
+                if (!_claimable[next] || _land[next] < MinLand || _barren[next] != BarrenLandSystem.None || !Open(index, next)) continue;
+                float total = at + Step(index, next);
+                if (total > limit[index] || total >= cost[next]) continue;
+                cost[next] = total;
+                label[next] = label[index];
+                limit[next] = limit[index];
+                heap.Push(total, next);
+            }
+        }
+        return label;
+    }
+
+    // 各区块走得到的最近的起点(按地形代价，含跨海，不过边墙)：返回起点在 sources 里的序号，走不到为 -1
+    public static int[] NearestOf(IList<int> sources)
+    {
+        var cost = new float[_travel.Length];
+        var label = new int[_travel.Length];
+        for (int i = 0; i < cost.Length; i++)
+        {
+            cost[i] = float.PositiveInfinity;
+            label[i] = -1;
+        }
+        var heap = new MinHeap();
+        for (int s = 0; s < sources.Count; s++)
+        {
+            int index = sources[s];
+            if (index < 0 || index >= cost.Length || cost[index] == 0f) continue;
+            cost[index] = 0f;
+            label[index] = s;
+            heap.Push(0f, index);
+        }
+        while (heap.Count > 0)
+        {
+            heap.Pop(out float at, out int index);
+            if (at > cost[index]) continue;
+            foreach (int next in Neighbours(index))
+            {
+                if (Blocked(index, next)) continue;
+                float total = at + Step(index, next);
+                if (total >= cost[next]) continue;
+                cost[next] = total;
+                label[next] = label[index];
+                heap.Push(total, next);
+            }
+        }
+        return label;
     }
 
     // 从 a 走到相邻的 b：按要进的那块的地形，山脉腹地(从山里再往山里走)加倍，过河另加，再乘平滑起伏
@@ -313,6 +437,8 @@ internal static class WorldMapZones
             if (at > cost[index]) continue;
             foreach (int next in Neighbours(index))
             {
+                // 墙外按"离辖地远"算，补空小国补在墙外
+                if (Blocked(index, next)) continue;
                 float total = at + Step(index, next);
                 if (total >= cost[next]) continue;
                 cost[next] = total;
@@ -405,7 +531,8 @@ internal static class WorldMapZones
     // 交界有没有路口(用户 10-29 "军队不应该跨越"山、"不仅国土跨越了军队也跨越了"，口径同军团寻路、战线、城市扩张，
     // 见 TerrainSystem.Crossable)：铺辖地、铺满都只从有路口的交界扩过去，翻过山脊才到的地不领(留给山那边的城或空着)；
     // 城心那块也照交界算(seatOpen:false)，紧挨城心的一圈同样不隔脊领地
-    private static bool Open(int a, int b) => TerrainSystem.Crossable(_zones[a], _zones[b], seatOpen: false);
+    // 边墙两侧也不通(见 SetWalls)
+    private static bool Open(int a, int b) => !Blocked(a, b) && TerrainSystem.Crossable(_zones[a], _zones[b], seatOpen: false);
 
     // 区块里至少这么多格陆地才算陆地(一格两格的礁石、沙洲不领)
     private const int MinLand = 6;
