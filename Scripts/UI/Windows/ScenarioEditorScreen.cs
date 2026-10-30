@@ -34,11 +34,19 @@ namespace EmpireCraft.Scripts.UI.Windows;
 //   国家、王国法理图层刷进选中的法理，开局先归它；Shift+点取刷给谁，右键拖着擦)、刷地形(十六种地表，右键拖着复原)、部落(拖出一个圈，
 //   开局在圈里立那种文化的原始部落；点圈选中，右键点圈删掉)；剧本卡里定地图范围(全图、半幅)，地图上画出框。
 //   图层颜色按地形代价八方向铺开(水过不去、翻山贵，不再是菱形)，两块相接处描边；工具、图层按钮配原版与本模组的图标。
+//   行政区与无人区(用户 10-30 "都做还有新的无人区在设置城市和刷地块的时候也要考虑到")：
+//     「行政区」工具与图层：点一国的城选中这国，右栏选或新立行政区、改名、删；点或拖过本国的城划进选中的行政区(都城留在京畿，
+//     划不进去)，右键点城放回京畿，Shift+点城取它所在的行政区；「点图加治所」开着时点空处加当年州府治所(开局按治所划地界)，
+//     右键点治所去掉。行政区只对开局称帝的国家生效(同 WorldMapScenario)。图层上同一国各省分色，省名写在辖下城的正中；
+//     「无人区」图层：按开局的划区规矩在预览上预测无人区(见 ScenarioWilderness)，按类型上色，开发度高的淡些，永久中立的打斜线；
+//     国家、行政区、法理图层上无人区不算城的地，从城往外铺时铺不进去，按归属规矩上色(挂的法理归谁、周边的城同属哪国)并打斜线，
+//     中立的只打灰斜线；城心那块照样归城；悬停无人区提示类型、开发度、挂哪个法理、归谁；放城、挪城到无人区里另有提示；
+//     刷地块刷在无人区上定它挂哪个法理，另有「永久中立区」笔刷(键 n)；刷地形另有「开发度」笔刷(雨林大泽 0~100，0.2° 一格)。
 // 数据一侧见 ScenarioEditing。Esc 关闭(输入框里打字时不算)。
 public static class ScenarioEditorScreen
 {
-    private enum Tool { View, City, Realm, Paint, Land, Kingdom, Empire, Relation, Wall, Pass, Event, Tribe, Terrain }
-    private enum Layer { Terrain, Realm, Kingdom, Empire, Tianxia }
+    private enum Tool { View, City, Realm, Paint, Land, Kingdom, Empire, Relation, Wall, Pass, Event, Tribe, Terrain, Division }
+    private enum Layer { Terrain, Realm, Kingdom, Empire, Tianxia, Division, Wild }
 
     private const float RefWidth = 1600f, RefHeight = 900f;
     private const float HeaderHeight = 46f, StatusHeight = 30f, Margin = 10f, SideWidth = 340f, ToolbarHeight = 72f;
@@ -74,17 +82,21 @@ public static class ScenarioEditorScreen
         [Tool.Paint] = "ui/icons/godpowers/assign_settlement", [Tool.Land] = "ui/icons/iconBorderBrush",
         [Tool.Kingdom] = "ui/icons/iconToolTitleLayer", [Tool.Empire] = "ui/icons/iconToolCoreLayer", [Tool.Relation] = "ui/icons/iconDiplomacy",
         [Tool.Wall] = "ui/icons/iconWallOrder", [Tool.Pass] = "ui/icons/godpowers/place_fort", [Tool.Event] = "ui/icons/iconWorldLog",
-        [Tool.Tribe] = "ui/icons/godpowers/place_village", [Tool.Terrain] = "ui/icons/iconTileHills"
+        [Tool.Tribe] = "ui/icons/godpowers/place_village", [Tool.Terrain] = "ui/icons/iconTileHills",
+        [Tool.Division] = "ui/icons/iconToolProvinceCreate"
     };
 
     private static readonly Dictionary<Layer, string> LayerIcons = new()
     {
         [Layer.Terrain] = "ui/icons/iconTileMountains", [Layer.Realm] = "ui/icons/iconNationLayer", [Layer.Kingdom] = "ui/icons/iconTitleLayer",
-        [Layer.Empire] = "ui/icons/godpowers/empire_layer", [Layer.Tianxia] = "ui/icons/godpowers/tianxia_layer"
+        [Layer.Empire] = "ui/icons/godpowers/empire_layer", [Layer.Tianxia] = "ui/icons/godpowers/tianxia_layer",
+        [Layer.Division] = "ui/icons/godpowers/governance_layer", [Layer.Wild] = "ui/icons/godpowers/wild_neutral"
     };
     // 城点在屏幕上约多大(画布单位)；放大到一格多少单位以上写城名、至多写几个；最大放大到一格多少单位
     private const float MarkerScreen = 7f, LabelZoom = 2.2f, MaxZoom = 12f;
     private const int MaxLabels = 140, MaxAreaLabels = 80;
+    // 无人区图层写类型名：至少几块的那几片
+    private const int MinLabelZones = 6;
 
     private static readonly Color Backdrop = new Color(0.06f, 0.07f, 0.07f, 0.94f);
     private static readonly Color PanelColor = new Color(0.14f, 0.15f, 0.14f, 0.97f);
@@ -110,6 +122,8 @@ public static class ScenarioEditorScreen
     private static readonly Color32 WallColor = new Color32(120, 70, 40, 255), PassColor = new Color32(250, 235, 180, 255);
     private static readonly Color32 RegionCapital = new Color32(90, 230, 255, 255), CoreCapital = new Color32(255, 110, 230, 255);
     private static readonly Color32 FrameRect = new Color32(255, 236, 160, 255);
+    // 没主的无人区、永久中立区的灰斜线与底
+    private static readonly Color32 NeutralStripe = new Color32(70, 70, 70, 190), NeutralFill = new Color32(150, 150, 150, 40);
 
     private sealed class Btn
     {
@@ -172,6 +186,32 @@ public static class ScenarioEditorScreen
     private static bool[] _fillFixed;
     private static List<int>[] _buckets;
     private static readonly List<string> FillKeys = new();
+    // 行政区：选中国家(_realmId)的第几个行政区(-1 为京畿直辖)；「点图加治所」开着时左键点空处加治所，右键点治所去掉
+    private static int _divisionIndex = -1;
+    private static bool _seatMode;
+    private static RectTransform _divisionCard;
+    private static Text _divisionHead, _divisionInfo;
+    private static Btn _divisionBtn, _newDivisionBtn, _deleteDivisionBtn, _seatModeBtn, _clearSeatsBtn;
+    private static InputField _divisionNameInput;
+    private static (int division, int seat) _hoverSeat = (-2, -1), _pressSeat = (-2, -1);
+    // 无人区预测(见 ScenarioWilderness)：右栏卡片(预测按哪档大小、几片几块)；刷地块的「永久中立区」笔刷；刷地形的「开发度」笔刷与刷的数
+    private static RectTransform _wildCard, _terrainPalette;
+    private static Text _wildInfo;
+    private static Btn _wildSizeBtn, _neutralBrushBtn, _developBrushBtn, _developValueBtn, _clearDevelopBtn;
+    private static bool _neutralBrush, _developBrush;
+    private static int _developValue = 30, _wildInfoVersion = int.MinValue;
+    // 预览各像素的地形标记(给无人区预测，见 ScenarioWilderness.CellOf)：地球的烘一次留着，工作的叠刷的地形，改一次 +1
+    private static byte[] _earthCells, _baseCells, _cells;
+    private static int _cellsRevision;
+    private static WorldMapFrame _importFrame;
+    // 图层粗格落在预测的哪块地上(-1 在范围外)、是不是无人区、斜线(1 无人区、2 刷的中立区)
+    private static int[] _fillZone;
+    private static int _fillZoneVersion = int.MinValue;
+    private static bool[] _fillWild;
+    private static byte[] _fillHatch;
+    // 光标在地图上哪儿(悬停提示无人区用)
+    private static Vector2 _hoverTexel;
+    private static bool _hoverOnMap;
 
     private static Tool _tool = Tool.City;
     private static Layer _layer = Layer.Realm;
@@ -211,6 +251,7 @@ public static class ScenarioEditorScreen
         }
         try
         {
+            ScenarioWilderness.Reset();
             if (!EnsureTerrain())
             {
                 WorldTip.showNow("world_map_data_missing", true, "top", 3f);
@@ -218,7 +259,8 @@ public static class ScenarioEditorScreen
                 return;
             }
             _cityId = _realmId = _regionId = _coreId = _relationFrom = null;
-            _wallIndex = _passIndex = _tribeIndex = -1;
+            _wallIndex = _passIndex = _tribeIndex = _divisionIndex = -1;
+            _seatMode = _neutralBrush = _developBrush = false;
             _tool = Tool.City;
             _layer = Layer.Realm;
             Build();
@@ -249,8 +291,15 @@ public static class ScenarioEditorScreen
         _terrainPixels = _basePixels = null;
         _land = _baseLand = null;
         _classes = _baseClasses = null;
+        _cells = _baseCells = null;
+        _importFrame = null;
         _fillOwner = _fillDist = _fillBudget = null;
         _fillFixed = null;
+        _fillZone = null;
+        _fillWild = null;
+        _fillHatch = null;
+        _fillZoneVersion = _wildInfoVersion = int.MinValue;
+        ScenarioWilderness.Reset();
         _brushButton = -1;
         TerrainButtons.Clear();
         FillKeys.Clear();
@@ -291,26 +340,31 @@ public static class ScenarioEditorScreen
             EarthTerrain.UseGrid(loaded.grid, loaded.cols, loaded.rows, WorldMapImporter.Step);
             if (!EarthTerrain.Preview(1, out _basePixels, out _baseLand, out _w, out _h, out _lon0, out _lat0, out _step)) return false;
             _baseClasses = EarthTerrain.PreviewClasses(1);
+            _baseCells = ScenarioWilderness.CellsOf(EarthTerrain.PreviewCodes(1));
+            _importFrame = loaded.frame;
         }
         else
         {
             EarthTerrain.UseEarth();
-            if (_earthPixels == null || _earthClasses == null)
+            if (_earthPixels == null || _earthClasses == null || _earthCells == null)
             {
                 if (!EarthTerrain.Preview(Stride, out _earthPixels, out _earthLand, out _earthW, out _earthH, out _earthLon0, out _earthLat0,
                         out _earthStep)) return false;
                 _earthClasses = EarthTerrain.PreviewClasses(Stride);
+                _earthCells = ScenarioWilderness.CellsOf(EarthTerrain.PreviewCodes(Stride));
             }
             _basePixels = _earthPixels;
             _baseLand = _earthLand;
             _baseClasses = _earthClasses;
+            _baseCells = _earthCells;
+            _importFrame = null;
             _w = _earthW;
             _h = _earthH;
             _lon0 = _earthLon0;
             _lat0 = _earthLat0;
             _step = _earthStep;
         }
-        if (_basePixels == null || _baseClasses == null) return false;
+        if (_basePixels == null || _baseClasses == null || _baseCells == null) return false;
         if (_workTexture == null || _workTexture.width != _w || _workTexture.height != _h)
         {
             if (_workTexture != null) Object.Destroy(_workTexture);
@@ -328,6 +382,7 @@ public static class ScenarioEditorScreen
         _terrainPixels = (Color32[])_basePixels.Clone();
         _land = (bool[])_baseLand.Clone();
         _classes = (byte[])_baseClasses.Clone();
+        _cells = (byte[])_baseCells.Clone();
         int offX = Mathf.FloorToInt(_lon0 / ScenarioCells.TerrainStep + 0.5f * _step / ScenarioCells.TerrainStep);
         int offY = Mathf.FloorToInt(_lat0 / ScenarioCells.TerrainStep + 0.5f * _step / ScenarioCells.TerrainStep);
         foreach (KeyValuePair<int, string> pair in ScenarioEditing.TerrainCells)
@@ -341,6 +396,14 @@ public static class ScenarioEditorScreen
         _terrainApplied = ScenarioEditing.TerrainRevision;
         _terrainDirty = false;
         _fillKey = int.MinValue;
+        GridChanged();
+    }
+
+    // 地形标记改了(整张或刷的几格)：交给无人区预测(停手后重算)
+    private static void GridChanged()
+    {
+        _cellsRevision++;
+        ScenarioWilderness.SetGrid(_cells, _w, _h, _lon0, _lat0, _step, _importFrame, _cellsRevision);
     }
 
     // 一个像素换成某种地表(type 为空就复原底图)
@@ -351,11 +414,13 @@ public static class ScenarioEditorScreen
             _terrainPixels[index] = _basePixels[index];
             _land[index] = _baseLand[index];
             _classes[index] = _baseClasses[index];
+            _cells[index] = _baseCells[index];
             return;
         }
         _terrainPixels[index] = EarthTerrain.PreviewColorOf(type);
         _classes[index] = EarthTerrain.ClassOf(type);
         _land[index] = _classes[index] != 0;
+        _cells[index] = ScenarioWilderness.CellOf(type);
     }
 
     private static void UploadTerrain()
@@ -387,6 +452,7 @@ public static class ScenarioEditorScreen
         _marks = new Texture2D(_w, _h, TextureFormat.RGBA32, false) { filterMode = FilterMode.Point, wrapMode = TextureWrapMode.Clamp };
         _markPixels = new Color32[_w * _h];
         _marksImage.texture = _marks;
+        _fillZoneVersion = int.MinValue;
     }
 
     #region 搭界面
@@ -454,8 +520,8 @@ public static class ScenarioEditorScreen
         RowTitle(tools, LM.Get("scenario_editor_row_tools"));
         foreach (Tool tool in new[]
                  {
-                     Tool.View, Tool.City, Tool.Realm, Tool.Paint, Tool.Land, Tool.Kingdom, Tool.Empire, Tool.Relation, Tool.Wall, Tool.Pass,
-                     Tool.Event, Tool.Tribe, Tool.Terrain
+                     Tool.View, Tool.City, Tool.Realm, Tool.Paint, Tool.Land, Tool.Division, Tool.Kingdom, Tool.Empire, Tool.Relation,
+                     Tool.Wall, Tool.Pass, Tool.Event, Tool.Tribe, Tool.Terrain
                  })
         {
             Tool choice = tool;
@@ -467,7 +533,7 @@ public static class ScenarioEditorScreen
         Place(layers, new Vector2(0f, 1f), Vector2.one, new Vector2(8f, -ToolbarHeight), new Vector2(-8f, -40f));
         Row(layers, 5f, new RectOffset(0, 0, 0, 0));
         RowTitle(layers, LM.Get("scenario_editor_row_layers"));
-        foreach (Layer layer in new[] { Layer.Terrain, Layer.Realm, Layer.Kingdom, Layer.Empire, Layer.Tianxia })
+        foreach (Layer layer in new[] { Layer.Terrain, Layer.Wild, Layer.Realm, Layer.Division, Layer.Kingdom, Layer.Empire, Layer.Tianxia })
         {
             Layer choice = layer;
             LayerButtons.Add((choice, MakeButton(layers, LM.Get("scenario_editor_layer_" + choice.ToString().ToLowerInvariant()), ViewColor,
@@ -568,6 +634,11 @@ public static class ScenarioEditorScreen
         MakeButton(importActions, LM.Get("world_map_custom_folder"), ViewColor, OpenFolder);
         _importInfo = Label(_importBox, "Info", 14, DimText, TextAnchor.UpperLeft, true);
 
+        // 无人区(预测)：按哪档大小预测(世界地图窗口里生成时选的那档)、预测出几片几块、开发度按哪个时代的表
+        _wildCard = Card(side, LM.Get("scenario_editor_card_wild"));
+        _wildSizeBtn = Cycler(_wildCard, LM.Get("scenario_editor_wild_size"), step => ScenarioWilderness.SizeIndex = ((ScenarioWilderness.SizeIndex + step) % 3 + 3) % 3);
+        _wildInfo = Label(_wildCard, "Info", 14, TextColor, TextAnchor.UpperLeft, true);
+
         _cityCard = Card(side, LM.Get("scenario_editor_card_city"));
         _cityNameInput = Field(_cityCard, LM.Get("scenario_editor_name"), text =>
         {
@@ -654,6 +725,34 @@ public static class ScenarioEditorScreen
             text => ScenarioEditing.RenameTianxia(ScenarioEditing.Core(_coreId)?.group, text));
         MakeButton(tianxiaRow, LM.Get("scenario_editor_new_tianxia"), ToolColor, () => ScenarioEditing.NewTianxia(_coreId), 14, 28f);
 
+        // 行政区：选中国家的哪个行政区(京畿在头)、名、城与治所；新行政区、删、点图加治所、清掉治所
+        _divisionCard = Card(side, LM.Get("scenario_editor_card_division"));
+        _divisionHead = Label(_divisionCard, "Head", 14, TextColor, TextAnchor.UpperLeft, true);
+        _divisionBtn = Cycler(_divisionCard, LM.Get("scenario_editor_division_pick_label"), step =>
+        {
+            int count = ScenarioEditing.Divisions(ScenarioEditing.Polity(_realmId)).Count + 1;
+            _divisionIndex = ((_divisionIndex + 1 + step) % count + count) % count - 1;
+        });
+        _divisionNameInput = Field(_divisionCard, LM.Get("scenario_editor_name"),
+            text => ScenarioEditing.RenameDivision(ScenarioEditing.Polity(_realmId), _divisionIndex, text));
+        _divisionInfo = Label(_divisionCard, "Info", 14, TextColor, TextAnchor.UpperLeft, true);
+        RectTransform divisionActions = Columns(_divisionCard);
+        _newDivisionBtn = MakeButton(divisionActions, LM.Get("scenario_editor_new_division_btn"), ToolColor, () =>
+        {
+            WorldMapPolity polity = ScenarioEditing.Polity(_realmId);
+            if (polity == null) return;
+            _divisionIndex = ScenarioEditing.NewDivision(polity);
+            Say(LM.Get("scenario_editor_division_created"));
+        });
+        _deleteDivisionBtn = MakeButton(divisionActions, LM.Get("scenario_editor_delete_division"), DangerColor, () =>
+        {
+            ScenarioEditing.DeleteDivision(ScenarioEditing.Polity(_realmId), _divisionIndex);
+            _divisionIndex = -1;
+        });
+        _seatModeBtn = MakeButton(divisionActions, "", ToolColor, () => _seatMode = !_seatMode);
+        _clearSeatsBtn = MakeButton(divisionActions, LM.Get("scenario_editor_clear_seats"), DangerColor,
+            () => ScenarioEditing.ClearSeats(ScenarioEditing.Polity(_realmId), _divisionIndex));
+
         // 关系：种类、战争目标、起始的国家与它的关系
         _relationCard = Card(side, LM.Get("scenario_editor_card_relation"));
         _kindBtn = Cycler(_relationCard, LM.Get("scenario_editor_kind"), step =>
@@ -709,16 +808,24 @@ public static class ScenarioEditorScreen
         bodyLayout.childForceExpandWidth = true;
         bodyLayout.childForceExpandHeight = false;
 
-        // 刷地块：刷给谁、笔刷粗细、清掉全部
+        // 刷地块：刷给谁(或永久中立区)、笔刷粗细、清掉全部
         _landCard = Card(side, LM.Get("scenario_editor_card_land"));
         _landBrushBtn = Cycler(_landCard, LM.Get("scenario_editor_brush"), StepBrush);
+        _neutralBrushBtn = MakeButton(_landCard, "", ToolColor, () => _neutralBrush = !_neutralBrush);
         _landInfo = Label(_landCard, "Info", 14, TextColor, TextAnchor.UpperLeft, true);
         _clearLandBtn = MakeButton(_landCard, LM.Get("scenario_editor_clear_land"), DangerColor, () => ArmClear("land"));
 
-        // 刷地形：笔刷粗细、十六种地表、清掉全部
+        // 刷地形：笔刷粗细、地形/开发度、十六种地表(或开发度刷几)、清掉全部
         _terrainCard = Card(side, LM.Get("scenario_editor_card_terrain"));
         _terrainBrushBtn = Cycler(_terrainCard, LM.Get("scenario_editor_brush"), StepBrush);
+        _developBrushBtn = MakeButton(_terrainCard, "", ToolColor, () =>
+        {
+            _developBrush = !_developBrush;
+            _layer = _developBrush ? Layer.Wild : Layer.Terrain;
+        });
+        _developValueBtn = Cycler(_terrainCard, LM.Get("scenario_editor_develop_value"), step => _developValue = ((_developValue / 10 + step) % 11 + 11) % 11 * 10);
         RectTransform palette = Columns(_terrainCard);
+        _terrainPalette = palette;
         for (int i = 0; i < TerrainPalette.Length; i++)
         {
             int index = i;
@@ -727,6 +834,7 @@ public static class ScenarioEditorScreen
         }
         _terrainInfo = Label(_terrainCard, "Info", 14, TextColor, TextAnchor.UpperLeft, true);
         _clearTerrainBtn = MakeButton(_terrainCard, LM.Get("scenario_editor_clear_terrain"), DangerColor, () => ArmClear("terrain"));
+        _clearDevelopBtn = MakeButton(_terrainCard, LM.Get("scenario_editor_clear_develop"), DangerColor, () => ArmClear("develop"));
 
         // 部落圈：文化、几个部落、删掉
         _tribeCard = Card(side, LM.Get("scenario_editor_card_tribe"));
@@ -972,6 +1080,9 @@ public static class ScenarioEditorScreen
             HandleMouse();
             if (_brushButton < 0 && _terrainApplied != ScenarioEditing.TerrainRevision) ApplyTerrainPaint();
             else if (_terrainDirty && (_brushButton < 0 || Time.unscaledTime - _terrainUploadAt > 0.1f)) UploadTerrain();
+            // 无人区预测：拖着刷、划的时候取样那一段不重算(停手后再算)，归属那一段隔一会儿算一次
+            ScenarioWilderness.Update(_brushButton < 0 && !_stroking);
+            if (_wildCard != null && _wildCard.gameObject.activeSelf && _wildInfoVersion != ScenarioWilderness.Version) RefreshWild();
             RenderFill();
             RenderMarks();
             UpdateLabels();
@@ -1005,7 +1116,10 @@ public static class ScenarioEditorScreen
         Vector2 mouse = Input.mousePosition;
         bool inside = RectTransformUtility.RectangleContainsScreenPoint(_viewport, mouse, null);
         bool onMap = ScreenToTexel(mouse, out Vector2 texel) && inside;
+        _hoverTexel = texel;
+        _hoverOnMap = onMap;
         _hoverCity = onMap ? CityAt(texel) : null;
+        _hoverSeat = onMap && _tool == Tool.Division && _seatMode ? SeatAt(texel) : (-2, -1);
         _hoverPass = onMap && _tool == Tool.Pass ? PassAt(texel) : -1;
         _hoverTribe = onMap && _tool == Tool.Tribe ? ScenarioEditing.TribesAt(TexelToLon(texel.x), TexelToLat(texel.y)) : -1;
 
@@ -1015,7 +1129,7 @@ public static class ScenarioEditorScreen
         // 平移：中键，右键拖空处(点城、关隘的右键另有用处)，「查看」下左键
         bool leftPans = _tool == Tool.View;
         bool brush = _tool is Tool.Land or Tool.Terrain;
-        bool rightOnThing = _hoverCity != null || _hoverPass >= 0 || _tool == Tool.Wall || brush || _hoverTribe >= 0;
+        bool rightOnThing = _hoverCity != null || _hoverPass >= 0 || _tool == Tool.Wall || brush || _hoverTribe >= 0 || _hoverSeat.seat >= 0;
         if (_dragButton < 0)
         {
             int button = Input.GetMouseButtonDown(2) ? 2 : Input.GetMouseButtonDown(0) && leftPans ? 0
@@ -1073,6 +1187,7 @@ public static class ScenarioEditorScreen
             _pressCity = _hoverCity;
             _pressPass = _hoverPass;
             _pressTribe = _hoverTribe;
+            _pressSeat = _hoverSeat;
         }
         if (Input.GetMouseButtonUp(1) && _rightPressed)
         {
@@ -1091,7 +1206,10 @@ public static class ScenarioEditorScreen
             _pressTribe = _tool == Tool.Tribe ? _hoverTribe : -1;
             _moving = false;
             _lastStroked = null;
-            _stroking = _tool == Tool.Paint || Shift && _tool is Tool.Kingdom or Tool.Empire;
+            // 行政区：点或拖过选中国家的城是划进选中的行政区(别国的城、Shift+点是选)
+            _stroking = _tool == Tool.Paint || Shift && _tool is Tool.Kingdom or Tool.Empire ||
+                        _tool == Tool.Division && !Shift && _hoverCity != null && ScenarioEditing.Polity(_realmId) is WorldMapPolity divided &&
+                        ScenarioEditing.OwnerOf(ScenarioEditing.City(_hoverCity)) == divided;
             if (_stroking)
             {
                 ScenarioEditing.BeginStroke();
@@ -1128,7 +1246,7 @@ public static class ScenarioEditorScreen
         {
             ScenarioEditing.MoveCity(_pressCity, TexelToLon(texel.x), TexelToLat(texel.y));
             _cityId = _pressCity;
-            Say(LM.Get("scenario_editor_moved"));
+            Say(LM.Get("scenario_editor_moved") + WildHint(TexelToLon(texel.x), TexelToLat(texel.y)));
         }
         else if (click && onMap) LeftClick(texel);
         _moving = false;
@@ -1145,7 +1263,7 @@ public static class ScenarioEditorScreen
                 else if (OnLand(texel))
                 {
                     _cityId = ScenarioEditing.AddCity(TexelToLon(texel.x), TexelToLat(texel.y));
-                    Say(LM.Get("scenario_editor_city_added"));
+                    Say(LM.Get("scenario_editor_city_added") + WildHint(TexelToLon(texel.x), TexelToLat(texel.y)));
                 }
                 break;
             case Tool.Realm:
@@ -1182,6 +1300,20 @@ public static class ScenarioEditorScreen
                 break;
             case Tool.Event:
                 if (city != null) PickInto(city);
+                break;
+            case Tool.Division:
+                if (city != null) PickDivision(city);
+                else if (_seatMode)
+                {
+                    WorldMapPolity polity = ScenarioEditing.Polity(_realmId);
+                    if (polity == null)
+                    {
+                        Say(LM.Get("scenario_editor_division_pick"));
+                        break;
+                    }
+                    ScenarioEditing.AddSeat(polity, _divisionIndex, TexelToLon(texel.x), TexelToLat(texel.y));
+                    Say(string.Format(LM.Get("scenario_editor_seat_added"), ScenarioEditing.DivisionName(polity, _divisionIndex)));
+                }
                 break;
             case Tool.Land:
                 PickTarget(texel, city);
@@ -1229,12 +1361,57 @@ public static class ScenarioEditorScreen
         _pickSlot = null;
     }
 
+    // 行政区工具点城：选中这座城的国家与它所在的行政区(都城、不在行政区的为京畿)
+    private static void PickDivision(string cityId)
+    {
+        _cityId = cityId;
+        WorldMapPolity owner = ScenarioEditing.OwnerOf(ScenarioEditing.City(cityId));
+        if (owner == null)
+        {
+            Say(LM.Get("scenario_editor_relation_independent"));
+            return;
+        }
+        _realmId = owner.id;
+        _divisionIndex = ScenarioEditing.DivisionOf(owner, cityId);
+        Say(string.Format(LM.Get("scenario_editor_division_picked"), owner.Name, ScenarioEditing.DivisionName(owner, _divisionIndex)));
+    }
+
+    // 光标下选中国家的治所(行政区下标 -1 为京畿，治所下标)；没有为 (-2, -1)
+    private static (int division, int seat) SeatAt(Vector2 texel)
+    {
+        WorldMapPolity polity = ScenarioEditing.Polity(_realmId);
+        if (polity == null) return (-2, -1);
+        float best = PickReach() * PickReach();
+        (int, int) found = (-2, -1);
+        for (int d = -1; d < ScenarioEditing.Divisions(polity).Count; d++)
+        {
+            List<float[]> seats = ScenarioEditing.SeatsOf(polity, d);
+            if (seats == null) continue;
+            for (int i = 0; i < seats.Count; i++)
+            {
+                if (seats[i] == null || seats[i].Length < 2) continue;
+                float distance = (Texel(seats[i][0], seats[i][1]) - texel).sqrMagnitude;
+                if (distance > best) continue;
+                best = distance;
+                found = (d, i);
+            }
+        }
+        return found;
+    }
+
     private static void RightClick()
     {
         switch (_tool)
         {
             case Tool.City:
                 ArmDeleteCity(_pressCity);
+                break;
+            case Tool.Division:
+                if (_pressCity != null) Say(ScenarioEditing.RemoveFromDivision(_pressCity));
+                else if (_pressSeat.seat >= 0 && ScenarioEditing.Polity(_realmId) is WorldMapPolity polity &&
+                         ScenarioEditing.SeatsOf(polity, _pressSeat.division) is List<float[]> seats && _pressSeat.seat < seats.Count &&
+                         ScenarioEditing.RemoveSeat(polity, _pressSeat.division, seats[_pressSeat.seat][0], seats[_pressSeat.seat][1], 0.001f))
+                    Say(LM.Get("scenario_editor_seat_removed"));
                 break;
             case Tool.Paint:
                 Say(ScenarioEditing.Release(_pressCity));
@@ -1264,24 +1441,26 @@ public static class ScenarioEditorScreen
         RefreshAll();
     }
 
-    // 刷给谁：国家图层刷给国家(p:)，王国法理图层刷进法理(r:)；别的图层刷不了
-    private static string BrushKey() => _layer switch
+    // 刷给谁：国家图层刷给国家(p:)，王国法理图层刷进法理(r:)；别的图层刷不了；「永久中立区」笔刷哪个图层都是 n
+    private static string BrushKey() => _neutralBrush ? "n" : _layer switch
     {
         Layer.Realm => ScenarioEditing.Polity(_realmId) == null ? null : "p:" + _realmId,
         Layer.Kingdom => ScenarioEditing.Region(_regionId) == null ? null : "r:" + _regionId,
         _ => null
     };
 
-    // 一笔从上一点刷到这一点(圆刷，沿途每半个半径落一次)：刷地块只刷陆地；刷地形顺手改预览的像素
+    // 一笔从上一点刷到这一点(圆刷，沿途每半个半径落一次)：刷地块、刷开发度只刷陆地(0.2° 一格)；刷地形顺手改预览的像素
     private static void BrushAt(Vector2 from, Vector2 to, bool erase)
     {
-        bool land = _tool == Tool.Land;
+        bool develop = _tool == Tool.Terrain && _developBrush;
+        bool land = _tool == Tool.Land || develop;
         string key = null;
-        if (land && !erase && (key = BrushKey()) == null)
+        if (_tool == Tool.Land && !erase && (key = BrushKey()) == null)
         {
             Say(LM.Get(_layer is Layer.Realm or Layer.Kingdom ? "scenario_editor_land_no_target" : "scenario_editor_land_need_layer"));
             return;
         }
+        if (develop && !erase) key = _developValue.ToString();
         string type = land || erase ? null : TerrainPalette[Mathf.Clamp(_terrainType, 0, TerrainPalette.Length - 1)].type;
         float radius = BrushSizes[_brushSize] / Mathf.Max(0.001f, _step);
         int reach = Mathf.CeilToInt(radius);
@@ -1306,13 +1485,15 @@ public static class ScenarioEditorScreen
         }
         if (land)
         {
-            ScenarioEditing.PaintLand(BrushCells, key);
+            if (develop) ScenarioEditing.PaintDevelop(BrushCells, key);
+            else ScenarioEditing.PaintLand(BrushCells, key);
             return;
         }
         if (ScenarioEditing.PaintTerrain(BrushCells, type) == 0) return;
         foreach (int index in BrushTexels) SetTexel(index, type);
         _terrainDirty = true;
         _terrainApplied = ScenarioEditing.TerrainRevision;
+        GridChanged();
     }
 
     // 刷地块取刷给谁：点在城上取它的国家(或王国法理)，点在空处取那里铺着的那一块
@@ -1333,6 +1514,7 @@ public static class ScenarioEditorScreen
         }
         if (key[0] == 'p') _realmId = key.Substring(2);
         else _regionId = key.Substring(2);
+        _neutralBrush = false;
         Say(string.Format(LM.Get("scenario_editor_land_picked"), AreaName(key)));
     }
 
@@ -1358,6 +1540,7 @@ public static class ScenarioEditorScreen
         if (Armed(kind))
         {
             if (kind == "land") ScenarioEditing.ClearLand();
+            else if (kind == "develop") ScenarioEditing.ClearDevelop();
             else ScenarioEditing.ClearTerrain();
             _clearArmed = null;
             Say(LM.Get("scenario_editor_cleared"));
@@ -1422,6 +1605,10 @@ public static class ScenarioEditorScreen
                     ? LM.Get("scenario_editor_need_core")
                     : ScenarioEditing.AddRegionToCore(_coreId, ScenarioEditing.City(cityId)?.region);
                 break;
+            case Tool.Division:
+                WorldMapPolity divided = ScenarioEditing.Polity(_realmId);
+                message = divided == null ? LM.Get("scenario_editor_division_pick") : ScenarioEditing.AssignDivision(divided, _divisionIndex, cityId);
+                break;
         }
         Say(message);
     }
@@ -1481,7 +1668,20 @@ public static class ScenarioEditorScreen
         if (tool == Tool.Wall && _wallIndex >= ScenarioEditing.Walls.Count) _wallIndex = ScenarioEditing.Walls.Count - 1;
         // 刷地块要在国家或王国法理图层；刷地形看地形图层
         if (tool == Tool.Land && _layer is not Layer.Realm and not Layer.Kingdom) _layer = Layer.Realm;
-        if (tool == Tool.Terrain) _layer = Layer.Terrain;
+        // 刷地形看地形图层，刷开发度看无人区图层
+        if (tool == Tool.Terrain) _layer = _developBrush ? Layer.Wild : Layer.Terrain;
+        // 行政区：看行政区图层，选中的城跟着选它的国家与行政区
+        if (tool == Tool.Division)
+        {
+            _layer = Layer.Division;
+            _seatMode = false;
+            if (ScenarioEditing.OwnerOf(ScenarioEditing.City(_cityId)) is WorldMapPolity owner)
+            {
+                _realmId = owner.id;
+                _divisionIndex = ScenarioEditing.DivisionOf(owner, _cityId);
+            }
+            if (ScenarioEditing.Division(ScenarioEditing.Polity(_realmId), _divisionIndex) == null) _divisionIndex = -1;
+        }
         if (tool == Tool.Tribe && _tribeIndex >= ScenarioEditing.Tribes.Count) _tribeIndex = -1;
     }
 
@@ -1662,7 +1862,7 @@ public static class ScenarioEditorScreen
 
     private static int MarkerRadius() => Mathf.Clamp(Mathf.RoundToInt(MarkerScreen / 2f / Mathf.Max(0.05f, _zoom)), 0, 8);
 
-    // 这座城在当前图层归哪一块(国家、王国法理、帝国法理、天下)；不归哪块返回 null
+    // 这座城在当前图层归哪一块(国家、行政区、王国法理、帝国法理、天下)；不归哪块返回 null
     private static string AreaKey(WorldMapCity city)
     {
         switch (_layer)
@@ -1670,6 +1870,12 @@ public static class ScenarioEditorScreen
             case Layer.Realm:
                 WorldMapPolity owner = ScenarioEditing.OwnerOf(city);
                 return owner == null ? null : "p:" + owner.id;
+            case Layer.Division:
+                // 本国第几个行政区("d:国家:下标")，都城与不在行政区的为京畿("j:国家")
+                WorldMapPolity realm = ScenarioEditing.OwnerOf(city);
+                if (realm == null) return null;
+                int division = ScenarioEditing.DivisionOf(realm, city.id);
+                return division >= 0 ? "d:" + realm.id + ":" + division : "j:" + realm.id;
             case Layer.Kingdom:
                 return string.IsNullOrEmpty(city.region) ? null : "r:" + city.region;
             case Layer.Empire:
@@ -1685,6 +1891,7 @@ public static class ScenarioEditorScreen
     private static string SelectedKey() => _layer switch
     {
         Layer.Realm => _realmId == null ? null : "p:" + _realmId,
+        Layer.Division => _realmId == null ? null : _divisionIndex >= 0 ? "d:" + _realmId + ":" + _divisionIndex : "j:" + _realmId,
         Layer.Kingdom => _regionId == null ? null : "r:" + _regionId,
         Layer.Empire => _coreId == null ? null : "k:" + _coreId,
         Layer.Tianxia => ScenarioEditing.Core(_coreId)?.group is string group && group.Length > 0 ? "t:" + group : null,
@@ -1693,11 +1900,13 @@ public static class ScenarioEditorScreen
 
     // 图层颜色(用户 10-30 "地块怎么全是菱形的而且层级也好乱")：从各城往外铺陆地，按地形代价八方向走(水过不去，丘陵、山地、雪山贵，
     // 翻不过大山)，大城铺得远，谁先到归谁；刷过的地块按刷的归属钉死。选中的那一块颜色深些、刷过的再深一点，两块相接处与未归属的
-    // 陆地边上描深色边线(只描一侧，线细)
+    // 陆地边上描深色边线(只描一侧，线细)。
+    // 预测的无人区(见 ScenarioWilderness)不是城的地：先钉住，从城往外铺时铺不进去；铺完按归属规矩上色(国家、行政区图层看归哪国，
+    // 法理图层看挂哪块法理)，淡色打斜线；没主的只打灰斜线。刷在无人区上的地块是定挂哪个法理，不当城的地钉；刷的中立区打灰斜线
     private static void RenderFill()
     {
         string selected = SelectedKey();
-        int key = (ScenarioEditing.Revision * 31 + (int)_layer) * 31 + (selected?.GetHashCode() ?? 0);
+        int key = ((ScenarioEditing.Revision * 31 + (int)_layer) * 31 + (selected?.GetHashCode() ?? 0)) * 31 + ScenarioWilderness.Version;
         if (key == _fillKey) return;
         // 拖着刷、划的时候至多每 FillThrottle 秒重铺一次
         if ((_brushButton >= 0 || _stroking) && Time.unscaledTime - _fillAt < FillThrottle) return;
@@ -1713,18 +1922,29 @@ public static class ScenarioEditorScreen
             _fillBudget = new int[n];
             _fillFixed = new bool[n];
         }
+        EnsureFillZones();
+        if (_layer == Layer.Wild)
+        {
+            RenderWild();
+            return;
+        }
         for (int i = 0; i < n; i++)
         {
             _fillOwner[i] = -1;
             _fillDist[i] = int.MaxValue;
             _fillFixed[i] = false;
+            _fillHatch[i] = 0;
+            // 无人区：钉住(水面不算)
+            int zone = _fillZone[i];
+            _fillWild[i] = zone >= 0 && ScenarioWilderness.RegionOf(zone) >= 0 && CostAt(i % fw, i / fw) != 0;
+            if (_fillWild[i]) _fillFixed[i] = true;
         }
         _buckets ??= new List<int>[MaxBudget + 1];
         foreach (List<int> bucket in _buckets) bucket?.Clear();
         FillKeys.Clear();
         var slots = new Dictionary<string, int>();
 
-        // 刷过的地块：按刷的归属钉死(不当起点，别家也铺不进来)
+        // 刷过的地块：按刷的归属钉死(不当起点，别家也铺不进来)；刷在无人区上的不算城的地，刷的中立区只打斜线
         if (ScenarioEditing.LandCells.Count > 0)
         {
             var areaOf = new Dictionary<string, string>();
@@ -1732,12 +1952,18 @@ public static class ScenarioEditorScreen
             int offY = Mathf.FloorToInt(_lat0 / ScenarioCells.LandStep + 0.5f * _step / ScenarioCells.LandStep);
             foreach (KeyValuePair<int, string> pair in ScenarioEditing.LandCells)
             {
-                if (!areaOf.TryGetValue(pair.Value, out string area)) areaOf[pair.Value] = area = PaintArea(pair.Value);
-                if (area == null) continue;
                 ScenarioCells.Unpack(pair.Key, out int i, out int j);
                 int x = i - offX, y = j - offY;
                 if (x < 0 || y < 0 || x >= fw || y >= fh) continue;
                 int at = y * fw + x;
+                if (_fillWild[at]) continue;
+                if (pair.Value == "n")
+                {
+                    _fillHatch[at] = 2;
+                    continue;
+                }
+                if (!areaOf.TryGetValue(pair.Value, out string area)) areaOf[pair.Value] = area = PaintArea(pair.Value);
+                if (area == null) continue;
                 _fillOwner[at] = SlotOf(slots, area);
                 _fillFixed[at] = true;
             }
@@ -1756,6 +1982,8 @@ public static class ScenarioEditorScreen
             if (_fillDist[at] == 0) continue;
             _fillOwner[at] = SlotOf(slots, area);
             _fillFixed[at] = false;
+            // 城心那块归城(无人区里的城也是)
+            _fillWild[at] = false;
             _fillDist[at] = 0;
             _fillBudget[at] = RankBudget[Mathf.Clamp(ScenarioEditing.RankOf(city), 0, RankBudget.Length - 1)];
             (_buckets[0] ??= new List<int>()).Add(at);
@@ -1795,9 +2023,20 @@ public static class ScenarioEditorScreen
             }
         }
 
+        // 无人区按归属规矩上色
+        var wildArea = new Dictionary<string, string>();
+        for (int at = 0; at < n; at++)
+        {
+            if (!_fillWild[at]) continue;
+            string area = WildArea(_fillZone[at], wildArea);
+            _fillOwner[at] = area == null ? -1 : SlotOf(slots, area);
+            _fillHatch[at] = 1;
+        }
+
         var fills = new Color32[FillKeys.Count];
         var strong = new Color32[FillKeys.Count];
         var edges = new Color32[FillKeys.Count];
+        var faint = new Color32[FillKeys.Count];
         for (int s = 0; s < FillKeys.Count; s++)
         {
             Color32 color = ScenarioEditing.ColorOfKey(FillKeys[s]);
@@ -1805,6 +2044,7 @@ public static class ScenarioEditorScreen
             fills[s] = new Color32(color.r, color.g, color.b, (byte)(chosen ? 190 : 110));
             strong[s] = new Color32(color.r, color.g, color.b, (byte)(chosen ? 220 : 165));
             edges[s] = new Color32((byte)(color.r / 3), (byte)(color.g / 3), (byte)(color.b / 3), 235);
+            faint[s] = new Color32(color.r, color.g, color.b, (byte)(chosen ? 120 : 60));
         }
         for (int y = 0; y < fh; y++)
         for (int x = 0; x < fw; x++)
@@ -1812,19 +2052,120 @@ public static class ScenarioEditorScreen
             int at = y * fw + x, slot = _fillOwner[at];
             if (slot < 0)
             {
-                _fillPixels[at] = Clear;
+                // 没主的无人区、刷的中立区：灰斜线
+                _fillPixels[at] = _fillHatch[at] != 0 ? Stripe(x, y) ? NeutralStripe : NeutralFill : Clear;
                 continue;
             }
             // 与别的块相接只描右、上一侧；挨着未归属的陆地四边都描
             bool edge = Other(x + 1, y, fw, fh, slot, false) || Other(x, y + 1, fw, fh, slot, false) ||
                         Other(x - 1, y, fw, fh, slot, true) || Other(x, y - 1, fw, fh, slot, true) ||
                         Other(x + 1, y, fw, fh, slot, true) || Other(x, y + 1, fw, fh, slot, true);
-            _fillPixels[at] = edge ? edges[slot] : _fillFixed[at] ? strong[slot] : fills[slot];
+            _fillPixels[at] = edge ? edges[slot] : _fillWild[at] ? Stripe(x, y) ? strong[slot] : faint[slot] : _fillFixed[at] ? strong[slot] : fills[slot];
         }
         _fill.SetPixels32(_fillPixels);
         _fill.Apply();
         _areaKey = int.MinValue;
     }
+
+    private static bool Stripe(int x, int y) => (x + y) % 4 == 0;
+
+    // 图层粗格落在预测的哪块地上：地块的范围、大小变了，或换了地图才重算
+    private static void EnsureFillZones()
+    {
+        int fw = _fill.width, fh = _fill.height, n = fw * fh;
+        if (_fillZone != null && _fillZone.Length == n && _fillZoneVersion == ScenarioWilderness.GeometryVersion) return;
+        _fillZoneVersion = ScenarioWilderness.GeometryVersion;
+        if (_fillZone == null || _fillZone.Length != n)
+        {
+            _fillZone = new int[n];
+            _fillWild = new bool[n];
+            _fillHatch = new byte[n];
+        }
+        for (int y = 0; y < fh; y++)
+        {
+            float lat = TexelToLat(y * FillFactor + FillFactor / 2f);
+            for (int x = 0; x < fw; x++) _fillZone[y * fw + x] = ScenarioWilderness.ZoneAt(TexelToLon(x * FillFactor + FillFactor / 2f), lat);
+        }
+    }
+
+    // 一块无人区在当前图层算哪一块：国家、行政区图层看归哪国(独立的城、补空小国、中立的不上色)，法理图层看挂哪块法理；
+    // cache 按归属、法理记(一次重铺里几万块地只查几十种)
+    private static string WildArea(int zone, Dictionary<string, string> cache)
+    {
+        bool byOwner = _layer is Layer.Realm or Layer.Division;
+        string raw = byOwner ? ScenarioWilderness.OwnerOf(zone) : ScenarioWilderness.TitleOf(zone);
+        if (raw == null) return null;
+        if (cache.TryGetValue(raw, out string area)) return area;
+        switch (_layer)
+        {
+            case Layer.Realm:
+            case Layer.Division:
+                area = !raw.StartsWith("p:") || ScenarioEditing.Polity(raw.Substring(2)) == null ? null
+                    : _layer == Layer.Division ? "j:" + raw.Substring(2) : raw;
+                break;
+            case Layer.Kingdom:
+                area = ScenarioEditing.Region(raw) == null ? null : "r:" + raw;
+                break;
+            case Layer.Empire:
+                WorldMapCore core = ScenarioEditing.CoreOfRegion(raw);
+                area = core == null ? null : "k:" + core.id;
+                break;
+            case Layer.Tianxia:
+                string group = ScenarioEditing.CoreOfRegion(raw)?.group;
+                area = string.IsNullOrEmpty(group) ? null : "t:" + group;
+                break;
+        }
+        cache[raw] = area;
+        return area;
+    }
+
+    // 无人区图层：按类型上色(同游戏里的无人区图层色系)，雨林大泽开发度高的淡些，两片相接处描边，永久中立的打斜线；
+    // 刷了开发度的格子、刷的中立区另打一层浅点子，拖着刷时立刻看得见
+    private static void RenderWild()
+    {
+        int fw = _fill.width, fh = _fill.height, n = fw * fh;
+        FillKeys.Clear();
+        for (int i = 0; i < n; i++)
+        {
+            _fillOwner[i] = -1;
+            _fillHatch[i] = 0;
+        }
+        int offX = Mathf.FloorToInt(_lon0 / ScenarioCells.LandStep + 0.5f * _step / ScenarioCells.LandStep);
+        int offY = Mathf.FloorToInt(_lat0 / ScenarioCells.LandStep + 0.5f * _step / ScenarioCells.LandStep);
+        foreach (KeyValuePair<int, string> pair in ScenarioEditing.DevelopCells.Concat(ScenarioEditing.LandCells.Where(item => item.Value == "n")))
+        {
+            ScenarioCells.Unpack(pair.Key, out int i, out int j);
+            int x = i - offX, y = j - offY;
+            if (x >= 0 && y >= 0 && x < fw && y < fh) _fillHatch[y * fw + x] = (byte)(pair.Value == "n" ? 2 : 1);
+        }
+        for (int y = 0; y < fh; y++)
+        for (int x = 0; x < fw; x++)
+        {
+            int at = y * fw + x, zone = _fillZone[at], region = ScenarioWilderness.RegionOf(zone);
+            Color32 pixel = Clear;
+            if (region >= 0 && CostAt(x, y) != 0)
+            {
+                Color32 color = ScenarioWilderness.KindColor(ScenarioWilderness.KindOf(zone));
+                float dev = ScenarioWilderness.DevOf(zone);
+                byte alpha = (byte)(190f * (dev > 0f ? 1f - 0.65f * Mathf.Min(dev, 100f) / 100f : 1f));
+                bool edge = WildEdge(x + 1, y, fw, fh, region) || WildEdge(x - 1, y, fw, fh, region) ||
+                            WildEdge(x, y + 1, fw, fh, region) || WildEdge(x, y - 1, fw, fh, region);
+                pixel = edge ? new Color32((byte)(color.r / 2), (byte)(color.g / 2), (byte)(color.b / 2), 230)
+                    : ScenarioWilderness.Neutral(region) && Stripe(x, y) ? NeutralStripe
+                    : new Color32(color.r, color.g, color.b, alpha);
+            }
+            if (_fillHatch[at] != 0 && (x + y) % 2 == 0 && CostAt(x, y) != 0)
+                pixel = _fillHatch[at] == 2 ? NeutralStripe : new Color32(255, 250, 220, 150);
+            _fillPixels[at] = pixel;
+        }
+        _fill.SetPixels32(_fillPixels);
+        _fill.Apply();
+        _areaKey = int.MinValue;
+    }
+
+    // 邻格不是这一片(别片、不是无人区)
+    private static bool WildEdge(int x, int y, int fw, int fh, int region) =>
+        x >= 0 && y >= 0 && x < fw && y < fh && ScenarioWilderness.RegionOf(_fillZone[y * fw + x]) != region;
 
     private static int SlotOf(Dictionary<string, int> slots, string area)
     {
@@ -1846,10 +2187,10 @@ public static class ScenarioEditorScreen
     }
 
     // 刷的地块在这一层算哪一块：国家层 p: 照写、r: 取那块法理首都(没有就辖下头一座有主的城)的归属；王国法理层 r: 照写、
-    // p: 取那国都城的法理；帝国法理、天下再往上找
+    // p: 取那国都城的法理；帝国法理、天下再往上找；行政区层不钉(开局归那国最近的城，在哪个行政区随那座城)
     private static string PaintArea(string key)
     {
-        if (key == null || key.Length < 3) return null;
+        if (key == null || key.Length < 3 || _layer == Layer.Division) return null;
         string id = key.Substring(2);
         bool byRealm = key[0] == 'p';
         string region = byRealm ? ScenarioEditing.City(ScenarioEditing.Polity(id)?.capital)?.region : id;
@@ -1881,16 +2222,16 @@ public static class ScenarioEditorScreen
         int key = ((((ScenarioEditing.Revision * 31 + radius) * 31 + (int)_tool) * 31 + (int)_layer) * 31 +
                    (_cityId?.GetHashCode() ?? 0)) * 31 + (_realmId?.GetHashCode() ?? 0) + (_regionId?.GetHashCode() ?? 0) * 7 +
                   (_coreId?.GetHashCode() ?? 0) * 13 + (_relationFrom?.GetHashCode() ?? 0) * 17 + _wallIndex * 19 + _passIndex * 23 +
-                  _tribeIndex * 29;
+                  _tribeIndex * 29 + _divisionIndex * 37 + ScenarioWilderness.SizeIndex * 41;
         if (key == _marksKey) return;
         _marksKey = key;
         global::System.Array.Clear(_markPixels, 0, _markPixels.Length);
         WorldMapEra era = ScenarioEditing.Era;
 
-        // 地图范围：按中号的大小画出框
+        // 地图范围：按无人区预测选的那档大小画出框
         if (era.map == null && EarthTerrain.Frames.FirstOrDefault(item => item.id == era.frame) is WorldMapFrame frame)
         {
-            Vector2Int size = frame.sizes[Mathf.Min(1, frame.sizes.Length - 1)];
+            Vector2Int size = frame.sizes[Mathf.Clamp(ScenarioWilderness.SizeIndex, 0, frame.sizes.Length - 1)];
             frame.Bounds(size, out float bottom, out float degrees);
             float top = bottom + size.y * 64f * degrees;
             Vector2 a = Texel(frame.west, bottom), b = Texel(frame.east, bottom), c = Texel(frame.east, top), d = Texel(frame.west, top);
@@ -1953,7 +2294,8 @@ public static class ScenarioEditorScreen
             bool active = ScenarioEditing.Active(city);
             WorldMapPolity owner = active ? ScenarioEditing.OwnerOf(city) : null;
             Color32 color = !active ? Inactive : _layer == Layer.Realm && owner != null ? ScenarioEditing.ColorOf(owner)
-                : _layer is Layer.Kingdom or Layer.Empire or Layer.Tianxia && AreaKey(city) is string area ? ScenarioEditing.ColorOfKey(area)
+                : _layer is Layer.Kingdom or Layer.Empire or Layer.Tianxia or Layer.Division && AreaKey(city) is string area
+                    ? ScenarioEditing.ColorOfKey(area)
                 : Independent;
             int r = capitals.Contains(city.id) ? radius + 1 : radius;
             if (!active) r = Mathf.Max(0, radius - 1);
@@ -1966,6 +2308,20 @@ public static class ScenarioEditorScreen
         if (_tool == Tool.Empire && ScenarioEditing.Core(_coreId) is WorldMapCore core &&
             ScenarioEditing.City(core.capital) is WorldMapCity coreSeat)
             Ring(Texel(coreSeat), radius + 2, CoreCapital);
+        // 行政区工具：选中国家的都城描青边(京畿)，各行政区与京畿的治所画小方块(选中那一块的描金边)
+        if (_tool == Tool.Division && ScenarioEditing.Polity(_realmId) is WorldMapPolity divided)
+        {
+            if (ScenarioEditing.City(divided.capital) is WorldMapCity capital) Ring(Texel(capital), radius + 2, RegionCapital);
+            for (int d = -1; d < ScenarioEditing.Divisions(divided).Count; d++)
+            {
+                List<float[]> seats = ScenarioEditing.SeatsOf(divided, d);
+                if (seats == null) continue;
+                Color32 seatColor = ScenarioEditing.ColorOfKey(d >= 0 ? "d:" + divided.id + ":" + d : "j:" + divided.id);
+                foreach (float[] point in seats)
+                    if (point != null && point.Length >= 2)
+                        Square(Texel(point[0], point[1]), Mathf.Max(0, radius - 2), seatColor, d == _divisionIndex ? Gold : Edge);
+            }
+        }
         if (selected != null) Ring(Texel(selected), radius + 3, Gold);
         _marks.SetPixels32(_markPixels);
         _marks.Apply();
@@ -2073,7 +2429,16 @@ public static class ScenarioEditorScreen
         {
             _areaKey = _fillKey;
             Areas.Clear();
-            if (_layer is Layer.Kingdom or Layer.Empire or Layer.Tianxia)
+            // 无人区图层：大些的几片写类型(永久中立的注明)
+            if (_layer == Layer.Wild)
+                for (int r = 0; r < ScenarioWilderness.Pieces.Count; r++)
+                {
+                    ScenarioWilderness.Piece piece = ScenarioWilderness.Pieces[r];
+                    if (piece.Zones.Count < MinLabelZones) continue;
+                    Areas.Add((KindName(piece.Kind) + (ScenarioWilderness.Neutral(r) ? LM.Get("scenario_editor_wild_neutral_suffix") : ""),
+                        Texel(piece.Lon, piece.Lat)));
+                }
+            if (_layer is Layer.Kingdom or Layer.Empire or Layer.Tianxia or Layer.Division)
                 foreach (IGrouping<string, WorldMapCity> group in ScenarioEditing.Cities.Where(ScenarioEditing.Active)
                              .Select(city => (city, area: AreaKey(city))).Where(item => item.area != null)
                              .GroupBy(item => item.area, item => item.city))
@@ -2106,9 +2471,14 @@ public static class ScenarioEditorScreen
 
     private static string AreaName(string key)
     {
+        if (key == "n") return LM.Get("scenario_editor_neutral_name");
         string id = key.Substring(2);
+        int cut = key.LastIndexOf(':');
         return key[0] switch
         {
+            'd' => cut > 2 && int.TryParse(key.Substring(cut + 1), out int index)
+                ? ScenarioEditing.DivisionName(ScenarioEditing.Polity(key.Substring(2, cut - 2)), index) : id,
+            'j' => ScenarioEditing.DivisionName(ScenarioEditing.Polity(id), -1),
             'r' => ScenarioEditing.Region(id)?.TitleName ?? id,
             'k' => ScenarioEditing.Core(id)?.Name ?? id,
             't' => ScenarioEditing.TianxiaName(id),
@@ -2169,6 +2539,7 @@ public static class ScenarioEditorScreen
         if (_wallIndex >= ScenarioEditing.Walls.Count) _wallIndex = ScenarioEditing.Walls.Count - 1;
         if (_passIndex >= ScenarioEditing.Passes.Count) _passIndex = -1;
         if (_tribeIndex >= ScenarioEditing.Tribes.Count) _tribeIndex = -1;
+        if (ScenarioEditing.Division(ScenarioEditing.Polity(_realmId), _divisionIndex) == null) _divisionIndex = -1;
 
         _title.text = string.Format(LM.Get("scenario_editor_title"), era.Name);
         _subtitle.text = era.YearText + (ScenarioEditing.Dirty ? "  " + LM.Get("scenario_editor_unsaved").ColorString("#E9A85B") : "");
@@ -2176,7 +2547,8 @@ public static class ScenarioEditorScreen
         if (_eventIndex >= ScenarioEditing.Events.Count) _eventIndex = ScenarioEditing.Events.Count - 1;
         bool showScenario = _tool is Tool.View or Tool.City;
         bool showCity = _cityId != null && _tool is Tool.City or Tool.Realm or Tool.Paint or Tool.Kingdom or Tool.Empire;
-        bool showRealm = _realmId != null && (_tool is Tool.City or Tool.Realm or Tool.Paint or Tool.Relation || _tool == Tool.Land && _layer == Layer.Realm);
+        bool showRealm = _realmId != null && (_tool is Tool.City or Tool.Realm or Tool.Paint or Tool.Relation or Tool.Division ||
+                                              _tool == Tool.Land && _layer == Layer.Realm && !_neutralBrush);
         bool showRegion = _regionId != null && _tool is Tool.Kingdom or Tool.Empire;
         bool showCore = _coreId != null && _tool == Tool.Empire;
         _scenarioCard.gameObject.SetActive(showScenario);
@@ -2191,6 +2563,8 @@ public static class ScenarioEditorScreen
         _landCard.gameObject.SetActive(_tool == Tool.Land);
         _terrainCard.gameObject.SetActive(_tool == Tool.Terrain);
         _tribeCard.gameObject.SetActive(_tool == Tool.Tribe);
+        _divisionCard.gameObject.SetActive(_tool == Tool.Division);
+        _wildCard.gameObject.SetActive(_layer == Layer.Wild);
 
         if (showScenario) RefreshScenario(era);
         if (showCity) RefreshCity(era);
@@ -2204,6 +2578,8 @@ public static class ScenarioEditorScreen
         if (_tool == Tool.Land) RefreshLand();
         if (_tool == Tool.Terrain) RefreshTerrain();
         if (_tool == Tool.Tribe) RefreshTribe();
+        if (_tool == Tool.Division) RefreshDivision();
+        if (_layer == Layer.Wild) RefreshWild();
         RefreshButtons();
     }
 
@@ -2211,10 +2587,12 @@ public static class ScenarioEditorScreen
     {
         string key = BrushKey();
         _landBrushBtn.Set(BrushText(), ViewColor);
+        _neutralBrushBtn.Set(LM.Get(_neutralBrush ? "scenario_editor_neutral_on" : "scenario_editor_neutral_off"), _neutralBrush ? ActiveColor : ToolColor);
         string target = key == null
             ? LM.Get(_layer is Layer.Realm or Layer.Kingdom ? "scenario_editor_land_no_target" : "scenario_editor_land_need_layer")
             : AreaName(key);
-        _landInfo.text = string.Format(LM.Get("scenario_editor_land_info"), target, ScenarioEditing.LandCount(key), ScenarioEditing.LandCells.Count);
+        _landInfo.text = string.Format(LM.Get("scenario_editor_land_info"), target, ScenarioEditing.LandCount(key), ScenarioEditing.LandCells.Count) +
+                         "\n" + LM.Get(_neutralBrush ? "scenario_editor_land_neutral_note" : "scenario_editor_land_wild_note");
         _clearLandBtn.Set(LM.Get(Armed("land") ? "scenario_editor_clear_armed" : "scenario_editor_clear_land"), DangerColor,
             ScenarioEditing.LandCells.Count > 0);
     }
@@ -2222,11 +2600,83 @@ public static class ScenarioEditorScreen
     private static void RefreshTerrain()
     {
         _terrainBrushBtn.Set(BrushText(), ViewColor);
+        _developBrushBtn.Set(LM.Get(_developBrush ? "scenario_editor_develop_on" : "scenario_editor_develop_off"), _developBrush ? ActiveColor : ToolColor);
+        _developValueBtn.Button.transform.parent.gameObject.SetActive(_developBrush);
+        _developValueBtn.Set(_developValue.ToString(), ViewColor);
+        _terrainPalette.gameObject.SetActive(!_developBrush);
         string chosen = TerrainPalette[Mathf.Clamp(_terrainType, 0, TerrainPalette.Length - 1)].type;
         foreach ((string type, Btn button) in TerrainButtons) button.Set(null, type == chosen ? ActiveColor : ToolColor);
-        _terrainInfo.text = string.Format(LM.Get("scenario_editor_terrain_info"), ScenarioEditing.TerrainCells.Count);
+        _terrainInfo.text = _developBrush
+            ? string.Format(LM.Get("scenario_editor_develop_info"), _developValue, ScenarioEditing.DevelopCells.Count)
+            : string.Format(LM.Get("scenario_editor_terrain_info"), ScenarioEditing.TerrainCells.Count);
+        _clearTerrainBtn.Button.gameObject.SetActive(!_developBrush);
+        _clearDevelopBtn.Button.gameObject.SetActive(_developBrush);
         _clearTerrainBtn.Set(LM.Get(Armed("terrain") ? "scenario_editor_clear_armed" : "scenario_editor_clear_terrain"), DangerColor,
             ScenarioEditing.TerrainCells.Count > 0);
+        _clearDevelopBtn.Set(LM.Get(Armed("develop") ? "scenario_editor_clear_armed" : "scenario_editor_clear_develop"), DangerColor,
+            ScenarioEditing.DevelopCells.Count > 0);
+    }
+
+    // 行政区卡：选中的国家(不称帝时提醒不生效)、选中的行政区(京畿在头)、名、城与治所
+    private static void RefreshDivision()
+    {
+        WorldMapPolity polity = ScenarioEditing.Polity(_realmId);
+        _divisionNameInput.interactable = polity != null && _divisionIndex >= 0;
+        _seatModeBtn.Set(LM.Get(_seatMode ? "scenario_editor_seat_mode_on" : "scenario_editor_seat_mode_off"), _seatMode ? ActiveColor : ToolColor,
+            polity != null);
+        if (polity == null)
+        {
+            _divisionHead.text = LM.Get("scenario_editor_division_pick");
+            _divisionBtn.Set(LM.Get("scenario_editor_none"), ViewColor, false);
+            SetInput(_divisionNameInput, "");
+            _divisionInfo.text = LM.Get("scenario_editor_division_help");
+            _newDivisionBtn.Set(null, ToolColor, false);
+            _deleteDivisionBtn.Set(null, DangerColor, false);
+            _clearSeatsBtn.Set(null, DangerColor, false);
+            return;
+        }
+        List<WorldMapDivision> divisions = ScenarioEditing.Divisions(polity);
+        _divisionHead.text = string.Format(LM.Get("scenario_editor_division_head"), polity.Name, divisions.Count) +
+                             (polity.empire ? "" : "\n" + LM.Get("scenario_editor_division_not_empire").ColorString("#E9A85B"));
+        _divisionBtn.Set(ScenarioEditing.DivisionName(polity, _divisionIndex), ViewColor);
+        SetInput(_divisionNameInput, _divisionIndex >= 0 ? ScenarioEditing.DivisionName(polity, _divisionIndex) : "");
+        // 这一块的城：本国开局归它的城里，在这个行政区的(京畿连同都城)
+        List<string> names = ScenarioEditing.Cities
+            .Where(city => ScenarioEditing.Active(city) && ScenarioEditing.OwnerOf(city) == polity && ScenarioEditing.DivisionOf(polity, city.id) == _divisionIndex)
+            .OrderBy(city => city.id == polity.capital ? 0 : 1).ThenBy(ScenarioEditing.RankOf).Select(ScenarioEditing.CityName).ToList();
+        int seats = ScenarioEditing.SeatsOf(polity, _divisionIndex)?.Count ?? 0;
+        WorldMapCity capital = ScenarioEditing.City(polity.capital);
+        _divisionInfo.text = string.Format(LM.Get("scenario_editor_division_info"), names.Count,
+                                 names.Count == 0 ? LM.Get("scenario_editor_none") : string.Join(LM.Get("list_separator"), names.Take(10)) +
+                                                                                    (names.Count > 10 ? "…" : ""), seats) + "\n" +
+                             string.Format(LM.Get("scenario_editor_division_capital_note"),
+                                 capital == null ? LM.Get("scenario_editor_none") : ScenarioEditing.CityName(capital)) + "\n" +
+                             LM.Get("scenario_editor_division_seat_note");
+        _newDivisionBtn.Set(null, ToolColor);
+        _deleteDivisionBtn.Set(null, DangerColor, _divisionIndex >= 0);
+        _clearSeatsBtn.Set(null, DangerColor, seats > 0);
+    }
+
+    // 无人区卡：按哪个范围、哪档大小预测，一块地多大，几片几块(各类)，永久中立几片，开发度按哪个时代的表
+    private static void RefreshWild()
+    {
+        _wildInfoVersion = ScenarioWilderness.Version;
+        _wildSizeBtn.Set(LM.Get("world_map_size_" + Mathf.Clamp(ScenarioWilderness.SizeIndex, 0, 2)), ViewColor);
+        var regions = new int[6];
+        var zones = new int[6];
+        ScenarioWilderness.Summary(regions, zones, out int neutral);
+        string kinds = string.Join(LM.Get("list_separator"), Enumerable.Range(1, 5).Where(kind => regions[kind] > 0)
+            .Select(kind => string.Format(LM.Get("scenario_editor_wild_kind_count"), KindName((WildKind)kind), regions[kind], zones[kind])));
+        WorldMapFrame frame = ScenarioWilderness.Frame;
+        Vector2Int size = ScenarioWilderness.Size;
+        string table = WorldMapData.BaseOf(ScenarioEditing.Era);
+        string tableText = ScenarioEditing.UsesImport ? LM.Get("scenario_editor_wild_imported")
+            : table == null ? LM.Get("scenario_editor_wild_no_table")
+            : string.Format(LM.Get("scenario_editor_wild_table"), WorldMapData.Eras.FirstOrDefault(era => era.id == table)?.Name ?? table);
+        _wildInfo.text = string.Format(LM.Get("scenario_editor_wild_info"), frame == null ? "" : LM.Get("world_map_frame_" + frame.id),
+                             size.x * 64, size.y * 64, ScenarioWilderness.ZoneDegrees.ToString("0.##"), regions.Sum(), zones.Sum(),
+                             kinds.Length == 0 ? LM.Get("scenario_editor_none") : kinds, neutral) + "\n" + tableText + "\n" +
+                         LM.Get("scenario_editor_wild_note");
     }
 
     private static void RefreshTribe()
@@ -2281,9 +2731,12 @@ public static class ScenarioEditorScreen
             ? "\n" + string.Format(LM.Get("scenario_editor_city_shares"),
                 string.Join(LM.Get("list_separator"), city.share.Select(id => ScenarioEditing.Region(id)?.TitleName ?? id)))
             : "";
+        // 城在无人区里：只留城心那块(见 ScenarioWilderness)
+        WildKind wild = ScenarioWilderness.KindNear(city.lon, city.lat);
+        string wildLine = wild == WildKind.None ? "" : "\n" + string.Format(LM.Get("scenario_editor_city_in_wild"), KindName(wild)).ColorString("#E9A85B");
         _cityInfo.text = string.Format(LM.Get("scenario_editor_city_info"), region?.TitleName ?? city.region,
             owner == null ? LM.Get("scenario_editor_independent") : owner.Name + (capital ? LM.Get("scenario_editor_is_capital") : ""),
-            string.Format("{0:0.0}, {1:0.0}", city.lon, city.lat)) + shares;
+            string.Format("{0:0.0}, {1:0.0}", city.lon, city.lat)) + shares + wildLine;
         _rankBtn.Set(LM.Get("scenario_editor_rank_" + Mathf.Clamp(ScenarioEditing.RankOf(city), 1, 3)), ToolColor);
         _capitalBtn.Set(null, ToolColor, realm != null && realm.capital != city.id);
         _foundBtn.Set(null, ToolColor, !capital);
@@ -2512,16 +2965,28 @@ public static class ScenarioEditorScreen
     {
         WorldMapCity city = ScenarioEditing.City(_hoverCity);
         string text = null;
-        if (city != null)
+        if (_moving && _tool == Tool.City && _hoverOnMap && ScenarioEditing.City(_pressCity) is WorldMapCity moving)
+        {
+            // 拖着城：落在这里会不会在无人区里
+            WildKind kind = ScenarioWilderness.KindNear(TexelToLon(_hoverTexel.x), TexelToLat(_hoverTexel.y));
+            text = ScenarioEditing.CityName(moving) + (kind == WildKind.None ? ""
+                : "  " + string.Format(LM.Get("scenario_editor_city_in_wild_short"), KindName(kind)).ColorString("#E9A85B"));
+        }
+        else if (city != null)
         {
             WorldMapPolity owner = ScenarioEditing.OwnerOf(city);
-            string area = _layer is Layer.Kingdom or Layer.Empire or Layer.Tianxia && AreaKey(city) is string key ? "  " + AreaName(key) : "";
+            string area = _layer is Layer.Kingdom or Layer.Empire or Layer.Tianxia or Layer.Division && AreaKey(city) is string key ? "  " + AreaName(key) : "";
+            WildKind kind = ScenarioWilderness.KindNear(city.lon, city.lat);
+            string wild = kind == WildKind.None ? "" : "  " + string.Format(LM.Get("scenario_editor_city_in_wild_short"), KindName(kind));
             text = ScenarioEditing.CityName(city) + "  " +
-                   (owner == null ? LM.Get("scenario_editor_independent") : owner.Name).ColorString("#7FD8EA") + area.ColorString("#F3C34A");
+                   (owner == null ? LM.Get("scenario_editor_independent") : owner.Name).ColorString("#7FD8EA") + area.ColorString("#F3C34A") +
+                   wild.ColorString("#E9A85B");
         }
         else if (_hoverPass >= 0 && _hoverPass < ScenarioEditing.Passes.Count) text = ScenarioEditing.Passes[_hoverPass].Name;
         else if (ScenarioEditing.TribesOf(_hoverTribe) is WorldMapTribes tribes)
             text = string.Format(LM.Get("scenario_editor_tribe_tip"), CultureName(tribes.culture), TribeCount(tribes));
+        else if (_hoverOnMap && _brushButton < 0)
+            text = WildTip(ScenarioWilderness.ZoneAt(TexelToLon(_hoverTexel.x), TexelToLat(_hoverTexel.y)));
         if (text == null || _dragButton >= 0)
         {
             if (_tip.gameObject.activeSelf) _tip.gameObject.SetActive(false);
@@ -2533,10 +2998,53 @@ public static class ScenarioEditorScreen
             _tip.anchoredPosition = local + new Vector2(16f, -12f);
     }
 
+    // 悬停无人区(预测)：类型、几块、开发度；挂哪块法理(刷的、史实、最近的城)；归谁(取得法理、周边城池同属)或中立；不是无人区为 null
+    private static string WildTip(int zone)
+    {
+        int region = ScenarioWilderness.RegionOf(zone);
+        if (region < 0) return null;
+        WildKind kind = ScenarioWilderness.KindOf(zone);
+        string head = string.Format(LM.Get("scenario_editor_wild_tip_head"), KindName(kind), ScenarioWilderness.Pieces[region].Zones.Count);
+        float dev = ScenarioWilderness.DevOf(zone);
+        if (dev >= 0f) head += "  " + string.Format(LM.Get("scenario_editor_wild_tip_dev"), dev.ToString("0"));
+        var lines = new List<string> { head.ColorString("#F3C34A") };
+        ScenarioWilderness.Source source = ScenarioWilderness.SourceOf(zone);
+        string title = ScenarioWilderness.TitleOf(zone);
+        if (title != null)
+            lines.Add(string.Format(LM.Get("scenario_editor_wild_tip_title"), ScenarioEditing.Region(title)?.TitleName ?? title,
+                LM.Get("scenario_editor_wild_source_" + source.ToString().ToLowerInvariant())));
+        string owner = ScenarioWilderness.OwnerOf(zone);
+        lines.Add(source == ScenarioWilderness.Source.Neutral ? LM.Get("scenario_editor_wild_tip_neutral")
+            : owner == null ? LM.Get("scenario_editor_wild_tip_unowned")
+            : string.Format(LM.Get("scenario_editor_wild_tip_owner"), OwnerName(owner),
+                LM.Get(source == ScenarioWilderness.Source.Surround ? "scenario_editor_wild_rule_surround" : "scenario_editor_wild_rule_title")));
+        return string.Join("\n", lines);
+    }
+
+    // 无人区归谁："p:国家"、"c:独立的城"、"f" 补空小国
+    private static string OwnerName(string key)
+    {
+        if (key == "f") return LM.Get("scenario_editor_wild_filler");
+        if (key.StartsWith("c:"))
+            return string.Format(LM.Get("scenario_editor_wild_independent"), ScenarioEditing.CityName(ScenarioEditing.City(key.Substring(2))));
+        return ScenarioEditing.Polity(key.Substring(2))?.Name ?? key;
+    }
+
+    private static string KindName(WildKind kind) => LM.Get("wild_kind_" + kind.ToString().ToLowerInvariant());
+
+    // 放城、挪城落在无人区里时跟在提示后面的一句
+    private static string WildHint(float lon, float lat)
+    {
+        WildKind kind = ScenarioWilderness.KindNear(lon, lat);
+        return kind == WildKind.None ? "" : "  " + string.Format(LM.Get("scenario_editor_city_in_wild"), KindName(kind));
+    }
+
     private static void UpdateStatus()
     {
         string text;
         if (_message != null && Time.unscaledTime - _messageAt <= MessageSeconds) text = _message;
+        else if (_tool == Tool.Terrain && _developBrush) text = LM.Get("scenario_editor_hint_develop");
+        else if (_tool == Tool.Land && _neutralBrush) text = LM.Get("scenario_editor_hint_neutral");
         else if (_tool == Tool.Paint && ScenarioEditing.Polity(_realmId) is WorldMapPolity brush)
             text = string.Format(LM.Get("scenario_editor_hint_paint_realm"), brush.Name);
         else text = LM.Get("scenario_editor_hint_" + _tool.ToString().ToLowerInvariant());

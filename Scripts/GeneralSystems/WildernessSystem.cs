@@ -212,6 +212,14 @@ public static class WildernessSystem
         return region;
     }
 
+    // 剧本编辑器刷的永久中立区(开局头一回划区挂法理时设上，见 WorldMap.WorldMapWilderness.BeginPaint)：之后同神力设的一样随存档
+    public static void SetNeutral(WildRegion region, bool neutral)
+    {
+        if (region == null || region.Neutral == neutral) return;
+        region.Neutral = neutral;
+        Version++;
+    }
+
     // 一块地归城就不算无人区(两者互斥)：放行给城的那一刻到下次重划之间也照这个算
     private static int Index(TileZone zone)
     {

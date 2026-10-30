@@ -26,6 +26,11 @@ namespace EmpireCraft.Scripts.GeneralSystems.WorldMap;
 //   · 最后设开发度：划进雨林、大泽无人区的地块按上面算的开发度设(SetDevelopment 当场把相应比例的格子改回草地，
 //     从挨着城的一侧改起；这时地块已不归城，开发中的照记下的类型留在无人区)；开发度为零的整块留着丛林、沼泽；
 //     没划进去的(城心一带、零碎成不了片的、被判成山脉的)改过的格子原样改回。
+//   · 自定剧本(编号 custom/<文件夹>)按来源时代的表(WorldMapData.BaseOf：存为自定剧本时记下的 base，用户 10-30 剧本编辑器)；
+//   · 剧本编辑器刷的开发度(WorldMapEra.develop，0.2° 一格，0~100；用户 10-30 "新的无人区在设置城市和刷地块的时候也要考虑到")：
+//     地块中心落在刷了的格子里就照刷的数，盖过时代表、不再乘离城远近；雨林还是大泽按所在的那一片定，不在哪一片里的按地块里原有的
+//     丛林、沼泽哪样多(一格都没有的不改)；刷满 100 的不改地形，划区后划进雨林大泽的当场开满(退出无人区，城照常扩进去)；
+//     导入地图(不是地球，没有时代表)只认刷的。编辑器里的预测同一套(见 ScenarioWilderness)。
 // 只在剧本开局做一次(进世界安排随剧本排，读档不再做)；改了的格子、开发度随存档。几百块地、几万格，一次做完。
 public sealed class WorldMapDevArea
 {
@@ -61,12 +66,13 @@ public static class WorldMapDevelopment
 
     private static List<WorldMapDevArea> _areas;
 
-    // 改了格子的一块地：在哪一片、要设的开发度、改过的格子在 changed/original 两张表里的起止
+    // 改了格子的一块地：在哪一片(刷的不在哪一片里为 -1)、要设的开发度、是不是刷的、改过的格子在 changed/original 两张表里的起止
     private struct Plot
     {
         public TileZone Zone;
         public int Area;
         public float Dev;
+        public bool Painted;
         public int Start, Count;
     }
 
@@ -123,6 +129,41 @@ public static class WorldMapDevelopment
     private static float ValueIn(WorldMapDevArea area, string era) =>
         area.dev.TryGetValue(era ?? "", out float value) ? value : area.all;
 
+    // 剧本编辑器预测无人区用(见 ScenarioWilderness)：这个经纬度落在哪一片(按 table 这个时代)；value 为那片这个时代的开发度(不动为负)
+    public static bool AreaAt(string table, float lon, float lat, out float value, out bool swamp)
+    {
+        value = -1f;
+        swamp = false;
+        if (!EnsureAreas()) return false;
+        int index = AreaAt(lon, lat);
+        if (index < 0) return false;
+        value = ValueIn(_areas[index], table);
+        swamp = _areas[index].Swamp;
+        return true;
+    }
+
+    // 离城越近开发度越高：腹地的数 × (1 + e^(−距离/Reach))，到 100 为止(距离按度)
+    public static float NearCity(float value, float distance) =>
+        value <= 0f ? 0f : Mathf.Min(WildernessDevelopmentSystem.Full, value * (1f + Mathf.Exp(-distance / Reach)));
+
+    // 刷的开发度的键("0"~"100")
+    public static bool ParseValue(string key, out float value)
+    {
+        value = 0f;
+        if (!int.TryParse(key ?? "", out int number)) return false;
+        value = Mathf.Clamp(number, 0, (int)WildernessDevelopmentSystem.Full);
+        return true;
+    }
+
+    // 剧本刷的开发度：格子 → 开发度
+    private static Dictionary<int, float> Painted(WorldMapEra era)
+    {
+        var painted = new Dictionary<int, float>();
+        foreach (KeyValuePair<int, string> pair in ScenarioCells.ToMap(era?.develop))
+            if (ParseValue(pair.Value, out float value)) painted[pair.Key] = value;
+        return painted;
+    }
+
     // 这个经纬度落在哪一片(先写的优先)；都不在为 -1
     private static int AreaAt(float lon, float lat)
     {
@@ -157,16 +198,23 @@ public static class WorldMapDevelopment
     // 进世界安排的最后一步(WorldMapScenario.QueueAfterLoad 的"雨林大泽开发度")
     public static void Apply(WorldMapEra era, WorldMapFrame frame, Vector2Int size)
     {
-        if (era == null || frame == null || size.x <= 0 || size.y <= 0 || !WorldMapWilderness.OnEarth) return;
+        if (era == null || frame == null || size.x <= 0 || size.y <= 0) return;
+        // 剧本编辑器刷的开发度；导入地图(不是地球)只认刷的
+        Dictionary<int, float> painted = Painted(era);
+        bool earth = WorldMapWilderness.OnEarth;
+        if (!earth && painted.Count == 0) return;
         // 无人区关着：没有雨林大泽可开发，地形也不改
         if (!WildernessSystem.Enabled) return;
         List<TileZone> zones = World.world?.zone_calculator?.zones;
-        if (zones == null || !EnsureAreas()) return;
-        var values = new float[_areas.Count];
-        bool any = false;
-        for (int i = 0; i < _areas.Count; i++)
+        if (zones == null) return;
+        bool areas = earth && EnsureAreas();
+        // 自定剧本按来源时代的表
+        string table = WorldMapData.BaseOf(era) ?? era.id;
+        var values = new float[areas ? _areas.Count : 0];
+        bool any = painted.Count > 0;
+        for (int i = 0; i < values.Length; i++)
         {
-            values[i] = ValueIn(_areas[i], era.id);
+            values[i] = ValueIn(_areas[i], table);
             any |= values[i] >= 0f && values[i] < WildernessDevelopmentSystem.Full;
         }
         if (!any) return;
@@ -191,14 +239,32 @@ public static class WorldMapDevelopment
             WorldTile center = zone?.centerTile;
             if (center == null || zone.tiles == null || zone.id < 0 || kept.Contains(zone.id)) continue;
             float lon = frame.west + (center.x + 0.5f) * degrees, lat = bottom + (center.y + 0.5f) * degrees;
-            int index = AreaAt(lon, lat);
-            if (index < 0) continue;
-            float value = values[index];
-            if (value < 0f || value >= WildernessDevelopmentSystem.Full || !Convertible(zone)) continue;
-            float dev = value <= 0f ? 0f
-                : Mathf.Min(WildernessDevelopmentSystem.Full, value * (1f + Mathf.Exp(-SeatDistance(center, lat, degrees, seats) / Reach)));
-            if (dev >= WildernessDevelopmentSystem.Full) continue;
-            bool swamp = _areas[index].Swamp;
+            int index = areas ? AreaAt(lon, lat) : -1;
+            float dev;
+            bool swamp;
+            if (painted.Count > 0 && painted.TryGetValue(ScenarioCells.Key(lon, lat, ScenarioCells.LandStep), out float mark))
+            {
+                // 刷的：照刷的数；不在哪一片里的按原有的丛林、沼泽哪样多定类型，一格都没有的不改
+                dev = mark;
+                if (index >= 0) swamp = _areas[index].Swamp;
+                else if (!WetKindOf(zone, out swamp)) continue;
+                // 刷满的不改地形，划区后划进雨林大泽的当场开满
+                if (dev >= WildernessDevelopmentSystem.Full)
+                {
+                    plots.Add(new Plot { Zone = zone, Area = index, Dev = dev, Painted = true, Start = changed.Count, Count = 0 });
+                    continue;
+                }
+                if (!Convertible(zone)) continue;
+            }
+            else
+            {
+                if (index < 0) continue;
+                float value = values[index];
+                if (value < 0f || value >= WildernessDevelopmentSystem.Full || !Convertible(zone)) continue;
+                dev = value <= 0f ? 0f : NearCity(value, SeatDistance(center, lat, degrees, seats));
+                if (dev >= WildernessDevelopmentSystem.Full) continue;
+                swamp = _areas[index].Swamp;
+            }
             TopTileType low = swamp ? swampLow : jungleLow, high = swamp ? swampHigh : jungleHigh;
             int start = changed.Count;
             foreach (WorldTile tile in zone.tiles)
@@ -209,7 +275,8 @@ public static class WorldMapDevelopment
                 // 同 WildernessDevelopmentSystem.Clear 改回草地：不闪白点，地面格不动(高地仍是高地)
                 MapAction.terraformTop(tile, upland ? high : low, TerraformLibrary.nothing);
             }
-            plots.Add(new Plot { Zone = zone, Area = index, Dev = dev, Start = start, Count = changed.Count - start });
+            plots.Add(new Plot { Zone = zone, Area = index, Dev = dev, Painted = painted.Count > 0 && painted.ContainsKey(
+                ScenarioCells.Key(lon, lat, ScenarioCells.LandStep)), Start = start, Count = changed.Count - start });
         }
         if (plots.Count == 0) return;
 
@@ -217,17 +284,21 @@ public static class WorldMapDevelopment
         WildernessSystem.BuildNow();
 
         // 三、划进雨林大泽的设开发度，没划进去的改回
-        var wildCount = new int[_areas.Count];
-        var devSum = new float[_areas.Count];
-        int wild = 0, restored = 0;
+        var wildCount = new int[values.Length];
+        var devSum = new float[values.Length];
+        int wild = 0, restored = 0, paintedWild = 0;
         foreach (Plot plot in plots)
         {
             WildKind kind = WildernessSystem.RegionOf(plot.Zone)?.Kind ?? WildKind.None;
             if (WildernessDevelopmentSystem.Develops(kind))
             {
                 wild++;
-                wildCount[plot.Area]++;
-                devSum[plot.Area] += plot.Dev;
+                if (plot.Painted) paintedWild++;
+                else if (plot.Area >= 0)
+                {
+                    wildCount[plot.Area]++;
+                    devSum[plot.Area] += plot.Dev;
+                }
                 if (plot.Dev > 0f) WildernessDevelopmentSystem.SetDevelopment(plot.Zone, plot.Dev);
                 continue;
             }
@@ -239,9 +310,10 @@ public static class WorldMapDevelopment
             if (plot.Count > 0) restored++;
         }
         var summary = new List<string>();
-        for (int i = 0; i < _areas.Count; i++)
+        for (int i = 0; i < values.Length; i++)
             if (wildCount[i] > 0) summary.Add($"{_areas[i].zh} {wildCount[i]} 块均 {devSum[i] / wildCount[i]:0}");
-        LogService.LogInfo($"[EmpireCraft][世界地图] {era.id} 雨林大泽开发度：{plots.Count} 块地改了 {changed.Count} 格，" +
+        if (paintedWild > 0) summary.Add($"剧本刷的 {paintedWild} 块");
+        LogService.LogInfo($"[EmpireCraft][世界地图] {era.id}(按 {table} 的表) 雨林大泽开发度：{plots.Count} 块地改了 {changed.Count} 格，" +
                            $"{wild} 块划进无人区({string.Join("、", summary)})，{restored} 块没成片改回，用时 {watch.Elapsed.TotalMilliseconds:0} ms");
     }
 
@@ -322,6 +394,20 @@ public static class WorldMapDevelopment
     }
 
     private static bool IsWet(TopTileType top) => top != null && top.biome_id is "biome_jungle" or "biome_swamp";
+
+    // 地块里原有的丛林、沼泽格哪样多(swamp 为沼泽多)；一格都没有返回 false
+    private static bool WetKindOf(TileZone zone, out bool swamp)
+    {
+        int jungle = 0, marsh = 0;
+        foreach (WorldTile tile in zone.tiles)
+        {
+            string biome = tile?.top_type?.biome_id;
+            if (biome == "biome_jungle") jungle++;
+            else if (biome == "biome_swamp") marsh++;
+        }
+        swamp = marsh > jungle;
+        return jungle + marsh > 0;
+    }
 
     #endregion
 }

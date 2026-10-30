@@ -291,13 +291,21 @@ public sealed class WorldMapEra
     public Dictionary<string, string> tianxia;
     // 导入地图(剧本文件夹里的 map.png，见 WorldMapImporter)；不写用地球地图
     public WorldMapImport map;
-    // 剧本编辑器的笔刷(见 ScenarioCells)：刷的地块归属(0.2° 一格，key 为 "p:国家编号" 或 "r:地区编号"，开局先归那国或那块法理最近的城)
+    // 剧本编辑器的笔刷(见 ScenarioCells)：刷的地块归属(0.2° 一格，key 为 "p:国家编号" 或 "r:地区编号"，开局先归那国或那块法理最近的城；
+    // 刷在无人区上的定这片地挂哪个法理——p: 那国都城的王国法理、r: 那块王国法理，见 WorldMapWilderness.BeginPaint；
+    // key 为 "n" 的是永久中立区，盖到的那一片无人区开局即永久中立)
     // 与地形(0.1° 一格，key 为地块写法，开局铺地表时盖过网格)；原始部落圈(见 WorldMapScenario.PlanTribes)
     public List<WorldMapPaint> paint;
     public List<WorldMapPaint> terrain;
+    // 刷的雨林大泽开发度(0.2° 一格，key 为 "0"~"100")：盖过时代开发度表，开局把格子里的草木平地改成丛林沼泽再设开发度，
+    // 刷满 100 的开满(见 WorldMapDevelopment.Apply)
+    public List<WorldMapPaint> develop;
     public List<WorldMapTribes> tribes;
     // 地图范围(EarthTerrain.Frames 的编号)：选这个剧本时默认选这档，编辑器里画出框；不写不改
     public string frame;
+    // 从哪个预设时代复制来的(预设的编号，如 "warring_states"；存为自定剧本、导入当前世界时写)：按时代的数据(雨林大泽开发度……)
+    // 照它取，见 WorldMapData.BaseOf；空白剧本、导入地图不写
+    public string @base;
     // 读进来时定：剧本文件夹(内置时代为空)、对不上的地方(开局时跳过)
     [JsonIgnore] public string folder = "";
     [JsonIgnore] public List<string> problems = new();
@@ -613,6 +621,7 @@ public static class WorldMapData
             foreach (string key in new[] { "zh", "tw", "en" })
                 if (data[key] != null) data[key] = (string)data[key] + suffix;
             data["author"] = "";
+            data["base"] = preset.id;
             if (!string.IsNullOrEmpty(frame)) data["frame"] = frame;
             File.WriteAllText(Path.Combine(dir, CustomFile), data.ToString(Formatting.Indented));
             return name;
@@ -622,6 +631,21 @@ public static class WorldMapData
             LogService.LogWarning($"[EmpireCraft][世界地图] 存为自定剧本失败: {exception.Message}");
             return null;
         }
+    }
+
+    // 剧本按哪个预设时代取按时代的数据(雨林大泽开发度表 WorldMaps/development.json 的 dev 按时代编号写)：预设就是它自己；
+    // 自定剧本(编号 custom/<文件夹>)取 base；没写 base 的旧剧本按文件夹名(存为自定剧本时取的预设编号，重名加的 _2、_3 去掉)，
+    // 对得上预设才算；空白剧本、导入地图为 null
+    public static string BaseOf(WorldMapEra era)
+    {
+        if (era == null) return null;
+        if (!era.Custom && !(era.id ?? "").StartsWith("custom/", StringComparison.Ordinal)) return era.id;
+        if (!string.IsNullOrEmpty(era.@base)) return era.@base;
+        if (era.map != null) return null;
+        string name = Path.GetFileName((era.folder ?? "").TrimEnd('/', '\\'));
+        int cut = name.LastIndexOf('_');
+        if (cut > 0 && int.TryParse(name.Substring(cut + 1), out _)) name = name.Substring(0, cut);
+        return Eras.Any(item => item.id == name) ? name : null;
     }
 
     #endregion

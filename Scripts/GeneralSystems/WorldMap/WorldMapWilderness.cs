@@ -28,7 +28,12 @@ namespace EmpireCraft.Scripts.GeneralSystems.WorldMap;
 //     挂到那个政权都城所在的王国法理上，盖过"挂最近法理"(WildernessSystem.Attach 里问 TitleFor)；一块地落在几个写了归属的单元里，
 //     取范围最小的那个；没写的单元照旧挂最近的法理。单元 → 法理编号开局头一回划区时定下、随存档保存，往后城、法理变了全部重挂时
 //     照样先按它挂(那个法理没了才挂最近的)；
-//   · 存档(SaveData.world_map_wild)：地图范围、大小、时代、开局年份与上面的单元 → 法理；不是世界地图为 null。
+//   · 剧本编辑器刷的归属(用户 10-30 "新的无人区在设置城市和刷地块的时候也要考虑到"；剧本的 paint，见 ScenarioWilderness)：
+//     开局摆好时(BeginPaint，导入地图也算)记下各地块中心落在哪种刷的格子里——"p:国家" 挂那国都城的王国法理、"r:地区" 挂那块
+//     王国法理，盖过史实归属与"挂最近法理"(TitleFor 先问它)；头一回挂法理时换成法理编号、随存档，往后全部重挂时照样先按它；
+//     "n" 永久中立：头一回划区挂法理时，盖到的那几片设为永久中立区(WildernessSystem.SetNeutral，之后随无人区的存档)；
+//   · 存档(SaveData.world_map_wild)：地图范围、大小、时代、开局年份与上面的单元 → 法理、刷的地块 → 法理；
+//     不是世界地图的为 null(导入地图刷了归属的只存刷的那两项，范围为空，读档不当地球)。
 public sealed class WorldMapWildUnit
 {
     public string id = "";
@@ -61,6 +66,9 @@ public class WorldMapWildSave
     public int year;
     // 地理单元 → 史实归属的王国法理编号(开局头一回划区时按时代文件定下)
     public Dictionary<string, long> owners = new();
+    // 剧本编辑器刷的归属：王国法理编号 → 地块编号；刷了永久中立、还没设上的地块(头一回划区后设上即清空)
+    public Dictionary<long, List<int>> paint;
+    public List<int> neutral;
 }
 
 public static class WorldMapWilderness
@@ -107,14 +115,31 @@ public static class WorldMapWilderness
         ResetWorldState();
         if (saved == null) return;
         saved.owners ??= new Dictionary<string, long>();
+        if (saved.paint is { Count: > 0 })
+        {
+            _painted = new Dictionary<int, long>();
+            foreach (KeyValuePair<long, List<int>> pair in saved.paint)
+                foreach (int zone in pair.Value ?? new List<int>())
+                    _painted[zone] = pair.Key;
+        }
+        if (saved.neutral is { Count: > 0 }) _neutral = new HashSet<int>(saved.neutral);
         _state = saved;
         Bind();
     }
 
     public static WorldMapWildSave Save()
     {
-        if (!Active) return null;
+        ResolvePaint();
+        Dictionary<long, List<int>> paint = _painted is { Count: > 0 }
+            ? _painted.GroupBy(pair => pair.Value).ToDictionary(group => group.Key, group => group.Select(pair => pair.Key).OrderBy(id => id).ToList())
+            : null;
+        List<int> neutral = _neutral is { Count: > 0 } ? _neutral.OrderBy(id => id).ToList() : null;
+        if (!Active)
+            // 导入地图：只存刷的归属(范围为空，读档不当地球)
+            return paint == null && neutral == null ? null : new WorldMapWildSave { paint = paint, neutral = neutral };
         ResolveOwners();
+        _state.paint = paint;
+        _state.neutral = neutral;
         return _state;
     }
 
@@ -124,6 +149,11 @@ public static class WorldMapWilderness
         _frame = null;
         _capitals = null;
         _plan = null;
+        _paintKeys = null;
+        _paintCapitals = null;
+        _paintTitles = null;
+        _painted = null;
+        _neutral = null;
     }
 
     private static void Bind()
@@ -468,7 +498,119 @@ public static class WorldMapWilderness
 
     #endregion
 
+    #region 剧本刷的归属
+
+    // 开局还没换成法理的：地块编号 → 刷的键("p:国家"、"r:地区"、"n")，国家 → 都城，地区 → 王国法理
+    private static Dictionary<int, string> _paintKeys;
+    private static Dictionary<string, City> _paintCapitals;
+    private static Dictionary<string, KingdomTitle> _paintTitles;
+    // 换好的：地块编号 → 王国法理编号；刷了永久中立、还没设上的地块
+    private static Dictionary<int, long> _painted;
+    private static HashSet<int> _neutral;
+
+    // 剧本摆好时(WorldMapScenario.Finish，导入地图也调)：各地块中心落在哪种刷的格子里(同 PaintTerritory 按 0.2° 一格找)；
+    // capitals 为剧本国家 → 都城，titles 为地区 → 王国法理
+    public static void BeginPaint(WorldMapEra era, WorldMapFrame frame, Vector2Int size, Dictionary<string, City> capitals,
+        Dictionary<string, KingdomTitle> titles)
+    {
+        _paintKeys = null;
+        _paintCapitals = null;
+        _paintTitles = null;
+        _painted = null;
+        _neutral = null;
+        Dictionary<int, string> cells = ScenarioCells.ToMap(era?.paint);
+        List<TileZone> zones = World.world?.zone_calculator?.zones;
+        if (cells.Count == 0 || frame == null || zones == null || size.x <= 0 || size.y <= 0) return;
+        frame.Bounds(size, out float bottom, out float degrees);
+        var keys = new Dictionary<int, string>();
+        foreach (TileZone zone in zones)
+        {
+            WorldTile tile = zone?.centerTile;
+            if (tile == null || zone.id < 0) continue;
+            float lon = frame.west + (tile.x + 0.5f) * degrees, lat = bottom + (tile.y + 0.5f) * degrees;
+            if (!cells.TryGetValue(ScenarioCells.Key(lon, lat, ScenarioCells.LandStep), out string key)) continue;
+            if (key == "n" || key.Length > 2 && key[1] == ':' && key[0] is 'p' or 'r') keys[zone.id] = key;
+        }
+        if (keys.Count == 0) return;
+        _paintKeys = keys;
+        _paintCapitals = capitals ?? new Dictionary<string, City>();
+        _paintTitles = titles ?? new Dictionary<string, KingdomTitle>();
+        LogService.LogInfo($"[EmpireCraft][世界地图] 剧本刷的无人区归属：{keys.Count} 块地");
+    }
+
+    // 刷的键换成法理编号(头一回挂法理、存档时)：p: 取那国都城此刻的王国法理(同史实归属，见 ResolveOwners)，r: 取那块法理
+    private static void ResolvePaint()
+    {
+        if (_paintKeys == null) return;
+        _painted = new Dictionary<int, long>();
+        _neutral = new HashSet<int>();
+        foreach (KeyValuePair<int, string> pair in _paintKeys)
+        {
+            if (pair.Value == "n")
+            {
+                _neutral.Add(pair.Key);
+                continue;
+            }
+            string id = pair.Value.Substring(2);
+            KingdomTitle title = pair.Value[0] == 'p'
+                ? _paintCapitals.TryGetValue(id, out City city) && city?.data != null && !city.isRekt() ? city.GetTitle() : null
+                : _paintTitles.TryGetValue(id, out KingdomTitle found) ? found : null;
+            if (title != null && !title.isRekt()) _painted[pair.Key] = title.id;
+        }
+        _paintKeys = null;
+        _paintCapitals = null;
+        _paintTitles = null;
+        if (_neutral.Count == 0) _neutral = null;
+        if (_painted.Count == 0) _painted = null;
+    }
+
+    // 这块无人区按剧本刷的挂哪个法理(没刷、法理没了为 null)
+    private static KingdomTitle PaintedTitle(TileZone zone)
+    {
+        ResolvePaint();
+        if (_painted == null || !_painted.TryGetValue(zone.id, out long id)) return null;
+        KingdomTitle title = ModClass.KINGDOM_TITLE_MANAGER?.get(id);
+        return title == null || title.isRekt() ? null : title;
+    }
+
+    // 刷了永久中立的：盖到的那几片设为永久中立区(头一回划区挂法理时，这时各片已划好)，设过就清掉
+    private static void ApplyNeutral()
+    {
+        if (_neutral == null) return;
+        HashSet<int> zones = _neutral;
+        _neutral = null;
+        int count = 0;
+        foreach (WildRegion region in WildernessSystem.Regions)
+        {
+            if (region == null || region.Neutral || !region.Zones.Any(zones.Contains)) continue;
+            WildernessSystem.SetNeutral(region, true);
+            count++;
+        }
+        if (count > 0) LogService.LogInfo($"[EmpireCraft][世界地图] 剧本刷的永久中立区：{count} 片");
+    }
+
+    #endregion
+
     #region 史实归属
+
+    // 剧本编辑器预测无人区用(见 ScenarioWilderness)：这个经纬度上这一类无人区，按时代文件的史实归属(单元 → 政权)归哪个政权；
+    // 落在几个写了归属的单元里取范围最小的(同 TitleFor)；没写为 null
+    public static string HistoricalOwner(Dictionary<string, string> owners, WildKind kind, float lon, float lat)
+    {
+        if (owners == null || owners.Count == 0 || !EnsureUnits()) return null;
+        string key = KindKey(kind);
+        if (key == null) return null;
+        WorldMapWildUnit best = null;
+        string chosen = null;
+        foreach (KeyValuePair<string, string> pair in owners)
+        {
+            if (string.IsNullOrEmpty(pair.Value) || !_unitById.TryGetValue(pair.Key ?? "", out WorldMapWildUnit unit) || !unit.kinds.Contains(key) ||
+                !Covers(unit, lon, lat) || best != null && unit.Area >= best.Area) continue;
+            best = unit;
+            chosen = pair.Value;
+        }
+        return chosen;
+    }
 
     // 开局头一回挂法理时：各单元的政权都城 → 都城所在的王国法理
     private static void ResolveOwners()
@@ -485,10 +627,15 @@ public static class WorldMapWilderness
         if (_state.owners.Count > 0) LogService.LogInfo($"[EmpireCraft][世界地图] 无人区史实归属：{_state.owners.Count} 个地理单元按 {_state.era} 挂法理");
     }
 
-    // 这块无人区按史实挂哪个法理(WildernessSystem.Attach 里问；没写归属、法理没了的为 null，照旧挂最近的)
+    // 这块无人区挂哪个法理(WildernessSystem.Attach 里问)：剧本刷的先(导入地图也认)，再是史实归属；都没有、法理没了的为 null，
+    // 照旧挂最近的。头一回问时顺手把刷的永久中立设上
     public static KingdomTitle TitleFor(TileZone zone)
     {
-        if (!Active || zone == null) return null;
+        if (zone == null) return null;
+        KingdomTitle painted = PaintedTitle(zone);
+        if (_neutral != null) ApplyNeutral();
+        if (painted != null) return painted;
+        if (!Active) return null;
         ResolveOwners();
         if (_state.owners.Count == 0 || !EnsureUnits()) return null;
         string kind = KindKey(WildernessSystem.KindOf(zone));

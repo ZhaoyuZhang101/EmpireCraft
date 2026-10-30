@@ -197,6 +197,18 @@ public static class EarthTerrain
         return true;
     }
 
+    // 与 Preview 同样取样的地块编号(下标即 Types；剧本编辑器预测无人区按它判格子，见 ScenarioWilderness)
+    public static byte[] PreviewCodes(int stride)
+    {
+        if (!EnsureLoaded() || stride < 1) return null;
+        int width = _cols / stride, height = _rows / stride;
+        var codes = new byte[width * height];
+        for (int y = 0; y < height; y++)
+        for (int x = 0; x < width; x++)
+            codes[y * width + x] = _grid[y * stride * _cols + x * stride];
+        return codes;
+    }
+
     // 地形大类(剧本编辑器铺图层颜色按它算代价)：0 水，1 平原，2 高原，3 丘陵，4 山地，5 雪山，6 荒漠冻土，7 雪丘
     public static byte ClassOf(string type)
     {
@@ -334,9 +346,16 @@ public static class EarthTerrain
 
     public static void DrawRivers(WorldMapFrame frame, Vector2Int size)
     {
-        if (!EnsureRivers()) return;
-        frame.Bounds(size, out float bottom, out float degrees);
         int width = MapBox.width, height = MapBox.height;
+        RiverTiles(frame, size, (x, y) => Wet(x, y, width, height));
+    }
+
+    // 大河水道落在哪些格上(DrawRivers 的走法，渡口已留开)：visit 收格坐标，出界、本来就是水面的由调用处判
+    // (剧本编辑器预测无人区也照这个画水道，见 ScenarioWilderness)
+    public static void RiverTiles(WorldMapFrame frame, Vector2Int size, Action<int, int> visit)
+    {
+        if (visit == null || !EnsureRivers()) return;
+        frame.Bounds(size, out float bottom, out float degrees);
         foreach ((int rank, Vector2[] points) in _rivers)
         {
             int thickness = rank <= 3 ? 2 : 1;
@@ -349,7 +368,7 @@ public static class EarthTerrain
                 while (true)
                 {
                     if (walked++ % FordEvery >= FordWidth)
-                        for (int t = 0; t < thickness; t++) Wet(x0 + (dy == 0 ? 0 : t), y0 + (dy == 0 ? t : 0), width, height);
+                        for (int t = 0; t < thickness; t++) visit(x0 + (dy == 0 ? 0 : t), y0 + (dy == 0 ? t : 0));
                     if (x0 == x1 && y0 == y1) break;
                     int e2 = 2 * err;
                     if (e2 >= dy) { err += dy; x0 += sx; }

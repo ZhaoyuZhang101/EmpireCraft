@@ -20,7 +20,11 @@ namespace EmpireCraft.Scripts.GeneralSystems.WorldMap;
 //   · 归属预览照开局的规矩(WorldMapScenario.Plan)：先看各国点名的城与都城(写在前面的国家优先)，再看各国认领的地区
 //     (同一地区几国都认领的归最近的都城，这里按直线近似)，谁都不认领的独立；
 //   · 撤销：每一步改动前存一份快照(至多 UndoLimit 份)；拖着划城、划法理是一笔，只存一份；
-//   · 改名一律三种写法一起改(简体、繁体、英文同名)，城的旧称随之清掉。
+//   · 改名一律三种写法一起改(简体、繁体、英文同名)，城的旧称随之清掉；
+//   · 行政区(用户 10-30 "都做"：编辑器里加行政区工具)：国家的 divisions(名、城、治所)，开局称帝的国家进世界后按它划省
+//     (见 WorldMapScenario.Divide、AnchorTerritory)；都城留在京畿直辖，划不进行政区；一座城只在一个行政区里，
+//     城换了国家、立为都城、删掉时从行政区里去掉；
+//   · 刷的开发度(develop，0.2° 一格，"0"~"100")同刷的地块、地形一样放字典里改，见 WorldMapDevelopment、ScenarioWilderness。
 public static class ScenarioEditing
 {
     public static WorldMapEra Era { get; private set; }
@@ -134,6 +138,7 @@ public static class ScenarioEditing
         _ownersRevision = -1;
         _landCells = new Dictionary<int, string>();
         _terrainCells = new Dictionary<int, string>();
+        _developCells = new Dictionary<int, string>();
         _cellsDirty = false;
     }
 
@@ -342,6 +347,7 @@ public static class ScenarioEditing
         {
             polity.cities?.Remove(id);
             if (polity.capital == id) polity.capital = "";
+            LeaveDivisions(polity, id);
         }
         foreach (WorldMapRegion region in Era.regions)
             if (region.capital == id) region.capital = "";
@@ -428,7 +434,12 @@ public static class ScenarioEditing
         if (CapitalHolder(cityId, polity) is WorldMapPolity holder)
             return string.Format(LM.Get("scenario_editor_capital_locked"), CityName(city), holder.Name);
         Before();
-        foreach (WorldMapPolity other in Era.polities) other.cities?.Remove(cityId);
+        foreach (WorldMapPolity other in Era.polities)
+        {
+            other.cities?.Remove(cityId);
+            // 换了国家：原来那国的行政区里去掉
+            if (other != polity) LeaveDivisions(other, cityId);
+        }
         polity.cities ??= new List<string>();
         polity.cities.Add(cityId);
         Changed();
@@ -503,6 +514,8 @@ public static class ScenarioEditing
         if (!string.IsNullOrEmpty(polity.capital) && polity.capital != cityId && !polity.cities.Contains(polity.capital))
             polity.cities.Add(polity.capital);
         polity.capital = cityId;
+        // 都城留在京畿直辖
+        foreach (WorldMapPolity other in Era.polities) LeaveDivisions(other, cityId);
         Changed();
         return string.Format(LM.Get("scenario_editor_capital_set"), polity.Name, CityName(city));
     }
@@ -545,6 +558,157 @@ public static class ScenarioEditing
         polity.ruler.fam = fam;
         polity.ruler.giv = giv;
         polity.ruler.age = years;
+        Changed();
+    }
+
+    #endregion
+
+    #region 行政区
+
+    // 行政区(开局称帝的国家进世界后按它划省，见 WorldMapScenario.Divide；不称帝的写了也不生效)：名为"简体|英文|繁体"，
+    // 城为本国的城(都城不算，留在京畿直辖)，治所为当年州府治所的经纬度(开局按它们划各省的地界，不建城，见 AnchorTerritory)；
+    // index 为 -1 指京畿(都城直辖那一块，治所记在国家的 seats 上)
+    public static List<WorldMapDivision> Divisions(WorldMapPolity polity) => polity == null ? new List<WorldMapDivision>()
+        : polity.divisions ??= new List<WorldMapDivision>();
+
+    public static WorldMapDivision Division(WorldMapPolity polity, int index) =>
+        polity?.divisions != null && index >= 0 && index < polity.divisions.Count ? polity.divisions[index] : null;
+
+    // 城在这国的第几个行政区(都城、不在任何行政区为 -1)
+    public static int DivisionOf(WorldMapPolity polity, string cityId)
+    {
+        if (polity?.divisions == null || string.IsNullOrEmpty(cityId) || polity.capital == cityId) return -1;
+        for (int d = 0; d < polity.divisions.Count; d++)
+            if (polity.divisions[d]?.cities?.Contains(cityId) == true) return d;
+        return -1;
+    }
+
+    // 某国某行政区(或京畿)的治所
+    public static List<float[]> SeatsOf(WorldMapPolity polity, int index) => index < 0 ? polity?.seats : Division(polity, index)?.seats;
+
+    public static string DivisionName(WorldMapPolity polity, int index) =>
+        index < 0 ? string.Format(LM.Get("scenario_editor_division_capital_area"), polity?.Name ?? "")
+        : Division(polity, index) is WorldMapDivision division && !string.IsNullOrEmpty(division.Name) ? division.Name : "?";
+
+    // 新立一个行政区(名"新行政区 N")；返回它的下标
+    public static int NewDivision(WorldMapPolity polity)
+    {
+        if (polity == null || Era == null) return -1;
+        Before();
+        List<WorldMapDivision> divisions = Divisions(polity);
+        string name = string.Format(LM.Get("scenario_editor_new_division"), divisions.Count + 1);
+        divisions.Add(new WorldMapDivision { name = Parts(name), cities = new List<string>() });
+        Changed();
+        return divisions.Count - 1;
+    }
+
+    public static void RenameDivision(WorldMapPolity polity, int index, string name)
+    {
+        WorldMapDivision division = Division(polity, index);
+        string text = (name ?? "").Replace("|", "").Trim();
+        if (division == null || text.Length == 0 || division.Name == text) return;
+        Before();
+        division.name = Parts(text);
+        Changed();
+    }
+
+    // 三种写法同名("简体|英文|繁体"，同 WorldMapData.PickParts)
+    private static string Parts(string name) => name + "|" + name + "|" + name;
+
+    public static void DeleteDivision(WorldMapPolity polity, int index)
+    {
+        if (Division(polity, index) == null) return;
+        Before();
+        polity.divisions.RemoveAt(index);
+        Changed();
+    }
+
+    // 把城划进这国的某行政区(index 为 -1 是放回京畿)；返回提示，划不了时说原因
+    public static string AssignDivision(WorldMapPolity polity, int index, string cityId)
+    {
+        WorldMapCity city = City(cityId);
+        if (polity == null || city == null || Era == null) return null;
+        if (OwnerOf(city) != polity) return string.Format(LM.Get("scenario_editor_division_not_own"), CityName(city), polity.Name);
+        if (polity.capital == cityId) return string.Format(LM.Get("scenario_editor_division_capital"), CityName(city));
+        if (index >= 0 && Division(polity, index) == null) return null;
+        if (DivisionOf(polity, cityId) == index) return null;
+        Before();
+        foreach (WorldMapPolity other in Era.polities) LeaveDivisions(other, cityId);
+        if (index >= 0)
+        {
+            WorldMapDivision division = polity.divisions[index];
+            division.cities ??= new List<string>();
+            division.cities.Add(cityId);
+        }
+        Changed();
+        return string.Format(LM.Get("scenario_editor_division_assigned"), CityName(city), DivisionName(polity, index));
+    }
+
+    // 城从它所在的行政区出来(回京畿)
+    public static string RemoveFromDivision(string cityId)
+    {
+        WorldMapCity city = City(cityId);
+        if (city == null || Era == null) return null;
+        if (!Era.polities.Any(polity => polity.divisions?.Any(division => division?.cities?.Contains(cityId) == true) == true))
+            return LM.Get("scenario_editor_division_not_in");
+        Before();
+        foreach (WorldMapPolity polity in Era.polities) LeaveDivisions(polity, cityId);
+        Changed();
+        return string.Format(LM.Get("scenario_editor_division_removed"), CityName(city));
+    }
+
+    // 从这国各行政区里去掉这座城(调用处已存过快照)
+    private static void LeaveDivisions(WorldMapPolity polity, string cityId)
+    {
+        if (polity?.divisions == null) return;
+        foreach (WorldMapDivision division in polity.divisions) division?.cities?.Remove(cityId);
+    }
+
+    // 治所：加一点(经纬度取两位小数)
+    public static void AddSeat(WorldMapPolity polity, int index, float lon, float lat)
+    {
+        if (polity == null || index >= 0 && Division(polity, index) == null) return;
+        Before();
+        var point = new[] { Mathf.Round(lon * 100f) / 100f, Mathf.Round(lat * 100f) / 100f };
+        if (index < 0) (polity.seats ??= new List<float[]>()).Add(point);
+        else (polity.divisions[index].seats ??= new List<float[]>()).Add(point);
+        Changed();
+    }
+
+    // 去掉离经纬度最近(reach 度以内)的那个治所；去掉了返回 true
+    public static bool RemoveSeat(WorldMapPolity polity, int index, float lon, float lat, float reach)
+    {
+        List<float[]> seats = SeatsOf(polity, index);
+        if (seats == null) return false;
+        int found = -1;
+        float best = reach * reach;
+        for (int i = 0; i < seats.Count; i++)
+        {
+            if (seats[i] == null || seats[i].Length < 2) continue;
+            float dx = seats[i][0] - lon, dy = seats[i][1] - lat, distance = dx * dx + dy * dy;
+            if (distance > best) continue;
+            best = distance;
+            found = i;
+        }
+        if (found < 0) return false;
+        Before();
+        seats = SeatsOf(polity, index);
+        seats.RemoveAt(found);
+        if (seats.Count == 0)
+        {
+            if (index < 0) polity.seats = null;
+            else polity.divisions[index].seats = null;
+        }
+        Changed();
+        return true;
+    }
+
+    public static void ClearSeats(WorldMapPolity polity, int index)
+    {
+        if (!(SeatsOf(polity, index)?.Count > 0)) return;
+        Before();
+        if (index < 0) polity.seats = null;
+        else polity.divisions[index].seats = null;
         Changed();
     }
 
@@ -1005,8 +1169,8 @@ public static class ScenarioEditing
         Era.ranks.Clear();
         Era.culture.Clear();
         Era.cores = new List<WorldMapCore>();
-        // 刷的地块、地形与部落圈按经纬度记，换了地图对不上
-        Era.paint = Era.terrain = null;
+        // 刷的地块、地形、开发度与部落圈按经纬度记，换了地图对不上
+        Era.paint = Era.terrain = Era.develop = null;
         Era.tribes = null;
         LoadCells();
         if (on)
@@ -1051,20 +1215,24 @@ public static class ScenarioEditing
     #region 笔刷与部落圈
 
     // 刷的格子编辑时放字典里改(一笔几百格)，存盘、存撤销快照前才写回剧本的列表(见 FlushCells)
-    private static Dictionary<int, string> _landCells = new(), _terrainCells = new();
+    private static Dictionary<int, string> _landCells = new(), _terrainCells = new(), _developCells = new();
     private static bool _cellsDirty;
 
     public static IReadOnlyDictionary<int, string> LandCells => _landCells;
     public static IReadOnlyDictionary<int, string> TerrainCells => _terrainCells;
-    // 刷的地形变一次加一(编辑器据此重铺地形预览)
+    public static IReadOnlyDictionary<int, string> DevelopCells => _developCells;
+    // 刷的地形变一次加一(编辑器据此重铺地形预览)；刷的开发度变一次加一(无人区预测据此重算)
     public static int TerrainRevision { get; private set; }
+    public static int DevelopRevision { get; private set; }
 
     private static void LoadCells()
     {
         _landCells = ScenarioCells.ToMap(Era?.paint);
         _terrainCells = ScenarioCells.ToMap(Era?.terrain);
+        _developCells = ScenarioCells.ToMap(Era?.develop);
         _cellsDirty = false;
         TerrainRevision++;
+        DevelopRevision++;
     }
 
     private static void FlushCells()
@@ -1072,6 +1240,7 @@ public static class ScenarioEditing
         if (!_cellsDirty || Era == null) return;
         Era.paint = ScenarioCells.FromMap(_landCells);
         Era.terrain = ScenarioCells.FromMap(_terrainCells);
+        Era.develop = ScenarioCells.FromMap(_developCells);
         _cellsDirty = false;
     }
 
@@ -1079,6 +1248,14 @@ public static class ScenarioEditing
     public static int PaintLand(ICollection<int> cells, string key) => PaintCells(_landCells, cells, key, false);
 
     public static int PaintTerrain(ICollection<int> cells, string type) => PaintCells(_terrainCells, cells, type, true);
+
+    // 刷开发度：value 为 "0"~"100"，空的擦掉
+    public static int PaintDevelop(ICollection<int> cells, string value)
+    {
+        int count = PaintCells(_developCells, cells, value, false);
+        if (count > 0) DevelopRevision++;
+        return count;
+    }
 
     private static int PaintCells(Dictionary<int, string> map, ICollection<int> cells, string key, bool terrain)
     {
@@ -1114,6 +1291,16 @@ public static class ScenarioEditing
         _terrainCells.Clear();
         _cellsDirty = true;
         TerrainRevision++;
+        Changed();
+    }
+
+    public static void ClearDevelop()
+    {
+        if (_developCells.Count == 0) return;
+        Before();
+        _developCells.Clear();
+        _cellsDirty = true;
+        DevelopRevision++;
         Changed();
     }
 
@@ -1393,10 +1580,19 @@ public static class ScenarioEditing
         return list[index];
     }
 
-    // 按名字定的颜色(国家、法理、天下，同一剧本里稳定)
+    // 按名字定的颜色(国家、法理、天下，同一剧本里稳定)；行政区("d:国家:下标")取那国的颜色转色相，同一国的各省分得开，
+    // 京畿("j:国家")同国家的颜色
     public static Color32 ColorOfKey(string key)
     {
         if (string.IsNullOrEmpty(key)) return new Color32(150, 150, 150, 255);
+        if (key.StartsWith("j:", StringComparison.Ordinal)) return ColorOfKey("p:" + key.Substring(2));
+        int cut = key.LastIndexOf(':');
+        if (key.StartsWith("d:", StringComparison.Ordinal) && cut > 2 && int.TryParse(key.Substring(cut + 1), out int index))
+        {
+            Color.RGBToHSV(ColorOfKey("p:" + key.Substring(2, cut - 2)), out float h, out float sat, out float v);
+            Color shifted = Color.HSVToRGB((h + 0.13f + index * 0.17f) % 1f, Mathf.Clamp01(sat * 0.9f + 0.1f), Mathf.Clamp(v, 0.6f, 0.95f));
+            return new Color32((byte)(shifted.r * 255), (byte)(shifted.g * 255), (byte)(shifted.b * 255), 255);
+        }
         int hash = 17;
         foreach (char c in key) hash = hash * 31 + c;
         float hue = (hash & 0xFFFF) / 65535f;
