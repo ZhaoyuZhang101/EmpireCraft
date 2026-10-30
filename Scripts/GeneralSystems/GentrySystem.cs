@@ -17,19 +17,22 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //       族人做官(在任官员每人 6，城主 4，诸侯王 12；虚拟族人记着官职的 3)、爵位与领有的头衔(每个 5，荣誉爵位 6，藩王 6)，
 //       这两项合计至多 60；先世官爵(过世族人做过官、有爵位头衔、封过王的，每远一代打七折，至多 20，见 Ancestry)；
 //       郡望之城的田产(5×√份数，至多 15)；名望最高的三人(每 30 名望 1，至多 10)；
-//       族大(2×√在世族人，至多 10)；年深(立族每 15 年 1，至多 10)；与世家、宗室联姻(每对 2，至多 8)；
+//       族大(2×√谱上在世族人至多 10，与 5×lg 族众取大，至多 15——百人 10、千人 15，见 GentrySystem.Kin)；
+//       年深(立族每 15 年 1，至多 10)；与世家、宗室联姻(每对 2，至多 8)；
 //     门第向目标靠拢——升得快(每年一成五)、跌得慢(每年半成)：家道中落要好些年；
 //   · 门第到三十列为世家，跌到二十二以下不再是世家；七十以上甲等、五十五乙等、四十丙等，其余丁等；
 //   · 郡望：田产最多的城，没有田产按祖籍，再没有按族人最多的城；称"某城某氏"；
 //   · 头一次算(旧存档、新开局)直接到位、不记史；此后列为世家、门第衰微记入郡望所在帝国的史册(每国每年至多三条)。
 // 第二步——仕途垄断：
 //   · 官缺由世家子弟补上的机会：施行九品中正 七成五，施行察举 四成，二者都没有(世卿世禄) 两成五，施行科举以后不再优先；
-//     从本帝国郡望在册的世家里按门第挑一家，取那家在本国的成年族人(实体优先，没有就把虚拟族人落成实体)；
+//     再乘在册世家的声势(势力合计，0.6~1.3 倍，至多九成五，见 GentrySystem.Kin)；
+//     从本帝国郡望在册的世家里按势力挑一家，取那家在本国的成年族人(实体优先，没有就把虚拟族人落成实体)；
 //   · 九品中正期间门第固化：门第跌得慢一半。
 // 第三步——庄园部曲：
-//   · 荫户：世家在城里的田产荫庇佃户，那座城的税少收(每家：占地份额 × 2 × 门第/100)，一城至多少收两成五，
-//     施行均田以后减半；荫户也不服兵役(见 CorpsSystem 的兵源)；
-//   · 部曲：郡望之城有敌军占地或交战时，世家聚部曲成一支义军守城(按门第抽本城人口的百分之二到八)，三年至多一次，仗打完就散；
+//   · 荫户：世家在城里的田产荫庇佃户，那座城的税少收(每家：占地份额 × 2 × 门第/100；郡望之城再与族众每人三口佃客取大)，
+//     一城至多少收两成五，施行均田以后减半；荫户也不服兵役(见 CorpsSystem 的兵源)；
+//   · 部曲：郡望之城有敌军占地或交战时，世家聚部曲成一支义军守城(族众每人一个半，抽本城可出丁口的百分之二到三十)，
+//     三年至多一次，仗打完就散；
 //   · 据城自守：甲、乙等世家的郡望不是国都，所在国正在打仗、朝廷衰弱(法统二十以下或皇位空缺)，每年百分之四的机会
 //     由族中名望最高的人据城自立；天下裂土时，郡望在京畿的甲等世家各有一半机会据城自守(见 InterregnumSystem)。
 // 第四步——兴衰与站队：
@@ -46,7 +49,7 @@ public static partial class GentrySystem
         ExamNode = "huaxia_examination_officialdom";
     private const float NineRankMonopoly = 0.75f, RecommendationMonopoly = 0.4f, HereditaryMonopoly = 0.25f;
     private const int CandidateClans = 12, CandidateTries = 3;
-    private const float ShelterPerShare = 2f, ShelterCap = 0.25f, RetainerMin = 0.02f, RetainerMax = 0.08f,
+    private const float ShelterPerShare = 2f, ShelterCap = 0.25f, RetainerMin = 0.02f, RetainerMax = 0.3f,
         AutonomyChance = 0.04f, FractureAutonomyChance = 0.5f;
     private const int RetainerCooldownYears = 3, AutonomyMandate = 20, FractureAutonomyMax = 2;
     public const string EqualFieldNode = "huaxia_land_equalization";
@@ -175,9 +178,10 @@ public static partial class GentrySystem
     public static Actor Candidate(Kingdom kingdom, Func<Actor, bool> fit)
     {
         Empire empire = kingdom?.GetEmpire();
-        if (empire?.data == null || UnityEngine.Random.value >= Monopoly(kingdom)) return null;
+        float monopoly = Monopoly(kingdom);
+        if (empire?.data == null || monopoly <= 0f) return null;
         List<SpecificClan> clans = Registered(empire);
-        if (clans.Count == 0) return null;
+        if (clans.Count == 0 || UnityEngine.Random.value >= Mathf.Min(MonopolyMax, monopoly * Sway(clans))) return null;
         for (int attempt = 0; attempt < CandidateTries; attempt++)
         {
             SpecificClan clan = Weighted(clans);
@@ -189,12 +193,18 @@ public static partial class GentrySystem
         return null;
     }
 
+    private const float MonopolyMax = 0.95f, SwayBase = 0.6f, SwayPer = 1000f, SwayMax = 1.3f;
+
+    // 在册世家的声势：势力合计每 1000 加一倍(0.6~1.3 倍)，世家又少又小的补官机会少
+    private static float Sway(List<SpecificClan> clans) => Mathf.Clamp(SwayBase + Influence(clans) / SwayPer, SwayBase, SwayMax);
+
+    // 按势力的平方挑一家(门第高、族众多的大族多中)
     private static SpecificClan Weighted(List<SpecificClan> clans)
     {
-        float total = clans.Sum(clan => clan.gentry_pedigree * clan.gentry_pedigree);
+        float total = clans.Sum(clan => Influence(clan) * Influence(clan));
         float roll = UnityEngine.Random.value * total;
         foreach (SpecificClan clan in clans)
-            if ((roll -= clan.gentry_pedigree * clan.gentry_pedigree) <= 0f) return clan;
+            if ((roll -= Influence(clan) * Influence(clan)) <= 0f) return clan;
         return clans[clans.Count - 1];
     }
 
@@ -250,8 +260,8 @@ public static partial class GentrySystem
             if (clan == null || !clan.gentry || seat?.kingdom == null || !Threatened(seat)) continue;
             if (clan.gentry_retainers_at >= 0d && now >= clan.gentry_retainers_at &&
                 Date.getYearsSince(clan.gentry_retainers_at) < RetainerCooldownYears) continue;
-            float share = Mathf.Clamp(clan.gentry_pedigree / 1000f, RetainerMin, RetainerMax);
             float before = CityPopulationSystem.GetBackgroundTotal(seat);
+            float share = RetainerShare(clan, before);
             if (CorpsSystem.RaiseMilitia(seat, 1, share) <= 0) continue;
             clan.gentry_retainers_at = now;
             int raised = Mathf.Max(0, Mathf.RoundToInt(before - CityPopulationSystem.GetBackgroundTotal(seat)));
@@ -320,10 +330,10 @@ public static partial class GentrySystem
 
     #region 兴衰与站队
 
-    private const int RegisterYears = 30, CurbYears = 20, CurbClans = 3, CurbMoneyPerClan = 150, SidesMandatePer = 40,
-        SidesMandateMax = 10, UsurperGentryMandate = 5, UsurperDisdainPer = 2, UsurperDisdainMax = 8;
+    private const int RegisterYears = 30, CurbYears = 20, CurbClans = 3, CurbMoneyPerClan = 150, SidesMandatePer = 60,
+        SidesMandateMax = 15, UsurperGentryMandate = 5, UsurperDisdainPer = 2, UsurperDisdainMax = 8;
 
-    // 两朝并立、天下裂土：世家依附郡望所在的那一朝
+    // 两朝并立、天下裂土：世家依附郡望所在的那一朝(势力合计每 60 得法统 1，至多 15)
     public static void ChooseSides(IEnumerable<Empire> realms)
     {
         foreach (Empire realm in realms.Where(realm => realm?.data != null && !realm.isRekt()).Distinct().ToList())
@@ -331,7 +341,7 @@ public static partial class GentrySystem
             List<SpecificClan> clans = Of(realm);
             if (clans.Count == 0) continue;
             foreach (SpecificClan clan in clans) clan.gentry_patron_empire_id = realm.data.id;
-            int bonus = Mathf.Min(SidesMandateMax, Mathf.RoundToInt(clans.Sum(clan => clan.gentry_pedigree) / SidesMandatePer));
+            int bonus = Mathf.Min(SidesMandateMax, Mathf.RoundToInt(Influence(clans) / SidesMandatePer));
             if (bonus > 0) realm.AddMandate(bonus);
             string names = string.Join("、", clans.Take(2).Select(JunWang));
             string content = string.Format(LM.Get("gentry_sides_history"), names, clans.Count, realm.GetEmpireFullName());
@@ -401,12 +411,14 @@ public static partial class GentrySystem
         empire?.data != null && Due(empire.data.gentry_curbed_at, CurbYears) &&
         Of(empire).Any(clan => Grade(clan.gentry_pedigree) <= 2);
 
-    // 抑豪强：门第最高三家的田产减半(空出的田归民田)、家财入国库、门第 -10；返回家数、入库钱数
+    // 抑豪强：门第最高三家的田产减半(空出的田归民田)、家财入国库(每家 150，族众每人再 0.5)、门第 -10、族众折三成；
+    // 返回家数、入库钱数
     public static (int clans, int money) CurbMagnates(Empire empire)
     {
         if (empire?.data == null || empire.CoreKingdom == null) return (0, 0);
         empire.data.gentry_curbed_at = World.world.getCurWorldTime();
         List<SpecificClan> targets = Of(empire).Take(CurbClans).ToList();
+        int money = targets.Sum(clan => CurbMoneyPerClan + Mathf.RoundToInt(clan.gentry_kin * KinCurbMoney));
         foreach (SpecificClan clan in targets)
         {
             string key = $"s:{clan.id}";
@@ -417,8 +429,8 @@ public static partial class GentrySystem
                 if (shares != null && shares.TryGetValue(key, out float share) && share > 0f) shares[key] = share * 0.5f;
             }
             clan.gentry_pedigree = Mathf.Max(0f, clan.gentry_pedigree - 10f);
+            clan.gentry_kin *= 1f - KinCurbLoss;
         }
-        int money = targets.Count * CurbMoneyPerClan;
         if (money > 0) empire.CoreKingdom.AddMoney(money, TreasuryCategory.RecoveredFunds);
         ShiftFavor(empire, FavorCurb);
         ClaimPolicySystem.AddGrievance(empire, SocialClass.Noble, 6f);
@@ -452,6 +464,7 @@ public static partial class GentrySystem
         GentryIds.AddRange(SpecificClanManager._specificClans.Where(clan => clan != null && clan.gentry).Select(clan => clan.id));
         BuildLand();
         BuildRuling();
+        SeedScenario();
         Recorded.Clear();
         BuildFortresses();
         YearlyCourt();
@@ -490,6 +503,18 @@ public static partial class GentrySystem
                 Land[clanId] = (held.share + pair.Value, pair.Value > best ? city.data.id : held.city);
             }
         }
+        // 郡望之城再按族众荫庇佃客：比田产算出来的多就补上差额(见 GentrySystem.Kin 的 ShelterOf)
+        foreach (long id in GentryIds)
+        {
+            SpecificClan clan = SpecificClanManager.Get(id);
+            City seat = clan?.gentry == true && clan.gentry_kin > 0f ? Seat(clan) : null;
+            if (seat == null) continue;
+            float people = CityPopulationSystem.GetBackgroundTotal(seat);
+            float extra = ShelterOf(clan, seat, people) - SeatLand(clan, seat) / 100f * ShelterPerShare * clan.gentry_pedigree / 100f;
+            if (extra <= 0f) continue;
+            Sheltered.TryGetValue(seat.data.id, out float sheltered);
+            Sheltered[seat.data.id] = sheltered + extra;
+        }
     }
 
     // 在位皇帝的宗室(连同分出去的各支)：是皇族，不算世家
@@ -514,6 +539,8 @@ public static partial class GentrySystem
         {
             if (clan.gentry && living.Count == 0)
             {
+                // 族众还在：族中远支记一人入谱为宗子(见 GentrySystem.Kin)
+                if (Revive(clan)) return;
                 // 旧档里早已绝嗣、一直没除名的：悄悄除名，不再补记史书
                 if (clan.extinct_since >= 0d && World.world.getCurWorldTime() >= clan.extinct_since &&
                     Date.getYearsSince(clan.extinct_since) >= 2) clan.gentry = false;
@@ -521,6 +548,7 @@ public static partial class GentrySystem
                 else if (!BranchSucceeds(clan)) Decline(clan, extinct: true);
             }
             else if (clan.gentry) clan.gentry = false;
+            UpdateKin(clan, null, living.Count);
             return;
         }
         // 世家无男丁可承：从支脉或族中过继一人(见 GentrySystem.Lineage)
@@ -535,6 +563,7 @@ public static partial class GentrySystem
             clan.gentry = target >= EnterAt;
             if (clan.gentry) clan.gentry_since = World.world.getCurWorldTime();
             NoteTrend(clan);
+            UpdateKin(clan, seat, living.Count);
             return;
         }
         float pedigree = clan.gentry_pedigree;
@@ -554,8 +583,11 @@ public static partial class GentrySystem
         }
         else if (clan.gentry && clan.gentry_pedigree < LeaveAt) Decline(clan, extinct: false);
         else if (clan.gentry) NoteGrade(clan);
+        // 族众长落、兼并郡望的田(见 GentrySystem.Kin)
+        UpdateKin(clan, seat, living.Count);
         if (clan.gentry)
         {
+            Annex(clan, seat);
             TryRelief(clan, seat);
             TryAutonomy(clan, seat);
         }
@@ -674,13 +706,17 @@ public static partial class GentrySystem
         // 田产、族大开方算：一族多是几个人、一两份地(玩家 10-30 存档：在世宗族九成五不到五人)，照人头、份数算到不了顶
         if (Land.TryGetValue(clan.id, out var held)) score += Mathf.Min(15f, 5f * Mathf.Sqrt(held.share));
         score += Mathf.Min(10f, renown.OrderByDescending(value => value).Take(3).Sum() / 30f);
-        score += Mathf.Min(10f, 2f * Mathf.Sqrt(living.Count));
-        if (clan.established_timestamp > 0d) score += Mathf.Min(10f, Date.getYearsSince(clan.established_timestamp) / 15f);
+        // 族大：谱上在世的(小族)与族众(大族，百人 10、千人 15)取大
+        score += Mathf.Min(SizeCap, Mathf.Max(Mathf.Min(10f, 2f * Mathf.Sqrt(living.Count)),
+            5f * Mathf.Log10(Mathf.Max(1f, clan.gentry_kin))));
+        // 年深：开局就有的宗族(剧本里的官员、开局的部落首领)立族时间是 0，以前不算，存档里最老的几家世家吃了亏
+        if (clan.established_timestamp >= 0d && World.world.getCurWorldTime() >= clan.established_timestamp)
+            score += Mathf.Min(10f, Date.getYearsSince(clan.established_timestamp) / 15f);
         score += Mathf.Min(8f, marriage);
         return Mathf.Clamp(score, 0f, 100f);
     }
 
-    private const float AncestorOffice = 5f, AncestorTitle = 3f, AncestorFade = 0.7f, AncestryCap = 20f;
+    private const float AncestorOffice = 5f, AncestorTitle = 3f, AncestorFade = 0.7f, AncestryCap = 20f, SizeCap = 15f;
 
     // 先世官爵(累世公卿)：过世的族人做过官、有爵位(每人 5)、头衔(每个 3)、封过王(5)，离在世族人最晚一代每远一代打七折，
     // 至多 AncestryCap。只是本人做官的寒门没有这一项；几代人接连做官，才够得上世家(玩家 10-30 反馈"世家根本起不来")

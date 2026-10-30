@@ -119,6 +119,9 @@ public class SpecificClan
     // 上回灾年开仓赈济乡里的时间(见 GentrySystem.Events)
     public double gentry_relief_at { get; set; } = -1d;
     public bool ShouldSerializegentry_relief_at() => gentry_relief_at >= 0d;
+    // 族众：世家连远支旁系在内的族人数(含谱上在世的；谱上只记要人，见 GentrySystem.Kin)，0 = 没有另记
+    public float gentry_kin { get; set; }
+    public bool ShouldSerializegentry_kin() => gentry_kin > 0f;
     // 门第走势：每年评门第时记一笔(年份、门第分取整)，留最近 80 年(见 GentrySystem.NoteTrend、宗族窗口总览)
     public List<int> pedigree_years { get; set; }
     public List<int> pedigree_values { get; set; }

@@ -511,7 +511,8 @@ public static class LandEconomySystem
         {
             if (!pair.Key.StartsWith("s:", StringComparison.Ordinal) || !long.TryParse(pair.Key.Substring(2), out long clanId)) continue;
             SpecificClan clan = SpecificClanManager.Get(clanId);
-            if (clan != null && clan.Count > 0)
+            // 世家谱上的人死尽而族众还在的，下一轮门第结算由远支入谱为宗子(见 GentrySystem.Revive)，田不放
+            if (clan != null && (clan.Count > 0 || GentrySystem.KeepsLand(clan)))
             {
                 if (pair.Value > 0f) landed.Add((clan, pair.Value));
                 continue;
@@ -633,6 +634,25 @@ public static class LandEconomySystem
         data.household_land_representatives[key] = buyer.id;
         ReceiveLandSale(city, population, price);
         return true;
+    }
+
+    // 世家兼并(见 GentrySystem.Annex)：从背景农民有地的那部分划 amount 份归宗族，背景无地比例随之上升。
+    // 投献、强占，不付地价；返回实际划过来的份数
+    public static float AnnexForClan(City city, SpecificClan clan, float amount)
+    {
+        if (!CityPopulationSystem.AbstractPopulationEnabled || city == null || city.isRekt() || clan == null || amount <= 0f ||
+            !IsLandMarketOpen(city.kingdom)) return 0f;
+        CityPopulationData population = CityPopulationSystem.Get(city);
+        if (population == null) return 0f;
+        CityExtension.CityExtraData data = EnsureData(city);
+        float pool = BackgroundLandPool(city, data);
+        float owned = pool * (1f - Mathf.Clamp01(population.background_landless));
+        amount = Mathf.Min(amount, owned, pool - 0.01f);
+        if (amount < 0.01f) return 0f;
+        population.background_landless = Mathf.Clamp01(1f - (owned - amount) / (pool - amount));
+        string key = $"s:{clan.id}";
+        data.household_land_shares[key] = GetHouseholdShare(city, key) + amount;
+        return amount;
     }
 
     // 背景人口的私田：私有土地里实体家户没占的部分(实体家户占的多了，背景农民的地就少了)

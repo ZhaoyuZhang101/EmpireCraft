@@ -13,10 +13,11 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 世家在朝(用户 2026-10-27 问答选"朝堂话语权")：
 //   · 朝廷与世家(帝国的 gentry_favor，-100~100)：每年向选官之制定的底色靠一成——九品中正 30、察举 15、世卿世禄 5、科举 -20；
 //     世家子弟补官 +0.5、修氏族志(升的家数×2 − 降的家数×3)、抑豪强 -25、世家女入宫 +10、篡位者出自世家 +10 / 起于寒门 -15、
-//     世家相争 -3。40 以上法统每年 +1，-40 以下 -1，且郡望不在京城的强宗据城自守的机会加倍；
+//     世家相争 -3。40 以上法统每年 +1，-40 以下 -1(世家势力合计每 500 再多 1，至多 3)，且郡望不在京城的强宗据城自守的机会加倍；
 //   · 各家立场：朝廷关系 + 族中在任官员每人 10(至多 30)，30 以上亲附、-30 以下离心，其余中立(世家页显示)；
-//   · 改革阻力：推改革的政权里世家的门第合计(每 100 算 1，至多 3)——触动世家利益的(科举、均田，或反对贵族、地主的)
-//     反对 +8×门第合计(至多 25)；合世家心意的(九品中正、察举，或贵族、地主支持的)支持 +6×门第合计(至多 20)。
+//   · 改革阻力：推改革的政权里世家的势力合计(门第 × 族众系数，每 150 算 1，至多 4，见 GentrySystem.Kin)——
+//     触动世家利益的(科举、均田，或反对贵族、地主的)反对 +8×权重(至多 35)；
+//     合世家心意的(九品中正、察举，或贵族、地主支持的)支持 +6×权重(至多 25)。
 public static partial class GentrySystem
 {
     public const float FavorHigh = 40f, FavorLow = -40f;
@@ -24,7 +25,9 @@ public static partial class GentrySystem
     public const float FavorAppoint = 0.5f, FavorCurb = -25f, FavorEmpress = 10f, FavorGentryUsurper = 10f, FavorUpstart = -15f,
         FavorFeud = -3f;
     private const float StanceOffice = 10f, StanceOfficeCap = 30f, StanceLine = 30f;
-    private const float LeanOppose = 8f, LeanOpposeCap = 25f, LeanSupport = 6f, LeanSupportCap = 20f, LeanWeightCap = 3f;
+    private const float LeanOppose = 8f, LeanOpposeCap = 35f, LeanSupport = 6f, LeanSupportCap = 25f, LeanWeightCap = 4f,
+        LeanPer = 150f, CourtSwayPer = 500f;
+    private const int CourtSwayMax = 3;
 
     public static float Favor(Empire empire) => empire?.data?.gentry_favor ?? 0f;
 
@@ -55,8 +58,10 @@ public static partial class GentrySystem
             if (clans.Count == 0) continue;
             float favor = empire.data.gentry_favor;
             empire.data.gentry_favor = Mathf.Clamp(favor + (FavorBase(empire) - favor) * FavorDrift, -100f, 100f);
-            if (empire.data.gentry_favor >= FavorHigh) empire.AddMandate(1);
-            else if (empire.data.gentry_favor <= FavorLow) empire.AddMandate(-1);
+            // 世家势力越大，亲睦时托举、猜忌时掣肘越重
+            int sway = Mathf.Min(CourtSwayMax, 1 + Mathf.FloorToInt(Influence(clans) / CourtSwayPer));
+            if (empire.data.gentry_favor >= FavorHigh) empire.AddMandate(sway);
+            else if (empire.data.gentry_favor <= FavorLow) empire.AddMandate(-sway);
             TryFeud(empire, clans);
             TryConsort(empire, clans);
         }
@@ -80,7 +85,7 @@ public static partial class GentrySystem
         IEnumerable<SpecificClan> clans = realm.IsEmpire
             ? Of(realm.Empire)
             : GentryIds.Select(SpecificClanManager.Get).Where(clan => clan != null && clan.gentry && Seat(clan)?.kingdom == realm.Kingdom);
-        float weight = Mathf.Min(LeanWeightCap, clans.Sum(clan => clan.gentry_pedigree) / 100f);
+        float weight = Mathf.Min(LeanWeightCap, Influence(clans) / LeanPer);
         if (weight <= 0f) return (0f, 0f);
         bool hurts = node.id == ExamNode || node.id == EqualFieldNode ||
                      node.politics.oppose_classes.TryGetValue(SocialClass.Noble, out float noble) && noble >= 0.3f ||

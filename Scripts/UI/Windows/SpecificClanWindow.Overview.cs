@@ -12,7 +12,8 @@ using UnityEngine;
 
 namespace EmpireCraft.Scripts.UI.Windows;
 
-// 宗族总览：页头(开族始祖 · 立族之年) → 主指标(在世/历代、门第、田产、居官) → 门第 | 世系 → 门第走势 → 田产 | 族人分布 → 显赫族人
+// 宗族总览：页头(开族始祖 · 立族之年) → 主指标(在世/历代(世家写族众/谱上)、门第、田产、居官) → 门第(世家另列族众、势力、
+// 荫户、部曲、坞堡) | 世系 → 门第走势 → 田产 | 族人分布 → 显赫族人
 public partial class SpecificClanWindow
 {
     private const int OverviewRows = 5, NotableCount = 6;
@@ -30,9 +31,13 @@ public partial class SpecificClanWindow
         float share = holdings.Sum(holding => holding.Share);
         int officials = _living.Count(OnOffice);
         (string standing, string standingHex) = _standing;
+        // 世家另记族众(远支旁系，见 GentrySystem.Kin)：头一格写族众、注谱上在世的人数
+        int members = GentrySystem.Members(_sc, _living.Count);
         page.AddKpiRow(PageWidth,
-            (string.Format(LM.Get("clan_kpi_living"), UIHelper.ShortCount(_people.Count)), UIHelper.ShortCount(_living.Count),
-                _living.Count > 0 ? WideKit.Green : WideKit.Red),
+            members > _living.Count
+                ? (string.Format(LM.Get("clan_kpi_kin"), UIHelper.ShortCount(_living.Count)), UIHelper.ShortCount(members), WideKit.Green)
+                : (string.Format(LM.Get("clan_kpi_living"), UIHelper.ShortCount(_people.Count)), UIHelper.ShortCount(_living.Count),
+                    _living.Count > 0 ? WideKit.Green : WideKit.Red),
             (LM.Get("clan_kpi_pedigree"), _sc.gentry_assessed && _ruling == null
                 ? Mathf.RoundToInt(GentrySystem.Pedigree(_sc)).ToString() : "—", standingHex),
             (string.Format(LM.Get("clan_kpi_land"), share.ToString("0.#")), string.Format(LM.Get("clan_kpi_cities"), holdings.Count),
@@ -98,6 +103,7 @@ public partial class SpecificClanWindow
             ColorUtility.TryParseHtmlString(WideKit.Orange, out Color orange);
             UIHelper.AddBarRow(card, width - 12f, LM.Get("clan_pedigree_score").ColorString(WideKit.Muted),
                 Mathf.RoundToInt(pedigree).ToString().ColorString(WideKit.Orange), pedigree / 100f, orange);
+            if (_sc.gentry) DrawGentryReach(card, width, ref index);
         }
         Empire patron = _sc.gentry_patron_empire_id >= 0 ? ModClass.EMPIRE_MANAGER?.get(_sc.gentry_patron_empire_id) : null;
         if (patron?.data != null && !patron.isRekt())
@@ -106,6 +112,29 @@ public partial class SpecificClanWindow
             card.AddValueRow(width, index++, LM.Get("clan_pedigree_empire"), _sc.empire_name, WideKit.Red);
         if (!_sc.gentry_assessed || _ruling != null)
             card.AddParagraph(width, LM.Get("clan_pedigree_unassessed_hint"), 6, WideKit.Muted);
+    }
+
+    // 世家的声势(见 GentrySystem.Kin)：族众与上限、势力、荫户、部曲、坞堡
+    private void DrawGentryReach(AutoVertLayoutGroup card, float width, ref int index)
+    {
+        City seat = GentrySystem.Seat(_sc);
+        int cap = Mathf.RoundToInt(Mathf.Max(GentrySystem.KinCap(_sc, seat), _living.Count));
+        card.AddValueRow(width, index++, LM.Get("clan_pedigree_kin"),
+            string.Format(LM.Get("clan_pedigree_kin_value"), UIHelper.ShortCount(GentrySystem.Members(_sc, _living.Count)),
+                UIHelper.ShortCount(cap)), WideKit.Green);
+        card.AddValueRow(width, index++, LM.Get("clan_pedigree_influence"),
+            Mathf.RoundToInt(GentrySystem.Influence(_sc)).ToString(), WideKit.Gold);
+        int sheltered = GentrySystem.ShelteredBy(_sc);
+        if (sheltered > 0)
+            card.AddValueRow(width, index++, LM.Get("clan_pedigree_sheltered"),
+                string.Format(LM.Get("clan_kpi_people"), UIHelper.ShortCount(sheltered)), WideKit.Cyan);
+        int retainers = GentrySystem.Retainers(_sc);
+        if (retainers > 0)
+            card.AddValueRow(width, index++, LM.Get("clan_pedigree_retainers"),
+                string.Format(LM.Get("clan_pedigree_retainers_value"), UIHelper.ShortCount(retainers)), WideKit.Orange);
+        if (seat != null && GentrySystem.FortressOf(seat) == _sc)
+            card.AddValueRow(width, index++, LM.Get("gentry_fortress_mark"),
+                string.Format(LM.Get("clan_pedigree_fortress_value"), GentrySystem.FortressFactor(seat).ToString("0.00")), WideKit.Value);
     }
 
     // 世系：出自哪一支、分出了哪些支；点了到支派页看

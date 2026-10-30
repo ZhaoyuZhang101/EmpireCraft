@@ -12,7 +12,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 过继：每年结算门第时，世家在世族人里没有能承嗣的男丁(承嗣一方、AdoptAge 岁以下)，族里还有成年人，
 //     就从同一世系的支脉过继一位年轻男丁为嗣(本支至少留一个)，没有支脉可过继就从族中远房记一位族子入谱
 //     (无小人模式；有实体小人时照原版生育)；
-//   · 支脉承嗣：本宗凋尽，同一世系里在世族人最多、还不是世家的一支承其门第(打九折)、郡望与列为世家的时间，
+//   · 支脉承嗣：本宗凋尽(族众不到二十、远支也补不上宗子，见 GentrySystem.Kin)，同一世系里在世族人最多、
+//     还不是世家的一支承其门第与族众(打九折)、郡望与列为世家的时间，
 //     史书记"某氏本宗凋尽，某支承其门第郡望"；没有支脉才是"世家遂绝"。
 public static partial class GentrySystem
 {
@@ -55,6 +56,9 @@ public static partial class GentrySystem
         heir.gentry_seat_city_id = clan.gentry_seat_city_id;
         heir.gentry_since = clan.gentry_since;
         heir.gentry_patron_empire_id = clan.gentry_patron_empire_id;
+        // 族众随门第归承嗣的一支(见 GentrySystem.Kin)
+        heir.gentry_kin = Mathf.Max(heir.gentry_kin, clan.gentry_kin * BranchPedigreeShare);
+        clan.gentry_kin = 0f;
         clan.gentry = false;
         string branch = string.IsNullOrWhiteSpace(heir.branch_label) ? LM.Get("gentry_branch_default") : heir.branch_label;
         string text = string.Format(LM.Get("gentry_branch_succession_history"), from, branch);

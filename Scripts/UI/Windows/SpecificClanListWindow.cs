@@ -27,6 +27,8 @@ public class SpecificClanListWindow : WideScrollWindow<SpecificClanListWindow>
     {
         public SpecificClan clan;
         public int living;
+        // 族人：世家按族众(远支旁系，见 GentrySystem.Kin)，其余同在世人数
+        public int members;
         public string species;
         public Empire ruling;
         public long group;
@@ -71,7 +73,8 @@ public class SpecificClanListWindow : WideScrollWindow<SpecificClanListWindow>
             ruling.TryGetValue(clanRoot ?? clan, out Empire empire);
             _entries.Add(new Entry
             {
-                clan = clan, living = living.Count, species = sample.species, ruling = empire,
+                clan = clan, living = living.Count, members = GentrySystem.Members(clan, living.Count), species = sample.species,
+                ruling = empire,
                 group = clan.SurnameRoot()?.id ?? clan.id
             });
         }
@@ -91,11 +94,11 @@ public class SpecificClanListWindow : WideScrollWindow<SpecificClanListWindow>
         if (_search.Length > 0) list = list.Where(entry => Matches(entry.clan, _search));
         // 按姓归并：分了支的姓各占一组(人多的姓在前，组里本宗在前、再按分出先后)，单独的宗族排在最后
         List<List<Entry>> groups = list.GroupBy(entry => entry.group).Select(group => group.ToList()).ToList();
-        _shown = groups.Where(group => group.Count > 1).OrderByDescending(group => group.Sum(entry => entry.living))
+        _shown = groups.Where(group => group.Count > 1).OrderByDescending(group => group.Sum(entry => entry.members))
             .SelectMany(group => group.OrderBy(entry => entry.clan.id == entry.group ? 0 : 1)
                 .ThenBy(entry => entry.clan.established_timestamp))
             .Concat(groups.Where(group => group.Count == 1).SelectMany(group => group)
-                .OrderByDescending(entry => entry.living).ThenBy(entry => entry.clan.established_timestamp))
+                .OrderByDescending(entry => entry.members).ThenBy(entry => entry.clan.established_timestamp))
             .ToList();
         _groupSize.Clear();
         foreach (Entry entry in _shown)
@@ -119,7 +122,7 @@ public class SpecificClanListWindow : WideScrollWindow<SpecificClanListWindow>
     {
         List<Entry> alive = _entries.Where(entry => entry.living > 0).ToList();
         rail.AddRailTitle(LM.Get("clan_list_title"), string.Format(LM.Get("clan_list_summary"), alive.Count,
-            UIHelper.ShortCount(alive.Sum(entry => entry.living))));
+            UIHelper.ShortCount(alive.Sum(entry => entry.members))));
 
         var filters = rail.BeginRailMenu();
         int index = 0;
@@ -196,10 +199,10 @@ public class SpecificClanListWindow : WideScrollWindow<SpecificClanListWindow>
             string.Format(LM.Get("clan_list_count"), _shown.Count));
 
         List<Entry> alive = _entries.Where(entry => entry.living > 0 && (_species.Length == 0 || entry.species == _species)).ToList();
-        Entry largest = alive.OrderByDescending(entry => entry.living).FirstOrDefault();
+        Entry largest = alive.OrderByDescending(entry => entry.members).FirstOrDefault();
         page.AddKpiRow(PageWidth,
             (largest == null ? LM.Get("clan_list_largest") : string.Format(LM.Get("clan_list_largest_named"), largest.clan.GetDisplayName()),
-                largest == null ? "—" : string.Format(LM.Get("clan_kpi_people"), UIHelper.ShortCount(largest.living)), WideKit.Gold),
+                largest == null ? "—" : string.Format(LM.Get("clan_kpi_people"), UIHelper.ShortCount(largest.members)), WideKit.Gold),
             (LM.Get("clan_list_gentry"), string.Format(LM.Get("clan_list_count"), alive.Count(entry => entry.clan.gentry)), WideKit.Orange),
             (LM.Get("clan_list_ruling"), string.Format(LM.Get("clan_list_count"), alive.Count(entry => entry.ruling != null)), WideKit.Red));
 
@@ -277,7 +280,8 @@ public class SpecificClanListWindow : WideScrollWindow<SpecificClanListWindow>
         int land = LandEconomySystem.GetSpecificClanHoldings(clan).Count;
         int officials = clan.LivingPeople.Count(SpecificClanWindow.OnOffice);
         card.AddMetricRow(width,
-            (LM.Get("clan_list_living"), UIHelper.ShortCount(entry.living), entry.living > 0 ? WideKit.Green : WideKit.Red),
+            (LM.Get(entry.members > entry.living ? "clan_list_kin" : "clan_list_living"), UIHelper.ShortCount(entry.members),
+                entry.living > 0 ? WideKit.Green : WideKit.Red),
             (LM.Get("clan_list_generations"), generations.ToString(), WideKit.Value),
             (LM.Get("clan_list_land"), string.Format(LM.Get("clan_kpi_cities"), land), WideKit.Cyan),
             (LM.Get("clan_list_officials"), officials.ToString(), WideKit.Gold));

@@ -11,7 +11,7 @@ using UnityEngine;
 
 namespace EmpireCraft.Scripts.UI.Windows
 {
-    // 世家页(见 GentrySystem)：主指标 → 世家名录(郡望、门第、族人、出仕、爵位头衔、田产，点一行打开那一族) → 规则说明
+    // 世家页(见 GentrySystem)：主指标 → 世家名录(郡望、门第、族人(族众)、势力、出仕、田产、立场，点一行打开那一族) → 规则说明
     public partial class EmpireWindow
     {
         private const int GentryRows = 30;
@@ -37,14 +37,14 @@ namespace EmpireCraft.Scripts.UI.Windows
                 (LM.Get("gentry_kpi_count"), clans.Count.ToString(), WideKit.Gold),
                 (LM.Get("gentry_kpi_first"), clans.Count(clan => GentrySystem.Grade(clan.gentry_pedigree) == 1).ToString(), WideKit.Orange),
                 (LM.Get("gentry_kpi_officials"), $"{officialShare * 100f:0}%", WideKit.Grade(officialShare * 100f, 60, 30, higherIsBetter: false)),
-                (LM.Get("gentry_kpi_land"), $"{stats.Sum(entry => entry.row.land):0.#}", WideKit.Cyan),
+                (LM.Get("gentry_kpi_kin"), UIHelper.ShortCount(stats.Sum(entry => entry.row.members)), WideKit.Cyan),
                 (LM.Get("gentry_kpi_favor"), FavorLabel(GentrySystem.Favor(_empire)), FavorHex(GentrySystem.Favor(_empire))));
 
             var table = page.BeginCard(MainWidth, "gentry_table_title", WideKit.Gold, clans.Count.ToString(), "TabGentry");
-            const float NameWidth = 120f;
+            const float NameWidth = 104f;
             table.AddTableRow(MainWidth, -1, null, LM.Get("gentry_col_name"), NameWidth,
-                (LM.Get("gentry_col_grade"), null), (LM.Get("gentry_col_members"), null), (LM.Get("gentry_col_office"), null),
-                (LM.Get("gentry_col_titles"), null), (LM.Get("gentry_col_land"), null), (LM.Get("gentry_col_stance"), null));
+                (LM.Get("gentry_col_grade"), null), (LM.Get("gentry_col_members"), null), (LM.Get("gentry_col_influence"), null),
+                (LM.Get("gentry_col_office"), null), (LM.Get("gentry_col_land"), null), (LM.Get("gentry_col_stance"), null));
             for (int i = 0; i < stats.Count && i < GentryRows; i++)
             {
                 (SpecificClan clan, (int members, int office, int titles, float land) row) = stats[i];
@@ -52,8 +52,9 @@ namespace EmpireCraft.Scripts.UI.Windows
                 string gradeHex = grade == 1 ? WideKit.Orange : grade == 2 ? WideKit.Gold : grade == 3 ? WideKit.Value : WideKit.Muted;
                 var line = table.AddTableRow(MainWidth, i, null, GentrySystem.JunWang(clan), NameWidth,
                     ($"{GentrySystem.GradeName(clan)} {Mathf.RoundToInt(clan.gentry_pedigree)}", gradeHex),
-                    (row.members.ToString(), null), (row.office.ToString(), row.office > 0 ? WideKit.Green : WideKit.Muted),
-                    (row.titles.ToString(), null), ($"{row.land:0.#}", null), StanceCell(clan));
+                    (UIHelper.ShortCount(row.members), row.members >= 1000 ? WideKit.Orange : row.members >= 100 ? WideKit.Gold : null),
+                    (Mathf.RoundToInt(GentrySystem.Influence(clan)).ToString(), WideKit.Gold),
+                    (row.office.ToString(), row.office > 0 ? WideKit.Green : WideKit.Muted), ($"{row.land:0.#}", null), StanceCell(clan));
                 SpecificClan target = clan;
                 UIHelper.MakeClickable(line.gameObject, () => OpenClan(target));
             }
@@ -68,7 +69,7 @@ namespace EmpireCraft.Scripts.UI.Windows
             StartCoroutine(RefreshScrollLayout(resetToTop: true));
         }
 
-        // 名录一行：在世族人、在任官员(含城主)、爵位与头衔、田产(各城所占分数之和)
+        // 名录一行：族人(族众与谱上在世的取大)、在任官员(含城主)、爵位与头衔、田产(各城所占分数之和)
         private static (int members, int office, int titles, float land) Stats(SpecificClan clan)
         {
             List<PersonalClanIdentity> living = clan.LivingPeople;
@@ -88,7 +89,7 @@ namespace EmpireCraft.Scripts.UI.Windows
                 }
             }
             float land = LandEconomySystem.GetSpecificClanHoldings(clan).Sum(holding => holding.Share);
-            return (living.Count, office, titles, land);
+            return (GentrySystem.Members(clan, living.Count), office, titles, land);
         }
 
         // 朝廷与世家：亲睦(40 以上)、猜忌(-40 以下)、平平

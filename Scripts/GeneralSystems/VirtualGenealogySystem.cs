@@ -1236,6 +1236,41 @@ public static partial class VirtualGenealogySystem
         return heir;
     }
 
+    // 世家本宗凋尽而族众还在(见 GentrySystem.Revive)：族中远支记一位成年族人入谱为宗子，
+    // 照谱上辈分最晚的族人取姓、文化、物种、辈分，住郡望之城。返回入谱的人
+    public static PersonalClanIdentity RecordKinsman(SpecificClan clan, City city)
+    {
+        if (clan == null || city?.data == null || World.world == null) return null;
+        EnsureIndex();
+        PersonalClanIdentity last = clan.SnapshotPeople().Where(person => person != null && person.is_main)
+            .OrderByDescending(person => person.generation).FirstOrDefault();
+        if (last == null) return null;
+        double now = World.world.getCurWorldTime();
+        int years = UnityEngine.Random.Range(22, 41);
+        var kinsman = new PersonalClanIdentity
+        {
+            id = OverallHelperFunc.IdGenerator.NextId(),
+            specific_clan_id = clan.id,
+            actor_id = -1L,
+            is_alive = true,
+            is_virtual = true,
+            virtual_since = now,
+            virtual_city_id = city.data.id,
+            recordedAge = years,
+            birthday = Date.getDate(now - years * 60d - UnityEngine.Random.Range(0, 12) * 5d),
+            sex = clan.isMalePriority() ? ActorSex.Male : ActorSex.Female,
+            species = last.species,
+            culture = last.culture,
+            generation = last.generation,
+            is_main = true
+        };
+        kinsman.name = ChildName(clan, kinsman, last);
+        clan.Upsert(kinsman);
+        SpecificClanManager._globalPersonLookup[kinsman.id] = kinsman;
+        VirtualIds.Add(kinsman.id);
+        return kinsman;
+    }
+
     // 宗室添丁(无小人、纯净地图模式，见 RoyalHouseSystem)：在位君主、储君的子女直接记入族谱为虚拟子嗣，不生出实体；
     // 继位、分封等需要时再落成(见 RealizeHeir、EmpireCraftKingdomBehCheckHeir)。不受宗族在世人数上限限制
     public static bool AddRoyalChild(Actor royal, Actor consort)
