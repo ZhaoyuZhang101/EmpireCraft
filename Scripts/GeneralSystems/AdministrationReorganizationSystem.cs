@@ -20,6 +20,8 @@ public static class AdministrationReorganizationSystem
         public List<City> Cities;
         public Kingdom Target;
         public int Cursor;
+        // 法理里隔着长城另设的那片(见 FrontierWalls)：设封国时不带法理
+        public bool Detached;
     }
     private sealed class Work
     {
@@ -40,6 +42,8 @@ public static class AdministrationReorganizationSystem
         CanContinue(empire) && !empire.data.administrative_reorganization_pending;
 
     public static bool ShouldPropose(Actor actor) => CanPropose(actor) &&
+        // 历史剧本不每五年自动把各道、省改成通用法理分区；玩家仍可通过 CanPropose 明确发动重组。
+        !WorldMap.WorldMapWilderness.HasPreservedAdministration(actor.kingdom.GetEmpire()) &&
         (actor.kingdom.GetEmpire().data.last_administrative_reorganization_timestamp < 0 ||
          Date.getYearsSince(actor.kingdom.GetEmpire().data.last_administrative_reorganization_timestamp) >= 5);
 
@@ -63,12 +67,13 @@ public static class AdministrationReorganizationSystem
     {
         if (empire?.data?.administrative_reorganization_pending != true || Active.Contains(empire.id) ||
             Pending.Count >= 8 || !CanContinue(empire)) return;
+        // 长城作行政区的天然界线(见 FrontierWalls)：一个法理里隔着长城的城分成几片，各设各的行政区(共用这个法理)，法理首府那片在前
         var groups = empire.kingdoms_list.Where(kingdom => Eligible(empire, kingdom))
             .SelectMany(kingdom => kingdom.cities ?? new List<City>())
             .Where(city => city != null && !city.isRekt() && city.hasTitle() && city.GetTitle()?.isRekt() == false)
             .Distinct().GroupBy(city => city.GetTitle()).OrderBy(group => group.Key.id)
-            .Select(group => new Region { Title = group.Key,
-                Cities = group.OrderBy(city => city == group.Key.title_capital ? 0 : 1).ThenBy(city => city.id).ToList() });
+            .SelectMany(group => WorldMap.FrontierWalls.Split(group.OrderBy(city => city == group.Key.title_capital ? 0 : 1).ThenBy(city => city.id))
+                .Select((cities, part) => new Region { Title = group.Key, Cities = cities, Detached = part > 0 }));
         var work = new Work { Empire = empire, Regions = new Queue<Region>(groups) };
         RefreshProtected(work);
         Pending.Enqueue(work);
@@ -142,17 +147,22 @@ public static class AdministrationReorganizationSystem
         else
         {
             if (region.Target == empire.CoreKingdom) region.Target = null;
+            // 治所在长城那边的行政区不归(这一片里的城本就互不隔墙，治所可能是别片的城)
+            if (Eligible(empire, region.Target) && WorldMap.FrontierWalls.Separates(city, region.Target.capital)) region.Target = null;
             if (!Eligible(empire, region.Target))
             {
                 region.Target = empire.kingdoms_list.Where(kingdom => Eligible(empire, kingdom) &&
                     kingdom != empire.CoreKingdom && kingdom.capital?.kingdom == kingdom &&
-                    kingdom.capital.GetTitle() == region.Title)
+                    kingdom.capital.GetTitle() == region.Title && !WorldMap.FrontierWalls.Separates(city, kingdom.capital))
                     .OrderBy(kingdom => kingdom.GetMainTitle() == region.Title ? 0 : 1).ThenBy(kingdom => kingdom.id)
                     .FirstOrDefault();
                 if (region.Target == null)
                 {
                     if (city.kingdom != empire.CoreKingdom) city.joinAnotherKingdom(empire.CoreKingdom);
-                    region.Target = empire.EstablishTerritorialDivision(new List<City> { city }, region.Title);
+                    // 行政区要有人主政：无小人模式下城里多半只有背景人口，先补城主(同 WorldMapScenario.Divide)——以前设不成，
+                    // 唐的河西诸州重组时从陇右道划出来就一直留在京畿道直辖
+                    CityPopulationSystem.EnsureLeader(city);
+                    region.Target = empire.EstablishTerritorialDivision(new List<City> { city }, region.Title, region.Detached);
                     // 尚无合格长官时留下待办，下一轮战略检查可重新尝试。
                     if (region.Target == null) { Active.Remove(empire.id); return; }
                 }

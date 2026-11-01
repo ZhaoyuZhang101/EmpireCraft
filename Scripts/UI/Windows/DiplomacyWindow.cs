@@ -21,7 +21,7 @@ namespace EmpireCraft.Scripts.UI.Windows;
 //   · 操作：上帝视角的按钮，一行一项，能做的金字可点，不能的灰字写原因(见 DiplomacyActions)；宣战先挑目标；
 //   · 市场：焦点国所在的共同市场——领衔、成员、外贸、奢侈品，各物资的产量需求价格缺口进出口，关税同盟的签与退，各大市场一览；
 //   · 体系图：焦点国所在的宗主一系(附庸、陪臣、殖民地、帝国成员、朝贡国)的树，所在天下的各家占比。
-// 入口：帝国页的「外交」权能点地图上的国家；国情窗口左栏的「外交」。
+// 入口：帝国页的「外交」权能(先点发起国、再点对象国直接进两国的双边页，同一国点两下进总览，见 DiplomacyPower)；国情窗口左栏的「外交」。
 public class DiplomacyWindow : WideScrollWindow<DiplomacyWindow>
 {
     private enum Page { Overview, Bilateral, Actions, Market, System }

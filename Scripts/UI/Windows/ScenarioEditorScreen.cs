@@ -2460,6 +2460,9 @@ public static class ScenarioEditorScreen
             case "name":
                 SetInput(Field(_eventBody, caption, text => ScenarioEditing.SetStepSlot(index, effect, at, "name", text)), step.name);
                 break;
+            case "person":
+                SetInput(Field(_eventBody, caption, text => ScenarioEditing.SetStepSlot(index, effect, at, "person", text)), step.person);
+                break;
             case "relation":
                 Cycler(_eventBody, caption, delta => ScenarioEditing.CycleStepRelation(index, at, delta))
                     .Set(ScenarioEditing.KindName(step.relation), ViewColor);

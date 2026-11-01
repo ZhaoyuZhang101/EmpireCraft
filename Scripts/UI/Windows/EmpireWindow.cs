@@ -134,6 +134,13 @@ namespace EmpireCraft.Scripts.UI.Windows
                 settingWindowTab.Setup("empire_setting", this.TabsWindow, action:OpenEmpireSettingWindow,
                     sprite: SpriteTextureLoader.getSprite("TabSetting"));
             }
+            // 外交：以帝国核心国为发起方打开外交窗口(用户 10-30 "帝国界面怎么没有外交")，在总览里点一国进两国双边页
+            if (TabsWindow.tabs._tabs.All(p => p.name != "empire_diplomacy"))
+            {
+                var diplomacyTab = GameObject.Instantiate(SimpleWindowTab.Prefab);
+                diplomacyTab.Setup("empire_diplomacy", this.TabsWindow, action: _ => DiplomacyWindow.Open(_empire?.CoreKingdom),
+                    sprite: SpriteTextureLoader.getSprite("ui/icons/godpowers/diplomacy"));
+            }
             if (TabsWindow.tabs._tabs.All(p => p.name != "empire_military"))
             {
                 var militaryTab = GameObject.Instantiate(SimpleWindowTab.Prefab);

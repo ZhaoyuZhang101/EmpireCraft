@@ -378,6 +378,8 @@ public static class DataManager
         EmpireCraft.Scripts.GeneralSystems.WorldMap.WorldMapScale.ZoneKm = saveData.world_map_zone_km;
         EmpireCraft.Scripts.GeneralSystems.WorldMap.WorldMapWilderness.Load(saveData.world_map_wild);
         EmpireCraft.Scripts.GeneralSystems.WorldMap.ScenarioEventSystem.Load(saveData.world_map_events);
+        EmpireCraft.Scripts.GeneralSystems.WorldMap.SilkRoadSystem.Load(saveData.world_map_silk);
+        EmpireCraft.Scripts.GeneralSystems.WorldMap.FrontierWalls.Load(saveData.world_map_walls);
         if (PlayerConfig.dict.TryGetValue("switch_simple_nameplate", out PlayerOptionData simpleNameplateOption))
         {
             simpleNameplateOption.boolVal = saveData.switch_simple_nameplate;
@@ -612,6 +614,8 @@ public static class DataManager
         saveData.world_map_zone_km = EmpireCraft.Scripts.GeneralSystems.WorldMap.WorldMapScale.ZoneKm;
         saveData.world_map_wild = EmpireCraft.Scripts.GeneralSystems.WorldMap.WorldMapWilderness.Save();
         saveData.world_map_events = EmpireCraft.Scripts.GeneralSystems.WorldMap.ScenarioEventSystem.Save();
+        saveData.world_map_silk = EmpireCraft.Scripts.GeneralSystems.WorldMap.SilkRoadSystem.Save();
+        saveData.world_map_walls = EmpireCraft.Scripts.GeneralSystems.WorldMap.FrontierWalls.Save();
         saveData.switch_simple_nameplate = ModClass.SIMPLE_NAMEPLATE_SWITCH;
         saveData.switch_empire_show_alliance = ModClass.EMPIRE_SHOW_ALLIANCE_SWITCH;
         double collectMs = saveTimer.Elapsed.TotalMilliseconds;

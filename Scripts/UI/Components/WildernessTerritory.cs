@@ -16,6 +16,10 @@ namespace EmpireCraft.Scripts.UI.Components;
 //   · 同国土一个样(用户 10-30 "像王国纳入帝国图层或者城市纳入王国一样……平时只能看到帝国名称，鼠标放上去才会显示无人区的名字")：
 //     国色不淡、不撒纹样、不标无人区名(只标在没并进国土的那部分，见 TerritoryLabelRenderer.SubmitWilderness)；
 //     国名、帝国名的铭牌把并进的地块算进去排版(见 ZonesOf)；
+//   · 行政区与法理(用户 10-30 "无人区也应该属于行政区划，或者王国级法理"，选"剧本按州府锚点划")：每块无人区跟着一座城
+//     (WildernessSystem.OriginOf：剧本州府锚点定的城，否则所挂王国法理里最近的城)。国家图层上那座城属于持有国(或同一帝国的省)
+//     就画成那座城所在的国(省)，帝国图层是所属帝国；王国法理、帝国法理、天下图层上画成那座城在图层上的样子(所挂的王国法理、
+//     它的帝国法理、天下)，各档都画(流动的那档除外)；
 //   · 悬停这些地块时原版的国家提示让给无人区提示(名字、类型，加一行归属，见 WildernessOverlay)。
 // 每 RefreshSeconds 秒、区域变了(Version)、换图层时重算正显示的那个图层；变了的地块连同四邻重画。
 // 接管每帧对一遍(见 Hook、GeneralSystems.LayerHooks)：以前只在头一回套、三样委托缺一样就整个图层不接管，套上之后别处再换委托也不知道——
@@ -32,10 +36,14 @@ public static class WildernessTerritory
         public MetaZoneGetMeta full, fullHook;
         public MetaZoneGetMetaSimple simple, simpleHook;
         public MetaZoneDrawAction drawHook;
+        // 法理、天下图层：各档(流动的除外)都并进，归属照无人区跟着的城在图层上的样子；国家、帝国图层只在按城池归属那一档
+        public bool titles;
         public Dictionary<TileZone, IMetaObject> fill = new();
         public Dictionary<TileZone, Kingdom> owners = new();
         // 按国分的并进地块(铭牌排版用)
         public Dictionary<Kingdom, List<TileZone>> byOwner = new();
+        // 按跟着的城分的并进地块(法理、天下的铭牌排版用：铭牌算哪些城，就连同跟着这些城的无人区，见 ZonesFollowing)
+        public Dictionary<City, List<TileZone>> byOrigin = new();
         // 日志：上回记的并进块数、下回最早何时再记
         public int logged = -1;
         public float logAt;
@@ -48,6 +56,7 @@ public static class WildernessTerritory
     private static float _next;
     private static object _world;
     private static MetaTypeAsset _shown;
+    private static int _shownOption = -1;
     private static int _version = int.MinValue;
 
     // 正显示的图层上并进国土的地块变了、换了图层就加一(无人区名、国名铭牌据此重排)
@@ -60,12 +69,60 @@ public static class WildernessTerritory
             layer.fill.Clear();
             layer.owners.Clear();
             layer.byOwner.Clear();
+            layer.byOrigin.Clear();
             layer.logged = -1;
         }
         Regions.Clear();
         _world = null;
         _next = 0f;
         _version = int.MinValue;
+    }
+
+    // 高亮(见 SmoothBorders.FinishFrame)：高亮的城跟着的无人区地块一起提亮，同城的地一个样；国家、帝国图层上再连同这些城所属的国
+    // 并进的无人区——以前只提亮城的地块连同周围两圈，更远的无人区不亮，亮暗之间切成一块块方的(用户 10-30 "这里高亮这里依旧有方块
+    // 边界残留")；后来按归属对象找，高亮里只要沾上一个别的归属对象，整张图上挂它的无人区都亮了(用户 10-30 "不仅对应的法理亮，
+    // 整个图都亮了""高亮应该只有对应的地区和争议地区")
+    private static readonly HashSet<City> LitCities = new();
+    private static readonly HashSet<Kingdom> LitKingdoms = new();
+    private static readonly List<int> LitWild = new();
+
+    internal static void AddClaimed(HashSet<int> zones)
+    {
+        if (zones == null || zones.Count == 0 || _shown == null) return;
+        Layer shown = null;
+        foreach (Layer layer in Layers)
+            if (ReferenceEquals(layer.asset, _shown))
+            {
+                shown = layer;
+                break;
+            }
+        ZoneCalculator calc = World.world?.zone_calculator;
+        if (shown == null || shown.fill.Count == 0 || calc == null) return;
+        foreach (int id in zones)
+        {
+            City city = calc.getZoneByID(id)?.city;
+            if (city == null || !LitCities.Add(city)) continue;
+            if (!shown.titles && city.kingdom != null) LitKingdoms.Add(city.kingdom);
+        }
+        foreach (City city in LitCities)
+            if (shown.byOrigin.TryGetValue(city, out List<TileZone> following))
+                foreach (TileZone zone in following) LitWild.Add(zone.id);
+        foreach (Kingdom kingdom in LitKingdoms)
+            if (shown.byOwner.TryGetValue(kingdom, out List<TileZone> owned))
+                foreach (TileZone zone in owned) LitWild.Add(zone.id);
+        foreach (int id in LitWild) zones.Add(id);
+        LitCities.Clear();
+        LitKingdoms.Clear();
+        LitWild.Clear();
+    }
+
+    // 正显示的图层上这块无人区并进了(画成了国、省、法理的样子；见 TerritoryLabelRenderer 无人区名只标没并进的部分)
+    internal static bool Claims(TileZone zone)
+    {
+        if (zone == null || zone.city != null || _shown == null) return false;
+        foreach (Layer layer in Layers)
+            if (ReferenceEquals(layer.asset, _shown)) return layer.fill.ContainsKey(zone);
+        return false;
     }
 
     // 正显示的图层上这块无人区画成了哪一国的(没有为 null；帝国金边按它算，见 PureMapPatch.AfterApplyColors)
@@ -90,6 +147,17 @@ public static class WildernessTerritory
         return None;
     }
 
+    // 正显示的图层上并进了、跟着这座城的无人区地块(没有为空)：法理、天下的铭牌连同它们排版，同城的地一个样
+    // (用户 10-30 "你的法理的铭牌也要算无人区啊""都成他的行政区划了怎么还没算入领土")
+    internal static List<TileZone> ZonesFollowing(City city)
+    {
+        if (city == null || _shown == null) return None;
+        foreach (Layer layer in Layers)
+            if (ReferenceEquals(layer.asset, _shown))
+                return layer.byOrigin.TryGetValue(city, out List<TileZone> zones) ? zones : None;
+        return None;
+    }
+
     // 套在国家、帝国图层的归属查询、画法外面；每帧对一遍：自己套的那层不在眼下的委托里了(被别处换过，或头一回时还没有)
     // 就套在新的外面(见 LayerHooks，图层补洞也套这几样)。里面那个记在本地(不经 Layer 的字段转)，再套一层也不会自己调自己
     private static void Hook()
@@ -98,7 +166,8 @@ public static class WildernessTerritory
         if (assets == null) return;
         foreach (MetaTypeAsset asset in assets)
         {
-            if (asset == null || asset.map_mode != MetaType.Kingdom && asset.map_mode != MetaTypeExtension.Empire) continue;
+            if (asset == null || asset.map_mode != MetaType.Kingdom && asset.map_mode != MetaTypeExtension.Empire &&
+                asset.map_mode != MetaTypeExtension.KingdomTitle && asset.map_mode != MetaTypeExtension.Tianxia) continue;
             Layer layer = null;
             foreach (Layer known in Layers)
                 if (ReferenceEquals(known.asset, asset))
@@ -109,7 +178,11 @@ public static class WildernessTerritory
             if (layer == null)
             {
                 if (asset.tile_get_metaobject == null) continue;
-                layer = new Layer { asset = asset };
+                layer = new Layer
+                {
+                    asset = asset,
+                    titles = asset.map_mode == MetaTypeExtension.KingdomTitle || asset.map_mode == MetaTypeExtension.Tianxia
+                };
                 Layers.Add(layer);
                 var tooltip = asset.check_cursor_tooltip;
                 if (tooltip != null)
@@ -122,7 +195,7 @@ public static class WildernessTerritory
             {
                 if (layer.fullHook != null) LogService.LogInfo($"[EmpireCraft][无人区并进国土] 图层 {asset.id} 的归属查询被换过，重新套上");
                 layer.full = full;
-                layer.fullHook = (zone, option) => option == 0 && Claimed(layer, zone) is IMetaObject meta ? meta : full(zone, option);
+                layer.fullHook = (zone, option) => (option == 0 || layer.titles) && Claimed(layer, zone) is IMetaObject meta ? meta : full(zone, option);
                 LayerHooks.Add(layer.fullHook, full);
                 asset.tile_get_metaobject = layer.fullHook;
             }
@@ -157,10 +230,17 @@ public static class WildernessTerritory
     // 原版画完本图层后补画并进国土的无人区(按城池归属那一档)
     private static void DrawClaimed(Layer layer, MetaTypeAsset asset)
     {
-        if (layer.fill.Count == 0 || asset.getZoneOptionState() != 0 || asset.isMetaZoneOptionSelectedFluid()) return;
+        if (layer.fill.Count == 0 || !layer.titles && asset.getZoneOptionState() != 0 || asset.isMetaZoneOptionSelectedFluid()) return;
         ZoneCalculator zones = World.world?.zone_calculator;
         if (zones == null) return;
         MetaZoneGetMetaSimple getter = asset.tile_get_metaobject_0;
+        // 法理图层按眼下这一档取(_0 永远是帝国法理那一档；王国法理那档的边线要跟邻城的王国法理比)
+        if (layer.titles && asset.tile_get_metaobject != null)
+        {
+            int option = asset.getZoneOptionState();
+            MetaZoneGetMeta full = asset.tile_get_metaobject;
+            getter = zone => full(zone, option);
+        }
         if (getter == null) return;
         foreach (TileZone zone in layer.fill.Keys)
         {
@@ -184,8 +264,11 @@ public static class WildernessTerritory
         }
         // 与整图画布、原版巡检画的同一个图层(见 SmoothBorders.DrawCanvas)
         MetaTypeAsset shown = world.zone_calculator._mode_asset ?? world.getCachedMapMetaAsset();
-        bool switched = !ReferenceEquals(shown, _shown);
+        int option = shown?.getZoneOptionState() ?? 0;
+        // 换图层、换档(法理图层的王国法理、帝国法理两档并进的样子不同)都重算
+        bool switched = !ReferenceEquals(shown, _shown) || option != _shownOption;
         _shown = shown;
+        _shownOption = option;
         if (switched) Revision++;
         bool regions = WildernessSystem.Version != _version;
         if (regions)
@@ -235,8 +318,10 @@ public static class WildernessTerritory
     {
         var fill = new Dictionary<TileZone, IMetaObject>();
         var owners = new Dictionary<TileZone, Kingdom>();
+        var byOrigin = new Dictionary<City, List<TileZone>>();
         ZoneCalculator calc = world.zone_calculator;
         Metas.Clear();
+        CityMetas.Clear();
         if (WildernessSystem.Enabled)
             foreach (WildRegion region in WildernessSystem.Regions)
             {
@@ -245,15 +330,35 @@ public static class WildernessTerritory
                 {
                     TileZone zone = calc.getZoneByID(id);
                     if (zone == null || zone.city != null) continue;
+                    // 跟着的城(行政区、所挂法理)
+                    City origin = WildernessSystem.OriginOf(zone);
+                    if (layer.titles)
+                    {
+                        IMetaObject seen = MetaAt(layer, origin);
+                        if (seen == null) continue;
+                        fill[zone] = seen;
+                        Follow(byOrigin, origin, zone);
+                        continue;
+                    }
                     Kingdom owner = WildernessSystem.OwnerOf(zone);
                     if (owner?.data == null || owner.isRekt()) continue;
-                    if (!Metas.TryGetValue(owner, out IMetaObject meta)) Metas[owner] = meta = MetaOf(layer, owner);
+                    // 跟着的城属于持有国(或同一帝国的省)：画成那座城所在的国(省)
+                    Kingdom drawn = owner;
+                    IMetaObject meta = null;
+                    if (origin?.kingdom != null && SameRealm(origin.kingdom, owner))
+                    {
+                        meta = MetaAt(layer, origin);
+                        if (meta != null) drawn = origin.kingdom;
+                    }
+                    if (meta == null && !Metas.TryGetValue(owner, out meta)) Metas[owner] = meta = MetaOf(layer, owner);
                     if (meta == null) continue;
                     fill[zone] = meta;
-                    owners[zone] = owner;
+                    owners[zone] = drawn;
+                    if (drawn == origin?.kingdom) Follow(byOrigin, origin, zone);
                 }
             }
         Metas.Clear();
+        CityMetas.Clear();
         // 变了的地块连同四邻重画(边线跟着变)
         var changed = new HashSet<TileZone>();
         foreach (KeyValuePair<TileZone, IMetaObject> pair in layer.fill)
@@ -262,6 +367,7 @@ public static class WildernessTerritory
             if (!layer.fill.TryGetValue(pair.Key, out IMetaObject before) || !ReferenceEquals(before, pair.Value)) changed.Add(pair.Key);
         layer.fill = fill;
         layer.owners = owners;
+        layer.byOrigin = byOrigin;
         if (changed.Count > 0 || layer.byOwner.Count == 0 && owners.Count > 0)
         {
             var byOwner = new Dictionary<Kingdom, List<TileZone>>();
@@ -287,8 +393,40 @@ public static class WildernessTerritory
             foreach (TileZone next in zone.neighbours ?? global::System.Array.Empty<TileZone>()) next?.resetRenderHelpers();
             // 整图画布画着时不清(同 Repaint)
             if (!fill.ContainsKey(zone) && zone.city == null && !SmoothBorders.CanvasActive) calc.drawZoneClear(zone);
+            SmoothBorders.ClaimChanged(zone.id);
             WildernessOverlay.MarkAround(zone);
         }
+    }
+
+    private static void Follow(Dictionary<City, List<TileZone>> byOrigin, City origin, TileZone zone)
+    {
+        if (origin == null) return;
+        if (!byOrigin.TryGetValue(origin, out List<TileZone> zones)) byOrigin[origin] = zones = new List<TileZone>();
+        zones.Add(zone);
+    }
+
+    private static readonly Dictionary<City, IMetaObject> CityMetas = new();
+
+    // 这座城的地块在本图层上的样子(一轮里每座城只取一次)
+    private static IMetaObject MetaAt(Layer layer, City city)
+    {
+        if (city?.data == null || city.isRekt() || city.zones == null || city.zones.Count == 0) return null;
+        if (CityMetas.TryGetValue(city, out IMetaObject meta)) return meta;
+        TileZone anchor = city.getTile()?.zone ?? city.zones[0];
+        // 按眼下这一档取(法理图层的 _0 永远是帝国法理那一档，王国法理那一档要按档取，见 EmpireCraftMetaTypeLibrary)
+        meta = layer.full != null ? layer.full(anchor, layer.asset.getZoneOptionState()) : layer.simple?.Invoke(anchor);
+        if (meta != null && !meta.isAlive()) meta = null;
+        CityMetas[city] = meta;
+        return meta;
+    }
+
+    // 同一国，或同一帝国(帝国的省)
+    private static bool SameRealm(Kingdom a, Kingdom b)
+    {
+        if (a == b) return true;
+        if (a == null || b == null) return false;
+        EmpireCraft.Scripts.Layer.Empire empire = a.GetEmpire();
+        return empire != null && empire == b.GetEmpire();
     }
 
     // 这一国在本图层上的样子：取它一座城的地块在图层上的归属(帝国图层是所属帝国)，取不到就是它自己

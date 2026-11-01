@@ -124,6 +124,10 @@ public static class ConstitutionSystem
 
     #region 年度更新
 
+    // 核对、制宪与年度条款同步共用同一个国体口径；专属穿越政体不依赖普通共和国标记。
+    private static bool IsConstitutionalMonarchy(Empire empire, ConstitutionalEconomyState state) =>
+        !state.is_republic && !TransmigrantSystem.Governs(empire);
+
     public static void Update(Empire empire, ConstitutionalEconomyState state)
     {
         if (state == null || empire?.CoreKingdom == null || World.world == null) return;
@@ -136,8 +140,8 @@ public static class ConstitutionSystem
         }
         // 穿越政权的国体是共和(同 SyncDerived)：以前这里只看共和国标记，判成君主立宪，与宪法里写的共和对不上，
         // 每年都当国体变了废旧宪、颁新宪(玩家 10-30 反馈"澳宋每年都颁布新宪法")
-        ConstitutionFormOfState form = state.is_republic || TransmigrantSystem.Governs(empire) ? ConstitutionFormOfState.Republic
-            : ConstitutionFormOfState.ConstitutionalMonarchy;
+        ConstitutionFormOfState form = IsConstitutionalMonarchy(empire, state)
+            ? ConstitutionFormOfState.ConstitutionalMonarchy : ConstitutionFormOfState.Republic;
         bool needNew = current == null ||
                        current.provisional != (kind == Kind.Provisional) ||
                        current.clauses == null || current.clauses.form_of_state != form;
@@ -148,6 +152,8 @@ public static class ConstitutionSystem
             Promulgate(empire, state, kind == Kind.Provisional);
             return;
         }
+        // 修复早期版本留下的通用宪法名时沿用同一部文书，不增加编号、不再记一次颁布。
+        if (TransmigrantSystem.Governs(empire)) current.name = ConstitutionName(empire, false);
         // 旧存档的任期(以前 2~8 年)按 2.5 倍换算到现在的范围
         if (current.clauses != null && !current.clauses.term_rescaled)
         {
@@ -190,18 +196,19 @@ public static class ConstitutionSystem
         };
         if (!provisional)
         {
-            state.constitution_count++;
-            constitution.number = state.constitution_count;
+            constitution.number = Math.Max(state.constitution_count, state.constitution?.number ?? 0) + 1;
         }
         // 临时约法由执政一方拟定；正式宪法由制宪会议表决
         string drafter = provisional ? "" : DraftByConvention(empire, state, constitution.clauses);
         if (provisional)
-            ApplyTemplate(Template(IdeologyFamilies.StateIdeology(empire), !state.is_republic,
+            ApplyTemplate(Template(IdeologyFamilies.StateIdeology(empire), IsConstitutionalMonarchy(empire, state),
                 RepublicSystem.IsOneParty(empire), InstitutionSystem.GetPrimaryCulture(empire)), constitution.clauses);
         SyncDerived(empire, state, constitution, record: false);
         string country = empire.GetEmpireFullName();
         constitution.name = ConstitutionName(empire, provisional);
+        // 起草/条款推导若失败，不提前扣入一次颁宪；完整生成文书后才提交编号。
         state.constitution = constitution;
+        if (!provisional) state.constitution_count = constitution.number;
         if (migrating) return;
         string key = provisional ? "constitution_provisional_history"
             : constitution.number > 1 ? "constitution_renewed_history" : "constitution_promulgated_history";
@@ -214,6 +221,7 @@ public static class ConstitutionSystem
     private static void Abolish(Empire empire, ConstitutionalEconomyState state)
     {
         ConstitutionData old = state.constitution;
+        if (old != null && !old.provisional) state.constitution_count = Math.Max(state.constitution_count, old.number);
         state.constitution = null;
         if (old == null || old.provisional) return;
         EventRecorder.Record(empire, string.Format(LM.Get("constitution_abolished_history"),
@@ -365,7 +373,7 @@ public static class ConstitutionSystem
     // 没有政党时由执政理念一方拟定。返回得票最多的政党名(史书用)，没有政党返回空
     private static string DraftByConvention(Empire empire, ConstitutionalEconomyState state, ConstitutionClauses clauses)
     {
-        bool monarchy = !state.is_republic && !TransmigrantSystem.Governs(empire);
+        bool monarchy = IsConstitutionalMonarchy(empire, state);
         bool oneParty = RepublicSystem.IsOneParty(empire);
         string culture = InstitutionSystem.GetPrimaryCulture(empire);
         int totalSeats = state.parliament_seats?.Count ?? 0;
@@ -414,7 +422,7 @@ public static class ConstitutionSystem
         ConstitutionClauses clauses = constitution.clauses ??= new ConstitutionClauses { term_rescaled = true };
         constitution.player_locked ??= new List<string>();
         constitution.amendments ??= new List<ConstitutionAmendmentRecord>();
-        bool monarchy = !state.is_republic && !TransmigrantSystem.Governs(empire);
+        bool monarchy = IsConstitutionalMonarchy(empire, state);
         ConstitutionHeadSelection head = DeriveHeadSelection(empire, monarchy);
         clauses.founding_ideology = monarchy || !state.is_republic ? IdeologyFamilies.StateIdeology(empire) : state.republic_ideology;
         // 穿越政权是现代国家：主席个人的理念若是诸子百家这类古代理念(以前立国理念成了"黄老")，立国理念记作中间派

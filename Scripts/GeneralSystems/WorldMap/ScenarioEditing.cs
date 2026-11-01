@@ -1307,7 +1307,10 @@ public static class ScenarioEditing
     {
         WorldMapEventStep item = Step(index, effect, step);
         if (item == null) return;
-        string current = slot switch { "a" => item.a, "b" => item.b, "city" => item.city, "region" => item.region, "name" => item.name, _ => null };
+        string current = slot switch
+        {
+            "a" => item.a, "b" => item.b, "city" => item.city, "region" => item.region, "name" => item.name, "person" => item.person ?? "", _ => null
+        };
         if (current == null || current == (value ?? "")) return;
         Before();
         switch (slot)
@@ -1317,6 +1320,7 @@ public static class ScenarioEditing
             case "city": item.city = value ?? ""; break;
             case "region": item.region = value ?? ""; break;
             case "name": item.name = (value ?? "").Trim(); break;
+            case "person": item.person = (value ?? "").Trim(); break;
         }
         Changed();
     }
@@ -1376,6 +1380,8 @@ public static class ScenarioEditing
             "move_capital" => new List<string> { "a", "city" },
             "culture" => new List<string> { "a", "culture" },
             "proclaim" or "rename" or "adopt_huaxia" => new List<string> { "a", "name" },
+            // 起兵割据：从哪国、据哪城、国号、领头人物与部将的名字(剧本人物，顿号隔开)
+            "rebel" => new List<string> { "a", "city", "name", "person" },
             _ => new List<string> { "a" }
         };
     }

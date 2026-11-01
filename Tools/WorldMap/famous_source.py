@@ -5,6 +5,7 @@
 kind general 名将 / minister 名臣、rank 0 良才 1 名 2 国柱、
 post chief 首席朝官(丞相、首辅、维齐尔……) / core 中枢要职 / div 部寺 / general 统一支军 / 城 id 坐镇该城。
 只收开局时在世的(三国 230 年关羽、张飞、赵云已故，不收)。改完跑 add_traditional.py 与 check_eras.py。
+后妃娘家人的 "in"(杨国忠入杨贵妃一家)由 consorts_source.py 写，这里重写名人表时按姓名留着。
 
 用法：python -I -X utf8 famous_source.py <模组目录>
 """
@@ -75,7 +76,8 @@ FAMOUS = {
     "high_tang": {
         "tang": [F("李|Li", "林甫|Linfu", 67, M, 1, "chief"), F("杨|Yang", "国忠|Guozhong", 45, M, 0, "core"),
                  F("高|Gao", "仙芝|Xianzhi", 47, G, 2, "kucha"), F("哥舒|Geshu", "翰|Han", 51, G, 2, "lanzhou"),
-                 F("安|An", "禄山|Lushan", 47, G, 1, "beijing"), F("郭|Guo", "子仪|Ziyi", 53, G, 1, "general"),
+                 F("安|An", "禄山|Lushan", 47, G, 1, "beijing"), F("史|Shi", "思明|Siming", 47, G, 1, "liaoyang"),
+                 F("郭|Guo", "子仪|Ziyi", 53, G, 1, "general"),
                  F("李|Li", "光弼|Guangbi", 42, G, 1, "general"), F("封|Feng", "常清|Changqing", 45, G, 1, "general"),
                  F("颜|Yan", "真卿|Zhenqing", 41, M, 0, "div"), F("王|Wang", "维|Wei", 49, M, 0, "div")],
         "abbasid": [W("阿布·穆斯林|Abu Muslim", 32, G, 2, "merv"), W("阿布·萨拉马|Abu Salama", 50, M, 1, "chief")],
@@ -131,7 +133,7 @@ FAMOUS = {
 def main():
     root = sys.argv[1]
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    from add_traditional import dump_records  # noqa: E402
+    from add_traditional import dump_records, triple  # noqa: E402
     with open(os.path.join(root, "WorldMaps", "cities.json"), encoding="utf-8") as f:
         cities = {city["id"] for city in json.load(f)["cities"]}
     for era_id, realms in FAMOUS.items():
@@ -142,6 +144,14 @@ def main():
         for pid, people in realms.items():
             if pid not in by_id:
                 raise SystemExit("%s 没有 %s" % (era_id, pid))
+            # 留住 consorts_source.py 写的娘家序号；繁体当场补(同 add_traditional.py)
+            old = {(p.get("fam", "").split("|")[0], p.get("giv", "").split("|")[0]): p for p in by_id[pid].get("famous", [])}
+            for person in people:
+                prev = old.get((person["fam"].split("|")[0], person["giv"].split("|")[0]))
+                if prev is not None and "in" in prev:
+                    person["in"] = prev["in"]
+                for key in ("fam", "giv"):
+                    person[key] = triple(person[key])
             for person in people:
                 post = person["post"]
                 if post not in ("chief", "core", "div", "general") and post not in cities:

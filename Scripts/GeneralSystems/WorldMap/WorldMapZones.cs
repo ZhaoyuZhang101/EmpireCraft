@@ -18,7 +18,9 @@ namespace EmpireCraft.Scripts.GeneralSystems.WorldMap;
 // 山里至多往里领两块(头一轮一块)，大山腹地留作无主之地。
 // 长城、边墙作农牧分界(用户 10-30 "秦和晋的版图都延伸到哪儿去了""历史上的地块可不是这样子的"：中原的城顺着漠南的平地一路领到
 // 大漠边上，帝国法理秦、晋整片伸进草原)：剧本这一时代的边墙(见 SetWalls)两侧的区块之间不通——铺辖地、铺满、补空都不跨过去，
-// 墙外由草原那边的城与补空小国分；补空小国的文化、帝国法理也按不过墙走得到的最近的城定(见 NearestOf)
+// 墙外由草原那边的城与补空小国分；补空小国的文化、帝国法理也按不过墙走得到的最近的城定(见 NearestOf)。
+// 光挡相邻两块还不够(用户 10-30 截图丰州羁縻州跨过秦长城伸到长安北面)：铺辖地、铺满时城也不领在自己墙后的地(城心到地块中心的连线
+// 穿墙，见 FrontierWalls.Behind)——以前绕过墙头再折回来就领到了墙那边(丰州绕过阴山长城西头领了墙北的草原)
 internal static class WorldMapZones
 {
     public static int Width { get; private set; }
@@ -32,8 +34,9 @@ internal static class WorldMapZones
     // 整块荒漠(BarrenLandSystem.Desert)、冻土(Frozen)，别的为 0
     private static int[] _barren = new int[0];
 
-    // 边墙线段(格坐标)与被它隔开的相邻区块对(见 SetWalls、BuildBlocked)
+    // 边墙线段(格坐标)与被它隔开的相邻区块对(见 SetWalls、BuildBlocked)；连着的几道墙(见 FrontierWalls.Build)
     private static readonly List<(Vector2 a, Vector2 b)> _walls = new();
+    private static List<FrontierWalls.Line> _lines = new();
     private static readonly HashSet<long> _blocked = new();
     private static readonly (int dx, int dy)[] HalfNeighbours = { (1, 0), (0, 1), (1, 1), (1, -1) };
 
@@ -104,12 +107,25 @@ internal static class WorldMapZones
         }
     }
 
-    // 剧本开局前设这一时代的边墙(格坐标的线段；null 清掉)，之后每次 Build 按它重算哪些相邻区块被隔开
-    public static void SetWalls(IEnumerable<(Vector2 a, Vector2 b)> segments)
+    // 剧本开局前设这一时代的边墙(格坐标的折线；null 清掉)，之后每次 Build 按它重算哪些相邻区块被隔开
+    public static void SetWalls(List<List<Vector2>> lines)
     {
         _walls.Clear();
-        if (segments != null) _walls.AddRange(segments);
+        foreach (List<Vector2> line in lines ?? new List<List<Vector2>>())
+            for (int i = 1; i < line.Count; i++) _walls.Add((line[i - 1], line[i]));
+        _lines = FrontierWalls.Build(lines);
         _blocked.Clear();
+    }
+
+    // 从 seat(城心)看这块地在墙后：城不领它(见 FrontierWalls.Behind)
+    public static bool Behind(Vector2Int seat, int index) =>
+        _lines.Count > 0 && index >= 0 && FrontierWalls.Behind(_lines, seat, new Vector2(index % Width * 8 + 4, index / Width * 8 + 4));
+
+    private static bool Behind(City city, int index)
+    {
+        if (_lines.Count == 0) return false;
+        WorldTile seat = city?.getTile();
+        return seat != null && Behind(new Vector2Int(seat.x, seat.y), index);
     }
 
     // 区块中心连线与边墙线段相交的相邻区块对(八方向，记一半的邻居、两向通用)
@@ -145,8 +161,9 @@ internal static class WorldMapZones
     private static float Side(Vector2 o, Vector2 p, Vector2 q) => (p.x - o.x) * (q.y - o.y) - (p.y - o.y) * (q.x - o.x);
 
     // 按起点分地(州府治所锚点与各城，见 WorldMapScenario.AnchorTerritory)：各起点同时按地形代价往外走——只走能领的陆地、
-    // 交界要有路口、不过边墙(同 Fill)，每块地归先到的起点，各起点至多走 budget。返回各区块的标签，没走到为 -1
-    public static int[] Partition(List<(int index, int label, float budget)> seeds)
+    // 交界要有路口、不过边墙(同 Fill)，每块地归先到的起点，各起点至多走 budget。返回各区块的标签，没走到为 -1。
+    // 无人区挂接仍用原有距离口径；明确历史范围由剧本默认数据预先赋值，不改通用分区算法。
+    public static int[] Partition(List<(int index, int label, float budget)> seeds, bool wild = false)
     {
         var label = new int[_travel.Length];
         var cost = new float[_travel.Length];
@@ -171,8 +188,9 @@ internal static class WorldMapZones
             if (at > cost[index]) continue;
             foreach (int next in Neighbours(index))
             {
-                if (!_claimable[next] || _land[next] < MinLand || _barren[next] != BarrenLandSystem.None || !Open(index, next)) continue;
-                float total = at + Step(index, next);
+                if (wild ? _land[next] < MinLand || Blocked(index, next)
+                        : !_claimable[next] || _land[next] < MinLand || _barren[next] != BarrenLandSystem.None || !Open(index, next)) continue;
+                float total = at + (wild ? (Diagonal(index, next) ? 1.414f : 1f) * (next < _noise.Length ? _noise[next] : 1f) : Step(index, next));
                 if (total > limit[index] || total >= cost[next]) continue;
                 cost[next] = total;
                 label[next] = label[index];
@@ -182,6 +200,13 @@ internal static class WorldMapZones
         }
         return label;
     }
+
+    public static bool SettledLand(int index) => index >= 0 && index < _land.Length && _land[index] >= MinLand &&
+        _claimable[index] && _barren[index] == BarrenLandSystem.None;
+
+    // 地形粗(山地、荒漠、走不进去的)：进世界后可能划成无人区的地块
+    public static bool Rough(int index) =>
+        index >= 0 && index < _travel.Length && (!_claimable[index] || _barren[index] != BarrenLandSystem.None || _travel[index] >= Mountain);
 
     // 各区块走得到的最近的起点(按地形代价，含跨海，不过边墙)：返回起点在 sources 里的序号，走不到为 -1
     public static int[] NearestOf(IList<int> sources)
@@ -377,7 +402,7 @@ internal static class WorldMapZones
                 TileZone zone = _zones[next];
                 if (zone == null || zone.city != null || !Open(index, next)) continue;
                 float total = at + Step(index, next);
-                if (total > seeds[s].budget || total >= cost[next]) continue;
+                if (total > seeds[s].budget || total >= cost[next] || Behind(seeds[s].city, next)) continue;
                 cost[next] = total;
                 tentative[next] = s;
                 heap.Push(total, next);
@@ -518,7 +543,8 @@ internal static class WorldMapZones
                 // 现在走不进去的山腹留空，成了天然的界
                 if (!Open(index, next)) continue;
                 float total = at + Step(index, next);
-                if (total >= cost[next]) continue;
+                // 墙后的地不领(绕过墙头折回来的)，留给墙那边的城
+                if (total >= cost[next] || Behind(from, next)) continue;
                 cost[next] = total;
                 tentative[next] = from;
                 depth[next] = inward;

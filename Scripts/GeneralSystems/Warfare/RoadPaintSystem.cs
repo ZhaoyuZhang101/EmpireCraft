@@ -11,6 +11,9 @@ public sealed class PaintedRoad
 {
     public int grade;
     public float condition = 1f;
+    // 丝绸之路(剧本开局沿史实走向铺的，见 WorldMap.SilkRoadSystem)：不因无人养护、战事荒掉，路网图层上画成丝路的颜色
+    public bool silk;
+    public bool ShouldSerializesilk() => silk;
 }
 
 // 神力画的路(用户 2026-10-22 "加一个绘制道路按钮"，选"并进模组路网""照常养护")：按格存(格编号 → 等级、路况)，随存档保存。
@@ -84,6 +87,27 @@ public static class RoadPaintSystem
         RoadNetwork.MarkDirty();
         return true;
     }
+
+    // 丝绸之路的一格(见 WorldMap.SilkRoadSystem)：山、高峰、城墙(关门照走)上不铺，过河的至少架桥那一等；已有更高等级的不降，
+    // 记作丝路。铺上了(或升了等级)返回 true
+    public static bool Lay(WorldTile tile, int grade)
+    {
+        if (tile?.data == null || tile.Type == null || tile.Type.ocean || Blocked(tile) || grade <= 0) return false;
+        if (tile.Type.liquid) grade = Mathf.Max(grade, BridgeGrade);
+        int id = tile.data.tile_id;
+        if (_tiles.TryGetValue(id, out PaintedRoad road))
+        {
+            road.silk = true;
+            if (road.grade >= grade) return false;
+            road.grade = grade;
+        }
+        else _tiles[id] = new PaintedRoad { grade = grade, silk = true };
+        _pending = true;
+        RoadNetwork.MarkDirty();
+        return true;
+    }
+
+    public static bool IsSilk(int tileId) => _tiles.TryGetValue(tileId, out PaintedRoad road) && road.silk;
 
     public static bool Erase(WorldTile tile)
     {
@@ -163,7 +187,8 @@ public static class RoadPaintSystem
     // 路况变差；坏到底降一等，土路就荒了
     private static bool Damage(int id, float amount)
     {
-        if (!_tiles.TryGetValue(id, out PaintedRoad road)) return false;
+        // 丝路不荒(商旅自己踩着走)
+        if (!_tiles.TryGetValue(id, out PaintedRoad road) || road.silk) return false;
         road.condition -= amount;
         if (road.condition > 0f) return false;
         road.condition = 1f;

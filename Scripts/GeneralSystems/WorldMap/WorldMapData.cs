@@ -75,7 +75,10 @@ public sealed class WorldMapCore
 }
 
 // 剧本人物：姓、名为"简体|英文|繁体"(姓为空串表示无姓，只称名；不写姓则按本国文化起)；
-// rel 为与君主的关系(son/daughter/grandson/brother/nephew…)，of 为父亲在 kin 里的序号(-1 为君主)
+// rel 为与君主的关系(son/daughter/grandson/brother/nephew…)，of 为父亲在 kin 里的序号(-1 为君主)；
+// 后妃(用户 10-30 "为什么妃子和配偶没按历史来"，见 Tools/WorldMap/consorts_source.py)：rel wife 正妻(皇后、王后)、consort 妃嫔，
+// of 为丈夫在 kin 里的序号(-1 为君主)；mo 为生母在 kin 里的序号；娘家 in 为与 kin 里这一位同一家(哲哲与布木布泰)，
+// house 为娘家是某国(本档的国 id)的君主家(德川和子嫁天皇，娘家是江户德川)，都不写的按本人的姓自立一家
 public sealed class WorldMapPerson
 {
     public string fam;
@@ -85,12 +88,16 @@ public sealed class WorldMapPerson
     public string rel = "";
     public int of = -1;
     public bool heir;
+    [JsonProperty("mo")] public int mother = -1;
+    [JsonProperty("in")] public int sameHouse = -1;
+    public string house = "";
 
     // 族谱：今上父亲在前史(history.json)里的族谱编号；今上自己若在前史里另有一段在位(西吉斯蒙德三世当过瑞典国王)，记他自己的编号
     [JsonProperty("f")] public string father = "";
     [JsonProperty("p")] public string self = "";
 
-    public bool Female => sex == "f" || rel is "daughter" or "granddaughter" or "sister";
+    public bool Spouse => rel is "wife" or "consort";
+    public bool Female => sex == "f" || Spouse && sex != "m" || rel is "daughter" or "granddaughter" or "sister";
     public bool ChildOfLine => rel is "son" or "daughter" or "grandson" or "granddaughter";
 }
 
@@ -156,7 +163,7 @@ public sealed class WorldMapEvent
 }
 
 // 事件的一条条件或结果：kind 定种类，其余按种类用(a、b 国家编号，city 城编号，region 地区编号，value 数，name 国号，
-// relation 关系种类、goal 战争目标，culture 文化)
+// relation 关系种类、goal 战争目标，culture 文化；起兵割据另用 person 领头人物与部将的名字("安禄山、史思明")、cities 另带的城)
 public sealed class WorldMapEventStep
 {
     public string kind = "";
@@ -169,6 +176,8 @@ public sealed class WorldMapEventStep
     public string relation = "";
     public string goal = "";
     public string culture = "";
+    public string person = "";
+    public List<string> cities;
 }
 
 // 长城、边墙：name "简体|英文|繁体"，pts 是 [经度, 纬度] 折线(两点之间铺墙时沿山脊找路)
@@ -196,7 +205,8 @@ public sealed class WorldMapRelation
 }
 
 // 名将名臣(见 Tools/WorldMap/famous_source.py)：kind general/minister，rank 0 良才 1 名 2 国柱，
-// post chief 首席朝官 / core 中枢要职 / div 部寺 / general 统一支军 / 城 id 坐镇该城
+// post chief 首席朝官 / core 中枢要职 / div 部寺 / general 统一支军 / 城 id 坐镇该城；
+// in 为与本国 kin 里这一位后妃同一家(杨国忠入杨贵妃的杨氏，外戚就连得上，见 consorts_source.py)
 public sealed class WorldMapFamous
 {
     public string fam;
@@ -206,6 +216,7 @@ public sealed class WorldMapFamous
     public string kind = "minister";
     public int rank;
     public string post = "";
+    [JsonProperty("in")] public int sameHouse = -1;
 
     public WorldMapPerson AsPerson() => new() { fam = fam, giv = giv, age = age, sex = sex };
 }
@@ -222,6 +233,7 @@ public sealed class WorldMapPolity
     public List<string> cities = new();
     // 都城直辖那一块(不属于任何行政区)的州府治所经纬度；没有行政区的国家写全境的(见 WorldMapScenario.AnchorTerritory)
     public List<float[]> seats;
+    public List<List<List<float[]>>> boundary;
     // 宗主国(帝国)的 id：开局即为其成员
     [JsonProperty("of")] public string overlord = "";
     // 开局即称帝(本模组帝国)
@@ -268,6 +280,8 @@ public sealed class WorldMapDivision
     public List<string> cities = new();
     // 当年这个行政区各州府治所的经纬度(只用来划界，不建城；见 WorldMapScenario.AnchorTerritory、Tools/WorldMap/anchors_source.py)
     public List<float[]> seats;
+    // 自定剧本可直接给本行政区的历史范围(GeoJSON MultiPolygon 经纬度坐标)。没有面数据时按治所与地形推算。
+    public List<List<List<float[]>>> boundary;
 
     public string Name => WorldMapData.PickParts(name);
 }
@@ -306,6 +320,8 @@ public sealed class WorldMapEra
     [JsonIgnore] public bool OwnWorld => cities != null && (cities.Count > 0 || map != null);
     // 开局外交关系(在打的仗、朝贡、和亲、同盟、旧谊宿怨)
     public List<WorldMapRelation> relations = new();
+    // 丝绸之路(陆路修成路、沿途市场互市，见 Tools/WorldMap/silkroad_source.py、SilkRoadSystem)
+    public List<WorldMapSilkRoute> silk = new();
     // 长城、边墙与关隘(见 Tools/WorldMap/walls_source.py、WorldMapWalls)
     public List<WorldMapWall> walls = new();
     // 剧情事件(剧本编辑器第四期，见 ScenarioEventSystem)

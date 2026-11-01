@@ -26,8 +26,8 @@ namespace EmpireCraft.Scripts.GeneralSystems.WorldMap;
 //     那片叫原名的若原名已被别处占了(读档前就有同名的)，照样往下加方位；
 //   · 史实归属：时代文件的 wilderness 一节(单元 → 政权，如盛唐青藏高原归吐蕃)，开局划区挂法理时，单元盖住的无人区地块
 //     挂到那个政权都城所在的王国法理上，盖过"挂最近法理"(WildernessSystem.Attach 里问 TitleFor)；一块地落在几个写了归属的单元里，
-//     取范围最小的那个；没写的单元照旧挂最近的法理。单元 → 法理编号开局头一回划区时定下、随存档保存，往后城、法理变了全部重挂时
-//     照样先按它挂(那个法理没了才挂最近的)；
+//     取范围最小的那个；没写的单元照旧挂最近的法理。单元 → 法理编号开局头一回划区时定下、随存档保存；有效法理不因新增城市重分，
+//     失效或新出现的无人区地块再按史实归属补挂；
 //   · 存档(SaveData.world_map_wild)：地图范围、大小、时代、开局年份与上面的单元 → 法理；不是世界地图为 null。
 public sealed class WorldMapWildUnit
 {
@@ -52,6 +52,12 @@ public sealed class WorldMapWildUnit
 }
 
 // 存档里的世界地图(见 SaveData.world_map_wild)
+public sealed class ScenarioAdministrativeOrigin
+{
+    public long realm = -1L, title = -1L, empire = -1L;
+    public string regime = "";
+}
+
 public class WorldMapWildSave
 {
     public string frame = "";
@@ -61,6 +67,10 @@ public class WorldMapWildSave
     public int year;
     // 地理单元 → 史实归属的王国法理编号(开局头一回划区时按时代文件定下)
     public Dictionary<string, long> owners = new();
+    // 州府锚点给可能的无人区地块定的行政区：地块编号 → 归本行政区的哪座城(见 WorldMapScenario.AnchorWilderness)
+    public Dictionary<int, long> anchors;
+    // 剧本设好的行政成员关系；实际改隶、法理变更、帝国变更后自动让位于新安排。
+    public Dictionary<long, ScenarioAdministrativeOrigin> administration;
 }
 
 public static class WorldMapWilderness
@@ -89,6 +99,54 @@ public static class WorldMapWilderness
     internal static bool OnEarth => Active;
 
     #region 开局、存读档
+
+    // 剧本摆好后记下州府锚点给无人区定的行政区(见 WorldMapScenario.AnchorWilderness)
+    public static void SetAnchors(Dictionary<int, long> anchors)
+    {
+        if (_state != null) _state.anchors = anchors is { Count: > 0 } ? new Dictionary<int, long>(anchors) : null;
+    }
+
+    internal static void CaptureAdministration(IEnumerable<City> cities)
+    {
+        if (!Active || cities == null) return;
+        _state.administration ??= new();
+        foreach (City city in cities)
+        {
+            if (city?.data == null || city.isRekt() || city.kingdom?.data == null || city.kingdom.isRekt()) continue;
+            _state.administration[city.id] = new ScenarioAdministrativeOrigin
+            {
+                realm = city.kingdom.id, title = city.GetTitle()?.id ?? -1L,
+                empire = city.kingdom.GetEmpire()?.id ?? -1L, regime = AdministrativeRegime(city)
+            };
+        }
+    }
+
+    internal static bool PreservesAdministration(City city)
+    {
+        if (!Active || city?.data == null || city.isRekt() || city.kingdom?.data == null) return false;
+        // 旧档沿用当前行政安排，只防止继续漂移，不把战争后的版图恢复成开局。
+        if (_state.administration == null)
+            CaptureAdministration((_state.anchors?.Values ?? Enumerable.Empty<long>()).Distinct()
+                .Select(id => World.world?.cities?.get(id)));
+        if (_state.administration == null || !_state.administration.TryGetValue(city.id, out ScenarioAdministrativeOrigin original)) return false;
+        return original.realm == city.kingdom.id && original.title == (city.GetTitle()?.id ?? -1L) &&
+               original.empire == (city.kingdom.GetEmpire()?.id ?? -1L) &&
+               (string.IsNullOrEmpty(original.regime) || original.regime == AdministrativeRegime(city));
+    }
+
+    private static string AdministrativeRegime(City city) =>
+        (city.kingdom.GetEmpire()?.CoreKingdom ?? city.kingdom).GetRegime()?.type.ToString() ?? "";
+
+    internal static bool HasPreservedAdministration(Empire empire) => Active && empire?.kingdoms_list != null &&
+        empire.kingdoms_list.Any(kingdom => kingdom?.cities != null && kingdom.cities.Any(PreservesAdministration));
+
+    // 这块地按州府锚点归哪座城(没有、城没了为 null)：无人区挂它的王国法理，跟着它的行政区(见 WildernessSystem.Attach)
+    internal static City AnchorCity(TileZone zone)
+    {
+        if (_state?.anchors == null || zone == null || !_state.anchors.TryGetValue(zone.id, out long id)) return null;
+        City city = World.world?.cities?.get(id);
+        return city?.data != null && city.isAlive() ? city : null;
+    }
 
     // 剧本摆好时(WorldMapScenario.Finish)：记下范围、大小、时代，史实归属先记都城
     public static void Begin(WorldMapFrame frame, Vector2Int size, WorldMapEra era, Dictionary<string, City> capitals)
@@ -136,6 +194,14 @@ public static class WorldMapWilderness
             return;
         }
         _frame.Bounds(new Vector2Int(_state.w, _state.h), out _bottom, out _degrees);
+    }
+
+    // 旧档没存长城(见 FrontierWalls)：按存档的时代、范围与大小补算这一时代的长城；不是世界地图、时代找不到为 null
+    internal static List<List<Vector2>> ScenarioWalls()
+    {
+        if (!Active || string.IsNullOrEmpty(_state.era) || !WorldMapData.EnsureLoaded()) return null;
+        WorldMapEra era = WorldMapData.Eras.Concat(WorldMapData.Custom).FirstOrDefault(item => item?.id == _state.era);
+        return era == null ? null : WorldMapScenario.WallLines(era, _frame, new Vector2Int(_state.w, _state.h));
     }
 
     #endregion
@@ -249,6 +315,17 @@ public static class WorldMapWilderness
         WildKind.Swamp => "swamp",
         _ => null
     };
+
+    // 史实归属的范围边上弯弯曲曲(用户 10-30 "上面吐出来两块真的很丑""按照史实")：按经纬框判时取样点按低频噪声挪一挪
+    // (至多一块半地，几块地一个起伏)，归属照史实，只是边不再沿经纬线切成一块块方的
+    private const float JitterZones = 1.5f;
+
+    private static void Jitter(TileZone zone, ref float lon, ref float lat)
+    {
+        float reach = JitterZones * 8f * _degrees;
+        lon += (SmoothBorders.BorderNoise(zone.x * 4, zone.y * 4, 7717) - 0.5f) * 2f * reach;
+        lat += (SmoothBorders.BorderNoise(zone.x * 4, zone.y * 4, 8831) - 0.5f) * 2f * reach;
+    }
 
     private static void LonLat(TileZone zone, out float lon, out float lat)
     {
@@ -494,6 +571,7 @@ public static class WorldMapWilderness
         string kind = KindKey(WildernessSystem.KindOf(zone));
         if (kind == null) return null;
         LonLat(zone, out float lon, out float lat);
+        Jitter(zone, ref lon, ref lat);
         WorldMapWildUnit best = null;
         KingdomTitle chosen = null;
         foreach (KeyValuePair<string, long> pair in _state.owners)

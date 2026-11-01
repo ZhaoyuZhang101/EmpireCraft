@@ -74,4 +74,8 @@ public class SaveData
     public EmpireCraft.Scripts.GeneralSystems.WorldMap.WorldMapWildSave world_map_wild;
     // 自定剧本的剧情事件与剧本里的国、城、地区对上的编号、触发过的(见 ScenarioEventSystem；没有剧情事件为 null)
     public EmpireCraft.Scripts.GeneralSystems.WorldMap.ScenarioEventSave world_map_events;
+    // 丝绸之路沿途各站对上的城(见 SilkRoadSystem；没有丝路为 null)
+    public List<EmpireCraft.Scripts.GeneralSystems.WorldMap.SilkRouteSave> world_map_silk;
+    // 剧本这一时代的长城(格坐标折线 [x0, y0, x1, y1, …])，行政区以它为界(见 FrontierWalls；没有长城为 null)
+    public List<float[]> world_map_walls;
 }

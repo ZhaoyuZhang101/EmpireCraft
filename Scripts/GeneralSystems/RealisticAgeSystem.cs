@@ -110,11 +110,14 @@ public static class RealisticAgeSystem
 
     // 过了天年 OverdueGraceYears 年以上的(法则刚接管、读旧档、换了文化、科技失传)每年 OverdueChance，
     // 几年里错开，不在同一年成批寿终(君主、储君另有保底，见 RoyalLifespan)
-    private const int OverdueGraceYears = 1;
+    // 过了天年 OverdueCertainYears 年以上的不再错开，当年寿终：以前虚拟族人的身故检查常被族谱瘦身挤掉(见
+    // VirtualGenealogySystem.Tick)，旧档里攒下一两百岁的人，每回只死三成五，又拖好些年
+    private const int OverdueGraceYears = 1, OverdueCertainYears = 10;
     private const float OverdueChance = 0.35f;
 
     private static bool Due(int age, int deathAge) =>
-        age >= deathAge && (age - deathAge <= OverdueGraceYears || UnityEngine.Random.value < OverdueChance);
+        age >= deathAge && (age - deathAge <= OverdueGraceYears || age - deathAge > OverdueCertainYears ||
+                            UnityEngine.Random.value < OverdueChance);
 
     #endregion
 

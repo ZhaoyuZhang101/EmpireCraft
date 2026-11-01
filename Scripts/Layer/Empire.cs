@@ -4538,12 +4538,13 @@ public class Empire : MetaObject<EmpireData>
                     .Any(city => IsDirectPartitionCandidate(city, protectedCities))) continue;
 
             List<Kingdom> existingPartitions = FindExistingTitlePartitions(title);
-            if (existingPartitions.Count == 0)
+            // 没有现成的行政区、封国可归的城：新设一片。已有行政区的治所都隔着长城的(见 FrontierWalls)，行政区也在长城这边另设一片、共用这个法理
+            List<City> region = GetPartitionTitleCities(title)
+                .Where(city => IsDirectPartitionCandidate(city, protectedCities) &&
+                               (existingPartitions.Count == 0 || existingPartitions.All(partition => partition.capital != null &&
+                                   GeneralSystems.WorldMap.FrontierWalls.Separates(city, partition.capital)))).ToList();
+            if (region.Count > 0)
             {
-                List<City> region = GetPartitionTitleCities(title)
-                    .Where(city => IsDirectPartitionCandidate(city, protectedCities)).ToList();
-                // 新设的行政区、封国以整片法理为单位：还有城在前线就整片等下一趟，免得治所落到别的城上
-                if (region.Any(city => DeferPartition(city, atWar))) continue;
                 Regime partitionRegime = regime;
                 bool partitionAsAdministration = createAdministration;
                 string titleCulture = CultureService.GetEffectiveTitleCulture(title);
@@ -4553,9 +4554,16 @@ public class Empire : MetaObject<EmpireData>
                     partitionRegime = localRegime;
                     partitionAsAdministration = RegimeSupportsProvince(localRegime);
                 }
-                Kingdom created = CreateTerritorialPartition(region, title, partitionRegime,
-                    partitionAsAdministration);
-                if (created != null) existingPartitions.Add(created);
+                // 行政区不跨长城：先设法理首府那边的一片，长城那边的下一趟另设(封国照旧整片法理一起封)
+                if (partitionAsAdministration)
+                    region = GeneralSystems.WorldMap.FrontierWalls.Split(region.OrderBy(city => city == title.title_capital ? 0 : 1)).First();
+                // 新设的行政区、封国以整片法理为单位：还有城在前线就整片等下一趟，免得治所落到别的城上
+                if ((existingPartitions.Count == 0 || partitionAsAdministration) && !region.Any(city => DeferPartition(city, atWar)))
+                {
+                    Kingdom created = CreateTerritorialPartition(region, title, partitionRegime,
+                        partitionAsAdministration);
+                    if (created != null) existingPartitions.Add(created);
+                }
             }
             if (existingPartitions.Count > 0)
                 CompleteTitlePartition(title, existingPartitions, protectedCities, atWar);
@@ -4633,10 +4641,12 @@ public class Empire : MetaObject<EmpireData>
         title.RefreshAdministrativeDivisionNames();
     }
 
+    // 治所隔着长城的行政区不归(见 FrontierWalls)：长城那边的城不并进这一侧的行政区
     private static Kingdom SelectNearestPartition(City city, List<Kingdom> targets)
     {
         if (city == null || targets == null) return null;
-        return targets.Where(target => target?.capital != null && !target.capital.isRekt())
+        return targets.Where(target => target?.capital != null && !target.capital.isRekt() &&
+                                       !GeneralSystems.WorldMap.FrontierWalls.Separates(city, target.capital))
             .OrderBy(target => Vector2.Distance(city.city_center, target.capital.city_center))
             .ThenBy(target => target.id).FirstOrDefault();
     }
@@ -4782,7 +4792,8 @@ public class Empire : MetaObject<EmpireData>
         }
     }
 
-    public Kingdom EstablishTerritorialDivision(List<City> region, KingdomTitle title)
+    // detached：法理里隔着长城另设的那片(见 FrontierWalls)——设行政区就与法理首府那片共用这个法理，设封国就不带法理(一个法理只有一个持有国)
+    public Kingdom EstablishTerritorialDivision(List<City> region, KingdomTitle title, bool detached = false)
     {
         // 战时只设不在前线的城，前线的留在核心直辖、挂起待下一趟(见 AutoEnfeoff)
         region = WithoutDeferred(region);
@@ -4792,15 +4803,16 @@ public class Empire : MetaObject<EmpireData>
         bool administration = RegimeSupportsProvince(regime) || GraceEdictService.IsCommanderyKingdomActive(this) ||
             IsWesternCentralized() || regime.type == RegimeType.Modern || regime.type == RegimeType.Republic;
         Kingdom legalHolder = title?.FindRealmTitleHolder();
-        if (!administration && legalHolder != null && legalHolder.GetEmpire() != this) title = null;
+        if (!administration && (detached || legalHolder != null && legalHolder.GetEmpire() != this)) title = null;
         return CreateTerritorialPartition(region, title, regime, administration);
     }
 
     // 把一片已收归核心王国的城市设为行政区(郡县)；title 不为空时由该行政区接管这个法理。
-    // 政体不支持行政区时返回 null，城市留在核心王国直辖。
-    public Kingdom EstablishAdministrativeDivision(List<City> region, KingdomTitle title)
+    // 政体不支持行政区时返回 null，城市留在核心王国直辖。scripted：剧本开局照史实设(见 WorldMapScenario.Divide)，
+    // 战时前线的城也一起划进去(开局就在打仗的帝国，前线的城以前全留在了直辖)
+    public Kingdom EstablishAdministrativeDivision(List<City> region, KingdomTitle title, bool scripted = false)
     {
-        region = WithoutDeferred(region);
+        region = scripted ? region?.Where(city => city != null).ToList() ?? new List<City>() : WithoutDeferred(region);
         if (region.Count == 0) return null;
         Regime regime = CoreKingdom?.GetRegime();
         // 政体没有行政区类型(比如还是分封制)时不建行政区，城市就留在王畿直辖；

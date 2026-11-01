@@ -579,7 +579,11 @@ public static partial class VirtualGenealogySystem
         return best;
     }
 
-    // 每年结算一次虚拟族人的身故(由 CityPopulationSystem 每帧调用，年度到期才做)
+    // 每年结算一次虚拟族人的身故(由 CityPopulationSystem 每帧调用，年度到期才做)。
+    // 身故排在最前：到期就先做，族长检查、族谱瘦身做到一半的先停着，身故做完再接着做。以前瘦身排在身故前面，
+    // 族谱大、游戏开得快时瘦身一轮做不完一年，做完又到期重来，身故检查轮不上，几十年才碰巧做一回
+    // (用户 10-30 转群友截图：族人一两百岁、五百岁才寿终正寝；盛唐存档 237 年，在世的虚拟族人五百多个过了百岁，
+    // 身故隔几十年成批来一回)
     public static void Tick()
     {
         if (World.world == null) return;
@@ -587,13 +591,28 @@ public static partial class VirtualGenealogySystem
         // 上一轮还没检查完：接着分帧做(以前一帧检查全部虚拟族人，族谱大时一次卡几百毫秒)
         if (DeathQueue.Active)
         {
-            // 身故检查做完就接着检查各宗族的族长
-            if (DeathQueue.Tick() && CityPopulationSystem.AbstractPopulationEnabled)
+            // 身故检查做完就接着检查各宗族的族长；瘦身做到一半的先让它做完，族长今年不查
+            if (DeathQueue.Tick() && CityPopulationSystem.AbstractPopulationEnabled && !HeadQueue.Active && !PruneQueue.Active)
             {
                 ComputeMagnates();
                 HeadQueue.Start(SpecificClanManager._specificClans.Where(clan => clan != null).Select(clan => clan.id).ToList());
             }
             return;
+        }
+        double now = World.world.getCurWorldTime();
+        // 族谱还没载入(读档途中)不算一轮
+        if (SpecificClanManager._globalPersonLookup.Count > 0 &&
+            (_lastDeathPass < 0d || now < _lastDeathPass || Date.getYearsSince(_lastDeathPass) >= 1))
+        {
+            _lastDeathPass = now;
+            // 名单每年按族谱重点一遍：读档时族谱还没进来、别处转成虚拟族人没登记的，以前一辈子不查身故
+            RebuildVirtualIds();
+            if (VirtualIds.Count > 0)
+            {
+                DeathQueue.Start(VirtualIds.ToList());
+                DeathQueue.Tick();
+                return;
+            }
         }
         if (HeadQueue.Active)
         {
@@ -605,7 +624,6 @@ public static partial class VirtualGenealogySystem
             if (PruneQueue.Tick()) FinishPrune();
             return;
         }
-        double now = World.world.getCurWorldTime();
         // 世界还没载入完(宗族列表是空的)时不算一轮，免得开局空跑一次就要等一年
         if (SpecificClanManager._specificClans.Count > 0 &&
             (_lastPrunePass < 0d || now < _lastPrunePass || Date.getYearsSince(_lastPrunePass) >= 1))
@@ -617,13 +635,14 @@ public static partial class VirtualGenealogySystem
             _thinnedClans = 0;
             CollectHistoryActors();
             PruneQueue.Start(SpecificClanManager._specificClans.Where(clan => clan != null).Select(clan => clan.id).ToList());
-            return;
         }
-        if (_lastDeathPass >= 0d && now >= _lastDeathPass && Date.getYearsSince(_lastDeathPass) < 1) return;
-        _lastDeathPass = now;
-        if (VirtualIds.Count == 0) return;
-        DeathQueue.Start(VirtualIds.ToList());
-        DeathQueue.Tick();
+    }
+
+    private static void RebuildVirtualIds()
+    {
+        VirtualIds.Clear();
+        foreach (PersonalClanIdentity person in SpecificClanManager._globalPersonLookup.Values)
+            if (person != null && person.is_alive && person.is_virtual) VirtualIds.Add(person.id);
     }
 
     #region 族谱瘦身

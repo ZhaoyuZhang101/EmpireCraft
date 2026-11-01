@@ -60,6 +60,19 @@ public static class CityPlacementSystem
         City source = host ?? owner.cities?.Where(city => city?.getTile() != null && !city.isRekt())
             .OrderBy(city => Toolbox.SquaredDistTile(city.getTile(), tile)).FirstOrDefault();
         if (source == null) return LM.Get("city_place_no_kingdom");
+        City city = Found(zone, owner, source, host, out string error);
+        if (city == null) return error;
+        city.GetOrCreate().placed_by_hand = true;
+        string content = string.Format(LM.Get("city_placed"), owner.GetKingdomName(), city.GetCityName());
+        TranslateHelper.LogEventOnly(content, owner);
+        return content;
+    }
+
+    // 在一块地上给一国建城：建城人从 source 落成(城名、主流文化照国家文化)，迁一成人口过去；host 是这块地原来所属的城(划给新城)。
+    // 神力建城、无人区开发满了另立新城(见 WildernessDevelopmentSystem.Hand)共用。建不成返回 null，error 写原因
+    public static City Found(TileZone zone, Kingdom owner, City source, City host, out string error)
+    {
+        error = null;
         string culture = CultureService.GetRealmCulture(owner);
         if (!CultureService.IsValidCulture(culture)) culture = CultureService.GetMainCulture(source);
         Actor founder = CityPopulationSystem.AbstractPopulationEnabled ? CityPopulationSystem.SpawnOfficial(source, owner) : null;
@@ -72,13 +85,21 @@ public static class CityPlacementSystem
         if (!Fits(founder)) founder = source.leader;
         if (!Fits(founder)) founder = owner.king;
         if (!Fits(founder)) founder = owner.units?.FirstOrDefault(Fits);
-        if (!Fits(founder)) return LM.Get("city_place_no_founder");
+        if (!Fits(founder))
+        {
+            error = LM.Get("city_place_no_founder");
+            return null;
+        }
         if (host != null)
         {
             // 敌军占着的地：占领记在原城名下，建了新城就对不上，先清掉
             if (host.GetTileZoneOccupier(zone) != null) host.RemoveOccupiedTileZoneFromAll(zone);
             host.removeZone(zone);
-            if (zone.city != null) return string.Format(LM.Get("settlement_place_urban"), host.GetCityName());
+            if (zone.city != null)
+            {
+                error = string.Format(LM.Get("settlement_place_urban"), host.GetCityName());
+                return null;
+            }
         }
         City city;
         Placing = true;
@@ -90,14 +111,15 @@ public static class CityPlacementSystem
         {
             Placing = false;
         }
-        if (city == null) return LM.Get("city_place_no_land");
-        city.GetOrCreate().placed_by_hand = true;
+        if (city == null)
+        {
+            error = LM.Get("city_place_no_land");
+            return null;
+        }
         // 主流文化照国家文化(与起名的文化不同时按它改名)
         CultureService.SetCityMainCulture(city, culture);
         CityPopulationSystem.TransferBackground(source, city, 0.1f);
-        string content = string.Format(LM.Get("city_placed"), owner.GetKingdomName(), city.GetCityName());
-        TranslateHelper.LogEventOnly(content, owner);
-        return content;
+        return city;
     }
 
     // 无主之地归哪国：这些国家里都城离 tile 最近的(没有都城的按它的头一座城)

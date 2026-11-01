@@ -1787,6 +1787,9 @@ GODPOWERS.update({
     "wild_neutral": (obj_whiteflag, None),
     # 开发：田地 + 向上(雨林、大泽无人区刷开发度，见 WildernessDevelopmentSystem)
     "wild_develop": (lambda i: obj_farmland(i), "up"),
+    # 无人区法理：法理 + 笔(刷给取的王国法理)；还给自动的规矩：法理 + 笔 + 叉
+    "wild_title": (lambda i: (obj_title(i), obj_brush(i)), None),
+    "wild_title_clear": (lambda i: (obj_title(i), obj_brush(i)), "cross"),
     # 名臣名将窗口按钮
     "famous_talents": (obj_swords, "crown"),
     "bestow_famous_general": (obj_sword, "up"),

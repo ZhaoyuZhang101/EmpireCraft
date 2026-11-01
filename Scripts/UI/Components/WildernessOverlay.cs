@@ -160,14 +160,15 @@ public static class WildernessOverlay
         Hover();
     }
 
-    // 纯净地图下哪个图层都画；普通地图下国家、帝国、城市图层画
+    // 无人区和城平级(用户 10-30 "山地应该只在专门的无人区或者城市层级才能看到""都说了和城市平级")：只在城市图层(每片像一座城)、
+    // 城市平面图层上画；国家、帝国、法理、天下这些图层上无人区同城的地一个样，由图层按归属画(见 WildernessTerritory)，
+    // 不另铺类型色、不撒纹样、不标名字——以前纯净地图下哪个图层都铺，画布还没涂上的格露出一片片灰的、带点的
     private static Look LookOf(MetaTypeAsset layer)
     {
         if (!WildernessSystem.Enabled || WildernessSystem.Regions.Count == 0) return Look.None;
         MetaType mode = layer?.map_mode ?? MetaType.None;
         if (mode == MetaType.City) return Look.Province;
-        if (PureMapMode.Enabled) return Look.Fill;
-        return mode == MetaType.Kingdom || mode == MetaTypeExtension.Empire || CityViewMap.Active ? Look.Fill : Look.None;
+        return CityViewMap.Active ? Look.Fill : Look.None;
     }
 
     // 区域变了、换了图层或画法：原来画过的与眼下的无人区地块(贴地形时连同伸出去、有无人区格的地块)都重画
@@ -211,11 +212,16 @@ public static class WildernessOverlay
     }
 
     // 并进国土：国家、帝国图层(按城池归属那一档)上有归属的无主地块——挂了法理的无人区(见 WildernessTerritory)、被一国包住的(见 EnclaveFill)
+    // 法理、天下图层上各档(流动的除外)也并进(见 WildernessTerritory：跟着城的王国法理、帝国法理、天下)：
+    // 照 WildernessTerritory 这一层算出的并进地块判(以前查图层的 _0，法理图层的 _0 永远是帝国法理那一档，王国法理那一档
+    // 判不出并进，纹样照撒——用户 10-30 "我不是说过这些地方都要被划归给王国法理的嘛，就像城市一样")
     private static bool Absorbed(TileZone zone)
     {
-        if (_look != Look.Fill || _layer == null || _option != 0) return false;
-        if (_layer.map_mode != MetaType.Kingdom && _layer.map_mode != MetaTypeExtension.Empire) return false;
-        return !_layer.isMetaZoneOptionSelectedFluid() && _layer.tile_get_metaobject_0?.Invoke(zone) != null;
+        if (_look != Look.Fill || _layer == null) return false;
+        bool political = _layer.map_mode == MetaType.Kingdom || _layer.map_mode == MetaTypeExtension.Empire;
+        bool titles = _layer.map_mode == MetaTypeExtension.KingdomTitle || _layer.map_mode == MetaTypeExtension.Tianxia;
+        if (!political && !titles || political && _option != 0) return false;
+        return !_layer.isMetaZoneOptionSelectedFluid() && WildernessTerritory.Claims(zone);
     }
 
     // 逐段核对：样子对不上的连同四邻重画

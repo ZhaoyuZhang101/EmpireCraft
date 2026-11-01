@@ -93,11 +93,63 @@ public static class WideKit
         return row;
     }
 
-    // 左栏整宽按钮(单独一张卡)
-    public static void AddRailButton(this AutoVertLayoutGroup rail, string id, string label, UnityAction action)
+    // 左栏去处一行(打开别的窗口、做一件事)：小图标 + 名称 + 右侧"›"，等宽，悬停整行垫金(见 AddHoverTint)。
+    // 放在 BeginRailMenu 开的卡里，一张卡列几行
+    public static AutoHoriLayoutGroup AddRailLink(this AutoVertLayoutGroup menu, Sprite icon, string label, UnityAction action,
+        string hex = null)
     {
-        var card = rail.BeginRailCard();
-        card.AddButtonIntoVertLayout(id, label, action, size: new Vector2(UIHelper.RailWidth - 8f, 14f), showTip: false);
+        float inner = UIHelper.RailWidth - 8f;
+        var row = menu.BeginHoriGroup(new Vector2(inner, 15f), TextAnchor.MiddleLeft, 3, new RectOffset(3, 3, 0, 0));
+        row.gameObject.name = "RailLink";
+        UIHelper.AddLayoutIcon(row.transform, icon, 10f);
+        float labelWidth = inner - 6f - (icon != null ? 13f : 0f) - 9f;
+        var text = row.AddTextIntoHoriLayout(label.ColorString(hex ?? Value), true, TextAnchor.MiddleLeft, new Vector2(labelWidth, 13f));
+        text.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
+        HoverMarqueeText.Attach(text);
+        row.AddTextIntoHoriLayout("›".ColorString(Muted), true, TextAnchor.MiddleRight, new Vector2(6f, 13f))
+            .UseFixedFontSize(8, HorizontalWrapMode.Overflow);
+        UIHelper.MakeClickable(row.gameObject, action);
+        AddHoverTint(row.gameObject);
+        return row;
+    }
+
+    // 悬停垫金、按下更深：铺满的一层白图(不挡点击、不占布局)作按钮的着色目标，平时全透明
+    private static void AddHoverTint(GameObject target)
+    {
+        Button button = target.GetComponent<Button>();
+        if (button == null) return;
+        var tint = new GameObject("HoverTint", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(LayoutElement));
+        var rect = (RectTransform)tint.transform;
+        rect.SetParent(target.transform, false);
+        rect.anchorMin = Vector2.zero;
+        rect.anchorMax = Vector2.one;
+        rect.offsetMin = rect.offsetMax = Vector2.zero;
+        rect.SetAsFirstSibling();
+        tint.GetComponent<LayoutElement>().ignoreLayout = true;
+        Image image = tint.GetComponent<Image>();
+        image.color = Color.white;
+        image.raycastTarget = false;
+        ColorBlock colors = ColorBlock.defaultColorBlock;
+        colors.normalColor = colors.selectedColor = colors.disabledColor = new Color(1f, 1f, 1f, 0f);
+        colors.highlightedColor = new Color(0.95f, 0.76f, 0.29f, 0.22f);
+        colors.pressedColor = new Color(0.95f, 0.76f, 0.29f, 0.4f);
+        colors.fadeDuration = 0.05f;
+        button.targetGraphic = image;
+        button.colors = colors;
+        button.transition = Selectable.Transition.ColorTint;
+    }
+
+    private static AutoVertLayoutGroup _linkCard;
+
+    // 左栏整宽按钮：画成去处一行(AddRailLink)，接连几个并进同一张卡(以前一个按钮一张卡、原版大红按钮，叠起来很杂，
+    // 群友 10-30 "王国界面要美化一下，这个太丑了")
+    public static void AddRailButton(this AutoVertLayoutGroup rail, string id, string label, UnityAction action, Sprite icon = null)
+    {
+        Transform parent = rail.transform;
+        bool follows = _linkCard != null && _linkCard.transform.parent == parent && parent.childCount > 0 &&
+                       parent.GetChild(parent.childCount - 1) == _linkCard.transform;
+        if (!follows) _linkCard = rail.BeginRailCard();
+        _linkCard.AddRailLink(icon, label, action).gameObject.name = id;
     }
 
     #endregion

@@ -153,6 +153,27 @@ public static class EmpireCraftQuantumSpriteLibrary
             render_gameplay = true,
             color = new Color(0.4f, 0.8f, 1f, 0.9f)
         });
+        // 外交权能已选发起国：国土描亮(同原版挑拨战争)、都城拉箭头到光标(见 GodPowers.DiplomacyPower)
+        AssetManager.quantum_sprites.add(new QuantumSpriteAsset
+        {
+            id = "diplomacy_pick",
+            id_prefab = "p_mapZone",
+            base_scale = 1f,
+            draw_call = DrawDiplomacyPick,
+            render_map = true,
+            add_camera_zoom_multiplier = false,
+            color = new Color(1f, 1f, 1f, 0.35f)
+        });
+        AssetManager.quantum_sprites.add(new QuantumSpriteAsset
+        {
+            id = "diplomacy_line",
+            id_prefab = "p_mapArrow_line",
+            base_scale = 0.5f,
+            draw_call = DrawDiplomacyLine,
+            render_map = true,
+            render_gameplay = true,
+            color = new Color(1f, 0.85f, 0.4f, 0.9f)
+        });
         AssetManager.quantum_sprites.add(new QuantumSpriteAsset
         {
             id = "capturing_zones",
@@ -519,6 +540,25 @@ private static void DrawEmpireCraftOccupiedZones(QuantumSpriteAsset pAsset)
             QuantumSpriteLibrary.drawArrowQuantumSprite(pAsset, selected.capital.getTile().posV,
                 World.world.getMousePos(), ref pColor);
         }
+    }
+
+    private static Kingdom DiplomacyPicked() =>
+        World.world.isBusyWithUI() || !World.world.isSelectedPower(GodPowers.DiplomacyPower.Id) ? null : GodPowers.DiplomacyPower.Selected();
+
+    private static void DrawDiplomacyPick(QuantumSpriteAsset pAsset)
+    {
+        Kingdom picked = DiplomacyPicked();
+        if (picked == null) return;
+        foreach (City city in picked.cities) QuantumSpriteLibrary.colorZones(pAsset, city.zones, pAsset.color);
+    }
+
+    private static void DrawDiplomacyLine(QuantumSpriteAsset pAsset)
+    {
+        if (!InputHelpers.mouseSupported) return;
+        Kingdom picked = DiplomacyPicked();
+        if (picked?.capital == null) return;
+        Color pColor = picked.getColor().getColorMain();
+        QuantumSpriteLibrary.drawArrowQuantumSprite(pAsset, picked.capital.getTile().posV, World.world.getMousePos(), ref pColor);
     }
 
     // 城市图层里悬停有商路的港口城时画出它的海上商路，交战禁运画红。

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
@@ -53,20 +54,22 @@ public static class InternalBoundarySystem
         if (core == null || core.isRekt()) return;
         bool atWar = empire.HasTerritorialWar();
 
-        // 法理 → 帝国里管它的成员
-        var holders = new Dictionary<KingdomTitle, Kingdom>();
+        // 法理 → 帝国里管它的成员(一个法理隔着长城分设了几个行政区的，几个都记下，见 WorldMap.FrontierWalls)
+        var holders = new Dictionary<KingdomTitle, List<Kingdom>>();
         foreach (Kingdom member in empire.kingdoms_list.ToArray())
         {
             if (member == null || member == core || member.isRekt() || !member.IsAdministrativeKingdomType() ||
                 member.IsFactionRebelling() || member.IsLocalRebelling()) continue;
             KingdomTitle own = RegionTitle(member);
-            if (Usable(own) && !holders.ContainsKey(own)) holders[own] = member;
+            if (!Usable(own)) continue;
+            if (!holders.TryGetValue(own, out List<Kingdom> list)) holders[own] = list = new List<Kingdom>();
+            list.Add(member);
         }
         // 王畿(中央主法理)与都城所在法理归中央直辖
         KingdomTitle coreMain = core.GetMainTitle();
         KingdomTitle coreCapital = core.capital?.GetTitle();
-        if (Usable(coreMain)) holders[coreMain] = core;
-        if (Usable(coreCapital)) holders[coreCapital] = core;
+        if (Usable(coreMain)) holders[coreMain] = new List<Kingdom> { core };
+        if (Usable(coreCapital)) holders[coreCapital] = new List<Kingdom> { core };
 
         HashSet<long> protectedCities = empire.GetProtectedDirectCityIds();
         int moves = 0;
@@ -79,14 +82,17 @@ public static class InternalBoundarySystem
             {
                 if (city == null || city.isRekt() || city == source.capital || city == core.capital ||
                     protectedCities.Contains(city.id) || WartimeCustodySystem.InCustody(city) ||
+                    WorldMap.WorldMapWilderness.PreservesAdministration(city) ||
                     EnfeoffmentHelper.DeferCity(city, core, atWar)) continue;
                 KingdomTitle title = city.GetTitle();
                 // 没有法理、或本就在本区法理里(含不连片的飞地)：法理归属没错，不动
                 if (!Usable(title) || title == own) continue;
                 // 中央名下的王畿/都城法理城也不动
                 if (source == core && (title == coreMain || title == coreCapital)) continue;
-                // 帝国里还没有成员管这片法理：留待按法理整合行政区时整体重划
-                if (!holders.TryGetValue(title, out Kingdom target) || target == source) continue;
+                // 帝国里还没有成员管这片法理：留待按法理整合行政区时整体重划；管它的行政区治所都隔着长城的也不动
+                if (!holders.TryGetValue(title, out List<Kingdom> owners)) continue;
+                Kingdom target = owners.FirstOrDefault(owner => owner == core || !WorldMap.FrontierWalls.Separates(city, owner.capital));
+                if (target == null || target == source) continue;
                 city.joinAnotherKingdom(target);
                 if (city.kingdom != target) continue;
                 FiscalDiagnostics.Count("行政区划界");

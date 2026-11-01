@@ -726,6 +726,16 @@ public static class CommodityMarketSystem
             foreach (Kingdom partner in TransmigrantSystem.SeaTradePartners(lingao))
                 if (MarketOfKingdom.TryGetValue(partner.id, out long other) && !partner.isEnemy(lingao))
                     Link(home, other);
+        // 丝绸之路(见 WorldMap.SilkRoadSystem)：沿途相邻两站的城所属的国家不交战就互市，中间隔着沙漠、别国也连得上
+        try
+        {
+            foreach ((Kingdom a, Kingdom b) in EmpireCraft.Scripts.GeneralSystems.WorldMap.SilkRoadSystem.Links())
+                if (MarketOfKingdom.TryGetValue(a.id, out long first) && MarketOfKingdom.TryGetValue(b.id, out long second)) Link(first, second);
+        }
+        catch (Exception exception)
+        {
+            Warn("丝路互市", exception);
+        }
         foreach (Market market in Markets.Values)
             if (market.leader != null && links.TryGetValue(market.leader.id, out HashSet<long> set))
                 market.linked.UnionWith(set);

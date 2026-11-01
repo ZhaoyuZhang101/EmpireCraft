@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using EmpireCraft.Scripts.Data;
+using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GeneralSystems;
 using EmpireCraft.Scripts.UI.Windows;
 using NeoModLoader.General;
@@ -15,7 +16,10 @@ namespace EmpireCraft.Scripts.GodPowers;
 //   小、中、大厂区：点城的地放下一整片成品厂区(见 FactorySystem.Place)；毁弃也能拆厂区；
 //   城貌：点一座城打开城貌小窗口，从各文化风格里任选一种(见 CityStyleWindow)；纯净地图开着时打开城池全图(见 CityPlanScreen)；
 //   中立区：点一片无人区设为永久中立区，再点取消(见 WildernessSystem.ToggleNeutral)；
-//   开发：按住刷雨林、大泽无人区，刷到的地块开发度涨一截，格子一批批改成草地，开满退出无人区(见 WildernessDevelopmentSystem.Brush)。
+//   开发：按住刷雨林、大泽无人区，刷到的地块开发度涨一截，格子一批批改成草地，开满退出无人区(见 WildernessDevelopmentSystem.Brush)；
+//   无人区法理(用户 10-30 "给个划分无人区法理归属的权能""可以允许多个法理归属同一个无人区，但是类似于笔刷上色那种""一个法理拿一部分")：
+//   先在一座城上按一下取它的王国法理，再按住拖过无人区，刷到的地块挂到这个法理上，归取得这个法理的国家、跟着那座城的行政区，
+//   自动重挂不再动它(见 WildernessSystem.Paint)；一片无人区可以几个法理各刷一部分。「还给法理」笔刷把刷过的地块还给自动的规矩。
 // 这些都是手动的，上帝说了算(用户 2026-10-20 "手动放置建筑时候不要有任何限制")：不看科技、文化、地形类别、钱、战争、法则、数量、距离，
 // 只留真做不到的(各系统开头写着)；AI 自己营建照旧守规矩。
 public static class SettlementPowers
@@ -27,11 +31,18 @@ public static class SettlementPowers
     public const string WildNeutral = "wild_neutral";
     // 开发：按住刷雨林、大泽无人区(笔刷大小用原版的)，不看科技与归属(见 WildernessDevelopmentSystem.Brush)
     public const string WildDevelop = "wild_develop";
+    // 无人区法理：刷给取的王国法理 / 还给自动的规矩
+    public const string WildTitle = "wild_title", WildTitleClear = "wild_title_clear";
     public static readonly string[] Ids =
     {
         Village, Town, Fort, NewCity, Relocate, Palace, Restyle, FactorySmall, FactoryMedium, FactoryLarge, Raze, Assign, WildNeutral,
-        WildDevelop
+        WildDevelop, WildTitle, WildTitleClear
     };
+    // 隔这么久没刷算新按下一笔(按在城上就是取法理)
+    private const float StrokeGapSeconds = 0.25f;
+    private static EmpireCraft.Scripts.Layer.KingdomTitle _brushTitle;
+    private static float _titleStrokeAt = -100f;
+    private static bool _picking;
     private const float PickSeconds = 30f, DevelopTipSeconds = 0.25f;
     private static readonly HashSet<TileZone> Brushed = new();
     private static float _developTipAt = -100f;
@@ -60,6 +71,17 @@ public static class SettlementPowers
             click_power_action = CollectWild,
             click_power_brush_action = StrokeWild
         });
+        foreach (string id in new[] { WildTitle, WildTitleClear })
+            AssetManager.powers.add(new GodPower
+            {
+                id = id,
+                name = id,
+                hold_action = true,
+                show_tool_sizes = true,
+                unselect_when_window = true,
+                click_power_action = CollectWild,
+                click_power_brush_action = StrokeTitle
+            });
         foreach (string id in new[] { FactorySmall, FactoryMedium, FactoryLarge })
             AssetManager.powers.add(new GodPower { id = id, name = id, click_action = (tile, power) => Tip(Build(tile, id)) });
         AssetManager.powers.add(new GodPower { id = Assign, name = Assign, click_action = ClickAssign });
@@ -139,6 +161,41 @@ public static class SettlementPowers
                 Mathf.FloorToInt(WildernessDevelopmentSystem.DevelopmentOf(center.zone)))
             : any ? null : LM.Get("wild_develop_none");
         if (!string.IsNullOrEmpty(text)) WorldTip.showNow(text, false, "top", 1.5f);
+        return any;
+    }
+
+    // 无人区法理笔刷：新按下一笔时按在城上就取它的王国法理(这一笔不刷)，不在城上就照取的法理刷无人区；擦除笔刷不用取
+    private static bool StrokeTitle(WorldTile center, GodPower power)
+    {
+        if (center == null || power == null || World.world == null) return false;
+        bool erase = power.id == WildTitleClear;
+        float now = Time.unscaledTime;
+        bool fresh = now - _titleStrokeAt > StrokeGapSeconds || now < _titleStrokeAt;
+        _titleStrokeAt = now;
+        if (fresh)
+        {
+            _picking = false;
+            City city = center.zone?.city;
+            if (!erase && city?.data != null && !city.isRekt())
+            {
+                _picking = true;
+                EmpireCraft.Scripts.Layer.KingdomTitle title = city.GetTitle();
+                if (title == null || title.isRekt()) return Tip(LM.Get("wild_title_no_title"));
+                _brushTitle = title;
+                return Tip(string.Format(LM.Get("wild_title_picked"), title.data?.name));
+            }
+            if (!erase && (_brushTitle == null || _brushTitle.isRekt()))
+            {
+                _picking = true;
+                return Tip(LM.Get("wild_title_need"));
+            }
+        }
+        if (_picking) return true;
+        Brushed.Clear();
+        World.world.loopWithBrush(center, global::Brush.get(Config.current_brush), CollectWild, power);
+        bool any = false;
+        foreach (TileZone zone in Brushed) any |= WildernessSystem.Paint(zone, erase ? null : _brushTitle);
+        Brushed.Clear();
         return any;
     }
 

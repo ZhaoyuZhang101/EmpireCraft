@@ -433,7 +433,7 @@ internal static class MainTab
             });
         });
         senateButton._button.OnHoverOut(Tooltip.hideTooltip);
-        // 外交：点地图上的国家打开外交界面
+        // 外交：先点发起国、再点对象国，打开两国的外交界面
         DiplomacyPower.Init();
         AddButton(EMPIRE_GROUP, PowerButtonCreator.CreateGodPowerButton(DiplomacyPower.Id,
             SpriteTextureLoader.getSprite("ui/icons/godpowers/" + DiplomacyPower.Id)));

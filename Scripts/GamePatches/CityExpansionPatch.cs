@@ -102,8 +102,11 @@ public class CityExpansionPatch : GamePatch
         city != null && zone != null && zone.city == null && CanAddZone(city, zone);
 
     // 原版按剩余建筑找连通地块，战损后会把原辖区当作弃地删除；城市格局不能因此变化。
+    // 地块固定(原版"领土扩张"法则关着，世界地图剧本开局就关，见 WorldMapScenario.SetupLaws)时不弃地：扔掉的地再也领不回来，
+    // 剧本按地形、州府锚点铺好的辖地(隔河、翻岭、山口两边的)一失地块就整片被扔，运行一阵就缩边了(用户 10-30 "为什么这边
+    // 运行了一段时间后就缩边了")
     public static bool BeforeAbandonZones(City pCity, bool pDebug) =>
-        pDebug || !CityTerritoryProtection.PreserveWarLayout(pCity);
+        pDebug || !CityTerritoryProtection.PreserveWarLayout(pCity) && WorldLawLibrary.world_law_kingdom_expansion.isEnabled();
 
     // 城区或本城村镇几块地以内
     public const int SettledReach = 2;

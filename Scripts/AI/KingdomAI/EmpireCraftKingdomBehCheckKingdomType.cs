@@ -388,14 +388,17 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
             }
             else kingdomFront = pKingdom.GetUntitledKingdomName();
         }
+        // 汉化的行政区名(剧本的都护府，见 KingdomExtraData.admin_name)：还是那个帝国的行政区时照这个名，离了照自己的法理名
+        bool alias = pKingdom.AdministrativeFront(newkingdomType, out string aliasFront, out string aliasBack);
+        if (alias) kingdomFront = aliasFront;
         // 华夏朝代演进下京畿与行政区改称(司州/京畿道/直隶省，州/道/省，见 DynastyNaming)
-        var kingdomBack = LM.Get(DynastyNaming.KingdomTypeKey(pKingdom, newkingdomType));
+        var kingdomBack = aliasBack ?? LM.Get(DynastyNaming.KingdomTypeKey(pKingdom, newkingdomType));
         string cultureName = pKingdom.GetEmpireCraftCulture() ?? "Western";
         string kingdomName = OverallHelperFunc.FormatCountryTypeName(kingdomFront, kingdomBack, cultureName);
         // 同名去重：法理省名可能被两个政权同时用上(自持法理的行政区不经过省名归属判定；交战中改不了名的政权
         // 失去法理后还留着旧名)，地图上就出现两个"荆湖北军"。已有别的政权叫这个名字、而自己又没控制该法理的
         // 首府时，改用自己首府的城名。
-        if (!pKingdom.IsEmpire() && IsNameTaken(pKingdom, kingdomName) && !HoldsTitleCapital(pKingdom) &&
+        if (!alias && !pKingdom.IsEmpire() && IsNameTaken(pKingdom, kingdomName) && !HoldsTitleCapital(pKingdom) &&
             pKingdom.capital != null && !pKingdom.capital.isRekt())
             kingdomName = OverallHelperFunc.FormatCountryTypeName(pKingdom.capital.GetCityName(), kingdomBack, cultureName);
         // 未组建政府的现代势力(某系军阀、工农红军……)：存下的国名与地图铭牌一致，王国窗口和翻页栏才不会显示成"某某直辖市(首都)"。

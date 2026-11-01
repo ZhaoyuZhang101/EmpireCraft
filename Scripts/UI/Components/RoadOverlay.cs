@@ -28,6 +28,8 @@ public static class RoadOverlay
     private const int MajorGrade = 3;
     // 描边(驿道以上)
     private static readonly Color32 Casing = new(110, 92, 74, 120);
+    // 丝绸之路(见 WorldMap.SilkRoadSystem)：绛红，任何远近都显示(画在干线那张图上)
+    private static readonly Color32 Silk = new(214, 72, 52, 245);
 
     // 各级路的颜色、描边(城池全图的预览照这个画，见 CityPlanWorks.DrawOverPreview)
     internal static Color32 GradeColor(int grade) => Grades[Mathf.Clamp(grade, 1, Grades.Length - 1)];
@@ -147,8 +149,9 @@ public static class RoadOverlay
         var roads = RoadNetwork.RoadTileGrades;
         foreach (var pair in roads)
         {
-            if (pair.Value < 2 || !Outside(tiles, pair.Key)) continue;
-            Sheet sheet = pair.Value >= MajorGrade ? _major : _minor;
+            bool silk = RoadPaintSystem.IsSilk(pair.Key);
+            if (pair.Value < 2 && !silk || !Outside(tiles, pair.Key)) continue;
+            Sheet sheet = pair.Value >= MajorGrade || silk ? _major : _minor;
             WorldTile tile = tiles[pair.Key];
             foreach (WorldTile next in tile.neighbours ?? global::System.Array.Empty<WorldTile>())
             {
@@ -161,7 +164,8 @@ public static class RoadOverlay
         {
             if (!Outside(tiles, pair.Key)) continue;
             int grade = Mathf.Clamp(pair.Value, 1, Grades.Length - 1);
-            Paint(grade >= MajorGrade ? _major : _minor, pair.Key, Grades[grade]);
+            if (RoadPaintSystem.IsSilk(pair.Key)) Paint(_major, pair.Key, Silk);
+            else Paint(grade >= MajorGrade ? _major : _minor, pair.Key, Grades[grade]);
         }
         Upload(_major);
         Upload(_minor);

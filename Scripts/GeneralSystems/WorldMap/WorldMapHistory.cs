@@ -367,7 +367,8 @@ internal static class WorldMapHistory
         var household = new List<PersonalClanIdentity> { me };
         foreach ((Actor actor, WorldMapPerson person) in realm.kin)
         {
-            if (actor == null || actor.isRekt()) continue;
+            // 后妃是别家的人，不按皇族排辈分
+            if (actor == null || actor.isRekt() || person?.Spouse == true) continue;
             actor.CheckSpecificClan();
             PersonalClanIdentity identity = actor.GetPersonalIdentity();
             if (identity == null || household.Contains(identity)) continue;

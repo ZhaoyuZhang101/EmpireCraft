@@ -267,6 +267,7 @@ public static class CultureService
         if (kingdom?.data == null || kingdom.isRekt() ||
             EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(kingdom)) return;
         KingdomExtension.KingdomExtraData data = kingdom.GetOrCreate();
+        if (KeepProtectorate(kingdom, data)) return;
         if (data.regimeType != RegimeType.Arabic && data.regimeType != RegimeType.LvLing) return;
         if (data.regime_manually_selected || RepublicSystem.IsRegimeLocked(kingdom) ||
             CompositeEmpireService.IsComposite(kingdom.GetEmpire())) return;
@@ -284,6 +285,32 @@ public static class CultureService
         if (empire?.CoreKingdom == kingdom && empire.data?.centerOffice != null)
             empire.data.centerOffice.Init(kingdom);
         LogService.LogInfo($"[EmpireCraft] 修复国家 {kingdom.id} 的默认值政体: {polluted} -> {data.regimeType}，绑定文化 {culture}");
+    }
+
+    // 汉化的行政区(剧本设的都护府：安西、北庭、单于……，见 KingdomExtraData.admin_name)还在设它的那个帝国里：朝廷派驻的军政机构，
+    // 政体随帝国核心(律令制下是都护府)，不算默认值污染。已被改成阿拉伯、游牧政体的(叛去时照本地文化改了，请降复服回来；
+    // 旧档里开局就被改了的，成了疏勒苏丹国、北庭汗国；用户 10-30 "我的安西都护府依旧没有这个行政区")改回来、补上行政授权。
+    // 是这样的行政区返回 true(不再往下判)
+    private static bool KeepProtectorate(Kingdom kingdom, KingdomExtension.KingdomExtraData data)
+    {
+        if (string.IsNullOrWhiteSpace(data.admin_name) || kingdom.IsEmpire() || kingdom.GetEmpire()?.id != data.admin_empire) return false;
+        Kingdom core = kingdom.GetEmpire()?.CoreKingdom;
+        Regime coreRegime = core == null || core == kingdom || core.isRekt() ? null : core.GetRegime();
+        if (coreRegime == null) return false;
+        if (data.regimeType == coreRegime.type) return true;
+        RegimeType before = data.regimeType;
+        kingdom.SetRegimeType(coreRegime.type);
+        kingdom.LoadRegimeKeepingRole();
+        Regime loaded = kingdom.GetRegime();
+        if (loaded?.type != coreRegime.type) return true;
+        loaded.SetAllowDiplomacy(true);
+        loaded.SetLeaderSelectMethod(LeaderSelectMethod.Exam);
+        data.jimi_mode = (int)JimiMode.Jimi;
+        if (kingdom.GetMainTitle() == null && kingdom.capital?.GetTitle() is KingdomTitle title && !title.isRekt())
+            kingdom.SetAdministrativeTitle(title);
+        EmpireCraft.Scripts.AI.KingdomAI.EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(kingdom);
+        LogService.LogInfo($"[EmpireCraft] 都护府 {kingdom.id} 政体随帝国核心: {before} -> {coreRegime.type}");
+        return true;
     }
 
     private static bool LineDeclares(string culture, RegimeType regime)
@@ -304,6 +331,10 @@ public static class CultureService
     private static bool DefaultLvLing(Kingdom kingdom, KingdomExtension.KingdomExtraData data, string culture)
     {
         if (data.shuitu_regime >= 0) return false;
+        // 律令制帝国的行政区(道、都护府、羁縻州，没有自己的王国法理)：律令随核心设的，不是默认值——以前按辖境文化看，
+        // 开局安西都护府(波斯文化)改成阿拉伯政体成了苏丹国，北庭、单于都护府改成游牧成了汗国，行政授权跟着没了
+        if (!kingdom.IsEmpire() && kingdom.GetMainTitle() == null && kingdom.GetEmpire()?.CoreKingdom is Kingdom core &&
+            core != kingdom && core.GetRegime()?.type == RegimeType.LvLing) return false;
         RegimeType expected = InstitutionSystem.TryResolveCultureRegime(culture, out RegimeType resolved)
             ? resolved
             : OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(culture, out Setting setting) ? setting.regime : RegimeType.Feudalism;

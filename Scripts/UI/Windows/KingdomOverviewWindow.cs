@@ -9,13 +9,16 @@ using EmpireCraft.Scripts.UI.Components;
 using NeoModLoader.General;
 using NeoModLoader.General.UI.Prefabs;
 using NeoModLoader.General.UI.Window.Layout;
+using NeoModLoader.General.UI.Window.Utils.Extensions;
+using UnityEngine;
+using UnityEngine.UI;
 
 namespace EmpireCraft.Scripts.UI.Windows;
 
 // 国情(「卷册」宽窗口，组件见 WideScrollWindow / WideKit)：帝国图层上点不属于帝国、也没被帝国覆盖的国家时打开，
 // 只放看一国时最常看的模组信息，详细的再跳到各自的窗口：
 //   · 左栏(固定)：国名、国家类别、身份(独立 / 某朝诸侯 / 某帝国朝贡国 / 某国附庸) → 君主、首都、政体、文化、宗教、同盟
-//     → 军事、政体、科技树、原版王国界面；
+//     → 去处(军事、外交、市场、政体、科技、制度、原版王国界面，一张卡一行一项) → 地图颜色；
 //   · 右栏：页头(身份 · 战事) → 主指标(国力与排名、城池、人口、兵力) → 实力 | 经济 两栏 → 物资产需(见 GoodsCard) → 科技
 //     → 战事(一场一行，点开战争详情)。
 public class KingdomOverviewWindow : WideScrollWindow<KingdomOverviewWindow>
@@ -84,29 +87,62 @@ public class KingdomOverviewWindow : WideScrollWindow<KingdomOverviewWindow>
         stats.AddRailRow(width, LM.Get("kov_alliance"), alliance?.name ?? LM.Get("label_none"),
             alliance == null ? WideKit.Muted : WideKit.Value, row);
 
-        // 自定义地图色(#RRGGBB，留空恢复原版颜色，见 CustomColorSystem)
-        var look = rail.BeginRailCard();
-        TextInput colorInput = null;
-        colorInput = look.AddRailInput(LM.Get("custom_color_label"), CustomColorSystem.Hex(kingdom), text =>
-        {
-            if (!CustomColorSystem.Set(kingdom, text)) colorInput?.input.SetTextWithoutNotify(CustomColorSystem.Hex(kingdom));
-        });
-        colorInput.input.characterLimit = 7;
-        rail.AddRailButton("kov_open_military", LM.Get("kingdom_military"), () => KingdomMilitaryWindow.Open(kingdom));
-        rail.AddRailButton("kov_open_diplomacy", LM.Get("diplomacy_window"), () => DiplomacyWindow.Open(kingdom));
-        rail.AddRailButton("kov_open_market", LM.Get("market_window"), () => MarketWindow.Open(kingdom));
-        rail.AddRailButton("kov_open_regime", LM.Get("kov_open_regime"), () =>
+        // 去处：一张卡一行一项(群友 10-30 "王国界面要美化一下，这个太丑了"：以前一个个原版大红按钮叠着、各自一张金角框)
+        var links = rail.BeginRailMenu(LM.Get("kov_links"));
+        links.AddRailLink(SpriteTextureLoader.getSprite("TabMilitary"), LM.Get("kingdom_military"), () => KingdomMilitaryWindow.Open(kingdom));
+        links.AddRailLink(SpriteTextureLoader.getSprite("ui/icons/godpowers/diplomacy"), LM.Get("diplomacy_window"),
+            () => DiplomacyWindow.Open(kingdom));
+        links.AddRailLink(SpriteTextureLoader.getSprite("ui/icons/godpowers/market_layer"), LM.Get("market_window"),
+            () => MarketWindow.Open(kingdom));
+        links.AddRailLink(SpriteTextureLoader.getSprite("ui/icons/iconBooks"), LM.Get("kov_open_regime"), () =>
         {
             SelectedMetas.selected_kingdom = kingdom;
             ScrollWindow.showWindow(nameof(RegimeWindow));
         });
-        rail.AddRailButton("kov_open_tech", LM.Get("TechWindow Title"), () => TechWindow.Open(kingdom));
-        rail.AddRailButton("kov_open_institutions", LM.Get("kingdom_institutions"), () => InstitutionWindow.Open(kingdom));
-        rail.AddRailButton("kov_open_vanilla", LM.Get("kov_open_vanilla"), () =>
+        links.AddRailLink(SpriteTextureLoader.getSprite("ui/icons/iconKnowledge"), LM.Get("TechWindow Title"), () => TechWindow.Open(kingdom));
+        links.AddRailLink(SpriteTextureLoader.getSprite("TabInstitutions"), LM.Get("kingdom_institutions"), () => InstitutionWindow.Open(kingdom));
+        links.AddRailLink(SpriteTextureLoader.getSprite("ui/icons/iconKingdom"), LM.Get("kov_open_vanilla"), () =>
         {
             SelectedMetas.selected_kingdom = kingdom;
             ScrollWindow.showWindow("kingdom");
         });
+
+        // 地图颜色：小标题、当前国色色块、#RRGGBB 输入框(空着灰字写"原版"，留空恢复原版颜色，见 CustomColorSystem)
+        var look = rail.BeginRailMenu(LM.Get("custom_color_title"));
+        float inner = UIHelper.RailWidth - 8f;
+        var line = look.BeginHoriGroup(new Vector2(inner, 18f), TextAnchor.MiddleLeft, 3, new RectOffset(0, 0, 0, 0));
+        Image swatch = ColorSwatch(line.transform, kingdom.getColor().getColorMain());
+        TextInput colorInput = Object.Instantiate(TextInput.Prefab, null);
+        colorInput.Setup(CustomColorSystem.Hex(kingdom), text =>
+        {
+            if (!CustomColorSystem.Set(kingdom, text)) colorInput.input.SetTextWithoutNotify(CustomColorSystem.Hex(kingdom));
+            swatch.color = kingdom.getColor().getColorMain();
+        });
+        colorInput.SetSize(new Vector2(inner - 17f, 18f));
+        if (colorInput.input.textComponent != null)
+        {
+            colorInput.input.textComponent.resizeTextMinSize = 6;
+            colorInput.input.textComponent.resizeTextMaxSize = 10;
+        }
+        colorInput.input.characterLimit = 7;
+        if (colorInput.input.placeholder is Text placeholder) placeholder.text = LM.Get("custom_color_placeholder");
+        line.AddChild(colorInput.gameObject);
+        look.AddRailText(LM.Get("custom_color_hint").ColorString(WideKit.Muted), 6, 9f);
+    }
+
+    // 色块：一个方形纯色图(不接收点击)
+    private static Image ColorSwatch(Transform parent, Color color)
+    {
+        var swatch = new GameObject("Swatch", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(LayoutElement));
+        ((RectTransform)swatch.transform).SetParent(parent, false);
+        ((RectTransform)swatch.transform).sizeDelta = new Vector2(14f, 14f);
+        LayoutElement element = swatch.GetComponent<LayoutElement>();
+        element.preferredWidth = element.minWidth = 14f;
+        element.preferredHeight = element.minHeight = 14f;
+        Image image = swatch.GetComponent<Image>();
+        image.color = color;
+        image.raycastTarget = false;
+        return image;
     }
 
     // 身份：周室诸侯 / 帝国之主、帝国治下 / 朝贡国 / 封建附庸 / 独立。

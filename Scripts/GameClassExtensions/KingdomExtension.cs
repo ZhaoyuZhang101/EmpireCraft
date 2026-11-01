@@ -486,6 +486,12 @@ public static class KingdomExtension
         public double unified_at = -1d;
         // 剧本定下的入主(世界地图后金入关称大清，见 CompositeEmpireService.ScriptedConquestName)：入主华夏时的国号、据有即算入关的城
         public string scripted_conquest_name = "";
+        // 汉化的行政区名(剧本的都护府：安西、北庭……，"简体|英文|繁体"；用户 10-30 "把他作为一个汉化的行政区，独立后可以恢复
+        // 自己的法理名字")：还是 admin_empire 这个帝国的律令制行政区时，国名照"这个名 + 政区类型"(都护府；admin_back 不为空时用它，
+        // 如长史府)；离了这个帝国就照都城所在的王国法理起名(见 AdministrativeFront、EmpireLeave)，请降复服回来仍用它
+        public string admin_name = "";
+        public string admin_back = "";
+        public long admin_empire = -1L;
         public long scripted_conquest_city_id = -1L;
         // 这一回是同一家第二次统一(以前统一过，见 UnificationSystem.GraceYearsOf)：开国气象只给 RepeatGraceYears 年
         public bool unify_repeat;
@@ -2139,6 +2145,8 @@ public static class KingdomExtension
     /// </summary>
     public static string GetKingdomTypeSuffixText(this Kingdom kingdom)
     {
+        // 汉化的行政区另定的类型后缀(长史府，见 AdministrativeFront)
+        if (kingdom.AdministrativeFront(kingdom.GetKingdomType(), out _, out string aliasBack) && aliasBack != null) return aliasBack;
         // 华夏王朝的旧都失陷期间，暂驻的都城称"行在"(如南宋临安)：核心王国的直隶类别改称行在
         if (EmpireCraft.Scripts.GeneralSystems.CapitalLossNamingSystem.IsTemporaryCapital(kingdom))
             return LM.Get("kingdom_type_xingzai");
@@ -3511,6 +3519,8 @@ public static class KingdomExtension
     private static string GetKingdomFrontFallback(Kingdom kingdom)
     {
         if (kingdom?.data == null) return "";
+        // 汉化的行政区名、离了那个帝国后自己的法理名(见 AdministrativeFront)
+        if (kingdom.AdministrativeFront(kingdom.GetKingdomType(), out string aliasFront, out _)) return aliasFront;
         // 第二直隶以京名为号(见 MultiCapitalSystem.Zhili)
         string zhiliFront = EmpireCraft.Scripts.GeneralSystems.MultiCapitalSystem.ZhiliFront(kingdom);
         if (!string.IsNullOrWhiteSpace(zhiliFront)) return zhiliFront;
@@ -3526,6 +3536,49 @@ public static class KingdomExtension
         }
 
         return kingdom.GetUntitledKingdomName();
+    }
+
+    // 汉化的行政区名(见 KingdomExtraData.admin_name)：还是 admin_empire 这个帝国的律令制行政区(都护府、羁縻州、军府、道)时，
+    // 名是 admin_name、类型后缀是 admin_back(为空照政区类型)；离了这个帝国、自己又没有王国法理时，名照都城所在的王国法理
+    // (恢复自己的法理名字：安西都护府叛去成了龟兹国，不再是"安西都护府苏丹国")。不适用返回 false
+    public static bool AdministrativeFront(this Kingdom kingdom, KingdomType type, out string front, out string back)
+    {
+        front = back = null;
+        if (kingdom?.data == null || kingdom.isRekt() || kingdom.IsEmpire()) return false;
+        KingdomExtraData data = kingdom.GetOrCreate();
+        if (string.IsNullOrWhiteSpace(data.admin_name)) return false;
+        Empire empire = kingdom.GetEmpire();
+        if (empire != null && empire.id == data.admin_empire)
+        {
+            if (type is not (KingdomType.LvLing_duhufu or KingdomType.LvLing_jimizhou or KingdomType.LvLing_jiedushi or
+                KingdomType.LvLing_province)) return false;
+            front = EmpireCraft.Scripts.GeneralSystems.WorldMap.WorldMapData.PickParts(data.admin_name);
+            if (type == KingdomType.LvLing_duhufu && !string.IsNullOrWhiteSpace(data.admin_back))
+                back = EmpireCraft.Scripts.GeneralSystems.WorldMap.WorldMapData.PickParts(data.admin_back);
+            return !string.IsNullOrWhiteSpace(front);
+        }
+        if (kingdom.HasMainTitle()) return false;
+        front = kingdom.capital != null && !kingdom.capital.isRekt() ? kingdom.capital.GetTitle()?.data?.name : null;
+        return !string.IsNullOrWhiteSpace(front);
+    }
+
+    // 汉化的行政区离了帝国：当场按离开后的类型、自己的法理改名(见 AdministrativeFront)——叛去时紧跟着开战，
+    // 交战中不改名(见 SetKingdomName)，以前一直顶着"安西都护府"的名、后缀换成了新类型
+    private static void RenameAfterLeaving(Kingdom kingdom)
+    {
+        try
+        {
+            EmpireCraft.Scripts.AI.KingdomAI.EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(kingdom);
+            if (!kingdom.AdministrativeFront(kingdom.GetKingdomType(), out string front, out _)) return;
+            string name = OverallHelperFunc.FormatCountryTypeName(front, kingdom.GetKingdomTypeSuffixText(),
+                kingdom.GetEmpireCraftCulture() ?? "Western");
+            kingdom.data.name = name.UseLocalizedNameSeparator();
+            kingdom.SetKingdomCoreName(front, kingdom.data.name);
+        }
+        catch (Exception exception)
+        {
+            NeoModLoader.services.LogService.LogWarning($"[EmpireCraft] 行政区 {kingdom?.id} 离开帝国后改名失败: {exception.Message}");
+        }
     }
 
     public static bool IsInSameEmpire(this Kingdom kingdom, Kingdom pKingdomTaget)
@@ -3647,6 +3700,8 @@ public static class KingdomExtension
         kingdom.RestoreOriginalKingdomColor();
         kingdom.SetEmpireID(-1L);
         kingdom.GetOrCreate().isEmpire = false;
+        // 汉化的行政区(剧本的都护府)离了帝国：照自己的法理改名
+        if (!string.IsNullOrWhiteSpace(kingdom.GetOrCreate().admin_name)) RenameAfterLeaving(kingdom);
     }
     public static int GetLevel(this Kingdom kingdom)
     {

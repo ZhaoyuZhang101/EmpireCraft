@@ -254,7 +254,7 @@ public static class TianxiaMap
             List<City> cities = TianxiaSystem.Cities(lead);
             if (cities.Count == 0) continue;
             UI.Components.TerritoryLabelRenderer.SubmitCities($"tianxia:{lead.id}", TianxiaSystem.Name(lead), cities,
-                UI.Components.TerritoryLabelRenderer.TianxiaStyle);
+                UI.Components.TerritoryLabelRenderer.TianxiaStyle, followWilderness: true);
         }
         int index = 0;
         foreach (List<City> realm in UnificationSystem.UncoredRealms())
@@ -262,7 +262,7 @@ public static class TianxiaMap
             List<City> alive = realm.Where(city => city?.data != null && !city.isRekt()).ToList();
             if (alive.Count > 0)
                 UI.Components.TerritoryLabelRenderer.SubmitCities($"tianxia:uncored:{index}", UncoredName(realm), alive,
-                    UI.Components.TerritoryLabelRenderer.UncoredTianxiaStyle);
+                    UI.Components.TerritoryLabelRenderer.UncoredTianxiaStyle, followWilderness: true);
             index++;
         }
     }

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.GamePatches;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.UI.Components;
@@ -23,7 +24,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //       大泽：冶铁加营造(砖石营造或城市营造：筑堤围田——东晋南朝到唐宋，太湖、鄱阳、洞庭一带的圩田、湖田，"苏湖熟，天下足")；
 //             工业化 ×2.5(机器排水)；
 //     科技不够的不开发；
-//   · 速度：雨林一块约六十年、大泽约九十年开完(JungleYears、SwampYears，按游戏年；大泽要先筑堤排水，慢一档)，再乘：
+//   · 速度：雨林一块约一百五十年、大泽约二百二十五年开完(JungleYears、SwampYears，按游戏年；大泽要先筑堤排水，慢一档；
+//     用户 10-30 "雨林开发的太快了""我建议可以延缓至150年"，以前六十、九十年)，再乘：
 //       人口压力：挨着的城人口到上限九成 ×1.5、超员 ×2(人多地少往外拓)；往里推的地块按这国挨着这一片的城里最大的算(上一年记的)；
 //       战乱南迁：本国别处在打仗、或王朝积弊入了危机(DynasticCycleSystem.InCrisis)，前沿的城不在前线(EnfeoffmentHelper.IsFrontCity)
 //         ×1.5(永嘉之乱衣冠南渡、安史之乱后北人南迁、靖康南渡，江南一次次因北方战乱而开)；
@@ -37,7 +39,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //       格子：开发度涨了，这块地的丛林、沼泽格按比例一批批改成同一高度的草地(林木伐去；高地仍是高地)，先改挨着已开发一侧的
 //         (从城那边往里推)；每帧改的格数有限(TilesPerFrame)，神力刷得再快也一批批改；
 //       开发中的地块不掉出无人区：格子改掉一半，按地形早够不上门槛，照开发时的类型留着(见 WildernessSystem.Reclassify、HeldKind)；
-//       开满：退出无人区，当作留给城的地(同城心、村镇，见 WildernessSystem.Regroup 的 anchored)，城照常扩张领进去；
+//       开满：退出无人区，当即归城(用户 10-30 "开发完后就直接归入就近的城市""地块超了就新建城市，归入最近的法理"，见 Hand)——
+//         以前只当作留给城的地、等城自己扩张，剧本地块固定(原版领土扩张关着)时城不扩张，开出来的地一直空着；
 //       宜居度：TerrainSystem.Livability 按格子算(丛林 0.6、沼泽 0.4、草地 1)，格子改成草地宜居度就随开发度涨，不另加，
 //         纯荒地为零的规矩(BarrenLandSystem)不动；
 //   · 神力「开发」(见 SettlementPowers)：刷到的雨林、大泽无人区地块开发度涨一截，不看科技与归属
@@ -82,7 +85,7 @@ public static class WildernessDevelopmentSystem
     public const string Plot = "develop_wilderness";
     public const float Full = 100f, Half = 50f;
     // 一块地只按基础速度开完要几年
-    private const float JungleYears = 60f, SwampYears = 90f;
+    private const float JungleYears = 150f, SwampYears = 225f;
     // 科技加快：科学方法(雨林)、工业化(雨林、大泽)
     private const float ScienceBoost = 2f, IndustryJungleBoost = 3f, IndustrySwampBoost = 2.5f;
     // 人口到上限几成算人多地少；人多地少、超员、南迁、有路、诏令各乘几倍
@@ -253,6 +256,12 @@ public static class WildernessDevelopmentSystem
     // 一年开头：结算诏令(付钱、到期、开完)，排出这一年要看的地块(各片雨林、大泽，不含永久中立区)
     private static void BeginYear()
     {
+        // 开满了还空着的地块归城(见 Hand)
+        foreach (int id in DevelopedZones().ToList())
+        {
+            TileZone zone = World.world.zone_calculator.getZoneByID(id);
+            if (zone != null && zone.city == null && !WildernessSystem.IsWild(zone)) Hand(zone, Get(id)?.by ?? -1L);
+        }
         Realms.Clear();
         Cities.Clear();
         (_pressureLast, _pressureNow) = (_pressureNow, _pressureLast);
@@ -442,6 +451,65 @@ public static class WildernessDevelopmentSystem
         int region = WildernessSystem.RegionOf(zone)?.Id ?? -1;
         foreach (WildDevelopmentEdict edict in _data.edicts)
             if (edict.kingdom == state.by && edict.region == region) edict.done++;
+        Hand(zone, state.by);
+    }
+
+    // 开满的地块归城(见类头)：挨着的城里归这块地的主人(还在无人区时按 WildernessSystem.OwnerOf，已退出的按开发它的国家；
+    // 同一帝国的省也算)、地块没到上限(模组设置每城地块上限，见 CityExpansionPatch.AtLimit)的，城心离它最近的那座；
+    // 挨着的城都满了、或没有挨着的城，就在这块地上建一座新城，归这个主人，挂进最近的王国法理(这块地原来挂的，没有就挨着的城的)。
+    // 每年开头也把开满了还空着的地块过一遍(读档前开满的、剧本开局设满的，见 BeginYear)
+    private static void Hand(TileZone zone, long by)
+    {
+        if (zone == null || zone.city != null || World.world == null || !Config.game_loaded || SmoothLoader.isLoading()) return;
+        try
+        {
+            Kingdom developer = by > 0 ? World.world.kingdoms.get(by) : null;
+            if (developer != null && (developer.isRekt() || developer.wild)) developer = null;
+            Kingdom owner = WildernessSystem.OwnerOf(zone) ?? developer;
+            KingdomTitle title = WildernessSystem.TitleOf(zone);
+            City best = null, full = null, any = null;
+            float bestDistance = float.MaxValue;
+            foreach (TileZone next in zone.neighbours_all ?? Array.Empty<TileZone>())
+            {
+                City city = next?.city;
+                WorldTile seat = city?.data == null || city.isRekt() ? null : city.getTile();
+                if (seat == null || city.kingdom == null || city.kingdom.isRekt() || city.kingdom.wild) continue;
+                any ??= city;
+                if (owner != null && city.kingdom != owner && (owner.GetEmpire() == null || owner.GetEmpire() != city.kingdom.GetEmpire()))
+                    continue;
+                if (CityExpansionPatch.AtLimit(city))
+                {
+                    full ??= city;
+                    continue;
+                }
+                float distance = Toolbox.SquaredDistTile(seat, zone.centerTile);
+                if (distance >= bestDistance) continue;
+                bestDistance = distance;
+                best = city;
+            }
+            if (best != null)
+            {
+                using (WildernessSystem.Settle()) best.addZone(zone);
+                return;
+            }
+            owner ??= full?.kingdom ?? any?.kingdom;
+            if (owner == null) return;
+            City source = full ?? owner.cities?.Where(city => city?.getTile() != null && !city.isRekt())
+                .OrderBy(city => Toolbox.SquaredDistTile(city.getTile(), zone.centerTile)).FirstOrDefault();
+            title ??= (full ?? any ?? source)?.GetTitle();
+            WorldTile ground = zone.centerTile != null && UrbanFabric.ManualGround(zone.centerTile)
+                ? zone.centerTile
+                : zone.tiles?.FirstOrDefault(tile => UrbanFabric.ManualGround(tile));
+            if (source == null || ground == null) return;
+            City founded = CityPlacementSystem.Found(zone, owner, source, null, out _);
+            if (founded == null) return;
+            if (title != null && !title.isRekt() && KingdomTitleManager.HasRoomFor(title)) title.addCity(founded);
+            TranslateHelper.LogEventOnly(string.Format(LM.Get("wild_dev_new_city"), owner.GetKingdomName(), founded.GetCityName()), owner);
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft][无人区开发] 开满的地块归城失败: {exception.Message}");
+        }
     }
 
     private static void Queue(int id)
