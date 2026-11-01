@@ -252,6 +252,14 @@ public static class WildernessSystem
         return region;
     }
 
+    // 剧本编辑器刷的永久中立区(开局头一回划区挂法理时设上，见 WorldMap.WorldMapWilderness.BeginPaint)：之后同神力设的一样随存档
+    public static void SetNeutral(WildRegion region, bool neutral)
+    {
+        if (region == null || region.Neutral == neutral) return;
+        region.Neutral = neutral;
+        Version++;
+    }
+
     // 一块地归城就不算无人区(两者互斥)：放行给城的那一刻到下次重划之间也照这个算
     private static int Index(TileZone zone)
     {
@@ -1308,7 +1316,7 @@ public static class WildernessSystem
             foreach (int id in region.Zones)
             {
                 if (_titles[id] == null || linked[id]) continue;
-                if (id < _painted.Length && _painted[id])
+                if (id < _painted.Length && _painted[id] || WorldMap.WorldMapWilderness.PaintedTitle(_zones[id]) != null)
                 {
                     _parents[id] = null;
                     continue;
@@ -1354,6 +1362,8 @@ public static class WildernessSystem
     // 州府锚点定的城的王国法理(见 WorldMap.WorldMapWilderness.AnchorCity；不是剧本、没定的为 null)
     private static KingdomTitle AnchorTitle(TileZone zone)
     {
+        KingdomTitle painted = WorldMap.WorldMapWilderness.PaintedTitle(zone);
+        if (painted != null) return painted;
         KingdomTitle title = WorldMap.WorldMapWilderness.AnchorCity(zone)?.GetTitle();
         return title == null || title.isRekt() ? null : title;
     }

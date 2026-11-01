@@ -1789,6 +1789,11 @@ public static class WorldMapScenario
         // 长城随存档留着：之后设行政区、重组行政区都以它为界(见 FrontierWalls)
         Guard("长城为界", () => FrontierWalls.Set(_wallLines ?? WallLines(_era, _frame, _size)));
         // 剧情事件：记下剧本里的国、城、地区各对上了哪个国家、城、王国法理，剧本人物的名字对上了哪个人(见 ScenarioEventSystem)
+        // 剧本编辑器刷在无人区上的归属与永久中立区(导入地图也算，见 WorldMapWilderness.BeginPaint)
+        Guard("无人区刷的归属", () => WorldMapWilderness.BeginPaint(_era, _frame, _size, _polities
+                .Where(polity => polity.data != null && polity.capital?.city != null && !polity.capital.city.isRekt())
+                .GroupBy(polity => polity.data.id).ToDictionary(group => group.Key, group => group.First().capital.city),
+            _titleByRegion.Where(pair => pair.Value != null && !pair.Value.isRekt()).ToDictionary(pair => pair.Key, pair => pair.Value)));
         Guard("剧情事件", () => ScenarioEventSystem.Begin(_era,
             _polities.Where(polity => polity.data != null && polity.kingdom?.data != null)
                 .GroupBy(polity => polity.data.id).ToDictionary(group => group.Key, group => group.First().kingdom.data.id),

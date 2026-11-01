@@ -14,7 +14,8 @@ namespace EmpireCraft.Scripts.UI.Windows;
 // 世界地图(从原版新世界窗口的模板按钮打开，见 WorldMapTemplatePatch)：选范围(欧亚非 / 亚欧非全图)、大小三档、时代(主东方三档、
 // 主西方三档)，生成一张按地球高程铺地表、按所选时代摆城建国的世界。版式同纯净地图提示窗：金框标题卡 + 卡片 + 按钮行。
 // 自定剧本(剧本编辑器第一期，见 WorldMapData.LoadCustom)另列一卡：剧本文件夹里的剧本与预设一样选了就能开局，
-// 预设可"存为自定剧本"复制一份去改，"打开剧本文件夹"拷给别人分享
+// 预设可"存为自定剧本"复制一份去改，"打开剧本文件夹"拷给别人分享；"从当前世界导入"把读着的存档(连同行政区、法理、外交)
+// 写成自定剧本，直接进编辑器接着改(见 ScenarioWorldExport)
 public class WorldMapWindow : AutoLayoutWindow<WorldMapWindow>
 {
     private const float Width = 220f;
@@ -119,6 +120,10 @@ public class WorldMapWindow : AutoLayoutWindow<WorldMapWindow>
             custom.AddButtonRow(Width,
                 ("world_map_custom_copy", LM.Get("world_map_custom_copy").ColorString(WideKit.Gold), () => CopyAsCustom(selected)),
                 ("world_map_custom_blank", LM.Get("world_map_custom_blank"), NewBlank));
+        // 从当前世界导入：读着的世界没有文明城时按钮灰着，点了只提示
+        custom.AddButtonRow(Width,
+            ("world_map_custom_import", LM.Get("world_map_custom_import").ColorString(ScenarioWorldExport.CanExport ? WideKit.Gold : WideKit.Muted),
+                ImportWorld));
         custom.AddButtonRow(Width,
             ("world_map_custom_folder", LM.Get("world_map_custom_folder"), OpenFolder),
             ("world_map_custom_refresh", LM.Get("world_map_custom_refresh"), Refresh));
@@ -190,6 +195,30 @@ public class WorldMapWindow : AutoLayoutWindow<WorldMapWindow>
         WorldMapData.LoadCustom();
         _era = "custom/" + name;
         WorldMapEra created = WorldMapData.Custom.FirstOrDefault(era => era.id == _era);
+        if (created != null) Edit(created);
+        else Rebuild();
+    }
+
+    // 从当前世界导入(用户 10-30 "现在的剧本编辑器可以导入已经设置好行政区的存档嘛"→"都做")：先在游戏里读好存档再来点，
+    // 不另问什么——剧本名取世界名(重名的文件夹加 _2…)，写好就选中它、进编辑器(同「编辑剧本」)
+    private void ImportWorld()
+    {
+        if (!ScenarioWorldExport.CanExport)
+        {
+            WorldTip.showNow("scenario_export_no_world", true, "top", 3f);
+            return;
+        }
+        if (!ScenarioWorldExport.Export(ScenarioWorldExport.DefaultName(), out string name, out string error))
+        {
+            WorldTip.showNow(error ?? "scenario_export_failed", true, "top", 4f);
+            return;
+        }
+        WorldMapData.LoadCustom();
+        _era = "custom/" + name;
+        WorldMapEra created = WorldMapData.Custom.FirstOrDefault(era => era.id == _era);
+        if (created != null)
+            WorldTip.showNow(string.Format(LM.Get("world_map_custom_imported"), global::System.IO.Path.Combine(WorldMapData.CustomFolder, name),
+                created.cities?.Count ?? 0, created.polities.Count, created.polities.Sum(polity => polity.divisions?.Count ?? 0)), false, "top", 5f);
         if (created != null) Edit(created);
         else Rebuild();
     }
