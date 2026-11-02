@@ -46,6 +46,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 模组设置「无人区」(默认开)：关掉时没有无人区(Regions 为空、IsWild 全为假；已划出来的地块不还给城，城照常再扩回去)；
 //     世界地图预设剧本(真实地球，见 WorldMap.WorldMapWilderness.OnEarth，随存档)不看这个设置，一直开着——剧本的史实归属、地名、
 //     各时代开发度都靠无人区；玩家自己的图按设置开关(用户 2026-10-30 "预设剧本是强制开的，但是玩家自己的图可以选择开关")。
+//   · 模组设置「雨林全开发」(默认开，见 JungleDeveloped)：玩家自己的图上雨林不划无人区；世界地图剧本同样不受它管。
 // 全图归类只在读档与开关打开时做(每块地 64 格扫一遍)；连片、对旧区域、收地只看地块，几万块地几毫秒。
 public enum WildKind { None = 0, Mountain = 1, Desert = 2, Tundra = 3, Jungle = 4, Swamp = 5 }
 
@@ -354,6 +355,26 @@ public static class WildernessSystem
         Apply();
     }
 
+    // 模组设置「雨林全开发」(默认开，见 ConfigActions.WildernessJungleDevelopedCallBack；用户 2026-11-03 "雨林地形百分百开发的开关，
+    // 默认开启""剧情模式不受这个开关影响")：雨林算开发完毕——不划无人区，城能直接扩进去，住人、种地同平地(见 TerrainSystem.Livability)；
+    // 格子不改，还是丛林，出产、行军、交战照旧。世界地图剧本(连同开局铺设的时候)照旧按开发度走
+    private static bool _jungleDeveloped = true;
+
+    public static bool JungleDeveloped => _jungleDeveloped && !WorldMap.WorldMapWilderness.OnEarth &&
+                                          !WorldMap.WorldMapGenerator.Generating && !WorldMap.WorldMapScenario.AfterLoadPending;
+
+    public static void SetJungleDeveloped(bool on)
+    {
+        if (_jungleDeveloped == on) return;
+        _jungleDeveloped = on;
+        // 已经划好的图全部重判一遍(走停手重划，同改了地形)
+        if (!_built || WorldMap.WorldMapWilderness.OnEarth) return;
+        foreach (TileZone zone in _zones)
+            if (zone != null && zone.id >= 0) Dirty.Add(zone.id);
+        _regroup = true;
+        Pending();
+    }
+
     // 实际开关对上设置与这一局是不是预设剧本(每帧、当场划区前调)
     private static void Apply()
     {
@@ -568,7 +589,7 @@ public static class WildernessSystem
 
     // 剧本开局铺辖地(WorldMapZones)用：这块地按地形会不会是无人区、哪一类——两边同一套门槛，开局留空的地进世界后正好划成无人区，
     // 不会留下既不归城、也不是无人区的空地
-    internal static WildKind ClassifyFresh(TileZone zone) => Classify(zone, WildKind.None);
+    internal static WildKind ClassifyFresh(TileZone zone) => Classify(zone, WildKind.None, scenario: true);
 
     // 这块地按地形算哪一类无人区(门槛见类头的常量)；previous 是上回判的，已是那一类的门槛降一成
     private struct Counts
@@ -612,12 +633,14 @@ public static class WildernessSystem
         };
     }
 
-    private static WildKind Classify(TileZone zone, WildKind previous)
+    private static WildKind Classify(TileZone zone, WildKind previous, bool scenario = false)
     {
         if (zone?.tiles == null) return WildKind.None;
         Counts c = Count(zone);
         int total = c.Total, water = c.Water, rock = c.Rock, hills = c.Hills, frozen = c.Frozen, sand = c.Sand,
             jungle = c.Jungle, swamp = c.Swamp;
+        // 雨林全开发：丛林格当普通的地(见 JungleDeveloped)，沼泽够门槛的照旧是大泽
+        if (!scenario && JungleDeveloped) jungle = 0;
         int land = total - water;
         if (land < MinLand || water > total * MaxWater) return WildKind.None;
         float Need(bool was, float share) => land * (was ? share - Hysteresis : share);
@@ -642,6 +665,8 @@ public static class WildernessSystem
         // 照原来的类型(没判过的按开发时记的)留着；已归了城的(那一片小得不成无人区后城扩进去的)不留，免得又从城里划出来
         WildKind held = kind == 0 && zone.city == null ? WildernessDevelopmentSystem.HeldKind(zone.id) : WildKind.None;
         if (held != WildKind.None) kind = (byte)(previous is WildKind.Jungle or WildKind.Swamp ? previous : held);
+        // 旧档里开发到一半的雨林：开关开着也算开发完了
+        if (kind == (byte)WildKind.Jungle && JungleDeveloped) kind = 0;
         if (kind == _kind[zone.id]) return false;
         _kind[zone.id] = kind;
         return true;

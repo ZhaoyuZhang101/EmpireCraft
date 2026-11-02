@@ -116,6 +116,11 @@ namespace EmpireCraft.Scripts.Data
         {
             EmpireCraft.Scripts.GeneralSystems.WildernessSystem.SetEnabled(on);
         }
+        // 雨林全开发：玩家自己的图上雨林算开发完毕、不划无人区，世界地图剧本不受影响(见 WildernessSystem.JungleDeveloped)；设置里没有这一项时默认开
+        public static void WildernessJungleDevelopedCallBack(bool on)
+        {
+            EmpireCraft.Scripts.GeneralSystems.WildernessSystem.SetJungleDeveloped(on);
+        }
         // 平滑国界：逐像素画国界、城界，军团模式下占领逐格推进(见 SmoothBorders、FrontSystem.Smooth)
         public static void SmoothBordersCallBack(bool on)
         {

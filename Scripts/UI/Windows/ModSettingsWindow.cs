@@ -174,6 +174,7 @@ public class ModSettingsWindow : WideScrollWindow<ModSettingsWindow>
                     {
                         Number("City_Max_Zones_Text", 100, 0, 99999, 10, "mod_settings_unit_zones", "mod_settings_unlimited"),
                         Switch("wilderness_toggle", true),
+                        Switch("wilderness_jungle_developed_toggle", true),
                     }
                 },
                 new Card
