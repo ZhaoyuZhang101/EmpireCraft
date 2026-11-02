@@ -32,8 +32,7 @@ public static class ScenarioWilderness
     // 预览一像素的地形(见 CellOf)：低两位为起伏(平地、山地山巅、丘陵、水面)，往上三位为地面(别的、冻土雪地、沙地荒漠、丛林、沼泽、
     // 草木平地——草地、稀树草原、桦林、枫林的高低两种，时代开发度能改回丛林沼泽的，同 WorldMapDevelopment.Vegetated)
     private const int ReliefMask = 3, RockRelief = 1, HillRelief = 2, WaterRelief = 3;
-    // BeachGround：没有地表的沙地(sand)，挨着水的算沙滩、不算沙漠(同 WildernessSystem.Shore)
-    private const int GroundShift = 2, FrozenGround = 1, SandGround = 2, JungleGround = 3, SwampGround = 4, GreenGround = 5, BeachGround = 6;
+    private const int GroundShift = 2, FrozenGround = 1, SandGround = 2, JungleGround = 3, SwampGround = 4, GreenGround = 5;
     public const byte WaterCell = WaterRelief;
 
     // 归类门槛(照抄 WildernessSystem，改了那边这里也要改)
@@ -151,7 +150,7 @@ public static class ScenarioWilderness
             : main == "hills" || top == "hills" ? HillRelief : 0;
         int ground = top.StartsWith("snow", StringComparison.Ordinal) || top.StartsWith("frozen", StringComparison.Ordinal) ||
                      top.Contains("permafrost") ? FrozenGround
-            : top == "sand" ? BeachGround
+            // 沙地(sand)是沙滩，不算沙漠(同 WildernessSystem.ComputeMarks)
             : top.Contains("desert") ? SandGround
             : top.Contains("jungle") ? JungleGround
             : top.Contains("swamp") ? SwampGround
@@ -502,12 +501,12 @@ public static class ScenarioWilderness
         }
         bool[] river = ScenarioEditing.Era?.map == null ? Rivers(frame, size) : null;
         byte[] water = sampled.Water, rock = sampled.Rock, hills = sampled.Hills, frozen = sampled.Frozen, sand = sampled.Sand,
-            jungle = sampled.Jungle, swamp = sampled.Swamp, green = sampled.Green, beach = new byte[n];
+            jungle = sampled.Jungle, swamp = sampled.Swamp, green = sampled.Green;
         for (int zy = 0; zy < zh; zy++)
         for (int zx = 0; zx < zw; zx++)
         {
             int z = zy * zw + zx;
-            int cw = 0, cr = 0, ch = 0, cf = 0, cs = 0, cj = 0, csw = 0, cg = 0, cb = 0;
+            int cw = 0, cr = 0, ch = 0, cf = 0, cs = 0, cj = 0, csw = 0, cg = 0;
             for (int dy = 0; dy < 8; dy++)
             {
                 int ty = zy * 8 + dy, offset = row[ty];
@@ -531,7 +530,6 @@ public static class ScenarioWilderness
                         case JungleGround: cj++; break;
                         case SwampGround: csw++; break;
                         case GreenGround: cg++; break;
-                        case BeachGround: cb++; break;
                     }
                 }
             }
@@ -540,26 +538,10 @@ public static class ScenarioWilderness
             hills[z] = (byte)ch;
             frozen[z] = (byte)cf;
             sand[z] = (byte)cs;
-            beach[z] = (byte)cb;
             jungle[z] = (byte)cj;
             swamp[z] = (byte)csw;
             green[z] = (byte)cg;
             sampled.Land[z] = (byte)(64 - cw);
-        }
-        // 沙滩：这块或周围八块有水的，没有地表的沙地不算沙漠；离水远的(大漠里的沙海)照算(同 WildernessSystem.Shore)
-        for (int zy = 0; zy < zh; zy++)
-        for (int zx = 0; zx < zw; zx++)
-        {
-            int z = zy * zw + zx;
-            if (beach[z] == 0) continue;
-            bool shore = false;
-            for (int dy = -1; dy <= 1 && !shore; dy++)
-            for (int dx = -1; dx <= 1 && !shore; dx++)
-            {
-                int nx = zx + dx, ny = zy + dy;
-                shore = nx >= 0 && ny >= 0 && nx < zw && ny < zh && water[ny * zw + nx] > 0;
-            }
-            if (!shore) sand[z] = (byte)Math.Min(64, sand[z] + beach[z]);
         }
         return sampled;
     }

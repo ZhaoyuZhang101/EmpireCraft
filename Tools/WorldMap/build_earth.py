@@ -32,6 +32,11 @@
   python -I build_earth.py terrarium <数据目录> <旧 earth.bytes> <输出 earth.bytes> [预览.png]
       数据目录里要有 terrarium_z6.npz、ne/ne_10m_rivers_lake_centerlines.shp(.dbf)，ne/ne_10m_geography_regions_polys.shp(.dbf)
       可缺；海陆湖泊与气候取旧网格。河道数据没变，rivers.bytes 不重出。
+  python -I build_earth.py beaches <旧 earth.bytes> <输出 earth.bytes> [预览.png]
+      只改沙地：离水 BEACH_REACH 格以外的沙地(以前画的大漠沙丘)改成荒漠(高低照最近的荒漠格)，海边湖边的留作沙滩。
+
+沙地只是沙滩(用户 2026-11-02 "沙滩不是沙漠")：沙地(sand，原版海边湖边的沙滩)只画在旱区海岸一格；大漠腹地是荒漠(desert)，
+不再画成片的沙地沙丘——游戏里沙地不算沙漠(无人区、纯荒地都按荒漠算，见 WildernessSystem.ComputeMarks)。
 
 网格每格存一个地块编号(编号表写在文件头里，是原版存档用的地块写法，如 "soil_low:grass_low")，
 游戏里按选的范围和大小逐格就近取样(见 Scripts/GeneralSystems/WorldMap/EarthTerrain.cs)。
@@ -738,12 +743,6 @@ def compose(water_codes, water, surface, mountains, hills, f):
     return out
 
 
-def dune_noise():
-    rng = np.random.default_rng(11)
-    noise = ndimage.gaussian_filter(rng.normal(0, 1, (ROWS, COLS)), 5)
-    return noise / noise.std()
-
-
 def local_relief(f):
     """格子高出周围(约 30 公里内)最低处多少：沙丘只铺在平坦的大漠腹地。"""
     return f["elev"] - ndimage.minimum_filter(f["elev"], size=7)
@@ -828,10 +827,8 @@ def build(data_dir, out_path, preview_path=None):
     mountains &= ~opened
     hills |= opened
     rough = mountains | hills
-    # 大漠腹地(撒哈拉、阿拉伯、塔克拉玛干、戈壁)：起伏小、离海远的沙漠里成片沙丘；旱区海岸是沙滩
+    # 旱区海岸是沙滩；大漠腹地(撒哈拉、阿拉伯、塔克拉玛干、戈壁)是荒漠，不画沙地(沙滩不是沙漠，见文件头)
     desert = land_only & np.isin(names, ["BWh", "BWk"])
-    coast_far = ndimage.distance_transform_edt(~sea) > 8
-    surface[desert & (local_relief(f) < 250) & coast_far & (dune_noise() > 0.2)] = SURFACE["sand"]
     surface[land_only & ndimage.binary_dilation(sea, iterations=1) & desert] = SURFACE["sand"]
     # 旱区大河河谷：沙漠、草原里沿河画出可耕草地(两河、尼罗河、印度河、阿姆河、塔里木、河套)
     arid = land_only & np.isin(names, ["BWh", "BWk", "BSh", "BSk"])
@@ -961,15 +958,13 @@ def build_terrarium(data_dir, old_path, out_path, preview_path=None):
     mountains &= ~opened
     hills |= opened
     rough = mountains | hills
-    # 以前是山丘、现在成了平地的格：大漠腹地补沙丘、旱区海岸补沙滩、旱区大河沿岸补可耕草地(同原来的路子)
+    # 以前是山丘、现在成了平地的格：旱区海岸补沙滩、旱区大河沿岸补可耕草地(同原来的路子；大漠腹地是荒漠，不补沙丘)
     desert = lost & (surface == SURFACE["desert"])
     # 旧网格分不出海与湖：连成五千格以上的水面算海(大洋、里海、黑海)，咸海这类湖不算
     lab, _ = ndimage.label(water)
     big = np.bincount(lab.ravel()) >= 5000
     big[0] = False
     sea = big[lab]
-    coast_far = ndimage.distance_transform_edt(~sea) > 8
-    surface[desert & (local_relief(f) < 250) & coast_far & (dune_noise() > 0.2)] = SURFACE["sand"]
     surface[desert & ndimage.binary_dilation(sea, iterations=1)] = SURFACE["sand"]
     arid = lost & np.isin(surface, [SURFACE["desert"], SURFACE["savanna"], SURFACE["sand"]])
     river_lines = read_polylines(data_dir + "/ne/ne_10m_rivers_lake_centerlines.shp",
@@ -977,6 +972,28 @@ def build_terrarium(data_dir, old_path, out_path, preview_path=None):
     surface[oasis_mask(river_lines, f) & arid & ~rough] = SURFACE["grass"]
     out = compose(water_codes, water, surface, mountains, hills, f)
     assert (out[water] == old[water]).all()
+    finish(out, out_path, preview_path)
+
+
+# 沙滩宽几格(0.05° 一格)：离水(海、湖)这么近的沙地留作沙滩，再远的改荒漠
+BEACH_REACH = 2
+
+
+def beaches(old_path, out_path, preview_path=None):
+    """沙地只留海边湖边的沙滩：离水 BEACH_REACH 格以外的沙地改成最近的荒漠格那一种(高低两种)，没有就低地荒漠。"""
+    grid, types = read_earth(old_path)
+    assert types == TYPES, "地块写法表与本脚本的 TYPES 对不上"
+    out = grid.copy()
+    water = np.isin(out, [CODE[t] for t in TYPES if t in ("deep_ocean", "close_ocean", "shallow_waters")])
+    sand = out == CODE["sand"]
+    inland = sand & (ndimage.distance_transform_cdt(~water, metric="chessboard") > BEACH_REACH)
+    dry = np.isin(out, [CODE["soil_low:desert_low"], CODE["soil_high:desert_high"]])
+    if dry.any():
+        _, (ai, aj) = ndimage.distance_transform_edt(~dry, return_indices=True)
+        out[inland] = out[ai, aj][inland]
+    else:
+        out[inland] = CODE["soil_low:desert_low"]
+    print("沙地 %d 格，改成荒漠 %d 格，留作沙滩 %d 格" % (sand.sum(), inland.sum(), (sand & ~inland).sum()))
     finish(out, out_path, preview_path)
 
 
@@ -1044,6 +1061,8 @@ if __name__ == "__main__":
     args = sys.argv[1:]
     if args and args[0] == "fetch-terrarium":
         fetch_terrarium(args[1])
+    elif args and args[0] == "beaches":
+        beaches(args[1], args[2], args[3] if len(args) > 3 else None)
     elif args and args[0] == "terrarium":
         build_terrarium(args[1], args[2], args[3], args[4] if len(args) > 4 else None)
     elif len(args) >= 2:

@@ -826,7 +826,8 @@ public static class WorldMapScenario
         {
             if (tile?.Type == null || tile.Type.liquid) continue;
             string biome = tile.Type.biome_id;
-            if (biome != "biome_desert" && biome != "biome_sand") continue;
+            // 只改荒漠，沙滩留着(沙地是沙滩，不算荒漠，见 WildernessSystem.ComputeMarks)
+            if (biome != "biome_desert") continue;
             if (tile.Type.mountains || tile.Type.rocks) continue;
             tile.setTileTypes("soil_low", grass);
             tile.Height = tile.Type.height_min;

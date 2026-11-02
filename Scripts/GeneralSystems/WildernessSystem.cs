@@ -329,10 +329,6 @@ public static class WildernessSystem
     {
         if (!_built || zone == null || zone.id < 0) return;
         Dirty.Add(zone.id);
-        // 周围八块的沙滩算不算沙地看这块有没有水(见 Shore)：一并重判
-        if (zone.neighbours_all != null)
-            foreach (TileZone next in zone.neighbours_all)
-                if (next != null && next.id >= 0) Dirty.Add(next.id);
         Pending();
     }
 
@@ -456,6 +452,8 @@ public static class WildernessSystem
         {
             if (!_built)
             {
+                // 旧档的世界地图：大漠腹地的沙地先改成荒漠(沙地只算沙滩，见 WorldMap.EarthBeaches)
+                if (WorldMap.WorldMapWilderness.OnEarth) WorldMap.EarthBeaches.Migrate();
                 using (FrameProfiler.Measure("无人区·划区")) Build(true, true);
                 return;
             }
@@ -504,9 +502,8 @@ public static class WildernessSystem
     #region 归类
 
     // 格子种类的标记(按 TileTypeBase.index_id 缓存，同 TerrainSystem.Marks)
-    // MarkBeach：没有地表的沙地(biome_sand)——原版图上是海边湖边的沙滩，世界地图上多是大漠里的沙海；挨着水的才算沙滩(见 Shore)
     private const int MarkWater = 1, MarkRock = 2, MarkHills = 4, MarkFrozen = 8, MarkSand = 16, MarkJungle = 32, MarkSwamp = 64,
-        MarkFarm = 128, MarkPaved = 256, MarkBeach = 512;
+        MarkFarm = 128, MarkPaved = 256;
     private static int[] _marks = new int[0];
     private static TileTypeBase[] _markTypes = new TileTypeBase[0];
 
@@ -542,8 +539,10 @@ public static class WildernessSystem
         else
             switch (type.biome_id)
             {
+                // 只认荒漠(biome_desert 的地表)：沙地(biome_sand，没有地表)是海边湖边的沙滩，不是沙漠(用户 2026-11-02 "沙滩要区分一下
+                // 不然都没法建港口了""沙滩不是沙漠")——以前算进去，海岸一条沙滩连着荒漠划成无人区，沿海的城没了海岸、建不了港口。
+                // 世界地图以前把大漠腹地画成成片沙地，已改成荒漠(见 Tools/WorldMap/build_earth.py 的 beaches)
                 case "biome_desert": marks |= MarkSand; break;
-                case "biome_sand": marks |= MarkSand | MarkBeach; break;
                 case "biome_jungle": marks |= MarkJungle; break;
                 case "biome_swamp": marks |= MarkSwamp; break;
             }
@@ -566,7 +565,7 @@ public static class WildernessSystem
         hills = !rock && ((marks | under) & MarkHills) != 0;
         int ground = (marks & MarkPaved) != 0 && main != null ? under : marks;
         if ((ground & MarkFrozen) != 0) return WildKind.Tundra;
-        if ((ground & MarkSand) != 0) return (ground & MarkBeach) != 0 && Shore(tile.zone) ? WildKind.None : WildKind.Desert;
+        if ((ground & MarkSand) != 0) return WildKind.Desert;
         if ((ground & MarkJungle) != 0) return WildKind.Jungle;
         return (ground & MarkSwamp) != 0 ? WildKind.Swamp : WildKind.None;
     }
@@ -582,24 +581,10 @@ public static class WildernessSystem
         public int Land => Total - Water;
     }
 
-    // 沙滩(用户 2026-11-02 "沙滩要区分一下不然都没法建港口了")：这块地或它周围八块有水(海、湖、河)，块里没有地表的沙地算沙滩，
-    // 不算沙漠——以前算进去，海岸一条沙滩连着荒漠划成无人区，沿海的城没了海岸、建不了港口。荒漠(biome_desert 的地表)照算；
-    // 离水两块以外的沙地(世界地图大漠里的沙海)照算沙漠
-    private static bool Shore(TileZone zone)
-    {
-        if (zone == null) return false;
-        if (zone.tiles_with_liquid > 0) return true;
-        if (zone.neighbours_all != null)
-            foreach (TileZone next in zone.neighbours_all)
-                if (next != null && next.tiles_with_liquid > 0) return true;
-        return false;
-    }
-
-    // 一块地各类格子数(水、山地山巅、丘陵石地、冻土雪地、沙地荒漠、丛林、沼泽；挨着水的沙滩不算沙地，见 Shore)
+    // 一块地各类格子数(水、山地山巅、丘陵石地、冻土雪地、荒漠(沙滩不算)、丛林、沼泽)
     private static Counts Count(TileZone zone)
     {
         int total = 0, water = 0, rock = 0, hills = 0, frozen = 0, sand = 0, jungle = 0, swamp = 0;
-        bool shore = Shore(zone);
         foreach (WorldTile tile in zone.tiles)
         {
             TileTypeBase type = tile?.Type;
@@ -621,10 +606,7 @@ public static class WildernessSystem
             // 路、城墙铺在上面的看底下的地面
             int ground = (marks & MarkPaved) != 0 && main != null ? under : marks;
             if ((ground & MarkFrozen) != 0) frozen++;
-            else if ((ground & MarkSand) != 0)
-            {
-                if ((ground & MarkBeach) == 0 || !shore) sand++;
-            }
+            else if ((ground & MarkSand) != 0) sand++;
             else if ((ground & MarkJungle) != 0) jungle++;
             else if ((ground & MarkSwamp) != 0) swamp++;
         }

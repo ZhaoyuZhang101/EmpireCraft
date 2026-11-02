@@ -338,8 +338,8 @@ public static class TerrainSystem
             case "biome_jungle": marks |= MarkJungle; break;
             case "biome_birch":
             case "biome_maple": marks |= MarkWoods; break;
-            case "biome_desert":
-            case "biome_sand": marks |= MarkDesert; break;
+            // 沙地是沙滩，不算沙漠(用户 2026-11-02 "沙滩不是沙漠"，同 WildernessSystem.ComputeMarks)
+            case "biome_desert": marks |= MarkDesert; break;
         }
         if (type.biome_id == "biome_permafrost" || id.StartsWith("snow", StringComparison.Ordinal) ||
             id.StartsWith("frozen", StringComparison.Ordinal)) marks |= MarkSnow;
@@ -430,11 +430,11 @@ public static class TerrainSystem
                 if ((kinds & LandKinds.Dry) != 0) dry++;
                 if ((kinds & LandKinds.Arable) != 0) arable++;
                 livableSum += LivableWeight(type);
-                // 纯沙漠、纯冻土(见 BarrenLandSystem)：沙地(连海滩)、荒漠；冻土(冻住的沙地也是冻土)。
+                // 纯沙漠、纯冻土(见 BarrenLandSystem)：荒漠(沙地是沙滩，不算——海边一圈沙滩的地块以前算成纯荒地)；冻土(冻住的沙地也是冻土)。
                 // 路、田、墙铺在上面的看底下的地面(沙漠里修了路、开过田也还是沙漠)
                 TileTypeBase ground = (type.road || type.farm_field || type.wall) && tile.main_type != null ? tile.main_type : type;
                 if (ground.biome_id == "biome_permafrost") frozen++;
-                else if (ground.biome_id is "biome_sand" or "biome_desert") sandy++;
+                else if (ground.biome_id == "biome_desert") sandy++;
             }
             int marks = Marks(type);
             if ((marks & MarkWater) != 0)

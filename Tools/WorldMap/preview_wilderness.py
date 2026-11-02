@@ -48,8 +48,6 @@ KIND_ZH = {1: "山脉", 2: "沙漠", 3: "冻原", 4: "雨林", 5: "大泽"}
 
 # 地块写法 → 标记(照 ComputeMarks：水、山、丘陵、冻土、沙、丛林、沼泽)；"主:顶"的顶层看自己，主地块看 under
 WATER, ROCK, HILLS, FROZEN, SAND, JUNGLE, SWAMP = 1, 2, 4, 8, 16, 32, 64
-# 没有地表的沙地(sand)：这块或周围八块有水的算沙滩、不算沙漠(同 WildernessSystem.Shore)
-BEACH = 128
 
 
 def type_marks(name):
@@ -59,8 +57,9 @@ def type_marks(name):
         return ROCK
     if name == "hills":
         return HILLS
+    # 沙地(sand)是沙滩，不算沙漠(同 WildernessSystem.ComputeMarks)
     if name == "sand":
-        return SAND | BEACH
+        return 0
     if name.startswith("snow"):
         return FROZEN
     biome = name.rsplit("_", 1)[0]
@@ -172,16 +171,8 @@ def zone_counts(tiles, types):
     sand = ~water & ~frozen & ((m & SAND) != 0)
     jungle = ~water & ~frozen & ~sand & ((m & JUNGLE) != 0)
     swamp = ~water & ~frozen & ~sand & ~jungle & ((m & SWAMP) != 0)
-    beach = sand & ((m & BEACH) != 0)
-    c = {k: count(a) for k, a in (("water", water), ("rock", rock), ("hills", hills), ("frozen", frozen), ("sand", sand & ~beach),
+    c = {k: count(a) for k, a in (("water", water), ("rock", rock), ("hills", hills), ("frozen", frozen), ("sand", sand),
                                   ("jungle", jungle), ("swamp", swamp))}
-    # 沙滩：这块或周围八块有水的不算沙地
-    wet = np.pad(c["water"] > 0, 1)
-    shore = np.zeros((zh, zw), dtype=bool)
-    for dy in (0, 1, 2):
-        for dx in (0, 1, 2):
-            shore |= wet[dy:dy + zh, dx:dx + zw]
-    c["sand"] = c["sand"] + np.where(shore, 0, count(beach))
     c["land"] = ZONE * ZONE - c["water"]
     return c
 
@@ -460,7 +451,8 @@ def zones_barren(tiles, types):
     liquid = np.array([type_marks(t) & WATER != 0 for t in tops]) | np.array([type_marks(t) & WATER != 0 for t in mains])
     mountain = np.array([m == "mountains" for m in mains])
     frozen = np.array([t in ("snow_hills", "snow_block") or t.startswith("permafrost") for t in tops])
-    desert = np.array([t == "sand" or t.startswith("desert") for t in tops])
+    # 沙滩(sand)不算荒漠，同 WorldMapZones
+    desert = np.array([t.startswith("desert") for t in tops])
 
     def count(lut):
         return lut[tiles].reshape(zh, ZONE, zw, ZONE).sum(axis=(1, 3))

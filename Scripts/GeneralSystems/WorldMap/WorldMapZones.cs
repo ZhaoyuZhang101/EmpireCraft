@@ -281,8 +281,8 @@ internal static class WorldMapZones
             if (type.id == "snow_hills" || type.id == "snow_block" || type.biome_id == "biome_permafrost") frozen++;
             switch (type.biome_id)
             {
+                // 沙地是沙滩，不算荒漠(同 WildernessSystem.ComputeMarks)
                 case "biome_desert":
-                case "biome_sand":
                     desert++;
                     break;
                 case "biome_jungle":
