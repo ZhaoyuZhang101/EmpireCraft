@@ -56,6 +56,10 @@ public sealed class CorpsData
     public long commander_seen = -1L;
     public double commander_since = -1d;
     public float rations = 1f;
+    // 老兵经验 0~100(见 CorpsVeterancy)：打仗涨，补新兵冲淡，太平久了回落
+    public float veterancy;
+    // 被围了几个月(见 EncirclementSystem)；0 = 没被围
+    public int pocket_months;
     // 跨海运兵(见 CorpsSystem.Embark/Sail)：在船上、航线(海区 id)、走到第几段、计步
     public bool embarked;
     public List<int> sea_route;

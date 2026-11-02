@@ -93,6 +93,7 @@ public static partial class FrontSystem
         ResetSmooth();
         TerrainSystem.ResetWorldState();
         SeaLandingDiagnostics.ResetWorldState();
+        EncirclementSystem.ResetWorldState();
         _contested.Clear();
         _contestedAt = -1;
         _fronts.Clear();
@@ -473,6 +474,7 @@ public static partial class FrontSystem
                                                        (kingdom.hasEnemies() || Realm(kingdom).hasEnemies())).ToList();
         DefenseByCity.Clear();
         CityDistricts.Reset();
+        EncirclementSystem.BeginAssign();
         foreach ((Kingdom owner, CorpsData corps) in CorpsSystem.All())
         {
             if (corps.sector_city_id < 0 || corps.task is not ("defend" or "attack")) continue;
@@ -515,6 +517,7 @@ public static partial class FrontSystem
         try
         {
             Assign(kingdom, list, MonthPressure, MonthLandingSectors);
+            EncirclementSystem.Hold(kingdom, list);
         }
         catch (Exception exception)
         {
@@ -552,7 +555,8 @@ public static partial class FrontSystem
         bool insurgent = CorpsSystem.Insurgent(kingdom);
         foreach (CorpsData corps in list)
         {
-            if (corps.org <= RetreatOrg && corps.task != "retreat" && !insurgent) Retreat(kingdom, corps);
+            // 被围的军退不出去(见 EncirclementSystem)
+            if (corps.org <= RetreatOrg && corps.task != "retreat" && !insurgent && corps.pocket_months <= 0) Retreat(kingdom, corps);
         }
         // 就近动员(见 WarScopeSystem)：驻地在动员范围里的军、已经在打的军、义军才上前线；
         // 出征(决议或奉诏)与举国总动员时全军可以开往任何战线；其余留守驻地
@@ -560,7 +564,7 @@ public static partial class FrontSystem
         bool Eligible(CorpsData corps) => unbounded || corps.militia || corps.task is "attack" or "defend" ||
                                           WarScopeSystem.InScope(CorpsSystem.Home(corps));
         var ready = list.Where(corps => (insurgent || corps.task != "retreat" && corps.org >= ReadyOrg) && corps.strength >= 1f &&
-                                        Eligible(corps)).ToList();
+                                        corps.pocket_months <= 0 && Eligible(corps)).ToList();
         if (!war)
         {
             NoteLandingWays(kingdom, null);
@@ -764,7 +768,24 @@ public static partial class FrontSystem
         float capital = sector.City.isCapitalCity() ? 0.3f : 0f;
         float concentrate = committed > 0f ? 0.4f : 0f;
         float recapture = Friendly(kingdom, sector.City.kingdom) ? 0.6f : 0f;
-        return Mathf.Min(odds, 3f) + capital + concentrate + recapture - distance * 0.03f;
+        // 解救被围的友军、收拾被围的敌军(见 EncirclementSystem)；避开正当严冬、雨季的地形(见 WarWeather)
+        float pocket = EncirclementSystem.ScoreBonus(kingdom, sector.City);
+        float weather = sector.Targets.Count == 0 ? 0f : WarWeather.Harshness(TerrainSystem.Of(sector.Targets[0])) * SeasonAvoid;
+        return Mathf.Min(odds, 3f) + capital + concentrate + recapture + pocket - weather - distance * 0.03f;
+    }
+
+    private const float SeasonAvoid = 0.4f;
+
+    // 抄后路(见 EncirclementSystem)：敌军所在地块的四周先拿；ResolveCity 每处交战开头记下守军所在的地块
+    private static readonly HashSet<int> FlankZones = new();
+
+    private static int FlankOrder(TileZone candidate)
+    {
+        if (FlankZones.Count == 0 || FlankZones.Contains(candidate.id)) return 0;
+        int count = 0;
+        foreach (TileZone neighbour in candidate.neighbours_all ?? Array.Empty<TileZone>())
+            if (neighbour != null && FlankZones.Contains(neighbour.id)) count++;
+        return count;
     }
 
     // 已在登陆战线所在的那片陆地上、走陆路去(不必上船)；不是登陆战线也算。
@@ -888,10 +909,10 @@ public static partial class FrontSystem
         return zone != null && target != null && CorpsSystem.ZoneDistance(zone, target) <= ArriveDistance;
     }
 
-    // 禁军的空饷不打仗(见 PalaceArmySystem)；武备废弛打折(见 MaladySystem)；起义军打折(见 CorpsSystem.Insurgent)
+    // 禁军的空饷不打仗(见 PalaceArmySystem)；武备废弛打折(见 MaladySystem)；起义军打折(见 CorpsSystem.Insurgent)；老兵更能打(见 CorpsVeterancy)
     internal static float Effective(CorpsData corps) =>
         corps.strength * PalaceArmySystem.RealShare(corps) * MaladySystem.MilitaryFactor(corps) * CorpsSystem.InsurgentFactor(corps) *
-        (0.25f + 0.75f * Mathf.Clamp01(corps.org / 100f));
+        CorpsVeterancy.CombatFactor(corps) * (0.25f + 0.75f * Mathf.Clamp01(corps.org / 100f));
 
     // 火力：WarBox 的坦克、装甲车、飞机等载具每辆 +4%，最多 +60%
     private static readonly Dictionary<long, float> FirepowerCache = new();
@@ -1004,10 +1025,12 @@ public static partial class FrontSystem
             .OrderByDescending(entries => entries.Sum(entry => entry.corps.strength)).First().Key;
         // 攻方各军(连同友邦的)：要推进的地、关城守御、隔城墙都看它们挨着的地
         List<CorpsData> spearheads = attackers.Select(entry => entry.corps).ToList();
-        // 地形：攻方要推进的那块地(城中心那块是城池)
+        FlankZones.Clear();
+        foreach (var entry in holders) FlankZones.Add(entry.corps.zone_id);
+        // 地形：攻方要推进的那块地(城中心那块是城池)；时令叠在地形上(见 WarWeather)
         TileZone battleZone = FrontZone(city, attacker, landing, spearheads);
         FrontTerrain terrain = TerrainSystem.OfBattle(city, battleZone);
-        TerrainEffect ground = TerrainSystem.Effect(terrain);
+        TerrainEffect ground = WarWeather.Apply(TerrainSystem.Effect(terrain), terrain, attacker);
         // 水土：离草的游牧在非旱地、不服水土的定居政权在旱地上交战，攻守都打折(按那块地的格子构成，见 ShuiTuSystem.CombatFactor)
         bool dryGround = TerrainSystem.IsDry(battleZone);
         // 跨海登陆的头一个月攻方吃亏
@@ -1071,13 +1094,15 @@ public static partial class FrontSystem
         foreach (var entry in attackers)
         {
             CorpsSystem.Casualties(entry.corps, entry.corps.strength * CasualtyRate * (1f - ratio) * (defend > 0f ? 1f : 0.2f));
-            entry.corps.org = Mathf.Max(0f, entry.corps.org - (8f + 20f * (1f - ratio) + ground.AttackerOrg));
+            entry.corps.org = Mathf.Max(0f, entry.corps.org - (8f + 20f * (1f - ratio) + ground.AttackerOrg) * CorpsVeterancy.OrgLossFactor(entry.corps));
+            CorpsVeterancy.Gain(entry.kingdom, entry.corps, ratio);
             Engaged.Add(entry.corps.id);
         }
         foreach (var entry in holders)
         {
             CorpsSystem.Casualties(entry.corps, entry.corps.strength * CasualtyRate * ratio);
-            entry.corps.org = Mathf.Max(0f, entry.corps.org - (6f + 20f * ratio + ground.DefenderOrg));
+            entry.corps.org = Mathf.Max(0f, entry.corps.org - (6f + 20f * ratio + ground.DefenderOrg) * CorpsVeterancy.OrgLossFactor(entry.corps));
+            CorpsVeterancy.Gain(entry.kingdom, entry.corps, 1f - ratio);
             Engaged.Add(entry.corps.id);
         }
         bool standing = holders.Any(entry => entry.corps.org > RetreatOrg && entry.corps.strength >= 1f);
@@ -1153,6 +1178,7 @@ public static partial class FrontSystem
         return targets.OrderBy(candidate => spearheads == null || Beside(spearheads, candidate) ? 0 : 1)
             .ThenBy(candidate => candidate == center ? 1 : 0)
             .ThenBy(candidate => WallBetween(attacker, candidate, spearheads) ? 1 : 0)
+            .ThenByDescending(FlankOrder)
             .ThenByDescending(candidate => (candidate.neighbours ?? Array.Empty<TileZone>())
                 .Count(neighbour => Friendly(attacker, Controller(neighbour)))).FirstOrDefault() ?? center;
     }
@@ -1177,6 +1203,7 @@ public static partial class FrontSystem
             // 不隔城墙的先推(见 FrontSystem.Wall)
             TileZone zone = targets.OrderBy(candidate => CenterOrder(city, candidate, center, defended))
                 .ThenBy(candidate => WallBetween(attacker, candidate, spearheads) ? 1 : 0)
+                .ThenByDescending(FlankOrder)
                 .ThenByDescending(candidate => (candidate.neighbours ?? Array.Empty<TileZone>())
                     .Count(neighbour => Friendly(attacker, Controller(neighbour)))).First();
             Kingdom occupier = Belligerent(attacker, owner);

@@ -82,12 +82,14 @@ public static class LogisticsSystem
             float supply = Supply(kingdom, corps, foraging);
             bool wasCut = corps.supply <= 0f;
             corps.supply = supply <= 0f ? 0f : Mathf.Min(1f, supply + bonus);
-            if (wasCut != corps.supply <= 0f && !corps.embarked)
+            // 被围的军另有军报(见 EncirclementSystem)
+            if (wasCut != corps.supply <= 0f && !corps.embarked && corps.pocket_months <= 0)
                 FrontSystem.Log(kingdom, string.Format(LM.Get(wasCut ? "corps_log_supply_restored" : "corps_log_supply_cut"),
                     CorpsSystem.Name(corps)));
         }
         Relations.Clear();
         SupplyByZone.Clear();
+        EncirclementSystem.Monthly(kingdom, list);
         Feed(kingdom, list, foraging);
         Attrition(kingdom, list);
         if (FrontSystem.Realm(kingdom) == kingdom) TryForage(kingdom);
@@ -316,9 +318,21 @@ public static class LogisticsSystem
     private static void Attrition(Kingdom kingdom, List<CorpsData> list)
     {
         bool war = CorpsSystem.IsAtWar(kingdom);
-        int starving = 0;
+        int starving = 0, exposed = 0;
+        float frozen = 0f;
+        WarWeather.Kind worst = WarWeather.Kind.Clear;
         foreach (CorpsData corps in list)
         {
+            // 时令：严冬、雨季、酷暑在外打仗冻馁、染疫、缺水(见 WarWeather)
+            float weather = war ? WarWeather.AttritionRate(kingdom, corps) : 0f;
+            if (weather > 0f)
+            {
+                float dead = corps.strength * weather;
+                CorpsSystem.Casualties(corps, dead);
+                frozen += dead;
+                exposed++;
+                if (CorpsSystem.Zone(corps) is TileZone at) worst = WarWeather.KindOf(TerrainSystem.Of(at));
+            }
             float hunger = 1f - Mathf.Clamp01(corps.rations);
             float cut = corps.supply < 0.3f ? (0.3f - corps.supply) / 0.3f : 0f;
             float severity = Mathf.Max(hunger, cut);
@@ -331,7 +345,21 @@ public static class LogisticsSystem
             starving++;
         }
         if (starving > 0) FrontSystem.Log(kingdom, string.Format(LM.Get("corps_log_attrition"), starving));
+        if (exposed > 0)
+        {
+            string text = string.Format(LM.Get("corps_log_weather"), exposed, WarWeather.Name(worst), CorpsSystem.ShortStrength(frozen));
+            FrontSystem.Log(kingdom, text);
+            // 冻死饿死的人多了才进战争纪事，一年至多一条
+            if (frozen >= WeatherChronicleMen && (!WeatherChronicled.TryGetValue(kingdom.id, out int year) || year != Date.getCurrentYear()))
+            {
+                WeatherChronicled[kingdom.id] = Date.getCurrentYear();
+                WarChronicle.RecordFor(kingdom, WarChronicle.Commander, text);
+            }
+        }
     }
+
+    private const float WeatherChronicleMen = 500f;
+    private static readonly Dictionary<long, int> WeatherChronicled = new();
 
     // 交战中缺粮、或三分之一以上能上阵的军在敌境时，统帅发起"就地征粮"
     private static void TryForage(Kingdom realm)

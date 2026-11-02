@@ -97,6 +97,11 @@ namespace EmpireCraft.Scripts.UI.Windows
                 org < 40f ? "#E8584F" : "#7FD8EA");
             UIHelper.AddKpiTile(kpis, kpiWidth, LM.Get("corps_kpi_battles"), battles.Count.ToString(),
                 battles.Count > 0 ? "#E8584F" : "#8FA0A8");
+            // 眼下的时令(见 WarWeather)
+            string season = WarWeather.SeasonLine();
+            if (season != null)
+                parent.AddTextIntoVertLayout(string.Format(LM.Get("corps_season_line"), season).ColorString("#E6DCA8"), true,
+                    TextAnchor.MiddleLeft, new Vector2(mainWidth - 4f, 12f)).UseFixedFontSize(6, HorizontalWrapMode.Overflow);
 
             var table = parent.BeginCard(mainWidth, "corps_table_title", "#F3C34A",
                 string.Format(LM.Get("corps_table_header"), all.Count(entry => entry.corps.general_id >= 0)),
@@ -259,6 +264,9 @@ namespace EmpireCraft.Scripts.UI.Windows
             Actor general = corps.general_id >= 0 ? World.world.units.get(corps.general_id) : null;
             string name = CorpsSystem.Name(corps);
             if (focus) name = name.ColorString("#F3C34A");
+            // 老兵(见 CorpsVeterancy)：老练以上才标；被围的标红(见 EncirclementSystem)
+            if (CorpsVeterancy.Tier(corps) > 0) name += $" · {CorpsVeterancy.TierName(corps)}".ColorString(CorpsVeterancy.TierHex(corps));
+            if (corps.pocket_months > 0) name += $" · {string.Format(LM.Get("corps_tip_pocket_format"), corps.pocket_months)}".ColorString("#E8584F");
             if (general?.data != null && !general.isRekt()) name += $" · {general.getName()}".ColorString("#C8C2B4");
             var nameText = row.AddTextIntoHoriLayout(name, true, TextAnchor.MiddleLeft, new Vector2(W(0), 12f));
             nameText.UseFixedFontSize(7, HorizontalWrapMode.Overflow);

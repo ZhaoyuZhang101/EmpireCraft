@@ -137,6 +137,10 @@ public static class CommodityMarketSystem
         public readonly Dictionary<long, Dictionary<string, float>> memberMade = new();
         public readonly Dictionary<string, Dictionary<long, float>> importsFrom = new(), exportsTo = new();
         public readonly HashSet<string> outOfMoney = new();
+        // 破交(见 LaneCut、Trade)：海路被截断的殖民地；港口有几成没被封锁；因此少进口的物资
+        public readonly HashSet<long> raidedMembers = new();
+        public float seaOpen = 1f;
+        public readonly HashSet<string> seaLimited = new();
     }
 
     // 一样物资的底价(没有这样物资按 1)
@@ -818,6 +822,10 @@ public static class CommodityMarketSystem
                 market.shortage[good.id] = demand <= 0f ? 0f : Mathf.Clamp01(1f - available / demand);
                 market.price[good.id] = SmoothedPrice(market, good, demand, available);
             }
+        foreach (Market market in Markets.Values)
+            foreach (long id in market.raidedMembers)
+                if (World.world.kingdoms.get(id) is Kingdom colony && ColonySystem.MetropoleOf(colony) is Kingdom metropole)
+                    FrontSystem.Log(metropole, string.Format(LM.Get("market_log_raided"), colony.GetKingdomName()));
         // 没了的市场不再留价格账
         if (PriceBook.Count > Markets.Count)
             foreach (long id in PriceBook.Keys.Where(id => !Markets.ContainsKey(id)).ToList()) PriceBook.Remove(id);
@@ -860,6 +868,13 @@ public static class CommodityMarketSystem
         MarketOfKingdom[kingdom.id] = root.id;
         market.power += kingdom.GetNationalPower();
         float madeValue = 0f, wantedValue = 0f;
+        // 破交：殖民地的海路被敌方水师截断，它的出产只有 RaidedKeep 运得回市场(见 LaneCut)
+        float lane = 1f;
+        if (LaneCut(kingdom))
+        {
+            lane = RaidedKeep;
+            market.raidedMembers.Add(kingdom.id);
+        }
         if (kingdom.cities != null)
         {
             market.cities += kingdom.cities.Count;
@@ -868,11 +883,11 @@ public static class CommodityMarketSystem
                 if (city == null || !Books.TryGetValue(city.id, out CityBook book)) continue;
                 foreach (KeyValuePair<string, float> pair in book.made)
                 {
-                    Add(market.supply, pair.Key, pair.Value);
+                    Add(market.supply, pair.Key, pair.Value * lane);
                     if (!market.memberMade.TryGetValue(kingdom.id, out Dictionary<string, float> own))
                         market.memberMade[kingdom.id] = own = new Dictionary<string, float>();
-                    Add(own, pair.Key, pair.Value);
-                    madeValue += pair.Value * BasePrice(pair.Key);
+                    Add(own, pair.Key, pair.Value * lane);
+                    madeValue += pair.Value * lane * BasePrice(pair.Key);
                 }
                 foreach (KeyValuePair<string, float> pair in book.wanted)
                 {
@@ -892,6 +907,51 @@ public static class CommodityMarketSystem
             Add(market.demand, good.id, soldiers * good.per_soldier);
             Add(market.demandArmy, good.id, soldiers * good.per_soldier);
         }
+    }
+
+    // ───────── 海上破交(用户 2026-11-02 "先做第一批"，借鉴钢铁雄心的袭击运输船队) ─────────
+    // 敌方水师封住港口、控制海区：宗主与殖民地之间走不通，殖民地的货运不回来；只靠海路相连的市场之间，
+    // 港口被封了几成，贸易就少几成，商路的航线被截断就断航。AI 的舰队也优先去封这类港口(见 NavySystem.Assign)
+    private const float RaidedKeep = 0.25f;
+
+    private static bool AtWar(Kingdom kingdom) => kingdom?.data != null && kingdom.hasEnemies();
+
+    private static bool LaneCut(Kingdom colony)
+    {
+        Kingdom metropole = ColonySystem.MetropoleOf(colony);
+        if (metropole?.data == null || !CorpsSystem.Enabled || !AtWar(metropole) && !AtWar(colony)) return false;
+        List<SeaRegionSystem.Region> home = NavySystem.HomeWaters(metropole);
+        List<City> ports = NavySystem.Ports(colony).ToList();
+        if (home.Count == 0 || ports.Count == 0) return false;
+        if (ports.All(NavySystem.IsBlockaded)) return true;
+        List<SeaRegionSystem.Region> waters = ports.SelectMany(SeaRegionSystem.RegionsAround).Distinct().ToList();
+        // 两边本来就不在一片海上的不算被截断
+        if (waters.Count == 0 || SeaRegionSystem.Route(home, waters) == null) return false;
+        return SeaRegionSystem.Route(home, waters, region => NavySystem.IsHostile(metropole, region)) == null;
+    }
+
+    // 两个港口之间的航线通不通(见 Trade)
+    private static bool SeaLaneOpen(City from, City to)
+    {
+        if (NavySystem.IsBlockaded(from) || NavySystem.IsBlockaded(to)) return false;
+        if (!AtWar(from.kingdom) && !AtWar(to.kingdom)) return true;
+        List<SeaRegionSystem.Region> start = SeaRegionSystem.RegionsAround(from), goal = SeaRegionSystem.RegionsAround(to);
+        if (start.Count == 0 || goal.Count == 0) return true;
+        return SeaRegionSystem.Route(start, goal, region => NavySystem.IsHostile(from.kingdom, region) || NavySystem.IsHostile(to.kingdom, region)) != null;
+    }
+
+    // 这个市场的港口有几成没被封锁；没在打仗的不算
+    private static float PortsOpen(Market market)
+    {
+        if (!CorpsSystem.Enabled || !market.members.Any(AtWar)) return 1f;
+        int total = 0, blocked = 0;
+        foreach (Kingdom member in market.members)
+            foreach (City port in NavySystem.Ports(member))
+            {
+                total++;
+                if (NavySystem.IsBlockaded(port)) blocked++;
+            }
+        return total == 0 ? 1f : 1f - blocked / (float)total;
     }
 
     // 供需定的价格：缺货涨、过剩跌，封顶四倍、保底四分之一；这个市场没人要的物资没有行情，按底价
@@ -956,9 +1016,13 @@ public static class CommodityMarketSystem
     private static void Trade()
     {
         var links = new Dictionary<long, HashSet<long>>();
-        void Link(long a, long b)
+        // 陆上相连的市场：不在这里的只靠海路(见下面的破交)
+        var landLinks = new HashSet<(long, long)>();
+        (long, long) Pair(long a, long b) => a < b ? (a, b) : (b, a);
+        void Link(long a, long b, bool sea = false)
         {
             if (a == b) return;
+            if (!sea) landLinks.Add(Pair(a, b));
             (links.TryGetValue(a, out var set) ? set : links[a] = new HashSet<long>()).Add(b);
             (links.TryGetValue(b, out set) ? set : links[b] = new HashSet<long>()).Add(a);
         }
@@ -974,9 +1038,9 @@ public static class CommodityMarketSystem
                             Link(own, other);
                 long partnerId = TradeRouteSystem.PartnerOf(city);
                 City partner = partnerId >= 0 ? World.world.cities.get(partnerId) : null;
-                // 港口被敌方舰队封锁就断航(同 TradeRouteSystem)
+                // 港口被封锁、航线被敌方制海截断就断航
                 if (partner?.kingdom?.data != null && MarketOfKingdom.TryGetValue(partner.kingdom.id, out long overseas) &&
-                    !NavySystem.IsBlockaded(city) && !NavySystem.IsBlockaded(partner)) Link(own, overseas);
+                    SeaLaneOpen(city, partner)) Link(own, overseas, sea: true);
             }
             catch (Exception exception)
             {
@@ -987,7 +1051,7 @@ public static class CommodityMarketSystem
         if (lingao != null && MarketOfKingdom.TryGetValue(lingao.id, out long home))
             foreach (Kingdom partner in TransmigrantSystem.SeaTradePartners(lingao))
                 if (MarketOfKingdom.TryGetValue(partner.id, out long other) && !partner.isEnemy(lingao))
-                    Link(home, other);
+                    Link(home, other, sea: true);
         // 丝绸之路(见 WorldMap.SilkRoadSystem)：沿途相邻两站的城所属的国家不交战就互市，中间隔着沙漠、别国也连得上
         try
         {
@@ -998,7 +1062,11 @@ public static class CommodityMarketSystem
         {
             Warn("丝路互市", exception);
         }
-        foreach (Market market in Markets.Values) market.policy = PolicyOf(market.leader);
+        foreach (Market market in Markets.Values)
+        {
+            market.policy = PolicyOf(market.leader);
+            market.seaOpen = PortsOpen(market);
+        }
         // 领衔国交战(连同盟友，同 MarketSystem.Embargoed)禁运、任一边闭关(和约通商的除外)的不通：
         // 以前只看接壤的那一对成员国，主战的两国之间仍照常买卖
         foreach (KeyValuePair<long, HashSet<long>> pair in links)
@@ -1076,6 +1144,13 @@ public static class CommodityMarketSystem
                         // 买到本地价压到与到岸价相平为止
                         buyer.imports.TryGetValue(good.id, out float boughtSoFar);
                         room = Mathf.Min(need, demand / Mathf.Max(1f, landed / good.price) - (supply + boughtSoFar));
+                    }
+                    // 破交：只靠海路相连的，港口被封了几成，能运的就少几成
+                    float open = Mathf.Min(buyer.seaOpen, seller.seaOpen);
+                    if (open < 1f && !landLinks.Contains(Pair(buyer.leader.id, seller.leader.id)))
+                    {
+                        room *= open;
+                        buyer.seaLimited.Add(good.id);
                     }
                     if (room <= 0f) continue;
                     // 进口是民间的买卖：货款(连关税、运费)从买方各城的民间存款出

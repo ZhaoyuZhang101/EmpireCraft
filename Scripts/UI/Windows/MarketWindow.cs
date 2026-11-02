@@ -393,6 +393,8 @@ public class MarketWindow : WideScrollWindow<MarketWindow>
         yield return made <= 0f ? (LM.Get("market_diag_no_source"), WideKit.Red) : (string.Format(LM.Get("market_diag_low"), Percent(made / wanted)), WideKit.Orange);
         float factory = Of(_market.demandFactory, good.id) / wanted;
         if (factory >= 0.5f) yield return (string.Format(LM.Get("market_diag_factory"), Percent(factory)), WideKit.Soft);
+        if (_market.seaLimited.Contains(good.id) || _market.raidedMembers.Any(id => _market.memberMade.TryGetValue(id, out var own) && own.ContainsKey(good.id)))
+            yield return (LM.Get("market_diag_raided"), WideKit.Red);
         List<CommodityMarketSystem.Market> sellers = Sellers(good.id).ToList();
         int open = sellers.Count(other => CommodityMarketSystem.TradeBlock(_market, other) == null);
         if (_market.outOfMoney.Contains(good.id)) yield return (LM.Get("market_diag_purse"), WideKit.Orange);
@@ -526,7 +528,10 @@ public class MarketWindow : WideScrollWindow<MarketWindow>
         page.AddKpiRow(PageWidth,
             (LM.Get("market_trade_imports"), Money(_market.boughtFrom.Values.Sum()), WideKit.Cyan),
             (LM.Get("market_trade_exports"), Money(_market.soldTo.Values.Sum()), WideKit.Green),
-            (LM.Get("market_trade_links"), _market.linked.Count.ToString(), WideKit.Value));
+            (LM.Get("market_trade_links"), _market.linked.Count.ToString(), WideKit.Value),
+            (LM.Get("market_trade_sea"), Percent(_market.seaOpen), _market.seaOpen < 0.999f ? WideKit.Red : WideKit.Green));
+        if (_market.raidedMembers.Count > 0)
+            page.AddParagraph(PageWidth, string.Format(LM.Get("market_trade_raided"), _market.raidedMembers.Count), 7, WideKit.Red);
         var partners = page.BeginCard(PageWidth, "market_partners_title", WideKit.Gold);
         DrawPartners(partners, 40);
 

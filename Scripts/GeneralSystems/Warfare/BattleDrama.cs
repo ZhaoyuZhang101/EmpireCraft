@@ -124,6 +124,24 @@ public static class BattleDrama
             captor.king, executed: true);
     }
 
+    // 被围投降(见 EncirclementSystem)：统领按被俘处理
+    public static void Surrendered(City city, Kingdom kingdom, CorpsData corps, Kingdom captor, List<(Kingdom kingdom, CorpsData corps)> besiegers)
+    {
+        if (city?.data == null || captor?.data == null || !CorpsSystem.GeneralUnits) return;
+        Actor general = General(corps);
+        if (general == null) return;
+        try
+        {
+            Actor victor = besiegers?.Where(entry => General(entry.corps) != null).OrderByDescending(entry => entry.corps.strength)
+                .Select(entry => General(entry.corps)).FirstOrDefault();
+            Captured(city, kingdom, general, captor, victor);
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft][战场] {city.data.name} 结算投降统领失败: {exception.Message}");
+        }
+    }
+
     // 城破：守城统领殉国、被俘或出走
     public static void CityFell(City city, Kingdom attacker, Kingdom owner)
     {

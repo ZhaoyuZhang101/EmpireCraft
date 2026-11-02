@@ -27,6 +27,7 @@ public static class NavySystem
 {
     private const int MaxRegionsPerMonth = 3;
     private const int ControlMonths = 3;
+    private const int RaidDetour = 3;
     // 每艘运输船载多少人(按舰种，见 ShipCapacity)
     private const float AncientCapacity = 200f, SailCapacity = 400f, SteamCapacity = 1500f, ModernCapacity = 3000f;
     // 有跨海登陆的需要时，各港合计至少造够运下本国最大一支军的运输船，每港至多再多造几艘
@@ -475,11 +476,23 @@ public static class NavySystem
         List<SeaRegionSystem.Region> enemyWaters = World.world.kingdoms
             .Where(other => other?.data != null && !other.isRekt() && FrontSystem.Hostile(kingdom, other))
             .SelectMany(Ports).SelectMany(SeaRegionSystem.RegionsAround).Distinct().ToList();
+        // 破交：有海上商路、或连着殖民地的敌港更值得封，不比最近的敌港远出 RaidDetour 个海区就先去那里(见 CommodityMarketSystem.LaneCut)
+        List<SeaRegionSystem.Region> raidWaters = World.world.kingdoms
+            .Where(other => other?.data != null && !other.isRekt() && FrontSystem.Hostile(kingdom, other))
+            .SelectMany(other =>
+            {
+                bool colonial = ColonySystem.IsColony(other) || ColonySystem.ColoniesOf(other).Any();
+                return Ports(other).Where(port => colonial || TradeRouteSystem.PartnerOf(port) >= 0L);
+            })
+            .SelectMany(SeaRegionSystem.RegionsAround).Distinct().ToList();
         foreach (FleetData fleet in ready.Where(fleet => !assigned.Contains(fleet)))
         {
             SeaRegionSystem.Region current = SeaRegionSystem.Get(fleet.region_id);
             List<SeaRegionSystem.Region> path = enemyWaters.Count == 0 || current == null ? null
                 : SeaRegionSystem.Route(new[] { current }, enemyWaters);
+            if (path != null && raidWaters.Count > 0 && current != null &&
+                SeaRegionSystem.Route(new[] { current }, raidWaters) is { } raid && raid.Count <= path.Count + RaidDetour)
+                path = raid;
             if (path == null || path.Count == 0 || fleet.warships < 3 || fleet.org < 50f)
             {
                 fleet.task = "port";

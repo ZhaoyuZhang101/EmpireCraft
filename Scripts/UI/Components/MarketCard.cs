@@ -90,6 +90,8 @@ public static class MarketCard
             card.AddParagraph(width, string.Format(LM.Get("economy_market_effects"), Mathf.RoundToInt(output * 100f),
                 Mathf.RoundToInt(necessity), Mathf.RoundToInt(luxury * 100f)), 6, WideKit.Muted);
         }
+        if (market.raidedMembers.Count > 0)
+            card.AddParagraph(width, string.Format(LM.Get("market_trade_raided"), market.raidedMembers.Count), 6, WideKit.Red);
         Kingdom target = focus;
         card.AddListRow(width, 0, null, LM.Get("economy_market_open"), "", () => MarketWindow.Open(target), WideKit.Gold, width - 20f);
     }

@@ -284,7 +284,7 @@ namespace EmpireCraft.Scripts.UI.Windows
                 Kingdom attacker = World.world.kingdoms.get(battle.attacker_id);
                 bool ours = WarDisplay.AttackerSide(war, attacker);
                 float odds = Mathf.Clamp01(battle.ratio);
-                string tags = TerrainSystem.Name(battle.terrain);
+                string tags = WarWeather.Tag(battle.terrain);
                 if (battle.wall) tags += " · " + LM.Get(battle.wall_breach ? "war_front_wall_breached" : "war_front_wall");
                 if (battle.landing) tags += " · " + LM.Get("war_front_landing");
                 string detail = string.Format(LM.Get("war_front_detail"), odds, tags, battle.taken,

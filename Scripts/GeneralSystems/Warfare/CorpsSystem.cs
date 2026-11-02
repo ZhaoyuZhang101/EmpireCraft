@@ -351,7 +351,11 @@ public static class CorpsSystem
         if (!posts && (list == null || list.Count == 0)) return;
         using (FrameProfiler.Measure("征召·补员")) Mobilize(kingdom, now);
         using (FrameProfiler.Measure("军团·后勤")) LogisticsSystem.MonthTick(kingdom);
-        using (FrameProfiler.Measure("征召·休整")) Recover(kingdom);
+        using (FrameProfiler.Measure("征召·休整"))
+        {
+            Recover(kingdom);
+            CorpsVeterancy.Monthly(kingdom, Of(kingdom));
+        }
         using (FrameProfiler.Measure("征召·军饷")) PayUpkeep(kingdom);
         // 视财力换装一支(见 CorpsArmSystem)
         using (FrameProfiler.Measure("征召·换装")) CorpsArmSystem.Monthly(kingdom, kingdom.GetOrCreate().corps);
@@ -907,6 +911,8 @@ public static class CorpsSystem
             LegionPopulationRules.Add(corps.population, source.id, group, contribution);
             taken += contribution;
         }
+        // 新兵冲淡老兵(见 CorpsVeterancy)
+        CorpsVeterancy.Dilute(corps, corps.strength, taken);
         corps.strength += taken;
         if (taken > 0f) CityPopulationSystem.InvalidateHouseholdCaches();
     }
@@ -960,7 +966,7 @@ public static class CorpsSystem
             full = amount, strength = amount, org = parent.org, task = parent.task, sector_city_id = parent.sector_city_id,
             zone_id = parent.zone_id, target_zone_id = parent.target_zone_id, raised_at = World.world.getCurWorldTime(),
             arm = parent.arm, supply = parent.supply, rations = parent.rations, phantom = parent.phantom, loyalty = parent.loyalty,
-            parent_id = parent.id
+            veterancy = parent.veterancy, parent_id = parent.id
         };
         foreach (LegionPopulationContribution origin in parent.population)
         {
@@ -983,7 +989,11 @@ public static class CorpsSystem
     private static void Rejoin(Kingdom kingdom, CorpsData parent, CorpsData part)
     {
         float total = parent.strength + part.strength;
-        if (total > 0f) parent.org = (parent.org * parent.strength + part.org * part.strength) / total;
+        if (total > 0f)
+        {
+            parent.org = (parent.org * parent.strength + part.org * part.strength) / total;
+            parent.veterancy = (parent.veterancy * parent.strength + part.veterancy * part.strength) / total;
+        }
         parent.strength = total;
         foreach (LegionPopulationContribution origin in part.population)
             if (origin != null && origin.size > 0f) parent.AddContribution(origin);
@@ -1219,7 +1229,7 @@ public static class CorpsSystem
                 float SpeedIn(TileZone zone)
                 {
                     float value = MarchZonesPerSecond * CorpsArmSystem.Speed(arm);
-                    if (TerrainSystem.SlowsMarch(zone)) value *= CorpsArmSystem.Rough(arm);
+                    if (TerrainSystem.SlowsMarch(zone) || WarWeather.SlowsMarch(zone)) value *= CorpsArmSystem.Rough(arm);
                     if (!CorpsArmSystem.Flies(arm) && !RoadNetwork.IsRoad(zone)) value *= CorpsArmSystem.OffRoad(arm);
                     return value;
                 }
@@ -1324,6 +1334,22 @@ public static class CorpsSystem
     }
 
     // 整支军改投别国(拥兵自立，见 ThroneSuspicion)：驻地改到 home，回驻地待命
+    // 被围投降的军被敌方收编(见 EncirclementSystem)：换了统领、编入对方，算手动组建的军(不随军制兵额裁撤)，老兵打了折
+    public static void CaptureCorps(Kingdom from, CorpsData corps, Kingdom captor)
+    {
+        if (corps == null || from == null || captor?.data == null) return;
+        RemoveGeneral(corps);
+        corps.full = corps.strength;
+        corps.org = 30f;
+        corps.veterancy *= 0.5f;
+        corps.pocket_months = 0;
+        corps.parent_id = -1L;
+        corps.manual = true;
+        corps.target_zone_id = corps.zone_id;
+        Paths.Remove(corps.id);
+        Transfer(corps, from, captor, captor.capital);
+    }
+
     public static void Transfer(CorpsData corps, Kingdom from, Kingdom to, City home)
     {
         if (corps == null || from == null || to == null || from == to) return;
@@ -1369,6 +1395,8 @@ public static class CorpsSystem
             Sail(corps);
             return;
         }
+        // 被围的军走不出去，只能就地打或突围(见 EncirclementSystem)
+        if (corps.pocket_months > 0) return;
         TileZone target = FrontSystem.TargetZone(corps);
         if (target == null) return;
         TileZone current = Zone(corps);
@@ -1708,7 +1736,7 @@ public static class CorpsSystem
     // 斜走乘 1.41；不可通行的地块与海面不进，终点除外。给了 side 时不相干的第三国的地加重八倍(能绕就绕，见 FrontSystem.Passable)，
     // 隔着城墙的两块地不走(关门对 side 开着的除外，进终点也一样，见 WallPassage)；不给 side(皇帝出行等借用)不看城墙。
     // 无人区同城墙只看给了 side 的：对 side 过不去的不进(终点除外)，困在里面的在无人区里每步加重 ForeignStep 倍走出去(见 WildBlocks)
-    private const float ForeignStep = 8f;
+    private const float ForeignStep = 8f, EnemyStep = 3f;
     // 上一次寻路被城墙挡掉的走法数(诊断日志用)
     private static int _wallBlocked;
     private static float _wallLoggedAt = -100f;
@@ -1774,6 +1802,16 @@ public static class CorpsSystem
             if (!passable.TryGetValue(owner.id, out bool ok)) passable[owner.id] = ok = FrontSystem.Passable(side, zone);
             return !ok;
         }
+        // 敌占区能走但要绕：一头扎进去容易被围(见 EncirclementSystem)
+        var hostile = new Dictionary<long, bool>();
+        bool Enemy(TileZone zone)
+        {
+            if (side == null) return false;
+            Kingdom owner = FrontSystem.Controller(zone);
+            if (owner == null) return false;
+            if (!hostile.TryGetValue(owner.id, out bool value)) hostile[owner.id] = value = FrontSystem.Hostile(side, owner);
+            return value;
+        }
         float offRoad = 1f / Mathf.Max(0.1f, CorpsArmSystem.OffRoad(arm));
         float rough = 1f / Mathf.Max(0.1f, CorpsArmSystem.Rough(arm));
         bool walls = side != null && WallPassage.Active;
@@ -1809,8 +1847,9 @@ public static class CorpsSystem
                 bool wilderness = wild && !WildernessPassage.Open(neighbour, way);
                 if (wilderness && neighbour != to && WildernessPassage.Open(zone, way)) continue;
                 float step = RoadNetwork.IsRoad(neighbour) ? 1f : offRoad;
-                if (TerrainSystem.SlowsMarch(neighbour)) step *= rough;
+                if (TerrainSystem.SlowsMarch(neighbour) || WarWeather.SlowsMarch(neighbour)) step *= rough;
                 if (neighbour != to && Foreign(neighbour)) step *= ForeignStep;
+                if (neighbour != to && Enemy(neighbour)) step *= EnemyStep;
                 if (wilderness) step *= ForeignStep;
                 if (neighbour.x != zone.x && neighbour.y != zone.y) step *= 1.41f;
                 float total = here + step;

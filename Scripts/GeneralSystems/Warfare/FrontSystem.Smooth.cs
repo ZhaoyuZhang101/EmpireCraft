@@ -130,6 +130,7 @@ public static partial class FrontSystem
         if (targets.Count == 0) return null;
         return targets.OrderBy(candidate => CenterOrder(city, candidate, center, defended))
             .ThenBy(candidate => WallBetween(side, candidate, spearheads) ? 1 : 0)
+            .ThenByDescending(FlankOrder)
             .ThenByDescending(candidate => (candidate.neighbours ?? Array.Empty<TileZone>())
                 .Count(neighbour => Friendly(side, Controller(neighbour)))).First();
     }

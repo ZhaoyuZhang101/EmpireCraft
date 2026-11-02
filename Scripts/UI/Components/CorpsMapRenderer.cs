@@ -1348,7 +1348,16 @@ public static class CorpsMapRenderer
             tooltip.addLineText(LM.Get("corps_tip_location"), at.GetCityName(), "#C8C2B4", pPercent: false,
                 pLocalize: false, pLimitValue: 40);
         if (zone != null)
-            tooltip.addLineText(LM.Get("corps_tip_terrain"), TerrainSystem.Name(TerrainSystem.OfBattle(at, zone)), "#C9E6A8",
+            tooltip.addLineText(LM.Get("corps_tip_terrain"), WarWeather.Tag(TerrainSystem.OfBattle(at, zone)), "#C9E6A8",
+                pPercent: false, pLocalize: false, pLimitValue: 40);
+        // 老兵(见 CorpsVeterancy)、被围(见 EncirclementSystem)
+        CorpsData seasoned = list.OrderByDescending(item => item.veterancy).First();
+        tooltip.addLineText(LM.Get("corps_tip_veterancy"), string.Format(LM.Get("corps_tip_veterancy_format"),
+                CorpsVeterancy.TierName(seasoned), Mathf.RoundToInt((CorpsVeterancy.CombatFactor(seasoned) - 1f) * 100f)),
+            CorpsVeterancy.TierHex(seasoned), pPercent: false, pLocalize: false, pLimitValue: 40);
+        int pocket = list.Max(item => item.pocket_months);
+        if (pocket > 0)
+            tooltip.addLineText(LM.Get("corps_tip_pocket"), string.Format(LM.Get("corps_tip_pocket_format"), pocket), "#E8584F",
                 pPercent: false, pLocalize: false, pLimitValue: 40);
 
         if (list.Count == 1)
@@ -1466,7 +1475,7 @@ public static class CorpsMapRenderer
         int occupied = city.zones?.Count(zone => FrontSystem.Hostile(city.kingdom, FrontSystem.Controller(zone))) ?? 0;
         tooltip.addLineText(LM.Get("corps_tip_occupied"), $"{occupied}/{city.zones?.Count ?? 0}", "#C8C2B4",
             pPercent: false, pLocalize: false);
-        tooltip.addLineText(LM.Get("corps_tip_terrain"), TerrainSystem.Name(battle.terrain), "#C9E6A8",
+        tooltip.addLineText(LM.Get("corps_tip_terrain"), WarWeather.Tag(battle.terrain), "#C9E6A8",
             pPercent: false, pLocalize: false, pLimitValue: 40);
         // 渡海登陆：还没在这座城站住脚，攻方战力打折(见 FrontSystem.Landing)
         string wall = "";
