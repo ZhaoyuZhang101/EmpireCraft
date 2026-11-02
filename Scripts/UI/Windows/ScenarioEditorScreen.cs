@@ -182,8 +182,10 @@ public static class ScenarioEditorScreen
     private static readonly HashSet<int> BrushCells = new();
     private static readonly List<int> BrushTexels = new();
     // 铺图层颜色复用的数组；FillKeys 为各块的键(国家 p:、王国法理 r:、帝国法理 k:、天下 t:)
-    private static int[] _fillOwner, _fillDist, _fillBudget;
+    // _fillCity：粗格归哪座城(铺的时候随城走，刷的地块归同一块里最近的城)，城与城相接处描细线(城市边界)
+    private static int[] _fillOwner, _fillDist, _fillBudget, _fillCity;
     private static bool[] _fillFixed;
+    private static readonly Queue<int> CityQueue = new();
     private static List<int>[] _buckets;
     private static readonly List<string> FillKeys = new();
     // 行政区：选中国家(_realmId)的第几个行政区(-1 为京畿直辖)；「点图加治所」开着时左键点空处加治所，右键点治所去掉
@@ -293,7 +295,7 @@ public static class ScenarioEditorScreen
         _classes = _baseClasses = null;
         _cells = _baseCells = null;
         _importFrame = null;
-        _fillOwner = _fillDist = _fillBudget = null;
+        _fillOwner = _fillDist = _fillBudget = _fillCity = null;
         _fillFixed = null;
         _fillZone = null;
         _fillWild = null;
@@ -1920,6 +1922,7 @@ public static class ScenarioEditorScreen
             _fillOwner = new int[n];
             _fillDist = new int[n];
             _fillBudget = new int[n];
+            _fillCity = new int[n];
             _fillFixed = new bool[n];
         }
         EnsureFillZones();
@@ -1931,6 +1934,7 @@ public static class ScenarioEditorScreen
         for (int i = 0; i < n; i++)
         {
             _fillOwner[i] = -1;
+            _fillCity[i] = -1;
             _fillDist[i] = int.MaxValue;
             _fillFixed[i] = false;
             _fillHatch[i] = 0;
@@ -1970,8 +1974,10 @@ public static class ScenarioEditorScreen
         }
 
         // 城：城所在那格归城，按等级给能铺多远
+        int cityIndex = -1;
         foreach (WorldMapCity city in ScenarioEditing.Cities)
         {
+            cityIndex++;
             if (!ScenarioEditing.Active(city)) continue;
             string area = AreaKey(city);
             if (area == null) continue;
@@ -1981,6 +1987,7 @@ public static class ScenarioEditorScreen
             int at = y * fw + x;
             if (_fillDist[at] == 0) continue;
             _fillOwner[at] = SlotOf(slots, area);
+            _fillCity[at] = cityIndex;
             _fillFixed[at] = false;
             // 城心那块归城(无人区里的城也是)
             _fillWild[at] = false;
@@ -2017,9 +2024,29 @@ public static class ScenarioEditorScreen
                     if (nd > limit || nd >= _fillDist[next]) continue;
                     _fillDist[next] = nd;
                     _fillOwner[next] = slot;
+                    _fillCity[next] = _fillCity[at];
                     _fillBudget[next] = limit;
                     (_buckets[nd] ??= new List<int>()).Add(next);
                 }
+            }
+        }
+
+        // 刷的地块(钉死、不经城铺)：归同一块里挨得最近的城(开局刷的地块归那国或那块法理最近的城，见 WorldMapScenario.PaintTerritory)
+        CityQueue.Clear();
+        for (int at = 0; at < n; at++)
+            if (_fillCity[at] >= 0) CityQueue.Enqueue(at);
+        while (CityQueue.Count > 0)
+        {
+            int at = CityQueue.Dequeue();
+            int x = at % fw, y = at / fw;
+            for (int dir = 0; dir < 4; dir++)
+            {
+                int nx = x + DirX[dir], ny = y + DirY[dir];
+                if (nx < 0 || ny < 0 || nx >= fw || ny >= fh) continue;
+                int next = ny * fw + nx;
+                if (_fillCity[next] >= 0 || !_fillFixed[next] || _fillWild[next] || _fillOwner[next] != _fillOwner[at]) continue;
+                _fillCity[next] = _fillCity[at];
+                CityQueue.Enqueue(next);
             }
         }
 
@@ -2030,6 +2057,7 @@ public static class ScenarioEditorScreen
             if (!_fillWild[at]) continue;
             string area = WildArea(_fillZone[at], wildArea);
             _fillOwner[at] = area == null ? -1 : SlotOf(slots, area);
+            _fillCity[at] = -1;
             _fillHatch[at] = 1;
         }
 
@@ -2037,6 +2065,8 @@ public static class ScenarioEditorScreen
         var strong = new Color32[FillKeys.Count];
         var edges = new Color32[FillKeys.Count];
         var faint = new Color32[FillKeys.Count];
+        // 城市边界：同一块里两座城相接处，比块的边浅一档的细线
+        var cityEdges = new Color32[FillKeys.Count];
         for (int s = 0; s < FillKeys.Count; s++)
         {
             Color32 color = ScenarioEditing.ColorOfKey(FillKeys[s]);
@@ -2045,6 +2075,7 @@ public static class ScenarioEditorScreen
             strong[s] = new Color32(color.r, color.g, color.b, (byte)(chosen ? 220 : 165));
             edges[s] = new Color32((byte)(color.r / 3), (byte)(color.g / 3), (byte)(color.b / 3), 235);
             faint[s] = new Color32(color.r, color.g, color.b, (byte)(chosen ? 120 : 60));
+            cityEdges[s] = new Color32((byte)(color.r * 3 / 5), (byte)(color.g * 3 / 5), (byte)(color.b * 3 / 5), 200);
         }
         for (int y = 0; y < fh; y++)
         for (int x = 0; x < fw; x++)
@@ -2060,7 +2091,11 @@ public static class ScenarioEditorScreen
             bool edge = Other(x + 1, y, fw, fh, slot, false) || Other(x, y + 1, fw, fh, slot, false) ||
                         Other(x - 1, y, fw, fh, slot, true) || Other(x, y - 1, fw, fh, slot, true) ||
                         Other(x + 1, y, fw, fh, slot, true) || Other(x, y + 1, fw, fh, slot, true);
-            _fillPixels[at] = edge ? edges[slot] : _fillWild[at] ? Stripe(x, y) ? strong[slot] : faint[slot] : _fillFixed[at] ? strong[slot] : fills[slot];
+            // 城市边界(用户 2026-11-02 转群友"剧本编辑还是不显示城市边界啊 这真得改改")：同一块里与别的城相接只描右、上一侧
+            bool border = !edge && _fillCity[at] >= 0 &&
+                          (OtherCity(x + 1, y, fw, fh, slot, _fillCity[at]) || OtherCity(x, y + 1, fw, fh, slot, _fillCity[at]));
+            _fillPixels[at] = edge ? edges[slot] : border ? cityEdges[slot]
+                : _fillWild[at] ? Stripe(x, y) ? strong[slot] : faint[slot] : _fillFixed[at] ? strong[slot] : fills[slot];
         }
         _fill.SetPixels32(_fillPixels);
         _fill.Apply();
@@ -2177,6 +2212,14 @@ public static class ScenarioEditorScreen
 
     // 粗格(FillFactor 见方)的地形代价：取它左下那个像素的地形大类
     private static int CostAt(int fx, int fy) => ClassCost[_classes[fy * FillFactor * _w + fx * FillFactor]];
+
+    // 邻格同一块、归另一座城
+    private static bool OtherCity(int x, int y, int fw, int fh, int slot, int city)
+    {
+        if (x < 0 || y < 0 || x >= fw || y >= fh) return false;
+        int at = y * fw + x, other = _fillCity[at];
+        return other >= 0 && other != city && _fillOwner[at] == slot;
+    }
 
     // 邻格是别的块(unclaimed 为 true 时只看未归属的陆地)
     private static bool Other(int x, int y, int fw, int fh, int slot, bool unclaimed)

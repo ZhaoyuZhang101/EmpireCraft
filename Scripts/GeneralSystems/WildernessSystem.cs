@@ -1574,13 +1574,19 @@ public static class WildernessSystem
 
     // 各片周边的城(与区域相邻的地块上的城)是不是全属于同一个国家；有变化返回 true。
     // 只看地块四邻八邻上的城，几万块地也只是几毫秒；周边一座城都没有的算中立
+    // 周边的城同属一家(用户 2026-11-02 转群友"秋海棠叶要完整 至少得是大清那种 这种算什么 残风败叶?")：以前要周边的城全是同一个国家，
+    // 一个帝国的几个行政区、封国夹着的山脉沙漠成了中立，帝国版图上一块块窟窿。现在按所在帝国比(不在帝国里的按本国)：
+    // 周边的城都在同一个帝国里就归这个帝国，画给挨着这片的城最多的那个成员(一样多的先核心王国、再编号小的)
+    private static readonly Dictionary<Kingdom, int> SurroundCounts = new();
+
     private static bool RefreshSurround()
     {
         bool changed = false;
         foreach (WildRegion region in _regions)
         {
-            Kingdom common = null;
-            bool mixed = false, any = false;
+            object realm = null;
+            bool mixed = false;
+            SurroundCounts.Clear();
             foreach (int id in region.Zones)
             {
                 TileZone zone = id >= 0 && id < _zones.Length ? _zones[id] : null;
@@ -1595,17 +1601,34 @@ public static class WildernessSystem
                         mixed = true;
                         break;
                     }
-                    any = true;
-                    if (common == null) common = kingdom;
-                    else if (common != kingdom)
+                    Empire empire = kingdom.GetEmpire();
+                    object key = empire != null && !empire.isRekt() && !empire.IsArchived() ? empire : kingdom;
+                    if (realm == null) realm = key;
+                    else if (!ReferenceEquals(realm, key))
                     {
                         mixed = true;
                         break;
                     }
+                    SurroundCounts.TryGetValue(kingdom, out int count);
+                    SurroundCounts[kingdom] = count + 1;
                 }
                 if (mixed) break;
             }
-            Kingdom around = any && !mixed ? common : null;
+            Kingdom around = null;
+            if (!mixed && realm != null)
+            {
+                Kingdom core = (realm as Empire)?.CoreKingdom;
+                int most = -1;
+                foreach (KeyValuePair<Kingdom, int> pair in SurroundCounts)
+                {
+                    bool better = pair.Value > most || pair.Value == most &&
+                        (pair.Key == core || around != core && pair.Key.id < around.id);
+                    if (!better) continue;
+                    most = pair.Value;
+                    around = pair.Key;
+                }
+            }
+            SurroundCounts.Clear();
             if (region.Surround == around) continue;
             region.Surround = around;
             changed = true;
