@@ -48,6 +48,8 @@ KIND_ZH = {1: "山脉", 2: "沙漠", 3: "冻原", 4: "雨林", 5: "大泽"}
 
 # 地块写法 → 标记(照 ComputeMarks：水、山、丘陵、冻土、沙、丛林、沼泽)；"主:顶"的顶层看自己，主地块看 under
 WATER, ROCK, HILLS, FROZEN, SAND, JUNGLE, SWAMP = 1, 2, 4, 8, 16, 32, 64
+# 没有地表的沙地(sand)：这块或周围八块有水的算沙滩、不算沙漠(同 WildernessSystem.Shore)
+BEACH = 128
 
 
 def type_marks(name):
@@ -58,7 +60,7 @@ def type_marks(name):
     if name == "hills":
         return HILLS
     if name == "sand":
-        return SAND
+        return SAND | BEACH
     if name.startswith("snow"):
         return FROZEN
     biome = name.rsplit("_", 1)[0]
@@ -170,8 +172,16 @@ def zone_counts(tiles, types):
     sand = ~water & ~frozen & ((m & SAND) != 0)
     jungle = ~water & ~frozen & ~sand & ((m & JUNGLE) != 0)
     swamp = ~water & ~frozen & ~sand & ~jungle & ((m & SWAMP) != 0)
-    c = {k: count(a) for k, a in (("water", water), ("rock", rock), ("hills", hills), ("frozen", frozen), ("sand", sand),
+    beach = sand & ((m & BEACH) != 0)
+    c = {k: count(a) for k, a in (("water", water), ("rock", rock), ("hills", hills), ("frozen", frozen), ("sand", sand & ~beach),
                                   ("jungle", jungle), ("swamp", swamp))}
+    # 沙滩：这块或周围八块有水的不算沙地
+    wet = np.pad(c["water"] > 0, 1)
+    shore = np.zeros((zh, zw), dtype=bool)
+    for dy in (0, 1, 2):
+        for dx in (0, 1, 2):
+            shore |= wet[dy:dy + zh, dx:dx + zw]
+    c["sand"] = c["sand"] + np.where(shore, 0, count(beach))
     c["land"] = ZONE * ZONE - c["water"]
     return c
 
