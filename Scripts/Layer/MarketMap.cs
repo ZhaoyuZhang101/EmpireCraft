@@ -14,7 +14,8 @@ namespace EmpireCraft.Scripts.Layer;
 
 // 商品市场图层(MetaTypeExtension.Market，见 CommodityMarketSystem)：
 //   0 市场：同一市场的国家涂领衔国的颜色，市场之间描边；不止一国的市场铭牌写"某某市场"；
-//   1 缺口：按市场物资缺口(按需求额加权)由绿(充足)到红(匮乏)分五档。
+//   1 缺口：按市场物资缺口(按需求额加权)由绿(充足)到红(匮乏)分五档；
+//   2 产地：选中的一样物资(默认最大的市场最缺的，市场窗口物资详情页可选)各城一年出多少，分五档，不产的城不上色。
 // 悬停看领衔、大小国市场、成员、外贸、最缺的几样与出口最多的几样；点地块打开这个市场的汇总窗口(见 MarketWindow)。
 // 市场每年结算一次：读档后第一轮结算前，市场模式按宗主一系(RootOf)着色，缺口模式不上色
 public sealed class MarketMapColor : MetaObject<IdeologyMapColorData>
@@ -42,6 +43,7 @@ public static class MarketMap
 {
     public const string TooltipType = "empirecraft_market";
     public const int ShortageMode = 1;
+    public const int GoodMode = 2;
 
     // 充足、略缺、紧缺、奇缺、匮乏：由绿到红
     private static readonly string[] BucketHex = { "#3fb24f", "#a6cf3a", "#f0cf33", "#f08a2c", "#de3328" };
@@ -85,6 +87,64 @@ public static class MarketMap
     private static bool Shown(City city) =>
         city != null && !city.isRekt() && !AncientWarfareCompatibility.OwnsObject(city) && LeaderOf(city.kingdom) != null;
 
+    // ───────── 产地模式(用户 2026-11-02 问答选"界面看得懂")：一样物资各城一年出多少，由淡到浓分五档，不产的城不上色 ─────────
+    private static readonly string[] GoodHex = { "#55784a", "#7fa34f", "#b6c249", "#e3bf38", "#f4932a" };
+    private static MarketMapColor[] _goodColors;
+    private static string _selectedGood;
+    private static string _edgesGood;
+    private static int _edgesRevision = -1;
+    private static float[] _goodEdges = new float[0];
+
+    // 选中的物资；还没选过时看最大的市场最缺的那样
+    public static string SelectedGood
+    {
+        get
+        {
+            if (_selectedGood != null) return _selectedGood;
+            CommodityMarketSystem.Market biggest = CommodityMarketSystem.AllMarkets.OrderByDescending(market => market.power).FirstOrDefault();
+            if (biggest == null) return "grain";
+            return _selectedGood = biggest.shortage.OrderByDescending(pair => pair.Value).Select(pair => pair.Key).FirstOrDefault() ?? "grain";
+        }
+    }
+
+    // 打开产地模式看这样物资(市场窗口物资详情页的按钮)
+    public static void ShowGood(string good)
+    {
+        _selectedGood = good;
+        MetaTypeAsset layer = EmpireCraftMetaTypeLibrary.market;
+        PlayerOptionData data = layer?.option_asset?.data;
+        GodPower power = layer == null ? null : AssetManager.powers.get(layer.power_option_zone_id);
+        if (data == null || power == null) return;
+        data.boolVal = true;
+        data.intVal = GoodMode;
+        PowerLibrary.disableAllOtherMapModes(power.id);
+        PlayerConfig.saveData();
+        World.world?.zone_calculator?.dirtyAndClear();
+        ScrollWindow.hideAllEvent();
+    }
+
+    private static int GoodBucket(float made)
+    {
+        string good = SelectedGood;
+        if (_edgesGood != good || _edgesRevision != CommodityMarketSystem.Revision)
+        {
+            _edgesGood = good;
+            _edgesRevision = CommodityMarketSystem.Revision;
+            List<float> all = World.world.cities.list.Select(city => CommodityMarketSystem.CityMade(city, good)).Where(value => value > 0f)
+                .OrderBy(value => value).ToList();
+            _goodEdges = all.Count == 0 ? new float[0] : new[] { 0.2f, 0.4f, 0.6f, 0.8f }.Select(share => all[(int)(share * (all.Count - 1))]).ToArray();
+        }
+        int bucket = 0;
+        while (bucket < _goodEdges.Length && made > _goodEdges[bucket]) bucket++;
+        return bucket;
+    }
+
+    private static MarketMapColor GoodColorOf(int bucket)
+    {
+        _goodColors ??= GoodHex.Select((hex, i) => MarketMapColor.Create(10 + i, hex)).ToArray();
+        return _goodColors[bucket];
+    }
+
     // 加权缺口：各物资缺口按需求额(需求×底价)加权平均。市场对象每年重建，按对象缓存
     private static readonly Dictionary<CommodityMarketSystem.Market, float> ShortageCache = new();
 
@@ -119,10 +179,15 @@ public static class MarketMap
         return _colors[bucket];
     }
 
-    // 一块地在市场图层上归谁：0 市场领衔国、1 所在市场的缺口档(还没结算不上色)
+    // 一块地在市场图层上归谁：0 市场领衔国、1 所在市场的缺口档(还没结算不上色)、2 选中物资的产量档(不产不上色)
     private static IMetaObject MetaOf(City city, int mode)
     {
         if (!Shown(city)) return null;
+        if (mode == GoodMode)
+        {
+            float made = CommodityMarketSystem.CityMade(city, SelectedGood);
+            return made <= 0f ? null : GoodColorOf(GoodBucket(made));
+        }
         if (mode != ShortageMode) return LeaderOf(city.kingdom);
         CommodityMarketSystem.Market market = CommodityMarketSystem.MarketOf(city.kingdom);
         return market == null ? null : ColorOf(Bucket(Shortage(market)));
@@ -181,6 +246,7 @@ public static class MarketMap
         asset.tile_get_metaobject = (zone, option) => MetaOf(zone?.city, option);
         asset.tile_get_metaobject_0 = zone => MetaOf(zone?.city, 0);
         asset.tile_get_metaobject_1 = zone => MetaOf(zone?.city, 1);
+        asset.tile_get_metaobject_2 = zone => MetaOf(zone?.city, GoodMode);
         // 原版每帧无条件调用这两个委托，不设会每帧抛空引用
         asset.check_tile_has_meta = (MetaZoneTooltipAction)((zone, meta, option) => Shown(zone?.city));
         asset.check_cursor_tooltip = (zone, meta, option) =>
@@ -198,7 +264,8 @@ public static class MarketMap
         {
             City city = tile?.zone?.city;
             if (!Shown(city)) return false;
-            MarketWindow.Open(city.kingdom);
+            if (EmpireCraftMetaTypeLibrary.market?.getZoneOptionState() == GoodMode) MarketWindow.OpenGood(city.kingdom, SelectedGood);
+            else MarketWindow.Open(city.kingdom);
             return true;
         });
     }
@@ -242,6 +309,21 @@ public static class MarketMap
         }
         else
         {
+            // 产地模式：这城出多少选中的物资、这个市场的价格与缺口
+            if (EmpireCraftMetaTypeLibrary.market?.getZoneOptionState() == GoodMode &&
+                CommodityMarketSystem.TryGetGood(SelectedGood, out CommodityConfig selected))
+            {
+                float made = CommodityMarketSystem.CityMade(city, selected.id);
+                tooltip.addLineText(string.Format(LM.Get("market_layer_good_made"), DiplomacyLedger.GoodName(selected)),
+                    made > 0f ? made.ToString(made >= 10f ? "0" : "0.0") : LM.Get("market_layer_good_none"), made > 0f ? GoodHex[GoodBucket(made)] : "#8FA0A8",
+                    pPercent: false, pLocalize: false);
+                market.price.TryGetValue(selected.id, out float price);
+                market.shortage.TryGetValue(selected.id, out float lacking);
+                tooltip.addLineText(LM.Get("diplomacy_goods_price"), (price > 0f ? price : selected.price).ToString("0.0"), "#F3C34A",
+                    pPercent: false, pLocalize: false);
+                tooltip.addLineText(LM.Get("diplomacy_goods_short"), Percent(lacking), lacking >= 0.5f ? "#E07A5F" : "#D8D2B8",
+                    pPercent: false, pLocalize: false);
+            }
             tooltip.addLineText(LM.Get("diplomacy_market_leader"),
                 LM.Get(market.great ? "diplomacy_market_great" : "diplomacy_market_minor"), market.great ? "#F3C34A" : "#D8D2B8",
                 pPercent: false, pLocalize: false);

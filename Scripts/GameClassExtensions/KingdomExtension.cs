@@ -257,6 +257,9 @@ public static class KingdomExtension
         public double colonial_voyage_arrive = -1d;
         // 关税同盟：并入了哪个大国的市场(见 CommodityMarketSystem)；-1 没有
         public long market_union_leader_id = -1L;
+        // 通商政策(市场领衔国定，TradePolicy 的序号，见 CommodityMarketSystem)、上次定政策的时间(AI 每二十年看一次)
+        public int market_policy;
+        public double market_policy_at = -1d;
         // 国号合不合本国文化已经核对过(见 NameCultureRepair)：只在立国、或旧档头一次核对，以后文化变了国号也不改
         public bool name_culture_checked;
         // 外交界面的好感修正(神力所为，见 DiplomacyActions)：对方国家编号 → 修正值

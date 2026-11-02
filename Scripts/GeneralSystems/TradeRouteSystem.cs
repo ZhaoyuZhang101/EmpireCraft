@@ -139,7 +139,7 @@ public static class TradeRouteSystem
         return true;
     }
 
-    private static Kingdom TreatyPartner(Kingdom kingdom)
+    public static Kingdom TreatyPartner(Kingdom kingdom)
     {
         if (kingdom?.data == null || World.world == null) return null;
         var data = kingdom.GetOrCreate();
@@ -151,10 +151,16 @@ public static class TradeRouteSystem
 
     private static bool Treaty(Kingdom a, Kingdom b) => TreatyPartner(a) == b || TreatyPartner(b) == a;
 
-    // 锁国：不与外国通商(被迫开港的不算)
+    // 锁国：不与外国通商(被迫开港的不算)；所在市场定了闭关的也一样(见 CommodityMarketSystem.PolicyOf)
     public static bool Closed(Kingdom kingdom)
     {
         if (TreatyPartner(kingdom) != null) return false;
+        return ClosedByLaw(kingdom) || CommodityMarketSystem.PolicyOf(CommodityMarketSystem.RootOf(kingdom)) == TradePolicy.Closed;
+    }
+
+    // 制度定了锁国
+    public static bool ClosedByLaw(Kingdom kingdom)
+    {
         string culture = CultureService.GetRealmCulture(kingdom);
         return CultureService.IsValidCulture(culture) && InstitutionSystem.GetFeature(culture, "closed_country") > 0f;
     }

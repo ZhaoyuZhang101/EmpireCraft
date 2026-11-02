@@ -450,15 +450,18 @@ public class DiplomacyWindow : WideScrollWindow<DiplomacyWindow>
         else
         {
             union.AddParagraph(HalfWidth, LM.Get("diplomacy_union_none"), 7, WideKit.Muted);
+            // 只列够得着的(同宣战，见 DiplomacyActions.OutOfReach)
             foreach (CommodityMarketSystem.Market other in CommodityMarketSystem.AllMarkets
                          .Where(other => other != market && other.great && Alive(other.leader))
-                         .OrderByDescending(other => other.power).Take(8))
+                         .OrderByDescending(other => other.power).Where(other => DiplomacyActions.CanReachUnion(_focus, other.leader)).Take(8))
             {
                 Kingdom leader = other.leader;
                 union.AddListRow(HalfWidth, index++, null, string.Format(LM.Get("diplomacy_union_join"), leader.GetKingdomName()), "",
                     () => UnionAct(CommodityMarketSystem.JoinUnion(_focus, leader)), WideKit.Value, HalfWidth - 20f);
             }
         }
+
+        MarketCard.DrawPolicy(page, PageWidth, market, () => Refresh());
 
         // 各物资
         var goods = page.BeginCard(PageWidth, "diplomacy_goods_title", WideKit.Gold, LM.Get("diplomacy_goods_hint"));
@@ -475,12 +478,13 @@ public class DiplomacyWindow : WideScrollWindow<DiplomacyWindow>
             market.imports.TryGetValue(good.id, out float imported);
             market.exports.TryGetValue(good.id, out float exported);
             if (made <= 0f && wanted <= 0f) continue;
-            goods.AddTableRow(PageWidth, index++, null, DiplomacyLedger.GoodName(good), 64f,
-                (Mathf.RoundToInt(made).ToString(), WideKit.Value), (Mathf.RoundToInt(wanted).ToString(), WideKit.Soft),
+            string goodId = good.id;
+            UIHelper.MakeClickable(goods.AddTableRow(PageWidth, index++, null, DiplomacyLedger.GoodName(good), 64f,
+                (GoodAmount(made), WideKit.Value), (GoodAmount(wanted), WideKit.Soft),
                 ((price > 0f ? price : good.price).ToString("0.0"), WideKit.Gold),
                 ($"{Mathf.RoundToInt(shortageOf * 100f)}%", shortageOf >= 0.5f ? WideKit.Red : shortageOf > 0.05f ? WideKit.Orange : WideKit.Green),
-                (imported > 0f ? Mathf.RoundToInt(imported).ToString() : "—", WideKit.Cyan),
-                (exported > 0f ? Mathf.RoundToInt(exported).ToString() : "—", WideKit.Green));
+                (imported > 0f ? GoodAmount(imported) : "—", WideKit.Cyan),
+                (exported > 0f ? GoodAmount(exported) : "—", WideKit.Green)).gameObject, () => MarketWindow.OpenGood(country, goodId));
         }
 
         // 各大市场
@@ -496,6 +500,9 @@ public class DiplomacyWindow : WideScrollWindow<DiplomacyWindow>
                 () => MarketWindow.Open(leader, false), other == market ? WideKit.Gold : WideKit.Value, 96f);
         }
     }
+
+    private static string GoodAmount(float value) =>
+        value >= 10f ? Mathf.RoundToInt(value).ToString() : value >= 0.05f ? value.ToString("0.0") : value > 0f ? "<0.1" : "0";
 
     private void UnionAct(string failure)
     {

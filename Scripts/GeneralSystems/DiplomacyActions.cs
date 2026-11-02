@@ -84,8 +84,8 @@ public static class DiplomacyActions
                     if (a.isInWarWith(b)) return "diplomacy_reason_at_war";
                     if (ModAllianceService.IsVanillaAllianceBanned()) return "diplomacy_reason_alliance_banned";
                     if (a.IsEmpire() || a.IsInEmpire() || b.IsEmpire() || b.IsInEmpire()) return "diplomacy_reason_empire_alliance";
-                    return null;
-                }, (a, b, _) => World.world.alliances.forceAlliance(a, b) ? null : "diplomacy_reason_failed"),
+                    return OutOfReach(a, b) ? "diplomacy_reason_unreachable" : null;
+                }, (a, b, _) => Ally(a, b)),
                 Make("diplomacy_act_leave_alliance", (a, b) => a.hasAlliance() ? null : "diplomacy_reason_no_alliance", (a, b, _) =>
                 {
                     Alliance alliance = a.getAlliance();
@@ -194,7 +194,8 @@ public static class DiplomacyActions
                 {
                     if (CommodityMarketSystem.UnionOf(b) == a) return "diplomacy_reason_already";
                     if (a.isInWarWith(b)) return "diplomacy_reason_at_war";
-                    return DiplomacyLedger.SameMarket(a, b) ? "diplomacy_reason_same_market" : null;
+                    if (DiplomacyLedger.SameMarket(a, b)) return "diplomacy_reason_same_market";
+                    return OutOfReach(a, b) ? "diplomacy_reason_unreachable" : null;
                 }, (a, b, _) => CommodityMarketSystem.JoinUnion(b, a)),
                 Make("diplomacy_act_union_out", (a, b) =>
                     CommodityMarketSystem.UnionOf(b) == a || CommodityMarketSystem.UnionOf(a) == b ? null : "diplomacy_reason_no_union",
@@ -229,6 +230,30 @@ public static class DiplomacyActions
         string reason = Check(action, a, b);
         if (reason != null) return reason;
         return MembershipCooldown.ByGod(() => action.run(a, b, goal));
+    }
+
+    // ───────── 结盟 ─────────
+    // 结盟、关税同盟要够得着对方，判定同宣战(用户 2026-11-02 "结盟系统在新的外交系统中是不是没有距离限制"，问答选这两项)：
+    // 盟友要能驰援、货物要能互通；和亲、通好、保护约、朝贡照旧能远交。已有的远方同盟不解散；剧本按史实定的关系不拦
+    private static bool _applyingScenario;
+
+    private static bool OutOfReach(Kingdom a, Kingdom b) => !_applyingScenario && !WarReach.Reachable(a, b);
+
+    // 关税同盟能不能并入(外交界面市场页列可并入的市场用)
+    public static bool CanReachUnion(Kingdom kingdom, Kingdom leader) => !OutOfReach(kingdom, leader);
+
+    // 原版 forceAlliance 只在新建同盟时返回真，并入现有同盟也返回假：以前并入成功了界面却报失败。
+    // 两边各有同盟时先退出旧的，不然同时挂在两个同盟的名单里
+    private static string Ally(Kingdom a, Kingdom b)
+    {
+        Alliance own = a.getAlliance(), theirs = b.getAlliance();
+        if (own != null && theirs != null && own != theirs)
+        {
+            theirs.leave(b);
+            if (theirs.kingdoms_list.Count < 2) World.world.alliances.dissolveAlliance(theirs);
+        }
+        World.world.alliances.forceAlliance(a, b);
+        return DiplomacyLedger.Allied(a, b) ? null : "diplomacy_reason_failed";
     }
 
     // ───────── 宣战 ─────────
@@ -333,7 +358,16 @@ public static class DiplomacyActions
         }
         if (!ScenarioKinds.TryGetValue(kind ?? "", out string key)) return "diplomacy_reason_invalid";
         Action action = Groups.SelectMany(group => group.actions).FirstOrDefault(item => item.key == key);
-        return action == null ? "diplomacy_reason_invalid" : Do(action, a, b, goal);
+        if (action == null) return "diplomacy_reason_invalid";
+        _applyingScenario = true;
+        try
+        {
+            return Do(action, a, b, goal);
+        }
+        finally
+        {
+            _applyingScenario = false;
+        }
     }
 
     // 旧谊、宿怨：开局的值从开局起 HistoryFadeYears 年里线性淡去

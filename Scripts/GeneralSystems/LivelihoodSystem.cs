@@ -125,6 +125,8 @@ public static class LivelihoodSystem
             sea / (float)Mathf.Max(1, sea + land));
     }
 
+    private const float MarketMines = 3f;
+
     private static int Classify(RuralSettlement settlement)
     {
         City city = RuralSettlementSystem.CityOf(settlement);
@@ -132,7 +134,9 @@ public static class LivelihoodSystem
         float food = FoodShare(city, settlement);
         bool needFood = food < 0.4f;
         // 本城有眼下开得了的矿藏(金银铜……)却还没有矿村：先开一处，不然矿藏白放着；要更高等级的矿等科技到了再说
-        bool needMine = city != null && !HasTrade(city, Mine, settlement) && MineralResourceSystem.HasMinableDeposit(city);
+        // 本市场缺这城的矿藏(见 CommodityMarketSystem.WantsMine)：已有矿村也再开，至多 MarketMines 处
+        bool needMine = city != null && (!HasTrade(city, Mine, settlement) && MineralResourceSystem.HasMinableDeposit(city) ||
+                                         Equivalent(city, Mine) < MarketMines && CommodityMarketSystem.WantsMine(city));
         if (s.Rough >= 0.4f) return Mine;
         if (needFood && s.Arable >= 0.5f) return Farm;
         // 旱地不算能耕：本城几乎没有产粮的镇村时才旱作(绿洲、河谷)

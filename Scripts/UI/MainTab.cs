@@ -482,9 +482,9 @@ internal static class MainTab
                  SpriteTextureLoader.getSprite("ui/icons/godpowers/wealth_layer"), maxOption: 3);
         AddButton(CULTURE_GROUP, wealthLayer);
 
-        // 商品市场图层：按市场着色 / 按市场物资缺口着色
+        // 商品市场图层：按市场着色 / 按市场物资缺口着色 / 选中物资的产地
         PowerButton marketLayer = FixFunctions.CreateLayerButton(MetaTypeExtension.Market,
-                 SpriteTextureLoader.getSprite("ui/icons/godpowers/market_layer"), maxOption: 2);
+                 SpriteTextureLoader.getSprite("ui/icons/godpowers/market_layer"), maxOption: 3);
         AddButton(CULTURE_GROUP, marketLayer);
 
         // 教化图层(四方文化教化所及)、政令图层(行政控制力，鞭长莫及)

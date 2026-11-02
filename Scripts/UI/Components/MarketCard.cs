@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GeneralSystems;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
@@ -17,6 +18,40 @@ namespace EmpireCraft.Scripts.UI.Components;
 //   · 最后一行点开市场汇总(见 MarketWindow)。
 public static class MarketCard
 {
+    // 通商政策卡(市场窗口、外交界面市场页)：现行政策、这个政策意味着什么，下面一排按钮改政策
+    public static void DrawPolicy(AutoVertLayoutGroup parent, float width, CommodityMarketSystem.Market market, UnityEngine.Events.UnityAction refresh)
+    {
+        Kingdom leader = market?.leader;
+        if (leader?.data == null || leader.isRekt()) return;
+        TradePolicy current = CommodityMarketSystem.PolicyOf(leader);
+        var card = parent.BeginCard(width, "market_policy_title", WideKit.Gold, CommodityMarketSystem.PolicyName(current));
+        string tariff = Mathf.RoundToInt(CommodityMarketSystem.PolicyTariff(current) * 100f) + "%";
+        card.AddParagraph(width, string.Format(LM.Get("market_policy_hint_" + current.ToString().ToLowerInvariant()), tariff), 7, WideKit.Soft);
+        Kingdom treaty = TradeRouteSystem.TreatyPartner(leader);
+        if (treaty != null)
+            card.AddParagraph(width, string.Format(LM.Get("market_policy_treaty"), treaty.GetKingdomName(),
+                Mathf.RoundToInt(CommodityMarketSystem.PolicyTariff(TradePolicy.Free) * 100f) + "%"), 6, WideKit.Orange);
+        else if (TradeRouteSystem.ClosedByLaw(leader))
+            card.AddParagraph(width, LM.Get("market_policy_law"), 6, WideKit.Orange);
+        string notice = _policyNotice;
+        _policyNotice = null;
+        if (!string.IsNullOrEmpty(notice)) card.AddParagraph(width, notice, 6, WideKit.Orange);
+        var chips = card.AddChipRow(width - 12f);
+        foreach (TradePolicy policy in new[] { TradePolicy.Mercantile, TradePolicy.Free, TradePolicy.Protective, TradePolicy.Closed })
+        {
+            TradePolicy target = policy;
+            chips.AddChip(CommodityMarketSystem.PolicyName(policy), policy == current, () =>
+            {
+                string failure = CommodityMarketSystem.SetPolicy(leader, target);
+                if (failure != null) _policyNotice = LM.Get(failure);
+                refresh?.Invoke();
+            });
+        }
+    }
+
+    // 改政策没办成的原因：下一次画卡时显示一次
+    private static string _policyNotice;
+
     public static void Draw(AutoVertLayoutGroup parent, float width, Kingdom focus, IEnumerable<Kingdom> realm)
     {
         if (focus?.data == null || focus.isRekt()) return;
@@ -32,6 +67,7 @@ public static class MarketCard
         float priceLevel = CommodityMarketSystem.PriceLevel(focus);
         (float exports, float imports, float customs) = CommodityMarketSystem.TradeOf(members);
         card.AddMetricRow(width,
+            (LM.Get("market_policy_title"), CommodityMarketSystem.PolicyName(CommodityMarketSystem.PolicyOf(market.leader)), WideKit.Soft),
             (LM.Get("economy_market_price"), priceLevel.ToString("0.00"),
                 priceLevel >= 1.5f ? WideKit.Red : priceLevel >= 1.15f ? WideKit.Orange : WideKit.Green),
             (LM.Get("diplomacy_goods_export"), MoneyDisplay.Format(Mathf.RoundToInt(exports)), WideKit.Green),

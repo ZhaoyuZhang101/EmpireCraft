@@ -324,6 +324,21 @@ public static class FactorySystem
     // 有了近代厂才建、只建近代厂；之前 AI 建下的古代工场、火药坊拆掉(神力手动放的厂区不动，见 FactorySite.manual)
     private static bool Camp(City city) => CityStyleSystem.Camp(CityStyleSystem.Established(city));
 
+    // 分量低于这个的门类，AI 宁可不建(产品跌到底价四分之一附近，或原料奇缺)
+    private const float GlutAppeal = 0.3f;
+
+    // 按本市场的价格与缺口挑门类：分量大的容易中，并不是非它不可(用户 2026-11-02 问答选"AI 按缺口建厂"，见 CommodityMarketSystem.FactoryAppeal)
+    private static string PickByMarket(City city, List<string> pool)
+    {
+        float roll = UnityEngine.Random.value * pool.Sum(type => CommodityMarketSystem.FactoryAppeal(city, type));
+        foreach (string type in pool)
+        {
+            roll -= CommodityMarketSystem.FactoryAppeal(city, type);
+            if (roll <= 0f) return type;
+        }
+        return pool[pool.Count - 1];
+    }
+
     private static void Grow(City city)
     {
         List<string> unlocked = Unlocked(city);
@@ -356,7 +371,7 @@ public static class FactorySystem
             {
                 List<string> missing = preferred.Where(type => !old.site.units.Exists(unit => unit.type == type)).ToList();
                 List<string> choices = missing.Count > 0 ? missing : preferred;
-                string type = choices[UnityEngine.Random.Range(0, choices.Count)];
+                string type = PickByMarket(city, choices);
                 if (EnterpriseSystem.FundOwned(city, UnitCost(type, 1), old.site.state)) Rebuild(old.site, old.index, type);
                 return;
             }
@@ -367,16 +382,27 @@ public static class FactorySystem
         {
             List<string> fresh = preferred.Where(type => !open.units.Exists(unit => unit.type == type)).ToList();
             List<string> pool = fresh.Count > 0 ? fresh : preferred;
-            string type = pool[UnityEngine.Random.Range(0, pool.Count)];
+            // 能建的产品都过剩、卖不出价：这一年不添
+            if (pool.Max(type => CommodityMarketSystem.FactoryAppeal(city, type)) < GlutAppeal) return;
+            string type = PickByMarket(city, pool);
             if (EnterpriseSystem.FundOwned(city, UnitCost(type, 1), open.state)) AddUnit(open, type);
             return;
         }
-        // 给一座厂升一级
+        // 给一座厂升一级：产品缺得多、卖得贵的优先
         var upgradable = sites.SelectMany(site => site.units.Select((unit, index) => (site, unit, index)))
             .Where(entry => entry.unit.level < MaxLevel).ToList();
         if (upgradable.Count > 0 && UnityEngine.Random.value < 0.5f)
         {
-            var pick = upgradable[UnityEngine.Random.Range(0, upgradable.Count)];
+            float roll = UnityEngine.Random.value * upgradable.Sum(entry => CommodityMarketSystem.FactoryAppeal(city, entry.unit.type));
+            var pick = upgradable[upgradable.Count - 1];
+            foreach (var entry in upgradable)
+            {
+                roll -= CommodityMarketSystem.FactoryAppeal(city, entry.unit.type);
+                if (roll > 0f) continue;
+                pick = entry;
+                break;
+            }
+            if (CommodityMarketSystem.FactoryAppeal(city, pick.unit.type) < GlutAppeal) return;
             if (EnterpriseSystem.FundOwned(city, UnitCost(pick.unit.type, pick.unit.level + 1), pick.site.state))
                 SetLevel(pick.site, pick.index, pick.unit.level + 1);
             return;
