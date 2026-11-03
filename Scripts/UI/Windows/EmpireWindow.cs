@@ -304,66 +304,16 @@ namespace EmpireCraft.Scripts.UI.Windows
                     .ColorString("#8FA0A8"), true, TextAnchor.MiddleLeft, new Vector2(inner, 9f))
                     .UseFixedFontSize(6, HorizontalWrapMode.Overflow);
 
-            // 人物：元首 + 身边要人(共和国是反对党领袖；君主国是储君、权臣或议会总理、皇后)
-            var people = rail.BeginVertGroup(pSpacing: 2, pAlignment: TextAnchor.UpperLeft, pPadding: new RectOffset(4, 4, 4, 4));
-            UIHelper.FixPanelWidth(people.transform, RailWidth);
-            UIHelper.AddCardFrame(people.transform);
-            RegimeType regimeType = _empire.CoreKingdom.GetRegime()?.type ?? RegimeType.Feudalism;
-            string rulerRole = republic
-                ? RepublicSystem.GetHeadOfStateTitle(_empire)
-                : regimeType is RegimeType.ClassicalRepublic or RegimeType.Transmigrant
-                    ? LM.Get(DynastyNaming.RankKey(regimeType, 0, _empire.CoreKingdom))
-                    // 日本一系的君主称天皇
-                    : InstitutionSystem.GetCultureLine(CultureService.GetRealmCulture(_empire.CoreKingdom)) == "Japan"
-                        ? LM.Get("bakufu_emperor")
-                        : LM.Get(_empire.Emperor?.isSexFemale() == true ? "actor_emperor_G" : "actor_emperor_B");
-            if (_empire.data.is_been_controlled) rulerRole += " · " + LM.Get("powerful_minister_status_puppet");
-            int peopleRows = 0;
-            // 幕府：征夷大将军掌实权排在最上，天皇挂在他下面(用户 2026-10-29 "这里的皇帝应该变成将军""然后天皇挂在他的下面")
-            Actor shogun = !republic && !transmigrant && MilitaryRegency.KindOf(_empire) == MilitaryRegency.Shogun
-                ? MilitaryRegency.Regent(_empire) : null;
-            if (shogun != null && AddPersonRow(people, shogun, LM.Get(MilitaryRegency.TitleKey(_empire)), "#FFCC00", true)) peopleRows++;
-            if (AddPersonRow(people, _empire.Emperor, rulerRole, shogun != null ? "#E0B0FF" : "#FFCC00", true)) peopleRows++;
-            if (republic)
+            // 人物卡：头像或职位取不到时不连累下面两张卡(以前这里抛错，左栏就只剩国号和元首)
+            int peopleRows = 1;
+            try
             {
-                // 一党领导、统一战线、民主集中制没有反对党(其他党派参加政治协商)
-                bool congress = RepublicSystem.IsOneParty(_empire) || PartyBanSystem.UsesDemocraticCentralism(_empire);
-                if (!congress && AddPersonRow(people, RepublicSystem.GetOppositionLeader(_empire),
-                        LM.Get("republic_opposition_leader"), "#59D9FF")) peopleRows++;
+                peopleRows = DrawPeople(rail, republic, transmigrant);
             }
-            // 穿越政体没有储君、权臣、后宫
-            else if (!transmigrant)
+            catch (Exception exception)
             {
-                if (AddPersonRow(people, _empire.CoreKingdom.GetHeir(), LM.Get("empire_heir"), "#CC66FF")) peopleRows++;
-                if (ParliamentSystem.HasParliament(_empire))
-                {
-                    // 议会存续期间，权臣的位置改由议会选出的总理大臣占据
-                    ParliamentView parliament = ParliamentSystem.GetView(_empire);
-                    string role = LM.Get("prime_minister_title");
-                    if (parliament.PrimeMinister != null && !string.IsNullOrWhiteSpace(parliament.GovernmentType))
-                        role += " · " + string.Format(LM.Get("prime_minister_status"),
-                            LM.Get($"parliament_government_{parliament.GovernmentType}"),
-                            parliament.GovernmentSeats, parliament.TotalSeats);
-                    if (AddPersonRow(people, parliament.PrimeMinister, role, "#59D9FF")) peopleRows++;
-                }
-                else
-                {
-                    // 太后、后宫干政(女子掌权)、权臣
-                    string role = LM.Get(_empire.data.powerful_minister_is_empress_dowager ? "empress_dowager_title"
-                        : _empire.IsHaremPower(_empire.GetPowerfulMinister()) ? "harem_power_title"
-                        : MilitaryRegency.Active(_empire)
-                            ? DynastyNaming.CultureVariant(MilitaryRegency.TitleKey(_empire),
-                                  CultureService.GetRealmCulture(_empire.CoreKingdom)) ?? MilitaryRegency.TitleKey(_empire)
-                            : "powerful_minister_title");
-                    string status = _empire.GetPowerfulMinisterStatusText();
-                    if (!string.IsNullOrWhiteSpace(status)) role += " · " + status;
-                    // 将军已排在最上
-                    if (shogun == null && AddPersonRow(people, _empire.GetPowerfulMinister(), role, "#FF8C1A")) peopleRows++;
-                }
-                Actor lover = _empire.Emperor?.lover;
-                if (AddPersonRow(people, lover, LM.Get(lover?.isSexFemale() == false ? "empire_lover_B" : "empire_lover_G"), "#FF4D94")) peopleRows++;
+                NeoModLoader.services.LogService.LogError($"帝国窗口人物卡绘制失败({_empire?.data?.name}): {exception}");
             }
-
 
             // 关键数据(紧凑行：一行一项、不折行，左栏才放得下)
             var stats = rail.BeginVertGroup(pSpacing: 1, pAlignment: TextAnchor.UpperLeft, pPadding: new RectOffset(4, 4, 4, 4));
@@ -499,6 +449,71 @@ namespace EmpireCraft.Scripts.UI.Windows
         private const float RailRowHeight = UIHelper.RailRowHeight;
         private static void AddRailRow(AutoVertLayoutGroup card, float width, string label, string value, string hex, int index) =>
             card.AddRailRow(width, label, value, hex, index);
+
+        // 左栏人物卡：返回画了几行
+        private int DrawPeople(AutoVertLayoutGroup rail, bool republic, bool transmigrant)
+        {
+            // 人物：元首 + 身边要人(共和国是反对党领袖；君主国是储君、权臣或议会总理、皇后)
+            var people = rail.BeginVertGroup(pSpacing: 2, pAlignment: TextAnchor.UpperLeft, pPadding: new RectOffset(4, 4, 4, 4));
+            UIHelper.FixPanelWidth(people.transform, RailWidth);
+            UIHelper.AddCardFrame(people.transform);
+            RegimeType regimeType = _empire.CoreKingdom.GetRegime()?.type ?? RegimeType.Feudalism;
+            string rulerRole = republic
+                ? RepublicSystem.GetHeadOfStateTitle(_empire)
+                : regimeType is RegimeType.ClassicalRepublic or RegimeType.Transmigrant
+                    ? LM.Get(DynastyNaming.RankKey(regimeType, 0, _empire.CoreKingdom))
+                    // 日本一系的君主称天皇
+                    : InstitutionSystem.GetCultureLine(CultureService.GetRealmCulture(_empire.CoreKingdom)) == "Japan"
+                        ? LM.Get("bakufu_emperor")
+                        : LM.Get(_empire.Emperor?.isSexFemale() == true ? "actor_emperor_G" : "actor_emperor_B");
+            if (_empire.data.is_been_controlled) rulerRole += " · " + LM.Get("powerful_minister_status_puppet");
+            int peopleRows = 0;
+            // 幕府：征夷大将军掌实权排在最上，天皇挂在他下面(用户 2026-10-29 "这里的皇帝应该变成将军""然后天皇挂在他的下面")
+            Actor shogun = !republic && !transmigrant && MilitaryRegency.KindOf(_empire) == MilitaryRegency.Shogun
+                ? MilitaryRegency.Regent(_empire) : null;
+            if (shogun != null && AddPersonRow(people, shogun, LM.Get(MilitaryRegency.TitleKey(_empire)), "#FFCC00", true)) peopleRows++;
+            if (AddPersonRow(people, _empire.Emperor, rulerRole, shogun != null ? "#E0B0FF" : "#FFCC00", true)) peopleRows++;
+            if (republic)
+            {
+                // 一党领导、统一战线、民主集中制没有反对党(其他党派参加政治协商)
+                bool congress = RepublicSystem.IsOneParty(_empire) || PartyBanSystem.UsesDemocraticCentralism(_empire);
+                if (!congress && AddPersonRow(people, RepublicSystem.GetOppositionLeader(_empire),
+                        LM.Get("republic_opposition_leader"), "#59D9FF")) peopleRows++;
+            }
+            // 穿越政体没有储君、权臣、后宫
+            else if (!transmigrant)
+            {
+                if (AddPersonRow(people, _empire.CoreKingdom.GetHeir(), LM.Get("empire_heir"), "#CC66FF")) peopleRows++;
+                if (ParliamentSystem.HasParliament(_empire))
+                {
+                    // 议会存续期间，权臣的位置改由议会选出的总理大臣占据
+                    ParliamentView parliament = ParliamentSystem.GetView(_empire);
+                    string role = LM.Get("prime_minister_title");
+                    if (parliament.PrimeMinister != null && !string.IsNullOrWhiteSpace(parliament.GovernmentType))
+                        role += " · " + string.Format(LM.Get("prime_minister_status"),
+                            LM.Get($"parliament_government_{parliament.GovernmentType}"),
+                            parliament.GovernmentSeats, parliament.TotalSeats);
+                    if (AddPersonRow(people, parliament.PrimeMinister, role, "#59D9FF")) peopleRows++;
+                }
+                else
+                {
+                    // 太后、后宫干政(女子掌权)、权臣
+                    string role = LM.Get(_empire.data.powerful_minister_is_empress_dowager ? "empress_dowager_title"
+                        : _empire.IsHaremPower(_empire.GetPowerfulMinister()) ? "harem_power_title"
+                        : MilitaryRegency.Active(_empire)
+                            ? DynastyNaming.CultureVariant(MilitaryRegency.TitleKey(_empire),
+                                  CultureService.GetRealmCulture(_empire.CoreKingdom)) ?? MilitaryRegency.TitleKey(_empire)
+                            : "powerful_minister_title");
+                    string status = _empire.GetPowerfulMinisterStatusText();
+                    if (!string.IsNullOrWhiteSpace(status)) role += " · " + status;
+                    // 将军已排在最上
+                    if (shogun == null && AddPersonRow(people, _empire.GetPowerfulMinister(), role, "#FF8C1A")) peopleRows++;
+                }
+                Actor lover = _empire.Emperor?.lover;
+                if (AddPersonRow(people, lover, LM.Get(lover?.isSexFemale() == false ? "empire_lover_B" : "empire_lover_G"), "#FF4D94")) peopleRows++;
+            }
+            return peopleRows;
+        }
 
         // 人物行：头像(可点开人物) + 职位 / 姓名；空缺的要人不占行(元首除外)。
         // 头像沿用原版头像组写法(AddActorViewIntoHoriLayout，与旧顶栏相同)，各分组位置归零

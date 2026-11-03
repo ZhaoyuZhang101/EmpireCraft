@@ -171,7 +171,8 @@ public static class CommodityMarketSystem
 
     public static Market MarketOf(Kingdom kingdom)
     {
-        if (!_ready || kingdom == null) return null;
+        // 邻国列表里可能留着亡国的对象(data 已空)，取 id 会抛空引用，关税同盟那一步就整年算不下去
+        if (!_ready || kingdom?.data == null) return null;
         if (MarketOfKingdom.TryGetValue(kingdom.id, out long id) && Markets.TryGetValue(id, out Market market)) return market;
         Kingdom root = RootOf(kingdom);
         return root != null && Markets.TryGetValue(root.id, out market) ? market : null;

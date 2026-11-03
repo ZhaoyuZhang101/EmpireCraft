@@ -165,6 +165,40 @@ public static class UIHelper
     // 以前先按种族缩放收、再在末尾把整体缩放硬改回 1.2，框却还按收小的倍数反放大，高清帧的人框大了四五倍
     private const float AvatarScale = 1.2f, AvatarRefHeight = 16f;
 
+    // 载入头像：人站在水面上时原版取游泳帧，没有游泳帧的种族(模组种族)就抛空引用——以前这一抛，帝国窗口左栏、派系卡等
+    // 画到这个人就断了，后面全没了(用户 2026-11-03 截图：左栏只剩国号和元首)。纯净地图下人物隐藏着，站在水面上并不少见。
+    // 抛错时按陆上的样子再载一次，还不行返回假，由调用方换通用小人图标
+    private static bool _avatarWarned;
+
+    private static bool LoadAvatar(UnitAvatarLoader loader, Actor actor)
+    {
+        try
+        {
+            loader.load(actor);
+            return true;
+        }
+        catch (Exception exception)
+        {
+            if (!_avatarWarned)
+            {
+                _avatarWarned = true;
+                LogService.LogWarning($"[EmpireCraft][头像] {actor.getName()}(种族 {actor.asset?.id})头像载入失败，已改按陆上载入(本局只记一次): {exception.Message}");
+            }
+        }
+        try
+        {
+            var data = new ActorAvatarData();
+            data.setData(actor);
+            data.is_touching_liquid = false;
+            loader.load(data, true);
+            return true;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+    }
+
     private static void FitAvatar(UnitAvatarLoader loader)
     {
         if (loader == null) return;
@@ -216,18 +250,19 @@ public static class UIHelper
             });
             clickFrame.Button.OnHoverOut(Tooltip.hideTooltip);
         }
+        bool avatarLoaded = true;
         if (actor != null)
         {
             unitLoader._actor_image.gameObject.SetActive(true);
-            unitLoader.load(actor);
+            avatarLoaded = LoadAvatar(unitLoader, actor);
             FitAvatar(unitLoader);
         }
         else
         {
             unitLoader._actor_image.gameObject.SetActive(false);
         }
-        // 虚拟族人(无小人模式：在世但没有实体单位)用通用小人图标
-        bool virtualPerson = pIsAlive && actor == null && pIdentity is { is_virtual: true, is_alive: true };
+        // 虚拟族人(无小人模式：在世但没有实体单位)用通用小人图标；头像实在载不出来的同样用它
+        bool virtualPerson = pIsAlive && (!avatarLoaded || actor == null && pIdentity is { is_virtual: true, is_alive: true });
         if (!pIsAlive || virtualPerson)
         {
             unitLoader._actor_image.sprite = SpriteTextureLoader.getSprite(virtualPerson ? "ui/virtualPersonIcon" : "ui/deadIcon");
