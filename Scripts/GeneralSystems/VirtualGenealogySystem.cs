@@ -685,17 +685,44 @@ public static partial class VirtualGenealogySystem
 
     // 绝嗣满百年的宗族只留要人(用户 2026-10-27 问答选"灭绝百年的只留要人"：存档 154MB，族谱占 112MB，3.37 万个宗族里
     // 3.01 万个已绝嗣，读档、自动存档、读完那一下回收都跟它走)：
-    //   · 要人：做过君主、官(有官职、爵位、头衔、谥号、王号)、名将名臣、史书(帝国史、在位记录)里提到的人、还有家产的，连同他们在本族的祖先
-    //     (父母一路往上，世系图、列传不断)；有要人的宗族连始祖也留(宗族的文化按始祖认)；
+    //   · 要人：做过君主、朝官或有自己地盘的一方诸侯，有爵位、头衔、谥号、王号的，名将名臣、史书(帝国史、在位记录)里提到的人、还有家产的，
+    //     连同他们在本族的祖先(父母一路往上，世系图、列传不断)；有要人的宗族连始祖也留(宗族的文化按始祖认)；
+    //   · 只做过普通地方官的不算(用户 2026-11-03 选"收窄要人"，见 LocalOfficeKeys)：11-02 那局 3.25 万个宗族里 2.9 万个是一人宗族，
+    //     多半是死去的市长、州长，一个都销不了；收窄后一轮能销 1.76 万族，族谱从 139 MB 减到约 69 MB；
     //   · 子女在别的宗族的(分出去的支脉、嫁出去的女儿)也留，连同祖先——别的宗族的世系从这里接上来；
     //   · 其余族人从族谱里删去；留下的人生平只留大事、不留罪案；一个要人都没有、没称过帝、也没有分出去的支脉的宗族整族销户
     private const int CenturyYears = 100;
     private static readonly HashSet<long> HistoryActors = new();
     private static readonly HashSet<long> ParentClans = new();
+    private static readonly HashSet<string> LocalOfficeTitles = new();
 
-    // 史书与在位记录里提到的人(按单位 id)：每轮瘦身开始时收一遍
+    // 普通地方官的官称：各政体 OfficialType.csv 里城一级和省一级行政区的长官。族谱只记了官名字符串(地名+官称，见 OfficeObject.SetActor)，只能按官称认。
+    // 没列的都还算要人：君主、朝官，有自己地盘的节度使、大名、总督、封建领主、羁縻土官，部落酋长(酋长也是阿拉伯酋长国的君主称号)
+    private static readonly string[] LocalOfficeKeys =
+    {
+        "Arabic_officiallevel_5", "Arabic_officiallevel_7",
+        "Bakufu_officiallevel_7", "Bakufu_officiallevel_8",
+        "ClassicalRepublic_officiallevel_2", "ClassicalRepublic_officiallevel_3",
+        "Colonial_officiallevel_2", "Company_officiallevel_2",
+        "Feudalism_officiallevel_8",
+        "LvLing_officiallevel_7", "LvLing_officiallevel_7_han", "LvLing_officiallevel_7_ming", "LvLing_officiallevel_7_japan",
+        "LvLing_officiallevel_8", "LvLing_officiallevel_8_han", "LvLing_officiallevel_8_tang", "LvLing_officiallevel_8_ming",
+        "LvLing_officiallevel_8_fu_tang", "LvLing_officiallevel_8_fu_ming", "LvLing_officiallevel_8_japan",
+        "Modern_officiallevel_5", "Modern_officiallevel_6",
+        "NomadFeudalism_officiallevel_3", "NomadFeudalism_officiallevel_5",
+        "Transmigrant_officiallevel_3", "Transmigrant_officiallevel_4", "Transmigrant_officiallevel_4_zone",
+        "YouMu_officiallevel_4", "YouMu_officiallevel_4_aztec", "YouMu_officiallevel_4_ojibwe",
+        "YouMu_officiallevel_5", "YouMu_officiallevel_5_aztec", "YouMu_officiallevel_5_ojibwe",
+        "YouMu_officiallevel_6", "YouMu_officiallevel_6_aztec", "YouMu_officiallevel_6_ojibwe",
+        "ZhouFeudalism_officiallevel_9", "ZhouFeudalism_officiallevel_9_zhou"
+    };
+
+    // 史书与在位记录里提到的人(按单位 id)：每轮瘦身开始时收一遍；官称跟着当前语言，也在这时取
     private static void CollectHistoryActors()
     {
+        LocalOfficeTitles.Clear();
+        foreach (string key in LocalOfficeKeys)
+            if (LM.Has(key)) LocalOfficeTitles.Add(LM.Get(key));
         ParentClans.Clear();
         foreach (SpecificClan clan in SpecificClanManager._specificClans)
             if (clan != null && clan.parent_clan_id >= 0) ParentClans.Add(clan.parent_clan_id);
@@ -710,9 +737,28 @@ public static partial class VirtualGenealogySystem
             if (record != null && record.actor_id > 0) HistoryActors.Add(record.actor_id);
     }
 
+    // 爵位记成"文化_等级"，没有爵位的也有值(peerages_6)
+    private static bool HasPeerage(PersonalClanIdentity person) =>
+        !string.IsNullOrEmpty(person.PeeragesLevel) && !person.PeeragesLevel.EndsWith("peerages_6", StringComparison.Ordinal);
+
+    // 朝官记成"国号 | 官名"；还没挂回所属城的地方官也这样记(官名就是官称本身)，所以带竖线的要整个官名对得上才算地方官
+    private static bool IsLocalOffice(string office)
+    {
+        int bar = office.LastIndexOf('|');
+        if (bar >= 0) return LocalOfficeTitles.Contains(office.Substring(bar + 1).Trim());
+        foreach (string title in LocalOfficeTitles)
+            if (office.EndsWith(title, StringComparison.Ordinal)) return true;
+        return false;
+    }
+
+    private static bool HeldHighOffice(PersonalClanIdentity person)
+    {
+        string office = string.IsNullOrEmpty(person.officeName) ? person.fullOfficeName : person.officeName;
+        return !string.IsNullOrEmpty(office) && !IsLocalOffice(office);
+    }
+
     private static bool Notable(PersonalClanIdentity person) =>
-        !string.IsNullOrEmpty(person.PeeragesLevel) || !string.IsNullOrEmpty(person.officeName) ||
-        !string.IsNullOrEmpty(person.fullOfficeName) || person.ownedTitleNames?.Count > 0 ||
+        HasPeerage(person) || HeldHighOffice(person) || person.ownedTitleNames?.Count > 0 ||
         !string.IsNullOrEmpty(person.posthumous_name) || !string.IsNullOrEmpty(person.prince_title) ||
         person.actor_id > 0 && (HistoryActors.Contains(person.actor_id) || FamousTalentSystem.OfActorId(person.actor_id) != null) ||
         WalletReserveTransfers.HasAssets(person.wallet_reserve);
@@ -838,7 +884,7 @@ public static partial class VirtualGenealogySystem
         {
             if (person == null) continue;
             if (WalletReserveTransfers.HasAssets(person.wallet_reserve)) return true;
-            if (!string.IsNullOrEmpty(person.PeeragesLevel) || !string.IsNullOrEmpty(person.officeName) ||
+            if (HasPeerage(person) || !string.IsNullOrEmpty(person.officeName) ||
                 !string.IsNullOrEmpty(person.fullOfficeName) || person.ownedTitleNames?.Count > 0) return true;
             // 是在世者的父母或配偶：删了在世者的族谱就断了
             foreach (long child in person.children ?? new List<long>())
