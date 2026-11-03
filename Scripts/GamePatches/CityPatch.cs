@@ -1828,6 +1828,8 @@ public class CityPatch : GamePatch
     // 城邦：开国之城定国名，之后新建的城独立为殖民城邦
     public static void CityBuilt(City __result, Actor pActor)
     {
+        // 预划县址：哪条路建的城落在没设县的县址里，就是这一县的县城(见 WildernessPlotSystem.OnCityBuilt)，所以放在各条路的提前返回之前
+        WildernessPlotSystem.OnCityBuilt(__result);
         if (StateSettlementSystem.CreatingCity) return; // 国家移民安置完毕后再处理城邦独立。
         if (CityPlacementSystem.Placing) return; // 营建页「建城」：新城归所点地方的国家，不独立、不分部落
         if (TransmigrantSystem.Landing) return; // 穿越降临：落脚的城就是新国家的都城(见 TransmigrantSystem.Land)

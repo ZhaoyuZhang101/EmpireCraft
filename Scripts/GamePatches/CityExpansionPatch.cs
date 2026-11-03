@@ -17,7 +17,8 @@ namespace EmpireCraft.Scripts.GamePatches;
 // 夹在城与城之间的空地不受这些限制，由挨着它的城里离得最近的那座领下(见 Sandwiched)。
 // 已有城市的地不参与自动扩张：战争只记录临时占领，不能用边界侵蚀永久拆改城市辖区。
 // 无人区(见 WildernessSystem)与城互斥：把地给城的路子碰到无人区一律挡在 CanAddZone(原版 addZone 都经它)，新城不选在无人区里
-// (见 AfterCanStartCityHere)；神力手动营建、建城放行的那块地归城后当即退出无人区(见 AfterAddZone)
+// (见 AfterCanStartCityHere)；神力手动营建、建城放行的那块地归城后当即退出无人区(见 AfterAddZone)。
+// 预划县址(见 WildernessPlotSystem)同样挡在这两处：县址里的地只给这一县的县城(没设县的谁也不领)，已设县的县址里不另立新城
 public class CityExpansionPatch : GamePatch
 {
     public ModDeclare declare { get; set; }
@@ -82,6 +83,10 @@ public class CityExpansionPatch : GamePatch
         if (city.zones?.Contains(zone) == true || ModClass.IS_CLEAR || !Config.game_loaded || SmoothLoader.isLoading() ||
             AncientWarfareCompatibility.OwnsObject(city)) return true;
         if (WildernessSystem.IsWild(zone) && !WildernessSystem.CanTake(city)) return false;
+        // 预划县址(用户 2026-11-03 转群友"原有的城市跨河连片，本来该断掉的地方不断")：县址里开出来的地只给这一县已设的县城，
+        // 没设县的谁也不领(老城不再顺着开出来的地一块块吞过去)；神力手动划地、手动营建、建城与新城落脚的头一块地照旧放行
+        // (新城落在没设县的县址里就是这一县的县城，见 WildernessPlotSystem.OnCityBuilt)
+        if (!ManualClaim && !WildernessSystem.CanTake(city) && !WildernessPlotSystem.MayTake(city, zone)) return false;
         return ManualClaim || !AtLimit(city);
     }
 
@@ -91,10 +96,11 @@ public class CityExpansionPatch : GamePatch
         if (pZone != null && pZone.city == __instance) WildernessSystem.OnZoneTaken(pZone);
     }
 
-    // 新城不选在无人区里(原版建城、国家移民、殖民、穿越者降临选址都问它)；神力手动建城不问它，照旧能建
+    // 新城不选在无人区里(原版建城、国家移民、殖民、穿越者降临选址都问它)；神力手动建城不问它，照旧能建。
+    // 也不选在已设县的县址里(县城以外不再挤进第二座城，见 WildernessPlotSystem.Taken)；没设县的县址照选，立了就是这一县的县城
     public static void AfterCanStartCityHere(TileZone __instance, ref bool __result)
     {
-        if (__result && WildernessSystem.IsWild(__instance)) __result = false;
+        if (__result && (WildernessSystem.IsWild(__instance) || WildernessPlotSystem.Taken(__instance))) __result = false;
     }
 
     // 自动领地只领无主地；与手动村镇改隶、建城、读档的 addZone 分开。

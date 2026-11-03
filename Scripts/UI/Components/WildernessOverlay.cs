@@ -30,7 +30,10 @@ namespace EmpireCraft.Scripts.UI.Components;
 //     另每帧核对一段地块(SweepPerFrame)：样子对不上(并进、脱离国土，挨着的地块有了城；贴地形时是这块重算过)的连同四邻重画；
 //     贴地形时格子变了由 WildernessShape 通知，画布上的归属变了由画布通知(见 SmoothBorders.CanvasProcess)；
 //   · 悬停(点一下也行)无人区：提示名字、类型、多少地块、归属哪国(哪个法理)与"没修路的地方军队过不去"；
-//     雨林、大泽另有开发度与谁在开发(见 WildernessDevelopmentSystem)，开发中的地块底色淡一点(类型色画法)。
+//     雨林、大泽另有开发度与谁在开发(见 WildernessDevelopmentSystem)，开发中的地块底色淡一点(类型色画法)；
+//   · 预划县址(用户 2026-11-03 转群友"建议生成无人区时无人区内部自带分割好的空壳城市"，见 WildernessPlotSystem)：同一片里各县址之间
+//     描一道比外沿更淡、更疏的虚线(两边只描编号大的一侧，一道线；按地块、贴地形两种画法都描，并进国土的不描)，
+//     悬停提示多一行"预定县：某某(未开/已解锁待设/已设县 某城)"；县址变了(WildernessPlotSystem.Version)同区域变了一样整片重画。
 // 无人区关着(WildernessSystem.Enabled 为假)或没有区域时什么都不画
 public static class WildernessOverlay
 {
@@ -63,7 +66,7 @@ public static class WildernessOverlay
     private static readonly Queue<int> DirtyQueue = new();
     private static readonly HashSet<int> Marked = new();
     private static object _world;
-    private static int _width, _height, _cols, _sweep, _option, _version = int.MinValue;
+    private static int _width, _height, _cols, _sweep, _option, _version = int.MinValue, _plotVersion = int.MinValue;
     private static Look _look;
     private static bool _bare, _primed, _fitted, _canvas;
     private static MetaTypeAsset _layer;
@@ -82,7 +85,7 @@ public static class WildernessOverlay
         _world = null;
         _sweep = 0;
         _primed = false;
-        _version = int.MinValue;
+        _version = _plotVersion = int.MinValue;
         HideTip();
     }
 
@@ -138,7 +141,7 @@ public static class WildernessOverlay
         bool fitted = WildernessShape.Active;
         bool canvas = fitted && SmoothBorders.CanvasDraws(layer);
         if (!_primed || look != _look || bare != _bare || !ReferenceEquals(layer, _layer) || option != _option ||
-            WildernessSystem.Version != _version || fitted != _fitted || canvas != _canvas)
+            WildernessSystem.Version != _version || WildernessPlotSystem.Version != _plotVersion || fitted != _fitted || canvas != _canvas)
         {
             _primed = true;
             _look = look;
@@ -146,6 +149,7 @@ public static class WildernessOverlay
             _layer = layer;
             _option = option;
             _version = WildernessSystem.Version;
+            _plotVersion = WildernessPlotSystem.Version;
             _fitted = fitted;
             _canvas = canvas;
             MarkAll(calc);
@@ -300,6 +304,12 @@ public static class WildernessOverlay
         bool marks = !province && !_bare && !absorbed;
         bool up = Line(zone.zone_up, region), down = Line(zone.zone_down, region);
         bool left = Line(zone.zone_left, region), right = Line(zone.zone_right, region);
+        // 县址分界(见 WildernessPlotSystem)：挨着同一片里编号小的县址那几边
+        int plot = absorbed ? -1 : WildernessPlotSystem.IdAt(zone.id);
+        bool plotUp = PlotLine(zone.zone_up, region, plot), plotDown = PlotLine(zone.zone_down, region, plot);
+        bool plotLeft = PlotLine(zone.zone_left, region, plot), plotRight = PlotLine(zone.zone_right, region, plot);
+        bool plots = plotUp || plotDown || plotLeft || plotRight;
+        Color32 plotEdge = PlotEdge(fill, province);
         foreach (WorldTile tile in zone.tiles)
         {
             if (tile == null) continue;
@@ -312,9 +322,29 @@ public static class WildernessOverlay
             Color32 color = absorbed || _bare ? Clear : fill;
             if (marks && Mark(region.Kind, tile.x, tile.y)) color = mark;
             if (!absorbed && Edge(tile, up, down, left, right) && (province || ((tile.x + tile.y) >> 1 & 1) == 0)) color = edge;
+            else if (plots && PlotDash(tile) && Edge(tile, plotUp, plotDown, plotLeft, plotRight)) color = plotEdge;
             Put(tile, color);
         }
     }
+
+    // 这一边描不描县址分界：挨着同一片里另一个县址(两边只描编号大的一侧，一道线)；挨着城的那边有城界，不描
+    private static bool PlotLine(TileZone other, WildRegion region, int plot)
+    {
+        if (plot < 0 || other == null || other.city != null) return false;
+        int next = WildernessPlotSystem.IdAt(other.id);
+        return next >= 0 && next < plot && ReferenceEquals(WildernessSystem.RegionOf(other), region);
+    }
+
+    // 县址分界的颜色：比外沿虚线更淡(类型色画法白里掺得少、更透明；城市图层比城界浅)
+    private static Color32 PlotEdge(Color32 fill, bool province)
+    {
+        Color32 color = province ? Shade(fill, 0.8f) : Mix(fill, new Color32(255, 255, 255, 255), 0.35f);
+        color.a = (byte)(_edge * (province ? 0.6f : 0.5f));
+        return color;
+    }
+
+    // 县址分界的虚线比外沿疏：六格里描两格
+    private static bool PlotDash(WorldTile tile) => (tile.x + tile.y) % 6 < 2;
 
     // 这一边画不画边线：城市图层下挨着别的东西都画(同城界)；类型色画法只画向无主地、别片没并进国土的无人区
     private static bool Line(TileZone other, WildRegion region)
@@ -364,7 +394,12 @@ public static class WildernessOverlay
         float fade = WildernessDevelopmentSystem.Fade(zone);
         WildRegion region = null;
         int shown = 0;
-        Color32 fill = Clear, edge = Clear, mark = Clear;
+        Color32 fill = Clear, edge = Clear, mark = Clear, plotEdge = Clear;
+        // 县址分界(见 WildernessPlotSystem)：挨着编号小的县址那几边，按格只描两边同一片(不是洞)的地方
+        int plot = WildernessPlotSystem.IdAt(zone.id);
+        bool plotUp = PlotZone(zone.zone_up, plot), plotDown = PlotZone(zone.zone_down, plot);
+        bool plotLeft = PlotZone(zone.zone_left, plot), plotRight = PlotZone(zone.zone_right, plot);
+        bool plots = plotUp || plotDown || plotLeft || plotRight;
         foreach (WorldTile tile in zone.tiles)
         {
             if (tile?.data == null) continue;
@@ -389,6 +424,7 @@ public static class WildernessOverlay
                     edge.a = province ? _edge : (byte)(_edge * 0.8f);
                     mark = MarkOf(region.Kind);
                     mark.a = MarkAlpha;
+                    plotEdge = PlotEdge(fill, province);
                 }
             }
             if (region == null)
@@ -403,8 +439,34 @@ public static class WildernessOverlay
                 (FittedSide(tile.tile_up, slot, province) || FittedSide(tile.tile_down, slot, province) ||
                  FittedSide(tile.tile_left, slot, province) || FittedSide(tile.tile_right, slot, province)))
                 color = edge;
+            else if (plots && !absorbed && !hole && PlotDash(tile) && FittedPlot(tile, slot, plotUp, plotDown, plotLeft, plotRight))
+                color = plotEdge;
             Put(tile, color);
         }
+    }
+
+    // 挨着的那块地在另一个县址里、编号比这块的小(两边只描一侧)，又没有城
+    private static bool PlotZone(TileZone other, int plot)
+    {
+        if (plot < 0 || other == null || other.city != null) return false;
+        int next = WildernessPlotSystem.IdAt(other.id);
+        return next >= 0 && next < plot;
+    }
+
+    // 这一格在地块交界上、朝描县界的那几边，交界那边的格也是这一片(不是洞、不是水)
+    private static bool FittedPlot(WorldTile tile, int slot, bool up, bool down, bool left, bool right)
+    {
+        WorldTileZoneBorder border = tile.world_tile_zone_border;
+        if (border == null || !border.border) return false;
+        return up && border.border_up && SameSlot(tile.tile_up, slot) || down && border.border_down && SameSlot(tile.tile_down, slot) ||
+               left && border.border_left && SameSlot(tile.tile_left, slot) || right && border.border_right && SameSlot(tile.tile_right, slot);
+    }
+
+    private static bool SameSlot(WorldTile next, int slot)
+    {
+        if (next?.data == null || Water(next)) return false;
+        int id = next.data.tile_id;
+        return WildernessShape.AreaAt(id) == slot && !WildernessShape.HoleAt(id);
     }
 
     // 这一边描不描：挨着同一片的格(连同洞)、水面、地图外不描；城市图层上挨着别的都描(同城界)；
@@ -603,8 +665,9 @@ public static class WildernessOverlay
     private static WildRegion _tip;
     private static TileZone _tipZone;
     private static Kingdom _tipOwner;
-    // 开发度与开发状态(见 WildernessDevelopmentSystem.TipKey)：同一片里换到开发不同的地块也重显
-    private static int _tipDev = -1;
+    // 开发度与开发状态(见 WildernessDevelopmentSystem.TipKey)、县址与它的状态(见 WildernessPlotSystem.TipKey)：
+    // 同一片里换到开发不同、县址不同的地块也重显
+    private static int _tipDev = -1, _tipPlot = -1;
     private static Vector3 _pressedAt;
     private static bool _pressed, _tipsOn;
 
@@ -631,7 +694,8 @@ public static class WildernessOverlay
         if (region != null && region.Kind == WildKind.None) region = null;
         Kingdom owner = region != null ? WildernessSystem.OwnerOf(zone) : null;
         int dev = region != null ? WildernessDevelopmentSystem.TipKey(zone) : -1;
-        if (ReferenceEquals(region, _tip) && owner == _tipOwner && dev == _tipDev && !clicked) return;
+        int plot = region != null ? WildernessPlotSystem.TipKey(zone) : -1;
+        if (ReferenceEquals(region, _tip) && owner == _tipOwner && dev == _tipDev && plot == _tipPlot && !clicked) return;
         HideTip();
         if (region == null) return;
         EnsureTooltip();
@@ -639,6 +703,7 @@ public static class WildernessOverlay
         _tipZone = zone;
         _tipOwner = owner;
         _tipDev = dev;
+        _tipPlot = plot;
         Tooltip.show(region, TooltipType, new TooltipData { tooltip_scale = 0.7f, is_sim_tooltip = true });
     }
 
@@ -676,7 +741,7 @@ public static class WildernessOverlay
         _tip = null;
         _tipZone = null;
         _tipOwner = null;
-        _tipDev = -1;
+        _tipDev = _tipPlot = -1;
     }
 
     private static void EnsureTooltip()
@@ -739,6 +804,9 @@ public static class WildernessOverlay
             tooltip.addLineText(NeoModLoader.General.LM.Get("wild_tooltip_development_status"), status, "#9FD38A", pPercent: false,
                 pLocalize: false);
         }
+        // 预定县(见 WildernessPlotSystem)：县名与未开、已解锁待设、已设县某城
+        if (_tipZone != null && WildernessPlotSystem.Describe(_tipZone, out string plot))
+            tooltip.addLineText(NeoModLoader.General.LM.Get("wild_plot_tooltip"), plot, "#E8D9A8", pPercent: false, pLocalize: false);
         tooltip.addBottomDescription(NeoModLoader.General.LM.Get("wild_tooltip_hint"));
     }
 }

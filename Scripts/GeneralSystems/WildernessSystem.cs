@@ -43,6 +43,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     (神力刷一片也只在停手后划一次)；村镇、厂区变了(RuralSettlementSystem.Revision、FactorySystem.Revision)至多每年重划一次；
 //   · 开发(见 WildernessDevelopmentSystem)：雨林、大泽的地块按开发度一批批改成草地；开发中的照开发时的类型留在无人区(Reclassify)，
 //     开满的留给城(同城心、村镇，见 Regroup 的 anchored)，城照常扩张领进去；山脉、沙漠、冻原固定不开发；
+//     雨林、大泽按地形预划县址(见 WildernessPlotSystem，每次划区后维护)，开满的只归这一县的县城；
 //   · 模组设置「无人区」(默认开)：关掉时没有无人区(Regions 为空、IsWild 全为假；已划出来的地块不还给城，城照常再扩回去)；
 //     世界地图预设剧本(真实地球，见 WorldMap.WorldMapWilderness.OnEarth，随存档)不看这个设置，一直开着——剧本的史实归属、地名、
 //     各时代开发度都靠无人区；玩家自己的图按设置开关(用户 2026-10-30 "预设剧本是强制开的，但是玩家自己的图可以选择开关")。
@@ -156,6 +157,9 @@ public static class WildernessSystem
 
     // 区域每变一次 +1(显示、通行据此重算)；挂接或归属变了也 +1
     public static int Version { get; private set; }
+
+    // 每重新连片一次 +1(只算划区，挂接、归属、起名不算)：县址据此维护、补划(见 WildernessPlotSystem)
+    public static int Builds { get; private set; }
 
     public static IReadOnlyList<WildRegion> Regions => _regions;
 
@@ -698,6 +702,7 @@ public static class WildernessSystem
         int carved = Regroup(fromSave);
         _saved = null;
         Version++;
+        Builds++;
         LogService.LogInfo($"[EmpireCraft][无人区] 划了 {_regions.Count} 片 {_regions.Sum(region => region.Zones.Count)} 块，" +
                            $"从城里划出 {carved} 块，用时 {watch.Elapsed.TotalMilliseconds:0} ms");
     }
