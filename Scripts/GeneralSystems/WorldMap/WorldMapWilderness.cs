@@ -79,6 +79,8 @@ public class WorldMapWildSave
     // 剧本编辑器刷的归属：王国法理编号 → 地块编号；刷了永久中立、还没设上的地块(头一回划区后设上即清空)
     public Dictionary<long, List<int>> paint;
     public List<int> neutral;
+    // 照原图分地的剧本(从当前世界导入的，见 WorldMapEra.exact)里归城的地块：城还领着就不划成无人区(见 WildernessSystem.Regroup)
+    public List<int> kept;
 }
 
 public static class WorldMapWilderness
@@ -102,6 +104,19 @@ public static class WorldMapWilderness
     private static Dictionary<string, City> _capitals;
 
     private static bool Active => _state != null && _frame != null;
+    // 照原图归城的地块(见 WorldMapWildSave.kept)
+    private static HashSet<int> _kept;
+
+    // 照原图分地的剧本开局(WorldMapScenario.Finish)：记下归城的地块
+    public static void Keep(IEnumerable<int> zones)
+    {
+        _kept = zones == null ? null : new HashSet<int>(zones);
+        if (_kept is { Count: 0 }) _kept = null;
+    }
+
+    // 这块地照原图归城(城还领着就不划成无人区)
+    internal static bool Kept(int zoneId) => _kept != null && _kept.Contains(zoneId);
+    internal static IEnumerable<int> KeptZones => _kept ?? (IEnumerable<int>)Array.Empty<int>();
 
     // 这一局是世界地图(真实地球)：开局就有文明，无人区照起真实地名(见 WildernessSystem.NameAll)
     internal static bool OnEarth => Active;
@@ -181,6 +196,7 @@ public static class WorldMapWilderness
                     _painted[zone] = pair.Key;
         }
         if (saved.neutral is { Count: > 0 }) _neutral = new HashSet<int>(saved.neutral);
+        if (saved.kept is { Count: > 0 }) _kept = new HashSet<int>(saved.kept);
         _state = saved;
         Bind();
     }
@@ -192,12 +208,14 @@ public static class WorldMapWilderness
             ? _painted.GroupBy(pair => pair.Value).ToDictionary(group => group.Key, group => group.Select(pair => pair.Key).OrderBy(id => id).ToList())
             : null;
         List<int> neutral = _neutral is { Count: > 0 } ? _neutral.OrderBy(id => id).ToList() : null;
+        List<int> kept = _kept is { Count: > 0 } ? _kept.OrderBy(id => id).ToList() : null;
         if (!Active)
-            // 导入地图：只存刷的归属(范围为空，读档不当地球)
-            return paint == null && neutral == null ? null : new WorldMapWildSave { paint = paint, neutral = neutral };
+            // 导入地图：只存刷的归属与照原图归城的地块(范围为空，读档不当地球)
+            return paint == null && neutral == null && kept == null ? null : new WorldMapWildSave { paint = paint, neutral = neutral, kept = kept };
         ResolveOwners();
         _state.paint = paint;
         _state.neutral = neutral;
+        _state.kept = kept;
         return _state;
     }
 
@@ -212,6 +230,7 @@ public static class WorldMapWilderness
         _paintTitles = null;
         _painted = null;
         _neutral = null;
+        _kept = null;
     }
 
     private static void Bind()

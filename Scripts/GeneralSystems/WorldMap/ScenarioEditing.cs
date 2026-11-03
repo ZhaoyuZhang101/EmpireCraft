@@ -343,6 +343,8 @@ public static class ScenarioEditing
         Before();
         EnsureOwnWorld();
         if (Era.cities.RemoveAll(city => city.id == id) == 0) return;
+        // 照原图归这座城的地块(见 ScenarioWorldExport)一并去掉
+        DropLandKey("c:" + id);
         foreach (WorldMapPolity polity in Era.polities)
         {
             polity.cities?.Remove(id);

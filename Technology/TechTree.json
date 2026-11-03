@@ -88,18 +88,20 @@
     "capitalist_budding_techs": ["printing"]
   },
   "branches": ["material", "metallurgy", "military", "construction", "science", "naval", "civics"],
+  "_comment_eras": "进各时代：研究了它的节点科技(node，其中一项即可)，且此前各时代的科技研究了 era_prior_share(三分之二)以上，前一个时代也得先进了；研究过任一科技为石器时代(见 TechnologySystem.GetEraTier)",
+  "era_prior_share": 0.6667,
   "eras": [
     { "tier": 1, "key": "tech_era_stone" },
-    { "tier": 2, "key": "tech_era_copper" },
-    { "tier": 3, "key": "tech_era_bronze" },
-    { "tier": 4, "key": "tech_era_iron" },
-    { "tier": 5, "key": "tech_era_medieval" },
-    { "tier": 6, "key": "tech_era_gunpowder" },
-    { "tier": 7, "key": "tech_era_industrial" },
-    { "tier": 8, "key": "tech_era_electric" },
-    { "tier": 9, "key": "tech_era_modern" },
-    { "tier": 10, "key": "tech_era_atomic" },
-    { "tier": 11, "key": "tech_era_future" }
+    { "tier": 2, "key": "tech_era_copper", "node": ["copper_smelting"] },
+    { "tier": 3, "key": "tech_era_bronze", "node": ["bronze_casting"] },
+    { "tier": 4, "key": "tech_era_iron", "node": ["ironworking"] },
+    { "tier": 5, "key": "tech_era_medieval", "node": ["steelmaking"] },
+    { "tier": 6, "key": "tech_era_gunpowder", "node": ["gunpowder"] },
+    { "tier": 7, "key": "tech_era_industrial", "node": ["industrialization"] },
+    { "tier": 8, "key": "tech_era_electric", "node": ["electricity"] },
+    { "tier": 9, "key": "tech_era_modern", "node": ["computing"] },
+    { "tier": 10, "key": "tech_era_atomic", "node": ["nuclear_fission"] },
+    { "tier": 11, "key": "tech_era_future", "node": ["icbm", "energy_weapons"] }
   ],
   "materials": [
     { "id": "wood", "tier": 1, "resources": [{ "id": "wood", "amount": 1 }] },
@@ -156,7 +158,7 @@
     { "id": "urban_housing", "branch": "construction", "tier": 6, "cost": 420, "requires_techs": ["ward_housing"], "unlock_buildings": ["6house_*_modernmod", "7house_*_modernmod", "4hall_*_modernmod", "house_human_7"], "boosts": [{"type": "population", "value": "", "amount": 1000}] },
     { "id": "mythril_forging", "branch": "metallurgy", "tier": 6, "cost": 420, "requires_techs": ["steelmaking"], "requires_materials": ["mythril"], "unlock_materials": ["mythril"], "boosts": [{"type": "resource", "value": "mythril", "amount": 5}] },
 
-    { "id": "scientific_method", "branch": "science", "tier": 6, "cost": 420, "requires_techs": ["printing", "mathematics"], "research_slots": 3, "boosts": [{"type": "building_type", "value": "type_university", "amount": 1}, {"type": "building_type", "value": "type_library", "amount": 5}] },
+    { "id": "scientific_method", "branch": "science", "tier": 6, "cost": 420, "requires_techs": ["movable_type", "mathematics", "gunpowder"], "research_slots": 3, "boosts": [{"type": "building_type", "value": "type_university", "amount": 1}, {"type": "building_type", "value": "type_library", "amount": 5}] },
     { "id": "industrialization", "branch": "construction", "tier": 7, "cost": 650, "requires_techs": ["steelmaking", "scientific_method"], "requires_materials": ["coal"], "unlock_buildings": ["ec_mine_4", "ec_lumber_4", "8house_*_modernmod", "3docks_*_modernmod", "3barracks_*_modernmod", "3temple_*_modernmod", "house_human_8", "steel_mill"], "requires_institutions": [{ "feature": "urban_production_stage", "min_value": 2 }], "boosts": [{"type": "building_type", "value": "type_steel_mill", "amount": 1}, {"type": "institution_feature", "value": "urban_production_stage", "amount": 2}] },
     { "id": "banking", "branch": "science", "tier": 7, "cost": 650, "requires_techs": ["charter_towns", "printing"], "requires_materials": ["gold"], "research_bonus": 0.1, "unlock_buildings": ["stock_exchange"], "boosts": [{"type": "building_type", "value": "type_market", "amount": 2}] },
     { "id": "rifling", "branch": "military", "tier": 7, "cost": 650, "requires_techs": ["matchlock", "industrialization"], "unlock_items": ["Sniper", "Americanshotgun", "Sluggershotgun", "DesertEagle", "Glock17", "pistol", "rifle", "sniperrifle", "shotgunreplace"], "boosts": [{"type": "war_knows", "value": "", "amount": 1}] },

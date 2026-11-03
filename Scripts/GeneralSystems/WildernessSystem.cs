@@ -781,6 +781,9 @@ public static class WildernessSystem
         // 开发满了的雨林大泽(见 WildernessDevelopmentSystem)：退出无人区，草木再蔓生回来也不再划进来
         foreach (int id in WildernessDevelopmentSystem.DevelopedZones())
             if (id >= 0 && id < size) anchored[id] = true;
+        // 照原图分地的剧本(从当前世界导入的)里归城的地块：城还领着就留给城(见 WorldMap.WorldMapWilderness.Keep)
+        foreach (int id in WorldMap.WorldMapWilderness.KeptZones)
+            if (id >= 0 && id < size && _zones[id]?.city != null) anchored[id] = true;
 
         // 连片：同类型四邻相连
         var piece = new int[size];

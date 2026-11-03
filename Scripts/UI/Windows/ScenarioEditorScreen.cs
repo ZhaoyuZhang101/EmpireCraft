@@ -1952,6 +1952,14 @@ public static class ScenarioEditorScreen
         if (ScenarioEditing.LandCells.Count > 0)
         {
             var areaOf = new Dictionary<string, string>();
+            // "c:城编号"的地块直接归那座城(城市边界照原图)
+            var cityIndexOf = new Dictionary<string, int>();
+            int index = 0;
+            foreach (WorldMapCity city in ScenarioEditing.Cities)
+            {
+                if (!string.IsNullOrEmpty(city.id)) cityIndexOf[city.id] = index;
+                index++;
+            }
             int offX = Mathf.FloorToInt(_lon0 / ScenarioCells.LandStep + 0.5f * _step / ScenarioCells.LandStep);
             int offY = Mathf.FloorToInt(_lat0 / ScenarioCells.LandStep + 0.5f * _step / ScenarioCells.LandStep);
             foreach (KeyValuePair<int, string> pair in ScenarioEditing.LandCells)
@@ -1970,6 +1978,7 @@ public static class ScenarioEditorScreen
                 if (area == null) continue;
                 _fillOwner[at] = SlotOf(slots, area);
                 _fillFixed[at] = true;
+                if (pair.Value[0] == 'c' && cityIndexOf.TryGetValue(pair.Value.Substring(2), out int painted)) _fillCity[at] = painted;
             }
         }
 
@@ -2233,7 +2242,14 @@ public static class ScenarioEditorScreen
     // p: 取那国都城的法理；帝国法理、天下再往上找；行政区层不钉(开局归那国最近的城，在哪个行政区随那座城)
     private static string PaintArea(string key)
     {
-        if (key == null || key.Length < 3 || _layer == Layer.Division) return null;
+        if (key == null || key.Length < 3) return null;
+        // "c:城编号"：照原图归城的地块(从当前世界导入的剧本，见 ScenarioWorldExport)，各层都随那座城
+        if (key[0] == 'c')
+        {
+            WorldMapCity city = ScenarioEditing.City(key.Substring(2));
+            return city == null || !ScenarioEditing.Active(city) ? null : AreaKey(city);
+        }
+        if (_layer == Layer.Division) return null;
         string id = key.Substring(2);
         bool byRealm = key[0] == 'p';
         string region = byRealm ? ScenarioEditing.City(ScenarioEditing.Polity(id)?.capital)?.region : id;

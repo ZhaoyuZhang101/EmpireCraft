@@ -150,7 +150,9 @@ public class TechWindow : AbstractWideWindow<TechWindow>
         float bonus = TechnologySystem.GetResearchBonus(_culture);
         List<TechNodeConfig> activeResearch = TechnologySystem.GetResearchTargets(_culture);
 
-        var panel = BeginSection(76f + 14f * Math.Max(0, activeResearch.Count - 1), "FactionFrame_dominate");
+        // 下一时代要什么(见 TechnologySystem.GetEraTier)：节点科技研究了没有、此前各时代的科技研究了几项
+        TechEraConfig nextEra = TechnologySystem.GetNextEra(_culture, out int eraHave, out int eraNeed, out bool nodeDone);
+        var panel = BeginSection(76f + 14f * Math.Max(0, activeResearch.Count - 1) + (nextEra != null ? 14f : 0f), "FactionFrame_dominate");
         var tags = panel.BeginHoriGroup(new Vector2(PanelWidth - 10f, 13), TextAnchor.MiddleCenter, 6);
         AddTag(tags, TechGraphView.Icon("ui/icons/iconCulture"), _culture.GetCultureTranslate(), colorHex);
         AddTag(tags, TechGraphView.Icon("ui/icons/iconKnowledge"), TechnologySystem.GetEraName(_culture), "#F3C34A");
@@ -163,6 +165,10 @@ public class TechWindow : AbstractWideWindow<TechWindow>
         AddLine(panel, string.Format(LM.Get("tech_overview_counts"),
             state.researched_techs.Count, techCount, state.discovered_materials.Count, materialCount) + "  " +
             string.Format(LM.Get("tech_parallel_hint"), TechnologySystem.GetResearchSlots(_culture)));
+        if (nextEra != null)
+            AddLine(panel, string.Format(LM.Get("tech_next_era"), LM.Get(nextEra.key),
+                string.Join(LM.Get("tech_next_era_or"), nextEra.node.Select(TechnologySystem.GetTechName)),
+                LM.Get(nodeDone ? "tech_next_era_done" : "tech_next_era_todo"), eraHave, eraNeed));
         // 文化发明、国家采纳：本国还没采纳的科技
         if (_kingdom != null)
         {
