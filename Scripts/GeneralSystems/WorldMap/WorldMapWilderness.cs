@@ -37,7 +37,7 @@ namespace EmpireCraft.Scripts.GeneralSystems.WorldMap;
 public sealed class WorldMapWildUnit
 {
     public string id = "";
-    // 能对上的无人区类型(mountain、desert、tundra、jungle、swamp)
+    // 能对上的无人区类型(mountain、desert、tundra、jungle、swamp；lava 地球上没有，不写)
     [JsonProperty("k")] public List<string> kinds = new();
     public string zh = "";
     public string tw = "";
@@ -362,6 +362,9 @@ public static class WorldMapWilderness
         WildKind.Tundra => "tundra",
         WildKind.Jungle => "jungle",
         WildKind.Swamp => "swamp",
+        // 地球地图没有岩浆，wilderness.json 不写 lava；导入地图、从当前世界导入的剧本也把岩浆当山(见 ScenarioWorldExport.TypeOf)，
+        // 这里只为对得上类型，进世界后神力放的岩浆划出来的熔岩照常按文化起名
+        WildKind.Lava => "lava",
         _ => null
     };
 

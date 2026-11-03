@@ -130,7 +130,7 @@ public static class WildernessDevelopmentSystem
     // 有地块过半、开满(或改回)时 +1(通行据此重算，见 WildernessPassage)
     public static int Version { get; private set; }
 
-    // 哪些无人区开发(雨林、大泽；山脉、沙漠、冻原固定)
+    // 哪些无人区开发(雨林、大泽；山脉、沙漠、冻原、熔岩固定)
     public static bool Develops(WildKind kind) => kind is WildKind.Jungle or WildKind.Swamp;
 
     private sealed class Realm

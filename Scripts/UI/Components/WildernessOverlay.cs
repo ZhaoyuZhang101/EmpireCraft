@@ -14,8 +14,8 @@ namespace EmpireCraft.Scripts.UI.Components;
 //   · 铺在国家色块之下、路网之上(与城市平面图层同一档；无人区地块没有城，两层不重叠)：国色、国界压在上面，
 //     平滑国界伸进来的国土照样盖住它；贴图着色同色块(随地图不透明度设置)，地形浮雕透上来；
 //   · 底色取划区时定的 WildRegion.Color(按类型定色系、按编号微调，挨着的两片不至于一个颜色)；两种画法：
-//       类型色(纯净地图下各图层；普通地图的国家、帝国、城市平面图层)：山脉灰褐、沙漠沙黄、冻原冰白偏蓝、雨林深绿、大泽青绿，
-//       半透明铺满(不透明度取国色的 FillShare)，再按类型撒纹样(山的人字、沙丘短纹、雪花、林团、沼泽横纹)；
+//       类型色(纯净地图下各图层；普通地图的国家、帝国、城市平面图层)：山脉灰褐、沙漠沙黄、冻原冰白偏蓝、雨林深绿、大泽青绿、熔岩暗红，
+//       半透明铺满(不透明度取国色的 FillShare)，再按类型撒纹样(山的人字、沙丘短纹、雪花、林团、沼泽横纹、熔岩亮橙的斜裂纹)；
 //       外沿画一道浅色虚线，只画在挨着无主地、别片无人区的边上(挨着国土的那边有国界，不再画)；
 //       并进国土的地块(挂了法理、被某国取得，见 WildernessTerritory)由国色画，这层什么都不画(用户 10-30 "像王国纳入帝国图层
 //       或者城市纳入王国一样")：同国土一个样，名字只在悬停时看；
@@ -212,6 +212,7 @@ public static class WildernessOverlay
         region = zone.city == null ? WildernessSystem.RegionOf(zone) : null;
         if (region == null || region.Kind == WildKind.None) return zone.city != null ? 1 : 0;
         absorbed = Absorbed(zone);
+        // 类型占三位(熔岩为 6，至多到 7；再加类型要另腾位)
         return ((region.Id & 0xFFFFF) << 4 | (int)region.Kind << 1 | (absorbed ? 1 : 0)) + 2;
     }
 
@@ -493,7 +494,7 @@ public static class WildernessOverlay
         return color;
     }
 
-    // 各类型的底色(山脉灰褐、沙漠沙黄、冻原冰白偏蓝、雨林深绿、大泽青绿)
+    // 各类型的底色(山脉灰褐、沙漠沙黄、冻原冰白偏蓝、雨林深绿、大泽青绿、熔岩暗红)
     private static Color32 BaseOf(WildKind kind) => kind switch
     {
         WildKind.Mountain => new Color32(140, 122, 102, 255),
@@ -501,10 +502,11 @@ public static class WildernessOverlay
         WildKind.Tundra => new Color32(214, 232, 248, 255),
         WildKind.Jungle => new Color32(42, 108, 58, 255),
         WildKind.Swamp => new Color32(64, 136, 120, 255),
+        WildKind.Lava => new Color32(168, 62, 36, 255),
         _ => new Color32(160, 160, 150, 255)
     };
 
-    // 纹样色：山、沙、林、泽深一档，雪原的雪花是白的
+    // 纹样色：山、沙、林、泽深一档，雪原的雪花是白的，熔岩的裂纹是亮橙的(暗红底上透出来的岩浆，比深一档的醒目)
     private static Color32 MarkOf(WildKind kind) => kind switch
     {
         WildKind.Mountain => new Color32(88, 72, 56, 255),
@@ -512,6 +514,7 @@ public static class WildernessOverlay
         WildKind.Tundra => new Color32(255, 255, 255, 255),
         WildKind.Jungle => new Color32(20, 66, 32, 255),
         WildKind.Swamp => new Color32(30, 92, 108, 255),
+        WildKind.Lava => new Color32(255, 150, 52, 255),
         _ => new Color32(100, 100, 96, 255)
     };
 
@@ -549,6 +552,12 @@ public static class WildernessOverlay
                 // 沼泽横纹
                 int lx = (x + y / 4 % 2 * 3) % 6, ly = y % 4;
                 return ly == 1 && lx <= 2;
+            }
+            case WildKind.Lava:
+            {
+                // 熔岩裂纹(斜的三格短纹)：6×5 一组，错行半组
+                int lx = (x + y / 5 % 2 * 3) % 6, ly = y % 5;
+                return ly >= 1 && ly <= 3 && lx == ly;
             }
         }
         return false;

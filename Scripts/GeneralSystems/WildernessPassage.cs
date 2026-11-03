@@ -10,6 +10,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 无人区(见 WildernessSystem)里有修通的路的地块能走——各国修通的干道、神力画的路(都并在路网里，见 RoadNetwork.IsRoad)；
 //   · 没路的：山脉、丛林、沼泽谁都过不去；沙漠真游牧(游牧政体加游牧文化，见 KingdomExtension.IsTrueNomad)与阿拉伯制度线
 //     过得去，冻土雪原真游牧过得去(同以前天堑的规矩，按走的一方判；游牧又是阿拉伯的按游牧算)；
+//     熔岩(用户 2026-11-03 "还有无人区你怎么没把岩浆算进去")谁都过不去，游牧、阿拉伯也不例外——岩浆烧人，不是惯不惯走的事。
+//     路照旧放行：路铺不到岩浆格上(RoadNetwork、RoadPaintSystem 都绕开岩浆)，熔岩地里有路只能是沿着没岩浆的格走的，那就是走得通；
 //   · 不在无人区里的地块都能走(山、沙照旧只按地形阻力，见 TerrainResistance)；本国的无人区(挂在本国法理上)也一样按这个判；
 //   · 开发度过半的雨林、大泽地块(见 WildernessDevelopmentSystem)有了小路，同有路，谁都能走。
 // 用的地方：行政控制力与飞地、开战够不够得着、开战定目标(AdministrativeControlSystem、WarReach，替掉以前量天堑深浅的那套)，
@@ -21,7 +23,7 @@ public static class WildernessPassage
 {
     // 走的一方惯走哪几样(见 Habit)：定居、惯走沙漠(阿拉伯)、惯走沙漠冻土(真游牧)；连片按这三种走法各一份，另一份(Land)不看无人区
     private const int Settled = 0, DesertWise = 1, Nomadic = 2, Land = 3;
-    // 各类无人区没路时哪几种走法过不去(按 1 << 走法 记位)
+    // 各类无人区没路时哪几种走法过不去(按 1 << 走法 记位)；熔岩同山脉、丛林、沼泽为 AllBlocks
     private const byte DesertBlocks = 1 << Settled, TundraBlocks = (1 << Settled) | (1 << DesertWise),
         AllBlocks = (1 << Settled) | (1 << DesertWise) | (1 << Nomadic);
     // 连片的工作值：还没走到、过不去
@@ -151,6 +153,8 @@ public static class WildernessPassage
         {
             WildKind.Desert => DesertBlocks,
             WildKind.Tundra => TundraBlocks,
+            // 熔岩谁都不惯走(见类头)
+            WildKind.Lava => AllBlocks,
             _ => AllBlocks
         };
     }

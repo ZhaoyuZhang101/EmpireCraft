@@ -2721,10 +2721,12 @@ public static class ScenarioEditorScreen
     {
         _wildInfoVersion = ScenarioWilderness.Version;
         _wildSizeBtn.Set(LM.Get("world_map_size_" + Mathf.Clamp(ScenarioWilderness.SizeIndex, 0, 2)), ViewColor);
-        var regions = new int[6];
-        var zones = new int[6];
+        // 按类型编号记(1 山脉 … 6 熔岩，见 WildKind)；多了类型这里跟着放大
+        int kindCount = (int)WildKind.Lava + 1;
+        var regions = new int[kindCount];
+        var zones = new int[kindCount];
         ScenarioWilderness.Summary(regions, zones, out int neutral);
-        string kinds = string.Join(LM.Get("list_separator"), Enumerable.Range(1, 5).Where(kind => regions[kind] > 0)
+        string kinds = string.Join(LM.Get("list_separator"), Enumerable.Range(1, kindCount - 1).Where(kind => regions[kind] > 0)
             .Select(kind => string.Format(LM.Get("scenario_editor_wild_kind_count"), KindName((WildKind)kind), regions[kind], zones[kind])));
         WorldMapFrame frame = ScenarioWilderness.Frame;
         Vector2Int size = ScenarioWilderness.Size;

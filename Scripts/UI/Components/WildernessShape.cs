@@ -11,8 +11,10 @@ namespace EmpireCraft.Scripts.UI.Components;
 // (SmoothBorders.Canvas)照同一份画，同一格不会既是国色又是无人区色，也不留缝：
 //   · 外沿：每格按周围 3×3 块做 B 样条加噪声(同国界，见 SmoothBorders.CityAt)，候选三类——各片无人区、有城的地、无主地；
 //     只定无人区与别的地之间那条线(城与城之间画布自己分)，台阶变成和国界一个样子的圆弧、起伏；
-//   · 贴地形：判给无人区的格子里，地形属于这一类的才算(WildernessSystem.GroundKind，同归类的口径：山脉看山地山巅连同挨着山的丘陵，
-//     沙漠冻原看沙地荒漠冻土雪地、雨林大泽看丛林沼泽——这两对归类时合算，这里也合算)。不属于的(边上的草地、绿洲、山间谷地)：
+//   · 贴地形：判给无人区的格子里，地形属于这一类的才算(WildernessSystem.GroundKind，同归类的口径：山脉看山地山巅连同挨着山的丘陵
+//     与零星的岩浆，熔岩看岩浆格连同山地山巅(火山的山体)，沙漠冻原看沙地荒漠冻土雪地、雨林大泽看丛林沼泽——这两对归类时合算，
+//     这里也合算)。岩浆格不是水面(同画布)，以前 GroundKind 把它当水什么都不算，熔岩、火山口那几格成了窟窿或交给邻城；
+//     不属于的(边上的草地、绿洲、山间谷地)：
 //       - 离外面(不是无人区的地)ReachSteps 步以内连得出去的(Claim)：画布照常交给邻城，没有城的露地形——国界沿沙漠、山脉的真实轮廓走；
 //         并进国土的无人区里，邻城不要的归这片的持有国；
 //       - 连不出去的(Hole)：包在里面的洞，露地形、不描外沿(并进国土的照样涂国色)；单格的洞(八邻里 FillNeighbours 格是这片的)补上，
@@ -43,7 +45,7 @@ public static class WildernessShape
     // 块的候选：有城的地、无主地；无人区是槽号(≥1)
     private const int CityKey = -1, EmptyKey = 0;
     private const int CitySeed = 1013904223, GrowSeed = 4241;
-    // 一格的地形(缓存在 _cls)：水面、山地、丘陵，低三位是地面属哪一类(WildKind)
+    // 一格的地形(缓存在 _cls)：水面、山地、丘陵，低三位是地面属哪一类(WildKind，熔岩为 6，三位放得下；再加类型要另腾位)
     private const byte ClsWater = 0x80, ClsRock = 0x40, ClsHills = 0x20, ClsGround = 0x07;
 
     private static object _world;
@@ -467,8 +469,10 @@ public static class WildernessShape
         {
             case WildKind.Mountain:
                 // 无人区地块里的丘陵都算山脉(地块按山地连同丘陵过半收进来的，见 WildernessSystem 外沿放宽；以前只认挨着山的，
-                // 山脚的丘陵带收进来了却不涂，用户 2026-10-29 "你这无人区也没覆盖完全啊")；往外伸时仍只伸挨着山的丘陵
-                return (cls & ClsRock) != 0 || (cls & ClsHills) != 0 && (!strict || RockNear(x, y));
+                // 山脚的丘陵带收进来了却不涂，用户 2026-10-29 "你这无人区也没覆盖完全啊")；往外伸时仍只伸挨着山的丘陵。
+                // 山里零星的岩浆也算(归类时够不上熔岩的岩浆算山地)，往外伸时不伸
+                return (cls & ClsRock) != 0 || (cls & ClsHills) != 0 && (!strict || RockNear(x, y)) ||
+                       !strict && ground == (int)WildKind.Lava;
             case WildKind.Desert:
                 return ground == (int)WildKind.Desert || !strict && ground == (int)WildKind.Tundra;
             case WildKind.Tundra:
@@ -477,6 +481,9 @@ public static class WildernessShape
                 return ground == (int)WildKind.Jungle || !strict && ground == (int)WildKind.Swamp;
             case WildKind.Swamp:
                 return ground == (int)WildKind.Swamp || !strict && ground == (int)WildKind.Jungle;
+            case WildKind.Lava:
+                // 岩浆格；火山的山体(山地山巅，归类时连岩浆算的那部分)也算，往外伸时只伸岩浆
+                return ground == (int)WildKind.Lava || !strict && (cls & ClsRock) != 0;
         }
         return false;
     }
