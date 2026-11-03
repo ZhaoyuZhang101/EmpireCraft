@@ -427,6 +427,10 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
         {
             return null;
         }
+        // 没有都城立不了国(帝国法理的都城、史书里的立国之地都从这里取)。城全丢了的残余政权只剩君主还在，以前照样往下走：
+        // 没有帝国法理的在 newEmpireCore 空引用(11-02 那局 133 次)，帝国和"称帝"的状态都丢在半路；有帝国法理的成立一个 0 城政府。
+        // 两种都是下一轮存续检查解散、过几个月再来一遍，直到君主寿终(苏罗娑一任总统 20 年里 72 回)
+        if (!EnsureCapitalForNewEmpire(pKingdom)) return null;
         if (!EnsureKingForNewEmpire(pKingdom))
         {
             LogService.LogWarning($"[EmpireManager] Failed to create empire for kingdom {pKingdom?.name}: no valid king candidate.");
@@ -490,6 +494,18 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
         }
         
         return empire;
+    }
+
+    // 都城刚失守、原版 AI 还没另选的(要等这一国下次 AI，见 KingdomBehCheckCapital)：按同样的规则当场选一座；一座城都没有就立不了
+    private static bool EnsureCapitalForNewEmpire(Kingdom kingdom)
+    {
+        if (kingdom.hasCapital() && kingdom.capital.isAlive()) return true;
+        City seat = null;
+        foreach (City city in kingdom.getCities())
+            if (seat == null || city.buildings.Count > seat.buildings.Count) seat = city;
+        if (seat == null) return false;
+        kingdom.setCapital(seat);
+        return true;
     }
 
     private static bool EnsureKingForNewEmpire(Kingdom kingdom)

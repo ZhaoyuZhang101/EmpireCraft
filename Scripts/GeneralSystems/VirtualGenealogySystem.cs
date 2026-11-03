@@ -579,15 +579,28 @@ public static partial class VirtualGenealogySystem
         return best;
     }
 
-    // 每年结算一次虚拟族人的身故(由 CityPopulationSystem 每帧调用，年度到期才做)。
-    // 身故排在最前：到期就先做，族长检查、族谱瘦身做到一半的先停着，身故做完再接着做。以前瘦身排在身故前面，
-    // 族谱大、游戏开得快时瘦身一轮做不完一年，做完又到期重来，身故检查轮不上，几十年才碰巧做一回
-    // (用户 10-30 转群友截图：族人一两百岁、五百岁才寿终正寝；盛唐存档 237 年，在世的虚拟族人五百多个过了百岁，
-    // 身故隔几十年成批来一回)
+    // 每年结算一次虚拟族人的身故、整理一遍族谱(由 CityPopulationSystem 每帧调用，年度到期才做)。
+    // 这两条线隔帧轮流，一条没活时当帧让给另一条，谁排在谁前面都会把后面的饿死：
+    //   · 以前瘦身排在身故前面，族谱大、游戏开得快时瘦身一轮做不完一年，做完又到期重来，身故检查轮不上，几十年才碰巧做一回
+    //     (用户 10-30 转群友截图：族人一两百岁、五百岁才寿终正寝；盛唐存档 237 年，在世的虚拟族人五百多个过了百岁，
+    //     身故隔几十年成批来一回)；
+    //   · 后来身故排最前又反过来：帧慢时身故一轮就要占掉一年的大半甚至全部，做完又到期，族长检查、瘦身排不上。
+    //     11-02 那局 1 万多虚拟族人、均帧两百毫秒，瘦身在世界时间 17800 之后再没做过，宗族从 1.2 万涨到 3.2 万，
+    //     族谱身份从 4.8 万涨到 14.9 万(存档 186 MB，族谱占 139 MB)，19458 个全死的宗族一直没人管
     public static void Tick()
     {
         if (World.world == null) return;
         EnsureIndex();
+        double now = World.world.getCurWorldTime();
+        _upkeepTurn = !_upkeepTurn;
+        if (_upkeepTurn && TickUpkeep(now)) return;
+        if (TickDeaths(now)) return;
+        if (!_upkeepTurn) TickUpkeep(now);
+    }
+
+    // 身故一线；这一帧做了事返回 true
+    private static bool TickDeaths(double now)
+    {
         // 上一轮还没检查完：接着分帧做(以前一帧检查全部虚拟族人，族谱大时一次卡几百毫秒)
         if (DeathQueue.Active)
         {
@@ -597,9 +610,8 @@ public static partial class VirtualGenealogySystem
                 ComputeMagnates();
                 HeadQueue.Start(SpecificClanManager._specificClans.Where(clan => clan != null).Select(clan => clan.id).ToList());
             }
-            return;
+            return true;
         }
-        double now = World.world.getCurWorldTime();
         // 族谱还没载入(读档途中)不算一轮
         if (SpecificClanManager._globalPersonLookup.Count > 0 &&
             (_lastDeathPass < 0d || now < _lastDeathPass || Date.getYearsSince(_lastDeathPass) >= 1))
@@ -611,18 +623,24 @@ public static partial class VirtualGenealogySystem
             {
                 DeathQueue.Start(VirtualIds.ToList());
                 DeathQueue.Tick();
-                return;
+                return true;
             }
         }
+        return false;
+    }
+
+    // 族长检查、族谱瘦身一线；这一帧做了事返回 true
+    private static bool TickUpkeep(double now)
+    {
         if (HeadQueue.Active)
         {
             HeadQueue.Tick();
-            return;
+            return true;
         }
         if (PruneQueue.Active)
         {
             if (PruneQueue.Tick()) FinishPrune();
-            return;
+            return true;
         }
         // 世界还没载入完(宗族列表是空的)时不算一轮，免得开局空跑一次就要等一年
         if (SpecificClanManager._specificClans.Count > 0 &&
@@ -635,7 +653,9 @@ public static partial class VirtualGenealogySystem
             _thinnedClans = 0;
             CollectHistoryActors();
             PruneQueue.Start(SpecificClanManager._specificClans.Where(clan => clan != null).Select(clan => clan.id).ToList());
+            return true;
         }
+        return false;
     }
 
     private static void RebuildVirtualIds()
@@ -660,6 +680,7 @@ public static partial class VirtualGenealogySystem
         new(1.5d, PruneClan, "族谱瘦身");
     private static readonly HashSet<long> PrunedClans = new();
     private static double _lastPrunePass = -1d;
+    private static bool _upkeepTurn;
     private static int _prunedPeople, _trimmedRecords, _thinnedClans;
 
     // 绝嗣满百年的宗族只留要人(用户 2026-10-27 问答选"灭绝百年的只留要人"：存档 154MB，族谱占 112MB，3.37 万个宗族里

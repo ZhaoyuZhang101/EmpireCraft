@@ -20,7 +20,8 @@ public static class ModernStateFormationSystem
 {
     public static bool TryUpdate(Kingdom kingdom)
     {
-        if (kingdom == null || kingdom.isRekt() || kingdom.GetRegime()?.type != RegimeType.Modern ||
+        // 一座城都没有的残余政权：谈不上组建政府，也不用改名、认领法理，等它收复城池或者君主寿终
+        if (kingdom == null || kingdom.isRekt() || !kingdom.hasCities() || kingdom.GetRegime()?.type != RegimeType.Modern ||
             kingdom.GetAdministrativeTitle() != null)
             return false;
         if (TryGetSameCoreOverlord(kingdom, out Kingdom overlord) &&
