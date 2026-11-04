@@ -199,7 +199,7 @@ public static class ScenarioEditorScreen
     // 无人区预测(见 ScenarioWilderness)：右栏卡片(预测按哪档大小、几片几块)；刷地块的「永久中立区」笔刷；刷地形的「开发度」笔刷与刷的数
     private static RectTransform _wildCard, _terrainPalette;
     private static Text _wildInfo;
-    private static Btn _wildSizeBtn, _neutralBrushBtn, _developBrushBtn, _developValueBtn, _clearDevelopBtn;
+    private static Btn _wildSizeBtn, _wildOwnBtn, _neutralBrushBtn, _developBrushBtn, _developValueBtn, _clearDevelopBtn;
     private static bool _neutralBrush, _developBrush;
     private static int _developValue = 30, _wildInfoVersion = int.MinValue;
     // 预览各像素的地形标记(给无人区预测，见 ScenarioWilderness.CellOf)：地球的烘一次留着，工作的叠刷的地形，改一次 +1
@@ -639,6 +639,7 @@ public static class ScenarioEditorScreen
         // 无人区(预测)：按哪档大小预测(世界地图窗口里生成时选的那档)、预测出几片几块、开发度按哪个时代的表
         _wildCard = Card(side, LM.Get("scenario_editor_card_wild"));
         _wildSizeBtn = Cycler(_wildCard, LM.Get("scenario_editor_wild_size"), step => ScenarioWilderness.SizeIndex = ((ScenarioWilderness.SizeIndex + step) % 3 + 3) % 3);
+        _wildOwnBtn = Cycler(_wildCard, LM.Get("scenario_editor_wild_own"), _ => ScenarioEditing.ToggleOwnWilderness());
         _wildInfo = Label(_wildCard, "Info", 14, TextColor, TextAnchor.UpperLeft, true);
 
         _cityCard = Card(side, LM.Get("scenario_editor_card_city"));
@@ -2734,6 +2735,8 @@ public static class ScenarioEditorScreen
     {
         _wildInfoVersion = ScenarioWilderness.Version;
         _wildSizeBtn.Set(LM.Get("world_map_size_" + Mathf.Clamp(ScenarioWilderness.SizeIndex, 0, 2)), ViewColor);
+        bool ownWild = ScenarioEditing.Era?.own_wilderness == true;
+        _wildOwnBtn.Set(LM.Get(ownWild ? "scenario_editor_wild_own_on" : "scenario_editor_wild_own_follow"), ViewColor);
         // 按类型编号记(1 山脉 … 6 熔岩，见 WildKind)；多了类型这里跟着放大
         int kindCount = (int)WildKind.Lava + 1;
         var regions = new int[kindCount];
@@ -2751,6 +2754,8 @@ public static class ScenarioEditorScreen
                              size.x * 64, size.y * 64, ScenarioWilderness.ZoneDegrees.ToString("0.##"), regions.Sum(), zones.Sum(),
                              kinds.Length == 0 ? LM.Get("scenario_editor_none") : kinds, neutral) + "\n" + tableText + "\n" +
                          (ScenarioWilderness.SettingOff ? LM.Get("scenario_editor_wild_setting_off") + "\n"
+                             : ownWild && ScenarioEditing.Era?.exact == true ? LM.Get("scenario_editor_wild_own_exact") + "\n"
+                             : ownWild ? LM.Get("scenario_editor_wild_own_note") + "\n"
                              : ScenarioEditing.Era?.exact == true ? LM.Get("scenario_editor_wild_exact") + "\n" : "") +
                          LM.Get("scenario_editor_wild_note");
     }

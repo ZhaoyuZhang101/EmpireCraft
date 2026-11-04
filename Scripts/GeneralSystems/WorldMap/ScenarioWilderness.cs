@@ -18,6 +18,7 @@ namespace EmpireCraft.Scripts.GeneralSystems.WorldMap;
 //   · 照原图分地的剧本(从当前世界导入的，见 ScenarioWorldExport、WorldMapEra.exact；群友 2026-11-04 截图导入的西藏显示"山脉无人区，
 //     法理：最近的城")：开局只按刷的分地，这里同样不往外铺、不补小国；刷成 "c:城编号" 的地块留给那座城(同 WorldMapWilderness.Keep)，
 //     放不下的城对不上、那块没人领；刷 p:、r: 的归那国、那块法理最近的城但不留，地形够无人区的照常划走、定挂法理(见 Claims)；
+//     本剧本开了无人区(WorldMapEra.own_wilderness)的，"c:" 也不留，地形够的划走、挂那座城的法理；
 //   · 设置(同 WildernessSystem.Enabled、JungleDeveloped)：编辑器只编自定剧本，「无人区」关着就不划；「雨林全开发」只管导入地图，地球地图雨林照常判；
 //   · 时代开发度(见 WorldMapDevelopment)：从预设复制来的剧本按来源时代(WorldMapEra.base)的表，把当年没开出来的草木平地算回
 //     丛林、大泽再归类(离城越近开发度越高，开满的不改)；剧本刷的开发度(develop)盖过时代表，刷满 100 的雨林大泽开满、留给城；
@@ -233,7 +234,8 @@ public static class ScenarioWilderness
         }
         string table = era.map == null ? WorldMapData.BaseOf(era) : null;
         int key = Hash(_gridRevision, geometry, _seatKey, ScenarioEditing.DevelopRevision, table?.GetHashCode() ?? 0, era.map == null ? 1 : 2,
-            era.wilderness?.Count ?? 0, era.exact ? ScenarioEditing.LandRevision + 1 : 0, (WildOff(era) ? 1 : 0) | (JungleOff(era) ? 2 : 0));
+            era.wilderness?.Count ?? 0, era.exact ? ScenarioEditing.LandRevision + 1 : 0,
+            (WildOff(era) ? 1 : 0) | (JungleOff(era) ? 2 : 0) | (era.own_wilderness ? 4 : 0));
         float now = Time.unscaledTime;
         if (_layout == null || _layout.Key != key && allowHeavy && now - _heavyAt >= HeavySeconds)
         {
@@ -264,7 +266,7 @@ public static class ScenarioWilderness
 
     // 这张图开局划不划无人区、雨林算不算开发完(同 WildernessSystem.Enabled、JungleDeveloped)：编辑器只编自定剧本(见 ScenarioEditing.Open)，
     // 无人区都照设置；雨林全开发只管导入地图。还没进世界，不能直接问那两个属性(里面的 ForcesWild、OnEarth 是上一局的)
-    private static bool WildOff(WorldMapEra era) => era != null && !WildernessSystem.EnabledSetting;
+    private static bool WildOff(WorldMapEra era) => era != null && !era.own_wilderness && !WildernessSystem.EnabledSetting;
     private static bool JungleOff(WorldMapEra era) => era?.map != null && WildernessSystem.JungleDevelopedSetting;
 
     // 这张图因模组设置关着无人区，开局不划(编辑器的无人区卡片说一句)
@@ -548,7 +550,7 @@ public static class ScenarioWilderness
                 best = seat;
             }
             layout.Claim[z] = best;
-            if (!toCity) continue;
+            if (!toCity || ScenarioEditing.Era?.own_wilderness == true) continue;
             layout.Kept[z] = true;
             anchored[z] = true;
         }

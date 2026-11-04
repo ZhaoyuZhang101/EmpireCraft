@@ -101,6 +101,9 @@ public class WorldMapWildSave
     public List<int> neutral;
     // 照原图分地的剧本(从当前世界导入的，见 WorldMapEra.exact)里归城的地块：城还领着就不划成无人区(见 WildernessSystem.Regroup)
     public List<int> kept;
+    // 本剧本开无人区(见 WorldMapEra.own_wilderness)：随存档，这一局一直开着；照原图归城的地块 → 那座城
+    public bool own_wild;
+    public Dictionary<int, long> city_claims;
 }
 
 public static class WorldMapWilderness
@@ -126,6 +129,14 @@ public static class WorldMapWilderness
     private static bool Active => _state != null && _frame != null;
     // 照原图归城的地块(见 WorldMapWildSave.kept)
     private static HashSet<int> _kept;
+    // 本剧本开无人区、转成法理无人区的归城地块(见 WorldMapWildSave.own_wild、city_claims)。导入地图没有 _state，单独记
+    private static bool _ownWild;
+    private static Dictionary<int, long> _cityClaims;
+
+    public static void SetOwnWild(bool on) => _ownWild = on;
+
+    // 这些地块地形够无人区的，划走后挂这座城的法理、跟着这座城(同州府锚点，见 AnchorCity)
+    public static void SetCityClaims(Dictionary<int, long> claims) => _cityClaims = claims is { Count: > 0 } ? claims : null;
 
     // 照原图分地的剧本开局(WorldMapScenario.Finish)：记下归城的地块
     public static void Keep(IEnumerable<int> zones)
@@ -148,8 +159,9 @@ public static class WorldMapWilderness
 
     // 这一局是世界地图预设剧本：无人区一直开着，不看模组设置(史实归属、地名、各时代开发度靠它)。自定剧本(编号 custom/<文件夹>，手做的、
     // 从当前世界导入的)是玩家自己的图，同样照设置开关(用户 2026-11-04 选"自定剧本也听设置")
-    internal static bool ForcesWild => Active && !(_state.era ?? "").StartsWith("custom/", StringComparison.Ordinal);
-    internal static bool FixedLayout => ForcesWild;
+    // 自定剧本自己开了无人区的也算(见 WorldMapEra.own_wilderness)；固定版图仍只有预设剧本
+    internal static bool ForcesWild => _ownWild || FixedLayout;
+    internal static bool FixedLayout => Active && !(_state.era ?? "").StartsWith("custom/", StringComparison.Ordinal);
 
     #region 开局、存读档
 
@@ -161,7 +173,8 @@ public static class WorldMapWilderness
         _state.bounded_anchors = bounded == null ? null : new HashSet<int>(bounded);
     }
 
-    internal static bool BoundedAnchor(TileZone zone) => zone != null && _state?.bounded_anchors?.Contains(zone.id) == true;
+    internal static bool BoundedAnchor(TileZone zone) => zone != null &&
+        (_cityClaims?.ContainsKey(zone.id) == true || _state?.bounded_anchors?.Contains(zone.id) == true);
     internal static bool NeedsBoundaryRepair => Active && _state.boundary_revision < 1;
     internal static void MarkBoundaryRepaired() { if (_state != null) _state.boundary_revision = 1; }
 
@@ -288,7 +301,10 @@ public static class WorldMapWilderness
     // 这块地按州府锚点归哪座城(没有、城没了为 null)：无人区挂它的王国法理，跟着它的行政区(见 WildernessSystem.Attach)
     internal static City AnchorCity(TileZone zone)
     {
-        if (_state?.anchors == null || zone == null || !_state.anchors.TryGetValue(zone.id, out long id)) return null;
+        if (zone == null) return null;
+        // 照原图归城的地块先认原来那座城
+        if ((_cityClaims == null || !_cityClaims.TryGetValue(zone.id, out long id)) &&
+            (_state?.anchors == null || !_state.anchors.TryGetValue(zone.id, out id))) return null;
         City city = World.world?.cities?.get(id);
         return city?.data != null && city.isAlive() ? city : null;
     }
@@ -330,6 +346,8 @@ public static class WorldMapWilderness
         }
         if (saved.neutral is { Count: > 0 }) _neutral = new HashSet<int>(saved.neutral);
         if (saved.kept is { Count: > 0 }) _kept = new HashSet<int>(saved.kept);
+        _ownWild = saved.own_wild;
+        SetCityClaims(saved.city_claims);
         _state = saved;
         Bind();
         if (_painted != null || _neutral != null || _state?.regional is { Count: > 0 } || NeedsBoundaryRepair) WildernessSystem.RequestReattach();
@@ -345,11 +363,14 @@ public static class WorldMapWilderness
         List<int> kept = _kept is { Count: > 0 } ? _kept.OrderBy(id => id).ToList() : null;
         if (!Active)
             // 导入地图：只存刷的归属与照原图归城的地块(范围为空，读档不当地球)
-            return paint == null && neutral == null && kept == null ? null : new WorldMapWildSave { paint = paint, neutral = neutral, kept = kept };
+            return paint == null && neutral == null && kept == null && !_ownWild && _cityClaims == null ? null
+                : new WorldMapWildSave { paint = paint, neutral = neutral, kept = kept, own_wild = _ownWild, city_claims = _cityClaims };
         ResolveOwners();
         _state.paint = paint;
         _state.neutral = neutral;
         _state.kept = kept;
+        _state.own_wild = _ownWild;
+        _state.city_claims = _cityClaims;
         return _state;
     }
 
@@ -365,6 +386,8 @@ public static class WorldMapWilderness
         _painted = null;
         _neutral = null;
         _kept = null;
+        _ownWild = false;
+        _cityClaims = null;
     }
 
     private static void Bind()

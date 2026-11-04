@@ -105,6 +105,8 @@ public static class WorldMapScenario
     private static void Plan(WorldMapFrame frame, Vector2Int size, int sizeIndex, WorldMapEra era)
     {
         _era = era;
+        // 开局铺设就要按开着无人区算(见 WorldMapEra.own_wilderness)
+        WorldMapWilderness.SetOwnWild(era?.own_wilderness == true);
         _frame = frame;
         _size = size;
         frame.Bounds(size, out _, out float degreesPerTile);
@@ -1157,6 +1159,17 @@ public static class WorldMapScenario
     // 头一回划无人区时留给城(见 WildernessSystem.Regroup)，原图城的地不被划走
     internal static readonly HashSet<int> PaintedCityZones = new();
 
+    // 照原图归城的地块此刻归哪座城
+    private static Dictionary<int, long> PaintedCityOwners()
+    {
+        var owners = new Dictionary<int, long>();
+        List<TileZone> zones = World.world?.zone_calculator?.zones;
+        if (zones == null) return owners;
+        foreach (TileZone zone in zones)
+            if (zone != null && PaintedCityZones.Contains(zone.id) && zone.city?.data != null) owners[zone.id] = zone.city.data.id;
+        return owners;
+    }
+
     private static int PaintTerritory()
     {
         Dictionary<int, string> paint = ScenarioCells.ToMap(_era?.paint);
@@ -1925,7 +1938,14 @@ public static class WorldMapScenario
                 .GroupBy(polity => polity.data.id).ToDictionary(group => group.Key, group => group.First().capital.city),
             _titleByRegion.Where(pair => pair.Value != null && !pair.Value.isRekt()).ToDictionary(pair => pair.Key, pair => pair.Value)));
         // 照原图分地的剧本：归城的地块记下，城还领着就不划成无人区(见 WorldMapWilderness.Keep)
-        Guard("照原图归城的地块", () => WorldMapWilderness.Keep(_era?.exact == true ? PaintedCityZones : null));
+        // 本剧本开了无人区的不留：城的形状不变，地形够无人区的转成这座城的法理无人区(见 WorldMapEra.own_wilderness)
+        Guard("照原图归城的地块", () =>
+        {
+            bool own = _era?.own_wilderness == true;
+            WorldMapWilderness.SetOwnWild(own);
+            WorldMapWilderness.SetCityClaims(own && _era.exact ? PaintedCityOwners() : null);
+            WorldMapWilderness.Keep(_era?.exact == true && !own ? PaintedCityZones : null);
+        });
         Guard("剧情事件", () => ScenarioEventSystem.Begin(_era,
             _polities.Where(polity => polity.data != null && polity.kingdom?.data != null)
                 .GroupBy(polity => polity.data.id).ToDictionary(group => group.Key, group => group.First().kingdom.data.id),

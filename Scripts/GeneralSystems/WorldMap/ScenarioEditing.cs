@@ -1195,6 +1195,15 @@ public static class ScenarioEditing
         Changed();
     }
 
+    // 本剧本开无人区(见 WorldMapEra.own_wilderness)
+    public static void ToggleOwnWilderness()
+    {
+        if (Era == null) return;
+        Before();
+        Era.own_wilderness = !Era.own_wilderness;
+        Changed();
+    }
+
     public static void CycleImportMode()
     {
         if (Era?.map == null) return;
