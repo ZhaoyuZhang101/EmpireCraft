@@ -1282,8 +1282,8 @@ public static class WorldMapScenario
         for (int zx = 0; zx < zw; zx++)
         {
             var tile = new Vector2Int(zx * 8 + 4, zy * 8 + 4);
-            if (!paint.TryGetValue(ScenarioCells.Key(_frame.west + tile.x * degrees, bottom + tile.y * degrees, ScenarioCells.LandStep),
-                    out string key) || key.Length < 3) continue;
+            if (!ScenarioBrush.ZoneValue(paint, _frame.west + tile.x * degrees, bottom + tile.y * degrees, degrees * 8f, ScenarioCells.LandStep,
+                    ScenarioBrush.NotExact, out string key) || key.Length < 3) continue;
             bool exactCity = key.StartsWith("c:");
             List<PlannedCity> owners = key.StartsWith("p:") ? byPolity.TryGetValue(key.Substring(2), out var p) ? p : null
                 : key.StartsWith("r:") ? byRegion.TryGetValue(key.Substring(2), out var r) ? r : null

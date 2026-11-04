@@ -285,13 +285,17 @@ public static class EarthTerrain
         frame.Bounds(size, out float bottom, out float degrees);
         var resolved = new Dictionary<string, (string main, TopTileType top)>();
         int width = MapBox.width, height = MapBox.height;
+        Dictionary<int, string> dabs = ScenarioBrush.TileOverrides(_overrides, ScenarioCells.TerrainStep, frame.west, bottom, degrees, width, height);
         for (int x = 0; x < width; x++)
         {
             float lon = frame.west + (x + 0.5f) * degrees;
             for (int y = 0; y < height; y++)
             {
                 float lat = bottom + (y + 0.5f) * degrees;
-                string id = TypeAt(lon, lat);
+                string id = dabs != null && !_overrides.ContainsKey(ScenarioCells.Key(lon, lat, ScenarioCells.TerrainStep)) &&
+                            dabs.TryGetValue(y * width + x, out string dab)
+                    ? dab
+                    : TypeAt(lon, lat);
                 if (!resolved.TryGetValue(id, out var parts))
                 {
                     int split = id.IndexOf(':');

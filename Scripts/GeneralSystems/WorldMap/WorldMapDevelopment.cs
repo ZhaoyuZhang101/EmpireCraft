@@ -242,7 +242,8 @@ public static class WorldMapDevelopment
             int index = areas ? AreaAt(lon, lat) : -1;
             float dev;
             bool swamp;
-            if (painted.Count > 0 && painted.TryGetValue(ScenarioCells.Key(lon, lat, ScenarioCells.LandStep), out float mark))
+            bool dabbed = ScenarioBrush.ZoneValue(painted, lon, lat, degrees * 8f, ScenarioCells.LandStep, null, out float mark);
+            if (dabbed)
             {
                 // 刷的：照刷的数；不在哪一片里的按原有的丛林、沼泽哪样多定类型，一格都没有的不改
                 dev = mark;
@@ -275,8 +276,7 @@ public static class WorldMapDevelopment
                 // 同 WildernessDevelopmentSystem.Clear 改回草地：不闪白点，地面格不动(高地仍是高地)
                 MapAction.terraformTop(tile, upland ? high : low, TerraformLibrary.nothing);
             }
-            plots.Add(new Plot { Zone = zone, Area = index, Dev = dev, Painted = painted.Count > 0 && painted.ContainsKey(
-                ScenarioCells.Key(lon, lat, ScenarioCells.LandStep)), Start = start, Count = changed.Count - start });
+            plots.Add(new Plot { Zone = zone, Area = index, Dev = dev, Painted = dabbed, Start = start, Count = changed.Count - start });
         }
         if (plots.Count == 0) return;
 

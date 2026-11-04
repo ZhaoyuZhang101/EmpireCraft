@@ -784,7 +784,7 @@ public static class WorldMapWilderness
             WorldTile tile = zone?.centerTile;
             if (tile == null || zone.id < 0) continue;
             float lon = frame.west + (tile.x + 0.5f) * degrees, lat = bottom + (tile.y + 0.5f) * degrees;
-            if (!cells.TryGetValue(ScenarioCells.Key(lon, lat, ScenarioCells.LandStep), out string key)) continue;
+            if (!ScenarioBrush.ZoneValue(cells, lon, lat, degrees * 8f, ScenarioCells.LandStep, ScenarioBrush.NotExact, out string key)) continue;
             if (key == "n" || key.Length > 2 && key[1] == ':' && key[0] is 'p' or 'r') keys[zone.id] = key;
         }
         if (keys.Count == 0) return;

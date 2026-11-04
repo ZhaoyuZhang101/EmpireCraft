@@ -53,8 +53,7 @@ public static class ScenarioEditorScreen
     private const float ConfirmSeconds = 5f, MessageSeconds = 6f, ClickSlop = 6f;
     // 地形预览每几格取一格(网格 0.05°，取 2 即 0.1°)；图层颜色再粗一倍；从城往外铺至多几格(粗格)
     private const int Stride = 2, FillFactor = 2;
-    // 笔刷粗细(度)、部落圈至少多大(度)、拖着刷时图层颜色至多几秒重铺一次
-    private static readonly float[] BrushSizes = { 0.2f, 0.5f, 1f, 2f, 4f };
+    // 部落圈至少多大(度)、拖着刷时图层颜色至多几秒重铺一次；笔刷大小和形状见 ScenarioBrush
     private const float MinTribeRadius = 0.3f, FillThrottle = 0.2f;
     // 铺图层颜色：各地形大类走一格的代价(见 EarthTerrain.ClassOf；水 0 为过不去)，各等城能铺多远(大城远)
     private static readonly int[] ClassCost = { 0, 10, 13, 20, 45, 70, 14, 30 };
@@ -169,10 +168,13 @@ public static class ScenarioEditorScreen
     private static Text _importInfo;
     private static float _importArmedAt = -100f;
     private static Btn _frameBtn, _landBrushBtn, _terrainBrushBtn, _tribeCultureBtn, _tribeCountBtn, _clearLandBtn, _clearTerrainBtn, _deleteTribeBtn;
+    private static Btn _landShapeBtn, _terrainShapeBtn;
     private static RectTransform _landCard, _terrainCard, _tribeCard;
     private static Text _landInfo, _terrainInfo, _tribeInfo;
     private static readonly List<(string type, Btn button)> TerrainButtons = new();
-    private static int _brushSize = 2, _terrainType = 4, _tribeIndex = -1, _brushButton = -1, _pressTribe = -1, _hoverTribe = -1, _terrainApplied = -1;
+    private static ScenarioBrush.Shape _brushShape;
+    private static readonly Dictionary<(ScenarioBrush.Shape, int), Texture2D> BrushOutlines = new();
+    private static int _brushSize = ScenarioBrush.DefaultSize, _terrainType = 4, _tribeIndex = -1, _brushButton = -1, _pressTribe = -1, _hoverTribe = -1, _terrainApplied = -1;
     private static Vector2 _brushLast, _pressTexel;
     private static float _fillAt = -100f, _terrainUploadAt = -100f, _clearArmedAt = -100f;
     private static bool _terrainDirty;
@@ -814,6 +816,7 @@ public static class ScenarioEditorScreen
         // 刷地块：刷给谁(或永久中立区)、笔刷粗细、清掉全部
         _landCard = Card(side, LM.Get("scenario_editor_card_land"));
         _landBrushBtn = Cycler(_landCard, LM.Get("scenario_editor_brush"), StepBrush);
+        _landShapeBtn = Cycler(_landCard, LM.Get("scenario_editor_brush_shape"), StepShape);
         _neutralBrushBtn = MakeButton(_landCard, "", ToolColor, () => _neutralBrush = !_neutralBrush);
         _landInfo = Label(_landCard, "Info", 14, TextColor, TextAnchor.UpperLeft, true);
         _clearLandBtn = MakeButton(_landCard, LM.Get("scenario_editor_clear_land"), DangerColor, () => ArmClear("land"));
@@ -821,6 +824,7 @@ public static class ScenarioEditorScreen
         // 刷地形：笔刷粗细、地形/开发度、十六种地表(或开发度刷几)、清掉全部
         _terrainCard = Card(side, LM.Get("scenario_editor_card_terrain"));
         _terrainBrushBtn = Cycler(_terrainCard, LM.Get("scenario_editor_brush"), StepBrush);
+        _terrainShapeBtn = Cycler(_terrainCard, LM.Get("scenario_editor_brush_shape"), StepShape);
         _developBrushBtn = MakeButton(_terrainCard, "", ToolColor, () =>
         {
             _developBrush = !_developBrush;
@@ -1452,7 +1456,7 @@ public static class ScenarioEditorScreen
         _ => null
     };
 
-    // 一笔从上一点刷到这一点(圆刷，沿途每半个半径落一次)：刷地块、刷开发度只刷陆地(0.2° 一格)；刷地形顺手改预览的像素
+    // 一笔从上一点刷到这一点(沿途每半个半径落一次，最细的笔刷一格也不跳)：刷地块、刷开发度只刷陆地(0.2° 一格)；刷地形顺手改预览的像素
     private static void BrushAt(Vector2 from, Vector2 to, bool erase)
     {
         bool develop = _tool == Tool.Terrain && _developBrush;
@@ -1465,25 +1469,21 @@ public static class ScenarioEditorScreen
         }
         if (develop && !erase) key = _developValue.ToString();
         string type = land || erase ? null : TerrainPalette[Mathf.Clamp(_terrainType, 0, TerrainPalette.Length - 1)].type;
-        float radius = BrushSizes[_brushSize] / Mathf.Max(0.001f, _step);
-        int reach = Mathf.CeilToInt(radius);
-        int count = Mathf.Clamp(Mathf.CeilToInt((to - from).magnitude / Mathf.Max(1f, radius / 2f)), 0, 200);
-        float step = land ? ScenarioCells.LandStep : ScenarioCells.TerrainStep;
+        BrushGrid(out float step, out int span, out int offX, out int offY);
+        int radius = ScenarioBrush.Radii[_brushSize];
+        (int dx, int dy)[] cover = ScenarioBrush.Cover(_brushShape, radius);
+        int count = Mathf.Clamp(Mathf.CeilToInt((to - from).magnitude / (span * Mathf.Max(0.5f, radius / 2f))), 0, 2000);
         BrushCells.Clear();
         BrushTexels.Clear();
         for (int s = 0; s <= count; s++)
         {
-            Vector2 at = count == 0 ? to : Vector2.Lerp(from, to, s / (float)count);
-            int cx = Mathf.FloorToInt(at.x), cy = Mathf.FloorToInt(at.y);
-            for (int dy = -reach; dy <= reach; dy++)
-            for (int dx = -reach; dx <= reach; dx++)
+            BrushCellAt(count == 0 ? to : Vector2.Lerp(from, to, s / (float)count), step, out int ci, out int cj);
+            foreach ((int dx, int dy) in cover)
             {
-                if (dx * dx + dy * dy > radius * radius + 0.5f) continue;
-                int x = cx + dx, y = cy + dy;
+                int i = ci + dx, j = cj + dy, x = (i - offX) * span, y = (j - offY) * span;
                 if (x < 0 || y < 0 || x >= _w || y >= _h) continue;
-                int index = y * _w + x;
-                if (land && !_land[index]) continue;
-                if (BrushCells.Add(ScenarioCells.Key(TexelToLon(x + 0.5f), TexelToLat(y + 0.5f), step)) && !land) BrushTexels.Add(index);
+                if (land && !AnyLand(x, y, span)) continue;
+                if (BrushCells.Add(ScenarioCells.Pack(i, j)) && !land) BrushTexels.Add(y * _w + x);
             }
         }
         if (land)
@@ -1497,6 +1497,30 @@ public static class ScenarioEditorScreen
         _terrainDirty = true;
         _terrainApplied = ScenarioEditing.TerrainRevision;
         GridChanged();
+    }
+
+    // 现在这支笔刷按哪种格子刷：一格多少度、占几个预览像素、格子编号和预览像素的换算
+    private static void BrushGrid(out float step, out int span, out int offX, out int offY)
+    {
+        step = _tool == Tool.Land || _tool == Tool.Terrain && _developBrush ? ScenarioCells.LandStep : ScenarioCells.TerrainStep;
+        span = Mathf.Max(1, Mathf.RoundToInt(step / Mathf.Max(0.001f, _step)));
+        offX = Mathf.FloorToInt(_lon0 / step + 0.5f * _step / step);
+        offY = Mathf.FloorToInt(_lat0 / step + 0.5f * _step / step);
+    }
+
+    // 光标所在那一格
+    private static void BrushCellAt(Vector2 texel, float step, out int i, out int j)
+    {
+        float lon = TexelToLon(Mathf.FloorToInt(texel.x) + 0.5f), lat = TexelToLat(Mathf.FloorToInt(texel.y) + 0.5f);
+        ScenarioCells.Unpack(ScenarioCells.Key(lon, lat, step), out i, out j);
+    }
+
+    private static bool AnyLand(int x, int y, int span)
+    {
+        for (int b = y; b < y + span && b < _h; b++)
+        for (int a = x; a < x + span && a < _w; a++)
+            if (_land[b * _w + a]) return true;
+        return false;
     }
 
     // 刷地块取刷给谁：点在城上取它的国家(或王国法理)，点在空处取那里铺着的那一块
@@ -1531,9 +1555,15 @@ public static class ScenarioEditorScreen
         return slot >= 0 && slot < FillKeys.Count ? FillKeys[slot] : null;
     }
 
-    private static void StepBrush(int step) => _brushSize = ((_brushSize + step) % BrushSizes.Length + BrushSizes.Length) % BrushSizes.Length;
+    private static void StepBrush(int step) =>
+        _brushSize = ((_brushSize + step) % ScenarioBrush.Radii.Length + ScenarioBrush.Radii.Length) % ScenarioBrush.Radii.Length;
 
-    private static string BrushText() => BrushSizes[_brushSize].ToString("0.#") + "°";
+    private static void StepShape(int step) =>
+        _brushShape = (ScenarioBrush.Shape)(((int)_brushShape + step + ScenarioBrush.ShapeCount) % ScenarioBrush.ShapeCount);
+
+    private static string BrushText() => string.Format(LM.Get("scenario_editor_brush_cells"), ScenarioBrush.Radii[_brushSize] * 2 + 1);
+
+    private static string ShapeText() => LM.Get("scenario_editor_shape_" + _brushShape.ToString().ToLowerInvariant());
 
     private static bool Armed(string kind) => _clearArmed == kind && Time.unscaledTime - _clearArmedAt <= ConfirmSeconds;
 
@@ -1554,7 +1584,7 @@ public static class ScenarioEditorScreen
         Say(LM.Get("scenario_editor_clear_confirm"));
     }
 
-    // 笔刷圈(跟着光标，右键擦时发红)与正拖出的部落圈
+    // 笔刷框(跟着光标对齐到格子，形状和大小就是落笔盖住的那些格子，右键擦时发红)与正拖出的部落圈
     private static void UpdateRing(bool onMap, Vector2 texel)
     {
         if (_ring == null) return;
@@ -1563,11 +1593,43 @@ public static class ScenarioEditorScreen
         bool show = brush || tribe;
         if (_ring.gameObject.activeSelf != show) _ring.gameObject.SetActive(show);
         if (!show) return;
-        Vector2 center = brush ? texel : _pressTexel;
-        float radius = brush ? BrushSizes[_brushSize] / Mathf.Max(0.001f, _step) : (texel - _pressTexel).magnitude;
+        Vector2 center = _pressTexel;
+        float width = (texel - _pressTexel).magnitude * 2f;
+        Texture wanted = _ringTexture;
+        if (brush)
+        {
+            BrushGrid(out float step, out int span, out int offX, out int offY);
+            BrushCellAt(texel, step, out int i, out int j);
+            int radius = ScenarioBrush.Radii[_brushSize];
+            center = new Vector2((i - offX + 0.5f) * span, (j - offY + 0.5f) * span);
+            width = (radius * 2 + 1) * span;
+            wanted = BrushOutline(_brushShape, radius);
+        }
+        if (_ring.texture != wanted) _ring.texture = wanted;
         _ring.rectTransform.anchoredPosition = (center - _center) * _zoom;
-        _ring.rectTransform.sizeDelta = Vector2.one * Mathf.Max(6f, radius * 2f * _zoom);
+        _ring.rectTransform.sizeDelta = Vector2.one * Mathf.Max(6f, width * _zoom);
         _ring.color = tribe ? new Color(1f, 0.85f, 0.4f, 1f) : _brushButton == 1 ? new Color(1f, 0.45f, 0.4f, 1f) : Color.white;
+    }
+
+    // 笔刷框的图：一个像素就是一个刷的格子，边上描白，里面淡淡一层
+    private static Texture2D BrushOutline(ScenarioBrush.Shape shape, int radius)
+    {
+        if (BrushOutlines.TryGetValue((shape, radius), out Texture2D cached) && cached != null) return cached;
+        int size = radius * 2 + 1;
+        var texture = new Texture2D(size, size, TextureFormat.RGBA32, false) { filterMode = FilterMode.Point, wrapMode = TextureWrapMode.Clamp };
+        var pixels = new Color32[size * size];
+        for (int y = 0; y < size; y++)
+        for (int x = 0; x < size; x++)
+        {
+            int dx = x - radius, dy = y - radius;
+            if (!ScenarioBrush.Inside(shape, dx, dy, radius)) continue;
+            bool edge = !ScenarioBrush.Inside(shape, dx + 1, dy, radius) || !ScenarioBrush.Inside(shape, dx - 1, dy, radius) ||
+                        !ScenarioBrush.Inside(shape, dx, dy + 1, radius) || !ScenarioBrush.Inside(shape, dx, dy - 1, radius);
+            pixels[y * size + x] = new Color32(255, 255, 255, (byte)(edge ? 235 : 46));
+        }
+        texture.SetPixels32(pixels);
+        texture.Apply();
+        return BrushOutlines[(shape, radius)] = texture;
     }
 
     private static Texture2D RingTexture()
@@ -2117,7 +2179,7 @@ public static class ScenarioEditorScreen
             if (slot < 0)
             {
                 // 没主的无人区、刷的中立区：灰斜线
-                _fillPixels[at] = _fillHatch[at] != 0 ? Stripe(x, y) ? NeutralStripe : NeutralFill : Clear;
+                _fillPixels[at] = _fillHatch[at] != 0 ? Stripe(x, y) || HatchAlone(x, y, fw, fh) ? NeutralStripe : NeutralFill : Clear;
                 continue;
             }
             // 与别的块相接只描右、上一侧；挨着未归属的陆地四边都描
@@ -2136,6 +2198,11 @@ public static class ScenarioEditorScreen
     }
 
     private static bool Stripe(int x, int y) => (x + y) % 4 == 0;
+
+    // 单独一格的记号不按花纹隔着跳过，最细的笔刷点下去也看得见
+    private static bool HatchAlone(int x, int y, int fw, int fh) =>
+        (x + 1 >= fw || _fillHatch[y * fw + x + 1] == 0) && (x == 0 || _fillHatch[y * fw + x - 1] == 0) &&
+        (y + 1 >= fh || _fillHatch[(y + 1) * fw + x] == 0) && (y == 0 || _fillHatch[(y - 1) * fw + x] == 0);
 
     // 图层粗格落在预测的哪块地上：地块的范围、大小变了，或换了地图才重算
     private static void EnsureFillZones()
@@ -2221,7 +2288,7 @@ public static class ScenarioEditorScreen
                     : ScenarioWilderness.NeutralAt(zone) && Stripe(x, y) ? NeutralStripe
                     : new Color32(color.r, color.g, color.b, alpha);
             }
-            if (_fillHatch[at] != 0 && (x + y) % 2 == 0 && CostAt(x, y) != 0)
+            if (_fillHatch[at] != 0 && ((x + y) % 2 == 0 || HatchAlone(x, y, fw, fh)) && CostAt(x, y) != 0)
                 pixel = _fillHatch[at] == 2 ? NeutralStripe : new Color32(255, 250, 220, 150);
             _fillPixels[at] = pixel;
         }
@@ -2670,12 +2737,14 @@ public static class ScenarioEditorScreen
     {
         string key = BrushKey();
         _landBrushBtn.Set(BrushText(), ViewColor);
+        _landShapeBtn.Set(ShapeText(), ViewColor);
         _neutralBrushBtn.Set(LM.Get(_neutralBrush ? "scenario_editor_neutral_on" : "scenario_editor_neutral_off"), _neutralBrush ? ActiveColor : ToolColor);
         string target = key == null
             ? LM.Get(_layer is Layer.Realm or Layer.Kingdom ? "scenario_editor_land_no_target" : "scenario_editor_land_need_layer")
             : AreaName(key);
         _landInfo.text = string.Format(LM.Get("scenario_editor_land_info"), target, ScenarioEditing.LandCount(key), ScenarioEditing.LandCells.Count) +
-                         "\n" + LM.Get(_neutralBrush ? "scenario_editor_land_neutral_note" : "scenario_editor_land_wild_note");
+                         "\n" + LM.Get(_neutralBrush ? "scenario_editor_land_neutral_note" : "scenario_editor_land_wild_note") +
+                         "\n" + LM.Get("scenario_editor_land_zone_note");
         _clearLandBtn.Set(LM.Get(Armed("land") ? "scenario_editor_clear_armed" : "scenario_editor_clear_land"), DangerColor,
             ScenarioEditing.LandCells.Count > 0);
     }
@@ -2683,6 +2752,7 @@ public static class ScenarioEditorScreen
     private static void RefreshTerrain()
     {
         _terrainBrushBtn.Set(BrushText(), ViewColor);
+        _terrainShapeBtn.Set(ShapeText(), ViewColor);
         _developBrushBtn.Set(LM.Get(_developBrush ? "scenario_editor_develop_on" : "scenario_editor_develop_off"), _developBrush ? ActiveColor : ToolColor);
         _developValueBtn.Button.transform.parent.gameObject.SetActive(_developBrush);
         _developValueBtn.Set(_developValue.ToString(), ViewColor);

@@ -362,7 +362,7 @@ public static class ScenarioWilderness
             float lon = frame.west + ((z % zw) * 8 + 4.5f) * degrees, lat = bottom + ((z / zw) * 8 + 4.5f) * degrees;
             string text = null;
             float mark = 0f;
-            bool painted = develop.Count > 0 && develop.TryGetValue(ScenarioCells.Key(lon, lat, ScenarioCells.LandStep), out text) &&
+            bool painted = ScenarioBrush.ZoneValue(develop, lon, lat, degrees * 8f, ScenarioCells.LandStep, null, out text) &&
                            WorldMapDevelopment.ParseValue(text, out mark);
             float value = -1f;
             bool areaSwamp = false;
@@ -534,7 +534,7 @@ public static class ScenarioWilderness
         for (int zx = 0; zx < layout.W; zx++)
         {
             int tx = zx * 8 + 4, ty = zy * 8 + 4;
-            if (!paint.TryGetValue(ScenarioCells.Key(frame.west + tx * degrees, bottom + ty * degrees, ScenarioCells.LandStep), out string key) || key.Length < 3 ||
+            if (!ScenarioBrush.ZoneValue(paint, frame.west + tx * degrees, bottom + ty * degrees, degrees * 8f, ScenarioCells.LandStep, ScenarioBrush.NotExact, out string key) || key.Length < 3 ||
                 !seats.TryGetValue(key, out List<int> owners)) continue;
             int z = zy * layout.W + zx;
             bool toCity = key[0] == 'c';
@@ -926,7 +926,7 @@ public static class ScenarioWilderness
                 foreach (int z in region.Zones)
                 {
                     Center(layout, z, out float lon, out float lat);
-                    if (!paint.TryGetValue(ScenarioCells.Key(lon, lat, ScenarioCells.LandStep), out string key) || key != "n") continue;
+                    if (!ScenarioBrush.ZoneValue(paint, lon, lat, layout.ZoneDegrees, ScenarioCells.LandStep, ScenarioBrush.NotExact, out string key) || key != "n") continue;
                     _neutral[z] = true;
                 }
             foreach (int z in region.Zones)
@@ -934,7 +934,7 @@ public static class ScenarioWilderness
                 string title = null, holder = null;
                 Source source = Source.None;
                 Center(layout, z, out float lon, out float lat);
-                if (paint.Count > 0 && paint.TryGetValue(ScenarioCells.Key(lon, lat, ScenarioCells.LandStep), out string key) && key.Length > 2)
+                if (ScenarioBrush.ZoneValue(paint, lon, lat, layout.ZoneDegrees, ScenarioCells.LandStep, ScenarioBrush.NotExact, out string key) && key.Length > 2)
                 {
                     string id = key.Substring(2);
                     WorldMapCity seat = key[0] == 'p' ? CapitalOf(id) : key[0] == 'r' ? TitleSeat(id) : null;
