@@ -1244,9 +1244,12 @@ public static class WorldMapScenario
     }
 
     // 补的小国先按小城的预算铺自己的辖地，再把剩下有陆地的区块(山麓、沿海零碎地块)分给走得到的最近的城，
-    // 大山腹地与整块的荒漠、冻土留空，进世界后划成无人区(见 WorldMapZones.FillAll、WildernessSystem)；地块上限照模组设置
+    // 大山腹地与整块的荒漠、冻土留空，进世界后划成无人区(见 WorldMapZones.FillAll、WildernessSystem)。
+    // 不看每城地块上限(用户 2026-11-04 "所有地盘都是规定好的""也没有什么扩张的机会")：剧本开局就定好地盘，之后领土扩张法则也关着(见 SetupLaws)，
+    // 以前周围的城都满了上限(铺满时 1.5 倍)，补空的小国也用完了名额，草原上成片的地块留空、再没有人来领
     private static void FillTerritory()
     {
+        using CityExpansionPatch.ManualScope manual = CityExpansionPatch.Manual();
         // 照原图分地(从当前世界导入的剧本)：刷的地块以外不再铺满，照常判无人区
         if (_era?.exact == true)
         {
@@ -1254,9 +1257,8 @@ public static class WorldMapScenario
             _wildAnchors.Clear();
             return;
         }
-        int limit = ModClass.CITY_MAX_ZONES > 0 ? ModClass.CITY_MAX_ZONES : int.MaxValue;
         var seeds = _cities.Where(planned => planned.random && planned.city != null && !planned.city.isRekt())
-            .Select(planned => (planned.city, TerritoryBudget[3], Mathf.Min(limit, TerritoryCap[3])))
+            .Select(planned => (planned.city, TerritoryBudget[3], TerritoryCap[3]))
             .ToList();
         int claimed = 0;
         if (seeds.Count > 0)
@@ -1269,11 +1271,7 @@ public static class WorldMapScenario
             });
         }
         WorldMapZones.Build();
-        claimed += WorldMapZones.FillAll(
-            (city, zone) => city.zones.Count < limit,
-            (city, zone) => city.addZone(zone),
-            // 最后一轮：同侧的城可超上限一半把剩下的领完(不翻山)，免得留给山那边的城
-            (city, zone) => city.zones.Count < (limit == int.MaxValue ? limit : limit * 3 / 2));
+        claimed += WorldMapZones.FillAll((city, zone) => city.addZone(zone));
         World.world.zone_calculator?.setDrawnZonesDirty();
         LogService.LogInfo($"[EmpireCraft][世界地图] 铺满又分了 {claimed} 块");
         AnchorWilderness();
@@ -1287,6 +1285,7 @@ public static class WorldMapScenario
 
     private static void SpreadTerritory()
     {
+        using CityExpansionPatch.ManualScope manual = CityExpansionPatch.Manual();
         // 城都立好了：先把长城的走向定下(沿山脊、河谷弯折，不在两点之间拉直线；用户 10-30 "长城也不要这么直，要自然一点")，
         // 之后铺辖地、补空、铺满、分行政区都照这条实际走向分两边，进世界后也照它铺墙
         if (_era?.walls is { Count: > 0 })
@@ -1294,10 +1293,9 @@ public static class WorldMapScenario
             _wallLines = WorldMapWalls.Plan(_era, _frame, _size);
             WorldMapZones.SetWalls(_wallLines);
         }
-        int limit = ModClass.CITY_MAX_ZONES > 0 ? ModClass.CITY_MAX_ZONES : int.MaxValue;
         var seeds = _cities.Where(planned => planned.city != null && !planned.city.isRekt())
             .Select(planned => (planned.city, TerritoryBudget[Mathf.Clamp(planned.rank, 0, 3)],
-                Mathf.Min(limit, TerritoryCap[Mathf.Clamp(planned.rank, 0, 3)])))
+                TerritoryCap[Mathf.Clamp(planned.rank, 0, 3)]))
             .ToList();
         // 剧本编辑器刷的地块先归刷给的那国或那块法理
         int claimed = PaintTerritory();

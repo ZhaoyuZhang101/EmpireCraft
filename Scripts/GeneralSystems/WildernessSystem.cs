@@ -1385,6 +1385,7 @@ public static class WildernessSystem
                     break;
                 }
             }
+        bool[] followed = FollowSpread(titleOf, nearestCity, anchored);
         while (queue.Count > 0)
         {
             int id = queue.Dequeue();
@@ -1394,7 +1395,7 @@ public static class WildernessSystem
                 if (next == null || next.id < 0 || next.id >= size || linked[next.id] || _titles[next.id] != _titles[id] ||
                     next.id >= _regionOf.Length || _regionOf[next.id] < 0) continue;
                 linked[next.id] = true;
-                if (!anchored[next.id]) _parents[next.id] = _parents[id];
+                if (!anchored[next.id] && !followed[next.id]) _parents[next.id] = _parents[id];
                 queue.Enqueue(next.id);
             }
         }
@@ -1430,6 +1431,44 @@ public static class WildernessSystem
                 _parents[id] = parent;
             }
         if (moved > 0) LogService.LogInfo($"[EmpireCraft][无人区] {moved} 块连不上所挂法理的城(飞地)，并给四周或最近的城");
+    }
+
+    // 同一法理里几座城的分界也照走到谁归谁(见 Spread)：Connect 那趟一圈圈连过去只管连得上，分界是横平竖直的直线，
+    // 城分了家这条线就成了国界。从挨着最近那座城的地块起，沿最近的城相同、法理相同的地块走：走得到的跟最近的城；
+    // 走不到的(中间隔着别的法理)仍由 Connect 连，不成飞地。州府锚点定的不动，长城不过
+    private static bool[] FollowSpread(Dictionary<City, KingdomTitle> titleOf, City[] nearestCity, bool[] anchored)
+    {
+        int size = _titles.Length;
+        var followed = new bool[size];
+        var queue = new Queue<int>();
+        bool Follows(int id) => id >= 0 && id < size && !followed[id] && !anchored[id] && nearestCity[id] != null && _titles[id] != null &&
+                                id < _regionOf.Length && _regionOf[id] >= 0 && TitleOfCity(nearestCity[id], titleOf) == _titles[id];
+        foreach (WildRegion region in _regions)
+            foreach (int id in region.Zones)
+            {
+                if (!Follows(id) || _zones[id]?.neighbours_all == null) continue;
+                foreach (TileZone next in _zones[id].neighbours_all)
+                {
+                    if (next?.city != nearestCity[id]) continue;
+                    followed[id] = true;
+                    _parents[id] = nearestCity[id];
+                    queue.Enqueue(id);
+                    break;
+                }
+            }
+        while (queue.Count > 0)
+        {
+            int id = queue.Dequeue();
+            if (OnWall(id)) continue;
+            foreach (TileZone next in _zones[id].neighbours_all)
+            {
+                if (next == null || !Follows(next.id) || nearestCity[next.id] != nearestCity[id]) continue;
+                followed[next.id] = true;
+                _parents[next.id] = nearestCity[id];
+                queue.Enqueue(next.id);
+            }
+        }
+        return followed;
     }
 
     private static bool PinnedTitle(int id) =>
@@ -1607,7 +1646,7 @@ public static class WildernessSystem
     public static bool IsPainted(TileZone zone) => zone != null && zone.id >= 0 && zone.id < _painted.Length && _painted[zone.id];
 
     // 从城的地块往外走(starts 为空时所有的城都起步，不为空时只从这些城起步；block 时也不穿过别的城的地)：
-    // 每块地记最先走到它的那座城(cities)与它的法理；reached 记走到了没有。八方向走，每块地走一步的代价按低频噪声在 0.7~1.3 之间起伏
+    // 每块地记最先走到它的那座城(cities)与它的法理；reached 记走到了没有。八方向走，每块地的代价各自不同(见 TerritoryGrain)
     // (用户 10-30 "你至少让版图平滑点"：以前四方向一步一格，两座城之间的分界是横平竖直、45 度的长直线，并进国土后一块块方的)，
     // 至多走 limit
     private static KingdomTitle[] Spread(Dictionary<City, KingdomTitle> titleOf, Func<City, bool> starts, float limit, out bool[] reached,
@@ -1663,8 +1702,10 @@ public static class WildernessSystem
         return from;
     }
 
-    // 走进这块地的代价起伏(0.7~1.3，几块地一个起伏，同一块地每次一样)
-    private static float Roughness(TileZone zone) => 0.7f + 0.6f * SmoothBorders.BorderNoise(zone.x * 4, zone.y * 4, 4049);
+    private static bool OnWall(int id) => id < _walled.Length && _walled[id];
+
+    // 走进这块地的代价(每块地各自不同，同一块地每次一样，见 TerritoryGrain)
+    private static float Roughness(TileZone zone) => TerritoryGrain.At(zone.x, zone.y, 4049);
 
     private static bool Land(TileZone zone) => zone.tiles_with_ground > 0 && !SeaRegionSystem.IsSea(zone);
 

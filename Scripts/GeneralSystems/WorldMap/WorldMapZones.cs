@@ -30,6 +30,8 @@ internal static class WorldMapZones
     private static bool[] _claimable = new bool[0];
     private static int[] _land = new int[0];
     private static float[] _noise = new float[0];
+    // 分地用的每块地代价(见 TerritoryGrain)：只进 Partition、Fill、FillRound；量远近的(补空、最近的城、从都城走多远)不算它
+    private static float[] _grain = new float[0];
     private static bool[] _river = new bool[0];
     // 整块荒漠(BarrenLandSystem.Desert)、冻土(Frozen)，别的为 0
     private static int[] _barren = new int[0];
@@ -89,7 +91,9 @@ internal static class WorldMapZones
     private static void BuildNoise(int count)
     {
         _noise = new float[count];
+        _grain = new float[count];
         var random = new global::System.Random(Environment.TickCount);
+        int grainSeed = random.Next();
         int gw = Mathf.CeilToInt(Width / NoiseCell) + 2, gh = Mathf.CeilToInt(Height / NoiseCell) + 2;
         var grid = new float[gw * gh];
         for (int i = 0; i < grid.Length; i++) grid[i] = (float)random.NextDouble() * 2f - 1f;
@@ -104,6 +108,7 @@ internal static class WorldMapZones
             float a = Mathf.Lerp(grid[y0 * gw + x0], grid[y0 * gw + x0 + 1], tx);
             float b = Mathf.Lerp(grid[(y0 + 1) * gw + x0], grid[(y0 + 1) * gw + x0 + 1], tx);
             _noise[zy * Width + zx] = 1f + NoiseAmplitude * Mathf.Lerp(a, b, ty);
+            _grain[zy * Width + zx] = TerritoryGrain.At(zx, zy, grainSeed);
         }
     }
 
@@ -190,7 +195,7 @@ internal static class WorldMapZones
             {
                 if (wild ? _land[next] < MinLand || Blocked(index, next)
                         : !_claimable[next] || _land[next] < MinLand || _barren[next] != BarrenLandSystem.None || !Open(index, next)) continue;
-                float total = at + (wild ? (Diagonal(index, next) ? 1.414f : 1f) * (next < _noise.Length ? _noise[next] : 1f) : Step(index, next));
+                float total = at + (wild ? (Diagonal(index, next) ? 1.414f : 1f) * (next < _noise.Length ? _noise[next] : 1f) : Step(index, next)) * Grain(next);
                 if (total > limit[index] || total >= cost[next]) continue;
                 cost[next] = total;
                 label[next] = label[index];
@@ -245,6 +250,8 @@ internal static class WorldMapZones
     }
 
     // 从 a 走到相邻的 b：按要进的那块的地形，山脉腹地(从山里再往山里走)加倍，过河另加，再乘平滑起伏
+    private static float Grain(int index) => index < _grain.Length ? _grain[index] : 1f;
+
     private static float Step(int a, int b)
     {
         float travel = _travel[b];
@@ -401,7 +408,7 @@ internal static class WorldMapZones
                 if (!_claimable[next] || owner[next] >= 0) continue;
                 TileZone zone = _zones[next];
                 if (zone == null || zone.city != null || !Open(index, next)) continue;
-                float total = at + Step(index, next);
+                float total = at + Step(index, next) * Grain(next);
                 if (total > seeds[s].budget || total >= cost[next] || Behind(seeds[s].city, next)) continue;
                 cost[next] = total;
                 tentative[next] = s;
@@ -474,17 +481,17 @@ internal static class WorldMapZones
 
     // 铺满：剩下有陆地的区块(山地、整块荒漠、沿海零碎地块都算)归走得到的最近的城，只走陆路(隔海的岛靠 Gaps 补的城)，
     // 每一步都要交界有路口(见 Open)，走不进去的山腹不分；
-    // allow 判断这座城还能不能再领这块(地块上限)。头一轮山脉只领不越(山脊作国界)，之后几轮把剩下的分完；
+    // 不看地块上限(见 WorldMapScenario.FillTerritory)。头一轮山脉只领不越(山脊作国界)，之后几轮把剩下的分完；
     // 哪一轮都不许从山里往下进平地、高原(用户 2026-10-29 "依旧还有跨地形国土")：以前山这边的城领满了上限，
-    // 留下的平地第二轮被山那边的城翻过山脊领走(吐蕃翻过喜马拉雅占了恒河边)。最后一轮放宽上限(relaxed)，让同侧的城把剩下的领完
-    public static int FillAll(Func<City, TileZone, bool> allow, Action<City, TileZone> claim, Func<City, TileZone, bool> relaxed = null)
+    // 留下的平地第二轮被山那边的城翻过山脊领走(吐蕃翻过喜马拉雅占了恒河边)
+    public static int FillAll(Action<City, TileZone> claim)
     {
         int claimed = 0;
         for (int round = 0; round < 4; round++)
         {
-            int got = FillRound(round == 3 && relaxed != null ? relaxed : allow, claim, round == 0 ? 1 : MountainDepth);
+            int got = FillRound(claim, round == 0 ? 1 : MountainDepth);
             claimed += got;
-            if (got == 0 && round > 0 && round < 2) round = 2;
+            if (got == 0 && round > 0) break;
         }
         return claimed;
     }
@@ -492,7 +499,7 @@ internal static class WorldMapZones
     // 山里至多往里领几块(从平地算起)
     private const int MountainDepth = 2;
 
-    private static int FillRound(Func<City, TileZone, bool> allow, Action<City, TileZone> claim, int mountainDepth)
+    private static int FillRound(Action<City, TileZone> claim, int mountainDepth)
     {
         int count = _travel.Length;
         var owner = new City[count];
@@ -520,8 +527,7 @@ internal static class WorldMapZones
             {
                 City candidate = tentative[index];
                 TileZone zone = _zones[index];
-                // 这家领满了：这一块留给下一轮别家来分
-                if (candidate == null || zone == null || zone.city != null || !allow(candidate, zone)) continue;
+                if (candidate == null || zone == null || zone.city != null) continue;
                 owner[index] = candidate;
                 claim(candidate, zone);
                 claimed++;
@@ -542,7 +548,7 @@ internal static class WorldMapZones
                 // 以前进山不看路口，山两边的城各往山里领两块，在山脊上碰头，喜马拉雅整片分给了南北两边的城；
                 // 现在走不进去的山腹留空，成了天然的界
                 if (!Open(index, next)) continue;
-                float total = at + Step(index, next);
+                float total = at + Step(index, next) * Grain(next);
                 // 墙后的地不领(绕过墙头折回来的)，留给墙那边的城
                 if (total >= cost[next] || Behind(from, next)) continue;
                 cost[next] = total;
