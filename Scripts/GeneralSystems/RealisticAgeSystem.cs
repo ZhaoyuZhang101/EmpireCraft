@@ -204,6 +204,22 @@ public static class RealisticAgeSystem
         Anchor(actor, true);
     }
 
+    // 剧本开局的君主、储君(用户 2026-11-04 转玩家"一开局皇帝就死了")：剧本写的年纪多半已近天年，只有即位保底 AccessionMinYears，
+    // 开局第三年成批寿终(日志里吐蕃、帕拉、甲斐、粟特罗兹同一年没)。开局保底 ScenarioMinYears 年起、按人错开 ScenarioSpreadYears 年；
+    // 过了保底照常按 Settle 定天年，也不是人人只活到保底
+    private const int ScenarioMinYears = 10, ScenarioSpreadYears = 8;
+
+    public static void OnScenarioStart(Actor actor)
+    {
+        if (!Enabled || actor?.data == null || !actor.isAlive() || !actor.isSapient() || actor.hasTrait("immortal")) return;
+        var data = actor.GetOrCreate();
+        int age = actor.getAge();
+        data.royal_anchor_age = age;
+        data.royal_anchor_floor = age + ScenarioMinYears +
+                                  (int)(Unit((ulong)Seed(actor) * 0x9FB21C651E98DF25UL + 0x165667B19E3779F9UL) * ScenarioSpreadYears);
+        data.royal_seen_at = World.world?.getCurWorldTime() ?? 0d;
+    }
+
     private static void Anchor(Actor actor, bool crowned)
     {
         var data = actor.GetOrCreate();

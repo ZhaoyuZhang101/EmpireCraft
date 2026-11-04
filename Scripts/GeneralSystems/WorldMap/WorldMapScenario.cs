@@ -1698,7 +1698,9 @@ public static class WorldMapScenario
                 // 挂都城所在的帝国法理(蜀汉挂漢、孙吴挂吴、唐挂秦、宋挂吴、金挂晋)；时代文件点名的优先
                 if (!_coreById.TryGetValue(polity.data.core ?? "", out EmpireCore core) && polity.capital != null)
                     _coreByRegion.TryGetValue(polity.capital.region.id, out core);
-                polity.empire = ModClass.EMPIRE_MANAGER.NewEmpire(polity.kingdom, false, true, false, null, true, core);
+                Empire.ScriptedFoundingName = polity.name;
+                try { polity.empire = ModClass.EMPIRE_MANAGER.NewEmpire(polity.kingdom, false, true, false, null, true, core); }
+                finally { Empire.ScriptedFoundingName = null; }
                 if (polity.empire == null) continue;
                 // 美号(明)：加"大"前缀，国号不当帝国法理名
                 if (polity.data.grand)
@@ -1788,6 +1790,19 @@ public static class WorldMapScenario
         core.SetCoreCapital(capital);
     }
 
+    // 开局的君主、储君加长保底寿数；年轻皇帝族里没人的补子嗣，免得开局几年就寿终、绝嗣裂土(见 RealisticAgeSystem.OnScenarioStart)
+    private static void SettleRulers()
+    {
+        foreach (PlannedPolity polity in _polities)
+        {
+            if (polity.founder?.data == null || polity.founder.isRekt()) continue;
+            RealisticAgeSystem.OnScenarioStart(polity.founder);
+            foreach ((Actor actor, WorldMapPerson person) in polity.kin)
+                if (person.heir) RealisticAgeSystem.OnScenarioStart(actor);
+            if (polity.empire != null) VirtualGenealogySystem.EnsureYoungRulerHouse(polity.founder);
+        }
+    }
+
     private static void Finish()
     {
         Guard("法理更新", () => ModClass.KINGDOM_TITLE_MANAGER?.update(-1f));
@@ -1798,6 +1813,7 @@ public static class WorldMapScenario
         {
             data = polity.data, kingdom = polity.kingdom, empire = polity.empire, kin = polity.kin.ToList()
         }).ToList(), _coreByRegion));
+        Guard("开局君主", SettleRulers);
         Guard("宗教", () => WorldMapReligion.Apply(_era.year,
             _cities.Where(planned => planned.city != null).Select(planned => new WorldMapReligion.Place
             {
