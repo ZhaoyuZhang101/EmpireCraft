@@ -1,0 +1,383 @@
+key,cz,en,ch
+
+official_rank_aosong_senator,元老,Senator,元老
+
+official_rank_cadre_huaxia_0,正国级,State-Level Principal,正國級
+official_rank_cadre_huaxia_1,副国级,State-Level Deputy,副國級
+official_rank_cadre_huaxia_2,正部级,Ministerial-Level Principal,正部級
+official_rank_cadre_huaxia_3,副部级,Ministerial-Level Deputy,副部級
+official_rank_cadre_huaxia_4,正厅级,Bureau-Level Principal,正廳級
+official_rank_cadre_huaxia_5,副厅级,Bureau-Level Deputy,副廳級
+official_rank_cadre_huaxia_6,正处级,Division-Level Principal,正處級
+official_rank_cadre_huaxia_7,副处级,Division-Level Deputy,副處級
+official_rank_cadre_huaxia_8,正科级,Section-Level Principal,正科級
+
+official_rank_cadre_general_0,中央正职,Central Principal,中央正職
+official_rank_cadre_general_1,中央副职,Central Deputy,中央副職
+official_rank_cadre_general_2,部委正职,Ministry Principal,部委正職
+official_rank_cadre_general_3,部委副职,Ministry Deputy,部委副職
+official_rank_cadre_general_4,省州正职,Provincial Principal,省州正職
+official_rank_cadre_general_5,省州副职,Provincial Deputy,省州副職
+official_rank_cadre_general_6,区县正职,District Principal,區縣正職
+official_rank_cadre_general_7,区县副职,District Deputy,區縣副職
+official_rank_cadre_general_8,基层正职,Local Principal,基層正職
+
+official_rank_grades_huaxia_0,特任官,Special Appointee,特任官
+official_rank_grades_huaxia_1,简任一等,Senior Appointee Class 1,簡任一等
+official_rank_grades_huaxia_2,简任二等,Senior Appointee Class 2,簡任二等
+official_rank_grades_huaxia_3,简任三等,Senior Appointee Class 3,簡任三等
+official_rank_grades_huaxia_4,荐任一等,Recommended Appointee Class 1,薦任一等
+official_rank_grades_huaxia_5,荐任二等,Recommended Appointee Class 2,薦任二等
+official_rank_grades_huaxia_6,荐任三等,Recommended Appointee Class 3,薦任三等
+official_rank_grades_huaxia_7,委任一等,Delegated Appointee Class 1,委任一等
+official_rank_grades_huaxia_8,委任二等,Delegated Appointee Class 2,委任二等
+
+official_rank_grades_japan_modern_0,事务次官,Administrative Vice-Minister,事務次官
+official_rank_grades_japan_modern_1,局长,Bureau Chief,局長
+official_rank_grades_japan_modern_2,审议官,Deliberation Officer,審議官
+official_rank_grades_japan_modern_3,部长,Department Director,部長
+official_rank_grades_japan_modern_4,课长,Division Chief,課長
+official_rank_grades_japan_modern_5,室长,Office Chief,室長
+official_rank_grades_japan_modern_6,课长补佐,Deputy Division Chief,課長補佐
+official_rank_grades_japan_modern_7,系长,Unit Chief,係長
+official_rank_grades_japan_modern_8,主任,Senior Clerk,主任
+
+official_rank_grades_japan_imperial_0,亲任官,Shinnin Official,親任官
+official_rank_grades_japan_imperial_1,高等官一等,Senior Official Grade 1,高等官一等
+official_rank_grades_japan_imperial_2,高等官二等,Senior Official Grade 2,高等官二等
+official_rank_grades_japan_imperial_3,高等官三等,Senior Official Grade 3,高等官三等
+official_rank_grades_japan_imperial_4,高等官四等,Senior Official Grade 4,高等官四等
+official_rank_grades_japan_imperial_5,高等官五等,Senior Official Grade 5,高等官五等
+official_rank_grades_japan_imperial_6,高等官六等,Senior Official Grade 6,高等官六等
+official_rank_grades_japan_imperial_7,高等官七等,Senior Official Grade 7,高等官七等
+official_rank_grades_japan_imperial_8,判任官,Hannin Official,判任官
+
+official_rank_ikai_japan_0,正一位,Senior First Rank,正一位
+official_rank_ikai_japan_1,从一位,Junior First Rank,從一位
+official_rank_ikai_japan_2,正二位,Senior Second Rank,正二位
+official_rank_ikai_japan_3,从二位,Junior Second Rank,從二位
+official_rank_ikai_japan_4,正三位,Senior Third Rank,正三位
+official_rank_ikai_japan_5,从三位,Junior Third Rank,從三位
+official_rank_ikai_japan_6,正四位,Senior Fourth Rank,正四位
+official_rank_ikai_japan_7,从四位,Junior Fourth Rank,從四位
+official_rank_ikai_japan_8,正五位,Senior Fifth Rank,正五位
+
+official_rank_grades_western_republic_0,内阁级,Cabinet Level,內閣級
+official_rank_grades_western_republic_1,副部长级,Deputy Secretary Level,副部長級
+official_rank_grades_western_republic_2,次长级,Under Secretary Level,次長級
+official_rank_grades_western_republic_3,助理部长级,Assistant Secretary Level,助理部長級
+official_rank_grades_western_republic_4,署长级,Administrator Level,署長級
+official_rank_grades_western_republic_5,高级行政官,Senior Executive,高級行政官
+official_rank_grades_western_republic_6,十五职等,Grade 15,十五職等
+official_rank_grades_western_republic_7,十三职等,Grade 13,十三職等
+official_rank_grades_western_republic_8,十一职等,Grade 11,十一職等
+
+official_rank_grades_western_crown_0,内阁秘书,Cabinet Secretary,內閣秘書
+official_rank_grades_western_crown_1,常务次官,Permanent Secretary,常務次官
+official_rank_grades_western_crown_2,总司长,Director General,總司長
+official_rank_grades_western_crown_3,司长,Director,司長
+official_rank_grades_western_crown_4,副司长,Deputy Director,副司長
+official_rank_grades_western_crown_5,六等文官,Grade 6,六等文官
+official_rank_grades_western_crown_6,七等文官,Grade 7,七等文官
+official_rank_grades_western_crown_7,高级执行官,Senior Executive Officer,高級執行官
+official_rank_grades_western_crown_8,执行官,Executive Officer,執行官
+
+official_rank_grades_slavic_republic_0,一级实任国务顾问,Actual State Councillor 1st Class,一級實任國務顧問
+official_rank_grades_slavic_republic_1,二级实任国务顾问,Actual State Councillor 2nd Class,二級實任國務顧問
+official_rank_grades_slavic_republic_2,三级实任国务顾问,Actual State Councillor 3rd Class,三級實任國務顧問
+official_rank_grades_slavic_republic_3,一级国务顾问,State Councillor 1st Class,一級國務顧問
+official_rank_grades_slavic_republic_4,二级国务顾问,State Councillor 2nd Class,二級國務顧問
+official_rank_grades_slavic_republic_5,三级国务顾问,State Councillor 3rd Class,三級國務顧問
+official_rank_grades_slavic_republic_6,一级文官顾问,Civil Service Councillor 1st Class,一級文官顧問
+official_rank_grades_slavic_republic_7,二级文官顾问,Civil Service Councillor 2nd Class,二級文官顧問
+official_rank_grades_slavic_republic_8,三级文官顾问,Civil Service Councillor 3rd Class,三級文官顧問
+
+official_rank_grades_slavic_crown_0,总理大臣,Chancellor,總理大臣
+official_rank_grades_slavic_crown_1,实任枢密顾问,Actual Privy Councillor,實任樞密顧問
+official_rank_grades_slavic_crown_2,枢密顾问,Privy Councillor,樞密顧問
+official_rank_grades_slavic_crown_3,实任国务顾问,Actual State Councillor,實任國務顧問
+official_rank_grades_slavic_crown_4,国务顾问,State Councillor,國務顧問
+official_rank_grades_slavic_crown_5,学院顾问,Collegiate Councillor,學院顧問
+official_rank_grades_slavic_crown_6,宫廷顾问,Court Councillor,宮廷顧問
+official_rank_grades_slavic_crown_7,学院陪审员,Collegiate Assessor,學院陪審員
+official_rank_grades_slavic_crown_8,九等文官,Titular Councillor,九等文官
+
+official_rank_grades_arabic_0,特级文官,Excellent Grade,特級文官
+official_rank_grades_arabic_1,高级文官,High Grade,高級文官
+official_rank_grades_arabic_2,总司长,Director General,總司長
+official_rank_grades_arabic_3,一等文官,First Grade,一等文官
+official_rank_grades_arabic_4,二等文官,Second Grade,二等文官
+official_rank_grades_arabic_5,三等文官,Third Grade,三等文官
+official_rank_grades_arabic_6,四等文官,Fourth Grade,四等文官
+official_rank_grades_arabic_7,五等文官,Fifth Grade,五等文官
+official_rank_grades_arabic_8,六等文官,Sixth Grade,六等文官
+
+official_rank_grades_steppe_0,国务秘书,State Secretary,國務秘書
+official_rank_grades_steppe_1,司长,Department Head,司長
+official_rank_grades_steppe_2,副司长,Deputy Department Head,副司長
+official_rank_grades_steppe_3,处长,Division Head,處長
+official_rank_grades_steppe_4,副处长,Deputy Division Head,副處長
+official_rank_grades_steppe_5,高级专员,Senior Specialist,高級專員
+official_rank_grades_steppe_6,专员,Specialist,專員
+official_rank_grades_steppe_7,助理专员,Assistant Specialist,助理專員
+official_rank_grades_steppe_8,办事员,Clerk,辦事員
+
+official_rank_grades_general_0,一级文官,Civil Grade 1,一級文官
+official_rank_grades_general_1,二级文官,Civil Grade 2,二級文官
+official_rank_grades_general_2,三级文官,Civil Grade 3,三級文官
+official_rank_grades_general_3,四级文官,Civil Grade 4,四級文官
+official_rank_grades_general_4,五级文官,Civil Grade 5,五級文官
+official_rank_grades_general_5,六级文官,Civil Grade 6,六級文官
+official_rank_grades_general_6,七级文官,Civil Grade 7,七級文官
+official_rank_grades_general_7,八级文官,Civil Grade 8,八級文官
+official_rank_grades_general_8,九级文官,Civil Grade 9,九級文官
+
+official_rank_colonial_0,总督级,Governor Rank,總督級
+official_rank_colonial_1,副总督级,Lieutenant Governor Rank,副總督級
+official_rank_colonial_2,首席秘书,Chief Secretary,首席秘書
+official_rank_colonial_3,理事官,Resident,理事官
+official_rank_colonial_4,副理事官,Deputy Resident,副理事官
+official_rank_colonial_5,地区专员,District Commissioner,地區專員
+official_rank_colonial_6,助理专员,Assistant Commissioner,助理專員
+official_rank_colonial_7,殖民地书记,Colonial Clerk,殖民地書記
+official_rank_colonial_8,见习官,Cadet,見習官
+
+official_rank_company_0,总督级,Governor Rank,總督級
+official_rank_company_1,董事级,Director Rank,董事級
+official_rank_company_2,参事,Councillor,參事
+official_rank_company_3,高级商务,Senior Merchant,高級商務
+official_rank_company_4,商务,Merchant,商務
+official_rank_company_5,初级商务,Junior Merchant,初級商務
+official_rank_company_6,代理商,Factor,代理商
+official_rank_company_7,书记员,Writer,書記員
+official_rank_company_8,学徒,Apprentice,學徒
+
+official_rank_army_general_0,上将,General,上將
+official_rank_army_general_1,中将,Lieutenant General,中將
+official_rank_army_general_2,少将,Major General,少將
+official_rank_army_general_3,上校,Colonel,上校
+official_rank_army_general_4,中校,Lieutenant Colonel,中校
+official_rank_army_general_5,少校,Major,少校
+official_rank_army_general_6,上尉,Captain,上尉
+official_rank_army_general_7,中尉,First Lieutenant,中尉
+official_rank_army_general_8,少尉,Second Lieutenant,少尉
+
+official_rank_army_huaxia_republic_0,一级上将,General 1st Class,一級上將
+official_rank_army_huaxia_republic_1,二级上将,General 2nd Class,二級上將
+official_rank_army_huaxia_republic_2,中将,Lieutenant General,中將
+official_rank_army_huaxia_republic_3,少将,Major General,少將
+official_rank_army_huaxia_republic_4,上校,Colonel,上校
+official_rank_army_huaxia_republic_5,中校,Lieutenant Colonel,中校
+official_rank_army_huaxia_republic_6,少校,Major,少校
+official_rank_army_huaxia_republic_7,上尉,Captain,上尉
+official_rank_army_huaxia_republic_8,中尉,First Lieutenant,中尉
+
+official_rank_army_western_crown_0,陆军元帅,Field Marshal,陸軍元帥
+official_rank_army_western_crown_1,上将,General,上將
+official_rank_army_western_crown_2,中将,Lieutenant General,中將
+official_rank_army_western_crown_3,少将,Major General,少將
+official_rank_army_western_crown_4,准将,Brigadier,准將
+official_rank_army_western_crown_5,上校,Colonel,上校
+official_rank_army_western_crown_6,中校,Lieutenant Colonel,中校
+official_rank_army_western_crown_7,少校,Major,少校
+official_rank_army_western_crown_8,上尉,Captain,上尉
+
+official_rank_army_slavic_0,大将,General of the Army,大將
+official_rank_army_slavic_1,上将,Colonel General,上將
+official_rank_army_slavic_2,中将,Lieutenant General,中將
+official_rank_army_slavic_3,少将,Major General,少將
+official_rank_army_slavic_4,上校,Colonel,上校
+official_rank_army_slavic_5,中校,Lieutenant Colonel,中校
+official_rank_army_slavic_6,少校,Major,少校
+official_rank_army_slavic_7,大尉,Captain,大尉
+official_rank_army_slavic_8,上尉,Senior Lieutenant,上尉
+
+official_rank_army_japan_imperial_0,大将,General,大將
+official_rank_army_japan_imperial_1,中将,Lieutenant General,中將
+official_rank_army_japan_imperial_2,少将,Major General,少將
+official_rank_army_japan_imperial_3,大佐,Colonel,大佐
+official_rank_army_japan_imperial_4,中佐,Lieutenant Colonel,中佐
+official_rank_army_japan_imperial_5,少佐,Major,少佐
+official_rank_army_japan_imperial_6,大尉,Captain,大尉
+official_rank_army_japan_imperial_7,中尉,First Lieutenant,中尉
+official_rank_army_japan_imperial_8,少尉,Second Lieutenant,少尉
+
+official_rank_army_japan_modern_0,幕僚长,Chief of Staff,幕僚長
+official_rank_army_japan_modern_1,将,General,將
+official_rank_army_japan_modern_2,将补,Major General,將補
+official_rank_army_japan_modern_3,一佐,Colonel,一佐
+official_rank_army_japan_modern_4,二佐,Lieutenant Colonel,二佐
+official_rank_army_japan_modern_5,三佐,Major,三佐
+official_rank_army_japan_modern_6,一尉,Captain,一尉
+official_rank_army_japan_modern_7,二尉,First Lieutenant,二尉
+official_rank_army_japan_modern_8,三尉,Second Lieutenant,三尉
+
+official_rank_army_arabic_0,上将,Fariq Awwal,上將
+official_rank_army_arabic_1,中将,Fariq,中將
+official_rank_army_arabic_2,少将,Liwa,少將
+official_rank_army_arabic_3,准将,Amid,准將
+official_rank_army_arabic_4,上校,Aqid,上校
+official_rank_army_arabic_5,中校,Muqaddam,中校
+official_rank_army_arabic_6,少校,Raid,少校
+official_rank_army_arabic_7,上尉,Naqib,上尉
+official_rank_army_arabic_8,中尉,Mulazim Awwal,中尉
+
+official_rank_court_zhou_0,上卿,Senior Minister,上卿
+official_rank_court_zhou_1,中卿,Middle Minister,中卿
+official_rank_court_zhou_2,下卿,Junior Minister,下卿
+official_rank_court_zhou_3,上大夫,Senior Grandee,上大夫
+official_rank_court_zhou_4,中大夫,Middle Grandee,中大夫
+official_rank_court_zhou_5,下大夫,Junior Grandee,下大夫
+official_rank_court_zhou_6,上士,Senior Gentleman,上士
+official_rank_court_zhou_7,中士,Middle Gentleman,中士
+official_rank_court_zhou_8,下士,Junior Gentleman,下士
+
+official_rank_army_zhou_0,大司马,Grand Marshal,大司馬
+official_rank_army_zhou_1,小司马,Junior Marshal,小司馬
+official_rank_army_zhou_2,军将,Army Commander,軍將
+official_rank_army_zhou_3,师帅,Division Commander,師帥
+official_rank_army_zhou_4,旅帅,Brigade Commander,旅帥
+official_rank_army_zhou_5,卒长,Company Commander,卒長
+official_rank_army_zhou_6,两司马,Platoon Commander,兩司馬
+official_rank_army_zhou_7,什长,Squad Leader,什長
+official_rank_army_zhou_8,伍长,File Leader,伍長
+
+official_rank_court_western_0,枢密顾问,Privy Councillor,樞密顧問
+official_rank_court_western_1,宫廷伯,Count Palatine,宮廷伯
+official_rank_court_western_2,御前大臣,Lord Chamberlain,御前大臣
+official_rank_court_western_3,王室总管,Royal Steward,王室總管
+official_rank_court_western_4,郡守,Sheriff,郡守
+official_rank_court_western_5,地方长官,Bailiff,地方長官
+official_rank_court_western_6,治安官,Justice of the Peace,治安官
+official_rank_court_western_7,书记官,Clerk,書記官
+official_rank_court_western_8,书吏,Scribe,書吏
+
+official_rank_army_western_feudal_0,大元帅,Grand Marshal,大元帥
+official_rank_army_western_feudal_1,王室统帅,Constable,王室統帥
+official_rank_army_western_feudal_2,军务总管,Marshal of the Host,軍務總管
+official_rank_army_western_feudal_3,方旗骑士,Knight Banneret,方旗騎士
+official_rank_army_western_feudal_4,骑士,Knight,騎士
+official_rank_army_western_feudal_5,军士长,Serjeant-Major,軍士長
+official_rank_army_western_feudal_6,军士,Serjeant,軍士
+official_rank_army_western_feudal_7,侍从,Squire,侍從
+official_rank_army_western_feudal_8,武从,Man-at-Arms,武從
+
+official_rank_court_slavic_0,大波雅尔,Great Boyar,大波雅爾
+official_rank_court_slavic_1,波雅尔,Boyar,波雅爾
+official_rank_court_slavic_2,奥科利尼奇,Okolnichy,奧科利尼奇
+official_rank_court_slavic_3,杜马贵族,Duma Noble,杜馬貴族
+official_rank_court_slavic_4,杜马书记,Duma Secretary,杜馬書記
+official_rank_court_slavic_5,御膳官,Stolnik,御膳官
+official_rank_court_slavic_6,侍从官,Stryapchy,侍從官
+official_rank_court_slavic_7,书记,Dyak,書記
+official_rank_court_slavic_8,副书记,Podyachy,副書記
+
+official_rank_army_slavic_feudal_0,大督军,Grand Voivode,大督軍
+official_rank_army_slavic_feudal_1,督军,Voivode,督軍
+official_rank_army_slavic_feudal_2,副督军,Deputy Voivode,副督軍
+official_rank_army_slavic_feudal_3,千夫长,Tysyatsky,千夫長
+official_rank_army_slavic_feudal_4,百夫长,Sotnik,百夫長
+official_rank_army_slavic_feudal_5,五十夫长,Pyatidesyatnik,五十夫長
+official_rank_army_slavic_feudal_6,十夫长,Desyatnik,十夫長
+official_rank_army_slavic_feudal_7,亲兵,Druzhinnik,親兵
+official_rank_army_slavic_feudal_8,甲士,Armored Retainer,甲士
+
+official_rank_court_arabic_0,大维齐尔,Grand Vizier,大維齊爾
+official_rank_court_arabic_1,维齐尔,Vizier,維齊爾
+official_rank_court_arabic_2,财政总管,Defterdar,財政總管
+official_rank_court_arabic_3,大卡迪,Chief Qadi,大卡迪
+official_rank_court_arabic_4,迪万书记长,Chief Scribe of the Diwan,迪萬書記長
+official_rank_court_arabic_5,卡迪,Qadi,卡迪
+official_rank_court_arabic_6,穆赫塔西卜,Muhtasib,穆赫塔西卜
+official_rank_court_arabic_7,阿米勒,Amil,阿米勒
+official_rank_court_arabic_8,卡提卜,Katib,卡提卜
+
+official_rank_army_arabic_feudal_0,大埃米尔,Grand Emir,大埃米爾
+official_rank_army_arabic_feudal_1,埃米尔,Emir,埃米爾
+official_rank_army_arabic_feudal_2,贝勒贝伊,Beylerbey,貝勒貝伊
+official_rank_army_arabic_feudal_3,桑贾克贝伊,Sanjak Bey,桑賈克貝伊
+official_rank_army_arabic_feudal_4,阿迦,Agha,阿迦
+official_rank_army_arabic_feudal_5,卡伊德,Qaid,卡伊德
+official_rank_army_arabic_feudal_6,千夫长,Commander of a Thousand,千夫長
+official_rank_army_arabic_feudal_7,百夫长,Commander of a Hundred,百夫長
+official_rank_army_arabic_feudal_8,十夫长,Commander of Ten,十夫長
+
+official_rank_court_nomad_0,大必阇赤,Grand Scribe,大必闍赤
+official_rank_court_nomad_1,大断事官,Grand Jarghuchi,大斷事官
+official_rank_court_nomad_2,达鲁花赤,Darughachi,達魯花赤
+official_rank_court_nomad_3,宣差,Imperial Envoy,宣差
+official_rank_court_nomad_4,必阇赤,Bichigchi,必闍赤
+official_rank_court_nomad_5,断事官,Jarghuchi,斷事官
+official_rank_court_nomad_6,怯里马赤,Interpreter,怯里馬赤
+official_rank_court_nomad_7,令史,Registrar,令史
+official_rank_court_nomad_8,帐房,Camp Clerk,帳房
+
+official_rank_army_nomad_0,大那颜,Great Noyan,大那顏
+official_rank_army_nomad_1,那颜,Noyan,那顏
+official_rank_army_nomad_2,万户,Commander of Ten Thousand,萬戶
+official_rank_army_nomad_3,千户,Commander of a Thousand,千戶
+official_rank_army_nomad_4,怯薛长,Kheshig Captain,怯薛長
+official_rank_army_nomad_5,百户,Commander of a Hundred,百戶
+official_rank_army_nomad_6,十户,Commander of Ten,十戶
+official_rank_army_nomad_7,怯薛,Kheshig Guard,怯薛
+official_rank_army_nomad_8,那可儿,Noker,那可兒
+
+official_rank_court_aztec_0,西瓦科瓦特尔,Cihuacoatl,西瓦科瓦特爾
+official_rank_court_aztec_1,维茨纳瓦特尔,Huitznahuatl,維茨納瓦特爾
+official_rank_court_aztec_2,提科夏瓦卡特尔,Ticocyahuacatl,提科夏瓦卡特爾
+official_rank_court_aztec_3,特库特利,Tecuhtli,特庫特利
+official_rank_court_aztec_4,皮利,Pilli,皮利
+official_rank_court_aztec_5,大收贡官,Huecalpixqui,大收貢官
+official_rank_court_aztec_6,收贡官,Calpixqui,收貢官
+official_rank_court_aztec_7,坊社长,Calpullec,坊社長
+official_rank_court_aztec_8,劳役长,Tequitlato,勞役長
+
+official_rank_army_aztec_0,特拉科奇卡尔卡特尔,Tlacochcalcatl,特拉科奇卡爾卡特爾
+official_rank_army_aztec_1,特拉卡特卡特尔,Tlacateccatl,特拉卡特卡特爾
+official_rank_army_aztec_2,剃头武士,Shorn One,剃頭武士
+official_rank_army_aztec_3,奥托米武士,Otomi Warrior,奧托米武士
+official_rank_army_aztec_4,鹰武士,Eagle Warrior,鷹武士
+official_rank_army_aztec_5,美洲豹武士,Jaguar Warrior,美洲豹武士
+official_rank_army_aztec_6,老练武士,Tequihua,老練武士
+official_rank_army_aztec_7,青年武士,Telpochtli,青年武士
+official_rank_army_aztec_8,见习武士,Novice Warrior,見習武士
+
+official_rank_court_roman_0,执政官级,Consular Rank,執政官級
+official_rank_court_roman_1,监察官级,Censorial Rank,監察官級
+official_rank_court_roman_2,裁判官级,Praetorian Rank,裁判官級
+official_rank_court_roman_3,市政官级,Aedilician Rank,市政官級
+official_rank_court_roman_4,保民官级,Tribunician Rank,保民官級
+official_rank_court_roman_5,财务官级,Quaestorian Rank,財務官級
+official_rank_court_roman_6,二十人官,Vigintivir,二十人官
+official_rank_court_roman_7,书吏,Scriba,書吏
+official_rank_court_roman_8,侍从吏,Apparitor,侍從吏
+
+official_rank_army_roman_0,统帅,Imperator,統帥
+official_rank_army_roman_1,军团长,Legate,軍團長
+official_rank_army_roman_2,资深保民官,Senior Tribune,資深保民官
+official_rank_army_roman_3,营地长官,Camp Prefect,營地長官
+official_rank_army_roman_4,军事保民官,Military Tribune,軍事保民官
+official_rank_army_roman_5,首席百夫长,Primus Pilus,首席百夫長
+official_rank_army_roman_6,百夫长,Centurion,百夫長
+official_rank_army_roman_7,副百夫长,Optio,副百夫長
+official_rank_army_roman_8,十夫长,Decurion,十夫長
+
+official_rank_army_bakufu_0,总大将,Commander-in-Chief,總大將
+official_rank_army_bakufu_1,侍大将,Samurai General,侍大將
+official_rank_army_bakufu_2,足轻大将,Ashigaru General,足輕大將
+official_rank_army_bakufu_3,番头,Guard Captain,番頭
+official_rank_army_bakufu_4,物头,Troop Leader,物頭
+official_rank_army_bakufu_5,组头,Squad Leader,組頭
+official_rank_army_bakufu_6,旗本,Hatamoto,旗本
+official_rank_army_bakufu_7,徒士,Foot Retainer,徒士
+official_rank_army_bakufu_8,足轻,Ashigaru,足輕
+
+official_rank_army_japan_ritsuryo_0,近卫大将,Major Captain of the Guards,近衛大將
+official_rank_army_japan_ritsuryo_1,近卫中将,Middle Captain of the Guards,近衛中將
+official_rank_army_japan_ritsuryo_2,近卫少将,Minor Captain of the Guards,近衛少將
+official_rank_army_japan_ritsuryo_3,卫门督,Commander of the Gate Guards,衛門督
+official_rank_army_japan_ritsuryo_4,兵卫督,Commander of the Military Guards,兵衛督
+official_rank_army_japan_ritsuryo_5,卫门佐,Assistant Commander of the Gate Guards,衛門佐
+official_rank_army_japan_ritsuryo_6,兵卫佐,Assistant Commander of the Military Guards,兵衛佐
+official_rank_army_japan_ritsuryo_7,将监,Lieutenant of the Guards,將監
+official_rank_army_japan_ritsuryo_8,将曹,Sergeant of the Guards,將曹

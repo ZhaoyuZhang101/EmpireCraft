@@ -438,7 +438,7 @@ public partial class EmpireBeaurauWindow : AbstractWideWindow<EmpireBeaurauWindo
         if (_empire?.data == null || _empire.isRekt() || _empire.CoreKingdom == null) return;
         // 宽窗口：顶部框作为滚动内容的第一项，跟着正文一起滚动
         Section(LM.Get("bureau_section_top"), BuildTopPart);
-        Section(LM.Get("bureau_office_pyramid"), ShowOfficePyramid);
+        Section(LM.Get(GeneralSystems.OfficialRankSystem.PyramidKey(_empire)), ShowOfficePyramid);
     }
 
     private void BuildTopPart()
@@ -592,6 +592,16 @@ public partial class EmpireBeaurauWindow : AbstractWideWindow<EmpireBeaurauWindo
         // 政党政治下标出官员党籍(后宫不标)；不属于任何政党的为"无党派"。
         // 按实际岗位属性显示身份；division 中的部长也是政治任命。
         string rankLine = rank.ColorString("#65D6C4");
+        // 律令以外的政体：卡面标出级别，空缺的官位标岗位本身的级别
+        GeneralSystems.OfficialRank grade = vacant
+            ? GeneralSystems.OfficialRankSystem.OfPost(officeObject, _empire.CoreKingdom)
+            : GeneralSystems.OfficialRankSystem.Of(officer);
+        if (grade.Shown)
+        {
+            tip.Add($"{LM.Get(grade.LabelKey)}: {grade.Text}");
+            if (!GeneralSystems.OfficialRankSystem.UsesPerformanceLadder(_empire.CoreKingdom))
+                rankLine += " " + grade.Name.ColorString("#F3C34A");
+        }
         bool careerPost = o == null && GeneralSystems.ParliamentSystem.IsCareerCivilServiceOffice(_empire, oid);
         if (!vacant && careerPost && GeneralSystems.PartySystem.IsActive(_empire))
         {
@@ -723,7 +733,7 @@ public partial class EmpireBeaurauWindow : AbstractWideWindow<EmpireBeaurauWindo
     {
         var space = _root.BeginVertGroup(pSpacing: 2, pAlignment: TextAnchor.UpperCenter);
         pool.Add(space.gameObject);
-        AddSectionHeader(space, LM.Get("bureau_office_pyramid"), "ui/icons/iconKingdom");
+        AddSectionHeader(space, LM.Get(GeneralSystems.OfficialRankSystem.PyramidKey(_empire)), "ui/icons/iconKingdom");
         var header = space.BeginHoriGroup(new Vector2(GraphWidth, 12f), TextAnchor.MiddleCenter, 3);
         var hint = header.AddTextIntoHoriLayout(LM.Get("bureau_graph_hint").ColorString("#8FA0A8"), true,
             TextAnchor.MiddleLeft, new Vector2(GraphWidth - 40f, 11f));

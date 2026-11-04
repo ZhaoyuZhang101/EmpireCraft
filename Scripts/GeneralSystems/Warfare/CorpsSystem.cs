@@ -90,6 +90,9 @@ public static class CorpsSystem
 
     public static bool IsGeneral(Actor actor) => actor?.data != null && GeneralIndex.ContainsKey(actor.id);
 
+    public static CorpsData CommandOf(Actor general) =>
+        general?.data != null && GeneralIndex.TryGetValue(general.id, out var key) ? Find(World.world?.kingdoms?.get(key.kingdom), key.corps) : null;
+
     public static float LeviedAt(City city)
     {
         if (city == null || !Enabled) return 0f;
@@ -1354,6 +1357,7 @@ public static class CorpsSystem
     {
         if (corps.general_id < 0) return;
         Actor general = World.world?.units?.get(corps.general_id);
+        OfficialRankSystem.OnCommandEnded(general, corps);
         GeneralIndex.Remove(corps.general_id);
         corps.general_id = -1L;
         if (general?.data == null || general.isRekt() || !general.isAlive()) return;

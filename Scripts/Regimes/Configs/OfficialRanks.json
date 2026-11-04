@@ -1,0 +1,155 @@
+{
+  "version": 1,
+  "civilizations": {
+    "cultures": { "Slavonic": "slavic", "Aztec": "aztec", "Ojibwe": "woodland" },
+    "lines": { "Huaxia": "huaxia", "Japan": "japan", "Roma": "western", "Arabic": "arabic", "Youmu": "nomad", "Aosong": "aosong" }
+  },
+  "fallback": { "civil": "grades_general", "military": "army_general" },
+  "forms": {
+    "one_party": {
+      "modern": true,
+      "civil_label": "official_rank_label_civil",
+      "military_label": "official_rank_label_military",
+      "civilizations": {
+        "huaxia": { "civil": "cadre_huaxia", "military": "army_general" },
+        "aosong": { "civil": "cadre_huaxia", "military": "army_general" },
+        "slavic": { "civil": "cadre_general", "military": "army_slavic" },
+        "japan": { "civil": "cadre_general", "military": "army_japan_modern" },
+        "arabic": { "civil": "cadre_general", "military": "army_arabic" },
+        "default": { "civil": "cadre_general", "military": "army_general" }
+      }
+    },
+    "republic": {
+      "modern": true,
+      "civil_label": "official_rank_label_civil",
+      "military_label": "official_rank_label_military",
+      "civilizations": {
+        "huaxia": { "civil": "grades_huaxia", "military": "army_huaxia_republic" },
+        "aosong": { "civil": "cadre_huaxia", "military": "army_general" },
+        "japan": { "civil": "grades_japan_modern", "military": "army_japan_modern" },
+        "western": { "civil": "grades_western_republic", "military": "army_general" },
+        "slavic": { "civil": "grades_slavic_republic", "military": "army_slavic" },
+        "arabic": { "civil": "grades_arabic", "military": "army_arabic" },
+        "nomad": { "civil": "grades_steppe", "military": "army_general" },
+        "default": { "civil": "grades_general", "military": "army_general" }
+      }
+    },
+    "constitutional": {
+      "modern": true,
+      "civil_label": "official_rank_label_civil",
+      "military_label": "official_rank_label_military",
+      "civilizations": {
+        "huaxia": { "civil": "grades_huaxia", "military": "army_huaxia_republic" },
+        "japan": { "civil": "grades_japan_imperial", "military": "army_japan_imperial" },
+        "western": { "civil": "grades_western_crown", "military": "army_western_crown" },
+        "slavic": { "civil": "grades_slavic_crown", "military": "army_slavic" },
+        "arabic": { "civil": "grades_arabic", "military": "army_arabic" },
+        "nomad": { "civil": "grades_steppe", "military": "army_general" },
+        "default": { "civil": "grades_general", "military": "army_general" }
+      }
+    },
+    "Transmigrant": {
+      "modern": true,
+      "civil_label": "official_rank_label_civil",
+      "military_label": "official_rank_label_military",
+      "civilizations": {
+        "aosong": { "civil": "cadre_huaxia", "military": "army_general" },
+        "default": { "civil": "cadre_huaxia", "military": "army_general" }
+      }
+    },
+    "Colonial": {
+      "civil_label": "official_rank_label_civil",
+      "civilizations": { "default": { "civil": "colonial", "military": "@metropole" } }
+    },
+    "Company": {
+      "civil_label": "official_rank_label_civil",
+      "civilizations": { "default": { "civil": "company", "military": "@metropole" } }
+    },
+    "LvLing": {
+      "performance_ladder": true,
+      "civil_label": "EmpireHonoraryOfficial",
+      "military_label": "EmpireHonoraryOfficial",
+      "civilizations": {
+        "huaxia": { "civil": "Huaxia_honoraryofficial_Civil_{0}", "military": "Huaxia_honoraryofficial_Military_{0}", "grade_suffix": true, "merit": true },
+        "japan": { "civil": "ikai_japan", "military": "army_japan_ritsuryo" },
+        "default": { "civil": "Huaxia_honoraryofficial_Civil_{0}", "military": "Huaxia_honoraryofficial_Military_{0}", "grade_suffix": true }
+      }
+    },
+    "ZhouFeudalism": {
+      "civilizations": { "default": { "civil": "court_zhou", "military": "army_zhou" } }
+    },
+    "Feudalism": {
+      "civilizations": {
+        "huaxia": { "civil": "court_zhou", "military": "army_zhou" },
+        "japan": { "civil": "ikai_japan", "military": "army_bakufu" },
+        "slavic": { "civil": "court_slavic", "military": "army_slavic_feudal" },
+        "arabic": { "civil": "court_arabic", "military": "army_arabic_feudal" },
+        "nomad": { "civil": "court_nomad", "military": "army_nomad" },
+        "default": { "civil": "court_western", "military": "army_western_feudal" }
+      }
+    },
+    "Arabic": {
+      "civilizations": { "default": { "civil": "court_arabic", "military": "army_arabic_feudal" } }
+    },
+    "YouMu": {
+      "civilizations": {
+        "aztec": { "civil": "court_aztec", "military": "army_aztec" },
+        "woodland": { "civil": "", "military": "" },
+        "default": { "civil": "court_nomad", "military": "army_nomad" }
+      }
+    },
+    "NomadFeudalism": {
+      "civilizations": {
+        "aztec": { "civil": "court_aztec", "military": "army_aztec" },
+        "woodland": { "civil": "", "military": "" },
+        "default": { "civil": "court_nomad", "military": "army_nomad" }
+      }
+    },
+    "ClassicalRepublic": {
+      "civilizations": { "default": { "civil": "court_roman", "military": "army_roman" } }
+    },
+    "Bakufu": {
+      "civilizations": { "default": { "civil": "ikai_japan", "military": "army_bakufu" } }
+    },
+    "Origin": { "civilizations": { "default": { "civil": "", "military": "" } } },
+    "HuaxiaOrigin": { "civilizations": { "default": { "civil": "", "military": "" } } }
+  },
+  "floors": {
+    "Modern": { "0": 0, "1": 1, "2": 1, "3": 2, "4": 3, "5": 2, "6": 6 },
+    "Transmigrant": { "0": 0, "1": 1, "2": 2, "3": 6, "4": 3 },
+    "Colonial": { "0": 0, "1": 1, "2": 4 },
+    "Company": { "0": 0, "1": 1, "2": 4 },
+    "LvLing": { "1": 0, "2": 1, "3": 1, "4": 2, "6": 2, "7": 3, "8": 6, "9": 0, "10": 1, "11": 2, "12": 3 },
+    "Feudalism": { "8": 5 },
+    "ZhouFeudalism": { "1": 0, "2": 0, "3": 0, "4": 1, "9": 5 },
+    "Arabic": { "1": 0, "2": 1, "3": 1, "5": 3, "7": 5 },
+    "YouMu": { "1": 0, "2": 0, "4": 3, "5": 5, "6": 2 },
+    "NomadFeudalism": { "1": 0, "2": 0, "5": 5 },
+    "ClassicalRepublic": { "0": 0, "1": 2, "2": 3, "3": 2 },
+    "Bakufu": { "1": 1, "2": 2, "3": 4, "7": 6, "8": 5 }
+  },
+  "unranked": {
+    "LvLing": [5],
+    "Feudalism": [1, 2, 3, 4, 5, 6, 7, 9],
+    "ZhouFeudalism": [5, 6, 7, 8],
+    "Arabic": [4, 6],
+    "YouMu": [3],
+    "NomadFeudalism": [3],
+    "Bakufu": [5]
+  },
+  "military_offices": {
+    "LvLing": [9, 10, 11, 12],
+    "Arabic": [3],
+    "YouMu": [2],
+    "NomadFeudalism": [2]
+  },
+  "general_floors": [
+    { "below": 3000, "tier": 3 },
+    { "below": 15000, "tier": 2 },
+    { "below": 40000, "tier": 1 },
+    { "tier": 0 }
+  ],
+  "captain_floor": 5,
+  "soldier_cap": 6,
+  "capital_bonus": 2
+}

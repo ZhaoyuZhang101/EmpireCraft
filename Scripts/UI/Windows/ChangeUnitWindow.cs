@@ -91,7 +91,7 @@ public class ChangeUnitWindow : AutoLayoutWindow<ChangeUnitWindow>
                         merit = string.Join("_", culture, "meritlevel", identity.peerageType.ToString(), identity.meritLevel);
                         merit += LM.Get(merit);
                         honoraryOfficial = string.Join("_", culture, "honoraryofficial", identity.peerageType.ToString(), identity.honoraryOfficial);
-                        honoraryOfficial += LM.Get(honoraryOfficial);
+                        honoraryOfficial += LM.Get(honoraryOfficial) + GeneralSystems.OfficialRankSystem.SearchText(actor);
                         officialLevel = string.Join("_", culture, identity.officialLevel.ToString());
                         officialLevel += LM.Get(officialLevel);
                     }

@@ -455,7 +455,7 @@ public class FactionDetailWindow : AbstractWideWindow<FactionDetailWindow>
         var powerPart = actorSpace.BeginVertGroup(pAlignment:TextAnchor.MiddleCenter);
         powerPart.AddTextIntoVertLayout($"{LM.Get("label_name")}: {pActor.name}", anchor: TextAnchor.MiddleLeft);
         var performanceText = powerPart.AddTextIntoVertLayout($"{LM.Get("label_total_performance")}: {(int)pActor.GetIdentity().TotalPerformance}", anchor: TextAnchor.MiddleLeft);
-        var levelText = powerPart.AddTextIntoVertLayout($"{LM.Get("label_rank")}: {pActor.GetIdentity().GetHonoraryOfficialName()}", anchor: TextAnchor.MiddleLeft);
+        var levelText = powerPart.AddTextIntoVertLayout($"{OfficialRankSystem.PanelLabel(pActor)}: {pActor.GetIdentity().GetHonoraryOfficialName()}", anchor: TextAnchor.MiddleLeft);
         RefreshText(pActor, performanceText, levelText);
         //编辑部分
         var infoSpace = cardSpace.BeginHoriGroup(pAlignment:TextAnchor.MiddleCenter);
@@ -527,7 +527,7 @@ public class FactionDetailWindow : AbstractWideWindow<FactionDetailWindow>
     public void RefreshText(Actor pActor, SimpleText performance, SimpleText level)
     {
         performance.text.text = $"{LM.Get("label_total_performance")}: {(int)pActor.GetIdentity().TotalPerformance}";
-        level.text.text = $"{LM.Get("label_rank")}: {pActor.GetIdentity().GetHonoraryOfficialName()}";
+        level.text.text = $"{OfficialRankSystem.PanelLabel(pActor)}: {pActor.GetIdentity().GetHonoraryOfficialName()}";
     }
     /// <summary>
     /// 显示和编辑诉求

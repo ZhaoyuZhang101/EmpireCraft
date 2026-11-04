@@ -110,3 +110,26 @@
 | `workers_per_factory`、`staffing_floor` | 一座工厂要的工人；配员不足时工业加成至少保留这么多 |
 | `culture_shift`、`assimilation` | 已归化的人每年改文化的比例；城市文化占比的推动 |
 | `landing_*`、`migrate_*` | 降临带来的人、旧档里澳洲人文化的人分到各岗位的比例 |
+
+# 文武等级配置(OfficialRanks.json)
+
+存档里仍是 `OfficeIdentity.honoraryOfficial`(0~8，0 最高)和文武类别。每套称谓都是九档，切政体、读旧档只换名字，不换算，数值越界按边界算。称谓表在 `Locales/OfficialRanks.csv`，键是 `official_rank_<套名>_<档>`，三种语言同一行。
+
+| 字段 | 含义 |
+| --- | --- |
+| `civilizations.cultures`、`lines` | 文化归哪个文明组：先看文化，再看制度线，都没有用 `default` |
+| `fallback` | 所有形态都没配时用的文武两套 |
+| `forms.<形态>.civilizations.<文明组>` | `civil`、`military` 是套名；空字符串表示不设等级；`@metropole` 表示跟宗主国；`grade_suffix` 带"几品"；`merit` 显示勋级 |
+| `forms.<形态>.civil_label`、`military_label` | 人物窗口那一行的标题键 |
+| `forms.<形态>.modern` | 职务、官制图的现代叫法 |
+| `forms.<形态>.performance_ladder` | 按绩效直接升降、不加岗位底线(律令制) |
+| `floors.<政体>.<官职档>` | 岗位对应的档位，任职就到这一档；没配时看官职的 `honorary` |
+| `unranked.<政体>` | 不列官阶的官职档(世袭封君)；君主、后宫由代码判断 |
+| `military_offices.<政体>` | 算武职的官职档；军镇官职一律算武职 |
+| `general_floors` | 军团统帅按满编人数定底，`below` 是上限，最后一项不写 |
+| `captain_floor`、`soldier_cap` | 军官的底线；普通士兵靠战功最高到哪档 |
+| `capital_bonus` | 城主所在城是本国首府时高几档 |
+
+形态是政体本身，另加三种：现代政体的 `one_party`(一党或民主集中制)、`republic`(其余)，君主国开了议会后的 `constitutional`。殖民地、特许公司看自己的政体，穿越政权看自己，其余看帝国核心。缺称谓的一档先退到 `fallback` 那一套，再不行显示数字。律令制以外的政体：岗位定底、只升不降、卸任保留、换岗不清零；原始政体和奥吉布瓦不设等级。
+
+例子：给维京文化单配一套，在 `cultures` 加 `"Viking": "viking"`，在要改的形态下加 `"viking": { "civil": "court_viking", "military": "army_viking" }`，再往称谓表加这两套各九行。

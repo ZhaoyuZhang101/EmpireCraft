@@ -331,6 +331,7 @@ public class OfficeObject
                 identity.SetOfficeId(OfficeID, actor);
                 actor.addTrait("officer");
                 actor.ChangeOfficialLevel(officeType);
+                OfficialRankSystem.OnAppointed(actor, this);
             }
         }
         actor.StartOffice(this);

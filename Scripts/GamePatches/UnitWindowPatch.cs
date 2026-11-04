@@ -142,24 +142,22 @@ public class UnitWindowPatch: GamePatch
         }
 
         Kingdom kingdom = actor.city?.kingdom;
+        OfficeIdentity identity = actor.GetIdentity();
+        OfficialRank rank = OfficialRankSystem.Of(actor);
+        if (rank.Shown)
+        {
+            if (rank.Merit && identity != null)
+                __instance.showStatRow("EmpireMerit", LM.Get(String.Join("_", "Huaxia", "meritlevel", identity.peerageType, identity.meritLevel)));
+            __instance.showStatRow(rank.LabelKey, rank.Text);
+        }
         if (kingdom?.IsInEmpire() == true)
         {
-            Empire empire = kingdom.GetEmpire();
-            OfficeIdentity identity = actor.GetIdentity();
-            Regime regime = empire?.CoreKingdom?.GetRegime();
-            if (regime?.type == RegimeType.LvLing && identity != null)
-            {
-                string empireMeritString = String.Join("_", "Huaxia", "meritlevel", identity.peerageType, identity.meritLevel);
-                string empireHonoraryOfficialString = String.Join("_", "Huaxia", "honoraryofficial", identity.peerageType.ToString(), identity.honoraryOfficial);
-                __instance.showStatRow("EmpireMerit", LM.Get(empireMeritString));
-                __instance.showStatRow("EmpireHonoraryOfficial", LM.Get(empireHonoraryOfficialString)+$" ({identity.honoraryOfficial+1}品)");
-            }
             if (actor.isOfficer() && identity != null)
             {
                 string empireOfficialLevelString = OfficeManager.Offices.TryGetValue(identity.GetOfficeId(), out var value)? value.GetName() : "";
                 if (!string.IsNullOrEmpty(empireOfficialLevelString))
                 {
-                    __instance.showStatRow("OfficialLevel", empireOfficialLevelString); 
+                    __instance.showStatRow(OfficialRankSystem.IsModern(kingdom) ? "official_rank_office_label" : "OfficialLevel", empireOfficialLevelString); 
                 }
 
                 if (actor.GetFaction() != null)

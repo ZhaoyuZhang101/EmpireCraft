@@ -243,8 +243,7 @@ public class OfficeIdentity
 
     public string GetHonoraryOfficialName()
     {
-        string empireHonoraryOfficialString = String.Join("_", "Huaxia", "honoraryofficial", peerageType.ToString(), honoraryOfficial);
-        return LM.Get(empireHonoraryOfficialString) + $" ({honoraryOfficial + 1}品)";
+        return OfficialRankSystem.NameFor(actor);
     }
     /// <summary>
     /// 进入内阁
@@ -1235,7 +1234,11 @@ public static class ActorExtension
     public static void JudgeOfficeLevel(this Actor actor)
     {
         var p = actor.GetIdentity().TotalPerformance;
-        if (actor.kingdom.GetRegime().type!=RegimeType.LvLing) return;
+        if (actor.kingdom.GetRegime().type != RegimeType.LvLing || !OfficialRankSystem.UsesPerformanceLadder(actor.kingdom))
+        {
+            OfficialRankSystem.OnPerformance(actor);
+            return;
+        }
         if (p > 1600)
         {
             actor.UpgradeOfficial(direct:0);
@@ -1366,6 +1369,7 @@ public static class ActorExtension
             identity.honoraryOfficial = 8;
             identity.meritLevel = 10;
             identity.peerageType = PeerageType.Civil;
+            OfficialRankSystem.CarryOver(GetOrCreate(a).officeIdentity, identity, a);
         }
         GetOrCreate(a).officeIdentity = identity;
     }

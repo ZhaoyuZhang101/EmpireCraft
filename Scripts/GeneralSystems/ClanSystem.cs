@@ -1576,7 +1576,8 @@ public class PersonalClanIdentity
         if (identity!=null)
         {
             merit = string.Join("_", culture, "meritlevel", identity.peerageType.ToString(), identity.meritLevel);
-            honoraryOfficial = string.Join("_", culture, "honoraryofficial", identity.peerageType.ToString(), identity.honoraryOfficial);
+            honoraryOfficial = OfficialRankSystem.Of(actor).Key ??
+                               string.Join("_", culture, "honoraryofficial", identity.peerageType.ToString(), identity.honoraryOfficial);
             officialLevel = DynastyNaming.RankKey(actor.kingdom.GetRegime().type, identity.officialLevel,
                 actor.isCityLeader() ? actor.city : actor.kingdom);
         }

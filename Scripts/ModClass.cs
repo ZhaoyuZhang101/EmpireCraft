@@ -208,6 +208,7 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
         LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "PeeragesLevelNames.csv"));
         LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "HonoraryOfficial.csv"));
         LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "MeritLevel.csv"));
+        LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "OfficialRanks.csv"));
         //加载文化名称模板
         LoadCultureNameTemplate();
         LM.ApplyLocale(); // Apply the loaded locales to the game
@@ -321,6 +322,7 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
         LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "PeeragesLevelNames.csv"));
         LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "HonoraryOfficial.csv"));
         LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "MeritLevel.csv"));
+        LM.LoadLocales(Path.Combine(_declare.FolderPath, "Locales", "OfficialRanks.csv"));
         LoadCultureNameTemplate();
         LM.ApplyLocale();
         FactionManager.ConvertToObjectFromFactionType();
