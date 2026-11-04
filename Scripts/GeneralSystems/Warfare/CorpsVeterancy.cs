@@ -47,7 +47,8 @@ public static class CorpsVeterancy
     {
         if (corps == null) return;
         int before = Tier(corps);
-        corps.veterancy = Mathf.Min(100f, corps.veterancy + BaseGain + PerformanceGain * Mathf.Clamp01(performance));
+        // 建制的老兵上限(见 FormationSystem)：征召、治安这类练不成百战之师
+        corps.veterancy = Mathf.Min(FormationSystem.VeteranCap(corps), corps.veterancy + BaseGain + PerformanceGain * Mathf.Clamp01(performance));
         if (before >= TierFloors.Length || Tier(corps) < TierFloors.Length) return;
         string text = string.Format(LM.Get("corps_log_veteran"), CorpsSystem.Name(corps));
         FrontSystem.Log(kingdom, text);
@@ -58,7 +59,9 @@ public static class CorpsVeterancy
     public static void Dilute(CorpsData corps, float before, float added)
     {
         if (corps == null || added <= 0f || before + added <= 0f) return;
-        corps.veterancy *= Mathf.Max(0f, before) / (before + added);
+        // 建制训练差的，同样多的新兵冲得更淡(见 FormationSystem)
+        float diluting = added * FormationSystem.TrainingFactor(corps);
+        corps.veterancy *= Mathf.Max(0f, before) / (Mathf.Max(0f, before) + diluting);
     }
 
     // 太平时每月回落(见 CorpsSystem.Recover)；手上在打仗的不落

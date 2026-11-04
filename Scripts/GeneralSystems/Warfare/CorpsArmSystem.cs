@@ -81,8 +81,15 @@ public static class CorpsArmSystem
         if (corps == null) return Arm.Infantry;
         if (corps.militia) return Arm.Militia;
         if (corps.arm >= 0 && Enum.IsDefined(typeof(Arm), corps.arm)) return (Arm)corps.arm;
-        // 新成军(或旧存档第一次读到)：按本文化眼下的编成定下，之后不再自动变
+        // 新成军(或旧存档第一次读到)：按本文化眼下的编成定下，之后不再自动变；建制列不了的换成编成里能列装的头一种
         Arm picked = Pick(corps);
+        if (!FormationSystem.AllowsArm(corps, picked))
+            foreach ((Arm arm, int _) in Mix(Culture(corps)).Item2)
+                if (FormationSystem.AllowsArm(corps, arm))
+                {
+                    picked = arm;
+                    break;
+                }
         corps.arm = (int)picked;
         return picked;
     }
@@ -163,7 +170,7 @@ public static class CorpsArmSystem
     {
         if (corps == null || corps.militia) return Arm.Militia;
         Arm current = Of(corps), next = Upgrade(current, Culture(corps));
-        if (next == current) return current;
+        if (next == current || !FormationSystem.AllowsArm(corps, next)) return current;
         Kingdom kingdom = World.world?.kingdoms?.get(corps.kingdom_id);
         return CommodityMarketSystem.CanEquip(kingdom, next.ToString()) ? next : current;
     }

@@ -561,8 +561,9 @@ public static partial class FrontSystem
         // 就近动员(见 WarScopeSystem)：驻地在动员范围里的军、已经在打的军、义军才上前线；
         // 出征(决议或奉诏)与举国总动员时全军可以开往任何战线；其余留守驻地
         bool unbounded = WarScopeSystem.Unbounded(kingdom);
-        bool Eligible(CorpsData corps) => unbounded || corps.militia || corps.task is "attack" or "defend" ||
-                                          WarScopeSystem.InScope(CorpsSystem.Home(corps));
+        // 地方军听地方的：举国总动员、出征也不抽调到动员范围以外(见 FormationSystem)
+        bool Eligible(CorpsData corps) => unbounded && !FormationSystem.LocalCommand(corps) || corps.militia ||
+                                          corps.task is "attack" or "defend" || WarScopeSystem.InScope(CorpsSystem.Home(corps));
         var ready = list.Where(corps => (insurgent || corps.task != "retreat" && corps.org >= ReadyOrg) && corps.strength >= 1f &&
                                         corps.pocket_months <= 0 && Eligible(corps)).ToList();
         if (!war)
@@ -682,11 +683,13 @@ public static partial class FrontSystem
         var attackOn = new Dictionary<Sector, float>();
         var attackLoad = new Dictionary<int, int>();
         // 渡海登陆先抽兵(守城不吃紧、有航线与运力时，见 FrontSystem.Landing)，余下的再按胜算挑陆上攻势
-        CommitLandings(kingdom, sectors, ready, assigned, attackOn, attackLoad, focus,
+        // 守备军不渡海(见 FormationSystem.MayEmbark)
+        CommitLandings(kingdom, sectors, ready.Where(FormationSystem.MayEmbark).ToList(), assigned, attackOn, attackLoad, focus,
             needTotal > 0f && haveTotal < needTotal * DefenseShortfall, ref shipping);
         // 不奉诏的禁军只守城、不出征(见 PalaceArmySystem)
+        // 野战军先走，守备军最后，且只打驻地附近的(见 FormationSystem)；受攻的城上面已经分过守军，守城不受这道限制
         foreach (CorpsData whole in ready.Where(corps => !assigned.Contains(corps) && !PalaceArmySystem.Refuses(corps))
-                     .OrderByDescending(corps => corps.strength))
+                     .OrderBy(FormationSystem.AttackRank).ThenByDescending(corps => corps.strength))
         {
             if (sectors.Count == 0) break;
             CorpsData corps = whole;
@@ -695,9 +698,10 @@ public static partial class FrontSystem
             // 走陆路去的(陆上战线、已在那片陆地上的登陆战线)隔着本方过不去、绕不过去的无人区的不去(见 Walkable)
             bool Boardable(Sector sector)
             {
+                if (!FormationSystem.WithinReach(corps, sector.City)) return false;
                 if (!sector.Landing || Ashore(corps, sector))
                     return Walkable(kingdom, corps, sector.Targets.Count > 0 ? sector.Targets[0] : sector.City.getTile()?.zone);
-                return corps.embarked || Shippable(corps, shipping) > 0f && EmbarkPoint(kingdom, corps) != null;
+                return corps.embarked || FormationSystem.MayEmbark(corps) && Shippable(corps, shipping) > 0f && EmbarkPoint(kingdom, corps) != null;
             }
             if (keep != null && (!Boardable(keep) || focus != null && keep != focus)) keep = null;
             Sector choice = keep ?? (focus != null && Boardable(focus) ? focus : null) ?? sectors

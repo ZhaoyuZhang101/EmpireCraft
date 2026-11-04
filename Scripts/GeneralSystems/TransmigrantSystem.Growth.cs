@@ -81,6 +81,7 @@ public static partial class TransmigrantSystem
         Settle(kingdom, state);
         KeepArmy(kingdom);
         Recruit(kingdom);
+        KeepLocalForces(kingdom);
         Campaign(kingdom, state);
         CorpsData fubo = Fubo(kingdom);
         NeoModLoader.services.LogService.LogInfo($"[EmpireCraft][穿越] {kingdom.GetKingdomFullName()} 城{kingdom.cities.Count} " +
@@ -259,6 +260,23 @@ public static partial class TransmigrantSystem
         if (fubo.full - before >= ArmyLogStep)
             TranslateHelper.LogEventOnly(string.Format(LM.Get("transmigrant_army_expanded_history"), kingdom.GetKingdomFullName(),
                 Mathf.RoundToInt(fubo.full)), kingdom);
+    }
+
+    // 地方驻防：没有驻军的城按威胁、人口挑一座，每年至多编一支地方军(早期治安军，后来国民军，见 FormationSystem.Resolve)。
+    // 缺钱、欠饷、编满了就不编；有敌人的边城先于腹地，新占的城没人守时也排在前面
+    private const float LocalForceReserve = 2f;
+
+    private static void KeepLocalForces(Kingdom kingdom)
+    {
+        if (!CorpsSystem.Enabled || CorpsSystem.Unpaid(kingdom) || kingdom.cities == null) return;
+        List<CorpsData> corps = CorpsSystem.Of(kingdom);
+        City pick = kingdom.cities.Where(city => city?.data != null && !city.isRekt() && city != kingdom.capital &&
+                                                 corps.All(entry => entry.home_city_id != city.id) &&
+                                                 CorpsSystem.ManualBlocker(kingdom, city) == null &&
+                                                 kingdom.GetMoney() >= CorpsSystem.ManualCost(kingdom, city) * LocalForceReserve)
+            .OrderByDescending(city => city.neighbours_cities?.Any(next => next?.kingdom != null && next.kingdom.isEnemy(kingdom)) == true)
+            .ThenByDescending(CityPopulationSystem.LevyBackground).FirstOrDefault();
+        if (pick != null) CorpsSystem.RaiseManual(kingdom, pick);
     }
 
     // 募兵：伏波军不满编时，从 RefugeeReach 以内不交战的外国城招丁壮，近的先招，每人付 RecruitFee

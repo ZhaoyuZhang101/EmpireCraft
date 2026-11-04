@@ -435,7 +435,7 @@ public static class CorpsSystem
         foreach (CorpsData corps in list)
         {
             // 装备越先进军饷越贵(见 CorpsArmSystem.Upkeep)
-            float weighted = Mathf.Max(0f, corps.strength) * CorpsArmSystem.Upkeep(CorpsArmSystem.Of(corps));
+            float weighted = Mathf.Max(0f, corps.strength) * CorpsArmSystem.Upkeep(CorpsArmSystem.Of(corps)) * FormationSystem.UpkeepFactor(corps);
             soldiers += weighted;
             marching += Mathf.Max(0f, corps.strength) * corps.march_zones;
             corps.march_zones = 0;
@@ -696,7 +696,8 @@ public static class CorpsSystem
                 // 分出去的渡海先遣军算在本军名下(补员、裁撤按两者合计)，免得一边分兵一边补满、兵越分越多
                 awayByParent.TryGetValue(corps.id, out float away);
                 if (corps.strength + away < corps.full && corps.supply >= 0.5f && !corps.embarked && !unpaid)
-                    Reinforce(kingdom, corps, Mathf.Min(corps.full * ReinforceShare * corps.supply, corps.full - away - corps.strength));
+                    Reinforce(kingdom, corps, Mathf.Min(corps.full * ReinforceShare * FormationSystem.RaiseFactor(corps) * corps.supply,
+                        corps.full - away - corps.strength));
                 else if ((!war || limited) && corps.strength + away > corps.full)
                     Demobilize(kingdom, corps, Mathf.Min(corps.strength + away - corps.full, corps.full * DemobilizeShare + 1f));
             }
@@ -705,7 +706,7 @@ public static class CorpsSystem
         if (!unpaid)
             foreach (CorpsData corps in list.Where(corps => corps.manual && !corps.embarked && corps.supply >= 0.5f &&
                                                             Deficit(kingdom, corps) >= 1f).ToList())
-                Reinforce(kingdom, corps, corps.full * ReinforceShare * corps.supply);
+                Reinforce(kingdom, corps, corps.full * ReinforceShare * FormationSystem.RaiseFactor(corps) * corps.supply);
         // 义军：仗打完就地解散
         if (!war)
             foreach (CorpsData corps in list.Where(corps => corps.militia).ToList()) Disband(kingdom, corps);
@@ -912,10 +913,12 @@ public static class CorpsSystem
         {
             // 就近的几座城抽完了：只从动员范围里的城再抽；举国总动员、奉诏出征才从全国抽(不再远距离征召)
             City source = only ?? (attempt < nearby.Count ? nearby[attempt]
+                : FormationSystem.LocalSource(corps) ? null
                 : near ? CityPopulationSystem.DrawKingdomCity(kingdom, WarScopeSystem.InScope)
                 : WarScopeSystem.Unbounded(kingdom) ? CityPopulationSystem.DrawKingdomCity(kingdom) : null);
             PopGroup group = source == null ? null
-                : CityPopulationSystem.DrawBackground(source, candidate => SlaverySystem.CanRecruit(candidate, corps.militia));
+                : CityPopulationSystem.DrawBackground(source, candidate => SlaverySystem.CanRecruit(candidate, corps.militia) &&
+                                                                           (only != null || FormationSystem.CanRecruit(corps, candidate)));
             // 最近一城可能只有奴隶，继续找下一座，不能因此挡住邻城的自由民补员。
             if (group == null) continue;
             float contribution = CityPopulationSystem.RemoveBackground(group, need - taken);
