@@ -265,7 +265,7 @@ public static partial class TransmigrantSystem
     {
         CorpsData fubo = Fubo(kingdom);
         if (fubo == null || CorpsSystem.Unpaid(kingdom)) return 0f;
-        float deficit = fubo.full - fubo.strength;
+        float deficit = CorpsSystem.Deficit(kingdom, fubo);
         if (deficit < 1f) return 0f;
         var homes = new List<City>(kingdom.cities);
         foreach (Kingdom colony in ColonySystem.ColoniesOf(kingdom)) homes.AddRange(colony.cities);

@@ -702,7 +702,7 @@ public static class CorpsSystem
         // 手动组建的军：只补员，不随兵额增减
         if (!unpaid)
             foreach (CorpsData corps in list.Where(corps => corps.manual && !corps.embarked && corps.supply >= 0.5f &&
-                                                            corps.strength < corps.full).ToList())
+                                                            Deficit(kingdom, corps) >= 1f).ToList())
                 Reinforce(kingdom, corps, corps.full * ReinforceShare * corps.supply);
         // 义军：仗打完就地解散
         if (!war)
@@ -882,9 +882,19 @@ public static class CorpsSystem
         return corps.strength - before;
     }
 
+    // 这支军还差多少人满编：分出去的先遣军算在本军名下，真减员才补，补员不会多出人来(所有补员、募兵入口共用)。先遣军自己不补员
+    public static float Deficit(Kingdom kingdom, CorpsData corps)
+    {
+        if (corps == null || corps.parent_id >= 0) return 0f;
+        float held = corps.strength;
+        foreach (CorpsData part in Of(kingdom))
+            if (part.parent_id == corps.id) held += part.strength;
+        return Mathf.Max(0f, corps.full - held);
+    }
+
     private static void Reinforce(Kingdom kingdom, CorpsData corps, float amount, City only = null)
     {
-        float need = Mathf.Min(amount, corps.full - corps.strength);
+        float need = Mathf.Min(amount, Deficit(kingdom, corps));
         if (need < 1f) return;
         float taken = 0f;
         TileZone at = Zone(corps);
