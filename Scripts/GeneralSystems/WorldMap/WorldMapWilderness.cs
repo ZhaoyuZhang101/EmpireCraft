@@ -140,6 +140,11 @@ public static class WorldMapWilderness
     // 这一局是世界地图(真实地球)：开局就有文明，无人区照起真实地名(见 WildernessSystem.NameAll)
     internal static bool OnEarth => Active;
 
+    internal static void RepairRiverSurfaces()
+    {
+        if (Active) EarthTerrain.RepairRiverSurfaces(_frame, new Vector2Int(_state.w, _state.h));
+    }
+
     // 这一局是世界地图预设剧本：无人区一直开着，不看模组设置(史实归属、地名、各时代开发度靠它)。自定剧本(编号 custom/<文件夹>，手做的、
     // 从当前世界导入的)是玩家自己的图，同样照设置开关(用户 2026-11-04 选"自定剧本也听设置")
     internal static bool ForcesWild => Active && !(_state.era ?? "").StartsWith("custom/", StringComparison.Ordinal);

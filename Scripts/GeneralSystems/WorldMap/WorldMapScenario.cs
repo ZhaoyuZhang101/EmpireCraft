@@ -119,6 +119,7 @@ public static class WorldMapScenario
         _defaultAdministrativeCities.Clear();
         _cityTerrainReach.Clear();
         _wildAnchors.Clear();
+        _fillerSites.Clear();
         _cities = new List<PlannedCity>();
         _polities = new List<PlannedPolity>();
         _subspecies.Clear();
@@ -286,7 +287,7 @@ public static class WorldMapScenario
             WorldMapPerson ruler = polity.data?.ruler;
             foreach (PlannedCity planned in polity.cities)
             {
-                TileZone zone = FindZone(planned.tile);
+                TileZone zone = FindZone(planned.tile, planned.random && !polity.tribe);
                 if (zone == null) continue;
                 _usedZones.Add(zone);
                 MakeOasis(zone);
@@ -736,7 +737,7 @@ public static class WorldMapScenario
     // 克什米尔谷地这类被山夹着的城常落在山坡上；现在在找到的那一圈再往外看两圈，按平地多少、山多少、离史实位置多远挑
     private const int MinFlat = 16;
 
-    private static TileZone FindZone(Vector2Int tile)
+    private static TileZone FindZone(Vector2Int tile, bool filler = false)
     {
         int zx = tile.x / 8, zy = tile.y / 8;
         for (int pass = 0; pass < 2; pass++)
@@ -752,6 +753,7 @@ public static class WorldMapScenario
                     if (Mathf.Max(Mathf.Abs(dx), Mathf.Abs(dy)) != radius) continue;
                     TileZone zone = ZoneAt(zx + dx, zy + dy);
                     if (zone == null || zone.city != null || _usedZones.Contains(zone)) continue;
+                    if (filler && !_fillerSites.Contains(WorldMapZones.IndexOf(zone))) continue;
                     if (pass == 0 && zone.neighbours_all.Any(near => near.city != null)) continue;
                     int land = 0, flat = 0, rough = 0;
                     foreach (WorldTile t in zone.tiles)
@@ -1009,6 +1011,8 @@ public static class WorldMapScenario
     private static readonly int[] MaxFillers = { 60, 160, 240 };
     private const int CitiesPerFiller = 4;
     private const int FillerJoinTiles = 80;
+    private const int MinFillerZones = 8;
+    private static readonly HashSet<int> _fillerSites = new();
 
     private static void PlanFillers()
     {
@@ -1018,6 +1022,8 @@ public static class WorldMapScenario
         // 地形缓存按区块编号存，可能还是上一个世界的(城心改成绿洲也没刷新)，先清掉再判荒地
         TerrainSystem.ResetWorldState();
         WorldMapZones.Build();
+        _fillerSites.Clear();
+        _fillerSites.UnionWith(WorldMapZones.FillerSites(MinFillerZones));
         PlanTribes();
         var centers = _cities.Where(city => city.city != null && !city.random && CultureService.IsValidCulture(city.culture))
             .GroupBy(city => city.region.id)
@@ -1032,7 +1038,7 @@ public static class WorldMapScenario
         List<int> gaps = WorldMapZones.Gaps(GapCost, MaxFillers[Mathf.Clamp(_sizeIndex, 0, MaxFillers.Length - 1)], index =>
         {
             TileZone zone = WorldMapZones.Zone(index);
-            return zone?.centerTile != null && !_usedZones.Contains(zone) && !_tribeArea.Contains(index) && Buildable(zone.centerTile) &&
+            return _fillerSites.Contains(index) && zone?.centerTile != null && !_usedZones.Contains(zone) && !_tribeArea.Contains(index) && Buildable(zone.centerTile) &&
                    zone.tiles.Count(Buildable) >= 32 && BarrenLandSystem.KindOf(zone) == BarrenLandSystem.None &&
                    !WorldMapWalls.OnPlanned(zone);
         }, _tribeSeeds);
@@ -1936,6 +1942,7 @@ public static class WorldMapScenario
         _cores.Clear();
         _usedZones.Clear();
         _subspecies.Clear();
+        _fillerSites.Clear();
     }
 
     // 剧本人物的名字 → 人物编号(君主、宗室后妃、名将名臣；同名的先到先得)

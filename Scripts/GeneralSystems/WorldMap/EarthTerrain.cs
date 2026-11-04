@@ -301,8 +301,7 @@ public static class EarthTerrain
                     resolved[id] = parts;
                 }
                 WorldTile tile = World.world.GetTileSimple(x, y);
-                if (parts.top == null) tile.setTileType(parts.main);
-                else tile.setTileTypes(parts.main, parts.top);
+                tile.setTileTypes(parts.main, parts.top);
                 tile.Height = tile.Type.height_min;
             }
         }
@@ -350,6 +349,25 @@ public static class EarthTerrain
         RiverTiles(frame, size, (x, y) => Wet(x, y, width, height));
     }
 
+    // 旧版画河只换底层，草地／雪丘仍盖在浅水上。只清理现存河道的错误表层，
+    // 不重新挖河：玩家已经填平的河段、渡口与地图外的地形均保持原样。
+    internal static int RepairRiverSurfaces(WorldMapFrame frame, Vector2Int size)
+    {
+        int changed = 0, width = MapBox.width, height = MapBox.height;
+        RiverTiles(frame, size, (x, y) =>
+        {
+            if (x < 1 || y < 1 || x >= width - 1 || y >= height - 1) return;
+            WorldTile tile = World.world.GetTileSimple(x, y);
+            if (tile?.main_type?.id != "shallow_waters" || tile.top_type == null || tile.top_type.liquid ||
+                tile.top_type.road || tile.top_type.wall || tile.top_type.farm_field) return;
+            tile.setTileTypes(tile.main_type, null);
+            tile.Height = tile.Type.height_min;
+            changed++;
+        });
+        if (changed > 0) LogService.LogInfo($"[EmpireCraft][世界地图] 修复旧河道被地表遮盖 {changed} 格");
+        return changed;
+    }
+
     // 大河水道落在哪些格上(DrawRivers 的走法，渡口已留开)：visit 收格坐标，出界、本来就是水面的由调用处判
     // (剧本编辑器预测无人区也照这个画水道，见 ScenarioWilderness)
     public static void RiverTiles(WorldMapFrame frame, Vector2Int size, Action<int, int> visit)
@@ -383,7 +401,7 @@ public static class EarthTerrain
         if (x < 1 || y < 1 || x >= width - 1 || y >= height - 1) return;
         WorldTile tile = World.world.GetTileSimple(x, y);
         if (tile?.Type == null || tile.Type.liquid) return;
-        tile.setTileType("shallow_waters");
+        tile.setTileTypes("shallow_waters", null);
         tile.Height = tile.Type.height_min;
     }
 

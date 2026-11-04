@@ -472,6 +472,39 @@ internal static class WorldMapZones
         }
     }
 
+    // 随机补城至少要有一片连通的可定居腹地；冻原、山脊、河湖围住的一两块小空隙不另立国。
+    // 史实城市和编辑器指定的部落不走这个筛选，仍可保留狭小河谷／岛屿上的真实聚落。
+    internal static HashSet<int> FillerSites(int minimumZones)
+    {
+        var eligible = new bool[_zones.Length];
+        for (int i = 0; i < eligible.Length; i++)
+            eligible[i] = SettledLand(i) && _zones[i] != null && WildernessSystem.ClassifyFresh(_zones[i]) == WildKind.None;
+        var seen = new bool[eligible.Length];
+        var sites = new HashSet<int>();
+        var queue = new Queue<int>();
+        var component = new List<int>();
+        for (int i = 0; i < eligible.Length; i++)
+        {
+            if (!eligible[i] || seen[i]) continue;
+            component.Clear();
+            seen[i] = true;
+            queue.Enqueue(i);
+            while (queue.Count > 0)
+            {
+                int at = queue.Dequeue();
+                component.Add(at);
+                foreach (int next in Neighbours(at))
+                {
+                    if (seen[next] || !eligible[next] || !Open(at, next)) continue;
+                    seen[next] = true;
+                    queue.Enqueue(next);
+                }
+            }
+            if (component.Count >= minimumZones) sites.UnionWith(component);
+        }
+        return sites;
+    }
+
     // 补空：离已有辖地(按地形代价，含跨海)最远的无主宜居区块，一块块挑出来立新城，直到处处离辖地都不到 minCost；
     // 挑一块就从它往外重算一遍远近。usable 判断这块能不能立城(开头判一次)
     // seeds：还没建成城、但已占定的区块(原始部落圈立的部落)，补空时离它们也要够远

@@ -544,7 +544,11 @@ public static class WildernessSystem
             if (!_built)
             {
                 // 旧档的世界地图：大漠腹地的沙地先改成荒漠(沙地只算沙滩，见 WorldMap.EarthBeaches)
-                if (WorldMap.WorldMapWilderness.OnEarth) WorldMap.EarthBeaches.Migrate();
+                if (WorldMap.WorldMapWilderness.OnEarth)
+                {
+                    WorldMap.WorldMapWilderness.RepairRiverSurfaces();
+                    WorldMap.EarthBeaches.Migrate();
+                }
                 using (FrameProfiler.Measure("无人区·划区")) Build(true, true);
                 return;
             }

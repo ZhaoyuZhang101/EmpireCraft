@@ -17,7 +17,7 @@ function Member([string]$path, [string]$signature) {
     $source.Substring($start,$end-$start)
 }
 $zonesPath='Scripts/GeneralSystems/WorldMap/WorldMapZones.cs'
-$graph=@('public static int[] NearestOf(', 'public static int[] Partition(', 'public static int[] RootedPartition(', 'private static float Grain(', 'private static float Step(', 'private static bool Diagonal(',
+$graph=@('public static int[] NearestOf(', 'public static int[] Partition(', 'public static int[] RootedPartition(', 'internal static HashSet<int> FillerSites(', 'public static bool SettledLand(', 'private static float Grain(', 'private static float Step(', 'private static bool Diagonal(',
     'private static IEnumerable<int> Neighbours(', 'private static long PairKey(', 'internal sealed class MinHeap') |
     ForEach-Object { Member $zonesPath $_ }
 $scenarioPath='Scripts/GeneralSystems/WorldMap/WorldMapScenario.cs'
@@ -32,6 +32,8 @@ $base=Member 'Scripts/GeneralSystems/TerrainResistance.cs' 'public static float 
 $fixture=@'
 using System;using System.Linq;using System.Collections.Generic;
 public enum FrontTerrain {Plains,Forest,Jungle,Hills,Mountain,River,Swamp,Desert,Snow,Urban}
+public enum WildKind {None,Mountain}
+public static class WildernessSystem {public static WildKind ClassifyFresh(TileZone z)=>z.wild?WildKind.Mountain:WildKind.None;}
 public struct Vector2Int {public int x,y;public Vector2Int(int a,int b){x=a;y=b;}public int sqrMagnitude=>x*x+y*y;
  public static Vector2Int operator -(Vector2Int a,Vector2Int b)=>new(a.x-b.x,a.y-b.y);}
 public class WorldTile {public int x,y,island=1;public object region=new();public TileZone zone;public bool isSameIsland(WorldTile t)=>island==t.island;}
@@ -63,6 +65,7 @@ public static partial class WorldMapZones {
  public static int Width,Height,calls;public static TileZone[] _zones;public static float[] _travel,_noise,_grain;public static bool[] _claimable,_river;public static int[] _land,_barren;
  private const int MinLand=6;private const float Mountain=6f,RiverCost=1.5f;private static HashSet<long> _blocked=new();
  private static bool Blocked(int a,int b)=>_blocked.Contains(PairKey(a,b));
+ public static void Block(int a,int b)=>_blocked.Add(PairKey(a,b));
  private static bool Open(int a,int b){
   if(Blocked(a,b))return false;
   if(!Diagonal(a,b))return true;
@@ -100,6 +103,22 @@ public static class Checks {
  static int n;static void Check(bool ok,string m){n++;if(!ok)throw new Exception(m);}
  static TileZone Candidate(City c,FrontTerrain t,int x=12,int y=4){var z=new TileZone{terrain=t,x=x/8,y=y/8};z.centerTile=new(){x=x,y=y,zone=z};z.tiles=new[]{z.centerTile};z.neighbours=new[]{c.tile.zone};return z;}
  public static int Run(){
+  WorldMapZones.Setup(11,3);for(int y=0;y<3;y++)for(int x=0;x<11;x++)WorldMapZones.Rock(x,y);
+  for(int x=0;x<7;x++){int i=WorldMapZones.I(x,1);WorldMapZones._claimable[i]=true;WorldMapZones._travel[i]=1;}
+  Check(WorldMapZones.FillerSites(8).Count==0,"A seven-zone valley surrounded by mountains creates a random pocket kingdom");
+  WorldMapZones._claimable[WorldMapZones.I(7,1)]=true;WorldMapZones._travel[WorldMapZones.I(7,1)]=1;
+  Check(WorldMapZones.FillerSites(8).Count==8,"A viable connected valley is excluded from ordinary filler settlement");
+  WorldMapZones._zones[WorldMapZones.I(3,1)].wild=true;
+  Check(WorldMapZones.FillerSites(8).Count==0,"Fresh wilderness joins separate scraps into a fake viable settlement basin");
+  WorldMapZones._zones[WorldMapZones.I(3,1)].wild=false;
+  WorldMapZones.Block(WorldMapZones.I(3,1),WorldMapZones.I(4,1));
+  Check(WorldMapZones.FillerSites(8).Count==0,"Filler site capacity is counted through an impassable border");
+  WorldMapZones.Setup(5,5);for(int y=0;y<5;y++)WorldMapZones.Water(2,y);
+  Check(WorldMapZones.FillerSites(8).Count==20,"Separate viable islands lose independent settlement capacity");
+  for(int y=0;y<5;y++)for(int x=0;x<2;x++)WorldMapZones._barren[WorldMapZones.I(x,y)]=1;
+  Check(WorldMapZones.FillerSites(8).Count==10,"Barren ground counts toward filler settlement capacity");
+  WorldMapZones.Setup(3,3);var historical=ScenarioActual.CityAt(1,1,99);
+  Check(WorldMapZones.FillerSites(10).Count==0&&historical.city.tile.zone.city==historical.city,"Filtering random filler sites removes an explicit historical city");
   WorldMapZones.Setup(9,7);for(int y=0;y<7;y++)WorldMapZones.Rock(3,y);
   var labels=WorldMapZones.Partition(new(){(WorldMapZones.I(2,1),0,60),(WorldMapZones.I(6,5),1,60)},true);
   Check(labels[WorldMapZones.I(4,1)]==1,"Wild administrative partition ignores the ridge and bypasses the valley approach");
