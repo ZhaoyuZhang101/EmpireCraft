@@ -222,6 +222,7 @@ public static partial class TransmigrantSystem
         ApplyFlag(kingdom);
 
         Populate(city);
+        NaturalizationSystem.SeedLanding(city, state, Settlers);
         GrantTechs(kingdom);
         kingdom.AddMoney(Treasury, TreasuryCategory.Gift);
         BuildTown(city);
@@ -780,7 +781,10 @@ public static partial class TransmigrantSystem
         Stage(kingdom, state);
         SyncRegions(kingdom);
         Publish(kingdom, state);
-        float naturalized = Naturalize(kingdom);
+        float naturalized = NaturalizationSystem.Yearly(kingdom, state);
+        if (naturalized >= NaturalizeLogMin)
+            TranslateHelper.LogEventOnly(string.Format(LM.Get("transmigrant_naturalized_history"), kingdom.GetKingdomFullName(),
+                Mathf.RoundToInt(naturalized)), kingdom);
         Grow(kingdom, state, naturalized);
     }
 
@@ -944,36 +948,7 @@ public static partial class TransmigrantSystem
         }
     }
 
-    // 检疫营：本国与殖民地各城每年把 NaturalizeShare 的外族背景人口编为归化民(澳洲人)，城的文化占比随之挪；
-    // 降临起就有，第一届执委会颁行以前减半(用户 10-29 "收拢流民、吸纳归化民、暴兵这套也没有")
-    private const float NaturalizeShare = 0.08f, NaturalizeShift = 4f, NaturalizeLogMin = 50f;
-
-    private static float Naturalize(Kingdom kingdom)
-    {
-        float rate = InstitutionSystem.IsEnacted(Culture, "aosong_first_committee") ? 1f : 0.5f;
-        var realms = new List<Kingdom> { kingdom };
-        realms.AddRange(ColonySystem.ColoniesOf(kingdom));
-        float moved = 0f;
-        foreach (Kingdom realm in realms)
-            foreach (City city in realm.cities.ToList())
-            {
-                CityPopulationData data = CityPopulationSystem.Get(city);
-                if (data?.groups == null) continue;
-                foreach (PopGroup group in data.groups.Where(group => group != null && group.culture != Culture && group.Background > 0f).ToList())
-                {
-                    float removed = CityPopulationSystem.RemoveBackground(group, group.Background * NaturalizeShare * rate);
-                    if (removed <= 0f) continue;
-                    CityPopulationSystem.AddBackground(city, group.social_class, Culture, group.species, group.ideology, removed);
-                    moved += removed;
-                }
-                CultureService.ApplyAssimilation(city, Culture, NaturalizeShift * rate);
-            }
-        if (moved >= 1f) CityPopulationSystem.InvalidateHouseholdCaches();
-        if (moved >= NaturalizeLogMin)
-            TranslateHelper.LogEventOnly(string.Format(LM.Get("transmigrant_naturalized_history"), kingdom.GetKingdomFullName(),
-                Mathf.RoundToInt(moved)), kingdom);
-        return moved;
-    }
+    private const float NaturalizeLogMin = 50f;
 
     // 华夏诸国(穿越者以外的华夏天下文化)打穿越政体：剿髡之战
     public static void NameWar(War war)

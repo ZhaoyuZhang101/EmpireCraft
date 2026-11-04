@@ -87,3 +87,26 @@
 ```
 
 部队的 `formation` 存的是 id，切语言不改内部 id；改了 id 的旧部队找不到定义时按默认值算，番号退回旧写法。`Arm` 的存档数值固定，不能插入或重排。
+
+# 归化民配置(Transmigrant/Naturalization.json)
+
+归化身份记在每座城的台账上，只给已有的人贴标签，不产生人。读取失败时日志记 `[归化]`，按代码里的默认值。
+
+| 字段 | 含义 |
+| --- | --- |
+| `max_share` | 一座城进台账的人至多占可入流程人口的比例，其余留在本地社会 |
+| `registry_per_cadre`、`quarantine_per_nurse`、`school_per_teacher` | 一名干部每年登记、一名护理同时检疫、一名教师同时教的人数 |
+| `base_registry`、`base_quarantine`、`base_school` | 元老亲自抓的底子，人手为零时也有这么多 |
+| `cost_registry`、`cost_quarantine`、`cost_school` | 每人花费；上学按年交 |
+| `budget_share` | 一年至多花可支配资金的这个比例 |
+| `school_years` | 基础教育年数 |
+| `worker_floor` | 结业的人至少这么多去做工 |
+| `focus_share` | 定了培养重点时，分配时这么多先给重点 |
+| `retrain_share` | 岗位还缺人时，每年工人里转岗的比例 |
+| `soldier_reserve` | 军人岗位按伏波军满编多留的预备 |
+| `cadre_base`、`cadre_per_people` | 一座城要的干部：底数加每多少人一名 |
+| `cadre_min_yield` | 一个干部都没有时赋税、征兵能收上来几成 |
+| `dispatch_share` | 富余的干部每年至多调走这么多 |
+| `workers_per_factory`、`staffing_floor` | 一座工厂要的工人；配员不足时工业加成至少保留这么多 |
+| `culture_shift`、`assimilation` | 已归化的人每年改文化的比例；城市文化占比的推动 |
+| `landing_*`、`migrate_*` | 降临带来的人、旧档里澳洲人文化的人分到各岗位的比例 |

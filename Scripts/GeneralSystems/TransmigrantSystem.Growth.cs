@@ -29,7 +29,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 伪装：降临时对外以所在天下的共主(没有就是最近的华夏帝国)的属国自居。伪装期间朝廷与各省不来开战，
 //     临高打朝廷下面的省，朝廷本部和别的省也不援(地方上的事，朝廷蒙在鼓里)；临高也不碰朝廷本部。
 //     据有两处省会(王国法理的首府，原著是两广)或宣布大宋国号以后撕破脸，朝廷这才来剿(见 Reveal)；
-//   · 收拢流民 → 检疫营归化 → 暴兵：流民只往不闹饥荒的城去(一年至多本国人口一成)；检疫营每年把外族编为归化民(见 Naturalize)；
+//   · 收拢流民 → 检疫营归化 → 暴兵：流民只往不闹饥荒的城去(一年至多本国人口一成)；检疫营收容教育后编为归化民(见 NaturalizationSystem)；
 //     伏波军按归化民扩编(ArmyBase + 归化民 NationalArmyShare，打仗时再扩一半)，钱不够时不扩；
 //   · 养得起：每月给缺粮的城补粮(高产作物与外洋米粮，见 Supply)；钱从工业来(用户"主要是工业产量更高，之前的市场系统可以用上")：
 //     厂区产量 ×IndustryBonus，归化民每千人每年另出 IndustryGoods 的布匹、工具、军械、钢材、糖(阶段越往后越多)，
@@ -337,22 +337,14 @@ public static partial class TransmigrantSystem
         }
     }
 
-    // 归化民(本国与殖民地各城里的澳洲人背景人口，元老在内)
-    public static float NaturalizedPopulation(Kingdom kingdom)
+    // 归化民：走完流程的人(见 NaturalizationSystem)，不看文化；元老不算
+    public static float NaturalizedPopulation(Kingdom kingdom) => NaturalizationSystem.CompletedPopulation(kingdom);
+
+    // 还要多少合格军人：伏波军的缺额，加一点预备；还没有伏波军时按成军的底数
+    public static float SoldierDemand(Kingdom kingdom)
     {
-        if (kingdom?.cities == null) return 0f;
-        float total = 0f;
-        var realms = new List<Kingdom> { kingdom };
-        realms.AddRange(ColonySystem.ColoniesOf(kingdom));
-        foreach (Kingdom realm in realms)
-            foreach (City city in realm.cities)
-            {
-                CityPopulationData data = CityPopulationSystem.Get(city);
-                if (data?.groups == null) continue;
-                foreach (PopGroup group in data.groups)
-                    if (group != null && group.culture == Culture) total += group.Background;
-            }
-        return total;
+        CorpsData fubo = Fubo(kingdom);
+        return fubo == null ? ArmyBase : CorpsSystem.Deficit(kingdom, fubo) + fubo.full * NaturalizationSystem.Config.soldier_reserve;
     }
 
     // 交战战力(见 FrontSystem)：穿越政权与它的殖民地

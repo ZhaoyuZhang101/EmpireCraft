@@ -2672,6 +2672,7 @@ public static class CityPopulationSystem
             moved += removed;
         }
         CityAssetSettlement.MoveSavingsWithMigrants(from, to, moved, totalBefore);
+        NaturalizationSystem.Carry(from, to, moved, totalBefore);
         return moved;
     }
 
@@ -2708,6 +2709,7 @@ public static class CityPopulationSystem
             moved += removed;
         }
         CityAssetSettlement.MoveSavingsWithMigrants(from, to, moved, totalBefore);
+        NaturalizationSystem.Carry(from, to, moved, totalBefore);
         InvalidateHouseholdCaches();
         return moved;
     }

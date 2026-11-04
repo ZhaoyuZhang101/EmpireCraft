@@ -31,6 +31,9 @@ public sealed class TransmigrantState
     public bool revealed;
     // 治安军已撤销番号并入国民军(只并一次，见 FormationSystem.MergeEarly)
     public bool security_merged;
+    // 归化台账已建好(旧档读入后补一次，见 NaturalizationSystem)；培养重点(NaturalizationState，-1 按需)
+    public bool naturalization_seeded;
+    public int naturalization_focus = -1;
 }
 
 public sealed class SenatorSeat

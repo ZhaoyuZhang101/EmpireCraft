@@ -38,6 +38,11 @@ public class CityPopulationData
     public double last_growth = -1d;
     // 存档期间关闭无小人模式时，重新启用不能补算停用期间的增长和消耗。
     public bool abstract_population_suspended;
+    // 归化台账(见 NaturalizationSystem)：各状态的人数，只是给城里已有的人贴标签；没有的城为空。
+    // 上次对账时的背景人口；干部覆盖、工厂配员(-1 是还没算过，不影响什么)
+    public float[] naturalization;
+    public float naturalization_background;
+    public float naturalization_cover = -1f, naturalization_staffing = -1f;
     // 上次校准时城里的实体单位数
     public int named_units;
     // 军团里的人(无小人模式)：本城征召的每个实体士兵代表一个军团，这里记军团除士兵本人以外的人数，
