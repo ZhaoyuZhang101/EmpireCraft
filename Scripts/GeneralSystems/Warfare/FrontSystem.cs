@@ -49,6 +49,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   无人区(见 WildernessPassage；用户 2026-10-29 选军队"只能沿路过"，游牧过沙漠冻土、阿拉伯过沙漠不受限)：对本方过不去的无人区
 //   同高山——陆路不经过它(见 Passable、LandRoute：隔着它走不过去的城只能坐船去打)，战线段、防线不划在它上面，
 //   军团不派去隔着它绕不过去的战线与城(见 Assign)，战线朱红不画在它边上。
+//   只隔着无人区相邻的城(见 WildernessNeighbours；用户 2026-11-04)走得通就够得着，不限 LandReachTiles，走廊常比它长(见 InReach)。
 // 军团须开到战线附近(两块地块以内)才参战。
 // 叛乱初起时被叛方有集结期(见 MusterSystem)：不反攻、只有附近的军能守城、守方战力打折。
 public static partial class FrontSystem
@@ -269,6 +270,7 @@ public static partial class FrontSystem
     {
         if (home.Contains(city)) return true;
         if (city.neighbours_cities != null && city.neighbours_cities.Any(home.Contains)) return true;
+        if (WildernessNeighbours.Of(city).Any(home.Contains) && LandRoute(side, city)) return true;
         WorldTile tile = city.getTile();
         if (tile == null) return false;
         float limit = LandReachTiles * LandReachTiles;

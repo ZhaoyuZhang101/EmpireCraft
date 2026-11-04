@@ -677,6 +677,7 @@ public static class WildernessOverlay
     // 开发度与开发状态(见 WildernessDevelopmentSystem.TipKey)、县址与它的状态(见 WildernessPlotSystem.TipKey)：
     // 同一片里换到开发不同、县址不同的地块也重显
     private static int _tipDev = -1, _tipPlot = -1;
+    private static string _tipPassage;
     private static Vector3 _pressedAt;
     private static bool _pressed, _tipsOn;
 
@@ -704,7 +705,8 @@ public static class WildernessOverlay
         Kingdom owner = region != null ? WildernessSystem.OwnerOf(zone) : null;
         int dev = region != null ? WildernessDevelopmentSystem.TipKey(zone) : -1;
         int plot = region != null ? WildernessPlotSystem.TipKey(zone) : -1;
-        if (ReferenceEquals(region, _tip) && owner == _tipOwner && dev == _tipDev && plot == _tipPlot && !clicked) return;
+        string passage = region != null ? WildernessPassage.TipKey(zone) : null;
+        if (ReferenceEquals(region, _tip) && owner == _tipOwner && dev == _tipDev && plot == _tipPlot && passage == _tipPassage && !clicked) return;
         HideTip();
         if (region == null) return;
         EnsureTooltip();
@@ -713,6 +715,7 @@ public static class WildernessOverlay
         _tipOwner = owner;
         _tipDev = dev;
         _tipPlot = plot;
+        _tipPassage = passage;
         Tooltip.show(region, TooltipType, new TooltipData { tooltip_scale = 0.7f, is_sim_tooltip = true });
     }
 
@@ -751,6 +754,7 @@ public static class WildernessOverlay
         _tipZone = null;
         _tipOwner = null;
         _tipDev = _tipPlot = -1;
+        _tipPassage = null;
     }
 
     private static void EnsureTooltip()
@@ -813,6 +817,10 @@ public static class WildernessOverlay
             tooltip.addLineText(NeoModLoader.General.LM.Get("wild_tooltip_development_status"), status, "#9FD38A", pPercent: false,
                 pLocalize: false);
         }
+        // 军队走不走得过(见 WildernessPassage)：有路、小径、丘陵、过不去
+        if (_tipZone != null && WildernessPassage.TipKey(_tipZone) is string passage)
+            tooltip.addLineText(NeoModLoader.General.LM.Get("wild_tooltip_passage"), NeoModLoader.General.LM.Get(passage), "#BFD8E6",
+                pPercent: false, pLocalize: false);
         // 预定县(见 WildernessPlotSystem)：县名与未开、已解锁待设、已设县某城
         if (_tipZone != null && WildernessPlotSystem.Describe(_tipZone, out string plot))
             tooltip.addLineText(NeoModLoader.General.LM.Get("wild_plot_tooltip"), plot, "#E8D9A8", pPercent: false, pLocalize: false);

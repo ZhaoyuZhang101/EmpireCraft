@@ -13,12 +13,14 @@ namespace EmpireCraft.Scripts.UI.Components;
 // 任何国色上都看得清；
 // 换了地图图层(底色全变)半秒后重画一次。
 // 纯净地图下一直画；城市图层也画(不要求纯净地图，见 PureMapPatch.CitiesShown)。
+// 小径(用户 2026-11-04 问答定"把小径画出来"，见 RoadNetwork.IsTrail)：无人区里军队能走的路线画成土色细虚线，同支线近景起出现；修通了路面盖上去。
 // 分级显示(见 MapZoomTier)：干线(官道、公路、柏油公路)一张图，任何远近都显示(用户 2026-10-27 "主干道在拉远后不见了"，
 // 以前中景起才出现)；支线(土路、驿道)与城外的巷子、零散房屋另一张图，近景起出现。城市图层不分级，一直全显示。
 public static class RoadOverlay
 {
     private const float RedrawSeconds = 20f, MinRedrawSeconds = 10f;
-    private static readonly Color32 Lane = new(232, 244, 255, 205), Building = new(170, 170, 170, 150), Clear = new(0, 0, 0, 0);
+    private static readonly Color32 Lane = new(232, 244, 255, 205), Building = new(170, 170, 170, 150), Clear = new(0, 0, 0, 0),
+        Trail = new(226, 204, 158, 175);
     private static readonly Color32[] Grades =
     {
         new(0, 0, 0, 0), new(238, 232, 220, 170), new(255, 255, 255, 215), new(255, 240, 170, 235),
@@ -143,6 +145,12 @@ public static class RoadOverlay
         Clean(_minor);
         WorldTile[] tiles = World.world.tiles_list;
         foreach (int id in RoadNetwork.LaneTileIds) Paint(_minor, id, Lane);
+        // 小径只画在无人区里(城的地上是村镇、田野，路线没修不画)
+        foreach (int id in RoadNetwork.TrailTileIds)
+        {
+            TileZone zone = id >= 0 && id < tiles.Length ? tiles[id]?.zone : null;
+            if (zone != null && zone.city == null && WildernessSystem.IsWild(zone) && Outside(tiles, id)) Paint(_minor, id, Trail);
+        }
         foreach (int id in RoadNetwork.BuildingTileIds)
             if (Outside(tiles, id)) Paint(_minor, id, Building);
         // 先描边(路两侧不是路的格)，再画路面，路面压在描边上；描边跟着各自那一级的路

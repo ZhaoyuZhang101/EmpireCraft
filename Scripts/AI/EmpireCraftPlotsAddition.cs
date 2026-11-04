@@ -2855,8 +2855,8 @@ namespace EmpireCraft.Scripts.AI
             if (initiator.HasGivenAlliance() &&
                 target == initiator.GetGivenAllianceEmpire()?.CoreKingdom &&
                 !initiator.NeedToRemoveGivenAlliance()) return false;
-            // 接壤或隔海相望(见 StraitReach)；附庸同样只打比自己弱的
-            bool neighbours = StraitReach.Near(initiator, target);
+            // 法理相连且走得通，或隔海相望(见 WarReach.WarNear)；附庸同样只打比自己弱的
+            bool neighbours = WarReach.WarNear(initiator, target);
             return neighbours && WarSituation.Power(initiator) > WarSituation.Power(target) &&
                    FeudalVassalService.CanDeclareExternalWar(initiator, target);
         }
@@ -2870,7 +2870,7 @@ namespace EmpireCraft.Scripts.AI
                 !target.isAlive() || target.IsInSameEmpire(initiator)) return false;
             Empire empire = initiator.GetEmpire();
             if (empire == null || empire.IsArchived() || empire.isRekt() ||
-                !empire.IsNeighbourWith(target) && !StraitReach.Across(initiator, target)) return false;
+                !WarReach.WarNear(initiator, target)) return false;
             if (target.GetGivenAllianceEmpire() == empire || target.GetTakenAllianceEmpire() == empire)
                 return false;
             // 只打比自己弱的(国力连同各成员国比，见 WarSituation.Power)：帝国开战不再先看君主本人(见 SkipsWarPlotRulerGate)，

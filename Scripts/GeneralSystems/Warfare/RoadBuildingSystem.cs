@@ -147,12 +147,16 @@ public static class RoadBuildingSystem
     public static void SeedIfOldWorld()
     {
         _seed ??= Links.Count == 0 && Date.getYearsSince(0d) > SeedAfterYears;
-        if (_seed != true || !RoadNetwork.PlansComplete) return;
+        if (_seed != true || !RoadNetwork.RoadPlansComplete) return;
         _seed = false;
         foreach (var pair in RoadNetwork.Plans)
         {
             if (Get(pair.Key) != null || pair.Value.zones.Count == 0) continue;
-            Kingdom owner = World.world.cities.get(pair.Key.Item1)?.kingdom;
+            // 隔着无人区的两城不铺(用户 2026-11-04 问答定小径只放军队)：修通的路政令也走得通，一铺就把剧本开局的控制力、养路账都改了；
+            // 军队走小径(见 RoadNetwork.IsTrail)，要修路的以后自己修
+            City first = World.world.cities.get(pair.Key.Item1), second = World.world.cities.get(pair.Key.Item2);
+            if (first?.neighbours_cities != null && second != null && !first.neighbours_cities.Contains(second)) continue;
+            Kingdom owner = first?.kingdom;
             int grade = GradeFor(owner);
             while (grade > 0 && !pair.Value.Buildable(grade)) grade--;
             if (grade <= 0) continue;

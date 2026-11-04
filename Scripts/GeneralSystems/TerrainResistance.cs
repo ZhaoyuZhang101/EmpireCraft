@@ -63,7 +63,7 @@ public static class TerrainResistance
     public static float Step(TileZone zone, Kingdom traveller = null, Kingdom other = null)
     {
         if (zone == null || zone.world_edge || SeaRegionSystem.IsSea(zone)) return -1f;
-        if (!WildernessPassage.Passable(zone, traveller)) return -1f;
+        if (!WildernessPassage.CivilPassable(zone, traveller)) return -1f;
         FrontTerrain terrain = TerrainSystem.Of(zone, out bool impassable);
         float cost = impassable ? Ridge : Base(terrain);
         bool road = RoadNetwork.IsRoad(zone);
@@ -94,7 +94,7 @@ public static class TerrainResistance
             float t = (float)i / steps;
             TileZone zone = i == steps ? to : calculator.getZone(Mathf.RoundToInt(from.x + dx * t), Mathf.RoundToInt(from.y + dy * t));
             // 同一块地取到两次(斜着走)照样算一步：一步就是一块地的长度
-            if (zone != null && !WildernessPassage.Passable(zone, traveller))
+            if (zone != null && !WildernessPassage.CivilPassable(zone, traveller))
             {
                 FrontTerrain terrain = TerrainSystem.Of(zone, out bool impassable);
                 total += (impassable ? Ridge : Base(terrain)) * WildDetour;

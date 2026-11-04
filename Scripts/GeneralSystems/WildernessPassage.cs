@@ -14,15 +14,23 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     路照旧放行：路铺不到岩浆格上(RoadNetwork、RoadPaintSystem 都绕开岩浆)，熔岩地里有路只能是沿着没岩浆的格走的，那就是走得通；
 //   · 不在无人区里的地块都能走(山、沙照旧只按地形阻力，见 TerrainResistance)；本国的无人区(挂在本国法理上)也一样按这个判；
 //   · 开发度过半的雨林、大泽地块(见 WildernessDevelopmentSystem)有了小路，同有路，谁都能走。
-// 用的地方：行政控制力与飞地、开战够不够得着、开战定目标(AdministrativeControlSystem、WarReach，替掉以前量天堑深浅的那套)，
-//   教化的路(TerrainResistance.Step 走不了)，军团寻路、战线、补给线(CorpsSystem、FrontSystem、LogisticsSystem；飞机、海运不受限)。
-// 缓存：按地块编号记哪几种走法过不去(一字节)，无人区(WildernessSystem.Version)、路网(RoadNetwork.Version，神力画路也经它换版本)
+//   · 只放军队的两样(用户 2026-11-04 转群友"丘陵能走军团""军队能够从主干道或土路，从 A 跨越无人区到 B"，问答定"只放军队"、
+//     "山格不到四分之一")：小径(规划得出路线的这一线，修没修都算，见 RoadNetwork.IsTrail)、丘陵(山脉无人区里阻挡格不到四分之一
+//     又没被山脊隔断，见 TerrainSystem.Hilly)。谁都能走，游牧、阿拉伯也一样；政令、教化照旧过不去，免得牵动控制力、飞地的平衡。
+// 两套规矩：军队(Passable、Way、Reachable、Walks)与政令(CivilPassable、CivilWay、CivilReachable)。
+// 用的地方：政令一套给行政控制力与飞地、开战定目标(AdministrativeControlSystem)、教化的路(TerrainResistance.Step 走不了)；
+//   军队一套给开战够不够得着(WarReach)、军团寻路、战线、补给线(CorpsSystem、FrontSystem、LogisticsSystem；飞机、海运不受限)。
+// 缓存：按地块编号记哪几种走法过不去(一字节：低三位军队，高三位政令)，无人区(WildernessSystem.Version)、路网(RoadNetwork.Version，神力画路也经它换版本)
 //   或过半的开发地块(WildernessDevelopmentSystem.Version)变了才整张重算，查询 O(1)。绕不绕得过去(Reachable)：各走法把不隔无人区的
 //   陆地连成片(八方向，同军团寻路)，用到时才算，过不去的地块真变了才重算。开关(WildernessSystem.Enabled)关掉时处处能走。不存档：读档后现算。
+//   走不走得通(Walks，开战闸门用)另连一份，连地形(高山、山脊)一起算：逐边查交界要贵一些，路网、无人区变了至多半分钟重连一回，平时两分钟兜底。
 public static class WildernessPassage
 {
     // 走的一方惯走哪几样(见 Habit)：定居、惯走沙漠(阿拉伯)、惯走沙漠冻土(真游牧)；连片按这三种走法各一份，另一份(Land)不看无人区
     private const int Settled = 0, DesertWise = 1, Nomadic = 2, Land = 3;
+    // 政令走法的位比军队高三位；连片的下标：0~2 军队、3 陆地、4~6 政令、7~9 军队连地形(见 Walks)
+    private const int CivilShift = 3, CivilPart = 4, TerrainPart = 7, PartCount = 10;
+    private const float TerrainChangedSeconds = 30f, TerrainRefreshSeconds = 120f;
     // 各类无人区没路时哪几种走法过不去(按 1 << 走法 记位)；熔岩同山脉、丛林、沼泽为 AllBlocks
     private const byte DesertBlocks = 1 << Settled, TundraBlocks = (1 << Settled) | (1 << DesertWise),
         AllBlocks = (1 << Settled) | (1 << DesertWise) | (1 << Nomadic);
@@ -36,9 +44,12 @@ public static class WildernessPassage
     private static bool _enabled, _any;
     // _block 真变了一次加一(连片据此作废)；陆地的连片只在无人区、世界变了时作废(路网变了不影响)
     private static int _blockRevision, _landRevision;
-    // 连片(走法 0~2、陆地 3)：地块编号 → 片号，过不去的为 -1
-    private static readonly int[][] _parts = new int[4][];
-    private static readonly int[] _partRevision = { -1, -1, -1, -1 };
+    // 连片(下标见 CivilShift 那行)：地块编号 → 片号，过不去的为 -1
+    private static readonly int[][] _parts = new int[PartCount][];
+    private static readonly int[] _partRevision = { -1, -1, -1, -1, -1, -1, -1, -1, -1, -1 };
+    // 连地形的连片：上回连的时候(真实时间)、路网版本
+    private static readonly float[] _terrainAt = new float[PartCount - TerrainPart];
+    private static readonly int[] _terrainRoad = new int[PartCount - TerrainPart];
     private static readonly Queue<TileZone> Fill = new();
 
     public static void ResetWorldState()
@@ -54,6 +65,7 @@ public static class WildernessPassage
         HabitCache.Clear();
         _habitFrame = -1;
         _lastKingdom = null;
+        WildernessNeighbours.ResetWorldState();
     }
 
     // 地图上有过不去的无人区(开关关掉、还没划区时为假)：为假时处处能走，寻路里不必逐块查
@@ -70,6 +82,16 @@ public static class WildernessPassage
         return block == 0 || zone.city != null || (block & (1 << Habit(traveller))) == 0;
     }
 
+    // 政令走得进这块地：同 Passable，小径、丘陵不算(见类头)
+    public static bool CivilPassable(TileZone zone, Kingdom traveller)
+    {
+        if (zone == null || !Ensure()) return true;
+        int id = zone.id;
+        if (id < 0 || id >= _block.Length) return true;
+        byte block = _block[id];
+        return block == 0 || zone.city != null || (block & CivilWay(traveller)) == 0;
+    }
+
     // 不分国家：不是无人区，或无人区里有路
     public static bool PassableByRoad(TileZone zone)
     {
@@ -80,6 +102,9 @@ public static class WildernessPassage
 
     // 寻路里逐邻查用：先取一次走法(Way)，确认过 Active 后用 Open，省掉每块的版本比对与判习性
     public static int Way(Kingdom traveller) => 1 << Habit(traveller);
+
+    // 政令的走法(同样交给 Open)
+    public static int CivilWay(Kingdom traveller) => 1 << (Habit(traveller) + CivilShift);
 
     public static bool Open(TileZone zone, int way) =>
         zone == null || zone.id < 0 || zone.id >= _block.Length || (_block[zone.id] & way) == 0 || zone.city != null;
@@ -92,6 +117,23 @@ public static class WildernessPassage
         int[] land = Parts(Land);
         if (!SharesPart(land, a, b)) return true;
         return SharesPart(Parts(Habit(traveller)), a, b);
+    }
+
+    // 政令绕得过、或沿修通的路穿得过(同 Reachable，小径、丘陵不算)
+    public static bool CivilReachable(TileZone a, TileZone b, Kingdom traveller)
+    {
+        if (a == null || b == null || a == b || !Ensure()) return true;
+        int[] land = Parts(Land);
+        if (!SharesPart(land, a, b)) return true;
+        return SharesPart(Parts(CivilPart + Habit(traveller)), a, b);
+    }
+
+    // 军队从 a 真走得到 b(开战闸门用，见 WarReach)：无人区之外还看高山与山脊(TerrainSystem.Impassable、Crossable)；
+    // 隔海的、走不了的都算不通(同 Reachable 相反，隔海的另由水师判)。地图上没有过不去的无人区时不查，照以前按接壤算
+    public static bool Walks(TileZone a, TileZone b, Kingdom traveller)
+    {
+        if (a == null || b == null || a == b || !Ensure()) return true;
+        return SharesPart(TerrainParts(TerrainPart + Habit(traveller)), a, b);
     }
 
     private static bool Ensure()
@@ -116,6 +158,9 @@ public static class WildernessPassage
         {
             _landRevision++;
             changed = !ReferenceEquals(_world, world) || _zoneCount != zones.Count;
+            // 换了世界：连地形的连片不留(平时它按时间重连)
+            if (changed)
+                for (int i = TerrainPart; i < PartCount; i++) _parts[i] = null;
         }
         _world = world;
         _enabled = enabled;
@@ -149,13 +194,33 @@ public static class WildernessPassage
     {
         WildKind kind = WildernessSystem.KindOf(zone);
         if (kind == WildKind.None || RoadNetwork.IsRoad(zone) || WildernessDevelopmentSystem.Passable(zone)) return 0;
-        return kind switch
+        byte civil = kind switch
         {
             WildKind.Desert => DesertBlocks,
             WildKind.Tundra => TundraBlocks,
             // 熔岩谁都不惯走(见类头)
             WildKind.Lava => AllBlocks,
             _ => AllBlocks
+        };
+        // 小径、丘陵只放军队(见类头)
+        byte army = RoadNetwork.IsTrail(zone) || kind == WildKind.Mountain && TerrainSystem.Hilly(zone) ? (byte)0 : civil;
+        return (byte)(army | civil << CivilShift);
+    }
+
+    // 悬停提示：这块无人区军队怎么走(语言键)；不是无人区、归了城、开发过半的(开发度那行写着)不写
+    public static string TipKey(TileZone zone)
+    {
+        if (zone == null || zone.city != null) return null;
+        WildKind kind = WildernessSystem.KindOf(zone);
+        if (kind == WildKind.None || WildernessDevelopmentSystem.Passable(zone)) return null;
+        if (RoadNetwork.IsRoad(zone)) return "wild_passage_road";
+        if (RoadNetwork.IsTrail(zone)) return "wild_passage_trail";
+        if (kind == WildKind.Mountain && TerrainSystem.Hilly(zone)) return "wild_passage_hills";
+        return kind switch
+        {
+            WildKind.Desert => "wild_passage_desert",
+            WildKind.Tundra => "wild_passage_tundra",
+            _ => "wild_passage_blocked"
         };
     }
 
@@ -185,19 +250,46 @@ public static class WildernessPassage
         return habit;
     }
 
-    // 连片：way 为走法(Land 不看无人区)，海面、地图边缘不算陆地；八方向连通
+    // 连片：下标见 CivilShift 那行(Land 不看无人区)，海面、地图边缘不算陆地；八方向连通
     private static int[] Parts(int way)
     {
         int[] parts = _parts[way];
         int revision = way == Land ? _landRevision : _blockRevision;
         if (parts != null && parts.Length == _block.Length && _partRevision[way] == revision) return parts;
+        Flood(way, way == Land ? 0 : way < Land ? 1 << way : 1 << (way - CivilPart + CivilShift), false);
+        _partRevision[way] = revision;
+        return _parts[way];
+    }
+
+    // 连地形的连片：地形变了不跟(格子时时在变)，无人区、路网变了隔半分钟重连，平时两分钟兜底
+    private static int[] TerrainParts(int part)
+    {
+        int[] parts = _parts[part];
+        int slot = part - TerrainPart;
+        float now = Time.unscaledTime;
+        if (parts != null && parts.Length == _block.Length)
+        {
+            float age = now - _terrainAt[slot];
+            bool changed = _partRevision[part] != _blockRevision || _terrainRoad[slot] != RoadNetwork.Version;
+            if (age >= 0f && age < (changed ? TerrainChangedSeconds : TerrainRefreshSeconds)) return parts;
+        }
+        using (FrameProfiler.Measure("无人区·走得通连片")) Flood(part, 1 << slot, true);
+        _partRevision[part] = _blockRevision;
+        _terrainRoad[slot] = RoadNetwork.Version;
+        _terrainAt[slot] = now;
+        return _parts[part];
+    }
+
+    private static void Flood(int way, int mask, bool terrain)
+    {
+        int[] parts = _parts[way];
         if (parts == null || parts.Length != _block.Length) parts = new int[_block.Length];
         for (int i = 0; i < parts.Length; i++) parts[i] = Unvisited;
-        int mask = way == Land ? 0 : 1 << way, next = 0;
+        int next = 0;
         foreach (TileZone start in World.world.zone_calculator.zones)
         {
             if (start == null || start.id < 0 || start.id >= parts.Length || parts[start.id] != Unvisited) continue;
-            if (!Walkable(start, mask))
+            if (!Walkable(start, mask) || terrain && TerrainSystem.Impassable(start))
             {
                 parts[start.id] = Blocked;
                 continue;
@@ -213,11 +305,13 @@ public static class WildernessPassage
                 {
                     if (neighbour == null || neighbour.id < 0 || neighbour.id >= parts.Length || parts[neighbour.id] != Unvisited)
                         continue;
-                    if (!Walkable(neighbour, mask))
+                    if (!Walkable(neighbour, mask) || terrain && TerrainSystem.Impassable(neighbour))
                     {
                         parts[neighbour.id] = Blocked;
                         continue;
                     }
+                    // 这条交界是山脊：不标记，留给别的交界走过来
+                    if (terrain && !TerrainSystem.Crossable(zone, neighbour)) continue;
                     parts[neighbour.id] = part;
                     Fill.Enqueue(neighbour);
                 }
@@ -225,8 +319,6 @@ public static class WildernessPassage
         }
         Fill.Clear();
         _parts[way] = parts;
-        _partRevision[way] = revision;
-        return parts;
     }
 
     private static bool Walkable(TileZone zone, int mask) =>

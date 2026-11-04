@@ -287,7 +287,7 @@ public static class AdministrativeControlSystem
             float admin = city.GetOrCreate().admin_distance;
             if (admin < 0f) continue;
             known = true;
-            if (!WildernessPassage.Reachable(from, goal, realm)) continue;
+            if (!WildernessPassage.CivilReachable(from, goal, realm)) continue;
             near.Add((admin + Vector2.Distance(new Vector2(from.x, from.y), new Vector2(goal.x, goal.y)), admin, from));
         }
         if (!known) return false;
@@ -306,7 +306,7 @@ public static class AdministrativeControlSystem
         if (!Valid(realm) || realm.capital == null || target?.data == null || target.isRekt()) return false;
         TileZone from = CenterZone(realm.capital), goal = CenterZone(target);
         if (from == null || goal == null) return false;
-        if (!WildernessPassage.Reachable(from, goal, realm)) return true;
+        if (!WildernessPassage.CivilReachable(from, goal, realm)) return true;
         return Control(TerrainResistance.LineCost(from, goal, realm) * LineDetour, Reach(realm)) < HardLimit;
     }
 
@@ -611,7 +611,7 @@ public static class AdministrativeControlSystem
         // 每块地的阻力一趟只算一次(以前四邻各推一次就现算一次)。
         // 走本国的地(连同本国的无人区)，本国过不去的无人区不走(见 WildernessPassage；有路的、惯走的照走)
         bool wild = WildernessPassage.Active;
-        int way = WildernessPassage.Way(realm);
+        int way = WildernessPassage.CivilWay(realm);
         Heap.Clear();
         foreach ((TileZone zone, float offset) in seats) Heap.Push(offset, (zone, false));
         while (Heap.Count > 0)
@@ -677,7 +677,7 @@ public static class AdministrativeControlSystem
                     overseas = false;
             float best = float.MaxValue;
             foreach ((TileZone seat, float offset) in seats
-                         .Where(entry => WildernessPassage.Reachable(entry.zone, center, realm))
+                         .Where(entry => WildernessPassage.CivilReachable(entry.zone, center, realm))
                          .OrderBy(entry => Vector2.Distance(new Vector2(entry.zone.x, entry.zone.y), new Vector2(center.x, center.y)) +
                                            entry.offset)
                          .Take(LineCandidates))

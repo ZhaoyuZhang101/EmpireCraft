@@ -112,7 +112,8 @@ public static class WarGoalSystem
         }
         float strength = WarSituation.StrengthRatio(defender, attacker);
         int theirs = WarSituation.SideCities(defender), ours = WarSituation.SideCities(attacker);
-        bool borders = attacker.IsNeighbourWith(defender);
+        // 只隔着无人区的也算接壤(走得通才开得了这一仗，见 WarReach)，不走跨海那套
+        bool borders = attacker.IsNeighbourWith(defender) || WarReach.AcrossWild(attacker, defender);
         RegimeType? regime = attacker.GetRegime()?.type;
         bool feudal = regime == RegimeType.Feudalism || regime == RegimeType.ZhouFeudalism;
         bool small = theirs <= AnnexSmallCities || theirs * 2 <= ours;

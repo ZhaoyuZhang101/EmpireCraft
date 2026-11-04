@@ -188,6 +188,8 @@ public static class WildernessSystem
 
     public static bool IsWild(TileZone zone) => Index(zone) >= 0;
 
+    public static bool IsNeutral(TileZone zone) => RegionOf(zone)?.Neutral == true;
+
     public static bool IsWildAt(int x, int y) => _regions.Count > 0 && IsWild(World.world?.GetTile(x, y)?.zone);
 
     public static WildKind KindOf(TileZone zone)

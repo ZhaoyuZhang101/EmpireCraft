@@ -5,7 +5,7 @@ using NeoModLoader.api;
 namespace EmpireCraft.Scripts.GamePatches;
 
 // 宣战只能就近：原版给独立王国挑宣战目标(DiplomacyHelpers.getWarTarget)只找"最近的、比自己弱的、可达的"国家，
-// 不要求接壤，近处没有合适目标时就会远距离宣战。这里要求目标与本国(或本国所在帝国)接壤或隔海相望(见 StraitReach)：
+// 不要求接壤，近处没有合适目标时就会远距离宣战。这里要求目标与本国(或本国所在帝国)法理相连且走得通，或隔海相望(见 WarReach.WarNear)：
 // 原版挑中的目标不近、或原版没挑出目标(隔海的小岛陆路不可达，原版不挑)时，按原版同样的条件改从近邻里挑；没有合适的就不宣战。
 // (帝国与帝国成员的宣战走 EmpireCraftPlotsAddition.GetWarTarget，本来就要求接壤)
 // 先收法理(世界法则，见 DeJureAgenda)：同样条件下，占着本国法理城的邻国优先于原版挑的目标，
@@ -63,7 +63,7 @@ public class WarTargetPatch : GamePatch
         __result = NearestNeighbourTarget(pInitiatorKingdom);
     }
 
-    private static bool IsNeighbour(Kingdom initiator, Kingdom target) => GeneralSystems.StraitReach.Near(initiator, target);
+    private static bool IsNeighbour(Kingdom initiator, Kingdom target) => GeneralSystems.WarReach.WarNear(initiator, target);
 
     // 与原版 getWarTarget 相同的条件，只是限定接壤；claimsOnly：只挑占着本国法理城的；coreOnly：只挑占着本国所在帝国法理里城的
     private static Kingdom NearestNeighbourTarget(Kingdom initiator, bool claimsOnly = false, bool coreOnly = false, bool realmOnly = false)

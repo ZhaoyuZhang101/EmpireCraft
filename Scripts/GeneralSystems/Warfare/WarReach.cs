@@ -17,6 +17,11 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   游牧过沙漠冻土、阿拉伯过沙漠的不算隔着)，沿直线的地形阻力也不过 LandCost(见 TerrainResistance.LineCost；
 //   用户 2026-10-26："印度打不到西藏"，以前量山地、冻土、沙漠的天堑深浅，已改成无人区)，或隔海在水师辐射内(StraitReach)；
 //   内乱不拦：叛乱、煽动、挑拨(神力)、全面战争，同一帝国内，封建上下级，开国不满一年的新政权宣战(刚分出来的叛军、割据打原主)。
+// 接壤改成"法理相连且走得通"(用户 2026-11-04 转群友"邻国宣战机制把无人区法理算上""不至于打了整整 10 年的静坐战"，问答定
+// "法理相连且走得通才算")：三国剧本 90 年存档，真接壤的 201 对国家里 59 对一处都走不通，20 场仗 6 场两边走不到一起，最长打了 15 年。
+//   · 隔着无人区相邻(见 WildernessNeighbours)、走得通的算邻国，不限 LandTiles(走廊常比它长)；
+//   · 真接壤却走不通的不算：挑目标不挑(见 WarNear)，已开的按下面的规矩判和；
+//   · 走得通 = 两边城心军队走得到一起，连高山、山脊、过不去的无人区一起算，任一方的走法走得通都算(游牧过得来，仗就打得起来，见 WildernessPassage.Walks)。
 // 已经开着的：每月看一次，两边所有参战国两两都够不着、连续 ClearMonths 个月就判和(劫掠之战有自己的期限，不管)；
 // 主攻主守够不着的战争不画箭头(见 WarMarkerPatch)。
 // 远方的参战国(用户 2026-10-27 截图"为什么这里能够跨距离宣战")：几千年前开的扩张战争靠同盟援战滚成半个世界，原主攻主守都亡了，
@@ -96,22 +101,63 @@ public static class WarReach
 
     private static bool Young(Kingdom kingdom) => Date.getYearsSince(kingdom.data.created_time) < 1f;
 
-    // 两边(帝国连同成员)有一对够得着：接壤、同一块陆地上相距不过 LandTiles 格(不隔着绕不过去的无人区)，或任一边的水师够得着对方临海的城
+    // 两边(帝国连同成员)有一对够得着：法理相连且走得通(见 Borders)、同一块陆地上相距不过 LandTiles 格(不隔着绕不过去的无人区)，或任一边的水师够得着对方临海的城
     public static bool Reachable(Kingdom a, Kingdom b)
     {
         if (a?.data == null || b?.data == null || a.isRekt() || b.isRekt()) return false;
         List<Kingdom> ours = Members(a), theirs = Members(b);
         foreach (Kingdom y in theirs)
-        {
             if (ours.Contains(y)) return true;
-            foreach (Kingdom x in ours)
-                if (x.IsNeighbourWith(y)) return true;
-        }
-        if (LandNear(ours, theirs)) return true;
+        if (Borders(ours, theirs) || LandNear(ours, theirs)) return true;
         foreach (Kingdom y in theirs)
             if (StraitReach.Across(a, y)) return true;
         foreach (Kingdom x in ours)
             if (StraitReach.Across(b, x)) return true;
+        return false;
+    }
+
+    // 挑宣战目标用(AI，见 EmpireCraftPlotsAddition、WarTargetPatch)：发起国连同所在帝国与目标法理相连且走得通，或隔海相望
+    public static bool WarNear(Kingdom initiator, Kingdom target)
+    {
+        if (initiator?.data == null || target?.data == null || initiator.isRekt() || target.isRekt()) return false;
+        return Borders(Members(initiator), new List<Kingdom> { target }) || StraitReach.Across(initiator, target);
+    }
+
+    // a 有城只隔着无人区挨着 b 的城(不管走不走得通；定战争目标用，见 WarGoalSystem)
+    public static bool AcrossWild(Kingdom a, Kingdom b)
+    {
+        if (a?.cities == null || b == null) return false;
+        foreach (City city in a.cities)
+            foreach (City other in WildernessNeighbours.Of(city))
+                if (other?.kingdom == b) return true;
+        return false;
+    }
+
+    // 两边有一对邻城(地块相接，或只隔着无人区)走得通
+    private static bool Borders(List<Kingdom> ours, List<Kingdom> theirs)
+    {
+        var others = new HashSet<Kingdom>(theirs);
+        foreach (Kingdom x in ours)
+        {
+            if (x.cities == null) continue;
+            foreach (City city in x.cities)
+            {
+                if (city?.data == null || city.isRekt()) continue;
+                if (Walks(city, city.neighbours_cities, others) || Walks(city, WildernessNeighbours.Of(city), others)) return true;
+            }
+        }
+        return false;
+    }
+
+    private static bool Walks(City city, IEnumerable<City> nearby, HashSet<Kingdom> others)
+    {
+        if (nearby == null) return false;
+        foreach (City other in nearby)
+        {
+            if (other?.kingdom == null || !others.Contains(other.kingdom)) continue;
+            TileZone from = city.getTile()?.zone, to = other.getTile()?.zone;
+            if (WildernessPassage.Walks(from, to, city.kingdom) || WildernessPassage.Walks(from, to, other.kingdom)) return true;
+        }
         return false;
     }
 
@@ -213,6 +259,8 @@ public static class WarReach
 
     private static void Sweep()
     {
+        // 读档后路线(小径)还没算完：这时够不着不作数，不计月数
+        if (!RoadNetwork.PlansComplete) return;
         var alive = new HashSet<long>();
         // 本月已算过的两家(按政权)是否够得着
         var cache = new Dictionary<(long, long), bool>();

@@ -17,6 +17,12 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //         还绕不过(山挡住、城被墙围死)的不修；城墙上筑了关城的，路从关门过墙(见 WallGateSystem)；斜接的城墙缝钻不过去；
 //         城池全图筑了城墙的城从城门进出，城门离走廊远的把两头城的地全算进走廊再找(见 CityPlanWorks)；
 //     规划好的路要各国出钱修、每年出钱养(见 RoadBuildingSystem)，修通的路才画出来、才能走；
+//   · 小径(用户 2026-11-04 转群友"保证雨林未开发完时，军团能够从 A 城走到 B 城，不至于打了整整 10 年的静坐战"，
+//     问答定"规划路线算小径，只放军队")：以前只规划地块相接的邻城，隔着无人区的两城没有路线，主干道其实穿不过去
+//     (三国剧本 90 年存档：法理相邻却不接壤的 429 对城，只有 1 对修通)。现在只隔着无人区的两城(见 WildernessNeighbours)也规划，
+//     游牧营地连着的路线也规划，只是修不了(GradeCap 为 0)；规划出来的路线不修也能走，见 IsTrail、Spans，修通了才走得快
+//     (路外行军打折照旧，见 CorpsSystem.FindPath)；修不出路的高山绝路没有路线，照旧挡着。
+//     村镇的土路(UrbanFabric.PlaceTrails)不算：那是平面图的画法，按镜头缓存、每城各画各的，不能当通行规则。
 //     行军(见 CorpsSystem)：寻路时路上的地块代价低、路外按兵种加价，路外行军按兵种打折(见 CorpsArmSystem.OffRoad)；城心也算有路。
 //   · 海路：港口城之间的航线——每座港口连最近的两座港口，另连一座别的陆地上最近的港口。按地块在海面上寻路，
 //     绕开陆地，近岸与海峡代价高，已有的航线代价低，彼此并成航线网；
@@ -45,6 +51,8 @@ public static class RoadNetwork
     private const float LaneDetour = 2.5f;
     // 海路虚线：每段几格画、几格空
     private const int DashOn = 3, DashOff = 2;
+    // 小径变了至多几秒收一回
+    private const float TrailSeconds = 5f;
 
     // 一条路线(陆路或海路)：经过的地块、落到的格子；陆路另记地形代价与直线距离(地块)、两头的城(id 小的在前；航线不记)
     public sealed class RoadPlan
@@ -54,6 +62,8 @@ public static class RoadNetwork
         public (long, long) cities = (-1L, -1L);
         public readonly List<int> zones = new();
         public readonly List<int> tiles = new();
+        // 按格找路时跨过的相邻两块地(见 EdgeKey、Spans)
+        public readonly List<long> edges = new();
 
         // 这个等级的路修得通吗(地形代价不超过直线距离的几倍，见 RoadBuildingSystem.DetourLimit)；
         // 超过两头城市风格允许的等级(林地只修土路，见 GradeCap)的也修不了
@@ -66,8 +76,10 @@ public static class RoadNetwork
     public static int GradeCap((long, long) key)
     {
         if (key.Item1 < 0 || key.Item2 < 0 || World.world?.cities == null) return RoadBuildingSystem.MaxGrade;
-        return Math.Min(CityStyleSystem.RoadGradeCap(World.world.cities.get(key.Item1)),
-            CityStyleSystem.RoadGradeCap(World.world.cities.get(key.Item2)));
+        City first = World.world.cities.get(key.Item1), second = World.world.cities.get(key.Item2);
+        // 游牧营地不修路：连着它的路线只当小径(见类头)
+        if (CityStyleSystem.Roadless(first) || CityStyleSystem.Roadless(second)) return 0;
+        return Math.Min(CityStyleSystem.RoadGradeCap(first), CityStyleSystem.RoadGradeCap(second));
     }
 
     private static readonly Dictionary<(long, long), RoadPlan> Roads = new(), Lanes = new();
@@ -76,8 +88,11 @@ public static class RoadNetwork
     private static readonly Dictionary<int, int> TileGrades = new(), ZoneGrades = new();
     private static readonly Dictionary<int, float> MountainShares = new();
     private static readonly List<City> PortCities = new();
-    private static float _nextTick, _nextPorts, _nextScan;
-    private static bool _dirty;
+    // 小径：规划路线经过的地块、跨过的交界、虚线落到的格(见类头、CollectTrails)
+    private static readonly HashSet<int> TrailZones = new(), TrailTiles = new();
+    private static readonly HashSet<long> TrailEdges = new();
+    private static float _nextTick, _nextPorts, _nextScan, _nextTrails;
+    private static bool _dirty, _trailsDirty;
     private static object _world;
 
     // 路网每变一次加一(RoadOverlay 据此重画)
@@ -87,10 +102,13 @@ public static class RoadNetwork
     public static IReadOnlyDictionary<int, int> RoadTileGrades => TileGrades;
     public static IReadOnlyCollection<int> BuildingTileIds => BuildingTiles;
     public static IReadOnlyCollection<int> LaneTileIds => LaneTiles;
+    public static IReadOnlyCollection<int> TrailTileIds => TrailTiles;
 
     // 陆路规划(两城 id，小的在前)；规划还有没算完的
     public static IReadOnlyDictionary<(long, long), RoadPlan> Plans => Roads;
     public static bool PlansComplete { get; private set; }
+    // 修得了的路线都算完了(开局铺路等这个，不等小径，见 RoadBuildingSystem.SeedIfOldWorld)
+    public static bool RoadPlansComplete { get; private set; }
 
     public static RoadPlan PlanOf((long, long) key) => Roads.TryGetValue(key, out RoadPlan plan) ? plan : null;
 
@@ -109,9 +127,9 @@ public static class RoadNetwork
     public static void Replan()
     {
         Roads.Clear();
-        PlansComplete = false;
+        PlansComplete = RoadPlansComplete = false;
         _nextScan = 0f;
-        _dirty = true;
+        _dirty = _trailsDirty = true;
     }
 
     // 一座城的城心挪了(迁城，见 CityRelocationSystem)：连着它的陆路、航线丢掉，照新城心重新找路——修了的路也重找，
@@ -122,14 +140,22 @@ public static class RoadNetwork
         long id = city.data.id;
         foreach (var key in Roads.Keys.Where(key => key.Item1 == id || key.Item2 == id).ToList()) Roads.Remove(key);
         foreach (var key in Lanes.Keys.Where(key => key.Item1 == id || key.Item2 == id).ToList()) Lanes.Remove(key);
-        PlansComplete = false;
+        PlansComplete = RoadPlansComplete = false;
         _nextTick = _nextScan = 0f;
-        _dirty = true;
+        _dirty = _trailsDirty = true;
     }
 
     // 有路的地块：干道经过的，以及城心
     public static bool IsRoad(TileZone zone) =>
         zone != null && (RoadZones.Contains(zone.id) || zone.city?.data != null && zone.city.getTile()?.zone == zone);
+
+    // 小径(见类头)：规划路线经过的地块，修没修都算。无人区里军队走得过去(见 WildernessPassage.Blocking)，地形上也进得去(见 TerrainSystem.Impassable)
+    public static bool IsTrail(TileZone zone) => zone != null && TrailZones.Contains(zone.id);
+
+    // 规划路线跨过这两块地的交界：按格走得过去，山脊上一格宽的缺口也算(见 TerrainSystem.Crossable)
+    public static bool Spans(TileZone a, TileZone b) => a != null && b != null && TrailEdges.Contains(EdgeKey(a.id, b.id));
+
+    private static long EdgeKey(int a, int b) => a < b ? (long)a << 32 | (uint)b : (long)b << 32 | (uint)a;
 
     // 地块上最好的路的等级(没有路为 0；城心按驿道算)
     public static int RoadGrade(TileZone zone)
@@ -152,7 +178,12 @@ public static class RoadNetwork
         ZoneGrades.Clear();
         MountainShares.Clear();
         PortCities.Clear();
-        PlansComplete = false;
+        TrailZones.Clear();
+        TrailTiles.Clear();
+        TrailEdges.Clear();
+        _trailsDirty = false;
+        _nextTrails = 0f;
+        PlansComplete = RoadPlansComplete = false;
         RoadBuildingSystem.ResetWorldState();
         _nextTick = _nextPorts = _nextScan = 0f;
         _world = null;
@@ -184,6 +215,14 @@ public static class RoadNetwork
                 RoadBuildingSystem.SeedIfOldWorld();
             }
             RoadBuildingSystem.Tick();
+            // 小径变了：路线还没算完时隔几秒收一回(每回都要重算通行)
+            if (_trailsDirty && (PlansComplete || now >= _nextTrails || _nextTrails - now > TrailSeconds))
+            {
+                _trailsDirty = false;
+                _nextTrails = now + TrailSeconds;
+                CollectTrails();
+                Version++;
+            }
             if (!_dirty) return;
             _dirty = false;
             using (FrameProfiler.Measure("路网·收路格"))
@@ -207,6 +246,22 @@ public static class RoadNetwork
         {
             zones.UnionWith(route.zones);
             tiles.UnionWith(route.tiles);
+        }
+    }
+
+    // 小径：所有规划得出来的路线(修没修都算)
+    private static void CollectTrails()
+    {
+        TrailZones.Clear();
+        TrailEdges.Clear();
+        TrailTiles.Clear();
+        foreach (RoadPlan plan in Roads.Values)
+        {
+            if (plan.zones.Count == 0) continue;
+            TrailZones.UnionWith(plan.zones);
+            TrailEdges.UnionWith(plan.edges);
+            for (int i = 0; i < plan.tiles.Count; i++)
+                if (i % (DashOn + DashOff) < DashOn) TrailTiles.Add(plan.tiles[i]);
         }
     }
 
@@ -345,7 +400,33 @@ public static class RoadNetwork
             WorldTile from = first?.getTile(), to = second?.getTile();
             if (from != null && to != null) pending |= Plan(key, from, to, now, budget, wanted);
         }
+        RoadPlansComplete = !pending;
+        // 小径：游牧营地连着的路线、只隔着无人区的两城(修路的算完了才轮到它们)
+        foreach (City city in World.world.cities.list)
+        {
+            WorldTile from = city?.getTile();
+            if (from == null || city.isRekt()) continue;
+            bool roadless = CityStyleSystem.Roadless(city);
+            foreach (City other in city.neighbours_cities)
+            {
+                WorldTile to = other?.getTile();
+                if (to == null || other.isRekt() || other.data.id <= city.data.id || !from.isSameIsland(to) ||
+                    !roadless && !CityStyleSystem.Roadless(other)) continue;
+                if (Bypassed(city, other, from, to)) continue;
+                pending |= Plan((city.data.id, other.data.id), from, to, now, budget, wanted);
+            }
+            foreach (City other in WildernessNeighbours.Of(city))
+            {
+                WorldTile to = other?.getTile();
+                if (to == null || other.isRekt() || other.data.id <= city.data.id || !from.isSameIsland(to) ||
+                    city.neighbours_cities.Contains(other)) continue;
+                if (BypassedAcross(city, other, from, to)) continue;
+                pending |= Plan((city.data.id, other.data.id), from, to, now, budget, wanted);
+            }
+        }
+        int planned = Roads.Count;
         Prune(Roads, wanted);
+        if (Roads.Count != planned) _trailsDirty = true;
         PlansComplete = !pending;
     }
 
@@ -360,6 +441,9 @@ public static class RoadNetwork
         RoadPlan plan;
         using (FrameProfiler.Measure("路网·陆路找路")) plan = BuildRoad(from, to, now);
         plan.cities = key;
+        // 过期重算多半还是原路：真换了路才重算通行
+        if (!Roads.TryGetValue(key, out RoadPlan old) || !old.zones.SequenceEqual(plan.zones) || !old.tiles.SequenceEqual(plan.tiles))
+            _trailsDirty = true;
         Roads[key] = plan;
         // 只有修了(在修)的路要重收路格；没修的路线不画，不必重收
         if (built) _dirty = true;
@@ -371,6 +455,20 @@ public static class RoadNetwork
     {
         float ab = Squared(ta, tb);
         foreach (City c in a.neighbours_cities.Concat(b.neighbours_cities))
+        {
+            WorldTile tc = c?.getTile();
+            if (tc == null || c == a || c == b || c.isRekt() || !tc.isSameIsland(ta)) continue;
+            if (Squared(ta, tc) < ab && Squared(tc, tb) < ab) return true;
+        }
+        return false;
+    }
+
+    // 隔着无人区的两城：另有一座城(地块相接的或也隔着无人区的)比它们彼此都近，就经那座城走，走廊不至于铺满一片无人区
+    private static bool BypassedAcross(City a, City b, WorldTile ta, WorldTile tb)
+    {
+        if (Bypassed(a, b, ta, tb)) return true;
+        float ab = Squared(ta, tb);
+        foreach (City c in WildernessNeighbours.Of(a).Concat(WildernessNeighbours.Of(b)))
         {
             WorldTile tc = c?.getTile();
             if (tc == null || c == a || c == b || c.isRekt() || !tc.isSameIsland(ta)) continue;
@@ -400,6 +498,11 @@ public static class RoadNetwork
         if (tiles == null && (CityPlanWorks.Walled(from.zone?.city) || CityPlanWorks.Walled(to.zone?.city)))
             tiles = FindTiles(from, to, WithCities(Corridor(path, WideCorridor), from, to));
         if (tiles == null) return new RoadPlan { at = now };
+        for (int i = 1; i < tiles.Count; i++)
+        {
+            TileZone a = tiles[i - 1].zone, b = tiles[i].zone;
+            if (a != null && b != null && a != b) route.edges.Add(EdgeKey(a.id, b.id));
+        }
         foreach (WorldTile tile in tiles)
             if (tile.zone != null && (route.zones.Count == 0 || route.zones[route.zones.Count - 1] != tile.zone.id) &&
                 !route.zones.Contains(tile.zone.id))
@@ -410,7 +513,7 @@ public static class RoadNetwork
 
     private static float RoadStep(TileZone zone, TileZone goal)
     {
-        if (zone != goal && (TerrainSystem.Impassable(zone) || SeaRegionSystem.IsSea(zone) ||
+        if (zone != goal && (TerrainSystem.ImpassableGround(zone) || SeaRegionSystem.IsSea(zone) ||
                              MountainShare(zone) >= MountainZoneShare)) return -1f;
         return (RoadZones.Contains(zone.id) ? RoadCost : 1f) * Terrain(zone);
     }
