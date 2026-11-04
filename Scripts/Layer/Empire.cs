@@ -458,6 +458,11 @@ public class Empire : MetaObject<EmpireData>
         }
     }
 
+    // 剧本的国号(见 WorldMapScenario.BuildEmpires)，下一个立的帝国从头就用它、用完清空。以前先按法理定国号再改回剧本的，
+    // 第一位皇帝的在位记录、即位记载都写成法理名，世系里李隆基是"雍"、李亨才是"唐"，同一家族像是改了国号
+    // (用户 2026-11-04 转玩家"国号也给换了""哪怕是同一个家族的也会有问题")
+    internal static string ScriptedFoundingName;
+
     private EmpireFoundingNameChoice SelectFoundingEmpireName(Kingdom kingdom, EmpireCore riseCore)
     {
         KingdomTitle mainTitle = kingdom?.GetMainTitle();
@@ -1279,13 +1284,16 @@ public class Empire : MetaObject<EmpireData>
         generateNewMetaObject();
         EmpireCore riseCore = EmpireCoreManager.GetRiseCandidateCore(kingdom);
         EmpireFoundingNameChoice foundingName = SelectFoundingEmpireName(kingdom, riseCore);
-        SetEmpireName(foundingName.Name);
+        string scriptedName = ScriptedFoundingName;
+        ScriptedFoundingName = null;
+        bool scripted = !string.IsNullOrWhiteSpace(scriptedName);
+        SetEmpireName(scripted ? scriptedName : foundingName.Name);
         AssignWesternOrdinal(data.core_name);
         if (data.western_ordinal >= 2) SetEmpireName(data.core_name);
         try
         {
             NewEmperor(kingdom.king, !isSplit);
-            RecordFoundingNameHistory(foundingName, kingdom.king);
+            if (!scripted) RecordFoundingNameHistory(foundingName, kingdom.king);
             if (data.has_year_name)
             {
                 this.RecordHistory(EmpireHistoryType.new_empire_history, new Dictionary<string, string>()

@@ -1443,6 +1443,31 @@ public static partial class VirtualGenealogySystem
         return added;
     }
 
+    // 剧本开局的年轻皇帝(用户 2026-11-04 转玩家"一开局皇帝就死了""国号也给换了")：剧本只写了本人的，够不上开国补嗣的年纪
+    // (FounderHeirMinAge)，族里只有他一个，身后皇族绝嗣、裂土换姓改国号(日志里遮娄其开局第 3 年、瞿折罗第 8 年)。
+    // 族里没有别的男丁的按他的年纪补记一两个未必成年的儿子，虚拟入谱
+    public static int EnsureYoungRulerHouse(Actor ruler)
+    {
+        if (!CityPopulationSystem.AbstractPopulationEnabled || ruler?.data == null || World.world == null) return 0;
+        PersonalClanIdentity self = ruler.GetPersonalIdentity();
+        SpecificClan clan = self?._specificClan;
+        int age = ruler.getAge();
+        if (self == null || clan == null || age >= FounderHeirMinAge) return 0;
+        EnsureIndex();
+        if (clan.SnapshotPeople().Any(person => person != self && person.is_alive && person.isMale())) return 0;
+        double now = World.world.getCurWorldTime();
+        City city = ruler.city ?? ruler.kingdom?.capital;
+        string species = !string.IsNullOrEmpty(self.species) ? self.species : ruler.asset?.id;
+        int added = 0;
+        for (int years = age - 18 - UnityEngine.Random.Range(0, 4); added < 2 && years >= 1; years -= 2 + UnityEngine.Random.Range(0, 4))
+        {
+            AddGrownChild(clan, self, years, city, species, now);
+            added++;
+        }
+        if (added > 0) LogService.LogInfo($"[EmpireCraft][开国补嗣] {ruler.getName()}({age}岁) 剧本开局族里只有他一人，补记子嗣 {added} 人");
+        return added;
+    }
+
     private static PersonalClanIdentity AddGrownChild(SpecificClan clan, PersonalClanIdentity parent, int years, City city,
         string species, double now)
     {
