@@ -136,6 +136,8 @@ public class EmpireData : MetaObjectData
     public long nomad_hero_id = -1L;
     public string nomad_hero_name = "";
     public double nomad_hero_fell_at = -1d;
+    // 世界地图开局就奉别教的阿拉伯一线帝国(那时还没有伊斯兰)：不强改国教，自己皈依伊斯兰后去掉(见 CaliphateFaith)
+    public bool pre_caliphate_faith;
     // 大分裂冷却(见 UpheavalGuard，用户 2026-10-21 选)：最近一次大分裂(汗位/哈里发/苏丹更替之乱、雄主身后分裂、应仁之乱、
     // 土崩瓦解、宗室另立)真走掉成员的时间；-1 没有(旧档读进来也是 -1)
     public double last_upheaval_at = -1d;

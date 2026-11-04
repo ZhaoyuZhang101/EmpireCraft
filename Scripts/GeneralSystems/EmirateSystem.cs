@@ -90,6 +90,8 @@ public static class EmirateSystem
     // 离开阿拉伯政体：不再有苏丹、哈里发之分
     public static void OnRegimeChanged(Empire empire, RegimeType? previous, RegimeType current)
     {
+        // 改行阿拉伯政体就成了哈里发国：国教不是伊斯兰的当场定教(见 CaliphateFaith)
+        if (previous != RegimeType.Arabic && current == RegimeType.Arabic) CaliphateFaith.TrySettle(empire);
         if (empire?.data == null || previous != RegimeType.Arabic || current == RegimeType.Arabic) return;
         if (MilitaryRegency.KindOf(empire) == MilitaryRegency.Sultan) MilitaryRegency.Dissolve(empire, null);
     }

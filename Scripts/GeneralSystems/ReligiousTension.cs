@@ -146,7 +146,8 @@ public static class ReligiousTension
         {
             LogService.LogWarning($"[EmpireCraft][宗教] 地方教会并入正教失败: {exception.Message}");
         }
-        // 统治者皈依、迫害与驱逐、大分裂、民间教门(见各系统)
+        // 哈里发国只奉伊斯兰的补查(见 CaliphateFaith)；统治者皈依、迫害与驱逐、大分裂、民间教门(见各系统)
+        TryStep("哈里发国定教", CaliphateFaith.YearlyPass);
         TryStep("统治者皈依", ReligionConversionSystem.YearlyPass);
         TryStep("迫害与驱逐", ReligiousPersecution.YearlyPass);
         TryStep("宗教分裂", ReligionSchismSystem.YearlyPass);

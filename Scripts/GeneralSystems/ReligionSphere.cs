@@ -229,6 +229,8 @@ public static class ReligionSphere
         foreach (Religion religion in candidates.ToList())
         {
             if (!IsLocalChurch(religion)) continue;
+            // 伊斯兰不并进别教的正教：奉它的哈里发国又得改回来(见 CaliphateFaith)
+            if (ReligionFaith.IsCaliphal(religion) && !ReligionFaith.IsCaliphal(OrthodoxOf(SphereOf(religion)))) continue;
             cities.TryGetValue(religion, out int count);
             City holy = PapacySystem.HolyCity(religion);
             bool holyLost = holy == null || holy.religion != religion;

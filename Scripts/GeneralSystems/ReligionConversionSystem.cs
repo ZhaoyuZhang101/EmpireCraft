@@ -106,9 +106,10 @@ public static class ReligionConversionSystem
                 minorities[city.religion] = count + 1;
             }
         foreach (KeyValuePair<Religion, int> pair in minorities) Add(weights, pair.Key, MinorityWeight * pair.Value / own);
-        if (weights.Count == 0) return;
-        KeyValuePair<Religion, float> best = weights.OrderByDescending(pair => pair.Value).First();
-        if (UnityEngine.Random.value >= BaseChance * best.Value * receptive) return;
+        // 哈里发国只改奉伊斯兰(别的教派可以，见 CaliphateFaith)
+        KeyValuePair<Religion, float> best = weights.Where(pair => CaliphateFaith.MayAdopt(realm, pair.Key))
+            .OrderByDescending(pair => pair.Value).FirstOrDefault();
+        if (best.Key == null || UnityEngine.Random.value >= BaseChance * best.Value * receptive) return;
         Convert(realm, best.Key, current);
     }
 
@@ -135,7 +136,7 @@ public static class ReligionConversionSystem
         KeyValuePair<Religion, float> top = people.OrderByDescending(pair => pair.Value).First();
         Religion faith = top.Key;
         if (faith == current || top.Value * 2f < total || !ReligionSphere.IsNative(faith) || ReligionSphere.IsLocalChurch(faith) ||
-            ReligionSphere.SphereOf(faith) == ReligionSphere.SphereOf(current)) return false;
+            ReligionSphere.SphereOf(faith) == ReligionSphere.SphereOf(current) || !CaliphateFaith.MayAdopt(realm, faith)) return false;
         if (UnityEngine.Random.value >= AdoptSubjectsChance) return false;
         Convert(realm, faith, current, "ruler_adopts_subjects_log");
         return true;
@@ -185,19 +186,21 @@ public static class ReligionConversionSystem
         }
     }
 
-    // 有小人时(没有背景人口传教)：皈依后的国家每年逐城改宗
+    // 有小人时(没有背景人口传教)：皈依后的国家每年逐城改宗；哈里发国过了皈依期也慢慢改(见 CaliphateFaith)
     private static void ManualCityConversion(List<Kingdom> realms)
     {
         foreach (Kingdom realm in realms)
         {
-            if (!Within(realm.GetOrCreate().religion_converted_at, ConversionPushYears)) continue;
+            float chance = Within(realm.GetOrCreate().religion_converted_at, ConversionPushYears) ? ManualCityChance
+                : CaliphateFaith.Attracts(realm) ? CaliphateFaith.ManualCityChance : 0f;
+            if (chance <= 0f) continue;
             foreach (Kingdom member in Members(realm))
             {
                 if (!member.hasReligion() || member.religion != realm.religion) continue;
                 foreach (City city in member.cities.ToList())
                 {
                     if (city?.data == null || city.isRekt() || city.religion == member.religion ||
-                        city.hasReligion() && city.religion.GetCity() == city || UnityEngine.Random.value >= ManualCityChance) continue;
+                        city.hasReligion() && city.religion.GetCity() == city || UnityEngine.Random.value >= chance) continue;
                     BackgroundReligionSystem.Convert(city, member.religion, city.religion);
                 }
             }

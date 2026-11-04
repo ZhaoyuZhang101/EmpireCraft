@@ -358,6 +358,7 @@ public static class EmpirePartitionSystem
         twin.data.western_ordinal = source.data.western_ordinal;
         twin.data.TaxRate = source.data.TaxRate;
         twin.data.Religion = source.data.Religion;
+        twin.data.pre_caliphate_faith = source.data.pre_caliphate_faith;
         twin.data.heir_type = source.data.heir_type;
         twin.data.long_posthumous = source.data.long_posthumous;
         twin.data.show_long_posthumous = source.data.show_long_posthumous;
@@ -494,7 +495,7 @@ public static class EmpirePartitionSystem
             empire.data.partition_amity = twin.data.partition_amity = true;
             UpheavalGuard.Mark(empire, "大汗东西分立", detail: $"分走 {moved} 城");
         }
-        Publish(empire, twin, string.Format(LM.Get(rival ? "partition_caliphate_history" : "partition_khanate_history"), khanName,
+        Publish(empire, twin, string.Format(LM.Get(rival ? DynastyNaming.CultureVariant(empire.CoreKingdom, "partition_caliphate_history") ?? "partition_caliphate_history" : "partition_khanate_history"), khanName,
             ruler.getName(), seatName, empire.GetEmpireFullName(), twin.GetEmpireFullName()), khan);
         LogService.LogInfo($"[EmpireCraft][{(rival ? "哈里发并立" : "大汗分立")}] {empire.GetEmpireFullName()} 新君{khanName}即位，" +
                            $"{far}/{total} 城在都城控制范围之外，{ruler.getName()} 据 {seatName} 另立为 {twin.GetEmpireFullName()}(分走 {moved} 城)");

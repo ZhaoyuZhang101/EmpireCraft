@@ -79,7 +79,8 @@ public static class ReligionSchismSystem
             if (converted >= 0d && World.world.getCurWorldTime() >= converted && Date.getYearsSince(converted) < TurnCooldownYears) continue;
             if (UnityEngine.Random.value >= NativeTurnChance) continue;
             Religion native = ReligionSphere.OrthodoxOf(sphere);
-            if (native != null && native != current && UnityEngine.Random.value < NativeRevertShare)
+            // 哈里发国只复归伊斯兰，否则照分本国教派(见 CaliphateFaith)
+            if (native != null && native != current && CaliphateFaith.MayAdopt(core, native) && UnityEngine.Random.value < NativeRevertShare)
             {
                 ReligionConversionSystem.Convert(core, native, current, "native_revert_log");
                 continue;

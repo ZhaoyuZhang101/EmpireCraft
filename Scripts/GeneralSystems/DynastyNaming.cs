@@ -86,8 +86,13 @@ public static class DynastyNaming
         return LM.Has(variant) ? variant : null;
     }
 
-    public static string CultureVariant(Kingdom kingdom, string key) =>
-        kingdom?.data == null || kingdom.isRekt() ? null : CultureVariant(key, CultureService.GetRealmCulture(kingdom));
+    public static string CultureVariant(Kingdom kingdom, string key)
+    {
+        if (kingdom?.data == null || kingdom.isRekt()) return null;
+        // 剧本开局奉别教的古帝国，奉伊斯兰之前不称哈里发国、哈里发(见 CaliphateFaith)
+        if (CaliphateFaith.PreIslamic(kingdom) && LM.Has(key + CaliphateFaith.PreIslamicSuffix)) return key + CaliphateFaith.PreIslamicSuffix;
+        return CultureVariant(key, CultureService.GetRealmCulture(kingdom));
+    }
 
     // 帝国名按部落、部落联盟称的原始政体：华夏，连同从部落起步的游牧、阿拉伯
     public static bool TribalNaming(Kingdom kingdom)

@@ -515,6 +515,8 @@ public static class EmpireFormationService
             GetRouteName(route), empire.GetEmpireName());
         empire.RecordHistory(directContent: content, actorId: founder.king?.id ?? -1L, kingdomId: founder.id);
         EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventMessage(content, founder);
+        // 阿拉伯帝国称帝就是哈里发国：国教不是伊斯兰的当场定教(见 CaliphateFaith)
+        CaliphateFaith.TrySettle(empire);
 
         var dissenters = new List<Kingdom>();
         ResolveAllianceMembers(empire, founder, foundingAlliance, allianceMembers, coRuledRealms, dissenters);

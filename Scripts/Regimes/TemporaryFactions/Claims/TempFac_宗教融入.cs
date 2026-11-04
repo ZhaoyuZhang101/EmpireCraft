@@ -23,7 +23,8 @@ public class TempFac_宗教融入 : TemporaryFaction
         LogService.LogInfo($"执行{this.type}");
         Empire empire = GetEmpire();
         Religion religion = GetReligionTarget();
-        if (religion != null)
+        // 哈里发国只奉伊斯兰(见 CaliphateFaith)：诉求提出之后才成哈里发国的，到这里也不再执行
+        if (religion != null && CaliphateFaith.MayAdopt(empire.CoreKingdom, religion))
         {
             empire.CoreKingdom.setReligion(religion);
             empire.CoreKingdom.units.ForEach(a=>a.setReligion(religion));
@@ -58,7 +59,8 @@ public class TempFac_宗教融入 : TemporaryFaction
         }
         if (total <= 0d || believers.Count == 0) return false;
         KeyValuePair<Religion, double> mostPopular = believers.OrderByDescending(pair => pair.Value).First();
-        if (mostPopular.Value / total > 0.6d && mostPopular.Key != empire.CoreKingdom.religion)
+        if (mostPopular.Value / total > 0.6d && mostPopular.Key != empire.CoreKingdom.religion &&
+            CaliphateFaith.MayAdopt(empire.CoreKingdom, mostPopular.Key))
         {
             SetReligionTarget(mostPopular.Key);
             return true;

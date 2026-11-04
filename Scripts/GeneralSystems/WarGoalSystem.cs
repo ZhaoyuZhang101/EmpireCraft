@@ -185,7 +185,8 @@ public static class WarGoalSystem
             : WarGoal.赔款;
 
     private static bool Convertible(Kingdom attacker, Kingdom defender) =>
-        attacker?.religion != null && defender?.data != null && !defender.isRekt() && defender.religion != attacker.religion;
+        attacker?.religion != null && defender?.data != null && !defender.isRekt() && defender.religion != attacker.religion &&
+        CaliphateFaith.MayAdopt(defender, attacker.religion);
 
     // 改宗：对方连同各城、城里的人改奉攻方的宗教
     private static bool Convert(Kingdom defender, Kingdom attacker)

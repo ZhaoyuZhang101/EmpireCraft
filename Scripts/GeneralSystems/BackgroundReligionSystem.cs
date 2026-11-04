@@ -134,6 +134,8 @@ public static class BackgroundReligionSystem
             ReligiousTension.Policy.PollTax => 1.4f,
             _ => 1.1f
         };
+        // 哈里发国的国教吸引力更高，只管境内(见 CaliphateFaith)
+        factor *= CaliphateFaith.StateFactor(kingdom);
         return ReligionConversionSystem.RecentlyConverted(kingdom) ? factor * 2f : factor;
     }
 

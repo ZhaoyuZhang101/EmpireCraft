@@ -143,7 +143,12 @@ public static class WorldMapReligion
             if (!faithOf.TryGetValue(capital, out string id) || !made.TryGetValue(id, out Religion religion)) continue;
             kingdom.setReligion(religion);
             if (kingdom.king != null && !kingdom.king.isRekt()) kingdom.king.setReligion(religion);
-            if (empire != null && empire.CoreKingdom == kingdom) empire.Religion = religion;
+            if (empire != null && empire.CoreKingdom == kingdom)
+            {
+                empire.Religion = religion;
+                // 开局就奉别教的阿拉伯一线帝国(那时还没有伊斯兰)不强改(见 CaliphateFaith)
+                CaliphateFaith.MarkScenarioFaith(empire, religion);
+            }
         }
         LogService.LogInfo($"[EmpireCraft][世界地图] 开局宗教：{string.Join("、", made.Values.Select(religion => religion.data.name))}");
     }

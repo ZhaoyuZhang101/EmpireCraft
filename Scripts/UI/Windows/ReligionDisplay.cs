@@ -105,6 +105,9 @@ namespace EmpireCraft.Scripts.UI.Windows
         public static string SplitCause(Religion religion)
         {
             if (religion.GetOrCreate().Caesaropapist) return LM.Get("religion_split_great_schism");
+            // 哈里发立教时记了本天下别教的正教作母宗教(见 CaliphateFaith)，不是争位分出来的
+            if (ReligionFaith.IsCaliphal(religion) && Parent(religion) is Religion parent && !ReligionFaith.IsCaliphal(parent))
+                return LM.Get("religion_split_caliphate");
             return LM.Get(ReligionFaith.IsCaliphal(religion) ? "religion_split_succession" : "religion_split_reformation");
         }
 
