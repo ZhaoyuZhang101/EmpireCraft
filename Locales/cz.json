@@ -9148,7 +9148,7 @@
   "transmigrant_event_homeland_secured_history": "{0}平定{1}所在的全境，治安战告一段落，可以放手经营。",
   "transmigrant_event_engine_operation": "发动机行动",
   "transmigrant_event_engine_operation_desc": "舰队开赴灾区沿海，两年成船运回流民。人多了，后面要慢慢消化。",
-  "transmigrant_event_engine_operation_hint": "共同纲领之后，有运输船，够得着的沿海有灾荒或战乱。",
+  "transmigrant_event_engine_operation_hint": "共同纲领之后，有运输船，国库付得起船费，本土有能落脚的城，够得着的沿海有灾荒或战乱。",
   "transmigrant_event_engine_operation_history": "{0}成立联合作战司令部，以{1}为司令长官，大洋舰队开赴灾区沿海，把流民成船运回本土，发动机行动开始。",
   "transmigrant_event_engine_year_history": "发动机行动：{0}今年运回{1}名流民。",
   "transmigrant_event_engine_end": "发动机落幕",

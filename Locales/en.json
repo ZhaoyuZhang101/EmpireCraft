@@ -9134,7 +9134,7 @@
   "transmigrant_event_homeland_secured_history": "{0} pacifies the whole land around {1}. Security operations wind down.",
   "transmigrant_event_engine_operation": "Operation Engine",
   "transmigrant_event_engine_operation_desc": "The fleet sails to stricken coasts and ships refugees home for two years. Digesting them takes longer.",
-  "transmigrant_event_engine_operation_hint": "After the Common Program, with transports, and famine or war on a coast within reach.",
+  "transmigrant_event_engine_operation_hint": "After the Common Program, with transports, a treasury that can pay the fares, a home city able to take people in, and famine or war on a coast within reach.",
   "transmigrant_event_engine_operation_history": "{0} forms a joint command under {1}. The ocean fleet sails to the stricken coasts to ship refugees home by the boatload: Operation Engine begins.",
   "transmigrant_event_engine_year_history": "Operation Engine: {0} brings back {1} refugees this year.",
   "transmigrant_event_engine_end": "Engine Winds Down",

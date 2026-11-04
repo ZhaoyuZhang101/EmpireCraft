@@ -363,7 +363,12 @@ public static class NaturalizationSystem
         return people <= 0f ? 0f : Config.cadre_base + people / Config.cadre_per_people;
     }
 
-    private static bool Hungry(City city) => Data(city)?.last_food_shortage > 0f;
+    // 缺粮数是按月平滑的，饿过一次要很多年才衰减到 0：闹没闹饥荒看人口系统的判定，不看它是不是 0
+    private static bool Hungry(City city)
+    {
+        CityPopulationData data = Data(city);
+        return data != null && CityPopulationSystem.GetGrowthFactors(city, data).Famine;
+    }
 
     // 按比例把 from 状态的人挪到 to 状态
     private static void Advance(IEnumerable<City> cities, NaturalizationState from, NaturalizationState to, float share)

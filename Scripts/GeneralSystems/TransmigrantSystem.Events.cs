@@ -39,7 +39,7 @@ public static partial class TransmigrantSystem
     private const int MaidAge = 2, CongressGap = 1, HomelandMinCities = 3;
     private const float CaretakerBoost = 0.75f, CongressBoost = 1.25f, HomelandBoost = 1.25f, ParadeStability = 5f, ParadeVeterancy = 15f, MaidHousingPerSeat = 1f;
     private const int EngineMinAge = 3, EngineYears = 2, EngineTrips = 6;
-    private const float EngineShare = 0.1f, EngineMaxShare = 0.4f, EngineMinPeople = 1000f, EngineFee = 0.3f, EngineCityShare = 0.5f;
+    private const float EngineShare = 0.1f, EngineMaxShare = 0.4f, EngineMinPeople = 1000f, EngineFee = 0.3f, EngineCityShare = 0.5f, EngineTreasuryShare = 0.5f;
     private const int OverlordMinShips = 3;
     private const float OverlordSurprise = 0.7f, OverlordOdds = 2f;
     private const int SunshadeAge = 6;
@@ -284,11 +284,18 @@ public static partial class TransmigrantSystem
         return sources;
     }
 
+    // 缺粮数是按月平滑的，饿过一次要很多年才衰减到 0，大多数"缺粮"的城其实缺不到一个人：闹没闹饥荒看人口系统的判定
+    private static List<City> EngineLandings(List<City> homes) =>
+        homes.Where(city => !CityPopulationSystem.GetGrowthFactors(city, CityPopulationSystem.Get(city)).Famine && !NavySystem.IsBlockaded(city)).ToList();
+
+    // 今年最多花多少船费：只动国库一半，军饷和归化的钱不能全搭进去
+    private static float EnginePurse(Kingdom kingdom) => kingdom.GetMoney() * EngineTreasuryShare;
+
     private static void EngineStart(Kingdom kingdom, TransmigrantState state, int year)
     {
         if (NavySystem.TransportCapacity(kingdom) <= 0f || CorpsSystem.Unpaid(kingdom)) return;
         List<City> homes = EngineHomes(kingdom);
-        if (homes.Count == 0) return;
+        if (EngineLandings(homes).Count == 0 || EnginePurse(kingdom) / EngineFee < EngineMinPeople) return;
         if (EngineSources(kingdom, homes).Sum(source => source.amount) < EngineMinPeople) return;
         Mark(state, "engine_operation", year);
         state.engine_until_year = year + EngineYears;
@@ -300,24 +307,32 @@ public static partial class TransmigrantSystem
     // 行动期间每年：运力定上限，每人付船费和救济口粮钱，人落到不闹饥荒、还住得下的城。人是搬过来的，全世界总人口不变
     private static void EngineYear(Kingdom kingdom, TransmigrantState state, int year)
     {
-        List<City> homes = EngineHomes(kingdom).Where(city => !(CityPopulationSystem.Get(city)?.last_food_shortage > 0f) && !NavySystem.IsBlockaded(city)).ToList();
+        List<City> allHomes = EngineHomes(kingdom);
+        List<City> homes = EngineLandings(allHomes);
         float budget = NavySystem.TransportCapacity(kingdom) * EngineTrips;
+        float purse = EnginePurse(kingdom), startPurse = purse;
         float moved = 0f;
+        string limit = homes.Count == 0 ? "没有能落脚的城" : "没有更多灾民";
         var arrivals = new Dictionary<City, float>();
         if (homes.Count > 0)
-            foreach ((City from, float amount) in EngineSources(kingdom, EngineHomes(kingdom)))
+            foreach ((City from, float amount) in EngineSources(kingdom, allHomes))
             {
-                if (budget - moved < 1f) break;
-                float want = Mathf.Min(amount, budget - moved);
-                int fee = Mathf.CeilToInt(want * EngineFee);
-                if (kingdom.GetMoney() < fee) break;
+                float ships = budget - moved;
+                if (ships < 1f) { limit = "运力"; break; }
+                float paid = purse / EngineFee;
+                if (paid < 1f) { limit = "船费"; break; }
                 City to = homes.Where(city => CityPopulationSystem.GetTotal(city) * EngineCityShare - (arrivals.TryGetValue(city, out float had) ? had : 0f) >= 1f)
                     .OrderBy(city => ZoneDistance(city, from)).FirstOrDefault();
-                if (to == null) break;
+                if (to == null) { limit = "落脚城住满"; break; }
                 float room = CityPopulationSystem.GetTotal(to) * EngineCityShare - (arrivals.TryGetValue(to, out float already) ? already : 0f);
-                float arrived = CityPopulationSystem.TransferCivilianBackground(from, to, Mathf.Min(want, room));
+                // 船费按真能上岸的人数算：钱不够就少运，不是整批都不走
+                float take = Mathf.Min(amount, Mathf.Min(ships, Mathf.Min(paid, room)));
+                if (take < amount) limit = take == room ? "落脚城住满" : take == ships ? "运力" : "船费";
+                float arrived = CityPopulationSystem.TransferCivilianBackground(from, to, take);
                 if (arrived <= 0f) continue;
-                kingdom.SubMoney(Mathf.CeilToInt(arrived * EngineFee), TreasuryCategory.Welfare);
+                int fee = Mathf.CeilToInt(arrived * EngineFee);
+                kingdom.SubMoney(fee, TreasuryCategory.Welfare);
+                purse -= fee;
                 Shelter(to, arrived);
                 arrivals[to] = (arrivals.TryGetValue(to, out float sum) ? sum : 0f) + arrived;
                 moved += arrived;
@@ -328,7 +343,7 @@ public static partial class TransmigrantSystem
             CityPopulationSystem.InvalidateHouseholdCaches();
             TranslateHelper.LogEventOnly(string.Format(LM.Get("transmigrant_event_engine_year_history"), kingdom.GetKingdomFullName(), Mathf.RoundToInt(moved)), kingdom);
         }
-        LogService.LogInfo($"[EmpireCraft][穿越] 发动机行动 {year} 年运回 {Mathf.RoundToInt(moved)} 人，累计 {Mathf.RoundToInt(state.engine_moved)}，到 {state.engine_until_year} 年");
+        LogService.LogInfo($"[EmpireCraft][穿越] 发动机行动 {year} 年运回 {Mathf.RoundToInt(moved)} 人，累计 {Mathf.RoundToInt(state.engine_moved)}，到 {state.engine_until_year} 年；止于{limit}(运力 {Mathf.RoundToInt(budget)} 船费 {Mathf.RoundToInt(startPurse)} 落脚城 {homes.Count}/{allHomes.Count})");
         if (year < state.engine_until_year) return;
         state.engine_until_year = -1;
         Mark(state, "engine_end", year);
