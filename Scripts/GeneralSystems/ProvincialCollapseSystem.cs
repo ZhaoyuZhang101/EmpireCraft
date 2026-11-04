@@ -84,7 +84,7 @@ public static class ProvincialCollapseSystem
     private static bool Applies(Empire empire) =>
         empire?.data != null && !empire.isRekt() && !empire.IsArchived() && empire.CoreKingdom != null &&
         !empire.CoreKingdom.isRekt() && !RepublicSystem.IsRepublic(empire) && RegimeFactor(empire) > 0f &&
-        !ZhouShielded(empire) && !AncientWarfareCompatibility.Owns(empire.CoreKingdom);
+        !TransmigrantSystem.Governs(empire) && !ZhouShielded(empire) && !AncientWarfareCompatibility.Owns(empire.CoreKingdom);
 
     // 周制：春秋诸侯尊王，周室不瓦解，正统跌破 ZhouSpringCollapseLegitimacy 例外；战国(只剩王畿诸郡，郡也会割据)、
     // 一统之后照常(用户 2026-10-27 截图西大和朝、赵朝：以前春秋、战国整段豁免，周室正统 0、积弊满额也没有出口)
@@ -210,7 +210,7 @@ public static class ProvincialCollapseSystem
         if (!NearCapital(empire, province)) value += RemoteDisaffection;
         // 军阀割据：手握重兵的藩镇；世袭的埃米尔同样(见 EmirateSystem)。本就是边镇之意，边疆不再另加
         if (province.GetKingdomType() is KingdomType.LvLing_jiedushi or KingdomType.LvLing_duhufu ||
-            EmirateSystem.IsHereditaryEmir(empire, province)) value += WarlordDisaffection;
+            EmirateSystem.IsHereditaryEmir(empire, province) || MilitaryProvince(empire, province)) value += WarlordDisaffection;
         else
         {
             // 边疆(见 FrontierDisaffection)
@@ -227,6 +227,13 @@ public static class ProvincialCollapseSystem
         if (province.getWars().Any(war => war != null && !war.hasEnded())) value -= 0.2f;
         return Mathf.Max(0f, value);
     }
+
+    // 元首制的行省军权：确有将领统率的正规军，且中央失信或当地欠饷时，才按军镇计算离心。
+    // 与边疆加成只取其一；仍须经过内忧、离心门槛、分裂预警和冷却，不另加随机独立事件。
+    private static bool MilitaryProvince(Empire empire, Kingdom province) =>
+        empire.IsPrincipate() && province.GetKingdomType() == KingdomType.ClassicalRepublic_province &&
+        (empire.Legitimacy < GateLegitimacy || !CorpsSystem.WellPaid(province)) &&
+        CorpsSystem.Of(province).Any(corps => !corps.militia && corps.strength > 0f && corps.general_id >= 0);
 
     // 每年(ConstitutionalEconomySystem 年度结算)：首义
     public static void Yearly(Empire empire)

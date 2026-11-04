@@ -73,7 +73,8 @@ public static class ModernLegitimacy
     {
         if (empire?.CoreKingdom == null || empire.data == null) return false;
         if (WarlordEraSystem.IsProvisionalGovernment(empire) || RepublicSystem.IsTransitioning(empire)) return false;
-        return ModernStability.IsModern(empire.CoreKingdom) || ParliamentSystem.HasParliament(empire);
+        // 穿越政权使用自己的元老院与共和国状态，不能依赖普通议会/共和国标记来摆脱王朝周期。
+        return TransmigrantSystem.Governs(empire) || ModernStability.IsModern(empire.CoreKingdom) || ParliamentSystem.HasParliament(empire);
     }
 
     // 各项构成(界面悬停说明用)：(本地化 key, 数值)

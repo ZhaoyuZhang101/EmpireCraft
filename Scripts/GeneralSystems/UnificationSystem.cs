@@ -24,7 +24,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //       - 久乱思治(华夏，用户 2026-10-27："华夏几乎没有统一过"，问答选"久乱思治"：汉正统 41 城分在十四五家，最大的一家才一成五，
 //         乱了两百多年没人够得上门槛)：从上一位坐稳了的共主(受天命满 SteadyMandateYears 年)失命算起，乱世满 LongChaosYears 年后，
 //         门槛在 ChaosEaseYears 年里逐年降到占两成、或国力是第二名的 1.3 倍；
-//       - 前朝(失了这个天下天命的，或宗族的帝国亡了的)失命、亡国后 FormerLockYears 年内(华夏 HuaxiaFormerLockYears)
+//       - 前朝(失了这个天下天命的，或宗族的帝国亡了的)失命、亡国后 FormerLockYears 年内
 //         不能马上再问鼎，中兴之主在位除外(用户 2026-10-21 选"乱世最短时长""华夏有真乱世"：以前失命当年残部占三成就
 //         重启统一、统一期间又受开国气象庇护，乱世往往不到十年)；
 //       - 统一者每月挑接壤(或隔海相望)的一家开战(目标吞并)，同时可打四场，不必休战，不受三十年强制停战；
@@ -86,10 +86,10 @@ public static class UnificationSystem
     // 同一家第二次统一的开国气象(年)
     private const int RepeatGraceYears = 10;
     // 久乱思治(华夏)：乱世满这么多年起门槛逐年降，再过这么多年降到底；一时得而复失(受天命不满 SteadyMandateYears 年)的不算坐稳
-    private const float LongChaosYears = 40f, ChaosEaseYears = 60f, EasedContenderShare = 0.2f, EasedPowerLead = 1.3f,
+    private const float LongChaosYears = 30f, ChaosEaseYears = 50f, EasedContenderShare = 0.2f, EasedPowerLead = 1.3f,
         SteadyMandateYears = 10f;
-    // 前朝失命、亡国后多少年内不能再问鼎(华夏另计)
-    private const int FormerLockYears = 20, HuaxiaFormerLockYears = 40;
+    // 前朝失命、亡国后多少年内不能再问鼎：华夏也用同一冷却，避免旧朝独占优势却额外空等二十年。
+    private const int FormerLockYears = 20;
     // 上次年度统计的天下：统一者 → 它天下里的别家(按都城距离排好)
     private static readonly Dictionary<long, List<Kingdom>> Rivals = new();
     // 诊断限频：游牧无雄主不能统一(国 → 上回记的时间)；统一满十年开国气象到期(国 → 记过的那次统一时间)
@@ -231,7 +231,7 @@ public static class UnificationSystem
         data.unify_repeat = false;
     }
 
-    // 前朝不能马上再问鼎：失了这个天下天命的那一国，或君主宗族的帝国亡了不久的，FormerLockYears 年内(华夏 HuaxiaFormerLockYears)
+    // 前朝不能马上再问鼎：失了这个天下天命的那一国，或君主宗族的帝国亡了不久的，FormerLockYears 年内
     // 不发动统一战争；中兴之主(含中兴雄主)在位不在此限
     // 问鼎的门槛(占比、国力是第二名的几倍)：华夏久乱思治逐年降(见文件头)
     private static (float share, float lead) Bars(Realm realm, Kingdom top)
@@ -273,7 +273,7 @@ public static class UnificationSystem
         if (!Alive(top) || World.world == null) return false;
         if (RulerTraitSystem.ReignedBy(top, RulerTraitSystem.Restorer) || RulerTraitSystem.ReignedBy(top, RulerTraitSystem.GreatRestorer))
             return false;
-        int lockYears = LineOf(CultureService.GetRealmCulture(top)) == "Huaxia" ? HuaxiaFormerLockYears : FormerLockYears;
+        int lockYears = FormerLockYears;
         double now = World.world.getCurWorldTime();
         bool Recent(double at) => at >= 0d && now >= at && Date.getYearsSince(at) < lockYears;
         if (realm.lead != null && realm.lead.mandate_former_kingdom_id == top.id && Recent(realm.lead.mandate_lost_at)) return true;

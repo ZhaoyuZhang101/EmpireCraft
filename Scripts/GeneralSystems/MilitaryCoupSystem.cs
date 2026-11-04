@@ -13,7 +13,7 @@ using UnityEngine;
 
 namespace EmpireCraft.Scripts.GeneralSystems;
 
-// 兵变(陈桥驿式)：武官势大而正统低落时，众将拥立大将、黄袍加身，旧君禅位。
+// 兵变：武官势大而正统低落时，众将拥立大将，旧君退位；元首制同样受军队拥立影响。
 //   · 兵权：本国(帝国按中央)各军团兵力里，某员大将(成年、非宗室、不是君主)统领的占比；身为战时统帅的至少按四成五算；
 //   · 每年检定：正统不到 50、兵权四成以上，且由头(幼主在位、军饷欠发、大将威望高过君主)至少占两条时，
 //     概率 = (50 − 正统)/50 × (兵权 − 0.4)/0.6 × BaseChance，幼主在位加倍，大将有野心或奸恶再加五成；
@@ -30,11 +30,13 @@ public static class MilitaryCoupSystem
     private const int CooldownYears = 20;
     private const float BaseChance = 0.25f;
 
-    private static bool Applies(Empire empire)
+    internal static bool Applies(Empire empire)
     {
         RegimeType? regime = empire?.CoreKingdom?.GetRegime()?.type;
         return empire?.data != null && !empire.isRekt() && !empire.IsArchived() && empire.CoreKingdom != null &&
-               !empire.CoreKingdom.isRekt() && !RepublicSystem.IsRepublic(empire) && RegimeManager.IsMonarchy(regime) &&
+               !empire.CoreKingdom.isRekt() && !RepublicSystem.IsRepublic(empire) && !TransmigrantSystem.Governs(empire) &&
+               !ModernLegitimacy.Applies(empire) &&
+               (RegimeManager.IsMonarchy(regime) || empire.IsPrincipate()) &&
                regime != RegimeType.Modern;
     }
 
@@ -133,7 +135,9 @@ public static class MilitaryCoupSystem
         if (capital == null) return;
         Actor former = empire.Emperor;
         string oldName = empire.GetEmpireName();
-        string newName = seat != null && seat.hasTitle() ? seat.GetTitle()?.data?.name : null;
+        // 元首更替沿用帝国国号，不把军队拥立写成以驻地法理命名的新王朝。
+        bool principate = empire.IsPrincipate();
+        string newName = principate ? oldName : seat != null && seat.hasTitle() ? seat.GetTitle()?.data?.name : null;
         string place = (seat ?? general.city ?? capital).GetCityName();
         state.last_coup_at = World.world.getCurWorldTime();
         PrinceStruggleSystem.Note(core, general, PrinceStruggleSystem.NoteMilitaryCoup);
@@ -144,7 +148,7 @@ public static class MilitaryCoupSystem
         // (用户 2026-10-26，见 DynasticCycleSystem.OnDynastyChanged)
         DynasticCycleSystem.Expect(empire, DynasticCycleSystem.Transition.Halve, () => core.setKing(general));
         if (empire.Emperor?.id != general.id) return;
-        if (!string.IsNullOrWhiteSpace(newName) && newName != oldName)
+        if (!string.IsNullOrWhiteSpace(newName) && newName != empire.GetEmpireName())
         {
             empire.SetEmpireName(newName);
             if (empire.data.currentHistory != null)
@@ -153,7 +157,7 @@ public static class MilitaryCoupSystem
                 empire.data.currentHistory.dynasty_name = newName;
             }
         }
-        string text = string.Format(LM.Get("coup_history"), place, general.getName(),
+        string text = string.Format(LM.Get(principate ? "coup_history_principate" : "coup_history"), place, general.getName(),
             former?.getName() ?? LM.Get("label_none"), empire.GetEmpireName());
         empire.RecordHistory(directContent: text, actorId: general.id, kingdomId: core.id);
         TranslateHelper.LogEventMessage(text, core);

@@ -15,8 +15,10 @@ public static class ModernStability
 
     public static bool IsModern(Kingdom kingdom)
     {
-        Kingdom realm = kingdom?.GetEmpire()?.CoreKingdom ?? kingdom;
-        return realm?.GetRegime()?.type == RegimeType.Modern;
+        var empire = kingdom?.GetEmpire();
+        Kingdom realm = empire?.CoreKingdom ?? kingdom;
+        return realm?.GetRegime()?.type == RegimeType.Modern || TransmigrantSystem.Governs(empire) ||
+               TransmigrantSystem.IsTransmigrant(realm);
     }
 
     // 开国保护、新地方稳定期和当前正统统一在改动归属前判断。

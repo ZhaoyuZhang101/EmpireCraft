@@ -106,6 +106,8 @@ public static class PalaceArmySystem
     {
         try
         {
+            // 古代禁军废立与普通兵变共用政体边界，不能把现代元首、澳宋主席改立成宗室君主。
+            if (!MilitaryCoupSystem.Applies(empire)) return;
             Kingdom core = empire?.CoreKingdom;
             ConstitutionalEconomyState state = empire?.data?.constitutional_economy;
             if (core?.data == null || state == null || empire.Emperor == null || !RebellionSystem.CanAttempt(core)) return;
