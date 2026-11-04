@@ -95,6 +95,7 @@ public static class WorldMapScenario
         step(() => BuildBatch(_fillerStart), "World Map: Fill", false);
         step(() => SettleRealms(_fillerStart), "World Map: Fill", false);
         step(FillTerritory, "World Map: Territory", false);
+        step(AbsorbEnclosedFillers, "World Map: Fill", false);
         step(BuildTitles, "World Map: De Jure", false);
         step(BuildEmpires, "World Map: Empires", false);
         step(Finish, "World Map: Tianxia", false);
@@ -1015,6 +1016,94 @@ public static class WorldMapScenario
     private const int FillerJoinTiles = 80;
     private const int MinFillerZones = 8;
     private static readonly HashSet<int> _fillerSites = new();
+
+    // 地都分完了：只挨着一家的补空小国并进那一国(规则见 ScenarioFillerRules)。排在立法理之前，城直接算那国最近的城所在的地区，
+    // 不留下一块只属于小国的法理；预设里被大国包着的"桂国""代国"这类飞地就没有了
+    private static void AbsorbEnclosedFillers()
+    {
+        if (_era?.exact == true) return;
+        List<PlannedPolity> fillers = _polities.Where(polity => polity.capital?.random == true && !polity.tribe && polity.kingdom?.data != null).ToList();
+        if (fillers.Count == 0) return;
+        var byKingdom = new Dictionary<Kingdom, PlannedPolity>();
+        foreach (PlannedPolity polity in _polities)
+            if (polity.kingdom?.data != null) byKingdom[polity.kingdom] = polity;
+        var neighbours = new Dictionary<PlannedPolity, HashSet<PlannedPolity>>();
+        foreach (PlannedPolity filler in fillers)
+        {
+            var around = new HashSet<PlannedPolity>();
+            foreach (PlannedCity planned in filler.cities)
+            {
+                if (planned.city?.zones == null) continue;
+                foreach (TileZone zone in planned.city.zones)
+                    foreach (TileZone next in zone.neighbours_all ?? global::System.Array.Empty<TileZone>())
+                    {
+                        Kingdom other = next?.city?.kingdom;
+                        if (other != null && other != filler.kingdom && byKingdom.TryGetValue(other, out PlannedPolity polity)) around.Add(polity);
+                    }
+            }
+            neighbours[filler] = around;
+        }
+        int merged = 0;
+        foreach (KeyValuePair<PlannedPolity, PlannedPolity> pair in ScenarioFillerRules.Absorptions(neighbours))
+            Guard($"补空小国 {pair.Key.name} 并入 {pair.Value.name}", () =>
+            {
+                MergeFiller(pair.Key, pair.Value);
+                merged++;
+            });
+        World.world.zone_calculator?.setDrawnZonesDirty();
+        LogService.LogInfo($"[EmpireCraft][世界地图] 补空小国并入大国 {merged} 个");
+    }
+
+    private static void MergeFiller(PlannedPolity filler, PlannedPolity target)
+    {
+        Kingdom gone = filler.kingdom;
+        foreach (PlannedCity planned in filler.cities.ToList())
+        {
+            if (planned.city == null || planned.city.isRekt()) continue;
+            PlannedCity near = target.cities.OrderBy(city => (city.tile - planned.tile).sqrMagnitude).FirstOrDefault();
+            if (near == null) continue;
+            planned.region = near.region;
+            planned.data.region = near.region.id;
+            planned.owner = target;
+            planned.random = false;
+            planned.city.joinAnotherKingdom(target.kingdom);
+            target.cities.Add(planned);
+        }
+        filler.cities.Clear();
+        _polities.Remove(filler);
+        // 国家没有城、没有人就由原版移除
+        if (gone?.units != null)
+            foreach (Actor unit in gone.units.ToList())
+                if (unit?.data != null && !unit.isRekt() && unit.isAlive()) unit.die(true, AttackType.Other, false, false);
+    }
+
+    // 无人区划完：地块全成了碎片的补空小国不立国，能并给挨着的城的地并过去，并不了的留空(规则见 ScenarioFillerRules)
+    private static void DissolveShatteredFillers(List<Kingdom> fillers)
+    {
+        int zonesWide = MapBox.width / 8, gone = 0;
+        foreach (Kingdom kingdom in fillers)
+        {
+            if (kingdom?.data == null || kingdom.isRekt() || kingdom.cities == null || kingdom.cities.Count == 0) continue;
+            List<TileZone> zones = kingdom.cities.Where(city => city?.zones != null).SelectMany(city => city.zones).ToList();
+            if (!ScenarioFillerRules.Shattered(zones.Select(zone => zone.id), zonesWide)) continue;
+            List<KingdomTitle> titles = kingdom.cities.Select(city => city.GetTitle()).Where(title => title != null).Distinct().ToList();
+            foreach (City city in kingdom.cities.ToList()) CityDissolution.Dissolve(city, wipeKingdom: true);
+            foreach (KingdomTitle title in titles)
+                if (!title.isRekt() && !title.getCities().Any(city => city?.data != null && !city.isRekt())) ModClass.KINGDOM_TITLE_MANAGER.dissolveTitle(title);
+            using (CityExpansionPatch.Manual())
+                foreach (TileZone zone in zones)
+                {
+                    if (zone.city != null) continue;
+                    City next = zone.neighbours_all?.Select(other => other?.city).FirstOrDefault(city => city?.data != null && !city.isRekt());
+                    next?.addZone(zone);
+                }
+            gone++;
+        }
+        if (gone == 0) return;
+        WildernessSystem.RequestReattach();
+        World.world.zone_calculator?.setDrawnZonesDirty();
+        LogService.LogInfo($"[EmpireCraft][世界地图] 被切碎的补空小国不立国 {gone} 个");
+    }
 
     private static void PlanFillers()
     {
@@ -2151,6 +2240,9 @@ public static class WorldMapScenario
             _afterLoad.Add(("雨林大泽开发度", () => WorldMapDevelopment.Apply(devEra, devFrame, devSize)));
         }
         _afterLoad.Add(("无人区归属", WildernessSystem.EnsureBuilt));
+        List<Kingdom> fillerKingdoms = _polities.Where(polity => polity.capital?.random == true && !polity.tribe && polity.kingdom != null)
+            .Select(polity => polity.kingdom).ToList();
+        if (fillerKingdoms.Count > 0) _afterLoad.Add(("碎片补空小国", () => DissolveShatteredFillers(fillerKingdoms)));
         // 城记的帝国法理按法理对齐(收尾时对过一回，设行政区、重组这些进世界的安排之后各城记的核心又空了，帝国法理图层开局头一年
         // 画成王国法理的颜色，等天下大势年结才对上——用户 10-30 "我的帝国核心层级好像也消失了""只有文字""图层还是王国的")
         _afterLoad.Add(("城的帝国法理", () => EmpireCoreManager.ReconcileCityCores()));
