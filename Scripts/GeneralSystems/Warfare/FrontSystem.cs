@@ -1013,8 +1013,7 @@ public static partial class FrontSystem
             // 平滑国界：逐格收复(见 FrontSystem.Smooth)
             if (SmoothActive)
             {
-                SmoothAdvance(city, lead, retakers.Where(entry => entry.kingdom == lead).Select(entry => entry.corps).ToList(),
-                    false, false, retake: true, free: true);
+                SmoothWon(city, lead, retakers, false, false, retake: true, free: true);
                 return;
             }
             int retaken = Retake(city, lead, 1, retakers.Select(entry => entry.corps), free: true);
@@ -1111,8 +1110,7 @@ public static partial class FrontSystem
         {
             // 平滑国界：逐格推进，每月两块地(见 FrontSystem.Smooth)
             if (ground.MaxAdvance > 0)
-                SmoothAdvance(city, attacker, attackers.Where(entry => entry.kingdom == attacker).Select(entry => entry.corps).ToList(),
-                    standing, landing, retake: false);
+                SmoothWon(city, attacker, attackers, standing, landing, retake: false);
         }
         else if (ratio >= 0.55f)
         {
@@ -1132,8 +1130,7 @@ public static partial class FrontSystem
         {
             Kingdom lead = holders.OrderByDescending(entry => entry.corps.strength).First().kingdom;
             if (SmoothActive)
-                SmoothAdvance(city, lead, holders.Where(entry => entry.kingdom == lead).Select(entry => entry.corps).ToList(),
-                    false, false, retake: true);
+                SmoothWon(city, lead, holders, false, false, retake: true);
             else Retake(city, lead, 1, holders.Select(entry => entry.corps));
         }
         else if (SmoothActive) SmoothHold(city);
