@@ -145,7 +145,7 @@ internal static class MainTab
             "bug_report_window_title");
         PureMapNoticeWindow.CreateWindow(nameof(PureMapNoticeWindow), "pure_map_notice_title");
         // 世界地图(原版新世界窗口的模板按钮打开，见 WorldMapTemplatePatch)
-        WorldMapWindow.CreateWindow(nameof(WorldMapWindow), "world_map_title");
+        WorldMapWindow.CreateAndInit(nameof(WorldMapWindow), new Vector2(480f, 380f));
         TerritoryFontWindow.CreateWindow(nameof(TerritoryFontWindow),
             "territory_font_window_title");
         OnlineUpdateWindow.CreateWindow(nameof(OnlineUpdateWindow),
@@ -185,6 +185,7 @@ internal static class MainTab
         var icons = new Dictionary<string, string>
         {
             [nameof(EmpireWindow)] = "iconKings",
+            [nameof(WorldMapWindow)] = "iconKingdomZones",
             [nameof(EmpireSettingWindow)] = "iconOptions",
             [nameof(SettlementWindow)] = "iconCity",
             [nameof(FactoryWindow)] = "iconCity",

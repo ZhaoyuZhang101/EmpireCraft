@@ -119,8 +119,20 @@ def main():
         if name=='广东':polygons.append(mapping(hainan)['coordinates'])
         rows.append(dict(era='lingao',polity='ming',division=name,year=1628,
             precision='schematic-reference',source='User-supplied Ming administrative / 巡抚 reference maps, 2026-11-05; manually reconstructed shared edges',polygons=polygons))
+    # 明清鼎革(1638)：同样的省界，北直隶带上关外的宁锦走廊；嘉峪关外已弃，陕西到关为止
+    liaoxi=Polygon([(119.5,40.2),(119.8,40.35),(120.5,41.0),(121.0,41.6),(121.9,41.45),(121.75,40.95),(121.05,40.75),(120.5,40.15),(119.8,39.8)])
+    jiayu=Polygon([(97.2,30),(115,30),(115,45),(97.2,45)])
+    for name,area in areas.items():
+        late=area
+        if name=='_core':late=area.union(liaoxi)
+        if name=='陕西':late=area.intersection(jiayu)
+        polygons=[]
+        for part in getattr(late,'geoms',[late]):polygons.append(mapping(part)['coordinates'])
+        if name=='广东':polygons.append(mapping(hainan)['coordinates'])
+        rows.append(dict(era='ming_qing',polity='ming',division=name,year=1638,
+            precision='schematic-reference',source='Same reconstruction as lingao 1628; Liaoxi corridor added to Beizhili, Hexi cut at Jiayu Pass per the user-supplied 1638 Ming map, 2026-11-05',polygons=polygons))
     out=args.root/'WorldMaps/administrative_boundaries_ming.json'
-    out.write_text(json.dumps(dict(description='Ming core administrative defaults; approximate shared-edge reconstruction for 1628, not 1433 territorial extent.',boundaries=rows),ensure_ascii=False,separators=(',',':'))+'\n',encoding='utf-8')
+    out.write_text(json.dumps(dict(description='Ming core administrative defaults; approximate shared-edge reconstruction for 1628 and 1638, not 1433 territorial extent.',boundaries=rows),ensure_ascii=False,separators=(',',':'))+'\n',encoding='utf-8')
     print(f'Wrote {len(rows)} Ming core regions, no overlapping interior faces; Hainan retained')
     if args.preview:
         import matplotlib

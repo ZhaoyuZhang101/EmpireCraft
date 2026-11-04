@@ -47,7 +47,7 @@ def main():
     check(742 <= cities['hyeondeok']['from'] <= 750, 'Hyeondeok absent in 750')
     check(1618 <= cities['oudong']['from'] <= 1628, 'Oudong absent in 1628')
     check(not check_eras.active(cities['hyeondeok'], 230) and not check_eras.active(cities['oudong'], 1190), 'New capitals appear before their era')
-    print(f'ok: {checks} historical ownership, capital, date and smallest-map checks across seven presets')
+    print(f'ok: {checks} historical ownership, capital, date and smallest-map checks across {len(eras)} presets')
 
 
 if __name__ == '__main__':

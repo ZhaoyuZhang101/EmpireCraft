@@ -1582,6 +1582,9 @@ public static class ScenarioEditing
             "proclaim" or "rename" or "adopt_huaxia" => new List<string> { "a", "name" },
             // 起兵割据：从哪国、据哪城、国号、领头人物与部将的名字(剧本人物，顿号隔开)
             "rebel" => new List<string> { "a", "city", "name", "person" },
+            // 献城改投：从哪国、归哪国、哪座城、投奔的人(人、城可只写一样)；人物身故、立储：哪国的人
+            "cede" => new List<string> { "a", "b", "city", "person" },
+            "dies" or "heir" => new List<string> { "a", "person" },
             _ => new List<string> { "a" }
         };
     }

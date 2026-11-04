@@ -160,7 +160,8 @@ def add(D, R, P, find):
 
     sf = D("safavid", "波斯|Persia", "Persepolis", ["persis", "media"], "萨法维|Safavid", True)
     rows(sf, [("伊斯玛仪一世|Ismail I", 1501, 1524, "sf01"), ("塔赫马斯普一世|Tahmasp I", 1524, 1576, "sf02", "sf01"),
-              ("伊斯玛仪二世|Ismail II", 1576, 1577, "sf03", "sf02"), ("穆罕默德·胡达班德|Mohammad Khodabanda", 1578, 1587, "sf04", "sf02")])
+              ("伊斯玛仪二世|Ismail II", 1576, 1577, "sf03", "sf02"), ("穆罕默德·胡达班德|Mohammad Khodabanda", 1578, 1587, "sf04", "sf02"),
+              ("阿拔斯一世|Abbas I", 1588, 1629, "sf05", "sf04")])
 
     # ---------------- 地中海、西亚 ----------------
     byz = find("byzantium")
@@ -220,7 +221,8 @@ def add(D, R, P, find):
                ("斐迪南一世|Ferdinand I", 1556, 1564, "hb08", "hb_philip1", "哈布斯堡|Habsburg"),
                ("马克西米利安二世|Maximilian II", 1564, 1576, "hb09", "hb08", "哈布斯堡|Habsburg"),
                ("鲁道夫二世|Rudolf II", 1576, 1612, "hb10", "hb09", "哈布斯堡|Habsburg"),
-               ("马蒂亚斯|Matthias", 1612, 1619, "hb11", "hb09", "哈布斯堡|Habsburg")])
+               ("马蒂亚斯|Matthias", 1612, 1619, "hb11", "hb09", "哈布斯堡|Habsburg"),
+               ("斐迪南二世|Ferdinand II", 1619, 1637, "hb12", "hb_charles2", "哈布斯堡|Habsburg")])
 
     sp = D("spain", "西班牙|Spain", "Frankish", ["hispania_s"], "哈布斯堡|Habsburg", True)
     rows(sp, [("伊莎贝拉一世|Isabella I", 1474, 1504, "", "", "特拉斯塔马拉|Trastámara"),
@@ -292,7 +294,8 @@ def add(D, R, P, find):
     rows(sw, [("马格努斯·埃里克松|Magnus Eriksson", 1319, 1364), ("阿尔布雷希特|Albert of Mecklenburg", 1364, 1389),
               ("古斯塔夫一世|Gustav I", 1523, 1560, "sw_g1", "", "瓦萨|Vasa"), ("埃里克十四世|Eric XIV", 1560, 1568, "sw_e14", "sw_g1", "瓦萨|Vasa"),
               ("约翰三世|John III", 1568, 1592, "sw_john3", "sw_g1", "瓦萨|Vasa"), ("西吉斯蒙德|Sigismund", 1592, 1599, "sw_sig", "sw_john3", "瓦萨|Vasa"),
-              ("查理九世|Charles IX", 1604, 1611, "sw_charles9", "sw_g1", "瓦萨|Vasa")])
+              ("查理九世|Charles IX", 1604, 1611, "sw_charles9", "sw_g1", "瓦萨|Vasa"),
+              ("古斯塔夫·阿道夫|Gustav Adolf", 1611, 1632, "sw_g2", "sw_charles9", "瓦萨|Vasa")])
 
     pl = D("poland", "波兰|Poland", "Slavonic", ["poland"], "", True)
     rows(pl, [("瓦迪斯瓦夫二世|Władysław II Jagiełło", 1386, 1434, "pl_j1", "", "雅盖隆|Jagiellon"),
@@ -303,7 +306,8 @@ def add(D, R, P, find):
               ("西吉斯蒙德一世|Sigismund I", 1507, 1548, "pl_s1", "pl_c4", "雅盖隆|Jagiellon"),
               ("西吉斯蒙德二世|Sigismund II Augustus", 1548, 1572, "pl_s2", "pl_s1", "雅盖隆|Jagiellon"),
               ("亨利|Henry of Valois", 1573, 1574, "cp28", "cp25", "瓦卢瓦|Valois"),
-              ("斯特凡·巴托里|Stephen Báthory", 1576, 1586, "", "", "巴托里|Báthory")])
+              ("斯特凡·巴托里|Stephen Báthory", 1576, 1586, "", "", "巴托里|Báthory"),
+              ("西吉斯蒙德三世|Sigismund III", 1587, 1632, "sw_sig", "sw_john3", "瓦萨|Vasa")])
 
     ru = D("tsardom", "俄罗斯|Russia", "Slavonic", ["rus_c"], "", True)
     rows(ru, [("伊凡三世|Ivan III", 1462, 1505, "ru_i3", "", "留里克|Rurik"), ("瓦西里三世|Vasili III", 1505, 1533, "ru_v3", "ru_i3", "留里克|Rurik"),

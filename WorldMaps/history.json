@@ -6018,6 +6018,14 @@
      "ev": [
       "1618|布拉格抛窗事件，三十年战争起|Defenestration of Prague began the Thirty Years' War|布拉格拋窗事件，三十年戰爭起"
      ]
+    },
+    {
+     "n": "斐迪南二世|Ferdinand II|斐迪南二世",
+     "a": 1619,
+     "b": 1637,
+     "p": "hb12",
+     "f": "hb_charles2",
+     "dyn": "哈布斯堡|Habsburg|哈布斯堡"
     }
    ],
    "people": [
@@ -7793,6 +7801,14 @@
      "b": 1611,
      "p": "sw_charles9",
      "f": "sw_g1",
+     "dyn": "瓦萨|Vasa|瓦薩"
+    },
+    {
+     "n": "古斯塔夫·阿道夫|Gustav Adolf|古斯塔夫·阿道夫",
+     "a": 1611,
+     "b": 1632,
+     "p": "sw_g2",
+     "f": "sw_charles9",
      "dyn": "瓦萨|Vasa|瓦薩"
     }
    ],
@@ -9723,6 +9739,13 @@
      "b": 1587,
      "p": "sf04",
      "f": "sf02"
+    },
+    {
+     "n": "阿拔斯一世|Abbas I|阿拔斯一世",
+     "a": 1588,
+     "b": 1629,
+     "p": "sf05",
+     "f": "sf04"
     }
    ],
    "people": [],
@@ -10160,6 +10183,14 @@
      "a": 1576,
      "b": 1586,
      "dyn": "巴托里|Báthory|巴托裏"
+    },
+    {
+     "n": "西吉斯蒙德三世|Sigismund III|西吉斯蒙德三世",
+     "a": 1587,
+     "b": 1632,
+     "p": "sw_sig",
+     "f": "sw_john3",
+     "dyn": "瓦萨|Vasa|瓦薩"
     }
    ],
    "people": [],

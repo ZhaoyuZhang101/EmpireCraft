@@ -16,16 +16,17 @@ POLITY = {"id", "zh", "en", "tw", "c", "cap", "r", "cities", "seats", "boundary"
           "conquest_city", "decline"}
 PERSON = {"fam", "giv", "age", "sex", "rel", "of", "heir", "mo", "in", "house", "f", "p"}
 FAMOUS = {"fam", "giv", "age", "sex", "kind", "rank", "post", "in"}
-RELS = {"son", "daughter", "grandson", "granddaughter", "brother", "sister", "nephew", "wife", "consort"}
+RELS = {"son", "daughter", "grandson", "granddaughter", "brother", "sister", "nephew", "cousin", "wife", "consort"}
 CULTURES = {"Huaxia", "Youmu", "Japan", "Roma", "Frankish", "Germanic", "Viking", "Slavonic", "Arab", "Persepolis", "India", "Egypt",
             "Kosher"}
 RELATIONS = {"war", "truce", "alliance", "marriage", "pact", "protect", "tribute", "vassal", "union", "friend", "feud"}
 GOALS = {"夺城", "收复", "争法理", "劫掠", "侵略", "争夺资源", "吞并", "迫使附庸"}
 DECLINE = {"strain", "graft", "annexation", "bloat", "military", "factionalism", "levies", "age"}
-CONDITIONS = {"holds_city": ("a", "city"), "holds_region": ("a", "region"), "gone": ("a",), "empire": ("a",),
+CONDITIONS = {"holds_city": ("a", "city"), "holds_region": ("a", "region"), "gone": ("a",), "alive": ("a",), "empire": ("a",),
               "at_war": ("a", "b"), "strain_above": ("a", "value")}
 EFFECTS = {"relation": ("a", "b", "relation"), "proclaim": ("a",), "rename": ("a", "name"), "move_capital": ("a", "city"),
-           "culture": ("a", "culture"), "adopt_huaxia": ("a",), "rebel": ("a", "city", "name", "person")}
+           "culture": ("a", "culture"), "adopt_huaxia": ("a",), "rebel": ("a", "city", "name", "person"),
+           "cede": ("a", "b"), "dies": ("a", "person"), "heir": ("a", "person")}
 STEP = {"kind", "a", "b", "city", "cities", "region", "value", "name", "relation", "goal", "culture", "person"}
 EVENT = {"name", "text", "after", "repeat", "when", "then"}
 
@@ -221,7 +222,7 @@ def main():
             if f.get("rank") not in (0, 1, 2):
                 err("%s：rank 只能是 0、1、2" % where)
             post = f.get("post", "")
-            if post not in ("chief", "core", "div", "general"):
+            if post not in ("chief", "core", "div", "general", "none"):
                 city(post, where + " 的 post")
             v = f.get("in", -1)
             if v not in (-1, None) and (not isinstance(v, int) or v < 0 or v >= len(kin) or kin[v].get("rel") not in ("wife", "consort")):
@@ -272,7 +273,7 @@ def main():
                 for cid in [s.get("city")] + list(s.get("cities") or []):
                     if cid:
                         c = city(cid, at)
-                        if c and part == "when" and c.get("k", 2) > 2:
+                        if c and part == "when" and era.get("ranks", {}).get(cid, c.get("k", 2)) > 2:
                             note("%s：条件里的 %s 是小城(k=%s)，最小地图上没有，条件永远不成" % (at, cid, c.get("k")))
                 if s.get("region") and s["region"] not in regions:
                     err("%s：没有地区 %s" % (at, s["region"]))
@@ -283,6 +284,18 @@ def main():
                         err("%s：goal=%s 不认得" % (at, s["goal"]))
                 if kind == "culture" and s.get("culture") not in CULTURES:
                     err("%s：culture=%s 不是文化键" % (at, s.get("culture")))
+                if kind == "cede" and not s.get("city") and not s.get("cities") and not s.get("person"):
+                    err("%s：城和人至少写一样" % at)
+                if kind in ("dies", "heir"):
+                    for name in [n.strip() for n in (s.get("person") or "").replace("，", "、").replace(",", "、").split("、") if n.strip()]:
+                        if name not in people:
+                            err("%s：剧本人物里找不到 %s(简体姓+名连写)" % (at, name))
+                if kind == "cede":
+                    for name in [n.strip() for n in (s.get("person") or "").replace("，", "、").replace(",", "、").split("、") if n.strip()]:
+                        if name not in people:
+                            err("%s：剧本人物里找不到 %s(简体姓+名连写)" % (at, name))
+                        elif people[name] != s.get("a"):
+                            note("%s：%s 是国 %s 的人，不在 a=%s 里，投奔时找不到他" % (at, name, people[name], s.get("a")))
                 if kind == "rebel":
                     for name in [n.strip() for n in (s.get("person") or "").replace("，", "、").replace(",", "、").split("、") if n.strip()]:
                         if name not in people:

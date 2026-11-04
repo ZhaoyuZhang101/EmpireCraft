@@ -30,15 +30,16 @@ public sealed class ScenarioEventSave
 // 剧情事件(剧本编辑器第四期，见 Docs/plan-scenario-editor.md；用户 10-30 "剧情事件：要，选项拼搭")：
 //   自定剧本开局时记下事件表与剧本里的国、城、地区各对上了哪个国家、城、王国法理(随存档保存)，之后每年查一次——
 //   开局满 after 年、条件全部满足就触发：照结果一条条做，写进史书、上屏幕；不可重复的只触发一次。
-//   条件：某国据有某城、某国据有某王国法理过半、某国已亡、某国已称帝、两国交战中、某国王朝积弊高于某数；
+//   条件：某国据有某城、某国据有某王国法理过半、某国已亡、某国尚在、某国已称帝、两国交战中、某国王朝积弊高于某数；
 //   结果：称帝(可定国号)、改国号、迁都、两国之间加一条关系(交战、停战、结盟、和亲、通好、保护、朝贡、附庸、关税同盟、旧谊、宿怨，
 //     走 DiplomacyActions.ApplyScenario 同一套判定)、改文化、采纳华夏制度(入主中原，国号照写的定，见 CompositeEmpireService.ScriptedConquestName)、
-//     起兵割据(剧本点名的人据城另立一国、与帝国开战，见 Rebel；用户 10-30 "唐朝剧本的安史之乱呢")。
+//     起兵割据(剧本点名的人据城另立一国、与帝国开战，见 Rebel；用户 10-30 "唐朝剧本的安史之乱呢")、
+//     献城改投(某城易手、某人连军投奔，见 Cede；明末、宋金剧本的甲申城破、祖大寿降清)、人物身故(见 Dies)、立储。
 //   国家没了、城没了的条件算不满足；结果做不了的跳过、记一行日志。
 public static class ScenarioEventSystem
 {
-    public static readonly string[] ConditionKinds = { "holds_city", "holds_region", "gone", "empire", "at_war", "strain_above" };
-    public static readonly string[] EffectKinds = { "relation", "proclaim", "rename", "move_capital", "culture", "adopt_huaxia", "rebel" };
+    public static readonly string[] ConditionKinds = { "holds_city", "holds_region", "gone", "alive", "empire", "at_war", "strain_above" };
+    public static readonly string[] EffectKinds = { "relation", "proclaim", "rename", "move_capital", "culture", "adopt_huaxia", "rebel", "cede", "dies", "heir" };
 
     private static ScenarioEventSave _state;
 
@@ -173,6 +174,8 @@ public static class ScenarioEventSystem
                 return members.Count > 0 && members.Count(city => Holds(a, city)) * 2 > members.Count;
             case "gone":
                 return !string.IsNullOrEmpty(step.a) && a == null;
+            case "alive":
+                return a != null;
             case "empire":
                 return a != null && a.IsEmpire();
             case "at_war":
@@ -201,8 +204,10 @@ public static class ScenarioEventSystem
             if (failed != null) LogService.LogInfo($"[EmpireCraft][剧情事件] {item.name}：{step.kind} 没做成({failed})");
             else done.Add(step.kind);
         }
+        // 一条结果都没做成的(点名的人早死了、城早丢了)不上屏幕，免得史书写了没发生的事
+        bool happened = done.Count > 0 || (item.then?.Count ?? 0) == 0;
         string text = Text(string.IsNullOrWhiteSpace(item.text) ? item.name : item.text);
-        if (!string.IsNullOrWhiteSpace(text))
+        if (happened && !string.IsNullOrWhiteSpace(text))
         {
             string line = string.Format(LM.Get("scenario_event_fired"), text);
             if (first != null) TranslateHelper.LogMajor(line, first);
@@ -240,7 +245,10 @@ public static class ScenarioEventSystem
             case "move_capital":
             {
                 City city = CityOf(step.city);
-                if (city == null || city.kingdom != a) return "城不在本国";
+                if (city == null || !Holds(a, city)) return "城不在本国";
+                // 帝国的城多在行政区手里(南京在南直隶)：先收归中央再迁
+                if (city.kingdom != a) city.joinAnotherKingdom(a);
+                if (city.kingdom != a) return "城收不回来";
                 a.setCapital(city);
                 return null;
             }
@@ -261,6 +269,21 @@ public static class ScenarioEventSystem
             }
             case "rebel":
                 return Rebel(step, a);
+            case "cede":
+                return Cede(step, a);
+            case "dies":
+                return Dies(step);
+            case "heir":
+            {
+                // 立储：写在君主身故之前就是"立某人为君"(南京另立、海陵弑君)；人接到都城来，
+                // 城一易手城里的人全归新国(原版 forceUnitsIntoThisKingdom)，留在陷落的京城就成了别国的人
+                Actor heir = People(step.person).FirstOrDefault(actor => actor.kingdom == a || a.IsEmpire() && actor.kingdom?.GetEmpire() == a.GetEmpire());
+                if (heir == null) return "人不在本国";
+                if (heir.kingdom != a) heir.joinKingdom(a);
+                if (a.capital != null && heir.city != a.capital) heir.joinCity(a.capital);
+                a.SetHeir(heir);
+                return null;
+            }
         }
         return "不认得的结果";
     }
@@ -369,6 +392,70 @@ public static class ScenarioEventSystem
         if (empire != null) EventRecorder.Record(empire, text, leader, rebel);
         else EventRecorder.Record(target, text, leader);
         BiographySystem.Note(leader, string.Format(LM.Get("scenario_rebel_bio"), seat.GetCityName(), rebel.GetKingdomName(), targetName), target.king);
+        return null;
+    }
+
+    // 剧本人物的名单：顿号、逗号隔开，找得到又还活着的，按写的顺序
+    private static List<Actor> People(string names) =>
+        (names ?? "").Split(new[] { '、', ',', '，' }, StringSplitOptions.RemoveEmptyEntries)
+        .Select(Person).Where(actor => actor != null).Distinct().ToList();
+
+    // 献城改投：city、cities 里还在 a(帝国连同成员国)手里的城归 b，person 里的人连同所统之军投奔 b，驻在这些城的军也跟着走。
+    // 只写 person 不写城就是单纯投奔。都城也能给，要留朝廷的先写一条 move_capital 迁走(甲申城破、南京监国)。
+    // 城里的人全归 b：不想让谁跟着走，先把事情做完再献城
+    private static string Cede(WorldMapEventStep step, Kingdom origin)
+    {
+        Kingdom to = Realm(step.b);
+        if (to == null) return "对方不在";
+        Empire empire = origin.GetEmpire();
+        if (empire != null && (empire.isRekt() || empire.IsArchived())) empire = null;
+        bool Ours(Kingdom kingdom) => kingdom != null && (kingdom == origin || empire != null && kingdom.GetEmpire() == empire);
+        if (Ours(to)) return "本是一家";
+        List<City> cities = new[] { step.city }.Concat(step.cities ?? new List<string>()).Select(CityOf)
+            .Where(city => city != null && Ours(city.kingdom)).Distinct().ToList();
+        List<Actor> people = People(step.person).Where(actor => Ours(actor.kingdom) && !actor.isKing()).ToList();
+        if (cities.Count == 0 && people.Count == 0) return "城和人都不在本国";
+        // 要走的军先记下：改投之后按国家找不到了
+        var corps = new List<(Kingdom from, CorpsData corps)>();
+        foreach ((Kingdom kingdom, CorpsData entry) in CorpsSystem.All().ToList())
+        {
+            if (!Ours(kingdom) || entry.militia || entry.order_id >= 0) continue;
+            Actor general = entry.general_id < 0 ? null : World.world.units.get(entry.general_id);
+            if (people.Contains(general) || cities.Contains(CorpsSystem.Home(entry))) corps.Add((kingdom, entry));
+        }
+        foreach (City city in cities) city.joinAnotherKingdom(to);
+        City seat = cities.FirstOrDefault(city => city.kingdom == to) ?? to.capital;
+        foreach (Actor person in people)
+        {
+            // 人本来就在献出去的城里的留在原城，空着的城主之位归他(祖大寿仍守锦州)
+            City home = person.city != null && cities.Contains(person.city) && person.city.kingdom == to ? person.city : seat;
+            Leave(person);
+            if (person.kingdom != to) person.joinKingdom(to);
+            if (home != null && person.city != home) person.joinCity(home);
+            if (home != null && cities.Contains(home) && home.leader == null)
+            {
+                home.GetOffice()?.SetActor(person);
+                if (home.leader != person) home.setLeader(person, true);
+            }
+            BiographySystem.Note(person, string.Format(LM.Get("scenario_cede_bio"), to.GetKingdomName()), origin.king);
+        }
+        foreach ((Kingdom from, CorpsData entry) in corps)
+        {
+            Actor general = entry.general_id < 0 ? null : World.world.units.get(entry.general_id);
+            if (general?.data != null && general.kingdom != to) CorpsSystem.LoseGeneral(general);
+            City home = CorpsSystem.Home(entry);
+            City station = home != null && home.kingdom == to ? home : seat;
+            if (station != null) CorpsSystem.Transfer(entry, from, to, station);
+        }
+        return null;
+    }
+
+    // 人物身故：person 里还活着的按写的顺序走(储君写在君主前面，君主一死就轮到后面的人继位)；走正常的死亡与继位流程
+    private static string Dies(WorldMapEventStep step)
+    {
+        List<Actor> people = People(step.person);
+        if (people.Count == 0) return "人都不在";
+        foreach (Actor person in people) BiographySystem.Kill(person, Text(step.name));
         return null;
     }
 

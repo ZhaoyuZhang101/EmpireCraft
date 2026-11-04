@@ -68,12 +68,12 @@ public static class WorldMapReligion
         return value;
     }
 
-    // 开局年取哪一列：不晚于开局年的最后一个时代
+    // 开局年取哪一列：离开局年最近的时代(1140 年取 1190，别退回 800 年的格局)
     private static int Column(FileData file, int year)
     {
         int column = 0;
-        for (int i = 0; i < file.years.Count; i++)
-            if (file.years[i] <= year) column = i;
+        for (int i = 1; i < file.years.Count; i++)
+            if (global::System.Math.Abs(file.years[i] - year) < global::System.Math.Abs(file.years[column] - year)) column = i;
         return column;
     }
 

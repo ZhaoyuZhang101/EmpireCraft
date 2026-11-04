@@ -625,6 +625,43 @@ public static class WorldMapData
         return problems.Distinct().ToList();
     }
 
+    // 这个剧本开局有多少城(小地图只放大城、中城，同 WorldMapScenario.Plan)
+    public static int CityCount(WorldMapEra era, bool smallMap)
+    {
+        IEnumerable<WorldMapCity> cities = era.OwnWorld ? era.cities : _builtinCities;
+        return cities?.Count(city => city.ActiveIn(era.year) && (!smallMap || era.RankOf(city) <= 2)) ?? 0;
+    }
+
+    // 删除路径把关：只认剧本文件夹正下方一层、里面确有 scenario.json 的目录，路径出错也删不到别处
+    public static bool CanDeleteFolder(string root, string folder)
+    {
+        if (string.IsNullOrWhiteSpace(root) || string.IsNullOrWhiteSpace(folder)) return false;
+        char[] slashes = { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar };
+        string fullRoot = Path.GetFullPath(root).TrimEnd(slashes);
+        string fullFolder = Path.GetFullPath(folder).TrimEnd(slashes);
+        return string.Equals(Path.GetDirectoryName(fullFolder), fullRoot, StringComparison.OrdinalIgnoreCase) &&
+               File.Exists(Path.Combine(fullFolder, CustomFile));
+    }
+
+    // 删除自定剧本：整个剧本文件夹(连同预览图、导入的地图)，删完重读列表；失败返回 false
+    public static bool DeleteCustom(WorldMapEra era)
+    {
+        if (era == null || !era.Custom || !CanDeleteFolder(CustomFolder, era.folder)) return false;
+        try
+        {
+            Directory.Delete(era.folder, true);
+            LogService.LogInfo($"[EmpireCraft][世界地图] 删除自定剧本 {era.folder}");
+            LoadCustom();
+            return true;
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft][世界地图] 删除自定剧本失败 {era.folder}: {exception.Message}");
+            LoadCustom();
+            return false;
+        }
+    }
+
     // 把一个预设剧本复制成自定剧本(原样拷时代文件，改编号、剧本名，加作者一栏)；返回新剧本的文件夹名，失败返回 null
     public static string CopyAsCustom(WorldMapEra preset, string frame = null)
     {

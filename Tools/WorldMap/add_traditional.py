@@ -13,7 +13,10 @@ import sys
 from zhconv import convert
 
 # zhconv 按常用词转，地名有几处会转错：拜占庭、占城的"占"不是"佔"，咸阳不是"鹹陽"，里昂不是"裡昂"，东征不是"東徵"，德干、塔什干的"干"不是"幹"，托勒密不是"託"
-FIXES = {"佔": "占", "幹": "干", "託": "托", "鹹陽": "咸陽", "裡": "里", "東徵": "東征", "徵服": "征服", "範陽": "范陽"}
+FIXES = {"佔": "占", "幹": "干", "託": "托", "鹹陽": "咸陽", "裡": "里", "東徵": "東征", "徵服": "征服", "範陽": "范陽", "嶽飛": "岳飛", "嶽雲": "岳雲",
+         "北徵": "北征", "南徵": "南征", "西徵": "西征", "裏斯本": "里斯本"}
+# 这些字作姓时繁简同形，zhconv 按词转成了别的字(范文程不是"範"，岳飛不是"嶽")
+SURNAMES = {"范", "岳", "于", "余", "谷"}
 
 
 def tw(text):
@@ -70,6 +73,9 @@ def fix_person(person):
     for key in ("fam", "giv"):
         if person.get(key):
             person[key] = triple(person[key])
+    parts = (person.get("fam") or "").split("|")
+    if parts[0] in SURNAMES and len(parts) == 3:
+        person["fam"] = "|".join(parts[:2] + [parts[0]])
 
 
 def fix_era(path):

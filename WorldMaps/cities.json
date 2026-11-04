@@ -186,7 +186,7 @@
     {"id": "kaifeng", "zh": "开封", "en": "Kaifeng", "x": 114.31, "y": 34.8, "r": "henan", "k": 1, "alt": ["-200|大梁|Daliang|大梁", "600|陈留|Chenliu|陳留", "906|汴州|Bianzhou|汴州", "1233|汴京|Bianjing|汴京"], "tw": "開封"},
     {"id": "xinzheng", "zh": "郑州", "en": "Zhengzhou", "x": 113.74, "y": 34.4, "r": "henan", "k": 2, "alt": ["-200|新郑|Xinzheng|新鄭"], "tw": "鄭州"},
     {"id": "nanyang", "zh": "南阳", "en": "Nanyang", "x": 112.53, "y": 33.0, "r": "henan", "k": 2, "alt": ["580|宛|Wan|宛"], "tw": "南陽", "share": ["jingchu"]},
-    {"id": "xuchang", "zh": "许州", "en": "Xuzhou", "x": 113.83, "y": 34.03, "r": "henan", "k": 3, "alt": ["-200|许|Xu|許", "580|许昌|Xuchang|許昌"], "tw": "許州"},
+    {"id": "xuchang", "zh": "许州", "en": "Xuzhou", "x": 113.83, "y": 34.03, "r": "henan", "k": 3, "alt": ["-200|许|Xu|許", "580|许昌|Xuchang|許昌", "1105|许州|Xuzhou|許州", "1141|颍昌|Yingchang|潁昌"], "tw": "許州"},
     {"id": "chen", "zh": "陈州", "en": "Chenzhou", "x": 114.88, "y": 33.73, "r": "henan", "k": 3, "alt": ["580|陈|Chen|陳"], "tw": "陳州"},
     {"id": "handan", "zh": "邯郸", "en": "Handan", "x": 114.49, "y": 36.61, "r": "hebei", "k": 1, "tw": "邯鄲"},
     {"id": "ye", "zh": "彰德", "en": "Zhangde", "x": 114.35, "y": 36.1, "r": "hebei", "k": 2, "alt": ["580|邺|Ye|鄴", "1193|相州|Xiangzhou|相州"], "tw": "彰德"},
@@ -551,8 +551,8 @@
     {"id": "danzhou", "zh": "儋州", "en": "Danzhou", "x": 109.58, "y": 19.52, "r": "lingnan", "k": 3, "from": -110, "alt": ["622|儋耳|Dan'er|儋耳"], "tw": "儋州"},
     {"id": "yazhou", "zh": "崖州", "en": "Yazhou", "x": 109.51, "y": 18.25, "r": "lingnan", "k": 3, "from": 600, "tw": "崖州"},
     {"id": "macau", "zh": "澳门", "en": "Macau", "x": 113.54, "y": 22.19, "r": "lingnan", "k": 3, "from": 1557, "tw": "澳門"},
-    {"id": "shenyang", "zh": "沈阳", "en": "Shenyang", "x": 123.43, "y": 41.8, "r": "liaodong", "k": 2, "from": 1296, "tw": "瀋陽", "share": ["manchuria"]},
-    {"id": "hetuala", "zh": "赫图阿拉", "en": "Hetu Ala", "x": 124.92, "y": 41.66, "r": "manchuria", "k": 2, "from": 1603, "tw": "赫圖阿拉"},
+    {"id": "shenyang", "zh": "沈阳", "en": "Shenyang", "x": 123.43, "y": 41.8, "r": "liaodong", "k": 2, "from": 1296, "tw": "瀋陽", "share": ["manchuria"], "alt": ["1633|沈阳|Shenyang|瀋陽", "1911|盛京|Mukden|盛京"]},
+    {"id": "hetuala", "zh": "赫图阿拉", "en": "Hetu Ala", "x": 124.92, "y": 41.66, "r": "manchuria", "k": 2, "from": 1603, "tw": "赫圖阿拉", "alt": ["1633|赫图阿拉|Hetu Ala|赫圖阿拉", "1911|兴京|Xingjing|興京"]},
     {"id": "chaghan", "zh": "察汉浩特", "en": "Chaghan Khota", "x": 118.6, "y": 43.95, "r": "monan", "k": 2, "from": 1604, "tw": "察漢浩特"},
     {"id": "edo", "zh": "江户", "en": "Edo", "x": 139.76, "y": 35.68, "r": "japan_kanto", "k": 2, "from": 1457, "tw": "江戶"},
     {"id": "shuri", "zh": "首里", "en": "Shuri", "x": 127.72, "y": 26.22, "r": "ryukyu", "k": 2, "from": 1429, "tw": "首裏"},
@@ -615,6 +615,13 @@
     {"id": "kaffa", "zh": "卡法", "en": "Kaffa", "x": 35.38, "y": 45.03, "r": "crimea", "k": 2, "from": 1266, "tw": "卡法", "share": ["pontic"]},
     {"id": "tobolsk", "zh": "托博尔斯克", "en": "Tobolsk", "x": 68.25, "y": 58.2, "r": "siberia", "k": 3, "from": 1587, "tw": "托博爾斯克"},
     {"id": "hyeondeok", "zh": "中京显德府", "en": "Junggyeong Hyeondeok", "tw": "中京顯德府", "x": 129.14, "y": 42.71, "r": "manchuria", "k": 2, "from": 742, "to": 926},
-    {"id": "oudong", "zh": "乌栋", "en": "Oudong", "tw": "烏棟", "x": 104.7425, "y": 11.8239, "r": "khmer", "k": 2, "from": 1618}
+    {"id": "oudong", "zh": "乌栋", "en": "Oudong", "tw": "烏棟", "x": 104.7425, "y": 11.8239, "r": "khmer", "k": 2, "from": 1618},
+    {"id": "shanhaiguan", "zh": "山海关", "en": "Shanhaiguan", "x": 119.72, "y": 39.98, "r": "youyan", "k": 3, "from": 1629, "tw": "山海關"},
+    {"id": "ningyuan", "zh": "宁远", "en": "Ningyuan", "x": 120.72, "y": 40.6, "r": "liaodong", "k": 3, "from": 1629, "tw": "寧遠"},
+    {"id": "jinzhou", "zh": "锦州", "en": "Jinzhou", "x": 121.13, "y": 41.1, "r": "liaodong", "k": 3, "from": 1629, "tw": "錦州"},
+    {"id": "hobok", "zh": "和布克赛尔", "en": "Hobok Sair", "x": 85.73, "y": 46.79, "r": "dzungaria", "k": 2, "from": 1629, "tw": "和布克賽爾"},
+    {"id": "kokonor", "zh": "察罕托罗亥", "en": "Chaghan Tolgoi", "x": 100.2, "y": 37.2, "r": "qinghai", "k": 2, "from": 1629, "tw": "察罕托羅亥"},
+    {"id": "yaksa", "zh": "雅克萨", "en": "Albazin", "x": 124.2, "y": 53.4, "r": "manchuria", "k": 2, "from": 1629, "tw": "雅克薩"},
+    {"id": "ninguta", "zh": "宁古塔", "en": "Ninguta", "x": 129.46, "y": 44.33, "r": "manchuria", "k": 2, "from": 1629, "tw": "寧古塔"}
   ]
 }
