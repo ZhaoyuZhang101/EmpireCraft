@@ -453,7 +453,23 @@ public static class NaturalizationSystem
         report.dispatched = DispatchCadres(cities);
         report.shifted = ShiftCulture(cities, rate);
         UpdateEffects(cities);
+        LogYear(cities, report, spent);
         return graduates;
+    }
+
+    // 每年一行，查节奏和卡点(只记录)
+    private static void LogYear(List<City> cities, NaturalizationReport report, int spent)
+    {
+        float[] t = Totals(cities);
+        float untrained = 0f;
+        foreach (City city in cities) untrained += Untrained(city);
+        string Why(NaturalizationFlow flow) => string.IsNullOrEmpty(flow.block) ? "无" : flow.block.Replace("naturalization_block_", "");
+        LogService.LogInfo($"[EmpireCraft][归化] 登记{t[(int)NaturalizationState.Registered]:0}(进{report.Intake.moved:0} 卡{Why(report.Intake)}) " +
+                           $"检疫{t[(int)NaturalizationState.Quarantine]:0}(进{report.Quarantine.moved:0} 卡{Why(report.Quarantine)}) " +
+                           $"上学{t[(int)NaturalizationState.Schooling]:0}(进{report.School.moved:0} 卡{Why(report.School)}) 结业{report.graduates:0} " +
+                           $"工人{t[(int)NaturalizationState.Worker]:0} 军人{t[(int)NaturalizationState.Soldier]:0} 干部{t[(int)NaturalizationState.Cadre]:0} " +
+                           $"教师{t[(int)NaturalizationState.Teacher]:0} 护理{t[(int)NaturalizationState.Nurse]:0} 未受训{untrained:0} 调干部{report.dispatched:0} " +
+                           $"改文化{report.shifted:0} 花费{spent}");
     }
 
     // 各岗位还缺多少(不算工人)
