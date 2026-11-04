@@ -161,14 +161,36 @@ public static class WarReach
         return false;
     }
 
+    // 只隔着无人区、又走得通的邻城(AcrossWild 不看走不走得通；隔着过不去的雪山大漠的不算，见 WildernessPassage)
+    public static IEnumerable<City> WalkableWildNeighbours(City city)
+    {
+        if (city?.data == null) yield break;
+        TileZone from = city.getTile()?.zone;
+        foreach (City other in WildernessNeighbours.Of(city))
+        {
+            if (other?.kingdom == null) continue;
+            TileZone to = other.getTile()?.zone;
+            if (WildernessPassage.Walks(from, to, city.kingdom) || WildernessPassage.Walks(from, to, other.kingdom)) yield return other;
+        }
+    }
+
     // 只从给定的这几国(不连同所在帝国的别的成员)量挨不挨着对方：接壤、只隔着走得通的无人区，或隔海在一方水师辐射内；
     // 隔着第三国不算，不管多近(朝贡要宗主直辖之地挨着，见 TributaryRelations.InReach)
     public static bool TouchingFrom(List<Kingdom> ours, Kingdom other)
     {
         if (ours == null || ours.Count == 0 || other?.data == null || other.isRekt()) return false;
         foreach (Kingdom x in ours)
-            if (x == other || x.IsNeighbourWith(other) || AcrossWild(x, other) ||
+            if (x == other || x.IsNeighbourWith(other) || WalksAcrossWild(x, other) ||
                 StraitReach.Across(x, other) || StraitReach.Across(other, x)) return true;
+        return false;
+    }
+
+    private static bool WalksAcrossWild(Kingdom a, Kingdom b)
+    {
+        if (a?.cities == null || b == null) return false;
+        foreach (City city in a.cities)
+            foreach (City other in WalkableWildNeighbours(city))
+                if (other.kingdom == b) return true;
         return false;
     }
 

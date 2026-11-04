@@ -37,7 +37,42 @@ public static class DiplomacyLedger
         World.world?.kingdoms?.list?.Where(kingdom => kingdom?.data != null && !kingdom.isRekt() && kingdom.isCiv() && !kingdom.wild)
         ?? Enumerable.Empty<Kingdom>();
 
-    public static bool Neighbours(Kingdom a, Kingdom b) => a != null && b != null && a.IsNeighbourWith(b);
+    // 接壤的国家。帝国看整个帝国，别的国家看自己；城的地块相接，或只隔着走得通的无人区(同宣战的邻国，见 WarReach.WalkableWildNeighbours)。
+    // 挨着别国帝国的成员，那个帝国也算接壤；帝国自己的成员不算，它们在"本帝国"筛选里
+    public static HashSet<Kingdom> NeighboursOf(Kingdom focus)
+    {
+        var near = new HashSet<Kingdom>();
+        if (focus?.data == null) return near;
+        Empire own = focus.GetEmpire();
+        bool whole = own != null && focus.IsEmpire();
+        var side = new List<Kingdom>();
+        if (whole && own.kingdoms_list != null) side.AddRange(own.kingdoms_list);
+        if (!side.Contains(focus)) side.Add(focus);
+        foreach (Kingdom member in side)
+        {
+            if (member?.cities == null) continue;
+            foreach (City city in member.cities)
+            {
+                if (city?.data == null) continue;
+                if (city.neighbours_kingdoms != null)
+                    foreach (Kingdom next in city.neighbours_kingdoms)
+                        Touch(near, next, focus, own, whole);
+                foreach (City other in WarReach.WalkableWildNeighbours(city))
+                    Touch(near, other.kingdom, focus, own, whole);
+            }
+        }
+        return near;
+    }
+
+    private static void Touch(HashSet<Kingdom> near, Kingdom next, Kingdom focus, Empire own, bool whole)
+    {
+        if (next?.data == null || next == focus) return;
+        Empire theirs = next.GetEmpire();
+        bool sameEmpire = own != null && theirs == own;
+        if (sameEmpire && whole) return;
+        near.Add(next);
+        if (!sameEmpire && theirs?.CoreKingdom != null) near.Add(theirs.CoreKingdom);
+    }
 
     public static bool SameTianxia(Kingdom a, Kingdom b)
     {

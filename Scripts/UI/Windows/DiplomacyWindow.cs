@@ -96,9 +96,10 @@ public class DiplomacyWindow : WideScrollWindow<DiplomacyWindow>
     private List<Kingdom> Rows()
     {
         IEnumerable<Kingdom> rows = DiplomacyLedger.Realms().Where(kingdom => kingdom != _focus);
+        HashSet<Kingdom> near = _filter == Filter.Neighbours ? DiplomacyLedger.NeighboursOf(_focus) : null;
         rows = _filter switch
         {
-            Filter.Neighbours => rows.Where(kingdom => DiplomacyLedger.Neighbours(_focus, kingdom)),
+            Filter.Neighbours => rows.Where(near.Contains),
             Filter.Tianxia => rows.Where(kingdom => DiplomacyLedger.SameTianxia(_focus, kingdom)),
             Filter.Empire => rows.Where(kingdom => DiplomacyLedger.SameBloc(_focus, kingdom)),
             Filter.Market => rows.Where(kingdom => DiplomacyLedger.SameMarket(_focus, kingdom)),
