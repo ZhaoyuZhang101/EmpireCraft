@@ -28,7 +28,7 @@ internal class CityBehBorderShrinkPatch : GamePatch
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(pCity)) return true;
         // 地块固定(原版"领土扩张"法则关着)时空城也不缩界：缩掉的地再也领不回来(同 CityExpansionPatch.BeforeAbandonZones)
-        if (CityTerritoryProtection.PreserveWarLayout(pCity) || !WorldLawLibrary.world_law_kingdom_expansion.isEnabled())
+        if (CityTerritoryProtection.BordersLocked || CityTerritoryProtection.PreserveWarLayout(pCity) || !WorldLawLibrary.world_law_kingdom_expansion.isEnabled())
         {
             __result = BehResult.Stop;
             return false;

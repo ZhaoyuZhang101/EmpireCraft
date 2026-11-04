@@ -95,7 +95,7 @@ public static class CityPlacementSystem
         {
             // 敌军占着的地：占领记在原城名下，建了新城就对不上，先清掉
             if (host.GetTileZoneOccupier(zone) != null) host.RemoveOccupiedTileZoneFromAll(zone);
-            host.removeZone(zone);
+            using (GamePatches.CityExpansionPatch.Manual()) host.removeZone(zone);
             if (zone.city != null)
             {
                 error = string.Format(LM.Get("settlement_place_urban"), host.GetCityName());

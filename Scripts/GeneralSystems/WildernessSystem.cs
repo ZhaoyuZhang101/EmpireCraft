@@ -924,6 +924,10 @@ public static class WildernessSystem
         // 照原图分地的剧本(从当前世界导入的)里归城的地块：城还领着就留给城(见 WorldMap.WorldMapWilderness.Keep)
         foreach (int id in WorldMap.WorldMapWilderness.KeptZones)
             if (id >= 0 && id < size && _zones[id]?.city != null) anchored[id] = true;
+        // 城市边界固定：城领着的地不划走；本剧本开无人区、开局定好要转成法理无人区的除外(见 WorldMapWilderness.SetCityClaims)
+        if (ModClass.CITY_BORDERS_FIXED)
+            for (int id = 0; id < size && id < _zones.Length; id++)
+                if (_zones[id]?.city != null && !WorldMap.WorldMapWilderness.BoundedAnchor(_zones[id])) anchored[id] = true;
 
         // 连片：同类型四邻相连
         var piece = new int[size];
@@ -1087,7 +1091,7 @@ public static class WildernessSystem
                 if (city.data == null) return true;
                 // 被敌军占着的：占领记在原城名下，划出来就对不上，先清掉(同村镇改隶，见 RuralSettlementSystem.Assign)
                 if (city.GetTileZoneOccupier(zone) != null) city.RemoveOccupiedTileZoneFromAll(zone);
-                city.removeZone(zone);
+                using (GamePatches.CityExpansionPatch.Manual()) city.removeZone(zone);
                 // 划不出来(那座城只剩这一块、受保护)的留给城
                 if (zone.city != null) return true;
                 touched.Add(city);

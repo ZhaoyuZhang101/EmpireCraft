@@ -45,6 +45,15 @@ public class CityExpansionPatch : GamePatch
         if (brush != null)
             harmony.Patch(brush, prefix: new HarmonyMethod(typeof(CityExpansionPatch), nameof(BeginManual)),
                 finalizer: new HarmonyMethod(typeof(CityExpansionPatch), nameof(EndManual)));
+        // 边界剪刀同样是神力手动划地；新城领落脚那一小片不算边界变动(都见 CityTerritoryProtection.BordersLocked)
+        global::System.Reflection.MethodInfo scissors = AccessTools.Method(typeof(PowerLibrary), "drawScissors");
+        if (scissors != null)
+            harmony.Patch(scissors, prefix: new HarmonyMethod(typeof(CityExpansionPatch), nameof(BeginManual)),
+                finalizer: new HarmonyMethod(typeof(CityExpansionPatch), nameof(EndManual)));
+        global::System.Reflection.MethodInfo founding = AccessTools.Method(typeof(CityManager), nameof(CityManager.buildNewCity));
+        if (founding != null)
+            harmony.Patch(founding, prefix: new HarmonyMethod(typeof(CityTerritoryProtection), nameof(CityTerritoryProtection.BeginFounding)),
+                finalizer: new HarmonyMethod(typeof(CityTerritoryProtection), nameof(CityTerritoryProtection.EndFounding)));
     }
 
     public static bool AtLimit(City city) => city?.zones != null &&
@@ -82,6 +91,7 @@ public class CityExpansionPatch : GamePatch
         if (city == null || zone == null) return false;
         if (city.zones?.Contains(zone) == true || ModClass.IS_CLEAR || !Config.game_loaded || SmoothLoader.isLoading() ||
             AncientWarfareCompatibility.OwnsObject(city)) return true;
+        if (CityTerritoryProtection.LocksAdd(city)) return false;
         if (WildernessSystem.IsWild(zone) && !WildernessSystem.CanTake(city)) return false;
         // 预划县址(用户 2026-11-03 转群友"原有的城市跨河连片，本来该断掉的地方不断")：县址里开出来的地只给这一县已设的县城，
         // 没设县的谁也不领(老城不再顺着开出来的地一块块吞过去)；神力手动划地、手动营建、建城与新城落脚的头一块地照旧放行
@@ -112,7 +122,8 @@ public class CityExpansionPatch : GamePatch
     // 剧本按地形、州府锚点铺好的辖地(隔河、翻岭、山口两边的)一失地块就整片被扔，运行一阵就缩边了(用户 10-30 "为什么这边
     // 运行了一段时间后就缩边了")
     public static bool BeforeAbandonZones(City pCity, bool pDebug) =>
-        pDebug || !CityTerritoryProtection.PreserveWarLayout(pCity) && WorldLawLibrary.world_law_kingdom_expansion.isEnabled();
+        pDebug || !CityTerritoryProtection.BordersLocked && !CityTerritoryProtection.PreserveWarLayout(pCity) &&
+        WorldLawLibrary.world_law_kingdom_expansion.isEnabled();
 
     // 城区或本城村镇几块地以内
     public const int SettledReach = 2;
@@ -203,7 +214,7 @@ public class CityExpansionPatch : GamePatch
 
     public static void AfterCanGrowZones(City __instance, ref bool __result)
     {
-        if (__result && !AncientWarfareCompatibility.OwnsObject(__instance) && AtLimit(__instance))
+        if (__result && !AncientWarfareCompatibility.OwnsObject(__instance) && (AtLimit(__instance) || CityTerritoryProtection.BordersLocked))
             __result = false;
     }
 
@@ -333,7 +344,7 @@ public class CityExpansionPatch : GamePatch
             !WorldLawLibrary.world_law_kingdom_expansion.isEnabled() || !city.canGrowZones() || AtLimit(city)) return;
         WorldTile origin = city.getTile();
         CityZoneGrowth growth = World.world?.city_zone_helper?.city_growth;
-        if (origin == null || growth == null) return;
+        if (origin == null || growth == null || CityTerritoryProtection.BordersLocked) return;
         Actor actor = city.leader;
         if (actor?.data == null || actor.isRekt() || !actor.isAlive()) actor = null;
         for (int attempt = 0; attempt < VirtualClaimTries; attempt++)

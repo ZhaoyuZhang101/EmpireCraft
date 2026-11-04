@@ -42,6 +42,8 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
     public static bool SIMPLE_NAMEPLATE_SWITCH = false;
     public static bool EMPIRE_SHOW_ALLIANCE_SWITCH = false;
     public static bool KINGDOM_TITLE_FREEZE = false;
+    // 城市边界固定(见 CityTerritoryProtection.BordersLocked)
+    public static bool CITY_BORDERS_FIXED = false;
     public static int TITLE_BEEN_DESTROY_TIME = 50;
     // 法理扩张(未冻结法理)时单个法理最多容纳的城市数，0 表示不限
     public static int TITLE_MAX_CITIES = 5;

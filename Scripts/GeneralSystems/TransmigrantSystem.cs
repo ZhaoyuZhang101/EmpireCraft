@@ -174,7 +174,9 @@ public static partial class TransmigrantSystem
         if (Active() != null) return "transmigrant_error_once";
         TileZone zone = FindLandingZone(tile.zone, out City carveFrom);
         if (zone == null) return "transmigrant_error_no_coast";
-        if (carveFrom != null) carveFrom.removeZone(zone);
+        if (carveFrom != null)
+            using (GamePatches.CityExpansionPatch.Manual())
+                carveFrom.removeZone(zone);
         (string lingao, bool native) = LingaoNear(zone);
         string baseName = native ? LM.Get("transmigrant_bairen") : lingao;
 

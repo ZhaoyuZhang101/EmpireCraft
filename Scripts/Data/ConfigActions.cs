@@ -8,6 +8,10 @@ namespace EmpireCraft.Scripts.Data
 {
     public class ConfigActions
     {
+        public static void CityBordersFixedCallBack(bool on)
+        {
+            ModClass.CITY_BORDERS_FIXED = on;
+        }
         public static void SwitchTitleFreezeCallBack(bool on)
         {
             ModClass.KINGDOM_TITLE_FREEZE = on;
