@@ -13,8 +13,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   (明君 wiseRuler、庸弱 weakRuler、昏聩 fatuousRuler、荒淫 dissoluteRuler、暴虐 tyrantRuler；中主不记)：
 //   · 才干：治国 + 智力；品性：原版正负特质(懒惰、愚蠢偏昏聩，贪婪偏荒淫，邪恶、嗜血、疯狂偏暴虐)；
 //   · 成长环境：开国前后在马上、民间长大的头两三代偏好；生在深宫的后代随王朝年岁(每百年)与王朝周期压力逐代变差；
-//     幼年即位的更易庸弱(原型汉朝前几代明君，后几代多早逝，幼主相继)；
-//   · 开国雄主、中兴之主、中兴雄主都算明君；有了庸弱、昏聩、荒淫、暴虐的不再得中兴之主。
+//     幼年即位先待成年，不把摄政的治理成果当成幼主本人的资质；
+//   · 资质与开国、中兴功绩分开；幼主暂不定性，成年后评一次；有负面资质的不再获得中兴称号。
 // 效果(各处调用本类)：
 //   · 腐败：中央每年 明君 -3%、庸弱 +1%、昏聩 +3.5%、荒淫 +3%、暴虐 +1.5%；昏聩、荒淫不整顿吏治，明君更常整顿；
 //   · 正统：原来固定的"君主在位 +10"改按资质：明君 +14、中主 +10、庸弱 +3、昏聩与荒淫 -5、暴虐 -8；
@@ -31,7 +31,7 @@ public static class RulerQualitySystem
     public const string Wise = "wiseRuler", Weak = "weakRuler", Fatuous = "fatuousRuler",
         Dissolute = "dissoluteRuler", Tyrant = "tyrantRuler";
 
-    public enum Grade { Average, Wise, Weak, Fatuous, Dissolute, Tyrant }
+    public enum Grade { Average, Wise, Weak, Fatuous, Dissolute, Tyrant, Minor }
 
     private static readonly string[] Bad = { Weak, Fatuous, Dissolute, Tyrant };
     private const float PalaceSpending = 0.15f;
@@ -43,8 +43,8 @@ public static class RulerQualitySystem
         if (ruler.hasTrait(Dissolute)) return Grade.Dissolute;
         if (ruler.hasTrait(Fatuous)) return Grade.Fatuous;
         if (ruler.hasTrait(Weak)) return Grade.Weak;
-        if (ruler.hasTrait(Wise) || ruler.hasTrait(RulerTraitSystem.Founder) || ruler.hasTrait(RulerTraitSystem.Restorer) ||
-            ruler.hasTrait(RulerTraitSystem.GreatRestorer)) return Grade.Wise;
+        if (RealisticAgeSystem.IsMinor(ruler)) return Grade.Minor;
+        if (ruler.hasTrait(Wise)) return Grade.Wise;
         return Grade.Average;
     }
 
@@ -68,12 +68,25 @@ public static class RulerQualitySystem
 
     #region 即位定性
 
-    // 即位时定性(RulerTraitSystem.OnCrowned 在开国雄主、中兴之主判定之后调用；旧档在位的君主由每年的检查补定)；
-    // 只定一次(ActorExtraData.ruler_assessed)，中主也记下，不年年重掷
+    // 即位时先评资质，再检查功绩；幼主等成年后评一次。中主也记下，不年年重掷。
     public static void Assess(Empire empire, Actor ruler)
     {
         if (empire?.data == null || ruler?.data == null || !ruler.isAlive()) return;
         var data = ruler.GetOrCreate();
+        // 手动改成负面资质后，旧明君特质不再并存；不改写玩家指定的负面资质。
+        if (IsBad(ruler))
+        {
+            ruler.removeTrait(Wise);
+            data.ruler_assessed = true;
+            return;
+        }
+        if (RealisticAgeSystem.IsMinor(ruler))
+        {
+            // 迁移旧版幼年即位时自动定下的明君；成年后重新按本人资质评估。
+            if (data.ruler_assessed) ruler.removeTrait(Wise);
+            data.ruler_assessed = false;
+            return;
+        }
         if (data.ruler_assessed) return;
         data.ruler_assessed = true;
         if (Of(ruler) != Grade.Average) return;
@@ -87,14 +100,16 @@ public static class RulerQualitySystem
         int balance = 0;
         foreach (ActorTrait trait in ruler.traits)
         {
+            // 官位与开国、中兴功绩不是品性，不能反过来抬高资质抽取权重。
+            if (trait.id == RulerTraitSystem.Founder || trait.id == RulerTraitSystem.Restorer ||
+                trait.id == RulerTraitSystem.GreatRestorer) continue;
             if (trait.type == TraitType.Positive) balance++;
             else if (trait.type == TraitType.Negative) balance--;
         }
         float score = talent * 0.6f + Mathf.Clamp(balance, -3, 3) * 0.3f - PalaceDecay(empire, ruler);
-        bool child = !ruler.isAdult();
         float up = Mathf.Exp(score), down = Mathf.Exp(-score);
         float wise = 22f * up, average = 45f;
-        float weak = 14f * down * (child ? 2f : 1f);
+        float weak = 14f * down;
         float fatuous = 8f * down * (ruler.hasTrait("lazy") ? 2f : 1f) * (ruler.hasTrait("stupid") ? 1.5f : 1f);
         float dissolute = 7f * down * (ruler.hasTrait("greedy") ? 2f : 1f);
         float tyrant = 4f * Mathf.Exp(-0.5f * score) *
@@ -142,6 +157,7 @@ public static class RulerQualitySystem
     // 正统里"君主在位"一项
     public static (string key, int value) LegitimacyItem(Actor ruler) => Of(ruler) switch
     {
+        Grade.Minor => ("mandate_ruler_minor", 3),
         Grade.Wise => ("mandate_ruler_wise", 14),
         Grade.Weak => ("mandate_ruler_weak", 3),
         Grade.Fatuous => ("mandate_ruler_fatuous", -5),
@@ -209,6 +225,7 @@ public static class RulerQualitySystem
             TemporaryFactionType.降低赋税 => -1f,
             TemporaryFactionType.赈济灾荒 => -1f,
             TemporaryFactionType.整顿吏治 => -1f,
+            TemporaryFactionType.对外扩张 => grade == Grade.Tyrant ? 1f : -1f,
             _ => 0f
         };
     }
@@ -225,4 +242,3 @@ public static class RulerQualitySystem
 
     #endregion
 }
-            TemporaryFactionType.对外扩张 => grade == Grade.Tyrant ? 1f : -1f,

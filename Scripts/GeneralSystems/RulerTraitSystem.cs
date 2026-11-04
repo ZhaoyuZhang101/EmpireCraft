@@ -14,10 +14,10 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //              兵锋所向：本国各军战力 ×FounderCombatFactor，战线一月可下两块地(平滑国界下推进加倍)；
 //              被讨伐的割据政权地盘被占得越多越可能举国归附，战争很快结束(WarlordEraSystem.FounderCapitulation，每月)；
 //              帝国境内不发生叛乱(ModernStability.PassRebellionGate、KingdomExtension.StartLocalRebelling)。
-//   中兴之主 —— 后继皇帝在位时管理(stewardship)达到 RestorerStewardship、且王朝积弊(周期压力)不低于 RestorerStrain
-//              (先有衰败才谈得上中兴)即获得(即位时与每年各查一次)。
+//   中兴之主 —— 成年亲政、无负面资质、管理达标，在已有衰败的朝廷至少治理五年，
+//              正统、腐败或六弊较观察起点实质改善，且当前财政、正统过关才获得。
 //              在位期间帝国各城、各国的腐败增长减半(CityExtension/KingdomExtension.AddCorruptionRate)。
-//   中兴雄主 —— 获得中兴之主时有 GreatRestorerChance 的概率同时获得(极品)：在保留中兴之主效果的同时，
+//   中兴雄主 —— 获得中兴之主时有 GreatRestorerChance 的概率升为此档(只保留一个称号)：在保留中兴之主效果的同时，
 //              享有开国雄主的全部特性(长寿、忠诚、开国气象、统一战争打到底、望风归附、境内无叛乱)。
 // 只有君主制有：共和国元首与现代政体不授予，已有的特质在这些政体下也不生效。
 public static class RulerTraitSystem
@@ -30,50 +30,90 @@ public static class RulerTraitSystem
     public const float RestorerStrain = 35f;
     public const int FounderLoyalty = 20;
     public const double RestorerCorruptionFactor = 0.5;
+    private const int RecoveryYears = 5;
 
     private static bool IsMonarchy(Empire empire) =>
-        empire != null && !empire.isRekt() && !RepublicSystem.IsRepublic(empire) &&
-        empire.CoreKingdom?.GetRegime()?.type != RegimeType.Modern;
+        empire?.data != null && !empire.isRekt() && !empire.IsArchived() &&
+        empire.CoreKingdom != null && !empire.CoreKingdom.isRekt() &&
+        !RepublicSystem.IsRepublic(empire) && !TransmigrantSystem.Governs(empire) && !ModernLegitimacy.Applies(empire) &&
+        empire.CoreKingdom.GetRegime()?.type != RegimeType.Modern &&
+        (RegimeManager.IsMonarchy(empire.CoreKingdom.GetRegime()?.type) || empire.IsPrincipate() ||
+         RegimeManager.IsPrimitive(empire.CoreKingdom.GetRegime()?.type));
 
     public static void OnCrowned(Empire empire, Actor actor)
     {
         if (!IsMonarchy(empire) || actor == null || !actor.isAlive()) return;
+        RulerQualitySystem.Assess(empire, actor);
         if (actor.id == empire.data.dynasty_founder_actor_id)
         {
             if (!actor.hasTrait(Founder)) actor.addTrait(Founder);
             return;
         }
         CheckRestorer(empire, actor);
-        // 明君、庸主、昏君、暴君(见 RulerQualitySystem)
-        RulerQualitySystem.Assess(empire, actor);
     }
 
     // 每年：中兴之主的判定；旧档在位、还没定资质的君主补定
     public static void CheckRestorer(Empire empire)
     {
-        CheckRestorer(empire, empire?.Emperor);
-        if (IsMonarchy(empire) && empire.Emperor != null && empire.Emperor.id != empire.data.dynasty_founder_actor_id)
-            RulerQualitySystem.Assess(empire, empire.Emperor);
+        if (!IsMonarchy(empire) || empire.Emperor == null) return;
+        RulerQualitySystem.Assess(empire, empire.Emperor);
+        CheckRestorer(empire, empire.Emperor);
     }
 
     private static void CheckRestorer(Empire empire, Actor actor)
     {
-        if (!IsMonarchy(empire) || actor == null || !actor.isAlive() ||
-            actor.id == empire.data.dynasty_founder_actor_id ||
-            actor.hasTrait(Founder) || actor.hasTrait(Restorer) || RulerQualitySystem.IsBad(actor)) return;
-        if (actor.stats["stewardship"] < RestorerStewardship) return;
-        // 中兴要先有衰败：王朝积弊(周期压力)不到 RestorerStrain 的只是守成，不算中兴
-        if (DynasticCycleSystem.GetPressure(empire) < RestorerStrain) return;
-        actor.addTrait(Restorer);
-        // 极品：中兴雄主，享有开国雄主的全部特性
-        if (UnityEngine.Random.value < GreatRestorerChance) actor.addTrait(GreatRestorer);
+        if (!IsMonarchy(empire) || actor?.data == null || !actor.isAlive()) return;
+        // 旧版用两个特质叠加表示高阶中兴；改为高阶包含低阶效果。
+        if (actor.hasTrait(GreatRestorer)) actor.removeTrait(Restorer);
+        var recovery = actor.GetOrCreate();
+        if (RealisticAgeSystem.IsMinor(actor))
+        {
+            actor.removeTrait(Restorer);
+            actor.removeTrait(GreatRestorer);
+            recovery.restorer_realm = -1L;
+            return;
+        }
+        if (actor.id == empire.data.dynasty_founder_actor_id ||
+            actor.hasTrait(Founder) || actor.hasTrait(Restorer) || actor.hasTrait(GreatRestorer)) return;
+        if (RulerQualitySystem.IsBad(actor) || empire.data.is_been_controlled ||
+            DynasticCycleSystem.GetPressure(empire) < RestorerStrain || World.world == null)
+        {
+            recovery.restorer_realm = -1L;
+            return;
+        }
+        double now = World.world.getCurWorldTime();
+        float malady = MaladySystem.Average(empire);
+        double corruption = CorruptionSystem.GetRate(empire);
+        int legitimacy = empire.Legitimacy;
+        if (recovery.restorer_realm != empire.id || recovery.restorer_since < 0d || now < recovery.restorer_since ||
+            empire.data.newEmperor_timestamp > recovery.restorer_since)
+        {
+            recovery.restorer_realm = empire.id;
+            recovery.restorer_since = now;
+            recovery.restorer_malady = malady;
+            recovery.restorer_corruption = corruption;
+            recovery.restorer_legitimacy = legitimacy;
+            return;
+        }
+        if (Date.getYearsSince(recovery.restorer_since) < RecoveryYears || actor.stats["stewardship"] < RestorerStewardship ||
+            legitimacy < 50 || empire.CurrentMoney < 0 || malady > recovery.restorer_malady ||
+            corruption > recovery.restorer_corruption) return;
+        bool improved = recovery.restorer_malady - malady >= 10f || recovery.restorer_corruption - corruption >= 0.1d - 1e-6d ||
+                        legitimacy - recovery.restorer_legitimacy >= 15;
+        if (!improved) return;
+        actor.addTrait(UnityEngine.Random.value < GreatRestorerChance ? GreatRestorer : Restorer);
     }
+
+    // 功绩称号不等于当前资质；幼主、荒淫昏暴之君不能靠旧称号继续获得治国加成。
+    public static bool HasActiveTrait(Actor actor, string trait) =>
+        actor?.data != null && actor.isAlive() && !RealisticAgeSystem.IsMinor(actor) && !RulerQualitySystem.IsBad(actor) &&
+        (trait == Restorer ? actor.hasTrait(Restorer) || actor.hasTrait(GreatRestorer) : actor.hasTrait(trait));
 
     public static bool ReignedBy(Kingdom kingdom, string trait)
     {
         Empire empire = kingdom?.GetEmpire();
         Actor emperor = empire?.Emperor;
-        return emperor != null && emperor.isAlive() && emperor.hasTrait(trait) && IsMonarchy(empire);
+        return HasActiveTrait(emperor, trait) && IsMonarchy(empire);
     }
 
     // 开国之初人心未散：开国雄主登基后头 15 年帝国境内不起叛乱；此后雄主的忠诚、正统加成照旧，叛乱照常检定

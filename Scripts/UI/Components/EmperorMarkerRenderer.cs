@@ -435,12 +435,13 @@ public static class EmperorMarkerRenderer
         tooltip.addLineText(T("emperor_tip_grade", culture), T(grade switch
             {
                 RulerQualitySystem.Grade.Wise => "trait_" + RulerQualitySystem.Wise,
+                RulerQualitySystem.Grade.Minor => "emperor_tip_grade_minor",
                 RulerQualitySystem.Grade.Weak => "trait_" + RulerQualitySystem.Weak,
                 RulerQualitySystem.Grade.Fatuous => "trait_" + RulerQualitySystem.Fatuous,
                 RulerQualitySystem.Grade.Dissolute => "trait_" + RulerQualitySystem.Dissolute,
                 RulerQualitySystem.Grade.Tyrant => "trait_" + RulerQualitySystem.Tyrant,
                 _ => "emperor_tip_grade_average"
-            }, culture), grade == RulerQualitySystem.Grade.Wise ? "#7CD27C" : grade == RulerQualitySystem.Grade.Average ? Plain : "#E07A5F",
+            }, culture), grade == RulerQualitySystem.Grade.Wise ? "#7CD27C" : grade is RulerQualitySystem.Grade.Average or RulerQualitySystem.Grade.Minor ? Plain : "#E07A5F",
             pPercent: false, pLocalize: false);
     }
 

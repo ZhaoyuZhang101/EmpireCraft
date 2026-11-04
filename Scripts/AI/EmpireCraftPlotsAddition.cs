@@ -715,7 +715,7 @@ namespace EmpireCraft.Scripts.AI
             static bool IsReturningCapital(Empire empire, City target, Actor ruler)
             {
                 if (target == empire.OriginalCapital) return true;
-                if (ruler != null && ruler.hasTrait(RulerTraitSystem.Restorer)) return true;
+                if (RulerTraitSystem.HasActiveTrait(ruler, RulerTraitSystem.Restorer)) return true;
                 EmpireCore core = EmpireCoreManager.Get(empire);
                 long clan = empire.data?.empire_specific_clan ?? -1L;
                 if (core?.empire_history_ids == null || clan <= 0) return false;

@@ -38,7 +38,7 @@ public static class ReignRecordSystem
         reign.end_mandate = empire.Mandate;
         reign.ended_alive = emperor.isAlive();
         reign.age_at_end = emperor.getAge();
-        reign.restorer = emperor.hasTrait(RulerTraitSystem.Restorer);
+        reign.restorer = emperor.hasTrait(RulerTraitSystem.Restorer) || emperor.hasTrait(RulerTraitSystem.GreatRestorer);
         reign.ruler_grade = RulerQualitySystem.Of(emperor).ToString();
         if (empire.data.is_been_controlled) reign.was_controlled = true;
     }

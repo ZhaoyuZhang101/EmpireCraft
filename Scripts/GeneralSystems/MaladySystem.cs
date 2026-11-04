@@ -116,7 +116,8 @@ public static class MaladySystem
         bool shogunate = MilitaryRegency.KindOf(empire) == MilitaryRegency.Shogun;
         Actor ruler = shogunate ? MilitaryRegency.Regent(empire) ?? empire.Emperor : empire.Emperor;
         RulerQualitySystem.Grade grade = RulerQualitySystem.Of(ruler);
-        bool restorer = ruler != null && (ruler.hasTrait(RulerTraitSystem.Restorer) || ruler.hasTrait(RulerTraitSystem.GreatRestorer));
+        bool restorer = shogunate ? RulerTraitSystem.HasActiveTrait(ruler, RulerTraitSystem.Restorer) :
+            RulerTraitSystem.ReignedBy(empire.CoreKingdom, RulerTraitSystem.Restorer);
         float common = restorer ? -6f : grade switch
         {
             RulerQualitySystem.Grade.Fatuous => 6f,

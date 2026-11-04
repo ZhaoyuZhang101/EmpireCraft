@@ -45,7 +45,7 @@ public static class FactionBalanceSystem
 
     public static bool Applies(Empire empire) =>
         CourtSystem.Applies(empire) && empire.CoreKingdom?.GetRegime()?.type != RegimeType.Modern &&
-        !RepublicSystem.IsRepublic(empire);
+        !RepublicSystem.IsRepublic(empire) && !TransmigrantSystem.Governs(empire);
 
     public static float Imbalance(Empire empire) => Applies(empire) ? Mathf.Clamp(empire.data.faction_imbalance, 0f, 100f) : 0f;
 
@@ -117,7 +117,7 @@ public static class FactionBalanceSystem
     private static float RulerFactor(Empire empire)
     {
         Actor ruler = empire.Emperor;
-        bool restorer = ruler != null && (ruler.hasTrait(RulerTraitSystem.Restorer) || ruler.hasTrait(RulerTraitSystem.GreatRestorer));
+        bool restorer = RulerTraitSystem.ReignedBy(empire.CoreKingdom, RulerTraitSystem.Restorer);
         float factor = restorer ? 0.5f : RulerQualitySystem.Of(ruler) switch
         {
             RulerQualitySystem.Grade.Wise => 0.5f,

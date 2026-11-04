@@ -351,6 +351,17 @@ public static class ActorExtension
     {
         // 君主资质已定(见 RulerQualitySystem.Assess)
         public bool ruler_assessed;
+        // 中兴功绩观察：按本人、当前帝国保存，旧档从首次观察起算，不把积弊高直接算成中兴。
+        public long restorer_realm = -1L;
+        public double restorer_since = -1d;
+        public float restorer_malady = -1f;
+        public double restorer_corruption = -1d;
+        public int restorer_legitimacy = -1;
+        public bool ShouldSerializerestorer_realm() => restorer_realm >= 0L;
+        public bool ShouldSerializerestorer_since() => restorer_realm >= 0L;
+        public bool ShouldSerializerestorer_malady() => restorer_realm >= 0L;
+        public bool ShouldSerializerestorer_corruption() => restorer_realm >= 0L;
+        public bool ShouldSerializerestorer_legitimacy() => restorer_realm >= 0L;
         // 君主、储君上次添孩子的时间(见 RoyalHouseSystem.CanBirth)
         public double last_royal_birth = -1d;
         // 真实年龄：成为君主、储君时的年纪与保底的天年、上回看到在位的时间(见 RealisticAgeSystem.RoyalLifespan)；-1 未定
