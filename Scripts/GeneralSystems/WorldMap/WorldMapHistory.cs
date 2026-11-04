@@ -42,7 +42,8 @@ internal static class WorldMapHistory
         {
             WorldMapDynasty dynasty = WorldMapData.Dynasty(realm.data.dynasty);
             if (dynasty == null || realm.kingdom == null || realm.kingdom.isRekt()) continue;
-            List<WorldMapReign> prior = dynasty.rulers.Where(reign => reign.a < era.year && reign.b <= era.year).ToList();
+            WorldMapReign reigning = ReigningAt(dynasty, realm.data.ruler, era.year);
+            List<WorldMapReign> prior = dynasty.rulers.Where(reign => reign != reigning && reign.a < era.year && reign.b <= era.year).ToList();
             try
             {
                 if (realm.empire?.data != null)
@@ -52,11 +53,11 @@ internal static class WorldMapHistory
                     realm.empire.data.history.InsertRange(0, records);
                     if (records.Count > 0) NotFounder(realm.empire, records[0]);
                     // 今上开局前的在位大事记进本朝当前的史书
-                    WorldMapReign reigning = dynasty.rulers.LastOrDefault(reign => reign.a <= era.year && reign.b > era.year);
                     if (reigning != null && realm.empire.data.currentHistory != null)
                     {
                         realm.empire.data.currentHistory.descriptions ??= new List<HistoryDescription>();
-                        realm.empire.data.currentHistory.descriptions.AddRange(Events(reigning, era.year));
+                        // 年内时点只由剧本确定，不能把今上开局当年稍后的退位、死亡等预先写入。
+                        realm.empire.data.currentHistory.descriptions.AddRange(Events(reigning, era.year - 1));
                     }
                 }
                 else
@@ -404,6 +405,25 @@ internal static class WorldMapHistory
         public string name, father, title;
         public int died = int.MinValue;
         public string Father => father;
+    }
+
+    // 同一年既可能是前君末年，也可能是后君即位后；先服从剧本明确指定的在世君主。
+    // 避免 117 年图拉真末年的快照把图拉真预先写入已故帝系，并给今上套哈德良的大事。
+    internal static WorldMapReign ReigningAt(WorldMapDynasty dynasty, WorldMapPerson ruler, int year)
+    {
+        if (dynasty?.rulers == null) return null;
+        var candidates = dynasty.rulers.Where(reign => reign != null && reign.a <= year && reign.b >= year).ToList();
+        if (ruler != null)
+        {
+            WorldMapReign byIdentity = string.IsNullOrEmpty(ruler.self) ? null :
+                candidates.LastOrDefault(reign => reign.p == ruler.self);
+            if (byIdentity != null) return byIdentity;
+            var names = (ruler.giv ?? "").Split('|').Where(name => !string.IsNullOrWhiteSpace(name))
+                .Select(name => name.Trim()).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            WorldMapReign byName = candidates.LastOrDefault(reign => (reign.n ?? "").Split('|').Any(name => names.Contains(name.Trim())));
+            if (byName != null) return byName;
+        }
+        return candidates.LastOrDefault(reign => reign.b > year);
     }
 
     private static void Adopt(PersonalClanIdentity father, PersonalClanIdentity child)

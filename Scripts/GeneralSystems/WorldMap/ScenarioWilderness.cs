@@ -15,17 +15,22 @@ namespace EmpireCraft.Scripts.GeneralSystems.WorldMap;
 //     山脉熔岩互收零星的核心同用 WildernessSystem.Absorbs，Python 版见 Tools/WorldMap/preview_wilderness.py——地球没有岩浆，
 //     那边不管熔岩)；开局没有上回的类型，不放宽(Hysteresis)。城心那块留给城(同 Regroup 的 anchored)，
 //     小图只放一、二档城、离图边四格以内的城不放(同 WorldMapScenario.Plan)；
+//   · 照原图分地的剧本(从当前世界导入的，见 ScenarioWorldExport、WorldMapEra.exact；群友 2026-11-04 截图导入的西藏显示"山脉无人区，
+//     法理：最近的城")：开局只按刷的分地，这里同样不往外铺、不补小国；刷成 "c:城编号" 的地块留给那座城(同 WorldMapWilderness.Keep)，
+//     放不下的城对不上、那块没人领；刷 p:、r: 的归那国、那块法理最近的城但不留，地形够无人区的照常划走、定挂法理(见 Claims)；
+//   · 设置(同 WildernessSystem.Enabled、JungleDeveloped)：编辑器只编自定剧本，「无人区」关着就不划；「雨林全开发」只管导入地图，地球地图雨林照常判；
 //   · 时代开发度(见 WorldMapDevelopment)：从预设复制来的剧本按来源时代(WorldMapEra.base)的表，把当年没开出来的草木平地算回
 //     丛林、大泽再归类(离城越近开发度越高，开满的不改)；剧本刷的开发度(develop)盖过时代表，刷满 100 的雨林大泽开满、留给城；
 //   · 归属(同 WildernessSystem.OwnerOf)：刷了永久中立(paint 的 "n")的那一片不归谁；否则看挂的法理——剧本刷的地块(p: 那国都城的
 //     王国法理、r: 那块王国法理)优先，再是时代文件的史实归属(地球地图，见 WorldMapWilderness.HistoricalOwner)，再是按地块走
-//     (四邻、不过海、至多 MaxAttachSteps 块)最先走到的城的王国法理；法理归开局持有它的国家(法理首都所在国，见
+//     (四邻、不过海、不限远近)最先走到的城的王国法理；法理归开局持有它的国家(法理首都所在国，见
 //     WorldMapScenario.BuildTitles；不称帝的国家都城不是法理首都时另立一块、归它自己，见 OwnTitles)；没挂上法理的，
 //     周边(八邻)的城全属同一国的归那国，否则中立。城的辖地按地形代价从城心往外铺(无人区铺不进去)；离剧本的城太远
 //     (FillerReach 外)的空地开局会补随机小国(见 WorldMapScenario.PlanFillers)，这里记作"补空小国"("f")；
 //   · 只是预演：村镇厂区、立城时平出的河谷绿洲、补空小国的城都不知道，与开局划出来的会差几块。
 // 三段缓存：取样(地形、地图范围、大小档变了才重算；最大一档四万多块地、近三百万格，几十毫秒)；归类、连片、辖地与挂法理的走法
-// (再加城心、刷的开发度变了才重算，放城挪城只算这一段)；这两段刷地形、刷开发度拖着时不算，停手后至多每 HeavySeconds 秒一次；
+// (再加城心、刷的开发度、上面两个设置变了才重算，照原图分地的剧本再加刷的地块归属，放城挪城只算这一段)；
+// 这两段刷地形、刷开发度、刷地块拖着时不算，停手后至多每 HeavySeconds 秒一次；
 // 归属(剧本一改就重算，只看无人区的地块，几毫秒)。在同一张 0.05° 网格上逐格取样时片数、块数与 Python 版一致；
 // 编辑器的预览是 0.1°，差百分之一上下的边角块。
 public static class ScenarioWilderness
@@ -43,7 +48,6 @@ public static class ScenarioWilderness
     private const float LavaCore = 0.3f, LavaFlank = 0.15f, LavaRugged = 0.6f;
     private const float BarrenShare = 0.85f, SwampShare = 0.75f, JungleShare = 0.85f;
     private const float EdgeShare = 0.5f, MountainEdgeShare = 0.6f, LavaEdgeShare = 0.15f;
-    private const int MaxAttachSteps = 64;
     // 时代开发度：陆地不到几格的不改、这一类格子(连草木)占陆地几成才改、离城多远(度)开发度翻倍的衰减(同 WorldMapDevelopment)
     private const float WetShare = 0.5f;
     // 辖地：走一块的代价(×10，平原 10、丘陵 16、沙漠冻土 20、整块荒漠 30、丛林沼泽 25、山地 60，同 WorldMapZones 的口径)；
@@ -80,11 +84,16 @@ public static class ScenarioWilderness
         public float[] Dev;
         public int[] Terr, Label;
         public string[] History;
+        public string[] HistoryRegion;
         public List<Piece> Pieces = new();
         // 放得下的城(编号、经纬)与城心所在的地块
         public readonly List<string> Seats = new();
         public readonly List<int> SeatZone = new();
+        public readonly List<Vector2Int> SeatTile = new();
         public readonly Dictionary<string, int> SeatOf = new();
+        // 照原图分地的剧本才有：各块地刷给哪座城(Seats 的下标，没有为 -1)，哪些留给城(见 Claims)
+        public int[] Claim;
+        public bool[] Kept;
     }
 
     // 取样的结果：各块的陆地(连同岩浆)、水面、山地、丘陵、冻土、沙地、丛林、沼泽、草木平地、岩浆格数(只读；归类时丛林、沼泽、草木另拷一份再改)
@@ -224,7 +233,7 @@ public static class ScenarioWilderness
         }
         string table = era.map == null ? WorldMapData.BaseOf(era) : null;
         int key = Hash(_gridRevision, geometry, _seatKey, ScenarioEditing.DevelopRevision, table?.GetHashCode() ?? 0, era.map == null ? 1 : 2,
-            era.wilderness?.Count ?? 0);
+            era.wilderness?.Count ?? 0, era.exact ? ScenarioEditing.LandRevision + 1 : 0, (WildOff(era) ? 1 : 0) | (JungleOff(era) ? 2 : 0));
         float now = Time.unscaledTime;
         if (_layout == null || _layout.Key != key && allowHeavy && now - _heavyAt >= HeavySeconds)
         {
@@ -252,6 +261,14 @@ public static class ScenarioWilderness
             Version++;
         }
     }
+
+    // 这张图开局划不划无人区、雨林算不算开发完(同 WildernessSystem.Enabled、JungleDeveloped)：编辑器只编自定剧本(见 ScenarioEditing.Open)，
+    // 无人区都照设置；雨林全开发只管导入地图。还没进世界，不能直接问那两个属性(里面的 ForcesWild、OnEarth 是上一局的)
+    private static bool WildOff(WorldMapEra era) => era != null && !WildernessSystem.EnabledSetting;
+    private static bool JungleOff(WorldMapEra era) => era?.map != null && WildernessSystem.JungleDevelopedSetting;
+
+    // 这张图因模组设置关着无人区，开局不划(编辑器的无人区卡片说一句)
+    public static bool SettingOff => WildOff(ScenarioEditing.Era);
 
     private static int Hash(params int[] parts)
     {
@@ -293,6 +310,7 @@ public static class ScenarioWilderness
         Vector2Int size = frame.sizes[sizeIndex];
         frame.Bounds(size, out float bottom, out float degrees);
         int tw = size.x * 64, th = size.y * 64, zw = tw / 8, zh = th / 8, n = zw * zh;
+        WorldMapEra era = ScenarioEditing.Era;
         // 一、取样(地形、范围、大小没变就沿用)
         if (_sampled == null || _sampled.Key != sampleKey) _sampled = Sample(frame, size, sampleKey);
         Sampled sampled = _sampled;
@@ -323,10 +341,14 @@ public static class ScenarioWilderness
             layout.SeatOf[city.id] = layout.Seats.Count;
             layout.Seats.Add(city.id);
             layout.SeatZone.Add(z);
+            layout.SeatTile.Add(new Vector2Int(tx, ty));
             anchored[z] = true;
             int cell = SeatCell(city.lon, city.lat);
             (seatPoints.TryGetValue(cell, out List<Vector2> list) ? list : seatPoints[cell] = new List<Vector2>()).Add(new Vector2(city.lon, city.lat));
         }
+        // 照原图分地的剧本：刷给城的地块也留给城
+        bool exact = era?.exact == true;
+        if (exact) Claims(layout, frame, bottom, degrees, anchored);
 
         // 三、时代开发度与刷的开发度(见 WorldMapDevelopment.Apply)：当年没开出来的草木平地算回丛林、大泽；刷满的开满、留给城
         IReadOnlyDictionary<int, string> develop = ScenarioEditing.DevelopCells;
@@ -373,10 +395,12 @@ public static class ScenarioWilderness
             layout.Dev[z] = dev;
         }
 
-        // 四、归类(同 WildernessSystem.Classify，开局没有上回的类型)；刷满开发度的雨林大泽开满、留给城
+        // 四、归类(同 WildernessSystem.Classify，开局没有上回的类型；雨林全开发时丛林格当普通的地)；刷满开发度的雨林大泽开满、留给城
+        bool noWild = WildOff(era), noJungle = JungleOff(era);
         for (int z = 0; z < n; z++)
         {
-            layout.Raw[z] = (byte)Classify(layout.Land[z], water[z], rock[z], hills[z], frozen[z], sand[z], jungle[z], swamp[z], lava[z]);
+            layout.Raw[z] = noWild ? (byte)0
+                : (byte)Classify(layout.Land[z], water[z], rock[z], hills[z], frozen[z], sand[z], noJungle ? 0 : jungle[z], swamp[z], lava[z]);
             if (layout.Dev[z] >= WildernessDevelopmentSystem.Full && WildernessDevelopmentSystem.Develops((WildKind)layout.Raw[z])) anchored[z] = true;
         }
 
@@ -483,6 +507,53 @@ public static class ScenarioWilderness
         Attach(layout);
         History(layout);
         return layout;
+    }
+
+    // 照原图分地：各块地刷给哪座城。取样点同 WorldMapScenario.PaintTerritory——块中心那一格的左下角，不加半格(加半格的是
+    // WorldMapWilderness.BeginPaint 挂法理的取样点，见 Center)。"c:" 归那座城、留给城(开局记进 Keep，见 WildernessSystem.Regroup)；
+    // "p:"、"r:" 归那国、那块法理最近的城但不留；水面多的只有 "c:" 才领；放不下的城对不上，刷给它的地没人领
+    private static void Claims(Layout layout, WorldMapFrame frame, float bottom, float degrees, bool[] anchored)
+    {
+        int n = layout.W * layout.H;
+        layout.Claim = new int[n];
+        layout.Kept = new bool[n];
+        for (int z = 0; z < n; z++) layout.Claim[z] = -1;
+        var seats = new Dictionary<string, List<int>>();
+        void Add(string name, int index) => (seats.TryGetValue(name, out List<int> list) ? list : seats[name] = new List<int>()).Add(index);
+        foreach (WorldMapCity city in ScenarioEditing.Cities)
+        {
+            if (city?.id == null || !layout.SeatOf.TryGetValue(city.id, out int index)) continue;
+            Add("c:" + city.id, index);
+            Add("r:" + city.region, index);
+            if (ScenarioEditing.OwnerOf(city) is WorldMapPolity polity) Add("p:" + polity.id, index);
+        }
+        IReadOnlyDictionary<int, string> paint = ScenarioEditing.LandCells;
+        for (int zy = 0; zy < layout.H; zy++)
+        for (int zx = 0; zx < layout.W; zx++)
+        {
+            int tx = zx * 8 + 4, ty = zy * 8 + 4;
+            if (!paint.TryGetValue(ScenarioCells.Key(frame.west + tx * degrees, bottom + ty * degrees, ScenarioCells.LandStep), out string key) || key.Length < 3 ||
+                !seats.TryGetValue(key, out List<int> owners)) continue;
+            int z = zy * layout.W + zx;
+            bool toCity = key[0] == 'c';
+            if (!toCity && layout.Land[z] < TerritoryLand) continue;
+            int best = owners[0];
+            float nearest = float.MaxValue;
+            foreach (int seat in owners)
+            {
+                Vector2Int tile = layout.SeatTile[seat];
+                float dx = tile.x - tx, dy = tile.y - ty, distance = dx * dx + dy * dy;
+                if (distance >= nearest) continue;
+                nearest = distance;
+                best = seat;
+            }
+            layout.Claim[z] = best;
+            if (!toCity) continue;
+            layout.Kept[z] = true;
+            anchored[z] = true;
+        }
+        // 城心那块归那座城(同开局：城立好时就归它，刷的让开)
+        for (int i = layout.Seats.Count - 1; i >= 0; i--) layout.Claim[layout.SeatZone[i]] = i;
     }
 
     // 取样：每格取最近的预览像素(同 EarthTerrain.TypeAt 就近取地球网格)，数各块各类格子；地球地图画大河水道
@@ -620,8 +691,35 @@ public static class ScenarioWilderness
 
     #region 辖地、挂法理的走法
 
-    // 城的辖地：从城心按地形代价往外铺(无人区、水面铺不进去)，铺不到的陆地开局多半补随机小国
+    // 城的辖地与各片周边的城。照原图分地的剧本开局只按刷的分，不往外铺、不补小国(见 WorldMapScenario.SpreadTerritory、PlanFillers)
     private static void Territory(Layout layout, byte[] rock, byte[] hills, byte[] frozen, byte[] sand, byte[] jungle, byte[] swamp)
+    {
+        int n = layout.W * layout.H;
+        if (layout.Claim != null)
+        {
+            for (int z = 0; z < n; z++) layout.Terr[z] = layout.Region[z] >= 0 ? -1 : layout.Claim[z];
+        }
+        else
+            Spread(layout, rock, hills, frozen, sand, jungle, swamp);
+
+        // 各片周边的城(八邻、不是无人区的陆地)
+        foreach (Piece region in layout.Pieces)
+            foreach (int z in region.Zones)
+            {
+                int x = z % layout.W, y = z / layout.W;
+                for (int d = 0; d < 8; d++)
+                {
+                    int nx = x + Dx8[d], ny = y + Dy8[d];
+                    if (nx < 0 || ny < 0 || nx >= layout.W || ny >= layout.H) continue;
+                    int next = ny * layout.W + nx;
+                    if (layout.Region[next] >= 0 || layout.Terr[next] == -1) continue;
+                    region.Around.Add(layout.Terr[next]);
+                }
+            }
+    }
+
+    // 从城心按地形代价往外铺(无人区、水面铺不进去)，铺不到的陆地开局多半补随机小国
+    private static void Spread(Layout layout, byte[] rock, byte[] hills, byte[] frozen, byte[] sand, byte[] jungle, byte[] swamp)
     {
         int n = layout.W * layout.H;
         var cost = new int[n];
@@ -673,24 +771,9 @@ public static class ScenarioWilderness
         }
         for (int z = 0; z < n; z++)
             if (layout.Terr[z] < 0 && layout.Region[z] < 0 && layout.Land[z] >= TerritoryLand) layout.Terr[z] = Filler;
-
-        // 各片周边的城(八邻、不是无人区的陆地)
-        foreach (Piece region in layout.Pieces)
-            foreach (int z in region.Zones)
-            {
-                int x = z % layout.W, y = z / layout.W;
-                for (int d = 0; d < 8; d++)
-                {
-                    int nx = x + Dx8[d], ny = y + Dy8[d];
-                    if (nx < 0 || ny < 0 || nx >= layout.W || ny >= layout.H) continue;
-                    int next = ny * layout.W + nx;
-                    if (layout.Region[next] >= 0 || layout.Terr[next] == -1) continue;
-                    region.Around.Add(layout.Terr[next]);
-                }
-            }
     }
 
-    // 挂法理的走法(同 WildernessSystem.Attach)：从各城(连补空小国)的辖地按地块往外走(四邻、不过海，至多 MaxAttachSteps 块)，
+    // 挂法理的走法(同 WildernessSystem.Attach)：从各城(连补空小国)的辖地按地块往外走(四邻、不过海、不限远近，青藏腹地也挂得上)，
     // 无人区的地块记最先走到它的那座城
     private static void Attach(Layout layout)
     {
@@ -709,7 +792,6 @@ public static class ScenarioWilderness
         while (queue.Count > 0)
         {
             int z = queue.Dequeue();
-            if (step[z] >= MaxAttachSteps) continue;
             for (int d = 0; d < 4; d++)
             {
                 int next = Neighbour(z, d, layout.W, layout.H);
@@ -727,13 +809,16 @@ public static class ScenarioWilderness
         WorldMapEra era = ScenarioEditing.Era;
         if (era?.map != null || era?.wilderness == null || era.wilderness.Count == 0) return;
         layout.History = new string[layout.W * layout.H];
+        layout.HistoryRegion = new string[layout.W * layout.H];
         for (int r = 0; r < layout.Pieces.Count; r++)
         {
             Piece region = layout.Pieces[r];
             foreach (int z in region.Zones)
             {
                 Center(layout, z, out float lon, out float lat);
-                layout.History[z] = WorldMapWilderness.HistoricalOwner(era.wilderness, region.Kind, lon, lat);
+                layout.History[z] = WorldMapWilderness.HistoricalOwner(era.wilderness, region.Kind, lon, lat, out string unit);
+                if (unit != null && era.wilderness_regions != null && era.wilderness_regions.TryGetValue(unit, out string local))
+                    layout.HistoryRegion[z] = local;
             }
         }
     }
@@ -758,7 +843,7 @@ public static class ScenarioWilderness
         _owner = new string[n];
         _title = new string[n];
         _source = new byte[n];
-        _neutral = new bool[layout.Pieces.Count];
+        _neutral = new bool[n];
         _surround = new string[layout.Pieces.Count];
         if (layout.Pieces.Count == 0) return;
         var cities = new Dictionary<string, WorldMapCity>();
@@ -840,8 +925,7 @@ public static class ScenarioWilderness
                 {
                     Center(layout, z, out float lon, out float lat);
                     if (!paint.TryGetValue(ScenarioCells.Key(lon, lat, ScenarioCells.LandStep), out string key) || key != "n") continue;
-                    _neutral[r] = true;
-                    break;
+                    _neutral[z] = true;
                 }
             foreach (int z in region.Zones)
             {
@@ -861,8 +945,11 @@ public static class ScenarioWilderness
                 }
                 if (source == Source.None && layout.History?[z] is string historical && CapitalOf(historical) is WorldMapCity capital)
                 {
-                    title = capital.region;
-                    holder = HolderOfCity(capital);
+                    WorldMapCity local = TitleSeat(layout.HistoryRegion?[z]);
+                    if (local == null || OwnerKey(local) != "p:" + historical || HolderOfCity(local) != "p:" + historical)
+                        local = capital;
+                    title = local.region;
+                    holder = HolderOfCity(local);
                     source = Source.History;
                 }
                 if (source == Source.None && layout.Label[z] != -1)
@@ -878,8 +965,8 @@ public static class ScenarioWilderness
                     if (source == Source.None) source = Source.Surround;
                 }
                 _title[z] = title;
-                _owner[z] = _neutral[r] ? null : holder;
-                _source[z] = (byte)(_neutral[r] ? Source.Neutral : source);
+                _owner[z] = _neutral[z] ? null : holder;
+                _source[z] = (byte)(_neutral[z] ? Source.Neutral : source);
             }
         }
     }
@@ -919,7 +1006,10 @@ public static class ScenarioWilderness
 
     public static Source SourceOf(int zone) => Valid(zone) && _source != null && zone < _source.Length ? (Source)_source[zone] : Source.None;
 
-    public static bool Neutral(int region) => _neutral != null && region >= 0 && region < _neutral.Length && _neutral[region];
+    public static bool NeutralAt(int zone) => Valid(zone) && _neutral != null && zone < _neutral.Length && _neutral[zone];
+
+    public static bool Neutral(int region) => _layout != null && region >= 0 && region < _layout.Pieces.Count &&
+        _layout.Pieces[region].Zones.All(NeutralAt);
 
     public static string Surround(int region) => _surround != null && region >= 0 && region < _surround.Length ? _surround[region] : null;
 
@@ -929,7 +1019,8 @@ public static class ScenarioWilderness
         int zone = ZoneAt(lon, lat);
         if (!Valid(zone) || _layout.Raw == null) return WildKind.None;
         if (_layout.Region[zone] >= 0) return _layout.Pieces[_layout.Region[zone]].Kind;
-        if (_layout.Raw[zone] != 0) return (WildKind)_layout.Raw[zone];
+        // 照原图留给城的地块地形再荒也不划
+        if (_layout.Raw[zone] != 0 && _layout.Kept?[zone] != true) return (WildKind)_layout.Raw[zone];
         var counts = new Dictionary<WildKind, int>();
         for (int d = 0; d < 4; d++)
         {

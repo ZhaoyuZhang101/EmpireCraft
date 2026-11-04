@@ -613,6 +613,8 @@
     {"id": "azov", "zh": "亚速", "en": "Azov", "x": 39.42, "y": 47.1, "r": "pontic", "k": 3, "from": 1067, "alt": ["1475|塔纳|Tana|塔納"], "tw": "亞速", "share": ["crimea"]},
     {"id": "bakhchysarai", "zh": "巴赫奇萨赖", "en": "Bakhchysarai", "x": 33.86, "y": 44.75, "r": "crimea", "k": 2, "from": 1532, "tw": "巴赫奇薩賴"},
     {"id": "kaffa", "zh": "卡法", "en": "Kaffa", "x": 35.38, "y": 45.03, "r": "crimea", "k": 2, "from": 1266, "tw": "卡法", "share": ["pontic"]},
-    {"id": "tobolsk", "zh": "托博尔斯克", "en": "Tobolsk", "x": 68.25, "y": 58.2, "r": "siberia", "k": 3, "from": 1587, "tw": "托博爾斯克"}
+    {"id": "tobolsk", "zh": "托博尔斯克", "en": "Tobolsk", "x": 68.25, "y": 58.2, "r": "siberia", "k": 3, "from": 1587, "tw": "托博爾斯克"},
+    {"id": "hyeondeok", "zh": "中京显德府", "en": "Junggyeong Hyeondeok", "tw": "中京顯德府", "x": 129.14, "y": 42.71, "r": "manchuria", "k": 2, "from": 742, "to": 926},
+    {"id": "oudong", "zh": "乌栋", "en": "Oudong", "tw": "烏棟", "x": 104.7425, "y": 11.8239, "r": "khmer", "k": 2, "from": 1618}
   ]
 }

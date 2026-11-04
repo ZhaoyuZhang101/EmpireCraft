@@ -195,7 +195,7 @@ internal static class WorldMapZones
             {
                 if (wild ? _land[next] < MinLand || Blocked(index, next)
                         : !_claimable[next] || _land[next] < MinLand || _barren[next] != BarrenLandSystem.None || !Open(index, next)) continue;
-                float total = at + (wild ? (Diagonal(index, next) ? 1.414f : 1f) * (next < _noise.Length ? _noise[next] : 1f) : Step(index, next)) * Grain(next);
+                float total = at + Step(index, next) * Grain(next);
                 if (total > limit[index] || total >= cost[next]) continue;
                 cost[next] = total;
                 label[next] = label[index];
@@ -206,6 +206,58 @@ internal static class WorldMapZones
         return label;
     }
 
+    // 治所只是辖境提示，不是可以隔着另一省独立生长的城市。先保留连到真实城市的部分，
+    // 再从其边缘按地形接收孤立提示块；明确手绘／历史面由调用方随后覆盖。
+    public static int[] RootedPartition(List<(int index, int label, float budget)> seeds,
+        List<(int index, int label)> roots, bool wild = false)
+    {
+        int[] labels = Partition(seeds, wild);
+        var linked = new bool[labels.Length];
+        var queue = new Queue<int>();
+        foreach ((int index, int label) in roots)
+        {
+            if (index < 0 || index >= labels.Length || labels[index] != label || linked[index]) continue;
+            linked[index] = true;
+            queue.Enqueue(index);
+        }
+        bool Crosses(int a, int b) => wild ? _land[b] >= MinLand && !Blocked(a, b)
+            : _claimable[b] && _land[b] >= MinLand && _barren[b] == BarrenLandSystem.None && Open(a, b);
+        while (queue.Count > 0)
+        {
+            int index = queue.Dequeue();
+            foreach (int next in Neighbours(index))
+            {
+                if (linked[next] || labels[next] != labels[index] || !Crosses(index, next)) continue;
+                linked[next] = true;
+                queue.Enqueue(next);
+            }
+        }
+        var costs = new float[labels.Length];
+        var heap = new MinHeap();
+        for (int i = 0; i < labels.Length; i++)
+        {
+            costs[i] = linked[i] ? 0f : float.PositiveInfinity;
+            if (linked[i]) heap.Push(0f, i);
+            else if (labels[i] >= 0) labels[i] = -2; // 有提示但未连城；不扩进预算外或海面。
+        }
+        while (heap.Count > 0)
+        {
+            heap.Pop(out float at, out int index);
+            if (at > costs[index]) continue;
+            foreach (int next in Neighbours(index))
+            {
+                if (linked[next] || labels[next] == -1 || !Crosses(index, next)) continue;
+                float cost = at + Step(index, next) * Grain(next);
+                if (cost >= costs[next]) continue;
+                costs[next] = cost;
+                labels[next] = labels[index];
+                heap.Push(cost, next);
+            }
+        }
+        for (int i = 0; i < labels.Length; i++) if (labels[i] == -2) labels[i] = -1;
+        return labels;
+    }
+
     public static bool SettledLand(int index) => index >= 0 && index < _land.Length && _land[index] >= MinLand &&
         _claimable[index] && _barren[index] == BarrenLandSystem.None;
 
@@ -213,8 +265,9 @@ internal static class WorldMapZones
     public static bool Rough(int index) =>
         index >= 0 && index < _travel.Length && (!_claimable[index] || _barren[index] != BarrenLandSystem.None || _travel[index] >= Mountain);
 
-    // 各区块走得到的最近的起点(按地形代价，含跨海，不过边墙)：返回起点在 sources 里的序号，走不到为 -1
-    public static int[] NearestOf(IList<int> sources)
+    // 各区块走得到的最近起点；默认含跨海，不过边墙。landOnly 供城市实际辖地使用，只走可定居陆地与真实路口。
+    // 返回起点在 sources 里的序号，走不到为 -1。
+    public static int[] NearestOf(IList<int> sources, bool landOnly = false)
     {
         var cost = new float[_travel.Length];
         var label = new int[_travel.Length];
@@ -239,6 +292,8 @@ internal static class WorldMapZones
             foreach (int next in Neighbours(index))
             {
                 if (Blocked(index, next)) continue;
+                if (landOnly && (!_claimable[next] || _land[next] < MinLand ||
+                    _barren[next] != BarrenLandSystem.None || !Open(index, next))) continue;
                 float total = at + Step(index, next);
                 if (total >= cost[next]) continue;
                 cost[next] = total;

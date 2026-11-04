@@ -306,7 +306,7 @@ public static class WildernessDevelopmentSystem
     {
         if (zone == null || zone.city != null) return;
         WildRegion region = WildernessSystem.RegionOf(zone);
-        if (region == null || region.Neutral || !Develops(region.Kind)) return;
+        if (region == null || WildernessSystem.IsNeutral(zone) || !Develops(region.Kind)) return;
         WildDevelopmentZone state = Get(zone.id);
         if (state != null && state.dev >= Full) return;
         Pick pick = Evaluate(zone, region, true);
@@ -518,7 +518,8 @@ public static class WildernessDevelopmentSystem
             if (owner == null) return;
             City source = full ?? owner.cities?.Where(city => city?.getTile() != null && !city.isRekt())
                 .OrderBy(city => Toolbox.SquaredDistTile(city.getTile(), zone.centerTile)).FirstOrDefault();
-            title ??= (full ?? any ?? source)?.GetTitle();
+            // any 可能是被归属检查排除的外国城市；新城不能因此挂上邻国的法理。
+            title ??= (full ?? source)?.GetTitle();
             WorldTile ground = zone.centerTile != null && UrbanFabric.ManualGround(zone.centerTile)
                 ? zone.centerTile
                 : zone.tiles?.FirstOrDefault(tile => UrbanFabric.ManualGround(tile));
@@ -774,7 +775,7 @@ public static class WildernessDevelopmentSystem
                 {
                     if (next == null || next.city != null) continue;
                     WildRegion region = WildernessSystem.RegionOf(next);
-                    if (region == null || region.Neutral || !Develops(region.Kind)) continue;
+                    if (region == null || WildernessSystem.IsNeutral(next) || !Develops(region.Kind)) continue;
                     if ((region.Kind == WildKind.Jungle ? realm.Jungle : realm.Swamp) <= 0f || DevelopmentOf(next) >= Full) continue;
                     Kingdom owner = WildernessSystem.OwnerOf(next);
                     if (owner != null && owner != kingdom) continue;
@@ -805,9 +806,10 @@ public static class WildernessDevelopmentSystem
             }
             WildRegion region = WildernessSystem.ById(edict.region);
             bool opened = region == null || region.Zones.All(id => (Get(id)?.dev ?? 0f) >= Full);
+            bool availableDone = region == null || region.Zones.All(id => WildernessSystem.IsNeutral(id) || (Get(id)?.dev ?? 0f) >= Full);
             if (opened && edict.done > 0)
                 EventRecorder.Record(kingdom, string.Format(LM.Get("wild_develop_done_history"), kingdom.GetKingdomName(), edict.name));
-            if (opened || region.Neutral || Date.getYearsSince(edict.since) >= EdictYears)
+            if (availableDone || Date.getYearsSince(edict.since) >= EdictYears)
             {
                 _data.edicts.RemoveAt(i);
                 continue;
@@ -872,7 +874,7 @@ public static class WildernessDevelopmentSystem
     private static int StatusOf(TileZone zone, WildRegion region, out Pick pick)
     {
         pick = default;
-        if (region.Neutral) return 5;
+        if (WildernessSystem.IsNeutral(zone)) return 5;
         if (DevelopmentOf(zone) >= Full) return 0;
         pick = Evaluate(zone, region, false);
         if (pick.Kingdom != null) return pick.Edict ? 2 : 1;

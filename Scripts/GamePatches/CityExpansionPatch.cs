@@ -9,9 +9,9 @@ using NeoModLoader.api;
 
 namespace EmpireCraft.Scripts.GamePatches;
 
-// 城市扩张守原版选地(CityZoneGrowth.getZoneToClaim)、地貌定居和接壤规则；
+// 城市扩张守原版地貌定居、接壤和容量规则，在可用候选中优先沿低阻力、连通的地形扩展；
 // 原版还要小人走到那块地里去领，走不到(隔水、翻山)就领不到。
-// 模组只加了每城地块上限(模组设置)，以及无小人模式下由虚拟居民代领时按"走得到"核对(见 Reachable)。
+// 保留每城地块上限、地形可达性与虚拟居民代领的核对；自动扩张的候选再按地形阻力和接壤面排序。
 // 城的地按村镇拓展(用户 2026-10-17 选"新建村镇就划进它一片"、限制"按离城远近")：纯净地图下，无主之地只领城区(城心、
 // 建成地块)或本城村镇两块地以内的(见 Settled)；再往外靠城外新建村镇划地(见 RuralSettlementSystem.Found)。
 // 夹在城与城之间的空地不受这些限制，由挨着它的城里离得最近的那座领下(见 Sandwiched)。
@@ -212,7 +212,8 @@ public class CityExpansionPatch : GamePatch
         // 到达目标前再次核对，防止多个扩张者和 expansionists 连续领取越过上限。
         AfterCanGrowZones(__instance, ref __result);
         if (__result && !AncientWarfareCompatibility.OwnsObject(__instance) && !CanClaimZone(__instance, pZone)) __result = false;
-        if (__result && !AncientWarfareCompatibility.OwnsObject(__instance) && !Settled(__instance, pZone)) __result = false;
+        if (__result && !AncientWarfareCompatibility.OwnsObject(__instance) &&
+            (!Settled(__instance, pZone) || !Bordering(__instance, pZone) || !Reachable(pZone, __instance))) __result = false;
     }
 
     // 走得到：原版是小人走到那块地里去领(BehActorCheckZoneTarget 在区块里找一格与自己同岛的地)，
@@ -232,7 +233,7 @@ public class CityExpansionPatch : GamePatch
         {
             if (neighbour?.city != city) continue;
             if (mountainous && neighbour != seat && GeneralSystems.TerrainSystem.Mountainous(neighbour)) continue;
-            if (GeneralSystems.TerrainSystem.Crossable(neighbour, zone, seatOpen: !mountainous)) return true;
+            if (GeneralSystems.TerrainSystem.Crossable(neighbour, zone, seatOpen: false)) return true;
         }
         return false;
     }
@@ -264,40 +265,59 @@ public class CityExpansionPatch : GamePatch
             __result = null;
             return;
         }
-        // 无主之地只领城区、村镇附近的(见 Settled)
-        if (__result != null)
-        {
-            if (CanClaimZone(pCity, __result) && Settled(pCity, __result) && Bordering(pCity, __result)) return;
-            __result = null;
-        }
-        if (!pCity.canGrowZones()) return;
-        // 原版随机选中一条受阻边界时，检查本次波搜索已经证明连通的其它区域。
-        // 不保存“无法扩张”状态，每次请求都按当前地形重算；不会跨水域/山脉硬抢地。
-        // 起点用城心(纯净地图里人物到处瞬移，所在格不一定在本城)
+        if (!pCity.canGrowZones()) { __result = null; return; }
         WorldTile origin = pCity.getTile();
-        if (origin == null) return;
-        foreach (ZoneConnection connection in __instance._zones_checked)
+        if (origin == null) { __result = null; return; }
+        TileZone best = null;
+        float bestScore = float.PositiveInfinity;
+        var considered = new HashSet<TileZone>();
+        void Consider(TileZone candidate)
         {
-            TileZone candidate = connection.zone;
             if (candidate == null || candidate.city != null || candidate.tiles_with_ground == 0 ||
-                !candidate.canBeClaimedByCity(pCity) || !Settled(pCity, candidate) ||
-                (pActor?.subspecies != null && !candidate.checkCanSettleInThisBiomes(pActor.subspecies))) continue;
-            if (!Bordering(pCity, candidate)) continue;
-            foreach (WorldTile tile in candidate.tiles)
-            {
-                if (tile != null && tile.isSameIsland(origin))
-                {
-                    __result = candidate;
-                    return;
-                }
-            }
+                !considered.Add(candidate) ||
+                !CanClaimZone(pCity, candidate) || !candidate.canBeClaimedByCity(pCity) || !Settled(pCity, candidate) ||
+                !Bordering(pCity, candidate) || !Reachable(candidate, pCity) ||
+                (pActor?.subspecies != null && !candidate.checkCanSettleInThisBiomes(pActor.subspecies))) return;
+            float score = ExpansionScore(pCity, candidate);
+            if (score >= bestScore) return;
+            best = candidate;
+            bestScore = score;
         }
-        // 波搜索可能提早停在第一个空区，再尝试原版完整的边界邻接检查。
-        TileZone fallback = __instance.getRandomZone(pCity);
-        if (fallback?.city == null && fallback?.centerTile != null &&
-            fallback.centerTile.isSameIsland(origin) && Settled(pCity, fallback) && Bordering(pCity, fallback) &&
-            (pActor?.subspecies == null || fallback.checkCanSettleInThisBiomes(pActor.subspecies)))
-            __result = fallback;
+        Consider(__result);
+        // 原版这一轮的候选，加上现有领地的直接边界；不会只因随机先碰到山坡就忽略旁边的河谷。
+        foreach (ZoneConnection connection in __instance._zones_checked)
+            Consider(connection.zone);
+        if (pCity.zones != null)
+            foreach (TileZone own in pCity.zones)
+                foreach (TileZone next in own?.neighbours ?? global::System.Array.Empty<TileZone>()) Consider(next);
+        if (best == null) Consider(__instance.getRandomZone(pCity));
+        __result = best;
+    }
+
+    private static float ExpansionScore(City city, TileZone zone)
+    {
+        FrontTerrain terrain = GeneralSystems.TerrainSystem.Of(zone);
+        bool mountain = GeneralSystems.TerrainSystem.Mountainous(zone);
+        TileZone seat = city.getTile()?.zone;
+        int contacts = 0;
+        float entry = float.PositiveInfinity;
+        foreach (TileZone own in zone.neighbours ?? global::System.Array.Empty<TileZone>())
+        {
+            if (own?.city != city || mountain && own != seat && GeneralSystems.TerrainSystem.Mountainous(own) ||
+                !GeneralSystems.TerrainSystem.Crossable(own, zone, seatOpen: false)) continue;
+            contacts++;
+            FrontTerrain from = GeneralSystems.TerrainSystem.Of(own);
+            float cost = TerrainResistance.Base(terrain) * (from == terrain ? 0.9f : 1f);
+            if ((from == FrontTerrain.River) != (terrain == FrontTerrain.River) && !RoadNetwork.IsRoad(zone))
+                cost += TerrainResistance.RiverCrossing;
+            if (cost < entry) entry = cost;
+        }
+        if (contacts == 0) return float.PositiveInfinity;
+        // 接壤面多的地优先，距离只作轻微约束，不让直线远近压过山脊、河谷等地形。
+        WorldTile origin = city.getTile(), target = zone.centerTile;
+        float dx = target == null || origin == null ? 0f : target.x - origin.x;
+        float dy = target == null || origin == null ? 0f : target.y - origin.y;
+        return entry + 0.6f / contacts + (dx * dx + dy * dy) * 0.002f / (Config.CITY_ZONE_SIZE * Config.CITY_ZONE_SIZE);
     }
 
     // 无小人模式：虚拟居民每月替原版的"领地人"领一块地(BehClaimZoneForCityActorBorder)。原版选地照旧，

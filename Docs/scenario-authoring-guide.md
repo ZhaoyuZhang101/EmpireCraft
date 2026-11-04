@@ -28,7 +28,8 @@
 - **城**：只能用 `WorldMaps/cities.json` 里的城 `id`(自带城表的剧本用自己的 `cities`)。城有 `from`/`to` 年份，开局年不在范围里的城不存在。
   城在当年的名字按 `alt` 取(`"937|幽州|Youzhou|幽州"` 表示 937 年以前叫幽州)。**关隘(山海关、居庸关……)不是城**，事件里不能当城用。
   地图选最小一档时只放等级 `k` ≤ 2 的城；内置剧本通过 `ranks` 默认配置保留各行政区的治所。
-  自定剧本若要保留小城，也应配置 `ranks`，其他小城(k=3)可能不生成，事件条件别只靠它们。
+  自定剧本若要保留小城，也应配置 `ranks`；首都尤其应保证等级 ≤ 2，否则最小地图可能换都或丢掉整个国家。
+  内置剧本由 `administrative_defaults_source.py` 检查首都和行政治所；其他小城(k=3)可能不生成，事件条件别只靠它们。
 - **地区(王国法理)**：`cities.json` 的 `regions[].id`(如 `guanzhong`、`hebei`、`youyan`、`liaodong`、`manchuria`、`monan`)。
 - **国**：剧本自己起的 `polities[].id`，全剧本唯一，只用小写英文、数字、下划线。
 - **文化键**：`Huaxia`(华夏)、`Youmu`(游牧)、`Japan`、`Roma`、`Frankish`、`Germanic`、`Viking`、`Slavonic`、`Arab`、`Persepolis`、`India`、`Egypt`、`Kosher`。
@@ -53,7 +54,14 @@
 | `events` | 剧情事件，见第八节 |
 | `walls`/`passes` | 长城折线与关隘(抄 `walls_source.py` 的格式，不确定就整段从相近时代拷) |
 | `wilderness` | 无人区地理单元 → 政权 id(可不写) |
+| `wilderness_regions` | 地理单元 → 当地地区 id；须有对应的 `wilderness` 国家声明及同政权治所，可不写 |
 | `cores` | 内置城表不用写(帝国法理在 `cities.json`)；自带城表的剧本才写 |
+
+`wilderness_regions` 例如 `{"luliang":"hedong"}`：让吕梁山明确采用河东法理；小地图缺少对应治所时沿用原挂接。
+不要把跨多个地区的秦岭、祁连山等整条指定给一个地区。编辑器的 `r:地区` 地块笔刷仍优先于这些默认指定；`n` 中立笔刷只作用于命中的无人区地块。
+内置当地法理默认由 `Tools/WorldMap/wilderness_administration_source.py` 维护；机制与存档说明见 [无人区完善记录](wilderness-refinement-2026-11-02.md)。
+地方设置用于开局；自动无人区在城市改隶、换法理后继续跟随原来源城市，手工笔刷保持固定。见 [无人区行政跟随](wilderness-administrative-following-2026-11-02.md)。
+具体城市的开局辖地按可达陆路的地形距离分配；明确历史范围仍可保存跨障碍的行政归属，不等于强迫城市实体跨山、跨海领地。见 [城市顺地形扩张](city-terrain-expansion-2026-11-02.md)。
 
 ## 五、国家 `polities[]`
 

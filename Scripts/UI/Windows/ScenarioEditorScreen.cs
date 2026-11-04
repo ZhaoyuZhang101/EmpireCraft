@@ -1982,6 +1982,9 @@ public static class ScenarioEditorScreen
             }
         }
 
+        // 照原图分地的剧本开局只按刷的分(见 WorldMapScenario.SpreadTerritory)：城不往外铺，只占城心那块地，别的地留空
+        bool exact = ScenarioEditing.Era?.exact == true;
+        Dictionary<int, int> seatTexels = exact ? new Dictionary<int, int>() : null;
         // 城：城所在那格归城，按等级给能铺多远
         int cityIndex = -1;
         foreach (WorldMapCity city in ScenarioEditing.Cities)
@@ -2001,9 +2004,19 @@ public static class ScenarioEditorScreen
             // 城心那块归城(无人区里的城也是)
             _fillWild[at] = false;
             _fillDist[at] = 0;
-            _fillBudget[at] = RankBudget[Mathf.Clamp(ScenarioEditing.RankOf(city), 0, RankBudget.Length - 1)];
+            _fillBudget[at] = exact ? 0 : RankBudget[Mathf.Clamp(ScenarioEditing.RankOf(city), 0, RankBudget.Length - 1)];
+            if (exact && _fillZone[at] >= 0) seatTexels[_fillZone[at]] = at;
             (_buckets[0] ??= new List<int>()).Add(at);
         }
+        if (exact)
+            for (int at = 0; at < n; at++)
+            {
+                if (_fillOwner[at] >= 0 || _fillFixed[at] || CostAt(at % fw, at / fw) == 0 ||
+                    !seatTexels.TryGetValue(_fillZone[at], out int seat)) continue;
+                _fillOwner[at] = _fillOwner[seat];
+                _fillCity[at] = _fillCity[seat];
+                _fillFixed[at] = true;
+            }
 
         // 按代价由近及远铺(代价都是小整数，按桶走)
         for (int d = 0; d <= MaxBudget; d++)
@@ -2195,7 +2208,7 @@ public static class ScenarioEditorScreen
                 bool edge = WildEdge(x + 1, y, fw, fh, region) || WildEdge(x - 1, y, fw, fh, region) ||
                             WildEdge(x, y + 1, fw, fh, region) || WildEdge(x, y - 1, fw, fh, region);
                 pixel = edge ? new Color32((byte)(color.r / 2), (byte)(color.g / 2), (byte)(color.b / 2), 230)
-                    : ScenarioWilderness.Neutral(region) && Stripe(x, y) ? NeutralStripe
+                    : ScenarioWilderness.NeutralAt(zone) && Stripe(x, y) ? NeutralStripe
                     : new Color32(color.r, color.g, color.b, alpha);
             }
             if (_fillHatch[at] != 0 && (x + y) % 2 == 0 && CostAt(x, y) != 0)
@@ -2737,6 +2750,8 @@ public static class ScenarioEditorScreen
         _wildInfo.text = string.Format(LM.Get("scenario_editor_wild_info"), frame == null ? "" : LM.Get("world_map_frame_" + frame.id),
                              size.x * 64, size.y * 64, ScenarioWilderness.ZoneDegrees.ToString("0.##"), regions.Sum(), zones.Sum(),
                              kinds.Length == 0 ? LM.Get("scenario_editor_none") : kinds, neutral) + "\n" + tableText + "\n" +
+                         (ScenarioWilderness.SettingOff ? LM.Get("scenario_editor_wild_setting_off") + "\n"
+                             : ScenarioEditing.Era?.exact == true ? LM.Get("scenario_editor_wild_exact") + "\n" : "") +
                          LM.Get("scenario_editor_wild_note");
     }
 

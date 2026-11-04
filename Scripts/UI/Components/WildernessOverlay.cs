@@ -678,6 +678,7 @@ public static class WildernessOverlay
     // 同一片里换到开发不同、县址不同的地块也重显
     private static int _tipDev = -1, _tipPlot = -1;
     private static string _tipPassage;
+    private static int _tipVersion = -1;
     private static Vector3 _pressedAt;
     private static bool _pressed, _tipsOn;
 
@@ -706,7 +707,9 @@ public static class WildernessOverlay
         int dev = region != null ? WildernessDevelopmentSystem.TipKey(zone) : -1;
         int plot = region != null ? WildernessPlotSystem.TipKey(zone) : -1;
         string passage = region != null ? WildernessPassage.TipKey(zone) : null;
-        if (ReferenceEquals(region, _tip) && owner == _tipOwner && dev == _tipDev && plot == _tipPlot && passage == _tipPassage && !clicked) return;
+        if (ReferenceEquals(region, _tip) && (region == null || ReferenceEquals(zone, _tipZone)) &&
+            owner == _tipOwner && dev == _tipDev && plot == _tipPlot && passage == _tipPassage &&
+            _tipVersion == WildernessSystem.Version && !clicked) return;
         HideTip();
         if (region == null) return;
         EnsureTooltip();
@@ -714,6 +717,7 @@ public static class WildernessOverlay
         _tipZone = zone;
         _tipOwner = owner;
         _tipDev = dev;
+        _tipVersion = WildernessSystem.Version;
         _tipPlot = plot;
         _tipPassage = passage;
         Tooltip.show(region, TooltipType, new TooltipData { tooltip_scale = 0.7f, is_sim_tooltip = true });
@@ -755,6 +759,7 @@ public static class WildernessOverlay
         _tipOwner = null;
         _tipDev = _tipPlot = -1;
         _tipPassage = null;
+        _tipVersion = -1;
     }
 
     private static void EnsureTooltip()
@@ -784,7 +789,7 @@ public static class WildernessOverlay
             pPercent: false, pLocalize: false);
         Kingdom owner = _tipOwner;
         // 归属：永久中立区；取得挂接法理的国家写明法理；周边的城同属一国的写明(见 WildernessSystem.OwnerOf)
-        if (region.Neutral)
+        if (WildernessSystem.IsNeutral(_tipZone))
             tooltip.addLineText(NeoModLoader.General.LM.Get("wild_tooltip_owner"), NeoModLoader.General.LM.Get("wild_tooltip_neutral"),
                 "#BFD8E6", pPercent: false, pLocalize: false);
         else if (owner?.data != null && !owner.isRekt())
@@ -799,7 +804,7 @@ public static class WildernessOverlay
         }
         // 法理与取得法理的国家：没并进国土时看得出是没挂法理、法理无人取得，还是周边的城不同属一国(用户 2026-10-29
         // "为什么这里的雨林明明属于广法理却没有被纳入广德国土显示呢")
-        if (_tipZone != null && !region.Neutral)
+        if (_tipZone != null && !WildernessSystem.IsNeutral(_tipZone))
         {
             KingdomTitle title = WildernessSystem.TitleOf(_tipZone);
             Kingdom holder = WildernessSystem.HolderOf(_tipZone);

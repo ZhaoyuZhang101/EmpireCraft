@@ -1,7 +1,8 @@
-"""Keep one existing seat per preset division visible using default rank data.
+"""Keep preset capitals and one seat per division visible using default rank data.
 
-Only adds rank=2 overrides where every listed, dated non-capital city would be
-filtered from the smallest map. Does not change city filtering or map rendering.
+Adds rank=2 overrides for dated capitals, and where every listed, dated
+non-capital division seat would be filtered from the smallest map.
+Does not change city filtering or map rendering.
 """
 import argparse
 import json
@@ -24,6 +25,10 @@ def main():
         ranks = dict(era.get('ranks', {}))
         additions = {}
         for polity in era['polities']:
+            capital = cities.get(polity.get('cap'))
+            if capital is not None and capital.get('from', -99999) <= era['year'] <= capital.get('to', 99999) and \
+                    ranks.get(capital['id'], capital.get('k', 2)) > 2:
+                ranks[capital['id']] = additions[capital['id']] = 2
             for division in polity.get('divisions', []):
                 candidates = [cities[cid] for cid in division.get('cities', []) if cid in cities and cid != polity.get('cap')
                               and cities[cid].get('from', -99999) <= era['year'] <= cities[cid].get('to', 99999)]

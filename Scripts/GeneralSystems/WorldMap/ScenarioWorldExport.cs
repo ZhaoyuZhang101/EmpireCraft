@@ -566,7 +566,7 @@ public static class ScenarioWorldExport
             }
             else if (WildernessSystem.RegionOf(zone) is WildRegion region)
             {
-                if (region.Neutral) key = "n";
+                if (WildernessSystem.IsNeutral(zone)) key = "n";
                 else if (WildernessSystem.TitleOf(zone) is KingdomTitle title && regionOf.TryGetValue(title, out string regionId))
                     key = "r:" + regionId;
             }

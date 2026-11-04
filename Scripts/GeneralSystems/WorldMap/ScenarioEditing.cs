@@ -77,6 +77,7 @@ public static class ScenarioEditing
         era.passes ??= new List<WorldMapPass>();
         era.events ??= new List<WorldMapEvent>();
         era.culture ??= new Dictionary<string, string>();
+        era.wilderness_regions ??= new Dictionary<string, string>();
     }
 
     // 空白剧本：地球地图上的内置城各自独立、没有国家，开局年份 1 年，记下地图范围；返回文件夹名
@@ -1223,9 +1224,11 @@ public static class ScenarioEditing
     public static IReadOnlyDictionary<int, string> LandCells => _landCells;
     public static IReadOnlyDictionary<int, string> TerrainCells => _terrainCells;
     public static IReadOnlyDictionary<int, string> DevelopCells => _developCells;
-    // 刷的地形变一次加一(编辑器据此重铺地形预览)；刷的开发度变一次加一(无人区预测据此重算)
+    // 刷的地形变一次加一(编辑器据此重铺地形预览)；刷的开发度变一次加一(无人区预测据此重算)；
+    // 刷的地块归属变一次加一(照原图分地的剧本里归城的地块留给城，无人区预测据此重算)
     public static int TerrainRevision { get; private set; }
     public static int DevelopRevision { get; private set; }
+    public static int LandRevision { get; private set; }
 
     private static void LoadCells()
     {
@@ -1233,6 +1236,7 @@ public static class ScenarioEditing
         _terrainCells = ScenarioCells.ToMap(Era?.terrain);
         _developCells = ScenarioCells.ToMap(Era?.develop);
         _cellsDirty = false;
+        LandRevision++;
         TerrainRevision++;
         DevelopRevision++;
     }
@@ -1247,7 +1251,12 @@ public static class ScenarioEditing
     }
 
     // 刷一笔：key 为空就擦掉；返回改了几格
-    public static int PaintLand(ICollection<int> cells, string key) => PaintCells(_landCells, cells, key, false);
+    public static int PaintLand(ICollection<int> cells, string key)
+    {
+        int count = PaintCells(_landCells, cells, key, false);
+        if (count > 0) LandRevision++;
+        return count;
+    }
 
     public static int PaintTerrain(ICollection<int> cells, string type) => PaintCells(_terrainCells, cells, type, true);
 
@@ -1283,6 +1292,7 @@ public static class ScenarioEditing
         Before();
         _landCells.Clear();
         _cellsDirty = true;
+        LandRevision++;
         Changed();
     }
 
@@ -1313,6 +1323,7 @@ public static class ScenarioEditing
         if (cells.Count == 0) return;
         foreach (int cell in cells) _landCells.Remove(cell);
         _cellsDirty = true;
+        LandRevision++;
     }
 
     public static List<WorldMapTribes> Tribes => Era?.tribes ?? new List<WorldMapTribes>();

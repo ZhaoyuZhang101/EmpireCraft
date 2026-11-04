@@ -1,6 +1,8 @@
 using System.Collections.Generic;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GeneralSystems;
+using EmpireCraft.Scripts.GeneralSystems.WorldMap;
+using EmpireCraft.Scripts.Layer;
 using NeoModLoader.services;
 using UnityEngine;
 
@@ -135,6 +137,31 @@ public static class WildernessTerritory
         return null;
     }
 
+    // 地图悬停与实际染色使用同一行政归属；无人区没有实体城市，不能只读 zone.city。
+    internal static Kingdom KingdomAt(TileZone zone)
+    {
+        if (zone == null) return null;
+        City city = zone.city;
+        if (city != null && (city.data == null || city.isRekt())) return null;
+        Kingdom kingdom = city != null ? city.kingdom : WildernessSystem.OwnerOf(zone) ?? WorldMapWilderness.KnownOwner(zone);
+        return kingdom?.data != null && !kingdom.isRekt() && !kingdom.isNeutral() ? kingdom : null;
+    }
+
+    internal static City AdministrativeCityAt(TileZone zone)
+    {
+        Kingdom kingdom = KingdomAt(zone);
+        if (kingdom == null) return null;
+        City city = zone.city ?? WildernessSystem.OriginOf(zone) ?? WorldMapWilderness.KnownCity(zone);
+        return city?.data != null && !city.isRekt() && SameRealm(city.kingdom, kingdom) ? city : null;
+    }
+
+    // 只替换显示对象，不改地图查询返回的帝国或地块的真实归属。
+    internal static IMetaObject ProvinceShade(TileZone zone, IMetaObject meta, Kingdom hovered)
+    {
+        return hovered != null && meta is EmpireCraft.Scripts.Layer.Empire empire && KingdomAt(zone) == hovered &&
+               EmpireMembershipService.MapEmpire(hovered) == empire ? hovered : meta;
+    }
+
     // 正显示的图层上并进这一国的无人区地块(没有为空)
     private static readonly List<TileZone> None = new();
 
@@ -242,6 +269,12 @@ public static class WildernessTerritory
             getter = zone => full(zone, option);
         }
         if (getter == null) return;
+        if (asset.map_mode == MetaTypeExtension.Empire && asset.getZoneOptionState() == 0)
+        {
+            Kingdom hovered = KingdomAt(World.world.getMouseTilePosCachedFrame()?.zone);
+            MetaZoneGetMetaSimple actual = getter;
+            getter = zone => ProvinceShade(zone, actual(zone), hovered);
+        }
         foreach (TileZone zone in layer.fill.Keys)
         {
             if (zone.city != null) continue;
@@ -357,6 +390,28 @@ public static class WildernessTerritory
                     if (drawn == origin?.kingdom) Follow(byOrigin, origin, zone);
                 }
             }
+        // 历史剧本中退出无人区的山谷、已开垦地仍跟随原法理；不凭空立城或绕过城市地块上限。
+        foreach (int id in WorldMapWilderness.KnownTerritory())
+        {
+            TileZone zone = calc.getZoneByID(id);
+            if (zone == null || zone.city != null || WildernessSystem.IsWild(zone)) continue;
+            City origin = WorldMapWilderness.KnownCity(zone);
+            Kingdom owner = WorldMapWilderness.KnownOwner(zone);
+            IMetaObject meta = origin == null ? null : MetaAt(layer, origin);
+            if (layer.titles)
+            {
+                if (meta == null) continue;
+            }
+            else
+            {
+                if (owner == null) continue;
+                if (meta == null && !Metas.TryGetValue(owner, out meta)) Metas[owner] = meta = MetaOf(layer, owner);
+                if (meta == null) continue;
+                owners[zone] = owner;
+            }
+            fill[zone] = meta;
+            Follow(byOrigin, origin, zone);
+        }
         Metas.Clear();
         CityMetas.Clear();
         // 变了的地块连同四邻重画(边线跟着变)
@@ -365,6 +420,11 @@ public static class WildernessTerritory
             if (!fill.TryGetValue(pair.Key, out IMetaObject after) || !ReferenceEquals(after, pair.Value)) changed.Add(pair.Key);
         foreach (KeyValuePair<TileZone, IMetaObject> pair in fill)
             if (!layer.fill.TryGetValue(pair.Key, out IMetaObject before) || !ReferenceEquals(before, pair.Value)) changed.Add(pair.Key);
+        // 同帝国省份间改隶时帝国对象没变，行政归属缓存仍必须刷新。
+        foreach (KeyValuePair<TileZone, Kingdom> pair in layer.owners)
+            if (!owners.TryGetValue(pair.Key, out Kingdom after) || after != pair.Value) changed.Add(pair.Key);
+        foreach (KeyValuePair<TileZone, Kingdom> pair in owners)
+            if (!layer.owners.TryGetValue(pair.Key, out Kingdom before) || before != pair.Value) changed.Add(pair.Key);
         layer.fill = fill;
         layer.owners = owners;
         layer.byOrigin = byOrigin;

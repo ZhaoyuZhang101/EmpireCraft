@@ -4,6 +4,7 @@ using System.Security.Policy;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.UI.Windows;
+using EmpireCraft.Scripts.UI.Components;
 using NeoModLoader.services;
 using UnityEngine;
 
@@ -343,6 +344,7 @@ public static class EmpireCraftMetaTypeLibrary
         pAsset13.draw_zones = (MetaZoneDrawAction) (pMetaTypeAsset =>
         {
 	        if (World.world == null || ModClass.EMPIRE_MANAGER == null) return;
+            Kingdom hoveredKingdom = WildernessTerritory.KingdomAt(World.world.getMouseTilePosCachedFrame()?.zone);
 	        switch (pMetaTypeAsset.getZoneOptionState())
 	        {
 		        case 0:
@@ -356,7 +358,7 @@ public static class EmpireCraftMetaTypeLibrary
                 // 帝国核心、成员国的封建附庸画进帝国版图(悬停的那一国显示本国颜色，同成员国)
                 if (EmpireMembershipService.MapEmpire(kingdom) is Empire lordEmpire)
                 {
-                  bool hoveredVassal = World.world.getMouseTilePosCachedFrame()?.zone_city?.kingdom == kingdom;
+                  bool hoveredVassal = hoveredKingdom == kingdom;
                   foreach (City city in kingdom.cities)
                   {
                     foreach (TileZone zone in city.zones)
@@ -390,7 +392,7 @@ public static class EmpireCraftMetaTypeLibrary
                 if (ModClass.EMPIRE_SHOW_ALLIANCE_SWITCH && kingdom.hasAlliance())
                 {
                   Alliance alliance = kingdom.getAlliance();
-                  Kingdom hovered = World.world.getMouseTilePosCachedFrame()?.zone_city?.kingdom;
+                  Kingdom hovered = hoveredKingdom;
                   foreach (City city in kingdom.cities)
                   {
                     foreach (TileZone zone in city.zones)
@@ -408,8 +410,7 @@ public static class EmpireCraftMetaTypeLibrary
                 // 按城池归属取国家(不跟着王国图层切到的那一档：第二、三档按人口流动数据取，无小人模式下多为空，独立王国就没了颜色)
                 drawForCities(kingdom.meta_type_asset, kingdom.getCities(), ZoneKingdom);
               }
-              WorldTile mouseTilePosCachedFrame = World.world.getMouseTilePosCachedFrame();
-              var kingdomSelect = mouseTilePosCachedFrame?.zone_city?.kingdom;
+              Kingdom kingdomSelect = hoveredKingdom;
               foreach (var pEmpire in ModClass.EMPIRE_MANAGER)
               {
                   if (pEmpire == null || pEmpire.IsArchived()) continue;
@@ -550,7 +551,7 @@ public static class EmpireCraftMetaTypeLibrary
           if (metaObject == null) return false;
           if (metaObject is Empire hoveredEmpire)
           {
-            ShowEmpireCursorTooltip(hoveredEmpire, pZone?.city?.kingdom, pZone?.city);
+            ShowEmpireCursorTooltip(hoveredEmpire, WildernessTerritory.KingdomAt(pZone), WildernessTerritory.AdministrativeCityAt(pZone));
             return true;
           }
           pAsset.cursor_tooltip_action(metaObject as NanoObject);

@@ -10,7 +10,11 @@ def check(root):
     path = root / "WorldMaps/administrative_boundaries.json"
     data = json.loads(path.read_text(encoding="utf-8"))
     keys = set()
-    for area in data["boundaries"]:
+    areas = list(data["boundaries"])
+    ming = root / "WorldMaps/administrative_boundaries_ming.json"
+    if ming.exists():
+        areas.extend(json.loads(ming.read_text(encoding="utf-8"))["boundaries"])
+    for area in areas:
         key = (area["era"], area["polity"], area["division"])
         if key in keys:
             errors.append("Repeated area: " + str(key))

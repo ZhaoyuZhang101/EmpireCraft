@@ -10,7 +10,7 @@ import sys
 
 TOP = {"id", "year", "focus", "order", "zh", "en", "tw", "dzh", "den", "dtw", "author", "tech", "techExtra", "techSkip", "inst",
        "culture", "ranks", "transmigrant", "relations", "walls", "passes", "wilderness", "silk", "events", "cores", "polities",
-       "regions", "cities", "tianxia", "map", "paint", "terrain", "tribes", "frame"}
+       "regions", "cities", "tianxia", "map", "paint", "terrain", "tribes", "frame", "wilderness_regions"}
 POLITY = {"id", "zh", "en", "tw", "c", "cap", "r", "cities", "seats", "boundary", "of", "emp", "shogun", "core", "zhou", "king", "ruler", "kin",
           "era_name", "dynasty", "era_year", "grand", "holy", "old_capital", "divisions", "colonies", "famous", "conquest",
           "conquest_city", "decline"}
@@ -117,6 +117,11 @@ def main():
                 err("culture：%s 不是文化键" % culture)
     for cid in era.get("ranks", {}):
         city(cid, "ranks")
+    for unit, region in era.get("wilderness_regions", {}).items():
+        if unit not in era.get("wilderness", {}):
+            err("wilderness_regions：%s 没有对应的国家归属" % unit)
+        if region not in regions:
+            err("wilderness_regions：没有地区 %s" % region)
     for culture in list(era.get("tech", {})) + list(era.get("inst", {})):
         if culture != "*" and culture not in CULTURES:
             err("tech/inst：%s 不是文化键" % culture)

@@ -41,7 +41,8 @@ CONSORTS = {
         "syracuse": [Wife("", "菲利斯提斯|Philistis", 40)],
     },
     "roman_empire": {
-        "rome": [Wife("", "维比娅·萨宾娜|Vibia Sabina", 34)],
+        # 117 年预设统一为图拉真末年；年龄按约 70 年出生近似，不沿用哈德良的妻子萨宾娜。
+        "rome": [Wife("", "庞培娅·普洛蒂娜|Pompeia Plotina", 47)],
         # 汉安帝：阎皇后(元初二年立)；太子保生母李氏已为阎后所害
         "han": [Wife("阎|Yan", "姬|Ji", 20)],
     },
@@ -69,8 +70,8 @@ CONSORTS = {
         "tang": [Consort("王|Wang", "氏|Shi", 37, of="诵", mother_of=["纯"])],
     },
     "crusades": {
-        # 亨利六世：西西里的康斯坦丝(欧特维尔家，坦克雷德是她的侄子)
-        "hre": [Wife("", "西西里的康斯坦丝|Constance of Sicily", 36, house="sicily")],
+        # 1190 年春腓特烈一世仍在位；康斯坦丝是储君亨利之妻，不是老皇帝之妻。
+        "hre": [Wife("", "西西里的康斯坦丝|Constance of Sicily", 36, of="亨利", house="sicily")],
         "sicily": [Wife("", "阿切拉的西比拉|Sibylla of Acerra", 40, mother_of=["罗杰"])],
         "castile": [Wife("", "英格兰的埃莉诺|Eleanor of England", 29, mother_of=["费尔南多"], house="england")],
         "portugal": [Wife("", "阿拉贡的杜尔塞|Dulce of Aragon", 30, mother_of=["阿方索"], house="aragon")],

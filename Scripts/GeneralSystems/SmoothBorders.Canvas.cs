@@ -475,7 +475,7 @@ public static partial class SmoothBorders
                 _fillCursor++;
                 TileZone zone = calc.getZone(id % _zonesX, id / _zonesX);
                 if (zone == null || zone.city != null) continue;
-                IMetaObject fill = LayerMeta(layer, option, zone);
+                IMetaObject fill = ShadeOf(zone, LayerMeta(layer, option, zone));
                 if (IndexOf(fill) != _zoneFill[id] || CanvasOwnerKey(layer, fill) != _zoneFillKey[id]) CanvasDirty.Add(id);
             }
         }
@@ -499,6 +499,8 @@ public static partial class SmoothBorders
             if (city?.zones != null)
                 foreach (TileZone zone in city.zones)
                     if (zone != null) CanvasDirty.Add(zone.id);
+        foreach (TileZone zone in WildernessTerritory.ZonesOf(kingdom))
+            if (zone != null) CanvasDirty.Add(zone.id);
     }
 
     // 一座城的归属、样子、被占的块：变了就记下它的块
@@ -668,7 +670,7 @@ public static partial class SmoothBorders
         int fill = 0, fillKey = 0;
         if (_canvasCityKeyed && zone != null && zone.city == null && ControlLayer(layer))
         {
-            IMetaObject meta = LayerMeta(layer, option, zone);
+            IMetaObject meta = ShadeOf(zone, LayerMeta(layer, option, zone));
             fill = IndexOf(meta);
             fillKey = fill == 0 ? 0 : CanvasOwnerKey(layer, meta);
         }
@@ -842,8 +844,14 @@ public static partial class SmoothBorders
     private static int FillAt(int x, int y, int t, int zoneId)
     {
         int slot = WildernessShape.SlotAt(t);
-        if (slot != 0) return WildFillAt(x, y, slot, _zoneFill);
-        return WildernessShape.ZoneWild(zoneId) ? 0 : _zoneFill[zoneId];
+        if (slot != 0)
+        {
+            int owner = WildFillAt(x, y, slot, _zoneFill);
+            if (owner != 0) return owner;
+        }
+        // 城的轮廓已让出这格，不能再因无人区外沿／山间谷地的形状为空而丢掉已知归属。
+        // 真正中立的地块 _zoneFill 本来就是 0；水面由调用方排除。
+        return _zoneFill[zoneId];
     }
 
     // 同 ShadeAt，只看这片无人区的地块，候选是各块补的归属

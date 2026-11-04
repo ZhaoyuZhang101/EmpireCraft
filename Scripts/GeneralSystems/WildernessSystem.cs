@@ -45,8 +45,9 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     开满的留给城(同城心、村镇，见 Regroup 的 anchored)，城照常扩张领进去；山脉、沙漠、冻原、熔岩固定不开发；
 //     雨林、大泽按地形预划县址(见 WildernessPlotSystem，每次划区后维护)，开满的只归这一县的县城；
 //   · 模组设置「无人区」(默认开)：关掉时没有无人区(Regions 为空、IsWild 全为假；已划出来的地块不还给城，城照常再扩回去)；
-//     世界地图预设剧本(真实地球，见 WorldMap.WorldMapWilderness.OnEarth，随存档)不看这个设置，一直开着——剧本的史实归属、地名、
-//     各时代开发度都靠无人区；玩家自己的图按设置开关(用户 2026-10-30 "预设剧本是强制开的，但是玩家自己的图可以选择开关")；
+//     世界地图预设剧本(真实地球，见 WorldMap.WorldMapWilderness.ForcesWild，随存档)不看这个设置，一直开着——剧本的史实归属、地名、
+//     各时代开发度都靠无人区；玩家自己的图按设置开关(用户 2026-10-30 "预设剧本是强制开的，但是玩家自己的图可以选择开关")，
+//     地球地图上的自定剧本(手做的、从当前世界导入的)也算自己的图(用户 2026-11-04 选"自定剧本也听设置")；
 //   · 熔岩(用户 2026-11-03 "还有无人区你怎么没把岩浆算进去""原版都算进去了你没算")：以前岩浆格同水面一起算，一片岩浆、
 //     一座火山因"水多过四分之一"判不成无人区，城也立不住、用不上，成了地图上的空地；现在岩浆格算陆地、另记一类(见 Classify)，
 //     成片的熔岩原、火山划成熔岩无人区：谁都过不去(游牧、阿拉伯也不例外，见 WildernessPassage)，固定不开发，起名用 WildLava 词库。
@@ -67,7 +68,7 @@ public sealed class WildRegion
     public int MinX, MinY, MaxX, MaxY;   // 地块坐标外框
     // 这一片的底色(显示用)：按类型定色系，按编号微调，挨着的两片不至于一个颜色；编号不变颜色就不变
     public Color32 Color;
-    // 永久中立区(神力手动设的，见 WildernessSystem.ToggleNeutral)：不归任何国家，法理、周边的城都不管
+    // 整片均中立的汇总；实际每块的中立状态由 WildernessSystem.IsNeutral 查询。
     public bool Neutral;
     // 周边的城全属于同一个国家时就是它(见 OwnerOf)，否则为 null；随归属一起隔几秒核一次
     public Kingdom Surround;
@@ -89,6 +90,9 @@ public class WildRegionData
     // 永久中立区
     public bool neutral;
     public bool ShouldSerializeneutral() => neutral;
+    // 部分中立时只保存命中的地块；旧版 neutral=true 仍表示整片。
+    public List<int> neutralZones;
+    public bool ShouldSerializeneutralZones() => !neutral && neutralZones is { Count: > 0 };
     // 权能笔刷划过法理的地块(见 WildernessSystem.Paint)：自动重挂不动它们
     public List<int> painted;
     public bool ShouldSerializepainted() => painted is { Count: > 0 };
@@ -146,6 +150,7 @@ public static class WildernessSystem
     private static KingdomTitle[] _titles = new KingdomTitle[0];
     // 权能笔刷划过法理的地块(见 Paint)；有擦掉的，下一核补挂
     private static bool[] _painted = new bool[0];
+    private static bool[] _neutralZones = new bool[0];
     // 各块跟着的城；随无人区存档，避免重载后从邻城重新推算行政归属。
     private static City[] _parents = new City[0];
     // 压着长城(城墙格)、不归城的地块：挂法理往外走、连城都到此为止，长城那边的无人区不从这边挂(见 WallZones)
@@ -168,7 +173,9 @@ public static class WildernessSystem
     private static int _settling;
 
     // 开着没有：设置开着，或世界地图预设剧本(强制开，见类头)。内部按 Apply 对上的 _enabled，换局后头一帧对上
-    public static bool Enabled => _setting || WorldMap.WorldMapWilderness.OnEarth;
+    public static bool Enabled => _setting || WorldMap.WorldMapWilderness.ForcesWild;
+    // 只看设置本身(剧本编辑器预测用：还没进世界，ForcesWild 是上一局的；编辑器只编自定剧本，都照设置，见 WorldMap.ScenarioWilderness)
+    public static bool EnabledSetting => _setting;
 
     // 区域每变一次 +1(显示、通行据此重算)；挂接或归属变了也 +1
     public static int Version { get; private set; }
@@ -187,8 +194,6 @@ public static class WildernessSystem
     }
 
     public static bool IsWild(TileZone zone) => Index(zone) >= 0;
-
-    public static bool IsNeutral(TileZone zone) => RegionOf(zone)?.Neutral == true;
 
     public static bool IsWildAt(int x, int y) => _regions.Count > 0 && IsWild(World.world?.GetTile(x, y)?.zone);
 
@@ -226,7 +231,7 @@ public static class WildernessSystem
         int index = Index(zone);
         if (index < 0) return null;
         WildRegion region = _regions[index];
-        if (region.Neutral) return null;
+        if (IsNeutral(zone)) return null;
         Kingdom local = OriginOf(zone)?.kingdom;
         if (local != null && (local.data == null || local.isRekt() || local.wild)) local = null;
         // 城归谁，它辖下的无人区就归谁(用户 2026-11-04 "一叛乱就是飞地, 你至少带着中间的无人区一起啊")：
@@ -270,17 +275,47 @@ public static class WildernessSystem
     {
         WildRegion region = RegionOf(zone);
         if (region == null) return null;
-        region.Neutral = !region.Neutral;
-        Version++;
+        SetNeutral(region, !IsNeutral(zone));
         return region;
     }
 
     // 剧本编辑器刷的永久中立区(开局头一回划区挂法理时设上，见 WorldMap.WorldMapWilderness.BeginPaint)：之后同神力设的一样随存档
     public static void SetNeutral(WildRegion region, bool neutral)
     {
-        if (region == null || region.Neutral == neutral) return;
-        region.Neutral = neutral;
-        Version++;
+        if (region == null) return;
+        SetNeutralZones(region.Zones, neutral);
+    }
+
+    public static bool IsNeutral(TileZone zone) => zone != null && IsNeutral(zone.id);
+
+    public static bool IsNeutral(int id) => _enabled && id >= 0 && id < _regionOf.Length && _regionOf[id] >= 0 &&
+        (id < _neutralZones.Length ? _neutralZones[id] : _regions[_regionOf[id]].Neutral);
+
+    // 剧本笔刷按地块生效；神力的整片开关仍通过 SetNeutral 设置整片。
+    internal static int SetNeutralZones(IEnumerable<int> zones, bool neutral)
+    {
+        if (zones == null) return 0;
+        if (_neutralZones.Length != _regionOf.Length)
+        {
+            int previous = _neutralZones.Length;
+            Array.Resize(ref _neutralZones, _regionOf.Length);
+            foreach (WildRegion region in _regions.Where(region => region.Neutral))
+                foreach (int id in region.Zones)
+                    if (id >= previous && id < _neutralZones.Length) _neutralZones[id] = true;
+        }
+        var touched = new HashSet<int>();
+        int changed = 0;
+        foreach (int id in zones)
+        {
+            if (id < 0 || id >= _regionOf.Length || _regionOf[id] < 0 || _neutralZones[id] == neutral) continue;
+            _neutralZones[id] = neutral;
+            touched.Add(_regionOf[id]);
+            changed++;
+        }
+        foreach (int index in touched)
+            _regions[index].Neutral = _regions[index].Zones.All(id => _neutralZones[id]);
+        if (changed > 0) Version++;
+        return changed;
     }
 
     // 一块地归城就不算无人区(两者互斥)：放行给城的那一刻到下次重划之间也照这个算
@@ -338,6 +373,12 @@ public static class WildernessSystem
         using (FrameProfiler.Measure("无人区·划区")) Build(true, true);
     }
 
+    // 没有历史雨林改造的剧本也要在加载收尾完成首次划分；已由开发度流程划好时不重复整图重建。
+    public static void EnsureBuilt()
+    {
+        if (!_built) BuildNow();
+    }
+
     // 一块地开发满了(或开满的又改回去，见 WildernessDevelopmentSystem)：停手后重划，开满的留给城
     public static void OnDeveloped(TileZone zone)
     {
@@ -385,6 +426,8 @@ public static class WildernessSystem
     public static bool JungleDeveloped => _jungleDeveloped && !WorldMap.WorldMapWilderness.OnEarth &&
                                           !WorldMap.WorldMapGenerator.Generating && !WorldMap.WorldMapScenario.AfterLoadPending;
 
+    public static bool JungleDevelopedSetting => _jungleDeveloped;
+
     public static void SetJungleDeveloped(bool on)
     {
         if (_jungleDeveloped == on) return;
@@ -410,6 +453,7 @@ public static class WildernessSystem
         _regionOf = new int[0];
         _titles = new KingdomTitle[0];
         _painted = new bool[0];
+        _neutralZones = new bool[0];
         _parents = new City[0];
         Owners.Clear();
         Dirty.Clear();
@@ -426,6 +470,7 @@ public static class WildernessSystem
         _kind = new byte[0];
         _titles = new KingdomTitle[0];
         _painted = new bool[0];
+        _neutralZones = new bool[0];
         _parents = new City[0];
         _zones = new TileZone[0];
         _built = false;
@@ -433,7 +478,7 @@ public static class WildernessSystem
         _saved = null;
         Dirty.Clear();
         _firstDirtyAt = _lastDirtyAt = _nextRefresh = _retryAt = 0f;
-        _regroup = _pending = false;
+        _regroup = _pending = _attachPending = false;
         _builtAt = -1d;
         _titleSignature = 0L;
         Owners.Clear();
@@ -465,12 +510,15 @@ public static class WildernessSystem
                 neutral = region.Neutral, origins = new List<long>(region.Zones.Count) };
             foreach (int id in region.Zones)
             {
+                City origin = OriginOf(_zones[id]);
                 KingdomTitle title = id < _titles.Length ? _titles[id] : null;
                 data.zones.Add(id);
                 data.titles.Add(title == null || title.isRekt() ? -1L : title.id);
-                City origin = OriginOf(_zones[id]);
                 data.origins.Add(origin?.data == null || origin.isRekt() ? -1L : origin.id);
+                WorldMap.WorldMapWilderness.RememberTerritory(_zones[id], title, origin, IsNeutral(id),
+                    IsPainted(_zones[id]) || WorldMap.WorldMapWilderness.PaintedTitle(_zones[id]) != null);
                 if (id < _painted.Length && _painted[id] && title != null && !title.isRekt()) (data.painted ??= new List<int>()).Add(id);
+                if (!region.Neutral && IsNeutral(id)) (data.neutralZones ??= new List<int>()).Add(id);
             }
             result.Add(data);
         }
@@ -736,6 +784,7 @@ public static class WildernessSystem
             _regionOf = new int[0];
             _titles = new KingdomTitle[0];
             _painted = new bool[0];
+            _neutralZones = new bool[0];
             _parents = new City[0];
             reclassifyAll = force = true;
         }
@@ -774,7 +823,6 @@ public static class WildernessSystem
         public int Id;
         public WildKind Kind;
         public string Name, Culture;
-        public bool Neutral;
     }
 
     // 外沿放宽的门槛(见类头的常量)：山脉六成、熔岩一成五(只看岩浆格)，别的五成
@@ -798,23 +846,28 @@ public static class WildernessSystem
         var oldTitles = new KingdomTitle[size];
         var oldParents = new City[size];
         var oldPainted = new bool[size];
+        var oldNeutral = new bool[size];
         for (int i = 0; i < size; i++) oldOf[i] = -1;
         if (fromSave)
         {
             foreach (WildRegionData data in _saved)
             {
                 int index = olds.Count;
-                olds.Add(new OldRegion { Id = data.id, Kind = (WildKind)data.kind, Name = data.name, Culture = data.culture, Neutral = data.neutral });
+                olds.Add(new OldRegion { Id = data.id, Kind = (WildKind)data.kind, Name = data.name, Culture = data.culture });
+                var neutral = data.neutralZones == null ? null : new HashSet<int>(data.neutralZones);
                 for (int k = 0; k < data.zones.Count; k++)
                 {
                     int id = data.zones[k];
                     if (id < 0 || id >= size) continue;
                     oldOf[id] = index;
+                    oldNeutral[id] = data.neutral || neutral?.Contains(id) == true;
                     long titleId = k < data.titles.Count ? data.titles[k] : -1L;
                     KingdomTitle title = titleId >= 0 ? ModClass.KINGDOM_TITLE_MANAGER?.get(titleId) : null;
                     oldTitles[id] = title == null || title.isRekt() ? null : title;
                     long originId = data.origins != null && k < data.origins.Count ? data.origins[k] : -1L;
                     oldParents[id] = originId >= 0 ? World.world.cities.get(originId) : null;
+                    WorldMap.WorldMapWilderness.RememberTerritory(_zones[id], oldTitles[id], oldParents[id], oldNeutral[id],
+                        data.painted?.Contains(id) == true || WorldMap.WorldMapWilderness.PaintedTitle(_zones[id]) != null);
                 }
                 if (data.painted != null)
                     foreach (int id in data.painted)
@@ -826,13 +879,16 @@ public static class WildernessSystem
             for (int index = 0; index < _regions.Count; index++)
             {
                 WildRegion region = _regions[index];
-                olds.Add(new OldRegion { Id = region.Id, Kind = region.Kind, Name = region.Name, Culture = region.Culture, Neutral = region.Neutral });
+                olds.Add(new OldRegion { Id = region.Id, Kind = region.Kind, Name = region.Name, Culture = region.Culture });
                 foreach (int id in region.Zones)
                 {
                     if (id < 0 || id >= size) continue;
                     oldOf[id] = index;
+                    oldNeutral[id] = IsNeutral(id);
+                    oldParents[id] = OriginOf(_zones[id]);
                     if (id < _titles.Length) oldTitles[id] = _titles[id];
-                    if (id < _parents.Length) oldParents[id] = _parents[id];
+                    WorldMap.WorldMapWilderness.RememberTerritory(_zones[id], oldTitles[id], oldParents[id], oldNeutral[id],
+                        IsPainted(_zones[id]) || WorldMap.WorldMapWilderness.PaintedTitle(_zones[id]) != null);
                     if (id < _painted.Length) oldPainted[id] = _painted[id];
                 }
             }
@@ -990,7 +1046,6 @@ public static class WildernessSystem
                 region.Id = olds[old].Id;
                 region.Name = olds[old].Name;
                 region.Culture = olds[old].Culture;
-                region.Neutral = olds[old].Neutral;
                 if (!string.IsNullOrEmpty(region.Name)) used.Add(region.Name);
             }
             else region.Id = _nextId++;
@@ -1023,6 +1078,7 @@ public static class WildernessSystem
             });
         }
         regions.RemoveAll(region => region.Zones.Count == 0);
+        foreach (WildRegion region in regions) region.Neutral = region.Zones.All(id => oldNeutral[id]);
         var regionOf = new int[size];
         for (int i = 0; i < size; i++) regionOf[i] = -1;
         for (int index = 0; index < regions.Count; index++)
@@ -1036,6 +1092,7 @@ public static class WildernessSystem
 
         _regions = regions;
         _regionOf = regionOf;
+        _neutralZones = oldNeutral;
         IdIndex.Clear();
         foreach (WildRegion region in regions) IdIndex[region.Id] = region;
         Shape(regions, regionOf);
@@ -1063,7 +1120,8 @@ public static class WildernessSystem
         _painted = painted;
         long signature = TitleSignature();
         if (!fromSave && signature != _titleSignature) Attach(true);
-        else if (missing) Attach(false);
+        else if (missing || _attachPending) Attach(false);
+        _attachPending = false;
         _titleSignature = signature;
         RefreshOwners();
         return carved;
@@ -1266,21 +1324,26 @@ public static class WildernessSystem
 
     #region 法理
 
-    // 城与法理的对应变没变(建城、毁城、法理解散、城换法理)：按城累加，顺序无关。没有法理的城也算(它挡着远处的法理挂过来，见 Attach)
+    // 城与法理、行政成员关系变没变：每城分别混合再累加，顺序无关。没有法理的城也算(见 Attach)。
     private static long TitleSignature()
     {
-        long sum = 0L;
+        long sum = 1_469_598_103_934_665_603L;
         var nomads = new Dictionary<Kingdom, bool>();
         foreach (City city in World.world.cities)
         {
             if (city?.data == null || city.isRekt()) continue;
             KingdomTitle title = city.GetTitle();
             long titleId = title == null || title.isRekt() ? 0L : title.id;
-            // 城所属的国家是不是游牧也算进来：换了主(游牧 ↔ 农耕)沙漠冻原要重挂
+            // 同法理下改隶省份、脱离帝国也要刷新；按城混合，避免两座城互换法理后总和不变。
             bool nomad = Nomad(city, nomads);
             unchecked
             {
-                sum += city.id * 1_000_003L + titleId * 7_919L + (nomad ? 104_729L : 0L) + 1L;
+                long entry = (1_469_598_103_934_665_603L ^ city.id) * 1_099_511_628_211L;
+                entry = (entry ^ titleId) * 1_099_511_628_211L;
+                entry = (entry ^ (city.kingdom?.id ?? -1L)) * 1_099_511_628_211L;
+                entry = (entry ^ (city.kingdom?.GetEmpire()?.id ?? -1L)) * 1_099_511_628_211L;
+                entry = (entry ^ (nomad ? 1L : 0L)) * 1_099_511_628_211L;
+                sum += entry ^ (entry >> 32);
             }
         }
         return sum;
@@ -1303,9 +1366,30 @@ public static class WildernessSystem
     // full 核对城市/法理变化；预设剧本即便 full 也保留有效辖境，随机世界照旧重新挂接。
     private static void Attach(bool full)
     {
+        // 剧本笔刷可能晚于首次划区加载；先应用明确指定，再走保留旧归属的快速路径。
+        WorldMap.WorldMapWilderness.PreparePaint();
+        foreach (WildRegion region in _regions)
+            foreach (int id in region.Zones)
+            {
+                if (id < _painted.Length && _painted[id] && _titles[id] != null && !_titles[id].isRekt()) continue;
+                // 地区设置是开局默认值，已有来源城市后跟随该城；编辑器笔刷仍可明确覆盖。
+                City parent = id < _parents.Length ? _parents[id] : null;
+                bool established = parent?.data != null && !parent.isRekt();
+                KingdomTitle painted = WorldMap.WorldMapWilderness.PaintedTitle(_zones[id]) ??
+                    (established ? null : WorldMap.WorldMapWilderness.FixedTitle(_zones[id]));
+                if (painted == null)
+                {
+                    OriginOf(_zones[id]);
+                    continue;
+                }
+                if (painted == _titles[id]) continue;
+                _titles[id] = painted;
+                if (id < _parents.Length) _parents[id] = null;
+            }
         bool scenario = WorldMap.WorldMapWilderness.OnEarth;
         // 剧本里新增一城、别处换法理，不会推翻仍有效的辖境。只修补新地块或已经消失的法理。
-        if (scenario && !_regions.Any(region => region.Zones.Any(id => _titles[id] == null || _titles[id].isRekt())))
+        if (scenario && !WorldMap.WorldMapWilderness.NeedsBoundaryRepair && !_regions.Any(region => region.Zones.Any(id =>
+                (_titles[id] == null || _titles[id].isRekt()) && !UntitledOrigin(id))))
         {
             foreach (WildRegion region in _regions)
                 foreach (int id in region.Zones) OriginOf(_zones[id]);
@@ -1334,7 +1418,7 @@ public static class WildernessSystem
                 KingdomTitle old = _titles[id];
                 bool valid = old != null && !old.isRekt();
                 // 权能笔刷划的不动(见 Paint)
-                if (valid && (id < _painted.Length && _painted[id] || !full || scenario)) continue;
+                if (valid && (id < _painted.Length && _painted[id] || !full || scenario) || scenario && UntitledOrigin(id)) continue;
                 City parent = reached[id] ? fromCity[id] : NearestCity(World.world.cities.list, _zones[id]);
                 KingdomTitle nearest = reached[id] ? from[id] : TitleOfCity(parent, titleOf);
                 nearestCity[id] = parent;
@@ -1346,6 +1430,7 @@ public static class WildernessSystem
             }
         }
         Connect(titleOf, nearestCity, nearestTitle);
+        WorldMap.WorldMapWilderness.MarkBoundaryRepaired();
     }
 
     // 不成飞地(用户 10-30 截图狼居胥山一块块挂在萧汗国名下、插在回纥国土中间："出现这种飞地也很不合理")：剧本锚点、史实归属挂的法理，
@@ -1378,7 +1463,8 @@ public static class WildernessSystem
                 foreach (TileZone next in zone.neighbours_all)
                 {
                     City city = next?.city;
-                    if (city?.data == null || city.isRekt() || TitleOfCity(city, titleOf) != title) continue;
+                    if (city?.data == null || city.isRekt() || TitleOfCity(city, titleOf) != title ||
+                        anchored[id] && city.kingdom != _parents[id]?.kingdom) continue;
                     linked[id] = true;
                     if (!anchored[id]) _parents[id] = city;
                     queue.Enqueue(id);
@@ -1393,7 +1479,8 @@ public static class WildernessSystem
             foreach (TileZone next in _zones[id].neighbours_all)
             {
                 if (next == null || next.id < 0 || next.id >= size || linked[next.id] || _titles[next.id] != _titles[id] ||
-                    next.id >= _regionOf.Length || _regionOf[next.id] < 0) continue;
+                    next.id >= _regionOf.Length || _regionOf[next.id] < 0 ||
+                    anchored[next.id] && _parents[next.id]?.kingdom != _parents[id]?.kingdom) continue;
                 linked[next.id] = true;
                 if (!anchored[next.id] && !followed[next.id]) _parents[next.id] = _parents[id];
                 queue.Enqueue(next.id);
@@ -1472,7 +1559,8 @@ public static class WildernessSystem
     }
 
     private static bool PinnedTitle(int id) =>
-        id < _painted.Length && _painted[id] || WorldMap.WorldMapWilderness.PaintedTitle(_zones[id]) != null;
+        id < _painted.Length && _painted[id] || WorldMap.WorldMapWilderness.PaintedTitle(_zones[id]) != null ||
+        WorldMap.WorldMapWilderness.BoundedAnchor(_zones[id]);
 
     // 连不上所挂法理的地块从四周连得上的地块、城一圈圈并过去(长城不过)，返回并了多少块
     private static int Absorb(bool[] linked, Dictionary<City, KingdomTitle> titleOf)
@@ -1495,6 +1583,7 @@ public static class WildernessSystem
                     if (around != _titles[id]) moved++;
                     _titles[id] = around;
                     _parents[id] = next.city;
+                    WorldMap.WorldMapWilderness.FollowAnchor(_zones[id], next.city);
                     linked[id] = true;
                     queue.Enqueue(id);
                     break;
@@ -1511,6 +1600,7 @@ public static class WildernessSystem
                 if (_titles[next.id] != _titles[id]) moved++;
                 _titles[next.id] = _titles[id];
                 _parents[next.id] = _parents[id];
+                WorldMap.WorldMapWilderness.FollowAnchor(next, _parents[id]);
                 linked[next.id] = true;
                 queue.Enqueue(next.id);
             }
@@ -1544,9 +1634,17 @@ public static class WildernessSystem
     // 州府锚点定的城的王国法理(见 WorldMap.WorldMapWilderness.AnchorCity；不是剧本、没定的为 null)
     private static KingdomTitle AnchorTitle(TileZone zone)
     {
-        KingdomTitle painted = WorldMap.WorldMapWilderness.PaintedTitle(zone);
+        KingdomTitle painted = WorldMap.WorldMapWilderness.FixedTitle(zone);
         if (painted != null) return painted;
         KingdomTitle title = WorldMap.WorldMapWilderness.AnchorCity(zone)?.GetTitle();
+        if (title != null && !WorldMap.WorldMapWilderness.BoundedAnchor(zone))
+        {
+            // 治所的推算范围不能盖过另一政权明确的史实范围；同一帝国内再按行政锚点分省。
+            KingdomTitle historical = WorldMap.WorldMapWilderness.TitleFor(zone);
+            Kingdom historyRealm = historical == null ? null : RealmOf(historical.FindRealmTitleHolder());
+            Kingdom anchorRealm = RealmOf(WorldMap.WorldMapWilderness.AnchorCity(zone)?.kingdom);
+            if (historyRealm != null && anchorRealm != historyRealm) return null;
+        }
         return title == null || title.isRekt() ? null : title;
     }
 
@@ -1599,13 +1697,27 @@ public static class WildernessSystem
         KingdomTitle title = TitleOf(zone);
         City parent = Index(zone) >= 0 && zone.id < _parents.Length ? _parents[zone.id] : null;
         if (parent?.data == null || parent.isRekt()) parent = null;
-        if (title == null) return parent;
         City anchor = WorldMap.WorldMapWilderness.AnchorCity(zone);
-        if (anchor != null && anchor.GetTitle() == title)
+        if (title != null && anchor != null && anchor.GetTitle() == title)
         {
             if (zone.id < _parents.Length) _parents[zone.id] = anchor;
             return anchor;
         }
+        if (parent != null && !IsPainted(zone) && WorldMap.WorldMapWilderness.PaintedTitle(zone) == null)
+        {
+            KingdomTitle current = parent.GetTitle();
+            if (current == null || !current.isRekt())
+            {
+                // 自动辖境跟随原城市换法理；先到旧法理里另找城市会留下旧辖境飞地。
+                if (_titles[zone.id] != current)
+                {
+                    _titles[zone.id] = current;
+                    Version++;
+                }
+                return parent;
+            }
+        }
+        if (title == null) return parent;
         if (parent != null && parent.GetTitle() == title) return parent;
         // 法理里的城隔着长城分在两个行政区时，跟长城这一侧的城(见 WorldMap.FrontierWalls)
         City replacement = NearestCity(title.getCities().Where(city => !WorldMap.FrontierWalls.Behind(city, zone)), zone) ??
@@ -1613,6 +1725,10 @@ public static class WildernessSystem
         if (zone.id < _parents.Length) _parents[zone.id] = replacement;
         return replacement;
     }
+
+    private static bool UntitledOrigin(int id) => id < _parents.Length && _parents[id]?.data != null &&
+        !_parents[id].isRekt() && _parents[id].GetTitle() == null &&
+        !(id < _painted.Length && _painted[id]) && WorldMap.WorldMapWilderness.PaintedTitle(_zones[id]) == null;
 
     // 权能「无人区法理」笔刷(用户 10-30 "给个划分无人区法理归属的权能""可以允许多个法理归属同一个无人区，但是类似于笔刷上色那种"
     // "一个法理拿一部分")：把这块无人区挂到给定的法理上，之后自动重挂不再动它；title 为 null 擦掉，下一核按自动的规矩补挂。
@@ -1705,11 +1821,14 @@ public static class WildernessSystem
     private static bool OnWall(int id) => id < _walled.Length && _walled[id];
 
     // 走进这块地的代价(每块地各自不同，同一块地每次一样，见 TerritoryGrain)
-    private static float Roughness(TileZone zone) => TerritoryGrain.At(zone.x, zone.y, 4049);
+    private static float Roughness(TileZone zone) =>
+        Mathf.Max(1f, TerrainResistance.TerrainStep(zone)) * TerritoryGrain.At(zone.x, zone.y, 4049);
 
     private static bool Land(TileZone zone) => zone.tiles_with_ground > 0 && !SeaRegionSystem.IsSea(zone);
 
     // 几秒一核：城与法理的对应变了修补挂接；各法理的持有国变了记下。
+    internal static void RequestReattach() => _attachPending = true;
+
     private static void RefreshTitles()
     {
         if (_regions.Count == 0) return;

@@ -22,9 +22,10 @@ public class WorldMapLoadingScreen : MonoBehaviour
     // 点下生成后原版先播过场动画，加载队列这时还没开始；看到过加载才算开工
     private bool _sawLoading;
     // 加载队列走完后还要等进世界的安排(行政区、多京、殖民地、兵力、名人)做完再揭开(用户 2026-10-29："为什么地图不加载进去就已经是
-    // 规划好行政区的，非要进去之后才开始……画")，最多等 AfterLoadSeconds
+    // 规划好行政区的，非要进去之后才开始……画")；连续没有进展超过 AfterLoadSeconds 才超时。
     private bool _markedDone;
     private float _doneAt;
+    private int _remainingAfterLoad = -1;
     private const float AfterLoadSeconds = 30f;
 
     // 加载步骤 id(见 WorldMapGenerator、WorldMapScenario) → 阶段文字
@@ -71,6 +72,7 @@ public class WorldMapLoadingScreen : MonoBehaviour
         _instance._closing = false;
         _instance._sawLoading = false;
         _instance._markedDone = false;
+        _instance._remainingAfterLoad = -1;
         _instance._progress = 0f;
         _instance._stageKey = "world_map_stage_prepare";
         _instance._group.alpha = 1f;
@@ -157,9 +159,20 @@ public class WorldMapLoadingScreen : MonoBehaviour
             }
             _stageKey = "world_map_stage_after";
             _progress = Mathf.Max(_progress, 0.97f);
-            if (!WorldMapScenario.AfterLoadPending || Time.realtimeSinceStartup - _doneAt > AfterLoadSeconds) _closing = true;
+            if (AfterLoadReady(Time.realtimeSinceStartup)) _closing = true;
         }
         Refresh();
+    }
+
+    private bool AfterLoadReady(float now)
+    {
+        int remaining = WorldMapScenario.AfterLoadRemaining;
+        if (remaining != _remainingAfterLoad)
+        {
+            _remainingAfterLoad = remaining;
+            _doneAt = now;
+        }
+        return !WorldMapScenario.AfterLoadPending || now - _doneAt > AfterLoadSeconds;
     }
 
     private void Refresh()

@@ -312,7 +312,7 @@ public static class EmpireCraftNamePlateLibrary
                     if (kingdom == null || kingdom.isRekt() || !kingdom.hasCapital()) continue;
                     if (EmpireMembershipService.MapEmpire(kingdom) is Empire plateEmpire)
                     {
-                        Kingdom hoveredPlate = World.world.getMouseTilePosCachedFrame()?.zone_city?.kingdom;
+                        Kingdom hoveredPlate = GetHoveredKingdom();
                         if (hoveredPlate == null || EmpireMembershipService.MapEmpire(hoveredPlate) != plateEmpire) continue;
                     }
                     NameplateText nameplateText = pManager.prepareNext(AssetManager.nameplates_library._plate_kingdom, kingdom);
@@ -1439,7 +1439,7 @@ public static class EmpireCraftNamePlateLibrary
 
     private static Kingdom GetHoveredKingdom()
     {
-        return World.world?.getMouseTilePosCachedFrame()?.zone_city?.kingdom;
+        return WildernessTerritory.KingdomAt(World.world?.getMouseTilePosCachedFrame()?.zone);
     }
 
     private static Empire GetHoveredEmpire(Kingdom kingdom, int view)
@@ -1781,8 +1781,7 @@ public static class EmpireCraftNamePlateLibrary
             case 0:
                 if (pMetaObject.IsInEmpire())
                 {
-                    WorldTile mouseTilePosCachedFrame = World.world.getMouseTilePosCachedFrame();
-                    if (mouseTilePosCachedFrame?.zone_city?.kingdom==pMetaObject)
+                    if (GetHoveredKingdom() == pMetaObject)
                     {
                         var corruption = (int)(pMetaObject.GetCorruptionRate()*100);
                         pNewText += "\n" + (pMetaObject.GetHighestFactionRatio() == null

@@ -117,6 +117,7 @@ public static class WorldMapScenario
         WorldMapZones.SetWalls(WallLines(era, frame, size));
         _wallLines = null;
         _defaultAdministrativeCities.Clear();
+        _cityTerrainReach.Clear();
         _wildAnchors.Clear();
         _cities = new List<PlannedCity>();
         _polities = new List<PlannedPolity>();
@@ -1275,6 +1276,7 @@ public static class WorldMapScenario
         World.world.zone_calculator?.setDrawnZonesDirty();
         LogService.LogInfo($"[EmpireCraft][世界地图] 铺满又分了 {claimed} 块");
         AnchorWilderness();
+        _cityTerrainReach.Clear();
     }
 
     #endregion
@@ -1336,6 +1338,7 @@ public static class WorldMapScenario
         public readonly List<(PlannedPolity polity, int division)> groups = new();
         public readonly Dictionary<(PlannedPolity, int), int> labels = new();
         public readonly List<(int index, int label, float budget)> seeds = new();
+        public readonly List<(int index, int label)> roots = new();
         public readonly Dictionary<int, List<PlannedCity>> members = new();
 
         public int LabelOf(PlannedPolity polity, int division)
@@ -1352,7 +1355,7 @@ public static class WorldMapScenario
             if (label < 0 || label >= groups.Count || !set.Contains(groups[label].polity)) return null;
             if (members.TryGetValue(label, out List<PlannedCity> cities) && cities.Count > 0) return cities;
             PlannedCity capital = groups[label].polity.capital;
-            return capital?.city != null && !capital.city.isRekt() ? new List<PlannedCity> { capital } : null;
+            return capital?.city != null && !capital.city.isRekt() ? members[label] = new List<PlannedCity> { capital } : null;
         }
     }
 
@@ -1368,7 +1371,9 @@ public static class WorldMapScenario
         foreach (PlannedCity city in _cities.Where(city => city.city != null && !city.city.isRekt()))
         {
             int division = city.owner != null && plan.set.Contains(city.owner) ? DivisionOf(city.owner, city) : -2;
-            plan.seeds.Add((WorldMapZones.IndexOf(city.tile), plan.LabelOf(city.owner, division), cityBudget(city)));
+            int index = WorldMapZones.IndexOf(Seat(city)), label = plan.LabelOf(city.owner, division);
+            plan.seeds.Add((index, label, cityBudget(city)));
+            plan.roots.Add((index, label));
         }
         foreach (PlannedPolity polity in plan.anchored)
         {
@@ -1386,9 +1391,26 @@ public static class WorldMapScenario
         return plan;
     }
 
-    // 本行政区里离这块地最近、这块地不在它墙后的城(见 WorldMapZones.Behind)；都在墙那边为 null(交给 SameSide)
-    private static PlannedCity NearestOf(List<PlannedCity> cities, TileZone zone, int index)
+    // 同行政区内按可定居陆路的地形距离分给城市；不可达的地不跨山、跨海硬挂给直线最近的城市。
+    // 无人区的行政锚点沿用原有距离规则；明确历史范围可用它记录虚拟行政归属，不强迫城市收地。
+    private static readonly Dictionary<string, int[]> _cityTerrainReach = new();
+
+    private static PlannedCity NearestOf(List<PlannedCity> cities, TileZone zone, int index, bool terrain = true)
     {
+        if (terrain)
+        {
+            List<PlannedCity> available = cities.Where(city => !WorldMapZones.Behind(Seat(city), index)).ToList();
+            if (available.Count == 0) return null;
+            string key = string.Join(",", available.Select(city => city.city.id));
+            if (!_cityTerrainReach.TryGetValue(key, out int[] owners))
+            {
+                // 大型自定剧本可能有许多不同的城群／墙侧组合，限制临时整图缓存的份数。
+                if (_cityTerrainReach.Count >= 64) _cityTerrainReach.Clear();
+                _cityTerrainReach[key] = owners = WorldMapZones.NearestOf(available.Select(city => WorldMapZones.IndexOf(Seat(city))).ToList(), true);
+            }
+            if (index < 0 || index >= owners.Length || owners[index] < 0 || owners[index] >= available.Count) return null;
+            return available[owners[index]];
+        }
         var at = new Vector2Int(zone.centerTile.x, zone.centerTile.y);
         return cities.Where(city => !WorldMapZones.Behind(Seat(city), index)).OrderBy(city => (city.tile - at).sqrMagnitude).FirstOrDefault();
     }
@@ -1425,7 +1447,7 @@ public static class WorldMapScenario
     {
         AnchorPlan plan = PlanAnchors(city => TerritoryBudget[Mathf.Clamp(city.rank, 0, 3)], SeatBudget);
         if (plan == null) return 0;
-        int[] owner = WorldMapZones.Partition(plan.seeds);
+        int[] owner = WorldMapZones.RootedPartition(plan.seeds, plan.roots);
         int claimed = 0;
         var stray = new List<int>();
         for (int i = 0; i < owner.Length; i++)
@@ -1470,7 +1492,7 @@ public static class WorldMapScenario
             var polygons = new List<List<List<float[]>>>();
             var custom = data == null ? polity.data.boundary : data.boundary;
             if (custom != null) polygons.AddRange(custom);
-            else foreach (WorldMapAdministrativeBoundary area in WorldMapAdministrativeBoundaries.For(_era.id, _era.year, polity.data.id, name))
+            else foreach (WorldMapAdministrativeBoundary area in WorldMapAdministrativeBoundaries.For(_era, polity.data.id, name))
                 polygons.AddRange(area.polygons);
             if (!AdministrativeBoundaryRules.Bounds(polygons, out float west, out float south, out float east, out float north)) continue;
             shapes++;
@@ -1489,10 +1511,15 @@ public static class WorldMapScenario
                     if (existingCities.TryGetValue(zone.city, out PlannedCity existing)) _defaultAdministrativeCities[i] = existing;
                     continue;
                 }
-                PlannedCity nearest = NearestOf(cities, zone, i);
+                PlannedCity reachable = NearestOf(cities, zone, i);
+                PlannedCity nearest = reachable ?? NearestOf(cities, zone, i, false);
                 if (nearest?.city?.data == null) continue;
                 _defaultAdministrativeCities[i] = nearest;
-                if (WorldMapZones.SettledLand(i)) { nearest.city.addZone(zone); claimed++; }
+                if (reachable != null && WorldMapZones.SettledLand(i))
+                {
+                    nearest.city.addZone(zone);
+                    if (zone.city == nearest.city) claimed++;
+                }
             }
         }
         LogService.LogInfo($"[EmpireCraft][世界地图] 默认历史地块：{shapes} 份范围，{_defaultAdministrativeCities.Count} 块(城市辖地 {claimed} 块)");
@@ -1509,14 +1536,14 @@ public static class WorldMapScenario
         AnchorPlan plan = PlanAnchors(_ => WildSeatBudget, WildSeatBudget);
         if (plan != null)
         {
-            int[] owner = WorldMapZones.Partition(plan.seeds, true);
+            int[] owner = WorldMapZones.RootedPartition(plan.seeds, plan.roots, true);
             var stray = new List<int>();
             for (int i = 0; i < owner.Length; i++)
             {
                 List<PlannedCity> cities = plan.CitiesOf(owner[i]);
                 TileZone zone = WorldMapZones.Zone(i);
                 if (cities == null || zone?.centerTile == null || zone.city != null && !WorldMapZones.Rough(i)) continue;
-                PlannedCity nearest = NearestOf(cities, zone, i);
+                PlannedCity nearest = NearestOf(cities, zone, i, false);
                 if (nearest == null) stray.Add(i);
                 else if (nearest.city?.data != null) _wildAnchors[zone.id] = nearest.city.data.id;
             }
@@ -1880,8 +1907,9 @@ public static class WorldMapScenario
         if (!EarthTerrain.Imported)
         Guard("无人区地名与归属", () => WorldMapWilderness.Begin(_frame, _size, _era, _polities
             .Where(polity => polity.data != null && polity.capital?.city != null && !polity.capital.city.isRekt())
-            .GroupBy(polity => polity.data.id).ToDictionary(group => group.Key, group => group.First().capital.city)));
-        if (!EarthTerrain.Imported) Guard("无人区的行政区", () => WorldMapWilderness.SetAnchors(_wildAnchors));
+            .GroupBy(polity => polity.data.id).ToDictionary(group => group.Key, group => group.First().capital.city), _titleByRegion));
+        if (!EarthTerrain.Imported) Guard("无人区的行政区", () => WorldMapWilderness.SetAnchors(_wildAnchors,
+            _defaultAdministrativeCities.Keys.Select(index => WorldMapZones.Zone(index)?.id ?? -1).Where(id => id >= 0)));
         // 长城随存档留着：之后设行政区、重组行政区都以它为界(见 FrontierWalls)
         Guard("长城为界", () => FrontierWalls.Set(_wallLines ?? WallLines(_era, _frame, _size)));
         // 剧情事件：记下剧本里的国、城、地区各对上了哪个国家、城、王国法理，剧本人物的名字对上了哪个人(见 ScenarioEventSystem)
@@ -2075,6 +2103,17 @@ public static class WorldMapScenario
         _afterLoad.Add(("市场开市", CommodityMarketSystem.SettleNow));
         // 开局铺好相邻城之间的干道(路网规划算完后修通，见 RoadBuildingSystem.SeedAtScenarioStart)
         _afterLoad.Add(("开局干道", RoadBuildingSystem.SeedAtScenarioStart));
+        _afterLoad.Add(("保存剧本默认领土", () => WorldMapWilderness.CaptureTerritory(World.world?.cities)));
+        _afterLoad.Add(("保存历史范围归属", () =>
+        {
+            foreach (KeyValuePair<int, PlannedCity> pair in _defaultAdministrativeCities)
+            {
+                TileZone zone = WorldMapZones.Zone(pair.Key);
+                City city = pair.Value.city;
+                if (zone?.city == null && city?.data != null && !city.isRekt())
+                    WorldMapWilderness.RememberTerritory(zone, city.GetTitle(), city, false);
+            }
+        }));
         // 雨林大泽开发度按时代(用户 10-29 "沼泽雨林什么的开发度也要在剧本模式里面体现出来, 比如春秋战国到漢南方都没怎么开发的")：
         // 当年没开出来的地改回丛林沼泽，当场划一次无人区再设开发度，所以排在最后(见 WorldMapDevelopment)
         if (_era != null)
@@ -2084,6 +2123,7 @@ public static class WorldMapScenario
             Vector2Int devSize = _size;
             _afterLoad.Add(("雨林大泽开发度", () => WorldMapDevelopment.Apply(devEra, devFrame, devSize)));
         }
+        _afterLoad.Add(("无人区归属", WildernessSystem.EnsureBuilt));
         // 城记的帝国法理按法理对齐(收尾时对过一回，设行政区、重组这些进世界的安排之后各城记的核心又空了，帝国法理图层开局头一年
         // 画成王国法理的颜色，等天下大势年结才对上——用户 10-30 "我的帝国核心层级好像也消失了""只有文字""图层还是王国的")
         _afterLoad.Add(("城的帝国法理", () => EmpireCoreManager.ReconcileCityCores()));
@@ -2150,6 +2190,8 @@ public static class WorldMapScenario
     public static bool AfterLoadPending => _afterLoadArmed || _afterLoadQueued && ReferenceEquals(_afterLoadWorld, World.world) &&
         Time.realtimeSinceStartup - _afterLoadQueuedAt < QueuedWaitSeconds;
 
+    internal static int AfterLoadRemaining => _develop.Count + _afterLoad.Count;
+
     public static void RunAfterLoad()
     {
         _afterLoadQueued = false;
@@ -2201,9 +2243,9 @@ public static class WorldMapScenario
         {
             List<City> all = cities.Where(city => city.kingdom == empire.CoreKingdom && city != empire.CoreKingdom.capital).ToList();
             if (all.Count == 0) continue;
-            // 长城作天然界线(见 FrontierWalls)：区里隔着长城的城另设一区(明山西的大同在内外长城之间)，城多的那片照剧本的名，
-            // 另一片共用这个法理、照治所城起名
-            List<List<City>> parts = FrontierWalls.Split(all).OrderByDescending(part => part.Count).ToList();
+            // 明确的历史辖境优先；只有没有范围数据的推算行政区才按边墙分设。
+            string polity = _polities.FirstOrDefault(item => item.empire == empire)?.data?.id ?? "";
+            List<List<City>> parts = DivisionParts(polity, data, all);
             if (parts.Count > 1)
                 LogService.LogInfo($"[EmpireCraft][世界地图] {empire.GetEmpireName()} {data.Name} 隔着长城分设 {parts.Count} 区：" +
                                    string.Join("；", parts.Select(part => string.Join("、", part.Select(city => city.GetCityName())))));
@@ -2243,9 +2285,27 @@ public static class WorldMapScenario
                     province.GetRegime()?.SetAllowDiplomacy(true);
                     EmpireCraft.Scripts.AI.KingdomAI.EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(province);
                 }
-                else province.SetKingdomName(data.Name);
+                else
+                {
+                    // 保存剧本行政名，不能下一轮按王国法理把河南改回中原、陕西改回关中。
+                    KingdomExtension.KingdomExtraData extra = province.GetOrCreate();
+                    extra.admin_name = data.name;
+                    extra.admin_back = "";
+                    extra.admin_empire = empire.id;
+                    province.SetKingdomName(data.Name);
+                }
             }
         }
+    }
+
+    // 山西本有大同，明确的历史辖境不能因为一道边墙自动另立“大同省”。
+    // 缺乏明确范围的推算行政区仍沿用原有隔墙分设规则。
+    private static List<List<City>> DivisionParts(string polity, WorldMapDivision data, List<City> cities)
+    {
+        bool bounded = data.boundary is { Count: > 0 } ||
+            WorldMapAdministrativeBoundaries.For(_era, polity, (data.name ?? "").Split('|')[0]).Count > 0;
+        return bounded ? new List<List<City>> { cities }
+            : FrontierWalls.Split(cities).OrderByDescending(part => part.Count).ToList();
     }
 
     // 都护府、长史府、都督府这类统辖羁縻州的(照中文名)

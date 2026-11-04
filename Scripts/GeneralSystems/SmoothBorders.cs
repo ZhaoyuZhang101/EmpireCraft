@@ -182,7 +182,7 @@ public static partial class SmoothBorders
     private static Kingdom HoveredProvince(MetaTypeAsset layer, int option)
     {
         if (layer.map_mode != MetaTypeExtension.Empire || option != 0) return null;
-        Kingdom kingdom = World.world.getMouseTilePosCachedFrame()?.zone_city?.kingdom;
+        Kingdom kingdom = WildernessTerritory.KingdomAt(World.world.getMouseTilePosCachedFrame()?.zone);
         return kingdom != null && kingdom.isAlive() && EmpireMembershipService.MapEmpire(kingdom) != null ? kingdom : null;
     }
 
@@ -208,7 +208,7 @@ public static partial class SmoothBorders
         for (int dy = -ZoneReach; dy <= ZoneReach; dy++)
         for (int dx = -ZoneReach; dx <= ZoneReach; dx++)
         {
-            Kingdom kingdom = (dx == 0 && dy == 0 ? zone : World.world.zone_calculator.getZone(zone.x + dx, zone.y + dy))?.city?.kingdom;
+            Kingdom kingdom = WildernessTerritory.KingdomAt(dx == 0 && dy == 0 ? zone : World.world.zone_calculator.getZone(zone.x + dx, zone.y + dy));
             if (kingdom != null && (kingdom == _hoverNow || kingdom == _hoverBefore)) return true;
         }
         return false;
@@ -216,10 +216,9 @@ public static partial class SmoothBorders
 
     private static IMetaObject ShadeOf(TileZone zone, IMetaObject real)
     {
-        if (_hover == null || real == null || zone?.city?.kingdom != _hover || !(real is Empire empire) ||
-            EmpireMembershipService.MapEmpire(_hover) != empire) return real;
-        _hoverRealm = real;
-        return _hover;
+        IMetaObject shade = WildernessTerritory.ProvinceShade(zone, real, _hover);
+        if (shade != real) _hoverRealm = real;
+        return shade;
     }
 
     private static readonly IMetaObject[] Candidates = new IMetaObject[9];

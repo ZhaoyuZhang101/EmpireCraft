@@ -21,8 +21,9 @@ WorldMaps/eras/*.json 的 "wilderness" 一节。游戏里由 Scripts/GeneralSyst
     斯拉夫(石带、波列西耶)、维京(基阿连山脉、芬马克)、埃及(德什雷特)。拿不准的旧称、文化叫法一律不写。
 繁体名照 add_traditional.py 的 tw()(zhconv)转，转错的在 TW_FIX 里改。
 
-史实归属(OWNERS)：时代 id → {单元 id: 政权 id}；开局划区后，这个单元盖住的无人区地块挂到那个政权都城所在的王国法理上
-(盖过"挂最近法理")；只写史实上清楚归某政权的，当时确属无主或几方分据、拿不准的不写。
+史实归属(OWNERS)：时代 id → {单元 id: 政权 id}；都城法理用于识别政权，再从同政权的当地城市挂接。
+明确当地法理由 wilderness_administration_source.py 维护 wilderness_regions；本脚本保留该键。
+只写史实上清楚归某政权的，当时确属无主或几方分据、拿不准的不写。
 
 用法：python -I -X utf8 wilderness_source.py <模组目录>   (要 zhconv，同 add_traditional.py)
 """

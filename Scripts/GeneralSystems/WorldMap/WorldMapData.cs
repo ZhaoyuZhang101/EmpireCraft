@@ -363,9 +363,12 @@ public sealed class WorldMapEra
     public Dictionary<string, int> ranks = new();
     // 穿越者降临的城(临高剧本)
     public string transmigrant = "";
-    // 无人区的史实归属：地理单元(WorldMaps/wilderness.json 的 id) → 政权 id，单元盖住的无人区挂到该政权都城的法理上
+    // 无人区的史实归属：地理单元 → 政权 id；都城法理识别政权，再从同政权的当地城市分配。
     // (见 WorldMapWilderness；Tools/WorldMap/wilderness_source.py 写入)
     public Dictionary<string, string> wilderness = new();
+    // 同一政权内部明确指定的当地法理：地理单元 → 地区 id；没有可用治所时沿用原有自动挂接。
+    public Dictionary<string, string> wilderness_regions = new();
+    public bool ShouldSerializewilderness_regions() => wilderness_regions is { Count: > 0 };
 
     public int RankOf(WorldMapCity city) => ranks.TryGetValue(city.id, out int rank) ? rank : city.rank;
 
