@@ -2632,7 +2632,8 @@ public static class ScenarioEditorScreen
         bool showRealm = _realmId != null && (_tool is Tool.City or Tool.Realm or Tool.Paint or Tool.Relation or Tool.Division ||
                                               _tool == Tool.Land && _layer == Layer.Realm && !_neutralBrush);
         bool showRegion = _regionId != null && _tool is Tool.Kingdom or Tool.Empire;
-        bool showCore = _coreId != null && _tool == Tool.Empire;
+        // 选中的王国法理还没归帝国法理时也要显示：另立的按钮就在这张卡片上，不然第一个帝国法理建不出来
+        bool showCore = _tool == Tool.Empire && (_coreId != null || _regionId != null);
         _scenarioCard.gameObject.SetActive(showScenario);
         _cityCard.gameObject.SetActive(showCity);
         _realmCard.gameObject.SetActive(showRealm);
@@ -2870,6 +2871,20 @@ public static class ScenarioEditorScreen
     {
         WorldMapCore core = ScenarioEditing.Core(_coreId);
         WorldMapCity city = ScenarioEditing.City(_cityId);
+        _coreNameInput.interactable = core != null;
+        if (core == null)
+        {
+            SetInput(_coreNameInput, "");
+            _coreInfo.text = LM.Get("scenario_editor_core_none");
+            _coreCapitalBtn.Set(null, ToolColor, false);
+            _newCoreBtn.Set(null, ToolColor, _regionId != null);
+            _leaveCoreBtn.Set(null, ToolColor, false);
+            _deleteCoreBtn.Set(null, DangerColor, false);
+            _tianxiaBtn.Set(ScenarioEditing.TianxiaName(""), ViewColor, false);
+            SetInput(_tianxiaNameInput, "");
+            _tianxiaNameInput.interactable = false;
+            return;
+        }
         SetInput(_coreNameInput, core.Name);
         _coreInfo.text = string.Format(LM.Get("scenario_editor_core_info"), ScenarioEditing.CoreCapitalName(core), core.regions?.Count ?? 0,
             string.Join(LM.Get("list_separator"), (core.regions ?? new List<string>()).Take(8)
@@ -2878,7 +2893,7 @@ public static class ScenarioEditorScreen
         _newCoreBtn.Set(null, ToolColor, _regionId != null);
         _leaveCoreBtn.Set(null, ToolColor, _regionId != null && core.regions?.Contains(_regionId) == true);
         _deleteCoreBtn.Set(null, DangerColor);
-        _tianxiaBtn.Set(ScenarioEditing.TianxiaName(core.group), ViewColor);
+        _tianxiaBtn.Set(ScenarioEditing.TianxiaName(core.group), ViewColor, true);
         SetInput(_tianxiaNameInput, string.IsNullOrEmpty(core.group) ? "" : ScenarioEditing.TianxiaName(core.group));
         _tianxiaNameInput.interactable = !string.IsNullOrEmpty(core.group);
     }
