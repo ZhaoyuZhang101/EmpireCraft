@@ -429,7 +429,7 @@
     {"id": "cadiz", "zh": "加的斯", "en": "Cadiz", "x": -6.29, "y": 36.53, "r": "hispania_s", "k": 3, "alt": ["-206|加迪尔|Gadir|加迪爾", "711|加德斯|Gades|加德斯"], "tw": "加的斯"},
     {"id": "toledo", "zh": "托莱多", "en": "Toledo", "x": -4.02, "y": 39.86, "r": "hispania_s", "k": 1, "alt": ["711|托莱图姆|Toletum|托萊圖姆"], "tw": "托萊多", "share": ["hispania_n"]},
     {"id": "valencia", "zh": "巴伦西亚", "en": "Valencia", "x": -0.38, "y": 39.47, "r": "hispania_s", "k": 2, "from": -138, "tw": "巴倫西亞", "share": ["hispania_n"]},
-    {"id": "lisbon", "zh": "里斯本", "en": "Lisbon", "x": -9.14, "y": 38.72, "r": "hispania_s", "k": 2, "alt": ["711|奥利西波|Olisipo|奧利西波"], "tw": "裏斯本"},
+    {"id": "lisbon", "zh": "里斯本", "en": "Lisbon", "x": -9.14, "y": 38.72, "r": "hispania_s", "k": 2, "alt": ["711|奥利西波|Olisipo|奧利西波"], "tw": "里斯本"},
     {"id": "merida", "zh": "梅里达", "en": "Merida", "x": -6.34, "y": 38.92, "r": "hispania_s", "k": 3, "from": -25, "alt": ["711|埃梅里塔|Emerita|埃梅裏塔"], "tw": "梅裏達"},
     {"id": "saragossa", "zh": "萨拉戈萨", "en": "Zaragoza", "x": -0.88, "y": 41.65, "r": "hispania_n", "k": 1, "alt": ["-14|萨尔杜伊|Salduie|薩爾杜伊", "711|凯撒奥古斯塔|Caesaraugusta|凱撒奧古斯塔"], "tw": "薩拉戈薩"},
     {"id": "barcelona", "zh": "巴塞罗那", "en": "Barcelona", "x": 2.17, "y": 41.39, "r": "hispania_n", "k": 2, "from": -15, "alt": ["711|巴尔奇诺|Barcino|巴爾奇諾"], "tw": "巴塞羅那", "share": ["gaul_s"]},
@@ -622,6 +622,10 @@
     {"id": "hobok", "zh": "和布克赛尔", "en": "Hobok Sair", "x": 85.73, "y": 46.79, "r": "dzungaria", "k": 2, "from": 1629, "tw": "和布克賽爾"},
     {"id": "kokonor", "zh": "察罕托罗亥", "en": "Chaghan Tolgoi", "x": 100.2, "y": 37.2, "r": "qinghai", "k": 2, "from": 1629, "tw": "察罕托羅亥"},
     {"id": "yaksa", "zh": "雅克萨", "en": "Albazin", "x": 124.2, "y": 53.4, "r": "manchuria", "k": 2, "from": 1629, "tw": "雅克薩"},
-    {"id": "ninguta", "zh": "宁古塔", "en": "Ninguta", "x": 129.46, "y": 44.33, "r": "manchuria", "k": 2, "from": 1629, "tw": "寧古塔"}
+    {"id": "ninguta", "zh": "宁古塔", "en": "Ninguta", "x": 129.46, "y": 44.33, "r": "manchuria", "k": 2, "from": 1629, "tw": "寧古塔"},
+    {"id": "shangdu", "zh": "开平", "en": "Kaiping", "x": 116.18, "y": 42.36, "r": "monan", "k": 2, "from": 1256, "to": 1430, "tw": "開平"},
+    {"id": "diaoyu", "zh": "钓鱼城", "en": "Diaoyu Fortress", "x": 106.28, "y": 30.0, "r": "bashu", "k": 3, "from": 1243, "to": 1279, "tw": "釣魚城"},
+    {"id": "sarai", "zh": "萨莱", "en": "Sarai", "x": 47.9, "y": 46.6, "r": "volga", "k": 1, "from": 1250, "to": 1480, "tw": "薩萊"},
+    {"id": "granada", "zh": "格拉纳达", "en": "Granada", "x": -3.6, "y": 37.18, "r": "hispania_s", "k": 2, "from": 1238, "to": 1492, "tw": "格拉納達"}
   ]
 }
