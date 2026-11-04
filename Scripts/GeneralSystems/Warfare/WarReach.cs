@@ -161,20 +161,14 @@ public static class WarReach
         return false;
     }
 
-    // 只从给定的这几国(不连同所在帝国的别的成员)量够不够得着对方：接壤、同一块陆地上相距不过 LandTiles 格(不隔着绕不过去的无人区)、
-    // 或隔海在一方水师辐射内(朝贡要宗主直辖之地够得着，见 TributaryRelations.InReach)
-    public static bool ReachableFrom(List<Kingdom> ours, Kingdom other)
+    // 只从给定的这几国(不连同所在帝国的别的成员)量挨不挨着对方：接壤、只隔着走得通的无人区，或隔海在一方水师辐射内；
+    // 隔着第三国不算，不管多近(朝贡要宗主直辖之地挨着，见 TributaryRelations.InReach)
+    public static bool TouchingFrom(List<Kingdom> ours, Kingdom other)
     {
         if (ours == null || ours.Count == 0 || other?.data == null || other.isRekt()) return false;
-        var theirs = new List<Kingdom> { other };
         foreach (Kingdom x in ours)
-        {
-            if (x == other) return true;
-            if (x.IsNeighbourWith(other)) return true;
-        }
-        if (LandNear(ours, theirs)) return true;
-        foreach (Kingdom x in ours)
-            if (StraitReach.Across(x, other) || StraitReach.Across(other, x)) return true;
+            if (x == other || x.IsNeighbourWith(other) || AcrossWild(x, other) ||
+                StraitReach.Across(x, other) || StraitReach.Across(other, x)) return true;
         return false;
     }
 

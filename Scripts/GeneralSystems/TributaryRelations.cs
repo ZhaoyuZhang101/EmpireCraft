@@ -20,14 +20,14 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 称臣和约：不行封建附庸的胜者，迫使附庸改为对方向本帝国称臣纳贡(见 WarGoalSystem.Tick)；
 //   · 朝贡要够得着(用户 2026-11-02 转群友截图"朝贡这么多""隔这么远朝贡感觉有点夸张")：以前自愿来朝、迫使朝贡、天下来朝、
 //     游牧称臣只看"与帝国接壤"，帝国连同远方的封国、附庸一起算，封国挨着的远国也来朝贡，满地图都是朝贡国。现在要宗主的直辖之地
-//     (核心王国与它的行政区，不含封国、附庸、别的朝贡国)够得着(InReach：接壤、同一块陆地上相距不过 WarReach.LandTiles 格且不隔着
-//     绕不过去的无人区、或隔海在一方水师辐射内)；已经在朝贡的够不着满 DriftYears 年就断了(道远不通，朝贡遂绝)。
+//     (核心王国与它的行政区，不含封国、附庸、别的朝贡国)够得着(InReach：接壤、只隔着走得通的无人区、或隔海在一方水师辐射内；
+//     用户 2026-11-05 选"收紧到接壤"，隔着第三国不算，以前同一块陆地上相距不过 80 格也算)；已经在朝贡的够不着满 DriftYears 年就断了(道远不通，朝贡遂绝)。
 //     剧本、神力定下的朝贡照样立(不过闸)，够不着的同样过些年断了。
 public static class TributaryRelations
 {
     public const float ReturnGiftShare = 0.3f;
     private const float GiftLoyalty = 0.03f;
-    // 够不着几年断朝贡；够不够得着隔多久重算(量城与城的距离，按年缓存)
+    // 够不着几年断朝贡；够不够得着隔多久重算(按年缓存)
     private const float DriftYears = 10f, ReachRecheckYears = 1f;
     // 朝贡国 → 上回量的时间、够不够得着、最早够不着的时间(不存档：读档后从头数)
     private static readonly Dictionary<long, (double at, long empire, bool reach, double farSince)> Reach = new();
@@ -50,7 +50,7 @@ public static class TributaryRelations
     // 宗主直辖之地够不够得着这一国(见类头)
     public static bool InReach(Kingdom tributary, Empire empire) =>
         tributary?.data != null && !tributary.isRekt() && empire != null && !empire.isRekt() && !empire.IsArchived() &&
-        WarReach.ReachableFrom(Direct(empire), tributary);
+        WarReach.TouchingFrom(Direct(empire), tributary);
 
     // 已经在朝贡的：够不着满 DriftYears 年(见 KingdomExtension.NeedToRemoveTakenAlliance)。一年量一次
     public static bool DriftedAway(Kingdom tributary, Empire empire)
