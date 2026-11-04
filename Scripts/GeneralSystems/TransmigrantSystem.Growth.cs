@@ -236,8 +236,9 @@ public static partial class TransmigrantSystem
 
     private static float ArmyOf(Kingdom kingdom) => CorpsSystem.Of(kingdom).Sum(corps => corps.strength);
 
-    private static CorpsData Fubo(Kingdom kingdom) => CorpsSystem.Of(kingdom).FirstOrDefault(corps => corps.manual && !corps.militia &&
-        corps.arm >= (int)CorpsArmSystem.Arm.Rifle && corps.arm != (int)CorpsArmSystem.Arm.Militia);
+    // 伏波军按建制标记认(见 FormationSystem)，不看手动不手动、兵种大小；分遣队不算
+    private static CorpsData Fubo(Kingdom kingdom) => CorpsSystem.Of(kingdom).FirstOrDefault(corps =>
+        corps.formation == FormationSystem.Fubo && !corps.militia && corps.parent_id < 0);
 
     // 伏波军按归化民扩编(暴兵)：ArmyBase + 归化民的 NationalArmyShare，打仗时再扩 WarSurge；军饷给足，只在真欠饷时不扩编
     private static void KeepArmy(Kingdom kingdom)

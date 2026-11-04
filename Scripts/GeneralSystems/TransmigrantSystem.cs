@@ -751,6 +751,12 @@ public static partial class TransmigrantSystem
     private static void Yearly(Kingdom kingdom, TransmigrantState state, int year)
     {
         Restore(kingdom, state);
+        // 旧档先认出降临那支，下面按建制标记找伏波军时才不会另编一支(见 FormationSystem.Migrate)
+        FormationSystem.EnsureAll(kingdom, CorpsSystem.Of(kingdom));
+        // 大整备：治安军撤销番号，人和旧番号都并入国民军，只并一次(见 FormationSystem.MergeEarly)
+        int merged = FormationSystem.MergeEarly(kingdom, state);
+        if (merged > 0)
+            TranslateHelper.LogEventOnly(string.Format(LM.Get("transmigrant_security_merged_history"), kingdom.GetKingdomFullName(), merged), kingdom);
         int inherited = 0;
         foreach (SenatorSeat seat in state.seats)
         {

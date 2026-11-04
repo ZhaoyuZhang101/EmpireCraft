@@ -29,6 +29,8 @@ public sealed class TransmigrantState
     // 伪装：名义上的宗主(帝国编号，-1 没有)、是否已撕破脸(见 TransmigrantSystem.Reveal)
     public long disguise_lord_id = -1L;
     public bool revealed;
+    // 治安军已撤销番号并入国民军(只并一次，见 FormationSystem.MergeEarly)
+    public bool security_merged;
 }
 
 public sealed class SenatorSeat

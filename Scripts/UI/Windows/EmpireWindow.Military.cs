@@ -120,7 +120,11 @@ namespace EmpireCraft.Scripts.UI.Windows
                     AddCorpsRow(table, inner, corps, focusCorps?.Contains(corps.id) == true);
             }
             // 组建新军(见 CorpsSystem.RaiseManual)：每国一行，点驻地就在那里组建一军
-            foreach (Kingdom kingdom in realms) AddRaiseRow(table, inner, kingdom, realms.Count > 1);
+            foreach (Kingdom kingdom in realms)
+            {
+                AddRaiseRow(table, inner, kingdom, realms.Count > 1);
+                AddReorganizeRow(table, inner, kingdom);
+            }
             if (all.Count == 0)
                 table.AddTextIntoVertLayout(LM.Get("corps_none").ColorString("#8FA0A8"), true, TextAnchor.MiddleLeft,
                     new Vector2(inner, 12f)).UseFixedFontSize(6, HorizontalWrapMode.Wrap);
@@ -271,6 +275,7 @@ namespace EmpireCraft.Scripts.UI.Windows
             var nameText = row.AddTextIntoHoriLayout(name, true, TextAnchor.MiddleLeft, new Vector2(W(0), 12f));
             nameText.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
             HoverMarqueeText.Attach(nameText);
+            UIHelper.AttachTextTooltip(nameText.gameObject, $"corps_formation_{corps.id}", CorpsSystem.Name(corps), FormationTip(corps));
             AddArmCell(row, W(1), corps);
             row.AddTextIntoHoriLayout((CorpsSystem.Home(corps)?.GetCityName() ?? "—").ColorString("#C8C2B4"), true,
                 TextAnchor.MiddleLeft, new Vector2(W(2), 12f)).UseFixedFontSize(6, HorizontalWrapMode.Overflow);
@@ -321,6 +326,47 @@ namespace EmpireCraft.Scripts.UI.Windows
             button.Text.resizeTextMaxSize = 6;
             UIHelper.AttachTextTooltip(button.gameObject, $"corps_locate_{corps.id}", LM.Get("corps_locate"),
                 LM.Get("corps_locate_description"));
+        }
+
+        // 悬停军名：建制、兵源、补员、军饷、任务、指挥、不能列装的兵种、旧称，以及这个月为什么补不了员
+        private static string FormationTip(CorpsData corps)
+        {
+            FormationDef def = FormationSystem.Def(corps.formation);
+            if (def == null) return LM.Get("formation_tip_none");
+            var lines = new List<string>
+            {
+                string.Format(LM.Get("formation_tip_identity"), FormationSystem.DisplayName(def), LM.Get("formation_command_" + def.command)),
+                string.Format(LM.Get("formation_tip_source"), LM.Get("formation_source_" + def.source), Mathf.RoundToInt(def.raise * 100f)),
+                string.Format(LM.Get("formation_tip_training"), Mathf.RoundToInt(def.training * 100f), Mathf.RoundToInt(def.veteran_cap)),
+                string.Format(LM.Get("formation_tip_upkeep"), Mathf.RoundToInt(def.upkeep * 100f)),
+                string.Format(LM.Get("formation_tip_task"), LM.Get("formation_task_" + def.task))
+            };
+            if (def.denied_arms != null && def.denied_arms.Count > 0)
+                lines.Add(string.Format(LM.Get("formation_tip_denied"), string.Join(LM.Get("list_separator"), def.denied_arms
+                    .Select(arm => LM.Get("corps_arm_" + arm.ToLowerInvariant())))));
+            if (corps.former_names != null && corps.former_names.Count > 0)
+                lines.Add(string.Format(LM.Get("formation_tip_former"), string.Join(LM.Get("list_separator"), corps.former_names)));
+            string block = FormationSystem.ReinforceBlock(World.world.kingdoms.get(corps.kingdom_id), corps);
+            if (block != null) lines.Add(LM.Get(block).ColorString("#E8584F"));
+            return string.Join("\n", lines);
+        }
+
+        // 穿越政权：手动军显式整编为伏波军(旧档认不出的走这里)，人员、兵种不动，要重新整训
+        private static void AddReorganizeRow(AutoVertLayoutGroup card, float width, Kingdom kingdom)
+        {
+            CorpsData pick = FormationSystem.ReorganizeCandidates(kingdom).FirstOrDefault();
+            if (pick == null) return;
+            var row = card.BeginHoriGroup(new Vector2(width, 12f), TextAnchor.MiddleLeft, 3, new RectOffset(0, 0, 2, 0));
+            AdvancedButton button = null;
+            string target = FormationSystem.DisplayName(FormationSystem.Def(FormationSystem.Fubo));
+            button = row.AddButtonIntoHoriLayout($"corps_reorganize_{pick.id}", string.Format(LM.Get("corps_reorganize_button"), CorpsSystem.Name(pick), target), () =>
+            {
+                if (button == null || !FormationSystem.Reorganize(kingdom, pick, FormationSystem.Fubo)) return;
+                button.Text.text = CorpsSystem.Name(pick);
+                button.Button.interactable = false;
+            }, size: new Vector2(Mathf.Min(width, 200f), 10f));
+            button.Text.fontSize = 6;
+            UIHelper.AttachTextTooltip(button.gameObject, $"corps_reorganize_{pick.id}", LM.Get("corps_reorganize_title"), LM.Get("corps_reorganize_tip"));
         }
 
         private const int RaiseSeats = 5;

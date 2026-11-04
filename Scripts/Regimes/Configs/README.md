@@ -56,3 +56,34 @@
 | `partition_conquests` | 打下的法理划成行政区或分封(律令另有自己的流程；游牧要施行行省制度、古典共和要施行元首制，按特性另判) | 封建、周制、阿拉伯、幕府、律令 |
 | `keep_member_roles` | 换成这个政体时成员保留原来的外交权与选任方式；成员君主入继大统时封国传给他的子女 | 律令、周制 |
 | `partition_chance_factor` | 遗诏分治的机会倍数 | 律令 0.5、游牧 1.25、封建 1.5，其余 1 |
+
+# 军制配置(Formations.json)
+
+建制是谁组织、谁出钱、怎么补、去哪打，和兵种(`CorpsArmSystem.Arm`)分开存。`formations` 定义各建制，`regimes` 按政体把军镇类别映射到建制，`fallback` 给没写的政体。读取失败时日志记 `[军制]`，一律按默认值的常备军。
+
+建制字段(都可省略，省略即默认值，默认值与没有建制时的行为一样)：
+
+| 字段 | 默认 | 含义 |
+| --- | --- | --- |
+| `template` | `formation_template_corps` | 番号模板的语言键；`{0}` 番号、`{1}` 建制名、`{2}` 驻地城名、`{3}` 编制层级 |
+| `scope` | `formation` | 编号范围：`kingdom` 全国一套、`formation` 本建制一套、`region` 每座驻地一套 |
+| `echelons` | 无 | 按满编取层级，`below` 是上限，最后一项不写 `below`；层级随满编变，番号不变 |
+| `source` | `any` | 兵源：`any` 各城、`local` 只从驻地附近、`core` 只收本政权主体文化(花钱募的不受限) |
+| `raise` | 1 | 补员速度倍数 |
+| `training` | 1 | 新兵冲淡老兵的倍数，越大训练越差 |
+| `veteran_cap` | 100 | 老兵值上限 |
+| `upkeep` | 1 | 军饷倍数 |
+| `denied_arms` | 无 | 不能列装的兵种，写 `Arm` 的名字，不看枚举大小 |
+| `task` | `field` | `field` 野战先走、`mixed` 其次、`garrison` 最后走且不渡海 |
+| `reach` | 不限 | 只打离驻地这么多地块以内的城；受攻的城去守不受限 |
+| `command` | `central` | `local` 举国总动员、出征也不调到动员范围以外；`lord`、`tribe` 目前只用于显示 |
+
+建制名的语言键是 `formation_<id>`，三份语言文件都要有。`regimes` 的键是 `RegimeType` 的名字，四个槽位 `central`、`district`、`prefecture`、`manual`；穿越政体另有 `early`、`early_below_stage`、`merge_at_stage`，阶段不到前者时新军用 `early`，到后者时把 `early` 的部队并入 `central`，只并一次。
+
+例子：
+
+```json
+"regional_guard": { "template": "formation_template_local", "scope": "region", "source": "local", "upkeep": 0.7, "task": "garrison", "reach": 12, "command": "local" }
+```
+
+部队的 `formation` 存的是 id，切语言不改内部 id；改了 id 的旧部队找不到定义时按默认值算，番号退回旧写法。`Arm` 的存档数值固定，不能插入或重排。

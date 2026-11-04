@@ -604,11 +604,13 @@ public static class CorpsSystem
             if (parent == null)
             {
                 part.parent_id = -1L;
+                part.formation_serial = 0;
                 continue;
             }
             bool back = part.task == "reserve" && !part.embarked && Zone(part) is TileZone at && at == Home(part)?.getTile()?.zone;
             if (back || !war && part.task is not ("attack" or "defend")) Rejoin(kingdom, parent, part);
         }
+        FormationSystem.EnsureAll(kingdom, list);
         CityPopulationSystem.ArmyDoctrine doctrine = CityPopulationSystem.DoctrineOf(kingdom);
         var cities = kingdom.cities.Where(city => city != null && !city.isRekt()).ToList();
         // 各军镇的兵额(旧制军团数)。平时首都、军区首都(帝国里的各藩属王国)至少留一个军团("平时只留一名将领"，
@@ -753,13 +755,12 @@ public static class CorpsSystem
         float size = ManualSize(kingdom, home);
         int cost = ManualCost(kingdom, home);
         if (!TreasurySystem.TrySpend(kingdom, cost, TreasuryCategory.Military)) return null;
-        CorpsData corps = Raise(kingdom, home, LegionsPerCorps, size, World.world.getCurWorldTime());
+        CorpsData corps = Raise(kingdom, home, LegionsPerCorps, size, World.world.getCurWorldTime(), manual: true);
         if (corps == null)
         {
             kingdom.AddMoney(cost, TreasuryCategory.Military);
             return null;
         }
-        corps.manual = true;
         FrontSystem.Log(kingdom, string.Format(LM.Get("corps_log_manual_raised"), Name(corps), home.GetCityName(),
             ShortStrength(corps.strength)));
         return corps;
@@ -769,9 +770,8 @@ public static class CorpsSystem
     public static CorpsData RaiseLanding(Kingdom kingdom, City home, float people, CorpsArmSystem.Arm arm)
     {
         if (!Enabled || kingdom == null || home == null) return null;
-        CorpsData corps = Raise(kingdom, home, LegionsPerCorps, people, World.world.getCurWorldTime());
+        CorpsData corps = Raise(kingdom, home, LegionsPerCorps, people, World.world.getCurWorldTime(), manual: true, formation: FormationSystem.Fubo);
         if (corps == null) return null;
-        corps.manual = true;
         corps.arm = (int)arm;
         return corps;
     }
@@ -810,18 +810,22 @@ public static class CorpsSystem
         return ++data.corps_serial;
     }
 
-    private static CorpsData Raise(Kingdom kingdom, City home, int legions, float people, double now, bool militia = false)
+    private static CorpsData Raise(Kingdom kingdom, City home, int legions, float people, double now, bool militia = false,
+        bool manual = false, string formation = null, long orderId = -1L)
     {
         var corps = new CorpsData
         {
             id = HelperFunc.OverallHelperFunc.IdGenerator.NextId(), serial = militia ? 0 : NextSerial(kingdom),
             kingdom_id = kingdom.id, home_city_id = home.id, legions = Mathf.Max(1, legions), full = people,
             post = (int)CityPopulationSystem.PostOf(home, CityPopulationSystem.DoctrineOf(kingdom)),
-            zone_id = home.getTile()?.zone?.id ?? -1, raised_at = now, militia = militia
+            zone_id = home.getTile()?.zone?.id ?? -1, raised_at = now, militia = militia, manual = manual, order_id = orderId
         };
+        // 建制先定，兵源资格要看它；番号等成了军再编，成不了军不占号
+        corps.formation = formation ?? FormationSystem.Resolve(kingdom, corps);
         Reinforce(kingdom, corps, people, militia ? home : null);
         if (corps.strength < 1f) return null;
         Of(kingdom).Add(corps);
+        FormationSystem.Ensure(kingdom, corps);
         return corps;
     }
 
@@ -829,10 +833,8 @@ public static class CorpsSystem
     public static CorpsData RaiseOrderCorps(Kingdom host, City home, float people, long orderId)
     {
         if (!Enabled || host?.data == null || home?.data == null) return null;
-        CorpsData corps = Raise(host, home, Mathf.Max(1, Mathf.RoundToInt(people / CityPopulationSystem.PeoplePerLegion)),
-            people, World.world.getCurWorldTime());
-        if (corps != null) corps.order_id = orderId;
-        return corps;
+        return Raise(host, home, Mathf.Max(1, Mathf.RoundToInt(people / CityPopulationSystem.PeoplePerLegion)),
+            people, World.world.getCurWorldTime(), orderId: orderId);
     }
 
     public static void ReinforceOrderCorps(Kingdom host, CorpsData corps, float amount)
@@ -971,7 +973,8 @@ public static class CorpsSystem
         float share = amount / parent.strength;
         var part = new CorpsData
         {
-            id = HelperFunc.OverallHelperFunc.IdGenerator.NextId(), serial = NextSerial(kingdom), kingdom_id = kingdom.id,
+            id = HelperFunc.OverallHelperFunc.IdGenerator.NextId(), serial = parent.serial, kingdom_id = kingdom.id,
+            formation = parent.formation,
             home_city_id = parent.home_city_id, post = parent.post, legions = Mathf.Max(1, Mathf.RoundToInt(parent.legions * share)),
             full = amount, strength = amount, org = parent.org, task = parent.task, sector_city_id = parent.sector_city_id,
             zone_id = parent.zone_id, target_zone_id = parent.target_zone_id, raised_at = World.world.getCurWorldTime(),
@@ -1363,12 +1366,14 @@ public static class CorpsSystem
     public static void Transfer(CorpsData corps, Kingdom from, Kingdom to, City home)
     {
         if (corps == null || from == null || to == null || from == to) return;
+        string former = Name(corps);
         Of(from).Remove(corps);
         corps.kingdom_id = to.id;
         if (home != null) corps.home_city_id = home.id;
         corps.task = "reserve";
         corps.sector_city_id = -1L;
         Of(to).Add(corps);
+        FormationSystem.Reassign(to, corps, former);
         RebuildIndex();
     }
 
@@ -2080,7 +2085,7 @@ public static class CorpsSystem
 
     private static readonly string[] Digits = { "", "一", "二", "三", "四", "五", "六", "七", "八", "九" };
 
-    private static string Chinese(int number)
+    internal static string Chinese(int number)
     {
         if (number <= 0) return "〇";
         if (number < 10) return Digits[number];
@@ -2089,7 +2094,7 @@ public static class CorpsSystem
         return number.ToString();
     }
 
-    private static string Ordinal(int number)
+    internal static string Ordinal(int number)
     {
         int tens = number % 100;
         string suffix = tens is >= 11 and <= 13 ? "th" : (number % 10) switch { 1 => "st", 2 => "nd", 3 => "rd", _ => "th" };
@@ -2100,6 +2105,9 @@ public static class CorpsSystem
     {
         if (corps.militia)
             return string.Format(LM.Get("corps_name_militia"), Home(corps)?.GetCityName() ?? "");
+        // 有建制番号的按建制写(见 FormationSystem)；骑士团、旧档头一个月前退回旧写法
+        string formal = FormationSystem.Name(corps);
+        if (formal != null) return formal;
         string format = LM.Get("corps_name");
         return string.Format(format, format.StartsWith("{0}") ? Ordinal(corps.serial) : Chinese(corps.serial));
     }

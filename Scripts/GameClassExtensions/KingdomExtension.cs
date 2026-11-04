@@ -311,6 +311,8 @@ public static class KingdomExtension
         // 军团(见 CorpsSystem)与番号计数
         public List<EmpireCraft.Scripts.Data.CorpsData> corps;
         public int corps_serial;
+        // 各编号范围用到的最大番号(见 FormationSystem)：单调递增，部队解散了号也不重用
+        public Dictionary<string, int> formation_serials;
         // 舰队(见 NavySystem)与番号计数
         public List<EmpireCraft.Scripts.Data.FleetData> fleets;
         public int fleet_serial;
