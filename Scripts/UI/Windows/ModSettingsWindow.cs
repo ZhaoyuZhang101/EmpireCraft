@@ -399,6 +399,7 @@ public class ModSettingsWindow : WideScrollWindow<ModSettingsWindow>
         ModConfigItem item = Item(setting.Id);
         if (item == null) return;
         item.SetValue(on);
+        Notify(item);
         Save();
         Refresh();
     }
@@ -416,7 +417,37 @@ public class ModSettingsWindow : WideScrollWindow<ModSettingsWindow>
         value = Mathf.Clamp(value, setting.Min, setting.Max);
         if (item.TextVal == value.ToString()) return;
         item.SetValue(value.ToString());
+        Notify(item);
         Save();
+    }
+
+    // 改了值当场调这一项的回调(ConfigActions 里的)：新版加载器的 SetValue 同读配置一样只记值、不调回调(见 ModClass 启动时的
+    // ApplyCallbacks)，以前在这里改了城市扩张区域上限、各项开关，要重启才生效(用户 2026-11-04 转群友"现在城市面积上限的设置失效了")。
+    // 回调都是照值设开关、数，加载器自己也调了的再调一回无妨
+    private static void Notify(ModConfigItem item)
+    {
+        try
+        {
+            object raw = item.GetType().GetProperty("Callback")?.GetValue(item) ?? item.GetType().GetField("Callback")?.GetValue(item);
+            string callback = raw as string;
+            if (string.IsNullOrEmpty(callback)) return;
+            int split = callback.LastIndexOf(':');
+            string typeName = split > 0 ? callback.Substring(0, split) : "", methodName = split > 0 ? callback.Substring(split + 1) : callback;
+            Type type = typeName.Length == 0 || typeName == nameof(Data.ConfigActions) || typeName.EndsWith("." + nameof(Data.ConfigActions))
+                ? typeof(Data.ConfigActions)
+                : typeof(ModSettingsWindow).Assembly.GetTypes().FirstOrDefault(candidate => candidate.Name == typeName || candidate.FullName == typeName);
+            global::System.Reflection.MethodInfo method = type?.GetMethods(global::System.Reflection.BindingFlags.Public |
+                                                                          global::System.Reflection.BindingFlags.Static)
+                .FirstOrDefault(candidate => candidate.Name == methodName && candidate.GetParameters().Length == 1);
+            if (method == null) return;
+            Type parameter = method.GetParameters()[0].ParameterType;
+            if (parameter == typeof(bool)) method.Invoke(null, new object[] { item.BoolVal });
+            else if (parameter == typeof(string)) method.Invoke(null, new object[] { item.TextVal });
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft][设置] 调回调失败: {exception.Message}");
+        }
     }
 
     private IEnumerator RefreshNextFrame()
@@ -439,10 +470,17 @@ public class ModSettingsWindow : WideScrollWindow<ModSettingsWindow>
             ModConfigItem item = Item(setting.Id);
             if (setting.Kind == Kind.Switch)
             {
-                if (item.BoolVal != setting.DefaultOn) item.SetValue(setting.DefaultOn);
+                if (item.BoolVal != setting.DefaultOn)
+                {
+                    item.SetValue(setting.DefaultOn);
+                    Notify(item);
+                }
             }
             else if (item.TextVal != setting.DefaultValue.ToString())
+            {
                 item.SetValue(setting.DefaultValue.ToString());
+                Notify(item);
+            }
         }
         Save();
         Refresh();

@@ -1,7 +1,7 @@
 {
     "name": "Western",
     "color": "#4A6FA5",
-    "translate_cz": "西方",
+    "translate_cz": "剑与魔法",
     "setting": {
         "regime": "ClassicalRepublic",
         "institution_line": "Roma",
@@ -49,7 +49,7 @@
                 "group_3": "\u200A",
                 "group_4": "CityNames3"
             },
-            "rule": [ "group_1", "group_2", "group_3", "group_4" ],
+            "rule": [ "group_1", "group_2", "divider", "group_4" ],
             "name_pos": 0
         },
         "Clan": {

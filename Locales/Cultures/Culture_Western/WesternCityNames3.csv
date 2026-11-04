@@ -1,4 +1,675 @@
 key,cz,en,ch
-western_city3_city,城,City,城
-western_city3_castle,堡,Castle,堡
-western_city3_territory,领,Territory,领
+western_city_1,寂静平原,Silent Plain,寂靜平原
+western_city_2,绿溪,Green Stream,綠溪
+western_city_3,晨雾,Morning Mist,晨霧
+western_city_4,白羽,White Feather,白羽
+western_city_5,石丘,Stone Hill,石丘
+western_city_6,落松,Falling Pine,落松
+western_city_7,金雀,Golden Sparrow,金雀
+western_city_8,风铃,Wind Bell,風鈴
+western_city_9,银露,Silver Dew,銀露
+western_city_10,杉木,Cedar Wood,杉木
+western_city_11,鸦啼,Crow Caw,鴉啼
+western_city_12,古树,Ancient Tree,古樹
+western_city_13,幽泉,Secluded Spring,幽泉
+western_city_14,苍叶,Pale Leaf,蒼葉
+western_city_15,暮风,Dusk Wind,暮風
+western_city_16,岩岭,Rock Ridge,岩嶺
+western_city_17,雨鹿,Rain Deer,雨鹿
+western_city_18,晨歌,Morning Song,晨歌
+western_city_19,麦穗,Wheat Ear,麥穗
+western_city_20,碧泉,Green Spring,碧泉
+western_city_21,翠藤,Emerald Vine,翠藤
+western_city_22,灰石,Grey Stone,灰石
+western_city_23,月光,Moonlight,月光
+western_city_24,青湖,Blue Lake,青湖
+western_city_25,雾谷,Fog Valley,霧谷
+western_city_26,风歌,Wind Song,風歌
+western_city_27,苍岭,Pale Ridge,蒼嶺
+western_city_28,赤丘,Red Hill,赤丘
+western_city_29,松影,Pine Shadow,松影
+western_city_30,夜莺,Nightingale,夜鶯
+western_city_31,铁铃,Iron Bell,鐵鈴
+western_city_32,长溪,Long Stream,長溪
+western_city_33,金橡,Golden Oak,金橡
+western_city_34,落羽,Falling Feather,落羽
+western_city_35,霜露,Frost Dew,霜露
+western_city_36,雷泉,Thunder Spring,雷泉
+western_city_37,影树,Shadow Tree,影樹
+western_city_38,青雀,Blue Sparrow,青雀
+western_city_39,暮云,Dusk Cloud,暮雲
+western_city_40,星辉,Starlight,星輝
+western_city_41,远歌,Distant Song,遠歌
+western_city_42,白塔,White Tower,白塔
+western_city_43,王冠,Crown,王冠
+western_city_44,远星,Distant Star,遠星
+western_city_45,黄金,Golden,黃金
+western_city_46,雷鸣,Thunder,雷鳴
+western_city_47,晨曦,Dawn,晨曦
+western_city_48,落霞,Sunset Glow,落霞
+western_city_49,古,Ancient Castle,古
+western_city_50,风吟,Wind Chant,風吟
+western_city_51,银湾,Silver Bay,銀灣
+western_city_52,赤焰,Red Flame,赤焰
+western_city_53,圣泉,Holy Spring,聖泉
+western_city_54,铁壁,Iron Wall,鐵壁
+western_city_55,日曜,Sun Shine,日曜
+western_city_56,暮雪,Dusk Snow,暮雪
+western_city_57,长川,Long River,長川
+western_city_58,流光,Flowing Light,流光
+western_city_59,白焰,White Flame,白焰
+western_city_60,战旗,War Banner,戰旗
+western_city_61,天幕,Canopy,天幕
+western_city_62,风暴,Storm,風暴
+western_city_63,石拳,Stone Fist,石拳
+western_city_64,霜铁,Frost Iron,霜鐵
+western_city_65,雷霆,Thunder,雷霆
+western_city_66,赤山,Red Mountain,赤山
+western_city_67,黑岩,Black Rock,黑岩
+western_city_68,龙骨,Dragon Bone,龍骨
+western_city_69,暮霭,Dusk Mist,暮靄
+western_city_70,血月,Blood Moon,血月
+western_city_71,铁心,Iron Heart,鐵心
+western_city_72,烈阳,Blazing Sun,烈陽
+western_city_73,灰狼,Grey Wolf,灰狼
+western_city_74,圣盾,Holy Shield,聖盾
+western_city_75,破晓,Dawn,破曉
+western_city_76,深渊,Abyss,深淵
+western_city_77,落羽,Falling Feather,落羽
+western_city_78,寒影,Cold Shadow,寒影
+western_city_79,云峰,Cloud Peak,雲峰
+western_city_80,冰川,Glacier,冰川
+western_city_81,雄鹰,Eagle,雄鷹
+western_city_82,风语平原,Wind Whisper Plain,風語平原
+western_city_83,断崖谷,Cliff Valley,斷崖谷
+western_city_84,黑森林,Black Forest,黑森林
+western_city_85,龙息荒原,Dragon Breath Wasteland,龍息荒原
+western_city_86,星落丘陵,Star Fall Hills,星落丘陵
+western_city_87,落雪山脉,Falling Snow Mountains,落雪山脈
+western_city_88,赤焰荒野,Red Flame Wilderness,赤焰荒野
+western_city_89,铁杉岭,Iron Hemlock Ridge,鐵杉嶺
+western_city_90,云雾峰,Cloud Mist Peak,雲霧峰
+western_city_91,圣泉盆地,Holy Spring Basin,聖泉盆地
+western_city_92,孤影峡谷,Lone Shadow Valley,孤影峽谷
+western_city_93,雷霆山,Thunder Mountain,雷霆山
+western_city_94,晨曦河谷,Dawn River Valley,晨曦河谷
+western_city_95,落霞湖,Sunset Glow Lake,落霞湖
+western_city_96,银弓平原,Silver Bow Plain,銀弓平原
+western_city_97,赤峰丘陵,Red Peak Hills,赤峰丘陵
+western_city_98,隐雾密林,Hidden Mist Forest,隱霧密林
+western_city_99,黄金平原,Golden Plain,黃金平原
+western_city_100,北境荒野,North Wilderness,北境荒野
+western_city_101,荣耀之冠,Glory Crown,榮耀之冠
+western_city_102,王者,King,王者
+western_city_103,荣耀,Glory,榮耀
+western_city_104,铁盾,Iron Shield,鐵盾
+western_city_105,白银,Silver,白銀
+western_city_106,骑士广场,Knight Square,騎士廣場
+western_city_107,圣光,Holy Light,聖光
+western_city_108,金冠庄园,Golden Crown Manor,金冠莊園
+western_city_109,勇士之路,Warrior Path,勇士之路
+western_city_110,魔法学院,Magic Academy,魔法學院
+western_city_111,星辰钟楼,Star Clock Tower,星辰鐘樓
+western_city_112,贸易码头,Trader Dock,貿易碼頭
+western_city_113,风车,Windmill,風車
+western_city_114,石桥,Stone Bridge,石橋
+western_city_115,誓言石,Oath Stone,誓言石
+western_city_116,王权之座,Throne Of Kings,王權之座
+western_city_117,光辉殿堂,Brilliant Hall,光輝殿堂
+western_city_118,荣耀之路,Glory Road,榮耀之路
+western_city_119,智慧之塔,Wisdom Tower,智慧之塔
+western_city_120,自由港,Freeport,自由港
+western_city_121,布兰德里,Brandy,布蘭德里
+western_city_122,索尔滕,Solton,索爾滕
+western_city_123,米尔霍姆,Milholm,米爾霍姆
+western_city_124,贝尔温,Bellwin,貝爾溫
+western_city_125,格里姆维克,Grimvik,格里姆維克
+western_city_126,艾尔斯福德,Elsford,艾爾斯福德
+western_city_127,洛森贝尔,Rosenbell,洛森貝爾
+western_city_128,霍登斯托,Holdensto,霍登斯托
+western_city_129,温彻里,Winchely,溫徹里
+western_city_130,雷恩维克,Rennvik,雷恩維克
+western_city_131,梅里桑,Merisang,梅里桑
+western_city_132,塔兰维尔,Talanville,塔蘭維爾
+western_city_133,费尔斯顿,Fearstone,費爾斯頓
+western_city_134,德林霍尔,Dellinhall,德林霍爾
+western_city_135,希尔布鲁克,Hillbrook,希爾布魯克
+western_city_136,罗森达尔,Rosendahl,羅森達爾
+western_city_137,格洛夫兰,Gloverland,格洛夫蘭
+western_city_138,埃尔顿,Elton,埃爾頓
+western_city_139,雷文瑞斯,Ravenrise,雷文瑞斯
+western_city_140,维尔茨,Wertz,維爾茨
+western_city_141,布莱伍德,Brywood,布萊伍德
+western_city_142,斯通克里克,Stonecreek,斯通克里克
+western_city_143,黑荆,Blackthorn,黑荊
+western_city_144,艾尔达林,Eldarin,艾爾達林
+western_city_145,诺瑟伍德,Northerwood,諾瑟伍德
+western_city_146,林登瓦,Lindenwa,林登瓦
+western_city_147,布莱梅尔,Brymel,布萊梅爾
+western_city_148,古塔雷,Gutare,古塔雷
+western_city_149,霜石,Froststone,霜石
+western_city_150,霍尔默,Holmer,霍爾默
+western_city_151,洛克斯福德,Roxford,洛克斯福德
+western_city_152,希尔克雷斯特,Hillcrest,希爾克雷斯特
+western_city_153,维斯特林,Westling,維斯特林
+western_city_154,瑞弗尔,Riverfall,瑞弗爾
+western_city_155,格林洛克,Greenlock,格林洛克
+western_city_156,奥克森,Oxen,奧克森
+western_city_157,白水,Whitewater,白水
+western_city_158,洛瑟维克,Rosevik,洛瑟維克
+western_city_159,达文霍尔,Davenhall,達文霍爾
+western_city_160,赫尔斯滕,Holsten,赫爾斯滕
+western_city_161,晨曦,Dawn,晨曦
+western_city_162,东风,East Wind,東風
+western_city_163,费林布鲁克,Faringbrook,費林布魯克
+western_city_164,布雷登瓦尔,Bradenwall,布雷登瓦爾
+western_city_165,北崖,North Cliff,北崖
+western_city_166,塔里恩,Tarian,塔里恩
+western_city_167,朗福德,Longford,朗福德
+western_city_168,银杉,Silver Fir,銀杉
+western_city_169,埃瑟里克,Etheric,埃瑟里克
+western_city_170,梅维尔,Mayville,梅維爾
+western_city_171,苍松,Pine,蒼松
+western_city_172,奥尔韦克,Orwick,奧爾韋克
+western_city_173,铁丘,Iron Hill,鐵丘
+western_city_174,雷格纳,Regnar,雷格納
+western_city_175,格洛克森,Grockson,格洛克森
+western_city_176,哈文里,Havenly,哈文里
+western_city_177,艾恩斯顿,Ironstone,艾恩斯頓
+western_city_178,月溪,Moonstream,月溪
+western_city_179,高塔,High Tower,高塔
+western_city_180,风息,Windrest,風息
+western_city_181,黑石,Blackstone,黑石
+western_city_182,希达里克,Hydaric,希達里克
+western_city_183,格瑞斯维克,Gracevik,格瑞斯維克
+western_city_184,赤峰,Red Peak,赤峰
+western_city_185,绿藤,Green Vine,綠藤
+western_city_186,蒙特维尔,Montville,蒙特維爾
+western_city_187,雾泉,Fog Spring,霧泉
+western_city_188,布莱索姆,Brysome,布萊索姆
+western_city_189,霜谷,Frost Valley,霜谷
+western_city_190,银川,Silver River,銀川
+western_city_191,阿德里奇,Adrich,阿德里奇
+western_city_192,寂静岭,Silent Hill,寂靜嶺
+western_city_193,塔格兰,Tagran,塔格蘭
+western_city_194,雷文布鲁克,Ravenbrook,雷文布魯克
+western_city_195,瑟文霍尔,Sevenhall,瑟文霍爾
+western_city_196,晨星,Morning Star,晨星
+western_city_197,霍克斯通,Hawkstone,霍克斯通
+western_city_198,戈德里克,Godric,戈德里克
+western_city_199,松林,Pine Forest,松林
+western_city_200,怀特里,Whitely,懷特里
+western_city_201,风铃,Wind Bell,風鈴
+western_city_202,拉克斯顿,Laxton,拉克斯頓
+western_city_203,赤焰,Red Flame,赤焰
+western_city_204,瓦伦,Warren,瓦倫
+western_city_205,德林斯维尔,Dellinsville,德林斯維爾
+western_city_206,艾维森,Ivison,艾維森
+western_city_207,影雾,Shadow Mist,影霧
+western_city_208,西溪,West Stream,西溪
+western_city_209,落霞,Sunset Glow,落霞
+western_city_210,贝尔沃德,Bellward,貝爾沃德
+western_city_211,雷霆,Thunder,雷霆
+western_city_212,莫格里斯,Morgris,莫格里斯
+western_city_213,水晶湖,Crystal Lake,水晶湖
+western_city_214,灰崖,Grey Cliff,灰崖
+western_city_215,北杉,North Fir,北杉
+western_city_216,布雷克希尔,Blackhill,布雷克希爾
+western_city_217,铁冠,Iron Crown,鐵冠
+western_city_218,斯通里奇,Stonebridge,斯通里奇
+western_city_219,艾本福德,Ebenford,艾本福德
+western_city_220,晨曦,Dawn,晨曦
+western_city_221,龙息,Dragon Breath,龍息
+western_city_222,风暴崖,Storm Cliff,風暴崖
+western_city_223,翠羽,Emerald Feather,翠羽
+western_city_224,洛德斯特,Lordest,洛德斯特
+western_city_225,灰雾,Grey Mist,灰霧
+western_city_226,寂光,Silent Light,寂光
+western_city_227,苍鹭,Grey Heron,蒼鷺
+western_city_228,瑞文克里夫,Ravencliff,瑞文克里夫
+western_city_229,希望之丘,Hope Hill,希望之丘
+western_city_230,黎明之门,Dawn Gate,黎明之門
+western_city_231,钢铁,Steel,鋼鐵
+western_city_232,风之领域,Wind Realm,風之領域
+western_city_233,灰烬之地,Ash Land,灰燼之地
+western_city_234,龙息谷,Dragon Breath Valley,龍息谷
+western_city_235,魔法之塔,Magic Tower,魔法之塔
+western_city_236,永恒之森,Eternal Forest,永恆之森
+western_city_237,遗忘,Forbidden,遺忘
+western_city_238,时光之河,Time River,時光之河
+western_city_239,星辰之渊,Star Abyss,星辰之淵
+western_city_240,暗影之境,Shadow Realm,暗影之境
+western_city_241,勇士之峰,Warrior Peak,勇士之峰
+western_city_242,神秘之岛,Mystic Island,神秘之島
+western_city_243,灵魂之井,Soul Well,靈魂之井
+western_city_244,守护者,Guardian,守護者
+western_city_245,魔法师之谷,Mage Valley,魔法師之谷
+western_city_246,巫师之塔,Wizard Tower,巫師之塔
+western_city_247,炼金,Alchemy,煉金
+western_city_248,秘术之域,Arcane Domain,秘術之域
+western_city_249,符文之地,Rune Land,符文之地
+western_city_250,魔法之源,Magic Source,魔法之源
+western_city_251,龙翼,Dragon Wing,龍翼
+western_city_252,风暴之巅,Storm Peak,風暴之巔
+western_city_253,冰封,Icebound,冰封
+western_city_254,火焰之域,Fire Domain,火焰之域
+western_city_255,雷霆之谷,Thunder Valley,雷霆之谷
+western_city_256,深渊,Abyss,深淵
+western_city_257,幽暗之地,Gloomy Land,幽暗之地
+western_city_258,诅咒之森,Cursed Forest,詛咒之森
+western_city_259,亡灵之墓,Undead Tomb,亡靈之墓
+western_city_260,恶魔之渊,Demon Abyss,惡魔之淵
+western_city_261,圣光,Holy Light,聖光
+western_city_262,神谕之厅,Oracle Hall,神諭之廳
+western_city_263,信仰之殿,Faith Temple,信仰之殿
+western_city_264,光明之境,Light Realm,光明之境
+western_city_265,神圣之谷,Sacred Valley,神聖之谷
+western_city_266,神迹,Divine,神蹟
+western_city_267,天使之翼,Angel Wing,天使之翼
+western_city_268,圣洁之域,Pure Domain,聖潔之域
+western_city_269,神恩之港,Divine Favor Harbor,神恩之港
+western_city_270,神佑,God Blessed,神佑
+western_city_271,神话,Myth,神話
+western_city_272,传说,Legend,傳說
+western_city_273,史诗,Epic,史詩
+western_city_274,英雄之门,Hero Gate,英雄之門
+western_city_275,勇士之厅,Warrior Hall,勇士之廳
+western_city_276,冒险者之家,Adventurer Home,冒險者之家
+western_city_277,荣耀之厅,Glory Hall,榮耀之廳
+western_city_278,胜利,Victory,勝利
+western_city_279,凯旋之门,Triumph Gate,凱旋之門
+western_city_280,荣耀之路,Glory Road,榮耀之路
+western_city_281,时光,Time,時光
+western_city_282,岁月,Age,歲月
+western_city_283,历史,History,歷史
+western_city_284,文明之谷,Civilization Valley,文明之谷
+western_city_285,知识,Knowledge,知識
+western_city_286,智慧之塔,Wisdom Tower,智慧之塔
+western_city_287,学术之院,Academy Institute,學術之院
+western_city_288,学者之街,Scholar Street,學者之街
+western_city_289,历史之馆,History Museum,歷史之館
+western_city_290,文化,Culture,文化
+western_city_291,命运之轮,Wheel Of Fate,命運之輪
+western_city_292,宿命,Destiny,宿命
+western_city_293,预言之谷,Prophecy Valley,預言之谷
+western_city_294,占卜,Divination,占卜
+western_city_295,星辰之眼,Star Eye,星辰之眼
+western_city_296,月亮之门,Moon Gate,月亮之門
+western_city_297,太阳,Sun,太陽
+western_city_298,星辰之塔,Star Tower,星辰之塔
+western_city_299,星界,Astral,星界
+western_city_300,星辰港,Star Harbor,星辰港
+western_city_301,梦境,Dream,夢境之
+western_city_302,幻想之域,Fantasy Domain,幻想之域
+western_city_303,幻境之谷,Illusion Valley,幻境之谷
+western_city_304,梦境之门,Dream Gate,夢境之門
+western_city_305,幻象,Illusion,幻象
+western_city_306,幻影,Phantom,幻影
+western_city_307,梦境之街,Dream Street,夢境之街
+western_city_308,幻想之港,Fantasy Harbor,幻想之港
+western_city_309,幻境,Illusion,幻境
+western_city_310,梦境,Dream,夢境
+western_city_311,魔法之光,Magic Light,魔法之光
+western_city_312,魔导,Magus,魔導
+western_city_313,魔法之泉,Magic Spring,魔法之泉
+western_city_314,魔导师之塔,Magister Tower,魔導師之塔
+western_city_315,魔法之森,Magic Forest,魔法之森
+western_city_316,魔法之谷,Magic Valley,魔法之谷
+western_city_317,魔法之河,Magic River,魔法之河
+western_city_318,魔法之峰,Magic Peak,魔法之峰
+western_city_319,魔法之街,Magic Street,魔法之街
+western_city_320,魔法之境,Magic Realm,魔法之境
+western_city_321,神秘之森,Mystic Forest,神秘之森
+western_city_322,神秘,Mystic,神秘
+western_city_323,神秘之谷,Mystic Valley,神秘之谷
+western_city_324,神秘之河,Mystic River,神秘之河
+western_city_325,神秘之峰,Mystic Peak,神秘之峰
+western_city_326,神秘之街,Mystic Street,神秘之街
+western_city_327,神秘之境,Mystic Realm,神秘之境
+western_city_328,神秘之塔,Mystic Tower,神秘之塔
+western_city_329,神秘之域,Mystic Domain,神秘之域
+western_city_330,神秘之港,Mystic Harbor,神秘之港
+western_city_331,曙光,Dawn,曙光
+western_city_332,星落,Starfall,星落
+western_city_333,永夜,Eternal Night,永夜
+western_city_334,白银,Silver,白銀
+western_city_335,暗月,Dark Moon,暗月
+western_city_336,烁金,Gleaming Gold,爍金
+western_city_337,神圣,Sacred,神聖
+western_city_338,狂风,Gale,狂風
+western_city_339,血焰,Blood Flame,血焰
+western_city_340,夜幕,Nightfall,夜幕
+western_city_341,圣堂,Sanctum,聖堂
+western_city_342,烈日,Scorching Sun,烈日
+western_city_343,星河,Starry River,星河
+western_city_344,晨曦,Dawnbreak,晨曦
+western_city_345,星辉港,Starlight Harbor,星輝港
+western_city_346,烈阳谷,Blazing Sun Valley,烈陽谷
+western_city_347,暗影,Shadow,暗影
+western_city_348,霜月,Frost Moon,霜月
+western_city_349,烈焰,Blazing,烈焰
+western_city_350,苍穹,Vault,蒼穹
+western_city_351,银影都,Silver Shadow,銀影都
+western_city_352,红莲,Crimson Lotus,紅蓮
+western_city_353,风暴街,Storm Street,風暴街
+western_city_354,圣火乡,Sacred Fireship,聖火鄉
+western_city_355,黑石巢,Black Stone Nest,黑石巢
+western_city_356,白龙湾,White Dragon Bay,白龍灣
+western_city_357,神秘塔,Mystic Tower,神秘塔
+western_city_358,星辰市,Star,星辰市
+western_city_359,苍狼丘,Grey Wolf Hill,蒼狼丘
+western_city_360,烈日丘,Scorching Sun Hill,烈日丘
+western_city_361,霜火,Frost Fire,霜火
+western_city_362,圣银,Holy Silver,聖銀
+western_city_363,炎龙街,Fire Dragon Street,炎龍街
+western_city_364,破晓,Dawnbreak,破曉
+western_city_365,青铜港,Bronze Harbor,青銅港
+western_city_366,魔翼,Demon Wing,魔翼
+western_city_367,霞光苑,Rosy Glow Garden,霞光苑
+western_city_368,暮光,Twilight,暮光
+western_city_369,钢铁,Steel,鋼鐵
+western_city_370,荣耀,Glory Keep,榮耀
+western_city_371,苍雷,Grey Thunder,蒼雷
+western_city_372,白鹰谷,White Eagle Valley,白鷹谷
+western_city_373,灰雾岛,Grey Mist Island,灰霧島
+western_city_374,神圣,Sacred,神聖
+western_city_375,银月,Silver Moon,銀月
+western_city_376,光明,Light,光明
+western_city_377,烈光,Blazing Light,烈光
+western_city_378,影,Shadow,影
+western_city_379,星云,Nebula,星雲
+western_city_380,烈焰林,Blazing Flame Forest,烈焰林
+western_city_381,霜影山,Frost Shadow Mountain,霜影山
+western_city_382,风之谷,Wind Valley,風之谷
+western_city_383,暗星乡,Dark Starship,暗星鄉
+western_city_384,雷霆,Thunder Keep,雷霆
+western_city_385,星辰丘,Star Hill,星辰丘
+western_city_386,圣歌,Holy Song,聖歌
+western_city_387,火羽,Fire Feather,火羽
+western_city_388,幽冥,Nether,幽冥
+western_city_389,白光,White Light,白光
+western_city_390,赤血街,Crimson Blood Street,赤血街
+western_city_391,暗夜,Night,暗夜
+western_city_392,光辉港,Brilliant Harbor,光輝港
+western_city_393,幽影,Ghost Shadow,幽影
+western_city_394,荣耀谷,Glory Valley,榮耀谷
+western_city_395,苍星湾,Pale Star Bay,蒼星灣
+western_city_396,火焰,Flame,火焰
+western_city_397,灵魂,Soul,靈魂
+western_city_398,破碎岛,Shattered Island,破碎島
+western_city_399,白骨,White Bone,白骨
+western_city_400,暗影,Shadow,暗影
+western_city_401,赤焰都,Red Flame,赤焰都
+western_city_402,星辉乡,Starlightship,星輝鄉
+western_city_403,苍穹塔,Vault Tower,蒼穹塔
+western_city_404,圣银岛,Holy Silver Island,聖銀島
+western_city_405,幽灵,Ghost,幽靈
+western_city_406,青空,Blue Sky,青空
+western_city_407,暴风港,Storm Harbor,暴風港
+western_city_408,霜寒,Frost Chill,霜寒
+western_city_409,白月丘,White Moon Hill,白月丘
+western_city_410,天神,God,天神
+western_city_411,炎影,Fire Shadow,炎影
+western_city_412,破晓,Dawnbreak,破曉
+western_city_413,风之歌,Wind Song,風之歌
+western_city_414,霜银,Frost Silver,霜銀
+western_city_415,苍鹰,Grey Eagle,蒼鷹
+western_city_416,荣耀,Glory,榮耀
+western_city_417,烈火乡,Blazing Fireship,烈火鄉
+western_city_418,银星,Silver Star,銀星
+western_city_419,神秘,Mystic,神秘
+western_city_420,碧空,Blue Sky,碧空
+western_city_421,龙焰,Dragon Flame,龍焰
+western_city_422,铁血,Iron Blood,鐵血
+western_city_423,幽灵湾,Ghost Bay,幽靈灣
+western_city_424,明亮街,Bright Street,明亮街
+western_city_425,龙息,Dragon Breath,龍息
+western_city_426,暗影,Shadow Keep,暗影
+western_city_427,灰烬,Ash,灰燼
+western_city_428,暴雷,Storm Thunder,暴雷
+western_city_429,银霜,Silver Frost,銀霜
+western_city_430,黎明,Dawn,黎明
+western_city_431,绝境,Desperate,絕境
+western_city_432,天启,Apocalypse,天啟
+western_city_433,暗星,Dark Star,暗星
+western_city_434,狼魂,Wolf Spirit,狼魂
+western_city_435,苍月,Pale Moon,蒼月
+western_city_436,灼光,Blazing Light,灼光
+western_city_437,深渊,Abyss,深淵
+western_city_438,净魂,Pure Soul,淨魂
+western_city_439,光辉,Brilliant,光輝
+western_city_440,远航,Voyage,遠航
+western_city_441,冰狱,Ice Prison,冰獄
+western_city_442,红石,Red Stone,紅石
+western_city_443,霜语,Frost Whisper,霜語
+western_city_444,狱火,Prison Fire,獄火
+western_city_445,暗鸦,Dark Crow,暗鴉
+western_city_446,幻梦,Dream,幻夢
+western_city_447,暴雪,Blizzard,暴雪
+western_city_448,狂啸,Howling,狂嘯
+western_city_449,落羽,Falling Feather,落羽
+western_city_450,陨星,Falling Star,隕星
+western_city_451,破灭,Ruin,破滅
+western_city_452,雷狱,Thunder Prison,雷獄
+western_city_453,星陨,Starfall,星隕
+western_city_454,银翼,Silver Wing,銀翼
+western_city_455,烁灵,Gleaming Spirit,爍靈
+western_city_456,白塔,White Tower,白塔
+western_city_457,封印,Seal,封印
+western_city_458,寂灭,Silent Extinction,寂滅
+western_city_459,星骸,Star Skeleton,星骸
+western_city_460,夜语,Night Whisper,夜語
+western_city_461,冰心,Ice Heart,冰心
+western_city_462,暗潮,Dark Tide,暗潮
+western_city_463,烈风,Gale Wind,烈風
+western_city_464,曼陀,Mandrake,曼陀
+western_city_465,诅咒,Curse,詛咒
+western_city_466,寂光,Silent Light,寂光
+western_city_467,圣辉,Sacred Brilliance,聖輝
+western_city_468,夜魅,Night Charm,夜魅
+western_city_469,龙鳞,Dragon Scale,龍鱗
+western_city_470,光陨,Light Fall,光隕
+western_city_471,焚世,World Burn,焚世
+western_city_472,蛇息,Serpent Breath,蛇息
+western_city_473,魔灵,Demon Spirit,魔靈
+western_city_474,幽光,Gloomy Light,幽光
+western_city_475,禁忌,Forbidden,禁忌
+western_city_476,圣冕,Holy Crown,聖冕
+western_city_477,极光,Aurora,極光
+western_city_478,狂魂,Frenzied Soul,狂魂
+western_city_479,流焰,Flowing Flame,流焰
+western_city_480,虚空,Void,虛空
+western_city_481,辉耀,Brilliant Glory,輝耀
+western_city_482,烬土,Ash Land,燼土
+western_city_483,罪痕,Sin Mark,罪痕
+western_city_484,邪月,Evil Moon,邪月
+western_city_485,魂影,Soul Shadow,魂影
+western_city_486,暗流,Undercurrent,暗流
+western_city_487,圣盾,Holy Shield,聖盾
+western_city_488,沧澜,Canglan,滄瀾
+western_city_489,永恒,Eternal,永恆
+western_city_490,苍魂,Pale Soul,蒼魂
+western_city_491,堕落,Fallen,墮落
+western_city_492,白羽,White Feather,白羽
+western_city_493,银川,Silver River,銀川
+western_city_494,蛇骨,Serpent Bone,蛇骨
+western_city_495,狂战,Berserker,狂戰
+western_city_496,日珥,Solar Flare,日珥
+western_city_497,净光,Pure Light,淨光
+western_city_498,暗翼,Dark Wing,暗翼
+western_city_499,狂月,Frenzied Moon,狂月
+western_city_500,虚灵,Void Spirit,虛靈
+western_city_501,诡影,Deceptive Shadow,詭影
+western_city_502,毁灭,Destruction,毀滅
+western_city_503,炽羽,Blazing Feather,熾羽
+western_city_504,幻影,Phantom,幻影
+western_city_505,圣雪,Holy Snow,聖雪
+western_city_506,星夜,Starry Night,星夜
+western_city_507,烬空,Ash Sky,燼空
+western_city_508,风暴之巅,Storm Peak,風暴之巔
+western_city_509,碧海港,Azure Sea Harbor,碧海港
+western_city_510,迷雾,Mist,迷霧
+western_city_511,影刃,Shadow Blade,影刃
+western_city_512,碎石,Crushed Stone,碎石
+western_city_513,远征港,Expedition Harbor,遠征港
+western_city_514,龙焰市,Dragon Flame,龍焰市
+western_city_515,钢铁之心,Steel Heart,鋼鐵之心
+western_city_516,晨曦之光,Dawn Light,晨曦之光
+western_city_517,黑曜,Obsidian,黑曜
+western_city_518,银沙,Silver Sand,銀沙
+western_city_519,星火,Star Fire,星火
+western_city_520,破晓市,Dawnbreak,破曉市
+western_city_521,远古港,Ancient Harbor,遠古港
+western_city_522,幽泉,Secluded Spring,幽泉
+western_city_523,铁壁,Iron Wall,鐵壁
+western_city_524,烈阳港,Blazing Sun Harbor,烈陽港
+western_city_525,幻影之门,Phantom Gate,幻影之門
+western_city_526,苍穹市,Vault,蒼穹市
+western_city_527,砂岩,Sandstone,砂岩
+western_city_528,冬狼,Winter Wolf,冬狼
+western_city_529,影翼,Shadow Wing,影翼
+western_city_530,雷鸣港,Thunder Harbor,雷鳴港
+western_city_531,绿洲,Oasis,綠洲
+western_city_532,破浪市,Wave Breaker,破浪市
+western_city_533,赤焰,Red Flame,赤焰
+western_city_534,浮空,Floating,浮空
+western_city_535,逐风港,Wind Chase Harbor,逐風港
+western_city_536,霜刃市,Frost Blade,霜刃市
+western_city_537,晨星,Morning Star,晨星
+western_city_538,暗影之谷,Shadow Valley,暗影之谷
+western_city_539,远航,Voyage,遠航
+western_city_540,烈风,Gale Wind,烈風
+western_city_541,银翼市,Silver Wing,銀翼市
+western_city_542,星辰之眼,Star Eye,星辰之眼
+western_city_543,赤月港,Red Moon Harbor,赤月港
+western_city_544,暴风,Stormwind,暴風
+western_city_545,碧波市,Azure Wave,碧波市
+western_city_546,迷踪,Mysterious Trail,迷蹤
+western_city_547,幽影之巢,Shadow Nest,幽影之巢
+western_city_548,石峰,Stone Peak,石峰
+western_city_549,远星港,Distant Star Harbor,遠星港
+western_city_550,龙骨市,Dragon Bone,龍骨市
+western_city_551,钢羽,Steel Feather,鋼羽
+western_city_552,晨曦,Dawn,晨曦
+western_city_553,暗月港,Dark Moon Harbor,暗月港
+western_city_554,银蹄市,Silver Hoof,銀蹄市
+western_city_555,星火,Star Fire,星火
+western_city_556,破碎之地,Shattered Land,破碎之地
+western_city_557,远行,Journey,遠行
+western_city_558,幽谷,Secluded Valley,幽谷
+western_city_559,铁锤港,Iron Hammer Harbor,鐵鎚港
+western_city_560,烈火市,Blazing Fire,烈火市
+western_city_561,幻影,Phantom,幻影
+western_city_562,苍狼港,Grey Wolf Harbor,蒼狼港
+western_city_563,砂砾市,Gravel,砂礫市
+western_city_564,冬日,Winter,冬日
+western_city_565,影歌,Shadow Song,影歌
+western_city_566,雷霆市,Thunder,雷霆市
+western_city_567,绿林港,Green Forest Harbor,綠林港
+western_city_568,破,Broken Castle,破
+western_city_569,赤石,Red Stone,赤石
+western_city_570,浮影港,Floating Shadow Harbor,浮影港
+western_city_571,逐浪市,Wave Chaser,逐浪市
+western_city_572,霜狼,Frost Wolf,霜狼
+western_city_573,晨风,Morning Wind,晨風
+western_city_574,暗影,Shadow,暗影
+western_city_575,远望港,Lookout Harbor,遠望港
+western_city_576,烈焰,Blazing Flame,烈焰
+western_city_577,银光市,Silver Light,銀光市
+western_city_578,霜铁,Frost Iron,霜鐵
+western_city_579,石溪,Stone Stream,石溪
+western_city_580,长风,Long Wind,長風
+western_city_581,塔恩霍尔,Tarnhall,塔恩霍爾
+western_city_582,格里芬,Griffin,格里芬
+western_city_583,艾尔贝里,Elberry,艾爾貝里
+western_city_584,晨雾,Morning Mist,晨霧
+western_city_585,远星,Distant Star,遠星
+western_city_586,维克兰,Viklan,維克蘭
+western_city_587,落日,Sunset,落日
+western_city_588,星辉,Starlight,星輝
+western_city_589,铁杉,Iron Hemlock,鐵杉
+western_city_590,风语,Wind Whisper,風語
+western_city_591,翡翠溪,Emerald Stream,翡翠溪
+western_city_592,苍狼,Grey Wolf,蒼狼
+western_city_593,晨曦港,Dawn Harbor,晨曦港
+western_city_594,雷洛克,Rellock,雷洛克
+western_city_595,黑岩,Black Rock,黑岩
+western_city_596,银泉,Silver Spring,銀泉
+western_city_597,圣光,Holy Light,聖光
+western_city_598,黄金岭,Golden Ridge,黃金嶺
+western_city_599,白羽,White Feather,白羽
+western_city_600,北境,North,北境
+western_city_601,晨风,Morning Wind,晨風
+western_city_602,远川,Distant River,遠川
+western_city_603,落松,Falling Pine,落松
+western_city_604,赤焰,Red Flame,赤焰
+western_city_605,云雾,Cloud Mist,雲霧
+western_city_606,狂澜,Raging Wave,狂瀾
+western_city_607,落雪,Falling Snow,落雪
+western_city_608,影风,Shadow Wind,影風
+western_city_609,白橡,White Oak,白橡
+western_city_610,苍影,Pale Shadow,蒼影
+western_city_611,远征,Expedition,遠征
+western_city_612,长夜,Long Night,長夜
+western_city_613,风暴,Storm,風暴
+western_city_614,幽泉,Secluded Spring,幽泉
+western_city_615,赤松,Red Pine,赤松
+western_city_616,烈阳,Blazing Sun,烈陽
+western_city_617,雷泽,Thunder Marsh,雷澤
+western_city_618,绿蔷,Green Rose,綠薔
+western_city_619,辉光,Brilliant Light,輝光
+western_city_620,霜月,Frost Moon,霜月
+western_city_621,暗溪,Dark Stream,暗溪
+western_city_622,灰林,Grey Forest,灰林
+western_city_623,月溪,Moon Stream,月溪
+western_city_624,古塔,Ancient Tower,古塔
+western_city_625,风霜,Wind Frost,風霜
+western_city_626,赤湾,Red Bay,赤灣
+western_city_627,湖心,Lake Heart,湖心
+western_city_628,铁锤,Iron Hammer,鐵鎚
+western_city_629,影森,Shadow Forest,影森
+western_city_630,晨光,Morning Light,晨光
+western_city_631,落霞,Sunset Glow,落霞
+western_city_632,星辰,Star,星辰
+western_city_633,破晓,Dawnbreak,破曉
+western_city_634,战旗,War Banner,戰旗
+western_city_635,雾岚,Fog Mist,霧嵐
+western_city_636,银鹿,Silver Deer,銀鹿
+western_city_637,雷歌,Thunder Song,雷歌
+western_city_638,深谷,Deep Valley,深谷
+western_city_639,白石,White Stone,白石
+western_city_640,赤环,Red Ring,赤環
+western_city_641,翠峰,Emerald Peak,翠峰
+western_city_642,远山,Distant Mountain,遠山
+western_city_643,风鸣,Wind Call,風鳴
+western_city_644,霜叶,Frost Leaf,霜葉
+western_city_645,苍穹,Vault,蒼穹
+western_city_646,金雀,Golden Sparrow,金雀
+western_city_647,雷鸣,Thunder,雷鳴
+western_city_648,落羽,Falling Feather,落羽
+western_city_649,星海,Star Sea,星海
+western_city_650,水镜,Water Mirror,水鏡
+western_city_651,风语之谷,Wind Whisper Valley,風語之谷
+western_city_652,雷鸣之巅,Thunder Peak,雷鳴之巔
+western_city_653,冰晶之域,Ice Crystal Domain,冰晶之域
+western_city_654,勇气,Courage,勇氣
+western_city_655,智慧,Wisdom,智慧
+western_city_656,和平之谷,Peace Valley,和平之谷
+western_city_657,坚韧,Resilience,堅韌
+western_city_658,独角兽之谷,Unicorn Valley,獨角獸之谷
+western_city_659,凤羽,Phoenix Feather,鳳羽
+western_city_660,青山,Green Mountain,青山
+western_city_661,碧海,Azure Sea,碧海
+western_city_662,湖畔,Lakeside,湖畔
+western_city_663,金星,Golden Star,金星
+western_city_664,翡翠,Jade,翡翠
+western_city_665,钢铁,Steel,鋼鐵
+western_city_666,黎明,Dawn,黎明
+western_city_667,时光,Time,時光
+western_city_668,希望,Hope,希望
+western_city_669,自由,Freedom,自由
+western_city_670,梦境,Dream,夢境
+western_city_671,灵感,Inspiration,靈感
+western_city_672,真理,Truth,真理
+western_city_673,爱,Love,愛
+western_city_674,和谐,Harmony,和諧

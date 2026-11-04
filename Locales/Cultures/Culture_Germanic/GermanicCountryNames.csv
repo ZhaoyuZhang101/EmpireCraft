@@ -20,7 +20,7 @@ germanic_country_18,阿尔卡,Arka,阿爾卡
 germanic_country_19,泽尔塔,Zelta,澤爾塔
 germanic_country_20,艾瑟兰,Eislan,艾瑟蘭
 germanic_country_21,卡梅隆,Cameron,卡梅隆
-germanic_country_22,菲尼克斯,Phoenix,菲尼克斯
+germanic_country_22,菲尼克斯,Phönix,菲尼克斯
 germanic_country_23,卢米纳,Lumina,盧米納
 germanic_country_24,维兰特,Valant,維蘭特
 germanic_country_25,阿斯特,Aste,阿斯特
@@ -31,8 +31,8 @@ germanic_country_29,伊格尼,Igeni,伊格尼
 germanic_country_30,凯尔莫,Kelmo,凱爾莫
 germanic_country_31,索伦,Soren,索倫
 germanic_country_32,瓦尔哈,Valha,瓦爾哈
-germanic_country_33,艾瑞克,Eric,艾瑞克
-germanic_country_34,奥德赛,Odyssey,奧德賽
+germanic_country_33,艾瑞克,Erich,艾瑞克
+germanic_country_34,奥德赛,Odyssee,奧德賽
 germanic_country_35,诺瓦里,Novari,諾瓦里
 germanic_country_36,卡尔德,Karde,卡爾德
 germanic_country_37,赛弗里,Saferi,賽弗里
@@ -300,7 +300,7 @@ germanic_country_298,埃雷德鲁因,Eredruin,埃雷德魯因
 germanic_country_299,多尔卡莱德,Dorcalad,多爾卡萊德
 germanic_country_300,克里姆,Krem,克里姆
 germanic_country_301,卡尔丹,Kaldan,卡爾丹
-germanic_country_302,瑞文,Raven,瑞文
+germanic_country_302,瑞文,Rabe,瑞文
 germanic_country_303,芬通,Fentong,芬通
 germanic_country_304,弗泰娜,Furtana,弗泰娜
 germanic_country_305,拉提雅,Latiya,拉提雅
@@ -312,7 +312,7 @@ germanic_country_310,瓦尼亚,Vania,瓦尼亞
 germanic_country_311,迪斯萨蒂亚,Disathia,迪斯薩蒂亞
 germanic_country_312,曼妮,Manni,曼妮
 germanic_country_313,菲尔提尔,Firtier,菲爾提爾
-germanic_country_314,波特,Potter,波特
+germanic_country_314,波特,Töpfer,波特
 germanic_country_315,艾尔诺菲,Elonofi,艾爾諾菲
 germanic_country_316,尼德,Nede,尼德
 germanic_country_317,艾特莫拉,Etmola,艾特莫拉
@@ -320,7 +320,7 @@ germanic_country_318,尤库达,Yukuda,尤庫達
 germanic_country_319,阿卡维尔,Akavir,阿卡維爾
 germanic_country_320,赛尔锡,Selsi,賽爾錫
 germanic_country_321,布莱顿,Breton,布萊頓
-germanic_country_322,边塞,Border,邊塞
+germanic_country_322,边塞,Grenze,邊塞
 germanic_country_323,赛洛迪尔,Cyrodiil,賽洛迪爾
 germanic_country_324,尼本,Niben,尼本
 germanic_country_325,科洛维亚,Colovia,科洛維亞
@@ -353,19 +353,19 @@ germanic_country_351,洛汗,Rohan,洛汗
 germanic_country_352,罗马尼安,Rhovanion,羅馬尼安
 germanic_country_353,史卧丁,Shiwoding,史臥丁
 germanic_country_354,亚特兰,Atlant,亞特蘭
-germanic_country_355,夏尔哈比,Shirehobbit,夏爾哈比
+germanic_country_355,夏尔哈比,Auenlandhobbit,夏爾哈比
 germanic_country_356,哈拉德林,Haradrim,哈拉德林
-germanic_country_357,铁河,Tiehe,鐵河
-germanic_country_358,晨星,Dawnstar,晨星
-germanic_country_359,福尔克瑞斯,Falkreath,福爾克瑞斯
+germanic_country_357,铁河,Eisenfluss,鐵河
+germanic_country_358,晨星,Morgenstern,晨星
+germanic_country_359,福尔克瑞斯,Falkenring,福爾克瑞斯
 germanic_country_360,马卡什,Markarth,馬卡什
 germanic_country_361,玛塞尔,Masser,瑪塞爾
 germanic_country_362,瑞夫特,Riften,瑞夫特
-germanic_country_363,索尔图,Solitude,索爾圖
-germanic_country_364,雪漫,Whiterun,雪漫
+germanic_country_363,索尔图,Einsamkeit,索爾圖
+germanic_country_364,雪漫,Weißlauf,雪漫
 germanic_country_365,风舵,Windhelm,風舵
-germanic_country_366,冬驻,Winterhold,冬駐
-germanic_country_367,格林纳巴,Green Nap,格林納巴
+germanic_country_366,冬驻,Winterfeste,冬駐
+germanic_country_367,格林纳巴,Grünes Nickerchen,格林納巴
 germanic_country_368,班科莱,Bankolai,班科萊
 germanic_country_369,黯沉,Anchen,黯沉
 germanic_country_370,法尔塔,Falta,法爾塔
@@ -391,21 +391,21 @@ germanic_country_389,卡森,Carson,卡森
 germanic_country_390,因纳森,Yinnasen,因納森
 germanic_country_391,艾拉森,Ailasen,艾拉森
 germanic_country_392,罗什,Rosh,羅什
-germanic_country_393,卡尔,Carl,卡爾
-germanic_country_394,安维尔,Anvil,安維爾
+germanic_country_393,卡尔,Karl,卡爾
+germanic_country_394,安维尔,Amboss,安維爾
 germanic_country_395,利雅文,Liyawen,利雅文
 germanic_country_396,海玟,Haiwen,海玟
 germanic_country_397,米斯裘,Misqiu,米斯裘
 germanic_country_398,罗尔伽,Rolga,羅爾伽
-germanic_country_399,雷蒙,Raymond,雷蒙
+germanic_country_399,雷蒙,Raimund,雷蒙
 germanic_country_400,吉迪昂,Gideon,吉迪昂
 germanic_country_401,森察,Senca,森察
 germanic_country_402,利尔蒙斯,Lilimons,利爾蒙斯
 germanic_country_403,蒂亚尔,Diyar,蒂亞爾
 germanic_country_404,阿里克尔,Alikir,阿里克爾
 germanic_country_405,马鲁纳斯,Malunas,馬魯納斯
-germanic_country_406,匕落,Daggerfall,匕落
-germanic_country_407,北角,North Point,北角
+germanic_country_406,匕落,Dolchsturz,匕落
+germanic_country_407,北角,Nordspitze,北角
 germanic_country_408,香丁赫尔,Shandingher,香丁赫爾
 germanic_country_409,奥瑞敦,Auridon,奧瑞敦
 germanic_country_410,班达瑞,Bandarui,班達瑞
@@ -461,7 +461,7 @@ germanic_country_459,莫里希格,Molixige,莫里希格
 germanic_country_460,博格·贝斯,Bog Beis,博格·貝斯
 germanic_country_461,格纳特·纳尔,Gnate Nar,格納特·納爾
 germanic_country_462,托·莱阿德,Tuo Laide,托·萊阿德
-germanic_country_463,布林·格拉斯,Brin Grass,布林·格拉斯
+germanic_country_463,布林·格拉斯,Brin Gras,布林·格拉斯
 germanic_country_464,马格·阿尔巴,Mag Alba,馬格·阿爾巴
 germanic_country_465,斯温林,Swinlin,斯溫林
 germanic_country_466,杜恩,Dun,杜恩
