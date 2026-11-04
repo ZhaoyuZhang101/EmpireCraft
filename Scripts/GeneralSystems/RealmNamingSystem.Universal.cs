@@ -182,6 +182,8 @@ public static partial class RealmNamingSystem
     public static bool TryGrantUniversal(Empire empire, int via, bool quiet = false)
     {
         if (via == ViaNone || !Enabled || empire?.data == null || empire.CoreKingdom == null || !IsWestern(empire)) return false;
+        // 只有那个唯一的教廷授得了天下之名，别的教宗国授不了(见 PapacySystem.TheChurch)
+        if (PapacySystem.ReligionOf(empire) != PapacySystem.TheChurch()) return false;
         PapalRelationState state = Papal(empire);
         EmpireCore lead = SeeLead(empire);
         if (state == null || lead == null || PapacySystem.IsHolySee(empire)) return false;
@@ -293,8 +295,9 @@ public static partial class RealmNamingSystem
     // 每年(RealmNamingSystem.Yearly)
     private static void YearlyUniversal(Empire empire)
     {
-        // 没有普世之名还挂着神圣的(旧档、别处授的)：神圣去掉(见 PapacySystem.HolyBlocker)
-        if (Enabled && PapacySystem.HasHolyName(empire) && !HoldsUniversal(empire)) PapacySystem.RevokeHoly(empire);
+        // 没有普世之名还挂着神圣的(旧档、别处授的)、不是那个唯一教会的、多出来的：神圣去掉(见 PapacySystem.HolyBlocker、HolyStays)
+        if (Enabled && PapacySystem.HasHolyName(empire) && (!HoldsUniversal(empire) || !PapacySystem.HolyStays(empire)))
+            PapacySystem.RevokeHoly(empire);
         PapalRelationState state = Papal(empire);
         if (state == null || !IsWestern(empire) && state.universal_lead_id < 0) return;
         if (!ReferenceEquals(_session, World.world))

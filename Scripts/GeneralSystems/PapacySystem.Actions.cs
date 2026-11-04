@@ -59,14 +59,61 @@ public static partial class PapacySystem
     // 神圣依附于普世之名(用户 2026-10-27 截图"神圣北海帝国"："没有了教宗授予的天下之名那么神圣也不会存在，建议收回")：
     // 没持有教宗授予的普世之名(或因绝罚暂停)的称不得神圣——神授君权决议、教廷页按钮都按这里；收回普世之名时神圣一并去掉
     // (见 RealmNamingSystem.RevokeUniversal)，每年核对时没有普世之名还挂着神圣的也去掉。天下之名规则关着时照旧不要求
+    // 神圣全世界只有一个：罗马系各文化只认一座圣城、一个教廷，别的教宗国授不了；教廷得在，不能自封；已有一家称神圣就不再授
     public static string HolyBlocker(Empire empire)
     {
         if (!Applies(empire)) return "papacy_block_regime";
         if (IsHolySee(empire)) return "papacy_block_holy_see";
         if (empire.Emperor == null) return "papacy_crown_block_vacant";
         if (IsExcommunicated(empire)) return "papacy_crown_block_banned";
+        Religion religion = ReligionOf(empire);
+        if (religion != TheChurch()) return "papacy_holy_block_church";
+        if (BrokeWithRome(empire) || Papacy(religion) == null) return "papacy_holy_block_no_see";
         if (RealmNamingSystem.Enabled && !RealmNamingSystem.HoldsUniversal(empire)) return "papacy_holy_block_universal";
+        if (OtherHolyEmpire(empire) != null) return "papacy_holy_block_taken";
         return null;
+    }
+
+    // 那个唯一的教会：奉普世教会、圣地还在、圣地属罗马系文化(或教会本就属罗马天下)的宗教里，罗马天下的优先，再是没有母宗教的，
+    // 再是立教最早的。分出去的教派、别的天下自立的教会都排在后面，它们的圣城不算数
+    public static Religion TheChurch()
+    {
+        Religion best = null;
+        (int, int, double, long) rank = default;
+        if (World.world?.religions == null) return null;
+        foreach (Religion religion in World.world.religions.list)
+        {
+            if (religion?.data == null || !ReligionFaith.IsPapal(religion) || ReligionSphere.IsLocalChurch(religion)) continue;
+            City city = HolyCity(religion);
+            if (city == null) continue;
+            bool romanSphere = ReligionSphere.SphereOf(religion) == Line;
+            if (!romanSphere && InstitutionSystem.GetCultureLine(CultureService.GetMainCulture(city, initialize: false)) != Line) continue;
+            (int, int, double, long) mine = (romanSphere ? 0 : 1, religion.GetOrCreate().ParentReligionId >= 0 ? 1 : 0, religion.data.created_time, religion.id);
+            if (best != null && mine.CompareTo(rank) >= 0) continue;
+            best = religion;
+            rank = mine;
+        }
+        return best;
+    }
+
+    // 别家称着神圣的帝国
+    private static Empire OtherHolyEmpire(Empire empire)
+    {
+        if (ModClass.EMPIRE_MANAGER == null) return null;
+        foreach (Empire other in ModClass.EMPIRE_MANAGER)
+            if (other != empire && other?.data != null && !other.isRekt() && !other.IsArchived() && HasHolyName(other)) return other;
+        return null;
+    }
+
+    // 已经称神圣的还算不算数(每年核对，见 RealmNamingSystem.YearlyUniversal)：不是那个教会的去掉；两家以上的留国力大的。
+    // 教廷一时不在不收回
+    public static bool HolyStays(Empire empire)
+    {
+        if (ReligionOf(empire) != TheChurch()) return false;
+        Empire other = OtherHolyEmpire(empire);
+        if (other == null || ReligionOf(other) != TheChurch()) return true;
+        (double, long) mine = (WarSituation.Power(empire.CoreKingdom), -empire.id), theirs = (WarSituation.Power(other.CoreKingdom), -other.id);
+        return mine.CompareTo(theirs) >= 0;
     }
 
     // 教廷页按钮：有神圣之名的去掉，没有的授予
