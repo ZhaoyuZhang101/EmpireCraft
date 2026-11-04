@@ -1,7 +1,7 @@
 # 更新内容 (Update Features)
 
-2026-10-29 · 0.4.7Beta4
+2026-11-05 · 0.4.7Beta5
 
-新世界窗口加「世界地图」：按地球地形生成，七个时代剧本(战国、三国、盛唐、罗马、查理曼、十字军、临高 1628)按史摆国、法理、天下、人口与名臣名将。新增外交窗口、商品市场与市场图层；穿越政体、殖民总督府与特许公司。城池全图可真改城区、城墙与道路。山脊不通行，城不翻山扩张。年号庙号只给华夏、日本；外族入主定国号；王朝积弊与六弊互为表里。
+新增剧本编辑器，可自绘版图、法理、长城与事件，可从当前世界导入；新预设明清鼎革、绍兴北伐、蒙古灭宋。军队加建制与番号，战争加合围、老兵、时令与破交，军团可穿无人区。澳宋加归化流程与原著事件，清加八旗。积弊满额必起民变，正统崩坏连锁叛乱。修大世界内存溢出。
 
-New World Map in the new-world window: Earth terrain with seven historical scenarios (Warring States, Three Kingdoms, High Tang, Rome, Charlemagne, Crusades, Lingao 1628) placing states, de jure titles, tianxia, population and famous figures. New diplomacy window, commodity markets and market layer; transmigrant regime, colonial governorates and chartered companies. The city map now really edits districts, walls and roads. Ridges block movement and city growth. Era and temple names only for Huaxia and Japan; conquest dynasties choose their names; dynastic decay and the six ills feed each other.
+New scenario editor: paint realms, titles, walls and events, or import the current world. New presets: Ming-Qing transition, Shaoxing northern campaign, Mongol conquest of Song. Army formations and unit names; encirclement, veterans, seasons and raiding; corps can cross wilderness. Aosong naturalization and story events; Qing Eight Banners. Full decay now forces uprisings. Fixed large-world memory overflow.
