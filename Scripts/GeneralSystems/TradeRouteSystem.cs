@@ -26,6 +26,8 @@ public static class TradeRouteSystem
     private static double _lastPairing = -1d;
     // 城市 id → 贸易伙伴城市 id(每年重算)
     private static readonly Dictionary<long, long> Routes = new();
+    private static readonly HashSet<(long, long)> SettledTreaties = new();
+    private static readonly List<long> StaleRoutes = new();
     private static MapBox _world;
 
     public static long PartnerOf(City city) =>
@@ -165,22 +167,53 @@ public static class TradeRouteSystem
         return CultureService.IsValidCulture(culture) && InstitutionSystem.GetFeature(culture, "closed_country") > 0f;
     }
 
+    // 普通商路：每条有向记录给发起的港口记一笔。和约商路：按两端的城结一次，两边各记一笔——
+    // A→B、B→A 同时在册也只结一次；同一港口的别条商路照常另算。
+    // 结不了的不拖累其他：城没了、失去码头、同国化、锁国了就撤掉这条，下月重新配对；交战、封锁只是这个月断航。
     private static void Settle()
     {
+        SettledTreaties.Clear();
+        StaleRoutes.Clear();
+        bool logged = false;
         foreach (KeyValuePair<long, long> route in Routes)
         {
-            City city = World.world.cities.get(route.Key);
-            City partner = World.world.cities.get(route.Value);
-            bool treaty = Treaty(city.kingdom, partner.kingdom);
-            if (!Tradeable(city) || !Tradeable(partner) || city.kingdom == partner.kingdom ||
-                !treaty && (Closed(city.kingdom) || Closed(partner.kingdom))) continue;
-            // 交战禁运；任一港口被敌方舰队封锁也断航(见 NavySystem)
-            if (city.kingdom.isInWarWith(partner.kingdom) || NavySystem.IsBlockaded(city) ||
-                NavySystem.IsBlockaded(partner)) continue;
-            Earn(city, TradeValue(city, partner));
-            // 和约商路：胜者那边也得利
-            if (treaty) Earn(partner, TradeValue(partner, city));
+            try
+            {
+                City city = World.world.cities.get(route.Key);
+                City partner = World.world.cities.get(route.Value);
+                if (!Tradeable(city) || !Tradeable(partner) || city.kingdom == partner.kingdom)
+                {
+                    StaleRoutes.Add(route.Key);
+                    continue;
+                }
+                bool treaty = Treaty(city.kingdom, partner.kingdom);
+                if (!treaty && (Closed(city.kingdom) || Closed(partner.kingdom)))
+                {
+                    StaleRoutes.Add(route.Key);
+                    continue;
+                }
+                // 交战禁运；任一港口被敌方舰队封锁也断航(见 NavySystem)
+                if (city.kingdom.isInWarWith(partner.kingdom) || NavySystem.IsBlockaded(city) ||
+                    NavySystem.IsBlockaded(partner)) continue;
+                if (!treaty)
+                {
+                    Earn(city, TradeValue(city, partner));
+                    continue;
+                }
+                if (!SettledTreaties.Add(route.Key < route.Value ? (route.Key, route.Value) : (route.Value, route.Key))) continue;
+                Earn(city, TradeValue(city, partner));
+                Earn(partner, TradeValue(partner, city));
+            }
+            catch (Exception exception)
+            {
+                if (logged) continue;
+                logged = true;
+                LogService.LogWarning($"[EmpireCraft][商路] {route.Key}→{route.Value} 结算失败: {exception.Message}");
+            }
         }
+        if (StaleRoutes.Count == 0) return;
+        foreach (long id in StaleRoutes) Routes.Remove(id);
+        _lastPairing = -1d;
     }
 
     // 贸易利得记进民间资产(与生产估值同口径)；关税按商业税率从民间现金征，入城市国库
