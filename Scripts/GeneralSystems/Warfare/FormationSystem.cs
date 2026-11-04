@@ -295,14 +295,8 @@ public static class FormationSystem
     // 只就近征兵(不从全国抽)
     public static bool LocalSource(CorpsData corps) => RulesOf(corps).source == "local";
 
-    // 这组人够不够格当这种兵：core 只收本政权主体文化的人。花钱募来的(见 CorpsSystem.Enlist)登记后入伍，不走这道
-    public static bool CanRecruit(CorpsData corps, PopGroup group)
-    {
-        if (RulesOf(corps).source != "core") return true;
-        Kingdom kingdom = World.world?.kingdoms?.get(corps.kingdom_id);
-        string culture = kingdom == null ? null : CultureService.GetRealmCulture(kingdom);
-        return string.IsNullOrEmpty(culture) || string.Equals(group?.culture, culture, StringComparison.Ordinal);
-    }
+    // 只收受过训的合格军人(见 NaturalizationSystem)，不看文化。花钱募来的(见 CorpsSystem.Enlist)登记后入伍，不走这道
+    public static bool TrainedSource(CorpsData corps) => RulesOf(corps).source == "trained";
 
     public static bool IsGarrison(CorpsData corps) => RulesOf(corps).task == "garrison";
 
@@ -329,6 +323,14 @@ public static class FormationSystem
     // 不渡海：配置了 reach 的不出远门
     public static bool MayEmbark(CorpsData corps) => RulesOf(corps).reach <= 0f;
 
+    private static bool NoTrained(Kingdom kingdom)
+    {
+        if (kingdom?.cities == null) return true;
+        foreach (City city in kingdom.cities)
+            if (NaturalizationSystem.Available(city) >= 1f) return false;
+        return true;
+    }
+
     // 这个月为什么补不了员(语言键)，能补的返回空
     public static string ReinforceBlock(Kingdom kingdom, CorpsData corps)
     {
@@ -336,6 +338,7 @@ public static class FormationSystem
         if (CorpsSystem.Unpaid(kingdom)) return "formation_block_unpaid";
         if (corps.embarked) return "formation_block_embarked";
         if (corps.supply < 0.5f) return "formation_block_supply";
+        if (TrainedSource(corps) && NoTrained(kingdom)) return "formation_block_no_trained";
         return null;
     }
 

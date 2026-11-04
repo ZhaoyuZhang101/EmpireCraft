@@ -49,7 +49,7 @@
         { "below": 6000, "key": "formation_echelon_regiment" },
         { "key": "formation_echelon_division" }
       ],
-      "source": "core", "raise": 0.7, "training": 1.3, "upkeep": 1.3
+      "source": "trained", "raise": 0.7, "training": 1.3, "upkeep": 1.3
     },
     "national_army": {
       "template": "formation_template_local",

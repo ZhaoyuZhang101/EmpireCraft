@@ -13,11 +13,13 @@ public sealed class LegionPopulationContribution
     public string species = "";
     public PartyIdeology ideology = PartyIdeology.Conservatism;
     public float size;
+    // 其中受过训的合格军人的比例(0~1，见 NaturalizationSystem)：复员时回到军人岗位
+    public float trained;
 }
 
 public static class LegionPopulationRules
 {
-    public static void Add(List<LegionPopulationContribution> origins, long cityId, PopGroup group, float amount)
+    public static void Add(List<LegionPopulationContribution> origins, long cityId, PopGroup group, float amount, float trained = 0f)
     {
         if (origins == null || group == null || amount <= 0f) return;
         foreach (LegionPopulationContribution origin in origins)
@@ -26,15 +28,20 @@ public static class LegionPopulationRules
             if (origin.city_id != cityId || origin.social_class != group.social_class ||
                 origin.culture != (group.culture ?? "") || origin.species != (group.species ?? "") ||
                 origin.ideology != group.ideology) continue;
+            origin.trained = Merge(origin.trained, origin.size, trained, amount);
             origin.size += amount;
             return;
         }
         origins.Add(new LegionPopulationContribution
         {
             city_id = cityId, social_class = group.social_class, culture = group.culture ?? "",
-            species = group.species ?? "", ideology = group.ideology, size = amount
+            species = group.species ?? "", ideology = group.ideology, size = amount, trained = trained
         });
     }
+
+    // 两批人并到一起，受训比例按人头算
+    public static float Merge(float shareA, float sizeA, float shareB, float sizeB) =>
+        sizeA + sizeB <= 0f ? 0f : (shareA * sizeA + shareB * sizeB) / (sizeA + sizeB);
 
     public static float Total(List<LegionPopulationContribution> origins)
     {

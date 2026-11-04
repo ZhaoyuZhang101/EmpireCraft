@@ -497,17 +497,25 @@ public static partial class TransmigrantSystem
     }
 
     // 厂区产量与工厂收益的倍数(见 CommodityMarketSystem.Book、FactorySystem.Produce)：穿越政权与它的殖民地的城
-    public static float IndustryFactor(City city) =>
-        city?.kingdom != null && Mobilizes(city.kingdom) ? IndustryBonus : 1f;
+    public static float IndustryFactor(City city)
+    {
+        if (city?.kingdom == null || !Mobilizes(city.kingdom)) return 1f;
+        // 工厂配不满熟练工，加成跟着打折(见 NaturalizationSystem)；没算过的按配满
+        float staffing = CityPopulationSystem.Get(city)?.naturalization_staffing ?? -1f;
+        return 1f + (IndustryBonus - 1f) * (staffing < 0f ? 1f : staffing);
+    }
 
-    // 这座城的归化民按人头出的工业品(每年)：阶段越往后越多
+    // 这座城的工人按人头出的工业品(每年)：阶段越往后越多。学生、军人、干部不算，一个人不重复产出
     public static IEnumerable<(string good, float amount)> IndustryOutput(City city)
     {
         CityPopulationData data = CityPopulationSystem.Get(city);
         if (data?.groups == null) yield break;
         float people = 0f;
-        foreach (PopGroup group in data.groups)
-            if (group != null && group.culture == Culture) people += group.Background;
+        if (data.naturalization != null) people = NaturalizationSystem.Count(city, NaturalizationState.Worker);
+        else
+            // 旧档头一年台账还没建起来：照旧按澳洲人算
+            foreach (PopGroup group in data.groups)
+                if (group != null && group.culture == Culture) people += group.Background;
         if (people <= 0f) yield break;
         Kingdom realm = IsTransmigrant(city.kingdom) ? city.kingdom : ColonySystem.MetropoleOf(city.kingdom);
         float stage = 1f + 0.25f * Mathf.Max(0, StageOf(realm) - 1);

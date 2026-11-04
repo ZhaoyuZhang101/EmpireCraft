@@ -217,6 +217,17 @@ public static class NaturalizationSystem
         data.naturalization_background += people;
     }
 
+    // 干部不够的城赋税、征兵收不齐(见 AdministrativeControlSystem.Yield)：打下来不等于管得了，调干部过去就好。
+    // 这条很热，先看有没有算过；城落到别人手里就不再算
+    public static float YieldFactor(City city)
+    {
+        CityPopulationData data = Data(city);
+        if (data == null || data.naturalization_cover < 0f) return 1f;
+        if (TransmigrantSystem.SenateOf(city.kingdom) == null && !TransmigrantSystem.Mobilizes(city.kingdom)) return 1f;
+        float floor = Config.cadre_min_yield;
+        return floor + (1f - floor) * data.naturalization_cover;
+    }
+
     // 这座城能出的合格军人
     public static float Available(City city) => Count(city, NaturalizationState.Soldier);
 

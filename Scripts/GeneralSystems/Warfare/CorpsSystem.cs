@@ -909,6 +909,8 @@ public static class CorpsSystem
             if (need < 1f) return;
         }
         bool near = only == null && WarScopeSystem.InScope(Home(corps) ?? World.world.cities.get(corps.home_city_id));
+        // 只收受过训的合格军人(见 FormationSystem、NaturalizationSystem)；花钱募来的登记后入伍，不走这道
+        bool trained = only == null && FormationSystem.TrainedSource(corps);
         for (int attempt = 0; taken < need && attempt < 12; attempt++)
         {
             // 就近的几座城抽完了：只从动员范围里的城再抽；举国总动员、奉诏出征才从全国抽(不再远距离征召)
@@ -918,12 +920,19 @@ public static class CorpsSystem
                 : WarScopeSystem.Unbounded(kingdom) ? CityPopulationSystem.DrawKingdomCity(kingdom) : null);
             PopGroup group = source == null ? null
                 : CityPopulationSystem.DrawBackground(source, candidate => SlaverySystem.CanRecruit(candidate, corps.militia) &&
-                                                                           (only != null || FormationSystem.CanRecruit(corps, candidate)));
+                                                                           !(trained && candidate.social_class == SocialClass.Noble));
             // 最近一城可能只有奴隶，继续找下一座，不能因此挡住邻城的自由民补员。
             if (group == null) continue;
-            float contribution = CityPopulationSystem.RemoveBackground(group, need - taken);
+            float want = need - taken;
+            if (trained)
+            {
+                want = Mathf.Min(want, NaturalizationSystem.Available(source));
+                if (want <= 0f) continue;
+            }
+            float contribution = CityPopulationSystem.RemoveBackground(group, want);
             if (contribution <= 0f) break;
-            LegionPopulationRules.Add(corps.population, source.id, group, contribution);
+            NaturalizationSystem.Drafted(source, contribution, trained);
+            LegionPopulationRules.Add(corps.population, source.id, group, contribution, trained ? 1f : 0f);
             taken += contribution;
         }
         // 新兵冲淡老兵(见 CorpsVeterancy)
@@ -954,6 +963,7 @@ public static class CorpsSystem
                 if (destination == null) continue;
                 CityPopulationSystem.AddBackground(destination, origin.social_class == SocialClass.Army
                     ? SocialClass.Peasant : origin.social_class, origin.culture, origin.species, origin.ideology, back);
+                NaturalizationSystem.Returned(destination, back, origin.trained);
             }
             corps.population.RemoveAll(origin => origin == null || origin.size <= 0.01f);
         }
@@ -992,7 +1002,7 @@ public static class CorpsSystem
             part.population.Add(new LegionPopulationContribution
             {
                 city_id = origin.city_id, social_class = origin.social_class, culture = origin.culture,
-                species = origin.species, ideology = origin.ideology, size = moved
+                species = origin.species, ideology = origin.ideology, size = moved, trained = origin.trained
             });
         }
         parent.population.RemoveAll(origin => origin == null || origin.size <= 0.01f);
@@ -1107,11 +1117,15 @@ public static class CorpsSystem
         LegionPopulationContribution same = corps.population.FirstOrDefault(other => other.city_id == origin.city_id &&
             other.social_class == origin.social_class && other.culture == origin.culture &&
             other.species == origin.species && other.ideology == origin.ideology);
-        if (same != null) same.size += origin.size;
+        if (same != null)
+        {
+            same.trained = LegionPopulationRules.Merge(same.trained, same.size, origin.trained, origin.size);
+            same.size += origin.size;
+        }
         else corps.population.Add(new LegionPopulationContribution
         {
             city_id = origin.city_id, social_class = origin.social_class, culture = origin.culture,
-            species = origin.species, ideology = origin.ideology, size = origin.size
+            species = origin.species, ideology = origin.ideology, size = origin.size, trained = origin.trained
         });
     }
 

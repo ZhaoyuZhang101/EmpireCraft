@@ -68,7 +68,7 @@
 | `template` | `formation_template_corps` | 番号模板的语言键；`{0}` 番号、`{1}` 建制名、`{2}` 驻地城名、`{3}` 编制层级 |
 | `scope` | `formation` | 编号范围：`kingdom` 全国一套、`formation` 本建制一套、`region` 每座驻地一套 |
 | `echelons` | 无 | 按满编取层级，`below` 是上限，最后一项不写 `below`；层级随满编变，番号不变 |
-| `source` | `any` | 兵源：`any` 各城、`local` 只从驻地附近、`core` 只收本政权主体文化(花钱募的不受限) |
+| `source` | `any` | 兵源：`any` 各城、`local` 只从驻地附近、`trained` 只收归化台账里的合格军人(花钱募的不受限) |
 | `raise` | 1 | 补员速度倍数 |
 | `training` | 1 | 新兵冲淡老兵的倍数，越大训练越差 |
 | `veteran_cap` | 100 | 老兵值上限 |
