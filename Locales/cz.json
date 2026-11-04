@@ -10124,6 +10124,7 @@
   "scenario_editor_wild_note": "只是预演：开局照同一套门槛划，城心那块留给城；村镇、补空小国这里看不到，会差几块",
   "scenario_editor_wild_exact": "照原图分地：刷给城的地块留给城，城不往外铺；没人领的地照常判无人区",
   "scenario_editor_wild_setting_off": "模组设置「无人区」关着：这个自定剧本开局不划无人区",
+  "scenario_editor_tianxia_hint": "点城选中它的帝国法理，在右栏改所属天下、天下名，或新建天下",
   "scenario_editor_wild_own": "本剧本无人区",
   "scenario_editor_wild_own_on": "开启",
   "scenario_editor_wild_own_follow": "跟随设置",

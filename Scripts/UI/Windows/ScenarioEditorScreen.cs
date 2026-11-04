@@ -1688,7 +1688,18 @@ public static class ScenarioEditorScreen
         if (tool == Tool.Tribe && _tribeIndex >= ScenarioEditing.Tribes.Count) _tribeIndex = -1;
     }
 
-    private static void SetLayer(Layer layer) => _layer = layer;
+    private static void SetLayer(Layer layer)
+    {
+        _layer = layer;
+        // 天下挂在帝国法理上，没有单独的工具：看天下图层就直接进帝国法理工具，右栏改所属天下
+        if (layer != Layer.Tianxia || _tool == Tool.Empire) return;
+        SetTool(Tool.Empire);
+        Say(LM.Get("scenario_editor_tianxia_hint"));
+    }
+
+    // 天下图层上的一块：没写所属天下的帝国法理开局自成一个天下，也单独算一块(以前不画，导入的图看着天下缺了一大片)
+    private static string TianxiaArea(WorldMapCore core) =>
+        core == null ? null : !string.IsNullOrEmpty(core.group) ? "t:" + core.group : "x:" + core.id;
 
     // 地球 ↔ 导入地图：换了城与国家都清掉，五秒内再点一次才换(可撤销)
     private static void ToggleImport()
@@ -1885,8 +1896,7 @@ public static class ScenarioEditorScreen
                 WorldMapCore core = ScenarioEditing.CoreOfRegion(city.region);
                 return core == null ? null : "k:" + core.id;
             case Layer.Tianxia:
-                string group = ScenarioEditing.CoreOfRegion(city.region)?.group;
-                return string.IsNullOrEmpty(group) ? null : "t:" + group;
+                return TianxiaArea(ScenarioEditing.CoreOfRegion(city.region));
         }
         return null;
     }
@@ -1897,7 +1907,7 @@ public static class ScenarioEditorScreen
         Layer.Division => _realmId == null ? null : _divisionIndex >= 0 ? "d:" + _realmId + ":" + _divisionIndex : "j:" + _realmId,
         Layer.Kingdom => _regionId == null ? null : "r:" + _regionId,
         Layer.Empire => _coreId == null ? null : "k:" + _coreId,
-        Layer.Tianxia => ScenarioEditing.Core(_coreId)?.group is string group && group.Length > 0 ? "t:" + group : null,
+        Layer.Tianxia => TianxiaArea(ScenarioEditing.Core(_coreId)),
         _ => null
     };
 
@@ -2169,8 +2179,7 @@ public static class ScenarioEditorScreen
                 area = core == null ? null : "k:" + core.id;
                 break;
             case Layer.Tianxia:
-                string group = ScenarioEditing.CoreOfRegion(raw)?.group;
-                area = string.IsNullOrEmpty(group) ? null : "t:" + group;
+                area = TianxiaArea(ScenarioEditing.CoreOfRegion(raw));
                 break;
         }
         cache[raw] = area;
@@ -2282,8 +2291,7 @@ public static class ScenarioEditorScreen
                 WorldMapCore core = ScenarioEditing.CoreOfRegion(region);
                 return core == null ? null : "k:" + core.id;
             case Layer.Tianxia:
-                string group = ScenarioEditing.CoreOfRegion(region)?.group;
-                return string.IsNullOrEmpty(group) ? null : "t:" + group;
+                return TianxiaArea(ScenarioEditing.CoreOfRegion(region));
         }
         return null;
     }
@@ -2555,6 +2563,7 @@ public static class ScenarioEditorScreen
             'r' => ScenarioEditing.Region(id)?.TitleName ?? id,
             'k' => ScenarioEditing.Core(id)?.Name ?? id,
             't' => ScenarioEditing.TianxiaName(id),
+            'x' => ScenarioEditing.Core(id)?.Name ?? id,
             _ => ScenarioEditing.Polity(id)?.Name ?? id
         };
     }

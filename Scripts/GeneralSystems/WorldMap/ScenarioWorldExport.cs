@@ -41,7 +41,8 @@ namespace EmpireCraft.Scripts.GeneralSystems.WorldMap;
 //   · 地块归属照原图(用户 2026-11-03 转群友"当前地图的城市边界是怎么样的，那么导入的剧本编辑器里面城市无人区法理边界就是什么样的")：
 //     城领着的地块刷成 paint 的 "c:<城编号>"，永久中立区刷 "n"，挂了法理的无人区刷 "r:<地区编号>"，写 exact——开局各城照刷的分地、
 //     不再往外铺、不补小国，原图城的地头一回划区也留给城(见 Paint、WorldMapScenario.PaintTerritory、WorldMapWilderness.Keep)；
-// 不导的：长城关隘(格子上的墙描不回折线)、剧情事件(开局后的事)、名将名臣、王朝积弊、宗教；地球地图上玩家改过的地形
+//   · 长城关隘：格子上的墙按相连描回折线(见 ScenarioWallTrace，城池自己的那圈城墙不算)，压着墙的关城记成关隘，不用每导一次重画一遍；
+// 不导的：剧情事件(开局后的事)、名将名臣、王朝积弊、宗教；地球地图上玩家改过的地形
 // (剧本沿用原样的地球地图)；城里各文化的人口比例(剧本里一个地区一种文化)。
 // json 用 JObject 一条条写(不经 WorldMapEra，免得跟着那边加的字段走)，空的不写；写坏了把建了一半的文件夹删掉
 public static class ScenarioWorldExport
@@ -461,6 +462,10 @@ public static class ScenarioWorldExport
         if (paint is { Count: > 0 }) root["paint"] = JArray.FromObject(paint);
         // 照原图分地：开局各城的地块照刷的 "c:" 分，不再按地形往外铺、不补小国(见 WorldMapEra.exact)
         if (paint is { Count: > 0 }) root["exact"] = true;
+        JArray walls = Safe(() => Walls(projection), null);
+        if (walls is { Count: > 0 }) root["walls"] = walls;
+        JArray passes = Safe(() => Passes(projection), null);
+        if (passes is { Count: > 0 }) root["passes"] = passes;
 
         #endregion
 
@@ -606,6 +611,50 @@ public static class ScenarioWorldExport
     //   war 在打的仗(主攻 → 主守，行政区、殖民地记到帝国、宗主头上，记到同一国的不要)；alliance 同盟(帝国与帝国成员不结同盟，不记)；
     //   marriage 和亲(二十年内的姻亲)；pact 通好(两个帝国)；protect 保护(神罗的保护约)；tribute 朝贡(a 向帝国 b)；vassal 封建附庸
     //   (a 立 b，b 不在帝国里)；union 关税同盟(b 入 a 的市场)；friend/feud 还没淡完的旧谊宿怨(记眼下淡到的分量)
+    // 长城：图层城墙与原版城墙格，城池自己的那圈城墙(见 CityPlanWorks)不算；折线的点隔几格取一个，太短的零星墙不要
+    private const int WallPointEvery = 5, MinWallTiles = 4;
+
+    private static JArray Walls(Projection projection)
+    {
+        int width = MapBox.width;
+        var tiles = new HashSet<int>(MapWallSystem.Walls.Keys);
+        WorldTile[] all = World.world?.tiles_list;
+        if (all != null)
+            foreach (WorldTile tile in all)
+                if (tile?.data != null && tile.Type?.wall == true) tiles.Add(tile.data.tile_id);
+        tiles.ExceptWith(CityPlanWorks.CityWallTiles());
+        var result = new JArray();
+        foreach (List<(int x, int y)> line in ScenarioWallTrace.Trace(tiles.Select(id => (id % width, id / width)), MinWallTiles))
+        {
+            var points = new JArray();
+            foreach ((int x, int y) in ScenarioWallTrace.Sample(line, WallPointEvery))
+            {
+                projection.LonLat(x, y, out float lon, out float lat);
+                points.Add(new JArray((float)Math.Round(lon, 3), (float)Math.Round(lat, 3)));
+            }
+            result.Add(new JObject { ["name"] = string.Format(LM.Get("scenario_editor_new_wall"), result.Count + 1), ["pts"] = points });
+        }
+        return result;
+    }
+
+    // 关隘：压着城墙的关城(城池自己的城门不算)
+    private static JArray Passes(Projection projection)
+    {
+        var result = new JArray();
+        foreach (RuralSettlement fort in RuralSettlementSystem.Save())
+        {
+            if (fort == null || !fort.fort || WallGateSystem.GatesAround(fort.x, fort.y) <= 0) continue;
+            projection.LonLat(fort.x, fort.y, out float lon, out float lat);
+            string name = Clean(fort.name);
+            result.Add(new JObject
+            {
+                ["name"] = string.IsNullOrEmpty(name) ? string.Format(LM.Get("scenario_editor_new_pass"), result.Count + 1) : name,
+                ["at"] = new JArray((float)Math.Round(lon, 3), (float)Math.Round(lat, 3))
+            });
+        }
+        return result;
+    }
+
     private static JArray Relations(Dictionary<Kingdom, Realm> realms, Func<Kingdom, string> realmId, Func<Kingdom, string> ownId)
     {
         var result = new JArray();

@@ -52,6 +52,15 @@ public static class CityPlanWorks
     private static readonly Dictionary<long, (City city, int key)> Seen = new();
     // 筑了城墙的城与它筑的格(城没了，存档跟着没了，凭这份拆它的城墙)
     private static readonly Dictionary<long, (City city, List<int> walls)> Tracked = new();
+
+    // 各城自己筑的那圈城墙(导入剧本时不当长城，见 ScenarioWorldExport.Walls)
+    public static HashSet<int> CityWallTiles()
+    {
+        var tiles = new HashSet<int>();
+        foreach ((City _, List<int> walls) in Tracked.Values)
+            if (walls != null) tiles.UnionWith(walls);
+        return tiles;
+    }
     private static float _tickAt = -1000f;
     private static bool _syncing;
     private static string _wallType;

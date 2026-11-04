@@ -298,11 +298,22 @@ public static class ScenarioEditing
         int n = Era.cities.Count + 1;
         string id = "c" + n;
         while (Era.cities.Any(city => city.id == id)) id = "c" + ++n;
+        // 按所在地区的文化起名，起不出来才叫"新城 N"(见 ScenarioNaming)
         string name = string.Format(LM.Get("scenario_editor_new_city"), n);
-        Era.cities.Add(new WorldMapCity { id = id, zh = name, tw = name, en = name, lon = lon, lat = lat, region = region, rank = 2 });
+        string zh = name, tw = name, en = name;
+        if (ScenarioNaming.TryCity(CultureOfRegion(region), used => Era.cities.Any(city => city.zh == used),
+                out string cityZh, out string cityTw, out string cityEn))
+        {
+            zh = cityZh;
+            tw = cityTw;
+            en = cityEn;
+        }
+        Era.cities.Add(new WorldMapCity { id = id, zh = zh, tw = tw, en = en, lon = lon, lat = lat, region = region, rank = 2 });
         Changed();
         return id;
     }
+
+    private static string CultureOfRegion(string region) => Regions.FirstOrDefault(entry => entry.id == region)?.culture;
 
     public static void MoveCity(string id, float lon, float lat)
     {
@@ -1128,7 +1139,10 @@ public static class ScenarioEditing
     {
         if (Era == null) return -1;
         Before();
-        string name = string.Format(LM.Get("scenario_editor_new_pass"), Era.passes.Count + 1);
+        // 按最近的城所在地区的文化起名(见 ScenarioNaming)；附近没城用第一个地区的文化
+        string culture = CultureOfRegion(Nearest(lon, lat, null)?.region ?? Regions.FirstOrDefault()?.id ?? "");
+        if (!ScenarioNaming.TryPass(culture, used => Era.passes.Any(pass => pass.name == used), out string name))
+            name = string.Format(LM.Get("scenario_editor_new_pass"), Era.passes.Count + 1);
         Era.passes.Add(new WorldMapPass { name = name, at = new[] { lon, lat } });
         Changed();
         return Era.passes.Count - 1;

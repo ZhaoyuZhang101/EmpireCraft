@@ -26,6 +26,8 @@ internal static class WorldMapWalls
     private const int CorridorMin = 8, PassSearch = 4, Step = 6;
     // 侧向起伏(度)：幅度、主起伏的波长；两头与关隘这么近(度)以内收成零
     private const float Amplitude = 0.45f, Wave = 1.2f, Taper = 0.5f;
+    // 从当前世界导入的剧本：墙就是原来那道，不再加起伏
+    private static bool _keepLine;
     private const float MountainCost = 0.6f, HillCost = 0.75f, CityCost = 4f, RiverSide = 0.85f;
     private const float WiggleCell = 16f, WiggleFine = 6f;
     // 城心周围几格不过墙；城前后几格的"城背后"不走
@@ -46,6 +48,7 @@ internal static class WorldMapWalls
     {
         _planned = null;
         _plannedEra = era?.id;
+        _keepLine = era?.exact == true;
         PlannedZones.Clear();
         _seed = Environment.TickCount;
         var lines = new List<List<Vector2>>();
@@ -67,6 +70,7 @@ internal static class WorldMapWalls
 
     public static void Build(WorldMapEra era, WorldMapFrame frame, Vector2Int size)
     {
+        _keepLine = era?.exact == true;
         if (era == null || frame == null || World.world == null) return;
         TopTileType vanilla = WallType();
         if (vanilla == null) return;
@@ -181,7 +185,7 @@ internal static class WorldMapWalls
         if (points.Count < 2) return result;
         float total = 0f;
         for (int i = 1; i < points.Count; i++) total += Vector2Int.Distance(points[i - 1], points[i]);
-        float amplitude = Amplitude * perDegree, taper = Taper * perDegree, wave = Wave * perDegree;
+        float amplitude = (_keepLine ? 0f : Amplitude) * perDegree, taper = Taper * perDegree, wave = Wave * perDegree;
         float arc = 0f;
         Corridor last = null;
         for (int i = 0; i + 1 < points.Count; i++)

@@ -10110,6 +10110,7 @@
   "scenario_editor_wild_note": "Only a forecast: the same thresholds apply at start and city seats keep their own zone, but villages and filler realms are unknown here, so a few zones may differ",
   "scenario_editor_wild_exact": "Map kept as drawn: zones painted to a city stay with it and cities do not spread; unclaimed land is still judged as wilderness",
   "scenario_editor_wild_setting_off": "The Wilderness mod setting is off: this custom scenario gets no wilderness at start",
+  "scenario_editor_tianxia_hint": "Click a city to select its empire title, then change its tianxia or the tianxia name on the right, or create a new one",
   "scenario_editor_wild_own": "Wilderness in this scenario",
   "scenario_editor_wild_own_on": "On",
   "scenario_editor_wild_own_follow": "Follow setting",

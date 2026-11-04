@@ -10116,6 +10116,7 @@
   "scenario_editor_wild_note": "只是預演：開局照同一套門檻劃，城心那塊留給城；村鎮、補空小國這裏看不到，會差幾塊",
   "scenario_editor_wild_exact": "照原圖分地：刷給城的地塊留給城，城不往外鋪；沒人領的地照常判無人區",
   "scenario_editor_wild_setting_off": "模組設置「無人區」關著：這個自定劇本開局不劃無人區",
+  "scenario_editor_tianxia_hint": "點城選中它的帝國法理，在右欄改所屬天下、天下名，或新建天下",
   "scenario_editor_wild_own": "本劇本無人區",
   "scenario_editor_wild_own_on": "開啟",
   "scenario_editor_wild_own_follow": "跟隨設置",
