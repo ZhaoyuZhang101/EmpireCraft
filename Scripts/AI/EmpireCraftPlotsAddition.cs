@@ -2815,6 +2815,8 @@ namespace EmpireCraft.Scripts.AI
                 .OrderByDescending(target => DeJureAgenda.HasClaimOn(pInitiatorKingdom, target))
                 // 其次占着本国所在帝国法理里城的
                 .ThenByDescending(target => DeJureAgenda.HoldsCoreOf(pInitiatorKingdom, target))
+                // 有统一倾向的文化先打同一天下的(见 UnificationDrive)
+                .ThenByDescending(target => UnificationDrive.Prefers(pInitiatorKingdom, target))
                 .ThenBy(target => Kingdom.distanceBetweenKingdom(pInitiatorKingdom, target))
                 .ThenBy(target => World.world.diplomacy?.getOpinion(pInitiatorKingdom, target)?.total ?? 0)
                 .ThenBy(target => target.id)

@@ -11,6 +11,7 @@
         // 自成一条制度线：元老院、执委会、共同纲领、大宋澳洲行在(见 InstitutionTrees/Aosong.json)
         "institution_line": "Aosong",
         "tianxia": "Huaxia",
+        "unification_drive": 1,
         "start_institution": "aosong_senate",
         "surname_evolution": false,
         "Settlement": {

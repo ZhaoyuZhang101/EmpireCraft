@@ -1848,6 +1848,7 @@
   "unify_annex_history": "{0}正規軍盡沒，舉國併入{1}",
   "unify_submit_history": "{0}望風歸附，舉國併入{1}",
   "unify_done_history": "{0}統一天下",
+  "unify_settled_history": "{0}據有天下過半，這一輪統一戰爭收束，天下尚未盡歸一家",
   "unify_pacify_tribute_history": "{0}懾於{1}天威，稱臣納貢",
   "unify_pacify_war_history": "{0}奉天命，興師平定{1}",
   "unify_lost_history": "{0}失地過半，統一大業中輟",

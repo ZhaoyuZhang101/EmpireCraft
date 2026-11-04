@@ -45,6 +45,16 @@ public class WarTargetPatch : GamePatch
                 return;
             }
         }
+        // 有统一倾向的文化：同样的条件下先打同一天下的邻国(见 UnificationDrive)，没有合适的再照常挑
+        if (GeneralSystems.UnificationDrive.Of(pInitiatorKingdom) > 0f)
+        {
+            Kingdom kin = NearestNeighbourTarget(pInitiatorKingdom, realmOnly: true);
+            if (kin != null)
+            {
+                __result = kin;
+                return;
+            }
+        }
         // 姻亲、通好、扶立、共事部落、统一战线、兄弟之国、岁币朝贡、封建上下级等不打(见 WarGate.Forbidden)；
         // 没有雄主在位的游牧政权平时只打两城以内的小国(见 SteppeOrderSystem)
         if (__result != null && IsNeighbour(pInitiatorKingdom, __result) &&
@@ -56,7 +66,7 @@ public class WarTargetPatch : GamePatch
     private static bool IsNeighbour(Kingdom initiator, Kingdom target) => GeneralSystems.StraitReach.Near(initiator, target);
 
     // 与原版 getWarTarget 相同的条件，只是限定接壤；claimsOnly：只挑占着本国法理城的；coreOnly：只挑占着本国所在帝国法理里城的
-    private static Kingdom NearestNeighbourTarget(Kingdom initiator, bool claimsOnly = false, bool coreOnly = false)
+    private static Kingdom NearestNeighbourTarget(Kingdom initiator, bool claimsOnly = false, bool coreOnly = false, bool realmOnly = false)
     {
         if (initiator.capital == null) return null;
         int ours = initiator.hasAlliance() ? initiator.getAlliance().countWarriors() : initiator.countTotalWarriors();
@@ -78,7 +88,8 @@ public class WarTargetPatch : GamePatch
                 SimGlobals.m.minimum_years_between_wars ||
                 friendly && ours < theirs * 2 && !GeneralSystems.RoyalMarriageSystem.HasClaim(initiator, target) ||
                 claimsOnly && !GeneralSystems.DeJureAgenda.HasClaimOn(initiator, target) ||
-                coreOnly && !GeneralSystems.DeJureAgenda.HoldsCoreOf(initiator, target))
+                coreOnly && !GeneralSystems.DeJureAgenda.HoldsCoreOf(initiator, target) ||
+                realmOnly && !GeneralSystems.UnificationSystem.SameRealm(initiator, target))
                 continue;
             float distance = Kingdom.distanceBetweenKingdom(initiator, target);
             if (distance >= bestDistance) continue;

@@ -54,6 +54,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     兵败如山倒作罢；继任者不是雄主就不能再发动；
 //   · 统一后的开国气象只到"雄主不在位"与"统一后满 NomadGraceYears 年"两者较早的那时(别的政体照旧 GraceYears 年)；
 //   · 雄主之后第一次汗位更替必乱：不看积弊、正统(见 TakeHeroTurmoil、NomadCycleSystem.OnKhanSucceeded)，之后照常。
+// 问鼎按占城、国力从大到小逐家核对(见 PickContender)：前朝冷却、开国气象只挡它自己，不冻结全天下；对手国力按除它以外的各家算。
+// 文化的统一倾向(见 UnificationDrive)只放宽久乱之后的门槛，开战闸门、军饷都不绕。
 // 周室分封(ZhouEraSystem)的天下另有一套春秋战国，不在这里管。
 public static class UnificationSystem
 {
@@ -93,6 +95,9 @@ public static class UnificationSystem
     // 诊断限频：游牧无雄主不能统一(国 → 上回记的时间)；统一满十年开国气象到期(国 → 记过的那次统一时间)
     private static readonly Dictionary<long, double> NoHeroLogged = new();
     private static readonly Dictionary<long, double> GraceEndLogged = new();
+    // 问鼎诊断限频：天下 → 上回记的各家卡点与时间(卡点变了才记，没变的至多 ContestLogYears 年一行)
+    private static readonly Dictionary<string, (string sign, double at)> ContestLogged = new();
+    private const int ContestLogYears = 10, ContestLogTop = 4;
 
     public static void ResetWorldState()
     {
@@ -103,6 +108,7 @@ public static class UnificationSystem
         Rivals.Clear();
         NoHeroLogged.Clear();
         GraceEndLogged.Clear();
+        ContestLogged.Clear();
     }
 
     #region 查询
@@ -230,16 +236,26 @@ public static class UnificationSystem
     // 问鼎的门槛(占比、国力是第二名的几倍)：华夏久乱思治逐年降(见文件头)
     private static (float share, float lead) Bars(Realm realm, Kingdom top)
     {
-        if (LineOf(CultureService.GetRealmCulture(top)) != "Huaxia") return (ContenderShare, PowerLead);
-        float ease = Mathf.Clamp01((ChaosYears(realm) - LongChaosYears) / ChaosEaseYears);
+        float drive = UnificationDrive.Of(top);
+        // 没有帝国法理的天下里，部落还没到争天下的时候
+        if (drive <= 0f || realm.lead == null && TribalFissionService.IsTribal(top)) return (ContenderShare, PowerLead);
+        float ease = drive * Mathf.Clamp01((ChaosYears(realm) - LongChaosYears) / ChaosEaseYears);
         return (Mathf.Lerp(ContenderShare, EasedContenderShare, ease), Mathf.Lerp(PowerLead, EasedPowerLead, ease));
     }
 
-    // 乱了几年：从上一位坐稳了的共主失命算起；从没有过坐稳的共主就从天下(帝国法理)立起算；天命有主时为 0
+    // 乱了几年：从上一位坐稳了的共主失命算起；从没有过坐稳的共主就从天下(帝国法理)立起算；天命有主时为 0。
+    // 还没有帝国法理的天下从这片最老的城建起算：城的建造时间本来就随存档，不靠连片编号，读档、换主都不重置
     private static float ChaosYears(Realm realm)
     {
         EmpireCore lead = realm.lead;
-        if (lead == null || World.world == null) return 0f;
+        if (World.world == null) return 0f;
+        if (lead == null)
+        {
+            double oldest = double.MaxValue;
+            foreach (City city in realm.cities)
+                if (city?.data != null && city.data.created_time < oldest) oldest = city.data.created_time;
+            return oldest >= World.world.getCurWorldTime() ? 0f : Date.getYearsSince(oldest);
+        }
         double since = -1d;
         foreach (MandateRecord record in lead.mandate_history ?? new List<MandateRecord>())
         {
@@ -772,7 +788,8 @@ public static class UnificationSystem
                 {
                     data.unify_since = -1d;
                     data.unified_at = now;
-                    Record(unifier, "unify_done_history", unifier.GetKingdomName());
+                    // 打满期限据有过半：这一轮统一战争收束，不写成天下已归一家
+                    Record(unifier, "unify_settled_history", unifier.GetKingdomName());
                     if (realm.lead != null) TianxiaSystem.Grant(realm.lead, unifier, realm.held[unifier], realm.total, realm.line);
                     continue;
                 }
@@ -801,39 +818,19 @@ public static class UnificationSystem
                         continue;
                     }
                     data.unified_at = now;
-                    Record(unifier, "unify_done_history", unifier.GetKingdomName());
+                    Record(unifier, "unify_settled_history", unifier.GetKingdomName());
                     if (realm.lead != null) TianxiaSystem.Grant(realm.lead, unifier, realm.held[unifier], realm.total, realm.line);
                     continue;
                 }
                 Submissions(unifier);
                 continue;
             }
-            // 乱世(两家以上)：看有没有天命所归的
-            var ranked = powers.Where(holder => !Exempt(holder)).OrderByDescending(holder => realm.held[holder]).ToList();
-            if (ranked.Count < MinContenders) continue;
-            Kingdom top = ranked[0];
-            // 前朝失命、亡国后若干年内不能马上再问鼎(见文件头)：乱世至少这么久
-            if (FormerLocked(realm, top)) continue;
-            // 还在开国气象里的统一者不再起统一战；气象过了，旧王朝(崩了以后的残部)也能重新问鼎——以前"统一过"的标记永远不清，
-            // 残部仍是最大一家时谁都发不起统一战，天下永远乱世
-            if (InGrace(top)) continue;
-            // 已受这个天下天命的不再起统一战(它就是天下共主)
-            if (realm.lead != null && TianxiaSystem.MandateOf(top) == realm.lead) continue;
+            // 乱世(两家以上)：逐家看有没有天命所归的
+            Kingdom top = PickContender(realm, powers.Where(holder => !Exempt(holder)).ToList());
+            if (top == null) continue;
             float topShare = realm.held[top] / (float)realm.total;
-            double topPower = WarSituation.Power(top);
-            double second = ranked.Skip(1).Select(holder => WarSituation.Power(holder)).DefaultIfEmpty(0d).Max();
-            (float shareBar, float leadBar) = Bars(realm, top);
-            bool leads = topShare >= shareBar || topShare >= PowerLeadMinShare && topPower >= second * leadBar;
-            if (!leads) continue;
-            // 天下有主(治世、动荡)：别家不能问鼎，只有乱世才有统一战争(见 TianxiaSystem 天命周期)
-            if (realm.lead != null && TianxiaSystem.BarsContender(realm.lead, top)) continue;
             // 游牧政权只有雄主在位才能发动统一战争，发动时记下这位雄主(见文件头游牧难一统)
             bool nomad = IsNomad(top);
-            if (nomad && !RulerTraitSystem.FounderReigns(top))
-            {
-                LogNoHero(top, realm, topShare);
-                continue;
-            }
             var topData = top.GetOrCreate();
             // 以前统一过(改朝换代会清掉，见 OnDynastyChanged)：这是同一家第二次统一
             topData.unify_repeat = topData.unified_at >= 0d;
@@ -859,6 +856,110 @@ public static class UnificationSystem
             if (data.unify_since >= 0d) data.unify_since = -1d;
         }
         RetagStaleWars();
+    }
+
+    // 问鼎挡在哪一关(诊断照它写，见 DiagnoseContest)
+    private enum ContestBlock
+    {
+        None, FormerLocked, Grace, Mandate, Threshold, Barred, NoHero, CannotAct, NoRival
+    }
+
+    private static string ContestLabel(ContestBlock block) => block switch
+    {
+        ContestBlock.None => "可问鼎",
+        ContestBlock.FormerLocked => "前朝冷却",
+        ContestBlock.Grace => "开国气象",
+        ContestBlock.Mandate => "已受天命",
+        ContestBlock.Threshold => "未到门槛",
+        ContestBlock.Barred => "天命有主",
+        ContestBlock.NoHero => "游牧无雄主",
+        ContestBlock.CannotAct => "打不起",
+        ContestBlock.NoRival => "够不着别家",
+        _ => block.ToString()
+    };
+
+    // 问鼎：按占城、国力从大到小逐家核对，挑第一家够格又打得动的，一个天下一年至多一家。
+    // 以前只看占城第一的一家，它在冷却里、够不上门槛，别家再合格也轮不到
+    private static Kingdom PickContender(Realm realm, List<Kingdom> contenders)
+    {
+        if (contenders.Count < MinContenders) return null;
+        var power = new Dictionary<Kingdom, double>();
+        foreach (Kingdom holder in contenders) power[holder] = WarSituation.Power(holder);
+        List<Kingdom> ranked = contenders.OrderByDescending(holder => realm.held[holder])
+            .ThenByDescending(holder => power[holder]).ThenBy(holder => holder.id).ToList();
+        var seen = new List<(Kingdom kingdom, ContestBlock block)>();
+        Kingdom picked = null;
+        foreach (Kingdom candidate in ranked)
+        {
+            ContestBlock block = BlockOf(realm, candidate, ranked, power);
+            seen.Add((candidate, block));
+            if (block != ContestBlock.None) continue;
+            picked = candidate;
+            break;
+        }
+        DiagnoseContest(realm, seen, ranked, power);
+        return picked;
+    }
+
+    private static ContestBlock BlockOf(Realm realm, Kingdom candidate, List<Kingdom> ranked, Dictionary<Kingdom, double> power)
+    {
+        // 前朝失命、亡国后若干年内不能马上再问鼎(见文件头)：只挡它自己
+        if (FormerLocked(realm, candidate)) return ContestBlock.FormerLocked;
+        // 还在开国气象里的统一者不再起统一战；气象过了，旧王朝(崩了以后的残部)也能重新问鼎——以前"统一过"的标记永远不清，
+        // 残部仍是最大一家时谁都发不起统一战，天下永远乱世
+        if (InGrace(candidate)) return ContestBlock.Grace;
+        // 已受这个天下天命的不再起统一战(它就是天下共主)
+        if (realm.lead != null && TianxiaSystem.MandateOf(candidate) == realm.lead) return ContestBlock.Mandate;
+        float share = realm.held[candidate] / (float)realm.total;
+        double strongest = 0d;
+        foreach (Kingdom other in ranked)
+            if (other != candidate && power[other] > strongest) strongest = power[other];
+        (float shareBar, float leadBar) = Bars(realm, candidate);
+        if (share < shareBar && (share < PowerLeadMinShare || power[candidate] < strongest * leadBar)) return ContestBlock.Threshold;
+        // 天下有主(治世、动荡)：别家不能问鼎，只有乱世才有统一战争(见 TianxiaSystem 天命周期)
+        if (realm.lead != null && TianxiaSystem.BarsContender(realm.lead, candidate)) return ContestBlock.Barred;
+        if (IsNomad(candidate) && !RulerTraitSystem.FounderReigns(candidate))
+        {
+            LogNoHero(candidate, realm, share);
+            return ContestBlock.NoHero;
+        }
+        // 打不起、正在死战的这一年先不发动，缓过来再说；"想统一"不绕这道闸门
+        if (CorpsSystem.CannotFundWar(candidate) || WarGoalSystem.FightingForSurvival(candidate)) return ContestBlock.CannotAct;
+        // 谁也够不着(隔着别的文化)就发动不了；据有过半的照旧走"统一了能统一的"(见 StallYears)
+        if (share < StallUnifiedShare && !ranked.Any(other => other != candidate && Borders(candidate, other))) return ContestBlock.NoRival;
+        return ContestBlock.None;
+    }
+
+    // 诊断：这个天下乱世里各家卡在哪。卡点变了才记，没变的 ContestLogYears 年一行
+    private static void DiagnoseContest(Realm realm, List<(Kingdom kingdom, ContestBlock block)> seen, List<Kingdom> ranked,
+        Dictionary<Kingdom, double> power)
+    {
+        string key = $"{realm.line}#{ranked[0].id}";
+        string sign = string.Join(",", seen.Take(ContestLogTop).Select(entry => $"{entry.kingdom.id}:{entry.block}"));
+        double now = World.world.getCurWorldTime();
+        if (ContestLogged.TryGetValue(key, out var last) && last.sign == sign && now >= last.at && Date.getYearsSince(last.at) < ContestLogYears)
+            return;
+        ContestLogged[key] = (sign, now);
+        var parts = new List<string>();
+        foreach ((Kingdom kingdom, ContestBlock block) in seen.Take(ContestLogTop))
+        {
+            (float shareBar, float leadBar) = Bars(realm, kingdom);
+            double strongest = ranked.Where(other => other != kingdom).Select(other => power[other]).DefaultIfEmpty(0d).Max();
+            string ratio = strongest > 0d ? $"{power[kingdom] / strongest:0.0}" : "-";
+            string extra = block == ContestBlock.FormerLocked ? $"余{FormerYearsLeft(realm, kingdom)}年" : "";
+            parts.Add($"{kingdom.GetKingdomName()} 占{realm.held[kingdom] / (float)realm.total:P0}/{shareBar:P0} 国力比{ratio}/{leadBar:0.0} " +
+                      $"倾向{UnificationDrive.Of(kingdom):0.#} {ContestLabel(block)}{extra}");
+        }
+        LogService.LogInfo($"[EmpireCraft][天下诊断] {realm.line} {realm.total}城 {ranked.Count}家 乱世{ChaosYears(realm):0}年：{string.Join("；", parts)}");
+    }
+
+    private static int FormerYearsLeft(Realm realm, Kingdom kingdom)
+    {
+        double last = -1d;
+        if (realm.lead != null && realm.lead.mandate_former_kingdom_id == kingdom.id) last = realm.lead.mandate_lost_at;
+        SpecificClan clan = kingdom.king?.GetSpecificClan();
+        if (clan != null) last = Math.Max(last, clan.empire_fall_timestamp);
+        return last < 0d ? 0 : Mathf.Max(0, FormerLockYears - Date.getYearsSince(last));
     }
 
     // 已不在同一天下的"统一战争"(旧存档跨文化开的、天下散了的)改名：游牧政权为游牧扩张，别的为帝国扩张
@@ -928,34 +1029,40 @@ public static class UnificationSystem
             EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(holder)) return;
         Empire empire = holder.GetEmpire();
         if (empire == null || empire.isRekt() || empire.IsArchived()) return;
-        if (UnityEngine.Random.value >= PacifyChance) return;
+        if (UnityEngine.Random.value >= UnificationDrive.PacifyChance(holder, PacifyChance)) return;
         if (WarSituation.TooBusyForWar(holder) || CorpsSystem.CannotFundWar(holder)) return;
         WorldTile home = holder.capital?.getTile();
-        Kingdom target = realm.members
+        string dynasty = empire.GetEmpireName();
+        double ours = WarSituation.Power(holder);
+        List<Kingdom> targets = realm.members
             .Where(member => member != holder && Alive(member) && Sovereign(member) == member && !Exempt(member) &&
                              !holder.isInWarWith(member) && Borders(holder, member) &&
                              !EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(member) &&
                              WarGate.CanDeclare(holder, member) && WarReach.Reachable(holder, member))
             .OrderBy(member => home == null || member.capital?.getTile() == null ? float.MaxValue
                 : Toolbox.SquaredDistTile(home, member.capital.getTile()))
-            .FirstOrDefault();
-        if (target == null) return;
-        string name = target.GetKingdomName(), dynasty = empire.GetEmpireName();
-        double ours = WarSituation.Power(holder), theirs = WarSituation.Power(target);
-        float ratio = ours > 0d ? (float)(theirs / ours) : 1f;
-        if (!target.IsEmpire() && ratio < PacifyYieldShare &&
-            UnityEngine.Random.value < PacifyYieldChance * (1f - ratio / PacifyYieldShare) &&
-            TributaryRelations.Submit(holder, target))
+            .ToList();
+        // 这一家开不了仗(开战那一下被别的规矩挡回来)不挡下一家
+        foreach (Kingdom target in targets)
         {
-            LogService.LogInfo($"[EmpireCraft][天下大势] {realm.line}：{name} 慑于共主 {dynasty}(国力 {ratio:P0})，称臣纳贡");
-            Record(holder, "unify_pacify_tribute_history", name, dynasty);
+            string name = target.GetKingdomName();
+            double theirs = WarSituation.Power(target);
+            float ratio = ours > 0d ? (float)(theirs / ours) : 1f;
+            if (!target.IsEmpire() && ratio < PacifyYieldShare &&
+                UnityEngine.Random.value < PacifyYieldChance * (1f - ratio / PacifyYieldShare) &&
+                TributaryRelations.Submit(holder, target))
+            {
+                LogService.LogInfo($"[EmpireCraft][天下大势] {realm.line}：{name} 慑于共主 {dynasty}(国力 {ratio:P0})，称臣纳贡");
+                Record(holder, "unify_pacify_tribute_history", name, dynasty);
+                return;
+            }
+            War war = World.world.diplomacy.startWar(holder, target, WarTypeLibrary.normal);
+            if (war?.data == null) continue;
+            war.SetEmpireWarType(EmpireWarType.帝国扩张);
+            LogService.LogInfo($"[EmpireCraft][天下大势] {realm.line}：共主 {dynasty} 兴师平定 {name}(国力 {ratio:P0})");
+            Record(holder, "unify_pacify_war_history", dynasty, name);
             return;
         }
-        War war = World.world.diplomacy.startWar(holder, target, WarTypeLibrary.normal);
-        if (war?.data == null) return;
-        war.SetEmpireWarType(EmpireWarType.帝国扩张);
-        LogService.LogInfo($"[EmpireCraft][天下大势] {realm.line}：共主 {dynasty} 兴师平定 {name}(国力 {ratio:P0})");
-        Record(holder, "unify_pacify_war_history", dynasty, name);
     }
 
     // 一家的正规军(帝国连同各成员国)：现有兵力与满编；没有军团制时按士兵与历来最多的士兵
@@ -1002,12 +1109,15 @@ public static class UnificationSystem
         // 共事本部落联盟的部落不打(见 TribalFissionService.Bound)
         List<Kingdom> open = rivals.Where(rival => Alive(rival) && Sovereign(rival) == rival && !unifier.isInWarWith(rival) &&
                                                    !TribalFissionService.Bound(unifier, rival)).ToList();
-        Kingdom target = open.FirstOrDefault(rival => Borders(unifier, rival));
-        if (target == null) return;
-        War war = World.world.diplomacy.startWar(unifier, target, WarTypeLibrary.normal);
-        if (war?.data == null) return;
-        war.SetEmpireWarType(EmpireWarType.统一);
-        WarGoalSystem.Preset(war, WarGoal.吞并);
+        // 一家开不了仗(开战那一下被别的规矩挡回来)就试下一家，不每月卡在同一家上
+        foreach (Kingdom target in open.Where(rival => Borders(unifier, rival)))
+        {
+            War war = World.world.diplomacy.startWar(unifier, target, WarTypeLibrary.normal);
+            if (war?.data == null) continue;
+            war.SetEmpireWarType(EmpireWarType.统一);
+            WarGoalSystem.Preset(war, WarGoal.吞并);
+            return;
+        }
     }
 
     // 举国并入统一者：结束两家的战争，对方(帝国连同各成员国)所有的城逐帧移交

@@ -42,6 +42,8 @@ Locales/Cultures/
                                      // 留空按天下标识取(Roma→Church、Umma→Islam、Kosher→Judaism、India→Dharmic、Huaxia→Sanjiao、Tenka→Shinto、Steppe→Tengri，其余 Folk)
         "surname_evolution": true,   // 姓氏演变(只对华夏线有效)：原始群无姓→母系有姓→贵族分氏→周制男子称氏女子称姓、平民无氏→郡县后姓氏合一
         "traits": ["patriarchy"],    // 文化特质 id
+        "unification_drive": 1,      // 统一倾向 0~1(可省略)：分裂的天下里有多想归于一统，放宽久乱后的问鼎门槛、开战先打同一天下、朝堂更急着谋求统一；
+                                     // 不给兵不给地、不绕开战闸门。省略时 strong_unification 算 1、否则 0
         "political_traits": ["strong_unification"], // 模组政治特质：strong_unification 强统一诉求(唯一中央、易帜、临时政府、统一继承)；
                                      // nomad 游牧(游牧扩张、牧帐、放牧加倍)；raider 劫掠传统(派系可提劫掠)；
                                      // dharmic 法教传统(不发起圣战、宗教宽容)；dry_native 旱地故土(适应旱地与农地，不按制度线推定)

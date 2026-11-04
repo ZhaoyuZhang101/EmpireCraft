@@ -234,7 +234,7 @@ public static class ClaimAgendaSystem
         (Dictionary<Kingdom, int> held, int total) = TianxiaSystem.Holdings(lead);
         if (total <= 0) return 0f;
         float share = held.TryGetValue(core, out int ours) ? ours / (float)total : 0f;
-        return share >= UnifiedRealmShare ? 0f : 15f + 10f * (1f - share);
+        return share >= UnifiedRealmShare ? 0f : 15f + 10f * (1f - share) + UnificationDrive.AgendaUrgency * UnificationDrive.Of(core);
     }
 
     // 国库欠饷、入不敷出，或税率压得很低时急着加税(以前加税没有紧迫度，减税却税率越高越急，税率只降不升)

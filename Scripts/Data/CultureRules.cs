@@ -34,6 +34,8 @@ public class Setting
     // 只供 EmpireCraft 政治系统读取，不会注册成原版 CultureTrait。
     // 例如 strong_unification 会启用严格的军阀时期、易帜与统一继承逻辑。
     public List<string> political_traits = new List<string>();
+    // 统一倾向(0~1，见 UnificationDrive)：分裂的天下里有多想归于一统。不写(负数)时 strong_unification 算 1、否则 0
+    public float unification_drive = -1f;
     public RegimeType regime;
     // 这个文化归属哪条制度科技线（对应 InstitutionTrees/<线 id>.json 的文件名）。
     // 制度归属文化而不是政体：政体会被制度节点的 change_regime 效果改掉（华夏线的郡县制
@@ -316,6 +318,13 @@ public static class OnomasticsRule
     public static bool HasExplicitTianxia(this string culture) =>
         !string.IsNullOrEmpty(culture) && ALL_CULTURE_RULE.TryGetValue(culture, out Setting setting) &&
         !string.IsNullOrWhiteSpace(setting?.tianxia);
+
+    public static float GetUnificationDrive(this string culture)
+    {
+        if (string.IsNullOrWhiteSpace(culture) || !ALL_CULTURE_RULE.TryGetValue(culture, out Setting setting) || setting == null) return 0f;
+        if (setting.unification_drive >= 0f) return Mathf.Clamp01(setting.unification_drive);
+        return culture.HasPoliticalTrait("strong_unification") ? 1f : 0f;
+    }
 
     public static bool HasPoliticalTrait(this string culture, string trait)
     {
