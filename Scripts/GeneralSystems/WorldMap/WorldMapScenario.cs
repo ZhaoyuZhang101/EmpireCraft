@@ -1167,6 +1167,8 @@ public static class WorldMapScenario
             (byRegion.TryGetValue(city.region.id, out var members) ? members : byRegion[city.region.id] = new List<PlannedCity>()).Add(city);
         }
         int zw = MapBox.width / 8, zh = MapBox.height / 8, claimed = 0;
+        var owner = new PlannedCity[zw * zh];
+        var exact = new bool[zw * zh];
         for (int zy = 0; zy < zh; zy++)
         for (int zx = 0; zx < zw; zx++)
         {
@@ -1181,13 +1183,64 @@ public static class WorldMapScenario
             // 照原图归城的地块：水面多的(原图里城也领着的港湾)也归它
             if (owners == null || owners.Count == 0 || zone?.centerTile == null || zone.city != null ||
                 !exactCity && zone.centerTile.Type?.liquid == true) continue;
-            PlannedCity nearest = owners.OrderBy(city => (city.tile - tile).sqrMagnitude).First();
-            nearest.city.addZone(zone);
-            if (exactCity) PaintedCityZones.Add(zone.id);
+            owner[zy * zw + zx] = owners.OrderBy(city => (city.tile - tile).sqrMagnitude).First();
+            exact[zy * zw + zx] = exactCity;
+        }
+        SoftenPaint(owner, zw, zh, ScenarioCells.LandStep / (degrees * 8f));
+        for (int zy = 0; zy < zh; zy++)
+        for (int zx = 0; zx < zw; zx++)
+        {
+            PlannedCity city = owner[zy * zw + zx];
+            if (city == null) continue;
+            TileZone zone = ZoneAt(zx, zy);
+            city.city.addZone(zone);
+            if (exact[zy * zw + zx]) PaintedCityZones.Add(zone.id);
             claimed++;
         }
         if (claimed > 0) LogService.LogInfo($"[EmpireCraft][世界地图] 剧本刷的地块归属 {claimed} 块");
         return claimed;
+    }
+
+    // 地块归属按 0.2° 的格子记，比例尺大的图一格盖好几块地，城界成了整块整块的方格，平滑国界只管一块地的范围，只能把方格的角磨圆
+    // (群友 2026-11-04 截图"变成这种稍微圆弧的方块了，正常情况下应该是斜线才对")。一格盖不止一块地时，边界上的地块归周围最多的那座城，
+    // 方格的台阶就磨成斜线；没刷的地块(空、水面)不算也不占。图的比例尺够细、一格不到 1.25 块地的不动
+    private const int SoftenPasses = 2, SoftenMaxRadius = 4;
+
+    private static void SoftenPaint(PlannedCity[] owner, int zw, int zh, float zonesPerCell)
+    {
+        if (zonesPerCell < 1.25f) return;
+        int radius = Mathf.Clamp(Mathf.CeilToInt(zonesPerCell), 1, SoftenMaxRadius);
+        var counts = new Dictionary<PlannedCity, int>();
+        for (int pass = 0; pass < SoftenPasses; pass++)
+        {
+            var next = (PlannedCity[])owner.Clone();
+            for (int zy = 0; zy < zh; zy++)
+            for (int zx = 0; zx < zw; zx++)
+            {
+                PlannedCity self = owner[zy * zw + zx];
+                if (self == null) continue;
+                counts.Clear();
+                for (int dy = -radius; dy <= radius; dy++)
+                for (int dx = -radius; dx <= radius; dx++)
+                {
+                    int x = zx + dx, y = zy + dy;
+                    if (x < 0 || y < 0 || x >= zw || y >= zh || dx * dx + dy * dy > radius * radius) continue;
+                    PlannedCity around = owner[y * zw + x];
+                    if (around != null) counts[around] = counts.TryGetValue(around, out int count) ? count + 1 : 1;
+                }
+                if (counts.Count < 2) continue;
+                PlannedCity best = self;
+                int most = counts[self];
+                foreach (KeyValuePair<PlannedCity, int> pair in counts)
+                    if (pair.Value > most)
+                    {
+                        most = pair.Value;
+                        best = pair.Key;
+                    }
+                next[zy * zw + zx] = best;
+            }
+            Array.Copy(next, owner, owner.Length);
+        }
     }
 
     // 补的小国先按小城的预算铺自己的辖地，再把剩下有陆地的区块(山麓、沿海零碎地块)分给走得到的最近的城，

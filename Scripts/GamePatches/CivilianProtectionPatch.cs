@@ -28,6 +28,14 @@ public class CivilianProtectionPatch : GamePatch
         ref bool __result)
     {
         if (!__result || !pCheckForFactions || pTarget == null || !__instance.isActor() || !pTarget.isActor()) return;
+        // 无小人模式下人物只是数据，君主、储君不会被路过的实体砍死(用户 2026-11-04 三国剧本开局一秒多，刘禅在成都"死于广人魏延之手")；
+        // 亲征阵亡、遇刺、政变走各自的结算，不靠这里
+        if (CityPopulationSystem.AbstractPopulationEnabled && RoyalHouseSystem.IsRoyal(pTarget.a) &&
+            !EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(pTarget.a))
+        {
+            __result = false;
+            return;
+        }
         if (WorldLawLibrary.world_law_angry_civilians.isEnabled()) return;
         Actor attacker = __instance.a;
         Actor target = pTarget.a;

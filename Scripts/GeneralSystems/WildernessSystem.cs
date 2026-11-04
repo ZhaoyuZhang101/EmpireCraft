@@ -227,16 +227,18 @@ public static class WildernessSystem
         if (region.Neutral) return null;
         Kingdom local = OriginOf(zone)?.kingdom;
         if (local != null && (local.data == null || local.isRekt() || local.wild)) local = null;
-        Kingdom holder = HolderOf(zone);
-        if (holder != null)
-        {
-            byTitle = true;
-            return local != null && SameRealm(local, holder) ? local : holder;
-        }
+        // 城归谁，它辖下的无人区就归谁(用户 2026-11-04 "一叛乱就是飞地, 你至少带着中间的无人区一起啊")：
+        // 以前按法理持有国，叛军拿了城、城外的无人区还留给旧朝，叛军的城成了一个个孤岛
         if (local != null)
         {
             byTitle = TitleOf(zone) != null;
             return local;
+        }
+        Kingdom holder = HolderOf(zone);
+        if (holder != null)
+        {
+            byTitle = true;
+            return holder;
         }
         Kingdom around = region.Surround;
         return around != null && !around.isRekt() ? around : null;
@@ -1347,11 +1349,14 @@ public static class WildernessSystem
     // 不成飞地(用户 10-30 截图狼居胥山一块块挂在萧汗国名下、插在回纥国土中间："出现这种飞地也很不合理")：剧本锚点、史实归属挂的法理，
     // 城后来换了主、分了家，或者隔得远，无人区就成了插在别国国土里的一块块。同城的地一个样，每块地得连得上所挂法理的一座城——
     // 挨着那座城的地块，或经同一法理的无人区地块连过去(长城不过，见 _walled)；连得上的记下跟着哪座城(OriginOf)，
-    // 连不上的改挂走得到的最近的城(这次挂接算过的，没算的现走一遍)。权能笔刷划的不动
+    // 连不上的并给四周连得上的地块或城(用户 2026-11-04 截图一块块翔国插在别国无人区里："这种飞地问题还是没有解决吗")：一圈圈往外并，
+    // 并完每块地都连得上所挂法理的城，不会再成飞地；州府锚点、上次跟的城只定跟哪座城，不算连上(以前算，剧本里锚点划出的地全成飞地)。
+    // 四周都没有的(隔海的岛)才改挂走得到的最近的城。权能笔刷划的不动
     private static void Connect(Dictionary<City, KingdomTitle> titleOf, City[] nearestCity, KingdomTitle[] nearestTitle)
     {
         int size = _titles.Length;
         var linked = new bool[size];
+        var anchored = new bool[size];
         var queue = new Queue<int>();
         foreach (WildRegion region in _regions)
             foreach (int id in region.Zones)
@@ -1365,17 +1370,15 @@ public static class WildernessSystem
                     origin = WorldMap.WorldMapWilderness.OnEarth && id < _parents.Length ? _parents[id] : null;
                 if (origin?.data != null && !origin.isRekt() && origin.GetTitle() == title)
                 {
-                    linked[id] = true;
+                    anchored[id] = true;
                     _parents[id] = origin;
-                    queue.Enqueue(id);
-                    continue;
                 }
                 foreach (TileZone next in zone.neighbours_all)
                 {
                     City city = next?.city;
                     if (city?.data == null || city.isRekt() || TitleOfCity(city, titleOf) != title) continue;
                     linked[id] = true;
-                    _parents[id] = city;
+                    if (!anchored[id]) _parents[id] = city;
                     queue.Enqueue(id);
                     break;
                 }
@@ -1389,18 +1392,24 @@ public static class WildernessSystem
                 if (next == null || next.id < 0 || next.id >= size || linked[next.id] || _titles[next.id] != _titles[id] ||
                     next.id >= _regionOf.Length || _regionOf[next.id] < 0) continue;
                 linked[next.id] = true;
-                _parents[next.id] = _parents[id];
+                if (!anchored[next.id]) _parents[next.id] = _parents[id];
                 queue.Enqueue(next.id);
             }
         }
+        int moved = Absorb(linked, titleOf);
         KingdomTitle[] from = null;
         City[] fromCity = null;
         bool[] reached = null;
-        int moved = 0;
         foreach (WildRegion region in _regions)
             foreach (int id in region.Zones)
             {
                 if (_titles[id] == null || linked[id]) continue;
+                // 修补别处失效法理时，不把仍有效的历史辖境一并重划。
+                if (WorldMap.WorldMapWilderness.OnEarth && !_titles[id].isRekt())
+                {
+                    _parents[id] = OriginOf(_zones[id]);
+                    continue;
+                }
                 if (id < _painted.Length && _painted[id] || WorldMap.WorldMapWilderness.PaintedTitle(_zones[id]) != null)
                 {
                     _parents[id] = null;
@@ -1418,7 +1427,54 @@ public static class WildernessSystem
                 _titles[id] = title;
                 _parents[id] = parent;
             }
-        if (moved > 0) LogService.LogInfo($"[EmpireCraft][无人区] {moved} 块连不上所挂法理的城(飞地)，改挂最近的城");
+        if (moved > 0) LogService.LogInfo($"[EmpireCraft][无人区] {moved} 块连不上所挂法理的城(飞地)，并给四周或最近的城");
+    }
+
+    private static bool PinnedTitle(int id) =>
+        id < _painted.Length && _painted[id] || WorldMap.WorldMapWilderness.PaintedTitle(_zones[id]) != null;
+
+    // 连不上所挂法理的地块从四周连得上的地块、城一圈圈并过去(长城不过)，返回并了多少块
+    private static int Absorb(bool[] linked, Dictionary<City, KingdomTitle> titleOf)
+    {
+        int moved = 0;
+        var queue = new Queue<int>();
+        foreach (WildRegion region in _regions)
+            foreach (int id in region.Zones)
+            {
+                if (linked[id])
+                {
+                    queue.Enqueue(id);
+                    continue;
+                }
+                if (_titles[id] == null || _zones[id]?.neighbours_all == null || PinnedTitle(id)) continue;
+                foreach (TileZone next in _zones[id].neighbours_all)
+                {
+                    KingdomTitle around = TitleOfCity(next?.city, titleOf);
+                    if (around == null) continue;
+                    if (around != _titles[id]) moved++;
+                    _titles[id] = around;
+                    _parents[id] = next.city;
+                    linked[id] = true;
+                    queue.Enqueue(id);
+                    break;
+                }
+            }
+        while (queue.Count > 0)
+        {
+            int id = queue.Dequeue();
+            if (id < _walled.Length && _walled[id] || _titles[id] == null) continue;
+            foreach (TileZone next in _zones[id].neighbours_all)
+            {
+                if (next == null || next.id < 0 || next.id >= linked.Length || linked[next.id] || _titles[next.id] == null ||
+                    next.id >= _regionOf.Length || _regionOf[next.id] < 0 || PinnedTitle(next.id)) continue;
+                if (_titles[next.id] != _titles[id]) moved++;
+                _titles[next.id] = _titles[id];
+                _parents[next.id] = _parents[id];
+                linked[next.id] = true;
+                queue.Enqueue(next.id);
+            }
+        }
+        return moved;
     }
 
     // 压着城墙格、不归城的地块

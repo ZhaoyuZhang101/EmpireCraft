@@ -1501,10 +1501,14 @@ public static partial class VirtualGenealogySystem
 
     private static string ChildName(SpecificClan clan, PersonalClanIdentity child, PersonalClanIdentity parent)
     {
-        string generated = CultureService.GenerateCulturalName(MetaType.Unit, child.id, parent.culture, child.sex);
-        string[] parts = (generated ?? "").SplitNameParts();
-        string given = parts.Length > 0 ? parts[parts.Length - 1] : "";
-        if (string.IsNullOrWhiteSpace(given)) given = generated ?? "";
+        // 字表偶尔起出空名(世系里只剩一个"曹")：换个种子再起几次
+        string given = "";
+        for (int attempt = 0; attempt < 5 && string.IsNullOrWhiteSpace(given); attempt++)
+        {
+            string generated = CultureService.GenerateCulturalName(MetaType.Unit, child.id + attempt, parent.culture, child.sex);
+            string[] parts = (generated ?? "").SplitNameParts();
+            given = parts.Length > 0 ? parts[parts.Length - 1] : generated ?? "";
+        }
         child.given_name = given;
         child.surname = SurnameInheritanceSystem.SurnameOf(parent);
         if (string.IsNullOrWhiteSpace(child.surname)) child.surname = clan.name;

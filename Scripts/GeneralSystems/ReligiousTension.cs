@@ -191,9 +191,13 @@ public static class ReligiousTension
             string.Format(LM.Get("religious_revolt_history"), cityName, city.religion?.name ?? ""));
     }
 
+    private const int StartGraceYears = 10;
+
     // 能不能举事：不是都城、本国能起事、本城稳定低于起事线、十年内没起过事。打仗时照样会起事(以前打仗就不起，正与史实相反)
     public static bool CanRevolt(City city)
     {
+        // 开局头几年不举事：城的稳定度还没养起来，剧本第一年就教门四起、都城旁边开打(一年 60 秒)
+        if (World.world == null || World.world.getCurWorldTime() < StartGraceYears * 60d) return false;
         Kingdom origin = city?.kingdom;
         if (origin?.data == null || city == origin.capital || !RebellionSystem.CanAttempt(origin) || !CityStabilitySystem.CanRise(city) ||
             CityStabilitySystem.Effective(city) >= CityStabilityRules.RebellionThreshold || !ModernStability.PassRebellionGate(origin))

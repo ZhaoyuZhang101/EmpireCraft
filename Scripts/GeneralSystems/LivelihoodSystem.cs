@@ -136,7 +136,7 @@ public static class LivelihoodSystem
         // 本城有眼下开得了的矿藏(金银铜……)却还没有矿村：先开一处，不然矿藏白放着；要更高等级的矿等科技到了再说
         // 本市场缺这城的矿藏(见 CommodityMarketSystem.WantsMine)：已有矿村也再开，至多 MarketMines 处
         bool needMine = city != null && (!HasTrade(city, Mine, settlement) && MineralResourceSystem.HasMinableDeposit(city) ||
-                                         Equivalent(city, Mine) < MarketMines && CommodityMarketSystem.WantsMine(city));
+                                         AssignedEquivalent(city, Mine, settlement) < MarketMines && CommodityMarketSystem.WantsMine(city));
         if (s.Rough >= 0.4f) return Mine;
         if (needFood && s.Arable >= 0.5f) return Farm;
         // 旱地不算能耕：本城几乎没有产粮的镇村时才旱作(绿洲、河谷)
@@ -240,6 +240,17 @@ public static class LivelihoodSystem
 
     // 折成几座原来的矿场、伐木场、牧场
     public static float Equivalent(City city, int trade) => Active ? Shares(city, trade) * PerShare : 0f;
+
+    // 定生计时用：只数已定了这一行的。Equivalent 走 Of，会当场给还没定生计的镇村定生计，定生计又问到这里，
+    // 无限递归把主线程的栈撑爆，开局必闪退
+    private static float AssignedEquivalent(City city, int trade, RuralSettlement except)
+    {
+        float shares = 0f;
+        foreach (RuralSettlement other in RuralSettlementSystem.InCity(city))
+            if (other != except && !other.fort && other.ruined_at < 0d && other.trade == trade)
+                shares += RuralSettlementSystem.Weight(other);
+        return shares * PerShare;
+    }
 
     // 矿、林的产出倍数(代替原来各座矿场、伐木场的等级倍数之和，见 IndustryBuildingSystem.OutputFactor)
     public static float Factor(City city, int trade)

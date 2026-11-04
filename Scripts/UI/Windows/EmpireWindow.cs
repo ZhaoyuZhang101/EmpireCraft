@@ -1724,6 +1724,8 @@ namespace EmpireCraft.Scripts.UI.Windows
             if (string.IsNullOrEmpty(s)) return h.empire_name;
             // 国号冠了开国之君的姓(前朝用过的国号再用)：同国号一样把姓放在后面的括号里，如"汉(方)"
             string full = h.empire_full_name ?? "";
+            // 前史写的全名就是姓加国号(曹魏)：和开局后的同一朝归一组(曹·魏)，不另起"魏(曹)"
+            if (full == s + h.empire_name) return string.Join("·", s, h.empire_name);
             if (full.EndsWith("(" + s + ")", StringComparison.Ordinal) ||
                 full.StartsWith(s, StringComparison.Ordinal) && !(h.empire_name ?? "").StartsWith(s, StringComparison.Ordinal))
                 return h.empire_name + "(" + s + ")";

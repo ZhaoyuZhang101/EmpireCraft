@@ -880,7 +880,8 @@ public static class AdministrativeControlSystem
             if (!Valid(city)) continue;
             var data = city.GetOrCreate();
             // 殖民地的海外据点本来就是飞地(见 ColonySystem)，不自立
-            if (!data.admin_exclave || data.admin_control >= DefectThreshold || city.kingdom.capital == city ||
+            // 只剩一座城的国没有飞地可言(刚自立的国，标记还没重算，以前隔年又"自立"一次，一城连换几个国号)
+            if (!data.admin_exclave || data.admin_control >= DefectThreshold || city.kingdom.capital == city || city.kingdom.cities.Count <= 1 ||
                 ColonySystem.IsColony(city.kingdom) ||
                 city.kingdom.hasEnemies() || city.GetOrCreate().OccupiedStatus?.Count > 0 ||
                 UnificationSystem.InGrace(city.kingdom)) continue;
