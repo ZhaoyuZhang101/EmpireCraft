@@ -71,7 +71,7 @@ public static partial class TransmigrantSystem
 
     // 降临时随身带来的现代技术：线膛枪、炸药、发电、蒸汽印刷与蒸汽铁甲(连同前置的工业化)；其余工业、电气时代的各项先有一半进度
     private static readonly string[] BroughtTechs =
-        { "industrialization", "rifling", "explosives", "electricity", "steam_press", "steam_ironclads" };
+        { "industrialization", "rifling", "explosives", "electricity", "steam_press", "steam_ironclads", NavalBases };
 
     private static void Grow(Kingdom kingdom, TransmigrantState state, float naturalized)
     {
@@ -87,6 +87,7 @@ public static partial class TransmigrantSystem
         NeoModLoader.services.LogService.LogInfo($"[EmpireCraft][穿越] {kingdom.GetKingdomFullName()} 城{kingdom.cities.Count} " +
             $"流民{Mathf.RoundToInt(refugees)} 归化{Mathf.RoundToInt(naturalized)} 归化民共{Mathf.RoundToInt(NaturalizedPopulation(kingdom))} " +
             $"伏波军{Mathf.RoundToInt(fubo?.strength ?? 0f)}/{Mathf.RoundToInt(fubo?.full ?? 0f)} 国库{kingdom.GetMoney()} " +
+            $"海军{NavalRealm(kingdom).Sum(member => NavySystem.Of(member).Sum(fleet => fleet.warships))}/{AosongNavyRules.FloorWarships(state.stage)} " +
             $"外贸{Mathf.RoundToInt(CommodityMarketSystem.MarketOf(kingdom)?.trade_value ?? 0f)} " +
             $"{(DisguiseLord(kingdom) is Empire lord ? "伪装为" + lord.GetEmpireFullName() + "属国" : "已公开")}");
     }

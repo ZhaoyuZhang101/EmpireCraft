@@ -23,6 +23,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     (以前每艘 1500 × 舰种倍数，现代两艘就运 1.2 万人)；
 //   · 封锁：港口外的海区被敌方控制，港口的海上商路中断、跨海建城暂停，海外登陆部队断了补给。
 //   · 旗舰：开着「军团统领实体」时每支舰队一艘旗舰(原版运兵船，挂在母港码头)跟着兵牌走；关掉就只有兵牌。
+//   · 澳宋(见 AosongNavyRules、TransmigrantSystem.NavalState)：全军一支海军，大区、殖民地都按澳洲人的海军科技算，按阶段定额造舰。
 public static class NavySystem
 {
     private const int MaxRegionsPerMonth = 3;
@@ -103,8 +104,16 @@ public static class NavySystem
 
     public static bool NavyEra(Kingdom kingdom)
     {
-        string culture = TechnologySystem.GetCultureOf(kingdom);
+        string culture = TransmigrantSystem.NavalState(kingdom) != null ? TransmigrantSystem.Culture : TechnologySystem.GetCultureOf(kingdom);
         return culture != null && TechnologySystem.GetEraTier(culture) >= NavyEraTier;
+    }
+
+    // 海军科技按谁算：本国都城的文化；澳宋的大区、殖民地文化多半还是当地的，军舰却是同一家造的，一律按澳洲人的
+    // (以前大区的舰队按华夏科技算，元老院有蒸汽铁甲，下面的大区全是远洋帆舰)
+    private static string NavalCulture(Kingdom kingdom)
+    {
+        if (TransmigrantSystem.NavalState(kingdom) != null) return TransmigrantSystem.Culture;
+        return kingdom?.capital == null ? null : TechnologySystem.GetCultureOf(kingdom.capital);
     }
 
     // 舰种(战力倍率)：楼船 1 / 远洋帆舰 1.5 / 蒸汽铁甲 2.5 / 现代舰艇 4
@@ -120,14 +129,14 @@ public static class NavySystem
     // 舰种按海军科技线(远洋航海 → 蒸汽铁甲 → 现代舰艇，见 TechTree.json 的 naval_hull)
     public static float Tier(Kingdom kingdom)
     {
-        string culture = kingdom?.capital == null ? null : TechnologySystem.GetCultureOf(kingdom.capital);
+        string culture = NavalCulture(kingdom);
         return culture == null ? 1f : TechnologySystem.NavalHull(culture);
     }
 
     // 海军科技给的舰船战力加成(舰炮、舰载航空、雷达……)
     public static float PowerBonus(Kingdom kingdom)
     {
-        string culture = kingdom?.capital == null ? null : TechnologySystem.GetCultureOf(kingdom.capital);
+        string culture = NavalCulture(kingdom);
         return 1f + (culture == null ? 0f : TechnologySystem.NavalPower(culture));
     }
 
@@ -151,7 +160,8 @@ public static class NavySystem
     }
 
     private static float Power(Kingdom kingdom, FleetData fleet) =>
-        fleet.warships * Tier(kingdom) * PowerBonus(kingdom) * (0.3f + 0.7f * Mathf.Clamp01(fleet.org / 100f)) + fleet.transports * 0.05f;
+        fleet.warships * Tier(kingdom) * PowerBonus(kingdom) * (0.3f + 0.7f * Mathf.Clamp01(fleet.org / 100f)) *
+        (TransmigrantSystem.NavalState(kingdom) != null ? AosongNavyRules.PowerEdge : 1f) + fleet.transports * 0.05f;
 
     // 制海权在谁手里(过期的不算)
     public static Kingdom Controller(SeaRegionSystem.Region region)
@@ -183,7 +193,7 @@ public static class NavySystem
     public static float FarthestReach(Kingdom kingdom)
     {
         if (!NavyEra(kingdom)) return 0f;
-        string culture = kingdom?.capital == null ? null : TechnologySystem.GetCultureOf(kingdom.capital);
+        string culture = NavalCulture(kingdom);
         return ReachBase + (culture == null ? 0f : TechnologySystem.NavalReach(culture));
     }
 
@@ -311,6 +321,7 @@ public static class NavySystem
         {
             if (kingdom?.data == null || kingdom.isRekt() || kingdom.isNeutral() ||
                 Compatibility.AncientWarfareCompatibility.OwnsObject(kingdom)) continue;
+            TransmigrantSystem.EnsureBases(kingdom);
             // 铁器时代以前没有水师
             List<City> ports = NavyEra(kingdom) ? Ports(kingdom).ToList() : new List<City>();
             List<FleetData> list = kingdom.GetOrCreate().fleets;
@@ -352,6 +363,8 @@ public static class NavySystem
                 fleet.home_city_id = other.id;
                 continue;
             }
+            // 澳宋全军一支海军：本国没港了，舰队改驻别的大区的港口
+            if (HandOver(kingdom, fleet)) continue;
             // 无港可归：每月折损两成，打光就解散
             fleet.warships = Mathf.FloorToInt(fleet.warships * 0.8f);
             fleet.transports = Mathf.FloorToInt(fleet.transports * 0.8f);
@@ -383,6 +396,23 @@ public static class NavySystem
         }
     }
 
+    private static bool HandOver(Kingdom kingdom, FleetData fleet)
+    {
+        foreach (Kingdom member in TransmigrantSystem.NavalRealm(kingdom))
+        {
+            if (member == kingdom) continue;
+            City port = Ports(member).FirstOrDefault();
+            if (port == null) continue;
+            RemoveFlagship(fleet);
+            Of(kingdom).Remove(fleet);
+            fleet.kingdom_id = member.id;
+            fleet.home_city_id = port.id;
+            Of(member).Add(fleet);
+            return true;
+        }
+        return false;
+    }
+
     // 造舰：每港定额(太平 战舰 2 + 运输 1；交战或战备 战舰 6 + 运输 4；有跨海登陆的需要时，各港合计再多造够
     // 运下本国最大一支军的运输船，按港口数分摊，每港至多再多 MaxLandingTransportsPerPort 艘)，
     // 港口每升一级定额 +50%；每港每月下水 0.5 艘(交战 1 艘)，先造缺得多的；钱从国库出，没钱就停
@@ -391,6 +421,19 @@ public static class NavySystem
         bool war = CorpsSystem.IsAtWar(kingdom);
         bool landing = DesiredLanding.ContainsKey(kingdom.id);
         float tier = Tier(kingdom);
+        // 澳宋：全军的船数、港口数合起来算定额，定额以内不走国库(见 AosongNavyRules)
+        TransmigrantState aosong = TransmigrantSystem.NavalState(kingdom);
+        int realmWar = 0, realmTransport = 0, realmPorts = ports.Count;
+        if (aosong != null)
+        {
+            realmPorts = 0;
+            foreach (Kingdom member in TransmigrantSystem.NavalRealm(kingdom))
+            {
+                realmWar += Of(member).Sum(fleet => fleet.warships);
+                realmTransport += Of(member).Sum(fleet => fleet.transports);
+                realmPorts += Ports(member).Count();
+            }
+        }
         int landingExtra = 0;
         if (landing)
         {
@@ -404,19 +447,26 @@ public static class NavySystem
             Building port = home == null ? null : Port(home);
             if (port == null || fleet.task == "retreat" && fleet.region_id != HomeRegion(fleet)?.Id) continue;
             float level = 1f + 0.5f * Mathf.Clamp(port.asset.upgrade_level, 0, 3);
-            int wantWar = Mathf.RoundToInt((war ? 6 : 2) * level);
-            int wantTransport = Mathf.RoundToInt((war ? 4 : 1) * level) + landingExtra;
+            int wantWar = aosong != null ? AosongNavyRules.WantWarships(aosong.stage, war, level, realmPorts)
+                : Mathf.RoundToInt((war ? 6 : 2) * level);
+            int wantTransport = (aosong != null ? AosongNavyRules.WantTransports(aosong.stage, war, level, realmPorts)
+                : Mathf.RoundToInt((war ? 4 : 1) * level)) + landingExtra;
             int lackWar = wantWar - fleet.warships, lackTransport = wantTransport - fleet.transports;
             if (lackWar <= 0 && lackTransport <= 0) continue;
-            fleet.build_progress += war ? 1f : 0.5f;
+            fleet.build_progress += aosong != null ? AosongNavyRules.Pace(war) : war ? 1f : 0.5f;
             while (fleet.build_progress >= 1f && (lackWar > 0 || lackTransport > 0))
             {
                 bool warship = lackWar >= lackTransport;
+                bool freeWar = aosong != null && lackWar > 0 && AosongNavyRules.UnderWarshipFloor(aosong.stage, realmWar);
+                bool freeTransport = aosong != null && lackTransport > 0 && AosongNavyRules.UnderTransportFloor(aosong.stage, realmTransport);
+                // 定额以内的先造：国库空了，也不让定额以外的那一艘挡住后面不花钱的
+                if (freeWar != freeTransport) warship = freeWar;
+                bool free = warship ? freeWar : freeTransport;
                 int cost = Mathf.RoundToInt((warship ? 15f : 6f) * tier);
-                if (!TreasurySystem.TrySpend(kingdom, cost, TreasuryCategory.Military)) { fleet.build_progress = 0f; break; }
+                if (!free && !TreasurySystem.TrySpend(kingdom, cost, TreasuryCategory.Military)) { fleet.build_progress = 0f; break; }
                 fleet.build_progress -= 1f;
-                if (warship) { fleet.warships++; lackWar--; }
-                else { fleet.transports++; lackTransport--; }
+                if (warship) { fleet.warships++; lackWar--; realmWar++; }
+                else { fleet.transports++; lackTransport--; realmTransport++; }
             }
             if (lackWar <= 0 && lackTransport <= 0) fleet.build_progress = 0f;
         }
@@ -822,8 +872,9 @@ public static class NavySystem
 
     public static string Name(FleetData fleet)
     {
-        string format = LM.Get("navy_fleet_name");
-        string home = Home(fleet)?.GetCityName() ?? "";
+        City city = Home(fleet);
+        string format = LM.Get(TransmigrantSystem.NavalState(city?.kingdom) != null ? "navy_fleet_name_aosong" : "navy_fleet_name");
+        string home = city?.GetCityName() ?? "";
         return string.Format(format, home);
     }
 

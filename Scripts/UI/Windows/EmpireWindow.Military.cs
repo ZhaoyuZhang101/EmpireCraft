@@ -225,6 +225,9 @@ namespace EmpireCraft.Scripts.UI.Windows
             if (blockaded.Count > 0)
                 card.AddTextIntoVertLayout(string.Format(LM.Get("navy_blockaded"), string.Join("、", blockaded)).ColorString("#E8584F"),
                     true, TextAnchor.MiddleLeft, new Vector2(inner, 10f)).UseFixedFontSize(6, HorizontalWrapMode.Wrap);
+            if (realms.Any(realm => TransmigrantSystem.NavalState(realm) != null))
+                card.AddTextIntoVertLayout(LM.Get("navy_aosong_hint").ColorString("#7FD8EA"), true, TextAnchor.UpperLeft,
+                    new Vector2(inner, 18f)).UseFixedFontSize(6, HorizontalWrapMode.Wrap);
             card.AddTextIntoVertLayout(LM.Get("navy_rules_hint").ColorString("#8FA0A8"), true, TextAnchor.UpperLeft,
                 new Vector2(inner, 26f)).UseFixedFontSize(6, HorizontalWrapMode.Wrap);
         }

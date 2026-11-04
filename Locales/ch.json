@@ -903,6 +903,8 @@
   "empire_join_member_war_history": "{1}向朝廷告急，{0}發兵援助",
   "empirecraft_law_corps_general_needs_modes": "需同時開啓「無小人模式」與「帝國佔領模式」，軍團與這個開關才會生效",
   "navy_fleet_name": "{0}水師",
+  "navy_fleet_name_aosong": "{0}艦隊",
+  "navy_aosong_hint": "伏波軍海軍，凡是海上飄的都歸海軍：全軍定額以內由海軍工業集團造艦、不走國庫；沿海的城都設基地；艦炮代差，同樣的船戰力更高。定額隨階段提高。",
   "navy_tier_0": "樓船",
   "navy_tier_1": "遠洋帆艦",
   "navy_tier_2": "蒸汽鐵甲",

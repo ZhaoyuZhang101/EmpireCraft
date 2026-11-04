@@ -901,6 +901,8 @@
   "empire_join_member_war_history": "{1} appealed to the court and {0} sent troops to its aid",
   "empirecraft_law_corps_general_needs_modes": "Corps and this switch only take effect with both No Commoners Mode and EmpireCraft Occupation Mode on",
   "navy_fleet_name": "{0} Fleet",
+  "navy_fleet_name_aosong": "{0} Fleet",
+  "navy_aosong_hint": "Fubo Navy, where everything afloat belongs to the navy: ships within the fleet quota come from the Navy Industrial Group at no treasury cost, every coastal city hosts a base, and superior guns make each hull stronger. The quota rises with each stage.",
   "navy_tier_0": "Tower Ships",
   "navy_tier_1": "Sailing Warships",
   "navy_tier_2": "Steam Ironclads",

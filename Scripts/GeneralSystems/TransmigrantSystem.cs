@@ -43,7 +43,6 @@ public static partial class TransmigrantSystem
     private const float HeadStart = 0.5f;
     private const int Treasury = 5000;
     private const float ArmyStrength = 500f;
-    private const int Warships = 3, Transports = 2;
     private const int ChairmanTermYears = 4, ChairmanMaxTerms = 2, ChairmanMinAge = 21;
     private const int PublishYears = 5, PublishPerRound = 2;
     private const float PublishProgress = 0.3f;
@@ -365,7 +364,7 @@ public static partial class TransmigrantSystem
         {
             id = OverallHelperFunc.IdGenerator.NextId(), serial = ++data.fleet_serial, kingdom_id = kingdom.id,
             home_city_id = city.id, region_id = water.Id, target_region_id = water.Id, zone_id = water.Center?.id ?? -1,
-            warships = Warships, transports = Transports
+            warships = AosongNavyRules.FloorWarships(1), transports = AosongNavyRules.FloorTransports(1)
         });
     }
 
@@ -752,6 +751,7 @@ public static partial class TransmigrantSystem
     private static void Yearly(Kingdom kingdom, TransmigrantState state, int year)
     {
         Restore(kingdom, state);
+        EnsureNavalTechs();
         // 旧档先认出降临那支，下面按建制标记找伏波军时才不会另编一支(见 FormationSystem.Migrate)
         FormationSystem.EnsureAll(kingdom, CorpsSystem.Of(kingdom));
         // 大整备：治安军撤销番号，人和旧番号都并入国民军，只并一次(见 FormationSystem.MergeEarly)

@@ -904,6 +904,8 @@
   "empire_join_member_war_history": "{1}向朝廷告急，{0}发兵援助",
   "empirecraft_law_corps_general_needs_modes": "需同时开启「无小人模式」与「帝国占领模式」，军团与这个开关才会生效",
   "navy_fleet_name": "{0}水师",
+  "navy_fleet_name_aosong": "{0}舰队",
+  "navy_aosong_hint": "伏波军海军，凡是海上飘的都归海军：全军定额以内由海军工业集团造舰、不走国库；沿海的城都设基地；舰炮代差，同样的船战力更高。定额随阶段提高。",
   "navy_tier_0": "楼船",
   "navy_tier_1": "远洋帆舰",
   "navy_tier_2": "蒸汽铁甲",
