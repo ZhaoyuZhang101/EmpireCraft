@@ -1896,6 +1896,9 @@ public static class WorldMapScenario
                 }
                 polity.empire.SetEmpireName(polity.name);
                 polity.kingdom.SetKingdomName(polity.name);
+                if (polity.data.banner) BannerSystem.Establish(polity.kingdom, polity.empire);
+                else if (CultureService.IsValidCulture(polity.data.court))
+                    CompositeEmpireService.EstablishCourt(polity.empire, CultureService.GetRealmCulture(polity.kingdom), polity.data.court);
                 AnchorCapital(polity);
                 // 华夏年号：开局即是年号的第几年(一年 60 秒)
                 if (!string.IsNullOrEmpty(polity.data.eraName))
@@ -2041,7 +2044,9 @@ public static class WorldMapScenario
             _cities.Where(city => city.city?.data != null).GroupBy(city => city.data.id)
                 .ToDictionary(group => group.Key, group => group.First().city.data.id),
             _titleByRegion.Where(pair => pair.Value?.data != null).ToDictionary(pair => pair.Key, pair => pair.Value.data.id),
-            ScenarioPeople()));
+            ScenarioPeople(),
+            _polities.SelectMany(polity => polity.famous).Where(pair => pair.person.post == "none" && pair.actor?.data != null)
+                .Select(pair => pair.actor.data.id).ToList()));
         LogService.LogInfo($"[EmpireCraft][世界地图] {_era?.id} 摆好：{World.world.kingdoms.Count()} 国，{World.world.cities.Count()} 城");
         _cities = new List<PlannedCity>();
         _polities = new List<PlannedPolity>();
@@ -2184,6 +2189,12 @@ public static class WorldMapScenario
         // 放在开局兵力之前：武备废弛压兵源
         var declining = _polities.Where(polity => polity.data != null && polity.empire != null).ToList();
         if (declining.Count > 0) _afterLoad.Add(("王朝积弊", () => ApplyDecline(declining)));
+        // 八旗多元制当场编旗：禁旅八旗只收旗人，开局兵力之前要有人可补
+        foreach (PlannedPolity polity in _polities.Where(polity => polity.data?.banner == true && polity.empire != null))
+        {
+            PlannedPolity p = polity;
+            _afterLoad.Add(($"{p.name} 编旗", () => BannerSystem.SettleAll(p.empire)));
+        }
         // 开局兵力：各国照本国军制当场编军、补满(以前要等每月一成成补员，开局各国一兵没有)。人口照史料给了，兵也就照人口、军制有多有少
         _afterLoad.Add(("开局兵力", () =>
         {

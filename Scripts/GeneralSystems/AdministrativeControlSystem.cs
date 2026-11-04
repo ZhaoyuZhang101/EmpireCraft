@@ -131,6 +131,8 @@ public static class AdministrativeControlSystem
     public static float StabilityLoss(City city)
     {
         if (!Known(city) || IsIndirect(city.kingdom)) return 0f;
+        // 满城有八旗驻防，不因鞭长莫及失稳(见 BannerSystem)
+        if (city.GetOrCreate().manchu_city) return 0f;
         float control = Get(city);
         float loss = (1f - control) * StabilityPenalty;
         Kingdom realm = Realm(city.kingdom);

@@ -15,7 +15,8 @@ public enum SocialClass
     Slave,      //奴隶(见 SlaverySystem)
     SlaveOwner, //奴隶主
     Guoren,     //国人(见 GuoyeSystem)
-    Yeren       //野人
+    Yeren,      //野人
+    Banner      //旗人(见 BannerSystem)
 }
 public static class ClassSystem
 {

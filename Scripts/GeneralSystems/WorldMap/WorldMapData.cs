@@ -254,6 +254,10 @@ public sealed class WorldMapPolity
     [JsonProperty("era_year")] public int eraYear = 1;
     // 国号是美号(明、元)：加"大"前缀，不当帝国法理名
     public bool grand;
+    // 八旗多元制(明清鼎革的大清，见 BannerSystem)：称帝以后立这个政体
+    public bool banner;
+    // 开局就用这个文化的朝廷(金写 Huaxia，国号大金朝，见 CompositeEmpireService.EstablishCourt)
+    public string court = "";
     // 神圣之名(神圣罗马)：开局取得所在联合天下的普世之名，再授神圣
     public bool holy;
     // 迁都前的旧都(明的南京)：作留都，行多京时为陪京

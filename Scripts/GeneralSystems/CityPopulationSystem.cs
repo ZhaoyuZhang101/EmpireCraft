@@ -971,6 +971,7 @@ public static class CityPopulationSystem
         AssimilateBackground(city, data, years);
         GuoyeSystem.Settle(city, data);
         SlaverySystem.Settle(city, data, years);
+        BannerSystem.Settle(city, data, years);
         DriftClasses(city, data, years);
 
         PopulationParallelSystem.StartGrowth(city, data, now, years);
@@ -1082,8 +1083,8 @@ public static class CityPopulationSystem
         foreach (PopGroup group in data.groups)
         {
             float amount = group.Background;
-            // 奴隶世代为奴，不随阶层流动(进出奴籍见 SlaverySystem)
-            if (amount <= 0f || group.social_class == SocialClass.Slave) continue;
+            // 奴隶世代为奴、旗人世代在旗，不随阶层流动(进出奴籍见 SlaverySystem，编旗出旗见 BannerSystem)
+            if (amount <= 0f || group.social_class is SocialClass.Slave or SocialClass.Banner) continue;
             total += amount;
             current.TryGetValue(group.social_class, out float sum);
             current[group.social_class] = sum + amount;
@@ -1436,6 +1437,8 @@ public static class CityPopulationSystem
     public static bool IsNotable(Actor actor, bool includeClanHead)
     {
         if (actor?.data == null || actor.isRekt()) return true;
+        // 剧本人物留在地图上，事件还要按编号找他们(见 ScenarioEventSystem)
+        if (EmpireCraft.Scripts.GeneralSystems.WorldMap.ScenarioEventSystem.IsScripted(actor)) return true;
         // 谋划的目标(要刺杀、废立的人)也留着：并入人口后谋划还指着这个已回收的单位，存档时原版空引用
         if (IsPlotTarget(actor)) return true;
         if (PureMapMode.Enabled) return PureNotable(actor);

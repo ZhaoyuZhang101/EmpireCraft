@@ -109,7 +109,9 @@ public static class FormationSystem
     private static FormationRegimeMap MapOf(Kingdom kingdom)
     {
         Regimes.Regime regime = kingdom?.GetRegime();
-        return regime != null && Config.regimes.TryGetValue(regime.type.ToString(), out FormationRegimeMap map) ? map : Config.fallback;
+        // 八旗多元制：底下是律令的朝廷，军制单算一套(见 BannerSystem)
+        string key = BannerSystem.Practices(kingdom) ? "Banner" : regime?.type.ToString();
+        return key != null && Config.regimes.TryGetValue(key, out FormationRegimeMap map) ? map : Config.fallback;
     }
 
     // 这支军该归哪种建制：特殊阶段 → 政体默认 → 通用回退
@@ -311,6 +313,11 @@ public static class FormationSystem
             case "stem" when !ordinal:
                 int round = index / Stems.Length;
                 return Stems[index % Stems.Length] + "字" + (round > 0 ? CorpsSystem.Chinese(round + 1) : "");
+            case "banner":
+                // 满洲八旗、蒙古八旗、汉军八旗，上三旗在前
+                string flag = LM.Get("formation_banner_" + index % 8);
+                string group = LM.Get("formation_banner_group_" + index / 8 % 3);
+                return ordinal ? $"{group} {flag}" : group + flag;
             case "wing":
                 string wing = LM.Get((index % 3) switch { 0 => "formation_wing_left", 1 => "formation_wing_right", _ => "formation_wing_center" });
                 int nth = index / 3 + 1;
@@ -352,7 +359,16 @@ public static class FormationSystem
 
     public static float RaiseFactor(CorpsData corps) => RulesOf(corps).raise;
     public static float TrainingFactor(CorpsData corps) => RulesOf(corps).training;
-    public static float VeteranCap(CorpsData corps) => RulesOf(corps).veteran_cap;
+    public static float VeteranCap(CorpsData corps)
+    {
+        float cap = RulesOf(corps).veteran_cap;
+        if (!BannerSource(corps)) return cap;
+        // 八旗老兵封顶随八旗战力(见 BannerSystem)
+        return Mathf.Min(cap, BannerSystem.Vigor(World.world?.kingdoms?.get(corps.kingdom_id)));
+    }
+
+    // 禁旅八旗只收旗人(见 BannerSystem.MayRecruit)
+    public static bool BannerSource(CorpsData corps) => RulesOf(corps).source == "banner";
     public static float UpkeepFactor(CorpsData corps) => RulesOf(corps).upkeep;
 
     public static bool AllowsArm(CorpsData corps, CorpsArmSystem.Arm arm) => !RulesOf(corps).denied_arms.Contains(arm.ToString());

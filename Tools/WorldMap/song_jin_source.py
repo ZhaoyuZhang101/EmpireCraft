@@ -13,7 +13,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from preset_tools import T, event, famous, load_era, person, polity, rel_step, relation, update_cities, write_era  # noqa: E402
+from preset_tools import T, death, event, famous, load_era, person, polity, rel_step, relation, update_cities, write_era  # noqa: E402
 
 ALTS = {
     # 颍昌府(1105~金改许州)，岳飞颍昌之战在此
@@ -225,6 +225,12 @@ RELATIONS = [
     relation("hungary", "byzantium", "feud"),
 ]
 
+LATE_DEATHS = [
+    death("刘锜之死", ("刘锜呕血而死", "Liu Qi dies coughing blood"), 22, "song", "刘锜", ("呕血而死", "died coughing blood")),
+    death("张浚之死", ("张浚病逝于北伐途中", "Zhang Jun the chancellor dies during the northern campaign"), 24, "song", "张浚", ("病逝于北伐途中", "died on the northern campaign")),
+    death("吴璘之死", ("吴璘病逝于兴州", "Wu Lin dies at Xingzhou"), 27, "song", "吴璘", ("病逝于兴州", "died of illness at Xingzhou")),
+]
+
 EVENTS = [
     event("绍兴和议", T("绍兴和议：宋向金称臣，以淮水、大散关为界", "Peace of Shaoxing: Song submits to Jin, the border set at the Huai and Dasan Pass"), 1,
           [{"kind": "holds_city", "a": "jin", "city": "kaifeng"}, {"kind": "at_war", "a": "jin", "b": "song"}],
@@ -238,6 +244,8 @@ EVENTS = [
     event("岳飞之死", T("大将岳飞下狱被杀，天下冤之", "The great general Yue Fei is imprisoned and put to death; the realm mourns the injustice"), 2,
           [{"kind": "holds_city", "a": "jin", "city": "kaifeng"}],
           [{"kind": "dies", "a": "song", "person": "岳云、张宪、岳飞", "name": T("以莫须有之罪被杀", "put to death on a fabricated charge")}]),
+    death("完颜宗干之死", ("金太师完颜宗干病逝", "The Jin Grand Preceptor Wanyan Zonggan dies"), 1, "jin", "完颜宗干", ("病逝", "died of illness")),
+    death("耶律大石之死", ("西辽开国之主耶律大石病逝", "Yelü Dashi, founder of Qara Khitai, dies"), 3, "qara_khitai", "耶律大石", ("病逝", "died of illness")),
     event("埃德萨陷落", T("赞吉攻陷埃德萨", "Zengi takes Edessa"), 4,
           [{"kind": "holds_city", "a": "edessa_county", "city": "edessa"}, {"kind": "alive", "a": "zengid"}],
           [{"kind": "cede", "a": "edessa_county", "b": "zengid", "city": "edessa"}]),
@@ -245,16 +253,22 @@ EVENTS = [
           [{"kind": "holds_city", "a": "almoravid", "city": "fez"}],
           [{"kind": "rebel", "a": "almoravid", "b": "almohad", "city": "fez", "cities": ["sijilmasa", "tingis"],
             "name": T("穆瓦希德", "Almohad"), "person": "阿卜杜勒·穆明"}]),
+    death("赞吉之死", ("赞吉围城时为奴仆所杀", "Zengi is murdered by a slave during a siege"), 6, "zengid", "伊马德丁·赞吉", ("围城时为奴仆所杀", "murdered by a slave during a siege")),
+    death("赵鼎之死", ("贬谪吉阳的旧相赵鼎绝食而死", "The exiled former chancellor Zhao Ding starves himself to death"), 7, "song", "赵鼎", ("绝食而死于吉阳军", "starved himself to death in exile")),
     event("第二次十字军东征", T("教宗号召十字军东征，法兰西与神圣罗马出兵", "The pope calls a crusade; France and the Empire march east"), 7,
           [{"kind": "holds_city", "a": "zengid", "city": "edessa"}],
           [rel_step("france", "zengid", "war", goal="收复"), rel_step("hre", "zengid", "war", goal="收复")]),
+    death("完颜宗弼之死", ("金都元帅完颜宗弼病逝", "The Jin Marshal Wanyan Zongbi dies"), 8, "jin", "完颜宗弼", ("病逝", "died of illness")),
     event("海陵弑君", T("完颜亮弑君自立", "Wanyan Liang murders the emperor and takes the throne"), 9,
           [{"kind": "alive", "a": "jin"}],
           [{"kind": "heir", "a": "jin", "person": "完颜亮"},
            {"kind": "dies", "a": "jin", "person": "完颜亶", "name": T("为完颜亮所弑", "murdered by Wanyan Liang")}]),
+    death("韩世忠之死", ("韩世忠闭门谢客，病逝临安", "Han Shizhong, long retired, dies at Lin'an"), 11, "song", "韩世忠", ("病逝于临安", "died of illness at Lin'an")),
     event("金迁都燕京", T("金迁都燕京，上京宫室尽毁", "Jin moves its capital to Yanjing and razes the old palaces"), 13,
           [{"kind": "holds_city", "a": "jin", "city": "beijing"}],
           [{"kind": "move_capital", "a": "jin", "city": "beijing"}]),
+    death("张俊之死", ("张俊病逝", "Zhang Jun dies"), 14, "song", "张俊", ("病逝", "died of illness")),
+    death("秦桧之死", ("秦桧病死，朝野相庆", "Qin Hui dies and the court breathes again"), 15, "song", "秦桧", ("病死", "died of illness")),
     event("海陵南征", T("金主大举南侵，败于采石，死于瓜洲兵变", "The Jin ruler invades in force, loses at Caishi and dies in a mutiny at Guazhou"), 21,
           [{"kind": "alive", "a": "jin"}, {"kind": "alive", "a": "song"}],
           [rel_step("jin", "song", "war", goal="夺城"),
@@ -343,7 +357,7 @@ def main():
             division["cities"] = [cid for cid in division.get("cities", []) if cid in active]
     era["polities"] = polities
     era["relations"] = RELATIONS
-    era["events"] = EVENTS
+    era["events"] = EVENTS + LATE_DEATHS
     wild = {}
     for unit, owner in era["wilderness"].items():
         if unit in WILD_DROP:

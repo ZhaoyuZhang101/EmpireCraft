@@ -14,7 +14,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from preset_tools import T, event, famous, load_era, person, polity, rel_step, relation, update_cities, write_era  # noqa: E402
+from preset_tools import T, death, event, famous, load_era, person, polity, rel_step, relation, update_cities, write_era  # noqa: E402
 
 NEW_CITIES = [
     {"id": "shanhaiguan", "zh": "山海关", "en": "Shanhaiguan", "x": 119.72, "y": 39.98, "r": "youyan", "k": 3, "from": 1629},
@@ -57,8 +57,8 @@ MING_FAMOUS = [
 
 QING = polity(
     "qing", "清", "Qing", "Youmu", "shenyang",
-    r=["liaodong", "manchuria", "monan"], cities=["baotou"], emp=True, grand=True, core="manchuria",
-    era_name="崇德|Chongde", era_year=3, dynasty="aisin_gioro", conquest="清|Qing", conquest_city="beijing",
+    r=["liaodong", "manchuria", "monan"], cities=["baotou"], emp=True, grand=True, banner=True, core="manchuria",
+    era_name="崇德|Chongde", era_year=3, dynasty="aisin_gioro",
     ruler=person("爱新觉罗|Aisin Gioro", "皇太极|Hong Taiji", 46, f="ag01"),
     kin=[
         person("博尔济吉特|Borjigit", "哲哲|Jerjer", 38, rel="wife"),
@@ -316,6 +316,33 @@ EVENTS = [
     event("清迁都北京", T("清帝迁都北京", "The Qing court moves to Beijing"), 7,
           [{"kind": "holds_city", "a": "qing", "city": "beijing"}],
           [{"kind": "move_capital", "a": "qing", "city": "beijing"}]),
+    event("跑马圈地", T("清廷下令圈占京畿田地分给八旗，百姓流离失所", "The Qing court seizes farmland around the capital for the banners, driving villagers from their homes"), 7,
+          [{"kind": "holds_city", "a": "qing", "city": "beijing"}],
+          [{"kind": "banner_city", "a": "qing", "city": "beijing"},
+           {"kind": "banner_enclosure", "a": "qing", "city": "beijing", "cities": ["zhuozhou", "dingzhou", "zhending"]}]),
+    event("逃人法", T("清廷严立逃人法，窝藏逃人者重罪，百姓不得迁徙", "The Qing court enacts the Fugitive Law: harbouring runaways is a grave crime and villagers may not move"), 8,
+          [{"kind": "holds_city", "a": "qing", "city": "beijing"}],
+          [{"kind": "banner_law", "a": "qing"}]),
+    event("再行圈地", T("清廷再度圈地，畿辅民田多入旗下", "The Qing court encloses land again and much of the capital region passes to the banners"), 9,
+          [{"kind": "holds_city", "a": "qing", "city": "beijing"}],
+          [{"kind": "banner_enclosure", "a": "qing", "city": "beijing", "cities": ["zhuozhou", "dingzhou", "zhending", "handan", "ye"]}]),
+    death("杨嗣昌之死", ("督师大学士兵败，自尽于沙市", "The Grand Secretary in command takes his own life at Shashi after defeat"), 3, "ming", "杨嗣昌", ("兵败自尽于沙市", "took his own life at Shashi")),
+    death("曹变蛟之死", ("松山城破，明军大将战死", "Songshan falls and a Ming general dies in the fighting"), 4, "ming", "曹变蛟", ("战死于松山", "fell at Songshan")),
+    death("李自成之死", ("大顺皇帝南走，殁于九宫山", "The emperor of Great Shun flees south and dies at Jiugong Mountain"), 7, "shun", "李自成", ("殁于九宫山", "died at Jiugong Mountain")),
+    death("史可法之死", ("扬州城破，督师不屈殉国", "Yangzhou falls and its commander dies unbroken"), 7, "ming", "史可法", ("扬州城破，不屈殉国", "died unbroken when Yangzhou fell")),
+    death("左良玉之死", ("左良玉举兵东下，病死于九江舟中", "Zuo Liangyu turns his army east and dies aboard ship at Jiujiang"), 7, "ming", "左良玉", ("病死于九江舟中", "died aboard ship at Jiujiang")),
+    death("黄得功之死", ("南京诸镇溃散，黄得功战死荻港", "The southern garrisons collapse and Huang Degong falls at Digang"), 7, "ming", "黄得功", ("战死于荻港", "fell at Digang")),
+    death("朱由崧之死", ("南京新君被俘，解往北京处死", "The sovereign at Nanjing is captured and put to death at Beijing"), 8, "ming", "朱由崧", ("被俘后处死于北京", "executed at Beijing after capture")),
+    death("张献忠之死", ("大西皇帝中箭，死于凤凰山", "The emperor of Great Xi is struck by an arrow and dies at Fenghuang Mountain"), 9, "xi", "张献忠", ("中箭死于凤凰山", "killed by an arrow at Fenghuang Mountain")),
+    death("秦良玉之死", ("女将秦良玉病逝于石柱", "The woman general Qin Liangyu dies at Shizhu"), 10, "ming", "秦良玉", ("病逝于石柱", "died of illness at Shizhu")),
+    death("豪格之死", ("肃亲王被摄政王下狱，幽死狱中", "The Prince Su is jailed by the regent and dies in prison"), 10, "qing", "豪格", ("幽死狱中", "died in prison")),
+    death("多尔衮之死", ("摄政王出猎坠马，死于喀喇城", "The Prince Regent falls from his horse while hunting and dies at Kharakhota"), 12, "qing", "多尔衮", ("出猎坠马，死于喀喇城", "died after a fall while hunting")),
+    death("祖大寿之死", ("祖大寿病逝于北京", "Zu Dashou dies at Beijing"), 18, "qing", "祖大寿", ("病逝于北京", "died of illness at Beijing")),
+    death("福临之死", ("清帝驾崩，幼主嗣位", "The Qing emperor dies and a child succeeds him"), 23, "qing", "爱新觉罗福临", ("病逝于紫禁城", "died of illness in the palace")),
+    death("郑芝龙之死", ("郑芝龙被杀于北京", "Zheng Zhilong is executed at Beijing"), 23, "qing", "郑芝龙", ("被杀于北京", "executed at Beijing")),
+    death("李定国之死", ("晋王李定国病逝于景线", "Li Dingguo, the last great Southern general, dies at Jinghong"), 24, "xi", "李定国", ("病逝于景线", "died of illness at Jinghong")),
+    death("洪承畴之死", ("洪承畴病逝于北京", "Hong Chengchou dies at Beijing"), 27, "qing", "洪承畴", ("病逝于北京", "died of illness at Beijing")),
+    death("吴三桂之死", ("吴三桂病死于衡州", "Wu Sangui dies at Hengzhou"), 40, "guanning", "吴三桂", ("病死于衡州", "died of illness at Hengzhou")),
     event("威斯特伐利亚和约", T("威斯特伐利亚诸约签订，三十年战争结束", "The Peace of Westphalia ends the Thirty Years' War"), 10,
           [{"kind": "alive", "a": "hre"}],
           [rel_step("france", "hre", "truce"), rel_step("sweden", "hre", "truce"), rel_step("dutch", "spain", "truce")]),

@@ -936,6 +936,8 @@ public static class CorpsSystem
         bool near = only == null && WarScopeSystem.InScope(Home(corps) ?? World.world.cities.get(corps.home_city_id));
         // 只收受过训的合格军人(见 FormationSystem、NaturalizationSystem)；花钱募来的登记后入伍，不走这道
         bool trained = only == null && FormationSystem.TrainedSource(corps);
+        bool bannerCorps = FormationSystem.BannerSource(corps);
+        string ruling = bannerCorps ? BannerSystem.RulingCulture(kingdom) : null;
         for (int attempt = 0; taken < need && attempt < 12; attempt++)
         {
             // 就近的几座城抽完了：只从动员范围里的城再抽；举国总动员、奉诏出征才从全国抽(不再远距离征召)
@@ -945,7 +947,8 @@ public static class CorpsSystem
                 : WarScopeSystem.Unbounded(kingdom) ? CityPopulationSystem.DrawKingdomCity(kingdom) : null);
             PopGroup group = source == null ? null
                 : CityPopulationSystem.DrawBackground(source, candidate => SlaverySystem.CanRecruit(candidate, corps.militia) &&
-                                                                           !(trained && candidate.social_class == SocialClass.Noble));
+                                                                           !(trained && candidate.social_class == SocialClass.Noble) &&
+                                                                           BannerSystem.MayRecruit(bannerCorps, ruling, candidate));
             // 最近一城可能只有奴隶，继续找下一座，不能因此挡住邻城的自由民补员。
             if (group == null) continue;
             float want = need - taken;
@@ -1354,6 +1357,8 @@ public static class CorpsSystem
     // 改由某人统领这支军(宦官掌兵等，见 TempFac_宦官掌兵)：原统领卸任
     public static bool AssignGeneral(Kingdom kingdom, CorpsData corps, Actor general)
     {
+        // 等着起事的流寇不给朝廷统兵(见 ScenarioEventSystem.IsReserved)
+        if (EmpireCraft.Scripts.GeneralSystems.WorldMap.ScenarioEventSystem.IsReserved(general)) return false;
         if (kingdom == null || corps == null || general?.data == null || general.isRekt() || !general.isAlive() ||
             general.kingdom != kingdom || IsGeneral(general)) return false;
         RemoveGeneral(corps);

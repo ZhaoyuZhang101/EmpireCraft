@@ -72,7 +72,7 @@ public class KingdomOverviewWindow : WideScrollWindow<KingdomOverviewWindow>
             stats.AddRailRow(width, LM.Get("empire_rail_capital"), kingdom.capital.GetCityName(), WideKit.Value, row++);
         var regime = kingdom.GetRegime();
         if (regime != null)
-            stats.AddRailRow(width, LM.Get("kov_regime"), LM.Get("regime_type_" + regime.type), WideKit.Value, row++);
+            stats.AddRailRow(width, LM.Get("kov_regime"), BannerSystem.RegimeName(kingdom, LM.Get("regime_type_" + regime.type)), WideKit.Value, row++);
         stats.AddRailRow(width, LM.Get("kov_culture"), CultureName(CultureService.GetRealmCulture(kingdom)), WideKit.Value, row++);
         // 旧制犹存：改从了文明更落后的文化，政体与制度仍照旧制所属的文化(见 LegacyInstitutionSystem)，悬停看缘由与何时作罢
         if (LegacyInstitutionSystem.TryGet(kingdom, out string legacy))

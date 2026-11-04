@@ -71,6 +71,8 @@ def corrections(era, cities=None):
     elif era['id'] == 'high_tang':
         realms['balhae']['cap'] = 'hyeondeok'
     elif era['id'] == 'crusades':
+        # 天眷新制以后金用三省六部，国号称大金朝
+        realms['jin']['court'] = 'Huaxia'
         result['dzh'] = '1190年春，第三次十字军东征。腓特烈一世尚在远征途中，阿卡仍由阿尤布守军控制，十字军正围城；塞浦路斯由伊萨克自立。东方金与南宋隔淮对峙，蒙古诸部尚在草原混战。'
         result['dtw'] = '1190年春，第三次十字軍東征。腓特烈一世尚在遠征途中，阿卡仍由阿尤布守軍控制，十字軍正圍城；塞浦路斯由伊薩克自立。東方金與南宋隔淮對峙，蒙古諸部尚在草原混戰。'
         result['den'] = 'Spring AD 1190, during the Third Crusade. Frederick I is still campaigning; Acre remains under its Ayyubid garrison and under crusader siege. Isaac rules Cyprus independently. In the east, Jin and Southern Song face each other across the Huai while the Mongol tribes remain divided.'

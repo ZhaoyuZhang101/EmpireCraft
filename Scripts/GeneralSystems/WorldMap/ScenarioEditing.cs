@@ -1608,6 +1608,8 @@ public static class ScenarioEditing
             // 献城改投：从哪国、归哪国、哪座城、投奔的人(人、城可只写一样)；人物身故、立储：哪国的人
             "cede" => new List<string> { "a", "b", "city", "person" },
             "dies" or "heir" => new List<string> { "a", "person" },
+            // 八旗多元制：建满城、跑马圈地点名一座城(文件里可用 cities 写多座)；逃人法只要国
+            "banner_city" or "banner_enclosure" => new List<string> { "a", "city" },
             _ => new List<string> { "a" }
         };
     }

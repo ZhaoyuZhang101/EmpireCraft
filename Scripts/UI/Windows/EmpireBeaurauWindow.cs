@@ -438,6 +438,7 @@ public partial class EmpireBeaurauWindow : AbstractWideWindow<EmpireBeaurauWindo
         if (_empire?.data == null || _empire.isRekt() || _empire.CoreKingdom == null) return;
         // 宽窗口：顶部框作为滚动内容的第一项，跟着正文一起滚动
         Section(LM.Get("bureau_section_top"), BuildTopPart);
+        if (GeneralSystems.BannerSystem.Practices(_empire)) Section(LM.Get("banner_section"), BuildBannerPart);
         Section(LM.Get(GeneralSystems.OfficialRankSystem.PyramidKey(_empire)), ShowOfficePyramid);
     }
 

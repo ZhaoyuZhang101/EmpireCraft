@@ -85,6 +85,8 @@ public static class OfficeSelector
                 break;
         }
 
+        // 等着起事的流寇不任官(见 ScenarioEventSystem.IsReserved)，换人
+        if (EmpireCraft.Scripts.GeneralSystems.WorldMap.ScenarioEventSystem.IsReserved(actor)) actor = null;
         // 前现代父系(母系)文化：选出的人不合择官偏好时，无小人模式先从人口里补一名合偏好的人，补不出才用原人选
         // (选帝侯预先选立的储君不换人)
         if (actor != null && method != LeaderSelectMethod.Harem && regime?.type != RegimeType.Transmigrant &&

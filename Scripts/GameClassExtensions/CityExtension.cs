@@ -61,6 +61,10 @@ public static class CityExtension
     private const float KingDeathWholeKingdomSurrenderChance = 0.5f;
     public class CityExtraData: ExtraDataBase
     {
+        // 八旗多元制(见 BannerSystem)：开局就在旗下的旧地、满城、旗地占城中土地几成
+        public bool banner_home;
+        public bool manchu_city;
+        public float banner_land;
         // 关闭军团统领实体时，WarBox 载具只记在城里的账面上(见 WarBoxVehicles)
         public int virtual_vehicles;
         // 行政控制力(见 AdministrativeControlSystem)：-1 = 还没算过；离治所几块地，陆路不通的飞地按直线折算

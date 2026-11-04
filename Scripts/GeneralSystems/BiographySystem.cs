@@ -119,6 +119,7 @@ public static class BiographySystem
         if (victim?.data == null || victim.isRekt() || !victim.isAlive()) return;
         // 穿越政权的元老几乎杀不死(见 TransmigrantSystem.Shield)：挡下的不登记死因
         if (TransmigrantSystem.Shield(victim, AttackType.Other, countDeath)) return;
+        if (EmpireCraft.Scripts.GeneralSystems.WorldMap.ScenarioEventSystem.Shield(victim, countDeath)) return;
         NoteDeath(victim, causeText, killer, executed);
         victim.die(destroy, AttackType.Other, countDeath, countDeath);
     }

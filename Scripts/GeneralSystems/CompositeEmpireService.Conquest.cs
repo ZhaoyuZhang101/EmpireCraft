@@ -107,7 +107,7 @@ public static partial class CompositeEmpireService
     private static bool TryNorthernRetreat(Empire empire, string ruling, string institutional, float controlledShare)
     {
         Kingdom core = empire.CoreKingdom;
-        if (core?.capital == null || World.world == null) return false;
+        if (core?.capital == null || World.world == null || FixedCourt(empire)) return false;
         // 属地丢得差不多了；或离草到第二档以上(部众思归，每年三成机会)
         bool lost = controlledShare < RetreatControlShare;
         bool homesick = !lost && ShuiTuSystem.OffGrassTier(core) >= ShuiTuSystem.RetreatTier &&

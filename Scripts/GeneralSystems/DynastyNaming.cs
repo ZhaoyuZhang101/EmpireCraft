@@ -152,6 +152,9 @@ public static class DynastyNaming
     {
         string key = $"{regime}_officiallevel_{officeType}";
         Kingdom owner = meta switch { Kingdom k => k, City town => town.kingdom, Army army => army.getKingdom(), _ => null };
+        // 八旗多元制的官名(议政王大臣、总督、都统……)，没配的照律令(见 BannerSystem)
+        if (regime == RegimeType.LvLing && LM.Has($"Banner_officiallevel_{officeType}") && BannerSystem.Practices(owner))
+            return $"Banner_officiallevel_{officeType}";
         // 穿越政体的大区区长：共同纲领以前是特区区长
         if (officeType == 4 && regime == RegimeType.Transmigrant && TransmigrantSystem.IsZone(owner) && LM.Has(key + "_zone"))
             return key + "_zone";

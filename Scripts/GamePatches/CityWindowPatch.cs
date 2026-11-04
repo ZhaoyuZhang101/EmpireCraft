@@ -116,6 +116,8 @@ public class CityWindowPatch : GamePatch
         __instance.showStatRow("city_household_migration",
             LM.Get(land.MigrationBlocked ? "city_household_migration_blocked" : "city_household_migration_free"),
             land.MigrationBlocked ? "#E66B66" : "#66D98A", pIconPath: "iconChildren");
+        if (metaObject.GetOrCreate().manchu_city)
+            __instance.showStatRow("city_manchu_city", LM.Get("city_manchu_city_value"), "#F3C34A", pIconPath: "iconKings");
         __instance.showStatRow("city_landless_population", $"{land.LandlessPopulationRatio:P0}",
             land.LandlessPopulationRatio >= LandEconomySystem.RebellionLandlessThreshold ? "#E66B66" : "#B8C6CC",
             pIconPath: "iconChildren");

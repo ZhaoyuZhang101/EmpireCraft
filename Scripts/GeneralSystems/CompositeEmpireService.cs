@@ -130,6 +130,8 @@ public static partial class CompositeEmpireService
         else next = RouteJoint;
         // 剧本定下入主国号的(世界地图后金)：入关就走兼用(金清兼用)，不行分治
         if (next == RouteDual && ScriptedConquestName(empire) != null) next = RouteJoint;
+        // 开局定下朝廷的(大清、大金)：路线就是兼用，不分治、不从俗(见 EstablishCourt)
+        if (FixedCourt(empire)) next = RouteJoint;
         if (next == current) return;
         empire.data.composite_route = next;
         empire.data.composite_route_since = World.world?.getCurWorldTime() ?? -1d;
@@ -198,6 +200,7 @@ public static partial class CompositeEmpireService
 
     public static string GetInstitutionalRegimeName(Empire empire)
     {
+        if (BannerSystem.Practices(empire)) return LM.Get("regime_type_Banner");
         string culture = GetCourtCulture(empire);
         RegimeType regimeType = empire?.CoreKingdom?.GetRegime()?.type ?? RegimeType.Feudalism;
         if (AdoptableRegime(culture, out RegimeType adoptable)) regimeType = adoptable;
@@ -618,6 +621,48 @@ public static partial class CompositeEmpireService
         return true;
     }
 
+    // 剧本开局就定下的朝廷(八旗多元制的大清、天眷新制以后的大金)：
+    public static bool FixedCourt(Empire empire) =>
+        empire?.CoreKingdom?.data != null && !empire.CoreKingdom.isRekt() && empire.CoreKingdom.GetOrCreate().fixed_court;
+
+    public static bool FixedCourt(Kingdom kingdom)
+    {
+        if (kingdom?.data == null || kingdom.isRekt()) return false;
+        Kingdom core = kingdom.GetEmpire()?.CoreKingdom ?? kingdom;
+        return core?.data != null && !core.isRekt() && core.GetOrCreate().fixed_court;
+    }
+
+    // 开局就是多元帝国的兼用路线：不看据城多少、不等天命，国号是剧本定的不再改号，国号类别按朝廷的政体算(朝，不是匈鲁斯)；
+    // 不分治、不从俗、不北归，不算离草
+    public static void EstablishCourt(Empire empire, string rulingCulture, string institutionalCulture)
+    {
+        double now = World.world?.getCurWorldTime() ?? 0d;
+        empire.CoreKingdom.GetOrCreate().fixed_court = true;
+        empire.data.conquest_founder_culture = rulingCulture;
+        empire.data.ruling_culture = rulingCulture;
+        empire.data.institutional_culture = institutionalCulture;
+        empire.data.external_identity_culture = rulingCulture;
+        empire.data.military_tradition = RegimeType.YouMu.ToString();
+        empire.data.composite_integration = CompositeEmpireRules.InitialIntegration;
+        empire.data.composite_integration_stage = CompositeEmpireIntegrationStage.DualAdministration;
+        empire.data.central_plains_legitimacy = 60;
+        empire.data.ruling_tradition_legitimacy = 75;
+        empire.data.composite_identity_adopted_timestamp = now;
+        empire.data.last_composite_identity_update_timestamp = now;
+        empire.data.composite_route = RouteJoint;
+        empire.data.composite_cultural_name_adopted = true;
+        empire.data.composite_cultural_name = empire.GetEmpireName();
+        empire.data.composite_cultural_name_culture = institutionalCulture;
+        empire.data.composite_cultural_name_source = "scripted";
+        SynchronizeRegionalInstitutions(empire);
+        empire.data.centerOffice ??= new CenterOffice();
+        empire.data.centerOffice.Init(empire.CoreKingdom);
+        SynchronizeMilitaryTraditionClaims(empire);
+        empire.CoreKingdom.SystemChange();
+        // 国号类别按现在的政体重算：朝，不是匈鲁斯
+        empire.data.empire_type_key = "";
+    }
+
     public static void Update(Empire empire)
     {
         if (!IsComposite(empire) || empire.CoreKingdom == null || empire.CoreKingdom.isRekt() || World.world == null)
@@ -660,6 +705,13 @@ public static partial class CompositeEmpireService
             CompositeEmpireRules.GetCentralLegitimacyDelta(institutionalRegime, controlledShare, institutionalShare));
         empire.data.ruling_tradition_legitimacy = Clamp100(empire.data.ruling_tradition_legitimacy +
             CompositeEmpireRules.GetRulingLegitimacyDelta(emperorUsesRuling, rulingShare, preservesMilitary));
+
+        // 开局定下朝廷的：大清入关以前中原一城未有，两边的正统也不因此跌穿
+        if (FixedCourt(empire))
+        {
+            empire.data.central_plains_legitimacy = Math.Max(empire.data.central_plains_legitimacy, 40);
+            empire.data.ruling_tradition_legitimacy = Math.Max(empire.data.ruling_tradition_legitimacy, 40);
+        }
 
         int delta = CompositeEmpireRules.GetAnnualIntegrationDelta(institutionalShare, rulingShare,
             emperorUsesInstitution, emperorUsesRuling);
@@ -794,7 +846,8 @@ public static partial class CompositeEmpireService
         if (candidate == null || string.IsNullOrWhiteSpace(candidate.Name)) return false;
 
         string oldName = empire.GetEmpireName();
-        empire.SetEmpireName(candidate.Name, preserveEmpireType: true);
+        // 剧本定下的国号(大元、入关的大清)连国号类别一起换成朝廷的；别的入主王朝照旧保留本来的称号
+        empire.SetEmpireName(candidate.Name, preserveEmpireType: scripted == null);
         string adoptedName = empire.GetEmpireName();
         if (string.IsNullOrWhiteSpace(adoptedName)) return false;
 

@@ -179,11 +179,13 @@ public static partial class ShuiTuSystem
 
     // 离草游牧治下的农地城：离草档位；别的城 0
     public static int OffGrassTier(City city) =>
-        Lookup(city, out CityInfo info, out UnitInfo unit) && unit.Fit == Fit.Nomad && unit.OffGrass && !info.Dry ? unit.OffTier : 0;
+        !CompositeEmpireService.FixedCourt(city?.kingdom) && Lookup(city, out CityInfo info, out UnitInfo unit) && unit.Fit == Fit.Nomad && unit.OffGrass && !info.Dry ? unit.OffTier : 0;
 
     // 政权(按所属政权)的离草档位；不在离草 0
     public static int OffGrassTier(Kingdom kingdom)
     {
+        // 开局定下朝廷的(大清、大金)本来就不是逐水草的部族，不算离草
+        if (CompositeEmpireService.FixedCourt(kingdom)) return 0;
         UnitInfo unit = UnitInfoOf(kingdom);
         return unit?.Fit == Fit.Nomad && unit.OffGrass ? unit.OffTier : 0;
     }

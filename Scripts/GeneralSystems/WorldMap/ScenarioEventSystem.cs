@@ -25,6 +25,8 @@ public sealed class ScenarioEventSave
     public double last_check = -1d;
     public int era_year;
     public List<int> fired = new();
+    // 开局不任官、等事件起事的人(famous 的 post 写 none，见 Reserved)
+    public List<long> reserved = new();
 }
 
 // 剧情事件(剧本编辑器第四期，见 Docs/plan-scenario-editor.md；用户 10-30 "剧情事件：要，选项拼搭")：
@@ -39,15 +41,22 @@ public sealed class ScenarioEventSave
 public static class ScenarioEventSystem
 {
     public static readonly string[] ConditionKinds = { "holds_city", "holds_region", "gone", "alive", "empire", "at_war", "strain_above" };
-    public static readonly string[] EffectKinds = { "relation", "proclaim", "rename", "move_capital", "culture", "adopt_huaxia", "rebel", "cede", "dies", "heir" };
+    public static readonly string[] EffectKinds = { "relation", "proclaim", "rename", "move_capital", "culture", "adopt_huaxia", "rebel", "cede", "dies", "heir",
+        "banner_city", "banner_enclosure", "banner_law" };
 
     private static ScenarioEventSave _state;
+    // 剧本人物的编号；还没演完戏份的人护到第几年；还没起事、不让朝廷派官的人(都从存档现算，见 RebuildPlot)
+    private static readonly HashSet<long> _scripted = new();
+    private static Dictionary<long, int> _plot = new();
+    private static readonly HashSet<long> _reservedNow = new();
+    // 事件亲手安排的身故，不挡
+    private static bool _scriptedDeath;
 
     public static bool Active => _state?.events?.Count > 0;
 
     // people：剧本人物(君主、宗室后妃、名将名臣)的名字(简体、繁体、英文各一个键)对上的人物编号，起兵割据按名字找人
     public static void Begin(WorldMapEra era, Dictionary<string, long> realms, Dictionary<string, long> cities, Dictionary<string, long> titles,
-        Dictionary<string, long> people = null)
+        Dictionary<string, long> people = null, List<long> reserved = null)
     {
         _state = null;
         if (era?.events == null || era.events.Count == 0 || World.world == null) return;
@@ -55,8 +64,10 @@ public static class ScenarioEventSystem
         {
             events = era.events.Select(Clone).ToList(), realms = realms ?? new(), cities = cities ?? new(), titles = titles ?? new(),
             people = people ?? new(),
-            started = World.world.getCurWorldTime(), last_check = World.world.getCurWorldTime(), era_year = era.year
+            started = World.world.getCurWorldTime(), last_check = World.world.getCurWorldTime(), era_year = era.year,
+            reserved = reserved ?? new List<long>()
         };
+        RebuildPlot();
         LogService.LogInfo($"[EmpireCraft][剧情事件] {era.Name}：{_state.events.Count} 条事件");
     }
 
@@ -69,12 +80,71 @@ public static class ScenarioEventSystem
         saved.titles ??= new Dictionary<string, long>();
         saved.people ??= new Dictionary<string, long>();
         saved.fired ??= new List<int>();
+        saved.reserved ??= new List<long>();
         _state = saved;
+        RebuildPlot();
     }
 
     public static ScenarioEventSave Save() => Active ? _state : null;
 
-    public static void ResetWorldState() => _state = null;
+    public static void ResetWorldState()
+    {
+        _state = null;
+        _scripted.Clear();
+        _plot = new Dictionary<long, int>();
+        _reservedNow.Clear();
+    }
+
+    #region 剧情人物
+
+    // 按现在的进度算：谁是剧本人物、谁的戏还没演完、谁还在等着起事
+    private static void RebuildPlot()
+    {
+        _scripted.Clear();
+        _reservedNow.Clear();
+        _plot = new Dictionary<long, int>();
+        if (_state?.events == null) return;
+        foreach (long id in _state.people.Values) _scripted.Add(id);
+        _plot = ScenarioPlotRules.ProtectUntil(_state.events.Select((item, index) => (
+            item?.after ?? 0,
+            item == null || !item.repeat && _state.fired.Contains(index),
+            (item?.then ?? new List<WorldMapEventStep>()).Select(step => step.person))), _state.people);
+        // 还点着名要起事、投奔的才算等着：事情过了就和别人一样能任官
+        var pending = new HashSet<long>();
+        for (int i = 0; i < _state.events.Count; i++)
+        {
+            WorldMapEvent item = _state.events[i];
+            if (item?.then == null || _state.fired.Contains(i)) continue;
+            foreach (WorldMapEventStep step in item.then)
+                if (step.kind is "rebel" or "cede")
+                    foreach (string name in ScenarioPlotRules.Names(step.person))
+                        if (_state.people.TryGetValue(name, out long id)) pending.Add(id);
+        }
+        foreach (long id in _state.reserved)
+            if (pending.Contains(id)) _reservedNow.Add(id);
+    }
+
+    private static int YearsSinceStart() =>
+        _state == null || _state.started < 0d ? 0 : Math.Max(0, Date.getYearsSince(_state.started));
+
+    // 剧本人物留在地图上，不并入背景人口：并了事件就按编号找不到人了(卢象升开局半年就被并了)
+    public static bool IsScripted(Actor actor) => actor?.data != null && _scripted.Contains(actor.data.id);
+
+    // 还没起事的流寇：朝廷别派他们当官、统兵(李自成当过锦州知县，张献忠当过南京布政使)
+    public static bool IsReserved(Actor actor) => actor?.data != null && _reservedNow.Contains(actor.data.id);
+
+    // 戏份没演完的人：刀兵、老病、政争都不死，血补满。事件安排的身故放行；过了预定年份太久也放手(见 ScenarioPlotRules)
+    public static bool Shield(Actor actor, bool countDeath)
+    {
+        if (!countDeath || _scriptedDeath || _state == null || !IsProtected(actor)) return false;
+        actor.data.health = actor.getMaxHealth();
+        return true;
+    }
+
+    public static bool IsProtected(Actor actor) =>
+        actor?.data != null && _plot.Count > 0 && ScenarioPlotRules.Protected(_plot, actor.data.id, YearsSinceStart());
+
+    #endregion
 
     private static WorldMapEvent Clone(WorldMapEvent source) =>
         Newtonsoft.Json.JsonConvert.DeserializeObject<WorldMapEvent>(Newtonsoft.Json.JsonConvert.SerializeObject(source));
@@ -95,6 +165,7 @@ public static class ScenarioEventSystem
                 if (!(item.when ?? new List<WorldMapEventStep>()).All(Holds)) continue;
                 Fire(item);
                 if (!_state.fired.Contains(i)) _state.fired.Add(i);
+                RebuildPlot();
             }
             catch (Exception exception)
             {
@@ -219,6 +290,8 @@ public static class ScenarioEventSystem
     // 做一条结果；做不了返回原因
     private static string Apply(WorldMapEventStep step, Kingdom a)
     {
+        // 人物身故不看国在不在：张献忠的大西亡了，他照样该死于凤凰山
+        if (step.kind == "dies") return Dies(step);
         if (a == null) return "国家不在";
         switch (step.kind)
         {
@@ -271,8 +344,19 @@ public static class ScenarioEventSystem
                 return Rebel(step, a);
             case "cede":
                 return Cede(step, a);
-            case "dies":
-                return Dies(step);
+            case "banner_city":
+            {
+                if (!BannerSystem.Practices(a)) return "不是八旗多元制";
+                int built = StepCities(step, a).Count(city => BannerSystem.BuildGarrison(a, city));
+                return built > 0 ? null : "城都不在本国或已有满城";
+            }
+            case "banner_enclosure":
+                if (!BannerSystem.Practices(a)) return "不是八旗多元制";
+                return BannerSystem.Enclose(a, StepCities(step, a)) > 0 ? null : "城都不在本国或圈到头了";
+            case "banner_law":
+                if (!BannerSystem.Practices(a)) return "不是八旗多元制";
+                BannerSystem.EnactFugitiveLaw(a);
+                return null;
             case "heir":
             {
                 // 立储：写在君主身故之前就是"立某人为君"(南京另立、海陵弑君)；人接到都城来，
@@ -310,7 +394,7 @@ public static class ScenarioEventSystem
             .Select(Person).Where(actor => actor != null && Ours(actor.kingdom) && actor != target.king).Distinct().ToList();
         Actor leader = people.FirstOrDefault(actor => actor.isAdult() && actor.CanFoundCivKingdom());
         if (leader == null && seat.leader is Actor holder && holder.isAlive() && holder.isAdult() && holder.CanFoundCivKingdom() &&
-            Ours(holder.kingdom) && holder != target.king) leader = holder;
+            Ours(holder.kingdom) && holder != target.king && MayLead(holder, seat)) leader = holder;
         if (leader == null) return "没人领头";
         // 领头、部将统的军，驻在这些城的军：先记下(改投之后按国家找不到了)
         var corps = new List<(Kingdom from, CorpsData corps)>();
@@ -395,6 +479,15 @@ public static class ScenarioEventSystem
         return null;
     }
 
+    // 点名的人没了，由城主代领：华夏不立女主
+    private static bool MayLead(Actor actor, City seat) =>
+        !actor.isSexFemale() || InstitutionSystem.GetCultureLine(CultureService.GetMainCulture(seat, initialize: false)) != "Huaxia";
+
+    // 结果点名的城里还在 a 手里的
+    private static List<City> StepCities(WorldMapEventStep step, Kingdom a) =>
+        new[] { step.city }.Concat(step.cities ?? new List<string>()).Select(CityOf)
+            .Where(city => city != null && Holds(a, city)).Distinct().ToList();
+
     // 剧本人物的名单：顿号、逗号隔开，找得到又还活着的，按写的顺序
     private static List<Actor> People(string names) =>
         (names ?? "").Split(new[] { '、', ',', '，' }, StringSplitOptions.RemoveEmptyEntries)
@@ -455,7 +548,15 @@ public static class ScenarioEventSystem
     {
         List<Actor> people = People(step.person);
         if (people.Count == 0) return "人都不在";
-        foreach (Actor person in people) BiographySystem.Kill(person, Text(step.name));
+        _scriptedDeath = true;
+        try
+        {
+            foreach (Actor person in people) BiographySystem.Kill(person, Text(step.name));
+        }
+        finally
+        {
+            _scriptedDeath = false;
+        }
         return null;
     }
 

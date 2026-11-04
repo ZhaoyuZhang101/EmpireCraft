@@ -554,6 +554,15 @@ public static class KingdomExtension
         // 土地制度属于政权本身，不依赖其是否加入或建立帝国。
         public bool private_land_market_open = false;
         public bool fugitive_household_law_enacted = false;
+        // 剧本开局定下的朝廷(见 CompositeEmpireService.EstablishCourt)：只记在帝国核心上
+        public bool fixed_court;
+        // 八旗多元制(见 BannerSystem)：只记在帝国核心上
+        public bool banner_regime;
+        public float banner_vigor = 100f;
+        public double banner_city_at = -1d;
+        public bool banner_fugitive_law;
+        public int banner_stipend;
+        public int banner_unpaid_years;
         public bool is_peasant_revolutionary_government = false;
         public bool is_peasant_land_rebellion = false;
         public long peasant_land_rebellion_war_id = -1L;

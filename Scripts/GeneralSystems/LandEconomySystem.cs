@@ -210,6 +210,10 @@ public static class LandEconomySystem
         if (nobles > 0f)
             report.Holders.Add(new CityLandHolderView
                 { Name = LM.Get("city_land_local_nobles"), Share = nobles, Institutional = true });
+        float bannerLand = BannerSystem.LandShare(city);
+        if (bannerLand > 0f)
+            report.Holders.Add(new CityLandHolderView
+                { Name = LM.Get("city_land_banner"), Share = bannerLand, Institutional = true });
         if (report.MarketOpen)
         {
             CityExtension.CityExtraData data = EnsureData(city);
@@ -1156,7 +1160,7 @@ public static class LandEconomySystem
 
     private static float GetPrivateLandCapacity(City city)
     {
-        return Mathf.Max(0f, 100f - GetCrownShare(city) - GetNobleShare(city));
+        return Mathf.Max(0f, 100f - GetCrownShare(city) - GetNobleShare(city) - BannerSystem.LandShare(city));
     }
 
     private static void TrimPrivateSharesToCapacity(City city, CityExtension.CityExtraData data)

@@ -326,6 +326,8 @@ public class ActorPatch : GamePatch
     {
         // 穿越政权的元老几乎杀不死：挡下的不死，后面的身后事都不做(见 TransmigrantSystem.Shield)
         if (TransmigrantSystem.Shield(__instance, pType, pCountDeath)) return false;
+        // 剧本人物戏份没演完不死(见 ScenarioEventSystem.Shield)
+        if (EmpireCraft.Scripts.GeneralSystems.WorldMap.ScenarioEventSystem.Shield(__instance, pCountDeath)) return false;
         // Vanilla only unloads passengers from the boat's death callbacks, which run
         // when it is killed by damage. A direct die()/dieAndDestroy() skips them and
         // leaves passengers pointing at a disposed boat (NRE in u1_checkInside).

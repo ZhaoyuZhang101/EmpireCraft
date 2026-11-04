@@ -55,6 +55,11 @@ def event(name, text, after, when, then):
     return {"name": name, "text": text, "after": after, "when": when, "then": then}
 
 
+def death(name, text, after, realm, people, cause):
+    """人物按史实身故：不看别的条件，到年份就走；点名的人早没了文字也不上屏幕。name 是日志名，text、cause 是 (简体, 英文)。"""
+    return event(name, T(*text), after, [], [{"kind": "dies", "a": realm, "person": people, "name": T(*cause)}])
+
+
 def load_era(root, era_id):
     with open(os.path.join(root, "WorldMaps", "eras", era_id + ".json"), encoding="utf-8") as f:
         return json.load(f)

@@ -84,6 +84,8 @@
 | `boundary` | 都城直辖区的 GeoJSON MultiPolygon 坐标数组；`divisions[]` 内可写本行政区的 `boundary`，外圈后的环表示孔洞 |
 | `decline` | 王朝积弊 `{"strain": 65, "graft": 60, "annexation": 70, "bloat": 65, "military": 65, "factionalism": 70, "levies": 60}`(0~100，可省) |
 | `conquest`、`conquest_city` | 入主华夏时的国号与"据有即算入关"的城：后金写 `"清|Qing"`、`"beijing"` |
+| `banner` | `true` 立八旗多元制(要和 `emp` 一起写)：朝廷走多元帝国兼用路线，国号"朝"，军制八旗、绿营，有旗人阶级和满城 |
+| `court` | 开局就用这个文化的朝廷(要和 `emp` 一起写)，游牧入主的王朝用：金写 `"Huaxia"`，国号大金朝，走多元帝国兼用路线，不分治、不北归 |
 | `shogun` | 幕府将军家(江户德川)；`holy` 神圣罗马之名；`zhou`/`king` 只用于战国 |
 | `ruler` | 君主(人物，见第六节)；不写随机起 |
 | `kin` | 宗室与后妃列表 |
@@ -118,6 +120,8 @@
 | `rank` | 0 良才、1 名、2 国柱 |
 | `post` | `chief` 首席朝官、`core` 中枢要职、`div` 部寺、`general` 统一支军、`none` 不任官(日后才起事的人)，或**城 id**(坐镇该城，当城主) |
 | `in` | 与本国 kin 里这一位后妃同一家(杨国忠 `"in"` 指杨贵妃)，外戚就连得上 |
+
+**剧本人物的保护**：写进 `ruler`、`kin`、`famous` 的人一直留在地图上，不并入背景人口；还没发生的事件里点了名的人(`person`)刀兵老病都不死，直到那件事发生，或过了它的 `after` 八年还没发生。`post` 写 `none` 又等着 `rebel`、`cede` 的人，起事前朝廷不派官、不让统兵。想让人物按史实身故，写一条 `dies`。
 
 起兵割据要找的人(李自成、吴三桂)必须写进 `famous`(或 `ruler`、`kin`)，事件按姓名找人；`kin` 里要被事件点名的写明 `fam`，不写 `fam` 时名字键只有名。
 
@@ -167,6 +171,9 @@
 | `cede` | `a`、`b`、`city`、`cities`、`person` | **献城改投**：这些城归 b，`person` 里的人连同所统之军投奔 b；城、人可只写一样 |
 | `dies` | `a`、`person`、`name`(死因，可省) | **人物身故**：按写的顺序走，君主身故走正常继位 |
 | `heir` | `a`、`person` | **立储**：立为储君并接到都城。写在君主的 `dies` 之前就是立某人为君 |
+| `banner_city` | `a`、`city`、`cities` | 八旗多元制：在这些城建满城 |
+| `banner_enclosure` | `a`、`city`、`cities` | 八旗多元制：跑马圈地，一次圈三成，至多圈到六成 |
+| `banner_law` | `a` | 八旗多元制：颁行逃人法 |
 
 **起兵割据 `rebel`**：
 

@@ -21,6 +21,7 @@ public class EmpireCraftEmpireBehCheckMandate : GameAIEmpireBase
         ReignRecordSystem.OnYear(empire);
         RitesSystem.Yearly(empire);
         GuoyeSystem.Yearly(empire);
+        BannerSystem.Yearly(empire);
         ImperialSealSystem.Yearly(empire);
         CliqueSystem.Yearly(empire);
         AncientSchoolsSystem.Yearly(empire);

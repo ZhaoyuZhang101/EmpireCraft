@@ -11,7 +11,7 @@ import sys
 TOP = {"id", "year", "focus", "order", "zh", "en", "tw", "dzh", "den", "dtw", "author", "tech", "techExtra", "techSkip", "inst",
        "culture", "ranks", "transmigrant", "relations", "walls", "passes", "wilderness", "silk", "events", "cores", "polities",
        "regions", "cities", "tianxia", "map", "paint", "terrain", "tribes", "frame", "wilderness_regions"}
-POLITY = {"id", "zh", "en", "tw", "c", "cap", "r", "cities", "seats", "boundary", "of", "emp", "shogun", "core", "zhou", "king", "ruler", "kin",
+POLITY = {"id", "zh", "en", "tw", "c", "cap", "r", "cities", "seats", "boundary", "of", "emp", "banner", "court", "shogun", "core", "zhou", "king", "ruler", "kin",
           "era_name", "dynasty", "era_year", "grand", "holy", "old_capital", "divisions", "colonies", "famous", "conquest",
           "conquest_city", "decline"}
 PERSON = {"fam", "giv", "age", "sex", "rel", "of", "heir", "mo", "in", "house", "f", "p"}
@@ -26,7 +26,8 @@ CONDITIONS = {"holds_city": ("a", "city"), "holds_region": ("a", "region"), "gon
               "at_war": ("a", "b"), "strain_above": ("a", "value")}
 EFFECTS = {"relation": ("a", "b", "relation"), "proclaim": ("a",), "rename": ("a", "name"), "move_capital": ("a", "city"),
            "culture": ("a", "culture"), "adopt_huaxia": ("a",), "rebel": ("a", "city", "name", "person"),
-           "cede": ("a", "b"), "dies": ("a", "person"), "heir": ("a", "person")}
+           "cede": ("a", "b"), "dies": ("a", "person"), "heir": ("a", "person"),
+           "banner_city": ("a",), "banner_enclosure": ("a",), "banner_law": ("a",)}
 STEP = {"kind", "a", "b", "city", "cities", "region", "value", "name", "relation", "goal", "culture", "person"}
 EVENT = {"name", "text", "after", "repeat", "when", "then"}
 

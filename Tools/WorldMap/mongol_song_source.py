@@ -14,7 +14,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from preset_tools import T, event, famous, load_era, person, polity, rel_step, relation, update_cities, write_era  # noqa: E402
+from preset_tools import T, death, event, famous, load_era, person, polity, rel_step, relation, update_cities, write_era  # noqa: E402
 
 NEW_CITIES = [
     {"id": "shangdu", "zh": "开平", "en": "Kaiping", "x": 116.18, "y": 42.36, "r": "monan", "k": 2, "from": 1256, "to": 1430},
@@ -318,6 +318,20 @@ EVENTS = [
           [{"kind": "dies", "a": "mongol", "person": "文天祥", "name": T("不屈就义于大都柴市", "executed at Dadu, unbroken")}]),
 ]
 
+LATE_DEATHS = [
+    death("王坚之死", ("钓鱼城守将王坚郁郁而终", "Wang Jian, defender of Diaoyu Fortress, dies out of favour"), 6, "song", "王坚", ("郁郁而终", "died out of favour")),
+    death("阿里不哥之死", ("阿里不哥病死于幽禁之中", "Ariq Boke dies in confinement"), 8, "mongol", "孛儿只斤阿里不哥", ("病死于幽禁之中", "died in confinement")),
+    death("吕文德之死", ("吕文德病逝，京湖防务无人可继", "Lü Wende dies and no one can take over the Yangzi defences"), 11, "song", "吕文德", ("病逝", "died of illness")),
+    death("史天泽之死", ("史天泽病逝", "Shi Tianze dies"), 17, "mongol", "史天泽", ("病逝", "died of illness")),
+    death("刘整之死", ("刘整病逝", "Liu Zheng dies"), 17, "mongol", "刘整", ("病逝", "died of illness")),
+    death("李庭芝之死", ("扬州失守，李庭芝不屈被杀", "Yangzhou falls and Li Tingzhi is killed, unbroken"), 18, "song", "李庭芝", ("不屈被杀于扬州", "killed at Yangzhou, unbroken")),
+    death("拜巴尔斯之死", ("马穆鲁克苏丹拜巴尔斯病逝", "The Mamluk sultan Baybars dies"), 19, "mamluk", "拜巴尔斯", ("病逝于大马士革", "died at Damascus")),
+    death("张弘范之死", ("张弘范病逝", "Zhang Hongfan dies"), 22, "mongol", "张弘范", ("病逝", "died of illness")),
+    death("张珏之死", ("四川守将张珏被俘自尽", "Zhang Jue, the last defender of Sichuan, takes his own life in captivity"), 22, "song", "张珏", ("被俘后自尽", "took his own life in captivity")),
+    death("忽必烈之死", ("元世祖忽必烈驾崩", "Kublai Khan dies"), 36, "mongol", "孛儿只斤忽必烈", ("病逝于大都", "died at Dadu")),
+    death("伯颜之死", ("伯颜病逝", "Bayan dies"), 37, "mongol", "伯颜", ("病逝", "died of illness")),
+]
+
 WILD_RENAME = {"jin": "mongol", "xixia": "mongol", "naimans": "mongol", "khamag": "mongol", "keraites": "mongol", "tatars": "mongol", "dali": "mongol",
                "qara_khitai": "chagatai", "khwarazm": "golden_horde", "ghurid": "ilkhanate", "abbasid": "ilkhanate", "chahamana": "delhi", "sena": "delhi",
                "gahadavala": "delhi"}
@@ -423,7 +437,7 @@ def main():
             division["cities"] = [cid for cid in division.get("cities", []) if cid in active]
     era["polities"] = polities
     era["relations"] = RELATIONS
-    era["events"] = EVENTS
+    era["events"] = EVENTS + LATE_DEATHS
     ids = {p["id"] for p in polities}
     wild = {}
     for unit, owner in era["wilderness"].items():
