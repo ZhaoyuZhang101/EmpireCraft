@@ -404,78 +404,83 @@ public static class TerritoryLabelRenderer
         return font;
     }
 
-    // 本机字体(动态字体)的字形图集最大 4096×4096，按 128 号字只装得下九百来个字；大地图上各城、各国的名字用字太多就装不下，
-    // Unity 每拼一次字报一次错(玩家日志 2026-10-16：隶书刷了上百条)，装不下的字显示成空白。认得这些字却拼不进图集，
+    // 本机字体(动态字体)的字形图集最大 4096×4096，大地图上各城、各国的名字用字太多就装不下，
+    // Unity 每拼一次字报一次错(玩家日志 2026-10-16：隶书刷了上百条)，装不下的字显示成空白。降到最低档还装不下，
     // 就记下这个字体两分钟内先不用，这期间新铭牌改用兜底字体，已经画好的铭牌照旧
     private const float ExhaustedSeconds = 120f;
     private static readonly Dictionary<Font, float> _exhausted_fonts = new();
 
-    // 降档拼字(玩家截图 2026-10-27：大地图上 STLiti 报"all the needed characters do not fit onto a single texture"，
-    // 连报二十几次)：本机字体按参考字号 128 拼字，4096 的图集只装得下九百来个字(主行 128、小字行 70 两种字号还各占一份)，
-    // 兜底的隶书也装满时就没有退路，Unity 每拼一次报一次错。现在图集装不下时，这个字体的拼字字号逐档降(RasterSteps)，
-    // 用它的铭牌全部按新字号重排、按比例放大回原来的显示大小——同样的字只占几分之一的图集；降到最低一档还装不下才改用兜底字体。
-    // 本局不再升回(换字体设置时清空，见 ResetFonts)
-    private static readonly int[] RasterSteps = { 128, 88, 64, 48 };
+    // 拼字分档(玩家日志 2026-11-02：STLiti 连报 294 次，占满原版 100 条错误额度)：Text 给动态字体拼字的实际像素是
+    // 字号 × 画布缩放，地名画布按屏幕放大(2560×1369、地名大小 107% 时 3.5 倍)，128 号字其实占 449 像素，4096 的图集
+    // 只装一百来个字。所以档位按实际像素算(TerritoryLabelProjection.RasterSteps)，字号由它除以画布缩放得出，
+    // 铭牌按比例放大回原来的显示大小。本局不再升回(换字体设置时清空，见 ResetFonts)
     private static readonly Dictionary<Font, int> _raster_step = new();
 
-    private static int RasterSize(Font font) =>
-        font != null && font.dynamic && _raster_step.TryGetValue(font, out int step)
-            ? RasterSteps[step]
+    private static int RasterSize(Font font, float pixelsPerUnit) =>
+        font != null && font.dynamic
+            ? TerritoryLabelProjection.RasterFontSize(
+                TerritoryLabelProjection.RasterSteps[_raster_step.TryGetValue(font, out int step) ? step : 0], pixelsPerUnit)
             : TerritoryLabelProjection.ReferenceFontSize;
 
-    // 先估后拼(玩家截图 2026-10-27：读档后 STLiti 还是连报 37 次)：以前要等 Unity 拼字失败(报一次错)才降一档，
-    // 大图上几百张铭牌同时排字，各档都先撞一次满。现在记下每个本机字体用到的字(去重)，按某档字号估这些字拼进 4096 图集
-    // 要占多少(每字按字号的 1.1 倍见方加 2 像素空隙，只用 AtlasUse 那么多——留给小字行、粗体与装箱空隙)，装不下就先降档再拼
-    private const int AtlasSize = 4096;
-    // 只算三成：同一张图集里还有小字行(70 号)、粗体两份字形与装箱空隙；以前算五成五，世界地图五百多城时
-    // 估着还装得下、Unity 先报"do not fit"(玩家截图 2026-10-29，报了三十多次)才降档
-    private const float AtlasUse = 0.3f;
+    // 排字之前定档：Unity 图集满时只保留同一帧要用的字，装得下这一帧就不报错。这一帧交的铭牌里有新名字，就按它们
+    // 用到的字(去重，镜头外的也算，拉远时都会上屏)估一遍；不等到排字时再降，图集里就不会两种大小的字挤在一起
     private static readonly Dictionary<Font, HashSet<char>> _font_glyphs = new();
 
-    private static int AtlasCapacity(int size)
+    private static void CountGlyphDemand()
     {
-        float cell = size * 1.1f + 2f;
-        return Mathf.FloorToInt(AtlasUse * (AtlasSize / cell) * (AtlasSize / cell));
+        bool outdated = false;
+        foreach (RuntimeLabel label in _render_order) outdated |= label.GlyphsOutdated;
+        if (!outdated) return;
+        foreach (HashSet<char> used in _font_glyphs.Values) used.Clear();
+        foreach (RuntimeLabel label in _render_order) label.CountGlyphs();
+        foreach (KeyValuePair<Font, HashSet<char>> pair in _font_glyphs)
+        {
+            _raster_step.TryGetValue(pair.Key, out int step);
+            int next = TerritoryLabelProjection.RasterStepFor(pair.Value.Count, step);
+            if (next == step) continue;
+            _raster_step[pair.Key] = next;
+            Debug.Log($"[EmpireCraft][铭牌字体] {pair.Key.name} 这一图层要画 {pair.Value.Count} 个字，拼字像素定为 {TerritoryLabelProjection.RasterSteps[next]}");
+        }
     }
 
     private static void Reserve(Font font, string glyphs)
     {
         if (font == null || !font.dynamic || string.IsNullOrEmpty(glyphs)) return;
         if (!_font_glyphs.TryGetValue(font, out HashSet<char> used)) _font_glyphs[font] = used = new HashSet<char>();
-        int before = used.Count;
         foreach (char character in glyphs)
             if (!char.IsWhiteSpace(character)) used.Add(character);
-        if (used.Count == before) return;
-        _raster_step.TryGetValue(font, out int step);
-        int start = step;
-        while (step < RasterSteps.Length - 1 && used.Count > AtlasCapacity(RasterSteps[step])) step++;
-        if (step == start) return;
-        _raster_step[font] = step;
-        Debug.Log($"[EmpireCraft][铭牌字体] {font.name} 已用 {used.Count} 个字，按图集容量预先把拼字字号降到 {RasterSteps[step]}");
     }
 
-    // 降一档；已是最低档返回 false
-    private static bool StepDown(Font font)
+    // 估不准的字体(字形特别宽、粗体多)靠这里兜住：Unity 真报图集装不下，下一帧就降一档，所有铭牌按新字号重排。
+    // 报错是拼字途中进来的，这里只记下，到 LateUpdate 再降；同一帧连报只算一次
+    private const string AtlasOverflowLog = "Failed to update dynamic font";
+    private static bool _atlas_watched;
+    private static string _atlas_overflow;
+
+    private static void WatchAtlasOverflow(string message, string stackTrace, LogType type)
     {
-        if (font == null || !font.dynamic) return false;
-        _raster_step.TryGetValue(font, out int step);
-        if (step >= RasterSteps.Length - 1) return false;
-        _raster_step[font] = step + 1;
-        Debug.Log($"[EmpireCraft][铭牌字体] {font.name} 图集装不下，拼字字号降到 {RasterSteps[step + 1]}");
-        return true;
+        if (type == LogType.Error && message != null && message.StartsWith(AtlasOverflowLog, StringComparison.Ordinal))
+            _atlas_overflow = message;
     }
 
-    // 这些字按 size 都拼得进图集
-    private static bool Fits(Font font, string glyphs, int size, FontStyle style)
+    private static void HandleAtlasOverflow()
     {
-        if (font == null || !font.dynamic || string.IsNullOrEmpty(glyphs)) return true;
-        foreach (char character in glyphs)
+        if (_atlas_overflow == null) return;
+        string message = _atlas_overflow;
+        _atlas_overflow = null;
+        foreach (Font font in _font_glyphs.Keys)
         {
-            if (char.IsWhiteSpace(character) || !font.HasCharacter(character)) continue;
-            if (!font.GetCharacterInfo(character, out CharacterInfo info, size, style) || info.glyphWidth <= 0 || info.glyphHeight <= 0)
-                return false;
+            if (font == null || message.IndexOf($"({font.name})", StringComparison.Ordinal) < 0) continue;
+            _raster_step.TryGetValue(font, out int step);
+            if (step < TerritoryLabelProjection.RasterSteps.Length - 1)
+            {
+                _raster_step[font] = step + 1;
+                Debug.Log($"[EmpireCraft][铭牌字体] {font.name} 图集装不下，拼字像素降到 {TerritoryLabelProjection.RasterSteps[step + 1]}");
+                continue;
+            }
+            _exhausted_fonts[font] = Time.unscaledTime;
+            _resolve_cache.Clear();
         }
-        return true;
     }
 
     // 富文本里的 <size=N> 按拼字字号同比缩
@@ -565,6 +570,8 @@ public static class TerritoryLabelRenderer
 
     // 字体真的画得出这些字吗：先让字体把字形画进图集，再看每个字都有大小、图集贴图存在。
     // 从文件读的字体有时认得字却画不出来(显示成空白)，这里查出来就改用隶书
+    private const int ProbeFontSize = 16;
+
     public static bool CanRender(Font font, string text, bool richText)
     {
         if (font == null) return false;
@@ -584,27 +591,14 @@ public static class TerritoryLabelRenderer
             BakedGlyphFont baked = BundledTerritoryFonts.BakedOf(font);
             if (baked != null) return baked.Ensure(glyphs);
             if (Exhausted(font)) return false;
-            Reserve(font, glyphs);
-            while (true)
-            {
-                int size = RasterSize(font);
-                font.RequestCharactersInTexture(glyphs, size, FontStyle.Normal);
-                bool missing = false;
-                foreach (char character in glyphs)
-                    if (!font.GetCharacterInfo(character, out CharacterInfo info, size, FontStyle.Normal) ||
-                        info.glyphWidth <= 0 || info.glyphHeight <= 0)
-                    {
-                        // 字体里有这个字却拼不出来：图集满了，先降档再试，降到底才放弃这个字体
-                        if (!font.dynamic || !font.HasCharacter(character)) return false;
-                        missing = true;
-                        break;
-                    }
-                if (!missing) break;
-                if (StepDown(font)) continue;
-                _exhausted_fonts[font] = Time.unscaledTime;
-                _resolve_cache.Clear();
-                return false;
-            }
+            // 动态字体用小字号试拼：只看字形画不画得出来，不多占图集(Text 拼的是字号 × 画布缩放，和这里不是同一份字形，
+            // 真正的大小见 RasterSize；图集装不装得下见 CountGlyphDemand、WatchAtlasOverflow)
+            int size = font.dynamic ? ProbeFontSize : TerritoryLabelProjection.ReferenceFontSize;
+            font.RequestCharactersInTexture(glyphs, size, FontStyle.Normal);
+            foreach (char character in glyphs)
+                if (!font.GetCharacterInfo(character, out CharacterInfo info, size, FontStyle.Normal) ||
+                    info.glyphWidth <= 0 || info.glyphHeight <= 0)
+                    return false;
             return font.material != null && font.material.mainTexture != null;
         }
         catch
@@ -678,6 +672,7 @@ public static class TerritoryLabelRenderer
     internal static void HostLateUpdate(TerritoryLabelRendererHost host)
     {
         if (host != _host) return;
+        HandleAtlasOverflow();
         Canvas canvas = CanvasMain.instance == null ? null : CanvasMain.instance.canvas_map_names;
         NameplateManager manager = canvas == null ? null : canvas.GetComponent<NameplateManager>();
         bool names = manager != null && Zones.showMapNames();
@@ -694,6 +689,7 @@ public static class TerritoryLabelRenderer
             if (label.last_seen_frame == _submission_frame) _render_order.Add(label);
             else label.Hide();
         _render_order.Sort((left, right) => right.RenderPriority.CompareTo(left.RenderPriority));
+        CountGlyphDemand();
         _occupied_label_bounds.Clear();
         foreach (RuntimeLabel label in _render_order) label.RenderSubmitted(_submission_frame);
     }
@@ -745,6 +741,11 @@ public static class TerritoryLabelRenderer
     {
         Canvas canvas = CanvasMain.instance == null ? null : CanvasMain.instance.canvas_map_names;
         if (canvas == null) return false;
+        if (!_atlas_watched)
+        {
+            _atlas_watched = true;
+            Application.logMessageReceived += WatchAtlasOverflow;
+        }
         if (_root != null && _root.parent == canvas.transform) return true;
         if (_root != null) UnityEngine.Object.Destroy(_root.gameObject);
 
@@ -949,6 +950,9 @@ public static class TerritoryLabelRenderer
         return _text_template;
     }
 
+    private static Font DefaultLabelFont() =>
+        LabelFallbackFont(GetTextTemplate()?.font ?? Resources.GetBuiltinResource<Font>("Arial.ttf"));
+
     private static Sprite GetCultureLockSprite()
     {
         if (_culture_lock_sprite != null) return _culture_lock_sprite;
@@ -1060,6 +1064,9 @@ public static class TerritoryLabelRenderer
         // 量字时的拼字字号与放大倍数(参考字号 / 拼字字号，见 RasterSize)
         private int _metrics_raster;
         private float _raster_factor = 1f;
+        // 记进字数账时的文字与字体来源(见 CountGlyphDemand)
+        private string _counted_text;
+        private bool _counted_seal;
         private Font _fallback_font;
         private float _reference_width;
         private float _reference_height;
@@ -1161,6 +1168,19 @@ public static class TerritoryLabelRenderer
 
         private static string StripTags(string text) =>
             global::System.Text.RegularExpressions.Regex.Replace(text ?? "", "<[^>]*>", "");
+
+        public bool GlyphsOutdated =>
+            _counted_seal != seal_font || !string.Equals(_counted_text, _render_text, StringComparison.Ordinal);
+
+        public void CountGlyphs()
+        {
+            _counted_text = _render_text;
+            _counted_seal = seal_font;
+            if (string.IsNullOrWhiteSpace(_render_text) || _render_style == null) return;
+            Font font = ResolveTerritoryFont(_fallback_font ?? DefaultLabelFont(), _render_text.Trim(),
+                _render_style.rich_text, seal_font, out string shown);
+            Reserve(font, StripTags(shown));
+        }
 
         // 第二行小字：名字下面另起一个小一号的字，随铭牌一起旋转、缩放
         private void UpdateSubLine(string subLine, BakedGlyphFont baked)
@@ -1334,8 +1354,9 @@ public static class TerritoryLabelRenderer
             FontStyle effectiveFontStyle = containsLatin
                 ? style.latin_italic ? FontStyle.BoldAndItalic : FontStyle.Bold
                 : style.font_style;
+            float pixelsPerUnit = _text.pixelsPerUnit;
             if (_metrics_text != trimmedValue || _metrics_style != effectiveFontStyle || _metrics_font != _text.font ||
-                _metrics_raster != RasterSize(_text.font))
+                _metrics_raster != RasterSize(_text.font, pixelsPerUnit))
             {
                 // 字形包字体不是动态字体：不认字号和字形样式(设了会报警告)，字形已按参考字号排好
                 BakedGlyphFont baked = BundledTerritoryFonts.BakedOf(_text.font);
@@ -1351,7 +1372,7 @@ public static class TerritoryLabelRenderer
                     }
                 }
                 _text.fontStyle = baked != null ? FontStyle.Normal : effectiveFontStyle;
-                int raster = baked != null ? 0 : RasterSize(_text.font);
+                int raster = baked != null ? 0 : RasterSize(_text.font, pixelsPerUnit);
                 if (baked != null)
                 {
                     _text.text = mainLine;
@@ -1361,20 +1382,11 @@ public static class TerritoryLabelRenderer
                 }
                 else
                 {
-                    // 图集装不下就降档重拼(见 RasterSize)；先按这个字体用到的字数估一遍(见 Reserve)
-                    string glyphs = StripTags(mainLine);
-                    Reserve(_text.font, glyphs);
-                    while (true)
-                    {
-                        raster = RasterSize(_text.font);
-                        _text.text = ScaleSizeTags(mainLine, (float)raster / TerritoryLabelProjection.ReferenceFontSize);
-                        _text.fontSize = raster;
-                        _text.font?.RequestCharactersInTexture(glyphs, raster, effectiveFontStyle);
-                        if (Fits(_text.font, glyphs, raster, effectiveFontStyle) || !StepDown(_text.font)) break;
-                    }
+                    _text.text = ScaleSizeTags(mainLine, (float)raster / TerritoryLabelProjection.ReferenceFontSize);
+                    _text.fontSize = raster;
                 }
                 _raster_factor = raster > 0 ? (float)TerritoryLabelProjection.ReferenceFontSize / raster : 1f;
-                _metrics_raster = raster > 0 ? raster : RasterSize(_text.font);
+                _metrics_raster = raster > 0 ? raster : RasterSize(_text.font, pixelsPerUnit);
                 _text.cachedTextGenerator.Invalidate();
                 _text.cachedTextGeneratorForLayout.Invalidate();
                 _reference_width = Mathf.Max(1f, _text.preferredWidth * _raster_factor);
@@ -1512,6 +1524,7 @@ public static class TerritoryLabelRenderer
         {
             _metrics_text = null;
             _metrics_font = null;
+            _counted_text = null;
             if (_text == null) return;
             _text.material = null;
             _text.cachedTextGenerator.Invalidate();
@@ -1525,8 +1538,7 @@ public static class TerritoryLabelRenderer
             GameObject textObject = new GameObject($"TerritoryLabel_{_id}", typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
             textObject.transform.SetParent(_root, false);
             _text = textObject.GetComponent<Text>();
-            Text template = GetTextTemplate();
-            Font fallbackFont = LabelFallbackFont(template?.font ?? Resources.GetBuiltinResource<Font>("Arial.ttf"));
+            Font fallbackFont = DefaultLabelFont();
             _fallback_font = fallbackFont;
             _text.font = fallbackFont;
             _text.fontSize = TerritoryLabelProjection.ReferenceFontSize;

@@ -10,6 +10,31 @@ namespace EmpireCraft.Scripts.UI.Components
         public const float OutlineDistance = 3f;
         public const float MinOutlinePixels = 1.2f;
 
+        // 铭牌字体逐档的拼字像素：字形在图集里实际占的大小，和 Text 的字号、画布缩放无关(见 RasterFontSize)
+        public static readonly int[] RasterSteps = { 384, 256, 192, 160, 128, 96, 64 };
+        public const int AtlasSize = 4096;
+        // 每字按拼字像素见方、四周各留 1 像素，只算六成：留给小字行、粗体与装箱空隙。
+        // 按真实字形装箱估过：方块字还剩三成多余量；本机隶书字形扁，实际装得下这里算的两倍(256 像素约 300 字、128 像素约 1240 字)
+        private const float AtlasUse = 0.6f;
+
+        public static int AtlasCapacity(int rasterPixels)
+        {
+            float perSide = (float)AtlasSize / (rasterPixels + 2);
+            return (int)(AtlasUse * perSide * perSide);
+        }
+
+        // 同一帧要拼 glyphs 个字该用第几档：只往下降，到最低档为止
+        public static int RasterStepFor(int glyphs, int currentStep)
+        {
+            int step = currentStep;
+            while (step < RasterSteps.Length - 1 && glyphs > AtlasCapacity(RasterSteps[step])) step++;
+            return step;
+        }
+
+        // Text 给动态字体拼字的实际像素 = 字号 × 画布缩放(Text.pixelsPerUnit)：要拼 rasterPixels 像素，字号就除回来
+        public static int RasterFontSize(int rasterPixels, float pixelsPerUnit) =>
+            Math.Max(1, (int)Math.Round(rasterPixels / Math.Max(0.01f, pixelsPerUnit)));
+
         public static float FitScale(float width, float height, float textWidth, float textHeight,
             float sizeMultiplier, int maxFontSize, float outlineDistance = OutlineDistance)
         {
