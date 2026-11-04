@@ -34,6 +34,16 @@ public sealed class TransmigrantState
     // 归化台账已建好(旧档读入后补一次，见 NaturalizationSystem)；培养重点(NaturalizationState，-1 按需)
     public bool naturalization_seeded;
     public int naturalization_focus = -1;
+    // 归化容量的倍数(全体大会、全岛平定加大，见 TransmigrantSystem.Events)；看守内阁到哪一年(之前归化慢下来)
+    public float naturalization_boost = 1f;
+    public int caretaker_until = -1;
+    // 原著节点事件：事件 → 发生的年份(-1 是旧档没赶上)
+    public Dictionary<string, int> events;
+    // 女仆状态委员会已设(生活秘书制度从这里起)；发动机行动到哪一年、运回多少人；霸王行动那场仗；海上霸权；大陆攻略已开始
+    public bool maid_committee, sea_hegemony, mainland;
+    public int engine_until_year = -1;
+    public float engine_moved;
+    public long overlord_war_id = -1L;
 }
 
 public sealed class SenatorSeat

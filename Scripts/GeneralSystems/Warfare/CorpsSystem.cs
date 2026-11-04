@@ -777,6 +777,13 @@ public static class CorpsSystem
         return corps;
     }
 
+    // 事件编成的地方部队(见 TransmigrantSystem.Events)：按本国此刻该用的建制，不占手动组建的钱
+    public static CorpsData RaiseStanding(Kingdom kingdom, City home, float people)
+    {
+        if (!Enabled || kingdom == null || home == null) return null;
+        return Raise(kingdom, home, LegionsPerCorps, people, World.world.getCurWorldTime(), manual: true);
+    }
+
     // 手动解散(交战中的不能解散)
     public static bool DisbandManual(Kingdom kingdom, CorpsData corps)
     {

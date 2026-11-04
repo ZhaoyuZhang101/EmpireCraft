@@ -228,6 +228,32 @@ public static class NaturalizationSystem
         return floor + (1f - floor) * data.naturalization_cover;
     }
 
+    // 事件里的死伤(见 TransmigrantSystem.Events)：从背景人口里扣，干部、教师首当其冲，年底对账不再算一遍
+    public static float Casualties(City city, float people)
+    {
+        CityPopulationData data = Data(city);
+        if (data?.groups == null || people <= 0f) return 0f;
+        float dead = 0f;
+        for (int attempt = 0; attempt < 8 && dead < people - 0.01f; attempt++)
+        {
+            PopGroup group = CityPopulationSystem.DrawBackground(city, candidate => EligibleClass(candidate.social_class));
+            if (group == null) break;
+            float removed = CityPopulationSystem.RemoveBackground(group, people - dead);
+            if (removed <= 0f) break;
+            dead += removed;
+        }
+        if (dead <= 0f) return 0f;
+        if (data.naturalization != null)
+        {
+            float[] ledger = Ledger(data);
+            ledger[(int)NaturalizationState.Cadre] = Mathf.Max(0f, ledger[(int)NaturalizationState.Cadre] - dead * 0.5f);
+            ledger[(int)NaturalizationState.Teacher] = Mathf.Max(0f, ledger[(int)NaturalizationState.Teacher] - dead * 0.5f);
+            data.naturalization_background = Mathf.Max(0f, data.naturalization_background - dead);
+        }
+        CityPopulationSystem.InvalidateHouseholdCaches();
+        return dead;
+    }
+
     // 这座城能出的合格军人
     public static float Available(City city) => Count(city, NaturalizationState.Soldier);
 
@@ -310,6 +336,18 @@ public static class NaturalizationSystem
 
     private static float ProcessRate() => InstitutionSystem.IsEnacted(TransmigrantSystem.Culture, "aosong_first_committee") ? 1f : 0.5f;
 
+    // 容量倍数：全体大会、全岛平定加大，看守内阁期间打折(见 TransmigrantSystem.Events)
+    private static float CapacityRate(TransmigrantState state)
+    {
+        float rate = ProcessRate();
+        if (state == null) return rate;
+        if (state.naturalization_boost > 0f) rate *= state.naturalization_boost;
+        if (state.caretaker_until >= 0 && Date.getCurrentYear() < state.caretaker_until) rate *= CaretakerFactor;
+        return rate;
+    }
+
+    private const float CaretakerFactor = 0.75f;
+
     private static float RegistryCapacity(float[] totals, float rate) =>
         (Config.base_registry + totals[(int)NaturalizationState.Cadre] * Config.registry_per_cadre) * rate;
 
@@ -369,6 +407,7 @@ public static class NaturalizationSystem
         var report = new NaturalizationReport();
         Reports[kingdom.id] = report;
         float rate = ProcessRate();
+        float capacityRate = CapacityRate(state);
         // 闹饥荒的城这一年什么都不动
         List<City> open = cities.Where(city => !Hungry(city)).ToList();
         bool famine = open.Count < cities.Count;
@@ -388,7 +427,7 @@ public static class NaturalizationSystem
 
         // 检疫完进学校：看教师
         float inSchool = all[(int)NaturalizationState.Schooling] - graduates;
-        float seats = Mathf.Max(0f, SchoolCapacity(all, rate) - inSchool);
+        float seats = Mathf.Max(0f, SchoolCapacity(all, capacityRate) - inSchool);
         float quarantined = active[(int)NaturalizationState.Quarantine];
         float entrants = Mathf.Min(quarantined, seats);
         // 入学先交第一年学费：没钱的留在检疫营，不白进学校
@@ -402,7 +441,7 @@ public static class NaturalizationSystem
 
         // 登记完进检疫：看护理
         float stillQuarantined = all[(int)NaturalizationState.Quarantine] - entering;
-        seats = Mathf.Max(0f, QuarantineCapacity(all, rate) - stillQuarantined);
+        seats = Mathf.Max(0f, QuarantineCapacity(all, capacityRate) - stillQuarantined);
         float registered = active[(int)NaturalizationState.Registered];
         float room = Mathf.Min(registered, seats);
         float admitted = Afford(room, c.cost_quarantine, ref funds, out int quarantineCost);
@@ -415,7 +454,7 @@ public static class NaturalizationSystem
 
         // 收容登记：看干部；一城受训的至多 max_share，其余留在本地社会
         float stillRegistered = all[(int)NaturalizationState.Registered] - admitted;
-        seats = Mathf.Max(0f, RegistryCapacity(all, rate) - stillRegistered);
+        seats = Mathf.Max(0f, RegistryCapacity(all, capacityRate) - stillRegistered);
         var rooms = new List<(City city, float room)>();
         float wanting = 0f;
         foreach (City city in open)
@@ -677,7 +716,7 @@ public static class NaturalizationSystem
         List<City> cities = Homes(kingdom);
         float[] totals = Totals(cities);
         Array.Copy(totals, snapshot.totals, StateCount);
-        float rate = ProcessRate();
+        float rate = CapacityRate(TransmigrantSystem.Of(kingdom));
         snapshot.registryCapacity = RegistryCapacity(totals, rate);
         snapshot.quarantineCapacity = QuarantineCapacity(totals, rate);
         snapshot.schoolCapacity = SchoolCapacity(totals, rate);

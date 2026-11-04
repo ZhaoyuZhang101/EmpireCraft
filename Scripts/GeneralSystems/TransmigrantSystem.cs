@@ -777,6 +777,7 @@ public static partial class TransmigrantSystem
         if (World.world.getCurWorldTime() - state.chairman_elected_at >= ChairmanTermYears * 60d)
             InstallRuler(kingdom, Elect(kingdom, state, termEnd: true));
         FormGovernment(kingdom);
+        StoryEvents(kingdom, state, year);
         Milestones(kingdom, state, year);
         Stage(kingdom, state);
         SyncRegions(kingdom);
@@ -792,11 +793,11 @@ public static partial class TransmigrantSystem
     // (用户 10-29 "很多是有条件的，条件达成就可以立刻改""参考小说剧情")：
     //   · 伏波军：降临当年就组建(有了伏波军)；
     //   · 第一届执委会、出版指导小组：降临第二年元老院全体大会选出第一届执委会，同年办报出书；
-    //   · 共同纲领：降临第三年(第二次全体大会)、已出临高(两城以上)；
+    //   · 共同纲领：女仆革命之后的第二次全体大会(见 TransmigrantSystem.Events)；
     //   · 政治保卫总局：共同纲领以后，归化民过两千(要防奸细、管治安)；
     //   · 企划院：共同纲领以后，有了厂区或已有四城(要统一规划工业)；
     //   · 大宋澳洲行在：撕破伪装、打出大宋旗号那年(见 Reveal)；对外情报局：同年设立；
-    //   · 元老院内阁制：大宋以后疆域过二十城；
+    //   · 元老院内阁制：大宋以后疆域过二十城，或太阳伞专案之后的第三次全体大会；
     //   · 北伐功成：内阁以后，当年称臣的宗主(明)已经灭亡
     private static void Milestones(Kingdom kingdom, TransmigrantState state, int year)
     {
@@ -809,13 +810,13 @@ public static partial class TransmigrantSystem
         if (Fubo(kingdom) != null) due.Add("aosong_fubo_army");
         if (age >= 1) due.Add("aosong_first_committee");
         if (age >= 1) due.Add("aosong_publishing");
-        if (age >= 2 && cities >= 2) due.Add("aosong_common_program");
+        if (EventFired(state, "second_congress")) due.Add("aosong_common_program");
         if (Enacted("aosong_common_program") && NaturalizedPopulation(kingdom) >= 2000f) due.Add("aosong_political_security");
         if (Enacted("aosong_common_program") && (cities >= 4 || kingdom.cities.Any(city => FactorySystem.InCity(city).Any())))
             due.Add("aosong_planning_institute");
         if (state.revealed) due.Add("aosong_great_song");
         if (state.revealed) due.Add("aosong_foreign_intelligence");
-        if (Enacted("aosong_great_song") && cities >= 20) due.Add("aosong_cabinet");
+        if (Enacted("aosong_great_song") && (cities >= 20 || EventFired(state, "third_congress"))) due.Add("aosong_cabinet");
         if (Enacted("aosong_cabinet") && state.disguise_lord_id >= 0 && (lord == null || lord.isRekt() || lord.cities.Count == 0))
             due.Add("aosong_restoration");
         foreach (string node in due)

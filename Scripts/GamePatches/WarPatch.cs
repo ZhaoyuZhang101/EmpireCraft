@@ -259,6 +259,7 @@ public class WarPatch: GamePatch
         {
             return false;
         }
+        TransmigrantSystem.OnWarEnded(pWar, pWinner);
         if (pWar.isAlive() && !pWar.hasEnded())
         {
             RecordWarDeclared(pWar);

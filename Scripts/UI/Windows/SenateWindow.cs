@@ -20,7 +20,7 @@ namespace EmpireCraft.Scripts.UI.Windows;
 //   · 有实体的元老整卡/整行点开此人；世上没有穿越政权时显示空状态。
 public class SenateWindow : WideScrollWindow<SenateWindow>
 {
-    private enum View { Core, All, Founders, Heirs, Naturalization }
+    private enum View { Core, All, Founders, Heirs, Naturalization, Events }
 
     private const int PageSize = 60;
     private const int RailGroupRows = 8;
@@ -74,6 +74,7 @@ public class SenateWindow : WideScrollWindow<SenateWindow>
         View.Founders => "transmigrant_senate_view_founders",
         View.Heirs => "transmigrant_senate_view_heirs",
         View.Naturalization => "naturalization_title",
+        View.Events => "transmigrant_events_title",
         _ => "transmigrant_senate_view_all"
     });
 
@@ -101,9 +102,12 @@ public class SenateWindow : WideScrollWindow<SenateWindow>
         }
         // 归化民流程(见 NaturalizationSystem)
         views.AddRailOption(null, ViewName(View.Naturalization), ShortPeople(TransmigrantSystem.NaturalizedPopulation(_kingdom)),
-            _view == View.Naturalization, () => SetView(View.Naturalization), index);
+            _view == View.Naturalization, () => SetView(View.Naturalization), index++);
+        // 原著节点事件
+        views.AddRailOption(null, ViewName(View.Events), TransmigrantSystem.EventOrder.Count(id => TransmigrantSystem.EventFired(_state, id)).ToString(),
+            _view == View.Events, () => SetView(View.Events), index);
 
-        if (_view != View.Naturalization && _groups.Count > 1)
+        if (_view != View.Naturalization && _view != View.Events && _groups.Count > 1)
         {
             var groups = rail.BeginRailMenu(LM.Get("transmigrant_senate_by_group"));
             groups.AddRailOption(null, LM.Get("talent_all"), _groups.Sum(group => group.count).ToString(),
@@ -156,6 +160,11 @@ public class SenateWindow : WideScrollWindow<SenateWindow>
             DrawNaturalization(page);
             return;
         }
+        if (_view == View.Events)
+        {
+            DrawEvents(page);
+            return;
+        }
         page.AddPageHeader(PageWidth, ViewName(_view), string.Format(LM.Get("transmigrant_senate_chip_seats"), _shown.Count));
 
         List<SenatorSeat> seats = _state.seats;
@@ -175,6 +184,43 @@ public class SenateWindow : WideScrollWindow<SenateWindow>
             return;
         }
         DrawList(page);
+    }
+
+    // ───────── 原著大事 ─────────
+    private void DrawEvents(AutoVertLayoutGroup page)
+    {
+        page.AddPageHeader(PageWidth, LM.Get("transmigrant_events_title"));
+        var card = page.BeginCard(PageWidth);
+        int row = 0;
+        string place = _kingdom.capital?.GetCityName() ?? "";
+        foreach (string id in TransmigrantSystem.EventOrder)
+        {
+            int year = TransmigrantSystem.EventYear(_state, id);
+            string name = string.Format(LM.Get("transmigrant_event_" + id), place);
+            string date, body, hex;
+            if (year > 0)
+            {
+                date = string.Format(LM.Get("transmigrant_event_year"), year);
+                body = name.ColorString(WideKit.Gold) + "  " + LM.Get("transmigrant_event_" + id + "_desc");
+                hex = WideKit.Soft;
+            }
+            else if (year < 0)
+            {
+                date = "—";
+                body = name + "  " + LM.Get("transmigrant_event_passed");
+                hex = WideKit.Muted;
+            }
+            else
+            {
+                date = LM.Get("transmigrant_event_pending");
+                body = name + "  " + LM.Get("transmigrant_event_" + id + "_hint");
+                hex = WideKit.Muted;
+            }
+            card.AddTimelineRow(PageWidth, row++, date, body, hex);
+        }
+        if (_state.engine_until_year > 0)
+            page.BeginCard(PageWidth).AddParagraph(PageWidth, string.Format(LM.Get("transmigrant_event_engine_running"),
+                Mathf.RoundToInt(_state.engine_moved), _state.engine_until_year), 7, WideKit.Cyan);
     }
 
     // ───────── 归化民 ─────────

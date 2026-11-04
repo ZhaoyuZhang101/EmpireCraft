@@ -331,7 +331,8 @@ public static partial class TransmigrantSystem
         {
             Kingdom other = city?.kingdom;
             if (other?.data == null || other.isRekt() || other == kingdom || seen.Contains(other.id) || homes.Contains(city)) continue;
-            if (Nearest(homes, city, out int distance) == null || distance > SeaTradeReach) continue;
+            // 霸王行动打赢以后这片海上没有对手，航路更远
+            if (Nearest(homes, city, out int distance) == null || distance > (Of(kingdom)?.sea_hegemony == true ? SeaTradeReach * 3 / 2 : SeaTradeReach)) continue;
             seen.Add(other.id);
             yield return other;
         }
@@ -370,13 +371,14 @@ public static partial class TransmigrantSystem
                 ColonySystem.Bound(kingdom, other) || WarGate.Forbidden(kingdom, other) ||
                 ArmyOf(other) * CampaignOdds > army) continue;
             City home = Nearest(kingdom.cities.ToList(), city, out int distance);
-            if (home == null || distance > CampaignReach || distance >= best) continue;
+            if (home == null || distance > (state.mainland ? CampaignReach * 3 / 2 : CampaignReach) || distance >= best) continue;
             if (!WarReach.MayDeclare(kingdom, other, WarTypeLibrary.normal)) continue;
             best = distance;
             target = other;
         }
         // 没有合适的对象就明年再看
-        state.next_campaign_at = now + (target == null ? 1 : CampaignYears) * 60d;
+        // 大陆攻略开始以后用兵更勤
+        state.next_campaign_at = now + (target == null || state.mainland ? 1 : CampaignYears) * 60d;
         if (target == null) return;
         War war = World.world.diplomacy.startWar(kingdom, target, WarTypeLibrary.normal);
         if (war == null) return;
