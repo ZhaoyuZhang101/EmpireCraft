@@ -37,9 +37,9 @@
             "fort_words": "VillageNames",
             "fort_suffix": "FortSuffix"
         },
-        // 无人区命名(见 Locales/Cultures/README.md 无人区一节)：地名 + 类型后缀，哈茨山脉、施普雷沼泽；沙漠、雨林引用西方的，冻原引用维京的
+        // 无人区命名(见 Locales/Cultures/README.md 无人区一节)：地名 + 类型后缀，哈茨山脉、施普雷沼泽；沙漠、雨林引用企业文化的(原西方的真实地名)，冻原引用维京的
         "Wilderness": {
-            "words": { "mountain": "WildMountain", "desert": "Western:WildDesert", "tundra": "Viking:WildTundra", "jungle": "Western:WildJungle", "swamp": "WildSwamp" }
+            "words": { "mountain": "WildMountain", "desert": "Corporate:WildDesert", "tundra": "Viking:WildTundra", "jungle": "Corporate:WildJungle", "swamp": "WildSwamp" }
         },
         "City": {
             "groups": {
