@@ -23,6 +23,7 @@ namespace EmpireCraft.Scripts.UI.Components;
 //     边沿着沙漠、山脉的真实轮廓收住；沙漠一直连下去的地方伸到哪儿随噪声起伏，不是离地块边固定几格的一道直线。
 //     无主地上没有国界要对齐，地形的边就是最自然的边；至多六格(不到一块地宽)，伸出去的格周围 3×3 块里还得有这片的地块，
 //     不会顺着沙地把远处另一小片(不够连片的)荒地也吞进来。
+//     开发中的雨林大泽不贴地形，陆地格整块算(见 Held)：那里的草地是开发改出来的，不是这片的边；
 //     判给有城的地的不伸：城、国的地盘照平滑国界画，城界就是无人区的边；沙漠里只有一块地的小城也不会被吃掉；
 //   · 何时重算：区域变了(WildernessSystem.Version，只比各块归哪片、有没有城；挂接、归属国变了不算)、无人区两块以内的地块
 //     有没有城变了(每帧对一遍)、地形变了(ZonePaintBudget.TerrainChanged，攒 TerrainDelay 秒一起算)：只重算变了的地块
@@ -73,6 +74,8 @@ public static class WildernessShape
     private static byte[] _cls = Array.Empty<byte>();
     private static readonly List<int> DList = new(), AList = new(), Frontier = new(), NextFrontier = new(), Promote = new();
     private static readonly int[] Keys = new int[9], CandKeys = new int[9];
+    // 本块周围 3×3 块里开发中的地块归哪片，别的为 0(见 Held)
+    private static readonly int[] HeldKeys = new int[9];
     private static readonly float[] CandWeights = new float[9];
     private static int _candCount;
 
@@ -490,6 +493,17 @@ public static class WildernessShape
 
     private static WildKind KindOfSlot(int slot) => slot > 0 && slot < Slots.Count && Slots[slot] != null ? Slots[slot].Kind : WildKind.None;
 
+    // 开发中的雨林大泽(用户 2026-11-04 "无人区图层为什么总是占不满整个无人区")：丛林沼泽格一批批改成了草地，地块还算这片无人区，
+    // 按现在的地形判，开发度九成的地块只剩零星几格，涂不满提示框写的块数。这些地块的陆地格不看地形，整块算。
+    // 本块不是这片的(挨着的有城的地、无主地)，B 样条判给这片、周围有这片开发中的地块也算，边还是圆的；同一片没开发的地块照旧贴地形
+    private static bool Held(int winner, int center)
+    {
+        if (winner == center) return HeldKeys[4] == winner;
+        foreach (int key in HeldKeys)
+            if (key == winner) return true;
+        return false;
+    }
+
     // 一块地各格的中间态：B 样条判给哪类(同 SmoothBorders.CityAt)，判给无人区的看地形对不对(Core/Miss)，
     // 判给无主地、地形同邻近某片的记为可伸(Grow)
     private static void RawZone(int id)
@@ -502,6 +516,8 @@ public static class WildernessShape
         {
             int key = KeyAt(zx + dx, zy + dy);
             Keys[(dy + 1) * 3 + dx + 1] = key;
+            HeldKeys[(dy + 1) * 3 + dx + 1] =
+                key > 0 && WildernessDevelopmentSystem.HeldKind((zy + dy) * _zonesX + zx + dx) != WildKind.None ? key : 0;
             if (key > 0) any = true;
             if (key != center) uniform = false;
         }
@@ -523,7 +539,7 @@ public static class WildernessShape
             int winner = uniform ? center : Winner(x, y, zx, zy);
             if (winner > 0)
             {
-                _raw[t] = (Fits(cls, KindOfSlot(winner), false, x, y) ? Core : Miss) | winner;
+                _raw[t] = (Held(winner, center) || Fits(cls, KindOfSlot(winner), false, x, y) ? Core : Miss) | winner;
                 continue;
             }
             _raw[t] = 0;
