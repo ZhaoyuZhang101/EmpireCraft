@@ -17,6 +17,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     只有被俘、改投别国和显式整编才改，改时记旧称(corps.former_names)。
 //   · 番号：按配置的范围(全国、本建制、驻地)单调递增，计数随存档(formation_serials)，旧档先扫描已占用的号；
 //     分遣队不占番号，名字是"某部先遣队"，并回就注销。军团列表、地图提示、战报都走 Name。
+//     写法按建制配(template)：华夏律令制天干字营(禁军甲字营、河西镇军丙字营)，封建、游牧、罗马、日本各有各的，成员国的军带上国名免得重名；
+//     文化进工业时代后改第几军、第几师(modern_template)。序号存的是数字，换写法不改身份、不重掷。
 //   · 差别：每种建制定下兵源(source)、补员快慢(raise)、新兵冲淡老兵多少与老兵上限(training、veteran_cap)、军饷(upkeep)、
 //     不能列装的兵种(denied_arms，按名字，不看枚举大小)、任务(task：field 野战、mixed、garrison 守备)、走多远(reach)和
 //     听不听中央调往外地(command)。常备军这一档全取默认值，与没有建制时一样，不牵动大盘平衡。
@@ -32,6 +34,10 @@ public sealed class FormationDef
     public string id = "";
     public string name = "";
     public string template = "formation_template_corps";
+    // 番号的数字怎么写：空 = 第几；stem = 天干字(甲字、乙字……癸字，用完接甲字二)；wing = 左翼第几、右翼第几、中军第几
+    public string numeral = "";
+    // 文化进工业时代后改用的模板；空 = 不变(澳宋、近代政体本来就是近代写法)
+    public string modern_template = "";
     public string scope = "formation";
     public List<FormationEchelon> echelons = new();
     public string source = "any";
@@ -66,6 +72,9 @@ public static class FormationSystem
     private const double LandingWindow = 60d;
     // 显式整编要重新整训
     private const float ReorganizeOrg = 0.7f, ReorganizeVeterancy = 0.85f;
+    // 番号改用近代写法的时代档(工业时代，同 ProvincialCollapseSystem 的近代)
+    private const int ModernNamingTier = 7;
+    private static readonly string[] Stems = { "甲", "乙", "丙", "丁", "戊", "己", "庚", "辛", "壬", "癸" };
 
     private static readonly FormationDef Baseline = new() { id = "standing" };
     private static FormationConfig _config;
@@ -111,13 +120,36 @@ public static class FormationSystem
         // 大区这些成员国没有自己的阶段，看元老院的
         if (!string.IsNullOrEmpty(map.early) && TransmigrantSystem.SenateOf(kingdom) is Kingdom senate &&
             TransmigrantSystem.StageOf(senate) < map.early_below_stage) return map.early;
-        if (corps.manual) return map.manual;
+        // 成员国(行政区、封国)不是中央，都城驻军和手动编的也算地方军，不挂中央的建制
+        bool member = IsMember(kingdom) && !string.IsNullOrEmpty(map.district);
+        if (corps.manual) return member ? map.district : map.manual;
         return (CityPopulationSystem.ArmyPost)corps.post switch
         {
             CityPopulationSystem.ArmyPost.District => map.district,
             CityPopulationSystem.ArmyPost.Prefecture => map.prefecture,
-            _ => map.central
+            _ => member ? map.district : map.central
         };
+    }
+
+    private static bool IsMember(Kingdom kingdom)
+    {
+        var empire = kingdom?.GetEmpire();
+        return empire != null && empire.CoreKingdom != kingdom;
+    }
+
+    // 旧档里成员国的都城驻军记成了中央建制(辽东挂着禁军)：改回地方建制，番号重编，旧称记下
+    private static void DemoteMemberGuards(Kingdom kingdom, List<CorpsData> list)
+    {
+        if (!IsMember(kingdom)) return;
+        FormationRegimeMap map = MapOf(kingdom);
+        if (string.IsNullOrEmpty(map.central) || string.IsNullOrEmpty(map.district) || map.central == map.district) return;
+        foreach (CorpsData corps in list)
+        {
+            if (corps.formation != map.central || corps.militia || corps.order_id >= 0) continue;
+            if (corps.parent_id < 0) Remember(corps, CorpsSystem.Name(corps));
+            corps.formation = map.district;
+            corps.formation_serial = 0;
+        }
     }
 
     // 旧档还没有建制的军：只有降临带来的那支认作伏波军，别的按政体默认，手动军保持手动
@@ -167,6 +199,7 @@ public static class FormationSystem
     public static void EnsureAll(Kingdom kingdom, List<CorpsData> list)
     {
         if (list == null) return;
+        DemoteMemberGuards(kingdom, list);
         bool missing = false;
         foreach (CorpsData corps in list)
         {
@@ -257,10 +290,42 @@ public static class FormationSystem
         }
         FormationDef def = Def(corps.formation);
         if (def == null || corps.formation_serial <= 0) return null;
-        string format = LM.Get(def.template);
+        Kingdom kingdom = World.world?.kingdoms?.get(corps.kingdom_id);
+        bool modern = !string.IsNullOrEmpty(def.modern_template) && kingdom?.data != null &&
+                      TechnologySystem.GetEraTier(TechnologySystem.GetCultureOf(kingdom)) >= ModernNamingTier;
         bool ordinal = LM.Get("corps_name").StartsWith("{0}");
-        return string.Format(format, ordinal ? CorpsSystem.Ordinal(corps.formation_serial) : CorpsSystem.Chinese(corps.formation_serial),
-            DisplayName(def), CorpsSystem.Home(corps)?.GetCityName() ?? "", EchelonName(def, corps));
+        string number = modern ? PlainNumber(corps.formation_serial, ordinal) : Numeral(def.numeral, corps.formation_serial, ordinal);
+        return string.Format(LM.Get(modern ? def.modern_template : def.template), number, DisplayName(def),
+            CorpsSystem.Home(corps)?.GetCityName() ?? "", EchelonName(def, corps), RegionPrefix(kingdom, ordinal));
+    }
+
+    private static string PlainNumber(int serial, bool ordinal) =>
+        ordinal ? CorpsSystem.Ordinal(serial) : CorpsSystem.Chinese(serial);
+
+    // 番号的数字部分(英文没有天干，用序数)
+    private static string Numeral(string style, int serial, bool ordinal)
+    {
+        int index = Math.Max(0, serial - 1);
+        switch (style)
+        {
+            case "stem" when !ordinal:
+                int round = index / Stems.Length;
+                return Stems[index % Stems.Length] + "字" + (round > 0 ? CorpsSystem.Chinese(round + 1) : "");
+            case "wing":
+                string wing = LM.Get((index % 3) switch { 0 => "formation_wing_left", 1 => "formation_wing_right", _ => "formation_wing_center" });
+                int nth = index / 3 + 1;
+                return ordinal ? $"{wing} {CorpsSystem.Ordinal(nth)}" : wing + "第" + CorpsSystem.Chinese(nth);
+            default:
+                return PlainNumber(serial, ordinal);
+        }
+    }
+
+    // 成员国的军带上国名：每国各数各的，不带就满朝都是"镇军甲字营"；中央和独立国不带
+    private static string RegionPrefix(Kingdom kingdom, bool spaced)
+    {
+        if (!IsMember(kingdom)) return "";
+        string name = kingdom.GetKingdomName();
+        return string.IsNullOrEmpty(name) ? "" : spaced ? name + " " : name;
     }
 
     private static CorpsData FindParent(CorpsData corps)
