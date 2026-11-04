@@ -728,6 +728,7 @@ public static partial class TransmigrantSystem
             _homeCheckAt = now;
             KeepSenatorsHome();
             Supply();
+            IssueScrip();
         }
         if (year == _year) return;
         _year = year;

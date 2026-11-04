@@ -44,6 +44,8 @@ public sealed class TransmigrantState
     public int engine_until_year = -1;
     public float engine_moved;
     public long overlord_war_id = -1L;
+    // 流通券累计发了多少(见 TransmigrantSystem.Fiscal)
+    public long scrip_issued;
 }
 
 public sealed class SenatorSeat

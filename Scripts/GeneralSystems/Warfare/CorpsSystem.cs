@@ -430,6 +430,21 @@ public static class CorpsSystem
         return report.months >= 3 && report.operating_balance < 0;
     }
 
+    // 下个月大约要发多少军饷(见 TransmigrantSystem.IssueScrip)：同 PayUpkeep，不算行军费
+    public static long MonthlyBill(Kingdom kingdom)
+    {
+        float soldiers = 0f, engaged = 0f;
+        foreach (CorpsData corps in Of(kingdom))
+        {
+            if (corps.order_id >= 0) continue;
+            float weighted = Mathf.Max(0f, corps.strength) * CorpsArmSystem.Upkeep(CorpsArmSystem.Of(corps)) * FormationSystem.UpkeepFactor(corps);
+            soldiers += weighted;
+            if (corps.task is "attack" or "defend" && FrontSystem.Battles.ContainsKey(corps.sector_city_id)) engaged += weighted;
+        }
+        if (soldiers < 1f) return 0L;
+        return (long)Math.Ceiling(CityStabilityRules.CorpsAnnual(soldiers, IsAtWar(kingdom)) / 12d + engaged * BattleCostPerSoldier);
+    }
+
     private static void PayUpkeep(Kingdom kingdom)
     {
         // 骑士团的军由骑士团自己付饷(见 PapacySystem.Orders)

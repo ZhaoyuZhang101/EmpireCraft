@@ -25,7 +25,9 @@ public enum TreasuryCategory
     // 岁祭(见 RitesSystem)
     Rites,
     // 关税：外国货物进口，进口国按货价抽的税(见 CommodityMarketSystem.Trade)
-    Customs
+    Customs,
+    // 流通券：国库不够发饷时从民间存款筹的钱，不用还(见 TransmigrantSystem.Fiscal)
+    Scrip
 }
 
 public sealed class TreasuryReport
@@ -217,7 +219,8 @@ public static class TreasuryRules
                 pair.Key != nameof(TreasuryCategory.RecoveredFunds) &&
                 pair.Key != nameof(TreasuryCategory.Diplomacy) && pair.Key != nameof(TreasuryCategory.Policy) && !repayment &&
                 // 借款本金和还本是资金往来，不是经常收支(利息才是)
-                pair.Key != nameof(TreasuryCategory.Borrowing) && pair.Key != nameof(TreasuryCategory.DebtPrincipal))
+                pair.Key != nameof(TreasuryCategory.Borrowing) && pair.Key != nameof(TreasuryCategory.DebtPrincipal) &&
+                pair.Key != nameof(TreasuryCategory.Scrip))
                 report.operating_balance += expense ? -value : value;
         }
     }

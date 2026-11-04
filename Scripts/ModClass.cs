@@ -128,18 +128,26 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
         EmpireCraft.Scripts.HelperFunc.SimulationFrameBudget.BeginFrame();
         using var frameWork = EmpireCraft.Scripts.HelperFunc.SimulationFrameBudget.Measure();
         // 每帧轮换先运行的系统，避免月度人口队列长期挤掉外交。
+        bool populationRan = false;
         for (int i = 0; i < 5 && EmpireCraft.Scripts.HelperFunc.SimulationFrameBudget.HasTime; i++)
         {
             switch ((_backgroundCursor + i) % 5)
             {
                 case 0: using (FrameProfiler.Measure("后台·战略调度")) EmpireCraftStrategicScheduler.Tick(); break;
-                case 1: using (FrameProfiler.Measure("后台·人口")) EmpireCraft.Scripts.GeneralSystems.CityPopulationSystem.Tick(); break;
+                case 1:
+                    populationRan = true;
+                    using (FrameProfiler.Measure("后台·人口")) EmpireCraft.Scripts.GeneralSystems.CityPopulationSystem.Tick();
+                    break;
                 case 2: using (FrameProfiler.Measure("后台·牧业")) EmpireCraft.Scripts.GeneralSystems.AnimalHusbandrySystem.Tick(); break;
                 case 3: using (FrameProfiler.Measure("后台·野生清理")) EmpireCraft.Scripts.GamePatches.NoCommonersPatch.CullExcessWild(); break;
                 case 4: using (FrameProfiler.Measure("后台·理念接触")) EmpireCraft.Scripts.GeneralSystems.IdeologyPopulationSystem.TickContact(); break;
             }
         }
         _backgroundCursor = (_backgroundCursor + 1) % 5;
+        // 战略调度跑一次就用光慢帧的预算(11-04 存档日志：一次 7.9 ms，预算最多 4 ms)，人口只有排第一时才轮得上，五帧一次：
+        // 全图月结一遍要十三四年，每城每遍只结 24 个月，其余的税、产出、营建都丢了。月结每帧都走，时间片在 TickFolds 里
+        if (!populationRan)
+            using (FrameProfiler.Measure("后台·人口")) EmpireCraft.Scripts.GeneralSystems.CityPopulationSystem.TickFoldsOnly();
         using (FrameProfiler.Measure("后台·军团战线")) EmpireCraft.Scripts.GeneralSystems.CorpsSystem.Update();
     }
 

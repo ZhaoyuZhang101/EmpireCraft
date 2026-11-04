@@ -86,7 +86,7 @@ public static partial class TransmigrantSystem
         CorpsData fubo = Fubo(kingdom);
         NeoModLoader.services.LogService.LogInfo($"[EmpireCraft][穿越] {kingdom.GetKingdomFullName()} 城{kingdom.cities.Count} " +
             $"流民{Mathf.RoundToInt(refugees)} 归化{Mathf.RoundToInt(naturalized)} 归化民共{Mathf.RoundToInt(NaturalizedPopulation(kingdom))} " +
-            $"伏波军{Mathf.RoundToInt(fubo?.strength ?? 0f)}/{Mathf.RoundToInt(fubo?.full ?? 0f)} 国库{kingdom.GetMoney()} " +
+            $"伏波军{Mathf.RoundToInt(fubo?.strength ?? 0f)}/{Mathf.RoundToInt(fubo?.full ?? 0f)} 国库{kingdom.GetMoney()} 流通券累计{state.scrip_issued} " +
             $"海军{NavalRealm(kingdom).Sum(member => NavySystem.Of(member).Sum(fleet => fleet.warships))}/{AosongNavyRules.FloorWarships(state.stage)} " +
             $"外贸{Mathf.RoundToInt(CommodityMarketSystem.MarketOf(kingdom)?.trade_value ?? 0f)} " +
             $"{(DisguiseLord(kingdom) is Empire lord ? "伪装为" + lord.GetEmpireFullName() + "属国" : "已公开")}");

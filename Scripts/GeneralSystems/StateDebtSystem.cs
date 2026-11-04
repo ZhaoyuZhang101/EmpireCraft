@@ -126,7 +126,8 @@ public static class StateDebtSystem
 
     private static void TryBorrow(Kingdom kingdom)
     {
-        if (!TechnologySystem.HasTech(TechnologySystem.GetCultureOf(kingdom), "mathematics") || DefaultedRecently(kingdom)) return;
+        if (!TechnologySystem.HasTech(TechnologySystem.GetCultureOf(kingdom), "mathematics") || DefaultedRecently(kingdom) ||
+            TransmigrantSystem.IssuesScrip(kingdom)) return;
         long need = StateDebtRules.BorrowNeed(kingdom.GetTreasuryBalance(), TreasurySystem.SafetyReserve(kingdom),
             FiscalBudgetPlanner.NormalRatio(kingdom) < 0.999d);
         if (need <= 0L) return;

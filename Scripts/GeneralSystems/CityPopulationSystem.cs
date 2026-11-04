@@ -402,6 +402,10 @@ public static class CityPopulationSystem
 
     private static readonly Queue<City> PendingCities = new();
     private static readonly Queue<City> PendingFolds = new();
+    // 每月优先结算的城(澳宋，见 TransmigrantSystem.MonthlySettledCities)，不进上面的普通队列
+    private static readonly Queue<City> PriorityFolds = new();
+    private static double _lastPriorityFold = -1d;
+    private static int _foldsSincePriority = AosongFiscalRules.PriorityEvery;
     private static City _foldCity;
     private static Kingdom _foldOwner;
     private static int _foldPhase;
@@ -442,6 +446,9 @@ public static class CityPopulationSystem
         _mobilizingAt = -1d;
         PendingCities.Clear();
         PendingFolds.Clear();
+        PriorityFolds.Clear();
+        _lastPriorityFold = -1d;
+        _foldsSincePriority = AosongFiscalRules.PriorityEvery;
         _foldCity = null;
         _foldOwner = null;
         _foldPhase = 0;
@@ -503,7 +510,7 @@ public static class CityPopulationSystem
                 _homelessRemaining = _homelessCursor = _homelessFolded = 0;
                 SimulationFrameBudget.Reset();
                 AnimalHusbandrySystem.ResetWorldState();
-                PendingFolds.Clear(); _foldCity = null; _foldOwner = null; _lastFoldPass = -1d;
+                PendingFolds.Clear(); PriorityFolds.Clear(); _foldCity = null; _foldOwner = null; _lastFoldPass = _lastPriorityFold = -1d;
             }
             _populationMode = enabled;
         }
@@ -517,7 +524,7 @@ public static class CityPopulationSystem
             // 预算用完也照样推进(TickFolds 里每帧至少一步)：并入普通人是减负的活，不能被慢帧饿着
             if (!_foldsFirst) TickFolds(world, now);
         }
-        else { PendingFolds.Clear(); _foldCity = null; _foldOwner = null; }
+        else { PendingFolds.Clear(); PriorityFolds.Clear(); _foldCity = null; _foldOwner = null; }
         if (enabled && SimulationFrameBudget.HasTime) TickHomeless();
         if (_yearEndStep > 0) RunYearEndStep();
         if (PendingCities.Count == 0)
@@ -1245,18 +1252,39 @@ public static class CityPopulationSystem
 
     #region 并入普通人(无小人模式)
 
-    // 每个游戏月把全部城市排队检查一次，分帧处理(与年度结算共用每帧时间上限)
+    // 这一帧人口轮不上时只走月结(见 ModClass.Update)
+    public static void TickFoldsOnly()
+    {
+        MapBox world = World.world;
+        if (world?.cities == null || !Config.game_loaded || Config.paused || SmoothLoader.isLoading() ||
+            !ReferenceEquals(_world, world) || !AbstractPopulationEnabled) return;
+        TickFolds(world, world.getCurWorldTime());
+    }
+
+    private static void EnqueuePriorityFolds(double now)
+    {
+        if (_lastPriorityFold >= 0d && now >= _lastPriorityFold && Date.getMonthsSince(_lastPriorityFold) < FoldIntervalMonths) return;
+        _lastPriorityFold = now;
+        foreach (City city in TransmigrantSystem.MonthlySettledCities())
+            if (city != _foldCity && !PriorityFolds.Contains(city)) PriorityFolds.Enqueue(city);
+    }
+
+    // 每个游戏月把全部城市排队检查一次，分帧处理(与年度结算共用每帧时间上限)；澳宋的城另走每月优先的队列
     private static void TickFolds(MapBox world, double now)
     {
         _waitingForMath = false;
+        EnqueuePriorityFolds(now);
         if (_foldCity == null && PendingFolds.Count == 0)
         {
             bool due = _lastFoldPass < 0d || now < _lastFoldPass || Date.getMonthsSince(_lastFoldPass) >= FoldIntervalMonths;
-            if (!due) return;
-            _lastFoldPass = now;
-            foreach (City city in world.cities)
-                if (city?.data != null && !city.isRekt()) PendingFolds.Enqueue(city);
-            if (PendingFolds.Count == 0) return;
+            if (due)
+            {
+                _lastFoldPass = now;
+                var monthly = new HashSet<City>(TransmigrantSystem.MonthlySettledCities());
+                foreach (City city in world.cities)
+                    if (city?.data != null && !city.isRekt() && !monthly.Contains(city)) PendingFolds.Enqueue(city);
+            }
+            if (PendingFolds.Count == 0 && PriorityFolds.Count == 0) return;
         }
         using var timing = new PerfTimer("无小人模式并入普通人");
         PopulationJurenRanking.Prewarm(PendingFolds);
@@ -1265,13 +1293,15 @@ public static class CityPopulationSystem
         // 每帧至少推进一步；纯净地图模式(要接近零实体)只看本段时间片，不看全局帧预算
         int steps = 0;
         bool pure = PureMapMode.Enabled;
-        while ((_foldCity != null || PendingFolds.Count > 0) &&
+        while ((_foldCity != null || PendingFolds.Count > 0 || PriorityFolds.Count > 0) &&
                (steps++ == 0 || watch.Elapsed.TotalMilliseconds < (pure ? SliceBudgetMs * 2d : SliceBudgetMs) &&
                    (pure || SimulationFrameBudget.HasTime)))
         {
             if (_foldCity == null)
             {
-                _foldCity = PendingFolds.Dequeue();
+                bool priority = AosongFiscalRules.TakePriority(PriorityFolds.Count, PendingFolds.Count, _foldsSincePriority);
+                _foldCity = priority ? PriorityFolds.Dequeue() : PendingFolds.Dequeue();
+                _foldsSincePriority = priority ? 0 : _foldsSincePriority + 1;
                 _foldOwner = _foldCity?.kingdom;
                 _foldPhase = 0;
                 _foldNow = now;
