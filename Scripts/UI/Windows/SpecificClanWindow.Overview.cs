@@ -43,6 +43,7 @@ public partial class SpecificClanWindow
             (string.Format(LM.Get("clan_kpi_land"), share.ToString("0.#")), string.Format(LM.Get("clan_kpi_cities"), holdings.Count),
                 WideKit.Cyan),
             (LM.Get("clan_kpi_officials"), string.Format(LM.Get("clan_kpi_people"), officials), WideKit.Gold));
+        DrawPopulationHint(page);
 
         var top = page.BeginColumns(PageWidth);
         DrawPedigreeCard(top.BeginColumnCard(UIHelper.PageColumnWidth, LM.Get("clan_card_pedigree"), WideKit.Gold,
@@ -65,13 +66,19 @@ public partial class SpecificClanWindow
 
         var spread = middle.BeginColumnCard(UIHelper.PageColumnWidth, LM.Get("clan_card_spread"), WideKit.Gold, null,
             "ui/icons/iconCity");
-        List<(string city, int count)> byCity = _living.Select(CityName).Where(city => !string.IsNullOrEmpty(city))
-            .GroupBy(city => city).Select(group => (group.Key, group.Count())).OrderByDescending(item => item.Item2)
-            .Take(OverviewRows).ToList();
+        List<(City city, int recorded, int unrecorded)> places = GentrySystem.PopulationPlaces(_sc, _living);
+        var byCity = places.Take(OverviewRows).ToList();
         if (byCity.Count == 0) spread.AddParagraph(UIHelper.PageColumnWidth, LM.Get("label_none"), 7, WideKit.Muted);
         index = 0;
-        foreach ((string city, int count) in byCity)
-            spread.AddValueRow(UIHelper.PageColumnWidth, index++, city, string.Format(LM.Get("clan_kpi_people"), count), WideKit.Cyan);
+        foreach ((City city, int recorded, int unrecorded) in byCity)
+            spread.AddValueRow(UIHelper.PageColumnWidth, index++, city == null ? LM.Get("clan_population_unknown") : city.GetCityName(),
+                string.Format(LM.Get("clan_kpi_people"), UIHelper.ShortCount(recorded + unrecorded)), WideKit.Cyan);
+        int rest = places.Skip(OverviewRows).Sum(place => place.recorded + place.unrecorded);
+        if (rest > 0)
+            spread.AddValueRow(UIHelper.PageColumnWidth, index, LM.Get("clan_population_other_cities"),
+                string.Format(LM.Get("clan_kpi_people"), UIHelper.ShortCount(rest)), WideKit.Cyan);
+        if (GentrySystem.UnrecordedMembers(_sc, _living.Count) > 0)
+            spread.AddParagraph(UIHelper.PageColumnWidth, LM.Get("clan_population_places_hint"), 6, WideKit.Muted);
 
         List<PersonalClanIdentity> notables = _living.OrderByDescending(OnOffice).ThenByDescending(Renown)
             .ThenBy(person => person.generation).Take(NotableCount).ToList();
@@ -84,10 +91,16 @@ public partial class SpecificClanWindow
     // 族人现在在哪座城(虚拟族人按并入时所在的城)
     private static string CityName(PersonalClanIdentity person)
     {
-        City city = person.is_virtual
-            ? person.virtual_city_id > 0 ? World.world.cities.get(person.virtual_city_id) : null
-            : person._actor?.city;
-        return city?.data == null || city.isRekt() ? null : city.GetCityName();
+        return GentrySystem.MemberCity(person)?.GetCityName();
+    }
+
+    private void DrawPopulationHint(AutoVertLayoutGroup page)
+    {
+        int unrecorded = GentrySystem.UnrecordedMembers(_sc, _living.Count);
+        if (unrecorded <= 0) return;
+        page.AddParagraph(PageWidth, string.Format(LM.Get("clan_population_hint"),
+            UIHelper.ShortCount(GentrySystem.Members(_sc, _living.Count)), UIHelper.ShortCount(_living.Count),
+            UIHelper.ShortCount(unrecorded)), 6, WideKit.Muted);
     }
 
     private void DrawPedigreeCard(AutoVertLayoutGroup card, string standing, string standingHex)

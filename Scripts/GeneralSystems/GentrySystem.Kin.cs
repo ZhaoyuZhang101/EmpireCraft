@@ -46,6 +46,35 @@ public static partial class GentrySystem
 
     public static int Members(SpecificClan clan, int named) => Mathf.Max(named, Mathf.RoundToInt(clan?.gentry_kin ?? 0f));
 
+    // 族众已经包含入谱在世族人；未逐人入谱的部分不能重复相加。
+    public static int UnrecordedMembers(SpecificClan clan, int named) => Mathf.Max(0, Members(clan, named) - named);
+
+    public static City MemberCity(PersonalClanIdentity person)
+    {
+        if (person == null) return null;
+        City city = person.is_virtual
+            ? person.virtual_city_id > 0 ? World.world?.cities?.get(person.virtual_city_id) : null
+            : person._actor?.city;
+        return city?.data == null || city.isRekt() ? null : city;
+    }
+
+    // 逐人记录的按现居城市；未逐人记谱的族众按郡望计。无有效地点的保留在未详行，不丢数。
+    public static List<(City city, int recorded, int unrecorded)> PopulationPlaces(SpecificClan clan,
+        IEnumerable<PersonalClanIdentity> living)
+    {
+        var people = (living ?? Enumerable.Empty<PersonalClanIdentity>()).Where(person => person?.is_alive == true).ToList();
+        var places = people.GroupBy(MemberCity).Select(group => (city: group.Key, recorded: group.Count(), unrecorded: 0)).ToList();
+        int unrecorded = UnrecordedMembers(clan, people.Count);
+        if (unrecorded > 0)
+        {
+            City seat = Seat(clan);
+            int index = places.FindIndex(place => place.city == seat);
+            if (index >= 0) places[index] = (seat, places[index].recorded, unrecorded);
+            else places.Add((seat, 0, unrecorded));
+        }
+        return places.OrderByDescending(place => place.recorded + place.unrecorded).ThenBy(place => place.city?.id ?? -1L).ToList();
+    }
+
     // 族众上限(见文件头)
     public static float KinCap(SpecificClan clan, City seat)
     {
@@ -149,7 +178,7 @@ public static partial class GentrySystem
         if (seat == null) return false;
         PersonalClanIdentity head = VirtualGenealogySystem.RecordKinsman(clan, seat);
         if (head == null) return false;
-        clan.gentry_kin -= 1f;
+        // 只是把已有族众中的一人记入族谱，族众总数不变。
         clan.extinct_since = -1d;
         string text = string.Format(LM.Get("gentry_kin_revive_history"), JunWang(clan), head.name);
         NoteClan(clan, "clan_history_gentry_adopt", text);

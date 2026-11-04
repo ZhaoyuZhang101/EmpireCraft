@@ -27,6 +27,7 @@ public partial class SpecificClanWindow
     {
         page.AddPageHeader(PageWidth, LM.Get("clan_page_members"),
             string.Format(LM.Get("clan_members_chip"), UIHelper.ShortCount(_living.Count), UIHelper.ShortCount(_people.Count)));
+        DrawPopulationHint(page);
         page.AddChipRow(PageWidth,
             (LM.Get("clan_members_living"), _memberFilter == MemberFilter.Living, () => SetMemberFilter(MemberFilter.Living)),
             (LM.Get("clan_members_dead"), _memberFilter == MemberFilter.Dead, () => SetMemberFilter(MemberFilter.Dead)),
