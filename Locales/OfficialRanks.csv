@@ -162,6 +162,22 @@ official_rank_army_general_6,上尉,Captain,上尉
 official_rank_army_general_7,中尉,First Lieutenant,中尉
 official_rank_army_general_8,少尉,Second Lieutenant,少尉
 
+official_rank_army_aosong_0,上将,General,上將
+official_rank_army_aosong_1,中将,Lieutenant General,中將
+official_rank_army_aosong_2,少将,Major General,少將
+official_rank_army_aosong_3,准将,Brigadier General,准將
+official_rank_army_aosong_4,上校,Colonel,上校
+official_rank_army_aosong_5,中校,Lieutenant Colonel,中校
+official_rank_army_aosong_6,少校,Major,少校
+official_rank_army_aosong_7,准校,Sub-Major,准校
+official_rank_army_aosong_8,上尉,Captain,上尉
+official_rank_army_aosong_marshal,元帅,Marshal,元帥
+official_rank_soldier_aosong_0,列兵,Private,列兵
+official_rank_soldier_aosong_1,上等兵,Private First Class,上等兵
+official_rank_soldier_aosong_2,军士,Sergeant,軍士
+official_rank_soldier_aosong_3,少尉,Second Lieutenant,少尉
+official_rank_soldier_aosong_4,中尉,First Lieutenant,中尉
+
 official_rank_army_huaxia_republic_0,一级上将,General 1st Class,一級上將
 official_rank_army_huaxia_republic_1,二级上将,General 2nd Class,二級上將
 official_rank_army_huaxia_republic_2,中将,Lieutenant General,中將

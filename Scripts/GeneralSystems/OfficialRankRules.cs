@@ -13,6 +13,8 @@ public sealed class OfficialRankEntry
     public string military;
     public bool grade_suffix;
     public bool merit;
+    // 没有军职的军人单走的一段军衔，见 soldier_ladders；九档放不下的低阶军衔放这里
+    public string soldier_ladder;
 }
 
 public sealed class OfficialRankForm
@@ -21,6 +23,9 @@ public sealed class OfficialRankForm
     public bool performance_ladder;
     public string civil_label = "official_rank_label_court";
     public string military_label = "official_rank_label_martial";
+    // 本形态自己的军团定底和军官底线；不写用全局的
+    public List<OfficialRankGeneralFloor> general_floors;
+    public int? captain_floor;
     public Dictionary<string, OfficialRankEntry> civilizations = new();
 }
 
@@ -36,6 +41,12 @@ public sealed class OfficialRankGeneralFloor
     public int tier;
 }
 
+public sealed class OfficialRankSoldierStep
+{
+    public double performance;
+    public string key = "";
+}
+
 public sealed class OfficialRankConfig
 {
     public int version;
@@ -49,6 +60,9 @@ public sealed class OfficialRankConfig
     public int captain_floor = 5;
     public int soldier_cap = 6;
     public int capital_bonus = 2;
+    public Dictionary<string, List<OfficialRankSoldierStep>> soldier_ladders = new();
+    // 只给这个人的军衔(元老名 → 语言键)
+    public Dictionary<string, string> named_ranks = new();
 }
 
 public static class OfficialRankRules
@@ -135,9 +149,27 @@ public static class OfficialRankRules
         return Clamp(capital ? floor - config.capital_bonus : floor);
     }
 
-    public static int GeneralFloor(OfficialRankConfig config, float full)
+    public static string NamedRankKey(OfficialRankConfig config, string name) =>
+        !string.IsNullOrEmpty(name) && config.named_ranks.TryGetValue(name, out string key) ? key : null;
+
+    // 没有军职的军人这一段军衔：按绩效取最高够得上的一级；这一套没配返回 null
+    public static string SoldierKey(OfficialRankConfig config, string form, string civilization, double performance)
     {
-        foreach (OfficialRankGeneralFloor floor in config.general_floors)
+        string ladder = Entry(FormDef(config, form), civilization)?.soldier_ladder;
+        if (string.IsNullOrEmpty(ladder) || !config.soldier_ladders.TryGetValue(ladder, out List<OfficialRankSoldierStep> steps) || steps.Count == 0)
+            return null;
+        string key = steps[0].key;
+        foreach (OfficialRankSoldierStep step in steps)
+            if (performance >= step.performance) key = step.key;
+        return key;
+    }
+
+    public static int CaptainFloor(OfficialRankConfig config, string form) =>
+        Clamp(FormDef(config, form)?.captain_floor ?? config.captain_floor);
+
+    public static int GeneralFloor(OfficialRankConfig config, string form, float full)
+    {
+        foreach (OfficialRankGeneralFloor floor in FormDef(config, form)?.general_floors ?? config.general_floors)
             if (floor.below <= 0f || full < floor.below) return Clamp(floor.tier);
         return -1;
     }
@@ -156,7 +188,7 @@ public static class OfficialRankRules
 
     // 显示用的档位；返回 -1 表示不显示(还没立过功的普通士兵)
     public static int Effective(OfficialRankConfig config, bool ladder, int stored, int postFloor, int generalFloor,
-        bool captain, bool plainSoldier, double performance)
+        int captainFloor, bool plainSoldier, double performance)
     {
         int tier = Clamp(stored);
         if (ladder) return tier;
@@ -167,7 +199,7 @@ public static class OfficialRankRules
         }
         if (postFloor >= 0) tier = Math.Min(tier, Clamp(postFloor));
         if (generalFloor >= 0) tier = Math.Min(tier, Clamp(generalFloor));
-        if (captain) tier = Math.Min(tier, Clamp(config.captain_floor));
+        if (captainFloor >= 0) tier = Math.Min(tier, Clamp(captainFloor));
         return tier;
     }
 }

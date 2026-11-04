@@ -12,7 +12,7 @@
       "military_label": "official_rank_label_military",
       "civilizations": {
         "huaxia": { "civil": "cadre_huaxia", "military": "army_general" },
-        "aosong": { "civil": "cadre_huaxia", "military": "army_general" },
+        "aosong": { "civil": "cadre_huaxia", "military": "army_aosong", "soldier_ladder": "aosong" },
         "slavic": { "civil": "cadre_general", "military": "army_slavic" },
         "japan": { "civil": "cadre_general", "military": "army_japan_modern" },
         "arabic": { "civil": "cadre_general", "military": "army_arabic" },
@@ -25,7 +25,7 @@
       "military_label": "official_rank_label_military",
       "civilizations": {
         "huaxia": { "civil": "grades_huaxia", "military": "army_huaxia_republic" },
-        "aosong": { "civil": "cadre_huaxia", "military": "army_general" },
+        "aosong": { "civil": "cadre_huaxia", "military": "army_aosong", "soldier_ladder": "aosong" },
         "japan": { "civil": "grades_japan_modern", "military": "army_japan_modern" },
         "western": { "civil": "grades_western_republic", "military": "army_general" },
         "slavic": { "civil": "grades_slavic_republic", "military": "army_slavic" },
@@ -52,9 +52,18 @@
       "modern": true,
       "civil_label": "official_rank_label_civil",
       "military_label": "official_rank_label_military",
+      "general_floors": [
+        { "below": 1500, "tier": 5 },
+        { "below": 6000, "tier": 4 },
+        { "below": 15000, "tier": 3 },
+        { "below": 40000, "tier": 2 },
+        { "below": 70000, "tier": 1 },
+        { "tier": 0 }
+      ],
+      "captain_floor": 8,
       "civilizations": {
-        "aosong": { "civil": "cadre_huaxia", "military": "army_general" },
-        "default": { "civil": "cadre_huaxia", "military": "army_general" }
+        "aosong": { "civil": "cadre_huaxia", "military": "army_aosong", "soldier_ladder": "aosong" },
+        "default": { "civil": "cadre_huaxia", "military": "army_aosong", "soldier_ladder": "aosong" }
       }
     },
     "Colonial": {
@@ -151,5 +160,15 @@
   ],
   "captain_floor": 5,
   "soldier_cap": 6,
-  "capital_bonus": 2
+  "capital_bonus": 2,
+  "soldier_ladders": {
+    "aosong": [
+      { "performance": 0, "key": "official_rank_soldier_aosong_0" },
+      { "performance": 100, "key": "official_rank_soldier_aosong_1" },
+      { "performance": 300, "key": "official_rank_soldier_aosong_2" },
+      { "performance": 600, "key": "official_rank_soldier_aosong_3" },
+      { "performance": 1000, "key": "official_rank_soldier_aosong_4" }
+    ]
+  },
+  "named_ranks": { "席亚洲": "official_rank_army_aosong_marshal" }
 }

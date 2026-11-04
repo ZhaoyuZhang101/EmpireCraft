@@ -110,20 +110,21 @@ public static class OfficialRankSystem
         IsModern(empire?.CoreKingdom) ? "bureau_office_pyramid_modern" : "bureau_office_pyramid";
 
     // 称谓和它的标题。殖民地、特许公司的武职跟宗主国走
-    private static string SetFor(Kingdom kingdom, string form, bool military, out string labelKey, out string civilization)
+    private static string SetFor(Kingdom kingdom, string form, bool military, out string labelKey, out string rankForm, out string civilization)
     {
         civilization = CivilizationOf(kingdom);
+        rankForm = form;
         string set = OfficialRankRules.SetOf(Config, form, civilization, military);
-        string labelForm = form;
         if (set == OfficialRankRules.FollowMetropole)
         {
             Kingdom metropole = ColonySystem.MetropoleOf(kingdom);
-            labelForm = FormOf(metropole);
-            set = metropole == null ? "" : OfficialRankRules.SetOf(Config, labelForm, CivilizationOf(metropole), military);
+            rankForm = FormOf(metropole);
+            civilization = metropole == null ? civilization : CivilizationOf(metropole);
+            set = metropole == null ? "" : OfficialRankRules.SetOf(Config, rankForm, civilization, military);
             if (string.IsNullOrEmpty(set) || set == OfficialRankRules.FollowMetropole)
                 set = military ? Config.fallback?.military : Config.fallback?.civil;
         }
-        OfficialRankForm def = OfficialRankRules.FormDef(Config, labelForm);
+        OfficialRankForm def = OfficialRankRules.FormDef(Config, rankForm);
         labelKey = (military ? def?.military_label : def?.civil_label) ?? (military ? "official_rank_label_military" : "official_rank_label_civil");
         return set;
     }
@@ -163,11 +164,19 @@ public static class OfficialRankSystem
         if (office != null && OfficialRankRules.Unranked(Config, regimeName, office.officeType,
                 office.leader_select_method == LeaderSelectMethod.Harem, monarchy)) return default;
 
+        // 只给这个人的军衔，不看眼下任什么职
+        string named = OfficialRankRules.NamedRankKey(Config, TransmigrantSystem.RosterNameOf(actor));
+        if (named != null && LM.Has(named))
+        {
+            SetFor(kingdom, form, true, out string namedLabel, out _, out _);
+            return new OfficialRank(true, false, 0, named, LM.Get(named), LM.Get(named), namedLabel);
+        }
+
         bool militaryOffice = office != null && OfficialRankRules.MilitaryOffice(Config, regimeName, office.officeType, office.meta_object is Army);
         bool inArmy = actor.hasArmy();
         bool military = OfficialRankRules.IsMilitary(general, office != null, militaryOffice, inArmy,
             identity?.peerageType == PeerageType.Military);
-        string set = SetFor(kingdom, form, military, out string labelKey, out string civilization);
+        string set = SetFor(kingdom, form, military, out string labelKey, out string rankForm, out string civilization);
         if (string.IsNullOrEmpty(set)) return default;
         if (!military && TransmigrantSystem.IsSenator(actor))
         {
@@ -178,11 +187,19 @@ public static class OfficialRankSystem
         bool ladder = OfficialRankRules.FormDef(Config, form)?.performance_ladder == true;
         bool captain = actor.is_army_captain;
         int postFloor = office != null ? PostFloor(office, regime) : sovereign ? 0 : -1;
-        int generalFloor = general && CorpsSystem.CommandOf(actor) is CorpsData corps ? OfficialRankRules.GeneralFloor(Config, corps.full) : -1;
-        bool plainSoldier = military && inArmy && !general && !captain && office == null;
-        int tier = OfficialRankRules.Effective(Config, ladder, identity?.honoraryOfficial ?? OfficialRankRules.Bottom,
-            postFloor, generalFloor, captain, plainSoldier, identity?.TotalPerformance ?? 0d);
-        return tier < 0 ? default : Build(form, civilization, set, labelKey, tier, military);
+        int generalFloor = general && CorpsSystem.CommandOf(actor) is CorpsData corps ? OfficialRankRules.GeneralFloor(Config, rankForm, corps.full) : -1;
+        bool noCommand = military && !general && !captain && office == null;
+        int stored = identity?.honoraryOfficial ?? OfficialRankRules.Bottom;
+        double performance = identity?.TotalPerformance ?? 0d;
+        // 九档放不下的低阶军衔：没带过兵、也没任过高职的军人走这一段
+        if (noCommand && OfficialRankRules.Clamp(stored) >= OfficialRankRules.Clamp(Config.soldier_cap))
+        {
+            string step = OfficialRankRules.SoldierKey(Config, rankForm, civilization, performance);
+            if (step != null && LM.Has(step)) return new OfficialRank(true, false, OfficialRankRules.Bottom, step, LM.Get(step), LM.Get(step), labelKey);
+        }
+        int tier = OfficialRankRules.Effective(Config, ladder, stored, postFloor, generalFloor,
+            captain ? OfficialRankRules.CaptainFloor(Config, rankForm) : -1, noCommand && inArmy, performance);
+        return tier < 0 ? default : Build(rankForm, civilization, set, labelKey, tier, military);
     }
 
     // 空缺的官位：按岗位本身的底线；律令制不设底线，不显示
@@ -199,8 +216,8 @@ public static class OfficialRankSystem
         int floor = PostFloor(office, regime);
         if (floor < 0) return default;
         bool military = OfficialRankRules.MilitaryOffice(Config, regimeName, office.officeType, office.meta_object is Army);
-        string set = SetFor(kingdom, form, military, out string labelKey, out string civilization);
-        return string.IsNullOrEmpty(set) ? default : Build(form, civilization, set, labelKey, floor, military);
+        string set = SetFor(kingdom, form, military, out string labelKey, out string rankForm, out string civilization);
+        return string.IsNullOrEmpty(set) ? default : Build(rankForm, civilization, set, labelKey, floor, military);
     }
 
     // 上任：到岗位对应的级别，卸任后保留
@@ -230,7 +247,8 @@ public static class OfficialRankSystem
     {
         OfficeIdentity identity = general?.GetIdentity();
         if (identity == null || corps == null || !general.hasKingdom() || UsesPerformanceLadder(general.kingdom)) return;
-        identity.honoraryOfficial = OfficialRankRules.Ratchet(identity.honoraryOfficial, OfficialRankRules.GeneralFloor(Config, corps.full));
+        SetFor(general.kingdom, FormOf(general.kingdom), true, out _, out string rankForm, out _);
+        identity.honoraryOfficial = OfficialRankRules.Ratchet(identity.honoraryOfficial, OfficialRankRules.GeneralFloor(Config, rankForm, corps.full));
     }
 
     // 换岗时身份重建：律令制以外不掉级

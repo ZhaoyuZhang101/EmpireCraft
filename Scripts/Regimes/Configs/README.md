@@ -129,7 +129,13 @@
 | `general_floors` | 军团统帅按满编人数定底，`below` 是上限，最后一项不写 |
 | `captain_floor`、`soldier_cap` | 军官的底线；普通士兵靠战功最高到哪档 |
 | `capital_bonus` | 城主所在城是本国首府时高几档 |
+| `forms.<形态>.general_floors`、`captain_floor` | 本形态自己的军团定底和军官底线，不写用全局的 |
+| `forms.<形态>.civilizations.<文明组>.soldier_ladder` | 没有军职的军人单走的一段军衔，指向 `soldier_ladders` |
+| `soldier_ladders.<名字>` | 按绩效从低到高列语言键，`performance` 是够得上这一级的绩效；杀一个敌人 100 |
+| `named_ranks` | 只给某位原班元老的军衔：名册上的名字 → 语言键，继承席位的子孙没有 |
 
 形态是政体本身，另加三种：现代政体的 `one_party`(一党或民主集中制)、`republic`(其余)，君主国开了议会后的 `constitutional`。殖民地、特许公司看自己的政体，穿越政权看自己，其余看帝国核心。缺称谓的一档先退到 `fallback` 那一套，再不行显示数字。律令制以外的政体：岗位定底、只升不降、卸任保留、换岗不清零；原始政体和奥吉布瓦不设等级。
+
+原著军衔比九档多(澳宋)：上将到上尉进九档；列兵到中尉走 `soldier_ladders`，带过兵或任过高职的不走这一段；元帅走 `named_ranks`。
 
 例子：给维京文化单配一套，在 `cultures` 加 `"Viking": "viking"`，在要改的形态下加 `"viking": { "civil": "court_viking", "military": "army_viking" }`，再往称谓表加这两套各九行。

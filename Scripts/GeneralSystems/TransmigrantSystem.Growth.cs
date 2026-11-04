@@ -566,6 +566,15 @@ public static partial class TransmigrantSystem
         return state != null && SeatOf(state, actor) != null;
     }
 
+    // 原班元老在名册上的名字；继承席位的子孙和别的人都是空
+    public static string RosterNameOf(Actor actor)
+    {
+        if (actor?.data == null || !SenatorIds.Contains(actor.id)) return "";
+        TransmigrantState state = Of(Active());
+        SenatorSeat seat = state == null ? null : SeatOf(state, actor);
+        return seat != null && seat.generation <= 1 && seat.roster >= 0 && seat.roster < Roster.Count ? Roster[seat.roster].name : "";
+    }
+
     // 挡下这次死亡：寿终、化回人口(不计死亡)不挡；其余只有 KillChance 的机会真死
     public static bool Shield(Actor actor, AttackType type, bool countDeath)
     {
