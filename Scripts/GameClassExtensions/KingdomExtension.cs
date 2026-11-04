@@ -409,6 +409,8 @@ public static class KingdomExtension
         // Player-facing overrides are kept separate so clearing them restores automatic naming.
         public string custom_country_name = "";
         public string custom_country_suffix = "";
+        // 简称：地图铭牌和平时提到的国名，全称仍是国号加后缀(澳宋：全称大宋澳洲行在，简称澳宋帝国)；改国号时清掉
+        public string custom_country_short_name = "";
         // 改制共和后按执政理念取的国号后缀(玩家自定义命名优先)
         public string ideology_country_suffix = "";
         // 国号后缀已按现行文化词库核对过(词库更新后，旧国号不在新词库里的重新挑一次)
@@ -3423,11 +3425,36 @@ public static class KingdomExtension
         return kingdom.GetOrCreate().custom_country_suffix?.Trim() ?? "";
     }
 
+    // 没设简称的，简称就是国号本身
+    public static string GetCustomCountryShortName(this Kingdom kingdom)
+    {
+        if (kingdom?.data == null) return "";
+        string shortName = kingdom.GetOrCreate().custom_country_short_name?.Trim();
+        return !string.IsNullOrWhiteSpace(shortName) ? shortName : kingdom.GetCustomCountryName();
+    }
+
+    // 全称是国号加后缀，不走简称；没有国号的用 front 打头
+    public static string GetCustomCountryFullName(this Kingdom kingdom, string front)
+    {
+        string name = kingdom.GetCustomCountryName();
+        return OverallHelperFunc.JoinNameParts(!string.IsNullOrWhiteSpace(name) ? name : front,
+            kingdom.GetCustomCountrySuffix());
+    }
+
     public static void SetCustomCountryName(this Kingdom kingdom, string value)
     {
         if (kingdom?.data == null ||
             EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(kingdom)) return;
-        kingdom.GetOrCreate().custom_country_name = value ?? "";
+        KingdomExtraData data = kingdom.GetOrCreate();
+        data.custom_country_name = value ?? "";
+        data.custom_country_short_name = "";
+    }
+
+    public static void SetCustomCountryShortName(this Kingdom kingdom, string value)
+    {
+        if (kingdom?.data == null ||
+            EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(kingdom)) return;
+        kingdom.GetOrCreate().custom_country_short_name = value ?? "";
     }
 
     public static void SetCustomCountrySuffix(this Kingdom kingdom, string value)
@@ -3467,7 +3494,7 @@ public static class KingdomExtension
         // non-null object reference after their data has been cleared.
         if (kingdom?.data == null) return "";
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(kingdom)) return kingdom.data.name ?? "";
-        string customName = kingdom.GetCustomCountryName();
+        string customName = kingdom.GetCustomCountryShortName();
         return !string.IsNullOrWhiteSpace(customName) ? customName : kingdom.GetAutomaticKingdomName();
     }
 
@@ -3479,8 +3506,7 @@ public static class KingdomExtension
             if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(kingdom)) return kingdom.data.name ?? "";
             if (kingdom.HasCustomCountryNaming())
             {
-                return OverallHelperFunc.JoinNameParts(kingdom.GetKingdomName(),
-                    kingdom.GetCustomCountrySuffix());
+                return kingdom.GetCustomCountryFullName(kingdom.GetKingdomName());
             }
             // 现代核心王国就是该政府本身。统一走 Empire 的完整名称，保证临时政府在
             // 王国提示框、地图铭牌和政府列表中都使用同一套理念命名。

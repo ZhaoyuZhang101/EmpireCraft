@@ -831,6 +831,8 @@ public static partial class TransmigrantSystem
     private static readonly string[] StageNodes =
         { "aosong_first_committee", "aosong_common_program", "aosong_great_song", "aosong_cabinet", "aosong_restoration" };
     private const string RosterChairman = "元老院主席";
+    // 打出大宋旗号的阶段：全称大宋澳洲行在(北伐功成后大宋)，简称澳宋帝国
+    private const int SongStage = 4;
 
     public static int StageOf(Kingdom kingdom) => Of(kingdom)?.stage ?? 0;
 
@@ -930,18 +932,23 @@ public static partial class TransmigrantSystem
         int stage = 1;
         for (int i = 0; i < StageNodes.Length; i++)
             if (InstitutionSystem.IsEnacted(Culture, StageNodes[i])) stage = i + 2;
+        // 早就打出大宋旗号的旧档补上简称；国号改过的不动
+        if (state.stage >= SongStage && kingdom.GetCustomCountryName() == LM.Get("transmigrant_song_name"))
+            kingdom.SetCustomCountryShortName(LM.Get("transmigrant_song_short_name"));
         if (stage <= state.stage) return;
         string before = kingdom.GetKingdomFullName();
         int previous = state.stage;
         state.stage = stage;
-        if (stage >= 4)
+        if (stage >= SongStage)
         {
             kingdom.SetCustomCountryName(LM.Get("transmigrant_song_name"));
+            kingdom.SetCustomCountryShortName(LM.Get("transmigrant_song_short_name"));
             // 北伐功成：行在还都，国号去掉"澳洲行在"
             kingdom.SetCustomCountrySuffix(stage >= 6 ? "" : LM.Get("transmigrant_song_suffix"));
             SyncEmpireName(kingdom);
         }
-        TranslateHelper.LogMajor(string.Format(LM.Get($"transmigrant_stage_{stage}_history"), before, kingdom.GetKingdomFullName()), kingdom);
+        TranslateHelper.LogMajor(string.Format(LM.Get($"transmigrant_stage_{stage}_history"), before, kingdom.GetKingdomFullName(),
+            kingdom.GetKingdomName()), kingdom);
         // 元老院内阁：第三次全体大会当场改选，城名改设特别市
         if (previous < 5 && stage >= 5)
         {

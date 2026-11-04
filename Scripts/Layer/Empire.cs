@@ -383,7 +383,7 @@ public class Empire : MetaObject<EmpireData>
     {
         if (CoreKingdom?.HasCustomCountryNaming() == true)
         {
-            string customName = CoreKingdom.GetCustomCountryName();
+            string customName = CoreKingdom.GetCustomCountryShortName();
             if (!string.IsNullOrWhiteSpace(customName)) return customName;
         }
         if (data == null) return CoreKingdom?.GetKingdomName() ?? "";
@@ -411,8 +411,7 @@ public class Empire : MetaObject<EmpireData>
         {
             if (CoreKingdom?.HasCustomCountryNaming() == true)
             {
-                return OverallHelperFunc.JoinNameParts(GetEmpireName(),
-                    CoreKingdom.GetCustomCountrySuffix());
+                return CoreKingdom.GetCustomCountryFullName(GetEmpireName());
             }
             string coreName = EnsureEmpireCoreName();
             if (string.IsNullOrWhiteSpace(coreName)) return data.name ?? "";
