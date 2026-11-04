@@ -43,6 +43,7 @@ public static class AdministrationReorganizationSystem
 
     public static bool ShouldPropose(Actor actor) => CanPropose(actor) &&
         // 历史剧本不每五年自动把各道、省改成通用法理分区；玩家仍可通过 CanPropose 明确发动重组。
+        !WorldMap.WorldMapWilderness.FixedLayout &&
         !WorldMap.WorldMapWilderness.HasPreservedAdministration(actor.kingdom.GetEmpire()) &&
         (actor.kingdom.GetEmpire().data.last_administrative_reorganization_timestamp < 0 ||
          Date.getYearsSince(actor.kingdom.GetEmpire().data.last_administrative_reorganization_timestamp) >= 5);
@@ -57,6 +58,7 @@ public static class AdministrationReorganizationSystem
         if (!CanPropose(actor)) return false;
         Empire empire = actor.kingdom.GetEmpire();
         empire.data.administrative_reorganization_pending = true;
+        empire.data.administrative_reorganization_explicit = true;
         Resume(empire);
         if (!Active.Contains(empire.id)) { empire.data.administrative_reorganization_pending = false; return false; }
         empire.data.last_administrative_reorganization_timestamp = World.world.getCurWorldTime();
@@ -67,6 +69,11 @@ public static class AdministrationReorganizationSystem
     {
         if (empire?.data?.administrative_reorganization_pending != true || Active.Contains(empire.id) ||
             Pending.Count >= 8 || !CanContinue(empire)) return;
+        if (!Requested(empire))
+        {
+            empire.data.administrative_reorganization_pending = false;
+            return;
+        }
         // 长城作行政区的天然界线(见 FrontierWalls)：一个法理里隔着长城的城分成几片，各设各的行政区(共用这个法理)，法理首府那片在前
         var groups = empire.kingdoms_list.Where(kingdom => Eligible(empire, kingdom))
             .SelectMany(kingdom => kingdom.cities ?? new List<City>())
@@ -79,6 +86,9 @@ public static class AdministrationReorganizationSystem
         Pending.Enqueue(work);
         Active.Add(empire.id);
     }
+
+    private static bool Requested(Empire empire) =>
+        !WorldMap.WorldMapWilderness.FixedLayout || empire.data.administrative_reorganization_explicit;
 
     private static bool Eligible(Empire empire, Kingdom kingdom) => kingdom != null && !kingdom.isRekt() &&
         kingdom.GetEmpire() == empire && kingdom.cities?.Count > 0 && !AncientWarfareCompatibility.Owns(kingdom);
@@ -110,6 +120,7 @@ public static class AdministrationReorganizationSystem
         if (work.Regions.Count == 0)
         {
             empire.data.administrative_reorganization_pending = false;
+            empire.data.administrative_reorganization_explicit = false;
             Active.Remove(empire.id);
             empire.RecordHistory(directContent: LM.Get("administration_reorganization_completed"));
             return;

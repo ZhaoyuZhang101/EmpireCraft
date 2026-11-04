@@ -557,7 +557,8 @@ public static class WildernessSystem
                 using (FrameProfiler.Measure("无人区·重划")) Build(false, _regroup);
                 return;
             }
-            if ((RuralSettlementSystem.Revision != _settlementRevision || FactorySystem.Revision != _factoryRevision) && YearPassed())
+            if (!WorldMap.WorldMapWilderness.FixedLayout &&
+                (RuralSettlementSystem.Revision != _settlementRevision || FactorySystem.Revision != _factoryRevision) && YearPassed())
             {
                 using (FrameProfiler.Measure("无人区·重划")) Build(false, true);
                 return;
@@ -806,6 +807,7 @@ public static class WildernessSystem
         else
             foreach (int id in Dirty)
                 if (id >= 0 && id < size) changed |= Reclassify(_zones[id]);
+        var terrainChanges = new HashSet<int>(Dirty);
         Dirty.Clear();
         bool regroup = _regroup;
         _regroup = _pending = false;
@@ -813,8 +815,8 @@ public static class WildernessSystem
         _builtAt = World.world.getCurWorldTime();
         _settlementRevision = RuralSettlementSystem.Revision;
         _factoryRevision = FactorySystem.Revision;
-        if (!changed && !force && !regroup) return;
-        int carved = Regroup(fromSave);
+        if (!changed && !force && !regroup && !(WorldMap.WorldMapWilderness.FixedLayout && terrainChanges.Count > 0)) return;
+        int carved = Regroup(fromSave, terrainChanges);
         _saved = null;
         Version++;
         Builds++;
@@ -841,7 +843,7 @@ public static class WildernessSystem
         (kind == WildKind.Mountain && other == WildKind.Lava || kind == WildKind.Lava && other == WildKind.Mountain);
 
     // 连片、对上旧区域(沿用编号名字)、起名、收地、挂法理；返回从城里划出的块数
-    private static int Regroup(bool fromSave)
+    private static int Regroup(bool fromSave, HashSet<int> terrainChanges = null)
     {
         int size = _zones.Length;
         // 旧区域：读档后头一回按存档，平时按现有的；各块原先属哪片、挂哪个法理
@@ -1013,12 +1015,24 @@ public static class WildernessSystem
             }
         }
 
+        // 预设里的地理分区以已保存的成员关系为准。普通刷新和读档不重新切片；
+        // 营建／开发只退出占用的块，实际改地形只影响变过的块，不牵动其他山脉、大漠。
+        bool fixedLayout = WorldMap.WorldMapWilderness.FixedLayout && olds.Count > 0;
+        if (fixedLayout)
+        {
+            var retain = new bool[size];
+            for (int id = 0; id < size; id++)
+                retain[id] = _zones[id] != null && !anchored[id] &&
+                    (terrainChanges?.Contains(id) != true || oldOf[id] >= 0 && KeepsPresetKind(_zones[id], olds[oldOf[id]].Kind));
+            groups = PresetGroups(groups, olds, oldOf, retain, terrainChanges);
+        }
+
         // 对旧区域：重叠最多的先配，一片旧区域只配一片(分成几片的大的那片沿用，并起来的沿用重叠多的那片)
         var overlap = new Dictionary<long, int>();
         var kept = new List<int>();
         for (int g = 0; g < groups.Count; g++)
         {
-            if (groups[g].zones.Count < MinZones) continue;
+            if (groups[g].zones.Count < MinZones && !(fixedLayout && groups[g].zones.Any(id => oldOf[id] >= 0))) continue;
             kept.Add(g);
             foreach (int id in groups[g].zones)
             {
@@ -1129,6 +1143,51 @@ public static class WildernessSystem
         _titleSignature = signature;
         RefreshOwners();
         return carved;
+    }
+
+    // 不重新把旧区分成几个几何连通分量：城镇把一片山脉隔开，地名与编号仍是同一片山脉。
+    private static List<(List<int> zones, WildKind kind)> PresetGroups(List<(List<int> zones, WildKind kind)> inferred,
+        List<OldRegion> olds, int[] oldOf, bool[] retain, HashSet<int> terrainChanges)
+    {
+        var result = new List<(List<int> zones, WildKind kind)>();
+        var members = olds.Select(_ => new List<int>()).ToArray();
+        var assigned = new bool[oldOf.Length];
+        for (int id = 0; id < oldOf.Length; id++)
+        {
+            int old = oldOf[id];
+            if (old < 0 || !retain[id]) continue;
+            members[old].Add(id);
+            assigned[id] = true;
+        }
+        for (int old = 0; old < olds.Count; old++)
+            if (members[old].Count > 0) result.Add((members[old], olds[old].Kind));
+        // 新地形才可新增区域；全图重采样推出来的边缘不能趁读档、建厂时自行长出去。
+        foreach ((List<int> zones, WildKind kind) in inferred)
+        {
+            List<int> added = zones.Where(id => !assigned[id] && terrainChanges?.Contains(id) == true &&
+                (oldOf[id] < 0 || !retain[id])).ToList();
+            if (added.Count < MinZones) continue;
+            result.Add((added, kind));
+            foreach (int id in added) assigned[id] = true;
+        }
+        return result;
+    }
+
+    private static bool KeepsPresetKind(TileZone zone, WildKind kind)
+    {
+        Counts c = Count(zone);
+        if (c.Land < MinLand || c.Water > c.Total * MaxWater) return false;
+        // 固定地理身份不能把新喷发的岩浆继续当成普通山地。
+        if (kind != WildKind.Lava && (c.Lava >= c.Land * LavaCore ||
+            c.Lava >= c.Land * LavaFlank && c.Lava + c.Rock >= c.Land * LavaRugged)) return false;
+        int share = kind switch
+        {
+            WildKind.Mountain => c.Rock + c.Hills + c.Lava,
+            WildKind.Desert or WildKind.Tundra => c.Sand + c.Frozen,
+            WildKind.Lava => c.Lava,
+            _ => c.Jungle + c.Swamp
+        };
+        return share >= c.Land * (EdgeOf(kind) - Hysteresis);
     }
 
     // 标名字的块(区域里离边最远的一块，一样远的取离各块平均位置最近的)、外框、底色
@@ -1564,7 +1623,10 @@ public static class WildernessSystem
 
     private static bool PinnedTitle(int id) =>
         id < _painted.Length && _painted[id] || WorldMap.WorldMapWilderness.PaintedTitle(_zones[id]) != null ||
-        WorldMap.WorldMapWilderness.BoundedAnchor(_zones[id]);
+        WorldMap.WorldMapWilderness.BoundedAnchor(_zones[id]) ||
+        WorldMap.WorldMapWilderness.FixedLayout && !WorldMap.WorldMapWilderness.NeedsBoundaryRepair &&
+        id < _parents.Length && _parents[id]?.data != null && !_parents[id].isRekt() &&
+        _titles[id] != null && !_titles[id].isRekt() && _parents[id].GetTitle() == _titles[id];
 
     // 连不上所挂法理的地块从四周连得上的地块、城一圈圈并过去(长城不过)，返回并了多少块
     private static int Absorb(bool[] linked, Dictionary<City, KingdomTitle> titleOf)

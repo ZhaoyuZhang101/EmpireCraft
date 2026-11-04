@@ -95,6 +95,7 @@ public class WorldMapWildSave
     public int boundary_revision;
     // 剧本设好的行政成员关系；实际改隶、法理变更、帝国变更后自动让位于新安排。
     public Dictionary<long, ScenarioAdministrativeOrigin> administration;
+    public int administration_revision;
     // 剧本编辑器刷的归属：王国法理编号 → 地块编号；刷了永久中立、还没设上的地块(头一回划区后设上即清空)
     public Dictionary<long, List<int>> paint;
     public List<int> neutral;
@@ -148,6 +149,7 @@ public static class WorldMapWilderness
     // 这一局是世界地图预设剧本：无人区一直开着，不看模组设置(史实归属、地名、各时代开发度靠它)。自定剧本(编号 custom/<文件夹>，手做的、
     // 从当前世界导入的)是玩家自己的图，同样照设置开关(用户 2026-11-04 选"自定剧本也听设置")
     internal static bool ForcesWild => Active && !(_state.era ?? "").StartsWith("custom/", StringComparison.Ordinal);
+    internal static bool FixedLayout => ForcesWild;
 
     #region 开局、存读档
 
@@ -256,15 +258,21 @@ public static class WorldMapWilderness
                 empire = city.kingdom.GetEmpire()?.id ?? -1L, regime = AdministrativeRegime(city)
             };
         }
+        _state.administration_revision = 1;
     }
 
     internal static bool PreservesAdministration(City city)
     {
         if (!Active || city?.data == null || city.isRekt() || city.kingdom?.data == null) return false;
         // 旧档沿用当前行政安排，只防止继续漂移，不把战争后的版图恢复成开局。
-        if (_state.administration == null)
-            CaptureAdministration((_state.anchors?.Values ?? Enumerable.Empty<long>()).Distinct()
-                .Select(id => World.world?.cities?.get(id)));
+        if (_state.administration_revision < 1 || _state.administration == null)
+        {
+            // 旧版延迟回调可能存了空表，或只补到了带无人区锚点的城市。只补缺项，
+            // 不把已有记录里的真实战争／改隶重新登记成“开局未变”。
+            Dictionary<long, ScenarioAdministrativeOrigin> recorded = _state.administration;
+            CaptureAdministration(World.world.cities.list.Where(candidate => candidate != null &&
+                (recorded == null || !recorded.ContainsKey(candidate.id))).ToList());
+        }
         if (_state.administration == null || !_state.administration.TryGetValue(city.id, out ScenarioAdministrativeOrigin original)) return false;
         return original.realm == city.kingdom.id && original.title == (city.GetTitle()?.id ?? -1L) &&
                original.empire == (city.kingdom.GetEmpire()?.id ?? -1L) &&

@@ -33,7 +33,7 @@ namespace WorldMap {
  public static class FrontierWalls {public static bool Behind(City c,TileZone z)=>false;}
  public static partial class WorldMapWilderness {
   public sealed class State {public Dictionary<int,long> anchors=new();public HashSet<int> bounded_anchors=new();public int boundary_revision;}
-  public static State _state=new();public static bool OnEarth=true;
+  public static State _state=new();public static bool OnEarth=true,FixedLayout=false;public static bool NeedsBoundaryRepair=>_state.boundary_revision<1;
   public static Dictionary<int,KingdomTitle> painted=new(),history=new();
   public static KingdomTitle PaintedTitle(TileZone z)=>painted.TryGetValue(z.id,out var t)?t:null;
   public static KingdomTitle FixedTitle(TileZone z)=>PaintedTitle(z);
@@ -76,6 +76,9 @@ public static class Checks {
   WorldMap.WorldMapWilderness._state.bounded_anchors.Add(3);Check(Actual.Anchor(3)==shared,"Explicit core administrative bounds lose to broad geographic-unit defaults");
   WorldMap.WorldMapWilderness.painted[3]=foreign;Check(Actual.Anchor(3)==foreign,"Manual editor paint loses priority");
   WorldMap.WorldMapWilderness.MarkBoundaryRepaired();Check(WorldMap.WorldMapWilderness._state.boundary_revision==1,"Legacy boundary repair is not persisted");
+  WorldMap.WorldMapWilderness.painted.Clear();WorldMap.WorldMapWilderness._state.bounded_anchors.Clear();WorldMap.WorldMapWilderness.FixedLayout=true;
+  Actual._titles[3]=shared;Actual._parents[3]=b;WorldMap.WorldMapWilderness._state.anchors[3]=b.id;Actual.Link();
+  Check(Actual._parents[3]==b&&WorldMap.WorldMapWilderness.AnchorCity(Actual._zones[3])==b,"Repairing another missing claim redraws an established preset administrative boundary");
   return n;
  }
 }

@@ -320,6 +320,8 @@ public class EmpireData : MetaObjectData
     public bool succession_enfeoff_pending { get; set; }
     public List<long> pending_conquest_enfeoff_kingdom_ids { get; set; } = new();
     public bool administrative_reorganization_pending { get; set; }
+    // 主动发起的重组可跨存读档继续；旧版预设里自动留下的待办不再接着改划。
+    public bool administrative_reorganization_explicit { get; set; }
     public double last_administrative_reorganization_timestamp { get; set; } = -1d;
     public List<long> auto_enfeoff_observed_title_ids { get; set; } = new List<long>();
     public List<long> auto_enfeoff_observed_city_ids { get; set; } = new List<long>();

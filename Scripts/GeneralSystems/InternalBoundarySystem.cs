@@ -49,6 +49,7 @@ public static class InternalBoundarySystem
     private static void FixOne(Empire empire)
     {
         if (empire?.data == null || empire.isRekt() || empire.IsArchived() ||
+            WorldMap.WorldMapWilderness.FixedLayout ||
             AdministrationReorganizationSystem.IsRunning(empire) || ZhouEraSystem.RoyalReclaimBlocked(empire)) return;
         Kingdom core = empire.CoreKingdom;
         if (core == null || core.isRekt()) return;

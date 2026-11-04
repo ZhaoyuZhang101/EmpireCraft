@@ -46,7 +46,7 @@ public static class WildernessSystem{public static List<WildRegion> Regions=>Act
 namespace WorldMap {
  public static class FrontierWalls {public static bool Behind(City c,TileZone z)=>false;}
  public static partial class WorldMapWilderness {
-  public static bool OnEarth=true;public static Dictionary<int,City> anchors=new();
+  public static bool OnEarth=true;public static bool FixedLayout=false;public static Dictionary<int,City> anchors=new();
   public static Dictionary<int,KingdomTitle> painted=new(),regional=new();
   public static Dictionary<int,long> _painted;public static HashSet<int> _neutral;private static void ResolvePaint(){_painted=painted.ToDictionary(p=>p.Key,p=>p.Value.id);}
   public static WorldMapWildSave _state=new();public static bool Active=>OnEarth;
@@ -119,6 +119,11 @@ public static class Checks {
   a.title=title;realm.empire=new(){id=200};Check(!WorldMap.WorldMapWilderness.PreservesAdministration(a),"Guard blocks new imperial structure");
   WorldMap.WorldMapWilderness._state=new(){anchors=new(){{0,a.id}}};
   Check(WorldMap.WorldMapWilderness.PreservesAdministration(a),"Legacy administrative snapshot does not migrate current membership");
+  WorldMap.WorldMapWilderness._state.administration_revision=0;
+  var migrated=a.kingdom;a.kingdom=new(){id=222};
+  var missing=new City{id=99,title=title};World.world.cities.Add(missing);
+  Check(WorldMap.WorldMapWilderness.PreservesAdministration(missing),"Partial legacy administrative snapshot omits a city without a wilderness anchor");
+  Check(!WorldMap.WorldMapWilderness.PreservesAdministration(a),"Legacy migration overwrites an already recorded genuine reassignment");a.kingdom=migrated;
   Actual.Setup();title=new(){id=11};other=new(){id=22};a=new(){id=1,title=title};World.world.cities.Add(a);
   for(int i=0;i<3;i++){WorldMap.WorldMapWilderness.anchors[i]=a;WorldMap.WorldMapWilderness.painted[i]=other;}
   Actual.Reattach();Check(Actual._titles.All(t=>t==other),"Automatic administrative anchors override explicit editor paint");

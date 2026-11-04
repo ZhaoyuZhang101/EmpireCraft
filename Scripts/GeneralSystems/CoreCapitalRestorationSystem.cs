@@ -56,6 +56,8 @@ public static class CoreCapitalRestorationSystem
         KingdomTitle newHomeTitle = capital.GetTitle();
         if (!modern && newHomeTitle != null && !newHomeTitle.isRekt() && core.GetMainTitle() != newHomeTitle)
             core.SetMainTitle(newHomeTitle);
+        // 迁回旧都不等于重划预设的全部省界；只保留上面的迁都与主封号同步。
+        if (WorldMap.WorldMapWilderness.FixedLayout) return;
         empire.data.administrative_reorganization_pending = true;
         AdministrationReorganizationSystem.Resume(empire);
     }

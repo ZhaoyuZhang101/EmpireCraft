@@ -2134,8 +2134,10 @@ public static class WorldMapScenario
         // 城记的帝国法理按法理对齐(收尾时对过一回，设行政区、重组这些进世界的安排之后各城记的核心又空了，帝国法理图层开局头一年
         // 画成王国法理的颜色，等天下大势年结才对上——用户 10-30 "我的帝国核心层级好像也消失了""只有文字""图层还是王国的")
         _afterLoad.Add(("城的帝国法理", () => EmpireCoreManager.ReconcileCityCores()));
-        _afterLoad.Add(("保存剧本行政辖境", () => WorldMapWilderness.CaptureAdministration(
-            _cities.Where(city => city.owner?.data?.divisions is { Count: > 0 }).Select(city => city.city))));
+        // Finish 随后会清空 _cities；延迟回调必须持有独立快照，不能执行时再读临时城表。
+        List<City> administrativeCities = _cities.Where(city => city.owner?.data?.divisions is { Count: > 0 })
+            .Select(city => city.city).Where(city => city != null).ToList();
+        _afterLoad.Add(("保存剧本行政辖境", () => WorldMapWilderness.CaptureAdministration(administrativeCities)));
     }
 
     // 用户 2026-10-29 "日本幕府的天皇去哪儿了""天皇不应该是万世一系的吗"：以前德川家光直接坐了日本的君位，天皇家没生出来

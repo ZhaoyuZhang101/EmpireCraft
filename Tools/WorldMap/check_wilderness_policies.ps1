@@ -23,6 +23,8 @@ $methods += [regex]::Match($source, 'public static bool IsPainted\([^;]+;').Valu
 $methods += Method 'public static void EnsureBuilt('
 $methods += [regex]::Match($source, 'internal static bool Absorbs\([^;]+;').Value
 $methods += [regex]::Match($source, 'private static float EdgeOf\([^;]+;').Value
+$methods += Method 'private static List<(List<int> zones, WildKind kind)> PresetGroups('
+$methods += Method 'private static bool KeepsPresetKind('
 $source = Get-Content (Join-Path $root 'Scripts/GeneralSystems/WorldMap/WorldMapWilderness.cs') -Raw
 $mapData = (Method 'public sealed class ScenarioLandOrigin') + (Method 'public class WorldMapWildSave')
 $mapMethods = @('private static void ApplyNeutral(', 'public static KingdomTitle TitleFor(',
@@ -87,6 +89,7 @@ public static class WildernessSystem {public static List<WildRegion> Regions=>Ac
  public static int SetNeutralZones(IEnumerable<int> ids,bool value)=>Actual.SetNeutralZones(ids,value);public static WildKind KindOf(TileZone z)=>kind;}
 public static partial class PassageActual {private const int CivilShift=3;private const byte DesertBlocks=1,TundraBlocks=3,AllBlocks=7;public static byte Mask(TileZone z)=>(byte)(Blocking(z)&AllBlocks);}
 namespace WorldMap {public static class WorldMapWilderness {
+ public static bool FixedLayout=false;
  public static IEnumerable<int> KeptZones=>Array.Empty<int>();
  public static void RememberTerritory(TileZone z,KingdomTitle t,City c,bool neutral,bool pinned=false)=>MapActual.RememberTerritory(z,t,c,neutral,pinned);
  public static KingdomTitle PaintedTitle(TileZone z)=>MapActual.PaintedTitle(z);
@@ -104,8 +107,8 @@ public static partial class Actual {
  public static int Version,_nextId=1;public static bool _built=true,_enabled=true;
  public static int builds;public static void BuildNow(){builds++;_built=true;}
  private static Dictionary<int,WildRegion> IdIndex=new();private static bool _attachPending;private static long _titleSignature;
- private const int MinZones=4,MinLand=16;private const float MountainEdgeShare=.6f,EdgeShare=.5f,LavaEdgeShare=.15f,Hysteresis=.1f;
- private class Counts {public int Land,Rock,Hills,Sand,Frozen,Jungle,Swamp,Lava;}
+ private const int MinZones=4,MinLand=16;private const float MaxWater=.25f,MountainEdgeShare=.6f,EdgeShare=.5f,LavaEdgeShare=.15f,Hysteresis=.1f,LavaCore=.3f,LavaFlank=.15f,LavaRugged=.6f;
+ private class Counts {public int Total,Water,Land,Rock,Hills,Sand,Frozen,Jungle,Swamp,Lava;}
  private static Counts Count(TileZone z)=>new();private static City OriginOf(TileZone z)=>_parents[z.id];
  private static void Attach(bool full){}private static long TitleSignature()=>0;private static bool RefreshOwners()=>false;
  private static void Shape(List<WildRegion> r,int[] ids){}private static void NameAll(List<WildRegion> r,HashSet<string> used){}
