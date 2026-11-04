@@ -15,7 +15,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 加速：庸昏暴之君、六弊、派系失衡、连年饥荒；君主早逝一次 +2.5、近 20 年换了 3 位以上君主每年 +0.3、禅让篡位一次 +5；
 //   · 满额(≥99.5)：记下满额起始时间(SaturatedYears)，每年必有民变(见 HarshRuleSystem.TryUprising)，满额后第一场民变记下时间与
 //     原有城数——律令制群雄割据的入口(见 ProvincialCollapseSystem)；
-//   · 改朝换代三档(用户 2026-10-26)：清空(外姓打进京城、外藩入继)、减半(兵变禅让、宗室另立或复国)、保留(权臣外戚代立)。
+//   · 改朝换代三档(用户 2026-10-26)：清空(外姓打进京城、外藩入继)、减半(兵变禅让、宗室另立或复国)、保留(权臣外戚代立)；
+//   · 积弊入危机线的老王朝不能和平转现代(用户 2026-11-05，见 TooDecayedToReform)：立宪、和平改制、退位都不行，只剩革命或先改朝换代。
 public static class DynasticCycleSystem
 {
     public const string HarshSource = "harsh_dynastic_strain";
@@ -38,6 +39,16 @@ public static class DynasticCycleSystem
     public static bool InCrisis(Empire empire) => GetPressure(empire) >= DynasticCycleRules.CrisisPressure;
     public static bool IsSaturated(Empire empire) => GetPressure(empire) >= DynasticCycleRules.SaturatedPressure;
 
+    // 正统崩坏(见 DynasticCycleRules.CollapseLegitimacy)。开国气象里不算；分封制王室本就衰微，春秋战国自有规则，也不算
+    public static bool LegitimacyCollapsed(Empire empire) => Applies(empire) && !empire.InFoundingGrace &&
+        !ZhouEraSystem.Applies(empire) && empire.Legitimacy < DynasticCycleRules.CollapseLegitimacy;
+
+    // 民变与倒戈不再看城的忠诚、稳定度(见 DynasticCycleRules.MayRise)
+    public static bool UprisingsUnbound(Empire empire) => IsSaturated(empire) || LegitimacyCollapsed(empire);
+
+    // 积弊入危机线：不能和平转现代(立宪、和平改制、退位)，革命照旧，改朝换代后积弊降下来才能转
+    public static bool TooDecayedToReform(Empire empire) => InCrisis(empire);
+
     // 满额了几年(未满额返回 0)
     public static float SaturatedYears(Empire empire)
     {
@@ -57,6 +68,16 @@ public static class DynasticCycleSystem
         if (since < 0d) since = empire.data.created_time;
         int offset = Math.Max(0, empire.data.constitutional_economy?.dynastic_age_offset ?? 0);
         return (since >= 0d ? Math.Max(0, Date.getYearsSince(since)) : 0) + offset;
+    }
+
+    // 这座朝廷自己的年岁：分裂出的朝廷(两朝分治、据地称帝)承接旧朝的积弊和王朝年岁，新一代却是在这座新朝廷里长大的，
+    // 成长环境按它自己立朝以来算(见 RulerQualitySystem.PalaceDecay)
+    public static int CourtAge(Empire empire)
+    {
+        int age = GetAge(empire);
+        double split = empire?.data?.constitutional_economy?.court_split_at ?? -1d;
+        return split < 0d || World.world == null || World.world.getCurWorldTime() < split ? age
+            : Math.Min(age, Math.Max(0, Date.getYearsSince(split)));
     }
 
     // 补底的诊断只记一次(每个帝国、每次进游戏)
@@ -254,6 +275,7 @@ public static class DynasticCycleSystem
             // 见 PosthumousNameGenerator)
             state.dynastic_since = now;
             state.dynastic_age_offset = 0;
+            state.court_split_at = -1d;
             state.last_dynastic_update = now;
             state.dynastic_strain = DynasticCycleRules.Carry(state.dynastic_strain, transition);
             MaladySystem.OnDynastyChanged(empire, DynasticCycleRules.MaladyShare(transition));
@@ -321,11 +343,13 @@ public static class DynasticCycleSystem
             state.dynastic_since = legacy.since;
             state.dynastic_age_offset = legacy.age_offset;
             state.dynastic_saturated_since = legacy.saturated_since;
+            state.court_split_at = now;
         }
         else
         {
             state.dynastic_since = now;
             state.dynastic_age_offset = 0;
+            state.court_split_at = -1d;
             state.last_dynastic_update = now;
             state.dynastic_saturated_since = -1d;
         }

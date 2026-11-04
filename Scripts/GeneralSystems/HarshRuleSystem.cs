@@ -271,11 +271,14 @@ public static class HarshRuleSystem
         bool modern)
     {
         // 王朝积弊满额(用户 2026-10-26)：每年必有民变尝试，不看苛政门槛与机会；一次起事的城数随满额年数增多、民怨鼎沸再加
-        // (见 DynasticCycleRules.UprisingWaves)。逐城的检查(忠诚、冷却、首都不起事)照旧
+        // (见 DynasticCycleRules.UprisingWaves)。满额时不再看城的忠诚与稳定度(见 DynasticCycleRules.MayRise)，冷却与京城不起事照旧。
+        // 正统崩坏(用户 2026-11-05，见 DynasticCycleRules.CollapseLegitimacy)同样不看这两项，只是每年按正统掷一次机会
         bool saturated = !modern && empire != null && DynasticCycleSystem.IsSaturated(empire);
-        if (!saturated && burden < UprisingBurden) return;
+        bool collapsed = !modern && empire != null && !saturated && DynasticCycleSystem.LegitimacyCollapsed(empire);
+        bool unbound = saturated || collapsed;
+        if (!unbound && burden < UprisingBurden) return;
         // 王朝积弊入危机，或朝政积弊六条平均七十以上(见 MaladySystem.InCrisis)：打仗时民变照样爆发
-        bool crisis = saturated || !modern && (DynasticCycleSystem.InCrisis(empire) || MaladySystem.InCrisis(empire));
+        bool crisis = unbound || !modern && (DynasticCycleSystem.InCrisis(empire) || MaladySystem.InCrisis(empire));
         if (crisis && State(empire) is ConstitutionalEconomyState state)
         {
             double now = World.world.getCurWorldTime();
@@ -283,23 +286,32 @@ public static class HarshRuleSystem
                 Date.getYearsSince(state.last_dynastic_uprising_attempt) < 1) return;
             state.last_dynastic_uprising_attempt = now;
         }
-        if (!saturated && UnityEngine.Random.value >= (burden - 50f) / 100f) return;
+        if (!saturated)
+        {
+            float chance = (burden - 50f) / 100f;
+            if (collapsed) chance = Mathf.Max(chance, DynasticCycleRules.CollapseUprisingChance(empire.Legitimacy));
+            if (UnityEngine.Random.value >= chance) return;
+        }
+        // 苛政不重、只是正统崩坏的，史书写朝纲崩坏，不写苛政的主因
+        if (collapsed && burden < UprisingBurden) causeKey = "harsh_cause_legitimacy_collapse";
         int waves = crisis ? DynasticCycleRules.UprisingWaves(DynasticCycleSystem.GetPressure(empire), burden,
             DynasticCycleSystem.SaturatedYears(empire), PopularGrievance.Index(empire?.CoreKingdom)) : 1;
         List<City> cities = (realms ?? Enumerable.Empty<Kingdom>())
             .Where(kingdom => RebellionSystem.CanAttempt(kingdom) && (crisis || !kingdom.getWars().Any()))
-            // 都城不起事；危局里成员国(一城的郡、小国)的都城照样起事，只护着中央的京城
+            // 都城不起事；积弊满额、正统崩坏时成员国的都城照样起事(见 DynasticCycleRules.CapitalMayRise)，只护着中央的京城
             .SelectMany(kingdom => kingdom.cities.Where(c => c != null && !c.isRekt() &&
-                                                             (c != kingdom.capital || crisis && kingdom != empire?.CoreKingdom)))
-            .Where(c => c.getLoyalty() < (crisis ? 20 : 10) && CanRiseAgain(c) && CityStabilitySystem.CanRise(c))
+                                                             (c != kingdom.capital || DynasticCycleRules.CapitalMayRise(unbound,
+                                                                 kingdom == empire?.CoreKingdom, kingdom.cities.Count))))
+            .Where(c => DynasticCycleRules.MayRise(unbound, crisis, c.getLoyalty(), CityStabilitySystem.CanRise(c), CanRiseAgain(c)))
             .OrderBy(c => c.getLoyalty()).Take(waves).ToList();
         int risen = 0;
         foreach (City city in cities)
         {
             // 第一批起事的原版/模组回调可能改动后一座城，逐城重验归属和首都保护。
             if (city == null || city.isRekt() || city.kingdom == null || city.kingdom.isRekt() ||
-                city == city.kingdom.capital || !CanRiseAgain(city) ||
-                (empire != null && city.kingdom.GetEmpire() != empire)) continue;
+                city == city.kingdom.capital && !DynasticCycleRules.CapitalMayRise(unbound,
+                    city.kingdom == empire?.CoreKingdom, city.kingdom.cities.Count) ||
+                !CanRiseAgain(city) || (empire != null && city.kingdom.GetEmpire() != empire)) continue;
             if (!RebellionSystem.CanAttempt(city.kingdom)) continue;
             // 土地兼并严重的城市：民变打出均田的旗号，成为农民土地起义
             if (LandEconomySystem.GetLandlessRatio(city) >= LandEconomySystem.EffectiveRebellionThreshold(city) &&

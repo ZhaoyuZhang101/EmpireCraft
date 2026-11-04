@@ -240,6 +240,8 @@ public sealed class ConstitutionalEconomyState
     public double dynastic_saturated_since = -1d;
     public double saturated_uprising_at = -1d;
     public int saturated_origin_cities;
+    // 分裂出这座朝廷的时间(-1 = 不是分裂出来的)：承接旧朝年岁，成长环境另按这个算(见 DynasticCycleSystem.CourtAge)
+    public double court_split_at = -1d;
     // 君主早逝、皇位更迭频繁(用户 2026-10-26)：记下的在位君主、他的即位时间与即位时的年纪；本朝近 20 年各次换君的时间。
     // 旧档 -1：头一次年度结算按当今补记(见 DynasticCycleSystem.TrackRuler)
     public long reign_ruler_id = -1L;

@@ -214,6 +214,7 @@ public static class RepublicSystem
     {
         if (!CanAbolish(empire) || party == null || !party.IsParty || party.Ban ||
             party.Ideology == PartyIdeology.Conservatism || !CanCoup(empire, party)) return false;
+        if (DynasticCycleSystem.TooDecayedToReform(empire)) return false;
         ConstitutionalEconomyState state = State(empire);
         int total = state?.parliament_seats?.Count ?? 0;
         if (ParliamentSystem.HasParliament(empire) && total > 0)
@@ -253,6 +254,8 @@ public static class RepublicSystem
     {
         if (!CanAbolish(empire) || party == null || !party.IsParty || party.Ban ||
             party.Ideology == PartyIdeology.Conservatism || !PartySystem.HasUniversalSuffrage(empire)) return false;
+        // 积弊深重的老王朝不能和平改制，只剩革命(见 DynasticCycleSystem.TooDecayedToReform)
+        if (DynasticCycleSystem.TooDecayedToReform(empire)) return false;
         Dictionary<SocialClass, float> shares = InstitutionSystem.BuildClassShares(empire);
         float workingMajority = (shares.TryGetValue(SocialClass.Labour, out float labour) ? labour : 0f) +
                                 (shares.TryGetValue(SocialClass.Peasant, out float peasant) ? peasant : 0f);

@@ -393,6 +393,8 @@ public static class ConstitutionalEconomySystem
         if (state.constitutional_monarchy && IsMonarchy(empire) && !IsCultureConstitutional(empire))
             MarkCultureConstitutional(empire);
         if (state.constitutional_monarchy || !IsMonarchy(empire) || !IsCultureConstitutional(empire)) return;
+        // 积弊深重的老王朝不随文化立宪：立了宪积弊就不算了，等于靠改制躲过改朝换代(见 DynasticCycleSystem.TooDecayedToReform)
+        if (DynasticCycleSystem.TooDecayedToReform(empire)) return;
         if (!InstitutionDefinitionRegistry.IsConstitutionEnabled(GetLine(empire)) || EraBlocker(empire) != null) return;
         CancelReform(state);
         state.constitutional_monarchy = true;
@@ -629,6 +631,7 @@ public static class ConstitutionalEconomySystem
         if (IsCultureConstitutional(empire)) { reason = "constitution_culture_enacted"; return false; }
         if (state.constitutional_reform_active) { reason = "constitution_reforming"; return false; }
         if (!IsMonarchy(empire)) { reason = "constitution_requires_monarchy"; return false; }
+        if (DynasticCycleSystem.TooDecayedToReform(empire)) { reason = "constitution_dynastic_decay"; return false; }
         if (empire.data.institution_state?.active_reform != null)
         { reason = "constitution_other_reform"; return false; }
         if (!state.capitalist_budding) { reason = "constitution_requires_budding"; return false; }
@@ -729,6 +732,12 @@ public static class ConstitutionalEconomySystem
         }
         if (state.constitutional_reform_progress < 100f ||
             Date.getYearsSince(state.constitutional_reform_started) < minimumYears) return;
+        // 改制途中积弊入了危机线：改制作罢(见 DynasticCycleSystem.TooDecayedToReform)
+        if (DynasticCycleSystem.TooDecayedToReform(empire))
+        {
+            CancelReform(state);
+            return;
+        }
         state.constitutional_reform_active = false;
         state.constitutional_monarchy = true;
         MarkCultureConstitutional(empire);

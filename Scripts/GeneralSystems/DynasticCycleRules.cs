@@ -118,6 +118,26 @@ internal static class DynasticCycleRules
         return Math.Min(50f, natural * weight);
     }
 
+    // 正统崩坏(用户 2026-11-05 转群友"正统低于 20，一个省爆了别的省跟着爆""黄巾、安史")：传统王朝正统低于这个数，民变不再看
+    // 忠诚与稳定度、接壤的城可以倒戈叛军，民变十年不平或叛军据城过半就进割据混战——不必等积弊满额(见 DynasticCycleSystem.LegitimacyCollapsed)
+    public const int CollapseLegitimacy = 20;
+    private const float CollapseUprisingFullChance = 0.5f;
+
+    // 正统崩坏时每年起民变的机会：正统 19 约 2.5%，10 为两成半，0 为五成
+    public static float CollapseUprisingChance(int legitimacy) => legitimacy >= CollapseLegitimacy ? 0f :
+        CollapseUprisingFullChance * (CollapseLegitimacy - Math.Max(0, legitimacy)) / CollapseLegitimacy;
+
+    // 这座城今年能不能起民变。积弊满额(用户 2026-10-26"每年必有民变")、正统崩坏(unbound)不看忠诚与稳定度：这两个数几乎不随朝廷跌落
+    // (都城忠诚原版 +1000，驻军再压 20；一局第 248 年的存档，正统 20 以下的城有效稳定度中位 97，过得了门槛的只有 4%)，
+    // 以前满额近百年一场民变都起不了，帝国也就一直不炸。起过事的城照旧要冷却；没满额的照旧看忠诚和稳定度
+    public static bool MayRise(bool unbound, bool crisis, int loyalty, bool stabilityAllows, bool cooledDown) =>
+        cooledDown && (unbound || loyalty < (crisis ? 20 : 10) && stabilityAllows);
+
+    // 都城起不起事：中央的京城永远不起事；积弊满额、正统崩坏时成员国的都城照样起事，但这国要还有别的城——
+    // 一城之国的都城起事等于亡国，没有对象开战，这种走土崩瓦解的各省独立(见 ProvincialCollapseSystem)
+    public static bool CapitalMayRise(bool unbound, bool centralCourt, int kingdomCities) =>
+        unbound && !centralCourt && kingdomCities >= 2;
+
     public static int LegitimacyPenalty(float pressure) => -(int)Math.Round(Bound(pressure) * 0.4f,
         MidpointRounding.AwayFromZero);
     public static int HarshBurden(float pressure) => (int)Math.Round(Math.Max(0f, Bound(pressure) - 25f) * 0.4f,

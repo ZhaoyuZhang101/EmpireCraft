@@ -16,6 +16,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 每年倒戈城数与叛军现有规模成正比——叛军越大涨得越快；
 //   · 每座城倒戈再扣 1 点天命，形成正反馈；新得的城就地武装义军(RebellionStartupService)。
 // 帝国核心王国的首都不会这样倒戈，只能打下来。军队也会倒戈(DefectSoldiers)，同样滚雪球。
+// 王朝积弊满额、正统崩坏时倒戈不再看城的稳定度：城市稳定度几乎不随朝廷跌落，驻军再压 20，这道门把滚雪球挡死了(见 DynasticCycleRules.MayRise)。
 // 每年由 ConstitutionalEconomySystem 的年度结算调用。
 public static class RebellionSnowballSystem
 {
@@ -61,11 +62,12 @@ public static class RebellionSnowballSystem
         List<City> rebelCities = rebel.cities?.Where(city => city != null && !city.isRekt()).ToList() ?? new List<City>();
         if (rebelCities.Count == 0) return;
         int budget = Math.Max(1, Mathf.CeilToInt(rebelCities.Count * GrowthPerYear * intensity));
+        bool unbound = DynasticCycleSystem.UprisingsUnbound(empire);
         List<City> frontier = rebelCities
             .SelectMany(city => (IEnumerable<City>)city.neighbours_cities ?? Enumerable.Empty<City>())
             .Where(city => city != null && !city.isRekt() && city.kingdom != null && city.kingdom.GetEmpire() == empire &&
                            city != core.capital && RebellionSystem.CanAttempt(city.kingdom) &&
-                           CityStabilitySystem.CanRise(city))
+                           (unbound || CityStabilitySystem.CanRise(city)))
             .Distinct().OrderBy(_ => UnityEngine.Random.value).ToList();
         var defected = new List<string>();
         var joined = new List<City>();

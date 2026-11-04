@@ -23,6 +23,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     则君权下放、地方权力扩张，军阀崛起，进入割据混战阶段：① 持续 10 年无法平定叛乱；② 民变规模达到总数 50%")：
 //     积弊满额、满额民变已起之后，本朝民变/起义立的国最早一场满 10 年还没平定，或它们占的城达满额民变起时原有城数的五成，
 //     才首义(门槛过了不再掷机会)；破产、正统低、篡位这些单项照旧推高内忧(响应、化解用)，不再单独触发律令制的瓦解。
+//     正统崩坏(用户 2026-11-05 转群友"积弊 33、正统 24 的汉朝什么都不发生""黄巾、安史")：正统低于 20 也走同一道门槛，不必积弊满额，
+//     叛军的城按眼下帝国连同叛军的城数算五成；
 //     游牧、阿拉伯、日本、封建各线照旧按内忧；
 //     离心度 = (1 − 行政控制力) + 都城稳定不足 70 的部分/70，近代再看革新理念，异文化再加 0.3，
 //     不与京畿(核心王国、陪都)接壤再加 0.1，边疆(与帝国外的国家接壤，朝贡国、附庸不算)再加 0.2(与下面藩镇的 0.3 只取大)，
@@ -139,15 +141,19 @@ public static class ProvincialCollapseSystem
     private static bool Centralized(Empire empire) =>
         empire.CoreKingdom?.GetRegime()?.type == RegimeType.LvLing && DynasticCycleSystem.Applies(empire);
 
-    // 律令制群雄割据的门槛：积弊满额、满额民变已起，且 ① 本朝民变/起义最早一场满 10 年还没平定(立的国还在、没回归本帝国)，
-    // 或 ② 它们占的城达满额民变起时原有城数的五成。过了返回缘由(日志用)，没过返回 null
+    // 律令制群雄割据的门槛：积弊满额、满额民变已起，或正统崩坏，且 ① 本朝民变/起义最早一场满 10 年还没平定(立的国还在、没回归本帝国)，
+    // 或 ② 它们占的城达原有城数的五成(满额的按满额民变起时算，正统崩坏的按眼下帝国连同叛军的城算)。过了返回缘由(日志用)，没过返回 null
     private static string WarlordGate(Empire empire)
     {
         ConstitutionalEconomyState state = State(empire);
-        if (state == null || !DynasticCycleSystem.SaturatedUprisingStarted(empire)) return null;
-        (int _, int cities, int years) = DynasticCycleSystem.PopularRebellions(empire);
+        if (state == null) return null;
+        bool saturated = DynasticCycleSystem.SaturatedUprisingStarted(empire);
+        if (!saturated && !DynasticCycleSystem.LegitimacyCollapsed(empire)) return null;
+        (int count, int cities, int years) = DynasticCycleSystem.PopularRebellions(empire);
+        if (count == 0) return null;
         if (years >= WarlordRebellionYears) return $"民变{years}年不平";
-        int origin = state.saturated_origin_cities;
+        int origin = saturated ? state.saturated_origin_cities
+            : cities + empire.kingdoms_list.Where(kingdom => kingdom?.cities != null && !kingdom.isRekt()).Sum(kingdom => kingdom.cities.Count);
         if (origin > 0 && cities >= origin * WarlordRebelShare) return $"叛军据{cities}城(原有{origin}城)";
         return null;
     }

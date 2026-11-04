@@ -2727,6 +2727,8 @@ namespace EmpireCraft.Scripts.AI
             if (kingdom == null || kingdom.king != actor ||
                 !CanInitiateNormalWar(kingdom.IsEmpire(), kingdom.IsInEmpire()) && !ZhouEraSystem.VassalMayWage(kingdom) ||
                 !IsWarNeededForPlot(kingdom)) return false;
+            // 帝国开战看皇帝的资质(见 RulerQualitySystem.WillsWarThisYear)；诸侯、附庸的君主不定资质，不在此列
+            if (kingdom.IsEmpire() && !RulerQualitySystem.WillsWarThisYear(actor)) return false;
             Regime regime = kingdom.GetRegime();
             if (regime == null || !regime.IsAllowDiplomacy()) return false;
             if (actor.hasCulture() && actor.culture.hasTrait("serenity_now") ||

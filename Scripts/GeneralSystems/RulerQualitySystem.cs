@@ -24,7 +24,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 王朝周期：庸弱每年 +0.15，昏聩、荒淫 +0.35，暴虐 +0.45；明君不再拉回(用户 2026-10-26 "积弊只能延缓")，
 //     StrainDelta 的负值只表示明君，给当年增长打六折(见 DynasticCycleRules)；
 //   · 苛政：暴虐之君在位 +15；
-//   · 权臣、外戚：庸弱、昏聩之君在位，权臣控制度每月多涨 2，荒淫多涨 1。
+//   · 权臣、外戚：庸弱、昏聩之君在位，权臣控制度每月多涨 2，荒淫多涨 1；
+//   · 开战(用户 2026-11-05 转群友"开国雄主平静地死去，荒淫无道之昏君反而在打仗")：帝国主动谋划开战的意愿按资质，见 WillsWarThisYear。
 public static class RulerQualitySystem
 {
     public const string Wise = "wiseRuler", Weak = "weakRuler", Fatuous = "fatuousRuler",
@@ -113,7 +114,8 @@ public static class RulerQualitySystem
     // 深宫之弊：王朝开国后出生的(生在深宫)按王朝年岁与周期压力变差；开国前后出生的头几代偏好
     private static float PalaceDecay(Empire empire, Actor ruler)
     {
-        int dynastyAge = DynasticCycleSystem.GetAge(empire);
+        // 分裂出的朝廷按它自己的年岁算，不把新一代算成几百年老朝的深宫子弟(见 DynasticCycleSystem.CourtAge)
+        int dynastyAge = DynasticCycleSystem.CourtAge(empire);
         int ruleAge = Math.Max(0, (int)Math.Round((double)ruler.getAge()));
         bool palaceRaised = dynastyAge > ruleAge;
         if (!palaceRaised) return -0.3f;
@@ -169,7 +171,34 @@ public static class RulerQualitySystem
         _ => 0
     };
 
-    // 皇帝本人对议题的立场：荒淫、暴虐之君偏好加税，不肯赈济、整顿吏治
+    // 帝国主动谋划开战的意愿(每年有多大可能动这个念头)：开国雄主、中兴雄主、明君、暴君不打折，中主七成，庸弱四成，
+    // 昏聩、荒淫、幼主两成。问鼎天下的统一战争、朝堂奏议不走这里(奏议看 Stance)
+    private static float WarWill(Actor ruler)
+    {
+        if (ruler.hasTrait(RulerTraitSystem.Founder) || ruler.hasTrait(RulerTraitSystem.GreatRestorer)) return 1f;
+        return Of(ruler) switch
+        {
+            Grade.Wise or Grade.Tyrant => 1f,
+            Grade.Average => 0.7f,
+            Grade.Weak => 0.4f,
+            _ => 0.2f
+        };
+    }
+
+    // 同一位君主同一年结果一样：开战谋划一年要查很多次，每次掷机会等于没有门槛
+    public static bool WillsWarThisYear(Actor ruler)
+    {
+        if (ruler?.data == null) return true;
+        float will = WarWill(ruler);
+        if (will >= 1f) return true;
+        ulong mix = unchecked((ulong)ruler.data.id * 0x9E3779B97F4A7C15UL + (ulong)Date.getCurrentYear() * 0xC2B2AE3D27D4EB4FUL);
+        mix ^= mix >> 29;
+        mix = unchecked(mix * 0xBF58476D1CE4E5B9UL);
+        mix ^= mix >> 32;
+        return (mix & 0xFFFF) / 65536f < will;
+    }
+
+    // 皇帝本人对议题的立场：荒淫、暴虐之君偏好加税，不肯赈济、整顿吏治；暴君好战，昏聩荒淫不愿对外用兵
     public static float Stance(Actor ruler, TemporaryFactionType issue)
     {
         Grade grade = Of(ruler);
@@ -196,3 +225,4 @@ public static class RulerQualitySystem
 
     #endregion
 }
+            TemporaryFactionType.对外扩张 => grade == Grade.Tyrant ? 1f : -1f,
